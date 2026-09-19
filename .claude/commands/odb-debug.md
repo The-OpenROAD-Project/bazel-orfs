@@ -31,25 +31,48 @@ one. Open the **previous** stage's ODB and ask it why this one is stuck:
 - **Placer stuck?** The floorplan: utilisation, channels, halos, pins.
 
 The problem is visible in the stage before; the fix is usually further
-back still, and may be nowhere near the tool that stalled:
+back still, and may be nowhere near the tool that stalled. **Before any
+fix is proposed, the reply carries the ladder below, one line per rung,
+top to bottom, each saying what the evidence in hand says about that
+rung or `not examined`.** A rung marked `not examined` above the
+proposed fix is a defect in the diagnosis, visible to the reader in
+seconds; a fix on a lower rung is only credible once every rung above it
+has a line. An approved plan for any rung is the current answer to a
+question that every stuck stage reopens, not a fixed point.
 
-- **Floorplan**: die and core size, macro placement and channels, where
-  the pins are (a pin-fitted mock squeezes a four-edge pin field onto
-  two edges at track pitch: that is a wall of demand the parent's router
-  must climb).
-- **Choice of macros**: which modules are hardened is a floorplan
-  decision made at synthesis. Sometimes dissolving a macro into the parent
-  fixes it (its pins were the wall), sometimes hardening one more does
-  (its logic was the blob nothing could route through).
-- **The RTL**: a design with a record of being routable (XiangShan has
-  one) shifts suspicion onto the flow's choices; RTL with no such record
-  may itself be the problem, a fan-out, a crossbar, a mux tree no
-  floorplan can help.
+1. **RTL**: a design with a record of being routable (XiangShan has one)
+   shifts suspicion onto the flow's choices; RTL with no such record may
+   itself be the problem, a fan-out, a crossbar, a mux tree no floorplan
+   can help.
+2. **Choice of macros**: which modules are hardened is a floorplan
+   decision made at synthesis. Sometimes dissolving a macro into the
+   parent fixes it (its pins were the wall), sometimes hardening one more
+   does (its logic was the blob nothing could route through). The number
+   for this rung: pins times pin pitch against the block's perimeter, and
+   for a mock, the pin-fitted side against the side its logic needs. A
+   block whose pins set its size is a wall by construction (eight 40 µm
+   mocks with 1117 pins each, 4 µm apart, took the XiangShan parent's
+   global route past 2.5 h in its first maze iteration); it is dissolved,
+   or banked only with channels sized for its pin count.
+3. **Floorplan**: die and core size (three per cent of the die in cells
+   and 81 % of the sites free is a floorplan verdict, whatever the stage
+   that stalled), macro placement and channels, halos, where the pins are
+   (a pin-fitted mock squeezes a four-edge pin field onto two edges at
+   track pitch: that is a wall of demand the parent's router must climb).
+4. **Placement knobs**: density, timing- and routability-driven modes,
+   the legaliser's window.
+5. **The stalled stage's own knobs**: iteration budgets, layer ranges,
+   batching. These change how long the stage takes to lose, rarely
+   whether it wins.
+6. **Tool code**: a profile that names one function, measured on a
+   tens-of-seconds reproducer before the real design.
 
 Run the diagnosis at the granularity that answers in minutes (a placed
 ODB loads in tens of seconds and a RUDY map is under a minute), settle
-the floorplan question there, then let the flow rerun from the stage the
-fix belongs to. See `.claude/commands/no-paint-drying.md`.
+the question on the highest rung it reaches, then let the flow rerun
+from the stage the fix belongs to. See
+`.claude/commands/no-paint-drying.md`: a long run is asked for with the
+previous stage's picture attached.
 
 ## 1. Decide what you are asking, and pick the ODB
 
