@@ -51,7 +51,7 @@ def _convert_sources(sources, pkg):
             result[var] = converted
     return result
 
-def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], extra = None, visibility = None, block_abstract_stage = None, quick_pins = False, canon_blackbox_macros = []):  # buildifier: disable=unused-variable
+def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], extra = None, visibility = None, block_abstract_stage = None, quick_pins = False, canon_blackbox_macros = [], block_mock_area = None):  # buildifier: disable=unused-variable
     """Create orfs_flow() targets for a design based on its parsed config.mk.
 
     Usage:
@@ -117,6 +117,14 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
         quick_pins: forwarded to orfs_flow(quick_pins=...) for the design
             and for each of its BLOCKS: skip `global_placement -skip_io`
             and place pins directly. RTL exploration only.
+        block_mock_area: forwarded to orfs_flow(mock_area=...) for each of
+            its BLOCKS: the parent floorplans with a mocked outline of the
+            block, its pins on a die scaled by this factor, or fitted to
+            the pins with "pins" (see mock_area.tcl), while timing and
+            power still come from the block's own abstract. A dict maps
+            block names to their own value; a block not named keeps its
+            real outline. Turnaround only: the parent's wires are as long
+            as the mock, not the block.
         canon_blackbox_macros: forwarded to orfs_flow(): module names to
             blackbox at canonicalization so the parent's partition
             synthesis does not wait for those macros' place-and-route.
@@ -233,6 +241,7 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
         user_stages = user_stages,
         local_arguments = local_arguments,
         quick_pins = quick_pins,
+        block_mock_area = block_mock_area,
     )
 
     # Real flow — uses Docker image with real OpenROAD/Yosys
@@ -460,7 +469,13 @@ def _split_user_vars(arguments, sources, user_arguments, user_sources, local_arg
             ]
     return user_args, user_srcs
 
-def _create_block_targets(config, designs, platform, design, pkg, tags, mock_openroad, mock_yosys = None, abstract_stage = _BLOCK_ABSTRACT_STAGE, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], quick_pins = False):
+def _block_mock_area(block_mock_area, block_name):
+    """The mock_area a BLOCKS= flow gets: one value for all, or per block."""
+    if type(block_mock_area) == "dict":
+        return block_mock_area.get(block_name, None)
+    return block_mock_area
+
+def _create_block_targets(config, designs, platform, design, pkg, tags, mock_openroad, mock_yosys = None, abstract_stage = _BLOCK_ABSTRACT_STAGE, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], quick_pins = False, block_mock_area = None):
     """Create sub-macro orfs_flow() targets for BLOCKS.
 
     Returns:
@@ -503,6 +518,7 @@ def _create_block_targets(config, designs, platform, design, pkg, tags, mock_ope
 
         # Real flow
         orfs_flow(
+            mock_area = _block_mock_area(block_mock_area, block_config["name"]),
             name = block_config["name"],
             abstract_stage = abstract_stage,
             verilog_files = block_verilog,

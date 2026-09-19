@@ -175,6 +175,11 @@ ORFS_PATCHES = [
     # Not upstreamed -- retire at a bump onto an ORFS that has them all.
     Label("//patches:0075-orfs-variables-stages-complete.patch"),
     Label("//patches:0076-orfs-detail-placement-args-everywhere.patch"),
+    # With GPL_TIMING_DRIVEN and GPL_ROUTABILITY_DRIVEN both off, the place
+    # stage runs one global placement with -place_ios instead of a
+    # pins-blind solve, place_pins and a second solve. Not upstreamed --
+    # retire at a bump onto an ORFS that places pins with global placement.
+    Label("//patches:0077-orfs-gpl-place-ios.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

@@ -238,7 +238,13 @@ export AUTO_MEMORIES           = 1
 # 33, not 40: the annealer packs the blocks into the core with the gaps
 # above, and at 40 % (3.28 mm die) it used 3214 of 3277 um of height
 # with 10.8 um gaps; 54 um gaps need the room.
-export CORE_UTILIZATION        = 33
+# 18, not 33: with the blocks' outlines fitted to their pins the macros
+# are 0.83 mm2 instead of 4.15, and at 33 % the die no longer holds the
+# 54 um channels the annealer keeps around 44 of them and the logic
+# modules it tiles beside them; at 20 % it was 33 um short. 18 % gives a
+# 2.27 mm die, 2245 of 2263 um of its height used, and a global-route
+# grid a third the size of the 3.6 mm die's.
+export CORE_UTILIZATION        = 18
 export PLACE_DENSITY           = 0.65
 
 # Macro placement: the bank groups by our annealer, the rest by RTL-MP.
@@ -285,6 +291,22 @@ export ANNEAL_CHANNEL_UM       = 4.0
 # while 6.45 mm^2 of the core sat empty. Measured on take 12's ODBs.
 export ANNEAL_BLOCK_GAP_UM     = 54.0
 export ANNEAL_FILL             = 0.5
+# Every pin is a wire that leaves through the channel along its side. The
+# annealer compares each channel it draws with what the facing sides' pins
+# need (pins over the track density of the layers running along it) and
+# reports the shortfalls; take 16's 4 um bank channels carried 167 wires
+# where the facing VectorDecodeChannel sides brought 1114, and the router
+# spent 2.5 h in its first maze iteration finding that out. CHECK=error
+# fails the floorplan on a shortfall; AUTO=1 widens channels and block
+# clearances to the need instead, so the die follows the pins.
+export ANNEAL_CHANNEL_CHECK    = warn
+export ANNEAL_CHANNEL_AUTO     = 0
+# With AUTO, a floor under every channel for the cells the parent puts in
+# it (wire buffers, the clock tree): pins alone sized the margin-2 take's
+# bank channels at 12-24 um, 8744 row fragments under 20 um, and the CTS
+# legaliser ran past two hours. 0 lets the pins decide; 40 is between
+# take 16's 54 um gaps, which legalised in 30 s, and those 12-24 um.
+export ANNEAL_CHANNEL_MIN_UM   = 40
 
 # The power grid of a parent with hardened blocks. The platform's flat
 # grid (grid_strategy-M1-M2-M5-M6.tcl) powers a macro by connecting its

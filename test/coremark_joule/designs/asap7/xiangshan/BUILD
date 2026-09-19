@@ -9,10 +9,21 @@ design(
     # has placed. Their timing and power are then those of an unrouted
     # block; move to "final" for the measured run.
     block_abstract_stage = "place",
+    # The parent floorplans with each block's outline shrunk to what its
+    # pins need (1.5x the legal minimum perimeter), not to what the block's
+    # cells need: 4.15 mm2 of macros become about 0.75 mm2 and the die
+    # follows. Timing and power still come from the blocks' own abstracts.
+    # Turnaround setting; the parent's wires are as long as the mock.
+    block_mock_area = "pins",
     config = "config.mk",
     # Skip the 40-minute `global_placement -skip_io` step at the top and
     # place pins directly. RTL exploration only.
-    quick_pins = True,
+    # No quick_pins: with timing- and routability-driven placement off, the
+    # place stage's first solve places the pins itself (global_placement
+    # -place_ios, ORFS patch 0077) and the second solve is skipped, which
+    # is faster than the blind pin placement quick_pins gave and better
+    # placed. quick_pins would pre-place the pins and make the flow skip
+    # that first solve.
     # The annealer's knobs, read by anneal_in_flow.tcl rather than by ORFS.
     user_arguments = [
         "ANNEAL_SEED",
@@ -24,6 +35,9 @@ design(
         "ANNEAL_STRAP_PITCH_UM",
         "ANNEAL_STRAP_OFFSET_UM",
         "ANNEAL_STRAP_PAIR_UM",
+        "ANNEAL_CHANNEL_CHECK",
+        "ANNEAL_CHANNEL_AUTO",
+        "ANNEAL_CHANNEL_MIN_UM",
     ],
     # The placer and its inventory dump, staged into the floorplan sandbox.
     user_sources = [
@@ -44,6 +58,9 @@ design(
             "ANNEAL_STRAP_PITCH_UM",
             "ANNEAL_STRAP_OFFSET_UM",
             "ANNEAL_STRAP_PAIR_UM",
+            "ANNEAL_CHANNEL_CHECK",
+            "ANNEAL_CHANNEL_AUTO",
+            "ANNEAL_CHANNEL_MIN_UM",
             "ANNEAL_DUMP_TCL",
             "ANNEAL_PY",
         ]

@@ -40,11 +40,20 @@ load(
 # Stages with an ODB that open.tcl can load for web_save_report.
 _HTML_STAGES = ["floorplan", "place", "cts", "grt", "route", "final"]
 
+# Read only by mock_area.tcl and mock_pins.tcl, for the mocked variant.
+MOCK_PIN_VARIABLES = ("MOCK_AREA_PIN_EDGES", "MOCK_AREA_PIN_MARGIN")
+
 def _strip_tool_kwargs(**kwargs):
-    """Strip tool-specific kwargs for non-stage targets (orfs_macro, orfs_run)."""
+    """Strip stage-only kwargs for non-stage targets (orfs_macro, orfs_arguments).
+
+    The tools, and user_stages: the variable scoping is a stage attribute,
+    and a flow declared with it (every BLOCKS= flow of a design that names
+    its knobs' stages) also declares these companions.
+    """
     kwargs.pop("openroad", None)
     kwargs.pop("opensta", None)
     kwargs.pop("yosys", None)
+    kwargs.pop("user_stages", None)
     return kwargs
 
 def _merge_extra_arguments(a, b):
@@ -421,6 +430,13 @@ def orfs_flow(
         variant = None
     if top == None:
         top = name
+
+    # The mock pin knobs size and constrain the mocked variant only. The
+    # real flow never reads them, and carrying them in its arguments made
+    # every block re-floorplan when a parent changed the mock margin.
+    mock_pin_arguments = {k: v for k, v in arguments.items() if k in MOCK_PIN_VARIABLES}
+    arguments = {k: v for k, v in arguments.items() if k not in MOCK_PIN_VARIABLES}
+
     abstract_variant = _variant_name(variant, "unmocked" if mock_area else None)
     _orfs_pass(
         name = name,
@@ -474,6 +490,12 @@ def orfs_flow(
         "floorplan": [mock_area_name],
     }
 
+    # A pin-fitted mock puts its pins on adjacent edges (mock_pins.tcl), so
+    # the parent's placer has an orientation to choose; the block's own IO
+    # constraints, written for its real outline, do not apply to the mock.
+    mock_sources = sources
+    if mock_area == "pins":
+        mock_sources = sources | {"IO_CONSTRAINTS": ["@bazel-orfs//:mock_pins.tcl"]}
     _orfs_pass(
         name = name,
         top = top,
@@ -481,11 +503,11 @@ def orfs_flow(
         macros = macros,
         kept_macros = kept_macros,
         canon_blackbox_macros = canon_blackbox_macros,
-        sources = sources,
+        sources = mock_sources,
         user_sources = user_sources,
         stage_arguments = stage_arguments,
         renamed_inputs = {},
-        arguments = arguments | {"SYNTH_GUT": "1"},
+        arguments = arguments | mock_pin_arguments | {"SYNTH_GUT": "1"},
         user_arguments = user_arguments,
         extra_arguments = _merge_extra_arguments(extra_arguments, mock_extra_arguments),
         extra_configs = extra_configs,
@@ -499,10 +521,21 @@ def orfs_flow(
         html = html,
         **kwargs
     )
+
+    # mock_area.tcl runs in the floorplan stage's environment, where the
+    # place-scoped pin settings are filtered out; the pin-fit sizing needs
+    # the pin layers and place_pins' spacing the mocked flow will use, so
+    # hand them over from the flow's own arguments.
+    mock_area_arguments = {"MOCK_AREA": str(mock_area)}
+    if mock_area == "pins":
+        for var in ("IO_PLACER_H", "IO_PLACER_V", "PLACE_PINS_ARGS"):
+            if var in arguments:
+                mock_area_arguments[var] = arguments[var]
+        mock_area_arguments |= mock_pin_arguments
     orfs_arguments(
         name = mock_area_name,
         src = _step_name(name, variant, "floorplan"),
-        arguments = {"MOCK_AREA": str(mock_area)},
+        arguments = mock_area_arguments,
         script = "@bazel-orfs//:mock_area.tcl",
         variant = variant or "base",
         **_strip_tool_kwargs(**kwargs)
