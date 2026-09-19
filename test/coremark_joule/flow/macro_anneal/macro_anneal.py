@@ -251,16 +251,23 @@ def build_blocks(
         b.step_y = step_y
         b.chan = chan_b
         if channel_auto:
-            # The block's halo is the widest channel any of its sides needs:
-            # the bank rows' pins along a vertical side, the columns' along
-            # a horizontal one. Two facing halos add up to their channel.
-            b.halo = max(
-                gap // 2,
-                rows
-                * max(escape_need(inv, master, "L"), escape_need(inv, master, "R")),
-                cols
-                * max(escape_need(inv, master, "B"), escape_need(inv, master, "T")),
+            # The block's halo per side is what that side's pins need: the
+            # bank rows' pins along a vertical side, the columns' along a
+            # horizontal one. Two facing halos add up to their channel. A
+            # flip about the x axis (the one a pin-fitted mock can have,
+            # see flip_legal) swaps bottom and top, so those two share the
+            # larger need; left and right keep their own.
+            nl = rows * escape_need(inv, master, "L")
+            nr = rows * escape_need(inv, master, "R")
+            nb = cols * max(
+                escape_need(inv, master, "B"), escape_need(inv, master, "T")
             )
+            b.halo = {
+                "L": max(gap // 2, nl),
+                "R": max(gap // 2, nr),
+                "B": max(gap // 2, nb),
+                "T": max(gap // 2, nb),
+            }
         blocks.append(b)
     macro_area = sum(b.w * b.h for b in blocks)
     core_w = inv.core[2] - inv.core[0]
@@ -324,31 +331,46 @@ class Packer:
         self.chan = gap
 
     def pack(self, blocks, order):
-        # Each block keeps its halo clear on every side (gap/2 unless the
-        # block asked for more, see build_blocks); neighbours in a row are
-        # a halo of each apart, rows are the row's widest halo twice apart,
-        # so a uniform halo reproduces the plain gap exactly.
+        # Each block keeps its halo clear per side (gap/2 unless the block
+        # asked for more, see build_blocks). Neighbours in a row are the
+        # right halo of one plus the left halo of the next apart; rows are
+        # the lower row's tallest top halo plus the upper row's tallest
+        # bottom halo apart, so a uniform halo reproduces the plain gap.
         half = self.chan // 2
-        right = None  # right edge of the previous block, None at a row start
-        prev_halo = half
-        y = self.y0 + self.chan
-        row_h = 0
-        row_halo = half
+
+        def halo(b, side):
+            return half if b.halo is None else b.halo[side]
+
+        rows = []
+        cur = []
+        x = self.x0 + self.chan
         for i in order:
             b = blocks[i]
-            halo = half if b.halo is None else b.halo
-            x = self.x0 + self.chan if right is None else right + prev_halo + halo
-            if right is not None and x + b.w + self.chan > self.x1:
-                y += row_h + 2 * row_halo
-                row_h = 0
-                row_halo = half
-                x = self.x0 + self.chan
-            b.x, b.y = x, y
-            right = x + b.w
-            prev_halo = halo
-            row_h = max(row_h, b.h)
-            row_halo = max(row_halo, halo)
-        return y + row_h + self.chan
+            if cur:
+                x = cur[-1].x + cur[-1].w + halo(cur[-1], "R") + halo(b, "L")
+                if x + b.w + self.chan > self.x1:
+                    rows.append(cur)
+                    cur = []
+                    x = self.x0 + self.chan
+            b.x = x
+            cur.append(b)
+        if cur:
+            rows.append(cur)
+        y = self.y0 + self.chan
+        top = y
+        prev = None
+        for row in rows:
+            if prev is not None:
+                y = (
+                    top
+                    + max(halo(b, "T") for b in prev)
+                    + max(halo(b, "B") for b in row)
+                )
+            for b in row:
+                b.y = y
+            prev = row
+            top = y + max(b.h for b in row)
+        return top + self.chan
 
 
 class Anneal:

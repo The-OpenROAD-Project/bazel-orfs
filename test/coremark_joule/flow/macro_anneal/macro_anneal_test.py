@@ -399,7 +399,8 @@ class ChannelTest(unittest.TestCase):
         b = [b for b in blocks if b.is_macro()][0]
         self.assertGreaterEqual(b.chan, 11459)
         self.assertGreaterEqual(b.step_x - inv.masters["mock"]["w"], 11459)
-        self.assertGreaterEqual(b.halo, b.step_x - inv.masters["mock"]["w"])
+        self.assertGreaterEqual(b.halo["L"], 11459)
+        self.assertEqual(b.halo["R"], 5400)  # no pins on the right: the plain gap
         placed = macro_anneal.placements(inv, blocks, 4000)
         self.assertEqual(macro_anneal.channel_shortfalls(inv, placed), [])
 
@@ -407,12 +408,16 @@ class ChannelTest(unittest.TestCase):
         inv = macro_anneal.Inventory.parse(inventory())
         blocks, _ = macro_anneal.build_blocks(inv, 3, 4, 4000, 0.6, None)
         for b in blocks:
-            b.halo = 7000
+            b.halo = {"L": 7000, "R": 9000, "B": 6000, "T": 8000}
         packer = macro_anneal.Packer(inv, 10800)
         packer.pack(blocks, list(range(len(blocks))))
-        row = sorted((b.x, b.x + b.w) for b in blocks if b.y == blocks[0].y)
+        ys = sorted({b.y for b in blocks})
+        row = sorted((b.x, b.x + b.w) for b in blocks if b.y == ys[0])
         for (x0, x1), (n0, n1) in zip(row, row[1:]):
-            self.assertEqual(n0 - x1, 14000)
+            self.assertEqual(n0 - x1, 16000)  # right halo plus left halo
+        if len(ys) > 1:
+            top = max(b.y + b.h for b in blocks if b.y == ys[0])
+            self.assertEqual(ys[1] - top, 14000)  # top halo plus bottom halo
 
     def test_without_auto_the_placement_is_unchanged(self):
         base = run(inventory())[3]
