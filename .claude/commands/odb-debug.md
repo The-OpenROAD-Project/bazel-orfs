@@ -12,6 +12,45 @@ and asking it many questions is the point: a 1 M-instance ODB loads in
 seconds without liberty and in minutes with it, and every question after
 that is milliseconds.
 
+## 0. The stage that will not finish is not the diagnosis
+
+A stage does its job; it is not a tool for finding out whether that job
+can be done. Global route will route the design or die on that hill, and
+hours into a maze iteration you have learned that it is stuck and little
+else. The same holds for every stage: the legaliser that never returns,
+the CTS that buffers for an hour, the repair that loops. Do not wait out
+a stuck stage for a diagnosis and do not rerun it with knobs hoping for
+one. Open the **previous** stage's ODB and ask it why this one is stuck:
+
+- **Route stuck?** Ask the placed or CTS design where the wire demand is
+  (a RUDY map: per-net HPWL demand spread over its bounding box, binned,
+  with the macros drawn on it) and set it against layer capacity after
+  blockage and adjustment. Overflow visible at 45 µm bins is a wall at
+  GCell scale.
+- **Legaliser stuck?** §4: slivers, cells inside macros, crowded squares.
+- **Placer stuck?** The floorplan: utilisation, channels, halos, pins.
+
+The problem is visible in the stage before; the fix is usually further
+back still, and may be nowhere near the tool that stalled:
+
+- **Floorplan**: die and core size, macro placement and channels, where
+  the pins are (a pin-fitted mock squeezes a four-edge pin field onto
+  two edges at track pitch: that is a wall of demand the parent's router
+  must climb).
+- **Choice of macros**: which modules are hardened is a floorplan
+  decision made at synthesis. Sometimes dissolving a macro into the parent
+  fixes it (its pins were the wall), sometimes hardening one more does
+  (its logic was the blob nothing could route through).
+- **The RTL**: a design with a record of being routable (XiangShan has
+  one) shifts suspicion onto the flow's choices; RTL with no such record
+  may itself be the problem, a fan-out, a crossbar, a mux tree no
+  floorplan can help.
+
+Run the diagnosis at the granularity that answers in minutes (a placed
+ODB loads in tens of seconds and a RUDY map is under a minute), settle
+the floorplan question there, then let the flow rerun from the stage the
+fix belongs to. See `.claude/commands/no-paint-drying.md`.
+
 ## 1. Decide what you are asking, and pick the ODB
 
 - **Where did the flow leave things?** The stage's own ODB: `_floorplan`

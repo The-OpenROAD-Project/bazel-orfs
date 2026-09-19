@@ -32,6 +32,14 @@ own** (a `timeout` in `run.sh`, §6).
 
 ## 2. Characterize a hang before calling it a deadlock
 
+A stage that is busy but never finishes (CPU pegged, one thread, a
+router's maze iteration, a legaliser's search) is usually the design's
+problem, not the tool's: the stage is doing its job on an input it cannot
+finish, and waiting it out teaches nothing. Before treating it as a tool
+failure, open the previous stage's ODB and ask why (`/odb-debug` §0);
+the fix is often a floorplan, macro or RTL decision made stages earlier.
+The tests below separate that live loop from a deadlock or a race.
+
 Sample the *real* openroad process, not the `make`/`tee`/`bash -c` parent
 (match on `comm`):
 
