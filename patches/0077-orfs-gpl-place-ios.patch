@@ -76,9 +76,9 @@ diff -ruN a/flow/scripts/global_place_skip_io.tcl b/flow/scripts/global_place_sk
 +    # A design with next to no cells (a mocked abstract: its pins and a
 +    # handful of cells on a die sized to the pins) gives the Nesterov
 +    # placer nothing to push against, and it diverges at step one
-+    # (GPL-0305). Such a design (cells under 5 % of the core and fewer
-+    # than a thousand of them) needs no placement: cells to the core
-+    # centre for the legaliser, pins by place_pins. Anything larger is a
++    # (GPL-0305). Such a design (cells under 5 % of the core; a mock
++    # keeps a few thousand of them) needs no placement: cells to the core
++    # centre for the legaliser, pins by place_pins. Anything denser is a
 +    # real failure and stays one.
 +    set block [ord::get_db_block]
 +    set cell_area 0
@@ -88,7 +88,7 @@ diff -ruN a/flow/scripts/global_place_skip_io.tcl b/flow/scripts/global_place_sk
 +      set cell_area [expr { $cell_area + [$m getWidth] * [$m getHeight] }]
 +    }
 +    set core [$block getCoreArea]
-+    if { $cell_area > 0.05 * [$core dx] * [$core dy] || [llength [$block getInsts]] > 1000 } {
++    if { $cell_area > 0.05 * [$core dx] * [$core dy] } {
 +      error $err
 +    }
 +    puts "global_placement -place_ios failed on a nearly empty design: cells to the core centre, pins by place_pins ($err)"
