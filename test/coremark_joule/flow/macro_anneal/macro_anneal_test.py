@@ -404,6 +404,16 @@ class ChannelTest(unittest.TestCase):
         placed = macro_anneal.placements(inv, blocks, 4000)
         self.assertEqual(macro_anneal.channel_shortfalls(inv, placed), [])
 
+    def test_channel_min_floors_channels_and_halos(self):
+        inv = macro_anneal.Inventory.parse(self.inventory())
+        blocks, _ = macro_anneal.build_blocks(
+            inv, 3, 4, 4000, 0.6, None, channel_auto=True, gap=10800, channel_min=40000
+        )
+        b = [b for b in blocks if b.is_macro()][0]
+        self.assertGreaterEqual(b.chan, 40000)
+        self.assertEqual(b.halo["R"], 20000)  # half the floor, no pins there
+        self.assertGreaterEqual(b.halo["L"], 20000)
+
     def test_halos_add_up_between_blocks(self):
         inv = macro_anneal.Inventory.parse(inventory())
         blocks, _ = macro_anneal.build_blocks(inv, 3, 4, 4000, 0.6, None)

@@ -37,6 +37,7 @@ design(
         "ANNEAL_STRAP_PAIR_UM",
         "ANNEAL_CHANNEL_CHECK",
         "ANNEAL_CHANNEL_AUTO",
+        "ANNEAL_CHANNEL_MIN_UM",
     ],
     # The placer and its inventory dump, staged into the floorplan sandbox.
     user_sources = [
@@ -59,6 +60,7 @@ design(
             "ANNEAL_STRAP_PAIR_UM",
             "ANNEAL_CHANNEL_CHECK",
             "ANNEAL_CHANNEL_AUTO",
+            "ANNEAL_CHANNEL_MIN_UM",
             "ANNEAL_DUMP_TCL",
             "ANNEAL_PY",
         ]

@@ -202,7 +202,15 @@ class Block:
 
 
 def build_blocks(
-    inv, depth, min_cluster, chan, fill, straps=None, channel_auto=False, gap=0
+    inv,
+    depth,
+    min_cluster,
+    chan,
+    fill,
+    straps=None,
+    channel_auto=False,
+    gap=0,
+    channel_min=0,
 ):
     """Macro blocks, ballast blocks, and the residual macros left to RTL-MP."""
     straps = straps or Straps()
@@ -222,10 +230,13 @@ def build_blocks(
         # sum is the same whichever way the banks are flipped).
         chan_b = chan
         if channel_auto:
+            # An MX flip can turn two bottoms to face each other, so the
+            # row channel takes the larger of the two horizontal sides twice.
             chan_b = max(
                 chan,
+                channel_min,
                 escape_need(inv, master, "R") + escape_need(inv, master, "L"),
-                escape_need(inv, master, "T") + escape_need(inv, master, "B"),
+                2 * max(escape_need(inv, master, "T"), escape_need(inv, master, "B")),
             )
         cols, rows, _w, _h = tile_shape(len(insts), m["w"], m["h"], chan_b)
         # Banks step by a whole number of the origin lattice (the pin
@@ -262,11 +273,17 @@ def build_blocks(
             nb = cols * max(
                 escape_need(inv, master, "B"), escape_need(inv, master, "T")
             )
+            # channel_min is a floor on every channel, for the cells the
+            # parent puts there: the buffers of the wires that cross it and
+            # the clock tree's. Pins alone size a channel the legaliser
+            # then cannot fill (margin-2 take: 8744 row fragments of 5-20 um,
+            # CTS legalisation past two hours).
+            floor = max(gap // 2, channel_min // 2)
             b.halo = {
-                "L": max(gap // 2, nl),
-                "R": max(gap // 2, nr),
-                "B": max(gap // 2, nb),
-                "T": max(gap // 2, nb),
+                "L": max(floor, nl),
+                "R": max(floor, nr),
+                "B": max(floor, nb),
+                "T": max(floor, nb),
             }
         blocks.append(b)
     macro_area = sum(b.w * b.h for b in blocks)
@@ -867,6 +884,14 @@ def main(argv):
         "are used and shortfalls are only reported",
     )
     p.add_argument(
+        "--channel-min-um",
+        type=float,
+        default=0.0,
+        help="with --channel-auto, a floor on every bank channel and block "
+        "clearance: room for the cells the parent puts in a channel, not "
+        "only for the wires (0: pins alone decide)",
+    )
+    p.add_argument(
         "--channel-check",
         choices=("warn", "error"),
         default="warn",
@@ -894,6 +919,7 @@ def main(argv):
         straps,
         channel_auto=args.channel_auto,
         gap=gap,
+        channel_min=int(round(args.channel_min_um * inv.dbu)),
     )
     weights = build_weights(inv, blocks, args.depth, args.same_prefix_bonus)
     anneal = Anneal(inv, blocks, weights, gap, args.seed, args.iterations)

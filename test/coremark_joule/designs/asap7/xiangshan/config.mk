@@ -301,6 +301,11 @@ export ANNEAL_FILL             = 0.5
 # clearances to the need instead, so the die follows the pins.
 export ANNEAL_CHANNEL_CHECK    = warn
 export ANNEAL_CHANNEL_AUTO     = 0
+# With AUTO, a floor under every channel for the cells the parent puts in
+# it (wire buffers, the clock tree): pins alone sized the margin-2 take's
+# bank channels at 12-24 um, 8744 row fragments under 20 um, and the CTS
+# legaliser ran past two hours. 0 lets the pins decide.
+export ANNEAL_CHANNEL_MIN_UM   = 0
 
 # The power grid of a parent with hardened blocks. The platform's flat
 # grid (grid_strategy-M1-M2-M5-M6.tcl) powers a macro by connecting its

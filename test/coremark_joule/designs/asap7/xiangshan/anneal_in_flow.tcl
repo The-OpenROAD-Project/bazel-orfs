@@ -39,6 +39,9 @@ set anneal_cmd [list $::env(PYTHON_EXE) $::env(ANNEAL_PY) \
 if { [info exists ::env(ANNEAL_CHANNEL_AUTO)] && $::env(ANNEAL_CHANNEL_AUTO) == 1 } {
     lappend anneal_cmd --channel-auto
 }
+if { [info exists ::env(ANNEAL_CHANNEL_MIN_UM)] && $::env(ANNEAL_CHANNEL_MIN_UM) ne "" } {
+    lappend anneal_cmd --channel-min-um $::env(ANNEAL_CHANNEL_MIN_UM)
+}
 puts "anneal_in_flow: [join $anneal_cmd { }]"
 if { [catch { exec {*}$anneal_cmd 2>@1 } anneal_log] } {
     puts $anneal_log
