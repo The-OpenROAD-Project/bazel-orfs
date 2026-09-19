@@ -304,8 +304,9 @@ export ANNEAL_CHANNEL_AUTO     = 0
 # With AUTO, a floor under every channel for the cells the parent puts in
 # it (wire buffers, the clock tree): pins alone sized the margin-2 take's
 # bank channels at 12-24 um, 8744 row fragments under 20 um, and the CTS
-# legaliser ran past two hours. 0 lets the pins decide.
-export ANNEAL_CHANNEL_MIN_UM   = 0
+# legaliser ran past two hours. 0 lets the pins decide; 40 is between
+# take 16's 54 um gaps, which legalised in 30 s, and those 12-24 um.
+export ANNEAL_CHANNEL_MIN_UM   = 40
 
 # The power grid of a parent with hardened blocks. The platform's flat
 # grid (grid_strategy-M1-M2-M5-M6.tcl) powers a macro by connecting its
