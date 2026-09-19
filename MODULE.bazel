@@ -92,6 +92,15 @@ archive_override(
         # Not upstreamed -- retire at a bump onto an OpenROAD that exposes
         # a library target for embedding.
         "//patches:0002-openroad-openroad-lib-public.patch",
+        # global_placement -place_ios left the movable IO pins out of the
+        # step-length norms by summing every GCell and subtracting the IO
+        # terms afterwards. An IO pin crossing the die dwarfs a cell moving
+        # a fraction of a site, so in float the cells are lost in the
+        # rounding and the residue can go negative -- sqrt of it is a NaN
+        # step length and GPL-0305. Skip the IO terms instead of
+        # subtracting them. Without -place_ios nothing changes.
+        # Not upstreamed -- retire at a bump onto an OpenROAD carrying it.
+        "//patches:0004-openroad-gpl-place-ios-nan-step.patch",
     ],
     strip_prefix = "OpenROAD-d35e70836dd46c59ab9ee28631714f65b375729d",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/d35e70836dd46c59ab9ee28631714f65b375729d.tar.gz"],
