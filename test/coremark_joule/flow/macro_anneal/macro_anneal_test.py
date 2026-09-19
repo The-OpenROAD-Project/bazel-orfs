@@ -352,6 +352,76 @@ class LatticeTest(unittest.TestCase):
             self.assertEqual((x + m["pox"] - 24) % 48, 0, inst)
 
 
+class ChannelTest(unittest.TestCase):
+    """Pins are wires that leave through the channel along their side.
+
+    asap7 densities: M2 and M4 along a horizontal channel, M3 and M5 along
+    a vertical one, 48.6 tracks per um either way. A VectorDecodeChannel
+    mock brings 557 pins to a side: 11.5 um of channel; two facing sides
+    in a 4 um bank channel are the wall take 16's router found.
+    """
+
+    def inventory(self, n=4, chan_pins=557):
+        lines = LatticeTest().inventory(w=40212, h=40212).splitlines()
+        lines = [l for l in lines if not l.startswith(("edges", "macro", "net"))]
+        lines.append("edges mock {} 0 {} 0".format(chan_pins, chan_pins))
+        for i in range(n):
+            lines.append("macro top/bank/m{} mock".format(i))
+            lines.append("net top/bank/m{} logic 10".format(i))
+        return "\n".join(lines)
+
+    def test_escape_need(self):
+        inv = macro_anneal.Inventory.parse(self.inventory())
+        self.assertAlmostEqual(
+            macro_anneal.layer_density(inv, "mock", "V") * 1000, 48.6, 1
+        )
+        self.assertEqual(macro_anneal.escape_need(inv, "mock", "L"), 11459)
+        self.assertEqual(macro_anneal.escape_need(inv, "mock", "R"), 0)
+        # MY puts the left pins on the right edge
+        self.assertEqual(macro_anneal.escape_need(inv, "mock", "R", "MY"), 11459)
+        self.assertEqual(macro_anneal.escape_need(inv, "mock", "B"), 11913)
+
+    def test_narrow_bank_channel_is_reported(self):
+        inv, blocks, _, placed, _ = run(self.inventory(), channel_um=4.0)
+        short = macro_anneal.channel_shortfalls(inv, placed)
+        self.assertTrue(short)
+        a, ea, b, eb, width, need = short[0]
+        self.assertEqual((ea, eb), ("R", "L"))
+        self.assertLess(width, 5000)
+        self.assertEqual(need, 11459)  # one facing side has pins, the other none
+
+    def test_channel_auto_widens_the_bank_channel(self):
+        text = self.inventory()
+        inv = macro_anneal.Inventory.parse(text)
+        blocks, _ = macro_anneal.build_blocks(
+            inv, 3, 4, 4000, 0.6, None, channel_auto=True, gap=10800
+        )
+        b = [b for b in blocks if b.is_macro()][0]
+        self.assertGreaterEqual(b.chan, 11459)
+        self.assertGreaterEqual(b.step_x - inv.masters["mock"]["w"], 11459)
+        self.assertGreaterEqual(b.halo, b.step_x - inv.masters["mock"]["w"])
+        placed = macro_anneal.placements(inv, blocks, 4000)
+        self.assertEqual(macro_anneal.channel_shortfalls(inv, placed), [])
+
+    def test_halos_add_up_between_blocks(self):
+        inv = macro_anneal.Inventory.parse(inventory())
+        blocks, _ = macro_anneal.build_blocks(inv, 3, 4, 4000, 0.6, None)
+        for b in blocks:
+            b.halo = 7000
+        packer = macro_anneal.Packer(inv, 10800)
+        packer.pack(blocks, list(range(len(blocks))))
+        row = sorted((b.x, b.x + b.w) for b in blocks if b.y == blocks[0].y)
+        for (x0, x1), (n0, n1) in zip(row, row[1:]):
+            self.assertEqual(n0 - x1, 14000)
+
+    def test_without_auto_the_placement_is_unchanged(self):
+        base = run(inventory())[3]
+        inv = macro_anneal.Inventory.parse(inventory())
+        blocks, _ = macro_anneal.build_blocks(inv, 3, 4, 4000, 0.6, None, gap=10800)
+        self.assertTrue(all(b.halo is None for b in blocks))
+        self.assertEqual(run(inventory())[3], base)
+
+
 class OrientationTest(unittest.TestCase):
     """A macro whose pins all sit on one edge is flipped to face its connections."""
 

@@ -291,6 +291,16 @@ export ANNEAL_CHANNEL_UM       = 4.0
 # while 6.45 mm^2 of the core sat empty. Measured on take 12's ODBs.
 export ANNEAL_BLOCK_GAP_UM     = 54.0
 export ANNEAL_FILL             = 0.5
+# Every pin is a wire that leaves through the channel along its side. The
+# annealer compares each channel it draws with what the facing sides' pins
+# need (pins over the track density of the layers running along it) and
+# reports the shortfalls; take 16's 4 um bank channels carried 167 wires
+# where the facing VectorDecodeChannel sides brought 1114, and the router
+# spent 2.5 h in its first maze iteration finding that out. CHECK=error
+# fails the floorplan on a shortfall; AUTO=1 widens channels and block
+# clearances to the need instead, so the die follows the pins.
+export ANNEAL_CHANNEL_CHECK    = warn
+export ANNEAL_CHANNEL_AUTO     = 0
 
 # The power grid of a parent with hardened blocks. The platform's flat
 # grid (grid_strategy-M1-M2-M5-M6.tcl) powers a macro by connecting its

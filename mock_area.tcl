@@ -147,6 +147,24 @@ if { $::env(MOCK_AREA) eq "pins" } {
   }
   set factor [expr { min(1.0, $side / $longest) }]
   puts "MOCK_AREA=pins: $pins pins on $edges edge(s), $layers layer(s), [expr { $tracks * $pitch / $dbu_per_uu }] um per pin, margin $margin: side [expr { $side / $dbu_per_uu }] um of [expr { $longest / $dbu_per_uu }] um, factor $factor"
+  # What the parent will have to route: every pin is a wire that leaves
+  # through the channel along its side and travels along it on the layers
+  # that run that way. Pins on a side divided by those layers' track density
+  # is the channel width the side needs, before the parent's own wires. The
+  # mock does not know its parent's channels, so this is a number, not a
+  # verdict; the parent's macro placer checks it against the channels it
+  # draws (ANNEAL_CHANNEL_AUTO widens them to it).
+  foreach {edge var count} [list bottom IO_PLACER_H [expr { $edges == 1 ? $pins : $edges == 2 ? ($pins + 1) / 2 : ($pins + 3) / 4 }] \
+                                left IO_PLACER_V [expr { $edges == 1 ? 0 : $edges == 2 ? $pins / 2 : ($pins + 3) / 4 }]] {
+    set density 0.0
+    foreach name $::env($var) {
+      set layer [[$db getTech] findLayer $name]
+      if { $layer ne "NULL" && [$layer getPitch] > 0 } { set density [expr { $density + $dbu_per_uu / double([$layer getPitch]) }] }
+    }
+    if { $count > 0 && $density > 0 } {
+      puts [format "MOCK_AREA=pins: escape: %d pins on the %s side need %.1f um of channel along it (%s: %.1f tracks/um)" $count $edge [expr { $count / $density }] $::env($var) $density]
+    }
+  }
 } else {
   set factor [expr { double($::env(MOCK_AREA)) }]
 }

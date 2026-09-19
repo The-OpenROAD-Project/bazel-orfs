@@ -184,6 +184,10 @@ class Block:
         self.master = master
         self.x = 0
         self.y = 0
+        self.halo = (
+            None  # dbu each side keeps clear; the packer's default gap/2 if None
+        )
+        self.chan = None  # dbu between the banks of a macro block
 
     @property
     def cx(self):
@@ -197,7 +201,9 @@ class Block:
         return bool(self.macros)
 
 
-def build_blocks(inv, depth, min_cluster, chan, fill, straps=None):
+def build_blocks(
+    inv, depth, min_cluster, chan, fill, straps=None, channel_auto=False, gap=0
+):
     """Macro blocks, ballast blocks, and the residual macros left to RTL-MP."""
     straps = straps or Straps()
     groups = collections.defaultdict(list)
@@ -211,14 +217,24 @@ def build_blocks(inv, depth, min_cluster, chan, fill, straps=None):
             residual.extend(insts)
             continue
         m = inv.masters[master]
-        cols, rows, _w, _h = tile_shape(len(insts), m["w"], m["h"], chan)
+        # The channel between two banks carries the pins of the two facing
+        # sides; with channel_auto it is widened to what they need (the
+        # sum is the same whichever way the banks are flipped).
+        chan_b = chan
+        if channel_auto:
+            chan_b = max(
+                chan,
+                escape_need(inv, master, "R") + escape_need(inv, master, "L"),
+                escape_need(inv, master, "T") + escape_need(inv, master, "B"),
+            )
+        cols, rows, _w, _h = tile_shape(len(insts), m["w"], m["h"], chan_b)
         # Banks step by a whole number of the origin lattice (the pin
         # layers' common track period, or the lowest pin layer's pitch
         # when the inventory has no patterns), so snapping the first bank
         # onto its tracks puts every bank on them and the channel between
         # neighbours is the same everywhere, never less than asked for.
-        step_x = _multiple_of(m["w"] + chan, _pitch_of(inv, m, "V"))
-        step_y = _multiple_of(m["h"] + chan, _pitch_of(inv, m, "H"))
+        step_x = _multiple_of(m["w"] + chan_b, _pitch_of(inv, m, "V"))
+        step_y = _multiple_of(m["h"] + chan_b, _pitch_of(inv, m, "H"))
         if straps.can_miss(m["w"]):
             # Every bank of the block must see a stripe pair, so the step
             # is a multiple of the strap pitch as well as of the track.
@@ -233,6 +249,18 @@ def build_blocks(inv, depth, min_cluster, chan, fill, straps=None):
         b.cols = cols
         b.step_x = step_x
         b.step_y = step_y
+        b.chan = chan_b
+        if channel_auto:
+            # The block's halo is the widest channel any of its sides needs:
+            # the bank rows' pins along a vertical side, the columns' along
+            # a horizontal one. Two facing halos add up to their channel.
+            b.halo = max(
+                gap // 2,
+                rows
+                * max(escape_need(inv, master, "L"), escape_need(inv, master, "R")),
+                cols
+                * max(escape_need(inv, master, "B"), escape_need(inv, master, "T")),
+            )
         blocks.append(b)
     macro_area = sum(b.w * b.h for b in blocks)
     core_w = inv.core[2] - inv.core[0]
@@ -296,18 +324,30 @@ class Packer:
         self.chan = gap
 
     def pack(self, blocks, order):
-        x = self.x0 + self.chan
+        # Each block keeps its halo clear on every side (gap/2 unless the
+        # block asked for more, see build_blocks); neighbours in a row are
+        # a halo of each apart, rows are the row's widest halo twice apart,
+        # so a uniform halo reproduces the plain gap exactly.
+        half = self.chan // 2
+        right = None  # right edge of the previous block, None at a row start
+        prev_halo = half
         y = self.y0 + self.chan
         row_h = 0
+        row_halo = half
         for i in order:
             b = blocks[i]
-            if x + b.w + self.chan > self.x1 and x > self.x0 + self.chan:
-                x = self.x0 + self.chan
-                y += row_h + self.chan
+            halo = half if b.halo is None else b.halo
+            x = self.x0 + self.chan if right is None else right + prev_halo + halo
+            if right is not None and x + b.w + self.chan > self.x1:
+                y += row_h + 2 * row_halo
                 row_h = 0
+                row_halo = half
+                x = self.x0 + self.chan
             b.x, b.y = x, y
-            x += b.w + self.chan
+            right = x + b.w
+            prev_halo = halo
             row_h = max(row_h, b.h)
+            row_halo = max(row_halo, halo)
         return y + row_h + self.chan
 
 
@@ -447,6 +487,109 @@ def flip_legal(inv, master_name, orient):
             if mirrored != residues:
                 return False
     return True
+
+
+def layer_density(inv, master_name, axis):
+    """Tracks per dbu across the layers a master's pins use on an axis.
+
+    The wires leaving a side travel along its channel on the layers that
+    run that way (vertical layers along a vertical channel), so the width
+    a channel needs is pins over this density. Only the pin layers are
+    counted, the layers the wires arrive on: a conservative floor for a
+    channel that has more layers above them. Falls back to the lowest pin
+    layer's pitch when the inventory has no patterns; zero when it has no
+    tracks at all.
+    """
+    d = 0.0
+    for layer in inv.pin_layers.get(master_name, {}).get(axis, []):
+        tr = track_residues(inv, layer, axis)
+        if tr:
+            d += len(tr[1]) / float(tr[0])
+    if d == 0.0:
+        m = inv.masters[master_name]
+        track = inv.tracks.get((m["vlayer"] if axis == "V" else m["hlayer"], axis))
+        if track and track[1] > 0:
+            d = 1.0 / track[1]
+    return d
+
+
+def escape_need(inv, master_name, edge, orient="R0"):
+    """dbu of channel the pins on a placed edge of a flipped master need.
+
+    Every pin is a wire that leaves through the channel along its side and
+    runs along it: pins on a left or right edge into a vertical channel on
+    vertical layers, bottom and top into a horizontal one. ``edge`` is the
+    placed edge; the flip says which of the master's own edges lands there.
+    This is the demand of one side; a channel between two macros carries
+    both facing sides.
+    """
+    own = [e for e, placed in FLIPS[orient].items() if placed == edge][0]
+    pins = inv.edges.get(master_name, {}).get(own, 0)
+    if not pins:
+        return 0
+    d = layer_density(inv, master_name, "V" if edge in "LR" else "H")
+    return int(math.ceil(pins / d)) if d > 0 else 0
+
+
+def channel_shortfalls(inv, placed):
+    """Channels between facing macros narrower than their pins need.
+
+    For every pair of placed macros that face each other across a gap with
+    no third macro between them, the channel is the gap, the demand is the
+    pins on the two facing sides, and the shortfall is demand over width.
+    Returns (a_inst, a_edge, b_inst, b_edge, width_dbu, need_dbu), largest
+    shortfall first. The router finds these hours later as overflow on the
+    GCell edges along the sides; here they cost a second.
+    """
+    rects = []
+    for inst, master, x, y, orient in placed:
+        m = inv.masters[master]
+        rects.append((inst, master, orient, x, y, x + m["w"], y + m["h"]))
+    needs = {}
+
+    def need(r, edge):
+        key = (r[1], r[2], edge)
+        if key not in needs:
+            needs[key] = escape_need(inv, r[1], edge, r[2])
+        return needs[key]
+
+    out = []
+    for i, a in enumerate(rects):
+        for j, b in enumerate(rects):
+            if i == j:
+                continue
+            if b[3] >= a[5] and min(a[6], b[6]) > max(a[4], b[4]):
+                width, ea, eb = b[3] - a[5], "R", "L"
+            elif b[4] >= a[6] and min(a[5], b[5]) > max(a[3], b[3]):
+                width, ea, eb = b[4] - a[6], "T", "B"
+            else:
+                continue
+            total = need(a, ea) + need(b, eb)
+            if total <= width:
+                continue
+            between = False
+            for k, c in enumerate(rects):
+                if k in (i, j):
+                    continue
+                if ea == "R":
+                    if (
+                        c[3] >= a[5]
+                        and c[5] <= b[3]
+                        and min(c[6], a[6], b[6]) > max(c[4], a[4], b[4])
+                    ):
+                        between = True
+                        break
+                elif (
+                    c[4] >= a[6]
+                    and c[6] <= b[4]
+                    and min(c[5], a[5], b[5]) > max(c[3], a[3], b[3])
+                ):
+                    between = True
+                    break
+            if not between:
+                out.append((a[0], ea, b[0], eb, width, total))
+    out.sort(key=lambda t: t[5] - t[4], reverse=True)
+    return out
 
 
 def _pitch_of(inv, master, axis):
@@ -693,6 +836,21 @@ def main(argv):
     )
     p.add_argument("--iterations", type=int, default=20000)
     p.add_argument("--same-prefix-bonus", type=float, default=1000.0)
+    p.add_argument(
+        "--channel-auto",
+        action="store_true",
+        help="widen each bank channel and each block's clearance to what the "
+        "pins on the facing sides need (pins over the track density of the "
+        "layers running along the channel); off, the widths given above "
+        "are used and shortfalls are only reported",
+    )
+    p.add_argument(
+        "--channel-check",
+        choices=("warn", "error"),
+        default="warn",
+        help="what a channel narrower than its pins need does: a line on "
+        "stderr and in the metrics, or a failed floorplan",
+    )
     args = p.parse_args(argv[1:])
 
     with open(args.inventory) as f:
@@ -706,13 +864,40 @@ def main(argv):
         int(round(args.strap_inset_um * inv.dbu)),
     )
     blocks, residual = build_blocks(
-        inv, args.depth, args.min_cluster, chan, args.fill, straps
+        inv,
+        args.depth,
+        args.min_cluster,
+        chan,
+        args.fill,
+        straps,
+        channel_auto=args.channel_auto,
+        gap=gap,
     )
     weights = build_weights(inv, blocks, args.depth, args.same_prefix_bonus)
     anneal = Anneal(inv, blocks, weights, gap, args.seed, args.iterations)
     order, cost = anneal.run()
     placed = placements(inv, blocks, chan, straps)
     problems = check_legal(inv, blocks, placed)
+    shortfalls = channel_shortfalls(inv, placed)
+    for a, ea, b, eb, width, need in shortfalls[:40]:
+        print(
+            "macro_anneal: channel {:.1f} um between {} ({}) and {} ({}): "
+            "their pins need {:.1f} um".format(
+                width / inv.dbu, a, ea, b, eb, need / inv.dbu
+            ),
+            file=sys.stderr,
+        )
+    if shortfalls:
+        print(
+            "macro_anneal: {} channel(s) narrower than their pins need; the "
+            "router would find them as overflow along the macro sides "
+            "(--channel-auto widens them)".format(len(shortfalls)),
+            file=sys.stderr,
+        )
+        if args.channel_check == "error":
+            problems.append(
+                "{} channels narrower than their pins need".format(len(shortfalls))
+            )
     top = max((b.y + b.h for b in blocks), default=inv.core[1])
     metrics = {
         "macros": len(inv.macros),
@@ -731,6 +916,17 @@ def main(argv):
             for b in blocks
         ],
         "cost": cost,
+        "channel_shortfalls": [
+            {
+                "a": a,
+                "a_edge": ea,
+                "b": b,
+                "b_edge": eb,
+                "width_um": width / inv.dbu,
+                "need_um": need / inv.dbu,
+            }
+            for a, ea, b, eb, width, need in shortfalls[:200]
+        ],
         "height_used_um": (top - inv.core[1]) / inv.dbu,
         "core_height_um": (inv.core[3] - inv.core[1]) / inv.dbu,
         "problems": problems,
