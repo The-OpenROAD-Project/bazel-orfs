@@ -40,6 +40,9 @@ load(
 # Stages with an ODB that open.tcl can load for web_save_report.
 _HTML_STAGES = ["floorplan", "place", "cts", "grt", "route", "final"]
 
+# Read only by mock_area.tcl and mock_pins.tcl, for the mocked variant.
+MOCK_PIN_VARIABLES = ("MOCK_AREA_PIN_EDGES", "MOCK_AREA_PIN_MARGIN")
+
 def _strip_tool_kwargs(**kwargs):
     """Strip stage-only kwargs for non-stage targets (orfs_macro, orfs_arguments).
 
@@ -427,6 +430,13 @@ def orfs_flow(
         variant = None
     if top == None:
         top = name
+
+    # The mock pin knobs size and constrain the mocked variant only. The
+    # real flow never reads them, and carrying them in its arguments made
+    # every block re-floorplan when a parent changed the mock margin.
+    mock_pin_arguments = {k: v for k, v in arguments.items() if k in MOCK_PIN_VARIABLES}
+    arguments = {k: v for k, v in arguments.items() if k not in MOCK_PIN_VARIABLES}
+
     abstract_variant = _variant_name(variant, "unmocked" if mock_area else None)
     _orfs_pass(
         name = name,
@@ -497,7 +507,7 @@ def orfs_flow(
         user_sources = user_sources,
         stage_arguments = stage_arguments,
         renamed_inputs = {},
-        arguments = arguments | {"SYNTH_GUT": "1"},
+        arguments = arguments | mock_pin_arguments | {"SYNTH_GUT": "1"},
         user_arguments = user_arguments,
         extra_arguments = _merge_extra_arguments(extra_arguments, mock_extra_arguments),
         extra_configs = extra_configs,
@@ -518,9 +528,10 @@ def orfs_flow(
     # hand them over from the flow's own arguments.
     mock_area_arguments = {"MOCK_AREA": str(mock_area)}
     if mock_area == "pins":
-        for var in ("IO_PLACER_H", "IO_PLACER_V", "PLACE_PINS_ARGS", "MOCK_AREA_PIN_EDGES", "MOCK_AREA_PIN_MARGIN"):
+        for var in ("IO_PLACER_H", "IO_PLACER_V", "PLACE_PINS_ARGS"):
             if var in arguments:
                 mock_area_arguments[var] = arguments[var]
+        mock_area_arguments |= mock_pin_arguments
     orfs_arguments(
         name = mock_area_name,
         src = _step_name(name, variant, "floorplan"),
