@@ -2384,7 +2384,15 @@ def _yosys_impl(ctx):
                 ctx.file._makefile_yosys.path,
                 "yosys-dependencies",
                 "do-yosys",
-            ] + sdc_overrides,
+                # The AUTO_MEMORIES artifacts are staged inputs whose mtimes
+                # are whatever the cache or the sandbox gave them, and make
+                # reads a memories.json older than its memories_inferred.json
+                # (or either older than a freshly fetched ORFS script) as a
+                # reason to re-run detection here, where VERILOG_FILES is
+                # empty and the design is the canonicalized RTLIL: "Module
+                # `<top>' not found!". --old-file is make's "up to date
+                # whatever the timestamp says", as the partition path uses.
+            ] + ["--old-file=" + f.path for f in memories_outputs + memories_inferred] + sdc_overrides,
             command = " && ".join(yosys_commands),
             env = serial_env,
             inputs = depset(
