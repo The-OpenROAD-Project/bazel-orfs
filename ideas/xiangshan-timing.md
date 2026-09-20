@@ -54,6 +54,18 @@ by the flow) and from the parent's place, not from one flat session; a
 flat `repair_design` on a core of this size is itself an entry for the
 tool: which of its passes scales worse than linearly here.
 
+Measured the same day on one block: `repair_design -pre_placement` (the
+resizer's fanout-and-slew round without parasitics, under the SDC's
+`set_max_fanout 32`) on the Frontend synthesis netlist, 1.5 M cells, took
+575 s in the odb-debug session and moved WNS from -492 to -468 ps at
+800 ps; the worst path stayed the same input-to-register crossing, from
+the backend's redirect port through Ftq into the uBTB hit compare, 100
+pins before and 140 after. A block synthesised alone has no fanout
+phantom (no stage past 32 on any of its 11 391 worst path ends); the
+phantom belonged to the whole-core netlist. So the per-block pass is
+minutes and the whole-core full repair is the outlier; whether the
+pre-placement pass alone scales to the core is untested and not needed.
+
 ## Method notes
 
 - Synthesis-stage numbers are read after `repair_design`, never before;
