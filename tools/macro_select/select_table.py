@@ -44,7 +44,7 @@ def port_bits(sv_path, modules):
                     continue
                 cur = m.group(1)
                 buf = []
-                line = line[m.end():]  # a header on the module line itself
+                line = line[m.end() :]  # a header on the module line itself
                 if not line.strip():
                     continue
             if ");" in line:
@@ -101,21 +101,46 @@ def table(bits, areas, children):
 
 
 def format_table(rows):
-    out = ["%-24s %7s %6s %9s %8s %8s %s" % ("module", "bits", "ports", "area mm2", "side um", "pins/um", "note")]
+    out = [
+        "%-24s %7s %6s %9s %8s %8s %s"
+        % ("module", "bits", "ports", "area mm2", "side um", "pins/um", "note")
+    ]
     for m, b, n, a, side, ppu, note in sorted(rows, key=lambda r: -r[1]):
         out.append(
             "%-24s %7d %6d %9s %8s %8s %s"
-            % (m, b, n, "%.3f" % (a / 1e6) if a else "-", "%.0f" % side if side else "-", "%.2f" % ppu if ppu else "-", note)
+            % (
+                m,
+                b,
+                n,
+                "%.3f" % (a / 1e6) if a else "-",
+                "%.0f" % side if side else "-",
+                "%.2f" % ppu if ppu else "-",
+                note,
+            )
         )
     return "\n".join(out)
 
 
 def main(argv):
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--sv", required=True)
-    ap.add_argument("--module", action="append", default=[], help="module to tabulate; repeat")
-    ap.add_argument("--area", action="append", default=[], help="M=area_um2 from a synthesised block; repeat")
-    ap.add_argument("--children", action="append", default=[], help="M=A,B,C: the modules a cut one level down would harden; repeat")
+    ap.add_argument(
+        "--module", action="append", default=[], help="module to tabulate; repeat"
+    )
+    ap.add_argument(
+        "--area",
+        action="append",
+        default=[],
+        help="M=area_um2 from a synthesised block; repeat",
+    )
+    ap.add_argument(
+        "--children",
+        action="append",
+        default=[],
+        help="M=A,B,C: the modules a cut one level down would harden; repeat",
+    )
     a = ap.parse_args(argv[1:])
     areas = {}
     for s in a.area:
@@ -132,7 +157,9 @@ def main(argv):
     missing = [m for m in a.module if m not in bits]
     print(format_table(table(bits, areas, children)))
     if missing:
-        print("select_table: not found in the RTL: " + ", ".join(missing), file=sys.stderr)
+        print(
+            "select_table: not found in the RTL: " + ", ".join(missing), file=sys.stderr
+        )
     return 0
 
 

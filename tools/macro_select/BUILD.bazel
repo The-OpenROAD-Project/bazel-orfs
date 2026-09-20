@@ -39,3 +39,25 @@ py_test(
     ],
     main = "select_table_test.py",
 )
+
+py_binary(
+    name = "timing_table",
+    srcs = ["timing_table.py"],
+    main = "timing_table.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "timing_table_test",
+    srcs = [
+        "timing_table.py",
+        "timing_table_test.py",
+    ],
+    main = "timing_table_test.py",
+)
+
+# The probes the odb-debug session runs to produce the dumps timing_table reads.
+exports_files([
+    "probe_boundaries.tcl",
+    "probe_paths.tcl",
+])
