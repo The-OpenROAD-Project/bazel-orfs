@@ -32,26 +32,36 @@ that is the cut the architecture drew. Numbers to expect: a well-cut unit
 under about 2 pins per micron; a tangled one, the out-of-order core's
 issue and control, at 4 to 9, which never becomes a macro.
 
-## 2. The time table, from one hierarchical synthesis
+## 2. The time table, from each candidate's own synthesis
 
-Synthesise the whole design flat with every candidate kept as a module
-and `OPENROAD_HIERARCHICAL=1`, so the ODB keeps the boundaries, at the
-target synthesis period (XiangShan: `XSCore_hier_synth` at 800 ps for a
-core meant to route at 1000). Open it through its `odb_debug` target with
-timing, run `repair_design` in the session first (synthesis-stage slack
-is a fanout artefact until something buffers: XiangShan's worst path was
--7.2 ns from two unbuffered nets of fanout 1410 and 1056), then the
-probe: per module, whether its boundary pins are registered right inside
-(through the buffer or inverter on a flop's QN), the worst path crossing
-it with depth and slack, the paths that cross in and out, and the empty
-pipeline stages inside it, which are the retiming idiom. A boundary is
-well formed in time when its crossings are registered or shallow and its
-worst crossing has slack to spare for the wire the floorplan will add.
+Synthesise each candidate block alone at the target synthesis period
+(XiangShan: the planned blocks at 800 ps for a core meant to route at
+1000) and open its synthesis ODB through its `odb_debug` target with
+timing (`<block>_plan_synth_odb_debug`). Run the probes as they are, no
+repair: a block synthesised alone has no fanout phantom (Frontend, 1.5 M
+cells: none of its 11 391 worst path ends has a stage past fanout 32,
+and `repair_design -pre_placement` moved its WNS by 24 ps in 575 s). The
+phantom belongs to a whole-core netlist, where the reset and clock
+classes of nets are kept, and `repair_design` on such a netlist does not
+return in a day (`ideas/xiangshan-timing.md`, entry 4). Never run a
+repair on the whole core; never read whole-core synthesis slacks.
 
-Keep more than you think: a second synthesis with
-`SYNTH_MINIMUM_KEEP_SIZE` instead of a hand-written keep list finds the
-registered boundaries wherever the RTL has them. A design that has taped
-out has them; the job is to find them, never to move them in the RTL.
+Per block, from `probe_paths.tcl` and `timing_table.py`: the worst path
+end and its slack, whether it is a boundary crossing (an input-to-register
+or register-to-output path against the SDC's 0.8-period budget) or
+internal, its depth in pins, and the module inside that owns it.
+`probe_boundaries.tcl` on the parent's hierarchical synthesis adds
+whether the boundary pins are registered right inside and the empty
+pipeline stages, the retiming idiom.
+
+Read it at 50 % error bars. Thirty years of EDA have not made synthesis
+timing predict global route better than that, and this table does not
+try: it sorts. A boundary is well formed in time when its crossings are
+registered or shallow; a crossing 50 gates deep on an otherwise clean
+cut (Frontend's backend-redirect port into the uBTB compare, -492 ps at
+800 ps, 1.13 ns of logic) is an entry for the inventory and a note on
+the plan, not a reason to move the cut. The period is measured at
+global route and nowhere else.
 
 ## 3. The plan, from both tables
 

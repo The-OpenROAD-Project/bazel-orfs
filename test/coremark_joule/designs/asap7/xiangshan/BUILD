@@ -26,12 +26,17 @@ odb_debug(
     src = ":XSCore_plan_place",
 )
 
-# A block's synthesis netlist with timing: where the pre-placement repair
-# and the fanout pricing are measured at a size the flow runs in minutes.
-odb_debug(
-    name = "Frontend_plan_synth_odb_debug",
-    src = ":Frontend_plan_synth",
-)
+# The planned blocks' synthesis netlists with timing: the time table's
+# source. A block synthesised alone at the target period has no fanout
+# phantom and probes in minutes; its worst boundary crossing sorts the
+# cut (50 % error bars against global route, enough to sort by).
+[
+    odb_debug(
+        name = block + "_plan_synth_odb_debug",
+        src = ":" + block + "_plan_synth",
+    )
+    for block in PLAN["macros"].keys()
+]
 
 grt_netlist(
     name = "cmj_xiangshan_grt_netlist",
