@@ -189,8 +189,12 @@ def layout(plan):
     )
     extent = _extents(placed)
     margin = parent["core_margin_um"]
-    x0 = margin + extent["left"]
-    y0 = margin + extent["bottom"]
+    # the flow snaps the core's corners onto the site and row grid, inward;
+    # one lattice period of clearance keeps every macro inside it
+    cx = margin + tech.get("lattice_x_um", tech.get("site_um", 0.0))
+    cy = margin + tech.get("lattice_y_um", tech.get("row_um", 0.0))
+    x0 = cx + extent["left"]
+    y0 = cy + extent["bottom"]
     region_box = (x0, y0, x0 + region_w, y0 + region_h)
     macros = []
     for side in SIDES:
@@ -231,11 +235,11 @@ def layout(plan):
                     m["timing_ok"] = m["slack_after_wire_ps"] >= 0
             macros.append(m)
             start += s + gap
-    die_w = x0 + region_w + extent["right"] + margin
-    die_h = y0 + region_h + extent["top"] + margin
+    die_w = x0 + region_w + extent["right"] + cx
+    die_h = y0 + region_h + extent["top"] + cy
     for m in macros:  # a snapped origin may have moved a macro outward
-        die_w = max(die_w, m["x_um"] + m["w_um"] + margin)
-        die_h = max(die_h, m["y_um"] + m["h_um"] + margin)
+        die_w = max(die_w, m["x_um"] + m["w_um"] + cx)
+        die_h = max(die_h, m["y_um"] + m["h_um"] + cy)
     macro_area = sum(m["area_um2"] for m in macros)
     return {
         "region_um": [round(v, 3) for v in region_box],
@@ -267,17 +271,23 @@ def plan_macro(plan, name):
     return {}
 
 
-def check(out):
-    """No two macros overlap and none leaves the die."""
+def check(out, site_um=0.054, row_um=0.27):
+    """No two macros overlap and none leaves the core the flow snaps to
+    (corners moved inward onto the site and row grid)."""
     problems = []
-    x0, y0, x1, y1 = out["die_um"]
+    dx0, dy0, dx1, dy1 = out["die_um"]
+    m = out["core_margin_um"]
+    x0 = math.ceil((dx0 + m) / site_um - 1e-9) * site_um
+    y0 = math.ceil((dy0 + m) / row_um - 1e-9) * row_um
+    x1 = math.floor((dx1 - m) / site_um + 1e-9) * site_um
+    y1 = math.floor((dy1 - m) / row_um + 1e-9) * row_um
     boxes = [
         (m["name"], m["x_um"], m["y_um"], m["x_um"] + m["w_um"], m["y_um"] + m["h_um"])
         for m in out["macros"]
     ]
     for n, a, b, c, d in boxes:
-        if a < x0 or b < y0 or c > x1 or d > y1:
-            problems.append("{} outside die".format(n))
+        if a < x0 - 1e-6 or b < y0 - 1e-6 or c > x1 + 1e-6 or d > y1 + 1e-6:
+            problems.append("{} outside the snapped core".format(n))
     for i in range(len(boxes)):
         for j in range(i + 1, len(boxes)):
             _, a, b, c, d = boxes[i]

@@ -3,10 +3,10 @@
 # origin off the pin lattice the plan put it on).
 set block [ord::get_db_block]
 foreach {master x y} {
-  MemBlock 60.768 10.800
-  Region_1 1067.328 397.440
-  Frontend 10.080 2620.080
-  VecRegionModule 975.600 2676.240
+  MemBlock 60.912 12.960
+  Region_1 1067.472 399.600
+  Frontend 10.224 2622.240
+  VecRegionModule 975.744 2678.400
 } {
   set insts {}
   foreach inst [$block getInsts] {
