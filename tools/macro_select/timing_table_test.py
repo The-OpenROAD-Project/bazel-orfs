@@ -36,7 +36,7 @@ class TableTest(unittest.TestCase):
             f.write(PRICED)
         mods = timing_table.read_boundaries(self.b)
         paths = timing_table.read_paths(self.p, mods)
-        self.assertEqual(paths[0][0], -120.0)
+        self.assertEqual(paths[0][0], -900.0)  # the STA's slack, not the priced one
         self.assertEqual(paths[0][2:], ("top/a", "top/a"))
         self.assertEqual(paths[1][0], -80.0)
 

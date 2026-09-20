@@ -63,7 +63,7 @@ foreach pe $ends {
   set phantom 0.0
   set max_fo 0
   set prev ""
-  foreach pt [get_property $p points] {
+  foreach pt [get_property $pe points] {
     set arr [expr { [get_property $pt arrival] * 1e12 }]
     set pin [get_property $pt pin]
     if { $prev ne "" } {
