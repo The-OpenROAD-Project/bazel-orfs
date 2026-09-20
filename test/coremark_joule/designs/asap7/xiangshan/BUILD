@@ -1,5 +1,6 @@
 load("@bazel-orfs//:openroad.bzl", "odb_debug", "orfs_flow")
 load("//test/coremark_joule/flow:power.bzl", "census_probe", "grt_netlist", "hier_probe", "physical_probe", "stage_power", "stage_power_units")
+load(":plan/plan.bzl", "PLAN")
 load(":xiangshan.bzl", "xiangshan_flow")
 
 exports_files(["constraints.sdc"])
@@ -7,6 +8,16 @@ exports_files(["constraints.sdc"])
 # The parent and its blocks: plain orfs_flow() targets, the table of
 # arguments in xiangshan.bzl. See there.
 xiangshan_flow()
+
+# The planned parent: the blocks the macro selection tables named, each a
+# real flow at the outline plan_floorplan.py drew with its pins on one
+# side, the parent at the planned die. plan/ is generated (see
+# .claude/commands/macro-selection.md, step 3); regenerate it, never edit it.
+xiangshan_flow(
+    name = "XSCore",
+    plan = PLAN,
+    variant = "plan",
+)
 
 grt_netlist(
     name = "cmj_xiangshan_grt_netlist",

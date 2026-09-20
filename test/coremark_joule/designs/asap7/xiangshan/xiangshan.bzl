@@ -1175,32 +1175,98 @@ XS_BLOCKS = {
 def _user_stages(user_arguments, user_sources):
     return {v: s for v, s in XS_USER_STAGES.items() if v in user_arguments or v in user_sources}
 
-def xiangshan_flow(name = "XSCore", blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"]):
-    """The blocks, each abstracted at place with a pin-fitted mock, then the parent."""
-    for block, cfg in blocks.items():
-        orfs_flow(
-            name = block,
-            abstract_stage = "place",
-            arguments = cfg["arguments"],
-            mock_area = "pins",
-            pdk = "//flow:asap7",
-            sources = cfg["sources"],
-            tags = tags,
-            user_arguments = cfg["user_arguments"],
-            user_sources = cfg["user_sources"],
-            user_stages = _user_stages(cfg["user_arguments"], cfg["user_sources"]),
-            verilog_files = XS_VERILOG,
-        )
+# A block the plan names that the table above does not: the Bpu flow's
+# settings without its keep list (AUTO_MEMORIES, the annealer for the
+# memory banks inside, pins on two layers per direction).
+XS_BLOCK_DEFAULT = dict(XS_BLOCKS["Bpu"], arguments = {k: v for k, v in XS_BLOCKS["Bpu"]["arguments"].items() if k != "SYNTH_KEEP_MODULES"})
+
+# Outline knobs a planned flow replaces with DIE_AREA/CORE_AREA, and the
+# legaliser window the parent no longer needs once the channels are planned.
+_PLAN_DROPS = ["CORE_UTILIZATION", "CORE_ASPECT_RATIO", "CORE_MARGIN", "DETAIL_PLACEMENT_ARGS"]
+
+def _planned_block(cfg, entry, plan_dir, block):
+    """A block flow's arguments and sources under the plan: planned outline,
+    every pin on the planned side, the parent's target period."""
+    arguments = {k: v for k, v in cfg["arguments"].items() if k not in _PLAN_DROPS}
+    arguments["DIE_AREA"] = entry["DIE_AREA"]
+    arguments["CORE_AREA"] = entry["CORE_AREA"]
+    if "SYNTH_KEEP_MODULES" in entry:
+        arguments["SYNTH_KEEP_MODULES"] = entry["SYNTH_KEEP_MODULES"]
+    sources = dict(cfg["sources"])
+    sources["IO_CONSTRAINTS"] = [":%s/%s_pins.tcl" % (plan_dir, block)]
+    sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints_800ps.sdc"]
+    return arguments, sources
+
+def xiangshan_flow(name = "XSCore", blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan = None, plan_dir = "plan", variant = None):
+    """The blocks, each abstracted at place, then the parent.
+
+    Without a plan: every block in `blocks` with a pin-fitted mock for the
+    parent, the parent's outline from CORE_UTILIZATION and the annealer.
+    With a plan (the PLAN dict plan_floorplan.py --emit wrote to
+    plan_dir/plan.bzl): only the plan's blocks, each a real flow at the
+    planned outline with its pins on the planned side and no mock; the
+    parent at the planned die with plan_dir/place_macros.tcl placing the
+    blocks R0 where the plan put them. `variant` keeps the two apart.
+    """
+    if plan == None:
+        for block, cfg in blocks.items():
+            orfs_flow(
+                name = block,
+                abstract_stage = "place",
+                arguments = cfg["arguments"],
+                mock_area = "pins",
+                pdk = "//flow:asap7",
+                sources = cfg["sources"],
+                tags = tags,
+                user_arguments = cfg["user_arguments"],
+                user_sources = cfg["user_sources"],
+                user_stages = _user_stages(cfg["user_arguments"], cfg["user_sources"]),
+                variant = variant,
+                verilog_files = XS_VERILOG,
+            )
+        macros = [b for b in XS_BLOCK_ORDER if b in blocks]
+        arguments = parent["arguments"]
+        sources = parent["sources"]
+        user_arguments = parent["user_arguments"]
+        user_sources = parent["user_sources"]
+    else:
+        macros = sorted(plan["macros"].keys())
+        for block in macros:
+            cfg = blocks.get(block, XS_BLOCK_DEFAULT)
+            arguments, sources = _planned_block(cfg, plan["macros"][block], plan_dir, block)
+            orfs_flow(
+                name = block,
+                abstract_stage = "place",
+                arguments = arguments,
+                pdk = "//flow:asap7",
+                sources = sources,
+                tags = tags,
+                user_arguments = cfg["user_arguments"],
+                user_sources = cfg["user_sources"],
+                user_stages = _user_stages(cfg["user_arguments"], cfg["user_sources"]),
+                variant = variant,
+                verilog_files = XS_VERILOG,
+            )
+        arguments = {k: v for k, v in parent["arguments"].items() if k not in _PLAN_DROPS}
+        arguments["DIE_AREA"] = plan["parent"]["DIE_AREA"]
+        arguments["CORE_AREA"] = plan["parent"]["CORE_AREA"]
+        sources = dict(parent["sources"])
+        sources["MACRO_PLACEMENT_TCL"] = [":%s/place_macros.tcl" % plan_dir]
+        sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints_800ps.sdc"]
+        user_arguments = {}
+        user_sources = {}
+    suffix = "_" + variant if variant else ""
     orfs_flow(
         name = name,
-        arguments = parent["arguments"],
-        macros = [":%s_generate_abstract" % b for b in XS_BLOCK_ORDER if b in blocks],
+        arguments = arguments,
+        macros = [":%s%s_generate_abstract" % (b, suffix) for b in macros],
         pdk = "//flow:asap7",
-        sources = parent["sources"],
+        sources = sources,
         tags = tags,
-        user_arguments = parent["user_arguments"],
-        user_sources = parent["user_sources"],
-        user_stages = _user_stages(parent["user_arguments"], parent["user_sources"]),
+        user_arguments = user_arguments,
+        user_sources = user_sources,
+        user_stages = _user_stages(user_arguments, user_sources),
+        variant = variant,
         verilog_files = XS_VERILOG,
         visibility = ["//visibility:public"],
     )
