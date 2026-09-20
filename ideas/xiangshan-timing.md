@@ -66,6 +66,26 @@ phantom belonged to the whole-core netlist. So the per-block pass is
 minutes and the whole-core full repair is the outlier; whether the
 pre-placement pass alone scales to the core is untested and not needed.
 
+## 5. The legaliser after CTS is the parent's budget breaker
+
+Take 19's planned parent (1.3 M own cells, four real blocks, no legaliser
+window set): CTS stage past 2 h at 47 GB when sampled with `perf` for
+15 s on 2026-09-20. Every hot frame is the negotiation legaliser: 13 %
+`dpl::NegotiationLegalizer::negotiationCost`, then `odb::compare_by_id`
+and `dbInst::getMaster` (19 % together: a sorted-set lookup per
+candidate location), `Grid::gridEndY`, `PlacementDRC::checkBlockedLayers`,
+`getSiteOrientation`, `isValidRow`, `paintPixel`. The place stage's
+long single-threaded sub-step at 33 GB had the same profile shape. On
+the dissolved die of take 17 the same legaliser finished the CTS stage
+in 23 s at margin 1.5 and took 82 min at margin 2 without the channel
+floor, so the cost is not the cell count: it is how many cells the
+clock-tree insertion drops where there is no room, in channels and along
+pin sides. Candidate fixes, cheapest first: keep the clock buffers out
+of the channels (a placement blockage per channel at CTS, or wider
+channels in the plan); `-use_diamond_legalizer` with the default window
+for the CTS stage; the lookup cost in `negotiationCost` as a tool study
+(profile saved next to the take). Profile: tmp/take19/cts_perf.txt.
+
 ## Method notes
 
 - Synthesis-stage numbers are read after `repair_design`, never before;
