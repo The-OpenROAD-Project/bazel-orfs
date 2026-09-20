@@ -28,7 +28,9 @@ def read_boundaries(path):
         if not p or p[0] != "module":
             continue
         d = dict(zip(p[2::2], p[3::2]))
-        mods[p[1]] = {k: (int(v) if v.lstrip("-").isdigit() else v) for k, v in d.items()}
+        mods[p[1]] = {
+            k: (int(v) if v.lstrip("-").isdigit() else v) for k, v in d.items()
+        }
     return mods
 
 
@@ -47,12 +49,16 @@ def read_paths(path, mods):
         if len(p) < 4:
             continue
         slack, pins, end, start = float(p[0]), int(p[1]), p[2], p[3]
-        rows.append((slack, pins, module_of(end, mods_by_len), module_of(start, mods_by_len)))
+        rows.append(
+            (slack, pins, module_of(end, mods_by_len), module_of(start, mods_by_len))
+        )
     return rows
 
 
 def table(mods, paths, period):
-    stats = collections.defaultdict(lambda: {"n": 0, "worst": None, "worst_cross": None, "cross": 0, "lens": []})
+    stats = collections.defaultdict(
+        lambda: {"n": 0, "worst": None, "worst_cross": None, "cross": 0, "lens": []}
+    )
     for slack, pins, em, sm in paths:
         st = stats[em]
         st["n"] += 1
@@ -65,7 +71,9 @@ def table(mods, paths, period):
             st["worst"] = slack
     rows = []
     for m, d in mods.items():
-        st = stats.get(m, {"n": 0, "worst": None, "worst_cross": None, "cross": 0, "lens": []})
+        st = stats.get(
+            m, {"n": 0, "worst": None, "worst_cross": None, "cross": 0, "lens": []}
+        )
         pins_in, pins_out = d.get("in", 0), d.get("out", 0)
         reg = d.get("reg_in", 0) + d.get("reg_out", 0)
         total = pins_in + pins_out
@@ -78,7 +86,11 @@ def table(mods, paths, period):
                 "registered": (reg / float(total)) if total else None,
                 "cells": d.get("cells", 0),
                 "flops": d.get("flops", 0),
-                "empty_stages": (d.get("empty_stages", 0) / float(d["flops"])) if d.get("flops") else None,
+                "empty_stages": (
+                    (d.get("empty_stages", 0) / float(d["flops"]))
+                    if d.get("flops")
+                    else None
+                ),
                 "paths": st["n"],
                 "crossing": st["cross"],
                 "worst_ps": st["worst"],
@@ -101,21 +113,40 @@ def format_table(rows, top):
     rows = sorted(rows, key=key)
     out = [
         "{:<52} {:>6} {:>5} {:>7} {:>6} {:>5} {:>8} {:>8} {:>5} {:>5}".format(
-            "module", "pins", "reg", "cells", "flops", "empty", "worst", "x-worst", "paths", "xing"
+            "module",
+            "pins",
+            "reg",
+            "cells",
+            "flops",
+            "empty",
+            "worst",
+            "x-worst",
+            "paths",
+            "xing",
         )
     ]
     for r in rows[:top]:
         out.append(
             "{:<52} {:>6} {:>5} {:>7} {:>6} {:>5} {:>8} {:>8} {:>5} {:>5}".format(
-                r["module"][-52:], r["pins"], fmt(r["registered"]), r["cells"], r["flops"], fmt(r["empty_stages"]),
-                fmt(r["worst_ps"], "{:.0f}"), fmt(r["worst_cross_ps"], "{:.0f}"), r["paths"], r["crossing"]
+                r["module"][-52:],
+                r["pins"],
+                fmt(r["registered"]),
+                r["cells"],
+                r["flops"],
+                fmt(r["empty_stages"]),
+                fmt(r["worst_ps"], "{:.0f}"),
+                fmt(r["worst_cross_ps"], "{:.0f}"),
+                r["paths"],
+                r["crossing"],
             )
         )
     return "\n".join(out)
 
 
 def main(argv):
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--boundaries", required=True)
     ap.add_argument("--paths", required=True)
     ap.add_argument("--period-ps", type=float, default=800.0)

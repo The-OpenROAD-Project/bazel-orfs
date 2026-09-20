@@ -6,7 +6,6 @@ load(":arms.bzl", "pinwall_arm")
 
 exports_files([
     "constraints.sdc",
-    "lateral_blockage.tcl",
     "pins_top.tcl",
     "place_block.tcl",
     "place_block_lateral.tcl",
