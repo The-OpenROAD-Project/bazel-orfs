@@ -1250,6 +1250,9 @@ def xiangshan_flow(name = "XSCore", blocks = XS_BLOCKS, parent = XS_PARENT, tags
         arguments = {k: v for k, v in parent["arguments"].items() if k not in _PLAN_DROPS}
         arguments["DIE_AREA"] = plan["parent"]["DIE_AREA"]
         arguments["CORE_AREA"] = plan["parent"]["CORE_AREA"]
+        if "SYNTH_KEEP_MODULES" in plan["parent"]:
+            # what the blocks swallowed no longer exists in the parent
+            arguments["SYNTH_KEEP_MODULES"] = plan["parent"]["SYNTH_KEEP_MODULES"]
         sources = dict(parent["sources"])
         sources["MACRO_PLACEMENT_TCL"] = [":%s/place_macros.tcl" % plan_dir]
         sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints_800ps.sdc"]

@@ -62,15 +62,17 @@ def load_plan(path):
                "site_um": 0.054, "row_um": 0.27,
                "lattice_x_um": 0.144, "lattice_y_um": 2.16},
       "parent": {"cell_area_um2": 220000, "density": 0.5,
-                 "core_margin_um": 10},
+                 "core_margin_um": 10, "keep": ["Backend", "Frontend"]},
       "margins": {"pin_side": 1.5, "channel_min_um": 40,
                   "lateral": 0.5, "aspect_cap": 3.0, "gap_um": 10.8},
       "macros": [{"name": "Frontend", "pins": 3294, "area_um2": 910000,
                   "slack_ps": 300, "keep": ["Bpu", "Ftq"]}, ...]
     }
 
-    lattice_*_um and keep are optional; core_margin_um is also the block
-    flows' core margin.
+    lattice_*_um and the keep lists are optional; the parent's keep list is
+    the modules its own synthesis keeps after the blocks are hardened
+    (keep_under.py --outside). core_margin_um is also the block flows'
+    core margin.
     """
     with open(path) as f:
         return json.load(f)
@@ -393,6 +395,8 @@ def emit(out, plan, directory):
     dx, dy = out["die_um"][2], out["die_um"][3]
     bzl["parent"]["DIE_AREA"] = _area(0, 0, dx, dy)
     bzl["parent"]["CORE_AREA"] = _area(margin, margin, dx - margin, dy - margin)
+    if plan["parent"].get("keep"):
+        bzl["parent"]["SYNTH_KEEP_MODULES"] = " ".join(plan["parent"]["keep"])
     rows = []
     for m in out["macros"]:
         side = m["pin_side"]

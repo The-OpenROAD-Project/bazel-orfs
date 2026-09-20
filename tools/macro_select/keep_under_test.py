@@ -30,6 +30,13 @@ class KeepTest(unittest.TestCase):
         )
         self.assertEqual(keep_under.keep_under(rows, "Backend", 100), ["Tage"])
         self.assertEqual(keep_under.keep_under(rows, "Bpu", 100), ["Tage"])
+        # the parent keeps what has an instance outside the blocks, then the blocks
+        self.assertEqual(
+            keep_under.keep_outside(
+                rows, ["Frontend"], ["Bpu", "Tage", "Backend", "ICache"]
+            ),
+            ["Tage", "Backend", "Frontend"],
+        )
         # a uniquified name the RTL does not define is dropped
         self.assertEqual(
             keep_under.keep_under(rows, "Frontend", 0, modules={"Bpu", "ICache"}),
