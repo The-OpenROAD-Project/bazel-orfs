@@ -6,8 +6,10 @@ load(":arms.bzl", "pinwall_arm")
 
 exports_files([
     "constraints.sdc",
+    "lateral_blockage.tcl",
     "pins_top.tcl",
     "place_block.tcl",
+    "place_block_lateral.tcl",
 ])
 
 py_binary(
@@ -18,10 +20,47 @@ py_binary(
 
 [
     pinwall_arm(pins, channel)
-    for pins in [1000, 3000, 6000, 10000]
-    for channel in [10, 40, 100]
+    for pins in [
+        1000,
+        3000,
+        6000,
+        10000,
+    ]
+    for channel in [
+        10,
+        40,
+        100,
+    ]
 ]
 
-pinwall_arm(3000, 40, margin = 3.0)
+pinwall_arm(
+    3000,
+    40,
+    margin = 3.0,
+)
 
-pinwall_arm(6000, 40, margin = 3.0)
+pinwall_arm(
+    6000,
+    40,
+    margin = 3.0,
+)
+
+# The lateral case: the logic beside the pin side, every wire turning along
+# the channel. Where XiangShan's walls came from.
+[
+    pinwall_arm(
+        pins,
+        channel,
+        lateral = True,
+    )
+    for pins in [
+        1000,
+        3000,
+        6000,
+    ]
+    for channel in [
+        10,
+        40,
+        100,
+    ]
+]

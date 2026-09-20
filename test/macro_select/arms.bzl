@@ -35,13 +35,13 @@ def _r(x):
 def _area(x0, y0, x1, y1):
     return "{} {} {} {}".format(_r(x0), _r(y0), _r(x1), _r(y1))
 
-def pinwall_arm(pins, channel_um, margin = 1.5, name = None):
+def pinwall_arm(pins, channel_um, margin = 1.5, name = None, lateral = False):
     """The block and the parent for one point: pins, channel width, pin margin.
 
     Targets are pinwall_block_<arm>_<stage> and pinwall_top_<arm>_<stage>,
     results under results/asap7/pinwall_{block,top}/<arm>.
     """
-    name = name or "pw_p{}_c{}_m{}".format(pins, int(channel_um), str(margin).replace(".", ""))
+    name = name or "pw_p{}_c{}_m{}{}".format(pins, int(channel_um), str(margin).replace(".", ""), "_lat" if lateral else "")
     side = pins * PIN_PITCH_UM * margin / PIN_LAYERS
     gen = name + "_rtl"
     native.genrule(
@@ -74,6 +74,12 @@ def pinwall_arm(pins, channel_um, margin = 1.5, name = None):
     region_h = max(30.0, 2 * pins * 0.35 / 0.6 / side)
     die_w = side + 2 * EDGE_UM
     die_h = EDGE_UM + BLOCK_DEPTH_UM + channel_um + region_h + EDGE_UM
+    if lateral:
+        # the logic beside the block: a strip to its right as tall as the
+        # block and its channel, wide enough for the cells at density
+        region_w = max(30.0, 2 * pins * 0.35 / 0.6 / (BLOCK_DEPTH_UM + channel_um))
+        die_w = side + channel_um + region_w + 2 * EDGE_UM
+        die_h = EDGE_UM + BLOCK_DEPTH_UM + channel_um + EDGE_UM
     orfs_flow(
         name = "pinwall_top",
         top = "pinwall_top",
@@ -87,7 +93,7 @@ def pinwall_arm(pins, channel_um, margin = 1.5, name = None):
         macros = [":pinwall_block_" + name + "_generate_abstract"],
         pdk = "//flow:asap7",
         sources = {
-            "MACRO_PLACEMENT_TCL": [":place_block.tcl"],
+            "MACRO_PLACEMENT_TCL": [":place_block_lateral.tcl" if lateral else ":place_block.tcl"],
             # the parent's grid over a hardened block, as the XiangShan study's
             "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCKS_grid_strategy.tcl"],
             "SDC_FILE": [":constraints.sdc"],
