@@ -5,38 +5,38 @@ PLAN = {
         "Frontend": {
             "CORE_AREA": "10.000 10.000 944.720 944.720",
             "DIE_AREA": "0.000 0.000 954.720 954.720",
-            "SYNTH_KEEP_MODULES": "Ifu ResolveQueue ICache Phr Bpu Sc TLB IBuffer AheadBtb Ittage Tage MicroTage PMP WriteBuffer_4 WriteBuffer_4_entryWriteBuffer WriteBuffer_4_entryWriteBuffer_1 WriteBuffer_4_entryWriteBuffer_2 WriteBuffer_4_entryWriteBuffer_3 WriteBuffer_4_entryWriteBuffer_4 WriteBuffer_4_entryWriteBuffer_5 WriteBuffer_4_entryWriteBuffer_6 Ftq PMPChecker PMPChecker_inner_PMPChecker_1",
+            "SYNTH_KEEP_MODULES": "Ifu ResolveQueue ICache Phr Bpu Sc IBuffer AheadBtb Ittage Tage MicroTage PMP WriteBuffer_4 Ftq PMPChecker",
             "pin_side": "bottom",
             "x_um": 10.08,
-            "y_um": 2620.08
+            "y_um": 2620.08,
         },
         "MemBlock": {
             "CORE_AREA": "10.000 10.000 985.760 985.760",
             "DIE_AREA": "0.000 0.000 995.760 995.760",
-            "SYNTH_KEEP_MODULES": "LoadQueueReplay PrefetcherWrapper Sbuffer PtwCache DCacheWrapper TLBNonBlock MissQueue LoadQueueUncache SbufferData TLBNonBlock_2 TLBNonBlock_1 SqForwardPipe SqForwardPipe_pipes_1 SqForwardPipe_pipes_2 L2TLBWrapper VirtualStoreQueue LoadQueueRAR HPerfMonitor_3 LoadQueueRAW PhysicalStoreQueue Uncache L1PrefetchSourceArray BankedDataArray MainPipe PTWNewFilter VirtualLoadQueue PMP_inner_pmp PMP_ptw.pmp L1ErrorMetaArray L1CohMetaArray PMPChecker_ptw.PMPChecker PMPChecker_ptw.PMPChecker_1 PMPChecker_ptw.PMPChecker_2 PMPChecker_ptw.PMPChecker_3 LLPTW",
+            "SYNTH_KEEP_MODULES": "LoadQueueReplay Sbuffer PtwCache TLBNonBlock MissQueue LoadQueueUncache SbufferData TLBNonBlock_2 TLBNonBlock_1 SqForwardPipe VirtualStoreQueue LoadQueueRAR LoadQueueRAW PhysicalStoreQueue Uncache L1PrefetchSourceArray BankedDataArray MainPipe PTWNewFilter VirtualLoadQueue L1ErrorMetaArray L1CohMetaArray LLPTW",
             "pin_side": "top",
             "x_um": 60.768,
-            "y_um": 10.8
+            "y_um": 10.8,
         },
         "Region_1": {
             "CORE_AREA": "10.000 10.000 655.280 655.280",
             "DIE_AREA": "0.000 0.000 665.280 665.280",
-            "SYNTH_KEEP_MODULES": "ExeUnitImp_10 ExeUnitImp_10_exuFEX2_FaluFmacFdiv ExeUnitImp_9 ExuBlock_1 IssueQueueFaluFmacFdiv IssueQueueFaluFmacFdiv_issueQueueFEX2_FaluFmacFdiv IssueQueueFaluFmac IssueQueueFaluFmacFcvtFcmp",
+            "SYNTH_KEEP_MODULES": "ExeUnitImp_10 ExeUnitImp_9 ExuBlock_1 IssueQueueFaluFmacFdiv IssueQueueFaluFmac IssueQueueFaluFmacFcvtFcmp",
             "pin_side": "top",
             "x_um": 1067.328,
-            "y_um": 397.44
+            "y_um": 397.44,
         },
         "VecRegionModule": {
             "CORE_AREA": "10.000 10.000 797.840 797.840",
             "DIE_AREA": "0.000 0.000 807.840 807.840",
-            "SYNTH_KEEP_MODULES": "VFDivWrapper VFMacWrapper VFMacWrapper_exu.Vfma VFMacWrapper_exu.Vfma_1 VFMacWrapper_exu.Vfma_2 VIDiv VIMacU IssuePipeVialuVimacVmoveVfcvtVfma IssuePipeVialuVfmaVfdivVidiv IssuePipeVialuVfma IssuePipeVialuVfma_1 VectorCvt VectorCvt_vfcvts_1 IssueQueueVialuVimacVmoveVfcvtVfma IssueQueueVialuVfma IssueQueueVialuVfma_1 IssueQueueVialuVfmaVfdivVidiv",
+            "SYNTH_KEEP_MODULES": "VFDivWrapper VFMacWrapper VIDiv VIMacU IssuePipeVialuVimacVmoveVfcvtVfma IssuePipeVialuVfmaVfdivVidiv IssuePipeVialuVfma IssuePipeVialuVfma_1 VectorCvt IssueQueueVialuVimacVmoveVfcvtVfma IssueQueueVialuVfma IssueQueueVialuVfma_1 IssueQueueVialuVfmaVfdivVidiv",
             "pin_side": "bottom",
             "x_um": 975.6,
-            "y_um": 2676.24
-        }
+            "y_um": 2676.24,
+        },
     },
     "parent": {
         "CORE_AREA": "10.000 10.000 1783.440 3574.800",
-        "DIE_AREA": "0.000 0.000 1793.440 3584.800"
-    }
+        "DIE_AREA": "0.000 0.000 1793.440 3584.800",
+    },
 }

@@ -113,6 +113,14 @@ def scope_command(argv, unit, matrix):
     return cmd + argv
 
 
+def _logged(log, code):
+    try:
+        with open(log, errors="replace") as f:
+            return any(code in line for line in f)
+    except OSError:
+        return False
+
+
 def openroad_pid(children_of):
     """The openroad process under a shell, found by comm."""
     try:
@@ -207,6 +215,10 @@ def run_cell(design_name, design, arm_name, arm, rep, results_dir, matrix):
         status = (
             "oom" if proc.returncode in (137, -9) else "error(%d)" % proc.returncode
         )
+        # a route that finished with congestion under -allow_congestion
+        # wrote its JSON and exits 1 (GRT-0115): a measurement, not a failure
+        if os.path.exists(out_json) and _logged(out_json + ".driver.log", "GRT-0115"):
+            status = "congested"
     if matrix.get("perf") and os.path.exists(out_json + ".perf.data"):
         with open(out_json + ".perf.txt", "w") as f:
             subprocess.run(

@@ -30,6 +30,11 @@ class KeepTest(unittest.TestCase):
         )
         self.assertEqual(keep_under.keep_under(rows, "Backend", 100), ["Tage"])
         self.assertEqual(keep_under.keep_under(rows, "Bpu", 100), ["Tage"])
+        # a uniquified name the RTL does not define is dropped
+        self.assertEqual(
+            keep_under.keep_under(rows, "Frontend", 0, modules={"Bpu", "ICache"}),
+            ["Bpu", "ICache"],
+        )
 
 
 if __name__ == "__main__":
