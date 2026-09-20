@@ -19,6 +19,14 @@ xiangshan_flow(
     variant = "plan",
 )
 
+# The planned parent's synthesis: the blocks as blackboxes over the flat
+# parent logic, where probe_pin_partners.tcl reads which block each block
+# pin talks to (geometry only: run with GUI_TIMING=0).
+odb_debug(
+    name = "XSCore_plan_synth_odb_debug",
+    src = ":XSCore_plan_synth",
+)
+
 # The placement gate of the planned parent: free sites and RUDY before
 # CTS and global route spend their hours (/odb-debug).
 odb_debug(

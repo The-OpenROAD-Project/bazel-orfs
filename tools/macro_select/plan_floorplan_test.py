@@ -143,6 +143,53 @@ class EmitTest(unittest.TestCase):
         self.assertIn("-orientation R0 -exact", place)
 
 
+class SegmentTest(unittest.TestCase):
+    def test_segments_face_the_partner(self):
+        macros = [dict(m) for m in LayoutTest.MACROS]
+        p = plan(macros)
+        p["tech"] = LATTICE
+        out = plan_floorplan.layout(p)
+        by = {m["name"]: m for m in out["macros"]}
+        # two partners on opposite ends of the region, and the parent's logic
+        left = min(out["macros"], key=lambda m: m["x_um"] + m["w_um"] / 2)
+        right = max(out["macros"], key=lambda m: m["x_um"] + m["w_um"] / 2)
+        target = [m for m in out["macros"] if m not in (left, right)][0]
+        d = tempfile.mkdtemp(prefix="plan_seg.")
+        dump = os.path.join(d, "partners.txt")
+        with open(dump, "w") as f:
+            for i in range(10):
+                f.write("pin %s a%d %s\n" % (target["name"], i, left["name"]))
+            for i in range(30):
+                f.write("pin %s b%d %s\n" % (target["name"], i, right["name"]))
+            for i in range(20):
+                f.write("pin %s c%d logic\n" % (target["name"], i))
+        p["pin_partners"] = dump
+        plan_floorplan.emit(out, p, d)
+        segs = pin_segments = by[target["name"]]["pin_segments"]
+        self.assertEqual(len(segs), 3)
+        if target["pin_side"] in ("top", "bottom"):
+            # the left partner's segment comes first along x
+            self.assertEqual(segs[0]["partner"], left["name"])
+            self.assertEqual(segs[-1]["partner"], right["name"])
+        self.assertAlmostEqual(segs[0]["lo_um"], 0.0)
+        side_len = (
+            target["w_um"]
+            if target["pin_side"] in ("top", "bottom")
+            else target["h_um"]
+        )
+        self.assertAlmostEqual(segs[-1]["hi_um"], side_len, 2)
+        # lengths by pin count: 10:30:20
+        lens = [s["hi_um"] - s["lo_um"] for s in segs]
+        self.assertAlmostEqual(sum(lens), side_len, 2)
+        for s_, l in zip(segs, lens):
+            self.assertAlmostEqual(l / side_len, s_["pins"] / 60.0, 3)
+        text = open(os.path.join(d, target["name"] + "_pins.tcl")).read()
+        self.assertEqual(
+            text.count("set_io_pin_constraint -region"), 4
+        )  # 3 segments + the rest
+        self.assertIn("-region %s:0.000-" % target["pin_side"], text)
+
+
 class LayoutTest(unittest.TestCase):
     MACROS = [
         {"name": "Frontend", "pins": 3294, "area_um2": 910000, "slack_ps": 300},

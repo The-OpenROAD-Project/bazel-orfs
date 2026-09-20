@@ -76,4 +76,5 @@ py_test(
 exports_files([
     "probe_boundaries.tcl",
     "probe_paths.tcl",
+    "probe_pin_partners.tcl",
 ])
