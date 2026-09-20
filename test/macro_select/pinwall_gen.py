@@ -3,13 +3,12 @@
 
     pinwall_gen.py --pins N --block block.sv --top top.sv
 
-The block registers N inputs and drives N outputs from registers: a
-boundary that is registered on both sides, the cut the macro selection
-looks for. The parent instantiates it and answers every output with a
-register of its own that feeds an input back, so every pin has one wire to
-one flop in the parent, and the router's demand across the block's pin
-side is exactly N wires each way. Plain Verilog-2005 so either frontend
-reads it.
+The block has N pins in all, N/2 in and N/2 out, registered on both sides
+of the boundary: the cut the macro selection looks for. The parent
+instantiates it and answers every output with a register of its own that
+feeds an input back, so every pin has one wire to one flop in the parent,
+and the router's demand across the block's pin side is N wires. Plain
+Verilog-2005 so either frontend reads it.
 """
 
 import argparse
@@ -17,6 +16,7 @@ import sys
 
 
 def block(n):
+    n = n // 2
     return """// {n} pins in, {n} out, registered on both sides.
 module pinwall_block (
     input wire clock,
@@ -35,6 +35,7 @@ endmodule
 
 
 def top(n):
+    n = n // 2
     return """// The parent: one register per block pin, each answering the block.
 module pinwall_top (
     input wire clock,
