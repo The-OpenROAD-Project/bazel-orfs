@@ -26,4 +26,27 @@ set x1 [$bb xMax]
 set y0 [$bb yMax]
 set y1 [$core yMax]
 odb::dbBlockage_create $block $x0 $y0 $x1 $y1
+# cut_rows only cuts around macros, so the rows under the blockage would
+# still get their tapcells and edge cells, which the legaliser's
+# placed-in-rows check then fails; the rows are trimmed to start at the
+# blockage's right edge instead.
+set cut 0
+foreach row [$block getRows] {
+  set rb [$row getBBox]
+  if { [$rb yMin] < $y0 || [$rb xMin] >= $x1 } { continue }
+  set site [$row getSite]
+  set sw [$site getWidth]
+  lassign [$row getOrigin] ox oy
+  set n [$row getSiteCount]
+  set skip [expr { int(ceil(($x1 - $ox) / double($sw))) }]
+  set name [$row getName]
+  set orient [$row getOrient]
+  set dir [$row getDirection]
+  odb::dbRow_destroy $row
+  if { $n - $skip > 0 } {
+    odb::dbRow_create $block $name $site [expr { $ox + $skip * $sw }] $oy $orient $dir [expr { $n - $skip }] $sw
+  }
+  incr cut
+}
+puts "place_block_lateral.tcl: $cut rows trimmed to the blockage's right edge"
 puts "place_block_lateral.tcl: cells kept out of ([expr {$x0/double($dbu)}], [expr {$y0/double($dbu)}]) - ([expr {$x1/double($dbu)}], [expr {$y1/double($dbu)}]) um; the strip to the right is theirs"
