@@ -5,18 +5,18 @@ PLAN = {
         "Frontend": {
             "CORE_AREA": "10.000 10.000 944.720 944.720",
             "DIE_AREA": "0.000 0.000 954.720 954.720",
-            "SYNTH_KEEP_MODULES": "Ifu ResolveQueue ICache Phr Bpu Sc IBuffer AheadBtb Ittage Tage MicroTage PMP WriteBuffer_4 Ftq PMPChecker",
+            "SYNTH_KEEP_MODULES": "Ifu ResolveQueue ICache Phr Bpu Sc TLB IBuffer AheadBtb Ittage Tage MicroTage PMP WriteBuffer_4 Ftq PMPChecker",
             "pin_side": "bottom",
             "x_um": 10.08,
-            "y_um": 2620.08,
+            "y_um": 2620.08
         },
         "MemBlock": {
             "CORE_AREA": "10.000 10.000 985.760 985.760",
             "DIE_AREA": "0.000 0.000 995.760 995.760",
-            "SYNTH_KEEP_MODULES": "LoadQueueReplay Sbuffer PtwCache TLBNonBlock MissQueue LoadQueueUncache SbufferData TLBNonBlock_2 TLBNonBlock_1 SqForwardPipe VirtualStoreQueue LoadQueueRAR LoadQueueRAW PhysicalStoreQueue Uncache L1PrefetchSourceArray BankedDataArray MainPipe PTWNewFilter VirtualLoadQueue L1ErrorMetaArray L1CohMetaArray LLPTW",
+            "SYNTH_KEEP_MODULES": "LoadQueueReplay PrefetcherWrapper Sbuffer PtwCache DCacheWrapper TLBNonBlock MissQueue LoadQueueUncache SbufferData TLBNonBlock_2 TLBNonBlock_1 SqForwardPipe L2TLBWrapper VirtualStoreQueue LoadQueueRAR HPerfMonitor_3 LoadQueueRAW PhysicalStoreQueue Uncache L1PrefetchSourceArray BankedDataArray MainPipe PTWNewFilter VirtualLoadQueue L1ErrorMetaArray L1CohMetaArray LLPTW",
             "pin_side": "top",
             "x_um": 60.768,
-            "y_um": 10.8,
+            "y_um": 10.8
         },
         "Region_1": {
             "CORE_AREA": "10.000 10.000 655.280 655.280",
@@ -24,7 +24,7 @@ PLAN = {
             "SYNTH_KEEP_MODULES": "ExeUnitImp_10 ExeUnitImp_9 ExuBlock_1 IssueQueueFaluFmacFdiv IssueQueueFaluFmac IssueQueueFaluFmacFcvtFcmp",
             "pin_side": "top",
             "x_um": 1067.328,
-            "y_um": 397.44,
+            "y_um": 397.44
         },
         "VecRegionModule": {
             "CORE_AREA": "10.000 10.000 797.840 797.840",
@@ -32,11 +32,11 @@ PLAN = {
             "SYNTH_KEEP_MODULES": "VFDivWrapper VFMacWrapper VIDiv VIMacU IssuePipeVialuVimacVmoveVfcvtVfma IssuePipeVialuVfmaVfdivVidiv IssuePipeVialuVfma IssuePipeVialuVfma_1 VectorCvt IssueQueueVialuVimacVmoveVfcvtVfma IssueQueueVialuVfma IssueQueueVialuVfma_1 IssueQueueVialuVfmaVfdivVidiv",
             "pin_side": "bottom",
             "x_um": 975.6,
-            "y_um": 2676.24,
-        },
+            "y_um": 2676.24
+        }
     },
     "parent": {
         "CORE_AREA": "10.000 10.000 1783.440 3574.800",
-        "DIE_AREA": "0.000 0.000 1793.440 3584.800",
-    },
+        "DIE_AREA": "0.000 0.000 1793.440 3584.800"
+    }
 }
