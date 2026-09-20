@@ -159,18 +159,21 @@ odb_debug(
     src = ":XSCore_hier_synth",
 )
 
-# Every module above a size threshold kept, not a hand-written list: the
-# boundaries the RTL already has, wherever they are. Same probe.
+# Every module of size kept, 245 of them with 1500 or more lines of
+# generated Verilog, not a hand-written list of units: the boundaries the
+# RTL already has, wherever they are. Same probe. (SYNTH_MINIMUM_KEEP_SIZE
+# would do this by area, but the keep pass has no cost for the memory
+# blackboxes AUTO_MEMORIES makes, so the list is explicit.)
 orfs_flow(
     name = "XSCore_hier_all",
     arguments = {
         "ABC_AREA": "1",
         "AUTO_MEMORIES": "1",
-        "SYNTH_MINIMUM_KEEP_SIZE": "2000",
         "OPENROAD_HIERARCHICAL": "1",
         "SKIP_EXTRACT_FA": "1",
         "SKIP_REPORT_METRICS": "1",
         "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_KEEP_MODULES": "TLToAXI4 VectorDecodeChannel LoadQueueReplay TLFIFOFixer BusyTable_1 BusyTable CtrlBlock Rob Phr Sbuffer Dispatch TLBFA_1 VirtualStoreQueue L1ErrorMetaArray NCBTransactionQueue IssueQueueVialuVimacVmoveVfcvtVfma IssueQueueVialuVfmaVfdivVidiv IssueQueueVialuVfma IssueQueueVialuVfma_1 SSIT DCache VirtualLoadQueue TLBFA_3 NCB200 DecodeChannels_MOP8_UOP8_M2x8_M4x8_M8x8 CompressUnit RenameBufferFile SbufferData AheadBtb UopBufferCtrlDecoder MemBlock LFST Ifu BankedDataArray PtwCache L1PrefetchSourceArray TLBFA_2 Region L2TLB PhysicalStoreQueue Tage Backend Sc LoadQueueRAW MissQueue EntriesAluCsrFenceLinkBrhNjmp EntriesLdu EntriesAluI2fBrhNjmp EntriesAluDivBrhNjmp BloomFilter_Verification_Assert IBuffer NewCSR VTypeBuffer EntriesAluBkuVset TLBFA ResolveQueue MSHRCtl NCBTransactionAgeMatrix L1CohMetaArray L1FlagMetaArray FpRegFilePart0 FpRegFilePart1 FpRegFilePart2 FpRegFilePart3 EntriesAluMul IntRegFile Domain_1 LoadQueueRAR Domain NCB200_1 WriteBuffer_4 BypassShadowBuffer AgeDetector_40 InterruptFilter EntriesFaluFmacFcvtFcmp L1RefillLatencyArray BypassShadowBuffer_1 EntriesFaluFmacFdiv Frontend EntriesFaluFmac EntriesStaMou Slice NCBTransactionQueue_1 RenameTable_2 ICacheReplacer IssueQueueVstd Rename UopSelectModule_DecodeChannelOutput_MopCtrlBundle MainPipe BufferSelectModule_DecodeChannelOutput_MopCtrlBundle MutiLevelPrefetchFilter EntriesStdMoud NCBTransactionPayload ResponseUnit StdFreeList MEFreeList LoadQueueUncache Bpu MemUnit XSCore VfRegFile RenameTable_1 DataPath LLPTW TLDebugModuleInner RenameTable ICacheWayLookup RenameBuffer VecRegionModule RefillUnit NCBTransactionPayload_Verification_Assert LoadQueueReplay_Verification_Assert WriteBuffer_68 VpnTable FrontendTrigger Region_1 AXI4UserYanker_2 TLBNonBlock Ftq MemMisc DataPath_1 AXI4Deinterleaver Uncache LsqWrapper NCBTransactionPayload_1 CommitQueue PMP AXI4Xbar SqForwardPipe MainPipe_1 NCBTransactionAgeMatrix_1 PipeGroupConnect SimpleDecodeChannel NewLoadUnit Slice_1 PredChecker BypassNetwork_6 PTWFilterEntry BlockCipherModule RequestBuffer VectorFMAS2 SentUnit RequestArb PatternHistoryTable TwoLevelRRArbiter_18 DecodeStage AXI4Xbar_Verification_Assert FreeList_2 StdFreeList_1 TLPMA ForwardModule PTWFilterEntry_2 AXI4ToTL RegCacheTagModule XSTop FtTrainPipeline FreeList NCBOrderAddressCAM PrefetchFilter SinkC fpsqrt_r16_block NCBTransactionPayload_1_Verification_Assert MMIOBridge FusionDecoder FloatFMA TLBNonBlock_2 TIMER OpenNCB AXI4UserYanker DeltaPrefetchBuffer LoadQueue AXI4UserYanker_3 TLBNonBlock_1 CDPPrefetcher StreamBitVectorArray_Verification_Assert Directory RegCacheDataModule RasStack LqPAddrModule HPerfCounter_21 VecExcpDataMergeModule RegCacheAgeTimer RegCacheAgeDetector CoupledL2 AheadBtbReplacer IssueQueueAluI2fBrhNjmp IssueQueueAluCsrFenceLinkBrhNjmp OpenLLC TLPLIC RegCache IssueQueueAluDivBrhNjmp NCBUpstreamTXDAT StreamBitVectorArray RegCacheDataModule_Verification_Assert EnqEntry_4 L2Top IntRFBankReadArbiter SnoopUnit EnqEntry EnqEntry_2 PMPChecker_8 EnqEntry_6 PTWFilter RegCacheTagTable MicroBtb MissEntry VFEX0 EnqEntry_8 OffsetScoreTable_1 ReplacerState_4 VectorFloatDividerR64 ExuBlock Misc CommonHR SplittedSRAM_1 IssueQueueAluBkuVset WriteBuffer_12 StoreQueue ExceptionGen AgeDetector_33 MSHR FreeList_1 TwoLevelRRArbiter_12 IssueQueueAluMul PMPChecker VectorFMA LqPAddrModule_1 NCBUpstreamRXREQ ICache WritebackQueue PTW ActiveGenerationTable IssueQueueLdu EnqEntry_26 StdFreeList_2 IssueQueueFaluFmacFcvtFcmp EnqEntry_28 AXI4Deinterleaver_Verification_Assert EnqEntry_32 MicroTage PTWFilterEntry_1 OverwriteQueue_1 XSTile OthersEntry_38 OthersEntry_6",
         "SYNTH_NUM_PARTITIONS": "48",
     },
     last_stage = "synth",
