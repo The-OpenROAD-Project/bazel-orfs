@@ -19,6 +19,11 @@ the window on every side. Demand over supply is a placement no search
 order can legalize, reported in seconds with the worst windows in
 microns, instead of the hours the search takes to prove it cell by cell.
 
+The check runs before either engine, the legacy diamond search and the
+default negotiation legalizer, whose windows extend up to the same
+displacement cap; on take 19 of the same design the negotiation ran
+past two hours where the check answers in a second.
+
 Measured on a hierarchical asap7 design whose clock buffers landed in
 channels narrower than they needed: 82 minutes of diamond search in the
 CTS stage, 37 % of samples in one function, on a placement this check
@@ -47,6 +52,21 @@ index 9321cde05..4b698812f 100644
    DbuPt nearestPt(const Node* cell, const DbuRect& rect) const;
    int distToRect(const Node* cell, const odb::Rect& rect) const;
    static bool checkOverlap(const odb::Rect& cell, const odb::Rect& box);
+diff --git a/src/dpl/src/Opendp.cpp b/src/dpl/src/Opendp.cpp
+index 86676b3c2..b1e32ac82 100644
+--- a/src/dpl/src/Opendp.cpp
++++ b/src/dpl/src/Opendp.cpp
+@@ -248,6 +248,10 @@ void Opendp::detailedPlacement(const int max_displacement_x,
+       groupInitPixels2();
+       groupInitPixels();
+     }
++    // The negotiation's windows extend up to the same displacement cap
++    // the diamond search has; a placement no window can legalize is
++    // refused here too, before the iterations are spent.
++    checkWindowSupply();
+     logger_->info(DPL, 1102, "Legalizing using negotiation legalizer.");
+ 
+     NegotiationLegalizer negotiation(
 diff --git a/src/dpl/src/Place.cpp b/src/dpl/src/Place.cpp
 index 5c3be5a40..74e81f9d0 100644
 --- a/src/dpl/src/Place.cpp
@@ -228,6 +248,3 @@ index 5c3be5a40..74e81f9d0 100644
  ////////////////////////////////////////////////////////////////
  
  void Opendp::placeGroups()
--- 
-2.53.0
-
