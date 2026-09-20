@@ -137,5 +137,13 @@ re-measured on the same floorplan.
 - Interfaces before areas; tables before flows; calibration on the
   synthetic before a take of the real design.
 - Never cut through the tangled core to make blocks build faster.
-- The RTL is not changed to make a cut; a taped-out design has its cuts.
+- The cut follows the architecture; the RTL is not rewritten to invent one.
+  The RTL is changed, idiomatically and as carried patches, where a tool
+  hole would otherwise cost the flow hours or a generic optimisation
+  (a broadcast net, a boundary that wants a register, a generated
+  memory's model): solving it in the RTL and the flow scripts is cheaper
+  than waiting for a productised algorithm, and usually better QoR.
+- The first flow completes global route in hours, one iteration a day,
+  before it is asked to pass a period; every stage carries a time budget
+  and a stage that breaks it is a finding, not a wait.
 - A gate that fails names the stage where the fix belongs; go there.
