@@ -61,11 +61,14 @@ def pinwall_arm(pins, channel_um, margin = 1.5, name = None):
         pdk = "//flow:asap7",
         sources = {
             "IO_CONSTRAINTS": [":pins_top.tcl"],
+            # a block's grid: rails and straps that a parent's grid connects to
+            "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
             "SDC_FILE": [":constraints.sdc"],
         },
         variant = name,
         verilog_files = [":" + name + "_block.sv"],
     )
+
     # the parent's region: 2N flops and their xors at PLACE_DENSITY, above
     # the channel; a floor of 30 um so a small N still has rows
     region_h = max(30.0, 2 * pins * 0.35 / 0.6 / side)
@@ -85,6 +88,8 @@ def pinwall_arm(pins, channel_um, margin = 1.5, name = None):
         pdk = "//flow:asap7",
         sources = {
             "MACRO_PLACEMENT_TCL": [":place_block.tcl"],
+            # the parent's grid over a hardened block, as the XiangShan study's
+            "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCKS_grid_strategy.tcl"],
             "SDC_FILE": [":constraints.sdc"],
         },
         variant = name,
