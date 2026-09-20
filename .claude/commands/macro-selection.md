@@ -74,7 +74,25 @@ flip and no track trouble (see `macro_anneal.flip_legal`).
 The four constants the planner cannot derive, pin pitch, pin margin,
 channel and picoseconds per micron, come from `test/macro_select`, a
 synthetic parent with one pin-wall block routed in tens of seconds per
-point (`calibrate.sh`), not from a take of the real design.
+point (`calibrate.sh`), not from a take of the real design. What the
+first calibration on asap7 said (route-0, two pin layers, pin side =
+pins x 0.096 um x 1.5 / 2, that is 13.9 pins per micron of the side):
+with the logic *facing* the pin side, 1 000 to 10 000 pins across a 10 to
+100 um channel never wall, total overflow at most 31 edges; with the
+logic *beside* the pin side, every wire turning along the block, 3 000
+pins overflow 1e5 with edges over 100 and 6 000 pins overflow 1e6 with
+edges in the hundreds, and a 100 um channel is no better than 10 um. The
+pin pitch is not the constraint; the fraction of a block's pins whose
+logic is in front of them is, and the plan's side assignment is what sets
+it. A macro whose pins must talk to two regions is two macros or none.
+
+`--emit DIR` writes what the flows consume: per block `<name>_pins.tcl`
+(every signal pin on the planned side), `place_macros.tcl` for the parent
+(by master, R0, `-exact`) and `plan.bzl` with the outlines; the design's
+`.bzl` reads `PLAN` and builds the planned variant next to the unplanned
+one (XiangShan: `xiangshan_flow(plan = PLAN, variant = "plan")`, targets
+`XSCore_plan_*`). `keep_under.py` lists the masters under a block in the
+boundary probe for the block's own `SYNTH_KEEP_MODULES`.
 
 ## 4. Build, with the gates on
 

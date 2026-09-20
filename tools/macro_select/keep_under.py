@@ -24,7 +24,14 @@ def read(path):
         if not p or p[0] != "module":
             continue
         d = dict(zip(p[2::2], p[3::2]))
-        rows.append((p[1], d.get("master", ""), int(d.get("cells", 0)), int(d.get("in", 0)) + int(d.get("out", 0))))
+        rows.append(
+            (
+                p[1],
+                d.get("master", ""),
+                int(d.get("cells", 0)),
+                int(d.get("in", 0)) + int(d.get("out", 0)),
+            )
+        )
     return rows
 
 
@@ -42,7 +49,9 @@ def keep_under(rows, master, min_cells=0, min_pins=0):
 
 
 def main(argv):
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--boundaries", required=True)
     ap.add_argument("--master", required=True)
     ap.add_argument("--min-cells", type=int, default=20000)

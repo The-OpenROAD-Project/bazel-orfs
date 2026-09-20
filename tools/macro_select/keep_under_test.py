@@ -25,7 +25,9 @@ class KeepTest(unittest.TestCase):
             f.write(BOUNDARIES)
         rows = keep_under.read(p)
         self.assertEqual(keep_under.keep_under(rows, "Frontend", 100), ["Bpu", "Tage"])
-        self.assertEqual(keep_under.keep_under(rows, "Frontend", 0), ["Bpu", "Tage", "ICache"])
+        self.assertEqual(
+            keep_under.keep_under(rows, "Frontend", 0), ["Bpu", "Tage", "ICache"]
+        )
         self.assertEqual(keep_under.keep_under(rows, "Backend", 100), ["Tage"])
         self.assertEqual(keep_under.keep_under(rows, "Bpu", 100), ["Tage"])
 
