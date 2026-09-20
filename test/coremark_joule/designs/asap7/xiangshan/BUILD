@@ -158,3 +158,44 @@ odb_debug(
     name = "XSCore_hier_synth_odb_debug",
     src = ":XSCore_hier_synth",
 )
+
+# Every module above a size threshold kept, not a hand-written list: the
+# boundaries the RTL already has, wherever they are. Same probe.
+orfs_flow(
+    name = "XSCore_hier_all",
+    arguments = {
+        "ABC_AREA": "1",
+        "AUTO_MEMORIES": "1",
+        "SYNTH_MINIMUM_KEEP_SIZE": "2000",
+        "OPENROAD_HIERARCHICAL": "1",
+        "SKIP_EXTRACT_FA": "1",
+        "SKIP_REPORT_METRICS": "1",
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_NUM_PARTITIONS": "48",
+    },
+    last_stage = "synth",
+    pdk = "//flow:asap7",
+    sources = {
+        "SDC_FILE": [":constraints_800ps.sdc"],
+        "STRUCTURED_MEMORIES": [
+            "FpRegFilePart0.regfile",
+            ":FpRegFilePart1.regfile",
+            ":FpRegFilePart2.regfile",
+            ":FpRegFilePart3.regfile",
+            ":FtqEntryQueue.regfile",
+            ":FtqMetaQueueCommit.regfile",
+            ":FtqMetaQueueRedirect.regfile",
+            ":FtqMetaQueueResolve.regfile",
+            ":IntRegFile.regfile",
+            ":RenameBufferFile.regfile",
+            ":VfRegFile.regfile",
+        ],
+    },
+    top = "XSCore",
+    verilog_files = ["//test/coremark_joule/xiangshan:xiangshan_flat.sv"],
+)
+
+odb_debug(
+    name = "XSCore_hier_all_synth_odb_debug",
+    src = ":XSCore_hier_all_synth",
+)

@@ -1343,12 +1343,15 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 "yosys-dependencies",
                 "do-yosys-keep",
                 "SYNTH_KEEP_SCRIPT=" + ctx.file._synth_keep_script.path,
-            ] + sdc_overrides,
+                # yosys-dependencies wants the AUTO_MEMORIES artifacts; they
+                # are staged below and must not be remade here, where
+                # VERILOG_FILES is empty (see the serial synth action).
+            ] + ["--old-file=" + f.path for f in memories_inputs] + sdc_overrides,
             command = " && ".join(keep_commands),
             env = base_env,
             inputs = depset(
                 [canon_output, config, parallel_makefile, ctx.file._synth_keep_script] +
-                clock_period_inputs + ctx.files.extra_configs,
+                clock_period_inputs + ctx.files.extra_configs + memories_inputs,
                 transitive = [
                     synth_data_inputs,
                     pdk_inputs(ctx),
