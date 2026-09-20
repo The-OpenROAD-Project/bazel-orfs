@@ -19,6 +19,13 @@ xiangshan_flow(
     variant = "plan",
 )
 
+# The placement gate of the planned parent: free sites and RUDY before
+# CTS and global route spend their hours (/odb-debug).
+odb_debug(
+    name = "XSCore_plan_place_odb_debug",
+    src = ":XSCore_plan_place",
+)
+
 grt_netlist(
     name = "cmj_xiangshan_grt_netlist",
     src = ":XSCore_grt",
