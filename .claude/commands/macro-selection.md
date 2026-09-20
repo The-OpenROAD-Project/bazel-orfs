@@ -1,0 +1,113 @@
+> **Repo**: Run from your ORFS workspace root. Examples use bazel-orfs's own XiangShan study (`test/coremark_joule/designs/asap7/xiangshan`), the design this was developed on.
+
+Choose which modules of a large design to harden as macros, and plan the parent floorplan their interfaces dictate, so that the parent's global route converges.
+
+ARGUMENTS: $ARGUMENTS
+
+Hardening by synthesis time picks the modules with the widest interfaces
+per side, and the router dies on exactly those sides: on XiangShan, 34
+blocks chosen that way put 6.9 pins on every micron of every pin side and
+took four takes of global route past their budgets, three of them on
+FastRoute's own 100x-capacity edge guard next to a macro's pin side. The
+axis that predicts routability is interface width against perimeter, and
+a CPU's idiomatic units are where that ratio is small, because the
+architecture already drew the narrow cut: the whole frontend is 3.3 k bits
+where its five pieces bring 17 k. The skill is the procedure for finding
+those cuts in space and in time, and for building the floorplan around
+them instead of asking a placer to discover it.
+
+## 1. The space table, before any flow runs
+
+```sh
+bazelisk run //tools/macro_select:select_table -- --sv $PWD/bazel-bin/<design>_flat.sv \
+    --module Frontend --module MemBlock --children Frontend=Bpu,Ftq,Ifu,ICache,IBuffer \
+    --area Bpu=381000 --area Ftq=354000 ...
+```
+
+Interface bits per module from the RTL, the square its area makes (from a
+synthesised block where one exists), pins per micron of that square's
+perimeter, and each parent against the sum of its children. Read it for
+the level where the interface drops by a multiple against the children:
+that is the cut the architecture drew. Numbers to expect: a well-cut unit
+under about 2 pins per micron; a tangled one, the out-of-order core's
+issue and control, at 4 to 9, which never becomes a macro.
+
+## 2. The time table, from one hierarchical synthesis
+
+Synthesise the whole design flat with every candidate kept as a module
+and `OPENROAD_HIERARCHICAL=1`, so the ODB keeps the boundaries, at the
+target synthesis period (XiangShan: `XSCore_hier_synth` at 800 ps for a
+core meant to route at 1000). Open it through its `odb_debug` target with
+timing, run `repair_design` in the session first (synthesis-stage slack
+is a fanout artefact until something buffers: XiangShan's worst path was
+-7.2 ns from two unbuffered nets of fanout 1410 and 1056), then the
+probe: per module, whether its boundary pins are registered right inside
+(through the buffer or inverter on a flop's QN), the worst path crossing
+it with depth and slack, the paths that cross in and out, and the empty
+pipeline stages inside it, which are the retiming idiom. A boundary is
+well formed in time when its crossings are registered or shallow and its
+worst crossing has slack to spare for the wire the floorplan will add.
+
+Keep more than you think: a second synthesis with
+`SYNTH_MINIMUM_KEEP_SIZE` instead of a hand-written keep list finds the
+registered boundaries wherever the RTL has them. A design that has taped
+out has them; the job is to find them, never to move them in the RTL.
+
+## 3. The plan, from both tables
+
+```sh
+bazelisk run //tools/macro_select:plan_floorplan -- $PWD/plan.json --out $PWD/plan_out.json
+```
+
+Per macro: pins, area, worst boundary slack. The planner returns the pin
+side (never shorter than the pins need at the calibrated pitch, the block
+square when they fit, two adjacent sides when the aspect cap cannot hold
+them), the channel in front of it (wires that run along it plus a floor
+for the cells the parent puts there, buffers and the clock tree), the
+parent's logic region at a chosen density, the side assignment that
+minimises the die, the die, and each crossing's slack after the wire it
+now has to cross. A crossing that goes negative is a wrong cut for this
+geometry: move that macro a level down in the table, not the floorplan.
+Every block is placed R0 with its pin side chosen in its own frame, so no
+flip and no track trouble (see `macro_anneal.flip_legal`).
+
+The four constants the planner cannot derive, pin pitch, pin margin,
+channel and picoseconds per micron, come from `test/macro_select`, a
+synthetic parent with one pin-wall block routed in tens of seconds per
+point (`calibrate.sh`), not from a take of the real design.
+
+## 4. Build, with the gates on
+
+Blocks as real flows with the planned outline and pins on the planned
+side (one side, at real spacing; mocks only as same-outline turnaround
+companions), their own internal partitions and macro banks, each
+synthesised at the target period so a block that cannot close alone is
+known before the parent is built. Retiming (`SYNTH_RETIME_MODULES`) per
+module where the idiom is present, measured per module on its own
+synthesis, kept where it pays in period and in time; the list stays
+short and named, since ORFS does not verify it.
+
+The parent from the plan. Then the gates, cheapest first, each a hard
+stop: the annealer's channel check at floorplan; the free-site picture
+and the RUDY map at place (`/odb-debug`); the legaliser's window check;
+the zero-iteration global route, total overflow under about 100 k and no
+edge in the hundreds, before any maze budget is spent. A wall on a
+block's side names the block; dense everywhere names the utilisation.
+
+## 5. The proof and the KPI
+
+The proof is a global route that converges within its iteration budget in
+bounded time. The period at global route is the project's KPI from then
+on, measured as the study measures it (f from period minus WNS at a
+slightly negative WNS), and the timing inventory (`ideas/`) is the
+backlog that moves it: each entry a well-studied problem, ranked by the
+worst paths it owns, fixed in the tool or articulated in the RTL, and
+re-measured on the same floorplan.
+
+## Rules
+
+- Interfaces before areas; tables before flows; calibration on the
+  synthetic before a take of the real design.
+- Never cut through the tangled core to make blocks build faster.
+- The RTL is not changed to make a cut; a taped-out design has its cuts.
+- A gate that fails names the stage where the fix belongs; go there.

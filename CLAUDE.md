@@ -122,6 +122,14 @@ mechanics:
   session (macros, cells inside macros, slivers, legality, worst paths)
   from a shell or the `odb-debug` MCP server in `.mcp.json`.
 
+Which modules to harden, and the floorplan their interfaces dictate, is
+its own skill; a global route that will not converge on a hierarchical
+design usually starts there, not in the router:
+
+- `/macro-selection` — the space and time tables that name the cuts, the
+  planner that draws the floorplan from them, the calibration and the
+  gates; tools in `tools/macro_select`, harness in `test/macro_select`.
+
 A simulation that hangs, produces no output or computes the wrong answer
 is a different problem from an OpenROAD failure, and has its own skill:
 
