@@ -26,6 +26,13 @@ odb_debug(
     src = ":XSCore_plan_place",
 )
 
+# A block's synthesis netlist with timing: where the pre-placement repair
+# and the fanout pricing are measured at a size the flow runs in minutes.
+odb_debug(
+    name = "Frontend_plan_synth_odb_debug",
+    src = ":Frontend_plan_synth",
+)
+
 grt_netlist(
     name = "cmj_xiangshan_grt_netlist",
     src = ":XSCore_grt",

@@ -7,7 +7,10 @@
 boundaries.txt is probe_boundaries.tcl's output (one line per module
 instance: boundary pins in and out, how many are registered right inside,
 cells, flops, empty pipeline stages); paths.txt is probe_paths.tcl's (the
-worst path ends with slack, length, endpoint and startpoint pins). Each
+worst path ends with slack, priced slack, length, max fanout, endpoint
+and startpoint pins; the priced slack, which charges every over-fanout
+stage a buffer tree instead of its unbuffered delay, is the number used;
+an older four-column dump is read as is). Each
 path is attributed to the deepest module instance containing its endpoint
 and its startpoint; a path whose two ends sit in different modules crosses
 a boundary. Per module: registered fraction of its boundary, worst
@@ -52,7 +55,12 @@ def read_paths(path, mods):
         p = line.split()
         if len(p) < 4:
             continue
-        slack, pins, end, start = float(p[0]), int(p[1]), p[2], p[3]
+        if len(p) >= 6:
+            # priced dump: slack, priced slack, pins, max fanout, end, start;
+            # the priced slack is the table's number
+            slack, pins, end, start = float(p[1]), int(p[2]), p[4], p[5]
+        else:
+            slack, pins, end, start = float(p[0]), int(p[1]), p[2], p[3]
         rows.append(
             (slack, pins, module_of(end, mods_by_len), module_of(start, mods_by_len))
         )

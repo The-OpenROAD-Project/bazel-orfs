@@ -16,6 +16,9 @@ PATHS = """-120.0 30 top/a/x_reg/D top/a/y_reg/CLK
 -80.0 22 top/b/z_reg/D top/a/inner/q_reg/CLK
 10.0 8 top/a/inner/r_reg/D top/a/inner/q_reg/CLK
 """
+PRICED = """-900.0 -120.0 30 1410 top/a/x_reg/D top/a/y_reg/CLK
+-80.0 -80.0 22 3 top/b/z_reg/D top/a/inner/q_reg/CLK
+"""
 
 
 class TableTest(unittest.TestCase):
@@ -27,6 +30,15 @@ class TableTest(unittest.TestCase):
             f.write(BOUNDARIES)
         with open(self.p, "w") as f:
             f.write(PATHS)
+
+    def test_priced_dump_uses_the_priced_slack(self):
+        with open(self.p, "w") as f:
+            f.write(PRICED)
+        mods = timing_table.read_boundaries(self.b)
+        paths = timing_table.read_paths(self.p, mods)
+        self.assertEqual(paths[0][0], -120.0)
+        self.assertEqual(paths[0][2:], ("top/a", "top/a"))
+        self.assertEqual(paths[1][0], -80.0)
 
     def test_attribution_and_stats(self):
         mods = timing_table.read_boundaries(self.b)
