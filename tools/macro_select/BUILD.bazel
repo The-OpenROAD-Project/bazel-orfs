@@ -23,3 +23,19 @@ py_test(
     ],
     main = "plan_floorplan_test.py",
 )
+
+py_binary(
+    name = "select_table",
+    srcs = ["select_table.py"],
+    main = "select_table.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "select_table_test",
+    srcs = [
+        "select_table.py",
+        "select_table_test.py",
+    ],
+    main = "select_table_test.py",
+)

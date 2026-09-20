@@ -114,7 +114,10 @@ def _span(items, gap):
 
 
 def _extents(placed):
-    return {s: max([m["channel_um"] + m["depth_um"] for m in placed[s]] or [0.0]) for s in SIDES}
+    return {
+        s: max([m["channel_um"] + m["depth_um"] for m in placed[s]] or [0.0])
+        for s in SIDES
+    }
 
 
 def assign_sides(shapes, region_area, gap, margin):
@@ -157,7 +160,9 @@ def layout(plan):
     gap = margins["gap_um"]
     shapes = [shape(m, tech, margins) for m in plan["macros"]]
     region_area = parent["cell_area_um2"] / parent["density"]
-    placed, region_w, region_h = assign_sides(shapes, region_area, gap, parent["core_margin_um"])
+    placed, region_w, region_h = assign_sides(
+        shapes, region_area, gap, parent["core_margin_um"]
+    )
     extent = _extents(placed)
     margin = parent["core_margin_um"]
     x0 = margin + extent["left"]
@@ -212,7 +217,9 @@ def layout(plan):
         "macro_area_mm2": round(macro_area / 1e6, 4),
         "cell_area_mm2": round(parent["cell_area_um2"] / 1e6, 4),
         "die_area_mm2": round(die_w * die_h / 1e6, 4),
-        "utilisation": round((macro_area + parent["cell_area_um2"]) / (die_w * die_h), 3),
+        "utilisation": round(
+            (macro_area + parent["cell_area_um2"]) / (die_w * die_h), 3
+        ),
         "timing_failures": [m["name"] for m in macros if m.get("timing_ok") is False],
     }
 
@@ -228,7 +235,10 @@ def check(out):
     """No two macros overlap and none leaves the die."""
     problems = []
     x0, y0, x1, y1 = out["die_um"]
-    boxes = [(m["name"], m["x_um"], m["y_um"], m["x_um"] + m["w_um"], m["y_um"] + m["h_um"]) for m in out["macros"]]
+    boxes = [
+        (m["name"], m["x_um"], m["y_um"], m["x_um"] + m["w_um"], m["y_um"] + m["h_um"])
+        for m in out["macros"]
+    ]
     for n, a, b, c, d in boxes:
         if a < x0 or b < y0 or c > x1 or d > y1:
             problems.append("{} outside die".format(n))
@@ -244,26 +254,54 @@ def check(out):
 def summary(out):
     lines = [
         "die {:.0f} x {:.0f} um, region {:.0f} x {:.0f} um, utilisation {:.0%} (macros {:.2f} mm2, cells {:.2f} mm2)".format(
-            out["die_um"][2], out["die_um"][3], out["region_um"][2] - out["region_um"][0], out["region_um"][3] - out["region_um"][1], out["utilisation"], out["macro_area_mm2"], out["cell_area_mm2"]
+            out["die_um"][2],
+            out["die_um"][3],
+            out["region_um"][2] - out["region_um"][0],
+            out["region_um"][3] - out["region_um"][1],
+            out["utilisation"],
+            out["macro_area_mm2"],
+            out["cell_area_mm2"],
         ),
         "{:<20} {:>6} {:>8} {:>8} {:>7} {:>6} {:>8} {:>8} {}".format(
-            "macro", "pins", "side um", "depth um", "chan um", "pin/um", "wire ps", "slack", "on"
+            "macro",
+            "pins",
+            "side um",
+            "depth um",
+            "chan um",
+            "pin/um",
+            "wire ps",
+            "slack",
+            "on",
         ),
     ]
     for m in out["macros"]:
         lines.append(
             "{:<20} {:>6} {:>8.0f} {:>8.0f} {:>7.0f} {:>6.2f} {:>8.0f} {:>8} {} {}{}".format(
-                m["name"], m["pins"], m["pin_side_um"], m["depth_um"], m["channel_um"], m["pins_per_um"], m["wire_ps"],
-                m.get("slack_after_wire_ps", "-"), m["region_side"], "pins " + m["pin_side"], " (two sides)" if m["two_sides"] else ""
+                m["name"],
+                m["pins"],
+                m["pin_side_um"],
+                m["depth_um"],
+                m["channel_um"],
+                m["pins_per_um"],
+                m["wire_ps"],
+                m.get("slack_after_wire_ps", "-"),
+                m["region_side"],
+                "pins " + m["pin_side"],
+                " (two sides)" if m["two_sides"] else "",
             )
         )
     if out["timing_failures"]:
-        lines.append("timing: the cut is wrong for this geometry at " + ", ".join(out["timing_failures"]))
+        lines.append(
+            "timing: the cut is wrong for this geometry at "
+            + ", ".join(out["timing_failures"])
+        )
     return "\n".join(lines)
 
 
 def main(argv):
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("plan")
     ap.add_argument("--out", help="JSON of the result")
     a = ap.parse_args(argv[1:])
