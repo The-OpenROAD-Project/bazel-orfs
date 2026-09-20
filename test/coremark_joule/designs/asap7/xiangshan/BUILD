@@ -1,73 +1,12 @@
-load("@coremark_joule_designs//:designs.bzl", "design")
 load("@bazel-orfs//:openroad.bzl", "odb_debug", "orfs_flow")
 load("//test/coremark_joule/flow:power.bzl", "census_probe", "grt_netlist", "hier_probe", "physical_probe", "stage_power", "stage_power_units")
+load(":xiangshan.bzl", "xiangshan_flow")
 
 exports_files(["constraints.sdc"])
 
-design(
-    # Blocks are abstracted from their placed ODB: pins and outline,
-    # before CTS or route, so the parent can start as soon as each block
-    # has placed. Their timing and power are then those of an unrouted
-    # block; move to "final" for the measured run.
-    block_abstract_stage = "place",
-    # The parent floorplans with each block's outline shrunk to what its
-    # pins need (1.5x the legal minimum perimeter), not to what the block's
-    # cells need: 4.15 mm2 of macros become about 0.75 mm2 and the die
-    # follows. Timing and power still come from the blocks' own abstracts.
-    # Turnaround setting; the parent's wires are as long as the mock.
-    block_mock_area = "pins",
-    config = "config.mk",
-    # Skip the 40-minute `global_placement -skip_io` step at the top and
-    # place pins directly. RTL exploration only.
-    # No quick_pins: with timing- and routability-driven placement off, the
-    # place stage's first solve places the pins itself (global_placement
-    # -place_ios, ORFS patch 0077) and the second solve is skipped, which
-    # is faster than the blind pin placement quick_pins gave and better
-    # placed. quick_pins would pre-place the pins and make the flow skip
-    # that first solve.
-    # The annealer's knobs, read by anneal_in_flow.tcl rather than by ORFS.
-    user_arguments = [
-        "ANNEAL_SEED",
-        "ANNEAL_DEPTH",
-        "ANNEAL_MIN_CLUSTER",
-        "ANNEAL_CHANNEL_UM",
-        "ANNEAL_BLOCK_GAP_UM",
-        "ANNEAL_FILL",
-        "ANNEAL_STRAP_PITCH_UM",
-        "ANNEAL_STRAP_OFFSET_UM",
-        "ANNEAL_STRAP_PAIR_UM",
-        "ANNEAL_CHANNEL_CHECK",
-        "ANNEAL_CHANNEL_AUTO",
-        "ANNEAL_CHANNEL_MIN_UM",
-    ],
-    # The placer and its inventory dump, staged into the floorplan sandbox.
-    user_sources = [
-        "ANNEAL_DUMP_TCL",
-        "ANNEAL_PY",
-    ],
-    # All read at macro placement only; scoped so a knob edit re-runs the
-    # floorplan and not the 48-minute synthesis before it.
-    user_stages = {
-        v: ["floorplan"]
-        for v in [
-            "ANNEAL_SEED",
-            "ANNEAL_DEPTH",
-            "ANNEAL_MIN_CLUSTER",
-            "ANNEAL_CHANNEL_UM",
-            "ANNEAL_BLOCK_GAP_UM",
-            "ANNEAL_FILL",
-            "ANNEAL_STRAP_PITCH_UM",
-            "ANNEAL_STRAP_OFFSET_UM",
-            "ANNEAL_STRAP_PAIR_UM",
-            "ANNEAL_CHANNEL_CHECK",
-            "ANNEAL_CHANNEL_AUTO",
-            "ANNEAL_CHANNEL_MIN_UM",
-            "ANNEAL_DUMP_TCL",
-            "ANNEAL_PY",
-        ]
-    },
-    visibility = ["//test/coremark_joule:__subpackages__"],
-)
+# The parent and its blocks: plain orfs_flow() targets, the table of
+# arguments in xiangshan.bzl. See there.
+xiangshan_flow()
 
 grt_netlist(
     name = "cmj_xiangshan_grt_netlist",
@@ -183,7 +122,6 @@ census_probe(
 # only; 800 ps is the target period for a core meant to route at 1000 ps.
 orfs_flow(
     name = "XSCore_hier",
-    top = "XSCore",
     arguments = {
         "ABC_AREA": "1",
         "AUTO_MEMORIES": "1",
@@ -198,8 +136,21 @@ orfs_flow(
     pdk = "//flow:asap7",
     sources = {
         "SDC_FILE": [":constraints_800ps.sdc"],
-        "STRUCTURED_MEMORIES": [":FpRegFilePart0.regfile", ":FpRegFilePart1.regfile", ":FpRegFilePart2.regfile", ":FpRegFilePart3.regfile", ":FtqEntryQueue.regfile", ":FtqMetaQueueCommit.regfile", ":FtqMetaQueueRedirect.regfile", ":FtqMetaQueueResolve.regfile", ":IntRegFile.regfile", ":RenameBufferFile.regfile", ":VfRegFile.regfile"],
+        "STRUCTURED_MEMORIES": [
+            ":FpRegFilePart0.regfile",
+            ":FpRegFilePart1.regfile",
+            ":FpRegFilePart2.regfile",
+            ":FpRegFilePart3.regfile",
+            ":FtqEntryQueue.regfile",
+            ":FtqMetaQueueCommit.regfile",
+            ":FtqMetaQueueRedirect.regfile",
+            ":FtqMetaQueueResolve.regfile",
+            ":IntRegFile.regfile",
+            ":RenameBufferFile.regfile",
+            ":VfRegFile.regfile",
+        ],
     },
+    top = "XSCore",
     verilog_files = ["//test/coremark_joule/xiangshan:xiangshan_flat.sv"],
 )
 
