@@ -39,9 +39,26 @@ generator's model or the array's real requirement.
 To be confirmed from the buffered timing: whether any path timed against
 the ideal clock starts at the `clock` port through gating logic.
 
+## 4. `repair_design` on the whole core's synthesis netlist does not return
+
+The time table wants the flat 138-module synthesis (`XSCore_hier_synth`,
+about 8 M cells) buffered before its slacks are read (entry 1). In the
+odb-debug session `repair_design` ran 6 h 34 min at 2.5 cores and was
+killed unfinished on 2026-09-20; its memory fell from 34 to 19 GB over the
+last two hours, so it was progressing, not stuck. A stage that the blocks
+finish in minutes each (the planned blocks, 1 to 3 M cells, placed in 20
+to 60 min including their own `repair_design`) takes the whole core past
+a working day. The time table therefore comes from the blocks' own flows
+(boundary slacks at their place stage, where the buffering has been done
+by the flow) and from the parent's place, not from one flat session; a
+flat `repair_design` on a core of this size is itself an entry for the
+tool: which of its passes scales worse than linearly here.
+
 ## Method notes
 
-- Synthesis-stage numbers are read after `repair_design`, never before.
+- Synthesis-stage numbers are read after `repair_design`, never before;
+  on the whole core that means the blocks' and the parent's place stages
+  (entry 4), not a flat session.
 - Retiming (`SYNTH_RETIME_MODULES`) is applied per module where the idiom
   is present, measured per module on its own synthesis; unverified for
   equivalence by ORFS, so the list stays short and named.
