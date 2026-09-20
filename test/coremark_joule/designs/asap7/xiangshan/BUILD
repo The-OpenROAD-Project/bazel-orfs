@@ -1,4 +1,5 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
+load("@bazel-orfs//:openroad.bzl", "odb_debug", "orfs_flow")
 load("//test/coremark_joule/flow:power.bzl", "census_probe", "grt_netlist", "hier_probe", "physical_probe", "stage_power", "stage_power_units")
 
 exports_files(["constraints.sdc"])
@@ -173,4 +174,36 @@ genrule(
 census_probe(
     name = "cmj_xiangshan_census",
     src = ":XSCore_synth",
+)
+
+# The whole core, flat, no blocks, every candidate macro boundary kept as a
+# module in synthesis and in the ODB (OPENROAD_HIERARCHICAL): the lasting
+# data the macro selection reads its timing from. A plain orfs_flow, the
+# first target of the XiangShan BUILD outside the config.mk DSL. Synthesis
+# only; 800 ps is the target period for a core meant to route at 1000 ps.
+orfs_flow(
+    name = "XSCore_hier",
+    top = "XSCore",
+    arguments = {
+        "ABC_AREA": "1",
+        "AUTO_MEMORIES": "1",
+        "OPENROAD_HIERARCHICAL": "1",
+        "SKIP_EXTRACT_FA": "1",
+        "SKIP_REPORT_METRICS": "1",
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_KEEP_MODULES": "Frontend Backend MemBlock CtrlBlock FusionDecoder NewLoadUnit PMP PMPChecker PTWFilter Uncache PMPChecker_8 PTWNewFilter Region DecodeStage SimpleDecodeChannel UopBufferCtrlDecoder VecRegionModule Bpu ICache DCacheWrapper L2TLBWrapper Rob Dispatch Rename MemCtrl Region_1 LsqWrapper IssueQueueAluCsrFenceLinkBrhNjmp IssueQueueAluDivBrhNjmp IssueQueueAluI2fBrhNjmp IssueQueueAluBkuVset IssueQueueAluMul IssueQueueLdu IssueQueueStaMou IssueQueueStaMou_1 IssueQueueStdMoud IssueQueueStdMoud_1 DataPath ExuBlock VectorDecodeChannel Sbuffer TLBNonBlock TLBNonBlock_1 TLBNonBlock_2 PrefetcherWrapper HPerfMonitor_3 Ifu Ftq IBuffer TLB IssuePipeVialuVfmaVfdivVidiv IssuePipeVialuVimacVmoveVfcvtVfma IssuePipeVialuVfma IssuePipeVialuVfma_1 VIDiv VFDivWrapper VFMacWrapper VCVTWrapper VectorCvt VIMacU IssueQueueVialuVimacVmoveVfcvtVfma IssueQueueVialuVfmaVfdivVidiv IssueQueueVialuVfma IssueQueueVialuVfma_1 IssueQueueVstd VectorFMAS2 MainBtbAlignBank MainBtbInternalBank WriteBuffer_4 Tage TageTable TageTable_1 TageTable_2 TageTable_3 TageTable_4 TageTable_5 TageTable_6 TageTable_7 Sc Sc_Anon_7 WriteBuffer_68 AheadBtb Phr MicroTage Ittage MissQueue MissEntry BankedDataArray L1ErrorMetaArray L1PrefetchSourceArray L1CohMetaArray L1FlagMetaArray MainPipe L1RefillLatencyArray PtwCache LLPTW PTW HPTW RenameBuffer VTypeBuffer RobEntryCell BusyTable BusyTable_1 RenameTableWrapper CompressUnit SSIT LFST IssueQueueFaluFmacFdiv ExuBlock_1 ExeUnitImp_10 ExeUnitImp_9 DataPath_1 IssueQueueFaluFmacFcvtFcmp IssueQueueFaluFmac LoadQueueReplay LoadQueueRAW LoadQueueRAR VirtualLoadQueue LoadQueueUncache StoreQueue PhysicalStoreQueue ForwardModule SqEntryCell SqForwardPipe VirtualStoreQueue AgeDetector_40 EntriesAluCsrFenceLinkBrhNjmp EntriesAluDivBrhNjmp EntriesAluI2fBrhNjmp EntriesAluBkuVset EntriesAluMul EntriesLdu EntriesStaMou EntriesStdMoud ExeUnitImp NewCSR SbufferData ResolveQueue",
+        "SYNTH_NUM_PARTITIONS": "48",
+    },
+    last_stage = "synth",
+    pdk = "//flow:asap7",
+    sources = {
+        "SDC_FILE": [":constraints_800ps.sdc"],
+        "STRUCTURED_MEMORIES": [":FpRegFilePart0.regfile", ":FpRegFilePart1.regfile", ":FpRegFilePart2.regfile", ":FpRegFilePart3.regfile", ":FtqEntryQueue.regfile", ":FtqMetaQueueCommit.regfile", ":FtqMetaQueueRedirect.regfile", ":FtqMetaQueueResolve.regfile", ":IntRegFile.regfile", ":RenameBufferFile.regfile", ":VfRegFile.regfile"],
+    },
+    verilog_files = ["//test/coremark_joule/xiangshan:xiangshan_flat.sv"],
+)
+
+odb_debug(
+    name = "XSCore_hier_synth_odb_debug",
+    src = ":XSCore_hier_synth",
 )
