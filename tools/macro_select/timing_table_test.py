@@ -38,6 +38,12 @@ class TableTest(unittest.TestCase):
         self.assertAlmostEqual(rows["top/a"]["empty_stages"], 0.2)
         self.assertEqual(rows["top/a"]["worst_ps"], -120.0)
         self.assertEqual(rows["top/b"]["worst_cross_ps"], -80.0)
+        # 100 own cells and 20 in top/a/inner at 0.35 um2: a 6.5 um square, 16 pins on it
+        self.assertEqual(rows["top/a"]["cells_total"], 120)
+        self.assertAlmostEqual(rows["top/a"]["side_um"], (120 * 0.35) ** 0.5)
+        self.assertAlmostEqual(rows["top/a"]["pins_per_um"], 16 / (120 * 0.35) ** 0.5)
+        text = timing_table.format_table(list(rows.values()), 10, "pins_per_um")
+        self.assertIn("pin/um", text)
         self.assertEqual(rows["top/b"]["crossing"], 1)
         self.assertEqual(rows["top/a/inner"]["worst_ps"], 10.0)
 

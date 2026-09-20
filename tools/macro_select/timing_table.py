@@ -13,11 +13,15 @@ and its startpoint; a path whose two ends sit in different modules crosses
 a boundary. Per module: registered fraction of its boundary, worst
 internal and worst crossing slack among the dumped paths, how many of the
 dumped paths end in it, the median path length, and the empty-stage
-fraction of its flops, the retiming idiom. Stdlib only, python 3.6.
+fraction of its flops, the retiming idiom; and, from the cells of its
+whole subtree at an average cell area, the side of the square it would
+make and its boundary pins per micron of that side, the space table's
+number for the same module. Stdlib only, python 3.6.
 """
 
 import argparse
 import collections
+import math
 import sys
 
 
@@ -55,7 +59,7 @@ def read_paths(path, mods):
     return rows
 
 
-def table(mods, paths, period):
+def table(mods, paths, period, um2_per_cell=0.35):
     stats = collections.defaultdict(
         lambda: {"n": 0, "worst": None, "worst_cross": None, "cross": 0, "lens": []}
     )
@@ -69,6 +73,12 @@ def table(mods, paths, period):
                 st["worst_cross"] = slack
         elif st["worst"] is None or slack < st["worst"]:
             st["worst"] = slack
+    subtree = collections.Counter()
+    for m, d in mods.items():
+        cells = d.get("cells", 0)
+        parts = m.split("/")
+        for i in range(1, len(parts) + 1):
+            subtree["/".join(parts[:i])] += cells
     rows = []
     for m, d in mods.items():
         st = stats.get(
@@ -78,6 +88,7 @@ def table(mods, paths, period):
         reg = d.get("reg_in", 0) + d.get("reg_out", 0)
         total = pins_in + pins_out
         lens = sorted(st["lens"])
+        side = math.sqrt(subtree[m] * um2_per_cell)
         rows.append(
             {
                 "module": m,
@@ -85,6 +96,9 @@ def table(mods, paths, period):
                 "pins": total,
                 "registered": (reg / float(total)) if total else None,
                 "cells": d.get("cells", 0),
+                "cells_total": subtree[m],
+                "side_um": side,
+                "pins_per_um": (total / side) if side else None,
                 "flops": d.get("flops", 0),
                 "empty_stages": (
                     (d.get("empty_stages", 0) / float(d["flops"]))
@@ -105,17 +119,23 @@ def fmt(v, spec="{:.2f}"):
     return "-" if v is None else spec.format(v)
 
 
-def format_table(rows, top):
-    def key(r):
+def format_table(rows, top, sort="worst"):
+    def worst(r):
         w = [v for v in (r["worst_ps"], r["worst_cross_ps"]) if v is not None]
         return min(w) if w else 1e9
 
-    rows = sorted(rows, key=key)
+    if sort == "pins_per_um":
+        rows = sorted(rows, key=lambda r: -(r["pins_per_um"] or 0))
+    elif sort == "cells":
+        rows = sorted(rows, key=lambda r: -r["cells_total"])
+    else:
+        rows = sorted(rows, key=worst)
     out = [
-        "{:<52} {:>6} {:>5} {:>7} {:>6} {:>5} {:>8} {:>8} {:>5} {:>5}".format(
+        "{:<52} {:>6} {:>5} {:>6} {:>7} {:>6} {:>5} {:>8} {:>8} {:>5} {:>5}".format(
             "module",
             "pins",
             "reg",
+            "pin/um",
             "cells",
             "flops",
             "empty",
@@ -127,11 +147,12 @@ def format_table(rows, top):
     ]
     for r in rows[:top]:
         out.append(
-            "{:<52} {:>6} {:>5} {:>7} {:>6} {:>5} {:>8} {:>8} {:>5} {:>5}".format(
+            "{:<52} {:>6} {:>5} {:>6} {:>7} {:>6} {:>5} {:>8} {:>8} {:>5} {:>5}".format(
                 r["module"][-52:],
                 r["pins"],
                 fmt(r["registered"]),
-                r["cells"],
+                fmt(r["pins_per_um"]),
+                r["cells_total"],
                 r["flops"],
                 fmt(r["empty_stages"]),
                 fmt(r["worst_ps"], "{:.0f}"),
@@ -152,11 +173,20 @@ def main(argv):
     ap.add_argument("--period-ps", type=float, default=800.0)
     ap.add_argument("--top", type=int, default=40)
     ap.add_argument("--json", help="write every row as JSON")
+    ap.add_argument(
+        "--um2-per-cell",
+        type=float,
+        default=0.35,
+        help="average cell area for the square a module would make (asap7: 0.35)",
+    )
+    ap.add_argument(
+        "--sort", choices=["worst", "pins_per_um", "cells"], default="worst"
+    )
     a = ap.parse_args(argv[1:])
     mods = read_boundaries(a.boundaries)
     paths = read_paths(a.paths, mods)
-    rows = table(mods, paths, a.period_ps)
-    print(format_table(rows, a.top))
+    rows = table(mods, paths, a.period_ps, a.um2_per_cell)
+    print(format_table(rows, a.top, a.sort))
     if a.json:
         import json
 

@@ -56,6 +56,22 @@ py_test(
     main = "timing_table_test.py",
 )
 
+py_binary(
+    name = "keep_under",
+    srcs = ["keep_under.py"],
+    main = "keep_under.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "keep_under_test",
+    srcs = [
+        "keep_under.py",
+        "keep_under_test.py",
+    ],
+    main = "keep_under_test.py",
+)
+
 # The probes the odb-debug session runs to produce the dumps timing_table reads.
 exports_files([
     "probe_boundaries.tcl",

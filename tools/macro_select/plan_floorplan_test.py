@@ -1,7 +1,9 @@
 """plan_floorplan on a synthetic parent: legal, sized by the pins, timed."""
 
+import ast
 import os
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -74,6 +76,71 @@ class ShapeTest(unittest.TestCase):
             {"name": "e", "pins": 10508, "area_um2": 990000}, TECH, MARGINS
         )
         self.assertAlmostEqual(s["channel_um"], 10508 / 48.6 * 0.5, 1)
+
+
+LATTICE = dict(TECH, lattice_x_um=0.144, lattice_y_um=2.16)
+
+
+class LatticeTest(unittest.TestCase):
+    def test_outline_and_origins_on_the_lattice(self):
+        p = plan(LayoutTest.MACROS)
+        p["tech"] = LATTICE
+        out = plan_floorplan.layout(p)
+        self.assertEqual(plan_floorplan.check(out), [])
+        for m in out["macros"]:
+            for v in (m["w_um"], m["h_um"]):
+                self.assertAlmostEqual(v / 2.16, round(v / 2.16), 6)
+            self.assertAlmostEqual(m["x_um"] / 0.144, round(m["x_um"] / 0.144), 6)
+            self.assertAlmostEqual(m["y_um"] / 2.16, round(m["y_um"] / 2.16), 6)
+            self.assertGreaterEqual(m["w_um"] * m["h_um"], m["area_um2"])
+
+    def test_no_lattice_no_rounding(self):
+        s = plan_floorplan.shape(
+            {"name": "a", "pins": 100, "area_um2": 250000}, TECH, MARGINS
+        )
+        self.assertEqual(s["pin_side_um"], 500.0)
+
+
+class EmitTest(unittest.TestCase):
+    def test_files_for_the_flows(self):
+        macros = [dict(m) for m in LayoutTest.MACROS]
+        macros[0]["keep"] = ["Bpu", "Ftq"]
+        macros.append({"name": "Wide", "pins": 13000, "area_um2": 140000})
+        p = plan(macros)
+        p["tech"] = LATTICE
+        out = plan_floorplan.layout(p)
+        d = tempfile.mkdtemp(prefix="plan_emit.")
+        written = plan_floorplan.emit(out, p, d)
+        names = sorted(os.path.basename(w) for w in written)
+        self.assertEqual(
+            names,
+            sorted(
+                [m["name"] + "_pins.tcl" for m in macros]
+                + ["place_macros.tcl", "plan.bzl"]
+            ),
+        )
+        bzl = open(os.path.join(d, "plan.bzl")).read()
+        plan_dict = ast.literal_eval(bzl.split("PLAN = ", 1)[1])
+        self.assertEqual(
+            plan_dict["macros"]["Frontend"]["SYNTH_KEEP_MODULES"], "Bpu Ftq"
+        )
+        self.assertNotIn("SYNTH_KEEP_MODULES", plan_dict["macros"]["MemBlock"])
+        x0, y0, x1, y1 = [float(v) for v in plan_dict["parent"]["CORE_AREA"].split()]
+        self.assertEqual((x0, y0), (10.0, 10.0))
+        self.assertAlmostEqual(x1, out["die_um"][2] - 10, 3)
+        by = {m["name"]: m for m in out["macros"]}
+        pins = open(os.path.join(d, "Frontend_pins.tcl")).read()
+        self.assertIn("-region %s:*" % by["Frontend"]["pin_side"], pins)
+        wide = open(os.path.join(d, "Wide_pins.tcl")).read()
+        self.assertEqual(wide.count("set_io_pin_constraint"), 2)
+        place = open(os.path.join(d, "place_macros.tcl")).read()
+        self.assertIn(
+            "  Frontend {:.3f} {:.3f}".format(
+                by["Frontend"]["x_um"], by["Frontend"]["y_um"]
+            ),
+            place,
+        )
+        self.assertIn("-orientation R0 -exact", place)
 
 
 class LayoutTest(unittest.TestCase):
