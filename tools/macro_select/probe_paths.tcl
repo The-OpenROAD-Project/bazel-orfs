@@ -4,9 +4,10 @@
 #
 #   <slack ps> <priced slack ps> <pins on the path> <max fanout> <endpoint pin> <startpoint pin>
 #
-# The startpoint is the first pin of the path after the clock network,
-# the launching register's clock pin or an input port. Module attribution
-# from instance names is timing_table.py's job.
+# The startpoint is the path's first point, the launching register's
+# clock pin or an input port (a port has no "/": that is how a boundary
+# crossing is told apart). Module attribution from instance names is
+# timing_table.py's job.
 #
 # Synthesis-stage slack is a fanout artefact until something buffers: a
 # net of fanout 1410 charges its driver with a delay no placed design
@@ -51,21 +52,18 @@ foreach pe $ends {
   set p [$pe path]
   set pins [$p pins]
   set endp [sta::get_full_name [$pe pin]]
-  set start ""
-  for { set i [expr { [llength $pins] - 1 }] } { $i >= 0 } { incr i -1 } {
-    set name [sta::get_full_name [lindex $pins $i]]
-    if { [string first "/" $name] >= 0 } { set start $name; break }
-  }
-  if { $start eq "" } { set start [sta::get_full_name [lindex $pins end]] }
   set slack [expr { [$pe slack] * 1e12 }]
-  # walk the points launch to capture: a driver's stage delay is the
-  # arrival step onto its output pin
+  # walk the points launch to capture: the first point is the startpoint
+  # (a register's clock pin or an input port); a driver's stage delay is
+  # the arrival step onto its output pin
+  set start ""
   set phantom 0.0
   set max_fo 0
   set prev ""
   foreach pt [get_property $pe points] {
     set arr [expr { [get_property $pt arrival] * 1e12 }]
     set pin [get_property $pt pin]
+    if { $start eq "" } { set start [sta::get_full_name $pin] }
     if { $prev ne "" } {
       set delay [expr { $arr - $prev }]
       if { [get_property $pin direction] eq "output" } {
