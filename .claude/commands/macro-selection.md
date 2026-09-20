@@ -96,9 +96,22 @@ pin pitch is not the constraint; the fraction of a block's pins whose
 logic is in front of them is, and the plan's side assignment is what sets
 it. A macro whose pins must talk to two regions is two macros or none.
 
+Pin placement is the parent's problem, not a block's: perfect pins for
+one block are another's disaster, and the compromise between the two ends
+of an interface can only be struck where both are visible. So the plan
+places the pins. `probe_pin_partners.tcl` on the planned parent's
+synthesis (the blocks as blackboxes, `<parent>_plan_synth_odb_debug` with
+`GUI_TIMING=0`) says which block, or the parent's logic, or a top port,
+each block pin talks to; the planner splits each block's pin side into
+one segment per partner, ordered by where the partner sits in the plan
+and sized by pin count, so the segment for MemBlock on Frontend's side
+faces the segment for Frontend on MemBlock's side. A block whose pins
+want two regions is two macros or none.
+
 `--emit DIR` writes what the flows consume: per block `<name>_pins.tcl`
-(every signal pin on the planned side), `place_macros.tcl` for the parent
-(by master, R0, `-exact`) and `plan.bzl` with the outlines; the design's
+(every signal pin on the planned side, in partner segments when the plan
+has the partner dump), `place_macros.tcl` for the parent (by master, R0,
+`-exact`) and `plan.bzl` with the outlines; the design's
 `.bzl` reads `PLAN` and builds the planned variant next to the unplanned
 one (XiangShan: `xiangshan_flow(plan = PLAN, variant = "plan")`, targets
 `XSCore_plan_*`). `keep_under.py` lists the masters under a block in the
