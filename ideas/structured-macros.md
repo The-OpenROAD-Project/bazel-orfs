@@ -1,6 +1,8 @@
 # The big regular structures become generated macros
 
-*Plan, 2026-09-21, for the record in PR #1055. Diagram: `structured-macros.png`.*
+*Plan, 2026-09-21, for the record in PR #1055.*
+
+![The parent with its generated macros, and the tile structure of one generated array](structured-macros.png)
 
 ## Why
 
