@@ -89,6 +89,7 @@ def _filter_stage_args(stage, **kwargs):
     check_stage_variables(arguments, sources, user_arguments, user_sources)
     check_user_stages(user_stages, user_arguments, user_sources)
     arguments = arguments | user_arguments
+
     sources = sources | user_sources
 
     # yosys attribute only applies to synth stage
@@ -316,6 +317,7 @@ def orfs_flow(
         arguments = {},
         user_arguments = {},
         extra_arguments = {},
+        yosys_frontend_reason = None,
         extra_configs = {},
         abstract_stage = None,
         last_stage = None,
@@ -382,6 +384,9 @@ def orfs_flow(
       extra_arguments: dictionary keyed by ORFS stages with lists of .json argument file labels.
         These .json files are merged into the stage config, providing computed arguments
         that flow through OrfsInfo to subsequent stages.
+      yosys_frontend_reason: why this flow does not synthesise with slang, when
+        SYNTH_HDL_FRONTEND is set to another frontend. Without it the flow
+        is refused: bazel-orfs forces slang.
       extra_configs: dictionary keyed by ORFS stages with list of additional configuration files
       abstract_stage: string with physical design flow stage name which controls the name of the files generated in _generate_abstract stage
       last_stage: string with the last stage to run, stops the flow early without generating an abstract. Mutually exclusive with abstract_stage. Useful for fast testing.
@@ -412,6 +417,23 @@ def orfs_flow(
         Default False.
       **kwargs: forward named args
     """
+
+    # The synthesis frontend is slang. Yosys's own Verilog frontend is
+    # effectively deprecated for SystemVerilog and parses at a few MB/s
+    # (XiangShan's flat core: seven minutes of canonicalisation per
+    # synthesis, one of slang); a flow that never said which frontend it
+    # wanted got yosys's by ORFS's default. Here the default is slang, and a
+    # flow that must stay on yosys's says why in yosys_frontend_reason, next
+    # to the setting, so the exception is visible. SYNTH_USE_SYN bypasses
+    # yosys altogether and is exempt.
+    if arguments.get("SYNTH_USE_SYN") != "1":
+        frontend = arguments.get("SYNTH_HDL_FRONTEND", "slang")
+        if frontend != "slang" and not yosys_frontend_reason:
+            fail(("orfs_flow {}: SYNTH_HDL_FRONTEND is \"{}\", not \"slang\". bazel-orfs " +
+                  "synthesises with slang; a design that must use another frontend " +
+                  "passes yosys_frontend_reason = \"<why>\" alongside the setting.").format(name, frontend))
+        arguments = arguments | {"SYNTH_HDL_FRONTEND": frontend}
+
     if quick_pins:
         sources = sources | {
             "PRE_GLOBAL_PLACE_SKIP_IO_TCL": ["@bazel-orfs//:quick_pins.tcl"],
