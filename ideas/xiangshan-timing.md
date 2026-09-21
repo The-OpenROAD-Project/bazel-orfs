@@ -94,6 +94,19 @@ seat; patch 0004's supply check did not fire, so the pocket is local, a
 single cell with no free site within 27 um. Take 21 runs the diamond
 with a 100 um window for that cell.
 
+Take 21 (2026-09-21, diamond at a 100 um window): the place stage passed
+in 80 min; the CTS stage's legalisation was at 1 h 30 min in the diamond
+search, `perf` showing `diamondSearch`, `canBePlaced`, `checkPixels`,
+when the take was stopped by decision. The placement's density map,
+from the odb-debug dump at 45 um bins: the parent's 3.85 M cells in a
+1.2 x 1.1 mm blob at 60 to 87 % between the blocks, and the 18 bins at
+75 % or more owned half by the reorder buffer (256 copies of
+`RobEntryCell(idx[8:0], in[3618:0]) -> entry[51:0]`, 3 619 nets of
+fanout 256, 1.04 M cells for 13 000 flops of state), a quarter by
+dispatch's tables, a quarter by the memory-control tables. That is not a
+legaliser problem and not a density problem first: it is a structure
+that belongs in a generated macro. The pivot is `ideas/structured-macros.md`.
+
 ## Method notes
 
 - Synthesis-stage numbers are read after `repair_design`, never before;
