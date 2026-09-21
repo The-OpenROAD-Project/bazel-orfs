@@ -202,6 +202,10 @@ ORFS_PATCHES = [
     # array takes its whole column) and reports them; FLW-0005 stays for a
     # netlist with no cell in the design. Builds on 0078; retires with it.
     Label("//patches:0081-orfs-structured-netlists-dead-cells.patch"),
+    # 0082: the macro step skips rtl_macro_placer when MACRO_PLACEMENT_TCL
+    # fixed every macro; run anyway it refuses the FIRM cells of a placed
+    # structured netlist (MPL-0050). Carried, not upstreamed.
+    Label("//patches:0082-orfs-macro-place-all-fixed.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
