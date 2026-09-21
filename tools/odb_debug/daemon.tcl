@@ -48,9 +48,15 @@ if { !$::od_attached } {
 }
 set ::od_load_secs [expr { ([clock milliseconds] - $::od_t0) / 1000.0 }]
 
-# Timing is available when liberty loaded and STA sees registers.
+# Timing is available when liberty loaded and STA sees registers. The
+# database is asked first: with GUI_TIMING=0 no liberty is loaded, and
+# asking STA prints "[ERROR STA-2141] No liberty libraries found" before
+# it throws, which read as a failure in every launch log although the
+# session went on without timing, as intended.
 set ::od_timing 0
-catch { if { [llength [all_registers]] > 0 } { set ::od_timing 1 } }
+if { [llength [[ord::get_db] getLibs]] > 0 } {
+  catch { if { [llength [all_registers]] > 0 } { set ::od_timing 1 } }
+}
 
 # ---- JSON ------------------------------------------------------------------
 

@@ -234,6 +234,32 @@ exports_files(glob([
     ]
 ]
 
+# The synthesis view of the flat Verilog: without the verification layer.
+# firtool emits every Chisel assertion as a `<Module>_Verification_Assert`
+# module bound into its parent with hierarchical references (312 of them
+# in XSCore); slang, which keeps the hierarchy the flow partitions on,
+# refuses a hierarchical reference across a preserved module boundary, and
+# yosys's frontend only ever dropped them silently. The simulator keeps
+# the full file and its assertions; synthesis reads this one.
+[
+    genrule(
+        name = prefix + "_flat_synth" + suffix,
+        srcs = [":" + prefix + "_flat" + suffix],
+        outs = [prefix + "_flat_synth" + suffix + ".sv"],
+        cmd = "awk '/^module [A-Za-z_0-9]*_Verification_(Assert|Assume|Cover)[ (]/ { skip = 1 } " +
+              "!skip && !/^[[:space:]]*bind / { print } /^endmodule/ { skip = 0 }' " +
+              "$(location :" + prefix + "_flat" + suffix + ") > $@",
+    )
+    for prefix in [
+        "xiangshan",
+        "cmj_soc",
+    ]
+    for suffix in [
+        "",
+        "_minimal",
+    ]
+]
+
 [
     verilog_library(
         name = prefix + suffix,

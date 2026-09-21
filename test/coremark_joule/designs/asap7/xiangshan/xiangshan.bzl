@@ -17,7 +17,9 @@ XS_USER_ARGUMENTS = ["ANNEAL_SEED", "ANNEAL_DEPTH", "ANNEAL_MIN_CLUSTER", "ANNEA
 XS_USER_SOURCES = ["ANNEAL_DUMP_TCL", "ANNEAL_PY"]
 XS_USER_STAGES = {v: ["floorplan"] for v in XS_USER_ARGUMENTS + XS_USER_SOURCES}
 
-XS_VERILOG = ["//test/coremark_joule/xiangshan:xiangshan_flat.sv"]
+# The synthesis view: the flat core without firtool's verification layer,
+# which slang refuses (hierarchical references across kept modules).
+XS_VERILOG = ["//test/coremark_joule/xiangshan:xiangshan_flat_synth.sv"]
 
 XS_PARENT = {
     "arguments": {
