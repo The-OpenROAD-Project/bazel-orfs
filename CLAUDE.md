@@ -81,10 +81,13 @@ the docstring in `host_tools.py` is the policy. CI runs it after
 
 ## Synthesis frontend
 
-Prefer `SYNTH_HDL_FRONTEND = slang`. yosys's own Verilog frontend is
-effectively deprecated for SystemVerilog and its generate expansion can
-cost minutes on a netlist that synthesises in seconds; when a design must
-stay on it, say why next to the setting. `.claude/commands/prefer-slang.md`.
+`orfs_flow` synthesises with slang: `SYNTH_HDL_FRONTEND` defaults to
+`slang` and a flow that sets another frontend is refused unless it passes
+`yosys_frontend_reason = "<why>"` next to the setting (`SYNTH_USE_SYN`
+flows are exempt). yosys's own Verilog frontend is effectively deprecated
+for SystemVerilog and parses at a few MB/s: XiangShan's flat core cost
+seven minutes of canonicalisation per synthesis on it, one on slang.
+`.claude/commands/prefer-slang.md`.
 
 ## Bumping
 
