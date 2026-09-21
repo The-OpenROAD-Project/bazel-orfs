@@ -163,10 +163,21 @@ class SegmentTest(unittest.TestCase):
                 f.write("pin %s b%d %s\n" % (target["name"], i, right["name"]))
             for i in range(20):
                 f.write("pin %s c%d logic\n" % (target["name"], i))
+            for i in range(7):
+                f.write("pin %s d%d port\n" % (target["name"], i))
+            f.write("pin %s e0 unconnected\n" % target["name"])
         p["pin_partners"] = dump
         plan_floorplan.emit(out, p, d)
-        segs = pin_segments = by[target["name"]]["pin_segments"]
+        all_segs = by[target["name"]]["pin_segments"]
+        segs = [s_ for s_ in all_segs if s_["side"] == target["pin_side"]]
+        outer = [s_ for s_ in all_segs if s_["side"] != target["pin_side"]]
         self.assertEqual(len(segs), 3)
+        # ports and the unconnected pin on the outer side, whole side
+        self.assertEqual(sorted(o["partner"] for o in outer), ["port", "unconnected"])
+        self.assertEqual(
+            {o["side"] for o in outer}, {plan_floorplan.OUTER[target["pin_side"]]}
+        )
+        self.assertTrue(all(o["lo_um"] is None for o in outer))
         if target["pin_side"] in ("top", "bottom"):
             # the left partner's segment comes first along x
             self.assertEqual(segs[0]["partner"], left["name"])
@@ -184,9 +195,12 @@ class SegmentTest(unittest.TestCase):
         for s_, l in zip(segs, lens):
             self.assertAlmostEqual(l / side_len, s_["pins"] / 60.0, 3)
         text = open(os.path.join(d, target["name"] + "_pins.tcl")).read()
-        self.assertEqual(
-            text.count("set_io_pin_constraint -region"), 4
-        )  # 3 segments + the rest
+        # 3 segments, 2 outer-side groups, the rest
+        self.assertEqual(text.count("set_io_pin_constraint -region"), 6)
+        self.assertIn(
+            "-region %s:* -pin_names $seg" % plan_floorplan.OUTER[target["pin_side"]],
+            text,
+        )
         self.assertIn("-region %s:0.000-" % target["pin_side"], text)
 
 

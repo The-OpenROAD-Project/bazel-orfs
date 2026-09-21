@@ -76,7 +76,10 @@ def load_plan(path):
 
     pin_partners (optional) is probe_pin_partners.tcl's dump, one
     "pin <block> <pin> <partner>" line per block pin, partner a block
-    name, "logic" (the parent's own cells) or "port" (a top-level pin).
+    name, "logic" (the parent's own cells), "port" (a top-level pin) or
+    "unconnected". Pins to ports and unconnected pins go on the block's
+    outer side, the one facing the die boundary, out of the region's way;
+    everything else shares the pin side in partner segments.
 
     lattice_*_um and the keep lists are optional; the parent's keep list is
     the modules its own synthesis keeps after the blocks are hardened
@@ -381,6 +384,19 @@ def _anchor(m, partner, by_name, out):
     return cx if horizontal else cy
 
 
+# the side of the block facing away from the region: where its pins to
+# the parent's ports and its unconnected pins go
+OUTER = {"top": "bottom", "bottom": "top", "left": "right", "right": "left"}
+OUTER_PARTNERS = ("port", "unconnected")
+
+
+def split_groups(groups):
+    """({partner: pins} for the pin side, {partner: pins} for the outer side)."""
+    inner = {k: v for k, v in groups.items() if k not in OUTER_PARTNERS}
+    outer = {k: v for k, v in groups.items() if k in OUTER_PARTNERS}
+    return inner, outer
+
+
 def pin_segments(m, groups, out):
     """[(partner, lo_um, hi_um, pins)] along m's pin side in the block's
     own frame, partners ordered by where they sit, lengths by pin count."""
@@ -428,12 +444,12 @@ set placed {{}}
 set rest {{}}
 foreach n $names {{ if {{ [lsearch -exact $placed $n] < 0 }} {{ lappend rest $n }} }}
 if {{ [llength $rest] > 0 }} {{ set_io_pin_constraint -region {side}:* -pin_names $rest }}
-puts "{name}_pins.tcl: [llength $placed] pins in {count} partner segments on {side}, [llength $rest] free on the side"
+puts "{name}_pins.tcl: [llength $placed] pins in {count} partner segments ({side} side, ports and unconnected on the outer side), [llength $rest] free on the {side} side"
 """
 
-SEGMENT_TCL = """# {partner}: {n} pins at {lo}-{hi} um
+SEGMENT_TCL = """# {partner}: {n} pins on {side} at {region} um
 set seg {{{pins}}}
-set_io_pin_constraint -region {side}:{lo}-{hi} -pin_names $seg
+set_io_pin_constraint -region {side}:{region} -pin_names $seg
 set placed [concat $placed $seg]"""
 TWO_SIDES = """set half [expr {{ [llength $names] / 2 }}]
 set_io_pin_constraint -region {side}:* -pin_names [lrange $names 0 [expr {{ $half - 1 }}]]
@@ -498,7 +514,14 @@ def emit(out, plan, directory):
             sides = side + " and " + other
             constraint = TWO_SIDES.format(side=side, other=other)
         if m["name"] in partners and not m["two_sides"]:
-            segs = pin_segments(m, partners[m["name"]], out)
+            inner, outer = split_groups(partners[m["name"]])
+            segs = [(side,) + s_ for s_ in pin_segments(m, inner, out)]
+            if outer:
+                # ports and unconnected pins on the outer side, whole side
+                segs += [
+                    (OUTER[side], partner, None, None, pins)
+                    for partner, pins in sorted(outer.items())
+                ]
             text = SEGMENTS_TCL.format(
                 name=m["name"],
                 side=side,
@@ -507,17 +530,22 @@ def emit(out, plan, directory):
                     SEGMENT_TCL.format(
                         partner=partner,
                         n=len(pins),
-                        lo="{:.3f}".format(lo),
-                        hi="{:.3f}".format(hi),
-                        side=side,
+                        side=sd,
+                        region=("*" if lo is None else "{:.3f}-{:.3f}".format(lo, hi)),
                         pins=" ".join(pins),
                     )
-                    for partner, lo, hi, pins in segs
+                    for sd, partner, lo, hi, pins in segs
                 ),
             )
             m["pin_segments"] = [
-                {"partner": p_, "lo_um": lo, "hi_um": hi, "pins": len(pins)}
-                for p_, lo, hi, pins in segs
+                {
+                    "side": sd,
+                    "partner": p_,
+                    "lo_um": lo,
+                    "hi_um": hi,
+                    "pins": len(pins),
+                }
+                for sd, p_, lo, hi, pins in segs
             ]
         else:
             text = PINS_TCL.format(
