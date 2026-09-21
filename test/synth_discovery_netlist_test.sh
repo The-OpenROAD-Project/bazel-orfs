@@ -8,13 +8,19 @@
 # partition produced nothing -- fails here even though yosys exited zero;
 # and a module that SYNTH_MINIMUM_KEEP_SIZE should have flattened but
 # that survives as a boundary fails the `!` form.
+#
+# Two spellings, because the question is the hierarchy and not the name:
+# yosys's Verilog frontend keeps `adder`, and slang uniquifies a kept
+# module per instance as `\adder$<top>.<instance>`. ORFS matches both in
+# SYNTH_KEEP_MODULES for the same reason (synth.tcl). A name that only
+# shares a prefix -- `adder2` for `adder` -- still does not match.
 set -euo pipefail
 netlist=$1
 shift
 status=0
 for spec in "$@"; do
   module=${spec#!}
-  if grep -Eq "^module ${module}(\(|\s|$)" "$netlist"; then
+  if grep -Eq "^module \\\\?${module}([$][^ ]*)?(\(|\s|$)" "$netlist"; then
     if [ "$spec" != "$module" ]; then
       echo "FAIL: 'module ${module}' present in $netlist but should be flattened" >&2
       status=1
