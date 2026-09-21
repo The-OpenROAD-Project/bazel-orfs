@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Oyvind Harboe <oyvind.harboe@zylin.com>
+Date: Sun, 21 Sep 2026 00:00:00 +0000
+Subject: [PATCH] riscv32i: dmem drives two procedural signals, so declare them
+ as regs
+
+dmem.v assigns we_mem and mem_out inside always @* blocks while
+declaring we_mem as a wire and leaving mem_out an implicit net. A net
+cannot be the target of a procedural assignment (IEEE 1364-2005 6.1.2,
+IEEE 1800-2023 6.5): the signals are variables and the declarations say
+otherwise. yosys's own Verilog frontend accepts it and infers the
+variable; slang does not, and reports
+
+    dmem.v:41:10: error: cannot assign to a net within a procedural context
+    dmem.v:62:16: error: cannot assign to a net within a procedural context
+
+nine of them, five on we_mem and four on mem_out, so the design cannot
+be read by any flow that synthesises with slang. bazel-orfs synthesises
+every flow with slang.
+
+The fix is the declarations, not the code: `reg [3:0] we_mem` and
+`output reg [31:0] mem_out`, which is what both frontends were already
+building. The elaborated design is unchanged -- same always blocks, same
+drivers, both case statements still full -- and the design synthesises
+and routes as before on either frontend.
+
+Not upstreamed; carried by bazel-orfs. Retires at a //:bump onto an ORFS
+whose riscv32i declares these two signals as variables.
+---
+--- a/flow/designs/src/riscv32i/dmem.v
++++ b/flow/designs/src/riscv32i/dmem.v
+@@ -13,10 +13,10 @@
+    input 	 r_w;
+    input [31:0]  mem_addr;
+    input [31:0]  mem_data;
+-   output [31:0] mem_out;
++   output reg [31:0] mem_out;
+    wire [1:0] 	 sel_mem;
+    wire [3:0] 	 ce_mem;
+-   wire [3:0] 	 we_mem;
++   reg [3:0] 	 we_mem;
+    wire [31:0]   inter_dmem0;
+    wire [31:0]   inter_dmem1;
+    wire [31:0]   inter_dmem2;

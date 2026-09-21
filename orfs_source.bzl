@@ -175,6 +175,13 @@ ORFS_PATCHES = [
     # Not upstreamed -- retire at a bump onto an ORFS that has them all.
     Label("//patches:0075-orfs-variables-stages-complete.patch"),
     Label("//patches:0076-orfs-detail-placement-args-everywhere.patch"),
+    # riscv32i's dmem.v drives we_mem and mem_out from always @* blocks
+    # while declaring them as nets. yosys's Verilog frontend infers the
+    # variable; slang refuses it, and bazel-orfs synthesises every flow
+    # with slang. 0077 to 0079 are reserved for the patches in flight on
+    # the grt-harness study branch. Not upstreamed -- retire at a bump
+    # onto an ORFS whose riscv32i declares the two signals as variables.
+    Label("//patches:0080-orfs-riscv32i-dmem-procedural-regs.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
