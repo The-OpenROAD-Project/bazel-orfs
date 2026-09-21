@@ -102,11 +102,19 @@ of an interface can only be struck where both are visible. So the plan
 places the pins. `probe_pin_partners.tcl` on the planned parent's
 synthesis (the blocks as blackboxes, `<parent>_plan_synth_odb_debug` with
 `GUI_TIMING=0`) says which block, or the parent's logic, or a top port,
-each block pin talks to; the planner splits each block's pin side into
-one segment per partner, ordered by where the partner sits in the plan
-and sized by pin count, so the segment for MemBlock on Frontend's side
-faces the segment for Frontend on MemBlock's side. A block whose pins
-want two regions is two macros or none.
+each block pin talks to, and which pin; the planner splits each block's
+pin side into one segment per partner, ordered by where the partner sits
+in the plan and sized by pin count, and places every pin itself: on the
+block's own tracks, the edge's layers alternating, two tracks apart,
+`place_pin` FIRM so the flow's pin placer leaves them and places only
+what the dump did not name. Both ends of a block-to-block interface get
+one pin order, so the parent's wires between them do not cross. The pin
+placer optimises one macro's pins with no view of its neighbour, and with
+interval constraints its annealer emptied the short intervals (PPL-0107);
+the plan is the one source that sees both ends, so the plan places the
+pins. Pins to the parent's ports and unconnected pins go on the outer
+side, facing the die boundary. A block whose pins want two regions is
+two macros or none.
 
 `--emit DIR` writes what the flows consume: per block `<name>_pins.tcl`
 (every signal pin on the planned side, in partner segments when the plan
