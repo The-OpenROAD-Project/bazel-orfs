@@ -124,3 +124,43 @@ in for the RTL module by name.
   the top of its logic region. The table's macro/netlist column is now:
   the four planned blocks are macros; every generated array is a placed
   netlist inside its block or the parent.
+
+## Generator depth backlog (2026-09-21)
+
+What take 23's first synthesis on slang still spent ABC time on, per
+module, and whether a generator should own it. Two thirds of every
+session below is one single-threaded ABC call.
+
+| module | synth | what ABC chews | generator |
+|---|---|---|---|
+| Rob | 995 s | 6 417 nine-bit pointer compares, 352-wide and/or trees, 16 x 352-way one-hot muxes over the 352 `RobEntryCell` (30 bits each); the 21-bit file is generated (xiangshan-timing.md entry 9) | flag matrix for the cells' state; pointer-window read (eight consecutive entries at a rotating pointer); fork patch 0009 shares the decode |
+| Region_1 (fp) | 727 s, 8.4 GB | `DataPath_1`, `BypassNetwork_6` wide muxes; four fp issue queues | bypass network as a generated mux tile; issue queues as CAM tile plus payload |
+| PhysicalStoreQueue | > 5 min | 64 `SqEntryCell` x 249 bits (vaddr 50, paddrHigh 36, data 128, mask); `ForwardModule` 3 086 lines and no registers, the store-to-load compare of a query address against all 64 entries with byte masks; `DeqModule` window read | payload file + address CAM + window read; the RTL keeps the pointers |
+| SqForwardPipe | 447 s | the age-ordered 64-entry x 16-byte forward select over 685 register bits | the same CAM and priority tile |
+| LoadQueueReplay | 430 s | per-entry replay state and selection | flag matrix + payload file |
+| MissQueue, L2TLBWrapper | 227 s each | entry match, TLB compare | CAM tile |
+| Rename | 217 s | RAT with snapshots | snapshot-copy file |
+| Region (int) | 185 s | `DataPath`, `BypassNetwork` over the generated IntRegFile | bypass mux tile |
+| SSIT | 176 s | a table | plain extraction |
+| IBuffer, Sbuffer | not reached (15 k and 39 k lines) | instruction buffer; store buffer with masked writes | plain extraction; masked-write port |
+| VecRegionModule's four IQs | not reached (26 k lines each) | vector issue queues | CAM tile + payload |
+| Bpu 547 s+, Ifu 328 s, DecodeStage 180 s, NewCSR 179 s, DCacheWrapper 241 s, Tage 208 s | | predictor, fetch and predecode, decoders, CSRs, cache control, table logic around blackboxed SRAMs | nothing for it: real logic |
+
+The store queue is the clearest case for going deeper: one payload file
+with 64 entries, one address CAM feeding the forward select, one window
+read, and the RTL keeps only the pointers, the way Rob should end up.
+Order of work is execution optimisation only; all of the "generator"
+rows are wanted before the parent is asked to route.
+
+## Correctness: kepler-formal, wired in bazel
+
+yosys equivalence (eqy) does not scale to a 224 x 64 file with 21 ports
+and is not the tool. The check per generated structure is kepler-formal
+(github keplertech/kepler-formal), LEC on Verilog with a liberty library,
+which requires the same sequential boundaries and the same names for
+sequential instances and top terminals in both designs. So
+`structured_gen` names its flops after the RTL registers it replaces,
+bit by bit, and the check runs per module against the RTL side mapped
+to the same liberty cells. Wire it up here in bazel, as a dev dependency
+on the latest upstream (the tool is being fixed rapidly; never pin an old
+release or a local checkout). Not started.

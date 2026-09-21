@@ -189,7 +189,24 @@ at a rotating pointer are the pointer-window read the generator should
 own next, alongside the flag matrix (set, clear, clear-range) for the
 per-entry state that the cells keep.
 
+## 10. Re-canonicalisation: one whole-design read per kept module
+
+47 sessions for the parent and 62 for the blocks, each reading the
+4.9 GB checkpoint (84 s, 4.9 GB) to write one module's slice: 2.5 CPU
+hours per synthesis and the memory wave that caps `--jobs` at 8 to 10
+on 62 GB. The fence (per-partition byte-stable inputs, commit f3c52546)
+survives a one-session slicer; plan and verified primitives in
+`ideas/canonicalize-slicer.md`. Before the next synthesis from the top.
+
 ## Method notes
+
+- slang `--keep-hierarchy` names every module `<Definition>$<instance
+  path>`. Every by-name interface has to say which it means: blackboxes
+  are by definition (`--blackboxed-module`, and the imported black box
+  has the definition as its cell type; ORFS patch 0080), kept modules are
+  resolved by the flow's three-spellings logic, memory specs name
+  definitions, yosys `%m` selection breaks on the `$`. When something by
+  name goes missing under slang, this is the first thing to check.
 
 - Synthesis-stage numbers are read after `repair_design`, never before;
   on the whole core that means the blocks' and the parent's place stages
