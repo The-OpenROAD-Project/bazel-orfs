@@ -362,7 +362,7 @@ def read_partners(path):
     with open(path) as f:
         for line in f:
             p = line.split()
-            if len(p) == 4 and p[0] == "pin":
+            if len(p) == 4 and p[0] == "pin" and p[2] not in ("VDD", "VSS"):
                 out.setdefault(p[1], {}).setdefault(p[3], []).append(p[2])
     return out
 
@@ -448,9 +448,11 @@ puts "{name}_pins.tcl: [llength $placed] pins in {count} partner segments ({side
 """
 
 SEGMENT_TCL = """# {partner}: {n} pins on {side} at {region} um
-set seg {{{pins}}}
-set_io_pin_constraint -region {side}:{region} -pin_names $seg
-set placed [concat $placed $seg]"""
+set seg [lmap n {{{pins}}} {{ expr {{ [lsearch -exact $names $n] >= 0 ? $n : [continue] }} }}]
+if {{ [llength $seg] > 0 }} {{
+  set_io_pin_constraint -region {side}:{region} -pin_names $seg
+  set placed [concat $placed $seg]
+}}"""
 TWO_SIDES = """set half [expr {{ [llength $names] / 2 }}]
 set_io_pin_constraint -region {side}:* -pin_names [lrange $names 0 [expr {{ $half - 1 }}]]
 set_io_pin_constraint -region {other}:* -pin_names [lrange $names $half end]"""

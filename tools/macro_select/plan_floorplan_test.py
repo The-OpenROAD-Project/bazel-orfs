@@ -170,6 +170,7 @@ class SegmentTest(unittest.TestCase):
             for i in range(7):
                 f.write("pin %s d%d port\n" % (target["name"], i))
             f.write("pin %s e0 unconnected\n" % target["name"])
+            f.write("pin %s VDD unconnected\n" % target["name"])  # dropped
         p["pin_partners"] = dump
         plan_floorplan.emit(out, p, d)
         all_segs = by[target["name"]]["pin_segments"]
@@ -201,6 +202,8 @@ class SegmentTest(unittest.TestCase):
         text = open(os.path.join(d, target["name"] + "_pins.tcl")).read()
         # 3 segments, 2 outer-side groups, the rest
         self.assertEqual(text.count("set_io_pin_constraint -region"), 6)
+        self.assertNotIn("VDD", text)
+        self.assertIn("lsearch -exact $names $n", text)  # only the block's own pins
         self.assertIn(
             "-region %s:* -pin_names $seg" % plan_floorplan.OUTER[target["pin_side"]],
             text,
