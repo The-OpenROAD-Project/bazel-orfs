@@ -107,6 +107,25 @@ dispatch's tables, a quarter by the memory-control tables. That is not a
 legaliser problem and not a density problem first: it is a structure
 that belongs in a generated macro. The pivot is `ideas/structured-macros.md`.
 
+## 6. Hierarchical `link_design` of the parent is string-keyed and serial
+
+Building the parent's synthesis ODB (`link_design` with hierarchy kept,
+3.7 M instances, 3.6 M nets, four macros) takes minutes, 5 to 8 on the
+pre-pivot parent, single-threaded at 20 GB. An eight-second system-wide
+`perf` sample on 2026-09-21 (tmp/take19/link_design_perf.txt): 13 %
+`ord::Verilog2db::constructModNet`, 11 % tcmalloc, 4.7 % `memcmp`, 3.8 %
+`Verilog2db::staToDb`, 3.4 % `sta::Network::pathName`, 3.0 %
+`dbModule::findModInst(const char*)`, and hash and tree lookups keyed on
+`std::string`: the linker resolves module nets through the name space,
+building hierarchical names to look up objects it created a moment
+before, and allocates and frees the temporaries.
+
+Done right it is tens of seconds: about 20 M small objects, one
+allocation and one hash insertion each, at memory bandwidth on one core,
+plus the Verilog parse at 100 MB/s or more. The gap is a factor of ten,
+and it is pointer identity and arena allocation in the linker, not
+threads. A tool item; the study pays it once per parent synthesis.
+
 ## Method notes
 
 - Synthesis-stage numbers are read after `repair_design`, never before;
