@@ -146,6 +146,20 @@ session below is one single-threaded ABC call.
 | VecRegionModule's four IQs | not reached (26 k lines each) | vector issue queues | CAM tile + payload |
 | Bpu 547 s+, Ifu 328 s, DecodeStage 180 s, NewCSR 179 s, DCacheWrapper 241 s, Tage 208 s | | predictor, fetch and predecode, decoders, CSRs, cache control, table logic around blackboxed SRAMs | nothing for it: real logic |
 
+**Identical cells synthesised once per instance.** Under slang's
+`--keep-hierarchy` every instance of `RobEntryCell` is its own module,
+`RobEntryCell$...robEntryCells_N`, and because `RobEntryCell` is a kept
+module all 352 copies keep their hierarchy inside Rob's partition, where
+`abc` runs on each one in turn ("Extracting gate netlist of module
+RobEntryCell$...robEntryCells_225 ... 226 ... 227"): the same 2 683-cell
+module through ABC 352 times. That is a large share of Rob's 995 s, and
+the same happens to every per-entry cell that is a kept module
+(`SqEntryCell` x 64 in the store queue). A generated entry array is the
+fix that removes the synthesis entirely; until a cell is generated, the
+flow should synthesise one elaboration of an identical, parameterless
+cell and instantiate it 352 times, which neither slang nor yosys does
+today (yosys has `uniquify`, not its inverse).
+
 The store queue is the clearest case for going deeper: one payload file
 with 64 entries, one address CAM feeding the forward select, one window
 read, and the RTL keeps only the pointers, the way Rob should end up.
