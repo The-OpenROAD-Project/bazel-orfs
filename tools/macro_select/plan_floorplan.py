@@ -397,22 +397,30 @@ def split_groups(groups):
     return inner, outer
 
 
-def pin_segments(m, groups, out):
+# The pin placer keeps pins this far from a block's corners; a segment
+# that reaches into the corner has no slots there (PPL-0107 on Region_1,
+# whose 24 self-connected pins were given the last 3 um of the side).
+SEGMENT_EDGE_UM = 5.0
+
+
+def pin_segments(m, groups, out, edge_um=SEGMENT_EDGE_UM):
     """[(partner, lo_um, hi_um, pins)] along m's pin side in the block's
-    own frame, partners ordered by where they sit, lengths by pin count."""
+    own frame, partners ordered by where they sit, lengths by pin count,
+    the whole run kept edge_um clear of both corners."""
     by_name = {q["name"]: q for q in out["macros"]}
     horizontal = m["pin_side"] in ("top", "bottom")
     length = m["w_um"] if horizontal else m["h_um"]
-    origin = m["x_um"] if horizontal else m["y_um"]
+    usable = max(length - 2 * edge_um, 1.0)
     total = float(sum(len(v) for v in groups.values())) or 1.0
     ordered = sorted(groups.items(), key=lambda kv: _anchor(m, kv[0], by_name, out))
     segs = []
-    pos = 0.0
+    pos = edge_um
     for partner, pins in ordered:
-        seg = length * len(pins) / total
-        segs.append((partner, round(pos, 3), round(min(pos + seg, length), 3), pins))
+        seg = usable * len(pins) / total
+        segs.append(
+            (partner, round(pos, 3), round(min(pos + seg, length - edge_um), 3), pins)
+        )
         pos += seg
-    del origin
     return segs
 
 
