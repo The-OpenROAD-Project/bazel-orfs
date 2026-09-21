@@ -6,7 +6,11 @@
 # "logic" (a parent cell) or "port" (a top-level pin). One line per pin
 # to PROBE_OUT:
 #
-#   pin <block master> <pin name> <partner>
+#   pin <block master> <pin name> <partner> <partner pin>
+#
+# The partner pin is the block pin at the other end when the partner is a
+# block, else "-": with it the planner orders both ends of an interface as
+# one sequence, so the parent's wires between two blocks do not cross.
 #
 # The planner reads it to split each block's pin side into segments, one
 # per partner, ordered by where the partner sits in the plan, so both
@@ -26,18 +30,23 @@ foreach inst [$block getInsts] {
     if { $st ne "SIGNAL" && $st ne "CLOCK" } { continue }
     set net [$it getNet]
     set partner "unconnected"
+    set ppin "-"
     if { $net != "NULL" } {
       set partner "logic"
       foreach other [$net getITerms] {
         if { $other == $it } { continue }
         set oi [$other getInst]
-        if { [[$oi getMaster] isBlock] } { set partner [[$oi getMaster] getName]; break }
+        if { [[$oi getMaster] isBlock] } {
+          set partner [[$oi getMaster] getName]
+          set ppin [[$other getMTerm] getName]
+          break
+        }
       }
       if { $partner eq "logic" && [llength [$net getBTerms]] > 0 && [llength [$net getITerms]] == 1 } {
         set partner "port"
       }
     }
-    puts $out "pin $mname [[$it getMTerm] getName] $partner"
+    puts $out "pin $mname [[$it getMTerm] getName] $partner $ppin"
     incr n
   }
 }

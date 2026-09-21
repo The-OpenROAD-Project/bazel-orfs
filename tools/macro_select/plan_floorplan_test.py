@@ -278,6 +278,23 @@ class ExactPinTest(unittest.TestCase):
         self.assertEqual(target["pins_placed_exact"], 46)
 
 
+class MirroredOrderTest(unittest.TestCase):
+    def test_both_ends_of_an_interface_share_one_order(self):
+        d = tempfile.mkdtemp(prefix="plan_mirror.")
+        dump = os.path.join(d, "partners.txt")
+        # A's pins a0..a2 talk to B's pins in scrambled correspondence
+        pairs = [("a0", "b2"), ("a1", "b0"), ("a2", "b1")]
+        with open(dump, "w") as f:
+            for a, b in pairs:
+                f.write("pin A %s B %s\n" % (a, b))
+                f.write("pin B %s A %s\n" % (b, a))
+            f.write("pin B c9 logic -\n")
+        groups = plan_floorplan.read_partners(dump)
+        self.assertEqual(groups["A"]["B"], ["a0", "a1", "a2"])  # A leads, name order
+        self.assertEqual(groups["B"]["A"], ["b2", "b0", "b1"])  # B follows A's order
+        self.assertEqual(groups["B"]["logic"], ["c9"])
+
+
 class LayoutTest(unittest.TestCase):
     MACROS = [
         {"name": "Frontend", "pins": 3294, "area_um2": 910000, "slack_ps": 300},

@@ -367,13 +367,41 @@ def summary(out):
 
 
 def read_partners(path):
-    """{block: {partner: [pin names]}} from probe_pin_partners.tcl's dump."""
+    """{block: {partner: [pin names]}} from probe_pin_partners.tcl's dump.
+
+    When the dump names the pin at the other end (its fifth column), the
+    two ends of a block-to-block interface are ordered as one sequence:
+    the block whose name sorts first keeps its pins in name order, and
+    the other's are ordered by the partner pin they connect to, so the
+    parent's wires between the two runs do not cross. Older four-column
+    dumps give name order on both ends.
+    """
     out = {}
+    other_end = {}
     with open(path) as f:
         for line in f:
             p = line.split()
-            if len(p) == 4 and p[0] == "pin" and p[2] not in ("VDD", "VSS"):
+            if len(p) >= 4 and p[0] == "pin" and p[2] not in ("VDD", "VSS"):
                 out.setdefault(p[1], {}).setdefault(p[3], []).append(p[2])
+                if len(p) >= 5 and p[4] != "-":
+                    other_end[(p[1], p[2])] = p[4]
+    for block, groups in out.items():
+        for partner, pins in groups.items():
+            if partner in out and partner != block:
+                lead, follow = sorted([block, partner])
+                if block == lead:
+                    pins.sort()
+                else:
+                    lead_pins = sorted(out[partner].get(block, []))
+                    rank = {name: i for i, name in enumerate(lead_pins)}
+                    pins.sort(
+                        key=lambda n: (
+                            rank.get(other_end.get((block, n), ""), len(rank)),
+                            n,
+                        )
+                    )
+            else:
+                pins.sort()
     return out
 
 
