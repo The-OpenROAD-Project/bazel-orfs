@@ -107,3 +107,20 @@ in for the RTL module by name.
   macros around them. Take 22 runs it. The `set` and `clear_after` ports
   of the plan's step 1 are still wanted, for the flag matrices (the ROB's
   remaining state, the busy tables) in step 5.
+- **2026-09-21, placed netlists.** A macro is right only for a terminal
+  block at an edge with a narrow, registered interface; an array in the
+  middle of the logic as a macro costs the parent its cross-boundary
+  placement, clock tree and routing and a wall of pins to route around.
+  ORFS patch 0078 adds `mode netlist` to a STRUCTURED_MEMORIES spec: the
+  module stays blackboxed in synthesis (no abc on it), the generator's
+  structural netlist is linked when the design loads, and at floorplan
+  its placed cells are dropped FIRM onto the parent's rows where
+  `STRUCTURED_PLACEMENT` says, site- and row-snapped with the row
+  orientation matched; tapcell, global placement and the legaliser treat
+  them as fixed, the clock tree and the router as ordinary cells. Proven
+  on `test/structured_netlist` (a 16 x 8 two-port file inside a parent:
+  1 440 cells FIRM at the planned corner, parent cells placed around).
+  The planner emits `netlists.txt`, the parent's arrays in a row along
+  the top of its logic region. The table's macro/netlist column is now:
+  the four planned blocks are macros; every generated array is a placed
+  netlist inside its block or the parent.

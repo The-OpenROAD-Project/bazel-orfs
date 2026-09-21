@@ -1,0 +1,30 @@
+load("@bazel-orfs//:openroad.bzl", "odb_debug", "orfs_flow")
+
+# STRUCTURED_MEMORIES in mode netlist: a generated register file dropped
+# FIRM into its parent's rows at floorplan instead of hardened as a macro
+# (patch 0078). The parent keeps one placement, clock tree and route
+# across it. small_top_place is the check: the file's cells are in the
+# placed design, FIRM, at the location placement.txt gives.
+orfs_flow(
+    name = "small_top",
+    arguments = {
+        "AUTO_MEMORIES": "1",
+        "CORE_AREA": "10 10 190 190",
+        "DIE_AREA": "0 0 200 200",
+        "PLACE_DENSITY": "0.5",
+        "SKIP_REPORT_METRICS": "1",
+    },
+    last_stage = "place",
+    pdk = "//flow:asap7",
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+        "STRUCTURED_MEMORIES": [":SmallFile.regfile"],
+        "STRUCTURED_PLACEMENT": [":placement.txt"],
+    },
+    verilog_files = [":small_file.sv"],
+)
+
+odb_debug(
+    name = "small_top_place_odb_debug",
+    src = ":small_top_place",
+)

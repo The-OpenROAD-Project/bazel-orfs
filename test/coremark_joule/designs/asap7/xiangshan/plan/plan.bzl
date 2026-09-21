@@ -6,5 +6,31 @@ PLAN = {
         "CORE_AREA": "10.000 10.000 3466.368 2159.854",
         "DIE_AREA": "0.000 0.000 3476.368 2169.854",
         "SYNTH_KEEP_MODULES": "Backend CtrlBlock FusionDecoder Region DecodeStage SimpleDecodeChannel UopBufferCtrlDecoder Rob Dispatch Rename MemCtrl IssueQueueAluCsrFenceLinkBrhNjmp IssueQueueAluDivBrhNjmp IssueQueueAluI2fBrhNjmp IssueQueueAluBkuVset IssueQueueAluMul IssueQueueLdu IssueQueueStaMou IssueQueueStaMou_1 IssueQueueStdMoud IssueQueueStdMoud_1 DataPath ExuBlock VectorDecodeChannel RenameBuffer VTypeBuffer RobEntryCell BusyTable BusyTable_1 RenameTableWrapper CompressUnit SSIT LFST EntriesAluCsrFenceLinkBrhNjmp EntriesAluDivBrhNjmp EntriesAluI2fBrhNjmp EntriesAluBkuVset EntriesAluMul EntriesLdu EntriesStaMou EntriesStdMoud ExeUnitImp NewCSR Frontend MemBlock VecRegionModule Region_1",
+        "netlists": [
+            {
+                "h_um": 192.51,
+                "instance": "backend/inner_ctrlBlock/rob/robEntryFile",
+                "module": "RobEntryFile",
+                "w_um": 318.384,
+                "x_um": 20.944,
+                "y_um": 1954.384,
+            },
+            {
+                "h_um": 243.0,
+                "instance": "backend/inner_intRegion/intDataPath/IntRegFile",
+                "module": "IntRegFile",
+                "w_um": 406.0,
+                "x_um": 350.128,
+                "y_um": 1903.894,
+            },
+            {
+                "h_um": 192.24,
+                "instance": "backend/inner_ctrlBlock/rob/rab/renameBuffer",
+                "module": "RenameBufferFile",
+                "w_um": 306.504,
+                "x_um": 766.928,
+                "y_um": 1954.654,
+            },
+        ],
     },
 }

@@ -6,6 +6,7 @@
 # port per bank and line (8 banks x this/next line = 16). In eight banks of
 # 44 words, four wide and two tall, for an outline the parent can place.
 module RobEntryFile
+mode netlist
 words 352
 bits 21
 banks 8

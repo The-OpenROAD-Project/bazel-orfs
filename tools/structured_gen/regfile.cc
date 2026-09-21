@@ -803,6 +803,12 @@ Spec ReadSpec(const std::string& path) {
     if (key == "module") {
       need(1);
       s.module = v[0];
+    } else if (key == "mode") {
+      need(1);
+      if (v[0] != "macro" && v[0] != "netlist") {
+        Refuse(path + ":" + std::to_string(lineno) + ": mode is macro or netlist, not `" + v[0] + "`");
+      }
+      s.mode = v[0];
     } else if (key == "words") {
       need(1);
       s.words = std::stoi(v[0]);

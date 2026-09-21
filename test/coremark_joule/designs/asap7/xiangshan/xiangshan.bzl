@@ -1286,6 +1286,10 @@ def xiangshan_flow(name = "XSCore", blocks = XS_BLOCKS, parent = XS_PARENT, tags
         if mems:
             sources["STRUCTURED_MEMORIES"] = mems
         sources["MACRO_PLACEMENT_TCL"] = [":%s/place_macros.tcl" % plan_dir]
+        if plan["parent"].get("netlists"):
+            # the generated arrays dropped FIRM into the parent at floorplan
+            # (STRUCTURED_MEMORIES in mode netlist, patch 0078)
+            sources["STRUCTURED_PLACEMENT"] = [":%s/netlists.txt" % plan_dir]
         sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints_800ps.sdc"]
         user_arguments = {}
         user_sources = {}

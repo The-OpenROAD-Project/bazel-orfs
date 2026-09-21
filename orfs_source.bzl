@@ -180,6 +180,10 @@ ORFS_PATCHES = [
     # pins-blind solve, place_pins and a second solve. Not upstreamed --
     # retire at a bump onto an ORFS that places pins with global placement.
     Label("//patches:0077-orfs-gpl-place-ios.patch"),
+    # 0078: STRUCTURED_MEMORIES in mode netlist: the generated array's cells
+    # placed FIRM into the parent at floorplan (STRUCTURED_PLACEMENT) instead
+    # of a macro. Carried, not upstreamed. See ideas/structured-macros.md.
+    Label("//patches:0078-orfs-structured-netlists.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

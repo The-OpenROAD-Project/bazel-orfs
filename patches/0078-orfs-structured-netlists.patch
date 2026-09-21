@@ -1,0 +1,324 @@
+From e2163fb30ec89850c0ae0d1de954eda2aadc1852 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 21 Sep 2026 09:36:03 +0200
+Subject: [PATCH] memories: STRUCTURED_MEMORIES in mode netlist, placed by
+ construction into the parent
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A generated register file as a macro takes its cells out of the parent's
+placer, legaliser, clock tree and router at once, and costs the parent
+a boundary: no cross-module optimisation, a wall of pins to route
+around, its own clock tree. That is right for a terminal block at an
+edge and wrong for an array in the middle of the logic. mode netlist in
+the spec keeps the module blackboxed in synthesis (no abc on it), links
+the generator's structural netlist when the design is loaded, and at
+floorplan drops its placed cells FIRM onto the parent's rows where
+STRUCTURED_PLACEMENT says, snapped to the site and row grid with the row
+parity matched. Global placement, the legaliser and tapcell treat them
+as fixed; the clock tree and the router see ordinary cells.
+
+Carried by bazel-orfs; not upstreamed.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/floorplan.tcl            |  4 ++
+ flow/scripts/load.tcl                 | 15 +++++
+ flow/scripts/memories/gen_memories.py | 74 +++++++++++++++++++--
+ flow/scripts/structured_netlists.tcl  | 96 +++++++++++++++++++++++++++
+ flow/scripts/variables.yaml           | 17 ++++-
+ 5 files changed, 201 insertions(+), 5 deletions(-)
+ create mode 100644 flow/scripts/structured_netlists.tcl
+
+diff --git a/flow/scripts/floorplan.tcl b/flow/scripts/floorplan.tcl
+index f4ca40013..9ca4cf6c3 100644
+--- a/flow/scripts/floorplan.tcl
++++ b/flow/scripts/floorplan.tcl
+@@ -99,6 +99,10 @@ if { [env_var_exists_and_non_empty MAKE_TRACKS] } {
+   log_cmd make_tracks
+ }
+ 
++# STRUCTURED_MEMORIES in `mode netlist`: their placed cells go onto the
++# rows now, FIRM, before tapcells and the power grid, where the plan says.
++source $::env(SCRIPTS_DIR)/structured_netlists.tcl
++
+ # Configure global routing: FASTROUTE_TCL script or
+ # set_global_routing_layer_adjustment/set_routing_layers
+ if { [env_var_exists_and_non_empty FASTROUTE_TCL] } {
+diff --git a/flow/scripts/load.tcl b/flow/scripts/load.tcl
+index d47624ea5..3c379d6de 100644
+--- a/flow/scripts/load.tcl
++++ b/flow/scripts/load.tcl
+@@ -30,6 +30,21 @@ proc load_design { design_file sdc_file } {
+         read_lef $lef
+       }
+     }
++    # STRUCTURED_MEMORIES in `mode netlist`: the generator's structural
++    # netlist defines the blackboxed module, cell for cell, so the link
++    # gives the parent the array's standard cells instead of a macro.
++    if { [env_var_equals AUTO_MEMORIES 1] } {
++      set netlists "$::env(RESULTS_DIR)/memories/netlists.txt"
++      if { [file exists $netlists] } {
++        set f [open $netlists r]
++        foreach m [split [string trim [read $f]] "\n"] {
++          if { $m ne "" } {
++            log_cmd read_verilog $::env(RESULTS_DIR)/memories/$m.v
++          }
++        }
++        close $f
++      }
++    }
+     read_verilog $::env(RESULTS_DIR)/$design_file
+     log_cmd link_design {*}[hier_options] $::env(DESIGN_NAME)
+   } elseif { $ext == ".odb" } {
+diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_memories.py
+index 757566767..a3b312d36 100644
+--- a/flow/scripts/memories/gen_memories.py
++++ b/flow/scripts/memories/gen_memories.py
+@@ -9,6 +9,8 @@ for memory-shaped modules, merges user-supplied `.memories` files
+   <out-dir>/<m>.lib             Liberty view per converted memory
+   <out-dir>/<m>_pre_layout.lib  ideal-clock variant for pre-CTS consumers
+   <out-dir>/<m>.lef             abstract LEF per converted memory
++  <out-dir>/netlists.txt        STRUCTURED_MEMORIES modules in `mode netlist`:
++                                linked as placed netlists, not macros
+   <out-dir>/blackboxes.txt      converted module names, one per line —
+                                 what synthesis blackboxes
+ 
+@@ -55,6 +57,53 @@ def _spec_module(spec: Path) -> str:
+     raise SystemExit(f"gen_memories: {spec}: no `module` line")
+ 
+ 
++def _spec_mode(spec: Path) -> str:
++    """`mode macro` (the default) or `mode netlist` of a register-file spec."""
++    for line in spec.read_text().splitlines():
++        parts = line.split("#", 1)[0].split()
++        if len(parts) == 2 and parts[0] == "mode":
++            if parts[1] not in ("macro", "netlist"):
++                raise SystemExit(f"gen_memories: {spec}: mode is macro or netlist, not {parts[1]}")
++            return parts[1]
++    return "macro"
++
++
++# DEF orientation names to the database's (what dbInst::setOrient takes).
++_DEF_ORIENT = {"N": "R0", "S": "R180", "W": "R90", "E": "R270",
++               "FN": "MY", "FS": "MX", "FW": "MXR90", "FE": "MYR90"}
++
++
++def _def_placement(def_path: Path, out_path: Path) -> dict:
++    """The placed cells of the generator's DEF as `name x y orient` lines,
++    plus the die and the first row's orientation and height, so the
++    parent's floorplan can drop the array onto its own rows."""
++    text = def_path.read_text()
++    m = re.search(r"DIEAREA\s*\(\s*(-?\d+)\s+(-?\d+)\s*\)\s*\(\s*(-?\d+)\s+(-?\d+)\s*\)", text)
++    die = [int(v) for v in m.groups()] if m else None
++    rows = re.findall(r"^ROW\s+\S+\s+(\S+)\s+(-?\d+)\s+(-?\d+)\s+(\w+)", text, re.M)
++    row0 = None
++    row_h = None
++    if rows:
++        rows_sorted = sorted(((int(y), o, s_) for s_, x, y, o in rows))
++        row0 = _DEF_ORIENT.get(rows_sorted[0][1], rows_sorted[0][1])
++        ys = sorted({y for y, _, _ in rows_sorted})
++        if len(ys) > 1:
++            row_h = ys[1] - ys[0]
++    comp = re.search(r"COMPONENTS\s+\d+\s*;(.*?)END COMPONENTS", text, re.S)
++    lines = []
++    if comp:
++        for entry in comp.group(1).split(";"):
++            e = entry.split()
++            if len(e) < 3 or e[0] != "-":
++                continue
++            pm = re.search(r"\+\s*(PLACED|FIXED|FIRM|COVER)\s*\(\s*(-?\d+)\s+(-?\d+)\s*\)\s*(\w+)", entry)
++            if pm:
++                orient = _DEF_ORIENT.get(pm.group(4), pm.group(4))
++                lines.append(f"{e[1]} {pm.group(2)} {pm.group(3)} {orient}")
++    out_path.write_text("".join(l + "\n" for l in lines))
++    return {"die": die, "row0_orient": row0, "row_height": row_h, "cells": len(lines)}
++
++
+ def _file_defining(module: str, verilog: list[Path]) -> Path:
+     """The Verilog file that declares `module`, for the port check."""
+     pat = re.compile(rf"^\s*module\s+{re.escape(module)}\b", re.M)
+@@ -92,25 +141,42 @@ def run_structured(
+     if not lefs:
+         raise SystemExit("gen_memories: STRUCTURED_MEMORIES needs TECH_LEF and SC_LEF")
+     modules = []
++    netlists = []
+     report = []
+     for spec in specs:
+         module = _spec_module(spec)
++        mode = _spec_mode(spec)
+         rtl = _file_defining(module, verilog)
+         cmd = [generator, "--spec", str(spec), "--check-ports", str(rtl)]
+         for lef in lefs:
+             cmd += ["--lef", str(lef)]
++        if mode == "macro":
++            cmd += [
++                "--lef-out", str(out_dir / f"{module}.lef"),
++                "--lib-out", str(out_dir / f"{module}.lib"),
++            ]
+         cmd += [
+-            "--lef-out", str(out_dir / f"{module}.lef"),
+-            "--lib-out", str(out_dir / f"{module}.lib"),
+             "--def", str(out_dir / f"{module}.def"),
+             "--verilog", str(out_dir / f"{module}.v"),
+         ]
+         subprocess.check_call(cmd)
+         modules.append(module)
+-        report.append({"module": module, "spec": str(spec)})
+-        sys.stderr.write(f"gen_memories: {module} -> structured macro ({spec.name})\n")
++        entry = {"module": module, "spec": str(spec), "mode": mode}
++        if mode == "netlist":
++            # Placed netlist: no abstract, no model liberty. The module is
++            # still blackboxed in synthesis; its structural netlist is
++            # linked when the design is loaded and its cells are dropped
++            # FIRM onto the parent's rows at floorplan
++            # (structured_netlists.tcl, STRUCTURED_PLACEMENT).
++            info = _def_placement(out_dir / f"{module}.def", out_dir / f"{module}.place")
++            entry.update(info)
++            (out_dir / f"{module}.netlist.json").write_text(json.dumps(entry, indent=2) + "\n")
++            netlists.append(module)
++        report.append(entry)
++        sys.stderr.write(f"gen_memories: {module} -> structured {mode} ({spec.name})\n")
+     with (out_dir / "blackboxes.txt").open("a") as f:
+         f.write("".join(f"{m}\n" for m in modules))
++    (out_dir / "netlists.txt").write_text("".join(f"{m}\n" for m in netlists))
+     (out_dir / "structured.json").write_text(json.dumps(report, indent=2) + "\n")
+     return modules
+ 
+diff --git a/flow/scripts/structured_netlists.tcl b/flow/scripts/structured_netlists.tcl
+new file mode 100644
+index 000000000..0742ae015
+--- /dev/null
++++ b/flow/scripts/structured_netlists.tcl
+@@ -0,0 +1,96 @@
++# Placed netlists: a STRUCTURED_MEMORIES module generated in `mode netlist`
++# is linked into the design as standard cells (load.tcl) and its cells,
++# placed by construction in the generator's own frame, are dropped here
++# onto the parent's rows, FIRM, at the location STRUCTURED_PLACEMENT gives
++# for each instance. Global placement, the legaliser and tapcell insertion
++# treat them as fixed; the clock tree and the router see ordinary cells.
++#
++# STRUCTURED_PLACEMENT is a file of lines
++#
++#   <module> <instance path> <x um> <y um>
++#
++# one per instance of a netlist-mode module. The location is the array's
++# lower-left corner, snapped to the parent's site and row grid, moved up
++# one row when the array's first row and the parent's row there differ in
++# orientation. An instance without a line, or a cell the netlist names that
++# the design does not have, is an error: nothing is placed by guess.
++# AUTO_MEMORIES is a synthesis-stage variable and is not in the floorplan's
++# environment; the memories directory travels with the results, so the
++# netlists list is the guard.
++if { 1 } {
++  set netlists_file "$::env(RESULTS_DIR)/memories/netlists.txt"
++  if { [file exists $netlists_file] } {
++    set f [open $netlists_file r]
++    set netlist_modules [lsearch -all -inline -not -exact [split [string trim [read $f]] "\n"] ""]
++    close $f
++  } else {
++    set netlist_modules {}
++  }
++  if { [llength $netlist_modules] > 0 } {
++    if { ![env_var_exists_and_non_empty STRUCTURED_PLACEMENT] } {
++      utl::error FLW 2 "STRUCTURED_MEMORIES in mode netlist ([join $netlist_modules {, }]) need STRUCTURED_PLACEMENT, a file of <module> <instance> <x um> <y um> lines"
++    }
++    set block [ord::get_db_block]
++    set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
++    set core [$block getCoreArea]
++    # the parent's rows by their bottom, for the parity check
++    set row_orient [dict create]
++    set row_h 0
++    set site_w 0
++    foreach row [$block getRows] {
++      set bb [$row getBBox]
++      dict set row_orient [$bb yMin] [$row getOrient]
++      set row_h [expr { [$bb yMax] - [$bb yMin] }]
++      set site_w [[$row getSite] getWidth]
++    }
++    set f [open $::env(STRUCTURED_PLACEMENT) r]
++    set lines [split [string trim [read $f]] "\n"]
++    close $f
++    set placed_modules {}
++    foreach line $lines {
++      set line [string trim [lindex [split $line "#"] 0]]
++      if { $line eq "" } { continue }
++      lassign $line module path x_um y_um
++      if { [lsearch -exact $netlist_modules $module] < 0 } {
++        utl::error FLW 3 "STRUCTURED_PLACEMENT names $module, which is not a netlist-mode STRUCTURED_MEMORIES module ($netlist_modules)"
++      }
++      set info_file "$::env(RESULTS_DIR)/memories/$module.netlist.json"
++      set jf [open $info_file r]
++      set info [read $jf]
++      close $jf
++      regexp {"row0_orient":\s*"(\w+)"} $info -> row0
++      regexp {"die":\s*\[\s*(-?\d+),\s*(-?\d+),\s*(-?\d+),\s*(-?\d+)\s*\]} $info -> dx0 dy0 dx1 dy1
++      # snap the corner to the site and row grid of the core
++      set X [expr { [$core xMin] + int(round(($x_um * $dbu - [$core xMin]) / double($site_w))) * $site_w }]
++      set Y [expr { [$core yMin] + int(round(($y_um * $dbu - [$core yMin]) / double($row_h))) * $row_h }]
++      if { [dict exists $row_orient $Y] && [dict get $row_orient $Y] ne $row0 } {
++        set Y [expr { $Y + $row_h }]
++      }
++      if { $X < [$core xMin] || $Y < [$core yMin] || $X + ($dx1 - $dx0) > [$core xMax] || $Y + ($dy1 - $dy0) > [$core yMax] } {
++        utl::error FLW 4 "STRUCTURED_PLACEMENT: $path ($module, [expr {($dx1-$dx0)/double($dbu)}] x [expr {($dy1-$dy0)/double($dbu)}] um) at [expr {$X/double($dbu)}] [expr {$Y/double($dbu)}] um leaves the core"
++      }
++      set pf [open "$::env(RESULTS_DIR)/memories/$module.place" r]
++      set n 0
++      while { [gets $pf pl] >= 0 } {
++        lassign $pl name cx cy orient
++        if { $name eq "" } { continue }
++        set inst [$block findInst "$path/$name"]
++        if { $inst == "NULL" } {
++          utl::error FLW 5 "STRUCTURED_PLACEMENT: $path/$name of netlist $module is not in the design (is $path an instance of $module, and the netlist linked?)"
++        }
++        $inst setOrient $orient
++        $inst setLocation [expr { $X + $cx - $dx0 }] [expr { $Y + $cy - $dy0 }]
++        $inst setPlacementStatus FIRM
++        incr n
++      }
++      close $pf
++      lappend placed_modules $module
++      utl::info FLW 6 "structured netlist $module at $path: $n cells FIRM at [expr {$X/double($dbu)}] [expr {$Y/double($dbu)}] um"
++    }
++    foreach m $netlist_modules {
++      if { [lsearch -exact $placed_modules $m] < 0 } {
++        utl::error FLW 7 "netlist-mode module $m has no line in STRUCTURED_PLACEMENT"
++      }
++    }
++  }
++}
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+index 73d02473c..d19071996 100644
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -244,10 +244,25 @@ STRUCTURED_MEMORIES:
+     the cells; the generator checks the spec against the module's ports,
+     writes `<module>.lef`, `<module>.lib` and `<module>_pre_layout.lib`
+     under `$(RESULTS_DIR)/memories/`, and the module is blackboxed like
+-    an AUTO_MEMORIES macro. Explicit by design: nothing is detected.
++    an AUTO_MEMORIES macro. A spec with `mode netlist` writes no abstract:
++    the module is blackboxed in synthesis, its structural netlist is
++    linked when the design is loaded, and its placed cells are dropped
++    FIRM onto the parent's rows at floorplan where STRUCTURED_PLACEMENT
++    says, so the parent keeps one placement, clock tree and route across
++    it. Explicit by design: nothing is detected.
+     Requires AUTO_MEMORIES=1 and STRUCTURED_GEN.
+   stages:
+     - synth
++STRUCTURED_PLACEMENT:
++  description: >
++    Experimental. With STRUCTURED_MEMORIES specs in `mode netlist`, the
++    file of `<module> <instance path> <x um> <y um>` lines that says where
++    each instance of a generated array is dropped onto the parent's rows,
++    FIRM, at floorplan (lower-left corner; snapped to the site and row
++    grid, moved up one row when the array's first row and the parent's
++    differ in orientation). Every netlist-mode instance needs a line.
++  stages:
++    - floorplan
+ STRUCTURED_GEN:
+   description: >
+     Path of the generator STRUCTURED_MEMORIES runs. Set by the build
+-- 
+2.53.0
+

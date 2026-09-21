@@ -6,6 +6,7 @@
 # buses in bank order, and the array's banks are those banks, two wide
 # and two tall: 406 x 243 um instead of an 812 um strip.
 module IntRegFile
+mode netlist
 words 224
 bits 64
 banks 4
