@@ -1,4 +1,4 @@
-From 7ce68340e78001847d4c3dbcfe7a3ee8ce2ffa40 Mon Sep 17 00:00:00 2001
+From 6b1f2a33c90a97713b99ceac5382c314c4ce3636 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 21 Sep 2026 09:36:03 +0200
 Subject: [PATCH] memories: STRUCTURED_MEMORIES in mode netlist, placed by
@@ -25,10 +25,10 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  flow/scripts/floorplan.tcl            |  4 ++
  flow/scripts/load.tcl                 | 15 +++++
- flow/scripts/memories/gen_memories.py | 68 ++++++++++++++++++--
- flow/scripts/structured_netlists.tcl  | 93 +++++++++++++++++++++++++++
+ flow/scripts/memories/gen_memories.py | 68 +++++++++++++++++--
+ flow/scripts/structured_netlists.tcl  | 96 +++++++++++++++++++++++++++
  flow/scripts/variables.yaml           | 17 ++++-
- 5 files changed, 192 insertions(+), 5 deletions(-)
+ 5 files changed, 195 insertions(+), 5 deletions(-)
  create mode 100644 flow/scripts/structured_netlists.tcl
 
 diff --git a/flow/scripts/floorplan.tcl b/flow/scripts/floorplan.tcl
@@ -182,10 +182,10 @@ index 757566767..85e1725b8 100644
  
 diff --git a/flow/scripts/structured_netlists.tcl b/flow/scripts/structured_netlists.tcl
 new file mode 100644
-index 000000000..0b947d0b2
+index 000000000..0742ae015
 --- /dev/null
 +++ b/flow/scripts/structured_netlists.tcl
-@@ -0,0 +1,93 @@
+@@ -0,0 +1,96 @@
 +# Placed netlists: a STRUCTURED_MEMORIES module generated in `mode netlist`
 +# is linked into the design as standard cells (load.tcl) and its cells,
 +# placed by construction in the generator's own frame, are dropped here
@@ -202,7 +202,10 @@ index 000000000..0b947d0b2
 +# one row when the array's first row and the parent's row there differ in
 +# orientation. An instance without a line, or a cell the netlist names that
 +# the design does not have, is an error: nothing is placed by guess.
-+if { [env_var_equals AUTO_MEMORIES 1] } {
++# AUTO_MEMORIES is a synthesis-stage variable and is not in the floorplan's
++# environment; the memories directory travels with the results, so the
++# netlists list is the guard.
++if { 1 } {
 +  set netlists_file "$::env(RESULTS_DIR)/memories/netlists.txt"
 +  if { [file exists $netlists_file] } {
 +    set f [open $netlists_file r]
