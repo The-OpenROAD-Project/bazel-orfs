@@ -12,6 +12,7 @@ load(":keep_modules_test.bzl", "keep_modules_test_suite")
 load(":provider_test_rule.bzl", "lib_pre_layout_test")
 load(":quick_pins_test_rule.bzl", "quick_pins_data_dep_test")
 load(":sdc_clock_period_test.bzl", "runfiles_contents_test", "synth_action_inputs_test")
+load(":slang_frontend_test.bzl", "slang_frontend_test_suite")
 load(":source_input_propagation_test.bzl", "source_input_propagation_test")
 load(":stages_filter_test.bzl", "stages_filter_test_suite")
 load(":work_home_test.bzl", "work_home_test_suite")
@@ -1988,6 +1989,26 @@ sh_test(
     srcs = ["make_stage_guard_test.sh"],
     args = ["$(rootpath //:make.tpl)"],
     data = ["//:make.tpl"],
+)
+
+slang_frontend_test_suite(name = "slang_frontend_test")
+
+# The frontend policy reaches a standalone orfs_synth, not just a flow,
+# and yosys_frontend_reason is consumed by the macro: orfs_synth_rule
+# has no such attribute, so without the pop this fails at analysis the
+# way user_stages did. Loading the target is the test; it is never
+# built.
+orfs_synth(
+    name = "frontend_reason_synth",
+    arguments = LB_ARGS | {
+        "SDC_FILE": "$(location :constraints-sram)",
+        "SYNTH_HDL_FRONTEND": "verific",
+    },
+    data = [":constraints-sram"],
+    module_top = "lb_32x128",
+    tags = ["manual"],
+    verilog_files = LB_VERILOG_FILES,
+    yosys_frontend_reason = "load-only fixture: pins that the reason is accepted and consumed",
 )
 
 sh_test(
