@@ -366,6 +366,26 @@ build_test(
     targets = [":lb_32x128_user_args_floorplan"],
 )
 
+# user_stages next to a mock_area: the mocked variant's companions
+# (orfs_arguments for the mock area, orfs_macro for the abstract) have no
+# user_stages attribute, so a flow with both used to fail at analysis with
+# "no such attribute 'user_stages' in 'orfs_arguments' rule". Loading this
+# target is the test; it is never built.
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    arguments = LB_ARGS,
+    last_stage = "floorplan",
+    mock_area = 0.7,
+    previous_stage = {"floorplan": ":lb_32x128_synth"},
+    sources = LB_SOURCES,
+    tags = ["manual"],
+    user_arguments = {"USER_PROJECT_KNOB": "42"},
+    user_stages = {"USER_PROJECT_KNOB": ["floorplan"]},
+    variant = "mock_user_stages",
+    verilog_files = LB_VERILOG_FILES,
+)
+
 # Pin placement generation: shares synth, runs own floorplan without pinned IO.
 # buildifier: disable=duplicated-name
 orfs_flow(
