@@ -25,9 +25,10 @@ foreach inst [$block getInsts] {
   if { ![$master isBlock] } { continue }
   set mname [$master getName]
   foreach it [$inst getITerms] {
-    # signal and clock pins only: VDD and VSS are not pins a block flow places
+    # signal pins only: VDD and VSS are not pins a block flow places, and
+    # the clock is the clock tree's, not a partner's
     set st [[$it getMTerm] getSigType]
-    if { $st ne "SIGNAL" && $st ne "CLOCK" } { continue }
+    if { $st ne "SIGNAL" } { continue }
     set net [$it getNet]
     set partner "unconnected"
     set ppin "-"

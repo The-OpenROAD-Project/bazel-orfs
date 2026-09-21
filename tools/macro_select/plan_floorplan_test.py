@@ -337,6 +337,21 @@ class NetlistTest(unittest.TestCase):
             plan_floorplan.place_netlists(out, p)
 
 
+class FoldTest(unittest.TestCase):
+    def test_unplanned_partners_are_logic(self):
+        g = {
+            "MemBlock": ["a"],
+            "logic": ["b"],
+            "array_256x66": ["c"],
+            "port": ["d"],
+            "unconnected": ["e"],
+            "Me": ["f"],
+        }
+        f = plan_floorplan.fold_partners(g, {"MemBlock", "Me"}, "Me")
+        self.assertEqual(sorted(f), ["Me", "MemBlock", "logic", "port", "unconnected"])
+        self.assertEqual(f["logic"], ["b", "c"])
+
+
 class LayoutTest(unittest.TestCase):
     MACROS = [
         {"name": "Frontend", "pins": 3294, "area_um2": 910000, "slack_ps": 300},

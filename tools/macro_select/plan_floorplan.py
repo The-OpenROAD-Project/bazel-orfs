@@ -437,6 +437,21 @@ OUTER = {"top": "bottom", "bottom": "top", "left": "right", "right": "left"}
 OUTER_PARTNERS = ("port", "unconnected")
 
 
+def fold_partners(groups, planned, me):
+    """Partners that are not planned macros (the parent's own memory
+    macros and generated arrays, the clock's macro pins) are the parent's
+    logic for the pin side's purposes: one group, not a segment per SRAM."""
+    out = {}
+    for partner, pins in groups.items():
+        key = partner
+        if partner not in planned and partner not in OUTER_PARTNERS and partner != me:
+            key = "logic"
+        out.setdefault(key, []).extend(pins)
+    for pins in out.values():
+        pins.sort()
+    return out
+
+
 def split_groups(groups):
     """({partner: pins} for the pin side, {partner: pins} for the outer side)."""
     inner = {k: v for k, v in groups.items() if k not in OUTER_PARTNERS}
@@ -688,6 +703,7 @@ def emit(out, plan, directory):
     partners = {}
     if plan.get("pin_partners"):
         partners = read_partners(plan["pin_partners"])
+    by_name_all = {q["name"] for q in out["macros"]}
     bzl = {"parent": {}, "macros": {}}
     dx, dy = out["die_um"][2], out["die_um"][3]
     bzl["parent"]["DIE_AREA"] = _area(0, 0, dx, dy)
@@ -704,7 +720,9 @@ def emit(out, plan, directory):
             sides = side + " and " + other
             constraint = TWO_SIDES.format(side=side, other=other)
         if m["name"] in partners and not m["two_sides"]:
-            inner, outer = split_groups(partners[m["name"]])
+            inner, outer = split_groups(
+                fold_partners(partners[m["name"]], by_name_all, m["name"])
+            )
             segs = [(side,) + s_ for s_ in pin_segments(m, inner, out)]
             if outer:
                 # ports and unconnected pins on the outer side, whole side
