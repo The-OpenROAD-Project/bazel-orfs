@@ -187,18 +187,19 @@ class SegmentTest(unittest.TestCase):
             # the left partner's segment comes first along x
             self.assertEqual(segs[0]["partner"], left["name"])
             self.assertEqual(segs[-1]["partner"], right["name"])
-        self.assertAlmostEqual(segs[0]["lo_um"], 0.0)
+        edge = plan_floorplan.SEGMENT_EDGE_UM
+        self.assertAlmostEqual(segs[0]["lo_um"], edge)
         side_len = (
             target["w_um"]
             if target["pin_side"] in ("top", "bottom")
             else target["h_um"]
         )
-        self.assertAlmostEqual(segs[-1]["hi_um"], side_len, 2)
+        self.assertAlmostEqual(segs[-1]["hi_um"], side_len - edge, 2)
         # lengths by pin count: 10:30:20
         lens = [s["hi_um"] - s["lo_um"] for s in segs]
-        self.assertAlmostEqual(sum(lens), side_len, 2)
+        self.assertAlmostEqual(sum(lens), side_len - 2 * edge, 2)
         for s_, l in zip(segs, lens):
-            self.assertAlmostEqual(l / side_len, s_["pins"] / 60.0, 3)
+            self.assertAlmostEqual(l / (side_len - 2 * edge), s_["pins"] / 60.0, 3)
         text = open(os.path.join(d, target["name"] + "_pins.tcl")).read()
         # 3 segments, 2 outer-side groups, the rest
         self.assertEqual(text.count("set_io_pin_constraint -region"), 6)
@@ -208,7 +209,10 @@ class SegmentTest(unittest.TestCase):
             "-region %s:* -pin_names $seg" % plan_floorplan.OUTER[target["pin_side"]],
             text,
         )
-        self.assertIn("-region %s:0.000-" % target["pin_side"], text)
+        self.assertIn(
+            "-region %s:%.3f-" % (target["pin_side"], plan_floorplan.SEGMENT_EDGE_UM),
+            text,
+        )
 
 
 class LayoutTest(unittest.TestCase):
