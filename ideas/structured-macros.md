@@ -89,3 +89,21 @@ in for the RTL module by name.
   update rules, a module boundary where the generator's ports are.
 - Every generated macro is equivalence-checked against the module it
   replaces before a take uses it.
+
+## Progress
+
+- **2026-09-21, step 1 and 2 as one patch.** The ROB's entry payload did
+  not need a new generator: the fields written once at enqueue are a
+  plain multi-port register file, so XiangShan patch 0008 extracts them
+  into `RobEntryFile`, a `utils.RegVecFile` (8 write ports at the allocate
+  pointers, 16 read ports for the eight banks' two lines, 352 x 21 bits),
+  and `RobEntryFile.regfile` hands it to `structured_gen` as it stands.
+  The cell keeps its read-modify-write state and a shared bus of a few
+  dozen bits per enqueue port instead of the whole uop. The planned
+  flows now harden the generated register files of every module they
+  keep (the parent: `IntRegFile`, `RenameBufferFile`, `RobEntryFile`;
+  Frontend: the Ftq queues), and the plan's macro placement marks the
+  planned blocks FIRM and lets `rtl_macro_placer` place the parent's own
+  macros around them. Take 22 runs it. The `set` and `clear_after` ports
+  of the plan's step 1 are still wanted, for the flag matrices (the ROB's
+  remaining state, the busy tables) in step 5.
