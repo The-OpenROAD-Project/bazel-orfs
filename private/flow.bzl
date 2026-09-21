@@ -331,6 +331,16 @@ def orfs_flow(
         quick_pins = False,
         html = False,
         **kwargs):
+    # buildifier: disable=function-docstring-args
+    #
+    # user_stages is documented below but stays in **kwargs on purpose.
+    # It has to arrive at _strip_tool_kwargs still inside the kwargs
+    # dict, because that function is the single place that decides which
+    # non-stage companions (orfs_arguments, orfs_macro, orfs_update) must
+    # not see it -- an attribute none of those rules has. Lifting it into
+    # the signature would take it out of that dict and put the decision
+    # back at each call site, which is the shape that failed at analysis
+    # for every design with both user_stages and a mock_area.
     """
     Creates targets for running physical design flow with OpenROAD-flow-scripts.
 
@@ -973,12 +983,8 @@ def _orfs_pass(
             update_kwargs.pop("substeps", None)
             update_kwargs.pop("lint", None)
 
-            # orfs_update takes only logs and rules_json. user_stages is a
-            # flow-level sidecar that was added after this pop list was
-            # written, so it reached the rule and every design with a
-            # RULES_JSON failed to load with
-            #   no such attribute 'user_stages' in 'orfs_update' rule
-            update_kwargs.pop("user_stages", None)
+            # orfs_update takes only logs and rules_json; _strip_tool_kwargs
+            # below drops user_stages, which the rule has no attribute for.
             orfs_update(
                 name = _step_name(name, variant, "update"),
                 rules_json = sources["RULES_JSON"][0],
