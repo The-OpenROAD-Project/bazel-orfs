@@ -86,6 +86,14 @@ channels in the plan); `-use_diamond_legalizer` with the default window
 for the CTS stage; the lookup cost in `negotiationCost` as a tool study
 (profile saved next to the take). Profile: tmp/take19/cts_perf.txt.
 
+Take 20 (2026-09-21, diamond search at its default 27 um window): the
+place stage took 76 min in all, against take 19's 2 h 19 min with the
+negotiation legalizer, and failed on one cell of 3 573 552, a repair
+buffer (`wire323088`) that neither the diamond move nor rip-up could
+seat; patch 0004's supply check did not fire, so the pocket is local, a
+single cell with no free site within 27 um. Take 21 runs the diamond
+with a 100 um window for that cell.
+
 ## Method notes
 
 - Synthesis-stage numbers are read after `repair_design`, never before;
