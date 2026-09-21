@@ -110,8 +110,8 @@ that belongs in a generated macro. The pivot is `ideas/structured-macros.md`.
 ## 6. Hierarchical `link_design` of the parent is string-keyed and serial
 
 Building the parent's synthesis ODB (`link_design` with hierarchy kept,
-3.7 M instances, 3.6 M nets, four macros) takes minutes, 5 to 8 on the
-pre-pivot parent, single-threaded at 20 GB. An eight-second system-wide
+3.7 M instances, 3.6 M nets, four macros) takes minutes: 7 on take 22
+(10:05 to 10:12), single-threaded at 20 GB. An eight-second system-wide
 `perf` sample on 2026-09-21 (tmp/take19/link_design_perf.txt): 13 %
 `ord::Verilog2db::constructModNet`, 11 % tcmalloc, 4.7 % `memcmp`, 3.8 %
 `Verilog2db::staToDb`, 3.4 % `sta::Network::pathName`, 3.0 %
