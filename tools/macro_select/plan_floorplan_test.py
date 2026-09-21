@@ -276,6 +276,24 @@ class ExactPinTest(unittest.TestCase):
         self.assertIn("-force_to_die_boundary", text)
         self.assertEqual(text.count("set_io_pin_constraint"), 1)  # the rest, whole side
         self.assertEqual(target["pins_placed_exact"], 46)
+        # a block whose pins the plan places is still a block of the plan:
+        # one row in place_macros.tcl and one entry in plan.bzl, and none
+        # of its pin rows leak into the macro rows (the emit once reused
+        # the macro row list for the pins and skipped the block's entry)
+        place = open(os.path.join(d, "place_macros.tcl")).read()
+        for m in out["macros"]:
+            self.assertIn(
+                "\n  %s %.3f %.3f\n" % (m["name"], m["x_um"], m["y_um"]), place
+            )
+        self.assertNotIn("\n  a0 ", place)
+        scope = {}
+        exec(open(os.path.join(d, "plan.bzl")).read(), scope)
+        self.assertEqual(
+            sorted(scope["PLAN"]["macros"]), sorted(m["name"] for m in out["macros"])
+        )
+        self.assertEqual(
+            scope["PLAN"]["macros"][target["name"]]["pin_side"], target["pin_side"]
+        )
 
 
 class MirroredOrderTest(unittest.TestCase):

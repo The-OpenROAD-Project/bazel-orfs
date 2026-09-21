@@ -732,7 +732,7 @@ def emit(out, plan, directory):
                 ]
             tech = plan["tech"]
             if "pin_layers_v" in tech and "pin_layers_h" in tech:
-                rows = []
+                pin_rows = []
                 sides_used = []
                 for sd in (side, OUTER[side]):
                     on_side = [
@@ -745,7 +745,7 @@ def emit(out, plan, directory):
                     sides_used.append(sd)
                     mm = dict(m, pin_side=sd)
                     for pin, layer, x, y, w, h in place_exact(mm, on_side, tech):
-                        rows.append(
+                        pin_rows.append(
                             "  {} {} {:.4f} {:.4f} {:.4f} {:.4f}".format(
                                 pin, layer, x, y, w, h
                             )
@@ -764,7 +764,7 @@ def emit(out, plan, directory):
                             )
                         ]
                     ),
-                    rows="\n".join(rows),
+                    rows="\n".join(pin_rows),
                 )
                 m["pin_segments"] = [
                     {
@@ -776,34 +776,39 @@ def emit(out, plan, directory):
                     }
                     for sd, p_, lo, hi, pins in segs
                 ]
-                m["pins_placed_exact"] = len(rows)
+                m["pins_placed_exact"] = len(pin_rows)
                 write(m["name"] + "_pins.tcl", text)
-                continue
-            text = SEGMENTS_TCL.format(
-                name=m["name"],
-                side=side,
-                count=len(segs),
-                segments="\n".join(
-                    SEGMENT_TCL.format(
-                        partner=partner,
-                        n=len(pins),
-                        side=sd,
-                        region=("*" if lo is None else "{:.3f}-{:.3f}".format(lo, hi)),
-                        pins=" ".join(pins),
-                    )
-                    for sd, partner, lo, hi, pins in segs
-                ),
-            )
-            m["pin_segments"] = [
-                {
-                    "side": sd,
-                    "partner": p_,
-                    "lo_um": lo,
-                    "hi_um": hi,
-                    "pins": len(pins),
-                }
-                for sd, p_, lo, hi, pins in segs
-            ]
+                # the block's entry and its place_macros row follow below,
+                # like every other block's: this branch only chose its pins file
+                text = None
+            else:
+                text = SEGMENTS_TCL.format(
+                    name=m["name"],
+                    side=side,
+                    count=len(segs),
+                    segments="\n".join(
+                        SEGMENT_TCL.format(
+                            partner=partner,
+                            n=len(pins),
+                            side=sd,
+                            region=(
+                                "*" if lo is None else "{:.3f}-{:.3f}".format(lo, hi)
+                            ),
+                            pins=" ".join(pins),
+                        )
+                        for sd, partner, lo, hi, pins in segs
+                    ),
+                )
+                m["pin_segments"] = [
+                    {
+                        "side": sd,
+                        "partner": p_,
+                        "lo_um": lo,
+                        "hi_um": hi,
+                        "pins": len(pins),
+                    }
+                    for sd, p_, lo, hi, pins in segs
+                ]
         else:
             text = PINS_TCL.format(
                 name=m["name"],
@@ -812,7 +817,8 @@ def emit(out, plan, directory):
                 region_side=m["region_side"],
                 constraint=constraint,
             )
-        write(m["name"] + "_pins.tcl", text)
+        if text is not None:
+            write(m["name"] + "_pins.tcl", text)
         w, h = m["w_um"], m["h_um"]
         entry = {
             "DIE_AREA": _area(0, 0, w, h),
