@@ -654,6 +654,23 @@ auto_memories_outputs_test(
         # declared so make does not re-run detection in the synth sandbox.
         "memories_inferred.json",
     ],
+    # Declared and staged is still not enough. Staged artifacts carry
+    # whatever mtime the cache or the sandbox gave them, so make read a
+    # memories.json older than its memories_inferred.json -- or either
+    # older than a freshly fetched ORFS script -- as a reason to remake
+    # them inside the synth sandbox, where VERILOG_FILES is empty:
+    # "Module `RocketTile' not found!". This is tinyRocket, the serial
+    # path; the keep and partition actions take the same switch, and the
+    # gap named at the top of auto_memories_outputs_test.bzl -- no design
+    # in reach sets SYNTH_HIERARCHICAL with AUTO_MEMORIES -- is why they
+    # are not asserted here.
+    old_file = {
+        "1_2_yosys.v": [
+            "memories.json",
+            "memories_inferred.json",
+            "memories",
+        ],
+    },
     target_under_test = "@orfs//flow/designs/asap7/tinyRocket:RocketTile_synth",
 )
 

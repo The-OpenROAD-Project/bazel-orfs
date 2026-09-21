@@ -61,6 +61,14 @@ def _inputs_of_producer(env, output_basename):
                 return {i.basename: True for i in action.inputs.to_list()}
     return None
 
+def _argv_of_producer(env, output_basename):
+    """Command line of the action that produces `output_basename`, or None."""
+    for action in analysistest.target_actions(env):
+        for f in action.outputs.to_list():
+            if f.basename == output_basename:
+                return action.argv
+    return None
+
 def _auto_memories_outputs_test_impl(ctx):
     env = analysistest.begin(ctx)
     declared = _output_basenames(env)
@@ -92,6 +100,24 @@ def _auto_memories_outputs_test_impl(ctx):
                  "nothing.") % (output, label, name),
             )
 
+    for output, staged in ctx.attr.old_file.items():
+        argv = _argv_of_producer(env, output)
+        asserts.true(
+            env,
+            argv != None,
+            "no action of %s produces %s" % (label, output),
+        )
+        for name in (argv != None and staged or []):
+            asserts.true(
+                env,
+                any([a.startswith("--old-file=") and a.endswith("/" + name) for a in argv]),
+                ("the action producing %s in %s does not pass --old-file " +
+                 "for %s. A staged artifact carries whatever mtime the " +
+                 "cache or the sandbox gave it, and make reads an older " +
+                 "one as a reason to remake it here, where VERILOG_FILES " +
+                 "is empty.") % (output, label, name),
+            )
+
     for name in ctx.attr.forbidden:
         asserts.true(
             env,
@@ -113,6 +139,12 @@ auto_memories_outputs_test = analysistest.make(
             doc = "Maps an output basename to the input basenames the " +
                   "action producing it must consume. Asserting that the " +
                   "reader is given them, rather than that somebody is.",
+        ),
+        "old_file": attr.string_list_dict(
+            doc = "Maps an output basename to the staged input basenames " +
+                  "the action producing it must name in a --old-file " +
+                  "switch, so make takes them as up to date whatever " +
+                  "their timestamps say.",
         ),
         "forbidden": attr.string_list(
             doc = "Output basenames that must NOT be declared.",
