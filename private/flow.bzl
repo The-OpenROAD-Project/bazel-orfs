@@ -53,6 +53,44 @@ def _strip_tool_kwargs(**kwargs):
     kwargs.pop("user_stages", None)
     return kwargs
 
+def slang_arguments(macro, name, arguments, yosys_frontend_reason):
+    """The synthesis frontend is slang, for every entry point that synthesises.
+
+    yosys's own Verilog frontend is effectively deprecated for
+    SystemVerilog and parses at a few MB/s -- XiangShan's flat core costs
+    seven minutes of canonicalization on it against one on slang -- and a
+    design that never named a frontend got yosys's, by ORFS's default.
+    Here the default is slang, and a design that must stay on another
+    frontend says why in yosys_frontend_reason, next to the setting, so
+    the exception is visible where it is made.
+
+    Applied by orfs_flow() and by orfs_synth(), the two public entry
+    points that run synthesis, so the frontend does not depend on which
+    macro declared the design. SYNTH_USE_SYN bypasses yosys altogether
+    and is exempt.
+
+    Args:
+        macro: the macro's name, for the message.
+        name: the target's name, for the message.
+        arguments: the flow's arguments dict.
+        yosys_frontend_reason: the caller's stated reason, or None.
+
+    Returns:
+        arguments, with SYNTH_HDL_FRONTEND set.
+    """
+    if arguments.get("SYNTH_USE_SYN") == "1":
+        return arguments
+    frontend = arguments.get("SYNTH_HDL_FRONTEND", "slang")
+    if frontend != "slang" and not yosys_frontend_reason:
+        fail(("{} {}: SYNTH_HDL_FRONTEND is \"{}\", not \"slang\". bazel-orfs " +
+              "synthesises with slang; a design that must use another frontend " +
+              "passes yosys_frontend_reason = \"<why>\" alongside the setting.").format(
+            macro,
+            name,
+            frontend,
+        ))
+    return arguments | {"SYNTH_HDL_FRONTEND": frontend}
+
 def _merge_extra_arguments(a, b):
     """Merge two {stage: [label, ...]} dicts, concatenating per-stage lists."""
     merged = dict(a)
@@ -248,7 +286,11 @@ def orfs_synth(**kwargs):
     """Instantiates a standalone synthesis stage target.
 
     Args:
-        **kwargs: forwarded to _orfs_stage and orfs_synth_rule.
+        **kwargs: forwarded to _orfs_stage and orfs_synth_rule, plus
+            yosys_frontend_reason, which is consumed here: why this
+            target does not synthesise with slang, when
+            SYNTH_HDL_FRONTEND names another frontend. Same rule and
+            same wording as orfs_flow().
     """
 
     # Normalise the kept_macros sentinel: None / absent → feature off
@@ -259,6 +301,16 @@ def orfs_synth(**kwargs):
         km = kwargs.pop("kept_macros")
         kwargs["kept_macros"] = km if km != None else {}
         kwargs["kept_macros_enabled"] = km != None
+
+    # A standalone synth stage is synthesis too, so it takes the same
+    # frontend an orfs_flow() would give it. yosys_frontend_reason is a
+    # macro argument, not an attribute of the rule, so it is popped here.
+    kwargs["arguments"] = slang_arguments(
+        "orfs_synth",
+        kwargs.get("name"),
+        kwargs.get("arguments", {}),
+        kwargs.pop("yosys_frontend_reason", None),
+    )
     _orfs_stage("synth", orfs_synth_rule, **kwargs)
 
 # Public per-stage macros.  Written out one by one because Starlark has no
@@ -418,21 +470,7 @@ def orfs_flow(
       **kwargs: forward named args
     """
 
-    # The synthesis frontend is slang. Yosys's own Verilog frontend is
-    # effectively deprecated for SystemVerilog and parses at a few MB/s
-    # (XiangShan's flat core: seven minutes of canonicalisation per
-    # synthesis, one of slang); a flow that never said which frontend it
-    # wanted got yosys's by ORFS's default. Here the default is slang, and a
-    # flow that must stay on yosys's says why in yosys_frontend_reason, next
-    # to the setting, so the exception is visible. SYNTH_USE_SYN bypasses
-    # yosys altogether and is exempt.
-    if arguments.get("SYNTH_USE_SYN") != "1":
-        frontend = arguments.get("SYNTH_HDL_FRONTEND", "slang")
-        if frontend != "slang" and not yosys_frontend_reason:
-            fail(("orfs_flow {}: SYNTH_HDL_FRONTEND is \"{}\", not \"slang\". bazel-orfs " +
-                  "synthesises with slang; a design that must use another frontend " +
-                  "passes yosys_frontend_reason = \"<why>\" alongside the setting.").format(name, frontend))
-        arguments = arguments | {"SYNTH_HDL_FRONTEND": frontend}
+    arguments = slang_arguments("orfs_flow", name, arguments, yosys_frontend_reason)
 
     if quick_pins:
         sources = sources | {
