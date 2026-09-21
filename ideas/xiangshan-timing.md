@@ -126,6 +126,18 @@ plus the Verilog parse at 100 MB/s or more. The gap is a factor of ten,
 and it is pointer identity and arena allocation in the linker, not
 threads. A tool item; the study pays it once per parent synthesis.
 
+## 7. Canonicalisation on yosys's Verilog frontend: seven minutes per synthesis
+
+`Canonicalizing RTL for XSCore` took 400 s (take 22) and 457 s (take 23's
+first attempt): yosys's own frontend reading the flat core, all 2 181
+modules, single-threaded at a few MB/s, before `hierarchy`, `proc` and the
+RTLIL write the partitions are cut from, and again after any change to a
+synthesis input (the memories views included). None of XiangShan's flows
+had set `SYNTH_HDL_FRONTEND`; only the pin-wall harness ran slang. Fixed
+at the root on 2026-09-21: `orfs_flow` forces slang (a flow on another
+frontend has to say why), so every design in the repo parses with slang
+from here on. Take 23 is the first XiangShan synthesis on it.
+
 ## Method notes
 
 - Synthesis-stage numbers are read after `repair_design`, never before;
