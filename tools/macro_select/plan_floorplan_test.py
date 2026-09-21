@@ -295,6 +295,48 @@ class MirroredOrderTest(unittest.TestCase):
         self.assertEqual(groups["B"]["logic"], ["c9"])
 
 
+class NetlistTest(unittest.TestCase):
+    def test_netlists_in_a_row_along_the_region_top(self):
+        p = plan([dict(m) for m in LayoutTest.MACROS])
+        p["tech"] = LATTICE
+        p["netlists"] = [
+            {"module": "A", "instance": "top/a", "w_um": 300.0, "h_um": 200.0},
+            {"module": "B", "instance": "top/b", "w_um": 400.0, "h_um": 250.0},
+            {
+                "module": "C",
+                "instance": "top/c",
+                "w_um": 100.0,
+                "h_um": 100.0,
+                "x_um": 50.0,
+                "y_um": 60.0,
+            },
+        ]
+        out = plan_floorplan.layout(p)
+        rows = plan_floorplan.place_netlists(out, p)
+        x0, y0, x1, y1 = out["region_um"]
+        gap = p["margins"]["gap_um"]
+        self.assertEqual([r[0] for r in rows], ["A", "B", "C"])
+        self.assertAlmostEqual(rows[0][2], x0 + gap, 3)
+        self.assertAlmostEqual(rows[0][3], y1 - gap - 200.0, 3)
+        self.assertAlmostEqual(rows[1][2], x0 + gap + 300.0 + gap, 3)
+        self.assertEqual(rows[2][2:4], (50.0, 60.0))
+        d = tempfile.mkdtemp(prefix="plan_netlists.")
+        plan_floorplan.emit(out, p, d)
+        text = open(os.path.join(d, "netlists.txt")).read()
+        self.assertIn("A top/a %.3f %.3f" % (rows[0][2], rows[0][3]), text)
+        bzl = open(os.path.join(d, "plan.bzl")).read()
+        self.assertIn('"netlists"', bzl)
+
+    def test_refuses_when_the_row_overflows(self):
+        p = plan([dict(m) for m in LayoutTest.MACROS])
+        p["netlists"] = [
+            {"module": "Big", "instance": "top/big", "w_um": 5000.0, "h_um": 10.0}
+        ]
+        out = plan_floorplan.layout(p)
+        with self.assertRaises(SystemExit):
+            plan_floorplan.place_netlists(out, p)
+
+
 class LayoutTest(unittest.TestCase):
     MACROS = [
         {"name": "Frontend", "pins": 3294, "area_um2": 910000, "slack_ps": 300},
