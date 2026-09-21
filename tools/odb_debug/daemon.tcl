@@ -48,9 +48,23 @@ if { !$::od_attached } {
 }
 set ::od_load_secs [expr { ([clock milliseconds] - $::od_t0) / 1000.0 }]
 
-# Timing is available when liberty loaded and STA sees registers.
+# Timing is available when liberty loaded and STA sees registers. Ask
+# whether liberty was loaded before asking STA anything: with GUI_TIMING=0
+# it was not, and the first STA query prints
+#
+#     [ERROR STA-2141] No liberty libraries found.
+#
+# before it throws, which reads as a failure in every launch log although
+# the session went on without timing, as intended. The question is STA's
+# own predicate, not the database's getLibs -- those are the LEF libs,
+# which an ODB always carries, liberty or no liberty. If a build has no
+# such predicate the fallback is the old behaviour: ask STA and catch.
+set has_liberty 1
+catch { set has_liberty [sta::liberty_libraries_exist] }
 set ::od_timing 0
-catch { if { [llength [all_registers]] > 0 } { set ::od_timing 1 } }
+if { $has_liberty } {
+  catch { if { [llength [all_registers]] > 0 } { set ::od_timing 1 } }
+}
 
 # ---- JSON ------------------------------------------------------------------
 
