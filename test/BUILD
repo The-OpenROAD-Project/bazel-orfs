@@ -372,12 +372,22 @@ build_test(
 # never built. Without the strip in _strip_tool_kwargs this fails with
 # "no such attribute 'user_stages' in 'orfs_update' rule", which is how
 # it reached every design that had a RULES_JSON.
+#
+# test_kwargs carries the manual tag because the QoR test target is the
+# one thing a RULES_JSON flow declares that tags= does not reach: the
+# flow clears the tags for it on purpose (`kwargs | {"tags": []} |
+# test_kwargs`), so that a design's QoR gate runs even when the design
+# itself is manual. Here that turned a load-only fixture into a full
+# PnR run in CI, checked against a rules file written for another
+# design -- "Value not found for placeopt__design__instance__area".
+# test_kwargs is applied last, so it is the one way to say no.
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "lb_32x128",
     arguments = LB_ARGS,
     sources = LB_SOURCES | {"RULES_JSON": [":rules-base.json"]},
     tags = ["manual"],
+    test_kwargs = {"tags": ["manual"]},
     user_arguments = {"USER_PROJECT_KNOB": "42"},
     user_stages = {"USER_PROJECT_KNOB": ["floorplan"]},
     variant = "update_user_stages",
