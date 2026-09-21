@@ -52,4 +52,20 @@ if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
   export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}"
 fi
 
+# A deployed tree holds one stage's inputs as bazel built them. A bare
+# stage target (`floorplan`, `place`, ...) lets ORFS's dependency chain
+# decide that upstream results are stale and rebuild them here, from
+# inputs bazel never gave the tree, and the tree stops matching the
+# build. The honest targets are `do-<stage>`, which run that stage and
+# nothing else; `run`, `open_*` and `gui_*` pass. Stop before make does.
+for _arg in "$@"; do
+  case "$_arg" in
+    synth|floorplan|place|cts|grt|route|final|generate_abstract|all|clean_all)
+      echo "make: refusing target '$_arg' in a deployed tree: it would rebuild upstream" >&2
+      echo "      stages from inputs bazel never gave this tree. Run one stage:" >&2
+      echo "      ./make do-$_arg   (do-synth, do-floorplan, do-place, do-cts, do-grt, do-route, do-final)" >&2
+      exit 2
+      ;;
+  esac
+done
 exec $MAKE_PATH --file "$FLOW_HOME/Makefile" "$@"
