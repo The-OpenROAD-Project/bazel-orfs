@@ -366,6 +366,24 @@ build_test(
     targets = [":lb_32x128_user_args_floorplan"],
 )
 
+# The third companion with no user_stages attribute is orfs_update, and
+# a mock_area flow never reaches it: the update branch needs a full flow
+# with a RULES_JSON and no mock. Loading this target is the test; it is
+# never built. Without the strip in _strip_tool_kwargs this fails with
+# "no such attribute 'user_stages' in 'orfs_update' rule", which is how
+# it reached every design that had a RULES_JSON.
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    arguments = LB_ARGS,
+    sources = LB_SOURCES | {"RULES_JSON": [":rules-base.json"]},
+    tags = ["manual"],
+    user_arguments = {"USER_PROJECT_KNOB": "42"},
+    user_stages = {"USER_PROJECT_KNOB": ["floorplan"]},
+    variant = "update_user_stages",
+    verilog_files = LB_VERILOG_FILES,
+)
+
 # user_stages next to a mock_area: the mocked variant's companions
 # (orfs_arguments for the mock area, orfs_macro for the abstract) have no
 # user_stages attribute, so a flow with both used to fail at analysis with
