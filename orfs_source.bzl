@@ -191,6 +191,12 @@ ORFS_PATCHES = [
     # the same 407 memories. Carried, not upstreamed; retire at a bump onto
     # an ORFS that scopes the passes or a yosys that returns early.
     Label("//patches:0079-orfs-extract-memories-scoped.patch"),
+    # 0080: the memory detector names a slang-uniquified module
+    # (`array_512x17$Frontend...`) for its definition and collapses the
+    # copies: read_slang blackboxes by definition name, so the uniquified
+    # names never matched and the arrays were flattened into their tables
+    # (Frontend's TAGE partition, 64 x 8704 bits). Carried, not upstreamed.
+    Label("//patches:0080-orfs-memories-slang-uniquified-names.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
