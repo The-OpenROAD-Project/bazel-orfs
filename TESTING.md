@@ -96,7 +96,7 @@ comm -23 \
 | Parallel synth, discovered kept list | `//test:discovered_modules_netlist_test`, `flattened_modules_netlist_test` (both sides of `SYNTH_MINIMUM_KEEP_SIZE`) |
 | config.mk DSL (`design()`, `orfs_design.bzl`) | `//test:dsl_hier_discovery_*`, `dsl_hier_pinned_*` -- fixtures under `flow/designs/asap7/`, see `flow/BUILD` |
 | Real ORFS design, discovery mode | `//test:orfs_riscv32i_synth_build_test` |
-| `SYNTH_HDL_FRONTEND=slang` | slang/BUILD |
+| `SYNTH_HDL_FRONTEND=slang` | every flow (`orfs_flow` defaults to it); slang/BUILD covers the plugin path and the blackboxed-module path directly |
 | Cross-package refs | subpackage/BUILD |
 | 6 PDKs | smoketest/BUILD |
 
