@@ -184,6 +184,13 @@ ORFS_PATCHES = [
     # placed FIRM into the parent at floorplan (STRUCTURED_PLACEMENT) instead
     # of a macro. Carried, not upstreamed. See ideas/structured-macros.md.
     Label("//patches:0078-orfs-structured-netlists.patch"),
+    # 0079: extract_memories.tcl runs the memory passes on the modules that
+    # hold memory cells only, memory_bmux2rom excepted. yosys's memory_dff
+    # builds its per-bit index for every module before asking whether it
+    # has a memory: 721 s unscoped against 64 s scoped on the flat XSCore,
+    # the same 407 memories. Carried, not upstreamed; retire at a bump onto
+    # an ORFS that scopes the passes or a yosys that returns early.
+    Label("//patches:0079-orfs-extract-memories-scoped.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

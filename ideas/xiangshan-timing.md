@@ -138,6 +138,34 @@ at the root on 2026-09-21: `orfs_flow` forces slang (a flow on another
 frontend has to say why), so every design in the repo parses with slang
 from here on. Take 23 is the first XiangShan synthesis on it.
 
+## 8. Memory extraction: yosys indexes every module before asking if it has a memory
+
+`Canonicalizing RTL for XSCore` on slang still took 15 minutes on take 23,
+and 12 of them were `memory -nomap` in `extract_memories.tcl`. Each of
+its passes walks every module: `memory_dff` builds its per-bit driver and
+consumer index (`ModWalker::setup`, memory_dff.cc:225) for a module in
+the worker's constructor and asks whether the module has a memory only in
+`run()`; `opt_mem_priority` and `opt_mem_feedback` scan every module's
+cells the same way. The flat core has 1 870 modules and 407 of them hold a
+memory cell, each a small firtool `ram_*` module; the large modules are
+the logic, and the index over them is the cost. Measured on the flat
+XSCore read through slang (yosys 0.68), the memory passes alone:
+
+| run | memory passes | memory_dff | `$mem_v2` |
+|---|---|---|---|
+| unscoped (`memory -nomap` as shipped) | 721 s | 462 s | 407 |
+| scoped to the 407 modules with memory cells | 64 s | 24 s | 407 |
+
+Carried as ORFS patch 0079: `memory_bmux2rom` first and unscoped (it is
+what turns constant muxes into a memory), then the module list from the
+memory cells' names and `memory -nomap` on those modules, and
+`write_json -selected` for the detector, which reads nothing across
+modules. The selection's own `%m` expansion is not usable here: with a
+`$` in the module name, slang's uniquified names, it leaves the module
+partially selected and every pass skips it. The proper fix is an early
+return in yosys's `memory_dff` before the index is built; there is no
+yosys patch channel in this repo, so it is a note for upstream.
+
 ## Method notes
 
 - Synthesis-stage numbers are read after `repair_design`, never before;
