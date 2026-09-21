@@ -50,7 +50,7 @@ PLAN = {
             },
             {
                 "h_um": 243.0,
-                "instance": "backend/inner_intRegion/intDataPath/IntRegFile",
+                "instance": "backend/inner_intRegion/intDataPath/intRegFile",
                 "module": "IntRegFile",
                 "w_um": 406.0,
                 "x_um": 350.128,
