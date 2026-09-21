@@ -1180,11 +1180,12 @@ def _user_stages(user_arguments, user_sources):
 # memory banks inside, pins on two layers per direction).
 XS_BLOCK_DEFAULT = dict(XS_BLOCKS["Bpu"], arguments = {k: v for k, v in XS_BLOCKS["Bpu"]["arguments"].items() if k != "SYNTH_KEEP_MODULES"})
 
-# Outline knobs a planned flow replaces with DIE_AREA/CORE_AREA, the
-# legaliser window the parent no longer needs once the channels are planned,
-# and the metrics skip: the planned flows record worst slack at every stage,
-# since the period is the study's KPI and nothing else measures it.
-_PLAN_DROPS = ["CORE_UTILIZATION", "CORE_ASPECT_RATIO", "CORE_MARGIN", "DETAIL_PLACEMENT_ARGS", "SKIP_REPORT_METRICS"]
+# Outline knobs a planned flow replaces with DIE_AREA/CORE_AREA, and the
+# legaliser window the parent no longer needs once the channels are planned.
+# SKIP_REPORT_METRICS stays on: report_metrics on a 3.7 M-instance parent
+# runs for an hour per stage; slack is read from the stage ODB with
+# odb-debug in seconds instead.
+_PLAN_DROPS = ["CORE_UTILIZATION", "CORE_ASPECT_RATIO", "CORE_MARGIN", "DETAIL_PLACEMENT_ARGS"]
 
 def _structured_memories(own_sources, keep, blocks):
     """The generated register files a planned flow hardens: its own, plus
