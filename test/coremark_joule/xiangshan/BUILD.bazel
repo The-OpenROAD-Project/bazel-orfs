@@ -118,6 +118,19 @@ exports_files(glob([
             # blackboxes instead -- which both hides them from the
             # detector and makes the design unsimulatable. Measured on
             # XSCore: 38 convertible memories without it, 20 with.
+            #
+            # No verification layer. Chisel puts every assertion in a
+            # layer that firtool lowers to a `<Module>_Verification_Assert`
+            # module bound into its parent with hierarchical references
+            # (312 of them in XSCore); slang, which keeps the hierarchy the
+            # flow partitions on, refuses a hierarchical reference across a
+            # preserved module boundary, and yosys's own frontend only ever
+            # dropped them silently. Disabling the layers here, where the
+            # FIRRTL still has them, leaves them out of every view -- the
+            # simulator's included -- rather than filtering the Verilog
+            # afterwards. This is the generator's firtool argument list:
+            # emitHWDialect takes the remaining args as firtool options.
+            "--default-layer-specialization=disable",
             "-o $@",
         ]),
         tools = [
@@ -223,32 +236,6 @@ exports_files(glob([
         srcs = [":" + prefix + "_concat" + suffix],
         outs = [prefix + "_flat" + suffix + ".sv"],
         cmd = "grep -hvF '`include' $(location :" + prefix + "_concat" + suffix + ") > $@ || true",
-    )
-    for prefix in [
-        "xiangshan",
-        "cmj_soc",
-    ]
-    for suffix in [
-        "",
-        "_minimal",
-    ]
-]
-
-# The synthesis view of the flat Verilog: without the verification layer.
-# firtool emits every Chisel assertion as a `<Module>_Verification_Assert`
-# module bound into its parent with hierarchical references (312 of them
-# in XSCore); slang, which keeps the hierarchy the flow partitions on,
-# refuses a hierarchical reference across a preserved module boundary, and
-# yosys's frontend only ever dropped them silently. The simulator keeps
-# the full file and its assertions; synthesis reads this one.
-[
-    genrule(
-        name = prefix + "_flat_synth" + suffix,
-        srcs = [":" + prefix + "_flat" + suffix],
-        outs = [prefix + "_flat_synth" + suffix + ".sv"],
-        cmd = "awk '/^module [A-Za-z_0-9]*_Verification_(Assert|Assume|Cover)[ (]/ { skip = 1 } " +
-              "!skip && !/^[[:space:]]*bind / { print } /^endmodule/ { skip = 0 }' " +
-              "$(location :" + prefix + "_flat" + suffix + ") > $@",
     )
     for prefix in [
         "xiangshan",
