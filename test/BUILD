@@ -1978,6 +1978,18 @@ sh_test(
     data = ["//:deps"],
 )
 
+# make.tpl's deployed-tree guard: a bare stage target is refused and the
+# `do-` form named, `synth` is pointed at do-yosys (ORFS has no
+# do-synth), and nothing is refused when FLOW_HOME comes from the
+# build's environment.
+sh_test(
+    name = "make_stage_guard_test",
+    size = "small",
+    srcs = ["make_stage_guard_test.sh"],
+    args = ["$(rootpath //:make.tpl)"],
+    data = ["//:make.tpl"],
+)
+
 sh_test(
     name = "klayout_wrapper_test",
     srcs = ["tool_wrapper_test.sh"],
