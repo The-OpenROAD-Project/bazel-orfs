@@ -3,10 +3,10 @@
 # origin off the pin lattice the plan put it on).
 set block [ord::get_db_block]
 foreach {master x y} {
-  MemBlock 60.912 12.960
-  Region_1 1067.472 399.600
-  Frontend 10.224 2622.240
-  VecRegionModule 975.744 2678.400
+  Frontend 10.224 82.080
+  MemBlock 975.744 12.960
+  VecRegionModule 1982.304 213.840
+  Region_1 2800.944 371.520
 } {
   set insts {}
   foreach inst [$block getInsts] {
@@ -16,5 +16,16 @@ foreach {master x y} {
     utl::error FLW 1 "plan: $master has [llength $insts] instances, the plan places one"
   }
   place_macro -macro_name [[lindex $insts 0] getName] -location [list $x $y] -orientation R0 -exact
+  [lindex $insts 0] setPlacementStatus FIRM
   puts "place_macros.tcl: $master at $x $y um, R0"
+}
+# Macros the plan does not name (the parent's own generated register files
+# and memories) go around the planned blocks, which are FIRM and stay put.
+set rest {}
+foreach inst [$block getInsts] {
+  if { [[$inst getMaster] isBlock] && ![$inst isFixed] } { lappend rest [$inst getName] }
+}
+if { [llength $rest] > 0 } {
+  puts "place_macros.tcl: [llength $rest] macros not in the plan; rtl_macro_placer places them around the planned blocks"
+  rtl_macro_placer -halo_width 2 -halo_height 2
 }

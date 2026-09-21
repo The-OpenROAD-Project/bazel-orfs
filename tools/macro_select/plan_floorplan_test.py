@@ -141,6 +141,10 @@ class EmitTest(unittest.TestCase):
             place,
         )
         self.assertIn("-orientation R0 -exact", place)
+        self.assertIn("setPlacementStatus FIRM", place)
+        self.assertIn(
+            "rtl_macro_placer", place
+        )  # the parent's own macros, around the plan's
 
 
 class SegmentTest(unittest.TestCase):

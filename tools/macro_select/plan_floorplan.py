@@ -473,7 +473,18 @@ foreach {{master x y}} {{
     utl::error FLW 1 "plan: $master has [llength $insts] instances, the plan places one"
   }}
   place_macro -macro_name [[lindex $insts 0] getName] -location [list $x $y] -orientation R0 -exact
+  [lindex $insts 0] setPlacementStatus FIRM
   puts "place_macros.tcl: $master at $x $y um, R0"
+}}
+# Macros the plan does not name (the parent's own generated register files
+# and memories) go around the planned blocks, which are FIRM and stay put.
+set rest {{}}
+foreach inst [$block getInsts] {{
+  if {{ [[$inst getMaster] isBlock] && ![$inst isFixed] }} {{ lappend rest [$inst getName] }}
+}}
+if {{ [llength $rest] > 0 }} {{
+  puts "place_macros.tcl: [llength $rest] macros not in the plan; rtl_macro_placer places them around the planned blocks"
+  rtl_macro_placer -halo_width 2 -halo_height 2
 }}
 """
 

@@ -947,7 +947,7 @@ XS_BLOCKS = {
         "sources": {
             "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
             "SDC_FILE": ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"],
-            "STRUCTURED_MEMORIES": ["//test/coremark_joule/designs/asap7/xiangshan:RenameBufferFile.regfile"],
+            "STRUCTURED_MEMORIES": ["//test/coremark_joule/designs/asap7/xiangshan:RenameBufferFile.regfile", "//test/coremark_joule/designs/asap7/xiangshan:RobEntryFile.regfile"],
         },
     },
     "Sbuffer": {
@@ -1180,11 +1180,25 @@ def _user_stages(user_arguments, user_sources):
 # memory banks inside, pins on two layers per direction).
 XS_BLOCK_DEFAULT = dict(XS_BLOCKS["Bpu"], arguments = {k: v for k, v in XS_BLOCKS["Bpu"]["arguments"].items() if k != "SYNTH_KEEP_MODULES"})
 
-# Outline knobs a planned flow replaces with DIE_AREA/CORE_AREA, and the
-# legaliser window the parent no longer needs once the channels are planned.
-_PLAN_DROPS = ["CORE_UTILIZATION", "CORE_ASPECT_RATIO", "CORE_MARGIN", "DETAIL_PLACEMENT_ARGS"]
+# Outline knobs a planned flow replaces with DIE_AREA/CORE_AREA, the
+# legaliser window the parent no longer needs once the channels are planned,
+# and the metrics skip: the planned flows record worst slack at every stage,
+# since the period is the study's KPI and nothing else measures it.
+_PLAN_DROPS = ["CORE_UTILIZATION", "CORE_ASPECT_RATIO", "CORE_MARGIN", "DETAIL_PLACEMENT_ARGS", "SKIP_REPORT_METRICS"]
 
-def _planned_block(cfg, entry, plan_dir, block):
+def _structured_memories(own_sources, keep, blocks):
+    """The generated register files a planned flow hardens: its own, plus
+    those of every block of the old table whose module it now keeps (the
+    Ftq queues inside Frontend, the int register file and the ROB's files
+    in the parent), each once."""
+    out = list(own_sources.get("STRUCTURED_MEMORIES", []))
+    for k in [k for k in keep.split(" ") if k]:
+        for m in blocks.get(k, {}).get("sources", {}).get("STRUCTURED_MEMORIES", []):
+            if m not in out:
+                out.append(m)
+    return out
+
+def _planned_block(cfg, entry, plan_dir, block, blocks):
     """A block flow's arguments and sources under the plan: planned outline,
     every pin on the planned side, the parent's target period."""
     arguments = {k: v for k, v in cfg["arguments"].items() if k not in _PLAN_DROPS}
@@ -1193,6 +1207,9 @@ def _planned_block(cfg, entry, plan_dir, block):
     if "SYNTH_KEEP_MODULES" in entry:
         arguments["SYNTH_KEEP_MODULES"] = entry["SYNTH_KEEP_MODULES"]
     sources = dict(cfg["sources"])
+    mems = _structured_memories(cfg["sources"], entry.get("SYNTH_KEEP_MODULES", ""), blocks)
+    if mems:
+        sources["STRUCTURED_MEMORIES"] = mems
     sources["IO_CONSTRAINTS"] = [":%s/%s_pins.tcl" % (plan_dir, block)]
     sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints_800ps.sdc"]
     return arguments, sources
@@ -1233,7 +1250,7 @@ def xiangshan_flow(name = "XSCore", blocks = XS_BLOCKS, parent = XS_PARENT, tags
         macros = sorted(plan["macros"].keys())
         for block in macros:
             cfg = blocks.get(block, XS_BLOCK_DEFAULT)
-            arguments, sources = _planned_block(cfg, plan["macros"][block], plan_dir, block)
+            arguments, sources = _planned_block(cfg, plan["macros"][block], plan_dir, block, blocks)
             orfs_flow(
                 name = block,
                 abstract_stage = "place",
@@ -1261,6 +1278,13 @@ def xiangshan_flow(name = "XSCore", blocks = XS_BLOCKS, parent = XS_PARENT, tags
             # what the blocks swallowed no longer exists in the parent
             arguments["SYNTH_KEEP_MODULES"] = plan["parent"]["SYNTH_KEEP_MODULES"]
         sources = dict(parent["sources"])
+
+        # the memories of what the parent still holds; a hardened block's
+        # are the block's own
+        parent_keep = " ".join([k for k in arguments.get("SYNTH_KEEP_MODULES", "").split(" ") if k and k not in macros])
+        mems = _structured_memories(parent["sources"], parent_keep, blocks)
+        if mems:
+            sources["STRUCTURED_MEMORIES"] = mems
         sources["MACRO_PLACEMENT_TCL"] = [":%s/place_macros.tcl" % plan_dir]
         sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints_800ps.sdc"]
         user_arguments = {}

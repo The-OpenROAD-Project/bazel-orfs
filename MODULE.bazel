@@ -780,6 +780,9 @@ http_archive(
         # Carried, not upstreamed: the Rob cell's shared inputs as one bus,
         # three ports per instance for the hierarchical linker.
         "//test/coremark_joule/xiangshan:patches/0007-xiangshan-rob-cell-packed-ports.patch",
+        # Carried: the ROB entry payload as a register-file module (see the
+        # patch header and ideas/structured-macros.md).
+        "//test/coremark_joule/xiangshan:patches/0008-xiangshan-rob-entry-file.patch",
     ],
     sha256 = "ed1561ee5b532ea0956aa3c9dbcf97454eace356bbdd7498a5fb2b5feaf57ded",
     strip_prefix = "XiangShan-37ce1b50b5b8fa1865205e76175e48fc636454d6",
