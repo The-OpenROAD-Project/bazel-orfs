@@ -215,6 +215,69 @@ class SegmentTest(unittest.TestCase):
         )
 
 
+class ExactPinTest(unittest.TestCase):
+    LAYERS = {
+        "pin_layers_v": [
+            {"name": "M3", "pitch": 0.036, "offset": 0.009, "width": 0.018},
+            {"name": "M5", "pitch": 0.048, "offset": 0.012, "width": 0.024},
+        ],
+        "pin_layers_h": [
+            {"name": "M4", "pitch": 0.048, "offset": 0.012, "width": 0.024}
+        ],
+    }
+
+    def test_pins_on_tracks_two_apart_inside_the_segment(self):
+        m = {"name": "a", "pin_side": "top", "w_um": 100.0, "h_um": 50.0}
+        segs = [("b", 5.0, 25.0, ["p%d" % i for i in range(60)])]
+        rows = plan_floorplan.place_exact(m, segs, dict(TECH, **self.LAYERS))
+        self.assertEqual(len(rows), 60)
+        self.assertEqual({r[1] for r in rows}, {"M3", "M5"})
+        for pin, layer, x, y, w, h in rows:
+            lay = [l for l in self.LAYERS["pin_layers_v"] if l["name"] == layer][0]
+            self.assertAlmostEqual(
+                (x - lay["offset"]) / lay["pitch"],
+                round((x - lay["offset"]) / lay["pitch"]),
+                6,
+            )
+            self.assertGreaterEqual(x, 5.0 - lay["pitch"])
+            self.assertLessEqual(x, 25.0 + lay["pitch"])
+            self.assertAlmostEqual(y, 50.0 - 0.18)
+        for layer in ("M3", "M5"):
+            xs = sorted(r[2] for r in rows if r[1] == layer)
+            lay = [l for l in self.LAYERS["pin_layers_v"] if l["name"] == layer][0]
+            for a, b in zip(xs, xs[1:]):
+                self.assertGreaterEqual(b - a, 2 * lay["pitch"] - 1e-6)
+
+    def test_refuses_a_segment_too_short(self):
+        m = {"name": "a", "pin_side": "top", "w_um": 100.0, "h_um": 50.0}
+        segs = [("b", 5.0, 6.0, ["p%d" % i for i in range(200)])]
+        with self.assertRaises(SystemExit):
+            plan_floorplan.place_exact(m, segs, dict(TECH, **self.LAYERS))
+
+    def test_emit_places_exactly_when_the_tech_has_layers(self):
+        macros = [dict(m) for m in LayoutTest.MACROS]
+        p = plan(macros)
+        p["tech"] = dict(LATTICE, **self.LAYERS)
+        out = plan_floorplan.layout(p)
+        target = out["macros"][0]
+        d = tempfile.mkdtemp(prefix="plan_exact.")
+        dump = os.path.join(d, "partners.txt")
+        with open(dump, "w") as f:
+            for i in range(40):
+                f.write("pin %s a%d logic\n" % (target["name"], i))
+            for i in range(6):
+                f.write("pin %s d%d port\n" % (target["name"], i))
+        p["pin_partners"] = dump
+        plan_floorplan.emit(out, p, d)
+        text = open(os.path.join(d, target["name"] + "_pins.tcl")).read()
+        self.assertEqual(text.count("\n  a"), 40)
+        self.assertEqual(text.count("\n  d"), 6)
+        self.assertIn("place_pin -pin_name $pin -layer $layer", text)
+        self.assertIn("-force_to_die_boundary", text)
+        self.assertEqual(text.count("set_io_pin_constraint"), 1)  # the rest, whole side
+        self.assertEqual(target["pins_placed_exact"], 46)
+
+
 class LayoutTest(unittest.TestCase):
     MACROS = [
         {"name": "Frontend", "pins": 3294, "area_um2": 910000, "slack_ps": 300},
