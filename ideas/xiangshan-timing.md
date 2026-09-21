@@ -166,6 +166,29 @@ partially selected and every pass skips it. The proper fix is an early
 return in yosys's `memory_dff` before the index is built; there is no
 yosys patch channel in this repo, so it is a note for upstream.
 
+## 9. Rob after the entry file: 6 417 pointer comparators in the glue
+
+With `RobEntryFile` generated (352 × 21 bits) and `RobEntryCell` a kept
+module (30 bits of state each, one 1 251-bit broadcast input, synthesised
+once in three seconds), Rob's own body still took 995 s in take 23's
+first launch, 724 s of it one ABC call. Its cells after `proc`
+(`stat -width` on the module alone, tmp/take23/rob_stat_proc.txt):
+
+| cell | count | what it is |
+|---|---|---|
+| `$eq` 9 bit | 6 417 | every entry's index against the deq, walk and enqueue pointers, about 18 compares per entry |
+| `$and` / `$or` 1 bit | 5 475 / 3 911 | the 352-wide hit and select trees over those compares |
+| `$mux` 4 to 6 bit | 3 574 | per-entry field selects |
+| `$pmux` 352-way | 16 | eight commit ports, one 1-bit and one 5-bit read each |
+| registers | 1 524 bits | pointers, commit state, perf counters |
+
+The comparators are the duplication fork patch 0009 (`RobEntryCellHits`,
+shared one-hot decode) removes; it is on the fork branch and not yet
+registered in MODULE.bazel. The 352-wide trees and the eight-entry read
+at a rotating pointer are the pointer-window read the generator should
+own next, alongside the flag matrix (set, clear, clear-range) for the
+per-entry state that the cells keep.
+
 ## Method notes
 
 - Synthesis-stage numbers are read after `repair_design`, never before;
