@@ -1,4 +1,4 @@
-From 6b1f2a33c90a97713b99ceac5382c314c4ce3636 Mon Sep 17 00:00:00 2001
+From e2163fb30ec89850c0ae0d1de954eda2aadc1852 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 21 Sep 2026 09:36:03 +0200
 Subject: [PATCH] memories: STRUCTURED_MEMORIES in mode netlist, placed by
@@ -25,10 +25,10 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  flow/scripts/floorplan.tcl            |  4 ++
  flow/scripts/load.tcl                 | 15 +++++
- flow/scripts/memories/gen_memories.py | 68 +++++++++++++++++--
+ flow/scripts/memories/gen_memories.py | 74 +++++++++++++++++++--
  flow/scripts/structured_netlists.tcl  | 96 +++++++++++++++++++++++++++
  flow/scripts/variables.yaml           | 17 ++++-
- 5 files changed, 195 insertions(+), 5 deletions(-)
+ 5 files changed, 201 insertions(+), 5 deletions(-)
  create mode 100644 flow/scripts/structured_netlists.tcl
 
 diff --git a/flow/scripts/floorplan.tcl b/flow/scripts/floorplan.tcl
@@ -73,7 +73,7 @@ index d47624ea5..3c379d6de 100644
      log_cmd link_design {*}[hier_options] $::env(DESIGN_NAME)
    } elseif { $ext == ".odb" } {
 diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_memories.py
-index 757566767..85e1725b8 100644
+index 757566767..a3b312d36 100644
 --- a/flow/scripts/memories/gen_memories.py
 +++ b/flow/scripts/memories/gen_memories.py
 @@ -9,6 +9,8 @@ for memory-shaped modules, merges user-supplied `.memories` files
@@ -85,7 +85,7 @@ index 757566767..85e1725b8 100644
    <out-dir>/blackboxes.txt      converted module names, one per line —
                                  what synthesis blackboxes
  
-@@ -55,6 +57,47 @@ def _spec_module(spec: Path) -> str:
+@@ -55,6 +57,53 @@ def _spec_module(spec: Path) -> str:
      raise SystemExit(f"gen_memories: {spec}: no `module` line")
  
  
@@ -100,6 +100,11 @@ index 757566767..85e1725b8 100644
 +    return "macro"
 +
 +
++# DEF orientation names to the database's (what dbInst::setOrient takes).
++_DEF_ORIENT = {"N": "R0", "S": "R180", "W": "R90", "E": "R270",
++               "FN": "MY", "FS": "MX", "FW": "MXR90", "FE": "MYR90"}
++
++
 +def _def_placement(def_path: Path, out_path: Path) -> dict:
 +    """The placed cells of the generator's DEF as `name x y orient` lines,
 +    plus the die and the first row's orientation and height, so the
@@ -112,7 +117,7 @@ index 757566767..85e1725b8 100644
 +    row_h = None
 +    if rows:
 +        rows_sorted = sorted(((int(y), o, s_) for s_, x, y, o in rows))
-+        row0 = rows_sorted[0][1]
++        row0 = _DEF_ORIENT.get(rows_sorted[0][1], rows_sorted[0][1])
 +        ys = sorted({y for y, _, _ in rows_sorted})
 +        if len(ys) > 1:
 +            row_h = ys[1] - ys[0]
@@ -125,7 +130,8 @@ index 757566767..85e1725b8 100644
 +                continue
 +            pm = re.search(r"\+\s*(PLACED|FIXED|FIRM|COVER)\s*\(\s*(-?\d+)\s+(-?\d+)\s*\)\s*(\w+)", entry)
 +            if pm:
-+                lines.append(f"{e[1]} {pm.group(2)} {pm.group(3)} {pm.group(4)}")
++                orient = _DEF_ORIENT.get(pm.group(4), pm.group(4))
++                lines.append(f"{e[1]} {pm.group(2)} {pm.group(3)} {orient}")
 +    out_path.write_text("".join(l + "\n" for l in lines))
 +    return {"die": die, "row0_orient": row0, "row_height": row_h, "cells": len(lines)}
 +
@@ -133,7 +139,7 @@ index 757566767..85e1725b8 100644
  def _file_defining(module: str, verilog: list[Path]) -> Path:
      """The Verilog file that declares `module`, for the port check."""
      pat = re.compile(rf"^\s*module\s+{re.escape(module)}\b", re.M)
-@@ -92,25 +135,42 @@ def run_structured(
+@@ -92,25 +141,42 @@ def run_structured(
      if not lefs:
          raise SystemExit("gen_memories: STRUCTURED_MEMORIES needs TECH_LEF and SC_LEF")
      modules = []
