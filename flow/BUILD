@@ -37,7 +37,7 @@ alias(
             "//flow/designs:__subpackages__",
             "//test/coremark_joule/designs:__subpackages__",
             "//test/macro_select:__pkg__",
-        "//test/structured_netlist:__pkg__",
+            "//test/structured_netlist:__pkg__",
         ],
     )
     for path in [
