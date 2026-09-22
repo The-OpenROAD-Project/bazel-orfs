@@ -1,0 +1,47 @@
+From 34008af1ca3220585437aaa8044a488dc4bcac98 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Tue, 22 Sep 2026 09:02:03 +0200
+Subject: [PATCH] memories: a placed netlist's cells are dont_touch as well as
+ FIRM
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+FIRM keeps the legaliser off the generator's cells; nothing kept the
+resizer off them. repair_design on XiangShan's planned parent upsized
+378 address inverters of the three placed register files in place,
+INVx1 to INVx2, and the wider master overlapped its fixed neighbour, so
+detailed placement passed its legalisation and failed check_placement.
+The cells are final by construction: mark them dont_touch when they are
+placed. Buffers that a repair adds around the array are new cells and
+stay allowed.
+
+Not upstreamed (builds on carried patch 0078). Retires with it.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/structured_netlists.tcl | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/flow/scripts/structured_netlists.tcl b/flow/scripts/structured_netlists.tcl
+index 6436b63bb..031982228 100644
+--- a/flow/scripts/structured_netlists.tcl
++++ b/flow/scripts/structured_netlists.tcl
+@@ -92,6 +92,13 @@ if { 1 } {
+         $inst setOrient $orient
+         $inst setLocation [expr { $X + $cx - $dx0 }] [expr { $Y + $cy - $dy0 }]
+         $inst setPlacementStatus FIRM
++        # The generator's cell is final: FIRM keeps the legaliser off it,
++        # dont_touch keeps the resizer off it. Without the second,
++        # repair_design upsizes an inverter in place, the wider master
++        # overlaps its fixed neighbour, and check_placement fails the stage
++        # (take 23: 378 address inverters, INVx1 -> INVx2). Buffers the
++        # repair adds around the array are new cells and stay allowed.
++        $inst setDoNotTouch 1
+         incr n
+       }
+       close $pf
+-- 
+2.53.0
+
