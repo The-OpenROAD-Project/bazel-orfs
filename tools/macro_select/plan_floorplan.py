@@ -851,11 +851,12 @@ def emit(out, plan, directory):
         ]
         out["netlists"] = bzl["parent"]["netlists"]
     # buildifier wants a trailing comma on the last element of a multi-line
-    # dict or list, so the emitted file is the file the linter leaves alone
+    # dict or list (a lookahead, so a closer that ends one element and
+    # precedes another closer gets its comma too), so the emitted file is the file the linter leaves alone
     # and the drift tests compare bytes.
     starlark = re.sub(
-        r"([^\[{,\s])\n(\s*[\]}])",
-        r"\1,\n\2",
+        r"([^\[{,\s])(?=\n\s*[\]}])",
+        r"\1,",
         json.dumps(bzl, indent=4, sort_keys=True),
     )
     write(
