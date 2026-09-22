@@ -1,4 +1,4 @@
-From 34008af1ca3220585437aaa8044a488dc4bcac98 Mon Sep 17 00:00:00 2001
+From 7453a979fa4963af2950e961a352aa123f216c16 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Tue, 22 Sep 2026 09:02:03 +0200
 Subject: [PATCH] memories: a placed netlist's cells are dont_touch as well as
@@ -21,14 +21,14 @@ Not upstreamed (builds on carried patch 0078). Retires with it.
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- flow/scripts/structured_netlists.tcl | 7 +++++++
- 1 file changed, 7 insertions(+)
+ flow/scripts/structured_netlists.tcl | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
 diff --git a/flow/scripts/structured_netlists.tcl b/flow/scripts/structured_netlists.tcl
-index 6436b63bb..031982228 100644
+index 6436b63bb..3c1fa63f8 100644
 --- a/flow/scripts/structured_netlists.tcl
 +++ b/flow/scripts/structured_netlists.tcl
-@@ -92,6 +92,13 @@ if { 1 } {
+@@ -92,6 +92,18 @@ if { 1 } {
          $inst setOrient $orient
          $inst setLocation [expr { $X + $cx - $dx0 }] [expr { $Y + $cy - $dy0 }]
          $inst setPlacementStatus FIRM
@@ -38,7 +38,12 @@ index 6436b63bb..031982228 100644
 +        # overlaps its fixed neighbour, and check_placement fails the stage
 +        # (take 23: 378 address inverters, INVx1 -> INVx2). Buffers the
 +        # repair adds around the array are new cells and stay allowed.
-+        $inst setDoNotTouch 1
++        # The flops are excepted: CTS has to rewire their clock pins and a
++        # dont_touch instance refuses (ODB-0370); their outputs drive the
++        # short read-mux nets, which the repair has no reason to resize.
++        if { ![[$inst getMaster] isSequential] } {
++          $inst setDoNotTouch 1
++        }
          incr n
        }
        close $pf
