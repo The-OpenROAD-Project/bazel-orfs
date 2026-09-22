@@ -4,9 +4,9 @@
 set block [ord::get_db_block]
 foreach {master x y} {
   Frontend 10.224 82.080
-  MemBlock 975.744 12.960
-  VecRegionModule 1982.304 213.840
-  Region_1 2800.944 371.520
+  MemBlock 1024.992 12.960
+  VecRegionModule 2080.656 213.840
+  Region_1 2948.544 371.520
 } {
   set insts {}
   foreach inst [$block getInsts] {

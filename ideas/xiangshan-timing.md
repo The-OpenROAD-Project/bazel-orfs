@@ -266,6 +266,40 @@ map the campaign wanted is one number so far, and it names the
 interface the planner should give adjacent sides, or the channel it
 should widen to a routing channel, before the next raid.
 
+## 14. Timing on the parent's CTS ODB needs more than the machine has
+
+A timing daemon (`tools/odb_debug/daemon.tcl`, GUI_TIMING=1) on take 23's
+`4_cts.odb` (4.3 M cells plus 49 736 CTS buffers, 51 GB peak in the CTS
+stage itself) was OOM-killed after 25 min at 56 GB resident and 118 GB of
+swap, so the parent's post-CTS worst slack has no measurement yet. The
+CTS stage runs with `SKIP_CTS_REPAIR_TIMING=1` and reports no timing
+metrics of its own. Chain 4 measures it with one short-lived openroad
+(`tmp/take23/wns_once.tcl`: open.tcl, `report_wns`, `report_tns`,
+`report_clock_min_period`, one path) under a 1 h budget; if that is
+killed too, the flow-side answer is a `report_wns` in the CTS stage
+itself, which already holds the timing graph. Fix candidates if the
+one-shot also blows the machine: what `od_wns` or the daemon adds on top
+of the stage's own footprint (a second `estimate_parasitics`?), or a
+`report_checks -group_path_count` on a sample of endpoints instead of the
+full sort.
+
+## 15. The deployed tree's inputs are links into the bazel output tree
+
+`XSCore_plan_floorplan_deps --install` hands out a tree whose input files
+(`1_synth.odb`, `1_2_yosys.v`, the structured memories directory, the
+blocks' `.lib`/`.lef`) are symlinks into `bazel-out`, read-only. Writing
+through one of them (chain 4's regenerated `.place` files: chmod, cp)
+edits a bazel action output in place; bazel notices the changed output
+metadata on the next build and re-runs the action, and until then the
+build tree carries a hand-edited file. That is also a live hypothesis for
+take 23's unexplained 15:05 churn (block canonicalise actions re-run with
+"action changed since cached execution" and no input change): an earlier
+workbench edit through such a link. Rule for the workbench: replace a
+linked directory with a real copy before changing anything under it
+(chain 4's `memories/` and `2_floorplan.analysis.json` are copies now);
+a deploy option that copies instead of linking, or refuses a write
+through the link, is the flow-side fix.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
