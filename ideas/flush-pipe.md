@@ -1,25 +1,31 @@
-# flush_pipe: the rung between lint and the overnight run
+# flush_pipe: a default, not a variant
 
-Status: **proposed, not built.** The two mechanisms it needs already
-exist in this repo and are demonstrated by shipped features; the one
-thing missing is on the ORFS side and is about six lines. A cheaper
-finding fell out of writing this down and should be done first: the lint
-rung is already built here and is wired up by no ORFS design at all.
+Status: **proposed, not built.** The ORFS-side change is about six
+sites plus a reader; the bazel-orfs side is a default and a flag.
 
-**And that finding turns out to be the more important half of the
-document.** A rung nobody reaches for is worth nothing even when it
-works perfectly. The lint flow works and was forgotten by the people who
-built it. Adding a fifth knob to a repo whose fourth knob is invisible
-does not obviously help, so the design question is not "what should
-`flush_pipe` do" but "how does a user end up on the right rung without
-having to remember that the rung exists".
+The document's own first draft got the shape wrong in an instructive
+way, and the correction is the most useful thing in it. That draft
+proposed `flush_pipe` as a new flow variant and opened its plan with
+"wire up the lint rung". Both were the same mistake, and there is a
+measurement sitting in the repo that says so: the lint rung is a good
+capability, written by this repo's own authors, at **173 designs, zero
+adoptions** (`flow/designs/`). It shipped as a new flow variant, and a
+new flow variant is a parallel set of targets that nobody builds.
+Wiring it up harder would repeat the mistake rather than fix it.
 
-The answer that survived is that **flushing should be the default** --
-`orfs_flow(flush_pipe = True)`, with `False` available to anyone who
-wants today's fail-at-the-first-gate behaviour. That works only once the
-proposal is split in two: gate behaviour defaults on, the effort budget
-stays opt-in. See *Cognitive load is the constraint*; it reorders the
-whole document.
+So the design rule this document ends up asserting is narrower and more
+useful than the one it started with:
+
+> **No new variant, no new targets.** A mode that needs a user to build
+> something they would not otherwise have built has already lost.
+
+`flush_pipe = True` as the **default**, with `False` for anyone who
+wants today's fail-at-the-first-gate behaviour. When a stage is
+hopeless it records that in its own declared output, the action
+*succeeds*, and the next stage reads the marker and flushes in turn. The
+target graph does not change at all. This is deterministic by
+construction, for the reason given in *How the marker makes it
+deterministic* below.
 
 ## The question
 
@@ -94,12 +100,21 @@ machinery in OpenROAD at all.
 
 ## The ladder
 
-| Rung | Mechanism | Cost | Answers |
-|---|---|---|---|
-| 0 | analysis-time checks | free | are the variables and stage wiring real? |
-| 1 | `variant="lint"`, mock-openroad | seconds | does the flow *run*? |
-| 2 | **`flush_pipe`** (proposed) | minutes | does the design *survive*? |
-| 3 | full flow | overnight | QoR |
+| Rung | Mechanism | Cost | Answers | Reached by |
+|---|---|---|---|---|
+| 0 | analysis-time checks | free | are the variables and stage wiring real? | every build |
+| 1 | `variant="lint"`, mock-openroad | seconds | does the flow *run*? | **nobody** |
+| 2 | **`flush_pipe`** (proposed) | full run | does the design *survive*? | every build, by default |
+| 3 | full flow | overnight | QoR | every build |
+
+The last column is the one that matters, and it is why rung 1 is
+evidence rather than a recommendation. Rungs 0 and 3 are reached because
+they are what happens when you type the ordinary command. Rung 1 is
+reached by nobody because it is not. The proposal for rung 2 is shaped
+to land in the first column, not the second -- which is also why it does
+not save wall-clock on its own: flushing changes what a failing run
+*produces*, not how long it takes. The budget flag is the separate thing
+that buys time.
 
 Rung 0 is `check_stage_variables` (`private/stages.bzl:253`) spell-checking
 every key against `variables.yaml`, `check_user_stages` (`:389`) policing
@@ -107,30 +122,40 @@ the `user_arguments`/`user_sources` escape hatches, and the hard fails in
 `orfs_flow` for `data =` fan-out and `abstract_stage` with `last_stage`.
 No action executes.
 
-## Rung 1 exists here and is wired up by nobody
+## The lint rung, and why it is evidence rather than a to-do
 
-`orfs_design(mock_openroad = ...)` generates a whole second flow at
-`variant="lint"` (`private/orfs_design.bzl:307-324`), and it is stronger
-than the name suggests: `mock-openroad` is a ~1900-line Tcl interpreter
-(`mock/openroad/src/bin/tcl_interpreter.py`) describing itself as an
-"estimation engine for ORFS flows". It *executes every ORFS Tcl script
-end to end* -- real control flow, real variable reads, real `source` of
-the design's own hooks -- with estimated results instead of real
-placement and routing. `sweep.bzl:71-84` already accepts `"lint"` as a
-sweep variant.
+The capability is real and is better than its name. `mock-openroad` is a
+~1900-line Tcl interpreter (`mock/openroad/src/bin/tcl_interpreter.py`)
+describing itself as an "estimation engine for ORFS flows". It
+*executes every ORFS Tcl script end to end* -- real control flow, real
+variable reads, real `source` of the design's own hooks -- with
+estimated results instead of real placement and routing. It would catch
+exactly what iterating on a `config.mk` produces: a typo'd variable, an
+unsourced hook, a path that does not resolve.
 
-The generation is guarded: `if mock_openroad:` (`orfs_design.bzl:308`).
-ORFS's own `flow/designs/design.bzl` never passes it, and a grep over all
-173 design `BUILD` files in `flow/designs/` finds zero occurrences. **No
-ORFS design has lint targets today.**
+It is also shipped in the shape that guarantees nobody uses it.
+`orfs_design(mock_openroad = ...)` generates *a whole second flow* at
+`variant="lint"` (`private/orfs_design.bzl:307-324`), guarded by
+`if mock_openroad:` (`:308`). ORFS's own `flow/designs/design.bzl` never
+passes it, and a grep over all 173 design `BUILD` files under
+`flow/designs/` finds zero occurrences.
 
-Wiring that is one kwarg and is by some distance the cheapest item in
-this document. It also catches the failure mode an agent iterating on a
-`config.mk` or a `BUILD` file actually produces -- a typo'd variable, an
-unsourced hook, a path that does not resolve -- which `flush_pipe` would
-reach far more slowly.
+**That is the measurement.** A good capability, in a repo whose authors
+wrote it, at zero adoption, because using it requires knowing it exists
+and then building targets you would otherwise never build. The right
+conclusion is not "wire it up harder":
 
-Do rung 1 first.
+> A new flow variant is a parallel set of targets that nobody builds.
+> Whatever else a mode does, it must not require one.
+
+The first draft of this document proposed `flush_pipe` as a variant and
+put "wire up lint" at the top of its plan. Both were the same mistake.
+The rest of the document is what survives applying the rule to itself.
+
+The useful thing to take from lint is not its targets but its estimation
+engine: a mode that flushes the pipe has to do *something* cheap in place
+of the work it is skipping, and there is a working estimator in this repo
+already.
 
 ## Cognitive load is the constraint, not capability
 
@@ -184,19 +209,47 @@ The four-problems-in-one-run property from *The question* becomes the
 default posture rather than an opt-in mode, and tapeout-or-bust becomes
 the thing you ask for.
 
-**It must not produce a false green.** If stages succeed with degraded
-artifacts, a plain `bazel build //design:gcd_final` could hand back a GDS
-built from an unrouted design. The fix is to let the flow run to the end
-and fail at the end: each stage records its fired gates as a metric, and
-the terminal stage fails if any gate fired anywhere upstream. Every
-intermediate stage succeeds, so every downstream stage runs and every
-report gets written; the terminal target still goes red, so nothing
-mistakes the result for a good one. Bazel caches the stages that
-succeeded, and only the cheap terminal check re-runs.
+### How the marker makes it deterministic
 
-That also disposes of most of *Open question 2* -- a flush artifact
-cannot be silently consumed as a macro abstract by a parent design if
-the target that produces it never goes green.
+The mechanism is the part that makes the default safe, and it needs no
+new target, no variant and no coordination between stages.
+
+When a stage finds itself in a hopeless state, it **writes that into its
+own declared output** -- the ODB, or a sidecar the stage already
+produces -- naming the gate that fired and why. Then the action
+*succeeds*. The next stage reads its input, sees the marker, and flushes
+in turn: it does not attempt real work on a result that cannot support
+it, it does the cheap thing, propagates the marker and keeps going. The
+marker reaches the last stage, which reports the whole chain at once.
+
+Determinism is not something this has to be argued into; it falls out of
+where the marker lives:
+
+* The marker is **in the data**, so it is part of the output's content
+  hash, so it is part of every downstream action's key. A degraded route
+  result and a clean one are different inputs and cache as different
+  entries. There is no path by which a flushed artifact is reused as a
+  clean one.
+* Every stage's behaviour is a **pure function of its inputs**, exactly
+  as before. Nothing is decided by observing wall-clock, load or
+  progress across an action boundary.
+* "Hopeless" has to be a **deterministic predicate on design state** --
+  *N nets still unrouted after the configured iterations*, not *this is
+  taking a while*. Same design, same configuration, same verdict, every
+  time, on any machine.
+
+This is also what makes a false green impossible rather than merely
+unlikely. The earlier draft proposed a terminal check that failed the
+last target if any gate had fired; the marker subsumes it, because the
+distinction between a degraded artifact and a clean one is carried by
+the artifact instead of by a naming convention or a separate audit. The
+last stage still decides whether a marked run exits red -- and it should
+-- but nothing depends on that decision for correctness.
+
+It disposes of *Open question 2* as well: a flushed ODB cannot be
+silently consumed as a macro abstract by a parent design, because the
+parent's action sees different input bytes and the marker travels with
+them.
 
 ### What is still rejected: switching at runtime
 
@@ -222,95 +275,80 @@ wrapper that invokes bazel twice, with the decision in a script outside
 the actions. With the default flipped, there is not much left for it to
 do.
 
-### Make the targets exist
+### The budget half is a flag, not a variant
 
-`tags = ["manual"]` is already the repo's answer to "generate it always,
-never build it by accident" -- used at `flow.bzl:187`, `:256`, `:264`,
-and described at `:234` as keeping wildcard builds from failing. Applied
-to the rungs, it means `bazel query //flow/designs/asap7/gcd:*` lists the
-lint and flush targets, tab completion offers them, and `//...` still
-does not pay for them.
+The same rule applies to the half that stays opt-in. A macro argument
+that produces different QoR needs somewhere for the different result to
+live, and the first draft reached for a variant suffix -- which is the
+shape lint proved does not get used.
 
-That is the whole fix for "the feature does not exist until you know it
-exists": generate the rungs unconditionally and let the tag carry the
-cost control. The kwarg becomes an override, not a gate.
+This repo already has the right mechanism, and uses it for exactly this
+kind of thing:
 
-The cost to weigh is analysis time, not build time. Generating a second
-and third flow for each of 173 designs multiplies the target count, and
-`manual` suppresses building but not analysis. That number should be
-measured before this is adopted, not assumed -- it is the one thing that
-could sink the approach.
-
-### Make the failure point at the next rung
-
-The highest-leverage fix is also the smallest, and ORFS already does it
-elsewhere:
-
-```tcl
-error "Global routing failed, run `make gui_grt` and load ...
-                                       # flow/scripts/detail_route.tcl:6
-puts "Run 'make gui_$stage.odb' to load progress snapshot"
-                                       # flow/scripts/cts.tcl:13
+```python
+# BUILD:63, and see the comment above it
+orfs_bool_flag(
+    name = "log_timestamps",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
 ```
 
-A user reading a failure is, by definition, looking at the screen and
-wanting a next step. That is the only moment a suggestion is certain to
-be read, and it costs nothing to remember because it arrives exactly
-when it is relevant. Every gate this document proposes to demote should
-name the flush target in its message:
+`--@bazel-orfs//:log_timestamps` changes what every ORFS action does
+without adding a single target, and its own comment states the cache
+semantics that make it safe: *"Stamping changes the log bytes, so a
+stamped run does not share cache entries with an unstamped one and
+turning it on costs a rebuild of the stages you ask for."* `eta.md`
+describes it as "an additive debug flag ... shipped separately as a
+feature in its own right".
 
-```
-ERROR: design has unrouted nets after 5 iterations.
-  To push the incomplete result through the remaining stages and see
-  what else breaks:  bazel build //flow/designs/asap7/gcd:gcd_flush_final
+The effort budget should be exactly that:
+
+```sh
+bazelisk build --@bazel-orfs//:recon //flow/designs/asap7/gcd:gcd_final
 ```
 
-With that in place, the `flush_pipe` kwarg is an implementation detail
-rather than the product. **The product is the ladder announcing
-itself.** A user who has never read this document, never heard of lint
-and never seen `flush_pipe` still ends up on the right rung, because the
-failure told them which one it was.
+Same target, same label, different configuration. Nothing to discover in
+a target list, nothing to name, and the artifacts separate themselves by
+configuration the way `log_timestamps` already does. The `recon` name is
+a placeholder; what matters is the shape.
 
 ### What this implies for the proposal
 
-The document was drafted as "add a knob". On the evidence above that is
-the wrong emphasis, and the two subsections immediately above are what a
-knob-shaped proposal needs to stay usable -- they are not what it needs
-to be *right*.
+The document was drafted as "add a knob, and a variant to put it in".
+Applying the rule the lint measurement establishes leaves neither:
 
-Defaulting the gate behaviour does more than either of them, because it
-removes the discovery step instead of shortening it. What survives of
-the two is narrower and still worth doing:
+* the gate behaviour is a **default**, so there is nothing to discover;
+* the budget is a **flag**, so there is nothing to build that did not
+  already exist;
+* the degraded-versus-clean distinction rides in the **artifact**, so
+  there is nothing to audit and no naming convention to trust.
 
-* **Unconditional targets** still matter for the rungs that stay
-  opt-in -- lint, and the effort budget -- since those keep the
-  "invisible until you know" defect by construction.
-* **Failure-time pointing** still matters, but points somewhere else
-  once flushing is the default. The terminal gate check is the natural
-  place: having listed the gates that fired, it is exactly where to name
-  the budget target for a faster next iteration.
+Discoverability is not polish to be done after a feature lands. On this
+evidence it decides whether the feature returns anything at all, and its
+cheapest form is not a signpost pointing at a new target -- it is not
+having a new target.
 
-Discoverability is not polish to be done after the feature lands. On
-this evidence it determines whether the feature returns anything at all,
-and the cheapest form of it is not a signpost but a default.
+## What lint could not have answered anyway
 
-## What rung 1 cannot answer
-
-One line draws the boundary:
+Even wired up, lint would not have covered this use case. One line draws
+the boundary:
 
 ```python
 if save_odb and not kwargs.get("lint"):     # private/flow.bzl:765
 ```
 
 The lint flow deliberately produces **no ODB**. It estimates; it cannot
-tell you that a macro placement makes routing impossible. So:
+tell you that a macro placement makes routing impossible.
 
 * **Lint** answers *does the flow run?* -- variables, script wiring,
   missing sources, Make expansion.
 * **flush_pipe** answers *does the design survive?* -- the physical
   reality that only real tools see.
 
-They are complementary, not redundant.
+So the two are complementary in principle. In practice only one of them
+is on a path a user actually walks, and the proposal here is to keep it
+that way by construction rather than by exhortation.
 
 ## flush_pipe, in bazel-orfs
 
@@ -324,59 +362,44 @@ tape-out."* `quick_pins.tcl:1` calls itself *"a cheap pin-placement
 shortcut for exploration flows."* `flush_pipe` is its sibling, aimed at
 effort knobs rather than pin placement.
 
-**The isolation shape is `mock_area`.** Degraded runs already get their
-own output namespace by variant suffixing:
+**The isolation shape is *not* `mock_area`.** `mock_area` gives degraded
+runs their own output namespace by variant suffixing
+(`_variant_name`, `private/flow.bzl:353`), and the first draft proposed
+copying it. On the lint measurement that is the wrong model to copy: it
+is correct, and it produces targets nobody builds. Isolation here comes
+from the marker in the artifact instead, which costs no targets at all.
+
+Sketch:
 
 ```python
-def _variant_name(variant, suffix):              # private/flow.bzl:353
-    return "_".join([part for part in [variant, suffix] if part])
-
-abstract_variant = _variant_name(variant, "unmocked" if mock_area else None)
-```
-
-That is the whole of the cache-safety and golden-safety requirement,
-already solved, and it gives separate `FLOW_VARIANT` output paths in ORFS
-(`flow/Makefile:103-109`) for free.
-
-It applies to the *budget* half only. A default-on gate-behaviour change
-does not take a variant -- it does not alter QoR, so the result is still
-the result, and suffixing every target in the repo to record a default
-would be noise. What keeps that half honest is the terminal gate check
-described above, not output isolation.
-
-Sketch, with the split from *The default is the answer* respected --
-two arguments, only one of them defaulted on, and only the one that
-changes QoR taking a variant:
-
-```python
-def orfs_flow(..., flush_pipe = True, recon = False, ...):
-    # Gate behaviour. Default on, no variant: QoR is unchanged, so the
-    # result is the same result, and suffixing every target in the repo
-    # to record a default would be absurd.
+def orfs_flow(..., flush_pipe = True, ...):
+    # Gate behaviour. Default on. No variant, no new target: the
+    # degraded-versus-clean distinction rides in the output bytes.
     if flush_pipe:
         arguments = arguments | {"CONTINUE_ON_GATE_FAILURE": "1"}
-
-    # Effort budget. Opt-in, and it *does* take a variant, because the
-    # QoR is deliberately not the real QoR.
-    if recon:
-        arguments = arguments | {
-            "DETAILED_ROUTE_END_ITERATION": "5",
-            "SKIP_CTS_REPAIR_TIMING": "1",
-            "SKIP_INCREMENTAL_REPAIR": "1",
-            "GPL_TIMING_DRIVEN": "0",
-            "GPL_ROUTING_DRIVEN": "0",
-        }
-        variant = _variant_name(variant, "recon")
 ```
 
-The budget list is lifted almost verbatim from ORFS's own
-`flow/designs/asap7/minimal/config.mk`, which carries the comment
-*"Faster build, remove these in your own config.mk."* That argument would
-be promoting an existing hand-rolled idiom into a named one.
+and the budget as a flag beside `log_timestamps`, read in
+`private/environment.bzl` the way `log_timestamps_enabled(ctx)` is
+(`:142`), rather than as a macro argument:
 
-The naming is open. `recon` is used here only to keep the two ideas
-visibly distinct on the page; `flush_pipe` plus `effort` or
-`quick = True` may read better next to `quick_pins`.
+```python
+orfs_bool_flag(
+    name = "recon",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+```
+
+whose payload is the knob set lifted almost verbatim from ORFS's own
+`flow/designs/asap7/minimal/config.mk` -- `DETAILED_ROUTE_END_ITERATION`,
+`SKIP_CTS_REPAIR_TIMING`, `SKIP_INCREMENTAL_REPAIR`, `GPL_TIMING_DRIVEN`,
+`GPL_ROUTING_DRIVEN` -- a file that carries the comment *"Faster build,
+remove these in your own config.mk."* The flag would be promoting an
+existing hand-rolled idiom into a named one.
+
+Names are open. `recon` keeps the two ideas visibly distinct on the
+page; something reading better next to `log_timestamps` is fine.
 
 **Use `DETAILED_ROUTE_END_ITERATION`, not `DETAILED_ROUTE_ARGS`.** The
 latter *replaces* the entire argument list (the ternary at
@@ -409,8 +432,14 @@ artifact you wanted to inspect does not exist. The failure is not merely
 early, it is non-productive.
 
 The change is an ORFS variable, say `CONTINUE_ON_GATE_FAILURE`, that
-turns those `error`s into `utl::warn` plus a metric and lets the stage
-write its ODB anyway. Roughly six sites.
+turns those `error`s into `utl::warn`, **records the fired gate in the
+stage's own output**, and lets the stage write its ODB anyway. Roughly
+six sites, plus the marker's reader on the consuming side.
+
+The marker is the part that does the work, not the warning. A warning
+scrolls past and is gone; a marker in the artifact is what the next
+stage keys on, what makes the degraded result cache separately from a
+clean one, and what a reader of `6_final` can still see hours later.
 
 Per the upstream moratorium in `CLAUDE.md`, that ships **here, as a
 carried patch** -- `patches/00NN-orfs-flush-pipe-gates.patch` listed in
@@ -421,9 +450,9 @@ demotion in ORFS rather than in Starlark also means Make users get the
 same mode, and the definition of "what is a gate" stays next to the
 gates.
 
-Division of labour: bazel-orfs owns *how hard do we try* (the knobs and
-the variant), ORFS owns *what is fatal* (the gates). That is the same
-split `quick_pins` uses -- exploration policy here, hook points there.
+Division of labour: bazel-orfs owns *how hard do we try* (the default
+and the budget flag), ORFS owns *what is fatal* and *what gets recorded*
+(the gates and the marker). Neither owns a variant, which is the point.
 
 ## Relationship to ideas/eta.md
 
@@ -450,48 +479,53 @@ verdict.
    result. The honest answer may be that flush implies a `last_stage`
    short of GDS, which would weaken the "run through the whole flow"
    promise. Needs a real run to settle.
-2. **Where does the terminal gate check live, and what is it?** The
-   no-false-green property rests entirely on it. A separate cheap action
-   that reads the accumulated per-stage metrics is the obvious shape, but
-   it has to see every stage a given target actually built, including
-   `last_stage` and `abstract_stage` truncations, and it must not itself
-   become a thing a target can be built without.
-3. **Can a degraded ODB be consumed as a macro abstract by a parent
-   design?** Largely answered by the terminal check -- a target that
-   never goes green cannot be depended on -- but "largely" is not
-   "demonstrably", and the failure would be silent and would look like a
-   QoR regression in the parent. Worth an explicit test.
-4. **What exactly gets stamped in the metrics?** Every fired gate needs
-   to appear, so that nothing downstream -- a golden comparison, a
-   pareto check, a sweep scorer -- can mistake a pushed-through run for a
-   clean one. With the gate behaviour defaulted on, this record is the
-   *only* structural distinction for the default path; the variant suffix
-   protects the budget path alone.
-5. **Does the default change CI cost?** A flow that no longer stops at
+2. **Where exactly does the marker live?** Inside the ODB, or in a
+   sidecar among the stage's declared outputs? The ODB keeps it
+   inseparable from the artifact, which is the whole point, but costs a
+   schema decision and an ORFS-side reader in every consuming stage. A
+   sidecar is far easier and can be dropped or ignored, which is the
+   failure mode the design exists to prevent. This is the main
+   implementation question.
+3. **What does a downstream stage actually *do* when it sees a marker?**
+   "Do the cheap thing and propagate" is under-specified per stage, and
+   getting it wrong wastes the run. The lint rung's estimator is the
+   obvious source of cheap answers and is already in this repo.
+4. **Does a marked run exit red, and where?** Correctness does not
+   depend on it -- the marker already prevents a clean artifact being
+   confused for a degraded one -- but a human wants a red build and a CI
+   matrix needs one. Probably the last stage; needs stating.
+5. **Can a degraded ODB be consumed as a macro abstract by a parent
+   design?** The marker should make this structurally impossible, since
+   the parent's action sees different input bytes. Worth an explicit
+   test rather than an assumption, because the failure would be silent
+   and would look like a QoR regression in the parent.
+6. **Does the default change CI cost?** A flow that no longer stops at
    the first gate runs every remaining stage on designs that used to
-   abort early. For a broken design that is precisely the point; across a
-   CI matrix it is compute nobody asked for. `flush_pipe = False` in CI
-   is the obvious answer, and worth stating deliberately rather than
+   abort early. For a broken design that is precisely the point; across
+   a CI matrix it is compute nobody asked for. `flush_pipe = False` in
+   CI is the obvious answer, and worth stating deliberately rather than
    discovering from a bill.
-6. **Does the budget knob want `quick_pins` implied?** They target the
-   same user and the same trade. Composing them is free; making one imply
-   the other is a policy call.
+7. **Does the budget flag want `quick_pins` implied?** They target the
+   same user and the same trade. Composing them is free; making one
+   imply the other is a policy call.
 
 ## Proposed order
 
-1. Wire `mock_openroad`/`mock_yosys` through ORFS's `design.bzl` so rung
-   1 exists for real designs. Cheapest, largest immediate return,
-   independent of everything below.
-2. Carry the ORFS gate-demotion patch, with the metric each demoted gate
-   records. Nothing else here works without it.
-3. Add the terminal gate check. It has to land with, or before, the
-   default flip -- a default that can produce a green build from an
-   unrouted design is worse than no default at all.
-4. Flip `flush_pipe` on by default in `orfs_flow`, following `quick_pins`
-   for the argument shape.
-5. Add the effort budget as its own opt-in argument, following
-   `mock_area` for the variant, and generate its targets unconditionally
-   under `tags = ["manual"]` so it does not inherit the invisibility this
-   document is about.
-6. Only then consider the adaptive plateau rule from `eta.md`, which
-   refines step 5 and is not a prerequisite for any of it.
+The first draft opened this list with "wire up lint". That is struck:
+wiring a variant up more firmly does not fix a variant.
+
+1. Carry the ORFS gate-demotion patch: each gate records a marker in the
+   stage's output and the stage writes its ODB instead of aborting.
+   Nothing else here works without it.
+2. Teach the consuming stages to read the marker and flush in turn.
+   Question 3 is the real content of this step, and it is where the lint
+   estimator earns its keep.
+3. Flip `flush_pipe` on by default in `orfs_flow`. It is a two-line
+   macro change once 1 and 2 exist; the work is all upstream of it.
+4. Add the budget as an `orfs_bool_flag` beside `log_timestamps`. No
+   variant, no new targets, no macro argument.
+5. Only then consider the adaptive plateau rule from `eta.md`, which
+   refines step 4 and is not a prerequisite for any of it.
+
+Lint is not on this list. Its estimator is used by step 2; its targets
+are the thing this document is arguing against.
