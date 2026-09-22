@@ -77,6 +77,12 @@ drops the generated ones without a word. It works for a simple flow and
 fails in exactly the complicated flows where the shortcut is most
 tempting.
 
+Two ORFS make-target facts that bite in a deployed tree: `do-<stage>`
+(`do-place`, `do-cts`, ...) runs every sub-step of the stage again,
+unconditionally, so after a hand-run `do-3_5_place_dp` the way to assemble
+`3_place.odb` is `do-3_place`, not `do-place`; and a `do-<sub-step>` never
+checks that its inputs are current, which is the point of it.
+
 `ORFS_DEPLOY_ANY_STAGE=1` in the environment turns the refusal into a
 warning, for the caller who supplies the later stage's variables by hand
 (`./make ENABLE_DPO=0 DETAIL_PLACEMENT_ARGS=... do-place`) and accepts
