@@ -5,6 +5,18 @@ load(":xiangshan.bzl", "xiangshan_flow")
 
 exports_files(["constraints.sdc"])
 
+# The parent's three placed netlists, at real size in a parent of flops:
+# the battery's rung for what the resizer, CTS and the router do to an
+# array of this size (test/structured_netlist, scaffold.bzl).
+exports_files(
+    [
+        "IntRegFile.regfile",
+        "RenameBufferFile.regfile",
+        "RobEntryFile.regfile",
+    ],
+    visibility = ["//test/structured_netlist:__pkg__"],
+)
+
 # The parent and its blocks: plain orfs_flow() targets, the table of
 # arguments in xiangshan.bzl. See there.
 xiangshan_flow()

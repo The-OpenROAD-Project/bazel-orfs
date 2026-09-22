@@ -1,5 +1,7 @@
 load("@bazel-orfs//:openroad.bzl", "odb_debug", "orfs_flow")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_python//python:defs.bzl", "py_binary")
+load(":scaffold.bzl", "array_scaffold")
 
 # STRUCTURED_MEMORIES in mode netlist: a generated register file dropped
 # FIRM into its parent's rows at floorplan instead of hardened as a macro
@@ -43,4 +45,40 @@ odb_debug(
 build_test(
     name = "small_top_grt_build_test",
     targets = [":small_top_grt"],
+)
+
+# XiangShan's three placed netlists at real size, each in a parent of flops
+# (scaffold_gen.py, scaffold.bzl): the rung between the 30 um files of the
+# miniature planned parent and the parent itself. A 305 um array grows
+# nets the resizer wants to buffer, which the small files never do
+# (inventory entry 16); CTS rewires its flops and seats its buffers in the
+# service columns at the real count. The outlines are the generator's
+# .def DIEAREA for each spec; a stale pair fails at floorplan.
+py_binary(
+    name = "scaffold_gen",
+    srcs = ["scaffold_gen.py"],
+    main = "scaffold_gen.py",
+)
+
+XS_SPECS = "//test/coremark_joule/designs/asap7/xiangshan:"
+
+array_scaffold(
+    name = "RenameBufferFile",
+    height_um = 192.24,
+    spec = XS_SPECS + "RenameBufferFile.regfile",
+    width_um = 306.504,
+)
+
+array_scaffold(
+    name = "RobEntryFile",
+    height_um = 192.51,
+    spec = XS_SPECS + "RobEntryFile.regfile",
+    width_um = 318.384,
+)
+
+array_scaffold(
+    name = "IntRegFile",
+    height_um = 243.27,
+    spec = XS_SPECS + "IntRegFile.regfile",
+    width_um = 406.404,
 )
