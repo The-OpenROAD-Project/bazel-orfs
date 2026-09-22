@@ -1,4 +1,4 @@
-From 7453a979fa4963af2950e961a352aa123f216c16 Mon Sep 17 00:00:00 2001
+From 8e1edeabc4f3d9582727a8cecce18adfb20ce96e Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Tue, 22 Sep 2026 09:02:03 +0200
 Subject: [PATCH] memories: a placed netlist's cells are dont_touch as well as
@@ -21,14 +21,34 @@ Not upstreamed (builds on carried patch 0078). Retires with it.
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- flow/scripts/structured_netlists.tcl | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ flow/scripts/structured_netlists.tcl | 29 ++++++++++++++++++++++++++++
+ 1 file changed, 29 insertions(+)
 
 diff --git a/flow/scripts/structured_netlists.tcl b/flow/scripts/structured_netlists.tcl
-index 6436b63bb..3c1fa63f8 100644
+index 6436b63bb..4d1e5b9cb 100644
 --- a/flow/scripts/structured_netlists.tcl
 +++ b/flow/scripts/structured_netlists.tcl
-@@ -92,6 +92,18 @@ if { 1 } {
+@@ -30,6 +30,19 @@ if { 1 } {
+     if { ![env_var_exists_and_non_empty STRUCTURED_PLACEMENT] } {
+       utl::error FLW 2 "STRUCTURED_MEMORIES in mode netlist ([join $netlist_modules {, }]) need STRUCTURED_PLACEMENT, a file of <module> <instance> <x um> <y um> lines"
+     }
++    proc netlist_boundary_cell { inst path } {
++      set prefix "$path/"
++      set n [string length $prefix]
++      foreach it [$inst getITerms] {
++        set net [$it getNet]
++        if { $net eq "NULL" } { continue }
++        if { [llength [$net getBTerms]] > 0 } { return 1 }
++        foreach other [$net getITerms] {
++          if { [string range [[$other getInst] getName] 0 [expr {$n - 1}]] ne $prefix } { return 1 }
++        }
++      }
++      return 0
++    }
+     set block [ord::get_db_block]
+     set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
+     set core [$block getCoreArea]
+@@ -92,6 +105,22 @@ if { 1 } {
          $inst setOrient $orient
          $inst setLocation [expr { $X + $cx - $dx0 }] [expr { $Y + $cy - $dy0 }]
          $inst setPlacementStatus FIRM
@@ -38,10 +58,14 @@ index 6436b63bb..3c1fa63f8 100644
 +        # overlaps its fixed neighbour, and check_placement fails the stage
 +        # (take 23: 378 address inverters, INVx1 -> INVx2). Buffers the
 +        # repair adds around the array are new cells and stay allowed.
-+        # The flops are excepted: CTS has to rewire their clock pins and a
-+        # dont_touch instance refuses (ODB-0370); their outputs drive the
-+        # short read-mux nets, which the repair has no reason to resize.
-+        if { ![[$inst getMaster] isSequential] } {
++        # Two kinds of cell are excepted. The flops: CTS has to rewire
++        # their clock pins and a dont_touch instance refuses (ODB-0370).
++        # The boundary cells, any with a pin on a net that leaves the
++        # array: the parent's repair_design has to buffer the nets it
++        # drives into the array and cannot reconnect a dont_touch load
++        # (RSZ-3006), and it will upsize the driver of a wide net; the
++        # generator leaves those cells the site an upsize needs.
++        if { ![[$inst getMaster] isSequential] && ![netlist_boundary_cell $inst $path] } {
 +          $inst setDoNotTouch 1
 +        }
          incr n
