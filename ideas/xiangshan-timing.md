@@ -300,6 +300,28 @@ linked directory with a real copy before changing anything under it
 a deploy option that copies instead of linking, or refuses a write
 through the link, is the flow-side fix.
 
+## 16. repair_design buffers an array's internal net and meets a dont_touch load
+
+Chain 4 (2026-09-22, 14:22) failed 3_4 after 306 000 nets repaired:
+`[WARNING ODB-1211] InsertBufferBeforeLoads: Load pin
+.../renameBuffer/rd7_b9_f_o1_g/B is dont_touch. Cannot insert a buffer.`
+then `[ERROR RSZ-3006] Failed to insert buffer before loads for net
+.../renameBuffer/rd7_b9_k3_o86`. Both cells are RenameBufferFile's own
+(read port 7, bit 9: the k3 mux stage's output into the final mux), so
+0083's boundary-cell exception does not apply; the net is a read-mux
+wire that runs across a 305 um array and the resizer wanted a buffer on
+it. The resizer skips a dont_touch *net* outright
+(`RepairDesign.cc`, `!resizer_->dontTouch(net)`), so 0083 now marks
+every net whose terminals are all the array's own cells; nets that leave
+the array (ports, clock) stay repairable, and a violation left inside is
+the generator's to fix with a buffer of its own (structured_gen backlog).
+
+Battery gap this exposed: the miniature's files are 30 um wide and never
+grow a net the resizer wants to buffer. A real-size scaffold per spec
+(RenameBufferFile, IntRegFile, RobEntryFile in a parent of flops, through
+place) reproduces the parent's arrays in minutes and is the missing rung
+below the parent for anything the resizer does to them.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance

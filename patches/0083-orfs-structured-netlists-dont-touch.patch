@@ -1,4 +1,4 @@
-From 8e1edeabc4f3d9582727a8cecce18adfb20ce96e Mon Sep 17 00:00:00 2001
+From 7ec08c06250835979b24cdd5ef4f158a7e157a11 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Tue, 22 Sep 2026 09:02:03 +0200
 Subject: [PATCH] memories: a placed netlist's cells are dont_touch as well as
@@ -20,15 +20,23 @@ Not upstreamed (builds on carried patch 0078). Retires with it.
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+
+The array's internal nets are dont_touch as well. repair_design buffers
+a long or overloaded net by inserting a cell before its loads, and a
+dont_touch load refuses (ODB-1211), which fails the stage (RSZ-3006):
+XiangShan's RenameBufferFile, a 305 um array, on a read-mux output net
+between two of its own cells. The resizer skips a dont_touch net
+outright. A net that leaves the array (a port's net, the clock) stays
+repairable; a violation left inside is the generator's to fix.
 ---
- flow/scripts/structured_netlists.tcl | 29 ++++++++++++++++++++++++++++
- 1 file changed, 29 insertions(+)
+ flow/scripts/structured_netlists.tcl | 63 +++++++++++++++++++++++++++-
+ 1 file changed, 62 insertions(+), 1 deletion(-)
 
 diff --git a/flow/scripts/structured_netlists.tcl b/flow/scripts/structured_netlists.tcl
-index 6436b63bb..4d1e5b9cb 100644
+index 6436b63bb..ca01db4d4 100644
 --- a/flow/scripts/structured_netlists.tcl
 +++ b/flow/scripts/structured_netlists.tcl
-@@ -30,6 +30,19 @@ if { 1 } {
+@@ -30,6 +30,30 @@ if { 1 } {
      if { ![env_var_exists_and_non_empty STRUCTURED_PLACEMENT] } {
        utl::error FLW 2 "STRUCTURED_MEMORIES in mode netlist ([join $netlist_modules {, }]) need STRUCTURED_PLACEMENT, a file of <module> <instance> <x um> <y um> lines"
      }
@@ -45,10 +53,29 @@ index 6436b63bb..4d1e5b9cb 100644
 +      }
 +      return 0
 +    }
++    # a net is the array's own when every terminal of it is a cell under
++    # the instance path and none is a port of the parent
++    proc netlist_internal_net { net path } {
++      set prefix "$path/"
++      set n [string length $prefix]
++      if { [llength [$net getBTerms]] > 0 } { return 0 }
++      foreach it [$net getITerms] {
++        if { [string range [[$it getInst] getName] 0 [expr {$n - 1}]] ne $prefix } { return 0 }
++      }
++      return 1
++    }
      set block [ord::get_db_block]
      set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
      set core [$block getCoreArea]
-@@ -92,6 +105,22 @@ if { 1 } {
+@@ -79,6 +103,7 @@ if { 1 } {
+       set pf [open "$::env(RESULTS_DIR)/memories/$module.place" r]
+       set n 0
+       set missing 0
++      set placed_insts {}
+       set first_missing ""
+       while { [gets $pf pl] >= 0 } {
+         lassign $pl name cx cy orient
+@@ -92,9 +117,45 @@ if { 1 } {
          $inst setOrient $orient
          $inst setLocation [expr { $X + $cx - $dx0 }] [expr { $Y + $cy - $dy0 }]
          $inst setPlacementStatus FIRM
@@ -68,9 +95,41 @@ index 6436b63bb..4d1e5b9cb 100644
 +        if { ![[$inst getMaster] isSequential] && ![netlist_boundary_cell $inst $path] } {
 +          $inst setDoNotTouch 1
 +        }
++        lappend placed_insts $inst
          incr n
        }
        close $pf
++      # The wires between the array's own cells are the generator's too.
++      # repair_design buffers a long or overloaded net by inserting a cell
++      # before its loads, and a dont_touch load refuses (ODB-1211, then
++      # RSZ-3006 fails the stage: take 23, RenameBufferFile's rd7_b9_k3_o86,
++      # a 300 um array's read-mux output). The resizer skips a dont_touch
++      # net outright, so the internal nets are marked; a net that leaves
++      # the array (a port's net, the clock) stays repairable. A violation
++      # left inside is the generator's to fix, with a buffer of its own.
++      set internal_nets 0
++      foreach inst $placed_insts {
++        foreach it [$inst getITerms] {
++          set net [$it getNet]
++          if { $net eq "NULL" || [$net isDoNotTouch] } { continue }
++          if { [netlist_internal_net $net $path] } {
++            $net setDoNotTouch 1
++            incr internal_nets
++          }
++        }
++      }
+       if { $n == 0 } {
+         utl::error FLW 5 "STRUCTURED_PLACEMENT: no cell of netlist $module is in the design under $path (first looked for $first_missing; is $path an instance of $module, and the netlist linked?)"
+       }
+@@ -102,7 +163,7 @@ if { 1 } {
+         utl::info FLW 8 "structured netlist $module at $path: $missing of [expr {$n + $missing}] placed cells are not in the design (removed as dead logic, e.g. $first_missing); their sites stay empty"
+       }
+       lappend placed_modules $module
+-      utl::info FLW 6 "structured netlist $module at $path: $n cells FIRM at [expr {$X/double($dbu)}] [expr {$Y/double($dbu)}] um"
++      utl::info FLW 6 "structured netlist $module at $path: $n cells FIRM at [expr {$X/double($dbu)}] [expr {$Y/double($dbu)}] um, $internal_nets internal nets dont_touch"
+     }
+     foreach m $netlist_modules {
+       if { [lsearch -exact $placed_modules $m] < 0 } {
 -- 
 2.53.0
 
