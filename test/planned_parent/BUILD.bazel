@@ -61,6 +61,19 @@ build_test(
     targets = [":mini_top_cts"],
 )
 
+# CTS with and without insertion-delay balancing, on the same placement:
+# the delay-buffer count the parent's 49 736 came from, and that the flag
+# removes it (take 23, 2026-09-22).
+py_test(
+    name = "cts_delay_buffers_test",
+    srcs = ["cts_delay_buffers_test.py"],
+    data = [
+        ":cts_buffers_base.json",
+        ":cts_buffers_nid.json",
+    ],
+    main = "cts_delay_buffers_test.py",
+)
+
 # plan/ is what mini_gen.py and the planner produce; regen.sh rewrites it.
 py_test(
     name = "plan_drift_test",

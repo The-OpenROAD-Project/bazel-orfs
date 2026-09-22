@@ -1,6 +1,6 @@
 """The miniature planned parent's flows: four blocks abstracted at place, the parent through global route."""
 
-load("@bazel-orfs//:openroad.bzl", "orfs_flow")
+load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run")
 load("//test/grt_scaling:arms.bzl", "TURNAROUND_ARGS")
 load(":plan/plan.bzl", "PLAN")
 
@@ -42,23 +42,58 @@ def mini_planned_flow(rtl, files):
             },
             verilog_files = [":blocks.sv"],
         )
+    parent_args = BASE_ARGS | {
+        "AUTO_MEMORIES": "1",
+        "CORE_AREA": PLAN["parent"]["CORE_AREA"],
+        "DIE_AREA": PLAN["parent"]["DIE_AREA"],
+        "MACRO_PLACE_HALO": "2 2",
+    }
+    parent_sources = {
+        "MACRO_PLACEMENT_TCL": [":plan/place_macros.tcl"],
+        "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCKS_grid_strategy.tcl"],
+        "SDC_FILE": [":constraints.sdc"],
+        "STRUCTURED_MEMORIES": files,
+        "STRUCTURED_PLACEMENT": [":plan/netlists.txt"],
+    }
+    parent_macros = [":%s_generate_abstract" % b for b in sorted(PLAN["macros"])]
     orfs_flow(
         name = "mini_top",
-        arguments = BASE_ARGS | {
-            "AUTO_MEMORIES": "1",
-            "CORE_AREA": PLAN["parent"]["CORE_AREA"],
-            "DIE_AREA": PLAN["parent"]["DIE_AREA"],
-            "MACRO_PLACE_HALO": "2 2",
-        },
+        arguments = parent_args,
         last_stage = "grt",
-        macros = [":%s_generate_abstract" % b for b in sorted(PLAN["macros"])],
+        macros = parent_macros,
         pdk = "//flow:asap7",
-        sources = {
-            "MACRO_PLACEMENT_TCL": [":plan/place_macros.tcl"],
-            "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCKS_grid_strategy.tcl"],
-            "SDC_FILE": [":constraints.sdc"],
-            "STRUCTURED_MEMORIES": files,
-            "STRUCTURED_PLACEMENT": [":plan/netlists.txt"],
-        },
+        sources = parent_sources,
         verilog_files = [":files.sv", ":top.sv"],
     )
+
+    # The same parent's CTS without insertion-delay balancing, on the base
+    # variant's placement: the pair cts_delay_buffers_test reads. ORFS's
+    # cts_args are -sink_clustering_enable -repair_clock_nets; CTS_ARGS
+    # replaces them wholesale, so both are repeated here.
+    orfs_flow(
+        name = "mini_top",
+        arguments = parent_args | {
+            "CTS_ARGS": "-sink_clustering_enable -repair_clock_nets -no_insertion_delay",
+        },
+        last_stage = "cts",
+        macros = parent_macros,
+        pdk = "//flow:asap7",
+        previous_stage = {"cts": ":mini_top_place"},
+        sources = parent_sources,
+        variant = "nid",
+        verilog_files = [":files.sv", ":top.sv"],
+    )
+    for tag, src in (("base", ":mini_top_cts"), ("nid", ":mini_top_nid_cts")):
+        orfs_run(
+            name = "cts_buffers_" + tag,
+            src = src,
+            outs = ["cts_buffers_%s.json" % tag],
+            arguments = parent_args,
+            script = ":cts_buffers.tcl",
+            sources = parent_sources,
+            src_logs = True,
+            user_arguments = {
+                "OUTPUT_JSON": "$(location cts_buffers_%s.json)" % tag,
+            },
+            variant = tag,
+        )
