@@ -231,6 +231,41 @@ skew against the blocks, and clock columns in the generator so the arrays'
 service columns). The legaliser is the CTS stage's floor, twice the
 parent's 90 minutes when the buffer count is this high.
 
+## 12. Global route stops in pin access on one pin per block
+
+Take 23's first `do-grt` on the planned parent (2026-09-22) failed in
+`pin_access`, before any routing, with DRT-0073 "No access point" on
+exactly one pin per block: Frontend's `auto_inner_icache_client_out_a_
+bits_address[0]`, VecRegionModule's `clock`, Region_1's
+`cg_bore_10_cgen`, MemBlock's `auto_inner_beu_local_int_sink_in_0`. The
+miniature planned parent (`test/planned_parent`) had shown the same an
+hour earlier, one pin per block (`u_blockd/din[0]`), and its CTS ODB is
+a five-second reproducer: read it, run `pin_access`. Probing it: the
+failing pin fails wherever its shape is moved (one track left or right,
+eight tracks right, into a gap between working pins), with the block's
+obstruction rectangles moved off its edge, and with no power shape or
+parent geometry near it; the pin next to it passes at the same spot. So
+it is the pin object, not its geometry, and not the parent. Open; the
+grt build_test of the miniature is manual until it is understood, and
+ORFS's `global_route.tcl` runs `pin_access` unconditionally, so the
+route cannot start until it is.
+
+## 13. Route-0: the wall is the channel between Frontend and MemBlock
+
+The zero-iteration global route on take 23's CTS ODB stopped on
+FastRoute's capacity guard, GRT-0228 "Horizontal edge usage exceeds the
+maximum allowed (1820, 1775) usage=3313 limit=3300": 3 313 wires on one
+gcell edge at about (977, 953) um, which is inside the 11 um channel
+between Frontend (x 10..965, top at 1037) and MemBlock (x 976..1972, top
+at 1009), 60 um below the blocks' tops. The blocks' abstracts obstruct
+M1 to M5, so between two blocks a wire either crosses on M6 and M7 or
+runs the channel, and the Frontend-to-MemBlock traffic (1 198 pins, both
+sides' pins on their top edges) took the channel. The plan's block gap
+(`gap_um` 10.8) is a placement gap, not a routing channel. The route
+map the campaign wanted is one number so far, and it names the
+interface the planner should give adjacent sides, or the channel it
+should widen to a routing channel, before the next raid.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
