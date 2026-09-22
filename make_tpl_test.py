@@ -44,20 +44,35 @@ def run(make, *args, env=None):
     e.pop("ORFS_DEPLOY_ANY_STAGE", None)
     if env:
         e.update(env)
-    return subprocess.run(["sh", make] + list(args), capture_output=True, text=True, env=e)
+    return subprocess.run(
+        ["sh", make] + list(args), capture_output=True, text=True, env=e
+    )
 
 
 class DeployStageTest(unittest.TestCase):
     def test_own_stage_and_its_substeps_pass(self):
         make = render("floorplan")
-        for target in ["do-floorplan", "do-2_2_floorplan_macro", "do-1_3_floorplan_to_place", "run", "gui_floorplan", "SKIP_REPORT_METRICS=1"]:
+        for target in [
+            "do-floorplan",
+            "do-2_2_floorplan_macro",
+            "do-1_3_floorplan_to_place",
+            "run",
+            "gui_floorplan",
+            "SKIP_REPORT_METRICS=1",
+        ]:
             r = run(make, target)
             self.assertEqual(r.returncode, 0, (target, r.stderr))
             self.assertIn("STUB", r.stdout, target)
 
     def test_another_stage_is_refused_with_the_pointer(self):
         make = render("floorplan", label="//test:xs_floorplan")
-        for target in ["do-place", "do-3_3_place_gp", "do-cts", "do-synth", "do-yosys-canonicalize"]:
+        for target in [
+            "do-place",
+            "do-3_3_place_gp",
+            "do-cts",
+            "do-synth",
+            "do-yosys-canonicalize",
+        ]:
             r = run(make, target)
             self.assertEqual(r.returncode, 2, (target, r.stderr))
             self.assertNotIn("STUB", r.stdout)

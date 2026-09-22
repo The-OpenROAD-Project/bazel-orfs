@@ -104,17 +104,27 @@ def file_sv(name, words, bits, nr, nw):
         ports.append("    input [{}:0] io_writePorts_{}_data".format(bits - 1, w))
     body = ["  reg [{}:0] mem [0:{}];".format(bits - 1, words - 1)]
     for r in range(nr):
-        body.append("  assign io_readPorts_{0}_data = mem[io_readPorts_{0}_addr];".format(r))
+        body.append(
+            "  assign io_readPorts_{0}_data = mem[io_readPorts_{0}_addr];".format(r)
+        )
     body.append("  always @(posedge clock) begin")
     for w in range(nw):
-        body.append("    if (io_writePorts_{0}_wen) mem[io_writePorts_{0}_addr] <= io_writePorts_{0}_data;".format(w))
+        body.append(
+            "    if (io_writePorts_{0}_wen) mem[io_writePorts_{0}_addr] <= io_writePorts_{0}_data;".format(
+                w
+            )
+        )
     body.append("  end")
-    return "module {} (\n{}\n);\n{}\nendmodule\n".format(name, ",\n".join(ports), "\n".join(body))
+    return "module {} (\n{}\n);\n{}\nendmodule\n".format(
+        name, ",\n".join(ports), "\n".join(body)
+    )
 
 
 def file_spec(name, words, bits, nr, nw):
     lines = [
-        "# {}: a placed netlist inside the miniature parent (mode netlist).".format(name),
+        "# {}: a placed netlist inside the miniature parent (mode netlist).".format(
+            name
+        ),
         "module " + name,
         "mode netlist",
         "words {}".format(words),
@@ -124,7 +134,11 @@ def file_spec(name, words, bits, nr, nw):
     for r in range(nr):
         lines.append("read io_readPorts_{0}_addr io_readPorts_{0}_data".format(r))
     for w in range(nw):
-        lines.append("write io_writePorts_{0}_addr io_writePorts_{0}_data io_writePorts_{0}_wen".format(w))
+        lines.append(
+            "write io_writePorts_{0}_addr io_writePorts_{0}_data io_writePorts_{0}_wen".format(
+                w
+            )
+        )
     lines += [
         "cell flop DFFHQNx1_ASAP7_75t_R",
         "cell and2 AND2x2_ASAP7_75t_R",
@@ -144,7 +158,12 @@ def top_sv():
     back to a block input; BlockA's first CROSS outputs go to BlockB
     directly; BlockB's ext pins are the parent's ports; the files are
     written from and read into parent registers, FileA's dead bit unread."""
-    decl, inst, logic, ports = [], [], [], ["    input clock", "    input [63:0] seed", "    output [63:0] sum"]
+    decl, inst, logic, ports = (
+        [],
+        [],
+        [],
+        ["    input clock", "    input [63:0] seed", "    output [63:0] sum"],
+    )
     sums = []
     for name, pins, ext in BLOCKS:
         h = pins // 2
@@ -158,10 +177,18 @@ def top_sv():
             ports.append("    output [{}:0] {}_ext_out".format(e - 1, lo))
             con += ", .ext_in({0}_ext_in), .ext_out({0}_ext_out)".format(lo)
         inst.append("  {} u_{} ({});".format(name, lo, con))
-        logic.append("    {0}_r <= {0}_dout ^ {{{1}{{seed}}}};".format(lo, (h + 63) // 64))
+        logic.append(
+            "    {0}_r <= {0}_dout ^ {{{1}{{seed}}}};".format(lo, (h + 63) // 64)
+        )
         if name == "BlockB":
-            decl.append("  wire [{0}:0] blockb_in_rest = blockb_r[{0}:0];".format(h - 1))
-            inst.append("  assign blockb_din = {{blockb_r[{0}:{1}], blocka_dout[{2}:0]}};".format(h - 1, CROSS, CROSS - 1))
+            decl.append(
+                "  wire [{0}:0] blockb_in_rest = blockb_r[{0}:0];".format(h - 1)
+            )
+            inst.append(
+                "  assign blockb_din = {{blockb_r[{0}:{1}], blocka_dout[{2}:0]}};".format(
+                    h - 1, CROSS, CROSS - 1
+                )
+            )
         else:
             inst.append("  assign {0}_din = {0}_r;".format(lo))
         sums.append("^{}_r".format(lo))
@@ -173,22 +200,51 @@ def top_sv():
             decl.append("  reg  [{}:0] {}_ra{};".format(aw - 1, lo, r))
             decl.append("  wire [{}:0] {}_rd{};".format(bits - 1, lo, r))
             decl.append("  reg  [{}:0] {}_rd{}_q;".format(bits - 1, lo, r))
-            con.append(".io_readPorts_{0}_addr({1}_ra{0}), .io_readPorts_{0}_data({1}_rd{0})".format(r, lo))
-            logic.append("    {0}_ra{1} <= seed[{2}:{3}] ^ blocka_r[{2}:{3}];".format(lo, r, aw - 1 + 4 * r, 4 * r))
+            con.append(
+                ".io_readPorts_{0}_addr({1}_ra{0}), .io_readPorts_{0}_data({1}_rd{0})".format(
+                    r, lo
+                )
+            )
+            logic.append(
+                "    {0}_ra{1} <= seed[{2}:{3}] ^ blocka_r[{2}:{3}];".format(
+                    lo, r, aw - 1 + 4 * r, 4 * r
+                )
+            )
             if dead is None:
                 logic.append("    {0}_rd{1}_q <= {0}_rd{1};".format(lo, r))
             else:
                 # the dead bit is never read: a column for eliminate_dead_logic
                 keep = [i for i in range(bits) if i != dead]
-                logic.append("    {0}_rd{1}_q <= {{{2}}};".format(lo, r, ", ".join("{}_rd{}[{}]".format(lo, r, i) for i in reversed(keep)) + ", 1'b0"))
+                logic.append(
+                    "    {0}_rd{1}_q <= {{{2}}};".format(
+                        lo,
+                        r,
+                        ", ".join(
+                            "{}_rd{}[{}]".format(lo, r, i) for i in reversed(keep)
+                        )
+                        + ", 1'b0",
+                    )
+                )
             sums.append("^{}_rd{}_q".format(lo, r))
         for w in range(nw):
             decl.append("  reg  [{}:0] {}_wa{};".format(aw - 1, lo, w))
             decl.append("  reg  [{}:0] {}_wd{};".format(bits - 1, lo, w))
             decl.append("  reg  {}_we{};".format(lo, w))
-            con.append(".io_writePorts_{0}_wen({1}_we{0}), .io_writePorts_{0}_addr({1}_wa{0}), .io_writePorts_{0}_data({1}_wd{0})".format(w, lo))
-            logic.append("    {0}_wa{1} <= blockc_r[{2}:{3}];".format(lo, w, aw - 1 + 4 * w, 4 * w))
-            logic.append("    {0}_wd{1} <= blockd_r[{2}:{3}];".format(lo, w, bits - 1 + 8 * w, 8 * w))
+            con.append(
+                ".io_writePorts_{0}_wen({1}_we{0}), .io_writePorts_{0}_addr({1}_wa{0}), .io_writePorts_{0}_data({1}_wd{0})".format(
+                    w, lo
+                )
+            )
+            logic.append(
+                "    {0}_wa{1} <= blockc_r[{2}:{3}];".format(
+                    lo, w, aw - 1 + 4 * w, 4 * w
+                )
+            )
+            logic.append(
+                "    {0}_wd{1} <= blockd_r[{2}:{3}];".format(
+                    lo, w, bits - 1 + 8 * w, 8 * w
+                )
+            )
             logic.append("    {0}_we{1} <= blockb_r[{2}];".format(lo, w, w))
         inst.append("  {} u_{} ({});".format(name, lo, ", ".join(con)))
     return """// The miniature planned parent: four blocks along its bottom edge, three
@@ -203,7 +259,13 @@ module mini_top (
   end
   assign sum = ({sums}) ? seed : ~seed;
 endmodule
-""".format(ports=",\n".join(ports), decl="\n".join(decl), inst="\n".join(inst), logic="\n".join(logic), sums=" ^ ".join(sums))
+""".format(
+        ports=",\n".join(ports),
+        decl="\n".join(decl),
+        inst="\n".join(inst),
+        logic="\n".join(logic),
+        sums=" ^ ".join(sums),
+    )
 
 
 def partners():
@@ -235,16 +297,44 @@ def plan(out_dir):
         macros.append({"name": name, "pins": pins + ext, "area_um2": area, "keep": []})
     return {
         "tech": TECH,
-        "margins": {"pin_side": 1.5, "channel_min_um": 20, "lateral": 0.5, "aspect_cap": 3.0, "gap_um": 10.8},
-        "parent": {"cell_area_um2": 4000.0, "density": 0.5, "core_margin_um": 10, "keep": []},
+        "margins": {
+            "pin_side": 1.5,
+            "channel_min_um": 20,
+            "lateral": 0.5,
+            "aspect_cap": 3.0,
+            "gap_um": 10.8,
+        },
+        "parent": {
+            "cell_area_um2": 4000.0,
+            "density": 0.5,
+            "core_margin_um": 10,
+            "keep": [],
+        },
         "macros": macros,
         # FileA and FileB in the planner's row along the region's top; the
         # region between the two block rows is 125 um wide, so FileC takes
         # the row below, at the same left edge (gap_um in from the region)
         "netlists": [
-            {"module": "FileA", "instance": "u_filea", "w_um": FILE_W_UM, "h_um": FILE_H_UM},
-            {"module": "FileB", "instance": "u_fileb", "w_um": FILE_W_UM, "h_um": FILE_H_UM},
-            {"module": "FileC", "instance": "u_filec", "w_um": FILE_W_UM, "h_um": FILE_H_UM, "x_um": 20.944, "y_um": 107.4},
+            {
+                "module": "FileA",
+                "instance": "u_filea",
+                "w_um": FILE_W_UM,
+                "h_um": FILE_H_UM,
+            },
+            {
+                "module": "FileB",
+                "instance": "u_fileb",
+                "w_um": FILE_W_UM,
+                "h_um": FILE_H_UM,
+            },
+            {
+                "module": "FileC",
+                "instance": "u_filec",
+                "w_um": FILE_W_UM,
+                "h_um": FILE_H_UM,
+                "x_um": 20.944,
+                "y_um": 107.4,
+            },
         ],
         # the planner opens this from where it runs: the repo root
         "pin_partners": os.path.join(out_dir, "partners.txt"),
@@ -252,7 +342,9 @@ def plan(out_dir):
 
 
 def main(argv):
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--out", required=True)
     a = ap.parse_args(argv[1:])
     os.makedirs(a.out, exist_ok=True)

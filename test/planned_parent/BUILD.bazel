@@ -36,12 +36,12 @@ genrule(
 )
 
 mini_planned_flow(
-    rtl = ":rtl",
     files = [
         ":FileA.regfile",
         ":FileB.regfile",
         ":FileC.regfile",
     ],
+    rtl = ":rtl",
 )
 
 # Manual until the open finding is fixed: the parent's global route stops
