@@ -1445,14 +1445,49 @@ def read_bazel_orfs_overrides(bazel_orfs_module_path):
     return overrides
 
 
-BAZEL_ORFS_PATCHES_DIR = "orfs-patches"
+# Patches bazel-orfs applies to a shared dependency live here in the
+# consumer's tree.  A separate directory from the consumer's own patches is
+# not cosmetic: the two sets collide by name (both carry a
+# qt-bazel-xcb-cursor-from-source.patch, with different contents), and this
+# directory is rewritten wholesale on every bump.
+BAZEL_ORFS_PATCHES_DIR = "bazel-orfs-patches"
 
 
-def copy_patches(bazel_orfs_dir, workspace_dir):
-    """Copy bazel-orfs patches into the downstream project.
+def bazel_orfs_owned_patches(bazel_orfs_module_path):
+    """Map module name -> patch filenames bazel-orfs's own override applies.
 
-    Creates bazel-orfs-patches/ with a BUILD.bazel that exports all .patch files.
-    Returns the label prefix for referencing these patches.
+    Bazel refuses a patch label that crosses a module boundary ("only
+    patches in the main repository can be applied"), so every patch
+    bazel-orfs applies to a shared dependency must exist as a file in the
+    consumer's tree and be listed in the consumer's own override.
+    """
+    with open(bazel_orfs_module_path) as f:
+        text = f.read()
+
+    owned = {}
+    for name in NON_BCR_DEPS:
+        span = find_git_override_block(text, name) or find_archive_override_block(
+            text, name
+        )
+        if not span:
+            continue
+        names = []
+        for label in _extract_patches(text[span[0] : span[1]]):
+            filename = label.split(":")[-1]
+            if filename not in names:
+                names.append(filename)
+        if names:
+            owned[name] = names
+    return owned
+
+
+def copy_patches(bazel_orfs_dir, workspace_dir, owned=None):
+    """Sync the consumer's bazel-orfs-patches/ to exactly what bazel-orfs applies.
+
+    Copies the patches bazel-orfs's overrides reference and deletes every
+    other .patch in the directory.  The deletion is the point: when a patch
+    reaches its upstream home and bazel-orfs drops it, the consumer's copy
+    goes away on the next bump instead of being carried forever.
     """
     import shutil
 
@@ -1461,43 +1496,102 @@ def copy_patches(bazel_orfs_dir, workspace_dir):
     if not os.path.isdir(src_patches):
         return
 
-    os.makedirs(dst_dir, exist_ok=True)
-    for f in os.listdir(src_patches):
-        if f.endswith(".patch"):
-            shutil.copy2(os.path.join(src_patches, f), dst_dir)
+    if owned is None:
+        owned = bazel_orfs_owned_patches(
+            os.path.join(bazel_orfs_dir, "MODULE.bazel")
+        )
+    needed = {name for names in owned.values() for name in names}
 
-    # Also copy root-level patches referenced as //:foo.patch
-    for f in os.listdir(bazel_orfs_dir):
-        if f.endswith(".patch"):
-            shutil.copy2(os.path.join(bazel_orfs_dir, f), dst_dir)
+    os.makedirs(dst_dir, exist_ok=True)
+    for filename in sorted(needed):
+        for candidate in (
+            os.path.join(src_patches, filename),
+            os.path.join(bazel_orfs_dir, filename),
+        ):
+            if os.path.isfile(candidate):
+                shutil.copy2(candidate, os.path.join(dst_dir, filename))
+                break
+
+    for filename in sorted(os.listdir(dst_dir)):
+        if filename.endswith(".patch") and filename not in needed:
+            os.remove(os.path.join(dst_dir, filename))
 
     build_path = os.path.join(dst_dir, "BUILD.bazel")
     if not os.path.exists(build_path):
         with open(build_path, "w") as fh:
-            fh.write('exports_files(glob(["*.patch"]))\n')
+            fh.write(
+                "# Maintained by bazel-orfs' bump; edits are overwritten.\n"
+                'exports_files(glob(["*.patch"]))\n'
+            )
 
 
 def rewrite_patch_labels(override_block):
-    """Rewrite patch labels to reference the local bazel-orfs-patches/ dir.
+    """Point every patch label in a bazel-orfs override block at the local copy.
 
-    In bazel-orfs's MODULE.bazel, patches reference:
-        //patches:foo.patch  or  //:foo.patch
-    In downstream projects, these become:
-        //bazel-orfs-patches:foo.patch
+    In bazel-orfs's own MODULE.bazel these read //patches:foo.patch or
+    //:foo.patch; a consumer must reference its own copy instead.
     """
 
     def rewrite(m):
-        label = m.group(1)
-        # Extract just the filename
-        filename = label.split(":")[-1]
-        return f'"//{BAZEL_ORFS_PATCHES_DIR}:{filename}"'
+        return f'"//{BAZEL_ORFS_PATCHES_DIR}:{m.group(1).split(":")[-1]}"'
 
-    override_block = re.sub(
-        r'"(//(?:patches|)[^"]*\.patch)"',
-        rewrite,
-        override_block,
-    )
-    return override_block
+    return re.sub(r'"(//(?:patches|)[^"]*\.patch)"', rewrite, override_block)
+
+
+def reconcile_patch_labels(content, owned):
+    """Bring an existing consumer's override patch lists back in step.
+
+    inject_non_bcr_deps only fires while a dependency is missing, so after
+    bootstrap a consumer never heard about a patch bazel-orfs added, dropped
+    or moved.  For each shared dependency: relabel the entries naming a
+    bazel-orfs patch to bazel-orfs-patches/, drop the ones it no longer
+    applies, and insert any it has added ahead of the consumer's own, which
+    is the order the patches are written against.
+
+    Returns ``(content, changed)``; ``changed`` names the modules whose list
+    moved, so a bump can say so rather than swapping a patch silently.
+    """
+    changed = []
+    for module_name, names in owned.items():
+        span = find_git_override_block(content, module_name) or (
+            find_archive_override_block(content, module_name)
+        )
+        if not span:
+            continue
+        block = content[span[0] : span[1]]
+        m = re.search(r"(patches\s*=\s*\[)(.*?)(\])", block, re.DOTALL)
+        if not m:
+            continue
+
+        body = m.group(2)
+        indent = "        "
+        entry = re.search(r"\n(\s+)\"//", body)
+        if entry:
+            indent = entry.group(1)
+
+        kept = []
+        for line in body.split("\n"):
+            labels = _extract_patches(line)
+            if not labels:
+                if line.strip():
+                    kept.append(line)
+                continue
+            filename = labels[0].split(":")[-1]
+            if filename in names:
+                continue
+            if any(filename in other for other in owned.values()):
+                continue
+            kept.append(line)
+
+        rendered = [
+            f'{indent}"//{BAZEL_ORFS_PATCHES_DIR}:{name}",' for name in names
+        ]
+        new_body = "\n" + "\n".join(rendered + kept) + "\n" + indent[:-4]
+        new_block = block[: m.start(2)] + new_body + block[m.end(2) :]
+        if new_block != block:
+            changed.append(module_name)
+            content = content[: span[0]] + new_block + content[span[1] :]
+    return content, changed
 
 
 def inject_non_bcr_deps(content, bazel_orfs_dir):
@@ -1878,8 +1972,14 @@ def bump(
         # Inject non-BCR deps (orfs, openroad, qt-bazel) with commits
         # pinned to the same versions bazel-orfs uses
         content = inject_non_bcr_deps(content, bazel_orfs_dir)
-        if workspace_dir:
-            copy_patches(bazel_orfs_dir, workspace_dir)
+        bazel_orfs_module = os.path.join(bazel_orfs_dir, "MODULE.bazel")
+        if os.path.exists(bazel_orfs_module):
+            owned = bazel_orfs_owned_patches(bazel_orfs_module)
+            content, patched = reconcile_patch_labels(content, owned)
+            for name in patched:
+                updated_modules.append(f"{name} patches -> bazel-orfs' set")
+            if workspace_dir:
+                copy_patches(bazel_orfs_dir, workspace_dir, owned)
 
     # --- Update ORFS commit (skip for projects without ORFS) ---
     # Every consumer follows ORFS master — including OpenROAD, whose orfs

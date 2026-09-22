@@ -1954,3 +1954,142 @@ class TestUpdateOpenroadArchiveOverride(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PatchSyncTest(unittest.TestCase):
+    """bazel-orfs' patches are carried as files in each consumer's tree."""
+
+    BAZEL_ORFS_MODULE = '''
+bazel_dep(name = "openroad")
+archive_override(
+    module_name = "openroad",
+    patch_strip = 1,
+    patches = [
+        "//patches:0001-openroad-tcl-source-flag.patch",
+        "//patches:0002-openroad-openroad-lib-public.patch",
+    ],
+    urls = ["https://example.invalid/openroad.tar.gz"],
+)
+
+bazel_dep(name = "qt-bazel")
+git_override(
+    module_name = "qt-bazel",
+    commit = "deadbeef",
+    patches = ["//patches:qt-bazel-xcb-cursor-from-source.patch"],
+    remote = "https://example.invalid/qt",
+)
+'''
+
+    def _bazel_orfs_dir(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d)
+        os.makedirs(os.path.join(d, "patches"))
+        with open(os.path.join(d, "MODULE.bazel"), "w") as fh:
+            fh.write(self.BAZEL_ORFS_MODULE)
+        for name in (
+            "0001-openroad-tcl-source-flag.patch",
+            "0002-openroad-openroad-lib-public.patch",
+            "qt-bazel-xcb-cursor-from-source.patch",
+            "0099-unreferenced.patch",
+        ):
+            with open(os.path.join(d, "patches", name), "w") as fh:
+                fh.write(f"--- a/{name}\n")
+        return d
+
+    def test_owned_patches_span_both_override_shapes(self):
+        d = self._bazel_orfs_dir()
+        owned = bump.bazel_orfs_owned_patches(os.path.join(d, "MODULE.bazel"))
+        self.assertEqual(
+            owned,
+            {
+                "openroad": [
+                    "0001-openroad-tcl-source-flag.patch",
+                    "0002-openroad-openroad-lib-public.patch",
+                ],
+                "qt-bazel": ["qt-bazel-xcb-cursor-from-source.patch"],
+            },
+        )
+
+    def test_copy_patches_copies_only_what_is_applied(self):
+        d = self._bazel_orfs_dir()
+        ws = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, ws)
+        bump.copy_patches(d, ws)
+        dst = os.path.join(ws, bump.BAZEL_ORFS_PATCHES_DIR)
+        self.assertEqual(
+            sorted(f for f in os.listdir(dst) if f.endswith(".patch")),
+            [
+                "0001-openroad-tcl-source-flag.patch",
+                "0002-openroad-openroad-lib-public.patch",
+                "qt-bazel-xcb-cursor-from-source.patch",
+            ],
+        )
+        self.assertTrue(os.path.exists(os.path.join(dst, "BUILD.bazel")))
+
+    def test_copy_patches_prunes_a_patch_that_reached_upstream(self):
+        d = self._bazel_orfs_dir()
+        ws = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, ws)
+        dst = os.path.join(ws, bump.BAZEL_ORFS_PATCHES_DIR)
+        os.makedirs(dst)
+        stale = os.path.join(dst, "0050-orfs-set-rc-tcl-load.patch")
+        with open(stale, "w") as fh:
+            fh.write("carried by an older bump\n")
+        bump.copy_patches(d, ws)
+        self.assertFalse(os.path.exists(stale))
+
+    def test_reconcile_relabels_and_leaves_consumer_patches_alone(self):
+        d = self._bazel_orfs_dir()
+        owned = bump.bazel_orfs_owned_patches(os.path.join(d, "MODULE.bazel"))
+        consumer = '''
+bazel_dep(name = "openroad")
+archive_override(
+    module_name = "openroad",
+    patch_strip = 1,
+    patches = [
+        "//orfs-patches:0001-openroad-tcl-source-flag.patch",
+        "//orfs-patches:0002-openroad-openroad-lib-public.patch",
+        "//orfs-patches:site-specific.patch",
+    ],
+    urls = ["https://example.invalid/openroad.tar.gz"],
+)
+'''
+        out, changed = bump.reconcile_patch_labels(consumer, owned)
+        self.assertEqual(changed, ["openroad"])
+        self.assertIn(
+            '"//bazel-orfs-patches:0001-openroad-tcl-source-flag.patch"', out
+        )
+        self.assertIn('"//orfs-patches:site-specific.patch"', out)
+        self.assertNotIn('"//orfs-patches:0001-openroad-tcl-source-flag.patch"', out)
+
+    def test_reconcile_adds_a_newly_carried_patch(self):
+        owned = {"openroad": ["0001-a.patch", "0002-new.patch"]}
+        consumer = '''
+archive_override(
+    module_name = "openroad",
+    patches = [
+        "//bazel-orfs-patches:0001-a.patch",
+        "//orfs-patches:mine.patch",
+    ],
+)
+'''
+        out, changed = bump.reconcile_patch_labels(consumer, owned)
+        self.assertEqual(changed, ["openroad"])
+        self.assertIn('"//bazel-orfs-patches:0002-new.patch"', out)
+        self.assertIn('"//orfs-patches:mine.patch"', out)
+
+    def test_reconcile_is_idempotent(self):
+        owned = {"openroad": ["0001-a.patch"]}
+        consumer = '''
+archive_override(
+    module_name = "openroad",
+    patches = [
+        "//bazel-orfs-patches:0001-a.patch",
+        "//orfs-patches:mine.patch",
+    ],
+)
+'''
+        once, first = bump.reconcile_patch_labels(consumer, owned)
+        twice, second = bump.reconcile_patch_labels(once, owned)
+        self.assertEqual(once, twice)
+        self.assertEqual(second, [])
