@@ -214,6 +214,23 @@ on 62 GB. The fence (per-partition byte-stable inputs, commit f3c52546)
 survives a one-session slicer; plan and verified primitives in
 `ideas/canonicalize-slicer.md`. Before the next synthesis from the top.
 
+## 11. CTS on the planned parent: 50 k delay buffers for four macros
+
+Take 23, the first CTS of the parent with the four blocks as macros and
+the three arrays FIRM: `clock_tree_synthesis -sink_clustering_enable
+-repair_clock_nets` took 982 s at 52 GB for 12 clock nets and 179 280
+sinks, 8 383 leaf buffers and 308 clock-net repair buffers, and then
+**49 736 delay buffers** for "Balancing latency for clock clk": every
+parent path padded to the clock insertion delay of the four block macros'
+liberty models. Six times the leaf buffers, and 86 percent of the cells
+the post-CTS legaliser then had to seat: 66 k violations at its ninth
+iteration, still 1.4 k at the 590th, an hour and a half in. Two knobs
+follow: `-no_insertion_delay` in `CTS_ARGS` for a flow not yet asked for
+skew against the blocks, and clock columns in the generator so the arrays'
+27 712 flops are cheap sinks (their leaf buffers today compete for the
+service columns). The legaliser is the CTS stage's floor, twice the
+parent's 90 minutes when the buffer count is this high.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
