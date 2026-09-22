@@ -66,6 +66,13 @@ phantom belonged to the whole-core netlist. So the per-block pass is
 minutes and the whole-core full repair is the outlier; whether the
 pre-placement pass alone scales to the core is untested and not needed.
 
+**Amendment, take 23 (2026-09-22).** With the four blocks blackboxed and
+the three arrays FIRM, `repair_design` on the planned parent returned:
+1 714 s, 21 GB, 261 860 buffers into 57 541 nets, 29 453 instances
+resized, against 56 301 slew, 23 081 fanout and 16 385 capacitance
+violations. The netlist that did not return in a day was the flat core
+with the blocks' logic in it. Entry 4 stands for that netlist only.
+
 ## 5. The legaliser after CTS is the parent's budget breaker
 
 Take 19's planned parent (1.3 M own cells, four real blocks, no legaliser
@@ -106,6 +113,15 @@ fanout 256, 1.04 M cells for 13 000 flops of state), a quarter by
 dispatch's tables, a quarter by the memory-control tables. That is not a
 legaliser problem and not a density problem first: it is a structure
 that belongs in a generated macro. The pivot is `ideas/structured-macros.md`.
+
+**Take 23 (2026-09-22), pre-CTS.** `detailed_placement` on the planned
+parent, 4.56 M one-row cells at 47 % utilisation, negotiation legaliser:
+5 394 s, ending in "violations stuck at 8, diamond search for 4
+remaining illegal cells". Then `improve_placement` ran because the
+deploy tree of the floorplan stage does not carry the place stage's
+`ENABLE_DPO=0`, and the two-hour budget went there. The legaliser's
+90 minutes are the number to plan with; the arrays being FIRM took
+1.28 M cells out of it.
 
 ## 6. Hierarchical `link_design` of the parent is string-keyed and serial
 
