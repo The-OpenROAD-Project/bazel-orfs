@@ -1,0 +1,73 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load(":planned.bzl", "mini_planned_flow")
+
+# The planned parent in miniature: the XiangShan study's shape at a
+# fiftieth of the size, through global route in minutes. Four hardened
+# blocks placed by a plan the planner emitted, one with ports to the
+# parent's ports, block-to-block traffic between two of them, three
+# generated register files as placed netlists inside the parent's logic,
+# one with a dead column. What it proves, as a negative: the plan pipeline
+# (emit, macro rows, exact pins, netlist placement, the macro step's skip
+# on a fully fixed set), a placed netlist through repair, CTS with macro
+# insertion delays, the legaliser and the router. The battery's widest
+# test; a night of the parent found each of these one at a time.
+
+py_binary(
+    name = "mini_gen",
+    srcs = ["mini_gen.py"],
+    main = "mini_gen.py",
+)
+
+genrule(
+    name = "rtl",
+    outs = [
+        "blocks.sv",
+        "files.sv",
+        "top.sv",
+        "FileA.regfile",
+        "FileB.regfile",
+        "FileC.regfile",
+        "plan.json",
+        "partners.txt",
+    ],
+    cmd = "$(execpath :mini_gen) --out $(RULEDIR)",
+    tools = [":mini_gen"],
+)
+
+mini_planned_flow(
+    rtl = ":rtl",
+    files = [
+        ":FileA.regfile",
+        ":FileB.regfile",
+        ":FileC.regfile",
+    ],
+)
+
+# Manual until the open finding is fixed: the parent's global route stops
+# in pin access on exactly one pin per block (DRT-0073, e.g. u_blockd/din[0]),
+# the same pin whatever its position and with the block's obstructions
+# moved away; the parent XSCore failed on one pin per block the same way
+# (take 23, 2026-09-22). Reproducer: read the parent's 4_cts.odb and run
+# pin_access. Through CTS it passes.
+build_test(
+    name = "mini_top_grt_build_test",
+    tags = ["manual"],
+    targets = [":mini_top_grt"],
+)
+
+build_test(
+    name = "mini_top_cts_build_test",
+    targets = [":mini_top_cts"],
+)
+
+# plan/ is what mini_gen.py and the planner produce; regen.sh rewrites it.
+py_test(
+    name = "plan_drift_test",
+    srcs = ["plan_drift_test.py"],
+    data = [
+        "mini_gen.py",
+        "//tools/macro_select:plan_floorplan",
+    ] + glob(["plan/*"]),
+    main = "plan_drift_test.py",
+)
