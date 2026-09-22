@@ -48,11 +48,15 @@ module small_top(
     .io_writePorts_0_wen(we0_q), .io_writePorts_0_addr(wa0_q), .io_writePorts_0_data(wd0_q),
     .io_writePorts_1_wen(we1_q), .io_writePorts_1_addr(wa1_q), .io_writePorts_1_data(wd1_q)
   );
-  reg [7:0] rd0_q, rd1_q, sum_q;
+  // Bit 0 of the file is never read: a dead column, which the synth ODB
+  // step's eliminate_dead_logic removes from the placed netlist. The
+  // parent's placement script has to skip those cells (FLW-0008) rather
+  // than stop on the first one, as it did on XiangShan's RobEntryFile.
+  reg [6:0] rd0_q, rd1_q, sum_q;
   always @(posedge clock) begin
-    rd0_q <= d0; rd1_q <= d1; sum_q <= d0 + d1;
+    rd0_q <= d0[7:1]; rd1_q <= d1[7:1]; sum_q <= d0[7:1] + d1[7:1];
   end
-  assign rd0 = rd0_q;
-  assign rd1 = rd1_q;
-  assign sum = sum_q;
+  assign rd0 = {rd0_q, 1'b0};
+  assign rd1 = {rd1_q, 1'b0};
+  assign sum = {sum_q, 1'b0};
 endmodule

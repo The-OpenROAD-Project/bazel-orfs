@@ -1,4 +1,5 @@
 load("@bazel-orfs//:openroad.bzl", "odb_debug", "orfs_flow")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
 # STRUCTURED_MEMORIES in mode netlist: a generated register file dropped
 # FIRM into its parent's rows at floorplan instead of hardened as a macro
@@ -14,7 +15,7 @@ orfs_flow(
         "PLACE_DENSITY": "0.5",
         "SKIP_REPORT_METRICS": "1",
     },
-    last_stage = "place",
+    last_stage = "grt",
     pdk = "//flow:asap7",
     sources = {
         "SDC_FILE": [":constraints.sdc"],
@@ -27,4 +28,19 @@ orfs_flow(
 odb_debug(
     name = "small_top_place_odb_debug",
     src = ":small_top_place",
+)
+
+odb_debug(
+    name = "small_top_grt_odb_debug",
+    src = ":small_top_grt",
+)
+
+# The battery's first negative: a placed netlist gets through repair_design
+# (its cells dont_touch, patch 0083), CTS (its flops rewired, its buffers
+# seated in the service columns), the legaliser and global route, with one
+# dead column skipped at floorplan (0081) and no macro placer run on a
+# fully fixed macro set (0082). Seconds, where the parent took a night.
+build_test(
+    name = "small_top_grt_build_test",
+    targets = [":small_top_grt"],
 )
