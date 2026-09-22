@@ -184,6 +184,15 @@ py_test(
     main = "deploy_tpl_test.py",
 )
 
+# The deployed tree's make wrapper: its own stage's targets pass, another
+# stage's are refused (the fence is in the template's comment block).
+py_test(
+    name = "make_tpl_test",
+    srcs = ["make_tpl_test.py"],
+    data = ["make.tpl"],
+    main = "make_tpl_test.py",
+)
+
 # Run `bazelisk run //:monitor-test` to run tests with stage monitoring.
 # Usage: bazelisk run //:monitor-test -- //test/...
 py_binary(

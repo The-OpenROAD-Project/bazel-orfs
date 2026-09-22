@@ -198,13 +198,26 @@ def _make_cmd(ctx):
         stamp = log_timestamps_make_arg(ctx),
     )
 
-def _create_make_script(ctx, name, extra_substitutions = {}):
+def deploy_stage_of(stage):
+    """The flow stage a make script's ORFS step name belongs to.
+
+    "2_floorplan" -> "floorplan", "5_1_grt" -> "grt", "1_synth" -> "synth",
+    "generate_abstract" -> "generate_abstract". This is what make.tpl gets
+    as ${DEPLOY_STAGE}: the one stage whose targets a deployed tree may run.
+    """
+    return stage.split("_", 2)[-1] if stage[:1].isdigit() else stage
+
+def _create_make_script(ctx, name, extra_substitutions = {}, deploy_stage = ""):
     """Creates the make wrapper script via template expansion.
 
     Args:
       ctx: Rule context.
       name: Filename for the declared make script.
       extra_substitutions: Additional substitutions beyond flow_substitutions.
+      deploy_stage: the flow stage this script's deployed tree is for
+        (synth, floorplan, place, cts, grt, route, final, generate_abstract);
+        make.tpl refuses another stage's targets in that tree. Empty for a
+        script that is not one stage's (orfs_run's reproducer).
 
     Returns:
       The declared make File.
@@ -215,7 +228,11 @@ def _create_make_script(ctx, name, extra_substitutions = {}):
         template = ctx.file._make_template,
         output = make,
         substitutions = flow_substitutions(ctx) |
-                        {'"$@"': '{}DESIGN_CONFIG="config.mk" "$@"'.format(silent)} |
+                        {
+                            '"$@"': '{}DESIGN_CONFIG="config.mk" "$@"'.format(silent),
+                            "${DEPLOY_STAGE}": deploy_stage,
+                            "${DEPLOY_LABEL}": "//{}:{}".format(ctx.label.package, ctx.label.name),
+                        } |
                         extra_substitutions,
     )
     return make
@@ -2564,6 +2581,7 @@ def _yosys_impl(ctx):
         ctx,
         "make_{}_1_synth".format(ctx.attr.name),
         yosys_substitutions(ctx),
+        deploy_stage = "synth",
     )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
@@ -3008,6 +3026,7 @@ def _make_impl(
     make = _create_make_script(
         ctx,
         "make_{}_{}_{}".format(ctx.attr.name, ctx.attr.variant, stage),
+        deploy_stage = deploy_stage_of(stage),
     )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
