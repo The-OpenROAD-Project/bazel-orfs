@@ -1,0 +1,67 @@
+{
+  "title": "XiangShan XSCore on asap7 through bazel-orfs, take 23 (2026-09-23)",
+  "die_um": [3623.968, 2127.188],
+  "blocks": {
+    "Frontend": [10.224, 82.08, 954.72, 954.72],
+    "MemBlock": [1024.992, 12.96, 995.76, 995.76],
+    "VecRegionModule": [2080.656, 213.84, 807.84, 807.84],
+    "Region_1": [2948.544, 371.52, 665.28, 665.28]
+  },
+  "arrays": {
+    "RobEntryFile": [70.144, 1862.518, 318.384, 192.51],
+    "IntRegFile": [448.528, 1812.028, 406.404, 243.27],
+    "RenameBufferFile": [914.528, 1862.788, 306.504, 192.24]
+  },
+  "ports_bottom_edge_x_um": [1000, 2000],
+  "ports": 4311,
+  "cells_parent": 4579198,
+  "cells_arrays_firm": 1283288,
+  "block_pins": 28134,
+  "stages_h": [
+    ["synthesis (48 partitions)", 2.22, 0],
+    ["floorplan", 0.32, 16.1],
+    ["global placement", 0.63, 27.3],
+    ["repair_design", 0.56, 21.0],
+    ["legaliser", 2.23, 40.2],
+    ["CTS (-no_insertion_delay)", 2.32, 37.2],
+    ["post-CTS timing", 0.17, 32.6],
+    ["route-0 gate (M9)", 0.37, 61.0],
+    ["global route, 5 iterations", 3.0, 0]
+  ],
+  "route_killed_at_h": 3.0,
+  "route0": {
+    "M7": {"usage_pct": 31.1, "max_h": 1101, "max_v": 176, "total": 100783854, "wirelength_m": 151.3},
+    "M9": {"usage_pct": 23.7, "max_h": 971, "max_v": 181, "total": 81353428, "wirelength_m": 151.9}
+  },
+  "period_ladder_ps": [
+    ["XiangShan public target, 3 GHz at 7 nm", 333, "target"],
+    ["VecRegionModule alone, placed and repaired", 918, "measured"],
+    ["MemBlock alone, placed and repaired", 1138, "measured"],
+    ["Frontend alone, placed and repaired", 1292, "measured"],
+    ["Region_1 alone, placed and repaired", 1905, "measured"],
+    ["XSCore synthesised, before placement", 16838, "measured"],
+    ["XSCore after CTS (blocks abstracted before their CTS)", 47401, "artefact"]
+  ],
+  "record": [
+    ["2023", "MegaBoom checked into ORFS as static RTL"],
+    ["2023-12-01", "ORFS retires MegaBoom: '24+ hours designs need something more than just ORFS'"],
+    ["2026-03-27", "bazel-orfs gallery/: 12 designs, largest 896 k cells stuck at global route"],
+    ["2026-04-22", "MegaBoom repository archived"],
+    ["2026-08-18", "bazel-orfs gallery removed"],
+    ["2026-09-23", "XSCore, 4.3 M cells: to global route, no route converges"]
+  ],
+  "extracted": [
+    ["memory extraction 721 s per module walk", "ORFS patch 0079; yosys scoping (64 s)", "patch"],
+    ["47 whole-design re-reads per synthesis", "canonicalise slicer (planned)", "not yet"],
+    ["slang-uniquified memory names", "ORFS patch 0080", "patch"],
+    ["dead column in a placed array (hours)", "test/structured_netlist small_top, seconds", "test"],
+    ["macro placer on a fully fixed set", "test/planned_parent, minutes", "test"],
+    ["resizer vs fixed arrays, twice (3 h + 14 min)", "test/structured_netlist real-size arrays, 10 min", "test"],
+    ["49 736 CTS delay buffers (3 h)", "test/planned_parent cts_delay_buffers_test, minutes", "test"],
+    ["FastRoute usage guard in an 11 um gap", "test/macro_select channel arm, 90 s", "test"],
+    ["pin access fails on one pin per block (9 h)", "planned_parent grt (manual): 5 s reproducer, cause open", "not yet"],
+    ["legaliser runs all 1 400 iterations (2 h)", "OpenROAD policy question, no test yet", "not yet"],
+    ["maze iteration takes hours on a 3978^2 grid", "OpenROAD code question (take 16)", "not yet"],
+    ["abstract before CTS exports a 145 pF clock pin", "planned_parent abstract_stage knob (planned)", "not yet"]
+  ]
+}
