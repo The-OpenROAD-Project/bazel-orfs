@@ -91,6 +91,16 @@ main() {
 
   mkdir --parents "$dst"
   chmod --recursive u+w "$dst"
+  # A directory that an earlier deploy turned from a link into a copy (see
+  # below) is in the way of the link cp is about to lay down again.
+  if [ -d "$dst/_main" ]; then
+    (cd "$0.runfiles/_main" && find . -path ./external -prune -o -type l -print) |
+      while IFS= read -r rel; do
+        if [ -d "$dst/_main/$rel" ] && [ ! -L "$dst/_main/$rel" ]; then
+          rm -rf "${dst:?}/_main/$rel"
+        fi
+      done
+  fi
   cp --recursive --target-directory "$dst" -- $0.runfiles/*
   # Needed as of Bazel >= 8: _main/external/<repo> must resolve.
   # Create a real directory with per-repo symlinks instead of
@@ -126,6 +136,33 @@ main() {
     fi
     cp --force --dereference --no-preserve=all --parents --target-directory "$dst_main" "$file"
   done
+
+  # The runfiles copied above are symlinks, and the previous stage's
+  # results among them (1_synth.odb, the netlist, a memories directory,
+  # the blocks' .lef/.lib) point into bazel's output tree. A chmod and an
+  # edit through one of them changes a bazel action output in place;
+  # bazel notices the changed metadata on the next build and re-runs the
+  # action, and until then the build tree carries the hand-edited file.
+  # Every link to this configuration's outputs becomes a copy (a reflink
+  # where the filesystem has them). The make script is one of those
+  # outputs, so its path names the configuration's bin directory. Tools
+  # built for the exec configuration, external repositories and nested
+  # .runfiles trees stay links: the tree reads them and never edits them.
+  local out_bin
+  out_bin=$(readlink -f "$make" | sed -n 's|^\(.*/bazel-out/[^/]*/bin/\).*|\1|p')
+  if [ -n "$out_bin" ]; then
+    find "$dst_main" -path "$dst_main/external" -prune -o -type l -print |
+      while IFS= read -r link; do
+        target=$(readlink -f "$link") || continue
+        case "$target" in
+          *.runfiles | *.runfiles/*) continue ;;
+          "$out_bin"*) ;;
+          *) continue ;;
+        esac
+        rm -f "$link"
+        cp --recursive --dereference --reflink=auto --preserve=mode,timestamps "$target" "$link" || exit 1
+      done
+  fi
 
   rm -f "$dst/make"
   cat > "$dst/make" <<EOF
