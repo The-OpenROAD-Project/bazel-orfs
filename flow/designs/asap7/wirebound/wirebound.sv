@@ -65,6 +65,19 @@ module wirebound #(
     input  logic             rst,
     input  logic [WIDTH-1:0] din,
     output logic [WIDTH-1:0] dout
+`ifdef WIREBOUND_IO_ANCHORS
+    ,
+    // One input and one output port per group, so IO placement can pin
+    // each group to an edge of the die. Without anchors a placer on a die
+    // far larger than the cells collapses the design into one blob and the
+    // inter-group nets are short however the netlist scatters them; with
+    // them the nets span the die at any die size. Off by default: the
+    // pre-route pessimism study's netlist is unchanged.
+    // Flat, group-major (bit g*WIDTH+b is group g's bit b): yosys's
+    // Verilog frontend takes no unpacked array ports.
+    input  logic [GROUPS*WIDTH-1:0] ain,
+    output logic [GROUPS*WIDTH-1:0] aout
+`endif
 );
   // Odd strides, so gcd(STRIDE, GROUPS) == 1 for any power-of-two GROUPS
   // and the fan-in sets walk the whole group space instead of a coset.
@@ -98,7 +111,11 @@ module wirebound #(
 
   always_ff @(posedge clk) begin
     for (int i = 0; i < GROUPS; i++) begin
+`ifdef WIREBOUND_IO_ANCHORS
+      r[i] <= rst ? {WIDTH{1'b0}} : nxt[i] ^ ain[i*WIDTH +: WIDTH];
+`else
       r[i] <= rst ? {WIDTH{1'b0}} : nxt[i];
+`endif
     end
     // The only primary input, injected at one group: enough to keep the
     // state from being constant-folded away, small enough that IO
@@ -109,4 +126,9 @@ module wirebound #(
   end
 
   assign dout = r[GROUPS-1];
+`ifdef WIREBOUND_IO_ANCHORS
+  for (genvar i = 0; i < GROUPS; i++) begin : g_anchor_out
+    assign aout[i*WIDTH +: WIDTH] = r[i];
+  end
+`endif
 endmodule
