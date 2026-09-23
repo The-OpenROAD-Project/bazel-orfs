@@ -440,6 +440,34 @@ Hard stops this asked for, on both sides of the fence:
   a few um; the battery needs a case where a block row sits on the die
   edge that carries the ports.
 
+## 22. A block row should be one height, its widths from the areas (planner, for later)
+
+The band of entry 21 exists because the blocks of a row are shaped
+independently: each is about square, so their heights differ by up to
+330 um and the shorter ones leave pockets under them. Fixing one height H
+for the row and taking each width from the area removes the pockets
+entirely; what is left of the band is the channels, which have rows
+anyway (row cutting only removes what sits under a macro), so a stray
+buffer always lands on a site and initialSnap has nothing to search.
+
+| block | pins | today | at H = 950 um | pin side needs |
+|---|---|---|---|---|
+| Frontend | 3 294 | 955 x 955 | 958 x 950 | 237 um |
+| MemBlock | 10 508 | 996 x 996 | 1042 x 950 | 757 um |
+| VecRegionModule | 9 253 | 808 x 808 | 684 x 950 | 666 um |
+| Region_1 | 5 099 | 665 x 665 | 463 x 950 | 367 um |
+
+The row plus its three 60 um channels is 3 327 um, inside the present
+3 624 um die. Pins on the bottom side are not the constraint: with H
+fixed both sides of a block are the same length, so the binding side is
+whichever carries more pins (MemBlock's top at 6 199, not its bottom at
+4 309). The constraint is the block with the most pins per unit area:
+VecRegionModule binds at H <= 976 um, and at 950 it has 684 um of side
+for 666 um of pins, three percent of headroom. Take H from that block
+with a margin (about 880 um) and refuse rather than squeeze. Costs:
+Region_1 becomes 463 x 950, aspect 2.05 (cap 3), a different internal
+shape to re-measure, and any outline change re-hardens all four blocks.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
