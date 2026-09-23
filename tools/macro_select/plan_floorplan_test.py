@@ -154,8 +154,9 @@ class EmitTest(unittest.TestCase):
         lowest_bottom = min(m["y_um"] for m in bottom)
         band = "  {:.3f} {:.3f}".format(lowest_bottom, lowest_top)
         self.assertIn(band, place)
-        self.assertIn("odb::dbRow_destroy $row", place)
         self.assertIn("odb::dbBlockage_create $block", place)
+        self.assertIn("$bl setSoft", place)  # gpl blocks its sites, dpl skips it
+        self.assertNotIn("dbRow_destroy", place)  # the rows stay: strays need sites
         self.assertEqual(plan_floorplan.block_bands(out)[0], band)
         # the port strip: rows between the band and the die edge for the
         # parent's port buffers (take 24: without it the legaliser carried

@@ -644,34 +644,31 @@ foreach {{master x y}} {{
   [lindex $insts 0] setPlacementStatus FIRM
   puts "place_macros.tcl: $master at $x $y um, R0"
 }}
-# The band the blocks occupy is theirs alone: below the lowest top of the
-# bottom row (and above the highest bottom of a top row) the rows are
-# removed, so no parent cell lands in the pockets under a shorter block
-# or in the channels between blocks, reachable only through a channel
-# (XiangShan take 23: 7 percent of the route-0 overflow sat there). The
-# blocks' own outlines cut the rows in any case; this cuts the rest of
-# the band. Rows are removed rather than blocked: a placement blockage
-# still gets tapcells and edge cells, which the legaliser's row check
-# then fails (place_block_lateral.tcl).
-# Global placement ignores rows, so the band is also a placement blockage:
-# without it the placer seats cells where no row is and the legaliser has
-# to carry each of them to the nearest site. The strip of rows between the
-# band and the die edge stays, for the parent's port buffers.
+# The band the blocks occupy is the blocks' and the wires': a soft
+# placement blockage over it, from the lowest block bottom to the lowest
+# block top of the row (mirrored for a top row). Global placement blocks
+# the sites of every blockage, soft or not, so no parent cell is seeded in
+# a pocket under a shorter block or in a channel between two, where its
+# wires would have to leave through the channel (XiangShan take 23: 7
+# percent of the route-0 overflow). The detailed placer skips soft
+# blockages (dbToOpendp.cpp), so the rows stay legal underneath, and the
+# few hundred buffers repair_design puts there afterwards -- it respects
+# neither rows nor blockages -- have a site under them. A hard blockage,
+# or removing the rows, strands those buffers instead: the negotiation
+# legaliser's initialSnap then relocates each by an expanding ring search
+# whose cost grows with the distance, and the stage does not return
+# (inventory entry 21).
 set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
 set core [$block getCoreArea]
-set cut 0
+set bands 0
 foreach {{lo hi}} {{
 {bands}
 }} {{
-  set lo [expr {{ int($lo * $dbu) }}]
-  set hi [expr {{ int($hi * $dbu) }}]
-  foreach row [$block getRows] {{
-    set bb [$row getBBox]
-    if {{ [$bb yMin] >= $lo && [$bb yMax] <= $hi }} {{ odb::dbRow_destroy $row; incr cut }}
-  }}
-  odb::dbBlockage_create $block [$core xMin] $lo [$core xMax] $hi
+  set bl [odb::dbBlockage_create $block [$core xMin] [expr {{ int($lo * $dbu) }}] [$core xMax] [expr {{ int($hi * $dbu) }}]]
+  $bl setSoft
+  incr bands
 }}
-puts "place_macros.tcl: $cut rows removed from the blocks' bands, the bands blocked for placement"
+puts "place_macros.tcl: $bands soft placement blockage(s) over the blocks' bands; the rows stay"
 # Macros the plan does not name (the parent's own generated register files
 # and memories) go around the planned blocks, which are FIRM and stay put.
 set rest {{}}
@@ -727,9 +724,9 @@ def place_netlists(out, plan):
 def block_bands(out):
     """The y bands (lo hi, um) a row of blocks owns: from the lowest bottom
     to the lowest top of a bottom row, from the highest bottom to the
-    highest top of a top row. place_macros.tcl removes the rows in them and
-    blocks placement there; the port strip between the band and the die
-    edge keeps its rows."""
+    highest top of a top row. place_macros.tcl puts a soft placement
+    blockage over each; the port strip between the band and the die edge
+    stays clear of it, for the parent's port buffers."""
     bands = []
     bottom = [m for m in out["macros"] if m["region_side"] == "bottom"]
     if bottom:
