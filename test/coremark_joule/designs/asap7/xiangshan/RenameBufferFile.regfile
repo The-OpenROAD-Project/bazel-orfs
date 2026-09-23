@@ -3,6 +3,7 @@
 # addresses; XiangShan patch 0005 makes it this module (utils.RegVecFile).
 # The RTL module is the simulation model.
 module RenameBufferFile
+mode netlist
 words 352
 bits 20
 banks 4
