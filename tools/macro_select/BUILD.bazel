@@ -1,0 +1,80 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+# Macro selection: which modules to harden, and the parent floorplan their
+# interfaces dictate. See ideas/ and .claude/commands/macro-selection.md.
+py_library(
+    name = "plan_floorplan_lib",
+    srcs = ["plan_floorplan.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "plan_floorplan",
+    srcs = ["plan_floorplan.py"],
+    main = "plan_floorplan.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "plan_floorplan_test",
+    srcs = [
+        "plan_floorplan.py",
+        "plan_floorplan_test.py",
+    ],
+    main = "plan_floorplan_test.py",
+)
+
+py_binary(
+    name = "select_table",
+    srcs = ["select_table.py"],
+    main = "select_table.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "select_table_test",
+    srcs = [
+        "select_table.py",
+        "select_table_test.py",
+    ],
+    main = "select_table_test.py",
+)
+
+py_binary(
+    name = "timing_table",
+    srcs = ["timing_table.py"],
+    main = "timing_table.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "timing_table_test",
+    srcs = [
+        "timing_table.py",
+        "timing_table_test.py",
+    ],
+    main = "timing_table_test.py",
+)
+
+py_binary(
+    name = "keep_under",
+    srcs = ["keep_under.py"],
+    main = "keep_under.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "keep_under_test",
+    srcs = [
+        "keep_under.py",
+        "keep_under_test.py",
+    ],
+    main = "keep_under_test.py",
+)
+
+# The probes the odb-debug session runs to produce the dumps timing_table reads.
+exports_files([
+    "probe_boundaries.tcl",
+    "probe_paths.tcl",
+    "probe_pin_partners.tcl",
+])
