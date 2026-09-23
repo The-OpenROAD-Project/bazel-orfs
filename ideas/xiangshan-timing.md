@@ -381,6 +381,33 @@ The CTS legaliser's 2.6 h in chain 3 were not the delay buffers' alone:
 without them it still ran every iteration of both phases, on 21 k added
 cells. The deterministic handover rule (entry 5's proposal) stands.
 
+## 20. The floorplan deploy tree runs later stages on platform defaults
+
+Chain 4 ran the parent's CTS, both routes and its pin placement from the
+floorplan stage's deploy tree, whose `config.mk` is scoped to the
+floorplan stage (the fence in docs/local-flow.md). Everything the bazel
+flow sets for later stages was therefore the platform default:
+`MAX_ROUTING_LAYER` M7 instead of M9, `ROUTING_LAYER_ADJUSTMENT` 0.25,
+`PLACE_PINS_ARGS` without the annealer, `IO_PLACER_H/V` defaults,
+`PLACE_DENSITY` the platform's. Route-0 on the same CTS checkpoint at M9
+takes a fifth off the total congestion (100.8 M -> 81.4 M, worst edge
+1 101 -> 971), so the chain 4 numbers in entry 18 are M7 numbers. The
+workbench fix is `tmp/take23/stage_env.sh`, sourced by every chain: the
+parent's later-stage arguments as exports. The flow-side fix is the
+per-stage config as a bazel artefact the workbench can source, which the
+fence allows when the arguments are static.
+
+Related, seen when re-installing the tree for take 24: the regenerated
+arrays (structured_gen with spare sites) are an input of the parent's
+partition synthesis, so `--install` of the floorplan deps re-ran two hours
+of synthesis before it reached the floorplan inputs. Copying the previous
+tree and dropping the new plan files into it took two minutes and is the
+right move when only floorplan inputs changed; the arrays' Verilog was
+byte-identical, so the netlist is the same. Whether the synthesis stage
+needs the .place and .netlist.json files at all (or only the .v) is a
+bazel-orfs question worth a look: it is the difference between a
+two-minute and a two-hour turnaround on a generator change.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
