@@ -182,6 +182,11 @@ ORFS_PATCHES = [
     # the grt-harness study branch. Not upstreamed -- retire at a bump
     # onto an ORFS whose riscv32i declares the two signals as variables.
     Label("//patches:0080-orfs-riscv32i-dmem-procedural-regs.patch"),
+    # With GPL_TIMING_DRIVEN and GPL_ROUTABILITY_DRIVEN both off, the place
+    # stage runs one global placement with -place_ios instead of a
+    # pins-blind solve, place_pins and a second solve. Not upstreamed --
+    # retire at a bump onto an ORFS that places pins with global placement.
+    Label("//patches:0077-orfs-gpl-place-ios.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
