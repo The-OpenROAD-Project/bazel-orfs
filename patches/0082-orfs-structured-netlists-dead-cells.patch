@@ -1,0 +1,77 @@
+From 7fe7de61a2fbaf00747e9184f149cd0d7d0c50d2 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 21 Sep 2026 17:15:05 +0200
+Subject: [PATCH] memories: a placed netlist's cells that dead-logic
+ elimination removed are skipped
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+synth_odb.tcl runs eliminate_dead_logic on the linked design. A bit of a
+generated array that the parent never reads or writes -- XiangShan's
+RobEntryFile has one such bit of its 21, RenameBufferFile two of 20 --
+loses its whole column: 15 120 flops, write muxes and read gates per bit,
+present in the generator's Verilog and .place, gone from the design.
+structured_netlists.tcl then stopped on the first such cell (FLW-0005)
+and the parent's floorplan failed.
+
+The cells that are gone are skipped and counted (FLW-0008, with the
+first name), the rest are placed as before, and FLW-0005 is kept for the
+case it was written for: none of the netlist's cells in the design, which
+is what an unlinked netlist looks like.
+
+Not upstreamed (builds on carried patch 0078). Retires with it.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/structured_netlists.tcl | 19 ++++++++++++++++++-
+ 1 file changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/flow/scripts/structured_netlists.tcl b/flow/scripts/structured_netlists.tcl
+index 0742ae015..6436b63bb 100644
+--- a/flow/scripts/structured_netlists.tcl
++++ b/flow/scripts/structured_netlists.tcl
+@@ -69,14 +69,25 @@ if { 1 } {
+       if { $X < [$core xMin] || $Y < [$core yMin] || $X + ($dx1 - $dx0) > [$core xMax] || $Y + ($dy1 - $dy0) > [$core yMax] } {
+         utl::error FLW 4 "STRUCTURED_PLACEMENT: $path ($module, [expr {($dx1-$dx0)/double($dbu)}] x [expr {($dy1-$dy0)/double($dbu)}] um) at [expr {$X/double($dbu)}] [expr {$Y/double($dbu)}] um leaves the core"
+       }
++      # A cell of the netlist may legitimately be gone: the synth ODB step
++      # runs eliminate_dead_logic on the linked design, and a bit of the
++      # array the parent never reads or writes (a dead field of the entry)
++      # takes its whole column of flops, muxes and read gates with it.
++      # Those cells are skipped, and reported; the placement of the rest
++      # is unchanged. Only a netlist with none of its cells in the design
++      # is an error, which is what "not linked" looks like.
+       set pf [open "$::env(RESULTS_DIR)/memories/$module.place" r]
+       set n 0
++      set missing 0
++      set first_missing ""
+       while { [gets $pf pl] >= 0 } {
+         lassign $pl name cx cy orient
+         if { $name eq "" } { continue }
+         set inst [$block findInst "$path/$name"]
+         if { $inst == "NULL" } {
+-          utl::error FLW 5 "STRUCTURED_PLACEMENT: $path/$name of netlist $module is not in the design (is $path an instance of $module, and the netlist linked?)"
++          incr missing
++          if { $first_missing eq "" } { set first_missing "$path/$name" }
++          continue
+         }
+         $inst setOrient $orient
+         $inst setLocation [expr { $X + $cx - $dx0 }] [expr { $Y + $cy - $dy0 }]
+@@ -84,6 +95,12 @@ if { 1 } {
+         incr n
+       }
+       close $pf
++      if { $n == 0 } {
++        utl::error FLW 5 "STRUCTURED_PLACEMENT: no cell of netlist $module is in the design under $path (first looked for $first_missing; is $path an instance of $module, and the netlist linked?)"
++      }
++      if { $missing > 0 } {
++        utl::info FLW 8 "structured netlist $module at $path: $missing of [expr {$n + $missing}] placed cells are not in the design (removed as dead logic, e.g. $first_missing); their sites stay empty"
++      }
+       lappend placed_modules $module
+       utl::info FLW 6 "structured netlist $module at $path: $n cells FIRM at [expr {$X/double($dbu)}] [expr {$Y/double($dbu)}] um"
+     }
+-- 
+2.53.0
+

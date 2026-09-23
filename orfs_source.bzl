@@ -204,6 +204,11 @@ ORFS_PATCHES = [
     # names never matched and the arrays were flattened into their tables
     # (Frontend's TAGE partition, 64 x 8704 bits). Carried, not upstreamed.
     Label("//patches:0081-orfs-memories-slang-uniquified-names.patch"),
+    # 0082: structured_netlists.tcl skips a placed netlist's cells that
+    # eliminate_dead_logic removed in the synth ODB step (a dead bit of the
+    # array takes its whole column) and reports them; FLW-0005 stays for a
+    # netlist with no cell in the design. Builds on 0078; retires with it.
+    Label("//patches:0082-orfs-structured-netlists-dead-cells.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
