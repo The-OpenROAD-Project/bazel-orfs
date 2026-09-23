@@ -468,6 +468,42 @@ with a margin (about 880 um) and refuse rather than squeeze. Costs:
 Region_1 becomes 463 x 950, aspect 2.05 (cap 3), a different internal
 shape to re-measure, and any outline change re-hardens all four blocks.
 
+## 23. Take 24: the floorplan raid halves the route-0 congestion
+
+Chain 5c (2026-09-23), the first raid with the band handled and the
+parent's own later-stage arguments in force. Against chain 4c's M9
+route-0 on the same design:
+
+| route-0 at M9 | chain 4c | chain 5c |
+|---|---|---|
+| total congestion | 81 353 428 | 41 781 243 |
+| worst horizontal edge | 971 | 426 |
+| worst vertical edge | 181 | 120 |
+| capacity used | 23.7 % | 20.6 % |
+| wirelength | 151.9 m | 143.7 m |
+| M6 / M8 worst edge | 460 / 196 | 166 / 35 |
+
+Three changes together: the blocks' band as a soft placement blockage
+with the rows kept (entry 21), PLACE_DENSITY 0.5, and
+ROUTING_LAYER_ADJUSTMENT 0.18 with M9 actually in force (entry 20; the
+0.18 is the value the asap7 tile flows settled on and adds the 8 percent
+of resources in the table). The predictions written before launch were
+40 to 60 M and 400 to 700; both held.
+
+The stages came down with it: legaliser 2 h 13 -> 39 min (phase 1 stuck
+at 6, phase 2 converged at its first iteration), CTS 2 h 19 -> 57 min,
+the whole chain floorplan to route-0 in 3 h 45. Post-CTS worst slack
+-44 807 ps against -46 601, a 4 percent move, which is all a floorplan
+change can do while the abstracts still export an unbuffered clock net
+(entry 17).
+
+The gate for a five-iteration route (total under 10 M, no edge over 100)
+did not open, as predicted. The worst edges are now M4 at 150 and M6 at
+166, the two horizontal layers over the blocks, with M2 at 65: the
+parent's own wiring above the block row, which entry 18 already named
+and which the ROB glue's fanout-256 nets drive (entry 5). That is a
+generator question, not a floorplan one.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
