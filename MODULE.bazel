@@ -92,6 +92,15 @@ archive_override(
         # Not upstreamed -- retire at a bump onto an OpenROAD that exposes
         # a library target for embedding.
         "//patches:0002-openroad-openroad-lib-public.patch",
+        # detailed_placement checks, before its search, that the cells can be
+        # legalized at all within the displacement window: Hall's condition on
+        # windows, demand of cells against the free sites they can reach. A
+        # placement that fails it costs hours of diamond search and fails
+        # anyway (82 minutes in a CTS stage whose clock buffers landed in
+        # channels narrower than they needed). Not upstreamed; the upstream
+        # pull request carries a gtest. Retires at a bump onto an OpenROAD
+        # that has it.
+        "//patches:0004-openroad-dpl-window-supply.patch",
     ],
     strip_prefix = "OpenROAD-3ab04b4dd1e1b86d603faf3e75a20bd276f61757",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/3ab04b4dd1e1b86d603faf3e75a20bd276f61757.tar.gz"],
