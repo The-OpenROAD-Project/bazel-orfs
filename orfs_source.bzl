@@ -217,6 +217,14 @@ ORFS_PATCHES = [
     # repair_design upsized 378 of them in place and the wider masters
     # overlapped their fixed neighbours. Builds on 0078; retires with it.
     Label("//patches:0084-orfs-structured-netlists-dont-touch.patch"),
+    # 0085: SKIP_PIN_ACCESS runs the global route without building access
+    # points. pin_access fails on a macro pin it cannot reach (DRT-0073),
+    # which on a hierarchical design is one pin of one block between a
+    # placement and the congestion map the stage exists to produce: four
+    # pins of XiangShan's 28 134. The guides it writes then have no access
+    # points, so it is a knob for a study, not for a flow that routes.
+    # Carried, not upstreamed; retires when DRT-0073 is fixed.
+    Label("//patches:0085-orfs-grt-skip-pin-access.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
