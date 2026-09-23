@@ -36,7 +36,7 @@ thing.
 ## Running it
 
 ```
-bazelisk run //test/coremark_joule/designs/asap7/xiangshan:XSCore_plan_grt gui_grt
+bazelisk run //test/coremark_joule/designs/asap7/xiangshan:XSCore_grt gui_grt
 ```
 
 That builds every stage and opens the result in the OpenROAD GUI, with the
@@ -51,7 +51,7 @@ clock tree synthesis an hour, global route twenty minutes. With the
 remote cache warm it is a download.
 
 Earlier stages are targets of their own when that is all you need:
-`XSCore_plan_synth`, `_floorplan`, `_place`, `_cts`. Each has a
+`XSCore_synth`, `_floorplan`, `_place`, `_cts`. Each has a
 `gui_<stage>` and an `open_<stage>` form, and a `_deps` companion that
 installs a standalone tree you can iterate in by hand.
 

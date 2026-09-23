@@ -122,7 +122,7 @@ has the partner dump), `place_macros.tcl` for the parent (by master, R0,
 `-exact`) and `plan.bzl` with the outlines; the design's
 `.bzl` reads `PLAN` and builds the planned variant next to the unplanned
 one (XiangShan: `xiangshan_flow(plan = PLAN, variant = "plan")`, targets
-`XSCore_plan_*`). `keep_under.py` lists the masters under a block in the
+`XSCore_*`). `keep_under.py` lists the masters under a block in the
 boundary probe for the block's own `SYNTH_KEEP_MODULES`.
 
 ## 4. Build, with the gates on
