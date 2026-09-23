@@ -25,7 +25,9 @@ def load(name):
 class ChannelTest(unittest.TestCase):
     def test_the_gap_is_not_the_knob(self):
         rows = [(gap, load("route0_ch_p3000_g%d.json" % gap)) for gap in (10, 60)]
-        print("| gap um | route-0 ok | usage % | max H / V overflow | total congestion | wirelength um | guard |")
+        print(
+            "| gap um | route-0 ok | usage % | max H / V overflow | total congestion | wirelength um | guard |"
+        )
         print("|---|---|---|---|---|---|---|")
         for gap, d in rows:
             print(
@@ -45,9 +47,13 @@ class ChannelTest(unittest.TestCase):
         narrow, wide = rows[0][1], rows[1][1]
         for gap, d in rows:
             self.assertTrue(d["ok"], "route-0 at %d um runs to its report" % gap)
-            self.assertGreater(d["total_congestion"], 100000, "the interface walls at %d um" % gap)
+            self.assertGreater(
+                d["total_congestion"], 100000, "the interface walls at %d um" % gap
+            )
         ratio = wide["total_congestion"] / float(narrow["total_congestion"])
-        self.assertTrue(0.67 < ratio < 1.5, "the gap is not the knob: congestion ratio %.2f" % ratio)
+        self.assertTrue(
+            0.67 < ratio < 1.5, "the gap is not the knob: congestion ratio %.2f" % ratio
+        )
 
 
 if __name__ == "__main__":

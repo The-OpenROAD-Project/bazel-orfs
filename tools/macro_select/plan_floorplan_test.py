@@ -145,6 +145,17 @@ class EmitTest(unittest.TestCase):
         self.assertIn(
             "rtl_macro_placer", place
         )  # the parent's own macros, around the plan's
+        # the blocks' band: rows below the lowest top of the bottom row are
+        # removed, so no parent cell lands in a pocket under a shorter block
+        # or in a channel between two (take 23, 7 percent of the overflow)
+        bottom = [m for m in out["macros"] if m["region_side"] == "bottom"]
+        self.assertTrue(bottom)
+        lowest_top = min(m["y_um"] + m["h_um"] for m in bottom)
+        self.assertIn("  0.000 {:.3f}".format(lowest_top), place)
+        self.assertIn("odb::dbRow_destroy $row", place)
+        self.assertEqual(
+            plan_floorplan.block_bands(out)[0], "  0.000 {:.3f}".format(lowest_top)
+        )
 
 
 class SegmentTest(unittest.TestCase):

@@ -632,6 +632,28 @@ foreach {{master x y}} {{
   [lindex $insts 0] setPlacementStatus FIRM
   puts "place_macros.tcl: $master at $x $y um, R0"
 }}
+# The band the blocks occupy is theirs alone: below the lowest top of the
+# bottom row (and above the highest bottom of a top row) the rows are
+# removed, so no parent cell lands in the pockets under a shorter block
+# or in the channels between blocks, reachable only through a channel
+# (XiangShan take 23: 7 percent of the route-0 overflow sat there). The
+# blocks' own outlines cut the rows in any case; this cuts the rest of
+# the band. Rows are removed rather than blocked: a placement blockage
+# still gets tapcells and edge cells, which the legaliser's row check
+# then fails (place_block_lateral.tcl).
+set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
+set cut 0
+foreach {{lo hi}} {{
+{bands}
+}} {{
+  set lo [expr {{ int($lo * $dbu) }}]
+  set hi [expr {{ int($hi * $dbu) }}]
+  foreach row [$block getRows] {{
+    set bb [$row getBBox]
+    if {{ [$bb yMin] >= $lo && [$bb yMax] <= $hi }} {{ odb::dbRow_destroy $row; incr cut }}
+  }}
+}}
+puts "place_macros.tcl: $cut rows removed from the blocks' bands"
 # Macros the plan does not name (the parent's own generated register files
 # and memories) go around the planned blocks, which are FIRM and stay put.
 set rest {{}}
@@ -682,6 +704,21 @@ def place_netlists(out, plan):
         rows.append((n["module"], n["instance"], round(x, 3), round(y, 3), w, h))
         x += w + gap
     return rows
+
+
+def block_bands(out):
+    """The y bands (lo hi, um) a row of blocks owns: from the die's edge to
+    the lowest top of a bottom row, from the highest bottom of a top row to
+    the die's edge; the rows in them are removed by place_macros.tcl."""
+    dx0, dy0, dx1, dy1 = out["die_um"]
+    bands = []
+    bottom = [m for m in out["macros"] if m["region_side"] == "bottom"]
+    if bottom:
+        bands.append("  %.3f %.3f" % (dy0, min(m["y_um"] + m["h_um"] for m in bottom)))
+    top = [m for m in out["macros"] if m["region_side"] == "top"]
+    if top:
+        bands.append("  %.3f %.3f" % (max(m["y_um"] for m in top), dy1))
+    return bands
 
 
 def _area(x0, y0, x1, y1):
@@ -833,7 +870,10 @@ def emit(out, plan, directory):
             entry["SYNTH_KEEP_MODULES"] = " ".join(keep)
         bzl["macros"][m["name"]] = entry
         rows.append("  {} {:.3f} {:.3f}".format(m["name"], m["x_um"], m["y_um"]))
-    write("place_macros.tcl", PLACE_TCL.format(rows="\n".join(rows)))
+    write(
+        "place_macros.tcl",
+        PLACE_TCL.format(rows="\n".join(rows), bands="\n".join(block_bands(out))),
+    )
     netlists = place_netlists(out, plan)
     if netlists:
         write(

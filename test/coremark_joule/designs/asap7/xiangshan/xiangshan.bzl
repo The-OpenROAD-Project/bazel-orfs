@@ -1277,6 +1277,15 @@ def xiangshan_flow(name = "XSCore", blocks = XS_BLOCKS, parent = XS_PARENT, tags
         # (take 20); 100 um (microns, not sites) is for that one cell,
         # and patch 0004's window check answers in a second here
         arguments["DETAIL_PLACEMENT_ARGS"] = "-use_diamond_legalizer -max_displacement {100 100}"
+
+        # Take 23's route-0: 78 percent of the overflow in the parent's own
+        # wiring above two of the blocks at 60 percent cell density, with
+        # empty rows above the other two; the die has the room, the placer
+        # is told to use it. The layer adjustment is the value the tile
+        # flows settled on (OpenROAD's GRT-0704 hint), 9 percent more
+        # capacity on every layer than the platform's 0.25.
+        arguments["PLACE_DENSITY"] = "0.5"
+        arguments["ROUTING_LAYER_ADJUSTMENT"] = "0.18"
         if "SYNTH_KEEP_MODULES" in plan["parent"]:
             # what the blocks swallowed no longer exists in the parent
             arguments["SYNTH_KEEP_MODULES"] = plan["parent"]["SYNTH_KEEP_MODULES"]

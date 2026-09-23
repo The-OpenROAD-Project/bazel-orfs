@@ -19,6 +19,28 @@ foreach {master x y} {
   [lindex $insts 0] setPlacementStatus FIRM
   puts "place_macros.tcl: $master at $x $y um, R0"
 }
+# The band the blocks occupy is theirs alone: below the lowest top of the
+# bottom row (and above the highest bottom of a top row) the rows are
+# removed, so no parent cell lands in the pockets under a shorter block
+# or in the channels between blocks, reachable only through a channel
+# (XiangShan take 23: 7 percent of the route-0 overflow sat there). The
+# blocks' own outlines cut the rows in any case; this cuts the rest of
+# the band. Rows are removed rather than blocked: a placement blockage
+# still gets tapcells and edge cells, which the legaliser's row check
+# then fails (place_block_lateral.tcl).
+set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
+set cut 0
+foreach {lo hi} {
+  0.000 1008.720
+} {
+  set lo [expr { int($lo * $dbu) }]
+  set hi [expr { int($hi * $dbu) }]
+  foreach row [$block getRows] {
+    set bb [$row getBBox]
+    if { [$bb yMin] >= $lo && [$bb yMax] <= $hi } { odb::dbRow_destroy $row; incr cut }
+  }
+}
+puts "place_macros.tcl: $cut rows removed from the blocks' bands"
 # Macros the plan does not name (the parent's own generated register files
 # and memories) go around the planned blocks, which are FIRM and stay put.
 set rest {}
