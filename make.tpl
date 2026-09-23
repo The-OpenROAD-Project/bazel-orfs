@@ -131,6 +131,10 @@ _stage_of_target() {
   esac
 }
 _deploy_stage="${DEPLOY_STAGE}"
+# KEY=VALUE per line: what the build configures the stages after this
+# one with, literal values only. See the hatch below.
+_later_env="${LATER_STAGE_ENV}"
+_use_later=0
 # 6_gds is the final stage's tree as far as its targets go.
 [ "$_deploy_stage" = "gds" ] && _deploy_stage=final
 if [ -n "$_deployed" ] && [ -n "$_deploy_stage" ]; then
@@ -140,7 +144,8 @@ if [ -n "$_deployed" ] && [ -n "$_deploy_stage" ]; then
     [ "$_target_stage" = "$_deploy_stage" ] && continue
     if [ "${ORFS_DEPLOY_ANY_STAGE:-0}" = "1" ]; then
       echo "make: WARNING: '$_arg' is not a $_deploy_stage target; this tree (${DEPLOY_LABEL}) was deployed for the $_deploy_stage stage" >&2
-      echo "      and carries only its variables. ORFS_DEPLOY_ANY_STAGE=1: running it with the later stage's variables you supply." >&2
+      echo "      and carries only its variables. ORFS_DEPLOY_ANY_STAGE=1: running it anyway." >&2
+      _use_later=1
     else
       echo "make: refusing '$_arg': this tree (${DEPLOY_LABEL}) was deployed for the $_deploy_stage stage and carries" >&2
       echo "      only that stage's variables. A later stage's variables are produced by the stages before it and" >&2
@@ -151,4 +156,35 @@ if [ -n "$_deployed" ] && [ -n "$_deploy_stage" ]; then
     fi
   done
 fi
+
+# The hatch runs a later stage's target in this tree. Without the variables
+# the build configures that stage with, it takes the platform's defaults
+# instead, and the tree measures something the build never asked for: a
+# study spent a week routing to M7 with a 0.25 layer adjustment because of
+# it. Only literal values travel -- a path resolves against the build, and
+# a value an earlier stage produces does not exist until it runs -- so what
+# is missing stays the caller's to supply, and anything already exported
+# wins over what is set here.
+if [ "$_use_later" = "1" ] && [ -n "$_later_env" ] &&
+   [ "${ORFS_DEPLOY_LATER_VARS:-1}" = "1" ]; then
+  _applied=""
+  _kept=""
+  while IFS= read -r _kv; do
+    [ -n "$_kv" ] || continue
+    _k=${_kv%%=*}
+    eval "_isset=\${$_k+set}"
+    if [ -n "$_isset" ]; then
+      _kept="$_kept $_k"
+      continue
+    fi
+    export "$_kv"
+    _applied="$_applied $_k"
+  done <<_LATER_VARS_EOF
+$_later_env
+_LATER_VARS_EOF
+  [ -n "$_applied" ] && echo "make: the build's values for the later stages:$_applied" >&2
+  [ -n "$_kept" ] && echo "make: yours kept over the build's:$_kept" >&2
+  echo "make: ORFS_DEPLOY_LATER_VARS=0 to use none of them." >&2
+fi
+
 exec $MAKE_PATH --file "$FLOW_HOME/Makefile" "$@"

@@ -30,6 +30,7 @@ load(
 )
 load(
     "//private:stages.bzl",
+    "ALL_STAGES_LIST",
     "STAGE_METADATA",
     "check_stage_variables",
     "check_user_stages",
@@ -144,14 +145,38 @@ def _filter_stage_args(stage, **kwargs):
 
     # get_stage_args/get_sources take a LIST of stages (empty = no filtering);
     # a flow stage target filters by exactly one stage, so wrap [stage].
-    return _args(
-        arguments = get_stage_args(
-            [stage],
+    own = get_stage_args(
+        [stage],
+        arguments = arguments,
+        sources = sources,
+        stage_arguments = stage_arguments,
+        user_stages = user_stages,
+    )
+
+    # What the stages after this one are configured with, for a deployed
+    # tree of this stage run under ORFS_DEPLOY_ANY_STAGE=1. A tree carries
+    # one stage's variables (docs/local-flow.md, the fence), so a later
+    # stage run there otherwise silently takes the platform's defaults:
+    # a study measured M7 and a 0.25 layer adjustment for a week because
+    # of it. Only literal values travel. A value naming a file resolves
+    # against the build's paths, and one produced by an earlier stage does
+    # not exist until that stage runs, which is why the tree cannot simply
+    # carry the union.
+    later = ALL_STAGES_LIST[ALL_STAGES_LIST.index(stage) + 1:] if stage in ALL_STAGES_LIST else []
+    later_args = {
+        k: v
+        for k, v in get_stage_args(
+            later,
             arguments = arguments,
-            sources = sources,
             stage_arguments = stage_arguments,
             user_stages = user_stages,
-        ),
+        ).items()
+        if k not in own and "$(" not in v and "\n" not in v
+    } if later else {}
+
+    return _args(
+        arguments = own,
+        later_stage_arguments = later_args,
         data = get_sources([stage], sources, user_stages = user_stages) +
                stage_data.get(stage, []) +
                data,
