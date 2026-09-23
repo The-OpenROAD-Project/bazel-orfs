@@ -3,10 +3,10 @@
 # origin off the pin lattice the plan put it on).
 set block [ord::get_db_block]
 foreach {master x y} {
-  Frontend 10.224 82.080
-  MemBlock 1024.992 12.960
-  VecRegionModule 2080.656 213.840
-  Region_1 2948.544 371.520
+  Frontend 10.224 101.520
+  MemBlock 1024.992 32.400
+  VecRegionModule 2080.656 233.280
+  Region_1 2948.544 390.960
 } {
   set insts {}
   foreach inst [$block getInsts] {
@@ -28,10 +28,15 @@ foreach {master x y} {
 # the band. Rows are removed rather than blocked: a placement blockage
 # still gets tapcells and edge cells, which the legaliser's row check
 # then fails (place_block_lateral.tcl).
+# Global placement ignores rows, so the band is also a placement blockage:
+# without it the placer seats cells where no row is and the legaliser has
+# to carry each of them to the nearest site. The strip of rows between the
+# band and the die edge stays, for the parent's port buffers.
 set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
+set core [$block getCoreArea]
 set cut 0
 foreach {lo hi} {
-  0.000 1008.720
+  32.400 1028.160
 } {
   set lo [expr { int($lo * $dbu) }]
   set hi [expr { int($hi * $dbu) }]
@@ -39,8 +44,9 @@ foreach {lo hi} {
     set bb [$row getBBox]
     if { [$bb yMin] >= $lo && [$bb yMax] <= $hi } { odb::dbRow_destroy $row; incr cut }
   }
+  odb::dbBlockage_create $block [$core xMin] $lo [$core xMax] $hi
 }
-puts "place_macros.tcl: $cut rows removed from the blocks' bands"
+puts "place_macros.tcl: $cut rows removed from the blocks' bands, the bands blocked for placement"
 # Macros the plan does not name (the parent's own generated register files
 # and memories) go around the planned blocks, which are FIRM and stay put.
 set rest {}

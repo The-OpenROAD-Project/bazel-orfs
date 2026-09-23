@@ -151,11 +151,16 @@ class EmitTest(unittest.TestCase):
         bottom = [m for m in out["macros"] if m["region_side"] == "bottom"]
         self.assertTrue(bottom)
         lowest_top = min(m["y_um"] + m["h_um"] for m in bottom)
-        self.assertIn("  0.000 {:.3f}".format(lowest_top), place)
+        lowest_bottom = min(m["y_um"] for m in bottom)
+        band = "  {:.3f} {:.3f}".format(lowest_bottom, lowest_top)
+        self.assertIn(band, place)
         self.assertIn("odb::dbRow_destroy $row", place)
-        self.assertEqual(
-            plan_floorplan.block_bands(out)[0], "  0.000 {:.3f}".format(lowest_top)
-        )
+        self.assertIn("odb::dbBlockage_create $block", place)
+        self.assertEqual(plan_floorplan.block_bands(out)[0], band)
+        # the port strip: rows between the band and the die edge for the
+        # parent's port buffers (take 24: without it the legaliser carried
+        # 4 309 of them a millimetre each)
+        self.assertGreaterEqual(lowest_bottom, plan_floorplan.PORT_STRIP_UM + 10.0)
 
 
 class SegmentTest(unittest.TestCase):

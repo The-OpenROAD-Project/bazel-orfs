@@ -221,6 +221,15 @@ def layout(plan):
     )
     extent = _extents(placed)
     margin = parent["core_margin_um"]
+    # a strip of rows between a block row and the die edge: the parent's
+    # port buffers need sites next to the ports on that edge, and the rows
+    # of the blocks' band are removed (block_bands); without the strip the
+    # legaliser's nearest-site search walks a millimetre per buffer
+    # (XiangShan take 24: 4 309 buffers, initialSnap never finished)
+    strip = plan["margins"].get("port_strip_um", PORT_STRIP_UM)
+    for side in ("bottom", "top", "left", "right"):
+        if placed[side]:
+            extent[side] += strip
     # the flow snaps the core's corners onto the site and row grid, inward;
     # one lattice period of clearance keeps every macro inside it
     cx = margin + tech.get("lattice_x_um", tech.get("site_um", 0.0))
@@ -465,6 +474,9 @@ def split_groups(groups):
 # whose 24 self-connected pins were given the last 3 um of the side).
 SEGMENT_EDGE_UM = 5.0
 
+# rows kept between a block row and the die edge, for the port buffers
+PORT_STRIP_UM = 20.0
+
 
 def pin_segments(m, groups, out, edge_um=SEGMENT_EDGE_UM):
     """[(partner, lo_um, hi_um, pins)] along m's pin side in the block's
@@ -641,7 +653,12 @@ foreach {{master x y}} {{
 # the band. Rows are removed rather than blocked: a placement blockage
 # still gets tapcells and edge cells, which the legaliser's row check
 # then fails (place_block_lateral.tcl).
+# Global placement ignores rows, so the band is also a placement blockage:
+# without it the placer seats cells where no row is and the legaliser has
+# to carry each of them to the nearest site. The strip of rows between the
+# band and the die edge stays, for the parent's port buffers.
 set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
+set core [$block getCoreArea]
 set cut 0
 foreach {{lo hi}} {{
 {bands}
@@ -652,8 +669,9 @@ foreach {{lo hi}} {{
     set bb [$row getBBox]
     if {{ [$bb yMin] >= $lo && [$bb yMax] <= $hi }} {{ odb::dbRow_destroy $row; incr cut }}
   }}
+  odb::dbBlockage_create $block [$core xMin] $lo [$core xMax] $hi
 }}
-puts "place_macros.tcl: $cut rows removed from the blocks' bands"
+puts "place_macros.tcl: $cut rows removed from the blocks' bands, the bands blocked for placement"
 # Macros the plan does not name (the parent's own generated register files
 # and memories) go around the planned blocks, which are FIRM and stay put.
 set rest {{}}
@@ -707,17 +725,27 @@ def place_netlists(out, plan):
 
 
 def block_bands(out):
-    """The y bands (lo hi, um) a row of blocks owns: from the die's edge to
-    the lowest top of a bottom row, from the highest bottom of a top row to
-    the die's edge; the rows in them are removed by place_macros.tcl."""
-    dx0, dy0, dx1, dy1 = out["die_um"]
+    """The y bands (lo hi, um) a row of blocks owns: from the lowest bottom
+    to the lowest top of a bottom row, from the highest bottom to the
+    highest top of a top row. place_macros.tcl removes the rows in them and
+    blocks placement there; the port strip between the band and the die
+    edge keeps its rows."""
     bands = []
     bottom = [m for m in out["macros"] if m["region_side"] == "bottom"]
     if bottom:
-        bands.append("  %.3f %.3f" % (dy0, min(m["y_um"] + m["h_um"] for m in bottom)))
+        bands.append(
+            "  %.3f %.3f"
+            % (
+                min(m["y_um"] for m in bottom),
+                min(m["y_um"] + m["h_um"] for m in bottom),
+            )
+        )
     top = [m for m in out["macros"] if m["region_side"] == "top"]
     if top:
-        bands.append("  %.3f %.3f" % (max(m["y_um"] for m in top), dy1))
+        bands.append(
+            "  %.3f %.3f"
+            % (max(m["y_um"] for m in top), max(m["y_um"] + m["h_um"] for m in top))
+        )
     return bands
 
 
