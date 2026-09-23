@@ -19,8 +19,11 @@ def _mentions(action, needle):
     for k, v in (action.env or {}).items():
         if needle in k or needle in v:
             return True
-    content = getattr(action, "content", None)
-    return type(content) == "string" and needle in content
+
+    # Only a FileWrite's content is the text the rule wrote (the stage's
+    # config.mk is one); asking another action for it makes bazel read its
+    # template or target from disk, which at analysis time may not exist.
+    return action.mnemonic == "FileWrite" and needle in action.content
 
 def _mock_pin_knobs_test_impl(ctx):
     env = analysistest.begin(ctx)
