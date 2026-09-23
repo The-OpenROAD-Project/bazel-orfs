@@ -34,7 +34,14 @@ set anneal_cmd [list $::env(PYTHON_EXE) $::env(ANNEAL_PY) \
     --strap-pitch-um $::env(ANNEAL_STRAP_PITCH_UM) \
     --strap-offset-um $::env(ANNEAL_STRAP_OFFSET_UM) \
     --strap-pair-um $::env(ANNEAL_STRAP_PAIR_UM) \
-    --fill $::env(ANNEAL_FILL)]
+    --fill $::env(ANNEAL_FILL) \
+    --channel-check [expr { [info exists ::env(ANNEAL_CHANNEL_CHECK)] ? $::env(ANNEAL_CHANNEL_CHECK) : "warn" }]]
+if { [info exists ::env(ANNEAL_CHANNEL_AUTO)] && $::env(ANNEAL_CHANNEL_AUTO) == 1 } {
+    lappend anneal_cmd --channel-auto
+}
+if { [info exists ::env(ANNEAL_CHANNEL_MIN_UM)] && $::env(ANNEAL_CHANNEL_MIN_UM) ne "" } {
+    lappend anneal_cmd --channel-min-um $::env(ANNEAL_CHANNEL_MIN_UM)
+}
 puts "anneal_in_flow: [join $anneal_cmd { }]"
 if { [catch { exec {*}$anneal_cmd 2>@1 } anneal_log] } {
     puts $anneal_log

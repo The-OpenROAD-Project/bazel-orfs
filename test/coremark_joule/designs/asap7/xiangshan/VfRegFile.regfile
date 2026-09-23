@@ -10,7 +10,6 @@ words 128
 bits 128
 banks 4
 clock clock
-reset reset
 read io_readPorts_0_addr io_readPorts_0_data
 read io_readPorts_1_addr io_readPorts_1_data
 read io_readPorts_2_addr io_readPorts_2_data
