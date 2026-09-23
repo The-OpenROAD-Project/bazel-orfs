@@ -1,0 +1,155 @@
+From e4571b8b9c1d3c5f274812f4c3dd16c947430ed2 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 21 Sep 2026 12:51:34 +0200
+Subject: [PATCH] memories: a slang-uniquified memory module is named for its
+ definition
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+slang's --keep-hierarchy elaborates one module per instance and names it
+`<definition>$<instance path>`: XiangShan's Frontend has 64 copies of
+array_512x17, one per TAGE table bank and way, each its own module in
+the extraction JSON. The detector named the memory after the module, so
+gen_memories emitted 64 liberty views of one array and blackboxes.txt
+carried 64 uniquified names -- and read_slang's --blackboxed-module
+honours the definition's name only (the black box it imports has the
+definition as its cell type), so none of them matched, every array was
+elaborated and flattened into its table, and the TAGE partition failed
+SYNTH_MEMORY_MAX_BITS on 64 memories of 8704 bits. The yosys frontend
+never uniquified, so the flow had not met this before slang.
+
+The detector now cuts the name at the first `$` when what precedes it is
+an identifier (yosys's own `$paramod\...` names have nothing before it
+and stay whole), and collapses the copies into one entry; copies that
+disagree in shape or pins are an error, since one liberty view per
+definition cannot serve a definition parameterised on its memory.
+
+Not upstreamed. Retire at the //:bump onto an ORFS whose detector knows
+slang's names.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/memories/detect.py      | 59 +++++++++++++++++++++++++++-
+ flow/scripts/memories/detect_test.py | 27 +++++++++++++
+ 2 files changed, 85 insertions(+), 1 deletion(-)
+
+diff --git a/flow/scripts/memories/detect.py b/flow/scripts/memories/detect.py
+index 7a34dbda0..baa1ae79c 100644
+--- a/flow/scripts/memories/detect.py
++++ b/flow/scripts/memories/detect.py
+@@ -115,6 +115,13 @@ def scan_yosys_json(data: dict | str | Path) -> list[schema.Memory]:
+ 
+     for mod_name, mod_info in modules.items():
+         clean_mod_name = mod_name[1:] if mod_name.startswith("\\") else mod_name
++        # slang's --keep-hierarchy elaborates one module per instance and
++        # names it `<definition>$<instance path>`; the flow blackboxes by
++        # definition (`--blackboxed-module <definition>` is what the
++        # frontend honours, and the black box it imports has the
++        # definition's type), so the memory is named for the definition
++        # and its copies collapse into one entry below.
++        clean_mod_name = definition_name(clean_mod_name)
+         cells = mod_info.get("cells", {})
+         mem_cells = [
+             n for n, c in cells.items() if c.get("type", "") in ("$mem_v2", "$mem")
+@@ -278,7 +285,57 @@ def scan_yosys_json(data: dict | str | Path) -> list[schema.Memory]:
+             )
+             out.append(mem)
+ 
+-    return out
++    return dedupe(out)
++
++
++def definition_name(module: str) -> str:
++    """`array_64x114$top.u0` -> `array_64x114`; anything else unchanged.
++
++    Only a slang uniquified name, an identifier before the first `$`,
++    is cut; yosys's own `$paramod\\...` names have nothing before it and
++    stay whole.
++    """
++    head, sep, _ = module.partition("$")
++    if sep and head and (head[0].isalpha() or head[0] == "_"):
++        return head
++    return module
++
++
++def dedupe(memories: list[schema.Memory]) -> list[schema.Memory]:
++    """One entry per name; copies must agree on shape and pins.
++
++    The copies are one definition elaborated per instance, so they agree
++    unless the definition is parameterised on the memory's shape -- and
++    then one liberty view per definition cannot serve them, which is an
++    error rather than a silent pick.
++    """
++
++    def shape(m):
++        return (
++            m.rows,
++            m.bits,
++            m.read_ports,
++            m.write_ports,
++            m.rw_ports,
++            m.mask_lanes,
++            m.comb_read_ports,
++            m.port_convention,
++            tuple((p.name, p.direction, p.width) for p in m.pins),
++        )
++
++    by_name: dict[str, schema.Memory] = {}
++    for m in memories:
++        first = by_name.get(m.name)
++        if first is None:
++            by_name[m.name] = m
++        elif shape(first) != shape(m):
++            raise ValueError(
++                f"memory {m.name}: two elaborations differ in shape "
++                f"({first.rows}x{first.bits} against {m.rows}x{m.bits}, or in "
++                "ports); a definition parameterised on its memory cannot be "
++                "one macro"
++            )
++    return list(by_name.values())
+ 
+ 
+ def scan_files(paths: list[Path]) -> list[schema.Memory]:
+diff --git a/flow/scripts/memories/detect_test.py b/flow/scripts/memories/detect_test.py
+index 5e5c8f5a0..ecc626d01 100644
+--- a/flow/scripts/memories/detect_test.py
++++ b/flow/scripts/memories/detect_test.py
+@@ -157,6 +157,33 @@ class FirtoolConventionTest(unittest.TestCase):
+         mems = detect.scan_yosys_json(yosys_json)
+         self.assertEqual(sorted(m.name for m in mems), ["array_256x66", "array_64x114"])
+ 
++    def test_slang_uniquified_copies_collapse_to_the_definition(self):
++        # slang --keep-hierarchy names a module per instance; the flow
++        # blackboxes the definition, so that is the memory's name and its
++        # copies are one entry
++        yosys_json = {
++            "modules": {
++                "\\array_64x114$top.t0.u0": _firtool_rw_module(),
++                "\\array_64x114$top.t0.u1": _firtool_rw_module(),
++                "\\array_256x66$top.t1.u0": _firtool_rw_module(256, 66, 1),
++            }
++        }
++        mems = detect.scan_yosys_json(yosys_json)
++        self.assertEqual(sorted(m.name for m in mems), ["array_256x66", "array_64x114"])
++        by = {m.name: m for m in mems}
++        self.assertEqual(by["array_64x114"].behavioral_model["module"], "array_64x114")
++        self.assertEqual(detect.definition_name("$paramod\\foo\\W=8"), "$paramod\\foo\\W=8")
++
++    def test_copies_of_one_definition_must_agree(self):
++        yosys_json = {
++            "modules": {
++                "\\array_64x114$top.t0.u0": _firtool_rw_module(),
++                "\\array_64x114$top.t0.u1": _firtool_rw_module(64, 114, 1),
++            }
++        }
++        with self.assertRaises(ValueError):
++            detect.scan_yosys_json(yosys_json)
++
+     def test_rw_port_pins_are_the_module_ports(self):
+         (m,) = detect.scan_yosys_json(
+             {"modules": {"\\array_64x114": _firtool_rw_module()}}
+-- 
+2.53.0
+
