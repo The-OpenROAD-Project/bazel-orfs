@@ -224,6 +224,17 @@ def _create_make_script(ctx, name, extra_substitutions = {}, deploy_stage = ""):
     """
     make = ctx.actions.declare_file(name)
     silent = "--silent " if getattr(ctx.attr, "lint", False) else ""
+
+    # What the build would give a later stage, for the ORFS_DEPLOY_ANY_STAGE
+    # hatch. Shell-quoted KEY='VALUE' pairs, sorted for a deterministic
+    # template expansion; empty when the rule has none.
+    later = getattr(ctx.attr, "later_stage_arguments", {}) or {}
+    later_env = "\n".join([
+        "{}={}".format(k, later[k])
+        for k in sorted(later)
+        if "\n" not in later[k]
+    ])
+
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
@@ -232,6 +243,7 @@ def _create_make_script(ctx, name, extra_substitutions = {}, deploy_stage = ""):
                             '"$@"': '{}DESIGN_CONFIG="config.mk" "$@"'.format(silent),
                             "${DEPLOY_STAGE}": deploy_stage,
                             "${DEPLOY_LABEL}": "//{}:{}".format(ctx.label.package, ctx.label.name),
+                            "${LATER_STAGE_ENV}": later_env,
                         } |
                         extra_substitutions,
     )

@@ -84,9 +84,20 @@ unconditionally, so after a hand-run `do-3_5_place_dp` the way to assemble
 checks that its inputs are current, which is the point of it.
 
 `ORFS_DEPLOY_ANY_STAGE=1` in the environment turns the refusal into a
-warning, for the caller who supplies the later stage's variables by hand
-(`./make ENABLE_DPO=0 DETAIL_PLACEMENT_ARGS=... do-place`) and accepts
-that the log, not the tree, records what ran.
+warning, for the caller who accepts that the log, not the tree, records
+what ran.
+
+The tree carries what it can of that later stage's configuration: the
+values the build gives it that are literal strings. The hatch applies
+them, prints which it applied and which of yours it kept, and
+`ORFS_DEPLOY_LATER_VARS=0` turns them off. This is not the union the
+fence above refuses. A value naming a file resolves against the build's
+directories, and one an earlier stage produces does not exist until that
+stage runs, so both of those stay yours to supply
+(`./make DETAIL_PLACEMENT_ARGS=... do-place`). It is the part that can
+travel, and without it the hatch ran later stages on the platform's
+defaults: a study routed to M7 with a 0.25 layer adjustment for a week
+because the flow said M9 and 0.18 and the tree never heard.
 
 You can also forward arguments to make directly:
 

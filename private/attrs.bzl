@@ -42,6 +42,16 @@ def orfs_attrs():
             doc = "Dictionary of additional flow arguments.",
             default = {},
         ),
+        "later_stage_arguments": attr.string_dict(
+            doc = "The literal arguments the stages after this one are " +
+                  "configured with. A deployed tree carries one stage's " +
+                  "variables; these let ORFS_DEPLOY_ANY_STAGE=1 run a " +
+                  "later stage's target with what the build would have " +
+                  "given it instead of the platform's defaults. Only " +
+                  "literal values: a path resolves against the build and " +
+                  "a value an earlier stage produces does not exist yet.",
+            default = {},
+        ),
         "data": attr.label_list(
             doc = "List of additional flow data.",
             allow_files = True,

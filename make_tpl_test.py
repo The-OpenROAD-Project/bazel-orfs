@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 
-def render(stage, label="//pkg:flow_" + "x"):
+def render(stage, label="//pkg:flow_" + "x", later=""):
     d = tempfile.mkdtemp(prefix="make_tpl.")
     stub = os.path.join(d, "make_stub")
     with open(stub, "w") as f:
@@ -30,6 +30,7 @@ def render(stage, label="//pkg:flow_" + "x"):
         "${FLOW_HOME}": d,
         "${DEPLOY_STAGE}": stage,
         "${DEPLOY_LABEL}": label,
+        "${LATER_STAGE_ENV}": later,
         '"$@"': 'DESIGN_CONFIG="config.mk" "$@"',
     }.items():
         text = text.replace(k, v)
@@ -43,22 +44,40 @@ def run(make, *args, env=None):
     e = dict(os.environ)
     e.pop("FLOW_HOME", None)
     e.pop("ORFS_DEPLOY_ANY_STAGE", None)
+    e.pop("ORFS_DEPLOY_LATER_VARS", None)
+    for k in ("MAX_ROUTING_LAYER", "CTS_ARGS"):
+        e.pop(k, None)
     if env:
         e.update(env)
-    return subprocess.run(["sh", make] + list(args), capture_output=True, text=True, env=e)
+    return subprocess.run(
+        ["sh", make] + list(args), capture_output=True, text=True, env=e
+    )
 
 
 class DeployStageTest(unittest.TestCase):
     def test_own_stage_and_its_substeps_pass(self):
         make = render("floorplan")
-        for target in ["do-floorplan", "do-2_2_floorplan_macro", "do-1_3_floorplan_to_place", "run", "gui_floorplan", "SKIP_REPORT_METRICS=1"]:
+        for target in [
+            "do-floorplan",
+            "do-2_2_floorplan_macro",
+            "do-1_3_floorplan_to_place",
+            "run",
+            "gui_floorplan",
+            "SKIP_REPORT_METRICS=1",
+        ]:
             r = run(make, target)
             self.assertEqual(r.returncode, 0, (target, r.stderr))
             self.assertIn("STUB", r.stdout, target)
 
     def test_another_stage_is_refused_with_the_pointer(self):
         make = render("floorplan", label="//test:xs_floorplan")
-        for target in ["do-place", "do-3_3_place_gp", "do-cts", "do-synth", "do-yosys-canonicalize"]:
+        for target in [
+            "do-place",
+            "do-3_3_place_gp",
+            "do-cts",
+            "do-synth",
+            "do-yosys-canonicalize",
+        ]:
             r = run(make, target)
             self.assertEqual(r.returncode, 2, (target, r.stderr))
             self.assertNotIn("STUB", r.stdout)
@@ -113,11 +132,55 @@ class DeployStageTest(unittest.TestCase):
     def test_the_injected_design_config_is_passed_through(self):
         make = render("floorplan")
         r = run(make, "do-floorplan")
-        self.assertIn('DESIGN_CONFIG=config.mk do-floorplan', r.stdout)
+        self.assertIn("DESIGN_CONFIG=config.mk do-floorplan", r.stdout)
 
     def test_no_stage_means_no_restriction(self):
         make = render("")
         self.assertEqual(run(make, "do-place").returncode, 0)
+
+
+class LaterStageVariablesTest(unittest.TestCase):
+    """A deployed tree that runs a later stage's target under the hatch takes
+    the build's own values for that stage, not the platform's defaults."""
+
+    LATER = "CTS_ARGS=-no_insertion_delay\nMAX_ROUTING_LAYER=M9\n"
+
+    def test_the_hatch_uses_the_builds_values(self):
+        make = render("floorplan", later=self.LATER)
+        r = run(make, "do-cts", env={"ORFS_DEPLOY_ANY_STAGE": "1"})
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("the build's values for the later stages", r.stderr)
+        self.assertIn("MAX_ROUTING_LAYER", r.stderr)
+        self.assertIn("CTS_ARGS", r.stderr)
+
+    def test_what_the_caller_exported_wins(self):
+        make = render("floorplan", later=self.LATER)
+        r = run(
+            make,
+            "do-cts",
+            env={"ORFS_DEPLOY_ANY_STAGE": "1", "MAX_ROUTING_LAYER": "M5"},
+        )
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("yours kept over the build's: MAX_ROUTING_LAYER", r.stderr)
+        self.assertNotIn(
+            "the build's values for the later stages: MAX_ROUTING_LAYER", r.stderr
+        )
+
+    def test_the_knob_turns_them_off(self):
+        make = render("floorplan", later=self.LATER)
+        r = run(
+            make,
+            "do-cts",
+            env={"ORFS_DEPLOY_ANY_STAGE": "1", "ORFS_DEPLOY_LATER_VARS": "0"},
+        )
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertNotIn("the build's values for the later stages", r.stderr)
+
+    def test_its_own_stage_is_untouched(self):
+        make = render("floorplan", later=self.LATER)
+        r = run(make, "do-floorplan")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertNotIn("the build's values", r.stderr)
 
 
 if __name__ == "__main__":
