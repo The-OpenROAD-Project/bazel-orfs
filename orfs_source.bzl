@@ -213,6 +213,10 @@ ORFS_PATCHES = [
     # fixed every macro; run anyway it refuses the FIRM cells of a placed
     # structured netlist (MPL-0050). Carried, not upstreamed.
     Label("//patches:0083-orfs-macro-place-all-fixed.patch"),
+    # 0084: a placed netlist's cells are dont_touch as well as FIRM;
+    # repair_design upsized 378 of them in place and the wider masters
+    # overlapped their fixed neighbours. Builds on 0078; retires with it.
+    Label("//patches:0084-orfs-structured-netlists-dont-touch.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
