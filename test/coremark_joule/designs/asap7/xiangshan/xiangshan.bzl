@@ -1286,6 +1286,39 @@ def xiangshan_flow(name = "XSCore", blocks = XS_BLOCKS, parent = XS_PARENT, tags
         # capacity on every layer than the platform's 0.25.
         arguments["PLACE_DENSITY"] = "0.5"
         arguments["ROUTING_LAYER_ADJUSTMENT"] = "0.18"
+
+        # The rest of the measured configuration, in the flow rather than in
+        # a shell around it. A deploy tree carries only its own stage's
+        # variables, so a workbench that ran later stages from the floorplan
+        # tree ran them on the platform's defaults -- M7 and a 0.25
+        # adjustment -- and measured something the build never asked for.
+        arguments["MAX_ROUTING_LAYER"] = "M9"
+        arguments["MIN_ROUTING_LAYER"] = "M2"
+        arguments["IO_PLACER_H"] = "M2 M4"
+        arguments["IO_PLACER_V"] = "M3 M5"
+        arguments["PLACE_PINS_ARGS"] = "-annealing"
+
+        # Clock tree synthesis pads every register's clock path out to the
+        # insertion delay of the block macros, whose abstracts are written
+        # at their place stage and so carry a whole unbuffered clock net:
+        # 49 736 delay buffers on the parent, six times its leaf buffers,
+        # and 2.6 hours of legalisation to seat them. A flow that is not yet
+        # asking for skew against the blocks does not want them. ORFS's own
+        # arguments are repeated because CTS_ARGS replaces them wholesale.
+        arguments["CTS_ARGS"] = "-sink_clustering_enable -repair_clock_nets -no_insertion_delay"
+
+        # Zero iterations with congestion allowed: the route reports what it
+        # would have to route and stops, which is the number this baseline
+        # tracks and the map the GUI shows. One maze iteration on this die's
+        # gcell grid takes hours, so the iterating route is what the work
+        # ahead is for, not what the reference runs.
+        arguments["GLOBAL_ROUTE_ARGS"] = "-congestion_iterations 0 -allow_congestion -verbose"
+
+        # Global route stops in pin access on exactly one pin per hardened
+        # block (DRT-0073). Skipped so the stage produces its congestion
+        # map; carried ORFS patch 0085 has the detail and retires with the
+        # bug. A five-second reproducer is in test/planned_parent.
+        arguments["SKIP_PIN_ACCESS"] = "1"
         if "SYNTH_KEEP_MODULES" in plan["parent"]:
             # what the blocks swallowed no longer exists in the parent
             arguments["SYNTH_KEEP_MODULES"] = plan["parent"]["SYNTH_KEEP_MODULES"]
