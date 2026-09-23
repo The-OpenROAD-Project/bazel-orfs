@@ -17,9 +17,13 @@ exports_files(
     visibility = ["//test/structured_netlist:__pkg__"],
 )
 
-# The parent and its blocks: plain orfs_flow() targets, the table of
-# arguments in xiangshan.bzl. See there.
-xiangshan_flow()
+# Every candidate module of the macro selection hardened as a block behind
+# a pin-fitted mock, the parent's outline from CORE_UTILIZATION and the
+# annealer: the flow the selection tables and the CoreMark/Joule power
+# numbers came from. Dormant -- manual, and nothing in the baseline
+# depends on it -- but kept so the power study can be reconnected without
+# rebuilding what it measured. The table of arguments is in xiangshan.bzl.
+xiangshan_flow(variant = "blocks")
 
 # The planned parent: the blocks the macro selection tables named, each a
 # real flow at the outline plan_floorplan.py drew with its pins on one
@@ -28,22 +32,21 @@ xiangshan_flow()
 xiangshan_flow(
     name = "XSCore",
     plan = PLAN,
-    variant = "plan",
 )
 
 # The planned parent's synthesis: the blocks as blackboxes over the flat
 # parent logic, where probe_pin_partners.tcl reads which block each block
 # pin talks to (geometry only: run with GUI_TIMING=0).
 odb_debug(
-    name = "XSCore_plan_synth_odb_debug",
-    src = ":XSCore_plan_synth",
+    name = "XSCore_synth_odb_debug",
+    src = ":XSCore_synth",
 )
 
 # The placement gate of the planned parent: free sites and RUDY before
 # CTS and global route spend their hours (/odb-debug).
 odb_debug(
-    name = "XSCore_plan_place_odb_debug",
-    src = ":XSCore_plan_place",
+    name = "XSCore_place_odb_debug",
+    src = ":XSCore_place",
 )
 
 # The planned blocks' synthesis netlists with timing: the time table's
@@ -52,15 +55,15 @@ odb_debug(
 # cut (50 % error bars against global route, enough to sort by).
 [
     odb_debug(
-        name = block + "_plan_synth_odb_debug",
-        src = ":" + block + "_plan_synth",
+        name = block + "_synth_odb_debug",
+        src = ":" + block + "_synth",
     )
     for block in PLAN["macros"].keys()
 ]
 
 grt_netlist(
     name = "cmj_xiangshan_grt_netlist",
-    src = ":XSCore_grt",
+    src = ":XSCore_blocks_grt",
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 
@@ -70,7 +73,7 @@ grt_netlist(
 # the literature reports.
 stage_power_units(
     name = "cmj_xiangshan_grt_power_units",
-    src = ":XSCore_grt",
+    src = ":XSCore_blocks_grt",
     saif = "//test/coremark_joule/sim:xiangshan_rv64gc_saif",
     saif_scope = "TOP/cm_soc/inner/soc/core_with_l2/core",
     visibility = ["//test/coremark_joule:__subpackages__"],
@@ -78,7 +81,7 @@ stage_power_units(
 
 stage_power(
     name = "cmj_xiangshan_grt_power",
-    src = ":XSCore_grt",
+    src = ":XSCore_blocks_grt",
     saif = "//test/coremark_joule/sim:xiangshan_rv64gc_saif",
     saif_scope = "TOP/cm_soc/inner/soc/core_with_l2/core",
     visibility = ["//test/coremark_joule:__subpackages__"],
@@ -117,7 +120,7 @@ CONVERTED_MEMORIES = [
 
 genrule(
     name = "cmj_xiangshan_memories_applied",
-    srcs = [":XSCore_synth"],
+    srcs = [":XSCore_blocks_synth"],
     outs = ["cmj_xiangshan_memories_applied.txt"],
     cmd = "files=$$(echo $(locations :XSCore_synth) | tr ' ' '\\n'); " +
           "$(execpath //test/coremark_joule/scripts:check_memories_applied) " +
@@ -134,7 +137,7 @@ genrule(
 [
     hier_probe(
         name = "cmj_xiangshan_hier_" + stage,
-        src = ":XSCore_" + stage,
+        src = ":XSCore_blocks_" + stage,
         stage = stage,
     )
     for stage in [
@@ -149,7 +152,7 @@ genrule(
 [
     physical_probe(
         name = "cmj_xiangshan_physical_" + stage,
-        src = ":XSCore_" + stage,
+        src = ":XSCore_blocks_" + stage,
         stage = stage,
     )
     for stage in [
@@ -162,7 +165,7 @@ genrule(
 # input to choosing which blocks to harden as macros.
 census_probe(
     name = "cmj_xiangshan_census",
-    src = ":XSCore_synth",
+    src = ":XSCore_blocks_synth",
 )
 
 # The whole core, flat, no blocks, every candidate macro boundary kept as a
@@ -171,7 +174,7 @@ census_probe(
 # first target of the XiangShan BUILD outside the config.mk DSL. Synthesis
 # only; 800 ps is the target period for a core meant to route at 1000 ps.
 orfs_flow(
-    name = "XSCore_hier",
+    name = "XSCore",
     arguments = {
         "ABC_AREA": "1",
         "AUTO_MEMORIES": "1",
@@ -201,6 +204,7 @@ orfs_flow(
         ],
     },
     top = "XSCore",
+    variant = "hier",
     verilog_files = ["//test/coremark_joule/xiangshan:xiangshan_flat.sv"],
 )
 
@@ -215,7 +219,7 @@ odb_debug(
 # would do this by area, but the keep pass has no cost for the memory
 # blackboxes AUTO_MEMORIES makes, so the list is explicit.)
 orfs_flow(
-    name = "XSCore_hier_all",
+    name = "XSCore",
     arguments = {
         "ABC_AREA": "1",
         "AUTO_MEMORIES": "1",
@@ -245,6 +249,7 @@ orfs_flow(
         ],
     },
     top = "XSCore",
+    variant = "hier_all",
     verilog_files = ["//test/coremark_joule/xiangshan:xiangshan_flat.sv"],
 )
 

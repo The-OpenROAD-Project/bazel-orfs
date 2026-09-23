@@ -285,7 +285,7 @@ full sort.
 
 ## 15. The deployed tree's inputs are links into the bazel output tree
 
-`XSCore_plan_floorplan_deps --install` hands out a tree whose input files
+`XSCore_floorplan_deps --install` hands out a tree whose input files
 (`1_synth.odb`, `1_2_yosys.v`, the structured memories directory, the
 blocks' `.lib`/`.lef`) are symlinks into `bazel-out`, read-only. Writing
 through one of them (chain 4's regenerated `.place` files: chmod, cp)
