@@ -97,3 +97,23 @@ def mini_planned_flow(rtl, files):
             },
             variant = tag,
         )
+
+    # The route-0 gate on the miniature: a zero-iteration global route on
+    # its CTS checkpoint, the congestion totals as JSON and the congested
+    # regions as the router reports them, for the wall the parent met in
+    # the gap between two blocks (inventory entry 13).
+    orfs_run(
+        name = "route0_mini",
+        src = ":mini_top_cts",
+        outs = [
+            "route0_mini.json",
+            "route0_mini_congestion.txt",
+        ],
+        arguments = parent_args,
+        script = "//test/macro_select:route0.tcl",
+        sources = parent_sources,
+        user_arguments = {
+            "CONGESTION_REPORT": "$(location route0_mini_congestion.txt)",
+            "OUTPUT_JSON": "$(location route0_mini.json)",
+        },
+    )

@@ -7,7 +7,7 @@ Each arm here is one point in that space, routes in tens of seconds, and
 reports what the router, the legaliser and the timer say about it.
 """
 
-load("@bazel-orfs//:openroad.bzl", "orfs_flow")
+load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run")
 load("//test/grt_scaling:arms.bzl", "TURNAROUND_ARGS")
 
 # asap7, the layers a block's pins use in the XiangShan study, the same
@@ -100,4 +100,89 @@ def pinwall_arm(pins, channel_um, margin = 1.5, name = None, lateral = False):
         },
         variant = name,
         verilog_files = [":" + name + "_top.sv"],
+    )
+
+def channel_arm(pins, gap_um, margin = 3.0):
+    """Two blocks side by side with the whole interface between them, gap_um apart.
+
+    XiangShan's Frontend and MemBlock (inventory entry 13): both blocks'
+    pins on their top sides, inputs on the left half and outputs on the
+    right (pins_split.tcl), so the interface meets at the gap the way the
+    planner gives partners facing edge segments; the parent's logic above.
+    The pin margin is 3: a constrained half side at 1.5 has no room for the
+    pin placer's intervals (PPL-0102) where the free side at 1.5 does. Over the blocks only M6 runs
+    horizontally (their abstracts obstruct M1 to M5), so what the top-side
+    capacity cannot carry goes through the gap; a placement gap walls, a
+    routing channel does not. Targets pinwall_block_<arm>_*,
+    pinwall_top_<arm>_* and route0_<arm>.json, the route-0 gate's numbers.
+    """
+    name = "ch_p{}_g{}".format(pins, int(gap_um))
+    side = pins * PIN_PITCH_UM * margin / PIN_LAYERS
+    native.genrule(
+        name = name + "_rtl",
+        outs = [name + "_block.sv", name + "_top.sv"],
+        cmd = "$(location :pinwall_gen) --pins {} --channel --block $(location :{}_block.sv) --top $(location :{}_top.sv)".format(pins, name, name),
+        tools = [":pinwall_gen"],
+    )
+    orfs_flow(
+        name = "pinwall_block",
+        top = "pinwall_block",
+        abstract_stage = "place",
+        arguments = PINWALL_BASE_ARGS | {
+            "CORE_AREA": _area(2, 2, side - 2, BLOCK_DEPTH_UM - 2),
+            "DIE_AREA": _area(0, 0, side, BLOCK_DEPTH_UM),
+            # the annealer leaves a third of the constrained pins outside
+            # their interval (PPL-0102, then PPL-0107); the slot assigner
+            # keeps them in
+            "PLACE_PINS_ARGS": "",
+        },
+        pdk = "//flow:asap7",
+        sources = {
+            "IO_CONSTRAINTS": [":pins_split.tcl"],
+            "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
+            "SDC_FILE": [":constraints.sdc"],
+        },
+        variant = name,
+        verilog_files = [":" + name + "_block.sv"],
+    )
+    channel_um = 10.0  # between the blocks' pin sides and the logic above
+    width = 2 * side + gap_um
+    region_h = max(30.0, pins * 0.35 / 0.6 / width)
+    die_w = width + 2 * EDGE_UM
+    die_h = EDGE_UM + BLOCK_DEPTH_UM + channel_um + region_h + EDGE_UM
+    top_args = PINWALL_BASE_ARGS | {
+        "CORE_AREA": _area(2, 2, die_w - 2, die_h - 2),
+        "DIE_AREA": _area(0, 0, die_w, die_h),
+        # the gap stays free of cells, like the plan's; the logic keeps
+        # channel_um from the pin sides
+        "MACRO_PLACE_HALO": "{} {}".format(_r(gap_um / 2), channel_um),
+    }
+    top_sources = {
+        "MACRO_PLACEMENT_TCL": [":place_two_blocks.tcl"],
+        "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCKS_grid_strategy.tcl"],
+        "SDC_FILE": [":constraints.sdc"],
+    }
+    orfs_flow(
+        name = "pinwall_top",
+        top = "pinwall_top",
+        arguments = top_args,
+        last_stage = "cts",
+        macros = [":pinwall_block_" + name + "_generate_abstract"],
+        pdk = "//flow:asap7",
+        sources = top_sources,
+        user_arguments = {"BLOCK_GAP_UM": str(gap_um)},
+        variant = name,
+        verilog_files = [":" + name + "_top.sv"],
+    )
+    orfs_run(
+        name = "route0_" + name,
+        src = ":pinwall_top_" + name + "_cts",
+        outs = ["route0_" + name + ".json"],
+        arguments = top_args,
+        script = ":route0.tcl",
+        sources = top_sources,
+        user_arguments = {
+            "OUTPUT_JSON": "$(location route0_" + name + ".json)",
+        },
+        variant = name,
     )

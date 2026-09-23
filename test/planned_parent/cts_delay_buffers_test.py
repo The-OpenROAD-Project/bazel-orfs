@@ -23,7 +23,9 @@ class DelayBuffersTest(unittest.TestCase):
     def test_no_insertion_delay_removes_the_delay_buffers(self):
         base = load("cts_buffers_base.json")
         nid = load("cts_buffers_nid.json")
-        print("| variant | cts args | macro sinks | clock buffers | delay buffers | dummy loads |")
+        print(
+            "| variant | cts args | macro sinks | clock buffers | delay buffers | dummy loads |"
+        )
         print("|---|---|---|---|---|---|")
         for tag, d in (("base", base), ("no_insertion_delay", nid)):
             print(
@@ -38,11 +40,21 @@ class DelayBuffersTest(unittest.TestCase):
                 )
             )
         sys.stdout.flush()
-        self.assertEqual(base["macro_sinks"], 4, "the four blocks are the macro clock's sinks")
-        self.assertGreater(base["delay_buffers"], 0, "with macros, CTS balances to their insertion delay")
+        self.assertEqual(
+            base["macro_sinks"], 4, "the four blocks are the macro clock's sinks"
+        )
+        self.assertGreater(
+            base["delay_buffers"],
+            0,
+            "with macros, CTS balances to their insertion delay",
+        )
         self.assertIn("-no_insertion_delay", nid["cts_args"])
-        self.assertEqual(nid["delay_buffers"], 0, "-no_insertion_delay: no delay buffers at all")
-        self.assertGreater(nid["clock_buffers"], 0, "the trees themselves are still built")
+        self.assertEqual(
+            nid["delay_buffers"], 0, "-no_insertion_delay: no delay buffers at all"
+        )
+        self.assertGreater(
+            nid["clock_buffers"], 0, "the trees themselves are still built"
+        )
 
 
 if __name__ == "__main__":

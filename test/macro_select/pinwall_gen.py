@@ -55,16 +55,52 @@ endmodule
 """.format(h=n - 1, reps=(n + 63) // 64)
 
 
+def top_channel(n):
+    """Two blocks side by side: every output of the left one is an input of
+    the right one, so the whole interface crosses the gap between them. The
+    left one's inputs come from the parent's flops above it (a seed loop),
+    the right one's outputs go into the parent's flops above it; nothing
+    else travels along the blocks. The channel case of XiangShan's Frontend
+    and MemBlock (inventory entry 13)."""
+    n = n // 2
+    return """// Two blocks and the interface between them; the parent's flops on the far sides.
+module pinwall_top (
+    input wire clock,
+    input wire [63:0] seed,
+    output wire sum
+);
+  wire [{h}:0] across;
+  wire [{h}:0] right_out;
+  reg [{h}:0] feed_r;
+  reg [{h}:0] sink_r;
+  pinwall_block left (.clock(clock), .din(feed_r), .dout(across));
+  pinwall_block right (.clock(clock), .din(across), .dout(right_out));
+  always @(posedge clock) begin
+    feed_r <= {{feed_r[{h2}:0], feed_r[{h}]}} ^ {{{reps}{{seed}}}};
+    sink_r <= right_out;
+  end
+  assign sum = ^sink_r;
+endmodule
+""".format(
+        h=n - 1, h2=n - 2, reps=(n + 63) // 64
+    )
+
+
 def main(argv):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--pins", type=int, required=True)
     ap.add_argument("--block", required=True)
     ap.add_argument("--top", required=True)
+    ap.add_argument(
+        "--channel",
+        action="store_true",
+        help="two blocks with the interface between them instead of one facing the parent",
+    )
     a = ap.parse_args(argv[1:])
     with open(a.block, "w") as f:
         f.write(block(a.pins))
     with open(a.top, "w") as f:
-        f.write(top(a.pins))
+        f.write(top_channel(a.pins) if a.channel else top(a.pins))
     return 0
 
 

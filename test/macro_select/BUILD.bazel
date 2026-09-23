@@ -1,5 +1,5 @@
-load("@rules_python//python:defs.bzl", "py_binary")
-load(":arms.bzl", "pinwall_arm")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load(":arms.bzl", "channel_arm", "pinwall_arm")
 
 # Calibration of the floorplan planner's constants on a synthetic parent
 # with one pin-wall block. See arms.bzl and tools/macro_select/.
@@ -9,6 +9,9 @@ exports_files([
     "pins_top.tcl",
     "place_block.tcl",
     "place_block_lateral.tcl",
+    "pins_split.tcl",
+    "place_two_blocks.tcl",
+    "route0.tcl",
 ])
 
 py_binary(
@@ -63,3 +66,25 @@ pinwall_arm(
         100,
     ]
 ]
+
+# The channel between two blocks: XiangShan's route-0 gate stopped on
+# GRT-0228 inside the 11 um placement gap between Frontend and MemBlock
+# (inventory entry 13). The same interface at two gaps, measured by a
+# zero-iteration global route on the CTS checkpoint.
+[
+    channel_arm(3000, gap)
+    for gap in [
+        10,
+        60,
+    ]
+]
+
+py_test(
+    name = "channel_test",
+    srcs = ["channel_test.py"],
+    data = [
+        ":route0_ch_p3000_g10.json",
+        ":route0_ch_p3000_g60.json",
+    ],
+    main = "channel_test.py",
+)

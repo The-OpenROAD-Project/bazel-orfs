@@ -36,7 +36,9 @@ def parse(path):
             if key == "read":
                 spec["reads"].append(tuple(rest))
             elif key == "read_banked":
-                spec["reads_banked"].append([tuple(rest[i : i + 2]) for i in range(0, len(rest), 2)])
+                spec["reads_banked"].append(
+                    [tuple(rest[i : i + 2]) for i in range(0, len(rest), 2)]
+                )
             elif key == "write":
                 spec["writes"].append(tuple(rest))
             elif key in ("words", "bits", "banks", "bank_columns"):
@@ -76,7 +78,9 @@ def rng(w):
 def model(spec):
     """The module, behavioural: what the flow blackboxes."""
     m = spec["module"]
-    lines = ["// %s, behavioural: the shape of the generated netlist, never synthesised." % m]
+    lines = [
+        "// %s, behavioural: the shape of the generated netlist, never synthesised." % m
+    ]
     lines.append("module %s(" % m)
     decl = ["  %-6s %s%s" % (d, rng(w), n) for n, d, w in ports(spec)]
     lines.append(",\n".join(decl))
@@ -131,12 +135,20 @@ def parent(spec, top, inst):
 
 
 def main(argv):
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--spec", required=True)
     ap.add_argument("--sv", required=True)
     ap.add_argument("--placement", required=True)
-    ap.add_argument("--top", default=None, help="parent module name (default <module>_scaffold)")
-    ap.add_argument("--corner", default="40 40", help="the array's lower-left corner in the parent, um")
+    ap.add_argument(
+        "--top", default=None, help="parent module name (default <module>_scaffold)"
+    )
+    ap.add_argument(
+        "--corner",
+        default="40 40",
+        help="the array's lower-left corner in the parent, um",
+    )
     a = ap.parse_args(argv)
     spec = parse(a.spec)
     top = a.top or spec["module"] + "_scaffold"
@@ -145,7 +157,9 @@ def main(argv):
         f.write("\n")
         f.write(parent(spec, top, "u_file"))
     with open(a.placement, "w") as f:
-        f.write("# <module> <instance path> <x um> <y um>: the array's lower-left corner\n")
+        f.write(
+            "# <module> <instance path> <x um> <y um>: the array's lower-left corner\n"
+        )
         f.write("%s u_file %s\n" % (spec["module"], a.corner))
     print("%s: %d ports, parent %s" % (spec["module"], len(ports(spec)), top))
 
