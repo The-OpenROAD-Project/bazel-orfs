@@ -174,6 +174,15 @@ py_test(
     main = ".claude/hooks/guard_tool_test.py",
 )
 
+# A deployed tree holds copies of the design's build outputs, not links
+# into bazel-out that an edit in the tree would write through.
+py_test(
+    name = "deploy_tpl_test",
+    srcs = ["deploy_tpl_test.py"],
+    data = ["deploy.tpl"],
+    main = "deploy_tpl_test.py",
+)
+
 # Run `bazelisk run //:monitor-test` to run tests with stage monitoring.
 # Usage: bazelisk run //:monitor-test -- //test/...
 py_binary(
