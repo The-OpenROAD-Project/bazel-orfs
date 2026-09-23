@@ -901,7 +901,7 @@ ORFS_TESTS = [
 
 test_suite(
     name = "orfs_design_tests",
-    tests = ORFS_TESTS + [":orfs_mock_alu_build_test"],
+    tests = ORFS_TESTS,
 )
 
 # mock-alu covers what neither design above reaches:
@@ -923,6 +923,7 @@ test_suite(
 # leaves the metric bounds to the repository that owns them.
 build_test(
     name = "orfs_mock_alu_build_test",
+    tags = ["manual"],  # heavy flow, rarely changes: off CI, in //:slow_tests
     targets = ["@orfs//flow/designs/asap7/mock-alu:MockAlu_final"],
 )
 
@@ -1087,6 +1088,7 @@ sh_test(
 # for the same reason mock-alu is one: the flow running is the question.
 build_test(
     name = "orfs_riscv32i_synth_build_test",
+    tags = ["manual"],  # heavy flow, rarely changes: off CI, in //:slow_tests
     targets = ["@orfs//flow/designs/asap7/riscv32i:riscv_top_synth"],
 )
 

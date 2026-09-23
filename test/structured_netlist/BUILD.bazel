@@ -44,6 +44,7 @@ odb_debug(
 # fully fixed macro set (0083). Seconds, where the parent took a night.
 build_test(
     name = "small_top_grt_build_test",
+    tags = ["manual"],  # XiangShan infrastructure: off CI, in //:slow_tests
     targets = [":small_top_grt"],
 )
 
