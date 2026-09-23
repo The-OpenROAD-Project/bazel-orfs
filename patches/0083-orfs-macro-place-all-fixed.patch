@@ -1,0 +1,58 @@
+From c1e1adad4a80a69127c7976cc00ac253f682fa26 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 21 Sep 2026 17:23:31 +0200
+Subject: [PATCH] floorplan: skip rtl_macro_placer when MACRO_PLACEMENT_TCL
+ fixed every macro
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The macro step runs rtl_macro_placer whenever the design has a macro,
+after sourcing MACRO_PLACEMENT_TCL. A placement script that fixes every
+macro leaves the placer nothing to place, and running it is not free of
+consequences: with a placed structured netlist in the core
+(STRUCTURED_PLACEMENT, patch 0078, FIRM standard cells) it stops on
+MPL-0050, "fixed non-macro instance inside the macro placement area".
+XiangShan's planned parent has exactly four macros, all fixed by its
+plan, and failed there.
+
+Count the unfixed macros after the placement script and skip the placer
+when there are none, saying so.
+
+Not upstreamed. Retire at the //:bump onto an ORFS that skips the placer
+for a fully fixed macro set.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/macro_place_util.tcl | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/flow/scripts/macro_place_util.tcl b/flow/scripts/macro_place_util.tcl
+index 9fb06ff98..df0acaf0d 100644
+--- a/flow/scripts/macro_place_util.tcl
++++ b/flow/scripts/macro_place_util.tcl
+@@ -37,6 +37,20 @@ if { [find_macros] != "" } {
+   if { [env_var_exists_and_non_empty MACRO_PLACEMENT_TCL] } {
+     log_cmd source $::env(MACRO_PLACEMENT_TCL)
+   }
++  # A MACRO_PLACEMENT_TCL that fixes every macro leaves the placer nothing
++  # to do, and running it anyway is not free of consequences: it refuses
++  # a design with fixed standard cells in its area (MPL-0050), which is
++  # what a placed structured netlist (STRUCTURED_PLACEMENT) is.
++  set unfixed 0
++  foreach macro [find_macros] {
++    if { ![$macro isFixed] } {
++      incr unfixed
++    }
++  }
++  if { $unfixed == 0 } {
++    puts "All [llength [find_macros]] macros are fixed: Skipping rtl_macro_placer"
++    return
++  }
+ 
+   set additional_rtlmp_args ""
+   append_env_var additional_rtlmp_args RTLMP_MAX_LEVEL -max_num_level 1
+-- 
+2.53.0
+
