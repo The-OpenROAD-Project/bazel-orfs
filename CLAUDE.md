@@ -133,6 +133,15 @@ design usually starts there, not in the router:
   planner that draws the floorplan from them, the calibration and the
   gates; tools in `tools/macro_select`, harness in `test/macro_select`.
 
+How to constrain a hardened block is its own skill, and the advice in
+circulation is wrong for this flow:
+
+- `macro-constraints` — only register-to-register paths can fail timing
+  closure, boundary paths are optimization targets written with
+  `set_max_delay`, and `set_input_delay` cannot be written at all without
+  assuming a clock insertion latency the block does not know.
+  `flow/platforms/asap7/constraints.sdc` is the reference.
+
 A simulation that hangs, produces no output or computes the wrong answer
 is a different problem from an OpenROAD failure, and has its own skill:
 
