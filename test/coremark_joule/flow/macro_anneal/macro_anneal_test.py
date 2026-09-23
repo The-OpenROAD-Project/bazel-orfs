@@ -101,7 +101,7 @@ class PlacementTest(unittest.TestCase):
 
     def test_pins_on_tracks(self):
         inv, blocks, _, placed, _ = run(inventory())
-        for inst, master, x, y in placed:
+        for inst, master, x, y, _ in placed:
             m = inv.masters[master]
             self.assertEqual((x + m["pox"] - 24) % 48, 0, inst)
             self.assertEqual((y + m["poy"] - 20) % 40, 0, inst)
@@ -113,7 +113,7 @@ class PlacementTest(unittest.TestCase):
         # cannot power.
         inv, blocks, _, placed, _ = run(inventory(), channel_um=4.0, block_gap_um=10.8)
         by_block = {}
-        for inst, master, x, y in placed:
+        for inst, master, x, y, _ in placed:
             for b in blocks:
                 if inst in b.macros:
                     by_block.setdefault(id(b), []).append((x, y, inv.masters[master]))
@@ -175,7 +175,7 @@ class StrapTest(unittest.TestCase):
 
     def test_every_narrow_bank_holds_a_stripe_pair(self):
         inv, blocks, _, placed, _ = run(self.narrow_inventory(), straps=STRAPS)
-        narrow = [(x, m) for _, m, x, _ in placed if m == "array_512x17"]
+        narrow = [(x, m) for _, m, x, _, _ in placed if m == "array_512x17"]
         self.assertEqual(len(narrow), 8)
         for x, m in narrow:
             self.assertTrue(
@@ -183,7 +183,7 @@ class StrapTest(unittest.TestCase):
                 "bank at {} has no stripe pair inside its rails".format(x),
             )
         # And they are still on their pin tracks.
-        for inst, master, x, y in placed:
+        for inst, master, x, y, _ in placed:
             self.assertEqual((x + inv.masters[master]["pox"] - 24) % 48, 0, inst)
 
     def test_narrow_banks_step_by_a_strap_multiple(self):
@@ -240,6 +240,274 @@ class EmitTest(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertTrue(os.path.exists(out))
             self.assertIn('"residual": 1', open(metrics).read())
+
+
+class LatticeTest(unittest.TestCase):
+    """asap7's grids: pins on two layers per axis, one of them irregular.
+
+    M2's y tracks are seven patterns of period 270 (0.036 apart six
+    times, then 0.045), M4's are 48 from 12; M3's x tracks 36 from 9, M5's
+    48 from 12. The XiangShan take-16 parent failed pin_access on every
+    macro because origins were snapped to the lowest layer only and
+    macros were flipped regardless of their size (measured 2026-09-18).
+    """
+
+    def inventory(self, w=83232, h=83232, vlayers="M3 M5", hlayers="M2 M4"):
+        lines = [
+            "# macro_anneal inventory v1",
+            "die 0 0 400000 400000 dbu {}".format(DBU),
+            "core 10000 10000 390000 390000",
+            "mfg_grid 1",
+            "site 54 270",
+            "track M3 V 9 36",
+            "track M2 H 45 36",
+        ]
+        for origin in (45, 81, 117, 153, 189, 225, 270):
+            lines.append("trackpat M2 H {} 37 270".format(origin))
+        lines += [
+            "trackpat M4 H 12 208 48",
+            "trackpat M3 V 9 277 36",
+            "trackpat M5 V 12 208 48",
+            "master mock {} {} M3 9 M2 45".format(w, h),
+            "pinlayers mock V {}".format(vlayers),
+            "pinlayers mock H {}".format(hlayers),
+            "edges mock 100 0 100 0",
+            "module logic 500000000",
+            "macro top/a mock",
+            "macro top/b mock",
+            "net top/a macro:top/b 100",
+            "netedge top/a macro:top/b L 100",
+        ]
+        return "\n".join(lines)
+
+    def test_residues_and_lattice(self):
+        inv = macro_anneal.Inventory.parse(self.inventory())
+        period, residues = macro_anneal.track_residues(inv, "M2", "H")
+        self.assertEqual(period, 270)
+        self.assertEqual(residues, [0, 45, 81, 117, 153, 189, 225])
+        self.assertEqual(macro_anneal.lattice(inv, "mock", "V"), 144)
+        self.assertEqual(macro_anneal.lattice(inv, "mock", "H"), 2160)
+
+    def test_origin_is_a_lattice_multiple_for_every_flip(self):
+        inv = macro_anneal.Inventory.parse(self.inventory())
+        for orient in ("R0", "MX", "MY", "R180"):
+            ox, oy = macro_anneal.macro_origin(inv, "mock", 10007, 10011, orient)
+            self.assertEqual(ox % 144, 0, orient)
+            self.assertEqual(oy % 2160, 0, orient)
+            self.assertGreaterEqual(ox, 10007)
+            self.assertGreaterEqual(oy, 10011)
+
+    def test_flip_legality_is_a_property_of_the_size(self):
+        # 83.232 um: R0 only. MX needs h == 1080 mod 2160 for M2 and M4
+        # together; MY has no width M3 and M5 both accept.
+        inv = macro_anneal.Inventory.parse(self.inventory())
+        self.assertTrue(macro_anneal.flip_legal(inv, "mock", "R0"))
+        self.assertFalse(macro_anneal.flip_legal(inv, "mock", "MX"))
+        self.assertFalse(macro_anneal.flip_legal(inv, "mock", "MY"))
+        self.assertFalse(macro_anneal.flip_legal(inv, "mock", "R180"))
+        inv = macro_anneal.Inventory.parse(self.inventory(h=1080 + 38 * 2160))
+        self.assertTrue(macro_anneal.flip_legal(inv, "mock", "MX"))
+        self.assertFalse(macro_anneal.flip_legal(inv, "mock", "MY"))
+        for w in range(83232, 83232 + 144):
+            inv = macro_anneal.Inventory.parse(self.inventory(w=w))
+            self.assertFalse(macro_anneal.flip_legal(inv, "mock", "MY"), w)
+        # One vertical pin layer: w == 18 mod 36 mirrors M3 onto itself.
+        inv = macro_anneal.Inventory.parse(self.inventory(w=83250, vlayers="M3"))
+        self.assertTrue(macro_anneal.flip_legal(inv, "mock", "MY"))
+        inv = macro_anneal.Inventory.parse(self.inventory(w=83232, vlayers="M3"))
+        self.assertFalse(macro_anneal.flip_legal(inv, "mock", "MY"))
+
+    def test_chooser_never_picks_an_illegal_flip(self):
+        # a's left pins face b to its right: MY would win, but is illegal
+        # at this width, so R0 stays.
+        inv = macro_anneal.Inventory.parse(self.inventory())
+        centres = {"top/b": (300000.0, 50000.0)}
+        self.assertEqual(
+            macro_anneal.choose_orientation(
+                inv, "top/a", "mock", 10000, 10000, centres
+            ),
+            "R0",
+        )
+        inv = macro_anneal.Inventory.parse(self.inventory(w=83250, vlayers="M3"))
+        self.assertEqual(
+            macro_anneal.choose_orientation(
+                inv, "top/a", "mock", 10000, 10000, centres
+            ),
+            "MY",
+        )
+
+    def test_banks_step_by_the_lattice(self):
+        text = self.inventory()
+        for i in range(4):
+            text += "\nmacro top/bank/m{} mock\nnet top/bank/m{} logic 10".format(i, i)
+        inv, blocks, _, placed, _ = run(text)
+        for inst, master, x, y, _ in placed:
+            self.assertEqual(x % 144, 0, inst)
+            self.assertEqual(y % 2160, 0, inst)
+
+    def test_without_patterns_the_old_snapping_holds(self):
+        inv, blocks, _, placed, _ = run(inventory())
+        for inst, master, x, y, _ in placed:
+            m = inv.masters[master]
+            self.assertEqual((x + m["pox"] - 24) % 48, 0, inst)
+
+
+class ChannelTest(unittest.TestCase):
+    """Pins are wires that leave through the channel along their side.
+
+    asap7 densities: M2 and M4 along a horizontal channel, M3 and M5 along
+    a vertical one, 48.6 tracks per um either way. A VectorDecodeChannel
+    mock brings 557 pins to a side: 11.5 um of channel; two facing sides
+    in a 4 um bank channel are the wall take 16's router found.
+    """
+
+    def inventory(self, n=4, chan_pins=557):
+        lines = LatticeTest().inventory(w=40212, h=40212).splitlines()
+        lines = [l for l in lines if not l.startswith(("edges", "macro", "net"))]
+        lines.append("edges mock {} 0 {} 0".format(chan_pins, chan_pins))
+        for i in range(n):
+            lines.append("macro top/bank/m{} mock".format(i))
+            lines.append("net top/bank/m{} logic 10".format(i))
+        return "\n".join(lines)
+
+    def test_escape_need(self):
+        inv = macro_anneal.Inventory.parse(self.inventory())
+        self.assertAlmostEqual(
+            macro_anneal.layer_density(inv, "mock", "V") * 1000, 48.6, 1
+        )
+        self.assertEqual(macro_anneal.escape_need(inv, "mock", "L"), 11459)
+        self.assertEqual(macro_anneal.escape_need(inv, "mock", "R"), 0)
+        # MY puts the left pins on the right edge
+        self.assertEqual(macro_anneal.escape_need(inv, "mock", "R", "MY"), 11459)
+        self.assertEqual(macro_anneal.escape_need(inv, "mock", "B"), 11913)
+
+    def test_narrow_bank_channel_is_reported(self):
+        inv, blocks, _, placed, _ = run(self.inventory(), channel_um=4.0)
+        short = macro_anneal.channel_shortfalls(inv, placed)
+        self.assertTrue(short)
+        a, ea, b, eb, width, need = short[0]
+        self.assertEqual((ea, eb), ("R", "L"))
+        self.assertLess(width, 5000)
+        self.assertEqual(need, 11459)  # one facing side has pins, the other none
+
+    def test_channel_auto_widens_the_bank_channel(self):
+        text = self.inventory()
+        inv = macro_anneal.Inventory.parse(text)
+        blocks, _ = macro_anneal.build_blocks(
+            inv, 3, 4, 4000, 0.6, None, channel_auto=True, gap=10800
+        )
+        b = [b for b in blocks if b.is_macro()][0]
+        self.assertGreaterEqual(b.chan, 11459)
+        self.assertGreaterEqual(b.step_x - inv.masters["mock"]["w"], 11459)
+        self.assertGreaterEqual(b.halo["L"], 11459)
+        self.assertEqual(b.halo["R"], 5400)  # no pins on the right: the plain gap
+        placed = macro_anneal.placements(inv, blocks, 4000)
+        self.assertEqual(macro_anneal.channel_shortfalls(inv, placed), [])
+
+    def test_channel_min_floors_channels_and_halos(self):
+        inv = macro_anneal.Inventory.parse(self.inventory())
+        blocks, _ = macro_anneal.build_blocks(
+            inv, 3, 4, 4000, 0.6, None, channel_auto=True, gap=10800, channel_min=40000
+        )
+        b = [b for b in blocks if b.is_macro()][0]
+        self.assertGreaterEqual(b.chan, 40000)
+        self.assertEqual(b.halo["R"], 20000)  # half the floor, no pins there
+        self.assertGreaterEqual(b.halo["L"], 20000)
+
+    def test_halos_add_up_between_blocks(self):
+        inv = macro_anneal.Inventory.parse(inventory())
+        blocks, _ = macro_anneal.build_blocks(inv, 3, 4, 4000, 0.6, None)
+        for b in blocks:
+            b.halo = {"L": 7000, "R": 9000, "B": 6000, "T": 8000}
+        packer = macro_anneal.Packer(inv, 10800)
+        packer.pack(blocks, list(range(len(blocks))))
+        ys = sorted({b.y for b in blocks})
+        row = sorted((b.x, b.x + b.w) for b in blocks if b.y == ys[0])
+        for (x0, x1), (n0, n1) in zip(row, row[1:]):
+            self.assertEqual(n0 - x1, 16000)  # right halo plus left halo
+        if len(ys) > 1:
+            top = max(b.y + b.h for b in blocks if b.y == ys[0])
+            self.assertEqual(ys[1] - top, 14000)  # top halo plus bottom halo
+
+    def test_without_auto_the_placement_is_unchanged(self):
+        base = run(inventory())[3]
+        inv = macro_anneal.Inventory.parse(inventory())
+        blocks, _ = macro_anneal.build_blocks(inv, 3, 4, 4000, 0.6, None, gap=10800)
+        self.assertTrue(all(b.halo is None for b in blocks))
+        self.assertEqual(run(inventory())[3], base)
+
+
+class OrientationTest(unittest.TestCase):
+    """A macro whose pins all sit on one edge is flipped to face its connections."""
+
+    def inventory(self):
+        return "\n".join(
+            [
+                "# macro_anneal inventory v1",
+                "die 0 0 400000 400000 dbu {}".format(DBU),
+                "core 10000 10000 390000 390000",
+                "mfg_grid 1",
+                "site 54 270",
+                "track M4 V 24 48",
+                "track M5 H 20 40",
+                "master left_pins 20000 20000 M4 100 M5 70",
+                "edges left_pins 100 0 0 0",
+                "module logic 500000000",
+                # two singletons: a, whose pins are all on its left edge, and b
+                # to be placed after it (to its right); a's pins connect to b.
+                "macro top/a left_pins",
+                "macro top/b left_pins",
+                "net top/a macro:top/b 100",
+                "netedge top/a macro:top/b L 100",
+            ]
+        )
+
+    def test_pins_face_the_connected_macro(self):
+        inv = macro_anneal.Inventory.parse(self.inventory())
+        self.assertEqual(inv.edges["left_pins"]["L"], 100)
+        # a at the origin, b to its right: a's left-edge pins face away.
+        centres = {"top/b": (200000.0, 20000.0)}
+        self.assertEqual(
+            macro_anneal.choose_orientation(
+                inv, "top/a", "left_pins", 10000, 10000, centres
+            ),
+            "MY",
+        )
+        # b below a instead: a's left pins want the bottom edge, which no
+        # flip gives (a flip keeps left on a vertical edge), so R0 by tie.
+        centres = {"top/b": (20000.0, -200000.0)}
+        self.assertEqual(
+            macro_anneal.choose_orientation(
+                inv, "top/a", "left_pins", 10000, 10000, centres
+            ),
+            "R0",
+        )
+
+    def test_flipped_origin_keeps_pins_on_tracks(self):
+        inv = macro_anneal.Inventory.parse(self.inventory())
+        m = inv.masters["left_pins"]
+        for orient in ("R0", "MX", "MY", "R180"):
+            ox, oy = macro_anneal.macro_origin(inv, "left_pins", 10007, 10011, orient)
+            pox, poy = macro_anneal.pin_offsets(m, orient)
+            self.assertEqual((ox + pox - 24) % 48, 0, orient)
+            self.assertEqual((oy + poy - 20) % 40, 0, orient)
+
+    def test_spread_pins_keep_r0(self):
+        inv = macro_anneal.Inventory.parse(
+            self.inventory().replace(
+                "edges left_pins 100 0 0 0", "edges left_pins 25 25 25 25"
+            )
+        )
+        inv.net_edges.clear()
+        for e in "LRBT":
+            inv.net_edges[("top/a", "macro:top/b", e)] = 25
+        centres = {"top/b": (200000.0, 20000.0)}
+        self.assertEqual(
+            macro_anneal.choose_orientation(
+                inv, "top/a", "left_pins", 10000, 10000, centres
+            ),
+            "R0",
+        )
 
 
 if __name__ == "__main__":
