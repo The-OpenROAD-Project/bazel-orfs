@@ -322,6 +322,65 @@ grow a net the resizer wants to buffer. A real-size scaffold per spec
 place) reproduces the parent's arrays in minutes and is the missing rung
 below the parent for anything the resizer does to them.
 
+## 17. Blocks abstracted at place hand the parent their whole clock net as pin capacitance
+
+Chain 4c (2026-09-22, the first parent through CTS with `-no_insertion_delay`
+and a measured post-CTS timing): worst slack **-46 601 ps** at the 800 ps
+period, `period_min` 47 401 ps, TNS -949 ms. The worst path is one clock
+leaf buffer, `clkbuf_leaf_7313_clock`, driving MemBlock's `clock` pin:
+145 072 fF, 19 173 ps of delay, 82 061 ps of slew. The abstracts' liberty
+files say why: the blocks are abstracted at their place stage, before
+their own CTS, so the clock pin's capacitance is the block's entire
+unbuffered clock net (MemBlock 145 pF, Frontend 61 pF, VecRegionModule
+33 pF, Region_1 7 pF), and every clock-to-output arc inside is timed
+through that net. The in2reg and reg2out paths through the blocks show
+the same model: `io_outer_l2_flush_en` leaves MemBlock 3 522 ps after
+its input with an 11 165 ps transition, so the parent's in2reg and
+reg2out groups are thousands of ps negative as well. Chain 3's 49 736
+delay buffers (entry 11) were CTS balancing to the insertion delay of
+these same unbuffered nets. Fix: abstract the blocks at cts (or later),
+so the clock pin is one buffer input and the internal arcs are timed on a
+buffered tree; the parent's CTS then has real insertion delays to balance
+and `-no_insertion_delay` becomes a choice rather than a bypass. The cost
+is the blocks' own CTS legalisation, the miniature's block flows measure
+it first (test/planned_parent, abstract_stage). Secondary: the unbuffered
+feed-through inside MemBlock says the block's repair_design left it, to
+be read from the block's own place log.
+
+## 18. Route-0 on the 60 um channel: no guard trip, a third of the die's capacity, M6 the wall
+
+Chain 4c's route-0 gate ran to its report in 22 min at 44 GB: usage
+31 %, total congestion 100.8 M, max horizontal overflow 1 101 and
+vertical 176. Per layer: M2 52 % used, max H overflow 225; M4 238; **M6
+629**; the vertical layers 117 (M3), 27, 23. The 60 um channel removed
+GRT-0228 (entry 13): FastRoute's guard did not trip, and the wall is now
+where the abstracts predict it, on M6, the one horizontal layer over the
+blocks, with M2 and M4 saturated where the parent's logic is. Wirelength
+151 m on a 3.6 x 2.1 mm die. The five-iteration global route that
+followed (`-congestion_iterations 5 -allow_congestion`) finished its
+initial pass and was killed 3 h in during extra iteration 1 of 5 (entry
+in [[xs-grt-matrix-take16]]: maze iterations on this grid are hours
+each; the fix is code, not knobs). The flow is flushed to the route and
+the route does not converge in hours; the campaign's central number is
+unchanged, now on the planned parent with every earlier stopper fixed.
+
+## 19. Chain 4 as run: the night's numbers
+
+| stage | time | peak | note |
+|---|---|---|---|
+| floorplan (60 um plan) | 19 min | 16 GB | |
+| 3_1 global placement | 38 min | 27 GB | 3_3 skipped by ORFS (pins placed in 3_1) |
+| 3_4 repair_design | 33 min | 21 GB | 250 197 buffers, 29 998 resizes; first run RSZ-3006 (entry 16), second run a full disk at write_db |
+| 3_5 legaliser | 2 h 13 | 40 GB | phase 2 stalled at 46, diamond seated 14 |
+| CTS `-no_insertion_delay` | 2 h 19 | 37 GB | 0 delay buffers (chain 3: 49 736); legaliser still all 1 400 iterations, 35 left to the diamond |
+| post-CTS timing, one-shot | 10 min | 33 GB | entry 17 |
+| route-0 gate | 22 min | 44 GB | entry 18 |
+| global route, 5 iterations | killed at 3 h | | in extra iteration 1 |
+
+The CTS legaliser's 2.6 h in chain 3 were not the delay buffers' alone:
+without them it still ran every iteration of both phases, on 21 k added
+cells. The deterministic handover rule (entry 5's proposal) stands.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
