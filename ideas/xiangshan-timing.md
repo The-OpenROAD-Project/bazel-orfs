@@ -408,6 +408,38 @@ needs the .place and .netlist.json files at all (or only the .v) is a
 bazel-orfs question worth a look: it is the difference between a
 two-minute and a two-hour turnaround on a generator change.
 
+## 21. Rows removed without a blockage: the legaliser carries every stray cell a millimetre
+
+Take 24, chain 5 (2026-09-23): the plan removed the rows in the blocks'
+band (entry 18's pockets and channels) and nothing else. Global
+placement ignores rows, so it seated the parent's 4 309 port buffers
+next to their ports on the die's bottom edge, in the band, and 624 other
+cells with them; `detailed_placement` then sat 25 minutes in
+`NegotiationLegalizer::initialSnap` with no output and no end in sight.
+initialSnap moves every movable cell whose initial position is not
+placeable to the nearest placeable site by an expanding ring search over
+sites and rows: for a cell 1 000 um from the nearest row that is tens of
+millions of `placeable()` checks, times 4 309. Killed by decision;
+`tmp/take24/band_count.tcl` counted the strays in three minutes.
+
+Fix (planner, commit e4dca003): the band is a placement blockage as well,
+so the placer stays out, and a 20 um strip of rows stays between the
+block row and the die edge for the port buffers.
+
+Hard stops this asked for, on both sides of the fence:
+- flow: after global placement, count the movable cells with no row
+  under them and refuse above zero (or above a small number with the
+  farthest distance printed); seconds, and it names the cause.
+- OpenROAD dpl: initialSnap should count the cells with invalid initial
+  positions and the farthest nearest-site distance before it searches,
+  report both, and refuse (or fall back to a row index) beyond a
+  threshold, instead of an unbounded ring walk with no message. A
+  synthetic test: a design whose placement leaves a few thousand cells a
+  millimetre from any row.
+- the miniature did not catch it because its port buffers had rows within
+  a few um; the battery needs a case where a block row sits on the die
+  edge that carries the ports.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
