@@ -9,6 +9,7 @@ load("//:sweep.bzl", "orfs_sweep")
 load(":auto_memories_outputs_test.bzl", "auto_memories_outputs_test")
 load(":deps_output_group_rule.bzl", "deps_output_group_test", "output_group_test")
 load(":keep_modules_test.bzl", "keep_modules_test_suite")
+load(":mock_pin_knobs_test.bzl", "mock_pin_knobs_test")
 load(":provider_test_rule.bzl", "lib_pre_layout_test")
 load(":quick_pins_test_rule.bzl", "quick_pins_data_dep_test")
 load(":sdc_clock_period_test.bzl", "runfiles_contents_test", "synth_action_inputs_test")
@@ -413,6 +414,61 @@ orfs_flow(
     user_stages = {"USER_PROJECT_KNOB": ["floorplan"]},
     variant = "mock_user_stages",
     verilog_files = LB_VERILOG_FILES,
+)
+
+# mock_area = "pins": the mocked abstract's die is fitted to the block's
+# pins (mock_area.tcl) and its pins go on the bottom and left edges
+# (mock_pins.tcl). check_pins_mock_area asserts both on the mocked
+# placement, where place_pins has run; mock_pin_knobs_* assert that MOCK_AREA_PIN_MARGIN reaches the
+# mocked variant and not the real flow, which never reads it and would
+# otherwise re-run its floorplan whenever a parent changed the margin.
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    abstract_stage = "place",
+    arguments = LB_ARGS | {
+        "CORE_AREA": "1.026 1.080 6.372 3.510",
+        "CORE_ASPECT_RATIO": "",
+        "CORE_UTILIZATION": "",
+        "DIE_AREA": "0 0 7.400 4.700",
+        "IO_PLACER_H": "M4",
+        "IO_PLACER_V": "M5",
+        "MOCK_AREA_PIN_MARGIN": "8",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
+    },
+    mock_area = "pins",
+    previous_stage = {"floorplan": ":lb_32x128_synth"},
+    sources = {
+        "IO_CONSTRAINTS": [":lb_32x128_io-placement.tcl"],
+        "SDC_FILE": [":constraints-sram"],
+    },
+    variant = "pins_mock",
+    verilog_files = LB_VERILOG_FILES,
+)
+
+orfs_run(
+    name = "check_pins_mock_area",
+    src = ":lb_32x128_pins_mock_mocked_place",
+    outs = ["pins_mock_ok.txt"],
+    script = ":check_pins_mock_area.tcl",
+)
+
+mock_pin_knobs_test(
+    name = "mock_pin_knobs_real_test",
+    expect_present = False,
+    target_under_test = ":lb_32x128_pins_mock_floorplan",
+)
+
+mock_pin_knobs_test(
+    name = "mock_pin_knobs_mocked_test",
+    expect_present = True,
+    target_under_test = ":lb_32x128_pins_mock_mocked_floorplan",
+)
+
+mock_pin_knobs_test(
+    name = "mock_pin_knobs_area_test",
+    expect_present = True,
+    target_under_test = ":lb_32x128_pins_mock_mocked_generate_area",
 )
 
 # Pin placement generation: shares synth, runs own floorplan without pinned IO.

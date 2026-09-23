@@ -190,6 +190,11 @@ class TestFloorplan:
         err = _lint_stderr(interp, capsys)
         assert "scale factor" not in err
 
+    def test_mock_area_pins(self, interp, capsys):
+        os.environ["MOCK_AREA"] = "pins"
+        err = _lint_stderr(interp, capsys)
+        assert "LINT MOCK_AREA" not in err
+
 
 class TestLintNumericRanges:
     def test_place_density_valid(self, interp, capsys):
