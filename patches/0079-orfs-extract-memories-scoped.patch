@@ -1,0 +1,105 @@
+From ff242ea9bd51a1882f59225e7fb5532dd070fddd Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 21 Sep 2026 12:05:43 +0200
+Subject: [PATCH] memories: run the memory passes on the modules that hold
+ memory cells
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+`memory -nomap` in extract_memories.tcl walks every module of the design
+in each of its passes, and memory_dff builds its per-bit driver and
+consumer index (ModWalker::setup, memory_dff.cc:225) for a module before
+run() asks whether the module has a memory; opt_mem_priority and
+opt_mem_feedback scan every module's cells the same way. On a design that
+keeps its memories in small generated modules and its logic in large
+ones -- a firtool core has every memory in its own ram_* module -- the
+index over the memory-less modules is nearly the whole cost of the step.
+
+Measured on XiangShan's flat XSCore (1870 modules, 407 with memory cells,
+read through slang, yosys 0.68), the memory passes alone:
+
+    unscoped    721 s   memory_dff 462, opt_mem_priority 67,
+                        opt_mem_feedback 52, two opt_clean 99, share 37
+    scoped       64 s   memory_dff 24, opt_mem_priority 27
+
+Both produce the same 407 $mem_v2 cells. The extraction step as a whole
+went from about fifteen minutes to under four, and the four remaining
+minutes are reading and proc.
+
+memory_bmux2rom still runs first and unscoped, since it is what turns a
+module's constant muxes into a memory. The module list comes from the
+memory cells' names (the module before the first slash) rather than the
+selection's `%m` expansion: `%m` leaves a module partially selected when
+its name carries a `$`, as slang's uniquified names do, and every pass
+then skips the module with "Ignoring partially selected module" and no
+memory is collected. write_json -selected writes the memory modules
+only; gen_memories.py's detector reads each module's $mem_v2 cells and
+nothing across modules.
+
+Not upstreamed. Retire at the //:bump onto an ORFS that scopes the
+passes, or onto a yosys whose memory_dff returns before building the
+index for a module without memories.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/memories/extract_memories.tcl | 40 ++++++++++++++++++++--
+ 1 file changed, 37 insertions(+), 3 deletions(-)
+
+diff --git a/flow/scripts/memories/extract_memories.tcl b/flow/scripts/memories/extract_memories.tcl
+index 18e5c2371..e95cdc79c 100644
+--- a/flow/scripts/memories/extract_memories.tcl
++++ b/flow/scripts/memories/extract_memories.tcl
+@@ -23,11 +23,45 @@ hierarchy -top $::env(DESIGN_NAME)
+ # bare `proc`: yosys -import cannot shadow Tcl's proc keyword, so the
+ # bare word would define a procedure instead of running the pass.
+ yosys proc
+-memory -nomap
+ 
+-# Write netlist JSON containing inferred $mem_v2 primitives
++# The memory passes, on the modules that hold memory cells only. Every
++# pass in `memory -nomap` walks every selected module, and memory_dff
++# builds its per-bit driver and consumer index (ModWalker) for a module
++# before it asks whether the module has a memory at all; opt_mem_priority
++# and opt_mem_feedback scan every module's cells the same way. On a design
++# whose memories sit in small generated modules and whose logic sits in
++# large ones -- a firtool core keeps every memory in its own ram_* module
++# -- that index over the memory-less modules is nearly the whole cost of
++# this step. Scoping the passes to the modules with memory cells changes
++# nothing in the result: a pass finds nothing to do in a module without
++# them. memory_bmux2rom runs first and unscoped, since it is what turns a
++# module's constant muxes into a memory. The module list comes from the
++# cells' names (module before the first slash) rather than the selection's
++# `%m` expansion, which leaves a module partially selected when its name
++# carries a `$`, as slang's uniquified names do, and the passes then skip it.
++memory_bmux2rom
++set mem_modules [dict create]
++foreach line [tee -q -s result.string select -list t:\$mem_v2 t:\$memrd_v2 t:\$memwr_v2 t:\$meminit_v2] {
++  set line [string trim $line]
++  if { $line ne "" } {
++    dict set mem_modules [lindex [split $line "/"] 0] 1
++  }
++}
++set mem_modules [dict keys $mem_modules]
++log "extract_memories: [llength $mem_modules] modules hold memory cells"
+ set out_json "$::env(RESULTS_DIR)/memories_inferred.json"
+ file mkdir [file dirname $out_json]
+-write_json $out_json
++if { [llength $mem_modules] > 0 } {
++  yosys select {*}$mem_modules
++  memory -nomap
++  # The JSON is read by gen_memories.py's detector, which looks at the
++  # $mem_v2 cells of each module and nothing across modules, so the
++  # memory modules are all it needs; the rest of the design is most of
++  # the bytes.
++  write_json -selected $out_json
++  select -clear
++} else {
++  write_json $out_json
++}
+ 
+ exit
+-- 
+2.53.0
+
