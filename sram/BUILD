@@ -183,6 +183,7 @@ orfs_flow(
 # covering every non-manual target in the package.
 build_test(
     name = "sram_build_test",
+    tags = ["manual"],  # heavy flow, rarely changes: off CI, in //:slow_tests
     targets = [
         ":lef_file",
         ":sdq_17x64_megaboom_variables",

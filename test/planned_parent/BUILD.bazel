@@ -58,6 +58,7 @@ build_test(
 
 build_test(
     name = "mini_top_cts_build_test",
+    tags = ["manual"],  # XiangShan infrastructure: off CI, in //:slow_tests
     targets = [":mini_top_cts"],
 )
 
@@ -72,6 +73,7 @@ py_test(
         ":cts_buffers_nid.json",
     ],
     main = "cts_delay_buffers_test.py",
+    tags = ["manual"],  # XiangShan infrastructure: off CI, in //:slow_tests
 )
 
 # plan/ is what mini_gen.py and the planner produce; regen.sh rewrites it.

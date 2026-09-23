@@ -57,5 +57,6 @@ def array_scaffold(name, spec, width_um, height_um):
     )
     build_test(
         name = top + "_cts_build_test",
+        tags = ["manual"],  # XiangShan infrastructure: off CI, in //:slow_tests
         targets = [":" + top + "_cts"],
     )

@@ -57,6 +57,7 @@ orfs_flow(
 
 build_test(
     name = "rf32x32_abstract_build_test",
+    tags = ["manual"],  # heavy flow, rarely changes: off CI, in //:slow_tests
     targets = [":rf32x32_generate_abstract"],
 )
 
@@ -88,6 +89,7 @@ orfs_flow(
 
 build_test(
     name = "rf_parent_floorplan_build_test",
+    tags = ["manual"],  # heavy flow, rarely changes: off CI, in //:slow_tests
     targets = [":rf_parent_floorplan"],
 )
 

@@ -382,3 +382,32 @@ py_test(
         "ORFS_FLOW_TCL": "$(location @orfs//flow:scripts/flow.tcl)",
     },
 )
+
+# Tests too slow for every pull request that rarely change: each is
+# tags = ["manual"] where it is defined, so `bazelisk test ...` in CI skips
+# it, and this suite runs them all. Breakage lands on main and is fixed
+# there, after the merge:
+#
+#   bazelisk test //:slow_tests
+test_suite(
+    name = "slow_tests",
+    tags = ["manual"],
+    tests = [
+        # Heavy flows on designs that rarely change.
+        "//examples:mac_build_test",
+        "//sram:sram_build_test",
+        "//test:orfs_mock_alu_build_test",
+        "//test:orfs_riscv32i_synth_build_test",
+        "//test/odb_debug:smoke_test",
+        "//tools/structured_gen/test:rf32x32_abstract_build_test",
+        "//tools/structured_gen/test:rf_parent_floorplan_build_test",
+        # XiangShan infrastructure.
+        "//test/macro_select:channel_test",
+        "//test/planned_parent:cts_delay_buffers_test",
+        "//test/planned_parent:mini_top_cts_build_test",
+        "//test/structured_netlist:IntRegFile_scaffold_cts_build_test",
+        "//test/structured_netlist:RenameBufferFile_scaffold_cts_build_test",
+        "//test/structured_netlist:RobEntryFile_scaffold_cts_build_test",
+        "//test/structured_netlist:small_top_grt_build_test",
+    ],
+)

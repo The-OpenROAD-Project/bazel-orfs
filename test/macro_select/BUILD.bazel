@@ -87,4 +87,5 @@ py_test(
         ":route0_ch_p3000_g60.json",
     ],
     main = "channel_test.py",
+    tags = ["manual"],  # XiangShan infrastructure: off CI, in //:slow_tests
 )

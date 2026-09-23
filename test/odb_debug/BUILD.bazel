@@ -15,5 +15,6 @@ py_test(
     srcs = ["smoke_test.py"],
     args = ["$(rootpath :multiplier_place_odb_debug)"],
     data = [":multiplier_place_odb_debug"],
+    tags = ["manual"],  # heavy flow, rarely changes: off CI, in //:slow_tests
     deps = ["//tools/odb_debug:odbdebug_lib"],
 )

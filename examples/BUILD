@@ -51,5 +51,6 @@ orfs_flow(
 # test depends on, so without this the example would be invisible to CI.
 build_test(
     name = "mac_build_test",
+    tags = ["manual"],  # heavy flow, rarely changes: off CI, in //:slow_tests
     targets = [":mac_final"],
 )

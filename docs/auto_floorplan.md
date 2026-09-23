@@ -250,8 +250,8 @@ besides. Bounds derived locally therefore encode local noise, and the
 next CI run fails against them for reasons that have nothing to do with
 the design.
 
-This is not hypothetical. `//test:orfs_design_tests` carries `mock-alu`
-as a `build_test` rather than a `<design>_test` for exactly this reason:
+This is not hypothetical. `//test:orfs_mock_alu_build_test` carries
+`mock-alu` as a `build_test` rather than a `<design>_test` for exactly this reason:
 its metric comparison missed one of 27 bounds by 0.9%
 (`finish__timing__setup__tns` -18663.9 against -18500) with zero DRC
 errors and every other check passing, purely from an OpenROAD bump
