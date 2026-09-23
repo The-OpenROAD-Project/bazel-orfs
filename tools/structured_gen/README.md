@@ -98,6 +98,8 @@ service_sites   40
 banks           4
 bank_columns    2           # two banks wide, two tall
 bit_folds       1           # the word in one band
+mode            macro       # or netlist: the flow drops the placed cells
+                            # into the parent's rows instead of a macro
 ```
 
 Cell pins default to asap7's (`D CLK QN`, `A B Y`, `A1 A2 B1 B2 Y`,

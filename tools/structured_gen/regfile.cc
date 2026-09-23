@@ -446,6 +446,13 @@ dbBlock* Builder::Run() {
   }
 
   // ---- address inverters, top band ------------------------------------
+  // These are the array's boundary cells: their inputs are the parent's
+  // address nets, their outputs the widest nets inside. The parent's
+  // repair_design is allowed to touch them (it has to buffer the nets it
+  // drives into the array, and it will upsize a driver of a wide net),
+  // and a FIRM cell one site wider than it was overlaps its neighbour. So
+  // every inverter gets a spare site after it: INVx1 to INVx2 on asap7 is
+  // exactly one site, and the header row is a few hundred cells.
   std::vector<std::vector<std::vector<dbNet*>>> raddr_n(R);
   std::vector<std::vector<dbNet*>> waddr_n(W);
   {
@@ -458,6 +465,7 @@ dbBlock* Builder::Run() {
                          "_na" + std::to_string(i));
           Place(c, inv_, y->getName(),
                 {{g_pins.inv[0], raddr[r][k][i]}, {g_pins.inv[1], y}});
+          c.x += site_w_;
           raddr_n[r][k].push_back(y);
         }
       }
@@ -467,6 +475,7 @@ dbBlock* Builder::Run() {
         dbNet* y = Net("wr" + std::to_string(w) + "_na" + std::to_string(i));
         Place(c, inv_, y->getName(),
               {{g_pins.inv[0], waddr[w][i]}, {g_pins.inv[1], y}});
+        c.x += site_w_;
         waddr_n[w].push_back(y);
       }
     }
@@ -803,6 +812,12 @@ Spec ReadSpec(const std::string& path) {
     if (key == "module") {
       need(1);
       s.module = v[0];
+    } else if (key == "mode") {
+      need(1);
+      if (v[0] != "macro" && v[0] != "netlist") {
+        Refuse(path + ":" + std::to_string(lineno) + ": mode is macro or netlist, not `" + v[0] + "`");
+      }
+      s.mode = v[0];
     } else if (key == "words") {
       need(1);
       s.words = std::stoi(v[0]);

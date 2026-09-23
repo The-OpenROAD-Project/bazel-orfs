@@ -66,6 +66,11 @@ struct LibModel {
 };
 
 struct Spec {
+  // "macro" (an abstract and a model liberty for a parent to place) or
+  // "netlist" (the placed cells dropped into the parent's rows by the
+  // flow); the generator builds the same block either way. The flow's
+  // memories step reads this key too, and decides which views to ask for.
+  std::string mode = "macro";
   std::string module;    // generated module and block name
   int words = 0;
   int bits = 0;
