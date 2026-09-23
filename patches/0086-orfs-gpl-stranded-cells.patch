@@ -1,0 +1,183 @@
+From d6071dd12816bd136bddfe912a4d1d177bac4566 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Wed, 23 Sep 2026 18:49:18 +0200
+Subject: [PATCH] place: name the cells global placement left where there is no
+ site
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Global placement ignores rows and places into any area a blockage does
+not cover, so a floorplan that removes rows -- a channel a plan cleared,
+the band a hierarchical design keeps for its blocks -- gets cells there.
+Detailed placement then relocates each of them by an expanding ring
+search over rows and sites whose cost grows with the distance to the
+nearest one, not with their number. On a 4.3 M-cell hierarchical design
+a few hundred cells up to a millimetre out held the stage indefinitely
+with no message saying why: 99 percent of the samples in one function,
+on two separate runs.
+
+One pass over the instances after global placement says how many there
+are and how far the farthest is, and by default fails the stage that
+produced them rather than the one that cannot finish.
+GPL_STRANDED_CELLS_CHECK=warn or none for a flow that wants them.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/global_place.tcl | 111 ++++++++++++++++++++++++++++++++++
+ flow/scripts/variables.yaml   |  17 ++++++
+ 2 files changed, 128 insertions(+)
+
+diff --git a/flow/scripts/global_place.tcl b/flow/scripts/global_place.tcl
+index 5822ef47c..89f9fafee 100644
+--- a/flow/scripts/global_place.tcl
++++ b/flow/scripts/global_place.tcl
+@@ -75,6 +75,117 @@ if { $::env(CLUSTER_FLOPS) } {
+   log_cmd estimate_parasitics -placement
+ }
+ 
++# Cells global placement left where there is no site. It ignores rows and
++# places into any area a blockage does not cover, so a floorplan with a
++# region of removed rows -- a channel a plan cleared, a band a hierarchical
++# design keeps for its blocks -- gets cells there. The detailed placer then
++# relocates each of them by an expanding ring search whose cost grows with
++# the distance to the nearest site, not with their number: a few hundred
++# cells a millimetre out do not finish, with no message that says why.
++#
++# Counting them here costs one pass over the instances and names the stage
++# that produced them. GPL_STRANDED_CELLS_CHECK: error (default), warn, or
++# none.
++proc report_stranded_cells { } {
++  set mode [expr { [info exists ::env(GPL_STRANDED_CELLS_CHECK)] ?
++                   $::env(GPL_STRANDED_CELLS_CHECK) : "error" }]
++  if { $mode eq "none" } {
++    return
++  }
++  set block [ord::get_db_block]
++  set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
++  # The rows as bands: {yMin yMax {x0 x1} {x0 x1} ...}, sorted by yMin. A
++  # cell is on a site when its origin falls inside a band's y range and one
++  # of that band's x spans. Global placement does not align cells to rows,
++  # so the test is containment, not equality.
++  set by_y [dict create]
++  foreach row [$block getRows] {
++    set bb [$row getBBox]
++    dict lappend by_y [$bb yMin] [list [$bb yMax] [$bb xMin] [$bb xMax]]
++  }
++  set ys [lsort -integer [dict keys $by_y]]
++  set n [llength $ys]
++  if { $n == 0 } {
++    return
++  }
++  # The distance beyond which a relocation is worth reporting, in microns.
++  # The search is an expanding ring over rows and sites, so its cost grows
++  # with the distance: a cell a fraction of a micron past a row's edge is
++  # seated immediately, one a millimetre out is not.
++  set limit_um [expr { [info exists ::env(GPL_STRANDED_CELLS_UM)] ?
++                       $::env(GPL_STRANDED_CELLS_UM) : 10 }]
++  set limit [expr { int($limit_um * $dbu) }]
++  set stranded 0
++  set worst 0
++  set example ""
++  foreach inst [$block getInsts] {
++    if { [$inst isFixed] || [[$inst getMaster] isBlock] } {
++      continue
++    }
++    lassign [$inst getLocation] x y
++    # the last band whose yMin is at or below y
++    set lo 0
++    set hi [expr { $n - 1 }]
++    set idx -1
++    while { $lo <= $hi } {
++      set mid [expr { ($lo + $hi) / 2 }]
++      if { [lindex $ys $mid] <= $y } {
++        set idx $mid
++        set lo [expr { $mid + 1 }]
++      } else {
++        set hi [expr { $mid - 1 }]
++      }
++    }
++    set on_site 0
++    if { $idx >= 0 } {
++      foreach span [dict get $by_y [lindex $ys $idx]] {
++        lassign $span y1 x0 x1
++        if { $y < $y1 && $x >= $x0 && $x < $x1 } {
++          set on_site 1
++          break
++        }
++      }
++    }
++    if { $on_site } {
++      continue
++    }
++    # How far the relocation search has to go, which is what it costs. A
++    # cell just past a row's edge is off by a fraction of a micron and is
++    # seated at once; only a cell that has to travel is worth a word.
++    set d -1
++    foreach ry $ys {
++      set dy [expr { abs($ry - $y) }]
++      if { $d < 0 || $dy < $d } {
++        set d $dy
++      }
++    }
++    if { $d < $limit } {
++      continue
++    }
++    incr stranded
++    if { $d > $worst } {
++      set worst $d
++      set example [$inst getName]
++    }
++  }
++  if { $stranded == 0 } {
++    return
++  }
++  set msg [format "global placement left %d movable cell(s) more than %g um\
++    from any site; the farthest is %.1f um out (%s). Detailed placement relocates\
++    each by a search whose cost grows with that distance. Give those areas\
++    rows, or keep the placer out of them with a blockage.\
++    GPL_STRANDED_CELLS_CHECK=warn to continue, none to skip the check." \
++    $stranded $limit_um [expr { $worst / double($dbu) }] $example]
++  if { $mode eq "warn" } {
++    utl::warn FLW 22 $msg
++  } else {
++    utl::error FLW 22 $msg
++  }
++}
++
++report_stranded_cells
++
+ report_metrics 3 "global place" false false
+ 
+ source_step_tcl POST GLOBAL_PLACE
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+index 7b6a3e1c4..b15b49e74 100644
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -832,6 +832,23 @@ SKIP_LAST_GASP:
+     - cts
+     - floorplan
+     - grt
++GPL_STRANDED_CELLS_CHECK:
++  description: >
++    What global placement does when it has left movable cells far from any
++    site: error (default), warn, or none. The placer ignores rows, so a
++    floorplan with removed rows gets cells there and detailed placement then
++    relocates each by a search whose cost grows with the distance to the
++    nearest site.
++  stages:
++    - place
++GPL_STRANDED_CELLS_UM:
++  description: >
++    How far from a site a cell must be before GPL_STRANDED_CELLS_CHECK counts
++    it, in microns (default 10). A cell just past a row's edge is seated at
++    once; the cost of the relocation search grows with the distance, so only
++    a cell that has to travel is worth reporting.
++  stages:
++    - place
+ SKIP_BUFFER_REMOVAL:
+   description: >
+     Passed as -skip_buffer_removal to repair_timing. Do not remove buffers
+-- 
+2.53.0
+

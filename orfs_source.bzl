@@ -225,6 +225,17 @@ ORFS_PATCHES = [
     # points, so it is a knob for a study, not for a flow that routes.
     # Carried, not upstreamed; retires when DRT-0073 is fixed.
     Label("//patches:0085-orfs-grt-skip-pin-access.patch"),
+    # Global placement ignores rows: a floorplan that removes them, or that
+    # keeps a band for its blocks, gets cells where there is no site, and
+    # detailed placement then relocates each by a search whose cost grows
+    # with the distance rather than their number -- XiangShan's planned
+    # parent did not finish that stage, twice, with no message saying why.
+    # One pass after global placement counts the cells more than
+    # GPL_STRANDED_CELLS_UM (10 by default) from a site and names the stage
+    # that produced them; the threshold is what separates a cell that has
+    # to travel from one a fraction past a row's edge. Not upstreamed;
+    # retires at a bump onto an ORFS that carries the check.
+    Label("//patches:0086-orfs-gpl-stranded-cells.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
