@@ -44,6 +44,18 @@
         "VecRegionModule": 2364,
         "Region_1": 2186
       }
+    },
+    {
+      "date": "2026-09-24",
+      "min_period_ps": 13527,
+      "measured": "XSCore_cts, built from source, through XSCore_cts_odb_debug",
+      "note": "blocks abstracted at cts; the worst reg2reg path is Frontend's own 12534 ps setup to a falling-edge element, the clock no longer",
+      "blocks": {
+        "Frontend": 14114,
+        "MemBlock": 4870,
+        "VecRegionModule": 2364,
+        "Region_1": 2186
+      }
     }
   ]
 }

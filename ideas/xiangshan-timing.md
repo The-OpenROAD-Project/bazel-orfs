@@ -550,13 +550,60 @@ now against a real tree. A commercial flow would put a mesh or a spine
 here. Which of the two the parent's `reg2reg` prefers is the measurement
 still to make.
 
-The parent could not be measured: `origin/main`'s `MODULE.bazel` applies
-XiangShan patches 0001-0007, not `0008-xiangshan-rob-entry-file.patch`,
-while the parent's STRUCTURED_MEMORIES names `RobEntryFile.regfile`, so
-the parent's synthesis stops in `gen_memories` ("names module
-RobEntryFile, which none of the Verilog files declare"). The Verilog of
-the baseline had it; main's list lost it. Listing it again changes the
-flattened Verilog and so every XSCore stage key.
+The parent was first unmeasurable: `MODULE.bazel` had lost XiangShan
+patch `0008-xiangshan-rob-entry-file.patch` from its list while the
+parent's STRUCTURED_MEMORIES names `RobEntryFile.regfile`, so synthesis
+stopped in `gen_memories`. Listed again, the flattened Verilog is a
+remote-cache hit, the one the baseline was built from.
+
+**The parent, measured (2026-09-24, main's tree, cold build on the
+batched `write_timing_model` binary):** `reg2reg` worst slack -12 727 ps
+at 800 ps, a minimum period of **13 527 ps**, from the baseline's
+45 985. The worst path is no longer the clock: it launches in the
+parent's ctrlBlock (clock network delay 2 093 ps; the parent's own tree
+is 55 levels at its deepest), crosses the parent in 804 ps, 410 of them
+on one wire into the pin, and ends at a Frontend input whose library
+setup is 12 534 ps to a **falling** clock edge. That is Frontend's own
+worst path, the TAGE SRAM bank's clock-gate enable latch, which Frontend
+alone measures at 14 114 ps: the top level now sits where the per block
+series said it would.
+
+| parent stage | time | peak |
+|---|---|---|
+| floorplan | ~50 min, 29+ of them in `pdn.tcl` single-threaded | |
+| placement | ~80 min | 22 GB when sampled |
+| CTS (`-no_insertion_delay`) | 18 min 55 | 47 GB |
+| route-0 | 49 min 37 (`global_route`), 74 min the stage | 55.7 GB |
+
+Route-0 against take 24's (entry 23), same floorplan, new clock trees:
+
+| route-0 at M9 | take 24 | blocks at cts |
+|---|---|---|
+| total congestion | 41,781,243 | 41,923,366 |
+| worst horizontal / vertical edge | 426 / 120 | 465 / 125 |
+| capacity used | 20.6 % | 20.58 % |
+| wirelength | 143.7 m | 144.1 m |
+| M6 / M8 worst edge | 166 / 35 | 210 / 111 |
+
+Within a percent, as it should be: the change moves clock trees, not the
+floorplan, and the wall is still the horizontal layers over the blocks.
+`global_route` took 49 min against take 24's 22; not chased here.
+
+The grt stage then failed after the route, and this is why `XSCore_grt`
+has never finished in bazel: with no diode cell on asap7, antenna repair
+finds 0 violations and still leaves no route, and the next
+`estimate_parasitics -global_routing` stops on EST-0005. The workbench
+chains set `SKIP_ANTENNA_REPAIR=1` by hand; the flow never did.
+
+The floorplan's power grid is new: chain 4's whole floorplan stage took
+19 min. Not chased here.
+
+`write_timing_model` before and after the batched model (#1078), the
+place-stage abstract of each block from the same ODB: MemBlock 399 s
+then 489 s, Frontend 289 s then 227 s, Region_1 61 s then 59 s. Not an
+A/B: the two ran on different machine loads (two and three concurrent
+jobs), so the numbers say only that the batched model is not a clear win
+on the largest block; a controlled comparison is a study of its own.
 
 ## Method notes
 
