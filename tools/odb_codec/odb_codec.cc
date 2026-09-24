@@ -16,11 +16,21 @@
 // since the residual is exact, a wrong guess costs bytes, never
 // correctness.
 //
+// A delta stores a file against a base, another .odb of the same flow:
+// each slot as its difference from the slot with the same table,
+// instance and id in the base (4-byte fields subtracted, other bytes
+// xor-ed), and the bytes in no slot as copies from the base's and
+// literals. A slot without a partner of its length is stored as is. A
+// file identical to its base is stored as just that.
+//
 // Encoded file, all integers LEB128 varints:
 //
 //   "ODBCODEC"                         magic, 8 bytes
-//   version                            2
+//   version                            3
 //   size                               bytes of the original .odb
+//   mode                               0 standalone, 1 delta, 2 identical
+//   unless standalone:                 the base
+//     name length, name, size, FNV-1a 64 hash of its original bytes
 //   groups, then per group:            one table at one slot length
 //     name length, name, slot length, slots
 //     predictors, then per predictor:  field offset, kind, parameter
@@ -30,12 +40,21 @@
 //     table instance, minus the previous run's
 //     id of the first slot, minus the id that follows the previous run
 //       of the same instance (0 when the instance is new)
-//   verbatim length, verbatim bytes    every byte in no run, in order
-//   per group: its matrix, column by column
+//   standalone:                        every byte in no run, in order
+//     verbatim length, verbatim bytes
+//   delta:                             the same, against the base's
+//     ops, then per op: literal length, copy length, copy offset minus
+//       the end of the previous copy (zigzag)
+//     literals length, literals
+//   per group, unless identical:       its matrix, column by column
+//
+// Every form of a file carries the same groups and runs, so a base read
+// while another process rewrites it has the same slots either way.
 #include "odb_codec.h"
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <map>
 #include <optional>
 #include <sstream>
@@ -50,7 +69,7 @@ namespace odb_codec {
 namespace {
 
 constexpr std::string_view kMagic = "ODBCODEC";
-constexpr uint64_t kVersion = 2;
+constexpr uint64_t kVersion = 3;
 
 // A group with fewer slots than this stays where it is: a column of a
 // handful of bytes gains nothing and costs a group header.
@@ -381,6 +400,399 @@ bool UndoPredictors(const std::vector<Predictor>& predictors,
   return true;
 }
 
+
+enum Mode : uint64_t {
+  kStandalone = 0,
+  kDelta = 1,
+  kIdentical = 2,
+};
+
+struct BaseRef {
+  std::string name;
+  uint64_t size = 0;
+  uint64_t hash = 0;
+};
+
+struct PlacedRun {
+  uint64_t gap;
+  uint64_t group;
+  uint64_t count;
+  uint64_t instance;
+  uint64_t id;
+};
+
+// An encoded file, parsed but not decoded.
+struct Parsed {
+  uint64_t mode = kStandalone;
+  uint64_t size = 0;
+  BaseRef base;
+  std::vector<Group> groups;
+  std::vector<PlacedRun> runs;
+  std::string_view verbatim;  // standalone
+  uint64_t op_count = 0;      // delta
+  std::string_view ops;
+  std::string_view literals;
+  std::vector<std::string_view> matrices;  // unless identical
+};
+
+uint64_t Hash(std::string_view bytes) {
+  uint64_t h = 0xcbf29ce484222325ull;
+  for (const char c : bytes) {
+    h = (h ^ static_cast<unsigned char>(c)) * 0x100000001b3ull;
+  }
+  return h;
+}
+
+bool ParseContainer(std::string_view encoded, Parsed* p, std::string* error) {
+  *error = "truncated or corrupt encoded .odb";
+  if (encoded.substr(0, kMagic.size()) != kMagic) {
+    *error = "not an encoded .odb";
+    return false;
+  }
+  Reader in(encoded.substr(kMagic.size()));
+  uint64_t version = 0;
+  if (!in.Varint(&version) || version != kVersion) {
+    *error = "encoded .odb of an unknown version";
+    return false;
+  }
+  uint64_t group_count = 0;
+  if (!in.Varint(&p->size) || !in.Varint(&p->mode) || p->mode > kIdentical) {
+    return false;
+  }
+  if (p->mode != kStandalone) {
+    uint64_t n = 0;
+    std::string_view name;
+    if (!in.Varint(&n) || !in.Bytes(n, &name) || !in.Varint(&p->base.size) ||
+        !in.Varint(&p->base.hash)) {
+      return false;
+    }
+    p->base.name = name;
+  }
+  if (!in.Varint(&group_count)) {
+    return false;
+  }
+  for (uint64_t g = 0; g < group_count; ++g) {
+    Group group;
+    uint64_t name_length = 0;
+    uint64_t predictor_count = 0;
+    std::string_view name;
+    if (!in.Varint(&name_length) || !in.Bytes(name_length, &name) ||
+        !in.Varint(&group.length) || !in.Varint(&group.slots) ||
+        !in.Varint(&predictor_count) || predictor_count > group.length) {
+      return false;
+    }
+    group.table = name;
+    for (uint64_t i = 0; i < predictor_count; ++i) {
+      Predictor pr{};
+      if (!in.Varint(&pr.offset) || !in.Varint(&pr.kind) ||
+          !in.Varint(&pr.param)) {
+        return false;
+      }
+      group.predictors.push_back(pr);
+    }
+    p->groups.push_back(std::move(group));
+  }
+  uint64_t run_count = 0;
+  if (!in.Varint(&run_count)) {
+    return false;
+  }
+  std::vector<uint64_t> taken(p->groups.size(), 0);
+  uint64_t instance = 0;
+  uint64_t last_end = 0;
+  for (uint64_t r = 0; r < run_count; ++r) {
+    PlacedRun run{};
+    uint64_t instance_delta = 0;
+    uint64_t id_delta = 0;
+    if (!in.Varint(&run.gap) || !in.Varint(&run.group) ||
+        !in.Varint(&run.count) || !in.Varint(&instance_delta) ||
+        !in.Varint(&id_delta) || run.group >= p->groups.size() ||
+        run.count > p->groups[run.group].slots - taken[run.group]) {
+      return false;
+    }
+    taken[run.group] += run.count;
+    instance += instance_delta;
+    run.instance = instance;
+    run.id = (instance_delta == 0 ? last_end : 0) + id_delta;
+    last_end = run.id + run.count;
+    p->runs.push_back(run);
+  }
+  for (size_t g = 0; g < p->groups.size(); ++g) {
+    if (taken[g] != p->groups[g].slots) {
+      return false;
+    }
+  }
+  if (p->mode == kIdentical) {
+    error->clear();
+    return true;
+  }
+  uint64_t n = 0;
+  if (p->mode == kStandalone) {
+    if (!in.Varint(&n) || !in.Bytes(n, &p->verbatim)) {
+      return false;
+    }
+  } else {
+    if (!in.Varint(&p->op_count) || !in.Varint(&n) || !in.Bytes(n, &p->ops) ||
+        !in.Varint(&n) || !in.Bytes(n, &p->literals)) {
+      return false;
+    }
+  }
+  for (const Group& group : p->groups) {
+    std::string_view columns;
+    if (group.length != 0 && group.slots > UINT64_MAX / group.length) {
+      return false;
+    }
+    if (!in.Bytes(group.length * group.slots, &columns)) {
+      return false;
+    }
+    p->matrices.push_back(columns);
+  }
+  error->clear();
+  return true;
+}
+
+// Where every slot of a parsed file lies in its original bytes, with the
+// key that pairs it with the same slot of another file of the flow.
+struct Slot {
+  std::string key;
+  uint64_t offset;
+  uint64_t length;
+};
+
+std::vector<std::vector<Slot>> Slots(const Parsed& p) {
+  std::vector<std::vector<Slot>> slots(p.groups.size());
+  // A table's instances in the order they appear: the k-th instance of
+  // dbInst in one file is the k-th in the next.
+  std::map<std::string, std::map<uint64_t, uint64_t>> rank;
+  uint64_t pos = 0;
+  for (const PlacedRun& run : p.runs) {
+    const Group& group = p.groups[run.group];
+    auto& ranks = rank[group.table];
+    const uint64_t r = ranks.emplace(run.instance, ranks.size()).first->second;
+    pos += run.gap;
+    for (uint64_t k = 0; k < run.count; ++k) {
+      std::string key = group.table;
+      key.push_back('\0');
+      PutVarint(&key, r);
+      PutVarint(&key, run.id + k);
+      slots[run.group].push_back(Slot{std::move(key), pos, group.length});
+      pos += group.length;
+    }
+  }
+  return slots;
+}
+
+// The bytes of `odb` in no slot, in order.
+std::string Verbatim(std::string_view odb, const Parsed& p) {
+  std::string out;
+  uint64_t pos = 0;
+  for (const PlacedRun& run : p.runs) {
+    out.append(odb.substr(pos, run.gap));
+    pos += run.gap + run.count * p.groups[run.group].length;
+  }
+  out.append(odb.substr(std::min<uint64_t>(pos, odb.size())));
+  return out;
+}
+
+using SlotMap = std::unordered_map<std::string, std::string_view>;
+
+SlotMap MapSlots(std::string_view odb, const Parsed& p) {
+  SlotMap map;
+  for (const auto& group : Slots(p)) {
+    for (const Slot& slot : group) {
+      if (slot.offset + slot.length <= odb.size()) {
+        map.emplace(slot.key, odb.substr(slot.offset, slot.length));
+      }
+    }
+  }
+  return map;
+}
+
+// A slot's difference from its partner, and back: 4-byte fields after
+// the allocated flag are subtracted, the flag and any tail are xor-ed.
+uint64_t FieldsEnd(uint64_t length) {
+  return length < 1 ? 0 : 1 + (length - 1) / 4 * 4;
+}
+
+void Subtract(char* slot, const char* base, uint64_t length) {
+  const uint64_t end = FieldsEnd(length);
+  for (uint64_t o = 1; o < end; o += 4) {
+    Store(slot + o, Load(slot + o) - Load(base + o));
+  }
+  for (uint64_t b = 0; b < length; b = b == 0 ? end : b + 1) {
+    slot[b] ^= base[b];
+  }
+}
+
+void Add(char* slot, const char* base, uint64_t length) {
+  const uint64_t end = FieldsEnd(length);
+  for (uint64_t o = 1; o < end; o += 4) {
+    Store(slot + o, Load(slot + o) + Load(base + o));
+  }
+  for (uint64_t b = 0; b < length; b = b == 0 ? end : b + 1) {
+    slot[b] ^= base[b];
+  }
+}
+
+// `data` as copies from `base` and literals.
+void Diff(std::string_view base, std::string_view data, uint64_t* op_count,
+          std::string* ops, std::string* literals) {
+  constexpr int kBits = 22;
+  constexpr uint64_t kWindow = 8;
+  constexpr uint64_t kMinCopy = 16;
+  auto hash = [](const char* p) {
+    uint64_t v;
+    std::memcpy(&v, p, sizeof v);
+    return static_cast<size_t>((v * 0x9e3779b97f4a7c15ull) >> (64 - kBits));
+  };
+  std::vector<uint32_t> table(size_t{1} << kBits, UINT32_MAX);
+  for (uint64_t i = 0; i + kWindow <= base.size(); ++i) {
+    table[hash(base.data() + i)] = static_cast<uint32_t>(i);
+  }
+  uint64_t literal_start = 0;
+  uint64_t last_copy_end = 0;
+  uint64_t i = 0;
+  auto emit = [&](uint64_t copy_offset, uint64_t copy_length) {
+    PutVarint(ops, i - literal_start);
+    literals->append(data.substr(literal_start, i - literal_start));
+    PutVarint(ops, copy_length);
+    PutVarint(ops, ZigZag(static_cast<int64_t>(copy_offset) -
+                          static_cast<int64_t>(last_copy_end)));
+    last_copy_end = copy_offset + copy_length;
+    ++*op_count;
+  };
+  while (i + kWindow <= data.size()) {
+    const uint32_t c = table[hash(data.data() + i)];
+    if (c != UINT32_MAX &&
+        std::memcmp(base.data() + c, data.data() + i, kWindow) == 0) {
+      uint64_t n = kWindow;
+      while (i + n < data.size() && c + n < base.size() &&
+             base[c + n] == data[i + n]) {
+        ++n;
+      }
+      if (n >= kMinCopy) {
+        emit(c, n);
+        i += n;
+        literal_start = i;
+        continue;
+      }
+    }
+    ++i;
+  }
+  i = data.size();
+  emit(last_copy_end, 0);
+}
+
+bool Patch(std::string_view base, const Parsed& p, std::string* out) {
+  Reader ops(p.ops);
+  uint64_t lit = 0;
+  uint64_t last_copy_end = 0;
+  for (uint64_t k = 0; k < p.op_count; ++k) {
+    uint64_t literal_length = 0;
+    uint64_t copy_length = 0;
+    uint64_t offset = 0;
+    if (!ops.Varint(&literal_length) || !ops.Varint(&copy_length) ||
+        !ops.Varint(&offset) || literal_length > p.literals.size() - lit) {
+      return false;
+    }
+    out->append(p.literals.substr(lit, literal_length));
+    lit += literal_length;
+    const int64_t start =
+        static_cast<int64_t>(last_copy_end) + UnZigZag(offset);
+    if (start < 0 || static_cast<uint64_t>(start) > base.size() ||
+        copy_length > base.size() - start) {
+      return false;
+    }
+    out->append(base.substr(start, copy_length));
+    last_copy_end = start + copy_length;
+  }
+  return lit == p.literals.size();
+}
+
+void PutBase(std::string* out, const BaseRef& base) {
+  PutVarint(out, base.name.size());
+  out->append(base.name);
+  PutVarint(out, base.size);
+  PutVarint(out, base.hash);
+}
+
+// Header, groups and runs, as every form of a file writes them.
+void PutStructure(std::string* out, uint64_t mode, uint64_t size,
+                  const BaseRef* base, const std::vector<Group>& groups,
+                  const std::vector<PlacedRun>& runs, bool predictors) {
+  out->clear();
+  out->append(kMagic);
+  PutVarint(out, kVersion);
+  PutVarint(out, size);
+  PutVarint(out, mode);
+  if (base != nullptr) {
+    PutBase(out, *base);
+  }
+  PutVarint(out, groups.size());
+  for (const Group& group : groups) {
+    PutVarint(out, group.table.size());
+    out->append(group.table);
+    PutVarint(out, group.length);
+    PutVarint(out, group.slots);
+    PutVarint(out, predictors ? group.predictors.size() : 0);
+    if (predictors) {
+      for (const Predictor& p : group.predictors) {
+        PutVarint(out, p.offset);
+        PutVarint(out, p.kind);
+        PutVarint(out, p.param);
+      }
+    }
+  }
+  PutVarint(out, runs.size());
+  uint64_t last_instance = 0;
+  uint64_t last_end = 0;
+  for (const PlacedRun& run : runs) {
+    const bool same = run.instance == last_instance;
+    PutVarint(out, run.gap);
+    PutVarint(out, run.group);
+    PutVarint(out, run.count);
+    PutVarint(out, run.instance - last_instance);
+    PutVarint(out, run.id - (same ? last_end : 0));
+    last_instance = run.instance;
+    last_end = run.id + run.count;
+  }
+}
+
+void PutColumns(std::string* out, const std::string& rows, uint64_t length,
+                uint64_t slots) {
+  const size_t start = out->size();
+  out->resize(start + length * slots);
+  char* columns = out->data() + start;
+  for (uint64_t s = 0; s < slots; ++s) {
+    for (uint64_t b = 0; b < length; ++b) {
+      columns[b * slots + s] = rows[s * length + b];
+    }
+  }
+}
+
+std::string Rows(std::string_view columns, uint64_t length, uint64_t slots) {
+  std::string rows(length * slots, '\0');
+  for (uint64_t s = 0; s < slots; ++s) {
+    for (uint64_t b = 0; b < length; ++b) {
+      rows[s * length + b] = columns[b * slots + s];
+    }
+  }
+  return rows;
+}
+
+SlotIds IdsOf(const Parsed& p, size_t g) {
+  SlotIds ids;
+  for (const PlacedRun& run : p.runs) {
+    if (run.group != g) {
+      continue;
+    }
+    for (uint64_t k = 0; k < run.count; ++k) {
+      ids.id.push_back(static_cast<uint32_t>(run.id + k));
+      ids.instance.push_back(static_cast<uint32_t>(run.instance));
+    }
+  }
+  return ids;
+}
+
 }  // namespace
 
 bool IsEncoded(std::string_view bytes) {
@@ -423,14 +835,7 @@ bool Encode(std::string_view odb, std::string_view layout, std::string* out,
   // table's runs with nothing in between; a slot's id is its position in
   // the instance, counting slots of every length. A run that continues
   // the previous one's group, instance and ids is merged into it.
-  struct Placed {
-    uint64_t gap;
-    size_t group;
-    uint64_t count;
-    uint64_t instance;
-    uint64_t id;
-  };
-  std::vector<Placed> placed;
+  std::vector<PlacedRun> placed;
   std::vector<std::string> matrix(kept.size());
   std::vector<SlotIds> ids(kept.size());
   for (size_t g = 0; g < kept.size(); ++g) {
@@ -463,7 +868,7 @@ bool Encode(std::string_view odb, std::string_view layout, std::string* out,
         placed.back().id + placed.back().count == id) {
       placed.back().count += run.count;
     } else {
-      placed.push_back(Placed{gap, g, run.count, instance, id});
+      placed.push_back(PlacedRun{gap, g, run.count, instance, id});
     }
     matrix[g].append(odb.substr(run.offset, run.length * run.count));
     for (uint64_t k = 0; k < run.count; ++k) {
@@ -478,161 +883,145 @@ bool Encode(std::string_view odb, std::string_view layout, std::string* out,
     kept[g].predictors = ApplyPredictors(&matrix[g], kept[g].length, ids[g]);
   }
 
-  out->clear();
-  out->append(kMagic);
-  PutVarint(out, kVersion);
-  PutVarint(out, odb.size());
-  PutVarint(out, kept.size());
-  for (const Group& group : kept) {
-    PutVarint(out, group.table.size());
-    out->append(group.table);
-    PutVarint(out, group.length);
-    PutVarint(out, group.slots);
-    PutVarint(out, group.predictors.size());
-    for (const Predictor& p : group.predictors) {
-      PutVarint(out, p.offset);
-      PutVarint(out, p.kind);
-      PutVarint(out, p.param);
-    }
-  }
-  PutVarint(out, placed.size());
-  uint64_t last_instance = 0;
-  uint64_t last_end = 0;
-  for (const Placed& run : placed) {
-    const bool same = run.instance == last_instance;
-    PutVarint(out, run.gap);
-    PutVarint(out, run.group);
-    PutVarint(out, run.count);
-    PutVarint(out, run.instance - last_instance);
-    PutVarint(out, run.id - (same ? last_end : 0));
-    last_instance = run.instance;
-    last_end = run.id + run.count;
-  }
+  PutStructure(out, kStandalone, odb.size(), nullptr, kept, placed, true);
   PutVarint(out, verbatim.size());
   out->append(verbatim);
   for (size_t g = 0; g < kept.size(); ++g) {
-    // Rows to columns.
-    const uint64_t length = kept[g].length;
-    const uint64_t slots = kept[g].slots;
-    const size_t start = out->size();
-    out->resize(start + length * slots);
-    char* columns = out->data() + start;
-    const char* rows = matrix[g].data();
-    for (uint64_t s = 0; s < slots; ++s) {
-      for (uint64_t b = 0; b < length; ++b) {
-        columns[b * slots + s] = rows[s * length + b];
-      }
-    }
+    PutColumns(out, matrix[g], kept[g].length, kept[g].slots);
   }
   return true;
 }
 
-bool Decode(std::string_view encoded, std::string* out, std::string* error) {
-  *error = "truncated or corrupt encoded .odb";
-  if (!IsEncoded(encoded)) {
-    *error = "not an encoded .odb";
+bool EncodeDelta(std::string_view encoded, std::string_view odb,
+                 const std::string& base_name, std::string_view base_encoded,
+                 std::string_view base_odb, std::string* out,
+                 std::string* error) {
+  Parsed file;
+  Parsed base;
+  if (!ParseContainer(encoded, &file, error) ||
+      !ParseContainer(base_encoded, &base, error)) {
     return false;
   }
-  Reader in(encoded.substr(kMagic.size()));
-  uint64_t version = 0;
-  uint64_t size = 0;
-  uint64_t group_count = 0;
-  if (!in.Varint(&version) || version != kVersion) {
-    *error = "encoded .odb of an unknown version";
+  if (file.size != odb.size() || base.size != base_odb.size()) {
+    *error = "sizes do not match the encoded files";
     return false;
   }
-  if (!in.Varint(&size) || !in.Varint(&group_count)) {
-    return false;
+  const BaseRef ref{base_name, base_odb.size(), Hash(base_odb)};
+  if (odb == base_odb) {
+    PutStructure(out, kIdentical, odb.size(), &ref, file.groups, file.runs,
+                 false);
+    return true;
   }
-  std::vector<Group> groups;
-  for (uint64_t g = 0; g < group_count; ++g) {
-    Group group;
-    uint64_t name_length = 0;
-    uint64_t predictor_count = 0;
-    std::string_view name;
-    if (!in.Varint(&name_length) || !in.Bytes(name_length, &name) ||
-        !in.Varint(&group.length) || !in.Varint(&group.slots) ||
-        !in.Varint(&predictor_count) || predictor_count > group.length) {
-      return false;
-    }
-    group.table = name;
-    for (uint64_t i = 0; i < predictor_count; ++i) {
-      Predictor p{};
-      if (!in.Varint(&p.offset) || !in.Varint(&p.kind) ||
-          !in.Varint(&p.param)) {
-        return false;
-      }
-      group.predictors.push_back(p);
-    }
-    groups.push_back(std::move(group));
-  }
-  struct Placed {
-    uint64_t gap;
-    uint64_t group;
-    uint64_t count;
-  };
-  uint64_t run_count = 0;
-  if (!in.Varint(&run_count)) {
-    return false;
-  }
-  std::vector<Placed> runs;
-  std::vector<SlotIds> ids(groups.size());
-  uint64_t instance = 0;
-  uint64_t last_end = 0;
-  for (uint64_t r = 0; r < run_count; ++r) {
-    Placed run{};
-    uint64_t instance_delta = 0;
-    uint64_t id_delta = 0;
-    if (!in.Varint(&run.gap) || !in.Varint(&run.group) ||
-        !in.Varint(&run.count) || !in.Varint(&instance_delta) ||
-        !in.Varint(&id_delta) || run.group >= groups.size() ||
-        run.count > groups[run.group].slots - ids[run.group].id.size()) {
-      return false;
-    }
-    instance += instance_delta;
-    const uint64_t id = (instance_delta == 0 ? last_end : 0) + id_delta;
-    for (uint64_t k = 0; k < run.count; ++k) {
-      ids[run.group].id.push_back(static_cast<uint32_t>(id + k));
-      ids[run.group].instance.push_back(static_cast<uint32_t>(instance));
-    }
-    last_end = id + run.count;
-    runs.push_back(run);
-  }
-  uint64_t verbatim_length = 0;
-  std::string_view verbatim;
-  if (!in.Varint(&verbatim_length) || !in.Bytes(verbatim_length, &verbatim)) {
-    return false;
-  }
-  // Columns back to rows, then the predicted fields back to values.
-  std::vector<std::string> rows(groups.size());
-  for (size_t g = 0; g < groups.size(); ++g) {
-    const uint64_t length = groups[g].length;
-    const uint64_t slots = groups[g].slots;
-    std::string_view columns;
-    if (length != 0 && slots > UINT64_MAX / length) {
-      return false;
-    }
-    if (ids[g].id.size() != slots || !in.Bytes(length * slots, &columns)) {
-      return false;
-    }
-    rows[g].resize(length * slots);
-    for (uint64_t s = 0; s < slots; ++s) {
-      for (uint64_t b = 0; b < length; ++b) {
-        rows[g][s * length + b] = columns[b * slots + s];
+  const SlotMap partners = MapSlots(base_odb, base);
+  const std::vector<std::vector<Slot>> slots = Slots(file);
+  PutStructure(out, kDelta, odb.size(), &ref, file.groups, file.runs, false);
+  uint64_t op_count = 0;
+  std::string ops;
+  std::string literals;
+  Diff(Verbatim(base_odb, base), Verbatim(odb, file), &op_count, &ops,
+       &literals);
+  PutVarint(out, op_count);
+  PutVarint(out, ops.size());
+  out->append(ops);
+  PutVarint(out, literals.size());
+  out->append(literals);
+  for (size_t g = 0; g < file.groups.size(); ++g) {
+    const uint64_t length = file.groups[g].length;
+    std::string rows;
+    rows.reserve(length * slots[g].size());
+    for (const Slot& slot : slots[g]) {
+      const size_t at = rows.size();
+      rows.append(odb.substr(slot.offset, slot.length));
+      const auto it = partners.find(slot.key);
+      if (it != partners.end() && it->second.size() == length) {
+        Subtract(rows.data() + at, it->second.data(), length);
       }
     }
-    if (!UndoPredictors(groups[g].predictors, &rows[g], length, ids[g])) {
+    PutColumns(out, rows, length, slots[g].size());
+  }
+  return true;
+}
+
+bool BaseOf(std::string_view encoded, std::string* name, std::string* error) {
+  Parsed p;
+  if (!ParseContainer(encoded, &p, error)) {
+    return false;
+  }
+  *name = p.mode == kStandalone ? "" : p.base.name;
+  return true;
+}
+
+bool Decode(std::string_view encoded, const ResolveBase& resolve,
+            std::string* out, std::string* error) {
+  Parsed p;
+  if (!ParseContainer(encoded, &p, error)) {
+    return false;
+  }
+  // The file's own columns back to rows first: a caller fetches the base
+  // meanwhile.
+  std::vector<std::string> rows;
+  for (size_t g = 0; g < p.matrices.size(); ++g) {
+    rows.push_back(
+        Rows(p.matrices[g], p.groups[g].length, p.groups[g].slots));
+    if (p.mode == kStandalone &&
+        !UndoPredictors(p.groups[g].predictors, &rows[g], p.groups[g].length,
+                        IdsOf(p, g))) {
+      *error = "truncated or corrupt encoded .odb";
       return false;
+    }
+  }
+  std::string base_encoded;
+  std::string base_odb;
+  Parsed base;
+  std::string verbatim_storage;
+  std::string_view verbatim = p.verbatim;
+  if (p.mode != kStandalone) {
+    if (!resolve || !resolve(p.base.name, &base_encoded, &base_odb, error)) {
+      if (error->empty()) {
+        *error = "base " + p.base.name + " is not available";
+      }
+      return false;
+    }
+    if (base_odb.size() != p.base.size || Hash(base_odb) != p.base.hash) {
+      *error = "base " + p.base.name + " is not the file this was encoded "
+               "against";
+      return false;
+    }
+    if (p.mode == kIdentical) {
+      *out = std::move(base_odb);
+      error->clear();
+      return true;
+    }
+    if (!ParseContainer(base_encoded, &base, error)) {
+      *error = "base " + p.base.name + ": " + *error;
+      return false;
+    }
+    if (!Patch(Verbatim(base_odb, base), p, &verbatim_storage)) {
+      *error = "truncated or corrupt encoded .odb";
+      return false;
+    }
+    verbatim = verbatim_storage;
+    const SlotMap partners = MapSlots(base_odb, base);
+    const std::vector<std::vector<Slot>> slots = Slots(p);
+    for (size_t g = 0; g < rows.size(); ++g) {
+      const uint64_t length = p.groups[g].length;
+      for (size_t s = 0; s < slots[g].size(); ++s) {
+        const auto it = partners.find(slots[g][s].key);
+        if (it != partners.end() && it->second.size() == length) {
+          Add(rows[g].data() + s * length, it->second.data(), length);
+        }
+      }
     }
   }
 
   out->clear();
-  out->reserve(size);
-  std::vector<uint64_t> taken(groups.size(), 0);
+  out->reserve(p.size);
+  std::vector<uint64_t> taken(p.groups.size(), 0);
   size_t vpos = 0;
-  for (const Placed& run : runs) {
-    const Group& group = groups[run.group];
+  for (const PlacedRun& run : p.runs) {
+    const Group& group = p.groups[run.group];
     if (run.gap > verbatim.size() - vpos) {
+      *error = "truncated or corrupt encoded .odb";
       return false;
     }
     out->append(verbatim.substr(vpos, run.gap));
@@ -642,7 +1031,8 @@ bool Decode(std::string_view encoded, std::string* out, std::string* error) {
     taken[run.group] += run.count;
   }
   out->append(verbatim.substr(vpos));
-  if (out->size() != size) {
+  if (out->size() != p.size) {
+    *error = "truncated or corrupt encoded .odb";
     return false;
   }
   error->clear();
