@@ -3,9 +3,16 @@
 clock_tree_synthesis pads every register's clock path with delay buffers
 until it matches the macros' insertion delay. On XiangShan's planned
 parent that was 49 736 buffers for four blocks and a 2.6 h legaliser
-(take 23, 2026-09-22); the miniature here shows the same mechanism at its
-own scale, and that -no_insertion_delay removes it entirely. The numbers
-are printed so the ratio is on record when the parent's are read.
+(take 23, 2026-09-22), with the blocks abstracted at place: an abstract
+taken before the block's own CTS has an unbuffered clock net behind its
+clock pin, so the insertion delay CTS balanced to was that net's. The
+miniature showed the same at its own scale, 7 delay buffers.
+
+With the blocks abstracted at cts the abstract's clock pin is one buffer
+input and its insertion delay is a real tree's, about 60 ps here, and
+balancing to it costs nothing: no delay buffers with or without
+-no_insertion_delay, which is now a choice rather than a bypass. The
+numbers are printed so the ratio is on record when the parent's are read.
 """
 
 import json
@@ -20,7 +27,7 @@ def load(name):
 
 
 class DelayBuffersTest(unittest.TestCase):
-    def test_no_insertion_delay_removes_the_delay_buffers(self):
+    def test_blocks_abstracted_at_cts_need_no_delay_buffers(self):
         base = load("cts_buffers_base.json")
         nid = load("cts_buffers_nid.json")
         print(
@@ -43,10 +50,10 @@ class DelayBuffersTest(unittest.TestCase):
         self.assertEqual(
             base["macro_sinks"], 4, "the four blocks are the macro clock's sinks"
         )
-        self.assertGreater(
+        self.assertEqual(
             base["delay_buffers"],
             0,
-            "with macros, CTS balances to their insertion delay",
+            "the blocks' insertion delay is a buffered tree's: nothing to pad",
         )
         self.assertIn("-no_insertion_delay", nid["cts_args"])
         self.assertEqual(
