@@ -1,0 +1,36 @@
+{
+  "_comment": [
+    "The project's KPI: the minimum clock period of XSCore, one row per",
+    "measured run. Add a row when a change moves it, run kpi.py, commit",
+    "both. min_period_ps is the SDC period minus the worst slack of the",
+    "reg2reg group, which is the only group that can fail timing closure;",
+    "see .claude/commands/odb-debug.md for how to ask a checkpoint for it,",
+    "and .claude/skills/macro-constraints for why the other groups are not",
+    "the number.",
+    "",
+    "The target is 800 ps. When the period approaches it, this file gains",
+    "the CoreMark and power columns and the study reconnects; until then",
+    "the design does not depend on it."
+  ],
+  "target_ps": 800,
+  "runs": [
+    {
+      "date": "2026-09-22",
+      "min_period_ps": 47401,
+      "measured": "workbench chain, before the baseline existed",
+      "note": "first clock tree of the planned parent"
+    },
+    {
+      "date": "2026-09-23",
+      "min_period_ps": 45607,
+      "measured": "workbench chain, before the baseline existed",
+      "note": "blocks' band soft-blocked, density 0.5, M9 at adjustment 0.18"
+    },
+    {
+      "date": "2026-09-24",
+      "min_period_ps": 45985,
+      "measured": "XSCore_grt, built from source",
+      "note": "the baseline; 43715 ps of it is the clock reaching MemBlock's pin"
+    }
+  ]
+}

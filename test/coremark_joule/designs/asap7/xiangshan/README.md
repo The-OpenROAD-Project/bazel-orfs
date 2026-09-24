@@ -1,37 +1,22 @@
-# XiangShan XSCore on asap7: a reference frame, not a CI design
+# XiangShan XSCore on asap7
 
-XSCore is the core of XiangShan's Kunminghu generation: frontend, backend,
-memory block, L1 caches and TLBs, about 4.3 million cells after synthesis.
-It is here to be a fixed point that everyone can look at, run again and
-argue about with numbers. It is not here to pass.
+The core of XiangShan's Kunminghu generation, about 4.1 million instances,
+as a reference frame: something that reproduces, that anyone can look at,
+and that we improve one concern at a time.
 
-Nothing in this package runs in CI. Every flow target is
-`tags = ["manual"]`, and it stays that way.
+Nothing here runs in CI. Every target is `tags = ["manual"]`.
 
-## What it is for
+## The KPI
 
-The flow does not converge. Global route is skipped past pin access
-because of an open OpenROAD bug, and the five-iteration route has never
-finished on this design. That is the point rather than a caveat: the
-value of a design this size is the single-concern problems it produces,
-and those are what leave here as reproducers, feature requests and
-patches for OpenROAD, ORFS and XiangShan's own build.
+![minimum clock period](kpi.png)
 
-The workflow is:
+`kpi.json` is the series and `kpi.py` draws it. When a change moves the
+number, add a row and re-render.
 
-1. Run the baseline. It reproduces a known result, warts and all.
-2. Find one thing wrong with it, measured.
-3. Reproduce that one thing in a test that runs in seconds or minutes.
-   The battery beside this package is where those live:
-   `test/structured_netlist`, `test/planned_parent`, `test/macro_select`.
-4. Fix it where it belongs, upstream or here, with the small test as the
-   evidence and this design as the provenance.
-5. Re-run the baseline and record the new numbers.
-
-A position that falls in the small test falls here too, and a day of this
-design costs what a minute of the small one does. Nobody should be
-debugging against XSCore when a two-minute case reproduces the same
-thing.
+The number is the SDC period minus the worst slack of the `reg2reg`
+group, which is the only group that can fail timing closure. Ask a
+checkout for it with `.claude/commands/odb-debug.md`, and read
+`.claude/skills/macro-constraints` before quoting any other group.
 
 ## Running it
 
@@ -39,65 +24,48 @@ thing.
 bazelisk run //test/coremark_joule/designs/asap7/xiangshan:XSCore_grt gui_grt
 ```
 
-That builds every stage and opens the result in the OpenROAD GUI, with the
-congestion map the flow produced. Replace `gui_grt` with `open_grt` for a
-Tcl shell on it, or drop the argument to build without opening anything.
+Needs 64 GB. About six hours cold, a download when the cache is warm.
+Earlier stages are their own targets (`XSCore_synth`, `_floorplan`,
+`_place`, `_cts`), each with `gui_`, `open_` and `_deps` forms, and
+`XSCore_cts_odb_debug` and `XSCore_grt_odb_debug` open a checkpoint for
+questions.
 
-**The machine matters.** Peak memory is about 61 GB in global route and
-47 GB in clock tree synthesis, so this needs 64 GB and will not run on a
-32 GB laptop. A cold build is about six hours: synthesis a little over
-two, floorplan twenty minutes, placement and repair seventy minutes,
-clock tree synthesis an hour, global route twenty minutes. With the
-remote cache warm it is a download.
+## The next three
 
-Earlier stages are targets of their own when that is all you need:
-`XSCore_synth`, `_floorplan`, `_place`, `_cts`. Each has a
-`gui_<stage>` and an `open_<stage>` form, and a `_deps` companion that
-installs a standalone tree you can iterate in by hand.
+1. **Abstract each block after its own clock tree.** 43,715 ps of the
+   45,985 is the clock reaching MemBlock's pin, whose liberty model says
+   145,071 fF because the abstract was written before the block had a
+   tree.
+2. **The block-to-block hop**: 1,793 ps on one wire across a millimetre,
+   with timing-driven placement off and post-clock-tree repair skipped.
+3. **Each block's own period**, which no number today describes.
 
-## The baseline
+## What is deliberately broken
 
-`docs/xiangshan_baseline.json` carries the numbers, one entry per run, and
-the figures in `docs/images/` are rendered from it. The current entry is
-the reference: route-0 congestion, the worst edge, per-stage wall time and
-peak memory, and the post-clock-tree worst slack. A change that claims an
-improvement says so by moving those numbers.
+Global route is skipped past pin access (OpenROAD DRT-0073) and does not
+converge; antenna repair is off because it discards the route on a
+platform with no antenna cell; the register files are generated rather
+than synthesised, because yosys does not finish them at this size; the
+configuration is integer-only with a small last-level cache. Eight
+carried patches in `patches/` make it run at all.
 
-## The warts, on purpose
+`ideas/xiangshan-timing.md` has the inventory: 25 entries, each a
+measurement and what it implies. That is where a question about this
+design is usually already answered.
 
-Each one is a known, measured problem with a home in
-`ideas/xiangshan-timing.md`, which has the full inventory.
+## The loop
 
-- **Global route does not converge.** One maze iteration on a 3,978
-  square gcell grid takes hours; every knob arm tried has timed out.
-  Entry 18, and take 16's matrix.
-- **Pin access is skipped.** Global route otherwise stops on exactly one
-  pin per hardened block. A five-second reproducer exists in
-  `test/planned_parent`. Entry 12.
-- **The timing is not the design's timing.** The blocks are abstracted at
-  their place stage, before their own clock tree, so each abstract's clock
-  pin carries the block's whole unbuffered clock net, 145 pF for the
-  memory block. The post-clock-tree worst slack is dominated by that
-  model, not by the logic. Entry 17.
-- **Seven carried ORFS patches** and one carried OpenROAD patch make the
-  flow run at all; each says in its header what it fixes and how it
-  retires. `patches/`, registered in `orfs_source.bzl`.
-- **The register files are generated, not synthesised.** Yosys does not
-  finish them at this size, so they are built by `tools/structured_gen`
-  from the specs in this directory and dropped into the parent's rows.
-  The same need exists for the content-addressable memories and has not
-  been met.
+Run the baseline. Find one measured thing wrong. Reproduce that thing in
+the battery next door, which runs in seconds to minutes:
+`test/structured_netlist`, `test/planned_parent`, `test/macro_select`.
+Fix it where it belongs. Re-run, and add a row to `kpi.json`.
 
-## What this is not
+A day of this design costs what a minute of the small one does, so
+nobody should be debugging against XSCore when a two-minute case
+reproduces the same thing.
 
-It is not a regression test, a quality target, or a claim about
-XiangShan. XiangShan's own published target is 3 GHz on a 7 nm process,
-a 333 ps period; what this flow produces on asap7 is a different number
-by a large factor, and the ladder of where that factor comes from is in
-the inventory. The configuration here is integer-only with a small last
-level cache, chosen so the study can run, and is a deliberate departure
-from Kunminghu as delivered.
+## Later
 
-It is also not a design you check into a flow repository and expect to
-run. The build system around it is the reason it runs at all, and that
-build system is what would have to travel with it.
+When the period approaches the 800 ps target, `kpi.json` gains the
+CoreMark and power columns and the study reconnects to the simulation.
+Until then the design does not depend on it.
