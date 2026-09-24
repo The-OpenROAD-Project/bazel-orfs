@@ -62,10 +62,10 @@ odb_debug(
 ]
 
 # Each planned block's own minimum clock period, which is the per block
-# series of the KPI (README.md, kpi.json). A block is abstracted at place,
-# so place is its deepest ODB and its reg2reg slack is against an ideal
-# clock; the parent's number is the one that carries a clock tree. Timing,
-# so these load in minutes, not seconds.
+# series of the KPI (README.md, kpi.json). At place the block has no clock
+# tree yet, so its reg2reg slack is against an ideal clock; the parent's
+# number is the one that carries a clock tree. Timing, so these load in
+# minutes, not seconds.
 [
     odb_debug(
         name = block + "_place_odb_debug",

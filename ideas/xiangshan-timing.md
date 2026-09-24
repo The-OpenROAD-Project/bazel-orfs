@@ -504,6 +504,60 @@ parent's own wiring above the block row, which entry 18 already named
 and which the ROB glue's fanout-256 nets drive (entry 5). That is a
 generator question, not a floorplan one.
 
+## 24. Blocks abstracted at cts: the clock pin is a buffer, the tree is a period deep
+
+Entry 17's fix, made (2026-09-24): the planned blocks are abstracted at
+cts, and the flow's place-stage abstract beside it still feeds the
+parent's synthesis, floorplan and place. The miniature
+(`test/planned_parent`) first, with the same change:
+
+| miniature block | clock pin at place | at cts | insertion delay |
+|---|---|---|---|
+| BlockA | 125.3 fF | 3.84 fF | 55 ps |
+| BlockB | 175.4 fF | 7.15 fF | 69 ps |
+| BlockC | 104.4 fF | 4.00 fF | 59 ps |
+| BlockD | 83.5 fF | 4.14 fF | 59 ps |
+
+The parent's CTS with insertion-delay balancing went from 7 delay
+buffers to 0; with blocks a real tree deep there is nothing to pad. The
+blocks' LEFs and the place-stage libs the parent's early stages read are
+byte-identical to the place abstracts they replace, so only the parent's
+CTS and later see a difference. `clock_pin_test` and
+`cts_delay_buffers_test` pin both; same numbers on the batched
+`write_timing_model` binary.
+
+The four XSCore blocks, each through its own CTS (`SKIP_CTS_REPAIR_TIMING`,
+as the parent):
+
+| block | clock pin at place | at cts | insertion delay | register sinks | depth | block CTS |
+|---|---|---|---|---|---|---|
+| MemBlock | 145,071 fF | 21.2 fF | 944 ps | 285,964 | 24-27 | 14.7 min, 19.5 GB |
+| Frontend | 60,906 fF | 21.2 fF | 871 ps | 123,283 | 23-25 | 16 min, 13.5 GB |
+| VecRegionModule | 32,823 fF | 12.6 fF | 799 ps | 65,714 | 20-21 | 4 min, 9.5 GB |
+| Region_1 | 7,186 fF | 22.3 fF | 477 ps | 14,460 | 10-11 | 1.4 min, 4.2 GB |
+
+No block legaliser stalled; block CTS costs minutes against the hours of
+the parent's. The clock pin fell by 300 to 6,800 times, which removes the
+modelling artefact that owned 43,715 of the 45,985 ps.
+
+What it exposes is the next entry's subject: the blocks' own trees are
+20-27 levels deep and their insertion delays are 60 to 118 percent of the
+800 ps period. With `-no_insertion_delay` the parent clocks its flops that
+much earlier than the blocks', so every block-to-parent path loses it and
+every parent-to-block path gains it; with balancing on, the parent pads
+its own flops by up to 944 ps of delay buffers, entry 11's 49,736 again,
+now against a real tree. A commercial flow would put a mesh or a spine
+here. Which of the two the parent's `reg2reg` prefers is the measurement
+still to make.
+
+The parent could not be measured: `origin/main`'s `MODULE.bazel` applies
+XiangShan patches 0001-0007, not `0008-xiangshan-rob-entry-file.patch`,
+while the parent's STRUCTURED_MEMORIES names `RobEntryFile.regfile`, so
+the parent's synthesis stops in `gen_memories` ("names module
+RobEntryFile, which none of the Verilog files declare"). The Verilog of
+the baseline had it; main's list lost it. Listing it again changes the
+flattened Verilog and so every XSCore stage key.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance

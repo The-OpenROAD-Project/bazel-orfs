@@ -149,10 +149,12 @@ the netlist as macros or as flops.
 
 ## The next three
 
-1. **Abstract each block after its own clock tree.** 43,715 ps of the
-   45,985 is the clock reaching MemBlock's pin, whose liberty model says
-   145,071 fF because the abstract was written before the block had a
-   tree.
+1. **Abstract each block after its own clock tree.** Done in the flow
+   (`abstract_stage = "cts"`): MemBlock's clock pin is now 21 fF instead
+   of 145,071, with a 944 ps insertion delay from a 24 to 27 level tree.
+   The parent's number on it is not measured yet, and the blocks' trees
+   being most of a period deep is the next problem
+   (`ideas/xiangshan-timing.md`, entry 24).
 2. **The block-to-block hop**: 1,793 ps on one wire across a millimetre,
    with timing-driven placement off and post-clock-tree repair skipped.
 3. **Harden XSTile instead of XSCore**, and dissolve the macros whose
