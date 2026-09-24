@@ -1,0 +1,19 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+# Key evidence for a target that is not a remote cache hit on one machine
+# when another machine built it: .claude/commands/cache-miss.md.
+py_binary(
+    name = "cache_evidence",
+    srcs = ["cache_evidence.py"],
+    deps = ["@bazel-orfs-dev-pip//zstandard"],
+)
+
+py_test(
+    name = "cache_evidence_test",
+    srcs = [
+        "cache_evidence.py",
+        "cache_evidence_test.py",
+    ],
+    main = "cache_evidence_test.py",
+    deps = ["@bazel-orfs-dev-pip//zstandard"],
+)
