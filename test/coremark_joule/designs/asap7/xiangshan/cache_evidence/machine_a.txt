@@ -6,12 +6,12 @@ host Ubuntu 26.04.1 LTS; glibc 2.43; x86_64
 terminfo dffdf88efccd 2902 files
 option --@rules_python//python/config_settings:bootstrap_impl=script
 option --cxxopt
-option --experimental_disk_cache_gc_max_age=<sha:a7c74264>
-option --experimental_disk_cache_gc_max_size=<sha:2dc5ad99>
+option --experimental_disk_cache_gc_max_age=<redacted>
+option --experimental_disk_cache_gc_max_size=<redacted>
 option --experimental_isolated_extension_usages
-option --experimental_remote_cache_eviction_retries=<sha:ef2d127d>
-option --experimental_remote_downloader=<sha:14ad863f>
-option --experimental_remote_downloader_local_fallback=<sha:b5bea41b>
+option --experimental_remote_cache_eviction_retries=<redacted>
+option --experimental_remote_downloader=<redacted>
+option --experimental_remote_downloader_local_fallback=<redacted>
 option --features=external_include_paths
 option --host_cxxopt
 option --host_per_file_copt=.*external/.*@-w
@@ -21,10 +21,10 @@ option --incompatible_strict_action_env
 option --isatty=0
 option --lockfile_mode=off
 option --per_file_copt=.*external/.*@-w
-option --remote_cache=<sha:14ad863f>
-option --remote_cache_compression=<sha:b5bea41b>
-option --remote_timeout=<sha:bdc5d8a4>
-option --remote_upload_local_results=<sha:b5bea41b>
+option --remote_cache=<redacted>
+option --remote_cache_compression=<redacted>
+option --remote_timeout=<redacted>
+option --remote_upload_local_results=<redacted>
 option --terminal_columns=80
 spawns 11521 hit 11510 ran 0 miss 11
 tool 281662b48c1b 1 k8-opt-exec:external/+http_archive+espresso

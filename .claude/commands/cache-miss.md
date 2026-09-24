@@ -46,7 +46,7 @@ bazelisk run //tools/cache_evidence -- diff \
 An evidence file has, in order:
 
 - `target`, `bazel`, `commit ... dirty`, `host` (distro, libc, architecture), `terminfo`;
-- `option` lines: what `--announce_rc` reports. Values of options that name private infrastructure (remote cache, headers, credentials) and home paths are hashed as `<sha:...>`, so two machines can still be compared without the hosts appearing;
+- `option` lines: what `--announce_rc` reports. Values of options that name private infrastructure (remote cache, headers, credentials) and home paths are written as `<redacted>`, not hashed, since a short hash of a guessable hostname confirms the guess; `capture` refuses to write a line that still looks like an address, a home path or an email;
 - `spawns N hit H ran R miss M` for the whole graph;
 - `tool <digest> <files> <group>`: each tool the in-scope actions run (the openroad and yosys binaries, yosys's share directory, the python wrapper's runfiles tree, make, klayout's mock);
 - `spawn <key> <hit|ran|miss> <mnemonic> <first output> args= env= tools= sources= design=`: every action under `--scope` (default `//test/`), with its remote cache key and separate digests of its arguments, environment, tools, external sources and design inputs.

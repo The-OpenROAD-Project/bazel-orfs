@@ -159,14 +159,42 @@ class DiffTest(unittest.TestCase):
 
 
 class RedactTest(unittest.TestCase):
-    def test_private_values_hashed(self):
-        self.assertNotIn(
-            "example", ce.redact_option("--remote_cache=grpc://cache.example:9092")
+    def test_private_values_dropped(self):
+        # Not hashed: a hash of a guessable hostname confirms the guess.
+        self.assertEqual(
+            ce.redact_option("--remote_cache=grpc://cache.example:9092"),
+            "--remote_cache=<redacted>",
         )
-        self.assertTrue(
-            ce.redact_option("--remote_cache=x").startswith("--remote_cache=<sha:")
+        self.assertEqual(
+            ce.redact_option("--disk_cache_dir=/home/alice/c"),
+            "--disk_cache_dir=<redacted>",
         )
-        self.assertNotIn("alice", ce.redact_option("--disk_cache_dir=/home/alice/c"))
+
+    def test_separate_value(self):
+        opts = ce.rc_options(
+            "  'build' options: --cxxopt -std=c++20 "
+            "--remote_header Authorization=secret --keep_going\n"
+        )
+        self.assertIn("--cxxopt=-std=c++20", opts)
+        self.assertIn("--remote_header=<redacted>", opts)
+        self.assertIn("--keep_going", opts)
+        self.assertFalse(any("secret" in o for o in opts))
+
+    def test_leak_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            for bad in (
+                "option --x=grpc://cache.example:1",
+                "option --y=/home/alice/z",
+                "note someone@example.com",
+            ):
+                with self.assertRaises(ValueError):
+                    ce.write_evidence(
+                        os.path.join(d, "e.txt"),
+                        [bad],
+                        ce.summarize_log(b"", "//")[0],
+                        [],
+                        [],
+                    )
 
     def test_plain_options_kept(self):
         self.assertEqual(ce.redact_option("--jobs=2"), "--jobs=2")
