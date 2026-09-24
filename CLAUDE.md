@@ -142,6 +142,14 @@ circulation is wrong for this flow:
   assuming a clock insertion latency the block does not know.
   `flow/platforms/asap7/constraints.sdc` is the reference.
 
+A target that another machine built but that is not a remote cache hit
+here, or that rebuilds when nothing seemed to change, has its own skill:
+
+- `cache-miss` — capture a few kilobytes of key evidence per machine
+  (`//tools/cache_evidence`), commit it next to the design and diff it;
+  names the first action whose key differs and which of its arguments,
+  environment, tools, sources or design inputs moved.
+
 A simulation that hangs, produces no output or computes the wrong answer
 is a different problem from an OpenROAD failure, and has its own skill:
 

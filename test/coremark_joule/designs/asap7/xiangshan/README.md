@@ -50,6 +50,11 @@ Earlier stages are their own targets (`XSCore_synth`, `_floorplan`,
 `XSCore_cts_odb_debug` and `XSCore_grt_odb_debug` open a checkpoint for
 questions.
 
+Not a download although another machine built it? `/cache-miss`:
+each machine captures a few kilobytes into `cache_evidence/` and a diff
+names the first action whose key differs. Usually it is the commit: every
+stage takes the whole patched ORFS tree as input.
+
 ## Where the period is
 
 ![what needs fixing in XSCore](xscore_problems.png)
