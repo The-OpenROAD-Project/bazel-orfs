@@ -27,7 +27,9 @@ exports_files(
 # The planned parent: the blocks the macro selection tables named, each a
 # real flow at the outline plan_floorplan.py drew with its pins on one
 # side, the parent at the planned die. plan/ is generated (see
-# .claude/commands/macro-selection.md, step 3); regenerate it, never edit it.
+# .claude/commands/macro-selection.md, step 3); regenerate it, never edit it:
+# plan/plan.json is its input, with pin_partners.txt beside it from
+# probe_pin_partners.tcl on XSTile_synth_odb_debug (GUI_TIMING=0).
 xiangshan_flow(
     name = "XSTile",
     grt_probe_blocks = ["Frontend"],
@@ -129,12 +131,11 @@ stage_power(
 # memory, write its views, list it in blackboxes.txt and synthesise it as
 # flip-flops anyway, and nothing fails. The expected list is declared, so
 # an empty blackboxes.txt fails here rather than passing vacuously. Every
-# name is a firtool array_<depth>x<width> module under CoupledL2, each a
-# single read-write port as CoupledL2 banks them: the data banks
+# name is a firtool array_<depth>x<width> module in CoupledL2's own flow,
+# each a single read-write port as CoupledL2 banks them: the data banks
 # (8192x137, 128 bits and SECDED), the tag, meta and replacement arrays
-# and the prefetchers' tables. The L1s' arrays are converted inside the
-# blocks that hold them, not here. The ram_<n>x<w> queues stay flops by
-# the macro floors, on purpose.
+# and the prefetchers' tables. The ram_<n>x<w> queues stay flops by the
+# macro floors, on purpose.
 CONVERTED_MEMORIES = [
     "array_1024x128",
     "array_1024x156",
@@ -150,9 +151,9 @@ CONVERTED_MEMORIES = [
 
 genrule(
     name = "cmj_xiangshan_memories_applied",
-    srcs = [":XSTile_synth"],
+    srcs = [":CoupledL2_synth"],
     outs = ["cmj_xiangshan_memories_applied.txt"],
-    cmd = "files=$$(echo $(locations :XSTile_synth) | tr ' ' '\\n'); " +
+    cmd = "files=$$(echo $(locations :CoupledL2_synth) | tr ' ' '\\n'); " +
           "$(execpath //test/coremark_joule/scripts:check_memories_applied) " +
           "$$(echo \"$$files\" | grep '/memories$$')/blackboxes.txt " +
           "$$(echo \"$$files\" | grep '/1_2_yosys.v$$') " +
