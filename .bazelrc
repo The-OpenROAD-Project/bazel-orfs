@@ -30,4 +30,13 @@ build --experimental_disk_cache_gc_max_size=2G
 # execs the hermetic toolchain interpreter and needs no host python at all.
 build --@rules_python//python/config_settings:bootstrap_impl=script
 
+# No implicit __init__.py for any py target in the graph, third-party ones
+# included. The root module's rules_python_config.explicit_init_py in
+# MODULE.bazel only covers this repo's own targets, so py_binary tools inside
+# deps (@bazel_tools proguard_allowlister, yosys pmgen/callhelp, rules_pkg
+# build_zip, sv-lang's generators) still printed rules_python's deprecation
+# warning (bazel-contrib/rules_python#2945) on every fresh analysis. None of
+# them imports a package that lacks its own __init__.py.
+common --incompatible_default_to_explicit_init_py
+
 try-import %workspace%/user.bazelrc
