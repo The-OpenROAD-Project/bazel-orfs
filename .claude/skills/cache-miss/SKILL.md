@@ -5,7 +5,7 @@ description: >-
   it, or why it rebuilds when nothing seemed to change: capture a few kilobytes of key
   evidence per machine (Bazel version, commit, redacted options, tool digests, one line per
   action with its cache key and which of arguments, environment, tools, sources or design
-  inputs moved), commit it next to the design and diff it. Use when XSCore_grt or any long
+  inputs moved), commit it next to the design and diff it. Use when XSTile_grt or any long
   flow target rebuilds unexpectedly, or before blaming Scala, a toolchain or the cache.
 ---
 

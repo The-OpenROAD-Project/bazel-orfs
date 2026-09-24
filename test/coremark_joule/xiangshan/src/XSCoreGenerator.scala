@@ -1,14 +1,15 @@
 // Elaborate XiangShan for the CoreMark-per-Joule study.
 //
-// The study hardens XSCore -- the core with its L1I and L1D, which is the
-// measurement boundary -- but XSCore is a diplomacy LazyModule whose nodes
-// bind upward to L2Top, so it cannot be elaborated on its own without
-// hand-writing the tie-off. Elaborating upstream's own XSTop avoids that
-// entirely: firtool emits one Verilog module per Chisel module, so XSCore
-// arrives as its own module with its own ports, and the synthesis top is a
-// choice made in config.mk rather than surgery done here.
+// The study hardens XSTile -- the core with its L1I and L1D and the L2,
+// one clock and one voltage domain, which is the measurement boundary --
+// but XSTile is a diplomacy LazyModule whose nodes bind upward into the
+// SoC, so it cannot be elaborated on its own without hand-writing the
+// tie-off. Elaborating upstream's own XSTop avoids that entirely: firtool
+// emits one Verilog module per Chisel module, so XSTile arrives as its
+// own module with its own ports, and the synthesis top is a choice made
+// in the flow rather than surgery done here.
 //
-// Everything outside XSCore is elaborated because the core cannot run
+// Everything outside XSTile is elaborated because the tile cannot run
 // without it, and hardened by nobody.
 
 package coremark_joule.xiangshan
@@ -180,7 +181,7 @@ object XSCoreGeneratorBase {
     ChiselDB.init(false)
   }
 
-  /** XSTop alone: what the flow hardens XSCore out of. */
+  /** XSTop alone: what the flow hardens XSTile out of. */
   def emit(config: Config, args: Array[String]): Unit = {
     prepare()
     val soc = DisableMonitors(p => LazyModule(new XSTop()(p)))(withArgParserKeys(config))

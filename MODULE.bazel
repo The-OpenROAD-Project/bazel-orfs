@@ -774,9 +774,9 @@ maven.install(
 use_repo(maven, "xs_maven")
 
 # XiangShan itself: the Kunminghu V3 head of the default branch on
-# 2026-09-14. The core the study wants is XSCore -- core plus L1I and
-# L1D, with the L2 a sibling inside XSTile -- which is exactly the
-# measurement boundary, with no surgery needed to isolate it.
+# 2026-09-14. The unit the study hardens is XSTile -- the core with its
+# L1I and L1D and the L2 -- which is exactly the measurement boundary,
+# with no surgery needed to isolate it.
 http_archive(
     name = "xiangshan",
     build_file = "//test/coremark_joule/xiangshan:xiangshan.BUILD.bazel",
@@ -864,9 +864,9 @@ http_archive(
     urls = ["https://github.com/OpenXiangShan/YunSuan/archive/fd26afc0d93dfe32444dff2f420fe540b07a9744.tar.gz"],
 )
 
-# XSCache carries coupledL2, openLLC and xscache in one tree. Only the L1
-# side is inside the measurement boundary; the L2 is elaborated because
-# XSCore cannot run without one, and hardened by nobody.
+# XSCache carries coupledL2, openLLC and xscache in one tree. CoupledL2 is
+# the L2 inside XSTile; openLLC is the SoC's last-level cache, elaborated
+# because the tile cannot run without one, and hardened by nobody.
 http_archive(
     name = "xs_cache",
     build_file = "//test/coremark_joule/xiangshan:xscache.BUILD.bazel",

@@ -37,7 +37,7 @@ issue and control, at 4 to 9, which never becomes a macro.
 Synthesise each candidate block alone at the target synthesis period
 (XiangShan: the planned blocks at 800 ps for a core meant to route at
 1000) and open its synthesis ODB through its `odb_debug` target with
-timing (`<block>_plan_synth_odb_debug`). Run the probes as they are, no
+timing (`<block>_synth_odb_debug`). Run the probes as they are, no
 repair: a block synthesised alone has no fanout phantom (Frontend, 1.5 M
 cells: none of its 11 391 worst path ends has a stage past fanout 32,
 and `repair_design -pre_placement` moved its WNS by 24 ps in 575 s). The
@@ -100,7 +100,7 @@ Pin placement is the parent's problem, not a block's: perfect pins for
 one block are another's disaster, and the compromise between the two ends
 of an interface can only be struck where both are visible. So the plan
 places the pins. `probe_pin_partners.tcl` on the planned parent's
-synthesis (the blocks as blackboxes, `<parent>_plan_synth_odb_debug` with
+synthesis (the blocks as blackboxes, `<parent>_synth_odb_debug` with
 `GUI_TIMING=0`) says which block, or the parent's logic, or a top port,
 each block pin talks to, and which pin; the planner splits each block's
 pin side into one segment per partner, ordered by where the partner sits
@@ -120,9 +120,8 @@ two macros or none.
 (every signal pin on the planned side, in partner segments when the plan
 has the partner dump), `place_macros.tcl` for the parent (by master, R0,
 `-exact`) and `plan.bzl` with the outlines; the design's
-`.bzl` reads `PLAN` and builds the planned variant next to the unplanned
-one (XiangShan: `xiangshan_flow(plan = PLAN, variant = "plan")`, targets
-`XSCore_*`). `keep_under.py` lists the masters under a block in the
+`.bzl` reads `PLAN` and builds the planned flow (XiangShan:
+`xiangshan_flow(name = "XSTile", plan = PLAN)`, targets `XSTile_*`). `keep_under.py` lists the masters under a block in the
 boundary probe for the block's own `SYNTH_KEEP_MODULES`.
 
 ## 4. Build, with the gates on

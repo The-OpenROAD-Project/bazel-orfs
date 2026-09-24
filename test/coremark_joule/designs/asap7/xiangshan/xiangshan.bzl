@@ -3,9 +3,9 @@
 Generated once from the design table the config.mk DSL produced (the
 parent and its 34 blocks), then maintained by hand: the study outgrew the
 DSL, and a macro set chosen by interface rather than by synthesis time is
-edited here as data. Every block is its own flow abstracted at place with
-a pin-fitted mock for the parent; the parent's synthesis blackboxes the
-blocks by name from their abstracts.
+edited here as data. The parent is XSTile, the core and its L2; every
+planned block is its own flow abstracted at place, and the parent's
+synthesis blackboxes the blocks by name from their abstracts.
 """
 
 load("@bazel-orfs//:openroad.bzl", "orfs_flow")
@@ -90,9 +90,6 @@ XS_PARENT = {
 
 # Block name -> its flow's arguments and sources. A block reads whichever
 # annealer knobs its own settings name.
-# In the order BLOCKS listed them; the parent's macro list follows it.
-XS_BLOCK_ORDER = ["VecRegionModule", "Bpu", "ICache", "DCacheWrapper", "L2TLBWrapper", "Rob", "Dispatch", "Rename", "MemCtrl", "Region_1", "LsqWrapper", "IssueQueueAluCsrFenceLinkBrhNjmp", "IssueQueueAluDivBrhNjmp", "IssueQueueAluI2fBrhNjmp", "IssueQueueAluBkuVset", "IssueQueueAluMul", "IssueQueueLdu", "IssueQueueStaMou", "IssueQueueStaMou_1", "IssueQueueStdMoud", "IssueQueueStdMoud_1", "DataPath", "ExuBlock", "VectorDecodeChannel", "Sbuffer", "TLBNonBlock", "TLBNonBlock_1", "TLBNonBlock_2", "PrefetcherWrapper", "HPerfMonitor_3", "Ifu", "Ftq", "IBuffer", "TLB"]
-
 XS_BLOCKS = {
     "Bpu": {
         "arguments": {
@@ -1239,170 +1236,141 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
     sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints_800ps.sdc"]
     return arguments, sources
 
-def xiangshan_flow(name = "XSCore", blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan = None, plan_dir = "plan", variant = None, grt_probe_blocks = []):
-    """The blocks, each abstracted, then the parent.
+def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan_dir = "plan", grt_probe_blocks = []):
+    """The plan's blocks, each abstracted at cts, then the parent.
 
-    Without a plan: every block in `blocks` with a pin-fitted mock for the
-    parent, abstracted at place, the parent's outline from
-    CORE_UTILIZATION and the annealer.
-    With a plan (the PLAN dict plan_floorplan.py --emit wrote to
-    plan_dir/plan.bzl): only the plan's blocks, each a real flow at the
-    planned outline with its pins on the planned side and no mock; the
-    parent at the planned die with plan_dir/place_macros.tcl placing the
-    blocks R0 where the plan put them. `variant` keeps the two apart.
-    The planned blocks are abstracted at cts, so the parent's CTS and
+    `plan` is the PLAN dict plan_floorplan.py --emit wrote to
+    plan_dir/plan.bzl: each block a real flow at the planned outline with
+    its pins on the planned side, the parent at the planned die with
+    plan_dir/place_macros.tcl placing the blocks R0 where the plan put
+    them. The blocks are abstracted at cts, so the parent's CTS and
     timing see each block's clock pin as its tree's root buffer and its
     insertion delay, not the whole unbuffered clock net (entry 17 of
     ideas/xiangshan-timing.md); the parent's synthesis, floorplan and place
     read the place-stage abstract the flow emits beside it.
     """
-    if plan == None:
-        for block, cfg in blocks.items():
+    macros = sorted(plan["macros"].keys())
+    for block in macros:
+        cfg = blocks.get(block, XS_BLOCK_DEFAULT)
+        arguments, sources = _planned_block(cfg, plan["macros"][block], plan_dir, block, blocks)
+        orfs_flow(
+            name = block,
+            abstract_stage = "cts",
+            arguments = arguments,
+            pdk = "//flow:asap7",
+            sources = sources,
+            tags = tags,
+            user_arguments = cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS,
+            user_sources = cfg["user_sources"] | XS_ICG_USER_SOURCES,
+            user_stages = _user_stages(cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS, cfg["user_sources"] | XS_ICG_USER_SOURCES),
+            verilog_files = XS_VERILOG,
+        )
+        if block in grt_probe_blocks:
+            # The block's own global route on its CTS checkpoint, with
+            # the post-route repair ORFS runs there: what the block's
+            # timing is once the flow has finished repairing it, against
+            # the cts checkpoint the abstract is written from. Route-0
+            # with congestion allowed, as the parent routes: the repair
+            # and the parasitics are what move the period, and a block's
+            # maze iterations take hours; the route-0 overflow is read
+            # next to the period, which is optimistic where it is high.
             orfs_flow(
                 name = block,
-                abstract_stage = "place",
-                arguments = cfg["arguments"],
-                mock_area = "pins",
+                arguments = arguments | {
+                    "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
+                },
+                last_stage = "grt",
                 pdk = "//flow:asap7",
-                sources = cfg["sources"],
-                tags = tags,
-                user_arguments = cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS,
-                user_sources = cfg["user_sources"] | XS_ICG_USER_SOURCES,
-                user_stages = _user_stages(cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS, cfg["user_sources"] | XS_ICG_USER_SOURCES),
-                variant = variant,
-                verilog_files = XS_VERILOG,
-            )
-        macros = [b for b in XS_BLOCK_ORDER if b in blocks]
-        arguments = parent["arguments"]
-        sources = parent["sources"]
-        user_arguments = parent["user_arguments"]
-        user_sources = parent["user_sources"]
-    else:
-        macros = sorted(plan["macros"].keys())
-        for block in macros:
-            cfg = blocks.get(block, XS_BLOCK_DEFAULT)
-            arguments, sources = _planned_block(cfg, plan["macros"][block], plan_dir, block, blocks)
-            orfs_flow(
-                name = block,
-                abstract_stage = "cts",
-                arguments = arguments,
-                pdk = "//flow:asap7",
+                previous_stage = {"grt": ":%s_cts" % block},
                 sources = sources,
                 tags = tags,
                 user_arguments = cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS,
                 user_sources = cfg["user_sources"] | XS_ICG_USER_SOURCES,
                 user_stages = _user_stages(cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS, cfg["user_sources"] | XS_ICG_USER_SOURCES),
-                variant = variant,
+                variant = "grt_probe",
                 verilog_files = XS_VERILOG,
             )
-            if block in grt_probe_blocks:
-                # The block's own global route on its CTS checkpoint, with
-                # the post-route repair ORFS runs there: what the block's
-                # timing is once the flow has finished repairing it, against
-                # the cts checkpoint the abstract is written from. Route-0
-                # with congestion allowed, as the parent routes: the repair
-                # and the parasitics are what move the period, and a block's
-                # maze iterations take hours; the route-0 overflow is read
-                # next to the period, which is optimistic where it is high.
-                orfs_flow(
-                    name = block,
-                    arguments = arguments | {
-                        "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
-                    },
-                    last_stage = "grt",
-                    pdk = "//flow:asap7",
-                    previous_stage = {"grt": ":%s_cts" % block},
-                    sources = sources,
-                    tags = tags,
-                    user_arguments = cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS,
-                    user_sources = cfg["user_sources"] | XS_ICG_USER_SOURCES,
-                    user_stages = _user_stages(cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS, cfg["user_sources"] | XS_ICG_USER_SOURCES),
-                    variant = "grt_probe",
-                    verilog_files = XS_VERILOG,
-                )
-        arguments = {k: v for k, v in parent["arguments"].items() if k not in _PLAN_DROPS}
-        arguments["DIE_AREA"] = plan["parent"]["DIE_AREA"]
-        arguments["CORE_AREA"] = plan["parent"]["CORE_AREA"]
+    arguments = {k: v for k, v in parent["arguments"].items() if k not in _PLAN_DROPS}
+    arguments["DIE_AREA"] = plan["parent"]["DIE_AREA"]
+    arguments["CORE_AREA"] = plan["parent"]["CORE_AREA"]
 
-        # the diamond search: the negotiation legalizer ran past 5 h
-        # after CTS on take 19 (ideas, entry 5). At its default 27 um
-        # window the diamond placed all but one of 3.57 M cells in 76 min
-        # (take 20); 100 um (microns, not sites) is for that one cell,
-        # and patch 0004's window check answers in a second here
-        arguments["DETAIL_PLACEMENT_ARGS"] = "-use_diamond_legalizer -max_displacement {100 100}"
+    # the diamond search: the negotiation legalizer ran past 5 h
+    # after CTS on take 19 (ideas, entry 5). At its default 27 um
+    # window the diamond placed all but one of 3.57 M cells in 76 min
+    # (take 20); 100 um (microns, not sites) is for that one cell,
+    # and patch 0004's window check answers in a second here
+    arguments["DETAIL_PLACEMENT_ARGS"] = "-use_diamond_legalizer -max_displacement {100 100}"
 
-        # Take 23's route-0: 78 percent of the overflow in the parent's own
-        # wiring above two of the blocks at 60 percent cell density, with
-        # empty rows above the other two; the die has the room, the placer
-        # is told to use it. The layer adjustment is the value the tile
-        # flows settled on (OpenROAD's GRT-0704 hint), 9 percent more
-        # capacity on every layer than the platform's 0.25.
-        arguments["PLACE_DENSITY"] = "0.5"
-        arguments["ROUTING_LAYER_ADJUSTMENT"] = "0.18"
+    # Take 23's route-0: 78 percent of the overflow in the parent's own
+    # wiring above two of the blocks at 60 percent cell density, with
+    # empty rows above the other two; the die has the room, the placer
+    # is told to use it. The layer adjustment is the value the tile
+    # flows settled on (OpenROAD's GRT-0704 hint), 9 percent more
+    # capacity on every layer than the platform's 0.25.
+    arguments["PLACE_DENSITY"] = "0.5"
+    arguments["ROUTING_LAYER_ADJUSTMENT"] = "0.18"
 
-        # The rest of the measured configuration, in the flow rather than in
-        # a shell around it. A deploy tree carries only its own stage's
-        # variables, so a workbench that ran later stages from the floorplan
-        # tree ran them on the platform's defaults -- M7 and a 0.25
-        # adjustment -- and measured something the build never asked for.
-        arguments["MAX_ROUTING_LAYER"] = "M9"
-        arguments["MIN_ROUTING_LAYER"] = "M2"
-        arguments["IO_PLACER_H"] = "M2 M4"
-        arguments["IO_PLACER_V"] = "M3 M5"
-        arguments["PLACE_PINS_ARGS"] = "-annealing"
+    # The rest of the measured configuration, in the flow rather than in
+    # a shell around it. A deploy tree carries only its own stage's
+    # variables, so a workbench that ran later stages from the floorplan
+    # tree ran them on the platform's defaults -- M7 and a 0.25
+    # adjustment -- and measured something the build never asked for.
+    arguments["MAX_ROUTING_LAYER"] = "M9"
+    arguments["MIN_ROUTING_LAYER"] = "M2"
+    arguments["IO_PLACER_H"] = "M2 M4"
+    arguments["IO_PLACER_V"] = "M3 M5"
+    arguments["PLACE_PINS_ARGS"] = "-annealing"
 
-        # Clock tree synthesis pads every register's clock path out to the
-        # insertion delay of the block macros, whose abstracts are written
-        # at their place stage and so carry a whole unbuffered clock net:
-        # 49 736 delay buffers on the parent, six times its leaf buffers,
-        # and 2.6 hours of legalisation to seat them. A flow that is not yet
-        # asking for skew against the blocks does not want them. ORFS's own
-        # arguments are repeated because CTS_ARGS replaces them wholesale.
-        arguments["CTS_ARGS"] = "-sink_clustering_enable -repair_clock_nets -no_insertion_delay"
+    # Clock tree synthesis pads every register's clock path out to the
+    # insertion delay of the block macros, whose abstracts are written
+    # at their place stage and so carry a whole unbuffered clock net:
+    # 49 736 delay buffers on the parent, six times its leaf buffers,
+    # and 2.6 hours of legalisation to seat them. A flow that is not yet
+    # asking for skew against the blocks does not want them. ORFS's own
+    # arguments are repeated because CTS_ARGS replaces them wholesale.
+    arguments["CTS_ARGS"] = "-sink_clustering_enable -repair_clock_nets -no_insertion_delay"
 
-        # Zero iterations with congestion allowed: the route reports what it
-        # would have to route and stops, which is the number this baseline
-        # tracks and the map the GUI shows. One maze iteration on this die's
-        # gcell grid takes hours, so the iterating route is what the work
-        # ahead is for, not what the reference runs.
-        arguments["GLOBAL_ROUTE_ARGS"] = "-congestion_iterations 0 -allow_congestion -verbose"
+    # Zero iterations with congestion allowed: the route reports what it
+    # would have to route and stops, which is the number this baseline
+    # tracks and the map the GUI shows. One maze iteration on this die's
+    # gcell grid takes hours, so the iterating route is what the work
+    # ahead is for, not what the reference runs.
+    arguments["GLOBAL_ROUTE_ARGS"] = "-congestion_iterations 0 -allow_congestion -verbose"
 
-        # Global route stops in pin access on exactly one pin per hardened
-        # block (DRT-0073). Skipped so the stage produces its congestion
-        # map; carried ORFS patch 0085 has the detail and retires with the
-        # bug. A five-second reproducer is in test/planned_parent.
-        arguments["SKIP_PIN_ACCESS"] = "1"
-        if "SYNTH_KEEP_MODULES" in plan["parent"]:
-            # what the blocks swallowed no longer exists in the parent
-            arguments["SYNTH_KEEP_MODULES"] = plan["parent"]["SYNTH_KEEP_MODULES"]
-        sources = dict(parent["sources"])
+    # Global route stops in pin access on exactly one pin per hardened
+    # block (DRT-0073). Skipped so the stage produces its congestion
+    # map; carried ORFS patch 0085 has the detail and retires with the
+    # bug. A five-second reproducer is in test/planned_parent.
+    arguments["SKIP_PIN_ACCESS"] = "1"
+    if "SYNTH_KEEP_MODULES" in plan["parent"]:
+        # what the blocks swallowed no longer exists in the parent
+        arguments["SYNTH_KEEP_MODULES"] = plan["parent"]["SYNTH_KEEP_MODULES"]
+    sources = dict(parent["sources"])
 
-        # the memories of what the parent still holds; a hardened block's
-        # are the block's own
-        parent_keep = " ".join([k for k in arguments.get("SYNTH_KEEP_MODULES", "").split(" ") if k and k not in macros])
-        mems = _structured_memories(parent["sources"], parent_keep, blocks)
-        if mems:
-            sources["STRUCTURED_MEMORIES"] = mems
-        sources["MACRO_PLACEMENT_TCL"] = [":%s/place_macros.tcl" % plan_dir]
-        if plan["parent"].get("netlists"):
-            # the generated arrays dropped FIRM into the parent at floorplan
-            # (STRUCTURED_MEMORIES in mode netlist, patch 0078)
-            sources["STRUCTURED_PLACEMENT"] = [":%s/netlists.txt" % plan_dir]
-        sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints_800ps.sdc"]
-        user_arguments = {}
-        user_sources = {}
-    suffix = "_" + variant if variant else ""
+    # the memories of what the parent still holds; a hardened block's
+    # are the block's own
+    parent_keep = " ".join([k for k in arguments.get("SYNTH_KEEP_MODULES", "").split(" ") if k and k not in macros])
+    mems = _structured_memories(parent["sources"], parent_keep, blocks)
+    if mems:
+        sources["STRUCTURED_MEMORIES"] = mems
+    sources["MACRO_PLACEMENT_TCL"] = [":%s/place_macros.tcl" % plan_dir]
+    if plan["parent"].get("netlists"):
+        # the generated arrays dropped FIRM into the parent at floorplan
+        # (STRUCTURED_MEMORIES in mode netlist, patch 0078)
+        sources["STRUCTURED_PLACEMENT"] = [":%s/netlists.txt" % plan_dir]
+    sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints_800ps.sdc"]
+    user_arguments = {}
+    user_sources = {}
     orfs_flow(
         name = name,
         arguments = arguments,
-        macros = [":%s%s_generate_abstract" % (b, suffix) for b in macros],
+        macros = [":%s_generate_abstract" % b for b in macros],
         pdk = "//flow:asap7",
         sources = sources,
         tags = tags,
         user_arguments = user_arguments | XS_ICG_USER_ARGUMENTS,
         user_sources = user_sources | XS_ICG_USER_SOURCES,
         user_stages = _user_stages(user_arguments | XS_ICG_USER_ARGUMENTS, user_sources | XS_ICG_USER_SOURCES),
-        variant = variant,
         verilog_files = XS_VERILOG,
         visibility = ["//visibility:public"],
     )

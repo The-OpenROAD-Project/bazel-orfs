@@ -62,7 +62,7 @@ exports_files(glob([
 ]
 
 # The same elaboration with memory and the control device attached. This is
-# what simulates; the target above is what the flow hardens XSCore out of.
+# what simulates; the target above is what the flow hardens XSTile out of.
 [
     chisel_binary(
         name = "soc_generator" + suffix,
@@ -149,7 +149,7 @@ exports_files(glob([
     ]
 ]
 
-# Split Verilog: one file per module, which is what makes XSCore
+# Split Verilog: one file per module, which is what makes XSTile
 # addressable as a synthesis top without carving it out of a single file.
 [
     verilog_directory(
@@ -172,15 +172,15 @@ exports_files(glob([
 
 # How big is the thing we are actually hardening? firtool emits one file
 # per module, so the answer is available before synthesis: walk the
-# instantiations from XSCore and add up what is reachable. Most of what
+# instantiations from XSTile and add up what is reachable. Most of what
 # gets elaborated is uncore that no flow will ever see.
 [
     genrule(
-        name = "xscore_closure_" + prefix + suffix,
+        name = "xstile_closure_" + prefix + suffix,
         srcs = [":" + prefix + "_sv" + suffix],
-        outs = ["xscore_closure_" + prefix + suffix + ".json"],
+        outs = ["xstile_closure_" + prefix + suffix + ".json"],
         cmd = "$(execpath //test/coremark_joule/scripts:module_closure) $(location :" +
-              prefix + "_sv" + suffix + ") --top XSCore --out $@",
+              prefix + "_sv" + suffix + ") --top XSTile --out $@",
         tools = ["//test/coremark_joule/scripts:module_closure"],
     )
     for prefix in [
@@ -206,7 +206,7 @@ exports_files(glob([
     )
     for module in [
         "XSTop",
-        "XSCore",
+        "XSTile",
     ]
 ]
 
@@ -262,7 +262,7 @@ exports_files(glob([
     ]
 ]
 
-# The gate-level XiangShan: XSCore's global-route netlist with the RTL of
+# The gate-level XiangShan: XSTile's global-route netlist with the RTL of
 # everything it still needs -- the SoC wrapper and bus around it, and the
 # behavioural models of what synthesis blackboxed: the five hardened
 # blocks and the SRAM macros, whose models are their own RTL modules

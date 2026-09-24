@@ -8,8 +8,8 @@
 // XiangShan's own verified code and the only thing written here is wiring
 // and two registers.
 //
-// Nothing in this file is synthesised. The study hardens XSCore, which
-// firtool emits as its own module; everything here exists so that XSCore can
+// Nothing in this file is synthesised. The study hardens XSTile, which
+// firtool emits as its own module; everything here exists so that XSTile can
 // run CoreMark and be measured while it does.
 
 package coremark_joule.xiangshan
