@@ -8,7 +8,7 @@ cache key differs between the machines, in a text file of kilobytes that
 can be committed next to the design and diffed:
 
   - what shapes every key: Bazel version, commit, the rc options (values
-    that name private infrastructure hashed, not printed), the host facts
+    that name private infrastructure replaced by <redacted>), the host facts
     known to leak into inputs;
   - every tool the in-scope actions run, as one digest per tool;
   - one line per in-scope action: its cache key, whether it was a remote
@@ -398,7 +398,9 @@ def summarize_log(data, scope):
 # What shapes every key besides the inputs: options and host facts.
 
 # Values of these options name private infrastructure (hosts, headers,
-# credentials); they are hashed so two machines can still be compared.
+# credentials). They are dropped, not hashed: a short unsalted hash of a
+# guessable hostname confirms the guess. Machines comparing cache hits
+# share the cache by definition, so the value tells the diff nothing.
 _PRIVATE = re.compile(
     r"remote|cache|header|credential|downloader|bes_|auth|proxy|google|netrc",
     re.I,
@@ -411,8 +413,19 @@ def redact_option(opt):
         return opt
     name, value = m.groups()
     if _PRIVATE.search(name) or re.search(r"(^|[=:,])/(home|Users|root)/", value):
-        return "%s=<sha:%s>" % (name, hashlib.sha256(value.encode()).hexdigest()[:8])
+        return "%s=<redacted>" % name
     return opt
+
+
+# Anything that still looks like an address or a home directory after
+# redaction stops the write rather than being published.
+_LEAK = re.compile(r"://|(^|[\s=:,])/(home|Users|root)/|@[\w-]+\.[a-z]{2,}\b", re.I)
+
+
+def check_public(lines):
+    for line in lines:
+        if _LEAK.search(line):
+            raise ValueError("refusing to write evidence line: %r" % line)
 
 
 def rc_options(announce_rc_text):
@@ -426,9 +439,17 @@ def rc_options(announce_rc_text):
             words = shlex.split(m.group(1))
         except ValueError:
             words = m.group(1).split()
-        for w in words:
-            if w.startswith("--"):
-                opts.add(redact_option(w))
+        # `--cxxopt -std=c++20` is one option in two words.
+        i = 0
+        while i < len(words):
+            w = words[i]
+            i += 1
+            if not w.startswith("--"):
+                continue
+            if "=" not in w and i < len(words) and not words[i].startswith("--"):
+                w = "%s=%s" % (w, words[i])
+                i += 1
+            opts.add(redact_option(w))
     return sorted(opts)
 
 
@@ -504,6 +525,7 @@ def write_evidence(out, header, counts, tool_lines, spawn_lines):
     )
     lines += tool_lines
     lines += spawn_lines
+    check_public(lines)
     text = "\n".join(lines) + "\n"
     if out == "-":
         sys.stdout.write(text)
