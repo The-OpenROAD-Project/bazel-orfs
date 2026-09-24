@@ -82,7 +82,56 @@ def flow_environment(ctx):
         "KLAYOUT_CMD": _executable_path(_klayout_attr(ctx)),
         "OPENROAD_EXE": _executable_path(ctx.attr.openroad),
         "OPENSTA_EXE": _executable_path(ctx.attr.opensta),
-    } | orfs_environment(ctx)
+    } | orfs_environment(ctx) | odb_codec_environment(ctx)
+
+def odb_codec_enabled(ctx):
+    """Whether .odb files are stored reformatted (--@bazel-orfs//:odb_codec).
+
+    Lint flows run the mock openroad, which writes no real .odb.
+    """
+    flag = getattr(ctx.attr, "_odb_codec_flag", None)
+    return (bool(flag) and flag[OrfsFlagInfo].value and
+            not getattr(ctx.attr, "lint", False))
+
+def odb_codec_environment(ctx, short = False):
+    """ODB_CODEC for openroad, or nothing when the codec is off.
+
+    openroad's write_db hands each .odb it writes to ODB_CODEC and its
+    read_db reads through it (patches/0005-openroad-odb-codec-hook.patch).
+
+    Args:
+      ctx: The rule context.
+      short: the runfiles-relative path, for scripts run from a runfiles
+        tree, rather than the exec-root one.
+    Returns:
+      A dictionary, empty or with ODB_CODEC.
+    """
+    if not odb_codec_enabled(ctx):
+        return {}
+    codec = ctx.executable._odb_codec
+    return {"ODB_CODEC": codec.short_path if short else codec.path}
+
+def odb_codec_export(ctx):
+    """A shell line exporting ODB_CODEC, for a script run from runfiles.
+
+    Absolute, since openroad may run from another directory than the
+    script.
+
+    Args:
+      ctx: The rule context.
+    Returns:
+      The line, or "" when the codec is off.
+    """
+    env = odb_codec_environment(ctx, short = True)
+    if not env:
+        return ""
+    return 'export ODB_CODEC="$(pwd)/{}"'.format(env["ODB_CODEC"])
+
+def odb_codec_tools(ctx):
+    """The codec's files, when openroad is going to run it."""
+    if not odb_codec_enabled(ctx):
+        return []
+    return [ctx.attr._odb_codec]
 
 def yosys_environment(ctx):
     """Returns the environment dictionary for Yosys.
@@ -181,6 +230,7 @@ def flow_inputs(ctx):
                     ctx.attr._python,
                     ctx.attr._makefile,
                 ] +
+                odb_codec_tools(ctx) +
                 ctx.attr.tools,
             ),
         ],

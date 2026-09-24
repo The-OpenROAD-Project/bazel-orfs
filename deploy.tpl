@@ -164,6 +164,25 @@ main() {
       done
   fi
 
+  # bazel stores each .odb reformatted by tools/odb_codec
+  # (--@bazel-orfs//:odb_codec). The tree gets them back as OpenROAD
+  # wrote them, so that any openroad opens them, a locally built one
+  # included; the make below runs without ODB_CODEC and writes them the
+  # same way.
+  local codec="${ODB_CODEC}"
+  if [ -n "$codec" ]; then
+    case "$codec" in
+      ../*) codec="$dst/${codec#../}" ;;
+      *) codec="$dst_main/$codec" ;;
+    esac
+    find "$dst" -name '*.odb' -print | while IFS= read -r odb; do
+      [ "$(head -c 8 "$odb")" = ODBCODEC ] || continue
+      "$codec" decode "$odb" >"$odb.decoded"
+      rm -f "$odb"
+      mv "$odb.decoded" "$odb"
+    done
+  fi
+
   rm -f "$dst/make"
   cat > "$dst/make" <<EOF
 #!/usr/bin/env bash
