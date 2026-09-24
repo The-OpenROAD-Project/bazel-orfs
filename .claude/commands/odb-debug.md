@@ -169,7 +169,73 @@ Fix the floorplan (channel width, utilisation, halos, macro placement),
 then let the flow re-run from floorplan. Widening the legaliser's search
 window (`-max_displacement`, microns) is a mitigation, not a fix.
 
-## 5. Rules
+## 5. Timing: the minimum clock period of a stage
+
+A flow that runs with `SKIP_REPORT_METRICS` reports no slack at any
+stage, and a hierarchical flow usually does, because the metrics cost a
+timing graph per stage. The daemon is then the only way to a period, and
+it is one question:
+
+```bash
+python3 tools/odb_debug/odbdebug.py tmp/odb-debug --tcl \
+  'set p [get_property [get_clocks] period]
+   set w [sta::worst_slack -max]
+   puts "period $p ps  wns $w ps  min period [expr {$p - $w}] ps"'
+```
+
+**Ask which group is worst before reading anything into the number.**
+Only `reg2reg` can fail closure; `in2reg`, `reg2out` and `in2out` are
+optimization targets whose real check happens one level up
+(`macro-constraints`). A worst slack quoted without its group is how a
+study chases an optimization target for a week:
+
+```bash
+python3 tools/odb_debug/odbdebug.py tmp/odb-debug --tcl \
+  'foreach g {reg2reg in2reg reg2out in2out} {
+     set ps [find_timing_paths -path_group $g -sort_by_slack -group_path_count 1]
+     if {[llength $ps]} {
+       set t [lindex $ps 0]
+       puts [format "%-8s %8.0f ps  %s -> %s" $g [get_property $t slack] \
+         [get_property [get_property $t startpoint] full_name] \
+         [get_property [get_property $t endpoint] full_name]]
+     }
+   }'
+```
+
+Then read the worst path itself. `report_checks` writes to the session's
+stdout, not to the Tcl result, so capture it:
+
+```bash
+python3 tools/odb_debug/odbdebug.py tmp/odb-debug --tcl \
+  'utl::redirectStringBegin
+   report_checks -path_delay max -path_group reg2reg -group_path_count 1 -digits 0
+   puts [utl::redirectStringEnd]'
+```
+
+The first line of that report worth reading is **clock network delay**.
+On a hierarchical design it is where a modelling error hides: a block
+abstracted before its own clock tree presents its whole unbuffered clock
+net at its clock pin, and the parent's one buffer spends the period
+charging it. Measured on a 4.1 M-instance core: 43 715 ps of a 45 985 ps
+minimum period was the clock reaching one block's pin, whose liberty
+model said 145 071 fF. Nothing about that design's logic was in the
+number. Check the pin against its model before believing a period:
+
+```bash
+python3 tools/odb_debug/odbdebug.py tmp/odb-debug --tcl \
+  'foreach b {BlockA BlockB} {
+     puts "$b [get_property [get_lib_pins $b/clock] capacitance] fF" }'
+```
+
+**What it costs.** Timing needs `GUI_TIMING=1` and the whole liberty
+set. On 4.1 M instances and 3.7 M nets that was 900 s to load and 52 GB
+resident, most of it in `sta::find_timing`; a smaller design is seconds.
+Budget the memory before launching, give the daemon a long
+`ODB_DEBUG_IDLE_SECS` so the load is paid once, and ask everything in
+one session. Geometry questions want `GUI_TIMING=0` instead and load in
+seconds.
+
+## 6. Rules
 
 - Never read a large ODB, log or geometry dump into context; ask the
   daemon or run `geometry.py` and read their summaries.
