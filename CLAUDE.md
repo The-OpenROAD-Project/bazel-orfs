@@ -46,6 +46,11 @@ neutralize:
 4. **Secrets & embargoed material** — any token, key, or credential
    (always), and any unpublished or embargoed technical detail that isn't
    already public.
+5. **Derived values** — a hash, digest or other encoding of anything
+   above counts as the thing itself when the input is guessable (a
+   hostname, a username, a path): it confirms a guess. Drop the value,
+   don't hash it. A grep for plain text does not find these; read every
+   tool-generated file that will be published.
 
 When in doubt, leave it out. If you can't confidently purge something,
 stop and ask the human rather than publishing it.
