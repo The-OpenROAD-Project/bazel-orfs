@@ -65,7 +65,8 @@ files in the parent's rows, the 1,000 um of bottom edge that carries all
 carries illustration and labels only; the five markers on it are these,
 in the order they cost clock period.
 
-1. **The clock never reaches the logic.** 43,715 ps of the 45,985 is the
+1. **The clock never reaches the logic** (fixed, see "The next three";
+   the figure is the baseline). 43,715 ps of the 45,985 is the
    clock arriving at MemBlock's pin. Its abstract was written at the
    block's place stage, before the block had a clock tree, so the pin
    presents the whole unbuffered clock net: 145,071 fF, charged by one
@@ -152,9 +153,10 @@ the netlist as macros or as flops.
 1. **Abstract each block after its own clock tree.** Done in the flow
    (`abstract_stage = "cts"`): MemBlock's clock pin is now 21 fF instead
    of 145,071, with a 944 ps insertion delay from a 24 to 27 level tree.
-   The parent's number on it is not measured yet, and the blocks' trees
-   being most of a period deep is the next problem
-   (`ideas/xiangshan-timing.md`, entry 24).
+   The top level fell from 45,985 to 13,527 ps, and its worst path is now
+   Frontend's own setup to a falling-edge clock-gate enable latch, not
+   the clock. The blocks' trees being most of a period deep is the next
+   problem (`ideas/xiangshan-timing.md`, entry 24).
 2. **The block-to-block hop**: 1,793 ps on one wire across a millimetre,
    with timing-driven placement off and post-clock-tree repair skipped.
 3. **Harden XSTile instead of XSCore**, and dissolve the macros whose
