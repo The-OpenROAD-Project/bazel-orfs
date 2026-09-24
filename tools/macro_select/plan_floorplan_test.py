@@ -362,12 +362,27 @@ class NetlistTest(unittest.TestCase):
         bzl = open(os.path.join(d, "plan.bzl")).read()
         self.assertIn('"netlists"', bzl)
 
+    def test_region_grows_to_hold_the_row(self):
+        p = plan([dict(m) for m in LayoutTest.MACROS])
+        p["netlists"] = [
+            {"module": "Big", "instance": "top/big", "w_um": 5000.0, "h_um": 700.0}
+        ]
+        out = plan_floorplan.layout(p)
+        x0, y0, x1, y1 = out["region_um"]
+        gap = p["margins"]["gap_um"]
+        self.assertGreaterEqual(x1 - x0, 5000.0 + 2 * gap - 1e-6)
+        self.assertGreaterEqual(y1 - y0, 700.0 + 2 * gap - 1e-6)
+        rows = plan_floorplan.place_netlists(out, p)
+        self.assertEqual([r[0] for r in rows], ["Big"])
+        self.assertEqual(plan_floorplan.check(out), [])
+
     def test_refuses_when_the_row_overflows(self):
+        # a region laid out without the netlist cannot take it afterwards
+        out = plan_floorplan.layout(plan([dict(m) for m in LayoutTest.MACROS]))
         p = plan([dict(m) for m in LayoutTest.MACROS])
         p["netlists"] = [
             {"module": "Big", "instance": "top/big", "w_um": 5000.0, "h_um": 10.0}
         ]
-        out = plan_floorplan.layout(p)
         with self.assertRaises(SystemExit):
             plan_floorplan.place_netlists(out, p)
 
