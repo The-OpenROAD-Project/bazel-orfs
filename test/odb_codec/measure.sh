@@ -63,4 +63,25 @@ echo "$DESIGNS" | while read -r design target; do
 done
 
 bazelisk build --jobs="$JOBS" $(targets)
+
+# Floorplan's and place's substeps, kept only with the codec on, as deltas
+# against the next file of their stage. They have no codec-off copy: "-"
+# asks measure.py to take the decoded file as the original.
+SUBSTEPS="2_1_floorplan 2_2_floorplan_macro 2_3_floorplan_tapcell 2_4_floorplan_pdn
+3_1_place_gp_skip_io 3_2_place_iop 3_3_place_gp 3_4_place_resized 3_5_place_dp"
+groups=$(for s in $SUBSTEPS; do printf ',+substep_%s' "$s"; done)
+echo "$DESIGNS" | while read -r design target; do
+  [ -n "$design" ] || continue
+  for stage in floorplan place; do
+    bazelisk cquery --output_groups="${groups#,}" --output=files \
+      "${target}_$stage" 2>/dev/null | grep '/[0-9]_[0-9]_[a-z_]*\.odb$' |
+      while read -r odb; do
+        printf '%s\t-\t%s\n' "$design" "$odb" >>"$pairs"
+      done
+  done
+done
+bazelisk build --jobs="$JOBS" --output_groups="+default$groups" \
+  $(echo "$DESIGNS" | while read -r design target; do
+    [ -n "$design" ] && echo "${target}_floorplan ${target}_place"
+  done)
 bazelisk run //test/odb_codec:measure -- "$pairs" "$out/odb_codec.csv"

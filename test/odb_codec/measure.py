@@ -84,7 +84,8 @@ def encoded_magic(path):
 
 def measure(row, tools, scratch):
     design, stock, encoded = row
-    if encoded_magic(stock) or not encoded_magic(encoded):
+    substep = stock == "-"
+    if (not substep and encoded_magic(stock)) or not encoded_magic(encoded):
         sys.exit(
             "{}: {} must be a stock .odb and {} an encoded one; was the "
             "stock build overwritten?".format(design, stock, encoded)
@@ -95,7 +96,12 @@ def measure(row, tools, scratch):
     decoded = os.path.join(work, "decoded.odb")
     with open(decoded, "wb") as out:
         subprocess.run([tools.codec, "decode", encoded], stdout=out, check=True)
-    decoded_ok = same(decoded, stock)
+    if substep:
+        # Kept only with the codec on, so there is no codec-off copy: the
+        # decoded file is the original, and chain checked that when it
+        # stored the delta.
+        stock = decoded
+    decoded_ok = "n/a" if substep else same(decoded, stock)
 
     capture = os.path.join(work, "capture.sh")
     with open(capture, "w") as f:
@@ -115,24 +121,33 @@ def measure(row, tools, scratch):
     )
     rewrite_ok = same(rewritten, stock)
 
-    runs = []
-    reencoded = os.path.join(work, "reencoded.odb")
-    for _ in range(3):
-        shutil.copyfile(stock, reencoded)
-        start = time.perf_counter()
-        subprocess.run([tools.codec, "encode", reencoded, layout], check=True)
-        runs.append(time.perf_counter() - start)
-    encode_s = statistics.median(runs)
-    encode_ok = same(reencoded, encoded)
+    encode_s = ""
+    encode_ok = "n/a"
+    if not substep:
+        runs = []
+        reencoded = os.path.join(work, "reencoded.odb")
+        for _ in range(3):
+            shutil.copyfile(stock, reencoded)
+            start = time.perf_counter()
+            subprocess.run([tools.codec, "encode", reencoded, layout], check=True)
+            runs.append(time.perf_counter() - start)
+        encode_s = round(statistics.median(runs), 4)
+        encode_ok = same(reencoded, encoded)
 
     result = {
         "design": design,
-        "stage": stage_of(stock),
+        "stage": stage_of(encoded),
+        "base": subprocess.run(
+            [tools.codec, "base", encoded],
+            stdout=subprocess.PIPE,
+            check=True,
+            text=True,
+        ).stdout.strip(),
         "stock_bytes": os.path.getsize(stock),
         "encoded_bytes": os.path.getsize(encoded),
         "stock_zstd3": zstd_size(tools.zstd, stock),
         "encoded_zstd3": zstd_size(tools.zstd, encoded),
-        "encode_s": round(encode_s, 4),
+        "encode_s": encode_s,
         "decode_s": round(decode_s, 4),
         "decoded_is_stock": decoded_ok,
         "rewrite_is_stock": rewrite_ok,
@@ -142,17 +157,25 @@ def measure(row, tools, scratch):
     return result
 
 
+GATES = ("decoded_is_stock", "rewrite_is_stock", "encode_is_flow")
+
+
+def passed(row):
+    return all(row[g] in (True, "n/a") for g in GATES)
+
+
 def ratio(stock, encoded):
     return "{:.2f}x".format(stock / encoded) if encoded else "-"
 
 
-def tables(rows):
+def tables(all_rows):
+    rows = [r for r in all_rows if r["stage"] in STAGES]
+    subs = [r for r in all_rows if r["stage"] not in STAGES]
     designs = []
     for r in rows:
         if r["design"] not in designs:
             designs.append(r["design"])
     stages = [s for s in STAGES if any(r["stage"] == s for r in rows)]
-    stages += sorted({r["stage"] for r in rows} - set(stages))
 
     def cell(design, stage):
         hits = [r for r in rows if r["design"] == design and r["stage"] == stage]
@@ -191,20 +214,62 @@ def tables(rows):
                 stock / 2**20,
                 enc / 2**20,
                 ratio(stock, enc),
-                sum(r["encode_s"] for r in hits),
+                sum(r["encode_s"] or 0 for r in hits),
                 sum(r["decode_s"] for r in hits),
             )
         )
-    gates = [
-        g
-        for g in ("decoded_is_stock", "rewrite_is_stock", "encode_is_flow")
-        if not all(r[g] for r in rows)
-    ]
+    if subs:
+        out.append("")
+        out.append(
+            "Floorplan and place with every substep .odb kept, each stored as a "
+            "delta against the next file of its stage; cost is the substeps' "
+            "bytes as a share of the stage file's:\n"
+        )
+        out.append(
+            "| design | stage | stage file | substeps stock | substeps kept "
+            "| cost | stage + substeps |"
+        )
+        out.append("|---|---|---|---|---|---|---|")
+        for d in designs:
+            for stage, prefix in (("2_floorplan", "2_"), ("3_place", "3_")):
+                key = [r for r in rows if r["design"] == d and r["stage"] == stage]
+                sub = [
+                    r
+                    for r in subs
+                    if r["design"] == d and r["stage"].startswith(prefix)
+                ]
+                if not key or not sub:
+                    continue
+                kf = key[0]
+                stock = sum(r["stock_zstd3"] for r in sub)
+                kept = sum(r["encoded_zstd3"] for r in sub)
+                out.append(
+                    "| {} | {} | {:.0f} KiB | {:.0f} KiB | {:.0f} KiB | {:.0f}% "
+                    "| {} |".format(
+                        d,
+                        stage[2:],
+                        kf["encoded_zstd3"] / 1024,
+                        stock / 1024,
+                        kept / 1024,
+                        100 * kept / kf["encoded_zstd3"],
+                        ratio(stock + kf["stock_zstd3"], kept + kf["encoded_zstd3"]),
+                    )
+                )
+        stock = sum(r["stock_zstd3"] for r in all_rows)
+        enc = sum(r["encoded_zstd3"] for r in all_rows)
+        out.append("")
+        out.append(
+            "Every .odb, {} stage files and {} substeps: {:.2f} MiB -> {:.2f} MiB, "
+            "{}.".format(
+                len(rows), len(subs), stock / 2**20, enc / 2**20, ratio(stock, enc)
+            )
+        )
+    failed = [g for g in GATES if not all(r[g] in (True, "n/a") for r in all_rows)]
     out.append("")
     out.append(
         "Gates, {} files: {}".format(
-            len(rows),
-            "all pass" if not gates else "FAILED: " + ", ".join(gates),
+            len(all_rows),
+            "all pass" if not failed else "FAILED: " + ", ".join(failed),
         )
     )
     return "\n".join(out)
