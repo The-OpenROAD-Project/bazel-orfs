@@ -1207,6 +1207,10 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
     arguments = {k: v for k, v in cfg["arguments"].items() if k not in _PLAN_DROPS}
     arguments["DIE_AREA"] = entry["DIE_AREA"]
     arguments["CORE_AREA"] = entry["CORE_AREA"]
+
+    # the block is abstracted at cts: build its tree, do not repair its
+    # timing there (the parent skips it too; margin first)
+    arguments["SKIP_CTS_REPAIR_TIMING"] = "1"
     if "SYNTH_KEEP_MODULES" in entry:
         arguments["SYNTH_KEEP_MODULES"] = entry["SYNTH_KEEP_MODULES"]
     sources = dict(cfg["sources"])
@@ -1218,15 +1222,21 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
     return arguments, sources
 
 def xiangshan_flow(name = "XSCore", blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan = None, plan_dir = "plan", variant = None):
-    """The blocks, each abstracted at place, then the parent.
+    """The blocks, each abstracted, then the parent.
 
     Without a plan: every block in `blocks` with a pin-fitted mock for the
-    parent, the parent's outline from CORE_UTILIZATION and the annealer.
+    parent, abstracted at place, the parent's outline from
+    CORE_UTILIZATION and the annealer.
     With a plan (the PLAN dict plan_floorplan.py --emit wrote to
     plan_dir/plan.bzl): only the plan's blocks, each a real flow at the
     planned outline with its pins on the planned side and no mock; the
     parent at the planned die with plan_dir/place_macros.tcl placing the
     blocks R0 where the plan put them. `variant` keeps the two apart.
+    The planned blocks are abstracted at cts, so the parent's CTS and
+    timing see each block's clock pin as its tree's root buffer and its
+    insertion delay, not the whole unbuffered clock net (entry 17 of
+    ideas/xiangshan-timing.md); the parent's synthesis, floorplan and place
+    read the place-stage abstract the flow emits beside it.
     """
     if plan == None:
         for block, cfg in blocks.items():
@@ -1256,7 +1266,7 @@ def xiangshan_flow(name = "XSCore", blocks = XS_BLOCKS, parent = XS_PARENT, tags
             arguments, sources = _planned_block(cfg, plan["macros"][block], plan_dir, block, blocks)
             orfs_flow(
                 name = block,
-                abstract_stage = "place",
+                abstract_stage = "cts",
                 arguments = arguments,
                 pdk = "//flow:asap7",
                 sources = sources,

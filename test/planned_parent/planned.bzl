@@ -1,4 +1,4 @@
-"""The miniature planned parent's flows: four blocks abstracted at place, the parent through global route."""
+"""The miniature planned parent's flows: four blocks abstracted at cts, the parent through global route."""
 
 load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run")
 load("//test/grt_scaling:arms.bzl", "TURNAROUND_ARGS")
@@ -17,7 +17,7 @@ BASE_ARGS = TURNAROUND_ARGS | {
 
 def mini_planned_flow(rtl, files):
     """The blocks named in PLAN, each at its planned outline with its pins on
-    the planned side, abstracted at place; the parent at the planned die,
+    the planned side, abstracted at cts; the parent at the planned die,
     the blocks placed by the plan, the files as placed netlists, to grt.
 
     Args:
@@ -28,7 +28,7 @@ def mini_planned_flow(rtl, files):
         entry = PLAN["macros"][block]
         orfs_flow(
             name = block,
-            abstract_stage = "place",
+            abstract_stage = "cts",
             arguments = BASE_ARGS | {
                 "AUTO_MEMORIES": "0",
                 "CORE_AREA": entry["CORE_AREA"],
