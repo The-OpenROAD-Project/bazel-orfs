@@ -1,0 +1,102 @@
+// odb_codec on a synthetic file shaped like a .odb: a header, a table of
+// fixed-length slots, a table whose slots vary in length, a table too
+// small to reformat, and bytes in between that belong to no table.
+#include <iostream>
+#include <string>
+
+#include "odb_codec.h"
+
+#define CHECK(cond)                                                       \
+  do {                                                                    \
+    if (!(cond)) {                                                        \
+      std::cerr << __FILE__ << ":" << __LINE__ << ": CHECK failed: " #cond \
+                << "\n";                                                  \
+      return 1;                                                           \
+    }                                                                     \
+  } while (0)
+
+namespace {
+
+struct Synthetic {
+  std::string odb;
+  std::string layout = "odb-layout 1\n";
+
+  void Bytes(const std::string& bytes) { odb += bytes; }
+
+  // count slots of table, each made by slot(i).
+  template <typename F>
+  void Table(const std::string& table, int count, F slot) {
+    for (int i = 0; i < count; ++i) {
+      const std::string bytes = slot(i);
+      layout += table + " " + std::to_string(odb.size()) + " " +
+                std::to_string(bytes.size()) + " 1\n";
+      odb += bytes;
+    }
+  }
+
+  std::string Layout() const {
+    return layout + "size " + std::to_string(odb.size()) + "\n";
+  }
+};
+
+Synthetic Make() {
+  Synthetic s;
+  s.Bytes("header: not a table");
+  // Every slot has 'Q' at byte 1, so the encoding holds a run of 300 of
+  // them.
+  s.Table("dbInst", 300, [](int i) {
+    return std::string{'\1', 'Q', static_cast<char>(i), static_cast<char>(i >> 8),
+                       '\0', '\0', '\0', '\7'};
+  });
+  s.Bytes("a hash table, say");
+  s.Table("dbNet", 50, [](int i) {
+    return std::string(1, '\1') + std::string(1 + i % 3, static_cast<char>('a' + i));
+  });
+  s.Table("dbTiny", 3, [](int i) { return std::string(4, static_cast<char>(i)); });
+  s.Bytes("trailer");
+  return s;
+}
+
+}  // namespace
+
+int main() {
+  const Synthetic s = Make();
+  std::string encoded;
+  std::string decoded;
+  std::string error;
+
+  // Round trip, and the encoding is really reformatted.
+  CHECK(!odb_codec::IsEncoded(s.odb));
+  CHECK(odb_codec::Encode(s.odb, s.Layout(), &encoded, &error));
+  CHECK(odb_codec::IsEncoded(encoded));
+  CHECK(encoded.find(std::string(300, 'Q')) != std::string::npos);
+  CHECK(odb_codec::Decode(encoded, &decoded, &error));
+  CHECK(decoded == s.odb);
+
+  // A layout that names no slots still round-trips.
+  const std::string empty = "odb-layout 1\nsize " + std::to_string(s.odb.size()) + "\n";
+  CHECK(odb_codec::Encode(s.odb, empty, &encoded, &error));
+  CHECK(odb_codec::Decode(encoded, &decoded, &error));
+  CHECK(decoded == s.odb);
+
+  // A layout that does not describe the file is refused.
+  CHECK(!odb_codec::Encode(s.odb + "x", s.Layout(), &encoded, &error));
+  CHECK(!odb_codec::Encode(s.odb, "odb-layout 2\nsize 0\n", &encoded, &error));
+  CHECK(!odb_codec::Encode(s.odb, "odb-layout 1\n", &encoded, &error));
+  const std::string size = "size " + std::to_string(s.odb.size()) + "\n";
+  CHECK(!odb_codec::Encode(s.odb, "odb-layout 1\nt 10 4 2\nt 12 4 1\n" + size,
+                           &encoded, &error));
+  CHECK(!odb_codec::Encode(s.odb, "odb-layout 1\nt 0 4 1000000\n" + size,
+                           &encoded, &error));
+  CHECK(!odb_codec::Encode(s.odb, "odb-layout 1\nt 99999999 1 1\n" + size,
+                           &encoded, &error));
+
+  // Every truncation of an encoded file is refused, none crashes.
+  CHECK(odb_codec::Encode(s.odb, s.Layout(), &encoded, &error));
+  for (size_t n = 0; n < encoded.size(); ++n) {
+    CHECK(!odb_codec::Decode(encoded.substr(0, n), &decoded, &error));
+  }
+  std::cout << "odb_codec_test: " << s.odb.size() << " bytes, "
+            << encoded.size() << " encoded, round trip ok\n";
+  return 0;
+}
