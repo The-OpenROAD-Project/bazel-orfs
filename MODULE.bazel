@@ -101,6 +101,13 @@ archive_override(
         # pull request carries a gtest. Retires at a bump onto an OpenROAD
         # that has it.
         "//patches:0004-openroad-dpl-window-supply.patch",
+        # write_db hands each .odb it writes, with a description of where
+        # its table slots lie, to the executable ODB_CODEC names, and
+        # read_db reads through it; unset, nothing changes. This is how
+        # tools/odb_codec stores .odb files column by column, for bazel's
+        # compression. No format change and no compatibility promise.
+        # Not upstreamed -- retire at a bump onto an OpenROAD carrying it.
+        "//patches:0005-openroad-odb-codec-hook.patch",
     ],
     strip_prefix = "OpenROAD-3ab04b4dd1e1b86d603faf3e75a20bd276f61757",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/3ab04b4dd1e1b86d603faf3e75a20bd276f61757.tar.gz"],

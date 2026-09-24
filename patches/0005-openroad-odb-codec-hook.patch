@@ -1,0 +1,973 @@
+From f5957eb54d681c368d7a303e79c7434279343a13 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Thu, 24 Sep 2026 10:12:11 +0200
+Subject: [PATCH] odb: let a user's ODB_CODEC reformat the .odb files OpenROAD
+ writes
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A .odb writes each table's slots one after another, and a slot is a row
+of fixed-width fields, so neighbouring bytes belong to unrelated fields
+and a generic compressor never sees a run longer than one field. Written
+column by column the same bytes compress far better. That reformatting
+does not belong in OpenROAD: it is a property of how a file is stored
+or shipped, not of the database. What OpenROAD alone knows is where the
+slots lie, so this change says that and nothing more, and leaves the
+reformatting to a tool the user installs.
+
+- dbDatabase::write(file, layout) writes the same database bytes as
+  write(file), plus a text description of where each table's slots lie
+  in them (dbStreamLayout.h). Only innermost slots are listed: a chip's
+  or a block's slot holds tables of its own.
+- With ODB_CODEC set, write_db writes <file>.layout next to the file,
+  runs "$ODB_CODEC encode <file> <file>.layout" and removes the layout;
+  read_db reads the database from the stdout of "$ODB_CODEC decode
+  <file>". A codec is handed every file read_db opens, so one it did not
+  encode must come out unchanged.
+- Unset, or for a .gz file, nothing changes: no layout is written and
+  both commands behave exactly as before.
+
+There is no format change, no schema bump and no change to how the
+database is read: read_db still reads stock bytes through the same
+operator>>, only from a pipe. The pipe keeps the last 64 KiB it
+delivered, since dbIStream seeks back over what it buffered and did not
+use when a read stops part way; without it, a codec that hands back
+something other than a database would abort openroad rather than fail
+read_db. The layout and the codec carry no
+compatibility promise; the layout describes the one file it was
+written with, and OpenROAD never reads it.
+
+Tests: TestDbStreamLayout checks that asking for a layout leaves the
+bytes unchanged, that the runs lie inside the file in order and start
+at a slot's allocated flag, and that every instance, net, iterm and
+bterm is found where the layout says its table's slots are. The
+odb_codec_write and odb_codec_read tests drive write_db and read_db
+through a stand-in codec, and check that without ODB_CODEC no layout
+is written; odb_codec_invalid checks that a file that decodes to
+something other than a database fails read_db with the error it fails
+with today.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/OpenRoad.cc                         | 220 +++++++++++++++++++++++-
+ src/odb/include/odb/db.h                |   9 +
+ src/odb/include/odb/dbStream.h          |  14 ++
+ src/odb/src/db/CMakeLists.txt           |   1 +
+ src/odb/src/db/dbDatabase.cpp           |  13 ++
+ src/odb/src/db/dbStreamLayout.cpp       |  51 ++++++
+ src/odb/src/db/dbStreamLayout.h         |  56 ++++++
+ src/odb/src/db/dbTable.inc              |   8 +
+ src/odb/test/BUILD                      |  12 ++
+ src/odb/test/CMakeLists.txt             |   3 +
+ src/odb/test/cpp/BUILD                  |  11 ++
+ src/odb/test/cpp/CMakeLists.txt         |   7 +
+ src/odb/test/cpp/TestDbStreamLayout.cpp | 114 ++++++++++++
+ src/odb/test/odb_codec_invalid.ok       |   1 +
+ src/odb/test/odb_codec_invalid.tcl      |  12 ++
+ src/odb/test/odb_codec_read.ok          |   1 +
+ src/odb/test/odb_codec_read.tcl         |  17 ++
+ src/odb/test/odb_codec_stub.sh          |  29 ++++
+ src/odb/test/odb_codec_write.ok         |   4 +
+ src/odb/test/odb_codec_write.tcl        |  31 ++++
+ 20 files changed, 610 insertions(+), 4 deletions(-)
+ create mode 100644 src/odb/src/db/dbStreamLayout.cpp
+ create mode 100644 src/odb/src/db/dbStreamLayout.h
+ create mode 100644 src/odb/test/cpp/TestDbStreamLayout.cpp
+ create mode 100644 src/odb/test/odb_codec_invalid.ok
+ create mode 100644 src/odb/test/odb_codec_invalid.tcl
+ create mode 100644 src/odb/test/odb_codec_read.ok
+ create mode 100644 src/odb/test/odb_codec_read.tcl
+ create mode 100755 src/odb/test/odb_codec_stub.sh
+ create mode 100644 src/odb/test/odb_codec_write.ok
+ create mode 100644 src/odb/test/odb_codec_write.tcl
+
+diff --git a/src/OpenRoad.cc b/src/OpenRoad.cc
+index 955d072e1d..fb61e0b683 100644
+--- a/src/OpenRoad.cc
++++ b/src/OpenRoad.cc
+@@ -3,13 +3,24 @@
+ 
+ #include "ord/OpenRoad.hh"
+ 
++#include <fcntl.h>
++#include <spawn.h>
++#include <sys/wait.h>
++#include <unistd.h>
++
++#include <algorithm>
++#include <array>
++#include <cerrno>
++#include <cstdint>
+ #include <cstdlib>
+ #include <cstring>
+ #include <filesystem>
+ #include <fstream>
+ #include <iostream>
+ #include <stdexcept>
++#include <streambuf>
+ #include <string>
++#include <string_view>
+ #include <thread>
+ #include <vector>
+ 
+@@ -106,6 +117,9 @@ extern "C" {
+ extern int Ord_Init(Tcl_Interp* interp);
+ }
+ 
++// posix_spawn passes the environment on explicitly.
++extern char** environ;
++
+ namespace ord {
+ 
+ using odb::dbChip;
+@@ -564,13 +578,194 @@ void OpenRoad::write3Dbx(const std::string& filename)
+   writer.writeDbx(filename, db_->getChip());
+ }
+ 
++namespace {
++
++// ODB_CODEC names an executable that reformats .odb files, for instance
++// to make them compress better. It is the user's, not part of OpenROAD:
++// write_db runs "<codec> encode <file> <layout>" on the file it just
++// wrote, with a description of where the table slots lie in it
++// (dbDatabase::write), and read_db reads the database from the stdout of
++// "<codec> decode <file>". OpenROAD knows nothing of the codec's format
++// and promises nothing about it. A codec is handed every file read_db
++// opens, so one it did not encode must come out of decode unchanged. Unset, or
++// for a .gz file, both commands behave exactly as they would without it.
++const char* odbCodec()
++{
++  const char* codec = std::getenv("ODB_CODEC");
++  return (codec != nullptr && *codec != '\0') ? codec : nullptr;
++}
++
++// Starts args with stdout on out_fd, or inherited when out_fd is -1.
++// Returns the pid, or -1 with errno set.
++pid_t spawnCodec(const std::vector<std::string>& args, const int out_fd)
++{
++  std::vector<char*> argv;
++  argv.reserve(args.size() + 1);
++  for (const std::string& arg : args) {
++    argv.push_back(const_cast<char*>(arg.c_str()));
++  }
++  argv.push_back(nullptr);
++
++  posix_spawn_file_actions_t actions;
++  posix_spawn_file_actions_init(&actions);
++  if (out_fd >= 0) {
++    posix_spawn_file_actions_adddup2(&actions, out_fd, STDOUT_FILENO);
++  }
++  pid_t pid = -1;
++  const int error
++      = posix_spawnp(&pid, argv[0], &actions, nullptr, argv.data(), environ);
++  posix_spawn_file_actions_destroy(&actions);
++  if (error != 0) {
++    errno = error;
++    return -1;
++  }
++  return pid;
++}
++
++// The exit status of pid; a signal is reported as 128 plus its number.
++int waitCodec(const pid_t pid)
++{
++  int status = 0;
++  while (waitpid(pid, &status, 0) < 0) {
++    if (errno != EINTR) {
++      return -errno;
++    }
++  }
++  if (WIFEXITED(status)) {
++    return WEXITSTATUS(status);
++  }
++  return 128 + WTERMSIG(status);
++}
++
++// Runs args to completion: its exit status, or -errno if it did not start.
++int runCodec(const std::vector<std::string>& args)
++{
++  const pid_t pid = spawnCodec(args, -1);
++  if (pid < 0) {
++    return -errno;
++  }
++  return waitCodec(pid);
++}
++
++// The read end of a pipe as a stream. It keeps the last 64 KiB it
++// delivered, because dbIStream seeks back over what it buffered and did
++// not use when it is done, as it is when a read fails part way; a stream
++// that could not would turn that error into std::terminate.
++class FdInBuf : public std::streambuf
++{
++ public:
++  explicit FdInBuf(const int fd) : fd_(fd) {}
++
++ protected:
++  int_type underflow() override
++  {
++    const size_t keep
++        = std::min<size_t>(kWindow, static_cast<size_t>(egptr() - eback()));
++    if (keep > 0) {
++      std::memmove(buffer_.data(), egptr() - keep, keep);
++    }
++    consumed_ += (egptr() - eback()) - keep;
++    ssize_t n;
++    do {
++      n = ::read(fd_, buffer_.data() + keep, kWindow);
++    } while (n < 0 && errno == EINTR);
++    setg(buffer_.data(), buffer_.data() + keep, buffer_.data() + keep);
++    if (n <= 0) {
++      return traits_type::eof();
++    }
++    setg(buffer_.data(), buffer_.data() + keep, buffer_.data() + keep + n);
++    return traits_type::to_int_type(*gptr());
++  }
++
++  pos_type seekoff(const off_type off,
++                   const std::ios_base::seekdir dir,
++                   const std::ios_base::openmode which) override
++  {
++    if (dir != std::ios_base::cur || !(which & std::ios_base::in) || off > 0
++        || -off > gptr() - eback()) {
++      return pos_type(off_type(-1));
++    }
++    gbump(static_cast<int>(off));
++    return pos_type(static_cast<off_type>(consumed_ + (gptr() - eback())));
++  }
++
++ private:
++  static constexpr size_t kWindow = 65536;
++  const int fd_;
++  uint64_t consumed_ = 0;  // bytes before eback()
++  std::array<char, 2 * kWindow> buffer_;
++};
++
++void checkCodec(utl::Logger* logger,
++                const char* codec,
++                const char* verb,
++                const char* filename,
++                const int status)
++{
++  if (status < 0) {
++    logger->error(ORD,
++                  79,
++                  "ODB_CODEC {} could not be run to {} {}: {}",
++                  codec,
++                  verb,
++                  filename,
++                  std::strerror(-status));
++  }
++  if (status > 0) {
++    logger->error(ORD,
++                  80,
++                  "ODB_CODEC {} failed to {} {}: exit status {}",
++                  codec,
++                  verb,
++                  filename,
++                  status);
++  }
++}
++
++void readDbThroughCodec(ord::OpenRoad* openroad,
++                        utl::Logger* logger,
++                        const char* codec,
++                        const char* filename)
++{
++  int fds[2];
++  if (pipe2(fds, O_CLOEXEC) != 0) {
++    checkCodec(logger, codec, "decode", filename, -errno);
++  }
++  const pid_t pid = spawnCodec({codec, "decode", filename}, fds[1]);
++  const int spawn_error = errno;
++  close(fds[1]);
++  if (pid < 0) {
++    close(fds[0]);
++    checkCodec(logger, codec, "decode", filename, -spawn_error);
++  }
++
++  FdInBuf buf(fds[0]);
++  std::istream stream(&buf);
++  try {
++    openroad->readDb(stream);
++  } catch (...) {
++    close(fds[0]);
++    waitCodec(pid);
++    throw;
++  }
++  close(fds[0]);
++  checkCodec(logger, codec, "decode", filename, waitCodec(pid));
++}
++
++}  // namespace
++
+ // TODO: bool hierarchy should be removed in the future.
+ // It is retained for a while for backward compatibility.
+ void OpenRoad::readDb(const char* filename, bool hierarchy)
+ {
+   try {
+-    utl::InStreamHandler handler(filename, true);
+-    readDb(handler.getStream());
++    const char* codec = odbCodec();
++    if (codec != nullptr && !std::string_view(filename).ends_with(".gz")) {
++      readDbThroughCodec(this, logger_, codec, filename);
++    } else {
++      utl::InStreamHandler handler(filename, true);
++      readDb(handler.getStream());
++    }
+   } catch (const std::ios_base::failure& f) {
+     logger_->error(ORD, 54, "odb file {} is invalid: {}", filename, f.what());
+   }
+@@ -611,8 +806,25 @@ void OpenRoad::writeDb(std::ostream& stream)
+ void OpenRoad::writeDb(const char* filename,
+                        std::optional<int> compression_level)
+ {
+-  utl::OutStreamHandler stream_handler(filename, true, compression_level);
+-  writeDb(stream_handler.getStream());
++  const char* codec = odbCodec();
++  if (codec == nullptr || std::string_view(filename).ends_with(".gz")) {
++    utl::OutStreamHandler stream_handler(filename, true, compression_level);
++    writeDb(stream_handler.getStream());
++    return;
++  }
++
++  const std::string layout_file = std::string(filename) + ".layout";
++  {
++    utl::OutStreamHandler stream_handler(filename, true);
++    std::ostream& stream = stream_handler.getStream();
++    stream.exceptions(std::ofstream::failbit | std::ofstream::badbit);
++    std::ofstream layout(layout_file);
++    layout.exceptions(std::ofstream::failbit | std::ofstream::badbit);
++    db_->write(stream, layout);
++  }
++  const int status = runCodec({codec, "encode", filename, layout_file});
++  std::filesystem::remove(layout_file);
++  checkCodec(logger_, codec, "encode", filename, status);
+ }
+ 
+ void OpenRoad::readVerilog(const char* filename)
+diff --git a/src/odb/include/odb/db.h b/src/odb/include/odb/db.h
+index 65a1384396..bfcb028da1 100644
+--- a/src/odb/include/odb/db.h
++++ b/src/odb/include/odb/db.h
+@@ -7778,6 +7778,15 @@ class dbDatabase : public dbObject
+   ///
+   void write(std::ostream& file);
+ 
++  ///
++  /// Write a database to this stream, and to layout a description of
++  /// where each table slot lies in what was written, for tools that
++  /// reformat a .odb outside OpenROAD. The database bytes are the same as
++  /// write(file) produces. The layout is not part of the .odb format and
++  /// carries no compatibility promise; see src/db/dbStreamLayout.h.
++  ///
++  void write(std::ostream& file, std::ostream& layout);
++
+   ///
+   /// ECO - The following methods implement a simple ECO mechanism for capturing
+   /// netlist changes. The intent of the ECO mechanism is to support delta
+diff --git a/src/odb/include/odb/dbStream.h b/src/odb/include/odb/dbStream.h
+index a1f0f34e60..ef515205d1 100644
+--- a/src/odb/include/odb/dbStream.h
++++ b/src/odb/include/odb/dbStream.h
+@@ -29,6 +29,7 @@
+ namespace odb {
+ 
+ class _dbDatabase;
++class dbStreamLayout;
+ 
+ inline constexpr size_t kTemplateRecursionLimit = 16;
+ 
+@@ -73,10 +74,20 @@ class dbOStream
+   {
+     if (buffer_pos_ > 0) {
+       f_.write(buffer_.data(), static_cast<std::streamsize>(buffer_pos_));
++      written_ += buffer_pos_;
+       buffer_pos_ = 0;
+     }
+   }
+ 
++  // Bytes handed to this stream so far, counting what is still buffered.
++  // Unlike pos() it neither flushes nor asks the underlying stream.
++  uint64_t tell() const { return written_ + buffer_pos_; }
++
++  // Where the stream reports the byte range of each table slot it writes,
++  // or nullptr, the default, to report nothing. See dbStreamLayout.h.
++  void setLayout(dbStreamLayout* layout) { layout_ = layout; }
++  dbStreamLayout* getLayout() const { return layout_; }
++
+   template <typename... Ts>
+     requires(... && std::is_trivially_copyable_v<Ts>)
+   void writeValues(const Ts&... vals)
+@@ -113,6 +124,7 @@ class dbOStream
+     // If payload exceeds entire buffer size, bypass buffering
+     if (len > kBufferSize) {
+       f_.write(data, static_cast<std::streamsize>(len));
++      written_ += len;
+     } else {
+       std::memcpy(buffer_.data() + buffer_pos_, data, len);
+       buffer_pos_ += len;
+@@ -248,6 +260,8 @@ class dbOStream
+   static constexpr size_t kBufferSize = 65536;
+   std::array<char, kBufferSize> buffer_;
+   size_t buffer_pos_ = 0;
++  uint64_t written_ = 0;
++  dbStreamLayout* layout_ = nullptr;
+ };
+ 
+ // RAII class for scoping ostream operations
+diff --git a/src/odb/src/db/CMakeLists.txt b/src/odb/src/db/CMakeLists.txt
+index dc03d0f6f2..e591c5d611 100644
+--- a/src/odb/src/db/CMakeLists.txt
++++ b/src/odb/src/db/CMakeLists.txt
+@@ -4,6 +4,7 @@
+ add_library(db
+     dbBTerm.cpp 
+     dbStream.cpp 
++    dbStreamLayout.cpp
+     dbBTermItr.cpp 
+     dbBPinItr.cpp 
+     dbBlock.cpp 
+diff --git a/src/odb/src/db/dbDatabase.cpp b/src/odb/src/db/dbDatabase.cpp
+index 32dd8d48fb..95e49f3a94 100644
+--- a/src/odb/src/db/dbDatabase.cpp
++++ b/src/odb/src/db/dbDatabase.cpp
+@@ -15,6 +15,7 @@
+ #include "dbChipRegionInst.h"
+ #include "dbCore.h"
+ #include "dbProperty.h"
++#include "dbStreamLayout.h"
+ #include "dbTable.h"
+ #include "dbUnfoldedChipBumpInst.h"
+ #include "dbUnfoldedChipConn.h"
+@@ -940,6 +941,18 @@ void dbDatabase::write(std::ostream& file)
+   file.flush();
+ }
+ 
++void dbDatabase::write(std::ostream& file, std::ostream& layout)
++{
++  _dbDatabase* db = (_dbDatabase*) this;
++  dbStreamLayout recorder(layout);
++  dbOStream stream(db, file);
++  stream.setLayout(&recorder);
++  stream << *db;
++  stream.flush();
++  file.flush();
++  recorder.finish(stream.tell());
++}
++
+ void dbDatabase::beginEco(dbBlock* block_)
+ {
+   _dbBlock* block = (_dbBlock*) block_;
+diff --git a/src/odb/src/db/dbStreamLayout.cpp b/src/odb/src/db/dbStreamLayout.cpp
+new file mode 100644
+index 0000000000..3676399b64
+--- /dev/null
++++ b/src/odb/src/db/dbStreamLayout.cpp
+@@ -0,0 +1,51 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++#include "dbStreamLayout.h"
++
++#include <cstdint>
++#include <ostream>
++
++namespace odb {
++
++dbStreamLayout::dbStreamLayout(std::ostream& out) : out_(out)
++{
++  out_ << "odb-layout 1\n";
++}
++
++void dbStreamLayout::addSlot(const char* table,
++                             const uint64_t offset,
++                             const uint64_t length)
++{
++  ++slots_;
++  // Table names are the static strings of dbObject::getTypeName, so
++  // two slots of one table share the pointer.
++  const bool extends = count_ > 0 && table == table_ && length == length_
++                       && offset == offset_ + length_ * count_;
++  if (extends) {
++    ++count_;
++    return;
++  }
++  flushRun();
++  table_ = table;
++  offset_ = offset;
++  length_ = length;
++  count_ = 1;
++}
++
++void dbStreamLayout::finish(const uint64_t size)
++{
++  flushRun();
++  out_ << "size " << size << '\n';
++  out_.flush();
++}
++
++void dbStreamLayout::flushRun()
++{
++  if (count_ > 0) {
++    out_ << table_ << ' ' << offset_ << ' ' << length_ << ' ' << count_ << '\n';
++  }
++  count_ = 0;
++}
++
++}  // namespace odb
+diff --git a/src/odb/src/db/dbStreamLayout.h b/src/odb/src/db/dbStreamLayout.h
+new file mode 100644
+index 0000000000..f176ee1c27
+--- /dev/null
++++ b/src/odb/src/db/dbStreamLayout.h
+@@ -0,0 +1,56 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++#pragma once
++
++#include <cstdint>
++#include <ostream>
++
++namespace odb {
++
++// Reports where each dbTable slot lands in a .odb as it is written, so a
++// tool outside OpenROAD can reformat the file (for instance, to make it
++// compress better) and restore it byte for byte. It describes the bytes
++// of the one file it was written with and nothing else: it is not part of
++// the .odb format, OpenROAD never reads it, and it carries no
++// compatibility promise from one OpenROAD revision to the next.
++//
++// Text, one line per run of consecutive slots of one table that are
++// contiguous in the file and of equal length:
++//
++//   odb-layout 1
++//   <table> <offset> <length> <count>
++//   ...
++//   size <bytes>
++//
++// A slot is its allocated flag and what follows it: the record written
++// by the type's operator<<, or a free slot's list links. A slot whose
++// record holds tables of its own (a chip's, a block's) is not listed; the
++// slots inside it are. Bytes not covered by a run (headers, hash tables,
++// vectors) are the file's own.
++class dbStreamLayout
++{
++ public:
++  explicit dbStreamLayout(std::ostream& out);
++
++  void addSlot(const char* table, uint64_t offset, uint64_t length);
++
++  // Slots added so far: a slot that saw this change while it was written
++  // holds tables of its own.
++  uint64_t slotCount() const { return slots_; }
++
++  // Ends the report; size is the length of the file it describes.
++  void finish(uint64_t size);
++
++ private:
++  void flushRun();
++
++  std::ostream& out_;
++  const char* table_ = nullptr;
++  uint64_t offset_ = 0;
++  uint64_t length_ = 0;
++  uint64_t count_ = 0;
++  uint64_t slots_ = 0;
++};
++
++}  // namespace odb
+diff --git a/src/odb/src/db/dbTable.inc b/src/odb/src/db/dbTable.inc
+index ab68b7c3fc..26ff4e9f64 100644
+--- a/src/odb/src/db/dbTable.inc
++++ b/src/odb/src/db/dbTable.inc
+@@ -12,6 +12,7 @@
+ #include "dbCommon.h"
+ #include "dbCore.h"
+ #include "dbDatabase.h"
++#include "dbStreamLayout.h"
+ #include "odb/dbId.h"
+ #include "odb/dbObject.h"
+ #include "odb/dbStream.h"
+@@ -479,8 +480,11 @@ void dbTable<T, page_size>::writePage(dbOStream& stream,
+ {
+   const T* t = (T*) page->objects_;
+   const T* e = &t[pageSize()];
++  dbStreamLayout* layout = stream.getLayout();
+ 
+   for (; t < e; t++) {
++    const uint64_t start = stream.tell();
++    const uint64_t inner = layout ? layout->slotCount() : 0;
+     if (t->offset_in_bytes_ & kAllocBit) {
+       const char allocated = 1;
+       stream << allocated;
+@@ -492,6 +496,10 @@ void dbTable<T, page_size>::writePage(dbOStream& stream,
+       stream << o->next_;
+       stream << o->prev_;
+     }
++    if (layout && layout->slotCount() == inner) {
++      layout->addSlot(
++          dbObject::getTypeName(type_), start, stream.tell() - start);
++    }
+   }
+ }
+ 
+diff --git a/src/odb/test/BUILD b/src/odb/test/BUILD
+index 2ae58beaee..a6d3b1fbce 100644
+--- a/src/odb/test/BUILD
++++ b/src/odb/test/BUILD
+@@ -189,6 +189,9 @@ COMPULSORY_TESTS = [
+     "lef_mask",
+     "multi_tech",
+     "ndr",
++    "odb_codec_invalid",
++    "odb_codec_read",
++    "odb_codec_write",
+     "polygon",
+     "read_abstract_lef",
+     "read_3dbv",
+@@ -401,6 +404,15 @@ filegroup(
+             "dump_netlists_withfill": [
+                 "dump_netlists_withfill_cdl.ok",
+             ],
++            "odb_codec_invalid": [
++                "odb_codec_stub.sh",
++            ],
++            "odb_codec_read": [
++                "odb_codec_stub.sh",
++            ],
++            "odb_codec_write": [
++                "odb_codec_stub.sh",
++            ],
+             "read_abstract_lef": [
+                 "gcd_abstract_lef.lefok",
+             ],
+diff --git a/src/odb/test/CMakeLists.txt b/src/odb/test/CMakeLists.txt
+index e9e8c1ef2d..24dace53e4 100644
+--- a/src/odb/test/CMakeLists.txt
++++ b/src/odb/test/CMakeLists.txt
+@@ -36,6 +36,9 @@ or_integration_tests(
+     lef_mask
+     multi_tech
+     ndr
++    odb_codec_invalid
++    odb_codec_read
++    odb_codec_write
+     polygon
+     read_abstract_lef
+     read_3dbv
+diff --git a/src/odb/test/cpp/BUILD b/src/odb/test/cpp/BUILD
+index 660541215c..5aa2d24f76 100644
+--- a/src/odb/test/cpp/BUILD
++++ b/src/odb/test/cpp/BUILD
+@@ -405,6 +405,17 @@ cc_test(
+     ],
+ )
+ 
++cc_test(
++    name = "TestDbStreamLayout",
++    srcs = ["TestDbStreamLayout.cpp"],
++    deps = [
++        "//src/odb/src/db",
++        "//src/odb/test/cpp/helper",
++        "@googletest//:gtest",
++        "@googletest//:gtest_main",
++    ],
++)
++
+ cc_test(
+     name = "TestDbStream",
+     srcs = ["TestDbStream.cpp"],
+diff --git a/src/odb/test/cpp/CMakeLists.txt b/src/odb/test/cpp/CMakeLists.txt
+index be4384b05a..a81f34df07 100644
+--- a/src/odb/test/cpp/CMakeLists.txt
++++ b/src/odb/test/cpp/CMakeLists.txt
+@@ -33,6 +33,7 @@ add_executable(TestSwapMasterLeaf TestSwapMasterLeaf.cpp)
+ add_executable(TestWriteReadDbHier TestWriteReadDbHier.cpp)
+ add_executable(TestObjectType TestObjectType.cpp)
+ add_executable(TestDbStream TestDbStream.cpp)
++add_executable(TestDbStreamLayout TestDbStreamLayout.cpp)
+ 
+ target_link_libraries(OdbGTests
+         db
+@@ -176,6 +177,11 @@ target_link_libraries(TestDbStream
+         tst_base
+         ${GTEST_LIBS}
+ )
++target_link_libraries(TestDbStreamLayout
++        db
++        odb_test_helper
++        ${GTEST_LIBS}
++)
+ target_link_libraries(TestObjectType
+         db
+         tst_base
+@@ -216,6 +222,7 @@ add_dependencies(build_and_test
+         OdbGTests
+         TestObjectType
+         TestDbStream
++        TestDbStreamLayout
+ )
+ add_subdirectory(helper)
+ add_subdirectory(scan)
+diff --git a/src/odb/test/cpp/TestDbStreamLayout.cpp b/src/odb/test/cpp/TestDbStreamLayout.cpp
+new file mode 100644
+index 0000000000..5d05d93441
+--- /dev/null
++++ b/src/odb/test/cpp/TestDbStreamLayout.cpp
+@@ -0,0 +1,114 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++#include <cstdint>
++#include <map>
++#include <sstream>
++#include <string>
++#include <vector>
++
++#include "gtest/gtest.h"
++#include "helper.h"
++#include "odb/db.h"
++
++namespace odb {
++namespace {
++
++struct SlotRun
++{
++  std::string table;
++  uint64_t offset;
++  uint64_t length;
++  uint64_t count;
++};
++
++class TestDbStreamLayout : public SimpleDbFixture
++{
++ protected:
++  TestDbStreamLayout()
++  {
++    create2LevetDbWithBTerms();
++    std::ostringstream file;
++    std::ostringstream layout;
++    db_->write(file, layout);
++    bytes_ = file.str();
++    parse(layout.str());
++  }
++
++  void parse(const std::string& text)
++  {
++    std::istringstream in(text);
++    std::string word;
++    int version = 0;
++    in >> word >> version;
++    ASSERT_EQ(word, "odb-layout");
++    ASSERT_EQ(version, 1);
++    while (in >> word) {
++      if (word == "size") {
++        in >> size_;
++        break;
++      }
++      SlotRun run{.table = word, .offset = 0, .length = 0, .count = 0};
++      in >> run.offset >> run.length >> run.count;
++      runs_.push_back(run);
++    }
++  }
++
++  // Allocated slots per table, read from the file through the layout.
++  std::map<std::string, uint64_t> allocatedSlots() const
++  {
++    std::map<std::string, uint64_t> allocated;
++    for (const SlotRun& run : runs_) {
++      for (uint64_t i = 0; i < run.count; ++i) {
++        allocated[run.table] += bytes_[run.offset + (i * run.length)] == 1;
++      }
++    }
++    return allocated;
++  }
++
++  std::string bytes_;
++  std::vector<SlotRun> runs_;
++  uint64_t size_ = 0;
++};
++
++// Asking for a layout leaves the database bytes as they are.
++TEST_F(TestDbStreamLayout, SameBytesAsWrite)
++{
++  std::ostringstream file;
++  db_->write(file);
++  EXPECT_EQ(file.str(), bytes_);
++}
++
++// The runs lie inside the file, in order, without overlapping, and each
++// slot starts with its allocated flag.
++TEST_F(TestDbStreamLayout, RunsDescribeTheFile)
++{
++  EXPECT_EQ(size_, bytes_.size());
++  ASSERT_FALSE(runs_.empty());
++  uint64_t end = 0;
++  for (const SlotRun& run : runs_) {
++    EXPECT_GE(run.offset, end) << run.table;
++    EXPECT_GT(run.length, 0) << run.table;
++    EXPECT_GT(run.count, 0) << run.table;
++    end = run.offset + (run.length * run.count);
++    ASSERT_LE(end, bytes_.size()) << run.table;
++    for (uint64_t i = 0; i < run.count; ++i) {
++      const char flag = bytes_[run.offset + (i * run.length)];
++      EXPECT_TRUE(flag == 0 || flag == 1) << run.table;
++    }
++  }
++}
++
++// Every object is found where the layout says its table's slots are.
++TEST_F(TestDbStreamLayout, FindsEveryObject)
++{
++  dbBlock* block = db_->getChip()->getBlock();
++  const std::map<std::string, uint64_t> allocated = allocatedSlots();
++  EXPECT_EQ(allocated.at("dbInst"), block->getInsts().size());
++  EXPECT_EQ(allocated.at("dbNet"), block->getNets().size());
++  EXPECT_EQ(allocated.at("dbITerm"), block->getITerms().size());
++  EXPECT_EQ(allocated.at("dbBTerm"), block->getBTerms().size());
++}
++
++}  // namespace
++}  // namespace odb
+diff --git a/src/odb/test/odb_codec_invalid.ok b/src/odb/test/odb_codec_invalid.ok
+new file mode 100644
+index 0000000000..8315664ac4
+--- /dev/null
++++ b/src/odb/test/odb_codec_invalid.ok
+@@ -0,0 +1 @@
++read_db failed: database file is not an OpenDB Database
+diff --git a/src/odb/test/odb_codec_invalid.tcl b/src/odb/test/odb_codec_invalid.tcl
+new file mode 100644
+index 0000000000..3b429f605a
+--- /dev/null
++++ b/src/odb/test/odb_codec_invalid.tcl
+@@ -0,0 +1,12 @@
++# read_db reports a file that decodes to something other than a database
++# as an error, as it does without ODB_CODEC, and does not abort.
++source "helpers.tcl"
++
++set ::env(ODB_CODEC) [file normalize "odb_codec_stub.sh"]
++set bogus [make_result_file "odb_codec_invalid.odb"]
++set f [open $bogus wb]
++puts -nonewline $f [string repeat "not a database " 10000]
++close $f
++if { [catch { read_db $bogus } err] } {
++  puts "read_db failed: $err"
++}
+diff --git a/src/odb/test/odb_codec_read.ok b/src/odb/test/odb_codec_read.ok
+new file mode 100644
+index 0000000000..9602f0753f
+--- /dev/null
++++ b/src/odb/test/odb_codec_read.ok
+@@ -0,0 +1 @@
++block counter with 12 instances
+diff --git a/src/odb/test/odb_codec_read.tcl b/src/odb/test/odb_codec_read.tcl
+new file mode 100644
+index 0000000000..9cf34a9c28
+--- /dev/null
++++ b/src/odb/test/odb_codec_read.tcl
+@@ -0,0 +1,17 @@
++# read_db reads the database from what ODB_CODEC decodes.
++source "helpers.tcl"
++
++set codec [file normalize "odb_codec_stub.sh"]
++set encoded [make_result_file "odb_codec_read.odb"]
++file copy -force "data/design.odb" $encoded
++set layout [make_result_file "odb_codec_read.odb.layout"]
++set f [open $layout w]
++puts $f "odb-layout 1"
++puts $f "size [file size $encoded]"
++close $f
++exec $codec encode $encoded $layout
++
++set ::env(ODB_CODEC) $codec
++read_db $encoded
++set block [[[ord::get_db] getChip] getBlock]
++puts "block [$block getName] with [llength [$block getInsts]] instances"
+diff --git a/src/odb/test/odb_codec_stub.sh b/src/odb/test/odb_codec_stub.sh
+new file mode 100755
+index 0000000000..a6dd8a2757
+--- /dev/null
++++ b/src/odb/test/odb_codec_stub.sh
+@@ -0,0 +1,29 @@
++#!/bin/sh
++# SPDX-License-Identifier: BSD-3-Clause
++# Copyright (c) 2026, The OpenROAD Authors
++
++# A stand-in for a user's ODB_CODEC, for the odb_codec_* tests. encode
++# checks that the layout describes the file it was handed and prefixes a
++# marker line; decode strips the marker and hands any other file over
++# unchanged, as a codec must.
++set -e
++marker=odb-codec-stub
++case "$1" in
++encode)
++  size=$(wc -c <"$2")
++  head -n 1 "$3" | grep -qx 'odb-layout 1'
++  tail -n 1 "$3" | grep -qx "size $((size))"
++  { echo "$marker"; cat "$2"; } >"$2.stub"
++  mv "$2.stub" "$2"
++  ;;
++decode)
++  if [ "$(head -n 1 "$2")" = "$marker" ]; then
++    tail -n +2 "$2"
++  else
++    cat "$2"
++  fi
++  ;;
++*)
++  exit 2
++  ;;
++esac
+diff --git a/src/odb/test/odb_codec_write.ok b/src/odb/test/odb_codec_write.ok
+new file mode 100644
+index 0000000000..2be5ff121e
+--- /dev/null
++++ b/src/odb/test/odb_codec_write.ok
+@@ -0,0 +1,4 @@
++encoded by the codec: 1
++layout left behind: 0
++layout written without ODB_CODEC: 0
++codec handed what write_db writes: 1
+diff --git a/src/odb/test/odb_codec_write.tcl b/src/odb/test/odb_codec_write.tcl
+new file mode 100644
+index 0000000000..638c93f982
+--- /dev/null
++++ b/src/odb/test/odb_codec_write.tcl
+@@ -0,0 +1,31 @@
++# write_db hands the file it wrote, and where its table slots lie, to
++# ODB_CODEC; without ODB_CODEC it writes the database and nothing else.
++source "helpers.tcl"
++
++proc read_bytes { path } {
++  set f [open $path rb]
++  set bytes [read $f]
++  close $f
++  return $bytes
++}
++
++set ::env(ODB_CODEC) [file normalize "odb_codec_stub.sh"]
++# The stub decodes a file it did not encode to the file itself.
++read_db "data/design.odb"
++
++set encoded [make_result_file "odb_codec_write.odb"]
++write_db $encoded
++set f [open $encoded rb]
++puts "encoded by the codec: [expr { [gets $f] == "odb-codec-stub" }]"
++close $f
++puts "layout left behind: [file exists $encoded.layout]"
++
++unset ::env(ODB_CODEC)
++set plain [make_result_file "odb_codec_write_plain.odb"]
++write_db $plain
++puts "layout written without ODB_CODEC: [file exists $plain.layout]"
++
++# What the codec was handed is what write_db writes without it.
++set decoded [make_result_file "odb_codec_write_decoded.odb"]
++exec [file normalize "odb_codec_stub.sh"] decode $encoded > $decoded
++puts "codec handed what write_db writes: [expr { [read_bytes $plain] eq [read_bytes $decoded] }]"
+-- 
+2.53.0
+
