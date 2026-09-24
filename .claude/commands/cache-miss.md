@@ -1,4 +1,4 @@
-> **Repo**: Run from the bazel-orfs root. Applies to any target, and was written for `//test/coremark_joule/designs/asap7/xiangshan:XSCore_grt`, whose cold build is six hours.
+> **Repo**: Run from the bazel-orfs root. Applies to any target, and was written for `//test/coremark_joule/designs/asap7/xiangshan:XSTile_grt`, whose cold build is six hours.
 
 Find out why a target is not a remote cache hit on this machine when another machine built it, or why it rebuilds here when nothing seemed to change. Collect a few kilobytes of key evidence on each machine, commit them next to the design, and diff them. Never commit an execution log.
 
@@ -23,7 +23,7 @@ On each machine, from a checkout at the commit you are comparing:
 
 ```sh
 bazelisk run //tools/cache_evidence -- capture \
-  //test/coremark_joule/designs/asap7/xiangshan:XSCore_grt \
+  //test/coremark_joule/designs/asap7/xiangshan:XSTile_grt \
   --out test/coremark_joule/designs/asap7/xiangshan/cache_evidence/<machine>.txt
 ```
 

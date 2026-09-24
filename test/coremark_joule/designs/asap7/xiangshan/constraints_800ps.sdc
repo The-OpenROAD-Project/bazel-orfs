@@ -22,8 +22,9 @@ set clk_period 800
 # the other side of its pins is a clock-crossing bridge, a bus register
 # or a GPIO pad -- something that terminates the path rather than
 # continuing it. So assume a register immediately outside every port.
-# For XSCore that thing is literally a register: every port of the
-# boundary is a TileLink channel into the L2, a sibling inside XSTile.
+# For XSTile that thing is the asynchronous crossing in XSTileWrap,
+# immediately outside it -- the CHI bridge, the CLINT time queue, the
+# reset synchronisers -- which registers every signal it takes.
 #
 # $PLATFORM_DIR/constraints.sdc implements exactly that with
 # set_max_delay, and defaults each budget to 80 ps when the design says
@@ -39,8 +40,8 @@ set in2reg_max  [expr { $clk_period * 0.8 }]
 set reg2out_max [expr { $clk_period * 0.8 }]
 set in2out_max  [expr { $clk_period * 0.6 }]
 
-# Reset is a false path here. XSCore's reset is asynchronous -- 1005 of
-# its always blocks are `posedge clock or posedge reset` -- and the one
+# Reset is a false path here. XiangShan's reset is asynchronous -- 1005 of
+# XSCore's always blocks are `posedge clock or posedge reset` -- and the one
 # `reset` port reaches the async-reset pin of every one of those flops.
 # Timed, that is a recovery and removal check at every flop against the
 # arrival through a buffer tree the flow builds for the net, and
@@ -58,6 +59,22 @@ foreach p [get_ports -quiet reset] {
 # point, textbook order of magnitude; the right value is a sweep against
 # the PDK's max_transition, and this one has not been swept.
 set_max_fanout 32 [current_design]
+
+# The L2's data banks are read in two cycles (CoupledL2 DataStorage,
+# readMCP2): the request is held for two cycles and the data is sampled
+# two cycles later, so every path into and out of a bank has two periods.
+# Timed as one, each read looks like a violation the design never has.
+# The banks are only in XSTile; there, finding none means the constraint
+# has lost its target, and that is an error rather than a clean report.
+set l2_data_banks [get_cells -quiet -hierarchical * -filter "ref_name == array_8192x137"]
+if { [llength $l2_data_banks] > 0 } {
+  set_multicycle_path 2 -setup -to $l2_data_banks
+  set_multicycle_path 1 -hold -to $l2_data_banks
+  set_multicycle_path 2 -setup -from $l2_data_banks
+  set_multicycle_path 1 -hold -from $l2_data_banks
+} elseif { [info exists ::env(DESIGN_NAME)] && $::env(DESIGN_NAME) eq "XSTile" } {
+  error "constraints_800ps.sdc: no array_8192x137 in XSTile, the L2 data banks' multicycle path has no target"
+}
 
 # The platform's constraints add group_path targets between inputs,
 # registers and outputs. VectorDecodeChannel, a block of this design, is

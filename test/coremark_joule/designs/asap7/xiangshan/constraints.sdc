@@ -21,8 +21,9 @@ set clk_period 1200
 # the other side of its pins is a clock-crossing bridge, a bus register
 # or a GPIO pad -- something that terminates the path rather than
 # continuing it. So assume a register immediately outside every port.
-# For XSCore that thing is literally a register: every port of the
-# boundary is a TileLink channel into the L2, a sibling inside XSTile.
+# For XSTile that thing is the asynchronous crossing in XSTileWrap,
+# immediately outside it -- the CHI bridge, the CLINT time queue, the
+# reset synchronisers -- which registers every signal it takes.
 #
 # $PLATFORM_DIR/constraints.sdc implements exactly that with
 # set_max_delay, and defaults each budget to 80 ps when the design says
@@ -38,8 +39,8 @@ set in2reg_max  [expr { $clk_period * 0.8 }]
 set reg2out_max [expr { $clk_period * 0.8 }]
 set in2out_max  [expr { $clk_period * 0.6 }]
 
-# Reset is a false path here. XSCore's reset is asynchronous -- 1005 of
-# its always blocks are `posedge clock or posedge reset` -- and the one
+# Reset is a false path here. XiangShan's reset is asynchronous -- 1005 of
+# XSCore's always blocks are `posedge clock or posedge reset` -- and the one
 # `reset` port reaches the async-reset pin of every one of those flops.
 # Timed, that is a recovery and removal check at every flop against the
 # arrival through a buffer tree the flow builds for the net, and

@@ -1,8 +1,7 @@
 """XSCache: coupledL2, openLLC and the shared cache utilities.
 
-The L2 is outside the measurement boundary -- the study hardens XSCore,
-which is the core with its L1I and L1D -- but XSCore cannot be
-elaborated or simulated without an L2 to talk to, so this compiles.
+The L2 is CoupledL2, inside XSTile, the unit the study hardens: the
+core with its L1I and L1D and the L2 next to it.
 """
 
 load("@rules_chisel//chisel:defs.bzl", "chisel_library")
