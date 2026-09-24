@@ -2,6 +2,7 @@
 # files: measure.sh builds a few asap7 designs with and without it and
 # runs measure.py over every .odb their stages write.
 load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 py_binary(
     name = "measure",
@@ -17,4 +18,24 @@ py_binary(
         "@zstd//:zstd_cli",
     ],
     tags = ["manual"],
+)
+
+# The carried OpenROAD patch, in this repository's CI: OpenROAD's own
+# tests for it do not run here.
+sh_test(
+    name = "codec_hook_test",
+    size = "small",
+    srcs = ["codec_hook_test.sh"],
+    args = [
+        "$(rootpath @openroad)",
+        "$(rootpath stub_codec.sh)",
+        "$(rootpath //tools/odb_codec)",
+        "$(rootpath @openroad//src/odb/test:design_odb_data)",
+    ],
+    data = [
+        "stub_codec.sh",
+        "//tools/odb_codec",
+        "@openroad",
+        "@openroad//src/odb/test:design_odb_data",
+    ],
 )
