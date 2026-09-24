@@ -30,6 +30,17 @@ Earlier stages are their own targets (`XSCore_synth`, `_floorplan`,
 `XSCore_cts_odb_debug` and `XSCore_grt_odb_debug` open a checkpoint for
 questions.
 
+## Where the period is
+
+![what needs fixing in XSCore](xscore_problems.png)
+
+A qualitative diagram, generated from the routed ODB through the
+odb-debug MCP server: the geometry and the numbers are measured, the
+choice of five problems and their ranking are a judgement about what
+needs fixing. `xscore_problems.py` draws it; re-measure through
+`.claude/commands/odb-debug.md` and edit the tables at the top of that
+script when the baseline moves.
+
 ## The next three
 
 1. **Abstract each block after its own clock tree.** 43,715 ps of the
