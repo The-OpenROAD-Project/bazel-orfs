@@ -49,6 +49,18 @@ odb_debug(
     src = ":XSCore_place",
 )
 
+# The parent's KPI checkpoints (README.md): the reg2reg group with a clock
+# tree, and the route-0 overflow. Timing on CTS needs about 33 GB.
+odb_debug(
+    name = "XSCore_cts_odb_debug",
+    src = ":XSCore_cts",
+)
+
+odb_debug(
+    name = "XSCore_grt_odb_debug",
+    src = ":XSCore_grt",
+)
+
 # The planned blocks' synthesis netlists with timing: the time table's
 # source. A block synthesised alone at the target period has no fanout
 # phantom and probes in minutes; its worst boundary crossing sorts the
