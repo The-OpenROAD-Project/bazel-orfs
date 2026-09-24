@@ -356,6 +356,11 @@ bazel_dep(name = "rules_verilator", version = "1.1.2", dev_dependency = True)
 # bazel-orfs must never resolve a simulator to build a flow.
 bazel_dep(name = "iverilog", version = "13.0.bcr.1", dev_dependency = True)
 
+# zstd, the compressor bazel's --remote_cache_compression uses, for
+# test/odb_codec: what //tools/odb_codec does to the compressed size of a
+# .odb is measured with it. Dev-only: the codec compresses nothing.
+bazel_dep(name = "zstd", version = "1.5.7.bcr.1", dev_dependency = True)
+
 # verilator: rules_verilator pins 5.046.bcr.3, whose cc_binary links
 # -latomic unconditionally on Linux. That is a libgcc-era assumption --
 # libatomic is GCC's out-of-line fallback, shipped next to libgcc on

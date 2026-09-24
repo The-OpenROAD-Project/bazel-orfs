@@ -1,0 +1,20 @@
+# What //tools/odb_codec does to the compressed size of a flow's .odb
+# files: measure.sh builds a few asap7 designs with and without it and
+# runs measure.py over every .odb their stages write.
+load("@rules_python//python:defs.bzl", "py_binary")
+
+py_binary(
+    name = "measure",
+    srcs = ["measure.py"],
+    args = [
+        "--codec=$(rootpath //tools/odb_codec)",
+        "--zstd=$(rootpath @zstd//:zstd_cli)",
+        "--openroad=$(rootpath @openroad)",
+    ],
+    data = [
+        "//tools/odb_codec",
+        "@openroad",
+        "@zstd//:zstd_cli",
+    ],
+    tags = ["manual"],
+)
