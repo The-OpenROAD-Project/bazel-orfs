@@ -53,6 +53,19 @@ Synthetic Make() {
     return std::string(1, '\1') + std::string(1 + i % 3, static_cast<char>('a' + i));
   });
   s.Table("dbTiny", 3, [](int i) { return std::string(4, static_cast<char>(i)); });
+  // A list through a permutation of the slots, as net iterms are: next
+  // and prev are inverses, and a creation-order chain points at id + 1.
+  s.Table("dbList", 400, [](int i) {
+    auto u32 = [](uint32_t v) {
+      return std::string{static_cast<char>(v), static_cast<char>(v >> 8),
+                         static_cast<char>(v >> 16), static_cast<char>(v >> 24)};
+    };
+    const uint32_t order = (i * 7) % 400;  // this slot's place in the list
+    const uint32_t next = order == 399 ? 0 : ((order + 1) * 343) % 400 + 1;
+    const uint32_t prev = order == 0 ? 0 : ((order - 1) * 343) % 400 + 1;
+    return std::string(1, '\1') + u32(next) + u32(prev) + u32(i + 1) +
+           u32(i * 2654435761u);
+  });
   s.Bytes("trailer");
   return s;
 }
@@ -72,6 +85,9 @@ int main() {
   CHECK(encoded.find(std::string(300, 'Q')) != std::string::npos);
   CHECK(odb_codec::Decode(encoded, &decoded, &error));
   CHECK(decoded == s.odb);
+  // prev is the inverse of next and the third field is id + 1, so both
+  // become columns of zeros: 800 slot bytes of each, as four planes.
+  CHECK(encoded.find(std::string(4 * 400, '\0')) != std::string::npos);
 
   // A layout that names no slots still round-trips.
   const std::string empty = "odb-layout 1\nsize " + std::to_string(s.odb.size()) + "\n";

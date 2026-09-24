@@ -4,10 +4,13 @@
 # odb_codec.h.
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
 
+# Optimized in every configuration: flows run it on every .odb they
+# write, and a measurement should time what the flows run.
 cc_library(
     name = "codec",
     srcs = ["odb_codec.cc"],
     hdrs = ["odb_codec.h"],
+    copts = ["-O2"],
 )
 
 cc_binary(
