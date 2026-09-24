@@ -3,7 +3,9 @@
 
     python3 test/coremark_joule/designs/asap7/xiangshan/xscore_problems.py
 
-Writes xscore_problems.png beside it.
+Writes xscore_problems.png beside it. The figure carries illustration and
+labels only; what each numbered marker means is in README.md next to it,
+so the picture stays readable at any width and the words stay editable.
 
 Every number and every rectangle below was asked of the baseline's routed
 checkpoint through the odb-debug session (.claude/commands/odb-debug.md),
@@ -19,7 +21,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
-from matplotlib.patches import FancyBboxPatch, Rectangle  # noqa: E402
+from matplotlib.patches import Rectangle  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -83,70 +85,21 @@ OVERFLOW = [
     [0] * 24,
 ]
 
-# the five, in the order they cost clock period. (x, y) is where the arrow
-# lands on the die.
-PROBLEMS = [
-    (
-        1,
-        1120,
-        900,
-        "The clock never reaches the logic",
-        "43,715 ps of the 45,985 is the clock arriving at MemBlock's\n"
-        "pin. Its abstract was written at the block's place stage,\n"
-        "before the block had a clock tree, so the pin presents the\n"
-        "whole unbuffered clock net: 145,071 fF, charged by one BUFx24.\n"
-        "Same defect in proportion on every block (60,906 / 32,823 /\n"
-        "7,186 fF). Fix: abstract each block after its own CTS.",
-    ),
-    (
-        2,
-        1760,
-        1125,
-        "One escape band above the macro row",
-        "The blocks fill the bottom 1,050 um edge to edge and nothing\n"
-        "routes through them, so every block-to-parent wire escapes\n"
-        "through the strip just above. 97% of the sampled route-0\n"
-        "overflow is in two 90 um bins there. Fix: the floorplan owes\n"
-        "the escape its own channel, not the leftovers.",
-    ),
-    (
-        3,
-        1500,
-        20,
-        "4,311 ports on one metre of edge",
-        "Every top level port is on the bottom edge between x=1000 and\n"
-        "x=2000, behind MemBlock. Nets that belong on the far side of\n"
-        "the die cross it twice. Fix: the parent's pin plan is a\n"
-        "top level compromise and has to be drawn as one.",
-    ),
-    (
-        4,
-        3010,
-        1130,
-        "A millimetre per block-to-block hop",
-        "MemBlock's output to Region_1's input: 1,793 ps on one parent\n"
-        "wire, with timing-driven placement off and post-CTS repair\n"
-        "skipped. Second largest term after the clock, and the first\n"
-        "one that is about the design rather than the modelling.",
-    ),
-    (
-        5,
-        1520,
-        1975,
-        "No block knows its own period",
-        "The three generated register files drop FIRM into the parent's\n"
-        "rows; the hardened blocks report no slack at all, because the\n"
-        "flow runs with SKIP_REPORT_METRICS. One number describes 4.1 M\n"
-        "instances. Fix: a period per block, measured the same way.",
-    ),
+# the five, in the order they cost clock period: only the number and
+# where the marker lands on the die. What each one says is in README.md,
+# so the figure carries illustration and labels, nothing else.
+MARKERS = [
+    (1, 1120, 900),
+    (2, 1760, 1125),
+    (3, 1500, 20),
+    (4, 3010, 1130),
+    (5, 1520, 1975),
 ]
 
 
 def main():
-    fig = plt.figure(figsize=(16.5, 8.0))
-    ax = fig.add_axes([0.03, 0.10, 0.535, 0.82])
-    tx = fig.add_axes([0.585, 0.09, 0.40, 0.83])
-    tx.axis("off")
+    fig = plt.figure(figsize=(12.5, 8.0))
+    ax = fig.add_axes([0.01, 0.01, 0.98, 0.98])
 
     ax.add_patch(
         Rectangle((0, 0), DIE_W, DIE_H, fc="#f7f7f4", ec="0.25", lw=1.6, zorder=0)
@@ -180,7 +133,7 @@ def main():
             name,
             ha="center",
             va="center",
-            fontsize=10.5,
+            fontsize=11,
             weight="bold",
             color="#08306b",
             zorder=3,
@@ -191,7 +144,7 @@ def main():
             "%d x %d um\n%s pins,  clk pin %s fF" % (s, s, f"{pins:,}", f"{cap:,}"),
             ha="center",
             va="center",
-            fontsize=8,
+            fontsize=8.5,
             color="#08306b",
             zorder=3,
         )
@@ -206,42 +159,55 @@ def main():
             name,
             ha="center",
             va="center",
-            fontsize=7.5,
+            fontsize=8,
             color="#00441b",
             zorder=3,
         )
 
     ax.plot(
-        [PORT_X0, PORT_X1], [0, 0], color="#cc4c02", lw=6, solid_capstyle="butt", zorder=4
+        [PORT_X0, PORT_X1],
+        [0, 0],
+        color="#cc4c02",
+        lw=6,
+        solid_capstyle="butt",
+        zorder=4,
     )
     ax.text(
         (PORT_X0 + PORT_X1) / 2,
-        -95,
+        -100,
         "%s ports, all on this 1,000 um of edge" % f"{PORT_N:,}",
         ha="center",
-        fontsize=8.5,
+        fontsize=9,
         color="#cc4c02",
         weight="bold",
     )
 
-    ax.set_xlim(-160, DIE_W + 280)
-    ax.set_ylim(-230, DIE_H + 120)
-    ax.set_aspect("equal")
-    ax.set_xticks([])
-    ax.set_yticks([])
-    for s in ax.spines.values():
-        s.set_visible(False)
-    ax.set_title(
-        "XSCore on asap7, %d x %d um: 4,093,220 instances, 3,705,850 nets"
+    # the legend is a label on the picture, not prose about it
+    ax.add_patch(
+        Rectangle((2430, 2215), 95, 60, fc="#d7301f", alpha=0.5, ec="none", clip_on=False)
+    )
+    ax.text(
+        2555,
+        2245,
+        "route-0 overflow",
+        va="center",
+        fontsize=9,
+        color="#d7301f",
+    )
+    ax.text(
+        0,
+        2245,
+        "XSCore on asap7:  %d x %d um,  4,093,220 instances,  3,705,850 nets"
         % (DIE_W, DIE_H),
-        loc="left",
-        fontsize=12,
+        ha="left",
+        va="center",
+        fontsize=10.5,
         weight="bold",
+        color="0.2",
     )
 
-    # the callouts: a numbered disc on the die, the same number in the list
-    for n, x, y, head, body in PROBLEMS:
-        ax.add_patch(plt.Circle((x, y), 78, fc="#d7301f", ec="white", lw=1.8, zorder=6))
+    for n, x, y in MARKERS:
+        ax.add_patch(plt.Circle((x, y), 82, fc="#d7301f", ec="white", lw=1.8, zorder=6))
         ax.text(
             x,
             y,
@@ -249,81 +215,21 @@ def main():
             ha="center",
             va="center",
             color="white",
-            fontsize=12,
+            fontsize=13,
             weight="bold",
             zorder=7,
         )
 
-    tx.set_xlim(0, 1)
-    tx.set_ylim(0, 1)
-    tx.text(
-        0,
-        1.0,
-        "The five things between this and 800 ps",
-        fontsize=13,
-        weight="bold",
-        va="top",
-    )
-    yy = 0.935
-    for n, _, _, head, body in PROBLEMS:
-        tx.add_patch(
-            FancyBboxPatch(
-                (0, yy - 0.163),
-                1.0,
-                0.158,
-                boxstyle="round,pad=0.004,rounding_size=0.01",
-                fc="#fbf4f2",
-                ec="0.85",
-                lw=0.8,
-                transform=tx.transAxes,
-            )
-        )
-        tx.add_patch(
-            plt.Circle(
-                (0.028, yy - 0.024),
-                0.016,
-                fc="#d7301f",
-                ec="none",
-                transform=tx.transAxes,
-            )
-        )
-        tx.text(
-            0.028,
-            yy - 0.024,
-            str(n),
-            ha="center",
-            va="center",
-            color="white",
-            fontsize=9.5,
-            weight="bold",
-        )
-        tx.text(0.06, yy - 0.024, head, fontsize=11, weight="bold", va="center")
-        tx.text(0.06, yy - 0.05, body, fontsize=8.6, va="top", color="0.2")
-        yy -= 0.175
-
-    fig.text(
-        0.03,
-        0.048,
-        "Minimum clock period today: 45,985 ps (SDC 800 ps, worst reg2reg slack "
-        "-45,185 ps). Target: 800 ps.",
-        fontsize=10,
-        weight="bold",
-        color="#d7301f",
-    )
-    fig.text(
-        0.03,
-        0.016,
-        "A qualitative diagram, generated from the routed ODB through the "
-        "odb-debug MCP server: the geometry and the numbers are measured, the "
-        "choice of five and their\nranking are a judgement about what needs "
-        "fixing in XSCore. Red shading is route-0 overflow, sampled every "
-        "eighth gcell on M2-M9 and binned 24 x 24.",
-        fontsize=8.2,
-        color="0.35",
-    )
+    ax.set_xlim(-160, DIE_W + 280)
+    ax.set_ylim(-240, DIE_H + 200)
+    ax.set_aspect("equal")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    for sp in ax.spines.values():
+        sp.set_visible(False)
 
     out = os.path.join(HERE, "xscore_problems.png")
-    fig.savefig(out, dpi=110)
+    fig.savefig(out, dpi=130, bbox_inches="tight")
     print(out)
 
 
