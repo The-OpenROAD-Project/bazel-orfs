@@ -39,3 +39,35 @@ sh_test(
         "@openroad//src/odb/test:design_odb_data",
     ],
 )
+
+# gcd's floorplan and place substeps, each with the files it is stored
+# against.
+[
+    filegroup(
+        name = "gcd_" + substep,
+        srcs = ["@orfs//flow/designs/asap7/gcd:gcd_" + stage],
+        output_group = "substep_" + substep,
+    )
+    for stage, substep in [
+        ("floorplan", "2_1_floorplan"),
+        ("place", "3_1_place_gp_skip_io"),
+    ]
+]
+
+sh_test(
+    name = "substep_chain_test",
+    srcs = ["substep_chain_test.sh"],
+    args = [
+        "$(rootpath @openroad)",
+        "$(rootpath //tools/odb_codec)",
+        "$(rootpaths :gcd_2_1_floorplan)",
+        "$(rootpaths :gcd_3_1_place_gp_skip_io)",
+    ],
+    data = [
+        ":gcd_2_1_floorplan",
+        ":gcd_3_1_place_gp_skip_io",
+        "//tools/odb_codec",
+        "@openroad",
+    ],
+    tags = ["orfs"],
+)

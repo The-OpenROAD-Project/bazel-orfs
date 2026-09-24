@@ -175,11 +175,16 @@ main() {
       ../*) codec="$dst/${codec#../}" ;;
       *) codec="$dst_main/$codec" ;;
     esac
+    # Decode every file before replacing any: a substep is a delta
+    # against the next one, which must still be encoded when it is read.
     find "$dst" -name '*.odb' -print | while IFS= read -r odb; do
       [ "$(head -c 8 "$odb")" = ODBCODEC ] || continue
       "$codec" decode "$odb" >"$odb.decoded"
+    done
+    find "$dst" -name '*.odb.decoded' -print | while IFS= read -r decoded; do
+      odb="${decoded%.decoded}"
       rm -f "$odb"
-      mv "$odb.decoded" "$odb"
+      mv "$decoded" "$odb"
     done
   fi
 

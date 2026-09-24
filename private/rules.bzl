@@ -43,6 +43,7 @@ load(
     "merge_arguments",
     "module_top",
     "odb_arguments",
+    "odb_codec_enabled",
     "odb_codec_environment",
     "odb_codec_export",
     "odb_codec_tools",
@@ -194,6 +195,26 @@ def _expand_deploy_template(ctx, exe, config, make, genfiles, name = "", renames
             ),
         },
     )
+
+def _substep_chain(stage, results, substep_odbs):
+    """The substep .odb files and the stage .odb they end in, in flow order."""
+    keyframe = [f for f in results if f.basename == stage + ".odb"]
+    if not substep_odbs or not keyframe:
+        return []
+    return substep_odbs + keyframe
+
+def _substep_chain_commands(ctx, stage, results, substep_odbs):
+    """Stores each substep .odb as a delta against the next, in parallel.
+
+    The stage .odb stays as it is, so nothing downstream changes; every
+    base is an output of this same action.
+    """
+    chain = _substep_chain(stage, results, substep_odbs)
+    if not chain or not odb_codec_enabled(ctx):
+        return []
+    return [" ".join(
+        [ctx.executable._odb_codec.path, "chain"] + [f.path for f in chain],
+    )]
 
 def _make_cmd(ctx):
     """Returns the make command prefix, with --silent in lint mode."""
@@ -2985,7 +3006,8 @@ def _make_impl(
         commands = (
             generation_commands(reports + logs + jsons + drcs + substep_odbs) +
             input_commands(renames(ctx, rename_candidates)) +
-            [_make_cmd(ctx)]
+            [_make_cmd(ctx)] +
+            _substep_chain_commands(ctx, stage, results, substep_odbs)
         )
 
         # Stage only the macro .lib variant this stage's args.mk references
@@ -3078,7 +3100,10 @@ def _make_impl(
     # DefaultInfo.runfiles below so `bazelisk run :stage gui_<stage>` works.
     stage_renames = renames(ctx, ctx.files.src, short = True)
     deploy_files = depset(
-        [config_short, make] + ctx.files.src + ctx.files.extra_configs + all_jsons,
+        [config_short, make] + ctx.files.src + ctx.files.extra_configs + all_jsons +
+        # This stage's own substep .odb files, so that a deployed tree can
+        # rerun the stage from any of them (//:deps -- ... do-3_4_place_resized).
+        (_substep_chain(stage, results, substep_odbs) if odb_codec_enabled(ctx) else []),
         transitive = [
             flow_inputs(ctx),
             data_inputs(ctx),
@@ -3165,7 +3190,11 @@ def _make_impl(
                     for f in [config] + results + objects + logs + reports + jsons + drcs
                 },
                 **{
-                    "substep_" + substep_names[i]: depset([f])
+                    # A substep is a delta against the files after it, so
+                    # it travels with them.
+                    "substep_" + substep_names[i]: depset(
+                        _substep_chain(stage, results, substep_odbs)[i:] if odb_codec_enabled(ctx) else [f],
+                    )
                     for i, f in enumerate(substep_odbs)
                 }
             )
@@ -3343,7 +3372,7 @@ orfs_floorplan_rule = rule(
             "2_floorplan.odb",
             "2_floorplan.sdc",
         ],
-        substep_names = STAGE_SUBSTEPS["floorplan"] if ctx.attr.substeps else [],
+        substep_names = STAGE_SUBSTEPS["floorplan"] if ctx.attr.substeps or odb_codec_enabled(ctx) else [],
     ),
     attrs = openroad_attrs() |
             renamed_inputs_attr() |
@@ -3369,7 +3398,7 @@ orfs_place_rule = rule(
             "3_place.odb",
             "3_place.sdc",
         ],
-        substep_names = STAGE_SUBSTEPS["place"] if ctx.attr.substeps else [],
+        substep_names = STAGE_SUBSTEPS["place"] if ctx.attr.substeps or odb_codec_enabled(ctx) else [],
     ),
     attrs = openroad_attrs() |
             renamed_inputs_attr() |

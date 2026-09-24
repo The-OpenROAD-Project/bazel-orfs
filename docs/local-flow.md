@@ -185,9 +185,21 @@ are derived.
 > single Bazel action with built-in dependency checking via `.rtlil`
 > canonicalization.
 
-### Caching substep intermediates (`substeps = True`)
+### Caching substep intermediates
 
-By default, stage actions only declare the final `.odb` as a Bazel output.
+Floorplan and place keep every substep `.odb` by default: with
+`--@bazel-orfs//:odb_codec` on (the default), each is stored as a delta
+against the next file of its stage, which costs a fraction of storing
+it. On a large design this is what lets you debug from the substep that
+failed: `bazel run //:deps -- //pkg:design_place do-3_4_place_resized`
+reruns resize from the cached `3_3_place_gp.odb` instead of repeating
+global placement. The stage `.odb` itself is stored as before, so later
+stages see no change. A substep's output group carries the files it is
+stored against, and `//:deps`, `bazel run` trees and `_deps` tarballs
+get every `.odb` decoded, so any openroad opens them.
+
+For the other stages, and for floorplan and place with the codec off,
+stage actions only declare the final `.odb` as a Bazel output.
 Intermediate substep `.odb` files are produced by make but not captured —
 they vanish with the sandbox.
 
