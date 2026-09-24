@@ -6,7 +6,14 @@
     "reg2reg group, which is the only group that can fail timing closure;",
     "see .claude/commands/odb-debug.md for how to ask a checkpoint for it,",
     "and .claude/skills/macro-constraints for why the other groups are not",
-    "the number.",
+    "the number. Ask for the group by name: on VecRegionModule the overall",
+    "worst slack is -2006 ps and belongs to another group, while reg2reg is",
+    "-1564 ps, and only the second one is the period.",
+    "",
+    "blocks is the same measurement on each hardened block alone, at its own",
+    "place stage through <block>_place_odb_debug, against an ideal clock:",
+    "what the top level would approach if the clock reached the logic. The",
+    "top level number is the one that carries a clock tree.",
     "",
     "The target is 800 ps. When the period approaches it, this file gains",
     "the CoreMark and power columns and the study reconnects; until then",
@@ -30,7 +37,13 @@
       "date": "2026-09-24",
       "min_period_ps": 45985,
       "measured": "XSCore_grt, built from source",
-      "note": "the baseline; 43715 ps of it is the clock reaching MemBlock's pin"
+      "note": "the baseline; 43715 ps of it is the clock reaching MemBlock's pin, and each block alone is 3 to 20 times faster",
+      "blocks": {
+        "Frontend": 14114,
+        "MemBlock": 4870,
+        "VecRegionModule": 2364,
+        "Region_1": 2186
+      }
     }
   ]
 }

@@ -61,6 +61,19 @@ odb_debug(
     for block in PLAN["macros"].keys()
 ]
 
+# Each planned block's own minimum clock period, which is the per block
+# series of the KPI (README.md, kpi.json). A block is abstracted at place,
+# so place is its deepest ODB and its reg2reg slack is against an ideal
+# clock; the parent's number is the one that carries a clock tree. Timing,
+# so these load in minutes, not seconds.
+[
+    odb_debug(
+        name = block + "_place_odb_debug",
+        src = ":" + block + "_place",
+    )
+    for block in PLAN["macros"].keys()
+]
+
 grt_netlist(
     name = "cmj_xiangshan_grt_netlist",
     src = ":XSCore_blocks_grt",
