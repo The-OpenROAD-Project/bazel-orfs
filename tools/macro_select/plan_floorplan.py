@@ -153,10 +153,13 @@ def shape(macro, tech, margins):
     }
 
 
-def _die_for(placed, region_area, extents, gap, margin):
-    """Die width and height for one assignment of macros to sides."""
-    need_w = max(_span(placed["bottom"], gap), _span(placed["top"], gap))
-    need_h = max(_span(placed["left"], gap), _span(placed["right"], gap))
+def _die_for(placed, region_area, extents, gap, margin, min_w=0.0, min_h=0.0):
+    """Die width and height for one assignment of macros to sides.
+
+    min_w and min_h are what the region must hold besides its cells: the
+    placed netlists' row (netlist_row)."""
+    need_w = max(_span(placed["bottom"], gap), _span(placed["top"], gap), min_w)
+    need_h = max(_span(placed["left"], gap), _span(placed["right"], gap), min_h)
     w = max(need_w, math.sqrt(region_area))
     h = max(need_h, region_area / w)
     w = max(need_w, region_area / h)
@@ -176,7 +179,7 @@ def _extents(placed):
     }
 
 
-def assign_sides(shapes, region_area, gap, margin):
+def assign_sides(shapes, region_area, gap, margin, min_w=0.0, min_h=0.0):
     """Macros to the region's sides so the die is smallest.
 
     Every assignment is tried for up to eight macros (65536 cases), the
@@ -185,8 +188,8 @@ def assign_sides(shapes, region_area, gap, margin):
     ({side: [shapes]}, region_w, region_h).
     """
     if not shapes:
-        w = math.sqrt(region_area)
-        return {s: [] for s in SIDES}, w, w
+        w = max(math.sqrt(region_area), min_w)
+        return {s: [] for s in SIDES}, w, max(region_area / w, min_h)
     best = None
     if len(shapes) <= 8:
         n = len(shapes)
@@ -196,7 +199,7 @@ def assign_sides(shapes, region_area, gap, margin):
             for sh in shapes:
                 placed[SIDES[c % 4]].append(sh)
                 c //= 4
-            w, h, dw, dh = _die_for(placed, region_area, _extents(placed), gap, margin)
+            w, h, dw, dh = _die_for(placed, region_area, _extents(placed), gap, margin, min_w, min_h)
             if best is None or dw * dh < best[0]:
                 best = (dw * dh, placed, w, h)
     else:
@@ -204,7 +207,7 @@ def assign_sides(shapes, region_area, gap, margin):
         for sh in sorted(shapes, key=lambda s: -s["pin_side_um"]):
             side = min(SIDES, key=lambda s: _span(placed[s], gap))
             placed[side].append(sh)
-        w, h, dw, dh = _die_for(placed, region_area, _extents(placed), gap, margin)
+        w, h, dw, dh = _die_for(placed, region_area, _extents(placed), gap, margin, min_w, min_h)
         best = (dw * dh, placed, w, h)
     return best[1], best[2], best[3]
 
@@ -216,8 +219,9 @@ def layout(plan):
     gap = margins["gap_um"]
     shapes = [shape(m, tech, margins) for m in plan["macros"]]
     region_area = parent["cell_area_um2"] / parent["density"]
+    min_w, min_h = netlist_row(plan)
     placed, region_w, region_h = assign_sides(
-        shapes, region_area, gap, parent["core_margin_um"]
+        shapes, region_area, gap, parent["core_margin_um"], min_w, min_h
     )
     extent = _extents(placed)
     margin = parent["core_margin_um"]
@@ -680,6 +684,21 @@ if {{ [llength $rest] > 0 }} {{
   rtl_macro_placer -halo_width 2 -halo_height 2
 }}
 """
+
+
+def netlist_row(plan):
+    """(width, height) of the row place_netlists lays along the region's
+    top: the region has to be at least that wide and that tall, whatever
+    its cell area alone would make it. Netlists with a fixed corner are
+    not in the row."""
+    gap = plan["margins"]["gap_um"]
+    row = [n for n in plan.get("netlists") or [] if not ("x_um" in n and "y_um" in n)]
+    if not row:
+        return 0.0, 0.0
+    return (
+        gap * (len(row) + 1) + sum(n["w_um"] for n in row),
+        2 * gap + max(n["h_um"] for n in row),
+    )
 
 
 def place_netlists(out, plan):
