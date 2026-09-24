@@ -1,6 +1,7 @@
 """plan_floorplan on a synthetic parent: legal, sized by the pins, timed."""
 
 import ast
+import json
 import os
 import sys
 import tempfile
@@ -385,6 +386,15 @@ class NetlistTest(unittest.TestCase):
         ]
         with self.assertRaises(SystemExit):
             plan_floorplan.place_netlists(out, p)
+
+
+class LoadTest(unittest.TestCase):
+    def test_partners_relative_to_the_plan(self):
+        d = tempfile.mkdtemp(prefix="plan_load.")
+        with open(os.path.join(d, "plan.json"), "w") as f:
+            json.dump({"pin_partners": "pin_partners.txt"}, f)
+        p = plan_floorplan.load_plan(os.path.join(d, "plan.json"))
+        self.assertEqual(p["pin_partners"], os.path.join(d, "pin_partners.txt"))
 
 
 class FoldTest(unittest.TestCase):

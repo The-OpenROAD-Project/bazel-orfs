@@ -48,6 +48,7 @@ Stdlib only; python 3.6.
 
 import argparse
 import json
+import os
 import re
 import math
 import sys
@@ -104,10 +105,15 @@ def load_plan(path):
     lattice_*_um and the keep lists are optional; the parent's keep list is
     the modules its own synthesis keeps after the blocks are hardened
     (keep_under.py --outside). core_margin_um is also the block flows'
-    core margin.
+    core margin. A relative pin_partners path is relative to the plan's
+    own directory, so a plan and its dump can be kept side by side.
     """
     with open(path) as f:
-        return json.load(f)
+        plan = json.load(f)
+    partners = plan.get("pin_partners")
+    if partners and not os.path.isabs(partners):
+        plan["pin_partners"] = os.path.join(os.path.dirname(os.path.abspath(path)), partners)
+    return plan
 
 
 def shape(macro, tech, margins):
