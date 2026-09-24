@@ -1,0 +1,234 @@
+{
+ "tech": {
+  "pin_pitch_um": 0.096,
+  "pin_layers": 2,
+  "track_density_per_um": 48.6,
+  "wire_ps_per_um": 0.6,
+  "site_um": 0.054,
+  "row_um": 0.27,
+  "lattice_x_um": 0.144,
+  "lattice_y_um": 2.16,
+  "pin_layers_v": [
+   {
+    "name": "M3",
+    "pitch": 0.036,
+    "offset": 0.009,
+    "width": 0.018
+   },
+   {
+    "name": "M5",
+    "pitch": 0.048,
+    "offset": 0.012,
+    "width": 0.024
+   }
+  ],
+  "pin_layers_h": [
+   {
+    "name": "M4",
+    "pitch": 0.048,
+    "offset": 0.012,
+    "width": 0.024
+   }
+  ]
+ },
+ "parent": {
+  "cell_area_um2": 453871,
+  "density": 0.5,
+  "core_margin_um": 10,
+  "keep": [
+   "Backend",
+   "CtrlBlock",
+   "FusionDecoder",
+   "Region",
+   "DecodeStage",
+   "SimpleDecodeChannel",
+   "UopBufferCtrlDecoder",
+   "Rob",
+   "Dispatch",
+   "Rename",
+   "MemCtrl",
+   "IssueQueueAluCsrFenceLinkBrhNjmp",
+   "IssueQueueAluDivBrhNjmp",
+   "IssueQueueAluI2fBrhNjmp",
+   "IssueQueueAluBkuVset",
+   "IssueQueueAluMul",
+   "IssueQueueLdu",
+   "IssueQueueStaMou",
+   "IssueQueueStaMou_1",
+   "IssueQueueStdMoud",
+   "IssueQueueStdMoud_1",
+   "DataPath",
+   "ExuBlock",
+   "VectorDecodeChannel",
+   "RenameBuffer",
+   "VTypeBuffer",
+   "RobEntryCell",
+   "BusyTable",
+   "BusyTable_1",
+   "RenameTableWrapper",
+   "CompressUnit",
+   "SSIT",
+   "LFST",
+   "EntriesAluCsrFenceLinkBrhNjmp",
+   "EntriesAluDivBrhNjmp",
+   "EntriesAluI2fBrhNjmp",
+   "EntriesAluBkuVset",
+   "EntriesAluMul",
+   "EntriesLdu",
+   "EntriesStaMou",
+   "EntriesStdMoud",
+   "ExeUnitImp",
+   "NewCSR",
+   "Frontend",
+   "MemBlock",
+   "VecRegionModule",
+   "Region_1",
+   "XSCore",
+   "L2Top"
+  ]
+ },
+ "margins": {
+  "pin_side": 1.5,
+  "channel_min_um": 40,
+  "lateral": 0.5,
+  "aspect_cap": 3.0,
+  "gap_um": 10.8
+ },
+ "macros": [
+  {
+   "name": "Frontend",
+   "pins": 3291,
+   "area_um2": 911490,
+   "keep": [
+    "Ifu",
+    "ResolveQueue",
+    "ICache",
+    "Phr",
+    "Bpu",
+    "Sc",
+    "TLB",
+    "IBuffer",
+    "AheadBtb",
+    "Ittage",
+    "Tage",
+    "MicroTage",
+    "PMP",
+    "WriteBuffer_4",
+    "Ftq",
+    "PMPChecker"
+   ]
+  },
+  {
+   "name": "MemBlock",
+   "pins": 10495,
+   "area_um2": 991538,
+   "keep": [
+    "LoadQueueReplay",
+    "PrefetcherWrapper",
+    "Sbuffer",
+    "PtwCache",
+    "DCacheWrapper",
+    "TLBNonBlock",
+    "MissQueue",
+    "LoadQueueUncache",
+    "SbufferData",
+    "TLBNonBlock_2",
+    "TLBNonBlock_1",
+    "SqForwardPipe",
+    "L2TLBWrapper",
+    "VirtualStoreQueue",
+    "LoadQueueRAR",
+    "HPerfMonitor_3",
+    "LoadQueueRAW",
+    "PhysicalStoreQueue",
+    "Uncache",
+    "L1PrefetchSourceArray",
+    "BankedDataArray",
+    "MainPipe",
+    "PTWNewFilter",
+    "VirtualLoadQueue",
+    "L1ErrorMetaArray",
+    "L1CohMetaArray",
+    "LLPTW"
+   ]
+  },
+  {
+   "name": "Region_1",
+   "pins": 5099,
+   "area_um2": 442597,
+   "keep": [
+    "ExeUnitImp_10",
+    "ExeUnitImp_9",
+    "ExuBlock_1",
+    "IssueQueueFaluFmacFdiv",
+    "IssueQueueFaluFmac",
+    "IssueQueueFaluFmacFcvtFcmp"
+   ]
+  },
+  {
+   "name": "VecRegionModule",
+   "pins": 9253,
+   "area_um2": 652605,
+   "keep": [
+    "VFDivWrapper",
+    "VFMacWrapper",
+    "VIDiv",
+    "VIMacU",
+    "IssuePipeVialuVimacVmoveVfcvtVfma",
+    "IssuePipeVialuVfmaVfdivVidiv",
+    "IssuePipeVialuVfma",
+    "IssuePipeVialuVfma_1",
+    "VectorCvt",
+    "IssueQueueVialuVimacVmoveVfcvtVfma",
+    "IssueQueueVialuVfma",
+    "IssueQueueVialuVfma_1",
+    "IssueQueueVialuVfmaVfdivVidiv"
+   ]
+  },
+  {
+   "name": "CoupledL2",
+   "pins": 2810,
+   "area_um2": 741000,
+   "keep": [
+    "MSHRCtl",
+    "Slice",
+    "VpnTable",
+    "MainPipe_1",
+    "RequestArb",
+    "SentUnit",
+    "RequestBuffer",
+    "TwoLevelRRArbiter_18",
+    "FtTrainPipeline",
+    "SinkC",
+    "MMIOBridge",
+    "CDPPrefetcher",
+    "Directory",
+    "OffsetScoreTable_1",
+    "TwoLevelRRArbiter_12",
+    "MSHR",
+    "OverwriteQueue_1"
+   ]
+  }
+ ],
+ "netlists": [
+  {
+   "module": "RobEntryFile",
+   "instance": "backend/inner_ctrlBlock/rob/robEntryFile",
+   "w_um": 318.384,
+   "h_um": 192.51
+  },
+  {
+   "module": "IntRegFile",
+   "instance": "backend/inner_intRegion/intDataPath/intRegFile",
+   "w_um": 406.0,
+   "h_um": 243.0
+  },
+  {
+   "module": "RenameBufferFile",
+   "instance": "backend/inner_ctrlBlock/rob/rab/renameBuffer",
+   "w_um": 306.504,
+   "h_um": 192.24
+  }
+ ],
+ "pin_partners": "pin_partners.txt"
+}

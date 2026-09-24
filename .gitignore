@@ -25,3 +25,4 @@ test/estimation_ladder/README.pr.md
 obj_dir/
 
 .claude/worktrees/
+test/coremark_joule/designs/asap7/xiangshan/plan/pin_partners.txt
