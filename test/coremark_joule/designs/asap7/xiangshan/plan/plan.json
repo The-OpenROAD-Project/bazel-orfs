@@ -213,19 +213,19 @@
  "netlists": [
   {
    "module": "RobEntryFile",
-   "instance": "backend/inner_ctrlBlock/rob/robEntryFile",
+   "instance": "core/backend/inner_ctrlBlock/rob/robEntryFile",
    "w_um": 318.384,
    "h_um": 192.51
   },
   {
    "module": "IntRegFile",
-   "instance": "backend/inner_intRegion/intDataPath/intRegFile",
+   "instance": "core/backend/inner_intRegion/intDataPath/intRegFile",
    "w_um": 406.0,
    "h_um": 243.0
   },
   {
    "module": "RenameBufferFile",
-   "instance": "backend/inner_ctrlBlock/rob/rab/renameBuffer",
+   "instance": "core/backend/inner_ctrlBlock/rob/rab/renameBuffer",
    "w_um": 306.504,
    "h_um": 192.24
   }

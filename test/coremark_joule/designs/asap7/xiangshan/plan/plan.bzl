@@ -50,7 +50,7 @@ PLAN = {
         "netlists": [
             {
                 "h_um": 192.51,
-                "instance": "backend/inner_ctrlBlock/rob/robEntryFile",
+                "instance": "core/backend/inner_ctrlBlock/rob/robEntryFile",
                 "module": "RobEntryFile",
                 "w_um": 318.384,
                 "x_um": 20.944,
@@ -58,7 +58,7 @@ PLAN = {
             },
             {
                 "h_um": 243.0,
-                "instance": "backend/inner_intRegion/intDataPath/intRegFile",
+                "instance": "core/backend/inner_intRegion/intDataPath/intRegFile",
                 "module": "IntRegFile",
                 "w_um": 406.0,
                 "x_um": 350.128,
@@ -66,7 +66,7 @@ PLAN = {
             },
             {
                 "h_um": 192.24,
-                "instance": "backend/inner_ctrlBlock/rob/rab/renameBuffer",
+                "instance": "core/backend/inner_ctrlBlock/rob/rab/renameBuffer",
                 "module": "RenameBufferFile",
                 "w_um": 306.504,
                 "x_um": 766.928,
