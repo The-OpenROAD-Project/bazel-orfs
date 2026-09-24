@@ -6,3 +6,4 @@ matplotlib
 tabulate
 pytest
 najaeda
+zstandard
