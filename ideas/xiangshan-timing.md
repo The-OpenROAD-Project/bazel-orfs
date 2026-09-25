@@ -605,6 +605,50 @@ A/B: the two ran on different machine loads (two and three concurrent
 jobs), so the numbers say only that the batched model is not a clear win
 on the largest block; a controlled comparison is a study of its own.
 
+## 25. Frontend at cts and at grt: 28 percent pessimistic, same worst paths
+
+The question (2026-09-25): the blocks are abstracted at `cts`, before the
+global-route stage's `repair_design`; how wrong is a block's timing there,
+and does the `cts` checkpoint still rank the paths the way a route does?
+
+Method: one odb-debug session on Frontend's `4_cts.odb`, with XiangShan's
+`ClockGate` mapped onto the ICG cell and patches 0087 and 0007 (ORFS #4563,
+OpenROAD #11525) in. Measured as it stands, then in the same session a
+route-0 global route with the block's grt settings (signals M2-M9, clocks
+M4-M9, adjustment 0.25, resistance-aware, `-congestion_iterations 0
+-allow_congestion`), `estimate_parasitics -global_routing`, `repair_design`,
+ORFS's incremental legalisation bracket, and measured again. `repair_timing`
+is on neither side: the blocks skip it at `cts`, so the comparison skips it
+at `grt`. About 25 minutes for the route and repair.
+
+| Frontend | at `cts` | after route-0 grt + `repair_design` |
+|---|---|---|
+| `reg2reg` worst slack at 800 ps | -4,217 ps | -2,803 ps |
+| minimum period | 5,017 ps | 3,603 ps |
+| in2reg / reg2out / in2out | -4,017 / -1,854 / -1,664 | -2,477 / -1,380 / -763 |
+| slew-violating pins (worst) | 59,407 (4.3 ns) | 1,159 (548 ps) |
+| clock latency launch / capture, setup skew | 1,124 / 847, 269 ps | 813 / 681, 127 ps |
+| cells | 1,566,983 | 1,570,694 |
+
+Ranking, top 200 `reg2reg` endpoints: overlap 5/10, 14/20, 25/50, 69/100,
+104/200; Spearman 0.59 over the shared endpoints. The worst endpoint is the
+same (`bpu/ubtb.t1_hitTargetSame`) and the route's top ten sit at `cts`
+ranks 0-16. Route-0 congestion: a worst gcell edge of 30; the congestion
+markers stop at 20,000, so their total (126,983) is a lower bound.
+
+Reading. The `cts` checkpoint is 28 percent pessimistic on the block's
+period and ranks the worst paths correctly; it degrades further down the
+list. The clock tree is not the difference: latency and skew fall only
+because the clock nets get global-route parasitics. The pessimism is the
+slew the global-route stage's `repair_design` repairs (59 k violating pins
+to 1 k). The earlier 14.1 ns at `place` was mostly the behavioural clock
+gate's latch, which the ICG mapping removes.
+
+Decision: keep the blocks' abstract at `cts`. Revisit when absolute block
+periods drive a decision (budgeting the top level, closing to a target);
+`Frontend_grt_probe_grt` is the probe, and the flow's own grt stage with
+`repair_timing` is a separate, longer measurement.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
