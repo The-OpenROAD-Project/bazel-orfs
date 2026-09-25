@@ -1,0 +1,184 @@
+From 3ddae39aca7f7c30622a690c459bfa3c5b6b6ef7 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Fri, 25 Sep 2026 09:07:01 +0200
+Subject: [PATCH] grt: record whether congestion was accepted when the route is
+ made
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+haveRoutes() and guide writing read the live allow_congestion_ setting to
+decide whether a congested route counts. Every later writer of the setting
+therefore changes the meaning of a route that already exists:
+repair_antennas and global_route -start/-end_incremental set it from their
+own flags on every call, so a congested route accepted with
+global_route -allow_congestion stopped counting as a route after either.
+grt::have_routes then returns 0, estimate_parasitics -global_routing stops
+on EST-0005, and EstimateParasitics::ensureParasitics() falls back to
+placement parasitics without saying so.
+
+The decision is now recorded when the route finishes, in
+finishGlobalRouting(), before its guides are saved, and haveRoutes() and
+guide writing read that record. Routes loaded from guides are unchanged: a
+guide flagged congested was not accepted. The per-command
+-allow_congestion flags still decide what they did before for the command
+they are given to.
+
+The new pass/fail test accepts a congested route on gcd, then runs
+repair_antennas without the flag and clears allow_congestion outright, and
+checks that the route still counts, that no saved guide is flagged
+congested, and that estimate_parasitics -global_routing accepts it.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/grt/include/grt/GlobalRouter.h            |  4 ++
+ src/grt/src/GlobalRouter.cpp                  |  6 +-
+ src/grt/test/BUILD                            |  7 +++
+ src/grt/test/CMakeLists.txt                   |  1 +
+ .../congestion_acceptance_is_recorded.tcl     | 57 +++++++++++++++++++
+ 5 files changed, 73 insertions(+), 2 deletions(-)
+ create mode 100644 src/grt/test/congestion_acceptance_is_recorded.tcl
+
+diff --git a/src/grt/include/grt/GlobalRouter.h b/src/grt/include/grt/GlobalRouter.h
+index 28804e6c7d..9dd699186e 100644
+--- a/src/grt/include/grt/GlobalRouter.h
++++ b/src/grt/include/grt/GlobalRouter.h
+@@ -609,6 +609,10 @@ class GlobalRouter
+   bool initialized_;
+   int total_diodes_count_;
+   bool is_congested_{false};
++  // Whether the congestion of the current routes was accepted, decided
++  // when they were routed; later changes to allow_congestion_ do not
++  // withdraw it.
++  bool congestion_accepted_{false};
+   bool incremental_congestion_report_pending_{false};
+   // Block property recording which engine produced the persisted guides.
+   static constexpr char kUseCugrProperty[] = "grt_use_cugr";
+diff --git a/src/grt/src/GlobalRouter.cpp b/src/grt/src/GlobalRouter.cpp
+index 7cf1b00a58..eeb28c26d0 100644
+--- a/src/grt/src/GlobalRouter.cpp
++++ b/src/grt/src/GlobalRouter.cpp
+@@ -374,7 +374,7 @@ bool GlobalRouter::haveRoutes()
+     return false;
+   }
+   loadGuidesFromDB();
+-  bool congested_routes = is_congested_ && !allow_congestion_ && !use_cugr_;
++  bool congested_routes = is_congested_ && !congestion_accepted_ && !use_cugr_;
+   return !routes_.empty() && !congested_routes;
+ }
+ 
+@@ -550,6 +550,7 @@ void GlobalRouter::finishGlobalRouting(bool save_guides)
+ {
+   updateDbCongestion();
+   saveCongestion();
++  congestion_accepted_ = allow_congestion_ || use_cugr_;
+ 
+   if (verbose_) {
+     if (use_cugr_) {
+@@ -3456,7 +3457,8 @@ void GlobalRouter::saveGuides(const std::vector<odb::dbNet*>& nets)
+ 
+   // CUGR can produce congested guides that DRT can handle, resulting in
+   // DRC-free final routing.
+-  bool guide_is_congested = is_congested_ && !allow_congestion_ && !use_cugr_;
++  bool guide_is_congested
++      = is_congested_ && !congestion_accepted_ && !use_cugr_;
+ 
+   int net_with_jumpers, total_jumpers;
+   net_with_jumpers = 0;
+diff --git a/src/grt/test/BUILD b/src/grt/test/BUILD
+index 6cbde4c19b..e616ef0015 100644
+--- a/src/grt/test/BUILD
++++ b/src/grt/test/BUILD
+@@ -207,6 +207,13 @@ regression_test(
+     data = [":test_resources"],
+ )
+ 
++regression_test(
++    name = "congestion_acceptance_is_recorded",
++    check_log = False,
++    check_passfail = True,
++    data = [":test_resources"],
++)
++
+ regression_test(
+     name = "congestion_markers_cugr",
+     check_log = False,
+diff --git a/src/grt/test/CMakeLists.txt b/src/grt/test/CMakeLists.txt
+index d4e026c9f4..9fa6dd5714 100644
+--- a/src/grt/test/CMakeLists.txt
++++ b/src/grt/test/CMakeLists.txt
+@@ -142,6 +142,7 @@ or_integration_tests(
+     write_segments2
+   PASSFAIL_TESTS
+     congestion_markers_cugr
++    congestion_acceptance_is_recorded
+     congestion_report_file_cugr
+     snapshot_batched_bus_route
+     snapshot_batched_incremental_state
+diff --git a/src/grt/test/congestion_acceptance_is_recorded.tcl b/src/grt/test/congestion_acceptance_is_recorded.tcl
+new file mode 100644
+index 0000000000..3cd3ab3808
+--- /dev/null
++++ b/src/grt/test/congestion_acceptance_is_recorded.tcl
+@@ -0,0 +1,57 @@
++# global_route -allow_congestion decides once, when the route finishes,
++# that a congested route is accepted. The route stays accepted whatever
++# later commands do to the allow_congestion setting: repair_antennas run
++# without -allow_congestion, or the setting cleared outright.
++source "helpers.tcl"
++read_liberty Nangate45/Nangate45_typ.lib
++read_lef Nangate45/Nangate45.lef
++read_def gcd.def
++create_clock [get_ports clk] -name core_clock -period 0.45
++source Nangate45/Nangate45.rc
++set_wire_rc -layer metal3
++
++set_global_routing_layer_adjustment metal2 0.9
++set_global_routing_layer_adjustment metal3 0.9
++set_global_routing_layer_adjustment metal4-metal10 1
++
++set_routing_layers -signal metal2-metal10
++
++check "the route is congested: global_route without -allow_congestion fails" {
++  catch { global_route }
++} 1
++
++global_route -allow_congestion
++
++check "global_route -allow_congestion leaves a route" {
++  grt::have_routes
++} 1
++
++set congested_guides 0
++foreach net [[ord::get_db_block] getNets] {
++  foreach guide [$net getGuides] {
++    if { [$guide isCongested] } {
++      incr congested_guides
++    }
++  }
++}
++check "no saved guide is marked as rejected congestion" {
++  set congested_guides
++} 0
++
++repair_antennas
++
++check "repair_antennas without -allow_congestion keeps the route" {
++  grt::have_routes
++} 1
++
++grt::set_allow_congestion 0
++
++check "clearing allow_congestion afterwards keeps the route" {
++  grt::have_routes
++} 1
++
++check "estimate_parasitics -global_routing finds the route" {
++  catch { estimate_parasitics -global_routing }
++} 0
++
++exit_summary
+-- 
+2.53.0
+
