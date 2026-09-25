@@ -116,6 +116,12 @@ archive_override(
         # pull request carries a gtest. Retires at a bump onto an OpenROAD
         # that has it.
         "//patches:0004-openroad-dpl-window-supply.patch",
+        # pdn cleanupShapes through a per-layer R-tree: 25 minutes of PDN on
+        # XSTile, whose placed netlists make 1.3 M FIRM cells, down to under
+        # 3; same shapes, byte-identical ODB. Upstream as
+        # The-OpenROAD-Project/OpenROAD#11527. Retires at a bump onto an
+        # OpenROAD that has it.
+        "//patches:0005-openroad-pdn-cleanup-rtree.patch",
         # global_route -allow_congestion decided whether a congested route
         # counts, but haveRoutes() and guide writing re-read the live
         # setting, which repair_antennas and every incremental global_route
