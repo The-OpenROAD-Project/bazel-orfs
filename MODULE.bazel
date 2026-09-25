@@ -116,6 +116,15 @@ archive_override(
         # pull request carries a gtest. Retires at a bump onto an OpenROAD
         # that has it.
         "//patches:0004-openroad-dpl-window-supply.patch",
+        # global_route -allow_congestion decided whether a congested route
+        # counts, but haveRoutes() and guide writing re-read the live
+        # setting, which repair_antennas and every incremental global_route
+        # rewrite from their own flags: a congested accepted route stopped
+        # counting and estimate_parasitics -global_routing stopped on
+        # EST-0005. The decision is now recorded when the route finishes.
+        # Upstream as OpenROAD #11525; retires at a bump onto an OpenROAD
+        # that has it.
+        "//patches:0007-openroad-grt-congestion-acceptance.patch",
     ],
     strip_prefix = "OpenROAD-3ab04b4dd1e1b86d603faf3e75a20bd276f61757",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/3ab04b4dd1e1b86d603faf3e75a20bd276f61757.tar.gz"],
