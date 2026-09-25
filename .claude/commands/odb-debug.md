@@ -103,7 +103,7 @@ odb_debug(
 ```
 
 ```bash
-bazelisk run //<project>:cpu_place_odb_debug -- ODB_DEBUG_DIR=$PWD/tmp/odb-debug GUI_TIMING=0 &
+bazelisk run //<project>:cpu_place_odb_debug -- ODB_DEBUG_DIR=tmp/odb-debug GUI_TIMING=0 &
 ```
 
 From a deployed `_deps` tree, on any checkpoint:
