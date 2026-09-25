@@ -6,6 +6,8 @@ checker on the real tree separately.
 """
 
 import tempfile
+import os
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -211,6 +213,42 @@ class PublicSurfaceTest(unittest.TestCase):
             extra={"orfs_source.bzl": 'X = "@orfs_designs//:designs.bzl"\n'},
         )
         self.assertEqual(t.check(), [])
+
+
+def git_repo():
+    """A repository with a committed, an untracked and an ignored file."""
+    root = tempfile.mkdtemp()
+    env = dict(os.environ, HOME=root, GIT_CONFIG_NOSYSTEM="1")
+
+    def git(*args):
+        subprocess.run(
+            ["git", "-C", root] + list(args),
+            check=True,
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    git("init", "-q")
+    for name, content in (
+        ("committed.bzl", ""),
+        (".gitignore", "ignored.bzl\n"),
+    ):
+        with open(os.path.join(root, name), "w") as f:
+            f.write(content)
+    git("add", ".")
+    git(
+        "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "x"
+    )
+    for name in ("untracked.bzl", "ignored.bzl"):
+        open(os.path.join(root, name), "w").close()
+    return root
+
+
+class TestRepoFiles(unittest.TestCase):
+    def test_includes_untracked_and_skips_ignored(self):
+        files = {str(p) for p in public_surface.repo_files(Path(git_repo()))}
+        self.assertEqual(files, {"committed.bzl", ".gitignore", "untracked.bzl"})
 
 
 if __name__ == "__main__":

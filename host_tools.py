@@ -217,9 +217,21 @@ def check(root, files):
     return problems
 
 
-def tracked_files(root):
+def repo_files(root):
+    """Files the next commit could hold: tracked ones, and untracked ones
+    git does not ignore. A check run before a new file is added must see
+    it, or it passes here and fails in CI."""
     out = subprocess.run(
-        ["git", "-C", str(root), "ls-files", "-z"],
+        [
+            "git",
+            "-C",
+            str(root),
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+        ],
         check=True,
         capture_output=True,
     ).stdout
@@ -230,7 +242,7 @@ def main(argv):
     root = Path(
         argv[1] if len(argv) > 1 else os.environ.get("BUILD_WORKSPACE_DIRECTORY", "."),
     ).resolve()
-    problems = check(root, tracked_files(root))
+    problems = check(root, repo_files(root))
     for p in problems:
         print(p)
     if problems:
