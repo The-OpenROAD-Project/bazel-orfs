@@ -100,16 +100,27 @@ def filter_ignored(paths, ignored_prefixes):
 
 
 def changed_files(merge_base, *pathspecs):
-    """Return files changed since merge_base matching pathspecs."""
-    try:
-        out = subprocess.check_output(
-            ["git", "diff", "--name-only", "--diff-filter=d", merge_base, "--"]
-            + list(pathspecs),
-            stderr=subprocess.DEVNULL,
-        )
-        return [f for f in out.decode().splitlines() if f]
-    except subprocess.CalledProcessError:
-        return []
+    """Return files changed since merge_base matching pathspecs.
+
+    Files git does not track yet count too: fix_lint runs before a new
+    file is added, and such a file is the one nobody has formatted yet.
+    CI formats what was committed, so skipping it here meant a clean
+    local run and a failing CI.
+    """
+    files = []
+    for command in (
+        ["git", "diff", "--name-only", "--diff-filter=d", merge_base, "--"],
+        ["git", "ls-files", "--others", "--exclude-standard", "--"],
+    ):
+        try:
+            out = subprocess.check_output(
+                command + list(pathspecs),
+                stderr=subprocess.DEVNULL,
+            )
+        except subprocess.CalledProcessError:
+            continue
+        files += [f for f in out.decode().splitlines() if f and f not in files]
+    return files
 
 
 BAZEL_PATHSPECS = [
