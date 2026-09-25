@@ -116,6 +116,14 @@ archive_override(
         # pull request carries a gtest. Retires at a bump onto an OpenROAD
         # that has it.
         "//patches:0004-openroad-dpl-window-supply.patch",
+        # write_db hands each .odb it writes, with a description of where
+        # its table slots lie, to the executable ODB_CODEC names, and
+        # read_db reads through it; unset, nothing changes. This is how
+        # tools/odb_codec stores .odb files column by column, for bazel's
+        # compression. No format change and no compatibility promise.
+        # Proposed upstream as OpenROAD #11524 -- retire at a bump onto an
+        # OpenROAD carrying it.
+        "//patches:0005-openroad-odb-codec-hook.patch",
     ],
     strip_prefix = "OpenROAD-3ab04b4dd1e1b86d603faf3e75a20bd276f61757",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/3ab04b4dd1e1b86d603faf3e75a20bd276f61757.tar.gz"],
@@ -363,6 +371,11 @@ bazel_dep(name = "rules_verilator", version = "1.1.2", dev_dependency = True)
 # Dev-only for the same reason as the two above: a consumer of
 # bazel-orfs must never resolve a simulator to build a flow.
 bazel_dep(name = "iverilog", version = "13.0.bcr.1", dev_dependency = True)
+
+# zstd, the compressor bazel's --remote_cache_compression uses, for
+# test/odb_codec: what //tools/odb_codec does to the compressed size of a
+# .odb is measured with it. Dev-only: the codec compresses nothing.
+bazel_dep(name = "zstd", version = "1.5.7.bcr.1", dev_dependency = True)
 
 # verilator: rules_verilator pins 5.046.bcr.3, whose cc_binary links
 # -latomic unconditionally on Linux. That is a libgcc-era assumption --

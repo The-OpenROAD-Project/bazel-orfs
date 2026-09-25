@@ -8,7 +8,8 @@
 #   test/deps_integration_test.sh <case>
 #   test/deps_integration_test.sh all
 #
-# Cases: single_synth, single_floorplan, real_floorplan, hierarchy, make_passthrough
+# Cases: single_synth, single_floorplan, real_floorplan, hierarchy, make_passthrough,
+# run_substep, place_from_substep
 
 set -euo pipefail
 
@@ -165,6 +166,27 @@ test_run_substep() {
     pass "make do-2_1_floorplan completed"
 }
 
+test_place_from_substep() {
+    echo "=== Test: place_from_substep ==="
+    # A real flow, so that odb_codec runs: the place tree holds every place
+    # substep .odb, decoded, and one substep reruns from the one before it.
+    local target="@orfs//flow/designs/asap7/gcd:gcd_place"
+    local deploy_dir="tmp/@orfs/flow/designs/asap7/gcd/gcd_place_deps"
+
+    clean_deploy "$deploy_dir"
+    deploy "$target"
+
+    local results="$deploy_dir/+orfs_repositories+orfs/flow/designs/asap7/gcd/results/asap7/gcd/base"
+    local odb
+    for odb in "$results"/2_floorplan.odb "$results"/3_*.odb; do
+        assert_file_exists "$odb"
+        [ "$(head -c 8 "$odb")" != ODBCODEC ] && pass "$(basename "$odb") decoded" ||
+            fail "$(basename "$odb") is still encoded"
+    done
+    "$deploy_dir/make" do-3_4_place_resized
+    pass "make do-3_4_place_resized completed from the cached 3_3_place_gp.odb"
+}
+
 # --- Dispatch ---
 
 run_case() {
@@ -175,6 +197,7 @@ run_case() {
         hierarchy)         test_hierarchy ;;
         make_passthrough)  test_make_passthrough ;;
         run_substep)       test_run_substep ;;
+        place_from_substep) test_place_from_substep ;;
         all)
             test_single_synth
             test_single_floorplan
@@ -182,9 +205,10 @@ run_case() {
             test_hierarchy
             test_make_passthrough
             test_run_substep
+            test_place_from_substep
             ;;
         *)
-            echo "Usage: $0 <single_synth|single_floorplan|real_floorplan|hierarchy|make_passthrough|run_substep|all>"
+            echo "Usage: $0 <single_synth|single_floorplan|real_floorplan|hierarchy|make_passthrough|run_substep|place_from_substep|all>"
             exit 1
             ;;
     esac

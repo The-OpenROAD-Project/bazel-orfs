@@ -1,0 +1,28 @@
+# odb_codec: the ODB_CODEC that OpenROAD's write_db and read_db run, so
+# that a .odb is stored and shipped column by column, which compresses
+# better. Reformatting only; compression is left to bazel. See
+# odb_codec.h.
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
+
+# Optimized in every configuration: flows run it on every .odb they
+# write, and a measurement should time what the flows run.
+cc_library(
+    name = "codec",
+    srcs = ["odb_codec.cc"],
+    hdrs = ["odb_codec.h"],
+    copts = ["-O2"],
+)
+
+cc_binary(
+    name = "odb_codec",
+    srcs = ["main.cc"],
+    visibility = ["//visibility:public"],
+    deps = [":codec"],
+)
+
+cc_test(
+    name = "odb_codec_test",
+    size = "small",
+    srcs = ["odb_codec_test.cc"],
+    deps = [":codec"],
+)

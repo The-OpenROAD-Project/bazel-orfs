@@ -43,6 +43,10 @@ load(
     "merge_arguments",
     "module_top",
     "odb_arguments",
+    "odb_codec_enabled",
+    "odb_codec_environment",
+    "odb_codec_export",
+    "odb_codec_tools",
     "orfs_additional_arguments",
     "out_dir_arguments",
     "pdk_inputs",
@@ -147,14 +151,16 @@ def _package_stage(ctx, config, make, runfiles_depset, renames = []):
         content = "\n".join(lines) + "\n",
     )
 
+    codec = odb_codec_environment(ctx).get("ODB_CODEC")
     ctx.actions.run(
         executable = ctx.executable._python,
         arguments = [
             ctx.file._package_stage.path,
             manifest.path,
             tar.path,
-        ],
+        ] + ([codec] if codec else []),
         inputs = depset([manifest, ctx.file._package_stage, config, make_wrapper] + all_files),
+        tools = [tool[DefaultInfo].files_to_run for tool in odb_codec_tools(ctx)],
         outputs = [tar],
         mnemonic = "OrfsPackage",
         progress_message = "Packaging %s" % ctx.label,
@@ -183,11 +189,32 @@ def _expand_deploy_template(ctx, exe, config, make, genfiles, name = "", renames
             "${MAKE}": make.short_path,
             "${NAME}": name,
             "${PACKAGE}": ctx.label.package,
+            "${ODB_CODEC}": odb_codec_environment(ctx, short = True).get("ODB_CODEC", ""),
             "${RENAMES}": " ".join(
                 ["{}:{}".format(r.src, r.dst) for r in renames],
             ),
         },
     )
+
+def _substep_chain(stage, results, substep_odbs):
+    """The substep .odb files and the stage .odb they end in, in flow order."""
+    keyframe = [f for f in results if f.basename == stage + ".odb"]
+    if not substep_odbs or not keyframe:
+        return []
+    return substep_odbs + keyframe
+
+def _substep_chain_commands(ctx, stage, results, substep_odbs):
+    """Stores each substep .odb as a delta against the next, in parallel.
+
+    The stage .odb stays as it is, so nothing downstream changes; every
+    base is an output of this same action.
+    """
+    chain = _substep_chain(stage, results, substep_odbs)
+    if not chain or not odb_codec_enabled(ctx):
+        return []
+    return [" ".join(
+        [ctx.executable._odb_codec.path, "chain"] + [f.path for f in chain],
+    )]
 
 def _make_cmd(ctx):
     """Returns the make command prefix, with --silent in lint mode."""
@@ -407,7 +434,10 @@ echo "Reproducer installed to: ${{BUILD_WORKSPACE_DIRECTORY:-$PWD}}/tmp/{package
     return [DefaultInfo(
         executable = wrapper,
         files = depset([exe, wrapper], transitive = [dep.files]),
-        runfiles = ctx.runfiles(files = [exe, wrapper]).merge(dep.runfiles),
+        runfiles = ctx.runfiles(files = [exe, wrapper]).merge(dep.runfiles).merge_all([
+            tool[DefaultInfo].default_runfiles
+            for tool in odb_codec_tools(ctx)
+        ]),
     )]
 
 orfs_deploy_srcs = rule(
@@ -421,6 +451,14 @@ orfs_deploy_srcs = rule(
         "_deploy_template": attr.label(
             default = Label("//:deploy.tpl"),
             allow_single_file = True,
+        ),
+        "_odb_codec": attr.label(
+            executable = True,
+            cfg = "exec",
+            default = Label("//tools/odb_codec"),
+        ),
+        "_odb_codec_flag": attr.label(
+            default = Label("//:odb_codec"),
         ),
     },
 )
@@ -929,9 +967,11 @@ if [ ! -e external ]; then
 fi
 mkdir -p $(dirname {bin_dir})
 ln -sfn $(pwd) {bin_dir}
+{odb_codec}
 {make} --file {makefile} {moreargs} {cmd}
 """.format(
                 cmd = ctx.attr.cmd,
+                odb_codec = odb_codec_export(ctx),
                 make = ctx.executable._make.short_path,
                 makefile = ctx.file._makefile.path,
                 bin_dir = ctx.bin_dir.path,
@@ -1118,6 +1158,7 @@ fi
 export ORFS_MAKE_EXE={make}
 export ORFS_MAKEFILE={makefile}
 export ORFS_CMD={cmd}
+{odb_codec}
 PYTHON="{python_exe}"
 case "$PYTHON" in
   */*) ;;
@@ -1134,6 +1175,7 @@ exec "$PYTHON" "$SCRIPT" {moreargs} "$@"
             makefile = ctx.file._makefile.path,
             cmd = ctx.attr.cmd,
             moreargs = moreargs,
+            odb_codec = odb_codec_export(ctx),
             python_exe = ctx.executable._python.short_path,
             py_script = ctx.file._run_executable_script.short_path,
         ),
@@ -2964,7 +3006,8 @@ def _make_impl(
         commands = (
             generation_commands(reports + logs + jsons + drcs + substep_odbs) +
             input_commands(renames(ctx, rename_candidates)) +
-            [_make_cmd(ctx)]
+            [_make_cmd(ctx)] +
+            _substep_chain_commands(ctx, stage, results, substep_odbs)
         )
 
         # Stage only the macro .lib variant this stage's args.mk references
@@ -3057,7 +3100,10 @@ def _make_impl(
     # DefaultInfo.runfiles below so `bazelisk run :stage gui_<stage>` works.
     stage_renames = renames(ctx, ctx.files.src, short = True)
     deploy_files = depset(
-        [config_short, make] + ctx.files.src + ctx.files.extra_configs + all_jsons,
+        [config_short, make] + ctx.files.src + ctx.files.extra_configs + all_jsons +
+        # This stage's own substep .odb files, so that a deployed tree can
+        # rerun the stage from any of them (//:deps -- ... do-3_4_place_resized).
+        (_substep_chain(stage, results, substep_odbs) if odb_codec_enabled(ctx) else []),
         transitive = [
             flow_inputs(ctx),
             data_inputs(ctx),
@@ -3144,7 +3190,11 @@ def _make_impl(
                     for f in [config] + results + objects + logs + reports + jsons + drcs
                 },
                 **{
-                    "substep_" + substep_names[i]: depset([f])
+                    # A substep is a delta against the files after it, so
+                    # it travels with them.
+                    "substep_" + substep_names[i]: depset(
+                        _substep_chain(stage, results, substep_odbs)[i:] if odb_codec_enabled(ctx) else [f],
+                    )
                     for i, f in enumerate(substep_odbs)
                 }
             )
@@ -3322,7 +3372,7 @@ orfs_floorplan_rule = rule(
             "2_floorplan.odb",
             "2_floorplan.sdc",
         ],
-        substep_names = STAGE_SUBSTEPS["floorplan"] if ctx.attr.substeps else [],
+        substep_names = STAGE_SUBSTEPS["floorplan"] if ctx.attr.substeps or odb_codec_enabled(ctx) else [],
     ),
     attrs = openroad_attrs() |
             renamed_inputs_attr() |
@@ -3348,7 +3398,7 @@ orfs_place_rule = rule(
             "3_place.odb",
             "3_place.sdc",
         ],
-        substep_names = STAGE_SUBSTEPS["place"] if ctx.attr.substeps else [],
+        substep_names = STAGE_SUBSTEPS["place"] if ctx.attr.substeps or odb_codec_enabled(ctx) else [],
     ),
     attrs = openroad_attrs() |
             renamed_inputs_attr() |

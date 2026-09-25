@@ -67,6 +67,21 @@ orfs_bool_flag(
     visibility = ["//visibility:public"],
 )
 
+# Store every .odb reformatted by //tools/odb_codec, column by column,
+# so that bazel's own compression (--remote_cache_compression) gets more
+# out of it. OpenROAD reads and writes the reformatted file through
+# ODB_CODEC; deployed trees and _deps tarballs get the .odb back as
+# OpenROAD wrote it, so any openroad opens them. On by default:
+#
+#   bazelisk build --@bazel-orfs//:odb_codec=false //your:target_place
+#
+# Turning it off changes every .odb, so the stages rebuild.
+orfs_bool_flag(
+    name = "odb_codec",
+    build_setting_default = True,
+    visibility = ["//visibility:public"],
+)
+
 sh_binary(
     name = "klayout",
     srcs = ["klayout.sh"],

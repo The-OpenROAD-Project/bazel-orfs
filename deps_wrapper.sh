@@ -85,6 +85,29 @@ if [ -d "$RUNFILES_DIR" ]; then
     rmdir "$RUNFILES_DIR"
 fi
 
+# bazel stores each .odb reformatted by tools/odb_codec
+# (--@bazel-orfs//:odb_codec); the tree gets them back as OpenROAD wrote
+# them, so that any openroad opens them. Every file is decoded before any
+# is replaced: a substep .odb is a delta against the next one, which must
+# still be encoded when it is read.
+CODEC="$(find "$DST" -path '*/tools/odb_codec/odb_codec' \( -type f -o -type l \) | head -n 1)"
+ODBS=()
+mapfile -t ODBS < <(find "$DST" -name '*.odb' \( -type f -o -type l \))
+for odb in "${ODBS[@]}"; do
+    [ "$(head -c 8 "$odb")" = ODBCODEC ] || continue
+    if [ -z "$CODEC" ]; then
+        echo "Error: $odb is encoded and $DST has no odb_codec to decode it"
+        exit 1
+    fi
+    "$CODEC" decode "$odb" >"$odb.decoded"
+done
+for odb in "${ODBS[@]}"; do
+    if [ -e "$odb.decoded" ]; then
+        rm -f "$odb"
+        mv "$odb.decoded" "$odb"
+    fi
+done
+
 # Find the make script (the stage-specific shell wrapper). It is NOT at
 # the deploy root: it keeps its runfiles path, <repo-dir>/<package>/
 # make_<target>_<variant>_<stage>, and the repo dir depends on which

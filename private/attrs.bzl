@@ -115,6 +115,17 @@ def orfs_attrs():
             allow_single_file = True,
             default = Label("@bazel-orfs//:log_timestamps.py"),
         ),
+        "_odb_codec": attr.label(
+            doc = "The ODB_CODEC openroad runs to reformat each .odb it " +
+                  "writes and to read one back.",
+            executable = True,
+            cfg = "exec",
+            default = Label("@bazel-orfs//tools/odb_codec"),
+        ),
+        "_odb_codec_flag": attr.label(
+            doc = "Whether .odb files are stored reformatted by _odb_codec.",
+            default = Label("@bazel-orfs//:odb_codec"),
+        ),
     }
 
 def flow_attrs():
