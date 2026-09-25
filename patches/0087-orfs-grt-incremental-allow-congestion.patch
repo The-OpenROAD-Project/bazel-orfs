@@ -1,0 +1,90 @@
+From 7f0587fa801d2834bba774b00d35bbaad08b3e4d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Fri, 25 Sep 2026 13:54:54 +0200
+Subject: [PATCH] global_route.tcl: carry -allow_congestion into the
+ incremental reroutes
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A flow that accepts congestion says so once, with -allow_congestion in
+GLOBAL_ROUTE_ARGS, but every global_route call decides for itself. The
+-start_incremental/-end_incremental brackets around the repairs and
+recover_power ran without it, so the reroute after repair_design treated
+the accepted congested route as unaccepted, rerouted it harder and
+failed on GRT-0232. The brackets now pass the flow's choice.
+
+Carried from ORFS #4563 (open, draft until OpenROAD #11525 is in ORFS).
+Retires on the //:bump onto an ORFS that has it.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/global_route.tcl | 18 +++++++++++++++---
+ 1 file changed, 15 insertions(+), 3 deletions(-)
+
+diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
+index a9a8d36..d2e799d 100644
+--- a/flow/scripts/global_route.tcl
++++ b/flow/scripts/global_route.tcl
+@@ -14,6 +14,15 @@ proc global_route_helper { } {
+   set use_cugr ""
+   append_env_var use_cugr GLOBAL_ROUTE_USE_CUGR -use_cugr 0
+ 
++  # The flow's choice to accept congestion, from GLOBAL_ROUTE_ARGS, passed
++  # to every incremental reroute: each global_route call decides for itself,
++  # and one without -allow_congestion reroutes a congested route harder and
++  # then fails on it.
++  set allow_congestion ""
++  if { [lsearch -exact $::env(GLOBAL_ROUTE_ARGS) -allow_congestion] >= 0 } {
++    set allow_congestion -allow_congestion
++  }
++
+   proc set_grt_seed { } {
+     set seed_arg [env_var_or_empty GRT_SEED]
+     if { $seed_arg ne "" } {
+@@ -95,11 +104,12 @@ proc global_route_helper { } {
+ 
+     # Running DPL to fix overlapped instances
+     # Run to get modified net by DPL
+-    log_cmd global_route -start_incremental
++    log_cmd global_route -start_incremental {*}$allow_congestion
+     log_cmd detailed_placement {*}[env_var_or_empty DETAIL_PLACEMENT_ARGS]
+     # Route only the modified net by DPL
+     if {
+       ![run_global_route_and_catch_failures -end_incremental {*}$res_aware \
++        {*}$allow_congestion \
+         -congestion_report_file $::env(REPORTS_DIR)/congestion_post_repair_design.rpt]
+     } {
+       return
+@@ -115,12 +125,13 @@ proc global_route_helper { } {
+       report_metrics 5 "global route post repair timing"
+     }
+ 
+-    log_cmd global_route -start_incremental
++    log_cmd global_route -start_incremental {*}$allow_congestion
+     log_cmd detailed_placement {*}[env_var_or_empty DETAIL_PLACEMENT_ARGS]
+     log_cmd check_placement -verbose
+     # Route only the modified net by DPL
+     if {
+       ![run_global_route_and_catch_failures -end_incremental {*}$res_aware \
++        {*}$allow_congestion \
+         -congestion_report_file $::env(REPORTS_DIR)/congestion_post_repair_timing.rpt]
+     } {
+       return
+@@ -146,11 +157,12 @@ proc global_route_helper { } {
+   }
+ 
+   if { !$::env(OPT_POST_GRT_WNS) } {
+-    log_cmd global_route -start_incremental
++    log_cmd global_route -start_incremental {*}$allow_congestion
+     recover_power_helper
+     # Route the modified nets by rsz journal restore
+     if {
+       ![run_global_route_and_catch_failures -end_incremental {*}$res_aware \
++        {*}$allow_congestion \
+         -congestion_report_file $::env(REPORTS_DIR)/congestion_post_recover_power.rpt]
+     } {
+       return
+-- 
+2.53.0
+
