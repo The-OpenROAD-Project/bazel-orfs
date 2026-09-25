@@ -33,10 +33,8 @@ its own place stage against an ideal clock, through
 | VecRegionModule | 2,364 ps | `issuePipes_3` to `issuePipes_4` exu data |
 | Region_1 | 2,186 ps | `pipeToFEX0` to the FP convert's round shift mask |
 
-Every block is three to twenty times faster than the parent that contains
-them, which is the measurement behind the first item on the list below:
-almost all of the top level number is a modelling artefact of how the
-blocks were abstracted, not logic anyone wrote.
+The top level is bound by Frontend: its worst `reg2reg` path ends at the
+same clock-gate enable latch that sets Frontend's own period.
 
 ## Running it
 
@@ -62,36 +60,29 @@ stage takes the whole patched ORFS tree as input.
 The die to scale, the four hardened blocks, the three generated register
 files in the parent's rows, the 1,000 um of bottom edge that carries all
 4,311 ports, and the route-0 overflow shaded over the lot. The figure
-carries illustration and labels only; the five markers on it are these,
+carries illustration and labels only; the four markers on it are these,
 in the order they cost clock period.
 
-1. **The clock never reaches the logic** (fixed, see "The next three";
-   the figure is the baseline). 43,715 ps of the 45,985 is the
-   clock arriving at MemBlock's pin. Its abstract was written at the
-   block's place stage, before the block had a clock tree, so the pin
-   presents the whole unbuffered clock net: 145,071 fF, charged by one
-   `BUFx24`. The same defect in proportion on every block: 60,906 fF on
-   Frontend, 32,823 on VecRegionModule, 7,186 on Region_1.
-2. **One escape band above the macro row.** The blocks fill the bottom
+1. **One escape band above the macro row.** The blocks fill the bottom
    1,050 um edge to edge and nothing routes through them, so every
    block-to-parent wire escapes through the strip above. 97% of the
    sampled route-0 overflow is in two 90 um bins there. The floorplan
    owes that escape its own channel rather than the leftovers.
-3. **4,311 ports on one metre of edge**, behind MemBlock. Nets that
+2. **4,311 ports on one metre of edge**, behind MemBlock. Nets that
    belong on the far side of the die cross it twice. This one is
    upstream of the floorplan: XSCore is an elaboration boundary, not a
    physical one, and cutting there cuts across the core-to-L2 buses.
-4. **A millimetre per block-to-block hop.** MemBlock's output to
+3. **A millimetre per block-to-block hop.** MemBlock's output to
    Region_1's input is 1,793 ps on one parent wire, with timing-driven
-   placement off and post-CTS repair skipped. The first term that is
-   about the design rather than the modelling.
-5. **Each block's own period**, which the per block series above now
-   measures, against an ideal clock at its place stage.
+   placement off and post-CTS repair skipped.
+4. **Frontend's own period bounds the top level.** The worst path crosses
+   the parent into a Frontend input whose setup is 12,534 ps to a
+   falling clock edge: the TAGE SRAM bank's clock-gate enable latch.
 
 The overflow shading was sampled every eighth gcell on M2 through M9 and
 binned 24 x 24 over the die. It is a qualitative diagram: the geometry
 and the numbers come from the routed ODB through an odb-debug session,
-the choice of five and their ranking are a judgement.
+the choice of four and their ranking are a judgement.
 `xscore_problems.py` draws it from tables at its top; re-measure with
 `.claude/commands/odb-debug.md` and edit them when the baseline moves.
 
@@ -150,13 +141,10 @@ the netlist as macros or as flops.
 
 ## The next three
 
-1. **Abstract each block after its own clock tree.** Done in the flow
-   (`abstract_stage = "cts"`): MemBlock's clock pin is now 21 fF instead
-   of 145,071, with a 944 ps insertion delay from a 24 to 27 level tree.
-   The top level fell from 45,985 to 13,527 ps, and its worst path is now
-   Frontend's own setup to a falling-edge clock-gate enable latch, not
-   the clock. The blocks' trees being most of a period deep is the next
-   problem (`ideas/xiangshan-timing.md`, entry 24).
+1. **Block clock trees are most of a period deep**: 20 to 27 levels,
+   477 to 944 ps of insertion delay at 800 ps, so every block boundary
+   path is skewed by that much, or padded to match with balancing on
+   (`ideas/xiangshan-timing.md`, entry 24).
 2. **The block-to-block hop**: 1,793 ps on one wire across a millimetre,
    with timing-driven placement off and post-clock-tree repair skipped.
 3. **Harden XSTile instead of XSCore**, and dissolve the macros whose
@@ -172,8 +160,9 @@ in `kpi.json` measures it.
 ## What is deliberately broken
 
 Global route is skipped past pin access (OpenROAD DRT-0073) and does not
-converge; antenna repair is off because it discards the route on a
-platform with no antenna cell; the register files are generated rather
+converge; the grt stage fails after the route, because antenna repair on
+a platform with no diode cell leaves no route for the parasitics that
+follow; the register files are generated rather
 than synthesised, because yosys does not finish them at this size; the
 configuration is integer-only with a small last-level cache. Eight
 carried patches in `patches/` make it run at all.

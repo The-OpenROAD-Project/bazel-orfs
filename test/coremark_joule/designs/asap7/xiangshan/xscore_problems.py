@@ -10,7 +10,7 @@ so the picture stays readable at any width and the words stay editable.
 Every number and every rectangle below was asked of the baseline's routed
 checkpoint through the odb-debug session (.claude/commands/odb-debug.md),
 not read out of a log. The drawing is qualitative: the geometry is to
-scale, the congestion overlay is a coarse sample, and the five callouts
+scale, the congestion overlay is a coarse sample, and the four callouts
 are a judgement about which measured facts cost the most clock period.
 Re-measure and edit the tables here when the baseline moves.
 """
@@ -27,12 +27,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 DIE_W, DIE_H = 3623.968, 2147.188
 
-# hardened blocks: name, x, y, size, pins, clock pin capacitance in its liberty
+# hardened blocks: name, x, y, size, pins, clock pin capacitance in its
+# cts-stage liberty
 BLOCKS = [
-    ("Frontend", 10, 102, 955, 3290, 60906),
-    ("MemBlock", 1025, 32, 996, 10494, 145071),
-    ("VecRegionModule", 2081, 233, 808, 9252, 32823),
-    ("Region_1", 2949, 391, 665, 5098, 7186),
+    ("Frontend", 10, 102, 955, 3290, 21),
+    ("MemBlock", 1025, 32, 996, 10494, 21),
+    ("VecRegionModule", 2081, 233, 808, 9252, 13),
+    ("Region_1", 2949, 391, 665, 5098, 22),
 ]
 
 # generated register files, placed FIRM into the parent's rows
@@ -85,15 +86,14 @@ OVERFLOW = [
     [0] * 24,
 ]
 
-# the five, in the order they cost clock period: only the number and
+# the four, in the order they cost clock period: only the number and
 # where the marker lands on the die. What each one says is in README.md,
 # so the figure carries illustration and labels, nothing else.
 MARKERS = [
-    (1, 1120, 900),
-    (2, 1760, 1125),
-    (3, 1500, 20),
-    (4, 3010, 1130),
-    (5, 1520, 1975),
+    (1, 1760, 1125),
+    (2, 1500, 20),
+    (3, 3010, 1130),
+    (4, 480, 900),
 ]
 
 
@@ -184,7 +184,9 @@ def main():
 
     # the legend is a label on the picture, not prose about it
     ax.add_patch(
-        Rectangle((2430, 2215), 95, 60, fc="#d7301f", alpha=0.5, ec="none", clip_on=False)
+        Rectangle(
+            (2430, 2215), 95, 60, fc="#d7301f", alpha=0.5, ec="none", clip_on=False
+        )
     )
     ax.text(
         2555,
