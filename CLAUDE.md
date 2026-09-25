@@ -147,6 +147,16 @@ circulation is wrong for this flow:
   assuming a clock insertion latency the block does not know.
   `flow/platforms/asap7/constraints.sdc` is the reference.
 
+The rules learned dogfooding on XiangShan apply to any large design and
+are a skill of their own. A rule learned on one machine goes there, in a
+pull request, or it is not shared:
+
+- `dogfooding` — fix the tools, never the design (no multicycle or
+  false-path exceptions, no added RTL registers); hard stops where a
+  problem is made; finish the macros before the parent; a design README
+  says what is; public PR tests check intended behaviour, not `.ok`
+  output; a PR on an unmerged upstream PR is a draft; relative paths.
+
 A target that another machine built but that is not a remote cache hit
 here, or that rebuilds when nothing seemed to change, has its own skill:
 
