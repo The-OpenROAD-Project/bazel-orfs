@@ -286,8 +286,11 @@ In the OpenROAD worktree (at origin/master), create test files under
 `src/<module>/test/`:
 - Minimal LEF, DEF, and/or liberty files
 - A test Tcl script (e.g. `obs_covers_pin.tcl`)
-- A .ok file (expected output — include the error if the test
-  demonstrates a bug via `catch`)
+- Prefer a pass/fail test that states the intended behaviour:
+  `check` and `exit_summary` from `test/helpers.tcl`, registered with
+  `check_passfail = True` (and in `PASSFAIL_TESTS` for CMake), rather
+  than a new .ok file (`/dogfooding`, rule 5). Use a .ok file only
+  where the module's tests are golden-output by nature.
 - A test entry in `src/<module>/test/BUILD`
 
 Verify: `bazelisk test //src/<module>/test:<test_name> --test_output=streamed`
