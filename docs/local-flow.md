@@ -47,8 +47,10 @@ The local flow lets you build with a locally compiled [ORFS](https://openroad-fl
 > which does accept it:
 >
 > ```bash
-> bazel run <target>_<stage>_deps -- --install /path/to/dir [<make args...>]
+> bazel run <target>_<stage>_deps -- --install tmp/my_tree [<make args...>]
 > ```
+>
+> A relative directory is relative to where you ran `bazel run`.
 >
 > This is useful on systems where `/tmp` is small or when you want to place the build artifacts in a specific location.
 

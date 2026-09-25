@@ -396,12 +396,9 @@ def _deploy_srcs_impl(ctx):
 RUNFILES="${{RUNFILES_DIR:-$0.runfiles}}"
 DEPLOY="$RUNFILES/_main/{deploy}"
 ln -sfn "$RUNFILES" "$DEPLOY.runfiles"
-"$DEPLOY" "$@"
-echo "Reproducer installed to: ${{BUILD_WORKSPACE_DIRECTORY:-$PWD}}/tmp/{package}/{name}"
+exec "$DEPLOY" "$@"
 """.format(
             deploy = exe.short_path,
-            package = ctx.label.package,
-            name = ctx.attr.name,
         ),
     )
     return [DefaultInfo(

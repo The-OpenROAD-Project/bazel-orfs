@@ -36,13 +36,18 @@ class DeployCopiesTest(unittest.TestCase):
         self.odb = os.path.join(bin_dir, "pkg/results/1_synth.odb")
         write(self.odb, "odb\n")
         write(os.path.join(bin_dir, "pkg/memories/mem.json"), "{}\n")
-        write(os.path.join(bin_dir, "pkg/make_flow"), "#!/bin/sh\necho MAKE \"$@\"\n")
+        write(os.path.join(bin_dir, "pkg/make_flow"), '#!/bin/sh\necho MAKE "$@"\n')
         write(os.path.join(exec_dir, "tool/tool.sh"), "#!/bin/sh\n")
         os.makedirs(os.path.join(bin_dir, "pkg/flow_deps.sh.runfiles/_main"))
 
         self.deploy = os.path.join(self.root, "deploy")
         main = self.deploy + ".runfiles/_main"
-        for rel in ["pkg/results/1_synth.odb", "pkg/memories", "pkg/make_flow", "pkg/flow_deps.sh.runfiles"]:
+        for rel in [
+            "pkg/results/1_synth.odb",
+            "pkg/memories",
+            "pkg/make_flow",
+            "pkg/flow_deps.sh.runfiles",
+        ]:
             link(os.path.join(bin_dir, rel), os.path.join(main, rel))
         link(os.path.join(exec_dir, "tool/tool.sh"), os.path.join(main, "tool/tool.sh"))
         write(os.path.join(main, "pkg/config.mk"), "export DESIGN_NAME = flow\n", 0o644)
@@ -110,9 +115,35 @@ class DeployCopiesTest(unittest.TestCase):
         self.assertFalse(os.path.islink(odb))
         self.assertFalse(os.path.islink(os.path.join(self.dst, "pkg/memories")))
 
+    def test_a_relative_install_is_relative_to_where_bazel_run_was_invoked(self):
+        # bazel run executes the deploy from its runfiles tree and says where
+        # the user was in BUILD_WORKING_DIRECTORY; a relative --install means
+        # a directory there, not one inside the tree being copied.
+        cwd = os.path.join(self.root, "user_cwd")
+        os.makedirs(cwd)
+        env = dict(
+            os.environ,
+            BUILD_WORKSPACE_DIRECTORY=os.path.join(self.root, "ws"),
+            BUILD_WORKING_DIRECTORY=cwd,
+        )
+        r = subprocess.run(
+            [self.deploy, "--install", "rel/tree"],
+            cwd=self.main,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        odb = os.path.join(cwd, "rel/tree/_main/pkg/results/1_synth.odb")
+        self.assertTrue(os.path.isfile(odb), r.stdout + r.stderr)
+        self.assertFalse(os.path.exists(os.path.join(self.main, "rel")))
+        self.assertIn("installed to: %s/rel/tree\n" % cwd, r.stdout)
+
     def test_tools_and_runfiles_trees_stay_links(self):
         self.assertTrue(os.path.islink(os.path.join(self.dst, "tool/tool.sh")))
-        self.assertTrue(os.path.islink(os.path.join(self.dst, "pkg/flow_deps.sh.runfiles")))
+        self.assertTrue(
+            os.path.islink(os.path.join(self.dst, "pkg/flow_deps.sh.runfiles"))
+        )
 
 
 if __name__ == "__main__":

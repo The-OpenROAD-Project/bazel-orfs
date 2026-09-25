@@ -5,7 +5,8 @@ set -e
 usage() {
   echo "Usage: $1 [--install <dir>] [<make args...>]"
   echo "  Files are placed in \$BUILD_WORKSPACE_DIRECTORY/tmp/<package>/<name>"
-  echo "  --install <dir>  Override the installation directory"
+  echo "  --install <dir>  Override the installation directory (relative to where"
+  echo "                   bazel run was invoked)"
   exit 1
 }
 
@@ -69,7 +70,12 @@ main() {
 
   local dst
   if [ -n "$install_dir" ]; then
-    dst="$install_dir"
+    # bazel run runs this from its runfiles tree; a relative path means one
+    # relative to where the user invoked bazel run.
+    case "$install_dir" in
+      /*) dst="$install_dir" ;;
+      *) dst="${BUILD_WORKING_DIRECTORY:-$BUILD_WORKSPACE_DIRECTORY}/$install_dir" ;;
+    esac
   else
     dst="${BUILD_WORKSPACE_DIRECTORY}/tmp${package:+/$package}/$name"
   fi
@@ -187,6 +193,8 @@ EOF
     mkdir --parents "$dst_main"/"$(dirname "$to")"
     cp --force --dereference --no-preserve=all "$from" "$dst_main"/"$to"
   done
+
+  echo "Reproducer installed to: $dst"
 
   if [ "$#" -gt 0 ]; then
     "$dst/make" "$@"
