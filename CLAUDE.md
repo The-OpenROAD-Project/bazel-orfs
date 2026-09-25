@@ -155,7 +155,9 @@ pull request, or it is not shared:
   false-path exceptions, no added RTL registers); hard stops where a
   problem is made; finish the macros before the parent; a design README
   says what is; public PR tests check intended behaviour, not `.ok`
-  output; a PR on an unmerged upstream PR is a draft; relative paths.
+  output; a PR on an unmerged upstream PR is a draft; relative paths;
+  unattended means continue; check what our flow skipped before blaming
+  a tool.
 
 A target that another machine built but that is not a remote cache hit
 here, or that rebuilds when nothing seemed to change, has its own skill:

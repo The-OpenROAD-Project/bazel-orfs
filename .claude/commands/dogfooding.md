@@ -13,7 +13,7 @@ When a timing or flow problem comes from the tools, fix the tools. Never:
 
 What is allowed: a fix in OpenROAD, yosys or ORFS (carried here as a patch until upstream takes it); a flow hard stop (rule 2); an equivalence-preserving mapping, such as a behavioural clock-gate module mapped onto the platform's ICG cell. Upstream RTL patches are for functional bugs only.
 
-Example: XSCore's Frontend measured 14.1 ns alone. 9.9 ns of it was wire on two fanout nets `repair_design` had made itself, 32 loads each spread over more than a millimetre with slews up to 18.6 ns against 320 ps, ending at XiangShan's behavioural `ClockGate` latch. The fixes are the resizer, a hard stop and the ICG mapping; not a multicycle path on the CSR enable, and not a register per SRAM bank.
+Example: XSCore's Frontend measured 14.1 ns alone, its worst path ending at XiangShan's behavioural `ClockGate` latch. The fix for the latch is a mapping onto the ICG cell (`xs_icg.ys`), not a multicycle path on the enable and not a register per SRAM bank. The other 8 ns turned out not to be a tool bug at all: see rule 10.
 
 ## 2. Hard stops where the problem is made
 
@@ -46,3 +46,11 @@ A command's choice (accept congestion, say) is passed explicitly on every call t
 ## 8. Relative paths
 
 Commands and docs use paths relative to the working directory, never `$PWD/...` or `/home/...`. A tool that `bazel run` starts from its runfiles tree resolves a relative path against `BUILD_WORKING_DIRECTORY`, as `--install` on a `_deps` target and `ODB_DEBUG_DIR` on an odb-debug target do; a new one does the same.
+
+## 9. Unattended means continue
+
+In an unattended campaign a task that fails or is blocked is written up, and the campaign goes on to the next task; nothing halts the run to ask. Obstacles like a patch conflict are fixed, not reported; only what could not be fixed is. Every question that needs the human belongs before the launch (`/no-paint-drying`), and a gate chooses the next task rather than ending the campaign.
+
+## 10. Chesterton's fence: check what our flow skipped before blaming a tool
+
+Before calling something a tool bug, assume its authors considered it and look for the step our flow skipped that the tool's normal flow relies on. The worked example: Frontend's placed checkpoint had 37,665 pins violating slew by up to 58x, which looked like `repair_design` failing on its own fanout buffers. A second `repair_design` on the same checkpoint cleared every one and took the block from 14.1 ns to 6.2 ns. ORFS runs that second pass in its global-route stage; our blocks are abstracted at `cts`, before it, so they never got it. The fix is ours (where the flow abstracts), not OpenROAD's.
