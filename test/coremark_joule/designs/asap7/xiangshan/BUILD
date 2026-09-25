@@ -38,7 +38,21 @@ xiangshan_flow(variant = "blocks")
 # .claude/commands/macro-selection.md, step 3); regenerate it, never edit it.
 xiangshan_flow(
     name = "XSCore",
+    grt_probe_blocks = ["Frontend"],
     plan = PLAN,
+)
+
+# Frontend's timing where its abstract is written (cts) and after the
+# global-route stage's own repair (the grt probe), for the comparison of
+# the two and whether the cts checkpoint ranks the paths the same way.
+odb_debug(
+    name = "Frontend_cts_odb_debug",
+    src = ":Frontend_cts",
+)
+
+odb_debug(
+    name = "Frontend_grt_probe_grt_odb_debug",
+    src = ":Frontend_grt_probe_grt",
 )
 
 # The planned parent's synthesis: the blocks as blackboxes over the flat

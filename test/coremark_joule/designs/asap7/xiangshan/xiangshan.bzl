@@ -1239,7 +1239,7 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
     sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints_800ps.sdc"]
     return arguments, sources
 
-def xiangshan_flow(name = "XSCore", blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan = None, plan_dir = "plan", variant = None):
+def xiangshan_flow(name = "XSCore", blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan = None, plan_dir = "plan", variant = None, grt_probe_blocks = []):
     """The blocks, each abstracted, then the parent.
 
     Without a plan: every block in `blocks` with a pin-fitted mock for the
@@ -1295,6 +1295,31 @@ def xiangshan_flow(name = "XSCore", blocks = XS_BLOCKS, parent = XS_PARENT, tags
                 variant = variant,
                 verilog_files = XS_VERILOG,
             )
+            if block in grt_probe_blocks:
+                # The block's own global route on its CTS checkpoint, with
+                # the post-route repair ORFS runs there: what the block's
+                # timing is once the flow has finished repairing it, against
+                # the cts checkpoint the abstract is written from. Route-0
+                # with congestion allowed, as the parent routes: the repair
+                # and the parasitics are what move the period, and a block's
+                # maze iterations take hours; the route-0 overflow is read
+                # next to the period, which is optimistic where it is high.
+                orfs_flow(
+                    name = block,
+                    arguments = arguments | {
+                        "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
+                    },
+                    last_stage = "grt",
+                    pdk = "//flow:asap7",
+                    previous_stage = {"grt": ":%s_cts" % block},
+                    sources = sources,
+                    tags = tags,
+                    user_arguments = cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS,
+                    user_sources = cfg["user_sources"] | XS_ICG_USER_SOURCES,
+                    user_stages = _user_stages(cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS, cfg["user_sources"] | XS_ICG_USER_SOURCES),
+                    variant = "grt_probe",
+                    verilog_files = XS_VERILOG,
+                )
         arguments = {k: v for k, v in parent["arguments"].items() if k not in _PLAN_DROPS}
         arguments["DIE_AREA"] = plan["parent"]["DIE_AREA"]
         arguments["CORE_AREA"] = plan["parent"]["CORE_AREA"]
