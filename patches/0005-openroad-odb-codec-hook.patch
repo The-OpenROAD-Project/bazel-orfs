@@ -1,4 +1,4 @@
-From f5957eb54d681c368d7a303e79c7434279343a13 Mon Sep 17 00:00:00 2001
+From 0743ac8e1536f8314bc586ebef746a86e84ae1b3 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Thu, 24 Sep 2026 10:12:11 +0200
 Subject: [PATCH] odb: let a user's ODB_CODEC reformat the .odb files OpenROAD
@@ -41,52 +41,45 @@ written with, and OpenROAD never reads it.
 Tests: TestDbStreamLayout checks that asking for a layout leaves the
 bytes unchanged, that the runs lie inside the file in order and start
 at a slot's allocated flag, and that every instance, net, iterm and
-bterm is found where the layout says its table's slots are. The
-odb_codec_write and odb_codec_read tests drive write_db and read_db
-through a stand-in codec, and check that without ODB_CODEC no layout
-is written; odb_codec_invalid checks that a file that decodes to
-something other than a database fails read_db with the error it fails
-with today.
+bterm is found where the layout says its table's slots are.
+odb_codec_roundtrip writes a database through a stand-in codec and has
+a second openroad read it back through it, which must give what
+write_db writes without one; it also checks that write_db runs the
+codec, removes the layout, and writes no layout without ODB_CODEC.
+odb_codec_invalid checks that a file that decodes to something other
+than a database fails read_db with its usual error. Both are pass/fail
+tests, with no golden log.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/OpenRoad.cc                         | 220 +++++++++++++++++++++++-
+ src/OpenRoad.cc                         | 257 +++++++++++++++++++++++-
  src/odb/include/odb/db.h                |   9 +
  src/odb/include/odb/dbStream.h          |  14 ++
  src/odb/src/db/CMakeLists.txt           |   1 +
- src/odb/src/db/dbDatabase.cpp           |  13 ++
- src/odb/src/db/dbStreamLayout.cpp       |  51 ++++++
- src/odb/src/db/dbStreamLayout.h         |  56 ++++++
+ src/odb/src/db/dbStreamLayout.cpp       |  68 +++++++
+ src/odb/src/db/dbStreamLayout.h         |  57 ++++++
  src/odb/src/db/dbTable.inc              |   8 +
- src/odb/test/BUILD                      |  12 ++
- src/odb/test/CMakeLists.txt             |   3 +
- src/odb/test/cpp/BUILD                  |  11 ++
+ src/odb/test/BUILD                      |   8 +
+ src/odb/test/CMakeLists.txt             |   2 +
+ src/odb/test/cpp/BUILD                  |  11 +
  src/odb/test/cpp/CMakeLists.txt         |   7 +
- src/odb/test/cpp/TestDbStreamLayout.cpp | 114 ++++++++++++
- src/odb/test/odb_codec_invalid.ok       |   1 +
- src/odb/test/odb_codec_invalid.tcl      |  12 ++
- src/odb/test/odb_codec_read.ok          |   1 +
- src/odb/test/odb_codec_read.tcl         |  17 ++
- src/odb/test/odb_codec_stub.sh          |  29 ++++
- src/odb/test/odb_codec_write.ok         |   4 +
- src/odb/test/odb_codec_write.tcl        |  31 ++++
- 20 files changed, 610 insertions(+), 4 deletions(-)
+ src/odb/test/cpp/TestDbStreamLayout.cpp | 114 +++++++++++
+ src/odb/test/odb_codec_invalid.tcl      |  20 ++
+ src/odb/test/odb_codec_roundtrip.tcl    |  50 +++++
+ src/odb/test/odb_codec_stub.sh          |  29 +++
+ 15 files changed, 651 insertions(+), 4 deletions(-)
  create mode 100644 src/odb/src/db/dbStreamLayout.cpp
  create mode 100644 src/odb/src/db/dbStreamLayout.h
  create mode 100644 src/odb/test/cpp/TestDbStreamLayout.cpp
- create mode 100644 src/odb/test/odb_codec_invalid.ok
  create mode 100644 src/odb/test/odb_codec_invalid.tcl
- create mode 100644 src/odb/test/odb_codec_read.ok
- create mode 100644 src/odb/test/odb_codec_read.tcl
+ create mode 100644 src/odb/test/odb_codec_roundtrip.tcl
  create mode 100755 src/odb/test/odb_codec_stub.sh
- create mode 100644 src/odb/test/odb_codec_write.ok
- create mode 100644 src/odb/test/odb_codec_write.tcl
 
 diff --git a/src/OpenRoad.cc b/src/OpenRoad.cc
-index 955d072e1d..fb61e0b683 100644
+index 955d072e1d..ece689d243 100644
 --- a/src/OpenRoad.cc
 +++ b/src/OpenRoad.cc
-@@ -3,13 +3,24 @@
+@@ -3,14 +3,28 @@
  
  #include "ord/OpenRoad.hh"
  
@@ -98,6 +91,7 @@ index 955d072e1d..fb61e0b683 100644
 +#include <algorithm>
 +#include <array>
 +#include <cerrno>
++#include <csignal>
 +#include <cstdint>
  #include <cstdlib>
  #include <cstring>
@@ -108,91 +102,32 @@ index 955d072e1d..fb61e0b683 100644
 +#include <streambuf>
  #include <string>
 +#include <string_view>
++#include <system_error>
  #include <thread>
++#include <utility>
  #include <vector>
  
-@@ -106,6 +117,9 @@ extern "C" {
+ #include "ord/Version.hh"
+@@ -106,6 +120,14 @@ extern "C" {
  extern int Ord_Init(Tcl_Interp* interp);
  }
  
 +// posix_spawn passes the environment on explicitly.
++#if defined(__APPLE__)
++#include <crt_externs.h>
++#define environ (*_NSGetEnviron())
++#else
 +extern char** environ;
++#endif
 +
  namespace ord {
  
  using odb::dbChip;
-@@ -564,13 +578,194 @@ void OpenRoad::write3Dbx(const std::string& filename)
+@@ -564,13 +586,223 @@ void OpenRoad::write3Dbx(const std::string& filename)
    writer.writeDbx(filename, db_->getChip());
  }
  
 +namespace {
-+
-+// ODB_CODEC names an executable that reformats .odb files, for instance
-+// to make them compress better. It is the user's, not part of OpenROAD:
-+// write_db runs "<codec> encode <file> <layout>" on the file it just
-+// wrote, with a description of where the table slots lie in it
-+// (dbDatabase::write), and read_db reads the database from the stdout of
-+// "<codec> decode <file>". OpenROAD knows nothing of the codec's format
-+// and promises nothing about it. A codec is handed every file read_db
-+// opens, so one it did not encode must come out of decode unchanged. Unset, or
-+// for a .gz file, both commands behave exactly as they would without it.
-+const char* odbCodec()
-+{
-+  const char* codec = std::getenv("ODB_CODEC");
-+  return (codec != nullptr && *codec != '\0') ? codec : nullptr;
-+}
-+
-+// Starts args with stdout on out_fd, or inherited when out_fd is -1.
-+// Returns the pid, or -1 with errno set.
-+pid_t spawnCodec(const std::vector<std::string>& args, const int out_fd)
-+{
-+  std::vector<char*> argv;
-+  argv.reserve(args.size() + 1);
-+  for (const std::string& arg : args) {
-+    argv.push_back(const_cast<char*>(arg.c_str()));
-+  }
-+  argv.push_back(nullptr);
-+
-+  posix_spawn_file_actions_t actions;
-+  posix_spawn_file_actions_init(&actions);
-+  if (out_fd >= 0) {
-+    posix_spawn_file_actions_adddup2(&actions, out_fd, STDOUT_FILENO);
-+  }
-+  pid_t pid = -1;
-+  const int error
-+      = posix_spawnp(&pid, argv[0], &actions, nullptr, argv.data(), environ);
-+  posix_spawn_file_actions_destroy(&actions);
-+  if (error != 0) {
-+    errno = error;
-+    return -1;
-+  }
-+  return pid;
-+}
-+
-+// The exit status of pid; a signal is reported as 128 plus its number.
-+int waitCodec(const pid_t pid)
-+{
-+  int status = 0;
-+  while (waitpid(pid, &status, 0) < 0) {
-+    if (errno != EINTR) {
-+      return -errno;
-+    }
-+  }
-+  if (WIFEXITED(status)) {
-+    return WEXITSTATUS(status);
-+  }
-+  return 128 + WTERMSIG(status);
-+}
-+
-+// Runs args to completion: its exit status, or -errno if it did not start.
-+int runCodec(const std::vector<std::string>& args)
-+{
-+  const pid_t pid = spawnCodec(args, -1);
-+  if (pid < 0) {
-+    return -errno;
-+  }
-+  return waitCodec(pid);
-+}
 +
 +// The read end of a pipe as a stream. It keeps the last 64 KiB it
 +// delivered, because dbIStream seeks back over what it buffered and did
@@ -243,11 +178,103 @@ index 955d072e1d..fb61e0b683 100644
 +  std::array<char, 2 * kWindow> buffer_;
 +};
 +
-+void checkCodec(utl::Logger* logger,
-+                const char* codec,
-+                const char* verb,
-+                const char* filename,
-+                const int status)
++// Removes a file when it goes out of scope, whatever happens in between.
++class RemoveOnExit
++{
++ public:
++  explicit RemoveOnExit(std::string path) : path_(std::move(path)) {}
++  RemoveOnExit(const RemoveOnExit&) = delete;
++  RemoveOnExit& operator=(const RemoveOnExit&) = delete;
++  ~RemoveOnExit()
++  {
++    std::error_code ignored;
++    std::filesystem::remove(path_, ignored);
++  }
++
++ private:
++  const std::string path_;
++};
++
++}  // namespace
++
++// ODB_CODEC names an executable that reformats .odb files, for instance
++// to make them compress better. It is the user's, not part of OpenROAD:
++// write_db runs "<codec> encode <file> <layout>" on the file it just
++// wrote, with a description of where the table slots lie in it
++// (dbDatabase::write), and read_db reads the database from the stdout of
++// "<codec> decode <file>". OpenROAD knows nothing of the codec's format
++// and promises nothing about it. A codec is handed every file read_db
++// opens, so one it did not encode must come out of decode unchanged. Unset, or
++// for a .gz file, both commands behave exactly as they would without it.
++static const char* odbCodec()
++{
++  const char* codec = std::getenv("ODB_CODEC");
++  return (codec != nullptr && *codec != '\0') ? codec : nullptr;
++}
++
++// Starts args with stdout on out_fd, or inherited when out_fd is -1.
++// Returns the pid, or -1 with errno set.
++static pid_t spawnCodec(const std::vector<std::string>& args, const int out_fd)
++{
++  std::vector<char*> argv;
++  argv.reserve(args.size() + 1);
++  for (const std::string& arg : args) {
++    argv.push_back(const_cast<char*>(arg.c_str()));
++  }
++  argv.push_back(nullptr);
++
++  posix_spawn_file_actions_t actions;
++  int error = posix_spawn_file_actions_init(&actions);
++  if (error != 0) {
++    errno = error;
++    return -1;
++  }
++  if (out_fd >= 0) {
++    error = posix_spawn_file_actions_adddup2(&actions, out_fd, STDOUT_FILENO);
++  }
++  pid_t pid = -1;
++  if (error == 0) {
++    error
++        = posix_spawnp(&pid, argv[0], &actions, nullptr, argv.data(), environ);
++  }
++  posix_spawn_file_actions_destroy(&actions);
++  if (error != 0) {
++    errno = error;
++    return -1;
++  }
++  return pid;
++}
++
++// The exit status of pid; a signal is reported as 128 plus its number.
++static int waitCodec(const pid_t pid)
++{
++  int status = 0;
++  while (waitpid(pid, &status, 0) < 0) {
++    if (errno != EINTR) {
++      return -errno;
++    }
++  }
++  if (WIFEXITED(status)) {
++    return WEXITSTATUS(status);
++  }
++  return 128 + WTERMSIG(status);
++}
++
++// Runs args to completion: its exit status, or -errno if it did not start.
++static int runCodec(const std::vector<std::string>& args)
++{
++  const pid_t pid = spawnCodec(args, -1);
++  if (pid < 0) {
++    return -errno;
++  }
++  return waitCodec(pid);
++}
++
++static void checkCodec(utl::Logger* logger,
++                       const char* codec,
++                       const char* verb,
++                       const char* filename,
++                       const int status)
 +{
 +  if (status < 0) {
 +    logger->error(ORD,
@@ -269,15 +296,19 @@ index 955d072e1d..fb61e0b683 100644
 +  }
 +}
 +
-+void readDbThroughCodec(ord::OpenRoad* openroad,
-+                        utl::Logger* logger,
-+                        const char* codec,
-+                        const char* filename)
++static void readDbThroughCodec(ord::OpenRoad* openroad,
++                               utl::Logger* logger,
++                               const char* codec,
++                               const char* filename)
 +{
 +  int fds[2];
-+  if (pipe2(fds, O_CLOEXEC) != 0) {
++  if (pipe(fds) != 0) {
 +    checkCodec(logger, codec, "decode", filename, -errno);
 +  }
++  // Neither end is the codec's but the one it writes to, which it gets
++  // as its stdout.
++  fcntl(fds[0], F_SETFD, FD_CLOEXEC);
++  fcntl(fds[1], F_SETFD, FD_CLOEXEC);
 +  const pid_t pid = spawnCodec({codec, "decode", filename}, fds[1]);
 +  const int spawn_error = errno;
 +  close(fds[1]);
@@ -292,14 +323,14 @@ index 955d072e1d..fb61e0b683 100644
 +    openroad->readDb(stream);
 +  } catch (...) {
 +    close(fds[0]);
++    // The codec may be blocked on something other than the pipe.
++    kill(pid, SIGKILL);
 +    waitCodec(pid);
 +    throw;
 +  }
 +  close(fds[0]);
 +  checkCodec(logger, codec, "decode", filename, waitCodec(pid));
 +}
-+
-+}  // namespace
 +
  // TODO: bool hierarchy should be removed in the future.
  // It is retained for a while for backward compatibility.
@@ -318,7 +349,7 @@ index 955d072e1d..fb61e0b683 100644
    } catch (const std::ios_base::failure& f) {
      logger_->error(ORD, 54, "odb file {} is invalid: {}", filename, f.what());
    }
-@@ -611,8 +806,25 @@ void OpenRoad::writeDb(std::ostream& stream)
+@@ -611,8 +843,25 @@ void OpenRoad::writeDb(std::ostream& stream)
  void OpenRoad::writeDb(const char* filename,
                         std::optional<int> compression_level)
  {
@@ -332,6 +363,7 @@ index 955d072e1d..fb61e0b683 100644
 +  }
 +
 +  const std::string layout_file = std::string(filename) + ".layout";
++  const RemoveOnExit remove_layout(layout_file);
 +  {
 +    utl::OutStreamHandler stream_handler(filename, true);
 +    std::ostream& stream = stream_handler.getStream();
@@ -341,7 +373,6 @@ index 955d072e1d..fb61e0b683 100644
 +    db_->write(stream, layout);
 +  }
 +  const int status = runCodec({codec, "encode", filename, layout_file});
-+  std::filesystem::remove(layout_file);
 +  checkCodec(logger_, codec, "encode", filename, status);
  }
  
@@ -428,43 +459,12 @@ index dc03d0f6f2..e591c5d611 100644
      dbBTermItr.cpp 
      dbBPinItr.cpp 
      dbBlock.cpp 
-diff --git a/src/odb/src/db/dbDatabase.cpp b/src/odb/src/db/dbDatabase.cpp
-index 32dd8d48fb..95e49f3a94 100644
---- a/src/odb/src/db/dbDatabase.cpp
-+++ b/src/odb/src/db/dbDatabase.cpp
-@@ -15,6 +15,7 @@
- #include "dbChipRegionInst.h"
- #include "dbCore.h"
- #include "dbProperty.h"
-+#include "dbStreamLayout.h"
- #include "dbTable.h"
- #include "dbUnfoldedChipBumpInst.h"
- #include "dbUnfoldedChipConn.h"
-@@ -940,6 +941,18 @@ void dbDatabase::write(std::ostream& file)
-   file.flush();
- }
- 
-+void dbDatabase::write(std::ostream& file, std::ostream& layout)
-+{
-+  _dbDatabase* db = (_dbDatabase*) this;
-+  dbStreamLayout recorder(layout);
-+  dbOStream stream(db, file);
-+  stream.setLayout(&recorder);
-+  stream << *db;
-+  stream.flush();
-+  file.flush();
-+  recorder.finish(stream.tell());
-+}
-+
- void dbDatabase::beginEco(dbBlock* block_)
- {
-   _dbBlock* block = (_dbBlock*) block_;
 diff --git a/src/odb/src/db/dbStreamLayout.cpp b/src/odb/src/db/dbStreamLayout.cpp
 new file mode 100644
-index 0000000000..3676399b64
+index 0000000000..b1f8b2691b
 --- /dev/null
 +++ b/src/odb/src/db/dbStreamLayout.cpp
-@@ -0,0 +1,51 @@
+@@ -0,0 +1,68 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
 +
@@ -472,6 +472,11 @@ index 0000000000..3676399b64
 +
 +#include <cstdint>
 +#include <ostream>
++#include <string_view>
++
++#include "dbDatabase.h"
++#include "odb/db.h"
++#include "odb/dbStream.h"
 +
 +namespace odb {
 +
@@ -485,9 +490,8 @@ index 0000000000..3676399b64
 +                             const uint64_t length)
 +{
 +  ++slots_;
-+  // Table names are the static strings of dbObject::getTypeName, so
-+  // two slots of one table share the pointer.
-+  const bool extends = count_ > 0 && table == table_ && length == length_
++  const bool extends = count_ > 0 && std::string_view(table) == table_
++                       && length == length_
 +                       && offset == offset_ + length_ * count_;
 +  if (extends) {
 +    ++count_;
@@ -515,13 +519,26 @@ index 0000000000..3676399b64
 +  count_ = 0;
 +}
 +
++// Here rather than in dbDatabase.cpp, which the code generator owns.
++void dbDatabase::write(std::ostream& file, std::ostream& layout)
++{
++  _dbDatabase* db = reinterpret_cast<_dbDatabase*>(this);
++  dbStreamLayout recorder(layout);
++  dbOStream stream(db, file);
++  stream.setLayout(&recorder);
++  stream << *db;
++  stream.flush();
++  file.flush();
++  recorder.finish(stream.tell());
++}
++
 +}  // namespace odb
 diff --git a/src/odb/src/db/dbStreamLayout.h b/src/odb/src/db/dbStreamLayout.h
 new file mode 100644
-index 0000000000..f176ee1c27
+index 0000000000..836b93900c
 --- /dev/null
 +++ b/src/odb/src/db/dbStreamLayout.h
-@@ -0,0 +1,56 @@
+@@ -0,0 +1,57 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
 +
@@ -529,6 +546,7 @@ index 0000000000..f176ee1c27
 +
 +#include <cstdint>
 +#include <ostream>
++#include <string_view>
 +
 +namespace odb {
 +
@@ -570,7 +588,7 @@ index 0000000000..f176ee1c27
 +  void flushRun();
 +
 +  std::ostream& out_;
-+  const char* table_ = nullptr;
++  std::string_view table_;
 +  uint64_t offset_ = 0;
 +  uint64_t length_ = 0;
 +  uint64_t count_ = 0;
@@ -614,49 +632,44 @@ index ab68b7c3fc..26ff4e9f64 100644
  }
  
 diff --git a/src/odb/test/BUILD b/src/odb/test/BUILD
-index 2ae58beaee..a6d3b1fbce 100644
+index 2ae58beaee..bb6ef21a51 100644
 --- a/src/odb/test/BUILD
 +++ b/src/odb/test/BUILD
-@@ -189,6 +189,9 @@ COMPULSORY_TESTS = [
-     "lef_mask",
-     "multi_tech",
-     "ndr",
+@@ -226,6 +226,8 @@ COMPULSORY_TESTS = [
+ 
+ PASSFAIL_TESTS = [
+     # pass-fail
 +    "odb_codec_invalid",
-+    "odb_codec_read",
-+    "odb_codec_write",
-     "polygon",
-     "read_abstract_lef",
-     "read_3dbv",
-@@ -401,6 +404,15 @@ filegroup(
++    "odb_codec_roundtrip",
+     "read_3dbv_fail",
+     "read_3dbx_fail",
+     "read_def_virtual_invalid",
+@@ -401,6 +403,12 @@ filegroup(
              "dump_netlists_withfill": [
                  "dump_netlists_withfill_cdl.ok",
              ],
 +            "odb_codec_invalid": [
 +                "odb_codec_stub.sh",
 +            ],
-+            "odb_codec_read": [
-+                "odb_codec_stub.sh",
-+            ],
-+            "odb_codec_write": [
++            "odb_codec_roundtrip": [
 +                "odb_codec_stub.sh",
 +            ],
              "read_abstract_lef": [
                  "gcd_abstract_lef.lefok",
              ],
 diff --git a/src/odb/test/CMakeLists.txt b/src/odb/test/CMakeLists.txt
-index e9e8c1ef2d..24dace53e4 100644
+index e9e8c1ef2d..94c6efcc15 100644
 --- a/src/odb/test/CMakeLists.txt
 +++ b/src/odb/test/CMakeLists.txt
-@@ -36,6 +36,9 @@ or_integration_tests(
-     lef_mask
-     multi_tech
-     ndr
+@@ -73,6 +73,8 @@ or_integration_tests(
+     cpp_tests
+     read_3dbv_fail
+     read_3dbx_fail
 +    odb_codec_invalid
-+    odb_codec_read
-+    odb_codec_write
-     polygon
-     read_abstract_lef
-     read_3dbv
++    odb_codec_roundtrip
+     read_def_virtual_invalid
+     test_block
+     test_bterm
 diff --git a/src/odb/test/cpp/BUILD b/src/odb/test/cpp/BUILD
 index 660541215c..5aa2d24f76 100644
 --- a/src/odb/test/cpp/BUILD
@@ -831,21 +844,14 @@ index 0000000000..5d05d93441
 +
 +}  // namespace
 +}  // namespace odb
-diff --git a/src/odb/test/odb_codec_invalid.ok b/src/odb/test/odb_codec_invalid.ok
-new file mode 100644
-index 0000000000..8315664ac4
---- /dev/null
-+++ b/src/odb/test/odb_codec_invalid.ok
-@@ -0,0 +1 @@
-+read_db failed: database file is not an OpenDB Database
 diff --git a/src/odb/test/odb_codec_invalid.tcl b/src/odb/test/odb_codec_invalid.tcl
 new file mode 100644
-index 0000000000..3b429f605a
+index 0000000000..d276f31a5b
 --- /dev/null
 +++ b/src/odb/test/odb_codec_invalid.tcl
-@@ -0,0 +1,12 @@
+@@ -0,0 +1,20 @@
 +# read_db reports a file that decodes to something other than a database
-+# as an error, as it does without ODB_CODEC, and does not abort.
++# as the error it gives without ODB_CODEC, and openroad does not abort.
 +source "helpers.tcl"
 +
 +set ::env(ODB_CODEC) [file normalize "odb_codec_stub.sh"]
@@ -853,39 +859,73 @@ index 0000000000..3b429f605a
 +set f [open $bogus wb]
 +puts -nonewline $f [string repeat "not a database " 10000]
 +close $f
-+if { [catch { read_db $bogus } err] } {
-+  puts "read_db failed: $err"
++
++if { ![catch { read_db $bogus } err] } {
++  puts "fail: read_db accepted a file that is not a database"
++  exit 1
 +}
-diff --git a/src/odb/test/odb_codec_read.ok b/src/odb/test/odb_codec_read.ok
++if { ![string match "*not an OpenDB Database*" $err] } {
++  puts "fail: unexpected error: $err"
++  exit 1
++}
++
++puts pass
+diff --git a/src/odb/test/odb_codec_roundtrip.tcl b/src/odb/test/odb_codec_roundtrip.tcl
 new file mode 100644
-index 0000000000..9602f0753f
+index 0000000000..1884a34cee
 --- /dev/null
-+++ b/src/odb/test/odb_codec_read.ok
-@@ -0,0 +1 @@
-+block counter with 12 instances
-diff --git a/src/odb/test/odb_codec_read.tcl b/src/odb/test/odb_codec_read.tcl
-new file mode 100644
-index 0000000000..9cf34a9c28
---- /dev/null
-+++ b/src/odb/test/odb_codec_read.tcl
-@@ -0,0 +1,17 @@
-+# read_db reads the database from what ODB_CODEC decodes.
++++ b/src/odb/test/odb_codec_roundtrip.tcl
+@@ -0,0 +1,50 @@
++# write_db hands the file it wrote, and where its table slots lie, to
++# ODB_CODEC, and read_db reads through it: a database written through a
++# codec and read back is the database. Without ODB_CODEC, write_db
++# writes the database and nothing else.
 +source "helpers.tcl"
 +
++proc check { cond msg } {
++  if { ![uplevel 1 [list expr $cond]] } {
++    puts "fail: $msg"
++    exit 1
++  }
++}
++
++proc read_bytes { path } {
++  set f [open $path rb]
++  set bytes [read $f]
++  close $f
++  return $bytes
++}
++
 +set codec [file normalize "odb_codec_stub.sh"]
-+set encoded [make_result_file "odb_codec_read.odb"]
-+file copy -force "data/design.odb" $encoded
-+set layout [make_result_file "odb_codec_read.odb.layout"]
-+set f [open $layout w]
-+puts $f "odb-layout 1"
-+puts $f "size [file size $encoded]"
-+close $f
-+exec $codec encode $encoded $layout
++read_db "data/design.odb"
++
++set plain [make_result_file "odb_codec_roundtrip_plain.odb"]
++write_db $plain
++check { ![file exists $plain.layout] } "write_db wrote a layout without ODB_CODEC"
 +
 +set ::env(ODB_CODEC) $codec
-+read_db $encoded
-+set block [[[ord::get_db] getChip] getBlock]
-+puts "block [$block getName] with [llength [$block getInsts]] instances"
++set encoded [make_result_file "odb_codec_roundtrip.odb"]
++write_db $encoded
++set f [open $encoded rb]
++set first [gets $f]
++close $f
++check { $first == "odb-codec-stub" } "write_db did not run ODB_CODEC"
++check { ![file exists $encoded.layout] } "write_db left its layout behind"
++
++# A second openroad reads the encoded file through the codec and writes
++# what it read, without one.
++set script [make_result_file "odb_codec_roundtrip_read.tcl"]
++set back [make_result_file "odb_codec_roundtrip_back.odb"]
++set f [open $script w]
++puts $f "read_db $encoded"
++puts $f "unset ::env(ODB_CODEC)"
++puts $f "write_db $back"
++close $f
++exec [info nameofexecutable] -no_init -no_splash -exit $script >@ stdout 2>@ stderr
++check { [read_bytes $back] eq [read_bytes $plain] } \
++  "the database read through the codec differs from the one written"
++
++puts pass
 diff --git a/src/odb/test/odb_codec_stub.sh b/src/odb/test/odb_codec_stub.sh
 new file mode 100755
 index 0000000000..a6dd8a2757
@@ -921,53 +961,6 @@ index 0000000000..a6dd8a2757
 +  exit 2
 +  ;;
 +esac
-diff --git a/src/odb/test/odb_codec_write.ok b/src/odb/test/odb_codec_write.ok
-new file mode 100644
-index 0000000000..2be5ff121e
---- /dev/null
-+++ b/src/odb/test/odb_codec_write.ok
-@@ -0,0 +1,4 @@
-+encoded by the codec: 1
-+layout left behind: 0
-+layout written without ODB_CODEC: 0
-+codec handed what write_db writes: 1
-diff --git a/src/odb/test/odb_codec_write.tcl b/src/odb/test/odb_codec_write.tcl
-new file mode 100644
-index 0000000000..638c93f982
---- /dev/null
-+++ b/src/odb/test/odb_codec_write.tcl
-@@ -0,0 +1,31 @@
-+# write_db hands the file it wrote, and where its table slots lie, to
-+# ODB_CODEC; without ODB_CODEC it writes the database and nothing else.
-+source "helpers.tcl"
-+
-+proc read_bytes { path } {
-+  set f [open $path rb]
-+  set bytes [read $f]
-+  close $f
-+  return $bytes
-+}
-+
-+set ::env(ODB_CODEC) [file normalize "odb_codec_stub.sh"]
-+# The stub decodes a file it did not encode to the file itself.
-+read_db "data/design.odb"
-+
-+set encoded [make_result_file "odb_codec_write.odb"]
-+write_db $encoded
-+set f [open $encoded rb]
-+puts "encoded by the codec: [expr { [gets $f] == "odb-codec-stub" }]"
-+close $f
-+puts "layout left behind: [file exists $encoded.layout]"
-+
-+unset ::env(ODB_CODEC)
-+set plain [make_result_file "odb_codec_write_plain.odb"]
-+write_db $plain
-+puts "layout written without ODB_CODEC: [file exists $plain.layout]"
-+
-+# What the codec was handed is what write_db writes without it.
-+set decoded [make_result_file "odb_codec_write_decoded.odb"]
-+exec [file normalize "odb_codec_stub.sh"] decode $encoded > $decoded
-+puts "codec handed what write_db writes: [expr { [read_bytes $plain] eq [read_bytes $decoded] }]"
 -- 
 2.53.0
 

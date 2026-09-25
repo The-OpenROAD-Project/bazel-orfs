@@ -106,7 +106,8 @@ archive_override(
         # read_db reads through it; unset, nothing changes. This is how
         # tools/odb_codec stores .odb files column by column, for bazel's
         # compression. No format change and no compatibility promise.
-        # Not upstreamed -- retire at a bump onto an OpenROAD carrying it.
+        # Proposed upstream as OpenROAD #11524 -- retire at a bump onto an
+        # OpenROAD carrying it.
         "//patches:0005-openroad-odb-codec-hook.patch",
     ],
     strip_prefix = "OpenROAD-3ab04b4dd1e1b86d603faf3e75a20bd276f61757",
