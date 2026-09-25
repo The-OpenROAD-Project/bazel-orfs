@@ -15,7 +15,25 @@ load("@bazel-orfs//:openroad.bzl", "orfs_flow")
 # floorplan and not the synthesis before it.
 XS_USER_ARGUMENTS = ["ANNEAL_SEED", "ANNEAL_DEPTH", "ANNEAL_MIN_CLUSTER", "ANNEAL_CHANNEL_UM", "ANNEAL_BLOCK_GAP_UM", "ANNEAL_FILL", "ANNEAL_STRAP_PITCH_UM", "ANNEAL_STRAP_OFFSET_UM", "ANNEAL_STRAP_PAIR_UM", "ANNEAL_CHANNEL_CHECK", "ANNEAL_CHANNEL_AUTO", "ANNEAL_CHANNEL_MIN_UM"]
 XS_USER_SOURCES = ["ANNEAL_DUMP_TCL", "ANNEAL_PY"]
-XS_USER_STAGES = {v: ["floorplan"] for v in XS_USER_ARGUMENTS + XS_USER_SOURCES}
+
+# XiangShan's ClockGate onto ASAP7's ICG cell in every flow, the parent's
+# and every block's: the RTL is one core. The hook's script is named by
+# sandbox path; XS_ICG_MAP is what stages it and the template, and is
+# never handed to the frontend (the template defines a second ClockGate).
+# Synthesis only: test/xs_clockgate checks the mapping.
+XS_ICG_USER_ARGUMENTS = {
+    "SYNTH_POST_HIERARCHY_SCRIPTS": "test/coremark_joule/designs/asap7/xiangshan/xs_icg.ys",
+}
+XS_ICG_USER_SOURCES = {
+    "XS_ICG_MAP": [
+        "//test/coremark_joule/designs/asap7/xiangshan:xs_icg.ys",
+        "//test/coremark_joule/designs/asap7/xiangshan:xs_icg_map.v",
+    ],
+}
+XS_USER_STAGES = {v: ["floorplan"] for v in XS_USER_ARGUMENTS + XS_USER_SOURCES} | {
+    v: ["synth"]
+    for v in list(XS_ICG_USER_ARGUMENTS) + list(XS_ICG_USER_SOURCES)
+}
 
 # The flat core. Elaborated without Chisel's verification layer (see the
 # generator's firtool arguments), so slang reads it with the hierarchy kept.
@@ -1248,9 +1266,9 @@ def xiangshan_flow(name = "XSCore", blocks = XS_BLOCKS, parent = XS_PARENT, tags
                 pdk = "//flow:asap7",
                 sources = cfg["sources"],
                 tags = tags,
-                user_arguments = cfg["user_arguments"],
-                user_sources = cfg["user_sources"],
-                user_stages = _user_stages(cfg["user_arguments"], cfg["user_sources"]),
+                user_arguments = cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS,
+                user_sources = cfg["user_sources"] | XS_ICG_USER_SOURCES,
+                user_stages = _user_stages(cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS, cfg["user_sources"] | XS_ICG_USER_SOURCES),
                 variant = variant,
                 verilog_files = XS_VERILOG,
             )
@@ -1271,9 +1289,9 @@ def xiangshan_flow(name = "XSCore", blocks = XS_BLOCKS, parent = XS_PARENT, tags
                 pdk = "//flow:asap7",
                 sources = sources,
                 tags = tags,
-                user_arguments = cfg["user_arguments"],
-                user_sources = cfg["user_sources"],
-                user_stages = _user_stages(cfg["user_arguments"], cfg["user_sources"]),
+                user_arguments = cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS,
+                user_sources = cfg["user_sources"] | XS_ICG_USER_SOURCES,
+                user_stages = _user_stages(cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS, cfg["user_sources"] | XS_ICG_USER_SOURCES),
                 variant = variant,
                 verilog_files = XS_VERILOG,
             )
@@ -1356,9 +1374,9 @@ def xiangshan_flow(name = "XSCore", blocks = XS_BLOCKS, parent = XS_PARENT, tags
         pdk = "//flow:asap7",
         sources = sources,
         tags = tags,
-        user_arguments = user_arguments,
-        user_sources = user_sources,
-        user_stages = _user_stages(user_arguments, user_sources),
+        user_arguments = user_arguments | XS_ICG_USER_ARGUMENTS,
+        user_sources = user_sources | XS_ICG_USER_SOURCES,
+        user_stages = _user_stages(user_arguments | XS_ICG_USER_ARGUMENTS, user_sources | XS_ICG_USER_SOURCES),
         variant = variant,
         verilog_files = XS_VERILOG,
         visibility = ["//visibility:public"],
