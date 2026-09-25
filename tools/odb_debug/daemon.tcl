@@ -5,13 +5,17 @@
 # Run it as a flow stage's companion so it gets the flow's exact environment
 # (ODB, SDC, liberty set, RC, derates), either through bazel
 #
-#   bazelisk run //my:design_place_odb_debug -- ODB_DEBUG_DIR=$PWD/tmp/odb-debug
+#   bazelisk run //my:design_place_odb_debug -- ODB_DEBUG_DIR=tmp/odb-debug
 #
 # or from a deployed `_deps` tree, where the checkpoint of an unfinished or
 # failed stage can be dropped into results/ and opened directly:
 #
 #   ./make run RUN_SCRIPT=$PWD/tools/odb_debug/daemon.tcl \
 #       ODB_FILE=<results>/3_4_place_resized.odb ODB_DEBUG_DIR=$PWD/tmp/odb-debug
+#
+# Under bazel run a relative ODB_DEBUG_DIR is relative to where it was
+# invoked. A deployed tree's make runs from inside the tree, so give that
+# one an absolute directory.
 #
 # GUI_TIMING=0 skips the liberty files: a 2.5 GB, 1.35 M-instance ODB then
 # loads in seconds and a few GB, and every geometry query works; the timing
@@ -35,7 +39,16 @@
 set ::od_t0 [clock milliseconds]
 
 if { ![info exists ::env(ODB_DEBUG_DIR)] || $::env(ODB_DEBUG_DIR) eq "" } {
-  error "ODB_DEBUG_DIR must be set, e.g. ODB_DEBUG_DIR=\$PWD/tmp/odb-debug"
+  error "ODB_DEBUG_DIR must be set, e.g. ODB_DEBUG_DIR=tmp/odb-debug"
+}
+# bazel run starts this from the runfiles tree; a relative directory means
+# one relative to where bazel run was invoked, not a directory in the tree.
+if {
+  [file pathtype $::env(ODB_DEBUG_DIR)] ne "absolute"
+  && [info exists ::env(BUILD_WORKING_DIRECTORY)]
+  && $::env(BUILD_WORKING_DIRECTORY) ne ""
+} {
+  set ::env(ODB_DEBUG_DIR) [file join $::env(BUILD_WORKING_DIRECTORY) $::env(ODB_DEBUG_DIR)]
 }
 file mkdir $::env(ODB_DEBUG_DIR)
 

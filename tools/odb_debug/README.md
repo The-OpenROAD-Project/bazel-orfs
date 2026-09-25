@@ -44,7 +44,7 @@ odb_debug(
 ```
 
 ```sh
-bazelisk run //my:cpu_place_odb_debug -- ODB_DEBUG_DIR=$PWD/tmp/odb-debug GUI_TIMING=0
+bazelisk run //my:cpu_place_odb_debug -- ODB_DEBUG_DIR=tmp/odb-debug GUI_TIMING=0
 ```
 
 `bazelisk run` builds the stage first if it is out of date, then opens its

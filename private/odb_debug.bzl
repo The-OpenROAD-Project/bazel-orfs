@@ -7,7 +7,7 @@
         src = ":cpu_place",
     )
 
-    bazelisk run //my:cpu_place_odb_debug -- ODB_DEBUG_DIR=$PWD/tmp/odb-debug
+    bazelisk run //my:cpu_place_odb_debug -- ODB_DEBUG_DIR=tmp/odb-debug
 
 opens the stage's ODB in the flow's own OpenROAD, with the flow's SDC,
 liberty set, RC and derates, and serves Tcl over a localhost socket until

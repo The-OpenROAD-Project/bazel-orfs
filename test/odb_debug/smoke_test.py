@@ -108,5 +108,43 @@ class SmokeTest(unittest.TestCase):
         )
 
 
+class RelativeDirTest(unittest.TestCase):
+    def test_a_relative_dir_is_relative_to_where_bazel_run_was_invoked(self):
+        # bazel run starts the daemon from its runfiles tree and says where
+        # the user was in BUILD_WORKING_DIRECTORY.
+        cwd = os.path.join(os.environ["TEST_TMPDIR"], "user_cwd")
+        os.makedirs(cwd)
+        proc = subprocess.Popen(
+            [
+                sys.argv[1],
+                "ODB_DEBUG_DIR=tmp/odb-debug",
+                "LOG_DIR=" + os.path.join(os.environ["TEST_TMPDIR"], "log_rel"),
+                "ODB_DEBUG_IDLE_SECS=0",
+                "GUI_TIMING=0",
+            ],
+            env=dict(os.environ, BUILD_WORKING_DIRECTORY=cwd),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+        try:
+            info = os.path.join(cwd, "tmp/odb-debug/daemon.json")
+            deadline = time.time() + 120
+            while not os.path.exists(info):
+                if proc.poll() is not None:
+                    raise AssertionError(
+                        "daemon exited early:\n"
+                        + proc.stdout.read().decode(errors="replace")
+                    )
+                if time.time() > deadline:
+                    raise AssertionError("daemon did not write " + info)
+                time.sleep(0.5)
+            d = odbdebug.Daemon(os.path.join(cwd, "tmp/odb-debug"))
+            self.assertEqual(d.status()["design"], "multiplier")
+        finally:
+            os.killpg(proc.pid, signal.SIGTERM)
+            proc.wait(timeout=60)
+
+
 if __name__ == "__main__":
     unittest.main(argv=sys.argv[:1])
