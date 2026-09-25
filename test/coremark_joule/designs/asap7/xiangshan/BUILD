@@ -5,6 +5,13 @@ load(":xiangshan.bzl", "xiangshan_flow")
 
 exports_files(["constraints.sdc"])
 
+# XiangShan's ClockGate onto ASAP7's ICG (xs_icg.ys says why and how);
+# test/xs_clockgate checks the mapping on a small design.
+exports_files([
+    "xs_icg.ys",
+    "xs_icg_map.v",
+])
+
 # The parent's three placed netlists, at real size in a parent of flops:
 # the battery's rung for what the resizer, CTS and the router do to an
 # array of this size (test/structured_netlist, scaffold.bzl).

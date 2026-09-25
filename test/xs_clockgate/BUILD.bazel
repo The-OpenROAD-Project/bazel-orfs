@@ -1,0 +1,71 @@
+load("@rules_python//python:defs.bzl", "py_test")
+load("//:openroad.bzl", "orfs_flow")
+
+# XiangShan's ClockGate onto ASAP7's ICG cell, on three gated register
+# banks: the same design synthesised with the XiangShan flow's mapping and
+# without it. The mapping lives with the design,
+# test/coremark_joule/designs/asap7/xiangshan/xs_icg.ys.
+
+XS = "//test/coremark_joule/designs/asap7/xiangshan"
+
+# Staged into the sandbox for the hook, never handed to the frontend: the
+# template defines a second ClockGate.
+ICG_USER_ARGUMENTS = {
+    "SYNTH_POST_HIERARCHY_SCRIPTS": "test/coremark_joule/designs/asap7/xiangshan/xs_icg.ys",
+}
+
+ICG_USER_SOURCES = {
+    "XS_ICG_MAP": [
+        XS + ":xs_icg.ys",
+        XS + ":xs_icg_map.v",
+    ],
+}
+
+ICG_USER_STAGES = {
+    "SYNTH_POST_HIERARCHY_SCRIPTS": ["synth"],
+    "XS_ICG_MAP": ["synth"],
+}
+
+orfs_flow(
+    name = "cg_top",
+    last_stage = "synth",
+    sources = {"SDC_FILE": [":constraints.sdc"]},
+    user_arguments = ICG_USER_ARGUMENTS,
+    user_sources = ICG_USER_SOURCES,
+    user_stages = ICG_USER_STAGES,
+    verilog_files = [":cg_top.sv"],
+)
+
+orfs_flow(
+    name = "cg_top",
+    last_stage = "synth",
+    sources = {"SDC_FILE": [":constraints.sdc"]},
+    variant = "behavioural",
+    verilog_files = [":cg_top.sv"],
+)
+
+[
+    filegroup(
+        name = name + "_netlist",
+        srcs = [":" + name],
+        output_group = "1_2_yosys.v",
+    )
+    for name in [
+        "cg_top_synth",
+        "cg_top_behavioural_synth",
+    ]
+]
+
+py_test(
+    name = "clockgate_test",
+    srcs = ["clockgate_test.py"],
+    args = [
+        "$(rootpath :cg_top_synth_netlist)",
+        "$(rootpath :cg_top_behavioural_synth_netlist)",
+    ],
+    data = [
+        ":cg_top_behavioural_synth_netlist",
+        ":cg_top_synth_netlist",
+    ],
+    main = "clockgate_test.py",
+)
