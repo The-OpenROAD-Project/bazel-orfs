@@ -22,19 +22,28 @@ overall worst slack is -2,006 ps and belongs to another group, while
 `reg2reg` is -1,564 ps, and only the second one is a period.
 
 Two series. The red one is the top level, the parent with its clock tree,
-and it is the KPI. The squares are each hardened block measured alone at
-its own place stage against an ideal clock, through
-`<block>_place_odb_debug`:
+and it is the KPI. The squares are each hardened block measured alone,
+through its odb-debug targets:
 
-| block | minimum period | worst `reg2reg` path |
-|---|---|---|
-| Frontend | 14,114 ps | a TAGE SRAM bank's clock-gate enable latch |
-| MemBlock | 4,870 ps | inside `lsq.loadQueue.loadQueueReplay` |
-| VecRegionModule | 2,364 ps | `issuePipes_3` to `issuePipes_4` exu data |
-| Region_1 | 2,186 ps | `pipeToFEX0` to the FP convert's round shift mask |
+| block | stage | minimum period | worst `reg2reg` path |
+|---|---|---|---|
+| Frontend | cts | 5,017 ps | into `bpu/ubtb.t1_hitTargetSame` |
+| MemBlock | place, ideal clock | 4,870 ps | inside `lsq.loadQueue.loadQueueReplay` |
+| VecRegionModule | place, ideal clock | 2,364 ps | `issuePipes_3` to `issuePipes_4` exu data |
+| Region_1 | place, ideal clock | 2,186 ps | `pipeToFEX0` to the FP convert's round shift mask |
 
-The top level is bound by Frontend: its worst `reg2reg` path ends at the
-same clock-gate enable latch that sets Frontend's own period.
+XiangShan's `ClockGate` is mapped onto ASAP7's ICG cell (`xs_icg.ys`).
+Frontend is measured with it; the other blocks and the top level in
+`kpi.json` are not yet.
+
+The blocks are abstracted at `cts`, and that is a choice with a measured
+cost. On Frontend, the `cts` checkpoint's period is 5,017 ps against
+3,603 ps after a route-0 global route and its `repair_design` on the same
+checkpoint: 28 percent pessimistic, with the same worst paths (the same
+worst endpoint, the route's top ten all within the `cts` top seventeen).
+Abstracting at `grt` costs a route-0 global route per block. The grt
+probe, `Frontend_grt_probe_grt`, measures it; `ideas/xiangshan-timing.md`,
+entry 25, has the table.
 
 ## Running it
 
