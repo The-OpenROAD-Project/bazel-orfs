@@ -54,3 +54,7 @@ In an unattended campaign a task that fails or is blocked is written up, and the
 ## 10. Chesterton's fence: check what our flow skipped before blaming a tool
 
 Before calling something a tool bug, assume its authors considered it and look for the step our flow skipped that the tool's normal flow relies on. The worked example: Frontend's placed checkpoint had 37,665 pins violating slew by up to 58x, which looked like `repair_design` failing on its own fanout buffers. A second `repair_design` on the same checkpoint cleared every one and took the block from 14.1 ns to 6.2 ns. ORFS runs that second pass in its global-route stage; our blocks are abstracted at `cts`, before it, so they never got it. The fix is ours (where the flow abstracts), not OpenROAD's.
+
+## 11. Watch a run that grinds past its expected time
+
+Give a long run an expected duration before launch. At one and a half to twice that, look at it rather than wait: what is it doing (a `perf` sample, the stage's own progress), does the question need it to finish, or is the answer already in hand? If the remaining work is not what the question measures, kill it and take the measurement the cheap way, often an odb-debug session on the checkpoint that already exists. The worked example: Frontend's grt stage ground through `repair_timing` (setup and hold) for a comparison that needed only the state after `repair_design`, which one session on the `cts` checkpoint gave in 25 minutes (`ideas/xiangshan-timing.md`, entry 25).
