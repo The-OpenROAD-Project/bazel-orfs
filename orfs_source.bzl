@@ -236,6 +236,13 @@ ORFS_PATCHES = [
     # to travel from one a fraction past a row's edge. Not upstreamed;
     # retires at a bump onto an ORFS that carries the check.
     Label("//patches:0086-orfs-gpl-stranded-cells.patch"),
+    # A flow that accepts congestion (-allow_congestion in GLOBAL_ROUTE_ARGS)
+    # lost it at the first -end_incremental: every global_route call sets
+    # the setting from its own flags, so the reroute after repair_design
+    # fought the accepted congestion and failed on GRT-0232. The brackets
+    # now pass the flow's choice. Upstream as ORFS #4563 (a draft until
+    # OpenROAD #11525 is in ORFS); retires at the bump that brings it in.
+    Label("//patches:0087-orfs-grt-incremental-allow-congestion.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
