@@ -102,6 +102,10 @@ def load_plan(path):
     coordinate (place_pin, FIRM, which the flow's pin placer then leaves
     alone) instead of handing the placer an interval. Without them the
     segments are emitted as interval constraints.
+    Optional per macro: pin_side_margin and channel_min_um override the
+    plan's margins for that macro. Optional in margins: region_aspect_max
+    caps the logic region's long side over its short one; the smallest die
+    within the cap wins, and past it the least elongated.
     lattice_*_um and the keep lists are optional; the parent's keep list is
     the modules its own synthesis keeps after the blocks are hardened
     (keep_under.py --outside). core_margin_um is also the block flows'
@@ -126,7 +130,10 @@ def shape(macro, tech, margins):
     """
     pins = macro["pins"]
     area = macro["area_um2"]
-    need = pins * tech["pin_pitch_um"] * margins["pin_side"] / tech["pin_layers"]
+    # a macro may carry its own pin-side margin and channel floor, for the
+    # block whose side walls; the rest take the plan's
+    pin_margin = macro.get("pin_side_margin", margins["pin_side"])
+    need = pins * tech["pin_pitch_um"] * pin_margin / tech["pin_layers"]
     square = math.sqrt(area)
     two_sides = False
     if need > square * math.sqrt(margins["aspect_cap"]):
@@ -144,7 +151,7 @@ def shape(macro, tech, margins):
         side = math.ceil(side / period) * period
         depth = math.ceil(depth / period) * period
     channel = max(
-        margins["channel_min_um"],
+        macro.get("channel_min_um", margins["channel_min_um"]),
         pins / tech["track_density_per_um"] * margins["lateral"],
     )
     return {
@@ -185,7 +192,7 @@ def _extents(placed):
     }
 
 
-def assign_sides(shapes, region_area, gap, margin, min_w=0.0, min_h=0.0):
+def assign_sides(shapes, region_area, gap, margin, min_w=0.0, min_h=0.0, aspect_max=None):
     """Macros to the region's sides so the die is smallest.
 
     Every assignment is tried for up to eight macros (65536 cases), the
@@ -206,15 +213,19 @@ def assign_sides(shapes, region_area, gap, margin, min_w=0.0, min_h=0.0):
                 placed[SIDES[c % 4]].append(sh)
                 c //= 4
             w, h, dw, dh = _die_for(placed, region_area, _extents(placed), gap, margin, min_w, min_h)
-            if best is None or dw * dh < best[0]:
-                best = (dw * dh, placed, w, h)
+            # the region's elongation, when capped: an assignment over the
+            # cap loses to any under it, and among themselves by die area
+            aspect = max(w, h) / min(w, h)
+            over = 0 if aspect_max is None or aspect <= aspect_max else aspect
+            if best is None or (over, dw * dh) < best[0]:
+                best = ((over, dw * dh), placed, w, h)
     else:
         placed = {s: [] for s in SIDES}
         for sh in sorted(shapes, key=lambda s: -s["pin_side_um"]):
             side = min(SIDES, key=lambda s: _span(placed[s], gap))
             placed[side].append(sh)
         w, h, dw, dh = _die_for(placed, region_area, _extents(placed), gap, margin, min_w, min_h)
-        best = (dw * dh, placed, w, h)
+        best = ((0, dw * dh), placed, w, h)
     return best[1], best[2], best[3]
 
 
@@ -227,7 +238,8 @@ def layout(plan):
     region_area = parent["cell_area_um2"] / parent["density"]
     min_w, min_h = netlist_row(plan)
     placed, region_w, region_h = assign_sides(
-        shapes, region_area, gap, parent["core_margin_um"], min_w, min_h
+        shapes, region_area, gap, parent["core_margin_um"], min_w, min_h,
+        margins.get("region_aspect_max"),
     )
     extent = _extents(placed)
     margin = parent["core_margin_um"]

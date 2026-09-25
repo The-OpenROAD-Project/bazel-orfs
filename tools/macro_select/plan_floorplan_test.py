@@ -429,6 +429,38 @@ class LayoutTest(unittest.TestCase):
         # two squares per side on two opposite sides is the smallest die here
         self.assertEqual(len({m["region_side"] for m in out["macros"]}), 2)
 
+    def test_region_aspect_cap(self):
+        """A strip of a region is what two rows of blocks make; the cap
+        trades die area for a squarer region, and without it nothing moves."""
+        free = plan_floorplan.layout(plan(self.MACROS, cell_area=0.45e6, density=0.2))
+        x0, y0, x1, y1 = free["region_um"]
+        free_aspect = max(x1 - x0, y1 - y0) / min(x1 - x0, y1 - y0)
+        self.assertGreater(free_aspect, 1.2)
+        cap = (1 + free_aspect) / 2
+        p = plan(self.MACROS, cell_area=0.45e6, density=0.2)
+        p["margins"] = dict(MARGINS, region_aspect_max=cap)
+        capped = plan_floorplan.layout(p)
+        x0, y0, x1, y1 = capped["region_um"]
+        self.assertLessEqual(max(x1 - x0, y1 - y0) / min(x1 - x0, y1 - y0), cap + 1e-6)
+        self.assertEqual(plan_floorplan.check(capped), [])
+
+    def test_per_macro_pin_side_margin_and_channel(self):
+        """One block's own margin lengthens its pin side and widens its
+        channel; the other blocks keep the plan's."""
+        base = plan_floorplan.layout(plan([dict(m) for m in self.MACROS]))
+        macros = [dict(m) for m in self.MACROS]
+        macros[1]["pin_side_margin"] = 2.5
+        macros[1]["channel_min_um"] = 150
+        out = plan_floorplan.layout(plan(macros))
+        by = {m["name"]: m for m in out["macros"]}
+        was = {m["name"]: m for m in base["macros"]}
+        self.assertGreater(by["MemBlock"]["pin_side_um"], was["MemBlock"]["pin_side_um"])
+        self.assertEqual(by["MemBlock"]["channel_um"], 150)
+        for n in ("Frontend", "VecRegion", "FpRegion"):
+            self.assertEqual(by[n]["pin_side_um"], was[n]["pin_side_um"])
+            self.assertEqual(by[n]["channel_um"], was[n]["channel_um"])
+        self.assertEqual(plan_floorplan.check(out), [])
+
     def test_region_holds_the_cells_and_the_die_holds_all(self):
         out = plan_floorplan.layout(plan(self.MACROS))
         x0, y0, x1, y1 = out["region_um"]
