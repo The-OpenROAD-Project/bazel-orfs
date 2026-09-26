@@ -104,7 +104,9 @@ def _log(tool_digest="aa", miss=False, sdc_digest="cc"):
 class SummarizeTest(unittest.TestCase):
     def test_classes_and_scope(self):
         counts, tools, spawns, _ = ce.summarize_log(_log(), "//test/")
-        self.assertEqual(counts, {"spawns": 3, "hit": 3, "ran": 0, "miss": 0})
+        self.assertEqual(
+            counts, {"spawns": 3, "hit": 3, "ran": 0, "miss": 0, "outside": []}
+        )
         # The out-of-scope tool build is counted, not itemized.
         self.assertEqual(len(spawns), 2)
         self.assertIn("hit Action k8-fastbuild:test/d/1_synth.v", spawns[0])
@@ -455,6 +457,17 @@ class FrontierTest(unittest.TestCase):
         )
         self.assertEqual(ce._label("//test/d"), "//test/d:d")
         self.assertEqual(ce._label("@@//test/d:x"), "//test/d:x")
+        # rooted at the default outputs, the target's own tarball is not needed
+        self.assertEqual(
+            ce.graph_actions(
+                self.GRAPH, "//test/", "//test/d:place_deps", [self.OUT + "3_place.odb"]
+            ),
+            [
+                ("Action", "k8-fastbuild:test/d/1_synth.v"),
+                ("Action", "k8-fastbuild:test/d/2_floorplan.odb"),
+                ("Action", "k8-fastbuild:test/d/3_place.odb"),
+            ],
+        )
 
     def test_graph_actions_skip_internal_and_out_of_scope(self):
         graph = ce.graph_actions(self.GRAPH, "//test/")
@@ -483,9 +496,13 @@ class FrontierTest(unittest.TestCase):
         self.assertEqual(lines[1], "miss Action k8-fastbuild:test/d/2_floorplan.odb")
         self.assertEqual(lines[2], unreached[0])
         self.assertNotIn("every action is a remote cache hit", lines)
-        # a miss the scope does not itemize is still counted
-        lines = ce.summary_lines(dict(counts, miss=2), spawns, [])
-        self.assertIn("1 action(s) not a hit lie outside --scope", lines)
+        # a miss the scope does not itemize is still named
+        counts, _, spawns, _ = ce.summarize_log(_log(miss=True), "//test/d:s")
+        self.assertEqual(
+            counts["outside"],
+            ["miss Action k8-fastbuild:test/d/2_floorplan.odb (outside --scope)"],
+        )
+        self.assertIn(counts["outside"][0], ce.summary_lines(counts, spawns, []))
 
     def test_all_hits_say_so(self):
         graph = ce.graph_actions(self.GRAPH, "//test/", "//test/d:place")
