@@ -2,6 +2,7 @@
 
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -59,7 +60,7 @@ def _spawn(label, outputs_id, input_set, digest, hit=True, exit_code=0, env=""):
     return body
 
 
-def _log(tool_digest="aa", miss=False):
+def _log(tool_digest="aa", miss=False, sdc_digest="cc"):
     """A tool, a flow script, a design input; two actions, one downstream."""
     entries = [
         _entry(
@@ -68,11 +69,15 @@ def _log(tool_digest="aa", miss=False):
             _file("bazel-out/k8-opt-exec/bin/external/yosys+/yosys", tool_digest),
         ),
         _entry(2, ce._FILE, _file("external/orfs/flow/scripts/synth.tcl", "bb")),
-        _entry(3, ce._FILE, _file("test/d/constraints.sdc", "cc")),
+        _entry(3, ce._FILE, _file("test/d/constraints.sdc", sdc_digest)),
         _entry(4, ce._INPUT_SET, _len(5, _varint(1) + _varint(2))),
         _entry(5, ce._INPUT_SET, _len(5, _varint(3)) + _len(4, _varint(4))),
         _entry(6, ce._FILE, _file("bazel-out/k8-fastbuild/bin/test/d/1_synth.v", "dd")),
-        _entry(7, ce._SPAWN, _spawn("//test/d:synth", 6, 5, "key1" + tool_digest)),
+        _entry(
+            7,
+            ce._SPAWN,
+            _spawn("//test/d:synth", 6, 5, "key1" + tool_digest + sdc_digest),
+        ),
         _entry(8, ce._INPUT_SET, _len(5, _varint(6)) + _len(4, _varint(4))),
         _entry(
             9,
@@ -98,7 +103,7 @@ def _log(tool_digest="aa", miss=False):
 
 class SummarizeTest(unittest.TestCase):
     def test_classes_and_scope(self):
-        counts, tools, spawns = ce.summarize_log(_log(), "//test/")
+        counts, tools, spawns, _ = ce.summarize_log(_log(), "//test/")
         self.assertEqual(counts, {"spawns": 3, "hit": 3, "ran": 0, "miss": 0})
         # The out-of-scope tool build is counted, not itemized.
         self.assertEqual(len(spawns), 2)
@@ -108,14 +113,19 @@ class SummarizeTest(unittest.TestCase):
         # No action here has an environment; the empty hash is stable.
         self.assertIn("env=" + ce._h([]), spawns[0])
 
+    def test_source_inputs_listed(self):
+        _, _, _, inputs = ce.summarize_log(_log(), "//test/")
+        # the workspace file, not the generated netlist nor the external script
+        self.assertEqual(inputs, ["input cc test/d/constraints.sdc"])
+
     def test_miss(self):
-        counts, _, spawns = ce.summarize_log(_log(miss=True), "//test/")
+        counts, _, spawns, _ = ce.summarize_log(_log(miss=True), "//test/")
         self.assertEqual(counts["miss"], 1)
         self.assertIn(" miss Action k8-fastbuild:test/d/2_floorplan.odb", spawns[1])
 
     def test_truncated_log(self):
         data = _log()
-        counts, _, spawns = ce.summarize_log(data[:-5], "//test/")
+        counts, _, spawns, _ = ce.summarize_log(data[:-5], "//test/")
         self.assertEqual(counts["spawns"], 2)
 
     def test_zstd_roundtrip(self):
@@ -129,8 +139,8 @@ class SummarizeTest(unittest.TestCase):
 class DiffTest(unittest.TestCase):
     def _write(self, d, name, header, log):
         path = os.path.join(d, name)
-        counts, tools, spawns = ce.summarize_log(log, "//test/")
-        ce.write_evidence(path, header, counts, tools, spawns)
+        counts, tools, spawns, inputs = ce.summarize_log(log, "//test/")
+        ce.write_evidence(path, header, counts, tools, spawns, (), inputs)
         return path
 
     def test_names_the_tool_and_first_action(self):
@@ -158,8 +168,106 @@ class DiffTest(unittest.TestCase):
         self.assertIn("bazel: 9.1.1 | 9.0.0", lines)
         self.assertIn("option only in A: --x=1", lines)
 
+    def test_source_file_named(self):
+        # the same log, the design's constraints file with another digest
+        with tempfile.TemporaryDirectory() as d:
+            a = self._write(d, "a.txt", ["tree t1"], _log())
+            b = self._write(d, "b.txt", ["tree t2"], _log(sdc_digest="c2"))
+            lines = ce.diff(a, b)
+        self.assertIn("tree: t1 | t2", lines)
+        self.assertIn("input test/d/constraints.sdc: cc | c2", lines)
+        self.assertIn(
+            "differs in design; source files moved: test/d/constraints.sdc", lines[-1]
+        )
+        self.assertIn("1_synth.v", lines[-1])
+
+    def test_same_tree_said(self):
+        with tempfile.TemporaryDirectory() as d:
+            a = self._write(d, "a.txt", ["tree t1", "commit c1 dirty 0"], _log("aa"))
+            b = self._write(d, "b.txt", ["tree t1", "commit c2 dirty 0"], _log("zz"))
+            lines = ce.diff(a, b)
+        self.assertEqual(lines[0], "commit: c1 dirty 0 | c2 dirty 0")
+        self.assertTrue(lines[1].startswith("same tree:"))
+
+    def test_commit_not_in_history(self):
+        with tempfile.TemporaryDirectory() as d:
+            ws = os.path.join(d, "ws")
+            os.makedirs(ws)
+            git = (
+                lambda *a: subprocess.check_output(("git", "-C", ws) + a)
+                .decode()
+                .strip()
+            )
+            git("init", "-q")
+            git(
+                "-c",
+                "user.email=t@t",
+                "-c",
+                "user.name=t",
+                "commit",
+                "-q",
+                "--allow-empty",
+                "-m",
+                "one",
+            )
+            head = git("rev-parse", "HEAD")
+            self.assertEqual(ce.in_history(ws, head), "yes")
+            self.assertEqual(ce.in_history(ws, "0" * 40), "unknown")
+            self.assertEqual(ce.in_history(None, head), "unknown")
+            self.assertEqual(ce.in_history(ws, "not a hash"), "unknown")
+            git(
+                "-c",
+                "user.email=t@t",
+                "-c",
+                "user.name=t",
+                "commit",
+                "-q",
+                "--allow-empty",
+                "-m",
+                "two",
+            )
+            git("checkout", "-q", "-b", "side", head)
+            git(
+                "-c",
+                "user.email=t@t",
+                "-c",
+                "user.name=t",
+                "commit",
+                "-q",
+                "--allow-empty",
+                "-m",
+                "lost",
+            )
+            lost = git("rev-parse", "HEAD")
+            git("checkout", "-q", "-")
+            self.assertEqual(ce.in_history(ws, lost), "no")
+            a = self._write(d, "a.txt", ["commit %s dirty 0" % lost], _log())
+            b = self._write(d, "b.txt", ["commit %s dirty 0" % head], _log())
+            lines = ce.diff(a, b, ws)
+        self.assertTrue(lines[0].endswith("(A not in this history)"), lines[0])
+
+    def test_package(self):
+        self.assertEqual(ce._package("//test/d:synth"), "test/d")
+        self.assertEqual(ce._package("@@repo//x/y:z"), "x/y")
+        self.assertEqual(ce._package("//:top"), "")
+
 
 class RedactTest(unittest.TestCase):
+    def test_remote_switches_kept(self):
+        # whether a machine uploads is what a later miss needs to know
+        for opt in (
+            "--remote_upload_local_results=true",
+            "--remote_upload_local_results=false",
+            "--remote_cache_compression=true",
+            "--noremote_upload_local_results",
+        ):
+            self.assertEqual(ce.redact_option(opt), opt)
+        # a switch whose value is not a switch is still an address
+        self.assertEqual(
+            ce.redact_option("--remote_upload_local_results=grpc://h:1"),
+            "--remote_upload_local_results=<redacted>",
+        )
+
     def test_private_values_dropped(self):
         # Not hashed: a hash of a guessable hostname confirms the guess.
         self.assertEqual(
@@ -300,7 +408,7 @@ class FrontierTest(unittest.TestCase):
 
     def test_not_reached_is_what_the_log_lacks(self):
         graph = ce.graph_actions(self.GRAPH, "//test/")
-        counts, _, spawns = ce.summarize_log(_log(miss=True), "//test/")
+        counts, _, spawns, _ = ce.summarize_log(_log(miss=True), "//test/")
         unreached = ce.not_reached(graph, spawns)
         # synth hit, floorplan missed; place behind the miss was never keyed
         self.assertEqual(
@@ -314,19 +422,19 @@ class FrontierTest(unittest.TestCase):
 
     def test_all_hits_say_so(self):
         graph = ce.graph_actions(self.GRAPH, "//test/")
-        counts, _, spawns = ce.summarize_log(_log(), "//test/")
+        counts, _, spawns, _ = ce.summarize_log(_log(), "//test/")
         unreached = ce.not_reached(graph, spawns)
         self.assertEqual(
             unreached, ["not_reached Action k8-fastbuild:test/d/3_place.odb"]
         )
-        counts2, _, spawns2 = ce.summarize_log(_log(), "//test/")
+        counts2, _, spawns2, _ = ce.summarize_log(_log(), "//test/")
         lines = ce.summary_lines(counts2, spawns2, [])
         self.assertEqual(lines[-1], "every action is a remote cache hit")
 
     def test_evidence_carries_not_reached(self):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "e.txt")
-            counts, tools, spawns = ce.summarize_log(_log(miss=True), "//test/")
+            counts, tools, spawns, _ = ce.summarize_log(_log(miss=True), "//test/")
             ce.write_evidence(
                 path,
                 [],
