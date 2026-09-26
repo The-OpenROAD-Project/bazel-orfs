@@ -432,9 +432,22 @@ _INTERNAL = {
 }
 
 
-def graph_actions(aquery_json, scope):
-    """(mnemonic, first output) of every in-scope action aquery reports,
-    from `aquery --output=jsonproto`, internal actions left out."""
+def _label(target):
+    """//a/b -> //a/b:b, @@//a/b:c -> //a/b:c: the label as aquery prints it."""
+    t = re.sub(r"^@@?(?=//)", "", target)
+    if ":" not in t.split("//", 1)[-1]:
+        t = "%s:%s" % (t, t.rstrip("/").rsplit("/", 1)[-1])
+    return t
+
+
+def graph_actions(aquery_json, scope, target=None):
+    """(mnemonic, first output) of every in-scope action the target needs,
+    from `aquery --output=jsonproto`, internal actions left out.
+
+    `deps(target)` also holds actions of targets in the graph whose outputs
+    the target never reads (a stage's `_deps` tarball, a generator's deploy
+    jar), so only actions reachable from the target's own actions through
+    their inputs count; with no target, every in-scope action does."""
     g = json.loads(aquery_json) if aquery_json.strip() else {}
     fragments = {f["id"]: f for f in g.get("pathFragments", [])}
     paths = {}
@@ -450,8 +463,50 @@ def graph_actions(aquery_json, scope):
 
     artifacts = {a["id"]: path(a["pathFragmentId"]) for a in g.get("artifacts", [])}
     targets = {t["id"]: t["label"] for t in g.get("targets", [])}
+    actions = g.get("actions", [])
+    depsets = {d["id"]: d for d in g.get("depSetOfFiles", [])}
+    flat = {}
+
+    def artifacts_of(root):
+        if root in flat:
+            return flat[root]
+        result, stack, visited = set(), [root], set()
+        while stack:
+            d = stack.pop()
+            if d in visited:
+                continue
+            visited.add(d)
+            if d in flat:
+                result |= flat[d]
+                continue
+            ds = depsets.get(d, {})
+            result.update(ds.get("directArtifactIds", []))
+            stack.extend(ds.get("transitiveDepSetIds", []))
+        flat[root] = result
+        return result
+
+    if target is None:
+        needed = set(range(len(actions)))
+    else:
+        label = _label(target)
+        needed = {
+            i for i, a in enumerate(actions) if targets.get(a.get("targetId")) == label
+        }
+        producer = {}
+        for i, a in enumerate(actions):
+            for o in a.get("outputIds", []):
+                producer[o] = i
+        stack = list(needed)
+        while stack:
+            for dsid in actions[stack.pop()].get("inputDepSetIds", []):
+                for art in artifacts_of(dsid):
+                    j = producer.get(art)
+                    if j is not None and j not in needed:
+                        needed.add(j)
+                        stack.append(j)
     out = []
-    for a in g.get("actions", []):
+    for i in sorted(needed):
+        a = actions[i]
         if a.get("mnemonic", "") in _INTERNAL:
             continue
         if not targets.get(a.get("targetId"), "").startswith(scope):
@@ -760,10 +815,15 @@ def summary_lines(counts, spawn_lines, unreached):
             len(unreached),
         )
     ]
+    listed = 0
     for line in spawn_lines:
         f = line.split(" ")
         if f[2] != "hit":
             out.append("%s %s %s" % (f[2], f[3], f[4]))
+            listed += 1
+    outside = counts["miss"] + counts["ran"] - listed
+    if outside > 0:
+        out.append("%d action(s) not a hit lie outside --scope" % outside)
     out += list(unreached)
     if counts["miss"] == 0 and counts["ran"] == 0 and not unreached:
         out.append("every action is a remote cache hit")
@@ -865,7 +925,8 @@ def cmd_capture(a):
         subprocess.run(bazel + ["shutdown"], cwd=ws)
         raise SystemExit("cache_evidence: refusing to write evidence: " + refusal)
     unreached = not_reached(
-        graph_actions(_aquery(bazel, ws, a.target, a.scope), a.scope), spawn_lines
+        graph_actions(_aquery(bazel, ws, a.target, a.scope), a.scope, a.target),
+        spawn_lines,
     )
     if a.out == "-" or os.path.isabs(a.out):
         out = a.out
@@ -930,15 +991,13 @@ def diff(a_path, b_path, workspace=None):
     for k in ("target", "bazel", "commit", "tree", "design_tree", "host", "terminfo"):
         if ha.get(k) != hb.get(k):
             line = "%s: %s | %s" % (k, ha.get(k), hb.get(k))
-            if k == "commit":
-                lost = [
-                    side
-                    for side, h in (("A", ha), ("B", hb))
-                    if in_history(workspace, (h.get("commit") or "").split(" ")[0])
-                    == "no"
-                ]
-                if lost:
-                    line += " (%s not in this history)" % " and ".join(lost)
+            if k == "commit" and workspace:
+                for side, h in (("A", ha), ("B", hb)):
+                    where = in_history(workspace, (h.get("commit") or "").split(" ")[0])
+                    if where == "no":
+                        line += " (%s not in this history)" % side
+                    elif where == "unknown":
+                        line += " (%s unknown to this repository)" % side
             out.append(line)
     if ha.get("tree") and ha.get("tree") == hb.get("tree"):
         out.append("same tree: the sources are identical, look at tools and options")
@@ -952,12 +1011,15 @@ def diff(a_path, b_path, workspace=None):
             out.append("tool %s: %s | %s" % (g, ta.get(g, "-"), tb.get(g, "-")))
     ia, ib = ha.get("input", {}), hb.get("input", {})
     moved = []
-    for path in sorted(set(ia) | set(ib)):
-        if ia.get(path) != ib.get(path):
-            moved.append(path)
-            out.append(
-                "input %s: %s | %s" % (path, ia.get(path, "-"), ib.get(path, "-"))
-            )
+    if ia and ib:
+        for path in sorted(set(ia) | set(ib)):
+            if ia.get(path) != ib.get(path):
+                moved.append(path)
+                out.append(
+                    "input %s: %s | %s" % (path, ia.get(path, "-"), ib.get(path, "-"))
+                )
+    elif ia or ib:
+        out.append("input lines only in %s: an older capture" % ("A" if ia else "B"))
     by_out = {s["out"]: s for s in sb}
     first = None
     for s in sa:
