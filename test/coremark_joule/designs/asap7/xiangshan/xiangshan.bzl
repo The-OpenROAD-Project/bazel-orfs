@@ -1233,7 +1233,7 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
     if mems:
         sources["STRUCTURED_MEMORIES"] = mems
     sources["IO_CONSTRAINTS"] = [":%s/%s_pins.tcl" % (plan_dir, block)]
-    sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints_800ps.sdc"]
+    sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints_473ps.sdc"]
     return arguments, sources
 
 def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan_dir = "plan", grt_probe_blocks = []):
@@ -1358,7 +1358,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         # the generated arrays dropped FIRM into the parent at floorplan
         # (STRUCTURED_MEMORIES in mode netlist, patch 0078)
         sources["STRUCTURED_PLACEMENT"] = [":%s/netlists.txt" % plan_dir]
-    sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints_800ps.sdc"]
+    sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints_473ps.sdc"]
     user_arguments = {}
     user_sources = {}
     orfs_flow(
