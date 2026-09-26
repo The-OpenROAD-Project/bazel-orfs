@@ -11,8 +11,7 @@ Nothing here runs in CI. Every target is `tags = ["manual"]`.
 ![minimum clock period](kpi.png)
 
 `kpi.json` is the series and `kpi.py` draws it. When a change moves the
-number, add a row and re-render. The plot does not show the XSTile row
-yet.
+number, add a row and re-render.
 
 The number is the SDC period minus the worst slack of the `reg2reg`
 group, which is the only group that can fail timing closure. Ask a
