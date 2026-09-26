@@ -16,7 +16,7 @@ PLAN = {
             "SYNTH_KEEP_MODULES": "Ifu ResolveQueue ICache Phr Bpu Sc TLB IBuffer AheadBtb Ittage Tage MicroTage PMP WriteBuffer_4 Ftq PMPChecker",
             "pin_side": "bottom",
             "x_um": 206.784,
-            "y_um": 1360.8,
+            "y_um": 1939.68,
         },
         "MemBlock": {
             "CORE_AREA": "10.000 10.000 987.920 987.920",
@@ -24,7 +24,7 @@ PLAN = {
             "SYNTH_KEEP_MODULES": "LoadQueueReplay PrefetcherWrapper Sbuffer PtwCache DCacheWrapper TLBNonBlock MissQueue LoadQueueUncache SbufferData TLBNonBlock_2 TLBNonBlock_1 SqForwardPipe L2TLBWrapper VirtualStoreQueue LoadQueueRAR HPerfMonitor_3 LoadQueueRAW PhysicalStoreQueue Uncache L1PrefetchSourceArray BankedDataArray MainPipe PTWNewFilter VirtualLoadQueue L1ErrorMetaArray L1CohMetaArray LLPTW",
             "pin_side": "bottom",
             "x_um": 1172.304,
-            "y_um": 1429.92,
+            "y_um": 2006.64,
         },
         "Region_1": {
             "CORE_AREA": "10.000 10.000 655.280 655.280",
@@ -44,8 +44,8 @@ PLAN = {
         },
     },
     "parent": {
-        "CORE_AREA": "10.000 10.000 2366.928 2448.446",
-        "DIE_AREA": "0.000 0.000 2376.928 2458.446",
+        "CORE_AREA": "10.000 10.000 2366.928 3026.243",
+        "DIE_AREA": "0.000 0.000 2376.928 3036.243",
         "SYNTH_KEEP_MODULES": "Backend CtrlBlock FusionDecoder Region DecodeStage SimpleDecodeChannel UopBufferCtrlDecoder Rob Dispatch Rename MemCtrl IssueQueueAluCsrFenceLinkBrhNjmp IssueQueueAluDivBrhNjmp IssueQueueAluI2fBrhNjmp IssueQueueAluBkuVset IssueQueueAluMul IssueQueueLdu IssueQueueStaMou IssueQueueStaMou_1 IssueQueueStdMoud IssueQueueStdMoud_1 DataPath ExuBlock VectorDecodeChannel RenameBuffer VTypeBuffer RobEntryCell BusyTable BusyTable_1 RenameTableWrapper CompressUnit SSIT LFST EntriesAluCsrFenceLinkBrhNjmp EntriesAluDivBrhNjmp EntriesAluI2fBrhNjmp EntriesAluBkuVset EntriesAluMul EntriesLdu EntriesStaMou EntriesStdMoud ExeUnitImp NewCSR Frontend MemBlock VecRegionModule Region_1 XSCore L2Top",
         "netlists": [
             {
@@ -54,7 +54,7 @@ PLAN = {
                 "module": "RobEntryFile",
                 "w_um": 318.384,
                 "x_um": 20.944,
-                "y_um": 1117.083,
+                "y_um": 1694.88,
             },
             {
                 "h_um": 243.0,
@@ -62,7 +62,7 @@ PLAN = {
                 "module": "IntRegFile",
                 "w_um": 406.0,
                 "x_um": 350.128,
-                "y_um": 1066.593,
+                "y_um": 1644.39,
             },
             {
                 "h_um": 192.24,
@@ -70,7 +70,7 @@ PLAN = {
                 "module": "RenameBufferFile",
                 "w_um": 306.504,
                 "x_um": 766.928,
-                "y_um": 1117.353,
+                "y_um": 1695.15,
             },
         ],
     },
