@@ -7,10 +7,13 @@ run to gigabytes. This keeps what it takes to name the first action whose
 cache key differs between the machines, in a text file of kilobytes that
 can be committed next to the design and diffed:
 
-  - what shapes every key: Bazel version, commit, the rc options (values
+  - what shapes every key: Bazel version, commit and tree (the tree hash
+    outlives a rebase, the commit hash does not), the rc options (values
     that name private infrastructure replaced by <redacted>), the host facts
     known to leak into inputs;
   - every tool the in-scope actions run, as one digest per tool;
+  - every source file of this workspace an in-scope action reads, with its
+    digest, so a differing design digest is traced to the file that moved;
   - one line per in-scope action: its cache key, whether it was a remote
     hit or a miss, and separate digests of its arguments, environment,
     tools, external sources and design inputs, so a differing key says
@@ -358,6 +361,7 @@ def summarize_log(data, scope):
     counts = {"spawns": 0, "hit": 0, "ran": 0, "miss": 0}
     tools = {}
     lines = []
+    inputs = set()
     for buf in log.spawns:
         s = _spawn_fields(buf)
         counts["spawns"] += 1
@@ -379,6 +383,8 @@ def summarize_log(data, scope):
             path, digest = log.leaf(eid)
             cls = input_class(path, is_runfiles)
             classes[cls].append("%s %s" % (path, digest))
+            if cls == "design" and not path.startswith("bazel-out/"):
+                inputs.add("input %s %s" % (digest[:12], path))
             if cls == "tools":
                 tools.setdefault(tool_group(path, is_runfiles), set()).add(
                     "%s %s" % (path, digest)
@@ -401,7 +407,7 @@ def summarize_log(data, scope):
         "tool %s %d %s" % (_h(sorted(members)), len(members), group)
         for group, members in sorted(tools.items())
     ]
-    return counts, tool_lines, lines
+    return counts, tool_lines, lines, sorted(inputs)
 
 
 def spawn_outputs(spawn_lines):
@@ -479,6 +485,17 @@ _PRIVATE = re.compile(
 )
 
 
+# Remote options whose value is a switch, not an address: whether a machine
+# uploads what it builds is exactly what a later miss needs to know.
+_PUBLIC_SWITCHES = {
+    "--remote_upload_local_results",
+    "--remote_cache_compression",
+    "--remote_accept_cached",
+    "--remote_local_fallback",
+}
+_SWITCH = re.compile(r"^(true|false|yes|no|0|1)$", re.I)
+
+
 # Options whose value is NAME=VALUE for an environment: the name says which
 # variable a machine sets, the value can name an account or a path, so the
 # name stays and the value goes.
@@ -492,6 +509,8 @@ def redact_option(opt):
     name, value = m.groups()
     if name in _ENV_OPTIONS and "=" in value:
         return "%s=%s=<redacted>" % (name, value.split("=", 1)[0])
+    if name in _PUBLIC_SWITCHES and _SWITCH.match(value):
+        return opt
     if (
         _PRIVATE.search(name)
         or re.search(r"(^|[=:,])/(home|Users|root)/", value)
@@ -600,7 +619,9 @@ def _decompress(path):
     return out.getvalue()
 
 
-def write_evidence(out, header, counts, tool_lines, spawn_lines, unreached=()):
+def write_evidence(
+    out, header, counts, tool_lines, spawn_lines, unreached=(), input_lines=()
+):
     lines = ["# Written by tools/cache_evidence; see its docstring."]
     lines += header
     lines.append(
@@ -614,6 +635,7 @@ def write_evidence(out, header, counts, tool_lines, spawn_lines, unreached=()):
         )
     )
     lines += tool_lines
+    lines += list(input_lines)
     lines += spawn_lines
     lines += list(unreached)
     check_public(lines)
@@ -635,6 +657,26 @@ def _git(workspace, *args):
         ).strip()
     except (OSError, subprocess.CalledProcessError):
         return "unknown"
+
+
+def _package(target):
+    """//a/b:c -> a/b, the directory whose tree hash is the design's."""
+    m = re.match(r"(?:@@?[^/]*)?//([^:]*)", target)
+    return m.group(1) if m else "."
+
+
+def in_history(workspace, commit):
+    """Whether commit is an ancestor of the workspace's HEAD: 'yes', 'no',
+    or 'unknown' when git has never heard of it."""
+    if not workspace or not re.match(r"^[0-9a-f]{7,40}$", commit or ""):
+        return "unknown"
+    with open(os.devnull, "w") as null:
+        rc = subprocess.call(
+            ["git", "-C", workspace, "merge-base", "--is-ancestor", commit, "HEAD"],
+            stdout=null,
+            stderr=null,
+        )
+    return {0: "yes", 1: "no"}.get(rc, "unknown")
 
 
 def _rmtree(path):
@@ -808,11 +850,15 @@ def cmd_capture(a):
             _git(ws, "rev-parse", "HEAD"),
             1 if _git(ws, "status", "--porcelain", "--untracked-files=no") else 0,
         ),
+        "tree %s" % _git(ws, "rev-parse", "HEAD^{tree}"),
+        "design_tree %s" % _git(ws, "rev-parse", "HEAD:" + _package(a.target)),
         "host %s" % host_line(),
         "terminfo %s" % terminfo_digest(),
     ]
     header += ["option %s" % o for o in rc_options(rc)]
-    counts, tool_lines, spawn_lines = summarize_log(_decompress(log), a.scope)
+    counts, tool_lines, spawn_lines, input_lines = summarize_log(
+        _decompress(log), a.scope
+    )
     with open(os.path.join(work, "build.txt")) as fh:
         refusal = capture_refusal(counts, fh.read())
     if refusal:
@@ -825,7 +871,7 @@ def cmd_capture(a):
         out = a.out
     else:
         out = os.path.join(ws, a.out)
-    write_evidence(out, header, counts, tool_lines, spawn_lines, unreached)
+    write_evidence(out, header, counts, tool_lines, spawn_lines, unreached, input_lines)
     if not a.keep:
         _rmtree(work)
     for line in summary_lines(counts, spawn_lines, unreached):
@@ -836,8 +882,10 @@ def cmd_capture(a):
 
 
 def cmd_summarize(a):
-    counts, tool_lines, spawn_lines = summarize_log(_decompress(a.log), a.scope)
-    write_evidence(a.out, [], counts, tool_lines, spawn_lines)
+    counts, tool_lines, spawn_lines, input_lines = summarize_log(
+        _decompress(a.log), a.scope
+    )
+    write_evidence(a.out, [], counts, tool_lines, spawn_lines, (), input_lines)
 
 
 def _read(path):
@@ -866,19 +914,34 @@ def _read(path):
                 header.setdefault("option", set()).add(rest)
             elif kind == "not_reached":
                 header.setdefault("not_reached", []).append(rest)
+            elif kind == "input":
+                digest, _, path = rest.partition(" ")
+                header.setdefault("input", {})[path] = digest
             else:
                 header[kind] = rest
     return header, tools, spawns
 
 
-def diff(a_path, b_path):
+def diff(a_path, b_path, workspace=None):
     """Lines naming what differs, most fundamental first."""
     ha, ta, sa = _read(a_path)
     hb, tb, sb = _read(b_path)
     out = []
-    for k in ("target", "bazel", "commit", "host", "terminfo"):
+    for k in ("target", "bazel", "commit", "tree", "design_tree", "host", "terminfo"):
         if ha.get(k) != hb.get(k):
-            out.append("%s: %s | %s" % (k, ha.get(k), hb.get(k)))
+            line = "%s: %s | %s" % (k, ha.get(k), hb.get(k))
+            if k == "commit":
+                lost = [
+                    side
+                    for side, h in (("A", ha), ("B", hb))
+                    if in_history(workspace, (h.get("commit") or "").split(" ")[0])
+                    == "no"
+                ]
+                if lost:
+                    line += " (%s not in this history)" % " and ".join(lost)
+            out.append(line)
+    if ha.get("tree") and ha.get("tree") == hb.get("tree"):
+        out.append("same tree: the sources are identical, look at tools and options")
     oa, ob = ha.get("option", set()), hb.get("option", set())
     for o in sorted(oa - ob):
         out.append("option only in A: %s" % o)
@@ -887,13 +950,21 @@ def diff(a_path, b_path):
     for g in sorted(set(ta) | set(tb)):
         if ta.get(g) != tb.get(g):
             out.append("tool %s: %s | %s" % (g, ta.get(g, "-"), tb.get(g, "-")))
+    ia, ib = ha.get("input", {}), hb.get("input", {})
+    moved = []
+    for path in sorted(set(ia) | set(ib)):
+        if ia.get(path) != ib.get(path):
+            moved.append(path)
+            out.append(
+                "input %s: %s | %s" % (path, ia.get(path, "-"), ib.get(path, "-"))
+            )
     by_out = {s["out"]: s for s in sb}
     first = None
     for s in sa:
         t = by_out.get(s["out"])
         if t is None or s["key"] == t["key"]:
             continue
-        moved = [k for k in s["parts"] if s["parts"][k] != t["parts"].get(k)]
+        parts = [k for k in s["parts"] if s["parts"][k] != t["parts"].get(k)]
         line = "spawn %s %s: key %s %s | %s %s; differs in %s" % (
             s["mnemonic"],
             s["out"],
@@ -901,8 +972,12 @@ def diff(a_path, b_path):
             s["status"],
             t["key"],
             t["status"],
-            ", ".join(moved) or "nothing summarized (key only)",
+            ", ".join(parts) or "nothing summarized (key only)",
         )
+        if "design" in parts and moved and first is None:
+            line += "; source files moved: %s" % ", ".join(moved[:5])
+            if len(moved) > 5:
+                line += " and %d more" % (len(moved) - 5)
         out.append(line)
         if first is None:
             first = line
@@ -919,7 +994,7 @@ def diff(a_path, b_path):
 
 
 def cmd_diff(a):
-    lines = diff(a.a, a.b)
+    lines = diff(a.a, a.b, os.environ.get("BUILD_WORKSPACE_DIRECTORY", os.getcwd()))
     for line in lines:
         print(line)
     if not lines:
