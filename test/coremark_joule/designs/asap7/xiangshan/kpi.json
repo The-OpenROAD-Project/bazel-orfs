@@ -56,6 +56,19 @@
         "VecRegionModule": 2364,
         "Region_1": 2186
       }
+    },
+    {
+      "date": "2026-09-26",
+      "measured": "XSTile_grt, built from source",
+      "min_period_ps": 5543,
+      "blocks": {
+        "CoupledL2": 2820,
+        "Frontend": 6186,
+        "MemBlock": 5527,
+        "Region_1": 1990,
+        "VecRegionModule": 2471
+      },
+      "note": "XSTile, the tile with its L2, at density 0.2 and layer adjustment 0.1; global route at zero iterations with congestion allowed (total 37180, worst edge 31/42)"
     }
   ]
 }
