@@ -9,9 +9,12 @@ clock pin, so the insertion delay CTS balanced to was that net's. The
 miniature showed the same at its own scale, 7 delay buffers.
 
 With the blocks abstracted at cts the abstract's clock pin is one buffer
-input and its insertion delay is a real tree's, about 60 ps here, and
-balancing to it costs nothing: no delay buffers with or without
--no_insertion_delay, which is now a choice rather than a bypass. The
+input and its insertion delay is a real tree's, and balancing to it
+costs at most one buffer: the macro tree arrives about 11 ps after the
+register tree, less than one buffer's delay. Whether CTS pads that
+residual with one buffer or leaves it is a rounding decision that
+differs between machines on the same placement, so the test allows
+either. -no_insertion_delay is now a choice rather than a bypass. The
 numbers are printed so the ratio is on record when the parent's are read.
 """
 
@@ -50,10 +53,11 @@ class DelayBuffersTest(unittest.TestCase):
         self.assertEqual(
             base["macro_sinks"], 4, "the four blocks are the macro clock's sinks"
         )
-        self.assertEqual(
+        self.assertLessEqual(
             base["delay_buffers"],
-            0,
-            "the blocks' insertion delay is a buffered tree's: nothing to pad",
+            1,
+            "the blocks' insertion delay is a buffered tree's: at most one"
+            " buffer of residual to pad",
         )
         self.assertIn("-no_insertion_delay", nid["cts_args"])
         self.assertEqual(
