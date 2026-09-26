@@ -1,10 +1,11 @@
-# The .sdc reading is an implementation detail of read_sdc: a bus
-# subscript like R0_addr[0] is a name inside an .sdc, and stock tcl -- a
-# command substitution -- everywhere else. This probes both sides of that
-# line on a real design, that the line is put back after read_sdc returns
-# or fails, also when nested, and that the tcl write_pin_placement writes
-# reads on the stock interpreter. One JSON of results in $RUN_OUTPUT_DIR;
-# the run fails on any failed probe.
+# The .sdc reading is an implementation detail of read_sdc: OpenSTA
+# installs sta_sdc_unknown, under which a bus subscript like R0_addr[0]
+# is a name, for the extent of the .sdc file, and puts the session's own
+# handler back on the way out. This probes both sides of that line on a
+# real design, that the line is put back after read_sdc returns or
+# fails, also when nested, and that the tcl write_pin_placement writes
+# braces its bus names and sources outside read_sdc. One JSON of results
+# in $RUN_OUTPUT_DIR; the run fails on any failed probe.
 source $::env(SCRIPTS_DIR)/load.tcl
 load_design 2_floorplan.odb 2_floorplan.sdc
 
@@ -31,12 +32,14 @@ proc write_file { path text } {
   close $f
 }
 
-# Outside read_sdc: stock tcl.
-probe "stock handler before read_sdc" \
-  [expr {[unknown_handler] eq "::unknown"}] [unknown_handler]
-set code [catch { get_ports R0_addr[0] } msg]
-probe "bare bus name outside read_sdc is a tcl error" \
-  [expr {$code == 1 && $msg eq {invalid command name "0"}}] $msg
+proc is_sdc_handler { handler } {
+  return [string match *sta_sdc_unknown $handler]
+}
+
+# Outside read_sdc: the session's handler, not the .sdc one.
+set session [unknown_handler]
+probe "session handler before read_sdc is not the .sdc one" \
+  [expr {![is_sdc_handler $session]}] $session
 set braced [get_ports {R0_addr[0]}]
 probe "braced bus name outside read_sdc resolves" \
   [expr {[llength $braced] == 1}] [get_full_name $braced]
@@ -49,17 +52,17 @@ write_file $dir/probe.sdc {
 read_sdc $dir/probe.sdc
 probe "bare bus name inside read_sdc resolves" \
   [expr {[llength $::probe_ports] == 1}] [get_full_name $::probe_ports]
-probe "handler inside read_sdc is sta_unknown" \
-  [expr {$::probe_handler eq "::sta_unknown"}] $::probe_handler
-probe "stock handler after read_sdc" \
-  [expr {[unknown_handler] eq "::unknown"}] [unknown_handler]
+probe "handler inside read_sdc is sta_sdc_unknown" \
+  [is_sdc_handler $::probe_handler] $::probe_handler
+probe "session handler after read_sdc" \
+  [expr {[unknown_handler] eq $session}] [unknown_handler]
 
 # An .sdc that fails puts it back too.
 write_file $dir/bad.sdc {error "deliberate failure"}
 set code [catch { read_sdc $dir/bad.sdc } msg]
 probe "failing read_sdc raises" [expr {$code == 1}] $msg
-probe "stock handler after failing read_sdc" \
-  [expr {[unknown_handler] eq "::unknown"}] [unknown_handler]
+probe "session handler after failing read_sdc" \
+  [expr {[unknown_handler] eq $session}] [unknown_handler]
 
 # Nested: an .sdc that reads an .sdc.
 write_file $dir/outer.sdc "
@@ -69,12 +72,12 @@ write_file $dir/outer.sdc "
 "
 read_sdc $dir/outer.sdc
 probe "outer .sdc keeps the reading after the inner read_sdc returns" \
-  [expr {$::outer_handler eq "::sta_unknown" && [llength $::outer_ports] == 1}] \
+  [expr {[is_sdc_handler $::outer_handler] && [llength $::outer_ports] == 1}] \
   $::outer_handler
-probe "stock handler after nested read_sdc" \
-  [expr {[unknown_handler] eq "::unknown"}] [unknown_handler]
+probe "session handler after nested read_sdc" \
+  [expr {[unknown_handler] eq $session}] [unknown_handler]
 
-# write_pin_placement writes tcl that reads on the stock interpreter.
+# write_pin_placement writes tcl that reads outside read_sdc.
 place_pins -hor_layers $::env(IO_PLACER_H) -ver_layers $::env(IO_PLACER_V)
 write_pin_placement $dir/pins.tcl
 set f [open $dir/pins.tcl]
@@ -84,7 +87,7 @@ probe "write_pin_placement braces bus names" \
   [regexp {place_pin -pin_name \{R0_addr\[0\]\} } $pins] \
   [lindex [regexp -inline -line {^place_pin -pin_name [^ ]+} $pins] 0]
 set code [catch { source $dir/pins.tcl } msg]
-probe "write_pin_placement output sources on stock tcl" [expr {$code == 0}] $msg
+probe "write_pin_placement output sources outside read_sdc" [expr {$code == 0}] $msg
 
 set f [open $dir/results.json w]
 puts $f "\["

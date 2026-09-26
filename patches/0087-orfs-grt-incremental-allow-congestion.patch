@@ -23,7 +23,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  1 file changed, 15 insertions(+), 3 deletions(-)
 
 diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
-index a9a8d36..d2e799d 100644
+index 17e015349..24221133b 100644
 --- a/flow/scripts/global_route.tcl
 +++ b/flow/scripts/global_route.tcl
 @@ -14,6 +14,15 @@ proc global_route_helper { } {
@@ -48,7 +48,7 @@ index a9a8d36..d2e799d 100644
      # Run to get modified net by DPL
 -    log_cmd global_route -start_incremental
 +    log_cmd global_route -start_incremental {*}$allow_congestion
-     log_cmd detailed_placement {*}[env_var_or_empty DETAIL_PLACEMENT_ARGS]
+     detailed_placement_helper
      # Route only the modified net by DPL
      if {
        ![run_global_route_and_catch_failures -end_incremental {*}$res_aware \
@@ -62,7 +62,7 @@ index a9a8d36..d2e799d 100644
  
 -    log_cmd global_route -start_incremental
 +    log_cmd global_route -start_incremental {*}$allow_congestion
-     log_cmd detailed_placement {*}[env_var_or_empty DETAIL_PLACEMENT_ARGS]
+     detailed_placement_helper
      log_cmd check_placement -verbose
      # Route only the modified net by DPL
      if {
@@ -87,4 +87,3 @@ index a9a8d36..d2e799d 100644
        return
 -- 
 2.53.0
-

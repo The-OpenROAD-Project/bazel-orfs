@@ -24,15 +24,15 @@ GPL_STRANDED_CELLS_CHECK=warn or none for a flow that wants them.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- flow/scripts/global_place.tcl | 111 ++++++++++++++++++++++++++++++++++
- flow/scripts/variables.yaml   |  17 ++++++
+ flow/scripts/global_place.tcl | 111 ++++++++++++++++++++++++++++++++++++++++++
+ flow/scripts/variables.yaml   |  17 +++++++
  2 files changed, 128 insertions(+)
 
 diff --git a/flow/scripts/global_place.tcl b/flow/scripts/global_place.tcl
-index 5822ef47c..89f9fafee 100644
+index b478cecd9..d7a54c36c 100644
 --- a/flow/scripts/global_place.tcl
 +++ b/flow/scripts/global_place.tcl
-@@ -75,6 +75,117 @@ if { $::env(CLUSTER_FLOPS) } {
+@@ -84,6 +84,117 @@ if { $::env(CLUSTER_FLOPS) } {
    log_cmd estimate_parasitics -placement
  }
  
@@ -151,10 +151,10 @@ index 5822ef47c..89f9fafee 100644
  
  source_step_tcl POST GLOBAL_PLACE
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
-index 7b6a3e1c4..b15b49e74 100644
+index 024b81fcb..4156cff8b 100644
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -832,6 +832,23 @@ SKIP_LAST_GASP:
+@@ -920,6 +920,23 @@ SKIP_LAST_GASP:
      - cts
      - floorplan
      - grt
@@ -175,9 +175,8 @@ index 7b6a3e1c4..b15b49e74 100644
 +    a cell that has to travel is worth reporting.
 +  stages:
 +    - place
- SKIP_BUFFER_REMOVAL:
+ SKIP_PIN_ACCESS:
    description: >
-     Passed as -skip_buffer_removal to repair_timing. Do not remove buffers
+     Run the global route without building access points. pin_access fails on
 -- 
 2.53.0
-

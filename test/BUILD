@@ -1521,11 +1521,10 @@ build_test(
     targets = [":fork_smoke"],
 )
 
-# The .sdc reading (bus subscripts like R0_addr[0] as names) is scoped to
-# read_sdc by patches/0003-opensta-read-sdc-scoped-unknown.patch; outside it
-# the interpreter is stock tcl. sdc_scope_smoke.tcl probes both sides of
-# that line on real OpenROAD, and that write_pin_placement (patch 0004)
-# writes tcl the stock interpreter reads.
+# OpenSTA scopes the .sdc reading (bus subscripts like R0_addr[0] as names)
+# to read_sdc and restores the session's handler on the way out.
+# sdc_scope_smoke.tcl probes both sides of that line on real OpenROAD, and
+# that write_pin_placement writes tcl that reads outside read_sdc.
 orfs_run(
     name = "sdc_scope_smoke",
     src = ":lb_32x128_floorplan",
