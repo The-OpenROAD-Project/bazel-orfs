@@ -407,12 +407,24 @@ _PRIVATE = re.compile(
 )
 
 
+# Options whose value is NAME=VALUE for an environment: the name says which
+# variable a machine sets, the value can name an account or a path, so the
+# name stays and the value goes.
+_ENV_OPTIONS = ("--repo_env", "--action_env", "--host_action_env", "--test_env")
+
+
 def redact_option(opt):
     m = re.match(r"(--[\w@/:.+-]+)=(.*)", opt, re.S)
     if not m:
         return opt
     name, value = m.groups()
-    if _PRIVATE.search(name) or re.search(r"(^|[=:,])/(home|Users|root)/", value):
+    if name in _ENV_OPTIONS and "=" in value:
+        return "%s=%s=<redacted>" % (name, value.split("=", 1)[0])
+    if (
+        _PRIVATE.search(name)
+        or re.search(r"(^|[=:,])/(home|Users|root)/", value)
+        or re.search(r"@[\w-]+\.[a-z]{2,}\b", value, re.I)
+    ):
         return "%s=<redacted>" % name
     return opt
 
