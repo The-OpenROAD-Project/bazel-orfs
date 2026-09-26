@@ -129,6 +129,38 @@ py_test(
     main = "clock_pin_test.py",
 )
 
+# Every signal port of each block's cts abstract carries its design-rule
+# limit: max_transition on an input, max_capacitance on an output, so the
+# parent's repair_design sees a net between two blocks (OpenROAD patch
+# 0008; a 2.4 mm bare wire at a 6 ns slew on XSTile without it).
+py_test(
+    name = "drv_limits_test",
+    srcs = ["drv_limits_test.py"],
+    args = [
+        arg
+        for block in [
+            "BlockA",
+            "BlockB",
+            "BlockC",
+            "BlockD",
+        ]
+        for arg in [
+            block,
+            "$(rootpath :%s_lib)" % block,
+        ]
+    ],
+    data = [
+        ":%s_lib" % block
+        for block in [
+            "BlockA",
+            "BlockB",
+            "BlockC",
+            "BlockD",
+        ]
+    ],
+    main = "drv_limits_test.py",
+)
+
 # plan/ is what mini_gen.py and the planner produce; regen.sh rewrites it.
 py_test(
     name = "plan_drift_test",
