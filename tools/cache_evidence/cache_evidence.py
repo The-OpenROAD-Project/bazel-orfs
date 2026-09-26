@@ -358,7 +358,7 @@ def _spawn_fields(buf):
 def summarize_log(data, scope):
     """The evidence lines a compact log supports, for labels under scope."""
     log = Log(data)
-    counts = {"spawns": 0, "hit": 0, "ran": 0, "miss": 0}
+    counts = {"spawns": 0, "hit": 0, "ran": 0, "miss": 0, "outside": []}
     tools = {}
     lines = []
     inputs = set()
@@ -372,11 +372,20 @@ def summarize_log(data, scope):
         else:
             status = "ran"
         counts[status] += 1
-        if not s["label"].startswith(scope):
-            continue
         outs = []
         for kind, val in s["outputs"]:
             outs.append(log.path(val) if kind == "id" else val)
+        if not s["label"].startswith(scope):
+            if status != "hit":
+                counts["outside"].append(
+                    "%s %s %s (outside --scope)"
+                    % (
+                        status,
+                        s["mnemonic"] or "-",
+                        _short(sorted(outs)[0]) if outs else s["label"],
+                    )
+                )
+            continue
         classes = {"tools": [], "sources": [], "design": []}
         for eid in log.input_set(s["input_set"]):
             is_runfiles = log.entries[eid][0] == _RUNFILES
@@ -440,14 +449,17 @@ def _label(target):
     return t
 
 
-def graph_actions(aquery_json, scope, target=None):
+def graph_actions(aquery_json, scope, target=None, outputs=None):
     """(mnemonic, first output) of every in-scope action the target needs,
     from `aquery --output=jsonproto`, internal actions left out.
 
     `deps(target)` also holds actions of targets in the graph whose outputs
     the target never reads (a stage's `_deps` tarball, a generator's deploy
-    jar), so only actions reachable from the target's own actions through
-    their inputs count; with no target, every in-scope action does."""
+    jar), and the target itself has actions a build of it does not run
+    (its own tarball). So only actions reachable through their inputs
+    count, from the actions that produce `outputs` (the target's default
+    outputs, `cquery --output=files`), or from every action of the target
+    when no outputs are given; with neither, every in-scope action does."""
     g = json.loads(aquery_json) if aquery_json.strip() else {}
     fragments = {f["id"]: f for f in g.get("pathFragments", [])}
     paths = {}
@@ -485,17 +497,25 @@ def graph_actions(aquery_json, scope, target=None):
         flat[root] = result
         return result
 
-    if target is None:
-        needed = set(range(len(actions)))
-    else:
+    producer = {}
+    for i, a in enumerate(actions):
+        for o in a.get("outputIds", []):
+            producer[o] = i
+    if outputs:
+        wanted = set(outputs)
+        needed = {
+            producer[aid]
+            for aid, path in artifacts.items()
+            if path in wanted and aid in producer
+        }
+    elif target is not None:
         label = _label(target)
         needed = {
             i for i, a in enumerate(actions) if targets.get(a.get("targetId")) == label
         }
-        producer = {}
-        for i, a in enumerate(actions):
-            for o in a.get("outputIds", []):
-                producer[o] = i
+    else:
+        needed = set(range(len(actions)))
+    if outputs or target is not None:
         stack = list(needed)
         while stack:
             for dsid in actions[stack.pop()].get("inputDepSetIds", []):
@@ -815,24 +835,28 @@ def summary_lines(counts, spawn_lines, unreached):
             len(unreached),
         )
     ]
-    listed = 0
     for line in spawn_lines:
         f = line.split(" ")
         if f[2] != "hit":
             out.append("%s %s %s" % (f[2], f[3], f[4]))
-            listed += 1
-    outside = counts["miss"] + counts["ran"] - listed
-    if outside > 0:
-        out.append("%d action(s) not a hit lie outside --scope" % outside)
+    out += counts.get("outside", [])
     out += list(unreached)
     if counts["miss"] == 0 and counts["ran"] == 0 and not unreached:
         out.append("every action is a remote cache hit")
     return out
 
 
-def _aquery(bazel, ws, target, scope):
-    """The in-scope actions of the graph as `aquery --output=jsonproto`,
-    from the server that just built, then shut it down."""
+def _graph(bazel, ws, target, scope):
+    """The in-scope actions of the graph as `aquery --output=jsonproto` and
+    the target's default outputs from `cquery --output=files`, from the
+    server that just built, then shut it down."""
+    files = subprocess.run(
+        bazel + ["cquery", "--output=files", "--curses=no", target],
+        cwd=ws,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
+    )
     r = subprocess.run(
         bazel
         + [
@@ -847,11 +871,13 @@ def _aquery(bazel, ws, target, scope):
         universal_newlines=True,
     )
     subprocess.run(bazel + ["shutdown"], cwd=ws)
-    if r.returncode != 0:
-        raise SystemExit(
-            "cache_evidence: aquery of the graph failed:\n%s%s" % (r.stdout, r.stderr)
-        )
-    return r.stdout
+    for name, q in (("cquery", files), ("aquery", r)):
+        if q.returncode != 0:
+            raise SystemExit(
+                "cache_evidence: %s of the graph failed:\n%s%s"
+                % (name, q.stdout, q.stderr)
+            )
+    return r.stdout, files.stdout.split()
 
 
 def cmd_capture(a):
@@ -924,9 +950,9 @@ def cmd_capture(a):
     if refusal:
         subprocess.run(bazel + ["shutdown"], cwd=ws)
         raise SystemExit("cache_evidence: refusing to write evidence: " + refusal)
+    graph, outputs = _graph(bazel, ws, a.target, a.scope)
     unreached = not_reached(
-        graph_actions(_aquery(bazel, ws, a.target, a.scope), a.scope, a.target),
-        spawn_lines,
+        graph_actions(graph, a.scope, a.target, outputs), spawn_lines
     )
     if a.out == "-" or os.path.isabs(a.out):
         out = a.out
