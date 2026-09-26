@@ -57,10 +57,23 @@ Earlier stages are their own targets (`XSTile_synth`, `_floorplan`,
 `XSTile_cts_odb_debug` and `XSTile_grt_odb_debug` open a checkpoint for
 questions.
 
-Not a download although another machine built it? `/cache-miss`:
-each machine captures a few kilobytes into `cache_evidence/` and a diff
-names the first action whose key differs. Usually it is the commit: every
-stage takes the whole patched ORFS tree as input.
+`cache_evidence/` is the witness and `/cache-miss` the method. A capture
+never executes a flow action: a miss is killed as it appears and the
+build carries on, so a laptop can ask in minutes whether a target is
+cached, and a builder captures after it built and uploaded, in the same
+pull request as the change that moved the keys.
+
+- `consumer.txt`: `XSTile_cts`, every action a remote hit, seen from a
+  consumer on 2026-09-26 at tree `eb1ceb30f248a1dc33345ffbeec278b100b3509c`.
+- `machine_a.txt`: `XSTile_grt`, every action a remote hit on the machine
+  that built it, at a commit main does not carry (captured on a branch
+  and rebased away) and before the tool wrote tree hashes and `input`
+  lines, so a diff against it says that sources moved but not which file.
+  The next builder capture of `XSTile_grt` retires it.
+
+Not a download although another machine built it? Capture here and diff
+against the file above; the diff names the first action whose key differs,
+which part of the key moved and the source file behind it.
 
 ## Where the period is
 

@@ -162,7 +162,8 @@ pull request, or it is not shared:
 A target that another machine built but that is not a remote cache hit
 here, or that rebuilds when nothing seemed to change, has its own skill:
 
-- `cache-miss` — capture a few kilobytes of key evidence per machine
+- `cache-miss` — ask whether a target is cached without building it,
+  from a laptop; capture a few kilobytes of key evidence per machine
   (`//tools/cache_evidence`), commit it next to the design and diff it;
   names the first action whose key differs and which of its arguments,
   environment, tools, sources or design inputs moved.
