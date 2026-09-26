@@ -10,7 +10,10 @@ package(default_visibility = ["//visibility:public"])
 
 chisel_library(
     name = "xscache",
-    srcs = glob(["src/main/scala/**/*.scala"]),
+    # build.mill adds the CHI-to-ZhuJiang bridge from the test tree.
+    srcs = glob(["src/main/scala/**/*.scala"]) + [
+        "src/test/scala/ZhuJiangBridge.scala",
+    ],
     scalacopts = [
         "-Ymacro-annotations",
         "-Xcheckinit:false",
@@ -23,5 +26,6 @@ chisel_library(
         "@xs_rocket_chip//:macros",
         "@xs_rocket_chip//:rocket_chip",
         "@xs_utility//:utility",
+        "@xs_zhujiang//:zhujiang",
     ],
 )
