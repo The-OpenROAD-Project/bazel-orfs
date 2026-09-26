@@ -698,7 +698,7 @@ orfs_designs(
 # a study under test/, and a consumer of bazel-orfs must never resolve a
 # Scala toolchain to build a flow.
 #
-# Nothing is vendored. Eleven http_archives -- XiangShan and the ten
+# Nothing is vendored. Twelve http_archives -- XiangShan and the eleven
 # repositories its build pulls in as submodules -- each pinned by commit
 # and sha256, each with a small BUILD overlay in this repository. That is
 # the pattern the retired gallery/ workspace used for BOOM and gemmini.
@@ -780,18 +780,15 @@ maven.install(
 use_repo(maven, "xs_maven")
 
 # XiangShan itself: the Kunminghu V3 head of the default branch on
-# 2026-09-14. The unit the study hardens is XSTile -- the core with its
+# 2026-09-24. The unit the study hardens is XSTile -- the core with its
 # L1I and L1D and the L2 -- which is exactly the measurement boundary,
 # with no surgery needed to isolate it.
 http_archive(
     name = "xiangshan",
     build_file = "//test/coremark_joule/xiangshan:xiangshan.BUILD.bazel",
     dev_dependency = True,
-    # Carried, upstream as OpenXiangShan/XiangShan#6589: see the patch
-    # header. Retire it at a bump onto a XiangShan that carries it.
     patch_strip = 1,
     patches = [
-        "//test/coremark_joule/xiangshan:patches/0001-xiangshan-vl-csr-without-difftest.patch",
         # Carried, not upstreamed: the Ftq's four queues as register-file
         # modules, so the flow can generate them (see the patch header).
         "//test/coremark_joule/xiangshan:patches/0002-xiangshan-ftq-queues-as-register-files.patch",
@@ -815,9 +812,9 @@ http_archive(
         # STRUCTURED_MEMORIES names (see the patch header).
         "//test/coremark_joule/xiangshan:patches/0008-xiangshan-rob-entry-file.patch",
     ],
-    sha256 = "ed1561ee5b532ea0956aa3c9dbcf97454eace356bbdd7498a5fb2b5feaf57ded",
-    strip_prefix = "XiangShan-37ce1b50b5b8fa1865205e76175e48fc636454d6",
-    urls = ["https://github.com/OpenXiangShan/XiangShan/archive/37ce1b50b5b8fa1865205e76175e48fc636454d6.tar.gz"],
+    sha256 = "e4b48e602db1ee00835ea8e99aef9585b16fd34f9049fdfc37c5208625c6a002",
+    strip_prefix = "XiangShan-aa6b52033add528a504bdb2c2b726100d89f070a",
+    urls = ["https://github.com/OpenXiangShan/XiangShan/archive/aa6b52033add528a504bdb2c2b726100d89f070a.tar.gz"],
 )
 
 # Every commit below is the one XiangShan's own tree records for that
@@ -856,18 +853,18 @@ http_archive(
     name = "xs_utility",
     build_file = "//test/coremark_joule/xiangshan:utility.BUILD.bazel",
     dev_dependency = True,
-    sha256 = "434616beee811e260088d1dc6427e3df1ad711dc161b110211f0a95e63ec03ba",
-    strip_prefix = "Utility-44f500cd2ddd95138d9402ae4b580fb84c3289ec",
-    urls = ["https://github.com/OpenXiangShan/Utility/archive/44f500cd2ddd95138d9402ae4b580fb84c3289ec.tar.gz"],
+    sha256 = "97d53e87d1cf314b2f977c9563f8e7a77d6c13f015f122d8ce6eb622a8f33bf4",
+    strip_prefix = "Utility-eb8e12b00a33e4716e7778175f6dd45b7a3a9ede",
+    urls = ["https://github.com/OpenXiangShan/Utility/archive/eb8e12b00a33e4716e7778175f6dd45b7a3a9ede.tar.gz"],
 )
 
 http_archive(
     name = "xs_yunsuan",
     build_file = "//test/coremark_joule/xiangshan:yunsuan.BUILD.bazel",
     dev_dependency = True,
-    sha256 = "4ebbe5569bc925a9c573b32453f7bf858b54e8002098e1b8642736095b33163e",
-    strip_prefix = "YunSuan-fd26afc0d93dfe32444dff2f420fe540b07a9744",
-    urls = ["https://github.com/OpenXiangShan/YunSuan/archive/fd26afc0d93dfe32444dff2f420fe540b07a9744.tar.gz"],
+    sha256 = "a10ce76930f66d809b82ef1354af5f45bd5049c7fa5459a01653f6a9d002291d",
+    strip_prefix = "YunSuan-098c505af11b67f57cf2cd39433276f8c8610d8e",
+    urls = ["https://github.com/OpenXiangShan/YunSuan/archive/098c505af11b67f57cf2cd39433276f8c8610d8e.tar.gz"],
 )
 
 # XSCache carries coupledL2, openLLC and xscache in one tree. CoupledL2 is
@@ -877,9 +874,9 @@ http_archive(
     name = "xs_cache",
     build_file = "//test/coremark_joule/xiangshan:xscache.BUILD.bazel",
     dev_dependency = True,
-    sha256 = "393cb547efef86a1c5a41d53b595699361d53ec2f0c10a086cc23ee096a1c939",
-    strip_prefix = "XSCache-dfd3edcf42b772e2a21178579b93bafc956f99b8",
-    urls = ["https://github.com/OpenXiangShan/XSCache/archive/dfd3edcf42b772e2a21178579b93bafc956f99b8.tar.gz"],
+    sha256 = "fce33a43c3196be495a813ee329e143753c8db6bc1c8a103a54a37aae82b3100",
+    strip_prefix = "XSCache-300515bc7b2f65ca988041a984204489d80ec2fb",
+    urls = ["https://github.com/OpenXiangShan/XSCache/archive/300515bc7b2f65ca988041a984204489d80ec2fb.tar.gz"],
 )
 
 http_archive(
@@ -889,6 +886,17 @@ http_archive(
     sha256 = "3658825a9c8e535abff14a402bb5114954d71420a7804c5293f3a2a198bfffe9",
     strip_prefix = "OpenNCB-9a83eb7e6c0e36e0d6b72642ff93641ec65819cf",
     urls = ["https://github.com/OpenXiangShan/OpenNCB/archive/9a83eb7e6c0e36e0d6b72642ff93641ec65819cf.tar.gz"],
+)
+
+# ZhuJiang, XSCache's NoC, carries its xs-utils in its own tree; it is
+# the commit XSCache's tree records, and XiangShan's Top imports it.
+http_archive(
+    name = "xs_zhujiang",
+    build_file = "//test/coremark_joule/xiangshan:zhujiang.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "39b9efe69fc6f4c39615ba48291ea4a2eb94375e2636a5e7ac796d5cc375fbeb",
+    strip_prefix = "ZhuJiang-dfcf69662f7682bbc36410b5763cc285956534c8",
+    urls = ["https://github.com/OpenXiangShan/ZhuJiang/archive/dfcf69662f7682bbc36410b5763cc285956534c8.tar.gz"],
 )
 
 # difftest is XiangShan's co-simulation harness. The study does not use

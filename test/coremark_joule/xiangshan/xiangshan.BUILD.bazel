@@ -58,5 +58,6 @@ chisel_library(
         "@xs_rocket_chip//:rocket_chip",
         "@xs_utility//:utility",
         "@xs_yunsuan//:yunsuan",
+        "@xs_zhujiang//:zhujiang",
     ],
 )
