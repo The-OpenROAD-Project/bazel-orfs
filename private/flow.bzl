@@ -1,15 +1,12 @@
 """Flow orchestration macros for OpenROAD-flow-scripts Bazel rules."""
 
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-load("//private:providers.bzl", "LoggingInfo")
 load(
     "//private:rules.bzl",
     "ABSTRACT_IMPL",
     "FINAL_STAGE_IMPL",
     "GENERATE_METADATA_STAGE_IMPL",
     "STAGE_IMPLS",
-    "TEST_STAGE_IMPL",
-    "UPDATE_RULES_IMPL",
     "create_deps_tar",
     "orfs_abstract_rule",
     "orfs_arguments",
@@ -406,7 +403,6 @@ def orfs_flow(
         previous_stage = {},
         pdk = None,
         stage_data = {},
-        test_kwargs = {},
         squash = False,
         substeps = False,
         save_odb = True,
@@ -418,7 +414,7 @@ def orfs_flow(
     # user_stages is documented below but stays in **kwargs on purpose.
     # It has to arrive at _strip_tool_kwargs still inside the kwargs
     # dict, because that function is the single place that decides which
-    # non-stage companions (orfs_arguments, orfs_macro, orfs_update) must
+    # non-stage companions (orfs_arguments, orfs_macro) must
     # not see it -- an attribute none of those rules has. Lifting it into
     # the signature would take it out of that dict and put the decision
     # back at each call site, which is the shape that failed at analysis
@@ -479,7 +475,6 @@ def orfs_flow(
       previous_stage: a dictionary with the input for a stage, default is previous stage. Useful when running experiments that share preceeding stages, like share synthesis for floorplan variants.
       pdk: name of the PDK to use, default is asap7
       stage_data: dictionary keyed by ORFS stages with lists of stage-specific data files
-      test_kwargs: dictionary of arguments to pass to orfs_test
       squash: if True, combine all stages after synthesis into a single Bazel action.
         Reduces artifact size by avoiding intermediate ODB checkpoints. Useful for
         stable designs like RAM macros where intermediate stages don't need inspection.
@@ -559,7 +554,6 @@ def orfs_flow(
         previous_stage = previous_stage,
         pdk = pdk,
         stage_data = stage_data,
-        test_kwargs = test_kwargs,
         squash = squash,
         substeps = substeps,
         save_odb = save_odb,
@@ -616,7 +610,6 @@ def orfs_flow(
         previous_stage = {},
         pdk = pdk,
         stage_data = stage_data,
-        mock_area = True,
         html = html,
         **kwargs
     )
@@ -651,61 +644,6 @@ def orfs_flow(
 def _kwargs(stage, **kwargs):
     return {k: v[stage] for k, v in kwargs.items() if stage in v and v[stage]}
 
-def _update_rules_impl(ctx):
-    script = ctx.actions.declare_file(ctx.attr.name + "_update.sh")
-
-    ctx.actions.write(
-        output = script,
-        is_executable = True,
-        content = """
-#!/bin/bash
-set -e
-rules_json="{rules_json}"
-logs="{logs}"
-cp $logs $BUILD_WORKSPACE_DIRECTORY/$rules_json
-""".format(
-            rules_json = ctx.file.rules_json.path,
-            # The update_rules stage's DefaultInfo carries rules.json plus
-            # bookkeeping files (update_rules.args.mk); only rules.json may
-            # be copied — cp with several sources needs a directory target.
-            logs = " ".join([
-                log.short_path
-                for log in ctx.files.logs
-                if log.basename == "rules.json"
-            ]),
-        ),
-    )
-
-    return [
-        DefaultInfo(
-            executable = script,
-            runfiles = ctx.runfiles(
-                transitive_files = depset(
-                    [],
-                    transitive = [
-                        depset(ctx.files.rules_json),
-                        depset(ctx.files.logs),
-                    ],
-                ),
-            ),
-        ),
-    ]
-
-orfs_update = rule(
-    implementation = _update_rules_impl,
-    attrs = {
-        "logs": attr.label_list(
-            allow_files = True,
-            providers = [LoggingInfo],
-        ),
-        "rules_json": attr.label(
-            allow_single_file = True,
-            mandatory = True,
-        ),
-    },
-    executable = True,
-)
-
 def _orfs_pass(
         name,
         top,
@@ -728,8 +666,6 @@ def _orfs_pass(
         kept_macros = None,
         canon_blackbox_macros = [],
         last_stage = None,
-        test_kwargs = {},
-        mock_area = False,
         squash = False,
         save_odb = True,
         html = False,
@@ -787,11 +723,9 @@ def _orfs_pass(
         )
 
     step_names = []
-    synth_target = None
     if start_stage < 1:
         synth_step = steps[0]
         step_name = _step_name(name, variant, synth_step.stage)
-        synth_target = step_name
         step_names.append(step_name)
         synth_step.impl(
             **_filter_stage_args(
@@ -949,13 +883,12 @@ def _orfs_pass(
                 )
             return
 
-    def do_step(step, prev, kwargs, more_kwargs = {}, data = [], variant_override = None, src = None):
-        stage_variant = variant_override or (
+    def do_step(step, prev, kwargs, more_kwargs = {}, data = []):
+        stage_variant = (
             abstract_variant if step.stage == ABSTRACT_IMPL.stage and abstract_variant else variant
         )
         step_name = _step_name(name, stage_variant, step.stage)
-        if src == None:
-            src = previous_stage.get(step.stage, _step_name(name, variant, prev.stage))
+        src = previous_stage.get(step.stage, _step_name(name, variant, prev.stage))
         step.impl(
             **_filter_stage_args(
                 step.stage,
@@ -968,7 +901,7 @@ def _orfs_pass(
                 extra_arguments = extra_arguments,
                 extra_configs = extra_configs,
                 src = src,
-                variant = variant_override or variant,
+                variant = variant,
                 stage_data = stage_data,
                 data = data,
                 **(
@@ -1076,82 +1009,3 @@ def _orfs_pass(
             ],
             kwargs = kwargs,
         )
-
-        test_args = get_stage_args(
-            [TEST_STAGE_IMPL.stage],
-            stage_arguments,
-            arguments,
-            sources,
-        )
-        if "RULES_JSON" in test_args and not mock_area:
-            do_step(
-                TEST_STAGE_IMPL,
-                GENERATE_METADATA_STAGE_IMPL,
-                kwargs = kwargs | {"tags": []} | test_kwargs,
-            )
-            rules_name = do_step(
-                UPDATE_RULES_IMPL,
-                GENERATE_METADATA_STAGE_IMPL,
-                kwargs = kwargs,
-                more_kwargs = kwargs,
-            )
-            update_kwargs = dict(kwargs)
-            update_kwargs.pop("substeps", None)
-            update_kwargs.pop("lint", None)
-
-            # orfs_update takes only logs and rules_json; _strip_tool_kwargs
-            # below drops user_stages, which the rule has no attribute for.
-            orfs_update(
-                name = _step_name(name, variant, "update"),
-                rules_json = sources["RULES_JSON"][0],
-                logs = [rules_name],
-                **_strip_tool_kwargs(**update_kwargs)
-            )
-
-    # Fast synthesis-stage QoR pre-check: any flow that runs its own synth
-    # stage and has RULES_JSON also gets <synth>_generate_metadata (a
-    # metadata.json built from the synth stage alone — genMetrics.py
-    # tolerates a synthesis-only tree) and <synth>_test, which gates it
-    # with `make metadata-check-synth`: only the synth__/constraints__
-    # subset of the same rules file the full-flow test checks. It shares
-    # the flow's synth action, so it is a minutes-scale proxy for the
-    # full-flow test — same rules, same checker, subset of the fields.
-    # QoR only: without LEC it says nothing about functional correctness,
-    # so the full-flow test remains the real gate.
-    #
-    # The pair lives in its own "<variant>_synth" sub-variant so its
-    # metadata.json and config artifacts cannot collide with the
-    # full-flow chain's (both would otherwise be declared under the same
-    # variant-scoped paths). The synth inputs staged under the parent
-    # variant's tree are remapped by the stage's cross-variant renaming
-    # (rename_data on orfs_generate_metadata).
-    if synth_target != None and not mock_area:
-        test_args = get_stage_args(
-            [TEST_STAGE_IMPL.stage],
-            stage_arguments,
-            arguments,
-            sources,
-        )
-        if "RULES_JSON" in test_args:
-            fast_variant = _variant_name(variant, "synth")
-            fast_metadata_name = do_step(
-                GENERATE_METADATA_STAGE_IMPL,
-                steps[0],
-                data = [
-                    # Stage synth's logs (1_synth.log, 1_synth.json) via
-                    # data_runfiles; source_inputs deliberately omits
-                    # LoggingInfo.logs, and genMetrics.py reads both.
-                    synth_target,
-                ],
-                kwargs = kwargs,
-                variant_override = fast_variant,
-                src = synth_target,
-            )
-            do_step(
-                TEST_STAGE_IMPL,
-                GENERATE_METADATA_STAGE_IMPL,
-                kwargs = kwargs | {"tags": []} | test_kwargs,
-                more_kwargs = {"cmd": "metadata-check-synth"},
-                variant_override = fast_variant,
-                src = fast_metadata_name,
-            )

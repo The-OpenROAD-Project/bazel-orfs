@@ -107,7 +107,6 @@ comm -23 \
 | `stage_data` | Parameter exists in `orfs_flow`, never exercised |
 | `renamed_inputs` | Exists in flow.bzl/sweep.bzl, never tested |
 | `dissolve` in sweep | Feature exists (sweep.bzl), never used |
-| `orfs_update` | Rule exported, no test |
 | `save_odb=False` | Synthesis attribute, never tested |
 | Error paths | No negative tests (invalid abstract_stage, etc.) |
 | GDS in full flow | `orfs_gds` tested standalone, not via `orfs_flow` |
@@ -252,10 +251,10 @@ bazelisk analyze-profile build.profile
 
 ## Debugging OpenROAD determinism (bazel vs make)
 
-When a `bazelisk test //flow/designs/.../...:<name>_test` fails on
-QoR, the question is almost always: real bazel-vs-make OpenROAD
-divergence on this design, or a yosys-environment false positive?
-Two helpers answer it directly.
+When a design's bazel results differ from its make results, the
+question is almost always: real bazel-vs-make OpenROAD divergence on
+this design, or yosys-environment drift? Two helpers answer it
+directly.
 
 The commands below use the `@bazel-orfs//:` label form, which is how
 a workspace embedding bazel-orfs (e.g. OpenROAD-flow-scripts) invokes
@@ -268,18 +267,16 @@ Yosys, however, is sensitive to its build environment (abc version,
 cxxopts version, compile flags), so bazel-built yosys and make-built
 yosys routinely produce different `1_2_yosys.v` for the same RTL.
 That netlist drift propagates into different placement/routing
-metrics, which can push a design past `rules-base.json` thresholds
-and fail the bazel `_test`. These failures are not bazel-orfs or
-OpenROAD bugs.
+metrics. Those differences are not bazel-orfs or OpenROAD bugs.
 
 Two wrappers prove this bidirectionally:
 
-### Check a failing design for yosys-environment false positives
+### Check a design for yosys-environment drift
 
-If a bazel `_test` is failing QoR on a specific design, run:
+If a design's bazel QoR differs from make's, run:
 
 ```bash
-bazelisk run @bazel-orfs//:make-yosys-netlist //flow/designs/asap7/uart:uart_test
+bazelisk run @bazel-orfs//:make-yosys-netlist //flow/designs/asap7/uart:uart_final
 ```
 
 This:
@@ -294,24 +291,23 @@ This:
 Interpretation:
 
 - **Every stage MATCH in the `bazel+make-netlist` column** →
-  confirmed yosys-environment false positive. bazel-test OpenROAD
+  confirmed yosys-environment drift. bazel-built OpenROAD
   ≡ `tools/install` OpenROAD given the same starting netlist. The
-  only variable making the bazel test fail QoR is yosys's build
-  environment. Move on (or relax the threshold).
+  only variable moving the QoR is yosys's build environment.
 - **Any DIFFER in the `bazel+make-netlist` column** → real
   bazel-vs-make OpenROAD divergence on this design. Worth filing
   the per-stage SHA matrix as an issue.
 - **Wrapper refuses with "design uses BLOCKS=…"** → the wrappers do
   not compare hierarchical designs, because each sub-block is a flow
   of its own and the per-stage `.odb` comparison would not be
-  apples-to-apples. Not a yosys-false-positive question. See
+  apples-to-apples. Not a yosys-drift question. See
   `asap7/aes-block` for the canonical example, and the "BLOCKS=
   caveat" below for what does and does not match make.
 
 ### Reverse-direction sanity check
 
 ```bash
-bazelisk run @bazel-orfs//:yosys-check //flow/designs/asap7/uart:uart_test
+bazelisk run @bazel-orfs//:yosys-check //flow/designs/asap7/uart:uart_final
 ```
 
 Same fundamental check, opposite direction: feeds **bazel's** netlist
@@ -365,8 +361,7 @@ target that `orfs_flow()` never instantiates, so a block macro has no
 `.gds` to forward and the parent's `ADDITIONAL_GDS` is empty. Wiring
 it needs `orfs_gds` + `orfs_macro` per block (and a klayout binary),
 not a change to the abstract stage. Nothing gated on GDS today
-notices — `rules-base.json` has no GDS-derived rule, and
-`orfs_flow()` emits no top-level GDS either — but a consumer that
+notices — `orfs_flow()` emits no top-level GDS — but a consumer that
 does put an `orfs_gds` over a hierarchical parent gets a stream with
 hollow macro cells.
 

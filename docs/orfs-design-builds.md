@@ -79,7 +79,6 @@ and inspected from a bazel-orfs workspace, without an ORFS checkout.
 ```sh
 bazelisk run @orfs//flow/designs/asap7/gcd:gcd_synth gui_synth
 bazelisk run @orfs//flow/designs/asap7/gcd:gcd_final
-bazelisk test @orfs//flow/designs/asap7/gcd:gcd_test
 ```
 
 This works from a clone of bazel-orfs only. The `@orfs_designs` repository
@@ -182,9 +181,8 @@ in the test file.
 
 Four ORFS designs set `BLOCKS=` — `asap7/aes-block`,
 `asap7/riscv32i-mock-sram`, `gf180/uart-blocks`,
-`ihp-sg13g2/i2c-gpio-expander` — and all four are live in ORFS CI (each
-ships `rules-base.json`, and ORFS's metric-rebase commits move their
-numbers). `BLOCKS` itself is a make-only concept: `flow/Makefile` turns
+`ihp-sg13g2/i2c-gpio-expander` — and all four are live in ORFS CI.
+`BLOCKS` itself is a make-only concept: `flow/Makefile` turns
 it into per-block `generate_abstract` rules and appends the resulting
 `.lef`/`.lib` to `ADDITIONAL_LEFS`/`ADDITIONAL_LIBS`. It is not a flow
 variable — it has no `stages:` entry in `variables.yaml` — so

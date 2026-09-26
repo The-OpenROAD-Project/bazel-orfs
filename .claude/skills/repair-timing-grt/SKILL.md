@@ -58,9 +58,8 @@ same absolute improvement reads as 5% or 500% depending on the constraint.
 roughly invariant to the constraint (which is why it is comparable across
 arms at all), and a delta in it is a delta in what the design can run at.
 
-`check_pareto.py` already takes this position for its period axis —
-`clock - WNS`, never WNS itself, with the reasoning written out there — and
-`test/pre_route_pessimism/stage_ladder.tcl` reads it the same way.
+`test/pre_route_pessimism/stage_ladder.tcl` takes this position:
+`clock - WNS`, never WNS itself.
 
 Two corollaries when the arms are repair settings:
 

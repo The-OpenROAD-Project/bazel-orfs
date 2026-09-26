@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 #
-# Test whether a failing bazel `_test` is a yosys-environment false
-# positive or a real bazel-vs-make OpenROAD divergence.
+# Test whether a bazel-vs-make difference in a design's results is
+# yosys-environment drift or a real bazel-vs-make OpenROAD divergence.
 #
-# Usage: bazelisk run //:yosys-check //flow/designs/<plat>/<design>:<n>_test
+# Usage: bazelisk run //:yosys-check //flow/designs/<plat>/<design>:<n>_final
 #
 # Yosys is sensitive to its build environment (abc version, cxxopts
 # version, compile flags), so bazel-built yosys and make-built yosys
 # produce different `1_2_yosys.v` for the same RTL.  Different netlists
-# then push QoR metrics around enough to break rules-base.json
-# thresholds even when OpenROAD is behaving identically.  This wrapper
+# then push QoR metrics around even when OpenROAD is behaving
+# identically.  This wrapper
 # feeds bazel's pre-built netlist into a fresh make-flow run (via
 # SYNTH_NETLIST_FILES) and SHA-compares .odb at every stage:
 #
@@ -20,7 +20,7 @@ set -e -u -o pipefail
 
 if [[ $# -ne 1 ]]; then
     echo "usage: bazelisk run //:yosys-check <test-label>" >&2
-    echo "       e.g.  bazelisk run //:yosys-check //flow/designs/asap7/uart:uart_test" >&2
+    echo "       e.g.  bazelisk run //:yosys-check //flow/designs/asap7/uart:uart_final" >&2
     exit 2
 fi
 
@@ -28,21 +28,21 @@ cd "${BUILD_WORKSPACE_DIRECTORY:?must be invoked via bazelisk run}"
 
 LABEL="$1"
 
-# Parse //flow/designs/<plat>/<design>:<name>_test
+# Parse //flow/designs/<plat>/<design>:<name>_final
 case "$LABEL" in
-    //flow/designs/*/*:*_test) ;;
+    //flow/designs/*/*:*_final) ;;
     *)
-        echo "yosys-check: expected //flow/designs/<plat>/<design>:<name>_test, got $LABEL" >&2
+        echo "yosys-check: expected //flow/designs/<plat>/<design>:<name>_final, got $LABEL" >&2
         exit 2
         ;;
 esac
 
 PKG="${LABEL#//}"; PKG="${PKG%:*}"      # flow/designs/asap7/uart
-NAME="${LABEL##*:}"                     # uart_test
+NAME="${LABEL##*:}"                     # uart_final
 DESIGN_DIR="${PKG#flow/designs/}"       # asap7/uart
 PLAT="${DESIGN_DIR%%/*}"                # asap7
 DESIGN="${DESIGN_DIR#*/}"               # uart
-SYNTH_TARGET="//$PKG:${NAME%_test}_synth"
+SYNTH_TARGET="//$PKG:${NAME%_final}_synth"
 
 # BLOCKS= designs don't pass clean bazel-vs-make comparisons because
 # bazel-orfs's hierarchical-block plumbing differs from make's
@@ -107,16 +107,15 @@ BAZEL_NETLIST="$(mktemp --suffix=-1_2_yosys.v)"
 trap 'rm -f "$BAZEL_NETLIST"' EXIT
 cp --no-preserve=mode "$BAZEL_NETLIST_RO" "$BAZEL_NETLIST"
 
-echo "==> make clean_all + metadata with bazel netlist (SYNTH_NETLIST_FILES)"
-# Run make in a subshell that tolerates non-zero exit codes — metadata-check
-# may fail on QoR thresholds even when the .odb stages are bit-identical to
-# bazel.  We only care about SHA equivalence; the QoR comparison is bazel's
-# `_test` job, and the whole point of yosys-check is to look past that.
+echo "==> make clean_all + finish with bazel netlist (SYNTH_NETLIST_FILES)"
+# Run make in a subshell that tolerates non-zero exit codes: only the
+# per-stage .odb SHAs are compared, and a stage that fails shows up as
+# DIFFER or skip in the table below.
 ( cd flow \
   && make clean_all DESIGN_CONFIG="designs/$PLAT/$DESIGN/config.mk" ) || true
 ( cd flow \
-  && make metadata DESIGN_CONFIG="designs/$PLAT/$DESIGN/config.mk" \
-                   SYNTH_NETLIST_FILES="$BAZEL_NETLIST" ) || true
+  && make finish DESIGN_CONFIG="designs/$PLAT/$DESIGN/config.mk" \
+                 SYNTH_NETLIST_FILES="$BAZEL_NETLIST" ) || true
 
 echo ""
 echo "==> .odb SHA matrix (bazel vs make, same netlist)"
@@ -139,8 +138,8 @@ done
 
 echo ""
 if [[ $all_match -eq 1 ]]; then
-    echo "yosys-check: all stages MATCH -> bazel _test failure (if any) is a"
-    echo "             yosys-environment false positive; OpenROAD is deterministic."
+    echo "yosys-check: all stages MATCH -> a bazel-vs-make difference (if any) is"
+    echo "             yosys-environment drift; OpenROAD is deterministic."
     exit 0
 else
     echo "yosys-check: some stages DIFFER -> bazel-vs-make OpenROAD divergence."

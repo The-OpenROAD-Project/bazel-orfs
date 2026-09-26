@@ -4,12 +4,12 @@
 # netlist into a fresh bazel run and SHA-compares the resulting .odb at
 # every stage against make's own .odb.  When MATCH, the bazel-test
 # build of OpenROAD is bit-identical to tools/install OpenROAD given
-# the same starting netlist — a one-command proof that any bazel
-# `_test` QoR failure on this design is yosys-environment drift, not a
+# the same starting netlist — a one-command proof that any bazel-vs-make
+# QoR difference on this design is yosys-environment drift, not a
 # bazel-orfs / OpenROAD bug.
 #
 # Usage:
-#   bazelisk run //:make-yosys-netlist //flow/designs/<plat>/<design>:<n>_test
+#   bazelisk run //:make-yosys-netlist //flow/designs/<plat>/<design>:<n>_final
 #
 # Output: a 7-row × 3-column SHA table covering 1_synth.odb through
 # 6_final.odb.  Two comparison columns:
@@ -19,8 +19,8 @@
 set -e -u -o pipefail
 
 if [[ $# -ne 1 ]]; then
-    echo "usage: bazelisk run //:make-yosys-netlist <test-label>" >&2
-    echo "       e.g.  bazelisk run //:make-yosys-netlist //flow/designs/asap7/jpeg_lvt:jpeg_encoder_test" >&2
+    echo "usage: bazelisk run //:make-yosys-netlist <final-label>" >&2
+    echo "       e.g.  bazelisk run //:make-yosys-netlist //flow/designs/asap7/jpeg_lvt:jpeg_encoder_final" >&2
     exit 2
 fi
 
@@ -29,9 +29,9 @@ cd "${BUILD_WORKSPACE_DIRECTORY:?must be invoked via bazelisk run}"
 LABEL="$1"
 
 case "$LABEL" in
-    //flow/designs/*/*:*_test) ;;
+    //flow/designs/*/*:*_final) ;;
     *)
-        echo "make-yosys-netlist: expected //flow/designs/<plat>/<design>:<name>_test, got $LABEL" >&2
+        echo "make-yosys-netlist: expected //flow/designs/<plat>/<design>:<name>_final, got $LABEL" >&2
         exit 2
         ;;
 esac
@@ -41,7 +41,7 @@ NAME="${LABEL##*:}"
 DESIGN_DIR="${PKG#flow/designs/}"
 PLAT="${DESIGN_DIR%%/*}"
 DESIGN="${DESIGN_DIR#*/}"
-BASE="${NAME%_test}"
+BASE="${NAME%_final}"
 SYNTH_TARGET="//$PKG:${BASE}_synth"
 FINAL_TARGET="//$PKG:${BASE}_final"
 
@@ -157,9 +157,9 @@ echo ""
 if [[ $all_overlay_match -eq 1 ]]; then
     echo "make-yosys-netlist: every stage MATCHes in the 'bazel-with-make-netlist'"
     echo "  column -> bazel-test OpenROAD is bit-identical to tools/install"
-    echo "  OpenROAD given the same yosys netlist.  Any bazel _test QoR failure"
-    echo "  on this design is yosys-environment drift, not a bazel-orfs or"
-    echo "  OpenROAD bug."
+    echo "  OpenROAD given the same yosys netlist.  Any bazel-vs-make QoR"
+    echo "  difference on this design is yosys-environment drift, not a"
+    echo "  bazel-orfs or OpenROAD bug."
     exit 0
 else
     echo "make-yosys-netlist: some stages DIFFER even with the same netlist ->"

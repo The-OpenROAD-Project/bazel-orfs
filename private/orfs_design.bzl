@@ -100,8 +100,8 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
             package-private, which is right for a design consumed only
             within its own repository. A consumer that drives designs from
             another module needs them visible: command-line targets ignore
-            visibility, but a dependency edge -- a test_suite collecting a
-            design's <design>_test, say -- does not.
+            visibility, but a dependency edge -- a build_test over a
+            design's <design>_final, say -- does not.
         local_arguments: List of variable names that are only used for
             $(VAR) expansion within the same config.mk and are not read
             by ORFS or by any user .tcl/.mk (e.g. VERILOG_FILES_BLACKBOX,
@@ -208,13 +208,9 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
     design = key[len(platform) + 1:] if key.startswith(platform + "/") else key
     sources = _convert_sources(config["sources"], pkg)
 
-    # Auto-detect rules-base.json if present in the package
-    if "RULES_JSON" not in sources and native.glob(["rules-base.json"], allow_empty = True):
-        sources["RULES_JSON"] = [":rules-base.json"]
-
-    # Designs not tested in CI get tags = ["manual"] so they are excluded
-    # from wildcard builds (bazel build //...) but can still be built explicitly.
-    tags = [] if config.get("ci", False) else ["manual"]
+    # tags = ["manual"] keeps ORFS's designs out of wildcard builds
+    # (bazel build //...); each can still be built explicitly.
+    tags = ["manual"]
 
     # Filter verilog_files: skip unresolved Make variables and invalid labels
     verilog_files = _filter_verilog_files(

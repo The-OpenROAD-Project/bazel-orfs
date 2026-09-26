@@ -248,8 +248,8 @@ def design(
             re-runs synthesis too.
         visibility: visibility of the generated flow targets. Public by
             default: a design package exists to be built, and a consumer
-            in another module cannot collect <design>_test into a
-            test_suite without it. Command-line targets ignore visibility,
+            in another module cannot put <design>_final under a
+            build_test without it. Command-line targets ignore visibility,
             so this only matters for dependency edges.
         extra: optional callable forwarded to orfs_design(); invoked with
             the fully-processed design data so a package can declare

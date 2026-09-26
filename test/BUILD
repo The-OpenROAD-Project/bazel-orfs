@@ -368,34 +368,6 @@ build_test(
     targets = [":lb_32x128_user_args_floorplan"],
 )
 
-# The third companion with no user_stages attribute is orfs_update, and
-# a mock_area flow never reaches it: the update branch needs a full flow
-# with a RULES_JSON and no mock. Loading this target is the test; it is
-# never built. Without the strip in _strip_tool_kwargs this fails with
-# "no such attribute 'user_stages' in 'orfs_update' rule", which is how
-# it reached every design that had a RULES_JSON.
-#
-# test_kwargs carries the manual tag because the QoR test target is the
-# one thing a RULES_JSON flow declares that tags= does not reach: the
-# flow clears the tags for it on purpose (`kwargs | {"tags": []} |
-# test_kwargs`), so that a design's QoR gate runs even when the design
-# itself is manual. Here that turned a load-only fixture into a full
-# PnR run in CI, checked against a rules file written for another
-# design -- "Value not found for placeopt__design__instance__area".
-# test_kwargs is applied last, so it is the one way to say no.
-# buildifier: disable=duplicated-name
-orfs_flow(
-    name = "lb_32x128",
-    arguments = LB_ARGS,
-    sources = LB_SOURCES | {"RULES_JSON": [":rules-base.json"]},
-    tags = ["manual"],
-    test_kwargs = {"tags": ["manual"]},
-    user_arguments = {"USER_PROJECT_KNOB": "42"},
-    user_stages = {"USER_PROJECT_KNOB": ["floorplan"]},
-    variant = "update_user_stages",
-    verilog_files = LB_VERILOG_FILES,
-)
-
 # user_stages next to a mock_area: the mocked variant's companions
 # (orfs_arguments for the mock area, orfs_macro for the abstract) have no
 # user_stages attribute, so a flow with both used to fail at analysis with
@@ -849,29 +821,13 @@ py_test(
     main = "orfs_design_builds_test.py",
 )
 
-# ORFS tests we regression-test here, enumerated deliberately.
-#
-# `...` expands to the main repository only, so an @orfs test is invisible
-# to `bazelisk test ...`. A test_suite is the idiomatic bridge: `...`
-# expands suites into their members, so naming a test here is enough and
-# CI needs no separate target list.
-#
-# This is a curated list, not "every ORFS test". ORFS is an immutable
-# store of reference designs, scripts, PDKs and metadata; the knowledge of
-# which of its tests are worth running under bazel lives here, and grows
-# as features earn regression coverage.
-#
-# Adding one: the test must be a real target in @orfs and visible --
-# test_suite membership is a dependency edge, unlike a command-line
-# target, which is why design() makes flow targets public. Prefer the
-# smallest design that exercises the feature; a full flow per entry is the
-# cost.
-#
-#   asap7/gcd:gcd_test -- the smallest CI design (grt in ~50s). Runs the
-#       flow and checks the design's own rules file, so it covers
-#       everything from the module boundary down to metadata generation.
 # ORFS designs whose flow this repository regression-tests, enumerated
 # deliberately rather than swept up.
+#
+# `...` expands to the main repository only, so an @orfs target is
+# invisible to `bazelisk test ...`. A build_test here is the bridge: it
+# is a main-repository test whose dependency is the @orfs flow, so CI
+# needs no separate target list.
 #
 # These answer a different question from the "Load @orfs design packages"
 # CI step, and the split is intentional. That step loads every design
@@ -882,48 +838,43 @@ py_test(
 # not an incident, because these designs exist for experiments rather
 # than for tapeouts.
 #
-# So the list stays small and asap7-only, chosen for runtime rather than
-# coverage. Each `<design>_test` runs the flow and compares metrics
-# against the design's own rules-base.json.
+# Each asks whether the flow still runs to the end; none checks QoR.
+# The list stays small and asap7-only, chosen for runtime rather than
+# coverage. Add one only when a feature earns regression coverage,
+# prefer the smallest design that exercises it, and be willing to drop
+# one that turns out slow. See docs/plans/orfs-as-file-store.md.
 #
-# Add one only when a feature earns regression coverage, and be willing
-# to drop one that turns out slow or noisy -- broad design coverage is
-# explicitly not the deal. See docs/plans/orfs-as-file-store.md.
-ORFS_TESTS = [
+# Adding one: the target must be a real target in @orfs and visible --
+# a build_test's dependency is an edge, unlike a command-line target,
+# which is why design() makes flow targets public.
+ORFS_FLOWS = {
     # The smallest design in the flow, the one every example in the docs
     # uses, and SYNTH_USE_SYN=1 -- so it covers the OpenROAD-SYN path.
-    "@orfs//flow/designs/asap7/gcd:gcd_test",
+    "gcd": "@orfs//flow/designs/asap7/gcd:gcd_final",
     # SYNTH_HDL_FRONTEND=slang, so this is what covers the yosys-slang
     # plugin path that orfs.default(yosys_plugins=...) wires up. Also
     # SYNTH_BLACKBOXES and VERILOG_TOP_PARAMS.
-    "@orfs//flow/designs/asap7/uart:uart_test",
+    "uart": "@orfs//flow/designs/asap7/uart:uart_final",
+    # OPENROAD_HIERARCHICAL=1, SWAP_ARITH_OPERATORS=1, and a config.mk
+    # that `include`s designs/src/mock-alu/defaults.mk -- an included
+    # makefile is a shape config_mk_parser has to resolve.
+    "mock_alu": "@orfs//flow/designs/asap7/mock-alu:MockAlu_final",
+}
+
+[
+    build_test(
+        name = "orfs_{}_build_test".format(name),
+        targets = [target],
+    )
+    for name, target in ORFS_FLOWS.items()
 ]
 
 test_suite(
     name = "orfs_design_tests",
-    tests = ORFS_TESTS + [":orfs_mock_alu_build_test"],
-)
-
-# mock-alu covers what neither design above reaches:
-# OPENROAD_HIERARCHICAL=1, SWAP_ARITH_OPERATORS=1, and a config.mk that
-# `include`s designs/src/mock-alu/defaults.mk -- an included makefile is
-# a shape config_mk_parser has to resolve.
-#
-# It is a build_test rather than a member of ORFS_TESTS on purpose.
-# `<design>_test` runs the flow *and* compares metrics against the
-# design's rules-base.json, and at the current pin mock-alu misses one
-# of 27 bounds by 0.9% -- finish__timing__setup__tns -18663.9 against
-# -18500 -- with 0 DRCs and every other check passing. That is QoR drift
-# from the OpenROAD bump measured against bounds tuned at the old pin,
-# in a file that belongs to ORFS.
-#
-# Gating our CI on it would mean red on every tool bump until somebody
-# re-tunes someone else's file. A build_test asks the question we
-# actually want asked of this design -- does the flow still run -- and
-# leaves the metric bounds to the repository that owns them.
-build_test(
-    name = "orfs_mock_alu_build_test",
-    targets = ["@orfs//flow/designs/asap7/mock-alu:MockAlu_final"],
+    tests = [
+        ":orfs_{}_build_test".format(name)
+        for name in ORFS_FLOWS
+    ],
 )
 
 keep_modules_test_suite(name = "keep_modules_test")
