@@ -198,6 +198,19 @@ class RedactTest(unittest.TestCase):
 
     def test_plain_options_kept(self):
         self.assertEqual(ce.redact_option("--jobs=2"), "--jobs=2")
+        # an environment's variable stays, its value goes
+        self.assertEqual(
+            ce.redact_option("--repo_env=CLOUDSDK_CORE_ACCOUNT=bot@corp.example.com"),
+            "--repo_env=CLOUDSDK_CORE_ACCOUNT=<redacted>",
+        )
+        self.assertEqual(
+            ce.redact_option("--action_env=PATH=/usr/bin"), "--action_env=PATH=<redacted>"
+        )
+        # any other value that names an address is dropped whole
+        self.assertEqual(
+            ce.redact_option("--some_flag=user@corp.example.com"), "--some_flag=<redacted>"
+        )
+        ce.check_public([ce.redact_option("--repo_env=A=b@corp.example.com")])
         self.assertEqual(ce.redact_option("--keep_going"), "--keep_going")
 
     def test_announce_rc(self):
