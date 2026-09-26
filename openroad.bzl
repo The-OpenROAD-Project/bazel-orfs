@@ -25,7 +25,6 @@ load(
     _orfs_place = "orfs_place",
     _orfs_route = "orfs_route",
     _orfs_synth = "orfs_synth",
-    _orfs_update = "orfs_update",
 )
 load(
     "//private:odb_debug.bzl",
@@ -50,14 +49,12 @@ load(
     _GENERATE_METADATA_STAGE_IMPL = "GENERATE_METADATA_STAGE_IMPL",
     _STAGE_IMPLS = "STAGE_IMPLS",
     _TEST_STAGE_IMPL = "TEST_STAGE_IMPL",
-    _UPDATE_RULES_IMPL = "UPDATE_RULES_IMPL",
     _orfs_arguments = "orfs_arguments",
     _orfs_macro = "orfs_macro",
     _orfs_pdk = "orfs_pdk",
     _orfs_run = "orfs_run",
     _orfs_run_executable = "orfs_run_executable",
     _orfs_test = "orfs_test",
-    _orfs_update_rules = "orfs_update_rules",
     _orfs_variables = "orfs_variables",
 )
 load(
@@ -119,13 +116,11 @@ orfs_route = _orfs_route
 orfs_final = _orfs_final
 orfs_gds = _orfs_gds
 orfs_generate_metadata = _orfs_generate_metadata
-orfs_update_rules = _orfs_update_rules
 orfs_abstract = _orfs_abstract
 orfs_arguments = _orfs_arguments
 STAGE_IMPLS = _STAGE_IMPLS
 FINAL_STAGE_IMPL = _FINAL_STAGE_IMPL
 GENERATE_METADATA_STAGE_IMPL = _GENERATE_METADATA_STAGE_IMPL
-UPDATE_RULES_IMPL = _UPDATE_RULES_IMPL
 TEST_STAGE_IMPL = _TEST_STAGE_IMPL
 ABSTRACT_IMPL = _ABSTRACT_IMPL
 
@@ -135,7 +130,6 @@ NUM_CPUS = _NUM_CPUS
 # Flow macros
 orfs_flow = _orfs_flow
 orfs_synth = _orfs_synth
-orfs_update = _orfs_update
 
 # Design config macros
 orfs_design = _orfs_design

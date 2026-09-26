@@ -64,7 +64,7 @@ build_test(
 # CTS with and without insertion-delay balancing, on the same placement:
 # the delay-buffer count the parent's 49 736 came from (take 23,
 # 2026-09-22) was balancing to blocks abstracted at place; at cts there is
-# nothing to pad.
+# at most one buffer of residual to pad.
 py_test(
     name = "cts_delay_buffers_test",
     srcs = ["cts_delay_buffers_test.py"],

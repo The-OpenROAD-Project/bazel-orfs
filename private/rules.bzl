@@ -885,7 +885,6 @@ def _test_impl(ctx):
 
     if ctx.attr.lint:
         # Lint mode: test just verifies the dependency chain builds.
-        # No metadata-check since mock-openroad doesn't produce real metrics.
         ctx.actions.write(
             output = test,
             is_executable = True,
@@ -971,8 +970,7 @@ _orfs_rule_test = rule(
             flow_attrs() |
             {
                 "cmd": attr.string(
-                    mandatory = False,
-                    default = "metadata-check",
+                    mandatory = True,
                 ),
                 "script": attr.label(
                     mandatory = False,
@@ -2945,9 +2943,9 @@ def _make_impl(
         info[file.extension] = file
 
     all_outputs = results + objects + logs + reports + jsons + drcs + substep_odbs
-    if ctx.attr.lint and stage in ("generate_metadata", "update_rules"):
-        # Lint mode: metadata/update parse real stage outputs that are stubs
-        # in lint mode, so stub their outputs instead of running Make.
+    if ctx.attr.lint and stage == "generate_metadata":
+        # Lint mode: metadata parses real stage outputs that are stubs in
+        # lint mode, so stub its outputs instead of running Make.
         json_set = {f: True for f in jsons + reports}
         for f in all_outputs:
             ctx.actions.write(output = f, content = "{}" if f in json_set else "")
@@ -2983,7 +2981,7 @@ def _make_impl(
         # the jsons are supposed to be byte-stable, OpenROAD is not
         # trusted on that: consumers state the dependency, nobody gets
         # fed it for convenience.
-        include_logging = stage in ("generate_metadata", "update_rules")
+        include_logging = stage == "generate_metadata"
         ctx.actions.run_shell(
             arguments = ["--file", ctx.file._makefile.path] + steps,
             command = " && ".join(commands),
@@ -3553,24 +3551,6 @@ orfs_generate_metadata_rule = rule(
     executable = True,
 )
 
-orfs_update_rules = rule(
-    implementation = lambda ctx: _make_impl(
-        ctx = ctx,
-        stage = "update_rules",
-        steps = ["do-update_rules"],
-        object_names = [],
-        log_names = [],
-        json_names = [],
-        report_names = ["rules.json"],
-        result_names = [],
-    ),
-    attrs = openroad_attrs() | renamed_inputs_attr() | {
-        "_stage": attr.string(default = "update_rules"),
-    },
-    provides = flow_provides(),
-    executable = True,
-)
-
 orfs_abstract_rule = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
@@ -3618,7 +3598,6 @@ GENERATE_METADATA_STAGE_IMPL = struct(
     stage = "generate_metadata",
     impl = orfs_generate_metadata_rule,
 )
-UPDATE_RULES_IMPL = struct(stage = "update_rules", impl = orfs_update_rules)
 
 TEST_STAGE_IMPL = struct(stage = "test", impl = _orfs_test_stage)
 

@@ -312,7 +312,7 @@ def source_inputs(ctx, use_pre_layout = None, gds = True, logging = True):
             GDS-emitting make steps read them (do-gds, do-final).
         logging: whether the src chain's accumulated metrics .json and
             report files are staged. Only genMetrics.py reads them
-            (generate_metadata / update_rules); nothing in the PnR make
+            (generate_metadata); nothing in the PnR make
             steps opens an upstream stage's .json or .rpt. They are
             SUPPOSED to be byte-stable, but OpenROAD is not trusted on
             that — consumers declare the dependency instead of being fed

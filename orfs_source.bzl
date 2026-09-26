@@ -53,10 +53,6 @@ ORFS_BAZEL_PLATFORMS = [
 ORFS_PATCHES = [
     Label("//patches:0037-orfs-single-writer-1_synth-sdc.patch"),
     Label("//patches:0039-orfs-slang-plugin-fallback.patch"),
-    # flow.sh spells out run_command.py by hand instead of going through
-    # RUN_CMD, so an override reaches every logged target except the
-    # stage logs. --@bazel-orfs//:log_timestamps overrides RUN_CMD.
-    Label("//patches:0048-orfs-flow-sh-honor-run-cmd.patch"),
     # SET_RC_TCL as the per-design RC file: read it (after
     # LAYER_PARASITICS_FILE, before the platform setRC.tcl) in load.tcl,
     # open.tcl and detail_place.tcl -- the last of which read neither and
@@ -77,28 +73,6 @@ ORFS_PATCHES = [
     Label("//patches:0056-orfs-wire-load-open.patch"),
     Label("//patches:0057-orfs-wire-load-variables-yaml.patch"),
     Label("//patches:0058-orfs-wire-load-variables-json.patch"),
-    # write_rc has no do- sibling in flow/util/utils.mk, so a caller doing
-    # its own dependency checking cannot ask for just the operation; the
-    # do-write_rc target //:rc.bzl drives. The flow/util/BUILD side of the
-    # RC calibration (the *.tcl glob and the four script exports) lives in
-    # _GENERATE_FLOW_BUILD below, since ORFS no longer ships that file.
-    # Not upstreamed -- retire at the bump onto an ORFS that carries it.
-    Label("//patches:0059-orfs-do-write-rc.patch"),
-    # AUTO_MEMORIES detection runs before gen_memories.py writes
-    # results/memories/blackboxes.txt, but reads its sources through a
-    # preamble that hard-errors when that file is absent -- so the step
-    # that must run first cannot run at all. Clears AUTO_MEMORIES for the
-    # detection process only.
-    Label("//patches:0060-orfs-extract-memories-no-blackboxes.patch"),
-    # `proc` in extract_memories.tcl reaches Tcl's procedure-definition
-    # keyword instead of yosys's pass, because yosys -import cannot
-    # shadow a Tcl built-in. Qualifies it as `yosys proc`.
-    Label("//patches:0061-orfs-extract-memories-yosys-proc.patch"),
-    # tinyRocket's tag_array override describes a memory detection never
-    # finds (no inferred $mem_v2 in the wrapper), so per the .memories
-    # contract it must carry its own pins and geometry. It carried
-    # neither. Read off the module boundary.
-    Label("//patches:0062-orfs-tinyrocket-tag-array-memories.patch"),
     # AUTO_MEMORIES calls FakeRAM as `run.py --orfs_asap7_backend`. ORFS
     # vendors FakeRAM at tools/FakeRAM2.0 and ships the patch that adds
     # that backend, but the MODULE.bazel that used to apply it (to the
@@ -107,14 +81,7 @@ ORFS_PATCHES = [
     Label("//patches:0063-orfs-fakeram-asap7-backend.patch"),
     # tinyRocket has two memory wrappers around undefined _ext modules,
     # and ORFS describes only one, so hierarchy -check dies on the other.
-    # Goes with 0062; either is useless without it.
     Label("//patches:0064-orfs-tinyrocket-data-arrays-memories.patch"),
-    # genElapsedTime.py read the timing line positionally, so any prefix
-    # on the log line -- the per-line stamp //:log_timestamps.py adds,
-    # which 0048 routes into every stage log -- dropped the whole
-    # per-stage summary block, sha1sum column included, exit status 0.
-    # Matches the format with a regex instead. Prerequisite of 0048:
-    # upstream them together or not at all.
     # AUTO_MEMORIES converted a memory inferred inside a larger module,
     # generating a macro that nothing could instantiate -- blackboxing
     # needs a module of that name and there is none -- while
@@ -125,7 +92,6 @@ ORFS_PATCHES = [
     # the reason says how to get one.
     # Not upstreamed -- retire at a bump onto an ORFS that carries it.
     Label("//patches:0066-orfs-auto-memories-module-only.patch"),
-    Label("//patches:0065-orfs-genelapsedtime-stamped-log.patch"),
     # The ASAP7 FakeRAM backend hardcodes column_mux_factor 1, so a
     # generated array is `rows` cells tall with nothing folding it: an
     # 8192x32 memory comes out 4.18 x 2654 um, an aspect ratio of 635:1
@@ -148,15 +114,6 @@ ORFS_PATCHES = [
     # cells of their own type.
     # Not upstreamed -- retire at a bump onto an ORFS with such a hook.
     Label("//patches:0068-orfs-synth-techmap-hook.patch"),
-    # openroad reads a flow script with sta::include_file, which reads it
-    # one command at a time and reports a failure as a single line with
-    # the Tcl stack trace discarded -- and an unbalanced brace as
-    # "incomplete command at end of file", with no line at all. Passing
-    # -tcl_source reads it with Tcl's source instead, so a failure names
-    # each proc and the failing line. The flag itself comes from the
-    # openroad and OpenSTA patches carried alongside this one.
-    # Not upstreamed -- retire at a bump onto an ORFS that passes it.
-    Label("//patches:0069-orfs-openroad-args-tcl-source.patch"),
     # STRUCTURED_MEMORIES: a design lists register-file spec files, one
     # per module, and gen_memories.py runs tools/structured_gen for each
     # -- a placed standard-cell macro checked against the module's
@@ -174,14 +131,6 @@ ORFS_PATCHES = [
     # test in test/stages_filter_test.bzl keeps it that way at bumps.
     # Not upstreamed -- retire at a bump onto an ORFS that has them all.
     Label("//patches:0075-orfs-variables-stages-complete.patch"),
-    Label("//patches:0076-orfs-detail-placement-args-everywhere.patch"),
-    # riscv32i's dmem.v drives we_mem and mem_out from always @* blocks
-    # while declaring them as nets. yosys's Verilog frontend infers the
-    # variable; slang refuses it, and bazel-orfs synthesises every flow
-    # with slang. 0077 to 0079 are reserved for the patches in flight on
-    # the grt-harness study branch. Not upstreamed -- retire at a bump
-    # onto an ORFS whose riscv32i declares the two signals as variables.
-    Label("//patches:0080-orfs-riscv32i-dmem-procedural-regs.patch"),
     # With GPL_TIMING_DRIVEN and GPL_ROUTABILITY_DRIVEN both off, the place
     # stage runs one global placement with -place_ios instead of a
     # pins-blind solve, place_pins and a second solve. Not upstreamed --
