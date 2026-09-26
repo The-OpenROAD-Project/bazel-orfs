@@ -1,0 +1,450 @@
+# Written by tools/cache_evidence; see its docstring.
+target //test/coremark_joule/designs/asap7/xiangshan:XSTile_cts
+bazel 9.1.1
+commit 3b5d249769da6ed8cd110763762b23c13f983684 dirty 0
+tree eb1ceb30f248a1dc33345ffbeec278b100b3509c
+design_tree 7106f5d21d1fa3fc65a6ae843011522c02b73f57
+host Ubuntu 26.04 LTS; glibc 2.43; x86_64
+terminfo 461aa9991abe 44 files
+option --@rules_python//python/config_settings:bootstrap_impl=script
+option --cxxopt=-std=c++20
+option --experimental_disk_cache_gc_max_age=<redacted>
+option --experimental_disk_cache_gc_max_size=<redacted>
+option --experimental_isolated_extension_usages
+option --experimental_remote_cache_eviction_retries=<redacted>
+option --experimental_remote_downloader=<redacted>
+option --experimental_remote_downloader_local_fallback=<redacted>
+option --features=external_include_paths
+option --host_cxxopt=-std=c++20
+option --host_per_file_copt=.*external/.*@-w
+option --incompatible_default_to_explicit_init_py
+option --incompatible_disallow_empty_glob
+option --incompatible_strict_action_env
+option --isatty=0
+option --lockfile_mode=off
+option --per_file_copt=.*external/.*@-w
+option --remote_cache=<redacted>
+option --remote_cache_compression=true
+option --remote_timeout=<redacted>
+option --remote_upload_local_results=true
+option --terminal_columns=80
+spawns 11679 hit 11678 ran 1 miss 0 not_reached 0
+tool 281662b48c1b 1 k8-opt-exec:external/+http_archive+espresso
+tool 5e3e9c8127fb 1 k8-opt-exec:external/+http_archive+espresso/bin/espresso.runfiles
+tool 51eb8c954742 1 k8-opt-exec:external/+http_archive+xiangshan
+tool a509f21a064a 1 k8-opt-exec:external/+http_archive+xs_cache
+tool ce2491efa6a7 1 k8-opt-exec:external/+http_archive+xs_cde
+tool 102cc0d77469 1 k8-opt-exec:external/+http_archive+xs_hardfloat
+tool 0aedfb4c2428 3 k8-opt-exec:external/+http_archive+xs_rocket_chip
+tool 97c4026baa91 1 k8-opt-exec:external/+http_archive+xs_utility
+tool c4bf7287b322 1 k8-opt-exec:external/+orfs_repositories+gnumake
+tool 86f05aef036b 1 k8-opt-exec:external/+orfs_repositories+gnumake/make.runfiles
+tool 56003a8f544c 1 k8-opt-exec:external/+orfs_repositories+mock_klayout
+tool da58c8628adc 1 k8-opt-exec:external/+orfs_repositories+mock_klayout/klayout.runfiles
+tool 82e25241a11b 1 k8-opt-exec:external/abc+
+tool 5eb716529130 1 k8-opt-exec:external/abc+/abc_bin.runfiles
+tool a4166e4116b6 2 k8-opt-exec:external/openroad+
+tool 71370d9d6ac4 1 k8-opt-exec:external/openroad+/openroad.runfiles
+tool 97c71e32e7e5 1 k8-opt-exec:external/openroad+/src/sta/opensta.runfiles
+tool 1607a8b6d7bd 3 k8-opt-exec:external/rules_chisel++chisel+chisel_maven_internal
+tool 43e255f1ee50 3 k8-opt-exec:external/rules_jvm_external++maven+xs_maven
+tool 1465bcbda7a0 2 k8-opt-exec:external/rules_scala+
+tool 20c2a33b54e9 1 k8-opt-exec:external/rules_scala++scala_deps+io_bazel_rules_scala_scala_library_2_13_17
+tool aa5406ed5858 1 k8-opt-exec:external/rules_scala++scala_deps+io_bazel_rules_scala_scala_reflect_2_13_17
+tool 8792d4584e45 1 k8-opt-exec:external/rules_scala+/src/java/io/bazel/rulesscala/scalac/scalac.runfiles
+tool 7c49e26e21f9 1 k8-opt-exec:external/sv-elab+
+tool fb4f502b68f3 263 k8-opt-exec:external/yosys+
+tool ae1f9064a03f 1 k8-opt-exec:external/yosys+/yosys.runfiles
+tool 3eb2429afeb4 1 k8-opt-exec:pythonwrapper/_python3.venv/bin
+tool 49bdcba7ec6b 2 k8-opt-exec:pythonwrapper/_python3.venv/lib
+tool 5589939a40de 1 k8-opt-exec:pythonwrapper/_python3.venv/pyvenv.cfg
+tool c5c10af93800 1 k8-opt-exec:pythonwrapper/_python3_stage2_bootstrap.py
+tool 1705014c41cd 1 k8-opt-exec:pythonwrapper/python3
+tool e86295531a5c 1 k8-opt-exec:pythonwrapper/python3.build_data.txt
+tool e8850e8ef84d 1 k8-opt-exec:pythonwrapper/python3.runfiles
+tool 66e30d6d6f2a 4 k8-opt-exec:test/coremark_joule/xiangshan
+tool d951a63279df 1 k8-opt-exec:test/coremark_joule/xiangshan/generator.runfiles
+tool 0e69a830a36a 1 k8-opt-exec:tools/structured_gen/structured_gen
+input 07bba29ce22e synth_canonicalize_module.tcl
+input 0dcc0684c03e test/coremark_joule/xiangshan/src/XSCoreGenerator.scala
+input 1e29afba349d test/coremark_joule/designs/asap7/xiangshan/IntRegFile.regfile
+input 1e6ed1d168c8 test/coremark_joule/designs/asap7/xiangshan/plan/CoupledL2_pins.tcl
+input 240f7ff31cca test/coremark_joule/designs/asap7/xiangshan/FtqMetaQueueCommit.regfile
+input 2f8eaf26f5e3 test/coremark_joule/designs/asap7/xiangshan/xs_icg.ys
+input 40b3b1d34f6f test/coremark_joule/designs/asap7/xiangshan/plan/VecRegionModule_pins.tcl
+input 45e0de676da3 test/coremark_joule/designs/asap7/xiangshan/FtqMetaQueueResolve.regfile
+input 48b674059b20 test/coremark_joule/flow/macro_anneal/dump_macros.tcl
+input 4a75e0498598 test/coremark_joule/designs/asap7/xiangshan/RenameBufferFile.regfile
+input 51669ecf5d2a test/coremark_joule/designs/asap7/xiangshan/xs_icg_map.v
+input 53166b46211b test/coremark_joule/designs/asap7/xiangshan/FpRegFilePart0.regfile
+input 57c98cc96dce test/coremark_joule/designs/asap7/xiangshan/plan/place_macros.tcl
+input 5aa871a11363 pythonwrapper/python.py
+input 5b14837a90cb test/coremark_joule/designs/asap7/xiangshan/plan/Region_1_pins.tcl
+input 5b62c0463fc1 test/coremark_joule/designs/asap7/xiangshan/FpRegFilePart3.regfile
+input 6ff8106400a4 test/coremark_joule/designs/asap7/xiangshan/FpRegFilePart2.regfile
+input 7658ca4e6495 test/coremark_joule/designs/asap7/xiangshan/FpRegFilePart1.regfile
+input 7a2e214ca821 test/coremark_joule/designs/asap7/xiangshan/VfRegFile.regfile
+input 7d87d6e54764 test/coremark_joule/designs/asap7/xiangshan/FtqEntryQueue.regfile
+input 851d224e0d6f test/coremark_joule/designs/asap7/xiangshan/plan/netlists.txt
+input 878cdcc12ab9 test/coremark_joule/xiangshan/src/CoreMarkJouleSoC.scala
+input 8dfe570afcf4 test/coremark_joule/designs/asap7/xiangshan/constraints_800ps.sdc
+input 9aea895db3b4 test/coremark_joule/flow/macro_anneal/macro_anneal.py
+input 9bac6edd5a30 parallel_synth.mk
+input a126fa455f0b test/coremark_joule/designs/asap7/xiangshan/plan/Frontend_pins.tcl
+input ac111debbec4 test/coremark_joule/designs/asap7/xiangshan/anneal_in_flow.tcl
+input b4c0b79f20d9 synth_partition.sh
+input bad3372d13cc test/coremark_joule/designs/asap7/xiangshan/RobEntryFile.regfile
+input c1d2cbc68dc5 test/coremark_joule/xiangshan/resources/gitStatus
+input c6222b9c26d6 test/coremark_joule/designs/asap7/xiangshan/FtqMetaQueueRedirect.regfile
+input e63ce4398883 private/merge_arguments.py
+input ffac683e32c3 test/coremark_joule/designs/asap7/xiangshan/plan/MemBlock_pins.tcl
+spawn af0426ce59c5 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/pre_layout/7_abstract.mk args=65fa1cd7e510 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=d98f364413ed
+spawn ee3a3c627e44 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/pre_layout/7_abstract.mk args=c02d80796962 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=b0a33312eb95
+spawn 50e300e933cf hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/3_place.short.mk args=ea247db3d83e env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=0dab7dedc45b
+spawn 63edc7cf9e5e hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/2_floorplan.short.mk args=a28f7c3a7756 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=fb27bd12b489
+spawn b146ceddcec6 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/1_synth.short.mk args=a2b06b74c9e4 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=f42bb3db33e8
+spawn 5b3046106e89 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/4_cts.short.mk args=a6ad9831845b env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=f0491e54c61f
+spawn 96081db8e7fc hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/3_place.short.mk args=a756eb69a5aa env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=eca30c07aed8
+spawn 6110703684ab hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/2_floorplan.short.mk args=37addc466d81 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=d597d7c4fe57
+spawn 7509c5f82032 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/1_synth.short.mk args=b140b455cadd env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=bfa006103aac
+spawn 74e2b03c7feb hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/1_synth.short.mk args=0cf30cd78be6 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=27c960fc474f
+spawn a829ffa7969b hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/2_floorplan.short.mk args=4771071ae66e env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=9a6a482a8e10
+spawn 8c47675e51fa hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/3_place.short.mk args=9edb7da19056 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=b64d0776790d
+spawn 1ef3c5a3acfc hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/2_floorplan.mk args=a49767f91430 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=75bb9f41edbb
+spawn 365cd818c298 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/4_cts.short.mk args=02b5059c0200 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=add01de93a85
+spawn 2e236a7c7649 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/4_cts.short.mk args=44b7b36656ed env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=1252256ce9d4
+spawn d0daec42415d hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/1_synth.mk args=febb47129dc8 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=7c6178179cd5
+spawn 4a6a84f09a49 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/3_place.mk args=e37c7aa23b60 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=caeaa3bc177f
+spawn 54af4770b1d0 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/4_cts.mk args=4c16567e4808 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=a69ba5273375
+spawn a9ad06f0156f hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/4_cts.mk args=1ef787f1abd3 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=7808652b39b6
+spawn c5901404345a hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/3_place.short.mk args=ec197eace12d env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=8d6b80ceb2be
+spawn c518f3c5efe2 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/pre_layout/7_abstract.mk args=55e3e3c721a0 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=a22256658148
+spawn 9ff01773532e hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/3_place.mk args=8a39705cfc63 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=93bd9e074504
+spawn 6511e1c412a2 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/pre_layout/7_abstract.mk args=2c2aa3fa3b44 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=6b8ddb851819
+spawn 4ba3a982ce34 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/4_cts.short.mk args=ddde9a843c99 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=c5593487f613
+spawn 8452bbaf16ff hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/2_floorplan.short.mk args=f3cb8a2ce5f1 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=1881dc785173
+spawn e2ddea7487a6 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/2_floorplan.mk args=81dca7591873 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=1a74598b1007
+spawn 634519fdf1f1 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/1_synth.mk args=b0f0e79a926e env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=b13b1c0fca6f
+spawn 12fc1e606f35 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/pre_layout/7_abstract.mk args=773b09b7329e env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=bcfb39d6f33b
+spawn cb7df59dd843 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/7_abstract.mk args=3a6655aadcea env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=607c6706dc5e
+spawn 2962186972ba hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/1_synth.short.mk args=af3de29b13e0 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=e0ab669f1074
+spawn 4f4d5a03cbfa hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/3_place.mk args=e875f5737190 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=5f0afb1459f7
+spawn 900d53292011 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/3_place.short.mk args=4888a4686cf7 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=e9e940c611b2
+spawn 6791a2ae68f5 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/2_floorplan.mk args=5372e3a57bb8 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=8c8879924c51
+spawn 77c5a0add9c7 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/7_abstract.mk args=a11438d06f51 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=b9eaa049649b
+spawn 2c66efe0bbaf hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/2_floorplan.mk args=a0f8575033d4 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=affb775d105c
+spawn 5d508d330560 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/4_cts.mk args=acd20d08a3cc env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=eb70649249e7
+spawn 0c229969706e hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/7_abstract.mk args=06e3f4197112 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=7db961a498a8
+spawn 022bca3af0fb hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/1_synth.mk args=0d2543db4c0c env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=f3f4d6187566
+spawn 5d8028faadc7 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/3_place.mk args=b0f75e578d72 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=0ba6ab026a52
+spawn 8b3730157166 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/3_place.mk args=c06d1d278cd8 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=3e16ca79632c
+spawn 004d799e8588 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/4_cts.short.mk args=248b9cd47aa1 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=cca8a61a3395
+spawn dcb8df8f8ec0 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/4_cts.mk args=2a55a7cfc634 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=2eb9636e9e83
+spawn 8158daa7f289 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/2_floorplan.mk args=49219f0dc67b env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=87eb87e2b634
+spawn 4a9bc026f5d0 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/4_cts.short.mk args=377bfac6838c env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=257f0bd4b1f2
+spawn 24c7ecf3a9da hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/1_synth.mk args=2613205218c6 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=2307f662d90a
+spawn ed35023bb127 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/4_cts.mk args=16b33d84cf94 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=5fda4480ee32
+spawn d6d19bb0109c hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/3_place.short.mk args=52ff415137bd env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=1f87d9234b1b
+spawn b8cdb249e497 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/7_abstract.mk args=7c20db8e34e6 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=6b888e9433d0
+spawn c352b51c9d6c hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/4_cts.mk args=0d0bd30de58a env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=423e9150661c
+spawn 4baf646ab082 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/2_floorplan.short.mk args=a78d93a83ffa env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=4c30bd87f30f
+spawn ef5b66948101 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/1_synth.mk args=63fff5d802ba env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=5446ccd5e08c
+spawn 483873db05f6 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/2_floorplan.short.mk args=f240c9f64a0b env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=b54b3ce267f8
+spawn b19fa7cd7437 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/1_synth.short.mk args=78f28481e9fa env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=e8e1f163c17d
+spawn aa9b95bce0d2 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/3_place.mk args=4dc381cb0f2d env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=9150b3792201
+spawn bf296f114894 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/1_synth.short.mk args=1a5a516021da env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=ec9db4653b92
+spawn 3bdf30d8f63e hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/2_floorplan.mk args=ee4bcbbc5dd9 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=c2a5ddf2cfa9
+spawn 87b6edab104d hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/1_synth.mk args=989d538dde12 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=020fcd926ee7
+spawn 5aa825a70bbc hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/7_abstract.mk args=6aa771061ec2 env=e3b0c44298fc tools=428fc3fa7f62 sources=e3b0c44298fc design=123f0bddebbb
+spawn 10b0cbf35acd hit Scalac k8-opt-exec:test/coremark_joule/xiangshan/generator.diagnosticsproto args=512106a8f78e env=e3b0c44298fc tools=71c3687cdfd3 sources=d54eb5cb88c6 design=6029d3019df1
+spawn 55f067924946 hit Genrule k8-fastbuild:test/coremark_joule/xiangshan/xiangshan_fir.fir args=b2d0bb285821 env=56668bdfa7de tools=5a1ea2634669 sources=8c8fcba28b91 design=e3b0c44298fc
+spawn 252f61a1702b hit VerilogGeneration k8-fastbuild:test/coremark_joule/xiangshan/xiangshan_sv args=1c8d0279acaf env=e3b0c44298fc tools=e3b0c44298fc sources=222de9362056 design=5afe6dba990e
+spawn ce995e8327db hit CatVerilogFiles k8-fastbuild:test/coremark_joule/xiangshan/xiangshan_concat args=4dfbdc11a93b env=e3b0c44298fc tools=e3b0c44298fc sources=e3b0c44298fc design=3428b08a5cd8
+spawn dfc01adb0783 hit Genrule k8-fastbuild:test/coremark_joule/xiangshan/xiangshan_flat.sv args=d657de6c56cf env=56668bdfa7de tools=e3b0c44298fc sources=6374971f4dad design=acd42f9f9f68
+spawn 1b545f7e58f2 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/1_2_yosys.sdc args=6074416336eb env=baf529096368 tools=58f10561787e sources=b205d9329ef4 design=0a0ffd01eef0
+spawn 434ad34a5ba7 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/1_2_yosys.sdc args=6074416336eb env=d558f816b5d6 tools=58f10561787e sources=b205d9329ef4 design=a14c50eeab84
+spawn 613271b80fdf hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/clock_period.txt args=c836972e3800 env=c87daa718aae tools=33b0dc4e2c1f sources=010ed1e563fe design=836e34f70372
+spawn 7bca44e600a2 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/1_2_yosys.sdc args=6074416336eb env=91ef1753178d tools=58f10561787e sources=b205d9329ef4 design=5388da7ffd7c
+spawn 9701765925f5 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/clock_period.txt args=8354f3f6b9b0 env=3cf2ef9c1800 tools=33b0dc4e2c1f sources=010ed1e563fe design=a35931a9e5a4
+spawn 365de51d7a1b hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/clock_period.txt args=5d8ff790b03a env=c545b6f2108a tools=33b0dc4e2c1f sources=010ed1e563fe design=bed2d21eb11c
+spawn 3b301d42abfd hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/clock_period.txt args=024223e33d0d env=6a45fa5e6400 tools=33b0dc4e2c1f sources=010ed1e563fe design=1af4650f9589
+spawn 0b811c55b762 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/1_2_yosys.sdc args=6074416336eb env=1d93a7306c39 tools=58f10561787e sources=b205d9329ef4 design=86185acbed7d
+spawn 02f5b9872144 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/clock_period.txt args=317cbb7f0db3 env=3f899146ef59 tools=33b0dc4e2c1f sources=010ed1e563fe design=c074ac0c2423
+spawn 5106a61037b4 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/1_2_yosys.sdc args=6074416336eb env=ad39e57af92d tools=58f10561787e sources=b205d9329ef4 design=6d64c1cff56d
+spawn db001ad04c99 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/clock_period.txt args=e6bea4d5e14e env=882104fb1915 tools=33b0dc4e2c1f sources=010ed1e563fe design=5947c3535a8a
+spawn a0227f1c0c4c hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/1_2_yosys.sdc args=6074416336eb env=1dfb531c14a4 tools=58f10561787e sources=b205d9329ef4 design=bf7cdeb48908
+spawn f752ed7cc3a5 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/VecRegionModule/base/1_1_yosys_canonicalize.log args=06e8506d066e env=44628b54512d tools=1890d72c39cb sources=75a0ecbf9577 design=0583822aaa42
+spawn ed7c52d8de90 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/MemBlock/base/1_1_yosys_canonicalize.log args=1585de7bbde6 env=b039f96545fc tools=33b0dc4e2c1f sources=75a0ecbf9577 design=095748d19109
+spawn 6d12a8075d7f hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/CoupledL2/base/1_1_yosys_canonicalize.log args=9700865b3d4e env=dc8cbac52152 tools=33b0dc4e2c1f sources=75a0ecbf9577 design=435cd71d57e2
+spawn 039baec65724 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/Region_1/base/1_1_yosys_canonicalize.log args=c16e55b47f03 env=c441d907fbe3 tools=1890d72c39cb sources=75a0ecbf9577 design=d42fddbe1377
+spawn 91c0218700ee hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/Frontend/base/1_1_yosys_canonicalize.log args=41207838f6ea env=17bf7cf6745b tools=1890d72c39cb sources=75a0ecbf9577 design=722d335701c0
+spawn 097160269b35 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_VIMacU_canonical.name args=cb7fe6be328e env=a9b14a513291 tools=58f10561787e sources=b205d9329ef4 design=9a6f1af18cfd
+spawn c13f951b7acf hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_IssuePipeVialuVimacVmoveVfcvtVfma_canonical.name args=2ee60e89c450 env=da5e5f5b50e3 tools=58f10561787e sources=b205d9329ef4 design=9a6f1af18cfd
+spawn 20ffc5eb08e9 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_top.v args=ddc8e4dfa622 env=95f1e5d40f7f tools=58f10561787e sources=b205d9329ef4 design=a22a1e3d2021
+spawn 29a6e7968ab4 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/partition_ExeUnitImp_10_canonical.name args=00e787e189e4 env=b9fec60be1eb tools=58f10561787e sources=b205d9329ef4 design=8aba4393e201
+spawn 2bf3f0493749 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_VectorCvt_canonical.name args=2931b834d0ab env=5b405f62bdb5 tools=58f10561787e sources=b205d9329ef4 design=9a6f1af18cfd
+spawn d0b516ef137e hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_LoadQueueReplay_canonical.name args=7f3aef21c85f env=24e729f9a019 tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn 33d832ce9e3c hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_LLPTW_canonical.name args=d49a70b6b8cb env=76dd35911a51 tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn 281239b32a1f hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_Ifu_canonical.name args=cf238e64d38f env=d02b1cf2a92b tools=58f10561787e sources=b205d9329ef4 design=2894fa595987
+spawn b12814b7e1e8 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_IssueQueueVialuVfmaVfdivVidiv_canonical.name args=1a0aeb85644b env=26d1ee2ebb86 tools=58f10561787e sources=b205d9329ef4 design=9a6f1af18cfd
+spawn 71c676d86d58 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_MMIOBridge_canonical.name args=b6c36ed680fb env=39aa706efccd tools=58f10561787e sources=b205d9329ef4 design=a6e36cd4d34c
+spawn 5e5f7a5d27c9 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_IssueQueueVialuVfma_1_canonical.name args=42adc7446836 env=40154a739fd9 tools=58f10561787e sources=b205d9329ef4 design=9a6f1af18cfd
+spawn 8b1fee54b032 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_IssueQueueVialuVimacVmoveVfcvtVfma_canonical.name args=e4f90b793b17 env=c464c5241ce9 tools=58f10561787e sources=b205d9329ef4 design=9a6f1af18cfd
+spawn aeefc03b4b2d hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_VFDivWrapper_canonical.name args=d063c8934ace env=30f924b584c8 tools=58f10561787e sources=b205d9329ef4 design=9a6f1af18cfd
+spawn 08197bd7c07e hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_VIDiv_canonical.name args=6b4e65bba5e1 env=6c4357660c95 tools=58f10561787e sources=b205d9329ef4 design=9a6f1af18cfd
+spawn 99f031ab6786 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_top.v args=9515d4195bf1 env=055d27cf8463 tools=58f10561787e sources=b205d9329ef4 design=740ca2bbc6b4
+spawn dfd6a69e991e hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_IssueQueueVialuVfma_canonical.name args=e7b830b2f84c env=292b6c2e7dc7 tools=58f10561787e sources=b205d9329ef4 design=9a6f1af18cfd
+spawn bd6f2395e13f hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_IssuePipeVialuVfma_canonical.name args=de48070885e5 env=42f2c8ec1052 tools=58f10561787e sources=b205d9329ef4 design=9a6f1af18cfd
+spawn 32315f1a2671 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_IssuePipeVialuVfmaVfdivVidiv_canonical.name args=7993b31ffe91 env=60c252a637b8 tools=58f10561787e sources=b205d9329ef4 design=9a6f1af18cfd
+spawn 5c737f504595 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_IssuePipeVialuVfma_1_canonical.name args=9c0da3138db6 env=357b01ae52d8 tools=58f10561787e sources=b205d9329ef4 design=9a6f1af18cfd
+spawn 987cad187116 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_VFMacWrapper_canonical.name args=931fc6247ea3 env=10451e8c9e10 tools=58f10561787e sources=b205d9329ef4 design=9a6f1af18cfd
+spawn 58b977d6a22d hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_L1CohMetaArray_canonical.name args=bb8779ebded6 env=aaaa3a3c7cdc tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn b3b0411824a3 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/partition_ExeUnitImp_9_canonical.name args=d576edb7a893 env=b737bfe45a94 tools=58f10561787e sources=b205d9329ef4 design=8aba4393e201
+spawn 736bbb763ac7 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_4.v args=9489dd056264 env=c944fc5182b1 tools=58f10561787e sources=b205d9329ef4 design=bc9cca40c133
+spawn b2245a83ba13 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_8.v args=7d6b7a3f6b22 env=01c1783bc765 tools=58f10561787e sources=b205d9329ef4 design=58e2d36d94b9
+spawn f73eac2a4486 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_3.v args=5961e29e5cf7 env=90910b212f6c tools=58f10561787e sources=b205d9329ef4 design=361d019e16cd
+spawn 3ace0b945488 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_ResolveQueue_canonical.name args=23a2262f9b4b env=50adf3550432 tools=58f10561787e sources=b205d9329ef4 design=2894fa595987
+spawn 6093baf933b1 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_12.v args=7c779021fa11 env=1d1c69388ad7 tools=58f10561787e sources=b205d9329ef4 design=8ae90211ba7a
+spawn 7749ce077023 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_SinkC_canonical.name args=76e8b79e7f2f env=2f820ef76671 tools=58f10561787e sources=b205d9329ef4 design=a6e36cd4d34c
+spawn faa17364a80f hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_26.v args=1a0b7ff3c476 env=ee85f0ab1640 tools=58f10561787e sources=b205d9329ef4 design=9fe6a6f78d00
+spawn beab580f8c45 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_0.v args=338792bac23a env=75153bb3fca4 tools=58f10561787e sources=b205d9329ef4 design=2c60f51e2a20
+spawn 188c2312e99b hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_1.v args=60472a6e8cfe env=ebf00c11a7fd tools=58f10561787e sources=b205d9329ef4 design=ea2083f83816
+spawn 57ee08951268 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_11.v args=c1a62d3c6141 env=53d312350bd2 tools=58f10561787e sources=b205d9329ef4 design=65a6430bfba1
+spawn c6ee64135b61 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_9.v args=f91695ab0562 env=371378360192 tools=58f10561787e sources=b205d9329ef4 design=fa53afbd5475
+spawn c13e7e9ed17a hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_6.v args=449fa4f7e546 env=8adb6b15db53 tools=58f10561787e sources=b205d9329ef4 design=4730fd3e5d1c
+spawn c6f70e4c3765 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_5.v args=34c0d9600939 env=4904356bf205 tools=58f10561787e sources=b205d9329ef4 design=7ae1fb733117
+spawn 9471f4775a91 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_0.v args=a044775bb0eb env=fa43694371bb tools=58f10561787e sources=b205d9329ef4 design=e4a058b785ce
+spawn a5d9813d7087 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_10.v args=fa8eab0e47cf env=0747abd70ceb tools=58f10561787e sources=b205d9329ef4 design=741f53cdb8d1
+spawn 371f6dc4546f hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_L1ErrorMetaArray_canonical.name args=9dd16be83675 env=7c915fb015df tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn a65648ccc758 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_2.v args=81e28896ce22 env=588105560fc8 tools=58f10561787e sources=b205d9329ef4 design=316bf1645de9
+spawn 53709a38a2ef hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/partition_7.v args=f8501ff757ba env=1cab62d59e65 tools=58f10561787e sources=b205d9329ef4 design=94415ca2a0cf
+spawn ab810e9678e7 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_10.v args=20caca7a5e93 env=04fe92c7dde0 tools=58f10561787e sources=b205d9329ef4 design=fbead246e7f5
+spawn 9de506903d76 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_9.v args=d910cb13f179 env=5658d2984330 tools=58f10561787e sources=b205d9329ef4 design=09c751f490af
+spawn 06cc0bac7b45 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/partition_0.v args=e9b242c7ec57 env=976f46befdf2 tools=58f10561787e sources=b205d9329ef4 design=1db22126a356
+spawn 93f2a2b7d521 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/partition_top.v args=9733e3d40262 env=4644b00c24da tools=58f10561787e sources=b205d9329ef4 design=3ce5f897bed4
+spawn e9d41650ab76 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/partition_ExuBlock_1_canonical.name args=932fa96c8f3e env=6b085412460c tools=58f10561787e sources=b205d9329ef4 design=8aba4393e201
+spawn 7415c45403bf hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_25.v args=38a1434c22e9 env=a2004be6039a tools=58f10561787e sources=b205d9329ef4 design=633a04c08e8a
+spawn 8385f1e55e0d hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/partition_1.v args=ba4bc79600a1 env=410370912504 tools=58f10561787e sources=b205d9329ef4 design=ec675bf2fb68
+spawn 06d3b78331ff hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/VecRegionModule/base/1_2_yosys.v args=614707423d10 env=e3b0c44298fc tools=e3b0c44298fc sources=e3b0c44298fc design=182343344f47
+spawn 0963dd360e34 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_ICache_canonical.name args=3cb5d1ff39d0 env=1ca14f5e6d09 tools=58f10561787e sources=b205d9329ef4 design=2894fa595987
+spawn a56bbe7936ee hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_PrefetcherWrapper_canonical.name args=e8ef1c10ccd0 env=fe0fcd339bfd tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn 1f9941cccb12 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_0.v args=64c4595be467 env=e50d345ba80f tools=58f10561787e sources=b205d9329ef4 design=9bff491d36b3
+spawn 959563887161 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_24.v args=72a77252848f env=592f2d2a4f9b tools=58f10561787e sources=b205d9329ef4 design=aeb336398610
+spawn eea9e4583e98 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/partition_IssueQueueFaluFmacFcvtFcmp_canonical.name args=90e4bdafd4a5 env=4c068ea71833 tools=58f10561787e sources=b205d9329ef4 design=8aba4393e201
+spawn e00ea5cf6dec hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_PMPChecker_canonical.name args=a6dbe111868f env=3703e772ec62 tools=58f10561787e sources=b205d9329ef4 design=2894fa595987
+spawn c3aeddcb6c85 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_VirtualLoadQueue_canonical.name args=fe3322d9771d env=537a5dfab6c2 tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn 06de64836637 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_PTWNewFilter_canonical.name args=fa8aa2d18354 env=9e72b27bbd95 tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn df7ff3668364 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_top.v args=f5b5e6cd6526 env=158a9e3364f8 tools=58f10561787e sources=b205d9329ef4 design=2eaea90fe4de
+spawn 1830b53af335 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_OverwriteQueue_1_canonical.name args=1dfa0845f963 env=e9dba302f74a tools=58f10561787e sources=b205d9329ef4 design=a6e36cd4d34c
+spawn 95138b698f89 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_top.v args=ccbf4844fc3c env=b26ebbfc4023 tools=58f10561787e sources=b205d9329ef4 design=a2440a49f453
+spawn 52a60c5495b3 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/partition_IssueQueueFaluFmac_canonical.name args=89d86e5dfc09 env=ff943d8b2d41 tools=58f10561787e sources=b205d9329ef4 design=8aba4393e201
+spawn 3ebcd28cec18 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_MSHR_canonical.name args=1a1b92d4a97a env=2015d50dd65f tools=58f10561787e sources=b205d9329ef4 design=a6e36cd4d34c
+spawn 0d9b7955f9f5 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/VecRegionModule/base/1_synth.json args=8e0658c3189a env=baf529096368 tools=58f10561787e sources=b205d9329ef4 design=1307b45ec51c
+spawn 332ac2223454 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/partition_IssueQueueFaluFmacFdiv_canonical.name args=7cf561f73314 env=8225e84b8176 tools=58f10561787e sources=b205d9329ef4 design=8aba4393e201
+spawn 2aa40539588d hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_Ftq_canonical.name args=696b82093cc3 env=933608f6d8bd tools=58f10561787e sources=b205d9329ef4 design=2894fa595987
+spawn ea8392fe5c57 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_MSHRCtl_canonical.name args=759d0776c342 env=735c10f98d44 tools=58f10561787e sources=b205d9329ef4 design=a6e36cd4d34c
+spawn 633bf585a222 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_FtTrainPipeline_canonical.name args=c988aa6f68fb env=55d15d7e7b72 tools=58f10561787e sources=b205d9329ef4 design=a6e36cd4d34c
+spawn 2f695d03d626 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/partition_2.v args=134d9cd156a0 env=943a525f2041 tools=58f10561787e sources=b205d9329ef4 design=e1be1b0a93b1
+spawn 934659ba9548 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_MainPipe_canonical.name args=c154bde8e8c7 env=d0163c5e3ff2 tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn 464438f0f55f hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_2.v args=5e75a5a457c9 env=a95eeadd9504 tools=58f10561787e sources=b205d9329ef4 design=d673436ed5da
+spawn feababb3ba56 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_1.v args=6d91b7c0a036 env=a355832f3b8d tools=58f10561787e sources=b205d9329ef4 design=b021968f79ce
+spawn f7205b4f9f16 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_BankedDataArray_canonical.name args=3cd546f6b90b env=6c64dee1c11c tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn bcf21379b39a hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_1.v args=30c63d2c0111 env=0a322028e0b3 tools=58f10561787e sources=b205d9329ef4 design=fcb213bc71ee
+spawn 3619580125d4 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/partition_5.v args=9b1c9d1a378d env=b228de8c04a1 tools=58f10561787e sources=b205d9329ef4 design=5c59d8b0bb19
+spawn 78d4aa521bf6 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_WriteBuffer_4_canonical.name args=e88d67b74885 env=b646ef3e62f1 tools=58f10561787e sources=b205d9329ef4 design=2894fa595987
+spawn 5176bf874e78 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_16.v args=cc550ed8c864 env=cc37a09106ea tools=58f10561787e sources=b205d9329ef4 design=749f46926201
+spawn 790e556d0a3b hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_15.v args=2bde4a4e1fd3 env=763a401d7df3 tools=58f10561787e sources=b205d9329ef4 design=8dc3bea1bba6
+spawn ef86bbcf0d4b hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_22.v args=dba2cff09196 env=26920e0096a7 tools=58f10561787e sources=b205d9329ef4 design=1b8d396f4409
+spawn 7b0d25de143e hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_23.v args=c98fe6b4e977 env=6ff54263e869 tools=58f10561787e sources=b205d9329ef4 design=1f1fe27bf316
+spawn 5080886bd386 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/partition_4.v args=8d59aca2f4f4 env=522fe5a2ba6d tools=58f10561787e sources=b205d9329ef4 design=a8004f9f7bb0
+spawn 2c59e6349ffa hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_L1PrefetchSourceArray_canonical.name args=40da48f39693 env=d5da3cb0a8cd tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn 102c24cc5aa6 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/VecRegionModule/base/2_1_floorplan.json args=60f037bcae55 env=57f35b79e627 tools=ec2a3af0fc5c sources=f618110cafcc design=fa74e7350610
+spawn f3d38cc3701e hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_15.v args=fee5b9db0bd9 env=6d856a45b2ab tools=58f10561787e sources=b205d9329ef4 design=ee664c1957bd
+spawn 6710661df490 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/partition_3.v args=7feb64d57e77 env=4f1a4edfbe8f tools=58f10561787e sources=b205d9329ef4 design=c5cc03a0ef90
+spawn 461fdc3c6269 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_14.v args=727d56bc2a8e env=b320e1102e58 tools=58f10561787e sources=b205d9329ef4 design=57c02201ac58
+spawn 221809b83d21 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_PMP_canonical.name args=2c0de0ad82bd env=947da98d5fc3 tools=58f10561787e sources=b205d9329ef4 design=2894fa595987
+spawn 8731ca8afdd3 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_0.v args=d853b03a0166 env=083d5b55d1f8 tools=58f10561787e sources=b205d9329ef4 design=cae06b19638f
+spawn f68476dca180 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_20.v args=359bbeb81be2 env=837eca6d44b5 tools=58f10561787e sources=b205d9329ef4 design=3015bb64ad02
+spawn 6aade964dbfb hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_8.v args=8f97c9a70d26 env=4e1d33f136ea tools=58f10561787e sources=b205d9329ef4 design=df2b898643cc
+spawn a0d3766097cf hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_21.v args=64f612735fb6 env=ed6b1016c943 tools=58f10561787e sources=b205d9329ef4 design=3d6c3ce26c0b
+spawn b0de5187d4d4 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_Phr_canonical.name args=43114d5832ba env=3e17554fe9ea tools=58f10561787e sources=b205d9329ef4 design=2894fa595987
+spawn ee0c6861161e hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_Sbuffer_canonical.name args=55ec873ed277 env=a83be2ee534e tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn c5a22c5c8f26 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_MicroTage_canonical.name args=b9b4bf0e0b4a env=59d969798afe tools=58f10561787e sources=b205d9329ef4 design=2894fa595987
+spawn 63c42b8eeab9 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_TwoLevelRRArbiter_12_canonical.name args=c25befb0238b env=39c469b899c3 tools=58f10561787e sources=b205d9329ef4 design=a6e36cd4d34c
+spawn 7d8affbf3911 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_Tage_canonical.name args=0ada11929702 env=b5872b113397 tools=58f10561787e sources=b205d9329ef4 design=2894fa595987
+spawn 5672355c877a hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_VpnTable_canonical.name args=c58ea6391097 env=c33d589b4bea tools=58f10561787e sources=b205d9329ef4 design=a6e36cd4d34c
+spawn 9b8d14ad78ba hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_Uncache_canonical.name args=dc7276939c98 env=b868186e2175 tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn c01a422e57ca hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_Slice_canonical.name args=0ed02deb96ea env=92d5bbac0a8c tools=58f10561787e sources=b205d9329ef4 design=a6e36cd4d34c
+spawn e7ec8f6f5f72 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_13.v args=f348c1e687c6 env=beb9705b3095 tools=58f10561787e sources=b205d9329ef4 design=2b95404e5795
+spawn 02f89c660250 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Region_1/base/1_2_yosys.v args=9e0cc40776f7 env=e3b0c44298fc tools=e3b0c44298fc sources=e3b0c44298fc design=9aa41a59f256
+spawn f9cb0f65fcd2 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_19.v args=44368a95f9e5 env=d96a1de04bd9 tools=58f10561787e sources=b205d9329ef4 design=9083c9dd27c1
+spawn 25a409254b80 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_PhysicalStoreQueue_canonical.name args=da632598cd9c env=b91e1ef21ad7 tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn e1e77a774a47 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/VecRegionModule/base/3_1_place_gp_skip_io.json args=1d95634a2984 env=9da5b747ddbf tools=ec2a3af0fc5c sources=f618110cafcc design=355ccdeb8c21
+spawn f3ec3ea8b9ee hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_OffsetScoreTable_1_canonical.name args=e375d24055c8 env=3fb8d2dd6418 tools=58f10561787e sources=b205d9329ef4 design=a6e36cd4d34c
+spawn e6f27a14408b hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_Ittage_canonical.name args=aca04c97aa2e env=0cedf26b7b81 tools=58f10561787e sources=b205d9329ef4 design=2894fa595987
+spawn 287caa949521 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_12.v args=98e46b9f6f2c env=d72e5c4bd1c2 tools=58f10561787e sources=b205d9329ef4 design=4ed8558555a5
+spawn 0757e8fb4bdd hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_3.v args=cbc06d2904bb env=9cf785783198 tools=58f10561787e sources=b205d9329ef4 design=e4e7a5e26e7b
+spawn dd23ad011ce2 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_LoadQueueRAW_canonical.name args=29e55d8dbd2c env=8c9a5ba2cbf3 tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn e7e2eb525895 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_CDPPrefetcher_canonical.name args=da6ab409d8b6 env=4360e94679ef tools=58f10561787e sources=b205d9329ef4 design=a6e36cd4d34c
+spawn 8ae2362a3af5 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_HPerfMonitor_3_canonical.name args=b835ab70073c env=e6b362d66da7 tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn 30a2b5afa399 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_MainPipe_1_canonical.name args=d16fc30074a2 env=d0d08bb904d0 tools=58f10561787e sources=b205d9329ef4 design=a6e36cd4d34c
+spawn 1377b99a3caa hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_2.v args=96f1aced965c env=7d9224f63a8c tools=58f10561787e sources=b205d9329ef4 design=b9ded25ab4b3
+spawn 4b5491785229 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_14.v args=054ec27e121e env=d8fdbfc312c3 tools=58f10561787e sources=b205d9329ef4 design=4c8f27f4ad02
+spawn 1f95b0e94667 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_11.v args=88b44e4a244d env=60d40fdeae3d tools=58f10561787e sources=b205d9329ef4 design=109617e3c697
+spawn 83d1fd99e674 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_LoadQueueRAR_canonical.name args=34ba0d9318e9 env=135c9a469866 tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn 97d9093ff1e8 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_10.v args=ae9b5586d68e env=8bd05ebcaffc tools=58f10561787e sources=b205d9329ef4 design=c8d54e03d397
+spawn 83cc5b2ae7a9 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_18.v args=dbdc1465684f env=12718e3e3475 tools=58f10561787e sources=b205d9329ef4 design=1987bbc9b23d
+spawn 1d140d3a9fea hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_AheadBtb_canonical.name args=ccb559ae326d env=4187d0b9df9e tools=58f10561787e sources=b205d9329ef4 design=2894fa595987
+spawn 3d84e911ce71 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/Region_1/base/1_synth.json args=2c940af14d67 env=ad39e57af92d tools=58f10561787e sources=b205d9329ef4 design=b96da0129208
+spawn 4bcc17cd972a hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_17.v args=f7b3968ca01c env=352494bf86b9 tools=58f10561787e sources=b205d9329ef4 design=fd343945da2b
+spawn 244f4e17d9f1 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_2.v args=3d0b171bea7f env=fdd1db203ab3 tools=58f10561787e sources=b205d9329ef4 design=c38d9c6f2fc4
+spawn 2105b6dd8187 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_1.v args=5c2088ce2ea4 env=dfc8e3fd43e0 tools=58f10561787e sources=b205d9329ef4 design=42c1b7c15a6e
+spawn b57ab5eef27e hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/VecRegionModule/base/4_1_cts.json args=26ac9bef2543 env=4b7932b35d42 tools=ec2a3af0fc5c sources=f618110cafcc design=fbdb50337962
+spawn 0fae25fb40e3 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_13.v args=3c7772c2e426 env=630b363537f2 tools=58f10561787e sources=b205d9329ef4 design=83303926ba51
+spawn 454888a8b8b0 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_9.v args=7668b08b4f3c env=51598f1d13ca tools=58f10561787e sources=b205d9329ef4 design=4ce523f27695
+spawn e7182671a035 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_IBuffer_canonical.name args=dabe50508b9a env=e1f1ef7069e3 tools=58f10561787e sources=b205d9329ef4 design=2894fa595987
+spawn 6346d0ca96bf hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_Bpu_canonical.name args=bba234a79519 env=98ce2791d8a3 tools=58f10561787e sources=b205d9329ef4 design=2894fa595987
+spawn 8ff71d3a691f hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_3.v args=fb0f38f5b70b env=378e1e979670 tools=58f10561787e sources=b205d9329ef4 design=d40dfa96a545
+spawn cb883804f1cd hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_15.v args=50e9a97a11c1 env=d67749355f99 tools=58f10561787e sources=b205d9329ef4 design=c1aa03b80099
+spawn ed6568a89872 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_11.v args=43d3563d31d6 env=b3c4991d5d50 tools=58f10561787e sources=b205d9329ef4 design=eb98f79d927e
+spawn ab3823c2ae2a hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_16.v args=e63b80a5a683 env=0ce844fd4c9d tools=58f10561787e sources=b205d9329ef4 design=fde50b85069d
+spawn 8bc67f73bfc2 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_RequestArb_canonical.name args=1e1df77d606d env=61aefbbc748e tools=58f10561787e sources=b205d9329ef4 design=a6e36cd4d34c
+spawn 3e113024bd06 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_PtwCache_canonical.name args=56f1cc2782cd env=c1edb956493a tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn c83bae9b1f21 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_SentUnit_canonical.name args=231c13bf5c19 env=52b8e3338758 tools=58f10561787e sources=b205d9329ef4 design=a6e36cd4d34c
+spawn 265d6434a1d0 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_Directory_canonical.name args=9574e19f7a4b env=32d11e46e96a tools=58f10561787e sources=b205d9329ef4 design=a6e36cd4d34c
+spawn 93b09ae49fd1 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_14.v args=f8bc8e9ec4fa env=781a65a0c6d9 tools=58f10561787e sources=b205d9329ef4 design=8618911c1793
+spawn ecba99a217c2 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/VecRegionModule/base/generate_abstract.log args=52713274cfa8 env=639eae089289 tools=ec2a3af0fc5c sources=f618110cafcc design=6ff5b217186f
+spawn f56441ff075f hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_Sc_canonical.name args=fb98d5c77837 env=c2edd73d245b tools=58f10561787e sources=b205d9329ef4 design=2894fa595987
+spawn 1588454ef30f hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_8.v args=ef7d772b3889 env=13b3fff48bc2 tools=58f10561787e sources=b205d9329ef4 design=13372c8f7463
+spawn 8af794b007e0 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_L2TLBWrapper_canonical.name args=f8cd95578c09 env=149e039ba723 tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn 95b66f2891fb hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_TLB_canonical.name args=793f6c111a5f env=351a4f2ad116 tools=58f10561787e sources=b205d9329ef4 design=2894fa595987
+spawn 1dfcc60e51e1 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_VirtualStoreQueue_canonical.name args=9c472a643f7e env=0b03ddb07a96 tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn 4569b5f3eec1 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/Region_1/base/2_1_floorplan.json args=d8df996eed2d env=3e5aaf116fe0 tools=ec2a3af0fc5c sources=f618110cafcc design=aa30a3bd3b9f
+spawn 7330618de86d hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_4.v args=e23966ad4919 env=ab3fe321ae71 tools=58f10561787e sources=b205d9329ef4 design=ea35f6c273e4
+spawn 3bd4c83f932b hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_SqForwardPipe_canonical.name args=0eb55bc11266 env=7a86e8d9fe56 tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn c2a8b9925833 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_TwoLevelRRArbiter_18_canonical.name args=a62127a459be env=3f370e65b620 tools=58f10561787e sources=b205d9329ef4 design=a6e36cd4d34c
+spawn 7f25b3920615 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_TLBNonBlock_1_canonical.name args=e0ee78f74350 env=40703848ce7a tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn 4a38ba9d3289 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_4.v args=dc02afcd282a env=96bd83e017d5 tools=58f10561787e sources=b205d9329ef4 design=f0274831829b
+spawn 7c732a77891d hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_3.v args=ffe034608407 env=b08f958dde1e tools=58f10561787e sources=b205d9329ef4 design=207c0e9ddbd4
+spawn 169a677a29a8 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_7.v args=6db1c355e0e1 env=ee702b29a7d2 tools=58f10561787e sources=b205d9329ef4 design=c373f09bf373
+spawn 17d88974a867 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/VecRegionModule/pre_layout/generate_abstract.log args=4e84d11d03f3 env=b8de6c3796a4 tools=ec2a3af0fc5c sources=f618110cafcc design=266c17cd440f
+spawn c8f5f1acba36 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_RequestBuffer_canonical.name args=6436b3412adc env=1fd03f21aba1 tools=58f10561787e sources=b205d9329ef4 design=a6e36cd4d34c
+spawn 163106860f0f hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_TLBNonBlock_2_canonical.name args=a0658a723750 env=6d4338c95bc8 tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn 63c9696e03e1 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_SbufferData_canonical.name args=661937467d21 env=581b8bd5a02f tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn 9113cc3f55c9 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_12.v args=8560bf27683b env=02a908ee5ae7 tools=58f10561787e sources=b205d9329ef4 design=c87ca49b6e28
+spawn 2a492e9a4179 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_5.v args=ac3716745998 env=03a4a00dca14 tools=58f10561787e sources=b205d9329ef4 design=d46162c2d75f
+spawn d20b4aa92f4b hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_LoadQueueUncache_canonical.name args=663a3515695a env=11b48d288054 tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn 7cc01ce899b0 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_5.v args=7709f1e34f5e env=d031850809c8 tools=58f10561787e sources=b205d9329ef4 design=74877825d4a8
+spawn 757e2d0f6616 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_13.v args=10facb67e0f6 env=4a0839c8e54f tools=58f10561787e sources=b205d9329ef4 design=8286b8d7221b
+spawn af44f857c1c9 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_12.v args=fd733a9437c5 env=567a5fb10b8e tools=58f10561787e sources=b205d9329ef4 design=d37945996722
+spawn 5aa357baa035 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/partition_6.v args=8483b8accc88 env=e07308a0325b tools=58f10561787e sources=b205d9329ef4 design=9557e87f2480
+spawn c741d1f11d36 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_MissQueue_canonical.name args=08c994a02078 env=4b96590fede2 tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn 7a1511029445 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/Region_1/base/3_1_place_gp_skip_io.json args=21a88bfa5777 env=c792b589b65c tools=ec2a3af0fc5c sources=f618110cafcc design=03e5a624f59c
+spawn 8e9b1c3690d6 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_7.v args=414b3bd98f13 env=80e7aa7b8af4 tools=58f10561787e sources=b205d9329ef4 design=42bad93f9d7b
+spawn b6bf435bf388 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_11.v args=808424d598b1 env=ab5e1d6853a0 tools=58f10561787e sources=b205d9329ef4 design=b94f1be5a89c
+spawn fa20ad1eca39 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/partition_6.v args=4de76078d108 env=7bc6090b3ba5 tools=58f10561787e sources=b205d9329ef4 design=8d8230062aef
+spawn 24493527edd2 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_10.v args=6fdf4be76218 env=eb4ba750243c tools=58f10561787e sources=b205d9329ef4 design=0fc8aacd00d4
+spawn c233c116f4cf hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_9.v args=c8b1d0bc7a86 env=1892c67745b5 tools=58f10561787e sources=b205d9329ef4 design=3cb43539afe8
+spawn ff86d96cc0f5 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_DCacheWrapper_canonical.name args=59b9ed62f97f env=d8d28db5548d tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn 3487b8f585ce hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_TLBNonBlock_canonical.name args=ec777fee3879 env=c3fbac070855 tools=58f10561787e sources=b205d9329ef4 design=31714cb43432
+spawn 6c1b64f42c2b hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/Frontend/base/1_2_yosys.v args=e760b9a69694 env=e3b0c44298fc tools=e3b0c44298fc sources=e3b0c44298fc design=c955d61866a3
+spawn 2ed7fbfbed58 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_7.v args=70939ad988d5 env=1e1460358013 tools=58f10561787e sources=b205d9329ef4 design=da6f5209bb39
+spawn 2215961bdff9 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/CoupledL2/base/1_2_yosys.v args=7d013a3a8a9d env=e3b0c44298fc tools=e3b0c44298fc sources=e3b0c44298fc design=027fea6fad6c
+spawn 5ceec9a4d5c6 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_8.v args=6b6064d1dcda env=4060fc445263 tools=58f10561787e sources=b205d9329ef4 design=18a90aebb60f
+spawn 3c108e863d8a hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/Region_1/base/4_1_cts.json args=34f4711adc9d env=4aed7e2c194a tools=ec2a3af0fc5c sources=f618110cafcc design=f590d7367181
+spawn 9006c1fc257f hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_6.v args=a118f74049ff env=8199aa994dd3 tools=58f10561787e sources=b205d9329ef4 design=5475f482cb06
+spawn 12d0a52bd68c hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/Region_1/pre_layout/generate_abstract.log args=94c868b0313b env=24b518d18fd1 tools=ec2a3af0fc5c sources=f618110cafcc design=3efe0656e90c
+spawn 0ae25f084b9a hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_4.v args=57015b312efc env=c1166651d9f0 tools=58f10561787e sources=b205d9329ef4 design=847aa6fd6e64
+spawn 5f8cfb7a7516 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/partition_5.v args=0081dc654b6b env=e0123c0bf2f8 tools=58f10561787e sources=b205d9329ef4 design=06a717e3dd99
+spawn 7d31a43cce98 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/Frontend/base/1_synth.json args=6f7e12469292 env=1d93a7306c39 tools=58f10561787e sources=b205d9329ef4 design=3ce54ae983cb
+spawn 5f275f6278df hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/CoupledL2/base/1_synth.json args=3b08cf8a80de env=91ef1753178d tools=58f10561787e sources=b205d9329ef4 design=756e06b02287
+spawn 77551876614c hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/Region_1/base/generate_abstract.log args=c38bf2c4702c env=a0f9316ee4ad tools=ec2a3af0fc5c sources=f618110cafcc design=a53787be0406
+spawn 7e46498b3b1d hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/MemBlock/base/1_2_yosys.v args=922a617098d2 env=e3b0c44298fc tools=e3b0c44298fc sources=e3b0c44298fc design=d09013dc4d77
+spawn 3eef9c962412 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/Frontend/base/2_1_floorplan.json args=7439f18d5598 env=8584c33468b0 tools=ec2a3af0fc5c sources=f618110cafcc design=bf311dcd5d9a
+spawn 26962faceb35 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/CoupledL2/base/2_1_floorplan.json args=46f3e153eaae env=b95a784d1692 tools=ec2a3af0fc5c sources=f618110cafcc design=618bc7f9d45b
+spawn ccf50091fc30 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/MemBlock/base/1_synth.json args=0e39810d5f2c env=1dfb531c14a4 tools=58f10561787e sources=b205d9329ef4 design=cb3c6951fe21
+spawn f61ce121cde6 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/Frontend/base/3_1_place_gp_skip_io.json args=767dafad80f5 env=ad08258d2ad2 tools=ec2a3af0fc5c sources=f618110cafcc design=e1a2eee4c33a
+spawn 5bf46911e00b hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/CoupledL2/base/3_1_place_gp_skip_io.json args=965c4f447c22 env=b62eb65fd3fd tools=ec2a3af0fc5c sources=f618110cafcc design=15a2a4b49276
+spawn ed9e85f09ab7 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/MemBlock/base/2_1_floorplan.json args=5536617ff9b5 env=7f370ae6d1b1 tools=ec2a3af0fc5c sources=f618110cafcc design=3bb7041993b8
+spawn 8791f86282af hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/Frontend/pre_layout/generate_abstract.log args=7dc556f92d35 env=a2f211c47ce3 tools=ec2a3af0fc5c sources=f618110cafcc design=96c8d25f2f21
+spawn 5135dd6af90f hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/CoupledL2/base/4_1_cts.json args=d02bac4afd24 env=26d8963743dc tools=ec2a3af0fc5c sources=f618110cafcc design=9df7d6de4f40
+spawn ea4407388f2f hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/Frontend/base/4_1_cts.json args=ef976b846574 env=6e14f2779172 tools=ec2a3af0fc5c sources=f618110cafcc design=8abbbe8f7f1c
+spawn ba9a3cb124cd hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/CoupledL2/pre_layout/generate_abstract.log args=f6d01e4cc827 env=6b62968ecc59 tools=ec2a3af0fc5c sources=f618110cafcc design=74ec7ea35f64
+spawn 0b2fa90ad232 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/MemBlock/base/3_1_place_gp_skip_io.json args=44034068bf58 env=1cb3775a6033 tools=ec2a3af0fc5c sources=f618110cafcc design=5c8be0fb4e46
+spawn d2d26540bc30 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/CoupledL2/base/generate_abstract.log args=09b691ee9dcc env=f5a0a29556a6 tools=ec2a3af0fc5c sources=f618110cafcc design=2ace43466ddf
+spawn b015b2d94dad hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/Frontend/base/generate_abstract.log args=ca7618ab9880 env=b276f1dac392 tools=ec2a3af0fc5c sources=f618110cafcc design=d495658e057f
+spawn 32f65225a1e6 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/MemBlock/pre_layout/generate_abstract.log args=13806fd9fb77 env=fd72d24d5f4a tools=ec2a3af0fc5c sources=f618110cafcc design=e85197343091
+spawn ed5c53163cc2 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/MemBlock/base/4_1_cts.json args=c59a8b1c5820 env=e7fadc6d15de tools=ec2a3af0fc5c sources=f618110cafcc design=abc8d8d0ff66
+spawn db75ef05d284 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/MemBlock/base/generate_abstract.log args=ce89bc2ec9db env=2a9953015758 tools=ec2a3af0fc5c sources=f618110cafcc design=edb8534e4216
+spawn 4edeff4270ad hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/XSTile/base/1_1_yosys_canonicalize.log args=663e847a301e env=e8ddb2a24c7a tools=1890d72c39cb sources=75a0ecbf9577 design=6059a2d56d1b
+spawn 080c3f98810b hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_RenameTableWrapper_canonical.name args=fcf9f73deb66 env=4c880026713b tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 818e2c1395e3 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_Backend_canonical.name args=9eccf816f44c env=adff54fc59bd tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 9d90d30176a1 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_SSIT_canonical.name args=1438aa2143cb env=32bd68278bcc tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn ee9b1749082e hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_LFST_canonical.name args=f415e2ae5b4b env=8e56a5e61b24 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 6fc427ed72a8 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_CtrlBlock_canonical.name args=25d91963c25c env=ffaf4a653cdc tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn c20d77fa940b hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_IssueQueueAluI2fBrhNjmp_canonical.name args=bb8fc7b2e3aa env=505b5a9756c9 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn c596061cc92e hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_IssueQueueStaMou_1_canonical.name args=1beb4fb80f0f env=72a17caba86a tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 4e6d5f1f0311 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_CompressUnit_canonical.name args=eeba349b7125 env=9c1cad4df9d5 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 4ca67c976e7d hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_XSCore_canonical.name args=84fd963ec18c env=1db674d34e0a tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 482d4cf13d09 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_IssueQueueAluMul_canonical.name args=77eca19f5551 env=a66b984f4f01 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn e644d5aeae05 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_IssueQueueAluBkuVset_canonical.name args=664c705a8ec4 env=242eb503db83 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn cbcb338e832f hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_VecRegionModule_canonical.name args=e95dd32b4ef7 env=71c6b8294698 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 69e501b26031 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_L2Top_canonical.name args=b23cdd1a7952 env=13d6a0785b58 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn d3f83f4c217d hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_EntriesAluDivBrhNjmp_canonical.name args=18bf0b7feaa8 env=7eec3688d79c tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 7fd70f659f58 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_EntriesAluCsrFenceLinkBrhNjmp_canonical.name args=af782b88db65 env=516b620a6989 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn b877d7411463 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_top.v args=c0949898955b env=d6e498ed84d4 tools=58f10561787e sources=b205d9329ef4 design=e2bc884ec9fe
+spawn f9eafc5c36a2 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_Region_1_canonical.name args=2050de539188 env=b97cc6f8b786 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn c22afe6dc0cc hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_IssueQueueStaMou_canonical.name args=bf02245e7dea env=b27f880aa838 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 012869718a78 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_IssueQueueLdu_canonical.name args=148cd5c4a9dd env=8b47496b54a8 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 57c687dc0ea8 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_Rename_canonical.name args=15c62a4e5613 env=157c1f607b72 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn e4f0c35edf28 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_FusionDecoder_canonical.name args=cdf35da184dc env=b652fa806d5c tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn a52d4753079e hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_MemBlock_canonical.name args=3429ecb7fe86 env=c4f3678c5896 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 990d51d21533 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_BusyTable_1_canonical.name args=996d39436450 env=727c1ae5f6e9 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 564cb2c9b8c6 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_IssueQueueAluDivBrhNjmp_canonical.name args=f4e530f34a09 env=37c1045566c7 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn aa68e93c1634 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_Region_canonical.name args=69d197a038ea env=3f6689177913 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 2bf50699a41e hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_IssueQueueStdMoud_canonical.name args=ec6f3ad30189 env=dcb90bd1e811 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 6685abbad96d hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_EntriesAluI2fBrhNjmp_canonical.name args=33fe46a4e573 env=34b14cae3b3f tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn a861b65cce80 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_BusyTable_canonical.name args=f84b5871b673 env=93d049460da4 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 08120c218061 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_Frontend_canonical.name args=0ecc029470ff env=d2babea3d4e5 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn f5a446b66c80 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_Rob_canonical.name args=b80531b0e8b4 env=ffdd59eef2b2 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn e8f16c91f7b7 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_IssueQueueStdMoud_1_canonical.name args=b56580a297f7 env=1eeb622a7c09 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn f4b202604032 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_1.v args=75d648c03af2 env=41906ef9dc2b tools=58f10561787e sources=b205d9329ef4 design=5aeb1b5fac38
+spawn 1264dac36606 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_0.v args=0c4d57e443a0 env=262ba4086847 tools=58f10561787e sources=b205d9329ef4 design=d833246116a4
+spawn f4d912e9a5c2 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_14.v args=4ffc0be8eea0 env=f1ccf2371068 tools=58f10561787e sources=b205d9329ef4 design=96f5ababf90d
+spawn 3a03ebd8dfc3 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_EntriesAluMul_canonical.name args=c322c7941cab env=fe10f5a31909 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn d515447b6bf7 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_EntriesAluBkuVset_canonical.name args=84c50856012b env=c7ee5187761e tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn b497f293584a hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_DataPath_canonical.name args=ea332892a7b3 env=2c90e9ced109 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn f95b7943b32b hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_IssueQueueAluCsrFenceLinkBrhNjmp_canonical.name args=02256d163a18 env=637ddbf698d6 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn bb10c69404ab hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_13.v args=47b9ca5b0e05 env=680d710069fb tools=58f10561787e sources=b205d9329ef4 design=bef766597324
+spawn 50feea622730 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_15.v args=4e3110f9a51c env=f18167a02db3 tools=58f10561787e sources=b205d9329ef4 design=78e5004d62cb
+spawn 8e78dc6039a1 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_SimpleDecodeChannel_canonical.name args=aa5bb1f2b454 env=4396e40f2f00 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 2b5f610f4b2e hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_NewCSR_canonical.name args=a6b35d02750f env=c32e47433e7c tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 70b24411b924 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_3.v args=24da184ce2c3 env=979640071229 tools=58f10561787e sources=b205d9329ef4 design=454020fb2b05
+spawn 4c94b27b00c3 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_12.v args=1fbbfad64e25 env=ee733d276f10 tools=58f10561787e sources=b205d9329ef4 design=cc2c2ee72989
+spawn 8aeb259d8920 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_EntriesLdu_canonical.name args=51d135bf1a0b env=46e95c7737c9 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn fe5be450c900 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_2.v args=429c6dc55ffa env=c99cbef1f12b tools=58f10561787e sources=b205d9329ef4 design=fa9f47bce37d
+spawn d38d9c4d0b2e hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_ExuBlock_canonical.name args=b816f3c74450 env=6b3615c1c41a tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn e43ddec6ee33 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_DecodeStage_canonical.name args=96d7ed5e89aa env=dccf2f245d08 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 15189149e63e hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_RenameBuffer_canonical.name args=1c19206b5b44 env=ee63845d6d4d tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 34cd03d20a3f hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_VTypeBuffer_canonical.name args=e4dba870e1f3 env=3bf6eb91b4e2 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 019672c7b6aa hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_MemCtrl_canonical.name args=d3bf5a2801fe env=97885d7ce1e7 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn b68156482a56 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_ExeUnitImp_canonical.name args=9f7cc48bf34b env=25ab5ebc55ec tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 3dbb7740edc4 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_11.v args=6a1575b6cd74 env=a0c2cd7b2c8e tools=58f10561787e sources=b205d9329ef4 design=62d258258dc9
+spawn 627f16b1c5e0 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_Dispatch_canonical.name args=15aecd9f88d8 env=09b085468064 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 0648f17077c4 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_UopBufferCtrlDecoder_canonical.name args=d20ef5f9c5cb env=bc0f05f30b6d tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn cebe8117ce8d hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_RobEntryCell_canonical.name args=7c473391e368 env=039d3c12bafc tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 58c5fe1e52d0 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_EntriesStaMou_canonical.name args=45a28141d565 env=e5e465ab0f03 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 84315eae06a5 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_VectorDecodeChannel_canonical.name args=15a99f55d21f env=1c90ce70e124 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 0ce9d6917953 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_EntriesStdMoud_canonical.name args=b9d474e153e1 env=c133011e9aa4 tools=58f10561787e sources=b205d9329ef4 design=e9a86918b534
+spawn 3559c974789e hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_5.v args=9a74d6d84492 env=e612ea7d21b4 tools=58f10561787e sources=b205d9329ef4 design=a97200d8ff70
+spawn b398a22c37b7 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_4.v args=e5a47dfa74b7 env=7bbcb983db57 tools=58f10561787e sources=b205d9329ef4 design=c9f14679fa11
+spawn c10ec067838d hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_9.v args=3f4a5a10ede9 env=c56b063b6eb4 tools=58f10561787e sources=b205d9329ef4 design=7ea5e32c2d84
+spawn 9e0b7736f265 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_8.v args=93c72cf152ed env=551a22dcd3ad tools=58f10561787e sources=b205d9329ef4 design=6671bd18764b
+spawn 351953f9b4e8 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_6.v args=4fbb71e55bd3 env=124d4ab4336f tools=58f10561787e sources=b205d9329ef4 design=78cbecaf20e5
+spawn 37832a8132e3 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_10.v args=9148a9cd1014 env=1872d7ae9254 tools=58f10561787e sources=b205d9329ef4 design=ddddc1205acd
+spawn cacef43bda25 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/partition_7.v args=d72974a934a5 env=aaaef411e24b tools=58f10561787e sources=b205d9329ef4 design=51fac399e8b8
+spawn 3a8a69f13e88 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/results/asap7/XSTile/base/1_2_yosys.v args=e577a41b67d7 env=e3b0c44298fc tools=e3b0c44298fc sources=e3b0c44298fc design=a34e56a392a8
+spawn 50dcc371b01d hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/XSTile/base/1_synth.json args=c7c8294dea89 env=d558f816b5d6 tools=58f10561787e sources=b205d9329ef4 design=2d9dd3bdab23
+spawn 9763835803fe hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/XSTile/base/2_1_floorplan.json args=b07bc0dc9303 env=0b66fa76b741 tools=ec2a3af0fc5c sources=f618110cafcc design=978608187251
+spawn edebb1d356d9 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/XSTile/base/3_1_place_gp_skip_io.json args=8ebfdd094af0 env=c6800f6680cc tools=ec2a3af0fc5c sources=f618110cafcc design=b6f3d267265c
+spawn 8feeb1e46136 hit Action k8-fastbuild:test/coremark_joule/designs/asap7/xiangshan/logs/asap7/XSTile/base/4_1_cts.json args=0d60d99a4bb1 env=b68f766426a2 tools=ec2a3af0fc5c sources=f618110cafcc design=4cba0cedec2e
