@@ -105,6 +105,19 @@
         "VecRegionModule": 2471
       },
       "note": "block abstracts carry their ports' max_transition and max_capacitance (OpenSTA patch 0008), so the parent's repair_design buffers the nets between blocks"
+    },
+    {
+      "date": "2026-09-28",
+      "measured": "XSTile_grt, built from source",
+      "parent_ps": 4991,
+      "blocks": {
+        "CoupledL2": 2954,
+        "Frontend": 4854,
+        "MemBlock": 4446,
+        "Region_1": 1642,
+        "VecRegionModule": 2665
+      },
+      "note": "synthesis maps with ABC's speed script in every flow instead of the area script"
     }
   ]
 }
