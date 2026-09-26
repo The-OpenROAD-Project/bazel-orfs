@@ -6,8 +6,8 @@ foreach {master x y} {
   Region_1 10.224 218.160
   VecRegionModule 686.304 32.400
   CoupledL2 1504.944 34.560
-  Frontend 206.784 1360.800
-  MemBlock 1172.304 1429.920
+  Frontend 206.784 1939.680
+  MemBlock 1172.304 2006.640
 } {
   set insts {}
   foreach inst [$block getInsts] {
@@ -39,7 +39,7 @@ set core [$block getCoreArea]
 set bands 0
 foreach {lo hi} {
   32.400 840.240
-  1429.920 2427.840
+  2006.640 3004.560
 } {
   set bl [odb::dbBlockage_create $block [$core xMin] [expr { int($lo * $dbu) }] [$core xMax] [expr { int($hi * $dbu) }]]
   $bl setSoft

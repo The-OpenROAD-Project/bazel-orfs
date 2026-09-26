@@ -1307,8 +1307,8 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     # is told to use it. The layer adjustment is the value the tile
     # flows settled on (OpenROAD's GRT-0704 hint), 9 percent more
     # capacity on every layer than the platform's 0.25.
-    arguments["PLACE_DENSITY"] = "0.5"
-    arguments["ROUTING_LAYER_ADJUSTMENT"] = "0.18"
+    arguments["PLACE_DENSITY"] = "0.2"
+    arguments["ROUTING_LAYER_ADJUSTMENT"] = "0.1"
 
     # The rest of the measured configuration, in the flow rather than in
     # a shell around it. A deploy tree carries only its own stage's

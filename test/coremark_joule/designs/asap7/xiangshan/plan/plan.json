@@ -33,7 +33,7 @@
  },
  "parent": {
   "cell_area_um2": 453871,
-  "density": 0.5,
+  "density": 0.2,
   "core_margin_um": 10,
   "keep": [
    "Backend",
@@ -89,7 +89,7 @@
  },
  "margins": {
   "pin_side": 1.5,
-  "channel_min_um": 40,
+  "channel_min_um": 40.0,
   "lateral": 0.5,
   "aspect_cap": 3.0,
   "gap_um": 10.8
