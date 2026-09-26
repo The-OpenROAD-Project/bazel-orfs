@@ -1,0 +1,131 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Sat, 26 Sep 2026 18:50:00 +0200
+Subject: [PATCH] sta: write_timing_model carries the ports' design-rule limits
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A timing model's ports had a capacitance and nothing else: no
+max_transition on an input, no max_capacitance on an output. A parent
+that instantiates the block therefore sees no design-rule violation on
+a net whose loads or driver are only block ports, and repair_design
+leaves it alone however long it is. On a hierarchical XiangShan tile a
+2.4 mm net from one block's output to another block's input stayed a
+bare wire at a 6 ns slew, 1.9 ns of the design's worst path, while the
+parent's own nets beside it got their repeaters.
+
+An input now takes the tightest max_transition of the cells it loads
+inside the block, an output the max_capacitance of its driver less the
+load the block already puts on it, each falling back to the library
+default. LibertyWriter already writes both attributes when a port has
+them.
+
+Not upstreamed. Retires on the //:bump onto an OpenROAD that carries it.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/sta/search/MakeTimingModel.cc    | 56 ++++++++++++++++++++++++++++
+ src/sta/search/MakeTimingModelPvt.hh |  2 +
+ 2 files changed, 58 insertions(+)
+
+diff --git a/src/sta/search/MakeTimingModel.cc b/src/sta/search/MakeTimingModel.cc
+--- a/src/sta/search/MakeTimingModel.cc
++++ b/src/sta/search/MakeTimingModel.cc
+@@ -27,6 +27,7 @@
+ 
+ #include <algorithm>
+ #include <cstddef>
++#include <limits>
+ #include <map>
+ #include <memory>
+ #include <string>
+@@ -218,6 +219,7 @@
+         LibertyPort *lib_bit_port = modelPort(pin);
+         float load_cap = graph_delay_calc_->loadCap(pin, scene_, min_max_);
+         lib_bit_port->setCapacitance(load_cap);
++        setPortLimits(pin, lib_bit_port);
+       }
+       delete member_iter;
+     }
+@@ -227,11 +229,65 @@
+       Pin *pin = network_->findPin(top_inst, port);
+       float load_cap = graph_delay_calc_->loadCap(pin, scene_, min_max_);
+       lib_port->setCapacitance(load_cap);
++      setPortLimits(pin, lib_port);
+     }
+   }
+   delete port_iter;
+ }
+ 
++// A port's design-rule limits are those of the cells it connects to
++// inside the block: an input takes the tightest max_transition of its
++// loads, an output the max_capacitance of its driver less the load the
++// block already puts on it. Without them a parent's resizer sees no
++// violation on a net whose only loads or driver are block ports, and
++// leaves a long wire between two blocks unbuffered.
++void
++MakeTimingModel::setPortLimits(const Pin *pin,
++                               LibertyPort *lib_port)
++{
++  const PortDirection *dir = network_->direction(pin);
++  float slew_limit = std::numeric_limits<float>::max();
++  float cap_limit = std::numeric_limits<float>::max();
++  bool slew_exists = false;
++  bool cap_exists = false;
++  PinConnectedPinIterator *pin_iter = network_->connectedPinIterator(pin);
++  while (pin_iter->hasNext()) {
++    const Pin *conn = pin_iter->next();
++    const LibertyPort *port = network_->libertyPort(conn);
++    if (port == nullptr)
++      continue;
++    const LibertyLibrary *lib = port->libertyCell()->libertyLibrary();
++    float limit;
++    bool exists;
++    if (dir->isAnyInput() && network_->isLoad(conn)) {
++      port->slewLimit(MinMax::max(), limit, exists);
++      if (!exists)
++        lib->defaultMaxSlew(limit, exists);
++      if (exists && limit < slew_limit) {
++        slew_limit = limit;
++        slew_exists = true;
++      }
++    }
++    if (dir->isAnyOutput() && network_->isDriver(conn)) {
++      port->capacitanceLimit(MinMax::max(), limit, exists);
++      if (!exists)
++        lib->defaultMaxCapacitance(limit, exists);
++      if (exists && limit < cap_limit) {
++        cap_limit = limit;
++        cap_exists = true;
++      }
++    }
++  }
++  delete pin_iter;
++  if (slew_exists)
++    lib_port->setSlewLimit(slew_limit, MinMax::max());
++  if (cap_exists) {
++    float internal = graph_delay_calc_->loadCap(pin, scene_, min_max_);
++    lib_port->setCapacitanceLimit(std::max(cap_limit - internal, 0.0f),
++                                  MinMax::max());
++  }
++}
++
+ void
+ MakeTimingModel::checkClock(Clock *clk)
+ {
+diff --git a/src/sta/search/MakeTimingModelPvt.hh b/src/sta/search/MakeTimingModelPvt.hh
+--- a/src/sta/search/MakeTimingModelPvt.hh
++++ b/src/sta/search/MakeTimingModelPvt.hh
+@@ -80,6 +80,8 @@
+   void makeCell();
+   float findArea();
+   void makePorts();
++  void setPortLimits(const Pin *pin,
++                     LibertyPort *lib_port);
+   void checkClock(Clock *clk);
+   void findTimingFromInputs();
+   void findTimingFromInputsBatch(const PinSeq &batch,
+-- 
+2.43.0
+

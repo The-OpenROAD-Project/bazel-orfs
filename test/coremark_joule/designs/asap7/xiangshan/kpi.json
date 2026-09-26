@@ -87,6 +87,19 @@
         "VecRegionModule": 2471
       },
       "note": "SDC at 473 ps, 333 ps on 7 nm in FO4; the period of the 800 ps run to the picosecond: with timing repair skipped and ABC mapping for area the netlist does not depend on the SDC"
+    },
+    {
+      "date": "2026-09-27",
+      "measured": "XSTile_grt, built from source",
+      "min_period_ps": 5143,
+      "blocks": {
+        "CoupledL2": 2820,
+        "Frontend": 6186,
+        "MemBlock": 5527,
+        "Region_1": 1990,
+        "VecRegionModule": 2471
+      },
+      "note": "block abstracts carry their ports' max_transition and max_capacitance (OpenSTA patch 0008), so the parent's repair_design buffers the nets between blocks"
     }
   ]
 }
