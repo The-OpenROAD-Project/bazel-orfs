@@ -198,6 +198,9 @@ class RedactTest(unittest.TestCase):
 
     def test_plain_options_kept(self):
         self.assertEqual(ce.redact_option("--jobs=2"), "--jobs=2")
+        self.assertEqual(ce.redact_option("--keep_going"), "--keep_going")
+
+    def test_environment_values_and_addresses_redacted(self):
         # an environment's variable stays, its value goes
         self.assertEqual(
             ce.redact_option("--repo_env=CLOUDSDK_CORE_ACCOUNT=bot@corp.example.com"),
@@ -211,7 +214,18 @@ class RedactTest(unittest.TestCase):
             ce.redact_option("--some_flag=user@corp.example.com"), "--some_flag=<redacted>"
         )
         ce.check_public([ce.redact_option("--repo_env=A=b@corp.example.com")])
-        self.assertEqual(ce.redact_option("--keep_going"), "--keep_going")
+
+    def test_capture_refuses_a_build_with_no_actions(self):
+        none = {"spawns": 0, "hit": 0, "ran": 0, "miss": 0}
+        why = ce.capture_refusal(
+            none,
+            "INFO: x\nERROR: 'linux-sandbox' was requested for explicit default"
+            " strategies but no strategy with that identifier was registered.\n",
+        )
+        self.assertIn("linux-sandbox", why)
+        self.assertIn("apparmor_restrict_unprivileged_userns", why)
+        self.assertEqual(ce.capture_refusal(none, ""), "the build logged no actions")
+        self.assertIsNone(ce.capture_refusal(dict(none, spawns=3, hit=3), "ERROR: x"))
 
     def test_announce_rc(self):
         text = (
