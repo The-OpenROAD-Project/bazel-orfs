@@ -66,11 +66,11 @@ stage takes the whole patched ORFS tree as input.
 
 The parent's worst paths at global route, by group:
 
-| group | worst slack at 800 ps | path |
+| group | worst slack at 473 ps | path |
 |---|---|---|
-| reg2reg | -4,743 ps | MemBlock's `intWriteback_0_0_toFpRf_valid` output into the parent's `dispatch/fpBusyTable` |
-| in2reg | -1,344 ps | `io_hartId` into the CSR in the integer ALU |
-| reg2out | -605 ps | the L2's `io_chi_syscoreq` out to the tile's port |
+| reg2reg | -5,070 ps | MemBlock's `intWriteback_0_0_toFpRf_valid` output into the parent's `dispatch/fpBusyTable` |
+| in2reg | -1,605 ps | `io_hartId` into the CSR in the integer ALU |
+| reg2out | -866 ps | the L2's `io_chi_syscoreq` out to the tile's port |
 
 Only the first is a period (`.claude/skills/macro-constraints`); the
 other two are optimisation targets.
@@ -81,13 +81,14 @@ parent density 0.2 and layer adjustment 0.1; `plan/plan.json` is its input.
 
 ## The next two
 
-1. **MemBlock's write-back valid into the dispatch busy table**, 4,743 ps
+1. **MemBlock's write-back valid into the dispatch busy table**, 5,070 ps
    over the period: a block output crossing the parent into a register,
-   the path that sets the top level.
-2. **Block clock trees are most of a period deep**: 20 to 27 levels,
-   477 to 944 ps of insertion delay at 800 ps, so every block boundary
-   path is skewed by that much, or padded to match with balancing on
-   (`ideas/xiangshan-timing.md`, entry 24).
+   the path that sets the top level. 1,938 ps of it is one unbuffered net
+   from MemBlock's pin to Region_1's, 2.4 mm apart, at a slew of 6 ns.
+2. **Block clock trees are a period deep**: 20 to 27 levels, 477 to
+   944 ps of insertion delay against a 591 ps target, so every block
+   boundary path is skewed by that much, or padded to match with
+   balancing on (`ideas/xiangshan-timing.md`, entry 24).
 
 ## What is deliberately broken
 
@@ -115,6 +116,6 @@ reproduces the same thing.
 
 ## Later
 
-When the period approaches the 800 ps target, `kpi.json` gains the
+When the period approaches the 591 ps target, `kpi.json` gains the
 CoreMark and power columns and the study reconnects to the simulation.
 Until then the design does not depend on it.

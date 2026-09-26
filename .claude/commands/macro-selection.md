@@ -35,8 +35,8 @@ issue and control, at 4 to 9, which never becomes a macro.
 ## 2. The time table, from each candidate's own synthesis
 
 Synthesise each candidate block alone at the target synthesis period
-(XiangShan: the planned blocks at 800 ps for a core meant to route at
-1000) and open its synthesis ODB through its `odb_debug` target with
+(XiangShan: the planned blocks at 473 ps for a core meant to route at
+591) and open its synthesis ODB through its `odb_debug` target with
 timing (`<block>_synth_odb_debug`). Run the probes as they are, no
 repair: a block synthesised alone has no fanout phantom (Frontend, 1.5 M
 cells: none of its 11 391 worst path ends has a stage past fanout 32,

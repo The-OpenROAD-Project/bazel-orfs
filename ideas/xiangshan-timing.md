@@ -2,8 +2,11 @@
 
 The project's KPI is the minimum clock period at global route, f from
 period minus WNS at a slightly negative WNS, on a floorplan that routes.
-The target is congruent with a taped-out core: about 1000 ps at global
-route on asap7, so 800 ps at synthesis, and no pathologies. Each entry
+The target is congruent with a taped-out core: XiangShan's 333 ps on
+7 nm is 41.1 fanouts of four, which is 591 ps at global route on the
+asap7 library the flow times with, so 473 ps at synthesis, and no
+pathologies (`constraints_473ps.sdc`, `period_fo4_test`). Entries up to
+25 were measured with the SDC at 800 ps. Each entry
 below is a well-studied problem that stands between the flow and that
 number, with what commercial flows do about it, what OpenROAD or yosys
 has, and where it shows in XiangShan. Ranked by how many of the worst
