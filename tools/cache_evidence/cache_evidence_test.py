@@ -244,7 +244,23 @@ class DiffTest(unittest.TestCase):
             a = self._write(d, "a.txt", ["commit %s dirty 0" % lost], _log())
             b = self._write(d, "b.txt", ["commit %s dirty 0" % head], _log())
             lines = ce.diff(a, b, ws)
-        self.assertTrue(lines[0].endswith("(A not in this history)"), lines[0])
+            self.assertTrue(lines[0].endswith("(A not in this history)"), lines[0])
+            a = self._write(d, "a.txt", ["commit %s dirty 0" % ("0" * 40)], _log())
+            lines = ce.diff(a, b, ws)
+            self.assertTrue(
+                lines[0].endswith("(A unknown to this repository)"), lines[0]
+            )
+
+    def test_old_capture_without_input_lines(self):
+        with tempfile.TemporaryDirectory() as d:
+            a = os.path.join(d, "a.txt")
+            counts, tools, spawns, _ = ce.summarize_log(_log(), "//test/")
+            ce.write_evidence(a, [], counts, tools, spawns)
+            b = self._write(d, "b.txt", [], _log(sdc_digest="c2"))
+            lines = ce.diff(a, b)
+        self.assertIn("input lines only in B: an older capture", lines)
+        self.assertFalse(any(l.startswith("input test/") for l in lines))
+        self.assertNotIn("source files moved", lines[-1])
 
     def test_package(self):
         self.assertEqual(ce._package("//test/d:synth"), "test/d")
@@ -347,7 +363,9 @@ class RedactTest(unittest.TestCase):
 
 
 def _aquery(*actions):
-    """aquery --output=jsonproto for actions given as (label, mnemonic, out)."""
+    """aquery --output=jsonproto for actions given as (label, mnemonic, out)
+    or (label, mnemonic, out, [input outs]): each input is another action's
+    output, and reaches it through a depset of its own."""
     frags, fid = [], {}
 
     def frag(path):
@@ -363,30 +381,53 @@ def _aquery(*actions):
             parent = fid[key]
         return parent
 
-    targets, tid, arts, acts = [], {}, [], []
-    for label, mnemonic, out in actions:
+    targets, tid, arts, aid, acts, depsets = [], {}, [], {}, [], []
+    for spec in actions:
+        label, mnemonic, out = spec[:3]
         if label not in tid:
             tid[label] = len(targets) + 1
             targets.append({"id": tid[label], "label": label})
-        arts.append({"id": len(arts) + 1, "pathFragmentId": frag(out)})
-        acts.append(
-            {"targetId": tid[label], "mnemonic": mnemonic, "outputIds": [len(arts)]}
-        )
+        aid[out] = len(arts) + 1
+        arts.append({"id": aid[out], "pathFragmentId": frag(out)})
+        act = {"targetId": tid[label], "mnemonic": mnemonic, "outputIds": [aid[out]]}
+        if len(spec) > 3 and spec[3]:
+            # one depset holding the first input, nesting one for the rest
+            ids = [aid[i] for i in spec[3]]
+            inner = {"id": len(depsets) + 1, "directArtifactIds": ids[1:]}
+            depsets.append(inner)
+            outer = {
+                "id": len(depsets) + 1,
+                "directArtifactIds": ids[:1],
+                "transitiveDepSetIds": [inner["id"]],
+            }
+            depsets.append(outer)
+            act["inputDepSetIds"] = [outer["id"]]
+        acts.append(act)
     return json.dumps(
-        {"artifacts": arts, "actions": acts, "targets": targets, "pathFragments": frags}
+        {
+            "artifacts": arts,
+            "actions": acts,
+            "targets": targets,
+            "pathFragments": frags,
+            "depSetOfFiles": depsets,
+        }
     )
 
 
 class FrontierTest(unittest.TestCase):
+    OUT = "bazel-out/k8-fastbuild/bin/test/d/"
     GRAPH = _aquery(
-        ("//test/d:synth", "Action", "bazel-out/k8-fastbuild/bin/test/d/1_synth.v"),
-        ("//test/d:synth", "FileWrite", "bazel-out/k8-fastbuild/bin/test/d/config.mk"),
+        ("//test/d:synth", "Action", OUT + "1_synth.v"),
+        ("//test/d:synth", "FileWrite", OUT + "config.mk", [OUT + "1_synth.v"]),
+        ("//test/d:synth", "Action", OUT + "1_synth.vars"),
+        ("//test/d:floorplan", "Action", OUT + "2_floorplan.odb", [OUT + "1_synth.v"]),
+        ("//test/d:place", "Action", OUT + "3_place.odb", [OUT + "2_floorplan.odb"]),
         (
-            "//test/d:floorplan",
-            "Action",
-            "bazel-out/k8-fastbuild/bin/test/d/2_floorplan.odb",
+            "//test/d:place_deps",
+            "OrfsPackage",
+            OUT + "place_deps.tar.gz",
+            [OUT + "3_place.odb"],
         ),
-        ("//test/d:place", "Action", "bazel-out/k8-fastbuild/bin/test/d/3_place.odb"),
         (
             "@yosys//:yosys",
             "CppLink",
@@ -394,20 +435,43 @@ class FrontierTest(unittest.TestCase):
         ),
     )
 
-    def test_graph_actions_skip_internal_and_out_of_scope(self):
-        graph = ce.graph_actions(self.GRAPH, "//test/")
+    def test_graph_actions_reach_only_what_the_target_needs(self):
+        # place needs floorplan needs synth; not synth's vars file, not the
+        # tarball that needs place
         self.assertEqual(
-            graph,
+            ce.graph_actions(self.GRAPH, "//test/", "//test/d:place"),
             [
                 ("Action", "k8-fastbuild:test/d/1_synth.v"),
                 ("Action", "k8-fastbuild:test/d/2_floorplan.odb"),
                 ("Action", "k8-fastbuild:test/d/3_place.odb"),
             ],
         )
+        self.assertEqual(
+            ce.graph_actions(self.GRAPH, "//test/", "@@//test/d:floorplan"),
+            [
+                ("Action", "k8-fastbuild:test/d/1_synth.v"),
+                ("Action", "k8-fastbuild:test/d/2_floorplan.odb"),
+            ],
+        )
+        self.assertEqual(ce._label("//test/d"), "//test/d:d")
+        self.assertEqual(ce._label("@@//test/d:x"), "//test/d:x")
+
+    def test_graph_actions_skip_internal_and_out_of_scope(self):
+        graph = ce.graph_actions(self.GRAPH, "//test/")
+        self.assertEqual(
+            graph,
+            [
+                ("Action", "k8-fastbuild:test/d/1_synth.v"),
+                ("Action", "k8-fastbuild:test/d/1_synth.vars"),
+                ("Action", "k8-fastbuild:test/d/2_floorplan.odb"),
+                ("Action", "k8-fastbuild:test/d/3_place.odb"),
+                ("OrfsPackage", "k8-fastbuild:test/d/place_deps.tar.gz"),
+            ],
+        )
         self.assertEqual(ce.graph_actions("", "//test/"), [])
 
     def test_not_reached_is_what_the_log_lacks(self):
-        graph = ce.graph_actions(self.GRAPH, "//test/")
+        graph = ce.graph_actions(self.GRAPH, "//test/", "//test/d:place")
         counts, _, spawns, _ = ce.summarize_log(_log(miss=True), "//test/")
         unreached = ce.not_reached(graph, spawns)
         # synth hit, floorplan missed; place behind the miss was never keyed
@@ -419,9 +483,12 @@ class FrontierTest(unittest.TestCase):
         self.assertEqual(lines[1], "miss Action k8-fastbuild:test/d/2_floorplan.odb")
         self.assertEqual(lines[2], unreached[0])
         self.assertNotIn("every action is a remote cache hit", lines)
+        # a miss the scope does not itemize is still counted
+        lines = ce.summary_lines(dict(counts, miss=2), spawns, [])
+        self.assertIn("1 action(s) not a hit lie outside --scope", lines)
 
     def test_all_hits_say_so(self):
-        graph = ce.graph_actions(self.GRAPH, "//test/")
+        graph = ce.graph_actions(self.GRAPH, "//test/", "//test/d:place")
         counts, _, spawns, _ = ce.summarize_log(_log(), "//test/")
         unreached = ce.not_reached(graph, spawns)
         self.assertEqual(
