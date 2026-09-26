@@ -21,25 +21,6 @@ def _find_config_files(repository_ctx, designs_dir, platforms):
                     configs.append(line)
     return configs
 
-def _find_ci_designs(repository_ctx, designs_dir, platforms):
-    """Find designs that have rules-base.json (CI-enabled)."""
-    ci_designs = {}
-    for platform in platforms:
-        platform_dir = designs_dir + "/" + platform
-        result = repository_ctx.execute(["find", platform_dir, "-name", "rules-base.json", "-type", "f"])
-        if result.return_code == 0:
-            for line in result.stdout.strip().split("\n"):
-                if not line:
-                    continue
-
-                # Extract platform/design from path
-                # e.g. .../designs/sky130hd/gcd/rules-base.json -> sky130hd/gcd
-                rel = line[len(designs_dir) + 1:]
-                parts = rel.split("/")
-                if len(parts) >= 2:
-                    ci_designs[parts[0] + "/" + parts[1]] = True
-    return ci_designs
-
 def _orfs_designs_impl(repository_ctx):
     parser_path = repository_ctx.path(repository_ctx.attr._parser)
     designs_path = repository_ctx.path(repository_ctx.attr.designs_dir)
@@ -126,13 +107,6 @@ def _orfs_designs_impl(repository_ctx):
 
     configs = json.decode(result.stdout)
 
-    # Find CI-enabled designs (those with rules-base.json)
-    ci_designs = _find_ci_designs(
-        repository_ctx,
-        designs_dir,
-        repository_ctx.attr.platforms,
-    )
-
     # The root of the repository holding the designs tree: designs_dir
     # with the designs_dir label's own package stripped off, so a "//"
     # label in a config.mk resolves at any depth.
@@ -179,7 +153,6 @@ def _orfs_designs_impl(repository_ctx):
             "sources": config.get("sources", {}),
             "arguments": config.get("arguments", {}),
             "blocks": config.get("blocks", []),
-            "ci": key in ci_designs,
         }
         designs[key] = entry
 

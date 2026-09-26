@@ -90,8 +90,8 @@ if { $wns >= 0 } {
  repair-knob arms measured on this rung cannot distinguish a knob that\
  does nothing from a design with nothing to do"
 }
-# The metric the whole study is about. Same identity check_pareto.py
-# uses for its period axis: clock - WNS, never WNS on its own.
+# The metric the whole study is about: clock - WNS, never WNS on its
+# own.
 set min_period [expr { $clock_period - $wns }]
 
 puts "LADDER stage=$ladder_stage design_stage=$design_stage\

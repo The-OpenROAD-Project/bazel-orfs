@@ -22,7 +22,6 @@ exports_files([
     "auto_floorplan_flow.tcl",
     "bump.py",
     "bump_impl.py",
-    "check_pareto.py",
     "compute_floorplan_shape.tcl",
     "compute_slack_margin.tcl",
     "config_mk_parser.py",
@@ -358,12 +357,6 @@ py_test(
     name = "pin_auto_floorplan_test",
     srcs = ["pin_auto_floorplan_test.py"],
     deps = [":pin_auto_floorplan"],
-)
-
-py_test(
-    name = "check_pareto_test",
-    srcs = ["check_pareto_test.py"],
-    data = ["check_pareto.py"],
 )
 
 # Fails if auto_floorplan_flow.tcl stops being flow.tcl's tail. flow.tcl

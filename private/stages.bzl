@@ -21,7 +21,6 @@ ALL_STAGES_LIST = [
     "generate_abstract",
     "generate_metadata",
     "test",
-    "update_rules",
 ]
 
 BAZEL_VARIABLE_TO_STAGES = {
