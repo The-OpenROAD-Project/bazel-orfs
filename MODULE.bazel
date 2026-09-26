@@ -49,7 +49,7 @@ bazel_dep(name = "sv-elab", version = "2026-07-07")
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
-    integrity = "sha256-bmWZ3Rf6sH8cVB4XaMgfPIu/vM5c5AUhPjoJuI0lMPw=",
+    integrity = "sha256-gz2UjOKHfxg7f5+xyBT+G6L2ontOneZduB//WwZNR6g=",
     # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
     # so vendor src/sta (OpenSTA) and third-party/abc from their own
     # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
@@ -57,22 +57,11 @@ archive_override(
     # aren't covered by archive_override's integrity.  Regenerated
     # by bump.py on every commit bump; do not edit by hand.
     patch_cmds = [
-        "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-src-sta-f89887b59600cd3a2a10c3de31bda4235d904cdf.tar.gz https://github.com/The-OpenROAD-Project/OpenSTA/archive/f89887b59600cd3a2a10c3de31bda4235d904cdf.tar.gz && echo '547546ac36a748295105586413279b96114aa0bfb164db8075dad9cdb8979fba  .openroad-submodule-src-sta-f89887b59600cd3a2a10c3de31bda4235d904cdf.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-src-sta-f89887b59600cd3a2a10c3de31bda4235d904cdf.tar.gz --strip-components=1 -C src/sta && rm .openroad-submodule-src-sta-f89887b59600cd3a2a10c3de31bda4235d904cdf.tar.gz",
+        "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-src-sta-a98ddb073fd8ed81c61d55a97aa4ed118aa48608.tar.gz https://github.com/The-OpenROAD-Project/OpenSTA/archive/a98ddb073fd8ed81c61d55a97aa4ed118aa48608.tar.gz && echo '2a032ff6c6dda5201aeacea2fdc8052b843cea4aff321683472560f7990838bc  .openroad-submodule-src-sta-a98ddb073fd8ed81c61d55a97aa4ed118aa48608.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-src-sta-a98ddb073fd8ed81c61d55a97aa4ed118aa48608.tar.gz --strip-components=1 -C src/sta && rm .openroad-submodule-src-sta-a98ddb073fd8ed81c61d55a97aa4ed118aa48608.tar.gz",
         "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz https://github.com/The-OpenROAD-Project/abc/archive/d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz && echo '0cbf538e60d0303d0e00360d8973aaad7dae198954bed6e34cc31c9a13b3f802  .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz --strip-components=1 -C third-party/abc && rm .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz",
         "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz https://github.com/povik/yosys-slang/archive/82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz && echo 'ea31b4a205ebb1fe5ec3789bcd66f21f4975e73c0901622af667f843b833ff10  .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz --strip-components=1 -C third-party/slang-elab && rm .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz",
         "find . -name BUILD -exec sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|g' {} +",
         "sed -i 's|defines = \\[|copts = [\"-include\", \"fmt/format.h\"],\\n    defines = [|' src/syn/src/elab/BUILD third-party/slang-elab/src/BUILD",
-        # An .sdc file is a DSL that is almost tcl: in foo[2] the brackets
-        # are part of a name, not a command substitution. OpenSTA gives the
-        # interpreter that reading with a global unknown handler installed
-        # for the whole session, so every script a session runs is read
-        # on a non-stock tcl. This installs the handler in read_sdc, for
-        # the extent of the .sdc file, and restores the previous one on
-        # the way out; the .sdc reading becomes an implementation detail
-        # of read_sdc and nothing outside it sees anything but stock tcl.
-        # Not upstreamed -- retire at a bump onto an OpenSTA carrying it.
-        # Extracted from //patches:0003-opensta-read-sdc-scoped-unknown.patch
-        "echo QW4gLnNkYyBmaWxlIGlzIGEgZG9tYWluIHNwZWNpZmljIGxhbmd1YWdlIHRoYXQgaXMgYWxtb3N0IHRjbC4gIFRoZSBvbmUKcmVhZGluZyBpdCBuZWVkcyB0aGF0IHRjbCBkb2VzIG5vdCBnaXZlIGlzIHRoZSBidXMgc3Vic2NyaXB0OiBpbiBmb29bMl0KdGhlIGJyYWNrZXRzIGFyZSBwYXJ0IG9mIGEgbmFtZSwgd2hlcmUgdGNsIHNlZXMgYSBjb21tYW5kIHN1YnN0aXR1dGlvbi4KT3BlblNUQSBzdXBwbGllcyB0aGF0IHJlYWRpbmcgd2l0aCBzdGFfdW5rbm93biwgaW5zdGFsbGVkIGFzIHRoZSBnbG9iYWwKbmFtZXNwYWNlJ3MgdW5rbm93biBoYW5kbGVyIHdoZW4gdGNsL1V0aWwudGNsIGxvYWRzIGFuZCBsaXZlIGZvciB0aGUKd2hvbGUgc2Vzc2lvbi4gIFNvIGV2ZXJ5IHRjbCBzY3JpcHQgYSBzZXNzaW9uIHJ1bnMsIG5vdCBvbmx5IHRoZSAuc2RjLAppcyByZWFkIG9uIGFuIGludGVycHJldGVyIHRoYXQgdHVybnMgYW4gdW5rbm93biBjb21tYW5kIGludG8gYSBidXMKc3Vic2NyaXB0IG9yIGludG8gdGhlIHVuaXF1ZSBjb21tYW5kIGl0IGFiYnJldmlhdGVzLgoKSW5zdGFsbCB0aGUgaGFuZGxlciBpbiByZWFkX3NkYyBpbnN0ZWFkLCBmb3IgdGhlIGV4dGVudCBvZiB0aGUgLnNkYwpmaWxlLCBhbmQgcHV0IHRoZSBwcmV2aW91cyBoYW5kbGVyIGJhY2sgb24gdGhlIHdheSBvdXQsIGluIGEgZmluYWxseSBzbwphbiAuc2RjIHRoYXQgZmFpbHMgcmVzdG9yZXMgaXQgdG9vLiAgTmVzdGVkIHJlYWRfc2RjIHNhdmVzIGFuZCByZXN0b3JlcwppbiBvcmRlci4gIE5vdGhpbmcgZWxzZSBjaGFuZ2VzOiBpbmNsdWRlX2ZpbGUgaXMgc3RpbGwgdGhlIHJlYWRlciwgdGhlCmZpbGUvbGluZSByZXBvcnRpbmcgYmVoaW5kIHRoZSBTREMgbWVzc2FnZSBpZHMgaXMgdW50b3VjaGVkLCBhbmQgaW5zaWRlCnJlYWRfc2RjIGV2ZXJ5IC5zZGMgcmVhZHMgZXhhY3RseSBhcyBiZWZvcmUuICBPdXRzaWRlIHJlYWRfc2RjIHRoZQppbnRlcnByZXRlciBpcyBzdG9jayB0Y2wsIGFuZCB0aGUgLnNkYyByZWFkaW5nIGlzIGFuIGltcGxlbWVudGF0aW9uCmRldGFpbCBvZiByZWFkX3NkYywgYXMgaXQgc2hvdWxkIGJlLgoKTm90IHVwc3RyZWFtZWQuICBSZXRpcmVzIG9uIGEgLy86YnVtcCBvbnRvIGFuIE9wZW5TVEEgY2FycnlpbmcgaXQuCgpkaWZmIC0tZ2l0IGEvc3JjL3N0YS9zZGMvU2RjLnRjbCBiL3NyYy9zdGEvc2RjL1NkYy50Y2wKaW5kZXggNjRmZGJmYy4uNzFiZTlkZSAxMDA2NDQKLS0tIGEvc3JjL3N0YS9zZGMvU2RjLnRjbAorKysgYi9zcmMvc3RhL3NkYy9TZGMudGNsCkBAIC0zNiw2ICszNiwyNCBAQCBuYW1lc3BhY2UgZXZhbCBzdGEgewogCiBkZWZpbmVfY21kX2FyZ3MgInJlYWRfc2RjIiB7Wy1lY2hvXSBbLW1vZGUgbW9kZV9uYW1lXSBmaWxlbmFtZX0KIAorIyBBbiAuc2RjIGZpbGUgaXMgYSBkb21haW4gc3BlY2lmaWMgbGFuZ3VhZ2UgdGhhdCBpcyBhbG1vc3QgdGNsLiAgVGhlCisjIG9uZSByZWFkaW5nIGl0IG5lZWRzIHRoYXQgdGNsIGRvZXMgbm90IGdpdmUgaXMgdGhlIGJ1cyBzdWJzY3JpcHQ6IGluCisjIGZvb1syXSB0aGUgYnJhY2tldHMgYXJlIHBhcnQgb2YgYSBuYW1lLCB3aGVyZSB0Y2wgc2VlcyBhIGNvbW1hbmQKKyMgc3Vic3RpdHV0aW9uLiAgc3RhX3Vua25vd24gKHRjbC9VdGlsLnRjbCkgc3VwcGxpZXMgdGhhdCByZWFkaW5nIGFzIHRoZQorIyBnbG9iYWwgbmFtZXNwYWNlJ3MgdW5rbm93biBoYW5kbGVyLiAgSXQgaXMgaW5zdGFsbGVkIGhlcmUsIGZvciB0aGUKKyMgZXh0ZW50IG9mIHJlYWRfc2RjLCBhbmQgdGhlIHByZXZpb3VzIGhhbmRsZXIgaXMgcHV0IGJhY2sgb24gdGhlIHdheQorIyBvdXQsIHNvIHRoZSAuc2RjIHJlYWRpbmcgc3RheXMgYW4gaW1wbGVtZW50YXRpb24gZGV0YWlsIG9mIHJlYWRfc2RjCisjIGFuZCBub3RoaW5nIG91dHNpZGUgaXQgc2VlcyBhbnl0aGluZyBidXQgc3RvY2sgdGNsLgorcHJvYyBzZGNfdW5rbm93bl9iZWdpbiB7fSB7CisgIHNldCBwcmV2IFtuYW1lc3BhY2UgZXZhbCA6OiB7IG5hbWVzcGFjZSB1bmtub3duIH1dCisgIG5hbWVzcGFjZSBldmFsIDo6IHsgbmFtZXNwYWNlIHVua25vd24gOjpzdGFfdW5rbm93biB9CisgIHJldHVybiAkcHJldgorfQorCitwcm9jIHNkY191bmtub3duX2VuZCB7IHByZXYgfSB7CisgIG5hbWVzcGFjZSBldmFsIDo6IFtsaXN0IG5hbWVzcGFjZSB1bmtub3duICRwcmV2XQorfQorCiBwcm9jX3JlZGlyZWN0IHJlYWRfc2RjIHsKICAgcGFyc2Vfa2V5X2FyZ3MgInJlYWRfc2RjIiBhcmdzIGtleXMgey1tb2RlfSBmbGFncyB7LWVjaG99CiAKQEAgLTQzLDE5ICs2MSwyNCBAQCBwcm9jX3JlZGlyZWN0IHJlYWRfc2RjIHsKICAgc2V0IGVjaG8gW2luZm8gZXhpc3RzIGZsYWdzKC1lY2hvKV0KICAgc2V0IGZpbGVuYW1lIFtmaWxlIG5hdGl2ZW5hbWUgW2xpbmRleCAkYXJncyAwXV0KIAotICBpZiB7IFtpbmZvIGV4aXN0cyBrZXlzKC1tb2RlKV0gfSB7Ci0gICAgc2V0IG1vZGVfbmFtZSAka2V5cygtbW9kZSkKLSAgICBzZXQgcHJldl9tb2RlIFtjbWRfbW9kZV9uYW1lXQotICAgIHRyeSB7Ci0gICAgICBzZXRfY21kX21vZGUgJG1vZGVfbmFtZQotICAgICAgaW5jbHVkZV9maWxlICRmaWxlbmFtZSAkZWNobyAwCi0gICAgfSBmaW5hbGx5IHsKLSAgICAgIGlmIHsgJHByZXZfbW9kZSAhPSAiZGVmYXVsdCIgfSB7Ci0gICAgICAgIHNldF9jbWRfbW9kZSAkcHJldl9tb2RlCisgIHNldCBwcmV2X3Vua25vd24gW3NkY191bmtub3duX2JlZ2luXQorICB0cnkgeworICAgIGlmIHsgW2luZm8gZXhpc3RzIGtleXMoLW1vZGUpXSB9IHsKKyAgICAgIHNldCBtb2RlX25hbWUgJGtleXMoLW1vZGUpCisgICAgICBzZXQgcHJldl9tb2RlIFtjbWRfbW9kZV9uYW1lXQorICAgICAgdHJ5IHsKKyAgICAgICAgc2V0X2NtZF9tb2RlICRtb2RlX25hbWUKKyAgICAgICAgaW5jbHVkZV9maWxlICRmaWxlbmFtZSAkZWNobyAwCisgICAgICB9IGZpbmFsbHkgeworICAgICAgICBpZiB7ICRwcmV2X21vZGUgIT0gImRlZmF1bHQiIH0geworICAgICAgICAgIHNldF9jbWRfbW9kZSAkcHJldl9tb2RlCisgICAgICAgIH0KICAgICAgIH0KKyAgICB9IGVsc2UgeworICAgICAgaW5jbHVkZV9maWxlICRmaWxlbmFtZSAkZWNobyAwCiAgICAgfQotICB9IGVsc2UgewotICAgIGluY2x1ZGVfZmlsZSAkZmlsZW5hbWUgJGVjaG8gMAorICB9IGZpbmFsbHkgeworICAgIHNkY191bmtub3duX2VuZCAkcHJldl91bmtub3duCiAgIH0KIH0KIApkaWZmIC0tZ2l0IGEvc3JjL3N0YS90Y2wvVXRpbC50Y2wgYi9zcmMvc3RhL3RjbC9VdGlsLnRjbAppbmRleCAxNTQ0MzUyLi45NzJmYmE4IDEwMDY0NAotLS0gYS9zcmMvc3RhL3RjbC9VdGlsLnRjbAorKysgYi9zcmMvc3RhL3RjbC9VdGlsLnRjbApAQCAtNDg2LDYgKzQ4Niw5IEBAIHByb2MgaW5jbHVkZV9maWxlIHsgZmlsZW5hbWUgZWNobyB2ZXJib3NlIH0gewogIyBCdXMgc2lnbmFsIG5hbWVzIGxpa2UgZm9vWzJdIG9yIGJhclszMTowXSB1c2UgYnJhY2tldHMgdGhhdAogIyBsb29rIGxpa2UgImV2YWwiIHRvIFRDTC4gQ2F0Y2ggdGhlIG51bWVyaWMgImZ1bmN0aW9uIiB3aXRoIHRoZQogIyBuYW1lc3BhY2UncyB1bmtub3duIGhhbmRsZXIgYW5kIHJldHVybiB0aGUgdmFsdWUgaW5zdGVhZCBvZiBhbiBlcnJvci4KKyMgcmVhZF9zZGMgaW5zdGFsbHMgdGhpcyBoYW5kbGVyIGZvciB0aGUgZXh0ZW50IG9mIHRoZSAuc2RjIGZpbGUgYW5kCisjIHJlc3RvcmVzIHRoZSBwcmV2aW91cyBvbmUgb24gdGhlIHdheSBvdXQgKHNlZSBzZGMvU2RjLnRjbCk7IG91dHNpZGUKKyMgcmVhZF9zZGMgdGhlIGludGVycHJldGVyIGlzIHN0b2NrIHRjbC4KIHByb2Mgc3RhX3Vua25vd24geyBhcmdzIH0gewogICBnbG9iYWwgZXJyb3JDb2RlIGVycm9ySW5mbwogICAKQEAgLTUyMiw1ICs1MjUsMyBAQCBwcm9jIGlzX2J1c19zdWJzY3JpcHQgeyBzdWJzY3JpcHQgfSB7CiAgICAgICAgICAgICB8fCBbc3RyaW5nIG1hdGNoICRzdWJzY3JpcHQgIioiXSBcCiAgICAgICAgICAgICB8fCBbcmVnZXhwIHtbMC05XSs6WzAtOV19ICRzdWJzY3JpcHRdXQogfQotCi1uYW1lc3BhY2UgdW5rbm93biBzdGFfdW5rbm93bgo= | base64 -d | patch -p1 || (echo 'ERROR: Patch //patches:0003-opensta-read-sdc-scoped-unknown.patch failed to apply to submodule. Please rebase the source of truth patch at //patches:0003-opensta-read-sdc-scoped-unknown.patch.' && exit 1)",
         # write_timing_model runs one filtered arrival search per input
         # pin and transition, and each search scans every output pin:
         # the cost is the product of input and output pin counts times
@@ -91,16 +80,6 @@ archive_override(
     ],
     patch_strip = 1,
     patches = [
-        # openroad reads the command file with sta::include_file, one
-        # command at a time, so a failure is reported as a single line
-        # with the tcl stack trace discarded, and an unbalanced brace as
-        # "incomplete command at end of file" with no line at all.
-        # -tcl_source reads it with tcl's source instead, which is what
-        # the gui path already does. Nothing in OpenSTA changes and
-        # include_file stays the default. ORFS passes the flag via
-        # patches/0069-orfs-openroad-args-tcl-source.patch.
-        # Not upstreamed -- retire at a bump onto an OpenROAD carrying it.
-        "//patches:0001-openroad-tcl-source-flag.patch",
         # openroad_lib, the whole tool as one cc_library, is visible only
         # to OpenROAD's own packages. Public, so tools/structured_gen can
         # link odb, utl and sta from this repository; nothing else changes.
@@ -122,18 +101,9 @@ archive_override(
         # The-OpenROAD-Project/OpenROAD#11527. Retires at a bump onto an
         # OpenROAD that has it.
         "//patches:0005-openroad-pdn-cleanup-rtree.patch",
-        # global_route -allow_congestion decided whether a congested route
-        # counts, but haveRoutes() and guide writing re-read the live
-        # setting, which repair_antennas and every incremental global_route
-        # rewrite from their own flags: a congested accepted route stopped
-        # counting and estimate_parasitics -global_routing stopped on
-        # EST-0005. The decision is now recorded when the route finishes.
-        # Upstream as OpenROAD #11525; retires at a bump onto an OpenROAD
-        # that has it.
-        "//patches:0007-openroad-grt-congestion-acceptance.patch",
     ],
-    strip_prefix = "OpenROAD-3ab04b4dd1e1b86d603faf3e75a20bd276f61757",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/3ab04b4dd1e1b86d603faf3e75a20bd276f61757.tar.gz"],
+    strip_prefix = "OpenROAD-930bb1cb1965df30dcc91ed86f7f56dd5ab4f6d2",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/930bb1cb1965df30dcc91ed86f7f56dd5ab4f6d2.tar.gz"],
 )
 
 # OpenROAD pins sv-lang 10.0.bcr.2, which is not yet published in BCR.
@@ -473,8 +443,8 @@ orfs = use_extension("//:extension.bzl", "orfs_repositories")
 # `patches` on an override is honoured only from the root module and
 # would therefore land on whoever is root. Rewritten by //:bump.
 orfs.source(
-    commit = "3a964e13f11a4e435aac01ffa14db0a7d2853720",
-    integrity = "sha256-1Zq9Q5ZroKYdArfCBzZsYt8hii2elrRj3T/E4mnaO0A=",
+    commit = "658a37909a62f23b002d95ec931085d21efca07d",
+    integrity = "sha256-mx8XXWklM4ciAKXiNKW+Jfp2f02jMcNo9VG+F7eJT1M=",
 )
 orfs.default(
     # Expose the slang yosys plugin (from BCR sv-elab) via
