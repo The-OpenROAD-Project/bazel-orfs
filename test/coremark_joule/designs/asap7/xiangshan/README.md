@@ -15,7 +15,7 @@ number, add a row and re-render.
 
 The KPI is the design's minimum clock period, the red line: the largest
 of the parent's period and each block's, since the design is only as
-fast as its slowest part. Today it is **6,186 ps**, Frontend's. The
+fast as its slowest part. Today it is **4,991 ps**, the parent's. The
 parent is one of those parts, like any block, and each of them is drawn
 dashed beneath the red line, a period that has to be at or below it.
 
@@ -27,21 +27,25 @@ for the group by name and not for the worst slack: on VecRegionModule the
 overall worst slack is -2,006 ps and belongs to another group, while
 `reg2reg` is -1,564 ps, and only the second one is a period.
 
-The parent, XSTile with its clock tree, is **5,143 ps** at global route
+The parent, XSTile with its clock tree, is **4,991 ps** at global route
 with the route's own parasitics; its `reg2reg` group does not see the
 paths inside a block's abstract. Each block is measured alone at its
 place stage against an ideal clock, through `<block>_place_odb_debug`:
 
 | block | minimum period | worst `reg2reg` path |
 |---|---|---|
-| Frontend | 6,186 ps | `bpu/mbtb.t1_startPcVec` to a main-BTB bank's write-buffer set index |
-| MemBlock | 5,527 ps | the redirect's `robIdx` into `loadQueueReplay`'s vaddr |
-| CoupledL2 | 2,820 ps | the directory's state into `mainPipe`'s L1 hint queue |
-| VecRegionModule | 2,471 ps | `Vfma` widen flag into its CSA stage |
-| Region_1 | 1,990 ps | the FMA's fp64 flag into its shift mask |
+| Frontend | 4,854 ps | a main-BTB bank's counter read into ITTAGE's `s1_startPc` |
+| MemBlock | 4,446 ps | the DCache main pipe's `s1_req_vaddr` into its pseudo-error mask |
+| CoupledL2 | 2,954 ps | the directory's state into `sinkC`'s refill-buffer write |
+| VecRegionModule | 2,665 ps | an issue pipe's valid into the vector writeback data |
+| Region_1 | 1,642 ps | a flush copy's `robIdx` into the FP issue queue's wakeup |
 
 XiangShan's `ClockGate` is mapped onto ASAP7's ICG cell (`xs_icg.ys`) in
 every flow, the parent's and every block's.
+
+Synthesis maps with ABC's speed script at the SDC period, ORFS's default,
+in every flow; `synth_config_test` checks each flow's synthesis
+configuration once it is built.
 
 The blocks are abstracted at `cts`, and that is a choice with a measured
 cost. On Frontend, the `cts` checkpoint's period was 28 percent
@@ -94,7 +98,9 @@ FO4. Measured, the same paths are 138 to 430 FO4:
 The measured column is each block alone at its place stage against an
 ideal clock, and for XSTile the parent's period; the read and estimated columns are
 source reading, with files and lines in `ideas/xiangshan-timing.md`,
-entry 27.
+entry 27. The paths and the measured column are the area-mapped netlist's;
+with ABC's speed script every block's worst path moved (the table in
+"The KPI"), and those have not been read at the source yet.
 
 By logic depth the RTL is congruent with the goal: every one of these
 paths fits in 41 FO4, the deepest two, the FMA's wide add and the top
@@ -148,25 +154,24 @@ The parent's worst paths at global route, by group:
 
 | group | worst slack at 473 ps | path |
 |---|---|---|
-| reg2reg | -4,670 ps | VecRegionModule's `out_toIntRegion_vstdCanAccept_1_0` output into the parent's `ctrlBlock/decodeBufBits` |
-| in2reg | -1,562 ps | `io_hartId` into the CSR in the integer ALU |
-| reg2out | -866 ps | the L2's `io_chi_syscoreq` out to the tile's port |
+| reg2reg | -4,518 ps | MemBlock's `io_mem_to_ooo_ldCancel_2_ld2Cancel` output into dispatch's issue-queue count |
+| in2reg | -1,209 ps | `io_hartId` into the CSR in the integer ALU |
+| reg2out | -980 ps | the L2's `io_chi_tx_dat_flit` out to the tile's port |
 
 Only the first is a period (`.claude/skills/macro-constraints`); the
 other two are optimisation targets.
 
-Route-0 at global route: total congestion 37,180, worst edge 31/42, 20.7
+Route-0 at global route: total congestion 14,149, 20.8
 percent of the routing resources used. The floorplan is the planner's at
 parent density 0.2 and layer adjustment 0.1; `plan/plan.json` is its input.
 
 ## The next two
 
-1. **VecRegionModule's store-data accept into the decode buffer**, 4,670
-   ps over the period: 1,436 ps of the block's clock-to-output, then
-   3,671 ps across the parent, 1,756 of them repeaters and 727 wire, a
-   long crossing rather than a missing one. Across the 11 distinct worst
-   paths, repeaters are 36 percent of the data delay, logic 33, wire 23
-   (`ideas/xiangshan-timing.md`, entry 26).
+1. **MemBlock's load-cancel output into dispatch's issue-queue count**,
+   4,518 ps over the period; its split into the block's clock-to-output,
+   repeaters, logic and wire is not measured yet. On the area-mapped
+   netlist the 11 distinct worst paths were 36 percent repeaters, 33
+   logic, 23 wire (`ideas/xiangshan-timing.md`, entry 26).
 2. **Block clock trees are a period deep**: 20 to 27 levels, 477 to
    944 ps of insertion delay against a 591 ps target, so every block
    boundary path is skewed by that much, or padded to match with

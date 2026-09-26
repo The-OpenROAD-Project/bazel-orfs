@@ -230,3 +230,32 @@ census_probe(
     name = "cmj_xiangshan_census",
     src = ":XSTile_synth",
 )
+
+# Every flow's synthesis maps with ABC's speed script: each planned
+# block's and the parent's synthesis configuration, which merges the
+# synthesis before it, so this reads a built flow.
+[
+    filegroup(
+        name = "%s_1_synth.mk" % design,
+        srcs = [":%s_synth" % design],
+        output_group = "1_synth.mk",
+        tags = ["manual"],
+    )
+    for design in ["XSTile"] + PLAN["macros"].keys()
+]
+
+py_test(
+    name = "synth_config_test",
+    srcs = ["synth_config_test.py"],
+    args = [
+        arg
+        for design in ["XSTile"] + PLAN["macros"].keys()
+        for arg in [
+            design,
+            "$(rootpath :%s_1_synth.mk)" % design,
+        ]
+    ],
+    data = [":%s_1_synth.mk" % design for design in ["XSTile"] + PLAN["macros"].keys()],
+    main = "synth_config_test.py",
+    tags = ["manual"],
+)

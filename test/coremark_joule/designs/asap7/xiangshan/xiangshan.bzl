@@ -41,7 +41,6 @@ XS_VERILOG = ["//test/coremark_joule/xiangshan:xiangshan_flat.sv"]
 
 XS_PARENT = {
     "arguments": {
-        "ABC_AREA": "1",
         "AUTO_MEMORIES": "1",
         "CORE_MARGIN": "2",
         "CORE_UTILIZATION": "18",
@@ -93,7 +92,6 @@ XS_PARENT = {
 XS_BLOCKS = {
     "Bpu": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -139,7 +137,6 @@ XS_BLOCKS = {
     },
     "DCacheWrapper": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -171,7 +168,6 @@ XS_BLOCKS = {
     },
     "DataPath": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -203,7 +199,6 @@ XS_BLOCKS = {
     },
     "Dispatch": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "25",
@@ -235,7 +230,6 @@ XS_BLOCKS = {
     },
     "ExuBlock": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -267,7 +261,6 @@ XS_BLOCKS = {
     },
     "Ftq": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -300,7 +293,6 @@ XS_BLOCKS = {
     },
     "HPerfMonitor_3": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -331,7 +323,6 @@ XS_BLOCKS = {
     },
     "IBuffer": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -362,7 +353,6 @@ XS_BLOCKS = {
     },
     "ICache": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -393,7 +383,6 @@ XS_BLOCKS = {
     },
     "Ifu": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -424,7 +413,6 @@ XS_BLOCKS = {
     },
     "IssueQueueAluBkuVset": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -456,7 +444,6 @@ XS_BLOCKS = {
     },
     "IssueQueueAluCsrFenceLinkBrhNjmp": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -488,7 +475,6 @@ XS_BLOCKS = {
     },
     "IssueQueueAluDivBrhNjmp": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -520,7 +506,6 @@ XS_BLOCKS = {
     },
     "IssueQueueAluI2fBrhNjmp": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -552,7 +537,6 @@ XS_BLOCKS = {
     },
     "IssueQueueAluMul": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -584,7 +568,6 @@ XS_BLOCKS = {
     },
     "IssueQueueLdu": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -616,7 +599,6 @@ XS_BLOCKS = {
     },
     "IssueQueueStaMou": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -648,7 +630,6 @@ XS_BLOCKS = {
     },
     "IssueQueueStaMou_1": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -680,7 +661,6 @@ XS_BLOCKS = {
     },
     "IssueQueueStdMoud": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -712,7 +692,6 @@ XS_BLOCKS = {
     },
     "IssueQueueStdMoud_1": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -744,7 +723,6 @@ XS_BLOCKS = {
     },
     "L2TLBWrapper": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -776,7 +754,6 @@ XS_BLOCKS = {
     },
     "LsqWrapper": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -808,7 +785,6 @@ XS_BLOCKS = {
     },
     "MemCtrl": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -840,7 +816,6 @@ XS_BLOCKS = {
     },
     "PrefetcherWrapper": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -871,7 +846,6 @@ XS_BLOCKS = {
     },
     "Region_1": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -904,7 +878,6 @@ XS_BLOCKS = {
     },
     "Rename": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -936,7 +909,6 @@ XS_BLOCKS = {
     },
     "Rob": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -969,7 +941,6 @@ XS_BLOCKS = {
     },
     "Sbuffer": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -1001,7 +972,6 @@ XS_BLOCKS = {
     },
     "TLB": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -1032,7 +1002,6 @@ XS_BLOCKS = {
     },
     "TLBNonBlock": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -1063,7 +1032,6 @@ XS_BLOCKS = {
     },
     "TLBNonBlock_1": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -1094,7 +1062,6 @@ XS_BLOCKS = {
     },
     "TLBNonBlock_2": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -1125,7 +1092,6 @@ XS_BLOCKS = {
     },
     "VecRegionModule": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
@@ -1158,7 +1124,6 @@ XS_BLOCKS = {
     },
     "VectorDecodeChannel": {
         "arguments": {
-            "ABC_AREA": "1",
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
             "CORE_UTILIZATION": "40",
