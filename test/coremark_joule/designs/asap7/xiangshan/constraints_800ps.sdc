@@ -60,23 +60,6 @@ foreach p [get_ports -quiet reset] {
 # the PDK's max_transition, and this one has not been swept.
 set_max_fanout 32 [current_design]
 
-# The L2's data banks are read in two cycles (CoupledL2 DataStorage,
-# readMCP2): the request is held for two cycles and the data is sampled
-# two cycles later, so every path into and out of a bank has two periods.
-# Timed as one, each read looks like a violation the design never has.
-# The banks are only in CoupledL2's flow; there, finding none means the
-# constraint has lost its target, and that is an error rather than a
-# clean report.
-set l2_data_banks [get_cells -quiet -hierarchical * -filter "ref_name == array_8192x137"]
-if { [llength $l2_data_banks] > 0 } {
-  set_multicycle_path 2 -setup -to $l2_data_banks
-  set_multicycle_path 1 -hold -to $l2_data_banks
-  set_multicycle_path 2 -setup -from $l2_data_banks
-  set_multicycle_path 1 -hold -from $l2_data_banks
-} elseif { [info exists ::env(DESIGN_NAME)] && $::env(DESIGN_NAME) eq "CoupledL2" } {
-  error "constraints_800ps.sdc: no array_8192x137 in CoupledL2, the L2 data banks' multicycle path has no target"
-}
-
 # The platform's constraints add group_path targets between inputs,
 # registers and outputs. VectorDecodeChannel, a block of this design, is
 # pure decode with no register, and group_path refuses an empty -from or
