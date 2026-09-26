@@ -1,17 +1,17 @@
-# 800 ps: the synthesis target for a core that should route at 1000 ps.
-# A starting period, not a result.
-#
-# The study's frequency comes from a sweep over clock periods at global
-# route, taking f = 1 / (period - WNS) at a slightly negative WNS. This
-# value only has to be close enough that the first sweep point is useful.
-#
-# 1200 ps is the same starting point the other three cores use. XiangShan
-# is a far deeper design and will not close there; that is what the sweep
-# is for, and starting every core at the same period keeps the first
-# measurement comparable rather than pre-tuned.
+# 473 ps: the synthesis target for a core that should route at 591 ps,
+# which is XiangShan's 333 ps on 7 nm in fanouts of four. The published
+# ASAP7 RVT FO4 is 8.1 ps (Clark et al., "Design Flows and Collateral for
+# the ASAP7 7nm FinFET Predictive Process Design Kit", MSE 2017), which
+# its authors call realistic for industrial 7 nm: 333 ps is 41.1 FO4.
+# The libraries this flow times with, RVT at the FF corner, have an FO4
+# of 14.37 ps (fo4.py), so 41.1 FO4 is 591 ps at global route, and 0.8
+# of that is the synthesis period. LVT (6.8 ps published) and SLVT (6 ps)
+# give the same period within 0.3 percent: the libraries are slower than
+# the published figures by one factor in every Vt class, so the target
+# does not depend on the Vt mix. period_fo4_test checks the arithmetic.
 set clk_name clk
 set clk_port_name clock
-set clk_period 800
+set clk_period 473
 
 # The IO budget, as optimization targets. set_input_delay and
 # set_output_delay are deliberately not used anywhere in this study:

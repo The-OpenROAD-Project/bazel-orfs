@@ -15,11 +15,16 @@
     "what the top level would approach if the clock reached the logic. The",
     "top level number is the one that carries a clock tree.",
     "",
-    "The target is 800 ps. When the period approaches it, this file gains",
-    "the CoreMark and power columns and the study reconnects; until then",
-    "the design does not depend on it."
+    "The target is 591 ps at global route: XiangShan's 333 ps on 7 nm is",
+    "41.1 fanouts of four at the published ASAP7 FO4 of 8.1 ps, and 41.1",
+    "FO4 of the library this flow times with (RVT at FF, 14.37 ps) is",
+    "591 ps. The SDC synthesises at 0.8 of it, 473 ps; period_fo4_test",
+    "checks the arithmetic. Rows before 2026-09-26's second XSTile run",
+    "were measured with the SDC at 800 ps. When the period approaches the",
+    "target, this file gains the CoreMark and power columns and the study",
+    "reconnects; until then the design does not depend on it."
   ],
-  "target_ps": 800,
+  "target_ps": 591,
   "runs": [
     {
       "date": "2026-09-22",
@@ -69,6 +74,19 @@
         "VecRegionModule": 2471
       },
       "note": "XSTile, the tile with its L2, at density 0.2 and layer adjustment 0.1; global route at zero iterations with congestion allowed (total 37180, worst edge 31/42)"
+    },
+    {
+      "date": "2026-09-26",
+      "measured": "XSTile_grt, built from source",
+      "min_period_ps": 5543,
+      "blocks": {
+        "CoupledL2": 2820,
+        "Frontend": 6186,
+        "MemBlock": 5527,
+        "Region_1": 1990,
+        "VecRegionModule": 2471
+      },
+      "note": "SDC at 473 ps, 333 ps on 7 nm in FO4; the period of the 800 ps run to the picosecond: with timing repair skipped and ABC mapping for area the netlist does not depend on the SDC"
     }
   ]
 }

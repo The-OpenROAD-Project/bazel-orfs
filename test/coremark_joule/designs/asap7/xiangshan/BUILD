@@ -1,9 +1,41 @@
 load("@bazel-orfs//:openroad.bzl", "odb_debug")
+load("@rules_python//python:defs.bzl", "py_test")
 load("//test/coremark_joule/flow:power.bzl", "census_probe", "grt_netlist", "hier_probe", "physical_probe", "stage_power", "stage_power_units")
 load(":plan/plan.bzl", "PLAN")
 load(":xiangshan.bzl", "xiangshan_flow")
 
 exports_files(["constraints.sdc"])
+
+# The SDC period is XiangShan's 333 ps on 7 nm in fanouts of four, on the
+# library the flow times with, ORFS's default asap7 corner FF, in each Vt
+# class; the flow's primary Vt first.
+py_test(
+    name = "period_fo4_test",
+    srcs = [
+        "fo4.py",
+        "period_fo4_test.py",
+    ],
+    args = [
+        "$(rootpath :constraints_473ps.sdc)",
+        "R",
+        "$(rootpath @orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz)",
+        "INVx1_ASAP7_75t_R",
+        "L",
+        "$(rootpath @orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_LVT_FF_nldm_220122.lib.gz)",
+        "INVx1_ASAP7_75t_L",
+        "SL",
+        "$(rootpath @orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_SLVT_FF_nldm_220122.lib.gz)",
+        "INVx1_ASAP7_75t_SL",
+    ],
+    data = [
+        ":constraints_473ps.sdc",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_LVT_FF_nldm_220122.lib.gz",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_SLVT_FF_nldm_220122.lib.gz",
+    ],
+    main = "period_fo4_test.py",
+    tags = ["manual"],
+)
 
 # XiangShan's ClockGate onto ASAP7's ICG (xs_icg.ys says why and how);
 # test/xs_clockgate checks the mapping on a small design.
