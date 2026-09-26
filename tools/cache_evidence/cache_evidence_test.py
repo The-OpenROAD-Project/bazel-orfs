@@ -1,5 +1,6 @@
 """cache_evidence on hand-encoded execution logs."""
 
+import json
 import os
 import sys
 import tempfile
@@ -207,23 +208,20 @@ class RedactTest(unittest.TestCase):
             "--repo_env=CLOUDSDK_CORE_ACCOUNT=<redacted>",
         )
         self.assertEqual(
-            ce.redact_option("--action_env=PATH=/usr/bin"), "--action_env=PATH=<redacted>"
+            ce.redact_option("--action_env=PATH=/usr/bin"),
+            "--action_env=PATH=<redacted>",
         )
         # any other value that names an address is dropped whole
         self.assertEqual(
-            ce.redact_option("--some_flag=user@corp.example.com"), "--some_flag=<redacted>"
+            ce.redact_option("--some_flag=user@corp.example.com"),
+            "--some_flag=<redacted>",
         )
         ce.check_public([ce.redact_option("--repo_env=A=b@corp.example.com")])
 
     def test_capture_refuses_a_build_with_no_actions(self):
         none = {"spawns": 0, "hit": 0, "ran": 0, "miss": 0}
-        why = ce.capture_refusal(
-            none,
-            "INFO: x\nERROR: 'linux-sandbox' was requested for explicit default"
-            " strategies but no strategy with that identifier was registered.\n",
-        )
-        self.assertIn("linux-sandbox", why)
-        self.assertIn("apparmor_restrict_unprivileged_userns", why)
+        why = ce.capture_refusal(none, "INFO: x\nERROR: no such package 'y'\n")
+        self.assertEqual(why, "ERROR: no such package 'y'")
         self.assertEqual(ce.capture_refusal(none, ""), "the build logged no actions")
         self.assertIsNone(ce.capture_refusal(dict(none, spawns=3, hit=3), "ERROR: x"))
 
@@ -238,6 +236,159 @@ class RedactTest(unittest.TestCase):
         self.assertIn("--jobs=2", opts)
         self.assertIn("--lockfile_mode=off", opts)
         self.assertFalse(any("grpc" in o for o in opts))
+
+
+def _aquery(*actions):
+    """aquery --output=jsonproto for actions given as (label, mnemonic, out)."""
+    frags, fid = [], {}
+
+    def frag(path):
+        parent = None
+        for i, part in enumerate(path.split("/")):
+            key = "/".join(path.split("/")[: i + 1])
+            if key not in fid:
+                fid[key] = len(frags) + 1
+                f = {"id": fid[key], "label": part}
+                if parent is not None:
+                    f["parentId"] = parent
+                frags.append(f)
+            parent = fid[key]
+        return parent
+
+    targets, tid, arts, acts = [], {}, [], []
+    for label, mnemonic, out in actions:
+        if label not in tid:
+            tid[label] = len(targets) + 1
+            targets.append({"id": tid[label], "label": label})
+        arts.append({"id": len(arts) + 1, "pathFragmentId": frag(out)})
+        acts.append(
+            {"targetId": tid[label], "mnemonic": mnemonic, "outputIds": [len(arts)]}
+        )
+    return json.dumps(
+        {"artifacts": arts, "actions": acts, "targets": targets, "pathFragments": frags}
+    )
+
+
+class FrontierTest(unittest.TestCase):
+    GRAPH = _aquery(
+        ("//test/d:synth", "Action", "bazel-out/k8-fastbuild/bin/test/d/1_synth.v"),
+        ("//test/d:synth", "FileWrite", "bazel-out/k8-fastbuild/bin/test/d/config.mk"),
+        (
+            "//test/d:floorplan",
+            "Action",
+            "bazel-out/k8-fastbuild/bin/test/d/2_floorplan.odb",
+        ),
+        ("//test/d:place", "Action", "bazel-out/k8-fastbuild/bin/test/d/3_place.odb"),
+        (
+            "@yosys//:yosys",
+            "CppLink",
+            "bazel-out/k8-opt-exec/bin/external/yosys+/yosys",
+        ),
+    )
+
+    def test_graph_actions_skip_internal_and_out_of_scope(self):
+        graph = ce.graph_actions(self.GRAPH, "//test/")
+        self.assertEqual(
+            graph,
+            [
+                ("Action", "k8-fastbuild:test/d/1_synth.v"),
+                ("Action", "k8-fastbuild:test/d/2_floorplan.odb"),
+                ("Action", "k8-fastbuild:test/d/3_place.odb"),
+            ],
+        )
+        self.assertEqual(ce.graph_actions("", "//test/"), [])
+
+    def test_not_reached_is_what_the_log_lacks(self):
+        graph = ce.graph_actions(self.GRAPH, "//test/")
+        counts, _, spawns = ce.summarize_log(_log(miss=True), "//test/")
+        unreached = ce.not_reached(graph, spawns)
+        # synth hit, floorplan missed; place behind the miss was never keyed
+        self.assertEqual(
+            unreached, ["not_reached Action k8-fastbuild:test/d/3_place.odb"]
+        )
+        lines = ce.summary_lines(counts, spawns, unreached)
+        self.assertEqual(lines[0], "spawns 3 hit 2 ran 0 miss 1 not_reached 1")
+        self.assertEqual(lines[1], "miss Action k8-fastbuild:test/d/2_floorplan.odb")
+        self.assertEqual(lines[2], unreached[0])
+        self.assertNotIn("every action is a remote cache hit", lines)
+
+    def test_all_hits_say_so(self):
+        graph = ce.graph_actions(self.GRAPH, "//test/")
+        counts, _, spawns = ce.summarize_log(_log(), "//test/")
+        unreached = ce.not_reached(graph, spawns)
+        self.assertEqual(
+            unreached, ["not_reached Action k8-fastbuild:test/d/3_place.odb"]
+        )
+        counts2, _, spawns2 = ce.summarize_log(_log(), "//test/")
+        lines = ce.summary_lines(counts2, spawns2, [])
+        self.assertEqual(lines[-1], "every action is a remote cache hit")
+
+    def test_evidence_carries_not_reached(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "e.txt")
+            counts, tools, spawns = ce.summarize_log(_log(miss=True), "//test/")
+            ce.write_evidence(
+                path,
+                [],
+                counts,
+                tools,
+                spawns,
+                ["not_reached Action k8-fastbuild:test/d/3_place.odb"],
+            )
+            with open(path) as fh:
+                text = fh.read()
+            self.assertIn("spawns 3 hit 2 ran 0 miss 1 not_reached 1\n", text)
+            self.assertTrue(
+                text.endswith("not_reached Action k8-fastbuild:test/d/3_place.odb\n")
+            )
+            header, _, _ = ce._read(path)
+            self.assertEqual(
+                header["not_reached"], ["Action k8-fastbuild:test/d/3_place.odb"]
+            )
+
+    def test_sandboxed_pids(self):
+        with tempfile.TemporaryDirectory() as d:
+            ob = os.path.join(d, "ob")
+            root = os.path.join(ob, "sandbox") + os.sep
+            proc = os.path.join(d, "proc")
+            os.makedirs(os.path.join(root, "processwrapper-sandbox", "7", "execroot"))
+            os.makedirs(os.path.join(d, "elsewhere"))
+
+            def fake(pid, cmdline, cwd):
+                p = os.path.join(proc, str(pid))
+                os.makedirs(p)
+                with open(os.path.join(p, "cmdline"), "wb") as fh:
+                    fh.write(cmdline.replace(" ", "\0").encode())
+                os.symlink(cwd, os.path.join(p, "cwd"))
+
+            # the action's process: cwd in the sandbox, relative command
+            fake(
+                11,
+                "bazel-out/k8-opt-exec/bin/openroad -exit x.tcl",
+                root + "processwrapper-sandbox/7/execroot",
+            )
+            # Bazel's wrapper: names the sandbox, cwd elsewhere
+            fake(
+                12,
+                "process-wrapper --stats=" + root + "processwrapper-sandbox/7/stats",
+                os.path.join(d, "elsewhere"),
+            )
+            # the server and an unrelated process
+            fake(
+                13,
+                "bazel(x) -Dlog=" + ob + "/javalog.properties",
+                os.path.join(d, "elsewhere"),
+            )
+            fake(14, "vim notes.txt", os.path.join(d, "elsewhere"))
+            # a process whose cwd the sandbox cleanup already removed
+            fake(15, "make", root + "processwrapper-sandbox/6/execroot (deleted)")
+            os.makedirs(os.path.join(proc, "self"))
+            self.assertEqual(
+                sorted(ce.sandboxed_pids(root, proc, self_pid=0)), [11, 12, 15]
+            )
+            self.assertEqual(
+                sorted(ce.sandboxed_pids(root, proc, self_pid=11)), [12, 15]
+            )
 
 
 if __name__ == "__main__":
