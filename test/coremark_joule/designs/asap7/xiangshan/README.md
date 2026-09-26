@@ -22,7 +22,7 @@ overall worst slack is -2,006 ps and belongs to another group, while
 `reg2reg` is -1,564 ps, and only the second one is a period.
 
 Two series. The red one is the top level, XSTile with its clock tree,
-and it is the KPI: **5,543 ps**, at global route with the route's own
+and it is the KPI: **5,143 ps**, at global route with the route's own
 parasitics. The squares are each hardened block measured alone at its
 place stage against an ideal clock, through `<block>_place_odb_debug`:
 
@@ -68,8 +68,8 @@ The parent's worst paths at global route, by group:
 
 | group | worst slack at 473 ps | path |
 |---|---|---|
-| reg2reg | -5,070 ps | MemBlock's `intWriteback_0_0_toFpRf_valid` output into the parent's `dispatch/fpBusyTable` |
-| in2reg | -1,605 ps | `io_hartId` into the CSR in the integer ALU |
+| reg2reg | -4,670 ps | VecRegionModule's `out_toIntRegion_vstdCanAccept_1_0` output into the parent's `ctrlBlock/decodeBufBits` |
+| in2reg | -1,562 ps | `io_hartId` into the CSR in the integer ALU |
 | reg2out | -866 ps | the L2's `io_chi_syscoreq` out to the tile's port |
 
 Only the first is a period (`.claude/skills/macro-constraints`); the
@@ -81,10 +81,12 @@ parent density 0.2 and layer adjustment 0.1; `plan/plan.json` is its input.
 
 ## The next two
 
-1. **MemBlock's write-back valid into the dispatch busy table**, 5,070 ps
-   over the period: a block output crossing the parent into a register,
-   the path that sets the top level. 1,938 ps of it is one unbuffered net
-   from MemBlock's pin to Region_1's, 2.4 mm apart, at a slew of 6 ns.
+1. **VecRegionModule's store-data accept into the decode buffer**, 4,670
+   ps over the period: 1,436 ps of the block's clock-to-output, then
+   3,671 ps across the parent, 1,756 of them repeaters and 727 wire, a
+   long crossing rather than a missing one. Across the 11 distinct worst
+   paths, repeaters are 36 percent of the data delay, logic 33, wire 23
+   (`ideas/xiangshan-timing.md`, entry 26).
 2. **Block clock trees are a period deep**: 20 to 27 levels, 477 to
    944 ps of insertion delay against a 591 ps target, so every block
    boundary path is skewed by that much, or padded to match with

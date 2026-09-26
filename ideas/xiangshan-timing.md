@@ -652,6 +652,53 @@ periods drive a decision (budgeting the top level, closing to a target);
 `Frontend_grt_probe_grt` is the probe, and the flow's own grt stage with
 `repair_timing` is a separate, longer measurement.
 
+## 26. The parent's worst paths are bare wires between blocks
+
+At 473 ps (2026-09-26, `XSTile_grt`, 5,543 ps), the top 3,000 `reg2reg`
+endpoints come from 25 startpoints, 19 of them MemBlock pins. The worst
+path breaks down like this:
+
+| segment | ps |
+|---|---|
+| clock to MemBlock's pin | 1,238 |
+| MemBlock's clock-to-output arc (its tree and load s3 logic) | 2,251 |
+| one net, MemBlock pin to Region_1 pin, fanout 1, 244 fF, slew 6,088 ps | 1,938 |
+| Region_1 through (the write-back arbiter) | 419 |
+| parent: repeaters and the busy table's decode | ~900 |
+
+Across the 25 distinct paths, wire is 60 percent of the data delay, 17
+of them violate the library's 320 ps slew limit (up to 6.2 ns), and the
+median path has no parent logic at all: block pin, wire, block pin. The
+parent's own nets beside them got their repeaters. The pins of the worst
+net are 2.4 mm apart (1,322 by 1,124 um); repeated, that is a few
+hundred picoseconds.
+
+The net is not `dont_touch`; it has no violation to repair. The cts
+abstracts `write_timing_model` writes carry a capacitance per port and
+no `max_transition` or `max_capacitance`, not even a library default
+(checked on the miniature's BlockB: none of 353 ports), and the output
+arcs are tabled only to 92 fF. A net whose only driver and load are
+block ports therefore never shows the parent's `repair_design` a limit.
+A commercial ETM or ILM carries the boundary cells' design-rule limits.
+
+Fixed where it belongs, in the model writer: OpenSTA patch 0008 gives an
+input the tightest `max_transition` of its loads and an output its
+driver's `max_capacitance` less the block's own load; `LibertyWriter`
+already writes both. `test/planned_parent:drv_limits_test` checks every
+signal port of the miniature's abstracts.
+
+Measured (2026-09-27, `XSTile_grt` from source): 5,543 to 5,143 ps. The
+old worst path went from -5,070 to -3,615 ps and its net now drives a
+repeater; across the distinct worst paths wire fell from 60 to 23
+percent of the data delay and slew violations from 17 of 25 paths to 2
+of 11. What leads now is repeater chains (36 percent), the long
+crossings themselves, and logic (33 percent, 30 FO4 at the median).
+
+Behind it on the same path: the block's own clock-to-output, 2,251 ps,
+which is the blocks' synthesis and their unrepaired netlists (entry 25;
+`ABC_AREA=1` came in as a turnaround setting and was never flipped), and
+the 1.2 ns capture latency on the parent's side (entry 24).
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
