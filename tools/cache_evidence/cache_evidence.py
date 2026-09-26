@@ -17,10 +17,18 @@ can be committed next to the design and diffed:
     which of the five moved.
 
 `capture` runs the build in a fresh output base, so nothing is hidden by
-the local action cache, and with `/usr` and `/bin` blocked in the sandbox,
-so a remote cache miss fails in a second, and is logged with its inputs,
-instead of executing for hours. Remote hits never execute and are
-unaffected; sandbox options are not part of any cache key.
+the local action cache, and never lets an action execute: a remote cache
+miss is spawned sandboxed and killed the moment it appears, so it fails in
+a second, logged with its inputs, and `--keep_going` carries the build on
+to every other action whose inputs exist. Remote hits never execute and
+are unaffected; the strategy is not part of any cache key. Actions behind
+a miss cannot be keyed, since their inputs were never produced; they are
+listed as `not_reached` so their absence is never mistaken for a hit. An
+action so short that it finished before it could be killed (writing a
+variables file) is logged as `ran`: not a hit, and its result stays local
+since uploading is off. A capture is therefore safe on a machine that only
+consumes the cache: it downloads the inputs of each miss and computes
+nothing that takes longer than a blink.
 
 `summarize` turns an existing --execution_log_compact_file into the same
 evidence. `diff` compares two evidence files and names the first action
@@ -37,9 +45,11 @@ import re
 import shlex
 import shutil
 import signal
+import json
 import stat
 import subprocess
 import sys
+import threading
 
 # ---------------------------------------------------------------------------
 # Protobuf wire format, just enough for ExecLogEntry (src/main/protobuf/
@@ -394,6 +404,68 @@ def summarize_log(data, scope):
     return counts, tool_lines, lines
 
 
+def spawn_outputs(spawn_lines):
+    """The first-output names the spawn lines are keyed by."""
+    return {line.split(" ")[4] for line in spawn_lines}
+
+
+# Actions Bazel performs in-process and never logs as spawns: writing a
+# file it composed itself, a symlink, a runfiles tree. Their absence from
+# the execution log says nothing about the cache.
+_INTERNAL = {
+    "BinaryFileWrite",
+    "ExecutableSymlink",
+    "FileWrite",
+    "Middleman",
+    "RepoMappingManifest",
+    "RunfilesTree",
+    "SourceSymlinkManifest",
+    "Symlink",
+    "SymlinkTree",
+    "TemplateExpand",
+}
+
+
+def graph_actions(aquery_json, scope):
+    """(mnemonic, first output) of every in-scope action aquery reports,
+    from `aquery --output=jsonproto`, internal actions left out."""
+    g = json.loads(aquery_json) if aquery_json.strip() else {}
+    fragments = {f["id"]: f for f in g.get("pathFragments", [])}
+    paths = {}
+
+    def path(fid):
+        if fid in paths:
+            return paths[fid]
+        f = fragments[fid]
+        parent = f.get("parentId")
+        p = f["label"] if parent is None else path(parent) + "/" + f["label"]
+        paths[fid] = p
+        return p
+
+    artifacts = {a["id"]: path(a["pathFragmentId"]) for a in g.get("artifacts", [])}
+    targets = {t["id"]: t["label"] for t in g.get("targets", [])}
+    out = []
+    for a in g.get("actions", []):
+        if a.get("mnemonic", "") in _INTERNAL:
+            continue
+        if not targets.get(a.get("targetId"), "").startswith(scope):
+            continue
+        outs = sorted(artifacts[i] for i in a.get("outputIds", []))
+        if outs:
+            out.append((a.get("mnemonic", "-"), _short(outs[0])))
+    return out
+
+
+def not_reached(graph, spawn_lines):
+    """The in-scope actions of the graph the log has no spawn for."""
+    logged = spawn_outputs(spawn_lines)
+    return [
+        "not_reached %s %s" % (mnemonic, out)
+        for mnemonic, out in sorted(graph, key=lambda x: x[1])
+        if out not in logged
+    ]
+
+
 # ---------------------------------------------------------------------------
 # What shapes every key besides the inputs: options and host facts.
 
@@ -528,15 +600,22 @@ def _decompress(path):
     return out.getvalue()
 
 
-def write_evidence(out, header, counts, tool_lines, spawn_lines):
+def write_evidence(out, header, counts, tool_lines, spawn_lines, unreached=()):
     lines = ["# Written by tools/cache_evidence; see its docstring."]
     lines += header
     lines.append(
-        "spawns %d hit %d ran %d miss %d"
-        % (counts["spawns"], counts["hit"], counts["ran"], counts["miss"])
+        "spawns %d hit %d ran %d miss %d not_reached %d"
+        % (
+            counts["spawns"],
+            counts["hit"],
+            counts["ran"],
+            counts["miss"],
+            len(unreached),
+        )
     )
     lines += tool_lines
     lines += spawn_lines
+    lines += list(unreached)
     check_public(lines)
     text = "\n".join(lines) + "\n"
     if out == "-":
@@ -568,8 +647,52 @@ def _rmtree(path):
     shutil.rmtree(path, onerror=onerror)
 
 
-# The progress line of an action the remote cache did not have.
-_LOCAL = re.compile(r"remote-cache, (linux-sandbox|processwrapper-sandbox|local)")
+def sandboxed_pids(root, proc="/proc", self_pid=None):
+    """Processes running inside a sandbox under root: their working
+    directory is there (an action's own process, or an orphan it left),
+    or their command line names it (Bazel's wrapper around the action)."""
+    self_pid = os.getpid() if self_pid is None else self_pid
+    found = []
+    for name in os.listdir(proc):
+        if not name.isdigit() or int(name) == self_pid:
+            continue
+        try:
+            with open(os.path.join(proc, name, "cmdline"), "rb") as fh:
+                cmd = fh.read().replace(b"\0", b" ").decode("utf-8", "replace")
+            cwd = os.readlink(os.path.join(proc, name, "cwd"))
+        except OSError:
+            continue
+        if root in cmd or cwd.startswith(root):
+            found.append(int(name))
+    return found
+
+
+class Killer(threading.Thread):
+    """Kills every process a sandboxed action starts, for as long as the
+    build runs. A remote cache hit never starts one; a miss dies before it
+    computes anything, and Bazel logs it, with its inputs, as failed."""
+
+    def __init__(self, output_base, period=0.05):
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self.root = os.path.join(output_base, "sandbox") + os.sep
+        self.period = period
+        self.killed = set()
+        self.done = threading.Event()
+
+    def run(self):
+        while not self.done.is_set():
+            for pid in sandboxed_pids(self.root):
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                    self.killed.add(pid)
+                except OSError:
+                    pass
+            self.done.wait(self.period)
+
+    def stop(self):
+        self.done.set()
+        self.join()
 
 
 def capture_refusal(counts, build_text):
@@ -579,15 +702,54 @@ def capture_refusal(counts, build_text):
     if counts["spawns"] > 0:
         return None
     errors = [l for l in build_text.splitlines() if l.startswith("ERROR:")]
-    why = errors[0] if errors else "the build logged no actions"
-    if "linux-sandbox" in why:
-        why += (
-            "\n  linux-sandbox needs unprivileged user namespaces; on Ubuntu"
-            " 24.04 and later AppArmor restricts them"
-            " (kernel.apparmor_restrict_unprivileged_userns = 1). Allow them,"
-            " or capture with --allow_local."
+    return errors[0] if errors else "the build logged no actions"
+
+
+def summary_lines(counts, spawn_lines, unreached):
+    """What a capture found, for the terminal: the counts, every miss and
+    every action left unreached behind one."""
+    out = [
+        "spawns %d hit %d ran %d miss %d not_reached %d"
+        % (
+            counts["spawns"],
+            counts["hit"],
+            counts["ran"],
+            counts["miss"],
+            len(unreached),
         )
-    return why
+    ]
+    for line in spawn_lines:
+        f = line.split(" ")
+        if f[2] != "hit":
+            out.append("%s %s %s" % (f[2], f[3], f[4]))
+    out += list(unreached)
+    if counts["miss"] == 0 and counts["ran"] == 0 and not unreached:
+        out.append("every action is a remote cache hit")
+    return out
+
+
+def _aquery(bazel, ws, target, scope):
+    """The in-scope actions of the graph as `aquery --output=jsonproto`,
+    from the server that just built, then shut it down."""
+    r = subprocess.run(
+        bazel
+        + [
+            "aquery",
+            "--output=jsonproto",
+            "--curses=no",
+            'filter("^%s", deps(%s))' % (re.escape(scope), target),
+        ],
+        cwd=ws,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
+    )
+    subprocess.run(bazel + ["shutdown"], cwd=ws)
+    if r.returncode != 0:
+        raise SystemExit(
+            "cache_evidence: aquery of the graph failed:\n%s%s" % (r.stdout, r.stderr)
+        )
+    return r.stdout
 
 
 def cmd_capture(a):
@@ -621,31 +783,23 @@ def cmd_capture(a):
         "--remote_upload_local_results=false",
         "--execution_log_compact_file=" + log,
         "--curses=no",
+        # Every miss runs in a sandbox directory under the output base,
+        # which is how the killer recognizes it. Not part of any key.
+        "--spawn_strategy=sandboxed",
     ]
-    if not a.allow_local:
-        # A miss fails at once, logged with its inputs, instead of running.
-        build += [
-            "--spawn_strategy=linux-sandbox",
-            "--sandbox_block_path=/usr",
-            "--sandbox_block_path=/bin",
-        ]
     sys.stderr.write("cache_evidence: %s\n" % " ".join(build))
-    with open(os.path.join(work, "build.txt"), "w") as out:
-        proc = subprocess.Popen(
-            build,
-            cwd=ws,
-            stdout=out,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
+    killer = Killer(ob)
+    killer.start()
+    try:
+        with open(os.path.join(work, "build.txt"), "w") as out:
+            subprocess.call(build, cwd=ws, stdout=out, stderr=subprocess.STDOUT)
+    finally:
+        killer.stop()
+    if killer.killed:
+        sys.stderr.write(
+            "cache_evidence: killed %d process(es) of actions the cache did"
+            " not have\n" % len(killer.killed)
         )
-        for line in proc.stderr:
-            out.write(line)
-            if a.allow_local and _LOCAL.search(line):
-                # Allowed to run, but the first local execution is the
-                # evidence; everything after it is hours of nothing new.
-                proc.send_signal(signal.SIGINT)
-        proc.wait()
-    subprocess.run(bazel + ["shutdown"], cwd=ws)
     header = [
         "target %s" % a.target,
         "bazel %s" % (release.group(1) if release else "unknown"),
@@ -662,12 +816,23 @@ def cmd_capture(a):
     with open(os.path.join(work, "build.txt")) as fh:
         refusal = capture_refusal(counts, fh.read())
     if refusal:
+        subprocess.run(bazel + ["shutdown"], cwd=ws)
         raise SystemExit("cache_evidence: refusing to write evidence: " + refusal)
-    out = a.out if os.path.isabs(a.out) else os.path.join(ws, a.out)
-    write_evidence(out, header, counts, tool_lines, spawn_lines)
+    unreached = not_reached(
+        graph_actions(_aquery(bazel, ws, a.target, a.scope), a.scope), spawn_lines
+    )
+    if a.out == "-" or os.path.isabs(a.out):
+        out = a.out
+    else:
+        out = os.path.join(ws, a.out)
+    write_evidence(out, header, counts, tool_lines, spawn_lines, unreached)
     if not a.keep:
         _rmtree(work)
-    sys.stderr.write("cache_evidence: wrote %s\n" % out)
+    for line in summary_lines(counts, spawn_lines, unreached):
+        sys.stderr.write("cache_evidence: %s\n" % line)
+    if out != "-":
+        sys.stderr.write("cache_evidence: wrote %s\n" % out)
+    return 0 if counts["miss"] == 0 and not unreached else 1
 
 
 def cmd_summarize(a):
@@ -699,6 +864,8 @@ def _read(path):
                 )
             elif kind == "option":
                 header.setdefault("option", set()).add(rest)
+            elif kind == "not_reached":
+                header.setdefault("not_reached", []).append(rest)
             else:
                 header[kind] = rest
     return header, tools, spawns
@@ -765,14 +932,13 @@ def main(argv=None):
     sub = p.add_subparsers(dest="cmd")
     c = sub.add_parser("capture", help="build in a fresh output base, write evidence")
     c.add_argument("target")
-    c.add_argument("--out", required=True, help="evidence file, workspace-relative")
+    c.add_argument(
+        "--out",
+        required=True,
+        help="evidence file, workspace-relative; - prints it and keeps nothing",
+    )
     c.add_argument("--scope", default="//test/", help="label prefix to itemize")
     c.add_argument("--bazel", default="bazelisk")
-    c.add_argument(
-        "--allow_local",
-        action="store_true",
-        help="let a miss execute; stop the build at the first one",
-    )
     c.add_argument("--keep", action="store_true", help="keep the output base and log")
     s = sub.add_parser("summarize", help="evidence from an existing compact log")
     s.add_argument("log")
