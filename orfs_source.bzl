@@ -243,6 +243,12 @@ ORFS_PATCHES = [
     # now pass the flow's choice. Upstream as ORFS #4563 (a draft until
     # OpenROAD #11525 is in ORFS); retires at the bump that brings it in.
     Label("//patches:0087-orfs-grt-incremental-allow-congestion.patch"),
+    # asap7's config.mk assigned DONT_USE_CELLS with `=` after the
+    # design's config, so a design's list was silently replaced: XiangShan
+    # could not keep synthesis on RVT once ASAP7_USE_VT brought in LVT and
+    # SLVT. The platform's list is now the default. Not upstreamed;
+    # retires at a bump onto an ORFS that carries it.
+    Label("//patches:0088-orfs-asap7-dont-use-cells-design-override.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

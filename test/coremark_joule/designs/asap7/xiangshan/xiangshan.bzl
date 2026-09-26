@@ -35,6 +35,28 @@ XS_USER_STAGES = {v: ["floorplan"] for v in XS_USER_ARGUMENTS + XS_USER_SOURCES}
     for v in list(XS_ICG_USER_ARGUMENTS) + list(XS_ICG_USER_SOURCES)
 }
 
+# Every Vt class in every flow, RVT first so it stays the primary, and a
+# swap-only setup repair after CTS to put LVT and SLVT on the critical
+# paths: without it no stage of this flow ever swaps (floorplan removes
+# ABC's buffers, CTS and global route skip repair_timing). On Region_1 at
+# cts the swap took the period from 2,132 to 1,669 ps by moving 4 percent
+# of the cells (10,808 to LVT, 5,471 to SLVT), at three times the leakage.
+XS_VT_ARGUMENTS = {"ASAP7_USE_VT": "RVT LVT SLVT"}
+XS_VT_SOURCES = {"POST_CTS_TCL": ["//test/coremark_joule/designs/asap7/xiangshan:vt_swap.tcl"]}
+
+# Synthesis on RVT alone. ABC maps for area, every Vt class has the same
+# area, and with all three visible it put 92,650 of Region_1's 403,424
+# cells on SLVT by tie-break: a quarter of the logic on the leakiest
+# class, chosen by nothing. The platform's own list, plus LVT and SLVT,
+# in synthesis only (the platform appends SDF* and ICG*; ORFS patch 0088
+# lets a design's list stand); the swap after CTS decides where a faster
+# class goes. A stage's variables travel on into the stages after it, so
+# every later stage names the platform's list again.
+XS_VT_STAGE_ARGUMENTS = {"synth": {"DONT_USE_CELLS": "*x1p*_ASAP7* *xp*_ASAP7* *_ASAP7_75t_L *_ASAP7_75t_SL"}} | {
+    stage: {"DONT_USE_CELLS": "*x1p*_ASAP7* *xp*_ASAP7*"}
+    for stage in ["floorplan", "place", "cts", "grt", "route", "final", "generate_abstract"]
+}
+
 # The flat core. Elaborated without Chisel's verification layer (see the
 # generator's firtool arguments), so slang reads it with the hierarchy kept.
 XS_VERILOG = ["//test/coremark_joule/xiangshan:xiangshan_flat.sv"]
@@ -1234,6 +1256,8 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
         sources["STRUCTURED_MEMORIES"] = mems
     sources["IO_CONSTRAINTS"] = [":%s/%s_pins.tcl" % (plan_dir, block)]
     sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints_473ps.sdc"]
+    arguments |= XS_VT_ARGUMENTS
+    sources |= XS_VT_SOURCES
     return arguments, sources
 
 def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan_dir = "plan", grt_probe_blocks = []):
@@ -1259,6 +1283,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             arguments = arguments,
             pdk = "//flow:asap7",
             sources = sources,
+            stage_arguments = XS_VT_STAGE_ARGUMENTS,
             tags = tags,
             user_arguments = cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS,
             user_sources = cfg["user_sources"] | XS_ICG_USER_SOURCES,
@@ -1283,6 +1308,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
                 pdk = "//flow:asap7",
                 previous_stage = {"grt": ":%s_cts" % block},
                 sources = sources,
+                stage_arguments = XS_VT_STAGE_ARGUMENTS,
                 tags = tags,
                 user_arguments = cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS,
                 user_sources = cfg["user_sources"] | XS_ICG_USER_SOURCES,
@@ -1359,6 +1385,8 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         # (STRUCTURED_MEMORIES in mode netlist, patch 0078)
         sources["STRUCTURED_PLACEMENT"] = [":%s/netlists.txt" % plan_dir]
     sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints_473ps.sdc"]
+    arguments |= XS_VT_ARGUMENTS
+    sources |= XS_VT_SOURCES
     user_arguments = {}
     user_sources = {}
     orfs_flow(
@@ -1367,6 +1395,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         macros = [":%s_generate_abstract" % b for b in macros],
         pdk = "//flow:asap7",
         sources = sources,
+        stage_arguments = XS_VT_STAGE_ARGUMENTS,
         tags = tags,
         user_arguments = user_arguments | XS_ICG_USER_ARGUMENTS,
         user_sources = user_sources | XS_ICG_USER_SOURCES,

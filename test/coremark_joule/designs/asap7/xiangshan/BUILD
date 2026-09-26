@@ -230,3 +230,42 @@ census_probe(
     name = "cmj_xiangshan_census",
     src = ":XSTile_synth",
 )
+
+# Synthesis on RVT alone, every later stage free to use LVT and SLVT, the
+# swap after CTS: each planned block's and the parent's stage configs.
+# A stage's config merges the stage before it, so this reads a built
+# flow: seconds after XSTile_cts, the whole flow before it.
+_VT_STAGES = {
+    "1_synth.mk": "synth",
+    "2_floorplan.mk": "floorplan",
+    "3_place.mk": "place",
+    "4_cts.mk": "cts",
+}
+
+[
+    filegroup(
+        name = "%s_%s" % (design, mk),
+        srcs = [":%s_%s" % (design, stage)],
+        output_group = mk,
+        tags = ["manual"],
+    )
+    for design in ["XSTile"] + PLAN["macros"].keys()
+    for mk, stage in _VT_STAGES.items()
+]
+
+py_test(
+    name = "vt_config_test",
+    srcs = ["vt_config_test.py"],
+    args = [
+        arg
+        for design in ["XSTile"] + PLAN["macros"].keys()
+        for arg in [design] + ["$(rootpath :%s_%s)" % (design, mk) for mk in _VT_STAGES] + ["--"]
+    ],
+    data = [
+        ":%s_%s" % (design, mk)
+        for design in ["XSTile"] + PLAN["macros"].keys()
+        for mk in _VT_STAGES
+    ],
+    main = "vt_config_test.py",
+    tags = ["manual"],
+)

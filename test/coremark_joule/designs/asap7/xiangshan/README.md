@@ -37,6 +37,11 @@ place stage against an ideal clock, through `<block>_place_odb_debug`:
 XiangShan's `ClockGate` is mapped onto ASAP7's ICG cell (`xs_icg.ys`) in
 every flow, the parent's and every block's.
 
+Every flow has RVT, LVT and SLVT cells. Synthesis maps to RVT alone, and a
+setup repair that only swaps Vt runs after CTS (`vt_swap.tcl`) and puts
+the faster classes on the critical paths; `vt_config_test` checks each
+stage's configuration once the flow is built.
+
 The blocks are abstracted at `cts`, and that is a choice with a measured
 cost. On Frontend, the `cts` checkpoint's period was 28 percent
 pessimistic against a route-0 global route and its `repair_design` on
