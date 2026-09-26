@@ -572,6 +572,24 @@ def _rmtree(path):
 _LOCAL = re.compile(r"remote-cache, (linux-sandbox|processwrapper-sandbox|local)")
 
 
+def capture_refusal(counts, build_text):
+    """Why a capture must not be written, or None. A build that stopped
+    before its first action -- a flag Bazel refused, a failed fetch --
+    logs no spawns, and evidence of no spawns says nothing about the cache."""
+    if counts["spawns"] > 0:
+        return None
+    errors = [l for l in build_text.splitlines() if l.startswith("ERROR:")]
+    why = errors[0] if errors else "the build logged no actions"
+    if "linux-sandbox" in why:
+        why += (
+            "\n  linux-sandbox needs unprivileged user namespaces; on Ubuntu"
+            " 24.04 and later AppArmor restricts them"
+            " (kernel.apparmor_restrict_unprivileged_userns = 1). Allow them,"
+            " or capture with --allow_local."
+        )
+    return why
+
+
 def cmd_capture(a):
     ws = os.environ.get("BUILD_WORKSPACE_DIRECTORY", os.getcwd())
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -641,6 +659,10 @@ def cmd_capture(a):
     ]
     header += ["option %s" % o for o in rc_options(rc)]
     counts, tool_lines, spawn_lines = summarize_log(_decompress(log), a.scope)
+    with open(os.path.join(work, "build.txt")) as fh:
+        refusal = capture_refusal(counts, fh.read())
+    if refusal:
+        raise SystemExit("cache_evidence: refusing to write evidence: " + refusal)
     out = a.out if os.path.isabs(a.out) else os.path.join(ws, a.out)
     write_evidence(out, header, counts, tool_lines, spawn_lines)
     if not a.keep:
