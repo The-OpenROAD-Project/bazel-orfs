@@ -57,7 +57,9 @@ class DrvLimitsTest(unittest.TestCase):
                 for p in inputs:
                     tran = found[p][1]
                     self.assertIsNotNone(tran, "%s %s: no max_transition" % (block, p))
-                    self.assertGreater(tran, 0.0, "%s %s" % (block, p))
+                    # never below half the library's 320 ps: a limit a parent
+                    # cannot meet stops its repair_design (RSZ-0090)
+                    self.assertGreaterEqual(tran, 160.0, "%s %s" % (block, p))
                 for p in outputs:
                     cap = found[p][2]
                     self.assertIsNotNone(cap, "%s %s: no max_capacitance" % (block, p))
