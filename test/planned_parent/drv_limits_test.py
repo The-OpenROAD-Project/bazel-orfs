@@ -63,7 +63,10 @@ class DrvLimitsTest(unittest.TestCase):
                 for p in outputs:
                     cap = found[p][2]
                     self.assertIsNotNone(cap, "%s %s: no max_capacitance" % (block, p))
-                    self.assertGreater(cap, 0.0, "%s %s" % (block, p))
+                    # never below half the smallest driver's limit, 23 fF for
+                    # asap7's x1 cells: less than a buffer's input stops the
+                    # parent's repair_design (RSZ-0169)
+                    self.assertGreaterEqual(cap, 23.0, "%s %s" % (block, p))
                 print("%s: %d inputs, %d outputs, all limited" % (block, len(inputs), len(outputs)))
 
 

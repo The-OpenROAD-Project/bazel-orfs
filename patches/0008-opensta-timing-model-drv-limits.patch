@@ -9,15 +9,16 @@ Content-Transfer-Encoding: 8bit
 Model ports had a capacitance and no design rule limits, so a parent
 checked nothing on a net whose only driver and loads are model ports.
 An input port gets the tightest max_transition of its loads less the
-slew the wire adds to reach them, never below half the load's limit;
-an output port its driver's max_capacitance less the load already on it
-inside the block, pins and wire; either falls back to the library
-default. Without the floor a port whose internal wire takes the whole
-budget got a limit of 0 to a few ps, and the parent's repair_design
-stopped on RSZ-0090.
+slew the wire adds to reach them, an output port its driver's
+max_capacitance less the load already on it inside the block, pins and
+wire; each never below half the cell's own limit, and each falls back
+to the library default. Without the floors a port whose internal wire
+or load took the whole budget got a limit of 0 or nearly, and the
+parent's repair_design stopped on RSZ-0090 (inputs) and RSZ-0169
+(outputs).
 
 The source half of parallaxsw/OpenSTA#518, whose test is
-test/write_timing_model_limits, plus the floor, which #518 does not have
+test/write_timing_model_limits, plus the floors, which #518 does not have
 yet. Retires on the //:bump onto an OpenROAD whose OpenSTA carries both.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
@@ -50,7 +51,7 @@ diff --git a/src/sta/search/MakeTimingModel.cc b/src/sta/search/MakeTimingModel.
        }
        delete member_iter;
      }
-@@ -227,11 +231,93 @@
+@@ -227,11 +231,95 @@
        Pin *pin = network_->findPin(top_inst, port);
        float load_cap = graph_delay_calc_->loadCap(pin, scene_, min_max_);
        lib_port->setCapacitance(load_cap);
@@ -115,7 +116,7 @@ diff --git a/src/sta/search/MakeTimingModel.cc b/src/sta/search/MakeTimingModel.
 +}
 +
 +// The driver max_capacitance less the load already on it inside the
-+// block, pins and wire.
++// block, pins and wire, and never below half the driver's limit.
 +void
 +MakeTimingModel::setOutputCapLimit(const Pin *pin,
 +                                   LibertyPort *lib_port)
@@ -133,7 +134,9 @@ diff --git a/src/sta/search/MakeTimingModel.cc b/src/sta/search/MakeTimingModel.
 +                                                                          exists);
 +      if (exists) {
 +        float load_cap = graph_delay_calc_->loadCap(drvr_pin, scene_, min_max_);
-+        lib_port->setCapacitanceLimit(std::max(limit - load_cap, 0.0F),
++        // A load that takes more than half the driver's limit is the
++        // block's own violation; the port keeps half the limit.
++        lib_port->setCapacitanceLimit(std::max(limit - load_cap, limit / 2),
 +                                      min_max_);
 +      }
 +    }
