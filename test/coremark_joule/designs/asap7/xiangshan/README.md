@@ -45,6 +45,67 @@ costs a route-0 global route per block. The grt probe,
 `Frontend_grt_probe_grt`, measures it; `ideas/xiangshan-timing.md`,
 entry 25, has the table.
 
+## The 333 ps goal
+
+XiangShan's published goal for Kunminghu is 3 GHz on an advanced node,
+7 nm: a 333 ps cycle. It is a target, not a silicon result. The team's
+HPCA'25 tutorial lists Kunminghu as "Advanced-node, 3GHz, 1.5x IPC of
+NH" ([slides](https://tutorial.xiangshan.cc/hpca25/slides/20250302-HPCA25-1-Introduction-XiangShan.pdf)),
+Hot Chips 2024 reported 7 nm and 3 GHz
+([report](https://riscv.org/ecosystem-news/2024/08/xiangshan-high-performance-risc-v-processors-at-hot-chips-2024/)),
+and at RISC-V Summit Europe 2025 "KMHv2" was "ready to tape-out" with
+SPEC scores estimated at 3 GHz
+([keynote](https://riscv-europe.org/summit/2025/media/proceedings/2025-05-14-RISC-V-Summit-Europe-09h30-BAO-slides.pdf),
+[poster](https://riscv-europe.org/summit/2025/media/proceedings/2025-05-13-RISC-V-Summit-Europe-P2.1.06-TANG-poster.pdf)).
+No measured frequency is published and no corner is stated for the core;
+the same keynote quotes XiangShan's NoC at "7nm_SS". The previous
+generation came close to its goal: Nanhu targeted 2 GHz on 14 nm, its
+GDSII was delivered at 2 GHz, and the keynote lists its second tape-out
+at 2.5 GHz. What we build is the V3 head, integer-only with a small
+last-level cache.
+
+In fanouts of four, 333 ps is 41.1 FO4 at the published ASAP7 RVT FO4 of
+8.1 ps, which the ASAP7 authors call realistic for industrial 7 nm. On
+the library this flow times with (RVT at the FF corner, FO4 14.37 ps)
+that is 591 ps at global route, and the SDC synthesises at 0.8 of it,
+473 ps (`period_fo4_test`). A cycle leaves about 38 FO4 of logic: the
+flops on the paths below take 31 ps clock-to-output and 6 to 13 ps setup.
+
+Is the Chisel RTL congruent with that? Read at the source, the worst path
+of each block and of the top level is 6 to 30 gate levels, which at about
+1.5 FO4 per level (logical effort for fanout-of-four stages) is 9 to 45
+FO4. Measured, the same paths are 138 to 430 FO4:
+
+| worst `reg2reg` path | construct in the RTL | gate levels, read | FO4, estimated | FO4, measured |
+|---|---|---|---|---|
+| Frontend: `mbtb.t1_startPcVec` to a bank's write `setIdx` | 8-bit equality and 16-bit zero detect into a flop enable, one bit fanning out to 4 banks of 4 ways | 6 to 8 | 9 to 12, plus the fanout tree | 430 |
+| MemBlock: redirect `robIdx` to `loadQueueReplay` vaddr | 10-bit age compare, pop count, free-slot mux, 7-to-120 decode, write mux into a 120 by 50-bit flop array | about 15 | about 22, plus the array's fanout | 385 |
+| CoupledL2: directory state to the L1 hint queue | 8-way hit and one-hot mux, main-pipe control, an arbiter, a queue write | 15 to 20 | 23 to 30 | 196 |
+| VecRegionModule: `Vfma` widen flag to its CSA stage | operand muxes, radix-4 Booth encoding, a 27-to-4 carry-save tree | 16 to 20 | 24 to 30 | 172 |
+| Region_1: the FMA's fp64 flag to its shift mask | a 107-bit add with carry select, a 110-bit invert and AND-reduce compare | about 20 | about 30 | 138 |
+| XSTile: vector issue queue's accept to the decode buffer | a ready chain back through six modules, a priority encode, an adder and an 8-to-1 index mux | 20 to 30 | 30 to 45 | 358, with clock trees |
+
+The measured column is each block alone at its place stage against an
+ideal clock, and for XSTile the KPI; the read and estimated columns are
+source reading, with files and lines in `ideas/xiangshan-timing.md`,
+entry 27.
+
+By logic depth the RTL is congruent with the goal: every one of these
+paths fits in 41 FO4, the deepest two, the FMA's wide add and the top
+level's ready chain, at the edge of it, and XiangShan's own comments mark
+the ready chain as a timing concern. The measured paths are 4 to 45 times
+their logic, and the difference is ours to explain, not the RTL's. The
+shallowest paths are the furthest off, which points at fanout and
+buffering (Frontend's startPc, MemBlock's 120-entry array) before logic,
+and at synthesis mapping for area (`ABC_AREA=1`). None of the six runs
+through a memory XiangShan builds as SRAM: the replay queue, the write
+buffer and the hint queue are flops in its RTL too.
+
+What would make the RTL incongruent is a path whose logic alone exceeds
+41 FO4 however it is mapped. None of the six does by reading; the
+best-effort mapping of each cone, and the logic-only period of each
+block with the wires taken out, are the measurements that would show one.
+
 ## Running it
 
 ```
