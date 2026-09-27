@@ -699,6 +699,55 @@ which is the blocks' synthesis and their unrepaired netlists (entry 25;
 `ABC_AREA=1` came in as a turnaround setting and was never flipped), and
 the 1.2 ns capture latency on the parent's side (entry 24).
 
+## 27. The worst paths in the Chisel source
+
+The worst `reg2reg` path of each block at its place stage and of the top
+level at global route (2026-09-27, 473 ps), read at the source of the
+V3 head. Gate levels are a reading, not a measurement. Paths relative to
+the archives' `src/main/scala`: `xiangshan/`, `coupledL2/` (xs_cache),
+`yunsuan/` (xs_yunsuan).
+
+1. Frontend, `mbtb.t1_startPcVec_0_addr[13]` to a bank's write
+   `setIdx_r[6]`: `t1_startPcVec = RegEnable(...)` at
+   `xiangshan/frontend/bpu/mbtb/MainBtb.scala:126` drives the write request; the
+   end is `MainBtbInternalBank.scala:174`, enabled by
+   `writeValid || (flush && wayMask && !conflict)` with `conflict` an
+   8-bit set compare and a 16-bit zero detect (`:164-167`). 6 to 8
+   levels; one PC bit feeds 4 internal banks of 4 ways. Single cycle.
+2. MemBlock, redirect `robIdx` to `loadQueueReplay` vaddr:
+   `xiangshan/mem/MemBlock.scala:495` registers the redirect;
+   `xiangshan/mem/lsqueue/LoadQueueReplay.scala:356` `needFlush` (a 10-bit age
+   compare, `xiangshan/backend/rob/RobBundles.scala:383`), `:821` pop count and
+   free-slot mux, `:823` a 7-to-120 one-hot, `:888` the write into
+   `Reg(Vec(120, UInt(50.W)))` (`:284`). About 15 levels. Single cycle,
+   no timing comment.
+3. CoupledL2, `directory/metaAll_s3` to the L1 hint queue:
+   `coupledL2/Directory.scala:252`, hit and `Mux1H` at `:271-311`,
+   `MainPipe.scala:245-262` into `CustomL1Hint.scala:91-126`, an
+   `Arbiter`, a `chisel3.util.Queue` of 16 (flops). 15 to 20 levels.
+   `Directory.scala:209` computes the hit in s3 "Cuz SRAM latency is high".
+4. VecRegionModule, `Vfma` `isWiden` to `s0ToS1` CSA:
+   `xiangshan/backend/fu/wrapper/VFMacWrapper.scala:31`;
+   `yunsuan/vector/VectorFMA/VectorFMAS0.scala:40-393`,
+   operand muxes, radix-4 Booth (53 bits, 27 partial products), a
+   27-to-4 carry-save tree; the end is `VectorFMA.scala:16`. 16 to 20
+   levels; stage 0 of a 3-cycle unit.
+5. Region_1, FMA `is_fp64_reg0` to `lshift_mask_valid_reg`:
+   `yunsuan/fpu/FloatFMA.scala:57` to `:437`, a 107-bit add with carry select
+   (`:305-334`), a 110-bit invert (`:354`) and an AND-reduce compare
+   (`:433`). About 20 levels; stage 2 of 3.
+6. XSTile, `out_toIntRegion_vstdCanAccept_1_0` to `decodeBufBits_7`:
+   `xiangshan/backend/vector/VecIssueQueue.scala:503`, through
+   `Region.scala:277`, `Backend.scala:286`, `dispatch/Dispatch.scala:634`,
+   `PipeGroupConnect.scala:136` and `rename/Rename.scala:114`, to
+   `CtrlBlock.scala:511-560`, a priority mux, an adder and an 8-to-1
+   index into `Reg(Vec(8, DecodeInUop))`. 20 to 30 levels.
+   `CtrlBlock.scala:488` adds the decode buffer "for in.ready better
+   timing", and `PipeGroupConnect.scala:134` and `Dispatch.scala:622`
+   note the same concern.
+
+None of the six passes through a memory XiangShan builds as SRAM.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
