@@ -57,11 +57,13 @@ class DrvLimitsTest(unittest.TestCase):
                 for p in inputs:
                     tran = found[p][1]
                     self.assertIsNotNone(tran, "%s %s: no max_transition" % (block, p))
-                    self.assertGreater(tran, 0.0, "%s %s" % (block, p))
+                    # the load cell's own limit: asap7's default, 320 ps
+                    self.assertEqual(tran, 320.0, "%s %s" % (block, p))
                 for p in outputs:
                     cap = found[p][2]
                     self.assertIsNotNone(cap, "%s %s: no max_capacitance" % (block, p))
-                    self.assertGreater(cap, 0.0, "%s %s" % (block, p))
+                    # the driver cell's own limit, at least an x1 cell's 46.08 fF
+                    self.assertGreaterEqual(cap, 46.08, "%s %s" % (block, p))
                 print("%s: %d inputs, %d outputs, all limited" % (block, len(inputs), len(outputs)))
 
 

@@ -681,13 +681,14 @@ arcs are tabled only to 92 fF. A net whose only driver and load are
 block ports therefore never shows the parent's `repair_design` a limit.
 A commercial ETM or ILM carries the boundary cells' design-rule limits.
 
-Fixed where it belongs, in the model writer: OpenSTA patch 0008, the
-source half of parallaxsw/OpenSTA#518, gives an input the tightest
-`max_transition` of its loads less the slew its wire adds to reach them,
-and an output its driver's `max_capacitance` less the block's own load,
-pins and wire; `LibertyWriter` already writes both. Without the wire
-term the input limit was optimistic: behind a resistive wire the port
-met its limit and the load did not (#518's test).
+Fixed in the model writer: OpenSTA patch 0008, the source of
+parallaxsw/OpenSTA#518, gives an input the tightest `max_transition` of
+its loads and an output its driver's `max_capacitance`, the cells' own
+limits; `LibertyWriter` already writes both. A version that backed the
+limits off by the internal wire's slew and load gave some ports 0 and
+stopped XSTile's placement on RSZ-0090 and RSZ-0169: estimates are not
+facts. A design-wide `set_max_transition` / `set_max_capacitance` in
+the parent's SDC checks the same nets without any change to OpenSTA.
 `test/planned_parent:drv_limits_test` checks every signal port of the
 miniature's abstracts.
 
