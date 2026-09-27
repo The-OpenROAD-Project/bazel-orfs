@@ -681,11 +681,15 @@ arcs are tabled only to 92 fF. A net whose only driver and load are
 block ports therefore never shows the parent's `repair_design` a limit.
 A commercial ETM or ILM carries the boundary cells' design-rule limits.
 
-Fixed where it belongs, in the model writer: OpenSTA patch 0008 gives an
-input the tightest `max_transition` of its loads and an output its
-driver's `max_capacitance` less the block's own load; `LibertyWriter`
-already writes both. `test/planned_parent:drv_limits_test` checks every
-signal port of the miniature's abstracts.
+Fixed where it belongs, in the model writer: OpenSTA patch 0008, the
+source half of parallaxsw/OpenSTA#518, gives an input the tightest
+`max_transition` of its loads less the slew its wire adds to reach them,
+and an output its driver's `max_capacitance` less the block's own load,
+pins and wire; `LibertyWriter` already writes both. Without the wire
+term the input limit was optimistic: behind a resistive wire the port
+met its limit and the load did not (#518's test).
+`test/planned_parent:drv_limits_test` checks every signal port of the
+miniature's abstracts.
 
 Measured (2026-09-27, `XSTile_grt` from source): 5,543 to 5,143 ps. The
 old worst path went from -5,070 to -3,615 ps and its net now drives a
