@@ -483,5 +483,100 @@ class LayoutTest(unittest.TestCase):
         self.assertEqual(plan_floorplan.check(out), [])
 
 
+
+def _dump(d, lines):
+    path = os.path.join(d, "pin_partners.txt")
+    with open(path, "w") as f:
+        for block, partner, n in lines:
+            for i in range(n):
+                f.write("pin %s p%d_%s %s -\n" % (block, i, partner, partner))
+    return path
+
+
+class PartnerLayoutTest(unittest.TestCase):
+    """Blocks that talk to each other sit close, and the ones that talk to
+    the parent's ports sit on its port side, facing them."""
+
+    MACROS = LayoutTest.MACROS
+
+    def _distance(self, out, a, b):
+        by = {m["name"]: m for m in out["macros"]}
+
+        def centre(m):
+            return (m["x_um"] + m["w_um"] / 2.0, m["y_um"] + m["h_um"] / 2.0)
+
+        (xa, ya), (xb, yb) = centre(by[a]), centre(by[b])
+        return abs(xa - xb) + abs(ya - yb)
+
+    def test_partners_sit_close_within_the_die_bound(self):
+        base = plan_floorplan.layout(plan(self.MACROS))
+        with tempfile.TemporaryDirectory() as d:
+            p = plan(self.MACROS)
+            p["pin_partners"] = _dump(
+                d,
+                [("MemBlock", "VecRegion", 1000), ("VecRegion", "MemBlock", 1000),
+                 ("MemBlock", "logic", 5000), ("VecRegion", "logic", 3000)],
+            )
+            out = plan_floorplan.layout(p)
+        self.assertEqual(plan_floorplan.check(out), [])
+        # the smallest die puts these two in opposite rows, 3.4 mm apart
+        self.assertLess(self._distance(out, "MemBlock", "VecRegion"),
+                        self._distance(base, "MemBlock", "VecRegion") / 2)
+        self.assertLessEqual(out["die_area_mm2"],
+                             base["die_area_mm2"] * (1 + plan_floorplan.DIE_SLACK) + 1e-6)
+        self.assertIsNotNone(out["partner_pin_um"])
+
+    def test_port_block_on_the_port_side(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = plan(self.MACROS)
+            p["parent"]["port_side"] = "bottom"
+            p["parent"]["ports"] = 1500
+            p["pin_partners"] = _dump(
+                d,
+                [("VecRegion", "port", 1200), ("VecRegion", "logic", 2000),
+                 ("MemBlock", "logic", 5000), ("Frontend", "logic", 3000),
+                 ("FpRegion", "logic", 3000)],
+            )
+            out = plan_floorplan.layout(p)
+            self.assertEqual(out["port_side"], "bottom")
+            by = {m["name"]: m for m in out["macros"]}
+            self.assertEqual(by["VecRegion"]["region_side"], "bottom")
+            written = plan_floorplan.emit(out, p, d)
+            names = [os.path.basename(w) for w in written]
+            self.assertIn("parent_pins.tcl", names)
+            with open(os.path.join(d, "parent_pins.tcl")) as f:
+                self.assertIn("-region bottom:*", f.read())
+            with open(os.path.join(d, "plan.bzl")) as f:
+                self.assertIn('"pins": "parent_pins.tcl"', f.read())
+        self.assertEqual(plan_floorplan.check(out), [])
+
+    def test_port_pins_of_a_block_off_the_port_side_face_the_region(self):
+        """A block that is not on the port side reaches the ports through
+        the region: its port pins share its pin side, none on its outer."""
+        groups = {"logic": ["a", "b"], "port": ["p0", "p1"], "unconnected": ["u"]}
+        inner, outer = plan_floorplan.split_groups(groups, ports_outer=False)
+        self.assertEqual(sorted(inner), ["logic", "port"])
+        self.assertEqual(sorted(outer), ["unconnected"])
+        inner, outer = plan_floorplan.split_groups(groups)
+        self.assertEqual(sorted(outer), ["port", "unconnected"])
+
+    def test_port_side_keeps_room_for_the_parents_own_ports(self):
+        """300 ports the parent's logic drives need their stretch of the
+        port side open to the region, beside the blocks there."""
+        with tempfile.TemporaryDirectory() as d:
+            lines = [("VecRegion", "port", 1200), ("VecRegion", "logic", 2000)]
+            p = plan(self.MACROS)
+            p["parent"]["port_side"] = "bottom"
+            p["parent"]["ports"] = 1200
+            p["pin_partners"] = _dump(d, lines)
+            tight = plan_floorplan.layout(p)
+            p["parent"]["ports"] = 1200 + 30000
+            roomy = plan_floorplan.layout(p)
+        x0, _, x1, _ = roomy["region_um"]
+        spans = sum(m["w_um"] for m in roomy["macros"] if m["region_side"] == "bottom")
+        free = 30000 * TECH["pin_pitch_um"] * MARGINS["pin_side"] / TECH["pin_layers"]
+        self.assertGreaterEqual(x1 - x0, spans + free - 1e-3)
+        self.assertGreaterEqual(roomy["die_area_mm2"], tight["die_area_mm2"])
+
 if __name__ == "__main__":
     unittest.main()

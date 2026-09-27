@@ -1354,6 +1354,9 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     if mems:
         sources["STRUCTURED_MEMORIES"] = mems
     sources["MACRO_PLACEMENT_TCL"] = [":%s/place_macros.tcl" % plan_dir]
+    if plan["parent"].get("pins"):
+        # every port on the plan's port side, the edge facing the NoC
+        sources["IO_CONSTRAINTS"] = [":%s/%s" % (plan_dir, plan["parent"]["pins"])]
     if plan["parent"].get("netlists"):
         # the generated arrays dropped FIRM into the parent at floorplan
         # (STRUCTURED_MEMORIES in mode netlist, patch 0078)

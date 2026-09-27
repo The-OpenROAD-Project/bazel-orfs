@@ -47,6 +47,7 @@ Stdlib only; python 3.6.
 """
 
 import argparse
+import itertools
 import json
 import os
 import re
@@ -57,6 +58,12 @@ SIDES = ("bottom", "right", "top", "left")
 # Which side of the block, in its own frame, faces the region when the
 # block sits on the given side of the region, placed R0.
 FACING = {"bottom": "top", "top": "bottom", "left": "right", "right": "left"}
+# a macro with at least this share of its pins on the parent's ports sits on
+# the parent's port side, its port pins on its outer side facing them
+PORT_SIDE_SHARE = 0.25
+# how much larger than the smallest die a layout may be for shorter wires
+# between partner blocks
+DIE_SLACK = 0.10
 
 
 def load_plan(path):
@@ -166,13 +173,21 @@ def shape(macro, tech, margins):
     }
 
 
-def _die_for(placed, region_area, extents, gap, margin, min_w=0.0, min_h=0.0):
+def _die_for(placed, region_area, extents, gap, margin, min_w=0.0, min_h=0.0, extra=None):
     """Die width and height for one assignment of macros to sides.
 
     min_w and min_h are what the region must hold besides its cells: the
-    placed netlists' row (netlist_row)."""
-    need_w = max(_span(placed["bottom"], gap), _span(placed["top"], gap), min_w)
-    need_h = max(_span(placed["left"], gap), _span(placed["right"], gap), min_h)
+    placed netlists' row (netlist_row). extra is length a side must keep
+    free of macros besides their pin sides: the parent's own ports on its
+    port side, where they face the region."""
+    extra = extra or {}
+
+    def need(side):
+        free = extra.get(side, 0.0)
+        return _span(placed[side], gap) + (free + gap if free and placed[side] else free)
+
+    need_w = max(need("bottom"), need("top"), min_w)
+    need_h = max(need("left"), need("right"), min_h)
     w = max(need_w, math.sqrt(region_area))
     h = max(need_h, region_area / w)
     w = max(need_w, region_area / h)
@@ -192,18 +207,70 @@ def _extents(placed):
     }
 
 
-def assign_sides(shapes, region_area, gap, margin, min_w=0.0, min_h=0.0, aspect_max=None):
+def _pin_points(placed, region_w, region_h, gap):
+    """The centre of each macro's pin side, the region's corner at (0, 0),
+    macros centred along their side as layout places them."""
+    points = {}
+    for side in SIDES:
+        along = region_w if side in ("bottom", "top") else region_h
+        pos = (along - _span(placed[side], gap)) / 2.0
+        for sh in placed[side]:
+            c = pos + sh["pin_side_um"] / 2.0
+            w = sh["channel_um"]
+            points[sh["name"]] = {
+                "bottom": (c, -w),
+                "top": (c, region_h + w),
+                "left": (-w, c),
+                "right": (region_w + w, c),
+            }[side]
+            pos += sh["pin_side_um"] + gap
+    # the parent's own logic fills the region: its centre stands for it
+    points["logic"] = (region_w / 2.0, region_h / 2.0)
+    return points
+
+
+def partner_cost(placed, region_w, region_h, gap, pairs):
+    """Pins between partners times the distance between them, summed: the
+    wire a layout makes the parent carry. A partner is a block (its pin
+    side's centre) or "logic", the parent's own cells, which fill the
+    region (its centre)."""
+    pts = _pin_points(placed, region_w, region_h, gap)
+    return sum(
+        n * (abs(pts[a][0] - pts[b][0]) + abs(pts[a][1] - pts[b][1]))
+        for (a, b), n in pairs.items()
+        if a in pts and b in pts
+    )
+
+
+def _orders(placed):
+    """Every order of the macros along each side."""
+    per_side = [list(itertools.permutations(placed[s])) for s in SIDES]
+    for combo in itertools.product(*per_side):
+        yield {s: list(items) for s, items in zip(SIDES, combo)}
+
+
+def assign_sides(shapes, region_area, gap, margin, min_w=0.0, min_h=0.0, aspect_max=None,
+                 pairs=None, port_side=None, on_port_side=(), port_free_um=0.0):
     """Macros to the region's sides so the die is smallest.
 
     Every assignment is tried for up to eight macros (65536 cases), the
     region rectangle sized to hold the cells and the pin sides along it;
     beyond eight, longest first onto the least loaded side. Returns
     ({side: [shapes]}, region_w, region_h).
+
+    With pairs ({(a, b): pins} between partner blocks) the smallest die
+    is no longer the goal but a bound: among the assignments within
+    DIE_SLACK of it, and every order along each side, the one with the
+    least partner_cost wins. With a port side, the macros named in
+    on_port_side sit on it, and the side keeps port_free_um open to the
+    region for the parent's own ports.
     """
+    extra = {port_side: port_free_um} if port_side else {}
     if not shapes:
         w = max(math.sqrt(region_area), min_w)
         return {s: [] for s in SIDES}, w, max(region_area / w, min_h)
     best = None
+    candidates = []
     if len(shapes) <= 8:
         n = len(shapes)
         for code in range(4**n):
@@ -212,11 +279,14 @@ def assign_sides(shapes, region_area, gap, margin, min_w=0.0, min_h=0.0, aspect_
             for sh in shapes:
                 placed[SIDES[c % 4]].append(sh)
                 c //= 4
-            w, h, dw, dh = _die_for(placed, region_area, _extents(placed), gap, margin, min_w, min_h)
+            if any(sh["name"] in on_port_side for s in SIDES if s != port_side for sh in placed[s]):
+                continue
+            w, h, dw, dh = _die_for(placed, region_area, _extents(placed), gap, margin, min_w, min_h, extra)
             # the region's elongation, when capped: an assignment over the
             # cap loses to any under it, and among themselves by die area
             aspect = max(w, h) / min(w, h)
             over = 0 if aspect_max is None or aspect <= aspect_max else aspect
+            candidates.append(((over, dw * dh), placed, w, h))
             if best is None or (over, dw * dh) < best[0]:
                 best = ((over, dw * dh), placed, w, h)
     else:
@@ -224,9 +294,66 @@ def assign_sides(shapes, region_area, gap, margin, min_w=0.0, min_h=0.0, aspect_
         for sh in sorted(shapes, key=lambda s: -s["pin_side_um"]):
             side = min(SIDES, key=lambda s: _span(placed[s], gap))
             placed[side].append(sh)
-        w, h, dw, dh = _die_for(placed, region_area, _extents(placed), gap, margin, min_w, min_h)
+        w, h, dw, dh = _die_for(placed, region_area, _extents(placed), gap, margin, min_w, min_h, extra)
         best = ((0, dw * dh), placed, w, h)
+    if pairs and candidates:
+        over_best, area_best = best[0]
+        chosen = None
+        for (over, area), placed, w, h in candidates:
+            if over != over_best or area > area_best * (1 + DIE_SLACK):
+                continue
+            for order in _orders(placed):
+                key = (partner_cost(order, w, h, gap, pairs), area)
+                if chosen is None or key < chosen[0]:
+                    chosen = (key, order, w, h)
+        best = chosen
     return best[1], best[2], best[3]
+
+
+def partner_terms(plan):
+    """From the pin-partner dump: pins between each pair of blocks and
+    between each block and the parent's logic, the blocks that belong on
+    the parent's port side, and how much of that
+    side the parent's own ports need open to the region.
+
+    The parent's port side is plan["parent"]["port_side"]; its signal
+    port count, plan["parent"]["ports"], less the block pins that go to a
+    port, is what the parent's logic drives there."""
+    path = plan.get("pin_partners")
+    if not path:
+        return None, None, (), 0.0
+    names = {m["name"] for m in plan["macros"]}
+    pairs = {}
+    total = {}
+    to_port = {}
+    with open(path) as f:
+        for line in f:
+            p = line.split()
+            if len(p) < 4 or p[0] != "pin" or p[2] in ("VDD", "VSS"):
+                continue
+            block, partner = p[1], p[3]
+            total[block] = total.get(block, 0) + 1
+            if partner == "port":
+                to_port[block] = to_port.get(block, 0) + 1
+            elif partner in names and partner != block:
+                key = tuple(sorted((block, partner)))
+                pairs[key] = pairs.get(key, 0) + 1
+            elif partner not in names and partner != "unconnected":
+                # the parent's logic, and memories and arrays that are part
+                # of it (fold_partners)
+                key = (block, "logic")
+                pairs[key] = pairs.get(key, 0) + 1
+    parent = plan["parent"]
+    side = parent.get("port_side")
+    if not side:
+        return pairs, None, (), 0.0
+    on_side = tuple(sorted(
+        b for b in total if to_port.get(b, 0) >= PORT_SIDE_SHARE * total[b]
+    ))
+    tech, margins = plan["tech"], plan["margins"]
+    logic_ports = max(0, parent.get("ports", 0) - sum(to_port.values()))
+    free = logic_ports * tech["pin_pitch_um"] * margins["pin_side"] / tech["pin_layers"]
+    return pairs, side, on_side, free
 
 
 def layout(plan):
@@ -237,9 +364,10 @@ def layout(plan):
     shapes = [shape(m, tech, margins) for m in plan["macros"]]
     region_area = parent["cell_area_um2"] / parent["density"]
     min_w, min_h = netlist_row(plan)
+    pairs, port_side, on_port_side, port_free = partner_terms(plan)
     placed, region_w, region_h = assign_sides(
         shapes, region_area, gap, parent["core_margin_um"], min_w, min_h,
-        margins.get("region_aspect_max"),
+        margins.get("region_aspect_max"), pairs, port_side, on_port_side, port_free,
     )
     extent = _extents(placed)
     margin = parent["core_margin_um"]
@@ -316,6 +444,10 @@ def layout(plan):
             (macro_area + parent["cell_area_um2"]) / (die_w * die_h), 3
         ),
         "timing_failures": [m["name"] for m in macros if m.get("timing_ok") is False],
+        "port_side": port_side,
+        "partner_pin_um": round(partner_cost(placed, region_w, region_h, gap, pairs))
+        if pairs
+        else None,
     }
 
 
@@ -454,6 +586,11 @@ def _anchor(m, partner, by_name, out):
     if partner in by_name:
         q = by_name[partner]
         cx, cy = q["x_um"] + q["w_um"] / 2.0, q["y_um"] + q["h_um"] / 2.0
+    elif partner == "port" and out.get("port_side"):
+        # the parent's ports are on its port side: straight across to it
+        cx, cy = m["x_um"] + m["w_um"] / 2.0, m["y_um"] + m["h_um"] / 2.0
+        cx = {"left": dx0, "right": dx1}.get(out["port_side"], cx)
+        cy = {"bottom": dy0, "top": dy1}.get(out["port_side"], cy)
     elif partner == "port":
         # the die edge nearest along the axis: ports sit on the boundary
         cx = dx0 if m["x_um"] + m["w_um"] / 2.0 < (dx0 + dx1) / 2.0 else dx1
@@ -484,10 +621,15 @@ def fold_partners(groups, planned, me):
     return out
 
 
-def split_groups(groups):
-    """({partner: pins} for the pin side, {partner: pins} for the outer side)."""
-    inner = {k: v for k, v in groups.items() if k not in OUTER_PARTNERS}
-    outer = {k: v for k, v in groups.items() if k in OUTER_PARTNERS}
+def split_groups(groups, ports_outer=True):
+    """({partner: pins} for the pin side, {partner: pins} for the outer side).
+
+    With ports_outer false (the parent's ports are on a side this block
+    does not sit on) the port pins stay on the pin side, facing the region
+    they cross to reach them; only unconnected pins go outside."""
+    outer_partners = OUTER_PARTNERS if ports_outer else ("unconnected",)
+    inner = {k: v for k, v in groups.items() if k not in outer_partners}
+    outer = {k: v for k, v in groups.items() if k in outer_partners}
     return inner, outer
 
 
@@ -534,6 +676,18 @@ puts "{name}_pins.tcl: [llength $names] pins on {sides}"
 """
 
 ONE_SIDE = "set_io_pin_constraint -region {side}:* -pin_names $names"
+
+PARENT_PINS_TCL = """# Generated by plan_floorplan.py: every signal port of the parent on its
+# {side} edge, the one facing what it plugs into; the blocks with port
+# partners sit on that side with their port pins on their outer side.
+set names {{}}
+foreach bterm [[ord::get_db_block] getBTerms] {{
+  if {{ [$bterm getSigType] ne "SIGNAL" && [$bterm getSigType] ne "CLOCK" }} {{ continue }}
+  lappend names [$bterm getName]
+}}
+set_io_pin_constraint -region {side}:* -pin_names $names
+puts "parent_pins.tcl: [llength $names] ports on the {side} edge"
+"""
 
 SEGMENTS_TCL = """# Generated by plan_floorplan.py: every signal pin of {name} on its {side}
 # side, in one segment per partner block, ordered by where the partner
@@ -810,6 +964,9 @@ def emit(out, plan, directory):
     bzl["parent"]["CORE_AREA"] = _area(margin, margin, dx - margin, dy - margin)
     if plan["parent"].get("keep"):
         bzl["parent"]["SYNTH_KEEP_MODULES"] = " ".join(plan["parent"]["keep"])
+    if plan["parent"].get("port_side"):
+        write("parent_pins.tcl", PARENT_PINS_TCL.format(side=plan["parent"]["port_side"]))
+        bzl["parent"]["pins"] = "parent_pins.tcl"
     rows = []
     for m in out["macros"]:
         side = m["pin_side"]
@@ -820,8 +977,9 @@ def emit(out, plan, directory):
             sides = side + " and " + other
             constraint = TWO_SIDES.format(side=side, other=other)
         if m["name"] in partners and not m["two_sides"]:
+            ports_outer = not out.get("port_side") or m["region_side"] == out["port_side"]
             inner, outer = split_groups(
-                fold_partners(partners[m["name"]], by_name_all, m["name"])
+                fold_partners(partners[m["name"]], by_name_all, m["name"]), ports_outer
             )
             segs = [(side,) + s_ for s_ in pin_segments(m, inner, out)]
             if outer:

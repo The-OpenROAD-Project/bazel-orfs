@@ -3,11 +3,11 @@
 # origin off the pin lattice the plan put it on).
 set block [ord::get_db_block]
 foreach {master x y} {
-  Region_1 10.224 218.160
-  VecRegionModule 686.304 32.400
-  CoupledL2 1504.944 34.560
-  Frontend 206.784 1939.680
-  MemBlock 1172.304 2006.640
+  Frontend 34.416 32.400
+  Region_1 999.936 311.040
+  CoupledL2 1676.016 125.280
+  MemBlock 377.856 2026.080
+  VecRegionModule 1386.576 2013.120
 } {
   set insts {}
   foreach inst [$block getInsts] {
@@ -38,8 +38,8 @@ set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
 set core [$block getCoreArea]
 set bands 0
 foreach {lo hi} {
-  32.400 840.240
-  2006.640 3004.560
+  32.400 976.320
+  2026.080 3024.000
 } {
   set bl [odb::dbBlockage_create $block [$core xMin] [expr { int($lo * $dbu) }] [$core xMax] [expr { int($hi * $dbu) }]]
   $bl setSoft

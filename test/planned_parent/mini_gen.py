@@ -309,11 +309,13 @@ def plan(out_dir):
             "density": 0.5,
             "core_margin_um": 10,
             "keep": [],
+            # every port on the bottom edge: clock, seed, sum and BlockB's
+            # ext pins, 161 signal ports, BlockB's 32 of them its own
+            "port_side": "bottom",
+            "ports": 161,
         },
         "macros": macros,
-        # FileA and FileB in the planner's row along the region's top; the
-        # region between the two block rows is 125 um wide, so FileC takes
-        # the row below, at the same left edge (gap_um in from the region)
+        # the three files in the planner's row along the region's top
         "netlists": [
             {
                 "module": "FileA",
@@ -332,12 +334,10 @@ def plan(out_dir):
                 "instance": "u_filec",
                 "w_um": FILE_W_UM,
                 "h_um": FILE_H_UM,
-                "x_um": 20.944,
-                "y_um": 107.4,
             },
         ],
-        # the planner opens this from where it runs: the repo root
-        "pin_partners": os.path.join(out_dir, "partners.txt"),
+        # relative to the plan's own directory, where it is written
+        "pin_partners": "partners.txt",
     }
 
 
