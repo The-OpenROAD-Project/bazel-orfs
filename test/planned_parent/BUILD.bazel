@@ -131,8 +131,9 @@ py_test(
 
 # Every signal port of each block's cts abstract carries its design-rule
 # limit: max_transition on an input, max_capacitance on an output, so the
-# parent's repair_design sees a net between two blocks (OpenROAD patch
-# 0008; a 2.4 mm bare wire at a 6 ns slew on XSTile without it).
+# parent's repair_design sees a net between two blocks (OpenSTA patch
+# 0008, parallaxsw/OpenSTA#518; a 2.4 mm bare wire at a 6 ns slew on
+# XSTile without it).
 py_test(
     name = "drv_limits_test",
     srcs = ["drv_limits_test.py"],
