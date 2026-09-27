@@ -7,7 +7,7 @@ from the abstract: max_transition on each input, from the cells it loads
 inside the block, max_capacitance on each output, from its driver. On
 XiangShan's tile the abstracts carried neither, and a 2.4 mm net between
 two blocks stayed a bare wire at a 6 ns slew, 1.9 ns of the worst path
-(OpenROAD patch 0008).
+(OpenSTA patch 0008, parallaxsw/OpenSTA#518).
 
 Usage: drv_limits_test.py <block> <abstract.lib> [...]
 """
