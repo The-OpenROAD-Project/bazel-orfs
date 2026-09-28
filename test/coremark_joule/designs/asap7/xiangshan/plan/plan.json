@@ -82,7 +82,7 @@
    "Frontend",
    "MemBlock",
    "VecRegionModule",
-   "Region_1",
+   "FltRegionModule",
    "XSCore",
    "L2Top"
   ]
@@ -120,7 +120,7 @@
   },
   {
    "name": "MemBlock",
-   "pins": 10495,
+   "pins": 10493,
    "area_um2": 991538,
    "keep": [
     "LoadQueueReplay",
@@ -153,36 +153,40 @@
    ]
   },
   {
-   "name": "Region_1",
-   "pins": 5099,
+   "name": "FltRegionModule",
+   "pins": 7296,
    "area_um2": 442597,
    "keep": [
-    "ExeUnitImp_10",
-    "ExeUnitImp_9",
-    "ExuBlock_1",
-    "IssueQueueFaluFmacFdiv",
-    "IssueQueueFaluFmac",
-    "IssueQueueFaluFmacFcvtFcmp"
+    "FMulFlt",
+    "FDivSqrtFlt",
+    "IssuePipeFaluFmulFcvtFcmp",
+    "IssuePipeFaluFmulFdiv",
+    "IssuePipeFaluFmulFdiv_1",
+    "IssuePipeFaluFmul",
+    "IssueQueueFaluFmulFcvtFcmp",
+    "IssueQueueFaluFmulFdiv",
+    "IssueQueueFaluFmulFdiv_1",
+    "IssueQueueFaluFmul"
    ]
   },
   {
    "name": "VecRegionModule",
-   "pins": 9253,
+   "pins": 9908,
    "area_um2": 652605,
    "keep": [
     "VFDivWrapper",
-    "VFMacWrapper",
     "VIDiv",
     "VIMacU",
-    "IssuePipeVialuVimacVmoveVfcvtVfma",
-    "IssuePipeVialuVfmaVfdivVidiv",
-    "IssuePipeVialuVfma",
-    "IssuePipeVialuVfma_1",
+    "IssuePipeVialuVimacVmoveVfcvtVfmac",
+    "IssuePipeVialuVidivVfmacVfdiv",
+    "IssuePipeVialu",
+    "IssuePipeVialu_1",
     "VectorCvt",
-    "IssueQueueVialuVimacVmoveVfcvtVfma",
-    "IssueQueueVialuVfma",
-    "IssueQueueVialuVfma_1",
-    "IssueQueueVialuVfmaVfdivVidiv"
+    "IssueQueueVialuVimacVmoveVfcvtVfmac",
+    "IssueQueueVialu",
+    "IssueQueueVialu_1",
+    "IssueQueueVialuVidivVfmacVfdiv",
+    "VFMacWrapper"
    ]
   },
   {
@@ -197,14 +201,14 @@
     "RequestArb",
     "SentUnit",
     "RequestBuffer",
-    "TwoLevelRRArbiter_18",
+    "TwoLevelRRArbiter_22",
     "FtTrainPipeline",
     "SinkC",
     "MMIOBridge",
     "CDPPrefetcher",
     "Directory",
     "OffsetScoreTable_1",
-    "TwoLevelRRArbiter_12",
+    "TwoLevelRRArbiter_16",
     "MSHR",
     "OverwriteQueue_1"
    ]

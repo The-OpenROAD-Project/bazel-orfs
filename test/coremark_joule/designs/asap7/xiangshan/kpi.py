@@ -38,6 +38,7 @@ BLOCK_COLORS = {
     "CoupledL2": "#d94801",
     "VecRegionModule": "#238b45",
     "Region_1": "#807dba",
+    "FltRegionModule": "#807dba",
 }
 # a block the table does not name is still drawn, in grey
 OTHER_COLOR = "#737373"

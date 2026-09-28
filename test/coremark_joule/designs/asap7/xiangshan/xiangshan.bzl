@@ -773,7 +773,7 @@ XS_BLOCKS = {
             "SKIP_LAST_GASP": "1",
             "SKIP_REPORT_METRICS": "1",
             "SYNTH_HIERARCHICAL": "1",
-            "SYNTH_KEEP_MODULES": "LoadQueueReplay                                  LoadQueueRAW                                  LoadQueueRAR                                  VirtualLoadQueue                                  LoadQueueUncache                                  StoreQueue                                  PhysicalStoreQueue                                  ForwardModule                                  SqEntryCell                                  SqForwardPipe                                  VirtualStoreQueue                                  AgeDetector_40",
+            "SYNTH_KEEP_MODULES": "LoadQueueReplay                                  LoadQueueRAW                                  LoadQueueRAR                                  VirtualLoadQueue                                  LoadQueueUncache                                  StoreQueue                                  PhysicalStoreQueue                                  ForwardModule                                  SqEntryCell                                  SqForwardPipe                                  VirtualStoreQueue                                  AgeDetector_36",
             "TNS_END_PERCENT": "1",
         },
         "user_arguments": {},
@@ -844,7 +844,7 @@ XS_BLOCKS = {
             "SDC_FILE": ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"],
         },
     },
-    "Region_1": {
+    "FltRegionModule": {
         "arguments": {
             "AUTO_MEMORIES": "1",
             "CORE_ASPECT_RATIO": "1",
@@ -865,7 +865,7 @@ XS_BLOCKS = {
             "SKIP_LAST_GASP": "1",
             "SKIP_REPORT_METRICS": "1",
             "SYNTH_HIERARCHICAL": "1",
-            "SYNTH_KEEP_MODULES": "IssueQueueFaluFmacFdiv                                  ExuBlock_1                                  ExeUnitImp_10                                  ExeUnitImp_9                                  DataPath_1                                  IssueQueueFaluFmacFcvtFcmp                                  IssueQueueFaluFmac",
+            "SYNTH_KEEP_MODULES": "FMulFlt FDivSqrtFlt IssuePipeFaluFmulFcvtFcmp IssuePipeFaluFmulFdiv IssuePipeFaluFmulFdiv_1 IssuePipeFaluFmul IssueQueueFaluFmulFcvtFcmp IssueQueueFaluFmulFdiv IssueQueueFaluFmulFdiv_1 IssueQueueFaluFmul",
             "TNS_END_PERCENT": "1",
         },
         "user_arguments": {},
@@ -873,7 +873,7 @@ XS_BLOCKS = {
         "sources": {
             "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
             "SDC_FILE": ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"],
-            "STRUCTURED_MEMORIES": ["//test/coremark_joule/designs/asap7/xiangshan:FpRegFilePart0.regfile", "//test/coremark_joule/designs/asap7/xiangshan:FpRegFilePart1.regfile", "//test/coremark_joule/designs/asap7/xiangshan:FpRegFilePart2.regfile", "//test/coremark_joule/designs/asap7/xiangshan:FpRegFilePart3.regfile"],
+            "STRUCTURED_MEMORIES": ["//test/coremark_joule/designs/asap7/xiangshan:FpRegFile.regfile"],
         },
     },
     "Rename": {
@@ -1111,7 +1111,7 @@ XS_BLOCKS = {
             "SKIP_LAST_GASP": "1",
             "SKIP_REPORT_METRICS": "1",
             "SYNTH_HIERARCHICAL": "1",
-            "SYNTH_KEEP_MODULES": "IssuePipeVialuVfmaVfdivVidiv                                  IssuePipeVialuVimacVmoveVfcvtVfma                                  IssuePipeVialuVfma                                  IssuePipeVialuVfma_1                                  VIDiv                                  VFDivWrapper                                  VFMacWrapper                                  VCVTWrapper                                  VectorCvt                                  VIMacU                                  IssueQueueVialuVimacVmoveVfcvtVfma                                  IssueQueueVialuVfmaVfdivVidiv                                  IssueQueueVialuVfma                                  IssueQueueVialuVfma_1                                  IssueQueueVstd                                  VectorFMAS2",
+            "SYNTH_KEEP_MODULES": "VFDivWrapper VIDiv VIMacU IssuePipeVialuVimacVmoveVfcvtVfmac IssuePipeVialuVidivVfmacVfdiv IssuePipeVialu IssuePipeVialu_1 VectorCvt IssueQueueVialuVimacVmoveVfcvtVfmac IssueQueueVialu IssueQueueVialu_1 IssueQueueVialuVidivVfmacVfdiv VFMacWrapper",
             "TNS_END_PERCENT": "1",
         },
         "user_arguments": {},
