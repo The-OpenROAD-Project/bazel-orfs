@@ -21,10 +21,14 @@ for the group by name and not for the worst slack: on VecRegionModule the
 overall worst slack is -2,006 ps and belongs to another group, while
 `reg2reg` is -1,564 ps, and only the second one is a period.
 
-Two series. The red one is the top level, XSTile with its clock tree,
+Three series. The red one is the top level, XSTile with its clock tree,
 and it is the KPI: **5,143 ps**, at global route with the route's own
 parasitics. The squares are each hardened block measured alone at its
-place stage against an ideal clock, through `<block>_place_odb_debug`:
+place stage against an ideal clock, through `<block>_place_odb_debug`.
+The black one is the design's minimum period, the slowest of the two:
+**6,186 ps**, Frontend's. The parent's `reg2reg` group does not see the
+paths inside a block's abstract, so the design is only as fast as its
+slowest block, and today that is a block, not the parent.
 
 | block | minimum period | worst `reg2reg` path |
 |---|---|---|
