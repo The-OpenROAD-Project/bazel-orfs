@@ -110,6 +110,13 @@ archive_override(
         # The-OpenROAD-Project/OpenROAD#11527. Retires at a bump onto an
         # OpenROAD that has it.
         "//patches:0005-openroad-pdn-cleanup-rtree.patch",
+        # est's average cut resistance, taken for every pin when the wire RC
+        # names no signal layer, looked each layer up by number with a
+        # linear dbTech::findLayer: quadratic in the layer count, per pin.
+        # One walk over the layers instead; 15 % of estimate_parasitics
+        # -placement on a 370,000-cell asap7 block, byte-identical SPEF.
+        # Not upstreamed. Retires at a bump onto an OpenROAD that has it.
+        "//patches:0009-openroad-est-average-cut-resistance.patch",
     ],
     strip_prefix = "OpenROAD-930bb1cb1965df30dcc91ed86f7f56dd5ab4f6d2",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/930bb1cb1965df30dcc91ed86f7f56dd5ab4f6d2.tar.gz"],

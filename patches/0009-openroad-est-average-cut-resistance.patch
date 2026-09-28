@@ -1,0 +1,55 @@
+From ce89b1bf93d4b6bba8a92c748715cfb4fff76b35 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 28 Sep 2026 15:57:17 +0200
+Subject: [PATCH] est: average cut resistance in one pass over the layers
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+computeAverageCutResistance() looked each layer up by number between the
+min and max routing layers, and dbTech::findLayer() walks the layer list
+from the start for every number: quadratic in the layer count, and the
+function runs once per pin in parasiticNodeConnectPins()'s fallback
+branch, taken for every pin when the wire RC names no signal layer. One walk
+over tech->getLayers() visits the same layers in the same order, since
+layer numbers are assigned at creation, and sums the same values.
+
+On an asap7 place checkpoint of 370,000 cells, estimate_parasitics
+-placement goes from 6.57 and 6.51 s to 5.58 and 5.49 s over two
+alternating pairs (-15 %); the written SPEF, report_checks and
+repair_design's result are byte-identical.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/est/src/EstimateParasitics.cpp | 15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
+
+diff --git a/src/est/src/EstimateParasitics.cpp b/src/est/src/EstimateParasitics.cpp
+index 3f5ec43fbf..41505548ec 100644
+--- a/src/est/src/EstimateParasitics.cpp
++++ b/src/est/src/EstimateParasitics.cpp
+@@ -1011,14 +1011,13 @@ double EstimateParasitics::computeAverageCutResistance(sta::Scene* scene)
+     }
+   }
+ 
+-  odb::dbTechLayer* min_tech_layer = tech->findRoutingLayer(min_layer);
+-  odb::dbTechLayer* max_tech_layer = tech->findRoutingLayer(max_layer);
+-
+-  for (int layer_idx = min_tech_layer->getNumber();
+-       layer_idx <= max_tech_layer->getNumber();
+-       layer_idx++) {
+-    odb::dbTechLayer* layer = tech->findLayer(layer_idx);
+-    if (layer && layer->getType() == odb::dbTechLayerType::CUT) {
++  const int min_number = tech->findRoutingLayer(min_layer)->getNumber();
++  const int max_number = tech->findRoutingLayer(max_layer)->getNumber();
++
++  for (odb::dbTechLayer* layer : tech->getLayers()) {
++    const int number = layer->getNumber();
++    if (number >= min_number && number <= max_number
++        && layer->getType() == odb::dbTechLayerType::CUT) {
+       double res, cap;
+       layerRC(layer, scene, res, cap);
+       total_resistance += res;
+-- 
+2.53.0
+
