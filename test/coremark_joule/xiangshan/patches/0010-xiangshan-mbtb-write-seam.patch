@@ -1,0 +1,125 @@
+From c0cebb3a44f827a54e12a9c5554466ccbdb9aa83 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 28 Sep 2026 11:32:20 +0200
+Subject: [PATCH] mbtb: the entry write buffer's enqueue as its own module
+
+MainBtbInternalBank merges a write and a multi-hit flush per way into its
+entry write buffer: an 8-bit set compare and a zero tag check (conflict),
+the per-way valid, and the registers that hold the write for a cycle.
+That logic moves, unchanged, into MainBtbWriteBufferEnq, one instance per
+internal bank, so a physical flow can replace the module by a generated,
+placed netlist proven equivalent by LEC. Same registers, same enables,
+same conflict check, same timing.
+
+Carried by bazel-orfs for the study of Frontend's worst path; not
+upstreamed.
+---
+ .../bpu/mbtb/MainBtbInternalBank.scala        | 87 +++++++++++++------
+ 1 file changed, 60 insertions(+), 27 deletions(-)
+
+diff --git a/src/main/scala/xiangshan/frontend/bpu/mbtb/MainBtbInternalBank.scala b/src/main/scala/xiangshan/frontend/bpu/mbtb/MainBtbInternalBank.scala
+index 09073d2..9bd8497 100644
+--- a/src/main/scala/xiangshan/frontend/bpu/mbtb/MainBtbInternalBank.scala
++++ b/src/main/scala/xiangshan/frontend/bpu/mbtb/MainBtbInternalBank.scala
+@@ -160,34 +160,13 @@ class MainBtbInternalBank(
+   counterWriteBuffer.io.deq.ready       := counterSram.io.w.req.ready && !counterSram.io.r.req.valid
+ 
+   /* *** io -> writeBuffer *** */
+-  // entry
+-  private val conflict =
+-    writeEntry.req.valid &&
+-      writeEntry.req.bits.setIdx === flush.req.bits.setIdx &&
+-      writeEntry.req.bits.entry.tag === 0.U
++  // entry: the write-buffer enqueue is its own module, a seam a physical
++  // flow can build by other means (see MainBtbWriteBufferEnq)
++  private val entryWriteBufferEnq = Module(new MainBtbWriteBufferEnq)
++  entryWriteBufferEnq.io.writeEntry := writeEntry.req
++  entryWriteBufferEnq.io.flush      := flush.req
++  entryWriteBuffer.io.write         := entryWriteBufferEnq.io.write
+ 
+-  entryWriteBuffer.io.write.zipWithIndex.foreach { case (bufWrite, i) =>
+-    val writeValid = writeEntry.req.valid && writeEntry.req.bits.wayMask(i)
+-    val flushValid = flush.req.valid && flush.req.bits.wayMask(i) && !conflict
+-    val valid      = writeValid || flushValid
+-    bufWrite.valid := RegNext(valid, false.B)
+-    bufWrite.bits.setIdx := RegEnable(
+-      Mux(
+-        writeValid,
+-        writeEntry.req.bits.setIdx,
+-        flush.req.bits.setIdx
+-      ),
+-      valid
+-    )
+-    bufWrite.bits.entry := RegEnable(
+-      Mux(
+-        writeValid,
+-        writeEntry.req.bits.entry,
+-        0.U.asTypeOf(new MainBtbEntry)
+-      ),
+-      valid
+-    )
+-  }
+   // counter, dont care flush (`hit` is controlled by entry)
+   counterWriteBuffer.io.enq.valid         := writeCounter.req.valid
+   counterWriteBuffer.io.enq.bits.setIdx   := writeCounter.req.bits.setIdx
+@@ -211,3 +190,57 @@ class MainBtbInternalBank(
+     perfEntryOverwrite
+   )
+ }
++
++// The entry write buffer's enqueue: a write and a multi-hit flush merged
++// per way, registered. Its own module so that a physical flow can replace
++// it by a generated, placed netlist proven equivalent; the registers, the
++// enables and the conflict check are the ones MainBtbInternalBank had.
++class MainBtbWriteBufferEnq(implicit p: Parameters) extends MainBtbModule with Helpers {
++  class WriteEntryReq extends Bundle {
++    val setIdx:  UInt         = UInt(SetIdxLen.W)
++    val wayMask: UInt         = UInt(NumWay.W)
++    val entry:   MainBtbEntry = new MainBtbEntry
++  }
++  class FlushReq extends Bundle {
++    val setIdx:  UInt = UInt(SetIdxLen.W)
++    val wayMask: UInt = UInt(NumWay.W)
++  }
++  class MainBtbWriteBufferEnqIO extends Bundle {
++    val writeEntry: Valid[WriteEntryReq]                  = Flipped(Valid(new WriteEntryReq))
++    val flush:      Valid[FlushReq]                       = Flipped(Valid(new FlushReq))
++    val write:      Vec[Valid[MainBtbEntrySramWriteReq]] = Vec(NumWay, Valid(new MainBtbEntrySramWriteReq))
++  }
++
++  val io: MainBtbWriteBufferEnqIO = IO(new MainBtbWriteBufferEnqIO)
++
++  private val writeEntry = io.writeEntry
++  private val flush      = io.flush
++
++  private val conflict =
++    writeEntry.valid &&
++      writeEntry.bits.setIdx === flush.bits.setIdx &&
++      writeEntry.bits.entry.tag === 0.U
++
++  io.write.zipWithIndex.foreach { case (bufWrite, i) =>
++    val writeValid = writeEntry.valid && writeEntry.bits.wayMask(i)
++    val flushValid = flush.valid && flush.bits.wayMask(i) && !conflict
++    val valid      = writeValid || flushValid
++    bufWrite.valid := RegNext(valid, false.B)
++    bufWrite.bits.setIdx := RegEnable(
++      Mux(
++        writeValid,
++        writeEntry.bits.setIdx,
++        flush.bits.setIdx
++      ),
++      valid
++    )
++    bufWrite.bits.entry := RegEnable(
++      Mux(
++        writeValid,
++        writeEntry.bits.entry,
++        0.U.asTypeOf(new MainBtbEntry)
++      ),
++      valid
++    )
++  }
++}
+-- 
+2.53.0
+
