@@ -829,8 +829,15 @@ Frontend's crossings shortened from 1.3-1.5 mm to 0.4-0.5 mm; the parent's
 own paths lengthened (the ROB's 986 to 1,600 um, MemBlock into the busy
 table 748 to 1,752 um). The region became a 2,552 by 889 um strip, and
 the cost models the parent's logic as one point at its centre, which a
-strip is not. Today's arrangement with every port on the bottom is the
-candidate being measured.
+strip is not.
+
+Today's arrangement with every port on the bottom, the second candidate,
+failed the same gate the other way: placed HPWL 103.8 to 107.2 m, the
+block crossings' sum 11,749 to 12,166 um and the longest 1,849 to 1,903
+um. Moving the 540 right-edge ports costs 3 percent of wire and does
+not shorten a crossing, which the blocks' arrangement sets, not the
+ports. Neither candidate reached CTS; the planner change is kept in a closed
+study pull request.
 
 ## 32. Synthesis maps for area
 
