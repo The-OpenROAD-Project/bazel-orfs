@@ -192,6 +192,14 @@ ORFS_PATCHES = [
     # now pass the flow's choice. Upstream as ORFS #4563 (a draft until
     # OpenROAD #11525 is in ORFS); retires at the bump that brings it in.
     Label("//patches:0087-orfs-grt-incremental-allow-congestion.patch"),
+    # ORFS #4573, carried to run it through our CI: the *_EXE defaults are
+    # assigned with := only when the variable is undefined, so a
+    # caller-supplied value keeps origin "environment" and a defaulted one
+    # is no longer a recursive $(shell ...) re-run on every export. Plain
+    # ORFS make on nangate45/gcd goes from 1198 to 362 execve per
+    # invocation; bazel-orfs supplies the variables and sees none of it.
+    # Retires at the bump that brings it in.
+    Label("//patches:0088-orfs-make-expand-exe-once.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

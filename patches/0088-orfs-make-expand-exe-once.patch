@@ -1,0 +1,87 @@
+From c7c389845d7a357c24e1ed46195efafa2817104d Mon Sep 17 00:00:00 2001
+From: ctkiku <kim.kuparinen@tuni.fi>
+Date: Mon, 28 Sep 2026 17:25:01 +0300
+Subject: [PATCH] make: immediately expand deferred vars, v2
+
+Previous approach apparently caused some externally-defined variables to
+become overwritten, and modifications made in 72eca88 effectively
+reverted back to the old behaviour of spawning 28k shells for each
+`make` invocation. Try to cut that number down to 41 again by explicitly
+checking if the variables have been externally defined.
+
+Carried in bazel-orfs from ORFS pull request 4573, not yet merged
+upstream, to run it through bazel-orfs CI. bazel-orfs supplies the
+*_EXE variables through the environment, so the origin guard leaves them
+untouched there; the win is for plain ORFS make (1198 to 362 execve for
+a print- target on nangate45/gcd). Retires at a //:bump onto an ORFS
+that carries the change.
+
+Signed-off-by: ctkiku <kim.kuparinen@tuni.fi>
+---
+ flow/scripts/variables.mk | 35 ++++++++++++++++++++++-------------
+ 1 file changed, 22 insertions(+), 13 deletions(-)
+
+diff --git a/flow/scripts/variables.mk b/flow/scripts/variables.mk
+index 656773715..3fa9694a1 100644
+--- a/flow/scripts/variables.mk
++++ b/flow/scripts/variables.mk
+@@ -80,7 +80,9 @@ export NUM_CORES
+ # that does not exist in a Bazel sandbox). A bare `export` preserves the
+ # original origin (environment when bazel-orfs supplies it, file when the
+ # local default fills in), so the value survives UNSET_VARS.
+-PYTHON_EXE ?= $(shell command -v python3)
++ifeq ($(origin PYTHON_EXE), undefined)
++  PYTHON_EXE := $(shell command -v python3)
++endif
+ export PYTHON_EXE
+ 
+ export RUN_CMD = $(PYTHON_EXE) $(FLOW_HOME)/scripts/run_command.py
+@@ -91,15 +93,20 @@ export RUN_CMD = $(PYTHON_EXE) $(FLOW_HOME)/scripts/run_command.py
+ #       2 either
+ #          2.1 if in Nix shell: openroad, yosys from the environment
+ #          2.2 ORFS compiled tools: openroad, yosys
+-ifneq (${IN_NIX_SHELL},)
+-  OPENROAD_EXE ?= $(shell command -v openroad)
+-else
+-  OPENROAD_EXE ?= $(abspath $(FLOW_HOME)/../tools/install/OpenROAD/bin/openroad)
++ifeq ($(origin OPENROAD_EXE), undefined)
++  ifneq (${IN_NIX_SHELL},)
++    OPENROAD_EXE := $(shell command -v openroad)
++  else
++    OPENROAD_EXE := $(abspath $(FLOW_HOME)/../tools/install/OpenROAD/bin/openroad)
++  endif
+ endif
+-ifneq (${IN_NIX_SHELL},)
+-  OPENSTA_EXE ?= $(shell command -v sta)
+-else
+-  OPENSTA_EXE ?= $(abspath $(FLOW_HOME)/../tools/install/OpenROAD/bin/sta)
++
++ifeq ($(origin OPENSTA_EXE), undefined)
++  ifneq (${IN_NIX_SHELL},)
++    OPENSTA_EXE := $(shell command -v sta)
++  else
++    OPENSTA_EXE := $(abspath $(FLOW_HOME)/../tools/install/OpenROAD/bin/sta)
++  endif
+ endif
+ 
+ # See dragons comment near PYTHON_EXE: bare `export`, not `export VAR := $(VAR)`.
+@@ -114,10 +121,12 @@ export OPENROAD_NO_EXIT_CMD = $(OPENROAD_EXE) $(OPENROAD_ARGS)
+ export OPENROAD_GUI_CMD = $(OPENROAD_EXE) -gui -threads $(NUM_CORES) $(OR_ARGS)
+ export OPENROAD_WEB_CMD = $(OPENROAD_EXE) -web -threads $(NUM_CORES) $(OR_ARGS)
+ 
+-ifneq (${IN_NIX_SHELL},)
+-  YOSYS_EXE ?= $(shell command -v yosys)
+-else
+-  YOSYS_EXE ?= $(abspath $(FLOW_HOME)/../tools/install/yosys/bin/yosys)
++ifeq ($(origin YOSYS_EXE), undefined)
++  ifneq (${IN_NIX_SHELL},)
++    YOSYS_EXE := $(shell command -v yosys)
++  else
++    YOSYS_EXE := $(abspath $(FLOW_HOME)/../tools/install/yosys/bin/yosys)
++  endif
+ endif
+ 
+ # See dragons comment near PYTHON_EXE: bare `export`, not `export VAR := $(VAR)`.
+-- 
+2.53.0
+
