@@ -1,0 +1,106 @@
+load("//:openroad.bzl", "odb_debug")
+load(":mbtb_path.bzl", "mainbtb_flow")
+
+# XiangShan Frontend's worst path, mbtb.t1_startPcVec to a main-BTB
+# internal bank's write-buffer setIdx_r, on an analogue built up from the
+# RTL: MainBtb alone, the start register and the endpoint both inside it.
+# ideas/xiangshan-mbtb-wns-path.md is the plan. Every target is manual.
+
+# MainBtb's module closure out of the split Verilog, one file.
+MAINBTB_MODULES = [
+    "MainBtb",
+    "MainBtbAlignBank",
+    "MainBtbAlignBank_1",
+    "MainBtbReplacer",
+    "ReplacerState_4",
+    "LruStateGen",
+    "MainBtbInternalBank",
+    "WriteBuffer_4",
+    "SRAMTemplate_52",
+    "SRAMTemplate_56",
+    "sram_array_1p256x46m46s1h0l1_bpu_mbtb_entry",
+    "sram_array_1p256x8m2s1h0l1_bpu_mbtb_counter",
+    "array_256x46",
+    "array_256x8",
+    "MbistClockGateCell",
+    "ClockGate",
+    "Queue4_MainBtbCounterSramWriteReq",
+    "ram_4x20",
+]
+
+genrule(
+    name = "mainbtb_sv",
+    srcs = ["//test/coremark_joule/xiangshan:xiangshan_sv"],
+    outs = ["MainBtb_closure.sv"],
+    cmd = "d=$(location //test/coremark_joule/xiangshan:xiangshan_sv); " +
+          "for m in " + " ".join(MAINBTB_MODULES) + "; do " +
+          "grep -vF '`include' $$d/$$m.sv; done > $@",
+    tags = ["manual"],
+)
+
+# R1: a compact die.
+mainbtb_flow(arguments = {"CORE_UTILIZATION": "40"})
+
+# R4: the same MainBtb on larger dies, up to Frontend's 955 um, so the
+# macro placer spreads the banks the way Frontend's does.
+[
+    mainbtb_flow(
+        arguments = {
+            "CORE_AREA": "2 2 {s} {s}".format(s = side - 2),
+            "DIE_AREA": "0 0 {s} {s}".format(s = side),
+            # Spread macros leave channels the power grid cannot repair
+            # (PDN-0179) at the 2 um halo.
+            "MACRO_PLACE_HALO": "10 10",
+        },
+        previous_stage = {"floorplan": "MainBtb_synth"},
+        variant = "die{}".format(side),
+    )
+    for side in [
+        640,
+        955,
+    ]
+]
+
+# R0 at synthesis (ideal wires), R1 at place: /odb-debug sessions.
+[
+    odb_debug(
+        name = "MainBtb_" + stage + "_odb_debug",
+        src = ":MainBtb_" + stage,
+        tags = ["manual"],
+    )
+    for stage in [
+        "synth",
+        "place",
+    ]
+]
+
+[
+    odb_debug(
+        name = "MainBtb_die{}_place_odb_debug".format(side),
+        src = ":MainBtb_die{}_place".format(side),
+        tags = ["manual"],
+    )
+    for side in [
+        640,
+        955,
+    ]
+]
+
+# R5: Frontend's hierarchy settings on the compact die. Frontend keeps
+# WriteBuffer_4 and runs OpenROAD hierarchically; the path crosses
+# MainBtb, the align bank and the internal bank.
+mainbtb_flow(
+    arguments = {
+        "CORE_UTILIZATION": "40",
+        "OPENROAD_HIERARCHICAL": "1",
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_KEEP_MODULES": "WriteBuffer_4",
+    },
+    variant = "hier",
+)
+
+odb_debug(
+    name = "MainBtb_hier_place_odb_debug",
+    src = ":MainBtb_hier_place",
+    tags = ["manual"],
+)

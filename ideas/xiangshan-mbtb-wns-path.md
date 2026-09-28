@@ -147,4 +147,59 @@ route DRCs.
 
 ## Results
 
-Not yet measured.
+### The analogue and the grind (2026-09-28)
+
+`test/coremark_joule/mbtb_path`: MainBtb's 18 modules from the generated
+Verilog, the Frontend block's synthesis settings (`ABC_AREA=1`,
+`AUTO_MEMORIES=1`, the ICG map), `constraints_473ps.sdc`, the 40 SRAM
+arrays as FakeRAM macros. Every number is the path's arrival plus setup
+against an ideal clock, in FO4 at 14.37 ps; `path.tcl`, `focus.tcl` and
+`split.tcl` beside the BUILD are the session code. Since MainBtb holds
+both ends, R0 to R3 collapsed into one design: R0 is it at synthesis,
+R1 placed.
+
+| step | what | ps | FO4 |
+|---|---|---:|---:|
+| R0 | synthesis, ideal wires: 10 cells | 253 | 17.6 |
+| R1 | placed on a 321 um die, `repair_design` | 654 | 45.5 |
+| R4 | the same on a 640 um die | 693 | 48.2 |
+| R4 | the same on Frontend's 955 um die | 644 | 44.8 |
+| R5 | R1 with Frontend's hierarchy: `SYNTH_HIERARCHICAL`, `OPENROAD_HIERARCHICAL`, `WriteBuffer_4` kept; 16 cells | 698 | 48.6 |
+| G1 | R1, `repair_timing -setup` on the block | 654 | 45.5 |
+| G2 | R1, `repair_timing` with every other endpoint a false path | 499 | 34.7 |
+| G3 | G2, start flop `DFFHQNx1` to x3, `AND5x1` to x2 by hand | 410 | 28.5 |
+| G4 | R1, the start flop's 13 other loads behind one `BUFx4` | 586 | 40.8 |
+| G6 | G4, then G2 and G3 | 383 | 26.6 |
+
+Reading:
+
+- The Chisel is congruent: 10 cells, 213 ps after clock-to-output, 14.9
+  FO4 of logic against 9 to 12 read, the rest the enable's fanout.
+- MainBtb alone does not reproduce Frontend's 430 FO4, on any die, with
+  or without Frontend's hierarchy: 45 to 49 FO4. The macro placer packs
+  MainBtb into a 250 by 380 um corner even of the 955 um die; the
+  endpoints sit within 260 um of the start. The other 380 FO4 are in
+  Frontend's context, which this analogue does not have. `Frontend_place`
+  is a cache miss from synthesis on; its path breakdown is an overnight
+  build.
+- Placement costs 2.6 times the floor, and the tools leave most of it:
+  - `repair_timing` never reaches the path while worse endpoints exist
+    (G1): MainBtb's own worst `reg2reg` is 2,258 ps, inside
+    `WriteBuffer_4`'s entry array, and a pass on the block took 4 min.
+  - Given the path alone (G2, 5 to 8 min on 210 k cells), it resizes
+    and rebuffers the enable's fanout tree but leaves the start flop at
+    x1 with 14 loads (221 ps slew, 122 ps clock-to-output against 31.5 at
+    synthesis) and an `AND5x1` into 25 fF.
+  - The flop's loads split behind a buffer, the flop and the AND5
+    upsized: 26.6 FO4, 1.5 times the floor. What is left is load and
+    slew on the placed nets.
+- Two tool faults, not chased: `insert_buffer -net -load_pins` stops
+  OpenROAD with signal 11 on this design within 25 s of loading
+  (reproducible; `split.tcl` does the same through the odb API), and one
+  signal 11 after `find_timing_paths` and `sta::worst_slack -max`, not
+  reproduced.
+- MainBtb's synthesis alone takes 8.5 min, too slow for the loop; not
+  yet broken down.
+
+Not yet done: the seam (step 3), the generator and LEC (step 4),
+`ADDITIONAL_ODB_FILES` (step 5) and the three-way measurement (step 6).
