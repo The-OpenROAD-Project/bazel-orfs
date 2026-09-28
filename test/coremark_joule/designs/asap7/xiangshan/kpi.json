@@ -1,24 +1,24 @@
 {
   "_comment": [
-    "The project's KPI: the minimum clock period of XSCore, one row per",
-    "measured run. Add a row when a change moves it, run kpi.py, commit",
-    "both. min_period_ps is the SDC period minus the worst slack of the",
-    "reg2reg group, which is the only group that can fail timing closure;",
-    "see .claude/commands/odb-debug.md for how to ask a checkpoint for it,",
-    "and .claude/skills/macro-constraints for why the other groups are not",
-    "the number. Ask for the group by name: on VecRegionModule the overall",
-    "worst slack is -2006 ps and belongs to another group, while reg2reg is",
-    "-1564 ps, and only the second one is the period.",
+    "The project's KPI: the design's minimum clock period, one row per",
+    "measured run. It is the largest of parent_ps and each block's period in",
+    "blocks: the design is only as fast as its slowest part, and the parent",
+    "is one part like any block. Add a row when a change moves it, run",
+    "kpi.py, commit both.",
+    "",
+    "parent_ps is the parent's SDC period minus the worst slack of its",
+    "reg2reg group at global route, the only group that can fail timing",
+    "closure; see .claude/commands/odb-debug.md for how to ask a checkpoint",
+    "for it, and .claude/skills/macro-constraints for why the other groups",
+    "are not the number. The parent's reg2reg group does not see the paths",
+    "inside a block's abstract. Ask for the group by name: on",
+    "VecRegionModule the overall worst slack is -2006 ps and belongs to",
+    "another group, while reg2reg is -1564 ps, and only the second one is",
+    "the period.",
     "",
     "blocks is the same measurement on each hardened block alone, at its own",
-    "place stage through <block>_place_odb_debug, against an ideal clock:",
-    "what the top level would approach if the clock reached the logic. The",
-    "top level number is the one that carries a clock tree.",
-    "",
-    "The design's minimum period, drawn beside it, is the largest of",
-    "min_period_ps and each block's: the parent's reg2reg group does not",
-    "see the paths inside a block's abstract, so the design is only as",
-    "fast as its slowest block.",
+    "place stage through <block>_place_odb_debug, against an ideal clock.",
+    "Rows without blocks give only a lower bound on the design's period.",
     "",
     "The target is 591 ps at global route: XiangShan's 333 ps on 7 nm is",
     "41.1 fanouts of four at the published ASAP7 FO4 of 8.1 ps, and 41.1",
@@ -33,19 +33,19 @@
   "runs": [
     {
       "date": "2026-09-22",
-      "min_period_ps": 47401,
+      "parent_ps": 47401,
       "measured": "workbench chain, before the baseline existed",
       "note": "first clock tree of the planned parent"
     },
     {
       "date": "2026-09-23",
-      "min_period_ps": 45607,
+      "parent_ps": 45607,
       "measured": "workbench chain, before the baseline existed",
       "note": "blocks' band soft-blocked, density 0.5, M9 at adjustment 0.18"
     },
     {
       "date": "2026-09-24",
-      "min_period_ps": 45985,
+      "parent_ps": 45985,
       "measured": "XSCore_grt, built from source",
       "note": "the baseline; 43715 ps of it is the clock reaching MemBlock's pin, and each block alone is 3 to 20 times faster",
       "blocks": {
@@ -57,7 +57,7 @@
     },
     {
       "date": "2026-09-24",
-      "min_period_ps": 13527,
+      "parent_ps": 13527,
       "measured": "XSCore_cts, built from source, through XSCore_cts_odb_debug",
       "note": "blocks abstracted at cts; the worst reg2reg path is Frontend's own 12534 ps setup to a falling-edge element, the clock no longer",
       "blocks": {
@@ -70,7 +70,7 @@
     {
       "date": "2026-09-26",
       "measured": "XSTile_grt, built from source",
-      "min_period_ps": 5543,
+      "parent_ps": 5543,
       "blocks": {
         "CoupledL2": 2820,
         "Frontend": 6186,
@@ -83,7 +83,7 @@
     {
       "date": "2026-09-26",
       "measured": "XSTile_grt, built from source",
-      "min_period_ps": 5543,
+      "parent_ps": 5543,
       "blocks": {
         "CoupledL2": 2820,
         "Frontend": 6186,
@@ -96,7 +96,7 @@
     {
       "date": "2026-09-27",
       "measured": "XSTile_grt, built from source",
-      "min_period_ps": 5143,
+      "parent_ps": 5143,
       "blocks": {
         "CoupledL2": 2820,
         "Frontend": 6186,

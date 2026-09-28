@@ -753,15 +753,16 @@ the archives' `src/main/scala`: `xiangshan/`, `coupledL2/` (xs_cache),
 
 None of the six passes through a memory XiangShan builds as SRAM.
 
-## 28. The KPI is the parent's; the design is as fast as its slowest block
+## 28. The design is as fast as its slowest part; the parent is one part
 
-The KPI is the parent's `reg2reg` group at global route. The paths inside
-a block live in its abstract and are not in that group. Each block alone
+The parent's period is its `reg2reg` group at global route. The paths
+inside a block live in its abstract and are not in that group. Each block alone
 at its place stage, ideal clock (2026-09-27, 473 ps, #1101's tree):
 Frontend 6,186 ps, MemBlock 5,527, CoupledL2 2,820, VecRegionModule
 2,471, Region_1 1,990, against the parent's 5,143. The design's minimum
 period is the largest of these, 6,186 ps, and today it is a block's, not
-the parent's. `kpi.py` draws it beside the KPI.
+the parent's. That largest is the KPI; `kpi.py` draws it red, the parent
+and each block dashed beneath it.
 
 ## 29. The SDC declares no design rule limits
 
