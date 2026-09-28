@@ -112,7 +112,8 @@ placer. OpenROAD refuses a second `read_db` on a populated database
 (ORD-47), and its multi-database support (3DBlox chip instances) is for
 stacking chiplets, not for flattening one design into another.
 
-- OpenROAD patch: `dissolve_instance -inst <macro> <file.odb>`. Reads
+- OpenROAD patch (planned; not needed, see Results: odb Tcl reads the
+  second database): `dissolve_instance -inst <macro> <file.odb>`. Reads
   the file into a scratch `dbDatabase`; tech and masters must match by
   name; copies instances as `<inst>/<name>` with the instance's
   transform, snapped to the parent's site and row grid with row parity
@@ -201,5 +202,109 @@ Reading:
 - MainBtb's synthesis alone takes 8.5 min, too slow for the loop; not
   yet broken down.
 
-Not yet done: the seam (step 3), the generator and LEC (step 4),
-`ADDITIONAL_ODB_FILES` (step 5) and the three-way measurement (step 6).
+### Inside Frontend (2026-09-28)
+
+`Frontend_place` built from source at this branch's first commit (46
+min), the path read in an odb-debug session with placement parasitics,
+ideal clock, 473 ps:
+
+| step | what | ps | FO4 |
+|---|---|---:|---:|
+| F0 | Frontend placed | 979 | 68.1 |
+| F1 | F0, the start flop to x3 and its other loads split | 982 | 68.3 |
+| F2 | F0, `repair_timing` with every other endpoint a false path (21 min) | 879 | 61.1 |
+
+- Frontend's worst `reg2reg` today is not this path:
+  `utage/MicroTageTable.wbuffer.a1_chosenFirstMask`, 5,132 ps (357 FO4).
+  The README's 6,186 ps and its mbtb path were measured on an earlier
+  tree; this study does not touch the README.
+- The path is 68 FO4, not 430: 23 FO4 more than MainBtb alone, and the
+  difference is wire. Six repeaters (`BUFx16f`, the resizer's wire and
+  slew repair) take 340 ps. The path zig-zags across the block: start at
+  x = 523 um, the compare's XOR at 800, the second AND5 back at 597, then
+  736, 797, the endpoints at 874: some 750 um of wire for endpoints 360 um
+  from the start. The compare's gates sit where their other inputs pull
+  them; Frontend places without timing (`GPL_TIMING_DRIVEN=0`).
+- The start flop is already buffered in Frontend, so F1 gains nothing;
+  the resizer on the path alone takes 7 FO4 off the enable tree and
+  leaves the wire, which no sizing moves.
+
+### The seam, the generator, and the dissolve (steps 3 to 5)
+
+- Seam: XiangShan patch 0010 moves `MainBtbInternalBank.scala:162-189`
+  into `MainBtbWriteBufferEnq`, one per internal bank. R0's cone lies
+  inside it: the path's inverter drives `internalBanks_*.valid_*`, and
+  before it are the set compare and the enable terms; only the start flop
+  is outside. Elaboration takes 7 min.
+- LEC: kepler-formal at its latest upstream commit (f025fa2f) does not
+  build here, as a dependency or as its own root: its oneTBB builds with
+  CMake through `rules_foreign_cc`, which reaches the host `/usr/include`
+  under the zero-sysroot LLVM and fails on `bits/timesize.h`. One hour
+  spent, as budgeted; `lec/` is left as it was. **The generated netlist
+  is unproven by LEC.** What stands in for it, and says so: a random
+  co-simulation, `tools/structured_gen/cosim_tb.py` under `yosys sim`
+  with the cells' liberty functions, 2,000 cycles, stimulus biased so the
+  set compare matches on half of them and the tag is zero on a quarter
+  (`conflict` fires on 131 cycles), and a mutant (the compare's XNOR made
+  an XOR) that must fail. It checks the generated seam against its RTL,
+  the dissolved parent against its RTL in five placements, and, as a
+  one-off, the unpatched `MainBtbInternalBank` against the patched one
+  (the seam changes nothing; a zero-tag mutant fails).
+- Generator: `tools/structured_gen` reads a JSON domain specification,
+  `test/coremark_joule/mbtb_path/MainBtbWriteBufferEnq.json`, written
+  from the Chisel: 735 cells, placed by construction, ports equal to the
+  RTL module's.
+- Dissolve: ORFS patch 0088, `ADDITIONAL_ODB_FILES`. No OpenROAD patch
+  was needed: `ord::read_db` refuses a second database (ORD-0047), but
+  odb's own `odb::read_db` reads one into a fresh `dbDatabase`, and the
+  copy is odb Tcl. Two things only the parent showed:
+  - odb's `cut_rows` leaves a row holding a fixed cell uncut (ODB-0386),
+    and a row runs the whole core: dissolved cells before tapcell kept
+    every row they touched uncut under the SRAMs, and PDN (PDN-0008) and
+    the legaliser (DPL-0033) refused. The dissolve now removes the
+    generated macros, cuts rows around the ones that stay with the
+    platform's own arguments, then places the cells.
+  - The macro placer abuts macro outlines; the generator leaves a 2 um
+    empty margin inside its outline so a neighbour's power-grid halo
+    falls on no row holding a cell.
+  - dont_touch follows STRUCTURED_MEMORIES' netlists: interior
+    combinational cells and nets, not the flops (CTS rewires their clock
+    pins, CTS-0137) and not the cells on a port's net.
+- Tests, all manual, tens of seconds each once built:
+  `MainBtbWriteBufferEnq_cosim_test` and its mutant, `dissolve_check_test`
+  (no macro left, 735 cells FIRM, on rows of their own orientation,
+  interior cells dont_touch, `check_placement` clean, in the placer's
+  orientation and forced R0, MX, MY, R180), and
+  `dissolve_parent_{base,R0,MX,MY,R180}_cosim_test` with a mutant. The
+  test parent routes.
+
+### Three ways on the analogue (step 6)
+
+MainBtb with the seam on the compact die, placement parasitics:
+
+| variant | placed | resizer on the path alone |
+|---|---:|---:|
+| synthesised flat | 593 ps, 41.2 FO4 | 482 ps, 33.6 FO4 |
+| generated, dissolved | 636 ps, 44.3 FO4 | 627 ps, 43.7 FO4 |
+| generated, hard macro | not measured | |
+
+- Inside the dissolved block, from its input pin to the register, the
+  path is 268 ps, **18.7 FO4**: the generated structure is at the Chisel
+  floor (R0, 17.6 FO4 for the whole path, start flop included).
+- Outside it, the parent takes 367 ps to bring the start bit to the
+  block: the flop, an inverter, then one `BUFx2` net of fanout 32 and
+  78 fF spread over the eight blocks, which the macro placer put 100 to
+  250 um apart; about 200 ps is that one net's wire. `repair_timing`,
+  given the path alone, does not rebuffer it.
+- The hard-macro variant needs a macro with power pins: the generated
+  LEF has none, and the parent's power grid refuses it (PDN-0233). That
+  is the generated block's own flow (grid, route, abstract), not built.
+
+Where that leaves the path: the Chisel is 17.6 FO4; a generated
+structure holds its part at that; what the tools leave is delivery. In
+Frontend it is a zig-zag through the compare's gates, 340 ps of
+repeaters; in the dissolved analogue it is one unbuffered broadcast of
+the start bit to eight blocks. Both are placement: of the compare's
+gates in the first, of the start register and its fanout tree relative
+to the blocks in the second. The next lever is the parent's: the start
+register's fanout as a planned tree, and the blocks placed around it.

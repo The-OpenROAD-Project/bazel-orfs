@@ -1,0 +1,46 @@
+{
+  "kind": "merged_write",
+  "module": "MainBtbWriteBufferEnq",
+  "comment": "MainBtbInternalBank.scala, MainBtbWriteBufferEnq (XiangShan patch 0010): per way valid = write & way | flush & way & !conflict; setIdx loads the write's or the flush's, the entry fields the write's or zero; conflict = write.setIdx === flush.setIdx & write.entry.tag === 0 & write.valid.",
+  "clock": "clock",
+  "reset": "reset",
+  "ways": 4,
+  "write": {"valid": "io_writeEntry_valid", "way_mask": "io_writeEntry_bits_wayMask"},
+  "flush": {"valid": "io_flush_valid", "way_mask": "io_flush_bits_wayMask"},
+  "conflict": {
+    "equal": ["io_writeEntry_bits_setIdx", "io_flush_bits_setIdx"],
+    "zero": "io_writeEntry_bits_entry_tag"
+  },
+  "fields": [
+    {"name": "setIdx", "reg": "setIdx_r", "width": 8, "write": "io_writeEntry_bits_setIdx", "flush": "io_flush_bits_setIdx"},
+    {"name": "entry_tag", "reg": "entry_r_tag", "width": 16, "write": "io_writeEntry_bits_entry_tag"},
+    {"name": "entry_attribute_branchType", "reg": "entry_r_attribute_branchType", "width": 2, "write": "io_writeEntry_bits_entry_attribute_branchType"},
+    {"name": "entry_attribute_rasAction", "reg": "entry_r_attribute_rasAction", "width": 2, "write": "io_writeEntry_bits_entry_attribute_rasAction"},
+    {"name": "entry_position", "reg": "entry_r_position", "width": 4, "write": "io_writeEntry_bits_entry_position"},
+    {"name": "entry_targetCarry_value", "reg": "entry_r_targetCarry_value", "width": 2, "write": "io_writeEntry_bits_entry_targetCarry_value"},
+    {"name": "entry_targetLowerBits", "reg": "entry_r_targetLowerBits", "width": 20, "write": "io_writeEntry_bits_entry_targetLowerBits"}
+  ],
+  "names": {
+    "out_valid": "io_write_{w}_valid",
+    "out_field": "io_write_{w}_bits_{field}",
+    "reg_valid": "io_write_{w}_valid_REG",
+    "reg_field": "io_write_{w}_bits_{reg}"
+  },
+  "cells": {
+    "flop": {"master": "DFFHQNx1_ASAP7_75t_R", "pins": ["D", "CLK", "QN"]},
+    "rflop": {"master": "DFFASRHQNx1_ASAP7_75t_R", "pins": ["D", "CLK", "QN", "RESETN", "SETN"]},
+    "inv": {"master": "INVx1_ASAP7_75t_R", "pins": ["A", "Y"]},
+    "buf": {"master": "BUFx4_ASAP7_75t_R", "pins": ["A", "Y"]},
+    "and2": {"master": "AND2x2_ASAP7_75t_R", "pins": ["A", "B", "Y"]},
+    "and3": {"master": "AND3x1_ASAP7_75t_R", "pins": ["A", "B", "C", "Y"]},
+    "nand3": {"master": "NAND3xp33_ASAP7_75t_R", "pins": ["A", "B", "C", "Y"]},
+    "and4": {"master": "AND4x1_ASAP7_75t_R", "pins": ["A", "B", "C", "D", "Y"]},
+    "nor4": {"master": "NOR4xp25_ASAP7_75t_R", "pins": ["A", "B", "C", "D", "Y"]},
+    "or2": {"master": "OR2x2_ASAP7_75t_R", "pins": ["A", "B", "Y"]},
+    "xnor2": {"master": "XNOR2xp5_ASAP7_75t_R", "pins": ["A", "B", "Y"]},
+    "ao22": {"master": "AO22x1_ASAP7_75t_R", "pins": ["A1", "A2", "B1", "B2", "Y"]},
+    "ao222": {"master": "AO222x2_ASAP7_75t_R", "pins": ["A1", "A2", "B1", "B2", "C1", "C2", "Y"]},
+    "tiehi": {"master": "TIEHIx1_ASAP7_75t_R", "pins": ["H"]}
+  },
+  "max_fanout": 14
+}

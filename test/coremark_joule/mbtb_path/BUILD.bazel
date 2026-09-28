@@ -1,4 +1,6 @@
-load("//:openroad.bzl", "odb_debug")
+load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//:openroad.bzl", "odb_debug", "orfs_flow", "orfs_run")
 load(":mbtb_path.bzl", "mainbtb_flow")
 
 # XiangShan Frontend's worst path, mbtb.t1_startPcVec to a main-BTB
@@ -15,6 +17,7 @@ MAINBTB_MODULES = [
     "ReplacerState_4",
     "LruStateGen",
     "MainBtbInternalBank",
+    "MainBtbWriteBufferEnq",
     "WriteBuffer_4",
     "SRAMTemplate_52",
     "SRAMTemplate_56",
@@ -102,5 +105,265 @@ mainbtb_flow(
 odb_debug(
     name = "MainBtb_hier_place_odb_debug",
     src = ":MainBtb_hier_place",
+    tags = ["manual"],
+)
+
+ASAP7_LEFS = [
+    "@orfs//flow:platforms/asap7/lef/asap7_tech_1x_201209.lef",
+    "@orfs//flow:platforms/asap7/lef/asap7sc7p5t_28_R_1x_220121a.lef",
+]
+
+# The seam module generated from its domain specification: a placed ODB,
+# its structural Verilog, and the abstract and model liberty a parent's
+# macro placer reads.
+genrule(
+    name = "MainBtbWriteBufferEnq_gen",
+    srcs = ["MainBtbWriteBufferEnq.json"] + ASAP7_LEFS,
+    outs = [
+        "MainBtbWriteBufferEnq.odb",
+        "MainBtbWriteBufferEnq_gen.v",
+        "MainBtbWriteBufferEnq.lef",
+        "MainBtbWriteBufferEnq.lib",
+    ],
+    cmd = "$(execpath //tools/structured_gen) --spec $(location MainBtbWriteBufferEnq.json) " +
+          " ".join(["--lef $(location {})".format(l) for l in ASAP7_LEFS]) +
+          " --odb $(location MainBtbWriteBufferEnq.odb)" +
+          " --verilog $(location MainBtbWriteBufferEnq_gen.v)" +
+          " --lef-out $(location MainBtbWriteBufferEnq.lef)" +
+          " --lib-out $(location MainBtbWriteBufferEnq.lib)",
+    tags = ["manual"],
+    tools = ["//tools/structured_gen"],
+)
+
+# The seam module's RTL, out of the split Verilog.
+genrule(
+    name = "MainBtbWriteBufferEnq_rtl",
+    srcs = ["//test/coremark_joule/xiangshan:xiangshan_sv"],
+    outs = ["MainBtbWriteBufferEnq_rtl.sv"],
+    cmd = "cp $(location //test/coremark_joule/xiangshan:xiangshan_sv)/MainBtbWriteBufferEnq.sv $@",
+    tags = ["manual"],
+)
+
+genrule(
+    name = "MainBtbWriteBufferEnq_tb",
+    srcs = [":MainBtbWriteBufferEnq_rtl"],
+    outs = ["MainBtbWriteBufferEnq_tb.v"],
+    cmd = "$(execpath //tools/structured_gen:cosim_tb) --rtl $< --module MainBtbWriteBufferEnq" +
+          " --equal io_writeEntry_bits_setIdx,io_flush_bits_setIdx" +
+          " --zero io_writeEntry_bits_entry_tag" +
+          " --loaded-by 'io_write_(\\d+)_bits_.*=io_write_\\1_valid' --out $@",
+    tags = ["manual"],
+    tools = ["//tools/structured_gen:cosim_tb"],
+)
+
+ASAP7_NLDM = [
+    "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz",
+    "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz",
+    "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz",
+    "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib",
+]
+
+# The generated seam against its RTL over 2000 random cycles, and a mutant
+# (the conflict compare's XNOR made an XOR) that must fail. A simulation,
+# not the LEC: kepler-formal does not build here yet (the plan's step 4).
+[
+    sh_test(
+        name = name,
+        srcs = ["cosim_test.sh"],
+        args = [
+            "$(rootpath @yosys//:yosys)",
+            "$(rootpath :MainBtbWriteBufferEnq_tb)",
+            "$(rootpath :MainBtbWriteBufferEnq_rtl)",
+            "$(rootpath :MainBtbWriteBufferEnq_gen.v)",
+            "2000",
+            expect,
+        ] + ["$(rootpath {})".format(l) for l in ASAP7_NLDM],
+        data = [
+            ":MainBtbWriteBufferEnq_gen.v",
+            ":MainBtbWriteBufferEnq_rtl",
+            ":MainBtbWriteBufferEnq_tb",
+            "@yosys",
+        ] + ASAP7_NLDM,
+        env = env,
+        tags = ["manual"],
+    )
+    for name, expect, env in [
+        ("MainBtbWriteBufferEnq_cosim_test", "pass", {}),
+        (
+            "MainBtbWriteBufferEnq_cosim_mutant_test",
+            "fail",
+            {"MUTATE": "XNOR2xp5_ASAP7_75t_R:XOR2xp5_ASAP7_75t_R"},
+        ),
+    ]
+]
+
+# The dissolve's test parent: one generated MainBtbWriteBufferEnq as a
+# macro between registers (dissolve_parent.sv).
+orfs_flow(
+    name = "dissolve_parent",
+    arguments = {
+        "CORE_UTILIZATION": "30",
+        "MACRO_PLACE_HALO": "2 2",
+        "PLACE_DENSITY": "0.6",
+        "SYNTH_BLACKBOXES": "MainBtbWriteBufferEnq",
+    },
+    sources = {
+        "ADDITIONAL_LEFS": [":MainBtbWriteBufferEnq.lef"],
+        "ADDITIONAL_LIBS": [":MainBtbWriteBufferEnq.lib"],
+        "ADDITIONAL_ODB_FILES": [":MainBtbWriteBufferEnq.odb"],
+        "SDC_FILE": ["//test/coremark_joule/designs/asap7/xiangshan:constraints_473ps.sdc"],
+    },
+    tags = ["manual"],
+    verilog_files = [
+        ":MainBtbWriteBufferEnq_rtl",
+        ":dissolve_parent.sv",
+    ],
+)
+
+odb_debug(
+    name = "dissolve_parent_floorplan_odb_debug",
+    src = ":dissolve_parent_floorplan",
+    tags = ["manual"],
+)
+
+# The macro fixed in each orientation a standard-cell block can take.
+DISSOLVE_ORIENTS = [
+    "R0",
+    "MX",
+    "MY",
+    "R180",
+]
+
+[
+    orfs_flow(
+        name = "dissolve_parent",
+        arguments = {
+            "CORE_UTILIZATION": "30",
+            "MACRO_PLACE_HALO": "2 2",
+            "PLACE_DENSITY": "0.6",
+            "SYNTH_BLACKBOXES": "MainBtbWriteBufferEnq",
+        },
+        previous_stage = {"floorplan": "dissolve_parent_synth"},
+        sources = {
+            "ADDITIONAL_LEFS": [":MainBtbWriteBufferEnq.lef"],
+            "ADDITIONAL_LIBS": [":MainBtbWriteBufferEnq.lib"],
+            "ADDITIONAL_ODB_FILES": [":MainBtbWriteBufferEnq.odb"],
+            "MACRO_PLACEMENT_TCL": [":place_u_enq_{}.tcl".format(o)],
+            "SDC_FILE": ["//test/coremark_joule/designs/asap7/xiangshan:constraints_473ps.sdc"],
+        },
+        tags = ["manual"],
+        variant = o,
+        verilog_files = [
+            ":MainBtbWriteBufferEnq_rtl",
+            ":dissolve_parent.sv",
+        ],
+    )
+    for o in DISSOLVE_ORIENTS
+]
+
+[
+    orfs_run(
+        name = "dissolve_check_" + v,
+        src = ":dissolve_parent_{}place".format("" if v == "base" else v + "_"),
+        outs = [
+            "dissolve_check_{}.txt".format(v),
+            "dissolve_parent_{}.v".format(v),
+        ],
+        cmd = "run",
+        script = "dissolve_check.tcl",
+        tags = ["manual"],
+        user_arguments = {
+            "OUTPUT_TXT": "$(location dissolve_check_{}.txt)".format(v),
+            "OUTPUT_V": "$(location dissolve_parent_{}.v)".format(v),
+        },
+    )
+    for v in ["base"] + DISSOLVE_ORIENTS
+]
+
+py_test(
+    name = "dissolve_check_test",
+    srcs = ["dissolve_check_test.py"],
+    args = ["$(rootpath :dissolve_check_{}.txt)".format(v) for v in ["base"] + DISSOLVE_ORIENTS],
+    data = [":dissolve_check_{}.txt".format(v) for v in ["base"] + DISSOLVE_ORIENTS],
+    tags = ["manual"],
+)
+
+genrule(
+    name = "dissolve_parent_tb",
+    srcs = [":dissolve_parent.sv"],
+    outs = ["dissolve_parent_tb.v"],
+    # dissolve_parent.sv packs the seam's inputs into `in` in port order:
+    # the write's set index at [8:1], its tag at [28:13], the flush's set
+    # index at [67:60].
+    cmd = "$(execpath //tools/structured_gen:cosim_tb) --rtl $< --module dissolve_parent" +
+          " --equal 'in[8:1],in[67:60]' --zero 'in[28:13]'" +
+          " --warmup 64 --out $@",
+    tags = ["manual"],
+    tools = ["//tools/structured_gen:cosim_tb"],
+)
+
+# The dissolved parent's netlist against the parent's RTL with the seam
+# module's RTL inside: the connections the dissolve made, not only the
+# generated module, over 2000 random cycles, in every orientation.
+[
+    sh_test(
+        name = name,
+        srcs = ["cosim_test.sh"],
+        args = [
+            "$(rootpath @yosys//:yosys)",
+            "$(rootpath :dissolve_parent_tb)",
+            "$(rootpath :dissolve_parent.sv),$(rootpath :MainBtbWriteBufferEnq_rtl)",
+            "$(rootpath :dissolve_parent_{}.v)".format(v),
+            "2000",
+            expect,
+        ] + ["$(rootpath {})".format(l) for l in ASAP7_NLDM],
+        data = [
+            ":MainBtbWriteBufferEnq_rtl",
+            ":dissolve_parent.sv",
+            ":dissolve_parent_tb",
+            ":dissolve_parent_{}.v".format(v),
+            "@yosys",
+        ] + ASAP7_NLDM,
+        env = env | {"MODULE": "dissolve_parent"},
+        tags = ["manual"],
+    )
+    for name, v, expect, env in [
+        (
+            "dissolve_parent_{}_cosim_test".format(o),
+            o,
+            "pass",
+            {},
+        )
+        for o in ["base"] + DISSOLVE_ORIENTS
+    ] + [
+        # The conflict compare's first XNOR made an XOR in the dissolved
+        # netlist: the parent-level check must see it.
+        (
+            "dissolve_parent_cosim_mutant_test",
+            "base",
+            "fail",
+            {"MUTATE": "XNOR2xp5_ASAP7_75t_R:XOR2xp5_ASAP7_75t_R"},
+        ),
+    ]
+]
+
+# Step 6: MainBtb on the compact die with its eight write-buffer enqueues
+# generated and dissolved, against the synthesised MainBtb above.
+mainbtb_flow(
+    arguments = {
+        "CORE_UTILIZATION": "40",
+        "SYNTH_BLACKBOXES": "MainBtbWriteBufferEnq",
+    },
+    sources = {
+        "ADDITIONAL_LEFS": [":MainBtbWriteBufferEnq.lef"],
+        "ADDITIONAL_LIBS": [":MainBtbWriteBufferEnq.lib"],
+        "ADDITIONAL_ODB_FILES": [":MainBtbWriteBufferEnq.odb"],
+    },
+    variant = "dissolved",
+)
+
+odb_debug(
+    name = "MainBtb_dissolved_place_odb_debug",
+    src = ":MainBtb_dissolved_place",
     tags = ["manual"],
 )

@@ -21,19 +21,20 @@ MAINBTB_PLACE = {
     "PLACE_DENSITY": "0.65",
 }
 
-def mainbtb_flow(arguments, variant = None, previous_stage = {}):
+def mainbtb_flow(arguments, variant = None, previous_stage = {}, sources = {}):
     """MainBtb through the flow with XiangShan's ICG mapping and 473 ps SDC.
 
     Args:
       arguments: floorplan and placement arguments over the block's own.
       variant: the orfs_flow variant, None for the base flow.
       previous_stage: shared stages, as orfs_flow takes them.
+      sources: more sources, as orfs_flow takes them.
     """
     orfs_flow(
         name = "MainBtb",
         arguments = XS_BLOCK_ARGUMENTS | MAINBTB_PLACE | arguments,
         previous_stage = previous_stage,
-        sources = {"SDC_FILE": [XS + ":constraints_473ps.sdc"]},
+        sources = {"SDC_FILE": [XS + ":constraints_473ps.sdc"]} | sources,
         tags = ["manual"],
         user_arguments = {
             "SYNTH_POST_HIERARCHY_SCRIPTS": "test/coremark_joule/designs/asap7/xiangshan/xs_icg.ys",
