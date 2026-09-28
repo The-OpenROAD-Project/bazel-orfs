@@ -12,9 +12,10 @@ checking if the variables have been externally defined.
 Carried in bazel-orfs from ORFS pull request 4573, not yet merged
 upstream, to run it through bazel-orfs CI. bazel-orfs supplies the
 *_EXE variables through the environment, so the origin guard leaves them
-untouched there; the win is for plain ORFS make (1198 to 362 execve for
-a print- target on nangate45/gcd). Retires at a //:bump onto an ORFS
-that carries the change.
+untouched there. The win is under IN_NIX_SHELL, where the defaults are
+$(shell command -v ...): one make print- on nangate45/gcd started 15501
+processes before and 38 after (135 to 43 outside Nix). Retires at a
+//:bump onto an ORFS that carries the change.
 
 Signed-off-by: ctkiku <kim.kuparinen@tuni.fi>
 ---

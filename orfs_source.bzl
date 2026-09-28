@@ -195,9 +195,9 @@ ORFS_PATCHES = [
     # ORFS #4573, carried to run it through our CI: the *_EXE defaults are
     # assigned with := only when the variable is undefined, so a
     # caller-supplied value keeps origin "environment" and a defaulted one
-    # is no longer a recursive $(shell ...) re-run on every export. Plain
-    # ORFS make on nangate45/gcd goes from 1198 to 362 execve per
-    # invocation; bazel-orfs supplies the variables and sees none of it.
+    # is no longer a recursive $(shell ...) re-run on every export. Under
+    # IN_NIX_SHELL one make on nangate45/gcd goes from 15501 processes to
+    # 38; bazel-orfs supplies the variables and sees none of it.
     # Retires at the bump that brings it in.
     Label("//patches:0088-orfs-make-expand-exe-once.patch"),
 ]
