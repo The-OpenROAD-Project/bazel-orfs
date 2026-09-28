@@ -8,6 +8,7 @@
 #include "odb/db.h"
 #include "odb/defout.h"
 #include "odb/lefin.h"
+#include "merged_write.h"
 #include "regfile.h"
 #include "utl/Logger.h"
 #include "views.h"
@@ -76,6 +77,40 @@ int main(int argc, char** argv) {
       if (reader.createLib(tech, name.c_str(), lefs[i].c_str()) == nullptr) {
         throw std::runtime_error("could not read LEF " + lefs[i]);
       }
+    }
+    // A .json spec is a merged write (merged_write.h); anything else is a
+    // register file in the key-value format (regfile.h).
+    if (spec_path.size() > 5 &&
+        spec_path.compare(spec_path.size() - 5, 5, ".json") == 0) {
+      structured_gen::MergedWriteSpec mw =
+          structured_gen::ReadMergedWriteSpec(spec_path);
+      odb::dbBlock* block = structured_gen::GenerateMergedWrite(db, &logger, mw);
+      if (!verilog_path.empty()) {
+        structured_gen::WriteVerilog(block, verilog_path);
+      }
+      if (!def_path.empty()) {
+        odb::DefOut writer(&logger);
+        if (!writer.writeBlock(block, def_path.c_str())) {
+          throw std::runtime_error("cannot write " + def_path);
+        }
+      }
+      if (!lef_out.empty()) {
+        structured_gen::WriteLef(block, &logger, lef_out);
+      }
+      if (!lib_out.empty()) {
+        structured_gen::WriteMergedWriteLiberty(block, mw, lib_out);
+      }
+      if (!odb_path.empty()) {
+        std::ofstream out(odb_path, std::ios::binary);
+        if (!out) {
+          throw std::runtime_error("cannot write " + odb_path);
+        }
+        db->write(out);
+      }
+      std::cout << "structured_gen: " << mw.module << " merged write, "
+                << mw.ways << " ways: " << block->getInsts().size()
+                << " instances, " << block->getNets().size() << " nets\n";
+      return 0;
     }
     structured_gen::Spec spec = structured_gen::ReadSpec(spec_path);
     if (!check_ports.empty()) {

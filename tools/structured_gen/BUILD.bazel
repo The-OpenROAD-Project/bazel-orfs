@@ -2,20 +2,26 @@
 # OpenROAD's own libraries rather than emitted as text for a later flow
 # to place. See README.md.
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
+load("@rules_python//python:defs.bzl", "py_binary")
 
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
     name = "regfile",
     srcs = [
+        "merged_write.cc",
         "regfile.cc",
         "views.cc",
     ],
     hdrs = [
+        "merged_write.h",
         "regfile.h",
         "views.h",
     ],
-    deps = ["@openroad//:openroad_lib"],
+    deps = [
+        "@nlohmann_json//:json",
+        "@openroad//:openroad_lib",
+    ],
 )
 
 cc_binary(
@@ -38,4 +44,11 @@ cc_test(
     args = ["$(rlocationpath {})".format(l) for l in ASAP7_LEFS],
     data = ASAP7_LEFS,
     deps = [":regfile"],
+)
+
+# A random co-simulation testbench for a generated block against its RTL
+# (cosim_tb.py says what it is and is not).
+py_binary(
+    name = "cosim_tb",
+    srcs = ["cosim_tb.py"],
 )

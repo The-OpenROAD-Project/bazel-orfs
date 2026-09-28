@@ -112,7 +112,32 @@ bazel run //tools/structured_gen -- --spec rf.spec \
     --odb FpRegFilePart0.odb --verilog FpRegFilePart0.v
 ```
 
-## What it refuses
+## A merged write, from a JSON specification
+
+A spec file ending in `.json` is a different structure: a write and a
+flush merged per way into registers held for a cycle, as XiangShan's
+main BTB enqueues its entry write buffer (`MainBtbWriteBufferEnq`, the
+module XiangShan patch 0010 cuts out). Per way `valid = write & way |
+flush & way & !conflict`; the valid register resets asynchronously; each
+field register loads the write's value, or the flush's (zero when the
+flush carries none), when valid; `conflict` is the write's set index
+equal to the flush's with the write's tag zero. `merged_write.h` has the
+keys: the ways, the port and register names as templates, the fields,
+the cells by kind with their pins, `max_fanout` for the enable buffers
+and `margin_um`, the empty band inside the outline (a dissolved block may
+abut another macro whose power-grid halo must fall on no row holding a
+cell). Each way is a column of bit tiles (mux, flop, inverter) with its
+enables and their buffers in a spine beside it; the conflict compare
+sits in a column between the ways.
+
+It writes the same views: a placed ODB, a structural Verilog, an
+abstract LEF, and a model liberty in which every output is a register.
+`test/coremark_joule/mbtb_path` generates the seam from
+`MainBtbWriteBufferEnq.json`, checks it against its RTL in a random
+co-simulation (`cosim_tb.py`, `yosys sim`, and a mutant that must fail),
+and dissolves it into a parent with `ADDITIONAL_ODB_FILES` (ORFS patch
+0088).
+
 
 A cell or pin the LEF does not have. A spec line it does not understand.
 A layout whose header or tile overflows the width it was given, which
