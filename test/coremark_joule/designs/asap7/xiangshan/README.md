@@ -13,22 +13,24 @@ Nothing here runs in CI. Every target is `tags = ["manual"]`.
 `kpi.json` is the series and `kpi.py` draws it. When a change moves the
 number, add a row and re-render.
 
-The number is the SDC period minus the worst slack of the `reg2reg`
-group, which is the only group that can fail timing closure. Ask a
-checkout for it with `.claude/commands/odb-debug.md`, and read
+The KPI is the design's minimum clock period, the red line: the largest
+of the parent's period and each block's, since the design is only as
+fast as its slowest part. Today it is **6,186 ps**, Frontend's. The
+parent is one of those parts, like any block, and each of them is drawn
+dashed beneath the red line, a period that has to be at or below it.
+
+Each part's period is its SDC period minus the worst slack of its
+`reg2reg` group, which is the only group that can fail timing closure.
+Ask a checkout for it with `.claude/commands/odb-debug.md`, and read
 `.claude/skills/macro-constraints` before quoting any other group. Ask
 for the group by name and not for the worst slack: on VecRegionModule the
 overall worst slack is -2,006 ps and belongs to another group, while
 `reg2reg` is -1,564 ps, and only the second one is a period.
 
-Three series. The red one is the top level, XSTile with its clock tree,
-and it is the KPI: **5,143 ps**, at global route with the route's own
-parasitics. The squares are each hardened block measured alone at its
-place stage against an ideal clock, through `<block>_place_odb_debug`.
-The black one is the design's minimum period, the slowest of the two:
-**6,186 ps**, Frontend's. The parent's `reg2reg` group does not see the
-paths inside a block's abstract, so the design is only as fast as its
-slowest block, and today that is a block, not the parent.
+The parent, XSTile with its clock tree, is **5,143 ps** at global route
+with the route's own parasitics; its `reg2reg` group does not see the
+paths inside a block's abstract. Each block is measured alone at its
+place stage against an ideal clock, through `<block>_place_odb_debug`:
 
 | block | minimum period | worst `reg2reg` path |
 |---|---|---|
@@ -90,7 +92,7 @@ FO4. Measured, the same paths are 138 to 430 FO4:
 | XSTile: vector issue queue's accept to the decode buffer | a ready chain back through six modules, a priority encode, an adder and an 8-to-1 index mux | 20 to 30 | 30 to 45 | 358, with clock trees |
 
 The measured column is each block alone at its place stage against an
-ideal clock, and for XSTile the KPI; the read and estimated columns are
+ideal clock, and for XSTile the parent's period; the read and estimated columns are
 source reading, with files and lines in `ideas/xiangshan-timing.md`,
 entry 27.
 

@@ -6,12 +6,13 @@
 Reads kpi.json beside it and writes kpi.png. Add a row to the json when a
 change moves the number, re-run this, commit both.
 
-Three series. The top level number is the parent with its clock tree, which
-is the KPI. The design's number is the slowest of the parent and its blocks:
-the parent's reg2reg group does not see the paths inside a block's abstract. Each block's number is that block alone at its own place
-stage, against an ideal clock: what the parent would approach if the
-clock reached the logic, and the only per block period that exists while
-the blocks are abstracted at place.
+The red series is the design's minimum clock period, the KPI: the largest
+of the parent's period and each block's, since the design is only as fast
+as its slowest part. The parent and each block are drawn dashed beneath
+it, each a period that has to be at or below the design's. The parent's
+number is its reg2reg group with its clock tree; each block's is that
+block alone at its own place stage, against an ideal clock. A run that
+did not measure the blocks gives only a lower bound, drawn hollow.
 
 The axis is logarithmic because the gap is three orders of magnitude and a
 linear axis would draw every run as the same point. That is the honest
@@ -67,12 +68,15 @@ def main():
     runs = d["runs"]
     target = d["target_ps"]
     xs = list(range(len(runs)))
-    ys = [r["min_period_ps"] for r in runs]
+    parent = [r["parent_ps"] for r in runs]
+    # the design is as fast as its slowest part: the parent or a block
+    design = [max([r["parent_ps"]] + list(r.get("blocks", {}).values())) for r in runs]
+    bounded = [not r.get("blocks") for r in runs]
 
     fig, ax = plt.subplots(figsize=(10, 5.2))
 
-    # the blocks, each against an ideal clock at its own place stage: what
-    # the parent's number would approach if the clock reached the logic.
+    # the parts, dashed: the parent, and each block against an ideal clock
+    # at its own place stage
     names = list(BLOCK_COLORS) + sorted(
         {n for r in runs for n in r.get("blocks", {})} - set(BLOCK_COLORS)
     )
@@ -88,31 +92,22 @@ def main():
         color = BLOCK_COLORS.get(name, OTHER_COLOR)
         bx = [p[0] for p in pts]
         by = [p[1] for p in pts]
-        ax.plot(bx, by, "s--", color=color, lw=1.4, ms=5, zorder=2)
+        ax.plot(bx, by, "s--", color=color, lw=1.2, ms=4, zorder=2)
         labels.append((bx[-1], by[-1], "%s  %s ps" % (name, f"{by[-1]:,}"), color, False))
+    top = runs[-1].get("measured", "").split("_")[0] or "parent"
+    ax.plot(xs, parent, "o--", color="0.3", lw=1.2, ms=4, zorder=2)
+    labels.append((xs[-1], parent[-1], "%s parent  %s ps" % (top, f"{parent[-1]:,}"), "0.3", False))
 
-    ax.plot(xs, ys, "o-", color="firebrick", lw=2.2, ms=7, zorder=3)
-    design = runs[-1].get("measured", "").split("_")[0] or "top level"
-    labels.append((xs[-1], ys[-1], "%s, top level" % design, "firebrick", True))
+    # the design, red: the KPI
+    ax.plot(xs, design, "-", color="firebrick", lw=2.4, zorder=3)
+    for x, y, b in zip(xs, design, bounded):
+        ax.plot(x, y, "o", ms=8, zorder=4, color="firebrick",
+                markerfacecolor="white" if b else "firebrick")
+    labels.append((xs[-1], design[-1], "design  %s ps" % f"{design[-1]:,}", "firebrick", True))
 
-    # the design's minimum period: the slowest of the parent and its blocks,
-    # for the runs that measured the blocks; the parent's own number does
-    # not see the paths inside a block's abstract
-    dpts = [
-        (x, max([r["min_period_ps"]] + list(r["blocks"].values())))
-        for x, r in zip(xs, runs)
-        if r.get("blocks")
-    ]
-    if dpts:
-        dx = [p[0] for p in dpts]
-        dy = [p[1] for p in dpts]
-        ax.plot(dx, dy, "D-", color="black", lw=1.6, ms=5, zorder=4, alpha=0.8)
-        labels.append(
-            (dx[-1], dy[-1], "design  %s ps" % f"{dy[-1]:,}", "black", True)
-        )
     ax.set_yscale("log")
     lo = min([target] + [v for r in runs for v in r.get("blocks", {}).values()])
-    ax.set_ylim(min(target, lo) * 0.45, max(ys) * 2.2)
+    ax.set_ylim(min(target, lo) * 0.45, max(design) * 2.2)
     ax.set_xlim(-0.55, len(runs) - 1 + 0.95)
     for (x, y, text, color, bold), dy in zip(labels, spread(labels, ax, fig)):
         ax.annotate(
@@ -134,10 +129,10 @@ def main():
         fontsize=9,
     )
 
-    for x, r in zip(xs, runs):
+    for x, y, b in zip(xs, design, bounded):
         ax.annotate(
-            "%s ps" % f"{r['min_period_ps']:,}",
-            (x, r["min_period_ps"]),
+            ("\u2265 %s ps" if b else "%s ps") % f"{y:,}",
+            (x, y),
             textcoords="offset points",
             xytext=(0, 11),
             ha="center",
@@ -159,7 +154,7 @@ def main():
     )
     ax.set_ylabel("minimum clock period (ps, log)")
     ax.set_title(
-        "XiangShan on asap7: minimum clock period, design, top level and per block",
+        "XiangShan on asap7: the design's minimum clock period (red) and its parts",
         loc="left",
         fontsize=12,
         weight="bold",
