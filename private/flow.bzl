@@ -92,6 +92,27 @@ def slang_arguments(macro, name, arguments, yosys_frontend_reason):
         ))
     return arguments | {"SYNTH_HDL_FRONTEND": frontend}
 
+def hierarchical_arguments(arguments):
+    """OpenROAD runs in hierarchical mode unless the design says otherwise.
+
+    ORFS's OPENROAD_HIERARCHICAL defaults to 0 and its description says
+    hierarchical mode "will eventually be the default and this option
+    will be retired". bazel-orfs takes that default now, so a flat run is
+    a design's stated choice rather than the flow's, and a performance or
+    correctness difference between the two is measured against -hier, the
+    mode that is to stay. A design's own setting, 0 included, is kept.
+
+    Applied by orfs_flow() and by every standalone stage macro, so the
+    mode does not depend on which macro declared the target.
+
+    Args:
+        arguments: the flow's or stage's arguments dict.
+
+    Returns:
+        arguments, with OPENROAD_HIERARCHICAL set.
+    """
+    return {"OPENROAD_HIERARCHICAL": "1"} | arguments
+
 def _merge_extra_arguments(a, b):
     """Merge two {stage: [label, ...]} dicts, concatenating per-stage lists."""
     merged = dict(a)
@@ -304,6 +325,7 @@ def _orfs_stage(stage, impl, **kwargs):
         impl: the underlying *_rule for that stage.
         **kwargs: forwarded to _filter_stage_args and the rule.
     """
+    kwargs["arguments"] = hierarchical_arguments(kwargs.get("arguments", {}))
     impl(**_filter_stage_args(stage, **kwargs))
     create_deps_tar(kwargs.get("name"), kwargs.get("visibility", None))
 
@@ -497,7 +519,9 @@ def orfs_flow(
       **kwargs: forward named args
     """
 
-    arguments = slang_arguments("orfs_flow", name, arguments, yosys_frontend_reason)
+    arguments = hierarchical_arguments(
+        slang_arguments("orfs_flow", name, arguments, yosys_frontend_reason),
+    )
 
     if quick_pins:
         sources = sources | {

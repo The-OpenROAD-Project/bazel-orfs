@@ -8,6 +8,7 @@ load("//:orfs_genrule.bzl", "orfs_genrule")
 load("//:sweep.bzl", "orfs_sweep")
 load(":auto_memories_outputs_test.bzl", "auto_memories_outputs_test")
 load(":deps_output_group_rule.bzl", "deps_output_group_test", "output_group_test")
+load(":hierarchical_default_test.bzl", "hierarchical_default_test_suite")
 load(":keep_modules_test.bzl", "keep_modules_test_suite")
 load(":mock_pin_knobs_test.bzl", "mock_pin_knobs_test")
 load(":provider_test_rule.bzl", "lib_pre_layout_test")
@@ -2026,6 +2027,8 @@ sh_test(
 )
 
 slang_frontend_test_suite(name = "slang_frontend_test")
+
+hierarchical_default_test_suite(name = "hierarchical_default_test")
 
 # The frontend policy reaches a standalone orfs_synth, not just a flow,
 # and yosys_frontend_reason is consumed by the macro: orfs_synth_rule
