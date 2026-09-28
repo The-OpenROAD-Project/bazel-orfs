@@ -1,0 +1,175 @@
+load("//:openroad.bzl", "odb_debug", "orfs_flow")
+
+# The flow's pathologies, measured on a stand-in: XiangShan's main BTB
+# (MainBtb) alone, with the Frontend block's own synthesis and place
+# arguments, every place substep kept for the probe (pathology.tcl).
+# Every target is manual.
+
+XS = "//test/coremark_joule/designs/asap7/xiangshan"
+
+MAINBTB_MODULES = [
+    "MainBtb",
+    "MainBtbAlignBank",
+    "MainBtbAlignBank_1",
+    "MainBtbReplacer",
+    "ReplacerState_4",
+    "LruStateGen",
+    "MainBtbInternalBank",
+    "WriteBuffer_4",
+    "SRAMTemplate_52",
+    "SRAMTemplate_56",
+    "sram_array_1p256x46m46s1h0l1_bpu_mbtb_entry",
+    "sram_array_1p256x8m2s1h0l1_bpu_mbtb_counter",
+    "array_256x46",
+    "array_256x8",
+    "MbistClockGateCell",
+    "ClockGate",
+    "Queue4_MainBtbCounterSramWriteReq",
+    "ram_4x20",
+]
+
+genrule(
+    name = "mainbtb_sv",
+    srcs = ["//test/coremark_joule/xiangshan:xiangshan_sv"],
+    outs = ["MainBtb_closure.sv"],
+    cmd = "d=$(location //test/coremark_joule/xiangshan:xiangshan_sv); " +
+          "for m in " + " ".join(MAINBTB_MODULES) + "; do " +
+          "grep -vF '`include' $$d/$$m.sv; done > $@",
+    tags = ["manual"],
+)
+
+# Frontend's arguments as its flow sets them (bazelisk query --output=build
+# //test/coremark_joule/designs/asap7/xiangshan:Frontend_place), less the
+# planned floorplan (outline, pins, macro annealing, the block PDN).
+FRONTEND_ARGUMENTS = {
+    "ABC_AREA": "1",
+    "AUTO_MEMORIES": "1",
+    "ENABLE_DPO": "0",
+    "GPL_ROUTABILITY_DRIVEN": "0",
+    "GPL_TIMING_DRIVEN": "0",
+    "MACRO_PLACE_HALO": "2 2",
+    "MAX_ROUTING_LAYER": "M9",
+    "MIN_ROUTING_LAYER": "M2",
+    "OPENROAD_HIERARCHICAL": "0",
+    "PLACE_DENSITY": "0.6",
+    "REMOVE_ABC_BUFFERS": "1",
+    "SKIP_CTS_REPAIR_TIMING": "1",
+    "SKIP_EXTRACT_FA": "1",
+    "SKIP_LAST_GASP": "1",
+    "SKIP_REPORT_METRICS": "1",
+    "SYNTH_HIERARCHICAL": "1",
+    "SYNTH_KEEP_MODULES": "WriteBuffer_4",
+    "TNS_END_PERCENT": "1",
+}
+
+orfs_flow(
+    name = "MainBtb",
+    arguments = FRONTEND_ARGUMENTS | {"CORE_UTILIZATION": "40"},
+    last_stage = "place",
+    sources = {"SDC_FILE": [XS + ":constraints_473ps.sdc"]},
+    substeps = True,
+    tags = ["manual"],
+    user_arguments = {
+        "SYNTH_POST_HIERARCHY_SCRIPTS": "test/coremark_joule/designs/asap7/xiangshan/xs_icg.ys",
+    },
+    user_sources = {
+        "XS_ICG_MAP": [
+            XS + ":xs_icg.ys",
+            XS + ":xs_icg_map.v",
+        ],
+    },
+    user_stages = {
+        "SYNTH_POST_HIERARCHY_SCRIPTS": ["synth"],
+        "XS_ICG_MAP": ["synth"],
+    },
+    verilog_files = [":mainbtb_sv"],
+)
+
+# The arms: S0 states the kept modules instead of SYNTH_HIERARCHICAL=1;
+# SH is S0 with OpenROAD hierarchical; S5 is S0 with the delay script.
+ARMS = {
+    "S0": {
+        "SYNTH_HIERARCHICAL": "0",
+    },
+    "SH": {
+        "OPENROAD_HIERARCHICAL": "1",
+        "SYNTH_HIERARCHICAL": "0",
+    },
+    "S5": {
+        "ABC_AREA": "0",
+        "SYNTH_HIERARCHICAL": "0",
+    },
+}
+
+[
+    orfs_flow(
+        name = "MainBtb",
+        arguments = FRONTEND_ARGUMENTS | {"CORE_UTILIZATION": "40"} | extra,
+        last_stage = "place",
+        sources = {"SDC_FILE": [XS + ":constraints_473ps.sdc"]},
+        tags = ["manual"],
+        user_arguments = {
+            "SYNTH_POST_HIERARCHY_SCRIPTS": "test/coremark_joule/designs/asap7/xiangshan/xs_icg.ys",
+        },
+        user_sources = {
+            "XS_ICG_MAP": [
+                XS + ":xs_icg.ys",
+                XS + ":xs_icg_map.v",
+            ],
+        },
+        user_stages = {
+            "SYNTH_POST_HIERARCHY_SCRIPTS": ["synth"],
+            "XS_ICG_MAP": ["synth"],
+        },
+        variant = arm,
+        verilog_files = [":mainbtb_sv"],
+    )
+    for arm, extra in ARMS.items()
+]
+
+[
+    odb_debug(
+        name = "MainBtb_{}place_odb_debug".format("" if arm == "B1" else arm + "_"),
+        src = ":MainBtb_{}place".format("" if arm == "B1" else arm + "_"),
+        tags = ["manual"],
+    )
+    for arm in [
+        "B1",
+        "S0",
+        "SH",
+    ]
+]
+
+# S8: the ABC buffers kept, so repair_design starts from a buffered netlist.
+orfs_flow(
+    name = "MainBtb",
+    arguments = FRONTEND_ARGUMENTS | {
+        "CORE_UTILIZATION": "40",
+        "REMOVE_ABC_BUFFERS": "0",
+        "SYNTH_HIERARCHICAL": "0",
+    },
+    last_stage = "place",
+    sources = {"SDC_FILE": [XS + ":constraints_473ps.sdc"]},
+    tags = ["manual"],
+    user_arguments = {
+        "SYNTH_POST_HIERARCHY_SCRIPTS": "test/coremark_joule/designs/asap7/xiangshan/xs_icg.ys",
+    },
+    user_sources = {
+        "XS_ICG_MAP": [
+            XS + ":xs_icg.ys",
+            XS + ":xs_icg_map.v",
+        ],
+    },
+    user_stages = {
+        "SYNTH_POST_HIERARCHY_SCRIPTS": ["synth"],
+        "XS_ICG_MAP": ["synth"],
+    },
+    variant = "S8",
+    verilog_files = [":mainbtb_sv"],
+)
+
+odb_debug(
+    name = "MainBtb_S8_place_odb_debug",
+    src = ":MainBtb_S8_place",
+    tags = ["manual"],
+)
