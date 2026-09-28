@@ -753,6 +753,100 @@ the archives' `src/main/scala`: `xiangshan/`, `coupledL2/` (xs_cache),
 
 None of the six passes through a memory XiangShan builds as SRAM.
 
+## 28. The KPI is the parent's; the design is as fast as its slowest block
+
+The KPI is the parent's `reg2reg` group at global route. The paths inside
+a block live in its abstract and are not in that group. Each block alone
+at its place stage, ideal clock (2026-09-27, 473 ps, #1101's tree):
+Frontend 6,186 ps, MemBlock 5,527, CoupledL2 2,820, VecRegionModule
+2,471, Region_1 1,990, against the parent's 5,143. The design's minimum
+period is the largest of these, 6,186 ps, and today it is a block's, not
+the parent's. `kpi.py` draws it beside the KPI.
+
+## 29. The SDC declares no design rule limits
+
+`constraints_473ps.sdc` sets `set_max_fanout 32` and no
+`set_max_transition` or `set_max_capacitance`. A signoff SDC sets both
+for the design. On an unpatched OpenSTA, a model whose ports carry no
+limits and a parent with 200 fF on the net between two instances: with
+`set_max_transition 0.1985 [current_design]` both model pins report the
+0.46 ns slew, with `set_max_capacitance 60.65` the driving pin reports
+201 fF. `repair_design` honours SDC limits, so a design-wide limit would
+have had the 2.4 mm bare net of entry 26 buffered without patch 0008.
+Not measured on XSTile yet.
+
+## 30. What OpenROAD does with limits, and where it stops
+
+- `repair_design` repairs a long wire only with `-max_wire_length`;
+  `rsz::check_max_wire_length` is called with `use_default false` for
+  it (only `repair_clock_nets` computes a default), and ORFS passes none.
+  Buffering on this flow is driven by slew and capacitance limits alone.
+- A limit no cell can meet stops `repair_design`: RSZ-0090 (a
+  `max_transition` of 1.562 ps, "best achievable 3.691 ps") and RSZ-0169
+  (a `max_capacitance` of 0.246 fF). Both came from a version of patch
+  0008 that backed port limits off by the block's internal wire and load
+  (#1104, closed); the cells' own limits (#1105) meet neither.
+- OpenSTA checks a library's `default_max_transition` on driver pins and
+  not on input pins; `set_max_transition [current_design]` checks both.
+- `write_timing_model`'s output arcs are tabled to 92 fF on asap7; a
+  parent load of 244 fF (entry 26) is extrapolated.
+- Global route peaked at 55.7 GB on the parent in entry 24. Two XSTile
+  variants took it to 112 GB resident and were killed on the 122 GB
+  machine: the parent's CTS with
+  insertion-delay balancing (`-no_insertion_delay` removed), and entry
+  31's first floorplan. The delay buffers of the first were not counted.
+
+## 31. The tile's ports on one edge, and blocks next to their partners
+
+XiangShan's own SoC top (`XSNoCTop` around `XSTileWrap`) makes the tile a
+single NoC node: CHI, the interrupts, CLINT time, MSI, the trace port,
+the reset vector and the hart id all go to one place. The flow placed
+1,099 of the 1,640 ports on the bottom and 540 on the right (trace 375,
+CLINT time 65, reset vector 48, the rest a few each).
+
+Pin partners from the parent's synthesis (30,943 block pins): every block
+talks mostly to the parent's logic, 60 to 92 percent of its pins.
+MemBlock is the hub of the block-to-block traffic (Frontend 1,193,
+VecRegionModule about 1,006, CoupledL2 372, Region_1 198); only CoupledL2
+talks to the ports (1,118, CHI).
+
+The planner learned a port side and a partner cost, pins times distance
+to each partner block and to the parent's logic, within 10 percent of
+the smallest die. On `test/planned_parent` it put the four blocks in one
+row with the cross-traffic pair side by side (their nets from 150 to
+20 um) and every port on the bottom. On XSTile it failed its gate:
+
+| placed XSTile | #1101's floorplan | partner layout |
+|---|---|---|
+| ports on the bottom | 1,099 of 1,640 | 1,640 of 1,640 |
+| 11 worst crossings, pin to pin | 11,749 um | 9,307 um |
+| longest crossing | 1,849 um | 2,350 um |
+| half-perimeter wirelength | 103.8 m | 128.4 m |
+| global route | completes | killed at 112 GB resident |
+
+Frontend's crossings shortened from 1.3-1.5 mm to 0.4-0.5 mm; the parent's
+own paths lengthened (the ROB's 986 to 1,600 um, MemBlock into the busy
+table 748 to 1,752 um). The region became a 2,552 by 889 um strip, and
+the cost models the parent's logic as one point at its centre, which a
+strip is not. Today's arrangement with every port on the bottom is the
+candidate being measured.
+
+## 32. Synthesis maps for area
+
+`ABC_AREA=1` came in with the first full synthesis as a turnaround
+setting, "flip back for the measured run" (727bef1f), and was never
+flipped. Region_1 at its place stage: 2,020 ps with the area script,
+1,624 ps with the speed script, and 369,873 cells instead of 408,706.
+XSTile on PR 0's tree: 5,543 to 5,462 ps, a gain the bare net of entry
+26 hid; not yet measured on #1101's.
+
+## 33. Not measured yet
+
+The logic floor and the wire floor of each block and of XSTile, ideal
+clock with and without placement parasitics, and the best-effort delay
+mapping of each worst cone: the measurements that would say whether any
+path's logic alone exceeds 41 FO4 (#1103).
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
