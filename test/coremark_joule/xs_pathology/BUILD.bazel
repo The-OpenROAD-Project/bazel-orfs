@@ -1,4 +1,5 @@
-load("//:openroad.bzl", "odb_debug", "orfs_flow")
+load("@rules_python//python:defs.bzl", "py_test")
+load("//:openroad.bzl", "odb_debug", "orfs_flow", "orfs_run")
 
 # The flow's pathologies, measured on a stand-in: XiangShan's main BTB
 # (MainBtb) alone, with the Frontend block's own synthesis and place
@@ -91,14 +92,6 @@ ARMS = {
     "S0": {
         "SYNTH_HIERARCHICAL": "0",
     },
-    "SH": {
-        "OPENROAD_HIERARCHICAL": "1",
-        "SYNTH_HIERARCHICAL": "0",
-    },
-    "S5": {
-        "ABC_AREA": "0",
-        "SYNTH_HIERARCHICAL": "0",
-    },
 }
 
 [
@@ -136,40 +129,49 @@ ARMS = {
     for arm in [
         "B1",
         "S0",
-        "SH",
     ]
 ]
 
-# S8: the ABC buffers kept, so repair_design starts from a buffered netlist.
-orfs_flow(
-    name = "MainBtb",
-    arguments = FRONTEND_ARGUMENTS | {
-        "CORE_UTILIZATION": "40",
-        "REMOVE_ABC_BUFFERS": "0",
-        "SYNTH_HIERARCHICAL": "0",
-    },
-    last_stage = "place",
-    sources = {"SDC_FILE": [XS + ":constraints_473ps.sdc"]},
+[
+    orfs_run(
+        name = "record_" + arm,
+        src = ":MainBtb_{}place".format("" if arm == "B1" else arm + "_"),
+        outs = ["record_{}.json".format(arm)],
+        cmd = "run",
+        script = "probe.tcl",
+        tags = ["manual"],
+        user_arguments = {
+            "KEPT_EXPECTED": "MainBtb WriteBuffer_4",
+            "OUTPUT_JSON": "$(location record_{}.json)".format(arm),
+        },
+        user_sources = {"PATHOLOGY_TCL": ["pathology.tcl"]},
+    )
+    for arm in [
+        "B1",
+        "S0",
+    ]
+]
+
+# The stand-in keeps exactly the stated modules and places legally.
+py_test(
+    name = "pathology_test",
+    srcs = ["pathology_test.py"],
+    args = ["$(rootpath :record_{}.json)".format(a) for a in [
+        "B1",
+        "S0",
+    ]],
+    data = [":record_{}.json".format(a) for a in [
+        "B1",
+        "S0",
+    ]],
     tags = ["manual"],
-    user_arguments = {
-        "SYNTH_POST_HIERARCHY_SCRIPTS": "test/coremark_joule/designs/asap7/xiangshan/xs_icg.ys",
-    },
-    user_sources = {
-        "XS_ICG_MAP": [
-            XS + ":xs_icg.ys",
-            XS + ":xs_icg_map.v",
-        ],
-    },
-    user_stages = {
-        "SYNTH_POST_HIERARCHY_SCRIPTS": ["synth"],
-        "XS_ICG_MAP": ["synth"],
-    },
-    variant = "S8",
-    verilog_files = [":mainbtb_sv"],
 )
 
-odb_debug(
-    name = "MainBtb_S8_place_odb_debug",
-    src = ":MainBtb_S8_place",
-    tags = ["manual"],
+py_test(
+    name = "report_test",
+    srcs = [
+        "report.py",
+        "report_test.py",
+    ],
+    main = "report_test.py",
 )
