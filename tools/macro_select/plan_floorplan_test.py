@@ -550,6 +550,25 @@ class PartnerLayoutTest(unittest.TestCase):
                 self.assertIn('"pins": "parent_pins.tcl"', f.read())
         self.assertEqual(plan_floorplan.check(out), [])
 
+    def test_partner_layout_off_keeps_the_smallest_die(self):
+        """With partner_layout false the partners only report their wire;
+        the arrangement is the smallest die's, the port side still holds."""
+        base = plan_floorplan.layout(plan(self.MACROS))
+        with tempfile.TemporaryDirectory() as d:
+            p = plan(self.MACROS)
+            p["parent"]["partner_layout"] = False
+            p["pin_partners"] = _dump(
+                d,
+                [("MemBlock", "VecRegion", 1000), ("VecRegion", "MemBlock", 1000),
+                 ("MemBlock", "logic", 5000), ("VecRegion", "logic", 3000)],
+            )
+            out = plan_floorplan.layout(p)
+        self.assertEqual(
+            [(m["name"], m["region_side"], m["x_um"], m["y_um"]) for m in out["macros"]],
+            [(m["name"], m["region_side"], m["x_um"], m["y_um"]) for m in base["macros"]],
+        )
+        self.assertIsNotNone(out["partner_pin_um"])
+
     def test_port_pins_of_a_block_off_the_port_side_face_the_region(self):
         """A block that is not on the port side reaches the ports through
         the region: its port pins share its pin side, none on its outer."""

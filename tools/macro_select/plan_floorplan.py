@@ -318,7 +318,9 @@ def partner_terms(plan):
 
     The parent's port side is plan["parent"]["port_side"]; its signal
     port count, plan["parent"]["ports"], less the block pins that go to a
-    port, is what the parent's logic drives there."""
+    port, is what the parent's logic drives there. With
+    plan["parent"]["partner_layout"] false the pairs only report the
+    layout's partner wire; the smallest die decides the arrangement."""
     path = plan.get("pin_partners")
     if not path:
         return None, None, (), 0.0
@@ -365,9 +367,12 @@ def layout(plan):
     region_area = parent["cell_area_um2"] / parent["density"]
     min_w, min_h = netlist_row(plan)
     pairs, port_side, on_port_side, port_free = partner_terms(plan)
+    # partner_layout false keeps the smallest die's arrangement and only
+    # puts the parent's ports on their side
+    layout_pairs = pairs if parent.get("partner_layout", True) else None
     placed, region_w, region_h = assign_sides(
         shapes, region_area, gap, parent["core_margin_um"], min_w, min_h,
-        margins.get("region_aspect_max"), pairs, port_side, on_port_side, port_free,
+        margins.get("region_aspect_max"), layout_pairs, port_side, on_port_side, port_free,
     )
     extent = _extents(placed)
     margin = parent["core_margin_um"]
