@@ -6,8 +6,9 @@
 Reads kpi.json beside it and writes kpi.png. Add a row to the json when a
 change moves the number, re-run this, commit both.
 
-Two series. The top level number is the parent with its clock tree, which
-is the KPI. Each block's number is that block alone at its own place
+Three series. The top level number is the parent with its clock tree, which
+is the KPI. The design's number is the slowest of the parent and its blocks:
+the parent's reg2reg group does not see the paths inside a block's abstract. Each block's number is that block alone at its own place
 stage, against an ideal clock: what the parent would approach if the
 clock reached the logic, and the only per block period that exists while
 the blocks are abstracted at place.
@@ -93,6 +94,22 @@ def main():
     ax.plot(xs, ys, "o-", color="firebrick", lw=2.2, ms=7, zorder=3)
     design = runs[-1].get("measured", "").split("_")[0] or "top level"
     labels.append((xs[-1], ys[-1], "%s, top level" % design, "firebrick", True))
+
+    # the design's minimum period: the slowest of the parent and its blocks,
+    # for the runs that measured the blocks; the parent's own number does
+    # not see the paths inside a block's abstract
+    dpts = [
+        (x, max([r["min_period_ps"]] + list(r["blocks"].values())))
+        for x, r in zip(xs, runs)
+        if r.get("blocks")
+    ]
+    if dpts:
+        dx = [p[0] for p in dpts]
+        dy = [p[1] for p in dpts]
+        ax.plot(dx, dy, "D-", color="black", lw=1.6, ms=5, zorder=4, alpha=0.8)
+        labels.append(
+            (dx[-1], dy[-1], "design  %s ps" % f"{dy[-1]:,}", "black", True)
+        )
     ax.set_yscale("log")
     lo = min([target] + [v for r in runs for v in r.get("blocks", {}).values()])
     ax.set_ylim(min(target, lo) * 0.45, max(ys) * 2.2)
@@ -142,7 +159,7 @@ def main():
     )
     ax.set_ylabel("minimum clock period (ps, log)")
     ax.set_title(
-        "XiangShan on asap7: minimum clock period, top level and per block",
+        "XiangShan on asap7: minimum clock period, design, top level and per block",
         loc="left",
         fontsize=12,
         weight="bold",
