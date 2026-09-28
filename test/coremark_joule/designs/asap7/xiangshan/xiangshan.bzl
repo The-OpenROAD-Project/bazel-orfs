@@ -1191,8 +1191,15 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
     # the block is abstracted at cts: build its tree, do not repair its
     # timing there (the parent skips it too; margin first)
     arguments["SKIP_CTS_REPAIR_TIMING"] = "1"
-    if "SYNTH_KEEP_MODULES" in entry:
-        arguments["SYNTH_KEEP_MODULES"] = entry["SYNTH_KEEP_MODULES"]
+
+    # Synthesis keeps exactly the plan's modules and flattens the rest,
+    # stated rather than left to SYNTH_HIERARCHICAL=1's rule, and OpenROAD
+    # keeps that hierarchy.
+    if "SYNTH_KEEP_MODULES" not in entry:
+        fail("planned block %s states no SYNTH_KEEP_MODULES; a block keeps the modules its plan names, and only those" % block)
+    arguments["SYNTH_KEEP_MODULES"] = entry["SYNTH_KEEP_MODULES"]
+    arguments["SYNTH_HIERARCHICAL"] = "0"
+    arguments["OPENROAD_HIERARCHICAL"] = "1"
     sources = dict(cfg["sources"])
     mems = _structured_memories(cfg["sources"], entry.get("SYNTH_KEEP_MODULES", ""), blocks)
     if mems:
