@@ -110,6 +110,3 @@ diff --git a/src/sta/search/MakeTimingModelPvt.hh b/src/sta/search/MakeTimingMod
    void checkClock(Clock *clk);
    void findTimingFromInputs();
    void findTimingFromInputsBatch(const PinSeq &batch,
--- 
-2.43.0
-
