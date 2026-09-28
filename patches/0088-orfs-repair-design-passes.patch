@@ -1,0 +1,105 @@
+From b01e55709e06516c48464b9726313fca9454881f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 28 Sep 2026 17:41:10 +0200
+Subject: [PATCH] repair_design: repeat while violations remain,
+ REPAIR_DESIGN_PASSES calls at most
+
+One repair_design call does not revisit the nets it creates: the buffers
+it inserts for fanout leave new nets whose slew it never checks. On a
+netlist whose buffers were removed before placement (REMOVE_ABC_BUFFERS)
+the one call starts from every violation at once and leaves some: on
+XiangShan's main BTB at place, 171,588 slew violations before the call
+and 1,092 after it, on 53 nets; a second, identical call inserts 89
+buffers and leaves none, and a third finds nothing. On XiangShan's
+Frontend a second call takes the placed block from 61,614 slew-violating
+pins to 1, and its period from 5,137 to 4,168 ps.
+
+REPAIR_DESIGN_PASSES calls repair_design again while slew or
+capacitance violations remain, up to that many calls. The resizer keeps
+the caller's parasitics current, so the counts after a call need no
+re-estimate (checked: equal with and without). Default 1: one call, as
+before.
+
+Carried by bazel-orfs; not upstreamed. The resizer revisiting the nets it
+creates is the fix upstream would take; this retires with it.
+---
+ flow/scripts/util.tcl       | 19 +++++++++++++++++++
+ flow/scripts/variables.json |  9 +++++++++
+ flow/scripts/variables.yaml | 11 +++++++++++
+ 3 files changed, 39 insertions(+)
+
+diff --git a/flow/scripts/util.tcl b/flow/scripts/util.tcl
+index 7a358dd47..116e8fa47 100644
+--- a/flow/scripts/util.tcl
++++ b/flow/scripts/util.tcl
+@@ -60,6 +60,25 @@ proc repair_design_helper { } {
+   append_env_var additional_args SLEW_MARGIN -slew_margin 1
+   append_env_var additional_args MATCH_CELL_FOOTPRINT -match_cell_footprint 0
+   log_cmd repair_design {*}$additional_args
++  # One repair_design call does not revisit the nets it creates: buffers
++  # inserted for fanout leave new nets whose slew it never checks. Repeat
++  # while slew or capacitance violations remain, up to REPAIR_DESIGN_PASSES
++  # calls in all (default 1, one call as before).
++  # The resizer keeps the caller's parasitics (placement or global route)
++  # up to date, so the counts after a call are the ones to repair.
++  set passes 1
++  if { [env_var_exists_and_non_empty REPAIR_DESIGN_PASSES] } {
++    set passes $::env(REPAIR_DESIGN_PASSES)
++  }
++  for { set pass 2 } { $pass <= $passes } { incr pass } {
++    set slew [sta::max_slew_violation_count]
++    set cap [sta::max_capacitance_violation_count]
++    if { $slew == 0 && $cap == 0 } {
++      break
++    }
++    puts "repair_design pass $pass: $slew slew and $cap capacitance violations left"
++    log_cmd repair_design {*}$additional_args
++  }
+ }
+ 
+ proc recover_power_helper { } {
+diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
+index 781798da6..802605a2a 100644
+--- a/flow/scripts/variables.json
++++ b/flow/scripts/variables.json
+@@ -1401,6 +1401,15 @@
+       "grt"
+     ]
+   },
++  "REPAIR_DESIGN_PASSES": {
++    "default": 1,
++    "description": "Most repair_design calls in one repair step. A call does not revisit the nets it creates (buffers inserted for fanout leave new nets it never checks for slew); the step calls it again while slew or capacitance violations remain, up to this many calls.\n",
++    "stages": [
++      "place",
++      "grt"
++    ],
++    "tunable": 1
++  },
+   "SLEW_MARGIN": {
+     "description": "Specifies a slew margin when fixing max slew violations. This option allows you to overfix.\n",
+     "stages": [
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+index 4156cff8b..28e1f6b48 100644
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -823,6 +823,17 @@ CAP_MARGIN:
+   stages:
+     - place
+     - grt
++REPAIR_DESIGN_PASSES:
++  description: >
++    Most repair_design calls in one repair step. A call does not revisit the
++    nets it creates (buffers inserted for fanout leave new nets it never
++    checks for slew); the step calls it again while slew or capacitance
++    violations remain, up to this many calls.
++  default: 1
++  tunable: 1
++  stages:
++    - place
++    - grt
+ SLEW_MARGIN:
+   description: >
+     Specifies a slew margin when fixing max slew violations. This option allows
+-- 
+2.53.0
+

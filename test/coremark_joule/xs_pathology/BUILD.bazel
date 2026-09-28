@@ -92,6 +92,11 @@ ARMS = {
     "S0": {
         "SYNTH_HIERARCHICAL": "0",
     },
+    # repair_design repeated until converged (ORFS patch 0088).
+    "P3": {
+        "REPAIR_DESIGN_PASSES": "3",
+        "SYNTH_HIERARCHICAL": "0",
+    },
 }
 
 [
@@ -149,20 +154,24 @@ ARMS = {
     for arm in [
         "B1",
         "S0",
+        "P3",
     ]
 ]
 
-# The stand-in keeps exactly the stated modules and places legally.
+# The stand-in keeps exactly the stated modules and places legally, and
+# repair_design repeated removes what one call leaves.
 py_test(
     name = "pathology_test",
     srcs = ["pathology_test.py"],
     args = ["$(rootpath :record_{}.json)".format(a) for a in [
         "B1",
         "S0",
+        "P3",
     ]],
     data = [":record_{}.json".format(a) for a in [
         "B1",
         "S0",
+        "P3",
     ]],
     tags = ["manual"],
 )

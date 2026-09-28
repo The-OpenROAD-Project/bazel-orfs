@@ -192,6 +192,11 @@ ORFS_PATCHES = [
     # now pass the flow's choice. Upstream as ORFS #4563 (a draft until
     # OpenROAD #11525 is in ORFS); retires at the bump that brings it in.
     Label("//patches:0087-orfs-grt-incremental-allow-congestion.patch"),
+    # REPAIR_DESIGN_PASSES: repair_design called again while slew or
+    # capacitance violations remain; one call does not revisit the nets it
+    # creates. Default 1, one call as before. Not upstreamed; retires when
+    # the resizer revisits its own nets.
+    Label("//patches:0088-orfs-repair-design-passes.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

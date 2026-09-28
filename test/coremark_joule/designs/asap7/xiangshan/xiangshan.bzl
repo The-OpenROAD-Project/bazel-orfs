@@ -1228,6 +1228,10 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
     arguments["SKIP_CTS_REPAIR_TIMING"] = "1"
     if "SYNTH_KEEP_MODULES" in entry:
         arguments["SYNTH_KEEP_MODULES"] = entry["SYNTH_KEEP_MODULES"]
+
+    # One repair_design call leaves the nets it creates unchecked; call it
+    # until no slew or capacitance violation remains (ORFS patch 0088).
+    arguments["REPAIR_DESIGN_PASSES"] = "3"
     sources = dict(cfg["sources"])
     mems = _structured_memories(cfg["sources"], entry.get("SYNTH_KEEP_MODULES", ""), blocks)
     if mems:
