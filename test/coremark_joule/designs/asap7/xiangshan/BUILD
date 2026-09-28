@@ -4,7 +4,10 @@ load("//test/coremark_joule/flow:power.bzl", "census_probe", "grt_netlist", "hie
 load(":plan/plan.bzl", "PLAN")
 load(":xiangshan.bzl", "xiangshan_flow")
 
-exports_files(["constraints.sdc"])
+exports_files([
+    "constraints.sdc",
+    "constraints_473ps.sdc",
+])
 
 # The SDC period is XiangShan's 333 ps on 7 nm in fanouts of four, on the
 # library the flow times with, ORFS's default asap7 corner FF, in each Vt
