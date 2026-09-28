@@ -118,6 +118,19 @@
         "VecRegionModule": 2665
       },
       "note": "synthesis maps with ABC's speed script in every flow instead of the area script"
+    },
+    {
+      "date": "2026-09-28",
+      "measured": "XSTile_grt, built from source",
+      "parent_ps": 5188,
+      "blocks": {
+        "CoupledL2": 3464,
+        "Frontend": 5681,
+        "MemBlock": 3741,
+        "FltRegionModule": 1826,
+        "VecRegionModule": 2301
+      },
+      "note": "XiangShan kunminghu-v3 aa6b520, re-planned (Region_1 is now FltRegionModule); a different RTL, not comparable with the rows before"
     }
   ]
 }

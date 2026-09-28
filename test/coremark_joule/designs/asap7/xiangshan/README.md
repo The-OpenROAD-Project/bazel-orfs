@@ -15,7 +15,7 @@ number, add a row and re-render.
 
 The KPI is the design's minimum clock period, the red line: the largest
 of the parent's period and each block's, since the design is only as
-fast as its slowest part. Today it is **4,991 ps**, the parent's. The
+fast as its slowest part. Today it is **5,681 ps**, Frontend's. The
 parent is one of those parts, like any block, and each of them is drawn
 dashed beneath the red line, a period that has to be at or below it.
 
@@ -27,18 +27,18 @@ for the group by name and not for the worst slack: on VecRegionModule the
 overall worst slack is -2,006 ps and belongs to another group, while
 `reg2reg` is -1,564 ps, and only the second one is a period.
 
-The parent, XSTile with its clock tree, is **4,991 ps** at global route
+The parent, XSTile with its clock tree, is **5,188 ps** at global route
 with the route's own parasitics; its `reg2reg` group does not see the
 paths inside a block's abstract. Each block is measured alone at its
 place stage against an ideal clock, through `<block>_place_odb_debug`:
 
 | block | minimum period | worst `reg2reg` path |
 |---|---|---|
-| Frontend | 4,854 ps | a main-BTB bank's counter read into ITTAGE's `s1_startPc` |
-| MemBlock | 4,446 ps | the DCache main pipe's `s1_req_vaddr` into its pseudo-error mask |
-| CoupledL2 | 2,954 ps | the directory's state into `sinkC`'s refill-buffer write |
-| VecRegionModule | 2,665 ps | an issue pipe's valid into the vector writeback data |
-| Region_1 | 1,642 ps | a flush copy's `robIdx` into the FP issue queue's wakeup |
+| Frontend | 5,681 ps | a main-BTB bank's counter read into the uBTB's `s1_hitT1Victim` |
+| MemBlock | 3,741 ps | the redirect's `robIdx` into `loadQueueReplay`'s vaddr |
+| CoupledL2 | 3,464 ps | the directory's state into `sinkC`'s buffer `r_0` |
+| VecRegionModule | 2,301 ps | the vector divider's `robIdx` into an issue pipe's valid |
+| FltRegionModule | 1,826 ps | an FP adder's operand into its fraction stage |
 
 XiangShan's `ClockGate` is mapped onto ASAP7's ICG cell (`xs_icg.ys`) in
 every flow, the parent's and every block's.
@@ -71,8 +71,8 @@ No measured frequency is published and no corner is stated for the core;
 the same keynote quotes XiangShan's NoC at "7nm_SS". The previous
 generation came close to its goal: Nanhu targeted 2 GHz on 14 nm, its
 GDSII was delivered at 2 GHz, and the keynote lists its second tape-out
-at 2.5 GHz. What we build is the V3 head, integer-only with a small
-last-level cache.
+at 2.5 GHz. What we build is kunminghu-v3 at aa6b520, integer-only with
+a small last-level cache.
 
 In fanouts of four, 333 ps is 41.1 FO4 at the published ASAP7 RVT FO4 of
 8.1 ps, which the ASAP7 authors call realistic for industrial 7 nm. On
@@ -98,8 +98,9 @@ FO4. Measured, the same paths are 138 to 430 FO4:
 The measured column is each block alone at its place stage against an
 ideal clock, and for XSTile the parent's period; the read and estimated columns are
 source reading, with files and lines in `ideas/xiangshan-timing.md`,
-entry 27. The paths and the measured column are the area-mapped netlist's;
-with ABC's speed script every block's worst path moved (the table in
+entry 27. The paths and the measured column are the area-mapped netlist's
+of the RTL before aa6b520 (Region_1 is now FltRegionModule); with ABC's
+speed script and the new RTL every block's worst path moved (the table in
 "The KPI"), and those have not been read at the source yet.
 
 By logic depth the RTL is congruent with the goal: every one of these
@@ -154,21 +155,21 @@ The parent's worst paths at global route, by group:
 
 | group | worst slack at 473 ps | path |
 |---|---|---|
-| reg2reg | -4,518 ps | MemBlock's `io_mem_to_ooo_ldCancel_2_ld2Cancel` output into dispatch's issue-queue count |
-| in2reg | -1,209 ps | `io_hartId` into the CSR in the integer ALU |
-| reg2out | -980 ps | the L2's `io_chi_tx_dat_flit` out to the tile's port |
+| reg2reg | -4,715 ps | Frontend's `io_backend_cfVec_0_bits_instr` output into the parent's `ctrlBlock/decodeBufBits` |
+| in2reg | -1,912 ps | `io_hartId` into FltRegionModule |
+| reg2out | -1,154 ps | the L2's `io_chi_tx_req_flit` out to the tile's port |
 
 Only the first is a period (`.claude/skills/macro-constraints`); the
 other two are optimisation targets.
 
-Route-0 at global route: total congestion 14,149, 20.8
+Route-0 at global route: total congestion 42,570, 21.9
 percent of the routing resources used. The floorplan is the planner's at
 parent density 0.2 and layer adjustment 0.1; `plan/plan.json` is its input.
 
 ## The next two
 
-1. **MemBlock's load-cancel output into dispatch's issue-queue count**,
-   4,518 ps over the period; its split into the block's clock-to-output,
+1. **Frontend's fetched instructions into the decode buffer**,
+   4,715 ps over the period; its split into the block's clock-to-output,
    repeaters, logic and wire is not measured yet. On the area-mapped
    netlist the 11 distinct worst paths were 36 percent repeaters, 33
    logic, 23 wire (`ideas/xiangshan-timing.md`, entry 26).
