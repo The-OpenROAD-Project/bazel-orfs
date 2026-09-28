@@ -1,0 +1,297 @@
+From b8d3170b747d84e163a71632cfd99cdb631ead91 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 28 Sep 2026 12:44:45 +0200
+Subject: [PATCH] floorplan: ADDITIONAL_ODB_FILES, generated macros dissolved
+ into the parent
+
+A generated block enters synthesis and macro placement as a macro, by
+the LEF and liberty in ADDITIONAL_LEFS and ADDITIONAL_LIBS. After the
+macro placer has placed it, dissolve_odb.tcl replaces every instance by
+the block's own placed cells and nets, read from its ODB into a second
+database with odb::read_db (OpenROAD's single-database read_db refuses a
+populated database, ORD-0047; odb's own reader does not). The cells land
+where the macro was, with its orientation, shifted once onto the
+parent's site and row grid with the row parity matched, FIRM and
+dont_touch. Block ports become the parent nets at the macro's pins; the
+block's supply nets and wires are dropped. No boundary is left: tapcells,
+the power grid, the clock tree, repair and the router run across the
+region, and timing is flat. Unset, nothing changes.
+
+Carried by bazel-orfs; not upstreamed. Retires on a //:bump onto an ORFS
+that has a way to dissolve a generated macro, or with the study that
+needs it.
+---
+ flow/scripts/dissolve_odb.tcl | 202 ++++++++++++++++++++++++++++++++++
+ flow/scripts/macro_place.tcl  |   7 ++
+ flow/scripts/variables.json   |   6 +
+ flow/scripts/variables.yaml   |  10 ++
+ 4 files changed, 225 insertions(+)
+ create mode 100644 flow/scripts/dissolve_odb.tcl
+
+diff --git a/flow/scripts/dissolve_odb.tcl b/flow/scripts/dissolve_odb.tcl
+new file mode 100644
+index 000000000..ee5d05c3c
+--- /dev/null
++++ b/flow/scripts/dissolve_odb.tcl
+@@ -0,0 +1,202 @@
++# ADDITIONAL_ODB_FILES: generated macros dissolved into the parent.
++#
++# A generated block enters synthesis and macro placement as a macro, by
++# its LEF and liberty. Once the macro placer has placed it, each instance
++# is replaced by the block's own placed cells and nets, read from its ODB
++# into a second database: the cells land where the macro was, with its
++# orientation, snapped to the parent's site and row grid with the row
++# parity matched, FIRM, and dont_touch but for the flops and the cells on
++# a port's net. No boundary is left: tapcells,
++# the power grid, the clock tree, repair and the router run across the
++# region, and timing is flat. Block ports become the parent nets at the
++# macro's pins; the block's own supply nets and wires are dropped, the
++# parent's grid and router provide them.
++#
++# Rows are cut around the macros that stay once the generated macros are
++# gone and before their cells are placed: odb's cut_rows leaves a row that
++# holds a fixed cell uncut (ODB-0386), and a row runs the whole core, so a
++# later cut would leave rows under the other macros.
++#
++# Each ODB names its master by its top block's name. Flat netlists only.
++
++proc dissolve_orient {cell macro} {
++  # The orientation of a cell in a block placed with `macro`, for the
++  # orientations standard cells take in rows.
++  set flip_x [expr {$macro in {MX R180}}]
++  set flip_y [expr {$macro in {MY R180}}]
++  set cx [expr {$cell in {MX R180}}]
++  set cy [expr {$cell in {MY R180}}]
++  set x [expr {$cx ^ $flip_x}]
++  set y [expr {$cy ^ $flip_y}]
++  return [lindex {R0 MY MX R180} [expr {$x * 2 + $y}]]
++}
++
++proc dissolve_row_sense {orient} {
++  return [expr {$orient in {MX R180} ? "flipped" : "upright"}]
++}
++
++proc dissolve_prepare {block src_block inst} {
++  set db [ord::get_db]
++  set orient [$inst getOrient]
++  if {$orient ni {R0 MX MY R180}} {
++    utl::error FLW 700 "dissolve: [$inst getName] has orientation $orient"
++  }
++  set bbox [$inst getBBox]
++  set llx [$bbox xMin]
++  set lly [$bbox yMin]
++  set die [$src_block getDieArea]
++  set w [$die dx]
++  set h [$die dy]
++  set prefix [$inst getName]
++
++  # Where each source cell lands, before snapping.
++  set cells {}
++  foreach s [$src_block getInsts] {
++    set m [$db findMaster [[$s getMaster] getName]]
++    if {$m == "NULL"} {
++      utl::error FLW 701 "dissolve: master [[$s getMaster] getName] of\
++        [$s getName] is not in the parent's libraries"
++    }
++    set loc [$s getLocation]
++    set x [lindex $loc 0]
++    set y [lindex $loc 1]
++    set cw [$m getWidth]
++    set ch [$m getHeight]
++    if {$orient in {MY R180}} { set x [expr {$w - $x - $cw}] }
++    if {$orient in {MX R180}} { set y [expr {$h - $y - $ch}] }
++    lappend cells [list $s $m [expr {$llx + $x}] [expr {$lly + $y}] \
++      [dissolve_orient [$s getOrient] $orient]]
++  }
++
++  # Nets: a block port is the parent net on the macro's pin of that name.
++  set nets [dict create]
++  set port_nets [dict create]
++  set internal {}
++  foreach bt [$src_block getBTerms] {
++    set it [$inst findITerm [$bt getName]]
++    if {$it == "NULL"} {
++      utl::error FLW 703 "dissolve: [$inst getName] has no pin [$bt getName]"
++    }
++    set pn [$it getNet]
++    if {$pn == "NULL"} {
++      set pn [odb::dbNet_create $block "${prefix}.[$bt getName]"]
++    }
++    dict set nets [[$bt getNet] getName] $pn
++    dict set port_nets [[$bt getNet] getName] 1
++  }
++  foreach sn [$src_block getNets] {
++    set name [$sn getName]
++    if {[dict exists $nets $name]} { continue }
++    if {[$sn getSigType] in {POWER GROUND}} { continue }
++    set pn [odb::dbNet_create $block "${prefix}.$name"]
++    lappend internal $pn
++    dict set nets $name $pn
++  }
++
++  return [list $prefix $cells $nets $port_nets $internal]
++}
++
++# The cells of one prepared instance, onto the rows; after the macro is
++# gone and the rows are cut around the macros that stay.
++proc dissolve_build {block prepared} {
++  lassign $prepared prefix cells nets port_nets internal
++  set first [lindex $cells 0]
++  # One shift for the whole block: onto the rows, row parity matched.
++  set rows [$block getRows]
++  set fy [lindex $first 3]
++  set best ""
++  foreach r $rows {
++    set ry [lindex [$r getOrigin] 1]
++    # A row takes the cells of its own vertical sense: an R0 row R0 and MY
++    # cells, an MX row MX and R180.
++    if {[dissolve_row_sense [$r getOrient]] ne [dissolve_row_sense [lindex $first 4]]} { continue }
++    set d [expr {abs($ry - $fy)}]
++    if {$best eq "" || $d < [lindex $best 0]} {
++      set best [list $d $r [expr {$ry - $fy}]]
++    }
++  }
++  if {$best eq ""} {
++    utl::error FLW 702 "dissolve: no row takes a cell of orientation [lindex $first 4] for $prefix"
++  }
++  set row [lindex $best 1]
++  set dy [lindex $best 2]
++  set site_w [[$row getSite] getWidth]
++  set rx [lindex [$row getOrigin] 0]
++  set fx [lindex $first 2]
++  set dx [expr {$rx + round(double($fx - $rx) / $site_w) * $site_w - $fx}]
++
++  foreach c $cells {
++    lassign $c s m x y o
++    set ni [odb::dbInst_create $block $m "${prefix}.[$s getName]"]
++    set boundary 0
++    foreach sit [$s getITerms] {
++      set sn [$sit getNet]
++      if {$sn == "NULL" || ![dict exists $nets [$sn getName]]} { continue }
++      [$ni findITerm [[$sit getMTerm] getName]] connect [dict get $nets [$sn getName]]
++      if {[dict exists $port_nets [$sn getName]]} { set boundary 1 }
++    }
++    $ni setOrient $o
++    $ni setLocation [expr {$x + $dx}] [expr {$y + $dy}]
++    $ni setPlacementStatus FIRM
++    # dont_touch keeps the resizer off the generator's cells, with the two
++    # exceptions STRUCTURED_MEMORIES' netlists make (structured_netlists.tcl):
++    # the flops, whose clock pins CTS rewires (CTS-0137), and the boundary
++    # cells, whose port nets the parent's repair buffers and upsizes.
++    if {![$m isSequential] && !$boundary} {
++      $ni setDoNotTouch 1
++    }
++  }
++  # Internal nets are final too, once connected: a dont_touch net takes
++  # no new connection (ODB-0373). Port nets stay repairable.
++  foreach pn $internal {
++    $pn setDoNotTouch 1
++  }
++  return [list [llength $cells] $dx $dy]
++}
++
++proc dissolve_additional_odbs {} {
++  set block [ord::get_db_block]
++  set dbu [$block getDbUnitsPerMicron]
++  set sources {}
++  set prepared {}
++  foreach f $::env(ADDITIONAL_ODB_FILES) {
++    set src_db [odb::read_db NULL $f]
++    lappend sources $src_db
++    set src_block [[$src_db getChip] getBlock]
++    set master [$src_block getName]
++    set insts {}
++    foreach i [$block getInsts] {
++      if {[[$i getMaster] getName] eq $master} { lappend insts $i }
++    }
++    if {[llength $insts] == 0} {
++      utl::warn FLW 704 "dissolve: no instance of $master to dissolve ($f)"
++    }
++    foreach i $insts {
++      if {![$i isPlaced]} {
++        utl::error FLW 705 "dissolve: [$i getName] is not placed"
++      }
++      lappend prepared [list $master [dissolve_prepare $block $src_block $i]]
++      odb::dbInst_destroy $i
++    }
++  }
++  # Rows are cut around the macros that stay before any generated cell is
++  # on them: odb's cut_rows leaves a row holding a fixed cell uncut
++  # (ODB-0386), and a row runs the whole core. The platform's own cut when
++  # it names one (asap7: tapcell's endcap and MACRO_ROWS_HALO_X/Y).
++  if {[env_var_exists_and_non_empty TAP_CELL_NAME] && [env_var_exists_and_non_empty MACRO_ROWS_HALO_X]} {
++    cut_rows -endcap_master $::env(TAP_CELL_NAME) \
++      -halo_width_x $::env(MACRO_ROWS_HALO_X) -halo_width_y $::env(MACRO_ROWS_HALO_Y)
++  } else {
++    cut_rows
++  }
++  foreach p $prepared {
++    lassign $p master data
++    lassign [dissolve_build $block $data] n dx dy
++    utl::info FLW 706 "dissolve: [lindex $data 0], $n cells of $master, shifted\
++      [format %.3f [expr {$dx / double($dbu)}]]\
++      [format %.3f [expr {$dy / double($dbu)}]] um onto the rows"
++  }
++  foreach src_db $sources {
++    odb::dbDatabase_destroy $src_db
++  }
++}
+diff --git a/flow/scripts/macro_place.tcl b/flow/scripts/macro_place.tcl
+index 0789129e4..a6f374345 100644
+--- a/flow/scripts/macro_place.tcl
++++ b/flow/scripts/macro_place.tcl
+@@ -5,6 +5,13 @@ source_step_tcl PRE MACRO_PLACE
+ 
+ source $::env(SCRIPTS_DIR)/macro_place_util.tcl
+ 
++# Generated macros dissolved into the parent where the placer put them,
++# before tapcells and the power grid (dissolve_odb.tcl).
++if { [env_var_exists_and_non_empty ADDITIONAL_ODB_FILES] } {
++  source $::env(SCRIPTS_DIR)/dissolve_odb.tcl
++  dissolve_additional_odbs
++}
++
+ source_step_tcl POST MACRO_PLACE
+ 
+ report_design_area
+diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
+index 781798da6..f7bff9e2f 100644
+--- a/flow/scripts/variables.json
++++ b/flow/scripts/variables.json
+@@ -54,6 +54,12 @@
+       "All stages"
+     ]
+   },
++  "ADDITIONAL_ODB_FILES": {
++    "description": "Generated macros as placed ODB files, each named by its top block. They enter synthesis and macro placement as macros, by the LEF and liberty in ADDITIONAL_LEFS and ADDITIONAL_LIBS; after macro placement every placed instance of one is dissolved into the parent, its cells FIRM and dont_touch where the macro was, so tapcells, the power grid, the clock tree and the router run across it and timing is flat.\n",
++    "stages": [
++      "floorplan"
++    ]
++  },
+   "ADDITIONAL_LIBS": {
+     "description": "Hardened macro library files listed here. The library information is immutable and used throughout all stages. Not stored in the .odb file.\n",
+     "stages": [
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+index 4156cff8b..035e70f11 100644
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -1180,6 +1180,16 @@ ADDITIONAL_LEFS:
+     macros is immutable and used throughout all stages. Stored in the .odb file.
+   stages:
+     - All stages
++ADDITIONAL_ODB_FILES:
++  description: >
++    Generated macros as placed ODB files, each named by its top block.
++    They enter synthesis and macro placement as macros, by the LEF and
++    liberty in ADDITIONAL_LEFS and ADDITIONAL_LIBS; after macro placement
++    every placed instance of one is dissolved into the parent, its cells
++    FIRM and dont_touch where the macro was, so tapcells, the power grid,
++    the clock tree and the router run across it and timing is flat.
++  stages:
++    - floorplan
+ ADDITIONAL_LIBS:
+   description: >
+     Hardened macro library files listed here. The library information is
+-- 
+2.53.0
+

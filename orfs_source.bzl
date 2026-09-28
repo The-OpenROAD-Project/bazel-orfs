@@ -192,6 +192,13 @@ ORFS_PATCHES = [
     # now pass the flow's choice. Upstream as ORFS #4563 (a draft until
     # OpenROAD #11525 is in ORFS); retires at the bump that brings it in.
     Label("//patches:0087-orfs-grt-incremental-allow-congestion.patch"),
+    # ADDITIONAL_ODB_FILES: a generated macro, placed by the macro placer
+    # by its LEF, dissolved into the parent's rows as its own placed cells
+    # (FIRM, dont_touch) before tapcells and the power grid, read from its
+    # ODB into a second database. Unset, nothing changes. Not upstreamed;
+    # for the study of XiangShan Frontend's worst path
+    # (ideas/xiangshan-mbtb-wns-path.md).
+    Label("//patches:0088-orfs-additional-odb-files-dissolve.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
