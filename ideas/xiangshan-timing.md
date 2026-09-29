@@ -848,6 +848,58 @@ clock with and without placement parasitics, and the best-effort delay
 mapping of each worst cone: the measurements that would say whether any
 path's logic alone exceeds 41 FO4 (#1103).
 
+## 34. Which cut on kunminghu-v3: five blocks stay
+
+After the re-plan onto aa6b520 (#1118), a selection by the macro
+selection skill's own rule, every macro's period its own KPI. Space
+table on the flat RTL, interface bits:
+
+| module | bits | note |
+|---|---|---|
+| Backend | 7,086 | its four children sum to 42,868: CtrlBlock 13,349, Region 12,315, VecRegionModule 9,908, FltRegionModule 7,296 |
+| MemBlock | 10,493 | no narrower cut inside: LsqWrapper 7,257, DCacheWrapper 5,495, three NewLoadUnit 4,743 each |
+| Frontend, CoupledL2 | 3,291, 2,810 | 0.86 and 0.82 pins per um of perimeter |
+| VecRegionModule, FltRegionModule, MemBlock | | 3.07, 2.74, 2.63 pins per um: past the skill's 2 |
+
+Candidates, each one XSTile build to global route and every macro
+measured (parent at grt, blocks alone at place, 473 ps SDC):
+
+| candidate | parent | Frontend | MemBlock | CoupledL2 | Vec | Flt | Backend | grt |
+|---|---|---|---|---|---|---|---|---|
+| today (five blocks) | 5,188 | 5,681 | 3,741 | 3,464 | 2,301 | 1,826 | | 108 GiB, 37 min, congestion 42,570 |
+| today, pins from the regenerated partner dump | 5,661 | 5,681 | 3,730 | 2,848 | 2,664 | 2,372 | | 107 GiB, 35 min, congestion 49,348, wire -7 % |
+| Backend hardened whole | 6,866 | 5,756 | 4,728 | 2,848 | | | 9,038 | 54 GiB, 3 min, congestion 759 |
+| both regions flattened | | | | | | | | killed at 119 GB resident |
+| MemBlock flattened too | | | | | | | | not built |
+
+No candidate qualified (no macro more than 2 percent worse, grt under
+115 GB, parent congestion within 10 percent), so the five blocks stay.
+
+- Backend is the narrow cut the architecture drew, and hardening it is
+  still wrong: its worst path is the rename buffer's enqueue register
+  back to itself, 9,038 ps alone at place, a loop the flat parent closes
+  inside 5,188. The tangled core packaged whole spreads, and its own
+  loops get long wires. What it buys is the tool cost: the parent routes
+  in 3 minutes at half the memory.
+- Flattening the regions does not fit the machine: the parent's global
+  route passes 119 GB.
+- MemBlock flattened would put its generated SRAMs in the parent, where
+  the plan does not place them and rtl_macro_placer refuses to run beside
+  the parent's FIRM netlist-mode register files (MPL-0050). The regions'
+  first build hit the same refusal with their register files, fixed by
+  putting those in netlist mode too; SRAMs have no netlist mode.
+- Pin order moves a block's own period by up to 30 percent either way.
+  With the regenerated partner dump CoupledL2 went from 3,464 to 2,848 ps
+  in both builds that used it, while the regions got worse. Per block,
+  CoupledL2's new pins are a candidate on their own.
+- The block pins' partners are 57 percent the parent's logic, 24 percent
+  another block (each connection counted twice), 16 percent unconnected,
+  3 percent ports: a hub, not abutment. The planner aims every
+  logic-facing pin at one point, the region's centre.
+- A block with a generated memory needs an explicit keep list: without
+  one ORFS keeps modules by size, and yosys stops with "Missing cost
+  information on instanced blackbox FpRegFile".
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
