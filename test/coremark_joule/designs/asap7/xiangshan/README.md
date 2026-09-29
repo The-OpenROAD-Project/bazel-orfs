@@ -15,7 +15,7 @@ number, add a row and re-render.
 
 The KPI is the design's minimum clock period, the red line: the largest
 of the parent's period and each block's, since the design is only as
-fast as its slowest part. Today it is **5,681 ps**, Frontend's. The
+fast as its slowest part. Today it is **5,118 ps**, Frontend's. The
 parent is one of those parts, like any block, and each of them is drawn
 dashed beneath the red line, a period that has to be at or below it.
 
@@ -27,18 +27,18 @@ for the group by name and not for the worst slack: on VecRegionModule the
 overall worst slack is -2,006 ps and belongs to another group, while
 `reg2reg` is -1,564 ps, and only the second one is a period.
 
-The parent, XSTile with its clock tree, is **5,188 ps** at global route
+The parent, XSTile with its clock tree, is **4,325 ps** at global route
 with the route's own parasitics; its `reg2reg` group does not see the
 paths inside a block's abstract. Each block is measured alone at its
 place stage against an ideal clock, through `<block>_place_odb_debug`:
 
 | block | minimum period | worst `reg2reg` path |
 |---|---|---|
-| Frontend | 5,681 ps | a main-BTB bank's counter read into the uBTB's `s1_hitT1Victim` |
-| MemBlock | 3,741 ps | the redirect's `robIdx` into `loadQueueReplay`'s vaddr |
-| CoupledL2 | 3,464 ps | the directory's state into `sinkC`'s buffer `r_0` |
-| VecRegionModule | 2,301 ps | the vector divider's `robIdx` into an issue pipe's valid |
-| FltRegionModule | 1,826 ps | an FP adder's operand into its fraction stage |
+| Frontend | 5,118 ps | the main BTB's enable into a TAGE table's SRAM |
+| MemBlock | 2,725 ps | the redirect's `robIdx` into the DCache meta array's coherence state |
+| CoupledL2 | 2,698 ps | a main-pipe MSHR task into the data storage SRAM |
+| VecRegionModule | 2,375 ps | the vector divider's `robIdx` into an issue pipe's valid |
+| FltRegionModule | 1,831 ps | an FP register read address into an adder's operand; one net is 76 % of it |
 
 XiangShan's `ClockGate` is mapped onto ASAP7's ICG cell (`xs_icg.ys`) in
 every flow, the parent's and every block's.

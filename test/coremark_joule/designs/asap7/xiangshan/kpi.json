@@ -131,6 +131,19 @@
         "VecRegionModule": 2301
       },
       "note": "XiangShan kunminghu-v3 aa6b520, re-planned (Region_1 is now FltRegionModule); a different RTL, not comparable with the rows before"
+    },
+    {
+      "date": "2026-09-29",
+      "measured": "XSTile_grt, built from source",
+      "parent_ps": 4325,
+      "blocks": {
+        "CoupledL2": 2698,
+        "Frontend": 5118,
+        "MemBlock": 2725,
+        "FltRegionModule": 1831,
+        "VecRegionModule": 2375
+      },
+      "note": "REMOVE_ABC_BUFFERS dropped (deprecated in ORFS) and the planned blocks' kept modules stated with OpenROAD hierarchical: one repair_design call no longer leaves about 46,000 slew violators on Frontend; measured in the same build by xs_pathology's probe"
     }
   ]
 }
