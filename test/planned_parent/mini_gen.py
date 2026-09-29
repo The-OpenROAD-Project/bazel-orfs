@@ -42,7 +42,11 @@ FILES = [
     ("FileA", 16, 8, 2, 2, 0),
     ("FileB", 16, 8, 2, 2, None),
     ("FileC", 16, 8, 1, 1, None),
+    ("FileM", 16, 8, 1, 1, None),
 ]
+# the files the flow builds as macros, not placed netlists: the plan does not
+# name them, so the parent's macro step places them beside the FIRM netlists
+MACRO_FILES = {"FileM"}
 # the SmallFile shape's outline, generously, for the plan's netlist row
 FILE_W_UM, FILE_H_UM = 30.0, 10.5
 
@@ -122,11 +126,13 @@ def file_sv(name, words, bits, nr, nw):
 
 def file_spec(name, words, bits, nr, nw):
     lines = [
-        "# {}: a placed netlist inside the miniature parent (mode netlist).".format(
-            name
-        ),
+        (
+            "# {}: a generated macro inside the miniature parent, not in the plan."
+            if name in MACRO_FILES
+            else "# {}: a placed netlist inside the miniature parent (mode netlist)."
+        ).format(name),
         "module " + name,
-        "mode netlist",
+    ] + ([] if name in MACRO_FILES else ["mode netlist"]) + [
         "words {}".format(words),
         "bits {}".format(bits),
         "clock clock",
@@ -337,7 +343,7 @@ def plan(out_dir):
             },
         ],
         # the planner opens this from where it runs: the repo root
-        "pin_partners": os.path.join(out_dir, "partners.txt"),
+        "pin_partners": "partners.txt",
     }
 
 
