@@ -900,6 +900,53 @@ No candidate qualified (no macro more than 2 percent worse, grt under
   one ORFS keeps modules by size, and yosys stops with "Missing cost
   information on instanced blackbox FpRegFile".
 
+## 35. Pin order on XSTile: shorter wire, more overflow
+
+Three single-variable pin experiments on today's five blocks (#1120's
+baseline, the same tools), each one XSTile build with every macro
+measured (parent at grt, blocks alone at place, 473 ps SDC):
+
+| run | parent | Frontend | MemBlock | CoupledL2 | Vec | Flt | wire | congestion |
+|---|---|---|---|---|---|---|---|---|
+| baseline | 5,188 | 5,681 | 3,741 | 3,464 | 2,301 | 1,826 | 136.2 m | 42,570 |
+| partner dump regenerated on aa6b520 | 5,661 | 5,681 | 3,730 | 2,848 | 2,664 | 2,372 | 126.2 m | 49,348 |
+| CoupledL2's CHI port pins moved along its outer side, nothing else | 5,205 | 5,681 | 3,741 | 2,848 | 2,301 | 1,826 | 123.9 m | 50,056 |
+| logic-facing pins ordered by where their logic is | 5,278 | 5,711 | 3,794 | 3,640 | 2,534 | 1,826 | 113.3 m | 104,731 |
+
+Global route peaked at 106 to 107 GiB in 34 to 35 minutes in every run.
+
+- Every pin order that shortens the parent's wire raises its overflow.
+  Putting each logic-facing pin in front of its logic (the planner's
+  logic segment was in name order) cut the wire by 17 percent and more
+  than doubled the overflow: the wires now meet where the logic is
+  dense, which is where the router has the fewest tracks left. At a
+  fixed floorplan the pin order trades wire for overflow, and the
+  period does not follow the wire.
+- CoupledL2's 1,117 CHI port pins at other positions along its outer
+  side make CoupledL2 alone 17.8 percent faster (3,464 to 2,848 ps, the
+  same in three builds), change no other period, and raise the parent's
+  overflow by 17.6 percent. It failed its gate on the overflow bound
+  alone (at most 10 percent); whether that bound should hold against a
+  per-macro gain with no period regression is an open decision.
+- Pin order moves a block's own period by up to 30 percent either way:
+  the block's placement follows its pins even when measured alone.
+- The macro step's refusal (MPL-0050) beside the plan's netlists is
+  fixed in the planner (#1121). The regions' flattened candidate in
+  entry 34 got past it before that, by putting its register files in
+  netlist mode, and then failed on memory.
+
+Not worth retrying without new data:
+
+- Ordering the logic segment by logic position, as is: +146 percent
+  overflow, no macro better.
+- A regenerated partner dump for today's five blocks: the parent 9 percent
+  and the regions 16 and 30 percent worse.
+- Backend hardened whole (entry 34): its own loops at 9,038 ps.
+- Flattening a region or MemBlock into the parent on a 122 GB machine
+  (entry 34): the parent's global route passes 119 GB.
+- A block with a generated memory and no keep list: yosys cannot cost
+  the blackbox (entry 34).
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
