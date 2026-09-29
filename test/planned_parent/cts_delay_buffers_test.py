@@ -51,7 +51,10 @@ class DelayBuffersTest(unittest.TestCase):
             )
         sys.stdout.flush()
         self.assertEqual(
-            base["macro_sinks"], 4, "the four blocks are the macro clock's sinks"
+            base["macro_sinks"],
+            5,
+            "the four blocks and FileM, the generated macro the plan does not"
+            " name, are the macro clock's sinks",
         )
         self.assertLessEqual(
             base["delay_buffers"],

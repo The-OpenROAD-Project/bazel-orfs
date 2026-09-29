@@ -28,6 +28,7 @@ genrule(
         "FileA.regfile",
         "FileB.regfile",
         "FileC.regfile",
+        "FileM.regfile",
         "plan.json",
         "partners.txt",
     ],
@@ -40,6 +41,7 @@ mini_planned_flow(
         ":FileA.regfile",
         ":FileB.regfile",
         ":FileC.regfile",
+        ":FileM.regfile",
     ],
     rtl = ":rtl",
 )
@@ -171,4 +173,20 @@ py_test(
         "//tools/macro_select:plan_floorplan",
     ] + glob(["plan/*"]),
     main = "plan_drift_test.py",
+)
+
+# A generated macro the plan does not name is placed beside the plan's FIRM
+# netlists: rtl_macro_placer refuses a FIRM cell in its area (MPL-0050).
+py_test(
+    name = "leftover_macros_test",
+    srcs = ["leftover_macros_test.py"],
+    args = [
+        "$(rootpath :leftover_macros.json)",
+        "$(rootpath :plan/netlists.txt)",
+    ],
+    data = [
+        ":leftover_macros.json",
+        ":plan/netlists.txt",
+    ],
+    main = "leftover_macros_test.py",
 )
