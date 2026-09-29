@@ -1,0 +1,457 @@
+// fanout_tree: see fanout_tree.h.
+#include "fanout_tree.h"
+
+#include <algorithm>
+#include <cctype>
+#include <fstream>
+#include <functional>
+#include <sstream>
+#include <stdexcept>
+#include <unordered_set>
+
+#include "odb/db.h"
+
+namespace fanout_tree {
+
+using odb::dbBTerm;
+using odb::dbInst;
+using odb::dbITerm;
+using odb::dbMaster;
+using odb::dbNet;
+
+// ---- liberty pin capacitances --------------------------------------------
+
+namespace {
+
+// Liberty as a stream of tokens: identifiers, punctuation, strings with
+// their quotes dropped; comments skipped.
+class Lexer {
+ public:
+  explicit Lexer(const std::string& text) : s_(text) {}
+  bool Next(std::string& tok) {
+    for (;;) {
+      while (i_ < s_.size() && (std::isspace(static_cast<unsigned char>(s_[i_])) ||
+                                s_[i_] == '\\')) {
+        ++i_;
+      }
+      if (i_ + 1 < s_.size() && s_[i_] == '/' && s_[i_ + 1] == '*') {
+        size_t e = s_.find("*/", i_ + 2);
+        i_ = e == std::string::npos ? s_.size() : e + 2;
+        continue;
+      }
+      break;
+    }
+    if (i_ >= s_.size()) {
+      return false;
+    }
+    char c = s_[i_];
+    if (c == '"') {
+      size_t e = s_.find('"', i_ + 1);
+      if (e == std::string::npos) {
+        e = s_.size();
+      }
+      tok = s_.substr(i_ + 1, e - i_ - 1);
+      i_ = e + 1;
+      return true;
+    }
+    if (std::string("(){}:;,").find(c) != std::string::npos) {
+      tok = std::string(1, c);
+      ++i_;
+      return true;
+    }
+    size_t b = i_;
+    while (i_ < s_.size() && !std::isspace(static_cast<unsigned char>(s_[i_])) &&
+           std::string("(){}:;,\"").find(s_[i_]) == std::string::npos) {
+      ++i_;
+    }
+    tok = s_.substr(b, i_ - b);
+    return true;
+  }
+
+ private:
+  const std::string& s_;
+  size_t i_ = 0;
+};
+
+std::string StripBit(const std::string& pin) {
+  size_t b = pin.find('[');
+  return b == std::string::npos ? pin : pin.substr(0, b);
+}
+
+}  // namespace
+
+int PinCaps::ReadLiberty(const std::string& path) {
+  std::ifstream in(path);
+  if (!in) {
+    throw std::runtime_error("cannot read liberty " + path);
+  }
+  std::stringstream ss;
+  ss << in.rdbuf();
+  const std::string text = ss.str();
+  Lexer lex(text);
+  // A group is `kind ( name ) {`; the stack holds each open group's kind
+  // and name so a `capacitance` is credited to the pin or bus it sits in.
+  struct Group {
+    std::string kind, name;
+  };
+  std::vector<Group> stack;
+  std::vector<std::string> window;  // the last few tokens
+  std::string tok;
+  int cells = 0;
+  std::string cell;
+  while (lex.Next(tok)) {
+    if (tok == "{") {
+      // window: kind ( name ) -- or kind ( ) for anonymous groups
+      Group g;
+      size_t n = window.size();
+      if (n >= 4 && window[n - 1] == ")" && window[n - 3] == "(") {
+        g.kind = window[n - 4];
+        g.name = window[n - 2];
+      } else if (n >= 3 && window[n - 1] == ")" && window[n - 2] == "(") {
+        g.kind = window[n - 3];
+      }
+      if (g.kind == "cell") {
+        cell = g.name;
+        ++cells;
+      }
+      stack.push_back(g);
+      window.clear();
+      continue;
+    }
+    if (tok == "}") {
+      if (!stack.empty()) {
+        if (stack.back().kind == "cell") {
+          cell.clear();
+        }
+        stack.pop_back();
+      }
+      window.clear();
+      continue;
+    }
+    if (tok == ";") {
+      size_t n = window.size();
+      if (n >= 3 && window[n - 3] == "capacitance" && window[n - 2] == ":" &&
+          !stack.empty() && !cell.empty() &&
+          (stack.back().kind == "pin" || stack.back().kind == "bus")) {
+        caps_[cell][stack.back().name] = std::atof(window[n - 1].c_str());
+      }
+      window.clear();
+      continue;
+    }
+    window.push_back(tok);
+    if (window.size() > 8) {
+      window.erase(window.begin());
+    }
+  }
+  return cells;
+}
+
+double PinCaps::Get(const std::string& master, const std::string& pin,
+                    double fallback) const {
+  auto c = caps_.find(master);
+  if (c == caps_.end()) {
+    return fallback;
+  }
+  auto p = c->second.find(pin);
+  if (p == c->second.end()) {
+    p = c->second.find(StripBit(pin));
+  }
+  return p == c->second.end() ? fallback : p->second;
+}
+
+// ---- the rebuilder ---------------------------------------------------------
+
+namespace {
+
+dbITerm* DriverITerm(dbNet* net) {
+  for (dbITerm* it : net->getITerms()) {
+    if (it->getIoType() == odb::dbIoType::OUTPUT) {
+      return it;
+    }
+  }
+  return nullptr;
+}
+
+dbBTerm* DriverBTerm(dbNet* net) {
+  for (dbBTerm* bt : net->getBTerms()) {
+    if (bt->getIoType() == odb::dbIoType::INPUT) {
+      return bt;
+    }
+  }
+  return nullptr;
+}
+
+bool IsClockPin(dbITerm* it) {
+  if (it->getSigType() == odb::dbSigType::CLOCK) {
+    return true;
+  }
+  std::string n = it->getMTerm()->getName();
+  std::transform(n.begin(), n.end(), n.begin(), ::tolower);
+  return n == "clk" || n.find("clk") != std::string::npos ||
+         n.find("clock") != std::string::npos;
+}
+
+std::string FullName(dbITerm* it) {
+  return it->getInst()->getName() + "/" + it->getMTerm()->getName();
+}
+
+}  // namespace
+
+Rebuilder::Rebuilder(odb::dbBlock* block, std::vector<Buffer> buffers,
+                     const PinCaps& caps, Options opt)
+    : block_(block), buffers_(std::move(buffers)), caps_(caps), opt_(opt) {
+  if (buffers_.empty()) {
+    throw std::runtime_error("fanout_tree: no buffer cells given");
+  }
+  std::sort(buffers_.begin(), buffers_.end(),
+            [](const Buffer& a, const Buffer& b) { return a.drive < b.drive; });
+}
+
+bool Rebuilder::IsBuffer(dbMaster* m) const {
+  for (const auto& b : buffers_) {
+    if (b.master == m) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const Buffer& Rebuilder::Pick(double load_ff) const {
+  const double need = load_ff / opt_.ff_per_drive;
+  for (const auto& b : buffers_) {
+    if (b.drive >= need) {
+      return b;
+    }
+  }
+  return buffers_.back();
+}
+
+double Rebuilder::SinkCap(dbITerm* it) const {
+  return caps_.Get(it->getInst()->getMaster()->getName(),
+                   it->getMTerm()->getName(), opt_.default_pin_ff);
+}
+
+void Rebuilder::RebuildNet(dbNet* root) {
+  if (root->isDoNotTouch() || root->getSigType() != odb::dbSigType::SIGNAL) {
+    return;
+  }
+  dbITerm* drv = DriverITerm(root);
+  dbBTerm* drv_bt = drv ? nullptr : DriverBTerm(root);
+  if (drv == nullptr && drv_bt == nullptr) {
+    return;
+  }
+  // The tree behind the net: sinks, the buffers to remove, the inner
+  // nets they drive, the depth reached.
+  std::vector<dbITerm*> sinks;
+  std::vector<dbInst*> bufs;
+  std::vector<dbNet*> inner;
+  int depth_max = 0;
+  bool refuse = false;
+  std::function<void(dbNet*, int)> walk = [&](dbNet* net, int depth) {
+    depth_max = std::max(depth_max, depth);
+    for (dbBTerm* bt : net->getBTerms()) {
+      if (net != root && bt->getIoType() != odb::dbIoType::INPUT) {
+        refuse = true;  // a port on an inner net: leave the tree alone
+      }
+    }
+    for (dbITerm* it : net->getITerms()) {
+      if (it->getIoType() == odb::dbIoType::OUTPUT) {
+        continue;
+      }
+      if (it->getIoType() != odb::dbIoType::INPUT) {
+        refuse = true;
+        continue;
+      }
+      if (IsClockPin(it)) {
+        refuse = true;
+        continue;
+      }
+      dbInst* inst = it->getInst();
+      if (IsBuffer(inst->getMaster()) && !inst->isDoNotTouch() &&
+          !inst->getPlacementStatus().isFixed()) {
+        dbITerm* out = nullptr;
+        for (dbITerm* o : inst->getITerms()) {
+          if (o->getIoType() == odb::dbIoType::OUTPUT) {
+            out = o;
+          }
+        }
+        dbNet* on = out ? out->getNet() : nullptr;
+        if (on == nullptr || on->isDoNotTouch()) {
+          refuse = true;
+          continue;
+        }
+        bufs.push_back(inst);
+        inner.push_back(on);
+        walk(on, depth + 1);
+      } else {
+        sinks.push_back(it);
+      }
+    }
+  };
+  walk(root, 0);
+  if (refuse) {
+    return;
+  }
+  if (static_cast<int>(sinks.size()) < opt_.min_sinks) {
+    return;
+  }
+  if (bufs.empty() && static_cast<int>(sinks.size()) <= opt_.max_fanout) {
+    return;
+  }
+  double total = 0;
+  for (dbITerm* s : sinks) {
+    total += SinkCap(s);
+  }
+  if (bufs.empty() && total <= opt_.max_load_ff) {
+    return;
+  }
+
+  // Witnesses first, while the old tree still stands.
+  const std::string dname = drv ? drv->getInst()->getName() : drv_bt->getName();
+  const std::string dpin = drv ? drv->getMTerm()->getName() : "";
+  for (dbITerm* s : sinks) {
+    witnesses_.push_back(Witness{s, dname, dpin});
+  }
+
+  // Take the old tree down.
+  for (dbITerm* s : sinks) {
+    s->disconnect();
+  }
+  for (dbInst* b : bufs) {
+    dbInst::destroy(b);
+  }
+  for (dbNet* n : inner) {
+    dbNet::destroy(n);
+  }
+  stats_.buffers_removed += static_cast<int>(bufs.size());
+  stats_.max_depth_before = std::max(stats_.max_depth_before, depth_max);
+
+  // Build the new one: leaves in instance-name order, grouped by count
+  // and load, each group behind a buffer sized to it, until the root's
+  // own group fits.
+  std::sort(sinks.begin(), sinks.end(), [](dbITerm* a, dbITerm* b) {
+    return a->getInst()->getName() < b->getInst()->getName();
+  });
+  struct Item {
+    dbITerm* it;
+    double cap;
+  };
+  std::vector<Item> level;
+  for (dbITerm* s : sinks) {
+    level.push_back(Item{s, SinkCap(s)});
+  }
+  int depth = 0;
+  auto fits = [&](const std::vector<Item>& v) {
+    double l = 0;
+    for (const auto& i : v) {
+      l += i.cap;
+    }
+    return static_cast<int>(v.size()) <= opt_.max_fanout && l <= opt_.max_load_ff;
+  };
+  while (!fits(level)) {
+    std::vector<Item> next;
+    std::vector<Item> group;
+    double load = 0;
+    auto flush = [&]() {
+      if (group.empty()) {
+        return;
+      }
+      const Buffer& b = Pick(load);
+      const std::string id = std::to_string(serial_++);
+      dbNet* n = dbNet::create(block_, ("fot_n" + id).c_str());
+      dbInst* inst = dbInst::create(block_, b.master, ("fot_b" + id).c_str());
+      if (n == nullptr || inst == nullptr) {
+        throw std::runtime_error("fanout_tree: name clash on fot_" + id);
+      }
+      inst->findITerm(b.out.c_str())->connect(n);
+      for (const auto& g : group) {
+        g.it->connect(n);
+      }
+      dbITerm* in = inst->findITerm(b.in.c_str());
+      next.push_back(Item{in, caps_.Get(b.master->getName(), b.in, 1.0)});
+      ++stats_.buffers_added;
+      group.clear();
+      load = 0;
+    };
+    for (const auto& i : level) {
+      if (!group.empty() && (static_cast<int>(group.size()) >= opt_.max_fanout ||
+                             load + i.cap > opt_.max_load_ff)) {
+        flush();
+      }
+      group.push_back(i);
+      load += i.cap;
+    }
+    flush();
+    ++depth;
+    if (next.size() >= level.size()) {
+      // Every group is a single pin over the load limit; buffering again
+      // gains nothing. Drive what is left from the root.
+      level = next;
+      break;
+    }
+    level = next;
+  }
+  for (const auto& i : level) {
+    i.it->connect(root);
+  }
+  stats_.max_depth_after = std::max(stats_.max_depth_after, depth);
+  stats_.sinks += static_cast<long>(sinks.size());
+  ++stats_.nets_rebuilt;
+}
+
+Stats Rebuilder::Run() {
+  // Roots are nets not driven by a removable buffer; collected before any
+  // change, and only inner (buffer-driven) nets are ever destroyed.
+  std::vector<dbNet*> roots;
+  for (dbNet* n : block_->getNets()) {
+    dbITerm* d = DriverITerm(n);
+    if (d != nullptr && IsBuffer(d->getInst()->getMaster()) &&
+        !d->getInst()->isDoNotTouch() &&
+        !d->getInst()->getPlacementStatus().isFixed()) {
+      continue;
+    }
+    roots.push_back(n);
+  }
+  for (dbNet* n : roots) {
+    RebuildNet(n);
+  }
+  return stats_;
+}
+
+std::vector<std::string> Rebuilder::Check() const {
+  std::vector<std::string> problems;
+  for (const auto& w : witnesses_) {
+    dbNet* net = w.sink->getNet();
+    bool ok = false;
+    for (int step = 0; step < 64 && net != nullptr; ++step) {
+      dbITerm* d = DriverITerm(net);
+      if (d == nullptr) {
+        dbBTerm* bt = DriverBTerm(net);
+        ok = bt != nullptr && w.driver_pin.empty() && bt->getName() == w.driver_inst;
+        break;
+      }
+      dbInst* inst = d->getInst();
+      if (IsBuffer(inst->getMaster()) &&
+          inst->getName().rfind("fot_b", 0) == 0) {
+        dbITerm* in = nullptr;
+        for (dbITerm* it : inst->getITerms()) {
+          if (it->getIoType() == odb::dbIoType::INPUT) {
+            in = it;
+          }
+        }
+        net = in ? in->getNet() : nullptr;
+        continue;
+      }
+      ok = inst->getName() == w.driver_inst &&
+           d->getMTerm()->getName() == w.driver_pin;
+      break;
+    }
+    if (!ok) {
+      problems.push_back(FullName(w.sink) + " no longer reaches " + w.driver_inst +
+                         (w.driver_pin.empty() ? "" : "/" + w.driver_pin));
+    }
+  }
+  return problems;
+}
+
+}  // namespace fanout_tree
