@@ -320,6 +320,8 @@ by about 450 ps); the same harness with `XS_PARASITICS=placement`.
 | P1 | ABC's speed script without `buffer -c` (`Frontend_abc_nobuf_place`) | 4,616 | 87,795 | 90,514 | 66,922 |
 | P1f | P1's netlist through a deployed floorplan and place tree, flat (`OPENROAD_HIERARCHICAL=0`), OpenROAD with patch 0005 | 4,616 | 87,795 | 90,514 | 66,922 |
 | **P2** | P1f with `fanout_tree`'s netlist (S11) swapped in before floorplan | **3,139** | **55,364** | **60,208** | 77,170 |
+| P1t | P1f with timing- and routability-driven global placement (`GPL_TIMING_DRIVEN=1 GPL_ROUTABILITY_DRIVEN=1`, ORFS's defaults), 54 min | 2,865 | 55,301 | 59,408 | 364,355 |
+| P2t | P2 with the same placement, 57 min | 2,143 | 57,368 | 65,179 | 356,182 |
 
 P0 reproduces the README's 5,118 ps. Its worst path is a CSR enable
 (`csrCtrl_delay.io_out_mbtbEnable`) broadcast to TAGE's SRAMs through
@@ -340,8 +342,24 @@ ps, 31 logic cells 1,763 ps; the largest stage is a NAND2x1, not a
 buffer. The place stage's own `repair_design` builds worse trees than
 the ones handed to it (P1 against P2).
 
+**Chesterton's fence.** The XiangShan flows set `GPL_TIMING_DRIVEN=0`
+and `GPL_ROUTABILITY_DRIVEN=0` for turnaround; ORFS defaults both to 1,
+and timing-driven placement runs `repair_design` virtually while it
+places, which builds trees as the cells move. Turned back on, the same
+netlist goes from 4,616 to 2,865 ps (P1f to P1t): most of P2's gain over
+P1 was the setting our flow switched off. `fanout_tree` still takes the
+period a further 25 percent (P2t, 2,143 ps) but not the endpoint count
+(57,368 against 55,301), and timing-driven placement doubles the place
+stage (54 to 57 against 28 minutes). Not a dominating result; what it is
+depends on P0t (today's netlist, timing-driven) and P3t (OpenROAD's own
+`repair_design -pre_placement` trees, timing-driven), which follow.
+
 With patch 0005, `repair_design -pre_placement` on P1's netlist
 completes (3,344 s): 1,548 ps, 643 endpoints over 1,000 ps and 1,648 over
 950 at synthesis, against `fanout_tree`'s 566 and 925 in 30 s. OpenROAD's
 own gain buffering, run before placement, is close to `fanout_tree` in
-quality and 110 times slower.
+quality and 110 times slower. A `perf` profile of that run (49 Hz, all
+threads) puts about 80 percent of the samples in OpenSTA's worker
+threads propagating timing, arrivals about 45 percent and delay
+calculation about 24, driven from the resizer's loop: the cost of being
+timing-driven at every step, not of the buffering itself.
