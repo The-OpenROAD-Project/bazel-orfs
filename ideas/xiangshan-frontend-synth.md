@@ -231,9 +231,19 @@ Everything above is measured in sessions on the flow's synthesis ODB
   signal 11 twice in odb-debug sessions on Frontend's synthesis ODB,
   hierarchical and flat reads. Standalone (`load.tcl`, flat, then
   `remove_buffers` and `repair_design -pre_placement`) a build of the
-  same OpenROAD with assertions on stops after 35 minutes in
-  `repair_design` with `dbNetwork.cc:3750`, `sta::dbNetwork::staToDb(const
-  Net*)`: `!db_net || db_net->getObjectType() == dbNetObj`, a network net
-  that is not a `dbNet`. The flow's binary has no assertions and takes
-  the signal instead. A symbolised backtrace and a small reproducer are
-  next.
+  same OpenROAD with assertions on stops after 35 to 50 minutes, with or
+  without the timing graph built first, at `dbNetwork.cc:3750`:
+
+  ```
+  sta::dbNetwork::staToDb(const Net*): !db_net || db_net->getObjectType() == odb::dbNetObj
+  rsz::Resizer::insertBufferBeforeLoads(sta::Net*, sta::PinSet*, ...)
+  rsz::RepairDesign::performGainBuffering(sta::Net*, const sta::Pin*, int)
+  rsz::RepairDesign::performEarlySizingRound(int&)
+  rsz::RepairDesign::repairDesign(...)
+  ```
+
+  The early gain-buffering round hands the buffer insertion a network
+  net that is not a `dbNet`; the ODB carries the synthesis hierarchy
+  (module nets) even when read flat, the first suspect. The flow's
+  binary has no assertions and takes the signal. Not yet reduced to a
+  small reproducer, not reported upstream.
