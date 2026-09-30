@@ -254,8 +254,8 @@ Everything above is measured in sessions on the flow's synthesis ODB
   without `buffer -c` and the trees built afterwards took it under
   1,000 ps.
 - **`repair_design`'s early sizing round and a top-level port**: found,
-  fixed and carried as OpenROAD patch 0005; see "The resizer's crash"
-  below.
+  fixed and carried as OpenROAD patch 0005, upstream as OpenROAD #11590;
+  see "The resizer's crash" below.
 
 ## The resizer's crash
 
@@ -288,7 +288,8 @@ fails without OpenROAD patch 0005 and passes with it. The patch takes
 net the same way (`Rebuffer.cc:2129`, `Resizer.cc:1271`, `1408`, `5260`,
 `6396`); none is shown to fail, and they are candidates to check.
 
-For an upstream issue, when the human decides (not filed):
+Filed upstream as OpenROAD #11590, with a pass/fail regression test
+(`gain_buffering_top_port_hier`). The text drafted for it before:
 
 > **rsz: repair_design early sizing buffers a top-level port's dbModNet
 > (assert in dbNetwork::staToDb)**
@@ -322,6 +323,7 @@ by about 450 ps); the same harness with `XS_PARASITICS=placement`.
 | **P2** | P1f with `fanout_tree`'s netlist (S11) swapped in before floorplan | **3,139** | **55,364** | **60,208** | 77,170 |
 | P1t | P1f with timing- and routability-driven global placement (`GPL_TIMING_DRIVEN=1 GPL_ROUTABILITY_DRIVEN=1`, ORFS's defaults), 54 min | 2,865 | 55,301 | 59,408 | 364,355 |
 | P2t | P2 with the same placement, 57 min | 2,143 | 57,368 | 65,179 | 356,182 |
+| P3t | P1's netlist through OpenROAD's own `repair_design -pre_placement` (patch 0005, 3,334 s) before floorplan, then the same placement, 67 min | 2,395 | **52,050** | 54,624 | 316,585 |
 
 P0 reproduces the README's 5,118 ps. Its worst path is a CSR enable
 (`csrCtrl_delay.io_out_mbtbEnable`) broadcast to TAGE's SRAMs through
@@ -350,9 +352,16 @@ netlist goes from 4,616 to 2,865 ps (P1f to P1t): most of P2's gain over
 P1 was the setting our flow switched off. `fanout_tree` still takes the
 period a further 25 percent (P2t, 2,143 ps) but not the endpoint count
 (57,368 against 55,301), and timing-driven placement doubles the place
-stage (54 to 57 against 28 minutes). Not a dominating result; what it is
-depends on P0t (today's netlist, timing-driven) and P3t (OpenROAD's own
-`repair_design -pre_placement` trees, timing-driven), which follow.
+stage (54 to 57 against 28 minutes). Not a dominating result.
+
+OpenROAD's own pre-placement trees do the same job (P3t): with patch
+0005 `repair_design -pre_placement` before floorplan gives the fewest
+endpoints over 1,000 ps of any arm (52,050) and a period between the
+two (2,395 ps); `fanout_tree` is better on the worst path, the resizer on
+the bulk, and the resizer's pass costs 56 minutes against 30 seconds.
+The OpenROAD-idiomatic change is running the resizer before placement,
+not a new tool. What remains open is P0t, today's netlist with ABC's
+chains under timing-driven placement.
 
 With patch 0005, `repair_design -pre_placement` on P1's netlist
 completes (3,344 s): 1,548 ps, 643 endpoints over 1,000 ps and 1,648 over

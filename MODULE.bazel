@@ -109,8 +109,8 @@ archive_override(
         # buffering asserted on it (signal 11 in release builds): a port
         # with more than max_fanout loads and a kept module, which a
         # synthesis without ABC's buffers makes on XiangShan's Frontend.
-        # test/rsz_remove_buffers reproduces it. Not upstreamed; retires at
-        # a bump onto an OpenROAD that takes the port's flat net.
+        # test/rsz_remove_buffers reproduces it. Upstream as OpenROAD
+        # #11590; retires at a bump onto an OpenROAD that carries it.
         "//patches:0005-openroad-rsz-early-sizing-flat-port-net.patch",
     ],
     strip_prefix = "OpenROAD-6e51da991dcbe0918b4ec2aa96c11cbd1c3544d5",
