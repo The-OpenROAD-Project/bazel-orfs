@@ -71,6 +71,12 @@ struct Options {
   // With a placer: wire capacitance per micron of a group's
   // half-perimeter, counted in its load.
   double wire_ff_per_um = 0.2;
+  // Instead of a root load limit, swap a root driver whose load exceeds
+  // drive * ff_per_drive for the smallest cell of its family that meets
+  // it (AND2x2 -> AND2x4), the family being the name with its drive
+  // taken out. Names containing any of `dont_use` are never chosen.
+  bool upsize_roots = false;
+  std::vector<std::string> dont_use;
 };
 
 // The x in a cell name: BUFx12f_ASAP7_75t_R 12, INVxp33_ASAP7_75t_R 0.33,
@@ -84,7 +90,12 @@ struct Stats {
   int max_depth_before = 0;
   int max_depth_after = 0;
   long sinks = 0;
+  int roots_upsized = 0;
 };
+
+// A cell name with its drive taken out, the key of its family:
+// AND2x4_ASAP7_75t_R -> AND2x#_ASAP7_75t_R. Empty when it has none.
+std::string FamilyOf(const std::string& master_name);
 
 // A sink and the driver it must still reach: the original root driver
 // as an (instance, pin) name pair, or a top port name with an empty pin.
@@ -101,6 +112,10 @@ class Rebuilder {
   // Rebuilds every signal net that roots a buffer tree or has more than
   // max_fanout sinks. Clock nets and do-not-touch nets are skipped.
   Stats Run();
+  // Swaps every driver in the block whose pin load exceeds its drive
+  // times ff_per_drive for the smallest family member that meets it
+  // (needs upsize_roots for the families). Returns how many.
+  int UpsizeAll();
   // Rebuilds the tree rooted at one net only.
   void RebuildNet(odb::dbNet* root);
   // Every witness recorded by Run/RebuildNet: its sink still reaches the
@@ -117,6 +132,7 @@ class Rebuilder {
   bool IsBuffer(odb::dbMaster* m) const;
   const Buffer& Pick(double load_ff) const;
   double SinkCap(odb::dbITerm* it) const;
+  void UpsizeRoot(odb::dbITerm* drv, double load_ff);
 
   odb::dbBlock* block_;
   std::vector<Buffer> buffers_;  // ascending drive
@@ -126,6 +142,8 @@ class Rebuilder {
   std::vector<Witness> witnesses_;
   long serial_ = 0;
   std::function<void(odb::dbInst*, int, int)> place_;
+  // family -> (drive, master), ascending
+  std::map<std::string, std::vector<std::pair<double, odb::dbMaster*>>> families_;
 };
 
 }  // namespace fanout_tree

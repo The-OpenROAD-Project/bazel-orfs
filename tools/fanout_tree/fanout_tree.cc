@@ -214,6 +214,21 @@ double DriveOf(const std::string& name) {
   return std::max(std::atof(name.c_str() + x + 1), 0.1);
 }
 
+std::string FamilyOf(const std::string& name) {
+  for (size_t x = name.find('x'); x != std::string::npos; x = name.find('x', x + 1)) {
+    if (x + 1 < name.size() &&
+        (std::isdigit(static_cast<unsigned char>(name[x + 1])) || name[x + 1] == 'p')) {
+      size_t e = x + 1;
+      while (e < name.size() && (std::isdigit(static_cast<unsigned char>(name[e])) ||
+                                 name[e] == 'p' || name[e] == 'f')) {
+        ++e;
+      }
+      return name.substr(0, x) + "x#" + name.substr(e);
+    }
+  }
+  return "";
+}
+
 Rebuilder::Rebuilder(odb::dbBlock* block, std::vector<Buffer> buffers,
                      const PinCaps& caps, Options opt)
     : block_(block), buffers_(std::move(buffers)), caps_(caps), opt_(opt) {
@@ -222,6 +237,64 @@ Rebuilder::Rebuilder(odb::dbBlock* block, std::vector<Buffer> buffers,
   }
   std::sort(buffers_.begin(), buffers_.end(),
             [](const Buffer& a, const Buffer& b) { return a.drive < b.drive; });
+  if (opt_.upsize_roots) {
+    for (odb::dbLib* lib : block_->getDb()->getLibs()) {
+      for (dbMaster* m : lib->getMasters()) {
+        const std::string n = m->getName();
+        bool banned = false;
+        for (const auto& d : opt_.dont_use) {
+          banned = banned || (!d.empty() && n.find(d) != std::string::npos);
+        }
+        const std::string fam = FamilyOf(n);
+        if (!banned && !fam.empty()) {
+          families_[fam].emplace_back(DriveOf(n), m);
+        }
+      }
+    }
+    for (auto& [f, v] : families_) {
+      std::sort(v.begin(), v.end(),
+                [](const auto& a, const auto& b) { return a.first < b.first; });
+    }
+  }
+}
+
+void Rebuilder::UpsizeRoot(dbITerm* drv, double load_ff) {
+  dbInst* inst = drv->getInst();
+  if (inst->isDoNotTouch() || inst->getPlacementStatus().isFixed()) {
+    return;
+  }
+  dbMaster* cur = inst->getMaster();
+  const double have = DriveOf(cur->getName());
+  const double need = load_ff / opt_.ff_per_drive;
+  if (have >= need) {
+    return;
+  }
+  auto f = families_.find(FamilyOf(cur->getName()));
+  if (f == families_.end()) {
+    return;
+  }
+  dbMaster* pick = nullptr;
+  for (const auto& [drive, m] : f->second) {
+    if (drive > have) {
+      pick = m;  // the largest so far, in case none meets the need
+      if (drive >= need) {
+        break;
+      }
+    }
+  }
+  if (pick == nullptr || pick == cur) {
+    return;
+  }
+  // Same pins or no swap: a family member with another pin set is not a
+  // drop-in.
+  for (odb::dbMTerm* mt : cur->getMTerms()) {
+    if (pick->findMTerm(mt->getName().c_str()) == nullptr) {
+      return;
+    }
+  }
+  if (inst->swapMaster(pick)) {
+    ++stats_.roots_upsized;
+  }
 }
 
 bool Rebuilder::IsBuffer(dbMaster* m) const {
@@ -446,7 +519,11 @@ void Rebuilder::RebuildNet(dbNet* root) {
     std::vector<Item> next;
     for (auto [lo, hi] : groups) {
       const Buffer& b = Pick(load_of(level, lo, hi));
-      const std::string id = std::to_string(serial_++);
+      std::string id = std::to_string(serial_++);
+      while (block_->findNet(("fot_n" + id).c_str()) != nullptr ||
+             block_->findInst(("fot_b" + id).c_str()) != nullptr) {
+        id = std::to_string(serial_++);  // another rebuild's names
+      }
       dbNet* n = dbNet::create(block_, ("fot_n" + id).c_str());
       dbInst* inst = dbInst::create(block_, b.master, ("fot_b" + id).c_str());
       if (n == nullptr || inst == nullptr) {
@@ -509,6 +586,9 @@ void Rebuilder::RebuildNet(dbNet* root) {
   for (const auto& i : level) {
     i.it->connect(root);
   }
+  if (opt_.upsize_roots && drv != nullptr) {
+    UpsizeRoot(drv, load_of(level, 0, level.size()));
+  }
   stats_.max_depth_after = std::max(stats_.max_depth_after, depth);
   stats_.sinks += static_cast<long>(sinks.size());
   ++stats_.nets_rebuilt;
@@ -531,6 +611,27 @@ Stats Rebuilder::Run() {
     RebuildNet(n);
   }
   return stats_;
+}
+
+int Rebuilder::UpsizeAll() {
+  const int before = stats_.roots_upsized;
+  for (dbNet* n : block_->getNets()) {
+    if (n->getSigType() != odb::dbSigType::SIGNAL) {
+      continue;
+    }
+    dbITerm* d = DriverITerm(n);
+    if (d == nullptr) {
+      continue;
+    }
+    double load = 0;
+    for (dbITerm* it : n->getITerms()) {
+      if (it->getIoType() == odb::dbIoType::INPUT) {
+        load += SinkCap(it);
+      }
+    }
+    UpsizeRoot(d, load);
+  }
+  return stats_.roots_upsized - before;
 }
 
 std::vector<std::string> Rebuilder::Check() const {

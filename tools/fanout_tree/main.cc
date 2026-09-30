@@ -17,7 +17,8 @@ void Usage() {
   std::cerr << "usage: fanout_tree --odb IN.odb --out OUT.odb"
                " --liberty FILE [--liberty FILE ...]"
                " --buffers CELL[,CELL...] [--max-fanout N] [--max-load-ff F]"
-               " [--ff-per-drive F] [--root-ff-per-drive F] [--net NAME ...]\n"
+               " [--ff-per-drive F] [--root-ff-per-drive F]"
+               " [--upsize-roots | --upsize-all] [--dont-use SUBSTR,...] [--net NAME ...]\n"
                "Liberty files are read uncompressed. A buffer's drive is the"
                " number after `x` in its name (BUFx12f_ASAP7_75t_R: 12).\n";
 }
@@ -28,6 +29,7 @@ int main(int argc, char** argv) {
   std::string in_path, out_path;
   std::vector<std::string> libs, buffer_names, nets;
   fanout_tree::Options opt;
+  bool upsize_all = false;
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
     auto val = [&]() -> std::string {
@@ -59,6 +61,17 @@ int main(int argc, char** argv) {
       opt.ff_per_drive = std::atof(val().c_str());
     } else if (a == "--root-ff-per-drive") {
       opt.root_ff_per_drive = std::atof(val().c_str());
+    } else if (a == "--upsize-roots") {
+      opt.upsize_roots = true;
+    } else if (a == "--upsize-all") {
+      opt.upsize_roots = true;
+      upsize_all = true;
+    } else if (a == "--dont-use") {
+      std::stringstream ss(val());
+      std::string c;
+      while (std::getline(ss, c, ',')) {
+        opt.dont_use.push_back(c);
+      }
     } else if (a == "--net") {
       nets.push_back(val());
     } else {
@@ -112,12 +125,16 @@ int main(int argc, char** argv) {
         rb.RebuildNet(net);
       }
     }
+    if (upsize_all) {
+      std::cout << "fanout_tree: " << rb.UpsizeAll() << " more drivers upsized\n";
+    }
     auto problems = rb.Check();
     const auto& s = rb.stats();
     std::cout << "fanout_tree: " << s.nets_rebuilt << " nets rebuilt, " << s.sinks
               << " sinks, buffers " << s.buffers_removed << " removed "
               << s.buffers_added << " added, max depth " << s.max_depth_before
-              << " -> " << s.max_depth_after << ", " << problems.size()
+              << " -> " << s.max_depth_after << ", " << s.roots_upsized
+              << " roots upsized, " << problems.size()
               << " check failures\n";
     if (!problems.empty()) {
       for (size_t i = 0; i < problems.size() && i < 20; ++i) {

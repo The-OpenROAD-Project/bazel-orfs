@@ -167,6 +167,48 @@ int main(int argc, char** argv) {
   auto problems = rb.Check();
   CHECK(problems.size() == 1);
   CHECK(problems[0].find("s17/A") != std::string::npos);
+  // Families and drives by name, the platform's dont-use kept out.
+  CHECK(fanout_tree::FamilyOf("AND2x4_ASAP7_75t_R") == "AND2x#_ASAP7_75t_R");
+  CHECK(fanout_tree::FamilyOf("INVxp33_ASAP7_75t_R") == "INVx#_ASAP7_75t_R");
+  CHECK(fanout_tree::FamilyOf("XOR2xp5_ASAP7_75t_R") == "XOR2x#_ASAP7_75t_R");
+  CHECK(fanout_tree::FamilyOf("BUFx12f_ASAP7_75t_R") == "BUFx#_ASAP7_75t_R");
+  CHECK(fanout_tree::FamilyOf("TAPCELL_ASAP7_75t_R").empty());
+  CHECK(fanout_tree::DriveOf("INVxp33_ASAP7_75t_R") == 0.33);
+  CHECK(fanout_tree::DriveOf("BUFx12f_ASAP7_75t_R") == 12);
+
+  // A root upsized: an INVx1 behind which ABC put one BUFx2 for twelve
+  // sinks (7.2 fF at 0.6 each). Rebuilt, the sinks fit on the root, and
+  // the root becomes the smallest INV that drives them, never an xp or
+  // x1p cell.
+  {
+    odb::dbNet* n2 = odb::dbNet::create(block, "n2");
+    odb::dbNet* n3 = odb::dbNet::create(block, "n3");
+    odb::dbInst* d2 = odb::dbInst::create(block, inv, "d2");
+    d2->findITerm("A")->connect(in);
+    d2->findITerm("Y")->connect(n2);
+    odb::dbInst* b2 = odb::dbInst::create(block, buf2, "abc_d2");
+    b2->findITerm("A")->connect(n2);
+    b2->findITerm("Y")->connect(n3);
+    for (int s = 0; s < 12; ++s) {
+      odb::dbInst* g = odb::dbInst::create(block, and2, ("u" + std::to_string(s)).c_str());
+      g->findITerm("A")->connect(n3);
+      g->findITerm("B")->connect(in);
+    }
+    fanout_tree::Options up;
+    up.max_fanout = 16;
+    up.upsize_roots = true;
+    up.dont_use = {"xp", "x1p"};
+    fanout_tree::Rebuilder rb3(block, buffers, caps, up);
+    rb3.RebuildNet(n2);
+    CHECK(rb3.Check().empty());
+    CHECK(rb3.stats().buffers_removed == 1);
+    CHECK(rb3.stats().buffers_added == 0);
+    const std::string m = d2->getMaster()->getName();
+    CHECK(m.rfind("INVx", 0) == 0);
+    CHECK(m.find("xp") == std::string::npos && m.find("x1p") == std::string::npos);
+    CHECK(fanout_tree::DriveOf(m) >= 7.2 / up.ff_per_drive);
+    CHECK(rb3.stats().roots_upsized == 1);
+  }
   std::cout << "fanout_tree_test: ok\n";
   return 0;
 }

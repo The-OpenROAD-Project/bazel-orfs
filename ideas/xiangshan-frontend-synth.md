@@ -21,6 +21,15 @@ Frontend's synthesis runs in 16 min at 11 GB on a 16-thread, 30 GB machine
 | S2 | S0, `remove_buffers`: the logic with bare fanout | 164,974 | 97,287 | | 0 |
 | S3 | S0, ABC's buffer trees rebuilt by `tools/fanout_tree`: at most 16 pins and 24 fF per driver | 1,282 | 7,716 | 10,767 | 95,765 |
 | S4 | S3 with the four Ftq queues' liberty characterised from their own buffered, placed gates (`write_timing_model`) instead of the formula | 1,895 | 7,082 | 9,518 | 95,765 |
+| S5 | S4, each rebuilt tree's root driver held to 2.5 fF per unit of drive, the rest behind buffers | 1,897 | 6,374 | 8,527 | 192,356 |
+| S6 | S4, each rebuilt tree's root driver upsized in its family instead (18,672 roots, no `xp`/`x1p` cell) | 1,847 | 5,492 | 6,560 | 95,818 |
+| S6b | S6, and every other driver upsized by the same rule (39,569 more) | 1,854 | 5,480 | 6,472 | 95,818 |
+
+From S4 on, the worst path is the same `FtqMetaQueueResolve` read: at
+S6 clock-to-output 58 ps, 11 buffers 269 ps, 26 logic cells 504 ps, the
+array's read 1,010 ps. The array's shape is not the lever there:
+Resolve with 1, 2, 4, 8 and 16 bit folds reads in 3,148, 1,751, 1,145,
+1,012 and 1,132 ps.
 
 S3 and S4 are timed in a standalone OpenROAD session (`read_liberty`,
 `read_db`, the flow's `1_synth.sdc`, the platform's `setRC.tcl`); with
