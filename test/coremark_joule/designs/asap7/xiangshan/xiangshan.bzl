@@ -1187,9 +1187,10 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     read the place-stage abstract the flow emits beside it.
 
     `synth_variants` is {block: {variant: {"arguments": {...}, "sources":
-    {...}}}}: that block's synthesis alone, `<block>_<variant>_synth`,
-    with the extra arguments and sources on top of its own; the block's
-    flow and the parent are unchanged.
+    {...}, "last_stage": "synth"}}}: that block's flow to `last_stage`
+    (synthesis if not given), `<block>_<variant>_<stage>`, with the extra
+    arguments and sources on top of its own; the block's flow and the
+    parent are unchanged.
     """
     macros = sorted(plan["macros"].keys())
     for block in macros:
@@ -1211,7 +1212,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             orfs_flow(
                 name = block,
                 arguments = arguments | extra.get("arguments", {}),
-                last_stage = "synth",
+                last_stage = extra.get("last_stage", "synth"),
                 pdk = "//flow:asap7",
                 sources = sources | extra.get("sources", {}),
                 tags = tags,

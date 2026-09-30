@@ -1,0 +1,43 @@
+# repair_design -pre_placement after remove_buffers on a synthesis netlist
+# with a kept hierarchy and ABC's buffer chains across it: the sequence
+# that stopped OpenROAD on XiangShan's Frontend. Manual: it synthesises.
+load("//:openroad.bzl", "orfs_flow", "orfs_run")
+
+[
+    orfs_flow(
+        name = "rb_top",
+        arguments = {
+            "OPENROAD_HIERARCHICAL": "1",
+            "SKIP_REPORT_METRICS": "1",
+            "SYNTH_HIERARCHICAL": "1",
+            "SYNTH_KEEP_MODULES": "rb_unit",
+            "SYNTH_NUM_PARTITIONS": "1",
+            "VERILOG_TOP_PARAMS": "N {}".format(n),
+        },
+        last_stage = "synth",
+        sources = {"SDC_FILE": [":constraints.sdc"]},
+        tags = ["manual"],
+        variant = "n{}".format(n),
+        verilog_files = ["rb_top.v"],
+    )
+    for n in [
+        512,
+        8192,
+    ]
+]
+
+[
+    orfs_run(
+        name = "repro_n{}".format(n),
+        src = ":rb_top_n{}_synth".format(n),
+        outs = ["repro_n{}.txt".format(n)],
+        cmd = "run",
+        script = "repro.tcl",
+        tags = ["manual"],
+        user_arguments = {"OUTPUT": "$(location repro_n{}.txt)".format(n)},
+    )
+    for n in [
+        512,
+        8192,
+    ]
+]
