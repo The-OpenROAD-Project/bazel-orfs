@@ -184,6 +184,19 @@ asap7, and the paths out of them meet 473 ps.
   clock-to-output where the start flop now drives its first-level group
   itself at x1.
 
+## Why the rebuilt netlist is the same design
+
+`fanout_tree` removes only buffers and adds only buffers, and its
+`Check()` proves that every sink it moved reaches the driver it had
+through buffers alone: identity by construction, checked on all
+2,066,737 sinks of S10. Upsizing swaps a cell for another member of its
+family (the name with its drive taken out), pins checked equal; on
+asap7's RVT liberty, the 60 families left after the dont-use patterns
+(`xp`, `x1p`) have the same `function` on every output in every member.
+No formal equivalence check was run: at 1.1 M cells it is not needed for
+these two rewrites, and kepler-formal did not build here (the
+`xiangshan-mbtb-wns-path` branch).
+
 ## Not in the flow yet
 
 Everything above is measured in sessions on the flow's synthesis ODB
