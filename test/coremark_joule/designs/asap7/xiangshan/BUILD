@@ -69,6 +69,12 @@ xiangshan_flow(
     name = "XSTile",
     grt_probe_blocks = ["Frontend"],
     plan = PLAN,
+    # Frontend's synthesis with ABC mapping for delay and building no
+    # buffers, for tools/fanout_tree to build the trees
+    # (ideas/xiangshan-frontend-synth.md).
+    synth_variants = {"Frontend": {"abc_nobuf": {
+        "sources": {"ABC_SCRIPT": [":abc_speed_nobuf.script"]},
+    }}},
 )
 
 # Frontend's timing where its abstract is written (cts) and after the

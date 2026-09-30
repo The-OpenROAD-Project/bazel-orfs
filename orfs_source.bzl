@@ -185,6 +185,10 @@ ORFS_PATCHES = [
     # to travel from one a fraction past a row's edge. Not upstreamed;
     # retires at a bump onto an ORFS that carries the check.
     Label("//patches:0086-orfs-gpl-stranded-cells.patch"),
+    # 0089: ABC_SCRIPT, a design's own ABC script in place of the area or
+    # speed one. Carried, not upstreamed; retires at a bump onto an ORFS
+    # that lets a design name its ABC script.
+    Label("//patches:0089-orfs-abc-script.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

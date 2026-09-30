@@ -1173,7 +1173,7 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
     sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints_473ps.sdc"]
     return arguments, sources
 
-def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan_dir = "plan", grt_probe_blocks = []):
+def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan_dir = "plan", grt_probe_blocks = [], synth_variants = {}):
     """The plan's blocks, each abstracted at cts, then the parent.
 
     `plan` is the PLAN dict plan_floorplan.py --emit wrote to
@@ -1185,6 +1185,11 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     insertion delay, not the whole unbuffered clock net (entry 17 of
     ideas/xiangshan-timing.md); the parent's synthesis, floorplan and place
     read the place-stage abstract the flow emits beside it.
+
+    `synth_variants` is {block: {variant: {"arguments": {...}, "sources":
+    {...}}}}: that block's synthesis alone, `<block>_<variant>_synth`,
+    with the extra arguments and sources on top of its own; the block's
+    flow and the parent are unchanged.
     """
     macros = sorted(plan["macros"].keys())
     for block in macros:
@@ -1202,6 +1207,20 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             user_stages = _user_stages(cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS, cfg["user_sources"] | XS_ICG_USER_SOURCES),
             verilog_files = XS_VERILOG,
         )
+        for variant, extra in synth_variants.get(block, {}).items():
+            orfs_flow(
+                name = block,
+                arguments = arguments | extra.get("arguments", {}),
+                last_stage = "synth",
+                pdk = "//flow:asap7",
+                sources = sources | extra.get("sources", {}),
+                tags = tags,
+                user_arguments = cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS,
+                user_sources = cfg["user_sources"] | XS_ICG_USER_SOURCES,
+                user_stages = _user_stages(cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS, cfg["user_sources"] | XS_ICG_USER_SOURCES),
+                variant = variant,
+                verilog_files = XS_VERILOG,
+            )
         if block in grt_probe_blocks:
             # The block's own global route on its CTS checkpoint, with
             # the post-route repair ORFS runs there: what the block's

@@ -1,0 +1,60 @@
+ABC_SCRIPT: a design's own ABC script in place of the area or speed one
+
+synth_preamble.tcl picks abc_area.script or abc_speed.script by ABC_AREA
+and nothing else. A design that builds its buffer trees after synthesis
+(bazel-orfs tools/fanout_tree) wants ABC to map for delay without
+`buffer -c`, whose chains it would only take down again. ABC_SCRIPT, when
+set, names the script to use instead; unset, nothing changes.
+
+Carried, not upstreamed. Retires at a bump onto an ORFS that lets a design
+name its ABC script.
+
+diff --git a/flow/scripts/synth_preamble.tcl b/flow/scripts/synth_preamble.tcl
+index ef142be..e61d4b2 100644
+--- a/flow/scripts/synth_preamble.tcl
++++ b/flow/scripts/synth_preamble.tcl
+@@ -203,6 +203,10 @@ if { $::env(ABC_AREA) } {
+   puts "Using ABC speed script."
+   set abc_script $::env(SCRIPTS_DIR)/abc_speed.script
+ }
++if { [env_var_exists_and_non_empty ABC_SCRIPT] } {
++  puts "Using the design's ABC script $::env(ABC_SCRIPT)."
++  set abc_script $::env(ABC_SCRIPT)
++}
+ 
+ # Create argument list for stat
+ set lib_args ""
+diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
+index 781798d..3a8e3f4 100644
+--- a/flow/scripts/variables.json
++++ b/flow/scripts/variables.json
+@@ -24,6 +24,12 @@
+       "synth"
+     ]
+   },
++  "ABC_SCRIPT": {
++    "description": "An ABC script of the design's own, used in place of the one ABC_AREA\nselects.\n",
++    "stages": [
++      "synth"
++    ]
++  },
+   "ABSTRACT_SOURCE": {
+     "description": "Which .odb file to use to create abstract\n",
+     "stages": [
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+index 4156cff..cc2099b 100644
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -1209,6 +1209,12 @@ ABC_AREA:
+   stages:
+     - synth
+   default: 0
++ABC_SCRIPT:
++  description: |
++    An ABC script of the design's own, used in place of the one ABC_AREA
++    selects.
++  stages:
++    - synth
+ PWR_NETS_VOLTAGES:
+   description: |
+     Used for IR Drop calculation.

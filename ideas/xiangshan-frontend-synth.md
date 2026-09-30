@@ -29,6 +29,8 @@ Frontend's synthesis runs in 16 min at 11 GB on a 16-thread, 30 GB machine
 | S9 | S8, every driver upsized in its family | 1,608 | 2,980 | 6,087 | 41,264 |
 | S9c | S9, and a driver no family member can make strong enough gets its load behind a buffer beyond 8 fF per unit of drive | 1,606 | 2,761 | 5,740 | 44,969 |
 | S10 | S9, weak drivers held to 5 fF per unit of drive (16,360 nets) | 1,604 | 2,443 | 5,608 | 56,739 |
+| S11a | a new synthesis, ABC's speed script without `buffer -c` (`Frontend_abc_nobuf_synth`, ORFS patch 0089), as ABC leaves it | 44,829 | 94,415 | 97,491 | 2,196 |
+| S11 | S11a, every tree built by `fanout_tree` with S10's settings | **1,392** | **566** | **925** | 56,442 |
 
 Trees of 24 pins and 36 fF land at 3,473; 32 pins with 64 fF instead of
 48 changes nothing, the pin limit binds. Holding weak drivers to 2.5 fF
@@ -41,7 +43,25 @@ moves and about 50 minutes, 80,864 endpoints still violating, and was
 stopped at its one-hour cap: at this size and this far from closure it
 is not the tool for synthesis.
 
-## Where it is at S10
+## Where it is at S11
+
+With ABC mapping for delay and building no buffers, and every tree
+built by `fanout_tree` (32 pins, 48 fF, drivers upsized, weak drivers
+behind a buffer past 5 fF per unit of drive):
+
+| | |
+|---|---:|
+| `reg2reg` minimum period | 1,392 ps |
+| endpoints over 1,000 ps | 566: 436 through `FtqMetaQueueResolve`, 130 through no macro |
+| the worst period not through `FtqMetaQueueResolve` | 1,110 ps |
+
+TAGE's useful-bit update, 4,617 endpoints over 1,000 ps at S7, is gone
+from the list. The worst path outside Resolve's cone is now the IFU into
+the instruction buffer's `vtypeGen`: 39 logic cells 874 ps, 7 buffers
+170 ps, clock-to-output 51 ps. The same 16-partition synthesis took
+about 20 minutes.
+
+## Where it was at S10
 
 | | |
 |---|---:|
