@@ -253,23 +253,78 @@ Everything above is measured in sessions on the flow's synthesis ODB
   (25 to 31 levels as ABC mapped them), is gone at S11: ABC mapping
   without `buffer -c` and the trees built afterwards took it under
   1,000 ps.
-- **`repair_design` after `remove_buffers`** stopped OpenROAD with
-  signal 11 twice in odb-debug sessions on Frontend's synthesis ODB,
-  hierarchical and flat reads. Standalone (`load.tcl`, flat, then
-  `remove_buffers` and `repair_design -pre_placement`) a build of the
-  same OpenROAD with assertions on stops after 35 to 50 minutes, with or
-  without the timing graph built first, at `dbNetwork.cc:3750`:
+- **`repair_design`'s early sizing round and a top-level port**: found,
+  fixed and carried as OpenROAD patch 0005; see "The resizer's crash"
+  below.
 
-  ```
-  sta::dbNetwork::staToDb(const Net*): !db_net || db_net->getObjectType() == odb::dbNetObj
-  rsz::Resizer::insertBufferBeforeLoads(sta::Net*, sta::PinSet*, ...)
-  rsz::RepairDesign::performGainBuffering(sta::Net*, const sta::Pin*, int)
-  rsz::RepairDesign::performEarlySizingRound(int&)
-  rsz::RepairDesign::repairDesign(...)
-  ```
+## The resizer's crash
 
-  The early gain-buffering round hands the buffer insertion a network
-  net that is not a `dbNet`; the ODB carries the synthesis hierarchy
-  (module nets) even when read flat, the first suspect. The flow's
-  binary has no assertions and takes the signal. Not yet reduced to a
-  small reproducer, not reported upstream.
+`repair_design -pre_placement` stopped OpenROAD on Frontend's synthesis
+ODB: after `remove_buffers`, and also on the netlist of ABC without
+`buffer -c`, which has nothing to remove. A build with assertions and
+debug information for `rsz` and `dbSta` names it:
+
+```
+sta::dbNetwork::staToDb(const Net*): !db_net || db_net->getObjectType() == odb::dbNetObj
+rsz::Resizer::insertBufferBeforeLoads(net, ...)          Resizer.cc
+rsz::RepairDesign::performGainBuffering(net, drvr_pin, max_fanout = 32)
+rsz::RepairDesign::performEarlySizingRound: net_db = 0, mod_net_db = net, fanout 52
+```
+
+`performEarlySizingRound` takes a driver's net as
+`network_->net(network_->term(drvr_pin))` when the driver is a
+top-level port, and in a hierarchical netlist that is the top module's
+`dbModNet`, not the flat `dbNet` the comment above the line asks for.
+Gain buffering then inserts on it. The release build takes signal 11.
+
+The trigger is a top-level input port with more than `max_fanout` loads
+in a design that keeps a module. ABC's `buffer -c` hides it behind a
+buffer, which is why the flow as it runs today never meets it;
+`remove_buffers`, or a synthesis that builds no buffers, exposes it.
+`test/rsz_remove_buffers` (`rb_top`, N = 512: a port that 512 flops in a
+kept module each toggle on) reproduces it in seconds, and `repro_test`
+fails without OpenROAD patch 0005 and passes with it. The patch takes
+`flatNet(term)` instead. Five other call sites in `rsz` read a port's
+net the same way (`Rebuffer.cc:2129`, `Resizer.cc:1271`, `1408`, `5260`,
+`6396`); none is shown to fail, and they are candidates to check.
+
+For an upstream issue, when the human decides (not filed):
+
+> **rsz: repair_design early sizing buffers a top-level port's dbModNet
+> (assert in dbNetwork::staToDb)**
+>
+> In a hierarchical netlist, `RepairDesign::performEarlySizingRound`
+> takes a top-level port driver's net as
+> `network_->net(network_->term(drvr_pin))`, which is the top module's
+> `dbModNet`. `performGainBuffering` passes it to
+> `Resizer::insertBufferBeforeLoads`, and `staToDb(const Net*)` asserts
+> `db_net->getObjectType() == odb::dbNetObj` (signal 11 without
+> assertions). Trigger: a top-level input port with more than
+> `max_fanout` loads inside a kept module, then `repair_design
+> -pre_placement` (after `remove_buffers`, or on a netlist ABC did not
+> buffer). Fix: `db_network_->dbToSta(db_network_->flatNet(
+> network_->term(drvr_pin)))`, which the comment above the line already
+> asks for. A 512-flop reproducer and the one-line patch are in
+> bazel-orfs (`test/rsz_remove_buffers`, `patches/0005-...`).
+
+## At place
+
+Frontend through the flow's place stage, which runs its own
+`repair_design`; `reg2reg` with placement parasitics, ideal clock, the
+flow's formula liberty for the Ftq queues (optimistic on Resolve's cone
+by about 450 ps); the same harness with `XS_PARASITICS=placement`.
+
+| arm | what | period | over 1,000 ps | over 950 ps | BUF cells |
+|---|---|---:|---:|---:|---:|
+| P0 | the flow as it runs today | 5,118 | 69,636 | 71,867 | 170,915 |
+| P1 | ABC's speed script without `buffer -c` (`Frontend_abc_nobuf_place`) | 4,616 | 87,795 | 90,514 | 66,922 |
+
+P0 reproduces the README's 5,118 ps. Its worst path is a CSR enable
+(`csrCtrl_delay.io_out_mbtbEnable`) broadcast to TAGE's SRAMs through
+42 buffers, 3,712 ps, against 1,267 ps of logic. P1's is BPU's
+`io_toFtq_meta_valid` into an SC SRAM through 40 buffers, 2,680 ps,
+against 1,809 ps of logic; its largest stage is a BUFx2 driving 23 pins
+and 93 fF. Without ABC's chains the place stage's `repair_design` builds
+chains of its own: the synthesis-stage gain does not survive placement
+on the endpoint count (87,795 against 69,636), and the period improves
+by 10 percent.
