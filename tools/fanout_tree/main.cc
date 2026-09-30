@@ -18,7 +18,8 @@ void Usage() {
                " --liberty FILE [--liberty FILE ...]"
                " --buffers CELL[,CELL...] [--max-fanout N] [--max-load-ff F]"
                " [--ff-per-drive F] [--root-ff-per-drive F]"
-               " [--upsize-roots | --upsize-all] [--dont-use SUBSTR,...] [--net NAME ...]\n"
+               " [--upsize-roots | --upsize-all [--weak-ff-per-drive F]] [--dont-use SUBSTR,...]"
+               " [--net NAME ...]\n"
                "Liberty files are read uncompressed. A buffer's drive is the"
                " number after `x` in its name (BUFx12f_ASAP7_75t_R: 12).\n";
 }
@@ -66,6 +67,8 @@ int main(int argc, char** argv) {
     } else if (a == "--upsize-all") {
       opt.upsize_roots = true;
       upsize_all = true;
+    } else if (a == "--weak-ff-per-drive") {
+      opt.weak_ff_per_drive = std::atof(val().c_str());
     } else if (a == "--dont-use") {
       std::stringstream ss(val());
       std::string c;
@@ -126,7 +129,9 @@ int main(int argc, char** argv) {
       }
     }
     if (upsize_all) {
-      std::cout << "fanout_tree: " << rb.UpsizeAll() << " more drivers upsized\n";
+      const int more = rb.UpsizeAll();
+      std::cout << "fanout_tree: " << more << " more drivers upsized, "
+                << rb.stats().weak_rebuilt << " weak drivers' loads put behind buffers\n";
     }
     auto problems = rb.Check();
     const auto& s = rb.stats();

@@ -258,20 +258,20 @@ Rebuilder::Rebuilder(odb::dbBlock* block, std::vector<Buffer> buffers,
   }
 }
 
-void Rebuilder::UpsizeRoot(dbITerm* drv, double load_ff) {
+bool Rebuilder::UpsizeRoot(dbITerm* drv, double load_ff) {
   dbInst* inst = drv->getInst();
   if (inst->isDoNotTouch() || inst->getPlacementStatus().isFixed()) {
-    return;
+    return true;  // not ours to change: nothing to add either
   }
   dbMaster* cur = inst->getMaster();
   const double have = DriveOf(cur->getName());
   const double need = load_ff / opt_.ff_per_drive;
   if (have >= need) {
-    return;
+    return true;
   }
   auto f = families_.find(FamilyOf(cur->getName()));
   if (f == families_.end()) {
-    return;
+    return false;
   }
   dbMaster* pick = nullptr;
   for (const auto& [drive, m] : f->second) {
@@ -283,18 +283,20 @@ void Rebuilder::UpsizeRoot(dbITerm* drv, double load_ff) {
     }
   }
   if (pick == nullptr || pick == cur) {
-    return;
+    return false;
   }
   // Same pins or no swap: a family member with another pin set is not a
   // drop-in.
   for (odb::dbMTerm* mt : cur->getMTerms()) {
     if (pick->findMTerm(mt->getName().c_str()) == nullptr) {
-      return;
+      return false;
     }
   }
-  if (inst->swapMaster(pick)) {
-    ++stats_.roots_upsized;
+  if (!inst->swapMaster(pick)) {
+    return false;
   }
+  ++stats_.roots_upsized;
+  return DriveOf(pick->getName()) >= need;
 }
 
 bool Rebuilder::IsBuffer(dbMaster* m) const {
@@ -615,6 +617,7 @@ Stats Rebuilder::Run() {
 
 int Rebuilder::UpsizeAll() {
   const int before = stats_.roots_upsized;
+  std::vector<dbNet*> weak;
   for (dbNet* n : block_->getNets()) {
     if (n->getSigType() != odb::dbSigType::SIGNAL) {
       continue;
@@ -629,8 +632,21 @@ int Rebuilder::UpsizeAll() {
         load += SinkCap(it);
       }
     }
-    UpsizeRoot(d, load);
+    if (!UpsizeRoot(d, load) && opt_.weak_ff_per_drive > 0 &&
+        !IsBuffer(d->getInst()->getMaster())) {
+      weak.push_back(n);
+    }
   }
+  // Drivers no family member can make strong enough: their load goes
+  // behind buffers, the driver itself held to weak_ff_per_drive.
+  const double keep = opt_.root_ff_per_drive;
+  opt_.root_ff_per_drive = opt_.weak_ff_per_drive;
+  const int rebuilt_before = stats_.nets_rebuilt;
+  for (dbNet* n : weak) {
+    RebuildNet(n);
+  }
+  opt_.root_ff_per_drive = keep;
+  stats_.weak_rebuilt += stats_.nets_rebuilt - rebuilt_before;
   return stats_.roots_upsized - before;
 }
 

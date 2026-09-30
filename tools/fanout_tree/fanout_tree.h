@@ -77,6 +77,10 @@ struct Options {
   // taken out. Names containing any of `dont_use` are never chosen.
   bool upsize_roots = false;
   std::vector<std::string> dont_use;
+  // UpsizeAll: a driver whose family has nothing strong enough gets its
+  // load behind buffers instead, as if its drive were `weak_ff_per_drive`
+  // per unit; 0 leaves it.
+  double weak_ff_per_drive = 0;
 };
 
 // The x in a cell name: BUFx12f_ASAP7_75t_R 12, INVxp33_ASAP7_75t_R 0.33,
@@ -91,6 +95,7 @@ struct Stats {
   int max_depth_after = 0;
   long sinks = 0;
   int roots_upsized = 0;
+  int weak_rebuilt = 0;
 };
 
 // A cell name with its drive taken out, the key of its family:
@@ -132,7 +137,8 @@ class Rebuilder {
   bool IsBuffer(odb::dbMaster* m) const;
   const Buffer& Pick(double load_ff) const;
   double SinkCap(odb::dbITerm* it) const;
-  void UpsizeRoot(odb::dbITerm* drv, double load_ff);
+  // True when the driver now meets load / ff_per_drive.
+  bool UpsizeRoot(odb::dbITerm* drv, double load_ff);
 
   odb::dbBlock* block_;
   std::vector<Buffer> buffers_;  // ascending drive

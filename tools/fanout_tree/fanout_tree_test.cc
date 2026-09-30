@@ -209,6 +209,39 @@ int main(int argc, char** argv) {
     CHECK(fanout_tree::DriveOf(m) >= 7.2 / up.ff_per_drive);
     CHECK(rb3.stats().roots_upsized == 1);
   }
+  // A weak driver: AOI211 has nothing above x1 once xp5 is banned, so
+  // twelve sinks go behind a buffer and the gate drives only that.
+  {
+    odb::dbMaster* aoi = db->findMaster("AOI211x1_ASAP7_75t_R");
+    CHECK(aoi != nullptr);
+    odb::dbNet* n4 = odb::dbNet::create(block, "n4");
+    odb::dbInst* w = odb::dbInst::create(block, aoi, "weak");
+    for (const char* p : {"A1", "A2", "B", "C"}) {
+      w->findITerm(p)->connect(in);
+    }
+    w->findITerm("Y")->connect(n4);
+    for (int s = 0; s < 12; ++s) {
+      odb::dbInst* g = odb::dbInst::create(block, and2, ("v" + std::to_string(s)).c_str());
+      g->findITerm("A")->connect(n4);
+      g->findITerm("B")->connect(in);
+    }
+    fanout_tree::Options up;
+    up.max_fanout = 32;
+    up.max_load_ff = 48;
+    up.upsize_roots = true;
+    up.dont_use = {"xp", "x1p"};
+    up.weak_ff_per_drive = 2.5;
+    fanout_tree::Rebuilder rb4(block, buffers, caps, up);
+    rb4.UpsizeAll();
+    CHECK(rb4.Check().empty());
+    CHECK(rb4.stats().weak_rebuilt >= 1);
+    CHECK(w->getMaster() == aoi);
+    int loads = 0;
+    for (odb::dbITerm* it : n4->getITerms()) {
+      loads += it->getIoType() == odb::dbIoType::INPUT ? 1 : 0;
+    }
+    CHECK(loads == 1);
+  }
   std::cout << "fanout_tree_test: ok\n";
   return 0;
 }

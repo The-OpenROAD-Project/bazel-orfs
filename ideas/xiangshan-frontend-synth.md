@@ -25,6 +25,30 @@ Frontend's synthesis runs in 16 min at 11 GB on a 16-thread, 30 GB machine
 | S6 | S4, each rebuilt tree's root driver upsized in its family instead (18,672 roots, no `xp`/`x1p` cell) | 1,847 | 5,492 | 6,560 | 95,818 |
 | S6b | S6, and every other driver upsized by the same rule (39,569 more) | 1,854 | 5,480 | 6,472 | 95,818 |
 | S7 | S6 with the Ftq queues regenerated with `pins_at_columns` (Resolve in 4 folds) and re-characterised | 1,649 | 5,459 | 6,544 | 95,818 |
+| S8 | S7, trees of up to 32 pins and 48 fF (the SDC's own `set_max_fanout 32`) | 1,602 | 3,451 | 6,215 | 41,264 |
+| S9 | S8, every driver upsized in its family | 1,608 | 2,980 | 6,087 | 41,264 |
+| S9c | S9, and a driver no family member can make strong enough gets its load behind a buffer beyond 8 fF per unit of drive | 1,606 | 2,761 | 5,740 | 44,969 |
+
+Trees of 24 pins and 36 fF land at 3,473; 32 pins with 64 fF instead of
+48 changes nothing, the pin limit binds. Holding weak drivers to 2.5 fF
+per unit instead of 8 puts a buffer behind 59,938 ordinary x1 gates and
+is worse (4,045).
+
+`repair_timing -setup` on S6's netlist (asap7's dont-use set, no
+placement) moved the worst slack from -1,374 to -1,238 ps in 1,224
+moves and about 50 minutes, 80,864 endpoints still violating, and was
+stopped at its one-hour cap: at this size and this far from closure it
+is not the tool for synthesis.
+
+## Where it is at S9c
+
+Of the 2,761 endpoints over 1,000 ps, most end in TAGE: its useful-bit
+update, `s2_hits` through the provider choice into the useful counters'
+write buffers and SRAMs. On the worst of them with no macro on the path,
+at S8: 31 logic cells 727 ps, 9 buffers 246 ps, clock-to-output 58 ps,
+1,046 ps. The SRAM endpoints are the same cone plus the arrays' 50 ps
+setup. The period itself is still the `FtqMetaQueueResolve` read: 26
+logic cells, one tree level per broadcast net, and the array's 813 ps.
 
 From S4 on, the worst path is the same `FtqMetaQueueResolve` read: at
 S6 clock-to-output 58 ps, 11 buffers 269 ps, 26 logic cells 504 ps, the
