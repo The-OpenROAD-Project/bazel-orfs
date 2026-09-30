@@ -947,6 +947,55 @@ Not worth retrying without new data:
 - A block with a generated memory and no keep list: yosys cannot cost
   the blackbox (entry 34).
 
+## 36. Where global route's time and memory go, and each macro's floor
+
+On the 5,118 ps baseline (0a0228b4), XSTile's global-route stage alone
+from its cts checkpoint, sampled every 5 s with timestamped log lines:
+
+| step | s | resident at its end | note |
+|---|---|---|---|
+| load, liberty, database | 65 | 28 GiB | |
+| global_route | 1,224 | 89 GiB | under 2 cores; 942 of its 3,294 CPU-seconds in the kernel |
+| estimate_parasitics | 131 | 101 GiB | |
+| repair_antennas and check_antennas | 311 | 105 GiB | 0 violations, no diode cell, about 15 cores |
+| estimate_parasitics again | 130 | 108.5 GiB | the peak |
+| reports and writes | about 100 | | |
+
+- Nothing is returned between steps: the peak is the sum.
+- The allocator never gets huge pages: AnonHugePages stayed 0 with the
+  host at madvise, 37 million minor faults, 1,861 CPU-seconds in the
+  kernel over the stage. Whether THP=always removes them is a host
+  setting, not measured.
+- In the route, 26.6 percent of samples are Graph2D::insertUsedGrid, a
+  std::set<std::pair<int, int>> insert per used edge, and 29 percent
+  routeMonotonic. In the antenna phase about 22 percent are linear
+  layer lookups (dbTech::findRoutingLayer and its iterator), the
+  pattern OpenROAD #11549 fixed in est.
+
+Each macro at its place checkpoint, ideal clock, reg2reg period with the
+flow's wire parasitics and with every routing, cut and wire RC at 1e-6
+(an RC of 0 is taken as unset by set_layer_rc and set_wire_rc, and the
+period does not move):
+
+| macro | with wires | wire RC 1e-6 | wire share | floor in FO4 |
+|---|---|---|---|---|
+| Frontend | 4,912 | 1,133 | 77 % | 79 |
+| MemBlock | 2,725 | 1,094 | 60 % | 76 |
+| CoupledL2 | 2,053 | 835 | 59 % | 58 |
+| VecRegionModule | 2,375 | 1,136 | 52 % | 79 |
+| FltRegionModule | 1,374 | 887 | 35 % | 62 |
+| XSTile (parent, at place) | 6,751 | 4,740 | 30 % | 330 |
+
+- Wires are most of every block's period, 77 percent of Frontend's, the
+  macro that sets the design's.
+- Without wires every block is 58 to 79 FO4, above the 41 FO4 of the
+  333 ps goal. That is the mapped netlist with its pin loads, so it
+  counts yosys and ABC as well as the RTL; entry 27 read the RTL's worst
+  paths at 9 to 45 FO4, and the difference between the two is the next
+  measurement that says whether the gap is the RTL's or the mapping's.
+- The parent's floor keeps the blocks' timing models, which carry each
+  block's own wires; it is not a logic floor.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
