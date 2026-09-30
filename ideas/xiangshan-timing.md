@@ -5,7 +5,7 @@ period minus WNS at a slightly negative WNS, on a floorplan that routes.
 The target is congruent with a taped-out core: XiangShan's 333 ps on
 7 nm is 41.1 fanouts of four, which is 591 ps at global route on the
 asap7 library the flow times with, so 473 ps at synthesis, and no
-pathologies (`constraints_473ps.sdc`, `period_fo4_test`). Entries up to
+pathologies (`constraints.sdc`, `period_fo4_test`). Entries up to
 25 were measured with the SDC at 800 ps. Each entry
 below is a well-studied problem that stands between the flow and that
 number, with what commercial flows do about it, what OpenROAD or yosys
@@ -766,7 +766,7 @@ and each block dashed beneath it.
 
 ## 29. The SDC declares no design rule limits
 
-`constraints_473ps.sdc` sets `set_max_fanout 32` and no
+`constraints.sdc` sets `set_max_fanout 32` and no
 `set_max_transition` or `set_max_capacitance`. A signoff SDC sets both
 for the design. On an unpatched OpenSTA, a model whose ports carry no
 limits and a parent with 200 fF on the net between two instances: with
