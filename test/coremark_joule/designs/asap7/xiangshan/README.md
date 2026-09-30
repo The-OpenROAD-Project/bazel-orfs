@@ -43,9 +43,11 @@ place stage against an ideal clock, through `<block>_place_odb_debug`:
 XiangShan's `ClockGate` is mapped onto ASAP7's ICG cell (`xs_icg.ys`) in
 every flow, the parent's and every block's.
 
-Synthesis maps with ABC's speed script at the SDC period, ORFS's default,
-in every flow; `synth_config_test` checks each flow's synthesis
-configuration once it is built.
+Synthesis maps with ABC's speed script, ORFS's default, in every flow;
+`synth_config_test` checks each flow's synthesis configuration once it
+is built. ABC gets no delay target: ORFS passes the SDC period as `-D`
+with a script file, and Yosys hands `-D` to ABC only through the `{D}`
+placeholder of its built-in and inline scripts (ORFS #4585).
 
 The blocks are abstracted at `cts`, and that is a choice with a measured
 cost. On Frontend, the `cts` checkpoint's period was 28 percent
