@@ -124,6 +124,10 @@ the 813 ps are 304 ps in 7 repeaters, 310 ps in 9 tree buffers and 190
 ps of logic: three quarters wire, at the flow's own signal RC. With the
 same pins Redirect reads in 537 ps, EntryQueue in 418, Commit in 270.
 
+Fewer service sites (20 or 28 per 8 columns instead of 40) gain 11 ps
+(802 ps): a standard-cell array of 61,056 bits read asynchronously ends
+near 800 ps on this flow's wire model, whatever its shape.
+
 The formula liberty is optimistic on the read arc by 2.8 times and
 pessimistic on every input pin (19.8 and 38.4 fF against a single
 buffer's input once the trees are built), which is why S4 has a worse
@@ -179,3 +183,44 @@ asap7, and the paths out of them meet 473 ps.
   of logic in 26 cells, 291 ps of buffers in 11, and a 64 ps
   clock-to-output where the start flop now drives its first-level group
   itself at x1.
+
+## Not in the flow yet
+
+Everything above is measured in sessions on the flow's synthesis ODB
+(`test/coremark_joule/xs_frontend_synth`); no flow target runs it yet.
+
+- `tools/fanout_tree` is a binary on an ODB. The flow runs OpenROAD
+  hierarchical and the tool creates its buffers in the top module
+  without module nets; every number here is a flat read. Putting it in
+  the flow means either a step between synthesis and floorplan or the
+  same algorithm as an OpenROAD command, with the hierarchy kept.
+- `structured_gen` still writes the formula liberty in the memories
+  step, where no OpenSTA runs. The characterised liberty needs the
+  generated ODB timed there, or in the generator itself, which links
+  OpenROAD.
+- The Ftq specs in `designs/asap7/xiangshan` do not have the buffer and
+  pin keys yet, nor Resolve's 4 folds.
+
+## Open
+
+- **Resolve's cone.** Everything else in Frontend is within 4.3 percent
+  of 1,000 ps at synthesis; this cone is 1,604 ps, 813 of them the
+  register file on its own gates. A chip builds a 64 by 954-bit
+  asynchronous-read file with a register-file compiler, as it builds
+  the SRAMs this flow models with FakeRAM. Modelling Resolve the same
+  way would be a choice about the model, not a fix in the tools, and
+  it is not made here.
+- **TAGE's useful-bit update** is the 1,000 to 1,100 ps band: 25 to 31
+  levels as ABC mapped them. Whether a mapping for depth takes it under
+  is a synthesis run, which this machine's disk did not have room for
+  (100 percent used during this study).
+- **`repair_design` after `remove_buffers`** stopped OpenROAD with
+  signal 11 twice in odb-debug sessions on Frontend's synthesis ODB,
+  hierarchical and flat reads. Standalone (`load.tcl`, flat, then
+  `remove_buffers` and `repair_design -pre_placement`) a build of the
+  same OpenROAD with assertions on stops after 35 minutes in
+  `repair_design` with `dbNetwork.cc:3750`, `sta::dbNetwork::staToDb(const
+  Net*)`: `!db_net || db_net->getObjectType() == dbNetObj`, a network net
+  that is not a `dbNet`. The flow's binary has no assertions and takes
+  the signal instead. A symbolised backtrace and a small reproducer are
+  next.
