@@ -104,6 +104,14 @@ archive_override(
         # pull request carries a gtest. Retires at a bump onto an OpenROAD
         # that has it.
         "//patches:0004-openroad-dpl-window-supply.patch",
+        # repair_design's early sizing round took a top-level port's net as
+        # the top module's dbModNet in a hierarchical netlist and gain
+        # buffering asserted on it (signal 11 in release builds): a port
+        # with more than max_fanout loads and a kept module, which a
+        # synthesis without ABC's buffers makes on XiangShan's Frontend.
+        # test/rsz_remove_buffers reproduces it. Not upstreamed; retires at
+        # a bump onto an OpenROAD that takes the port's flat net.
+        "//patches:0005-openroad-rsz-early-sizing-flat-port-net.patch",
     ],
     strip_prefix = "OpenROAD-6e51da991dcbe0918b4ec2aa96c11cbd1c3544d5",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/6e51da991dcbe0918b4ec2aa96c11cbd1c3544d5.tar.gz"],

@@ -1,6 +1,8 @@
 # repair_design -pre_placement after remove_buffers on a synthesis netlist
-# with a kept hierarchy and ABC's buffer chains across it: the sequence
-# that stopped OpenROAD on XiangShan's Frontend. Manual: it synthesises.
+# with a kept hierarchy and a top-level port with more than max_fanout
+# loads inside the kept module: the sequence that stopped OpenROAD on
+# XiangShan's Frontend. Manual: it synthesises.
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//:openroad.bzl", "orfs_flow", "orfs_run")
 
 [
@@ -41,3 +43,12 @@ load("//:openroad.bzl", "orfs_flow", "orfs_run")
         8192,
     ]
 ]
+
+# Passes when both calls return. Without OpenROAD patch 0005 the early
+# sizing round asserts on the top-level port valid_in's net, the top
+# module's dbModNet (signal 11 in the flow's release build).
+build_test(
+    name = "repro_test",
+    tags = ["manual"],
+    targets = [":repro_n512"],
+)

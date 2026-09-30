@@ -1,0 +1,49 @@
+From c1093d545dc0fdd7b590cfcfb3f2d68623f8fd60 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Wed, 30 Sep 2026 09:31:51 +0200
+Subject: [PATCH] rsz: early sizing takes a top-level port's flat net
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+performEarlySizingRound gets a driver's net with network->net(term) for a
+top-level port, and in a hierarchical netlist that is the top module's
+dbModNet. performGainBuffering hands it to insertBufferBeforeLoads, whose
+staToDb(const Net*) asserts the net is a dbNet (a release build dereferences
+the dbModNet as one and takes signal 11). The comment above the line already
+says the flat net is wanted; flatNet(term) is it. The trigger is a top-level
+input port with more than max_fanout loads in a design that keeps a module:
+remove_buffers then repair_design -pre_placement, or a synthesis that builds
+no buffers.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/rsz/src/RepairDesign.cc | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/src/rsz/src/RepairDesign.cc b/src/rsz/src/RepairDesign.cc
+index daff7da..a8ad9dd 100644
+--- a/src/rsz/src/RepairDesign.cc
++++ b/src/rsz/src/RepairDesign.cc
+@@ -169,10 +169,14 @@ void RepairDesign::performEarlySizingRound(int& repaired_net_count)
+                2,
+                "Processing driver {}",
+                network_->pathName(drvr_pin));
+-    // Always get the flat net for the top level port.
+-    sta::Net* net = network_->isTopLevelPort(drvr_pin)
+-                        ? network_->net(network_->term(drvr_pin))
+-                        : db_network_->dbToSta(db_network_->flatNet(drvr_pin));
++    // Always get the flat net for the top level port: in a hierarchical
++    // netlist the port's term net is the top module's dbModNet, which
++    // gain buffering cannot insert buffers on.
++    sta::Net* net
++        = network_->isTopLevelPort(drvr_pin)
++              ? db_network_->dbToSta(
++                    db_network_->flatNet(network_->term(drvr_pin)))
++              : db_network_->dbToSta(db_network_->flatNet(drvr_pin));
+     if (!net) {
+       continue;
+     }
+-- 
+2.53.0
+
