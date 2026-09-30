@@ -7,6 +7,8 @@
 #   XS_ODB       the 1_synth.odb to time, as synthesis or fanout_tree wrote it
 #   XS_SDC       the flow's 1_synth.sdc
 #   XS_SETRC     the platform's setRC.tcl
+#   XS_PARASITICS  optional: `placement` estimates placement parasitics,
+#                for a placed stage's ODB (3_place.odb and on)
 foreach f [concat [glob $::env(XS_LIBS)/asap7sc7p5t_*.lib] [glob -nocomplain $::env(XS_LIBS)/array_*.lib]] {
   read_liberty $f
 }
@@ -14,3 +16,6 @@ foreach f [glob $::env(XS_FTQ_LIBS)/Ftq*.lib] { read_liberty $f }
 read_db $::env(XS_ODB)
 read_sdc $::env(XS_SDC)
 source $::env(XS_SETRC)
+if { [info exists ::env(XS_PARASITICS)] && $::env(XS_PARASITICS) eq "placement" } {
+  estimate_parasitics -placement
+}
