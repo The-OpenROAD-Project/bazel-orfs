@@ -12,6 +12,12 @@ endpoints whose worst path needs more than 1,000 ps.
 Frontend's synthesis runs in 16 min at 11 GB on a 16-thread, 30 GB machine
 (16 partitions); a session loads it in about 60 s.
 
+ABC never had a delay target in these runs. ORFS passes the clock
+period as `abc -script <file> -D <period>`, and Yosys hands `-D` to ABC
+only through the `{D}` placeholder of its built-in and inline scripts,
+not a script file (ORFS #4585, #4586). Every ABC run here, the flow's
+and the variants', mapped with no target.
+
 ## Results
 
 | step | what | period | over 1,000 ps | over 950 ps | BUF cells |
@@ -243,10 +249,10 @@ Everything above is measured in sessions on the flow's synthesis ODB
   the SRAMs this flow models with FakeRAM. Modelling Resolve the same
   way would be a choice about the model, not a fix in the tools, and
   it is not made here.
-- **TAGE's useful-bit update** is the 1,000 to 1,100 ps band: 25 to 31
-  levels as ABC mapped them. Whether a mapping for depth takes it under
-  is a synthesis run, which this machine's disk did not have room for
-  (100 percent used during this study).
+- **TAGE's useful-bit update**, the 1,000 to 1,100 ps band at S10
+  (25 to 31 levels as ABC mapped them), is gone at S11: ABC mapping
+  without `buffer -c` and the trees built afterwards took it under
+  1,000 ps.
 - **`repair_design` after `remove_buffers`** stopped OpenROAD with
   signal 11 twice in odb-debug sessions on Frontend's synthesis ODB,
   hierarchical and flat reads. Standalone (`load.tcl`, flat, then
