@@ -1076,6 +1076,12 @@ def _structured_memories(own_sources, keep, blocks):
                 out.append(m)
     return out
 
+# Every flow maps and repairs with all three of asap7's threshold voltages,
+# RVT first as the primary. A .odb fixes its cell masters at floorplan, so
+# this is a synthesis-onward setting: set on a later stage alone it reads the
+# extra liberty and adds no masters (.claude/skills/byo-openroad).
+XS_VT = "RVT LVT SLVT"
+
 def _planned_block(cfg, entry, plan_dir, block, blocks):
     """A block flow's arguments and sources under the plan: planned outline,
     every pin on the planned side, the parent's target period."""
@@ -1095,6 +1101,7 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
     arguments["SYNTH_KEEP_MODULES"] = entry["SYNTH_KEEP_MODULES"]
     arguments["SYNTH_HIERARCHICAL"] = "0"
     arguments["OPENROAD_HIERARCHICAL"] = "1"
+    arguments["ASAP7_USE_VT"] = XS_VT
     sources = dict(cfg["sources"])
     mems = _structured_memories(cfg["sources"], entry.get("SYNTH_KEEP_MODULES", ""), blocks)
     if mems:
@@ -1160,6 +1167,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     arguments = {k: v for k, v in parent["arguments"].items() if k not in _PLAN_DROPS}
     arguments["DIE_AREA"] = plan["parent"]["DIE_AREA"]
     arguments["CORE_AREA"] = plan["parent"]["CORE_AREA"]
+    arguments["ASAP7_USE_VT"] = XS_VT
 
     # the diamond search: the negotiation legalizer ran past 5 h
     # after CTS on take 19 (ideas, entry 5). At its default 27 um

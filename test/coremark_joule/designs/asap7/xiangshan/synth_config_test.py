@@ -1,9 +1,13 @@
-"""Every flow's synthesis maps for delay: ABC's speed script, not its area one.
+"""Every flow's synthesis maps for delay, with all three threshold voltages.
 
 ABC_AREA=1 came in as a turnaround setting while the flow was being put
 together, one mapping round instead of the speed script's five, and was
 never flipped back. On Region_1 at its place stage the area script's
 netlist was 2,020 ps; the speed script's 1,624 ps, with fewer cells.
+
+ASAP7_USE_VT has to be in synthesis's configuration, not only a later
+stage's: the floorplan's .odb fixes the cell masters, so a later stage
+reads the LVT and SLVT liberty and has no cell to use it on.
 
 Arguments: <design> <1_synth.mk> per design.
 """
@@ -14,7 +18,7 @@ import unittest
 
 
 class SynthConfigTest(unittest.TestCase):
-    def test_speed_script(self):
+    def test_speed_script_and_vts(self):
         args = sys.argv[1:]
         self.assertTrue(args and len(args) % 2 == 0, "design, 1_synth.mk ...")
         for i in range(0, len(args), 2):
@@ -22,6 +26,9 @@ class SynthConfigTest(unittest.TestCase):
             with open(mk) as f:
                 v = dict(re.findall(r"^export (\w+)\?=(.*)$", f.read(), re.M))
             self.assertIn(v.get("ABC_AREA", "0"), ("0", ""), design)
+            self.assertEqual(
+                v.get("ASAP7_USE_VT", "").split(), ["RVT", "LVT", "SLVT"], design
+            )
 
 
 if __name__ == "__main__":
