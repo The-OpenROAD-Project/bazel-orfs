@@ -371,6 +371,40 @@ The whole gain at place is timing-driven placement itself: 5,118 to
 #1128. The synthesis-stage result (16,382 to 566) does not survive a
 flow that places timing-driven.
 
+## With the clock tree
+
+The two timing-driven arms that differ only in `fanout_tree` through the
+flow's CTS stage in a deployed tree (flat, patch 0005), measured the same
+way with the clock propagated through its tree (`XS_PROPAGATED_CLOCK=1`):
+
+| arm | period at place | period at CTS | over 1,000 ps at CTS |
+|---|---:|---:|---:|
+| P1t | 2,865 | 2,895 | 55,336 |
+| P2t | 2,143 | 2,213 | 57,935 |
+
+The clock tree costs 30 to 70 ps, and the order holds: trees built
+before placement keep their 24 percent on the period and still do not
+move the endpoint count. P0t through CTS and global route is the run
+bazel-orfs #1128 asks a larger machine for.
+
+## What this comes to
+
+1. **Timing-driven placement is the result.** 5,118 to 2,266 ps on the
+   flow's own netlist at place (-56 percent), at twice the place
+   stage's time; merged as bazel-orfs #1128. Everything else here is
+   measured against it.
+2. **ABC's chains do not matter once placement is timing-driven**
+   (P0t). The synthesis-stage figures stand as synthesis-stage figures
+   and do not predict the place stage.
+3. **Trees built before placement trade the bulk for the worst path.**
+   `fanout_tree` (P2t) takes the period to 2,143 ps, 5 percent under
+   P0t, with 14 percent more endpoints over 1,000 ps; the resizer's own
+   pre-placement pass (P3t) lands between them at 56 minutes of STA.
+   Neither dominates P0t, so neither goes into the flow on this data.
+4. **The resizer's crash was real and is fixed** (patch 0005, OpenROAD
+   #11590), whatever the flow does with pre-placement buffering.
+5. **One design.** None of 2 and 3 is shown for another block.
+
 ## The numbers quoted on ORFS #4586: held and changed
 
 The comment on ORFS #4586 quoted this study's synthesis-stage figures,
