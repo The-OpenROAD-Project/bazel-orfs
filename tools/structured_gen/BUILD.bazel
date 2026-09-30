@@ -8,14 +8,19 @@ package(default_visibility = ["//visibility:public"])
 cc_library(
     name = "regfile",
     srcs = [
+        "buffering.cc",
         "regfile.cc",
         "views.cc",
     ],
     hdrs = [
+        "buffering.h",
         "regfile.h",
         "views.h",
     ],
-    deps = ["@openroad//:openroad_lib"],
+    deps = [
+        "//tools/fanout_tree:fanout_tree_lib",
+        "@openroad//:openroad_lib",
+    ],
 )
 
 cc_binary(

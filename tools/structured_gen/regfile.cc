@@ -910,6 +910,26 @@ Spec ReadSpec(const std::string& path) {
     } else if (key == "bit_folds") {
       need(1);
       s.bit_folds = std::stoi(v[0]);
+    } else if (key == "buffer_cells") {
+      if (v.empty()) {
+        Refuse(path + ":" + std::to_string(lineno) + ": `buffer_cells <cell>...`");
+      }
+      s.buffering.cells = v;
+    } else if (key == "buffer_fanout") {
+      need(1);
+      s.buffering.max_fanout = std::stoi(v[0]);
+    } else if (key == "buffer_load_ff") {
+      need(1);
+      s.buffering.max_load_ff = std::stod(v[0]);
+    } else if (key == "buffer_max_wire_um") {
+      need(1);
+      s.buffering.max_wire_um = std::stod(v[0]);
+    } else if (key == "buffer_repeater_drive") {
+      need(1);
+      s.buffering.repeater_drive = std::stod(v[0]);
+    } else if (key == "buffer_root_ff_per_drive") {
+      need(1);
+      s.buffering.root_ff_per_drive = std::stod(v[0]);
     } else if (key == "lib") {
       need(2);
       double x = std::stod(v[1]);
@@ -937,7 +957,15 @@ Spec ReadSpec(const std::string& path) {
 odb::dbBlock* Generate(odb::dbDatabase* db, utl::Logger* logger,
                        const Spec& spec) {
   Builder b(db, logger, spec);
-  return b.Run();
+  dbBlock* block = b.Run();
+  if (spec.buffering.enabled()) {
+    BufferSpec bs = spec.buffering;
+    bs.input_load_ff = spec.lib.input_load_ff;
+    BufferResult r = BufferWideNets(block, bs);
+    logger->report("structured_gen: {} nets buffered with {} buffers, the farthest {:.1f} um from its target; {} repeaters",
+                   r.nets, r.buffers, r.max_displacement_um, r.repeaters);
+  }
+  return block;
 }
 
 void WriteVerilog(odb::dbBlock* block, const std::string& path) {

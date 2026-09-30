@@ -15,12 +15,14 @@
 // rebuild still reaches its original driver through buffers only.
 #pragma once
 
+#include <functional>
 #include <map>
 #include <string>
 #include <vector>
 
 namespace odb {
 class dbBlock;
+class dbInst;
 class dbITerm;
 class dbMaster;
 class dbNet;
@@ -61,7 +63,19 @@ struct Options {
   double default_pin_ff = 0.6;
   // Nets with fewer sinks than this and no buffers are left alone.
   int min_sinks = 2;
+  // A root driver of drive x (read from its master's name, INVx1: 1,
+  // INVxp33: 0.33) is given at most x times this much load; the rest
+  // goes behind buffers. 0 gives every root max_load_ff. A top port
+  // driver always gets max_load_ff.
+  double root_ff_per_drive = 0;
+  // With a placer: wire capacitance per micron of a group's
+  // half-perimeter, counted in its load.
+  double wire_ff_per_um = 0.2;
 };
+
+// The x in a cell name: BUFx12f_ASAP7_75t_R 12, INVxp33_ASAP7_75t_R 0.33,
+// 1 when there is none.
+double DriveOf(const std::string& master_name);
 
 struct Stats {
   int nets_rebuilt = 0;
@@ -93,6 +107,11 @@ class Rebuilder {
   // same driver through buffers only. Returns problems, empty if none.
   std::vector<std::string> Check() const;
   const Stats& stats() const { return stats_; }
+  // Places a new buffer as it is made, near (x, y) in dbu. Set, and with
+  // every sink of a net placed, groups are formed by position.
+  void SetPlacer(std::function<void(odb::dbInst*, int, int)> place) {
+    place_ = std::move(place);
+  }
 
  private:
   bool IsBuffer(odb::dbMaster* m) const;
@@ -106,6 +125,7 @@ class Rebuilder {
   Stats stats_;
   std::vector<Witness> witnesses_;
   long serial_ = 0;
+  std::function<void(odb::dbInst*, int, int)> place_;
 };
 
 }  // namespace fanout_tree

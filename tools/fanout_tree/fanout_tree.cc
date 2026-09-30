@@ -7,6 +7,8 @@
 #include <functional>
 #include <sstream>
 #include <stdexcept>
+#include <climits>
+#include <cstdint>
 #include <unordered_set>
 
 #include "odb/db.h"
@@ -197,6 +199,21 @@ std::string FullName(dbITerm* it) {
 
 }  // namespace
 
+double DriveOf(const std::string& name) {
+  size_t x = name.find('x');
+  while (x != std::string::npos && x + 1 < name.size() &&
+         !std::isdigit(static_cast<unsigned char>(name[x + 1])) && name[x + 1] != 'p') {
+    x = name.find('x', x + 1);
+  }
+  if (x == std::string::npos || x + 1 >= name.size()) {
+    return 1.0;
+  }
+  if (name[x + 1] == 'p') {
+    return std::max(std::atof(("0." + name.substr(x + 2)).c_str()), 0.1);
+  }
+  return std::max(std::atof(name.c_str() + x + 1), 0.1);
+}
+
 Rebuilder::Rebuilder(odb::dbBlock* block, std::vector<Buffer> buffers,
                      const PinCaps& caps, Options opt)
     : block_(block), buffers_(std::move(buffers)), caps_(caps), opt_(opt) {
@@ -295,14 +312,18 @@ void Rebuilder::RebuildNet(dbNet* root) {
   if (static_cast<int>(sinks.size()) < opt_.min_sinks) {
     return;
   }
-  if (bufs.empty() && static_cast<int>(sinks.size()) <= opt_.max_fanout) {
-    return;
+  double root_load = opt_.max_load_ff;
+  if (drv != nullptr && opt_.root_ff_per_drive > 0) {
+    root_load = std::min(root_load,
+                         DriveOf(drv->getInst()->getMaster()->getName()) *
+                             opt_.root_ff_per_drive);
   }
   double total = 0;
   for (dbITerm* s : sinks) {
     total += SinkCap(s);
   }
-  if (bufs.empty() && total <= opt_.max_load_ff) {
+  if (bufs.empty() && static_cast<int>(sinks.size()) <= opt_.max_fanout &&
+      total <= root_load) {
     return;
   }
 
@@ -326,37 +347,105 @@ void Rebuilder::RebuildNet(dbNet* root) {
   stats_.buffers_removed += static_cast<int>(bufs.size());
   stats_.max_depth_before = std::max(stats_.max_depth_before, depth_max);
 
-  // Build the new one: leaves in instance-name order, grouped by count
-  // and load, each group behind a buffer sized to it, until the root's
-  // own group fits.
+  // Build the new one, bottom-up. With a placer and every sink placed,
+  // a level's items are grouped by recursive bisection of their
+  // positions, each group's load its pins plus its half-perimeter at
+  // wire_ff_per_um, and each buffer is placed as it is made, so the
+  // level above groups real positions. Otherwise in instance-name order.
   std::sort(sinks.begin(), sinks.end(), [](dbITerm* a, dbITerm* b) {
     return a->getInst()->getName() < b->getInst()->getName();
   });
   struct Item {
     dbITerm* it;
     double cap;
+    int x = 0, y = 0;
+    bool placed = false;
+  };
+  auto locate = [](Item& i) {
+    dbInst* inst = i.it->getInst();
+    i.placed = inst->getPlacementStatus().isPlaced();
+    if (i.placed) {
+      odb::Rect b = inst->getBBox()->getBox();
+      i.x = (b.xMin() + b.xMax()) / 2;
+      i.y = (b.yMin() + b.yMax()) / 2;
+    }
   };
   std::vector<Item> level;
+  bool spatial = static_cast<bool>(place_);
   for (dbITerm* s : sinks) {
-    level.push_back(Item{s, SinkCap(s)});
+    Item i{s, SinkCap(s)};
+    locate(i);
+    spatial = spatial && i.placed;
+    level.push_back(i);
   }
+  const double um = block_->getDbUnitsPerMicron();
+  auto load_of = [&](const std::vector<Item>& v, size_t lo, size_t hi) {
+    double l = 0;
+    int x0 = INT32_MAX, x1 = INT32_MIN, y0 = INT32_MAX, y1 = INT32_MIN;
+    for (size_t k = lo; k < hi; ++k) {
+      l += v[k].cap;
+      x0 = std::min(x0, v[k].x);
+      x1 = std::max(x1, v[k].x);
+      y0 = std::min(y0, v[k].y);
+      y1 = std::max(y1, v[k].y);
+    }
+    if (spatial && hi > lo) {
+      l += ((x1 - x0) + (y1 - y0)) / um * opt_.wire_ff_per_um;
+    }
+    return l;
+  };
   int depth = 0;
   auto fits = [&](const std::vector<Item>& v) {
-    double l = 0;
-    for (const auto& i : v) {
-      l += i.cap;
-    }
-    return static_cast<int>(v.size()) <= opt_.max_fanout && l <= opt_.max_load_ff;
+    return static_cast<int>(v.size()) <= opt_.max_fanout &&
+           load_of(v, 0, v.size()) <= root_load;
   };
+  // Groups as [lo, hi) ranges of `v`, reordered in place.
+  std::function<void(std::vector<Item>&, size_t, size_t,
+                     std::vector<std::pair<size_t, size_t>>&)>
+      bisect = [&](std::vector<Item>& v, size_t lo, size_t hi,
+                   std::vector<std::pair<size_t, size_t>>& out) {
+        if (hi - lo <= 1 || (static_cast<int>(hi - lo) <= opt_.max_fanout &&
+                             load_of(v, lo, hi) <= opt_.max_load_ff)) {
+          out.emplace_back(lo, hi);
+          return;
+        }
+        int x0 = INT32_MAX, x1 = INT32_MIN, y0 = INT32_MAX, y1 = INT32_MIN;
+        for (size_t k = lo; k < hi; ++k) {
+          x0 = std::min(x0, v[k].x);
+          x1 = std::max(x1, v[k].x);
+          y0 = std::min(y0, v[k].y);
+          y1 = std::max(y1, v[k].y);
+        }
+        const bool by_x = (x1 - x0) >= (y1 - y0);
+        size_t mid = lo + (hi - lo) / 2;
+        std::nth_element(v.begin() + lo, v.begin() + mid, v.begin() + hi,
+                         [&](const Item& a, const Item& b) {
+                           return by_x ? a.x < b.x : a.y < b.y;
+                         });
+        bisect(v, lo, mid, out);
+        bisect(v, mid, hi, out);
+      };
   while (!fits(level)) {
-    std::vector<Item> next;
-    std::vector<Item> group;
-    double load = 0;
-    auto flush = [&]() {
-      if (group.empty()) {
-        return;
+    std::vector<std::pair<size_t, size_t>> groups;
+    if (spatial) {
+      bisect(level, 0, level.size(), groups);
+    } else {
+      size_t lo = 0;
+      double load = 0;
+      for (size_t k = 0; k < level.size(); ++k) {
+        if (k > lo && (static_cast<int>(k - lo) >= opt_.max_fanout ||
+                       load + level[k].cap > opt_.max_load_ff)) {
+          groups.emplace_back(lo, k);
+          lo = k;
+          load = 0;
+        }
+        load += level[k].cap;
       }
-      const Buffer& b = Pick(load);
+      groups.emplace_back(lo, level.size());
+    }
+    std::vector<Item> next;
+    for (auto [lo, hi] : groups) {
+      const Buffer& b = Pick(load_of(level, lo, hi));
       const std::string id = std::to_string(serial_++);
       dbNet* n = dbNet::create(block_, ("fot_n" + id).c_str());
       dbInst* inst = dbInst::create(block_, b.master, ("fot_b" + id).c_str());
@@ -364,24 +453,22 @@ void Rebuilder::RebuildNet(dbNet* root) {
         throw std::runtime_error("fanout_tree: name clash on fot_" + id);
       }
       inst->findITerm(b.out.c_str())->connect(n);
-      for (const auto& g : group) {
-        g.it->connect(n);
+      long sx = 0, sy = 0;
+      for (size_t k = lo; k < hi; ++k) {
+        level[k].it->connect(n);
+        sx += level[k].x;
+        sy += level[k].y;
       }
-      dbITerm* in = inst->findITerm(b.in.c_str());
-      next.push_back(Item{in, caps_.Get(b.master->getName(), b.in, 1.0)});
+      Item up{inst->findITerm(b.in.c_str()), caps_.Get(b.master->getName(), b.in, 1.0)};
+      if (spatial) {
+        place_(inst, static_cast<int>(sx / static_cast<long>(hi - lo)),
+               static_cast<int>(sy / static_cast<long>(hi - lo)));
+        locate(up);
+        spatial = up.placed;
+      }
+      next.push_back(up);
       ++stats_.buffers_added;
-      group.clear();
-      load = 0;
-    };
-    for (const auto& i : level) {
-      if (!group.empty() && (static_cast<int>(group.size()) >= opt_.max_fanout ||
-                             load + i.cap > opt_.max_load_ff)) {
-        flush();
-      }
-      group.push_back(i);
-      load += i.cap;
     }
-    flush();
     ++depth;
     if (next.size() >= level.size()) {
       // Every group is a single pin over the load limit; buffering again
@@ -390,6 +477,34 @@ void Rebuilder::RebuildNet(dbNet* root) {
       break;
     }
     level = next;
+  }
+  // The buffers the root drives go beside it, not among their sinks: the
+  // long wire is then driven by a buffer sized for it (its load counts
+  // the half-perimeter) rather than by the root, which may be an x1
+  // inverter or a port.
+  if (spatial && depth > 0) {
+    int dx = 0, dy = 0;
+    bool have = false;
+    if (drv != nullptr && drv->getInst()->getPlacementStatus().isPlaced()) {
+      odb::Rect b = drv->getInst()->getBBox()->getBox();
+      dx = (b.xMin() + b.xMax()) / 2;
+      dy = (b.yMin() + b.yMax()) / 2;
+      have = true;
+    } else if (drv_bt != nullptr) {
+      for (odb::dbBPin* bp : drv_bt->getBPins()) {
+        odb::Rect b = bp->getBBox();
+        dx = (b.xMin() + b.xMax()) / 2;
+        dy = (b.yMin() + b.yMax()) / 2;
+        have = true;
+      }
+    }
+    if (have) {
+      for (const auto& i : level) {
+        if (i.it->getInst()->getName().rfind("fot_b", 0) == 0) {
+          place_(i.it->getInst(), dx, dy);
+        }
+      }
+    }
   }
   for (const auto& i : level) {
     i.it->connect(root);

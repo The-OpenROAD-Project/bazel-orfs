@@ -17,14 +17,9 @@ void Usage() {
   std::cerr << "usage: fanout_tree --odb IN.odb --out OUT.odb"
                " --liberty FILE [--liberty FILE ...]"
                " --buffers CELL[,CELL...] [--max-fanout N] [--max-load-ff F]"
-               " [--ff-per-drive F] [--net NAME ...]\n"
+               " [--ff-per-drive F] [--root-ff-per-drive F] [--net NAME ...]\n"
                "Liberty files are read uncompressed. A buffer's drive is the"
                " number after `x` in its name (BUFx12f_ASAP7_75t_R: 12).\n";
-}
-
-double DriveOf(const std::string& name) {
-  size_t x = name.find('x');
-  return x == std::string::npos ? 1.0 : std::max(std::atof(name.c_str() + x + 1), 1.0);
 }
 
 }  // namespace
@@ -62,6 +57,8 @@ int main(int argc, char** argv) {
       opt.max_load_ff = std::atof(val().c_str());
     } else if (a == "--ff-per-drive") {
       opt.ff_per_drive = std::atof(val().c_str());
+    } else if (a == "--root-ff-per-drive") {
+      opt.root_ff_per_drive = std::atof(val().c_str());
     } else if (a == "--net") {
       nets.push_back(val());
     } else {
@@ -100,7 +97,7 @@ int main(int argc, char** argv) {
       }
       fanout_tree::Buffer b;
       b.master = m;
-      b.drive = DriveOf(n);
+      b.drive = fanout_tree::DriveOf(n);
       buffers.push_back(b);
     }
     fanout_tree::Rebuilder rb(block, buffers, caps, opt);

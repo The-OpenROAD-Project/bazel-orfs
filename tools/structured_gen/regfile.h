@@ -14,6 +14,8 @@
 #include <string>
 #include <vector>
 
+#include "buffering.h"
+
 namespace odb {
 class dbDatabase;
 class dbBlock;
@@ -94,6 +96,12 @@ struct Spec {
   // short when the folds do not divide. Banks fold words; this folds bits.
   int bit_folds = 1;
   LibModel lib;
+  // Buffer trees for the wide nets (buffering.h), from `buffer_cells`,
+  // `buffer_fanout`, `buffer_load_ff`, `buffer_root_ff_per_drive`,
+  // `buffer_max_wire_um` and `buffer_repeater_drive`.
+  // No `buffer_cells`, no buffering: every address literal, select,
+  // write data bit and enable then drives all its pins itself.
+  BufferSpec buffering;
   // Pins: left and right edges on the horizontal layer, top and bottom on
   // the vertical one, centred on that layer's track grid as the platform
   // makes it, so a parent's macro placer can align them.

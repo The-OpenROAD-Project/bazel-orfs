@@ -297,6 +297,76 @@ int main(int argc, char** argv) {
     CHECK(refused);
   }
 
+  // Buffer trees by construction: 32 words, every wide net rebuilt to at
+  // most 4 pins per driver and every new buffer placed FIRM on a free
+  // site, no overlap, nothing outside the die. The clock is left to CTS.
+  {
+    std::string bspec = dir + "/rfb.spec";
+    {
+      std::ofstream f(bspec);
+      f << "module rfb\nwords 32\nbits 4\nclock clock\n"
+           "read io_readPorts_0_addr io_readPorts_0_data\n"
+           "write io_writePorts_0_addr io_writePorts_0_data io_writePorts_0_wen\n"
+           "cell flop DFFHQNx1_ASAP7_75t_R\ncell and2 AND2x2_ASAP7_75t_R\n"
+           "cell or2 OR2x2_ASAP7_75t_R\ncell ao22 AO22x2_ASAP7_75t_R\n"
+           "cell inv INVx1_ASAP7_75t_R\ncell tap TAPCELL_ASAP7_75t_R\n"
+           "pin_layer M4\ntap_columns 2\n"
+           "buffer_cells BUFx2_ASAP7_75t_R BUFx4_ASAP7_75t_R BUFx8_ASAP7_75t_R\n"
+           "buffer_fanout 4\nbuffer_max_wire_um 3\n";
+    }
+    odb::dbDatabase* db5 = odb::dbDatabase::create();
+    db5->setLogger(&logger);
+    odb::lefin reader5(db5, &logger, false);
+    odb::dbTech* tech5 = reader5.createTech("asap7", tech_lef.c_str());
+    CHECK(reader5.createLib(tech5, "asap7sc7p5t", cell_lef.c_str()) != nullptr);
+    odb::dbBlock* bblock =
+        structured_gen::Generate(db5, &logger, structured_gen::ReadSpec(bspec));
+    CHECK(bblock != nullptr);
+    int bufs = 0;
+    std::map<int, std::vector<std::pair<int, int>>> rows;
+    odb::Rect bdie = bblock->getDieArea();
+    for (odb::dbInst* inst : bblock->getInsts()) {
+      CHECK(inst->getPlacementStatus() == odb::dbPlacementStatus::FIRM);
+      odb::Rect box = inst->getBBox()->getBox();
+      CHECK(bdie.contains(box));
+      bufs += inst->getMaster()->getName().rfind("BUFx", 0) == 0 ? 1 : 0;
+      rows[box.yMin()].emplace_back(box.xMin(), box.xMax());
+    }
+    CHECK(bufs > 0);
+    for (auto& [y, spans] : rows) {
+      std::sort(spans.begin(), spans.end());
+      for (size_t i = 1; i < spans.size(); ++i) {
+        CHECK(spans[i].first >= spans[i - 1].second);
+      }
+    }
+    for (odb::dbNet* n : bblock->getNets()) {
+      if (n->getSigType() != odb::dbSigType::SIGNAL || n->getName() == "clock") {
+        continue;
+      }
+      int loads = 0;
+      for (odb::dbITerm* it : n->getITerms()) {
+        loads += it->getIoType() == odb::dbIoType::INPUT ? 1 : 0;
+      }
+      CHECK(loads <= 4);
+    }
+    // Repeaters went in, and every port still has its net with one
+    // driver: an output port driven by one cell, an input port by itself.
+    int reps = 0;
+    for (odb::dbInst* inst : bblock->getInsts()) {
+      reps += inst->getName().rfind("rep_b", 0) == 0 ? 1 : 0;
+    }
+    CHECK(reps > 0);
+    for (odb::dbBTerm* t : bblock->getBTerms()) {
+      odb::dbNet* n = t->getNet();
+      CHECK(n != nullptr);
+      int drivers = 0;
+      for (odb::dbITerm* it : n->getITerms()) {
+        drivers += it->getIoType() == odb::dbIoType::OUTPUT ? 1 : 0;
+      }
+      CHECK(drivers == (t->getIoType() == odb::dbIoType::OUTPUT ? 1 : 0));
+    }
+  }
+
   std::string odb_path = dir + "/rf8x4.odb";
   {
     std::ofstream out(odb_path, std::ios::binary);
