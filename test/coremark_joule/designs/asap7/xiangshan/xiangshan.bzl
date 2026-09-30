@@ -49,6 +49,9 @@ XS_PARENT = {
         "MACRO_PLACE_HALO": "2 2",
         "OPENROAD_HIERARCHICAL": "1",
         "PLACE_DENSITY": "0.65",
+        # the study stops at global route: no detailed route to protect, and
+        # the check's wire for every net sets the stage's peak memory
+        "SKIP_ANTENNA_REPAIR": "1",
         "SKIP_CTS_REPAIR_TIMING": "1",
         "SKIP_EXTRACT_FA": "1",
         "SKIP_INCREMENTAL_REPAIR": "1",
