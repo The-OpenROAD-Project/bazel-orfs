@@ -185,6 +185,13 @@ ORFS_PATCHES = [
     # to travel from one a fraction past a row's edge. Not upstreamed;
     # retires at a bump onto an ORFS that carries the check.
     Label("//patches:0086-orfs-gpl-stranded-cells.patch"),
+    # variables.mk expanded `$(shell command -v ...)` defaults lazily, so
+    # every shell make started re-ran them -- ~28k shells for one
+    # `make clean_all`, down to 41 with this. It requires the caller to
+    # set PYTHON_EXE, OPENROAD_EXE, OPENSTA_EXE and YOSYS_EXE, which
+    # bazel-orfs does. ORFS #4589, carried as-is to see what it breaks;
+    # retires at a bump onto an ORFS that contains it.
+    Label("//patches:0087-orfs-immediate-expand-deferred-vars.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
