@@ -1,0 +1,230 @@
+From b044ce7f491977a44bd13f17774cc5343178d471 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Wed, 30 Sep 2026 20:11:25 +0200
+Subject: [PATCH] grt: global_route -cleanup releases the router's working
+ state
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The router keeps its grid, nets and trees after global_route returns,
+since incremental routing, antenna repair and the congestion heatmap
+reuse them; it cannot know that a script is done routing. global_route
+-cleanup lets the script say so: it releases that state and returns
+without routing. The routes are kept, so writing guides and estimating
+parasitics from them work as before, and the next global_route builds
+the state again. -cleanup takes no other options.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/grt/README.md                     |  2 ++
+ src/grt/include/grt/GlobalRouter.h    |  3 ++
+ src/grt/src/GlobalRouter.cpp          |  9 ++++++
+ src/grt/src/GlobalRouter.i            |  6 ++++
+ src/grt/src/GlobalRouter.tcl          | 13 ++++++--
+ src/grt/test/BUILD                    |  1 +
+ src/grt/test/CMakeLists.txt           |  1 +
+ src/grt/test/global_route_cleanup.ok  |  8 +++++
+ src/grt/test/global_route_cleanup.tcl | 46 +++++++++++++++++++++++++++
+ 9 files changed, 87 insertions(+), 2 deletions(-)
+ create mode 100644 src/grt/test/global_route_cleanup.ok
+ create mode 100644 src/grt/test/global_route_cleanup.tcl
+
+diff --git a/src/grt/README.md b/src/grt/README.md
+index c618582a44..b546d13edb 100644
+--- a/src/grt/README.md
++++ b/src/grt/README.md
+@@ -34,6 +34,7 @@ global_route
+     [-resistance_aware]
+     [-res_aware_nets_percentage percent]
+     [-infinite_cap]
++    [-cleanup]
+ ```
+ 
+ #### Options
+@@ -55,6 +56,7 @@ global_route
+ | `-resistance_aware` | This flag enables resistance-aware layer assignment and 3D routing. NOTE: this is not ready for production. |
+ | `-res_aware_nets_percentage` | Set the percentage of resistance-aware nets (e.g. `-res_aware_nets_percentage 100` (for 100%)). The default value is `15` with resistance-aware enabled and `0` otherwise, and the allowed values are floats between `[0, 100]`. |
+ | `-infinite_cap` | Enables "infinite" gcell capacity for testing purpose. NOTE: this is not recommended for production flows. |
++| `-cleanup` | Release the router's working state (its grid, nets and trees) when the script is done routing; nothing is routed. The routes are kept, so writing guides and estimating parasitics from them work as before. Incremental routing, antenna repair and the congestion heatmap need the state; the next `global_route` builds it again. |
+ | `-snapshot_batched_width` | Set the semantic width of snapshot-batched routing (max batches per wave). The default is `0`, preserving the non-batched behavior. Set a positive integer to enable batched routing; allowed values are integers `[1, MAX_INT]`. Execution width still follows `set_thread_count`. NOTE: this is not recommended for production flows; it is intended for exploration and research projects. |
+ 
+ ### Set Routing Layers
+diff --git a/src/grt/include/grt/GlobalRouter.h b/src/grt/include/grt/GlobalRouter.h
+index 9dd699186e..3bc765e742 100644
+--- a/src/grt/include/grt/GlobalRouter.h
++++ b/src/grt/include/grt/GlobalRouter.h
+@@ -131,6 +131,9 @@ class GlobalRouter
+                    routing_congestion_data_source_rudy);
+ 
+   void clear();
++  // Frees the router's working state (grid, nets, trees), keeping the
++  // routes, the nets' pins and the grid positions the parasitics read.
++  void releaseRouterState();
+ 
+   void setAdjustment(float adjustment);
+   void setMinRoutingLayer(int min_layer);
+diff --git a/src/grt/src/GlobalRouter.cpp b/src/grt/src/GlobalRouter.cpp
+index 776db31256..80799679e6 100644
+--- a/src/grt/src/GlobalRouter.cpp
++++ b/src/grt/src/GlobalRouter.cpp
+@@ -166,6 +166,15 @@ void GlobalRouter::clear()
+   congestion_accepted_ = false;
+ }
+ 
++void GlobalRouter::releaseRouterState()
++{
++  if (use_cugr_) {
++    cugr_->clear();
++  } else {
++    fastroute_->clear();
++  }
++}
++
+ GlobalRouter::~GlobalRouter()
+ {
+   delete fastroute_;
+diff --git a/src/grt/src/GlobalRouter.i b/src/grt/src/GlobalRouter.i
+index 8fc146a7e0..5e0a87cd98 100644
+--- a/src/grt/src/GlobalRouter.i
++++ b/src/grt/src/GlobalRouter.i
+@@ -313,6 +313,12 @@ void report_net_wire_length(odb::dbNet* net,
+       net, global_route, detailed_route, verbose, file_name);
+ }
+ 
++void
++release_router_state()
++{
++  getGlobalRouter()->releaseRouterState();
++}
++
+ void
+ clear_route_guides()
+ {
+diff --git a/src/grt/src/GlobalRouter.tcl b/src/grt/src/GlobalRouter.tcl
+index 8094673b8e..43b572cc88 100644
+--- a/src/grt/src/GlobalRouter.tcl
++++ b/src/grt/src/GlobalRouter.tcl
+@@ -155,7 +155,8 @@ sta::define_cmd_args "global_route" {[-guide_file out_file] \
+                                   [-end_incremental] \
+                                   [-use_cugr] \
+                                   [-resistance_aware] \
+-                                  [-infinite_cap]
++                                  [-infinite_cap] \
++                                  [-cleanup]
+ }
+ 
+ proc global_route { args } {
+@@ -166,10 +167,18 @@ proc global_route { args } {
+           -skip_large_fanout_nets -snapshot_batched_width
+          } \
+     flags {-allow_congestion -resistance_aware -infinite_cap -verbose -start_incremental \
+-          -end_incremental -use_cugr}
++          -end_incremental -use_cugr -cleanup}
+ 
+   sta::check_argc_eq0 "global_route" $args
+ 
++  if { [info exists flags(-cleanup)] } {
++    if { [array size keys] > 0 || [array size flags] > 1 } {
++      utl::error GRT 713 "-cleanup takes no other options."
++    }
++    grt::release_router_state
++    return
++  }
++
+   if { ![ord::db_has_tech] } {
+     utl::error GRT 51 "Missing dbTech."
+   }
+diff --git a/src/grt/test/BUILD b/src/grt/test/BUILD
+index a06fb2fcb4..cc326876b2 100644
+--- a/src/grt/test/BUILD
++++ b/src/grt/test/BUILD
+@@ -82,6 +82,7 @@ TESTS = [
+     "read_segments_error5",
+     "read_segments_error6",
+     "region_adjustment",
++    "global_route_cleanup",
+     "remove_buffers1",
+     "remove_buffers2",
+     "remove_buffers1_cugr",
+diff --git a/src/grt/test/CMakeLists.txt b/src/grt/test/CMakeLists.txt
+index 9fa6dd5714..417470f8a3 100644
+--- a/src/grt/test/CMakeLists.txt
++++ b/src/grt/test/CMakeLists.txt
+@@ -78,6 +78,7 @@ or_integration_tests(
+     read_segments_error5
+     read_segments_error6
+     region_adjustment
++    global_route_cleanup
+     remove_buffers1
+     remove_buffers2
+     remove_buffers1_cugr
+diff --git a/src/grt/test/global_route_cleanup.ok b/src/grt/test/global_route_cleanup.ok
+new file mode 100644
+index 0000000000..7b5335f3a5
+--- /dev/null
++++ b/src/grt/test/global_route_cleanup.ok
+@@ -0,0 +1,8 @@
++[INFO ODB-0227] LEF file: Nangate45/Nangate45.lef, created 22 layers, 27 vias, 135 library cells
++[INFO ODB-0128] Design: gcd
++[INFO ODB-0130]     Created 54 pins.
++[INFO ODB-0131]     Created 676 components and 2850 component-terminals.
++[INFO ODB-0133]     Created 579 nets and 1498 connections.
++guides after cleanup: identical
++parasitics after cleanup: identical
++routing again after cleanup: identical
+diff --git a/src/grt/test/global_route_cleanup.tcl b/src/grt/test/global_route_cleanup.tcl
+new file mode 100644
+index 0000000000..8dd0c742c3
+--- /dev/null
++++ b/src/grt/test/global_route_cleanup.tcl
+@@ -0,0 +1,46 @@
++# global_route -cleanup releases the router's working state; the routes, and
++# the parasitics estimated from them, are unchanged, and routing again works.
++source "helpers.tcl"
++read_lef "Nangate45/Nangate45.lef"
++read_liberty Nangate45/Nangate45_typ.lib
++read_def "gcd.def"
++
++set_routing_layers -signal metal2-metal10
++
++global_route
++estimate_parasitics -global_routing
++
++proc net_report { } {
++  set out ""
++  foreach net {clk resp_msg[0] req_msg[15]} {
++    utl::redirectStringBegin
++    report_net -digits 3 $net
++    append out [utl::redirectStringEnd]
++  }
++  return $out
++}
++
++set guides_before [make_result_file global_route_cleanup_before.guide]
++write_guides $guides_before
++set rc_before [net_report]
++
++global_route -cleanup
++
++set guides_after [make_result_file global_route_cleanup_after.guide]
++write_guides $guides_after
++estimate_parasitics -global_routing
++set rc_after [net_report]
++
++proc read_file { f } {
++  set fp [open $f r]
++  set t [read $fp]
++  close $fp
++  return $t
++}
++puts "guides after cleanup: [expr { [read_file $guides_before] eq [read_file $guides_after] ? "identical" : "differ" }]"
++puts "parasitics after cleanup: [expr { $rc_before eq $rc_after ? "identical" : "differ" }]"
++
++global_route
++set guides_again [make_result_file global_route_cleanup_again.guide]
++write_guides $guides_again
++puts "routing again after cleanup: [expr { [read_file $guides_before] eq [read_file $guides_again] ? "identical" : "differ" }]"
+-- 
+2.53.0
+

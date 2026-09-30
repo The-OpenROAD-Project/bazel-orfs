@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Wed, 30 Sep 2026 20:11:45 +0200
+Subject: [PATCH] grt: release the router's working state before the final
+ parasitics
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+After antenna repair nothing in global_route.tcl routes: the final
+estimate_parasitics reads only the routes, and write_guides the guides.
+global_route -cleanup (bazel-orfs OpenROAD patch 0010) releases the
+router's grid, nets and trees there, unless a POST GLOBAL_ROUTE step is
+configured, which may route. On XiangShan's XSTile (3.8 M nets) the
+stage's peak goes from 108.5 to 104.7 GiB, the resident set drops by
+13.4 GiB at the call, and the ODB is byte-identical.
+
+Not upstreamed. Needs OpenROAD's global_route -cleanup; retires at a
+bump onto an ORFS and an OpenROAD that have both.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/global_route.tcl | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
+index 153c1b3..39a52be 100644
+--- a/flow/scripts/global_route.tcl
++++ b/flow/scripts/global_route.tcl
+@@ -181,6 +181,11 @@ proc global_route_helper { } {
+     check_antennas -report_file $::env(REPORTS_DIR)/grt_antennas.log
+   }
+ 
++  # Nothing below routes, unless a POST GLOBAL_ROUTE step does: release the
++  # router's working state before the parasitics, which read only the routes.
++  if { ![env_var_exists_and_non_empty POST_GLOBAL_ROUTE_TCL] } {
++    log_cmd global_route -cleanup
++  }
+   puts "Estimate parasitics..."
+   log_cmd estimate_parasitics -global_routing
+ 
+-- 
+2.53.0
+

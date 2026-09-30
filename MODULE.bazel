@@ -104,6 +104,13 @@ archive_override(
         # pull request carries a gtest. Retires at a bump onto an OpenROAD
         # that has it.
         "//patches:0004-openroad-dpl-window-supply.patch",
+        # global_route -cleanup: the script tells the router it is done
+        # routing, and the router releases its grid, nets and trees, keeping
+        # the routes the parasitics read. ORFS patch 0088 calls it before
+        # global route's final parasitics: -3.8 GiB of the stage's peak on
+        # XSTile, byte-identical ODB. Not upstreamed. Retires at a bump onto
+        # an OpenROAD that has it.
+        "//patches:0010-openroad-grt-cleanup.patch",
     ],
     strip_prefix = "OpenROAD-6e51da991dcbe0918b4ec2aa96c11cbd1c3544d5",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/6e51da991dcbe0918b4ec2aa96c11cbd1c3544d5.tar.gz"],

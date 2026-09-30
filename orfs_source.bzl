@@ -185,6 +185,12 @@ ORFS_PATCHES = [
     # to travel from one a fraction past a row's edge. Not upstreamed;
     # retires at a bump onto an ORFS that carries the check.
     Label("//patches:0086-orfs-gpl-stranded-cells.patch"),
+    # Release the global router's working state before the final parasitics
+    # (global_route -cleanup, OpenROAD patch 0010), unless a POST
+    # GLOBAL_ROUTE step is configured, which may route: -3.8 GiB of the
+    # stage's peak on XSTile, byte-identical ODB. Not upstreamed; retires
+    # at a bump onto an ORFS and an OpenROAD that have both.
+    Label("//patches:0088-orfs-grt-cleanup.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
