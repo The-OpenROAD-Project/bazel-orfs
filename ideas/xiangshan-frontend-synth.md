@@ -318,6 +318,8 @@ by about 450 ps); the same harness with `XS_PARASITICS=placement`.
 |---|---|---:|---:|---:|---:|
 | P0 | the flow as it runs today | 5,118 | 69,636 | 71,867 | 170,915 |
 | P1 | ABC's speed script without `buffer -c` (`Frontend_abc_nobuf_place`) | 4,616 | 87,795 | 90,514 | 66,922 |
+| P1f | P1's netlist through a deployed floorplan and place tree, flat (`OPENROAD_HIERARCHICAL=0`), OpenROAD with patch 0005 | 4,616 | 87,795 | 90,514 | 66,922 |
+| **P2** | P1f with `fanout_tree`'s netlist (S11) swapped in before floorplan | **3,139** | **55,364** | **60,208** | 77,170 |
 
 P0 reproduces the README's 5,118 ps. Its worst path is a CSR enable
 (`csrCtrl_delay.io_out_mbtbEnable`) broadcast to TAGE's SRAMs through
@@ -328,3 +330,18 @@ and 93 fF. Without ABC's chains the place stage's `repair_design` builds
 chains of its own: the synthesis-stage gain does not survive placement
 on the endpoint count (87,795 against 69,636), and the period improves
 by 10 percent.
+
+P1f reproduces P1 exactly, so the deployed flat tree stands in for the
+flow and P2 differs from it only in the netlist. **Trees built before
+floorplan survive placement**: P2 is 39 percent faster than P0 (3,139
+against 5,118 ps) with 20 percent fewer endpoints over 1,000 ps. Its
+worst path is TAGE's `s2_readResp` into an SC SRAM: 21 buffers 1,262
+ps, 31 logic cells 1,763 ps; the largest stage is a NAND2x1, not a
+buffer. The place stage's own `repair_design` builds worse trees than
+the ones handed to it (P1 against P2).
+
+With patch 0005, `repair_design -pre_placement` on P1's netlist
+completes (3,344 s): 1,548 ps, 643 endpoints over 1,000 ps and 1,648 over
+950 at synthesis, against `fanout_tree`'s 566 and 925 in 30 s. OpenROAD's
+own gain buffering, run before placement, is close to `fanout_tree` in
+quality and 110 times slower.
