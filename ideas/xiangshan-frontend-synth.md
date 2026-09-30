@@ -28,6 +28,7 @@ Frontend's synthesis runs in 16 min at 11 GB on a 16-thread, 30 GB machine
 | S8 | S7, trees of up to 32 pins and 48 fF (the SDC's own `set_max_fanout 32`) | 1,602 | 3,451 | 6,215 | 41,264 |
 | S9 | S8, every driver upsized in its family | 1,608 | 2,980 | 6,087 | 41,264 |
 | S9c | S9, and a driver no family member can make strong enough gets its load behind a buffer beyond 8 fF per unit of drive | 1,606 | 2,761 | 5,740 | 44,969 |
+| S10 | S9, weak drivers held to 5 fF per unit of drive (16,360 nets) | 1,604 | 2,443 | 5,608 | 56,739 |
 
 Trees of 24 pins and 36 fF land at 3,473; 32 pins with 64 fF instead of
 48 changes nothing, the pin limit binds. Holding weak drivers to 2.5 fF
@@ -40,9 +41,23 @@ moves and about 50 minutes, 80,864 endpoints still violating, and was
 stopped at its one-hour cap: at this size and this far from closure it
 is not the tool for synthesis.
 
-## Where it is at S9c
+## Where it is at S10
 
-Of the 2,761 endpoints over 1,000 ps, most end in TAGE: its useful-bit
+| | |
+|---|---:|
+| `reg2reg` minimum period | 1,604 ps |
+| the worst period not through `FtqMetaQueueResolve` | **1,043 ps** |
+| the worst period through no macro at all | 1,023 ps |
+| endpoints over 1,000 ps | 2,443: 2,007 of them under 1,100 ps |
+| endpoints over 1,100 ps | 436, every one through `FtqMetaQueueResolve` |
+
+Everything but one cone is within 4.3 percent of 1,000 ps at synthesis.
+That cone is the Ftq's training read: 26 logic cells from the BPU's
+`s2_hits` into the read address of a 64 by 954-bit register file with an
+asynchronous read, and the file's own 813 ps.
+
+
+At S9c, of the 2,761 endpoints over 1,000 ps, most end in TAGE: its useful-bit
 update, `s2_hits` through the provider choice into the useful counters'
 write buffers and SRAMs. On the worst of them with no macro on the path,
 at S8: 31 logic cells 727 ps, 9 buffers 246 ps, clock-to-output 58 ps,
