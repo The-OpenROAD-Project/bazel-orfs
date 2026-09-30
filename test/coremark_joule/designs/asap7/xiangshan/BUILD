@@ -4,10 +4,7 @@ load("//test/coremark_joule/flow:power.bzl", "census_probe", "grt_netlist", "hie
 load(":plan/plan.bzl", "PLAN")
 load(":xiangshan.bzl", "xiangshan_flow")
 
-exports_files([
-    "constraints.sdc",
-    "constraints_473ps.sdc",
-])
+exports_files(["constraints.sdc"])
 
 # The SDC period is XiangShan's 333 ps on 7 nm in fanouts of four, on the
 # library the flow times with, ORFS's default asap7 corner FF, in each Vt
@@ -19,7 +16,7 @@ py_test(
         "period_fo4_test.py",
     ],
     args = [
-        "$(rootpath :constraints_473ps.sdc)",
+        "$(rootpath :constraints.sdc)",
         "R",
         "$(rootpath @orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz)",
         "INVx1_ASAP7_75t_R",
@@ -31,7 +28,7 @@ py_test(
         "INVx1_ASAP7_75t_SL",
     ],
     data = [
-        ":constraints_473ps.sdc",
+        ":constraints.sdc",
         "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_LVT_FF_nldm_220122.lib.gz",
         "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz",
         "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_SLVT_FF_nldm_220122.lib.gz",

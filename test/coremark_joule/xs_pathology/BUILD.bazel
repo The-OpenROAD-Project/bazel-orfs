@@ -67,7 +67,7 @@ orfs_flow(
     name = "MainBtb",
     arguments = FRONTEND_ARGUMENTS | {"CORE_UTILIZATION": "40"},
     last_stage = "place",
-    sources = {"SDC_FILE": [XS + ":constraints_473ps.sdc"]},
+    sources = {"SDC_FILE": [XS + ":constraints.sdc"]},
     substeps = True,
     tags = ["manual"],
     user_arguments = {
@@ -99,7 +99,7 @@ ARMS = {
         name = "MainBtb",
         arguments = FRONTEND_ARGUMENTS | {"CORE_UTILIZATION": "40"} | extra,
         last_stage = "place",
-        sources = {"SDC_FILE": [XS + ":constraints_473ps.sdc"]},
+        sources = {"SDC_FILE": [XS + ":constraints.sdc"]},
         tags = ["manual"],
         user_arguments = {
             "SYNTH_POST_HIERARCHY_SCRIPTS": "test/coremark_joule/designs/asap7/xiangshan/xs_icg.ys",
