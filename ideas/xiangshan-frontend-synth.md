@@ -323,7 +323,8 @@ by about 450 ps); the same harness with `XS_PARASITICS=placement`.
 | **P2** | P1f with `fanout_tree`'s netlist (S11) swapped in before floorplan | **3,139** | **55,364** | **60,208** | 77,170 |
 | P1t | P1f with timing- and routability-driven global placement (`GPL_TIMING_DRIVEN=1 GPL_ROUTABILITY_DRIVEN=1`, ORFS's defaults), 54 min | 2,865 | 55,301 | 59,408 | 364,355 |
 | P2t | P2 with the same placement, 57 min | 2,143 | 57,368 | 65,179 | 356,182 |
-| P3t | P1's netlist through OpenROAD's own `repair_design -pre_placement` (patch 0005, 3,334 s) before floorplan, then the same placement, 67 min | 2,395 | **52,050** | 54,624 | 316,585 |
+| P3t | P1's netlist through OpenROAD's own `repair_design -pre_placement` (patch 0005, 3,334 s) before floorplan, then the same placement, 67 min | 2,395 | 52,050 | 54,624 | 316,585 |
+| **P0t** | P0's netlist (the flow's own synthesis, ABC's chains) with the same placement, 56 min | **2,266** | **50,514** | **52,108** | 326,690 |
 
 P0 reproduces the README's 5,118 ps. Its worst path is a CSR enable
 (`csrCtrl_delay.io_out_mbtbEnable`) broadcast to TAGE's SRAMs through
@@ -359,9 +360,35 @@ OpenROAD's own pre-placement trees do the same job (P3t): with patch
 endpoints over 1,000 ps of any arm (52,050) and a period between the
 two (2,395 ps); `fanout_tree` is better on the worst path, the resizer on
 the bulk, and the resizer's pass costs 56 minutes against 30 seconds.
-The OpenROAD-idiomatic change is running the resizer before placement,
-not a new tool. What remains open is P0t, today's netlist with ABC's
-chains under timing-driven placement.
+**P0t settles it: under timing-driven placement ABC's chains do not
+matter.** Today's netlist, with ABC's `buffer -c` chains, placed
+timing-driven, is 2,266 ps with 50,514 endpoints over 1,000 ps: the
+fewest of any arm, and the period within 6 percent of the best
+(`fanout_tree`'s 2,143). Dropping `buffer -c` makes it worse (P1t), and
+the trees built before placement only recover part of that (P2t, P3t).
+The whole gain at place is timing-driven placement itself: 5,118 to
+2,266 ps (-56 percent) on the flow's own netlist, merged as bazel-orfs
+#1128. The synthesis-stage result (16,382 to 566) does not survive a
+flow that places timing-driven.
+
+## The numbers quoted on ORFS #4586: held and changed
+
+The comment on ORFS #4586 quoted this study's synthesis-stage figures,
+with the caveat that placement was not measured yet. Measured now:
+
+- **Held**: `buffer -c` builds chains 18 deep at synthesis (470 to 690
+  ps on the worst paths); 16,382, 2,443 and 566 endpoints over 1,000 ps
+  at synthesis; speed against area script 2,020 to 1,624 ps; the
+  `repair_design` crash (now explained, fixed, OpenROAD #11590); the
+  ~46,000 slew violators with `REMOVE_ABC_BUFFERS`; `repair_timing`
+  -1,374 to -1,238 ps in 50 minutes.
+- **Changed**: the reading that ABC's buffering is what costs most on
+  large designs. At place with ORFS's default placement
+  (timing-driven), ABC's chains cost nothing measurable on Frontend:
+  the flow's own netlist is the best arm on the endpoint count (P0t),
+  and a synthesis without `buffer -c` is worse (P1t). What cost 56
+  percent of the period was this flow's own override of timing-driven
+  placement.
 
 With patch 0005, `repair_design -pre_placement` on P1's netlist
 completes (3,344 s): 1,548 ps, 643 endpoints over 1,000 ps and 1,648 over
