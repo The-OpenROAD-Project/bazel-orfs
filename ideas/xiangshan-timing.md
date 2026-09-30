@@ -996,6 +996,45 @@ period does not move):
 - The parent's floor keeps the blocks' timing models, which carry each
   block's own wires; it is not a logic floor.
 
+## 37. Timing-driven placement was off, and ABC's chains do not matter once it is on
+
+A study of Frontend's buffer trees from synthesis to CTS (#1125, a
+closed reference; 473 ps SDC, `reg2reg` with placement parasitics and an
+ideal clock at place, the README's block measure):
+
+| Frontend at place | period | endpoints over 1,000 ps |
+|---|---:|---:|
+| the flow before #1128 | 5,118 | 69,636 |
+| the flow's own netlist, timing- and routability-driven placement | 2,266 | 50,514 |
+| ABC without `buffer -c`, same placement | 2,865 | 55,301 |
+| the same, balanced trees built before floorplan | 2,143 | 57,368 |
+| the same, OpenROAD's `repair_design -pre_placement` before floorplan | 2,395 | 52,050 |
+
+- The XiangShan flows set `GPL_TIMING_DRIVEN=0` and
+  `GPL_ROUTABILITY_DRIVEN=0` for turnaround. ORFS's defaults, back in
+  #1128, take the period 56 percent down at twice the place stage's
+  time (28 to 56 minutes on Frontend). The KPI after it needs the
+  parent rebuilt on a machine with more than 128 GB.
+- At synthesis ABC's `buffer -c` builds chains up to 18 buffers deep
+  (470 to 690 ps on the worst paths); balanced trees take the endpoints
+  over 1,000 ps from 16,382 to 566. None of that survives timing-driven
+  placement: the flow's own netlist is the best arm on the endpoint
+  count, and the trees built beforehand trade the bulk for the worst
+  path. With the clock tree the order holds (+30 to 70 ps).
+- ABC gets no delay target: ORFS passes the period as `-D` with a
+  script file, which Yosys drops (ORFS #4585).
+- `repair_design -pre_placement` on a hierarchical netlist crashed on a
+  top-level port with more than `max_fanout` loads (its early sizing
+  round took the top module's `dbModNet`); fixed upstream as OpenROAD
+  #11590. A profile of its 56 minutes on Frontend puts about 80 percent
+  in OpenSTA propagating timing.
+- Open: `tools/structured_gen`'s model liberty is a formula. On
+  `FtqMetaQueueResolve` it says 358 ps for the read that the array's
+  own gates take 3,625 ps over, with its wide nets unbuffered; the
+  study's generator changes (buffer trees, pins at their columns, 813
+  ps) stay on its branch until a measurement in the parent justifies
+  them.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
