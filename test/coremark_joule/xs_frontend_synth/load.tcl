@@ -9,6 +9,8 @@
 #   XS_SETRC     the platform's setRC.tcl
 #   XS_PARASITICS  optional: `placement` estimates placement parasitics,
 #                for a placed stage's ODB (3_place.odb and on)
+#   XS_PROPAGATED_CLOCK  optional: 1 times the clock through its tree, for
+#                a stage after CTS (4_cts.odb and on)
 foreach f [concat [glob $::env(XS_LIBS)/asap7sc7p5t_*.lib] [glob -nocomplain $::env(XS_LIBS)/array_*.lib]] {
   read_liberty $f
 }
@@ -18,4 +20,7 @@ read_sdc $::env(XS_SDC)
 source $::env(XS_SETRC)
 if { [info exists ::env(XS_PARASITICS)] && $::env(XS_PARASITICS) eq "placement" } {
   estimate_parasitics -placement
+}
+if { [info exists ::env(XS_PROPAGATED_CLOCK)] && $::env(XS_PROPAGATED_CLOCK) eq "1" } {
+  set_propagated_clock [all_clocks]
 }

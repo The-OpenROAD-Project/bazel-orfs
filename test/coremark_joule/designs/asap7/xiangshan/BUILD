@@ -70,10 +70,10 @@ xiangshan_flow(
     grt_probe_blocks = ["Frontend"],
     plan = PLAN,
     # Frontend with ABC's speed script building no buffers, through
-    # place, where the flow's own repair_design builds the trees
-    # (ideas/xiangshan-frontend-synth.md).
+    # CTS, where the block is abstracted; the flow's own repair_design
+    # builds the trees at place (ideas/xiangshan-frontend-synth.md).
     synth_variants = {"Frontend": {"abc_nobuf": {
-        "last_stage": "place",
+        "last_stage": "cts",
         "sources": {"ABC_SCRIPT": [":abc_speed_nobuf.script"]},
     }}},
 )
