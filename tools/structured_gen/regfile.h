@@ -95,6 +95,13 @@ struct Spec {
   // other, each with its own copy of the word decode; the last band is
   // short when the folds do not divide. Banks fold words; this folds bits.
   int bit_folds = 1;
+  // The word decode between the two halves of a band's bits instead of
+  // at its left edge: a decoder spine, each word select half as long.
+  bool decode_center = false;
+  // Each data pin under (read) or over (write) its own bit column and
+  // the addresses and enables beside the decode, instead of every pin
+  // packed from the corner of its edge.
+  bool pins_at_columns = false;
   LibModel lib;
   // Buffer trees for the wide nets (buffering.h), from `buffer_cells`,
   // `buffer_fanout`, `buffer_load_ff`, `buffer_root_ff_per_drive`,

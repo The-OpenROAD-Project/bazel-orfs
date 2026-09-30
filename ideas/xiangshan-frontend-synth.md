@@ -24,6 +24,7 @@ Frontend's synthesis runs in 16 min at 11 GB on a 16-thread, 30 GB machine
 | S5 | S4, each rebuilt tree's root driver held to 2.5 fF per unit of drive, the rest behind buffers | 1,897 | 6,374 | 8,527 | 192,356 |
 | S6 | S4, each rebuilt tree's root driver upsized in its family instead (18,672 roots, no `xp`/`x1p` cell) | 1,847 | 5,492 | 6,560 | 95,818 |
 | S6b | S6, and every other driver upsized by the same rule (39,569 more) | 1,854 | 5,480 | 6,472 | 95,818 |
+| S7 | S6 with the Ftq queues regenerated with `pins_at_columns` (Resolve in 4 folds) and re-characterised | 1,649 | 5,459 | 6,544 | 95,818 |
 
 From S4 on, the worst path is the same `FtqMetaQueueResolve` read: at
 S6 clock-to-output 58 ps, 11 buffers 269 ps, 26 logic cells 504 ps, the
@@ -63,6 +64,26 @@ repeater every 40 um is slower (1,135 ps) than every 80.
 What remains on Resolve is three crossings of the array at about
 0.5 ps/um through the repeaters, pin to decode, the word select across
 a fold, the bit down to its pin on the bottom edge, plus the OR tree.
+
+Pins: the generator packed every pin from the corner of its edge, so
+the 954 read-data pins sat in the first stretch of the bottom edge and
+a bit in the middle of a fold ran 150 um sideways to its pin.
+`pins_at_columns` puts each data pin on the free track nearest its own
+column and the addresses and enables beside the first bank's decode:
+
+| Resolve, pins at their columns | read |
+|---|---:|
+| 8 folds | 851 |
+| 8 folds, decode centred between the bits | 959 |
+| 2 / 4 / 6 / 16 folds | 1,041 / **813** / 826 / 1,049 |
+| 4 / 16 folds, decode centred | 1,184 / 1,083 |
+| 4 folds, a repeater every 60 / 120 um | 836 / 818 |
+
+Centring the decode (`decode_center`, a decoder spine) halves the word
+select and moves the address farther; it loses every time. At 4 folds
+the 813 ps are 304 ps in 7 repeaters, 310 ps in 9 tree buffers and 190
+ps of logic: three quarters wire, at the flow's own signal RC. With the
+same pins Redirect reads in 537 ps, EntryQueue in 418, Commit in 270.
 
 The formula liberty is optimistic on the read arc by 2.8 times and
 pessimistic on every input pin (19.8 and 38.4 fF against a single

@@ -9,6 +9,7 @@
 #include <map>
 #include <sstream>
 #include <stdexcept>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -501,16 +502,26 @@ dbBlock* Builder::Run() {
     return l;
   };
 
+  int spine_x0 = 0;  // the first bank's decode column, for pins_at_columns
   for (int f = 0; f < folds; ++f)
   for (int n = 0; n < s.words; ++n) {
     const int bank = n / words_per_bank;
     const int row0 = footer_rows + (bank / bank_cols) * bank_h_rows +
                      f * band_h_rows + (n % words_per_bank) * rows_per_word;
     const int bank_x0 = (bank % bank_cols) * bank_w;
-    // Header column, spread over this word's rows.
+    // Header column, spread over this word's rows: at the band's left
+    // edge, or with `decode_center` between its two halves of bits, so
+    // a word select runs half the band each way.
+    const int this_band_bits = std::min(bits_per_fold, s.bits - f * bits_per_fold);
+    const int split = s.decode_center ? this_band_bits / 2 : 0;
+    const int taps_before = tap_cols > 0 ? (split + tap_every - 1) / tap_every : 0;
+    const int header_x = bank_x0 + split * tile_w + taps_before * tap_w;
+    if (n == 0 && f == 0) {
+      spine_x0 = header_x + header_w / 2;
+    }
     std::vector<Cursor> hc;
     for (int k = 0; k < rows_per_word; ++k) {
-      hc.push_back(Cursor{row0 + k, bank_x0});
+      hc.push_back(Cursor{row0 + k, header_x});
     }
     auto hcur = [&]() -> Cursor& { return Least(hc); };
     std::string wn = "w" + std::to_string(n) +
@@ -540,16 +551,19 @@ dbBlock* Builder::Run() {
     Place(hcur(), inv_, hold[n]->getName(),
           {{g_pins.inv[0], any_write}, {g_pins.inv[1], hold[n]}});
     for (auto& c : hc) {
-      if (c.x > bank_x0 + header_w) {
+      if (c.x > header_x + header_w) {
         Refuse("header column overflow at word " + std::to_string(n) +
                ": widen the header estimate");
       }
     }
 
     // Tiles, this band's bits.
-    int x = bank_x0 + header_w;
+    int x = split > 0 ? bank_x0 : bank_x0 + header_w;
     for (int bl = 0; bl < bits_per_fold && f * bits_per_fold + bl < s.bits; ++bl) {
       const int b = f * bits_per_fold + bl;
+      if (split > 0 && bl == split) {
+        x += header_w;  // step over the decode column
+      }
       if (tap_cols > 0 && bl % tap_every == 0) {
         if (tap_) {
           for (int k = 0; k < rows_per_word; ++k) {
@@ -712,53 +726,126 @@ dbBlock* Builder::Run() {
   };
   const int edge = pin_w_;  // pin centre this far in from the die edge
   int px = on_track(core_x0_ + track_pitch);
-  auto bottom = [&](const std::string& name) {
-    Pin(block_->findBTerm(name.c_str()), layer_v_, px, edge);
-    px += track_pitch;
-  };
-  for (int r = 0; r < R; ++r) {
-    for (int b = 0; b < s.bits; ++b) {
-      if (s.read[r].banked()) {
-        for (int k = 0; k < banks; ++k) {
-          bottom(Bit(s.read[r].bank_data[k], b));
-        }
-      } else {
-        bottom(Bit(s.read[r].data, b));
-      }
-    }
-  }
-  const int px_bottom_end = px;
-  px = on_track(core_x0_ + track_pitch);
-  for (int w = 0; w < W; ++w) {
-    for (int b = 0; b < s.bits; ++b) {
-      Pin(block_->findBTerm(Bit(s.write[w].data, b).c_str()), layer_v_, px,
-          die_h - edge);
-      px += track_pitch;
-    }
-  }
+  int px_bottom_end = px;
   int py = on_track(core_y0_ + track_pitch);
   auto left = [&](const std::string& name) {
     Pin(block_->findBTerm(name.c_str()), layer_h_, edge, py);
     py += track_pitch;
   };
-  left(s.clock);
-  if (!s.reset.empty()) {
-    left(s.reset);
-  }
-  for (int r = 0; r < R; ++r) {
-    for (size_t k = 0; k < raddr[r].size(); ++k) {
-      for (size_t i = 0; i < raddr[r][k].size(); ++i) {
-        left(s.read[r].banked() ? Bit(s.read[r].bank_addr[k], static_cast<int>(i))
-                                : Bit(s.read[r].addr, static_cast<int>(i)));
+  if (s.pins_at_columns) {
+    // Each data pin on the free track nearest its own bit column, read
+    // data on the bottom edge and write data on the top; the addresses
+    // and enables beside the decode spine of the first bank. A bit's
+    // column is where its tiles are, in every word and fold.
+    std::set<int> used_bottom, used_top;
+    auto near = [&](std::set<int>& used, int x) {
+      int k0 = (on_track(x) - track_off) / track_pitch;
+      for (int d = 0;; ++d) {
+        for (int k : {k0 + d, k0 - d}) {
+          int t = track_off + k * track_pitch;
+          if (k >= 0 && t > core_x0_ && t < die_w - core_x0_ && !used.count(k)) {
+            used.insert(k);
+            return t;
+          }
+        }
+        if (d > die_w / track_pitch) {
+          Refuse("more pins than the die edge holds at the track pitch");
+        }
+      }
+    };
+    auto column_x = [&](int b) {
+      const Tile& t = tiles_[static_cast<size_t>(0) * s.bits + b];
+      return t.x_end - tile_w / 2 + core_x0_;
+    };
+    for (int r = 0; r < R; ++r) {
+      for (int b = 0; b < s.bits; ++b) {
+        if (s.read[r].banked()) {
+          for (int k = 0; k < banks; ++k) {
+            Pin(block_->findBTerm(Bit(s.read[r].bank_data[k], b).c_str()), layer_v_,
+                near(used_bottom, column_x(b)), edge);
+          }
+        } else {
+          Pin(block_->findBTerm(Bit(s.read[r].data, b).c_str()), layer_v_,
+              near(used_bottom, column_x(b)), edge);
+        }
       }
     }
-  }
-  for (int w = 0; w < W; ++w) {
-    for (int i = 0; i < A; ++i) {
-      left(Bit(s.write[w].addr, i));
+    for (int w = 0; w < W; ++w) {
+      for (int b = 0; b < s.bits; ++b) {
+        Pin(block_->findBTerm(Bit(s.write[w].data, b).c_str()), layer_v_,
+            near(used_top, column_x(b)), die_h - edge);
+      }
     }
-    if (wen[w] != nullptr) {
-      left(s.write[w].en);
+    const int spine = core_x0_ + spine_x0;
+    for (int r = 0; r < R; ++r) {
+      for (size_t k = 0; k < raddr[r].size(); ++k) {
+        for (size_t i = 0; i < raddr[r][k].size(); ++i) {
+          Pin(block_->findBTerm((s.read[r].banked()
+                                     ? Bit(s.read[r].bank_addr[k], static_cast<int>(i))
+                                     : Bit(s.read[r].addr, static_cast<int>(i)))
+                                    .c_str()),
+              layer_v_, near(used_bottom, spine), edge);
+        }
+      }
+    }
+    for (int w = 0; w < W; ++w) {
+      for (int i = 0; i < A; ++i) {
+        Pin(block_->findBTerm(Bit(s.write[w].addr, i).c_str()), layer_v_,
+            near(used_top, spine), die_h - edge);
+      }
+      if (wen[w] != nullptr) {
+        Pin(block_->findBTerm(s.write[w].en.c_str()), layer_v_, near(used_top, spine),
+            die_h - edge);
+      }
+    }
+    left(s.clock);
+    if (!s.reset.empty()) {
+      left(s.reset);
+    }
+  } else {
+    auto bottom = [&](const std::string& name) {
+      Pin(block_->findBTerm(name.c_str()), layer_v_, px, edge);
+      px += track_pitch;
+    };
+    for (int r = 0; r < R; ++r) {
+      for (int b = 0; b < s.bits; ++b) {
+        if (s.read[r].banked()) {
+          for (int k = 0; k < banks; ++k) {
+            bottom(Bit(s.read[r].bank_data[k], b));
+          }
+        } else {
+          bottom(Bit(s.read[r].data, b));
+        }
+      }
+    }
+    px_bottom_end = px;
+    px = on_track(core_x0_ + track_pitch);
+    for (int w = 0; w < W; ++w) {
+      for (int b = 0; b < s.bits; ++b) {
+        Pin(block_->findBTerm(Bit(s.write[w].data, b).c_str()), layer_v_, px,
+            die_h - edge);
+        px += track_pitch;
+      }
+    }
+    left(s.clock);
+    if (!s.reset.empty()) {
+      left(s.reset);
+    }
+    for (int r = 0; r < R; ++r) {
+      for (size_t k = 0; k < raddr[r].size(); ++k) {
+        for (size_t i = 0; i < raddr[r][k].size(); ++i) {
+          left(s.read[r].banked() ? Bit(s.read[r].bank_addr[k], static_cast<int>(i))
+                                  : Bit(s.read[r].addr, static_cast<int>(i)));
+        }
+      }
+    }
+    for (int w = 0; w < W; ++w) {
+      for (int i = 0; i < A; ++i) {
+        left(Bit(s.write[w].addr, i));
+      }
+      if (wen[w] != nullptr) {
+        left(s.write[w].en);
+      }
     }
   }
   if (std::max(px, px_bottom_end) > die_w || py > die_h) {
@@ -907,6 +994,12 @@ Spec ReadSpec(const std::string& path) {
     } else if (key == "bank_columns") {
       need(1);
       s.bank_columns = std::stoi(v[0]);
+    } else if (key == "pins_at_columns") {
+      need(1);
+      s.pins_at_columns = v[0] == "1" || v[0] == "true";
+    } else if (key == "decode_center") {
+      need(1);
+      s.decode_center = v[0] == "1" || v[0] == "true";
     } else if (key == "bit_folds") {
       need(1);
       s.bit_folds = std::stoi(v[0]);

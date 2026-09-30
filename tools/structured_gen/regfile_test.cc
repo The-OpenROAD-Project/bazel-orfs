@@ -1,10 +1,12 @@
 // An 8x4 2R2W register file against the real asap7 LEF: every cell placed
 // on a row, none overlapping, every port pinned, the Verilog written.
 #include <algorithm>
+#include <climits>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -365,6 +367,83 @@ int main(int argc, char** argv) {
       }
       CHECK(drivers == (t->getIoType() == odb::dbIoType::OUTPUT ? 1 : 0));
     }
+  }
+
+  // The decode centred between the bits: the same cells, still legal,
+  // and the header column sits inside the array rather than at its edge.
+  {
+    std::string cspec = dir + "/rfc.spec";
+    {
+      std::ifstream in(spec_path);
+      std::ofstream f(cspec);
+      f << in.rdbuf() << "decode_center 1\n";
+    }
+    odb::dbDatabase* db6 = odb::dbDatabase::create();
+    db6->setLogger(&logger);
+    odb::lefin reader6(db6, &logger, false);
+    odb::dbTech* tech6 = reader6.createTech("asap7", tech_lef.c_str());
+    CHECK(reader6.createLib(tech6, "asap7sc7p5t", cell_lef.c_str()) != nullptr);
+    odb::dbBlock* cblock =
+        structured_gen::Generate(db6, &logger, structured_gen::ReadSpec(cspec));
+    CHECK(cblock != nullptr);
+    CHECK(cblock->getInsts().size() == block->getInsts().size());
+    std::map<int, std::vector<std::pair<int, int>>> rows;
+    int decode_min_x = INT32_MAX;
+    for (odb::dbInst* inst : cblock->getInsts()) {
+      odb::Rect box = inst->getBBox()->getBox();
+      CHECK(cblock->getDieArea().contains(box));
+      rows[box.yMin()].emplace_back(box.xMin(), box.xMax());
+      if (inst->getName().find("_rsel") != std::string::npos) {
+        decode_min_x = std::min(decode_min_x, box.xMin());
+      }
+    }
+    for (auto& [y, spans] : rows) {
+      std::sort(spans.begin(), spans.end());
+      for (size_t i = 1; i < spans.size(); ++i) {
+        CHECK(spans[i].first >= spans[i - 1].second);
+      }
+    }
+    // Bank 0's decode is past its first two bits' tiles.
+    int flop_min_x = INT32_MAX;
+    for (odb::dbInst* inst : cblock->getInsts()) {
+      if (inst->getMaster()->getName() == "DFFHQNx1_ASAP7_75t_R") {
+        flop_min_x = std::min(flop_min_x, inst->getBBox()->getBox().xMin());
+      }
+    }
+    CHECK(decode_min_x > flop_min_x);
+  }
+  // Pins at their columns: every pin inside the die on a track of its
+  // own, and a read-data pin within a tile's width of its bit's flops.
+  {
+    std::string pspec = dir + "/rfp.spec";
+    {
+      std::ifstream in(spec_path);
+      std::ofstream f(pspec);
+      f << in.rdbuf() << "decode_center 1\npins_at_columns 1\n";
+    }
+    odb::dbDatabase* db7 = odb::dbDatabase::create();
+    db7->setLogger(&logger);
+    odb::lefin reader7(db7, &logger, false);
+    odb::dbTech* tech7 = reader7.createTech("asap7", tech_lef.c_str());
+    CHECK(reader7.createLib(tech7, "asap7sc7p5t", cell_lef.c_str()) != nullptr);
+    odb::dbBlock* pblock =
+        structured_gen::Generate(db7, &logger, structured_gen::ReadSpec(pspec));
+    CHECK(pblock != nullptr);
+    std::set<std::pair<int, int>> spots;
+    for (odb::dbBTerm* t : pblock->getBTerms()) {
+      CHECK(t->getBPins().size() == 1);
+      odb::Rect b = (*t->getBPins().begin())->getBBox();
+      CHECK(pblock->getDieArea().contains(b));
+      CHECK(spots.insert({b.xCenter(), b.yCenter()}).second);
+    }
+    // Bit 3 of read port 1: its flops are the w*_b3_ff cells.
+    odb::dbBTerm* d3 = pblock->findBTerm("io_readPorts_1_data[3]");
+    CHECK(d3 != nullptr);
+    const int px = (*d3->getBPins().begin())->getBBox().xCenter();
+    odb::dbInst* ff = pblock->findInst("w0_b3_ff");
+    CHECK(ff != nullptr);
+    const odb::Rect fb = ff->getBBox()->getBox();
+    CHECK(std::abs(px - fb.xCenter()) < 20 * 54);  // within ~20 sites
   }
 
   std::string odb_path = dir + "/rf8x4.odb";
