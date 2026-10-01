@@ -15,7 +15,7 @@ number, add a row and re-render.
 
 The KPI is the design's minimum clock period, the red line: the largest
 of the parent's period and each block's, since the design is only as
-fast as its slowest part. Today it is **5,118 ps**, Frontend's. The
+fast as its slowest part. Today it is **5,402 ps**, the parent's. The
 parent is one of those parts, like any block, and each of them is drawn
 dashed beneath the red line, a period that has to be at or below it.
 
@@ -27,18 +27,18 @@ for the group by name and not for the worst slack: on VecRegionModule the
 overall worst slack is -2,006 ps and belongs to another group, while
 `reg2reg` is -1,564 ps, and only the second one is a period.
 
-The parent, XSTile with its clock tree, is **4,325 ps** at global route
+The parent, XSTile with its clock tree, is **5,402 ps** at global route
 with the route's own parasitics; its `reg2reg` group does not see the
 paths inside a block's abstract. Each block is measured alone at its
 place stage against an ideal clock, through `<block>_place_odb_debug`:
 
 | block | minimum period | worst `reg2reg` path |
 |---|---|---|
-| Frontend | 5,118 ps | the main BTB's enable into a TAGE table's SRAM |
-| MemBlock | 2,725 ps | the redirect's `robIdx` into the DCache meta array's coherence state |
-| CoupledL2 | 2,698 ps | a main-pipe MSHR task into the data storage SRAM |
-| VecRegionModule | 2,375 ps | the vector divider's `robIdx` into an issue pipe's valid |
-| FltRegionModule | 1,831 ps | an FP register read address into an adder's operand; one net is 76 % of it |
+| Frontend | 2,259 ps | a TAGE table SRAM's reset state into the predictor's `sramResetDone` |
+| CoupledL2 | 2,222 ps | a slice's directory state at stage 3 into SinkC's buffer |
+| MemBlock | 2,057 ps | load unit 0's stage-1 exception vector into stage 2's fast-replay grant |
+| VecRegionModule | 1,247 ps | the vector divider's FP format into the FMA's operand |
+| FltRegionModule | 814 ps | an FP adder's operand into its stage-1 round-up overflow |
 
 XiangShan's `ClockGate` is mapped onto ASAP7's ICG cell (`xs_icg.ys`) in
 every flow, the parent's and every block's.
@@ -157,24 +157,23 @@ The parent's worst paths at global route, by group:
 
 | group | worst slack at 473 ps | path |
 |---|---|---|
-| reg2reg | -4,715 ps | Frontend's `io_backend_cfVec_0_bits_instr` output into the parent's `ctrlBlock/decodeBufBits` |
-| in2reg | -1,912 ps | `io_hartId` into FltRegionModule |
-| reg2out | -1,154 ps | the L2's `io_chi_tx_req_flit` out to the tile's port |
+| reg2reg | -4,929 ps | the int region's `pipeToALU0` function-unit type into the parent's `ctrlBlock/delayedNotFlushedWriteBackNums` |
+| in2reg | -1,730 ps | `io_hartId` into the CSR unit's result register in the int region |
+| reg2out | -1,055 ps | the L2's `io_lcreditCHI_rx_snp_lcrdv` out to the tile's port |
 
 Only the first is a period (`.claude/skills/macro-constraints`); the
 other two are optimisation targets.
 
-Route-0 at global route: total congestion 42,570, 21.9
-percent of the routing resources used. The floorplan is the planner's at
+Route-0 at global route: total congestion 698,703, 30.5
+percent of the routing resources used, 190 m of wire. The floorplan is the planner's at
 parent density 0.2 and layer adjustment 0.1; `plan/plan.json` is its input.
 
 ## The next two
 
-1. **Frontend's fetched instructions into the decode buffer**,
-   4,715 ps over the period; its split into the block's clock-to-output,
-   repeaters, logic and wire is not measured yet. On the area-mapped
-   netlist the 11 distinct worst paths were 36 percent repeaters, 33
-   logic, 23 wire (`ideas/xiangshan-timing.md`, entry 26).
+1. **The int region's ALU pipe into CtrlBlock's writeback count**,
+   4,929 ps over the period, in the parent; its split into repeaters,
+   logic and wire is not measured yet, nor how much of it is the
+   congestion above.
 2. **Block clock trees are a period deep**: 20 to 27 levels, 477 to
    944 ps of insertion delay against a 591 ps target, so every block
    boundary path is skewed by that much, or padded to match with
