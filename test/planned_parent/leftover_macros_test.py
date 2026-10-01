@@ -9,7 +9,9 @@ flattened, the floorplan stopped. The miniature's FileM is such a macro.
 What is checked on the floorplan checkpoint: FileM is placed, it overlaps
 none of the netlists, and every netlist is FIRM again after the macro step,
 where the plan put it and still an array (rtl_macro_placer moves a
-cluster's cells to one point, so a netlist it saw as movable collapses).
+cluster's cells to one point, so a netlist it saw as movable collapses),
+but for its address inverters: the parent's resizer may change those, so
+they are PLACED, for the legaliser to move (patch 0087).
 """
 
 import json
@@ -48,7 +50,12 @@ class LeftoverMacrosTest(unittest.TestCase):
                     planned[p[1]] = (float(p[2]), float(p[3]))
         dbu = d["dbu"]
         for n in d["netlists"]:
-            self.assertEqual(n["not_firm"], 0, "%s's cells are FIRM" % n["name"])
+            self.assertGreater(n["not_firm"], 0, "%s's address inverters are PLACED" % n["name"])
+            self.assertEqual(
+                n["not_firm_stray"],
+                0,
+                "%s's cells are FIRM but its PLACED address inverters" % n["name"],
+            )
             x0, y0, x1, y1 = [v / dbu for v in n["box"]]
             px, py = planned[n["name"]]
             # where the plan put it, to the site and row grid it is snapped to
