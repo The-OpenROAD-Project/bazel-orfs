@@ -224,9 +224,8 @@ proc est_stage_macro_place { } {
     est_perturb_clock macro_place
     if {[est_flag RUN_MACRO_PLACE 1] == 1 && [find_macros] != ""} {
         time_phase macro_place {
-            lassign $::env(MACRO_PLACE_HALO) halo_x halo_y
-            set mp_args [list -halo_width $halo_x -halo_height $halo_y \
-                -target_util [est_place_density]]
+            set mp_args [list -target_util [est_place_density]]
+            append_env_var mp_args RTLMP_MIN_CHANNEL_SIZE -min_channel_size 1
             eval rtl_macro_placer $mp_args [est_args RTLMP_ARGS]
         }
     }

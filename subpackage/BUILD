@@ -21,7 +21,7 @@ orfs_flow(
         "CORE_AREA": "2 2 20 80",
         "CORE_MARGIN": "2",
         "DIE_AREA": "0 0 22 82",
-        "MACRO_PLACE_HALO": "2 2",
+        "RTLMP_MIN_CHANNEL_SIZE": "4 4",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
         "PLACE_DENSITY": "0.40",
         "PLACE_PINS_ARGS": "-annealing",

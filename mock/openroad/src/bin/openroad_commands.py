@@ -472,27 +472,27 @@ def validate_env_vars():
                 f"'{val}' is not a number",
             )
 
-    # --- MACRO_PLACE_HALO: 2 floats (H V) ---
-    val = os.environ.get("MACRO_PLACE_HALO", "")
+    # --- RTLMP_MIN_CHANNEL_SIZE: 1 or 2 floats (W [H]) ---
+    val = os.environ.get("RTLMP_MIN_CHANNEL_SIZE", "")
     if val:
         parts = val.split()
-        if len(parts) != 2:
+        if len(parts) not in (1, 2):
             _lint(
-                "MACRO_PLACE_HALO",
-                f"expected 2 values (H V)," f" got {len(parts)}",
+                "RTLMP_MIN_CHANNEL_SIZE",
+                f"expected 1 or 2 values (W [H]), got {len(parts)}",
             )
         else:
             for p in parts:
                 try:
-                    h = float(p)
-                    if h < 0:
+                    c = float(p)
+                    if c < 0:
                         _lint(
-                            "MACRO_PLACE_HALO",
-                            f"{h} must be" f" non-negative",
+                            "RTLMP_MIN_CHANNEL_SIZE",
+                            f"{c} must be non-negative",
                         )
                 except ValueError:
                     _lint(
-                        "MACRO_PLACE_HALO",
+                        "RTLMP_MIN_CHANNEL_SIZE",
                         f"'{p}' is not a number",
                     )
 

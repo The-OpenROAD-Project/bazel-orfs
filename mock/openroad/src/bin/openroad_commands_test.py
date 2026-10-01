@@ -108,7 +108,7 @@ _LINT_VARS = [
     "ROUTING_LAYER_ADJUSTMENT",
     "TNS_END_PERCENT",
     "RECOVER_POWER",
-    "MACRO_PLACE_HALO",
+    "RTLMP_MIN_CHANNEL_SIZE",
     "CELL_PAD_IN_SITES_GLOBAL_PLACEMENT",
     "CELL_PAD_IN_SITES_DETAIL_PLACEMENT",
     "DETAILED_ROUTE_END_ITERATION",
@@ -338,16 +338,21 @@ class TestLintCrossVariable:
         assert "LINT DIE_AREA" in err
         assert "expected 4" in err
 
-    def test_macro_halo_valid(self, interp, capsys):
-        os.environ["MACRO_PLACE_HALO"] = "1 1"
+    def test_min_channel_valid(self, interp, capsys):
+        os.environ["RTLMP_MIN_CHANNEL_SIZE"] = "2 2"
         err = _lint_stderr(interp, capsys)
-        assert "LINT MACRO_PLACE_HALO" not in err
+        assert "LINT RTLMP_MIN_CHANNEL_SIZE" not in err
 
-    def test_macro_halo_wrong_count(self, interp, capsys):
-        os.environ["MACRO_PLACE_HALO"] = "1"
+    def test_min_channel_one_value(self, interp, capsys):
+        os.environ["RTLMP_MIN_CHANNEL_SIZE"] = "2"
         err = _lint_stderr(interp, capsys)
-        assert "LINT MACRO_PLACE_HALO" in err
-        assert "expected 2" in err
+        assert "LINT RTLMP_MIN_CHANNEL_SIZE" not in err
+
+    def test_min_channel_wrong_count(self, interp, capsys):
+        os.environ["RTLMP_MIN_CHANNEL_SIZE"] = "1 2 3"
+        err = _lint_stderr(interp, capsys)
+        assert "LINT RTLMP_MIN_CHANNEL_SIZE" in err
+        assert "expected 1 or 2" in err
 
 
 # --- LEF/Liberty ---

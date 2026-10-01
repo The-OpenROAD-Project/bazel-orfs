@@ -46,7 +46,7 @@ def mini_planned_flow(rtl, files):
         "AUTO_MEMORIES": "1",
         "CORE_AREA": PLAN["parent"]["CORE_AREA"],
         "DIE_AREA": PLAN["parent"]["DIE_AREA"],
-        "MACRO_PLACE_HALO": "2 2",
+        "RTLMP_MIN_CHANNEL_SIZE": "4 4",
     }
     parent_sources = {
         "MACRO_PLACEMENT_TCL": [":plan/place_macros.tcl"],
