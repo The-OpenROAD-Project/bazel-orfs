@@ -986,6 +986,8 @@ period does not move):
 | FltRegionModule | 1,374 | 887 | 35 % | 62 |
 | XSTile (parent, at place) | 6,751 | 4,740 | 30 % | 330 |
 
+With timing-driven placement on, the floors are entry 38's.
+
 - Wires are most of every block's period, 77 percent of Frontend's, the
   macro that sets the design's.
 - Without wires every block is 58 to 79 FO4, above the 41 FO4 of the
@@ -1034,6 +1036,38 @@ ideal clock at place, the README's block measure):
   study's generator changes (buffer trees, pins at their columns, 813
   ps) stay on its branch until a measurement in the parent justifies
   them.
+
+## 38. The floors with timing-driven placement
+
+Entry 36's measurement repeated on the first full build with timing-
+and routability-driven placement and RVT, LVT and SLVT from synthesis
+(e6c482e3 with #1133 and #1134, the KPI of #1139): each macro at its
+place checkpoint, ideal clock, reg2reg period with the flow's wire
+parasitics and with every routing, cut and wire RC at 1e-6. FO4 as in
+entry 36, 14.4 ps.
+
+| macro | with wires | wire RC 1e-6 | wire share | floor in FO4 | entry 36: with wires, floor |
+|---|---|---|---|---|---|
+| Frontend | 2,259 | 856 | 62 % | 60 | 4,912, 1,133 |
+| CoupledL2 | 2,222 | 767 | 65 % | 53 | 2,053, 835 |
+| MemBlock | 2,057 | 906 | 56 % | 63 | 2,725, 1,094 |
+| VecRegionModule | 1,247 | 836 | 33 % | 58 | 2,375, 1,136 |
+| FltRegionModule | 814 | 667 | 18 % | 46 | 1,374, 887 |
+| XSTile (parent, at place) | 10,855 | 2,418 | 78 % | 168 | 6,751, 4,740 |
+
+- Every block's floor fell, by 8 (CoupledL2) to 26 percent, and
+  Frontend's period with wires by more than half. Two things changed
+  between the runs, placement and the threshold voltages; this does not
+  separate them.
+- Wire is still more than half of Frontend's, CoupledL2's and
+  MemBlock's period.
+- The parent at place is 10,855 ps with placement parasitics, twice
+  its 5,402 ps at global route, on the same worst path (the int
+  region's `pipeToALU0` into `ctrlBlock`). Without wire it is 2,418 ps
+  on another path, the int region's `pipeToBJU2` into Frontend's FTQ
+  resolve; the blocks' timing models still carry their own wires, so it
+  is not a logic floor. Its global route is the most congested yet
+  (#1139: 698,703 total, 30.5 percent of the routing resources).
 
 ## Method notes
 
