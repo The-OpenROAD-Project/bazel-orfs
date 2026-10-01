@@ -46,6 +46,11 @@ XS_PARENT = {
         "CORE_UTILIZATION": "18",
         "DETAIL_PLACEMENT_ARGS": "-use_diamond_legalizer -max_displacement {450 450}",
         "ENABLE_DPO": "0",
+        # timing-driven global placement keeps its repair_design changes only
+        # below this overflow. At the default, 1, the parent kept the buffer
+        # chains of its first repair, made at overflow 0.63, and they zig-zagged
+        # as the cells moved; at 0 the buffers are made on the final placement
+        "GPL_KEEP_OVERFLOW": "0",
         "RTLMP_MIN_CHANNEL_SIZE": "4 4",
         "OPENROAD_HIERARCHICAL": "1",
         "PLACE_DENSITY": "0.65",
