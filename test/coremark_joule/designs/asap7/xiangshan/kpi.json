@@ -144,6 +144,19 @@
         "VecRegionModule": 2375
       },
       "note": "REMOVE_ABC_BUFFERS dropped (deprecated in ORFS) and the planned blocks' kept modules stated with OpenROAD hierarchical: one repair_design call no longer leaves about 46,000 slew violators on Frontend; measured in the same build by xs_pathology's probe"
+    },
+    {
+      "date": "2026-10-01",
+      "measured": "XSTile_grt, built from source at e6c482e3 with #1133 and #1134, before the bump to ORFS ecb3cfdeb1ca",
+      "parent_ps": 5402,
+      "blocks": {
+        "CoupledL2": 2222,
+        "Frontend": 2259,
+        "MemBlock": 2057,
+        "FltRegionModule": 814,
+        "VecRegionModule": 1247
+      },
+      "note": "timing- and routability-driven global placement, ORFS's default, and RVT, LVT and SLVT from synthesis: every block faster, the parent slower and now the design's period"
     }
   ]
 }
