@@ -78,15 +78,17 @@ BASE_CORE = "4 4 396 396"
 SITE_NM = 54  # asap7 site width, measured by :site_probe
 W_NUDGES = [-5, -4, -3, -2, -1, 1, 2, 3, 4]
 # One distortion per candidate; defaults are area 0.1, wirelength 100,
-# outline 100, boundary 50, notch 50, halo "10 10".
+# outline 100, boundary 50, notch 50, minimum channel "20 20" (a 10 um
+# halo before ORFS replaced halos with channels; the arm names keep the
+# halo they were recorded under).
 T_SPECS = {
     "t_wl1": {"RTLMP_WIRELENGTH_WT": "1"},
     "t_wl10": {"RTLMP_WIRELENGTH_WT": "10"},
     "t_bound500": {"RTLMP_BOUNDARY_WT": "500"},
     "t_notch500": {"RTLMP_NOTCH_WT": "500"},
     "t_area10": {"RTLMP_AREA_WT": "10"},
-    "t_halo0": {"MACRO_PLACE_HALO": "0 0"},
-    "t_halo20": {"MACRO_PLACE_HALO": "20 20"},
+    "t_halo0": {"RTLMP_MIN_CHANNEL_SIZE": "0 0"},
+    "t_halo20": {"RTLMP_MIN_CHANNEL_SIZE": "40 40"},
     "t_level1": {"RTLMP_MAX_LEVEL": "1"},
 }
 # The default objective's weights, for the recomputed score.
@@ -102,7 +104,7 @@ DEFAULT_WEIGHTS = {
 }
 KPIS = ["achieved", "top10_mean", "p95", "mean", "area"]
 # Adversarial fences, in microns on the 4..396 core.  The 16 macros are
-# ~40x40um with a 10um halo (~60um pitch), so a 4x4 grid needs ~240um of
+# ~40x40um with a 20um channel (~60um pitch), so a 4x4 grid needs ~240um of
 # fence: the tight corner barely fits, the strips force degenerate rows.
 # An infeasible fence fails its member (MPL-10) and the audit proceeds
 # on the survivors -- a failure is data about the fence, not a bug.

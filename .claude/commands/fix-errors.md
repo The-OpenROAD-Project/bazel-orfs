@@ -34,8 +34,7 @@ bazel build <target> 2>&1 | tail -100
 
 **Macro placement failures:**
 - Increase die area to give macros room
-- Adjust `MACRO_PLACE_HALO`
-- Check `MACRO_PLACE_CHANNEL` settings
+- Adjust `RTLMP_MIN_CHANNEL_SIZE`
 
 ### Routing errors
 

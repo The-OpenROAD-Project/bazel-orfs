@@ -47,10 +47,10 @@ set density_lb_addon [place_density_with_lb_addon]
 # This is the flow's default draw; selection over a seed population is
 # the macro-placement campaign's business.
 if { [find_macros] != "" } {
-    lassign $::env(MACRO_PLACE_HALO) halo_x halo_y
-    log_cmd rtl_macro_placer -halo_width $halo_x -halo_height $halo_y \
-        -target_util $density_lb_addon \
-        -report_directory [file join $::env(WORK_HOME) rtlmp]
+    set mp_args [list -target_util $density_lb_addon \
+        -report_directory [file join $::env(WORK_HOME) rtlmp]]
+    append_env_var mp_args RTLMP_MIN_CHANNEL_SIZE -min_channel_size 1
+    log_cmd rtl_macro_placer {*}$mp_args
 }
 
 # Pin placement: temporary, for wirelength realism. IO_CONSTRAINTS is

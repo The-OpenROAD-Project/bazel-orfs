@@ -236,8 +236,8 @@ does not.
 
 Worth knowing before you read a red `aes_cipher_top_test` as a
 bazel-orfs bug. The design has 20 `aes_sbox` macros of 15.87 um side
-plus one `aes_rcon`, `MACRO_PLACE_HALO = 3 3`, and
-`CORE_UTILIZATION = 47`. A halo'd sbox is 21.87 um, so RTL-MP needs
+plus one `aes_rcon`, `RTLMP_MIN_CHANNEL_SIZE = 6 6`, and
+`CORE_UTILIZATION = 47`. An sbox and its channel is 21.87 um, so RTL-MP needs
 five columns — a core side of at least 109.33 um — and four columns
 give only 16 slots for 20 macros. The core side is
 `sqrt((macro area + std cell area) / 0.47)`, so it moves with the

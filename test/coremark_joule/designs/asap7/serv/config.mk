@@ -50,7 +50,7 @@ export ADDITIONAL_LIBS         = //test/coremark_joule/flow:cmj_imem_sram.lib \
 # the veer config, which is the design in this study that already had
 # macros in it.
 export PLACE_DENSITY_LB_ADDON  = 0.20
-export MACRO_PLACE_HALO        = 2 2
+export RTLMP_MIN_CHANNEL_SIZE  = 4 4
 
 # 50, not the 40 the cacheless cores used before section 5.1. The
 # memories are most of the design area now, so utilization decides

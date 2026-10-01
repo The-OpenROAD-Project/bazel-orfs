@@ -31,8 +31,9 @@ proc dump_macros { tag } {
 dump_macros after_floorplan
 
 if { $::env(DO_MACRO_PLACE) == 1 } {
-    lassign $::env(MACRO_PLACE_HALO) hx hy
-    rtl_macro_placer -halo_width $hx -halo_height $hy -target_util [place_density_with_lb_addon]
+    set mp_args [list -target_util [place_density_with_lb_addon]]
+    append_env_var mp_args RTLMP_MIN_CHANNEL_SIZE -min_channel_size 1
+    rtl_macro_placer {*}$mp_args
     dump_macros after_rtlmp
 }
 

@@ -86,8 +86,9 @@ def pinwall_arm(pins, channel_um, margin = 1.5, name = None, lateral = False):
         arguments = PINWALL_BASE_ARGS | {
             "CORE_AREA": _area(2, 2, die_w - 2, die_h - 2),
             "DIE_AREA": _area(0, 0, die_w, die_h),
-            # the channel: cells keep this far from the block
-            "MACRO_PLACE_HALO": "{} {}".format(channel_um, channel_um),
+            # the channel: cells keep this far from the block. A minimum
+            # channel is twice the halo it replaced, as in OpenROAD's mpl.
+            "RTLMP_MIN_CHANNEL_SIZE": "{} {}".format(2 * channel_um, 2 * channel_um),
         },
         last_stage = "grt",
         macros = [":pinwall_block_" + name + "_generate_abstract"],
@@ -155,7 +156,7 @@ def channel_arm(pins, gap_um, margin = 3.0):
         "DIE_AREA": _area(0, 0, die_w, die_h),
         # the gap stays free of cells, like the plan's; the logic keeps
         # channel_um from the pin sides
-        "MACRO_PLACE_HALO": "{} {}".format(_r(gap_um / 2), channel_um),
+        "RTLMP_MIN_CHANNEL_SIZE": "{} {}".format(_r(gap_um), _r(2 * channel_um)),
     }
     top_sources = {
         "MACRO_PLACEMENT_TCL": [":place_two_blocks.tcl"],
