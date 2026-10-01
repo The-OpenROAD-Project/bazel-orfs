@@ -69,8 +69,17 @@ int main(int argc, char** argv) {
   int flops = 0;
   std::map<int, std::vector<std::pair<int, int>>> by_y;  // y -> [x0, x1)
   odb::Rect die = block->getDieArea();
+  // FIRM but the address inverters, which the parent may resize and so
+  // may move: PLACED.
+  int loose = 0;
   for (odb::dbInst* inst : block->getInsts()) {
-    CHECK(inst->getPlacementStatus() == odb::dbPlacementStatus::FIRM);
+    if (inst->getPlacementStatus() == odb::dbPlacementStatus::PLACED) {
+      CHECK(inst->getName().find("_na") != std::string::npos);
+      CHECK(inst->getMaster()->getName() == spec.cells.inv);
+      ++loose;
+    } else {
+      CHECK(inst->getPlacementStatus() == odb::dbPlacementStatus::FIRM);
+    }
     odb::Rect box = inst->getBBox()->getBox();
     CHECK(die.contains(box));
     if (inst->getMaster()->getName() == "DFFHQNx1_ASAP7_75t_R") {
@@ -79,6 +88,8 @@ int main(int argc, char** argv) {
     by_y[box.yMin()].emplace_back(box.xMin(), box.xMax());
   }
   CHECK(flops == 8 * 4);
+  // two write ports of three address bits each, plus the read ports'
+  CHECK(loose > 2 * 3);
   // No two cells overlap on a row.
   for (auto& [y, spans] : by_y) {
     std::sort(spans.begin(), spans.end());

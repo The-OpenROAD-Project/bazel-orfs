@@ -449,10 +449,12 @@ dbBlock* Builder::Run() {
   // These are the array's boundary cells: their inputs are the parent's
   // address nets, their outputs the widest nets inside. The parent's
   // repair_design is allowed to touch them (it has to buffer the nets it
-  // drives into the array, and it will upsize a driver of a wide net),
-  // and a FIRM cell one site wider than it was overlaps its neighbour. So
-  // every inverter gets a spare site after it: INVx1 to INVx2 on asap7 is
-  // exactly one site, and the header row is a few hundred cells.
+  // drives into the array, and it will upsize a driver of a wide net). A
+  // cell the parent may resize is one it may move: they are PLACED, not
+  // FIRM, so the parent's legaliser takes whatever size they end up --
+  // timing-driven global placement upsized XiangShan's ROB inverters to
+  // INVx13. Each still gets a spare site after it, room for the common
+  // INVx1 to INVx2 without a move.
   std::vector<std::vector<std::vector<dbNet*>>> raddr_n(R);
   std::vector<std::vector<dbNet*>> waddr_n(W);
   {
@@ -464,7 +466,8 @@ dbBlock* Builder::Run() {
           dbNet* y = Net("rd" + std::to_string(r) + "_k" + std::to_string(k) +
                          "_na" + std::to_string(i));
           Place(c, inv_, y->getName(),
-                {{g_pins.inv[0], raddr[r][k][i]}, {g_pins.inv[1], y}});
+                {{g_pins.inv[0], raddr[r][k][i]}, {g_pins.inv[1], y}})
+              ->setPlacementStatus(odb::dbPlacementStatus::PLACED);
           c.x += site_w_;
           raddr_n[r][k].push_back(y);
         }
@@ -474,7 +477,8 @@ dbBlock* Builder::Run() {
       for (int i = 0; i < A; ++i) {
         dbNet* y = Net("wr" + std::to_string(w) + "_na" + std::to_string(i));
         Place(c, inv_, y->getName(),
-              {{g_pins.inv[0], waddr[w][i]}, {g_pins.inv[1], y}});
+              {{g_pins.inv[0], waddr[w][i]}, {g_pins.inv[1], y}})
+            ->setPlacementStatus(odb::dbPlacementStatus::PLACED);
         c.x += site_w_;
         waddr_n[w].push_back(y);
       }

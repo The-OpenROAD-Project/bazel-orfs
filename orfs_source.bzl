@@ -185,6 +185,12 @@ ORFS_PATCHES = [
     # to travel from one a fraction past a row's edge. Not upstreamed;
     # retires at a bump onto an ORFS that carries the check.
     Label("//patches:0086-orfs-gpl-stranded-cells.patch"),
+    # 0087: a placed netlist's cell may be PLACED, as its generator says:
+    # the address inverters, which the parent's resizer may change and so
+    # its legaliser may move. Timing-driven global placement upsized
+    # XiangShan's ROB inverters to INVx13 over FIRM neighbours. Builds on
+    # 0078 and 0084; retires with them.
+    Label("//patches:0087-orfs-structured-netlists-placed-cells.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
