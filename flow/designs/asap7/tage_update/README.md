@@ -1,107 +1,133 @@
 # tage_update
 
-One cycle of a TAGE branch predictor's training: every table's read
-response is **gathered** to the middle, a provider is **decided**, and
-the decision is **scattered** back to one bank of every table. Each
-table is a set of SRAM macros, so the cycle starts and ends at macro
-pins spread over the die.
+This design adds to the variety, relevance and fast turnaround of the
+ORFS tests: generated SRAMs at scale (6 / 40 / 160 macros through
+`AUTO_MEMORIES`) on ORFS's default flow settings, the structure of a
+TAGE branch predictor as in XiangShan, and a size ladder whose
+10-minute base variant already shows the effect.
 
-The design exists to measure one thing: how much of a register-to-register
-path that spans distributed macros goes to repeaters and wire rather
-than logic, and how that share grows with the number of tables.
+One cycle of a branch predictor's second stage: the TAGE's tables and
+the main BTB are read from the same pc, and their responses decide the
+fetch block's prediction. When that prediction overrides the first
+stage's, the next fetch starts from its target, and the TAGE and main
+BTB banks that pc hashes to are read again, so the path ends at the
+bank being read: its SRAM's read address or enable, or the write
+buffer beside a TAGE table, which cannot drain while the bank is read.
+
+The decision logic needs both sets of SRAMs' outputs, so placement
+puts it between them, and a path from one TAGE table back to a TAGE
+table goes out to that logic and comes back. The design exists to
+measure that detour: how far the path travels compared with the
+distance between its ends, and how much of its delay is repeaters and
+wire rather than logic.
 
 ## The path
 
 ```mermaid
 flowchart LR
-  subgraph T0[table 0]
-    S0[SRAMs] --> R0[s2 response regs]
-    WB0[write buffer] --> S0
+  subgraph TAGE[TAGE: TABLES x BANKS x WAYS]
+    TS[entry and useful SRAMs] --> TR[s2 response regs]
+    WB[write buffers] --> TS
   end
-  subgraph T1[table 1]
-    S1[SRAMs] --> R1[s2 response regs]
-    WB1[write buffer] --> S1
+  subgraph MBTB[main BTB: 2 halves x MBTB_BANKS x MBTB_WAYS]
+    MS[entry SRAMs] --> MR[s2 slots and their order]
   end
-  subgraph TN[table N-1]
-    SN[SRAMs] --> RN[s2 response regs]
-    WBN[write buffer] --> SN
-  end
-  R0 & R1 & RN -->|gather| H[tag compare per table and way]
-  H --> D[decide: provider = last hit, alt = previous]
-  D --> RR[rerd_valid: weak provider, or not useful]
-  RR -->|scatter| WB0 & WB1 & WBN
+  TR -->|tag compare| D[provider and alternate: direction]
+  D --> C
+  MR --> C[first taken slot: direction, position, target]
+  C --> O[override of stage 1?]
+  O -->|s0 pc| WB
+  O -->|s0 pc| MS
 ```
 
-The critical path starts at a stage-2 response register in one table,
-passes the tag comparison, the provider priority chain and the re-read
-condition, and ends at a write-buffer head register in every table:
-a bank that is re-read this cycle cannot drain its write buffer.
+The critical path starts at a stage-2 register, decides the TAGE's
+direction, combines it with the main BTB's slots into the block's
+prediction, compares that with the first stage's, picks the next pc,
+hashes it to a bank, and ends at that bank: the SRAM's read address or
+enable, or the write buffer, which does not drain while the bank is
+read.
 
 ```mermaid
 sequenceDiagram
-  participant P as s0..s2 pipeline
-  participant T as tables (SRAM)
-  participant C as decision
-  P->>T: s0 prediction read
-  T->>T: s1 SRAM read
-  T->>C: s2 response registers (gather)
-  C->>T: same cycle: re-read and drain-or-not (scatter)
-  C->>P: t1 training write, registered
+  participant S as stage control
+  participant T as TAGE tables
+  participant B as main BTB
+  S->>T: s0 read at pc
+  S->>B: s0 read at pc
+  T->>S: s2 responses (gather)
+  B->>S: s2 slots
+  S->>S: same cycle: direction, first taken slot, override, next pc
+  S->>T: next s0 read, at the bank that pc hashes to: no drain there
+  S->>B: next s0 read
 ```
 
 ## Where it comes from
 
-XiangShan's Frontend (Kunminghu), the branch predictor's TAGE:
-`xiangshan/frontend/bpu/tage/Tage.scala` and `TageTable.scala`. The
-source files cite the lines each piece models. In XiangShan the
-decision reaches training through the Ftq, which returns a
-just-predicted branch's metadata; here that round trip is one wire,
-so the cycle is the same and nothing else is.
+XiangShan's Frontend (Kunminghu), its branch predictor:
+`xiangshan/frontend/bpu/Bpu.scala` for the stage-2 prediction and the
+override, `bpu/tage/` for the TAGE, `bpu/mbtb/` for the main BTB and
+`bpu/WriteBuffer.scala` for the write buffers. The sources cite the
+lines each piece models.
 
-On XiangShan's Frontend this class of path, at global route on asap7
-with timing-driven placement and three threshold voltages, has about as
-many buffers as logic cells, and the distance its cells cover is about
-six times the distance between its two ends.
-
-The SRAMs keep XiangShan's shapes: 512x17 for the entries
-(`array_512x17`) and 64x16 for the useful counters (`array_64x16`,
-eight 2-bit counters to a row). Both use firtool's port convention, so
+The SRAMs keep XiangShan's shapes: 512x17 for the TAGE's entries
+(`array_512x17`), 64x16 for its useful counters (`array_64x16`, eight
+2-bit counters to a row) and 256x46 for the main BTB's entries
+(`array_256x46`). All use firtool's port convention, so
 `AUTO_MEMORIES` turns them into generated macros.
+
+What is left out: the TAGE predicts one direction per fetch block
+where XiangShan's predicts one per slot (wider, not deeper); the
+targets' upper-bit correction; the Ftq, which in XiangShan returns a
+just-predicted branch's metadata to training and here is one wire.
 
 ## Variants
 
-The parameters are the number of tables, banks per table and ways per
-bank; each (table, bank, way) is one entry SRAM and one useful SRAM.
+| FLOW_VARIANT | TAGE | main BTB | macros |
+|---|---|---|---|
+| small | 2 tables, 1 bank, 1 way | 1 bank, 1 way | 6 |
+| medium (= base, the default) | 4 tables, 2 banks, 2 ways | 2 banks, 2 ways | 40 |
+| large | 8 tables, 4 banks, 2 ways | 4 banks, 4 ways | 160 |
 
-| FLOW_VARIANT | TABLES | BANKS | WAYS | macros |
-|---|---|---|---|---|
-| small | 2 | 1 | 1 | 4 |
-| medium | 4 | 2 | 2 | 32 |
-| large (= base, the default) | 8 | 4 | 2 | 128 |
+large is XiangShan's size for both. base, the variant ORFS runs when
+FLOW_VARIANT is not set, is the smallest that shows the effect.
 
-base, the variant ORFS runs when FLOW_VARIANT is not set, is the
-smallest rung that shows the effect.
+## What it shows
 
-## Results
+The worst path in every variant leaves stage 2's pc and ends at an
+SRAM's read address or enable: the override has decided where the next
+fetch starts, and the banks that pc hashes to have to be read. The
+decision needs both the TAGE's and the main BTB's outputs, so it sits
+between the two groups of SRAMs, and the path back from it to a bank
+grows with the field of SRAMs around it.
 
-The worst register-to-register path of each variant, at global route
-and at final, against the 473 ps clock. The split is of the path at
-global route, with the clock latencies taken out: clock-to-q and setup
-are the rest.
+- small is logic. The decision sits next to everything it reads, and
+  repeaters and wire are a small part of the path.
+- medium starts to travel: a few repeaters appear, and the path is
+  longer than the distance between its ends.
+- large is the size of XiangShan's predictor. The main BTB's SRAMs sit
+  along one side of the die and the TAGE's along the other, the path is
+  about a millimetre long, and close to half of its delay is repeaters
+  and wire. That half is what this design is for.
 
-| FLOW_VARIANT | reg2reg, grt | reg2reg, final | logic | repeaters | wire | flow time |
-|---|---|---|---|---|---|---|
-| small | 396 ps | 380 ps | 338 ps, 14 cells | none | 12 ps | 2 min |
-| medium | 466 ps | 458 ps | 393 ps, 17 cells | none | 17 ps | 5 min |
-| large | 486 ps | 481 ps | 288 ps, 20 cells | 121 ps, 10 cells | 20 ps | 18 min |
+Two things decide how much of that half is paid:
 
-In every variant the path is the one this design is about: from a
-stage-2 pc register, through the decision, to a write-buffer register
-of one table. Up to 32 macros it is logic. At 128, the size of
-XiangShan's TAGE, the tables are far enough apart that repeaters and
-wire are 29 % of it, with one repeater for every two logic cells; on
-XiangShan's Frontend the same path has about as many repeaters as logic
-cells. Flow time is the sum of the stages' elapsed times on one machine.
+- The metal stack. With resistance-aware global routing (asap7's
+  default) the critical nets go to M8 and M9, which this design routes
+  to, as XiangShan does.
+- Detailed routing. It makes the long nets longer than global route
+  estimated, so large is worse at final than at global route.
+
+A change to the flow for this class of path shows on large as a shorter
+path or a smaller repeater and wire share. Look at the worst path after
+global route:
+
+```sh
+make DESIGN_CONFIG=./designs/asap7/tage_update/config.mk FLOW_VARIANT=large gui_grt
+```
+
+XiangShan's Frontend has the same structure on a die 2.4 times wider,
+the rest of the Frontend surrounding the predictor, so the effect is
+larger there.
 
 ## Constraints
 
@@ -114,10 +140,11 @@ with `set_max_delay`, and only register-to-register paths can fail.
 ```sh
 make DESIGN_CONFIG=./designs/asap7/tage_update/config.mk
 make DESIGN_CONFIG=./designs/asap7/tage_update/config.mk FLOW_VARIANT=small
-make DESIGN_CONFIG=./designs/asap7/tage_update/config.mk FLOW_VARIANT=medium
+make DESIGN_CONFIG=./designs/asap7/tage_update/config.mk FLOW_VARIANT=large
 ```
 
-Then compare the worst register-to-register path across the variants:
+Then look at the worst register-to-register path and where its cells
+are:
 
 ```sh
 make DESIGN_CONFIG=./designs/asap7/tage_update/config.mk gui_grt
