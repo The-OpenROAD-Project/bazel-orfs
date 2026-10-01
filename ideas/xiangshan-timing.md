@@ -1096,6 +1096,55 @@ c8ca8d30, the README's block measure:
   between them. The next full KPI run says what the parent and the other
   blocks did.
 
+## 40. The parent's worst paths were global placement's buffer chains
+
+On the KPI tree of #1139 (5,402 ps), a census of the parent's 200 worst
+`reg2reg` paths at global route, each split from OpenSTA's JSON path
+report into launch and capture clock latency, repeater cells (BUF, INV,
+CKINV), other cells, arcs through a block abstract and wire, with the
+Manhattan length of its net hops against the distance from its first
+point to its last:
+
+| per path, mean of 200 | KPI tree | `GPL_KEEP_OVERFLOW=0` (#1143) |
+|---|---:|---:|
+| period range | 5,402 to 4,615 ps | 4,226 to 4,105 ps |
+| repeaters | 77.6 cells, 1,612 ps | 28.7 cells, 1,188 ps |
+| other cells | 1,285 ps | 1,130 ps |
+| wire | 902 ps | 393 ps |
+| clock skew | 40 ps | 49 ps |
+| net hops / first-to-last span | 10.9 mm / 1.65 mm | 2.5 mm / 0.79 mm |
+
+- Repeaters were the largest component of 198 of the 200 paths. On the
+  worst, about 90 of its 117 were the rebuffer's `place<N>` BUFx6f
+  (`Rebuffer::fullyRebuffer`, called by `findResizeSlacks` from
+  timing-driven global placement), one net's chain jumping 50 to 150 um
+  back and forth at each hop: the chains were made at the first
+  timing-driven iteration, at overflow 0.63, and kept
+  (`keep_resize_below_overflow` defaults to 1), and the cells moved
+  after.
+- On the same checkpoint: placement parasitics give 10,899 ps against the
+  route's 5,402, an ideal clock 5,381, and every RC at 1e-6 2,376 (on
+  another path). `repair_timing -setup -repair_tns 0 -max_passes 50` on
+  the cts checkpoint took 421 s for 6.8 percent, nearly all of it
+  threshold-voltage swaps.
+- OpenROAD #6165, which made the repair non-virtual, chose 0.3 by its
+  experiments; XSTile has two timing-driven iterations (0.63, 0.19), and
+  0.3 against 0 is not measured.
+
+The parent, the blocks unchanged:
+
+| parent | reg2reg | global route: congestion, wire, peak |
+|---|---:|---|
+| KPI tree | 5,402 ps | 698,703, 189.6 m, 100.5 GiB |
+| `GPL_KEEP_OVERFLOW=0` (#1143) | 4,226 ps | 76,033, 107.9 m, 88.8 GiB |
+| and repair after CTS (#1144) | 3,785 ps | 72,760, 107.9 m, 88.6 GiB |
+
+With #1143 all 200 of the worst paths start at one Frontend output,
+`cfVec_2_bits_instr[16]`, and end in CtrlBlock's decode buffer; with
+#1144 the worst is `cfVec_1_bits_instr[12]` into CtrlBlock's store set
+table (no census of it yet). `SKIP_INCREMENTAL_REPAIR` is the parent's
+remaining turnaround setting that changes the netlist.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
