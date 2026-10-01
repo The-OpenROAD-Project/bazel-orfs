@@ -191,6 +191,13 @@ ORFS_PATCHES = [
     # XiangShan's ROB inverters to INVx13 over FIRM neighbours. Builds on
     # 0078 and 0084; retires with them.
     Label("//patches:0087-orfs-structured-netlists-placed-cells.patch"),
+    # 0088: a generated asap7 macro is at least one M5 power-strap pitch
+    # wide. A 64x16 array folded to 4.18 um, narrower than the 5.4 um
+    # pitch, could land between two straps of a net; its macro grid then
+    # had no shapes and pdngen failed the design (PDN-0233). Builds on
+    # 0063 and 0067; retires at a bump onto an ORFS whose FakeRAM asap7
+    # backend has a width floor.
+    Label("//patches:0088-orfs-fakeram-min-width.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

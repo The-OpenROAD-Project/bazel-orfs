@@ -1,0 +1,171 @@
+From c1384d439c54a5b32327897b28213013e84d4df9 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Thu, 1 Oct 2026 09:26:33 +0200
+Subject: [PATCH] FakeRAM asap7: a macro at least one power-strap pitch wide
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A generated macro's power pins are horizontal M4 rails; the platform's
+macro grid connects them to the core's vertical M5 straps, one per net
+every 5.4 um (grid_strategy-M1-M2-M5-M6.tcl). The backend sized a macro
+from its bit cells alone, with a floor on height and none on width, so
+a small memory folded square could come out narrower than the strap
+pitch. Such a macro can land between two straps of a net: its macro
+grid gets no shapes and pdngen fails the whole design (PDN-0233). A
+64x16 array folds to 4.18 um; in the three variants of a test design
+with 2, 16 and 64 of them, 13 landed that way and every variant failed
+in floorplan.
+
+The process gets a min_width_um floor beside the existing height floor,
+and the asap7 backend sets it to one pitch plus one strap plus the
+rails' inset at both edges, 5.616 um: a strap of each net then crosses
+the rails wherever the macro is placed. Wider macros are unchanged.
+
+Not upstreamed (builds on carried patches 0063 and 0067).
+Retires at a //:bump onto an ORFS whose FakeRAM asap7 backend has a
+width floor.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ tools/FakeRAM2.0/orfs_asap7/generate.py   |  9 ++++++
+ tools/FakeRAM2.0/test/macro_dim_test.py   | 14 ++++++++
+ tools/FakeRAM2.0/test/spsram_mask_test.py | 39 +++++++++++++++++++++++
+ tools/FakeRAM2.0/utils/class_process.py   |  4 +++
+ 4 files changed, 66 insertions(+)
+
+diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asap7/generate.py
+index ae76bf09c..e900095c0 100644
+--- a/tools/FakeRAM2.0/orfs_asap7/generate.py
++++ b/tools/FakeRAM2.0/orfs_asap7/generate.py
+@@ -39,6 +39,15 @@ ASAP7_PROCESS_CONFIG = {
+     "column_mux_factor": 1,
+     "snap_width_nm": 190,
+     "snap_height_nm": 1400,
++    # A macro's power pins are horizontal M4 rails, which the platform's
++    # macro grid connects to the core's vertical M5 straps
++    # (openRoad/pdn/grid_strategy-M1-M2-M5-M6.tcl: each net every 5.4 um,
++    # 0.12 um wide). A narrower macro can sit between two straps of a
++    # net, its grid gets no shapes and pdngen fails the whole design
++    # (PDN-0233). One pitch plus a strap, plus the rails' 0.048 um inset
++    # at both edges, puts a strap of each net across the rails wherever
++    # the macro lands.
++    "min_width_um": 5.4 + 0.12 + 2 * 0.048,
+ }
+ 
+ ASAP7_TIMING_CONFIG = {
+diff --git a/tools/FakeRAM2.0/test/macro_dim_test.py b/tools/FakeRAM2.0/test/macro_dim_test.py
+index 849fc0451..be7040e4a 100755
+--- a/tools/FakeRAM2.0/test/macro_dim_test.py
++++ b/tools/FakeRAM2.0/test/macro_dim_test.py
+@@ -71,6 +71,20 @@ class MacroDimTest(unittest.TestCase):
+             self.assertAlmostEqual(height, exp_height, delta=self._delta)
+             self.assertAlmostEqual(width, exp_width, delta=self._delta)
+ 
++    def test_macro_dim_min_width(self):
++        """A narrow macro is widened to min_width_um; a wide one is not"""
++
++        process_data = TestUtils.get_base_process_data().copy()
++        process_data["min_width_um"] = 10.0
++        process = Process(process_data)
++        # 39 bits at 2048 deep is 5.054 um wide, below the floor
++        width, height = process.get_macro_dimensions(39, 2048, 1, 0)
++        self.assertAlmostEqual(width, 10.0, delta=self._delta)
++        self.assertAlmostEqual(height, 663.552, delta=self._delta)
++        # four banks make it 20.216 um wide, above the floor
++        width, _ = process.get_macro_dimensions(39, 2048, 4, 0)
++        self.assertAlmostEqual(width, 5.054 * 4, delta=self._delta)
++
+     def test_macro_dim_invalid_banks(self):
+         """Tests detection that an invalid bank value was given"""
+ 
+diff --git a/tools/FakeRAM2.0/test/spsram_mask_test.py b/tools/FakeRAM2.0/test/spsram_mask_test.py
+index 8bced61c1..52fcd1302 100644
+--- a/tools/FakeRAM2.0/test/spsram_mask_test.py
++++ b/tools/FakeRAM2.0/test/spsram_mask_test.py
+@@ -9,6 +9,7 @@ memory without either must come out exactly as before.
+ import io
+ import json
+ import os
++import re
+ import sys
+ import tempfile
+ import unittest
+@@ -24,6 +25,7 @@ from ram_liberty_exporter import RAMLibertyExporter
+ from lef_exporter import LefExporter
+ from test_utils import TestUtils
+ from orfs_asap7.generate import (
++    ASAP7_PROCESS_CONFIG,
+     ASAP7_TIMING_CONFIG,
+     additional_height_for_pins,
+     run_orfs_asap7,
+@@ -202,6 +204,43 @@ class BackendTest(unittest.TestCase):
+             self.assertIn("pin(RW0_en)", lib)
+             self.assertEqual((out / "blackboxes.txt").read_text(), "array_64x114\n")
+ 
++    def test_narrow_macro_spans_a_power_strap_pitch(self):
++        """64x16 folds to 4.18 um, narrower than the M5 strap pitch.
++
++        Between two straps of a net its macro grid has no shapes and
++        pdngen fails the design (PDN-0233), so the backend widens it.
++        """
++        inventory = {
++            "version": 1,
++            "platform": "asap7",
++            "memories": [
++                {
++                    "name": "array_64x16",
++                    "rows": 64,
++                    "bits": 16,
++                    "addr_w": 6,
++                    "read_ports": 0,
++                    "write_ports": 0,
++                    "rw_ports": 1,
++                    "mask_lanes": 0,
++                    "port_convention": "firtool",
++                    "pins": rw0_pins(16, 6, 0),
++                    "idiomatic": True,
++                    "reason": "meets ASAP7 macro floors",
++                },
++            ],
++        }
++        with tempfile.TemporaryDirectory() as d:
++            inv = Path(d) / "memories.json"
++            inv.write_text(json.dumps(inventory))
++            out = Path(d) / "memories"
++            self.assertEqual(run_orfs_asap7("asap7", out, inv), 0)
++            lef = (out / "array_64x16.lef").read_text()
++            size = re.search(r"SIZE ([\d.]+) BY ([\d.]+)", lef)
++            self.assertGreaterEqual(
++                float(size.group(1)), ASAP7_PROCESS_CONFIG["min_width_um"]
++            )
++
+     def test_declared_separate_ports_are_refused(self):
+         pins = rw0_pins(32, 5, 0)
+         for p in pins:
+diff --git a/tools/FakeRAM2.0/utils/class_process.py b/tools/FakeRAM2.0/utils/class_process.py
+index 71975c690..a5bafcfc7 100644
+--- a/tools/FakeRAM2.0/utils/class_process.py
++++ b/tools/FakeRAM2.0/utils/class_process.py
+@@ -60,6 +60,9 @@ class Process:
+         self._calc_y_step()
+         self.bitcell_width_um = json_data.get("bitcell_width_um", None)
+         self.bitcell_height_um = json_data.get("bitcell_height_um", None)
++        # The narrowest macro the platform's power grid can reach; 0 for
++        # no floor. See ASAP7_PROCESS_CONFIG in orfs_asap7/generate.py.
++        self.min_width_um = json_data.get("min_width_um", 0.0)
+ 
+         # Set to True when we want to use the process parameters or bitcell
+         # sizes to calculate the macro dimensions. Set to False for spreadsheet
+@@ -121,6 +124,7 @@ class Process:
+ 
+         min_height = max(3.5, self.snap_height_nm / 1000.0 if self.snap_height_nm else 0)
+         total_height = max(total_height, min_height)
++        total_width = max(total_width, self.min_width_um)
+ 
+         return (total_width, total_height)
+ 
+-- 
+2.53.0
+
