@@ -57,7 +57,6 @@ XS_PARENT = {
         # the study stops at global route: no detailed route to protect, and
         # the check's wire for every net sets the stage's peak memory
         "SKIP_ANTENNA_REPAIR": "1",
-        "SKIP_CTS_REPAIR_TIMING": "1",
         "SKIP_EXTRACT_FA": "1",
         "SKIP_INCREMENTAL_REPAIR": "1",
         "SKIP_LAST_GASP": "1",
