@@ -32,7 +32,7 @@ class LadderTest(unittest.TestCase):
             r"^else\s*\nexport VERILOG_TOP_PARAMS\s*=\s*(.+)", self.mk, re.M
         ).group(1)
         self.assertEqual(default.strip(), self.ladder[base], "base vs BASE")
-        self.assertIn("base, ORFS's default variant, is\n# " + base, self.mk)
+        self.assertIn("base, ORFS's default\n# variant, is " + base, self.mk)
 
 
 if __name__ == "__main__":
