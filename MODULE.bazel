@@ -49,7 +49,7 @@ bazel_dep(name = "sv-elab", version = "2026-07-07")
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
-    integrity = "sha256-rz826twmIwYFwiERRRTotMSEAZMuAXkc4b00jkwQWFo=",
+    integrity = "sha256-yHsIr2Tp0Wi/Gt/e8oBORVc1Dv5RC6HVpuWY3zaU5Gg=",
     # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
     # so vendor src/sta (OpenSTA) and third-party/abc from their own
     # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
@@ -105,8 +105,8 @@ archive_override(
         # that has it.
         "//patches:0004-openroad-dpl-window-supply.patch",
     ],
-    strip_prefix = "OpenROAD-6e51da991dcbe0918b4ec2aa96c11cbd1c3544d5",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/6e51da991dcbe0918b4ec2aa96c11cbd1c3544d5.tar.gz"],
+    strip_prefix = "OpenROAD-c487fc7086ed2692b8e30cc4c16082788d30de12",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/c487fc7086ed2692b8e30cc4c16082788d30de12.tar.gz"],
 )
 
 # OpenROAD pins sv-lang 10.0.bcr.2, which is not yet published in BCR.
@@ -446,8 +446,8 @@ orfs = use_extension("//:extension.bzl", "orfs_repositories")
 # `patches` on an override is honoured only from the root module and
 # would therefore land on whoever is root. Rewritten by //:bump.
 orfs.source(
-    commit = "25b6429c1644a8682852646bebf19ff164402c76",
-    integrity = "sha256-Zu87ph7p1yKmnPxvFXuCqcoA32i/dzCMzzF3lwHN0BY=",
+    commit = "ecb3cfdeb1cafd5c096dc4b3700f97a50329509c",
+    integrity = "sha256-KmbCRkCMehxqaBuzFPTdxpV9yXXkN+dECm+xziKvOPk=",
 )
 orfs.default(
     # Expose the slang yosys plugin (from BCR sv-elab) via
