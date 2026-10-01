@@ -58,6 +58,58 @@ with their measured effect, never opened. The human decides when.
 - Big reproducers that cannot be committed go in a bazel-orfs GitHub release
   and are linked from the body.
 
+## Where the time goes
+
+Profiling the wrong slice of a run, or comparing the wrong pair, has
+produced confident numbers that were wrong. These rules come from
+measuring XiangShan on asap7.
+
+- **Profile the whole stage.** A short sample is not a stage share. A 60 s
+  sample of XSTile's global route put 89 % in the parasitics estimate; the
+  whole-stage profile put it at about half, and the 1.48× fix that followed
+  was sized from the second. Record the whole stage at a low rate (`perf
+  record -F 19 --call-graph fp`), cut it into phases with the log's `Took N
+  seconds:` lines, and print a timeline: busy cores and top symbols per
+  20–60 s.
+- **The main thread is the critical path.** If its samples add up to the
+  step's wall time, the step is paced serially, and anything that only frees
+  other threads saves CPU, not wall time. Splitting OpenSTA's parasitics lock
+  cut cts's futex share from 42 % to 5 % and its CPU by about 40 %, but cts's
+  wall time moved 2 %.
+- **Name the kernel time.** With `kernel.kptr_restrict=1`, the default, a
+  hot kernel address shows up unnamed while every core looks busy. A human
+  sets `sysctl kernel.kptr_restrict=0`. Then classify the spinlock samples by
+  their kernel path (futex, page reclaim, faults) and attribute each to the
+  first frame in our code. That turned "22 % at one kernel address" into one
+  mutex with two callers.
+- **Probe the scaling before the stage.** Time the operation on a loaded
+  checkpoint at 1, 8, 24 and 48 threads, with user and system time from
+  `/proc/self/stat`. If system time climbs while wall time stops falling, it
+  is contention. Each point takes minutes; a stage run takes hours.
+- **Compare first calls with first calls.** The first query in a session
+  pays one-time lazy setup: on XSTile, constant propagation (107 s) and the
+  clock network (48 s). Comparing a first call with a later one once read
+  as 5.2×; the like-for-like ratio was 2.2×.
+- **A reader/writer lock does not fix contention under libc++.**
+  `std::shared_mutex` is a mutex plus condition variables, so every reader
+  still takes a mutex; it measured slower than the plain mutex. Splitting the
+  data into independently locked shards is what scaled.
+- **Measure where the code runs before trusting a micro-benchmark.** A 12×
+  component speedup on 10k-pin nets is worth about 1 % of a stage whose nets
+  are already buffered. Look up the component's share of the real steps
+  first.
+- **List what a parallel loop finds built lazily.** Caches that fill on first
+  use break a parallel loop: `Network::drivers`, constant propagation, the
+  clock network, Flute's lookup table. Complete them serially before the
+  threads start. Under TSan, a report whose top frames on both accesses are
+  inside libomp comes from its unannotated barriers; a report with our code
+  on top is real.
+- **Look for whole rebuilds inside per-edit paths.** An `ensure…` under a
+  per-net update rebuilds global state once per edit: every clock repeater
+  rebuilt the whole clock network, 685 s of XSTile's cts. A counter of calls
+  against useful answers (3.78 M estimates, 0 skipped) shows whether the
+  expensive question ever changes the answer.
+
 ## Noise discipline
 
 A number without these is an anecdote:
@@ -85,6 +137,12 @@ A number without these is an anecdote:
    vehicles where the step is long, or build a synthetic sweep.
 7. **One result file per sample** `(design, stage, arm, repeat)` so a campaign
    is resumable and a new arm appears in the tables by being run.
+8. **Localize a stage delta to the command that changed.** Between single
+   runs, XiangShan steps the change does not touch varied by up to 13 %. A
+   stage-level difference only counts when the command the change affects
+   shows it in the log's `Took N seconds:` lines and the other commands stay
+   flat. Frontend's cts looked 9 % faster overall; the command itself was 7 %
+   faster.
 
 ## Harness shape
 
