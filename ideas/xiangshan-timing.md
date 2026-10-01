@@ -1069,6 +1069,33 @@ entry 36, 14.4 ps.
   is not a logic floor. Its global route is the most congested yet
   (#1139: 698,703 total, 30.5 percent of the routing resources).
 
+## 39. A delay target for ABC makes Frontend slower
+
+ABC gets no delay target: ORFS passes the SDC period as `abc -D` with a
+script file, and Yosys hands `-D` to ABC only through the `{D}`
+placeholder of its own scripts (ORFS #4585). The script file came in for
+wireload support (b9c1485f9) with `-D` kept beside it, so the loss was
+not a decision; upstream #4586 now makes it one and drops `-D`.
+
+The experiment gives ABC the target: a copy of `abc_speed.script` with
+`-D <period>` on the commands that take one (`&nf`, `map`, `upsize`,
+`dnsize`; `buffer` has none), 473 ps. Frontend at place on main
+c8ca8d30, the README's block measure:
+
+| Frontend at place | period | instances | worst `reg2reg` path |
+|---|---:|---:|---|
+| ABC with no delay target, the flow | 1,541 ps | 1,516,968 | a TAGE SRAM's reset state into `sramResetDone` |
+| ABC with a 473 ps target | 1,652 ps | 1,537,751 | the ITLB's hit into the ICache's way lookup |
+
+- The target makes the netlist 1.4 percent larger and the period 7
+  percent longer, against a gate of 2 percent better; it is not carried.
+  The target, 473 ps, is far below any block's period; why the mapping
+  it asks for places worse is not measured.
+- The flow's Frontend on this main is 1,541 ps against #1139's 2,259
+  ps; the ORFS bump to ecb3cfdeb1ca and the halo-to-channel change came
+  between them. The next full KPI run says what the parent and the other
+  blocks did.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
