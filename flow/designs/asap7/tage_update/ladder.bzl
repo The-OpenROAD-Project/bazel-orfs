@@ -11,13 +11,13 @@ and BASE say what config.mk's ifeq blocks say.
 load("@bazel-orfs//:openroad.bzl", "orfs_flow")
 
 LADDER = {
-    "small": "TABLES 2 BANKS 1 WAYS 1",
-    "medium": "TABLES 4 BANKS 2 WAYS 2",
-    "large": "TABLES 8 BANKS 4 WAYS 2",
+    "small": "TABLES 2 BANKS 1 WAYS 1 MBTB_BANKS 1 MBTB_WAYS 1",
+    "medium": "TABLES 4 BANKS 2 WAYS 2 MBTB_BANKS 2 MBTB_WAYS 2",
+    "large": "TABLES 8 BANKS 4 WAYS 2 MBTB_BANKS 4 MBTB_WAYS 4",
 }
 
 # the smallest rung that shows the effect; config.mk's else branch
-BASE = "large"
+BASE = "medium"
 
 def ladder(name, platform, verilog_files, arguments, user_arguments, sources, user_sources, user_stages, macros, stage_data, tags):
     for variant, params in LADDER.items():

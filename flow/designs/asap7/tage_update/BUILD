@@ -35,7 +35,7 @@ py_test(
     )
     for suffix in [
         "_small",
-        "_medium",
         "",
+        "_large",
     ]
 ]
