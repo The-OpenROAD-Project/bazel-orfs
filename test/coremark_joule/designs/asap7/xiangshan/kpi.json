@@ -157,6 +157,19 @@
         "VecRegionModule": 1247
       },
       "note": "timing- and routability-driven global placement, ORFS's default, and RVT, LVT and SLVT from synthesis: every block faster, the parent slower and now the design's period"
+    },
+    {
+      "date": "2026-10-02",
+      "measured": "XSTile_grt, built from source",
+      "parent_ps": 3860,
+      "blocks": {
+        "CoupledL2": 2222,
+        "Frontend": 1541,
+        "MemBlock": 2057,
+        "FltRegionModule": 814,
+        "VecRegionModule": 1247
+      },
+      "note": "the parent keeps no global-placement repair (GPL_KEEP_OVERFLOW 0) and repairs timing after CTS; the ORFS bump to ecb3cfdeb1ca between the rows"
     }
   ]
 }
