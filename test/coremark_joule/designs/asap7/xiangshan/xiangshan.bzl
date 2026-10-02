@@ -1203,15 +1203,6 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     arguments["IO_PLACER_V"] = "M3 M5"
     arguments["PLACE_PINS_ARGS"] = "-annealing"
 
-    # Clock tree synthesis pads every register's clock path out to the
-    # insertion delay of the block macros, whose abstracts are written
-    # at their place stage and so carry a whole unbuffered clock net:
-    # 49 736 delay buffers on the parent, six times its leaf buffers,
-    # and 2.6 hours of legalisation to seat them. A flow that is not yet
-    # asking for skew against the blocks does not want them. ORFS's own
-    # arguments are repeated because CTS_ARGS replaces them wholesale.
-    arguments["CTS_ARGS"] = "-sink_clustering_enable -repair_clock_nets -no_insertion_delay"
-
     # Zero iterations with congestion allowed: the route reports what it
     # would have to route and stops, which is the number this baseline
     # tracks and the map the GUI shows. One maze iteration on this die's
