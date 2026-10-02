@@ -22,7 +22,7 @@ pinned by commit and sha256, each one's BUILD overlay inline in
 is CoupledL2 and everything it instantiates, 182 modules and 100,606 lines,
 byte-identical to the CoupledL2 the measurements below were made on.
 
-What follows is the problem, what was measured, what did not work, and the
+What follows is the problem, whose problem it turned out to be, and the
 plan. The readable SystemVerilog is not written yet; the folder grows as the
 plan lands.
 
@@ -133,42 +133,56 @@ Only then does the minimum period matter.
 
 ## What was measured
 
-### Whose problem is it?
+### Whose problem is it? Ours
 
-Every arm on XiangShan's own CoupledL2 checkpoints:
+Each arm changes one thing from the flow that measured 1,128 ps, and is
+measured at global route on a checkpoint with routes, 473 ps SDC:
 
 ```mermaid
 flowchart LR
-  Q0{"our settings?"} -- "ORFS's default repair, CTS repair on: detour stays" --> Q1{"an ORFS knob?"}
-  Q1 -- "load splitting and rebuffering first: detour stays" --> Q2{"OpenROAD's own moves?"}
-  Q2 -- "split and rebuffer on the routed design: nothing changes" --> P["made at placement,<br/>kept by every later stage"]
+  B0["bazel-orfs: the plan's annealer,<br/>the plan's pins, kept placement repair<br/>1,128 ps, detour"]
+  B0 -- "RTL-MP instead of the annealer" --> B1["743 ps, no detour"]
+  B0 -- "default pins instead of the plan's" --> B2["780 ps, no detour"]
+  B0 -- "no kept placement repair" --> B3["1,374 ps, no detour,<br/>SinkC 735 um from MainPipe"]
+  O["plain ORFS"] --> A1["cut out: 932 ps, no detour"]
+  O --> A2["flattened into the mock tile: 964 ps, no detour"]
 ```
 
-| arm | change | worst at global route | detour |
+| flow | change | worst | worst into SinkC's wide register | detour ratio |
+|---|---|---|---|---|
+| bazel-orfs | as built | 1,128 ps | 1,128 ps | **8.8** |
+| bazel-orfs | ORFS's macro placer, RTL-MP, instead of the plan's annealer | 743 ps | 737 ps | 1.0 |
+| bazel-orfs | default pins instead of the plan's | 780 ps | 776 ps | 1.1 |
+| bazel-orfs | no kept placement repair (`GPL_KEEP_OVERFLOW=0`) | 1,374 ps | 1,370 ps | 1.1 |
+| plain ORFS | CoupledL2 cut out, as in #4547 | 1,129 ps, an undeclared two-cycle SRAM read | 932 ps | 1.0 |
+| plain ORFS | CoupledL2 flattened into the mock tile | 1,449 ps, MainPipe's status into the directory SRAM's enable | 964 ps | 1.0 |
+
+The detour is bazel-orfs's own: the plan's annealer and the plan's pins
+together place SinkC's wide register where its enable's tree has to reach
+far, and timing-driven global placement keeps the buffers of its first
+repair along the way (`ideas/xiangshan-timing.md`, entry 40). Take away
+either the annealer or the pins and the detour is gone, with a third of
+the period. Take away the kept repair alone and the detour is gone, but
+the distance it was hiding stays and costs more. Plain ORFS never makes it.
+
+Repair does not undo it once it is made:
+
+| arm | change | worst | detour |
 |---|---|---|---|
-| as built | | 1,128 ps | ratio 8.8 |
 | ORFS's default global-route repair | `TNS_END_PERCENT=100`, last gasp on | 1,121 ps | unchanged |
 | CTS-stage repair on | `SKIP_CTS_REPAIR_TIMING=0` | 1,078 ps | unchanged |
-| an ORFS knob | `SETUP_MOVE_SEQUENCE` with load splitting and rebuffering first | 1,066 ps | unchanged; the tree gains 3 buffers |
-| OpenROAD's own moves | `repair_timing -sequence "split buffer"` on the routed checkpoint: 62,340 violating endpoints, 114 buffers inserted, 36 load splits | 1,141 ps | the worst endpoint is not touched |
+| an ORFS knob | `SETUP_MOVE_SEQUENCE` with load splitting and rebuffering first | 1,066 ps | unchanged |
+| OpenROAD's own moves | `repair_timing -sequence "split buffer"` on the routed checkpoint | 1,141 ps | the worst endpoint is not touched |
 
-Since then, bazel-orfs's main has found the same mechanism in XSTile's
-parent (`ideas/xiangshan-timing.md`, entry 40): timing-driven global
-placement keeps the buffers of its first repair, made at an overflow of
-0.63, and they zig-zag as the cells move. The parent now builds its buffers
-on the final placement (`GPL_KEEP_OVERFLOW=0`); the blocks do not yet.
+### Why the test designs did not reproduce it
 
-### What did not reproduce it
-
-| attempt | worst | detour | why not |
-|---|---|---|---|
-| a single-concern test design, `asap7/l2_dir_hit` ([#4599](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/pull/4599)), the directory, MainPipe, RequestArb, SinkC and the MSHRs written from the Chisel | 580-653 ps | not probed | the same path and endpoint, at about half the period |
-| the same on XiangShan's own die and macro placement | 711 ps | ratio 1.2 | the floorplan stretches the path, the tree still runs straight |
-| a wide enable fanning out to 64, 256 and 512 bits spread round the die | 470-635 ps | ratio 1.0 | the bits' spread alone does not make a detour |
-| XiangShan's measured sink geometry pinned with `IO_CONSTRAINTS` | 361 ps | ratio 1.1-2.0 | a port is a weak pull: the placer draws the outliers toward the root |
-
-The detour seems to need CoupledL2's own placement pressures around it,
-which is the case for the mock tile.
+There was nothing of CoupledL2's to reproduce. The single-concern test
+design, `asap7/l2_dir_hit`
+([#4599](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/pull/4599)),
+found the same path and endpoint at 580-711 ps, which is about what
+CoupledL2 itself runs at on a floorplan that does not stretch it. Synthetic
+wide enables, 64 to 512 bits spread round the die, and XiangShan's sink
+geometry pinned with `IO_CONSTRAINTS`, ran straight too (ratios 1.0-2.0).
 
 ### What ORFS master cannot do yet
 
@@ -191,12 +205,13 @@ flowchart LR
   GV -.->|"FLOW_VARIANT=generated"| MK
 ```
 
-1. **Reproduce first.** CoupledL2's generated Verilog, unchanged, flattened
-   into the mock tile, built with plain ORFS; the signature above at global
-   route. Beside it, CoupledL2 cut out as in #4547, to measure the cut's
-   phantoms against the mock tile, and the bazel-orfs flow with its own
-   machinery (planned macro placement, planned pins, the kept-repair
-   setting) taken out one piece at a time.
+1. **Reproduce first** (done: nothing to reproduce). CoupledL2's
+   generated Verilog, unchanged, flattened into the mock tile and built
+   with plain ORFS, has no detour; nor has CoupledL2 cut out. The
+   detour came from the bazel-orfs flow's own machinery, taken out one
+   piece at a time above. What the mock tile does show, MainPipe's status
+   into the directory SRAM's enable at 1,449 ps, is CoupledL2's, and is
+   the baseline the readable SystemVerilog is measured against.
 2. **This folder is a small Bazel module, as a certificate** (done).
    `bazelisk run //:generate` writes CoupledL2's generated Verilog for
    inspection, so nobody carries the generated lines, and the rule is the
