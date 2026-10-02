@@ -13,7 +13,7 @@ committed.
 
 ```sh
 bazelisk run //:generate   # generated/CoupledL2.sv and its MANIFEST, for inspection
-bazelisk run //:lec        # the proof; fails until kepler-formal builds natively
+bazelisk run //:lec        # the proof; fails until it is wired up
 ```
 
 The module is self-contained: XiangShan and every repository it pulls in
@@ -201,9 +201,11 @@ flowchart LR
    `bazelisk run //:generate` writes CoupledL2's generated Verilog for
    inspection, so nobody carries the generated lines, and the rule is the
    documentation of how they are made. `bazelisk run //:lec` will prove
-   each readable module equivalent to its generated original; until
-   kepler-formal builds natively in Bazel it fails, so nobody mistakes it
-   for a pass.
+   each readable module equivalent to its generated original. kepler-formal
+   now builds natively in Bazel (oneTBB from the BCR, one TBB runtime), and
+   proves or refutes a small pair; until a readable module exists and the
+   build is vendored here, `//:lec` fails, so nobody mistakes it for a
+   pass.
 3. **Readable SystemVerilog, written from the Chisel's intent** once the
    problem reproduces: one module per generated module, the same ports and
    the same flip-flops so LEC compares them register by register, named

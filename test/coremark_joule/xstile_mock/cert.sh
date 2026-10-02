@@ -57,7 +57,8 @@ case "$1" in
     echo "wrote $dest/CoupledL2.sv ($(wc -l < "$dest/CoupledL2.sv") lines) and $dest/MANIFEST"
     ;;
   lec)
-    echo "LEC is not available yet: kepler-formal does not build natively in Bazel." >&2
+    echo "LEC is not wired up yet: no readable module exists to check, and" >&2
+    echo "kepler-formal's native Bazel build is not vendored here yet." >&2
     echo "Nothing has been proven; this is not a pass." >&2
     exit 1
     ;;
