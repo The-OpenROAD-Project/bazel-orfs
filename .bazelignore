@@ -7,6 +7,7 @@ tmp
 
 lec
 naja
+test/coremark_joule/xstile_mock
 test/docker
 bazel-orfs-bazel-dev
 

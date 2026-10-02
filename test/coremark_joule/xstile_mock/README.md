@@ -5,13 +5,26 @@ the flow shows is CoupledL2's problem and not the problem of cutting it out
 of its parent.
 
 **The SystemVerilog in this folder is the design.** It is what people read,
-build with ORFS's own `make`, and change. The Bazel module here (to come) is
-a certificate, not a tool: it documents how the generated Verilog is made
-from XiangShan's Chisel, and proves the readable SystemVerilog equivalent to
-it by LEC. Nobody needs to run it to use the design.
+build with ORFS's own `make`, and change. The Bazel module here is a
+certificate, not a tool: it documents how the generated Verilog is made from
+XiangShan's Chisel, and proves the readable SystemVerilog equivalent to it
+by LEC. Nobody needs to run it to use the design, and no generated file is
+committed.
+
+```sh
+bazelisk run //:generate   # generated/CoupledL2.sv and its MANIFEST, for inspection
+bazelisk run //:lec        # the proof; fails until kepler-formal builds natively
+```
+
+The module is self-contained: XiangShan and every repository it pulls in
+pinned by commit and sha256, each one's BUILD overlay inline in
+`MODULE.bazel`, the configuration in `CoupledL2Generator.scala`. Its output
+is CoupledL2 and everything it instantiates, 182 modules and 100,606 lines,
+byte-identical to the CoupledL2 the measurements below were made on.
 
 What follows is the problem, what was measured, what did not work, and the
-plan. Nothing here is built yet; the folder grows as the plan lands.
+plan. The readable SystemVerilog is not written yet; the folder grows as the
+plan lands.
 
 ## The problem
 
@@ -184,10 +197,10 @@ flowchart LR
    phantoms against the mock tile, and the bazel-orfs flow with its own
    machinery (planned macro placement, planned pins, the kept-repair
    setting) taken out one piece at a time.
-2. **This folder becomes a small Bazel module, as a certificate.**
+2. **This folder is a small Bazel module, as a certificate** (done).
    `bazelisk run //:generate` writes CoupledL2's generated Verilog for
-   inspection, so nobody carries the generated lines, and the rule is
-   the documentation of how they are made. `bazelisk run //:lec` proves
+   inspection, so nobody carries the generated lines, and the rule is the
+   documentation of how they are made. `bazelisk run //:lec` will prove
    each readable module equivalent to its generated original; until
    kepler-formal builds natively in Bazel it fails, so nobody mistakes it
    for a pass.
