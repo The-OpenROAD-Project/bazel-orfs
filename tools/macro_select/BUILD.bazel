@@ -76,5 +76,23 @@ py_test(
 exports_files([
     "probe_boundaries.tcl",
     "probe_paths.tcl",
+    "probe_peel.tcl",
+    "probe_peel_paths.tcl",
     "probe_pin_partners.tcl",
 ])
+
+py_binary(
+    name = "peel_bound",
+    srcs = ["peel_bound.py"],
+    main = "peel_bound.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "peel_bound_test",
+    srcs = [
+        "peel_bound.py",
+        "peel_bound_test.py",
+    ],
+    main = "peel_bound_test.py",
+)

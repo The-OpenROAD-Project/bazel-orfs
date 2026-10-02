@@ -8,8 +8,12 @@
 # side when its Q reaches an output port the same way. "pure" means the
 # port or the Q reaches nothing else, so peeling adds no core pin;
 # "shared" means it does (the port also feeds other logic, or Q also
-# feeds the core), one new core pin per flop. Per port, one line to
-# PEEL_OUT; the summary on stdout.
+# feeds the core), one new core pin per flop. One tab-separated line per
+# flop to PEEL_OUT, columns `kind flop ports extra_pins da_ps`; the
+# summary on stdout. With PEEL_TIMING=1 (a session with GUI_TIMING=1),
+# da_ps is the period minus the slack at the flop's D: how long the
+# block's own stage into the flop is, the half of the crossing a peeled
+# flop shares. peel_bound.py reads the file.
 
 proc peel_bufinv { master } {
   return [regexp {^(BUF|INV|HB)} [$master getName]]
@@ -87,8 +91,26 @@ proc peel_self_only { inst flop depth } {
   return 1
 }
 
+# The block's stage into `inst`: the period minus the slack at its D, in
+# the library's time unit, or "" without timing. STA names are odb's
+# with the escaped brackets unescaped; `?` matches either.
+proc peel_da { inst period } {
+  if { $period eq "" } { return "" }
+  set g [string map {"\\\[" ? "\\\]" ?} [$inst getName]]
+  set pins [get_pins -quiet "$g/D"]
+  if { [llength $pins] != 1 } { return "" }
+  set s [get_property $pins slack_max]
+  if { ![string is double -strict $s] } { return "" }
+  return [format %.0f [expr { $period - $s }]]
+}
+
+set period ""
+if { [info exists ::env(PEEL_TIMING)] && $::env(PEEL_TIMING) } {
+  set period [get_property [lindex [all_clocks] 0] period]
+}
 set block [ord::get_db_block]
 set out [open $::env(PEEL_OUT) w]
+puts $out "kind\tflop\tports\textra_pins\tda_ps"
 set nflops 0
 set in_pure 0
 set in_shared 0
@@ -114,10 +136,10 @@ foreach inst [$block getInsts] {
       set x [llength $x]
       if { $f == 1 && $x == 0 } {
         incr in_pure
-        puts $out "in_pure $port [$inst getName]"
+        puts $out "in_pure\t[$inst getName]\t$port\t0\t"
       } else {
         incr in_shared
-        puts $out "in_shared $port [$inst getName] flops $f other $x"
+        puts $out "in_shared\t[$inst getName]\t$port\t1\t"
       }
       set reg_in($port) 1
     } elseif { $io eq "OUTPUT" } {
@@ -129,10 +151,10 @@ foreach inst [$block getInsts] {
       }
       if { $f == 0 && $real == 0 } {
         incr out_pure
-        puts $out "out_pure [$inst getName] [join $p ,] self [llength $x]"
+        puts $out "out_pure\t[$inst getName]\t[join $p ,]\t0\t[peel_da $inst $period]"
       } else {
         incr out_shared
-        puts $out "out_shared [$inst getName] [join $p ,] flops $f other $real self [expr { [llength $x] - $real }]"
+        puts $out "out_shared\t[$inst getName]\t[join $p ,]\t1\t[peel_da $inst $period]"
       }
       foreach port $p { set reg_out($port) 1 }
     }

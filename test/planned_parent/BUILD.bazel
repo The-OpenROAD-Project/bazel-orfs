@@ -1,5 +1,6 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("//:openroad.bzl", "odb_debug")
 load(":planned.bzl", "mini_planned_flow")
 
 # The planned parent in miniature: the XiangShan study's shape at a
@@ -189,4 +190,12 @@ py_test(
         ":plan/netlists.txt",
     ],
     main = "leftover_macros_test.py",
+)
+
+# A timing session on the parent at CTS, for the peel probes'
+# block-launched paths (tools/macro_select/probe_peel_paths.tcl): the
+# blocks' abstracts carry clock-to-output arcs, Frontend's SRAMs do not.
+odb_debug(
+    name = "mini_top_cts_odb_debug",
+    src = ":mini_top_cts",
 )
