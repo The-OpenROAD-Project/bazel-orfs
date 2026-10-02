@@ -54,5 +54,40 @@ foreach inst [$block getInsts] {
 }
 if { [llength $rest] > 0 } {
   puts "place_macros.tcl: [llength $rest] macros not in the plan; rtl_macro_placer places them around the planned blocks"
+  # rtl_macro_placer refuses a FIRM standard cell in its area (MPL-0050),
+  # and the plan's placed netlists are FIRM from floorplan on. For the
+  # macro step only they are PLACED, and a hard placement blockage over
+  # each netlist's cells, which rtl_macro_placer keeps macros off, stands
+  # in for them; after it, both are undone.
+  set firm {}
+  array set box {}
+  foreach inst [$block getInsts] {
+    if { [[$inst getMaster] isBlock] || [$inst getPlacementStatus] ne "FIRM" } { continue }
+    lappend firm [list $inst [$inst getLocation] [$inst getOrient]]
+    set key [file dirname [$inst getName]]
+    set b [$inst getBBox]
+    if { [info exists box($key)] } {
+      lassign $box($key) x0 y0 x1 y1
+      set box($key) [list [expr { min($x0, [$b xMin]) }] [expr { min($y0, [$b yMin]) }] [expr { max($x1, [$b xMax]) }] [expr { max($y1, [$b yMax]) }]]
+    } else {
+      set box($key) [list [$b xMin] [$b yMin] [$b xMax] [$b yMax]]
+    }
+  }
+  set stand_ins {}
+  foreach key [array names box] {
+    lassign $box($key) x0 y0 x1 y1
+    lappend stand_ins [odb::dbBlockage_create $block $x0 $y0 $x1 $y1]
+  }
+  foreach f $firm { [lindex $f 0] setPlacementStatus PLACED }
+  puts "place_macros.tcl: [llength $firm] FIRM netlist cells stand aside for the macro step, [llength $stand_ins] blockage(s) in their place"
   rtl_macro_placer -halo_width 2 -halo_height 2
+  # rtl_macro_placer moves a cluster's standard cells to one point: put
+  # every netlist cell back where the plan put it
+  foreach f $firm {
+    lassign $f inst loc orient
+    $inst setOrient $orient
+    $inst setLocation {*}$loc
+    $inst setPlacementStatus FIRM
+  }
+  foreach bl $stand_ins { odb::dbBlockage_destroy $bl }
 }
