@@ -314,6 +314,90 @@ class ExactPinTest(unittest.TestCase):
         )
 
 
+
+class MockFootprintTest(unittest.TestCase):
+    """A block's outline is its own flow's; the parent places its footprint,
+    the outline scaled so its core holds the measured content at
+    block_density, and the block's mocked abstract gets its pins on that
+    footprint from a pin file of its own."""
+
+    def _plan(self, mocked):
+        macros = [dict(m) for m in LayoutTest.MACROS]
+        if mocked:
+            for m in macros:
+                m["content_um2"] = 0.45 * m["area_um2"]
+        p = plan(macros)
+        p["tech"] = dict(LATTICE, **ExactPinTest.LAYERS)
+        if mocked:
+            p["margins"] = dict(MARGINS, block_density=0.6)
+        return p
+
+    def test_footprint_for_the_parent_outline_for_the_block(self):
+        plain = plan_floorplan.layout(self._plan(False))
+        p = self._plan(True)
+        out = plan_floorplan.layout(p)
+        target = out["macros"][0]
+        d = tempfile.mkdtemp(prefix="plan_mock.")
+        dump = os.path.join(d, "partners.txt")
+        with open(dump, "w") as f:
+            for i in range(40):
+                f.write("pin %s a%d logic\n" % (target["name"], i))
+        p["pin_partners"] = dump
+        written = [os.path.basename(w) for w in plan_floorplan.emit(out, p, d)]
+        scope = {}
+        exec(open(os.path.join(d, "plan.bzl")).read(), scope)
+        by_content = 0
+        for m in out["macros"]:
+            entry = scope["PLAN"]["macros"][m["name"]]
+            f = float(entry["MOCK_AREA"])
+            self.assertLess(f, 1.0)
+            # the block's own die is its outline, unscaled
+            x0, y0, x1, y1 = [float(v) for v in entry["DIE_AREA"].split()]
+            self.assertAlmostEqual(x1, m["own_w_um"], 3)
+            self.assertAlmostEqual(y1, m["own_h_um"], 3)
+            # the parent places the outline scaled by the factor
+            self.assertAlmostEqual(m["w_um"], m["own_w_um"] * f, 1)
+            self.assertAlmostEqual(m["h_um"], m["own_h_um"] * f, 1)
+            # its core holds the content at block_density, unless its pins
+            # need more side
+            core = (m["w_um"] - 20) * (m["h_um"] - 20)
+            content = plan_floorplan.plan_macro(p, m["name"])["content_um2"]
+            need = m["pins"] * TECH["pin_pitch_um"] * MARGINS["pin_side"] / TECH["pin_layers"]
+            if m["two_sides"]:
+                need /= 2.0
+            if f > need / m["own_side_um"] + 1e-3:
+                self.assertAlmostEqual(core, content / 0.6, delta=0.01 * core)
+                by_content += 1
+            self.assertIn(m["name"] + "_mock_pins.tcl", written)
+        self.assertGreater(by_content, 0)  # the content, not only the pins, sized some
+        self.assertLess(out["die_area_mm2"], plain["die_area_mm2"])
+
+        def rows(name):
+            text = open(os.path.join(d, name)).read()
+            return [l.split() for l in text.splitlines() if l.startswith("  a")]
+
+        own, mock = rows(target["name"] + "_pins.tcl"), rows(target["name"] + "_mock_pins.tcl")
+        self.assertEqual(len(own), 40)
+        self.assertEqual([r[0] for r in own], [r[0] for r in mock])  # same order
+        for r in own:
+            self.assertLessEqual(float(r[2]), target["own_w_um"])
+            self.assertLessEqual(float(r[3]), target["own_h_um"])
+        for r in mock:
+            self.assertLessEqual(float(r[2]), target["w_um"])
+            self.assertLessEqual(float(r[3]), target["h_um"])
+
+    def test_pins_floor_the_footprint(self):
+        m = {"name": "Wide", "pins": 13000, "area_um2": 400000, "content_um2": 1000}
+        sh = plan_floorplan.shape(m, LATTICE, dict(MARGINS, block_density=0.6), 10)
+        need = 13000 * LATTICE["pin_pitch_um"] * MARGINS["pin_side"] / LATTICE["pin_layers"]
+        if sh["two_sides"]:
+            need /= 2.0
+        self.assertGreaterEqual(sh["fp_side_um"] + 0.01, need)
+
+    def test_no_content_no_mock(self):
+        sh = plan_floorplan.shape(LayoutTest.MACROS[0], LATTICE, MARGINS, 10)
+        self.assertEqual(sh["mock_area"], 1.0)
+
 class MirroredOrderTest(unittest.TestCase):
     def test_both_ends_of_an_interface_share_one_order(self):
         d = tempfile.mkdtemp(prefix="plan_mirror.")

@@ -1133,7 +1133,19 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     macros = sorted(plan["macros"].keys())
     for block in macros:
         cfg = blocks.get(block, XS_BLOCK_DEFAULT)
-        arguments, sources = _planned_block(cfg, plan["macros"][block], plan_dir, block, blocks)
+        entry = plan["macros"][block]
+        arguments, sources = _planned_block(cfg, entry, plan_dir, block, blocks)
+
+        # The parent places the block's footprint, its outline scaled so its
+        # core holds the block's content at the plan's block_density; the
+        # mocked abstract carries that outline and its pins, the block's own
+        # flow its timing. The block's own density is its own concern.
+        mock = {}
+        if "MOCK_AREA" in entry:
+            mock = {
+                "mock_area": float(entry["MOCK_AREA"]),
+                "mock_sources": {"IO_CONSTRAINTS": [":%s/%s_mock_pins.tcl" % (plan_dir, block)]},
+            }
         orfs_flow(
             name = block,
             abstract_stage = "cts",
@@ -1145,6 +1157,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             user_sources = cfg["user_sources"] | XS_ICG_USER_SOURCES,
             user_stages = _user_stages(cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS, cfg["user_sources"] | XS_ICG_USER_SOURCES),
             verilog_files = XS_VERILOG,
+            **mock
         )
         if block in grt_probe_blocks:
             # The block's own global route on its CTS checkpoint, with

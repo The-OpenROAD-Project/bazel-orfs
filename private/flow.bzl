@@ -422,6 +422,7 @@ def orfs_flow(
         last_stage = None,
         variant = None,
         mock_area = None,
+        mock_sources = {},
         previous_stage = {},
         pdk = None,
         stage_data = {},
@@ -494,6 +495,9 @@ def orfs_flow(
         square whose MOCK_AREA_PIN_EDGES adjacent edges (default 2, see mock_pins.tcl) hold every
         pin at place_pins' spacing, times MOCK_AREA_PIN_MARGIN (default 1.5), never larger than
         the real die. Those two knobs reach the mocked variant only.
+      mock_sources: sources for the mocked variant only, over `sources`: a pin
+        file that places the pins on the mocked die, for a block whose own
+        pin file names coordinates on its real die.
       previous_stage: a dictionary with the input for a stage, default is previous stage. Useful when running experiments that share preceeding stages, like share synthesis for floorplan variants.
       pdk: name of the PDK to use, default is asap7
       stage_data: dictionary keyed by ORFS stages with lists of stage-specific data files
@@ -610,9 +614,9 @@ def orfs_flow(
     # A pin-fitted mock puts its pins on adjacent edges (mock_pins.tcl), so
     # the parent's placer has an orientation to choose; the block's own IO
     # constraints, written for its real outline, do not apply to the mock.
-    mock_sources = sources
+    mock_sources = sources | mock_sources
     if mock_area == "pins":
-        mock_sources = sources | {"IO_CONSTRAINTS": ["@bazel-orfs//:mock_pins.tcl"]}
+        mock_sources = mock_sources | {"IO_CONSTRAINTS": ["@bazel-orfs//:mock_pins.tcl"]}
     _orfs_pass(
         name = name,
         top = top,

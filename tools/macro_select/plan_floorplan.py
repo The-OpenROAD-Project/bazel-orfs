@@ -120,13 +120,21 @@ def load_plan(path):
     return plan
 
 
-def shape(macro, tech, margins):
+def shape(macro, tech, margins, core_margin=0.0):
     """Pin side length, outline and channel for one macro, in um.
 
     The pins set a minimum for their side; the block is never deeper than
     it is wide for that alone (a square when the pins fit on its side with
     room to spare), and never deeper than the aspect cap allows. When even
     the cap cannot give the pins one side, they go on two adjacent sides.
+
+    With the macro's content_um2 (its cells and memories, measured) and
+    margins' block_density, the parent sees a footprint instead of the
+    outline: the outline scaled by mock_area in both axes, as mock_area.tcl
+    scales the mocked abstract's die, so that its core holds the content at
+    block_density -- never below what its pins need, never above the
+    outline. The block's own flow keeps the outline; its density is the
+    block's concern, the footprint the parent's.
     """
     pins = macro["pins"]
     area = macro["area_um2"]
@@ -150,6 +158,14 @@ def shape(macro, tech, margins):
         period = max(lx, ly)
         side = math.ceil(side / period) * period
         depth = math.ceil(depth / period) * period
+    mock = 1.0
+    content, density = macro.get("content_um2"), margins.get("block_density")
+    if content and density:
+        # (f side - 2 m)(f depth - 2 m) = content / density: the core keeps
+        # its absolute margins when the die scales
+        a, b, c = side * depth, -2.0 * core_margin * (side + depth), (2.0 * core_margin) ** 2 - content / density
+        mock = (-b + math.sqrt(b * b - 4.0 * a * c)) / (2.0 * a)
+        mock = min(1.0, max(mock, need / side))
     channel = max(
         macro.get("channel_min_um", margins["channel_min_um"]),
         pins / tech["track_density_per_um"] * margins["lateral"],
@@ -163,6 +179,9 @@ def shape(macro, tech, margins):
         "two_sides": two_sides,
         "channel_um": round(channel, 3),
         "pins_per_um": round(pins / (side * (2 if two_sides else 1)), 3),
+        "mock_area": round(mock, 4),
+        "fp_side_um": round(side * round(mock, 4), 3),
+        "fp_depth_um": round(depth * round(mock, 4), 3),
     }
 
 
@@ -234,7 +253,13 @@ def layout(plan):
     margins = plan["margins"]
     parent = plan["parent"]
     gap = margins["gap_um"]
-    shapes = [shape(m, tech, margins) for m in plan["macros"]]
+    shapes = []
+    for m in plan["macros"]:
+        sh = shape(m, tech, margins, parent["core_margin_um"])
+        # the parent lays out footprints; the block's own outline rides along
+        sh["own_side_um"], sh["own_depth_um"] = sh["pin_side_um"], sh["depth_um"]
+        sh["pin_side_um"], sh["depth_um"] = sh["fp_side_um"], sh["fp_depth_um"]
+        shapes.append(sh)
     region_area = parent["cell_area_um2"] / parent["density"]
     min_w, min_h = netlist_row(plan)
     placed, region_w, region_h = assign_sides(
@@ -276,6 +301,8 @@ def layout(plan):
                 x, y, wdt, hgt = x0 + region_w + w, y0 + start, d, s
             m = dict(sh)
             x, y = _snap(x, y, tech)
+            own_s, own_d = sh["own_side_um"], sh["own_depth_um"]
+            own_w, own_h = (own_s, own_d) if side in ("bottom", "top") else (own_d, own_s)
             m.update(
                 {
                     "region_side": side,
@@ -284,6 +311,8 @@ def layout(plan):
                     "y_um": round(y, 3),
                     "w_um": round(wdt, 3),
                     "h_um": round(hgt, 3),
+                    "own_w_um": round(own_w, 3),
+                    "own_h_um": round(own_h, 3),
                     "orient": "R0",
                 }
             )
@@ -303,7 +332,7 @@ def layout(plan):
     for m in macros:  # a snapped origin may have moved a macro outward
         die_w = max(die_w, m["x_um"] + m["w_um"] + cx)
         die_h = max(die_h, m["y_um"] + m["h_um"] + cy)
-    macro_area = sum(m["area_um2"] for m in macros)
+    macro_area = sum(m["area_um2"] * m["mock_area"] ** 2 for m in macros)
     return {
         "region_um": [round(v, 3) for v in region_box],
         "die_um": [0.0, 0.0, round(die_w, 3), round(die_h, 3)],
@@ -847,114 +876,122 @@ def emit(out, plan, directory):
         bzl["parent"]["SYNTH_KEEP_MODULES"] = " ".join(plan["parent"]["keep"])
     rows = []
     for m in out["macros"]:
-        side = m["pin_side"]
-        sides = side
-        constraint = ONE_SIDE.format(side=side)
-        if m["two_sides"]:
-            other = NEXT_SIDE[side]
-            sides = side + " and " + other
-            constraint = TWO_SIDES.format(side=side, other=other)
-        if m["name"] in partners and not m["two_sides"]:
-            inner, outer = split_groups(
-                fold_partners(partners[m["name"]], by_name_all, m["name"])
-            )
-            segs = [(side,) + s_ for s_ in pin_segments(m, inner, out)]
-            if outer:
-                # ports and unconnected pins on the outer side, whole side
-                segs += [
-                    (OUTER[side], partner, None, None, pins)
-                    for partner, pins in sorted(outer.items())
-                ]
-            tech = plan["tech"]
-            if "pin_layers_v" in tech and "pin_layers_h" in tech:
-                pin_rows = []
-                sides_used = []
-                for sd in (side, OUTER[side]):
-                    on_side = [
-                        (p_, lo, hi, pins)
-                        for sd_, p_, lo, hi, pins in segs
-                        if sd_ == sd
+        # the block's own pins on its own outline; a mocked block's pins
+        # again on its footprint, for the mocked abstract the parent places
+        shapes_ = [("", dict(m, w_um=m["own_w_um"], h_um=m["own_h_um"]))]
+        if m["mock_area"] < 1.0:
+            shapes_.append(("_mock", m))
+        for suffix, pm in shapes_:
+            side = pm["pin_side"]
+            sides = side
+            constraint = ONE_SIDE.format(side=side)
+            if pm["two_sides"]:
+                other = NEXT_SIDE[side]
+                sides = side + " and " + other
+                constraint = TWO_SIDES.format(side=side, other=other)
+            if pm["name"] in partners and not pm["two_sides"]:
+                inner, outer = split_groups(
+                    fold_partners(partners[pm["name"]], by_name_all, pm["name"])
+                )
+                segs = [(side,) + s_ for s_ in pin_segments(pm, inner, out)]
+                if outer:
+                    # ports and unconnected pins on the outer side, whole side
+                    segs += [
+                        (OUTER[side], partner, None, None, pins)
+                        for partner, pins in sorted(outer.items())
                     ]
-                    if not on_side:
-                        continue
-                    sides_used.append(sd)
-                    mm = dict(m, pin_side=sd)
-                    for pin, layer, x, y, w, h in place_exact(mm, on_side, tech):
-                        pin_rows.append(
-                            "  {} {} {:.4f} {:.4f} {:.4f} {:.4f}".format(
-                                pin, layer, x, y, w, h
-                            )
-                        )
-                text = EXACT_TCL.format(
-                    name=m["name"],
-                    side=side,
-                    sides=" and ".join(sides_used),
-                    layers="/".join(
-                        l_["name"]
-                        for l_ in tech[
-                            (
-                                "pin_layers_v"
-                                if side in ("top", "bottom")
-                                else "pin_layers_h"
-                            )
+                tech = plan["tech"]
+                if "pin_layers_v" in tech and "pin_layers_h" in tech:
+                    pin_rows = []
+                    sides_used = []
+                    for sd in (side, OUTER[side]):
+                        on_side = [
+                            (p_, lo, hi, pins)
+                            for sd_, p_, lo, hi, pins in segs
+                            if sd_ == sd
                         ]
-                    ),
-                    rows="\n".join(pin_rows),
-                )
-                m["pin_segments"] = [
-                    {
-                        "side": sd,
-                        "partner": p_,
-                        "lo_um": lo,
-                        "hi_um": hi,
-                        "pins": len(pins),
-                    }
-                    for sd, p_, lo, hi, pins in segs
-                ]
-                m["pins_placed_exact"] = len(pin_rows)
-                write(m["name"] + "_pins.tcl", text)
-                # the block's entry and its place_macros row follow below,
-                # like every other block's: this branch only chose its pins file
-                text = None
+                        if not on_side:
+                            continue
+                        sides_used.append(sd)
+                        mm = dict(pm, pin_side=sd)
+                        for pin, layer, x, y, w, h in place_exact(mm, on_side, tech):
+                            pin_rows.append(
+                                "  {} {} {:.4f} {:.4f} {:.4f} {:.4f}".format(
+                                    pin, layer, x, y, w, h
+                                )
+                            )
+                    text = EXACT_TCL.format(
+                        name=pm["name"],
+                        side=side,
+                        sides=" and ".join(sides_used),
+                        layers="/".join(
+                            l_["name"]
+                            for l_ in tech[
+                                (
+                                    "pin_layers_v"
+                                    if side in ("top", "bottom")
+                                    else "pin_layers_h"
+                                )
+                            ]
+                        ),
+                        rows="\n".join(pin_rows),
+                    )
+                    pm["pin_segments"] = [
+                        {
+                            "side": sd,
+                            "partner": p_,
+                            "lo_um": lo,
+                            "hi_um": hi,
+                            "pins": len(pins),
+                        }
+                        for sd, p_, lo, hi, pins in segs
+                    ]
+                    pm["pins_placed_exact"] = len(pin_rows)
+                    write(pm["name"] + suffix + "_pins.tcl", text)
+                    # the block's entry and its place_macros row follow below,
+                    # like every other block's: this branch only chose its pins file
+                    text = None
+                else:
+                    text = SEGMENTS_TCL.format(
+                        name=pm["name"],
+                        side=side,
+                        count=len(segs),
+                        segments="\n".join(
+                            SEGMENT_TCL.format(
+                                partner=partner,
+                                n=len(pins),
+                                side=sd,
+                                region=(
+                                    "*" if lo is None else "{:.3f}-{:.3f}".format(lo, hi)
+                                ),
+                                pins=" ".join(pins),
+                            )
+                            for sd, partner, lo, hi, pins in segs
+                        ),
+                    )
+                    pm["pin_segments"] = [
+                        {
+                            "side": sd,
+                            "partner": p_,
+                            "lo_um": lo,
+                            "hi_um": hi,
+                            "pins": len(pins),
+                        }
+                        for sd, p_, lo, hi, pins in segs
+                    ]
             else:
-                text = SEGMENTS_TCL.format(
-                    name=m["name"],
+                text = PINS_TCL.format(
+                    name=pm["name"],
                     side=side,
-                    count=len(segs),
-                    segments="\n".join(
-                        SEGMENT_TCL.format(
-                            partner=partner,
-                            n=len(pins),
-                            side=sd,
-                            region=(
-                                "*" if lo is None else "{:.3f}-{:.3f}".format(lo, hi)
-                            ),
-                            pins=" ".join(pins),
-                        )
-                        for sd, partner, lo, hi, pins in segs
-                    ),
+                    sides=sides,
+                    region_side=pm["region_side"],
+                    constraint=constraint,
                 )
-                m["pin_segments"] = [
-                    {
-                        "side": sd,
-                        "partner": p_,
-                        "lo_um": lo,
-                        "hi_um": hi,
-                        "pins": len(pins),
-                    }
-                    for sd, p_, lo, hi, pins in segs
-                ]
-        else:
-            text = PINS_TCL.format(
-                name=m["name"],
-                side=side,
-                sides=sides,
-                region_side=m["region_side"],
-                constraint=constraint,
-            )
-        if text is not None:
-            write(m["name"] + "_pins.tcl", text)
-        w, h = m["w_um"], m["h_um"]
+            if text is not None:
+                write(pm["name"] + suffix + "_pins.tcl", text)
+            if not suffix:
+                m.update({k: pm[k] for k in ("pin_segments", "pins_placed_exact") if k in pm})
+        w, h = m["own_w_um"], m["own_h_um"]
         entry = {
             "DIE_AREA": _area(0, 0, w, h),
             "CORE_AREA": _area(margin, margin, w - margin, h - margin),
@@ -962,6 +999,8 @@ def emit(out, plan, directory):
             "x_um": m["x_um"],
             "y_um": m["y_um"],
         }
+        if m["mock_area"] < 1.0:
+            entry["MOCK_AREA"] = "{:.4f}".format(m["mock_area"])
         keep = plan_macro(plan, m["name"]).get("keep")
         if keep:
             entry["SYNTH_KEEP_MODULES"] = " ".join(keep)
