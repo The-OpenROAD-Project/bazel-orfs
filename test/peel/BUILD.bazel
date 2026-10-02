@@ -122,24 +122,39 @@ orfs_flow(
 )
 
 # The split is a regrouping, proven in seconds: the flattened wrapper and
-# core are equivalent to the RTL's Src, and the output register is in the
-# wrapper.
-sh_test(
-    name = "peel_equiv_test",
-    srcs = ["peel_equiv_test.sh"],
-    args = [
-        "$(location @yosys//:yosys)",
-        "$(location blocks.sv)",
-        "$(location Src_wrapper.v)",
-        "$(location Src_core.v)",
-    ],
-    data = [
-        "Src_core.v",
-        "Src_wrapper.v",
-        "blocks.sv",
-        "@yosys",
-    ],
-)
+# core are equivalent to the RTL's block, and the output register is in
+# the wrapper.
+[
+    sh_test(
+        name = name,
+        srcs = ["peel_equiv_test.sh"],
+        args = [
+            "$(location @yosys//:yosys)",
+            "$(location %s)" % rtl,
+            "$(location %s_wrapper.v)" % prefix,
+            "$(location %s_core.v)" % prefix,
+            module,
+            register,
+        ] + params,
+        data = [
+            rtl,
+            "%s_core.v" % prefix,
+            "%s_wrapper.v" % prefix,
+            "@yosys",
+        ],
+    )
+    for name, rtl, prefix, module, register, params in (
+        ("peel_equiv_test", "blocks.sv", "Src", "Src", "r_out", []),
+        (
+            "peel_mul_equiv_test",
+            "mul.sv",
+            "mul_w4",
+            "mul",
+            "product",
+            ["W=4"],
+        ),
+    )
+]
 
 [
     orfs_run(
@@ -170,4 +185,179 @@ py_test(
         ":peel_report_peel.json",
     ],
     main = "peel_test.py",
+)
+
+# -------------------------------------------------------------------
+# The multiplier example (README.md): a 2 x 2 array of pipelined
+# multiplier macros and the parent's adder tree, in four arms: ABC
+# retiming inside the macro off or on, the macro's output flops peeled
+# or not.
+# -------------------------------------------------------------------
+
+MUL_ARGS = TURNAROUND_ARGS | {
+    "CORE_AREA": "2 2 38 38",
+    "DIE_AREA": "0 0 40 40",
+    "PLACE_DENSITY": "0.65",
+    "SYNTH_HDL_FRONTEND": "slang",
+}
+
+MUL_SOURCES = {
+    "IO_CONSTRAINTS": [":mul_io.tcl"],
+    "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
+    "SDC_FILE": [":mul.sdc"],
+}
+
+MUL_TOP_ARGS = TURNAROUND_ARGS | {
+    "CORE_AREA": "2 2 238 238",
+    "DIE_AREA": "0 0 240 240",
+    "GPL_TIMING_DRIVEN": "1",
+    "PLACE_DENSITY": "0.65",
+    "RTLMP_MIN_CHANNEL_SIZE": "4 4",
+    "SKIP_CTS_REPAIR_TIMING": "0",
+    "SYNTH_HDL_FRONTEND": "slang",
+}
+
+MUL_TOP_SOURCES = {
+    "IO_CONSTRAINTS": [":mul_io.tcl"],
+    "MACRO_PLACEMENT_TCL": [":mul_place_macros.tcl"],
+    "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCKS_grid_strategy.tcl"],
+    "SDC_FILE": [":mul.sdc"],
+}
+
+# The same split at W = 4, for peel_mul_equiv_test.
+genrule(
+    name = "peel_mul_w4",
+    srcs = [
+        "mul.sv",
+        "//tools/macro_select:peel.tcl",
+    ],
+    outs = [
+        "mul_w4_wrapper.v",
+        "mul_w4_core.v",
+    ],
+    cmd = " ".join([
+        "PEEL_RTL=$(location mul.sv)",
+        "PEEL_MODULE=mul",
+        "PEEL_PARAMS='W 4'",
+        "PEEL_WRAPPER=$(location mul_w4_wrapper.v)",
+        "PEEL_CORE=$(location mul_w4_core.v)",
+        "$(location @yosys//:yosys) -q -c $(location //tools/macro_select:peel.tcl) > /dev/null 2>&1",
+    ]),
+    tools = ["@yosys"],
+)
+
+genrule(
+    name = "peel_mul",
+    srcs = [
+        "mul.sv",
+        "//tools/macro_select:peel.tcl",
+    ],
+    outs = [
+        "mul_wrapper.v",
+        "mul_core.v",
+    ],
+    cmd = " ".join([
+        "PEEL_RTL=$(location mul.sv)",
+        "PEEL_MODULE=mul",
+        "PEEL_WRAPPER=$(location mul_wrapper.v)",
+        "PEEL_CORE=$(location mul_core.v)",
+        "$(location @yosys//:yosys) -q -c $(location //tools/macro_select:peel.tcl) > /dev/null 2>&1",
+    ]),
+    tools = ["@yosys"],
+)
+
+# (arm, macro design, its Verilog, retime, parent Verilog besides mul_top.sv)
+MUL_ARMS = [
+    ("base", "mul", ":mul.sv", False, []),
+    ("retime", "mul", ":mul.sv", True, []),
+    (
+        "peel",
+        "mul_core",
+        ":mul_core.v",
+        False,
+        [":mul_wrapper.v"],
+    ),
+    (
+        "retime_peel",
+        "mul_core",
+        ":mul_core.v",
+        True,
+        [":mul_wrapper.v"],
+    ),
+]
+
+[
+    orfs_flow(
+        name = macro,
+        abstract_stage = "cts",
+        arguments = MUL_ARGS | ({"SYNTH_RETIME_MODULES": macro} if retime else {}),
+        sources = MUL_SOURCES,
+        variant = "retime" if retime else "base",
+        verilog_files = [verilog],
+    )
+    for _, macro, verilog, retime, _ in MUL_ARMS
+]
+
+[
+    orfs_flow(
+        name = "mul_top",
+        arguments = MUL_TOP_ARGS,
+        last_stage = "cts",
+        macros = [":%s_%sgenerate_abstract" % (
+            macro,
+            "retime_" if retime else "",
+        )],
+        sources = MUL_TOP_SOURCES,
+        variant = arm,
+        verilog_files = wrapper + [":mul_top.sv"],
+    )
+    for arm, macro, _, retime, wrapper in MUL_ARMS
+]
+
+[
+    orfs_run(
+        name = "mul_report_" + target,
+        src = ":%s_cts" % target,
+        outs = ["mul_report_%s.json" % target],
+        arguments = args,
+        script = ":mul_report.tcl",
+        sources = sources,
+        user_arguments = {
+            "OUTPUT_JSON": "$(location mul_report_%s.json)" % target,
+        },
+        variant = variant,
+    )
+    for target, args, sources, variant in [
+        (
+            "mul_top" if arm == "base" else "mul_top_" + arm,
+            MUL_TOP_ARGS,
+            MUL_TOP_SOURCES,
+            arm,
+        )
+        for arm, _, _, _, _ in MUL_ARMS
+    ] + [
+        (
+            macro + ("_retime" if retime else ""),
+            MUL_ARGS,
+            MUL_SOURCES,
+            "retime" if retime else "base",
+        )
+        for _, macro, _, retime, _ in MUL_ARMS
+    ]
+]
+
+py_test(
+    name = "mul_test",
+    srcs = ["mul_test.py"],
+    data = [":mul_report_%s.json" % t for t in [
+        "mul_top",
+        "mul_top_retime",
+        "mul_top_peel",
+        "mul_top_retime_peel",
+        "mul",
+        "mul_retime",
+        "mul_core",
+        "mul_core_retime",
+    ]],
+    main = "mul_test.py",
 )

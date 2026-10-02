@@ -63,6 +63,7 @@ bottom-left corner and Dst in the top-right (`place_macros.tcl`).
 | `:top_cts` | the base parent: Src and Dst hardened whole |
 | `:top_peel_cts` | the peeled parent: Src_core and Dst hardened, the wrapper flattened into the parent |
 | `:peel_report_base`, `:peel_report_peel` | the period after CTS and where the parent's own flops sit on the line from Src to Dst (0 at Src's centre, 1 at Dst's) |
+| `:mul_report_*` | the multiplier example's four arms, parents and macros (below) |
 
 Both parents use the same settings, timing-driven placement on: a peeled
 flop's two nets have the same wirelength wherever it sits on the line,
@@ -96,6 +97,61 @@ parent's, they left Src, and the period is at least 5 percent shorter.
 ```sh
 bazelisk test //test/peel:all            # minutes cold, seconds cached
 bazelisk build //test/peel:peel_report_base //test/peel:peel_report_peel
+```
+
+## The multiplier: peeling and ABC retiming
+
+ABC retiming (`SYNTH_RETIME_MODULES`, `abc -dff` with
+`abc_retime.script`) moves flops across logic inside a module at
+synthesis. It is off in every flow here today. A macro's ports are fixed
+points for it: it never sees the wire after an output port. Peeling is
+the same move across the macro's edge, decided with the wire in view, so
+the two compete for the same slack and are worth measuring together.
+
+`mul.sv` is a pipelined 32 x 32 multiplier, after
+`test/estimation_ladder/multiplier.sv`: inputs registered, the multiply,
+`prod_reg`, and an empty stage, `product`, driving the output port. Its
+datapath flops have no reset, because `abc -dff` only passes `$_DFF_` and
+`$_DFFE_` cells: the estimation ladder's multiplier, with an
+asynchronous reset on every flop, cannot be retimed at all. `mul_top.sv`
+puts four of them in the corners of a 240 um die with the parent's
+two-stage adder tree between them (`mul_place_macros.tcl`). 300 ps
+clock; each design's period is the clock minus its worst setup slack
+after CTS, placement parasitics, and the design's period is the larger
+of the parent's and the macro's.
+
+| arm | macro | parent | design | parent's worst path | wall |
+|---|---:|---:|---:|---|---:|
+| base | 881.2 ps | 398.4 ps | **881.2 ps** | macro pin into the adder tree | 119 s |
+| retime | 316.6 ps | 514.0 ps | **514.0 ps** | macro pin into the adder tree | 115 s |
+| peel | 881.8 ps | 376.2 ps | **881.8 ps** | peeled flop into the adder tree | 110 s |
+| retime + peel | 372.9 ps | 395.7 ps | **395.7 ps** | the parent's own adder stage | 114 s |
+
+- Retiming alone fixes the macro (881 to 317 ps) and hurts the parent
+  (398 to 514 ps): ABC pulls the output flops into the multiply, so
+  `product` leaves the macro unregistered, and the crossing to the adder
+  tree gets the remainder of the multiply on top of its wire.
+- Peeling alone cannot help: the unretimed multiply sets the period.
+- Together: 395.7 ps, 2.2 times the base and 23 percent better than
+  retiming alone. The core's retiming balances the multiply over its two
+  stages; the peeled `product` flops (257: four times 64 bits and the one
+  `valid_out` the parent reads) take the crossing. The parent's own adder
+  stage is now the worst path, and the stages around the peeled flops are
+  338.2 ps in and 395.0 ps out.
+- Wall time, each arm built alone from cold with its macro, is the same
+  within the noise at this size: the parent grows by 256 to 422 cells
+  out of 11,000.
+- One build per arm, the turnaround settings (area mapping), CTS with
+  placement parasitics, not global route; nothing here is a repeat.
+
+`mul_test` checks the shape on the eight reports: the peeled flops are
+the parent's, retiming alone moves the problem into the parent, and
+retiming with peeling beats both. `peel_mul_equiv_test` proves the split
+at `W = 4` (`PEEL_PARAMS`): at 32 bits the multiply is beyond `equiv`'s
+SAT in minutes, and the split does not depend on the width.
+
+```sh
+bazelisk test //test/peel:mul_test   # four arms, about two minutes each, cold
 ```
 
 ## How the split is done

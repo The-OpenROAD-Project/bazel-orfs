@@ -12,10 +12,16 @@
 # PEEL_MODULE   the block to peel
 # PEEL_WRAPPER  where to write the wrapper ($PEEL_MODULE)
 # PEEL_CORE     where to write the core (${PEEL_MODULE}_core)
+# PEEL_PARAMS   optional parameter overrides, "NAME VALUE ..."
 
 set module $::env(PEEL_MODULE)
 foreach f $::env(PEEL_RTL) {
   yosys read_verilog -sv $f
+}
+if { [info exists ::env(PEEL_PARAMS)] } {
+  foreach {name value} $::env(PEEL_PARAMS) {
+    yosys chparam -set $name $value $module
+  }
 }
 yosys hierarchy -top $module
 yosys proc
