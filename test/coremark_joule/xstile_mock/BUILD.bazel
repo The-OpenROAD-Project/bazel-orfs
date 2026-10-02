@@ -1,0 +1,107 @@
+# The certificate: CoupledL2's Verilog from XiangShan's Chisel, and the
+# proof that the readable SystemVerilog here is equivalent to it.
+#
+#   bazelisk run //:generate
+#   bazelisk run //:lec
+
+load("@rules_chisel//chisel:defs.bzl", "chisel_binary")
+load("@rules_chisel//verilog:defs.bzl", "verilog_directory")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+# XiangShan elaborated in the configuration measured: one Kunminghu core,
+# integer only, a 512 KiB 8-way L2 in one bank (CoupledL2Generator.scala).
+chisel_binary(
+    name = "generator",
+    srcs = ["CoupledL2Generator.scala"],
+    # Diplomacy's elaboration recurses deeply: the stack size is required.
+    jvm_flags = [
+        "-Xmx24g",
+        "-Xss256m",
+    ],
+    main_class = "coremark_joule.xiangshan.CoupledL2Generator",
+    resource_strip_prefix = "resources",
+    resources = ["resources/gitStatus"],
+    # XiangShan reads fields still being initialized during elaboration,
+    # and its own build does not check for it.
+    scalacopts = ["-Xcheckinit:false"],
+    deps = [
+        "@xiangshan",
+        "@xs_cache//:xscache",
+        "@xs_rocket_chip//:macros",
+        "@xs_rocket_chip//:rocket_chip",
+        "@xs_utility//:utility",
+    ],
+)
+
+# FIRRTL. Chisel's EspressoMinimizer finds `espresso` on PATH. The
+# verification layer is disabled, so no assertion module is bound into its
+# parent by hierarchical reference.
+genrule(
+    name = "fir",
+    outs = ["xiangshan.fir"],
+    cmd = " ".join([
+        "FIRTOOL_DIR=$$(dirname $$(realpath $(execpath @chisel_firtool//:bin/firtool)));",
+        "ESPRESSO_DIR=$$(dirname $$(realpath $(execpath @espresso//:bin/espresso)));",
+        "PATH=$$ESPRESSO_DIR:$$FIRTOOL_DIR:$$PATH",
+        "CHISEL_FIRTOOL_PATH=$$FIRTOOL_DIR",
+        "$(execpath :generator)",
+        "--default-layer-specialization=disable",
+        "-o $@",
+    ]),
+    tools = [
+        ":generator",
+        "@chisel_firtool//:bin/firtool",
+        "@espresso//:bin/espresso",
+    ],
+)
+
+# One file per module.
+verilog_directory(
+    name = "xiangshan_sv",
+    srcs = [":fir"],
+    opts = [
+        "--disable-all-randomization",
+        "--lowering-options=disallowPackedArrays,disallowLocalVariables,noAlwaysComb",
+    ],
+)
+
+# CoupledL2 and everything it instantiates, each module unchanged.
+genrule(
+    name = "coupledl2",
+    srcs = [":xiangshan_sv"],
+    outs = [
+        "CoupledL2.sv",
+        "MANIFEST",
+    ],
+    cmd = " && ".join([
+        "$(execpath cert.sh) closure $(location :xiangshan_sv) CoupledL2 $(location CoupledL2.sv) $(location MANIFEST).modules",
+        "{ echo 'XiangShan aa6b52033add528a504bdb2c2b726100d89f070a, CoupledL2 from XSCache 300515bc7b2f65ca988041a984204489d80ec2fb, both unpatched';" +
+        " echo 'configuration: CoreMarkJouleConfig (CoupledL2Generator.scala); Chisel 7.13.0, Scala 2.13.17';" +
+        " echo \"firtool: $$($(execpath @chisel_firtool//:bin/firtool) --version | grep -m1 CIRCT)\";" +
+        " cat $(location MANIFEST).modules; } > $(location MANIFEST)",
+    ]),
+    tools = [
+        "cert.sh",
+        "@chisel_firtool//:bin/firtool",
+    ],
+)
+
+sh_binary(
+    name = "generate",
+    srcs = ["cert.sh"],
+    args = [
+        "generate",
+        "$(location CoupledL2.sv)",
+        "$(location MANIFEST)",
+    ],
+    data = [
+        "CoupledL2.sv",
+        "MANIFEST",
+    ],
+)
+
+sh_binary(
+    name = "lec",
+    srcs = ["cert.sh"],
+    args = ["lec"],
+)

@@ -1,0 +1,481 @@
+"""The certificate: how CoupledL2's Verilog is made from XiangShan's Chisel.
+
+Nobody needs to run this. The SystemVerilog beside it is the design; this
+module documents, as code, how the generated Verilog it is proven
+equivalent to is produced, and runs that proof:
+
+  bazelisk run //:generate   # writes generated/CoupledL2.sv and its manifest
+  bazelisk run //:lec        # the equivalence proof (not available yet)
+
+Self-contained: every source is pinned below by commit and sha256, and each
+archive's BUILD overlay is inline. XiangShan's own sources are unpatched.
+"""
+
+module(name = "xstile_mock")
+
+bazel_dep(name = "bazel_skylib", version = "1.9.2")
+bazel_dep(name = "rules_cc", version = "0.2.22")
+bazel_dep(name = "rules_shell", version = "0.8.0")
+
+# A hermetic C toolchain for espresso, the one C tool elaboration needs.
+bazel_dep(name = "llvm", version = "0.8.18")
+
+register_toolchains("@llvm//toolchain:all")
+
+# XiangShan's own build.mill pins Chisel 7.13.0 on Scala 2.13.17.
+bazel_dep(name = "rules_chisel", version = "0.4.2")
+
+chisel = use_extension("@rules_chisel//chisel:extensions.bzl", "chisel")
+chisel.toolchain(
+    chisel_version = "7.13.0",
+    scala_version = "2.13.17",
+)
+use_repo(chisel, "chisel_firtool", "chisel_maven")
+
+bazel_dep(name = "rules_jvm_external", version = "6.7")
+bazel_dep(name = "rules_scala", version = "7.1.5")
+
+scala_config = use_extension("@rules_scala//scala/extensions:config.bzl", "scala_config")
+scala_config.settings(scala_version = "2.13.17")
+use_repo(scala_config, "rules_scala_config")
+
+scala_deps = use_extension("@rules_scala//scala/extensions:deps.bzl", "scala_deps")
+scala_deps.scala()
+use_repo(scala_deps, "rules_scala_toolchains")
+
+# The Maven artifacts XiangShan's build.mill names beyond Chisel itself, at
+# upstream's versions.
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+maven.install(
+    name = "xs_maven",
+    artifacts = [
+        "com.lihaoyi:sourcecode_2.13:0.4.4",
+        "io.github.alexarchambault:data-class_2.13:0.2.11",
+        "com.github.scopt:scopt_2.13:4.1.0",
+        "com.lihaoyi:os-lib_2.13:0.11.3",
+        "io.circe:circe-core_2.13:0.14.10",
+        "org.typelevel:cats-core_2.13:2.12.0",
+        "com.chuusai:shapeless_2.13:2.3.12",
+        "org.scalatest:scalatest-core_2.13:3.2.19",
+        "org.scalatest:scalatest-compatible:3.2.19",
+        "org.scalatest:scalatest-flatspec_2.13:3.2.19",
+        "org.scalatest:scalatest-shouldmatchers_2.13:3.2.19",
+        "org.scalatest:scalatest-matchers-core_2.13:3.2.19",
+        "org.scalatest:scalatest-mustmatchers_2.13:3.2.19",
+        "org.scalactic:scalactic_2.13:3.2.19",
+        "io.circe:circe-generic_2.13:0.14.10",
+        "io.circe:circe-parser_2.13:0.14.10",
+        "io.circe:circe-yaml-common_2.13:0.16.1",
+        "com.lihaoyi:mainargs_2.13:0.7.7",
+        "org.json4s:json4s-jackson_2.13:4.0.7",
+        "org.json4s:json4s-jackson-core_2.13:4.0.7",
+        "org.json4s:json4s-native_2.13:4.0.7",
+        "org.json4s:json4s-native-core_2.13:4.0.7",
+        "org.json4s:json4s-core_2.13:4.0.7",
+        "org.json4s:json4s-ast_2.13:4.0.7",
+        "org.scala-lang:scala-reflect:2.13.17",
+        "io.circe:circe-yaml_2.13:0.16.1",
+        "io.circe:circe-generic-extras_2.13:0.14.4",
+    ],
+)
+use_repo(maven, "xs_maven")
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+# XiangShan Kunminghu at aa6b520, and the repositories its tree records as
+# submodules at the commits it records. CoupledL2 is XSCache's code.
+http_archive(
+    name = "xiangshan",
+    build_file_content = """
+load("@rules_chisel//chisel:defs.bzl", "chisel_library")
+load("@rules_scala//scala:scala.bzl", "scala_macro_library")
+
+package(default_visibility = ["//visibility:public"])
+
+scala_macro_library(
+    name = "macros",
+    srcs = glob(["macros/src/main/scala/**/*.scala"]),
+    deps = ["@xs_maven//:org_scala_lang_scala_reflect"],
+)
+
+chisel_library(
+    name = "xiangshan",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    resource_strip_prefix = "src/main/resources",
+    resources = glob(["src/main/resources/**"]),
+    scalacopts = [
+        "-Ymacro-annotations",
+        "-Xcheckinit:false",
+    ],
+    deps = [
+        ":macros",
+        "@xs_cache//:xscache",
+        "@xs_chiselaia//:chiselaia",
+        "@xs_chiseliopmp//:chiseliopmp",
+        "@xs_difftest//:difftest",
+        "@xs_maven//:com_chuusai_shapeless_2_13",
+        "@xs_maven//:com_github_scopt_scopt_2_13",
+        "@xs_maven//:com_lihaoyi_os_lib_2_13",
+        "@xs_maven//:com_lihaoyi_sourcecode_2_13",
+        "@xs_maven//:io_circe_circe_core_2_13",
+        "@xs_maven//:io_circe_circe_generic_2_13",
+        "@xs_maven//:io_circe_circe_generic_extras_2_13",
+        "@xs_maven//:io_circe_circe_parser_2_13",
+        "@xs_maven//:io_circe_circe_yaml_2_13",
+        "@xs_maven//:io_circe_circe_yaml_common_2_13",
+        "@xs_maven//:org_scalactic_scalactic_2_13",
+        "@xs_maven//:org_scalatest_scalatest_compatible",
+        "@xs_maven//:org_scalatest_scalatest_core_2_13",
+        "@xs_maven//:org_scalatest_scalatest_flatspec_2_13",
+        "@xs_maven//:org_scalatest_scalatest_matchers_core_2_13",
+        "@xs_maven//:org_scalatest_scalatest_mustmatchers_2_13",
+        "@xs_maven//:org_scalatest_scalatest_shouldmatchers_2_13",
+        "@xs_maven//:org_typelevel_cats_core_2_13",
+        "@xs_openncb//:openncb",
+        "@xs_rocket_chip//:macros",
+        "@xs_rocket_chip//:rocket_chip",
+        "@xs_utility//:utility",
+        "@xs_yunsuan//:yunsuan",
+        "@xs_zhujiang//:zhujiang",
+    ],
+)
+""",
+    sha256 = "e4b48e602db1ee00835ea8e99aef9585b16fd34f9049fdfc37c5208625c6a002",
+    strip_prefix = "XiangShan-aa6b52033add528a504bdb2c2b726100d89f070a",
+    urls = ["https://github.com/OpenXiangShan/XiangShan/archive/aa6b52033add528a504bdb2c2b726100d89f070a.tar.gz"],
+)
+
+http_archive(
+    name = "xs_rocket_chip",
+    build_file_content = """
+load("@rules_chisel//chisel:defs.bzl", "chisel_library")
+load("@rules_scala//scala:scala.bzl", "scala_macro_library")
+
+package(default_visibility = ["//visibility:public"])
+
+scala_macro_library(
+    name = "macros",
+    srcs = glob(["macros/src/main/scala/**/*.scala"]),
+    deps = ["@xs_maven//:org_scala_lang_scala_reflect"],
+)
+
+chisel_library(
+    name = "rocket_chip",
+    srcs = glob(
+        ["src/main/scala/**/*.scala"],
+        exclude = ["src/main/scala/diplomacy/Main.scala"],
+    ),
+    scalacopts = [
+        "-Ymacro-annotations",
+        "-Xcheckinit:false",
+    ],
+    exports = [
+        ":macros",
+        "@xs_cde//:cde",
+        "@xs_hardfloat//:hardfloat",
+        "@xs_maven//:com_lihaoyi_sourcecode_2_13",
+    ],
+    deps = [
+        ":macros",
+        "@xs_cde//:cde",
+        "@xs_hardfloat//:hardfloat",
+        "@xs_maven//:com_lihaoyi_sourcecode_2_13",
+        "@xs_maven//:org_json4s_json4s_ast_2_13",
+        "@xs_maven//:org_json4s_json4s_core_2_13",
+        "@xs_maven//:org_json4s_json4s_jackson_2_13",
+        "@xs_maven//:org_json4s_json4s_jackson_core_2_13",
+    ],
+)
+""",
+    sha256 = "5fb0c53c5773e0c653b69906a2e1a8a36bd8149df139ad4d097dd6d7c47451a0",
+    strip_prefix = "rocket-chip-a2df1a42399cfe2b343eeb5293796268dc2bc211",
+    urls = ["https://github.com/OpenXiangShan/rocket-chip/archive/a2df1a42399cfe2b343eeb5293796268dc2bc211.tar.gz"],
+)
+
+http_archive(
+    name = "xs_hardfloat",
+    build_file_content = """
+load("@rules_chisel//chisel:defs.bzl", "chisel_library")
+
+package(default_visibility = ["//visibility:public"])
+
+chisel_library(
+    name = "hardfloat",
+    srcs = glob(["hardfloat/src/main/scala/**/*.scala"]),
+    scalacopts = [
+        "-Ymacro-annotations",
+        "-Xcheckinit:false",
+    ],
+    deps = ["@xs_maven//:com_lihaoyi_sourcecode_2_13"],
+)
+""",
+    sha256 = "7d2fa9d9b938dbf44ac9c4d92171dae4491e2d7ee0bbfb1bafb402825bfd2552",
+    strip_prefix = "berkeley-hardfloat-d93aa570806013dea479a92ba9bb33d1f2d4f69f",
+    urls = ["https://github.com/ucb-bar/berkeley-hardfloat/archive/d93aa570806013dea479a92ba9bb33d1f2d4f69f.tar.gz"],
+)
+
+http_archive(
+    name = "xs_cde",
+    build_file_content = """
+load("@rules_scala//scala:scala.bzl", "scala_library")
+
+package(default_visibility = ["//visibility:public"])
+
+scala_library(
+    name = "cde",
+    srcs = glob(["cde/src/**/*.scala"]),
+)
+""",
+    sha256 = "d941c3260549fdad178a90b0138ea3d23acf13f16440dab3c0b31014e4c62101",
+    strip_prefix = "cde-52768c97a27b254c0cc0ac9401feb55b29e18c28",
+    urls = ["https://github.com/chipsalliance/cde/archive/52768c97a27b254c0cc0ac9401feb55b29e18c28.tar.gz"],
+)
+
+http_archive(
+    name = "xs_utility",
+    build_file_content = """
+load("@rules_chisel//chisel:defs.bzl", "chisel_library")
+
+package(default_visibility = ["//visibility:public"])
+
+chisel_library(
+    name = "utility",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = [
+        "-Ymacro-annotations",
+        "-Xcheckinit:false",
+    ],
+    exports = ["@xs_rocket_chip//:rocket_chip"],
+    deps = [
+        "@xs_maven//:com_lihaoyi_sourcecode_2_13",
+        "@xs_rocket_chip//:macros",
+        "@xs_rocket_chip//:rocket_chip",
+    ],
+)
+""",
+    sha256 = "97d53e87d1cf314b2f977c9563f8e7a77d6c13f015f122d8ce6eb622a8f33bf4",
+    strip_prefix = "Utility-eb8e12b00a33e4716e7778175f6dd45b7a3a9ede",
+    urls = ["https://github.com/OpenXiangShan/Utility/archive/eb8e12b00a33e4716e7778175f6dd45b7a3a9ede.tar.gz"],
+)
+
+http_archive(
+    name = "xs_yunsuan",
+    build_file_content = """
+load("@rules_chisel//chisel:defs.bzl", "chisel_library")
+
+package(default_visibility = ["//visibility:public"])
+
+chisel_library(
+    name = "yunsuan",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = [
+        "-Ymacro-annotations",
+        "-Xcheckinit:false",
+    ],
+    deps = ["@xs_maven//:com_lihaoyi_sourcecode_2_13"],
+)
+""",
+    sha256 = "a10ce76930f66d809b82ef1354af5f45bd5049c7fa5459a01653f6a9d002291d",
+    strip_prefix = "YunSuan-098c505af11b67f57cf2cd39433276f8c8610d8e",
+    urls = ["https://github.com/OpenXiangShan/YunSuan/archive/098c505af11b67f57cf2cd39433276f8c8610d8e.tar.gz"],
+)
+
+http_archive(
+    name = "xs_cache",
+    build_file_content = """
+load("@rules_chisel//chisel:defs.bzl", "chisel_library")
+
+package(default_visibility = ["//visibility:public"])
+
+chisel_library(
+    name = "xscache",
+    srcs = glob(["src/main/scala/**/*.scala"]) + [
+        "src/test/scala/ZhuJiangBridge.scala",
+    ],
+    scalacopts = [
+        "-Ymacro-annotations",
+        "-Xcheckinit:false",
+    ],
+    exports = ["@xs_rocket_chip//:rocket_chip"],
+    deps = [
+        "@xs_maven//:com_github_scopt_scopt_2_13",
+        "@xs_maven//:com_lihaoyi_sourcecode_2_13",
+        "@xs_openncb//:openncb",
+        "@xs_rocket_chip//:macros",
+        "@xs_rocket_chip//:rocket_chip",
+        "@xs_utility//:utility",
+        "@xs_zhujiang//:zhujiang",
+    ],
+)
+""",
+    sha256 = "fce33a43c3196be495a813ee329e143753c8db6bc1c8a103a54a37aae82b3100",
+    strip_prefix = "XSCache-300515bc7b2f65ca988041a984204489d80ec2fb",
+    urls = ["https://github.com/OpenXiangShan/XSCache/archive/300515bc7b2f65ca988041a984204489d80ec2fb.tar.gz"],
+)
+
+http_archive(
+    name = "xs_openncb",
+    build_file_content = """
+load("@rules_chisel//chisel:defs.bzl", "chisel_library")
+
+package(default_visibility = ["//visibility:public"])
+
+chisel_library(
+    name = "openncb",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = [
+        "-Ymacro-annotations",
+        "-Xcheckinit:false",
+    ],
+    exports = ["@xs_rocket_chip//:rocket_chip"],
+    deps = [
+        "@xs_maven//:com_lihaoyi_sourcecode_2_13",
+        "@xs_maven//:io_github_alexarchambault_data_class_2_13",
+        "@xs_rocket_chip//:macros",
+        "@xs_rocket_chip//:rocket_chip",
+    ],
+)
+""",
+    sha256 = "3658825a9c8e535abff14a402bb5114954d71420a7804c5293f3a2a198bfffe9",
+    strip_prefix = "OpenNCB-9a83eb7e6c0e36e0d6b72642ff93641ec65819cf",
+    urls = ["https://github.com/OpenXiangShan/OpenNCB/archive/9a83eb7e6c0e36e0d6b72642ff93641ec65819cf.tar.gz"],
+)
+
+http_archive(
+    name = "xs_zhujiang",
+    build_file_content = """
+load("@rules_chisel//chisel:defs.bzl", "chisel_library")
+
+package(default_visibility = ["//visibility:public"])
+
+chisel_library(
+    name = "zhujiang",
+    srcs = glob([
+        "src/main/scala/**/*.scala",
+        "xs-utils/src/main/scala/**/*.scala",
+    ]),
+    scalacopts = [
+        "-Ymacro-annotations",
+        "-Xcheckinit:false",
+    ],
+    exports = ["@xs_rocket_chip//:rocket_chip"],
+    deps = [
+        "@xs_difftest//:difftest",
+        "@xs_maven//:com_lihaoyi_sourcecode_2_13",
+        "@xs_rocket_chip//:macros",
+        "@xs_rocket_chip//:rocket_chip",
+        "@xs_utility//:utility",
+    ],
+)
+""",
+    sha256 = "39b9efe69fc6f4c39615ba48291ea4a2eb94375e2636a5e7ac796d5cc375fbeb",
+    strip_prefix = "ZhuJiang-dfcf69662f7682bbc36410b5763cc285956534c8",
+    urls = ["https://github.com/OpenXiangShan/ZhuJiang/archive/dfcf69662f7682bbc36410b5763cc285956534c8.tar.gz"],
+)
+
+http_archive(
+    name = "xs_difftest",
+    build_file_content = """
+load("@rules_chisel//chisel:defs.bzl", "chisel_library")
+
+package(default_visibility = ["//visibility:public"])
+
+chisel_library(
+    name = "difftest",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = [
+        "-Ymacro-annotations",
+        "-Xcheckinit:false",
+    ],
+    deps = [
+        "@xs_maven//:com_lihaoyi_sourcecode_2_13",
+        "@xs_maven//:org_json4s_json4s_ast_2_13",
+        "@xs_maven//:org_json4s_json4s_core_2_13",
+        "@xs_maven//:org_json4s_json4s_jackson_2_13",
+        "@xs_maven//:org_json4s_json4s_jackson_core_2_13",
+        "@xs_maven//:org_json4s_json4s_native_2_13",
+        "@xs_maven//:org_json4s_json4s_native_core_2_13",
+    ],
+)
+""",
+    sha256 = "8385f89704dd90d7e57af54b464a94ec0a60afb2af652c7d3ae8fb4abd42a283",
+    strip_prefix = "difftest-45638f5145aa9c7eee85cd9b08eb8962ee46b586",
+    urls = ["https://github.com/OpenXiangShan/difftest/archive/45638f5145aa9c7eee85cd9b08eb8962ee46b586.tar.gz"],
+)
+
+http_archive(
+    name = "xs_chiselaia",
+    build_file_content = """
+load("@rules_chisel//chisel:defs.bzl", "chisel_library")
+
+package(default_visibility = ["//visibility:public"])
+
+chisel_library(
+    name = "chiselaia",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = [
+        "-Ymacro-annotations",
+        "-Xcheckinit:false",
+    ],
+    exports = ["@xs_rocket_chip//:rocket_chip"],
+    deps = [
+        "@xs_maven//:com_lihaoyi_sourcecode_2_13",
+        "@xs_rocket_chip//:macros",
+        "@xs_rocket_chip//:rocket_chip",
+        "@xs_utility//:utility",
+    ],
+)
+""",
+    sha256 = "c3fe343859a288846e5eae4d0dc6a1da3d8ec039ec8f49b435901f1c3424261c",
+    strip_prefix = "ChiselAIA-c8be865e4fa60d40831ff29e0a30d4269f5ff5b9",
+    urls = ["https://github.com/OpenXiangShan/ChiselAIA/archive/c8be865e4fa60d40831ff29e0a30d4269f5ff5b9.tar.gz"],
+)
+
+http_archive(
+    name = "xs_chiseliopmp",
+    build_file_content = """
+load("@rules_chisel//chisel:defs.bzl", "chisel_library")
+
+package(default_visibility = ["//visibility:public"])
+
+chisel_library(
+    name = "chiseliopmp",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = [
+        "-Ymacro-annotations",
+        "-Xcheckinit:false",
+    ],
+    exports = ["@xs_rocket_chip//:rocket_chip"],
+    deps = [
+        "@xs_maven//:com_lihaoyi_sourcecode_2_13",
+        "@xs_rocket_chip//:macros",
+        "@xs_rocket_chip//:rocket_chip",
+        "@xs_utility//:utility",
+    ],
+)
+""",
+    sha256 = "5c02406820b77a37032b78f55f2548726cb5dfd86e36c97c961f4e829afeb190",
+    strip_prefix = "ChiselIOPMP-cc1113c30a2469e27a233795a4e5705c43c84726",
+    urls = ["https://github.com/OpenXiangShan/ChiselIOPMP/archive/cc1113c30a2469e27a233795a4e5705c43c84726.tar.gz"],
+)
+
+http_archive(
+    name = "espresso",
+    build_file_content = """
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_binary(
+    name = "bin/espresso",
+    srcs = glob([
+        "espresso/*.c",
+        "espresso/*.h",
+    ]),
+    copts = ["-w"],
+)
+""",
+    sha256 = "560e34f57b0a57e6d8e77e9638a97677759b15a2d58b2d89272a77393753a968",
+    strip_prefix = "espresso-2.5.1",
+    urls = ["https://github.com/chipsalliance/espresso/archive/refs/tags/v2.5.1.tar.gz"],
+)
