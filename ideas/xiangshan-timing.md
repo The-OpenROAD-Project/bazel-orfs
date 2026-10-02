@@ -1145,6 +1145,41 @@ With #1143 all 200 of the worst paths start at one Frontend output,
 table (no census of it yet). `SKIP_INCREMENTAL_REPAIR` is the parent's
 remaining turnaround setting that changes the netlist.
 
+## 41. Peeling a block's output flops into the parent: no target once the clock trees balance
+
+#1148 (closed, branch `study/peel-boundary-flops` kept) splits a block at
+synthesis: the flops that drive its output ports go to the parent, whose
+placer can put them anywhere along the crossing. On its miniatures it
+pays: a 32-bit crossing 238 to 198 ps; a 2 x 2 multiplier array 881 to
+396 ps with ABC retiming, where retiming or peeling alone do not.
+
+On XiangShan, the branch's probes on main + #1150 (the parent's CTS
+balancing the blocks' clock trees, 2,976 ps):
+
+| block | outputs registered at the port | output flops that peel without a new core pin |
+|---|---:|---:|
+| Frontend | 804 of 1,205 | 539 |
+| MemBlock | 1,091 of 5,341 | 1,069 |
+| CoupledL2 | 642 of 1,464 | 632 |
+| VecRegionModule | 742 of 4,921 | 688 |
+| FltRegionModule | 1,059 of 3,566 | 21 |
+
+- None of the parent's 1,000 worst `reg2reg` endpoints at global route is
+  launched by a peelable flop: 972 start in the parent's own
+  `core/backend` logic, 24 at its L2 TileLink buffer into CoupledL2, 4 at
+  a MemBlock output that is not a flop. `peel_bound`: 2,976 ps with the
+  peel, 2,976 ps now.
+- Before #1150 all of the parent's 200 worst paths launched from
+  Frontend's `cfVec` output flops, about 1,030 ps of each in Frontend's
+  own clock tree: the unbalanced insertion delay, which balancing
+  recovered directly.
+- Input peeling is not implemented; the parent's worst path now ends at
+  CoupledL2's inputs, of which 8 of 1,346 are registered at the port.
+
+Revisit when the parent's own paths are shorter than its block-launched
+ones: the branch's three probes give the bound in about an hour of
+sessions (`test/peel/README.md`, "The full run on XiangShan").
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
