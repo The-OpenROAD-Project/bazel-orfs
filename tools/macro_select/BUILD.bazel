@@ -81,6 +81,10 @@ exports_files([
     "probe_pin_partners.tcl",
 ])
 
+# The peel (test/peel, README there): a block's output flops into a
+# wrapper the parent flattens, the rest into <block>_core.
+exports_files(["peel.tcl"])
+
 py_binary(
     name = "peel_bound",
     srcs = ["peel_bound.py"],

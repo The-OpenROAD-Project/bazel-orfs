@@ -1,0 +1,173 @@
+load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//:openroad.bzl", "orfs_flow", "orfs_run")
+load("//test/grt_scaling:arms.bzl", "TURNAROUND_ARGS")
+
+# Peeling a block's boundary flops into the parent, in miniature (see
+# README.md). Src registers its output right at the port; Dst sits across
+# the die. The base parent hardens Src whole; the peeled parent hardens
+# Src_core and flattens Src's wrapper, so the output flops are the
+# parent's to place.
+
+BLOCK_ARGS = TURNAROUND_ARGS | {
+    "CORE_AREA": "5 5 35 35",
+    "DIE_AREA": "0 0 40 40",
+    "IO_PLACER_H": "M2 M4",
+    "IO_PLACER_V": "M3 M5",
+    "MAX_ROUTING_LAYER": "M7",
+    "MIN_ROUTING_LAYER": "M2",
+    "PLACE_DENSITY": "0.5",
+    "SYNTH_HDL_FRONTEND": "slang",
+}
+
+BLOCK_SOURCES = {
+    "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
+    "SDC_FILE": [":constraints.sdc"],
+}
+
+# The parent repairs and places for timing, both arms alike: a peeled
+# flop's two nets have the same wirelength wherever it sits on the line
+# between the blocks, so only timing tells the placer where.
+PARENT_ARGS = TURNAROUND_ARGS | {
+    "CORE_AREA": "2 2 218 218",
+    "DIE_AREA": "0 0 220 220",
+    "GPL_TIMING_DRIVEN": "1",
+    "MAX_ROUTING_LAYER": "M7",
+    "MIN_ROUTING_LAYER": "M2",
+    "PLACE_DENSITY": "0.5",
+    "RTLMP_MIN_CHANNEL_SIZE": "4 4",
+    "SKIP_CTS_REPAIR_TIMING": "0",
+    "SYNTH_HDL_FRONTEND": "slang",
+}
+
+PARENT_SOURCES = {
+    "MACRO_PLACEMENT_TCL": [":place_macros.tcl"],
+    "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCKS_grid_strategy.tcl"],
+    "SDC_FILE": [":constraints.sdc"],
+}
+
+# Src split in two: its output flops stay in the wrapper Src, the rest
+# becomes Src_core.
+genrule(
+    name = "peel_src",
+    srcs = [
+        "blocks.sv",
+        "//tools/macro_select:peel.tcl",
+    ],
+    outs = [
+        "Src_wrapper.v",
+        "Src_core.v",
+    ],
+    cmd = " ".join([
+        "PEEL_RTL=$(location blocks.sv)",
+        "PEEL_MODULE=Src",
+        "PEEL_WRAPPER=$(location Src_wrapper.v)",
+        "PEEL_CORE=$(location Src_core.v)",
+        "$(location @yosys//:yosys) -q -c $(location //tools/macro_select:peel.tcl) > /dev/null 2>&1",
+    ]),
+    tools = ["@yosys"],
+)
+
+[
+    orfs_flow(
+        name = block,
+        abstract_stage = "cts",
+        arguments = BLOCK_ARGS,
+        sources = BLOCK_SOURCES,
+        verilog_files = verilog,
+    )
+    for block, verilog in (
+        (
+            "Src",
+            [":blocks.sv"],
+        ),
+        (
+            "Src_core",
+            [":Src_core.v"],
+        ),
+        (
+            "Dst",
+            [":blocks.sv"],
+        ),
+    )
+]
+
+orfs_flow(
+    name = "top",
+    arguments = PARENT_ARGS,
+    last_stage = "cts",
+    macros = [
+        ":Src_generate_abstract",
+        ":Dst_generate_abstract",
+    ],
+    sources = PARENT_SOURCES,
+    verilog_files = [":top.sv"],
+)
+
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "top",
+    arguments = PARENT_ARGS,
+    last_stage = "cts",
+    macros = [
+        ":Src_core_generate_abstract",
+        ":Dst_generate_abstract",
+    ],
+    sources = PARENT_SOURCES,
+    variant = "peel",
+    verilog_files = [
+        ":Src_wrapper.v",
+        ":top.sv",
+    ],
+)
+
+# The split is a regrouping, proven in seconds: the flattened wrapper and
+# core are equivalent to the RTL's Src, and the output register is in the
+# wrapper.
+sh_test(
+    name = "peel_equiv_test",
+    srcs = ["peel_equiv_test.sh"],
+    args = [
+        "$(location @yosys//:yosys)",
+        "$(location blocks.sv)",
+        "$(location Src_wrapper.v)",
+        "$(location Src_core.v)",
+    ],
+    data = [
+        "Src_core.v",
+        "Src_wrapper.v",
+        "blocks.sv",
+        "@yosys",
+    ],
+)
+
+[
+    orfs_run(
+        name = "peel_report_" + tag,
+        src = src,
+        outs = ["peel_report_%s.json" % tag],
+        arguments = PARENT_ARGS,
+        script = ":peel_report.tcl",
+        sources = PARENT_SOURCES,
+        user_arguments = {
+            "OUTPUT_JSON": "$(location peel_report_%s.json)" % tag,
+        },
+        variant = variant,
+    )
+    for tag, src, variant in (
+        ("base", ":top_cts", "base"),
+        ("peel", ":top_peel_cts", "peel"),
+    )
+]
+
+# The intended behaviour, on the two reports: the flops are the parent's,
+# placed away from Src, and the period is shorter.
+py_test(
+    name = "peel_test",
+    srcs = ["peel_test.py"],
+    data = [
+        ":peel_report_base.json",
+        ":peel_report_peel.json",
+    ],
+    main = "peel_test.py",
+)
