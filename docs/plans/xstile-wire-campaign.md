@@ -163,6 +163,67 @@ A guess until Phase 0 measures one place run; re-budgeted after it.
   (A2's SRAM placement) land first, on their own. An OpenROAD or ORFS fix
   is carried as a patch here.
 
+## Follow-up, only on a yes: the hub (A5)
+
+Approved 2026-10-03 as a follow-up. It starts only if Phases 1 and 2 support the
+claim: flattening (A1 to A3) and density each move the design period at
+place by more than the seeds' spread, and the floor stays put. On a no
+or a not-resolved it is dropped. Its premise is that the wires are the
+problem; it adds nothing if they are not.
+
+**Why.** A yes says the parent wants its partners flat around it. A3,
+the flattest arm, buys that by putting most of the core in one top
+level, whose global route already passed 119 GB with only the regions
+flattened (entry 34). A5 keeps the flatness only where the wires cross:
+
+| | today (A0) | A3, flattest | A5, the hub |
+|---|---|---|---|
+| hard | Frontend, MemBlock, CoupledL2, VecRegionModule, FltRegionModule | CoupledL2 | Backend, CoupledL2 |
+| flat in the top level | CtrlBlock, int Region, issue queues | everything else | Frontend, MemBlock |
+| interface crossing a hard boundary | 33,793 block pins (the planner's pin-partner dump) | CoupledL2's | Backend's 7,086 bits, CoupledL2's |
+
+Backend is the narrow cut the architecture drew: 7,086 interface bits
+against 42,868 for its four children (entry 34's space table). The
+tangled core (issue, rename, the ROB) stays whole inside it and is never
+cut, which is the macro selection skill's rule. Frontend and MemBlock,
+its partners, are flat around it and can wrap at least three of its
+sides: at the skill's 2 pins/um, 7,086 bits need about 3,540 um of pin
+edge, about three sides of a 1.1 mm square, more than one or two hard
+neighbours could face.
+
+**What it can save, against A3.** The top level loses Backend, the
+tangle whose repair and legalisation are the slowest of the parent's
+steps, and Backend builds as its own block, in parallel with CoupledL2
+and cached while the top level iterates. Whether that is a saving
+against today (A0) is not known: the top level gains Frontend's 1.2 to
+1.36 M instances and MemBlock's. The A3 and A0 rows of the ledger are
+what A5 is compared with, on period, the top level's peak memory and
+the build's critical path.
+
+**Gates, cheapest first; each stops the follow-up if it fails:**
+
+1. **Backend's boundary in time.** `probe_boundaries.tcl` on the
+   parent's hierarchical synthesis, no flow: the crossings into
+   CtrlBlock's decode buffer and store set table, today's worst paths,
+   are registered or shallow inside Backend.
+2. **Backend alone at place.** Entry 34 measured 9,038 ps there, on the
+   rename buffer's enqueue loop, which the flat parent closed in 5,188:
+   the loop is not long, the packaging made it long. The levers not
+   tried then: pins on the sides that face Frontend and MemBlock, and a
+   tight outline at high density, which is Phase 2's lever applied
+   inside the hub, so `wire_probe` and the ledger measure it. The gate:
+   Backend's own period at place at or below the parent's at place in
+   the best Phase 1/2 arm.
+3. **The top level.** Frontend and MemBlock flat beside Backend and
+   CoupledL2: the design period at place against A3's and A0's, and
+   global route under the 115 GB gate. If global placement or global
+   route does not fit, this arm is where a partitioned global placement
+   earns its place, and that is a task of its own.
+
+**Deliverables.** A plan directory for A5 from the planner (Backend's
+pins on the sides facing its partners), its ledger rows beside the
+other arms', and a row in entry 34's cut table.
+
 ## Decisions (2026-10-03)
 
 1. A2 and A3 are in scope.
