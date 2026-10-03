@@ -10,8 +10,28 @@ Nothing here runs in CI. Every target is `tags = ["manual"]`.
 
 ![minimum clock period](kpi.png)
 
-`kpi.json` is the series and `kpi.py` draws it. When a change moves the
-number, add a row and re-render.
+<!-- kpi-table begin: written by kpi.py -->
+| # | date | design | parent | Frontend | MemBlock | CoupledL2 | VecRegionModule | FltRegionModule | Region_1 | change |
+|---|---|---|---|---|---|---|---|---|---|---|
+| not drawn | 2026-09-22 | ≥ 47,401 | 47,401 |  |  |  |  |  |  | first clock tree of the planned parent |
+| not drawn | 2026-09-23 | ≥ 45,607 | 45,607 |  |  |  |  |  |  | blocks' band soft-blocked, density 0.5, M9 at adjustment 0.18 |
+| not drawn | 2026-09-24 | 45,985 | 45,985 | 14,114 | 4,870 |  | 2,364 |  | 2,186 | the baseline; 43715 ps of it is the clock reaching MemBlock's pin, and each block alone is 3 to 20 times faster |
+| not drawn | 2026-09-24 | 14,114 | 13,527 | 14,114 | 4,870 |  | 2,364 |  | 2,186 | blocks abstracted at cts; the worst reg2reg path is Frontend's own 12534 ps setup to a falling-edge element, the clock no longer |
+| 1 | 2026-09-26 | 6,186 | 5,543 | 6,186 | 5,527 | 2,820 | 2,471 |  | 1,990 | XSTile, the tile with its L2, at density 0.2 and layer adjustment 0.1; global route at zero iterations with congestion allowed (total 37180, worst edge 31/42) |
+| 2 | 2026-09-26 | 6,186 | 5,543 | 6,186 | 5,527 | 2,820 | 2,471 |  | 1,990 | SDC at 473 ps, 333 ps on 7 nm in FO4; the period of the 800 ps run to the picosecond: with timing repair skipped and ABC mapping for area the netlist does not depend on the SDC |
+| 3 | 2026-09-27 | 6,186 | 5,143 | 6,186 | 5,527 | 2,820 | 2,471 |  | 1,990 | block abstracts carry their ports' max_transition and max_capacitance (OpenSTA patch 0008), so the parent's repair_design buffers the nets between blocks |
+| 4 | 2026-09-28 | 4,991 | 4,991 | 4,854 | 4,446 | 2,954 | 2,665 |  | 1,642 | synthesis maps with ABC's speed script in every flow instead of the area script |
+| 5 | 2026-09-28 | 5,681 | 5,188 | 5,681 | 3,741 | 3,464 | 2,301 | 1,826 |  | XiangShan kunminghu-v3 aa6b520, re-planned (Region_1 is now FltRegionModule); a different RTL, not comparable with the rows before |
+| 6 | 2026-09-29 | 5,118 | 4,325 | 5,118 | 2,725 | 2,698 | 2,375 | 1,831 |  | REMOVE_ABC_BUFFERS dropped (deprecated in ORFS) and the planned blocks' kept modules stated with OpenROAD hierarchical: one repair_design call no longer leaves about 46,000 slew violators on Frontend; measured in the same build by xs_pathology's probe |
+| 7 | 2026-10-01 | 5,402 | 5,402 | 2,259 | 2,057 | 2,222 | 1,247 | 814 |  | timing- and routability-driven global placement, ORFS's default, and RVT, LVT and SLVT from synthesis: every block faster, the parent slower and now the design's period |
+| 8 | 2026-10-02 | 3,860 | 3,860 | 1,541 | 2,057 | 2,222 | 1,247 | 814 |  | the parent keeps no global-placement repair (GPL_KEEP_OVERFLOW 0) and repairs timing after CTS; the ORFS bump to ecb3cfdeb1ca between the rows |
+<!-- kpi-table end -->
+
+Periods are in picoseconds; `≥` marks a run that did not measure the
+blocks, a lower bound. The chart starts at the first run below the
+Frontend block's 14,114 ps, and the runs before it are in the table only.
+`kpi.json` is the series, and `kpi.py` draws the chart and writes this
+table. When a change moves the number, add a row and re-run it.
 
 The KPI is the design's minimum clock period, the red line: the largest
 of the parent's period and each block's, since the design is only as
