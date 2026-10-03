@@ -398,6 +398,20 @@ class MockFootprintTest(unittest.TestCase):
         sh = plan_floorplan.shape(LayoutTest.MACROS[0], LATTICE, MARGINS, 10)
         self.assertEqual(sh["mock_area"], 1.0)
 
+
+class HeldSideTest(unittest.TestCase):
+    def test_region_side_holds(self):
+        free = plan_floorplan.layout(plan([dict(m) for m in LayoutTest.MACROS]))
+        sides = {m["name"]: m["region_side"] for m in free["macros"]}
+        held = [dict(m, region_side=OPPOSITE[sides[m["name"]]]) for m in LayoutTest.MACROS]
+        out = plan_floorplan.layout(plan(held))
+        for m in out["macros"]:
+            self.assertEqual(m["region_side"], OPPOSITE[sides[m["name"]]])
+        self.assertGreaterEqual(out["die_area_mm2"], free["die_area_mm2"] - 1e-9)  # the free choice is the smallest
+
+
+OPPOSITE = {"top": "bottom", "bottom": "top", "left": "right", "right": "left"}
+
 class MirroredOrderTest(unittest.TestCase):
     def test_both_ends_of_an_interface_share_one_order(self):
         d = tempfile.mkdtemp(prefix="plan_mirror.")
