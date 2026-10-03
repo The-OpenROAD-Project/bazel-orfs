@@ -224,6 +224,77 @@ the build's critical path.
 pins on the sides facing its partners), its ledger rows beside the
 other arms', and a row in entry 34's cut table.
 
+## An idea, not planned: cut at any module boundary, route by abutment
+
+Possibly useful after A5, and only if A5 says yes. Not approved, not
+budgeted.
+
+**The cut.** Today a hardened block nests its children: if `a`
+contains `b`, `b` is a macro inside `a`'s die and its wires cross `a`.
+Instead, lift `b` out: `a′` is `a` with `b`'s instance removed and its
+pins promoted to ports, and a wrapper with `a`'s pins instantiates `a′`
+and `b` side by side. Give `b` a full-width strip of `a`'s footprint, so
+both stay rectangles, and put the `a′`/`b` pins on the shared edge at
+the same coordinates and layer: routing by abutment, a crossing with
+almost no wire. Size the shared edge to the interface at the macro
+selection skill's 2 pins/um.
+
+```
+ ┌──────────── a_wrap ───────────┐
+ │ ┌────────── a′ ─────────────┐ │
+ │ │ a's own logic, ext pins   │ │
+ │ │ on N / E / W              │ │
+ │ │ ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ │ │  a′/b pins, same x, same layer
+ │ ╞═══════ shared edge ═══════╡ │
+ │ │ ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ │ │
+ │ │ b; a's ports that went    │ │
+ │ │ straight to b on its S    │ │
+ │ └───────────────────────────┘ │
+ └───────────────────────────────┘
+```
+
+Applied more than once, the shape that keeps every cut abutted is the
+hub: Backend, with Frontend, MemBlock and CoupledL2 on its sides, and
+next to nothing left in the top level.
+
+**Tools.** No SystemVerilog source change is needed. The language
+has no module-typed parameter; interface ports with modports would
+express the cut, but only by rewriting `a`. The cut is a netlist
+transform, and OpenROAD has it: `write_partition_verilog` (`par`) writes
+a top module with the original ports and one child module per
+`partition_id`, a port on both sides of every net that crosses. Tag
+`b`'s cells 1 and the rest 0 (`read_partitioning`, or the property
+directly); the hierarchy below is written flat, which a macro does not
+mind. Alternatives: CIRCT's `ExtractInstances` (FIRRTL), or a najaeda
+script on the hierarchical netlist.
+
+**Why it is not first.** At 2,976 ps (entry 41), 972 of the parent's
+1,000 worst endpoints start in its own `core/backend` logic; 28 are
+crossings. With every crossing's wire at zero the period would not
+move. It pays only once a cut like A4 or A5 puts that logic in a block
+and the top level is mostly crossings: entry 40's census puts repeaters
+and wire at 1,188 and 393 ps per path, which an abutted crossing does
+not pay.
+
+**What could cancel it.** Few ports are registered (CoupledL2: 8 of
+1,346 inputs), so a crossing still pays both sides' logic and their
+`set_max_delay` budgets (`macro-constraints`). Abutted pins are fixed
+on both sides, so the placer cannot move them. That OpenROAD connects
+pins on a shared edge, a zero halo there, and the power grid continuing
+across it, are not checked.
+
+**First step, minutes.** On `test/planned_parent`: split one block out
+of its parent with `write_partition_verilog`, check the wrapper is
+equivalent to the original with yosys, and place and route the two
+halves abutted.
+
+**Prior art.** Abutted-pin hierarchical design, true abutment with no
+top-level logic (US 6857116, 6865721, 6757874; EDN's SoC
+hierarchical-design glossary); restructuring the logical hierarchy into
+a physical one (Hier-RTLMP, arXiv 2304.11761); tiled processors built
+from abutted tiles (Raw, OpenPiton, HammerBlade), the easy case of a
+regular mesh.
+
 ## Decisions (2026-10-03)
 
 1. A2 and A3 are in scope.
