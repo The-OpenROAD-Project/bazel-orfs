@@ -1,10 +1,9 @@
 """analysistest: pin down which synth actions see the raw SDC.
 
 The expensive yosys actions (canonicalize, do-yosys, keep, partitions)
-read only the extracted clock period (SDC_FILE_CLOCK_PERIOD ->
-results/clock_period.txt, ORFS's do-sdc-clock-period target), never the
-raw SDC — so a period-preserving SDC edit re-runs only the cheap
-extraction and sdc-copy actions, not synthesis. These tests key on the
+never read the raw SDC: synthesis is clock-agnostic since ORFS #4586
+dropped the abc -D clock period. An SDC edit re-runs only the cheap
+sdc-copy action and what reads 1_2_yosys.sdc, not synthesis. These tests key on the
 action that produces a named output and assert which basenames must and
 must not appear among its inputs, locking that split in place.
 """

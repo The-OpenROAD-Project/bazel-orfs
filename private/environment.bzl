@@ -283,10 +283,8 @@ def data_inputs_excluding(ctx, exclude_path):
     """data_inputs() minus the file at ``exclude_path``.
 
     Used by the synth rule to drop the raw SDC from the expensive yosys
-    actions once the clock period has been extracted into its own
-    artifact: the yosys side reads only SDC_FILE_CLOCK_PERIOD
-    (synth_preamble.tcl), so keeping the raw SDC as an input would
-    re-run synthesis on every SDC edit, period-preserving or not.
+    actions: synthesis never reads it, so keeping it as an input would
+    re-run synthesis on every SDC edit.
     """
     return depset([
         f

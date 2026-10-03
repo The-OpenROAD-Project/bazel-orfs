@@ -195,6 +195,11 @@ ORFS_PATCHES = [
     # 0067; retires at a bump onto an ORFS whose FakeRAM asap7
     # backend has a width floor.
     Label("//patches:0088-orfs-fakeram-min-width.patch"),
+    # 0089: nangate45 picorv32 and tpu still set ABC_CLOCK_PERIOD_IN_PS,
+    # which ORFS #4586 removed from variables.yaml; bazel-orfs refuses
+    # the unknown variable and the two packages fail to load. Upstream
+    # as ORFS #4614; retires at a bump onto an ORFS that carries it.
+    Label("//patches:0089-orfs-drop-abc-clock-period-designs.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

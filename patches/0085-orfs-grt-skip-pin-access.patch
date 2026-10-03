@@ -51,7 +51,7 @@ diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -906,6 +906,16 @@
+@@ -900,6 +900,16 @@
      - cts
      - floorplan
      - grt

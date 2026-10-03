@@ -23,9 +23,9 @@
 # DESIGN_NAME to synth.tcl downstream.
 
 # Deliberately do NOT source synth_preamble.tcl: that script sets up ABC,
-# lib files, SDC clock period, and yosys-slang plugin — none of which this
-# pure read_rtlil → blackbox → write_rtlil step needs, and several of which
-# expect inputs (clock_period.txt, .lib files) that aren't materialised
+# lib files and the yosys-slang plugin — none of which this pure
+# read_rtlil → blackbox → write_rtlil step needs, and some of which
+# expect inputs (.lib files) that aren't materialised
 # until the surrounding macro's actual synth runs.
 #
 # `yosys -import` makes the yosys built-in commands callable without the
