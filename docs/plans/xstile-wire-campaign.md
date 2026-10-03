@@ -1,6 +1,7 @@
 # Plan: XSTile's period is a macro and global placement problem
 
-Status: **plan, awaiting approval; nothing run.** Parked here because it
+Status: **approved 2026-10-03; Phase 0's harness is in this pull
+request, nothing on XiangShan run.** Parked here because it
 needs a machine with more memory than the one that wrote it; any machine
 that meets "Where it runs" picks it up from this file.
 
@@ -46,10 +47,13 @@ global route.
 
 ## Phase 0: harness and baseline
 
-1. **Harness, on any machine** (no XiangShan run). A measure script that
-   writes one JSON row per run with the fields above, a collector that
-   skips rows already present (so the campaign resumes after any stop)
-   and a plot. Tested on `test/planned_parent`, which builds in minutes.
+1. **Harness, on any machine** (no XiangShan run). `test/wire_campaign`:
+   `wire_probe` (an `orfs_run` of `wire_probe.tcl` on a place stage)
+   writes one JSON row with the fields above; `campaign.py add` keeps one
+   row per (arm, density, seed) in a committed `results.json`, so the
+   campaign resumes on any machine; `campaign.py next` says which density
+   to sample next. Proven on `test/planned_parent`, whose parent is placed
+   at 0.2 and 0.7 from one floorplan (`wire_d02`, `wire_d07`).
 2. **Wiring.** Arms and densities as variants that share the parent's
    synthesis and floorplan (`previous_stage` from `XSTile_floorplan`, or
    `orfs_sweep`); checked with `/cache-miss` that a density point
@@ -81,9 +85,13 @@ becomes its own task, and only then.
 
 ## Phase 2: density sweep
 
-`PLACE_DENSITY` in {0.2, 0.3, 0.4, 0.5, 0.6, 0.7} on A0 and on the best
-of A1 to A3; three seeds at the end points and the best density, one
-elsewhere. Each point is one place action on a cached floorplan. Three
+Adaptive, on A0 and on the best of A1 to A3. Start at the ends, 0.2 and
+0.7, three seeds each; then `campaign.py next` names the midpoint of the
+interval whose ends differ most, one seed, and so on. An interval whose
+ends differ by less than the seeds' spread is not split, and nothing is
+split below 0.1: the rough picture, enough to decide what to spend time
+on next, not a curve. Each point is one place action on a cached
+floorplan. Three
 A0 points also get a global route, to check the gain at place survives
 contention (`docs/studies/pre-route-pessimism`: placement reads
 optimistic when the router is contended).
@@ -105,6 +113,33 @@ the arm's block list, `PLACE_DENSITY` and `GPL_RANDOM_SEED` vary.
 - **256 GB** for A2/A3 with any headroom, or for global-route checks
   beside a place run.
 
+## Running it on the big machine
+
+Phase 0 and the ends of the density sweep on A0 are declared already
+(`wire_points` in the xiangshan `BUILD`). From a checkout of this branch:
+
+```sh
+X=//test/coremark_joule/designs/asap7/xiangshan
+# one point first: it measures the place stage's peak and sets --jobs
+bazelisk build --jobs=1 $X:XSTile_wire_d02_s0
+# the rest of the ends, two at a time if that peak was under ~60 GB
+bazelisk build --jobs=2 $X:XSTile_wire_d02_s1 $X:XSTile_wire_d02_s2 \
+  $X:XSTile_wire_d07_s0 $X:XSTile_wire_d07_s1 $X:XSTile_wire_d07_s2
+# into the ledger, then the table and the next densities
+R=test/coremark_joule/designs/asap7/xiangshan/wire_results.json
+for t in d02_s0 d02_s1 d02_s2 d07_s0 d07_s1 d07_s2; do
+  d=0.${t:2:1}; s=${t:5}
+  bazelisk run //test/wire_campaign:campaign -- add --results $PWD/$R \
+    --arm A0 --density $d --seed $s $PWD/bazel-bin/${X#//}/XSTile_wire_$t.json
+done
+bazelisk run //test/wire_campaign:campaign -- table --results $PWD/$R
+bazelisk run //test/wire_campaign:campaign -- next --results $PWD/$R
+```
+
+A density `next` names is one more entry in `wire_points`. Commit
+`wire_results.json` after every batch: it is the campaign's state, and
+the next machine resumes from it.
+
 ## Budget
 
 A guess until Phase 0 measures one place run; re-budgeted after it.
@@ -113,7 +148,7 @@ A guess until Phase 0 measures one place run; re-budgeted after it.
 |---|---|---|
 | 0 | 3 place, 1 global route | half a day |
 | 1 | 5 arms, 1 to 3 seeds, planner work for A2/A3 | 1 to 1.5 days |
-| 2 | about 24 place points, 3 global routes | 1.5 to 2 days |
+| 2 | 6 per arm at the ends, then 1 per split (about 4 to 6 per arm), 3 global routes | 1 to 1.5 days |
 
 ## Deliverables
 
@@ -128,8 +163,11 @@ A guess until Phase 0 measures one place run; re-budgeted after it.
   (A2's SRAM placement) land first, on their own. An OpenROAD or ORFS fix
   is carried as a patch here.
 
-## Open decisions
+## Decisions (2026-10-03)
 
-1. A2 and A3 in scope, or A0/A1/A4 only?
-2. Densities 0.2 to 0.7 by 0.1, or finer near the top?
-3. Which machine, and how many parents at once.
+1. A2 and A3 are in scope.
+2. Density: the ends first, then sample where the uncertainty is
+   biggest until the rough picture is in (Phase 2).
+3. The harness is built on a small machine now; the XiangShan runs wait
+   for a machine with at least 128 GB. Concurrency is set by Phase 0's
+   measured peak.
