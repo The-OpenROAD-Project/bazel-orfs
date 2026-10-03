@@ -141,7 +141,7 @@ diff --git a/flow/scripts/memories/detect.py b/flow/scripts/memories/detect.py
  def scan_yosys_json(data: dict | str | Path) -> list[schema.Memory]:
      """Extract memory modules from a Yosys netlist JSON output ($mem_v2 cells)."""
      if isinstance(data, (str, Path)):
-@@ -43,6 +116,9 @@
+@@ -40,6 +113,9 @@
      for mod_name, mod_info in modules.items():
          clean_mod_name = mod_name[1:] if mod_name.startswith("\\") else mod_name
          cells = mod_info.get("cells", {})
@@ -151,7 +151,7 @@ diff --git a/flow/scripts/memories/detect.py b/flow/scripts/memories/detect.py
          for cell_name, cell_info in cells.items():
              cell_type = cell_info.get("type", "")
              if cell_type not in ("$mem_v2", "$mem"):
-@@ -74,6 +150,12 @@
+@@ -71,6 +147,12 @@
              mask_lanes = 0
              if wr_ports > 0 and len(wr_en_bits) > wr_ports:
                  mask_lanes = len(wr_en_bits) // wr_ports
@@ -164,7 +164,7 @@ diff --git a/flow/scripts/memories/detect.py b/flow/scripts/memories/detect.py
  
              pins: list[schema.Pin] = []
  
-@@ -157,8 +239,27 @@
+@@ -154,8 +236,27 @@
                          )
                      )
  
@@ -193,7 +193,7 @@ diff --git a/flow/scripts/memories/detect.py b/flow/scripts/memories/detect.py
  
              mem = schema.Memory(
                  name=mem_name,
-@@ -167,8 +268,10 @@
+@@ -164,8 +265,10 @@
                  addr_w=addr_w,
                  read_ports=rd_ports,
                  write_ports=wr_ports,

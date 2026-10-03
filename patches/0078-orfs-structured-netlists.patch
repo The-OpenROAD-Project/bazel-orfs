@@ -73,7 +73,7 @@ diff --git a/flow/scripts/load.tcl b/flow/scripts/load.tcl
 diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_memories.py
 --- a/flow/scripts/memories/gen_memories.py
 +++ b/flow/scripts/memories/gen_memories.py
-@@ -9,6 +9,8 @@
+@@ -10,6 +10,8 @@
    <out-dir>/<m>.lib             Liberty view per converted memory
    <out-dir>/<m>_pre_layout.lib  ideal-clock variant for pre-CTS consumers
    <out-dir>/<m>.lef             abstract LEF per converted memory
@@ -82,7 +82,7 @@ diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_m
    <out-dir>/blackboxes.txt      converted module names, one per line —
                                  what synthesis blackboxes
  
-@@ -55,6 +57,53 @@
+@@ -45,6 +47,53 @@
      raise SystemExit(f"gen_memories: {spec}: no `module` line")
  
  
@@ -136,7 +136,7 @@ diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_m
  def _file_defining(module: str, verilog: list[Path]) -> Path:
      """The Verilog file that declares `module`, for the port check."""
      pat = re.compile(rf"^\s*module\s+{re.escape(module)}\b", re.M)
-@@ -92,25 +141,42 @@
+@@ -82,25 +131,42 @@
      if not lefs:
          raise SystemExit("gen_memories: STRUCTURED_MEMORIES needs TECH_LEF and SC_LEF")
      modules = []

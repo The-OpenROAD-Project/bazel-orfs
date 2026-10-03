@@ -18,17 +18,22 @@ AUTO_MEMORIES views, appends the module to blackboxes.txt after FakeRAM
 has written it, and records what it did in structured.json. A spec
 whose ports are not the module's stops the build there.
 
+ORFS's detection is yosys-only and gen_memories.py no longer takes
+VERILOG_FILES; this patch passes them back as --verilog, searched only
+for the module a spec names.
+
 Retires when ORFS grows a way to declare a generated macro per module;
 then `//:bump` onto that commit drops this patch.
 
 diff --git a/flow/Makefile b/flow/Makefile
 --- a/flow/Makefile
 +++ b/flow/Makefile
-@@ -286,10 +286,13 @@
+@@ -277,10 +277,14 @@
+ 	  --yosys-json $(RESULTS_DIR)/memories_inferred.json \
  	  --out-dir $(RESULTS_DIR)/memories \
  	  --json $(RESULTS_DIR)/memories.json \
- 	  $(foreach file,$(VERILOG_FILES),--verilog $(file)) \
 -	  $(foreach file,$(ADDITIONAL_MEMORIES),--memories $(file))
++	  $(foreach file,$(VERILOG_FILES),--verilog $(file)) \
 +	  $(foreach file,$(ADDITIONAL_MEMORIES),--memories $(file)) \
 +	  $(foreach file,$(STRUCTURED_MEMORIES),--structured-spec $(file)) \
 +	  $(if $(STRUCTURED_GEN),--structured-gen $(STRUCTURED_GEN)) \
@@ -43,7 +48,7 @@ diff --git a/flow/Makefile b/flow/Makefile
 diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_memories.py
 --- a/flow/scripts/memories/gen_memories.py
 +++ b/flow/scripts/memories/gen_memories.py
-@@ -19,6 +19,8 @@
+@@ -20,6 +20,8 @@
  from __future__ import annotations
  
  import argparse
@@ -52,8 +57,8 @@ diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_m
  import sys
  from pathlib import Path
  
-@@ -44,6 +46,75 @@
-     return None
+@@ -34,12 +36,85 @@
+ FAKERAM_RUN_PY = Path(__file__).resolve().parents[3] / "tools/FakeRAM2.0/run.py"
  
  
 +def _spec_module(spec: Path) -> str:
@@ -126,32 +131,41 @@ diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_m
 +
 +
  def run(
-     verilog: list[Path],
+     yosys_json: Path,
      memories_files: list[Path],
-@@ -51,6 +122,9 @@
+     platform: str,
      out_dir: Path,
      json_path: Path,
-     yosys_json: Path | None = None,
++    verilog: list[Path] | None = None,
 +    structured_specs: list[Path] | None = None,
 +    structured_gen: str | None = None,
 +    lefs: list[Path] | None = None,
  ) -> int:
      if platform != "asap7":
          sys.stderr.write(f"gen_memories: unsupported platform {platform}\n")
-@@ -94,6 +168,9 @@
+@@ -73,6 +148,11 @@
          ]
      )
  
 +    # After FakeRAM has written blackboxes.txt for the inferred memories.
-+    run_structured(structured_specs or [], structured_gen, lefs or [], verilog, out_dir)
++    run_structured(
++        structured_specs or [], structured_gen, lefs or [], verilog or [], out_dir
++    )
 +
      for mem in sorted(memories, key=lambda m: m.name):
          verdict = "macro" if mem.idiomatic else "flops"
          sys.stderr.write(
-@@ -129,6 +206,25 @@
+@@ -101,6 +181,32 @@
          help="User-supplied .memories file merged onto the "
          "detected set (repeatable).",
      )
++    p.add_argument(
++        "--verilog",
++        action="append",
++        default=[],
++        type=Path,
++        help="Verilog file searched for a STRUCTURED_MEMORIES module (repeatable).",
++    )
 +    p.add_argument(
 +        "--structured-spec",
 +        action="append",
@@ -174,10 +188,11 @@ diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_m
      p.add_argument("--platform", required=True)
      p.add_argument(
          "--out-dir",
-@@ -150,6 +246,9 @@
+@@ -121,6 +227,10 @@
+         args.platform,
          args.out_dir,
          args.json,
-         args.yosys_json,
++        args.verilog,
 +        args.structured_spec,
 +        args.structured_gen,
 +        args.lef,

@@ -34,7 +34,7 @@ whose place stage places the pins with global placement.
 diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
 --- a/docs/user/FlowVariables.md
 +++ b/docs/user/FlowVariables.md
-@@ -163,8 +163,8 @@
+@@ -162,8 +162,8 @@
  | <a name="GND_NETS_VOLTAGES"></a>GND_NETS_VOLTAGES| Used for IR Drop calculation.| |
  | <a name="GPL_KEEP_OVERFLOW"></a>GPL_KEEP_OVERFLOW| Passed as -keep_resize_below_overflow to global_placement. Only used when GPL_TIMING_DRIVEN is enabled.| |
  | <a name="GPL_RANDOM_SEED"></a>GPL_RANDOM_SEED| Specifies a random seed for global placement.  Useful for perturbation studies.| |
@@ -161,7 +161,7 @@ diff --git a/flow/scripts/util.tcl b/flow/scripts/util.tcl
 diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
 --- a/flow/scripts/variables.json
 +++ b/flow/scripts/variables.json
-@@ -489,14 +489,14 @@
+@@ -483,14 +483,14 @@
    },
    "GPL_ROUTABILITY_DRIVEN": {
      "default": 1,
@@ -181,7 +181,7 @@ diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -741,12 +741,18 @@
+@@ -735,12 +735,18 @@
  GPL_TIMING_DRIVEN:
    description: |
      Specifies whether the placer should use timing driven placement.

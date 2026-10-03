@@ -1299,7 +1299,7 @@ SYNTH_OUTPUTS = ["1_2_yosys.v", "1_2_yosys.sdc", "mem.json"]
 SYN_OUTPUTS = ["1_synth.odb", "1_synth.sdc", "1_synth.v"]
 SYNTH_REPORTS = ["synth_stat.txt", "synth_mocked_memories.txt"]
 
-def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments = {}, clock_period = None, sdc_overrides = [], synth_data_inputs = None, sdc_only_inputs = None, memories_inputs = []):
+def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments = {}, sdc_overrides = [], synth_data_inputs = None, sdc_only_inputs = None, memories_inputs = []):
     """Parallel synthesis: keep → kept-json → N partitions → merge.
 
     Yosys is not deterministic when using host threads, so SYNTH_NUM_PARTITIONS
@@ -1307,11 +1307,10 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     different core counts. Users who need reproducible builds should set a fixed
     SYNTH_NUM_PARTITIONS value.
 
-    clock_period / sdc_overrides / synth_data_inputs carry the caller's
-    clock-period extraction (see _yosys_impl): the preamble-sourcing yosys
-    actions (keep, partitions, top) read SDC_FILE_CLOCK_PERIOD instead of
-    the raw SDC, whose only legitimate consumers here are the sdc-copy and
-    do-1_synth actions.
+    sdc_overrides / synth_data_inputs keep the raw SDC away from the yosys
+    actions (keep, partitions, top), which never read it (see
+    _yosys_impl); its only consumers here are the sdc-copy and do-1_synth
+    actions.
 
     When SYNTH_KEEP_MODULES is provided, the keep-hierarchy discovery step
     (synth_keep.tcl + rtlil_kept_modules.py) is skipped entirely.  The module
@@ -1337,7 +1336,6 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         synth_data_inputs = data_inputs(ctx)
     if sdc_only_inputs == None:
         sdc_only_inputs = data_inputs(ctx)
-    clock_period_inputs = [clock_period] if clock_period else []
 
     kept_json = declare_artifact(ctx, "results", "kept_modules.json")
     skip_keep = all_arguments.get("SYNTH_KEEP_MODULES", "")
@@ -1375,7 +1373,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             env = base_env,
             inputs = depset(
                 [canon_output, config, parallel_makefile, ctx.file._synth_keep_script] +
-                clock_period_inputs + ctx.files.extra_configs + memories_inputs,
+                ctx.files.extra_configs + memories_inputs,
                 transitive = [
                     synth_data_inputs,
                     pdk_inputs(ctx),
@@ -1565,7 +1563,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             parallel_makefile,
             ctx.file._synth_partition_script,
             ctx.file._synth_tcl,
-        ] + clock_period_inputs + extra_partition_inputs +
+        ] + extra_partition_inputs +
         ctx.files.extra_configs +
         # AUTO_MEMORIES artifacts, for the same reason the serial synth
         # action stages them: make's chain is
@@ -2146,10 +2144,10 @@ def _yosys_impl(ctx):
         ]
 
         # gen_memories.py shells out to FakeRAM, which ORFS vendors at
-        # tools/FakeRAM2.0. Point it there explicitly rather than relying
-        # on its own discovery: that fallback rglobs RUNFILES_DIR for a
-        # run.py whose parent directory contains "fakeram", and the test
-        # is case-sensitive, so it never matches "FakeRAM2.0".
+        # tools/FakeRAM2.0 and finds beside its own resolved path
+        # (tools/FakeRAM2.0/run.py under the ORFS root). Stage the tool
+        # into the sandbox and fail here, not in the action, if run.py
+        # is not among its files.
         fakeram_inputs = ctx.files._fakeram
         run_py = [
             f
@@ -2159,13 +2157,12 @@ def _yosys_impl(ctx):
         if not run_py:
             fail("AUTO_MEMORIES=1 but no FakeRAM run.py among the files of " +
                  str(ctx.attr._fakeram.label) + " in " + str(ctx.label))
-        fakeram_env = {"FAKERAM_RUN_PY": run_py[0].path}
 
     # STRUCTURED_MEMORIES: the register-file generator runs inside the
     # memories step, so the binary is staged into the canonicalize
-    # sandbox and named to make through STRUCTURED_GEN, the way FakeRAM
-    # is named through FAKERAM_RUN_PY. The views it writes land in the
-    # same results/memories directory and travel on OrfsInfo.memories.
+    # sandbox and named to make through STRUCTURED_GEN. The views it
+    # writes land in the same results/memories directory and travel on
+    # OrfsInfo.memories.
     if all_arguments.get("STRUCTURED_MEMORIES"):
         if not auto_memories:
             fail("STRUCTURED_MEMORIES is set but AUTO_MEMORIES is not 1: the " +
@@ -2176,60 +2173,26 @@ def _yosys_impl(ctx):
             "STRUCTURED_GEN": ctx.executable._structured_gen.path,
         }
 
-    # Clock-period extraction. The yosys side never reads the raw SDC:
-    # synth_preamble.tcl consumes only SDC_FILE_CLOCK_PERIOD (the abc -D
-    # value), which ORFS's do-sdc-clock-period target derives from the SDC
-    # in a make blink. Run that derivation as its own cheap action so a
-    # period-preserving SDC edit re-runs only this step; the expensive
-    # yosys actions get SDC_FILE_CLOCK_PERIOD=<artifact> and SDC_FILE=
-    # (empty — variables.mk guards every SDC_FILE use with $(wildcard))
-    # on the make command line and the raw SDC dropped from their inputs.
-    # SDC_FILE_CLOCK_PERIOD is not in variables.yaml, so it must ride the
-    # command line, not the config. The SYNTH_USE_SYN engine bypasses
+    # The yosys side never reads the SDC: synthesis is clock-agnostic
+    # (ORFS #4586 dropped the abc -D period that never reached ABC). The
+    # expensive yosys actions get SDC_FILE= on the make command line and
+    # the raw SDC dropped from their inputs, so an SDC edit re-runs only
+    # the sdc-copy and do-1_synth steps. The SYNTH_USE_SYN engine bypasses
     # yosys and reads SDC_FILE directly, so it keeps the raw SDC.
     sdc_file_raw = all_arguments.get("SDC_FILE")
     sdc_path = ctx.expand_location(sdc_file_raw, ctx.attr.data) if sdc_file_raw else None
 
-    # The raw SDC as File(s) — for the cheap actions that read ONLY it
-    # (clock-period extraction, sdc-copy). Handing them the full data set
-    # would re-run them, harmlessly but noisily, on every data edit.
+    # The raw SDC as File(s) — for the cheap action that reads ONLY it
+    # (sdc-copy). Handing it the full data set would re-run it,
+    # harmlessly but noisily, on every data edit.
     # Falls back to the full data set when the SDC_FILE path cannot be
     # matched to a data file (a literal path spelled without $(location)).
     sdc_files = [f for f in data_inputs(ctx).to_list() if f.path == sdc_path]
     sdc_only_inputs = depset(sdc_files) if sdc_files else data_inputs(ctx)
-    clock_period = None
     sdc_overrides = []
     synth_data_inputs = data_inputs(ctx)
     if sdc_path and not use_syn:
-        clock_period = declare_artifact(ctx, "results", "clock_period.txt")
-        ctx.actions.run_shell(
-            arguments = [
-                "--file",
-                ctx.file._makefile_yosys.path,
-                "do-sdc-clock-period",
-                "SDC_FILE_CLOCK_PERIOD=" + clock_period.path,
-            ],
-            command = _make_cmd(ctx),
-            env = verilog_arguments([]) |
-                  yosys_environment(ctx) |
-                  config_environment(config),
-            # Make parse (config + platform includes) plus the SDC the
-            # period is regexed out of — nothing else is opened.
-            inputs = depset(
-                [config] + ctx.files.extra_configs,
-                transitive = [
-                    sdc_only_inputs,
-                    pdk_inputs(ctx),
-                ],
-            ),
-            outputs = [clock_period],
-            tools = yosys_inputs(ctx),
-            progress_message = "Extracting clock period from SDC for %s" % module_top(ctx),
-        )
-        sdc_overrides = [
-            "SDC_FILE_CLOCK_PERIOD=" + clock_period.path,
-            "SDC_FILE=",
-        ]
+        sdc_overrides = ["SDC_FILE="]
         synth_data_inputs = data_inputs_excluding(ctx, sdc_path)
 
     canon_logs = declare_artifacts(ctx, "logs", ["1_1_yosys_canonicalize.log"])
@@ -2263,7 +2226,7 @@ def _yosys_impl(ctx):
                   config_environment(canon_config) |
                   fakeram_env,
             inputs = depset(
-                [canon_config] + ([clock_period] if clock_period else []) +
+                [canon_config] +
                 ctx.files.verilog_files + ctx.files.extra_configs +
                 fakeram_inputs,
                 transitive = [
@@ -2364,14 +2327,14 @@ def _yosys_impl(ctx):
             progress_message = "OpenROAD-SYN synthesis for %s" % module_top(ctx),
         )
     elif num_partitions > 0:
-        validated_kept_macros_json = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments, clock_period, sdc_overrides, synth_data_inputs, sdc_only_inputs, memories_outputs + memories_inferred)
+        validated_kept_macros_json = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments, sdc_overrides, synth_data_inputs, sdc_only_inputs, memories_outputs + memories_inferred)
     else:
         # Serial path, split into three actions mirroring the parallel
         # path so the raw SDC feeds only the cheap sdc-copy step:
         #   1. sdc-copy: raw SDC -> 1_2_yosys.sdc (empty placeholder for
         #      SYNTH_NETLIST_FILES designs with no SDC).
         #   2. do-yosys: the expensive synthesis; reads the canonicalized
-        #      RTLIL and clock_period.txt, never the raw SDC.
+        #      RTLIL, never the raw SDC.
         #   3. do-1_synth (save_odb only): 1_synth.odb/.sdc from
         #      1_2_yosys.v/.sdc.
         # SYNTH_NETLIST_FILES will not create an .rtlil file, logs,
@@ -2424,7 +2387,6 @@ def _yosys_impl(ctx):
             env = serial_env,
             inputs = depset(
                 [canon_output, config] +
-                ([clock_period] if clock_period else []) +
                 ctx.files.extra_configs +
                 # Synthesis blackboxes the converted memories, which it
                 # reads from results/memories/blackboxes.txt -- written
