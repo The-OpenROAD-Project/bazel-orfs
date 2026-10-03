@@ -179,6 +179,7 @@ def shape(macro, tech, margins, core_margin=0.0):
         "two_sides": two_sides,
         "channel_um": round(channel, 3),
         "pins_per_um": round(pins / (side * (2 if two_sides else 1)), 3),
+        "region_side": macro.get("region_side"),
         "mock_area": round(mock, 4),
         "fp_side_um": round(side * round(mock, 4), 3),
         "fp_depth_um": round(depth * round(mock, 4), 3),
@@ -216,8 +217,9 @@ def assign_sides(shapes, region_area, gap, margin, min_w=0.0, min_h=0.0, aspect_
 
     Every assignment is tried for up to eight macros (65536 cases), the
     region rectangle sized to hold the cells and the pin sides along it;
-    beyond eight, longest first onto the least loaded side. Returns
-    ({side: [shapes]}, region_w, region_h).
+    beyond eight, longest first onto the least loaded side. A shape with a
+    region_side keeps it, so a study that varies the parent can hold the
+    blocks' pin sides still. Returns ({side: [shapes]}, region_w, region_h).
     """
     if not shapes:
         w = max(math.sqrt(region_area), min_w)
@@ -228,9 +230,13 @@ def assign_sides(shapes, region_area, gap, margin, min_w=0.0, min_h=0.0, aspect_
         for code in range(4**n):
             placed = {s: [] for s in SIDES}
             c = code
+            held = True
             for sh in shapes:
+                held &= sh.get("region_side") in (None, SIDES[c % 4])
                 placed[SIDES[c % 4]].append(sh)
                 c //= 4
+            if not held:
+                continue
             w, h, dw, dh = _die_for(placed, region_area, _extents(placed), gap, margin, min_w, min_h)
             # the region's elongation, when capped: an assignment over the
             # cap loses to any under it, and among themselves by die area
@@ -240,8 +246,8 @@ def assign_sides(shapes, region_area, gap, margin, min_w=0.0, min_h=0.0, aspect_
                 best = ((over, dw * dh), placed, w, h)
     else:
         placed = {s: [] for s in SIDES}
-        for sh in sorted(shapes, key=lambda s: -s["pin_side_um"]):
-            side = min(SIDES, key=lambda s: _span(placed[s], gap))
+        for sh in sorted(shapes, key=lambda s: (s.get("region_side") is None, -s["pin_side_um"])):
+            side = sh.get("region_side") or min(SIDES, key=lambda s: _span(placed[s], gap))
             placed[side].append(sh)
         w, h, dw, dh = _die_for(placed, region_area, _extents(placed), gap, margin, min_w, min_h)
         best = ((0, dw * dh), placed, w, h)
