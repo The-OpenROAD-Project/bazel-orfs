@@ -48,10 +48,9 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  1 file changed, 37 insertions(+), 3 deletions(-)
 
 diff --git a/flow/scripts/memories/extract_memories.tcl b/flow/scripts/memories/extract_memories.tcl
-index 18e5c2371..e95cdc79c 100644
 --- a/flow/scripts/memories/extract_memories.tcl
 +++ b/flow/scripts/memories/extract_memories.tcl
-@@ -23,11 +23,45 @@ hierarchy -top $::env(DESIGN_NAME)
+@@ -23,11 +23,45 @@
  # bare `proc`: yosys -import cannot shadow Tcl's proc keyword, so the
  # bare word would define a procedure instead of running the pass.
  yosys proc
@@ -100,6 +99,3 @@ index 18e5c2371..e95cdc79c 100644
 +}
  
  exit
--- 
-2.53.0
-

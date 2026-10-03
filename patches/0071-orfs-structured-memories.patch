@@ -24,7 +24,7 @@ then `//:bump` onto that commit drops this patch.
 diff --git a/flow/Makefile b/flow/Makefile
 --- a/flow/Makefile
 +++ b/flow/Makefile
-@@ -282,10 +282,13 @@
+@@ -286,10 +286,13 @@
  	  --out-dir $(RESULTS_DIR)/memories \
  	  --json $(RESULTS_DIR)/memories.json \
  	  $(foreach file,$(VERILOG_FILES),--verilog $(file)) \

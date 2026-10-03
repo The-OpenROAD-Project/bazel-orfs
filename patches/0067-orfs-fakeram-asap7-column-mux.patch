@@ -32,9 +32,7 @@ um (aspect 2.5) at the same area, and cmj_dmem 33.4 x 82.9 (aspect 2.5).
 Area is unchanged by construction: column muxing moves cells between the
 two dimensions, it does not add or remove any.
 
-Separate from 0063 on purpose. That patch is ORFS's own, re-pathed
-rather than rewritten so it stays comparable to the file ORFS ships;
-this is a behavioural change and does not belong inside it.
+Rebased onto the backend as ORFS #4603 folded and black-formatted it.
 
 Not upstreamed. Retire at a bump onto an ORFS whose ASAP7 backend picks
 a column mux factor, or carries per-shape geometry another way.
@@ -48,9 +46,9 @@ diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asa
  import sys
  from pathlib import Path
  
-@@ -33,6 +34,29 @@
-     "leakage": 0.001,
+@@ -34,6 +35,29 @@
  }
+ 
  
 +def pick_column_mux_factor(rows, bits):
 +    """Fold a tall array into a square one.
@@ -78,15 +76,15 @@ diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asa
  def run_orfs_asap7(platform: str, out_dir: Path, json_path: Path):
      if platform != "asap7":
          sys.stderr.write(f"FakeRAM2.0 orfs_asap7: unsupported platform {platform}\n")
-@@ -48,7 +72,6 @@
-     out_dir.mkdir(parents=True, exist_ok=True)
-     converted = sorted((m for m in memories if m.get("idiomatic")), key=lambda m: m["name"])
+@@ -51,7 +75,6 @@
+         (m for m in memories if m.get("idiomatic")), key=lambda m: m["name"]
+     )
  
 -    process = Process(ASAP7_PROCESS_CONFIG)
      timing_data = TimingData(ASAP7_TIMING_CONFIG)
  
      for m in converted:
-@@ -56,6 +79,10 @@
+@@ -59,6 +82,10 @@
          bits = m.get("bits", 32)
          rows = m.get("rows", 128)
  

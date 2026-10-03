@@ -29,10 +29,9 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  1 file changed, 14 insertions(+)
 
 diff --git a/flow/scripts/macro_place_util.tcl b/flow/scripts/macro_place_util.tcl
-index 9fb06ff98..df0acaf0d 100644
 --- a/flow/scripts/macro_place_util.tcl
 +++ b/flow/scripts/macro_place_util.tcl
-@@ -37,6 +37,20 @@ if { [find_macros] != "" } {
+@@ -29,6 +29,20 @@
    if { [env_var_exists_and_non_empty MACRO_PLACEMENT_TCL] } {
      log_cmd source $::env(MACRO_PLACEMENT_TCL)
    }
@@ -53,6 +52,3 @@ index 9fb06ff98..df0acaf0d 100644
  
    set additional_rtlmp_args ""
    append_env_var additional_rtlmp_args RTLMP_MAX_LEVEL -max_num_level 1
--- 
-2.53.0
-

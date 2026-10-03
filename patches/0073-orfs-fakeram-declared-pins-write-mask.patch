@@ -66,7 +66,7 @@ diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asa
  import json
  import math
  import sys
-@@ -34,6 +49,58 @@
+@@ -34,6 +49,57 @@
      "leakage": 0.001,
  }
  
@@ -121,20 +121,10 @@ diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asa
 +    needed = (num_pins + 1) * process.pin_pitch_um + 2 * process.y_offset
 +    return max(0.0, needed - height)
 +
-+
+ 
  def pick_column_mux_factor(rows, bits):
      """Fold a tall array into a square one.
- 
-@@ -70,14 +137,28 @@
-         return 1
- 
-     out_dir.mkdir(parents=True, exist_ok=True)
--    converted = sorted((m for m in memories if m.get("idiomatic")), key=lambda m: m["name"])
-+    converted = sorted(
-+        (m for m in memories if m.get("idiomatic")), key=lambda m: m["name"]
-+    )
- 
-     timing_data = TimingData(ASAP7_TIMING_CONFIG)
+@@ -79,8 +145,20 @@
  
      for m in converted:
          name = m["name"]
@@ -157,7 +147,7 @@ diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asa
  
          process_config = dict(ASAP7_PROCESS_CONFIG)
          process_config["column_mux_factor"] = pick_column_mux_factor(rows, bits)
-@@ -88,6 +169,9 @@
+@@ -91,6 +169,9 @@
              "width": bits,
              "depth": rows,
              "banks": 1,
@@ -167,15 +157,6 @@ diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asa
          }
          mem_config = MemoryConfig.from_json(sram_dict)
          ram = MemoryFactory.create(mem_config, "RAM", "SP", process, timing_data)
-@@ -106,5 +190,7 @@
-         with open(lef_path, "w") as f:
-             LefExporter(ram).export(f)
- 
--    (out_dir / "blackboxes.txt").write_text("".join(f"{m['name']}\n" for m in converted))
-+    (out_dir / "blackboxes.txt").write_text(
-+        "".join(f"{m['name']}\n" for m in converted)
-+    )
-     return 0
 diff --git a/tools/FakeRAM2.0/test/spsram_mask_test.py b/tools/FakeRAM2.0/test/spsram_mask_test.py
 new file mode 100644
 --- /dev/null

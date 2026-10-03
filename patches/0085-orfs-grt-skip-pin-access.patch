@@ -26,10 +26,9 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  2 files changed, 22 insertions(+), 1 deletion(-)
 
 diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
-index f0e3a195b..a9a8d36cb 100644
 --- a/flow/scripts/global_route.tcl
 +++ b/flow/scripts/global_route.tcl
-@@ -54,7 +54,18 @@ proc global_route_helper { } {
+@@ -63,7 +63,18 @@
    append_env_var additional_args VIA_IN_PIN_MIN_LAYER -via_in_pin_bottom_layer 1
    append_env_var additional_args VIA_IN_PIN_MAX_LAYER -via_in_pin_top_layer 1
  
@@ -50,10 +49,9 @@ index f0e3a195b..a9a8d36cb 100644
    if { ![do_global_route $res_aware $use_cugr] } {
      return
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
-index d19071996..83c21c294 100644
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -920,6 +920,16 @@ SKIP_LAST_GASP:
+@@ -906,6 +906,16 @@
      - cts
      - floorplan
      - grt
@@ -70,6 +68,3 @@ index d19071996..83c21c294 100644
  SKIP_BUFFER_REMOVAL:
    description: >
      Passed as -skip_buffer_removal to repair_timing. Do not remove buffers
--- 
-2.53.0
-

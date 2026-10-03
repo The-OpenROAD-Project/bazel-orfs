@@ -29,10 +29,9 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  1 file changed, 18 insertions(+), 1 deletion(-)
 
 diff --git a/flow/scripts/structured_netlists.tcl b/flow/scripts/structured_netlists.tcl
-index 0742ae015..6436b63bb 100644
 --- a/flow/scripts/structured_netlists.tcl
 +++ b/flow/scripts/structured_netlists.tcl
-@@ -69,14 +69,25 @@ if { 1 } {
+@@ -69,14 +69,25 @@
        if { $X < [$core xMin] || $Y < [$core yMin] || $X + ($dx1 - $dx0) > [$core xMax] || $Y + ($dy1 - $dy0) > [$core yMax] } {
          utl::error FLW 4 "STRUCTURED_PLACEMENT: $path ($module, [expr {($dx1-$dx0)/double($dbu)}] x [expr {($dy1-$dy0)/double($dbu)}] um) at [expr {$X/double($dbu)}] [expr {$Y/double($dbu)}] um leaves the core"
        }
@@ -59,7 +58,7 @@ index 0742ae015..6436b63bb 100644
          }
          $inst setOrient $orient
          $inst setLocation [expr { $X + $cx - $dx0 }] [expr { $Y + $cy - $dy0 }]
-@@ -84,6 +95,12 @@ if { 1 } {
+@@ -84,6 +95,12 @@
          incr n
        }
        close $pf
@@ -72,6 +71,3 @@ index 0742ae015..6436b63bb 100644
        lappend placed_modules $module
        utl::info FLW 6 "structured netlist $module at $path: $n cells FIRM at [expr {$X/double($dbu)}] [expr {$Y/double($dbu)}] um"
      }
--- 
-2.53.0
-
