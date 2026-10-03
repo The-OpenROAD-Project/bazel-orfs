@@ -8,7 +8,7 @@ planned block is its own flow abstracted at place, and the parent's
 synthesis blackboxes the blocks by name from their abstracts.
 """
 
-load("@bazel-orfs//:openroad.bzl", "orfs_flow")
+load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run")
 
 # Read by anneal_in_flow.tcl, not by ORFS: bypass the variables.yaml
 # validator, and scoped to the floorplan so a knob edit re-runs the
@@ -1117,6 +1117,24 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
     sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"]
     return arguments, sources
 
+def _kpi(part, stage, arguments, sources, tags):
+    """<part>_kpi: the part's reg2reg period and each group's worst path, read
+    in the build from its own stage (kpi_run.tcl), so the number is the
+    build's and needs no session."""
+    orfs_run(
+        name = "%s_kpi" % part,
+        src = ":%s_%s" % (part, stage),
+        outs = ["%s_kpi.txt" % part],
+        arguments = arguments,
+        script = "//test/coremark_joule/designs/asap7/xiangshan:kpi_run.tcl",
+        sources = sources,
+        tags = tags,
+        user_arguments = {
+            "KPI_OUT": "$(location %s_kpi.txt)" % part,
+            "KPI_STAGE": stage,
+        },
+    )
+
 def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan_dir = "plan", grt_probe_blocks = []):
     """The plan's blocks, each abstracted at cts, then the parent.
 
@@ -1159,6 +1177,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             verilog_files = XS_VERILOG,
             **mock
         )
+        _kpi(block, "place", arguments, sources, tags)
         if block in grt_probe_blocks:
             # The block's own global route on its CTS checkpoint, with
             # the post-route repair ORFS runs there: what the block's
@@ -1260,3 +1279,4 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         verilog_files = XS_VERILOG,
         visibility = ["//visibility:public"],
     )
+    _kpi(name, "grt", arguments, sources, tags)
