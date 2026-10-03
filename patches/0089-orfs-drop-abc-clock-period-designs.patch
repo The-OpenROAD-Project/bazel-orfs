@@ -1,6 +1,6 @@
 nangate45 picorv32, tpu: drop ABC_CLOCK_PERIOD_IN_PS, which ORFS removed
 
-bazel-orfs carries this against ORFS; it is not upstreamed.
+bazel-orfs carries this against ORFS; upstream as ORFS #4614.
 
 ORFS #4586 removed ABC_CLOCK_PERIOD_IN_PS from variables.yaml (it had
 no effect on synthesis) and dropped the gf12 bp_* settings of it, but
@@ -8,7 +8,7 @@ nangate45/picorv32 and nangate45/tpu still set it. make ignores an
 unknown variable; bazel-orfs refuses one ("Unknown ORFS variable(s) in
 arguments"), so both design packages fail to load.
 
-Retires at a bump onto an ORFS whose designs no longer set it.
+Retires at a bump onto an ORFS that carries #4614.
 
 diff --git a/flow/designs/nangate45/picorv32/config.mk b/flow/designs/nangate45/picorv32/config.mk
 --- a/flow/designs/nangate45/picorv32/config.mk
