@@ -446,8 +446,8 @@ orfs = use_extension("//:extension.bzl", "orfs_repositories")
 # `patches` on an override is honoured only from the root module and
 # would therefore land on whoever is root. Rewritten by //:bump.
 orfs.source(
-    commit = "d2b74aa79e98e57ef825bf467c75a099f8ff5dac",
-    integrity = "sha256-HPivvRcTevTbE6M+M5aYbZ5+M8mB1HrEjrKFuY76f0s=",
+    commit = "43b747f2ed5a453052a9196e5af467cbb3a4586f",
+    integrity = "sha256-Ifk0vnEoWA0ix6abx5/JMDCIBt7mZulngFeOaU1S9oI=",
 )
 orfs.default(
     # Expose the slang yosys plugin (from BCR sv-elab) via

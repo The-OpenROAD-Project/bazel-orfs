@@ -36,7 +36,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_memories.py
 --- a/flow/scripts/memories/gen_memories.py
 +++ b/flow/scripts/memories/gen_memories.py
-@@ -74,7 +74,8 @@
+@@ -64,7 +64,8 @@
  
  
  def _def_placement(def_path: Path, out_path: Path) -> dict:
@@ -46,7 +46,7 @@ diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_m
      plus the die and the first row's orientation and height, so the
      parent's floorplan can drop the array onto its own rows."""
      text = def_path.read_text()
-@@ -99,7 +100,7 @@
+@@ -89,7 +90,7 @@
              pm = re.search(r"\+\s*(PLACED|FIXED|FIRM|COVER)\s*\(\s*(-?\d+)\s+(-?\d+)\s*\)\s*(\w+)", entry)
              if pm:
                  orient = _DEF_ORIENT.get(pm.group(4), pm.group(4))

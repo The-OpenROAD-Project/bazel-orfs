@@ -31,7 +31,7 @@ diff --git a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -877,6 +877,17 @@
+@@ -871,6 +871,17 @@
      - cts
      - floorplan
      - grt
