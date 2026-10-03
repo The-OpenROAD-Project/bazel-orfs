@@ -17,7 +17,7 @@ that carries a knob for this.
 diff --git a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
 --- a/flow/scripts/synth.tcl
 +++ b/flow/scripts/synth.tcl
-@@ -240,7 +240,9 @@
+@@ -245,7 +245,9 @@
    )
  } {
    # extract the full adders
@@ -31,7 +31,7 @@ diff --git a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -885,6 +885,17 @@
+@@ -877,6 +877,17 @@
      - cts
      - floorplan
      - grt

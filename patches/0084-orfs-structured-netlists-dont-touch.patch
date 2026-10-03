@@ -33,10 +33,9 @@ repairable; a violation left inside is the generator's to fix.
  1 file changed, 62 insertions(+), 1 deletion(-)
 
 diff --git a/flow/scripts/structured_netlists.tcl b/flow/scripts/structured_netlists.tcl
-index 6436b63bb..ca01db4d4 100644
 --- a/flow/scripts/structured_netlists.tcl
 +++ b/flow/scripts/structured_netlists.tcl
-@@ -30,6 +30,30 @@ if { 1 } {
+@@ -30,6 +30,30 @@
      if { ![env_var_exists_and_non_empty STRUCTURED_PLACEMENT] } {
        utl::error FLW 2 "STRUCTURED_MEMORIES in mode netlist ([join $netlist_modules {, }]) need STRUCTURED_PLACEMENT, a file of <module> <instance> <x um> <y um> lines"
      }
@@ -67,7 +66,7 @@ index 6436b63bb..ca01db4d4 100644
      set block [ord::get_db_block]
      set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
      set core [$block getCoreArea]
-@@ -79,6 +103,7 @@ if { 1 } {
+@@ -79,6 +103,7 @@
        set pf [open "$::env(RESULTS_DIR)/memories/$module.place" r]
        set n 0
        set missing 0
@@ -75,7 +74,7 @@ index 6436b63bb..ca01db4d4 100644
        set first_missing ""
        while { [gets $pf pl] >= 0 } {
          lassign $pl name cx cy orient
-@@ -92,9 +117,45 @@ if { 1 } {
+@@ -92,9 +117,45 @@
          $inst setOrient $orient
          $inst setLocation [expr { $X + $cx - $dx0 }] [expr { $Y + $cy - $dy0 }]
          $inst setPlacementStatus FIRM
@@ -121,7 +120,7 @@ index 6436b63bb..ca01db4d4 100644
        if { $n == 0 } {
          utl::error FLW 5 "STRUCTURED_PLACEMENT: no cell of netlist $module is in the design under $path (first looked for $first_missing; is $path an instance of $module, and the netlist linked?)"
        }
-@@ -102,7 +163,7 @@ if { 1 } {
+@@ -102,7 +163,7 @@
          utl::info FLW 8 "structured netlist $module at $path: $missing of [expr {$n + $missing}] placed cells are not in the design (removed as dead logic, e.g. $first_missing); their sites stay empty"
        }
        lappend placed_modules $module
@@ -130,6 +129,3 @@ index 6436b63bb..ca01db4d4 100644
      }
      foreach m $netlist_modules {
        if { [lsearch -exact $placed_modules $m] < 0 } {
--- 
-2.53.0
-

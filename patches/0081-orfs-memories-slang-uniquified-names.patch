@@ -36,10 +36,9 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  2 files changed, 85 insertions(+), 1 deletion(-)
 
 diff --git a/flow/scripts/memories/detect.py b/flow/scripts/memories/detect.py
-index 7a34dbda0..baa1ae79c 100644
 --- a/flow/scripts/memories/detect.py
 +++ b/flow/scripts/memories/detect.py
-@@ -115,6 +115,13 @@ def scan_yosys_json(data: dict | str | Path) -> list[schema.Memory]:
+@@ -115,6 +115,13 @@
  
      for mod_name, mod_info in modules.items():
          clean_mod_name = mod_name[1:] if mod_name.startswith("\\") else mod_name
@@ -53,7 +52,7 @@ index 7a34dbda0..baa1ae79c 100644
          cells = mod_info.get("cells", {})
          mem_cells = [
              n for n, c in cells.items() if c.get("type", "") in ("$mem_v2", "$mem")
-@@ -278,7 +285,57 @@ def scan_yosys_json(data: dict | str | Path) -> list[schema.Memory]:
+@@ -278,7 +285,57 @@
              )
              out.append(mem)
  
@@ -113,10 +112,9 @@ index 7a34dbda0..baa1ae79c 100644
  
  def scan_files(paths: list[Path]) -> list[schema.Memory]:
 diff --git a/flow/scripts/memories/detect_test.py b/flow/scripts/memories/detect_test.py
-index 5e5c8f5a0..ecc626d01 100644
 --- a/flow/scripts/memories/detect_test.py
 +++ b/flow/scripts/memories/detect_test.py
-@@ -157,6 +157,33 @@ class FirtoolConventionTest(unittest.TestCase):
+@@ -157,6 +157,33 @@
          mems = detect.scan_yosys_json(yosys_json)
          self.assertEqual(sorted(m.name for m in mems), ["array_256x66", "array_64x114"])
  
@@ -150,6 +148,3 @@ index 5e5c8f5a0..ecc626d01 100644
      def test_rw_port_pins_are_the_module_ports(self):
          (m,) = detect.scan_yosys_json(
              {"modules": {"\\array_64x114": _firtool_rw_module()}}
--- 
-2.53.0
-

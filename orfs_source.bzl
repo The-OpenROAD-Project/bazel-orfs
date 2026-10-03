@@ -73,12 +73,10 @@ ORFS_PATCHES = [
     Label("//patches:0056-orfs-wire-load-open.patch"),
     Label("//patches:0057-orfs-wire-load-variables-yaml.patch"),
     Label("//patches:0058-orfs-wire-load-variables-json.patch"),
-    # AUTO_MEMORIES calls FakeRAM as `run.py --orfs_asap7_backend`. ORFS
-    # vendors FakeRAM at tools/FakeRAM2.0 and ships the patch that adds
-    # that backend, but the MODULE.bazel that used to apply it (to the
-    # since-archived external repo) is gone, so nothing applies it.
-    # ORFS's patch, re-pathed onto the vendored copy.
-    Label("//patches:0063-orfs-fakeram-asap7-backend.patch"),
+    # AUTO_MEMORIES stages FakeRAM (tools/FakeRAM2.0, backend applied
+    # upstream since ORFS #4603) into the sandbox, which needs a label:
+    # 0063 adds the filegroup. Not upstreamed; ORFS has no bazel build.
+    Label("//patches:0063-orfs-fakeram-filegroup.patch"),
     # tinyRocket has two memory wrappers around undefined _ext modules,
     # and ORFS describes only one, so hierarchy -check dies on the other.
     Label("//patches:0064-orfs-tinyrocket-data-arrays-memories.patch"),
@@ -98,8 +96,7 @@ ORFS_PATCHES = [
     # that no floorplan can place. The platform's own fakeram7_* views
     # were generated with a per-shape factor -- 4 for 2048x39, 2 for
     # 256x32, 1 for 256x256 -- so the constant is the bug. Picks one by
-    # squaring the array. Separate from 0063, which is ORFS's own patch
-    # re-pathed and kept comparable to what ORFS ships.
+    # squaring the array.
     # Not upstreamed -- retire at a bump onto an ORFS that picks one.
     Label("//patches:0067-orfs-fakeram-asap7-column-mux.patch"),
     # synth's -extra-map runs inside the techmap step, which is after
@@ -195,7 +192,7 @@ ORFS_PATCHES = [
     # wide. A 64x16 array folded to 4.18 um, narrower than the 5.4 um
     # pitch, could land between two straps of a net; its macro grid then
     # had no shapes and pdngen failed the design (PDN-0233). Builds on
-    # 0063 and 0067; retires at a bump onto an ORFS whose FakeRAM asap7
+    # 0067; retires at a bump onto an ORFS whose FakeRAM asap7
     # backend has a width floor.
     Label("//patches:0088-orfs-fakeram-min-width.patch"),
 ]
@@ -575,8 +572,7 @@ def _write_recorded_builds():
 # tools/FakeRAM2.0 (the standalone repository is archived), and
 # gen_memories.py shells out to its run.py, so the tool has to be staged
 # into the canonicalize sandbox -- which needs a label, which needs a
-# package. patches/0063 adds the filegroup that ORFS's own patch
-# provides; this makes it loadable.
+# package. patches/0063 adds the filegroup; this makes it loadable.
 #
 # The tools/ entry is replaced with its subdirectories rather than
 # dropped, so everything else there -- OpenROAD, yosys, AutoTuner, each

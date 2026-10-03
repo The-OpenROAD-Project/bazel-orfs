@@ -34,10 +34,9 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  2 files changed, 18 insertions(+), 6 deletions(-)
 
 diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_memories.py
-index a3b312d..5d87282 100644
 --- a/flow/scripts/memories/gen_memories.py
 +++ b/flow/scripts/memories/gen_memories.py
-@@ -74,7 +74,8 @@ _DEF_ORIENT = {"N": "R0", "S": "R180", "W": "R90", "E": "R270",
+@@ -74,7 +74,8 @@
  
  
  def _def_placement(def_path: Path, out_path: Path) -> dict:
@@ -47,7 +46,7 @@ index a3b312d..5d87282 100644
      plus the die and the first row's orientation and height, so the
      parent's floorplan can drop the array onto its own rows."""
      text = def_path.read_text()
-@@ -99,7 +100,7 @@ def _def_placement(def_path: Path, out_path: Path) -> dict:
+@@ -99,7 +100,7 @@
              pm = re.search(r"\+\s*(PLACED|FIXED|FIRM|COVER)\s*\(\s*(-?\d+)\s+(-?\d+)\s*\)\s*(\w+)", entry)
              if pm:
                  orient = _DEF_ORIENT.get(pm.group(4), pm.group(4))
@@ -57,10 +56,9 @@ index a3b312d..5d87282 100644
      return {"die": die, "row0_orient": row0, "row_height": row_h, "cells": len(lines)}
  
 diff --git a/flow/scripts/structured_netlists.tcl b/flow/scripts/structured_netlists.tcl
-index ca01db4..ef7d05d 100644
 --- a/flow/scripts/structured_netlists.tcl
 +++ b/flow/scripts/structured_netlists.tcl
-@@ -104,9 +104,10 @@ if { 1 } {
+@@ -104,9 +104,10 @@
        set n 0
        set missing 0
        set placed_insts {}
@@ -72,7 +70,7 @@ index ca01db4..ef7d05d 100644
          if { $name eq "" } { continue }
          set inst [$block findInst "$path/$name"]
          if { $inst == "NULL" } {
-@@ -116,6 +117,18 @@ if { 1 } {
+@@ -116,6 +117,18 @@
          }
          $inst setOrient $orient
          $inst setLocation [expr { $X + $cx - $dx0 }] [expr { $Y + $cy - $dy0 }]
@@ -91,7 +89,7 @@ index ca01db4..ef7d05d 100644
          $inst setPlacementStatus FIRM
          # The generator's cell is final: FIRM keeps the legaliser off it,
          # dont_touch keeps the resizer off it. Without the second,
-@@ -133,8 +146,6 @@ if { 1 } {
+@@ -133,8 +146,6 @@
          if { ![[$inst getMaster] isSequential] && ![netlist_boundary_cell $inst $path] } {
            $inst setDoNotTouch 1
          }
@@ -100,7 +98,7 @@ index ca01db4..ef7d05d 100644
        }
        close $pf
        # The wires between the array's own cells are the generator's too.
-@@ -163,7 +174,7 @@ if { 1 } {
+@@ -163,7 +174,7 @@
          utl::info FLW 8 "structured netlist $module at $path: $missing of [expr {$n + $missing}] placed cells are not in the design (removed as dead logic, e.g. $first_missing); their sites stay empty"
        }
        lappend placed_modules $module
@@ -109,6 +107,3 @@ index ca01db4..ef7d05d 100644
      }
      foreach m $netlist_modules {
        if { [lsearch -exact $placed_modules $m] < 0 } {
--- 
-2.53.0
-

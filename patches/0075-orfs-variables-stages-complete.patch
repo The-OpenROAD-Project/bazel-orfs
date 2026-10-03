@@ -32,10 +32,9 @@ whose variables.yaml has a stages list for every variable.
  3 files changed, 334 insertions(+), 84 deletions(-)
 
 diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
-index eecabade2..19ce589a6 100644
 --- a/docs/user/FlowVariables.md
 +++ b/docs/user/FlowVariables.md
-@@ -288,6 +288,7 @@ configuration file.
+@@ -288,6 +288,7 @@
  | <a name="SKIP_CRIT_VT_SWAP"></a>SKIP_CRIT_VT_SWAP| Do not perform VT swap on critical cells to improve QoR (default: do critical VT swap). This is an additional VT swap on critical cells that remain near the end of setup fixing. If SKIP_VT_SWAP is set to 1, this also disables critical cell VT swap.| |
  | <a name="SKIP_CTS_REPAIR_TIMING"></a>SKIP_CTS_REPAIR_TIMING| Skipping CTS repair, which can take a long time, can be useful in architectural exploration or when getting CI up and running.| 0|
  | <a name="SKIP_DETAILED_ROUTE"></a>SKIP_DETAILED_ROUTE| Skips detailed route.| 0|
@@ -43,7 +42,7 @@ index eecabade2..19ce589a6 100644
  | <a name="SKIP_GATE_CLONING"></a>SKIP_GATE_CLONING| Do not use gate cloning transform to fix timing violations (default: use gate cloning).| |
  | <a name="SKIP_INCREMENTAL_REPAIR"></a>SKIP_INCREMENTAL_REPAIR| Skip incremental repair in global route.| 0|
  | <a name="SKIP_LAST_GASP"></a>SKIP_LAST_GASP| Do not use last gasp optimization to fix timing violations (default: use gate last gasp).| |
-@@ -296,6 +297,8 @@ configuration file.
+@@ -296,6 +297,8 @@
  | <a name="SKIP_REPORT_METRICS"></a>SKIP_REPORT_METRICS| If set to 1, then metrics, report_metrics does nothing. Useful to speed up builds.| 0|
  | <a name="SKIP_VT_SWAP"></a>SKIP_VT_SWAP| Do not perform VT swap to improve QoR (default: do VT swap).| |
  | <a name="SLEW_MARGIN"></a>SLEW_MARGIN| Specifies a slew margin when fixing max slew violations. This option allows you to overfix.| |
@@ -52,7 +51,7 @@ index eecabade2..19ce589a6 100644
  | <a name="SWAP_ARITH_OPERATORS"></a>SWAP_ARITH_OPERATORS| Improve timing QoR by swapping ALU and MULT arithmetic operators.| 0|
  | <a name="SYNTH_ARGS"></a>SYNTH_ARGS| Optional synthesis variables for yosys.| |
  | <a name="SYNTH_BLACKBOXES"></a>SYNTH_BLACKBOXES| List of cells treated as a black box by Yosys. With Bazel, this can be used to run synthesis in parallel for the large modules of the design. Non-existant modules are ignored silently, useful when listing modules statically, even if modules come and go dynamically.| |
-@@ -337,6 +340,8 @@ configuration file.
+@@ -337,6 +340,8 @@
  | <a name="VERILOG_TOP_PARAMS"></a>VERILOG_TOP_PARAMS| Apply toplevel params (if exist). Passed in as a list of key value pairs in tcl syntax; separated by spaces: PARAM1 VALUE1 PARAM2 VALUE2| |
  | <a name="VIA_IN_PIN_MAX_LAYER"></a>VIA_IN_PIN_MAX_LAYER| Passed as -via_in_pin_top_layer to pin_access and detailed_route.| |
  | <a name="VIA_IN_PIN_MIN_LAYER"></a>VIA_IN_PIN_MIN_LAYER| Passed as -via_in_pin_bottom_layer to pin_access and detailed_route.| |
@@ -61,7 +60,7 @@ index eecabade2..19ce589a6 100644
  | <a name="WRITE_ODB_AND_SDC_EACH_STAGE"></a>WRITE_ODB_AND_SDC_EACH_STAGE| Save out .sdc and .odb file after each stage, useful to disable when using a single OpenROAD instance to run all stages of the flow.| 1|
  | <a name="YOSYS_FLAGS"></a>YOSYS_FLAGS| Flags to pass to yosys.| -v 3|
  ## synth variables
-@@ -347,6 +352,7 @@ configuration file.
+@@ -347,6 +352,7 @@
  - [ABC_LOAD_IN_FF](#ABC_LOAD_IN_FF)
  - [ADDER_MAP_FILE](#ADDER_MAP_FILE)
  - [ADDITIONAL_MEMORIES](#ADDITIONAL_MEMORIES)
@@ -69,7 +68,7 @@ index eecabade2..19ce589a6 100644
  - [CACHED_REPORTS](#CACHED_REPORTS)
  - [CLKGATE_MAP_FILE](#CLKGATE_MAP_FILE)
  - [DFF_LIB_FILE](#DFF_LIB_FILE)
-@@ -363,7 +369,10 @@ configuration file.
+@@ -363,7 +369,10 @@
  - [SDC_FILE](#SDC_FILE)
  - [SDC_GUT](#SDC_GUT)
  - [SEC_CHECK](#SEC_CHECK)
@@ -80,7 +79,7 @@ index eecabade2..19ce589a6 100644
  - [SYNTH_ARGS](#SYNTH_ARGS)
  - [SYNTH_BLACKBOXES](#SYNTH_BLACKBOXES)
  - [SYNTH_CANONICALIZE_TCL](#SYNTH_CANONICALIZE_TCL)
-@@ -395,6 +404,8 @@ configuration file.
+@@ -395,6 +404,8 @@
  - [VERILOG_FILES](#VERILOG_FILES)
  - [VERILOG_INCLUDE_DIRS](#VERILOG_INCLUDE_DIRS)
  - [VERILOG_TOP_PARAMS](#VERILOG_TOP_PARAMS)
@@ -89,7 +88,7 @@ index eecabade2..19ce589a6 100644
  - [YOSYS_FLAGS](#YOSYS_FLAGS)
  
  ## floorplan variables
-@@ -406,6 +417,7 @@ configuration file.
+@@ -406,6 +417,7 @@
  - [CORE_MARGIN](#CORE_MARGIN)
  - [CORE_UTILIZATION](#CORE_UTILIZATION)
  - [DIE_AREA](#DIE_AREA)
@@ -97,7 +96,7 @@ index eecabade2..19ce589a6 100644
  - [FLOORPLAN_DEF](#FLOORPLAN_DEF)
  - [FOOTPRINT](#FOOTPRINT)
  - [FOOTPRINT_TCL](#FOOTPRINT_TCL)
-@@ -418,6 +430,7 @@ configuration file.
+@@ -418,6 +430,7 @@
  - [MAKE_TRACKS](#MAKE_TRACKS)
  - [MATCH_CELL_FOOTPRINT](#MATCH_CELL_FOOTPRINT)
  - [MAX_ROUTING_LAYER](#MAX_ROUTING_LAYER)
@@ -105,7 +104,7 @@ index eecabade2..19ce589a6 100644
  - [MIN_ROUTING_LAYER](#MIN_ROUTING_LAYER)
  - [PDN_TCL](#PDN_TCL)
  - [PLACE_DENSITY](#PLACE_DENSITY)
-@@ -455,6 +468,7 @@ configuration file.
+@@ -455,6 +468,7 @@
  - [RTLMP_WIRELENGTH_WT](#RTLMP_WIRELENGTH_WT)
  - [SETUP_MOVE_SEQUENCE](#SETUP_MOVE_SEQUENCE)
  - [SETUP_SLACK_MARGIN](#SETUP_SLACK_MARGIN)
@@ -113,7 +112,7 @@ index eecabade2..19ce589a6 100644
  - [SKIP_BUFFER_REMOVAL](#SKIP_BUFFER_REMOVAL)
  - [SKIP_CRIT_VT_SWAP](#SKIP_CRIT_VT_SWAP)
  - [SKIP_GATE_CLONING](#SKIP_GATE_CLONING)
-@@ -464,6 +478,7 @@ configuration file.
+@@ -464,6 +478,7 @@
  - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
  - [SKIP_VT_SWAP](#SKIP_VT_SWAP)
  - [TAPCELL_TCL](#TAPCELL_TCL)
@@ -121,7 +120,7 @@ index eecabade2..19ce589a6 100644
  - [TIEHI_CELL_AND_PORT](#TIEHI_CELL_AND_PORT)
  - [TIELO_CELL_AND_PORT](#TIELO_CELL_AND_PORT)
  - [TIE_SEPARATION](#TIE_SEPARATION)
-@@ -473,13 +488,16 @@ configuration file.
+@@ -473,13 +488,16 @@
  
  - [BALANCE_ROWS](#BALANCE_ROWS)
  - [BUFFER_PORTS_ARGS](#BUFFER_PORTS_ARGS)
@@ -138,7 +137,7 @@ index eecabade2..19ce589a6 100644
  - [ENABLE_PLACE_REPAIR_TIMING](#ENABLE_PLACE_REPAIR_TIMING)
  - [FLOORPLAN_DEF](#FLOORPLAN_DEF)
  - [GLOBAL_PLACEMENT_ARGS](#GLOBAL_PLACEMENT_ARGS)
-@@ -508,7 +526,9 @@ configuration file.
+@@ -508,7 +526,9 @@
  - [PRE_IO_PLACEMENT_TCL](#PRE_IO_PLACEMENT_TCL)
  - [PRE_RESIZE_TCL](#PRE_RESIZE_TCL)
  - [ROUTING_LAYER_ADJUSTMENT](#ROUTING_LAYER_ADJUSTMENT)
@@ -148,7 +147,7 @@ index eecabade2..19ce589a6 100644
  - [TNS_END_PERCENT](#TNS_END_PERCENT)
  
  ## cts variables
-@@ -533,6 +553,7 @@ configuration file.
+@@ -533,6 +553,7 @@
  - [REPORT_CLOCK_SKEW](#REPORT_CLOCK_SKEW)
  - [SETUP_MOVE_SEQUENCE](#SETUP_MOVE_SEQUENCE)
  - [SETUP_SLACK_MARGIN](#SETUP_SLACK_MARGIN)
@@ -156,7 +155,7 @@ index eecabade2..19ce589a6 100644
  - [SKIP_BUFFER_REMOVAL](#SKIP_BUFFER_REMOVAL)
  - [SKIP_CRIT_VT_SWAP](#SKIP_CRIT_VT_SWAP)
  - [SKIP_CTS_REPAIR_TIMING](#SKIP_CTS_REPAIR_TIMING)
-@@ -545,10 +566,12 @@ configuration file.
+@@ -545,10 +566,12 @@
  
  ## grt variables
  
@@ -169,7 +168,7 @@ index eecabade2..19ce589a6 100644
  - [GLOBAL_ROUTE_ARGS](#GLOBAL_ROUTE_ARGS)
  - [GLOBAL_ROUTE_USE_CUGR](#GLOBAL_ROUTE_USE_CUGR)
  - [GRT_SEED](#GRT_SEED)
-@@ -559,10 +582,12 @@ configuration file.
+@@ -559,10 +582,12 @@
  - [OPT_POST_GRT_WNS](#OPT_POST_GRT_WNS)
  - [POST_GLOBAL_ROUTE_TCL](#POST_GLOBAL_ROUTE_TCL)
  - [PRE_GLOBAL_ROUTE_TCL](#PRE_GLOBAL_ROUTE_TCL)
@@ -182,7 +181,7 @@ index eecabade2..19ce589a6 100644
  - [SKIP_ANTENNA_REPAIR](#SKIP_ANTENNA_REPAIR)
  - [SKIP_ANTENNA_REPAIR_PRE_GRT](#SKIP_ANTENNA_REPAIR_PRE_GRT)
  - [SKIP_BUFFER_REMOVAL](#SKIP_BUFFER_REMOVAL)
-@@ -573,6 +598,7 @@ configuration file.
+@@ -573,6 +598,7 @@
  - [SKIP_PIN_SWAP](#SKIP_PIN_SWAP)
  - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
  - [SKIP_VT_SWAP](#SKIP_VT_SWAP)
@@ -190,7 +189,7 @@ index eecabade2..19ce589a6 100644
  - [TNS_END_PERCENT](#TNS_END_PERCENT)
  - [VIA_IN_PIN_MAX_LAYER](#VIA_IN_PIN_MAX_LAYER)
  - [VIA_IN_PIN_MIN_LAYER](#VIA_IN_PIN_MIN_LAYER)
-@@ -583,6 +609,7 @@ configuration file.
+@@ -583,6 +609,7 @@
  - [DETAILED_ROUTE_END_ITERATION](#DETAILED_ROUTE_END_ITERATION)
  - [DISABLE_VIA_GEN](#DISABLE_VIA_GEN)
  - [FILL_CELLS](#FILL_CELLS)
@@ -198,7 +197,7 @@ index eecabade2..19ce589a6 100644
  - [MATCH_CELL_FOOTPRINT](#MATCH_CELL_FOOTPRINT)
  - [MAX_REPAIR_ANTENNAS_ITER_DRT](#MAX_REPAIR_ANTENNAS_ITER_DRT)
  - [MAX_ROUTING_LAYER](#MAX_ROUTING_LAYER)
-@@ -593,8 +620,10 @@ configuration file.
+@@ -593,8 +620,10 @@
  - [POST_FILLCELL_TCL](#POST_FILLCELL_TCL)
  - [PRE_DETAIL_ROUTE_TCL](#PRE_DETAIL_ROUTE_TCL)
  - [PRE_FILLCELL_TCL](#PRE_FILLCELL_TCL)
@@ -209,7 +208,7 @@ index eecabade2..19ce589a6 100644
  - [SKIP_ANTENNA_REPAIR_POST_DRT](#SKIP_ANTENNA_REPAIR_POST_DRT)
  - [SKIP_DETAILED_ROUTE](#SKIP_DETAILED_ROUTE)
  - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
-@@ -605,8 +634,13 @@ configuration file.
+@@ -605,8 +634,13 @@
  
  - [ADDITIONAL_GDS](#ADDITIONAL_GDS)
  - [CDL_FILE](#CDL_FILE)
@@ -223,7 +222,7 @@ index eecabade2..19ce589a6 100644
  - [LEC_AUX_VERILOG_FILES](#LEC_AUX_VERILOG_FILES)
  - [LEC_CHECK](#LEC_CHECK)
  - [MAX_ROUTING_LAYER](#MAX_ROUTING_LAYER)
-@@ -616,69 +650,55 @@ configuration file.
+@@ -616,69 +650,55 @@
  - [PRE_DENSITY_FILL_TCL](#PRE_DENSITY_FILL_TCL)
  - [PRE_FINAL_REPORT_TCL](#PRE_FINAL_REPORT_TCL)
  - [PWR_NETS_VOLTAGES](#PWR_NETS_VOLTAGES)
@@ -315,7 +314,6 @@ index eecabade2..19ce589a6 100644
 +
  
 diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
-index 54cd82a20..b6f0b72e3 100644
 --- a/flow/scripts/variables.json
 +++ b/flow/scripts/variables.json
 @@ -37,7 +37,10 @@
@@ -817,10 +815,9 @@ index 54cd82a20..b6f0b72e3 100644
      "default": 1,
      "description": "Save out .sdc and .odb file after each stage, useful to disable when using a single OpenROAD instance to run all stages of the flow.\n",
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
-index 592f8bd96..844ff7db4 100644
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -22,6 +22,8 @@ GENERATE_ARTIFACTS_ON_FAILURE:
+@@ -22,6 +22,8 @@
      lot of memory, this allows inspecting results on a laptop for a build that
      ran on a server.
    default: 0
@@ -829,7 +826,7 @@ index 592f8bd96..844ff7db4 100644
  TNS_END_PERCENT:
    description: >
      Default TNS_END_PERCENT value for post CTS timing repair. Try fixing all
-@@ -70,6 +72,8 @@ RECOVER_POWER:
+@@ -70,6 +72,8 @@
      Specifies how many percent of paths with positive slacks can be slowed for
      power savings [0-100].
    default: 0
@@ -838,7 +835,7 @@ index 592f8bd96..844ff7db4 100644
  SKIP_INCREMENTAL_REPAIR:
    default: 0
    description: >
-@@ -126,9 +130,13 @@ SKIP_REPORT_METRICS:
+@@ -126,9 +130,13 @@
  PROCESS:
    description: |
      Technology node or process in use.
@@ -852,7 +849,7 @@ index 592f8bd96..844ff7db4 100644
  CORNERS:
    description: >
      List of timing corner names for multi-corner analysis (e.g. "slow fast").
-@@ -141,17 +149,25 @@ TECH_LEF:
+@@ -141,17 +149,25 @@
    description: >
      A technology LEF file of the PDK that includes all relevant information
      regarding metal layers, vias, and spacing requirements.
@@ -878,7 +875,7 @@ index 592f8bd96..844ff7db4 100644
  LIB_MODEL:
    description: >
      Selects between NLDM and CCS timing models for the ASAP7 platform.
-@@ -160,12 +176,18 @@ LIB_MODEL:
+@@ -160,12 +176,18 @@
      accumulate the corresponding $(CORNER)_$(LIB_MODEL)_LIB_FILES list,
      and in flow/scripts/load.tcl to gate CCS-specific Tcl branches.
    default: NLDM
@@ -897,7 +894,7 @@ index 592f8bd96..844ff7db4 100644
  SYNTH_GUT:
    description: >
      Load design and remove all internal logic before doing synthesis. This is
-@@ -202,6 +224,8 @@ AUTO_MEMORIES:
+@@ -202,6 +224,8 @@
      gets macro-based results without a memory compiler. Supported for
      the asap7 platform only. See docs/user/AutoMemories.md.
    default: 0
@@ -906,7 +903,7 @@ index 592f8bd96..844ff7db4 100644
  ADDITIONAL_MEMORIES:
    description: >
      Experimental. Space-separated list of user-supplied `.memories`
-@@ -558,6 +582,8 @@ LAYER_PARASITICS_FILE:
+@@ -558,6 +582,8 @@
    description: |
      Path to per layer parasitics file. Defaults to $(PLATFORM_DIR)/setRC.tcl.
    type: string
@@ -915,7 +912,7 @@ index 592f8bd96..844ff7db4 100644
  TAPCELL_TCL:
    description: |
      Path to Endcap and Welltie cells file.
-@@ -611,6 +637,8 @@ GUI_TIMING:
+@@ -611,6 +637,8 @@
      quite time consuming. Useful to disable when investigating non-timing
      aspects like floorplan, placement, routing, etc.
    default: 1
@@ -924,7 +921,7 @@ index 592f8bd96..844ff7db4 100644
  FILL_CELLS:
    description: >
      Fill cells are used to fill empty sites. If not set or empty, fill cell
-@@ -620,6 +648,8 @@ FILL_CELLS:
+@@ -620,6 +648,8 @@
  TAP_CELL_NAME:
    description: |
      Name of the cell to use in tap cell insertion.
@@ -933,7 +930,7 @@ index 592f8bd96..844ff7db4 100644
  CELL_PAD_IN_SITES_GLOBAL_PLACEMENT:
    description: >
      Cell padding on both sides in site widths to ease routability during global
-@@ -683,6 +713,8 @@ PLACE_DENSITY_LB_ADDON:
+@@ -683,6 +713,8 @@
  REPAIR_PDN_VIA_LAYER:
    description: |
      Remove power grid vias which generate DRC violations after detailed routing.
@@ -942,7 +939,7 @@ index 592f8bd96..844ff7db4 100644
  GLOBAL_PLACEMENT_ARGS:
    description: >
      Use additional tuning parameters during global placement other than default
-@@ -693,10 +725,14 @@ ENABLE_DPO:
+@@ -693,10 +725,14 @@
    description: |
      Enable detail placement with improve_placement feature.
    default: 1
@@ -957,7 +954,7 @@ index 592f8bd96..844ff7db4 100644
  GPL_RANDOM_SEED:
    description: |
      Specifies a random seed for global placement.  Useful for perturbation studies.
-@@ -749,11 +785,17 @@ CAP_MARGIN:
+@@ -749,11 +785,17 @@
      Specifies a capacitance margin when fixing max capacitance violations. This
      option allows you to overfix.
    tunable: 1
@@ -975,7 +972,7 @@ index 592f8bd96..844ff7db4 100644
  CTS_ARGS:
    description: |
      Override `clock_tree_synthesis` arguments.
-@@ -934,6 +976,8 @@ MIN_CLK_ROUTING_LAYER:
+@@ -934,6 +976,8 @@
      `set_routing_layers -clock`. Typically higher than MIN_ROUTING_LAYER so
      clock nets prefer the upper, lower-RC layers. No `stages:` list because
      floorplan.tcl also `source`s the platform fastroute.tcl.
@@ -984,7 +981,7 @@ index 592f8bd96..844ff7db4 100644
  VIA_IN_PIN_MIN_LAYER:
    description: >
      Passed as -via_in_pin_bottom_layer to pin_access and detailed_route.
-@@ -959,6 +1003,8 @@ DISABLE_VIA_GEN:
+@@ -959,6 +1003,8 @@
  MACRO_EXTENSION:
    description: |
      Sets the number of GCells added to the blockages boundaries from macros.
@@ -993,7 +990,7 @@ index 592f8bd96..844ff7db4 100644
  DETAILED_ROUTE_END_ITERATION:
    description: >
      Maximum number of iterations.
-@@ -978,6 +1024,8 @@ OR_SEED:
+@@ -978,6 +1024,8 @@
  RCX_RULES:
    description: |
      RC Extraction rules file path.
@@ -1002,7 +999,7 @@ index 592f8bd96..844ff7db4 100644
  WIRE_LOAD_TCL:
    description: |
      Path to a Tcl script sourced after the design is opened to apply a
-@@ -1007,20 +1055,31 @@ SET_RC_TCL:
+@@ -1007,20 +1055,31 @@
  FILL_CONFIG:
    description: |
      JSON rule file for metal fill during chip finishing.
@@ -1034,7 +1031,7 @@ index 592f8bd96..844ff7db4 100644
  VERILOG_FILES:
    required: true
    description: >
-@@ -1051,14 +1110,20 @@ SDC_GUT:
+@@ -1051,14 +1110,20 @@
  ADDITIONAL_FILES:
    description: |
      Additional files to be added to `make issue` archive.
@@ -1055,7 +1052,7 @@ index 592f8bd96..844ff7db4 100644
  ADDITIONAL_GDS:
    description: |
      Hardened macro GDS files listed here.
-@@ -1074,6 +1139,8 @@ DESIGN_NICKNAME:
+@@ -1074,6 +1139,8 @@
      DESIGN_NICKNAME just changes the directory name that ORFS outputs to be
      DESIGN_NICKNAME instead of DESIGN_NAME in case DESIGN_NAME is unwieldy or
      conflicts with a different design.
@@ -1064,7 +1061,7 @@ index 592f8bd96..844ff7db4 100644
  ABC_AREA:
    description: |
      Strategies for Yosys ABC synthesis: Area/Speed. Default ABC_SPEED.
-@@ -1094,9 +1161,13 @@ BLOCKS:
+@@ -1094,9 +1161,13 @@
    description: >
      Blocks used as hard macros in a hierarchical flow. Do note that you have to
      specify block-specific inputs file in the directory mentioned by Makefile.
@@ -1078,7 +1075,7 @@ index 592f8bd96..844ff7db4 100644
  DFF_LIB_FILE:
    description: >
      Single Liberty file for flip-flop technology mapping (dfflibmap) during
-@@ -1393,13 +1464,19 @@ PRE_TAPCELL_TCL:
+@@ -1393,13 +1464,19 @@
  FASTROUTE_TCL:
    description: |
      Specifies a Tcl script with commands to run before FastRoute.
@@ -1098,7 +1095,7 @@ index 592f8bd96..844ff7db4 100644
  ABSTRACT_SOURCE:
    description: |
      Which .odb file to use to create abstract
-@@ -1579,11 +1656,15 @@ RUN_SCRIPT:
+@@ -1579,11 +1656,15 @@
    description: >
      Path to script to run from `make run`, python or tcl script detected by
      .py or .tcl extension.
@@ -1114,7 +1111,7 @@ index 592f8bd96..844ff7db4 100644
  YOSYS_FLAGS:
    description: >
      Flags to pass to yosys.
-@@ -1604,6 +1685,8 @@ FLOW_VARIANT:
+@@ -1604,6 +1685,8 @@
    description: >
      Flow variant to use, used in the flow variant directory name.
    default: base
@@ -1123,7 +1120,7 @@ index 592f8bd96..844ff7db4 100644
  SKIP_ANTENNA_REPAIR_PRE_GRT:
    default: 0
    description: >
-@@ -1710,6 +1793,8 @@ REMOVE_CELLS_FOR_LEC:
+@@ -1710,6 +1793,8 @@
      String patterns directly passed to write_verilog -remove_cells <> for
      lec checks.
    type: string
