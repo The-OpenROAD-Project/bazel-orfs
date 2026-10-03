@@ -1,0 +1,25 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+# The wire campaign's harness (docs/plans/xstile-wire-campaign.md): a probe
+# that reads one place checkpoint into one JSON row, and the ledger that
+# collects the rows and says which density to sample next.
+
+exports_files(
+    ["wire_probe.tcl"],
+    visibility = ["//test:__subpackages__"],
+)
+
+py_binary(
+    name = "campaign",
+    srcs = ["campaign.py"],
+    main = "campaign.py",
+)
+
+py_test(
+    name = "campaign_test",
+    srcs = [
+        "campaign.py",
+        "campaign_test.py",
+    ],
+    main = "campaign_test.py",
+)

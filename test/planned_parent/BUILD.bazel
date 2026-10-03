@@ -190,3 +190,19 @@ py_test(
     ],
     main = "leftover_macros_test.py",
 )
+
+# The wire campaign's probe on the parent placed at both ends of the
+# density sweep (planned.bzl, docs/plans/xstile-wire-campaign.md).
+py_test(
+    name = "wire_probe_test",
+    srcs = ["wire_probe_test.py"],
+    args = [
+        "$(rootpath :wire_d02.json)",
+        "$(rootpath :wire_d07.json)",
+    ],
+    data = [
+        ":wire_d02.json",
+        ":wire_d07.json",
+    ],
+    main = "wire_probe_test.py",
+)

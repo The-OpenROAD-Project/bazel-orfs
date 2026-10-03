@@ -2,6 +2,7 @@
 
 load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run")
 load("//test/grt_scaling:arms.bzl", "TURNAROUND_ARGS")
+load("//test/wire_campaign:wire_probe.bzl", "wire_probe")
 load(":plan/plan.bzl", "PLAN")
 
 # asap7, the pin layers of the study, the margin knobs of the first flow
@@ -131,3 +132,27 @@ def mini_planned_flow(rtl, files):
             "OUTPUT_JSON": "$(location route0_mini.json)",
         },
     )
+
+    # The wire campaign's harness on the miniature
+    # (docs/plans/xstile-wire-campaign.md): the parent placed at both ends
+    # of the density sweep from the one floorplan, and the probe's row for
+    # each, which wire_probe_test reads.
+    for tag, density in (("d02", "0.2"), ("d07", "0.7")):
+        orfs_flow(
+            name = "mini_top",
+            arguments = parent_args | {"PLACE_DENSITY": density},
+            last_stage = "place",
+            macros = parent_macros,
+            pdk = "//flow:asap7",
+            previous_stage = {"place": ":mini_top_floorplan"},
+            sources = parent_sources,
+            variant = tag,
+            verilog_files = [":files.sv", ":top.sv"],
+        )
+        wire_probe(
+            name = "wire_" + tag,
+            src = ":mini_top_%s_place" % tag,
+            arguments = parent_args | {"PLACE_DENSITY": density},
+            sources = parent_sources,
+            variant = tag,
+        )
