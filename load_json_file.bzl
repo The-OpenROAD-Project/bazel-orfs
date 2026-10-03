@@ -48,6 +48,11 @@ def _load_json_file_impl(repository_ctx):
     )
 
     yaml_file = repository_ctx.path(repository_ctx.attr.src)
+
+    # yq reads the file, not bazel, so nothing records it as an input: a
+    # carried patch that edits variables.yaml would leave this repository
+    # with the stages of the yaml it was first made from.
+    repository_ctx.watch(yaml_file)
     result = repository_ctx.execute(["./yq", "-o", "json", ".", str(yaml_file)])
     if result.return_code != 0:
         fail("Failed to convert yaml to json: {}".format(result.stderr))
