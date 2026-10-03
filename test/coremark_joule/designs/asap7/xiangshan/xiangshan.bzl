@@ -9,6 +9,7 @@ synthesis blackboxes the blocks by name from their abstracts.
 """
 
 load("@bazel-orfs//:openroad.bzl", "orfs_flow")
+load("//test/wire_campaign:wire_probe.bzl", "wire_probe")
 
 # Read by anneal_in_flow.tcl, not by ORFS: bypass the variables.yaml
 # validator, and scoped to the floorplan so a knob edit re-runs the
@@ -1117,7 +1118,7 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
     sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"]
     return arguments, sources
 
-def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan_dir = "plan", grt_probe_blocks = []):
+def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan_dir = "plan", grt_probe_blocks = [], wire_points = []):
     """The plan's blocks, each abstracted at cts, then the parent.
 
     `plan` is the PLAN dict plan_floorplan.py --emit wrote to
@@ -1129,6 +1130,10 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     insertion delay, not the whole unbuffered clock net (entry 17 of
     ideas/xiangshan-timing.md); the parent's synthesis, floorplan and place
     read the place-stage abstract the flow emits beside it.
+
+    `wire_points` is the wire campaign's (docs/plans/xstile-wire-campaign.md):
+    a list of {"density": "0.7", "seed": 2}, each the parent placed from
+    its own floorplan and probed as `<name>_wire_d07_s2`.
     """
     macros = sorted(plan["macros"].keys())
     for block in macros:
@@ -1247,3 +1252,41 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         verilog_files = XS_VERILOG,
         visibility = ["//visibility:public"],
     )
+
+    # The wire campaign's points (docs/plans/xstile-wire-campaign.md): the
+    # parent placed again from its own floorplan at another density or
+    # seed, and wire_probe's row for each, `<name>_wire_<tag>`. The flow's
+    # own place stage is the point at its own density and seed.
+    for point in wire_points:
+        tag = "d%s_s%d" % (point["density"].replace(".", ""), point["seed"])
+        point_arguments = arguments | {"PLACE_DENSITY": point["density"]}
+        if point["seed"]:
+            point_arguments["GPL_RANDOM_SEED"] = str(point["seed"])
+        src = ":%s_place" % name
+        variant = None
+        if point_arguments != arguments:
+            variant = tag
+            src = ":%s_%s_place" % (name, tag)
+            orfs_flow(
+                name = name,
+                arguments = point_arguments,
+                last_stage = "place",
+                macros = [":%s_generate_abstract" % b for b in macros],
+                pdk = "//flow:asap7",
+                previous_stage = {"place": ":%s_floorplan" % name},
+                sources = sources,
+                tags = tags,
+                user_arguments = user_arguments | XS_ICG_USER_ARGUMENTS,
+                user_sources = user_sources | XS_ICG_USER_SOURCES,
+                user_stages = _user_stages(user_arguments | XS_ICG_USER_ARGUMENTS, user_sources | XS_ICG_USER_SOURCES),
+                variant = variant,
+                verilog_files = XS_VERILOG,
+            )
+        wire_probe(
+            name = "%s_wire_%s" % (name, tag),
+            src = src,
+            arguments = point_arguments,
+            sources = sources,
+            tags = tags,
+            variant = variant,
+        )

@@ -66,6 +66,24 @@ xiangshan_flow(
     name = "XSTile",
     grt_probe_blocks = ["Frontend"],
     plan = PLAN,
+    # The wire campaign's Phase 0 and the ends of its density sweep, three
+    # seeds each (docs/plans/xstile-wire-campaign.md); seed 0 is the flow's
+    # own place stage. Needs a machine of at least 128 GB.
+    wire_points = [
+        {
+            "density": density,
+            "seed": seed,
+        }
+        for density in [
+            "0.2",
+            "0.7",
+        ]
+        for seed in [
+            0,
+            1,
+            2,
+        ]
+    ],
 )
 
 # Frontend's timing where its abstract is written (cts) and after the
