@@ -26,6 +26,7 @@ hard-code any particular variable-to-stage mapping.
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
 load(
     "//private:stages.bzl",
+    "ALL_STAGES_LIST",
     "ALL_STAGE_TO_VARIABLES",
     "ALL_VARIABLE_TO_STAGES",
     "UNSCOPED_ORFS_VARIABLES",
@@ -291,6 +292,25 @@ def _every_orfs_variable_names_its_stages_test(ctx):
     )
     return unittest.end(env)
 
+def _auto_memories_reaches_every_stage_test(ctx):
+    """AUTO_MEMORIES is read by every stage, not only synthesis.
+
+    Synthesis generates the memories' views; read_liberty.tcl and load.tcl
+    read results/memories/*.lib and *.lef in every later stage only while
+    AUTO_MEMORIES=1. Scoped to synth, place onward timed the memories as
+    black boxes and a parent's paths through them went unreported.
+    """
+    env = unittest.begin(ctx)
+    for stage in ALL_STAGES_LIST:
+        asserts.equals(
+            env,
+            "1",
+            get_stage_args([stage], arguments = {"AUTO_MEMORIES": "1"}).get("AUTO_MEMORIES"),
+            "AUTO_MEMORIES does not reach " + stage,
+        )
+    return unittest.end(env)
+
+auto_memories_reaches_every_stage_test = unittest.make(_auto_memories_reaches_every_stage_test)
 every_orfs_variable_names_its_stages_test = unittest.make(_every_orfs_variable_names_its_stages_test)
 sorted_output_test = unittest.make(_sorted_output_test)
 split_user_variables_partitions_test = unittest.make(_split_user_variables_partitions_test)
@@ -300,6 +320,7 @@ def stages_filter_test_suite(name):
     unittest.suite(
         name,
         every_orfs_variable_names_its_stages_test,
+        auto_memories_reaches_every_stage_test,
         empty_stages_keeps_everything_test,
         filter_drops_out_of_stage_keeps_unmapped_test,
         union_over_stages_test,

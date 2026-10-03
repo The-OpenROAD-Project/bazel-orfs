@@ -17,8 +17,9 @@ SLEW_MARGIN through repair_design_helper from resize.tcl and
 global_route.tcl; RECOVER_POWER and GENERATE_ARTIFACTS_ON_FAILURE in
 global_route.tcl; TAP_CELL_NAME, FASTROUTE_TCL and MIN_CLK_ROUTING_LAYER
 in the floorplan; USE_FILL, FILL_CONFIG and REPAIR_PDN_VIA_LAYER in
-detailed route; the klayout and RCX inputs in final; AUTO_MEMORIES in
-synth. The design, platform and library identifiers every stage loads
+detailed route; the klayout and RCX inputs in final. AUTO_MEMORIES is
+for every stage: synthesis generates the memories' views, and every later
+stage reads their .lib and .lef only while AUTO_MEMORIES=1. The design, platform and library identifiers every stage loads
 say `All stages` explicitly, as the flow's own use of that value already
 allows. docs/user/FlowVariables.md and variables.json are regenerated
 with generate-variables-docs.py and yaml_to_json.py.
@@ -60,15 +61,14 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  | <a name="WRITE_ODB_AND_SDC_EACH_STAGE"></a>WRITE_ODB_AND_SDC_EACH_STAGE| Save out .sdc and .odb file after each stage, useful to disable when using a single OpenROAD instance to run all stages of the flow.| 1|
  | <a name="YOSYS_FLAGS"></a>YOSYS_FLAGS| Flags to pass to yosys.| -v 3|
  ## synth variables
-@@ -347,6 +352,7 @@
+@@ -347,6 +352,6 @@
  - [ABC_LOAD_IN_FF](#ABC_LOAD_IN_FF)
  - [ADDER_MAP_FILE](#ADDER_MAP_FILE)
  - [ADDITIONAL_MEMORIES](#ADDITIONAL_MEMORIES)
-+- [AUTO_MEMORIES](#AUTO_MEMORIES)
  - [CACHED_REPORTS](#CACHED_REPORTS)
  - [CLKGATE_MAP_FILE](#CLKGATE_MAP_FILE)
  - [DFF_LIB_FILE](#DFF_LIB_FILE)
-@@ -363,7 +369,10 @@
+@@ -363,7 +368,10 @@
  - [SDC_FILE](#SDC_FILE)
  - [SDC_GUT](#SDC_GUT)
  - [SEC_CHECK](#SEC_CHECK)
@@ -79,7 +79,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [SYNTH_ARGS](#SYNTH_ARGS)
  - [SYNTH_BLACKBOXES](#SYNTH_BLACKBOXES)
  - [SYNTH_CANONICALIZE_TCL](#SYNTH_CANONICALIZE_TCL)
-@@ -395,6 +404,8 @@
+@@ -395,6 +403,8 @@
  - [VERILOG_FILES](#VERILOG_FILES)
  - [VERILOG_INCLUDE_DIRS](#VERILOG_INCLUDE_DIRS)
  - [VERILOG_TOP_PARAMS](#VERILOG_TOP_PARAMS)
@@ -88,7 +88,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [YOSYS_FLAGS](#YOSYS_FLAGS)
  
  ## floorplan variables
-@@ -406,6 +417,7 @@
+@@ -406,6 +416,7 @@
  - [CORE_MARGIN](#CORE_MARGIN)
  - [CORE_UTILIZATION](#CORE_UTILIZATION)
  - [DIE_AREA](#DIE_AREA)
@@ -96,7 +96,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [FLOORPLAN_DEF](#FLOORPLAN_DEF)
  - [FOOTPRINT](#FOOTPRINT)
  - [FOOTPRINT_TCL](#FOOTPRINT_TCL)
-@@ -418,6 +430,7 @@
+@@ -418,6 +429,7 @@
  - [MAKE_TRACKS](#MAKE_TRACKS)
  - [MATCH_CELL_FOOTPRINT](#MATCH_CELL_FOOTPRINT)
  - [MAX_ROUTING_LAYER](#MAX_ROUTING_LAYER)
@@ -104,7 +104,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [MIN_ROUTING_LAYER](#MIN_ROUTING_LAYER)
  - [PDN_TCL](#PDN_TCL)
  - [PLACE_DENSITY](#PLACE_DENSITY)
-@@ -455,6 +468,7 @@
+@@ -455,6 +467,7 @@
  - [RTLMP_WIRELENGTH_WT](#RTLMP_WIRELENGTH_WT)
  - [SETUP_MOVE_SEQUENCE](#SETUP_MOVE_SEQUENCE)
  - [SETUP_SLACK_MARGIN](#SETUP_SLACK_MARGIN)
@@ -112,7 +112,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [SKIP_BUFFER_REMOVAL](#SKIP_BUFFER_REMOVAL)
  - [SKIP_CRIT_VT_SWAP](#SKIP_CRIT_VT_SWAP)
  - [SKIP_GATE_CLONING](#SKIP_GATE_CLONING)
-@@ -464,6 +478,7 @@
+@@ -464,6 +477,7 @@
  - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
  - [SKIP_VT_SWAP](#SKIP_VT_SWAP)
  - [TAPCELL_TCL](#TAPCELL_TCL)
@@ -120,7 +120,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [TIEHI_CELL_AND_PORT](#TIEHI_CELL_AND_PORT)
  - [TIELO_CELL_AND_PORT](#TIELO_CELL_AND_PORT)
  - [TIE_SEPARATION](#TIE_SEPARATION)
-@@ -473,13 +488,16 @@
+@@ -473,13 +487,16 @@
  
  - [BALANCE_ROWS](#BALANCE_ROWS)
  - [BUFFER_PORTS_ARGS](#BUFFER_PORTS_ARGS)
@@ -137,7 +137,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [ENABLE_PLACE_REPAIR_TIMING](#ENABLE_PLACE_REPAIR_TIMING)
  - [FLOORPLAN_DEF](#FLOORPLAN_DEF)
  - [GLOBAL_PLACEMENT_ARGS](#GLOBAL_PLACEMENT_ARGS)
-@@ -508,7 +526,9 @@
+@@ -508,7 +525,9 @@
  - [PRE_IO_PLACEMENT_TCL](#PRE_IO_PLACEMENT_TCL)
  - [PRE_RESIZE_TCL](#PRE_RESIZE_TCL)
  - [ROUTING_LAYER_ADJUSTMENT](#ROUTING_LAYER_ADJUSTMENT)
@@ -147,7 +147,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [TNS_END_PERCENT](#TNS_END_PERCENT)
  
  ## cts variables
-@@ -533,6 +553,7 @@
+@@ -533,6 +552,7 @@
  - [REPORT_CLOCK_SKEW](#REPORT_CLOCK_SKEW)
  - [SETUP_MOVE_SEQUENCE](#SETUP_MOVE_SEQUENCE)
  - [SETUP_SLACK_MARGIN](#SETUP_SLACK_MARGIN)
@@ -155,7 +155,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [SKIP_BUFFER_REMOVAL](#SKIP_BUFFER_REMOVAL)
  - [SKIP_CRIT_VT_SWAP](#SKIP_CRIT_VT_SWAP)
  - [SKIP_CTS_REPAIR_TIMING](#SKIP_CTS_REPAIR_TIMING)
-@@ -545,10 +566,12 @@
+@@ -545,10 +565,12 @@
  
  ## grt variables
  
@@ -168,7 +168,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [GLOBAL_ROUTE_ARGS](#GLOBAL_ROUTE_ARGS)
  - [GLOBAL_ROUTE_USE_CUGR](#GLOBAL_ROUTE_USE_CUGR)
  - [GRT_SEED](#GRT_SEED)
-@@ -559,10 +582,12 @@
+@@ -559,10 +581,12 @@
  - [OPT_POST_GRT_WNS](#OPT_POST_GRT_WNS)
  - [POST_GLOBAL_ROUTE_TCL](#POST_GLOBAL_ROUTE_TCL)
  - [PRE_GLOBAL_ROUTE_TCL](#PRE_GLOBAL_ROUTE_TCL)
@@ -181,7 +181,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [SKIP_ANTENNA_REPAIR](#SKIP_ANTENNA_REPAIR)
  - [SKIP_ANTENNA_REPAIR_PRE_GRT](#SKIP_ANTENNA_REPAIR_PRE_GRT)
  - [SKIP_BUFFER_REMOVAL](#SKIP_BUFFER_REMOVAL)
-@@ -573,6 +598,7 @@
+@@ -573,6 +597,7 @@
  - [SKIP_PIN_SWAP](#SKIP_PIN_SWAP)
  - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
  - [SKIP_VT_SWAP](#SKIP_VT_SWAP)
@@ -189,7 +189,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [TNS_END_PERCENT](#TNS_END_PERCENT)
  - [VIA_IN_PIN_MAX_LAYER](#VIA_IN_PIN_MAX_LAYER)
  - [VIA_IN_PIN_MIN_LAYER](#VIA_IN_PIN_MIN_LAYER)
-@@ -583,6 +609,7 @@
+@@ -583,6 +608,7 @@
  - [DETAILED_ROUTE_END_ITERATION](#DETAILED_ROUTE_END_ITERATION)
  - [DISABLE_VIA_GEN](#DISABLE_VIA_GEN)
  - [FILL_CELLS](#FILL_CELLS)
@@ -197,7 +197,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [MATCH_CELL_FOOTPRINT](#MATCH_CELL_FOOTPRINT)
  - [MAX_REPAIR_ANTENNAS_ITER_DRT](#MAX_REPAIR_ANTENNAS_ITER_DRT)
  - [MAX_ROUTING_LAYER](#MAX_ROUTING_LAYER)
-@@ -593,8 +620,10 @@
+@@ -593,8 +619,10 @@
  - [POST_FILLCELL_TCL](#POST_FILLCELL_TCL)
  - [PRE_DETAIL_ROUTE_TCL](#PRE_DETAIL_ROUTE_TCL)
  - [PRE_FILLCELL_TCL](#PRE_FILLCELL_TCL)
@@ -208,7 +208,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [SKIP_ANTENNA_REPAIR_POST_DRT](#SKIP_ANTENNA_REPAIR_POST_DRT)
  - [SKIP_DETAILED_ROUTE](#SKIP_DETAILED_ROUTE)
  - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
-@@ -605,8 +634,13 @@
+@@ -605,8 +633,13 @@
  
  - [ADDITIONAL_GDS](#ADDITIONAL_GDS)
  - [CDL_FILE](#CDL_FILE)
@@ -222,7 +222,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [LEC_AUX_VERILOG_FILES](#LEC_AUX_VERILOG_FILES)
  - [LEC_CHECK](#LEC_CHECK)
  - [MAX_ROUTING_LAYER](#MAX_ROUTING_LAYER)
-@@ -616,69 +650,55 @@
+@@ -616,69 +649,56 @@
  - [PRE_DENSITY_FILL_TCL](#PRE_DENSITY_FILL_TCL)
  - [PRE_FINAL_REPORT_TCL](#PRE_FINAL_REPORT_TCL)
  - [PWR_NETS_VOLTAGES](#PWR_NETS_VOLTAGES)
@@ -256,7 +256,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [ADDITIONAL_FILES](#ADDITIONAL_FILES)
  - [ADDITIONAL_LEFS](#ADDITIONAL_LEFS)
  - [ADDITIONAL_LIBS](#ADDITIONAL_LIBS)
--- [AUTO_MEMORIES](#AUTO_MEMORIES)
+ - [AUTO_MEMORIES](#AUTO_MEMORIES)
 +- [ASAP7_USE_VT](#ASAP7_USE_VT)
  - [BLOCKS](#BLOCKS)
 -- [CAP_MARGIN](#CAP_MARGIN)
@@ -354,7 +354,7 @@ diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
 -    "description": "Experimental. When set to 1, memory-shaped modules in the RTL (firtool/CIRCT `R*/W*/RW*_` port convention, module boundary only) are detected pre-synthesis, inventoried in `$(RESULTS_DIR)/memories.json`, and \u2014 when idiomatic as an SRAM macro \u2014 given generated .lib/.lef views under `$(RESULTS_DIR)/memories/`. Synthesis blackboxes those modules and all later stages read the generated views, so an existing design gets macro-based results without a memory compiler. Supported for the asap7 platform only. See docs/user/AutoMemories.md.\n"
 +    "description": "Experimental. When set to 1, memory-shaped modules in the RTL (firtool/CIRCT `R*/W*/RW*_` port convention, module boundary only) are detected pre-synthesis, inventoried in `$(RESULTS_DIR)/memories.json`, and \u2014 when idiomatic as an SRAM macro \u2014 given generated .lib/.lef views under `$(RESULTS_DIR)/memories/`. Synthesis blackboxes those modules and all later stages read the generated views, so an existing design gets macro-based results without a memory compiler. Supported for the asap7 platform only. See docs/user/AutoMemories.md.\n",
 +    "stages": [
-+      "synth"
++      "All stages"
 +    ]
    },
    "BALANCE_ROWS": {
@@ -899,7 +899,7 @@ diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
      the asap7 platform only. See docs/user/AutoMemories.md.
    default: 0
 +  stages:
-+    - synth
++    - All stages
  ADDITIONAL_MEMORIES:
    description: >
      Experimental. Space-separated list of user-supplied `.memories`
