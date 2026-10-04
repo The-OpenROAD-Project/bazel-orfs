@@ -18,9 +18,13 @@ exactly one cell of any kind. firtool's modules carry glue -- the
 `'bx` read mux, the mask ANDs -- so every one of them was named `Memory`
 instead, and scan_files keys by name, so forty memories collapsed into
 one. On XiangShan's XSCore: 41 memory modules in the design, two
-entries in memories.json, both declined. A module with one memory now
-*is* that memory and takes the module's name, whatever surrounds it; a
-module with several names them <module>.<cell>.
+entries in memories.json, both declined. A firtool memory module -- one
+memory, every port in the convention below -- now *is* that memory and
+takes the module's name, whatever glue surrounds it. Any other module
+keeps the old rule: named for the module only when the memory is its
+only cell, else <module>.<cell>, so an inline array inside a module
+that does something else still fails idiomatic.judge's own-module
+gate.
 
 Pins. The pin list was synthesized from yosys's port counts as
 R0_addr, W0_data and so on. The generated liberty view has to carry the
@@ -51,6 +55,13 @@ bank as one combinational read port, refused.
 Not upstreamed -- carried in bazel-orfs per the moratorium. Retires at
 a bump onto an ORFS that carries the change.
 ---
+ flow/scripts/memories/detect.py         | 111 ++++++++++++++++++++-
+ flow/scripts/memories/detect_test.py    | 126 ++++++++++++++++++++++++
+ flow/scripts/memories/idiomatic.py      |  26 +++++
+ flow/scripts/memories/idiomatic_test.py |  26 +++++
+ flow/scripts/memories/schema.py         |  15 +++
+ 5 files changed, 302 insertions(+), 2 deletions(-)
+
 diff --git a/flow/scripts/memories/detect.py b/flow/scripts/memories/detect.py
 --- a/flow/scripts/memories/detect.py
 +++ b/flow/scripts/memories/detect.py
@@ -164,7 +175,7 @@ diff --git a/flow/scripts/memories/detect.py b/flow/scripts/memories/detect.py
  
              pins: list[schema.Pin] = []
  
-@@ -154,8 +236,27 @@
+@@ -154,8 +236,31 @@
                          )
                      )
  
@@ -178,22 +189,26 @@ diff --git a/flow/scripts/memories/detect.py b/flow/scripts/memories/detect.py
 +            if convention is not None:
 +                pins, rd_ports, wr_ports, rw_ports, mask_lanes = convention
 +                port_convention = "firtool"
-+            # A module with one memory *is* that memory, whatever glue
-+            # surrounds it, and takes the module's name -- which is the
-+            # name the flow blackboxes. Every firtool memory calls its
-+            # array `Memory`, so naming by cell would fold them all into
-+            # one entry. A module with several is named per cell,
-+            # qualified so the names stay distinct across modules.
++            # A module that holds nothing but one memory *is* that memory
++            # and takes the module's name -- which is the name the flow
++            # blackboxes. So does a firtool memory module, whatever glue
++            # surrounds its array: its ports say what it is, and every one
++            # calls its array `Memory`, so naming by cell would fold them
++            # all into one entry. Any other memory is named per cell,
++            # qualified so the names stay distinct across modules: an
++            # array inside a module that also does something else is the
++            # design asking for flip-flops, and idiomatic.judge refuses a
++            # memory that is not named for its module.
              clean_cell = cell_name[1:] if cell_name.startswith("\\") else cell_name
 -            mem_name = clean_mod_name if len(cells) == 1 else clean_cell
-+            if len(mem_cells) == 1:
++            if len(mem_cells) == 1 and (port_convention or len(cells) == 1):
 +                mem_name = clean_mod_name
 +            else:
 +                mem_name = f"{clean_mod_name}.{clean_cell}"
  
              mem = schema.Memory(
                  name=mem_name,
-@@ -164,8 +265,10 @@
+@@ -164,8 +269,10 @@
                  addr_w=addr_w,
                  read_ports=rd_ports,
                  write_ports=wr_ports,
@@ -208,7 +223,7 @@ diff --git a/flow/scripts/memories/detect.py b/flow/scripts/memories/detect.py
 diff --git a/flow/scripts/memories/detect_test.py b/flow/scripts/memories/detect_test.py
 --- a/flow/scripts/memories/detect_test.py
 +++ b/flow/scripts/memories/detect_test.py
-@@ -99,5 +99,120 @@
+@@ -99,5 +99,131 @@
          self.assertEqual(detect.scan_yosys_json(yosys_json), [])
  
  
@@ -325,6 +340,17 @@ diff --git a/flow/scripts/memories/detect_test.py b/flow/scripts/memories/detect
 +            m.name for m in detect.scan_yosys_json({"modules": {"\\m": module}})
 +        )
 +        self.assertEqual(names, ["m.Memory", "m.Other"])
++
++    def test_inline_array_with_other_logic_is_named_per_cell(self):
++        # One memory among other logic, ports not firtool's: the module is
++        # not a memory, so the entry must not take its name.
++        mod = _firtool_rw_module()
++        mod["ports"] = {
++            "clk": {"direction": "input", "bits": [2]},
++            "parity": {"direction": "output", "bits": [3]},
++        }
++        mems = detect.scan_yosys_json({"modules": {"\\am_regs": mod}})
++        self.assertEqual([m.name for m in mems], ["am_regs.Memory"])
 +
 +
  if __name__ == "__main__":
