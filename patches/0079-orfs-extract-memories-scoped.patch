@@ -37,20 +37,19 @@ memory is collected. write_json -selected writes the memory modules
 only; gen_memories.py's detector reads each module's $mem_v2 cells and
 nothing across modules.
 
-Not upstreamed. Retire at the //:bump onto an ORFS that scopes the
-passes, or onto a yosys whose memory_dff returns before building the
-index for a module without memories.
+Upstream as ORFS #4622 (the memory_dff cost is YosysHQ/yosys#6282).
+Retires at the //:bump onto an ORFS that carries it.
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- flow/scripts/memories/extract_memories.tcl | 40 ++++++++++++++++++++--
- 1 file changed, 37 insertions(+), 3 deletions(-)
+ flow/scripts/memories/extract_memories.tcl | 41 ++++++++++++++++++++--
+ 1 file changed, 38 insertions(+), 3 deletions(-)
 
 diff --git a/flow/scripts/memories/extract_memories.tcl b/flow/scripts/memories/extract_memories.tcl
 --- a/flow/scripts/memories/extract_memories.tcl
 +++ b/flow/scripts/memories/extract_memories.tcl
-@@ -23,11 +23,45 @@
+@@ -23,11 +23,46 @@
  # bare `proc`: yosys -import cannot shadow Tcl's proc keyword, so the
  # bare word would define a procedure instead of running the pass.
  yosys proc
@@ -74,7 +73,8 @@ diff --git a/flow/scripts/memories/extract_memories.tcl b/flow/scripts/memories/
 +# carries a `$`, as slang's uniquified names do, and the passes then skip it.
 +memory_bmux2rom
 +set mem_modules [dict create]
-+foreach line [tee -q -s result.string select -list t:\$mem_v2 t:\$memrd_v2 t:\$memwr_v2 t:\$meminit_v2] {
++set mem_cells {t:$mem_v2 t:$memrd_v2 t:$memwr_v2 t:$meminit_v2}
++foreach line [tee -q -s result.string select -list {*}$mem_cells] {
 +  set line [string trim $line]
 +  if { $line ne "" } {
 +    dict set mem_modules [lindex [split $line "/"] 0] 1

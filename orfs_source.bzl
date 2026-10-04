@@ -127,8 +127,8 @@ ORFS_PATCHES = [
     # hold memory cells only, memory_bmux2rom excepted. yosys's memory_dff
     # builds its per-bit index for every module before asking whether it
     # has a memory: 721 s unscoped against 64 s scoped on the flat XSCore,
-    # the same 407 memories. Carried, not upstreamed; retire at a bump onto
-    # an ORFS that scopes the passes or a yosys that returns early.
+    # the same 407 memories. Upstream as ORFS #4622; retires at the bump
+    # onto an ORFS that carries it.
     Label("//patches:0079-orfs-extract-memories-scoped.patch"),
     # 0081: the memory detector names a slang-uniquified module
     # (`array_512x17$Frontend...`) for its definition and collapses the
