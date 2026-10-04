@@ -51,7 +51,6 @@ ORFS_BAZEL_PLATFORMS = [
 #   0049-orfs-mempool-rtl-files-include -> _GENERATE_DESIGN_BUILDS emits
 #                                       files("verilog") for the rtl dir
 ORFS_PATCHES = [
-    Label("//patches:0037-orfs-single-writer-1_synth-sdc.patch"),
     Label("//patches:0039-orfs-slang-plugin-fallback.patch"),
     # SET_RC_TCL as the per-design RC file: read it (after
     # LAYER_PARASITICS_FILE, before the platform setRC.tcl) in load.tcl,
