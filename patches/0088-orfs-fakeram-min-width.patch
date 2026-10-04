@@ -154,10 +154,10 @@ diff --git a/tools/FakeRAM2.0/utils/class_process.py b/tools/FakeRAM2.0/utils/cl
  
          # Set to True when we want to use the process parameters or bitcell
          # sizes to calculate the macro dimensions. Set to False for spreadsheet
-@@ -123,6 +126,7 @@
-             3.5, self.snap_height_nm / 1000.0 if self.snap_height_nm else 0
-         )
-         total_height = max(total_height, min_height)
+@@ -118,6 +121,7 @@
+         total_width = all_bitcell_width * 1.2
+ 
+         total_height += additional_height
 +        total_width = max(total_width, self.min_width_um)
  
          return (total_width, total_height)
