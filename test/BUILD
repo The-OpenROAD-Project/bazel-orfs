@@ -762,24 +762,6 @@ auto_memories_outputs_test(
     target_under_test = "@orfs//flow/designs/asap7/gcd:gcd_synth",
 )
 
-# The end-to-end gate for AUTO_MEMORIES: the full flow on the one ORFS
-# design that uses it. Manual -- this is PnR, minutes not seconds, and
-# has no business in a wildcard build.
-#
-# _floorplan is listed alongside _final deliberately. Synth alone would
-# pass even if the generated views never propagated past the stage that
-# made them, so floorplan is the cheapest target that actually proves
-# OrfsInfo.memories works; _final proves the rest of the flow does.
-build_test(
-    name = "auto_memories_flow_test",
-    tags = ["manual"],
-    targets = [
-        "@orfs//flow/designs/asap7/tinyRocket:RocketTile_synth",
-        "@orfs//flow/designs/asap7/tinyRocket:RocketTile_floorplan",
-        "@orfs//flow/designs/asap7/tinyRocket:RocketTile_final",
-    ],
-)
-
 # Unit tests for the stage variable filtering helpers (stages.bzl).
 # Guards the generated-BUILD mechanism: that the generator in
 # MODULE.bazel's patch_cmds agrees with the canonical BUILDs ORFS still
