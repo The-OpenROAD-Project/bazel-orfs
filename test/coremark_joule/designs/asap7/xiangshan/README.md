@@ -25,6 +25,7 @@ Nothing here runs in CI. Every target is `tags = ["manual"]`.
 | 6 | 2026-09-29 | 5,118 | 4,325 | 5,118 | 2,725 | 2,698 | 2,375 | 1,831 |  | REMOVE_ABC_BUFFERS dropped (deprecated in ORFS) and the planned blocks' kept modules stated with OpenROAD hierarchical: one repair_design call no longer leaves about 46,000 slew violators on Frontend; measured in the same build by xs_pathology's probe |
 | 7 | 2026-10-01 | 5,402 | 5,402 | 2,259 | 2,057 | 2,222 | 1,247 | 814 |  | timing- and routability-driven global placement, ORFS's default, and RVT, LVT and SLVT from synthesis: every block faster, the parent slower and now the design's period |
 | 8 | 2026-10-02 | 3,860 | 3,860 | 1,541 | 2,057 | 2,222 | 1,247 | 814 |  | the parent keeps no global-placement repair (GPL_KEEP_OVERFLOW 0) and repairs timing after CTS; the ORFS bump to ecb3cfdeb1ca between the rows |
+| 9 | 2026-10-04 | 3,330 | 3,330 | 2,170 | 1,870 | 1,591 | 1,386 | 900 |  | AUTO_MEMORIES reaches every stage (#1157): from floorplan on, the flow times and optimizes against the generated memories' views, which earlier rows' later stages never loaded, so their paths through a memory went untimed; also the parent's CTS balancing the blocks' clock trees (#1150) and the bumps to ORFS d2b74aa79e98 |
 <!-- kpi-table end -->
 
 Periods are in picoseconds; `≥` marks a run that did not measure the
