@@ -1180,6 +1180,42 @@ Revisit when the parent's own paths are shorter than its block-launched
 ones: the branch's three probes give the bound in about an hour of
 sessions (`test/peel/README.md`, "The full run on XiangShan").
 
+## 42. The parent's density and die: main's size is the right one
+
+Branch `xiangshan-parent-density-sweep` (draft) lets the parent place
+each block at a footprint mocked to placement density 0.6 (`mock_area`
+with the block's own liberty, `mock_sources`), holds each block's side,
+and gives every part a `_kpi` build target. The question was whether the
+blocks' generous outlines made the parent's floorplan pay for density
+the blocks have not been tuned to, and what density and die the parent
+wants once they do not.
+
+On main + #1157 (memories timed), the parent at global route; the
+blocks' own periods are unchanged throughout (2,170 / 1,870 / 1,591 /
+1,386 / 900 ps), since only the parent's floorplan moves:
+
+| parent density | die (um) | parent period (ps) | vs main | grt congestion | grt peak |
+|---|---|---:|---:|---:|---:|
+| main (blocks unmocked) | 2025 x 2666 | 3,330 | | 17.9 % | 93 GB |
+| 0.2 | 2025 x 3085 | 3,302 | -0.8 % | 22.2 % | 92 GB |
+| 0.3 | 2025 x 2666 | 3,341 | +0.3 % | 21.2 % | 81 GB |
+| 0.45 | 2025 x 2386 | 3,766 | +13 % | 29.4 % | 86 GB |
+| 0.6 | 2025 x 2247 | 3,537 | +6 % | 32.4 % | 86 GB |
+
+- More area buys nothing: 16 % more die is inside the 2 % gate.
+- At main's die (0.3), mocked footprints change the period by nothing and
+  raise congestion: the area they free goes to the parent's cell region,
+  not to the channels between the blocks.
+- Less area costs: 10 % and 16 % smaller dies are 13 % and 6 % slower.
+  The two are not monotonic, so one run of the parent carries several
+  percent of noise; neither is close to the gate either way.
+
+The parent's period is not in its floorplan area. At zero wire its own
+logic is about 10 FO4 a path (entry 40); the rest is repeaters and the
+blocks' arcs. Revisit when the blocks' own densities are tuned up: then
+their real outlines shrink, and the question is whether the parent's
+channels, not its die, need the freed space.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
