@@ -72,9 +72,6 @@ ORFS_PATCHES = [
     Label("//patches:0056-orfs-wire-load-open.patch"),
     Label("//patches:0057-orfs-wire-load-variables-yaml.patch"),
     Label("//patches:0058-orfs-wire-load-variables-json.patch"),
-    # tinyRocket has two memory wrappers around undefined _ext modules,
-    # and ORFS describes only one, so hierarchy -check dies on the other.
-    Label("//patches:0064-orfs-tinyrocket-data-arrays-memories.patch"),
     # AUTO_MEMORIES converted a memory inferred inside a larger module,
     # generating a macro that nothing could instantiate -- blackboxing
     # needs a module of that name and there is none -- while

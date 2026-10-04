@@ -112,15 +112,17 @@ genrule(
     tools = [":check_auto_memories"],
 )
 
-# Synth alone would pass even if the views never propagated past the
-# stage that made them, so floorplan is the cheapest target that proves
-# they reach the stage that reads them -- which on the parallel path
-# they did not.
+# The end-to-end gate for AUTO_MEMORIES. Synth alone would pass even if
+# the views never propagated past the stage that made them, so floorplan
+# is the cheapest target that proves they reach the stage that reads
+# them -- which on the parallel path they did not -- and place, the
+# abstract stage, proves the flow runs to its end.
 build_test(
     name = "am_top_flow_test",
     tags = ["manual"],
     targets = [
         ":am_top_memories_check",
         ":am_top_floorplan",
+        ":am_top_place",
     ],
 )
