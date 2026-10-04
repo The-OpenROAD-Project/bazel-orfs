@@ -170,6 +170,19 @@
         "VecRegionModule": 1247
       },
       "note": "the parent keeps no global-placement repair (GPL_KEEP_OVERFLOW 0) and repairs timing after CTS; the ORFS bump to ecb3cfdeb1ca between the rows"
+    },
+    {
+      "date": "2026-10-04",
+      "measured": "XSTile_grt, built from source at d4e62b4f with #1157",
+      "parent_ps": 3330,
+      "blocks": {
+        "CoupledL2": 1591,
+        "Frontend": 2170,
+        "MemBlock": 1870,
+        "FltRegionModule": 900,
+        "VecRegionModule": 1386
+      },
+      "note": "AUTO_MEMORIES reaches every stage (#1157): from floorplan on, the flow times and optimizes against the generated memories' views, which earlier rows' later stages never loaded, so their paths through a memory went untimed; also the parent's CTS balancing the blocks' clock trees (#1150) and the bumps to ORFS d2b74aa79e98"
     }
   ]
 }
