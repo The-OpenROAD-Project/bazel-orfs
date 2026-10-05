@@ -1216,6 +1216,63 @@ blocks' arcs. Revisit when the blocks' own densities are tuned up: then
 their real outlines shrink, and the question is whether the parent's
 channels, not its die, need the freed space.
 
+## 43. CoupledL2's detour was the flow's, and the memories were untimed
+
+CoupledL2 at its own global route (473 ps SDC) measured 1,128 ps; most of
+it was one buffer tree, SinkC's 514-bit read-register enable, that walked
+1,360 um to a sink 155 um from its root (#1146). An ORFS test design of
+the same path (ORFS #4599, closed) found 580-711 ps and no detour. One
+change at a time from the flow that made it, each at global route:
+
+| flow | change | worst | into SinkC's register | walk / direct |
+|---|---|---:|---:|---:|
+| bazel-orfs | as built: the plan's annealer, the plan's pins, kept placement repair | 1,128 ps | 1,128 ps | 8.8 |
+| bazel-orfs | RTL-MP instead of the annealer | 743 ps | 737 ps | 1.0 |
+| bazel-orfs | default pins instead of the plan's | 780 ps | 776 ps | 1.1 |
+| bazel-orfs | `GPL_KEEP_OVERFLOW=0` | 1,374 ps | 1,370 ps | 1.1 |
+| plain ORFS | CoupledL2 cut out, as in ORFS #4547 | 1,129 ps | 932 ps | 1.0 |
+| plain ORFS | CoupledL2 flattened into a mock XSTile | 1,449 ps | 964 ps | 1.0 |
+
+- The detour needs the annealer, the plan's pins and global placement's
+  kept repair (entry 40) together; either of the first two alone removes
+  it. Plain ORFS never makes it. There was nothing of CoupledL2's to
+  reproduce.
+- Every bazel-orfs row above, and the XSTile rows below, timed the
+  generated memories as black boxes from floorplan on: 0075 scoped
+  `AUTO_MEMORIES` to synthesis, and `load.tcl` reads the memories' views
+  only while it is set (fixed in #1157). The plain ORFS rows had their
+  memories timed. The detour is geometric; the periods are not the
+  design's.
+- In XSTile on main d4e62b4f, the same change, memories untimed: CoupledL2
+  1,321 to 1,008 ps at its place stage, the parent 3,299 to 3,229 ps, its
+  worst path in CtrlBlock (`decodeBufValid` to the store set table) in
+  both. With the memories timed (#1157, row 9) CoupledL2 with the annealer
+  is 1,591 ps; RTL-MP with the memories timed is not measured yet.
+- MemBlock, the annealer's other block, fails its own global-route probe
+  at pin access (DRT-0073 on an SRAM's clock pin), the off-lattice
+  signature.
+
+What it cost to find out, and what to do first next time:
+
+- Take the flow's own machinery out one piece at a time before writing a
+  test design: the annealer, the planned pins and a kept-repair setting
+  were each a suspect, and three overnight arms named them.
+- Check that every stage loads the memories' `.lib` and `.lef`: a period
+  read with a memory untimed is a lower bound, whatever the checkpoint.
+- A tool failure on an older pin is first checked against OpenROAD
+  master: CTS's `repair_timing` upsized a FIRM register-file cell into
+  its neighbour (DPL-0033) on the pin before the bump that carries
+  OpenROAD #11493 and #11584, which keep a fixed cell's footprint.
+- One output base per arm, or measure an arm before the next builds: an
+  arm that changes a block writes its stage outputs at the other arm's
+  paths, and the other arm's stages then re-run.
+- Measure through a deployed `_deps` tree with plain `make`: running an
+  `odb_debug` target after a finished build re-ran synthesis. On #1157's
+  branch the `_deps` deploy itself re-ran every block from floorplan to
+  CTS after a finished build; the cause is not found yet.
+- 62 GB with 126 GB of swap runs the parent's 91 GiB global route; a
+  peak above physical memory is not a reason to move machines.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
