@@ -196,6 +196,19 @@
         "VecRegionModule": 1386
       },
       "note": "the blocks repair timing after CTS, where their abstracts are cut: the parent 3,330 to 3,264 ps on an identical placement (its stages before CTS unchanged); the blocks' place-stage periods cannot move; Frontend's CTS 46 min"
+    },
+    {
+      "date": "2026-10-05",
+      "measured": "XSTile_grt, built from source at d4e62b4f with #1157, #1170's plan and #1171",
+      "parent_ps": 3256,
+      "blocks": {
+        "CoupledL2": 1591,
+        "Frontend": 2170,
+        "MemBlock": 1870,
+        "FltRegionModule": 900,
+        "VecRegionModule": 1386
+      },
+      "note": "the parent planned with each block mocked to density 0.6 (#1170): its die 2025 x 2666 um against 2377 x 3043, a quarter smaller, the period 3,256 against 3,264 ps; global route 81 GB against 93, congestion 21.2 % against 17.9 %"
     }
   ]
 }
