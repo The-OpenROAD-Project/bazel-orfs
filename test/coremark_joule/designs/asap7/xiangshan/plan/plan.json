@@ -32,8 +32,8 @@
   ]
  },
  "parent": {
-  "cell_area_um2": 453871,
-  "density": 0.2,
+  "cell_area_um2": 504167,
+  "density": 0.3,
   "core_margin_um": 10,
   "keep": [
    "Backend",
@@ -92,7 +92,8 @@
   "channel_min_um": 40.0,
   "lateral": 0.5,
   "aspect_cap": 3.0,
-  "gap_um": 10.8
+  "gap_um": 10.8,
+  "block_density": 0.6
  },
  "macros": [
   {
@@ -116,7 +117,9 @@
     "WriteBuffer_4",
     "Ftq",
     "PMPChecker"
-   ]
+   ],
+   "content_um2": 391166,
+   "region_side": "top"
   },
   {
    "name": "MemBlock",
@@ -150,7 +153,9 @@
     "L1ErrorMetaArray",
     "L1CohMetaArray",
     "LLPTW"
-   ]
+   ],
+   "content_um2": 403494,
+   "region_side": "top"
   },
   {
    "name": "FltRegionModule",
@@ -167,7 +172,9 @@
     "IssueQueueFaluFmulFdiv",
     "IssueQueueFaluFmulFdiv_1",
     "IssueQueueFaluFmul"
-   ]
+   ],
+   "content_um2": 166941,
+   "region_side": "bottom"
   },
   {
    "name": "VecRegionModule",
@@ -187,7 +194,9 @@
     "IssueQueueVialu_1",
     "IssueQueueVialuVidivVfmacVfdiv",
     "VFMacWrapper"
-   ]
+   ],
+   "content_um2": 260182,
+   "region_side": "bottom"
   },
   {
    "name": "CoupledL2",
@@ -211,7 +220,9 @@
     "TwoLevelRRArbiter_16",
     "MSHR",
     "OverwriteQueue_1"
-   ]
+   ],
+   "content_um2": 296137,
+   "region_side": "bottom"
   }
  ],
  "netlists": [

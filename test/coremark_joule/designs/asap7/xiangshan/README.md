@@ -188,7 +188,8 @@ other two are optimisation targets.
 
 Route-0 at global route: total congestion 84,006, 17.2
 percent of the routing resources used, 109 m of wire. The floorplan is the planner's at
-parent density 0.2 and layer adjustment 0.1; `plan/plan.json` is its input.
+parent density 0.3, each block placed at a footprint mocked to density 0.6 (its own
+outline and pins unchanged), and layer adjustment 0.1; `plan/plan.json` is its input.
 
 ## The next two
 
