@@ -1180,9 +1180,9 @@ Revisit when the parent's own paths are shorter than its block-launched
 ones: the branch's three probes give the bound in about an hour of
 sessions (`test/peel/README.md`, "The full run on XiangShan").
 
-## 42. The parent's density and die: main's size is the right one
+## 42. The parent's density and die: a quarter less die at the same period
 
-Branch `xiangshan-parent-density-sweep` (draft) lets the parent place
+Branch `xiangshan-parent-density-sweep` (#1164) lets the parent place
 each block at a footprint mocked to placement density 0.6 (`mock_area`
 with the block's own liberty, `mock_sources`), holds each block's side,
 and gives every part a `_kpi` build target. The question was whether the
@@ -1192,29 +1192,30 @@ wants once they do not.
 
 On main + #1157 (memories timed), the parent at global route; the
 blocks' own periods are unchanged throughout (2,170 / 1,870 / 1,591 /
-1,386 / 900 ps), since only the parent's floorplan moves:
+1,386 / 900 ps), since only the parent's floorplan moves. Every point
+is smaller than main's die: main's blocks are unmocked, at density 0.2:
 
-| parent density | die (um) | parent period (ps) | vs main | grt congestion | grt peak |
-|---|---|---:|---:|---:|---:|
-| main (blocks unmocked) | 2025 x 2666 | 3,330 | | 17.9 % | 93 GB |
-| 0.2 | 2025 x 3085 | 3,302 | -0.8 % | 22.2 % | 92 GB |
-| 0.3 | 2025 x 2666 | 3,341 | +0.3 % | 21.2 % | 81 GB |
-| 0.45 | 2025 x 2386 | 3,766 | +13 % | 29.4 % | 86 GB |
-| 0.6 | 2025 x 2247 | 3,537 | +6 % | 32.4 % | 86 GB |
+| parent density | die (um) | die area | parent period (ps) | vs main | grt congestion | grt peak |
+|---|---|---:|---:|---:|---:|---:|
+| main (blocks unmocked, 0.2) | 2377 x 3043 | 7.23 mm2 | 3,330 | | 17.9 % | 93 GB |
+| 0.2 | 2025 x 3085 | 6.25 mm2 (-14 %) | 3,302 | -0.8 % | 22.2 % | 92 GB |
+| 0.3 | 2025 x 2666 | 5.40 mm2 (-25 %) | 3,341 | +0.3 % | 21.2 % | 81 GB |
+| 0.45 | 2025 x 2386 | 4.83 mm2 (-33 %) | 3,766 | +13 % | 29.4 % | 86 GB |
+| 0.6 | 2025 x 2247 | 4.55 mm2 (-37 %) | 3,537 | +6 % | 32.4 % | 86 GB |
 
-- More area buys nothing: 16 % more die is inside the 2 % gate.
-- At main's die (0.3), mocked footprints change the period by nothing and
-  raise congestion: the area they free goes to the parent's cell region,
-  not to the channels between the blocks.
-- Less area costs: 10 % and 16 % smaller dies are 13 % and 6 % slower.
-  The two are not monotonic, so one run of the parent carries several
-  percent of noise; neither is close to the gate either way.
+- With the blocks mocked at 0.6, the parent's die shrinks by a quarter
+  (0.3) at the same period, inside the 2 % gate, with 12 GB less at
+  global route and global route a minute faster; congestion rises from
+  17.9 to 21.2 %.
+- Below that it costs: a third less die is 6 to 13 % slower. The two
+  points are not monotonic, so one run of the parent carries several
+  percent of noise.
+- Every block's own outline and pin file at 0.3 is byte-identical to
+  main's: the plan changes the parent alone, as measured.
 
-The parent's period is not in its floorplan area. At zero wire its own
-logic is about 10 FO4 a path (entry 44); the rest is repeaters and the
-blocks' arcs. Revisit when the blocks' own densities are tuned up: then
-their real outlines shrink, and the question is whether the parent's
-channels, not its die, need the freed space.
+The parent's period is not in its floorplan area: it stays where it is
+down to a quarter less die. At zero wire its own logic is about 10 FO4 a
+path (entry 44); the rest is repeaters and the blocks' arcs.
 
 ## 43. CoupledL2's detour was the flow's, and the memories were untimed
 
@@ -1339,11 +1340,11 @@ blocks' abstracts timed their memories as black boxes; to be re-run:
   region.
 
 So the parent's floor is inside the blocks' boundary paths, not in its
-own logic or floorplan (entry 42).
+own logic or its floorplan's area (entry 42).
 
 A single run of the parent carries several percent of noise: the density
 sweep's 0.45 and 0.6 points (entry 42) are 3,766 and 3,537 ps, the
-smaller die faster. An arm within a few percent of the 2 % gate gets a
+smaller die the faster. An arm within a few percent of the 2 % gate gets a
 second run before it counts.
 
 ## 45. The wire campaign (#1153), closed: what it would have asked, and what is kept
@@ -1357,8 +1358,9 @@ Nothing ran. Since it was written:
 - The claim is half of the period. At zero wire the parent was 2,039 of
   3,042 ps; most of the rest of a path is inside the blocks' boundary
   arcs (entry 44). Shorter wires bound the gain at about a third.
-- The density question was answered at the floorplan's level: more die is
-  flat, less is 6 to 13 % slower (entry 42). `PLACE_DENSITY` at a fixed
+- The density question was answered at the floorplan's level: with the
+  blocks mocked, a quarter less die is flat and a third less is 6 to
+  13 % slower (entry 42). `PLACE_DENSITY` at a fixed
   die is not measured, and is bounded by the same third.
 - "At least 128 GB" was wrong: the parent's global route peaks at 93 GB
   on a 122 GB machine (row 9), and 62 GB with swap runs it (entry 43).
