@@ -1332,6 +1332,38 @@ sweep's 0.45 and 0.6 points (entry 42) are 3,766 and 3,537 ps, the
 smaller die faster. An arm within a few percent of the 2 % gate gets a
 second run before it counts.
 
+## 45. The wire campaign (#1153), closed: what it would have asked, and what is kept
+
+#1153 (draft, closed; branch `study/xstile-wire-campaign` kept) planned to
+test the claim that the parent's period is set by long wires. It had two
+levers upstream of routing. Phase 1 was which modules are hardened (arms
+A0 to A4), and Phase 2 was global placement density at a fixed floorplan.
+Nothing ran. Since it was written:
+
+- The claim is half of the period. At zero wire the parent was 2,039 of
+  3,042 ps; most of the rest of a path is inside the blocks' boundary
+  arcs (entry 44). Shorter wires bound the gain at about a third.
+- The density question was answered at the floorplan's level: more die is
+  flat, less is 6 to 13 % slower (entry 42). `PLACE_DENSITY` at a fixed
+  die is not measured, and is bounded by the same third.
+- "At least 128 GB" was wrong: the parent's global route peaks at 93 GB
+  on a 122 GB machine (row 9), and 62 GB with swap runs it (entry 43).
+- Its probe and ledger are covered by each part's `_kpi` target and the
+  zero-wire census. Phase 1's flattening arms are the queued dissolves,
+  and A2's SRAM placement is their harness.
+
+Kept as ideas, not planned:
+
+- **The hub (A5).** Harden Backend whole: it is the architecture's narrow
+  cut, 7,086 interface bits against its children's 42,868. Frontend and
+  MemBlock stay flat around it, and CoupledL2 stays hard. Entry 44 says
+  the parent's floor is in the blocks' boundary paths, MemBlock's above
+  all, which is the case a cut with fewer crossings is for. It is gated
+  on Backend's boundary timing, then Backend alone at place, then the
+  top level (the branch's plan, "Follow-up").
+- **Cut at any module boundary, route by abutment** (the branch's plan,
+  last section).
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
