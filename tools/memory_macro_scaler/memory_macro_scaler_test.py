@@ -459,6 +459,80 @@ class TestScaleLibText(unittest.TestCase):
             self.assertAlmostEqual(v, 0.3, places=6)
 
 
+def _clock_tree_lib(tree_ns, to_q_rise_ns, to_q_fall_ns):
+    """A macro whose clock pin claims tree_ns of internal clock tree.
+
+    The clock-to-Q arc is a two-row table spanning lines, the shape
+    write_timing_model and vendor libs use.
+    """
+    return _lib_header("ck_macro") + f"""  cell(ck_macro) {{
+    area : 10.0;
+    pin(clk) {{
+      direction : input;
+      clock : true;
+      timing() {{
+        timing_type : max_clock_tree_path;
+        cell_rise(scalar) {{ values ("{tree_ns}") }}
+        cell_fall(scalar) {{ values ("{tree_ns}") }}
+      }}
+    }}
+    pin(Q) {{
+      direction : output;
+      timing() {{
+        related_pin : "clk";
+        timing_type : rising_edge;
+        cell_rise(delay_template) {{
+          index_1 ("0.01, 0.1");
+          values ("{to_q_rise_ns}, 0.9", \\
+                  "0.8, 0.95");
+        }}
+        cell_fall(delay_template) {{
+          index_1 ("0.01, 0.1");
+          values ("{to_q_fall_ns}, 0.9", \\
+                  "0.8, 0.95");
+        }}
+        rise_transition(scalar) {{ values ("0.001") }}
+      }}
+    }}
+  }}
+}}
+"""
+
+
+class TestClockTreePathInsideArcs(unittest.TestCase):
+    def test_tree_inside_clock_to_q_passes(self):
+        # rise_transition 0.001 is shorter than the tree but not a clock-to-Q.
+        mms.check_clock_tree_path_inside_arcs(_clock_tree_lib(0.3, 0.5, 0.45))
+
+    def test_tree_longer_than_clock_to_q_raises(self):
+        # The fastest clock-to-Q (cell_fall, first table entry) is 0.25.
+        with self.assertRaisesRegex(ValueError, "clock pin clk"):
+            mms.check_clock_tree_path_inside_arcs(_clock_tree_lib(0.3, 0.5, 0.25))
+
+    def test_scale_reference_refuses_inconsistent_reference(self):
+        lef = _tiny_lef("ck_macro", ["clk", "Q"])
+        with self.assertRaises(ValueError):
+            mms.scale_reference(
+                lib_post_cts_text=_clock_tree_lib(0.3, 0.5, 0.25),
+                lef_text=lef,
+                timing_scale_override=1.0,
+            )
+
+    def test_generated_lib_claims_no_clock_tree(self):
+        """access_ns is pin-to-pin: no internal tree is split out of it."""
+        for kind, read_mode in (("sram", "sync"), ("flop_memory", "async")):
+            role = mms.MemoryRole(
+                kind=kind,
+                rows=128,
+                bits=32,
+                nRW=1,
+                read_mode=read_mode,
+                cell_name="m_128x32",
+            )
+            lib = mms.generate_lib(role, tech_nm=7)
+            self.assertNotIn("clock_tree_path", lib)
+
+
 # ---------------------------------------------------------------------------
 # End-to-end
 # ---------------------------------------------------------------------------
@@ -476,12 +550,13 @@ class TestScaleReference(unittest.TestCase):
                 lef_text=lef,
             )
 
-    def test_sram_dual_scale_produces_different_ck_values(self):
+    def test_sram_dual_scale_scales_ck_values_with_the_arcs(self):
+        """The clock tree is inside the data arcs, so it scales with them."""
         post = _firtool_sram_lib(
-            "tiny_128x64", nRW=1, rows=128, bits=64, ck_path_value=0.5
+            "tiny_128x64", nRW=1, rows=128, bits=64, ck_path_value=0.4
         )
         pre = _firtool_sram_lib(
-            "tiny_128x64", nRW=1, rows=128, bits=64, ck_path_value=0.5
+            "tiny_128x64", nRW=1, rows=128, bits=64, ck_path_value=0.01
         )
         lef = _tiny_lef(
             "tiny_128x64", ["clk", "RW0_addr", "RW0_rdata", "RW0_wdata", "RW0_wmode"]
@@ -490,15 +565,17 @@ class TestScaleReference(unittest.TestCase):
             lib_post_cts_text=post,
             lib_pre_layout_text=pre,
             lef_text=lef,
+            timing_scale_override=0.5,
         )
         self.assertEqual(role.kind, "sram")
         self.assertIsNotNone(bucket)
         post_ck = _extract_ck_values(sp)
         pre_ck = _extract_ck_values(spre)
-        for v in pre_ck:
-            self.assertEqual(v, 0.0)
+        self.assertTrue(post_ck and pre_ck)
         for v in post_ck:
-            self.assertGreater(v, 0.0)
+            self.assertAlmostEqual(v, 0.2, places=6)
+        for v in pre_ck:
+            self.assertAlmostEqual(v, 0.005, places=6)
 
     def test_non_memory_lef_round_trips(self):
         post = _non_memory_lib()
@@ -525,6 +602,7 @@ class TestScaleReference(unittest.TestCase):
             lib_pre_layout_text=None,
             lef_text=lef,
             emit_pre_layout=True,
+            timing_scale_override=0.5,
         )
         self.assertIsNotNone(
             spre,
@@ -535,9 +613,10 @@ class TestScaleReference(unittest.TestCase):
         # Pre-layout ck arcs are clamped to 0.
         for v in pre_ck:
             self.assertEqual(v, 0.0)
-        # Post-CTS ck arcs take the idiomatic value (>0).
+        # Post-CTS ck arcs keep the input's, scaled with the data arcs.
+        self.assertTrue(post_ck)
         for v in post_ck:
-            self.assertGreater(v, 0.0)
+            self.assertAlmostEqual(v, 0.25, places=6)
         # Both outputs should have the same cell area (shape preserved).
         self.assertIn("area : 300.0", sp)
         self.assertIn("area : 300.0", spre)
@@ -1024,7 +1103,11 @@ class TestCli(unittest.TestCase):
             post = d / "post.lib"
             post.write_text(_firtool_sram_lib("tiny_128x64", nRW=1, rows=128, bits=64))
             pre = d / "pre.lib"
-            pre.write_text(_firtool_sram_lib("tiny_128x64", nRW=1, rows=128, bits=64))
+            pre.write_text(
+                _firtool_sram_lib(
+                    "tiny_128x64", nRW=1, rows=128, bits=64, ck_path_value=0.01
+                )
+            )
             lef = d / "in.lef"
             lef.write_text(_tiny_lef("tiny_128x64", ["clk", "RW0_addr", "RW0_rdata"]))
             out_post = d / "out_post.lib"
@@ -1050,8 +1133,11 @@ class TestCli(unittest.TestCase):
             self.assertTrue(out_post.read_text())
             self.assertTrue(out_pre.read_text())
             self.assertTrue(out_lef.read_text())
-            # Sanity: two .libs differ (post-CTS has nonzero ck arc, pre has 0).
-            self.assertNotEqual(out_post.read_text(), out_pre.read_text())
+            # Each output is scaled from its own input: their ck arcs differ.
+            self.assertNotEqual(
+                _extract_ck_values(out_post.read_text()),
+                _extract_ck_values(out_pre.read_text()),
+            )
 
 
 # ---------------------------------------------------------------------------

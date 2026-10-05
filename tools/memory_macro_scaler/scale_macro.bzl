@@ -29,11 +29,9 @@ def scale_macro(
     (or pass None). The source orfs_flow's abstract_stage = "place"
     produces only one .lib — ideal-clock at post-place. Pass it as
     reference_lib_post_cts anyway; the scaler synthesizes the pre-layout
-    output by rewriting clock-insertion arcs to 0 and the post-CTS output
-    by rewriting them to the idiomatic post-CTS insertion latency from
-    the built-in ASAP7 table. The input's own clock-insertion values are
-    not load-bearing — the scaler overwrites them from the idiomatic
-    table regardless.
+    output by rewriting clock-insertion arcs to 0. In every other output
+    the clock-insertion arcs scale with the data arcs: the clock-to-Q and
+    check arcs contain the internal clock tree, so the two must agree.
 
     Args:
         name: Base target name. Creates `<name>` (orfs_macro), `<name>_lib`

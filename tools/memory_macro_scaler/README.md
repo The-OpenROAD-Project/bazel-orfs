@@ -44,9 +44,15 @@ and ASAP7 points share one curve per kind.
 
 - `port_factor`: 1RW=1.00, 1R1W=1.35, 2R1W=1.80 (OpenRAM paper).
 - `access_time_ps ∝ tech_nm · log₂(rows) · √bits`, calibrated to OpenRAM FreePDK45 128×32×1RW = 322 ps.
-- setup / hold / transition / CTS-insertion scale linearly with `tech_nm`
+- setup / hold / transition scale linearly with `tech_nm`
   from OpenRAM's FreePDK45 characterizer defaults.
-- Flop memories: access_time = 0 (combinational read), CTS-insertion = 0.
+- Flop memories: access_time = 0 (combinational read).
+- No internal clock tree (`min/max_clock_tree_path`) is claimed. The
+  access time is a pin-to-pin figure; OpenSTA and CTS read a
+  `clock_tree_path` as delay already inside it, so claiming one on top
+  makes CTS clock the macro early and its reads race into the next
+  register. Every `.lib` the tool writes is checked: a clock pin's
+  `clock_tree_path` may not exceed its fastest clock-to-Q.
 
 ### Data points
 
@@ -196,7 +202,10 @@ area (±25%).
 
 `orfs_macro()` carries two `.lib` files via `OrfsInfo`:
 `lib` (propagated clock, post-CTS) and `lib_pre_layout` (ideal clock,
-post-place). They differ only in `min/max_clock_tree_path` arcs.
+post-place). They differ only in `min/max_clock_tree_path` arcs, which
+`scale_macro()` scales together with the data arcs that contain them.
+`behavioral_macros()` claims no internal clock tree, so its two views
+are the same.
 `scaled_macro_lib.bzl` wraps the two scaled files into a single target
 that forwards both through `OrfsInfo`; a bare file label as `lib =
 ...` drops `lib_pre_layout` silently.
@@ -237,8 +246,8 @@ scale_macro(
 )
 ```
 
-Single-input (abstract_stage = place; scaler synthesizes both outputs
-by rewriting clock-insertion arcs):
+Single-input (abstract_stage = place; scaler synthesizes the
+pre-layout output by rewriting clock-insertion arcs to 0):
 
 ```starlark
 scale_macro(

@@ -13,8 +13,8 @@ scale_macro(
 
 # Single-input variant: simulates a place-stage source macro where only
 # one reference .lib exists (no pre_layout sibling from the upstream
-# abstract). The scaler still emits the dual pair by rewriting ck-insertion
-# arcs from the idiomatic table.
+# abstract). The scaler still emits the dual pair, the pre-layout one with
+# its ck-insertion arcs rewritten to 0.
 scale_macro(
     name = "tiny_scaled_place_only",
     module_top = "tiny_128x64",
