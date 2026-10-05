@@ -1096,9 +1096,9 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
     arguments["DIE_AREA"] = entry["DIE_AREA"]
     arguments["CORE_AREA"] = entry["CORE_AREA"]
 
-    # the block is abstracted at cts: build its tree, do not repair its
-    # timing there (the parent skips it too; margin first)
-    arguments["SKIP_CTS_REPAIR_TIMING"] = "1"
+    # The block is abstracted at cts and repairs its timing there, as the
+    # parent does (#1144): the abstract is what the parent's paths through
+    # the block are timed against.
 
     # Synthesis keeps exactly the plan's modules and flattens the rest,
     # stated rather than left to SYNTH_HIERARCHICAL=1's rule, and OpenROAD

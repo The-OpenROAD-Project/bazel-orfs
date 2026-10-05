@@ -183,6 +183,19 @@
         "VecRegionModule": 1386
       },
       "note": "AUTO_MEMORIES reaches every stage (#1157): from floorplan on, the flow times and optimizes against the generated memories' views, which earlier rows' later stages never loaded, so their paths through a memory went untimed; also the parent's CTS balancing the blocks' clock trees (#1150) and the bumps to ORFS d2b74aa79e98"
+    },
+    {
+      "date": "2026-10-05",
+      "measured": "XSTile_grt, built from source at d4e62b4f with #1157, main's plan before #1170",
+      "parent_ps": 3264,
+      "blocks": {
+        "CoupledL2": 1591,
+        "Frontend": 2170,
+        "MemBlock": 1870,
+        "FltRegionModule": 900,
+        "VecRegionModule": 1386
+      },
+      "note": "the blocks repair timing after CTS, where their abstracts are cut: the parent 3,330 to 3,264 ps on an identical placement (its stages before CTS unchanged); the blocks' place-stage periods cannot move; Frontend's CTS 46 min"
     }
   ]
 }
