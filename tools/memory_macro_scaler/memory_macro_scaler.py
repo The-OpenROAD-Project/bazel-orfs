@@ -22,8 +22,9 @@ Why dual characterization?
 `orfs_macro()` in bazel-orfs carries two Liberty files through its OrfsInfo
 provider: `lib_pre_layout` (ideal-clock, used by parent synth/floorplan/place)
 and `lib` (propagated-clock, used from parent CTS on). They differ in the
-`min/max_clock_tree_path` arcs — the macro's internal clock-insertion latency.
-Both must be scaled, kept in lockstep, and re-exposed as an OrfsInfo-providing
+`min/max_clock_tree_path` arcs — the macro's internal clock-insertion latency,
+which the clock-to-Q and check arcs already contain (OpenSTA references them
+to the clock pin). Both must be scaled, kept in lockstep, and re-exposed as an OrfsInfo-providing
 target (`scaled_macro_lib` in scale_macro.bzl) or downstream synth silently
 drops back to ideal-clock accuracy. See bazel-orfs/private/rules.bzl.
 
@@ -492,20 +493,6 @@ def predict_leakage_pw(*, rows, bits, ports_key, kind, tech_nm):
     return per_bit_pw * rows * bits * PORT_AREA_FACTOR.get(ports_key, 1.0)
 
 
-def predict_post_cts_ck_insertion_ps(tech_nm, kind):
-    """Typical on-macro clock-tree insertion latency.
-
-    SRAM macros run a small internal CTS during their own physical design;
-    observed latencies scale roughly linearly with the technology node.
-    At 45 nm, ~500 ps is a typical mid-size SRAM figure; we use a
-    proportional scale. Flop-based memories have no internal CTS —
-    the parent clock tree drives each flop directly.
-    """
-    if kind == "ff":
-        return 0.0
-    return 500.0 * (tech_nm / 45.0)
-
-
 def _predict_outline(area_um2, rows, bits):
     """Aspect-ratio-respecting outline picking (width, height) for area.
 
@@ -592,8 +579,6 @@ def predict_idiomatic(role, tech_nm=DEFAULT_TECH_NM):
         setup_ps=predict_setup_ps(tech_nm),
         hold_ps=predict_hold_ps(tech_nm),
         transition_ps=predict_transition_ps(tech_nm),
-        pre_layout_ck_insertion_ps=0.0,
-        post_cts_ck_insertion_ps=predict_post_cts_ck_insertion_ps(tech_nm, kind),
         read_energy_fj=read_fj,
         write_energy_fj=write_fj,
         leakage_pw=leakage_pw,
@@ -910,6 +895,90 @@ def _parse_time_unit(text):
         return 1e-9  # Liberty default
     val, unit = float(m.group(1)), m.group(2)
     return val * {"ps": 1e-12, "ns": 1e-9, "us": 1e-6}[unit]
+
+
+_TIMING_GROUP_RE = re.compile(r"\btiming\s*\(\s*\)\s*\{")
+_PIN_GROUP_RE = re.compile(r'\b(?:pin|bus)\s*\(\s*"?([^")\s]+)"?\s*\)\s*\{')
+_DELAY_TABLES = frozenset({"cell_rise", "cell_fall"})
+_CLOCK_TO_Q_TYPES = frozenset({"rising_edge", "falling_edge"})
+
+
+def _clock_pin_delays(text):
+    """Return ({clock_pin: max clock_tree_path}, {clock_pin: min clock-to-Q}).
+
+    Walks with brace depth: a clock_tree_path arc sits in its clock pin's
+    group, a clock-to-Q arc in its output pin's group naming the clock as
+    related_pin. Only cell_rise/cell_fall values count; a values() table
+    may span lines.
+    """
+    tree = {}
+    to_q = {}
+    depth = 0
+    pins = []  # (name, depth inside the group)
+    timing = None  # dict for the open timing() group
+    table = None
+    in_values = False
+    for line in text.splitlines():
+        m = _PIN_GROUP_RE.search(line)
+        if m:
+            pins.append((m.group(1), depth + line.count("{")))
+        if _TIMING_GROUP_RE.search(line):
+            timing = dict(depth=depth + 1, type=None, related=None, values=[])
+        if timing is not None:
+            m = re.search(r"\btiming_type\s*:\s*(\w+)", line)
+            if m:
+                timing["type"] = m.group(1)
+            m = re.search(r'\brelated_pin\s*:\s*"?([^";\s]+)', line)
+            if m:
+                timing["related"] = m.group(1)
+            m = re.search(r"\b(\w+)\s*\([^)]*\)\s*\{", line)
+            if m and not _TIMING_GROUP_RE.search(line):
+                table = m.group(1)
+            if re.search(r"\bvalues\s*\(", line):
+                in_values = True
+            if in_values and table in _DELAY_TABLES:
+                for quoted in re.findall(r'"([^"]*)"', line):
+                    timing["values"] += [
+                        float(v)
+                        for v in re.findall(r"-?[\d.]+(?:[eE][+-]?\d+)?", quoted)
+                    ]
+            if in_values and ")" in line.split("values", 1)[-1]:
+                in_values = False
+        depth += line.count("{") - line.count("}")
+        if timing is not None and depth < timing["depth"]:
+            values = timing["values"]
+            if values and timing["type"] in _CLOCK_TREE_TYPES and pins:
+                pin = pins[-1][0]
+                tree[pin] = max(tree.get(pin, values[0]), max(values))
+            elif values and timing["type"] in _CLOCK_TO_Q_TYPES:
+                pin = timing["related"]
+                to_q[pin] = min(to_q.get(pin, values[0]), min(values))
+            timing = None
+            table = None
+        elif timing is not None and depth == timing["depth"]:
+            table = None
+        pins = [(n, d) for n, d in pins if d <= depth]
+    return tree, to_q
+
+
+def check_clock_tree_path_inside_arcs(text):
+    """Raise ValueError if a clock pin's clock_tree_path exceeds its clock-to-Q.
+
+    OpenSTA's clock-to-Q and check arcs are referenced to the clock pin
+    and contain the macro's internal clock tree; min/max_clock_tree_path
+    says how much of them it is. CTS clocks the pin early by that much,
+    and under an ideal clock STA subtracts it from the arcs. A tree longer
+    than the fastest clock-to-Q it is inside of is a lib that contradicts
+    itself, and its macro launches early into a hold race.
+    """
+    tree, to_q = _clock_pin_delays(text)
+    for pin, delay in sorted(tree.items()):
+        if pin in to_q and delay > to_q[pin]:
+            raise ValueError(
+                f"clock pin {pin}: max clock_tree_path {delay:g} exceeds the "
+                f"fastest clock-to-Q {to_q[pin]:g} referenced to it; the "
+                "clock-to-Q arcs must contain the internal clock tree"
+            )
 
 
 def compute_timing_scale(role, bucket, reference_text):
@@ -1281,7 +1350,6 @@ def generate_lib(role, tech_nm=DEFAULT_TECH_NM):
     setup_ns = bucket["setup_ps"] / 1000.0
     hold_ns = bucket["hold_ps"] / 1000.0
     trans_ns = bucket["transition_ps"] / 1000.0
-    post_cts_ck_ns = bucket["post_cts_ck_insertion_ps"] / 1000.0
     area = bucket.get("width_um", 10.0) * bucket.get("height_um", 10.0)
     leak_uw = bucket["leakage_pw"] * 1e-6  # pW → µW for Liberty default units
     read_e = bucket[
@@ -1388,12 +1456,11 @@ def generate_lib(role, tech_nm=DEFAULT_TECH_NM):
         _scalar_block(a, "        ", "rise_power", avg_edge_fj)
         _scalar_block(a, "        ", "fall_power", avg_edge_fj)
         a("      }")
-        for ttype in ("min_clock_tree_path", "max_clock_tree_path"):
-            a("      timing() {")
-            a(f"        timing_type : {ttype};")
-            _scalar_block(a, "        ", "cell_rise", post_cts_ck_ns)
-            _scalar_block(a, "        ", "cell_fall", post_cts_ck_ns)
-            a("      }")
+        # No min/max_clock_tree_path: OpenSTA and CTS read it as delay
+        # already inside the clock-to-Q and check arcs, and access_ns is
+        # a pin-to-pin figure with no internal tree split out of it.
+        # Claiming one makes CTS clock the macro early by that much and
+        # its reads race into the next register.
         a("    }")
 
         # Pure-R ports with async read have no clock-referenced timing
@@ -1765,17 +1832,17 @@ def scale_reference(
 
     Single-input mode (place-stage macros): when lib_pre_layout_text is None
     but emit_pre_layout is True, the scaler synthesizes the pre-layout output
-    from lib_post_cts_text by rewriting the clock-insertion arcs to the
-    idiomatic pre-layout value (0 ps). This is correct because
-    scale_reference() overwrites min/max_clock_tree_path with absolute values
-    from the idiomatic table regardless of the input's values — the input
-    ck-insertion arcs are not load-bearing. In practice this is the case
+    from lib_post_cts_text by rewriting the clock-insertion arcs to 0 ps.
+    Otherwise min/max_clock_tree_path scale with the data arcs: they are
+    load-bearing, since OpenSTA and CTS take them as delay already inside
+    the clock-to-Q and check arcs. In practice single-input mode is the case
     when the source macro's orfs_flow uses abstract_stage = "place"
     (bazel-orfs doesn't auto-emit a pre_layout sibling for those;
     see bazel-orfs/private/flow.bzl _emit_pre_layout_abstract).
 
     Raises ValueError if two .libs are supplied and disagree about
-    library/cell name.
+    library/cell name, or if a scaled .lib claims more clock-tree delay
+    than its clock-to-Q (check_clock_tree_path_inside_arcs).
     """
     role = classify(lib_post_cts_text)
     bucket, warning = lookup_idiomatic(role)
@@ -1794,27 +1861,20 @@ def scale_reference(
         else compute_timing_scale(role, bucket, lib_post_cts_text)
     )
 
-    post_ck = bucket["post_cts_ck_insertion_ps"] if bucket else None
-    pre_ck = bucket["pre_layout_ck_insertion_ps"] if bucket else None
+    # The clock-tree arcs scale with the data arcs that contain them, so
+    # a consistent reference stays consistent.
+    scaled_post = scale_lib_text(lib_post_cts_text, timing_scale=timing_scale)
+    check_clock_tree_path_inside_arcs(scaled_post)
 
-    scaled_post = scale_lib_text(
-        lib_post_cts_text,
-        timing_scale=timing_scale,
-        ck_insertion_ps=post_ck,
-    )
-
-    pre_source = lib_pre_layout_text
-    if pre_source is None and emit_pre_layout:
-        pre_source = lib_post_cts_text
-    scaled_pre = (
-        scale_lib_text(
-            pre_source,
-            timing_scale=timing_scale,
-            ck_insertion_ps=pre_ck,
+    scaled_pre = None
+    if lib_pre_layout_text is not None:
+        scaled_pre = scale_lib_text(lib_pre_layout_text, timing_scale=timing_scale)
+    elif emit_pre_layout:
+        scaled_pre = scale_lib_text(
+            lib_post_cts_text, timing_scale=timing_scale, ck_insertion_ps=0.0
         )
-        if pre_source is not None
-        else None
-    )
+    if scaled_pre is not None:
+        check_clock_tree_path_inside_arcs(scaled_pre)
     scaled_lef = rewrite_lef(lef_text, role, bucket)
     return scaled_post, scaled_pre, scaled_lef, role, bucket, warning
 
@@ -1860,13 +1920,11 @@ def generate_abstracts_from_verilog(
         roles = {n: r for n, r in roles.items() if n in module_filter}
     for name, role in roles.items():
         lib_text = generate_lib(role, tech_nm=tech_nm)
-        # Pre-layout = ideal-clock version of the same .lib (ck_insertion=0).
-        pre_layout_text = scale_lib_text(
-            lib_text, timing_scale=1.0, ck_insertion_ps=0.0
-        )
+        check_clock_tree_path_inside_arcs(lib_text)
         lef_text = generate_lef(role, tech_nm=tech_nm)
         (out_dir / f"{name}.lib").write_text(lib_text)
-        (out_dir / f"{name}_pre_layout.lib").write_text(pre_layout_text)
+        # Ideal and propagated views are the same: no internal clock tree.
+        (out_dir / f"{name}_pre_layout.lib").write_text(lib_text)
         (out_dir / f"{name}.lef").write_text(lef_text)
     return roles
 
