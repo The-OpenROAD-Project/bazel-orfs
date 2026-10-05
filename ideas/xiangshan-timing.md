@@ -1328,19 +1328,27 @@ Two placement-repair settings, measured against row 9:
   block's place-stage number.
 
 Where the parent's period sits, from a census of its 200 worst paths at
-zero wire (every RC at 1e-6) on main fd71f5d1, before #1157, so the
-blocks' abstracts timed their memories as black boxes; to be re-run:
+zero wire (every RC at 1e-6) on KPI row 11's build: the memories timed
+(#1157), the mocked plan (#1170), the blocks repairing after CTS (#1171):
 
-- 2,039 ps at zero wire against 3,042 ps routed then: about a third of
-  the period is wire and its repeaters.
-- The parent's own logic is 149 ps a path, about 10 FO4; repeaters 253 ps.
-- The launching block's own arc is 968 ps a path on average. MemBlock
-  launches 111 of the 200 paths, with 1,711 ps of each inside its
-  abstract, most of them `io_mem_to_ooo_ldCancel` into the integer
-  region.
+- 2,383 ps at zero wire against 3,256 ps routed: about a quarter of the
+  period is wire and its repeaters (323 ps of repeaters a path).
+- All 200 launch at a parent flop, CtrlBlock's
+  `s1_robFlushRedirect_valid_last_REG`, and cross a block input to
+  output: 1,866 ps of each path is inside block arcs. The parent's own
+  logic is 71 ps a path.
+- The worst crosses two blocks in series: the flush into
+  VecRegionModule (`in_flush_bits_robIdx`) and out as a read enable to
+  FltRegionModule, 751 ps inside VecRegionModule; then FltRegionModule's
+  FP register file read out to the integer region
+  (`out_toIntRegion_fpRfRdataOut`), 1,161 ps inside FltRegionModule.
+  128 of the 200 end in the integer region, 72 in VecRegionModule.
 
-So the parent's floor is inside the blocks' boundary paths, not in its
-own logic or its floorplan's area (entry 42).
+An earlier census, before #1157, had MemBlock launching 111 of the 200;
+with the memories timed and the blocks repaired, that is gone. The
+parent's floor is in combinational paths through the two regions, not in
+its own logic or its floorplan's area (entry 42): dissolving them into
+the parent is the direct test.
 
 A single run of the parent carries several percent of noise: the density
 sweep's 0.45 and 0.6 points (entry 42) are 3,766 and 3,537 ps, the
