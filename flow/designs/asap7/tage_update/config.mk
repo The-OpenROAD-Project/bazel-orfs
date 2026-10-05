@@ -20,9 +20,10 @@ export ASAP7_USE_VT           = RVT LVT SLVT
 
 export CORE_UTILIZATION       = 30
 export CORE_MARGIN            = 2
-# Channels between macros, as tinyRocket keeps them: room for the power
-# grid to reach every SRAM.
-export RTLMP_MIN_CHANNEL_SIZE = 8 8
+
+# The full metal stack, as XiangShan's own configs route: asap7's power
+# grid uses M1, M2, M5 and M6 only, so M8 and M9 are free for signals.
+export MAX_ROUTING_LAYER      = M9
 
 # A ladder, FLOW_VARIANT=small|medium|large: small to iterate on, large
 # at the size of XiangShan's TAGE and main BTB. base, ORFS's default

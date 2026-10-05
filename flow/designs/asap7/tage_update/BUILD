@@ -6,11 +6,11 @@ load("@bazel-orfs//:openroad.bzl", "odb_debug")
 # README.md and the sources.
 load("@bazel_orfs_test_designs//:designs.bzl", "design")
 load("@rules_python//python:py_test.bzl", "py_test")
-load(":ladder.bzl", "ladder")
+load(":arms.bzl", "ladder_and_arms")
 
 design(
     config = "config.mk",
-    extra = ladder,
+    extra = ladder_and_arms,
 )
 
 py_test(
