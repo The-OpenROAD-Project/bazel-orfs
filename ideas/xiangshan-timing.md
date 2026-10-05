@@ -1211,7 +1211,7 @@ blocks' own periods are unchanged throughout (2,170 / 1,870 / 1,591 /
   percent of noise; neither is close to the gate either way.
 
 The parent's period is not in its floorplan area. At zero wire its own
-logic is about 10 FO4 a path (entry 40); the rest is repeaters and the
+logic is about 10 FO4 a path (entry 44); the rest is repeaters and the
 blocks' arcs. Revisit when the blocks' own densities are tuned up: then
 their real outlines shrink, and the question is whether the parent's
 channels, not its die, need the freed space.
@@ -1272,6 +1272,65 @@ What it cost to find out, and what to do first next time:
   CTS after a finished build; the cause is not found yet.
 - 62 GB with 126 GB of swap runs the parent's 91 GiB global route; a
   peak above physical memory is not a reason to move machines.
+
+## 44. With the memories timed: the baseline, and the blocks' only timing repair
+
+KPI row 9 (#1158) is the first row with the generated memories timed in
+every stage (#1157, entry 43), on main d4e62b4f; the blocks at their own
+place stage, the parent at global route:
+
+| part | row 8 (memories untimed) | row 9 (memories timed) |
+|---|---:|---:|
+| parent, the design's period | 3,860 ps | 3,330 ps |
+| Frontend | 1,541 ps | 2,170 ps |
+| MemBlock | 2,057 ps | 1,870 ps |
+| CoupledL2 | 2,222 ps | 1,591 ps |
+| VecRegionModule | 1,247 ps | 1,386 ps |
+| FltRegionModule | 814 ps | 900 ps |
+
+The rows are not like for like: between them came #1150 (the parent's
+CTS balancing the blocks' trees) and two bumps, and before row 9 the flow
+neither reported nor optimized paths through a memory, so a block can
+move either way. Parent global route: 17.5 min, 93 GB, 17.9 % congestion.
+
+Two placement-repair settings, measured against row 9:
+
+| change | result |
+|---|---|
+| parent `GPL_KEEP_OVERFLOW` 0 to 0.3, OpenROAD #6165's choice | place 3 h 50 min against about 2 h; global route at 118 GB with 1 GB free after 34 min, stopped; no period |
+| every planned block's `GPL_KEEP_OVERFLOW` 1 to 0, as the parent (#1143) | at place: Frontend 4,234 ps, CoupledL2 2,433, VecRegionModule 2,129, FltRegionModule 900 to 1,539; stopped before the parent |
+
+- 0.3 does not dominate on the parent: it costs time and memory before
+  it can show a period, and the parent stays at 0.
+- Kept repair is the blocks' only timing repair: `_planned_block` sets
+  `SKIP_CTS_REPAIR_TIMING=1`, so dropping global placement's repair
+  leaves a block with none. The parent could drop it because it repairs
+  after CTS (#1144). Entry 43's CoupledL2 row (1,128 to 1,374 ps at its
+  global route) is the same effect. Before removing a repair, list the
+  flow's other repairs.
+- The next arm follows from that: the blocks repair after CTS. Their
+  abstracts are cut at CTS, so it shows in the parent's period, not in a
+  block's place-stage number.
+
+Where the parent's period sits, from a census of its 200 worst paths at
+zero wire (every RC at 1e-6) on main fd71f5d1, before #1157, so the
+blocks' abstracts timed their memories as black boxes; to be re-run:
+
+- 2,039 ps at zero wire against 3,042 ps routed then: about a third of
+  the period is wire and its repeaters.
+- The parent's own logic is 149 ps a path, about 10 FO4; repeaters 253 ps.
+- The launching block's own arc is 968 ps a path on average. MemBlock
+  launches 111 of the 200 paths, with 1,711 ps of each inside its
+  abstract, most of them `io_mem_to_ooo_ldCancel` into the integer
+  region.
+
+So the parent's floor is inside the blocks' boundary paths, not in its
+own logic or floorplan (entry 42).
+
+A single run of the parent carries several percent of noise: the density
+sweep's 0.45 and 0.6 points (entry 42) are 3,766 and 3,537 ps, the
+smaller die faster. An arm within a few percent of the 2 % gate gets a
+second run before it counts.
 
 ## Method notes
 
