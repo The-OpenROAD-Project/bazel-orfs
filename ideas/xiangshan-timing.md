@@ -1273,6 +1273,20 @@ What it cost to find out, and what to do first next time:
 - 62 GB with 126 GB of swap runs the parent's 91 GiB global route; a
   peak above physical memory is not a reason to move machines.
 
+#1146 (draft, closed; branch `ideas/coupledl2-full-design` kept) holds the
+write-up, with diagrams, in `test/coremark_joule/xstile_mock/README.md`.
+It also holds a method and a plan that were not pursued:
+
+- A block is studied inside a mock of its real parent, flattened into it,
+  never cut out, so that its boundary is the tile's. A problem counts as
+  reproduced when its signature shows at global route, not when a period
+  matches.
+- CoupledL2's generated Verilog flattened into a mock XSTile, built with
+  plain ORFS. Readable SystemVerilog would be written from the Chisel's
+  intent and proven equivalent to the generated Verilog module by module
+  by LEC. The folder is a small Bazel module that regenerates the Verilog
+  and runs that proof, as a certificate, not a tool.
+
 ## 44. With the memories timed: the baseline, and the blocks' only timing repair
 
 KPI row 9 (#1158) is the first row with the generated memories timed in
