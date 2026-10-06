@@ -93,6 +93,27 @@ struct Spec {
   // other, each with its own copy of the word decode; the last band is
   // short when the folds do not divide. Banks fold words; this folds bits.
   int bit_folds = 1;
+  // Read latency in cycles: 0 reads combinationally from the address
+  // ports; 1 registers each read address on the clock first, the way
+  // firtool writes a Chisel register file read through RegNext(addr)
+  // (XiangShan's IntRegFile, FpRegFile and VfRegFile). The macro
+  // replaces the whole module, so it has to carry that register.
+  int read_latency = 0;
+  // How words fall into banks: "contiguous" (bank n / words_per_bank,
+  // the default) or "interleaved" (bank n % banks, entry n / banks, as
+  // XiangShan's IntRegFile banks its read: bank k's entry l is word
+  // l * banks + k).
+  std::string bank_order = "contiguous";
+  // A word that is the constant zero and has no storage (RISC-V x0): it
+  // reads 0 and a write to it is dropped. -1 for none.
+  int zero_word = -1;
+  // Instance names of the flops, as patterns, so a flop carries the name
+  // of the RTL register bit it implements (an equivalence check matches
+  // sequential instances by name). {word} {bit} for the storage,
+  // {port} {bank} {bit} for a read address register. Empty keeps the
+  // generator's own names.
+  std::string store_name;
+  std::string read_reg_name;
   LibModel lib;
   // Pins: left and right edges on the horizontal layer, top and bottom on
   // the vertical one, centred on that layer's track grid as the platform

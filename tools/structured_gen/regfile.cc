@@ -43,6 +43,19 @@ int AddrBits(int words) {
   throw std::runtime_error(what);
 }
 
+// `pattern` with each `{key}` replaced by its value.
+std::string Fmt(std::string pattern,
+                const std::vector<std::pair<std::string, int>>& values) {
+  for (const auto& [key, value] : values) {
+    const std::string k = "{" + key + "}";
+    for (size_t at = pattern.find(k); at != std::string::npos;
+         at = pattern.find(k, at)) {
+      pattern.replace(at, k.size(), std::to_string(value));
+    }
+  }
+  return pattern;
+}
+
 // The pins of each cell kind, asap7's names by default; a spec may
 // override them with `pins <kind> <name>...` in the same order.
 struct Pins {
@@ -289,6 +302,13 @@ dbBlock* Builder::Run() {
   }
   const int words_per_bank = s.words / banks;
   const int A_bank = AddrBits(words_per_bank);
+  const bool interleaved = s.bank_order == "interleaved";
+  auto bank_of = [&](int n) { return interleaved ? n % banks : n / words_per_bank; };
+  auto local_of = [&](int n) { return interleaved ? n / banks : n % words_per_bank; };
+  if (s.zero_word >= s.words || (s.zero_word >= 0 && words_per_bank < 2)) {
+    Refuse("zero_word " + std::to_string(s.zero_word) +
+           " is not a word of a bank that keeps another");
+  }
   // Banks in a grid: bank k stands in column k % bank_cols, bank row
   // k / bank_cols, bank rows stacked upward from the footer.
   const int bank_cols = s.bank_columns > 0 ? s.bank_columns : banks;
@@ -421,13 +441,23 @@ dbBlock* Builder::Run() {
   for (int r = 0; r < R; ++r) {
     plain_reads += s.read[r].banked() ? 0 : 1;
   }
-  // Address inverters: one row band above the array.
-  const int inv_rows = 1;
   // Footer: (banks-1) OR2 per read port per bit, as many rows as it takes.
   const int core_w = bank_cols * bank_w;
   const int footer_cells_w =
       banks > 1 ? (banks - 1) * plain_reads * s.bits * static_cast<int>(or2_->getWidth()) : 0;
   const int footer_rows = footer_cells_w > 0 ? (footer_cells_w + core_w - 1) / core_w + 1 : 0;
+  // The address band above the array: an inverter per address literal,
+  // and with a read latency a flop ahead of each read one, each cell with
+  // a spare site after it; as many rows as that takes.
+  int read_addr_bits = 0;
+  for (int r = 0; r < R; ++r) {
+    read_addr_bits += s.read[r].banked() ? banks * A_bank : A;
+  }
+  const int inv_cell_w = static_cast<int>(inv_->getWidth()) + site_w_;
+  const int reg_cell_w =
+      s.read_latency > 0 ? static_cast<int>(flop_->getWidth()) + site_w_ : 0;
+  const int band_w = read_addr_bits * (inv_cell_w + reg_cell_w) + W * A * inv_cell_w;
+  const int inv_rows = std::max(1, (band_w + core_w - 1) / core_w);
   const int total_rows = footer_rows + bank_rows * bank_h_rows + inv_rows;
 
   // Core at a site multiple in from the die so a parent's ring fits.
@@ -459,16 +489,46 @@ dbBlock* Builder::Run() {
   std::vector<std::vector<dbNet*>> waddr_n(W);
   {
     Cursor c{total_rows - 1, 0};
+    // A cell and its spare site, on the next band row down if this one
+    // is full.
+    auto band = [&](dbMaster* m, const std::string& name,
+                    const std::vector<std::pair<std::string, dbNet*>>& conns) {
+      if (c.x + static_cast<int>(m->getWidth()) > core_w) {
+        c = Cursor{c.row - 1, 0};
+      }
+      Place(c, m, name, conns)->setPlacementStatus(odb::dbPlacementStatus::PLACED);
+      c.x += site_w_;
+    };
     for (int r = 0; r < R; ++r) {
       raddr_n[r].resize(raddr[r].size());
       for (size_t k = 0; k < raddr[r].size(); ++k) {
         for (size_t i = 0; i < raddr[r][k].size(); ++i) {
-          dbNet* y = Net("rd" + std::to_string(r) + "_k" + std::to_string(k) +
-                         "_na" + std::to_string(i));
-          Place(c, inv_, y->getName(),
-                {{g_pins.inv[0], raddr[r][k][i]}, {g_pins.inv[1], y}})
-              ->setPlacementStatus(odb::dbPlacementStatus::PLACED);
-          c.x += site_w_;
+          const std::string base = "rd" + std::to_string(r) + "_k" +
+                                   std::to_string(k);
+          if (s.read_latency > 0) {
+            // The registered address: the flop's QN is the inverted
+            // literal, one inverter gives the true one (the other way
+            // round for a Q flop). The decode reads only these.
+            const std::string reg =
+                s.read_reg_name.empty()
+                    ? base + "_areg" + std::to_string(i)
+                    : Fmt(s.read_reg_name, {{"port", r},
+                                            {"bank", static_cast<int>(k)},
+                                            {"bit", static_cast<int>(i)}});
+            dbNet* out = Net(base + "_aq" + std::to_string(i));
+            band(flop_, reg,
+                 {{g_pins.flop[0], raddr[r][k][i]},
+                  {g_pins.flop[1], clock},
+                  {g_pins.flop[2], out}});
+            dbNet* other = Net(base + "_ai" + std::to_string(i));
+            band(inv_, other->getName(), {{g_pins.inv[0], out}, {g_pins.inv[1], other}});
+            raddr[r][k][i] = g_pins.flop_inverted ? other : out;
+            raddr_n[r][k].push_back(g_pins.flop_inverted ? out : other);
+            continue;
+          }
+          dbNet* y = Net(base + "_na" + std::to_string(i));
+          band(inv_, y->getName(),
+               {{g_pins.inv[0], raddr[r][k][i]}, {g_pins.inv[1], y}});
           raddr_n[r][k].push_back(y);
         }
       }
@@ -476,12 +536,12 @@ dbBlock* Builder::Run() {
     for (int w = 0; w < W; ++w) {
       for (int i = 0; i < A; ++i) {
         dbNet* y = Net("wr" + std::to_string(w) + "_na" + std::to_string(i));
-        Place(c, inv_, y->getName(),
-              {{g_pins.inv[0], waddr[w][i]}, {g_pins.inv[1], y}})
-            ->setPlacementStatus(odb::dbPlacementStatus::PLACED);
-        c.x += site_w_;
+        band(inv_, y->getName(), {{g_pins.inv[0], waddr[w][i]}, {g_pins.inv[1], y}});
         waddr_n[w].push_back(y);
       }
+    }
+    if (c.row < total_rows - inv_rows) {
+      Refuse("address band overflow: widen the band estimate");
     }
   }
 
@@ -494,6 +554,9 @@ dbBlock* Builder::Run() {
   // Read OR-tree leaves per (r, b): the AND outputs down the column.
   std::vector<std::vector<std::vector<dbNet*>>> leaves(
       R, std::vector<std::vector<dbNet*>>(s.bits));
+  // The word each leaf reads, for its bank and the tile its OR node sits in.
+  std::vector<std::vector<std::vector<int>>> leaf_word(
+      R, std::vector<std::vector<int>>(s.bits));
   tiles_.assign(static_cast<size_t>(s.words) * s.bits, Tile{});
 
   auto literals = [&](const std::vector<dbNet*>& a,
@@ -507,9 +570,12 @@ dbBlock* Builder::Run() {
 
   for (int f = 0; f < folds; ++f)
   for (int n = 0; n < s.words; ++n) {
-    const int bank = n / words_per_bank;
+    if (n == s.zero_word) {
+      continue;  // no storage, no selects: it reads 0, a write is dropped
+    }
+    const int bank = bank_of(n);
     const int row0 = footer_rows + (bank / bank_cols) * bank_h_rows +
-                     f * band_h_rows + (n % words_per_bank) * rows_per_word;
+                     f * band_h_rows + local_of(n) * rows_per_word;
     const int bank_x0 = (bank % bank_cols) * bank_w;
     // Header column, spread over this word's rows.
     std::vector<Cursor> hc;
@@ -524,7 +590,7 @@ dbBlock* Builder::Run() {
       rsel[r][n] = Decode(hcur(), wn + "_rsel" + std::to_string(r),
                           literals(raddr[r][banked ? bank : 0],
                                    raddr_n[r][banked ? bank : 0],
-                                   banked ? n % words_per_bank : n));
+                                   banked ? local_of(n) : n));
     }
     std::vector<dbNet*> wsels;
     for (int w = 0; w < W; ++w) {
@@ -575,7 +641,9 @@ dbBlock* Builder::Run() {
       dbNet* d = Net(tn + "_d");
       dbNet* qn = Net(tn + "_qn");
       dbNet* q = g_pins.flop_inverted ? Net(tn + "_q") : qn;
-      Place(tcur(), flop_, tn + "_ff",
+      Place(tcur(), flop_,
+            s.store_name.empty() ? tn + "_ff"
+                                 : Fmt(s.store_name, {{"word", n}, {"bit", b}}),
             {{g_pins.flop[0], d}, {g_pins.flop[1], clock}, {g_pins.flop[2], qn}});
       if (g_pins.flop_inverted) {
         Place(tcur(), inv_, tn + "_qinv", {{g_pins.inv[0], qn}, {g_pins.inv[1], q}});
@@ -627,6 +695,7 @@ dbBlock* Builder::Run() {
               {{g_pins.and2[0], rsel[r][n]}, {g_pins.and2[1], q},
                {g_pins.and2[2], y}});
         leaves[r][b].push_back(y);
+        leaf_word[r][b].push_back(n);
       }
       // Keep the row cursors: the read OR trees fill the tile's leftover.
       tiles_[static_cast<size_t>(n) * s.bits + b] = Tile{tc, x + tile_w};
@@ -647,13 +716,19 @@ dbBlock* Builder::Run() {
       std::string prefix = "rd" + std::to_string(r) + "_b" + std::to_string(b);
       std::vector<dbNet*> bank_roots;
       for (int k = 0; k < banks; ++k) {
-        std::vector<dbNet*> bank_leaves(
-            leaves[r][b].begin() + k * words_per_bank,
-            leaves[r][b].begin() + (k + 1) * words_per_bank);
+        // The bank's words in entry order; ascending words keep it.
+        std::vector<dbNet*> bank_leaves;
+        std::vector<int> bank_words;
+        for (size_t i = 0; i < leaves[r][b].size(); ++i) {
+          if (bank_of(leaf_word[r][b][i]) == k) {
+            bank_leaves.push_back(leaves[r][b][i]);
+            bank_words.push_back(leaf_word[r][b][i]);
+          }
+        }
         bank_roots.push_back(OrTree(
             prefix + "_k" + std::to_string(k), bank_leaves,
             [&](int lo, int hi) -> Cursor& {
-              int n = k * words_per_bank + (lo + hi) / 2;
+              int n = bank_words[(lo + hi) / 2];
               return Least(tiles_[n * s.bits + b].rows);
             }));
       }
@@ -914,6 +989,28 @@ Spec ReadSpec(const std::string& path) {
     } else if (key == "bit_folds") {
       need(1);
       s.bit_folds = std::stoi(v[0]);
+    } else if (key == "read_latency") {
+      need(1);
+      if (v[0] != "0" && v[0] != "1") {
+        Refuse(path + ":" + std::to_string(lineno) + ": read_latency is 0 or 1");
+      }
+      s.read_latency = std::stoi(v[0]);
+    } else if (key == "bank_order") {
+      need(1);
+      if (v[0] != "contiguous" && v[0] != "interleaved") {
+        Refuse(path + ":" + std::to_string(lineno) +
+               ": bank_order is contiguous or interleaved");
+      }
+      s.bank_order = v[0];
+    } else if (key == "zero_word") {
+      need(1);
+      s.zero_word = std::stoi(v[0]);
+    } else if (key == "store_name") {
+      need(1);
+      s.store_name = v[0];
+    } else if (key == "read_reg_name") {
+      need(1);
+      s.read_reg_name = v[0];
     } else if (key == "lib") {
       need(2);
       double x = std::stod(v[1]);

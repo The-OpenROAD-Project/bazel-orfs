@@ -72,6 +72,29 @@ Read path: address inverters, an AND2 tree over the literals, the tile's
 AND2, and log2(words) OR2 levels. For 256 words that is about twelve
 gate levels.
 
+The macro replaces the RTL module whole, so it has to do what the module
+does, not only hold the same bits. Three things a Chisel register file
+does are stated in the spec:
+
+- `read_latency 1`: the RTL registers each read address and reads from
+  the register (firtool's `io_readPorts_<n>_data_REG`, XiangShan's
+  IntRegFile, FpRegFile and VfRegFile). A flop on each read address bit
+  in the address band feeds the decode; the model liberty times the
+  address against the clock and the data from it. `read_latency 0`, the
+  default, reads straight from the address ports (RobEntryFile,
+  RenameBufferFile, the Ftq queues).
+- `bank_order interleaved`: a banked read's bank k holds words
+  k, k + banks, k + 2 * banks, ... (IntRegFile), not a contiguous block.
+- `zero_word 0`: word 0 has no storage; it reads zero and a write to it
+  is dropped (RISC-V x0).
+
+`store_name` and `read_reg_name` name the flops after the RTL register
+bits they hold (`mem_{word}[{bit}]`, `io_readPorts_{port}_data_REG[{bit}]`),
+which is how an equivalence check pairs them. `//test/structured_gen_lec`
+checks each shape against yosys's synthesis of the RTL with kepler-formal,
+small, on fixtures that are firtool's text token for token at XiangShan's
+sizes.
+
 ## The spec
 
 A small `key value` file. A spec is complete or refused with the line
@@ -98,6 +121,11 @@ service_sites   40
 banks           4
 bank_columns    2           # two banks wide, two tall
 bit_folds       1           # the word in one band
+read_latency    1           # the RTL registers each read address
+bank_order      interleaved # a banked read's bank k: words k, k+banks, ...
+zero_word       0           # word 0 reads zero and has no storage
+store_name      mem_{word}[{bit}]
+read_reg_name   io_readPorts_{port}_data_REG[{bit}]
 mode            macro       # or netlist: the flow drops the placed cells
                             # into the parent's rows instead of a macro
 ```

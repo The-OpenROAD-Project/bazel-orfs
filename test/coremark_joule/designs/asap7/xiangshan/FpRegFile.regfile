@@ -30,6 +30,11 @@ write io_writePorts_3_addr io_writePorts_3_data io_writePorts_3_wen
 write io_writePorts_4_addr io_writePorts_4_data io_writePorts_4_wen
 write io_writePorts_5_addr io_writePorts_5_data io_writePorts_5_wen
 write io_writePorts_6_addr io_writePorts_6_data io_writePorts_6_wen
+# The RTL registers each read address (io_readPorts_N_data_REG) and
+# reads from the register; the flops carry the RTL's register names.
+read_latency 1
+store_name mem_{word}[{bit}]
+read_reg_name io_readPorts_{port}_data_REG[{bit}]
 cell flop DFFHQNx1_ASAP7_75t_R
 cell and2 AND2x2_ASAP7_75t_R
 cell or2 OR2x2_ASAP7_75t_R
