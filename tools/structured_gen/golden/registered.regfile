@@ -1,0 +1,21 @@
+# A registered read with the RTL's register names, as firtool writes
+# XiangShan's datapath register files; a reset port the array ignores.
+module GoldenRegistered
+mode netlist
+words 4
+bits 4
+clock clock
+reset reset
+read io_readPorts_0_addr io_readPorts_0_data
+read io_readPorts_1_addr io_readPorts_1_data
+write io_writePorts_0_addr io_writePorts_0_data io_writePorts_0_wen
+read_latency 1
+store_name mem_{word}[{bit}]
+read_reg_name io_readPorts_{port}_data_REG[{bit}]
+cell flop DFFHQNx1_ASAP7_75t_R
+cell and2 AND2x2_ASAP7_75t_R
+cell or2 OR2x2_ASAP7_75t_R
+cell ao22 AO22x2_ASAP7_75t_R
+cell inv INVx1_ASAP7_75t_R
+cell tap TAPCELL_ASAP7_75t_R
+pin_layer M4

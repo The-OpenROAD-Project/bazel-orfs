@@ -103,6 +103,10 @@ archive_override(
         # pull request carries a gtest. Retires at a bump onto an OpenROAD
         # that has it.
         "//patches:0004-openroad-dpl-window-supply.patch",
+        # 0010: generate_regfile in the ram module, a multi-port register
+        # file as placed standard cells (bazel-orfs's structured_gen,
+        # moved). Not upstreamed.
+        "//patches:0010-openroad-ram-generate-regfile.patch",
     ],
     strip_prefix = "OpenROAD-444194f8753d34c1e5716d7593a28a00320b2fbf",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/444194f8753d34c1e5716d7593a28a00320b2fbf.tar.gz"],

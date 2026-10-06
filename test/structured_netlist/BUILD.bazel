@@ -82,3 +82,9 @@ array_scaffold(
     spec = XS_SPECS + "IntRegFile.regfile",
     width_um = 406.404,
 )
+
+# generate_regfile's golden case (tools/structured_gen:golden_test).
+exports_files(
+    ["SmallFile.regfile"],
+    visibility = ["//tools/structured_gen:__pkg__"],
+)

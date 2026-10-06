@@ -1,0 +1,21 @@
+# Banked and interleaved reads, a zero word (x0), banks stacked two by two.
+module GoldenBanked
+mode netlist
+words 16
+bits 3
+clock clock
+read io_r0_addr io_r0_data
+read_banked io_rb_addr_0 io_rb_data_0 io_rb_addr_1 io_rb_data_1 io_rb_addr_2 io_rb_data_2 io_rb_addr_3 io_rb_data_3
+write io_w0_addr io_w0_data io_w0_en
+write io_w1_addr io_w1_data
+cell flop DFFHQNx1_ASAP7_75t_R
+cell and2 AND2x2_ASAP7_75t_R
+cell or2 OR2x2_ASAP7_75t_R
+cell ao22 AO22x2_ASAP7_75t_R
+cell inv INVx1_ASAP7_75t_R
+cell tap TAPCELL_ASAP7_75t_R
+pin_layer M4
+banks 4
+bank_columns 2
+bank_order interleaved
+zero_word 0
