@@ -53,6 +53,22 @@ foreach p [get_ports -quiet reset] {
   set_false_path -from $p
 }
 
+# CoupledL2's data SRAMs are read over two cycles, as the RTL states:
+# XSCache's DataStorage.scala builds them with readMCP2 = true ("read
+# data is set MultiCycle Path 2 ... s3 read, s4 pass and s5 to
+# destination"), holds the request for two cycles and asserts that no
+# request follows another ("Continuous SRAM req prohibited under
+# MCP2!"). The constraint is the designers' contract, not an exception
+# made for a tool. It covers what the SRAM launches only: the request and
+# write data reach the SRAM at the next edge of its gated clock, one
+# cycle, and stay single-cycle paths. In the parent, where CoupledL2 is
+# a macro, nothing matches.
+foreach c [get_cells -quiet -hierarchical \
+             -filter "full_name =~ *dataStorage.array.*array_ext" *] {
+  set_multicycle_path -setup 2 -from $c
+  set_multicycle_path -hold 1 -from $c
+}
+
 # A fanout cap for the resizer. Without one, broadcast nets -- valids,
 # enables, decoded control -- come out of repair_design as long serial
 # repeater chains that global route then has to carry. 32 is a starting
