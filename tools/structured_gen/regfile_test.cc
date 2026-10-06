@@ -316,5 +316,47 @@ int main(int argc, char** argv) {
   CHECK(std::ifstream(odb_path).good());
   std::cout << "regfile_test: " << block->getInsts().size() << " instances, "
             << bterms << " ports, OK\n";
+  // Netlist mode: the core is FIRM, the periphery (address inverters, the
+  // words' decode and hold) is left unplaced for the parent's flow.
+  {
+    std::string nspec = dir + "/rf_netlist.spec";
+    {
+      std::ifstream in(spec_path);
+      std::ofstream out(nspec);
+      out << in.rdbuf() << "mode netlist\nmodule rf8x4n\n";
+    }
+    odb::dbDatabase* db2 = odb::dbDatabase::create();
+    db2->setLogger(&logger);
+    odb::lefin reader2(db2, &logger, false);
+    odb::dbTech* tech2 = reader2.createTech("asap7", tech_lef.c_str());
+    CHECK(reader2.createLib(tech2, "asap7sc7p5t", cell_lef.c_str()) != nullptr);
+    structured_gen::Spec ns = structured_gen::ReadSpec(nspec);
+    CHECK(ns.mode == "netlist");
+    odb::dbBlock* nb = structured_gen::Generate(db2, &logger, ns);
+    int unplaced = 0, firm = 0, decode_unplaced = 0;
+    for (odb::dbInst* inst : nb->getInsts()) {
+      const auto st = inst->getPlacementStatus();
+      CHECK(st == odb::dbPlacementStatus::FIRM ||
+            st == odb::dbPlacementStatus::UNPLACED);
+      if (st == odb::dbPlacementStatus::UNPLACED) {
+        ++unplaced;
+        const std::string n = inst->getName();
+        if (n.find("_wsel") != std::string::npos || n.find("_rsel") != std::string::npos ||
+            n.find("_hold") != std::string::npos || n.find("_anyw") != std::string::npos) {
+          ++decode_unplaced;
+        }
+        // nothing that stores a bit is left to the parent
+        CHECK(inst->getMaster()->getName() != "DFFHQNx1_ASAP7_75t_R");
+      } else {
+        ++firm;
+        const std::string n = inst->getName();
+        CHECK(n.find("_wsel") == std::string::npos && n.find("_rsel") == std::string::npos);
+        CHECK(n.find("_na") == std::string::npos);
+      }
+    }
+    CHECK(firm > 8 * 4);  // at least the flops
+    CHECK(decode_unplaced > 0 && unplaced > decode_unplaced);  // decode and inverters
+  }
+
   return 0;
 }
