@@ -870,6 +870,38 @@ dbBlock* Builder::Run() {
   // header column and the address band stay as free sites beside the core.
   // A macro is the generator's to the last cell and keeps its periphery.
   if (s.mode == "netlist") {
+    // The abstract a parent's macro placer sees before the block dissolves
+    // into its rows: each port's pin where its connections land, at the
+    // centroid of the cells on its net -- a write data bit over its
+    // column's write muxes, a read data bit at its bitline's root, an
+    // address among its inverters and decode. Edge pins would tell the
+    // placer's flips nothing about where the wires go; these pins are
+    // never routed, the block dissolves first.
+    std::vector<std::pair<dbBTerm*, std::pair<int, int>>> moves;
+    for (dbBTerm* t : block_->getBTerms()) {
+      dbNet* net = t->getNet();
+      if (net == nullptr) {
+        continue;
+      }
+      long long sx = 0, sy = 0;
+      int n = 0;
+      for (odb::dbITerm* it : net->getITerms()) {
+        const odb::Rect b = it->getInst()->getBBox()->getBox();
+        sx += b.xCenter();
+        sy += b.yCenter();
+        ++n;
+      }
+      if (n > 0) {
+        moves.push_back({t, {static_cast<int>(sx / n), static_cast<int>(sy / n)}});
+      }
+    }
+    for (auto& [t, xy] : moves) {
+      std::vector<odb::dbBPin*> old(t->getBPins().begin(), t->getBPins().end());
+      for (odb::dbBPin* bp : old) {
+        odb::dbBPin::destroy(bp);
+      }
+      Pin(t, layer_h_, xy.first, xy.second);
+    }
     for (dbInst* inst : periphery_insts_) {
       inst->setPlacementStatus(odb::dbPlacementStatus::UNPLACED);
     }

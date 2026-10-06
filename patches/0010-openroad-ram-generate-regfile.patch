@@ -1,4 +1,4 @@
-From 58f6524a69badf8298215b2d5e12e713cccd6394 Mon Sep 17 00:00:00 2001
+From 77f3ea9afd325cd6d3da426be71af9390132e08d Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Tue, 6 Oct 2026 15:07:02 +0200
 Subject: [PATCH] ram: generate_regfile, a multi-port register file as placed
@@ -10,12 +10,12 @@ Subject: [PATCH] ram: generate_regfile, a multi-port register file as placed
  src/ram/include/ram/regfile.h |   33 +
  src/ram/src/ram.i             |   12 +
  src/ram/src/ram.tcl           |   25 +
- src/ram/src/regfile.cpp       | 1144 +++++++++++++++++++++++++++++++++
- src/ram/src/regfile.h         |  143 +++++
- src/ram/src/regfile_cmd.cpp   |   72 +++
+ src/ram/src/regfile.cpp       | 1176 +++++++++++++++++++++++++++++++++
+ src/ram/src/regfile.h         |  143 ++++
+ src/ram/src/regfile_cmd.cpp   |   72 ++
  src/ram/src/views.cpp         |  407 ++++++++++++
  src/ram/src/views.h           |   58 ++
- 10 files changed, 1905 insertions(+)
+ 10 files changed, 1937 insertions(+)
  create mode 100644 src/ram/include/ram/regfile.h
  create mode 100644 src/ram/src/regfile.cpp
  create mode 100644 src/ram/src/regfile.h
@@ -174,10 +174,10 @@ index 4e58c50163..505b551342 100644
 +}
 diff --git a/src/ram/src/regfile.cpp b/src/ram/src/regfile.cpp
 new file mode 100644
-index 0000000000..0667ba77e9
+index 0000000000..189521df09
 --- /dev/null
 +++ b/src/ram/src/regfile.cpp
-@@ -0,0 +1,1144 @@
+@@ -0,0 +1,1176 @@
 +// structured_gen: a multi-port register file as a placed standard-cell
 +// macro, built directly in odb. See regfile.h and README.md.
 +#include "regfile.h"
@@ -1050,6 +1050,38 @@ index 0000000000..0667ba77e9
 +  // header column and the address band stay as free sites beside the core.
 +  // A macro is the generator's to the last cell and keeps its periphery.
 +  if (s.mode == "netlist") {
++    // The abstract a parent's macro placer sees before the block dissolves
++    // into its rows: each port's pin where its connections land, at the
++    // centroid of the cells on its net -- a write data bit over its
++    // column's write muxes, a read data bit at its bitline's root, an
++    // address among its inverters and decode. Edge pins would tell the
++    // placer's flips nothing about where the wires go; these pins are
++    // never routed, the block dissolves first.
++    std::vector<std::pair<dbBTerm*, std::pair<int, int>>> moves;
++    for (dbBTerm* t : block_->getBTerms()) {
++      dbNet* net = t->getNet();
++      if (net == nullptr) {
++        continue;
++      }
++      long long sx = 0, sy = 0;
++      int n = 0;
++      for (odb::dbITerm* it : net->getITerms()) {
++        const odb::Rect b = it->getInst()->getBBox()->getBox();
++        sx += b.xCenter();
++        sy += b.yCenter();
++        ++n;
++      }
++      if (n > 0) {
++        moves.push_back({t, {static_cast<int>(sx / n), static_cast<int>(sy / n)}});
++      }
++    }
++    for (auto& [t, xy] : moves) {
++      std::vector<odb::dbBPin*> old(t->getBPins().begin(), t->getBPins().end());
++      for (odb::dbBPin* bp : old) {
++        odb::dbBPin::destroy(bp);
++      }
++      Pin(t, layer_h_, xy.first, xy.second);
++    }
 +    for (dbInst* inst : periphery_insts_) {
 +      inst->setPlacementStatus(odb::dbPlacementStatus::UNPLACED);
 +    }

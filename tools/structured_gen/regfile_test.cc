@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <stdexcept>
 #include <string>
@@ -356,6 +357,25 @@ int main(int argc, char** argv) {
     }
     CHECK(firm > 8 * 4);  // at least the flops
     CHECK(decode_unplaced > 0 && unplaced > decode_unplaced);  // decode and inverters
+    // The abstract's pins sit where their connections land: a write data
+    // bit over the write muxes of its own column, every pin in the die.
+    for (int b = 0; b < 4; ++b) {
+      odb::dbBTerm* t = nb->findBTerm(("io_writePorts_0_data[" + std::to_string(b) + "]").c_str());
+      CHECK(t != nullptr && t->getBPins().size() == 1);
+      const odb::Rect pin = (*t->getBPins().begin())->getBBox();
+      int lo = std::numeric_limits<int>::max(), hi = std::numeric_limits<int>::min();
+      for (odb::dbITerm* it : t->getNet()->getITerms()) {
+        const odb::Rect c = it->getInst()->getBBox()->getBox();
+        lo = std::min(lo, c.xMin());
+        hi = std::max(hi, c.xMax());
+      }
+      CHECK(pin.xCenter() >= lo && pin.xCenter() <= hi);
+    }
+    for (odb::dbBTerm* t : nb->getBTerms()) {
+      for (odb::dbBPin* bp : t->getBPins()) {
+        CHECK(nb->getDieArea().contains(bp->getBBox()));
+      }
+    }
   }
 
   return 0;
