@@ -1236,19 +1236,28 @@ change at a time from the flow that made it, each at global route:
 
 - The detour needs the annealer, the plan's pins and global placement's
   kept repair (entry 40) together; either of the first two alone removes
-  it. Plain ORFS never makes it. There was nothing of CoupledL2's to
-  reproduce.
+  it. Plain ORFS never makes it. The 1,128 ps was not CoupledL2's.
 - Every bazel-orfs row above, and the XSTile rows below, timed the
   generated memories as black boxes from floorplan on: 0075 scoped
   `AUTO_MEMORIES` to synthesis, and `load.tcl` reads the memories' views
   only while it is set (fixed in #1157). The plain ORFS rows had their
   memories timed. The detour is geometric; the periods are not the
   design's.
-- In XSTile on main d4e62b4f, the same change, memories untimed: CoupledL2
-  1,321 to 1,008 ps at its place stage, the parent 3,299 to 3,229 ps, its
-  worst path in CtrlBlock (`decodeBufValid` to the store set table) in
-  both. With the memories timed (#1157, row 9) CoupledL2 with the annealer
-  is 1,591 ps; RTL-MP with the memories timed is not measured yet.
+- In XSTile, with the memories timed (main bf39d26d), RTL-MP does not
+  beat the annealer:
+
+  | XSTile, memories timed | annealer | RTL-MP for CoupledL2 |
+  |---|---:|---:|
+  | parent, reg2reg at global route | 3,330 ps | 3,328 ps |
+  | CoupledL2 at its place stage | 1,591 ps | 1,894 ps |
+
+  The parent's worst path, CtrlBlock's ROB flush into VecRegionModule's
+  floating-point read data, is the same in both. CoupledL2's worst is
+  MainPipe's status into a DataStorage SRAM's write data in both; with
+  RTL-MP the next is the DataStorage read into grantBuf, the two-cycle
+  read the RTL states (`readMCP2`). With the memories untimed, the same
+  change had measured CoupledL2 1,321 to 1,008 ps: the gain was in paths
+  that do not set the period once the memories are timed.
 - MemBlock, the annealer's other block, fails its own global-route probe
   at pin access (DRT-0073 on an SRAM's clock pin), the off-lattice
   signature.
@@ -1259,7 +1268,9 @@ What it cost to find out, and what to do first next time:
   test design: the annealer, the planned pins and a kept-repair setting
   were each a suspect, and three overnight arms named them.
 - Check that every stage loads the memories' `.lib` and `.lef`: a period
-  read with a memory untimed is a lower bound, whatever the checkpoint.
+  read with a memory untimed is a lower bound, whatever the checkpoint,
+  and an A/B read untimed can rank the arms the wrong way round, as the
+  macro placers' did here.
 - A tool failure on an older pin is first checked against OpenROAD
   master: CTS's `repair_timing` upsized a FIRM register-file cell into
   its neighbour (DPL-0033) on the pin before the bump that carries
