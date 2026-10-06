@@ -1,225 +1,102 @@
 #!/usr/bin/env bash
-#
-# Regression test for deps_wrapper.sh (//:deps).
-#
-# Two bugs are pinned here:
-#
-#  1. The tarball is an output of {target}_deps_tar, not of {target}_deps,
-#     and 'set -euo pipefail' used to abort the script on the non-matching
-#     grep before the "deps tarball not found" diagnostic could print.
-#
-#  2. The stage make script is not at the deploy root. It keeps its
-#     runfiles path, <repo-dir>/<package>/make_<target>_<variant>_<stage>,
-#     and the repo dir depends on which repository the design's package
-#     lives in. A root 'make_*' glob matched neither real layout, and the
-#     generated ./make wrapper hardcoded 'exec ../<basename>'.
-#
-# The payloads below mirror a real tarball, as produced by
-# //test:lb_32x128_cts_deps_tar:
-#
-#   4_cts.short.mk
-#   lb_32x128_cts_deps_run.sh
-#   lb_32x128_cts_deps_run.sh.runfiles/_main/test/make_lb_32x128_cts_base_4_cts
-#   lb_32x128_cts_deps_run.sh.runfiles/+orfs_repositories+orfs/...
-#
-# including ORFS's flow/platforms/asap7/openRoad/make_tracks.tcl, which a
-# bare 'make_*' search happily mistakes for the stage make script.
-#
-# Driven with a stub 'bazelisk' first on PATH, so no ORFS stage has to be
-# built.
-
+# //:deps without building a stage: a stub 'bazelisk' on PATH records each
+# call and fails every build, so the test sees which stage target and output
+# group a command asks for, the refusals, and status on a hand-made tree.
 set -uo pipefail
 
-WRAPPER="$(readlink -f "$1")"
-
-ROOT="${TEST_TMPDIR}/ws"
-STUB="${TEST_TMPDIR}/stub"
-mkdir -p "$ROOT" "$STUB"
-echo "tmp/" >"$ROOT/.gitignore"
-echo "tmp" >"$ROOT/.bazelignore"
-mkdir -p "$ROOT/bazel-bin/pkg"
-
-# make_payload <tarball> <runner> <script-runfiles-path>...
-#
-# Builds a tarball shaped like the real one: a short config and the
-# *_deps_run.sh launcher at the root, everything else under
-# <launcher>.runfiles/<repo-dir>/..., which the wrapper flattens.
-make_payload() {
-    local tarball="$1" runner="$2"
-    shift 2
-    local payload="${TEST_TMPDIR}/payload.$$.$RANDOM"
-    local runfiles="$payload/$runner.runfiles"
-    mkdir -p "$payload" "$runfiles/_main"
-    echo "export DESIGN_NAME=mock" >"$payload/4_cts.short.mk"
-    echo '#!/bin/sh' >"$payload/$runner"
-    # ORFS payload that a bare 'make_*' search would mistake for the
-    # stage make script.
-    local tracks="$runfiles/+orfs_repositories+orfs/flow/platforms/asap7/openRoad"
-    mkdir -p "$tracks"
-    echo "# tracks" >"$tracks/make_tracks.tcl"
-    local script
-    for script in "$@"; do
-        mkdir -p "$runfiles/$(dirname "$script")"
-        printf '#!/bin/sh\necho "ran $0"\n' >"$runfiles/$script"
-        chmod +x "$runfiles/$script"
-    done
-    tar -czf "$tarball" -C "$payload" .
-    rm -rf "$payload"
-}
-
-# (i) A design in this repository: _main/<package>/make_<name>.
-make_payload "$ROOT/bazel-bin/pkg/main_tar.tar.gz" \
-    lb_32x128_cts_deps_run.sh \
-    _main/test/make_lb_32x128_cts_base_4_cts
-
-# (ii) A design in @orfs: +orfs_repositories+orfs/<package>/make_<name>.
-make_payload "$ROOT/bazel-bin/pkg/orfs_tar.tar.gz" \
-    gcd_cts_deps_run.sh \
-    +orfs_repositories+orfs/flow/designs/nangate45/gcd/make_gcd_cts_base_4_cts
-
-# (iii) Two candidates for the same target: the wrapper must refuse
-# rather than pick one.
-make_payload "$ROOT/bazel-bin/pkg/ambiguous_tar.tar.gz" \
-    dup_cts_deps_run.sh \
-    _main/test/make_dup_cts_base_4_cts \
-    +orfs_repositories+orfs/flow/designs/dup/make_dup_cts_base_4_cts
-
-# Stub bazelisk. MODE selects what 'cquery --output=files' reports:
-#   main/orfs/ambiguous - the _deps_tar target owns that tarball
-#   notar               - no target owns a tarball
-#   nobuild             - 'build' fails, as for a non-ORFS target
-cat >"$STUB/bazelisk" <<'STUBEOF'
+DEPS="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+WS="$TEST_TMPDIR/ws"
+STUB="$TEST_TMPDIR/bin"
+CALLS="$TEST_TMPDIR/calls"
+mkdir -p "$WS" "$STUB"
+printf 'tmp/\n' >"$WS/.gitignore"
+printf 'tmp\n' >"$WS/.bazelignore"
+cat >"$STUB/bazelisk" <<'EOF'
 #!/usr/bin/env bash
-case "$1" in
-build)
-    if [ "$MODE" = nobuild ]; then
-        echo "no such target" >&2
-        exit 1
-    fi
-    exit 0
-    ;;
-cquery)
-    label="${!#}"
-    case "$label" in
-    *_deps_tar)
-        case "$MODE" in
-        notar) ;;
-        *) echo "bazel-bin/pkg/${MODE}_tar.tar.gz" ;;
-        esac
-        ;;
-    *_deps)
-        # The _deps target's own files: never the tarball.
-        echo "bazel-bin/pkg/4_cts.short.mk"
-        echo "bazel-bin/pkg/mock_cts_deps.sh"
-        ;;
-    esac
-    exit 0
-    ;;
-esac
-exit 0
-STUBEOF
+echo "$*" >>"$CALLS"
+exit 1
+EOF
 chmod +x "$STUB/bazelisk"
+export PATH="$STUB:$PATH" CALLS BUILD_WORKSPACE_DIRECTORY="$WS" BUILD_WORKING_DIRECTORY="$WS"
 
-export BUILD_WORKSPACE_DIRECTORY="$ROOT"
-export PATH="$STUB:$PATH"
-
-fail=0
+FAILS=0
+run() {
+    : >"$CALLS"
+    OUT="$("$DEPS" "$@" 2>&1)"
+    RC=$?
+}
 check() {
-    if ! eval "$2"; then
+    if eval "$2"; then
+        echo "PASS: $1"
+    else
         echo "FAIL: $1"
-        fail=1
+        echo "  output: $OUT"
+        echo "  calls: $(cat "$CALLS")"
+        FAILS=$((FAILS + 1))
     fi
 }
 
-# (a) A design in this repository. The make script sits at
-# _main/test/..., so the wrapper -- which cd's into _main -- must exec
-# ./test/..., the shape deploy.tpl derives from the script's short_path.
-export MODE=main
-out="$("$WRAPPER" //test:lb_32x128_cts 2>&1)"
-rc=$?
-echo "--- MODE=main (rc=$rc) ---"
-echo "$out"
-DST="$ROOT/tmp/test/lb_32x128_cts_deps"
-check "wrapper should succeed when the _deps_tar target has a tarball" \
-    '[ "$rc" -eq 0 ]'
-check "wrapper should report the deploy directory" \
-    'grep -q "Deployed to: $DST\$" <<<"$out"'
-check "runfiles should be flattened to the deploy root" \
-    '[ -f "$DST/_main/test/make_lb_32x128_cts_base_4_cts" ]'
-check "config.mk should be written under _main" \
-    '[ -f "$DST/_main/config.mk" ]'
-check "make wrapper should be generated" '[ -x "$DST/make" ]'
-check "make wrapper should be valid bash" 'bash -n "$DST/make"'
-check "make wrapper should exec the _main-relative make script" \
-    'grep -qx "exec ./test/make_lb_32x128_cts_base_4_cts \"\$@\"" "$DST/make"'
-check "make wrapper's exec target should exist" \
-    '[ -x "$DST/_main/test/make_lb_32x128_cts_base_4_cts" ]'
-check "make wrapper should actually run the stage make script" \
-    '"$DST/make" >/dev/null 2>&1'
+run
+check "no arguments prints usage and fails" '[ $RC -ne 0 ] && grep -q "start" <<<"$OUT"'
 
-# (b) A design in @orfs. The make script sits in the @orfs repo dir, one
-# level up from _main, so the wrapper must exec ./../<repo>/... -- the
-# same string deploy.tpl generates for this design.
-export MODE=orfs
-out="$("$WRAPPER" @orfs//flow/designs/nangate45/gcd:gcd_cts 2>&1)"
-rc=$?
-echo "--- MODE=orfs (rc=$rc) ---"
-echo "$out"
-ODST="$(sed -n 's/^Deployed to: //p' <<<"$out")"
-GCD_MAKE="+orfs_repositories+orfs/flow/designs/nangate45/gcd"
-GCD_MAKE="$GCD_MAKE/make_gcd_cts_base_4_cts"
-check "wrapper should succeed for a design in an external repository" \
-    '[ "$rc" -eq 0 ]'
-check "wrapper should report a deploy directory" '[ -n "$ODST" ]'
-check "runfiles should be flattened to the deploy root" \
-    '[ -f "$ODST/$GCD_MAKE" ]'
-check "config.mk should be written under _main" \
-    '[ -f "$ODST/_main/config.mk" ]'
-check "make wrapper should be valid bash" 'bash -n "$ODST/make"'
-check "make wrapper should exec the make script one level above _main" \
-    'grep -qx "exec ./../$GCD_MAKE \"\$@\"" "$ODST/make"'
-check "make wrapper should actually run the stage make script" \
-    '"$ODST/make" >/dev/null 2>&1'
+run frobnicate
+check "an unknown command is named" '[ $RC -ne 0 ] && grep -q "unknown command .frobnicate." <<<"$OUT"'
 
-# (c) Two make scripts match: the wrapper must name both and fail rather
-# than silently pick one.
-export MODE=ambiguous
-out="$("$WRAPPER" //pkg:dup_cts 2>&1)"
-rc=$?
-echo "--- MODE=ambiguous (rc=$rc) ---"
-echo "$out"
-check "wrapper should fail when the make script is ambiguous" \
-    '[ "$rc" -ne 0 ]'
-check "wrapper should say the make binaries are ambiguous" \
-    'grep -q "multiple make binaries found" <<<"$out"'
-check "wrapper should list the first candidate" \
-    'grep -q "_main/test/make_dup_cts_base_4_cts" <<<"$out"'
-check "wrapper should list the second candidate" \
-    'grep -q "+orfs_repositories+orfs/flow/designs/dup/make_dup_cts_base_4_cts" <<<"$out"'
-check "wrapper should not generate a make wrapper it cannot aim" \
-    '[ ! -e "$ROOT/tmp/pkg/dup_cts_deps/make" ]'
+run start //test:lb banana
+check "a word that is not a stage is named" '[ $RC -ne 0 ] && grep -q "banana. is not a stage" <<<"$OUT"'
 
-# (d) No tarball anywhere: the diagnostic must print, and the exit non-zero.
-export MODE=notar
-out="$("$WRAPPER" //test:lb_32x128_cts 2>&1)"
-rc=$?
-echo "--- MODE=notar (rc=$rc) ---"
-echo "$out"
-check "wrapper should fail when no tarball is produced" '[ "$rc" -ne 0 ]'
-check "wrapper should print the not-found diagnostic" \
-    'grep -q "deps tarball not found" <<<"$out"'
-check "wrapper should name the _deps_tar target" \
-    'grep -q "_deps_tar" <<<"$out"'
+run start //test:lb place
+check "start builds the stage target's deps_files group" \
+    'grep -q -- "build --output_groups=deps_files //test:lb_place" "$CALLS"'
+check "a failed build is reported, not a bare set -e abort" \
+    '[ $RC -ne 0 ] && grep -q "bazelisk build --output_groups=deps_files //test:lb_place failed" <<<"$OUT"'
 
-# (e) Not an ORFS stage target: the build fails, with a helpful message.
-export MODE=nobuild
-out="$("$WRAPPER" //pkg:not_a_stage 2>&1)"
-rc=$?
-echo "--- MODE=nobuild (rc=$rc) ---"
-echo "$out"
-check "wrapper should fail when the companion does not build" \
-    '[ "$rc" -ne 0 ]'
-check "wrapper should explain the missing _deps companion" \
-    'grep -q "is it an ORFS stage target" <<<"$out"'
+run start //test:lb_place
+check "a stage target's label stands for <flow> <stage>" \
+    'grep -q -- "--output_groups=deps_files //test:lb_place" "$CALLS"'
 
-exit "$fail"
+run start //p:blk grt --variant probe
+check "--variant names the variant's stage target" \
+    'grep -q -- "--output_groups=deps_files //p:blk_probe_grt" "$CALLS"'
+
+DEPS_STARTUP_OPTS="--output_base=/ob" DEPS_BUILD_OPTS="--jobs=3" run start //test:lb place
+check "DEPS_STARTUP_OPTS and DEPS_BUILD_OPTS reach the nested build" \
+    'grep -q -- "--output_base=/ob build --jobs=3 --output_groups=deps_files" "$CALLS"'
+
+mkdir -p "$WS/tmp/test/lb"
+echo keep >"$WS/tmp/test/lb/mine"
+run start //test:lb place
+check "start refuses to replace a tree" \
+    '[ $RC -ne 0 ] && grep -q "refusing to replace" <<<"$OUT" && [ -f "$WS/tmp/test/lb/mine" ] && [ ! -s "$CALLS" ]'
+
+run next place --dir "$WS/tmp/nowhere"
+check "next without a tree refuses" '[ $RC -ne 0 ] && grep -q "no tree" <<<"$OUT"'
+
+run next banana
+check "next names a word that is not a stage" '[ $RC -ne 0 ] && grep -q "banana. is not a stage" <<<"$OUT"'
+
+T="$WS/tmp/test/lb"
+mkdir -p "$T/_main"
+cat >"$T/.deps" <<'EOF'
+flow //test:lb
+variant base
+tree 0123 dirty
+stage floorplan scripts, earlier stages' results from bazel (2026-10-06 08:00)
+ran do-floorplan 2026-10-06 08:01 exit 0
+EOF
+echo "export A?=1" >"$T/.config.mk.installed"
+printf 'export A?=1\nexport PLACE_DENSITY = 0.5\n' >"$T/_main/config.mk"
+run status --dir "$T"
+check "status shows the history" 'grep -q "ran do-floorplan" <<<"$OUT"'
+check "status shows an edited setting" 'grep -q "PLACE_DENSITY = 0.5" <<<"$OUT"'
+check "status says a number from the tree needs the caveat" 'grep -q "from a _deps lane, not a clean build" <<<"$OUT"'
+
+run next place --dir "$T"
+check "next asks Bazel for the stage's inputs, not its results" \
+    'grep -q -- "--output_groups=deps_inputs //test:lb_place" "$CALLS"'
+
+if [ "$FAILS" -gt 0 ]; then
+    echo "$FAILS failed"
+    exit 1
+fi
+echo "all passed"

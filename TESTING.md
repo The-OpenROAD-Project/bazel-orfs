@@ -20,7 +20,7 @@ timing tables.
 | `//test:lb_32x128_sky130hd_macro_test` | `orfs_macro` + `orfs_gds`, full flow through GDS | — | yes | sky130hd | yes |
 | `//test:mock_hierarchy_build_test` | Hierarchical design with macro: submacro abstract + parent flow | yes | — | asap7 | synth only |
 | `//test:mock_sweep_build_test` | `orfs_sweep` with macros, openroad override, previous_stage | yes | — | asap7 | synth only |
-| `//test:lint_build_test` | `lint=True` + `add_deps=False` builds successfully | yes | — | asap7 | synth only |
+| `//test:lint_build_test` | `lint=True` builds successfully | yes | — | asap7 | synth only |
 | `//test:lint_no_heavy_deps_test` | Lint flow runfiles exclude klayout and opensta | yes | — | asap7 | synth only |
 | `//test/smoketest:lb_32x128_asap7_build_test` | Full flow, all stages, all PDK-specific config | — | — | asap7 | yes |
 | `//test/smoketest:lb_32x128_gf180_build_test` | Full flow, all stages | — | — | gf180 | yes |
@@ -38,7 +38,7 @@ Tests mock the external environment so they run in the Bazel sandbox.
 
 | Binary | Use-case | Test | How it's tested |
 |--------|----------|------|-----------------|
-| `//:deps` | Deploy stage inputs for interactive debugging | `deps.yml` CI workflow | Real end-to-end: deploy + make (4 cases) |
+| `//:deps` | Deploy a flow's stages in a tree to run by hand (`start`, `next`, `status`, `archive`) | `deps.yml` CI workflow | Real end-to-end: deploy + make (4 cases) |
 | `//:bump` | Upgrade ORFS/bazel-orfs/OpenROAD versions | `//test/bump:bump_test` | Mock fetch functions, fixture MODULE.bazel |
 | `//:bump` (unrecognized shapes) | Refuse a shape the bumper no longer rewrites, writing nothing | `//test/bump:bump_test` | Legacy-shape fixtures; assert BumpError and a byte-identical file |
 | `//:fix_lint` | Format changed Bazel/Python files | `//test:fix_lint_test` | Unit test core logic, mock git/buildifier |
@@ -85,7 +85,6 @@ comm -23 \
 | `previous_stage` | Sweep with floorplan/place/cts entry points |
 | `squash` | squashed (cts), squashed_final (final) |
 | `substeps` | squashed_final with substeps=True |
-| `add_deps=False` | lite variant (no `_deps` targets created) |
 | `lint=True` | lint variant (heavy deps excluded from runfiles, synth skips do-yosys) |
 | `openroad` override | mock-openroad variants |
 | `yosys` override | (via sweep kwargs) |
@@ -217,8 +216,8 @@ Pin placement should be bumped when:
 
 These cannot be tested via `bazelisk test ...`:
 
-- **`_deps` workflow**: `bazel run //test:lb_32x128_mock_openroad_floorplan_deps` then
-  `tmp/.../make do-floorplan`. Tests the local escape-hatch build workflow.
+- **`//:deps` workflow**: `bazelisk run //:deps -- start //test:lb_32x128_mock_openroad_floorplan` then
+  `tmp/test/lb_32x128_mock_openroad/make do-floorplan`. Tests the local escape-hatch build workflow.
 - **ORFS image**: Testing with preinstalled ORFS from the OCI image.
 - **Buildifier lint**: `bazelisk run @buildifier_prebuilt//:buildifier -- -lint warn -r .` (run in CI as a pre-test step).
 

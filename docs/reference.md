@@ -18,18 +18,19 @@ The stages are:
 * `final`
 * `generate_abstract`
 
-Individual substeps within a stage can be run via the `//:deps` wrapper.
+Individual substeps within a stage can be run in a tree deployed by `//:deps`.
 See [Substep targets](local-flow.md#substep-targets).
 
 ### Dependency deployment
 
-Dependencies are deployed using the `//:deps` wrapper, which builds the `<target>_<stage>_deps_tar` companion target and extracts it:
+Dependencies are deployed with `//:deps`, which builds everything the stage needs (every earlier stage) and installs it, with the stage's scripts, in one tree per flow:
 
 ```bash
-bazel run //:deps -- <target>_<stage>
+bazelisk run //:deps -- start <flow> <stage>   # e.g. //test:lb_32x128 place
+<tree>/make do-<stage>
 ```
 
-This prepares the environment for running ORFS stage targets locally. The deploy directory follows the naming convention `tmp/<package>/<target>_<stage>_deps/`.
+This prepares the environment for running ORFS stage targets locally. The tree is `tmp/<package>/<flow>[_<variant>]/` by default, or `--dir`. `next <stage>` carries a hand-run stage into the next in the same tree, `status` says what in the tree was run by hand, and `archive <flow> <stage> <file.tar.gz>` writes a self-contained reproducer. See [Local flow and substeps](local-flow.md).
 
 Each stage depends on two generated `.mk` files that provide the ORFS configuration:
 
@@ -105,7 +106,7 @@ These are the genrules spawned in this macro:
 
 * ORFS stage-specific (named: `target_name + "_" + stage` or `target_name + "_" + variant + "_" + stage`)
 
-Dependency deployment is handled via the `deps` output group on stage targets, accessed through the `//:deps` wrapper.
+Dependency deployment is handled via output groups on stage targets (`deps_files` for a tree, `deps` for an archive), accessed through `//:deps`.
 
 ### Bazel flow
 
@@ -123,22 +124,22 @@ bazel build <target>_<stage>
 
 A mutable build folder can be set up to prepare for a local synthesis run, useful when digging into some detail of the synthesis flow:
 
-    $ bazel run //:deps -- //test:tag_array_64x184_synth
+    $ bazelisk run //:deps -- start //test:tag_array_64x184 synth
 
 ### Create a make issue archive
 
 To create and test a `make issue` archive for floorplan:
 
-    bazel run //:deps -- //test:lb_32x128_floorplan
-    tmp/test/lb_32x128_floorplan_deps/make ISSUE_TAG=test floorplan_issue
+    bazelisk run //:deps -- start //test:lb_32x128 floorplan
+    tmp/test/lb_32x128/make ISSUE_TAG=test floorplan_issue
 
-This results in `tmp/test/lb_32x128_floorplan_deps/floorplan_test.tar.gz`, which can be run provided the `openroad` application is in the path.
+This results in `tmp/test/lb_32x128/floorplan_test.tar.gz`, which can be run provided the `openroad` application is in the path.
 
 You can use a local ORFS installation by running `source env.sh`.
 
 Alternatively, use the ORFS installation from Bazel by running `make bash` to set up the environment:
 
-    tmp/test/lb_32x128_floorplan_deps/make bash
+    tmp/test/lb_32x128/make bash
     export PATH=$PATH:$(realpath $(dirname $(readlink -f $OPENROAD_EXE)))
     tar --strip-components=1 -xzf ../floorplan_test.tar.gz
     ./run-me-lb_32x128-asap7-base.sh

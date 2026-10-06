@@ -248,8 +248,7 @@ synthesised area, and at 486.7 um² of std cells it comes out 109.14 um:
 [ERROR MPL-0003] There are no valid tilings for mixed cluster: root
 ```
 
-Verified by bisecting the utilization on the floorplan `_deps`
-reproducer: 46 gives a 110.32 um core and places, 47 gives 109.14 um
+Verified by bisecting the utilization in a floorplan `//:deps` tree: 46 gives a 110.32 um core and places, 47 gives 109.14 um
 and does not, with the same 21 macros and the same halo. ORFS CI clears
 the cliff by about half a micron — its `synth__design__instance__area__stdcell`
 golden of 631 is 15% padding over roughly 549 um², which puts the core

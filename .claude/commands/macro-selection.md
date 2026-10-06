@@ -135,10 +135,12 @@ module where the idiom is present, measured per module on its own
 synthesis, kept where it pays in period and in time; the list stays
 short and named, since ORFS does not verify it.
 
-The parent from the plan. Iterate a stage in that stage's own `_deps`
-tree (`bazelisk run <flow>_<stage>_deps -- --install <dir>`, then `./make
-do-<stage>`): a deployed tree carries only its stage's variables, and its
-wrapper refuses another stage's targets for the reason written in
+The parent from the plan. Iterate a stage in a `//:deps` tree
+(`bazelisk run //:deps -- start <flow> <stage> --dir <dir>`, then
+`<dir>/make do-<stage>`, and `bazelisk run //:deps -- next <stage>` to
+carry on into the next stage; [`deps-lane.md`](deps-lane.md)): a deployed
+tree carries only its current stage's variables, and its wrapper refuses
+another stage's targets for the reason written in
 `make.tpl` and `docs/local-flow.md`. Then the gates, cheapest first, each a hard
 stop: the annealer's channel check at floorplan; the free-site picture
 and the RUDY map at place (`/odb-debug`); the legaliser's window check;

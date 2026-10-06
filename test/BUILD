@@ -7,7 +7,7 @@ load("//:openroad.bzl", "orfs_arguments", "orfs_floorplan", "orfs_flow", "orfs_g
 load("//:orfs_genrule.bzl", "orfs_genrule")
 load("//:sweep.bzl", "orfs_sweep")
 load(":auto_memories_outputs_test.bzl", "auto_memories_outputs_test")
-load(":deps_output_group_rule.bzl", "deps_output_group_test", "output_group_test")
+load(":deps_output_group_rule.bzl", "deps_groups_test", "deps_output_group_test", "output_group_test")
 load(":hierarchical_default_test.bzl", "hierarchical_default_test_suite")
 load(":keep_modules_test.bzl", "keep_modules_test_suite")
 load(":mock_pin_knobs_test.bzl", "mock_pin_knobs_test")
@@ -2111,7 +2111,82 @@ orfs_flow(
     yosys = "//mock/yosys/src/bin:yosys",
 )
 
-# --- orfs_run(deps = True): the reproducer companions on a run target ---
+# The stages' reproducer tarballs, for the tests below: each stage target
+# carries one in its "deps" output group, built only when asked for.
+# Test-only names; shipped flows have no per-stage deps targets
+# (`bazelisk run //:deps -- archive <flow> <stage> <file>` makes one).
+
+filegroup(
+    name = "lb_32x128_mock_floorplan_deps_tar",
+    srcs = [":lb_32x128_mock_floorplan"],
+    output_group = "deps",
+    tags = ["manual"],
+)
+
+filegroup(
+    name = "lb_32x128_mock_openroad_floorplan_deps_tar",
+    srcs = [":lb_32x128_mock_openroad_floorplan"],
+    output_group = "deps",
+    tags = ["manual"],
+)
+
+filegroup(
+    name = "lb_32x128_mock_run_with_deps_deps_tar",
+    srcs = [":lb_32x128_mock_run_with_deps"],
+    output_group = "deps",
+    tags = ["manual"],
+)
+
+filegroup(
+    name = "lb_32x128_mock_synth_deps_tar",
+    srcs = [":lb_32x128_mock_synth"],
+    output_group = "deps",
+    tags = ["manual"],
+)
+
+filegroup(
+    name = "lb_32x128_squashed_final_final_deps_tar",
+    srcs = [":lb_32x128_squashed_final_final"],
+    output_group = "deps",
+    tags = ["manual"],
+)
+
+filegroup(
+    name = "lb_32x128_substeps_floorplan_deps_tar",
+    srcs = [":lb_32x128_substeps_floorplan"],
+    output_group = "deps",
+    tags = ["manual"],
+)
+
+filegroup(
+    name = "lb_32x128_synth_deps_tar",
+    srcs = [":lb_32x128_synth"],
+    output_group = "deps",
+    tags = ["manual"],
+)
+
+filegroup(
+    name = "lb_32x128_top_mock_full_hierarchy_floorplan_deps_tar",
+    srcs = [":lb_32x128_top_mock_full_hierarchy_floorplan"],
+    output_group = "deps",
+    tags = ["manual"],
+)
+
+filegroup(
+    name = "mock_tuner_executable_with_deps_deps_tar",
+    srcs = [":mock_tuner_executable_with_deps"],
+    output_group = "deps",
+    tags = ["manual"],
+)
+
+filegroup(
+    name = "tag_array_64x184_mock_floorplan_deps_tar",
+    srcs = [":tag_array_64x184_mock_floorplan"],
+    output_group = "deps",
+    tags = ["manual"],
+)
+
+# --- orfs_run: the reproducer tarball on a run target ---
 # Fully mock (mock openroad + mock yosys), so this costs no real tool build.
 
 orfs_run(
@@ -2123,7 +2198,6 @@ orfs_run(
     user_arguments = {
         "OUTPUT": "lb_32x128_mock_run_with_deps.yaml",
     },
-    deps = True,
 )
 
 # The deployed reproducer carries a usable config.mk, same as a stage's.
@@ -2131,11 +2205,11 @@ sh_test(
     name = "deps_deploy_run_test",
     srcs = ["deps_deploy_test.sh"],
     args = [
-        "$(location :lb_32x128_mock_run_with_deps_deps_tar.tar.gz)",
+        "$(location :lb_32x128_mock_run_with_deps_deps_tar)",
         "config_contains",
         "DESIGN_NAME",
     ],
-    data = [":lb_32x128_mock_run_with_deps_deps_tar.tar.gz"],
+    data = [":lb_32x128_mock_run_with_deps_deps_tar"],
 )
 
 deps_output_group_test(
@@ -2151,74 +2225,82 @@ sh_test(
     name = "deps_deploy_synth_test",
     srcs = ["deps_deploy_test.sh"],
     args = [
-        "$(location :lb_32x128_mock_synth_deps_tar.tar.gz)",
+        "$(location :lb_32x128_mock_synth_deps_tar)",
         "dir_exists",
     ],
-    data = [":lb_32x128_mock_synth_deps_tar.tar.gz"],
+    data = [":lb_32x128_mock_synth_deps_tar"],
 )
 
 sh_test(
     name = "deps_deploy_floorplan_test",
     srcs = ["deps_deploy_test.sh"],
     args = [
-        "$(location :lb_32x128_mock_floorplan_deps_tar.tar.gz)",
+        "$(location :lb_32x128_mock_floorplan_deps_tar)",
         "print_flow_home",
     ],
-    data = [":lb_32x128_mock_floorplan_deps_tar.tar.gz"],
+    data = [":lb_32x128_mock_floorplan_deps_tar"],
 )
 
 sh_test(
     name = "deps_deploy_real_floorplan_test",
     srcs = ["deps_deploy_test.sh"],
     args = [
-        "$(location :tag_array_64x184_mock_floorplan_deps_tar.tar.gz)",
+        "$(location :tag_array_64x184_mock_floorplan_deps_tar)",
         "print_flow_home",
     ],
-    data = [":tag_array_64x184_mock_floorplan_deps_tar.tar.gz"],
+    data = [":tag_array_64x184_mock_floorplan_deps_tar"],
 )
 
 sh_test(
     name = "deps_deploy_hierarchy_test",
     srcs = ["deps_deploy_test.sh"],
     args = [
-        "$(location :lb_32x128_top_mock_full_hierarchy_floorplan_deps_tar.tar.gz)",
+        "$(location :lb_32x128_top_mock_full_hierarchy_floorplan_deps_tar)",
         "config_contains",
         "ADDITIONAL_LEFS",
     ],
-    data = [":lb_32x128_top_mock_full_hierarchy_floorplan_deps_tar.tar.gz"],
+    data = [":lb_32x128_top_mock_full_hierarchy_floorplan_deps_tar"],
 )
 
 sh_test(
     name = "deps_deploy_openroad_exe_env_test",
     srcs = ["deps_deploy_test.sh"],
     args = [
-        "$(location :lb_32x128_mock_floorplan_deps_tar.tar.gz)",
+        "$(location :lb_32x128_mock_floorplan_deps_tar)",
         "openroad_exe_env",
     ],
-    data = [":lb_32x128_mock_floorplan_deps_tar.tar.gz"],
+    data = [":lb_32x128_mock_floorplan_deps_tar"],
 )
 
 sh_test(
     name = "deps_deploy_make_passthrough_test",
     srcs = ["deps_deploy_test.sh"],
     args = [
-        "$(location :tag_array_64x184_mock_floorplan_deps_tar.tar.gz)",
+        "$(location :tag_array_64x184_mock_floorplan_deps_tar)",
         "make_passthrough",
     ],
-    data = [":tag_array_64x184_mock_floorplan_deps_tar.tar.gz"],
+    data = [":tag_array_64x184_mock_floorplan_deps_tar"],
 )
 
 sh_test(
     name = "deps_deploy_run_substep_test",
     srcs = ["deps_deploy_test.sh"],
     args = [
-        "$(location :tag_array_64x184_mock_floorplan_deps_tar.tar.gz)",
+        "$(location :tag_array_64x184_mock_floorplan_deps_tar)",
         "run_substep",
     ],
-    data = [":tag_array_64x184_mock_floorplan_deps_tar.tar.gz"],
+    data = [":tag_array_64x184_mock_floorplan_deps_tar"],
 )
 
-# --- Deps pkg_tar tests: verify on-demand deps deployment ---
+# //:deps's output groups on a stage: `next` builds deps_scripts and
+# deps_inputs, which must not carry the earlier stage's results.
+deps_groups_test(
+    name = "deps_groups_floorplan_test",
+    results = ["1_synth.odb"],
+    target = ":lb_32x128_mock_floorplan",
+)
+
+# --- Deps tarball tests: verify on-demand deps deployment ---
 
 # Test deps tarball on synth (yosys) stage
 deps_output_group_test(
@@ -2414,14 +2496,13 @@ py_test(
     ],
 )
 
-# orfs_run_executable(deps = True): the executable is deployable, so a bug
-# hit in a tight-loop run can be handed over as a self-contained reproducer.
+# orfs_run_executable carries a reproducer tarball like every stage, so a
+# bug hit in a tight-loop run can be handed over self-contained.
 orfs_run_executable(
     name = "mock_tuner_executable_with_deps",
     src = ":lb_32x128_mock_floorplan",
     script = ":cell_count.tcl",
     tags = ["manual"],
-    deps = True,
 )
 
 deps_output_group_test(
@@ -2433,11 +2514,11 @@ sh_test(
     name = "deps_deploy_run_executable_test",
     srcs = ["deps_deploy_test.sh"],
     args = [
-        "$(location :mock_tuner_executable_with_deps_deps_tar.tar.gz)",
+        "$(location :mock_tuner_executable_with_deps_deps_tar)",
         "config_contains",
         "DESIGN_NAME",
     ],
-    data = [":mock_tuner_executable_with_deps_deps_tar.tar.gz"],
+    data = [":mock_tuner_executable_with_deps_deps_tar"],
 )
 
 orfs_run_executable(

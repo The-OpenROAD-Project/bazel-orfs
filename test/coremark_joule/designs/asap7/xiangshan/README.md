@@ -152,7 +152,8 @@ bazelisk run //test/coremark_joule/designs/asap7/xiangshan:XSTile_grt gui_grt
 
 Needs 64 GB. About six hours cold, a download when the cache is warm.
 Earlier stages are their own targets (`XSTile_synth`, `_floorplan`,
-`_place`, `_cts`), each with `gui_`, `open_` and `_deps` forms, and
+`_place`, `_cts`), each with `gui_` and `open_` forms and a `//:deps`
+tree (`bazelisk run //:deps -- start //test/coremark_joule/designs/asap7/xiangshan:XSTile <stage>`), and
 `XSTile_cts_odb_debug` and `XSTile_grt_odb_debug` open a checkpoint for
 questions.
 

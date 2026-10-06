@@ -1,6 +1,6 @@
 ---
 name: orfs-deps-preflight
-description: Pre-flight an hours-long ORFS _deps / make-extract stage run (grt, place, route, SAIF) by dumping the stage's effective variables and mentally dry-running the flow TCL to confirm the code path you are testing will actually execute. Use before committing to any long OpenROAD flow-stage run, especially when a SKIP_* flag, an *_EFFORT setting, or a setup/hold selector could silently route around what you intend to measure.
+description: Pre-flight an hours-long ORFS stage run in a //:deps tree or make-extract (grt, place, route, SAIF) by dumping the stage's effective variables and mentally dry-running the flow TCL to confirm the code path you are testing will actually execute. Use before committing to any long OpenROAD flow-stage run, especially when a SKIP_* flag, an *_EFFORT setting, or a setup/hold selector could silently route around what you intend to measure.
 ---
 
 ## Goal

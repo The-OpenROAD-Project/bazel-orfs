@@ -8,7 +8,8 @@
 #   test/deps_integration_test.sh <case>
 #   test/deps_integration_test.sh all
 #
-# Cases: single_synth, single_floorplan, real_floorplan, hierarchy, make_passthrough
+# Cases: single_synth, single_floorplan, real_floorplan, hierarchy,
+#        make_passthrough, run_substep, lane
 
 set -euo pipefail
 
@@ -51,19 +52,11 @@ assert_file_contains() {
 
 # --- Deploy helper ---
 
+# deploy <stage target> <dir>: a fresh tree for the stage
 deploy() {
-    local target="$1"; shift
-    echo "--- Deploying: bazelisk run //:deps -- $target $*"
-    bazelisk run //:deps -- "$target" "$@"
-}
-
-# Clean previous deploy for a given directory
-clean_deploy() {
-    local deploy_dir="$1"
-    if [ -d "$deploy_dir" ]; then
-        chmod -R u+w "$deploy_dir" 2>/dev/null || true
-        rm -rf "$deploy_dir"
-    fi
+    local target="$1" dir="$2"
+    echo "--- Deploying: bazelisk run //:deps -- start $target --dir $dir --fresh"
+    bazelisk run //:deps -- start "$target" --dir "$WORKSPACE_DIR/$dir" --fresh
 }
 
 # --- Test cases ---
@@ -71,10 +64,9 @@ clean_deploy() {
 test_single_synth() {
     echo "=== Test: single_synth ==="
     local target="//test:lb_32x128_mock_synth"
-    local deploy_dir="tmp/test/lb_32x128_mock_synth_deps"
+    local deploy_dir="tmp/deps_it/lb_32x128_mock_synth"
 
-    clean_deploy "$deploy_dir"
-    deploy "$target"
+    deploy "$target" "$deploy_dir"
 
     assert_dir_exists "$deploy_dir"
     assert_executable "$deploy_dir/make"
@@ -85,10 +77,9 @@ test_single_synth() {
 test_single_floorplan() {
     echo "=== Test: single_floorplan ==="
     local target="//test:lb_32x128_mock_floorplan"
-    local deploy_dir="tmp/test/lb_32x128_mock_floorplan_deps"
+    local deploy_dir="tmp/deps_it/lb_32x128_mock_floorplan"
 
-    clean_deploy "$deploy_dir"
-    deploy "$target"
+    deploy "$target" "$deploy_dir"
 
     assert_dir_exists "$deploy_dir"
     assert_executable "$deploy_dir/make"
@@ -104,10 +95,9 @@ test_single_floorplan() {
 test_real_floorplan() {
     echo "=== Test: real_floorplan ==="
     local target="//test:tag_array_64x184_mock_floorplan"
-    local deploy_dir="tmp/test/tag_array_64x184_mock_floorplan_deps"
+    local deploy_dir="tmp/deps_it/tag_array_64x184_mock_floorplan"
 
-    clean_deploy "$deploy_dir"
-    deploy "$target"
+    deploy "$target" "$deploy_dir"
 
     assert_dir_exists "$deploy_dir"
     assert_executable "$deploy_dir/make"
@@ -123,10 +113,9 @@ test_real_floorplan() {
 test_hierarchy() {
     echo "=== Test: hierarchy ==="
     local target="//test:lb_32x128_top_mock_full_hierarchy_floorplan"
-    local deploy_dir="tmp/test/lb_32x128_top_mock_full_hierarchy_floorplan_deps"
+    local deploy_dir="tmp/deps_it/lb_32x128_top_mock_full_hierarchy_floorplan"
 
-    clean_deploy "$deploy_dir"
-    deploy "$target"
+    deploy "$target" "$deploy_dir"
 
     assert_dir_exists "$deploy_dir"
     assert_executable "$deploy_dir/make"
@@ -140,29 +129,44 @@ test_hierarchy() {
 test_make_passthrough() {
     echo "=== Test: make_passthrough ==="
     local target="//test:tag_array_64x184_mock_floorplan"
-    local deploy_dir="tmp/test/tag_array_64x184_mock_floorplan_deps"
+    local deploy_dir="tmp/deps_it/tag_array_64x184_mock_floorplan"
 
-    clean_deploy "$deploy_dir"
-
-    # Pass a make arg — deploy + run print-DESIGN_NAME
-    deploy "$target" print-DESIGN_NAME
-
-    assert_dir_exists "$deploy_dir"
-    pass "make print-DESIGN_NAME completed via passthrough"
+    deploy "$target" "$deploy_dir"
+    "$deploy_dir/make" print-DESIGN_NAME
+    pass "make print-DESIGN_NAME completed in the tree"
 }
 
 test_run_substep() {
     echo "=== Test: run_substep ==="
     local target="//test:tag_array_64x184_mock_floorplan"
-    local deploy_dir="tmp/test/tag_array_64x184_mock_floorplan_deps"
+    local deploy_dir="tmp/deps_it/tag_array_64x184_mock_floorplan"
 
-    clean_deploy "$deploy_dir"
-    deploy "$target"
+    deploy "$target" "$deploy_dir"
 
     # Run a substep — this exercises the full local flow:
     # deploy inputs, then execute a stage substep via make.
     "$deploy_dir/make" do-2_1_floorplan
     pass "make do-2_1_floorplan completed"
+}
+
+test_lane() {
+    echo "=== Test: lane ==="
+    local dir="tmp/deps_it/lane"
+    local results="$dir/_main/test/results/asap7/lb_32x128/base"
+    deploy "//test:lb_32x128_floorplan" "$dir"
+    "$dir/make" do-floorplan
+    local before after
+    before="$(sha1sum "$results/2_floorplan.odb")"
+    bazelisk run //:deps -- next place --dir "$WORKSPACE_DIR/$dir"
+    after="$(sha1sum "$results/2_floorplan.odb")"
+    [ "$before" = "$after" ] && pass "next kept the hand-made floorplan" ||
+        fail "next replaced the hand-made floorplan"
+    "$dir/make" do-place
+    assert_file_exists "$results/3_place.odb"
+    local status
+    status="$(bazelisk run //:deps -- status --dir "$WORKSPACE_DIR/$dir" 2>/dev/null)"
+    grep -q "ran do-place" <<<"$status" &&
+        pass "status records the hand-run place" || fail "status lost the place run"
 }
 
 # --- Dispatch ---
@@ -175,6 +179,7 @@ run_case() {
         hierarchy)         test_hierarchy ;;
         make_passthrough)  test_make_passthrough ;;
         run_substep)       test_run_substep ;;
+        lane)              test_lane ;;
         all)
             test_single_synth
             test_single_floorplan
@@ -182,9 +187,10 @@ run_case() {
             test_hierarchy
             test_make_passthrough
             test_run_substep
+            test_lane
             ;;
         *)
-            echo "Usage: $0 <single_synth|single_floorplan|real_floorplan|hierarchy|make_passthrough|run_substep|all>"
+            echo "Usage: $0 <single_synth|single_floorplan|real_floorplan|hierarchy|make_passthrough|run_substep|lane|all>"
             exit 1
             ;;
     esac

@@ -7,7 +7,6 @@ load(
     "FINAL_STAGE_IMPL",
     "GENERATE_METADATA_STAGE_IMPL",
     "STAGE_IMPLS",
-    "create_deps_tar",
     "orfs_abstract_rule",
     "orfs_arguments",
     "orfs_cts_rule",
@@ -327,7 +326,6 @@ def _orfs_stage(stage, impl, **kwargs):
     """
     kwargs["arguments"] = hierarchical_arguments(kwargs.get("arguments", {}))
     impl(**_filter_stage_args(stage, **kwargs))
-    create_deps_tar(kwargs.get("name"), kwargs.get("visibility", None))
 
 def orfs_synth(**kwargs):
     """Instantiates a standalone synthesis stage target.
@@ -779,7 +777,6 @@ def _orfs_pass(
                 **kwargs
             )
         )
-        create_deps_tar(step_name, kwargs.get("visibility", None))
         if save_odb and not kwargs.get("lint"):
             _orfs_estimate_report(
                 name = _step_name(name, variant, "estimate"),
@@ -875,7 +872,6 @@ def _orfs_pass(
                 **kwargs
             )
             step_names.append(squash_name)
-            create_deps_tar(squash_name, kwargs.get("visibility", None))
             if html:
                 _orfs_html_report(
                     name = squash_name + "_html",
@@ -994,7 +990,6 @@ def _orfs_pass(
                 )
             )
         )
-        create_deps_tar(pre_layout_name, kwargs.get("visibility", None))
         return pre_layout_name
 
     for step, prev in zip(steps[start_stage:], steps[start_stage - 1:]):
@@ -1010,7 +1005,6 @@ def _orfs_pass(
 
         sn = do_step(step, prev, kwargs, more_kwargs = more_kwargs)
         step_names.append(sn)
-        create_deps_tar(sn, kwargs.get("visibility", None))
         if html and step.stage in _HTML_STAGES:
             _orfs_html_report(
                 name = sn + "_html",

@@ -82,8 +82,9 @@ previous stage's picture attached.
   stage. ORFS writes one per substep (`3_2_place_iop.odb`,
   `3_3_place_gp.odb`, `3_4_place_resized.odb`, `3_5_place_dp.odb` ...);
   the one before the failing substep is what to open. These live in the
-  stage's `_deps` tree after `bazelisk build //<project>:<module>_place_deps`
-  and a deploy, or wherever the stalled run put them.
+  flow's `//:deps` tree after
+  `bazelisk run //:deps -- start //<project>:<module> place` and a
+  `make do-place` there, or wherever the stalled run put them.
 - **Geometry or timing?** Geometry (macros, rows, instance positions,
   legality) needs no liberty: pass `GUI_TIMING=0` and the load is seconds.
   Timing (slack, paths, reports) needs the design's liberty set: leave the
@@ -106,7 +107,7 @@ odb_debug(
 bazelisk run //<project>:cpu_place_odb_debug -- ODB_DEBUG_DIR=tmp/odb-debug GUI_TIMING=0 &
 ```
 
-From a deployed `_deps` tree, on any checkpoint:
+From a tree deployed by `bazelisk run //:deps -- start <flow> <stage>`, on any checkpoint:
 
 ```bash
 ./make run RUN_SCRIPT=$PWD/tools/odb_debug/daemon.tcl \

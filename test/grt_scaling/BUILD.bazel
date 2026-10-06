@@ -7,7 +7,7 @@ load(":arms.bzl", "grid_arm")
 # with die area over track pitch squared, not with the netlist, and this
 # is where that cost is measured at tens of seconds instead of on a
 # 3.6 mm XiangShan at hours. docs/studies/grt-scaling/README.md is the
-# method; grt_bench.tcl is the measurement, run from an arm's _cts_deps.
+# method; grt_bench.tcl is the measurement, run in an arm's tree (bazelisk run //:deps -- start <flow> grt --variant <arm>).
 package(default_visibility = ["//visibility:private"])
 
 exports_files([

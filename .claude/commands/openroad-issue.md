@@ -148,8 +148,9 @@ Within a stage, substeps share a mutable ODB in the deploy directory.
 Each substep reads the ODB left by the previous one. So to run substep N,
 you must first run substeps 1 through N-1 in order:
 
-- For the first substep (e.g. `2_1_floorplan`): use `_deps` to deploy
-  the previous stage's artifacts, since variables are stage-specific.
+- For the first substep (e.g. `2_1_floorplan`): use
+  `bazelisk run //:deps -- start <flow> <stage>` to deploy the previous
+  stage's artifacts, since variables are stage-specific.
 - For subsequent substeps (e.g. `2_2_floorplan_macro`): just run the
   previous substep first — bazel caches the build, so only the deploy
   + make execution happens.
@@ -165,15 +166,15 @@ bazelisk run //gemmini_8x8_abutted:MeshWithDelays_floorplan_2_2_floorplan_macro
 #### Generating the reproducer archive (fallback)
 
 When substep targets aren't available or you need a self-contained archive,
-deploy `_deps` and use `make <script>_issue`:
+deploy the stage with `//:deps` and use `make <script>_issue`:
 ```bash
-bazelisk run //<project>:<module>_<stage>_deps
-tmp/<project>/<module>_<stage>_deps/make <script>_issue
+bazelisk run //:deps -- start //<project>:<module> <stage>
+tmp/<project>/<module>/make <script>_issue
 # e.g. make macro_place_issue, cts_issue, detail_route_issue, etc.
 ```
 
 Manual approach (when `make <script>_issue` doesn't cover the case):
-- Start from the failing stage's .odb (from `_deps` or `bazel-bin/`)
+- Start from the failing stage's .odb (from a `//:deps` tree or `bazel-bin/`)
 - Write a `bug.tcl` that loads the ODB and runs the failing command
 - Note which earlier step created the bad state (chain of evidence)
 
