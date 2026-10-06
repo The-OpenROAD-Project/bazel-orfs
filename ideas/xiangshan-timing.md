@@ -1399,6 +1399,72 @@ Kept as ideas, not planned:
 - **Cut at any module boundary, route by abutment** (the branch's plan,
   last section).
 
+## 46. The register files did not read the way the RTL does; LEC found it
+
+Entry 44's census put the parent's worst path through FltRegionModule:
+a read enable in, FP register-file data out, 1,161 ps, combinational.
+The RTL has no such path. XiangShan's IntRegFile, FpRegFile and
+VfRegFile register each read address (`io_readPorts_<n>_data_REG`) and
+read from the register; structured_gen, which replaces the module whole,
+decoded straight from the address ports. Checking the generated netlist
+against the RTL by logic equivalence (kepler-formal, #1180) found two
+more on IntRegFile (#1181):
+
+| RTL | the generator | |
+|---|---|---|
+| read address registered (Int, Fp, Vf) | combinational from the port | a cycle early, and a false path through every block holding one |
+| Int's read banks interleaved (bank k's entry l is word l * 4 + k) | contiguous | a banked read returned the wrong word |
+| Int's word 0 the constant zero, no register (x0) | stored | |
+
+RobEntryFile, RenameBufferFile and the Ftq queues do read
+combinationally, and were right. Every period measured with these files
+so far timed a path the design does not have, through FltRegionModule,
+VecRegionModule and the parent's IntRegFile: entry 44's floor and the
+dissolve arms (D2v below) stand on it, and are re-measured after #1181.
+
+How the check is built, and what it costs:
+
+- The fixtures are the RTL firtool writes. `lec_fixture.py` reproduces
+  the Chisel build's FpRegFile, VfRegFile and IntRegFile token for token
+  at their sizes (62,360, 31,640 and 64,536 tokens; `faithful_test`),
+  and writes the same shapes small. Getting there took firtool's
+  conventions: the last case label is `default`, an address past a
+  bank's end reads entry 0 (an out-of-range Vec index), write enables
+  are numbered by stored word, not address, and the all-ones address
+  compares as `(&addr)`.
+- kepler-formal checks 8- to 32-word versions in seconds each (12 tests,
+  about 15 s with yosys). The full FpRegFile (256 x 64, 21 ports, 33,888
+  outputs compared) built its miter in 4 minutes and then sat in one SAT
+  call for over half an hour with nothing logged; it was stopped. The
+  generator builds every size from the same code, so the small sizes are
+  the check. kepler-formal now names the problem it hands its solver
+  (carried patch, #1180).
+- kepler-formal exits 0 when a combinational check finds a difference;
+  `lec_test` reads its verdict instead. Its SystemVerilog frontend checks
+  only sequentially and does not read liberty cells, so a gate netlist
+  is checked against yosys's synthesis of the RTL, flops paired by the
+  RTL's register names.
+
+D2v, VecRegionModule dissolved into the parent on KPI row 11's
+configuration, has taken eight runs so far, each a finding (its period
+is re-judged after #1181 anyway):
+
+- The plan listed VfRegFile as a parent netlist; its spec was macro mode
+  (FLW-0003). As a leftover macro RTL-MP refused it at every target
+  utilisation, even 1.0 (MPL-0065): the parent's 1.28 M netlist cells
+  stand aside as movable for the macro step. As a netlist-mode copy,
+  placed by the planner like the parent's other register files, it
+  works.
+- Detailed placement failed on one cell of 3.5 M at the parent's 100 um
+  window, and a 450 um window searched for two hours. A diagnosis tree
+  (`XSTile_place_deps`, 3_1 to 3_4 once, 3_5 repeated in minutes) showed
+  why: the resizer leaves about 38,000 buffers inside the hard blocks'
+  footprints, on no row, and one was 138 um from a legal site. Moving
+  each to just outside its block's nearest edge before legalizing
+  (a `PRE_DETAIL_PLACE_TCL` hook) made the step legal in 11 minutes.
+  CTS's clock-net repair does the same, so the hook wraps every
+  legalization of the parent's place, CTS and global route.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
