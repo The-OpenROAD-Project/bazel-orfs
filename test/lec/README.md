@@ -7,7 +7,7 @@ gate (modified) Verilog netlists.
 ## Quick start
 
 ```starlark
-load("//lec:lec.bzl", "lec_test")
+load("//test/lec:lec.bzl", "lec_test")
 
 lec_test(
     name = "my_lec_test",
@@ -16,17 +16,17 @@ lec_test(
 )
 ```
 
-Run from `lec/`:
+Run by name:
 
     bazelisk test //path:my_lec_test
 
-Every `lec_test` is `manual`: kepler-formal builds from source, with its
-own toolchain, which is too slow for CI. `lec/` is a module of its own,
-outside bazel-orfs's build (`.bazelignore`), because kepler-formal's
-dependencies are not all on the Bazel Central Registry yet: the
-registries that stand in for them are in `lec/.bazelrc` and must not reach
-bazel-orfs or its consumers. `//test:equivalent_test` and
-`//test:difference_test` check the wrapper itself.
+Every `lec_test` is `manual`: kepler-formal builds from source, too slow
+for CI, and `//...` never reaches it. kepler-formal is a `dev_dependency`
+of bazel-orfs, so the rule lives under `test/`, which a consumer never
+loads; its dependencies not yet on the Bazel Central Registry come from
+registries in bazel-orfs's `.bazelrc`, which a consumer never reads.
+`//test/lec:equivalent_test` and `//test/lec:difference_test` check the
+wrapper itself.
 
 ## Attributes
 
@@ -54,7 +54,7 @@ equivalence. The gold and gate netlists must satisfy:
 ## Bumping kepler-formal
 
 kepler-formal is taken at its `main` (it is being fixed rapidly; never pin
-an old release): the commit in `MODULE.bazel`'s `git_override` and in the
-registry URL in `.bazelrc` move together, and `.bazelrc`'s BCR pull
-request registries are copied from kepler-formal's own `.bazelrc` at that
-commit.
+an old release): the commit in the root `MODULE.bazel`'s `git_override`
+and in the registry URL in the root `.bazelrc` move together, and the BCR
+pull request registries there are copied from kepler-formal's own
+`.bazelrc` at that commit.

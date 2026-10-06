@@ -233,7 +233,6 @@ support. Each has its own `MODULE.bazel` for independent development
 | Directory | Why it's here | Who should own it |
 |-----------|--------------|-------------------|
 | `chisel/` | Chisel integration examples/tests. Chisel rules already moved to BCR `rules_chisel`. | rules_chisel examples repo |
-| `lec/` | Bazel rules wrapping kepler-formal for logic equivalence checking | kepler-formal repo |
 | `naja/` | Naja EDA netlist cleaning example | naja repo |
 
 These are tested post-merge to catch breakage, but don't block PRs.
