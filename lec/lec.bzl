@@ -85,7 +85,7 @@ exec {kepler_formal} -verilog $gold_files $gate_files $liberty_files
         ),
     ]
 
-lec_test = rule(
+_lec_test = rule(
     implementation = _lec_test_impl,
     doc = """Logic equivalence checking test using kepler-formal.
 
@@ -127,3 +127,22 @@ lec_test = rule(
     },
     test = True,
 )
+
+def lec_test(name, tags = [], **kwargs):
+    """A kepler-formal LEC test, always `manual`.
+
+    kepler-formal is a development tool: it builds from source with its
+    own toolchain and registries, which is too slow for CI. Run a check
+    by name, `bazelisk test //path:name` from this directory.
+
+    Args:
+        name: the test's name.
+        tags: extra tags; `manual` is always added.
+        **kwargs: the attributes of the rule (gold_verilog_files,
+            gate_verilog_files, liberty_files, log_level).
+    """
+    _lec_test(
+        name = name,
+        tags = tags + ([] if "manual" in tags else ["manual"]),
+        **kwargs
+    )
