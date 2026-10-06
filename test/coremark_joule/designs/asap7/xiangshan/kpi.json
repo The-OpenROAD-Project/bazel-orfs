@@ -209,6 +209,19 @@
         "VecRegionModule": 1386
       },
       "note": "the parent planned with each block mocked to density 0.6 (#1170): its die 2025 x 2666 um against 2377 x 3043, a quarter smaller, the period 3,256 against 3,264 ps; global route 81 GB against 93, congestion 21.2 % against 17.9 %"
+    },
+    {
+      "date": "2026-10-06",
+      "measured": "XSTile_grt, built from source at a4d882e9 (#1181)",
+      "parent_ps": 3162,
+      "blocks": {
+        "CoupledL2": 1572,
+        "Frontend": 2170,
+        "MemBlock": 1870,
+        "FltRegionModule": 895,
+        "VecRegionModule": 1479
+      },
+      "note": "the generated register files read as the RTL does (#1181): the false 1,161 ps read path through FltRegionModule is gone; the parent's worst path is now its own CtrlBlock logic; VecRegionModule slower with its real read-address registers"
     }
   ]
 }
