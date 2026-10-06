@@ -1,32 +1,68 @@
-From c0577d60557f21b848ab156524c156f48000124f Mon Sep 17 00:00:00 2001
+From 011f4a32d6c4879d577676db27b170aebf9eb451 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Tue, 6 Oct 2026 15:07:02 +0200
 Subject: [PATCH] ram: generate_regfile, a multi-port register file as placed
  standard cells
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
+generate_regfile builds a register file with many read and write ports
+over few words as an array of placed standard cells, from a spec that
+names the module, its words and bits, its read and write ports by the
+RTL's own port names, and the cells to use:
+
+    generate_regfile -spec rf.regfile -check_ports rf.v \
+      -verilog rf_cells.v -def rf.def -lef rf.lef -liberty rf.lib
+
+The array is laid out as a bitcell array is: word rows by bit columns,
+each tile a flop, its write select and an AND per read port; the read
+word lines are decoded in a header column, the read bit lines are OR
+trees in a footer row. Every cell is placed by construction. Banks,
+bit folds, a registered read and a word that reads zero are spec
+options.
+
+It writes the cells as structural Verilog, their placement as DEF, an
+abstract LEF and a timing model (.lib, and a _pre_layout.lib). In
+`mode netlist` the address decode is left unplaced for the parent to
+place and size, and the abstract's pins sit where their connections
+land in the array, so a macro placer that flips the block sees where
+its wires go. -check_ports refuses a spec whose ports are not the
+module's.
+
+A flow can use it as a macro, or place the macro and then replace it
+with the cells, as ORFS's AUTO_MEMORIES_REGFILES does.
+
+Test: src/ram/test/generate_regfile_asap7, an 8 x 4, two-bank, 2R2W
+file with word 0 reading zero, checked against RTL that declares its
+ports several to a line; its four views against golden files.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  src/ram/BUILD                               |    8 +
  src/ram/CMakeLists.txt                      |    3 +
+ src/ram/README.md                           |   60 +-
  src/ram/include/ram/regfile.h               |   33 +
  src/ram/src/ram.i                           |   12 +
  src/ram/src/ram.tcl                         |   25 +
- src/ram/src/regfile.cpp                     | 1179 +++++++++++++++++++
- src/ram/src/regfile.h                       |  143 +++
- src/ram/src/regfile_cmd.cpp                 |   72 ++
- src/ram/src/views.cpp                       |  413 +++++++
- src/ram/src/views.h                         |   58 +
+ src/ram/src/regfile.cpp                     | 1320 +++++++++++++++++++
+ src/ram/src/regfile.h                       |  151 +++
+ src/ram/src/regfile_cmd.cpp                 |   72 +
+ src/ram/src/views.cpp                       |  440 +++++++
+ src/ram/src/views.h                         |   67 +
  src/ram/test/BUILD                          |    6 +
  src/ram/test/CMakeLists.txt                 |    1 +
  src/ram/test/asap7                          |    1 +
- src/ram/test/generate_regfile_asap7.defok   |  896 ++++++++++++++
- src/ram/test/generate_regfile_asap7.lefok   |  279 +++++
- src/ram/test/generate_regfile_asap7.libok   |  634 ++++++++++
+ src/ram/test/generate_regfile_asap7.defok   |  896 +++++++++++++
+ src/ram/test/generate_regfile_asap7.lefok   |  279 ++++
+ src/ram/test/generate_regfile_asap7.libok   |  634 +++++++++
  src/ram/test/generate_regfile_asap7.ok      |    7 +
  src/ram/test/generate_regfile_asap7.regfile |   22 +
  src/ram/test/generate_regfile_asap7.tcl     |   26 +
- src/ram/test/generate_regfile_asap7.vok     |  715 +++++++++++
+ src/ram/test/generate_regfile_asap7.vok     |  715 ++++++++++
  src/ram/test/generate_regfile_asap7_rtl.v   |    8 +
- 21 files changed, 4541 insertions(+)
+ 22 files changed, 4785 insertions(+), 1 deletion(-)
  create mode 100644 src/ram/include/ram/regfile.h
  create mode 100644 src/ram/src/regfile.cpp
  create mode 100644 src/ram/src/regfile.h
@@ -90,6 +126,79 @@ index d0008e8664..81aaa4ab9a 100644
  )
  
  target_include_directories(ram
+diff --git a/src/ram/README.md b/src/ram/README.md
+index 94c5df3036..8e466547e4 100644
+--- a/src/ram/README.md
++++ b/src/ram/README.md
+@@ -80,9 +80,67 @@ generate_ram [-mask_size bits]
+ | `-use_latch` | If set to `1`, uses a two-phase latch-based design instead of flip-flops for the storage elements. Functionally equivalent to flip-flop design with smaller storage cell area. Default: `0`. |
+ | `-write_behavioral_verilog` | Write a behavioral Verilog model of the RAM array to the specified file. |
+ 
++### Register File Generation
++
++The `generate_regfile` command builds a register file, many read and
++write ports over few words, as an array of placed standard cells: word
++rows by bit columns, each tile a flop, its write select and an AND per
++read port, the read word lines decoded in a header column and the read
++bit lines as OR trees in a footer row. Every cell is placed by
++construction. The block is built into the current database, whose
++libraries must hold the cells the spec names.
++
++```tcl
++generate_regfile -spec file
++                 [-check_ports verilog_file]
++                 [-verilog file]
++                 [-def file]
++                 [-lef file]
++                 [-liberty file]
++```
++
++#### Options
++
++| Switch Name | Description |
++| ---------------------- | -------------------------------------- |
++| `-spec` | The spec file, below. |
++| `-check_ports` | A Verilog file declaring the spec's module. The command stops if the module's ports are not the ports the spec names, at the widths the spec implies. |
++| `-verilog` | Write the cells as structural Verilog. |
++| `-def` | Write the placed block as DEF. |
++| `-lef` | Write an abstract LEF of the block. |
++| `-liberty` | Write a timing model; a `_pre_layout.lib` beside it has ideal clocks. |
++
++#### Spec
++
++One key per line, `#` comments:
++
++| Key | Description |
++| ---------------------- | -------------------------------------- |
++| `module name` | The module and block name. |
++| `mode macro\|netlist` | `macro` (default): the block is a macro to its parent. `netlist`: the parent places the cells; the address decode is left unplaced for the parent's placer and resizer, and the abstract's pins sit where their connections land in the array. |
++| `words n`, `bits n` | Depth and width. |
++| `clock port` | The clock port. |
++| `reset port` | A reset port the RTL has and the array ignores. |
++| `read addr data` | A read port, by the module's port names. Repeat per port. |
++| `read_banked addr0 data0 addr1 data1 ...` | A read port with an address and a data port per bank. |
++| `write addr data [en]` | A write port. Repeat per port. |
++| `cell role master` | The cells: `flop`, `and2`, `or2`, `ao22`, `inv`, `tap`. |
++| `pins role pin...` | The pin names of a cell role (`flop`, `and2`, `or2`, `ao22`, `inv`), for a library whose names differ from the defaults. |
++| `flop_output Q\|QN` | Whether the flop's output is inverted. |
++| `pin_layer layer`, `pin_layer_v layer` | The layers of the pins on the left and right edges, and on the top and bottom. |
++| `pin_track offset pitch` | The track grid the pins are centred on, in microns. |
++| `banks n`, `bank_columns n`, `bank_order contiguous\|interleaved` | Word columns side by side, how many of them stand in a row, and how words fall into them. |
++| `bit_folds n` | The word split into `n` bit bands stacked one above the other. |
++| `read_latency 0\|1` | `1` registers each read address on the clock first. |
++| `zero_word n` | A word with no storage that reads 0 and drops writes (RISC-V x0). |
++| `tap_columns n`, `service_sites n` | A tap column every `n` bit columns, and free sites beside each for the clock tree. |
++| `store_name pattern`, `read_reg_name pattern` | Instance names of the flops, from `{word}`, `{bit}`, `{port}` and `{bank}`. |
++| `lib knob value` | The timing model's parameters: `gate_delay_ps`, `wire_factor`, `input_load_ff`, `clock_load_ff`, `leakage_nw_per_cell`, `output_max_cap_ff`, `hold_ps`. |
++
+ ## Example scripts
+ 
+-See [test/make_8x8_sky130.tcl](test/make_8x8_sky130.tcl).
++See [test/make_8x8_sky130.tcl](test/make_8x8_sky130.tcl) and
++[test/generate_regfile_asap7.tcl](test/generate_regfile_asap7.tcl).
+ 
+ ## Regression tests
+ 
 diff --git a/src/ram/include/ram/regfile.h b/src/ram/include/ram/regfile.h
 new file mode 100644
 index 0000000000..663887e0ec
@@ -194,10 +303,13 @@ index 4e58c50163..505b551342 100644
 +}
 diff --git a/src/ram/src/regfile.cpp b/src/ram/src/regfile.cpp
 new file mode 100644
-index 0000000000..da54901e27
+index 0000000000..17319dd9d2
 --- /dev/null
 +++ b/src/ram/src/regfile.cpp
-@@ -0,0 +1,1179 @@
+@@ -0,0 +1,1320 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
 +// generate_regfile: a multi-port register file as a placed standard-cell
 +// macro, built directly in odb. See regfile.h and README.md.
 +#include "regfile.h"
@@ -227,11 +339,13 @@ index 0000000000..da54901e27
 +using odb::dbMaster;
 +using odb::dbNet;
 +
-+std::string Bit(const std::string& bus, int i) {
++std::string Bit(const std::string& bus, int i)
++{
 +  return bus + "[" + std::to_string(i) + "]";
 +}
 +
-+int AddrBits(int words) {
++int AddrBits(int words)
++{
 +  int a = 0;
 +  while ((1 << a) < words) {
 +    ++a;
@@ -239,13 +353,15 @@ index 0000000000..da54901e27
 +  return std::max(a, 1);
 +}
 +
-+[[noreturn]] void Refuse(const std::string& what) {
++[[noreturn]] void Refuse(const std::string& what)
++{
 +  throw std::runtime_error(what);
 +}
 +
 +// `pattern` with each `{key}` replaced by its value.
 +std::string Fmt(std::string pattern,
-+                const std::vector<std::pair<std::string, int>>& values) {
++                const std::vector<std::pair<std::string, int>>& values)
++{
 +  for (const auto& [key, value] : values) {
 +    const std::string k = "{" + key + "}";
 +    for (size_t at = pattern.find(k); at != std::string::npos;
@@ -258,7 +374,8 @@ index 0000000000..da54901e27
 +
 +// The pins of each cell kind, asap7's names by default; a spec may
 +// override them with `pins <kind> <name>...` in the same order.
-+struct Pins {
++struct Pins
++{
 +  std::vector<std::string> flop = {"D", "CLK", "QN"};  // data, clock, out
 +  std::vector<std::string> and2 = {"A", "B", "Y"};
 +  std::vector<std::string> or2 = {"A", "B", "Y"};
@@ -271,56 +388,69 @@ index 0000000000..da54901e27
 +Pins g_pins;  // set by ReadSpec, read by Generate
 +
 +// Everything the builder needs while it lays cells into rows.
-+class Builder {
++class Builder
++{
 + public:
 +  Builder(odb::dbDatabase* db, utl::Logger* logger, const Spec& spec)
-+      : db_(db), logger_(logger), spec_(spec) {}
++      : db_(db), logger_(logger), spec_(spec)
++  {
++  }
 +
 +  dbBlock* Run();
 +
 + private:
-+  dbMaster* Master(const std::string& name, const char* role) {
++  dbMaster* Master(const std::string& name, const char* role)
++  {
 +    dbMaster* m = db_->findMaster(name.c_str());
 +    if (m == nullptr) {
-+      Refuse(std::string("cell for ") + role + " not in the loaded LEF: " + name);
++      Refuse(std::string("cell for ") + role
++             + " not in the loaded LEF: " + name);
 +    }
 +    return m;
 +  }
-+  void CheckPins(dbMaster* m, const std::vector<std::string>& pins) {
++  void CheckPins(dbMaster* m, const std::vector<std::string>& pins)
++  {
 +    for (const auto& p : pins) {
 +      if (m->findMTerm(p.c_str()) == nullptr) {
-+        Refuse("cell " + m->getName() + " has no pin " + p +
-+               "; give its pins with `pins <kind> ...` in the spec");
++        Refuse("cell " + m->getName() + " has no pin " + p
++               + "; give its pins with `pins <kind> ...` in the spec");
 +      }
 +    }
 +  }
-+  dbNet* Net(const std::string& name) {
++  dbNet* Net(const std::string& name)
++  {
 +    dbNet* n = block_->findNet(name.c_str());
 +    if (n == nullptr) {
 +      n = dbNet::create(block_, name.c_str());
 +    }
 +    return n;
 +  }
-+  dbBTerm* Input(const std::string& name) {
++  dbBTerm* Input(const std::string& name)
++  {
 +    dbNet* n = Net(name);
 +    dbBTerm* t = dbBTerm::create(n, name.c_str());
 +    t->setIoType(odb::dbIoType::INPUT);
 +    t->setSigType(odb::dbSigType::SIGNAL);
 +    return t;
 +  }
-+  dbBTerm* Output(const std::string& name, dbNet* net) {
++  dbBTerm* Output(const std::string& name, dbNet* net)
++  {
 +    dbBTerm* t = dbBTerm::create(net, name.c_str());
 +    t->setIoType(odb::dbIoType::OUTPUT);
 +    t->setSigType(odb::dbSigType::SIGNAL);
 +    return t;
 +  }
 +  // A cell dropped into a row cursor: placed left to right, FIRM.
-+  struct Cursor {
++  struct Cursor
++  {
 +    int row = 0;
 +    int x = 0;
 +  };
-+  dbInst* Place(Cursor& c, dbMaster* m, const std::string& name,
-+                const std::vector<std::pair<std::string, dbNet*>>& conns) {
++  dbInst* Place(Cursor& c,
++                dbMaster* m,
++                const std::string& name,
++                const std::vector<std::pair<std::string, dbNet*>>& conns)
++  {
 +    // Cells are named after the net they drive, with a suffix: Verilog
 +    // has one namespace for wires and instances, and yosys refuses a
 +    // netlist where a cell and a wire share a name.
@@ -349,16 +479,21 @@ index 0000000000..da54901e27
 +  }
 +  // A one-hot select for `bits` address literals and an enable: an AND2
 +  // tree over the literals, placed at the cursor.
-+  dbNet* Decode(Cursor& c, const std::string& prefix,
-+                const std::vector<dbNet*>& literals) {
++  dbNet* Decode(Cursor& c,
++                const std::string& prefix,
++                const std::vector<dbNet*>& literals)
++  {
 +    std::vector<dbNet*> level = literals;
 +    int k = 0;
 +    while (level.size() > 1) {
 +      std::vector<dbNet*> next;
 +      for (size_t i = 0; i + 1 < level.size(); i += 2) {
 +        dbNet* y = Net(prefix + "_a" + std::to_string(k++));
-+        Place(c, and2_, y->getName(),
-+              {{g_pins.and2[0], level[i]}, {g_pins.and2[1], level[i + 1]},
++        Place(c,
++              and2_,
++              y->getName(),
++              {{g_pins.and2[0], level[i]},
++               {g_pins.and2[1], level[i + 1]},
 +               {g_pins.and2[2], y}});
 +        next.push_back(y);
 +      }
@@ -371,10 +506,12 @@ index 0000000000..da54901e27
 +  }
 +  // OR tree over `leaves`, each node placed by a caller-supplied hook so
 +  // the tree can run down a column rather than sit in a footer.
-+  dbNet* OrTree(const std::string& prefix, const std::vector<dbNet*>& leaves,
-+                const std::function<Cursor&(int lo, int hi)>& where) {
-+    std::function<dbNet*(int, int, int&)> rec = [&](int lo, int hi,
-+                                                     int& k) -> dbNet* {
++  dbNet* OrTree(const std::string& prefix,
++                const std::vector<dbNet*>& leaves,
++                const std::function<Cursor&(int lo, int hi)>& where)
++  {
++    std::function<dbNet*(int, int, int&)> rec
++        = [&](int lo, int hi, int& k) -> dbNet* {
 +      if (hi - lo == 1) {
 +        return leaves[lo];
 +      }
@@ -382,7 +519,9 @@ index 0000000000..da54901e27
 +      dbNet* a = rec(lo, mid, k);
 +      dbNet* b = rec(mid, hi, k);
 +      dbNet* y = Net(prefix + "_o" + std::to_string(k++));
-+      Place(where(lo, hi), or2_, y->getName(),
++      Place(where(lo, hi),
++            or2_,
++            y->getName(),
 +            {{g_pins.or2[0], a}, {g_pins.or2[1], b}, {g_pins.or2[2], y}});
 +      return y;
 +    };
@@ -391,12 +530,15 @@ index 0000000000..da54901e27
 +  }
 +  // The row of a tile or header with the least in it so far: cells of
 +  // different widths pack evenly, which a round robin does not do.
-+  static Cursor& Least(std::vector<Cursor>& rows) {
++  static Cursor& Least(std::vector<Cursor>& rows)
++  {
 +    return *std::min_element(
-+        rows.begin(), rows.end(),
-+        [](const Cursor& a, const Cursor& b) { return a.x < b.x; });
++        rows.begin(), rows.end(), [](const Cursor& a, const Cursor& b) {
++          return a.x < b.x;
++        });
 +  }
-+  void Pin(dbBTerm* t, odb::dbTechLayer* layer, int x, int y) {
++  void Pin(dbBTerm* t, odb::dbTechLayer* layer, int x, int y)
++  {
 +    odb::dbBPin* bp = odb::dbBPin::create(t);
 +    int w = std::max(static_cast<int>(layer->getWidth()), 1);
 +    odb::dbBox::create(bp, layer, x - w / 2, y - w / 2, x + w / 2, y + w / 2);
@@ -427,7 +569,8 @@ index 0000000000..da54901e27
 +  // One entry per (word, bit) tile in row-major order: its row cursors,
 +  // which the read OR trees keep filling after the tile's own cells, and
 +  // the x where the tile ends, checked once the trees are in.
-+  struct Tile {
++  struct Tile
++  {
 +    std::vector<Cursor> rows;
 +    int x_end = 0;
 +  };
@@ -438,11 +581,13 @@ index 0000000000..da54901e27
 +  std::vector<dbInst*> periphery_insts_;
 +};
 +
-+dbBlock* Builder::Run() {
++dbBlock* Builder::Run()
++{
 +  const Spec& s = spec_;
 +  if (s.words < 2 || s.bits < 1 || s.read.empty() || s.write.empty()) {
-+    Refuse("a register file needs at least 2 words, 1 bit, 1 read and 1 "
-+           "write port");
++    Refuse(
++        "a register file needs at least 2 words, 1 bit, 1 read and 1 "
++        "write port");
 +  }
 +  flop_ = Master(s.cells.flop, "flop");
 +  and2_ = Master(s.cells.and2, "and2");
@@ -467,19 +612,20 @@ index 0000000000..da54901e27
 +  layer_h_ = tech->findLayer(s.pin_layer_h.c_str());
 +  layer_v_ = tech->findLayer(s.pin_layer_v.c_str());
 +  if (layer_h_ == nullptr || layer_v_ == nullptr) {
-+    Refuse("pin layers not in the tech LEF: " + s.pin_layer_h + " " +
-+           s.pin_layer_v);
++    Refuse("pin layers not in the tech LEF: " + s.pin_layer_h + " "
++           + s.pin_layer_v);
 +  }
-+  pin_w_ = std::max(static_cast<int>(std::max(layer_h_->getWidth(),
-+                                              layer_v_->getWidth())), 1);
++  pin_w_ = std::max(
++      static_cast<int>(std::max(layer_h_->getWidth(), layer_v_->getWidth())),
++      1);
 +
 +  odb::dbChip* chip = db_->getChip();
 +  if (chip == nullptr) {
 +    chip = odb::dbChip::create(db_, tech, s.module.c_str());
 +  }
 +  if (chip->getBlock() != nullptr) {
-+    Refuse("the database already has a top block (" +
-+           chip->getBlock()->getName() + "); one generation per database");
++    Refuse("the database already has a top block ("
++           + chip->getBlock()->getName() + "); one generation per database");
 +  }
 +  block_ = dbBlock::create(chip, s.module.c_str());
 +  if (block_ == nullptr) {
@@ -504,24 +650,26 @@ index 0000000000..da54901e27
 +  // bank-local width.
 +  const int banks = std::max(s.banks, 1);
 +  if (s.words % banks != 0) {
-+    Refuse("words (" + std::to_string(s.words) + ") is not a multiple of banks (" +
-+           std::to_string(banks) + ")");
++    Refuse("words (" + std::to_string(s.words)
++           + ") is not a multiple of banks (" + std::to_string(banks) + ")");
 +  }
 +  const int words_per_bank = s.words / banks;
 +  const int A_bank = AddrBits(words_per_bank);
 +  const bool interleaved = s.bank_order == "interleaved";
-+  auto bank_of = [&](int n) { return interleaved ? n % banks : n / words_per_bank; };
-+  auto local_of = [&](int n) { return interleaved ? n / banks : n % words_per_bank; };
++  auto bank_of
++      = [&](int n) { return interleaved ? n % banks : n / words_per_bank; };
++  auto local_of
++      = [&](int n) { return interleaved ? n / banks : n % words_per_bank; };
 +  if (s.zero_word >= s.words || (s.zero_word >= 0 && words_per_bank < 2)) {
-+    Refuse("zero_word " + std::to_string(s.zero_word) +
-+           " is not a word of a bank that keeps another");
++    Refuse("zero_word " + std::to_string(s.zero_word)
++           + " is not a word of a bank that keeps another");
 +  }
 +  // Banks in a grid: bank k stands in column k % bank_cols, bank row
 +  // k / bank_cols, bank rows stacked upward from the footer.
 +  const int bank_cols = s.bank_columns > 0 ? s.bank_columns : banks;
 +  if (bank_cols > banks || banks % bank_cols != 0) {
-+    Refuse("bank_columns (" + std::to_string(bank_cols) +
-+           ") does not divide banks (" + std::to_string(banks) + ")");
++    Refuse("bank_columns (" + std::to_string(bank_cols)
++           + ") does not divide banks (" + std::to_string(banks) + ")");
 +  }
 +  const int bank_rows = banks / bank_cols;
 +  // Bit folds: band f holds bits [f * bits_per_fold, (f + 1) * bits_per_fold)
@@ -529,16 +677,16 @@ index 0000000000..da54901e27
 +  // band is short when the folds do not divide the bits.
 +  const int folds = std::max(s.bit_folds, 1);
 +  if (folds > s.bits) {
-+    Refuse("bit_folds (" + std::to_string(folds) + ") exceeds bits (" +
-+           std::to_string(s.bits) + ")");
++    Refuse("bit_folds (" + std::to_string(folds) + ") exceeds bits ("
++           + std::to_string(s.bits) + ")");
 +  }
 +  const int bits_per_fold = (s.bits + folds - 1) / folds;
 +  for (int r = 0; r < R; ++r) {
-+    if (s.read[r].banked() &&
-+        static_cast<int>(s.read[r].bank_addr.size()) != banks) {
-+      Refuse("read port " + std::to_string(r) + " names " +
-+             std::to_string(s.read[r].bank_addr.size()) + " banks, the array has " +
-+             std::to_string(banks));
++    if (s.read[r].banked()
++        && static_cast<int>(s.read[r].bank_addr.size()) != banks) {
++      Refuse("read port " + std::to_string(r) + " names "
++             + std::to_string(s.read[r].bank_addr.size())
++             + " banks, the array has " + std::to_string(banks));
 +    }
 +  }
 +  // raddr[r][k] is bank k's literals for a banked port; raddr[r][0] the
@@ -593,11 +741,10 @@ index 0000000000..da54901e27
 +  // pairs and an OR2 tree, R read AND2s, and this bit's share of the R
 +  // read OR trees, which run down the column.
 +  const int write_pairs = (W + 1) / 2;  // AO22 nodes; the last may hold Q
-+  const int tile_cells_w =
-+      static_cast<int>(flop_->getWidth() + inv_->getWidth() +
-+                       write_pairs * ao22_->getWidth() +
-+                       std::max(write_pairs - 1, 0) * or2_->getWidth() +
-+                       R * and2_->getWidth() + R * or2_->getWidth());
++  const int tile_cells_w = static_cast<int>(
++      flop_->getWidth() + inv_->getWidth() + write_pairs * ao22_->getWidth()
++      + std::max(write_pairs - 1, 0) * or2_->getWidth() + R * and2_->getWidth()
++      + R * or2_->getWidth());
 +  int rows_per_word = 1;
 +  // Keep a tile near square-ish: at most ~40 sites wide.
 +  while (tile_cells_w / rows_per_word > 40 * site_w_ && rows_per_word < 8) {
@@ -605,30 +752,29 @@ index 0000000000..da54901e27
 +  }
 +  // Rows are filled least-first, so a row is at most one widest cell over
 +  // the average; the tile width carries that slack.
-+  const int widest = static_cast<int>(
-+      std::max({flop_->getWidth(), ao22_->getWidth(), or2_->getWidth(),
-+                and2_->getWidth()}));
-+  const int tile_w =
-+      ((tile_cells_w + rows_per_word - 1) / rows_per_word + widest +
-+       site_w_ - 1) /
-+      site_w_ * site_w_;
++  const int widest = static_cast<int>(std::max({flop_->getWidth(),
++                                                ao22_->getWidth(),
++                                                or2_->getWidth(),
++                                                and2_->getWidth()}));
++  const int tile_w = ((tile_cells_w + rows_per_word - 1) / rows_per_word
++                      + widest + site_w_ - 1)
++                     / site_w_ * site_w_;
 +  // Header: per word, (R+W) decodes of (A+1) literals as AND2 trees, the
 +  // address inverters live above the array. hold_n = ~(OR of write selects).
-+  const int header_cells_w = static_cast<int>(
-+      (R + W) * A * and2_->getWidth() + (W - 1) * or2_->getWidth() +
-+      inv_->getWidth());
-+  const int header_w =
-+      ((header_cells_w + rows_per_word - 1) / rows_per_word + widest +
-+       site_w_ - 1) /
-+      site_w_ * site_w_;
++  const int header_cells_w
++      = static_cast<int>((R + W) * A * and2_->getWidth()
++                         + (W - 1) * or2_->getWidth() + inv_->getWidth());
++  const int header_w = ((header_cells_w + rows_per_word - 1) / rows_per_word
++                        + widest + site_w_ - 1)
++                       / site_w_ * site_w_;
 +  // A service column every `tap_columns` bit columns: the tap cell and
 +  // then `service_sites` empty sites on every row. The placement is
 +  // legal without them; what needs the room is what comes after -- the
 +  // clock tree's buffers and any repair -- and the slack inside a tile
 +  // is a few sites at a time, which a BUFx24 cannot use. Contiguous free
 +  // sites next to the flops are where a clock buffer wants to be.
-+  const int tap_w = (tap_ ? static_cast<int>(tap_->getWidth()) : 0) +
-+                    std::max(s.service_sites, 0) * site_w_;
++  const int tap_w = (tap_ ? static_cast<int>(tap_->getWidth()) : 0)
++                    + std::max(s.service_sites, 0) * site_w_;
 +  const int tap_every = std::max(s.tap_columns, 1);
 +  const int tap_cols = (tap_ || s.service_sites > 0)
 +                           ? (bits_per_fold + tap_every - 1) / tap_every
@@ -650,9 +796,12 @@ index 0000000000..da54901e27
 +  }
 +  // Footer: (banks-1) OR2 per read port per bit, as many rows as it takes.
 +  const int core_w = bank_cols * bank_w;
-+  const int footer_cells_w =
-+      banks > 1 ? (banks - 1) * plain_reads * s.bits * static_cast<int>(or2_->getWidth()) : 0;
-+  const int footer_rows = footer_cells_w > 0 ? (footer_cells_w + core_w - 1) / core_w + 1 : 0;
++  const int footer_cells_w = banks > 1
++                                 ? (banks - 1) * plain_reads * s.bits
++                                       * static_cast<int>(or2_->getWidth())
++                                 : 0;
++  const int footer_rows
++      = footer_cells_w > 0 ? (footer_cells_w + core_w - 1) / core_w + 1 : 0;
 +  // The address band above the array: an inverter per address literal,
 +  // and with a read latency a flop ahead of each read one, each cell with
 +  // a spare site after it; as many rows as that takes.
@@ -661,9 +810,10 @@ index 0000000000..da54901e27
 +    read_addr_bits += s.read[r].banked() ? banks * A_bank : A;
 +  }
 +  const int inv_cell_w = static_cast<int>(inv_->getWidth()) + site_w_;
-+  const int reg_cell_w =
-+      s.read_latency > 0 ? static_cast<int>(flop_->getWidth()) + site_w_ : 0;
-+  const int band_w = read_addr_bits * (inv_cell_w + reg_cell_w) + W * A * inv_cell_w;
++  const int reg_cell_w
++      = s.read_latency > 0 ? static_cast<int>(flop_->getWidth()) + site_w_ : 0;
++  const int band_w
++      = read_addr_bits * (inv_cell_w + reg_cell_w) + W * A * inv_cell_w;
 +  const int inv_rows = std::max(1, (band_w + core_w - 1) / core_w);
 +  const int total_rows = footer_rows + bank_rows * bank_h_rows + inv_rows;
 +
@@ -675,11 +825,16 @@ index 0000000000..da54901e27
 +  block_->setDieArea(odb::Rect(0, 0, die_w, die_h));
 +  for (int r = 0; r < total_rows; ++r) {
 +    std::string rn = "ROW_" + std::to_string(r);
-+    odb::dbRow::create(block_, rn.c_str(), site_, core_x0_,
-+                       core_y0_ + r * row_h_,
-+                       r % 2 == 0 ? odb::dbOrientType::R0
-+                                  : odb::dbOrientType::MX,
-+                       odb::dbRowDir::HORIZONTAL, core_w / site_w_, site_w_);
++    odb::dbRow::create(
++        block_,
++        rn.c_str(),
++        site_,
++        core_x0_,
++        core_y0_ + r * row_h_,
++        r % 2 == 0 ? odb::dbOrientType::R0 : odb::dbOrientType::MX,
++        odb::dbRowDir::HORIZONTAL,
++        core_w / site_w_,
++        site_w_);
 +  }
 +
 +  // ---- address inverters, top band ------------------------------------
@@ -695,43 +850,49 @@ index 0000000000..da54901e27
 +    Cursor c{total_rows - 1, 0};
 +    // A cell and its spare site, on the next band row down if this one
 +    // is full.
-+    auto band = [&](dbMaster* m, const std::string& name,
++    auto band = [&](dbMaster* m,
++                    const std::string& name,
 +                    const std::vector<std::pair<std::string, dbNet*>>& conns) {
 +      if (c.x + static_cast<int>(m->getWidth()) > core_w) {
 +        c = Cursor{c.row - 1, 0};
 +      }
-+      Place(c, m, name, conns)->setPlacementStatus(odb::dbPlacementStatus::PLACED);
++      Place(c, m, name, conns)
++          ->setPlacementStatus(odb::dbPlacementStatus::PLACED);
 +      c.x += site_w_;
 +    };
 +    for (int r = 0; r < R; ++r) {
 +      raddr_n[r].resize(raddr[r].size());
 +      for (size_t k = 0; k < raddr[r].size(); ++k) {
 +        for (size_t i = 0; i < raddr[r][k].size(); ++i) {
-+          const std::string base = "rd" + std::to_string(r) + "_k" +
-+                                   std::to_string(k);
++          const std::string base
++              = "rd" + std::to_string(r) + "_k" + std::to_string(k);
 +          if (s.read_latency > 0) {
 +            // The registered address: the flop's QN is the inverted
 +            // literal, one inverter gives the true one (the other way
 +            // round for a Q flop). The decode reads only these.
-+            const std::string reg =
-+                s.read_reg_name.empty()
-+                    ? base + "_areg" + std::to_string(i)
-+                    : Fmt(s.read_reg_name, {{"port", r},
-+                                            {"bank", static_cast<int>(k)},
-+                                            {"bit", static_cast<int>(i)}});
++            const std::string reg = s.read_reg_name.empty()
++                                        ? base + "_areg" + std::to_string(i)
++                                        : Fmt(s.read_reg_name,
++                                              {{"port", r},
++                                               {"bank", static_cast<int>(k)},
++                                               {"bit", static_cast<int>(i)}});
 +            dbNet* out = Net(base + "_aq" + std::to_string(i));
-+            band(flop_, reg,
++            band(flop_,
++                 reg,
 +                 {{g_pins.flop[0], raddr[r][k][i]},
 +                  {g_pins.flop[1], clock},
 +                  {g_pins.flop[2], out}});
 +            dbNet* other = Net(base + "_ai" + std::to_string(i));
-+            band(inv_, other->getName(), {{g_pins.inv[0], out}, {g_pins.inv[1], other}});
++            band(inv_,
++                 other->getName(),
++                 {{g_pins.inv[0], out}, {g_pins.inv[1], other}});
 +            raddr[r][k][i] = g_pins.flop_inverted ? other : out;
 +            raddr_n[r][k].push_back(g_pins.flop_inverted ? out : other);
 +            continue;
 +          }
 +          dbNet* y = Net(base + "_na" + std::to_string(i));
-+          band(inv_, y->getName(),
++          band(inv_,
++               y->getName(),
 +               {{g_pins.inv[0], raddr[r][k][i]}, {g_pins.inv[1], y}});
 +          raddr_n[r][k].push_back(y);
 +        }
@@ -740,7 +901,9 @@ index 0000000000..da54901e27
 +    for (int w = 0; w < W; ++w) {
 +      for (int i = 0; i < A; ++i) {
 +        dbNet* y = Net("wr" + std::to_string(w) + "_na" + std::to_string(i));
-+        band(inv_, y->getName(), {{g_pins.inv[0], waddr[w][i]}, {g_pins.inv[1], y}});
++        band(inv_,
++             y->getName(),
++             {{g_pins.inv[0], waddr[w][i]}, {g_pins.inv[1], y}});
 +        waddr_n[w].push_back(y);
 +      }
 +    }
@@ -764,149 +927,174 @@ index 0000000000..da54901e27
 +      R, std::vector<std::vector<int>>(s.bits));
 +  tiles_.assign(static_cast<size_t>(s.words) * s.bits, Tile{});
 +
-+  auto literals = [&](const std::vector<dbNet*>& a,
-+                      const std::vector<dbNet*>& an, int n) {
-+    std::vector<dbNet*> l;
-+    for (size_t i = 0; i < a.size(); ++i) {
-+      l.push_back(((n >> i) & 1) ? a[i] : an[i]);
-+    }
-+    return l;
-+  };
-+
-+  for (int f = 0; f < folds; ++f)
-+  for (int n = 0; n < s.words; ++n) {
-+    if (n == s.zero_word) {
-+      continue;  // no storage, no selects: it reads 0, a write is dropped
-+    }
-+    const int bank = bank_of(n);
-+    const int row0 = footer_rows + (bank / bank_cols) * bank_h_rows +
-+                     f * band_h_rows + local_of(n) * rows_per_word;
-+    const int bank_x0 = (bank % bank_cols) * bank_w;
-+    // Header column, spread over this word's rows.
-+    std::vector<Cursor> hc;
-+    for (int k = 0; k < rows_per_word; ++k) {
-+      hc.push_back(Cursor{row0 + k, bank_x0});
-+    }
-+    auto hcur = [&]() -> Cursor& { return Least(hc); };
-+    periphery_ = true;
-+    std::string wn = "w" + std::to_string(n) +
-+                     (folds > 1 ? "_f" + std::to_string(f) : "");
-+    for (int r = 0; r < R; ++r) {
-+      const bool banked = s.read[r].banked();
-+      rsel[r][n] = Decode(hcur(), wn + "_rsel" + std::to_string(r),
-+                          literals(raddr[r][banked ? bank : 0],
-+                                   raddr_n[r][banked ? bank : 0],
-+                                   banked ? local_of(n) : n));
-+    }
-+    std::vector<dbNet*> wsels;
-+    for (int w = 0; w < W; ++w) {
-+      std::vector<dbNet*> l = literals(waddr[w], waddr_n[w], n);
-+      if (wen[w] != nullptr) {
-+        l.push_back(wen[w]);
-+      }
-+      wsel[w][n] = Decode(hcur(), wn + "_wsel" + std::to_string(w), l);
-+      wsels.push_back(wsel[w][n]);
-+    }
-+    // hold = ~(wsel0 | wsel1 | ...): the word keeps its value.
-+    dbNet* any_write = wsels.size() == 1
-+                           ? wsels[0]
-+                           : OrTree(wn + "_anyw", wsels,
-+                                    [&](int, int) -> Cursor& { return hcur(); });
-+    hold[n] = Net(wn + "_hold");
-+    Place(hcur(), inv_, hold[n]->getName(),
-+          {{g_pins.inv[0], any_write}, {g_pins.inv[1], hold[n]}});
-+    periphery_ = false;
-+    for (auto& c : hc) {
-+      if (c.x > bank_x0 + header_w) {
-+        Refuse("header column overflow at word " + std::to_string(n) +
-+               ": widen the header estimate");
-+      }
-+    }
-+
-+    // Tiles, this band's bits.
-+    int x = bank_x0 + header_w;
-+    for (int bl = 0; bl < bits_per_fold && f * bits_per_fold + bl < s.bits; ++bl) {
-+      const int b = f * bits_per_fold + bl;
-+      if (tap_cols > 0 && bl % tap_every == 0) {
-+        if (tap_) {
-+          for (int k = 0; k < rows_per_word; ++k) {
-+            Cursor tc{row0 + k, x};
-+            Place(tc, tap_, "tap_" + wn + "_c" + std::to_string(bl / tap_every) +
-+                                "_r" + std::to_string(k), {});
-+          }
++  auto literals =
++      [&](const std::vector<dbNet*>& a, const std::vector<dbNet*>& an, int n) {
++        std::vector<dbNet*> l;
++        for (size_t i = 0; i < a.size(); ++i) {
++          l.push_back(((n >> i) & 1) ? a[i] : an[i]);
 +        }
-+        x += tap_w;  // the rest of the service column stays empty
++        return l;
++      };
++
++  for (int f = 0; f < folds; ++f) {
++    for (int n = 0; n < s.words; ++n) {
++      if (n == s.zero_word) {
++        continue;  // no storage, no selects: it reads 0, a write is dropped
 +      }
-+      std::string tn = wn + "_b" + std::to_string(b);
-+      std::vector<Cursor> tc;
++      const int bank = bank_of(n);
++      const int row0 = footer_rows + (bank / bank_cols) * bank_h_rows
++                       + f * band_h_rows + local_of(n) * rows_per_word;
++      const int bank_x0 = (bank % bank_cols) * bank_w;
++      // Header column, spread over this word's rows.
++      std::vector<Cursor> hc;
 +      for (int k = 0; k < rows_per_word; ++k) {
-+        tc.push_back(Cursor{row0 + k, x});
++        hc.push_back(Cursor{row0 + k, bank_x0});
 +      }
-+      auto tcur = [&]() -> Cursor& { return Least(tc); };
-+
-+      // Storage. The flop's QN holds ~value; Q is recovered by an inverter.
-+      dbNet* d = Net(tn + "_d");
-+      dbNet* qn = Net(tn + "_qn");
-+      dbNet* q = g_pins.flop_inverted ? Net(tn + "_q") : qn;
-+      Place(tcur(), flop_,
-+            s.store_name.empty() ? tn + "_ff"
-+                                 : Fmt(s.store_name, {{"word", n}, {"bit", b}}),
-+            {{g_pins.flop[0], d}, {g_pins.flop[1], clock}, {g_pins.flop[2], qn}});
-+      if (g_pins.flop_inverted) {
-+        Place(tcur(), inv_, tn + "_qinv", {{g_pins.inv[0], qn}, {g_pins.inv[1], q}});
-+      }
-+      // Write mux: d = OR_w (wsel_w & wdata_w[b]) | (hold & q), as AO22
-+      // pairs then an OR2 tree.
-+      std::vector<std::pair<dbNet*, dbNet*>> terms;
-+      for (int w = 0; w < W; ++w) {
-+        terms.emplace_back(wsel[w][n], wdata[w][b]);
-+      }
-+      terms.emplace_back(hold[n], q);
-+      std::vector<dbNet*> partial;
-+      for (size_t i = 0; i < terms.size(); i += 2) {
-+        dbNet* y = Net(tn + "_wm" + std::to_string(i / 2));
-+        if (i + 1 < terms.size()) {
-+          Place(tcur(), ao22_, y->getName(),
-+                {{g_pins.ao22[0], terms[i].first},
-+                 {g_pins.ao22[1], terms[i].second},
-+                 {g_pins.ao22[2], terms[i + 1].first},
-+                 {g_pins.ao22[3], terms[i + 1].second},
-+                 {g_pins.ao22[4], y}});
-+        } else {
-+          Place(tcur(), and2_, y->getName(),
-+                {{g_pins.and2[0], terms[i].first},
-+                 {g_pins.and2[1], terms[i].second},
-+                 {g_pins.and2[2], y}});
-+        }
-+        partial.push_back(y);
-+      }
-+      dbNet* mux = partial.size() == 1
-+                       ? partial[0]
-+                       : OrTree(tn + "_wo", partial,
-+                                [&](int, int) -> Cursor& { return tcur(); });
-+      // The OR tree's root must be the flop's D net: alias by re-connecting.
-+      if (mux != d) {
-+        // Move every iterm on `mux` to `d`.
-+        std::vector<odb::dbITerm*> its(mux->getITerms().begin(),
-+                                       mux->getITerms().end());
-+        for (auto* it : its) {
-+          it->disconnect();
-+          it->connect(d);
-+        }
-+        dbNet::destroy(mux);
-+      }
-+      // Read ANDs: one per port, the leaves of that port's bitline.
++      auto hcur = [&]() -> Cursor& { return Least(hc); };
++      periphery_ = true;
++      std::string wn = "w" + std::to_string(n)
++                       + (folds > 1 ? "_f" + std::to_string(f) : "");
 +      for (int r = 0; r < R; ++r) {
-+        dbNet* y = Net(tn + "_r" + std::to_string(r));
-+        Place(tcur(), and2_, y->getName(),
-+              {{g_pins.and2[0], rsel[r][n]}, {g_pins.and2[1], q},
-+               {g_pins.and2[2], y}});
-+        leaves[r][b].push_back(y);
-+        leaf_word[r][b].push_back(n);
++        const bool banked = s.read[r].banked();
++        rsel[r][n] = Decode(hcur(),
++                            wn + "_rsel" + std::to_string(r),
++                            literals(raddr[r][banked ? bank : 0],
++                                     raddr_n[r][banked ? bank : 0],
++                                     banked ? local_of(n) : n));
 +      }
-+      // Keep the row cursors: the read OR trees fill the tile's leftover.
-+      tiles_[static_cast<size_t>(n) * s.bits + b] = Tile{tc, x + tile_w};
-+      x += tile_w;
++      std::vector<dbNet*> wsels;
++      for (int w = 0; w < W; ++w) {
++        std::vector<dbNet*> l = literals(waddr[w], waddr_n[w], n);
++        if (wen[w] != nullptr) {
++          l.push_back(wen[w]);
++        }
++        wsel[w][n] = Decode(hcur(), wn + "_wsel" + std::to_string(w), l);
++        wsels.push_back(wsel[w][n]);
++      }
++      // hold = ~(wsel0 | wsel1 | ...): the word keeps its value.
++      dbNet* any_write
++          = wsels.size() == 1
++                ? wsels[0]
++                : OrTree(wn + "_anyw", wsels, [&](int, int) -> Cursor& {
++                    return hcur();
++                  });
++      hold[n] = Net(wn + "_hold");
++      Place(hcur(),
++            inv_,
++            hold[n]->getName(),
++            {{g_pins.inv[0], any_write}, {g_pins.inv[1], hold[n]}});
++      periphery_ = false;
++      for (auto& c : hc) {
++        if (c.x > bank_x0 + header_w) {
++          Refuse("header column overflow at word " + std::to_string(n)
++                 + ": widen the header estimate");
++        }
++      }
++
++      // Tiles, this band's bits.
++      int x = bank_x0 + header_w;
++      for (int bl = 0; bl < bits_per_fold && f * bits_per_fold + bl < s.bits;
++           ++bl) {
++        const int b = f * bits_per_fold + bl;
++        if (tap_cols > 0 && bl % tap_every == 0) {
++          if (tap_) {
++            for (int k = 0; k < rows_per_word; ++k) {
++              Cursor tc{row0 + k, x};
++              Place(tc,
++                    tap_,
++                    "tap_" + wn + "_c" + std::to_string(bl / tap_every) + "_r"
++                        + std::to_string(k),
++                    {});
++            }
++          }
++          x += tap_w;  // the rest of the service column stays empty
++        }
++        std::string tn = wn + "_b" + std::to_string(b);
++        std::vector<Cursor> tc;
++        for (int k = 0; k < rows_per_word; ++k) {
++          tc.push_back(Cursor{row0 + k, x});
++        }
++        auto tcur = [&]() -> Cursor& { return Least(tc); };
++
++        // Storage. The flop's QN holds ~value; Q is recovered by an inverter.
++        dbNet* d = Net(tn + "_d");
++        dbNet* qn = Net(tn + "_qn");
++        dbNet* q = g_pins.flop_inverted ? Net(tn + "_q") : qn;
++        Place(tcur(),
++              flop_,
++              s.store_name.empty()
++                  ? tn + "_ff"
++                  : Fmt(s.store_name, {{"word", n}, {"bit", b}}),
++              {{g_pins.flop[0], d},
++               {g_pins.flop[1], clock},
++               {g_pins.flop[2], qn}});
++        if (g_pins.flop_inverted) {
++          Place(tcur(),
++                inv_,
++                tn + "_qinv",
++                {{g_pins.inv[0], qn}, {g_pins.inv[1], q}});
++        }
++        // Write mux: d = OR_w (wsel_w & wdata_w[b]) | (hold & q), as AO22
++        // pairs then an OR2 tree.
++        std::vector<std::pair<dbNet*, dbNet*>> terms;
++        for (int w = 0; w < W; ++w) {
++          terms.emplace_back(wsel[w][n], wdata[w][b]);
++        }
++        terms.emplace_back(hold[n], q);
++        std::vector<dbNet*> partial;
++        for (size_t i = 0; i < terms.size(); i += 2) {
++          dbNet* y = Net(tn + "_wm" + std::to_string(i / 2));
++          if (i + 1 < terms.size()) {
++            Place(tcur(),
++                  ao22_,
++                  y->getName(),
++                  {{g_pins.ao22[0], terms[i].first},
++                   {g_pins.ao22[1], terms[i].second},
++                   {g_pins.ao22[2], terms[i + 1].first},
++                   {g_pins.ao22[3], terms[i + 1].second},
++                   {g_pins.ao22[4], y}});
++          } else {
++            Place(tcur(),
++                  and2_,
++                  y->getName(),
++                  {{g_pins.and2[0], terms[i].first},
++                   {g_pins.and2[1], terms[i].second},
++                   {g_pins.and2[2], y}});
++          }
++          partial.push_back(y);
++        }
++        dbNet* mux = partial.size() == 1
++                         ? partial[0]
++                         : OrTree(tn + "_wo",
++                                  partial,
++                                  [&](int, int) -> Cursor& { return tcur(); });
++        // The OR tree's root must be the flop's D net: alias by re-connecting.
++        if (mux != d) {
++          // Move every iterm on `mux` to `d`.
++          std::vector<odb::dbITerm*> its(mux->getITerms().begin(),
++                                         mux->getITerms().end());
++          for (auto* it : its) {
++            it->disconnect();
++            it->connect(d);
++          }
++          dbNet::destroy(mux);
++        }
++        // Read ANDs: one per port, the leaves of that port's bitline.
++        for (int r = 0; r < R; ++r) {
++          dbNet* y = Net(tn + "_r" + std::to_string(r));
++          Place(tcur(),
++                and2_,
++                y->getName(),
++                {{g_pins.and2[0], rsel[r][n]},
++                 {g_pins.and2[1], q},
++                 {g_pins.and2[2], y}});
++          leaves[r][b].push_back(y);
++          leaf_word[r][b].push_back(n);
++        }
++        // Keep the row cursors: the read OR trees fill the tile's leftover.
++        tiles_[static_cast<size_t>(n) * s.bits + b] = Tile{tc, x + tile_w};
++        x += tile_w;
++      }
 +    }
 +  }
 +
@@ -932,12 +1120,12 @@ index 0000000000..da54901e27
 +            bank_words.push_back(leaf_word[r][b][i]);
 +          }
 +        }
-+        bank_roots.push_back(OrTree(
-+            prefix + "_k" + std::to_string(k), bank_leaves,
-+            [&](int lo, int hi) -> Cursor& {
-+              int n = bank_words[(lo + hi) / 2];
-+              return Least(tiles_[n * s.bits + b].rows);
-+            }));
++        bank_roots.push_back(OrTree(prefix + "_k" + std::to_string(k),
++                                    bank_leaves,
++                                    [&](int lo, int hi) -> Cursor& {
++                                      int n = bank_words[(lo + hi) / 2];
++                                      return Least(tiles_[n * s.bits + b].rows);
++                                    }));
 +      }
 +      // Each root becomes an output net with the RTL's name: one per
 +      // bank for a banked port, one after the footer OR for a plain one.
@@ -958,10 +1146,12 @@ index 0000000000..da54901e27
 +          emit(bank_roots[k], Bit(s.read[r].bank_data[k], b));
 +        }
 +      } else {
-+        dbNet* root = banks == 1
-+                          ? bank_roots[0]
-+                          : OrTree(prefix + "_f", bank_roots,
-+                                   [&](int, int) -> Cursor& { return Least(footer); });
++        dbNet* root
++            = banks == 1
++                  ? bank_roots[0]
++                  : OrTree(prefix + "_f", bank_roots, [&](int, int) -> Cursor& {
++                      return Least(footer);
++                    });
 +        emit(root, Bit(s.read[r].data, b));
 +      }
 +    }
@@ -969,9 +1159,10 @@ index 0000000000..da54901e27
 +  for (size_t i = 0; i < tiles_.size(); ++i) {
 +    for (const auto& c : tiles_[i].rows) {
 +      if (c.x > tiles_[i].x_end) {
-+        Refuse("tile " + std::to_string(i) + " overflowed by " +
-+               std::to_string(c.x - tiles_[i].x_end) +
-+               " dbu once its read OR trees were in: widen the tile estimate");
++        Refuse(
++            "tile " + std::to_string(i) + " overflowed by "
++            + std::to_string(c.x - tiles_[i].x_end)
++            + " dbu once its read OR trees were in: widen the tile estimate");
 +      }
 +    }
 +  }
@@ -981,8 +1172,8 @@ index 0000000000..da54901e27
 +    }
 +  }
 +  if (max_x_ > core_w) {
-+    Refuse("placement ran past the core: " + std::to_string(max_x_) + " > " +
-+           std::to_string(core_w));
++    Refuse("placement ran past the core: " + std::to_string(max_x_) + " > "
++           + std::to_string(core_w));
 +  }
 +
 +  // ---- pins on the die edge --------------------------------------------
@@ -991,7 +1182,8 @@ index 0000000000..da54901e27
 +  // horizontal layer. Centres sit on the platform's track grid for that
 +  // layer so a parent's macro placer can align them (MPL-0005 otherwise).
 +  const int track_off = static_cast<int>(s.pin_track_offset_um * dbu_);
-+  const int track_pitch = std::max(static_cast<int>(s.pin_track_pitch_um * dbu_), 1);
++  const int track_pitch
++      = std::max(static_cast<int>(s.pin_track_pitch_um * dbu_), 1);
 +  auto on_track = [&](int v) {
 +    int k = (v - track_off + track_pitch - 1) / track_pitch;
 +    return track_off + std::max(k, 0) * track_pitch;
@@ -1017,7 +1209,9 @@ index 0000000000..da54901e27
 +  px = on_track(core_x0_ + track_pitch);
 +  for (int w = 0; w < W; ++w) {
 +    for (int b = 0; b < s.bits; ++b) {
-+      Pin(block_->findBTerm(Bit(s.write[w].data, b).c_str()), layer_v_, px,
++      Pin(block_->findBTerm(Bit(s.write[w].data, b).c_str()),
++          layer_v_,
++          px,
 +          die_h - edge);
 +      px += track_pitch;
 +    }
@@ -1034,8 +1228,9 @@ index 0000000000..da54901e27
 +  for (int r = 0; r < R; ++r) {
 +    for (size_t k = 0; k < raddr[r].size(); ++k) {
 +      for (size_t i = 0; i < raddr[r][k].size(); ++i) {
-+        left(s.read[r].banked() ? Bit(s.read[r].bank_addr[k], static_cast<int>(i))
-+                                : Bit(s.read[r].addr, static_cast<int>(i)));
++        left(s.read[r].banked()
++                 ? Bit(s.read[r].bank_addr[k], static_cast<int>(i))
++                 : Bit(s.read[r].addr, static_cast<int>(i)));
 +      }
 +    }
 +  }
@@ -1048,15 +1243,26 @@ index 0000000000..da54901e27
 +    }
 +  }
 +  if (std::max(px, px_bottom_end) > die_w || py > die_h) {
-+    Refuse("more pins than the die edge holds at the track pitch; the array "
-+           "is too narrow for its ports (widen with fewer banks or more bits)");
++    Refuse(
++        "more pins than the die edge holds at the track pitch; the array "
++        "is too narrow for its ports (widen with fewer banks or more bits)");
 +  }
 +
 +  logger_->report(
-+      "generate_regfile: {} {}x{} {}R{}W in {} bank(s) as {} x {}, {} bit fold(s): "
++      "generate_regfile: {} {}x{} {}R{}W in {} bank(s) as {} x {}, {} bit "
++      "fold(s): "
 +      "{} rows of {} sites, die {} x {} um, {} instances",
-+      s.module, s.words, s.bits, R, W, banks, bank_cols, bank_rows, folds,
-+      total_rows, core_w / site_w_,
++      s.module,
++      s.words,
++      s.bits,
++      R,
++      W,
++      banks,
++      bank_cols,
++      bank_rows,
++      folds,
++      total_rows,
++      core_w / site_w_,
 +      die_w / static_cast<double>(tech->getLefUnits()),
 +      die_h / static_cast<double>(tech->getLefUnits()),
 +      block_->getInsts().size());
@@ -1114,7 +1320,8 @@ index 0000000000..da54901e27
 +
 +}  // namespace
 +
-+Spec ReadSpec(const std::string& path) {
++Spec ReadSpec(const std::string& path)
++{
 +  std::ifstream in(path);
 +  if (!in) {
 +    Refuse("cannot read spec " + path);
@@ -1140,8 +1347,8 @@ index 0000000000..da54901e27
 +    }
 +    auto need = [&](size_t n) {
 +      if (v.size() != n) {
-+        Refuse(path + ":" + std::to_string(lineno) + ": `" + key + "` takes " +
-+               std::to_string(n) + " value(s)");
++        Refuse(path + ":" + std::to_string(lineno) + ": `" + key + "` takes "
++               + std::to_string(n) + " value(s)");
 +      }
 +    };
 +    if (key == "module") {
@@ -1150,7 +1357,8 @@ index 0000000000..da54901e27
 +    } else if (key == "mode") {
 +      need(1);
 +      if (v[0] != "macro" && v[0] != "netlist") {
-+        Refuse(path + ":" + std::to_string(lineno) + ": mode is macro or netlist, not `" + v[0] + "`");
++        Refuse(path + ":" + std::to_string(lineno)
++               + ": mode is macro or netlist, not `" + v[0] + "`");
 +      }
 +      s.mode = v[0];
 +    } else if (key == "words") {
@@ -1170,8 +1378,8 @@ index 0000000000..da54901e27
 +      s.read.push_back(Port{v[0], v[1], ""});
 +    } else if (key == "read_banked") {
 +      if (v.size() < 2 || v.size() % 2 != 0) {
-+        Refuse(path + ":" + std::to_string(lineno) +
-+               ": `read_banked` takes addr data pairs, one per bank");
++        Refuse(path + ":" + std::to_string(lineno)
++               + ": `read_banked` takes addr data pairs, one per bank");
 +      }
 +      Port port;
 +      for (size_t i = 0; i < v.size(); i += 2) {
@@ -1181,45 +1389,69 @@ index 0000000000..da54901e27
 +      s.read.push_back(port);
 +    } else if (key == "write") {
 +      if (v.size() != 2 && v.size() != 3) {
-+        Refuse(path + ":" + std::to_string(lineno) +
-+               ": `write` takes addr data [en]");
++        Refuse(path + ":" + std::to_string(lineno)
++               + ": `write` takes addr data [en]");
 +      }
 +      s.write.push_back(Port{v[0], v[1], v.size() == 3 ? v[2] : ""});
 +    } else if (key == "cell") {
 +      need(2);
 +      const std::string& kind = v[0];
-+      if (kind == "flop") s.cells.flop = v[1];
-+      else if (kind == "and2") s.cells.and2 = v[1];
-+      else if (kind == "or2") s.cells.or2 = v[1];
-+      else if (kind == "ao22") s.cells.ao22 = v[1];
-+      else if (kind == "inv") s.cells.inv = v[1];
-+      else if (kind == "tap") s.cells.tap = v[1];
-+      else if (kind == "tie_lo") s.cells.tie_lo = v[1];
-+      else Refuse(path + ":" + std::to_string(lineno) + ": unknown cell kind " + kind);
++      if (kind == "flop") {
++        s.cells.flop = v[1];
++      } else if (kind == "and2") {
++        s.cells.and2 = v[1];
++      } else if (kind == "or2") {
++        s.cells.or2 = v[1];
++      } else if (kind == "ao22") {
++        s.cells.ao22 = v[1];
++      } else if (kind == "inv") {
++        s.cells.inv = v[1];
++      } else if (kind == "tap") {
++        s.cells.tap = v[1];
++      } else if (kind == "tie_lo") {
++        s.cells.tie_lo = v[1];
++      } else {
++        Refuse(path + ":" + std::to_string(lineno) + ": unknown cell kind "
++               + kind);
++      }
 +    } else if (key == "pins") {
 +      if (v.size() < 2) {
-+        Refuse(path + ":" + std::to_string(lineno) + ": `pins <kind> <pin>...`");
++        Refuse(path + ":" + std::to_string(lineno)
++               + ": `pins <kind> <pin>...`");
 +      }
 +      std::vector<std::string> pins(v.begin() + 1, v.end());
 +      const std::string& kind = v[0];
 +      auto set = [&](std::vector<std::string>& dst, size_t n) {
 +        if (pins.size() != n) {
-+          Refuse(path + ":" + std::to_string(lineno) + ": `pins " + kind +
-+                 "` takes " + std::to_string(n) + " pin names");
++          Refuse(path + ":" + std::to_string(lineno) + ": `pins " + kind
++                 + "` takes " + std::to_string(n) + " pin names");
 +        }
 +        dst = pins;
 +      };
-+      if (kind == "flop") set(g_pins.flop, 3);
-+      else if (kind == "and2") set(g_pins.and2, 3);
-+      else if (kind == "or2") set(g_pins.or2, 3);
-+      else if (kind == "ao22") set(g_pins.ao22, 5);
-+      else if (kind == "inv") set(g_pins.inv, 2);
-+      else Refuse(path + ":" + std::to_string(lineno) + ": unknown pins kind " + kind);
++      if (kind == "flop") {
++        set(g_pins.flop, 3);
++      } else if (kind == "and2") {
++        set(g_pins.and2, 3);
++      } else if (kind == "or2") {
++        set(g_pins.or2, 3);
++      } else if (kind == "ao22") {
++        set(g_pins.ao22, 5);
++      } else if (kind == "inv") {
++        set(g_pins.inv, 2);
++      } else {
++        Refuse(path + ":" + std::to_string(lineno) + ": unknown pins kind "
++               + kind);
++      }
 +    } else if (key == "flop_output") {
 +      need(1);
-+      if (v[0] == "QN") g_pins.flop_inverted = true;
-+      else if (v[0] == "Q") g_pins.flop_inverted = false;
-+      else Refuse(path + ":" + std::to_string(lineno) + ": flop_output is Q or QN");
++      if (v[0] == "QN") {
++        g_pins.flop_inverted = true;
++      } else if (v[0] == "Q") {
++        g_pins.flop_inverted = false;
++      } else {
++        Refuse(path + ":" + std::to_string(lineno)
++               + ": flop_output is Q or QN");
++      }
 +    } else if (key == "pin_layer" || key == "pin_layer_h") {
 +      need(1);
 +      s.pin_layer_h = v[0];
@@ -1248,14 +1480,15 @@ index 0000000000..da54901e27
 +    } else if (key == "read_latency") {
 +      need(1);
 +      if (v[0] != "0" && v[0] != "1") {
-+        Refuse(path + ":" + std::to_string(lineno) + ": read_latency is 0 or 1");
++        Refuse(path + ":" + std::to_string(lineno)
++               + ": read_latency is 0 or 1");
 +      }
 +      s.read_latency = std::stoi(v[0]);
 +    } else if (key == "bank_order") {
 +      need(1);
 +      if (v[0] != "contiguous" && v[0] != "interleaved") {
-+        Refuse(path + ":" + std::to_string(lineno) +
-+               ": bank_order is contiguous or interleaved");
++        Refuse(path + ":" + std::to_string(lineno)
++               + ": bank_order is contiguous or interleaved");
 +      }
 +      s.bank_order = v[0];
 +    } else if (key == "zero_word") {
@@ -1271,39 +1504,56 @@ index 0000000000..da54901e27
 +      need(2);
 +      double x = std::stod(v[1]);
 +      const std::string& knob = v[0];
-+      if (knob == "gate_delay_ps") s.lib.gate_delay_ps = x;
-+      else if (knob == "wire_factor") s.lib.wire_factor = x;
-+      else if (knob == "input_load_ff") s.lib.input_load_ff = x;
-+      else if (knob == "clock_load_ff") s.lib.clock_load_ff = x;
-+      else if (knob == "leakage_nw_per_cell") s.lib.leakage_nw_per_cell = x;
-+      else if (knob == "output_max_cap_ff") s.lib.output_max_cap_ff = x;
-+      else if (knob == "hold_ps") s.lib.hold_ps = x;
-+      else Refuse(path + ":" + std::to_string(lineno) + ": unknown lib knob " + knob);
++      if (knob == "gate_delay_ps") {
++        s.lib.gate_delay_ps = x;
++      } else if (knob == "wire_factor") {
++        s.lib.wire_factor = x;
++      } else if (knob == "input_load_ff") {
++        s.lib.input_load_ff = x;
++      } else if (knob == "clock_load_ff") {
++        s.lib.clock_load_ff = x;
++      } else if (knob == "leakage_nw_per_cell") {
++        s.lib.leakage_nw_per_cell = x;
++      } else if (knob == "output_max_cap_ff") {
++        s.lib.output_max_cap_ff = x;
++      } else if (knob == "hold_ps") {
++        s.lib.hold_ps = x;
++      } else {
++        Refuse(path + ":" + std::to_string(lineno) + ": unknown lib knob "
++               + knob);
++      }
 +    } else {
-+      Refuse(path + ":" + std::to_string(lineno) + ": unknown key `" + key + "`");
++      Refuse(path + ":" + std::to_string(lineno) + ": unknown key `" + key
++             + "`");
 +    }
 +  }
-+  if (s.module.empty()) Refuse(path + ": no `module`");
-+  if (s.cells.flop.empty() || s.cells.and2.empty() || s.cells.or2.empty() ||
-+      s.cells.ao22.empty() || s.cells.inv.empty()) {
++  if (s.module.empty()) {
++    Refuse(path + ": no `module`");
++  }
++  if (s.cells.flop.empty() || s.cells.and2.empty() || s.cells.or2.empty()
++      || s.cells.ao22.empty() || s.cells.inv.empty()) {
 +    Refuse(path + ": cells flop, and2, or2, ao22 and inv are all required");
 +  }
 +  return s;
 +}
 +
-+odb::dbBlock* Generate(odb::dbDatabase* db, utl::Logger* logger,
-+                       const Spec& spec) {
++odb::dbBlock* Generate(odb::dbDatabase* db,
++                       utl::Logger* logger,
++                       const Spec& spec)
++{
 +  Builder b(db, logger, spec);
 +  return b.Run();
 +}
 +
-+void WriteVerilog(odb::dbBlock* block, const std::string& path) {
++void WriteVerilog(odb::dbBlock* block, const std::string& path)
++{
 +  std::ofstream out(path);
 +  if (!out) {
 +    Refuse("cannot write " + path);
 +  }
 +  // Group bterms into buses by `name[i]`.
-+  struct Bus {
++  struct Bus
++  {
 +    odb::dbIoType io;
 +    int hi = -1;
 +    bool scalar = false;
@@ -1344,8 +1594,8 @@ index 0000000000..da54901e27
 +    if (n->getBTerms().begin() != n->getBTerms().end()) {
 +      continue;  // a port
 +    }
-+    if (n->getSigType() == odb::dbSigType::POWER ||
-+        n->getSigType() == odb::dbSigType::GROUND) {
++    if (n->getSigType() == odb::dbSigType::POWER
++        || n->getSigType() == odb::dbSigType::GROUND) {
 +      continue;
 +    }
 +    out << "  wire \\" << n->getName() << " ;\n";
@@ -1359,8 +1609,8 @@ index 0000000000..da54901e27
 +      if (n == nullptr) {
 +        continue;
 +      }
-+      if (n->getSigType() == odb::dbSigType::POWER ||
-+          n->getSigType() == odb::dbSigType::GROUND) {
++      if (n->getSigType() == odb::dbSigType::POWER
++          || n->getSigType() == odb::dbSigType::GROUND) {
 +        continue;
 +      }
 +      out << (first ? "" : ", ") << "." << it->getMTerm()->getName() << "(";
@@ -1379,10 +1629,13 @@ index 0000000000..da54901e27
 +}  // namespace ram::regfile
 diff --git a/src/ram/src/regfile.h b/src/ram/src/regfile.h
 new file mode 100644
-index 0000000000..914fd5290b
+index 0000000000..1118cc5afc
 --- /dev/null
 +++ b/src/ram/src/regfile.h
-@@ -0,0 +1,143 @@
+@@ -0,0 +1,151 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
 +// generate_regfile: a multi-port register file as a placed standard-cell
 +// macro, built directly in odb.
 +//
@@ -1415,7 +1668,8 @@ index 0000000000..914fd5290b
 +
 +// One read or write port, with the RTL's own pin names so the macro drops
 +// in for the module it replaces.
-+struct Port {
++struct Port
++{
 +  std::string addr;  // bus name; bits are <addr>[i]
 +  std::string data;  // bus name; bits are <data>[i]
 +  std::string en;    // write ports only; empty means always enabled
@@ -1427,46 +1681,49 @@ index 0000000000..914fd5290b
 +};
 +
 +// The cells the array is built from, by name in the loaded LEF.
-+struct Cells {
-+  std::string flop;      // D flip-flop, Q output (QN accepted, see below)
-+  std::string and2;      // read select AND
-+  std::string or2;       // bitline OR tree node
-+  std::string ao22;      // write mux node: (sel & new) | (hold & old)
-+  std::string inv;       // decoder inverters
-+  std::string tap;       // well tap, one column per tap_columns
-+  std::string tie_lo;    // for unused inputs
++struct Cells
++{
++  std::string flop;    // D flip-flop, Q output (QN accepted, see below)
++  std::string and2;    // read select AND
++  std::string or2;     // bitline OR tree node
++  std::string ao22;    // write mux node: (sel & new) | (hold & old)
++  std::string inv;     // decoder inverters
++  std::string tap;     // well tap, one column per tap_columns
++  std::string tie_lo;  // for unused inputs
 +};
 +
 +// Knobs of the model liberty (views.h), asap7-shaped defaults, set in
 +// the spec with `lib <knob> <value>`. Picoseconds, femtofarads,
 +// nanowatts, so a spec reads in plain units.
-+struct LibModel {
-+  double gate_delay_ps = 25.0;      // one loaded gate level
-+  double wire_factor = 1.3;         // on top of the gate levels
-+  double input_load_ff = 0.6;       // per driven cell input
-+  double clock_load_ff = 10.0;      // the block's clock pin as the parent sees it
++struct LibModel
++{
++  double gate_delay_ps = 25.0;  // one loaded gate level
++  double wire_factor = 1.3;     // on top of the gate levels
++  double input_load_ff = 0.6;   // per driven cell input
++  double clock_load_ff = 10.0;  // the block's clock pin as the parent sees it
 +  double leakage_nw_per_cell = 1.0;
 +  double output_max_cap_ff = 50.0;
 +  double hold_ps = 0.0;
 +};
 +
-+struct Spec {
++struct Spec
++{
 +  // "macro" (an abstract and a model liberty for a parent to place) or
 +  // "netlist" (the placed cells dropped into the parent's rows by the
 +  // flow); the generator builds the same block either way. The flow's
 +  // memories step reads this key too, and decides which views to ask for.
 +  std::string mode = "macro";
-+  std::string module;    // generated module and block name
++  std::string module;  // generated module and block name
 +  int words = 0;
 +  int bits = 0;
 +  std::string clock = "clock";
-+  std::string reset;     // optional: a port the RTL has and the array ignores
++  std::string reset;  // optional: a port the RTL has and the array ignores
 +  std::vector<Port> read;
 +  std::vector<Port> write;
 +  Cells cells;
-+  int tap_columns = 8;    // a tap column every N bit columns
-+  int service_sites = 40; // free sites beside each tap, for the clock tree
-+  int banks = 1;          // word columns side by side; words % banks == 0
++  int tap_columns = 8;     // a tap column every N bit columns
++  int service_sites = 40;  // free sites beside each tap, for the clock tree
++  int banks = 1;           // word columns side by side; words % banks == 0
 +  // How many of the banks stand side by side; the rest stack below them.
 +  // 0 means all of them, one row of banks. The outline is bank_columns
 +  // bank widths wide and banks/bank_columns bank heights tall: a wide
@@ -1518,7 +1775,8 @@ index 0000000000..914fd5290b
 +// whose tech and libs must already hold the cells named in the spec.
 +// Returns the block. Throws std::runtime_error naming the cell or pin
 +// when the library does not fit the spec.
-+odb::dbBlock* Generate(odb::dbDatabase* db, utl::Logger* logger,
++odb::dbBlock* Generate(odb::dbDatabase* db,
++                       utl::Logger* logger,
 +                       const Spec& spec);
 +
 +// Writes the block as a structural Verilog module, cells as instances,
@@ -1606,10 +1864,13 @@ index 0000000000..6b600efab3
 +}  // namespace ram
 diff --git a/src/ram/src/views.cpp b/src/ram/src/views.cpp
 new file mode 100644
-index 0000000000..c4a84a678a
+index 0000000000..02a0dcaa71
 --- /dev/null
 +++ b/src/ram/src/views.cpp
-@@ -0,0 +1,413 @@
+@@ -0,0 +1,440 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
 +// generate_regfile: abstract LEF, model liberty, and the spec-against-RTL
 +// port check. See views.h.
 +#include "views.h"
@@ -1633,7 +1894,8 @@ index 0000000000..c4a84a678a
 +
 +namespace {
 +
-+int Log2Ceil(int n) {
++int Log2Ceil(int n)
++{
 +  int k = 0;
 +  while ((1 << k) < n) {
 +    ++k;
@@ -1641,11 +1903,13 @@ index 0000000000..c4a84a678a
 +  return k;
 +}
 +
-+int AddrWidth(int words) {
++int AddrWidth(int words)
++{
 +  return std::max(Log2Ceil(words), 1);
 +}
 +
-+std::string F(double v) {
++std::string F(double v)
++{
 +  std::ostringstream s;
 +  s.precision(6);
 +  s << std::fixed << v;
@@ -1654,8 +1918,12 @@ index 0000000000..c4a84a678a
 +
 +// The two-point tables FakeRAM's libs use: constant across slew and load,
 +// which is what a model is.
-+void Table2(std::ostream& o, const char* kind, const std::string& tmpl,
-+            double value_ns, int indent) {
++void Table2(std::ostream& o,
++            const char* kind,
++            const std::string& tmpl,
++            double value_ns,
++            int indent)
++{
 +  std::string pad(indent, ' ');
 +  o << pad << kind << "(" << tmpl << ") {\n"
 +    << pad << "    index_1 (\"0.009, 0.227\");\n"
@@ -1667,8 +1935,12 @@ index 0000000000..c4a84a678a
 +    << pad << "}\n";
 +}
 +
-+void Constraint(std::ostream& o, const std::string& cell, const std::string& clk,
-+                double setup_ns, double hold_ns) {
++void Constraint(std::ostream& o,
++                const std::string& cell,
++                const std::string& clk,
++                double setup_ns,
++                double hold_ns)
++{
 +  o << "        timing() {\n"
 +    << "            related_pin : " << clk << ";\n"
 +    << "            timing_type : setup_rising ;\n";
@@ -1685,7 +1957,8 @@ index 0000000000..c4a84a678a
 +
 +}  // namespace
 +
-+void WriteLef(odb::dbBlock* block, utl::Logger* logger, const std::string& path) {
++void WriteLef(odb::dbBlock* block, utl::Logger* logger, const std::string& path)
++{
 +  std::ofstream out(path);
 +  if (!out) {
 +    throw std::runtime_error("cannot write " + path);
@@ -1695,8 +1968,12 @@ index 0000000000..c4a84a678a
 +  writer.writeAbstractLef(block);
 +}
 +
-+void WriteLiberty(odb::dbBlock* block, const Spec& spec, const LibModel& m,
-+                  const std::string& path, bool pre_layout) {
++void WriteLiberty(odb::dbBlock* block,
++                  const Spec& spec,
++                  const LibModel& m,
++                  const std::string& path,
++                  bool pre_layout)
++{
 +  std::ofstream o(path);
 +  if (!o) {
 +    throw std::runtime_error("cannot write " + path);
@@ -1709,13 +1986,12 @@ index 0000000000..c4a84a678a
 +  const int words_per_bank = spec.words / banks;
 +
 +  // Gate levels, from the structure the generator built (regfile.cc).
-+  const int read_levels = 1 + Log2Ceil(A) + 1 + Log2Ceil(words_per_bank) +
-+                          Log2Ceil(banks);
++  const int read_levels
++      = 1 + Log2Ceil(A) + 1 + Log2Ceil(words_per_bank) + Log2Ceil(banks);
 +  const int write_levels = 1 + Log2Ceil(A + 1) + 1 + Log2Ceil((W + 2) / 2);
-+  const double read_ns =
-+      read_levels * m.gate_delay_ps * m.wire_factor / 1000.0;
-+  const double setup_ns =
-+      write_levels * m.gate_delay_ps * m.wire_factor / 1000.0;
++  const double read_ns = read_levels * m.gate_delay_ps * m.wire_factor / 1000.0;
++  const double setup_ns
++      = write_levels * m.gate_delay_ps * m.wire_factor / 1000.0;
 +  const double hold_ns = m.hold_ps / 1000.0;
 +  // Loads, from fanout: an address literal reaches one inverter and half
 +  // the words' decodes; a data bit reaches every word's write mux; an
@@ -1727,8 +2003,8 @@ index 0000000000..c4a84a678a
 +  const odb::Rect die = block->getDieArea();
 +  const double dbu = block->getDbUnitsPerMicron();
 +  const double area_um2 = die.dx() / dbu * (die.dy() / dbu);
-+  const double leakage_uw =
-+      block->getInsts().size() * m.leakage_nw_per_cell / 1000.0;
++  const double leakage_uw
++      = block->getInsts().size() * m.leakage_nw_per_cell / 1000.0;
 +
 +  o << "library(" << cell << ") {\n"
 +    << "    technology (cmos);\n"
@@ -1822,12 +2098,15 @@ index 0000000000..c4a84a678a
 +  // is one such pair per bank, with the bank-local width.
 +  const bool registered = spec.read_latency > 0;
 +  const double flop_ns = m.gate_delay_ps * m.wire_factor / 1000.0;
-+  auto read_pair = [&](const std::string& addr, const std::string& data,
-+                       int a_width, double read_ns_here) {
++  auto read_pair = [&](const std::string& addr,
++                       const std::string& data,
++                       int a_width,
++                       double read_ns_here) {
 +    o << "    bus(" << addr << ")   {\n"
 +      << "        bus_type : " << cell << "_bus_" << a_width << ";\n"
 +      << "        direction : input;\n"
-+      << "        capacitance : " << F(registered ? m.input_load_ff / 1000.0 : addr_pf) << ";\n";
++      << "        capacitance : "
++      << F(registered ? m.input_load_ff / 1000.0 : addr_pf) << ";\n";
 +    if (registered) {
 +      Constraint(o, cell, spec.clock, flop_ns, hold_ns);
 +    }
@@ -1835,7 +2114,8 @@ index 0000000000..c4a84a678a
 +      << "    bus(" << data << ")   {\n"
 +      << "        bus_type : " << cell << "_bus_" << spec.bits << ";\n"
 +      << "        direction : output;\n"
-+      << "        max_capacitance : " << F(m.output_max_cap_ff / 1000.0) << ";\n";
++      << "        max_capacitance : " << F(m.output_max_cap_ff / 1000.0)
++      << ";\n";
 +    // The arc per data bit, related to every address bit: a bus-to-bus
 +    // arc between an A-bit address and a B-bit data would be read as
 +    // bitwise pairs of different sizes (STA-1216). Every data bit
@@ -1873,13 +2153,16 @@ index 0000000000..c4a84a678a
 +    o << "    }\n";
 +  };
 +  // A banked port's read has no footer level.
-+  const int bank_read_levels = 1 + Log2Ceil(A_bank) + 1 + Log2Ceil(words_per_bank);
-+  const double bank_read_ns =
-+      bank_read_levels * m.gate_delay_ps * m.wire_factor / 1000.0;
++  const int bank_read_levels
++      = 1 + Log2Ceil(A_bank) + 1 + Log2Ceil(words_per_bank);
++  const double bank_read_ns
++      = bank_read_levels * m.gate_delay_ps * m.wire_factor / 1000.0;
 +  for (int r = 0; r < R; ++r) {
 +    if (spec.read[r].banked()) {
 +      for (size_t k = 0; k < spec.read[r].bank_addr.size(); ++k) {
-+        read_pair(spec.read[r].bank_addr[k], spec.read[r].bank_data[k], A_bank,
++        read_pair(spec.read[r].bank_addr[k],
++                  spec.read[r].bank_data[k],
++                  A_bank,
 +                  bank_read_ns);
 +      }
 +    } else {
@@ -1914,7 +2197,8 @@ index 0000000000..c4a84a678a
 +}
 +
 +std::vector<RtlPort> ReadModulePorts(const std::string& verilog,
-+                                     const std::string& module) {
++                                     const std::string& module)
++{
 +  std::ifstream in(verilog);
 +  if (!in) {
 +    throw std::runtime_error("cannot read " + verilog);
@@ -1965,7 +2249,8 @@ index 0000000000..c4a84a678a
 +}
 +
 +std::vector<std::string> CheckPorts(const Spec& spec,
-+                                    const std::vector<RtlPort>& ports) {
++                                    const std::vector<RtlPort>& ports)
++{
 +  const int A = AddrWidth(spec.words);
 +  std::map<std::string, RtlPort> want;
 +  want[spec.clock] = RtlPort{spec.clock, 1, true};
@@ -2004,14 +2289,14 @@ index 0000000000..c4a84a678a
 +      continue;
 +    }
 +    if (it->second.width != w.width) {
-+      problems.push_back("port " + name + " is " + std::to_string(it->second.width) +
-+                         " bits in the module, " + std::to_string(w.width) +
-+                         " in the spec");
++      problems.push_back(
++          "port " + name + " is " + std::to_string(it->second.width)
++          + " bits in the module, " + std::to_string(w.width) + " in the spec");
 +    }
 +    if (it->second.input != w.input) {
-+      problems.push_back("port " + name + " is " +
-+                         (it->second.input ? "an input" : "an output") +
-+                         " in the module and the other way in the spec");
++      problems.push_back("port " + name + " is "
++                         + (it->second.input ? "an input" : "an output")
++                         + " in the module and the other way in the spec");
 +    }
 +  }
 +  for (const auto& [name, p] : have) {
@@ -2025,10 +2310,13 @@ index 0000000000..c4a84a678a
 +}  // namespace ram::regfile
 diff --git a/src/ram/src/views.h b/src/ram/src/views.h
 new file mode 100644
-index 0000000000..18dc48e58c
+index 0000000000..4b312577e3
 --- /dev/null
 +++ b/src/ram/src/views.h
-@@ -0,0 +1,58 @@
+@@ -0,0 +1,67 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
 +// generate_regfile: the views a parent's flow consumes before the block is
 +// routed -- an abstract LEF from the placed block and a model liberty --
 +// and the check that a spec's ports are the RTL module's.
@@ -2058,15 +2346,21 @@ index 0000000000..18dc48e58c
 +// Abstract LEF of the placed block: outline, pins, obstruction on every
 +// layer the cells occupy. Bloats the occupied layers into one obstruction,
 +// as write_abstract_lef -bloat_occupied_layers does.
-+void WriteLef(odb::dbBlock* block, utl::Logger* logger, const std::string& path);
++void WriteLef(odb::dbBlock* block,
++              utl::Logger* logger,
++              const std::string& path);
 +
 +// Model liberty for the generated block, see LibModel. `pre_layout` only
 +// changes the comment: the model has no clock tree to be ideal about.
-+void WriteLiberty(odb::dbBlock* block, const Spec& spec, const LibModel& model,
-+                  const std::string& path, bool pre_layout);
++void WriteLiberty(odb::dbBlock* block,
++                  const Spec& spec,
++                  const LibModel& model,
++                  const std::string& path,
++                  bool pre_layout);
 +
 +// One RTL port as declared: name, width in bits (1 for a scalar), input?
-+struct RtlPort {
++struct RtlPort
++{
 +  std::string name;
 +  int width = 1;
 +  bool input = true;
