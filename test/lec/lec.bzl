@@ -49,7 +49,7 @@ liberty_files="{liberty_files}"
 # (0 for a combinational difference); its verdict is the line it logs,
 # worded per mode, and the test passes only on the expected one.
 log="${{TEST_UNDECLARED_OUTPUTS_DIR:-.}}/kepler-formal.log"
-{kepler_formal} -{frontend} {verification}--design1 $gold_files --design2 $gate_files \
+{kepler_formal} -{frontend} {verification}{boundary}--design1 $gold_files --design2 $gate_files \
     ${{liberty_files:+--liberty $liberty_files}} 2>&1 | tee "$log" || true
 # The miter's own log (solver start, size and finish) is a file of its
 # own beside the run; keep it with the test's outputs.
@@ -57,6 +57,7 @@ cp miter_log_*.txt "${{TEST_UNDECLARED_OUTPUTS_DIR:-.}}/" 2>/dev/null || true
 grep -qE "{verdict}" "$log"
 {size_check}""".format(
             kepler_formal = ctx.executable._kepler_formal.short_path,
+            boundary = "--allow-boundary-mismatch " if ctx.attr.allow_boundary_mismatch else "",
             frontend = ctx.attr.frontend,
             size_check = 'grep -qE "Starting solver: [0-9]+ variables, [0-9]+ clauses" miter_log_*.txt\n' if ctx.attr.expect_problem_size else "",
             # kepler-formal checks SystemVerilog input sequentially only.
@@ -127,6 +128,10 @@ _lec_test = rule(
         ),
         "expect_problem_size": attr.bool(
             doc = "Also require the solver's problem-size line (patches/kepler-formal-0001); combinational LEC only.",
+            default = False,
+        ),
+        "allow_boundary_mismatch": attr.bool(
+            doc = "Compare designs whose sequential boundaries differ (a flop one side lacks) instead of stopping on it.",
             default = False,
         ),
         "expect_equivalent": attr.bool(

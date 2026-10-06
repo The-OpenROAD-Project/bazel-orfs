@@ -9,7 +9,11 @@ load("@rules_chisel//chisel:defs.bzl", "chisel_binary")
 load("@rules_chisel//verilog:defs.bzl", "verilog_directory", "verilog_single_file_library")
 load("@rules_verilog//verilog:defs.bzl", "verilog_library")
 
-package(default_visibility = ["//test/coremark_joule:__subpackages__"])
+package(default_visibility = [
+    "//test/coremark_joule:__subpackages__",
+    # faithful_test: the generated register files, against lec_fixture.py
+    "//test/structured_gen_lec:__pkg__",
+])
 
 # The overlays, and the patch MODULE.bazel applies to the XiangShan archive.
 exports_files(glob([

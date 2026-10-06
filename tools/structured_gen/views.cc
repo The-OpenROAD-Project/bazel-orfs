@@ -204,15 +204,22 @@ void WriteLiberty(odb::dbBlock* block, const Spec& spec, const LibModel& m,
       << "        capacitance : 0.001000;\n"
       << "    }\n";
   }
-  // Read ports: address in, data out combinational from that address. A
-  // banked port is one such pair per bank, with the bank-local width.
+  // Read ports: address in, data out combinational from that address; with
+  // a read latency the address is a flop's D (setup and hold to the clock)
+  // and the data comes from the clock, one flop level more. A banked port
+  // is one such pair per bank, with the bank-local width.
+  const bool registered = spec.read_latency > 0;
+  const double flop_ns = m.gate_delay_ps * m.wire_factor / 1000.0;
   auto read_pair = [&](const std::string& addr, const std::string& data,
                        int a_width, double read_ns_here) {
     o << "    bus(" << addr << ")   {\n"
       << "        bus_type : " << cell << "_bus_" << a_width << ";\n"
       << "        direction : input;\n"
-      << "        capacitance : " << F(addr_pf) << ";\n"
-      << "    }\n"
+      << "        capacitance : " << F(registered ? m.input_load_ff / 1000.0 : addr_pf) << ";\n";
+    if (registered) {
+      Constraint(o, cell, spec.clock, flop_ns, hold_ns);
+    }
+    o << "    }\n"
       << "    bus(" << data << ")   {\n"
       << "        bus_type : " << cell << "_bus_" << spec.bits << ";\n"
       << "        direction : output;\n"
@@ -228,12 +235,18 @@ void WriteLiberty(odb::dbBlock* block, const Spec& spec, const LibModel& m,
     for (int b = 0; b < spec.bits; ++b) {
       o << "        pin(" << data << "[" << b << "]) {\n"
         << "            direction : output;\n"
-        << "            timing() {\n"
-        << "                related_pin : \"" << addr_bits << "\" ;\n"
-        << "                timing_type : combinational;\n"
-        << "                timing_sense : non_unate;\n";
-      Table2(o, "cell_rise", cell + "_delay_template", read_ns_here, 16);
-      Table2(o, "cell_fall", cell + "_delay_template", read_ns_here, 16);
+        << "            timing() {\n";
+      if (registered) {
+        o << "                related_pin : " << spec.clock << " ;\n"
+          << "                timing_type : rising_edge;\n";
+      } else {
+        o << "                related_pin : \"" << addr_bits << "\" ;\n"
+          << "                timing_type : combinational;\n"
+          << "                timing_sense : non_unate;\n";
+      }
+      const double arc_ns = read_ns_here + (registered ? flop_ns : 0.0);
+      Table2(o, "cell_rise", cell + "_delay_template", arc_ns, 16);
+      Table2(o, "cell_fall", cell + "_delay_template", arc_ns, 16);
       o << "                rise_transition(" << cell << "_slew_template) {\n"
         << "                    index_1 (\"0.005, 0.500\");\n"
         << "                    values (\"0.009, 0.227\")\n"

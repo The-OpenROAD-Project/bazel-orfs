@@ -32,6 +32,15 @@ write io_writePorts_5_addr io_writePorts_5_data io_writePorts_5_wen
 write io_writePorts_6_addr io_writePorts_6_data io_writePorts_6_wen
 write io_writePorts_7_addr io_writePorts_7_data io_writePorts_7_wen
 write io_writePorts_8_addr io_writePorts_8_data io_writePorts_8_wen
+# The RTL registers each bank's read address (io_readPorts_N_data_K_REG),
+# interleaves the banks (bank k's entry l is word l * 4 + k) and has no
+# register for word 0, which reads zero (x0). The flops carry the RTL's
+# register names.
+read_latency 1
+bank_order interleaved
+zero_word 0
+store_name mem_{word}[{bit}]
+read_reg_name io_readPorts_{port}_data_{bank}_REG[{bit}]
 cell flop DFFHQNx1_ASAP7_75t_R
 cell and2 AND2x2_ASAP7_75t_R
 cell or2 OR2x2_ASAP7_75t_R

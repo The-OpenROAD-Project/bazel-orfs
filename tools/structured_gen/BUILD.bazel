@@ -32,6 +32,15 @@ ASAP7_LEFS = [
 ]
 
 cc_test(
+    name = "registered_read_test",
+    size = "small",
+    srcs = ["registered_read_test.cc"],
+    args = ["$(rlocationpath {})".format(l) for l in ASAP7_LEFS],
+    data = ASAP7_LEFS,
+    deps = [":regfile"],
+)
+
+cc_test(
     name = "regfile_test",
     size = "small",
     srcs = ["regfile_test.cc"],
