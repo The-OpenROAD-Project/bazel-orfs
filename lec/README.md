@@ -16,9 +16,17 @@ lec_test(
 )
 ```
 
-Run:
+Run from `lec/`:
 
-    bazelisk test :my_lec_test
+    bazelisk test //path:my_lec_test
+
+Every `lec_test` is `manual`: kepler-formal builds from source, with its
+own toolchain, which is too slow for CI. `lec/` is a module of its own,
+outside bazel-orfs's build (`.bazelignore`), because kepler-formal's
+dependencies are not all on the Bazel Central Registry yet: the
+registries that stand in for them are in `lec/.bazelrc` and must not reach
+bazel-orfs or its consumers. `//test:equivalent_test` and
+`//test:difference_test` check the wrapper itself.
 
 ## Attributes
 
@@ -27,7 +35,12 @@ Run:
 | `gold_verilog_files` | required | Gold (reference) Verilog files |
 | `gate_verilog_files` | required | Gate (modified) Verilog files |
 | `liberty_files` | `[]` | Liberty (.lib) files for cell definitions. Optional for RTL-to-RTL checks, required for post-synthesis gate netlists. |
+| `frontend` | `"verilog"` | `verilog` for gate netlists (cells from `liberty_files`, combinational LEC; sequential instances must match by name), `sv` for SystemVerilog RTL (sequential check, SEC) |
+| `expect_equivalent` | `True` | `False` for a test that proves a difference is caught |
 | `log_level` | `"info"` | Log verbosity: `debug`, `info`, `warning`, `error` |
+
+kepler-formal's exit status does not say whether the designs differ; the
+test reads the verdict it logs.
 
 ## Requirements
 
@@ -38,8 +51,10 @@ equivalence. The gold and gate netlists must satisfy:
 - **No name changes** for hierarchical instances, sequential instances, or
   top-level ports
 
-## Temporary home
+## Bumping kepler-formal
 
-This directory is hosted in bazel-orfs temporarily until the kepler-formal
-repository provides native Bazel support. See
-[TESTING.md](../TESTING.md#sub-modules-bazelignore) for details.
+kepler-formal is taken at its `main` (it is being fixed rapidly; never pin
+an old release): the commit in `MODULE.bazel`'s `git_override` and in the
+registry URL in `.bazelrc` move together, and `.bazelrc`'s BCR pull
+request registries are copied from kepler-formal's own `.bazelrc` at that
+commit.
