@@ -207,10 +207,11 @@ py_test(
     deps = [":monitor-test"],
 )
 
-# Run `bazelisk run //:deps -- //pkg:target` to deploy stage inputs
-# for interactive debugging. Builds {target}_deps_tar, so it pays for
-# every prior stage of the flow: a cts reproducer builds synth,
-# floorplan and place.
+# `bazelisk run //:deps -- start <flow> <stage>`: a flow's stages in a
+# tree to run by hand, `next <stage>` to carry on in it, `status`,
+# `archive`. Building it is instant; `start` builds what the stage needs
+# (every stage before it) through the stage target's output groups.
+# .claude/commands/deps-lane.md.
 sh_binary(
     name = "deps",
     srcs = ["deps_wrapper.sh"],

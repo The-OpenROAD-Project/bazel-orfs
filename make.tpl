@@ -18,8 +18,15 @@ if [ -z "$FLOW_HOME" ]; then
   if [ -n "${YOSYS_PATH}" ]; then
     export YOSYS_EXE="${YOSYS_PATH}"
   fi
+  # Out-of-tree yosys plugins (yosys-slang): the build passes their
+  # directories to yosys in YOSYS_PLUGIN_PATH, so the deployed tree must
+  # too, or `plugin -i slang` looks in yosys's own share/ and fails.
+  # Empty, and so left alone, in openroad-stage runners.
+  if [ -n "${YOSYS_PLUGIN_PATH}" ]; then
+    export YOSYS_PLUGIN_PATH="${YOSYS_PLUGIN_PATH}"
+  fi
   # A caller-supplied OPENROAD_EXE wins. Pointing a deployed reproducer at
-  # a locally built openroad is what the _deps tarball is for, and the
+  # a locally built openroad is what a deployed tree is for, and the
   # deployed tree is the one place the binary is not a bazel label.
   if [ -n "${OPENROAD_EXE:-}" ]; then
     _openroad_exe="$OPENROAD_EXE"
@@ -80,7 +87,7 @@ if [ -n "$_deployed" ]; then
       all) _why="rebuild"; _hint="Run one stage at a time: ./make $_stages" ;;
       clean_all)
         _why="delete"
-        _hint="Re-deploy the _deps tree instead." ;;
+        _hint="Re-deploy the tree instead: bazelisk run //:deps -- start <flow> <stage> --fresh" ;;
       *) continue ;;
     esac
     if [ "$_why" = "delete" ]; then
@@ -112,7 +119,8 @@ fi
 # time carries the static ones and drops the generated ones without a word.
 # It would work for a simple flow and fail in exactly the complicated flows
 # where the shortcut is most tempting. Iterate a stage in that stage's own
-# `_deps` tree. ORFS_DEPLOY_ANY_STAGE=1 runs the target anyway, for the
+# config, which `bazelisk run //:deps -- next <stage>` installs into the
+# tree. ORFS_DEPLOY_ANY_STAGE=1 runs the target anyway, for the
 # caller who supplies the later stage's variables by hand, and says so.
 #
 # The stage a `do-` target belongs to; empty for a target that is not one
@@ -149,8 +157,8 @@ if [ -n "$_deployed" ] && [ -n "$_deploy_stage" ]; then
     else
       echo "make: refusing '$_arg': this tree (${DEPLOY_LABEL}) was deployed for the $_deploy_stage stage and carries" >&2
       echo "      only that stage's variables. A later stage's variables are produced by the stages before it and" >&2
-      echo "      exist only in that stage's own deploy tree:" >&2
-      echo "        bazelisk run <flow>_<stage>_deps -- --install <dir>    (the _deps target of the stage you want, same flow)" >&2
+      echo "      exist only in that stage's own config; install it into this tree first:" >&2
+      echo "        bazelisk run //:deps -- next <stage>    (keeps this tree's results)" >&2
       echo "      ORFS_DEPLOY_ANY_STAGE=1 runs it here anyway, with the later stage's variables supplied by you." >&2
       exit 2
     fi

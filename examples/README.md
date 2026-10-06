@@ -35,7 +35,8 @@ report_checks -path_delay max
 Re-run one substep outside Bazel, edit the flow Tcl, run it again:
 
 ```bash
-bazelisk run //:deps -- //examples:mac_place do-3_4_place_resized
+bazelisk run //:deps -- start //examples:mac place
+tmp/examples/mac/make do-3_4_place_resized
 ```
 
 See [docs/local-flow.md](../docs/local-flow.md) for that workflow and

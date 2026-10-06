@@ -45,7 +45,7 @@ A command's choice (accept congestion, say) is passed explicitly on every call t
 
 ## 8. Relative paths
 
-Commands and docs use paths relative to the working directory, never `$PWD/...` or `/home/...`. A tool that `bazel run` starts from its runfiles tree resolves a relative path against `BUILD_WORKING_DIRECTORY`, as `--install` on a `_deps` target and `ODB_DEBUG_DIR` on an odb-debug target do; a new one does the same.
+Commands and docs use paths relative to the working directory, never `$PWD/...` or `/home/...`. A tool that `bazel run` starts from its runfiles tree resolves a relative path against `BUILD_WORKING_DIRECTORY`, as `--dir` on `//:deps` and `ODB_DEBUG_DIR` on an odb-debug target do; a new one does the same.
 
 ## 9. Unattended means continue
 

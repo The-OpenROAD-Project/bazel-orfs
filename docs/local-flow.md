@@ -23,46 +23,74 @@ The local flow lets you build with a locally compiled [ORFS](https://openroad-fl
 2. Initialize dependencies and run the stage:
 
    ```bash
-   # Initialize dependencies for the synthesis stage
-   bazel run //:deps -- //test:L1MetadataArray_synth
+   # Install the synthesis stage's inputs and scripts
+   bazelisk run //:deps -- start //test:L1MetadataArray synth
 
-   # Build synthesis using local ORFS
-   tmp/test/L1MetadataArray_synth_deps/make do-yosys-canonicalize do-yosys do-1_synth
+   # Build synthesis using local ORFS (start prints this line)
+   tmp/test/L1MetadataArray/make do-yosys-canonicalize do-yosys <results>/1_2_yosys.sdc do-1_synth
 
-   # Initialize dependencies for the floorplan stage
-   bazel run //:deps -- //test:L1MetadataArray_floorplan
+   # Carry on into floorplan in the same tree, on the synthesis just run
+   bazelisk run //:deps -- next floorplan
 
    # Build floorplan
-   tmp/test/L1MetadataArray_floorplan_deps/make do-floorplan
+   tmp/test/L1MetadataArray/make do-floorplan
    ```
 
-> **NOTE:** The synthesis stage requires `do-yosys-canonicalize` and `do-yosys` to be completed before `do-1_synth`. These steps generate the required `.rtlil` file.
+> **NOTE:** The synthesis stage requires `do-yosys-canonicalize` and `do-yosys` to be completed before `do-1_synth`. These steps generate the required `.rtlil` file. `start` prints the exact line, with the results directory filled in.
 
 > **NOTE:** If `FLOW_HOME` is not set and `env.sh` is not sourced, `make do-<stage>` uses the ORFS from [MODULE.bazel](../MODULE.bazel) by default.
 
-> **NOTE:** Files are always placed in `tmp/<package>/<name>_deps/` under the workspace root (e.g. `tmp/sram/sdq_17x64_floorplan_deps/` for `//sram:sdq_17x64_floorplan`, `tmp/MyDesign_floorplan_deps/` for the root package), which is added to `.gitignore` automatically.
+> **NOTE:** There is one tree per flow, by default `tmp/<package>/<flow>[_<variant>]/` under the workspace root (e.g. `tmp/sram/sdq_17x64/` for `//sram:sdq_17x64`); `tmp/` must be in `.gitignore` and `.bazelignore`. `start` refuses to replace an existing tree unless given `--fresh`.
 >
-> `//:deps` takes no `--install`; it forwards any trailing arguments to
-> `make`. To choose the directory, run the stage's own `_deps` target,
-> which does accept it:
+> To choose the directory, pass `--dir`:
 >
 > ```bash
-> bazel run <target>_<stage>_deps -- --install tmp/my_tree [<make args...>]
+> bazelisk run //:deps -- start <flow> <stage> --dir tmp/my_tree
 > ```
 >
-> A relative directory is relative to where you ran `bazel run`.
+> A relative directory is relative to where you ran `bazelisk run`.
 >
 > This is useful on systems where `/tmp` is small or when you want to place the build artifacts in a specific location.
 
+The four commands of `//:deps`:
+
+```bash
+bazelisk run //:deps -- start   <flow> <stage> [--dir D] [--variant V] [--fresh]
+bazelisk run //:deps -- next    <stage>        [--dir D]
+bazelisk run //:deps -- status                 [--dir D]
+bazelisk run //:deps -- archive <flow> <stage> <file.tar.gz> [--variant V]
+```
+
+`<flow>` is the flow's label (`//test:lb_32x128`); a stage target's label
+(`//test:lb_32x128_place`) is accepted in place of `<flow> <stage>`.
+
+- `start` builds everything the stage needs (every earlier stage) and
+  installs it, with the stage's scripts, in the tree, then prints the
+  command that runs the stage.
+- `next <stage>` adds that stage's scripts and `config.mk` to the same
+  tree and never overwrites the earlier results already there, so a stage
+  run by hand carries on into the next. It builds no stage, and refuses
+  if the earlier stage's results are not in the tree yet.
+- `status` says which stages' results came from Bazel and which were run
+  by hand, and which `config.mk` settings were edited.
+- `archive` writes a self-contained reproducer `.tar.gz` (the stage
+  target's `deps` output group).
+
+Building `//:deps` itself is instant; `start` builds only output groups
+of the stage target, the same actions a plain build caches, so after a
+finished build nothing re-runs. Iterating stage by stage this way is the
+`_deps` lane: [`.claude/commands/deps-lane.md`](../.claude/commands/deps-lane.md).
+
 ## A deployed tree runs its own stage, and only that
 
-`tmp/.../<name>_floorplan_deps/make do-floorplan` is the tree's purpose.
-`make do-place` in the same tree is refused (exit 2), as are the place
-sub-steps (`do-3_3_place_gp`, ...) and any other stage's targets; the
-message names the stage the tree was deployed for and the `_deps` target
-to deploy instead. Bare stage names (`place`, `floorplan`) were already
-refused, because they let ORFS rebuild upstream stages from inputs bazel
-never gave the tree.
+After `start <flow> floorplan`, `tmp/.../<flow>/make do-floorplan` is the
+tree's purpose. `make do-place` in the same tree is refused (exit 2), as
+are the place sub-steps (`do-3_3_place_gp`, ...) and any other stage's
+targets; the message names the stage the tree was deployed for. To move
+on, `bazelisk run //:deps -- next place` installs place's scripts and
+`config.mk` in the tree, and its `make` then runs place. Bare stage names
+(`place`, `floorplan`) were already refused, because they let ORFS rebuild
+upstream stages from inputs bazel never gave the tree.
 
 Why the tree cannot simply carry every stage's variables, so this is not
 relitigated: bazel scopes a stage's `config.mk` to that stage's variables
@@ -101,70 +129,66 @@ travel, and without it the hatch ran later stages on the platform's
 defaults: a study routed to M7 with a 0.25 layer adjustment for a week
 because the flow said M9 and 0.18 and the tree never heard.
 
-You can also forward arguments to make directly:
+Any make target of the tree's stage runs through the tree's `make`:
 
 ```bash
-bazel run //:deps -- <target>_<stage> <make args...>
+bazelisk run //:deps -- start <flow> <stage>
+tmp/<pkg>/<flow>/make <make args...>
 ```
 
 ## Parallel local builds
 
-Multiple dependency deployments are independent and can run in parallel. This
-is useful when building multiple designs or deploying all stages at once:
+Trees of different flows are independent and can run in parallel:
 
 ```bash
 # Deploy and build two independent designs in parallel
-bazel run //:deps -- //test:tag_array_64x184_synth &
-bazel run //:deps -- //test:lb_32x128_synth &
-wait
+bazelisk run //:deps -- start //test:tag_array_64x184 synth
+bazelisk run //:deps -- start //test:lb_32x128 synth
 
 # Run synthesis in parallel (each in its own directory)
-tmp/test/tag_array_64x184_synth_deps/make do-yosys-canonicalize do-yosys do-1_synth &
-tmp/test/lb_32x128_synth_deps/make do-yosys-canonicalize do-yosys do-1_synth &
+tmp/test/tag_array_64x184/make do-yosys-canonicalize do-yosys <results>/1_2_yosys.sdc do-1_synth &
+tmp/test/lb_32x128/make do-yosys-canonicalize do-yosys <results>/1_2_yosys.sdc do-1_synth &
 wait
 ```
 
-You can also pre-deploy all stages of a single design for faster iteration:
+To have Bazel's results for several stages of one design side by side,
+give each its own `--dir`:
 
 ```bash
-# Deploy all stages at once (each deployment is independent)
-for stage in synth floorplan place cts grt route final; do
-  bazel run //:deps -- //test:L1MetadataArray_${stage} &
+for stage in floorplan place; do
+  bazelisk run //:deps -- start //test:L1MetadataArray $stage --dir tmp/L1_$stage
 done
-wait
 
-# Now iterate on any stage without re-deploying
-tmp/test/L1MetadataArray_floorplan_deps/make do-floorplan
-tmp/test/L1MetadataArray_place_deps/make do-place
+# Now iterate on either stage without re-deploying
+tmp/L1_floorplan/make do-floorplan
+tmp/L1_place/make do-place
 ```
 
-> **NOTE:** Each stage's `make` invocation still requires its input artifacts
-> from the previous stage to be present, so the `make` commands must run
-> sequentially. Only the dependency deployments (which just set up the directory
-> structure) can run in parallel.
+> **NOTE:** `start` runs Bazel, so run the `start` commands one after another;
+> the `make` commands in different trees can run in parallel.
 
 ## Substep targets
 
 Each ORFS stage runs multiple substeps internally — e.g., the `place` stage
 runs global placement, IO placement, resizing, and detailed placement as a
 single Bazel action via `do-place`. You can run individual substeps by
-passing the substep name as a make argument to `//:deps`:
+passing the substep name to the tree's `make`:
 
 ```bash
 # Deploy place artifacts and run only the resizing substep
-bazel run //:deps -- //coralnpu:CoreMiniAxi_place do-3_4_place_resized
+bazelisk run //:deps -- start //coralnpu:CoreMiniAxi place
+tmp/coralnpu/CoreMiniAxi/make do-3_4_place_resized
 
 # Open GUI to inspect
-bazel run //:deps -- //coralnpu:CoreMiniAxi_place gui_place
+tmp/coralnpu/CoreMiniAxi/make gui_place
 
 # After editing BUILD, re-deploy and re-run
-bazel run //:deps -- //coralnpu:CoreMiniAxi_place do-3_4_place_resized
+bazelisk run //:deps -- start //coralnpu:CoreMiniAxi place --fresh
+tmp/coralnpu/CoreMiniAxi/make do-3_4_place_resized
 ```
 
-The `//:deps` wrapper builds all preceding stages (synth, floorplan, place)
-automatically by building the `<target>_<stage>_deps_tar` companion target
-before deploying artifacts, so you never need to manually build the
-dependency chain.
+`start` builds all preceding stages (synth, floorplan, place)
+automatically, so you never need to manually build the dependency chain.
 
 ### Available substeps per stage
 
@@ -226,13 +250,18 @@ from shared caching.
 
 | I want to... | Command |
 |---|---|
-| Run a single substep | `bazel run //:deps -- <target>_<stage> do-<substep>` |
-| View result in GUI | `bazel run //:deps -- <target>_<stage> gui_<stage>` |
-| Run arbitrary make targets | `bazel run //:deps -- <target>_<stage> <make args...>` |
-| Edit Tcl scripts and re-run without Bazel | `tmp/<pkg>/<target>_<stage>_deps/make do-<substep>` |
-| Create a `make issue` archive | `bazel run //:deps -- <target>_<stage>` then `tmp/.../make <stage>_issue` |
-| Use a local ORFS installation | `bazel run //:deps -- <target>_<stage>` with `FLOW_HOME` set |
-| Run `make bash` for interactive debugging | `tmp/<pkg>/<target>_<stage>_deps/make bash` |
+| Deploy a stage | `bazelisk run //:deps -- start <flow> <stage>` |
+| Run a single substep | `tmp/<pkg>/<flow>/make do-<substep>` |
+| View result in GUI | `tmp/<pkg>/<flow>/make gui_<stage>` |
+| Run arbitrary make targets | `tmp/<pkg>/<flow>/make <make args...>` |
+| Edit Tcl scripts and re-run without Bazel | `tmp/<pkg>/<flow>/make do-<substep>` |
+| Carry a hand-run stage into the next | `bazelisk run //:deps -- next <stage>` |
+| See what in the tree was run by hand | `bazelisk run //:deps -- status` |
+| Create a reproducer archive | `bazelisk run //:deps -- archive <flow> <stage> <file.tar.gz>` |
+| Create a `make issue` archive | `start <flow> <stage>`, then `tmp/.../make <stage>_issue` |
+| Use a local ORFS installation | `tmp/<pkg>/<flow>/make do-<stage>` with `FLOW_HOME` set |
+| Use a locally built openroad | `OPENROAD_EXE=/path/to/openroad tmp/<pkg>/<flow>/make do-<stage>` |
+| Run `make bash` for interactive debugging | `tmp/<pkg>/<flow>/make bash` |
 
 ## Use remote caching for instant reverts
 

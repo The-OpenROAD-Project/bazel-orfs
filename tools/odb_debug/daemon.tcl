@@ -7,7 +7,7 @@
 #
 #   bazelisk run //my:design_place_odb_debug -- ODB_DEBUG_DIR=tmp/odb-debug
 #
-# or from a deployed `_deps` tree, where the checkpoint of an unfinished or
+# or from a tree deployed by `bazelisk run //:deps -- start <flow> <stage>`, where the checkpoint of an unfinished or
 # failed stage can be dropped into results/ and opened directly:
 #
 #   ./make run RUN_SCRIPT=$PWD/tools/odb_debug/daemon.tcl \

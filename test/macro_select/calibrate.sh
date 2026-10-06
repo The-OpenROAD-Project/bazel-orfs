@@ -8,11 +8,10 @@ cd "$(dirname "$0")/../.."
 OB=${1:-}
 JOBS=${2:-8}
 B="bazelisk ${OB:+--output_base=$OB} build --jobs=$JOBS"
-R="bazelisk ${OB:+--output_base=$OB} run --jobs=$JOBS"
 ARMS=$(bazelisk ${OB:+--output_base=$OB} query '//test/macro_select:all' 2>/dev/null | grep -oE ':pinwall_top_pw_p[0-9]+_c[0-9]+_m[0-9]+(_lat)?_cts$' | sed -E 's#:pinwall_top_(.*)_cts#\1#')
 mkdir -p tmp/pinwall/results
 echo "arms: $ARMS"
-$B $(for a in $ARMS; do echo "//test/macro_select:pinwall_top_${a}_cts //test/macro_select:pinwall_top_${a}_grt_deps"; done) > tmp/pinwall/build.log 2>&1 || { echo "build failed; see tmp/pinwall/build.log"; grep -E "^ERROR" tmp/pinwall/build.log | head -3; }
+$B $(for a in $ARMS; do echo "//test/macro_select:pinwall_top_${a}_cts"; done) > tmp/pinwall/build.log 2>&1 || { echo "build failed; see tmp/pinwall/build.log"; grep -E "^ERROR" tmp/pinwall/build.log | head -3; }
 python3 - "$ARMS" > tmp/pinwall/matrix.json <<'PY'
 import json, sys, os
 arms = sys.argv[1].split()
@@ -26,7 +25,9 @@ print(json.dumps({"designs": designs,
 PY
 for a in $ARMS; do
   mkdir -p tmp/pinwall/$a
-  $R //test/macro_select:pinwall_top_${a}_grt_deps -- --install "$PWD/tmp/pinwall/$a/deps" > tmp/pinwall/$a/install.log 2>&1 || echo "install failed: $a"
+  DEPS_STARTUP_OPTS="${OB:+--output_base=$OB}" DEPS_BUILD_OPTS="--jobs=$JOBS" \
+    bazelisk ${OB:+--output_base=$OB} run //:deps -- start //test/macro_select:pinwall_top grt \
+    --variant "$a" --dir "$PWD/tmp/pinwall/$a/deps" --fresh > tmp/pinwall/$a/install.log 2>&1 || echo "install failed: $a"
 done
 python3 test/grt_scaling/grt_bench.py tmp/pinwall/matrix.json tmp/pinwall/results > tmp/pinwall/bench.log 2>&1
 python3 test/grt_scaling/report.py tmp/pinwall/results --baseline iter0 | tee tmp/pinwall/report.md

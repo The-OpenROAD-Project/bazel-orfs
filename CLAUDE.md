@@ -121,7 +121,7 @@ mechanics:
 
 - `/openroad-debug` — diagnose the failure (decode the exit code,
   characterize a hang vs race with the `-threads 1` test, set up a fast
-  `_deps` + bring-your-own-binary edit/measure loop, split a stage at an ODB
+  `//:deps` tree + bring-your-own-binary edit/measure loop, split a stage at an ODB
   checkpoint) and shape a self-contained reproducer.
 - `/openroad-issue` — file it upstream as a `git am` patch + failing bazel test.
 - `/untar-and-run-report` — ship it as an untar-and-run `.tar.gz` archive.
@@ -167,6 +167,13 @@ here, or that rebuilds when nothing seemed to change, has its own skill:
   (`//tools/cache_evidence`), commit it next to the design and diff it;
   names the first action whose key differs and which of its arguments,
   environment, tools, sources or design inputs moved.
+
+Running a flow's stages by hand, one after another in one tree, is fast
+and gives up what Bazel guarantees; it has its own skill:
+
+- `deps-lane` — `bazelisk run //:deps -- start <flow> <stage>`, `next
+  <stage>`, `status`, `archive`; what the lane gives up, when a number
+  from it with its caveat beats no number, and when it is not enough.
 
 A simulation that hangs, produces no output or computes the wrong answer
 is a different problem from an OpenROAD failure, and has its own skill:

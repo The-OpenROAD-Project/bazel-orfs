@@ -83,7 +83,7 @@ class DeployStageTest(unittest.TestCase):
             self.assertNotIn("STUB", r.stdout)
             self.assertIn("deployed for the floorplan stage", r.stderr)
             self.assertIn("//test:xs_floorplan", r.stderr)
-            self.assertIn("_deps -- --install", r.stderr)
+            self.assertIn("//:deps -- next", r.stderr)
 
     def test_bare_stage_targets_are_still_refused(self):
         make = render("floorplan")

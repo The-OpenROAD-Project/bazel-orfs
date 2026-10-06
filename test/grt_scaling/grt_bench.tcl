@@ -1,6 +1,6 @@
 # One global-route measurement on a stage ODB, for the grid-scaling study.
 #
-# Runs through ORFS's `run` target from a deployed _deps tree, so it sees
+# Runs through ORFS's `run` target from a tree deployed by //:deps, so it sees
 # the flow's platform, liberty, RC and derates and any OPENROAD_EXE:
 #
 #   ./make run RUN_SCRIPT=<...>/grt_bench.tcl ODB_FILE=<results>/4_cts.odb \

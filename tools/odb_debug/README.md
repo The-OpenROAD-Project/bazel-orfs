@@ -13,7 +13,7 @@ through a small Python client, an agent through an MCP server that exposes
 the daemon's procs as tools. Every question after the load is milliseconds.
 
 ```
-                 bazelisk run //my:cpu_place_odb_debug  (or ./make run in a _deps tree)
+                 bazelisk run //my:cpu_place_odb_debug  (or ./make run in a //:deps tree)
                                      |
    agent --MCP stdio--> mcp_server.py --socket--> daemon.tcl in openroad, design loaded
    shell -------------> odbdebug.py  --socket-->     |
@@ -60,12 +60,12 @@ matter here:
 | `ODB_DEBUG_PORT` | Fixed port instead of an ephemeral one. |
 | `LOG_DIR` | Where make writes `run.log`; defaults inside the runfiles tree, pass an absolute path to keep it pristine. |
 
-### From a deployed `_deps` tree
+### From a tree deployed by `//:deps`
 
 A stage that failed or was stopped has no finished ODB, but ORFS writes a
 checkpoint per substep (`3_2_place_iop.odb`, `3_3_place_gp.odb`,
-`3_4_place_resized.odb`, ...). Build the stage's `_deps` target, deploy it
-(see `docs/orfs_run.md`), copy the checkpoint into its `results/`, and run
+`3_4_place_resized.odb`, ...). Deploy the stage with
+`bazelisk run //:deps -- start <flow> <stage>` (see `docs/local-flow.md`), copy the checkpoint into its `results/`, and run
 the daemon on it:
 
 ```sh

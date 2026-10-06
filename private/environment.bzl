@@ -418,9 +418,17 @@ def flow_substitutions(ctx):
     }
 
 def yosys_substitutions(ctx):
+    # The plugin directories yosys_environment passes to an action, as
+    # paths relative to a deployed tree's _main, where its make runs.
+    plugin_dirs = []
+    for f in ctx.files._yosys_plugins:
+        d = "./" + f.short_path.rsplit("/", 1)[0]
+        if d not in plugin_dirs:
+            plugin_dirs.append(d)
     return {
         "${ABC}": "./" + ctx.executable._abc.short_path,
         "${YOSYS_PATH}": "./" + ctx.executable.yosys.short_path,
+        "${YOSYS_PLUGIN_PATH}": ":".join(plugin_dirs),
     }
 
 def module_top(ctx):

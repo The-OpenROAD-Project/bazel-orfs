@@ -26,4 +26,4 @@ ARGUMENTS: $ARGUMENTS
 
 ## Where the mechanics live
 
-`/openroad-debug` for the `_deps` and bring-your-own-binary loop that makes a stage a seconds-scale experiment; `/odb-debug` for questions the ODB answers without re-running anything; `debug-rtl-sim` for the simulation ladder. This skill decides the order and the moment to stop asking; those decide how.
+`/openroad-debug` for the `//:deps` tree and bring-your-own-binary loop that makes a stage a seconds-scale experiment; `/odb-debug` for questions the ODB answers without re-running anything; `debug-rtl-sim` for the simulation ladder. This skill decides the order and the moment to stop asking; those decide how.

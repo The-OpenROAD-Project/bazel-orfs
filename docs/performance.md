@@ -104,7 +104,8 @@ You can still use `//:deps` to deploy and debug individual substeps of a
 squashed flow if something goes wrong:
 
 ```bash
-bazel run //:deps -- //sram:sram_64x128_place do-3_4_place_resized
+bazelisk run //:deps -- start //sram:sram_64x128_place
+tmp/sram/sram_64x128/make do-3_4_place_resized
 ```
 
 ## Query timing interactively
@@ -172,11 +173,11 @@ find ~/.cache/bazel -name "*.tmp.log" -size +0c 2>/dev/null | \
 
 ```bash
 # Start the build in the local flow
-bazel run //:deps -- //test:L1MetadataArray_cts
-tmp/test/L1MetadataArray_cts_deps/make do-cts &
+bazelisk run //:deps -- start //test:L1MetadataArray cts
+tmp/test/L1MetadataArray/make do-cts &
 
 # In another terminal, watch the log
-tail -f tmp/test/L1MetadataArray_cts_deps/logs/4_1_cts.log
+tail -f tmp/test/L1MetadataArray/logs/4_1_cts.log
 ```
 
 **What to look for in logs:**

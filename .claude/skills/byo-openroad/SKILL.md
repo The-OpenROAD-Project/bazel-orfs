@@ -81,7 +81,7 @@ bazelisk build //:openroad    # bazel only -- see below
 
 # 2. Point the flow / extracted stage harness at it.
 export OPENROAD_EXE="$(readlink -f bazel-bin/openroad)"
-# ... then run the ORFS stage (make do-<stage>, or an extracted _deps run).
+# ... then run the ORFS stage (make do-<stage>, in a //:deps tree).
 ```
 
 **Building with CMake is VERBOTEN, and the guard blocks it.** Not a style

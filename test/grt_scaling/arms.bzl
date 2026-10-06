@@ -41,13 +41,13 @@ def grid_arm(side_um, groups, base_args, user_args, verilog_files, sdc, io_const
         io_constraints: io.tcl, pinning each group to a die edge.
         name: the shared flow name; the arm is the variant `d<side>_g<groups>`,
             so its stages are `<name>_d<side>_g<groups>_<stage>`, each with a
-            `_deps` companion, which is where grt_bench.tcl runs.
+            `//:deps` tree, which is where grt_bench.tcl runs.
         **kwargs: forwarded to orfs_flow (tags, visibility).
     """
     variant = "d{}_g{}".format(side_um, groups)
 
     # Every arm shares DESIGN_NICKNAME=wirebound; the variant keeps their
-    # results, logs and _deps trees apart (results/asap7/wirebound/<variant>).
+    # results, logs and deployed trees apart (results/asap7/wirebound/<variant>).
     orfs_flow(
         name = name,
         variant = variant,

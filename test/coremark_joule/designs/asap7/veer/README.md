@@ -143,7 +143,7 @@ the RTL rather than of this study:
 Both live in `SYNTH_SLANG_ARGS` in the design's `config.mk`, with the
 reason next to them.
 
-Getting to them took the `_deps` reproducer rather than the build log,
+Getting to them took a `//:deps` tree rather than the build log,
 and that is worth recording too: ORFS's `synth.sh` routes the frontend's
 output through `run_command.py`, and slang's diagnostics — which go to
 stderr — do not reach the stage log. The log ends at
