@@ -392,6 +392,12 @@ bazel_dep(name = "kepler-formal", dev_dependency = True)
 git_override(
     module_name = "kepler-formal",
     commit = "acb85ea8eb7b733ee8269d103df7b37f8c28fe4f",
+    patch_strip = 1,
+    # Not upstreamed; carried here. The solver's start and finish lines
+    # name the problem it was given (variables, clauses, outputs compared)
+    # and the time it took, so a long solve can be judged by its size.
+    # Retires at a bump onto a kepler-formal that logs the same.
+    patches = ["//patches:kepler-formal-0001-solver-problem-size.patch"],
     remote = "https://github.com/keplertech/kepler-formal.git",
 )
 

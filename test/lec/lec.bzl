@@ -51,10 +51,14 @@ liberty_files="{liberty_files}"
 log="${{TEST_UNDECLARED_OUTPUTS_DIR:-.}}/kepler-formal.log"
 {kepler_formal} -{frontend} {verification}--design1 $gold_files --design2 $gate_files \
     ${{liberty_files:+--liberty $liberty_files}} 2>&1 | tee "$log" || true
+# The miter's own log (solver start, size and finish) is a file of its
+# own beside the run; keep it with the test's outputs.
+cp miter_log_*.txt "${{TEST_UNDECLARED_OUTPUTS_DIR:-.}}/" 2>/dev/null || true
 grep -qE "{verdict}" "$log"
-""".format(
+{size_check}""".format(
             kepler_formal = ctx.executable._kepler_formal.short_path,
             frontend = ctx.attr.frontend,
+            size_check = 'grep -qE "Starting solver: [0-9]+ variables, [0-9]+ clauses" miter_log_*.txt\n' if ctx.attr.expect_problem_size else "",
             # kepler-formal checks SystemVerilog input sequentially only.
             verification = "-v sec " if ctx.attr.frontend == "sv" else "",
             verdict = "No (binary-defined )?difference was found" if ctx.attr.expect_equivalent else "\\] Difference was found",
@@ -120,6 +124,10 @@ _lec_test = rule(
             doc = "kepler-formal's reader: verilog for gate netlists (with liberty_files), sv for SystemVerilog RTL.",
             default = "verilog",
             values = ["verilog", "sv"],
+        ),
+        "expect_problem_size": attr.bool(
+            doc = "Also require the solver's problem-size line (patches/kepler-formal-0001); combinational LEC only.",
+            default = False,
         ),
         "expect_equivalent": attr.bool(
             doc = "False for a test that proves a difference is caught.",
