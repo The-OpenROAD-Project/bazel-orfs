@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """The scaffold around one register-file spec: a parent of flops, at real size.
 
-    scaffold_gen.py --spec RenameBufferFile.regfile --sv out.sv --placement out.txt
+    scaffold_gen.py --spec RenameBufferFile.regfile --sv out.sv --macro-placement out.tcl
 
-Reads a structured_gen spec (mode netlist) and writes the behavioural model
-of its module in the port shape the generator gives it, and a parent that
-registers every pin: one flop per address, data and enable bit, the read
-data xor-reduced into a sum. The flow blackboxes the model and links the
-generated netlist in its place, so the parent's place, CTS and route see
+Reads a register-file spec (mode netlist) and writes the behavioural model
+of its module in the port shape the generator gives it, a parent that
+registers every pin -- one flop per address, data and enable bit, the read
+data xor-reduced into a sum -- and the MACRO_PLACEMENT_TCL that puts the
+file's macro inside the ring of flops. The flow blackboxes the model and
+dissolves the generated macro into its cells, so the parent's place, CTS
+and route see
 the real array with the real cell count, minutes after the spec changes.
 What the miniature planned parent cannot show: its files are 30 um wide
 and never grow a net the resizer wants to buffer; XiangShan's 305 um
@@ -140,7 +142,7 @@ def main(argv):
     )
     ap.add_argument("--spec", required=True)
     ap.add_argument("--sv", required=True)
-    ap.add_argument("--placement", required=True)
+    ap.add_argument("--macro-placement", required=True)
     ap.add_argument(
         "--top", default=None, help="parent module name (default <module>_scaffold)"
     )
@@ -156,11 +158,11 @@ def main(argv):
         f.write(model(spec))
         f.write("\n")
         f.write(parent(spec, top, "u_file"))
-    with open(a.placement, "w") as f:
+    with open(a.macro_placement, "w") as f:
+        f.write("# %s's lower-left corner in the parent, um\n" % spec["module"])
         f.write(
-            "# <module> <instance path> <x um> <y um>: the array's lower-left corner\n"
+            "place_macro -macro_name u_file -location {%s} -orientation R0\n" % a.corner
         )
-        f.write("%s u_file %s\n" % (spec["module"], a.corner))
     print("%s: %d ports, parent %s" % (spec["module"], len(ports(spec)), top))
 
 

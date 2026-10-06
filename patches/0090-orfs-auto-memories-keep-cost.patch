@@ -1,0 +1,64 @@
+From 95fe30152bd9db75b866c91b621372a096aaa1f5 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Tue, 6 Oct 2026 18:06:01 +0200
+Subject: [PATCH] AUTO_MEMORIES: a macro's blackbox costs its generated view's
+ area
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+With SYNTH_MINIMUM_KEEP_SIZE, synthesis decides which modules to keep
+with keep_hierarchy -min_cost, which needs a cost for every instanced
+blackbox. convert_liberty_areas gives Liberty cells one, as a gate
+equivalent of their area, but an AUTO_MEMORIES macro is a blackbox made
+from the RTL's own module and has none: any AUTO_MEMORIES design with a
+keep threshold stopped with "Missing cost information on instanced
+blackbox". asap7/riscv32i is such a design once its register file is a
+macro (AUTO_MEMORIES_REGFILES).
+
+Each AUTO_MEMORIES blackbox now gets the gate equivalent of the area its
+generated .lib states. The view is not read in the module's place: its
+pins need not be the module's (FakeRAM names its own).
+
+Not upstreamed. Retires at a //:bump onto an ORFS that carries it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/synth_preamble.tcl | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/flow/scripts/synth_preamble.tcl b/flow/scripts/synth_preamble.tcl
+--- a/flow/scripts/synth_preamble.tcl
++++ b/flow/scripts/synth_preamble.tcl
+@@ -255,4 +255,30 @@
+     set gate_eq [expr int($area / $found_cell_area)]
+     rtlil::set_attr -mod -uint $box gate_cost_equivalent $gate_eq
+   }
++
++  # An AUTO_MEMORIES macro is a blackbox from the RTL's own module, not a
++  # Liberty cell: it costs what its generated view's area says, or
++  # keep_hierarchy -min_cost refuses it ("Missing cost information on
++  # instanced blackbox"). Its view is not read in its place, as its pins
++  # need not be the module's (FakeRAM uses its own names).
++  foreach m [auto_memories_blackboxes] {
++    set lib "$::env(RESULTS_DIR)/memories/$m.lib"
++    if { ![file exists $lib] } {
++      error "AUTO_MEMORIES macro $m has no $lib"
++    }
++    set fh [open $lib r]
++    set text [read $fh]
++    close $fh
++    # the cell group of <m> and its area; the brace characters spelled as
++    # hex escapes, which keep the brace count of this body balanced
++    set pat "cell\\s*\\(\\s*\"?[string map {$ \\$} $m]\"?\\s*\\)\\s*\\\x7b\[^\x7d\]*?area\\s*:\\s*(\[0-9.eE+-\]+)"
++    if { ![regexp $pat $text -> area] } {
++      error "AUTO_MEMORIES macro $m: no area for cell $m in $lib"
++    }
++    if { [catch {rtlil::set_attr -mod -uint $m gate_cost_equivalent \
++        [expr { int($area / $found_cell_area) }]}] } {
++      # not in the design: removed as unused, or never instantiated
++      continue
++    }
++  }
+ }

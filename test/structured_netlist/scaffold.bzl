@@ -25,8 +25,8 @@ def array_scaffold(name, spec, width_um, height_um):
     native.genrule(
         name = top + "_rtl",
         srcs = [spec],
-        outs = [top + ".sv", top + "_placement.txt"],
-        cmd = "$(execpath :scaffold_gen) --spec $(location {}) --sv $(location {}.sv) --placement $(location {}_placement.txt) --corner '{} {}'".format(
+        outs = [top + ".sv", top + "_macro_placement.tcl"],
+        cmd = "$(execpath :scaffold_gen) --spec $(location {}) --sv $(location {}.sv) --macro-placement $(location {}_macro_placement.tcl) --corner '{} {}'".format(
             spec,
             top,
             top,
@@ -50,8 +50,8 @@ def array_scaffold(name, spec, width_um, height_um):
         pdk = "//flow:asap7",
         sources = {
             "SDC_FILE": [":constraints.sdc"],
-            "STRUCTURED_MEMORIES": [spec],
-            "STRUCTURED_PLACEMENT": [":" + top + "_placement.txt"],
+            "AUTO_MEMORIES_REGFILES": [spec],
+            "MACRO_PLACEMENT_TCL": [":" + top + "_macro_placement.tcl"],
         },
         verilog_files = [":" + top + ".sv"],
     )

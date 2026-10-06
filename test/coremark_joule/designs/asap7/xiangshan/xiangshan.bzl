@@ -189,7 +189,7 @@ XS_BLOCKS = {
         "sources": {
             "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
             "SDC_FILE": ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"],
-            "STRUCTURED_MEMORIES": ["//test/coremark_joule/designs/asap7/xiangshan:IntRegFile.regfile"],
+            "AUTO_MEMORIES_REGFILES": ["//test/coremark_joule/designs/asap7/xiangshan:IntRegFile.regfile"],
         },
     },
     "Dispatch": {
@@ -274,7 +274,7 @@ XS_BLOCKS = {
         "sources": {
             "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
             "SDC_FILE": ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"],
-            "STRUCTURED_MEMORIES": ["//test/coremark_joule/designs/asap7/xiangshan:FtqEntryQueue.regfile", "//test/coremark_joule/designs/asap7/xiangshan:FtqMetaQueueRedirect.regfile", "//test/coremark_joule/designs/asap7/xiangshan:FtqMetaQueueResolve.regfile", "//test/coremark_joule/designs/asap7/xiangshan:FtqMetaQueueCommit.regfile"],
+            "AUTO_MEMORIES_REGFILES": ["//test/coremark_joule/designs/asap7/xiangshan:FtqEntryQueue.regfile", "//test/coremark_joule/designs/asap7/xiangshan:FtqMetaQueueRedirect.regfile", "//test/coremark_joule/designs/asap7/xiangshan:FtqMetaQueueResolve.regfile", "//test/coremark_joule/designs/asap7/xiangshan:FtqMetaQueueCommit.regfile"],
         },
     },
     "HPerfMonitor_3": {
@@ -802,7 +802,7 @@ XS_BLOCKS = {
         "sources": {
             "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
             "SDC_FILE": ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"],
-            "STRUCTURED_MEMORIES": ["//test/coremark_joule/designs/asap7/xiangshan:FpRegFile.regfile"],
+            "AUTO_MEMORIES_REGFILES": ["//test/coremark_joule/designs/asap7/xiangshan:FpRegFile.regfile"],
         },
     },
     "Rename": {
@@ -859,7 +859,7 @@ XS_BLOCKS = {
         "sources": {
             "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
             "SDC_FILE": ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"],
-            "STRUCTURED_MEMORIES": ["//test/coremark_joule/designs/asap7/xiangshan:RenameBufferFile.regfile", "//test/coremark_joule/designs/asap7/xiangshan:RobEntryFile.regfile"],
+            "AUTO_MEMORIES_REGFILES": ["//test/coremark_joule/designs/asap7/xiangshan:RenameBufferFile.regfile", "//test/coremark_joule/designs/asap7/xiangshan:RobEntryFile.regfile"],
         },
     },
     "Sbuffer": {
@@ -1024,7 +1024,7 @@ XS_BLOCKS = {
         "sources": {
             "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
             "SDC_FILE": ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"],
-            "STRUCTURED_MEMORIES": ["//test/coremark_joule/designs/asap7/xiangshan:VfRegFile.regfile"],
+            "AUTO_MEMORIES_REGFILES": ["//test/coremark_joule/designs/asap7/xiangshan:VfRegFile.regfile"],
         },
     },
     "VectorDecodeChannel": {
@@ -1071,14 +1071,14 @@ XS_BLOCK_DEFAULT = dict(XS_BLOCKS["Bpu"], arguments = {k: v for k, v in XS_BLOCK
 # odb-debug in seconds instead.
 _PLAN_DROPS = ["CORE_UTILIZATION", "CORE_ASPECT_RATIO", "CORE_MARGIN", "DETAIL_PLACEMENT_ARGS"]
 
-def _structured_memories(own_sources, keep, blocks):
+def _regfiles(own_sources, keep, blocks):
     """The generated register files a planned flow hardens: its own, plus
     those of every block of the old table whose module it now keeps (the
     Ftq queues inside Frontend, the int register file and the ROB's files
     in the parent), each once."""
-    out = list(own_sources.get("STRUCTURED_MEMORIES", []))
+    out = list(own_sources.get("AUTO_MEMORIES_REGFILES", []))
     for k in [k for k in keep.split(" ") if k]:
-        for m in blocks.get(k, {}).get("sources", {}).get("STRUCTURED_MEMORIES", []):
+        for m in blocks.get(k, {}).get("sources", {}).get("AUTO_MEMORIES_REGFILES", []):
             if m not in out:
                 out.append(m)
     return out
@@ -1110,9 +1110,9 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
     arguments["OPENROAD_HIERARCHICAL"] = "1"
     arguments["ASAP7_USE_VT"] = XS_VT
     sources = dict(cfg["sources"])
-    mems = _structured_memories(cfg["sources"], entry.get("SYNTH_KEEP_MODULES", ""), blocks)
+    mems = _regfiles(cfg["sources"], entry.get("SYNTH_KEEP_MODULES", ""), blocks)
     if mems:
-        sources["STRUCTURED_MEMORIES"] = mems
+        sources["AUTO_MEMORIES_REGFILES"] = mems
     sources["IO_CONSTRAINTS"] = [":%s/%s_pins.tcl" % (plan_dir, block)]
     sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"]
     return arguments, sources
@@ -1255,14 +1255,12 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     # the memories of what the parent still holds; a hardened block's
     # are the block's own
     parent_keep = " ".join([k for k in arguments.get("SYNTH_KEEP_MODULES", "").split(" ") if k and k not in macros])
-    mems = _structured_memories(parent["sources"], parent_keep, blocks)
+    mems = _regfiles(parent["sources"], parent_keep, blocks)
     if mems:
-        sources["STRUCTURED_MEMORIES"] = mems
+        sources["AUTO_MEMORIES_REGFILES"] = mems
+
+    # the plan's blocks and register files, placed by the plan
     sources["MACRO_PLACEMENT_TCL"] = [":%s/place_macros.tcl" % plan_dir]
-    if plan["parent"].get("netlists"):
-        # the generated arrays dropped FIRM into the parent at floorplan
-        # (STRUCTURED_MEMORIES in mode netlist, patch 0078)
-        sources["STRUCTURED_PLACEMENT"] = [":%s/netlists.txt" % plan_dir]
     sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"]
     user_arguments = {}
     user_sources = {}

@@ -1,0 +1,56 @@
+load("@bazel-orfs//:openroad.bzl", "orfs_run")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_python//python:defs.bzl", "py_test")
+
+# AUTO_MEMORIES_REGFILES (ORFS patch 0089 on OpenROAD patch 0010) on its
+# smallest design, ORFS's asap7/regfile: one 16 x 8 register file with
+# two read and two write ports in a parent of flops. A macro through
+# synthesis and macro placement, then its cells.
+
+orfs_run(
+    name = "dissolve_probe",
+    src = "@orfs//flow/designs/asap7/regfile:regfile_top_floorplan",
+    outs = ["dissolve_probe.json"],
+    script = ":dissolve_probe.tcl",
+    user_arguments = {
+        "OUTPUT_JSON": "$(location dissolve_probe.json)",
+    },
+)
+
+py_test(
+    name = "check_dissolve_test",
+    size = "small",
+    srcs = ["check_dissolve.py"],
+    args = ["$(rootpath :dissolve_probe.json)"],
+    data = [":dissolve_probe.json"],
+    main = "check_dissolve.py",
+)
+
+# The dissolved file through repair_design, CTS, the legaliser and global
+# route: its core's cells dont_touch but its boundary repairable, its
+# flops rewired by CTS, its decode placed and sized by the parent.
+build_test(
+    name = "regfile_grt_build_test",
+    targets = ["@orfs//flow/designs/asap7/regfile:regfile_top_grt"],
+)
+
+# Why riscv32i is slower with its register file dissolved: the worst
+# setup paths at the CTS checkpoint, with the placement status and
+# dont_touch of every cell on them, both ways. Manual: a study, not a
+# gate.
+[
+    orfs_run(
+        name = "riscv32i_%s_worst_paths" % variant,
+        src = "@orfs//flow/designs/asap7/%s:riscv_top_cts" % design,
+        outs = ["riscv32i_%s_worst_paths.txt" % variant],
+        script = ":worst_paths.tcl",
+        tags = ["manual"],
+        user_arguments = {
+            "OUTPUT": "$(location riscv32i_%s_worst_paths.txt)" % variant,
+        },
+    )
+    for variant, design in [
+        ("flops", "riscv32i"),
+        ("regfile", "riscv32i-regfile"),
+    ]
+]

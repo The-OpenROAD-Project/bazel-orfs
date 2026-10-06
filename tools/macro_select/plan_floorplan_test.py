@@ -314,7 +314,6 @@ class ExactPinTest(unittest.TestCase):
         )
 
 
-
 class MockFootprintTest(unittest.TestCase):
     """A block's outline is its own flow's; the parent places its footprint,
     the outline scaled so its core holds the measured content at
@@ -362,7 +361,12 @@ class MockFootprintTest(unittest.TestCase):
             # need more side
             core = (m["w_um"] - 20) * (m["h_um"] - 20)
             content = plan_floorplan.plan_macro(p, m["name"])["content_um2"]
-            need = m["pins"] * TECH["pin_pitch_um"] * MARGINS["pin_side"] / TECH["pin_layers"]
+            need = (
+                m["pins"]
+                * TECH["pin_pitch_um"]
+                * MARGINS["pin_side"]
+                / TECH["pin_layers"]
+            )
             if m["two_sides"]:
                 need /= 2.0
             if f > need / m["own_side_um"] + 1e-3:
@@ -376,7 +380,9 @@ class MockFootprintTest(unittest.TestCase):
             text = open(os.path.join(d, name)).read()
             return [l.split() for l in text.splitlines() if l.startswith("  a")]
 
-        own, mock = rows(target["name"] + "_pins.tcl"), rows(target["name"] + "_mock_pins.tcl")
+        own, mock = rows(target["name"] + "_pins.tcl"), rows(
+            target["name"] + "_mock_pins.tcl"
+        )
         self.assertEqual(len(own), 40)
         self.assertEqual([r[0] for r in own], [r[0] for r in mock])  # same order
         for r in own:
@@ -389,7 +395,12 @@ class MockFootprintTest(unittest.TestCase):
     def test_pins_floor_the_footprint(self):
         m = {"name": "Wide", "pins": 13000, "area_um2": 400000, "content_um2": 1000}
         sh = plan_floorplan.shape(m, LATTICE, dict(MARGINS, block_density=0.6), 10)
-        need = 13000 * LATTICE["pin_pitch_um"] * MARGINS["pin_side"] / LATTICE["pin_layers"]
+        need = (
+            13000
+            * LATTICE["pin_pitch_um"]
+            * MARGINS["pin_side"]
+            / LATTICE["pin_layers"]
+        )
         if sh["two_sides"]:
             need /= 2.0
         self.assertGreaterEqual(sh["fp_side_um"] + 0.01, need)
@@ -403,14 +414,19 @@ class HeldSideTest(unittest.TestCase):
     def test_region_side_holds(self):
         free = plan_floorplan.layout(plan([dict(m) for m in LayoutTest.MACROS]))
         sides = {m["name"]: m["region_side"] for m in free["macros"]}
-        held = [dict(m, region_side=OPPOSITE[sides[m["name"]]]) for m in LayoutTest.MACROS]
+        held = [
+            dict(m, region_side=OPPOSITE[sides[m["name"]]]) for m in LayoutTest.MACROS
+        ]
         out = plan_floorplan.layout(plan(held))
         for m in out["macros"]:
             self.assertEqual(m["region_side"], OPPOSITE[sides[m["name"]]])
-        self.assertGreaterEqual(out["die_area_mm2"], free["die_area_mm2"] - 1e-9)  # the free choice is the smallest
+        self.assertGreaterEqual(
+            out["die_area_mm2"], free["die_area_mm2"] - 1e-9
+        )  # the free choice is the smallest
 
 
 OPPOSITE = {"top": "bottom", "bottom": "top", "left": "right", "right": "left"}
+
 
 class MirroredOrderTest(unittest.TestCase):
     def test_both_ends_of_an_interface_share_one_order(self):
@@ -456,8 +472,8 @@ class NetlistTest(unittest.TestCase):
         self.assertEqual(rows[2][2:4], (50.0, 60.0))
         d = tempfile.mkdtemp(prefix="plan_netlists.")
         plan_floorplan.emit(out, p, d)
-        text = open(os.path.join(d, "netlists.txt")).read()
-        self.assertIn("A top/a %.3f %.3f" % (rows[0][2], rows[0][3]), text)
+        text = open(os.path.join(d, "place_macros.tcl")).read()
+        self.assertIn("  top/a %.3f %.3f\n" % (rows[0][2], rows[0][3]), text)
         bzl = open(os.path.join(d, "plan.bzl")).read()
         self.assertIn('"netlists"', bzl)
 
@@ -552,7 +568,9 @@ class LayoutTest(unittest.TestCase):
         out = plan_floorplan.layout(plan(macros))
         by = {m["name"]: m for m in out["macros"]}
         was = {m["name"]: m for m in base["macros"]}
-        self.assertGreater(by["MemBlock"]["pin_side_um"], was["MemBlock"]["pin_side_um"])
+        self.assertGreater(
+            by["MemBlock"]["pin_side_um"], was["MemBlock"]["pin_side_um"]
+        )
         self.assertEqual(by["MemBlock"]["channel_um"], 150)
         for n in ("Frontend", "VecRegion", "FpRegion"):
             self.assertEqual(by[n]["pin_side_um"], was[n]["pin_side_um"])

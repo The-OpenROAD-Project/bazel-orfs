@@ -7,7 +7,7 @@ out=tmp/planned_parent_regen
 rm -rf "$out"
 python3 test/planned_parent/mini_gen.py --out "$out"
 python3 tools/macro_select/plan_floorplan.py "$out/plan.json" --out "$out/plan_out.json" --emit "$out" > /dev/null
-for f in BlockA_pins.tcl BlockB_pins.tcl BlockC_pins.tcl BlockD_pins.tcl place_macros.tcl netlists.txt plan.bzl; do
+for f in BlockA_pins.tcl BlockB_pins.tcl BlockC_pins.tcl BlockD_pins.tcl place_macros.tcl plan.bzl; do
   cp "$out/$f" test/planned_parent/plan/$f
 done
 echo "test/planned_parent/plan regenerated"

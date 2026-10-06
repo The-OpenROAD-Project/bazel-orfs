@@ -1,5 +1,5 @@
-# SmallFile as a placed netlist: generated, then dropped FIRM into
-# small_top's rows at floorplan (see STRUCTURED_PLACEMENT in the BUILD).
+# SmallFile, the 16 x 8 2R2W register file of the golden test
+# (tools/structured_gen:golden_test), in mode netlist.
 module SmallFile
 mode netlist
 words 16

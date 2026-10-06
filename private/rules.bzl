@@ -2101,19 +2101,23 @@ def _yosys_impl(ctx):
             fail("AUTO_MEMORIES=1 but no FakeRAM run.py among the files of " +
                  str(ctx.attr._fakeram.label) + " in " + str(ctx.label))
 
-    # STRUCTURED_MEMORIES: the register-file generator runs inside the
-    # memories step, so the binary is staged into the canonicalize
-    # sandbox and named to make through STRUCTURED_GEN. The views it
-    # writes land in the same results/memories directory and travel on
-    # OrfsInfo.memories.
-    if all_arguments.get("STRUCTURED_MEMORIES"):
+    # AUTO_MEMORIES_REGFILES: OpenROAD's generate_regfile builds each
+    # listed register file inside the memories step, so openroad is a
+    # tool of the canonicalize action, named to make through
+    # OPENROAD_EXE. The views land in results/memories beside the
+    # FakeRAM ones and travel on OrfsInfo.memories.
+    regfile_tools = []
+    if all_arguments.get("AUTO_MEMORIES_REGFILES"):
         if not auto_memories:
-            fail("STRUCTURED_MEMORIES is set but AUTO_MEMORIES is not 1: the " +
-                 "generated views ride the AUTO_MEMORIES memories step, so " +
-                 "both are needed. In " + str(ctx.label))
-        fakeram_inputs = fakeram_inputs + [ctx.executable._structured_gen]
+            fail("AUTO_MEMORIES_REGFILES is set but AUTO_MEMORIES is not 1: " +
+                 "the register files ride the AUTO_MEMORIES memories step, " +
+                 "so both are needed. In " + str(ctx.label))
+        regfile_tools = [depset(
+            [ctx.executable.openroad],
+            transitive = [ctx.attr.openroad[DefaultInfo].default_runfiles.files],
+        )]
         fakeram_env = fakeram_env | {
-            "STRUCTURED_GEN": ctx.executable._structured_gen.path,
+            "OPENROAD_EXE": ctx.executable.openroad.path,
         }
 
     # The yosys side never reads the SDC: synthesis is clock-agnostic
@@ -2180,7 +2184,7 @@ def _yosys_impl(ctx):
             ),
             outputs = [canon_output] + canon_logs + memories_outputs +
                       memories_inferred,
-            tools = yosys_inputs(ctx),
+            tools = depset(transitive = [yosys_inputs(ctx)] + regfile_tools),
             progress_message = "Canonicalizing RTL for %s" % module_top(ctx),
         )
 
