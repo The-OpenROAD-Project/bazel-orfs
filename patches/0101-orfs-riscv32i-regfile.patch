@@ -1,0 +1,75 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Fri, 9 Oct 2026 16:00:00 +0200
+Subject: [PATCH] asap7/riscv32i-regfile: riscv32i with its register file
+ generated
+
+riscv32i with its register file built by AUTO_MEMORIES_REGFILES rather
+than synthesised to flip-flops: the same RTL, constraints and
+utilisation. Not in AUTO_MEMORIES_MACRO_PLACE, so the generated netlist
+is inlined in synthesis. Minutes to global route, the case to measure
+the generator on.
+
+The example design of the AUTO_MEMORIES_REGFILES series, left out of
+its upstream pull request.
+---
+ flow/designs/asap7/riscv32i-regfile/config.mk | 11 +++++++++++
+ flow/designs/asap7/riscv32i-regfile/io.tcl    |  1 +
+ .../asap7/riscv32i-regfile/regfile.regfile    | 19 +++++++++++++++++++
+ 3 files changed, 31 insertions(+)
+ create mode 100644 flow/designs/asap7/riscv32i-regfile/config.mk
+ create mode 100644 flow/designs/asap7/riscv32i-regfile/io.tcl
+ create mode 100644 flow/designs/asap7/riscv32i-regfile/regfile.regfile
+
+diff --git a/flow/designs/asap7/riscv32i-regfile/config.mk b/flow/designs/asap7/riscv32i-regfile/config.mk
+new file mode 100644
+index 0000000..142beca
+--- /dev/null
++++ b/flow/designs/asap7/riscv32i-regfile/config.mk
+@@ -0,0 +1,11 @@
++# riscv32i with its register file built by AUTO_MEMORIES_REGFILES rather
++# than synthesised to flip-flops: the same RTL, constraints and
++# utilisation. Not in AUTO_MEMORIES_MACRO_PLACE, so the generated netlist
++# is inlined in synthesis. Minutes to global route, the case to measure
++# the generator on; docs/user/AutoMemories.md has the numbers.
++export DESIGN_NICKNAME = riscv32i-regfile
++
++include designs/asap7/riscv32i/config.mk
++
++export AUTO_MEMORIES          = 1
++export AUTO_MEMORIES_REGFILES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/regfile.regfile
+diff --git a/flow/designs/asap7/riscv32i-regfile/io.tcl b/flow/designs/asap7/riscv32i-regfile/io.tcl
+new file mode 100644
+index 0000000..aee09d1
+--- /dev/null
++++ b/flow/designs/asap7/riscv32i-regfile/io.tcl
+@@ -0,0 +1 @@
++exclude_io_pin_region -region left:* -region right:* -region top:*
+diff --git a/flow/designs/asap7/riscv32i-regfile/regfile.regfile b/flow/designs/asap7/riscv32i-regfile/regfile.regfile
+new file mode 100644
+index 0000000..45caaf8
+--- /dev/null
++++ b/flow/designs/asap7/riscv32i-regfile/regfile.regfile
+@@ -0,0 +1,19 @@
++# riscv32i's `regfile` (src/riscv32i/regfile.v) as a register file of
++# standard cells, inlined in synthesis: 32 x 32, two combinational reads,
++# one write through a clock gate per word, x0 reads 0 and drops its
++# writes.
++module regfile
++words 32
++bits 32
++clock clk
++read ra1 rd1
++read ra2 rd2
++write wa3 wd3 we3
++zero_word 0
++write_style clock_gate
++cell icg ICGx1_ASAP7_75t_R
++cell flop DFFHQNx1_ASAP7_75t_R
++cell and2 AND2x2_ASAP7_75t_R
++cell or2 OR2x2_ASAP7_75t_R
++cell ao22 AO22x2_ASAP7_75t_R
++cell inv INVx1_ASAP7_75t_R
+-- 
+2.53.0
+

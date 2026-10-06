@@ -152,6 +152,10 @@ ORFS_PATCHES = [
     # its generated netlist read in synthesis in the module's place. On
     # 0089; the second commit of ORFS #4651.
     Label("//patches:0091-orfs-auto-memories-macro-place.patch"),
+    # 0101: asap7/riscv32i-regfile, riscv32i with its register file
+    # generated and inlined: the example design of 0089, left out of ORFS
+    # #4651. For test/regfile/campaign and the ladder. Not upstreamed.
+    Label("//patches:0101-orfs-riscv32i-regfile.patch"),
     # 0099: an inlined register file in place of a parameterized module:
     # its instances' parameters dropped before the netlist is read. On
     # 0091; the third commit of ORFS #4651.
