@@ -1,13 +1,29 @@
 # The parent's floorplan after the macro step, as JSON: every generated macro
 # the plan does not name with its placement status and box, every placed
 # netlist's box, how many of its cells are not FIRM and how many of those are
-# not its periphery (the generator leaves the address decode unplaced for
-# the parent; the macro step may give it a location), and whether any such
-# macro overlaps a netlist. The box is the FIRM cells, the
-# array the plan placed. Declared beside the flow it probes.
+# core cells, and whether any such macro overlaps a netlist. The core is
+# what the generator placed, the cells its .place file names (patch 0084's
+# rule); the rest of the netlist is its periphery, the parent's, which the
+# macro step may give a location. The box is the FIRM cells, the array the
+# plan placed. Declared beside the flow it probes.
 source $::env(SCRIPTS_DIR)/load.tcl
 load_design 2_floorplan.odb 2_floorplan.sdc
 set block [ord::get_db_block]
+# the core: every cell a netlist's .place file names, under its instance
+set core [dict create]
+set pf [open $::env(STRUCTURED_PLACEMENT) r]
+while { [gets $pf line] >= 0 } {
+  if { [string match "#*" $line] || [llength $line] < 2 } { continue }
+  lassign $line module path
+  set place "$::env(RESULTS_DIR)/memories/$module.place"
+  if { ![file exists $place] } { error "leftover_macros.tcl: no $place for $path" }
+  set f [open $place r]
+  while { [gets $f pl] >= 0 } {
+    if { [lindex $pl 0] ne "" } { dict set core "$path/[lindex $pl 0]" 1 }
+  }
+  close $f
+}
+close $pf
 set macros {}
 array set box {}
 array set loose {}
@@ -31,9 +47,7 @@ foreach inst [$block getInsts] {
   incr cells($key)
   if { [$inst getPlacementStatus] ne "FIRM" } {
     incr loose($key)
-    # the generator's names for its periphery: address inverters and
-    # registers, each word's decode, any-write and hold
-    if { ![regexp {_(rsel|wsel)[0-9]|_anyw_|_hold|_(na|aq|ai|areg)[0-9]} [file tail [$inst getName]]] } {
+    if { [dict exists $core [$inst getName]] } {
       incr stray($key)
     }
     continue

@@ -115,6 +115,40 @@ int main(int argc, char** argv) {
   CHECK(lib.find("timing_type : rising_edge;") != std::string::npos);
   CHECK(lib.find("timing_type : combinational;") == std::string::npos);
   CHECK(lib.find("timing_type : setup_rising ;") != std::string::npos);
+
+  // Netlist mode: the read address registers are periphery, their input
+  // the parent's address net, so they are left unplaced for the parent;
+  // the storage is the core, FIRM.
+  {
+    std::string nspec = dir + "/rf_netlist.spec";
+    {
+      std::ifstream in(spec_path);
+      std::ofstream out(nspec);
+      out << in.rdbuf() << "mode netlist\n";
+    }
+    odb::dbDatabase* db2 = odb::dbDatabase::create();
+    db2->setLogger(&logger);
+    odb::lefin reader2(db2, &logger, false);
+    odb::dbTech* tech2 = reader2.createTech("asap7", runfile(argv[1]).c_str());
+    CHECK(reader2.createLib(tech2, "asap7sc7p5t", runfile(argv[2]).c_str()) != nullptr);
+    structured_gen::Spec ns = structured_gen::ReadSpec(nspec);
+    CHECK(ns.mode == "netlist");
+    odb::dbBlock* nb = structured_gen::Generate(db2, &logger, ns);
+    int regs = 0, mems = 0;
+    for (odb::dbInst* inst : nb->getInsts()) {
+      const std::string n = inst->getName();
+      if (n.rfind("io_readPorts_", 0) == 0 && n.find("_data_REG[") != std::string::npos) {
+        CHECK(inst->getPlacementStatus() == odb::dbPlacementStatus::UNPLACED);
+        ++regs;
+      }
+      if (n.rfind("mem_", 0) == 0) {
+        CHECK(inst->getPlacementStatus() == odb::dbPlacementStatus::FIRM);
+        ++mems;
+      }
+    }
+    CHECK(regs == 2 * 2);
+    CHECK(mems == 4 * 4);
+  }
   std::cout << "registered_read_test: ok\n";
   return 0;
 }
