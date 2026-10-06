@@ -35,22 +35,29 @@ def _lec_test_impl(ctx):
     script = ctx.actions.declare_file(ctx.attr.name + ".run.sh")
     ctx.actions.write(
         script,
-        content = """
-#!/bin/sh
+        content = """#!/bin/bash
 set -euo pipefail
 
-# kepler-formal supports two invocation styles:
-# 1. --config <yaml>
-# 2. -verilog <gold> <gate> [<liberty>...]
-# We use -verilog for simplicity and transparency in test output.
+# kepler-formal reads both designs with one frontend: -verilog for gate
+# netlists (cells from the liberty files), -sv for SystemVerilog RTL.
 
 gold_files="{gold_files}"
 gate_files="{gate_files}"
 liberty_files="{liberty_files}"
 
-exec {kepler_formal} -verilog $gold_files $gate_files $liberty_files
+# kepler-formal's exit status does not say whether the designs differ
+# (0 for a combinational difference); its verdict is the line it logs,
+# worded per mode, and the test passes only on the expected one.
+log="${{TEST_UNDECLARED_OUTPUTS_DIR:-.}}/kepler-formal.log"
+{kepler_formal} -{frontend} {verification}--design1 $gold_files --design2 $gate_files \
+    ${{liberty_files:+--liberty $liberty_files}} 2>&1 | tee "$log" || true
+grep -qE "{verdict}" "$log"
 """.format(
             kepler_formal = ctx.executable._kepler_formal.short_path,
+            frontend = ctx.attr.frontend,
+            # kepler-formal checks SystemVerilog input sequentially only.
+            verification = "-v sec " if ctx.attr.frontend == "sv" else "",
+            verdict = "No (binary-defined )?difference was found" if ctx.attr.expect_equivalent else "\\] Difference was found",
             gold_files = " ".join(
                 [file.short_path for file in ctx.files.gold_verilog_files],
             ),
@@ -108,6 +115,15 @@ _lec_test = rule(
             allow_files = True,
             providers = [DefaultInfo],
             default = [],
+        ),
+        "frontend": attr.string(
+            doc = "kepler-formal's reader: verilog for gate netlists (with liberty_files), sv for SystemVerilog RTL.",
+            default = "verilog",
+            values = ["verilog", "sv"],
+        ),
+        "expect_equivalent": attr.bool(
+            doc = "False for a test that proves a difference is caught.",
+            default = True,
         ),
         "log_level": attr.string(
             doc = "Log verbosity: debug, info, warning, error.",
