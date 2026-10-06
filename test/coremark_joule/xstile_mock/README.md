@@ -81,7 +81,7 @@ block of XSTile, at global route with the route's parasitics, 473 ps SDC:
 
 | | |
 |---|---|
-| minimum period | **1,128 ps** |
+| minimum period | **1,128 ps**, with the SRAMs untimed (see below) |
 | worst path | the directory's s3 request tag, `directory/req_s3_tag`, to bit 176 of a 256-bit register in SinkC, `sinkC/r_1[176]` |
 | logic / repeaters / wire | 341 ps (24 cells) / 473 ps (35) / 247 ps |
 
@@ -133,10 +133,13 @@ Only then does the minimum period matter.
 
 ## What was measured
 
-### Whose problem is it? Ours
+### Whose detour is it? The flow's
 
 Each arm changes one thing from the flow that measured 1,128 ps, and is
-measured at global route on a checkpoint with routes, 473 ps SDC:
+measured at global route on a checkpoint with routes, 473 ps SDC. Every
+bazel-orfs row timed the generated SRAMs as black boxes from floorplan on
+(a bazel-orfs setting since fixed); the plain ORFS rows had them timed.
+The detour is geometry and does not depend on it; the periods do.
 
 ```mermaid
 flowchart LR
@@ -165,7 +168,7 @@ either the annealer or the pins and the detour is gone, with a third of
 the period. Take away the kept repair alone and the detour is gone, but
 the distance it was hiding stays and costs more. Plain ORFS never makes it.
 
-Repair does not undo it once it is made:
+Repair does not undo the detour once it is made:
 
 | arm | change | worst | detour |
 |---|---|---|---|
@@ -174,15 +177,34 @@ Repair does not undo it once it is made:
 | an ORFS knob | `SETUP_MOVE_SEQUENCE` with load splitting and rebuffering first | 1,066 ps | unchanged |
 | OpenROAD's own moves | `repair_timing -sequence "split buffer"` on the routed checkpoint | 1,141 ps | the worst endpoint is not touched |
 
-### Why the test designs did not reproduce it
+### With the memories timed: CoupledL2's own problem
 
-There was nothing of CoupledL2's to reproduce. The single-concern test
-design, `asap7/l2_dir_hit`
+The same macro-placer A/B in the whole tile, with the SRAMs timed in every
+stage (bazel-orfs main bf39d26d):
+
+| XSTile, memories timed | the plan's annealer | RTL-MP for CoupledL2 |
+|---|---:|---:|
+| the tile, reg2reg at global route | 3,330 ps | 3,328 ps |
+| CoupledL2 at its place stage | 1,591 ps | 1,894 ps |
+
+RTL-MP's gain was in paths that do not set the period once the SRAMs are
+timed. The tile's worst path, the same in both, is in the core. CoupledL2's
+worst, in both, is MainPipe's status into the write data of a DataStorage
+SRAM; with RTL-MP the next is DataStorage's read into grantBuf, the read
+the RTL states takes two cycles (`readMCP2`). Plain ORFS showed the same
+read first, cut out (1,129 ps). These are CoupledL2's paths, not the
+flow's.
+
+### Why the test designs did not reproduce the 1,128 ps
+
+It was not CoupledL2's. The single-concern test design, `asap7/l2_dir_hit`
 ([#4599](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/pull/4599)),
-found the same path and endpoint at 580-711 ps, which is about what
-CoupledL2 itself runs at on a floorplan that does not stretch it. Synthetic
-wide enables, 64 to 512 bits spread round the die, and XiangShan's sink
+found the detour's path and endpoint at 580-711 ps, which is about what
+CoupledL2 runs at on a floorplan that does not stretch it. Synthetic wide
+enables, 64 to 512 bits spread round the die, and XiangShan's sink
 geometry pinned with `IO_CONSTRAINTS`, ran straight too (ratios 1.0-2.0).
+The test design chose its path from an untimed run; the SRAM paths above
+are the ones to start from.
 
 ### What ORFS master cannot do yet
 
@@ -191,8 +213,7 @@ ORFS master as it stands, plain `make` cannot run it:
 
 | | |
 |---|---|
-| FakeRAM | the copy ORFS ships in `tools/FakeRAM2.0` is never found unless `FAKERAM_RUN_PY` is set, and it lacks the asap7 backend `AUTO_MEMORIES` calls |
-| fixes bazel-orfs carries | six ORFS patches: the asap7 backend (which ORFS ships but nothing applies), conversion only of a memory that is its own module, a column mux (an 8192-deep array is otherwise 635:1), firtool memory modules, write masks, and slang's renamed memory modules |
+| fixes bazel-orfs carries | five ORFS patches: conversion only of a memory that is its own module, a column mux (an 8192-deep array is otherwise 635:1), firtool memory modules, write masks, and slang's renamed memory modules. ORFS master now finds its vendored FakeRAM and carries the asap7 backend ([#4603](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/pull/4603)) |
 | hierarchy | `SYNTH_HIERARCHICAL` with `AUTO_MEMORIES` stops with "Missing cost information on instanced blackbox"; flat, the macro placer can stop with MPL-0045 when one SRAM is most of a cluster's area |
 
 ## The plan
@@ -205,13 +226,12 @@ flowchart LR
   GV -.->|"FLOW_VARIANT=generated"| MK
 ```
 
-1. **Reproduce first** (done: nothing to reproduce). CoupledL2's
-   generated Verilog, unchanged, flattened into the mock tile and built
-   with plain ORFS, has no detour; nor has CoupledL2 cut out. The
-   detour came from the bazel-orfs flow's own machinery, taken out one
-   piece at a time above. What the mock tile does show, MainPipe's status
-   into the directory SRAM's enable at 1,449 ps, is CoupledL2's, and is
-   the baseline the readable SystemVerilog is measured against.
+1. **Reproduce first** (done). The 1,128 ps detour is the bazel-orfs
+   flow's: plain ORFS, cut out or in the mock tile, never makes it. With
+   the SRAMs timed, CoupledL2's own worst paths are into and out of
+   DataStorage's SRAMs; the read is a two-cycle contract the RTL states,
+   so it belongs in the SDC, and what remains after it is the baseline
+   the readable SystemVerilog is measured against.
 2. **This folder is a small Bazel module, as a certificate** (done).
    `bazelisk run //:generate` writes CoupledL2's generated Verilog for
    inspection, so nobody carries the generated lines, and the rule is the
