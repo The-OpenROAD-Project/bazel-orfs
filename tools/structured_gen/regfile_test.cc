@@ -184,6 +184,30 @@ int main(int argc, char** argv) {
     CHECK(structured_gen::CheckPorts(spec, bad).size() == 2);
   }
 
+  // Several ports to one declaration, as riscv32i's regfile writes them:
+  // each inherits the direction and width of the one before it.
+  {
+    std::string rv = dir + "/rv.v";
+    {
+      std::ofstream f(rv);
+      f << "module regfile (input         clk, \n"
+           "\t\tinput         we3, \n"
+           "\t\tinput  [4:0]  ra1, ra2, wa3, /* addresses */\n"
+           "\t\tinput  [31:0] wd3, \n"
+           "\t\toutput [31:0] rd1, rd2);\nendmodule\n";
+    }
+    auto rp = structured_gen::ReadModulePorts(rv, "regfile");
+    CHECK(rp.size() == 8);
+    std::map<std::string, structured_gen::RtlPort> by;
+    for (const auto& p : rp) {
+      by[p.name] = p;
+    }
+    CHECK(by.at("ra2").width == 5 && by.at("ra2").input);
+    CHECK(by.at("wa3").width == 5 && by.at("wa3").input);
+    CHECK(by.at("rd2").width == 32 && !by.at("rd2").input);
+    CHECK(by.at("we3").width == 1 && by.at("we3").input);
+  }
+
   // A banked read port, the RegfileBank shape: per-bank address and data
   // buses, no footer OR; the outputs are the banks' own.
   std::string banked_spec = dir + "/rfb.spec";
