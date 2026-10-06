@@ -1,8 +1,9 @@
 # The parent's floorplan after the macro step, as JSON: every generated macro
 # the plan does not name with its placement status and box, every placed
 # netlist's box, how many of its cells are not FIRM and how many of those are
-# not the address inverters the generator leaves PLACED (patch 0087), and
-# whether any such macro overlaps a netlist. The box is the FIRM cells, the
+# not its periphery (the generator leaves the address decode unplaced for
+# the parent; the macro step may give it a location), and whether any such
+# macro overlaps a netlist. The box is the FIRM cells, the
 # array the plan placed. Declared beside the flow it probes.
 source $::env(SCRIPTS_DIR)/load.tcl
 load_design 2_floorplan.odb 2_floorplan.sdc
@@ -30,7 +31,9 @@ foreach inst [$block getInsts] {
   incr cells($key)
   if { [$inst getPlacementStatus] ne "FIRM" } {
     incr loose($key)
-    if { [$inst getPlacementStatus] ne "PLACED" || ![string match *_na* [$inst getName]] } {
+    # the generator's names for its periphery: address inverters and
+    # registers, each word's decode, any-write and hold
+    if { ![regexp {_(rsel|wsel)[0-9]|_anyw_|_hold|_(na|aq|ai|areg)[0-9]} [file tail [$inst getName]]] } {
       incr stray($key)
     }
     continue

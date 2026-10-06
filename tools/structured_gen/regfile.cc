@@ -140,6 +140,9 @@ class Builder {
                                    : odb::dbOrientType::MX);
     inst->setLocation(core_x0_ + c.x, core_y0_ + c.row * row_h_);
     inst->setPlacementStatus(odb::dbPlacementStatus::FIRM);
+    if (periphery_) {
+      periphery_insts_.push_back(inst);
+    }
     c.x += static_cast<int>(m->getWidth());
     max_x_ = std::max(max_x_, c.x);
     return inst;
@@ -229,6 +232,10 @@ class Builder {
     int x_end = 0;
   };
   std::vector<Tile> tiles_;
+  // The periphery: the address band and each word's decode. In netlist
+  // mode these are left unplaced (see Run).
+  bool periphery_ = false;
+  std::vector<dbInst*> periphery_insts_;
 };
 
 dbBlock* Builder::Run() {
@@ -476,17 +483,14 @@ dbBlock* Builder::Run() {
   }
 
   // ---- address inverters, top band ------------------------------------
-  // These are the array's boundary cells: their inputs are the parent's
-  // address nets, their outputs the widest nets inside. The parent's
-  // repair_design is allowed to touch them (it has to buffer the nets it
-  // drives into the array, and it will upsize a driver of a wide net). A
-  // cell the parent may resize is one it may move: they are PLACED, not
-  // FIRM, so the parent's legaliser takes whatever size they end up --
-  // timing-driven global placement upsized XiangShan's ROB inverters to
-  // INVx13. Each still gets a spare site after it, room for the common
-  // INVx1 to INVx2 without a move.
+  // Periphery: their inputs are the address ports, their outputs the
+  // widest nets of the block. In netlist mode they are left unplaced for
+  // the parent (see the end of Run). In a macro, the macro's own repair
+  // may upsize one, and a cell that may be resized is one that may move:
+  // PLACED, not FIRM, with a spare site after each for INVx1 to INVx2.
   std::vector<std::vector<std::vector<dbNet*>>> raddr_n(R);
   std::vector<std::vector<dbNet*>> waddr_n(W);
+  periphery_ = true;
   {
     Cursor c{total_rows - 1, 0};
     // A cell and its spare site, on the next band row down if this one
@@ -544,6 +548,7 @@ dbBlock* Builder::Run() {
       Refuse("address band overflow: widen the band estimate");
     }
   }
+  periphery_ = false;
 
   // ---- per band and word: header decode, then tiles across the bits ----
   // The decode is per (band, word): a band is its own rows, so the word
@@ -583,6 +588,7 @@ dbBlock* Builder::Run() {
       hc.push_back(Cursor{row0 + k, bank_x0});
     }
     auto hcur = [&]() -> Cursor& { return Least(hc); };
+    periphery_ = true;
     std::string wn = "w" + std::to_string(n) +
                      (folds > 1 ? "_f" + std::to_string(f) : "");
     for (int r = 0; r < R; ++r) {
@@ -609,6 +615,7 @@ dbBlock* Builder::Run() {
     hold[n] = Net(wn + "_hold");
     Place(hcur(), inv_, hold[n]->getName(),
           {{g_pins.inv[0], any_write}, {g_pins.inv[1], hold[n]}});
+    periphery_ = false;
     for (auto& c : hc) {
       if (c.x > bank_x0 + header_w) {
         Refuse("header column overflow at word " + std::to_string(n) +
@@ -853,6 +860,20 @@ dbBlock* Builder::Run() {
       die_w / static_cast<double>(tech->getLefUnits()),
       die_h / static_cast<double>(tech->getLefUnits()),
       block_->getInsts().size());
+  // In netlist mode the core alone is the generator's: the tiles and the
+  // read bitlines, FIRM. The periphery -- address inverters, read address
+  // registers, each word's decode, hold -- is left unplaced, so the parent's
+  // flow places, sizes and buffers it like any logic: it alone knows the
+  // drivers and loads outside the array. Fixed by the generator, an
+  // address inverter drove its literal into every word's decode at a
+  // 3.7 ns slew on XiangShan's ROB that nothing was allowed to repair. The
+  // header column and the address band stay as free sites beside the core.
+  // A macro is the generator's to the last cell and keeps its periphery.
+  if (s.mode == "netlist") {
+    for (dbInst* inst : periphery_insts_) {
+      inst->setPlacementStatus(odb::dbPlacementStatus::UNPLACED);
+    }
+  }
   return block_;
 }
 
