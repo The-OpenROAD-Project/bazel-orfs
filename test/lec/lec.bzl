@@ -137,7 +137,7 @@ _lec_test = rule(
             default = Label("@kepler-formal//src/bin:kepler-formal"),
         ),
         "_config_template": attr.label(
-            default = "//:lec.yaml.tpl",
+            default = "//test/lec:lec.yaml.tpl",
             allow_single_file = True,
         ),
     },
@@ -147,9 +147,8 @@ _lec_test = rule(
 def lec_test(name, tags = [], **kwargs):
     """A kepler-formal LEC test, always `manual`.
 
-    kepler-formal is a development tool: it builds from source with its
-    own toolchain and registries, which is too slow for CI. Run a check
-    by name, `bazelisk test //path:name` from this directory.
+    kepler-formal is a dev_dependency that builds from source, too slow
+    for CI. Run a check by name: `bazelisk test //path:name`.
 
     Args:
         name: the test's name.

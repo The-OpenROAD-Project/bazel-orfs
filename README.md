@@ -344,25 +344,7 @@ one by one and deleted here as they land.
 | Artifact pinning | Cache long-running build results | [tools/pin](tools/pin/README.md) |
 | Post-synthesis cleanup | najaeda netlist cleaning (experimental) | [naja](naja/README.md) |
 | SRAM macros | fakeram and mock SRAM | [sram](sram/README.md) |
-| Equivalence checking (LEC) | kepler-formal logic equivalence | [lec](lec/README.md) |
-
-LEC lives in a subdirectory that is a **separate Bazel module**. Downstream
-consumers add their own `bazel_dep` and `git_override` for it:
-
-| Sub-module directory | Bazel module name | What it provides |
-|----------------------|-------------------|------------------|
-| `lec/` | `bazel-orfs-lec` | Logic equivalence checking |
-
-```starlark
-bazel_dep(name = "bazel-orfs-lec")
-
-git_override(
-    module_name = "bazel-orfs-lec",
-    commit = "<same commit as bazel-orfs>",
-    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs",
-    strip_prefix = "lec",
-)
-```
+| Equivalence checking (LEC) | kepler-formal logic equivalence, for bazel-orfs's own generators (dev-only) | [test/lec](test/lec/README.md) |
 
 ## Upgrade bazel-orfs
 

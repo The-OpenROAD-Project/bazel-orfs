@@ -2,10 +2,8 @@
 tmp
 # Sub-modules: these directories have their own MODULE.bazel and are
 # developed/tested independently (cd <dir> && bazelisk test ...).
-# Excluding them from //... keeps the root module fast by avoiding
-# heavy deps (kepler-formal).
+# Excluding them from //... keeps the root module fast.
 
-lec
 naja
 test/docker
 bazel-orfs-bazel-dev

@@ -1,4 +1,4 @@
-load("//:lec.bzl", "lec_test")
+load(":lec.bzl", "lec_test")
 
 # The wrapper's own check: an equivalent pair passes, and a pair that
 # differs is reported as different (kepler-formal exits 0 either way).
