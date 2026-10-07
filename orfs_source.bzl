@@ -164,8 +164,8 @@ ORFS_PATCHES = [
     # the Rocket Chip generator leaves as black boxes, so AUTO_MEMORIES
     # detects them; the design did not canonicalize (data_arrays_0_ext
     # "not part of the design"), and nothing built it to notice. Also its
-    # README. Upstream PR pending; retires at a bump onto an ORFS that
-    # carries it.
+    # README. Upstream as The-OpenROAD-Project/OpenROAD-flow-scripts#4643;
+    # retires at a bump onto an ORFS that carries it.
     Label("//patches:0092-orfs-tinyrocket-memories.patch"),
 ]
 
