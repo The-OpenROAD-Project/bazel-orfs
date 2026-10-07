@@ -55,10 +55,10 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  flow/scripts/macro_place.tcl                  |   3 +
  flow/scripts/memories/gen_memories.py         | 193 ++++++++++++-
  flow/scripts/memories/schema.py               |  16 +-
- flow/scripts/regfile_dissolve.tcl             | 289 ++++++++++++++++++
+ flow/scripts/regfile_dissolve.tcl             | 320 ++++++++++++++++++
  flow/scripts/variables.json                   |   6 +
  flow/scripts/variables.yaml                   |  17 ++
- 16 files changed, 782 insertions(+), 5 deletions(-)
+ 16 files changed, 813 insertions(+), 5 deletions(-)
  create mode 100644 flow/designs/asap7/regfile/RegFile.regfile
  create mode 100644 flow/designs/asap7/regfile/config.mk
  create mode 100644 flow/designs/asap7/regfile/constraint.sdc
@@ -713,7 +713,7 @@ diff --git a/flow/scripts/regfile_dissolve.tcl b/flow/scripts/regfile_dissolve.t
 new file mode 100644
 --- /dev/null
 +++ b/flow/scripts/regfile_dissolve.tcl
-@@ -0,0 +1,289 @@
+@@ -0,0 +1,320 @@
 +# Register files in `mode netlist` (AUTO_MEMORIES_REGFILES) dissolve into
 +# their cells here, right after macro placement: to synthesis and to the
 +# macro placer each was a macro, its abstract's pins where its wires
@@ -939,7 +939,24 @@ new file mode 100644
 +    # bit no one reads takes its column of the core with it. Before the
 +    # core is fixed, which the elimination would respect.
 +    log_cmd eliminate_dead_logic
++    # Cut the rows around the macros now, as tapcell would: cut_rows
++    # leaves a row that holds a fixed cell uncut (ODB-0386), so once the
++    # core is FIRM a row it shares with a macro would run on under the
++    # macro and take an endcap there.
++    set cut_args {}
++    if { [env_var_exists_and_non_empty TAP_CELL_NAME] } {
++      lappend cut_args -endcap_master $::env(TAP_CELL_NAME)
++    }
++    if { [env_var_exists_and_non_empty MACRO_ROWS_HALO_X] } {
++      lappend cut_args -halo_width_x $::env(MACRO_ROWS_HALO_X)
++    }
++    if { [env_var_exists_and_non_empty MACRO_ROWS_HALO_Y] } {
++      lappend cut_args -halo_width_y $::env(MACRO_ROWS_HALO_Y)
++    }
++    log_cmd cut_rows {*}$cut_args
 +  }
++  set row_boxes {}
++  foreach row [$block getRows] { lappend row_boxes [$row getBBox] }
 +  foreach fixup $fixups {
 +    lassign $fixup module path flip X Y ncells placed placed_names
 +    set placed_insts {}
@@ -951,7 +968,21 @@ new file mode 100644
 +        lappend placed_insts $inst
 +      }
 +    }
-+    foreach inst $placed_insts { $inst setPlacementStatus FIRM }
++    foreach inst $placed_insts {
++      set bb [$inst getBBox]
++      set on_row 0
++      foreach rb $row_boxes {
++        if { [$bb xMin] >= [$rb xMin] && [$bb xMax] <= [$rb xMax]
++             && [$bb yMin] == [$rb yMin] } {
++          set on_row 1
++          break
++        }
++      }
++      if { !$on_row } {
++        utl::error FLW 14 "register file $module at $path: [$inst getName] is on no row once the rows are cut around the macros"
++      }
++      $inst setPlacementStatus FIRM
++    }
 +    # The core is final: FIRM keeps the legaliser off it, dont_touch
 +    # keeps the resizer off it. Two kinds of cell are excepted. The
 +    # flops: CTS has to rewire their clock pins and a dont_touch
