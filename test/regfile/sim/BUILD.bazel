@@ -44,10 +44,10 @@ TCL
 $(location @openroad//:openroad) -exit -no_init -no_splash $(@D)/regfile_{style}.tcl > $(@D)/regfile_{style}.log 2>&1 || {{ cat $(@D)/regfile_{style}.log; exit 1; }}
 sed 's/^module regfile(/module regfile_gen(/' $(@D)/regfile_{style}.gen.v > $@
 """.format(
-                style = style,
                 extra = "echo 'write_style clock_gate' >> $(@D)/regfile_%s.regfile" % style if style == "clock_gate" else "",
+                style = style,
             ),
-            tools = ["@openroad//:openroad"],
+            tools = ["@openroad"],
         ),
         verilog_library(
             name = "tb_%s_rtl" % style,
@@ -64,7 +64,11 @@ sed 's/^module regfile(/module regfile_gen(/' $(@D)/regfile_{style}.gen.v > $@
             module = ":tb_%s_rtl" % style,
             module_top = "tb_top",
             trace_mode = "none",
-            vopts = ["-Wno-fatal", "--x-initial", "0"],
+            vopts = [
+                "-Wno-fatal",
+                "--x-initial",
+                "0",
+            ],
         ),
         cc_test(
             name = "regfile_%s_sim_test" % style,
@@ -73,5 +77,8 @@ sed 's/^module regfile(/module regfile_gen(/' $(@D)/regfile_{style}.gen.v > $@
             deps = [":tb_%s" % style],
         ),
     ]
-    for style in ["mux", "clock_gate"]
+    for style in [
+        "mux",
+        "clock_gate",
+    ]
 ]

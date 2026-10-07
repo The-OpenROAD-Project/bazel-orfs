@@ -11,7 +11,8 @@ def _r(x):
     return int(x * 1000 + 0.5) / 1000.0
 
 def array_scaffold(name, spec, width_um, height_um):
-    """The scaffold flow for one spec: <name>_scaffold_<stage>, to global route.
+    """The scaffold flow for one spec: <name>_scaffold_<stage>, to CTS: a smoke test that
+    the array dissolves and CTS seats its buffers; nothing reads a route.
 
     Args:
       name: the module the spec names (RenameBufferFile, ...).
@@ -47,7 +48,7 @@ def array_scaffold(name, spec, width_um, height_um):
             "PLACE_DENSITY": "0.5",
             "SYNTH_HDL_FRONTEND": "slang",
         },
-        last_stage = "grt",
+        last_stage = "cts",
         pdk = "//flow:asap7",
         sources = {
             "SDC_FILE": [":constraints.sdc"],

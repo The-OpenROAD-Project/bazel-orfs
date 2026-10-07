@@ -59,3 +59,49 @@ three buffers on a flat array's 53 um select line, 1000 against 982.
 Every row is one run. The flow is deterministic, so a repeat gives the
 same number; a 1 ps difference is within what any change to the
 placement moves, so 955 against 954 is parity, not a loss.
+
+## The clock-period campaign (2026-10-07, after the clock gate)
+
+From here on the register file is inlined (ORFS patch 0091,
+`AUTO_MEMORIES_MACRO_PLACE` naming nothing) at riscv32i's 62 %, and
+every generator change is checked first by `//test/regfile/sim`: the
+generated netlist simulated beside riscv32i's `regfile.v`. Gate: better
+than the current best by more than 5 ps, core no more than 5 % bigger.
+
+| arm | min period | failing | core um2 | std cells um2 | verdict |
+|---|---|---|---|---|---|
+| C0: inlined by the flow (0091), clock gate | **955** | 69 | **3544** | **973** | the baseline, the hand-swapped run reproduced |
+| C3: predecode | 960 | 313 | 3516 | 983 | negative |
+| C1: mux-tree read (`read_style mux_tree`) | 959 | 285 | 3480 | 928 | negative on period, the smallest |
+| C2b: AOI22-NAND4-OR4 read tree | 954 | 51 | 3548 | 981 | within noise |
+| C2a: AOI22x1, NAND2x1, NOR2x1, AND2x4, OR2x4 | 950 | 1 | 3674 | 1060 | at the gate, 4 % more core: not dominating |
+| C4: C2a + C2b | 953 | 15 | 3642 | 1052 | within noise |
+
+C1, why the mux tree loses: each address bit steers its level directly,
+and level 1 is 16 cells for each of 32 bits, 512 loads a port; the
+resizer drives them through four buffers (BUFx12f, CKINVDCx20, BUFx6f,
+BUFx10), 142 ps before the first mux, and read data is ready at 605 ps
+against 524 with the one-hot decode, which buffers the same fanout
+through logic.
+
+The read path is near its floor: a port's five address bits drive about
+a thousand gate inputs whichever structure decodes them, and what is
+left is a few levels of the read tree, 10 to 15 ps, at the edge of what
+one run resolves. The rest of the period is riscv32i's single-cycle
+ALU, data memory and write back.
+
+C5, the clock gate's cost, against the flops at global route
+(`clock_cost.tcl`, `hold_cells.tcl`; power at STA's default activity):
+
+| | register file | flops |
+|---|---|---|
+| hold worst slack | +85.8 ps | +35.7 ps |
+| hold-failing endpoints, hold buffers | 0, 0 | 0, 0 |
+| clock-tree buffers and inverters | 179 (58.1 um2) | 122 (52.5 um2) |
+| clock gates | 31 | 0 |
+| power, total | 23.9 mW | 31.4 mW |
+| power, clock-tree buffers | 0.53 mW | 2.63 mW |
+
+riscv32i's input delay applies to hold as well as setup (no `-min`),
+and its virtual clock carries the real one's latency: inputs arrive
+late for hold, and no hold repair runs in either design.
