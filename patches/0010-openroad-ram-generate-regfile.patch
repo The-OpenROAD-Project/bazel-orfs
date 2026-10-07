@@ -306,7 +306,7 @@ new file mode 100644
 index 0000000000..17319dd9d2
 --- /dev/null
 +++ b/src/ram/src/regfile.cpp
-@@ -0,0 +1,1439 @@
+@@ -0,0 +1,1471 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
 +
@@ -841,12 +841,21 @@ index 0000000000..17319dd9d2
 +  // bitline: a word pair's AOI22 leaf in the pair's first tile, a node
 +  // of the NAND2/NOR2 tree over the leaves in its second (see the read
 +  // bitlines below). A fix-up inverter rides with a node.
-+  const int write_pairs = (W + 1) / 2;  // AO22 nodes; the last may hold Q
++  // W + 1 terms (the writes and the hold) in pairs: AO22s, an odd last
++  // term an AND2
++  const int write_pairs = (W + 2) / 2;
 +  const int read_node_w = static_cast<int>(
 +      std::max({nand2_->getWidth(), nor2_->getWidth(), or2_->getWidth()})
 +      + inv_->getWidth());
-+  const int read_cell_w = std::max(static_cast<int>(aoi22_->getWidth()),
-+                                   read_node_w);
++  // A tile holds a leaf or a node per port; the odd word out of a bank
++  // with an odd count holds its NAND2 leaf and a node.
++  const int read_cell_w
++      = std::max({static_cast<int>(aoi22_->getWidth()),
++                  read_node_w,
++                  static_cast<int>(nand2_->getWidth()
++                                   + std::max({nand2_->getWidth(),
++                                               nor2_->getWidth(),
++                                               or2_->getWidth()}))});
 +  const int tile_cells_w = static_cast<int>(
 +      flop_->getWidth() + inv_->getWidth() + write_pairs * ao22_->getWidth()
 +      + std::max(write_pairs - 1, 0) * or2_->getWidth()
@@ -857,15 +866,38 @@ index 0000000000..17319dd9d2
 +    rows_per_word *= 2;
 +  }
 +  // Rows are filled least-first, so a row is at most one widest cell over
-+  // the average; the tile width carries that slack.
++  // the average; the header carries that slack.
 +  const int widest = static_cast<int>(std::max({flop_->getWidth(),
 +                                                ao22_->getWidth(),
 +                                                aoi22_->getWidth(),
 +                                                or2_->getWidth(),
 +                                                and2_->getWidth()}));
-+  const int tile_w = ((tile_cells_w + rows_per_word - 1) / rows_per_word
-+                      + widest + site_w_ - 1)
-+                     / site_w_ * site_w_;
++  // A tile is as wide as its fullest row once its cells are in, in the
++  // order the builder drops them: the flop, Q's inverter, the write mux,
++  // then a bitline cell per port. The flop alone is most of a row, so
++  // an average-plus-widest-cell estimate leaves a third of the array empty.
++  int tile_w = 0;
++  {
++    std::vector<int> fill(rows_per_word, 0);
++    auto drop = [&](int w) {
++      *std::min_element(fill.begin(), fill.end()) += w;
++    };
++    drop(static_cast<int>(flop_->getWidth()));
++    if (g_pins.flop_inverted) {
++      drop(static_cast<int>(inv_->getWidth()));
++    }
++    for (int i = 0; i < write_pairs; ++i) {
++      drop(static_cast<int>(ao22_->getWidth()));
++    }
++    for (int i = 0; i + 1 < write_pairs; ++i) {
++      drop(static_cast<int>(or2_->getWidth()));
++    }
++    for (int r = 0; r < R; ++r) {
++      drop(read_cell_w);
++    }
++    tile_w = (*std::max_element(fill.begin(), fill.end()) + site_w_ - 1)
++             / site_w_ * site_w_;
++  }
 +  // Header: per word, (R+W) decodes of (A+1) literals as AND2 trees, the
 +  // address inverters live above the array. hold_n = ~(OR of write selects).
 +  const int header_cells_w
