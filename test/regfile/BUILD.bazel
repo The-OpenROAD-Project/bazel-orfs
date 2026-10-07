@@ -1,4 +1,4 @@
-load("@bazel-orfs//:openroad.bzl", "orfs_run")
+load("@bazel-orfs//:openroad.bzl", "odb_debug", "orfs_run")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_python//python:defs.bzl", "py_test")
 
@@ -80,5 +80,26 @@ build_test(
     for variant, design in [
         ("flops", "riscv32i"),
         ("regfile", "riscv32i-regfile"),
+    ]
+]
+
+# odb-debug sessions on each stage of both riscv32i variants, for
+# test/regfile/campaign: manual, a study's tools, not a gate.
+[
+    odb_debug(
+        name = "riscv32i_%s_%s_odb_debug" % (variant, stage),
+        src = "@orfs//flow/designs/asap7/%s:riscv_top_%s" % (design, stage),
+        tags = ["manual"],
+    )
+    for variant, design in [
+        ("flops", "riscv32i"),
+        ("regfile", "riscv32i-regfile"),
+    ]
+    for stage in [
+        "synth",
+        "floorplan",
+        "place",
+        "cts",
+        "grt",
     ]
 ]

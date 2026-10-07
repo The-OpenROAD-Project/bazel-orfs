@@ -1,0 +1,254 @@
+--- a/src/ram/src/regfile.cpp
++++ b/src/ram/src/regfile.cpp
+@@ -35,6 +35,46 @@
+   return bus + "[" + std::to_string(i) + "]";
+ }
+ 
++// A read address split for predecode: groups of at most three bits, at
++// most three groups, so a word select is one NOR of one predecode line
++// per group.
++std::vector<int> PredecodeGroups(int bits)
++{
++  switch (bits) {
++    case 0:
++      return {};
++    case 1:
++    case 2:
++    case 3:
++      return {bits};
++    case 4:
++      return {2, 2};
++    case 5:
++      return {3, 2};
++    case 6:
++      return {3, 3};
++    case 7:
++      return {3, 2, 2};
++    case 8:
++      return {3, 3, 2};
++    case 9:
++      return {3, 3, 3};
++    default:
++      throw std::runtime_error(
++          "a read address of " + std::to_string(bits)
++          + " bits is wider than the predecode takes (9): bank the port");
++  }
++}
++
++int Log2Exact(int n)
++{
++  int k = 0;
++  while ((1 << k) < n) {
++    ++k;
++  }
++  return k;
++}
++
+ int AddrBits(int words)
+ {
+   int a = 0;
+@@ -74,6 +114,8 @@
+   std::vector<std::string> aoi22 = {"A1", "A2", "B1", "B2", "Y"};
+   std::vector<std::string> nand2 = {"A", "B", "Y"};
+   std::vector<std::string> nor2 = {"A", "B", "Y"};
++  std::vector<std::string> nand3 = {"A", "B", "C", "Y"};
++  std::vector<std::string> nor3 = {"A", "B", "C", "Y"};
+   std::vector<std::string> inv = {"A", "Y"};
+   std::vector<std::string> tie_lo = {"L"};
+   bool flop_inverted = true;  // the flop's output is QN
+@@ -340,6 +382,8 @@
+   dbMaster* aoi22_ = nullptr;
+   dbMaster* nand2_ = nullptr;
+   dbMaster* nor2_ = nullptr;
++  dbMaster* nand3_ = nullptr;
++  dbMaster* nor3_ = nullptr;
+   dbMaster* inv_ = nullptr;
+   dbMaster* tap_ = nullptr;
+   dbMaster* tie_lo_ = nullptr;
+@@ -380,6 +424,8 @@
+   aoi22_ = Master(s.cells.aoi22, "aoi22");
+   nand2_ = Master(s.cells.nand2, "nand2");
+   nor2_ = Master(s.cells.nor2, "nor2");
++  nand3_ = Master(s.cells.nand3, "nand3");
++  nor3_ = Master(s.cells.nor3, "nor3");
+   inv_ = Master(s.cells.inv, "inv");
+   tap_ = s.cells.tap.empty() ? nullptr : Master(s.cells.tap, "tap");
+   tie_lo_ = s.cells.tie_lo.empty() ? nullptr : Master(s.cells.tie_lo, "tie_lo");
+@@ -390,6 +436,8 @@
+   CheckPins(aoi22_, g_pins.aoi22);
+   CheckPins(nand2_, g_pins.nand2);
+   CheckPins(nor2_, g_pins.nor2);
++  CheckPins(nand3_, g_pins.nand3);
++  CheckPins(nor3_, g_pins.nor3);
+   CheckPins(inv_, g_pins.inv);
+ 
+   odb::dbTech* tech = db_->getTech();
+@@ -591,9 +639,12 @@
+   }
+   // Header: per word, (R+W) decodes of (A+1) literals as AND2 trees, the
+   // address inverters live above the array. hold_n = ~(OR of write selects).
+-  const int header_cells_w
+-      = static_cast<int>((R + W) * A * and2_->getWidth()
+-                         + (W - 1) * or2_->getWidth() + inv_->getWidth());
++  // Per word: R read selects, one NOR of the predecode lines each; W
++  // write selects of (A+1) literals as AND2 trees; hold_n.
++  const int header_cells_w = static_cast<int>(
++      R * std::max({nor3_->getWidth(), nor2_->getWidth(), inv_->getWidth()})
++      + W * A * and2_->getWidth() + (W - 1) * or2_->getWidth()
++      + inv_->getWidth());
+   const int header_w = ((header_cells_w + rows_per_word - 1) / rows_per_word
+                         + widest + site_w_ - 1)
+                        / site_w_ * site_w_;
+@@ -642,8 +693,20 @@
+   const int inv_cell_w = static_cast<int>(inv_->getWidth()) + site_w_;
+   const int reg_cell_w
+       = s.read_latency > 0 ? static_cast<int>(flop_->getWidth()) + site_w_ : 0;
+-  const int band_w
+-      = read_addr_bits * (inv_cell_w + reg_cell_w) + W * A * inv_cell_w;
++  // and the read predecode: per read address, a NAND per value of each
++  // group of two or three bits
++  int predecode_cells = 0;
++  for (int r = 0; r < R; ++r) {
++    const int sets = s.read[r].banked() ? banks : 1;
++    for (int g : PredecodeGroups(s.read[r].banked() ? A_bank : A)) {
++      predecode_cells += g > 1 ? sets * (1 << g) : 0;
++    }
++  }
++  const int nand_cell_w = static_cast<int>(
++                              std::max(nand3_->getWidth(), nand2_->getWidth()))
++                          + site_w_;
++  const int band_w = read_addr_bits * (inv_cell_w + reg_cell_w)
++                     + W * A * inv_cell_w + predecode_cells * nand_cell_w;
+   const int inv_rows = std::max(1, (band_w + core_w - 1) / core_w);
+   const int total_rows = footer_rows + bank_rows * bank_h_rows + inv_rows;
+ 
+@@ -674,6 +737,8 @@
+   // may upsize one, and a cell that may be resized is one that may move:
+   // PLACED, not FIRM, with a spare site after each for INVx1 to INVx2.
+   std::vector<std::vector<std::vector<dbNet*>>> raddr_n(R);
++  // predecode[r][k][group][value]: active-low predecode lines
++  std::vector<std::vector<std::vector<std::vector<dbNet*>>>> predecode(R);
+   std::vector<std::vector<dbNet*>> waddr_n(W);
+   periphery_ = true;
+   {
+@@ -737,6 +802,46 @@
+         waddr_n[w].push_back(y);
+       }
+     }
++    // Read predecode: per read address and group, one active-low line
++    // per value, a NAND of the group's literals; a one-bit group's lines
++    // are its literals, the other way round.
++    for (int r = 0; r < R; ++r) {
++      predecode[r].resize(raddr[r].size());
++      for (size_t k = 0; k < raddr[r].size(); ++k) {
++        int lo = 0;
++        int gi = 0;
++        for (int g : PredecodeGroups(static_cast<int>(raddr[r][k].size()))) {
++          std::vector<dbNet*> lines(1 << g);
++          for (int v = 0; v < (1 << g); ++v) {
++            std::vector<dbNet*> in;
++            for (int j = 0; j < g; ++j) {
++              in.push_back(((v >> j) & 1) ? raddr[r][k][lo + j]
++                                          : raddr_n[r][k][lo + j]);
++            }
++            if (g == 1) {
++              lines[v] = v ? raddr_n[r][k][lo] : raddr[r][k][lo];
++              continue;
++            }
++            dbNet* y = Net("rd" + std::to_string(r) + "_k" + std::to_string(k)
++                           + "_p" + std::to_string(gi) + "v"
++                           + std::to_string(v));
++            dbMaster* m = g == 2 ? nand2_ : nand3_;
++            const std::vector<std::string>& p
++                = g == 2 ? g_pins.nand2 : g_pins.nand3;
++            std::vector<std::pair<std::string, dbNet*>> conns;
++            for (int j = 0; j < g; ++j) {
++              conns.emplace_back(p[j], in[j]);
++            }
++            conns.emplace_back(p[g], y);
++            band(m, y->getName(), conns);
++            lines[v] = y;
++          }
++          predecode[r][k].push_back(lines);
++          lo += g;
++          ++gi;
++        }
++      }
++    }
+     if (c.row < total_rows - inv_rows) {
+       Refuse("address band overflow: widen the band estimate");
+     }
+@@ -789,11 +894,34 @@
+                        + (folds > 1 ? "_f" + std::to_string(f) : "");
+       for (int r = 0; r < R; ++r) {
+         const bool banked = s.read[r].banked();
+-        rsel[r][n] = Decode(hcur(),
+-                            wn + "_rsel" + std::to_string(r),
+-                            literals(raddr[r][banked ? bank : 0],
+-                                     raddr_n[r][banked ? bank : 0],
+-                                     banked ? local_of(n) : n));
++        // The word select: a NOR of this word's predecode line of each
++        // group, high when every group matches.
++        const auto& pd = predecode[r][banked ? bank : 0];
++        const int idx = banked ? local_of(n) : n;
++        std::vector<dbNet*> in;
++        int lo = 0;
++        for (const auto& lines : pd) {
++          const int g = Log2Exact(static_cast<int>(lines.size()));
++          in.push_back(lines[(idx >> lo) & ((1 << g) - 1)]);
++          lo += g;
++        }
++        rsel[r][n] = Net(wn + "_rsel" + std::to_string(r));
++        if (in.size() == 1) {
++          Place(hcur(),
++                inv_,
++                rsel[r][n]->getName(),
++                {{g_pins.inv[0], in[0]}, {g_pins.inv[1], rsel[r][n]}});
++        } else {
++          dbMaster* m = in.size() == 2 ? nor2_ : nor3_;
++          const std::vector<std::string>& p
++              = in.size() == 2 ? g_pins.nor2 : g_pins.nor3;
++          std::vector<std::pair<std::string, dbNet*>> conns;
++          for (size_t j = 0; j < in.size(); ++j) {
++            conns.emplace_back(p[j], in[j]);
++          }
++          conns.emplace_back(p[in.size()], rsel[r][n]);
++          Place(hcur(), m, rsel[r][n]->getName(), conns);
++        }
+       }
+       std::vector<dbNet*> wsels;
+       for (int w = 0; w < W; ++w) {
+@@ -1240,6 +1368,10 @@
+         s.cells.nand2 = v[1];
+       } else if (kind == "nor2") {
+         s.cells.nor2 = v[1];
++      } else if (kind == "nand3") {
++        s.cells.nand3 = v[1];
++      } else if (kind == "nor3") {
++        s.cells.nor3 = v[1];
+       } else if (kind == "inv") {
+         s.cells.inv = v[1];
+       } else if (kind == "tap") {
+@@ -1278,6 +1410,10 @@
+         set(g_pins.nand2, 3);
+       } else if (kind == "nor2") {
+         set(g_pins.nor2, 3);
++      } else if (kind == "nand3") {
++        set(g_pins.nand3, 4);
++      } else if (kind == "nor3") {
++        set(g_pins.nor3, 4);
+       } else if (kind == "inv") {
+         set(g_pins.inv, 2);
+       } else {
+--- a/src/ram/src/regfile.h
++++ b/src/ram/src/regfile.h
+@@ -56,6 +56,9 @@
+   std::string aoi22 = "AOI22xp5_ASAP7_75t_R";
+   std::string nand2 = "NAND2xp5_ASAP7_75t_R";
+   std::string nor2 = "NOR2xp33_ASAP7_75t_R";
++  // read predecode NANDs and the word select NOR over them
++  std::string nand3 = "NAND3xp33_ASAP7_75t_R";
++  std::string nor3 = "NOR3xp33_ASAP7_75t_R";
+   std::string inv;     // decoder inverters
+   std::string tap;     // well tap, one column per tap_columns
+   std::string tie_lo;  // for unused inputs
