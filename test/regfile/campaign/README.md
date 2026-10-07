@@ -38,12 +38,21 @@ edits them changes what the first one installs mid-run. One worktree per
 generator or spec variant, each with its own Bazel output base; the
 remote cache makes the second and later ones cheap.
 
+## Measured 2026-10-07, see results.md
+
+Predecode (negative), dissolve then unplace (no gain), never a macro,
+and the write clock gate (`write-gate.diff`, a `write_style clock_gate`
+spec key; patch 0010 carries it and riscv32i-regfile's spec uses it at
+45 %). Never a macro with the write clock gate is at parity with the
+flip-flops on a 12 % smaller core.
+
+`never_macro.sh <lane>` runs riscv32i with the generated netlist in
+place of `regfile.v`, in a `//:deps` tree.
+
 ## Lined up, not run
 
 | experiment | how | expected |
 |---|---|---|
-| predecode | `predecode.diff`, flat 45 % | one serial AND2 less on the select path, ~10-20 ps |
-| dissolve, then unplace | `unplace.tcl` on `2_floorplan.odb` in a `//:deps` tree at place, then place, cts, grt | does free placement of the better netlist beat 1003 ps at 62 %? |
-| never a macro | riscv32i's `//:deps` tree at synth with `src/riscv32i/regfile.v` replaced by the generated `memories/regfile.v`; core from the real cell area at 62 % | the floorplan without a macro's tiling constraint |
-| shape annealer | at floorplan, before macro placement: the generator's shapes per register file (ports unchanged), the FakeRAMs, channels and the real standard-cell area; the chosen shape generated there, the instance moved to it with `swapMaster`; `mode netlist` only | the shape that fits the smallest core; the 62 % flat run shows a shape must also weigh select-line length |
-| write side | a clock gate per word in place of the per-bit AO22 hold mux, as `generate_ram` does | ~20 ps off every endpoint, narrower tiles; changes CTS |
+| never a macro as a flow mode | the memories step hands synthesis the generated netlist in place of the module, no macro, no dissolve | what `never_macro.sh` measures, from the flow |
+| shape annealer | at floorplan, before macro placement: the generator's shapes per register file (ports unchanged), the FakeRAMs, channels and the real standard-cell area; the chosen shape generated there, the instance moved to it with `swapMaster`; `mode netlist` only | only if the macro shape is kept: never a macro needs no shape |
+| clock-gated write, CTS and hold | hold slack, clock power and the clock tree's buffers with 31 gated clocks against the flops' one | the cost side of the clock gate, not measured |
