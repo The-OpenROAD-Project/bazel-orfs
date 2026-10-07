@@ -1263,6 +1263,15 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         # the generated arrays dropped FIRM into the parent at floorplan
         # (STRUCTURED_MEMORIES in mode netlist, patch 0078)
         sources["STRUCTURED_PLACEMENT"] = [":%s/netlists.txt" % plan_dir]
+
+    # Every legalization of the parent -- placement's, CTS's two, global
+    # route's -- first moves each movable cell the resizer or CTS left
+    # inside a hard block to just outside the block's nearest edge: there
+    # is no row under it, and the legaliser can only find it a site within
+    # its window. Without it detailed placement fails on a few of the
+    # thousands of buffers left there (DPL-0036).
+    for hook in ["PRE_DETAIL_PLACE_TCL", "PRE_CTS_TCL", "PRE_GLOBAL_ROUTE_TCL"]:
+        sources[hook] = ["//test/coremark_joule/designs/asap7/xiangshan:legalize_out_of_blocks.tcl"]
     sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"]
     user_arguments = {}
     user_sources = {}
