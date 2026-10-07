@@ -1537,6 +1537,55 @@ remote-only, and the parent's new inputs needed the bytes.
 `/cache-miss` answers this kind of question from a few kilobytes of
 evidence per build.
 
+## 48. AUTO_MEMORIES_REGFILES on XSTile: the blocks identical, the parent +224 ps, not yet explained
+
+#1187 moves the register files from STRUCTURED_MEMORIES and
+STRUCTURED_PLACEMENT to AUTO_MEMORIES_REGFILES. A file is a macro
+through synthesis and macro placement: the parent's planned files are
+placed by the plan's `place_macros.tcl`, then dissolved into their cells
+at the end of the macro step. Before, they were dropped FIRM at
+floorplan. Measured at #1187's `aeae86ac` (main at `4b67304b` merged in),
+XSTile built from source to global route, against row 12:
+
+| part | row 12 | #1187 `aeae86ac` |
+|---|---:|---:|
+| parent, the design's period | 3,162 ps | 3,386 ps |
+| Frontend | 2,170 ps | 2,170 ps |
+| MemBlock | 1,870 ps | 1,870 ps |
+| CoupledL2 | 1,572 ps | 1,572 ps |
+| VecRegionModule | 1,479 ps | 1,479 ps |
+| FltRegionModule | 895 ps | 895 ps |
+
+- The blocks are identical to the picosecond, as expected: their
+  register files (FpRegFile, VfRegFile, the Ftq queues) stay macros, and
+  OpenROAD's `generate_regfile` writes them byte for byte as
+  `structured_gen` did.
+- The parent's three files dissolved where the plan put them, all R0:
+  RenameBufferFile 384,280 cells (280,608 FIRM, 30,240 dead),
+  RobEntryFile 399,400 (310,848 FIRM, 15,120 dead), IntRegFile 542,811
+  (510,720 FIRM, none dead).
+- The parent is 7.1 % slower. Its worst path is row 12's, CtrlBlock's
+  own logic (`rob/vtypeBuffer/state[0]` into
+  `decodeBufBits_1_ftqOffset[3]`), slower; it does not end at
+  Frontend's inputs, where all 200 of #1184's worst paths did (entry 47).
+- Parent placement took 54 GB, on a 62 GB machine.
+
+**Not explained, not fixed.** #1187 includes #1184 (the register
+files' periphery is the parent's), which costs +21.9 % alone (entry 47,
+3,855 ps). #1187 measures a third of that, on a different worst path.
+So it is either #1184's mechanism in part, or something the dissolve
+adds, or in part the several percent of noise one run of the parent
+carries (entries 42 and 44); this is one run. The mechanism has not been
+looked at.
+
+**To revisit:** entry 47's zero-wire census on this run's
+`XSTile_grt` (repeaters and clock skew on the worst paths, cells the
+legalization hook moves), against row 12's and #1184's. It needs only
+the checkpoint, which `aeae86ac` rebuilds. #1187 has since changed the
+dissolve (cells onto the module's nets, rows cut around macros,
+inverting read bit lines, a clock gate per word), unmeasured on
+XiangShan; a census of #1187's tip answers both at once.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
