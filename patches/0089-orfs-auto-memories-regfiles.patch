@@ -48,7 +48,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  flow/designs/asap7/regfile/RegFile.regfile    |  22 ++
  flow/designs/asap7/regfile/config.mk          |  17 ++
  flow/designs/asap7/regfile/constraint.sdc     |   7 +
- flow/designs/asap7/riscv32i-regfile/config.mk |  16 ++
+ flow/designs/asap7/riscv32i-regfile/config.mk |  11 ++
  flow/designs/asap7/riscv32i-regfile/io.tcl    |   1 +
  .../asap7/riscv32i-regfile/regfile.regfile    |  25 ++
  flow/designs/src/regfile/regfile.v            |  60 ++++
@@ -58,7 +58,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  flow/scripts/regfile_dissolve.tcl             | 320 ++++++++++++++++++
  flow/scripts/variables.json                   |   6 +
  flow/scripts/variables.yaml                   |  17 ++
- 16 files changed, 813 insertions(+), 5 deletions(-)
+ 16 files changed, 808 insertions(+), 5 deletions(-)
  create mode 100644 flow/designs/asap7/regfile/RegFile.regfile
  create mode 100644 flow/designs/asap7/regfile/config.mk
  create mode 100644 flow/designs/asap7/regfile/constraint.sdc
@@ -291,7 +291,7 @@ diff --git a/flow/designs/asap7/riscv32i-regfile/config.mk b/flow/designs/asap7/
 new file mode 100644
 --- /dev/null
 +++ b/flow/designs/asap7/riscv32i-regfile/config.mk
-@@ -0,0 +1,16 @@
+@@ -0,0 +1,11 @@
 +# riscv32i with its register file built by AUTO_MEMORIES_REGFILES rather
 +# than synthesised to flip-flops: the same RTL and constraints. The study
 +# case for why a generated register file is slower and bigger than the
@@ -300,11 +300,6 @@ new file mode 100644
 +export DESIGN_NICKNAME = riscv32i-regfile
 +
 +include designs/asap7/riscv32i/config.mk
-+
-+# The generated array is 1 730 um2 against the 1 300 um2 of all of
-+# riscv32i's standard cells as flops; at riscv32i's 62 % no macro
-+# placement fits it beside the four FakeRAMs.
-+export CORE_UTILIZATION = 45
 +
 +export AUTO_MEMORIES          = 1
 +export AUTO_MEMORIES_REGFILES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/regfile.regfile
@@ -331,10 +326,10 @@ new file mode 100644
 +read ra2 rd2
 +write wa3 wd3 we3
 +zero_word 0
-+# Flat, the 32 bit columns make it 98 x 19 um, wider than the core;
-+# two folds stack them to 48 x 36 um. The clock tree's free sites are
-+# sized for a 32-word file.
-+bit_folds 2
++# Flat, 58 x 19 um: it stacks under the four FakeRAMs at riscv32i's own
++# 62 %, where two folds (32 x 36 um) fit beside them at no utilisation
++# above 35 %. The clock tree's free sites are sized for a 32-word file.
++bit_folds 1
 +service_sites 16
 +tap_columns 16
 +cell flop DFFHQNx1_ASAP7_75t_R
