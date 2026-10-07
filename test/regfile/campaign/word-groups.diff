@@ -1,0 +1,225 @@
+--- a/src/ram/src/regfile.cpp
++++ b/src/ram/src/regfile.cpp
+@@ -13,6 +13,7 @@
+ #include <sstream>
+ #include <stdexcept>
+ #include <string>
++#include <tuple>
+ #include <vector>
+ 
+ #include "odb/db.h"
+@@ -350,15 +351,17 @@
+   int core_y0_ = 0;
+   int pin_w_ = 0;
+   int max_x_ = 0;
+-  // One entry per (word, bit) tile in row-major order: its row cursors,
+-  // which the read OR trees keep filling after the tile's own cells, and
+-  // the x where the tile ends, checked once the trees are in.
++  // One entry per (word, bit) tile in row-major order: the row cursors
++  // it fills, which the read trees keep filling after the tile's own
++  // cells. A group of `word_group` words shares one set of cursors per
++  // bit over all of its rows (see the tile width below).
+   struct Tile
+   {
+-    std::vector<Cursor> rows;
+-    int x_end = 0;
++    int group = -1;
+   };
+   std::vector<Tile> tiles_;
++  std::vector<std::vector<Cursor>> groups_;
++  std::vector<int> group_x_end_;  // checked once the trees are in
+   // The periphery: the address band and each word's decode. In netlist
+   // mode these are left unplaced (see Run).
+   bool periphery_ = false;
+@@ -567,28 +570,59 @@
+   // order the builder drops them: the flop, Q's inverter, the write mux,
+   // then a bitline cell per port. The flop alone is most of a row, so
+   // an average-plus-widest-cell estimate leaves a third of the array empty.
+-  int tile_w = 0;
+-  {
+-    std::vector<int> fill(rows_per_word, 0);
++  //
++  // The flop's row is full and the others are not, in every tile. Words
++  // in a group of G share a bit column's rows: G flops and G write muxes
++  // over G * rows_per_word rows fill them evenly, and the column narrows.
++  // `word_group` in the spec fixes G; by default the narrower of 1 and 2.
++  auto tile_width = [&](int G) {
++    std::vector<int> fill(G * rows_per_word, 0);
+     auto drop = [&](int w) {
+       *std::min_element(fill.begin(), fill.end()) += w;
+     };
+-    drop(static_cast<int>(flop_->getWidth()));
+-    if (g_pins.flop_inverted) {
+-      drop(static_cast<int>(inv_->getWidth()));
+-    }
+-    for (int i = 0; i < write_pairs; ++i) {
+-      drop(static_cast<int>(ao22_->getWidth()));
+-    }
+-    for (int i = 0; i + 1 < write_pairs; ++i) {
+-      drop(static_cast<int>(or2_->getWidth()));
++    for (int g = 0; g < G; ++g) {
++      drop(static_cast<int>(flop_->getWidth()));
++      if (g_pins.flop_inverted) {
++        drop(static_cast<int>(inv_->getWidth()));
++      }
++      for (int i = 0; i < write_pairs; ++i) {
++        drop(static_cast<int>(ao22_->getWidth()));
++      }
++      for (int i = 0; i + 1 < write_pairs; ++i) {
++        drop(static_cast<int>(or2_->getWidth()));
++      }
+     }
++    // A lone word's tile budgets its worst bitline cell per port; a
++    // group's words share leaves and nodes: per port, one AOI22 leaf and
++    // one tree node per two words, and an inverter for a polarity fix-up.
+     for (int r = 0; r < R; ++r) {
+-      drop(read_cell_w);
++      if (G == 1) {
++        drop(read_cell_w);
++        continue;
++      }
++      for (int k = 0; k < (G + 1) / 2; ++k) {
++        drop(static_cast<int>(aoi22_->getWidth()));
++        drop(read_node_w - static_cast<int>(inv_->getWidth()));
++      }
++      drop(static_cast<int>(inv_->getWidth()));
+     }
+-    tile_w = (*std::max_element(fill.begin(), fill.end()) + site_w_ - 1)
+-             / site_w_ * site_w_;
++    return (*std::max_element(fill.begin(), fill.end()) + site_w_ - 1)
++           / site_w_ * site_w_;
++  };
++  const int words_per_bank_ = s.words / std::max(s.banks, 1);
++  int word_group = s.word_group;
++  if (word_group > 0) {
++    if (words_per_bank_ % word_group != 0) {
++      Refuse("word_group (" + std::to_string(word_group)
++             + ") does not divide the words of a bank ("
++             + std::to_string(words_per_bank_) + ")");
++    }
++  } else {
++    word_group = (words_per_bank_ % 2 == 0 && tile_width(2) < tile_width(1))
++                     ? 2
++                     : 1;
+   }
++  const int tile_w = tile_width(word_group);
+   // Header: per word, (R+W) decodes of (A+1) literals as AND2 trees, the
+   // address inverters live above the array. hold_n = ~(OR of write selects).
+   const int header_cells_w
+@@ -759,6 +793,7 @@
+   std::vector<std::vector<std::vector<int>>> leaf_word(
+       R, std::vector<std::vector<int>>(s.bits));
+   tiles_.assign(static_cast<size_t>(s.words) * s.bits, Tile{});
++  std::map<std::tuple<int, int, int, int>, int> group_of;
+ 
+   auto literals =
+       [&](const std::vector<dbNet*>& a, const std::vector<dbNet*>& an, int n) {
+@@ -843,11 +878,23 @@
+           x += tap_w;  // the rest of the service column stays empty
+         }
+         std::string tn = wn + "_b" + std::to_string(b);
+-        std::vector<Cursor> tc;
+-        for (int k = 0; k < rows_per_word; ++k) {
+-          tc.push_back(Cursor{row0 + k, x});
++        // The group's cursors over its rows, made by its first word.
++        const int gk = local_of(n) / word_group;
++        const auto key = std::make_tuple(f, bank, gk, b);
++        auto found = group_of.find(key);
++        if (found == group_of.end()) {
++          const int grow0 = row0 - (local_of(n) % word_group) * rows_per_word;
++          std::vector<Cursor> rows;
++          for (int k = 0; k < word_group * rows_per_word; ++k) {
++            rows.push_back(Cursor{grow0 + k, x});
++          }
++          groups_.push_back(rows);
++          group_x_end_.push_back(x + tile_w);
++          found = group_of.emplace(key, static_cast<int>(groups_.size()) - 1)
++                      .first;
+         }
+-        auto tcur = [&]() -> Cursor& { return Least(tc); };
++        const int gid = found->second;
++        auto tcur = [&]() -> Cursor& { return Least(groups_[gid]); };
+ 
+         // Storage. The flop's QN holds ~value; Q is recovered by an inverter.
+         dbNet* d = Net(tn + "_d");
+@@ -918,8 +965,8 @@
+           leaf_sel[r][b].push_back(rsel[r][n]);
+           leaf_word[r][b].push_back(n);
+         }
+-        // Keep the row cursors: the read OR trees fill the tile's leftover.
+-        tiles_[static_cast<size_t>(n) * s.bits + b] = Tile{tc, x + tile_w};
++        // The read trees fill the group's leftover.
++        tiles_[static_cast<size_t>(n) * s.bits + b] = Tile{gid};
+         x += tile_w;
+       }
+     }
+@@ -953,7 +1000,8 @@
+                                      bank_q,
+                                      [&](int word) -> Cursor& {
+                                        return Least(
+-                                           tiles_[word * s.bits + b].rows);
++                                           groups_[tiles_[word * s.bits + b]
++                                                       .group]);
+                                      },
+                                      bank_words));
+       }
+@@ -986,13 +1034,12 @@
+       }
+     }
+   }
+-  for (size_t i = 0; i < tiles_.size(); ++i) {
+-    for (const auto& c : tiles_[i].rows) {
+-      if (c.x > tiles_[i].x_end) {
+-        Refuse(
+-            "tile " + std::to_string(i) + " overflowed by "
+-            + std::to_string(c.x - tiles_[i].x_end)
+-            + " dbu once its read OR trees were in: widen the tile estimate");
++  for (size_t i = 0; i < groups_.size(); ++i) {
++    for (const auto& c : groups_[i]) {
++      if (c.x > group_x_end_[i]) {
++        Refuse("tile group " + std::to_string(i) + " overflowed by "
++               + std::to_string(c.x - group_x_end_[i])
++               + " dbu once its read trees were in: widen the tile estimate");
+       }
+     }
+   }
+@@ -1080,7 +1127,7 @@
+ 
+   logger_->report(
+       "generate_regfile: {} {}x{} {}R{}W in {} bank(s) as {} x {}, {} bit "
+-      "fold(s): "
++      "fold(s), {} word(s) per tile group, tiles {} sites wide: "
+       "{} rows of {} sites, die {} x {} um, {} instances",
+       s.module,
+       s.words,
+@@ -1091,6 +1138,8 @@
+       bank_cols,
+       bank_rows,
+       folds,
++      word_group,
++      tile_w / site_w_,
+       total_rows,
+       core_w / site_w_,
+       die_w / static_cast<double>(tech->getLefUnits()),
+@@ -1319,6 +1368,9 @@
+     } else if (key == "bit_folds") {
+       need(1);
+       s.bit_folds = std::stoi(v[0]);
++    } else if (key == "word_group") {
++      need(1);
++      s.word_group = std::stoi(v[0]);
+     } else if (key == "read_latency") {
+       need(1);
+       if (v[0] != "0" && v[0] != "1") {
+--- a/src/ram/src/regfile.h
++++ b/src/ram/src/regfile.h
+@@ -104,6 +104,9 @@
+   // other, each with its own copy of the word decode; the last band is
+   // short when the folds do not divide. Banks fold words; this folds bits.
+   int bit_folds = 1;
++  // Words that share a bit column's rows, so a tile's flop row and its
++  // write-mux row even out: 0 picks the narrower of 1 and 2.
++  int word_group = 0;
+   // Read latency in cycles: 0 reads combinationally from the address
+   // ports; 1 registers each read address on the clock first, the way
+   // firtool writes a Chisel register file read through RegNext(addr)
