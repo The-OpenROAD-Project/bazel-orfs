@@ -13,20 +13,27 @@ import sys
 
 def fmt(row):
     if row.get("failed"):
-        return "| %s | failed | | | | | | %s |" % (row["name"], row.get("error", ""))
+        return "| %s | failed | | | | | | | %s |" % (row["name"], row.get("error", ""))
     f, r = row["flops"], row["regfile"]
 
     def pct(a, b):
         return "%+.1f %%" % (100.0 * (b / a - 1)) if a else "n/a"
 
     return (
-        "| %s | %.0f / %.0f ps (%+.1f %%) | %s | %.0f / %.0f µm² (%s) | %.2f / %.2f mW (%s) | %.0f / %.0f ps | %.0f / %.0f s |"
+        "| %s | %.0f / %.0f ps (%+.1f %%) | %s | %.0f / %.0f ps | %.0f / %.0f µm² (%s) | %.2f / %.2f mW (%s) | %.0f / %.0f ps | %.0f / %.0f s |"
         % (
             row["name"],
             f["min_period_ps"],
             r["min_period_ps"],
             row["period_delta_percent"],
-            "**passes**" if row["passes"] else "fails",
+            ("**passes**" if row["passes"] else "fails")
+            + (
+                ""
+                if row.get("like_for_like", True)
+                else " (macros differ: %d / %d)" % (f["macros"], r["macros"])
+            ),
+            f["setup_ws"],
+            r["setup_ws"],
             f["stdcell_area"],
             r["stdcell_area"],
             pct(f["stdcell_area"], r["stdcell_area"]),
@@ -49,9 +56,9 @@ def main():
             with open(os.path.join(d, n)) as f:
                 rows.append(json.load(f))
     print(
-        "| row | min period flops / regfile | ≤ 3 % | std-cell area | power | hold WS | flow wall time |"
+        "| row | reg-to-reg min period, flops / regfile | ≤ 3 % | setup WS (all paths) | std-cell area | power | hold WS | stage wall time (logs with an elapsed line) |"
     )
-    print("|---|---|---|---|---|---|---|")
+    print("|---|---|---|---|---|---|---|---|")
     for row in rows:
         print(fmt(row))
 

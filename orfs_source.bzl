@@ -183,6 +183,19 @@ ORFS_PATCHES = [
     # with an asynchronous reset (OpenROAD 0011, 0012), for the
     # register-file campaign. On 0095. Not upstreamed.
     Label("//patches:0096-orfs-ibex-regfile.patch"),
+    # 0097: asap7/swerv_wrapper-yosys and asap7/swerv_wrapper-regfile,
+    # SweRV's register file through a SYNTH_VERILOG_SURGERY script and a
+    # module spec, both through yosys, for the register-file campaign. On
+    # 0094 and 0096. Not upstreamed.
+    Label("//patches:0097-orfs-swerv-regfile.patch"),
+    # 0098: asap7/cva6-regfile, cva6's integer register file through a
+    # SYNTH_VERILOG_SURGERY script and a module spec with write_priority
+    # last (OpenROAD 0013), for the register-file campaign. Not upstreamed.
+    Label("//patches:0098-orfs-cva6-regfile.patch"),
+    # 0099: an inlined register file in place of a parameterized module
+    # (ibex_register_file_ff): its instances' parameters dropped before
+    # the netlist is read. Not upstreamed.
+    Label("//patches:0099-orfs-regfile-inline-parameterized.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

@@ -42,6 +42,21 @@ int main() {
   int bad = 0;
   int cycle = 0;
   tb.rst_act = 0;
+  if (kAsyncReset) {
+    // Power-up state is each side's own: a reset first. Released for one
+    // evaluation before it is asserted, so the reset has an edge: a flop
+    // behind a word's clock gate sees no clock during reset, and its cell
+    // model clears on the edge, as the silicon does on the level.
+    tb.clk = 0;
+    tb.eval();
+    tb.rst_act = 1;
+    tb.clk = 0;
+    tb.eval();
+    tb.clk = 1;
+    tb.eval();
+    tb.rst_act = 0;
+    tb.eval();
+  }
   tb.init_mode = 1;
   for (int w = 0; w < kWords; ++w, ++cycle) {
     Randomize(tb, rng);

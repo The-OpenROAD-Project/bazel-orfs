@@ -6,10 +6,13 @@
 #
 # Before a variant is flowed, its spec's generated netlist is simulated
 # beside the RTL it replaces (regfile_sim_test).
+load("@rules_cc//cc:defs.bzl", "cc_test")
 load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
+load("@rules_verilog//verilog:defs.bzl", "verilog_library")
 load("//tools/lib_to_verilog:lib_to_verilog.bzl", "stdcell_verilog")
 load(":ladder.bzl", "ladder_row", "ladder_tools")
-load(":sim.bzl", "regfile_sim_test")
+load(":sim.bzl", "regfile_sim_test", "surgery_cmp_test")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -19,6 +22,12 @@ py_binary(
     name = "gen_tb",
     srcs = ["gen_tb.py"],
     main = "gen_tb.py",
+)
+
+py_binary(
+    name = "gen_cmp_tb",
+    srcs = ["gen_cmp_tb.py"],
+    main = "gen_cmp_tb.py",
 )
 
 stdcell_verilog(
@@ -106,4 +115,151 @@ ladder_row(
     name = "tinyRocket",
     design = "tinyRocket",
     top = "RocketTile",
+)
+
+# Rung 5: swerv_wrapper. A SYNTH_VERILOG_SURGERY script moves the array of
+# dec_gpr_ctl into dec_gpr_ctl_rf; the spec replaces that. Both arms
+# through yosys (swerv_wrapper itself synthesises with SYNTH_USE_SYN).
+py_binary(
+    name = "swerv_surgery",
+    srcs = ["@orfs//flow/designs/asap7/swerv_wrapper-regfile:surgery.py"],
+    main = "@orfs//flow/designs/asap7/swerv_wrapper-regfile:surgery.py",
+)
+
+SWERV_SRCS = [
+    "@orfs//flow/designs/src/swerv:swerv_wrapper.sv2v.v",
+    "@orfs//flow/designs/asap7/swerv_wrapper:macros.v",
+    # CLKGATE_MAP_FILE: macros.v's clockhdr instantiates OPENROAD_CLKGATE
+    "@orfs//flow:platforms/asap7/yoSys/cells_clkgate_R.v",
+]
+
+# The spec against the behavioural memory it describes.
+regfile_sim_test(
+    name = "swerv_sim_test",
+    module = "dec_gpr_ctl_rf",
+    spec = "@orfs//flow/designs/asap7/swerv_wrapper-regfile:dec_gpr_ctl_rf.regfile",
+)
+
+# dec_gpr_ctl as ORFS has it against the surgered one with the generated
+# register file, scan_mode held low (the surgery ties it off).
+surgery_cmp_test(
+    name = "swerv_surgery_test",
+    srcs = SWERV_SRCS,
+    clocks = [
+        "clk",
+        "active_clk",
+    ],
+    # The platform's OPENROAD_CLKGATE is a clock gate only with this
+    # defined, and a wire without: upstream's rvdffe words are gated.
+    defines = ["OPENROAD_CLKGATE"],
+    module = "dec_gpr_ctl_GPR_BANKS1_GPR_BANKS_LOG21",
+    regfile_module = "dec_gpr_ctl_rf",
+    reset = "rst_l:low",
+    spec = "@orfs//flow/designs/asap7/swerv_wrapper-regfile:dec_gpr_ctl_rf.regfile",
+    surgery = ":swerv_surgery",
+    ties = {"scan_mode": "0"},
+)
+
+ladder_row(
+    name = "swerv_wrapper",
+    design = "swerv_wrapper-yosys",
+    regfile_design = "swerv_wrapper-regfile",
+    top = "swerv_wrapper",
+)
+
+# Rung 6: cva6 (cv32a65x). A SYNTH_VERILOG_SURGERY script keeps
+# ariane_regfile's parameters and ports and moves its array into
+# ariane_regfile_rf; the spec, with write_priority last, replaces that.
+py_binary(
+    name = "cva6_surgery",
+    srcs = ["@orfs//flow/designs/asap7/cva6-regfile:surgery.py"],
+    main = "@orfs//flow/designs/asap7/cva6-regfile:surgery.py",
+)
+
+CVA6_REGFILE = "@orfs//flow/designs/src/cva6/core:ariane_regfile_ff.sv"
+
+genrule(
+    name = "cva6_surgered",
+    srcs = [CVA6_REGFILE],
+    outs = ["cva6_surgered_out/ariane_regfile_ff.sv"],
+    cmd = "$(execpath :cva6_surgery) --out-dir $(RULEDIR)/cva6_surgered_out -- $<",
+    tools = [":cva6_surgery"],
+)
+
+# The generated register file against the behavioural one the surgery
+# wrote, colliding writes included.
+regfile_sim_test(
+    name = "cva6_sim_test",
+    module = "ariane_regfile_rf",
+    rtl = [":cva6_surgered_out/ariane_regfile_ff.sv"],
+    rtl_module = "ariane_regfile_rf",
+    spec = "@orfs//flow/designs/asap7/cva6-regfile:ariane_regfile_rf.regfile",
+)
+
+# ariane_regfile as ORFS has it against the surgered one with the
+# generated register file.
+genrule(
+    name = "cva6_cmp_srcs",
+    srcs = [
+        CVA6_REGFILE,
+        ":cva6_surgered_out/ariane_regfile_ff.sv",
+        ":cva6_sim_test_gen.v",
+    ],
+    outs = [
+        "cva6_cmp/orig.sv",
+        "cva6_cmp/new.sv",
+        "cva6_cmp/gen.v",
+    ],
+    cmd = """
+sed 's/^module ariane_regfile #(/module ariane_regfile_orig #(/' $(location {orig}) > $(location cva6_cmp/orig.sv)
+grep -q '^module ariane_regfile_orig #(' $(location cva6_cmp/orig.sv)
+awk '/^module ariane_regfile_rf /{{skip=1}} !skip{{print}} skip&&/^endmodule/{{skip=0}}' $(location :cva6_surgered_out/ariane_regfile_ff.sv) > $(location cva6_cmp/new.sv)
+grep -q '^module ariane_regfile #(' $(location cva6_cmp/new.sv)
+! grep -q '^module ariane_regfile_rf ' $(location cva6_cmp/new.sv)
+sed 's/^module ariane_regfile_rf_gen(/module ariane_regfile_rf(/' $(location :cva6_sim_test_gen.v) > $(location cva6_cmp/gen.v)
+""".format(orig = CVA6_REGFILE),
+)
+
+verilog_library(
+    name = "cva6_cmp_rtl",
+    srcs = [
+        "cva6_cmp/gen.v",
+        "cva6_cmp/new.sv",
+        "cva6_cmp/orig.sv",
+        "cva6_cmp_tb.sv",
+        ":asap7_stdcell.v",
+        ":asap7_stdcell_empty.v",
+        "@orfs//flow/designs/src/cva6/core/include:build_config_pkg.sv",
+        "@orfs//flow/designs/src/cva6/core/include:config_pkg.sv",
+        "@orfs//flow/designs/src/cva6/core/include:cv32a65x_config_pkg.sv",
+        "@orfs//flow/designs/src/cva6/core/include:riscv_pkg.sv",
+    ],
+)
+
+verilator_cc_library(
+    name = "cva6_cmp_vtb",
+    module = ":cva6_cmp_rtl",
+    module_top = "tb_top",
+    trace_mode = "none",
+    vopts = [
+        "-Wno-fatal",
+        "--x-initial",
+        "0",
+    ],
+)
+
+cc_test(
+    name = "cva6_surgery_test",
+    size = "small",
+    srcs = [
+        "cva6_cmp_config.cc",
+        "tb_main.cc",
+    ],
+    deps = [":cva6_cmp_vtb"],
+)
+
+ladder_row(
+    name = "cva6",
+    design = "cva6",
+    top = "cva6",
 )

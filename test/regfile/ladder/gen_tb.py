@@ -9,8 +9,10 @@ asynchronous reset. Both sides see the same inputs, packed into one
 reports `mismatch` when any read differs.
 
 Two writes to one word in one cycle are masked off (the later port's
-enable dropped): what an RTL does then is its own business, and swerv's
-asserts it never happens.
+enable dropped) under `write_priority or`: what an RTL does then is its
+own business, and swerv's asserts it never happens. Under
+`write_priority last` they are driven, and the later port must win, as
+the behavioural model's later assignment does.
 
 Writes tb_top.v and tb_config.h. Fails on a spec key it does not model.
 """
@@ -44,11 +46,19 @@ MODELLED = {
     "pin_layer_v",
     "store_name",
     "unused",
+    "write_priority",
 }
 
 
 def read_spec(path):
-    spec = {"read": [], "write": [], "zero_word": None, "reset": None, "unused": []}
+    spec = {
+        "read": [],
+        "write": [],
+        "zero_word": None,
+        "reset": None,
+        "unused": [],
+        "write_priority": "or",
+    }
     with open(path) as f:
         for line in f:
             line = line.split("#", 1)[0].strip()
@@ -63,6 +73,8 @@ def read_spec(path):
                 spec["write"].append(v)
             elif key == "unused":
                 spec["unused"] += v
+            elif key == "write_priority":
+                spec["write_priority"] = v[0]
             elif key == "reset":
                 spec["reset"] = (v[0], None)
             elif key == "async_reset":
@@ -143,8 +155,9 @@ def main():
         drive[w[1]] = raw[w[1]]
         if len(w) == 3:
             en = "(init_mode ? 1'b%d : %s)" % (1 if i == 0 else 0, raw[w[2]])
-            # Drop this port's write when an earlier port writes its word.
-            for j in range(i):
+            # Drop this port's write when an earlier port writes its word,
+            # unless the spec says which wins: then collisions are tested.
+            for j in range(i if s["write_priority"] == "or" else 0):
                 ej = "%s_eff" % s["write"][j][2]
                 en += " & ~(%s & (%s == %s))" % (
                     ej,

@@ -1,0 +1,354 @@
+From d95fcc4d43cef75b6a7df8c1f322e0073e93821b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Wed, 7 Oct 2026 21:02:46 +0200
+Subject: [PATCH] asap7/swerv_wrapper-regfile: SweRV's integer register file,
+ generated
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+ORFS's swerv source is an elaborated netlist in which dec_gpr_ctl is 31
+rvdffe words, a bank-id flop and some twenty thousand assigns. A
+SYNTH_VERILOG_SURGERY script (surgery.py, a hack) recognises exactly
+that and rewrites the module as SweRV EH1's source reads with
+GPR_BANKS = 1: the bank flop and read enables kept, the array moved
+into dec_gpr_ctl_rf (32 x 32, x0 zero, four reads, three writes, reset
+to zero), which an AUTO_MEMORIES_REGFILES module spec replaces.
+scan_mode is tied off. Anything it does not recognise stops the build.
+
+AUTO_MEMORIES_REGFILES inlining is yosys-only and swerv_wrapper
+synthesises with SYNTH_USE_SYN, so the variant is measured against
+asap7/swerv_wrapper-yosys, the same design through yosys, with
+OPENROAD_CLKGATE defined in both: without it the platform's
+OPENROAD_CLKGATE is a wire, every rvdffe word reloads on every clock,
+and swerv_wrapper's register file holds no value; a baseline that
+stores nothing is cheaper than any register file that does. A
+simulation of dec_gpr_ctl before and after the surgery
+(bazel-orfs //test/regfile/ladder:swerv_surgery_test) matches only
+with it defined.
+
+Not upstreamed: carried in bazel-orfs for the register-file campaign;
+needs ORFS 0094 and OpenROAD 0011.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ .../asap7/swerv_wrapper-regfile/config.mk     |  14 ++
+ .../dec_gpr_ctl_rf.regfile                    |  28 +++
+ .../asap7/swerv_wrapper-regfile/surgery.py    | 226 ++++++++++++++++++
+ .../asap7/swerv_wrapper-yosys/config.mk       |  15 ++
+ 4 files changed, 283 insertions(+)
+ create mode 100644 flow/designs/asap7/swerv_wrapper-regfile/config.mk
+ create mode 100644 flow/designs/asap7/swerv_wrapper-regfile/dec_gpr_ctl_rf.regfile
+ create mode 100644 flow/designs/asap7/swerv_wrapper-regfile/surgery.py
+ create mode 100644 flow/designs/asap7/swerv_wrapper-yosys/config.mk
+
+diff --git a/flow/designs/asap7/swerv_wrapper-regfile/config.mk b/flow/designs/asap7/swerv_wrapper-regfile/config.mk
+new file mode 100644
+index 000000000..fa9426a9b
+--- /dev/null
++++ b/flow/designs/asap7/swerv_wrapper-regfile/config.mk
+@@ -0,0 +1,14 @@
++# swerv_wrapper with its integer register file built by
++# AUTO_MEMORIES_REGFILES: SYNTH_VERILOG_SURGERY (surgery.py, a hack)
++# moves the array of dec_gpr_ctl into dec_gpr_ctl_rf, and the spec
++# replaces that module, inlined. Synthesised by yosys, as
++# swerv_wrapper-yosys, its flip-flop baseline: AUTO_MEMORIES_REGFILES
++# inlining is yosys-only, and swerv_wrapper itself synthesises with
++# SYNTH_USE_SYN.
++export DESIGN_NICKNAME = swerv_wrapper-regfile
++
++include designs/asap7/swerv_wrapper-yosys/config.mk
++
++export SYNTH_VERILOG_SURGERY  = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/surgery.py
++export AUTO_MEMORIES          = 1
++export AUTO_MEMORIES_REGFILES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/dec_gpr_ctl_rf.regfile
+diff --git a/flow/designs/asap7/swerv_wrapper-regfile/dec_gpr_ctl_rf.regfile b/flow/designs/asap7/swerv_wrapper-regfile/dec_gpr_ctl_rf.regfile
+new file mode 100644
+index 000000000..141bcc406
+--- /dev/null
++++ b/flow/designs/asap7/swerv_wrapper-regfile/dec_gpr_ctl_rf.regfile
+@@ -0,0 +1,28 @@
++# SweRV EH1's integer register file as standard cells, inlined in its
++# place: dec_gpr_ctl_rf, the module surgery.py moves the array of
++# dec_gpr_ctl into. 32 x 32 with x0 reading zero, four combinational
++# reads, three writes (the generator ORs two writes to one word, as
++# upstream does, which asserts it never happens), a clock gate per word
++# as upstream's rvdffe words have, every word reset to zero by rst_l.
++module dec_gpr_ctl_rf
++words 32
++bits 32
++clock clk
++async_reset rst_l low
++read raddr0 rdata0
++read raddr1 rdata1
++read raddr2 rdata2
++read raddr3 rdata3
++write waddr0 wdata0 wen0
++write waddr1 wdata1 wen1
++write waddr2 wdata2 wen2
++zero_word 0
++write_style clock_gate
++cell icg ICGx1_ASAP7_75t_R
++cell flop DFFHQNx1_ASAP7_75t_R
++cell flop_r DFFASRHQNx1_ASAP7_75t_R
++cell tie_hi TIEHIx1_ASAP7_75t_R
++cell and2 AND2x2_ASAP7_75t_R
++cell or2 OR2x2_ASAP7_75t_R
++cell ao22 AO22x2_ASAP7_75t_R
++cell inv INVx1_ASAP7_75t_R
+diff --git a/flow/designs/asap7/swerv_wrapper-regfile/surgery.py b/flow/designs/asap7/swerv_wrapper-regfile/surgery.py
+new file mode 100644
+index 000000000..b863243db
+--- /dev/null
++++ b/flow/designs/asap7/swerv_wrapper-regfile/surgery.py
+@@ -0,0 +1,226 @@
++"""SYNTH_VERILOG_SURGERY for swerv_wrapper: its register file into a module.
++
++A hack. ORFS's swerv source is an elaborated netlist in which SweRV
++EH1's dec_gpr_ctl (design/dec/dec_gpr_ctl.sv upstream) is 31 rvdffe
++words, a bank-id flop and some twenty thousand assigns of decode and
++read logic. This rewrites that module as the upstream source reads,
++with GPR_BANKS = 1:
++
++- the bank-id flop, kept, and the bank select it makes;
++- the read enables, kept: a read with its enable off, or the bank off,
++  reads zero;
++- the array moved into dec_gpr_ctl_rf: 32 words of 32 bits, x0 reading
++  zero, four combinational reads, three writes OR-merged (upstream
++  asserts no two land on one register), every word reset to zero by
++  rst_l, the module AUTO_MEMORIES_REGFILES then replaces.
++
++scan_mode is tied off: upstream it opens every word's clock gate, which
++loads zero into each word not written; here it is ignored. No DFT in
++this flow.
++
++The module is recognised by its ports, its 31 rvdffe words and its
++bank-id flop, connected as the upstream source connects them; anything
++else stops the build. Every other file is copied unchanged.
++"""
++
++import argparse
++import os
++import re
++import sys
++
++MODULE = "dec_gpr_ctl_GPR_BANKS1_GPR_BANKS_LOG21"
++
++PORTS = {
++    "active_clk": ("input", 1),
++    "clk": ("input", 1),
++    "rst_l": ("input", 1),
++    "scan_mode": ("input", 1),
++    "wen_bank_id": ("input", 1),
++    "wr_bank_id": ("input", 1),
++}
++for i in range(4):
++    PORTS["raddr%d" % i] = ("input", 5)
++    PORTS["rden%d" % i] = ("input", 1)
++    PORTS["rd%d" % i] = ("output", 32)
++for i in range(3):
++    PORTS["waddr%d" % i] = ("input", 5)
++    PORTS["wen%d" % i] = ("input", 1)
++    PORTS["wd%d" % i] = ("input", 32)
++
++REPLACEMENT = """module %(m)s
++(
++  %(ports)s
++);
++  input [4:0] raddr0, raddr1, raddr2, raddr3;
++  input rden0, rden1, rden2, rden3;
++  input [4:0] waddr0, waddr1, waddr2;
++  input wen0, wen1, wen2;
++  input [31:0] wd0, wd1, wd2;
++  input wen_bank_id;
++  input [0:0] wr_bank_id;
++  input active_clk, clk, rst_l, scan_mode;
++  output [31:0] rd0, rd1, rd2, rd3;
++  // SYNTH_VERILOG_SURGERY (asap7/swerv_wrapper-regfile/surgery.py): the
++  // upstream dec_gpr_ctl with GPR_BANKS = 1, the array in dec_gpr_ctl_rf.
++  // scan_mode is tied off.
++  wire [0:0] gpr_bank_id;
++  rvdffs_WIDTH1 bankid_ff (
++    .din(wr_bank_id[0]),
++    .en(wen_bank_id),
++    .clk(active_clk),
++    .rst_l(rst_l),
++    .dout(gpr_bank_id[0])
++  );
++  wire bank_on = ~gpr_bank_id[0];
++  wire [31:0] q0, q1, q2, q3;
++  dec_gpr_ctl_rf rf (
++    .clk(clk), .rst_l(rst_l),
++    .raddr0(raddr0), .rdata0(q0),
++    .raddr1(raddr1), .rdata1(q1),
++    .raddr2(raddr2), .rdata2(q2),
++    .raddr3(raddr3), .rdata3(q3),
++    .waddr0(waddr0), .wdata0(wd0), .wen0(wen0 & bank_on),
++    .waddr1(waddr1), .wdata1(wd1), .wen1(wen1 & bank_on),
++    .waddr2(waddr2), .wdata2(wd2), .wen2(wen2 & bank_on)
++  );
++  assign rd0 = {32{rden0 & bank_on}} & q0;
++  assign rd1 = {32{rden1 & bank_on}} & q1;
++  assign rd2 = {32{rden2 & bank_on}} & q2;
++  assign rd3 = {32{rden3 & bank_on}} & q3;
++endmodule
++
++// The register file, behavioural; AUTO_MEMORIES_REGFILES replaces it.
++module dec_gpr_ctl_rf (
++  input clk,
++  input rst_l,
++  input [4:0] raddr0,
++  output [31:0] rdata0,
++  input [4:0] raddr1,
++  output [31:0] rdata1,
++  input [4:0] raddr2,
++  output [31:0] rdata2,
++  input [4:0] raddr3,
++  output [31:0] rdata3,
++  input [4:0] waddr0,
++  input [31:0] wdata0,
++  input wen0,
++  input [4:0] waddr1,
++  input [31:0] wdata1,
++  input wen1,
++  input [4:0] waddr2,
++  input [31:0] wdata2,
++  input wen2
++);
++  reg [31:0] mem [1:31];
++  integer i;
++  always @(posedge clk or negedge rst_l) begin
++    if (!rst_l) begin
++      for (i = 1; i < 32; i = i + 1) mem[i] <= 32'd0;
++    end else begin
++      for (i = 1; i < 32; i = i + 1) begin
++        if ((wen0 && waddr0 == i) || (wen1 && waddr1 == i) || (wen2 && waddr2 == i))
++          mem[i] <= ({32{wen0 && waddr0 == i}} & wdata0)
++                  | ({32{wen1 && waddr1 == i}} & wdata1)
++                  | ({32{wen2 && waddr2 == i}} & wdata2);
++      end
++    end
++  end
++  assign rdata0 = raddr0 == 5'd0 ? 32'd0 : mem[raddr0];
++  assign rdata1 = raddr1 == 5'd0 ? 32'd0 : mem[raddr1];
++  assign rdata2 = raddr2 == 5'd0 ? 32'd0 : mem[raddr2];
++  assign rdata3 = raddr3 == 5'd0 ? 32'd0 : mem[raddr3];
++endmodule
++"""
++
++
++def fail(msg):
++    sys.exit("swerv surgery: " + msg)
++
++
++def recognise(body):
++    """Stops unless `body` is the dec_gpr_ctl this rewrite stands in for."""
++    decls = {}
++    for kind, width, names in re.findall(
++        r"^\s*(input|output)\s*(\[\s*\d+\s*:\s*\d+\s*\])?\s*([^;]+);", body, re.M
++    ):
++        w = 1
++        if width:
++            hi, lo = re.findall(r"\d+", width)
++            w = abs(int(hi) - int(lo)) + 1
++        for n in names.split(","):
++            decls[n.strip()] = (kind, w)
++    if decls != PORTS:
++        fail(
++            "%s's ports are not the ones this rewrite knows: %s"
++            % (
++                MODULE,
++                sorted(set(decls.items()) ^ set(PORTS.items())),
++            )
++        )
++    words = re.findall(
++        r"rvdffe_WIDTH32\s+gpr_banks_0__gpr_(\d+)__gprff\s*\(([^;]*)\);", body
++    )
++    if sorted(int(j) for j, _ in words) != list(range(1, 32)):
++        fail("expected rvdffe words gpr 1..31, found %s" % [j for j, _ in words])
++    for j, conns in words:
++        j = int(j)
++        want = {
++            "din": "gpr_in[%d:%d]" % (32 * j - 1, 32 * (j - 1)),
++            "en": "gpr_bank_wr_en[%d]" % (j - 1),
++            "clk": "clk",
++            "rst_l": "rst_l",
++            "scan_mode": "scan_mode",
++            "dout": "gpr_out[%d:%d]" % (32 * j - 1, 32 * (j - 1)),
++        }
++        have = dict(re.findall(r"\.(\w+)\(([^()]*)\)", conns))
++        if {k: v.replace(" ", "") for k, v in have.items()} != want:
++            fail("word %d is not connected as upstream: %s" % (j, have))
++    bank = re.findall(r"rvdffs_WIDTH1\s+bankid_ff\s*\(([^;]*)\);", body)
++    if len(bank) != 1:
++        fail("expected one bankid_ff, found %d" % len(bank))
++    have = {k: v.replace(" ", "") for k, v in re.findall(r"\.(\w+)\(([^()]*)\)", bank[0])}
++    if have != {
++        "din": "wr_bank_id[0]",
++        "en": "wen_bank_id",
++        "clk": "active_clk",
++        "rst_l": "rst_l",
++        "dout": "gpr_bank_id[0]",
++    }:
++        fail("bankid_ff is not connected as upstream: %s" % have)
++    others = set(re.findall(r"^\s*([A-Za-z_]\w*)\s*$\s*^\s*[A-Za-z_]\w*\s*$\s*^\s*\(", body, re.M))
++    if others - {"rvdffe_WIDTH32", "rvdffs_WIDTH1"}:
++        fail("instances of %s besides the words and the bank flop" % sorted(others))
++
++
++def main():
++    p = argparse.ArgumentParser()
++    p.add_argument("--out-dir", required=True)
++    p.add_argument("files", nargs="+")
++    a = p.parse_args()
++    done = 0
++    for path in a.files:
++        with open(path) as f:
++            text = f.read()
++        heads = [m.start() for m in re.finditer(r"^module\s+%s\b" % MODULE, text, re.M)]
++        if len(heads) > 1:
++            fail("%s defines %s %d times" % (path, MODULE, len(heads)))
++        if heads:
++            start = heads[0]
++            end = text.find("\nendmodule", start)
++            if end < 0:
++                fail("%s never ends" % MODULE)
++            end += len("\nendmodule")
++            recognise(text[start:end])
++            ports = ",\n  ".join(
++                re.findall(r"\(\s*([^;]*?)\s*\);", text[start:end], re.S)[0].replace(",", " ").split()
++            )
++            text = text[:start] + REPLACEMENT % {"m": MODULE, "ports": ports} + text[end:]
++            done += 1
++        with open(os.path.join(a.out_dir, os.path.basename(path)), "w") as f:
++            f.write(text)
++    if done != 1:
++        fail("%s found in %d files, not one" % (MODULE, done))
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/flow/designs/asap7/swerv_wrapper-yosys/config.mk b/flow/designs/asap7/swerv_wrapper-yosys/config.mk
+new file mode 100644
+index 000000000..444ec4805
+--- /dev/null
++++ b/flow/designs/asap7/swerv_wrapper-yosys/config.mk
+@@ -0,0 +1,15 @@
++# swerv_wrapper synthesised by yosys rather than SYNTH_USE_SYN: the
++# flip-flop baseline swerv_wrapper-regfile is measured against, both on
++# the one synthesis path AUTO_MEMORIES_REGFILES inlining has.
++#
++# With OPENROAD_CLKGATE defined, as SweRV's rvdffe words are upstream:
++# the platform's OPENROAD_CLKGATE (CLKGATE_MAP_FILE) is a clock gate only
++# then, and a wire otherwise, which reloads every word on every clock,
++# so swerv_wrapper's register file holds no value. A baseline that
++# stores nothing would be cheaper than any register file that does.
++export DESIGN_NICKNAME ?= swerv_wrapper-yosys
++
++include designs/asap7/swerv_wrapper/config.mk
++
++export SYNTH_USE_SYN = 0
++export VERILOG_DEFINES += -D OPENROAD_CLKGATE
+-- 
+2.53.0
+
