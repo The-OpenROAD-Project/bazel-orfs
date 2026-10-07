@@ -291,7 +291,7 @@ diff --git a/flow/designs/asap7/riscv32i-regfile/config.mk b/flow/designs/asap7/
 new file mode 100644
 --- /dev/null
 +++ b/flow/designs/asap7/riscv32i-regfile/config.mk
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,13 @@
 +# riscv32i with its register file built by AUTO_MEMORIES_REGFILES rather
 +# than synthesised to flip-flops: the same RTL and constraints. The study
 +# case for why a generated register file is slower and bigger than the
@@ -300,6 +300,8 @@ new file mode 100644
 +export DESIGN_NICKNAME = riscv32i-regfile
 +
 +include designs/asap7/riscv32i/config.mk
++
++export CORE_UTILIZATION = 45
 +
 +export AUTO_MEMORIES          = 1
 +export AUTO_MEMORIES_REGFILES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/regfile.regfile
@@ -313,7 +315,7 @@ diff --git a/flow/designs/asap7/riscv32i-regfile/regfile.regfile b/flow/designs/
 new file mode 100644
 --- /dev/null
 +++ b/flow/designs/asap7/riscv32i-regfile/regfile.regfile
-@@ -0,0 +1,25 @@
+@@ -0,0 +1,27 @@
 +# riscv32i's `regfile` (src/riscv32i/regfile.v) as a register file of
 +# placed standard cells: 32 x 32, two combinational reads, one write,
 +# x0 reads 0 and drops its writes.
@@ -326,6 +328,8 @@ new file mode 100644
 +read ra2 rd2
 +write wa3 wd3 we3
 +zero_word 0
++write_style clock_gate
++cell icg ICGx1_ASAP7_75t_R
 +# Flat, 58 x 19 um: it stacks under the four FakeRAMs at riscv32i's own
 +# 62 %, where two folds (32 x 36 um) fit beside them at no utilisation
 +# above 35 %. The clock tree's free sites are sized for a 32-word file.

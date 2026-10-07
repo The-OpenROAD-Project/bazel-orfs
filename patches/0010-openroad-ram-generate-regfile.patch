@@ -306,7 +306,7 @@ new file mode 100644
 index 0000000000..17319dd9d2
 --- /dev/null
 +++ b/src/ram/src/regfile.cpp
-@@ -0,0 +1,1471 @@
+@@ -0,0 +1,1509 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
 +
@@ -385,6 +385,7 @@ index 0000000000..17319dd9d2
 +  std::vector<std::string> nor2 = {"A", "B", "Y"};
 +  std::vector<std::string> inv = {"A", "Y"};
 +  std::vector<std::string> tie_lo = {"L"};
++  std::vector<std::string> icg = {"ENA", "SE", "CLK", "GCLK"};
 +  bool flop_inverted = true;  // the flop's output is QN
 +};
 +
@@ -652,6 +653,7 @@ index 0000000000..17319dd9d2
 +  dbMaster* inv_ = nullptr;
 +  dbMaster* tap_ = nullptr;
 +  dbMaster* tie_lo_ = nullptr;
++  dbMaster* icg_ = nullptr;
 +  int dbu_ = 1000;
 +  int site_w_ = 0;
 +  int row_h_ = 0;
@@ -700,6 +702,11 @@ index 0000000000..17319dd9d2
 +  CheckPins(nand2_, g_pins.nand2);
 +  CheckPins(nor2_, g_pins.nor2);
 +  CheckPins(inv_, g_pins.inv);
++  const bool gated = s.write_style == "clock_gate";
++  if (gated) {
++    icg_ = Master(s.cells.icg, "icg");
++    CheckPins(icg_, g_pins.icg);
++  }
 +
 +  odb::dbTech* tech = db_->getTech();
 +  site_ = flop_->getSite();
@@ -843,7 +850,9 @@ index 0000000000..17319dd9d2
 +  // bitlines below). A fix-up inverter rides with a node.
 +  // W + 1 terms (the writes and the hold) in pairs: AO22s, an odd last
 +  // term an AND2
-+  const int write_pairs = (W + 2) / 2;
++  // Clock-gated, the hold term is gone; one write port leaves no mux.
++  const int write_terms = W + (gated ? 0 : 1);
++  const int write_pairs = write_terms > 1 ? (write_terms + 1) / 2 : 0;
 +  const int read_node_w = static_cast<int>(
 +      std::max({nand2_->getWidth(), nor2_->getWidth(), or2_->getWidth()})
 +      + inv_->getWidth());
@@ -899,10 +908,11 @@ index 0000000000..17319dd9d2
 +             / site_w_ * site_w_;
 +  }
 +  // Header: per word, (R+W) decodes of (A+1) literals as AND2 trees, the
-+  // address inverters live above the array. hold_n = ~(OR of write selects).
-+  const int header_cells_w
-+      = static_cast<int>((R + W) * A * and2_->getWidth()
-+                         + (W - 1) * or2_->getWidth() + inv_->getWidth());
++  // address inverters live above the array. hold_n = ~(OR of write
++  // selects), or the word's clock gate enabled by that OR.
++  const int header_cells_w = static_cast<int>(
++      (R + W) * A * and2_->getWidth() + (W - 1) * or2_->getWidth()
++      + (gated ? icg_->getWidth() : inv_->getWidth()));
 +  const int header_w = ((header_cells_w + rows_per_word - 1) / rows_per_word
 +                        + widest + site_w_ - 1)
 +                       / site_w_ * site_w_;
@@ -1058,6 +1068,7 @@ index 0000000000..17319dd9d2
 +  std::vector<std::vector<dbNet*>> rsel(R, std::vector<dbNet*>(s.words));
 +  std::vector<std::vector<dbNet*>> wsel(W, std::vector<dbNet*>(s.words));
 +  std::vector<dbNet*> hold(s.words);
++  std::vector<dbNet*> gclk(s.words, nullptr);
 +  // Read bitline inputs per (r, b), down the column: each word's select
 +  // and stored value, paired into AOI22 leaves once all tiles are in.
 +  std::vector<std::vector<std::vector<dbNet*>>> leaves(
@@ -1120,11 +1131,24 @@ index 0000000000..17319dd9d2
 +                : OrTree(wn + "_anyw", wsels, [&](int, int) -> Cursor& {
 +                    return hcur();
 +                  });
-+      hold[n] = Net(wn + "_hold");
-+      Place(hcur(),
-+            inv_,
-+            hold[n]->getName(),
-+            {{g_pins.inv[0], any_write}, {g_pins.inv[1], hold[n]}});
++      if (gated) {
++        // The word's clock runs only on a write. SE is the latch's other
++        // enable (ENA | SE); tied to the same select it changes nothing.
++        gclk[n] = Net(wn + "_gclk");
++        Place(hcur(),
++              icg_,
++              wn + "_icg",
++              {{g_pins.icg[0], any_write},
++               {g_pins.icg[1], any_write},
++               {g_pins.icg[2], clock},
++               {g_pins.icg[3], gclk[n]}});
++      } else {
++        hold[n] = Net(wn + "_hold");
++        Place(hcur(),
++              inv_,
++              hold[n]->getName(),
++              {{g_pins.inv[0], any_write}, {g_pins.inv[1], hold[n]}});
++      }
 +      periphery_ = false;
 +      for (auto& c : hc) {
 +        if (c.x > bank_x0 + header_w) {
@@ -1159,7 +1183,8 @@ index 0000000000..17319dd9d2
 +        auto tcur = [&]() -> Cursor& { return Least(tc); };
 +
 +        // Storage. The flop's QN holds ~value; Q is recovered by an inverter.
-+        dbNet* d = Net(tn + "_d");
++        // One gated write port: D is the write data bit.
++        dbNet* d = gated && W == 1 ? wdata[0][b] : Net(tn + "_d");
 +        dbNet* qn = Net(tn + "_qn");
 +        dbNet* q = g_pins.flop_inverted ? Net(tn + "_q") : qn;
 +        Place(tcur(),
@@ -1168,7 +1193,7 @@ index 0000000000..17319dd9d2
 +                  ? tn + "_ff"
 +                  : Fmt(s.store_name, {{"word", n}, {"bit", b}}),
 +              {{g_pins.flop[0], d},
-+               {g_pins.flop[1], clock},
++               {g_pins.flop[1], gated ? gclk[n] : clock},
 +               {g_pins.flop[2], qn}});
 +        if (g_pins.flop_inverted) {
 +          Place(tcur(),
@@ -1182,9 +1207,11 @@ index 0000000000..17319dd9d2
 +        for (int w = 0; w < W; ++w) {
 +          terms.emplace_back(wsel[w][n], wdata[w][b]);
 +        }
-+        terms.emplace_back(hold[n], q);
++        if (!gated) {
++          terms.emplace_back(hold[n], q);
++        }
 +        std::vector<dbNet*> partial;
-+        for (size_t i = 0; i < terms.size(); i += 2) {
++        for (size_t i = 0; write_pairs > 0 && i < terms.size(); i += 2) {
 +          dbNet* y = Net(tn + "_wm" + std::to_string(i / 2));
 +          if (i + 1 < terms.size()) {
 +            Place(tcur(),
@@ -1205,9 +1232,9 @@ index 0000000000..17319dd9d2
 +          }
 +          partial.push_back(y);
 +        }
-+        dbNet* mux = partial.size() == 1
-+                         ? partial[0]
-+                         : OrTree(tn + "_wo",
++        dbNet* mux = partial.empty()       ? d
++                     : partial.size() == 1 ? partial[0]
++                                           : OrTree(tn + "_wo",
 +                                  partial,
 +                                  [&](int, int) -> Cursor& { return tcur(); });
 +        // The OR tree's root must be the flop's D net: alias by re-connecting.
@@ -1555,6 +1582,8 @@ index 0000000000..17319dd9d2
 +        s.cells.tap = v[1];
 +      } else if (kind == "tie_lo") {
 +        s.cells.tie_lo = v[1];
++      } else if (kind == "icg") {
++        s.cells.icg = v[1];
 +      } else {
 +        Refuse(path + ":" + std::to_string(lineno) + ": unknown cell kind "
 +               + kind);
@@ -1589,10 +1618,19 @@ index 0000000000..17319dd9d2
 +        set(g_pins.nor2, 3);
 +      } else if (kind == "inv") {
 +        set(g_pins.inv, 2);
++      } else if (kind == "icg") {
++        set(g_pins.icg, 4);
 +      } else {
 +        Refuse(path + ":" + std::to_string(lineno) + ": unknown pins kind "
 +               + kind);
 +      }
++    } else if (key == "write_style") {
++      need(1);
++      if (v[0] != "mux" && v[0] != "clock_gate") {
++        Refuse(path + ":" + std::to_string(lineno)
++               + ": write_style is mux or clock_gate");
++      }
++      s.write_style = v[0];
 +    } else if (key == "flop_output") {
 +      need(1);
 +      if (v[0] == "QN") {
@@ -1783,7 +1821,7 @@ new file mode 100644
 index 0000000000..1118cc5afc
 --- /dev/null
 +++ b/src/ram/src/regfile.h
-@@ -0,0 +1,155 @@
+@@ -0,0 +1,164 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
 +
@@ -1844,6 +1882,8 @@ index 0000000000..1118cc5afc
 +  std::string nor2 = "NOR2xp33_ASAP7_75t_R";
 +  std::string inv;     // decoder inverters
 +  std::string tap;     // well tap, one column per tap_columns
++  // integrated clock gate, one per word with `write_style clock_gate`
++  std::string icg = "ICGx1_ASAP7_75t_R";
 +  std::string tie_lo;  // for unused inputs
 +};
 +
@@ -1904,6 +1944,13 @@ index 0000000000..1118cc5afc
 +  // A word that is the constant zero and has no storage (RISC-V x0): it
 +  // reads 0 and a write to it is dropped. -1 for none.
 +  int zero_word = -1;
++  // How a word keeps its value between writes: "mux" (the default), a
++  // free-running clock and a hold term in every bit's write mux; or
++  // "clock_gate", one integrated clock gate per word enabled by any of
++  // its write selects, as generate_ram writes, so a bit's D is the write
++  // data itself with one write port and a select mux of the writes with
++  // more.
++  std::string write_style = "mux";
 +  // Instance names of the flops, as patterns, so a flop carries the name
 +  // of the RTL register bit it implements (an equivalence check matches
 +  // sequential instances by name). {word} {bit} for the storage,
