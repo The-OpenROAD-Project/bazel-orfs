@@ -55,10 +55,10 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  flow/scripts/macro_place.tcl                  |   3 +
  flow/scripts/memories/gen_memories.py         | 193 ++++++++++++-
  flow/scripts/memories/schema.py               |  16 +-
- flow/scripts/regfile_dissolve.tcl             | 259 ++++++++++++++++++
+ flow/scripts/regfile_dissolve.tcl             | 289 ++++++++++++++++++
  flow/scripts/variables.json                   |   6 +
  flow/scripts/variables.yaml                   |  17 ++
- 16 files changed, 753 insertions(+), 5 deletions(-)
+ 16 files changed, 783 insertions(+), 5 deletions(-)
  create mode 100644 flow/designs/asap7/regfile/RegFile.regfile
  create mode 100644 flow/designs/asap7/regfile/config.mk
  create mode 100644 flow/designs/asap7/regfile/constraint.sdc
@@ -714,7 +714,7 @@ diff --git a/flow/scripts/regfile_dissolve.tcl b/flow/scripts/regfile_dissolve.t
 new file mode 100644
 --- /dev/null
 +++ b/flow/scripts/regfile_dissolve.tcl
-@@ -0,0 +1,259 @@
+@@ -0,0 +1,289 @@
 +# Register files in `mode netlist` (AUTO_MEMORIES_REGFILES) dissolve into
 +# their cells here, right after macro placement: to synthesis and to the
 +# macro placer each was a macro, its abstract's pins where its wires
@@ -839,13 +839,19 @@ new file mode 100644
 +      # snap the corner to the site and row grid of the core
 +      set X [expr { [$core xMin] + int(round(([$bb xMin] - [$core xMin]) / double($site_w))) * $site_w }]
 +      set Y [expr { [$core yMin] + int(round(([$bb yMin] - [$core yMin]) / double($row_h))) * $row_h }]
-+      # the macro's pins are the module's port bits; the nets they were on
++      # the macro's pins are the module's port bits; the nets they were on,
++      # flat and in the macro's module. A cell on the flat net alone is
++      # cut off from its module's net: STA propagates the clock through
++      # the hierarchy and never reaches it.
 +      set ports [dict create]
 +      foreach mt [$master getMTerms] { dict set ports [$mt getName] 1 }
 +      set port_net [dict create]
++      set port_modnet [dict create]
 +      foreach it [$macro getITerms] {
 +        set net [$it getNet]
 +        if { $net ne "NULL" } { dict set port_net [[$it getMTerm] getName] $net }
++        set modnet [$it getModNet]
++        if { $modnet ne "NULL" } { dict set port_modnet [[$it getMTerm] getName] $modnet }
 +      }
 +      # The macro placer's halo is a blockage tied to the macro; destroyed
 +      # with it, its instance id goes to one of the new cells and global
@@ -878,7 +884,13 @@ new file mode 100644
 +            if { $net eq "NULL" } { set net [odb::dbNet_create $block $full] }
 +          }
 +          set it [$inst findITerm $pin]
-+          if { $it ne "NULL" } { $it connect $net }
++          if { $it eq "NULL" } {
++            continue
++          } elseif { [dict exists $port_modnet $netname] } {
++            $it connect $net [dict get $port_modnet $netname]
++          } else {
++            $it connect $net
++          }
 +        }
 +        if { [dict exists $place $name] } {
 +          lassign [dict get $place $name] cx cy o
@@ -972,6 +984,24 @@ new file mode 100644
 +    }
 +    set dead [expr { [llength $placed_names] - [llength $placed_insts] }]
 +    utl::info FLW 6 "register file $module at $path: $ncells cells, [llength $placed_insts] FIRM ($flip at [expr {$X/double($dbu)}] [expr {$Y/double($dbu)}] um), $dead dead, $internal_nets internal nets dont_touch"
++  }
++  # Every flop of a dissolved core is one STA sees clocked: an unclocked
++  # one is no timing endpoint, and placement and repair would work blind
++  # to the paths through the array until CTS rewires its clock.
++  if { $dissolved > 0 && [llength [all_clocks]] > 0 } {
++    set clocked [dict create]
++    foreach cell [all_registers -cells -clock [all_clocks]] {
++      dict set clocked [[sta::sta_to_db_inst $cell] getName] 1
++    }
++    foreach fixup $fixups {
++      lassign $fixup module path
++      foreach name [lindex $fixup 7] {
++        set inst [$block findInst $name]
++        if { $inst ne "NULL" && [[$inst getMaster] isSequential] && ![dict exists $clocked $name] } {
++          utl::error FLW 13 "register file $module at $path: STA sees no clock on $name"
++        }
++      }
++    }
 +  }
 +}
 diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json

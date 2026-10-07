@@ -26,6 +26,34 @@ py_test(
     main = "check_dissolve.py",
 )
 
+# Every register clocked after the dissolve, on the small design and on
+# riscv32i, whose register file sits in a module below the top.
+[
+    [
+        orfs_run(
+            name = "%s_clocked_probe" % name,
+            src = "@orfs//flow/designs/asap7/%s:%s_floorplan" % (design, top),
+            outs = ["%s_clocked_probe.json" % name],
+            script = ":clocked_probe.tcl",
+            user_arguments = {
+                "OUTPUT_JSON": "$(location %s_clocked_probe.json)" % name,
+            },
+        ),
+        py_test(
+            name = "%s_clocked_test" % name,
+            size = "small",
+            srcs = ["check_clocked.py"],
+            args = ["$(rootpath :%s_clocked_probe.json)" % name],
+            data = [":%s_clocked_probe.json" % name],
+            main = "check_clocked.py",
+        ),
+    ]
+    for name, design, top in [
+        ("regfile", "regfile", "regfile_top"),
+        ("riscv32i", "riscv32i-regfile", "riscv_top"),
+    ]
+]
+
 # The dissolved file through repair_design, CTS, the legaliser and global
 # route: its core's cells dont_touch but its boundary repairable, its
 # flops rewired by CTS, its decode placed and sized by the parent.
