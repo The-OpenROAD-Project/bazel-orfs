@@ -402,7 +402,16 @@ git_override(
     # name the problem it was given (variables, clauses, outputs compared)
     # and the time it took, so a long solve can be judged by its size.
     # Retires at a bump onto a kepler-formal that logs the same.
-    patches = ["//patches:kepler-formal-0001-solver-problem-size.patch"],
+    #
+    # Experimental, not upstreamed: skip_gated_clock_flops leaves out the
+    # next-state comparison of a flop clocked through a cell kepler-formal
+    # cannot model (an integrated clock gate's latch), lists each with a
+    # warning, and compares the rest. Retires at a bump onto a
+    # kepler-formal that models clock gates.
+    patches = [
+        "//patches:kepler-formal-0001-solver-problem-size.patch",
+        "//patches:kepler-formal-0002-skip-gated-clock-flops.patch",
+    ],
     remote = "https://github.com/keplertech/kepler-formal.git",
 )
 

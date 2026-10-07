@@ -26,7 +26,15 @@ opt_clean -purge
 write_verilog -noattr {raw}
 """
 
-def regfile_lec(name, module, args, expect_equivalent = True, spec_args = ""):
+def regfile_lec(
+        name,
+        module,
+        args,
+        expect_equivalent = True,
+        spec_args = "",
+        generator = "structured_gen",
+        spec_lines = [],
+        skip_gated_clock_flops = False):
     """The fixture, its gold and gate netlists, and a manual lec_test.
 
     Args:
@@ -35,6 +43,12 @@ def regfile_lec(name, module, args, expect_equivalent = True, spec_args = ""):
         args: lec_fixture.py's shape and size arguments.
         expect_equivalent: False for a case that must be caught.
         spec_args: extra lec_fixture.py arguments for the spec alone.
+        generator: structured_gen, or generate_regfile (OpenROAD patch
+            0010), which builds the gate netlist from the same spec.
+        spec_lines: lines appended to the spec for the gate netlist
+            (`write_style clock_gate`); generate_regfile only.
+        skip_gated_clock_flops: the lec_test option of that name, for a
+            clock-gated gate netlist.
     """
     native.genrule(
         name = name + "_rtl",
@@ -71,17 +85,39 @@ def regfile_lec(name, module, args, expect_equivalent = True, spec_args = ""):
         ]),
         tools = ["@yosys//:yosys"],
     )
-    native.genrule(
-        name = name + "_gate",
-        srcs = [name + ".spec"] + ASAP7_LEFS,
-        outs = [name + "_gate.v"],
-        cmd = "$(location //tools/structured_gen:structured_gen) --spec $(location {n}.spec) --lef $(location {t}) --lef $(location {c}) --verilog $@ > /dev/null".format(
-            n = name,
-            t = ASAP7_LEFS[0],
-            c = ASAP7_LEFS[1],
-        ),
-        tools = ["//tools/structured_gen:structured_gen"],
-    )
+    if generator == "structured_gen":
+        native.genrule(
+            name = name + "_gate",
+            srcs = [name + ".spec"] + ASAP7_LEFS,
+            outs = [name + "_gate.v"],
+            cmd = "$(location //tools/structured_gen:structured_gen) --spec $(location {n}.spec) --lef $(location {t}) --lef $(location {c}) --verilog $@ > /dev/null".format(
+                n = name,
+                t = ASAP7_LEFS[0],
+                c = ASAP7_LEFS[1],
+            ),
+            tools = ["//tools/structured_gen:structured_gen"],
+        )
+    else:
+        native.genrule(
+            name = name + "_gate",
+            srcs = [name + ".spec"] + ASAP7_LEFS,
+            outs = [name + "_gate.v"],
+            cmd = " && ".join([
+                "cp $(location {}.spec) $(RULEDIR)/{}_gate.spec".format(name, name),
+                "chmod u+w $(RULEDIR)/{}_gate.spec".format(name),
+            ] + [
+                "echo '{}' >> $(RULEDIR)/{}_gate.spec".format(line, name)
+                for line in spec_lines
+            ] + [
+                "printf 'read_lef %s\\nread_lef %s\\ngenerate_regfile -spec %s -verilog %s\\n' $(location {t}) $(location {c}) $(RULEDIR)/{n}_gate.spec $@ > $(RULEDIR)/{n}_gate.tcl".format(
+                    n = name,
+                    t = ASAP7_LEFS[0],
+                    c = ASAP7_LEFS[1],
+                ),
+                "$(location @openroad//:openroad) -exit -no_init -no_splash $(RULEDIR)/{}_gate.tcl > /dev/null".format(name),
+            ]),
+            tools = ["@openroad//:openroad"],
+        )
     lec_test(
         name = name,
         size = "small",
@@ -91,4 +127,5 @@ def regfile_lec(name, module, args, expect_equivalent = True, spec_args = ""):
         gate_verilog_files = [name + "_gate.v"],
         gold_verilog_files = [name + "_gold.v"],
         liberty_files = LIBERTY,
+        skip_gated_clock_flops = skip_gated_clock_flops,
     )
