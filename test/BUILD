@@ -752,6 +752,15 @@ auto_memories_outputs_test(
     target_under_test = "@orfs//flow/designs/asap7/tinyRocket:RocketTile_synth",
 )
 
+# The test above only analyses tinyRocket: it reads what synthesis
+# declares and never runs it. Nothing built the design, and it stopped
+# canonicalizing unseen (ORFS patch 0092). This builds its synthesis,
+# AUTO_MEMORIES's detection and macro generation included.
+build_test(
+    name = "tinyrocket_synth_build_test",
+    targets = ["@orfs//flow/designs/asap7/tinyRocket:RocketTile_synth"],
+)
+
 auto_memories_outputs_test(
     name = "no_auto_memories_outputs_test",
     forbidden = [

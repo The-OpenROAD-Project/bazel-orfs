@@ -160,6 +160,12 @@ ORFS_PATCHES = [
     # 0067; retires at a bump onto an ORFS whose FakeRAM asap7
     # backend has a width floor.
     Label("//patches:0088-orfs-fakeram-min-width.patch"),
+    # 0092: asap7/tinyRocket gets behavioral models of the cache memories
+    # the Rocket Chip generator leaves as black boxes, so AUTO_MEMORIES
+    # detects them; the design did not canonicalize (data_arrays_0_ext
+    # "not part of the design"), and nothing built it to notice. Not
+    # upstreamed; retires at a bump onto an ORFS that carries it.
+    Label("//patches:0092-orfs-tinyrocket-memories.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
