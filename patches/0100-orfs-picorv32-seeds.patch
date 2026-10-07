@@ -1,0 +1,80 @@
+From e92d5bc01fe98c49bf0095cdbc2b016f2e46d364 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Thu, 8 Oct 2026 00:51:15 +0200
+Subject: [PATCH] asap7/picorv32{,-regfile}-seed{2,3}: picorv32's
+ placement-seed noise band
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Both arms of the register-file campaign's picorv32 row at
+GPL_RANDOM_SEED 2 and 3, as designs of their own: the period difference
+between the arms is read against the spread across seeds.
+
+Not upstreamed: carried in bazel-orfs for the register-file campaign.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/designs/asap7/picorv32-regfile-seed2/config.mk | 6 ++++++
+ flow/designs/asap7/picorv32-regfile-seed3/config.mk | 6 ++++++
+ flow/designs/asap7/picorv32-seed2/config.mk         | 7 +++++++
+ flow/designs/asap7/picorv32-seed3/config.mk         | 7 +++++++
+ 4 files changed, 26 insertions(+)
+ create mode 100644 flow/designs/asap7/picorv32-regfile-seed2/config.mk
+ create mode 100644 flow/designs/asap7/picorv32-regfile-seed3/config.mk
+ create mode 100644 flow/designs/asap7/picorv32-seed2/config.mk
+ create mode 100644 flow/designs/asap7/picorv32-seed3/config.mk
+
+diff --git a/flow/designs/asap7/picorv32-regfile-seed2/config.mk b/flow/designs/asap7/picorv32-regfile-seed2/config.mk
+new file mode 100644
+index 000000000..697a3ef51
+--- /dev/null
++++ b/flow/designs/asap7/picorv32-regfile-seed2/config.mk
+@@ -0,0 +1,6 @@
++# picorv32-regfile at GPL_RANDOM_SEED 2: the register-file arm of the
++# placement-seed noise band (see picorv32-seed2). DESIGN_NICKNAME stays
++# picorv32-regfile's, so its spec path resolves.
++include designs/asap7/picorv32-regfile/config.mk
++
++export GPL_RANDOM_SEED = 2
+diff --git a/flow/designs/asap7/picorv32-regfile-seed3/config.mk b/flow/designs/asap7/picorv32-regfile-seed3/config.mk
+new file mode 100644
+index 000000000..0dc2b6893
+--- /dev/null
++++ b/flow/designs/asap7/picorv32-regfile-seed3/config.mk
+@@ -0,0 +1,6 @@
++# picorv32-regfile at GPL_RANDOM_SEED 3: the register-file arm of the
++# placement-seed noise band (see picorv32-seed3). DESIGN_NICKNAME stays
++# picorv32-regfile's, so its spec path resolves.
++include designs/asap7/picorv32-regfile/config.mk
++
++export GPL_RANDOM_SEED = 3
+diff --git a/flow/designs/asap7/picorv32-seed2/config.mk b/flow/designs/asap7/picorv32-seed2/config.mk
+new file mode 100644
+index 000000000..82c17626f
+--- /dev/null
++++ b/flow/designs/asap7/picorv32-seed2/config.mk
+@@ -0,0 +1,7 @@
++# picorv32 at GPL_RANDOM_SEED 2: a point of the placement-seed noise band
++# the register-file campaign reads picorv32's period difference against.
++export DESIGN_NICKNAME = picorv32-seed2
++
++include designs/asap7/picorv32/config.mk
++
++export GPL_RANDOM_SEED = 2
+diff --git a/flow/designs/asap7/picorv32-seed3/config.mk b/flow/designs/asap7/picorv32-seed3/config.mk
+new file mode 100644
+index 000000000..e77e33baa
+--- /dev/null
++++ b/flow/designs/asap7/picorv32-seed3/config.mk
+@@ -0,0 +1,7 @@
++# picorv32 at GPL_RANDOM_SEED 3: a point of the placement-seed noise band
++# the register-file campaign reads picorv32's period difference against.
++export DESIGN_NICKNAME = picorv32-seed3
++
++include designs/asap7/picorv32/config.mk
++
++export GPL_RANDOM_SEED = 3
+-- 
+2.53.0
+

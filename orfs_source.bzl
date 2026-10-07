@@ -196,6 +196,10 @@ ORFS_PATCHES = [
     # (ibex_register_file_ff): its instances' parameters dropped before
     # the netlist is read. Not upstreamed.
     Label("//patches:0099-orfs-regfile-inline-parameterized.patch"),
+    # 0100: picorv32 and picorv32-regfile at GPL_RANDOM_SEED 2 and 3,
+    # the register-file campaign's noise band for picorv32. Not
+    # upstreamed.
+    Label("//patches:0100-orfs-picorv32-seeds.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

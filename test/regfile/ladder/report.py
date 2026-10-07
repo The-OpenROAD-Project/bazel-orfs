@@ -56,7 +56,7 @@ def main():
             with open(os.path.join(d, n)) as f:
                 rows.append(json.load(f))
     print(
-        "| row | reg-to-reg min period, flops / regfile | ≤ 3 % | setup WS (all paths) | std-cell area | power | hold WS | stage wall time (logs with an elapsed line) |"
+        "| row | min period (slowest clock, all paths), flops / regfile | ≤ 3 % | setup WS (all paths) | std-cell area | power | hold WS | stage wall time (logs with an elapsed line) |"
     )
     print("|---|---|---|---|---|---|---|---|")
     for row in rows:

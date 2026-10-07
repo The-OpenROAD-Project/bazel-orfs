@@ -11,7 +11,7 @@ load("//:openroad.bzl", "orfs_run")
 
 STAGES = ["synth", "floorplan", "place", "cts", "grt"]
 
-def ladder_row(name, design, top, regfile_design = None):
+def ladder_row(name, design, top, regfile_design = None, flows = None, stages = STAGES):
     """A row comparing @orfs asap7/<design> with asap7/<design>-regfile.
 
     Args:
@@ -19,6 +19,9 @@ def ladder_row(name, design, top, regfile_design = None):
       design: the ORFS design directory under flow/designs/asap7.
       top: DESIGN_NAME, the stem of the flow's targets.
       regfile_design: the variant's directory; <design>-regfile by default.
+      flows: arm -> label prefix of that arm's stage targets
+        (<prefix>_<stage>), for arms that are not @orfs's own flows.
+      stages: the stages whose logs and metrics the row reads.
     """
     arms = {
         "flops": design,
@@ -30,8 +33,11 @@ def ladder_row(name, design, top, regfile_design = None):
             native.filegroup(
                 name = "%s_%s_%s" % (name, arm, group),
                 srcs = [
-                    "@orfs//flow/designs/asap7/%s:%s_%s" % (d, top, stage)
-                    for stage in STAGES
+                    "%s_%s" % (
+                        flows[arm] if flows else "@orfs//flow/designs/asap7/%s:%s" % (d, top),
+                        stage,
+                    )
+                    for stage in stages
                 ],
                 output_group = group,
                 tags = ["manual"],
@@ -50,7 +56,9 @@ def ladder_row(name, design, top, regfile_design = None):
     for arm, d in arms.items():
         orfs_run(
             name = "%s_%s_paths" % (name, arm),
-            src = "@orfs//flow/designs/asap7/%s:%s_grt" % (d, top),
+            src = "%s_grt" % (
+                flows[arm] if flows else "@orfs//flow/designs/asap7/%s:%s" % (d, top)
+            ),
             outs = ["%s_%s_paths.txt" % (name, arm)],
             script = ":paths.tcl",
             tags = ["manual"],

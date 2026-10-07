@@ -14,12 +14,13 @@ import sys
 
 ELAPSED_RE = re.compile(r"Elapsed time: (?:(\d+):)?(\d+):(\d+(?:\.\d+)?)\[h:\]min:sec")
 
-# ORFS metric -> row field. fmax is 1 / sta::find_clk_min_period with
-# port paths ignored: the register-to-register minimum period, the one
-# the pass rule reads (only register-to-register paths can fail timing
-# closure; boundary paths are the parent's). setup_ws is over all paths.
+# ORFS metric -> row field. setup_ws is over all paths. The period the
+# pass rule reads is not ORFS's aggregate timing__fmax: that is the
+# maximum over the clocks, the most optimistic one when a design has a
+# second (virtual) clock. It is the slowest clock's own
+# timing__fmax__clock:<name>, 1 / sta::find_clk_min_period with port
+# paths included: the clock period minus that clock's worst setup slack.
 METRICS = {
-    "fmax": "globalroute__timing__fmax",
     "setup_ws": "globalroute__timing__setup__ws",
     "hold_ws": "globalroute__timing__hold__ws",
     "stdcell_area": "globalroute__design__instance__area__stdcell",
@@ -119,6 +120,15 @@ def arm(files):
     with open(grt) as f:
         metrics = json.load(f)
     row = {k: metric(metrics, v, grt) for k, v in METRICS.items()}
+    per_clock = {
+        k.split("clock:", 1)[1]: v
+        for k, v in metrics.items()
+        if k.startswith("globalroute__timing__fmax__clock:")
+    }
+    if not per_clock:
+        sys.exit("%s: no globalroute__timing__fmax__clock:<name> metric" % grt)
+    row["fmax_per_clock"] = per_clock
+    row["fmax"] = min(per_clock.values())
     # Macros: AUTO_MEMORIES, which a register file needs, may turn other
     # memories into macros too; a row whose arms differ here is not like
     # for like.

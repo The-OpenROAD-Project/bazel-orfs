@@ -15,7 +15,9 @@ if { [catch { estimate_parasitics -global_routing }] } {
 set out [open $::env(OUTPUT_TXT) w]
 set clk [lindex [all_clocks] 0]
 puts $out "parasitics $rc, clock [get_name $clk] period [get_property $clk period]"
-puts $out "register-to-register min period [sta::find_clk_min_period $clk 1]"
+# find_clk_min_period's second argument is include_port_paths.
+puts $out "min period, all paths: [sta::find_clk_min_period $clk 1]"
+puts $out "min period, register to register: [sta::find_clk_min_period $clk 0]"
 set regs [all_registers]
 set paths [find_timing_paths -path_delay max -from $regs -to $regs \
   -group_path_count 5 -endpoint_path_count 1 -sort_by_slack]

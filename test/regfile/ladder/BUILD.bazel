@@ -70,6 +70,21 @@ ladder_row(
     top = "picorv32",
 )
 
+# picorv32's period difference against its placement-seed noise band:
+# both arms at GPL_RANDOM_SEED 2 and 3 (ORFS patch 0100).
+[
+    ladder_row(
+        name = "picorv32_seed%d" % seed,
+        design = "picorv32-seed%d" % seed,
+        regfile_design = "picorv32-regfile-seed%d" % seed,
+        top = "picorv32",
+    )
+    for seed in [
+        2,
+        3,
+    ]
+]
+
 # Rung 3: ibex, a module spec with an asynchronous reset, against
 # ibex_register_file_ff.sv.
 regfile_sim_test(
