@@ -190,3 +190,13 @@ py_test(
     ],
     main = "leftover_macros_test.py",
 )
+
+# The parent's legalization hook takes the cells the resizer left inside a
+# hard block out before legalizing: XSTile's DPL-0036.
+py_test(
+    name = "stranded_cells_test",
+    srcs = ["stranded_cells_test.py"],
+    args = ["$(rootpath :stranded_cells.json)"],
+    data = [":stranded_cells.json"],
+    main = "stranded_cells_test.py",
+)
