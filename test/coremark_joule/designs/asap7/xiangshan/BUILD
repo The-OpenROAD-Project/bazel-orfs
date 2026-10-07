@@ -44,6 +44,13 @@ exports_files([
     "xs_icg_map.v",
 ])
 
+# The parent's legalization hook, on the miniature planned parent too:
+# stranded_cells_test checks it there in minutes.
+exports_files(
+    ["legalize_out_of_blocks.tcl"],
+    visibility = ["//test/planned_parent:__pkg__"],
+)
+
 # The parent's three placed netlists, at real size in a parent of flops:
 # the battery's rung for what the resizer, CTS and the router do to an
 # array of this size (test/structured_netlist, scaffold.bzl).

@@ -112,6 +112,24 @@ def mini_planned_flow(rtl, files):
         },
     )
 
+    # The parent's legalization hook on the miniature: a few placed cells
+    # moved into a hard block, taken out by legalize_out_of_blocks.tcl
+    # before the legalization it wraps (stranded_cells_test.py says why).
+    orfs_run(
+        name = "stranded_cells",
+        src = ":mini_top_place",
+        outs = ["stranded_cells.json"],
+        arguments = parent_args,
+        script = ":stranded_cells.tcl",
+        sources = parent_sources,
+        user_arguments = {
+            "OUTPUT_JSON": "$(location stranded_cells.json)",
+        },
+        user_sources = {
+            "LEGALIZE_HOOK": ["//test/coremark_joule/designs/asap7/xiangshan:legalize_out_of_blocks.tcl"],
+        },
+    )
+
     # The route-0 gate on the miniature: a zero-iteration global route on
     # its CTS checkpoint, the congestion totals as JSON and the congested
     # regions as the router reports them, for the wall the parent met in
