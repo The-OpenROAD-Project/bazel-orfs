@@ -42,7 +42,7 @@ that carries it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- docs/user/AutoMemories.md                     | 106 +++++++
+ docs/user/AutoMemories.md                     | 105 +++++++
  docs/user/FlowVariables.md                    |   2 +
  flow/Makefile                                 |   8 +-
  flow/designs/asap7/regfile/RegFile.regfile    |  22 ++
@@ -58,7 +58,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  flow/scripts/regfile_dissolve.tcl             | 289 ++++++++++++++++++
  flow/scripts/variables.json                   |   6 +
  flow/scripts/variables.yaml                   |  17 ++
- 16 files changed, 783 insertions(+), 5 deletions(-)
+ 16 files changed, 782 insertions(+), 5 deletions(-)
  create mode 100644 flow/designs/asap7/regfile/RegFile.regfile
  create mode 100644 flow/designs/asap7/regfile/config.mk
  create mode 100644 flow/designs/asap7/regfile/constraint.sdc
@@ -71,7 +71,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 diff --git a/docs/user/AutoMemories.md b/docs/user/AutoMemories.md
 --- a/docs/user/AutoMemories.md
 +++ b/docs/user/AutoMemories.md
-@@ -126,6 +126,111 @@
+@@ -126,6 +126,110 @@
  macro (which the platform's PDN macro grid connects to M5), and an `OBS`
  covering M1 to M4.
  
@@ -152,38 +152,37 @@ diff --git a/docs/user/AutoMemories.md b/docs/user/AutoMemories.md
 +
 +| | flops | register file |
 +|---|---|---|
-+| minimum period (950 ps clock, after global route) | 954 ps | 1 070 ps |
-+| flow time to global route | 278 s | 616 s |
-+| of which `repair_timing` after CTS and global route | 147 s | 514 s |
++| minimum period (950 ps clock, global-route parasitics) | 954 ps | 998 ps |
++| place to global route, stage time | 211 s | 536 s |
 +| core area | 4 012 um2 (62 %) | 7 573 um2 (45 %) |
-+| standard-cell area | 1 299 um2 | 1 355 um2 |
-+| failing endpoints after global route | 14 | 992 |
++| standard-cell area, without taps | 1 284 um2 | 1 413 um2 |
++| failing endpoints after global route | 79 | 992 |
 +
 +Synthesis takes a second either way: a 32 x 32 file is too small for
 +its synthesis time to show, which is where the larger files of a large
 +core are expected to gain.
 +
-+Why it is slower: every failing endpoint is a flop of the array, and
-+the worst path runs from the instruction through the array's read
-+path -- the address decode as three serial AND2 stages, the word
-+select, five levels of OR2 -- into the ALU and back to the array's write
-+mux, 311 ps from `instr` to read data in x1 cells the resizer may not
-+size (the core is FIRM and dont_touch). The flops version's same loop
-+closes. `repair_timing` then spends its time on 992 endpoints it cannot
-+fix.
++Why it is slower: every failing endpoint is a flop of the array, all
++within 50 ps, and the worst path runs from the instruction through the
++array's read path -- the address decode as three serial AND2 stages,
++the word select, five levels of OR2 -- into the ALU and back to the
++array's write mux: 232 ps from `instr` to read data. The flops
++version's same loop closes. `repair_timing` then spends its time at CTS
++and global route on 992 endpoints it cannot fix.
 +
-+Why it is bigger: the array's cells are no larger than the flops' (the
-+standard-cell totals above), but it places them at about half density,
-+and the floorplan counts a macro as full, so the core had to grow to
-+45 % utilisation to place it beside riscv32i's four FakeRAMs.
++Why it is bigger: standard-cell area is within a tenth of the flops',
++and the array's cells fill 58 % of its box. The core is bigger because
++`riscv32i-regfile/config.mk` sets 45 % utilisation: at riscv32i's 62 %
++no macro placement fits the array beside the four FakeRAMs.
 +
-+Both are the generator's to fix: decode as a tree and sized for its
-+fanout, cells the resizer may swap in place, denser rows.
++The rest is the generator's to fix: decode as a tree sized for its
++fanout, a read tree of AO22 and NAND/NOR rather than AND2 and OR2,
++cells the resizer may swap in place.
 +
  ## Platform support
  
  **asap7 only.** `gen_memories.py` rejects any other platform. The
-@@ -187,3 +292,4 @@
+@@ -187,3 +291,4 @@
  
  - [AUTO_MEMORIES](FlowVariables.md#AUTO_MEMORIES)
  - [ADDITIONAL_MEMORIES](FlowVariables.md#ADDITIONAL_MEMORIES)
