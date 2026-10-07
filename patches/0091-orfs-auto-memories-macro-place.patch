@@ -1,0 +1,463 @@
+From 38a8fd45bafef040425201c7e65f41deabc679dc Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Wed, 7 Oct 2026 11:48:25 +0200
+Subject: [PATCH] AUTO_MEMORIES_MACRO_PLACE: register files not listed are
+ inlined
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+AUTO_MEMORIES_REGFILES built every register file as a macro: blackboxed
+in synthesis, placed by the macro placer and, in `mode netlist`,
+dissolved into its cells after macro placement. On a small design the
+macro's outline and channels cost more core than the array saves:
+riscv32i's register file as a macro does not fit riscv32i's own 62 %
+utilisation beside its four FakeRAMs (MPL-0003).
+
+AUTO_MEMORIES_MACRO_PLACE lists the register files to place as macros.
+Any other is inlined: gen_memories.py writes only its generated netlist
+(no abstract, model liberty or taps) and inline.txt, and synthesis reads
+the RTL module as a blackbox and the netlist in its place. Its cells are
+then placed, sized and buffered with the rest of the design. A name no
+spec builds stops the build.
+
+asap7/regfile lists its RegFile, which keeps the dissolve its tests
+exercise. asap7/riscv32i-regfile lists nothing, takes riscv32i's own
+utilisation, and its spec writes through a clock gate per word
+(`write_style clock_gate`, OpenROAD patch 0010): 955 ps at global route
+against the flip-flops' 954, on a core 12 % smaller.
+
+Not upstreamed. Retires at a //:bump onto an ORFS that carries it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ docs/user/FlowVariables.md                    |  4 +-
+ flow/Makefile                                 |  1 +
+ flow/designs/asap7/regfile/config.mk          |  3 +
+ flow/designs/asap7/riscv32i-regfile/config.mk | 10 +-
+ .../asap7/riscv32i-regfile/regfile.regfile    | 14 +--
+ flow/scripts/memories/gen_memories.py         | 94 ++++++++++++++++---
+ flow/scripts/synth_preamble.tcl               | 32 ++++++-
+ flow/scripts/variables.json                   |  8 +-
+ flow/scripts/variables.yaml                   | 20 +++-
+ 9 files changed, 149 insertions(+), 37 deletions(-)
+
+diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
+index 0c43c0062..c08c4513e 100644
+--- a/docs/user/FlowVariables.md
++++ b/docs/user/FlowVariables.md
+@@ -100,7 +100,8 @@ configuration file.
+ | <a name="ADDITIONAL_LEFS"></a>ADDITIONAL_LEFS| Hardened macro LEF view files listed here. The LEF information of the macros is immutable and used throughout all stages. Stored in the .odb file.| |
+ | <a name="ADDITIONAL_LIBS"></a>ADDITIONAL_LIBS| Hardened macro library files listed here. The library information is immutable and used throughout all stages. Not stored in the .odb file.| |
+ | <a name="ADDITIONAL_MEMORIES"></a>ADDITIONAL_MEMORIES| Experimental. Space-separated list of user-supplied `.memories` files (the memories.json JSON schema) merged onto the set AUTO_MEMORIES detects — to force-convert a memory the idiomatic gate rejects, or to describe one the scanner cannot find. See docs/user/AutoMemories.md.| |
+-| <a name="AUTO_MEMORIES_REGFILES"></a>AUTO_MEMORIES_REGFILES| Experimental. Space-separated list of register-file spec files, one per RTL module to build as a register file of placed standard cells rather than synthesise to flops. Each spec names its module, words, bits, read and write ports by the RTL's own port names, and the cells; OpenROAD's generate_regfile checks the spec against the module's ports and writes `<module>.lef`, `<module>.lib` and `<module>_pre_layout.lib` under `$(RESULTS_DIR)/memories/`, and the module is blackboxed like an AUTO_MEMORIES macro and placed as one. A spec in `mode netlist` then dissolves into its cells after macro placement: its core FIRM where the macro was placed, in the macro's orientation, its address decode left to placement. Every register file appears in memories.json with kind `regfile`. Requires AUTO_MEMORIES=1.| |
++| <a name="AUTO_MEMORIES_MACRO_PLACE"></a>AUTO_MEMORIES_MACRO_PLACE| Experimental. Space-separated list of module names of AUTO_MEMORIES_REGFILES register files to place as macros, blackboxed in synthesis and placed by the macro placer (and, in `mode netlist`, dissolved after macro placement). A register file not listed is inlined: its generated netlist of standard cells replaces the module's body in synthesis, and its cells are placed, sized and buffered with the rest of the design -- the better shape for a small design, where a macro's outline and channels cost more core than the array saves. A name no spec builds stops the build. Requires AUTO_MEMORIES=1.| |
++| <a name="AUTO_MEMORIES_REGFILES"></a>AUTO_MEMORIES_REGFILES| Experimental. Space-separated list of register-file spec files, one per RTL module to build as a register file of placed standard cells rather than synthesise to flops. Each spec names its module, words, bits, read and write ports by the RTL's own port names, and the cells; OpenROAD's generate_regfile checks the spec against the module's ports and writes `<module>.lef`, `<module>.lib` and `<module>_pre_layout.lib` under `$(RESULTS_DIR)/memories/`. A module named in AUTO_MEMORIES_MACRO_PLACE is blackboxed like an AUTO_MEMORIES macro and placed as one; any other is inlined as its generated netlist. A placed spec in `mode netlist` then dissolves into its cells after macro placement: its core FIRM where the macro was placed, in the macro's orientation, its address decode left to placement. Every register file appears in memories.json with kind `regfile`. Requires AUTO_MEMORIES=1.| |
+ | <a name="ADDITIONAL_SITES"></a>ADDITIONAL_SITES| Passed as -additional_sites to initialize_floorplan.| |
+ | <a name="ASAP7_USE_VT"></a>ASAP7_USE_VT| A space separated list of VT options to use with the ASAP7 standard cell library: RVT, LVT, SLVT.| RVT|
+ | <a name="AUTO_MEMORIES"></a>AUTO_MEMORIES| Experimental. When set to 1, memories that yosys infers in the RTL (`$mem_v2` cells, module boundary only) are detected pre-synthesis, inventoried in `$(RESULTS_DIR)/memories.json`, and — when idiomatic as an SRAM macro — given generated .lib/.lef views under `$(RESULTS_DIR)/memories/`. Synthesis blackboxes those modules and all later stages read the generated views, so an existing design gets macro-based results without a memory compiler. Supported for the asap7 platform only. See docs/user/AutoMemories.md.| 0|
+@@ -346,6 +347,7 @@ configuration file.
+ - [ABC_LOAD_IN_FF](#ABC_LOAD_IN_FF)
+ - [ADDER_MAP_FILE](#ADDER_MAP_FILE)
+ - [ADDITIONAL_MEMORIES](#ADDITIONAL_MEMORIES)
++- [AUTO_MEMORIES_MACRO_PLACE](#AUTO_MEMORIES_MACRO_PLACE)
+ - [AUTO_MEMORIES_REGFILES](#AUTO_MEMORIES_REGFILES)
+ - [CACHED_REPORTS](#CACHED_REPORTS)
+ - [CLKGATE_MAP_FILE](#CLKGATE_MAP_FILE)
+diff --git a/flow/Makefile b/flow/Makefile
+index 53d9dc192..80a634877 100644
+--- a/flow/Makefile
++++ b/flow/Makefile
+@@ -280,6 +280,7 @@ do-auto-memories: $(RESULTS_DIR)/memories_inferred.json
+ 	  $(foreach file,$(VERILOG_FILES),--verilog $(file)) \
+ 	  $(foreach file,$(ADDITIONAL_MEMORIES),--memories $(file)) \
+ 	  $(foreach file,$(AUTO_MEMORIES_REGFILES),--regfile-spec $(file)) \
++	  $(foreach m,$(AUTO_MEMORIES_MACRO_PLACE),--macro-place $(m)) \
+ 	  $(if $(AUTO_MEMORIES_REGFILES),--openroad $(OPENROAD_EXE)) \
+ 	  $(foreach file,$(TECH_LEF) $(SC_LEF),--lef $(file))
+ 
+diff --git a/flow/designs/asap7/regfile/config.mk b/flow/designs/asap7/regfile/config.mk
+index 2880287d1..e0f1874d7 100644
+--- a/flow/designs/asap7/regfile/config.mk
++++ b/flow/designs/asap7/regfile/config.mk
+@@ -9,6 +9,9 @@ export SDC_FILE      = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/constraint.
+ 
+ export AUTO_MEMORIES          = 1
+ export AUTO_MEMORIES_REGFILES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/RegFile.regfile
++# Placed as a macro and dissolved after macro placement, the path this
++# design exists to exercise; unlisted, it would be inlined.
++export AUTO_MEMORIES_MACRO_PLACE = RegFile
+ 
+ # The file's macro is 28.5 x 10 um; a core sized by utilization alone
+ # would be square and narrower than the macro and its halo.
+diff --git a/flow/designs/asap7/riscv32i-regfile/config.mk b/flow/designs/asap7/riscv32i-regfile/config.mk
+index b31d984d8..142becabc 100644
+--- a/flow/designs/asap7/riscv32i-regfile/config.mk
++++ b/flow/designs/asap7/riscv32i-regfile/config.mk
+@@ -1,13 +1,11 @@
+ # riscv32i with its register file built by AUTO_MEMORIES_REGFILES rather
+-# than synthesised to flip-flops: the same RTL and constraints. The study
+-# case for why a generated register file is slower and bigger than the
+-# flops it replaces -- minutes to global route, simple to build, and both
+-# are true of it today. docs/user/AutoMemories.md has the numbers.
++# than synthesised to flip-flops: the same RTL, constraints and
++# utilisation. Not in AUTO_MEMORIES_MACRO_PLACE, so the generated netlist
++# is inlined in synthesis. Minutes to global route, the case to measure
++# the generator on; docs/user/AutoMemories.md has the numbers.
+ export DESIGN_NICKNAME = riscv32i-regfile
+ 
+ include designs/asap7/riscv32i/config.mk
+ 
+-export CORE_UTILIZATION = 45
+-
+ export AUTO_MEMORIES          = 1
+ export AUTO_MEMORIES_REGFILES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/regfile.regfile
+diff --git a/flow/designs/asap7/riscv32i-regfile/regfile.regfile b/flow/designs/asap7/riscv32i-regfile/regfile.regfile
+index af9ae34bb..45caaf857 100644
+--- a/flow/designs/asap7/riscv32i-regfile/regfile.regfile
++++ b/flow/designs/asap7/riscv32i-regfile/regfile.regfile
+@@ -1,8 +1,8 @@
+ # riscv32i's `regfile` (src/riscv32i/regfile.v) as a register file of
+-# placed standard cells: 32 x 32, two combinational reads, one write,
+-# x0 reads 0 and drops its writes.
++# standard cells, inlined in synthesis: 32 x 32, two combinational reads,
++# one write through a clock gate per word, x0 reads 0 and drops its
++# writes.
+ module regfile
+-mode netlist
+ words 32
+ bits 32
+ clock clk
+@@ -12,16 +12,8 @@ write wa3 wd3 we3
+ zero_word 0
+ write_style clock_gate
+ cell icg ICGx1_ASAP7_75t_R
+-# Flat, 58 x 19 um: it stacks under the four FakeRAMs at riscv32i's own
+-# 62 %, where two folds (32 x 36 um) fit beside them at no utilisation
+-# above 35 %. The clock tree's free sites are sized for a 32-word file.
+-bit_folds 1
+-service_sites 16
+-tap_columns 16
+ cell flop DFFHQNx1_ASAP7_75t_R
+ cell and2 AND2x2_ASAP7_75t_R
+ cell or2 OR2x2_ASAP7_75t_R
+ cell ao22 AO22x2_ASAP7_75t_R
+ cell inv INVx1_ASAP7_75t_R
+-cell tap TAPCELL_ASAP7_75t_R
+-pin_layer M4
+diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_memories.py
+index 455e023de..65d16880b 100644
+--- a/flow/scripts/memories/gen_memories.py
++++ b/flow/scripts/memories/gen_memories.py
+@@ -12,6 +12,9 @@ collects its $mem_v2 cells, merges user-supplied `.memories` files
+   <out-dir>/<m>.lef             abstract LEF per converted memory
+   <out-dir>/regfiles.txt        register files to dissolve into their cells
+                                 after macro placement (`mode netlist`)
++  <out-dir>/inline.txt          register files whose generated netlist
++                                replaces their module in synthesis (those
++                                not in AUTO_MEMORIES_MACRO_PLACE)
+   <out-dir>/blackboxes.txt      converted module names, one per line —
+                                 what synthesis blackboxes
+ 
+@@ -116,16 +119,50 @@ def _file_defining(module: str, verilog: list[Path]) -> Path:
+     )
+ 
+ 
++def _inline_spec(spec: Path, out: Path) -> Path:
++    """`spec` without its tap cell: an inlined register file's cells
++    land on the parent's rows, whose taps the floorplan places."""
++    kept = [
++        line
++        for line in spec.read_text().splitlines()
++        if line.split("#", 1)[0].split()[:2] != ["cell", "tap"]
++    ]
++    out.write_text("".join(l + "\n" for l in kept))
++    return out
++
++
++def _regfile_memory(spec: Path, module: str, reason: str) -> schema.Memory:
++    """A register file's memories.json record, its shape from its spec."""
++    mem = schema.Memory(name=module, kind="regfile", source="listed", spec=str(spec))
++    words = _spec_value(spec, "words")
++    bits = _spec_value(spec, "bits")
++    mem.rows = int(words[0][0]) if words else 0
++    mem.bits = int(bits[0][0]) if bits else 0
++    mem.read_ports = len(_spec_value(spec, "read")) + len(_spec_value(spec, "read_banked"))
++    mem.write_ports = len(_spec_value(spec, "write"))
++    mem.reason = reason
++    return mem
++
++
+ def run_regfiles(
+     specs: list[Path],
+     openroad: str | None,
+     lefs: list[Path],
+     verilog: list[Path],
+     out_dir: Path,
++    macro_place: list[str] | None = None,
+ ) -> list[schema.Memory]:
+     """Generate every listed register file with OpenROAD's generate_regfile.
+ 
+-    A register file is a macro to synthesis and to macro placement: its
++    A register file not named in AUTO_MEMORIES_MACRO_PLACE is inlined: its
++    generated netlist replaces the module's body in synthesis (inline.txt),
++    and from there on its cells are placed, sized and buffered with the
++    rest of the design. No macro, no abstract, no dissolve: the best shape
++    for a small design, where a macro's outline and channels cost more
++    core than the array saves.
++
++    A register file named in AUTO_MEMORIES_MACRO_PLACE is a macro to
++    synthesis and to macro placement: its
+     abstract LEF and model liberty land beside the FakeRAM views and the
+     module joins blackboxes.txt. In `mode netlist` it then dissolves into
+     its placed cells after macro placement (regfile_dissolve.tcl), which
+@@ -134,8 +171,16 @@ def run_regfiles(
+     are not the module's stops the build here rather than miswire the
+     parent.
+     """
++    macro_place = set(macro_place or [])
+     if not specs:
+         (out_dir / "regfiles.txt").write_text("")
++        (out_dir / "inline.txt").write_text("")
++        if macro_place:
++            raise SystemExit(
++                "gen_memories: AUTO_MEMORIES_MACRO_PLACE names "
++                + " ".join(sorted(macro_place))
++                + " but AUTO_MEMORIES_REGFILES lists no register file"
++            )
+         return []
+     if not openroad:
+         raise SystemExit(
+@@ -143,13 +188,33 @@ def run_regfiles(
+         )
+     if not lefs:
+         raise SystemExit("gen_memories: AUTO_MEMORIES_REGFILES needs TECH_LEF and SC_LEF")
++    modules = [_spec_module(spec) for spec in specs]
++    unknown = sorted(macro_place - set(modules))
++    if unknown:
++        raise SystemExit(
++            "gen_memories: AUTO_MEMORIES_MACRO_PLACE names "
++            + " ".join(unknown)
++            + ", which no AUTO_MEMORIES_REGFILES spec builds; it lists "
++            + " ".join(modules)
++        )
+     memories = []
+     dissolve = []
+-    for spec in specs:
+-        module = _spec_module(spec)
++    inline = []
++    for spec, module in zip(specs, modules):
+         mode = _spec_mode(spec)
+         rtl = _file_defining(module, verilog)
+         tcl = out_dir / f"{module}.generate.tcl"
++        if module not in macro_place:
++            tcl.write_text(
++                "".join(f"read_lef {lef}\n" for lef in lefs)
++                + f"generate_regfile -spec {_inline_spec(spec, out_dir / f'{module}.inline.regfile')}"
++                + f" -check_ports {rtl} -verilog {out_dir / f'{module}.v'}\n"
++            )
++            subprocess.check_call([openroad, "-exit", "-no_init", "-no_splash", str(tcl)])
++            memories.append(_regfile_memory(spec, module, "register file, inlined"))
++            inline.append(module)
++            sys.stderr.write(f"gen_memories: {module} -> register file, inlined ({spec.name})\n")
++            continue
+         tcl.write_text(
+             "".join(f"read_lef {lef}\n" for lef in lefs)
+             + f"generate_regfile -spec {spec} -check_ports {rtl}"
+@@ -157,22 +222,16 @@ def run_regfiles(
+             + f" -lef {out_dir / f'{module}.lef'} -liberty {out_dir / f'{module}.lib'}\n"
+         )
+         subprocess.check_call([openroad, "-exit", "-no_init", "-no_splash", str(tcl)])
+-        mem = schema.Memory(name=module, kind="regfile", source="listed", spec=str(spec))
+-        words = _spec_value(spec, "words")
+-        bits = _spec_value(spec, "bits")
+-        mem.rows = int(words[0][0]) if words else 0
+-        mem.bits = int(bits[0][0]) if bits else 0
+-        mem.read_ports = len(_spec_value(spec, "read")) + len(_spec_value(spec, "read_banked"))
+-        mem.write_ports = len(_spec_value(spec, "write"))
+-        mem.reason = f"register file, mode {mode}"
++        mem = _regfile_memory(spec, module, f"register file, mode {mode}")
+         if mode == "netlist":
+             _def_placement(out_dir / f"{module}.def", out_dir / f"{module}.place")
+             dissolve.append(module)
+         memories.append(mem)
+         sys.stderr.write(f"gen_memories: {module} -> register file, mode {mode} ({spec.name})\n")
+     with (out_dir / "blackboxes.txt").open("a") as f:
+-        f.write("".join(f"{m.name}\n" for m in memories))
++        f.write("".join(f"{m.name}\n" for m in memories if m.name not in inline))
+     (out_dir / "regfiles.txt").write_text("".join(f"{m}\n" for m in dissolve))
++    (out_dir / "inline.txt").write_text("".join(f"{m}\n" for m in inline))
+     return memories
+ 
+ 
+@@ -186,6 +245,7 @@ def run(
+     regfile_specs: list[Path] | None = None,
+     openroad: str | None = None,
+     lefs: list[Path] | None = None,
++    macro_place: list[str] | None = None,
+ ) -> int:
+     if platform != "asap7":
+         sys.stderr.write(f"gen_memories: unsupported platform {platform}\n")
+@@ -227,7 +287,7 @@ def run(
+     # After FakeRAM has written blackboxes.txt for the inferred memories,
+     # and recorded in memories.json beside them.
+     regfiles = run_regfiles(
+-        regfile_specs or [], openroad, lefs or [], verilog or [], out_dir
++        regfile_specs or [], openroad, lefs or [], verilog or [], out_dir, macro_place
+     )
+     if regfiles:
+         listed = {m.name for m in regfiles}
+@@ -288,6 +348,13 @@ def main(argv: list[str] | None = None) -> int:
+         type=Path,
+         help="Technology and cell LEF for the generator (repeatable).",
+     )
++    p.add_argument(
++        "--macro-place",
++        action="append",
++        default=[],
++        help="A register file placed as a macro, AUTO_MEMORIES_MACRO_PLACE "
++        "(repeatable); the others are inlined.",
++    )
+     p.add_argument("--platform", required=True)
+     p.add_argument(
+         "--out-dir",
+@@ -312,6 +379,7 @@ def main(argv: list[str] | None = None) -> int:
+         args.regfile_spec,
+         args.openroad,
+         args.lef,
++        args.macro_place,
+     )
+ 
+ 
+diff --git a/flow/scripts/synth_preamble.tcl b/flow/scripts/synth_preamble.tcl
+index eff2fad2b..ed343d055 100644
+--- a/flow/scripts/synth_preamble.tcl
++++ b/flow/scripts/synth_preamble.tcl
+@@ -62,6 +62,29 @@ proc auto_memories_blackboxes { } {
+   return [regexp -all -inline {\S+} $content]
+ }
+ 
++# AUTO_MEMORIES: register files inlined (AUTO_MEMORIES_REGFILES not in
++# AUTO_MEMORIES_MACRO_PLACE): the RTL module is read as a blackbox and its
++# generated netlist of standard cells is read in its place.
++proc auto_memories_inline { } {
++  if { ![env_var_equals AUTO_MEMORIES 1] } {
++    return {}
++  }
++  set f "$::env(RESULTS_DIR)/memories/inline.txt"
++  if { ![file exists $f] } {
++    return {}
++  }
++  set fh [open $f r]
++  set content [read $fh]
++  close $fh
++  return [regexp -all -inline {\S+} $content]
++}
++
++proc read_auto_memories_inline { } {
++  foreach m [auto_memories_inline] {
++    read_verilog -overwrite "$::env(RESULTS_DIR)/memories/$m.v"
++  }
++}
++
+ proc read_design_sources { } {
+   # We are reading Verilog sources
+   source $::env(SCRIPTS_DIR)/synth_stdcells.tcl
+@@ -122,7 +145,7 @@ proc read_design_sources { } {
+ 
+     # Blackbox AUTO_MEMORIES-detected memory modules so their generated
+     # liberty view wins over their behavioral bodies.
+-    foreach m [auto_memories_blackboxes] {
++    foreach m [concat [auto_memories_blackboxes] [auto_memories_inline]] {
+       lappend slang_args --blackboxed-module "$m"
+     }
+ 
+@@ -130,6 +153,7 @@ proc read_design_sources { } {
+     lappend slang_args {*}$::env(SYNTH_SLANG_ARGS)
+ 
+     yosys read_slang {*}$slang_args
++    read_auto_memories_inline
+ 
+     # Workaround for yosys-slang#119
+     setattr -unset init
+@@ -151,7 +175,7 @@ proc read_design_sources { } {
+     if { [env_var_exists_and_non_empty SYNTH_BLACKBOXES] } {
+       error "Non-empty SYNTH_BLACKBOXES unsupported with HDL frontend \"verific\""
+     }
+-    if { [llength [auto_memories_blackboxes]] > 0 } {
++    if { [llength [concat [auto_memories_blackboxes] [auto_memories_inline]]] > 0 } {
+       error "AUTO_MEMORIES unsupported with HDL frontend \"$::env(SYNTH_HDL_FRONTEND)\""
+     }
+   } elseif { ![env_var_exists_and_non_empty SYNTH_HDL_FRONTEND] } {
+@@ -185,6 +209,10 @@ proc read_design_sources { } {
+       }
+       hierarchy -check -top $::env(DESIGN_NAME)
+     }
++    if { [llength [auto_memories_inline]] > 0 } {
++      read_auto_memories_inline
++      hierarchy -check -top $::env(DESIGN_NAME)
++    }
+     if { [env_var_exists_and_non_empty SYNTH_BLACKBOXES] } {
+       hierarchy -check -top $::env(DESIGN_NAME)
+       foreach m $::env(SYNTH_BLACKBOXES) {
+diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
+index 8f198f7df..6db7ef244 100644
+--- a/flow/scripts/variables.json
++++ b/flow/scripts/variables.json
+@@ -68,8 +68,14 @@
+     "default": 0,
+     "description": "Experimental. When set to 1, memories that yosys infers in the RTL (`$mem_v2` cells, module boundary only) are detected pre-synthesis, inventoried in `$(RESULTS_DIR)/memories.json`, and \u2014 when idiomatic as an SRAM macro \u2014 given generated .lib/.lef views under `$(RESULTS_DIR)/memories/`. Synthesis blackboxes those modules and all later stages read the generated views, so an existing design gets macro-based results without a memory compiler. Supported for the asap7 platform only. See docs/user/AutoMemories.md.\n"
+   },
++  "AUTO_MEMORIES_MACRO_PLACE": {
++    "description": "Experimental. Space-separated list of module names of AUTO_MEMORIES_REGFILES register files to place as macros, blackboxed in synthesis and placed by the macro placer (and, in `mode netlist`, dissolved after macro placement). A register file not listed is inlined: its generated netlist of standard cells replaces the module's body in synthesis, and its cells are placed, sized and buffered with the rest of the design -- the better shape for a small design, where a macro's outline and channels cost more core than the array saves. A name no spec builds stops the build. Requires AUTO_MEMORIES=1.\n",
++    "stages": [
++      "synth"
++    ]
++  },
+   "AUTO_MEMORIES_REGFILES": {
+-    "description": "Experimental. Space-separated list of register-file spec files, one per RTL module to build as a register file of placed standard cells rather than synthesise to flops. Each spec names its module, words, bits, read and write ports by the RTL's own port names, and the cells; OpenROAD's generate_regfile checks the spec against the module's ports and writes `<module>.lef`, `<module>.lib` and `<module>_pre_layout.lib` under `$(RESULTS_DIR)/memories/`, and the module is blackboxed like an AUTO_MEMORIES macro and placed as one. A spec in `mode netlist` then dissolves into its cells after macro placement: its core FIRM where the macro was placed, in the macro's orientation, its address decode left to placement. Every register file appears in memories.json with kind `regfile`. Requires AUTO_MEMORIES=1.\n",
++    "description": "Experimental. Space-separated list of register-file spec files, one per RTL module to build as a register file of placed standard cells rather than synthesise to flops. Each spec names its module, words, bits, read and write ports by the RTL's own port names, and the cells; OpenROAD's generate_regfile checks the spec against the module's ports and writes `<module>.lef`, `<module>.lib` and `<module>_pre_layout.lib` under `$(RESULTS_DIR)/memories/`. A module named in AUTO_MEMORIES_MACRO_PLACE is blackboxed like an AUTO_MEMORIES macro and placed as one; any other is inlined as its generated netlist. A placed spec in `mode netlist` then dissolves into its cells after macro placement: its core FIRM where the macro was placed, in the macro's orientation, its address decode left to placement. Every register file appears in memories.json with kind `regfile`. Requires AUTO_MEMORIES=1.\n",
+     "stages": [
+       "synth"
+     ]
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+index 58ae4124b..188e95b0a 100644
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -219,15 +219,29 @@ AUTO_MEMORIES_REGFILES:
+     bits, read and write ports by the RTL's own port names, and the cells;
+     OpenROAD's generate_regfile checks the spec against the module's
+     ports and writes `<module>.lef`, `<module>.lib` and
+-    `<module>_pre_layout.lib` under `$(RESULTS_DIR)/memories/`, and the
+-    module is blackboxed like an AUTO_MEMORIES macro and placed as one. A
+-    spec in `mode netlist` then dissolves into its cells after macro
++    `<module>_pre_layout.lib` under `$(RESULTS_DIR)/memories/`. A module
++    named in AUTO_MEMORIES_MACRO_PLACE is blackboxed like an AUTO_MEMORIES
++    macro and placed as one; any other is inlined as its generated
++    netlist. A placed spec in `mode netlist` then dissolves into its cells after macro
+     placement: its core FIRM where the macro was placed, in the macro's
+     orientation, its address decode left to placement. Every register
+     file appears in memories.json with kind `regfile`. Requires
+     AUTO_MEMORIES=1.
+   stages:
+     - synth
++AUTO_MEMORIES_MACRO_PLACE:
++  description: >
++    Experimental. Space-separated list of module names of
++    AUTO_MEMORIES_REGFILES register files to place as macros, blackboxed
++    in synthesis and placed by the macro placer (and, in `mode netlist`,
++    dissolved after macro placement). A register file not listed is
++    inlined: its generated netlist of standard cells replaces the module's
++    body in synthesis, and its cells are placed, sized and buffered with
++    the rest of the design -- the better shape for a small design, where a
++    macro's outline and channels cost more core than the array saves. A
++    name no spec builds stops the build. Requires AUTO_MEMORIES=1.
++  stages:
++    - synth
+ SYNTH_MEMORY_MAX_BITS:
+   description: >
+     Maximum number of bits for memory synthesis.
+-- 
+2.53.0
+

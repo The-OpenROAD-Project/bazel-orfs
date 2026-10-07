@@ -43,6 +43,7 @@ def array_scaffold(name, spec, width_um, height_um):
             "AUTO_MEMORIES": "1",
             "CORE_AREA": "{} {} {} {}".format(CORE_UM, CORE_UM, _r(die_w - CORE_UM), _r(die_h - CORE_UM)),
             "DIE_AREA": "0 0 {} {}".format(_r(die_w), _r(die_h)),
+            "AUTO_MEMORIES_MACRO_PLACE": name,
             "PLACE_DENSITY": "0.5",
             "SYNTH_HDL_FRONTEND": "slang",
         },

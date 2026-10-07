@@ -69,6 +69,7 @@ orfs_flow(
     name = "rf_parent",
     arguments = {
         "AUTO_MEMORIES": "1",
+        "AUTO_MEMORIES_MACRO_PLACE": "rf32x32",
         # A die the 168 x 19 um macro fits in with room around it; a
         # utilisation-derived square would not (IFP-0002).
         "CORE_AREA": "2 2 238 98",

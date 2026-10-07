@@ -48,6 +48,8 @@ def mini_planned_flow(rtl, files):
         "CORE_AREA": PLAN["parent"]["CORE_AREA"],
         "DIE_AREA": PLAN["parent"]["DIE_AREA"],
         "RTLMP_MIN_CHANNEL_SIZE": "4 4",
+        # the plan places every file as a macro, by its module (<M>.regfile)
+        "AUTO_MEMORIES_MACRO_PLACE": " ".join([f.split(":")[-1].removesuffix(".regfile") for f in files]),
     }
     parent_sources = {
         "MACRO_PLACEMENT_TCL": [":plan/place_macros.tcl"],

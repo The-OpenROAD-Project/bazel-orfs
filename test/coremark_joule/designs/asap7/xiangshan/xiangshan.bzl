@@ -1071,6 +1071,12 @@ XS_BLOCK_DEFAULT = dict(XS_BLOCKS["Bpu"], arguments = {k: v for k, v in XS_BLOCK
 # odb-debug in seconds instead.
 _PLAN_DROPS = ["CORE_UTILIZATION", "CORE_ASPECT_RATIO", "CORE_MARGIN", "DETAIL_PLACEMENT_ARGS"]
 
+def _macro_place(specs):
+    """Every register file placed as a macro, by the module its spec
+    names (<Module>.regfile): the plan places them, and inlined they
+    would have no instance to place."""
+    return " ".join([s.split(":")[-1].removesuffix(".regfile") for s in specs])
+
 def _regfiles(own_sources, keep, blocks):
     """The generated register files a planned flow hardens: its own, plus
     those of every block of the old table whose module it now keeps (the
@@ -1113,6 +1119,7 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
     mems = _regfiles(cfg["sources"], entry.get("SYNTH_KEEP_MODULES", ""), blocks)
     if mems:
         sources["AUTO_MEMORIES_REGFILES"] = mems
+        arguments["AUTO_MEMORIES_MACRO_PLACE"] = _macro_place(mems)
     sources["IO_CONSTRAINTS"] = [":%s/%s_pins.tcl" % (plan_dir, block)]
     sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"]
     return arguments, sources
@@ -1258,6 +1265,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     mems = _regfiles(parent["sources"], parent_keep, blocks)
     if mems:
         sources["AUTO_MEMORIES_REGFILES"] = mems
+        arguments["AUTO_MEMORIES_MACRO_PLACE"] = _macro_place(mems)
 
     # the plan's blocks and register files, placed by the plan
     sources["MACRO_PLACEMENT_TCL"] = [":%s/place_macros.tcl" % plan_dir]

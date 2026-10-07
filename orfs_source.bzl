@@ -171,6 +171,12 @@ ORFS_PATCHES = [
     # blackbox". Not upstreamed; retires at a bump onto an ORFS that
     # carries it.
     Label("//patches:0090-orfs-auto-memories-keep-cost.patch"),
+    # 0091: AUTO_MEMORIES_MACRO_PLACE lists the register files placed as
+    # macros; any other AUTO_MEMORIES_REGFILES register file is inlined,
+    # its generated netlist read in synthesis in the module's place. On
+    # 0089. Not upstreamed; retires at a bump onto an ORFS that carries
+    # it.
+    Label("//patches:0091-orfs-auto-memories-macro-place.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
