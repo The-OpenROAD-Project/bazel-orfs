@@ -306,7 +306,7 @@ new file mode 100644
 index 0000000000..17319dd9d2
 --- /dev/null
 +++ b/src/ram/src/regfile.cpp
-@@ -0,0 +1,1320 @@
+@@ -0,0 +1,1439 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
 +
@@ -380,6 +380,9 @@ index 0000000000..17319dd9d2
 +  std::vector<std::string> and2 = {"A", "B", "Y"};
 +  std::vector<std::string> or2 = {"A", "B", "Y"};
 +  std::vector<std::string> ao22 = {"A1", "A2", "B1", "B2", "Y"};
++  std::vector<std::string> aoi22 = {"A1", "A2", "B1", "B2", "Y"};
++  std::vector<std::string> nand2 = {"A", "B", "Y"};
++  std::vector<std::string> nor2 = {"A", "B", "Y"};
 +  std::vector<std::string> inv = {"A", "Y"};
 +  std::vector<std::string> tie_lo = {"L"};
 +  bool flop_inverted = true;  // the flop's output is QN
@@ -528,6 +531,93 @@ index 0000000000..17319dd9d2
 +    int k = 0;
 +    return rec(0, static_cast<int>(leaves.size()), k);
 +  }
++  // A read bitline: OR over words of (sel & q), in inverting gates. A
++  // word pair is one AOI22, ~(sel_a & q_a | sel_b & q_b), in the pair's
++  // first tile; an odd word out is a NAND2. Over those active-low leaves
++  // a balanced tree alternates NAND2 (low in, high out) and NOR2 (high
++  // in, low out), each node in the second tile of its middle pair, and
++  // the root takes two high inputs with an OR2, so the bitline leaves on
++  // the library's OR2 drive. Where a split leaves the two halves at
++  // different polarities an inverter evens them. One gate level per
++  // pair of words instead of an AND2 and an OR2 per level.
++  struct Polar
++  {
++    dbNet* net;
++    bool low;
++  };
++  dbNet* Bitline(const std::string& prefix,
++                 const std::vector<dbNet*>& sel,
++                 const std::vector<dbNet*>& q,
++                 const std::function<Cursor&(int word)>& tile,
++                 const std::vector<int>& words)
++  {
++    const int n = static_cast<int>(q.size());
++    const int L = (n + 1) / 2;
++    int k = 0;
++    auto first = [&](int l) { return words[2 * l]; };
++    auto second = [&](int l) {
++      return 2 * l + 1 < n ? words[2 * l + 1] : words[2 * l];
++    };
++    std::vector<Polar> leaf(L);
++    for (int l = 0; l < L; ++l) {
++      dbNet* y = Net(prefix + "_l" + std::to_string(l));
++      if (2 * l + 1 < n) {
++        Place(tile(first(l)),
++              aoi22_,
++              y->getName(),
++              {{g_pins.aoi22[0], sel[2 * l]},
++               {g_pins.aoi22[1], q[2 * l]},
++               {g_pins.aoi22[2], sel[2 * l + 1]},
++               {g_pins.aoi22[3], q[2 * l + 1]},
++               {g_pins.aoi22[4], y}});
++      } else {
++        Place(tile(first(l)),
++              nand2_,
++              y->getName(),
++              {{g_pins.nand2[0], sel[2 * l]},
++               {g_pins.nand2[1], q[2 * l]},
++               {g_pins.nand2[2], y}});
++      }
++      leaf[l] = Polar{y, true};
++    }
++    auto invert = [&](Polar p, Cursor& c) {
++      dbNet* y = Net(prefix + "_i" + std::to_string(k++));
++      Place(c, inv_, y->getName(), {{g_pins.inv[0], p.net}, {g_pins.inv[1], y}});
++      return Polar{y, !p.low};
++    };
++    std::function<Polar(int, int, bool)> rec
++        = [&](int lo, int hi, bool root) -> Polar {
++      if (hi - lo == 1) {
++        return leaf[lo];
++      }
++      const int mid = (lo + hi) / 2;
++      Polar a = rec(lo, mid, false);
++      Polar b = rec(mid, hi, false);
++      Cursor& c = tile(second(mid));
++      if (a.low != b.low) {
++        // the shallower half is the one a level behind
++        if (mid - lo < hi - mid) {
++          a = invert(a, c);
++        } else {
++          b = invert(b, c);
++        }
++      }
++      dbNet* y = Net(prefix + "_o" + std::to_string(k++));
++      dbMaster* m = a.low ? nand2_ : (root ? or2_ : nor2_);
++      const std::vector<std::string>& p
++          = a.low ? g_pins.nand2 : (root ? g_pins.or2 : g_pins.nor2);
++      Place(c,
++            m,
++            y->getName(),
++            {{p[0], a.net}, {p[1], b.net}, {p[2], y}});
++      return Polar{y, !a.low && !root};
++    };
++    Polar out = rec(0, L, true);
++    if (out.low) {
++      out = invert(out, tile(second(0)));
++    }
++    return out.net;
++  }
 +  // The row of a tile or header with the least in it so far: cells of
 +  // different widths pack evenly, which a round robin does not do.
 +  static Cursor& Least(std::vector<Cursor>& rows)
@@ -556,6 +646,9 @@ index 0000000000..17319dd9d2
 +  dbMaster* and2_ = nullptr;
 +  dbMaster* or2_ = nullptr;
 +  dbMaster* ao22_ = nullptr;
++  dbMaster* aoi22_ = nullptr;
++  dbMaster* nand2_ = nullptr;
++  dbMaster* nor2_ = nullptr;
 +  dbMaster* inv_ = nullptr;
 +  dbMaster* tap_ = nullptr;
 +  dbMaster* tie_lo_ = nullptr;
@@ -593,6 +686,9 @@ index 0000000000..17319dd9d2
 +  and2_ = Master(s.cells.and2, "and2");
 +  or2_ = Master(s.cells.or2, "or2");
 +  ao22_ = Master(s.cells.ao22, "ao22");
++  aoi22_ = Master(s.cells.aoi22, "aoi22");
++  nand2_ = Master(s.cells.nand2, "nand2");
++  nor2_ = Master(s.cells.nor2, "nor2");
 +  inv_ = Master(s.cells.inv, "inv");
 +  tap_ = s.cells.tap.empty() ? nullptr : Master(s.cells.tap, "tap");
 +  tie_lo_ = s.cells.tie_lo.empty() ? nullptr : Master(s.cells.tie_lo, "tie_lo");
@@ -600,6 +696,9 @@ index 0000000000..17319dd9d2
 +  CheckPins(and2_, g_pins.and2);
 +  CheckPins(or2_, g_pins.or2);
 +  CheckPins(ao22_, g_pins.ao22);
++  CheckPins(aoi22_, g_pins.aoi22);
++  CheckPins(nand2_, g_pins.nand2);
++  CheckPins(nor2_, g_pins.nor2);
 +  CheckPins(inv_, g_pins.inv);
 +
 +  odb::dbTech* tech = db_->getTech();
@@ -738,13 +837,20 @@ index 0000000000..17319dd9d2
 +  // that word: R read selects, W write selects, the hold term.
 +  //
 +  // Cells per tile: flop, inverter (Q from QN), W-way write mux as AO22
-+  // pairs and an OR2 tree, R read AND2s, and this bit's share of the R
-+  // read OR trees, which run down the column.
++  // pairs and an OR2 tree, and per read port one cell of that port's
++  // bitline: a word pair's AOI22 leaf in the pair's first tile, a node
++  // of the NAND2/NOR2 tree over the leaves in its second (see the read
++  // bitlines below). A fix-up inverter rides with a node.
 +  const int write_pairs = (W + 1) / 2;  // AO22 nodes; the last may hold Q
++  const int read_node_w = static_cast<int>(
++      std::max({nand2_->getWidth(), nor2_->getWidth(), or2_->getWidth()})
++      + inv_->getWidth());
++  const int read_cell_w = std::max(static_cast<int>(aoi22_->getWidth()),
++                                   read_node_w);
 +  const int tile_cells_w = static_cast<int>(
 +      flop_->getWidth() + inv_->getWidth() + write_pairs * ao22_->getWidth()
-+      + std::max(write_pairs - 1, 0) * or2_->getWidth() + R * and2_->getWidth()
-+      + R * or2_->getWidth());
++      + std::max(write_pairs - 1, 0) * or2_->getWidth()
++      + R * read_cell_w);
 +  int rows_per_word = 1;
 +  // Keep a tile near square-ish: at most ~40 sites wide.
 +  while (tile_cells_w / rows_per_word > 40 * site_w_ && rows_per_word < 8) {
@@ -754,6 +860,7 @@ index 0000000000..17319dd9d2
 +  // the average; the tile width carries that slack.
 +  const int widest = static_cast<int>(std::max({flop_->getWidth(),
 +                                                ao22_->getWidth(),
++                                                aoi22_->getWidth(),
 +                                                or2_->getWidth(),
 +                                                and2_->getWidth()}));
 +  const int tile_w = ((tile_cells_w + rows_per_word - 1) / rows_per_word
@@ -919,8 +1026,11 @@ index 0000000000..17319dd9d2
 +  std::vector<std::vector<dbNet*>> rsel(R, std::vector<dbNet*>(s.words));
 +  std::vector<std::vector<dbNet*>> wsel(W, std::vector<dbNet*>(s.words));
 +  std::vector<dbNet*> hold(s.words);
-+  // Read OR-tree leaves per (r, b): the AND outputs down the column.
++  // Read bitline inputs per (r, b), down the column: each word's select
++  // and stored value, paired into AOI22 leaves once all tiles are in.
 +  std::vector<std::vector<std::vector<dbNet*>>> leaves(
++      R, std::vector<std::vector<dbNet*>>(s.bits));
++  std::vector<std::vector<std::vector<dbNet*>>> leaf_sel(
 +      R, std::vector<std::vector<dbNet*>>(s.bits));
 +  // The word each leaf reads, for its bank and the tile its OR node sits in.
 +  std::vector<std::vector<std::vector<int>>> leaf_word(
@@ -1079,16 +1189,10 @@ index 0000000000..17319dd9d2
 +          }
 +          dbNet::destroy(mux);
 +        }
-+        // Read ANDs: one per port, the leaves of that port's bitline.
++        // This word's inputs to each port's bitline.
 +        for (int r = 0; r < R; ++r) {
-+          dbNet* y = Net(tn + "_r" + std::to_string(r));
-+          Place(tcur(),
-+                and2_,
-+                y->getName(),
-+                {{g_pins.and2[0], rsel[r][n]},
-+                 {g_pins.and2[1], q},
-+                 {g_pins.and2[2], y}});
-+          leaves[r][b].push_back(y);
++          leaves[r][b].push_back(q);
++          leaf_sel[r][b].push_back(rsel[r][n]);
 +          leaf_word[r][b].push_back(n);
 +        }
 +        // Keep the row cursors: the read OR trees fill the tile's leftover.
@@ -1112,20 +1216,23 @@ index 0000000000..17319dd9d2
 +      std::vector<dbNet*> bank_roots;
 +      for (int k = 0; k < banks; ++k) {
 +        // The bank's words in entry order; ascending words keep it.
-+        std::vector<dbNet*> bank_leaves;
++        std::vector<dbNet*> bank_q, bank_sel;
 +        std::vector<int> bank_words;
 +        for (size_t i = 0; i < leaves[r][b].size(); ++i) {
 +          if (bank_of(leaf_word[r][b][i]) == k) {
-+            bank_leaves.push_back(leaves[r][b][i]);
++            bank_q.push_back(leaves[r][b][i]);
++            bank_sel.push_back(leaf_sel[r][b][i]);
 +            bank_words.push_back(leaf_word[r][b][i]);
 +          }
 +        }
-+        bank_roots.push_back(OrTree(prefix + "_k" + std::to_string(k),
-+                                    bank_leaves,
-+                                    [&](int lo, int hi) -> Cursor& {
-+                                      int n = bank_words[(lo + hi) / 2];
-+                                      return Least(tiles_[n * s.bits + b].rows);
-+                                    }));
++        bank_roots.push_back(Bitline(prefix + "_k" + std::to_string(k),
++                                     bank_sel,
++                                     bank_q,
++                                     [&](int word) -> Cursor& {
++                                       return Least(
++                                           tiles_[word * s.bits + b].rows);
++                                     },
++                                     bank_words));
 +      }
 +      // Each root becomes an output net with the RTL's name: one per
 +      // bank for a banked port, one after the footer OR for a plain one.
@@ -1404,6 +1511,12 @@ index 0000000000..17319dd9d2
 +        s.cells.or2 = v[1];
 +      } else if (kind == "ao22") {
 +        s.cells.ao22 = v[1];
++      } else if (kind == "aoi22") {
++        s.cells.aoi22 = v[1];
++      } else if (kind == "nand2") {
++        s.cells.nand2 = v[1];
++      } else if (kind == "nor2") {
++        s.cells.nor2 = v[1];
 +      } else if (kind == "inv") {
 +        s.cells.inv = v[1];
 +      } else if (kind == "tap") {
@@ -1436,6 +1549,12 @@ index 0000000000..17319dd9d2
 +        set(g_pins.or2, 3);
 +      } else if (kind == "ao22") {
 +        set(g_pins.ao22, 5);
++      } else if (kind == "aoi22") {
++        set(g_pins.aoi22, 5);
++      } else if (kind == "nand2") {
++        set(g_pins.nand2, 3);
++      } else if (kind == "nor2") {
++        set(g_pins.nor2, 3);
 +      } else if (kind == "inv") {
 +        set(g_pins.inv, 2);
 +      } else {
@@ -1632,7 +1751,7 @@ new file mode 100644
 index 0000000000..1118cc5afc
 --- /dev/null
 +++ b/src/ram/src/regfile.h
-@@ -0,0 +1,151 @@
+@@ -0,0 +1,155 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
 +
@@ -1687,6 +1806,10 @@ index 0000000000..1118cc5afc
 +  std::string and2;    // read select AND
 +  std::string or2;     // bitline OR tree node
 +  std::string ao22;    // write mux node: (sel & new) | (hold & old)
++  // read bitline: AOI22 leaf per word pair, NAND2/NOR2 tree over them
++  std::string aoi22 = "AOI22xp5_ASAP7_75t_R";
++  std::string nand2 = "NAND2xp5_ASAP7_75t_R";
++  std::string nor2 = "NOR2xp33_ASAP7_75t_R";
 +  std::string inv;     // decoder inverters
 +  std::string tap;     // well tap, one column per tap_columns
 +  std::string tie_lo;  // for unused inputs
