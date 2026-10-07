@@ -40,19 +40,20 @@ remote cache makes the second and later ones cheap.
 
 ## Measured 2026-10-07, see results.md
 
-Predecode (negative), dissolve then unplace (no gain), never a macro,
-and the write clock gate (`write-gate.diff`, a `write_style clock_gate`
-spec key; patch 0010 carries it and riscv32i-regfile's spec uses it at
-45 %). Never a macro with the write clock gate is at parity with the
-flip-flops on a 12 % smaller core.
+The write clock gate (`write_style clock_gate`, patch 0010) and inlining
+(`AUTO_MEMORIES_MACRO_PLACE`, ORFS patch 0091) put riscv32i-regfile at
+parity with the flops, 955 against 954 ps, on a 12 % smaller core. The
+clock-period campaign after it (predecode, a mux-tree read, wider and
+stronger read trees) found nothing past the noise; results.md has each
+arm and why.
 
-`never_macro.sh <lane>` runs riscv32i with the generated netlist in
-place of `regfile.v`, in a `//:deps` tree.
+`never_macro.sh` was the hand-swapped prototype of inlining, kept for
+the record; the flow does it now. `clock_cost.tcl` and `hold_cells.tcl`
+are the clock gate's cost side.
 
-## Lined up, not run
+## Later
 
-| experiment | how | expected |
-|---|---|---|
-| never a macro as a flow mode | the memories step hands synthesis the generated netlist in place of the module, no macro, no dissolve | what `never_macro.sh` measures, from the flow |
-| shape annealer | at floorplan, before macro placement: the generator's shapes per register file (ports unchanged), the FakeRAMs, channels and the real standard-cell area; the chosen shape generated there, the instance moved to it with `swapMaster`; `mode netlist` only | only if the macro shape is kept: never a macro needs no shape |
-| clock-gated write, CTS and hold | hold slack, clock power and the clock tree's buffers with 31 gated clocks against the flops' one | the cost side of the clock gate, not measured |
+Global route with `-congestion_iterations 0 -allow_congestion` for the
+riscv32i and riscv32i-regfile measurements, as XiangShan routes: only
+the minimum period and the turnaround matter here. Check the period is
+unchanged within noise and record the stage time before and after.
