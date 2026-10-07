@@ -1,0 +1,20 @@
+# Rocket's integer register file, an array inline in the Rocket core,
+# replaced through a seam synthesis makes (ORFS patch 0093): the
+# inventory says the generated register file took the array's place, and
+# nothing of the array is left to become flip-flops.
+load("@rules_python//python:defs.bzl", "py_test")
+
+filegroup(
+    name = "memories_json",
+    srcs = ["@orfs//flow/designs/asap7/tinyRocket-regfile:RocketTile_synth"],
+    output_group = "memories.json",
+)
+
+py_test(
+    name = "seam_test",
+    size = "small",
+    srcs = ["seam_test.py"],
+    args = ["$(rootpath :memories_json)"],
+    data = [":memories_json"],
+    main = "seam_test.py",
+)

@@ -167,6 +167,13 @@ ORFS_PATCHES = [
     # README. Upstream as The-OpenROAD-Project/OpenROAD-flow-scripts#4643;
     # retires at a bump onto an ORFS that carries it.
     Label("//patches:0092-orfs-tinyrocket-memories.patch"),
+    # 0093: a register file in place of a memory yosys infers inside a
+    # module (the spec's `memory <module>.<cell>`): synthesis makes the
+    # seam with memlib + techmap and reads the generated netlist in its
+    # place; asap7/tinyRocket-regfile is Rocket's integer register file
+    # that way. On 0091 and 0092. Not upstreamed; carried in bazel-orfs
+    # for a while first. Retires at a bump onto an ORFS that carries it.
+    Label("//patches:0093-orfs-auto-memories-seams.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
