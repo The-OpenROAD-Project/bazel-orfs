@@ -1,0 +1,87 @@
+From dc34d7f8e118d4ecf6b2a50bf45aa4ee9298729e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Wed, 7 Oct 2026 20:42:21 +0200
+Subject: [PATCH] asap7/picorv32-regfile: picorv32's cpuregs as a generated
+ register file
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+picorv32 keeps its register file inline (cpuregs, 32 x 32, one
+combinational read, one write, no reset). The spec's memory key names
+it, and the AUTO_MEMORIES_REGFILES seam replaces it with the generated
+register file; the RTL is unchanged. picorv32's SDC_FILE names its own
+directory rather than DESIGN_NICKNAME's, so the variant can include its
+config.mk.
+
+Not upstreamed: carried in bazel-orfs for the register-file campaign.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/designs/asap7/picorv32-regfile/config.mk | 13 +++++++++++++
+ .../asap7/picorv32-regfile/cpuregs.regfile    | 19 +++++++++++++++++++
+ flow/designs/asap7/picorv32/config.mk         |  2 +-
+ 3 files changed, 33 insertions(+), 1 deletion(-)
+ create mode 100644 flow/designs/asap7/picorv32-regfile/config.mk
+ create mode 100644 flow/designs/asap7/picorv32-regfile/cpuregs.regfile
+
+diff --git a/flow/designs/asap7/picorv32-regfile/config.mk b/flow/designs/asap7/picorv32-regfile/config.mk
+new file mode 100644
+index 000000000..394e82368
+--- /dev/null
++++ b/flow/designs/asap7/picorv32-regfile/config.mk
+@@ -0,0 +1,13 @@
++# picorv32 with its register file built by AUTO_MEMORIES_REGFILES rather
++# than synthesised to flip-flops: the same RTL, constraints and
++# utilisation. picorv32 keeps the array inline (cpuregs, 32 x 32, one
++# combinational read, one write, no reset), with no module of its own.
++# The spec's `memory` key names it, and synthesis makes the seam (memlib
++# + techmap) and reads the generated netlist in its place; the RTL is
++# unchanged. Not in AUTO_MEMORIES_MACRO_PLACE, so it is inlined.
++export DESIGN_NICKNAME = picorv32-regfile
++
++include designs/asap7/picorv32/config.mk
++
++export AUTO_MEMORIES          = 1
++export AUTO_MEMORIES_REGFILES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/cpuregs.regfile
+diff --git a/flow/designs/asap7/picorv32-regfile/cpuregs.regfile b/flow/designs/asap7/picorv32-regfile/cpuregs.regfile
+new file mode 100644
+index 000000000..22abdc74a
+--- /dev/null
++++ b/flow/designs/asap7/picorv32-regfile/cpuregs.regfile
+@@ -0,0 +1,19 @@
++# picorv32's register file (cpuregs in picorv32.sv) as standard cells,
++# inlined in its place: 32 x 32, one combinational read (picorv32 leaves
++# ENABLE_REGS_DUALPORT at 0 and reads rs1 and rs2 in turn), one write
++# through a clock gate per word. picorv32 handles x0 itself. The ports
++# are this spec's: the seam synthesis makes connects them.
++module picorv32_rf
++memory picorv32.cpuregs
++words 32
++bits 32
++clock clk
++read raddr rdata
++write waddr wdata wen
++write_style clock_gate
++cell icg ICGx1_ASAP7_75t_R
++cell flop DFFHQNx1_ASAP7_75t_R
++cell and2 AND2x2_ASAP7_75t_R
++cell or2 OR2x2_ASAP7_75t_R
++cell ao22 AO22x2_ASAP7_75t_R
++cell inv INVx1_ASAP7_75t_R
+diff --git a/flow/designs/asap7/picorv32/config.mk b/flow/designs/asap7/picorv32/config.mk
+index 68d0a0b28..d0b825d7e 100644
+--- a/flow/designs/asap7/picorv32/config.mk
++++ b/flow/designs/asap7/picorv32/config.mk
+@@ -2,7 +2,7 @@ export PLATFORM = asap7
+ export DESIGN_NAME = picorv32
+ 
+ export VERILOG_FILES = $(sort $(wildcard $(DESIGN_HOME)/src/picorv32/*.sv))
+-export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/constraint.sdc
++export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/picorv32/constraint.sdc
+ 
+ export ASAP7_USE_VT = RVT LVT SLVT
+ 
+-- 
+2.53.0
+

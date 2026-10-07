@@ -1,0 +1,109 @@
+# The register-file ladder: ORFS asap7 designs with a register file,
+# smallest first, each against its -regfile variant (carried ORFS
+# patches) at global route. A row passes when the register file's
+# minimum period is at most 3 % above the flip-flops'; area, power, hold
+# and wall time are recorded. Rows are manual: each builds two flows.
+#
+# Before a variant is flowed, its spec's generated netlist is simulated
+# beside the RTL it replaces (regfile_sim_test).
+load("@rules_python//python:defs.bzl", "py_binary")
+load("//tools/lib_to_verilog:lib_to_verilog.bzl", "stdcell_verilog")
+load(":ladder.bzl", "ladder_row", "ladder_tools")
+load(":sim.bzl", "regfile_sim_test")
+
+package(default_visibility = ["//visibility:private"])
+
+ladder_tools()
+
+py_binary(
+    name = "gen_tb",
+    srcs = ["gen_tb.py"],
+    main = "gen_tb.py",
+)
+
+stdcell_verilog(
+    name = "asap7_stdcell",
+    lefs = ["@orfs//flow:platforms/asap7/lef/asap7sc7p5t_28_R_1x_220121a.lef"],
+    libs = [
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_TT_nldm_211120.lib.gz",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_TT_nldm_220122.lib.gz",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_TT_nldm_211120.lib.gz",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_TT_nldm_220123.lib",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_TT_nldm_211120.lib.gz",
+    ],
+)
+
+# Rung 1: riscv32i, a module spec, against src/riscv32i/regfile.v.
+regfile_sim_test(
+    name = "riscv32i_sim_test",
+    module = "regfile",
+    rtl = ["@orfs//flow/designs/src/riscv32i:regfile.v"],
+    rtl_module = "regfile",
+    spec = "@orfs//flow/designs/asap7/riscv32i-regfile:regfile.regfile",
+)
+
+ladder_row(
+    name = "riscv32i",
+    design = "riscv32i",
+    top = "riscv_top",
+)
+
+# Rung 2: picorv32, a seam spec, against the memory it replaces.
+regfile_sim_test(
+    name = "picorv32_sim_test",
+    module = "picorv32_rf",
+    spec = "@orfs//flow/designs/asap7/picorv32-regfile:cpuregs.regfile",
+)
+
+ladder_row(
+    name = "picorv32",
+    design = "picorv32",
+    top = "picorv32",
+)
+
+# Rung 3: ibex, a module spec with an asynchronous reset, against
+# ibex_register_file_ff.sv.
+regfile_sim_test(
+    name = "ibex_sim_test",
+    module = "ibex_register_file_ff",
+    rtl = ["@orfs//flow/designs/src/ibex_sv:ibex_register_file_ff.sv"],
+    rtl_module = "ibex_register_file_ff",
+    spec = "@orfs//flow/designs/asap7/ibex-regfile:ibex_register_file_ff.regfile",
+)
+
+# The negative control: ibex's spec with the reset dropped (`reset`, a
+# port the array ignores, for `async_reset`). The harness must see it.
+genrule(
+    name = "ibex_no_reset_regfile",
+    srcs = ["@orfs//flow/designs/asap7/ibex-regfile:ibex_register_file_ff.regfile"],
+    outs = ["ibex_no_reset.regfile"],
+    cmd = "sed 's/^async_reset rst_ni low$$/reset rst_ni/' $< > $@ && grep -q '^reset rst_ni$$' $@",
+)
+
+regfile_sim_test(
+    name = "ibex_no_reset_sim_test",
+    expect_mismatch = True,
+    module = "ibex_register_file_ff",
+    rtl = ["@orfs//flow/designs/src/ibex_sv:ibex_register_file_ff.sv"],
+    rtl_module = "ibex_register_file_ff",
+    spec = ":ibex_no_reset.regfile",
+)
+
+ladder_row(
+    name = "ibex",
+    design = "ibex",
+    top = "ibex_core",
+)
+
+# Rung 4: tinyRocket, a seam spec, against the memory it replaces.
+regfile_sim_test(
+    name = "tinyRocket_sim_test",
+    module = "rocket_rf",
+    spec = "@orfs//flow/designs/asap7/tinyRocket-regfile:rocket_rf.regfile",
+)
+
+ladder_row(
+    name = "tinyRocket",
+    design = "tinyRocket",
+    top = "RocketTile",
+)

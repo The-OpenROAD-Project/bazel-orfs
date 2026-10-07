@@ -1,0 +1,104 @@
+From a0f7e0bc59d8bec23fc1e07a23719cff801c9b4e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Wed, 7 Oct 2026 20:52:11 +0200
+Subject: [PATCH] asap7/ibex-regfile: ibex's register file as a generated
+ register file
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+ibex_register_file_ff (32 x 32 with x0 reading zero, two combinational
+reads, one write, every word reset to zero asynchronously) replaced by
+the AUTO_MEMORIES_REGFILES module spec, with generate_regfile's
+async_reset and unused ports; the RTL is unchanged. ibex's config.mk
+names its own directory for the SDC rather than DESIGN_NICKNAME's, so
+the variant can include it.
+
+Not upstreamed: carried in bazel-orfs for the register-file campaign;
+needs OpenROAD patches 0011 and 0012.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/designs/asap7/ibex-regfile/config.mk     | 12 +++++++++
+ .../ibex_register_file_ff.regfile             | 25 +++++++++++++++++++
+ flow/designs/asap7/ibex/config.mk             |  6 ++---
+ 3 files changed, 40 insertions(+), 3 deletions(-)
+ create mode 100644 flow/designs/asap7/ibex-regfile/config.mk
+ create mode 100644 flow/designs/asap7/ibex-regfile/ibex_register_file_ff.regfile
+
+diff --git a/flow/designs/asap7/ibex-regfile/config.mk b/flow/designs/asap7/ibex-regfile/config.mk
+new file mode 100644
+index 000000000..ecd6f4065
+--- /dev/null
++++ b/flow/designs/asap7/ibex-regfile/config.mk
+@@ -0,0 +1,12 @@
++# ibex with its register file built by AUTO_MEMORIES_REGFILES rather than
++# synthesised to flip-flops: the same RTL, constraints and utilisation.
++# ibex_register_file_ff (31 x 32, two combinational reads, one write,
++# x0 reads zero, an asynchronous reset to zero) is a module of its own,
++# so the spec replaces the module; not in AUTO_MEMORIES_MACRO_PLACE, so
++# the generated netlist is inlined.
++export DESIGN_NICKNAME = ibex-regfile
++
++include designs/asap7/ibex/config.mk
++
++export AUTO_MEMORIES          = 1
++export AUTO_MEMORIES_REGFILES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/ibex_register_file_ff.regfile
+diff --git a/flow/designs/asap7/ibex-regfile/ibex_register_file_ff.regfile b/flow/designs/asap7/ibex-regfile/ibex_register_file_ff.regfile
+new file mode 100644
+index 000000000..e00ede973
+--- /dev/null
++++ b/flow/designs/asap7/ibex-regfile/ibex_register_file_ff.regfile
+@@ -0,0 +1,25 @@
++# ibex's register file (src/ibex_sv/ibex_register_file_ff.sv) as standard
++# cells, inlined in its place: 32 x 32 with x0 reading zero, two
++# combinational reads, one write through a clock gate per word, every
++# word reset to zero asynchronously by rst_ni. With ibex's default
++# parameters (RV32E 0, DummyInstructions 0) test_en_i and
++# dummy_instr_id_i are inputs the array does not use.
++module ibex_register_file_ff
++words 32
++bits 32
++clock clk_i
++async_reset rst_ni low
++unused test_en_i dummy_instr_id_i
++read raddr_a_i rdata_a_o
++read raddr_b_i rdata_b_o
++write waddr_a_i wdata_a_i we_a_i
++zero_word 0
++write_style clock_gate
++cell icg ICGx1_ASAP7_75t_R
++cell flop DFFHQNx1_ASAP7_75t_R
++cell flop_r DFFASRHQNx1_ASAP7_75t_R
++cell tie_hi TIEHIx1_ASAP7_75t_R
++cell and2 AND2x2_ASAP7_75t_R
++cell or2 OR2x2_ASAP7_75t_R
++cell ao22 AO22x2_ASAP7_75t_R
++cell inv INVx1_ASAP7_75t_R
+diff --git a/flow/designs/asap7/ibex/config.mk b/flow/designs/asap7/ibex/config.mk
+index 419c77f8c..7d56243a2 100644
+--- a/flow/designs/asap7/ibex/config.mk
++++ b/flow/designs/asap7/ibex/config.mk
+@@ -1,6 +1,6 @@
+ export PLATFORM               = asap7
+ 
+-export DESIGN_NICKNAME        = ibex
++export DESIGN_NICKNAME       ?= ibex
+ export DESIGN_NAME            = ibex_core
+ 
+ export VERILOG_FILES = $(sort $(wildcard $(DESIGN_HOME)/src/ibex_sv/*.sv)) \
+@@ -14,9 +14,9 @@ export SYNTH_HDL_FRONTEND = slang
+ # if FLOW_VARIANT == pos_slack, use an SDC file that has a larger clock
+ # resulting in positive slack
+ ifeq ($(FLOW_VARIANT),pos_slack)
+-export SDC_FILE              = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/constraint_pos_slack.sdc
++export SDC_FILE              = $(DESIGN_HOME)/$(PLATFORM)/ibex/constraint_pos_slack.sdc
+ else
+-export SDC_FILE              = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/constraint.sdc
++export SDC_FILE              = $(DESIGN_HOME)/$(PLATFORM)/ibex/constraint.sdc
+ endif
+ 
+ export CORE_UTILIZATION       =  40
+-- 
+2.53.0
+

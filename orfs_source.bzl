@@ -174,6 +174,15 @@ ORFS_PATCHES = [
     # that way. On 0091 and 0092. Not upstreamed; carried in bazel-orfs
     # for a while first. Retires at a bump onto an ORFS that carries it.
     Label("//patches:0093-orfs-auto-memories-seams.patch"),
+    # 0095: asap7/picorv32-regfile, picorv32's inline cpuregs through the
+    # 0093 seam, for the register-file campaign (test/regfile/ladder). On
+    # 0093. Not upstreamed; retires with the campaign or at a bump onto an
+    # ORFS that carries it.
+    Label("//patches:0095-orfs-picorv32-regfile.patch"),
+    # 0096: asap7/ibex-regfile, ibex_register_file_ff as a module spec
+    # with an asynchronous reset (OpenROAD 0011, 0012), for the
+    # register-file campaign. On 0095. Not upstreamed.
+    Label("//patches:0096-orfs-ibex-regfile.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
