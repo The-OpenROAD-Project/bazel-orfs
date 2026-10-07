@@ -1465,6 +1465,78 @@ is re-judged after #1181 anyway):
   CTS's clock-net repair does the same, so the hook wraps every
   legalization of the parent's place, CTS and global route.
 
+## 47. The register files fixed: a new baseline, the dissolve's premise gone, and #1184's regression
+
+KPI row 12 (#1181) re-measured every part with the register files
+reading as the RTL does (entry 46), against row 11:
+
+| part | row 11 | row 12 |
+|---|---:|---:|
+| parent, the design's period | 3,256 ps | 3,162 ps |
+| Frontend | 2,170 ps | 2,170 ps |
+| MemBlock | 1,870 ps | 1,870 ps |
+| CoupledL2 | 1,591 ps | 1,572 ps |
+| VecRegionModule | 1,386 ps | 1,479 ps |
+| FltRegionModule | 900 ps | 895 ps |
+
+Parent global route: 16.6 min, 84 GB, 21.6 % congestion.
+
+- The false 1,161 ps read path through FltRegionModule is gone. The
+  parent's worst path is now its own CtrlBlock logic
+  (`rob/vtypeBuffer` into `decodeBufBits`), not a block crossing.
+- VecRegionModule is 6.7 % slower: VfRegFile's read-address registers
+  are real now, and they are in its paths.
+
+**The dissolve arms lost their premise.** Entry 44 made dissolving
+VecRegionModule and FltRegionModule into the parent the direct test of a
+floor set by two block crossings in series. The second crossing was the
+false read path. D2v's eighth run (VecRegionModule dissolved, the
+legalization hook of entry 46, still on the old register files) placed,
+ran CTS and routed: parent 5,244 ps against row 11's 3,256 (+61 %),
+global route 25.5 min, 106 GB, 27.9 %. Its worst path is a one-flop
+shift in CtrlBlock (`decodeBufValid_1` to `decodeBufValid_2`) at
+-4,771 ps. That is logic with nothing in it, so it is placement, not
+the design: a lead, not a result. The FltRegionModule arm and the arm
+dissolving both modules are held. They would need a new plan on row 12's
+die and a reason that row 12 does not remove.
+
+**The legalization hook is neutral.** Row 12's configuration with the
+hook (#1188) gives 3,163 ps against 3,162. The hook moved 7,443 cells
+out of the blocks' footprints before legalizing. Main cannot place
+XSTile without it: two stranded buffers fail detailed placement
+(DPL-0036).
+
+**#1184 costs 22 %.** #1184 leaves the register files' periphery (read
+address registers and decode) to the parent. Main with #1184 and the
+hook gives 3,855 ps against the hook alone on row 12's configuration,
+3,163 (+21.9 %). The blocks are identical. Global route takes 19.8 min,
+88 GB, 25.2 % against 21.6 %, and its overflow is 3.4 times the
+reference. A zero-wire census of each (every RC at 1e-6) shows the
+mechanism:
+
+| | row 12 + hook | main (#1184 + hook) |
+|---|---:|---:|
+| zero-wire floor | 2,160 ps | 2,701 ps |
+| repeaters on a worst path | 15 (262 ps) | 88 (1,096 ps) |
+| clock skew on a worst path | -153 ps | +776 ps |
+| cells the hook moves out of the blocks | 7,443 | 33,122 |
+
+All 200 of #1184's worst paths end at Frontend's inputs, from CtrlBlock
+and MemBlock. The freed periphery gives the parent's repair room for
+long buffer chains, entry 40's pattern. The read-address registers,
+now the parent's flops, move its clock tree. Whether to fix that (the
+chains, the clock tree) or revert #1184 is open.
+
+**The run that looked like a cache miss was not.** The #1184 run
+re-ran the blocks' stages although only the parent's sources had
+changed. Its 203 processes were 17,006 action-cache hits, 8 remote-cache
+hits and 184 local runs, all of them the parent's. What looked like
+re-placed blocks were the block ODBs downloading from the remote cache
+(Frontend's place ODB 33 minutes). The earlier build had left them
+remote-only, and the parent's new inputs needed the bytes.
+`/cache-miss` answers this kind of question from a few kilobytes of
+evidence per build.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
