@@ -50,28 +50,13 @@ ORFS_BAZEL_PLATFORMS = [
 #                                       scripts/flow.tcl itself
 #   0049-orfs-mempool-rtl-files-include -> _GENERATE_DESIGN_BUILDS emits
 #                                       files("verilog") for the rtl dir
+#
+# Nine retired at the bump onto ORFS dfc688e40ac3, which carries them in
+# its own form: 0050-0055 (SET_RC_TCL) as ORFS #4620, detail_place.tcl
+# keeps the RC file load_design chose, and #4621, SET_RC_TCL dropped;
+# 0056-0058 (WIRE_LOAD_TCL) as #4619, a declarative WIRE_LOAD_MODEL.
 ORFS_PATCHES = [
     Label("//patches:0039-orfs-slang-plugin-fallback.patch"),
-    # SET_RC_TCL as the per-design RC file: read it (after
-    # LAYER_PARASITICS_FILE, before the platform setRC.tcl) in load.tcl,
-    # open.tcl and detail_place.tcl -- the last of which read neither and
-    # dropped any override during 3_5 -- scope it to the stages that load
-    # parasitics, and let a design's value survive the asap7 include.
-    # Six patches, one file each; they go together.
-    Label("//patches:0050-orfs-set-rc-tcl-load.patch"),
-    Label("//patches:0051-orfs-set-rc-tcl-open.patch"),
-    Label("//patches:0052-orfs-set-rc-tcl-detail-place.patch"),
-    Label("//patches:0053-orfs-set-rc-tcl-stages-yaml.patch"),
-    Label("//patches:0054-orfs-set-rc-tcl-stages-json.patch"),
-    Label("//patches:0055-orfs-asap7-set-rc-tcl-conditional.patch"),
-    # Pre-placement wire-load hook: open.tcl sources WIRE_LOAD_TCL after
-    # the design is read, so synth-stage timing charges a statistical wire
-    # delay instead of none; inert once real parasitics exist. open.tcl
-    # also scopes its inherited environment to the opened file's stage so
-    # the synth-scoped hook fires only there. Three patches, one file each.
-    Label("//patches:0056-orfs-wire-load-open.patch"),
-    Label("//patches:0057-orfs-wire-load-variables-yaml.patch"),
-    Label("//patches:0058-orfs-wire-load-variables-json.patch"),
     # AUTO_MEMORIES converted a memory inferred inside a larger module,
     # generating a macro that nothing could instantiate -- blackboxing
     # needs a module of that name and there is none -- while
