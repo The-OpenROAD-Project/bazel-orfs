@@ -107,9 +107,9 @@ def arm(files):
         base = os.path.basename(f)
         if base == "5_1_grt.json":
             grt = f
-        elif base == "5_1_grt.log":
-            grt_log = f
         elif re.match(r"[1-5]_.*\.log$", base) and not base.endswith("_metrics.log"):
+            if base == "5_1_grt.log":
+                grt_log = f
             t = stage_seconds(f)
             if t is None:
                 unmeasured.append(base)
