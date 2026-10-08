@@ -457,6 +457,28 @@ class TestGeneratorScript(unittest.TestCase):
             os.path.exists(os.path.join(self.tmp, "flow/designs/src/deep/BUILD")),
         )
 
+    def test_src_directory_under_a_recursive_glob_gets_nothing(self):
+        # The cva6 common_cells/include shape: the recorded BUILD globs
+        # **/*.svh for common_cells/registers.svh, and a package one level
+        # down would take the header out of that glob.
+        recorded = (
+            'filegroup(\n    name = "include",\n    srcs = glob(["**/*.svh"]),\n)\n'
+        )
+        self._src("cc/include", build=recorded)
+        d = self._src("cc/include/common_cells", files=("registers.svh",))
+        e = self._src("cc/include/common_cells/deeper", files=("more.svh",))
+        self._run()
+        self.assertFalse(os.path.exists(os.path.join(d, "BUILD")))
+        self.assertFalse(os.path.exists(os.path.join(e, "BUILD")))
+
+    def test_src_directory_under_a_flat_glob_is_covered(self):
+        # A one-level glob claims nothing below it.
+        recorded = 'load("//flow/designs:design.bzl", "files")\n\nfiles("include")\n'
+        self._src("flat", files=("a.svh",), build=recorded)
+        d = self._src("flat/sub", files=("b.svh",))
+        self._run()
+        self.assertEqual("include", _canonical_form(self._read(d)))
+
     def test_src_generation_is_idempotent(self):
         d = self._src("again", files=("a.v",))
         self._run()
