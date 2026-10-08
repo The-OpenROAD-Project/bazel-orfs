@@ -17,7 +17,10 @@ class SeamTest(unittest.TestCase):
         rf = self.memories["rocket_rf"]
         self.assertEqual("regfile", rf["kind"])
         self.assertIn("in place of Rocket._T_288", rf["reason"])
-        self.assertEqual((32, 32, 2, 1), (rf["rows"], rf["bits"], rf["read_ports"], rf["write_ports"]))
+        self.assertEqual(
+            (32, 32, 2, 1),
+            (rf["rows"], rf["bits"], rf["read_ports"], rf["write_ports"]),
+        )
 
     def test_the_array_is_not_left_as_flops(self):
         self.assertNotIn("Rocket._T_288", self.memories)
