@@ -122,6 +122,14 @@ Build these in before you need them:
   simulators, where the build is the expensive part.
 - **Captured output as a declared file**, separate from the cycle count,
   so a failing run still leaves both behind to read.
+- **A reset with an edge.** Release the reset for one evaluation before
+  asserting it. In Verilator a reset already asserted at the first
+  `eval()` never falls, so a cell model that clears on `negedge RESETN`
+  never fires, while RTL that clears on a clock edge with the reset low
+  still clears: the two sides disagree from cycle 0. A flop behind a
+  clock gate sees no clock during reset, so the edge is its only way to
+  clear. Seen in #1187: a generated register file read all ones beside
+  RTL that read zero.
 
 ## The failure mode to fear
 
