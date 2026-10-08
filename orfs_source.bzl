@@ -218,6 +218,13 @@ ORFS_PATCHES = [
 # (ORFS #4474). ORFS does not run bazel, so every new source directory
 # arrives this way; the recorded set can only ever cover the past.
 #
+# Not under a recursive glob: a directory whose nearest enclosing BUILD
+# globs `**/` already belongs to that package, and a package of its own
+# would take its files away -- Bazel's glob stops at a package boundary.
+# src/cva6/core/cvfpu/src/common_cells/include globs **/*.svh for
+# common_cells/registers.svh; a generated files("include") one level down
+# emptied it, and cva6's read_slang failed in the sandbox.
+#
 # Drift here is caught by the "Load @orfs design packages" CI step.
 _GENERATE_DESIGN_BUILDS = """
 for platform in {platforms}; do
@@ -236,6 +243,16 @@ done
 if [ -d flow/designs/src ]; then
   find flow/designs/src -type d | sort | while read -r d; do
     if [ -e "$d/BUILD" ] || [ -e "$d/BUILD.bazel" ]; then continue; fi
+    claimed=
+    p=$(dirname "$d")
+    while [ "$p" != flow/designs ]; do
+      if [ -e "$p/BUILD" ] || [ -e "$p/BUILD.bazel" ]; then
+        if grep -qs '[*][*]/' "$p/BUILD" "$p/BUILD.bazel"; then claimed=1; fi
+        break
+      fi
+      p=$(dirname "$p")
+    done
+    [ -z "$claimed" ] || continue
     group=
     for f in "$d"/*.v "$d"/*.sv; do
       if [ -e "$f" ]; then group=verilog; break; fi
