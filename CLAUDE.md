@@ -202,6 +202,12 @@ cheap; the human prompts the upstream PR when the fix has settled and the
 timing is right. Report carried patches as candidates for upstreaming;
 do not act on them.
 
+When the human orders one, the `upstream-pr` skill turns the carried
+patches into the pull request: one commit per concern, written for the
+upstream reader, linted at upstream's versions, a draft that is
+force-pushed only until it is ready for review, and every review-bot
+comment verified, answered and resolved.
+
 Within this repo, the Git policy above and the Confidentiality purge
 still govern every push and PR. Use `gh api` writes here only for an
 action that is already allowed, post-purge — never for merges, branch
