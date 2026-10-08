@@ -35,6 +35,8 @@ A design's README gives the current number and the current problems. History (wa
 
 Prefer a pass/fail test that states the behaviour over a golden-output comparison: in OpenROAD, `check` and `exit_summary` from `test/helpers.tcl`, registered with `check_passfail = True` (Bazel) and `PASSFAIL_TESTS` (CMake), not a new `.ok`/`.defok`. Show it failing without the change before showing it pass.
 
+What generated logic computes can be tested without a simulator: set the inputs and the storage with `set_case_analysis`, read an output's value with `sta::pin_sim_logic_value` (`sta::get_port_pin` for a top-level port), and OpenSTA's constant propagation through the cells' liberty functions does the rest. The worked example is OpenROAD #11669's `src/ram/test/regfile_checks.tcl`: every read of every word, which word a write loads, which clock gate opens, both reset polarities and write priority, each with a negative control that fails (a corrupted word, `write_priority or`). `tee -variable` runs its script unsubstituted, so inside a proc build the command with `list` first.
+
 ## 6. A PR that depends on an unmerged upstream PR is a draft
 
 An ORFS change that needs an OpenROAD change not yet in ORFS: test it locally against that OpenROAD, as an A/B with and without it, open it as a draft whose first line names the dependency, and mark it ready only when that PR is merged and ORFS's OpenROAD is bumped past it. Backwards-compatible OpenROAD code kept for the transition is removed afterwards. Every upstream write still needs the human's order (`CLAUDE.md`).
