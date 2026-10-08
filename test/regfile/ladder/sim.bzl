@@ -119,6 +119,7 @@ def surgery_cmp_test(
         reset,
         ties = {},
         defines = [],
+        surgery_args = [],
         stdcells = ":asap7_stdcell"):
     """Simulates a module before and after SYNTH_VERILOG_SURGERY.
 
@@ -141,6 +142,8 @@ def surgery_cmp_test(
         ties off), as plain Verilog numbers (no quotes: they pass through
         a shell).
       defines: Verilog macros to define for both sides.
+      surgery_args: SYNTH_VERILOG_SURGERY_ARGS, before the ones the flow
+        adds.
       stdcells: the stdcell_verilog target.
     """
     outs = [name + "_surgery/" + s.split(":")[-1].split("/")[-1] for s in srcs]
@@ -148,7 +151,11 @@ def surgery_cmp_test(
         name = name + "_surgered",
         srcs = srcs,
         outs = outs,
-        cmd = "$(execpath %s) --out-dir $(RULEDIR)/%s_surgery -- $(SRCS)" % (surgery, name),
+        cmd = "$(execpath %s) %s --out-dir $(RULEDIR)/%s_surgery -- $(SRCS)" % (
+            surgery,
+            " ".join(surgery_args),
+            name,
+        ),
         tools = [surgery],
     )
     native.genrule(

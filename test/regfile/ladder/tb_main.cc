@@ -83,14 +83,17 @@ int main() {
     bad += Check(tb, cycle, "clock high");
   }
   std::printf("%d cycles, %d resets, %d mismatches\n", cycle, resets, bad);
-  if (kAsyncReset && resets == 0) {
-    std::printf("no reset exercised\n");
-    return 1;
-  }
+  // A negative control is judged on being caught alone: it stops at the
+  // tenth mismatch, which may come before the first reset.
   if (kExpectMismatch) {
     std::printf("negative control: %s\n",
                 bad > 0 ? "caught, as it must be" : "NOT caught");
     return bad > 0 ? 0 : 1;
+  }
+  // A pass needs the reset exercised, or reset is not covered.
+  if (kAsyncReset && resets == 0) {
+    std::printf("no reset exercised\n");
+    return 1;
   }
   return bad == 0 ? 0 : 1;
 }

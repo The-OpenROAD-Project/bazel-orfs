@@ -46,18 +46,51 @@ def closure(top, defs, stop=()):
     return out
 
 
+def _width(width):
+    if not width:
+        return 1
+    hi, lo = re.findall(r"\d+", width)
+    return abs(int(hi) - int(lo)) + 1
+
+
+def ansi_ports(definition):
+    """(direction, width, name) of an ANSI header, where a declaration
+    may name several ports and the ones after the first carry its
+    direction and width (firtool writes `input clock,` then `reset,`)."""
+    text = re.sub(r"//[^\n]*", "", definition)
+    m = re.match(r"\s*module\s+\w+\s*(?:#\s*\(.*?\)\s*)?\((.*?)\)\s*;", text, re.S)
+    if not m or not re.search(r"\b(input|output)\b", m.group(1)):
+        return []
+    out = []
+    kind, w = None, 1
+    for item in m.group(1).split(","):
+        d = re.match(
+            r"\s*(input|output)\s+(?:wire\s+|logic\s+|reg\s+)?(\[\s*\d+\s*:\s*\d+\s*\])?\s*(\w+)\s*$",
+            item,
+        )
+        if d:
+            kind, w = d.group(1), _width(d.group(2))
+            out.append((kind, w, d.group(3)))
+            continue
+        n = re.match(r"\s*(\w+)\s*$", item)
+        if not n or kind is None:
+            sys.exit("gen_cmp_tb: cannot read port declaration %r" % item.strip())
+        out.append((kind, w, n.group(1)))
+    return out
+
+
 def ports(definition):
     """(direction, width, name) of a non-ANSI or ANSI module header."""
+    ansi = ansi_ports(definition)
+    if ansi:
+        return ansi
     out = []
     for kind, width, names in re.findall(
         r"^\s*(input|output)\s+(?:wire\s+|logic\s+)?(\[\s*\d+\s*:\s*\d+\s*\])?\s*([^;()]+?)\s*[;,)]?\s*$",
         definition,
         re.M,
     ):
-        w = 1
-        if width:
-            hi, lo = re.findall(r"\d+", width)
-            w = abs(int(hi) - int(lo)) + 1
+        w = _width(width)
         for n in names.split(","):
             n = n.strip()
             if n:
