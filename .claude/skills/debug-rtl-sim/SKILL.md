@@ -160,8 +160,12 @@ If a design passes its gates in RTL and fails after synthesis, or behaves
 differently between synthesis and a later stage, the question is
 equivalence rather than simulation: logical equivalence checking (LEC)
 between RTL and netlist, or sequential equivalence checking (SEC) across
-a transformation. Nothing in this repository wires that up today, so it
-is a tool to reach for deliberately rather than a target to run.
+a transformation. `test/lec` wires up kepler-formal's combinational LEC
+as a Bazel test (`lec.bzl`): gold and gate must keep the same sequential
+boundaries and the same names for sequential instances and top
+terminals. `test/structured_gen_lec` uses it to check generated register
+files against yosys's synthesis of their RTL. Sequential equivalence
+across a transformation that moves registers is not wired up.
 
 For failures inside OpenROAD itself rather than in a simulation, use the
 `openroad-debug` skill instead.
