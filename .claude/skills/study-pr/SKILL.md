@@ -127,7 +127,10 @@ A number without these is an anecdote:
 4. **Repeats, 2σ, resolution.** Report individual repeat values, not a mean.
    Spread is 2σ; the resolvable difference at `k` runs per arm is
    `2σ·sqrt(2/k)`. Inside it the verdict is **"did not resolve"**, never
-   "no effect". 2σ of a single run is zero, which is honest.
+   "no effect". 2σ of a single run is zero, which is honest. A placement
+   seed is part of the noise: picorv32 with and without a generated
+   register file read +4.0, +3.4 and -3.3 % apart at `GPL_RANDOM_SEED` 1, 2
+   and 3, so one seed per arm resolves nothing smaller than that.
 5. **QoR as a hash where none is claimed, as picoseconds where some is.** A
    byte-identical ODB (or ORFS's `result_sha1`) is the strongest statement a
    change can make. Where QoR moves, quote `clk_period - WNS` in ps plus TNS
@@ -143,6 +146,14 @@ A number without these is an anecdote:
    shows it in the log's `Took N seconds:` lines and the other commands stay
    flat. Frontend's cts looked 9 % faster overall; the command itself was 7 %
    faster.
+9. **A period is a clock's.** ORFS's `timing__fmax` metric is the largest
+   fmax over all clocks, virtual I/O clocks included: with a `vclk_<name>`
+   in the SDC it can be the I/O clock's. ibex's read 807 ps against 970 ps
+   for `core_clock` (OpenROAD #11668). Read
+   `timing__fmax__clock:<design clock>`, or the `reg2reg` group's
+   `clk_period - WNS` as the XiangShan KPI does. `sta::find_clk_min_period`'s
+   second argument is `include_port_paths`, so ORFS's fmax includes the
+   port paths.
 
 ## Harness shape
 
