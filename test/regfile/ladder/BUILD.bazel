@@ -1,3 +1,4 @@
+load("@orfs_designs//:designs.bzl", "DESIGNS")
 
 # The register-file ladder: ORFS asap7 designs with a register file,
 # smallest first, each against its -regfile variant (carried ORFS
@@ -384,3 +385,25 @@ ladder_row(
     top = "swerv_wrapper",
 )
 
+# Each design directory gets its own config, even when it shares a
+# DESIGN_NICKNAME (the seed and mux variants include their base's
+# config.mk): see designs_by_directory_test.py.
+py_test(
+    name = "designs_by_directory_test",
+    srcs = ["designs_by_directory_test.py"],
+    args = ["'%s'" % json.encode({
+        d: {
+            "arguments": DESIGNS["asap7/" + d]["arguments"],
+            "sources": DESIGNS["asap7/" + d]["sources"],
+        }
+        for d in [
+            "picorv32-regfile",
+            "picorv32-regfile-seed2",
+            "picorv32-regfile-seed3",
+            "coralnpu-regfile",
+            "coralnpu-regfile-mux",
+            "swerv_wrapper-regfile",
+            "swerv_wrapper-regfile-mux",
+        ]
+    })],
+)
