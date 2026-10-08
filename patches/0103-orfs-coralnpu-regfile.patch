@@ -1,0 +1,263 @@
+From 6f3102f3b6684e729aa671a506369a7ef14b1929 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Thu, 8 Oct 2026 10:42:01 +0200
+Subject: [PATCH] asap7/coralnpu-regfile: coralnpu's integer register file,
+ generated
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Regfile keeps its 31 words as separate registers among a scoreboard,
+read bypasses and registered read outputs: no array for yosys to infer
+and no module of its own. surgery.py --regfile checks every read select,
+write decode and register statement against the shape firtool wrote and
+moves the storage into Regfile_rf: 32 x 32, x0 reading zero, eight
+combinational reads, six writes ORed when two write one word, every word
+reset to zero while reset is high. Regfile_rf.regfile generates it.
+
+Not upstreamed: carried in bazel-orfs for the register-file campaign.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ .../asap7/coralnpu-regfile/Regfile_rf.regfile |  34 ++++
+ flow/designs/asap7/coralnpu-regfile/config.mk |   8 +
+ flow/designs/asap7/coralnpu/surgery.py        | 153 ++++++++++++++++++
+ 3 files changed, 195 insertions(+)
+ create mode 100644 flow/designs/asap7/coralnpu-regfile/Regfile_rf.regfile
+ create mode 100644 flow/designs/asap7/coralnpu-regfile/config.mk
+
+diff --git a/flow/designs/asap7/coralnpu-regfile/Regfile_rf.regfile b/flow/designs/asap7/coralnpu-regfile/Regfile_rf.regfile
+new file mode 100644
+index 000000000..ef9f5a2bf
+--- /dev/null
++++ b/flow/designs/asap7/coralnpu-regfile/Regfile_rf.regfile
+@@ -0,0 +1,34 @@
++# coralnpu's integer register file as standard cells, inlined in its
++# place: Regfile_rf, the module surgery.py --regfile moves Regfile's
++# storage into. 32 x 32 with x0 reading zero, eight combinational reads,
++# six writes ORed when two write one word (Regfile's own data_N), a
++# clock gate per word, every word reset to zero while reset is high.
++module Regfile_rf
++words 32
++bits 32
++clock clock
++async_reset reset high
++read raddr0 rdata0
++read raddr1 rdata1
++read raddr2 rdata2
++read raddr3 rdata3
++read raddr4 rdata4
++read raddr5 rdata5
++read raddr6 rdata6
++read raddr7 rdata7
++write waddr0 wdata0 we0
++write waddr1 wdata1 we1
++write waddr2 wdata2 we2
++write waddr3 wdata3 we3
++write waddr4 wdata4 we4
++write waddr5 wdata5 we5
++zero_word 0
++write_style clock_gate
++cell icg ICGx1_ASAP7_75t_R
++cell flop DFFHQNx1_ASAP7_75t_R
++cell flop_r DFFASRHQNx1_ASAP7_75t_R
++cell tie_hi TIEHIx1_ASAP7_75t_R
++cell and2 AND2x2_ASAP7_75t_R
++cell or2 OR2x2_ASAP7_75t_R
++cell ao22 AO22x2_ASAP7_75t_R
++cell inv INVx1_ASAP7_75t_R
+diff --git a/flow/designs/asap7/coralnpu-regfile/config.mk b/flow/designs/asap7/coralnpu-regfile/config.mk
+new file mode 100644
+index 000000000..2e7b5c58f
+--- /dev/null
++++ b/flow/designs/asap7/coralnpu-regfile/config.mk
+@@ -0,0 +1,8 @@
++export DESIGN_NICKNAME = coralnpu-regfile
++
++include designs/asap7/coralnpu/config.mk
++
++# Regfile's 31 words, moved by surgery.py --regfile into Regfile_rf, as
++# a generated register file of standard cells inlined in their place.
++export SYNTH_VERILOG_SURGERY_ARGS = --regfile
++export AUTO_MEMORIES_REGFILES     = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/Regfile_rf.regfile
+diff --git a/flow/designs/asap7/coralnpu/surgery.py b/flow/designs/asap7/coralnpu/surgery.py
+index e621221c1..6d4e10b97 100644
+--- a/flow/designs/asap7/coralnpu/surgery.py
++++ b/flow/designs/asap7/coralnpu/surgery.py
+@@ -119,6 +119,152 @@ def make_sram_seams(text, path):
+     return text
+ 
+ 
++READS = 8
++WRITES = 6
++MASKED = (1, 2, 3)
++
++
++def regfile_rf_module():
++    ports = ["  input clock", "  input reset"]
++    for k in range(READS):
++        ports += ["  input [4:0] raddr%d" % k, "  output [31:0] rdata%d" % k]
++    for p in range(WRITES):
++        ports += [
++            "  input [4:0] waddr%d" % p,
++            "  input [31:0] wdata%d" % p,
++            "  input we%d" % p,
++        ]
++    hit = lambda p: "(we%d && waddr%d == i)" % (p, p)
++    any_hit = " || ".join(hit(p) for p in range(WRITES))
++    data = " | ".join("(%s ? wdata%d : 32'd0)" % (hit(p), p) for p in range(WRITES))
++    reads = "\n".join(
++        "  assign rdata%d = raddr%d == 5'd0 ? 32'd0 : mem[raddr%d];" % (k, k, k)
++        for k in range(READS)
++    )
++    return """
++// SYNTH_VERILOG_SURGERY (asap7/coralnpu/surgery.py --regfile): Regfile's
++// storage, behavioural; AUTO_MEMORIES_REGFILES replaces it. Word 0 reads
++// zero and keeps nothing; writes of one word in one cycle are ORed, as
++// Regfile's data_N are; every word resets to zero while reset is high.
++module Regfile_rf (
++%s
++);
++  reg [31:0] mem [1:31];
++  integer i;
++  always @(posedge clock or posedge reset) begin
++    if (reset) begin
++      for (i = 1; i < 32; i = i + 1) mem[i] <= 32'd0;
++    end else begin
++      for (i = 1; i < 32; i = i + 1)
++        if (%s)
++          mem[i] <= %s;
++    end
++  end
++%s
++endmodule
++""" % (",\n".join(ports), any_hit, data, reads)
++
++
++def regfile_instance():
++    conns = ["    .clock(clock)", "    .reset(reset)"]
++    for k in range(READS):
++        conns += [
++            "    .raddr%d(io_readAddr_%d_addr)" % (k, k),
++            "    .rdata%d(_rf_rdata_%d)" % (k, k),
++        ]
++    for p in range(WRITES):
++        we = "io_writeData_%d_valid" % p
++        if p in MASKED:
++            we += " & ~io_writeMask_%d_valid" % p
++        conns += [
++            "    .waddr%d(io_writeData_%d_bits_addr)" % (p, p),
++            "    .wdata%d(io_writeData_%d_bits_data)" % (p, p),
++            "    .we%d(%s)" % (p, we),
++        ]
++    return "  Regfile_rf rf (\n%s\n  );\n" % ",\n".join(conns)
++
++
++def addr_is(port_expr, word):
++    if word == 31:
++        return "(&%s)" % port_expr
++    return "%s == 5'h%X" % (port_expr, word)
++
++
++def make_regfile_seam(text, path):
++    found = list(re.finditer(r"^module Regfile\(.*?^endmodule\b", text, re.M | re.S))
++    if len(found) != 1:
++        fail("%s defines Regfile %d times, not once" % (path, len(found)))
++    m = found[0]
++    mod = m.group(0)
++
++    def wire(name):
++        hits = re.findall(r"^\s*wire\s+(?:\[\d+:\d+\]\s+)?%s\s*=\s*(.*?);" % re.escape(name), mod, re.M | re.S)
++        if len(hits) != 1:
++            fail("Regfile: wire %s defined %d times" % (name, len(hits)))
++        return " ".join(hits[0].split())
++
++    # Reads: the address compares, then each port's select over the words.
++    for k in range(READS):
++        for n in range(1, 31):
++            got = wire("_wdata_%d_value_%d_T" % (k, n))
++            if got != addr_is("io_readAddr_%d_addr" % k, n):
++                fail("Regfile: _wdata_%d_value_%d_T is %s" % (k, n, got))
++        terms = [r"\(_wdata_%d_value_%d_T \? regfile_%d : 32'h0\)" % (k, n, n) for n in range(1, 31)]
++        terms.append(r"\(\(&io_readAddr_%d_addr\) \? regfile_31 : 32'h0\)" % k)
++        sel = re.compile(r"\s*\|\s*".join(terms))
++        hits = list(sel.finditer(mod))
++        if len(hits) != 1:
++            fail("Regfile: read port %d's select over the words found %d times" % (k, len(hits)))
++        mod = mod[: hits[0].start()] + "_rf_rdata_%d" % k + mod[hits[0].end() :]
++
++    # Writes: each word's data is the OR over the ports that write it.
++    for n in range(1, 32):
++        dname = "data" if n == 1 else "data_%d" % (n - 1)
++        terms = re.fullmatch(
++            r"\s*".join(
++                [r"\((\w+) \? io_writeData_%d_bits_data : 32'h0\)" % p for p in range(WRITES)]
++            ).replace(r"\)\s*\(", r"\)\s*\|\s*\("),
++            wire(dname),
++        )
++        if not terms:
++            fail("Regfile: %s is not the OR of the six write ports" % dname)
++        conds = list(terms.groups())
++        if wire("_writeValid_%d_T" % n) != "{%s}" % ", ".join(conds):
++            fail("Regfile: _writeValid_%d_T is not {%s}" % (n, ", ".join(conds)))
++        for p, c in enumerate(conds):
++            want = "io_writeData_%d_valid & %s" % (p, addr_is("io_writeData_%d_bits_addr" % p, n))
++            if p in MASKED:
++                want += " & ~io_writeMask_%d_valid" % p
++            if wire(c) != want:
++                fail("Regfile: %s is %s, not %s" % (c, wire(c), want))
++        removals = [
++            r"^\s*reg\s+\[31:0\]\s+regfile_%d;\n" % n,
++            r"^\s*regfile_%d <= 32'h0;\n" % n,
++            r"^\s*if \(\|_writeValid_%d_T\)\s*regfile_%d <= %s;\n" % (n, n, dname),
++        ]
++        for r in removals:
++            hits = list(re.finditer(r, mod, re.M))
++            if len(hits) != 1:
++                fail("Regfile: /%s/ matched %d times" % (r.strip(), len(hits)))
++            mod = mod[: hits[0].start()] + mod[hits[0].end() :]
++        # The simulation-only initial values (`ifndef SYNTHESIS).
++        mod = re.sub(r"^\s*regfile_%d = [^;]*;\n" % n, "", mod, flags=re.M)
++
++    left = re.findall(r"\bregfile_\d+\b", mod)
++    if left:
++        fail("Regfile still names %s" % left[0])
++    head = re.search(r"^module Regfile\(.*?\);\n", mod, re.S | re.M)
++    if not re.search(r"^\s*input\s+clock,\s*$", head.group(0), re.M) or not re.search(
++        r"^\s*reset,\s*$", head.group(0), re.M
++    ):
++        fail("Regfile's ports are not clock and reset first")
++    decls = "".join("  wire [31:0] _rf_rdata_%d;\n" % k for k in range(READS))
++    mod = mod[: head.end()] + decls + mod[head.end() :]
++    end = mod.rindex("endmodule")
++    mod = mod[:end] + regfile_instance() + mod[end:]
++    return text[: m.start()] + mod + text[m.end() :] + regfile_rf_module()
++
++
+ def fail(msg):
+     sys.exit("coralnpu surgery: " + msg)
+ 
+@@ -148,6 +294,11 @@ def strip_layers(text, path):
+ def main():
+     p = argparse.ArgumentParser()
+     p.add_argument("--out-dir", required=True)
++    p.add_argument(
++        "--regfile",
++        action="store_true",
++        help="also move Regfile's storage into Regfile_rf",
++    )
+     p.add_argument("files", nargs="+")
+     a = p.parse_args()
+     done = 0
+@@ -157,6 +308,8 @@ def main():
+         if MARKER.search(text):
+             text, removed = strip_layers(text, path)
+             text = make_sram_seams(text, path)
++            if a.regfile:
++                text = make_regfile_seam(text, path)
+             print(
+                 "coralnpu surgery: %s: removed %d verification files"
+                 % (os.path.basename(path), len(removed))
+-- 
+2.53.0
+
