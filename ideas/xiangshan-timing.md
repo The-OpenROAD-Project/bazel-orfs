@@ -1586,6 +1586,70 @@ dissolve (cells onto the module's nets, rows cut around macros,
 inverting read bit lines, a clock gate per word), unmeasured on
 XiangShan; a census of #1187's tip answers both at once.
 
+## 49. #1187's tip on XSTile: the blocks faster, the parent +3.6 %, and placed files beat inlined ones
+
+Two XSTile builds from source to global route, both on #1187 at
+`f681c302`. Neither carries the legalization hook of #1188, which merged
+after; KRh measured the hook as neutral on the parent (entry 47), and
+neither run met DPL-0036.
+
+| part | row 12 | entry 48 (`aeae86ac`) | T1: `f681c302` | T2b: parent's files inlined |
+|---|---:|---:|---:|---:|
+| parent, the design's period | 3,162 ps | 3,386 ps | **3,276 ps** | 3,529 ps |
+| Frontend | 2,170 ps | 2,170 ps | **1,792 ps** | 1,792 ps |
+| MemBlock | 1,870 ps | 1,870 ps | 1,870 ps | 1,870 ps |
+| CoupledL2 | 1,572 ps | 1,572 ps | 1,572 ps | 1,572 ps |
+| VecRegionModule | 1,479 ps | 1,479 ps | **1,278 ps** | 1,278 ps |
+| FltRegionModule | 895 ps | 895 ps | 951 ps | 951 ps |
+| parent global route | 16.6 min, 84 GB, 21.6 % | | 18.7 min, 83 GB, 21.5 % | 22.1 min, 93 GB, 29.2 % |
+
+**The blocks.** `generate_regfile`'s read path changed since entry 48:
+an AOI22 per word pair and a NAND2/NOR2 tree in place of AND2 and OR2,
+and tiles sized from their rows. It shows where a block's worst path
+reads a register file:
+- Frontend gains 17 % (its Ftq queues), VecRegionModule 14 % (VfRegFile).
+- FltRegionModule loses 6 %. Its worst path now ends at FpRegFile's
+  write port (`fpWbDataPath` into `fpRegFile/io_writePorts_2_data`), and
+  it stays far below the parent.
+- MemBlock and CoupledL2 have no generated register file, and are
+  identical to the picosecond.
+
+**The parent.** 3,276 ps, half of entry 48's +224 ps recovered;
++3.6 % against row 12 remains. The zero-wire census (every RC at 1e-6)
+on T1's checkpoint, against row 12's configuration with the hook (KRh)
+and #1184 on main (KM3h):
+
+| | KRh | KM3h | T1 | T2b |
+|---|---:|---:|---:|---:|
+| zero-wire floor | 2,160 ps | 2,701 ps | 2,021 ps | 2,113 ps |
+| repeaters on a worst path | 15.2 | 88.0 | 25.9 | 37.2 |
+| clock skew on a worst path | -153 ps | +776 ps | -792 ps | -687 ps |
+| hop length | 1,783 um | 784 um | 2,954 um | 4,419 um |
+
+T1's floor is the lowest of the four: the parent's logic is not the
+problem. The routed period is lost in wire and in its repeaters, which
+#1184's mechanism (the files' periphery left to the parent) brings: 26
+repeaters a path against KRh's 15, on hops 1.7 times as long, though far
+from KM3h's 88. The skew is large and negative, and it is not yet looked
+at.
+
+**Placed files beat inlined ones on XSTile (T2b).** The same plan with
+`place_macros.tcl`'s register-file loop removed and the parent's
+`AUTO_MEMORIES_MACRO_PLACE` empty, so global placement places the three
+files' 1.3 M cells: the parent is 7.7 % slower than T1. Global route
+congestion goes from 21.5 to 29.2 %, and the worst paths' hops grow by
+half. The plan keeping each array in one place is worth more than
+anything inlining saves. riscv32i's result, inline at parity in period
+on less area, does not carry to a parent this size.
+
+**Turnaround.** T1's parent floorplan took 5,862 s against KR's
+1,300 s, nearly all of it single-threaded in the macro step that
+dissolves the three files. T2b, with nothing to dissolve, built its
+parent from synthesis to global route in four hours.
+
+**To revisit:** the skew of T1's worst paths, the parent's floorplan
+time in the dissolve, and FltRegionModule's write-port path.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
