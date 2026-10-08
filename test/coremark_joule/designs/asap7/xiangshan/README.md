@@ -29,6 +29,7 @@ Nothing here runs in CI. Every target is `tags = ["manual"]`.
 | 10 | 2026-10-05 | 3,264 | 3,264 | 2,170 | 1,870 | 1,591 | 1,386 | 900 |  | the blocks repair timing after CTS, where their abstracts are cut: the parent 3,330 to 3,264 ps on an identical placement (its stages before CTS unchanged); the blocks' place-stage periods cannot move; Frontend's CTS 46 min |
 | 11 | 2026-10-05 | 3,256 | 3,256 | 2,170 | 1,870 | 1,591 | 1,386 | 900 |  | the parent planned with each block mocked to density 0.6 (#1170): its die 2025 x 2666 um against 2377 x 3043, a quarter smaller, the period 3,256 against 3,264 ps; global route 81 GB against 93, congestion 21.2 % against 17.9 % |
 | 12 | 2026-10-06 | 3,162 | 3,162 | 2,170 | 1,870 | 1,572 | 1,479 | 895 |  | the generated register files read as the RTL does (#1181): the false 1,161 ps read path through FltRegionModule is gone; the parent's worst path is now its own CtrlBlock logic; VecRegionModule slower with its real read-address registers |
+| 13 | 2026-10-07 | 3,386 | 3,386 | 2,170 | 1,870 | 1,572 | 1,479 | 895 |  | in flight, to show where it stands: #1187 builds the register files with OpenROAD's generate_regfile through ORFS's AUTO_MEMORIES_REGFILES (OpenROAD#11669, OpenROAD-flow-scripts#4651) in place of bazel-orfs's structured_gen; the blocks unchanged, the parent 224 ps slower, its worst path CtrlBlock's own (rob/vtypeBuffer state to decodeBufBits ftqOffset), cause not diagnosed; measured at #1187's commit of that day, which has moved since |
 <!-- kpi-table end -->
 
 Periods are in picoseconds; `≥` marks a run that did not measure the
@@ -39,9 +40,11 @@ table. When a change moves the number, add a row and re-run it.
 
 The KPI is the design's minimum clock period, the red line: the largest
 of the parent's period and each block's, since the design is only as
-fast as its slowest part. Today it is **3,860 ps**, the parent's. The
-parent is one of those parts, like any block, and each of them is drawn
-dashed beneath the red line, a period that has to be at or below it.
+fast as its slowest part. On main it is **3,162 ps**, the parent's (run
+12); run 13 is #1187, in flight and not on main, there to show where it
+stands. The parent is one of those parts, like any block, and each of
+them is drawn dashed beneath the red line, a period that has to be at or
+below it.
 
 Each part's period is its SDC period minus the worst slack of its
 `reg2reg` group, which is the only group that can fail timing closure.

@@ -222,6 +222,19 @@
         "VecRegionModule": 1479
       },
       "note": "the generated register files read as the RTL does (#1181): the false 1,161 ps read path through FltRegionModule is gone; the parent's worst path is now its own CtrlBlock logic; VecRegionModule slower with its real read-address registers"
+    },
+    {
+      "date": "2026-10-07",
+      "measured": "XSTile_grt, built from source at aeae86ac (#1187, in flight, not on main)",
+      "parent_ps": 3386,
+      "blocks": {
+        "CoupledL2": 1572,
+        "Frontend": 2170,
+        "MemBlock": 1870,
+        "FltRegionModule": 895,
+        "VecRegionModule": 1479
+      },
+      "note": "in flight, to show where it stands: #1187 builds the register files with OpenROAD's generate_regfile through ORFS's AUTO_MEMORIES_REGFILES (OpenROAD#11669, OpenROAD-flow-scripts#4651) in place of bazel-orfs's structured_gen; the blocks unchanged, the parent 224 ps slower, its worst path CtrlBlock's own (rob/vtypeBuffer state to decodeBufBits ftqOffset), cause not diagnosed; measured at #1187's commit of that day, which has moved since"
     }
   ]
 }
