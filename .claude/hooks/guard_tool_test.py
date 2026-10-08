@@ -140,6 +140,14 @@ CASES = [
     ("command", "cp note.md ${PWD}/tmp/x", None),
     ("command", "ls ~/tmp", None),
     ("command", "ls $HOME/tmp", None),
+    # /tmp in a regex, not a path: after an alternation or a bracket
+    # expression, as in a confidentiality purge's grep.
+    ("command", "grep -nE 'secret|/tmp/|token' out.txt", None),
+    ("command", "grep -n 'foo\\|/tmp/' out.txt", None),
+    ("command", "grep -nE '[[:space:](]/tmp/' out.txt", None),
+    # A pipe into a /tmp program is still /tmp.
+    ("command", f"echo hi | {ABSENT}/x", "./tmp"),
+    ("command", f"echo hi |{ABSENT}/x", "./tmp"),
     ("path", "/var/tmp/x", None),
     # The narrow exemption cannot be expressed here: whether a /tmp path is
     # allowed depends on what is on disk. See TmpExemptionTest. The same goes
