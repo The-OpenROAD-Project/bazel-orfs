@@ -1,4 +1,4 @@
-From ef862fb2292a7174ef4437b176d4bb07d21bcb9d Mon Sep 17 00:00:00 2001
+From 8e14f870754ad57ba09fe5f5ca24c1ec4c7721c3 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Thu, 8 Oct 2026 10:42:01 +0200
 Subject: [PATCH] asap7/coralnpu-regfile: coralnpu's integer register file,

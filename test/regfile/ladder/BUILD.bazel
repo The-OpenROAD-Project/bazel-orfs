@@ -279,9 +279,9 @@ ladder_row(
     top = "cva6",
 )
 
-# asap7/coralnpu's synthesis (ORFS patch 0102): ClockGate on ASAP7's ICG
-# and no latch, no verification layers, the kept modules by name, both
-# TCM SRAMs generated macros with their byte masks.
+# asap7/coralnpu's synthesis (ORFS patch 0102): no verification layers,
+# the kept modules by name, both TCM SRAMs generated macros with their
+# byte masks.
 [
     filegroup(
         name = "coralnpu_synth_" + f.replace(".", "_"),

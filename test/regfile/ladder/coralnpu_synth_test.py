@@ -2,10 +2,8 @@
 
 Reads the synthesized netlist (1_2_yosys.v) and AUTO_MEMORIES' inventory
 (memories.json) of @orfs//flow/designs/asap7/coralnpu and checks what
-ORFS patch 0102 sets out to do:
+ORFS patch 0102 (upstream as ORFS #4653) sets out to do:
 
-- both ClockGates (the top's and RstSync's) are ASAP7's integrated clock
-  gate, and no latch is left: the behavioural fallback would be one;
 - firtool's verification layers are gone: no *_Verification_* module;
 - each module of SYNTH_KEEP_MODULES is a module of its own, and only
   those besides the top and the generated SRAM views;
@@ -51,18 +49,6 @@ class CoralnpuSynthTest(unittest.TestCase):
         with open(find("/memories.json")) as f:
             cls.memories = json.load(f)
         cls.modules = re.findall(r"^module\s+(\S+?)\s*\(", cls.netlist, re.M)
-
-    def cells(self, cell):
-        return len(
-            re.findall(r"^\s*%s\s+\S+\s*\(" % re.escape(cell), self.netlist, re.M)
-        )
-
-    def test_clock_gates_are_icg_cells(self):
-        self.assertEqual(self.cells("ICGx1_ASAP7_75t_R"), 2)
-
-    def test_no_latches(self):
-        latches = re.findall(r"^\s*(DHLx\w+|DLLx\w+)\s", self.netlist, re.M)
-        self.assertEqual(latches, [])
 
     def test_no_verification_layers(self):
         self.assertNotIn("_Verification_", self.netlist)

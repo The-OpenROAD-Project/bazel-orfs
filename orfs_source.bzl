@@ -200,19 +200,16 @@ ORFS_PATCHES = [
     # the register-file campaign's noise band for picorv32. Not
     # upstreamed.
     Label("//patches:0100-orfs-picorv32-seeds.patch"),
-    # 0101: SYNTH_POST_HIERARCHY_SCRIPTS declared in variables.yaml, so
-    # a design's config.mk can set 0068's hook. Not upstreamed.
-    Label("//patches:0101-orfs-synth-post-hierarchy-scripts-variable.patch"),
     # 0102: asap7/coralnpu as a synthesis build of its snapshot: SRAMs
     # through AUTO_MEMORIES with their write masks, not USE_ASAP7's
-    # maskless fakerams; ClockGate onto ASAP7's ICG; firtool's
-    # verification layers removed by surgery; the platform's
-    # constraints.sdc at a picosecond period; coralnpu's units kept by
-    # name. Needs 0068 and 0094. Not upstreamed.
+    # maskless fakerams; firtool's verification layers removed by
+    # surgery; the platform's constraints.sdc at a picosecond period;
+    # coralnpu's units kept by name. Needs 0094. Upstream as ORFS #4653
+    # (draft), with 0103.
     Label("//patches:0102-orfs-coralnpu-idiomatic.patch"),
     # 0103: asap7/coralnpu-regfile: Regfile's 31 words moved by surgery
     # into Regfile_rf, 8 reads and 6 ORed writes, async reset high, and
-    # generated. Needs 0094 and 0102. Not upstreamed.
+    # generated. Needs 0094 and 0102. Upstream as ORFS #4653 (draft).
     Label("//patches:0103-orfs-coralnpu-regfile.patch"),
 ]
 

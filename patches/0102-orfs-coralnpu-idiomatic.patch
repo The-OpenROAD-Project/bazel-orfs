@@ -1,4 +1,4 @@
-From a5769a4665b5286df49353236b0e0c1a990612d0 Mon Sep 17 00:00:00 2001
+From a4e236e19a256d35d222ff939c33f9c2f05573d4 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Thu, 8 Oct 2026 10:26:07 +0200
 Subject: [PATCH] asap7/coralnpu: a synthesis build of the snapshot,
@@ -7,77 +7,38 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 
-The snapshot of coralnpu was adapted to asap7 by editing it, and the
-edits leave problems that are the flow's own, not coralnpu's:
+The snapshot is synthesized as it is; what was adapted by editing it,
+or left to chance, is now the flow's configuration:
 
-- `-D USE_ASAP7` swaps the TCM SRAMs onto fakeram_512x128 and
-  fakeram_2048x128, which have no write mask: the wrapper computes the
-  byte mask and connects it nowhere, so a masked write writes all 16
-  bytes. The SRAMs now synthesize from their generic branch, and
-  AUTO_MEMORIES gives each a generated macro with its 16 mask lanes.
-- ClockGate kept only its behavioural fallback, a latch and an AND,
-  where upstream instantiates each process's ICG cell with the test
-  enable on its scan enable. clockgate.ys maps it onto ICGx1_ASAP7_75t_R
-  through SYNTH_POST_HIERARCHY_SCRIPTS.
-- firtool's verification layers are concatenated in: 61 binds of
-  *_Verification_Assert into the core. A layer is opt-in; surgery.py
-  (SYNTH_VERILOG_SURGERY) removes the verification/ files, the snapshot
-  as firtool writes it without layers enabled.
 - The clock was 10.00 in a platform whose unit is the picosecond. The
-  SDC now uses the platform's constraints.sdc with set_max_delay IO
-  budgets, the test enable held at 0 and the asynchronous reset not
-  timed.
-- The kept hierarchy was whatever exceeded SYNTH_MINIMUM_KEEP_SIZE; it
-  is now coralnpu's units by name, with OPENROAD_HIERARCHICAL=1.
+  SDC sources the platform's constraints.sdc, with set_max_delay IO
+  budgets, at 1,900 ps, just under the ~1,955 ps the flow reaches; the
+  test enable is held at 0 and the asynchronous reset is not timed.
+- `-D USE_ASAP7` swapped the TCM SRAMs onto fakerams with no write
+  mask, so a masked write wrote all 16 bytes. surgery.py
+  (SYNTH_VERILOG_SURGERY) turns each SRAM wrapper into a firtool
+  read-write memory module, and AUTO_MEMORIES generates a masked macro.
+- firtool's verification layers are concatenated into the snapshot (61
+  binds); surgery.py removes them, firtool's output without layers.
+- The kept hierarchy is coralnpu's units by name, with
+  OPENROAD_HIERARCHICAL=1.
 
-Not upstreamed: carried in bazel-orfs for the register-file campaign.
-Depends on SYNTH_VERILOG_SURGERY and SYNTH_POST_HIERARCHY_SCRIPTS,
-which are also carried.
+Not upstreamed: upstream as ORFS #4653 (draft), with 0103. Retires at a
+bump onto an ORFS that has it.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- flow/designs/asap7/coralnpu/clockgate.ys   |  23 +++
- flow/designs/asap7/coralnpu/config.mk      |  36 +++--
+ flow/designs/asap7/coralnpu/config.mk      |  35 +++--
  flow/designs/asap7/coralnpu/constraint.sdc |  23 ++-
  flow/designs/asap7/coralnpu/surgery.py     | 172 +++++++++++++++++++++
- 4 files changed, 239 insertions(+), 15 deletions(-)
- create mode 100644 flow/designs/asap7/coralnpu/clockgate.ys
+ 3 files changed, 214 insertions(+), 16 deletions(-)
  create mode 100644 flow/designs/asap7/coralnpu/surgery.py
 
-diff --git a/flow/designs/asap7/coralnpu/clockgate.ys b/flow/designs/asap7/coralnpu/clockgate.ys
-new file mode 100644
-index 000000000..eefa36ca6
---- /dev/null
-+++ b/flow/designs/asap7/coralnpu/clockgate.ys
-@@ -0,0 +1,23 @@
-+# coralnpu's ClockGate onto ASAP7's integrated clock gate.
-+#
-+# Upstream ClockGate.sv instantiates each process's ICG cell, test
-+# enable on its scan enable; the snapshot keeps only the behavioural
-+# fallback, a latch on the low phase of clk_i holding enable | te, ANDed
-+# with clk_i. ICGx1 is that function as one cell (latch_posedge_
-+# precontrol, GCLK = CLK & IQ), so this is equivalent by the cell's own
-+# definition.
-+#
-+# slang elaborates one module per instance, ClockGate$<path>: chtype
-+# folds them onto ClockGate first. The map is defined here, stashed and
-+# applied, so the script needs no path to another file.
-+chtype -set ClockGate t:ClockGate$*
-+design -save coralnpu
-+design -reset
-+read_verilog <<EOT
-+module ClockGate (input clk_i, input enable, input te, output clk_o);
-+  ICGx1_ASAP7_75t_R icg (.CLK(clk_i), .ENA(enable), .SE(te), .GCLK(clk_o));
-+endmodule
-+EOT
-+design -stash clockgate_map
-+design -load coralnpu
-+techmap -map %clockgate_map
 diff --git a/flow/designs/asap7/coralnpu/config.mk b/flow/designs/asap7/coralnpu/config.mk
-index abf9df8b2..4317951a7 100644
+index abf9df8b2..652760363 100644
 --- a/flow/designs/asap7/coralnpu/config.mk
 +++ b/flow/designs/asap7/coralnpu/config.mk
-@@ -1,28 +1,40 @@
+@@ -1,28 +1,37 @@
  export PLATFORM                = asap7
  
 -export DESIGN_NICKNAME         = coralnpu
@@ -107,9 +68,7 @@ index abf9df8b2..4317951a7 100644
  
 -export ADDITIONAL_LIBS += $(PLATFORM_DIR)/lib/NLDM/fakeram_512x128.lib \
 -			  $(PLATFORM_DIR)/lib/NLDM/fakeram_2048x128.lib
-+# ClockGate onto ASAP7's integrated clock gate, te on its scan enable.
-+export SYNTH_POST_HIERARCHY_SCRIPTS = $(DESIGN_HOME)/$(PLATFORM)/coralnpu/clockgate.ys
- 
+-
 -export SDC_FILE                = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/constraint.sdc
 +export SDC_FILE                = $(DESIGN_HOME)/$(PLATFORM)/coralnpu/constraint.sdc
  
