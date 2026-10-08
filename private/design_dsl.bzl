@@ -54,6 +54,9 @@ _EXPORTED_EXTS = [
     "py",
     # AUTO_MEMORIES_REGFILES specs, for tests that build one on its own
     "regfile",
+    # SYNTH_POST_HIERARCHY_SCRIPTS, named by a variant that includes its
+    # base design's config.mk
+    "ys",
 ]
 
 _EXPORTS_SENTINEL = "_orfs_design_exports_sentinel"
