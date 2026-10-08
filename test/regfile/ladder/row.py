@@ -80,6 +80,21 @@ def repair_progress(path):
     return rows
 
 
+TOOK_RE = re.compile(r"^Took (\d+) seconds: (.*)$")
+
+
+def commands(path):
+    """The commands ORFS's log_cmd timed in a stage log (it reports those
+    of 5 s or more): where a stage's time goes, command by command."""
+    out = []
+    with open(path, errors="replace") as f:
+        for line in f:
+            m = TOOK_RE.match(line.strip())
+            if m:
+                out.append({"seconds": int(m.group(1)), "cmd": m.group(2)[:120]})
+    return out
+
+
 def metric(metrics, key, path):
     if key in metrics:
         return metrics[key]
@@ -103,6 +118,8 @@ def arm(files):
     unmeasured = []
     grt = None
     grt_log = None
+    timed = {}
+    repairs = {}
     for f in files:
         base = os.path.basename(f)
         if base == "5_1_grt.json":
@@ -110,6 +127,11 @@ def arm(files):
         elif re.match(r"[1-5]_.*\.log$", base) and not base.endswith("_metrics.log"):
             if base == "5_1_grt.log":
                 grt_log = f
+            cmds = commands(f)
+            if cmds:
+                timed[base[: -len(".log")]] = cmds
+            if base in ("4_1_cts.log", "5_1_grt.log"):
+                repairs[base[: -len(".log")]] = repair_progress(f)
             t = stage_seconds(f)
             if t is None:
                 unmeasured.append(base)
@@ -142,6 +164,10 @@ def arm(files):
     # repair_timing at global route: where it made progress and where it
     # ground on.
     row["grt_repair"] = repair_progress(grt_log) if grt_log else None
+    # Where each stage's time goes, by command, and repair_timing's
+    # progress in each stage that repairs.
+    row["commands"] = timed
+    row["repair"] = repairs
     # Synthesis logs without an elapsed line: not in total_seconds.
     row["unmeasured_logs"] = sorted(unmeasured)
     return row
