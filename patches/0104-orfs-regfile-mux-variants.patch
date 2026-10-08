@@ -1,0 +1,130 @@
+From bd8a82f8b119773c15bf4198a363aa97a07c56a6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Thu, 8 Oct 2026 18:28:01 +0200
+Subject: [PATCH] asap7/{coralnpu,swerv_wrapper}-regfile-mux: the register
+ files without clock gates
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The register-file arms of coralnpu and swerv_wrapper with write_style
+mux, each word holding through a mux rather than a clock gate per word:
+what the gates cost and save in power, area and clock tree.
+
+Not upstreamed: carried in bazel-orfs for the register-file campaign.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ .../coralnpu-regfile-mux/Regfile_rf.regfile   | 34 +++++++++++++++++++
+ .../asap7/coralnpu-regfile-mux/config.mk      |  7 ++++
+ .../asap7/swerv_wrapper-regfile-mux/config.mk |  7 ++++
+ .../dec_gpr_ctl_rf.regfile                    | 28 +++++++++++++++
+ 4 files changed, 76 insertions(+)
+ create mode 100644 flow/designs/asap7/coralnpu-regfile-mux/Regfile_rf.regfile
+ create mode 100644 flow/designs/asap7/coralnpu-regfile-mux/config.mk
+ create mode 100644 flow/designs/asap7/swerv_wrapper-regfile-mux/config.mk
+ create mode 100644 flow/designs/asap7/swerv_wrapper-regfile-mux/dec_gpr_ctl_rf.regfile
+
+diff --git a/flow/designs/asap7/coralnpu-regfile-mux/Regfile_rf.regfile b/flow/designs/asap7/coralnpu-regfile-mux/Regfile_rf.regfile
+new file mode 100644
+index 000000000..d177482ac
+--- /dev/null
++++ b/flow/designs/asap7/coralnpu-regfile-mux/Regfile_rf.regfile
+@@ -0,0 +1,34 @@
++# coralnpu's integer register file as standard cells, inlined in its
++# place: Regfile_rf, the module surgery.py --regfile moves Regfile's
++# storage into. 32 x 32 with x0 reading zero, eight combinational reads,
++# six writes ORed when two write one word (Regfile's own data_N), a
++# clock gate per word, every word reset to zero while reset is high.
++module Regfile_rf
++words 32
++bits 32
++clock clock
++async_reset reset high
++read raddr0 rdata0
++read raddr1 rdata1
++read raddr2 rdata2
++read raddr3 rdata3
++read raddr4 rdata4
++read raddr5 rdata5
++read raddr6 rdata6
++read raddr7 rdata7
++write waddr0 wdata0 we0
++write waddr1 wdata1 we1
++write waddr2 wdata2 we2
++write waddr3 wdata3 we3
++write waddr4 wdata4 we4
++write waddr5 wdata5 we5
++zero_word 0
++write_style mux
++cell icg ICGx1_ASAP7_75t_R
++cell flop DFFHQNx1_ASAP7_75t_R
++cell flop_r DFFASRHQNx1_ASAP7_75t_R
++cell tie_hi TIEHIx1_ASAP7_75t_R
++cell and2 AND2x2_ASAP7_75t_R
++cell or2 OR2x2_ASAP7_75t_R
++cell ao22 AO22x2_ASAP7_75t_R
++cell inv INVx1_ASAP7_75t_R
+diff --git a/flow/designs/asap7/coralnpu-regfile-mux/config.mk b/flow/designs/asap7/coralnpu-regfile-mux/config.mk
+new file mode 100644
+index 000000000..c0cc0ab91
+--- /dev/null
++++ b/flow/designs/asap7/coralnpu-regfile-mux/config.mk
+@@ -0,0 +1,7 @@
++# coralnpu-regfile with write_style mux: each word's storage holds through a mux
++# instead of a clock gate per word, the arm that shows what the gates
++# cost and save in power, area and clock tree. DESIGN_NICKNAME stays
++# coralnpu-regfile's.
++include designs/asap7/coralnpu-regfile/config.mk
++
++export AUTO_MEMORIES_REGFILES = $(DESIGN_HOME)/$(PLATFORM)/coralnpu-regfile-mux/Regfile_rf.regfile
+diff --git a/flow/designs/asap7/swerv_wrapper-regfile-mux/config.mk b/flow/designs/asap7/swerv_wrapper-regfile-mux/config.mk
+new file mode 100644
+index 000000000..296051dc0
+--- /dev/null
++++ b/flow/designs/asap7/swerv_wrapper-regfile-mux/config.mk
+@@ -0,0 +1,7 @@
++# swerv_wrapper-regfile with write_style mux: each word's storage holds through a mux
++# instead of a clock gate per word, the arm that shows what the gates
++# cost and save in power, area and clock tree. DESIGN_NICKNAME stays
++# swerv_wrapper-regfile's.
++include designs/asap7/swerv_wrapper-regfile/config.mk
++
++export AUTO_MEMORIES_REGFILES = $(DESIGN_HOME)/$(PLATFORM)/swerv_wrapper-regfile-mux/dec_gpr_ctl_rf.regfile
+diff --git a/flow/designs/asap7/swerv_wrapper-regfile-mux/dec_gpr_ctl_rf.regfile b/flow/designs/asap7/swerv_wrapper-regfile-mux/dec_gpr_ctl_rf.regfile
+new file mode 100644
+index 000000000..a96235b84
+--- /dev/null
++++ b/flow/designs/asap7/swerv_wrapper-regfile-mux/dec_gpr_ctl_rf.regfile
+@@ -0,0 +1,28 @@
++# SweRV EH1's integer register file as standard cells, inlined in its
++# place: dec_gpr_ctl_rf, the module surgery.py moves the array of
++# dec_gpr_ctl into. 32 x 32 with x0 reading zero, four combinational
++# reads, three writes (the generator ORs two writes to one word, as
++# upstream does, which asserts it never happens), a clock gate per word
++# as upstream's rvdffe words have, every word reset to zero by rst_l.
++module dec_gpr_ctl_rf
++words 32
++bits 32
++clock clk
++async_reset rst_l low
++read raddr0 rdata0
++read raddr1 rdata1
++read raddr2 rdata2
++read raddr3 rdata3
++write waddr0 wdata0 wen0
++write waddr1 wdata1 wen1
++write waddr2 wdata2 wen2
++zero_word 0
++write_style mux
++cell icg ICGx1_ASAP7_75t_R
++cell flop DFFHQNx1_ASAP7_75t_R
++cell flop_r DFFASRHQNx1_ASAP7_75t_R
++cell tie_hi TIEHIx1_ASAP7_75t_R
++cell and2 AND2x2_ASAP7_75t_R
++cell or2 OR2x2_ASAP7_75t_R
++cell ao22 AO22x2_ASAP7_75t_R
++cell inv INVx1_ASAP7_75t_R
+-- 
+2.53.0
+

@@ -211,6 +211,10 @@ ORFS_PATCHES = [
     # into Regfile_rf, 8 reads and 6 ORed writes, async reset high, and
     # generated. Needs 0094 and 0102. Upstream as ORFS #4653 (draft).
     Label("//patches:0103-orfs-coralnpu-regfile.patch"),
+    # 0104: coralnpu-regfile and swerv_wrapper-regfile with write_style
+    # mux instead of a clock gate per word: what the gates cost and save.
+    # Not upstreamed.
+    Label("//patches:0104-orfs-regfile-mux-variants.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

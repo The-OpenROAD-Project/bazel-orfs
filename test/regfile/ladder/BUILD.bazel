@@ -1,3 +1,4 @@
+
 # The register-file ladder: ORFS asap7 designs with a register file,
 # smallest first, each against its -regfile variant (carried ORFS
 # patches) at global route. A row passes when the register file's
@@ -366,3 +367,20 @@ ladder_row(
     design = "coralnpu",
     top = "CoreMiniAxi",
 )
+
+# The clock gate per word against a mux per word (ORFS patch 0104), on
+# the two rungs where the register file cost power.
+ladder_row(
+    name = "coralnpu_mux",
+    design = "coralnpu",
+    regfile_design = "coralnpu-regfile-mux",
+    top = "CoreMiniAxi",
+)
+
+ladder_row(
+    name = "swerv_wrapper_mux",
+    design = "swerv_wrapper-yosys",
+    regfile_design = "swerv_wrapper-regfile-mux",
+    top = "swerv_wrapper",
+)
+
