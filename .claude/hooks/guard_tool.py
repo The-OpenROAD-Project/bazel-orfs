@@ -83,8 +83,12 @@ TMP_DIR = re.compile(r"^/tmp(/|$)")
 # `./tmp` and `/var/tmp` are someone else's directory), and also the three
 # ways a shell spells a path that only looks like it starts at the root --
 # `$(pwd)/tmp`, `${HOME}/tmp` and `~/tmp` are all local scratch, and denying
-# them sends the agent looking for a rule it has not broken.
-NOT_TMP = r"(?<![\w./)}~])"
+# them sends the agent looking for a rule it has not broken. Two more are
+# a pattern, not a path: `]/tmp` follows a bracket expression and `x|/tmp`
+# an alternation glued to the alternative before it, as in a purge's
+# `grep -E 'secret|/tmp/'`. A pipe into a /tmp program is spaced or starts
+# its own command, and stays denied.
+NOT_TMP = r"(?<![\w./)}~\]])(?<!\S\|)"
 TMP_IN_COMMAND = re.compile(NOT_TMP + r"/tmp(?:/|(?![\w/]))")
 # The whole /tmp path, so each one can be judged on its own merits.
 TMP_PATH_IN_COMMAND = re.compile(NOT_TMP + r"(/tmp(?:/[^\s;&|<>()\'\"]*)?)")
