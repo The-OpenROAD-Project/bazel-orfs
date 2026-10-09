@@ -58,7 +58,6 @@ XS_PARENT = {
         # the check's wire for every net sets the stage's peak memory
         "SKIP_ANTENNA_REPAIR": "1",
         "SKIP_EXTRACT_FA": "1",
-        "SKIP_INCREMENTAL_REPAIR": "1",
         "SKIP_LAST_GASP": "1",
         "SKIP_REPORT_METRICS": "1",
         "SYNTH_HIERARCHICAL": "1",
@@ -1285,6 +1284,14 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         name = name,
         arguments = arguments,
         macros = [":%s_generate_abstract" % b for b in macros],
+        # The parent repairs setup at global route, with the route's
+        # parasitics: 3,276 to 2,406 ps on #1187's tip (KPI row 15), its
+        # worst paths a mass of CtrlBlock control that the repairs before
+        # the route time with estimated wires. Hold stays with CTS's
+        # repair: this stage's hold repair took an earlier run of it to
+        # 120 GB, and -1000 ps turns it off here. The stage costs 84 min
+        # against 19 and peaks at 102 GB against 83.
+        stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
         pdk = "//flow:asap7",
         sources = sources,
         tags = tags,

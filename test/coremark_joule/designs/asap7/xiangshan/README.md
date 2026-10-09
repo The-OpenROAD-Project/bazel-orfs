@@ -31,6 +31,7 @@ Nothing here runs in CI. Every target is `tags = ["manual"]`.
 | 12 | 2026-10-06 | 3,162 | 3,162 | 2,170 | 1,870 | 1,572 | 1,479 | 895 |  | the generated register files read as the RTL does (#1181): the false 1,161 ps read path through FltRegionModule is gone; the parent's worst path is now its own CtrlBlock logic; VecRegionModule slower with its real read-address registers |
 | 13 | 2026-10-07 | 3,386 | 3,386 | 2,170 | 1,870 | 1,572 | 1,479 | 895 |  | in flight, to show where it stands: #1187 builds the register files with OpenROAD's generate_regfile through ORFS's AUTO_MEMORIES_REGFILES (OpenROAD#11669, OpenROAD-flow-scripts#4651) in place of bazel-orfs's structured_gen; the blocks unchanged, the parent 224 ps slower, its worst path CtrlBlock's own (rob/vtypeBuffer state to decodeBufBits ftqOffset), cause not diagnosed; measured at #1187's commit of that day, which has moved since |
 | 14 | 2026-10-08 | 3,276 | 3,276 | 1,792 | 1,870 | 1,572 | 1,278 | 951 |  | in flight, #1187 a day on: generate_regfile's AOI22/NAND2/NOR2 read tree makes the blocks with register files faster, Frontend 2,170 to 1,792 ps and VecRegionModule 1,479 to 1,278, FltRegionModule 895 to 951 (its worst path ends at the register file's write port); the parent 3,276 ps, 110 below run 13 and 114 above run 12, its worst paths a mass of CtrlBlock control: the same CtrlBlock built alone closes at 1,200 ps, so the parent's gap is its placement and repair; global route 18.7 min, 83 GB, 21.5 % |
+| 15 | 2026-10-09 | 2,406 | 2,406 | 1,792 | 1,870 | 1,572 | 1,278 | 951 |  | the parent repairs setup at global route with the route's parasitics (SKIP_INCREMENTAL_REPAIR dropped, hold repair off there): 3,276 to 2,406 ps on row 14's build, its worst path now CtrlBlock's flush redirect into Frontend; 1,525 VT swaps, 74 buffers; global route 84 min against 19, 102 GB against 83; the blocks unchanged |
 <!-- kpi-table end -->
 
 Periods are in picoseconds; `≥` marks a run that did not measure the
@@ -42,8 +43,9 @@ table. When a change moves the number, add a row and re-run it.
 The KPI is the design's minimum clock period, the red line: the largest
 of the parent's period and each block's, since the design is only as
 fast as its slowest part. On main it is **3,162 ps**, the parent's (run
-12); runs 13 and 14 are #1187, in flight and not on main, there to show
-where it stands. The parent is one of those parts, like any block, and each of
+12); runs 13 to 15 are #1187, in flight and not on main, there to show
+where it stands, run 15 with the parent's setup repair at global route
+that the flow now runs. The parent is one of those parts, like any block, and each of
 them is drawn dashed beneath the red line, a period that has to be at or
 below it.
 
