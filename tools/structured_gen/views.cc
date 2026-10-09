@@ -122,7 +122,7 @@ void WriteLiberty(odb::dbBlock* block, const Spec& spec, const LibModel& m,
     << "    technology (cmos);\n"
     << "    delay_model : table_lookup;\n"
     << "    revision : 1.0;\n"
-    << "    comment : \"structured_gen model"
+    << "    comment : \"generate_regfile model"
     << (pre_layout ? ", pre-layout" : "")
     << ": loads from fanout, arcs from gate depth; replaced by the routed "
        "block's abstract for a measured run\";\n"
@@ -322,16 +322,22 @@ std::vector<RtlPort> ReadModulePorts(const std::string& verilog,
   std::string header = text.substr(start, end - start);
   // Strip comments.
   header = std::regex_replace(header, std::regex("//[^\n]*"), "");
+  header = std::regex_replace(header, std::regex("/\\*[\\s\\S]*?\\*/"), "");
+  // ANSI ports, one entry per comma: `input [4:0] a, b` declares two, the
+  // second inheriting the first's direction and width, whether it is on
+  // the same line or the next.
   std::vector<RtlPort> ports;
-  std::regex decl("^\\s*(input|output|inout)?\\s*(\\[\\s*(\\d+)\\s*:\\s*(\\d+)\\s*\\])?\\s*"
-                  "([A-Za-z_][A-Za-z_0-9$]*)\\s*,?\\s*$");
+  std::regex decl(
+      "^\\s*(input|output|inout)?\\s*(?:wire|reg|logic)?\\s*"
+      "(\\[\\s*(\\d+)\\s*:\\s*(\\d+)\\s*\\])?\\s*"
+      "([A-Za-z_][A-Za-z_0-9$]*)\\s*$");
   bool input = true;
   int width = 1;
-  std::istringstream lines(header);
-  std::string line;
-  while (std::getline(lines, line)) {
+  std::istringstream entries(header);
+  std::string entry;
+  while (std::getline(entries, entry, ',')) {
     std::smatch m;
-    if (!std::regex_match(line, m, decl)) {
+    if (!std::regex_match(entry, m, decl)) {
       continue;
     }
     if (m[1].matched) {
