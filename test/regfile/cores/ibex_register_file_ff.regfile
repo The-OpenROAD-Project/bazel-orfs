@@ -1,0 +1,26 @@
+# ibex's register file (src/ibex_sv/ibex_register_file_ff.sv) as
+# generate_regfile builds it, for simulation against that RTL: 32 x 32
+# with x0 reading zero, two combinational reads, one write through a
+# clock gate per word, every word reset to zero asynchronously by
+# rst_ni. With ibex's default
+# parameters (RV32E 0, DummyInstructions 0) test_en_i and
+# dummy_instr_id_i are inputs the array does not use.
+module ibex_register_file_ff
+words 32
+bits 32
+clock clk_i
+async_reset rst_ni low
+unused test_en_i dummy_instr_id_i
+read raddr_a_i rdata_a_o
+read raddr_b_i rdata_b_o
+write waddr_a_i wdata_a_i we_a_i
+zero_word 0
+write_style clock_gate
+cell icg ICGx1_ASAP7_75t_R
+cell flop DFFHQNx1_ASAP7_75t_R
+cell flop_r DFFASRHQNx1_ASAP7_75t_R
+cell tie_hi TIEHIx1_ASAP7_75t_R
+cell and2 AND2x2_ASAP7_75t_R
+cell or2 OR2x2_ASAP7_75t_R
+cell ao22 AO22x2_ASAP7_75t_R
+cell inv INVx1_ASAP7_75t_R

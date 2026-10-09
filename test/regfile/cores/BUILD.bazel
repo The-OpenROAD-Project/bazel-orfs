@@ -1,0 +1,76 @@
+# generate_regfile's spec keys a small fixture does not reach, each
+# simulated against the RTL it replaces (sim.bzl), every read compared
+# under random reads, writes and resets. Seconds each.
+#
+# - ibex's register file: `async_reset` (every word reset to zero), the
+#   port check reading a SystemVerilog header with a parameter list, and
+#   `unused` inputs; with a negative control, the reset dropped.
+# - rf_wp: `write_priority last`, two writes to one word in one cycle,
+#   the later port winning; with a negative control whose RTL lets the
+#   earlier port win.
+load("@rules_python//python:defs.bzl", "py_binary")
+load("//tools/lib_to_verilog:lib_to_verilog.bzl", "stdcell_verilog")
+load(":sim.bzl", "regfile_sim_test")
+
+package(default_visibility = ["//visibility:private"])
+
+py_binary(
+    name = "gen_tb",
+    srcs = ["gen_tb.py"],
+    main = "gen_tb.py",
+)
+
+stdcell_verilog(
+    name = "asap7_stdcell",
+    lefs = ["@orfs//flow:platforms/asap7/lef/asap7sc7p5t_28_R_1x_220121a.lef"],
+    libs = [
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_TT_nldm_211120.lib.gz",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_TT_nldm_220122.lib.gz",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_TT_nldm_211120.lib.gz",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_TT_nldm_220123.lib",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_TT_nldm_211120.lib.gz",
+    ],
+)
+
+regfile_sim_test(
+    name = "ibex_sim_test",
+    module = "ibex_register_file_ff",
+    rtl = ["@orfs//flow/designs/src/ibex_sv:ibex_register_file_ff.sv"],
+    rtl_module = "ibex_register_file_ff",
+    spec = ":ibex_register_file_ff.regfile",
+)
+
+# The negative control: ibex's spec with the reset dropped (`reset`, a
+# port the array ignores, for `async_reset`). The harness must see it.
+genrule(
+    name = "ibex_no_reset_regfile",
+    srcs = [":ibex_register_file_ff.regfile"],
+    outs = ["ibex_no_reset.regfile"],
+    cmd = "sed 's/^async_reset rst_ni low$$/reset rst_ni/' $< > $@ && grep -q '^reset rst_ni$$' $@",
+)
+
+regfile_sim_test(
+    name = "ibex_no_reset_sim_test",
+    expect_mismatch = True,
+    module = "ibex_register_file_ff",
+    rtl = ["@orfs//flow/designs/src/ibex_sv:ibex_register_file_ff.sv"],
+    rtl_module = "ibex_register_file_ff",
+    spec = ":ibex_no_reset.regfile",
+)
+
+regfile_sim_test(
+    name = "write_last_sim_test",
+    module = "rf_wp",
+    rtl = [":write_last.v"],
+    rtl_module = "rf_wp",
+    spec = ":rf_wp.regfile",
+)
+
+regfile_sim_test(
+    name = "write_first_sim_test",
+    expect_mismatch = True,
+    module = "rf_wp",
+    rtl = [":write_first.v"],
+    rtl_module = "rf_wp",
+    spec = ":rf_wp.regfile",
+)
