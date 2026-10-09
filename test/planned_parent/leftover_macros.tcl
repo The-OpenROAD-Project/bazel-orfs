@@ -2,19 +2,16 @@
 # the plan does not name with its placement status and box, every placed
 # netlist's box, how many of its cells are not FIRM and how many of those are
 # core cells, and whether any such macro overlaps a netlist. The core is
-# what the generator placed, the cells its .place file names (patch 0084's
-# rule); the rest of the netlist is its periphery, the parent's, which the
-# macro step may give a location. The box is the FIRM cells, the array the
+# what the generator placed, the cells its .place file names; the rest of
+# the netlist is its periphery, the parent's, left for global placement. The box is the FIRM cells, the array the
 # plan placed. Declared beside the flow it probes.
 source $::env(SCRIPTS_DIR)/load.tcl
 load_design 2_floorplan.odb 2_floorplan.sdc
 set block [ord::get_db_block]
 # the core: every cell a netlist's .place file names, under its instance
+# (NETLISTS: the plan's <module> <instance> pairs)
 set core [dict create]
-set pf [open $::env(STRUCTURED_PLACEMENT) r]
-while { [gets $pf line] >= 0 } {
-  if { [string match "#*" $line] || [llength $line] < 2 } { continue }
-  lassign $line module path
+foreach {module path} $::env(NETLISTS) {
   set place "$::env(RESULTS_DIR)/memories/$module.place"
   if { ![file exists $place] } { error "leftover_macros.tcl: no $place for $path" }
   set f [open $place r]
@@ -23,7 +20,6 @@ while { [gets $pf line] >= 0 } {
   }
   close $f
 }
-close $pf
 set macros {}
 array set box {}
 array set loose {}

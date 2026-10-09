@@ -52,6 +52,8 @@ _EXPORTED_EXTS = [
     "gds.gz",
     # SYNTH_VERILOG_SURGERY scripts, staged from a design's config.mk
     "py",
+    # AUTO_MEMORIES_REGFILES specs, for tests that build one on its own
+    "regfile",
 ]
 
 _EXPORTS_SENTINEL = "_orfs_design_exports_sentinel"

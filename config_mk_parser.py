@@ -61,13 +61,13 @@ SOURCE_VARS = {
     # canonicalization, so they have to be staged like any other source
     # rather than passed as a string.
     "ADDITIONAL_MEMORIES",
-    # STRUCTURED_MEMORIES: register-file spec files gen_memories.py hands
-    # to tools/structured_gen during canonicalization; staged like the
-    # .memories files above.
-    "STRUCTURED_MEMORIES",
     # SYNTH_VERILOG_SURGERY: the script that edits copies of the sources
     # before synthesis; run during canonicalization, so staged.
     "SYNTH_VERILOG_SURGERY",
+    # AUTO_MEMORIES_REGFILES: register-file spec files gen_memories.py
+    # hands to OpenROAD's generate_regfile during canonicalization;
+    # staged like the .memories files above.
+    "AUTO_MEMORIES_REGFILES",
 }
 
 # Variables that are purely for path resolution, not passed to orfs_flow()

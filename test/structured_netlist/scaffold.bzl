@@ -11,7 +11,8 @@ def _r(x):
     return int(x * 1000 + 0.5) / 1000.0
 
 def array_scaffold(name, spec, width_um, height_um):
-    """The scaffold flow for one spec: <name>_scaffold_<stage>, to global route.
+    """The scaffold flow for one spec: <name>_scaffold_<stage>, to CTS: a smoke test that
+    the array dissolves and CTS seats its buffers; nothing reads a route.
 
     Args:
       name: the module the spec names (RenameBufferFile, ...).
@@ -25,8 +26,8 @@ def array_scaffold(name, spec, width_um, height_um):
     native.genrule(
         name = top + "_rtl",
         srcs = [spec],
-        outs = [top + ".sv", top + "_placement.txt"],
-        cmd = "$(execpath :scaffold_gen) --spec $(location {}) --sv $(location {}.sv) --placement $(location {}_placement.txt) --corner '{} {}'".format(
+        outs = [top + ".sv", top + "_macro_placement.tcl"],
+        cmd = "$(execpath :scaffold_gen) --spec $(location {}) --sv $(location {}.sv) --macro-placement $(location {}_macro_placement.tcl) --corner '{} {}'".format(
             spec,
             top,
             top,
@@ -43,15 +44,16 @@ def array_scaffold(name, spec, width_um, height_um):
             "AUTO_MEMORIES": "1",
             "CORE_AREA": "{} {} {} {}".format(CORE_UM, CORE_UM, _r(die_w - CORE_UM), _r(die_h - CORE_UM)),
             "DIE_AREA": "0 0 {} {}".format(_r(die_w), _r(die_h)),
+            "AUTO_MEMORIES_MACRO_PLACE": name,
             "PLACE_DENSITY": "0.5",
             "SYNTH_HDL_FRONTEND": "slang",
         },
-        last_stage = "grt",
+        last_stage = "cts",
         pdk = "//flow:asap7",
         sources = {
             "SDC_FILE": [":constraints.sdc"],
-            "STRUCTURED_MEMORIES": [spec],
-            "STRUCTURED_PLACEMENT": [":" + top + "_placement.txt"],
+            "AUTO_MEMORIES_REGFILES": [spec],
+            "MACRO_PLACEMENT_TCL": [":" + top + "_macro_placement.tcl"],
         },
         verilog_files = [":" + top + ".sv"],
     )

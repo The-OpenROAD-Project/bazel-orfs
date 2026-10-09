@@ -1,0 +1,84 @@
+# What generate_regfile builds computes what the RTL it replaces does:
+# riscv32i's register file as generate_regfile writes it, simulated beside
+# src/riscv32i/regfile.v under random reads and writes, every read
+# compared. One netlist per write style: a hold mux per bit, and a clock
+# gate per word.
+load("@rules_cc//cc:defs.bzl", "cc_test")
+load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
+load("@rules_verilog//verilog:defs.bzl", "verilog_library")
+load("//tools/lib_to_verilog:lib_to_verilog.bzl", "stdcell_verilog")
+
+package(default_visibility = ["//visibility:private"])
+
+stdcell_verilog(
+    name = "asap7_stdcell",
+    lefs = ["@orfs//flow:platforms/asap7/lef/asap7sc7p5t_28_R_1x_220121a.lef"],
+    libs = [
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_TT_nldm_211120.lib.gz",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_TT_nldm_220122.lib.gz",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_TT_nldm_211120.lib.gz",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_TT_nldm_220123.lib",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_TT_nldm_211120.lib.gz",
+    ],
+)
+
+[
+    [
+        genrule(
+            name = "regfile_%s_v" % style,
+            srcs = [
+                ":regfile.regfile",
+                "@orfs//flow/designs/src/riscv32i:regfile.v",
+                "@orfs//flow:platforms/asap7/lef/asap7_tech_1x_201209.lef",
+                "@orfs//flow:platforms/asap7/lef/asap7sc7p5t_28_R_1x_220121a.lef",
+            ],
+            outs = ["regfile_%s.v" % style],
+            cmd = """
+grep -v '^write_style' $(location :regfile.regfile) > $(@D)/regfile_{style}.regfile
+{extra}
+cat > $(@D)/regfile_{style}.tcl <<TCL
+read_lef $(location @orfs//flow:platforms/asap7/lef/asap7_tech_1x_201209.lef)
+read_lef $(location @orfs//flow:platforms/asap7/lef/asap7sc7p5t_28_R_1x_220121a.lef)
+generate_regfile -spec $(@D)/regfile_{style}.regfile -check_ports $(location @orfs//flow/designs/src/riscv32i:regfile.v) -verilog $(@D)/regfile_{style}.gen.v
+TCL
+$(location @openroad//:openroad) -exit -no_init -no_splash $(@D)/regfile_{style}.tcl > $(@D)/regfile_{style}.log 2>&1 || {{ cat $(@D)/regfile_{style}.log; exit 1; }}
+sed 's/^module regfile(/module regfile_gen(/' $(@D)/regfile_{style}.gen.v > $@
+""".format(
+                extra = "echo 'write_style clock_gate' >> $(@D)/regfile_%s.regfile" % style if style == "clock_gate" else "",
+                style = style,
+            ),
+            tools = ["@openroad"],
+        ),
+        verilog_library(
+            name = "tb_%s_rtl" % style,
+            srcs = [
+                "tb_top.v",
+                ":regfile_%s.v" % style,
+                ":asap7_stdcell.v",
+                ":asap7_stdcell_empty.v",
+                "@orfs//flow/designs/src/riscv32i:regfile.v",
+            ],
+        ),
+        verilator_cc_library(
+            name = "tb_%s" % style,
+            module = ":tb_%s_rtl" % style,
+            module_top = "tb_top",
+            trace_mode = "none",
+            vopts = [
+                "-Wno-fatal",
+                "--x-initial",
+                "0",
+            ],
+        ),
+        cc_test(
+            name = "regfile_%s_sim_test" % style,
+            size = "small",
+            srcs = ["tb_main.cc"],
+            deps = [":tb_%s" % style],
+        ),
+    ]
+    for style in [
+        "mux",
+        "clock_gate",
+    ]
+]

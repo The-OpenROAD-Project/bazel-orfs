@@ -184,6 +184,29 @@ def keep_modules(arguments):
     """
     return [m for m in arguments.get("SYNTH_KEEP_MODULES", "").split(" ") if m]
 
+# Variables bazel-orfs once carried and has retired, with what replaced
+# them. ORFS ignores a variable it does not know, so a flow still setting
+# one would build without the register files it asks for.
+RETIRED_ARGUMENTS = {
+    "STRUCTURED_MEMORIES": "AUTO_MEMORIES_REGFILES lists the register-file " +
+                           "specs, built by OpenROAD's generate_regfile",
+    "STRUCTURED_PLACEMENT": "AUTO_MEMORIES_MACRO_PLACE lists the register " +
+                            "files placed as macros, which dissolve into " +
+                            "their cells after macro placement; place them " +
+                            "with MACRO_PLACEMENT_TCL",
+}
+
+def refuse_retired_arguments(label, arguments):
+    """Fails on a retired variable, naming its replacement.
+
+    Args:
+      label: the target, for the message.
+      arguments: the stage's merged arguments.
+    """
+    for key, instead in RETIRED_ARGUMENTS.items():
+        if key in arguments:
+            fail("{} is retired: {}. In {}".format(key, instead, label))
+
 def check_variables(variables, label):
     """Checks that all variable names are known in ORFS variables.yaml.
 
@@ -191,6 +214,9 @@ def check_variables(variables, label):
         variables: iterable of variable names to check.
         label: description of where the variables came from (for error messages).
     """
+    for v in variables:
+        if v in RETIRED_ARGUMENTS:
+            refuse_retired_arguments(label, {v: ""})
     unknown = sorted([v for v in variables if v not in ALL_VARIABLE_TO_STAGES])
     if unknown:
         fail(

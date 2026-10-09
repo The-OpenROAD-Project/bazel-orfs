@@ -36,7 +36,6 @@ class PlanDriftTest(unittest.TestCase):
             "BlockC_pins.tcl",
             "BlockD_pins.tcl",
             "place_macros.tcl",
-            "netlists.txt",
             "plan.bzl",
         ]:
             with open(os.path.join(out, f)) as a, open(

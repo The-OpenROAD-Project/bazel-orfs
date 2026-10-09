@@ -1,0 +1,39 @@
+From 468db41104e2f838915d7bf7e31ade5bc720623b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Wed, 7 Oct 2026 21:18:30 +0200
+Subject: [PATCH] AUTO_MEMORIES_REGFILES: inline a register file in place of a
+ parameterized module
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+An inlined register file's generated netlist has no parameters; a
+parameterized RTL module (ibex_register_file_ff #(RV32E, DataWidth,
+DummyInstructions)) is instantiated with them, and hierarchy refused:
+"does not have a parameter named ...". The netlist is the module at
+the widths generate_regfile's port check confirmed, so the parameters
+are dropped from its instances before it is read.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+diff --git a/flow/scripts/synth_preamble.tcl b/flow/scripts/synth_preamble.tcl
+index e650c1cde2..8efef2d4e1 100644
+--- a/flow/scripts/synth_preamble.tcl
++++ b/flow/scripts/synth_preamble.tcl
+@@ -100,6 +100,15 @@ proc auto_memories_inline { } {
+ 
+ proc read_auto_memories_inline { } {
+   foreach m [auto_memories_inline] {
++    # A parameterized RTL module (ibex_register_file_ff #(...)) is
++    # instantiated with parameters the generated netlist has no
++    # declaration for, which hierarchy refuses. The netlist is that module
++    # at the instance's widths, as generate_regfile's port check has
++    # confirmed: drop the parameters from its instances.
++    set dump [tee -q -s result.string dump t:$m]
++    foreach {- name} [regexp -all -inline -- {parameter \\(\S+)} $dump] {
++      setparam -unset $name t:$m
++    }
+     read_verilog -overwrite "$::env(RESULTS_DIR)/memories/$m.v"
+   }
+ }
