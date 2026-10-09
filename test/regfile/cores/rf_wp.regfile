@@ -1,0 +1,16 @@
+# Two write ports that collide, the later one winning: 8 x 8, one
+# combinational read, both writes through a mux per bit.
+module rf_wp
+words 8
+bits 8
+clock clk
+read ra rd
+write wa0 wd0 we0
+write wa1 wd1 we1
+write_priority last
+cell icg ICGx1_ASAP7_75t_R
+cell flop DFFHQNx1_ASAP7_75t_R
+cell and2 AND2x2_ASAP7_75t_R
+cell or2 OR2x2_ASAP7_75t_R
+cell ao22 AO22x2_ASAP7_75t_R
+cell inv INVx1_ASAP7_75t_R
