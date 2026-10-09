@@ -61,7 +61,11 @@ def repair_progress(path):
                 t = float(m.group(1))
                 line = line[m.end() :]
             f_ = [x.strip() for x in line.split("|")]
-            if len(f_) < 11 or not (f_[0].isdigit() or f_[0] == "final"):
+            # The iteration carries repair_timing's phase marker: `10*` in
+            # the main phases, `1500+` in last gasp; the counter restarts per
+            # phase, so log order, not the number, is the time axis.
+            it = re.fullmatch(r"(\d+)([*+]?)|final", f_[0]) if len(f_) >= 11 else None
+            if not it:
                 continue
             try:
                 moves = sum(int(x) for x in f_[1:6])
@@ -69,6 +73,11 @@ def repair_progress(path):
                     {
                         "seconds": t,
                         "iter": f_[0],
+                        "phase": (
+                            "final"
+                            if f_[0] == "final"
+                            else ("last_gasp" if it.group(2) == "+" else "main")
+                        ),
                         "moves": moves,
                         "wns": float(f_[7]),
                         "tns": float(f_[-3]),
