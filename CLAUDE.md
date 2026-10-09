@@ -205,8 +205,10 @@ do not act on them.
 When the human orders one, the `upstream-pr` skill turns the carried
 patches into the pull request: one commit per concern, written for the
 upstream reader, linted at upstream's versions, a draft that is
-force-pushed only until it is ready for review, and every review-bot
-comment verified, answered and resolved.
+force-pushed only until it is ready for review, every review-bot
+comment verified, answered and resolved, and the carried patch left as
+it is while the pull request settles, unless something here is urgently
+broken.
 
 Within this repo, the Git policy above and the Confidentiality purge
 still govern every push and PR. Use `gh api` writes here only for an

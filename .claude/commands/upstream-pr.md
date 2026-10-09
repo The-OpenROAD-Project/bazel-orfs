@@ -44,3 +44,9 @@ A review bot's comments (Gemini Code Assist, for one) are claims to verify, not 
 - reply on the thread, "Taken: <what changed>" or "Not taken: <why>", and resolve it.
 
 Every thread answered and resolved, so the human reviewer sees none open that nobody looked at.
+
+## 6. The carried patch stays put while the pull request settles
+
+Review changes the pull request: a bot's nit, a maintainer's question, a rename. Do not mirror each round into the carried patch. An edit to a file in `patches/` changes the key of every stage that takes the patched tree, so it costs every consumer a rebuild (`cache-miss`), and the patch retires anyway at the `//:bump` onto the merged pull request, which brings whatever review settled on. Until that bump, the patch keeps what it carried and its header points at the pull request.
+
+Update it before then only for an urgent need: the carried version breaks a build here or gives a wrong result, and waiting for the merge costs more than the churn. That update is a fix in its own right, with the reason in the patch header, not a sync with the review.
