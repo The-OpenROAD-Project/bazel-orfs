@@ -57,16 +57,6 @@ ORFS_BAZEL_PLATFORMS = [
 # 0056-0058 (WIRE_LOAD_TCL) as #4619, a declarative WIRE_LOAD_MODEL.
 ORFS_PATCHES = [
     Label("//patches:0039-orfs-slang-plugin-fallback.patch"),
-    # AUTO_MEMORIES converted a memory inferred inside a larger module,
-    # generating a macro that nothing could instantiate -- blackboxing
-    # needs a module of that name and there is none -- while
-    # memories.json reported the conversion as done. The design
-    # synthesized to flip-flops and the inventory disagreed with the
-    # netlist, which is a silent wrong answer rather than a failure.
-    # Conversion is now gated on the memory being its own module, and
-    # the reason says how to get one.
-    # Not upstreamed -- retire at a bump onto an ORFS that carries it.
-    Label("//patches:0066-orfs-auto-memories-module-only.patch"),
     # The ASAP7 FakeRAM backend hardcodes column_mux_factor 1, so a
     # generated array is `rows` cells tall with nothing folding it: an
     # 8192x32 memory comes out 4.18 x 2654 um, an aspect ratio of 635:1
@@ -96,7 +86,6 @@ ORFS_PATCHES = [
     # Reg(Vec) and no detector sees them. Not upstreamed -- retire at a
     # bump onto an ORFS that can declare a generated macro per module.
     Label("//patches:0071-orfs-structured-memories.patch"),
-    Label("//patches:0072-orfs-auto-memories-firtool-modules.patch"),
     Label("//patches:0073-orfs-fakeram-declared-pins-write-mask.patch"),
     Label("//patches:0074-orfs-skip-extract-fa.patch"),
     # With GPL_TIMING_DRIVEN and GPL_ROUTABILITY_DRIVEN both off, the place
@@ -108,13 +97,6 @@ ORFS_PATCHES = [
     # placed FIRM into the parent at floorplan (STRUCTURED_PLACEMENT) instead
     # of a macro. Carried, not upstreamed. See ideas/structured-macros.md.
     Label("//patches:0078-orfs-structured-netlists.patch"),
-    # 0079: extract_memories.tcl runs the memory passes on the modules that
-    # hold memory cells only, memory_bmux2rom excepted. yosys's memory_dff
-    # builds its per-bit index for every module before asking whether it
-    # has a memory: 721 s unscoped against 64 s scoped on the flat XSCore,
-    # the same 407 memories. Upstream as ORFS #4622; retires at the bump
-    # onto an ORFS that carries it.
-    Label("//patches:0079-orfs-extract-memories-scoped.patch"),
     # 0081: the memory detector names a slang-uniquified module
     # (`array_512x17$Frontend...`) for its definition and collapses the
     # copies: read_slang blackboxes by definition name, so the uniquified
