@@ -1,0 +1,37 @@
+# SYNTH_VERILOG_SURGERY: synthesis reads copies of VERILOG_FILES that a
+# script edited, not the files themselves (ORFS patch 0094). The fixture's
+# script inverts an assignment the vendored RTL leaves plain, so the
+# netlist shows which of the two synthesis read.
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//:openroad.bzl", "orfs_synth")
+
+package(default_visibility = ["//visibility:private"])
+
+orfs_synth(
+    name = "vendored_top_synth",
+    arguments = {
+        "SDC_FILE": "$(location :constraints.sdc)",
+        "SYNTH_VERILOG_SURGERY": "$(location :surgery.py)",
+        "SYNTH_VERILOG_SURGERY_ARGS": "--invert y",
+    },
+    data = [
+        ":constraints.sdc",
+        ":surgery.py",
+    ],
+    module_top = "vendored_top",
+    verilog_files = ["vendored_top.v"],
+)
+
+filegroup(
+    name = "vendored_top_netlist",
+    srcs = [":vendored_top_synth"],
+    output_group = "1_2_yosys.v",
+)
+
+sh_test(
+    name = "netlist_test",
+    size = "small",
+    srcs = ["netlist_test.sh"],
+    args = ["$(location :vendored_top_netlist)"],
+    data = [":vendored_top_netlist"],
+)
