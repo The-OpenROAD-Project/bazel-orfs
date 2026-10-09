@@ -236,6 +236,95 @@ Budget the memory before launching, give the daemon a long
 one session. Geometry questions want `GUI_TIMING=0` instead and load in
 seconds.
 
+### Outliers or a mass: the histogram and the false-path peel
+
+One worst path says nothing about how many paths stand behind it. Before
+choosing a fix, ask whether the period is set by a few outliers (one
+startpoint, one broadcast, one bad placement: fix that) or by a mass of
+paths within a few percent of each other (a placement density, a repair
+budget, a floorplan: fix the flow setting). Two questions in one session
+answer it.
+
+**The histogram.** Every failing reg2reg endpoint's required period,
+`period - slack`, binned. A tail of a handful of endpoints far right of
+the bulk is outliers; a wall of thousands in the top bins is a mass.
+Group the top 10 % by owning module and count their distinct
+startpoints.
+
+The histogram alone over-reads outliers. With `-endpoint_path_count 1`
+each endpoint is credited to its worst startpoint only, so a broadcast
+flop that is worst at 700 endpoints hides the flops a few picoseconds
+behind it at the same endpoints. Read it as "where the wall is", and let
+the peel say how many problems stand in front of it.
+
+```bash
+python3 tools/odb_debug/odbdebug.py tmp/odb-debug --tcl \
+  'set p [get_property [get_clocks] period]
+   set out {}
+   foreach t [find_timing_paths -path_group reg2reg -sort_by_slack \
+                -group_path_count 100000 -endpoint_path_count 1] {
+     lappend out [format "%.0f %s %s" [expr {$p - [get_property $t slack]}] \
+       [get_full_name [get_property $t startpoint]] \
+       [get_full_name [get_property $t endpoint]]]
+   }
+   set f [open tmp/endpoints.txt w]; puts $f [join $out \n]; close $f'
+```
+
+**The peel.** Record the worst path, then `set_false_path -from` its
+startpoint, and repeat. The period's trajectory over 20 to 40 peels is
+the answer: a drop of more than a few percent in the first peels means
+outliers, and the peeled startpoints are the list to fix; a slow,
+steady decline, a few picoseconds a register from ever-new startpoints,
+means a mass, and no single path is worth chasing.
+
+```bash
+python3 tools/odb_debug/odbdebug.py tmp/odb-debug --tcl \
+  'set p [get_property [get_clocks] period]
+   for {set i 0} {$i < 40} {incr i} {
+     set w [lindex [find_timing_paths -path_group reg2reg -sort_by_slack -group_path_count 1] 0]
+     set sp [get_property $w startpoint]
+     puts [format "%2d %6.0f %s -> %s" $i [expr {$p - [get_property $w slack]}] \
+       [get_full_name $sp] [get_full_name [get_property $w endpoint]]]
+     set_false_path -from [get_cells -of_objects $sp]
+   }'
+```
+
+The false paths are a measurement inside a session that is thrown away,
+never a constraint: nothing here is written to an SDC or an ODB
+(`dogfooding`, rule 1). Peel startpoints, not endpoints: a broadcast
+shows as one startpoint whose removal clears hundreds of endpoints.
+
+**Peel the whole register or latch.** `set_false_path -from [get_cells -of_objects $sp]`:
+name the instance and OpenSTA finds its start points: at every start
+point it looks up the start pin's instance, so a latch's paths from its
+enable and those passing through it while transparent go together.
+Naming a pin of it instead draws `STA-1550 ... is not a valid start point.`, the
+exception matches nothing, and the peel repeats the same path for all
+its rounds; a peel whose first rounds repeat one startpoint is broken,
+not a mass.
+
+Not to be confused with peeling a block's boundary flops into its parent
+(`tools/macro_select/probe_peel.tcl`, ideas entry 41), which moves logic;
+this peel moves nothing.
+
+**What it costs.** It is a timing session at the stage that is measured,
+so the memory of section 5 applies: on XSTile at global route the load
+alone is about 52 GB, and a session capped at 50 GB was killed by its
+cap. Run it alone, never next to a build of the same design.
+
+**Worked example: XSTile's parent at global route** (3.7 M instances,
+reg2reg 3,276 ps). The histogram over the worst 100 000 endpoints
+(239 s) showed 702 endpoints within 10 % of the worst, every one from
+`rob/vtypeBuffer/state[0]`, then 8 endpoints between 2,600 and 3,000 ps
+and the bulk below 2,500 ps: one outlier, by the histogram. The peel
+said otherwise: 3,276, 3,233, 3,176, 3,130 ... 2,933 ps after 40
+registers, about 9 ps a register with no step, 25 of the 40 from one
+family (`dispatch/uopSelIQ_*`), all of them CtrlBlock control. A mass,
+so no point fix: the same CtrlBlock built alone at the blocks' density
+closed at 1,200 ps, and the work went to placement and repair, not to
+any one path. The first try of the peel named a pin instead of the
+register and stayed at 3,276 ps, on one startpoint, for 40 rounds.
+
 ## 6. Rules
 
 - Never read a large ODB, log or geometry dump into context; ask the

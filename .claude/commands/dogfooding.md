@@ -8,7 +8,7 @@ ARGUMENTS: $ARGUMENTS
 
 When a timing or flow problem comes from the tools, fix the tools. Never:
 
-- write an SDC exception (`set_multicycle_path`, `set_false_path`) to hide it: an exception is a claim about the design's behaviour that nothing checks, and a wrong one fails in silicon while the flow reports clean;
+- write an SDC exception (`set_multicycle_path`, `set_false_path`) to hide it: an exception is a claim about the design's behaviour that nothing checks, and a wrong one fails in silicon while the flow reports clean (a `set_false_path` peel inside a thrown-away timing session is a measurement, not an exception: `odb-debug`, "Outliers or a mass");
 - change the RTL to add a register or a cycle of latency: that is a behaviour change the designers did not specify and verification did not cover.
 
 What is allowed: a fix in OpenROAD, yosys or ORFS (carried here as a patch until upstream takes it); a flow hard stop (rule 2); an equivalence-preserving mapping, such as a behavioural clock-gate module mapped onto the platform's ICG cell. Upstream RTL patches are for functional bugs only.
