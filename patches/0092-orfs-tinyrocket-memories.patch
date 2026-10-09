@@ -1,0 +1,359 @@
+From 6f108b32bcad5b1a2f4438d1ab5586428325b85e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Wed, 7 Oct 2026 13:37:31 +0200
+Subject: [PATCH] asap7/tinyRocket: behavioral models of the memories the
+ generator leaves out
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The Rocket Chip generator leaves its cache memories as black boxes
+(data_arrays_0_ext, data_arrays_0_0_ext, tag_array_ext), and the generic
+tinyRocket sources define none of them. nangate45 maps them onto
+hand-made fakeram macros; asap7 had nothing, so AUTO_MEMORIES, which
+detects a memory by the $mem_v2 yosys infers, found only tag_array
+through its .memories override. The two data arrays went undetected and
+canonicalization stopped: "Module data_arrays_0_ext referenced in module
+data_arrays_0 is not part of the design". Under slang the memory
+extraction stopped earlier, on the same unknown modules.
+
+memories.v defines the three with firtool's read-write port convention,
+so AUTO_MEMORIES detects each one and generates its macro views.
+tag_array.memories goes: with a behavioral tag_array_ext, the gate's own
+choice for a 4 x 25 array (flip-flops) stands. The docs' override
+example no longer names it, and schema_test's tag_array case, whose
+fixture it was, goes with it; test_merge_new_entry_taken_whole still
+covers an override taken whole.
+
+Not upstreamed. Retires at a //:bump onto an ORFS that carries it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ docs/user/AutoMemories.md                     | 10 +--
+ flow/designs/asap7/tinyRocket/README.md       | 43 ++++++++++++
+ flow/designs/asap7/tinyRocket/config.mk       | 18 ++---
+ flow/designs/asap7/tinyRocket/memories.v      | 67 +++++++++++++++++++
+ .../asap7/tinyRocket/tag_array.memories       | 61 -----------------
+ flow/scripts/memories/schema_test.py          | 42 ------------
+ 6 files changed, 120 insertions(+), 121 deletions(-)
+ create mode 100644 flow/designs/asap7/tinyRocket/README.md
+ create mode 100644 flow/designs/asap7/tinyRocket/memories.v
+ delete mode 100644 flow/designs/asap7/tinyRocket/tag_array.memories
+
+diff --git a/docs/user/AutoMemories.md b/docs/user/AutoMemories.md
+index 8bc25c1d7..c659d491f 100644
+--- a/docs/user/AutoMemories.md
++++ b/docs/user/AutoMemories.md
+@@ -81,9 +81,9 @@ To overrule the gate, list a `.memories` file in `ADDITIONAL_MEMORIES`:
+   "version": 1,
+   "memories": [
+     {
+-      "name": "tag_array",
++      "name": "small_array",
+       "idiomatic": true,
+-      "reason": "forced: the RTL provides no behavioral fallback"
++      "reason": "forced: a macro despite the floors"
+     }
+   ]
+ }
+@@ -92,11 +92,7 @@ To overrule the gate, list a `.memories` file in `ADDITIONAL_MEMORIES`:
+ Entries merge by name onto the detected set: fields the override
+ carries win, everything else (geometry, pins) is kept from detection. A
+ `.memories` entry naming a module the scanner never found is taken
+-whole — it must then describe its pins itself. The
+-`designs/asap7/tinyRocket` design demonstrates the forced-conversion
+-case: its `tag_array` wrapper is 4 entries deep (rejected by the gate)
+-but instantiates a module the sources never define, so flops are not an
+-option and the design forces conversion.
++whole — it must then describe its pins itself.
+ 
+ ## Generated views
+ 
+diff --git a/flow/designs/asap7/tinyRocket/README.md b/flow/designs/asap7/tinyRocket/README.md
+new file mode 100644
+index 000000000..e6d2971a4
+--- /dev/null
++++ b/flow/designs/asap7/tinyRocket/README.md
+@@ -0,0 +1,43 @@
++tinyRocket on asap7
++-------------------
++
++Rocket Chip's `TinyConfig` tile (`RocketTile`): a 32-bit Rocket core
++with its instruction and data caches. It is the one ORFS design that
++takes `AUTO_MEMORIES` end to end, and the quickest way to see what it
++does with a real core: synthesis to global route in minutes.
++
++What makes it unique among the designs:
++
++- **Its memories are found, not hand-mapped.** The Rocket Chip generator
++  leaves the cache arrays as black boxes (`*_ext`); `memories.v` gives
++  them behavioral models in firtool's read-write port convention, and
++  `AUTO_MEMORIES` infers them, checks them against its macro floors and
++  generates FakeRAM `.lib`/`.lef` views for those that pass. Nothing is
++  mapped by hand, unlike nangate45's tinyRocket (a platform file mapping
++  each `*_ext` onto a fakeram macro) or the designs that instantiate
++  their macros explicitly.
++- **SRAMs and a register file in one design, both identified by yosys.**
++  `results/.../memories.json`, the inventory, lists every memory yosys
++  infers and what became of it:
++
++  | memory | shape | becomes |
++  |---|---|---|
++  | `data_arrays_0_ext` (dcache data) | 64 x 32, one read-write port, 4 byte lanes | FakeRAM macro |
++  | `data_arrays_0_0_ext` (icache data) | 64 x 32, one read-write port | FakeRAM macro |
++  | `tag_array_ext` (icache tags) | 4 x 25 | flip-flops: below the macro floors |
++  | `Rocket._T_288`, the integer register file | 31 x 32, two combinational reads, one write | flip-flops: an array inline in the core, the shape no SRAM model describes |
++  | TileLink queue entries | 2 words each | flip-flops |
++
++  So the design exercises the SRAM path and shows the register file a
++  CPU core really has, side by side, which no other design does.
++- **Fast turnaround.** A real core with macros, yet small enough to
++  iterate on: synthesis is about half a minute, floorplan to global route
++  a few minutes.
++
++To see the inventory and the generated views after synthesis:
++
++    make DESIGN_CONFIG=designs/asap7/tinyRocket/config.mk synth
++    cat results/asap7/tinyRocket/base/memories.json
++    ls results/asap7/tinyRocket/base/memories/
++
++`docs/user/AutoMemories.md` describes `AUTO_MEMORIES`.
+diff --git a/flow/designs/asap7/tinyRocket/config.mk b/flow/designs/asap7/tinyRocket/config.mk
+index d61c1434d..f5a073d27 100644
+--- a/flow/designs/asap7/tinyRocket/config.mk
++++ b/flow/designs/asap7/tinyRocket/config.mk
+@@ -2,25 +2,21 @@ export DESIGN_NICKNAME = tinyRocket
+ export DESIGN_NAME = RocketTile
+ export PLATFORM    = asap7
+ 
+-# The generic tinyRocket sources only: unlike the nangate45 tinyRocket
+-# there is no hand-written platform memory-mapping file and no
+-# checked-in fakeram .lib/.lef — AUTO_MEMORIES detects the memory
+-# wrapper modules and generates macro views for them instead.
++# The generic tinyRocket sources and behavioral models of the memories
++# the generator leaves as black boxes (memories.v): unlike the nangate45
++# tinyRocket there is no hand-written platform memory-mapping file and
++# no checked-in fakeram .lib/.lef -- AUTO_MEMORIES detects the memories
++# and generates macro views for them instead.
+ export VERILOG_FILES = $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/AsyncResetReg.v \
+                        $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/ClockDivider2.v \
+                        $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/ClockDivider3.v \
+                        $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/plusarg_reader.v \
+-                       $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/freechips.rocketchip.system.TinyConfig.v
++                       $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/freechips.rocketchip.system.TinyConfig.v \
++                       $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/memories.v
+ 
+ export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/constraint.sdc
+ 
+ export AUTO_MEMORIES = 1
+-# tag_array (4x25) falls below the idiomatic-macro floors, but this RTL
+-# provides no behavioral fallback (the wrapper instantiates a
+-# tag_array_ext module the sources never define), so its conversion is
+-# forced via a .memories override.
+-export ADDITIONAL_MEMORIES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/tag_array.memories
+-
+ export CORE_UTILIZATION = 40
+ export CORE_MARGIN      = 2
+ 
+diff --git a/flow/designs/asap7/tinyRocket/memories.v b/flow/designs/asap7/tinyRocket/memories.v
+new file mode 100644
+index 000000000..aef7ab3d3
+--- /dev/null
++++ b/flow/designs/asap7/tinyRocket/memories.v
+@@ -0,0 +1,67 @@
++// Behavioral models of the memories the Rocket Chip generator leaves as
++// black boxes (`*_ext`, firtool's read-write port convention), so the
++// generic sources elaborate and AUTO_MEMORIES detects each memory and
++// replaces it with a generated macro. nangate45 maps the same modules
++// onto hand-made fakeram macros instead.
++//
++// One read-write port, written as firtool writes one: a write on the
++// clock when enabled and in write mode, under the write mask; a read
++// registers its address on the clock and reads from it, which yosys
++// infers as a clocked read port, the SRAM shape AUTO_MEMORIES converts.
++
++module data_arrays_0_ext(
++  input RW0_clk,
++  input [5:0] RW0_addr,
++  input RW0_en,
++  input RW0_wmode,
++  input [3:0] RW0_wmask,
++  input [31:0] RW0_wdata,
++  output [31:0] RW0_rdata
++);
++  reg [31:0] Memory [0:63];
++  reg [5:0] raddr;
++  always @(posedge RW0_clk) begin : port
++    integer i;
++    if (RW0_en && !RW0_wmode) raddr <= RW0_addr;
++    if (RW0_en && RW0_wmode)
++      for (i = 0; i < 4; i = i + 1)
++        if (RW0_wmask[i]) Memory[RW0_addr][i*8 +: 8] <= RW0_wdata[i*8 +: 8];
++  end
++  assign RW0_rdata = Memory[raddr];
++endmodule
++
++module data_arrays_0_0_ext(
++  input RW0_clk,
++  input [5:0] RW0_addr,
++  input RW0_en,
++  input RW0_wmode,
++  input [0:0] RW0_wmask,
++  input [31:0] RW0_wdata,
++  output [31:0] RW0_rdata
++);
++  reg [31:0] Memory [0:63];
++  reg [5:0] raddr;
++  always @(posedge RW0_clk) begin
++    if (RW0_en && !RW0_wmode) raddr <= RW0_addr;
++    if (RW0_en && RW0_wmode && RW0_wmask[0]) Memory[RW0_addr] <= RW0_wdata;
++  end
++  assign RW0_rdata = Memory[raddr];
++endmodule
++
++module tag_array_ext(
++  input RW0_clk,
++  input [1:0] RW0_addr,
++  input RW0_en,
++  input RW0_wmode,
++  input [0:0] RW0_wmask,
++  input [24:0] RW0_wdata,
++  output [24:0] RW0_rdata
++);
++  reg [24:0] Memory [0:3];
++  reg [1:0] raddr;
++  always @(posedge RW0_clk) begin
++    if (RW0_en && !RW0_wmode) raddr <= RW0_addr;
++    if (RW0_en && RW0_wmode && RW0_wmask[0]) Memory[RW0_addr] <= RW0_wdata;
++  end
++  assign RW0_rdata = Memory[raddr];
++endmodule
+diff --git a/flow/designs/asap7/tinyRocket/tag_array.memories b/flow/designs/asap7/tinyRocket/tag_array.memories
+deleted file mode 100644
+index 5c5e482d4..000000000
+--- a/flow/designs/asap7/tinyRocket/tag_array.memories
++++ /dev/null
+@@ -1,61 +0,0 @@
+-{
+-  "version": 1,
+-  "memories": [
+-    {
+-      "name": "tag_array",
+-      "rows": 4,
+-      "bits": 25,
+-      "addr_w": 2,
+-      "read_ports": 0,
+-      "write_ports": 0,
+-      "rw_ports": 1,
+-      "mask_lanes": 0,
+-      "pins": [
+-        {
+-          "name": "RW0_addr",
+-          "direction": "input",
+-          "width": 2,
+-          "port_id": "RW0",
+-          "function": "addr"
+-        },
+-        {
+-          "name": "RW0_en",
+-          "direction": "input",
+-          "width": 1,
+-          "port_id": "RW0",
+-          "function": "en"
+-        },
+-        {
+-          "name": "RW0_clk",
+-          "direction": "input",
+-          "width": 1,
+-          "port_id": "RW0",
+-          "function": "clk"
+-        },
+-        {
+-          "name": "RW0_wmode",
+-          "direction": "input",
+-          "width": 1,
+-          "port_id": "RW0",
+-          "function": "wmode"
+-        },
+-        {
+-          "name": "RW0_wdata_0",
+-          "direction": "input",
+-          "width": 25,
+-          "port_id": "RW0",
+-          "function": "data_in"
+-        },
+-        {
+-          "name": "RW0_rdata_0",
+-          "direction": "output",
+-          "width": 25,
+-          "port_id": "RW0",
+-          "function": "data_out"
+-        }
+-      ],
+-      "idiomatic": true,
+-      "reason": "forced: the RTL provides no behavioral fallback for this wrapper"
+-    }
+-  ]
+-}
+diff --git a/flow/scripts/memories/schema_test.py b/flow/scripts/memories/schema_test.py
+index ccf021126..31775f1b0 100644
+--- a/flow/scripts/memories/schema_test.py
++++ b/flow/scripts/memories/schema_test.py
+@@ -1,6 +1,5 @@
+ #!/usr/bin/env python3
+ import json
+-import re
+ import sys
+ import tempfile
+ import unittest
+@@ -117,46 +116,5 @@ class SchemaTest(unittest.TestCase):
+             schema.validate_emittable(dataless)
+ 
+ 
+-FLOW_DIR = Path(__file__).resolve().parents[2]
+-
+-
+-def module_ports(verilog: Path, module: str) -> dict[str, tuple[str, int]]:
+-    """{name: (direction, width)} from an ANSI-style module header."""
+-    ports = {}
+-    in_header = False
+-    for line in verilog.read_text().splitlines():
+-        if line.startswith(f"module {module}("):
+-            in_header = True
+-            continue
+-        if in_header:
+-            if line.startswith(");"):
+-                return ports
+-            m = re.match(r"\s*(input|output)\s+(?:\[(\d+):0\])?\s*(\w+)", line)
+-            if m:
+-                direction, msb, name = m.groups()
+-                ports[name] = (direction, int(msb) + 1 if msb else 1)
+-    raise AssertionError(f"module {module} not found in {verilog}")
+-
+-
+-class TinyRocketTagArrayTest(unittest.TestCase):
+-    """tinyRocket's tag_array wrapper has no inferred memory for detection
+-    to find, so its override is taken whole and must be emittable on its
+-    own, with the pins of the module it replaces."""
+-
+-    def setUp(self):
+-        path = FLOW_DIR / "designs/asap7/tinyRocket/tag_array.memories"
+-        (self.mem,) = schema.merge([], schema.load(path))
+-
+-    def test_override_is_emittable(self):
+-        schema.validate_emittable(self.mem)
+-
+-    def test_pins_match_the_rtl(self):
+-        rtl = (
+-            FLOW_DIR / "designs/src/tinyRocket/freechips.rocketchip.system.TinyConfig.v"
+-        )
+-        pins = {p.name: (p.direction, p.width) for p in self.mem.pins}
+-        self.assertEqual(pins, module_ports(rtl, "tag_array"))
+-
+-
+ if __name__ == "__main__":
+     unittest.main()
+-- 
+2.53.0
+

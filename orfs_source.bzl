@@ -156,6 +156,13 @@ ORFS_PATCHES = [
     # its instances' parameters dropped before the netlist is read. On
     # 0091; the third commit of ORFS #4651.
     Label("//patches:0099-orfs-regfile-inline-parameterized.patch"),
+    # 0092: asap7/tinyRocket gets behavioral models of the cache memories
+    # the Rocket Chip generator leaves as black boxes, so AUTO_MEMORIES
+    # detects them; the design did not canonicalize (data_arrays_0_ext
+    # "not part of the design"), and nothing built it to notice. Also its
+    # README. Upstream as The-OpenROAD-Project/OpenROAD-flow-scripts#4643;
+    # retires at a bump onto an ORFS that carries it.
+    Label("//patches:0092-orfs-tinyrocket-memories.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
