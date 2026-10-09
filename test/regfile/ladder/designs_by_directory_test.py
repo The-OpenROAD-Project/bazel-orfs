@@ -2,10 +2,11 @@
 DESIGN_NICKNAME with another.
 
 Variants that include a base design's config.mk share its nickname
-(asap7/picorv32-regfile and -seed2/-seed3, coralnpu-regfile and
-coralnpu-regfile-mux). @orfs_designs once keyed DESIGNS by nickname, and
+(asap7/picorv32-regfile and -seed2/-seed3, swerv_wrapper-regfile and
+swerv_wrapper-regfile-mux). @orfs_designs once keyed DESIGNS by nickname, and
 the last variant parsed replaced the base design's config: picorv32-regfile
-ran seed 3, coralnpu-regfile the mux spec. argv[1] is a JSON object of
+ran seed 3, coralnpu-regfile the mux spec (coralnpu now lives in ORFS
+#4653). argv[1] is a JSON object of
 directory -> the arguments and sources DESIGNS holds for it.
 """
 
@@ -31,7 +32,7 @@ class DesignsByDirectoryTest(unittest.TestCase):
         )
 
     def test_mux_variants_do_not_replace_their_base(self):
-        for base in ("coralnpu-regfile", "swerv_wrapper-regfile"):
+        for base in ("swerv_wrapper-regfile",):
             self.assertNotIn("-mux", self.spec_package(base), base)
             self.assertNotEqual(
                 DESIGNS[base]["sources"]["AUTO_MEMORIES_REGFILES"],

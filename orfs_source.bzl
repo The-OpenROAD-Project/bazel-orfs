@@ -196,20 +196,8 @@ ORFS_PATCHES = [
     # the register-file campaign's noise band for picorv32. Not
     # upstreamed.
     Label("//patches:0100-orfs-picorv32-seeds.patch"),
-    # 0102: asap7/coralnpu as a synthesis build of its snapshot: SRAMs
-    # through AUTO_MEMORIES with their write masks, not USE_ASAP7's
-    # maskless fakerams; firtool's verification layers removed by
-    # surgery; the platform's constraints.sdc at a picosecond period;
-    # coralnpu's units kept by name. Needs 0094. Upstream as ORFS #4653
-    # (draft), with 0103.
-    Label("//patches:0102-orfs-coralnpu-idiomatic.patch"),
-    # 0103: asap7/coralnpu-regfile: Regfile's 31 words moved by surgery
-    # into Regfile_rf, 8 reads and 6 ORed writes, async reset high, and
-    # generated. Needs 0094 and 0102. Upstream as ORFS #4653 (draft).
-    Label("//patches:0103-orfs-coralnpu-regfile.patch"),
-    # 0104: coralnpu-regfile and swerv_wrapper-regfile with write_style
-    # mux instead of a clock gate per word: what the gates cost and save.
-    # Not upstreamed.
+    # 0104: swerv_wrapper-regfile with write_style mux instead of a clock
+    # gate per word: what the gates cost and save. Not upstreamed.
     Label("//patches:0104-orfs-regfile-mux-variants.patch"),
     # 0105: riscv32i-regfile-netlist and -macro, riscv32i's register file
     # macro-placed in each generate_regfile mode: with riscv32i and

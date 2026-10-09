@@ -281,103 +281,7 @@ ladder_row(
     top = "cva6",
 )
 
-# asap7/coralnpu's synthesis (ORFS patch 0102): no verification layers,
-# the kept modules by name, both TCM SRAMs generated macros with their
-# byte masks.
-[
-    filegroup(
-        name = "coralnpu_synth_" + f.replace(".", "_"),
-        srcs = ["@orfs//flow/designs/asap7/coralnpu:CoreMiniAxi_synth"],
-        output_group = f,
-    )
-    for f in [
-        "1_2_yosys.v",
-        "memories.json",
-    ]
-]
-
-py_test(
-    name = "coralnpu_synth_test",
-    srcs = ["coralnpu_synth_test.py"],
-    args = [
-        "$(location :coralnpu_synth_1_2_yosys_v)",
-        "$(location :coralnpu_synth_memories_json)",
-    ],
-    data = [
-        ":coralnpu_synth_1_2_yosys_v",
-        ":coralnpu_synth_memories_json",
-    ],
-)
-
-# Rung 7: coralnpu. ORFS patch 0103's surgery.py --regfile moves
-# Regfile's 31 words into Regfile_rf: 8 reads, 6 writes ORed on a
-# collision, reset high.
-py_binary(
-    name = "coralnpu_surgery",
-    srcs = ["@orfs//flow/designs/asap7/coralnpu:surgery.py"],
-    main = "@orfs//flow/designs/asap7/coralnpu:surgery.py",
-)
-
-CORALNPU_SPEC = "@orfs//flow/designs/asap7/coralnpu-regfile:Regfile_rf.regfile"
-
-# Regfile as ORFS has it against the surgered one with the generated
-# register file: six write ports with random addresses collide, masks,
-# readSet, reads of words being written, resets with an edge.
-surgery_cmp_test(
-    name = "coralnpu_surgery_test",
-    srcs = ["@orfs//flow/designs/src/coralnpu:CoreMiniAxi.sv"],
-    clocks = ["clock"],
-    module = "Regfile",
-    regfile_module = "Regfile_rf",
-    reset = "reset:high",
-    spec = CORALNPU_SPEC,
-    surgery = ":coralnpu_surgery",
-    surgery_args = ["--regfile"],
-)
-
-# The generated register file against the behavioural one the surgery
-# wrote.
-regfile_sim_test(
-    name = "coralnpu_sim_test",
-    module = "Regfile_rf",
-    rtl = [":coralnpu_surgery_test_surgery/CoreMiniAxi.sv"],
-    rtl_module = "Regfile_rf",
-    spec = CORALNPU_SPEC,
-)
-
-# The negative control: the spec with the later write winning instead of
-# Regfile's OR. It must mismatch, or the stimulus never collides.
-genrule(
-    name = "coralnpu_write_last_regfile",
-    srcs = [CORALNPU_SPEC],
-    outs = ["coralnpu_write_last.regfile"],
-    cmd = "cat $< > $@ && echo 'write_priority last' >> $@",
-)
-
-regfile_sim_test(
-    name = "coralnpu_write_last_sim_test",
-    expect_mismatch = True,
-    module = "Regfile_rf",
-    rtl = [":coralnpu_surgery_test_surgery/CoreMiniAxi.sv"],
-    rtl_module = "Regfile_rf",
-    spec = ":coralnpu_write_last.regfile",
-)
-
-ladder_row(
-    name = "coralnpu",
-    design = "coralnpu",
-    top = "CoreMiniAxi",
-)
-
-# The clock gate per word against a mux per word (ORFS patch 0104), on
-# the two rungs where the register file cost power.
-ladder_row(
-    name = "coralnpu_mux",
-    design = "coralnpu",
-    regfile_design = "coralnpu-regfile-mux",
-    top = "CoreMiniAxi",
-)
-
+# The clock gate per word against a mux per word (ORFS patch 0104).
 ladder_row(
     name = "swerv_wrapper_mux",
     design = "swerv_wrapper-yosys",
@@ -400,8 +304,6 @@ py_test(
             "picorv32-regfile",
             "picorv32-regfile-seed2",
             "picorv32-regfile-seed3",
-            "coralnpu-regfile",
-            "coralnpu-regfile-mux",
             "swerv_wrapper-regfile",
             "swerv_wrapper-regfile-mux",
         ]
