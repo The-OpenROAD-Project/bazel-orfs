@@ -407,3 +407,20 @@ py_test(
         ]
     })],
 )
+
+# A/B/C of generate_regfile's shapes on riscv32i, minutes each (ORFS patch
+# 0105): flip-flops against the register file macro-placed in mode
+# netlist (dissolved, periphery the parent's) and in mode macro (fully
+# placed). riscv32i's own row is the inlined shape.
+[
+    ladder_row(
+        name = "riscv32i_" + mode,
+        design = "riscv32i",
+        regfile_design = "riscv32i-regfile-" + mode,
+        top = "riscv_top",
+    )
+    for mode in [
+        "netlist",
+        "macro",
+    ]
+]

@@ -215,6 +215,10 @@ ORFS_PATCHES = [
     # mux instead of a clock gate per word: what the gates cost and save.
     # Not upstreamed.
     Label("//patches:0104-orfs-regfile-mux-variants.patch"),
+    # 0105: riscv32i-regfile-netlist and -macro, riscv32i's register file
+    # macro-placed in each generate_regfile mode: with riscv32i and
+    # riscv32i-regfile, a few-minute A/B/C of the shapes. Not upstreamed.
+    Label("//patches:0105-orfs-riscv32i-regfile-modes.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

@@ -1,0 +1,120 @@
+From 62089be0897c09c35cd5265baae4f8a98552e896 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Fri, 9 Oct 2026 07:36:08 +0200
+Subject: [PATCH] asap7/riscv32i-regfile-{netlist,macro}: the register file
+ macro-placed, in each mode
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+riscv32i's register file listed in AUTO_MEMORIES_MACRO_PLACE, with its
+spec in mode netlist (dissolved after macro placement: core fixed,
+periphery the parent's) and in mode macro (a macro, fully placed).
+With riscv32i (flip-flops) and riscv32i-regfile (inlined) they are a
+few-minute comparison of the shapes a register file can take.
+
+Not upstreamed: carried in bazel-orfs for the register-file campaign.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ .../asap7/riscv32i-regfile-macro/config.mk    | 11 ++++++++++
+ .../riscv32i-regfile-macro/regfile.regfile    | 20 +++++++++++++++++++
+ .../asap7/riscv32i-regfile-netlist/config.mk  | 13 ++++++++++++
+ .../riscv32i-regfile-netlist/regfile.regfile  | 20 +++++++++++++++++++
+ 4 files changed, 64 insertions(+)
+ create mode 100644 flow/designs/asap7/riscv32i-regfile-macro/config.mk
+ create mode 100644 flow/designs/asap7/riscv32i-regfile-macro/regfile.regfile
+ create mode 100644 flow/designs/asap7/riscv32i-regfile-netlist/config.mk
+ create mode 100644 flow/designs/asap7/riscv32i-regfile-netlist/regfile.regfile
+
+diff --git a/flow/designs/asap7/riscv32i-regfile-macro/config.mk b/flow/designs/asap7/riscv32i-regfile-macro/config.mk
+new file mode 100644
+index 000000000..5d1e542ea
+--- /dev/null
++++ b/flow/designs/asap7/riscv32i-regfile-macro/config.mk
+@@ -0,0 +1,11 @@
++# riscv32i's register file placed by the macro placer and kept a macro,
++# every cell placed by the generator (mode macro).
++# With riscv32i (flip-flops), riscv32i-regfile-netlist and
++# riscv32i-regfile-macro it is the A/B/C of what generate_regfile's
++# modes do in a small design; riscv32i-regfile is the inlined shape,
++# every cell placed by global placement. DESIGN_NICKNAME stays
++# riscv32i-regfile's, for its io.tcl.
++include designs/asap7/riscv32i-regfile/config.mk
++
++export AUTO_MEMORIES_REGFILES    = $(DESIGN_HOME)/$(PLATFORM)/riscv32i-regfile-macro/regfile.regfile
++export AUTO_MEMORIES_MACRO_PLACE = regfile
+diff --git a/flow/designs/asap7/riscv32i-regfile-macro/regfile.regfile b/flow/designs/asap7/riscv32i-regfile-macro/regfile.regfile
+new file mode 100644
+index 000000000..ca06ca0a7
+--- /dev/null
++++ b/flow/designs/asap7/riscv32i-regfile-macro/regfile.regfile
+@@ -0,0 +1,20 @@
++# riscv32i's `regfile` (src/riscv32i/regfile.v) as a register file of
++# standard cells, placed as a macro (mode macro): 32 x 32, two
++# combinational reads, one write through a clock gate per word, x0 reads
++# 0 and drops its writes.
++module regfile
++mode macro
++words 32
++bits 32
++clock clk
++read ra1 rd1
++read ra2 rd2
++write wa3 wd3 we3
++zero_word 0
++write_style clock_gate
++cell icg ICGx1_ASAP7_75t_R
++cell flop DFFHQNx1_ASAP7_75t_R
++cell and2 AND2x2_ASAP7_75t_R
++cell or2 OR2x2_ASAP7_75t_R
++cell ao22 AO22x2_ASAP7_75t_R
++cell inv INVx1_ASAP7_75t_R
+diff --git a/flow/designs/asap7/riscv32i-regfile-netlist/config.mk b/flow/designs/asap7/riscv32i-regfile-netlist/config.mk
+new file mode 100644
+index 000000000..bdca66a54
+--- /dev/null
++++ b/flow/designs/asap7/riscv32i-regfile-netlist/config.mk
+@@ -0,0 +1,13 @@
++# riscv32i's register file placed by the macro placer, then dissolved
++# into its cells: its core fixed where the macro was placed, its
++# periphery (address decode, hold) left to the parent to place, size and
++# buffer (mode netlist).
++# With riscv32i (flip-flops), riscv32i-regfile-netlist and
++# riscv32i-regfile-macro it is the A/B/C of what generate_regfile's
++# modes do in a small design; riscv32i-regfile is the inlined shape,
++# every cell placed by global placement. DESIGN_NICKNAME stays
++# riscv32i-regfile's, for its io.tcl.
++include designs/asap7/riscv32i-regfile/config.mk
++
++export AUTO_MEMORIES_REGFILES    = $(DESIGN_HOME)/$(PLATFORM)/riscv32i-regfile-netlist/regfile.regfile
++export AUTO_MEMORIES_MACRO_PLACE = regfile
+diff --git a/flow/designs/asap7/riscv32i-regfile-netlist/regfile.regfile b/flow/designs/asap7/riscv32i-regfile-netlist/regfile.regfile
+new file mode 100644
+index 000000000..e34b778de
+--- /dev/null
++++ b/flow/designs/asap7/riscv32i-regfile-netlist/regfile.regfile
+@@ -0,0 +1,20 @@
++# riscv32i's `regfile` (src/riscv32i/regfile.v) as a register file of
++# standard cells, macro-placed and then dissolved (mode netlist): 32 x
++# 32, two combinational reads, one write through a clock gate per word,
++# x0 reads 0 and drops its writes.
++module regfile
++mode netlist
++words 32
++bits 32
++clock clk
++read ra1 rd1
++read ra2 rd2
++write wa3 wd3 we3
++zero_word 0
++write_style clock_gate
++cell icg ICGx1_ASAP7_75t_R
++cell flop DFFHQNx1_ASAP7_75t_R
++cell and2 AND2x2_ASAP7_75t_R
++cell or2 OR2x2_ASAP7_75t_R
++cell ao22 AO22x2_ASAP7_75t_R
++cell inv INVx1_ASAP7_75t_R
+-- 
+2.53.0
+
