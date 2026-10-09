@@ -142,6 +142,15 @@ ORFS_PATCHES = [
     # 0067; retires at a bump onto an ORFS whose FakeRAM asap7
     # backend has a width floor.
     Label("//patches:0088-orfs-fakeram-min-width.patch"),
+    # 0090: an AUTO_MEMORIES macro's blackbox gets the gate equivalent of
+    # its generated .lib's area, which blackboxes.txt now carries beside
+    # its name, so keep_hierarchy -min_cost (SYNTH_MINIMUM_KEEP_SIZE)
+    # accepts it; any AUTO_MEMORIES design with a keep threshold stopped
+    # on "Missing cost information on instanced blackbox". Upstream as
+    # The-OpenROAD-Project/OpenROAD-flow-scripts#4650; also gives 0071's
+    # register files their area. Retires at a bump onto an ORFS that
+    # carries #4650.
+    Label("//patches:0090-orfs-auto-memories-keep-cost.patch"),
     # 0094: SYNTH_VERILOG_SURGERY, a script that edits copies of
     # VERILOG_FILES before synthesis reads them, so vendored RTL stays as
     # upstream has it. Upstream as

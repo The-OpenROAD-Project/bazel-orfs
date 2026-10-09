@@ -17,6 +17,7 @@
 # am_top.v says which construct covers which.
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:openroad.bzl", "orfs_flow")
 load("//test:auto_memories_outputs_test.bzl", "auto_memories_outputs_test")
 
@@ -125,4 +126,52 @@ build_test(
         ":am_top_floorplan",
         ":am_top_place",
     ],
+)
+
+# AUTO_MEMORIES with a keep threshold. Hierarchy discovery picks the
+# modules to keep with keep_hierarchy -min_cost, which needs a cost for
+# every instanced blackbox; the memory macro is a blackbox made from the
+# RTL's own module, not a Liberty cell, so synthesis stopped with
+# "Missing cost information on instanced blackbox". Its cost is now its
+# generated view's area (ORFS patch 0090). The threshold is 1, not 0:
+# yosys reads -min_cost 0 as no threshold and never asks for a cost.
+orfs_flow(
+    name = "am_top",
+    arguments = {
+        "AUTO_MEMORIES": "1",
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_MINIMUM_KEEP_SIZE": "1",
+        "SYNTH_NUM_PARTITIONS": "1",
+    },
+    last_stage = "synth",
+    sources = {
+        "ADDITIONAL_MEMORIES": [":am_ram_2048x32.memories"],
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    variant = "keep",
+    verilog_files = [
+        "am_top.v",
+        "am_ram_macros.v",
+    ],
+)
+
+filegroup(
+    name = "am_top_keep_synth_netlist",
+    srcs = [":am_top_keep_synth"],
+    output_group = "1_2_yosys.v",
+)
+
+# Synthesis reached its netlist with am_regs kept by the threshold, and
+# the memory is a macro instance, not a module of its own.
+sh_test(
+    name = "am_top_keep_synth_test",
+    size = "small",
+    srcs = ["//test:synth_discovery_netlist_test.sh"],
+    args = [
+        "$(location :am_top_keep_synth_netlist)",
+        "am_top",
+        "am_regs",
+        "!am_ram_2048x32",
+    ],
+    data = [":am_top_keep_synth_netlist"],
 )
