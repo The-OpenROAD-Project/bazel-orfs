@@ -248,6 +248,19 @@
         "VecRegionModule": 1278
       },
       "note": "in flight, #1187 a day on: generate_regfile's AOI22/NAND2/NOR2 read tree makes the blocks with register files faster, Frontend 2,170 to 1,792 ps and VecRegionModule 1,479 to 1,278, FltRegionModule 895 to 951 (its worst path ends at the register file's write port); the parent 3,276 ps, 110 below run 13 and 114 above run 12, its worst paths a mass of CtrlBlock control: the same CtrlBlock built alone closes at 1,200 ps, so the parent's gap is its placement and repair; global route 18.7 min, 83 GB, 21.5 %"
+    },
+    {
+      "date": "2026-10-09",
+      "measured": "XSTile_grt, built from source at f681c302 (#1187, in flight) with the parent's setup repair at global route (this change)",
+      "parent_ps": 2406,
+      "blocks": {
+        "CoupledL2": 1572,
+        "Frontend": 1792,
+        "MemBlock": 1870,
+        "FltRegionModule": 951,
+        "VecRegionModule": 1278
+      },
+      "note": "the parent repairs setup at global route with the route's parasitics (SKIP_INCREMENTAL_REPAIR dropped, hold repair off there): 3,276 to 2,406 ps on row 14's build, its worst path now CtrlBlock's flush redirect into Frontend; 1,525 VT swaps, 74 buffers; global route 84 min against 19, 102 GB against 83; the blocks unchanged"
     }
   ]
 }
