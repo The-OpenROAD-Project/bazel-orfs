@@ -1,0 +1,206 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] SYNTH_VERILOG_SURGERY: edit copies of the sources before
+ synthesis
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+SYNTH_VERILOG_SURGERY names a script that copies VERILOG_FILES and
+edits the copies before synthesis reads them, so vendored RTL stays as
+upstream has it and the changes OpenROAD or a PDK needs live in one
+script next to the design's config.mk. It runs as the RTL is read
+(canonicalization, memory extraction, the SYNTH_USE_SYN frontend), with
+SYNTH_VERILOG_SURGERY_ARGS, then `--out-dir $(OBJECTS_DIR)/surgery --`
+and the VERILOG_FILES (by PYTHON_EXE when it ends in .py). It writes one
+copy per source under the same file name; a failing script, or a copy
+it did not write, stops synthesis.
+
+The net diff of The-OpenROAD-Project/OpenROAD-flow-scripts#4649 at
+250b2f537b19, not yet merged. Retires at a //:bump onto an ORFS that
+carries it.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
+index c575653135..fcf1d6fab8 100644
+--- a/docs/user/FlowVariables.md
++++ b/docs/user/FlowVariables.md
+@@ -313,6 +313,8 @@ configuration file.
+ | <a name="SYNTH_SKIP_KEEP"></a>SYNTH_SKIP_KEEP| Only meaningful together with SYNTH_CHECKPOINT. When set, signals that the supplied checkpoint is still canonical RTLIL (coarse synth and `keep_hierarchy` have not been run yet), so synth.tcl runs the full coarse+fine synthesis flattened. When unset and SYNTH_CHECKPOINT is used, synth.tcl assumes the checkpoint already has coarse synth + `keep_hierarchy` done and resumes from `coarse:fine`.| 0|
+ | <a name="SYNTH_SLANG_ARGS"></a>SYNTH_SLANG_ARGS| Additional arguments passed to the slang frontend during synthesis.| |
+ | <a name="SYNTH_USE_SYN"></a>SYNTH_USE_SYN| If set to 1, run synthesis using the "syn" tool built into OpenROAD (the synth_syn.tcl flow) instead of the default Yosys-based flow. Defaults to 0 (Yosys flow).| 0|
++| <a name="SYNTH_VERILOG_SURGERY"></a>SYNTH_VERILOG_SURGERY| RTL surgery as a step of the flow: a script that copies VERILOG_FILES and edits the copies before synthesis reads them, so vendored RTL stays byte-identical to upstream and the OpenROAD- and PDK-specific changes live in one script next to the design's config.mk. Typical surgery gives a memory or register file a module of its own that AUTO_MEMORIES can convert, maps a clock gate onto the platform's, rewrites a pragma for the frontend, or removes a simulation construct. A new upstream version is then a plain copy: the surgery reapplies, or stops where upstream moved. Best on generated or regular RTL (firtool, sv2v, netlists); a text edit cannot see the meaning of include files, macros, packages or `bind`. As the RTL is read (canonicalization, memory extraction, and the SYNTH_USE_SYN frontend), it runs with SYNTH_VERILOG_SURGERY_ARGS, then `--out-dir $(OBJECTS_DIR)/surgery --` and the VERILOG_FILES (by PYTHON_EXE when it ends in .py), and writes one copy per source under the same file name; synthesis reads the copies. Input file names must be unique. Diff a copy against its original to see exactly what the surgery changed. The script should fail when it does not recognise its input; a failing script, or a copy it did not write, stops synthesis.| |
++| <a name="SYNTH_VERILOG_SURGERY_ARGS"></a>SYNTH_VERILOG_SURGERY_ARGS| Arguments to SYNTH_VERILOG_SURGERY, before the ones the flow adds.| |
+ | <a name="SYNTH_WRAPPED_ADDERS"></a>SYNTH_WRAPPED_ADDERS| Specify the adder modules that can be used for synthesis, separated by commas. The default adder module is determined by the first element of this variable.| |
+ | <a name="SYNTH_WRAPPED_MULTIPLIERS"></a>SYNTH_WRAPPED_MULTIPLIERS| Specify the multiplier modules that can be used for synthesis, separated by commas. The default multiplier module is determined by the first element of this variable.| |
+ | <a name="SYNTH_WRAPPED_OPERATORS"></a>SYNTH_WRAPPED_OPERATORS| Synthesize multiple architectural options for each arithmetic operator in the design. These options are available for switching among in later stages of the flow.| 0|
+@@ -379,6 +381,8 @@ configuration file.
+ - [SYNTH_SKIP_KEEP](#SYNTH_SKIP_KEEP)
+ - [SYNTH_SLANG_ARGS](#SYNTH_SLANG_ARGS)
+ - [SYNTH_USE_SYN](#SYNTH_USE_SYN)
++- [SYNTH_VERILOG_SURGERY](#SYNTH_VERILOG_SURGERY)
++- [SYNTH_VERILOG_SURGERY_ARGS](#SYNTH_VERILOG_SURGERY_ARGS)
+ - [SYNTH_WRAPPED_ADDERS](#SYNTH_WRAPPED_ADDERS)
+ - [SYNTH_WRAPPED_MULTIPLIERS](#SYNTH_WRAPPED_MULTIPLIERS)
+ - [TIEHI_CELL_AND_PORT](#TIEHI_CELL_AND_PORT)
+diff --git a/flow/scripts/synth_preamble.tcl b/flow/scripts/synth_preamble.tcl
+index 53353ee46a..b1eccb1c58 100644
+--- a/flow/scripts/synth_preamble.tcl
++++ b/flow/scripts/synth_preamble.tcl
+@@ -82,7 +82,7 @@ proc read_design_sources { } {
+       {*}$vIdirsArgs {*}[env_var_or_empty VERILOG_DEFINES]]
+ 
+     # slang requires all files at once
+-    lappend slang_args {*}$::env(VERILOG_FILES)
++    lappend slang_args {*}[synth_verilog_files]
+ 
+     # Add clock gate cell definition, if available
+     if { [env_var_exists_and_non_empty CLKGATE_MAP_FILE] } {
+@@ -133,7 +133,7 @@ proc read_design_sources { } {
+     if { [env_var_exists_and_non_empty VERILOG_DEFINES] } {
+       verific -vlog-define {*}$::env(VERILOG_DEFINES)
+     }
+-    verific -sv2012 {*}$::env(VERILOG_FILES)
++    verific -sv2012 {*}[synth_verilog_files]
+     verific -import -no-split-complex-ports $::env(DESIGN_NAME)
+ 
+     dict for {key value} [env_var_or_empty VERILOG_TOP_PARAMS] {
+@@ -152,7 +152,7 @@ proc read_design_sources { } {
+     if { [env_var_exists_and_non_empty VERILOG_DEFINES] } {
+       verilog_defaults -add {*}$::env(VERILOG_DEFINES)
+     }
+-    foreach file $::env(VERILOG_FILES) {
++    foreach file [synth_verilog_files] {
+       read_verilog -defer -sv {*}$vIdirsArgs $file
+     }
+     # Read platform specific mapfile for OPENROAD_CLKGATE cells
+diff --git a/flow/scripts/synth_syn.tcl b/flow/scripts/synth_syn.tcl
+index e00b6ff10b..52617bd5ae 100644
+--- a/flow/scripts/synth_syn.tcl
++++ b/flow/scripts/synth_syn.tcl
+@@ -30,7 +30,8 @@ set elaborate_args [list \
+   -D SYNTHESIS --compat=vcs --ignore-assertions --no-implicit-memories --top $::env(DESIGN_NAME) \
+   {*}$vIdirsArgs {*}[env_var_or_empty VERILOG_DEFINES]]
+ 
+-lappend elaborate_args {*}$::env(VERILOG_FILES)
++set verilog_files [synth_verilog_files]
++lappend elaborate_args {*}$verilog_files
+ 
+ # Apply top-level parameters
+ dict for {key value} [env_var_or_empty VERILOG_TOP_PARAMS] {
+@@ -50,7 +51,7 @@ lappend elaborate_args {*}$::env(SYNTH_SLANG_ARGS)
+ 
+ # If the sources are solely .v files, enable Verilog compatibility
+ set has_non_v_files false
+-foreach fn $::env(VERILOG_FILES) {
++foreach fn $verilog_files {
+   if { [file extension [string trim $fn]] != ".v" } {
+     set has_non_v_files true
+   }
+diff --git a/flow/scripts/util.tcl b/flow/scripts/util.tcl
+index 912762199a..0fa432acf4 100644
+--- a/flow/scripts/util.tcl
++++ b/flow/scripts/util.tcl
+@@ -336,3 +336,39 @@ proc source_step_tcl { hook_type step_name } {
+   set env_var "${hook_type}_${step_name}_TCL"
+   source_env_var_if_exists $env_var
+ }
++
++# The Verilog files synthesis reads: VERILOG_FILES or, with
++# SYNTH_VERILOG_SURGERY, the copies its script writes. The script runs
++# here, as the RTL is read, into $(OBJECTS_DIR)/surgery: one copy per
++# source under the same file name, kept so a diff against the original
++# shows what the surgery changed. They are no make target and no build
++# output.
++proc synth_verilog_files { } {
++  if { ![env_var_exists_and_non_empty SYNTH_VERILOG_SURGERY] } {
++    return $::env(VERILOG_FILES)
++  }
++  set names [lmap f $::env(VERILOG_FILES) { file tail $f }]
++  if { [llength [lsort -unique $names]] != [llength $names] } {
++    error "SYNTH_VERILOG_SURGERY: VERILOG_FILES has two files of one name;\
++      the copies are named after the originals"
++  }
++  set dir [file join $::env(OBJECTS_DIR) surgery]
++  file delete -force $dir
++  file mkdir $dir
++  set cmd {}
++  if { [file extension [lindex $::env(SYNTH_VERILOG_SURGERY) 0]] eq ".py" } {
++    lappend cmd $::env(PYTHON_EXE)
++  }
++  lappend cmd {*}$::env(SYNTH_VERILOG_SURGERY) \
++    {*}[env_var_or_empty SYNTH_VERILOG_SURGERY_ARGS] \
++    --out-dir $dir -- {*}$::env(VERILOG_FILES)
++  puts "SYNTH_VERILOG_SURGERY: [join $cmd]"
++  exec {*}$cmd >@ stdout 2>@ stderr
++  set copies [lmap name $names { file join $dir $name }]
++  foreach copy $copies {
++    if { ![file exists $copy] } {
++      error "SYNTH_VERILOG_SURGERY wrote no $copy"
++    }
++  }
++  return $copies
++}
+diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
+index 36a165116c..af0d60e8c9 100644
+--- a/flow/scripts/variables.json
++++ b/flow/scripts/variables.json
+@@ -1407,6 +1407,18 @@
+       "synth"
+     ]
+   },
++  "SYNTH_VERILOG_SURGERY": {
++    "description": "RTL surgery as a step of the flow: a script that copies VERILOG_FILES and edits the copies before synthesis reads them, so vendored RTL stays byte-identical to upstream and the OpenROAD- and PDK-specific changes live in one script next to the design's config.mk. Typical surgery gives a memory or register file a module of its own that AUTO_MEMORIES can convert, maps a clock gate onto the platform's, rewrites a pragma for the frontend, or removes a simulation construct. A new upstream version is then a plain copy: the surgery reapplies, or stops where upstream moved. Best on generated or regular RTL (firtool, sv2v, netlists); a text edit cannot see the meaning of include files, macros, packages or `bind`. As the RTL is read (canonicalization, memory extraction, and the SYNTH_USE_SYN frontend), it runs with SYNTH_VERILOG_SURGERY_ARGS, then `--out-dir $(OBJECTS_DIR)/surgery --` and the VERILOG_FILES (by PYTHON_EXE when it ends in .py), and writes one copy per source under the same file name; synthesis reads the copies. Input file names must be unique. Diff a copy against its original to see exactly what the surgery changed. The script should fail when it does not recognise its input; a failing script, or a copy it did not write, stops synthesis.\n",
++    "stages": [
++      "synth"
++    ]
++  },
++  "SYNTH_VERILOG_SURGERY_ARGS": {
++    "description": "Arguments to SYNTH_VERILOG_SURGERY, before the ones the flow adds.\n",
++    "stages": [
++      "synth"
++    ]
++  },
+   "SYNTH_WRAPPED_ADDERS": {
+     "description": "Specify the adder modules that can be used for synthesis, separated by commas. The default adder module is determined by the first element of this variable.\n",
+     "stages": [
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+index 644427f34c..75f8c4ca42 100644
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -211,6 +211,35 @@ ADDITIONAL_MEMORIES:
+     docs/user/AutoMemories.md.
+   stages:
+     - synth
++SYNTH_VERILOG_SURGERY:
++  description: >
++    RTL surgery as a step of the flow: a script that copies VERILOG_FILES
++    and edits the copies before synthesis reads them, so vendored RTL
++    stays byte-identical to upstream and the OpenROAD- and PDK-specific
++    changes live in one script next to the design's config.mk. Typical
++    surgery gives a memory or register file a module of its own that
++    AUTO_MEMORIES can convert, maps a clock gate onto the platform's,
++    rewrites a pragma for the frontend, or removes a simulation
++    construct. A new upstream version is then a plain copy: the surgery
++    reapplies, or stops where upstream moved. Best on generated or
++    regular RTL (firtool, sv2v, netlists); a text edit cannot see the
++    meaning of include files, macros, packages or `bind`. As the RTL is
++    read (canonicalization, memory extraction, and the SYNTH_USE_SYN
++    frontend), it runs with SYNTH_VERILOG_SURGERY_ARGS, then
++    `--out-dir $(OBJECTS_DIR)/surgery --` and the VERILOG_FILES (by
++    PYTHON_EXE when it ends in .py), and writes one copy per source under
++    the same file name; synthesis reads the copies. Input file names must
++    be unique. Diff a copy against its original to see exactly what the
++    surgery changed. The script should fail when it does not recognise
++    its input; a failing script, or a copy it did not write, stops
++    synthesis.
++  stages:
++    - synth
++SYNTH_VERILOG_SURGERY_ARGS:
++  description: >
++    Arguments to SYNTH_VERILOG_SURGERY, before the ones the flow adds.
++  stages:
++    - synth
+ SYNTH_MEMORY_MAX_BITS:
+   description: >
+     Maximum number of bits for memory synthesis.

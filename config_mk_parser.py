@@ -65,6 +65,9 @@ SOURCE_VARS = {
     # to tools/structured_gen during canonicalization; staged like the
     # .memories files above.
     "STRUCTURED_MEMORIES",
+    # SYNTH_VERILOG_SURGERY: the script that edits copies of the sources
+    # before synthesis; run during canonicalization, so staged.
+    "SYNTH_VERILOG_SURGERY",
 }
 
 # Variables that are purely for path resolution, not passed to orfs_flow()

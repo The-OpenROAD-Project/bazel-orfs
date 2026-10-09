@@ -50,6 +50,8 @@ _EXPORTED_EXTS = [
     "lib",
     "gds",
     "gds.gz",
+    # SYNTH_VERILOG_SURGERY scripts, staged from a design's config.mk
+    "py",
 ]
 
 _EXPORTS_SENTINEL = "_orfs_design_exports_sentinel"
