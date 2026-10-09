@@ -15,7 +15,7 @@ names its own directory for the SDC rather than DESIGN_NICKNAME's, so
 the variant can include it.
 
 Not upstreamed: carried in bazel-orfs for the register-file campaign;
-needs OpenROAD patches 0011 and 0012.
+needs OpenROAD patch 0010 (async_reset, SystemVerilog ports).
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---

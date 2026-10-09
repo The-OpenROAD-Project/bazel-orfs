@@ -1,4 +1,4 @@
-From 33c59161098ee7712323ba35178743e1cc4a07f0 Mon Sep 17 00:00:00 2001
+From ce55b2c7b477e866c81288bc7db6c05fda63b502 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Wed, 7 Oct 2026 14:49:37 +0200
 Subject: [PATCH] AUTO_MEMORIES_REGFILES: a register file in place of an
@@ -31,22 +31,27 @@ Not upstreamed. Retires at a //:bump onto an ORFS that carries it.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+
+gen_memories_test's flow contract lists the three register-file lists
+(regfiles.txt, inline.txt, seams.txt), written empty when no register
+file is listed.
 ---
  docs/user/AutoMemories.md                     |  30 +++++
  docs/user/FlowVariables.md                    |   2 +-
  .../asap7/tinyRocket-regfile/config.mk        |  10 ++
- .../tinyRocket-regfile/rocket_rf.regfile      |  20 ++++
+ .../tinyRocket-regfile/rocket_rf.regfile      |  20 +++
  flow/designs/asap7/tinyRocket/config.mk       |  16 +--
- flow/scripts/memories/gen_memories.py         | 113 ++++++++++++++++--
+ flow/scripts/memories/gen_memories.py         | 118 ++++++++++++++++--
+ flow/scripts/memories/gen_memories_test.py    |   1 +
  flow/scripts/synth_preamble.tcl               |  70 +++++++++++
  flow/scripts/variables.json                   |   2 +-
  flow/scripts/variables.yaml                   |   4 +-
- 9 files changed, 249 insertions(+), 18 deletions(-)
+ 10 files changed, 255 insertions(+), 18 deletions(-)
  create mode 100644 flow/designs/asap7/tinyRocket-regfile/config.mk
  create mode 100644 flow/designs/asap7/tinyRocket-regfile/rocket_rf.regfile
 
 diff --git a/docs/user/AutoMemories.md b/docs/user/AutoMemories.md
-index c4f5e03ce..2b1387718 100644
+index 64bc8d1c3..6611d57b4 100644
 --- a/docs/user/AutoMemories.md
 +++ b/docs/user/AutoMemories.md
 @@ -167,6 +167,36 @@ on `AUTO_MEMORIES_MACRO_PLACE`, the register files to place as macros:
@@ -87,18 +92,18 @@ index c4f5e03ce..2b1387718 100644
  every bit's write mux (`write_style mux`, the default) or through one
  integrated clock gate per word, enabled by its write selects
 diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
-index c08c4513e..b9fb3cd7e 100644
+index 7634a313e..4eb76dcb1 100644
 --- a/docs/user/FlowVariables.md
 +++ b/docs/user/FlowVariables.md
-@@ -101,7 +101,7 @@ configuration file.
- | <a name="ADDITIONAL_LIBS"></a>ADDITIONAL_LIBS| Hardened macro library files listed here. The library information is immutable and used throughout all stages. Not stored in the .odb file.| |
- | <a name="ADDITIONAL_MEMORIES"></a>ADDITIONAL_MEMORIES| Experimental. Space-separated list of user-supplied `.memories` files (the memories.json JSON schema) merged onto the set AUTO_MEMORIES detects — to force-convert a memory the idiomatic gate rejects, or to describe one the scanner cannot find. See docs/user/AutoMemories.md.| |
+@@ -104,7 +104,7 @@ configuration file.
+ | <a name="ASAP7_USE_VT"></a>ASAP7_USE_VT| A space separated list of VT options to use with the ASAP7 standard cell library: RVT, LVT, SLVT.| RVT|
+ | <a name="AUTO_MEMORIES"></a>AUTO_MEMORIES| Experimental. When set to 1, memories that yosys infers in the RTL (`$mem_v2` cells, module boundary only) are detected pre-synthesis, inventoried in `$(RESULTS_DIR)/memories.json`, and — when idiomatic as an SRAM macro — given generated .lib/.lef views under `$(RESULTS_DIR)/memories/`. Synthesis blackboxes those modules and all later stages read the generated views, so an existing design gets macro-based results without a memory compiler. Supported for the asap7 platform only. See docs/user/AutoMemories.md.| 0|
  | <a name="AUTO_MEMORIES_MACRO_PLACE"></a>AUTO_MEMORIES_MACRO_PLACE| Experimental. Space-separated list of module names of AUTO_MEMORIES_REGFILES register files to place as macros, blackboxed in synthesis and placed by the macro placer (and, in `mode netlist`, dissolved after macro placement). A register file not listed is inlined: its generated netlist of standard cells replaces the module's body in synthesis, and its cells are placed, sized and buffered with the rest of the design -- the better shape for a small design, where a macro's outline and channels cost more core than the array saves. A name no spec builds stops the build. Requires AUTO_MEMORIES=1.| |
 -| <a name="AUTO_MEMORIES_REGFILES"></a>AUTO_MEMORIES_REGFILES| Experimental. Space-separated list of register-file spec files, one per RTL module to build as a register file of placed standard cells rather than synthesise to flops. Each spec names its module, words, bits, read and write ports by the RTL's own port names, and the cells; OpenROAD's generate_regfile checks the spec against the module's ports and writes `<module>.lef`, `<module>.lib` and `<module>_pre_layout.lib` under `$(RESULTS_DIR)/memories/`. A module named in AUTO_MEMORIES_MACRO_PLACE is blackboxed like an AUTO_MEMORIES macro and placed as one; any other is inlined as its generated netlist. A placed spec in `mode netlist` then dissolves into its cells after macro placement: its core FIRM where the macro was placed, in the macro's orientation, its address decode left to placement. Every register file appears in memories.json with kind `regfile`. Requires AUTO_MEMORIES=1.| |
 +| <a name="AUTO_MEMORIES_REGFILES"></a>AUTO_MEMORIES_REGFILES| Experimental. Space-separated list of register-file spec files, one per RTL module to build as a register file of placed standard cells rather than synthesise to flops. Each spec names its module, words, bits, read and write ports by the RTL's own port names, and the cells; OpenROAD's generate_regfile checks the spec against the module's ports and writes `<module>.lef`, `<module>.lib` and `<module>_pre_layout.lib` under `$(RESULTS_DIR)/memories/`. A module named in AUTO_MEMORIES_MACRO_PLACE is blackboxed like an AUTO_MEMORIES macro and placed as one; any other is inlined as its generated netlist. A spec with `memory <module>.<cell>` replaces a memory yosys infers inside a module rather than a module, through a seam synthesis makes (memlib + techmap); see docs/user/AutoMemories.md. A placed spec in `mode netlist` then dissolves into its cells after macro placement: its core FIRM where the macro was placed, in the macro's orientation, its address decode left to placement. Every register file appears in memories.json with kind `regfile`. Requires AUTO_MEMORIES=1.| |
- | <a name="ADDITIONAL_SITES"></a>ADDITIONAL_SITES| Passed as -additional_sites to initialize_floorplan.| |
- | <a name="ASAP7_USE_VT"></a>ASAP7_USE_VT| A space separated list of VT options to use with the ASAP7 standard cell library: RVT, LVT, SLVT.| RVT|
- | <a name="AUTO_MEMORIES"></a>AUTO_MEMORIES| Experimental. When set to 1, memories that yosys infers in the RTL (`$mem_v2` cells, module boundary only) are detected pre-synthesis, inventoried in `$(RESULTS_DIR)/memories.json`, and — when idiomatic as an SRAM macro — given generated .lib/.lef views under `$(RESULTS_DIR)/memories/`. Synthesis blackboxes those modules and all later stages read the generated views, so an existing design gets macro-based results without a memory compiler. Supported for the asap7 platform only. See docs/user/AutoMemories.md.| 0|
+ | <a name="BALANCE_ROWS"></a>BALANCE_ROWS| Balance rows during placement.| 0|
+ | <a name="BLOCKS"></a>BLOCKS| Blocks used as hard macros in a hierarchical flow. Do note that you have to specify block-specific inputs file in the directory mentioned by Makefile.| |
+ | <a name="BUFFER_PORTS_ARGS"></a>BUFFER_PORTS_ARGS| Specify arguments to the buffer_ports call during placement. Only used if DONT_BUFFER_PORTS=0.| |
 diff --git a/flow/designs/asap7/tinyRocket-regfile/config.mk b/flow/designs/asap7/tinyRocket-regfile/config.mk
 new file mode 100644
 index 000000000..b708d2218
@@ -174,7 +179,7 @@ index f5a073d27..080787a4d 100644
  export AUTO_MEMORIES = 1
  export CORE_UTILIZATION = 40
 diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_memories.py
-index 65d16880b..31f78bbad 100644
+index c9956ef5b..a87f83453 100644
 --- a/flow/scripts/memories/gen_memories.py
 +++ b/flow/scripts/memories/gen_memories.py
 @@ -15,6 +15,10 @@ collects its $mem_v2 cells, merges user-supplied `.memories` files
@@ -185,10 +190,10 @@ index 65d16880b..31f78bbad 100644
 +                                through a seam yosys makes: <module> <cell>
 +                                <register file>; <m>.memlib and <m>_map.v
 +                                beside it
-   <out-dir>/blackboxes.txt      converted module names, one per line —
-                                 what synthesis blackboxes
- 
-@@ -120,12 +124,15 @@ def _file_defining(module: str, verilog: list[Path]) -> Path:
+   <out-dir>/blackboxes.txt      `<module> <area>` per line, area in um^2 as
+                                 the .lib states it — what synthesis
+                                 blackboxes and the cost it gives each
+@@ -145,12 +149,15 @@ def _lib_area(lib: Path) -> str:
  
  
  def _inline_spec(spec: Path, out: Path) -> Path:
@@ -206,7 +211,7 @@ index 65d16880b..31f78bbad 100644
      ]
      out.write_text("".join(l + "\n" for l in kept))
      return out
-@@ -144,6 +151,69 @@ def _regfile_memory(spec: Path, module: str, reason: str) -> schema.Memory:
+@@ -171,6 +178,69 @@ def _regfile_memory(spec: Path, module: str, reason: str) -> schema.Memory:
      return mem
  
  
@@ -276,7 +281,7 @@ index 65d16880b..31f78bbad 100644
  def run_regfiles(
      specs: list[Path],
      openroad: str | None,
-@@ -175,6 +245,7 @@ def run_regfiles(
+@@ -202,6 +272,7 @@ def run_regfiles(
      if not specs:
          (out_dir / "regfiles.txt").write_text("")
          (out_dir / "inline.txt").write_text("")
@@ -284,7 +289,7 @@ index 65d16880b..31f78bbad 100644
          if macro_place:
              raise SystemExit(
                  "gen_memories: AUTO_MEMORIES_MACRO_PLACE names "
-@@ -200,24 +271,43 @@ def run_regfiles(
+@@ -229,21 +300,45 @@ def run_regfiles(
      memories = []
      dissolve = []
      inline = []
@@ -299,7 +304,12 @@ index 65d16880b..31f78bbad 100644
 +        # so there is no RTL module to check them against.
 +        seam = _spec_value(spec, "memory")
 +        if seam:
-+            if module in macro_place or len(seam) != 1 or len(seam[0]) != 1 or "." not in seam[0][0]:
++            if (
++                module in macro_place
++                or len(seam) != 1
++                or len(seam[0]) != 1
++                or "." not in seam[0][0]
++            ):
 +                raise SystemExit(
 +                    f"gen_memories: {spec}: `memory <module>.<cell>` once, and inlined"
 +                )
@@ -310,20 +320,25 @@ index 65d16880b..31f78bbad 100644
 +        else:
 +            check = f" -check_ports {_file_defining(module, verilog)}"
          if module not in macro_place:
+             inline_spec = _inline_spec(spec, out_dir / f"{module}.inline.regfile")
              tcl.write_text(
                  "".join(f"read_lef {lef}\n" for lef in lefs)
-                 + f"generate_regfile -spec {_inline_spec(spec, out_dir / f'{module}.inline.regfile')}"
+                 + f"generate_regfile -spec {inline_spec}"
 -                + f" -check_ports {rtl} -verilog {out_dir / f'{module}.v'}\n"
 +                + f"{check} -verilog {out_dir / f'{module}.v'}\n"
              )
-             subprocess.check_call([openroad, "-exit", "-no_init", "-no_splash", str(tcl)])
+             subprocess.check_call(
+                 [openroad, "-exit", "-no_init", "-no_splash", str(tcl)]
+             )
 -            memories.append(_regfile_memory(spec, module, "register file, inlined"))
 +            reason = "register file, inlined"
 +            if seam:
 +                reason += f", in place of {seam[0][0]} through a seam"
 +            memories.append(_regfile_memory(spec, module, reason))
              inline.append(module)
-             sys.stderr.write(f"gen_memories: {module} -> register file, inlined ({spec.name})\n")
+             sys.stderr.write(
+                 f"gen_memories: {module} -> register file, inlined ({spec.name})\n"
+@@ -251,7 +346,7 @@ def run_regfiles(
              continue
          tcl.write_text(
              "".join(f"read_lef {lef}\n" for lef in lefs)
@@ -332,15 +347,15 @@ index 65d16880b..31f78bbad 100644
              + f" -verilog {out_dir / f'{module}.v'} -def {out_dir / f'{module}.def'}"
              + f" -lef {out_dir / f'{module}.lef'} -liberty {out_dir / f'{module}.lib'}\n"
          )
-@@ -232,6 +322,7 @@ def run_regfiles(
-         f.write("".join(f"{m.name}\n" for m in memories if m.name not in inline))
+@@ -274,6 +369,7 @@ def run_regfiles(
+         )
      (out_dir / "regfiles.txt").write_text("".join(f"{m}\n" for m in dissolve))
      (out_dir / "inline.txt").write_text("".join(f"{m}\n" for m in inline))
 +    (out_dir / "seams.txt").write_text("".join(f"{s}\n" for s in seams))
      return memories
  
  
-@@ -291,7 +382,15 @@ def run(
+@@ -333,7 +429,15 @@ def run(
      )
      if regfiles:
          listed = {m.name for m in regfiles}
@@ -357,11 +372,23 @@ index 65d16880b..31f78bbad 100644
          schema.dump(memories, json_path, platform)
  
      for mem in sorted(memories, key=lambda m: m.name):
+diff --git a/flow/scripts/memories/gen_memories_test.py b/flow/scripts/memories/gen_memories_test.py
+index aaa39125a..0605660ad 100644
+--- a/flow/scripts/memories/gen_memories_test.py
++++ b/flow/scripts/memories/gen_memories_test.py
+@@ -119,6 +119,7 @@ class GenMemoriesTest(unittest.TestCase):
+                 "mem_128x32.lib",
+                 "mem_128x32_pre_layout.lib",
+                 "regfiles.txt",
++                "seams.txt",
+             ],
+         )
+         # one `<module> <area>` line; the area is the one the .lib states,
 diff --git a/flow/scripts/synth_preamble.tcl b/flow/scripts/synth_preamble.tcl
-index ed343d055..9f10d3b64 100644
+index 79d85c711..4dfe5533e 100644
 --- a/flow/scripts/synth_preamble.tcl
 +++ b/flow/scripts/synth_preamble.tcl
-@@ -79,6 +79,75 @@ proc auto_memories_inline { } {
+@@ -98,6 +98,75 @@ proc auto_memories_inline { } {
    return [regexp -all -inline {\S+} $content]
  }
  
@@ -436,8 +463,8 @@ index ed343d055..9f10d3b64 100644
 +
  proc read_auto_memories_inline { } {
    foreach m [auto_memories_inline] {
-     read_verilog -overwrite "$::env(RESULTS_DIR)/memories/$m.v"
-@@ -222,6 +291,7 @@ proc read_design_sources { } {
+     # A parameterized RTL module (ibex_register_file_ff #(...)) is
+@@ -250,6 +319,7 @@ proc read_design_sources { } {
    } else {
      error "Unrecognized HDL frontend: $::env(SYNTH_HDL_FRONTEND)"
    }
@@ -446,7 +473,7 @@ index ed343d055..9f10d3b64 100644
  
  if { $::env(ABC_AREA) } {
 diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
-index 6db7ef244..0ef40fe96 100644
+index f6a3f498d..f48958c39 100644
 --- a/flow/scripts/variables.json
 +++ b/flow/scripts/variables.json
 @@ -75,7 +75,7 @@
@@ -459,10 +486,10 @@ index 6db7ef244..0ef40fe96 100644
        "synth"
      ]
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
-index 188e95b0a..21d7cc68b 100644
+index 62238d38e..679d4c871 100644
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -222,7 +222,9 @@ AUTO_MEMORIES_REGFILES:
+@@ -267,7 +267,9 @@ AUTO_MEMORIES_REGFILES:
      `<module>_pre_layout.lib` under `$(RESULTS_DIR)/memories/`. A module
      named in AUTO_MEMORIES_MACRO_PLACE is blackboxed like an AUTO_MEMORIES
      macro and placed as one; any other is inlined as its generated

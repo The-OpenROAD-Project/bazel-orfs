@@ -28,7 +28,7 @@ simulation of dec_gpr_ctl before and after the surgery
 with it defined.
 
 Not upstreamed: carried in bazel-orfs for the register-file campaign;
-needs ORFS 0094 and OpenROAD 0011.
+needs ORFS 0094 and OpenROAD 0010 (async_reset).
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---

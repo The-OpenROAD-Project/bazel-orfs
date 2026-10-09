@@ -180,7 +180,7 @@ ORFS_PATCHES = [
     # ORFS that carries it.
     Label("//patches:0095-orfs-picorv32-regfile.patch"),
     # 0096: asap7/ibex-regfile, ibex_register_file_ff as a module spec
-    # with an asynchronous reset (OpenROAD 0011, 0012), for the
+    # with an asynchronous reset (OpenROAD 0010), for the
     # register-file campaign. On 0095. Not upstreamed.
     Label("//patches:0096-orfs-ibex-regfile.patch"),
     # 0097: asap7/swerv_wrapper-yosys and asap7/swerv_wrapper-regfile,
@@ -190,12 +190,8 @@ ORFS_PATCHES = [
     Label("//patches:0097-orfs-swerv-regfile.patch"),
     # 0098: asap7/cva6-regfile, cva6's integer register file through a
     # SYNTH_VERILOG_SURGERY script and a module spec with write_priority
-    # last (OpenROAD 0013), for the register-file campaign. Not upstreamed.
+    # last (OpenROAD 0010), for the register-file campaign. Not upstreamed.
     Label("//patches:0098-orfs-cva6-regfile.patch"),
-    # 0099: an inlined register file in place of a parameterized module
-    # (ibex_register_file_ff): its instances' parameters dropped before
-    # the netlist is read. Not upstreamed.
-    Label("//patches:0099-orfs-regfile-inline-parameterized.patch"),
     # 0100: picorv32 and picorv32-regfile at GPL_RANDOM_SEED 2 and 3,
     # the register-file campaign's noise band for picorv32. Not
     # upstreamed.
