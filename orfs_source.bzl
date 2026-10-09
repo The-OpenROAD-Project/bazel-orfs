@@ -142,6 +142,12 @@ ORFS_PATCHES = [
     # 0067; retires at a bump onto an ORFS whose FakeRAM asap7
     # backend has a width floor.
     Label("//patches:0088-orfs-fakeram-min-width.patch"),
+    # 0094: SYNTH_VERILOG_SURGERY, a script that edits copies of
+    # VERILOG_FILES before synthesis reads them, so vendored RTL stays as
+    # upstream has it. Upstream as
+    # The-OpenROAD-Project/OpenROAD-flow-scripts#4649; retires at a
+    # //:bump onto an ORFS that carries it.
+    Label("//patches:0094-orfs-synth-verilog-surgery.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
