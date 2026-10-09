@@ -100,7 +100,7 @@ genrule(
     cmd = "files=$$(echo $(locations :rf_parent_synth) | tr ' ' '\\n'); " +
           "bb=$$(echo \"$$files\" | grep '/memories$$')/blackboxes.txt; " +
           "net=$$(echo \"$$files\" | grep '/1_2_yosys.v$$'); " +
-          "grep -qx rf32x32 $$bb || { echo 'rf32x32 not in blackboxes.txt'; exit 1; }; " +
+          "grep -q '^rf32x32 ' $$bb ||{ echo 'rf32x32 not in blackboxes.txt'; exit 1; }; " +
           "grep -q '^ *rf32x32 ' $$net || { echo 'rf32x32 not a cell in the netlist'; exit 1; }; " +
           "echo 'rf32x32 replaced by the generated macro' > $@",
 )
