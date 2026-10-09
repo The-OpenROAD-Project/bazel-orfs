@@ -28,7 +28,9 @@ import sys
 
 def read_blackboxes(path):
     with open(path) as f:
-        return [line.strip() for line in f if line.strip()]
+        # one `<module> <area>` per line (ORFS patch 0090); the module is
+        # the first field
+        return [line.split()[0] for line in f if line.strip()]
 
 
 def instantiation_count(netlist_path, module):
