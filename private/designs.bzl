@@ -117,6 +117,7 @@ def _orfs_designs_impl(repository_ctx):
 
     # Build a dict keyed by "platform/design_nickname"
     designs = {}
+    dir_keys = {}
     for config in configs:
         platform = config.get("platform", "")
         nickname = config.get("design_nickname", "")
@@ -154,18 +155,26 @@ def _orfs_designs_impl(repository_ctx):
             "arguments": config.get("arguments", {}),
             "blocks": config.get("blocks", []),
         }
-        designs[key] = entry
 
-        # Also index by directory name when it differs from nickname,
-        # so orfs_design() can find the config from the package path.
+        # Index by directory, which names a design uniquely, and by
+        # nickname as a fallback that never overwrites a directory's own
+        # entry: variants that include a base design's config.mk share its
+        # DESIGN_NICKNAME when the base sets it, and keyed by nickname
+        # alone the last one parsed replaced the base design's config,
+        # which orfs_design() then found for the base's own package
+        # (test/designs_fixture: designs_by_directory_test).
         config_path = config.get("config_path", "")
+        dir_key = None
         if config_path:
             parts = config_path.split("/")
             if len(parts) >= 4:
                 dirname = parts[-2]  # e.g. "black_parrot" from ".../black_parrot/config.mk"
                 dir_key = "%s/%s" % (platform, dirname)
-                if dir_key != key:
-                    designs[dir_key] = entry
+        if dir_key:
+            designs[dir_key] = entry
+            dir_keys[dir_key] = True
+        if key not in dir_keys:
+            designs[key] = entry
 
         # Also add block_configs as separate entries
         for block_config in config.get("block_configs", []):
