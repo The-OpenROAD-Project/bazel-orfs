@@ -13,6 +13,8 @@
 # -- before anything is synthesized. That is the whole test, and it runs
 # in CI in the time it takes to load two packages.
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@designs_fixture//:designs.bzl", "DESIGNS")
+load("@rules_python//python:defs.bzl", "py_test")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -24,4 +26,18 @@ build_test(
         "//test/designs_fixture/designs/asap7/tiny:tiny_variables",
         "//test/designs_fixture/designs/asap7/tiny:design_config",
     ],
+)
+
+# Each design directory gets its own config, even when it shares a
+# DESIGN_NICKNAME: asap7/tiny-variant includes asap7/tiny's config.mk.
+py_test(
+    name = "designs_by_directory_test",
+    srcs = ["designs_by_directory_test.py"],
+    args = ["'%s'" % json.encode({
+        d: DESIGNS["asap7/" + d]["arguments"]
+        for d in [
+            "tiny",
+            "tiny-variant",
+        ]
+    })],
 )
