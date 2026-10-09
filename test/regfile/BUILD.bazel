@@ -1,0 +1,159 @@
+load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+# AUTO_MEMORIES_REGFILES (ORFS patch 0089 on OpenROAD patch 0010) in its
+# smallest form: one 16 x 8 register file with two read and two write
+# ports in a parent of flops, seconds to global route. regfile_top places
+# it as a macro (AUTO_MEMORIES_MACRO_PLACE, patch 0091), which dissolves
+# into its cells after macro placement; the inlined variant does not
+# list it, so synthesis reads the generated netlist in the module's place.
+[
+    orfs_flow(
+        name = "regfile_top",
+        arguments = {
+            "AUTO_MEMORIES": "1",
+            # The file's macro is 28.5 x 10 um; a core sized by
+            # utilization alone would be square and narrower than the
+            # macro and its halo.
+            "CORE_AREA": "2 2 58 43",
+            "DIE_AREA": "0 0 60 45",
+            "PLACE_DENSITY": "0.5",
+        } | macro_place,
+        last_stage = "grt",
+        sources = {
+            "AUTO_MEMORIES_REGFILES": [":RegFile.regfile"],
+            "SDC_FILE": [":constraint.sdc"],
+        },
+        variant = variant,
+        verilog_files = ["regfile_top.v"],
+    )
+    for variant, macro_place in [
+        (
+            None,
+            {"AUTO_MEMORIES_MACRO_PLACE": "RegFile"},
+        ),
+        ("inlined", {}),
+    ]
+]
+
+orfs_run(
+    name = "dissolve_probe",
+    src = ":regfile_top_floorplan",
+    outs = ["dissolve_probe.json"],
+    script = ":dissolve_probe.tcl",
+    user_arguments = {
+        "OUTPUT_JSON": "$(location dissolve_probe.json)",
+    },
+)
+
+py_test(
+    name = "check_dissolve_test",
+    size = "small",
+    srcs = ["check_dissolve.py"],
+    args = ["$(rootpath :dissolve_probe.json)"],
+    data = [":dissolve_probe.json"],
+    main = "check_dissolve.py",
+)
+
+# Every register clocked, the register file in a module below the top:
+# dissolved after the macro step, and inlined in synthesis.
+[
+    [
+        orfs_run(
+            name = "%s_clocked_probe" % name,
+            src = ":%s_floorplan" % name,
+            outs = ["%s_clocked_probe.json" % name],
+            script = ":clocked_probe.tcl",
+            user_arguments = {
+                "OUTPUT_JSON": "$(location %s_clocked_probe.json)" % name,
+            },
+        ),
+        py_test(
+            name = "%s_clocked_test" % name,
+            size = "small",
+            srcs = ["check_clocked.py"],
+            args = ["$(rootpath :%s_clocked_probe.json)" % name],
+            data = [":%s_clocked_probe.json" % name],
+            main = "check_clocked.py",
+        ),
+    ]
+    for name in [
+        "regfile_top",
+        "regfile_top_inlined",
+    ]
+]
+
+# The dissolved file through repair_design, CTS, the legaliser and global
+# route: its core's cells dont_touch but its boundary repairable, its
+# flops rewired by CTS, its decode placed and sized by the parent.
+build_test(
+    name = "regfile_grt_build_test",
+    targets = [
+        ":regfile_top_grt",
+        ":regfile_top_inlined_grt",
+    ],
+)
+
+# A register file with a keep threshold. keep_hierarchy -min_cost
+# (SYNTH_MINIMUM_KEEP_SIZE) needs a cost for every instanced blackbox,
+# and a register-file macro is a blackbox made from the RTL's own
+# module: its line in blackboxes.txt carries the area its generated .lib
+# states (ORFS patches 0090 and 0089), or synthesis stops with "Missing
+# cost information on instanced blackbox". The threshold is 1, not 0:
+# yosys reads -min_cost 0 as no threshold and never asks for a cost.
+orfs_flow(
+    name = "regfile_top",
+    arguments = {
+        "AUTO_MEMORIES": "1",
+        "AUTO_MEMORIES_MACRO_PLACE": "RegFile",
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_MINIMUM_KEEP_SIZE": "1",
+        "SYNTH_NUM_PARTITIONS": "1",
+    },
+    last_stage = "synth",
+    sources = {
+        "AUTO_MEMORIES_REGFILES": [":RegFile.regfile"],
+        "SDC_FILE": [":constraint.sdc"],
+    },
+    variant = "keep",
+    verilog_files = ["regfile_top.v"],
+)
+
+filegroup(
+    name = "regfile_top_keep_synth_netlist",
+    srcs = [":regfile_top_keep_synth"],
+    output_group = "1_2_yosys.v",
+)
+
+# Synthesis reached its netlist, and the register file is a macro
+# instance, not a module of its own.
+sh_test(
+    name = "regfile_top_keep_synth_test",
+    size = "small",
+    srcs = ["//test:synth_discovery_netlist_test.sh"],
+    args = [
+        "$(location :regfile_top_keep_synth_netlist)",
+        "regfile_top",
+        "!RegFile",
+    ],
+    data = [":regfile_top_keep_synth_netlist"],
+)
+
+# The register file's line in blackboxes.txt is `RegFile <area>`.
+genrule(
+    name = "regfile_top_keep_blackboxes",
+    srcs = [":regfile_top_keep_synth"],
+    outs = ["regfile_top_keep_blackboxes.txt"],
+    cmd = "files=$$(echo $(locations :regfile_top_keep_synth) | tr ' ' '\\n'); " +
+          "bb=$$(echo \"$$files\" | grep '/memories$$')/blackboxes.txt; " +
+          "grep -Eq '^RegFile [0-9]+[.][0-9]+$$' $$bb || " +
+          "{ echo 'no `RegFile <area>` line in blackboxes.txt'; cat $$bb; exit 1; }; " +
+          "cp $$bb $@",
+)
+
+build_test(
+    name = "regfile_top_keep_blackboxes_test",
+    targets = [":regfile_top_keep_blackboxes"],
+)

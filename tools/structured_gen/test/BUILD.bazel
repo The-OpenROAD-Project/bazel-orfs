@@ -61,14 +61,15 @@ build_test(
 )
 
 # The same register file replaced *by name* inside a parent: the parent's
-# RTL instantiates rf32x32, STRUCTURED_MEMORIES lists the spec, and the
-# memories step runs the generator, writes the views beside the
+# RTL instantiates rf32x32, AUTO_MEMORIES_REGFILES lists the spec, and the
+# memories step runs generate_regfile, writes the views beside the
 # AUTO_MEMORIES ones and blackboxes the module. The floorplan then places
 # one macro. This is the hook the XiangShan register files use.
 orfs_flow(
     name = "rf_parent",
     arguments = {
         "AUTO_MEMORIES": "1",
+        "AUTO_MEMORIES_MACRO_PLACE": "rf32x32",
         # A die the 168 x 19 um macro fits in with room around it; a
         # utilisation-derived square would not (IFP-0002).
         "CORE_AREA": "2 2 238 98",
@@ -81,7 +82,7 @@ orfs_flow(
     last_stage = "floorplan",
     sources = {
         "SDC_FILE": [":constraints.sdc"],
-        "STRUCTURED_MEMORIES": [":rf32x32.spec"],
+        "AUTO_MEMORIES_REGFILES": [":rf32x32.spec"],
     },
     verilog_files = ["rf_parent.sv"],
 )

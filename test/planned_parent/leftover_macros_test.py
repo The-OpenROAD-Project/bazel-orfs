@@ -1,17 +1,16 @@
 """A generated macro the plan does not name is placed beside the plan's netlists.
 
-The planned parent holds both: the register files the plan places as FIRM
-netlists at floorplan, and generated macros the plan does not name, which
-place_macros.tcl hands to rtl_macro_placer. rtl_macro_placer refuses a FIRM
-standard cell in its area (MPL-0050), so on XSTile, with the regions
-flattened, the floorplan stopped. The miniature's FileM is such a macro.
+The planned parent holds both: the register files the plan places, macros
+until they dissolve into their cells after the macro step, and generated
+macros the plan does not name, which place_macros.tcl hands to
+rtl_macro_placer. The miniature's FileM is such a macro.
 
 What is checked on the floorplan checkpoint: FileM is placed, it overlaps
-none of the netlists, and every netlist is FIRM again after the macro step,
-where the plan put it and still an array (rtl_macro_placer moves a
-cluster's cells to one point, so a netlist it saw as movable collapses),
-but for its periphery: the generator leaves the address decode to the
-parent, to place and size like any logic.
+none of the netlists, and every netlist's core is FIRM where the plan put
+it and still an array, but for its periphery: the generator leaves the
+address decode to the parent, to place and size like any logic.
+
+    leftover_macros_test.py <leftover_macros.json> <instance>=<x>,<y>...
 """
 
 import json
@@ -43,11 +42,10 @@ class LeftoverMacrosTest(unittest.TestCase):
                     "%s overlaps the netlist %s" % (m["name"], n["name"]),
                 )
         planned = {}
-        with open(sys.argv[2]) as f:
-            for line in f:
-                p = line.split()
-                if len(p) == 4 and not line.startswith("#"):
-                    planned[p[1]] = (float(p[2]), float(p[3]))
+        for arg in sys.argv[2:]:
+            inst, xy = arg.split("=")
+            x, y = xy.split(",")
+            planned[inst] = (float(x), float(y))
         dbu = d["dbu"]
         for n in d["netlists"]:
             self.assertGreater(

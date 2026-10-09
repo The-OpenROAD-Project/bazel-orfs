@@ -18,7 +18,8 @@ BASE_ARGS = TURNAROUND_ARGS | {
 def mini_planned_flow(rtl, files):
     """The blocks named in PLAN, each at its planned outline with its pins on
     the planned side, abstracted at cts; the parent at the planned die,
-    the blocks placed by the plan, the files as placed netlists, to grt.
+    the blocks placed by the plan, the files as register files the plan
+    places and that dissolve into their cells after the macro step, to grt.
 
     Args:
       rtl: the genrule that writes blocks.sv, files.sv and top.sv.
@@ -47,13 +48,14 @@ def mini_planned_flow(rtl, files):
         "CORE_AREA": PLAN["parent"]["CORE_AREA"],
         "DIE_AREA": PLAN["parent"]["DIE_AREA"],
         "RTLMP_MIN_CHANNEL_SIZE": "4 4",
+        # the plan places every file as a macro, by its module (<M>.regfile)
+        "AUTO_MEMORIES_MACRO_PLACE": " ".join([f.split(":")[-1].removesuffix(".regfile") for f in files]),
     }
     parent_sources = {
         "MACRO_PLACEMENT_TCL": [":plan/place_macros.tcl"],
         "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCKS_grid_strategy.tcl"],
         "SDC_FILE": [":constraints.sdc"],
-        "STRUCTURED_MEMORIES": files,
-        "STRUCTURED_PLACEMENT": [":plan/netlists.txt"],
+        "AUTO_MEMORIES_REGFILES": files,
     }
     parent_macros = [":%s_generate_abstract" % b for b in sorted(PLAN["macros"])]
     orfs_flow(
@@ -108,6 +110,10 @@ def mini_planned_flow(rtl, files):
         script = ":leftover_macros.tcl",
         sources = parent_sources,
         user_arguments = {
+            "NETLISTS": " ".join([
+                "%s %s" % (n["module"], n["instance"])
+                for n in PLAN["parent"]["netlists"]
+            ]),
             "OUTPUT_JSON": "$(location leftover_macros.json)",
         },
     )

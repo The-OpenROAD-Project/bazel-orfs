@@ -51,16 +51,17 @@ exports_files(
     visibility = ["//test/planned_parent:__pkg__"],
 )
 
-# The parent's three placed netlists, at real size in a parent of flops:
-# the battery's rung for what the resizer, CTS and the router do to an
-# array of this size (test/structured_netlist, scaffold.bzl).
+# The register-file specs: the parent's three placed netlists, at real
+# size in a parent of flops, are the battery's rung for what the resizer,
+# CTS and the router do to an array of this size (test/structured_netlist,
+# scaffold.bzl); every spec is generate_regfile's golden case
+# (tools/structured_gen:golden_test).
 exports_files(
-    [
-        "IntRegFile.regfile",
-        "RenameBufferFile.regfile",
-        "RobEntryFile.regfile",
+    glob(["*.regfile"]),
+    visibility = [
+        "//test/structured_netlist:__pkg__",
+        "//tools/structured_gen:__pkg__",
     ],
-    visibility = ["//test/structured_netlist:__pkg__"],
 )
 
 # The planned parent: the blocks the macro selection tables named, each a

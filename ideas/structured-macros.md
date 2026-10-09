@@ -2,6 +2,11 @@
 
 *Plan, 2026-09-21, for the record in PR #1055.*
 
+*2026-10-06: STRUCTURED_MEMORIES and STRUCTURED_PLACEMENT (ORFS patches
+0071, 0078, 0082, 0084) are replaced by AUTO_MEMORIES_REGFILES (ORFS patch
+0089 on OpenROAD patch 0010): a register file is a macro through
+synthesis and macro placement and dissolves into its cells after it.*
+
 ![The parent with its generated macros, and the tile structure of one generated array](structured-macros.png)
 
 ## Why

@@ -2,6 +2,7 @@
 # OpenROAD's own libraries rather than emitted as text for a later flow
 # to place. See README.md.
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -48,3 +49,54 @@ cc_test(
     data = ASAP7_LEFS,
     deps = [":regfile"],
 )
+
+# OpenROAD's generate_regfile (patch 0010) builds every spec and writes
+# all its views. It was byte for byte this tool's output
+# until the read gates and the clock gate moved it on. The tiny synthetic
+# specs in golden/ cover every spec feature (banks, bank columns, bit
+# folds, registered read with the RTL's names, banked and interleaved
+# reads, the zero word, netlist mode) in seconds.
+GOLDEN_TINY = glob(["golden/*.regfile"])
+
+# The register-file specs the flow uses, at real size: minutes per spec.
+GOLDEN_XIANGSHAN = [
+    "//test/coremark_joule/designs/asap7/xiangshan:%s.regfile" % m
+    for m in [
+        "FpRegFile",
+        "FtqEntryQueue",
+        "FtqMetaQueueCommit",
+        "FtqMetaQueueRedirect",
+        "FtqMetaQueueResolve",
+        "IntRegFile",
+        "RenameBufferFile",
+        "RobEntryFile",
+        "VfRegFile",
+    ]
+] + ["//test/structured_netlist:SmallFile.regfile"]
+
+[
+    sh_test(
+        name = name,
+        size = size,
+        srcs = ["golden_test.sh"],
+        args = [
+            "$(rootpath @openroad//:openroad)",
+        ] + ["$(rootpath {})".format(l) for l in ASAP7_LEFS] + [
+            "$(rootpath {})".format(s)
+            for s in specs
+        ],
+        data = [
+            "@openroad",
+        ] + ASAP7_LEFS + specs,
+        tags = tags,
+    )
+    for name, size, specs, tags in [
+        ("golden_test", "small", GOLDEN_TINY, []),
+        (
+            "golden_xiangshan_test",
+            "enormous",
+            GOLDEN_XIANGSHAN,
+            ["manual"],
+        ),
+    ]
+]

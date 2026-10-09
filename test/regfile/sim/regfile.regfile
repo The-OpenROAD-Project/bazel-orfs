@@ -1,0 +1,17 @@
+# riscv32i's `regfile` (src/riscv32i/regfile.v) as generate_regfile builds
+# it, for simulation against that RTL: 32 x 32, two combinational reads,
+# one write, x0 reads 0. BUILD.bazel appends the write style.
+module regfile
+words 32
+bits 32
+clock clk
+read ra1 rd1
+read ra2 rd2
+write wa3 wd3 we3
+zero_word 0
+cell icg ICGx1_ASAP7_75t_R
+cell flop DFFHQNx1_ASAP7_75t_R
+cell and2 AND2x2_ASAP7_75t_R
+cell or2 OR2x2_ASAP7_75t_R
+cell ao22 AO22x2_ASAP7_75t_R
+cell inv INVx1_ASAP7_75t_R

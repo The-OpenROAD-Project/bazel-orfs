@@ -13,6 +13,7 @@ load(":keep_modules_test.bzl", "keep_modules_test_suite")
 load(":mock_pin_knobs_test.bzl", "mock_pin_knobs_test")
 load(":provider_test_rule.bzl", "lib_pre_layout_test")
 load(":quick_pins_test_rule.bzl", "quick_pins_data_dep_test")
+load(":retired_arguments_test.bzl", "retired_argument_test")
 load(":sdc_clock_period_test.bzl", "runfiles_contents_test", "synth_action_inputs_test")
 load(":slang_frontend_test.bzl", "slang_frontend_test_suite")
 load(":source_input_propagation_test.bzl", "source_input_propagation_test")
@@ -2690,3 +2691,53 @@ sh_test(
         "@orfs//tools/FakeRAM2.0:all_files",
     ],
 )
+
+# A retired variable is refused, naming its replacement: ORFS ignores a
+# variable it does not know, so a flow still setting one would build
+# without the register files it asks for. In arguments or sources the
+# unknown-variable check refuses it at load, which no test can catch;
+# these pass it through user_arguments, the escape hatch that check
+# exempts, and the stage rule refuses it at analysis.
+orfs_synth(
+    name = "retired_structured_memories_synth",
+    arguments = LB_ARGS | {
+        "SDC_FILE": "$(location :constraints-sram)",
+    },
+    data = [":constraints-sram"],
+    module_top = "lb_32x128",
+    tags = ["manual"],
+    user_arguments = {
+        "STRUCTURED_MEMORIES": "$(location :constraints-sram)",
+    },
+    verilog_files = LB_VERILOG_FILES,
+)
+
+orfs_floorplan(
+    name = "retired_structured_placement_floorplan",
+    src = ":lb_32x128_synth",
+    arguments = LB_ARGS,
+    sources = LB_SOURCES,
+    tags = ["manual"],
+    user_arguments = {
+        "STRUCTURED_PLACEMENT": "1",
+    },
+    variant = "retired",
+)
+
+[
+    retired_argument_test(
+        name = "%s_refused_test" % name,
+        message = message,
+        target_under_test = ":" + name,
+    )
+    for name, message in [
+        (
+            "retired_structured_memories_synth",
+            "STRUCTURED_MEMORIES is retired: AUTO_MEMORIES_REGFILES",
+        ),
+        (
+            "retired_structured_placement_floorplan",
+            "STRUCTURED_PLACEMENT is retired: AUTO_MEMORIES_MACRO_PLACE",
+        ),
+    ]
+]

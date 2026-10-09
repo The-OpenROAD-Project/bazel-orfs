@@ -78,14 +78,6 @@ ORFS_PATCHES = [
     # cells of their own type.
     # Not upstreamed -- retire at a bump onto an ORFS with such a hook.
     Label("//patches:0068-orfs-synth-techmap-hook.patch"),
-    # STRUCTURED_MEMORIES: a design lists register-file spec files, one
-    # per module, and gen_memories.py runs tools/structured_gen for each
-    # -- a placed standard-cell macro checked against the module's
-    # ports, its views beside the AUTO_MEMORIES ones, the module in
-    # blackboxes.txt. Explicit by design; XiangShan's register files are
-    # Reg(Vec) and no detector sees them. Not upstreamed -- retire at a
-    # bump onto an ORFS that can declare a generated macro per module.
-    Label("//patches:0071-orfs-structured-memories.patch"),
     Label("//patches:0073-orfs-fakeram-declared-pins-write-mask.patch"),
     Label("//patches:0074-orfs-skip-extract-fa.patch"),
     # With GPL_TIMING_DRIVEN and GPL_ROUTABILITY_DRIVEN both off, the place
@@ -93,29 +85,18 @@ ORFS_PATCHES = [
     # pins-blind solve, place_pins and a second solve. Not upstreamed --
     # retire at a bump onto an ORFS that places pins with global placement.
     Label("//patches:0077-orfs-gpl-place-ios.patch"),
-    # 0078: STRUCTURED_MEMORIES in mode netlist: the generated array's cells
-    # placed FIRM into the parent at floorplan (STRUCTURED_PLACEMENT) instead
-    # of a macro. Carried, not upstreamed. See ideas/structured-macros.md.
-    Label("//patches:0078-orfs-structured-netlists.patch"),
     # 0081: the memory detector names a slang-uniquified module
     # (`array_512x17$Frontend...`) for its definition and collapses the
     # copies: read_slang blackboxes by definition name, so the uniquified
     # names never matched and the arrays were flattened into their tables
     # (Frontend's TAGE partition, 64 x 8704 bits). Carried, not upstreamed.
     Label("//patches:0081-orfs-memories-slang-uniquified-names.patch"),
-    # 0082: structured_netlists.tcl skips a placed netlist's cells that
-    # eliminate_dead_logic removed in the synth ODB step (a dead bit of the
-    # array takes its whole column) and reports them; FLW-0005 stays for a
-    # netlist with no cell in the design. Builds on 0078; retires with it.
-    Label("//patches:0082-orfs-structured-netlists-dead-cells.patch"),
     # 0083: the macro step skips rtl_macro_placer when MACRO_PLACEMENT_TCL
-    # fixed every macro; run anyway it refuses the FIRM cells of a placed
-    # structured netlist (MPL-0050). Carried, not upstreamed.
+    # fixed every macro (a planned parent: its blocks and register files
+    # placed by the plan). Written for the FIRM cells of the retired
+    # structured netlists, which it refused (MPL-0050). Carried, not
+    # upstreamed.
     Label("//patches:0083-orfs-macro-place-all-fixed.patch"),
-    # 0084: a placed netlist's cells are dont_touch as well as FIRM;
-    # repair_design upsized 378 of them in place and the wider masters
-    # overlapped their fixed neighbours. Builds on 0078; retires with it.
-    Label("//patches:0084-orfs-structured-netlists-dont-touch.patch"),
     # 0085: SKIP_PIN_ACCESS runs the global route without building access
     # points. pin_access fails on a macro pin it cannot reach (DRT-0073),
     # which on a hierarchical design is one pin of one block between a
@@ -147,9 +128,9 @@ ORFS_PATCHES = [
     # its name, so keep_hierarchy -min_cost (SYNTH_MINIMUM_KEEP_SIZE)
     # accepts it; any AUTO_MEMORIES design with a keep threshold stopped
     # on "Missing cost information on instanced blackbox". Upstream as
-    # The-OpenROAD-Project/OpenROAD-flow-scripts#4650; also gives 0071's
-    # register files their area. Retires at a bump onto an ORFS that
-    # carries #4650.
+    # The-OpenROAD-Project/OpenROAD-flow-scripts#4650; 0089's register
+    # files write their area after it. Retires at a bump onto an ORFS
+    # that carries #4650.
     Label("//patches:0090-orfs-auto-memories-keep-cost.patch"),
     # 0094: SYNTH_VERILOG_SURGERY, a script that edits copies of
     # VERILOG_FILES before synthesis reads them, so vendored RTL stays as
@@ -157,6 +138,24 @@ ORFS_PATCHES = [
     # The-OpenROAD-Project/OpenROAD-flow-scripts#4649; retires at a
     # //:bump onto an ORFS that carries it.
     Label("//patches:0094-orfs-synth-verilog-surgery.patch"),
+    # 0089: AUTO_MEMORIES_REGFILES: register files listed by spec are
+    # built by OpenROAD's generate_regfile (OpenROAD patch 0010) as
+    # macros of placed standard cells; in `mode netlist` each dissolves
+    # into its cells at the end of macro placement, its core FIRM where
+    # the macro was placed, its address decode left to placement.
+    # Replaces STRUCTURED_MEMORIES (0071, 0078, 0082, 0084). Upstream as
+    # The-OpenROAD-Project/OpenROAD-flow-scripts#4651, without its
+    # example designs; retires at a bump onto an ORFS that carries it.
+    Label("//patches:0089-orfs-auto-memories-regfiles.patch"),
+    # 0091: AUTO_MEMORIES_MACRO_PLACE lists the register files placed as
+    # macros; any other AUTO_MEMORIES_REGFILES register file is inlined,
+    # its generated netlist read in synthesis in the module's place. On
+    # 0089; the second commit of ORFS #4651.
+    Label("//patches:0091-orfs-auto-memories-macro-place.patch"),
+    # 0099: an inlined register file in place of a parameterized module:
+    # its instances' parameters dropped before the netlist is read. On
+    # 0091; the third commit of ORFS #4651.
+    Label("//patches:0099-orfs-regfile-inline-parameterized.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

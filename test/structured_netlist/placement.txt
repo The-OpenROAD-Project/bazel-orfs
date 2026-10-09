@@ -1,2 +1,0 @@
-# <module> <instance path> <x um> <y um>: the array's lower-left corner
-SmallFile u_file 20 20

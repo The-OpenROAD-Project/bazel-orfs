@@ -82,11 +82,12 @@ def load_plan(path):
                     "w_um": 318.4, "h_um": 192.5}, ...]
     }
 
-    netlists (optional) are the generated arrays dropped FIRM into the
-    parent (STRUCTURED_MEMORIES in mode netlist): the planner lays them
-    in a row along the top of the logic region, left to right, a gap
-    apart, and emits their corners as netlists.txt for
-    STRUCTURED_PLACEMENT; an entry may fix its own x_um and y_um instead.
+    netlists (optional) are the parent's generated register files
+    (AUTO_MEMORIES_REGFILES in mode netlist), macros until they dissolve
+    into their cells after the macro step: the planner lays them in a row
+    along the top of the logic region, left to right, a gap apart, and
+    place_macros.tcl places each by its instance; an entry may fix its
+    own x_um and y_um instead.
 
     pin_partners (optional) is probe_pin_partners.tcl's dump, one
     "pin <block> <pin> <partner>" line per block pin, partner a block
@@ -116,7 +117,9 @@ def load_plan(path):
         plan = json.load(f)
     partners = plan.get("pin_partners")
     if partners and not os.path.isabs(partners):
-        plan["pin_partners"] = os.path.join(os.path.dirname(os.path.abspath(path)), partners)
+        plan["pin_partners"] = os.path.join(
+            os.path.dirname(os.path.abspath(path)), partners
+        )
     return plan
 
 
@@ -163,7 +166,11 @@ def shape(macro, tech, margins, core_margin=0.0):
     if content and density:
         # (f side - 2 m)(f depth - 2 m) = content / density: the core keeps
         # its absolute margins when the die scales
-        a, b, c = side * depth, -2.0 * core_margin * (side + depth), (2.0 * core_margin) ** 2 - content / density
+        a, b, c = (
+            side * depth,
+            -2.0 * core_margin * (side + depth),
+            (2.0 * core_margin) ** 2 - content / density,
+        )
         mock = (-b + math.sqrt(b * b - 4.0 * a * c)) / (2.0 * a)
         mock = min(1.0, max(mock, need / side))
     channel = max(
@@ -212,7 +219,9 @@ def _extents(placed):
     }
 
 
-def assign_sides(shapes, region_area, gap, margin, min_w=0.0, min_h=0.0, aspect_max=None):
+def assign_sides(
+    shapes, region_area, gap, margin, min_w=0.0, min_h=0.0, aspect_max=None
+):
     """Macros to the region's sides so the die is smallest.
 
     Every assignment is tried for up to eight macros (65536 cases), the
@@ -237,7 +246,9 @@ def assign_sides(shapes, region_area, gap, margin, min_w=0.0, min_h=0.0, aspect_
                 c //= 4
             if not held:
                 continue
-            w, h, dw, dh = _die_for(placed, region_area, _extents(placed), gap, margin, min_w, min_h)
+            w, h, dw, dh = _die_for(
+                placed, region_area, _extents(placed), gap, margin, min_w, min_h
+            )
             # the region's elongation, when capped: an assignment over the
             # cap loses to any under it, and among themselves by die area
             aspect = max(w, h) / min(w, h)
@@ -246,10 +257,16 @@ def assign_sides(shapes, region_area, gap, margin, min_w=0.0, min_h=0.0, aspect_
                 best = ((over, dw * dh), placed, w, h)
     else:
         placed = {s: [] for s in SIDES}
-        for sh in sorted(shapes, key=lambda s: (s.get("region_side") is None, -s["pin_side_um"])):
-            side = sh.get("region_side") or min(SIDES, key=lambda s: _span(placed[s], gap))
+        for sh in sorted(
+            shapes, key=lambda s: (s.get("region_side") is None, -s["pin_side_um"])
+        ):
+            side = sh.get("region_side") or min(
+                SIDES, key=lambda s: _span(placed[s], gap)
+            )
             placed[side].append(sh)
-        w, h, dw, dh = _die_for(placed, region_area, _extents(placed), gap, margin, min_w, min_h)
+        w, h, dw, dh = _die_for(
+            placed, region_area, _extents(placed), gap, margin, min_w, min_h
+        )
         best = ((0, dw * dh), placed, w, h)
     return best[1], best[2], best[3]
 
@@ -269,7 +286,12 @@ def layout(plan):
     region_area = parent["cell_area_um2"] / parent["density"]
     min_w, min_h = netlist_row(plan)
     placed, region_w, region_h = assign_sides(
-        shapes, region_area, gap, parent["core_margin_um"], min_w, min_h,
+        shapes,
+        region_area,
+        gap,
+        parent["core_margin_um"],
+        min_w,
+        min_h,
         margins.get("region_aspect_max"),
     )
     extent = _extents(placed)
@@ -308,7 +330,9 @@ def layout(plan):
             m = dict(sh)
             x, y = _snap(x, y, tech)
             own_s, own_d = sh["own_side_um"], sh["own_depth_um"]
-            own_w, own_h = (own_s, own_d) if side in ("bottom", "top") else (own_d, own_s)
+            own_w, own_h = (
+                (own_s, own_d) if side in ("bottom", "top") else (own_d, own_s)
+            )
             m.update(
                 {
                     "region_side": side,
@@ -726,6 +750,20 @@ foreach {{lo hi}} {{
   incr bands
 }}
 puts "place_macros.tcl: $bands soft placement blockage(s) over the blocks' bands; the rows stay"
+# The plan's register files (AUTO_MEMORIES_REGFILES in mode netlist) are
+# macros until the end of this step, each found by its instance and placed
+# where the plan put it; they dissolve into their cells after it.
+foreach {{inst x y}} {{
+{netlists}
+}} {{
+  set i [$block findInst $inst]
+  if {{ $i eq "NULL" }} {{
+    utl::error FLW 2 "plan: no register file instance $inst"
+  }}
+  place_macro -macro_name $inst -location [list $x $y] -orientation R0 -exact
+  $i setPlacementStatus FIRM
+  puts "place_macros.tcl: register file $inst at $x $y um, R0"
+}}
 # Macros the plan does not name (the parent's own generated register files
 # and memories) go around the planned blocks, which are FIRM and stay put.
 set rest {{}}
@@ -734,42 +772,7 @@ foreach inst [$block getInsts] {{
 }}
 if {{ [llength $rest] > 0 }} {{
   puts "place_macros.tcl: [llength $rest] macros not in the plan; rtl_macro_placer places them around the planned blocks"
-  # rtl_macro_placer refuses a FIRM standard cell in its area (MPL-0050),
-  # and the plan's placed netlists are FIRM from floorplan on. For the
-  # macro step only they are PLACED, and a hard placement blockage over
-  # each netlist's cells, which rtl_macro_placer keeps macros off, stands
-  # in for them; after it, both are undone.
-  set firm {{}}
-  array set box {{}}
-  foreach inst [$block getInsts] {{
-    if {{ [[$inst getMaster] isBlock] || [$inst getPlacementStatus] ne "FIRM" }} {{ continue }}
-    lappend firm [list $inst [$inst getLocation] [$inst getOrient]]
-    set key [file dirname [$inst getName]]
-    set b [$inst getBBox]
-    if {{ [info exists box($key)] }} {{
-      lassign $box($key) x0 y0 x1 y1
-      set box($key) [list [expr {{ min($x0, [$b xMin]) }}] [expr {{ min($y0, [$b yMin]) }}] [expr {{ max($x1, [$b xMax]) }}] [expr {{ max($y1, [$b yMax]) }}]]
-    }} else {{
-      set box($key) [list [$b xMin] [$b yMin] [$b xMax] [$b yMax]]
-    }}
-  }}
-  set stand_ins {{}}
-  foreach key [array names box] {{
-    lassign $box($key) x0 y0 x1 y1
-    lappend stand_ins [odb::dbBlockage_create $block $x0 $y0 $x1 $y1]
-  }}
-  foreach f $firm {{ [lindex $f 0] setPlacementStatus PLACED }}
-  puts "place_macros.tcl: [llength $firm] FIRM netlist cells stand aside for the macro step, [llength $stand_ins] blockage(s) in their place"
   rtl_macro_placer -halo_width 2 -halo_height 2
-  # rtl_macro_placer moves a cluster's standard cells to one point: put
-  # every netlist cell back where the plan put it
-  foreach f $firm {{
-    lassign $f inst loc orient
-    $inst setOrient $orient
-    $inst setLocation {{*}}$loc
-    $inst setPlacementStatus FIRM
-  }}
-  foreach bl $stand_ins {{ odb::dbBlockage_destroy $bl }}
 }}
 """
 
@@ -968,7 +971,9 @@ def emit(out, plan, directory):
                                 n=len(pins),
                                 side=sd,
                                 region=(
-                                    "*" if lo is None else "{:.3f}-{:.3f}".format(lo, hi)
+                                    "*"
+                                    if lo is None
+                                    else "{:.3f}-{:.3f}".format(lo, hi)
                                 ),
                                 pins=" ".join(pins),
                             )
@@ -996,7 +1001,9 @@ def emit(out, plan, directory):
             if text is not None:
                 write(pm["name"] + suffix + "_pins.tcl", text)
             if not suffix:
-                m.update({k: pm[k] for k in ("pin_segments", "pins_placed_exact") if k in pm})
+                m.update(
+                    {k: pm[k] for k in ("pin_segments", "pins_placed_exact") if k in pm}
+                )
         w, h = m["own_w_um"], m["own_h_um"]
         entry = {
             "DIE_AREA": _area(0, 0, w, h),
@@ -1012,21 +1019,19 @@ def emit(out, plan, directory):
             entry["SYNTH_KEEP_MODULES"] = " ".join(keep)
         bzl["macros"][m["name"]] = entry
         rows.append("  {} {:.3f} {:.3f}".format(m["name"], m["x_um"], m["y_um"]))
+    netlists = place_netlists(out, plan)
     write(
         "place_macros.tcl",
-        PLACE_TCL.format(rows="\n".join(rows), bands="\n".join(block_bands(out))),
-    )
-    netlists = place_netlists(out, plan)
-    if netlists:
-        write(
-            "netlists.txt",
-            "# Generated by plan_floorplan.py: STRUCTURED_PLACEMENT, the parent's\n"
-            "# placed netlists' lower-left corners in um: <module> <instance> <x> <y>\n"
-            + "".join(
-                "{} {} {:.3f} {:.3f}\n".format(m_, i_, x, y)
+        PLACE_TCL.format(
+            rows="\n".join(rows),
+            bands="\n".join(block_bands(out)),
+            netlists="".join(
+                "  {} {:.3f} {:.3f}\n".format(i_, x, y)
                 for m_, i_, x, y, w, h in netlists
-            ),
-        )
+            ).rstrip("\n"),
+        ),
+    )
+    if netlists:
         bzl["parent"]["netlists"] = [
             {"module": m_, "instance": i_, "x_um": x, "y_um": y, "w_um": w, "h_um": h}
             for m_, i_, x, y, w, h in netlists

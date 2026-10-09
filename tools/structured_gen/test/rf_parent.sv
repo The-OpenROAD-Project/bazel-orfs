@@ -1,6 +1,6 @@
 // A parent whose register file is replaced by name. rf32x32 is the RTL
 // the spec stands in for -- a Reg(Vec)-style file with one-hot writes
-// -- and rf_parent is the logic around it. STRUCTURED_MEMORIES names the
+// -- and rf_parent is the logic around it. AUTO_MEMORIES_REGFILES names the
 // spec; synthesis blackboxes rf32x32 and the generated macro takes its
 // place, and this RTL remains the simulation model.
 module rf32x32(

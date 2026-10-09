@@ -18,9 +18,7 @@ not a blackbox is an error: its name did not match its definition.
 
 This is The-OpenROAD-Project/OpenROAD-flow-scripts#4650 at its head
 (a3305f118b), applied on the patches carried before it. Beyond the
-upstream pull request, so the carried tree stays consistent:
-STRUCTURED_MEMORIES (patch 0071) writes its modules' areas too, from the
-generator's DEF die, which is the area its .lib states; and FakeRAM's
+upstream pull request, so the carried tree stays consistent, FakeRAM's
 spsram_mask_test (patch 0073) reads the new line format.
 
 Not upstreamed yet; retires at a bump onto an ORFS that carries #4650.
@@ -38,12 +36,13 @@ diff --git a/docs/user/AutoMemories.md b/docs/user/AutoMemories.md
  Synthesis (canonicalization) blackboxes the converted modules so the
  liberty view wins over their behavioral bodies; floorplan through final
 diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_memories.py
+index 9d179d7908..e6bfd2a2bc 100644
 --- a/flow/scripts/memories/gen_memories.py
 +++ b/flow/scripts/memories/gen_memories.py
-@@ -12,8 +12,9 @@
+@@ -10,8 +10,9 @@
+   <out-dir>/<m>.lib             Liberty view per converted memory
+   <out-dir>/<m>_pre_layout.lib  ideal-clock variant for pre-CTS consumers
    <out-dir>/<m>.lef             abstract LEF per converted memory
-   <out-dir>/netlists.txt        STRUCTURED_MEMORIES modules in `mode netlist`:
-                                 linked as placed netlists, not macros
 -  <out-dir>/blackboxes.txt      converted module names, one per line —
 -                                what synthesis blackboxes
 +  <out-dir>/blackboxes.txt      `<module> <area>` per line, area in um^2 as
@@ -52,51 +51,6 @@ diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_m
  
  Everything downstream consumes these files; nothing else is passed
  between the generator and the flow.
-@@ -94,6 +95,19 @@
-     return {"die": die, "row0_orient": row0, "row_height": row_h, "cells": len(lines)}
- 
- 
-+def _def_area(def_path: Path) -> float:
-+    """The generator's die area in um^2, what its .lib states as the
-+    macro's area: blackboxes.txt carries it for synthesis's cost."""
-+    text = def_path.read_text()
-+    units = re.search(r"UNITS\s+DISTANCE\s+MICRONS\s+(\d+)", text)
-+    m = re.search(r"DIEAREA\s*\(\s*(-?\d+)\s+(-?\d+)\s*\)\s*\(\s*(-?\d+)\s+(-?\d+)\s*\)", text)
-+    if not units or not m:
-+        raise SystemExit(f"gen_memories: {def_path} has no UNITS or DIEAREA")
-+    x0, y0, x1, y1 = (int(v) for v in m.groups())
-+    dbu = int(units.group(1))
-+    return (x1 - x0) / dbu * ((y1 - y0) / dbu)
-+
-+
- def _file_defining(module: str, verilog: list[Path]) -> Path:
-     """The Verilog file that declares `module`, for the port check."""
-     pat = re.compile(rf"^\s*module\s+{re.escape(module)}\b", re.M)
-@@ -133,6 +147,7 @@
-     modules = []
-     netlists = []
-     report = []
-+    areas = []
-     for spec in specs:
-         module = _spec_module(spec)
-         mode = _spec_mode(spec)
-@@ -151,6 +166,7 @@
-         ]
-         subprocess.check_call(cmd)
-         modules.append(module)
-+        areas.append(_def_area(out_dir / f"{module}.def"))
-         entry = {"module": module, "spec": str(spec), "mode": mode}
-         if mode == "netlist":
-             # Placed netlist: no abstract, no model liberty. The module is
-@@ -165,7 +181,7 @@
-         report.append(entry)
-         sys.stderr.write(f"gen_memories: {module} -> structured {mode} ({spec.name})\n")
-     with (out_dir / "blackboxes.txt").open("a") as f:
--        f.write("".join(f"{m}\n" for m in modules))
-+        f.write("".join(f"{m} {a:.6f}\n" for m, a in zip(modules, areas)))
-     (out_dir / "netlists.txt").write_text("".join(f"{m}\n" for m in netlists))
-     (out_dir / "structured.json").write_text(json.dumps(report, indent=2) + "\n")
-     return modules
 diff --git a/flow/scripts/memories/gen_memories_test.py b/flow/scripts/memories/gen_memories_test.py
 --- a/flow/scripts/memories/gen_memories_test.py
 +++ b/flow/scripts/memories/gen_memories_test.py
