@@ -1,0 +1,40 @@
+# abc_new must run its default script when "-script" appears in its
+# arguments only as part of a path: here a liberty file under a directory
+# named flow-scripts, as every liberty file in OpenROAD-flow-scripts is.
+# patches/yosys-0002-abc-new-script-option.patch, YosysHQ/yosys#6320.
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+package(default_visibility = ["//visibility:private"])
+
+LIBERTY = ["@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_%s_RVT_FF_nldm_%s.lib.gz" % kind for kind in [
+    ("SIMPLE", "211120"),
+    ("INVBUF", "220122"),
+]]
+
+genrule(
+    name = "abc_new_log",
+    srcs = ["top.v"] + LIBERTY,
+    outs = ["abc_new.log"],
+    cmd = " && ".join([
+        "mkdir -p $(@D)/flow-scripts",
+        "LIBARGS=",
+    ] + [
+        "cp $(location {lib}) $(@D)/flow-scripts/{i}.lib.gz && LIBARGS=\"$$LIBARGS -liberty $(@D)/flow-scripts/{i}.lib.gz\"".format(
+            i = i,
+            lib = lib,
+        )
+        for i, lib in enumerate(LIBERTY)
+    ] + [
+        "status=0",
+        "$(location @yosys) -l $@ -p \"read_verilog $(location top.v); synth -top top -run :fine; techmap; abc_new $$LIBARGS\" > /dev/null 2>&1 || status=$$?",
+        "echo \"yosys exit $$status\" >> $@",
+    ]),
+    tools = ["@yosys"],
+)
+
+sh_test(
+    name = "abc_new_script_path_test",
+    srcs = ["check_log.sh"],
+    args = ["$(location :abc_new_log)"],
+    data = [":abc_new_log"],
+)
