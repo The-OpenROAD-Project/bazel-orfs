@@ -1,0 +1,49 @@
+# abc_new on a parent with two white boxes of different shapes, mapped to
+# asap7 cells, must leave ABC's &verify finding every module equivalent.
+#
+# write_xaiger2 used to write the boxes' logic (the holes) in hash-dict
+# order instead of box order, so &verify rebuilt a box from another box's
+# logic and ABC crashed. yosys logs that crash as a warning because
+# output.aig was already written, which hid it on every ORFS design with
+# SWAP_ARITH_OPERATORS. patches/yosys-0001-aiger2-holes-output-order.patch.
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+package(default_visibility = ["//visibility:private"])
+
+LIBERTY = ["@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_%s_RVT_FF_nldm_%s.lib.gz" % kind for kind in [
+    ("SIMPLE", "211120"),
+    ("INVBUF", "220122"),
+    ("AO", "211120"),
+]]
+
+# The liberty cells as ORFS's synth_stdcells.tcl reads them: the -wb
+# -unit_delay models are what makes them, and the mapped boxes, carry
+# timing for abc_new.
+genrule(
+    name = "abc_new_log",
+    srcs = ["boxes.v"] + LIBERTY,
+    outs = ["abc_new.log"],
+    cmd = " && ".join([
+        "LIBS=\"{}\"".format(" ".join(["$(location {})".format(lib) for lib in LIBERTY])),
+        "LIBARGS=$$(for l in $$LIBS; do printf -- '-liberty %s ' $$l; done)",
+        "$(location @yosys//:yosys) -q -l $@ -p \"" + "; ".join([
+            "read_liberty -overwrite -setattr liberty_cell -lib $$LIBS",
+            "read_liberty -overwrite -setattr liberty_cell -unit_delay -wb -ignore_miss_func -ignore_buses $$LIBS",
+            "read_verilog $(location boxes.v)",
+            "hierarchy -top top",
+            "synth -top top -run :fine",
+            "setattr -mod -set abc9_box 1 big small",
+            "techmap",
+            "opt -purge",
+            "abc_new $$LIBARGS",
+        ]) + "\" > /dev/null",
+    ]),
+    tools = ["@yosys"],
+)
+
+sh_test(
+    name = "abc_new_boxes_verify_test",
+    srcs = ["check_log.sh"],
+    args = ["$(location :abc_new_log)"],
+    data = [":abc_new_log"],
+)
