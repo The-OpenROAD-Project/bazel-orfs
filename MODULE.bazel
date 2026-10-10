@@ -31,14 +31,22 @@ local_path_override(
 bazel_dep(name = "abc", version = "0.68-yosyshq.bcr.1")
 bazel_dep(name = "yosys", version = "0.68.bcr.1")
 
-# write_xaiger2 wrote the white-box logic (holes) out of box order, so
-# ABC's default &verify crashed on every abc_new run with two or more
-# boxes, hidden as a warning. Fixed on yosys main after v0.69; retires at
-# the bump onto a BCR yosys that has it. Root-only, as every override.
+# Root-only, as every override. Each patch retires at the bump onto a BCR
+# yosys that has its fix.
+#
+# 0001: write_xaiger2 wrote the white-box logic (holes) out of box order,
+# so ABC's default &verify crashed on every abc_new run with two or more
+# boxes, hidden as a warning. Fixed on yosys main after v0.69.
+# 0002: abc_new took "-script" anywhere in its arguments, such as in a
+# liberty path under OpenROAD-flow-scripts, for a given -script and
+# dropped its default script. YosysHQ/yosys#6320, not fixed upstream.
 single_version_override(
     module_name = "yosys",
     patch_strip = 1,
-    patches = ["//patches:yosys-0001-aiger2-holes-output-order.patch"],
+    patches = [
+        "//patches:yosys-0001-aiger2-holes-output-order.patch",
+        "//patches:yosys-0002-abc-new-script-option.patch",
+    ],
 )
 
 # Tcl, for //fork: the fork/join extension is compiled against the same
