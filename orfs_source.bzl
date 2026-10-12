@@ -167,6 +167,20 @@ ORFS_PATCHES = [
     # surgered copies, where a module surgery creates is declared. Fixes
     # 0089 with 0094; retires with 0089. Not upstreamed.
     Label("//patches:0107-orfs-auto-memories-regfiles-surgery.patch"),
+    # 0102: asap7/coralnpu as a synthesis build of its snapshot: SRAMs
+    # through AUTO_MEMORIES with their write masks, not USE_ASAP7's
+    # maskless fakerams; firtool's verification layers removed by
+    # surgery; a picosecond clock; coralnpu's units kept by name. Needs
+    # 0094. Upstream as ORFS #4653 (draft), with 0103 and 0106.
+    Label("//patches:0102-orfs-coralnpu-idiomatic.patch"),
+    # 0103: asap7/coralnpu-regfile: Regfile's 31 words moved by surgery
+    # into Regfile_rf and generated. Needs 0102 and 0107.
+    Label("//patches:0103-orfs-coralnpu-regfile.patch"),
+    # 0106: asap7/coralnpu-exmem and coralnpu-regfile-exmem: LsuV1's
+    # inputs registered by surgery, the EX/MEM register, as a stand-in
+    # for a fresh snapshot of coralnpu; and the coralnpu README. Needs
+    # 0103.
+    Label("//patches:0106-orfs-coralnpu-exmem.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
