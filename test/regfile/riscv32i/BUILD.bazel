@@ -24,21 +24,33 @@ VERILOG_FILES = [
     for f in RISCV32I["verilog_files"]
 ]
 
+# riscv32i's RTLMP_MIN_CHANNEL_SIZE (8 8) is sized for its FakeRAMs;
+# "narrow" sets 2 2 on every shape, flops included, to measure what the
+# channels cost. Left unset, ORFS defaults to 20 20.
+NARROW = RISCV32I["arguments"] | {"RTLMP_MIN_CHANNEL_SIZE": "2 2"}
+
 [
     orfs_flow(
         name = "riscv_top",
-        arguments = RISCV32I["arguments"] | {
+        arguments = arguments | ({
             "AUTO_MEMORIES": "1",
-        } | macro_place,
+        } if regfile else {}) | macro_place,
         last_stage = "grt",
-        sources = SOURCES | {
-            "AUTO_MEMORIES_REGFILES": [":%s.regfile" % shape],
-        },
+        sources = SOURCES | ({
+            "AUTO_MEMORIES_REGFILES": [":%s.regfile" % regfile],
+        } if regfile else {}),
         tags = ["manual"],
-        variant = shape,
+        variant = regfile + suffix if regfile else "flops" + suffix,
         verilog_files = VERILOG_FILES,
     )
-    for shape, macro_place in [
+    for suffix, arguments in [
+        (
+            "",
+            RISCV32I["arguments"],
+        ),
+        ("_narrow", NARROW),
+    ]
+    for regfile, macro_place in [
         ("inlined", {}),
         (
             "netlist",
@@ -52,7 +64,7 @@ VERILOG_FILES = [
             "macro",
             {"AUTO_MEMORIES_MACRO_PLACE": "regfile"},
         ),
-    ]
+    ] + ([("", {})] if suffix else [])
 ]
 
 # odb-debug sessions on each stage, for ledger.tcl
@@ -69,6 +81,18 @@ VERILOG_FILES = [
         ("netlist", ":riscv_top_netlist_%s"),
         ("netlist_service0", ":riscv_top_netlist_service0_%s"),
         ("macro", ":riscv_top_macro_%s"),
+    ] + [
+        (
+            shape + "_narrow",
+            ":riscv_top_%s_narrow_%%s" % shape,
+        )
+        for shape in [
+            "flops",
+            "inlined",
+            "netlist",
+            "netlist_service0",
+            "macro",
+        ]
     ]
     for stage in [
         "synth",
