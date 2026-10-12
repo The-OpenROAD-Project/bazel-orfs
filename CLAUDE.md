@@ -163,10 +163,9 @@ A target that another machine built but that is not a remote cache hit
 here, or that rebuilds when nothing seemed to change, has its own skill:
 
 - `cache-miss` — ask whether a target is cached without building it,
-  from a laptop; capture a few kilobytes of key evidence per machine
-  (`//tools/cache_evidence`), commit it next to the design and diff it;
-  names the first action whose key differs and which of its arguments,
-  environment, tools, sources or design inputs moved.
+  from a laptop (`//tools/cache_evidence`): every miss and every action
+  left unreached behind one; when another machine built it, compare
+  tree hashes first, then the two machines' miss lists.
 
 Running a flow's stages by hand, one after another in one tree, is fast
 and gives up what Bazel guarantees; it has its own skill:

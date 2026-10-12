@@ -1534,8 +1534,7 @@ hits and 184 local runs, all of them the parent's. What looked like
 re-placed blocks were the block ODBs downloading from the remote cache
 (Frontend's place ODB 33 minutes). The earlier build had left them
 remote-only, and the parent's new inputs needed the bytes.
-`/cache-miss` answers this kind of question from a few kilobytes of
-evidence per build.
+`/cache-miss` answers whether a target is cached without building it.
 
 ## 48. AUTO_MEMORIES_REGFILES on XSTile: the blocks identical, the parent +224 ps, not yet explained
 
