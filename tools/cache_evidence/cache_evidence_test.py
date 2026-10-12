@@ -1,8 +1,7 @@
-"""cache_evidence on hand-encoded execution logs."""
+"""cache_evidence on hand-encoded execution logs and aquery graphs."""
 
 import json
 import os
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -102,32 +101,29 @@ def _log(tool_digest="aa", miss=False, sdc_digest="cc"):
 
 
 class SummarizeTest(unittest.TestCase):
-    def test_classes_and_scope(self):
-        counts, tools, spawns, _ = ce.summarize_log(_log(), "//test/")
+    def test_scope(self):
+        counts, spawns = ce.summarize_log(_log(), "//test/")
         self.assertEqual(
             counts, {"spawns": 3, "hit": 3, "ran": 0, "miss": 0, "outside": []}
         )
         # The out-of-scope tool build is counted, not itemized.
-        self.assertEqual(len(spawns), 2)
-        self.assertIn("hit Action k8-fastbuild:test/d/1_synth.v", spawns[0])
-        self.assertEqual(len(tools), 1)
-        self.assertIn("k8-opt-exec:external/yosys+", tools[0])
-        # No action here has an environment; the empty hash is stable.
-        self.assertIn("env=" + ce._h([]), spawns[0])
-
-    def test_source_inputs_listed(self):
-        _, _, _, inputs = ce.summarize_log(_log(), "//test/")
-        # the workspace file, not the generated netlist nor the external script
-        self.assertEqual(inputs, ["input cc test/d/constraints.sdc"])
+        self.assertEqual(
+            spawns,
+            [
+                ("hit", "Action", "k8-fastbuild:test/d/1_synth.v"),
+                ("hit", "Action", "k8-fastbuild:test/d/2_floorplan.odb"),
+            ],
+        )
 
     def test_miss(self):
-        counts, _, spawns, _ = ce.summarize_log(_log(miss=True), "//test/")
+        counts, spawns = ce.summarize_log(_log(miss=True), "//test/")
         self.assertEqual(counts["miss"], 1)
-        self.assertIn(" miss Action k8-fastbuild:test/d/2_floorplan.odb", spawns[1])
+        self.assertEqual(
+            spawns[1], ("miss", "Action", "k8-fastbuild:test/d/2_floorplan.odb")
+        )
 
     def test_truncated_log(self):
-        data = _log()
-        counts, _, spawns, _ = ce.summarize_log(data[:-5], "//test/")
+        counts, _ = ce.summarize_log(_log()[:-5], "//test/")
         self.assertEqual(counts["spawns"], 2)
 
     def test_zstd_roundtrip(self):
@@ -137,231 +133,12 @@ class SummarizeTest(unittest.TestCase):
                 fh.write(zstandard.ZstdCompressor().compress(_log()))
             self.assertEqual(ce._decompress(path), _log())
 
-
-class DiffTest(unittest.TestCase):
-    def _write(self, d, name, header, log):
-        path = os.path.join(d, name)
-        counts, tools, spawns, inputs = ce.summarize_log(log, "//test/")
-        ce.write_evidence(path, header, counts, tools, spawns, (), inputs)
-        return path
-
-    def test_names_the_tool_and_first_action(self):
-        with tempfile.TemporaryDirectory() as d:
-            a = self._write(d, "a.txt", ["bazel 9.1.1"], _log("aa"))
-            b = self._write(d, "b.txt", ["bazel 9.1.1"], _log("zz"))
-            lines = ce.diff(a, b)
-        self.assertTrue(
-            any(l.startswith("tool k8-opt-exec:external/yosys+") for l in lines)
-        )
-        self.assertIn("differs in tools", lines[-1])
-        self.assertIn("1_synth.v", lines[-1])
-
-    def test_same(self):
-        with tempfile.TemporaryDirectory() as d:
-            a = self._write(d, "a.txt", ["bazel 9.1.1"], _log())
-            b = self._write(d, "b.txt", ["bazel 9.1.1"], _log())
-            self.assertEqual(ce.diff(a, b), [])
-
-    def test_header(self):
-        with tempfile.TemporaryDirectory() as d:
-            a = self._write(d, "a.txt", ["bazel 9.1.1", "option --x=1"], _log())
-            b = self._write(d, "b.txt", ["bazel 9.0.0", "option --x=2"], _log())
-            lines = ce.diff(a, b)
-        self.assertIn("bazel: 9.1.1 | 9.0.0", lines)
-        self.assertIn("option only in A: --x=1", lines)
-
-    def test_source_file_named(self):
-        # the same log, the design's constraints file with another digest
-        with tempfile.TemporaryDirectory() as d:
-            a = self._write(d, "a.txt", ["tree t1"], _log())
-            b = self._write(d, "b.txt", ["tree t2"], _log(sdc_digest="c2"))
-            lines = ce.diff(a, b)
-        self.assertIn("tree: t1 | t2", lines)
-        self.assertIn("input test/d/constraints.sdc: cc | c2", lines)
-        self.assertIn(
-            "differs in design; source files moved: test/d/constraints.sdc", lines[-1]
-        )
-        self.assertIn("1_synth.v", lines[-1])
-
-    def test_same_tree_said(self):
-        with tempfile.TemporaryDirectory() as d:
-            a = self._write(d, "a.txt", ["tree t1", "commit c1 dirty 0"], _log("aa"))
-            b = self._write(d, "b.txt", ["tree t1", "commit c2 dirty 0"], _log("zz"))
-            lines = ce.diff(a, b)
-        self.assertEqual(lines[0], "commit: c1 dirty 0 | c2 dirty 0")
-        self.assertTrue(lines[1].startswith("same tree:"))
-
-    def test_commit_not_in_history(self):
-        with tempfile.TemporaryDirectory() as d:
-            ws = os.path.join(d, "ws")
-            os.makedirs(ws)
-            git = (
-                lambda *a: subprocess.check_output(("git", "-C", ws) + a)
-                .decode()
-                .strip()
-            )
-            git("init", "-q")
-            git(
-                "-c",
-                "user.email=t@t",
-                "-c",
-                "user.name=t",
-                "commit",
-                "-q",
-                "--allow-empty",
-                "-m",
-                "one",
-            )
-            head = git("rev-parse", "HEAD")
-            self.assertEqual(ce.in_history(ws, head), "yes")
-            self.assertEqual(ce.in_history(ws, "0" * 40), "unknown")
-            self.assertEqual(ce.in_history(None, head), "unknown")
-            self.assertEqual(ce.in_history(ws, "not a hash"), "unknown")
-            git(
-                "-c",
-                "user.email=t@t",
-                "-c",
-                "user.name=t",
-                "commit",
-                "-q",
-                "--allow-empty",
-                "-m",
-                "two",
-            )
-            git("checkout", "-q", "-b", "side", head)
-            git(
-                "-c",
-                "user.email=t@t",
-                "-c",
-                "user.name=t",
-                "commit",
-                "-q",
-                "--allow-empty",
-                "-m",
-                "lost",
-            )
-            lost = git("rev-parse", "HEAD")
-            git("checkout", "-q", "-")
-            self.assertEqual(ce.in_history(ws, lost), "no")
-            a = self._write(d, "a.txt", ["commit %s dirty 0" % lost], _log())
-            b = self._write(d, "b.txt", ["commit %s dirty 0" % head], _log())
-            lines = ce.diff(a, b, ws)
-            self.assertTrue(lines[0].endswith("(A not in this history)"), lines[0])
-            a = self._write(d, "a.txt", ["commit %s dirty 0" % ("0" * 40)], _log())
-            lines = ce.diff(a, b, ws)
-            self.assertTrue(
-                lines[0].endswith("(A unknown to this repository)"), lines[0]
-            )
-
-    def test_old_capture_without_input_lines(self):
-        with tempfile.TemporaryDirectory() as d:
-            a = os.path.join(d, "a.txt")
-            counts, tools, spawns, _ = ce.summarize_log(_log(), "//test/")
-            ce.write_evidence(a, [], counts, tools, spawns)
-            b = self._write(d, "b.txt", [], _log(sdc_digest="c2"))
-            lines = ce.diff(a, b)
-        self.assertIn("input lines only in B: an older capture", lines)
-        self.assertFalse(any(l.startswith("input test/") for l in lines))
-        self.assertNotIn("source files moved", lines[-1])
-
-    def test_package(self):
-        self.assertEqual(ce._package("//test/d:synth"), "test/d")
-        self.assertEqual(ce._package("@@repo//x/y:z"), "x/y")
-        self.assertEqual(ce._package("//:top"), "")
-
-
-class RedactTest(unittest.TestCase):
-    def test_remote_switches_kept(self):
-        # whether a machine uploads is what a later miss needs to know
-        for opt in (
-            "--remote_upload_local_results=true",
-            "--remote_upload_local_results=false",
-            "--remote_cache_compression=true",
-            "--noremote_upload_local_results",
-        ):
-            self.assertEqual(ce.redact_option(opt), opt)
-        # a switch whose value is not a switch is still an address
-        self.assertEqual(
-            ce.redact_option("--remote_upload_local_results=grpc://h:1"),
-            "--remote_upload_local_results=<redacted>",
-        )
-
-    def test_private_values_dropped(self):
-        # Not hashed: a hash of a guessable hostname confirms the guess.
-        self.assertEqual(
-            ce.redact_option("--remote_cache=grpc://cache.example:9092"),
-            "--remote_cache=<redacted>",
-        )
-        self.assertEqual(
-            ce.redact_option("--disk_cache_dir=/home/alice/c"),
-            "--disk_cache_dir=<redacted>",
-        )
-
-    def test_separate_value(self):
-        opts = ce.rc_options(
-            "  'build' options: --cxxopt -std=c++20 "
-            "--remote_header Authorization=secret --keep_going\n"
-        )
-        self.assertIn("--cxxopt=-std=c++20", opts)
-        self.assertIn("--remote_header=<redacted>", opts)
-        self.assertIn("--keep_going", opts)
-        self.assertFalse(any("secret" in o for o in opts))
-
-    def test_leak_refused(self):
-        with tempfile.TemporaryDirectory() as d:
-            for bad in (
-                "option --x=grpc://cache.example:1",
-                "option --y=/home/alice/z",
-                "note someone@example.com",
-            ):
-                with self.assertRaises(ValueError):
-                    ce.write_evidence(
-                        os.path.join(d, "e.txt"),
-                        [bad],
-                        ce.summarize_log(b"", "//")[0],
-                        [],
-                        [],
-                    )
-
-    def test_plain_options_kept(self):
-        self.assertEqual(ce.redact_option("--jobs=2"), "--jobs=2")
-        self.assertEqual(ce.redact_option("--keep_going"), "--keep_going")
-
-    def test_environment_values_and_addresses_redacted(self):
-        # an environment's variable stays, its value goes
-        self.assertEqual(
-            ce.redact_option("--repo_env=CLOUDSDK_CORE_ACCOUNT=bot@corp.example.com"),
-            "--repo_env=CLOUDSDK_CORE_ACCOUNT=<redacted>",
-        )
-        self.assertEqual(
-            ce.redact_option("--action_env=PATH=/usr/bin"),
-            "--action_env=PATH=<redacted>",
-        )
-        # any other value that names an address is dropped whole
-        self.assertEqual(
-            ce.redact_option("--some_flag=user@corp.example.com"),
-            "--some_flag=<redacted>",
-        )
-        ce.check_public([ce.redact_option("--repo_env=A=b@corp.example.com")])
-
     def test_capture_refuses_a_build_with_no_actions(self):
         none = {"spawns": 0, "hit": 0, "ran": 0, "miss": 0}
         why = ce.capture_refusal(none, "INFO: x\nERROR: no such package 'y'\n")
         self.assertEqual(why, "ERROR: no such package 'y'")
         self.assertEqual(ce.capture_refusal(none, ""), "the build logged no actions")
         self.assertIsNone(ce.capture_refusal(dict(none, spawns=3, hit=3), "ERROR: x"))
-
-    def test_announce_rc(self):
-        text = (
-            "INFO: Reading rc options for 'build' from /x/.bazelrc:\n"
-            "  Inherited 'common' options: --lockfile_mode=off "
-            "--remote_cache=grpc://h:1\n"
-            "  'build' options: --jobs=2\n"
-        )
-        opts = ce.rc_options(text)
-        self.assertIn("--jobs=2", opts)
-        self.assertIn("--lockfile_mode=off", opts)
-        self.assertFalse(any("grpc" in o for o in opts))
 
 
 def _aquery(*actions):
@@ -485,7 +262,7 @@ class FrontierTest(unittest.TestCase):
 
     def test_not_reached_is_what_the_log_lacks(self):
         graph = ce.graph_actions(self.GRAPH, "//test/", "//test/d:place")
-        counts, _, spawns, _ = ce.summarize_log(_log(miss=True), "//test/")
+        counts, spawns = ce.summarize_log(_log(miss=True), "//test/")
         unreached = ce.not_reached(graph, spawns)
         # synth hit, floorplan missed; place behind the miss was never keyed
         self.assertEqual(
@@ -497,7 +274,7 @@ class FrontierTest(unittest.TestCase):
         self.assertEqual(lines[2], unreached[0])
         self.assertNotIn("every action is a remote cache hit", lines)
         # a miss the scope does not itemize is still named
-        counts, _, spawns, _ = ce.summarize_log(_log(miss=True), "//test/d:s")
+        counts, spawns = ce.summarize_log(_log(miss=True), "//test/d:s")
         self.assertEqual(
             counts["outside"],
             ["miss Action k8-fastbuild:test/d/2_floorplan.odb (outside --scope)"],
@@ -506,37 +283,14 @@ class FrontierTest(unittest.TestCase):
 
     def test_all_hits_say_so(self):
         graph = ce.graph_actions(self.GRAPH, "//test/", "//test/d:place")
-        counts, _, spawns, _ = ce.summarize_log(_log(), "//test/")
+        counts, spawns = ce.summarize_log(_log(), "//test/")
         unreached = ce.not_reached(graph, spawns)
         self.assertEqual(
             unreached, ["not_reached Action k8-fastbuild:test/d/3_place.odb"]
         )
-        counts2, _, spawns2, _ = ce.summarize_log(_log(), "//test/")
+        counts2, spawns2 = ce.summarize_log(_log(), "//test/")
         lines = ce.summary_lines(counts2, spawns2, [])
         self.assertEqual(lines[-1], "every action is a remote cache hit")
-
-    def test_evidence_carries_not_reached(self):
-        with tempfile.TemporaryDirectory() as d:
-            path = os.path.join(d, "e.txt")
-            counts, tools, spawns, _ = ce.summarize_log(_log(miss=True), "//test/")
-            ce.write_evidence(
-                path,
-                [],
-                counts,
-                tools,
-                spawns,
-                ["not_reached Action k8-fastbuild:test/d/3_place.odb"],
-            )
-            with open(path) as fh:
-                text = fh.read()
-            self.assertIn("spawns 3 hit 2 ran 0 miss 1 not_reached 1\n", text)
-            self.assertTrue(
-                text.endswith("not_reached Action k8-fastbuild:test/d/3_place.odb\n")
-            )
-            header, _, _ = ce._read(path)
-            self.assertEqual(
-                header["not_reached"], ["Action k8-fastbuild:test/d/3_place.odb"]
-            )
 
     def test_sandboxed_pids(self):
         with tempfile.TemporaryDirectory() as d:

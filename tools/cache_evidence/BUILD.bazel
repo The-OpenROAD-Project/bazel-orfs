@@ -1,7 +1,7 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
-# Key evidence for a target that is not a remote cache hit on one machine
-# when another machine built it: .claude/commands/cache-miss.md.
+# Whether a target is a remote cache hit here, asked without building it:
+# .claude/commands/cache-miss.md.
 py_binary(
     name = "cache_evidence",
     srcs = ["cache_evidence.py"],
