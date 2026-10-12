@@ -153,6 +153,8 @@ class Daemon(object):
 def tcl_quote(value):
     """A Python value as one Tcl word."""
     s = str(value)
+    if not s:
+        return "{}"
     return "{" + s + "}" if any(c in s for c in ' \t\n[]$\\"{}') else s
 
 
