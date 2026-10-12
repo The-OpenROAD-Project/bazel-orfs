@@ -231,10 +231,15 @@ Examples may double as tests. Tests are not examples.
 
 ## Use bazel-orfs from your own project
 
-Add bazel-orfs and OpenROAD to your `MODULE.bazel`. The OpenROAD and Qt
-pins must be in the root module because Bazel only honours overrides from
-there; `bazelisk run @bazel-orfs//:bump` fills them in and keeps them
-current.
+Add bazel-orfs, OpenROAD, ORFS and the slang frontend to your
+`MODULE.bazel`. Bazel honours overrides only from the root module, so your
+root repeats the pins and overrides bazel-orfs's own `MODULE.bazel` makes,
+starting from the commits bazel-orfs pins; `bazelisk run @bazel-orfs//:bump`
+keeps them current after that. The complete set, with the toolchain,
+version overrides, patches and `.bazelrc` lines a from-source OpenROAD build
+needs, is in
+[docs/openroad.md](docs/openroad.md#root-modulebazel-requirements). The
+core of it:
 
 ```starlark
 bazel_dep(name = "bazel-orfs")
@@ -245,21 +250,35 @@ git_override(
 )
 
 bazel_dep(name = "openroad")
-git_override(
+archive_override(
     module_name = "openroad",
-    remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
-    commit = "<openroad commit>",
-    init_submodules = True,
+    # Copy this block verbatim from bazel-orfs's MODULE.bazel at the
+    # bazel-orfs commit above, with the patch files it names: its
+    # patch_cmds fetch OpenROAD's submodules and apply bazel-orfs's fixes.
+    # `bazelisk run @bazel-orfs//:bump` regenerates it on every bump.
+    integrity = "...",
+    patch_cmds = [...],
+    patch_strip = 1,
+    patches = [...],
+    strip_prefix = "OpenROAD-<commit>",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/<commit>.tar.gz"],
 )
 bazel_dep(name = "qt-bazel")
 git_override(
     module_name = "qt-bazel",
     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
-    commit = "df022f4ebaa4130713692fffd2f519d49e9d0b97",
+    commit = "<the qt-bazel commit bazel-orfs pins>",
 )
+bazel_dep(name = "sv-elab", version = "<the version bazel-orfs uses>")
 
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
-orfs.default()
+orfs.source(
+    commit = "<the ORFS commit bazel-orfs pins>",
+    integrity = "<its integrity>",
+)
+orfs.default(
+    yosys_plugins = ["@sv-elab//src/yosys_plugin:slang.so"],
+)
 use_repo(orfs, "gnumake")
 ```
 
@@ -375,7 +394,7 @@ fix or feature hasn't made it into ORFS yet.
 `//:bump` rewrites the override shapes it recognizes and stops, naming the
 block, when it meets one it does not — it never writes a partial
 `MODULE.bazel`. If your file is old enough that a block is unrecognized,
-re-seed it from the template above and re-apply your edits. See
+re-seed it from the [root MODULE.bazel requirements](docs/openroad.md#root-modulebazel-requirements) and re-apply your edits. See
 [Shapes the bumper recognizes](docs/openroad.md#shapes-the-bumper-recognizes).
 
 ## Repository layout

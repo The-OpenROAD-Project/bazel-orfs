@@ -209,7 +209,8 @@ the Bazel path, the bring-your-own case above is what you have.
 `Expected archive_override(module_name = "orfs") in MODULE.bazel but found no
 match` means your `MODULE.bazel` carries a shape the bumper no longer rewrites
 — the migration paths for old shapes are deleted, not maintained. Nothing was
-written: the file is byte-identical. Re-seed it from the README template, or
+written: the file is byte-identical. Re-seed it from
+[Root MODULE.bazel requirements](openroad.md#root-modulebazel-requirements), or
 re-run with `--ignore` to take the parts the bumper does recognize.
 [Shapes the bumper recognizes](openroad.md#shapes-the-bumper-recognizes) has
 the details.

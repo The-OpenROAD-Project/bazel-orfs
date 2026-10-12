@@ -1,7 +1,7 @@
 # OpenROAD Integration
 
 OpenROAD is the core place-and-route tool in bazel-orfs. It is built from
-source via the `@openroad` module (declared with `git_override` in the
+source via the `@openroad` module (declared with `archive_override` in the
 root `MODULE.bazel`). OpenROAD and OpenSTA come from the same source
 tree.
 
@@ -17,36 +17,141 @@ orfs.default()
 
 ## Root MODULE.bazel requirements
 
-bzlmod only honors `git_override` from the root module, so every root
-module that depends on bazel-orfs must declare the OpenROAD and qt-bazel
-overrides. `bazelisk run @bazel-orfs//:bump` injects these automatically
-alongside the bazel-orfs pin:
+Bazel honours overrides only from the root module, so a project that depends
+on bazel-orfs repeats the ones bazel-orfs's own `MODULE.bazel` makes for
+OpenROAD, ORFS and Yosys. The blocks below are what a downstream project
+building OpenROAD from source needs, checked by building a downstream project
+from a fresh clone with only Bazelisk installed.
+
+**Pins.** `bazelisk run @bazel-orfs//:bump` keeps them current, but it runs
+inside your module graph, which only resolves once OpenROAD and ORFS are
+pinned to real commits. Start from the pins in bazel-orfs's own
+`MODULE.bazel` at the bazel-orfs commit you choose, then let the bumper take
+over. OpenROAD is an `archive_override`, not a `git_override`: an interrupted
+`init_submodules` fetch can leave empty submodule directories that Bazel then
+reuses, and the bumper rewrites only the `archive_override` shape.
 
 ```starlark
-bazel_dep(name = "openroad")
+bazel_dep(name = "bazel-orfs")
 git_override(
+    module_name = "bazel-orfs",
+    commit = "<bazel-orfs commit>",
+    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs.git",
+)
+
+bazel_dep(name = "openroad")
+archive_override(
     module_name = "openroad",
-    commit = "<commit-sha>",
-    init_submodules = True,
-    remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
+    # Copy this block verbatim from bazel-orfs's MODULE.bazel at the
+    # bazel-orfs commit above, with the patch files it names: its
+    # patch_cmds fetch OpenROAD's submodules and apply bazel-orfs's fixes.
+    # `bazelisk run @bazel-orfs//:bump` regenerates it on every bump.
+    integrity = "...",
+    patch_cmds = [...],
+    patch_strip = 1,
+    patches = [...],
+    strip_prefix = "OpenROAD-<commit>",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/<commit>.tar.gz"],
 )
 
 bazel_dep(name = "qt-bazel")
 git_override(
     module_name = "qt-bazel",
-    commit = "<commit-sha>",
+    commit = "<the qt-bazel commit bazel-orfs pins>",
     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
 )
 
-bazel_dep(name = "llvm", version = "0.8.11")
+# The slang frontend: orfs_flow synthesises with slang.
+bazel_dep(name = "sv-elab", version = "<the version bazel-orfs uses>")
 
-register_toolchains("@llvm//toolchain:all")
+orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
+orfs.source(
+    commit = "<the ORFS commit bazel-orfs pins>",
+    integrity = "<its integrity>",
+)
+orfs.default(
+    yosys_plugins = ["@sv-elab//src/yosys_plugin:slang.so"],
+)
+use_repo(orfs, "gnumake")
 ```
 
-The `llvm` module (hermetic-llvm) provides the C++ toolchain OpenROAD builds
-against. OpenROAD registers it only as a `dev_dependency`, so it does not
-propagate to downstream roots — each root building OpenROAD from source must
-register `@llvm//toolchain:all` itself.
+**Toolchain and versions.** OpenROAD builds against the BCR `llvm` module
+(hermetic-llvm), registered only as a `dev_dependency`, so each root
+registers it. `rules_pycross`, pulled in through sv-lang, fails on Python 3.8
+unless the root configures its environments. The `single_version_override`s
+pin the versions bazel-orfs builds with:
+
+```starlark
+bazel_dep(name = "llvm", version = "0.8.18")
+single_version_override(module_name = "llvm", version = "0.8.18")
+register_toolchains("@llvm//toolchain:all")
+
+bazel_dep(name = "rules_pycross", version = "0.8.3")
+pycross = use_extension("@rules_pycross//pycross/extensions:pycross.bzl", "pycross")
+pycross.configure_environments(python_versions = ["3.13"])
+
+bazel_dep(name = "rules_python", version = "2.3.2")
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(is_default = True, python_version = "3.13")
+
+single_version_override(module_name = "sv-lang", version = "10.0.1-20260316-f04e8156")
+single_version_override(module_name = "sed", version = "4.9.bcr.5")
+single_version_override(module_name = "gawk", version = "5.3.2.bcr.7")
+single_version_override(module_name = "m4", version = "1.4.21.bcr.4")
+single_version_override(module_name = "flex", version = "2.6.4.bcr.5")
+single_version_override(module_name = "rules_flex", version = "0.4")
+single_version_override(module_name = "rules_bison", version = "0.4.bcr.1")
+single_version_override(module_name = "scip", version = "9.2.3.bcr.1")
+single_version_override(module_name = "fmt", version = "12.1.0")
+single_version_override(module_name = "rules_cc", version = "0.2.22")
+single_version_override(module_name = "rules_cc_autoconf", version = "0.13.2")
+single_version_override(module_name = "yaml-cpp", version = "0.9.0")
+single_version_override(module_name = "zlib", version = "1.3.1.bcr.8")
+single_version_override(module_name = "apple_support", version = "1.24.2")
+```
+
+The versions above are bazel-orfs's at the time of writing; its own
+`MODULE.bazel` has the current ones, each with its reason.
+
+**Patches.** Override patches must be files in the root module, so copy
+these from bazel-orfs's `patches/` into your repository and point the
+overrides at your copies. The Yosys `abc_new` fix matters to every
+downstream project: without it a liberty path under
+`OpenROAD-flow-scripts` reads as a `-script` option and mapping fails.
+
+```starlark
+single_version_override(
+    module_name = "yosys",
+    patch_strip = 1,
+    patches = [
+        "//patches:yosys-0001-aiger2-holes-output-order.patch",
+        "//patches:yosys-0002-abc-new-script-option.patch",
+    ],
+)
+single_version_override(
+    module_name = "bison",
+    patch_strip = 1,
+    patches = ["//patches:0001-gnulib-wrapper-headers-use-I-not-isystem.patch"],
+    version = "3.8.2.bcr.7",
+)
+single_version_override(
+    module_name = "boost.icl",
+    patch_strip = 1,
+    patches = ["//patches:0001-refactor-interval-lookup-operations-icl-54.patch"],
+)
+```
+
+**`.bazelrc`.** OpenROAD and Yosys build with these, as in bazel-orfs's own
+`.bazelrc`:
+
+```
+build --incompatible_strict_action_env
+build --features=external_include_paths
+build --per_file_copt=.*external/.*@-w
+build --host_per_file_copt=.*external/.*@-w
+build --cxxopt=-std=c++20 --host_cxxopt=-std=c++20
+build --@rules_python//python/config_settings:bootstrap_impl=script
+```
 
 ### GUI Builds
 
@@ -248,8 +353,8 @@ recover.
 
 Two ways forward when a shape is refused:
 
-1. **Re-seed** — copy the current `MODULE.bazel` template from
-   [README.md](../README.md) ("Add OpenROAD to your `MODULE.bazel`"),
+1. **Re-seed** — copy the current blocks from
+   [Root MODULE.bazel requirements](#root-modulebazel-requirements),
    re-apply your local edits, re-run `//:bump`.
 2. **`--ignore`** — downgrade the refusal to a warning and take the parts
    the bumper does recognize. The unrecognized block is left exactly as it

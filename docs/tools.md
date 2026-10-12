@@ -12,27 +12,11 @@ when you need actual GDS files.
 
 #### Build OpenROAD from source (default)
 
-Add OpenROAD to your `MODULE.bazel`. Run `bazelisk run @bazel-orfs//:bump`
-to auto-fill the latest commit, or specify a version manually:
-
-```starlark
-bazel_dep(name = "openroad")
-git_override(
-    module_name = "openroad",
-    commit = "<openroad-commit-sha>",
-    init_submodules = True,
-    remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
-)
-bazel_dep(name = "qt-bazel")
-git_override(
-    module_name = "qt-bazel",
-    commit = "df022f4ebaa4130713692fffd2f519d49e9d0b97",
-    remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
-)
-orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
-orfs.default()
-use_repo(orfs, "gnumake")
-```
+Add OpenROAD, ORFS and the slang frontend to your `MODULE.bazel`, with the
+toolchain, overrides and `.bazelrc` lines in
+[openroad.md](openroad.md#root-modulebazel-requirements). Start from the
+commits bazel-orfs pins; `bazelisk run @bazel-orfs//:bump` keeps them
+current after that.
 
 First build takes 30-60 minutes; subsequent builds are incremental.
 See [docs/openroad.md](openroad.md) for details and gotchas, and
