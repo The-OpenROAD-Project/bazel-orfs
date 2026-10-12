@@ -1,0 +1,73 @@
+load("@orfs_designs//:designs.bzl", "DESIGNS")
+load("//:openroad.bzl", "odb_debug", "orfs_flow")
+
+# riscv32i's register file in each shape generate_regfile offers, on
+# ORFS's own riscv32i config (62 %, its io.tcl), to global route: flops
+# (ORFS's riscv32i), inlined (synthesis reads the generated netlist),
+# netlist (macro-placed, then dissolved) and macro (macro-placed, kept).
+# A study, not a gate: every target is manual.
+package(default_visibility = ["//visibility:private"])
+
+RISCV32I = DESIGNS["asap7/riscv32i"]
+
+# DESIGNS' labels are ORFS's own, relative to its repository.
+SOURCES = {
+    key: [
+        "@orfs" + label if label.startswith("//") else label
+        for label in labels
+    ]
+    for key, labels in RISCV32I["sources"].items()
+}
+
+VERILOG_FILES = [
+    "@orfs" + f if f.startswith("//") else f
+    for f in RISCV32I["verilog_files"]
+]
+
+[
+    orfs_flow(
+        name = "riscv_top",
+        arguments = RISCV32I["arguments"] | {
+            "AUTO_MEMORIES": "1",
+        } | macro_place,
+        last_stage = "grt",
+        sources = SOURCES | {
+            "AUTO_MEMORIES_REGFILES": [":%s.regfile" % shape],
+        },
+        tags = ["manual"],
+        variant = shape,
+        verilog_files = VERILOG_FILES,
+    )
+    for shape, macro_place in [
+        ("inlined", {}),
+        (
+            "netlist",
+            {"AUTO_MEMORIES_MACRO_PLACE": "regfile"},
+        ),
+        (
+            "macro",
+            {"AUTO_MEMORIES_MACRO_PLACE": "regfile"},
+        ),
+    ]
+]
+
+# odb-debug sessions on each stage, for ledger.tcl
+# and questions.
+[
+    odb_debug(
+        name = "%s_%s_odb_debug" % (shape, stage),
+        src = src % stage,
+        tags = ["manual"],
+    )
+    for shape, src in [
+        ("flops", "@orfs//flow/designs/asap7/riscv32i:riscv_top_%s"),
+        ("inlined", ":riscv_top_inlined_%s"),
+        ("netlist", ":riscv_top_netlist_%s"),
+        ("macro", ":riscv_top_macro_%s"),
+    ]
+    for stage in [
+        "synth",
+        "floorplan",
+        "grt",
+    ]
+]
