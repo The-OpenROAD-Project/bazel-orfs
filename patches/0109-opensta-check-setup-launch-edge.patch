@@ -1,0 +1,117 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 12 Oct 2026 19:00:00 +0200
+Subject: [PATCH] sta: check_setup counts a register no clock reaches on its
+ launch edge as unclocked
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+check_setup called a register clock pin unclocked only when the clock
+network missed it, and the clock network is found without regard to
+transitions. A register whose clock pin sees only the edge it does not
+launch on was in the network, so check_setup said nothing, while the
+search timed no path through it: report_checks -to its D said "No
+paths found". ASAP7's ICG with its enable tied high is one: its
+enabled CLK->GCLK arc set carries only the falling edge in front of a
+rising-edge flop (the bug patch 0108 fixes in Sim).
+
+A register clock pin is now unclocked also when no clock path arrives
+on an edge one of its clock-to-output arcs starts from. check_timing
+runs the arrival search for that check as it already did for
+unconstrained endpoints.
+
+Not upstreamed: held until parallaxsw/OpenSTA#532 is decided. Its only
+natural reproducer is #532's tied-enable ICG; if #532 merges, the case
+for it is a safety net and its test needs the falling-only cell here.
+Retires on the //:bump onto an OpenROAD whose OpenSTA carries it.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+diff --git a/src/sta/search/CheckTiming.cc b/src/sta/search/CheckTiming.cc
+--- a/src/sta/search/CheckTiming.cc
++++ b/src/sta/search/CheckTiming.cc
+@@ -44,6 +44,7 @@
+ #include "SdcClass.hh"
+ #include "Sim.hh"
+ #include "StaState.hh"
++#include "TimingArc.hh"
+ #include "TimingRole.hh"
+ 
+ namespace sta {
+@@ -176,7 +177,8 @@ CheckTiming::checkRegClks(bool reg_multiple_clks,
+   for (Vertex *vertex : graph_->regClkVertices()) {
+     const Pin *pin = vertex->pin();
+     const ClockSet *clks = clk_network_->clocks(pin);
+-    if (reg_no_clks && clks == nullptr)
++    if (reg_no_clks
++        && (clks == nullptr || !hasClkArrivalOnLaunchEdge(vertex)))
+       no_clk_pins.insert(pin);
+     if (reg_multiple_clks && clks && clks->size() > 1)
+       multiple_clk_pins.insert(pin);
+@@ -329,6 +331,39 @@ CheckTiming::checkUnconstrainedSetups(PinSet &unconstrained_ends)
+   }
+ }
+ 
++// The clock network is found without regard to transitions, so a
++// register can be in it while the edge it launches on never arrives:
++// an ICG whose enabled arc carries only the falling edge in front of a
++// rising-edge flop. The search then times nothing at the register.
++// True when a clock path arrives on an edge one of the register's
++// clock-to-output arcs starts from, or when it has no such arc.
++bool
++CheckTiming::hasClkArrivalOnLaunchEdge(Vertex *clk_vertex)
++{
++  bool has_launch_arc = false;
++  VertexOutEdgeIterator edge_iter(clk_vertex, graph_);
++  while (edge_iter.hasNext()) {
++    Edge *edge = edge_iter.next();
++    const TimingRole *role = edge->role();
++    if (role != TimingRole::regClkToQ()
++        && role != TimingRole::latchEnToQ())
++      continue;
++    for (const TimingArc *arc : edge->timingArcSet()->arcs()) {
++      const RiseFall *launch_rf = arc->fromEdge()->asRiseFall();
++      if (launch_rf == nullptr)
++        continue;
++      has_launch_arc = true;
++      VertexPathIterator path_iter(clk_vertex, this);
++      while (path_iter.hasNext()) {
++        Path *path = path_iter.next();
++        if (path->isClock(this) && path->transition(this) == launch_rf)
++          return true;
++      }
++    }
++  }
++  return !has_launch_arc;
++}
++
+ bool
+ CheckTiming::hasClkedArrival(Vertex *vertex)
+ {
+diff --git a/src/sta/search/CheckTiming.hh b/src/sta/search/CheckTiming.hh
+--- a/src/sta/search/CheckTiming.hh
++++ b/src/sta/search/CheckTiming.hh
+@@ -64,6 +64,7 @@ protected:
+                     bool reg_no_clks);
+   void checkUnconstrainedEndpoints();
+   bool hasClkedArrival(Vertex *vertex);
++  bool hasClkArrivalOnLaunchEdge(Vertex *clk_vertex);
+   void checkNoOutputDelay(PinSet &no_departure);
+   void checkUnconstrainedOutputs(PinSet &unconstrained_ends);
+   void checkUnconstrainedSetups(PinSet &unconstrained_ends);
+diff --git a/src/sta/search/Sta.cc b/src/sta/search/Sta.cc
+--- a/src/sta/search/Sta.cc
++++ b/src/sta/search/Sta.cc
+@@ -2323,8 +2323,9 @@ Sta::checkTiming(const Mode *mode,
+                  bool loops,
+                  bool generated_clks)
+ {
+-  if (unconstrained_endpoints) {
+-    // Only need non-clock arrivals to find unconstrained_endpoints.
++  if (unconstrained_endpoints || reg_no_clks) {
++    // unconstrained_endpoints needs the arrivals, and an unclocked
++    // register is one no clock arrival reaches on its launch edge.
+     searchPreamble();
+     search_->findAllArrivals();
+   }
