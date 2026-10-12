@@ -43,5 +43,16 @@ ASAP7_LIBS = [
             ASAP7_LEFS,
             ASAP7_LIBS,
         ),
+        # A clock that reaches a flop on the wrong edge only: patches/0109.
+        (
+            "launch_edge_test",
+            "launch_edge.tcl",
+            "fall_only.v",
+            ASAP7_LEFS + ["fall_only.lef"],
+            [
+                ASAP7_SEQ,
+                "fall_only.lib",
+            ],
+        ),
     ]
 ]
