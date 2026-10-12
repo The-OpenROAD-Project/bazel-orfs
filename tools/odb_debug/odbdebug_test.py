@@ -97,6 +97,10 @@ class ClientTest(unittest.TestCase):
         )
         self.assertEqual(self.fake.requests[-1], "od_dump {/a b/c} 1")
 
+    def test_empty_argument_is_one_word(self):
+        # an empty string is a word of its own, not a missing argument
+        self.assertEqual(odbdebug.tcl_quote(""), "{}")
+
     def test_error_reply_raises(self):
         d = odbdebug.Daemon(self.fake.dir)
         with self.assertRaises(odbdebug.DaemonError):
