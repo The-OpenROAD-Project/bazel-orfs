@@ -29,16 +29,11 @@ width floor.
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ---
- tools/FakeRAM2.0/orfs_asap7/generate.py   |  9 ++++++
- tools/FakeRAM2.0/test/macro_dim_test.py   | 14 ++++++++
- tools/FakeRAM2.0/test/spsram_mask_test.py | 39 +++++++++++++++++++++++
- tools/FakeRAM2.0/utils/class_process.py   |  4 +++
- 4 files changed, 66 insertions(+)
-
 diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asap7/generate.py
+index 40de65149..2feb62822 100644
 --- a/tools/FakeRAM2.0/orfs_asap7/generate.py
 +++ b/tools/FakeRAM2.0/orfs_asap7/generate.py
-@@ -39,6 +39,15 @@
+@@ -39,6 +39,15 @@ ASAP7_PROCESS_CONFIG = {
      "column_mux_factor": 1,
      "snap_width_nm": 190,
      "snap_height_nm": 1400,
@@ -55,9 +50,10 @@ diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asa
  
  ASAP7_TIMING_CONFIG = {
 diff --git a/tools/FakeRAM2.0/test/macro_dim_test.py b/tools/FakeRAM2.0/test/macro_dim_test.py
+index 849fc0451..be7040e4a 100755
 --- a/tools/FakeRAM2.0/test/macro_dim_test.py
 +++ b/tools/FakeRAM2.0/test/macro_dim_test.py
-@@ -71,6 +71,20 @@
+@@ -71,6 +71,20 @@ class MacroDimTest(unittest.TestCase):
              self.assertAlmostEqual(height, exp_height, delta=self._delta)
              self.assertAlmostEqual(width, exp_width, delta=self._delta)
  
@@ -79,9 +75,10 @@ diff --git a/tools/FakeRAM2.0/test/macro_dim_test.py b/tools/FakeRAM2.0/test/mac
          """Tests detection that an invalid bank value was given"""
  
 diff --git a/tools/FakeRAM2.0/test/spsram_mask_test.py b/tools/FakeRAM2.0/test/spsram_mask_test.py
+index 1aa7ea1fe..2eea040f4 100644
 --- a/tools/FakeRAM2.0/test/spsram_mask_test.py
 +++ b/tools/FakeRAM2.0/test/spsram_mask_test.py
-@@ -9,6 +9,7 @@
+@@ -9,6 +9,7 @@ memory without either must come out exactly as before.
  import io
  import json
  import os
@@ -89,7 +86,7 @@ diff --git a/tools/FakeRAM2.0/test/spsram_mask_test.py b/tools/FakeRAM2.0/test/s
  import sys
  import tempfile
  import unittest
-@@ -24,6 +25,7 @@
+@@ -24,6 +25,7 @@ from ram_liberty_exporter import RAMLibertyExporter
  from lef_exporter import LefExporter
  from test_utils import TestUtils
  from orfs_asap7.generate import (
@@ -97,9 +94,9 @@ diff --git a/tools/FakeRAM2.0/test/spsram_mask_test.py b/tools/FakeRAM2.0/test/s
      ASAP7_TIMING_CONFIG,
      additional_height_for_pins,
      run_orfs_asap7,
-@@ -202,6 +204,43 @@
-             self.assertIn("pin(RW0_en)", lib)
-             self.assertEqual((out / "blackboxes.txt").read_text(), "array_64x114\n")
+@@ -206,6 +208,43 @@ class BackendTest(unittest.TestCase):
+             self.assertEqual(module, "array_64x114")
+             self.assertGreater(float(area), 0)
  
 +    def test_narrow_macro_spans_a_power_strap_pitch(self):
 +        """64x16 folds to 4.18 um, narrower than the M5 strap pitch.
@@ -142,9 +139,10 @@ diff --git a/tools/FakeRAM2.0/test/spsram_mask_test.py b/tools/FakeRAM2.0/test/s
          pins = rw0_pins(32, 5, 0)
          for p in pins:
 diff --git a/tools/FakeRAM2.0/utils/class_process.py b/tools/FakeRAM2.0/utils/class_process.py
+index 487a853e6..b9107216b 100644
 --- a/tools/FakeRAM2.0/utils/class_process.py
 +++ b/tools/FakeRAM2.0/utils/class_process.py
-@@ -60,6 +60,9 @@
+@@ -60,6 +60,9 @@ class Process:
          self._calc_y_step()
          self.bitcell_width_um = json_data.get("bitcell_width_um", None)
          self.bitcell_height_um = json_data.get("bitcell_height_um", None)
@@ -154,7 +152,7 @@ diff --git a/tools/FakeRAM2.0/utils/class_process.py b/tools/FakeRAM2.0/utils/cl
  
          # Set to True when we want to use the process parameters or bitcell
          # sizes to calculate the macro dimensions. Set to False for spreadsheet
-@@ -118,6 +121,7 @@
+@@ -118,6 +121,7 @@ class Process:
          total_width = all_bitcell_width * 1.2
  
          total_height += additional_height

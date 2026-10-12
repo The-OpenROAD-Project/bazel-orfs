@@ -42,10 +42,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
 diff --git a/docs/user/AutoMemories.md b/docs/user/AutoMemories.md
-index 0ae2672e7c..c9c018a867 100644
+index d6c9b7aa4..dbc1bd4e2 100644
 --- a/docs/user/AutoMemories.md
 +++ b/docs/user/AutoMemories.md
-@@ -126,6 +126,110 @@ the left edge, alternating horizontal M4 `VDD`/`VSS` straps across the
+@@ -122,6 +122,110 @@ the left edge, alternating horizontal M4 `VDD`/`VSS` straps across the
  macro (which the platform's PDN macro grid connects to M5), and an `OBS`
  covering M1 to M4.
  
@@ -156,16 +156,16 @@ index 0ae2672e7c..c9c018a867 100644
  ## Platform support
  
  **asap7 only.** `gen_memories.py` rejects any other platform. The
-@@ -187,3 +291,4 @@ bazel-orfs implements this.
+@@ -183,3 +287,4 @@ bazel-orfs implements this.
  
  - [AUTO_MEMORIES](FlowVariables.md#AUTO_MEMORIES)
  - [ADDITIONAL_MEMORIES](FlowVariables.md#ADDITIONAL_MEMORIES)
 +- [AUTO_MEMORIES_REGFILES](FlowVariables.md#AUTO_MEMORIES_REGFILES)
 diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
-index dfb6ab40f2..7fa1cbdd5d 100644
+index c503aa30f..f3aaa0ab4 100644
 --- a/docs/user/FlowVariables.md
 +++ b/docs/user/FlowVariables.md
-@@ -103,6 +103,7 @@ configuration file.
+@@ -104,6 +104,7 @@ configuration file.
  | <a name="ADDITIONAL_SITES"></a>ADDITIONAL_SITES| Passed as -additional_sites to initialize_floorplan.| |
  | <a name="ASAP7_USE_VT"></a>ASAP7_USE_VT| A space separated list of VT options to use with the ASAP7 standard cell library: RVT, LVT, SLVT.| RVT|
  | <a name="AUTO_MEMORIES"></a>AUTO_MEMORIES| Experimental. When set to 1, memories that yosys infers in the RTL (`$mem_v2` cells, module boundary only) are detected pre-synthesis, inventoried in `$(RESULTS_DIR)/memories.json`, and — when idiomatic as an SRAM macro — given generated .lib/.lef views under `$(RESULTS_DIR)/memories/`. Synthesis blackboxes those modules and all later stages read the generated views, so an existing design gets macro-based results without a memory compiler. Supported for the asap7 platform only. See docs/user/AutoMemories.md.| 0|
@@ -173,8 +173,8 @@ index dfb6ab40f2..7fa1cbdd5d 100644
  | <a name="BALANCE_ROWS"></a>BALANCE_ROWS| Balance rows during placement.| 0|
  | <a name="BLOCKS"></a>BLOCKS| Blocks used as hard macros in a hierarchical flow. Do note that you have to specify block-specific inputs file in the directory mentioned by Makefile.| |
  | <a name="BUFFER_PORTS_ARGS"></a>BUFFER_PORTS_ARGS| Specify arguments to the buffer_ports call during placement. Only used if DONT_BUFFER_PORTS=0.| |
-@@ -342,6 +343,7 @@ configuration file.
- - [ABC_LOAD_IN_FF](#ABC_LOAD_IN_FF)
+@@ -346,6 +347,7 @@ configuration file.
+ - [ABC_SCRIPT](#ABC_SCRIPT)
  - [ADDER_MAP_FILE](#ADDER_MAP_FILE)
  - [ADDITIONAL_MEMORIES](#ADDITIONAL_MEMORIES)
 +- [AUTO_MEMORIES_REGFILES](#AUTO_MEMORIES_REGFILES)
@@ -182,10 +182,10 @@ index dfb6ab40f2..7fa1cbdd5d 100644
  - [CLKGATE_MAP_FILE](#CLKGATE_MAP_FILE)
  - [DFF_LIB_FILE](#DFF_LIB_FILE)
 diff --git a/flow/Makefile b/flow/Makefile
-index 212474ba84..53d9dc192d 100644
+index 759e13578..675d5b4cb 100644
 --- a/flow/Makefile
 +++ b/flow/Makefile
-@@ -277,10 +277,14 @@ do-auto-memories: $(RESULTS_DIR)/memories_inferred.json
+@@ -279,10 +279,14 @@ do-auto-memories: $(RESULTS_DIR)/memories_inferred.json
  	  --yosys-json $(RESULTS_DIR)/memories_inferred.json \
  	  --out-dir $(RESULTS_DIR)/memories \
  	  --json $(RESULTS_DIR)/memories.json \
@@ -203,7 +203,7 @@ index 212474ba84..53d9dc192d 100644
  
  yosys-dependencies: $(RESULTS_DIR)/memories.json
 diff --git a/flow/scripts/macro_place.tcl b/flow/scripts/macro_place.tcl
-index 0789129e42..2fca773e9c 100644
+index 0789129e4..2fca773e9 100644
 --- a/flow/scripts/macro_place.tcl
 +++ b/flow/scripts/macro_place.tcl
 @@ -7,6 +7,9 @@ source $::env(SCRIPTS_DIR)/macro_place_util.tcl
@@ -217,10 +217,10 @@ index 0789129e42..2fca773e9c 100644
  
  orfs_write_db $::env(RESULTS_DIR)/2_2_floorplan_macro.odb
 diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_memories.py
-index e6bfd2a2bc..5b677a560f 100644
+index 98e3febea..411012d9a 100644
 --- a/flow/scripts/memories/gen_memories.py
 +++ b/flow/scripts/memories/gen_memories.py
-@@ -10,6 +10,8 @@
+@@ -10,6 +10,8 @@ collects its $mem_v2 cells, merges user-supplied `.memories` files
    <out-dir>/<m>.lib             Liberty view per converted memory
    <out-dir>/<m>_pre_layout.lib  ideal-clock variant for pre-CTS consumers
    <out-dir>/<m>.lef             abstract LEF per converted memory
@@ -229,7 +229,7 @@ index e6bfd2a2bc..5b677a560f 100644
    <out-dir>/blackboxes.txt      `<module> <area>` per line, area in um^2 as
                                  the .lib states it — what synthesis
                                  blackboxes and the cost it gives each
-@@ -21,6 +23,8 @@
+@@ -21,6 +23,8 @@ between the generator and the flow.
  from __future__ import annotations
  
  import argparse
@@ -238,7 +238,7 @@ index e6bfd2a2bc..5b677a560f 100644
  import sys
  from pathlib import Path
  
-@@ -35,12 +39,190 @@
+@@ -35,6 +39,180 @@ import schema  # noqa: E402
  FAKERAM_RUN_PY = Path(__file__).resolve().parents[3] / "tools/FakeRAM2.0/run.py"
  
  
@@ -419,9 +419,10 @@ index e6bfd2a2bc..5b677a560f 100644
  def run(
      yosys_json: Path,
      memories_files: list[Path],
-     platform: str,
+@@ -42,6 +220,10 @@ def run(
      out_dir: Path,
      json_path: Path,
+     top: str | None = None,
 +    verilog: list[Path] | None = None,
 +    regfile_specs: list[Path] | None = None,
 +    openroad: str | None = None,
@@ -429,7 +430,7 @@ index e6bfd2a2bc..5b677a560f 100644
  ) -> int:
      if platform != "asap7":
          sys.stderr.write(f"gen_memories: unsupported platform {platform}\n")
-@@ -54,6 +236,11 @@ def run(
+@@ -55,6 +237,11 @@ def run(
      for path in memories_files:
          overrides.extend(schema.load(path))
      memories = schema.merge(found, overrides)
@@ -441,7 +442,7 @@ index e6bfd2a2bc..5b677a560f 100644
  
      out_dir.mkdir(parents=True, exist_ok=True)
      json_path.parent.mkdir(parents=True, exist_ok=True)
-@@ -74,8 +261,18 @@ def run(
+@@ -75,8 +262,18 @@ def run(
          ]
      )
  
@@ -461,7 +462,7 @@ index e6bfd2a2bc..5b677a560f 100644
          sys.stderr.write(
              f"gen_memories: {mem.name} {mem.rows}x{mem.bits} "
              f"R={mem.read_ports} W={mem.write_ports} RW={mem.rw_ports} "
-@@ -102,6 +299,32 @@ def main(argv: list[str] | None = None) -> int:
+@@ -103,6 +300,32 @@ def main(argv: list[str] | None = None) -> int:
          help="User-supplied .memories file merged onto the "
          "detected set (repeatable).",
      )
@@ -494,10 +495,10 @@ index e6bfd2a2bc..5b677a560f 100644
      p.add_argument("--platform", required=True)
      p.add_argument(
          "--out-dir",
-@@ -122,6 +345,10 @@ def main(argv: list[str] | None = None) -> int:
-         args.platform,
+@@ -129,6 +352,10 @@ def main(argv: list[str] | None = None) -> int:
          args.out_dir,
          args.json,
+         args.top,
 +        args.verilog,
 +        args.regfile_spec,
 +        args.openroad,
@@ -506,10 +507,10 @@ index e6bfd2a2bc..5b677a560f 100644
  
  
 diff --git a/flow/scripts/memories/gen_memories_test.py b/flow/scripts/memories/gen_memories_test.py
-index 74a5929a0f..1f285d6e85 100644
+index 74a5929a0..1f285d6e8 100644
 --- a/flow/scripts/memories/gen_memories_test.py
 +++ b/flow/scripts/memories/gen_memories_test.py
-@@ -117,6 +117,7 @@ def test_flow_contract(self):
+@@ -117,6 +117,7 @@ class GenMemoriesTest(unittest.TestCase):
                  "mem_128x32.lef",
                  "mem_128x32.lib",
                  "mem_128x32_pre_layout.lib",
@@ -517,7 +518,7 @@ index 74a5929a0f..1f285d6e85 100644
              ],
          )
          # one `<module> <area>` line; the area is the one the .lib states,
-@@ -194,6 +195,25 @@ def test_no_memories_still_writes_contract_files(self):
+@@ -194,6 +195,25 @@ class GenMemoriesTest(unittest.TestCase):
          self.assertEqual(code, 0)
          self.assertEqual(json.loads((d / "memories.json").read_text())["memories"], [])
          self.assertEqual((d / "memories" / "blackboxes.txt").read_text(), "")
@@ -544,7 +545,7 @@ index 74a5929a0f..1f285d6e85 100644
  
  if __name__ == "__main__":
 diff --git a/flow/scripts/memories/schema.py b/flow/scripts/memories/schema.py
-index 754ae8373c..b83d892b94 100644
+index 754ae8373..b83d892b9 100644
 --- a/flow/scripts/memories/schema.py
 +++ b/flow/scripts/memories/schema.py
 @@ -61,10 +61,19 @@ class Memory:
@@ -581,7 +582,7 @@ index 754ae8373c..b83d892b94 100644
  
 diff --git a/flow/scripts/regfile_dissolve.tcl b/flow/scripts/regfile_dissolve.tcl
 new file mode 100644
-index 0000000000..bd6f46c5e6
+index 000000000..bd6f46c5e
 --- /dev/null
 +++ b/flow/scripts/regfile_dissolve.tcl
 @@ -0,0 +1,352 @@
@@ -938,10 +939,10 @@ index 0000000000..bd6f46c5e6
 +  }
 +}
 diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
-index 61a7b8b8e7..66eef69765 100644
+index c094bdc47..0ec531439 100644
 --- a/flow/scripts/variables.json
 +++ b/flow/scripts/variables.json
-@@ -68,6 +68,12 @@
+@@ -74,6 +74,12 @@
      "default": 0,
      "description": "Experimental. When set to 1, memories that yosys infers in the RTL (`$mem_v2` cells, module boundary only) are detected pre-synthesis, inventoried in `$(RESULTS_DIR)/memories.json`, and \u2014 when idiomatic as an SRAM macro \u2014 given generated .lib/.lef views under `$(RESULTS_DIR)/memories/`. Synthesis blackboxes those modules and all later stages read the generated views, so an existing design gets macro-based results without a memory compiler. Supported for the asap7 platform only. See docs/user/AutoMemories.md.\n"
    },
@@ -955,11 +956,11 @@ index 61a7b8b8e7..66eef69765 100644
      "default": 0,
      "description": "Balance rows during placement.\n",
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
-index 2052bd468d..dea40d353a 100644
+index a994f7ec9..7451ce4b7 100644
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -227,6 +227,23 @@ ADDITIONAL_MEMORIES:
-     docs/user/AutoMemories.md.
+@@ -256,6 +256,23 @@ SYNTH_VERILOG_SURGERY_ARGS:
+     Arguments to SYNTH_VERILOG_SURGERY, before the ones the flow adds.
    stages:
      - synth
 +AUTO_MEMORIES_REGFILES:

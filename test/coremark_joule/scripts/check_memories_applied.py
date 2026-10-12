@@ -28,7 +28,7 @@ import sys
 
 def read_blackboxes(path):
     with open(path) as f:
-        # one `<module> <area>` per line (ORFS patch 0090); the module is
+        # one `<module> <area>` per line (ORFS #4650); the module is
         # the first field
         return [line.split()[0] for line in f if line.strip()]
 

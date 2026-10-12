@@ -100,7 +100,7 @@ build_test(
 # (SYNTH_MINIMUM_KEEP_SIZE) needs a cost for every instanced blackbox,
 # and a register-file macro is a blackbox made from the RTL's own
 # module: its line in blackboxes.txt carries the area its generated .lib
-# states (ORFS patches 0090 and 0089), or synthesis stops with "Missing
+# states (ORFS #4650 and patch 0089), or synthesis stops with "Missing
 # cost information on instanced blackbox". The threshold is 1, not 0:
 # yosys reads -min_cost 0 as no threshold and never asks for a cost.
 orfs_flow(

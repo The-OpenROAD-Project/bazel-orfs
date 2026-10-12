@@ -133,7 +133,7 @@ build_test(
 # every instanced blackbox; the memory macro is a blackbox made from the
 # RTL's own module, not a Liberty cell, so synthesis stopped with
 # "Missing cost information on instanced blackbox". Its cost is now its
-# generated view's area (ORFS patch 0090). The threshold is 1, not 0:
+# generated view's area (ORFS #4650). The threshold is 1, not 0:
 # yosys reads -min_cost 0 as no threshold and never asks for a cost.
 orfs_flow(
     name = "am_top",

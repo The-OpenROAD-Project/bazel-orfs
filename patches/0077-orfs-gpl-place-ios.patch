@@ -32,9 +32,10 @@ Not upstreamed; carried by bazel-orfs. Retires at a //:bump onto an ORFS
 whose place stage places the pins with global placement.
 ---
 diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
+index 4faa3cf80..22cf5b697 100644
 --- a/docs/user/FlowVariables.md
 +++ b/docs/user/FlowVariables.md
-@@ -162,8 +162,8 @@
+@@ -162,8 +162,8 @@ configuration file.
  | <a name="GND_NETS_VOLTAGES"></a>GND_NETS_VOLTAGES| Used for IR Drop calculation.| |
  | <a name="GPL_KEEP_OVERFLOW"></a>GPL_KEEP_OVERFLOW| Passed as -keep_resize_below_overflow to global_placement. Only used when GPL_TIMING_DRIVEN is enabled.| |
  | <a name="GPL_RANDOM_SEED"></a>GPL_RANDOM_SEED| Specifies a random seed for global placement.  Useful for perturbation studies.| |
@@ -46,9 +47,10 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  | <a name="GUI_TIMING"></a>GUI_TIMING| Load timing information when opening GUI. For large designs, this can be quite time consuming. Useful to disable when investigating non-timing aspects like floorplan, placement, routing, etc.| 1|
  | <a name="HOLD_SLACK_MARGIN"></a>HOLD_SLACK_MARGIN| Specifies a time margin for the slack when fixing hold violations. This option allows you to overfix or underfix (negative value, terminate retiming before 0 or positive slack). floorplan.tcl uses min of HOLD_SLACK_MARGIN and 0 (default hold slack margin). This avoids overrepair in floorplan for hold by default, but allows skipping hold repair using a negative HOLD_SLACK_MARGIN. Exiting timing repair early is useful in exploration where the .sdc has a fixed clock period at the design's target clock period and where HOLD/SETUP_SLACK_MARGIN is used to avoid overrepair (extremely long running times) when exploring different parameter settings. When an ideal clock is used, that is before CTS, a clock insertion delay of 0 is used in timing paths. This creates a mismatch between macros that have a .lib file from after CTS, when the clock is propagated. To mitigate this, OpenSTA will use subtract the clock insertion delay of macros when calculating timing with ideal clock. Provided that min_clock_tree_path and max_clock_tree_path are in the .lib file, which is the case for macros built with OpenROAD. This is less accurate than if OpenROAD had created a placeholder clock tree for timing estimation purposes prior to CTS. There will inevitably be inaccuracies in the timing calculation prior to CTS. Use a slack margin that is low enough, even negative, to avoid overrepair. Inaccuracies in the timing prior to CTS can also lead to underrepair, but there no obvious and simple way to avoid underrapir in these cases. Overrepair can lead to excessive runtimes in repair or too much buffering being added, which can present itself as congestion of hold cells or buffer cells. Another use of SETUP/HOLD_SLACK_MARGIN is design parameter exploration when trying to find the minimum clock period for a design. The SDC_FILE for a design can be quite complicated and instead of modifying the clock period in the SDC_FILE, which can be non-trivial, the clock period can be fixed at the target frequency and the SETUP/HOLD_SLACK_MARGIN can be swept to find a plausible current minimum clock period.| 0|
 diff --git a/flow/scripts/global_place.tcl b/flow/scripts/global_place.tcl
+index 5822ef47c..b478cecd9 100644
 --- a/flow/scripts/global_place.tcl
 +++ b/flow/scripts/global_place.tcl
-@@ -14,7 +14,8 @@
+@@ -14,7 +14,8 @@ if { $::env(GPL_TIMING_DRIVEN) } {
  # by default, IO ports will be buffered
  # to not buffer IO ports, set environment variable
  # DONT_BUFFER_PORT = 1
@@ -58,7 +60,7 @@ diff --git a/flow/scripts/global_place.tcl b/flow/scripts/global_place.tcl
    if { !$::env(DONT_BUFFER_PORTS) } {
      puts "Perform port buffering..."
      buffer_ports {*}[env_var_or_empty BUFFER_PORTS_ARGS]
-@@ -62,7 +63,15 @@
+@@ -62,7 +63,15 @@ proc do_placement { global_placement_args } {
    log_cmd global_placement {*}$all_args
  }
  
@@ -76,9 +78,10 @@ diff --git a/flow/scripts/global_place.tcl b/flow/scripts/global_place.tcl
    orfs_write_db $::env(RESULTS_DIR)/3_3_place_gp-failed.odb
    error $errMsg
 diff --git a/flow/scripts/global_place_skip_io.tcl b/flow/scripts/global_place_skip_io.tcl
+index 38c58917d..25c3ce8bd 100644
 --- a/flow/scripts/global_place_skip_io.tcl
 +++ b/flow/scripts/global_place_skip_io.tcl
-@@ -7,7 +7,60 @@
+@@ -7,7 +7,60 @@ if { [env_var_exists_and_non_empty FLOORPLAN_DEF] } {
    puts "FLOORPLAN_DEF is set. Skipping global placement without IOs"
  } elseif { [all_pins_placed] } {
    puts "All pins are placed. Skipping global placement without IOs"
@@ -140,9 +143,10 @@ diff --git a/flow/scripts/global_place_skip_io.tcl b/flow/scripts/global_place_s
    append_env_var global_placement_args GPL_RANDOM_SEED -random_seed 1
  
 diff --git a/flow/scripts/util.tcl b/flow/scripts/util.tcl
+index 49ab5fd80..d12f9ae39 100644
 --- a/flow/scripts/util.tcl
 +++ b/flow/scripts/util.tcl
-@@ -188,6 +188,15 @@
+@@ -188,6 +188,15 @@ proc erase_non_stage_variables { stage_name } {
  
  set global_route_congestion_report $::env(REPORTS_DIR)/congestion.rpt
  
@@ -159,9 +163,10 @@ diff --git a/flow/scripts/util.tcl b/flow/scripts/util.tcl
    if { [env_var_exists_and_non_empty PLACE_DENSITY_LB_ADDON] } {
      # check the lower boundary of the PLACE_DENSITY and add PLACE_DENSITY_LB_ADDON
 diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
+index c79940855..74789c6d1 100644
 --- a/flow/scripts/variables.json
 +++ b/flow/scripts/variables.json
-@@ -483,14 +483,14 @@
+@@ -433,14 +433,14 @@
    },
    "GPL_ROUTABILITY_DRIVEN": {
      "default": 1,
@@ -179,9 +184,10 @@ diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
        "place"
      ]
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+index 2c0f9e8aa..394efc6d6 100644
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -735,12 +735,18 @@
+@@ -710,12 +710,18 @@ GPL_RANDOM_SEED:
  GPL_TIMING_DRIVEN:
    description: |
      Specifies whether the placer should use timing driven placement.

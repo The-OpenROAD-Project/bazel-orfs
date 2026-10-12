@@ -22,10 +22,10 @@ carries it.
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
 diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
-index c575653135..fcf1d6fab8 100644
+index 22cf5b697..c503aa30f 100644
 --- a/docs/user/FlowVariables.md
 +++ b/docs/user/FlowVariables.md
-@@ -313,6 +313,8 @@ configuration file.
+@@ -315,6 +315,8 @@ configuration file.
  | <a name="SYNTH_SKIP_KEEP"></a>SYNTH_SKIP_KEEP| Only meaningful together with SYNTH_CHECKPOINT. When set, signals that the supplied checkpoint is still canonical RTLIL (coarse synth and `keep_hierarchy` have not been run yet), so synth.tcl runs the full coarse+fine synthesis flattened. When unset and SYNTH_CHECKPOINT is used, synth.tcl assumes the checkpoint already has coarse synth + `keep_hierarchy` done and resumes from `coarse:fine`.| 0|
  | <a name="SYNTH_SLANG_ARGS"></a>SYNTH_SLANG_ARGS| Additional arguments passed to the slang frontend during synthesis.| |
  | <a name="SYNTH_USE_SYN"></a>SYNTH_USE_SYN| If set to 1, run synthesis using the "syn" tool built into OpenROAD (the synth_syn.tcl flow) instead of the default Yosys-based flow. Defaults to 0 (Yosys flow).| 0|
@@ -34,7 +34,7 @@ index c575653135..fcf1d6fab8 100644
  | <a name="SYNTH_WRAPPED_ADDERS"></a>SYNTH_WRAPPED_ADDERS| Specify the adder modules that can be used for synthesis, separated by commas. The default adder module is determined by the first element of this variable.| |
  | <a name="SYNTH_WRAPPED_MULTIPLIERS"></a>SYNTH_WRAPPED_MULTIPLIERS| Specify the multiplier modules that can be used for synthesis, separated by commas. The default multiplier module is determined by the first element of this variable.| |
  | <a name="SYNTH_WRAPPED_OPERATORS"></a>SYNTH_WRAPPED_OPERATORS| Synthesize multiple architectural options for each arithmetic operator in the design. These options are available for switching among in later stages of the flow.| 0|
-@@ -379,6 +381,8 @@ configuration file.
+@@ -383,6 +385,8 @@ configuration file.
  - [SYNTH_SKIP_KEEP](#SYNTH_SKIP_KEEP)
  - [SYNTH_SLANG_ARGS](#SYNTH_SLANG_ARGS)
  - [SYNTH_USE_SYN](#SYNTH_USE_SYN)
@@ -44,10 +44,10 @@ index c575653135..fcf1d6fab8 100644
  - [SYNTH_WRAPPED_MULTIPLIERS](#SYNTH_WRAPPED_MULTIPLIERS)
  - [TIEHI_CELL_AND_PORT](#TIEHI_CELL_AND_PORT)
 diff --git a/flow/scripts/synth_preamble.tcl b/flow/scripts/synth_preamble.tcl
-index 53353ee46a..b1eccb1c58 100644
+index 4ff10504f..0d5d45873 100644
 --- a/flow/scripts/synth_preamble.tcl
 +++ b/flow/scripts/synth_preamble.tcl
-@@ -82,7 +82,7 @@ proc read_design_sources { } {
+@@ -108,7 +108,7 @@ proc read_design_sources { } {
        {*}$vIdirsArgs {*}[env_var_or_empty VERILOG_DEFINES]]
  
      # slang requires all files at once
@@ -56,7 +56,7 @@ index 53353ee46a..b1eccb1c58 100644
  
      # Add clock gate cell definition, if available
      if { [env_var_exists_and_non_empty CLKGATE_MAP_FILE] } {
-@@ -133,7 +133,7 @@ proc read_design_sources { } {
+@@ -159,7 +159,7 @@ proc read_design_sources { } {
      if { [env_var_exists_and_non_empty VERILOG_DEFINES] } {
        verific -vlog-define {*}$::env(VERILOG_DEFINES)
      }
@@ -65,7 +65,7 @@ index 53353ee46a..b1eccb1c58 100644
      verific -import -no-split-complex-ports $::env(DESIGN_NAME)
  
      dict for {key value} [env_var_or_empty VERILOG_TOP_PARAMS] {
-@@ -152,7 +152,7 @@ proc read_design_sources { } {
+@@ -178,7 +178,7 @@ proc read_design_sources { } {
      if { [env_var_exists_and_non_empty VERILOG_DEFINES] } {
        verilog_defaults -add {*}$::env(VERILOG_DEFINES)
      }
@@ -75,7 +75,7 @@ index 53353ee46a..b1eccb1c58 100644
      }
      # Read platform specific mapfile for OPENROAD_CLKGATE cells
 diff --git a/flow/scripts/synth_syn.tcl b/flow/scripts/synth_syn.tcl
-index e00b6ff10b..52617bd5ae 100644
+index e00b6ff10..52617bd5a 100644
 --- a/flow/scripts/synth_syn.tcl
 +++ b/flow/scripts/synth_syn.tcl
 @@ -30,7 +30,8 @@ set elaborate_args [list \
@@ -98,10 +98,10 @@ index e00b6ff10b..52617bd5ae 100644
      set has_non_v_files true
    }
 diff --git a/flow/scripts/util.tcl b/flow/scripts/util.tcl
-index 912762199a..0fa432acf4 100644
+index d12f9ae39..49251d4fe 100644
 --- a/flow/scripts/util.tcl
 +++ b/flow/scripts/util.tcl
-@@ -336,3 +336,39 @@ proc source_step_tcl { hook_type step_name } {
+@@ -440,3 +440,39 @@ proc source_step_tcl { hook_type step_name } {
    set env_var "${hook_type}_${step_name}_TCL"
    source_env_var_if_exists $env_var
  }
@@ -142,10 +142,10 @@ index 912762199a..0fa432acf4 100644
 +  return $copies
 +}
 diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
-index 36a165116c..af0d60e8c9 100644
+index 74789c6d1..c094bdc47 100644
 --- a/flow/scripts/variables.json
 +++ b/flow/scripts/variables.json
-@@ -1407,6 +1407,18 @@
+@@ -1426,6 +1426,18 @@
        "synth"
      ]
    },
@@ -165,10 +165,10 @@ index 36a165116c..af0d60e8c9 100644
      "description": "Specify the adder modules that can be used for synthesis, separated by commas. The default adder module is determined by the first element of this variable.\n",
      "stages": [
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
-index 644427f34c..75f8c4ca42 100644
+index 5593e091a..a994f7ec9 100644
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -211,6 +211,35 @@ ADDITIONAL_MEMORIES:
+@@ -227,6 +227,35 @@ ADDITIONAL_MEMORIES:
      docs/user/AutoMemories.md.
    stages:
      - synth

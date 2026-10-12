@@ -21,14 +21,11 @@ is in bazel-orfs test/planned_parent.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- flow/scripts/global_route.tcl | 13 ++++++++++++-
- flow/scripts/variables.yaml   | 10 ++++++++++
- 2 files changed, 22 insertions(+), 1 deletion(-)
-
 diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
+index 45f3852f3..153c1b379 100644
 --- a/flow/scripts/global_route.tcl
 +++ b/flow/scripts/global_route.tcl
-@@ -63,7 +63,18 @@
+@@ -63,7 +63,18 @@ proc global_route_helper { } {
    append_env_var additional_args VIA_IN_PIN_MIN_LAYER -via_in_pin_bottom_layer 1
    append_env_var additional_args VIA_IN_PIN_MAX_LAYER -via_in_pin_top_layer 1
  
@@ -49,9 +46,10 @@ diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
    if { ![do_global_route $res_aware $use_cugr] } {
      return
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+index 394efc6d6..1f8264474 100644
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -900,6 +900,16 @@
+@@ -854,6 +854,16 @@ SKIP_LAST_GASP:
      - cts
      - floorplan
      - grt
