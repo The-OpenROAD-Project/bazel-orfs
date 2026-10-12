@@ -18,7 +18,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ---
 diff --git a/flow/scripts/synth_preamble.tcl b/flow/scripts/synth_preamble.tcl
-index e650c1cde2..8efef2d4e1 100644
+index 1c65aa943..9123af744 100644
 --- a/flow/scripts/synth_preamble.tcl
 +++ b/flow/scripts/synth_preamble.tcl
 @@ -100,6 +100,15 @@ proc auto_memories_inline { } {

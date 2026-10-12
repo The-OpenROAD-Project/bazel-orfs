@@ -25,13 +25,11 @@ for a fully fixed macro set.
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- flow/scripts/macro_place_util.tcl | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
-
 diff --git a/flow/scripts/macro_place_util.tcl b/flow/scripts/macro_place_util.tcl
+index b61383597..d7c3bc5ee 100644
 --- a/flow/scripts/macro_place_util.tcl
 +++ b/flow/scripts/macro_place_util.tcl
-@@ -29,6 +29,20 @@
+@@ -29,6 +29,20 @@ if { [find_macros] != "" } {
    if { [env_var_exists_and_non_empty MACRO_PLACEMENT_TCL] } {
      log_cmd source $::env(MACRO_PLACEMENT_TCL)
    }

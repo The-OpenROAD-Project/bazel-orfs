@@ -38,6 +38,7 @@ Not upstreamed. Retire at a bump onto an ORFS whose ASAP7 backend picks
 a column mux factor, or carries per-shape geometry another way.
 ---
 diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asap7/generate.py
+index 42ac55a8a..4343b27bc 100644
 --- a/tools/FakeRAM2.0/orfs_asap7/generate.py
 +++ b/tools/FakeRAM2.0/orfs_asap7/generate.py
 @@ -1,4 +1,5 @@
@@ -46,7 +47,7 @@ diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asa
  import sys
  from pathlib import Path
  
-@@ -34,6 +35,29 @@
+@@ -34,6 +35,29 @@ ASAP7_TIMING_CONFIG = {
  }
  
  
@@ -76,15 +77,15 @@ diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asa
  def run_orfs_asap7(platform: str, out_dir: Path, json_path: Path):
      if platform != "asap7":
          sys.stderr.write(f"FakeRAM2.0 orfs_asap7: unsupported platform {platform}\n")
-@@ -51,7 +75,6 @@
+@@ -51,7 +75,6 @@ def run_orfs_asap7(platform: str, out_dir: Path, json_path: Path):
          (m for m in memories if m.get("idiomatic")), key=lambda m: m["name"]
      )
  
 -    process = Process(ASAP7_PROCESS_CONFIG)
      timing_data = TimingData(ASAP7_TIMING_CONFIG)
  
-     for m in converted:
-@@ -59,6 +82,10 @@
+     blackboxes = []
+@@ -60,6 +83,10 @@ def run_orfs_asap7(platform: str, out_dir: Path, json_path: Path):
          bits = m.get("bits", 32)
          rows = m.get("rows", 128)
  

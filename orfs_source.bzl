@@ -85,12 +85,6 @@ ORFS_PATCHES = [
     # pins-blind solve, place_pins and a second solve. Not upstreamed --
     # retire at a bump onto an ORFS that places pins with global placement.
     Label("//patches:0077-orfs-gpl-place-ios.patch"),
-    # 0081: the memory detector names a slang-uniquified module
-    # (`array_512x17$Frontend...`) for its definition and collapses the
-    # copies: read_slang blackboxes by definition name, so the uniquified
-    # names never matched and the arrays were flattened into their tables
-    # (Frontend's TAGE partition, 64 x 8704 bits). Carried, not upstreamed.
-    Label("//patches:0081-orfs-memories-slang-uniquified-names.patch"),
     # 0083: the macro step skips rtl_macro_placer when MACRO_PLACEMENT_TCL
     # fixed every macro (a planned parent: its blocks and register files
     # placed by the plan). Written for the FIRM cells of the retired
@@ -123,15 +117,6 @@ ORFS_PATCHES = [
     # 0067; retires at a bump onto an ORFS whose FakeRAM asap7
     # backend has a width floor.
     Label("//patches:0088-orfs-fakeram-min-width.patch"),
-    # 0090: an AUTO_MEMORIES macro's blackbox gets the gate equivalent of
-    # its generated .lib's area, which blackboxes.txt now carries beside
-    # its name, so keep_hierarchy -min_cost (SYNTH_MINIMUM_KEEP_SIZE)
-    # accepts it; any AUTO_MEMORIES design with a keep threshold stopped
-    # on "Missing cost information on instanced blackbox". Upstream as
-    # The-OpenROAD-Project/OpenROAD-flow-scripts#4650; 0089's register
-    # files write their area after it. Retires at a bump onto an ORFS
-    # that carries #4650.
-    Label("//patches:0090-orfs-auto-memories-keep-cost.patch"),
     # 0094: SYNTH_VERILOG_SURGERY, a script that edits copies of
     # VERILOG_FILES before synthesis reads them, so vendored RTL stays as
     # upstream has it. Upstream as
@@ -156,13 +141,6 @@ ORFS_PATCHES = [
     # its instances' parameters dropped before the netlist is read. On
     # 0091; the third commit of ORFS #4651.
     Label("//patches:0099-orfs-regfile-inline-parameterized.patch"),
-    # 0092: asap7/tinyRocket gets behavioral models of the cache memories
-    # the Rocket Chip generator leaves as black boxes, so AUTO_MEMORIES
-    # detects them; the design did not canonicalize (data_arrays_0_ext
-    # "not part of the design"), and nothing built it to notice. Also its
-    # README. Upstream as The-OpenROAD-Project/OpenROAD-flow-scripts#4643;
-    # retires at a bump onto an ORFS that carries it.
-    Label("//patches:0092-orfs-tinyrocket-memories.patch"),
     # 0107: AUTO_MEMORIES_REGFILES with SYNTH_VERILOG_SURGERY reads the
     # surgered copies, where a module surgery creates is declared. Fixes
     # 0089 with 0094; retires with 0089. Not upstreamed.

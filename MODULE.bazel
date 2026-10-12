@@ -66,7 +66,7 @@ bazel_dep(name = "sv-elab", version = "2026-07-07")
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
-    integrity = "sha256-mbey1de/eDoKq+mFI3QT/jEVwr8zC3QbtkuGc84frYg=",
+    integrity = "sha256-TztQzdo43bPiSMAjh3l2YNr+W72vcAlr+aFSWFNslvc=",
     # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
     # so vendor src/sta (OpenSTA) and third-party/abc from their own
     # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
@@ -128,8 +128,8 @@ archive_override(
         # OpenROAD that has it.
         "//patches:0010-openroad-ram-generate-regfile.patch",
     ],
-    strip_prefix = "OpenROAD-22b7c537718e77cd3e7b6c0e883d966bf7e92563",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/22b7c537718e77cd3e7b6c0e883d966bf7e92563.tar.gz"],
+    strip_prefix = "OpenROAD-a3bf6124782f205ba5fa9e2e402dae8b665fc4fc",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/a3bf6124782f205ba5fa9e2e402dae8b665fc4fc.tar.gz"],
 )
 
 # OpenROAD pins sv-lang 10.0.bcr.2, which is not yet published in BCR.
@@ -306,7 +306,7 @@ pycross.configure_environments(python_versions = ["3.13"])
 bazel_dep(name = "qt-bazel", dev_dependency = True)
 git_override(
     module_name = "qt-bazel",
-    commit = "5587ebcaf61bab7abe8e69c4db6d068b35562245",
+    commit = "c3319f9e7735c67d47c7dfcc4a135bb91080f1a3",
     # openroad-qt is on a deprecation track; we don't expect Qt to change much.
     # Build xcb-util-cursor from source so the Qt xcb platform plugin
     # doesn't depend on the host having libxcb-cursor0 installed.
@@ -550,8 +550,8 @@ orfs = use_extension("//:extension.bzl", "orfs_repositories")
 # `patches` on an override is honoured only from the root module and
 # would therefore land on whoever is root. Rewritten by //:bump.
 orfs.source(
-    commit = "ef421749a1050a8e9a197e7dfcd05396807f889d",
-    integrity = "sha256-dbPWeddtJheDZ03OXnpf2jqfJl1zn1XR0YVZFvzjSa8=",
+    commit = "3451ca1f56902a49baf50bb8eba345eb709cf9c8",
+    integrity = "sha256-Ldu/46K/KRwtBkiyMlFNX28oHJbRjUPu9Z7vn5/0/Xk=",
 )
 orfs.default(
     # Expose the slang yosys plugin (from BCR sv-elab) via

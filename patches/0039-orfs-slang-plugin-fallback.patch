@@ -27,13 +27,11 @@ either without the caller having to say which it has.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- flow/scripts/synth_preamble.tcl | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
-
 diff --git a/flow/scripts/synth_preamble.tcl b/flow/scripts/synth_preamble.tcl
+index dcdbc19a3..4ff10504f 100644
 --- a/flow/scripts/synth_preamble.tcl
 +++ b/flow/scripts/synth_preamble.tcl
-@@ -76,7 +76,14 @@
+@@ -95,7 +95,14 @@ proc read_design_sources { } {
    }
  
    if { [env_var_equals SYNTH_HDL_FRONTEND slang] } {

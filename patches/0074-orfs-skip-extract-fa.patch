@@ -15,9 +15,10 @@ Not upstreamed; carried by bazel-orfs. Retires at a //:bump onto an ORFS
 that carries a knob for this.
 ---
 diff --git a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
+index aa23fc248..03e36173a 100644
 --- a/flow/scripts/synth.tcl
 +++ b/flow/scripts/synth.tcl
-@@ -245,7 +245,9 @@
+@@ -245,7 +245,9 @@ if {
    )
  } {
    # extract the full adders
@@ -29,9 +30,10 @@ diff --git a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
    techmap -map $::env(ADDER_MAP_FILE)
    techmap
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+index ac913b71a..2c0f9e8aa 100644
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -871,6 +871,17 @@
+@@ -882,6 +882,17 @@ SKIP_CRIT_VT_SWAP:
      - cts
      - floorplan
      - grt

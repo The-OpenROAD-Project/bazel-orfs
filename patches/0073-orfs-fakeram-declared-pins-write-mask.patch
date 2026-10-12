@@ -45,6 +45,7 @@ Not upstreamed -- carried in bazel-orfs per the moratorium. Retires at
 a bump onto an ORFS that carries the change.
 ---
 diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asap7/generate.py
+index 4343b27bc..40de65149 100644
 --- a/tools/FakeRAM2.0/orfs_asap7/generate.py
 +++ b/tools/FakeRAM2.0/orfs_asap7/generate.py
 @@ -1,3 +1,18 @@
@@ -66,7 +67,7 @@ diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asa
  import json
  import math
  import sys
-@@ -34,6 +49,57 @@
+@@ -34,6 +49,57 @@ ASAP7_TIMING_CONFIG = {
      "leakage": 0.001,
  }
  
@@ -124,8 +125,8 @@ diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asa
  
  def pick_column_mux_factor(rows, bits):
      """Fold a tall array into a square one.
-@@ -79,8 +145,20 @@
- 
+@@ -80,8 +146,20 @@ def run_orfs_asap7(platform: str, out_dir: Path, json_path: Path):
+     blackboxes = []
      for m in converted:
          name = m["name"]
 -        bits = m.get("bits", 32)
@@ -147,7 +148,7 @@ diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asa
  
          process_config = dict(ASAP7_PROCESS_CONFIG)
          process_config["column_mux_factor"] = pick_column_mux_factor(rows, bits)
-@@ -91,6 +169,9 @@
+@@ -92,6 +170,9 @@ def run_orfs_asap7(platform: str, out_dir: Path, json_path: Path):
              "width": bits,
              "depth": rows,
              "banks": 1,
@@ -159,9 +160,10 @@ diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asa
          ram = MemoryFactory.create(mem_config, "RAM", "SP", process, timing_data)
 diff --git a/tools/FakeRAM2.0/test/spsram_mask_test.py b/tools/FakeRAM2.0/test/spsram_mask_test.py
 new file mode 100644
+index 000000000..1aa7ea1fe
 --- /dev/null
 +++ b/tools/FakeRAM2.0/test/spsram_mask_test.py
-@@ -0,0 +1,229 @@
+@@ -0,0 +1,233 @@
 +#!/usr/bin/env python3
 +"""A single-port RAM with declared pin names and write-mask lanes.
 +
@@ -364,7 +366,11 @@ new file mode 100644
 +            self.assertIn("cell(array_64x114)", lib)
 +            self.assertIn("bus(RW0_wmask)", lib)
 +            self.assertIn("pin(RW0_en)", lib)
-+            self.assertEqual((out / "blackboxes.txt").read_text(), "array_64x114\n")
++            # `<module> <area>`: synthesis costs the blackbox by its area
++            [line] = (out / "blackboxes.txt").read_text().splitlines()
++            module, area = line.split()
++            self.assertEqual(module, "array_64x114")
++            self.assertGreater(float(area), 0)
 +
 +    def test_declared_separate_ports_are_refused(self):
 +        pins = rw0_pins(32, 5, 0)
@@ -392,9 +398,10 @@ new file mode 100644
 +if __name__ == "__main__":
 +    unittest.main()
 diff --git a/tools/FakeRAM2.0/utils/basic_port_creator.py b/tools/FakeRAM2.0/utils/basic_port_creator.py
+index 9bd263e6b..16b1cab40 100644
 --- a/tools/FakeRAM2.0/utils/basic_port_creator.py
 +++ b/tools/FakeRAM2.0/utils/basic_port_creator.py
-@@ -96,6 +96,16 @@
+@@ -96,6 +96,16 @@ class BasicPortCreator:
              pin_pitch,
          )
          y_step += group_pitch
@@ -412,9 +419,10 @@ diff --git a/tools/FakeRAM2.0/utils/basic_port_creator.py b/tools/FakeRAM2.0/uti
              rw_port_group.get_address_bus_name(),
              0,
 diff --git a/tools/FakeRAM2.0/utils/class_memory.py b/tools/FakeRAM2.0/utils/class_memory.py
+index b6631a7ab..1cb9046db 100644
 --- a/tools/FakeRAM2.0/utils/class_memory.py
 +++ b/tools/FakeRAM2.0/utils/class_memory.py
-@@ -36,6 +36,7 @@
+@@ -36,6 +36,7 @@ class Memory(NamedObject):
          self.width_in_bytes = math.ceil(self.width_in_bits / 8.0)
          self.total_size = self.width_in_bytes * self.depth
          self.additional_height = mem_config.get_additional_height()
@@ -423,9 +431,10 @@ diff --git a/tools/FakeRAM2.0/utils/class_memory.py b/tools/FakeRAM2.0/utils/cla
          self.physical = PhysicalData()
          if self.process.calc_dimensions():
 diff --git a/tools/FakeRAM2.0/utils/lef_exporter.py b/tools/FakeRAM2.0/utils/lef_exporter.py
+index ea65feee2..3fc0c6575 100644
 --- a/tools/FakeRAM2.0/utils/lef_exporter.py
 +++ b/tools/FakeRAM2.0/utils/lef_exporter.py
-@@ -140,6 +140,13 @@
+@@ -140,6 +140,13 @@ class LefExporter(Exporter):
              )
          if rw_port_group.get_data_input_bus_name():
              self.write_signal_bus(fid, rw_port_group.get_data_input_bus_name(), 0, bits)
@@ -440,9 +449,10 @@ diff --git a/tools/FakeRAM2.0/utils/lef_exporter.py b/tools/FakeRAM2.0/utils/lef
              self.write_signal_bus(
                  fid,
 diff --git a/tools/FakeRAM2.0/utils/liberty_exporter.py b/tools/FakeRAM2.0/utils/liberty_exporter.py
+index ef3f87e9b..c1396b3b2 100644
 --- a/tools/FakeRAM2.0/utils/liberty_exporter.py
 +++ b/tools/FakeRAM2.0/utils/liberty_exporter.py
-@@ -155,6 +155,15 @@
+@@ -155,6 +155,15 @@ class LibertyExporter(Exporter):
                      bus_data["msb"] - bus_data["lsb"] + 1,
                      bus_data["msb"],
                  )
@@ -458,7 +468,7 @@ diff --git a/tools/FakeRAM2.0/utils/liberty_exporter.py b/tools/FakeRAM2.0/utils
          for bus_name, bus_data in mem.get_misc_busses().items():
              self.write_bus_def(
                  out_fh,
-@@ -442,6 +451,10 @@
+@@ -442,6 +451,10 @@ class LibertyExporter(Exporter):
                  is_ram,
                  addr_bus_name,
              )
@@ -470,6 +480,7 @@ diff --git a/tools/FakeRAM2.0/utils/liberty_exporter.py b/tools/FakeRAM2.0/utils
              self.write_output_bus(
                  out_fh,
 diff --git a/tools/FakeRAM2.0/utils/memory_config.py b/tools/FakeRAM2.0/utils/memory_config.py
+index 843bb85c8..db202c76d 100644
 --- a/tools/FakeRAM2.0/utils/memory_config.py
 +++ b/tools/FakeRAM2.0/utils/memory_config.py
 @@ -4,7 +4,16 @@
@@ -490,7 +501,7 @@ diff --git a/tools/FakeRAM2.0/utils/memory_config.py b/tools/FakeRAM2.0/utils/me
          """Initializer"""
  
          self._name = name
-@@ -12,6 +21,17 @@
+@@ -12,6 +21,17 @@ class MemoryConfig:
          self._depth = depth
          self._num_banks = num_banks
          self._additional_height = additional_height
@@ -508,7 +519,7 @@ diff --git a/tools/FakeRAM2.0/utils/memory_config.py b/tools/FakeRAM2.0/utils/me
  
      def set_name(self, name):
          """Sets the name"""
-@@ -37,6 +57,14 @@
+@@ -37,6 +57,14 @@ class MemoryConfig:
          """Returns the additional_height"""
          return self._additional_height
  
@@ -523,7 +534,7 @@ diff --git a/tools/FakeRAM2.0/utils/memory_config.py b/tools/FakeRAM2.0/utils/me
      @staticmethod
      def from_json(json_data):
          return MemoryConfig(
-@@ -45,4 +73,6 @@
+@@ -45,4 +73,6 @@ class MemoryConfig:
              int(json_data["depth"]),
              int(json_data["banks"]),
              json_data.get("additional_height", 0),
@@ -531,9 +542,10 @@ diff --git a/tools/FakeRAM2.0/utils/memory_config.py b/tools/FakeRAM2.0/utils/me
 +            json_data.get("mask_lanes", 0),
          )
 diff --git a/tools/FakeRAM2.0/utils/rw_port_group.py b/tools/FakeRAM2.0/utils/rw_port_group.py
+index 3f3c4549e..8b71ff4aa 100644
 --- a/tools/FakeRAM2.0/utils/rw_port_group.py
 +++ b/tools/FakeRAM2.0/utils/rw_port_group.py
-@@ -37,6 +37,9 @@
+@@ -37,6 +37,9 @@ class RWPortGroup:
              self._clk_name = None
          self._related_pin_list = []
          self._related_busses = {}
@@ -543,7 +555,7 @@ diff --git a/tools/FakeRAM2.0/utils/rw_port_group.py b/tools/FakeRAM2.0/utils/rw
  
      def set_suffix(self, suffix):
          """
-@@ -86,6 +89,19 @@
+@@ -86,6 +89,19 @@ class RWPortGroup:
          """Gets the data output bus name"""
          return self._data_output_bus_name
  
@@ -564,9 +576,10 @@ diff --git a/tools/FakeRAM2.0/utils/rw_port_group.py b/tools/FakeRAM2.0/utils/rw
          """Adds related pin"""
          self._related_pin_list.append(name)
 diff --git a/tools/FakeRAM2.0/utils/single_port_ram.py b/tools/FakeRAM2.0/utils/single_port_ram.py
+index 1f3f2d39a..f1a7409c7 100755
 --- a/tools/FakeRAM2.0/utils/single_port_ram.py
 +++ b/tools/FakeRAM2.0/utils/single_port_ram.py
-@@ -36,19 +36,24 @@
+@@ -36,19 +36,24 @@ class SinglePortRAM(RAM):
          """
          RAM.__init__(self, mem_config, process_data, timing_data)
          rw_port_group = RWPortGroup()
@@ -599,9 +612,10 @@ diff --git a/tools/FakeRAM2.0/utils/single_port_ram.py b/tools/FakeRAM2.0/utils/
      def write_verilog_file(self, out_file_name, is_blackbox=False):
          """
 diff --git a/tools/FakeRAM2.0/utils/single_port_ram_liberty_exporter.py b/tools/FakeRAM2.0/utils/single_port_ram_liberty_exporter.py
+index 8ec41e028..5f556242e 100644
 --- a/tools/FakeRAM2.0/utils/single_port_ram_liberty_exporter.py
 +++ b/tools/FakeRAM2.0/utils/single_port_ram_liberty_exporter.py
-@@ -46,3 +46,7 @@
+@@ -46,3 +46,7 @@ class SinglePortRAMLibertyExporter(RAMLibertyExporter):
              True,
              addr_bus_name,
          )
@@ -610,9 +624,10 @@ diff --git a/tools/FakeRAM2.0/utils/single_port_ram_liberty_exporter.py b/tools/
 +                out_fh, name, rw_port_group.get_write_mask_bus_name(), clk_pin_name
 +            )
 diff --git a/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py b/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py
+index 6955b8be3..e5c1a8415 100644
 --- a/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py
 +++ b/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py
-@@ -24,6 +24,14 @@
+@@ -24,6 +24,14 @@ class SinglePortRAMVerilogExporter(VerilogExporter):
          ce_pin = next(iter(mem.get_misc_ports()))
          return (addr_bus, din_bus, dout_bus, we_pin, clk_pin, ce_pin)
  
@@ -627,7 +642,7 @@ diff --git a/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py b/tools/
      def export_module(self, out_fh):
          """Exports the verilog module to the output stream"""
  
-@@ -59,7 +67,15 @@
+@@ -59,7 +67,15 @@ class SinglePortRAMVerilogExporter(VerilogExporter):
          out_fh.write("         end\n")
          out_fh.write(f"         else if ({we_pin})\n")
          out_fh.write("         begin\n")
@@ -644,7 +659,7 @@ diff --git a/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py b/tools/
          out_fh.write("         end\n")
          out_fh.write("         // read\n")
          out_fh.write(f"         {dout_bus} <= mem[{addr_bus}];\n")
-@@ -85,12 +101,20 @@
+@@ -85,12 +101,20 @@ class SinglePortRAMVerilogExporter(VerilogExporter):
          out_fh.write(f"   {we_pin},\n")
          out_fh.write(f"   {din_bus},\n")
          out_fh.write(f"   {clk_pin},\n")
@@ -666,7 +681,7 @@ diff --git a/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py b/tools/
          out_fh.write("\n")
          out_fh.write(f"   output reg [BITS-1:0]    {dout_bus};\n")
          out_fh.write(f"   input  [ADDR_WIDTH-1:0]  {addr_bus};\n")
-@@ -98,6 +122,8 @@
+@@ -98,6 +122,8 @@ class SinglePortRAMVerilogExporter(VerilogExporter):
          out_fh.write(f"   input  [BITS-1:0]        {din_bus};\n")
          out_fh.write(f"   input                    {clk_pin};\n")
          out_fh.write(f"   input                    {ce_pin};\n")
@@ -675,7 +690,7 @@ diff --git a/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py b/tools/
          out_fh.write("\n")
  
      def write_timing_check(self, out_fh):
-@@ -130,6 +156,11 @@
+@@ -130,6 +156,11 @@ class SinglePortRAMVerilogExporter(VerilogExporter):
          )
          out_fh.write(
              f"      $setuphold (posedge {clk_pin}, {din_bus},     0, 0, notifier);\n"
@@ -687,7 +702,7 @@ diff --git a/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py b/tools/
          )
          out_fh.write("   endspecify\n")
          out_fh.write("\n")
-@@ -147,5 +178,10 @@
+@@ -147,5 +178,10 @@ class SinglePortRAMVerilogExporter(VerilogExporter):
          out_fh.write(f"   input {we_pin},\n")
          out_fh.write(f"   input [{data_bus_msb}:0] {din_bus},\n")
          out_fh.write(f"   input {clk_pin},\n")
