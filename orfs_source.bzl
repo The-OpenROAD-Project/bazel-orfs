@@ -163,6 +163,10 @@ ORFS_PATCHES = [
     # README. Upstream as The-OpenROAD-Project/OpenROAD-flow-scripts#4643;
     # retires at a bump onto an ORFS that carries it.
     Label("//patches:0092-orfs-tinyrocket-memories.patch"),
+    # 0107: AUTO_MEMORIES_REGFILES with SYNTH_VERILOG_SURGERY reads the
+    # surgered copies, where a module surgery creates is declared. Fixes
+    # 0089 with 0094; retires with 0089. Not upstreamed.
+    Label("//patches:0107-orfs-auto-memories-regfiles-surgery.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
