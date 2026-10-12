@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 12 Oct 2026 18:00:00 +0200
+Subject: [PATCH] sta: a cond arc set disables the default set only for the
+ edges it covers
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A liberty pin with a when-conditioned arc set and an unconditioned
+default set: when the condition holds, Sim disabled the default set
+whole, even for edges the conditioned set has no arc to. ASAP7's ICG
+has a CLK->GCLK set conditioned on ENA and SE that carries only the
+falling edge; with ENA tied high the rising CLK->GCLK arc went with it,
+and nothing behind the gate was clocked: its flops untimed, and
+check_setup's "unclocked register/latch pin" count is how it shows.
+The default set is now disabled only when the conditioned set covers
+every edge it has an arc to.
+
+parallaxsw/OpenSTA#532, not upstreamed from here. Retires on the
+//:bump onto an OpenROAD whose OpenSTA carries it.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+diff --git a/src/sta/search/Sim.cc b/src/sta/search/Sim.cc
+--- a/src/sta/search/Sim.cc
++++ b/src/sta/search/Sim.cc
+@@ -796,6 +796,19 @@ Sim::setIsDisabledCond(Edge *edge,
+   }
+ }
+ 
++// cond_set has an arc to every edge arc_set has an arc to.
++static bool
++coversArcs(const TimingArcSet *cond_set,
++           const TimingArcSet *arc_set)
++{
++  for (const TimingArc *arc : arc_set->arcs()) {
++    const RiseFall *to_rf = arc->toEdge()->asRiseFall();
++    if (to_rf == nullptr || cond_set->arcTo(to_rf) == nullptr)
++      return false;
++  }
++  return true;
++}
++
+ bool
+ Sim::isDisabledCond(Edge *edge,
+                     const Instance *inst,
+@@ -834,7 +847,8 @@ Sim::isDisabledCond(Edge *edge,
+     is_disabled = false;
+     for (TimingArcSet *cond_set : cell->timingArcSets(from_port, to_port)) {
+       FuncExpr *cond = cond_set->cond();
+-      if (cond && evalExpr(cond, inst) == LogicValue::one) {
++      if (cond && evalExpr(cond, inst) == LogicValue::one
++          && coversArcs(cond_set, arc_set)) {
+         disable_cond = cond;
+         is_disabled = true;
+         break;

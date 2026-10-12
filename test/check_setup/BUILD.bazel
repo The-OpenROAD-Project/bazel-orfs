@@ -1,0 +1,47 @@
+# check_setup on the smallest designs that show what it is for: a flop
+# that is not clocked is not timed, and a period measured with one is a
+# lower bound.
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+ASAP7_LEFS = [
+    "@orfs//flow:platforms/asap7/lef/asap7_tech_1x_201209.lef",
+    "@orfs//flow:platforms/asap7/lef/asap7sc7p5t_28_R_1x_220121a.lef",
+]
+
+ASAP7_SEQ = "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_TT_nldm_220123.lib"
+
+ASAP7_LIBS = [
+    "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_TT_nldm_220122.lib.gz",
+    ASAP7_SEQ,
+    "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_TT_nldm_211120.lib.gz",
+]
+
+[
+    sh_test(
+        name = name,
+        size = "small",
+        srcs = ["check_setup_test.sh"],
+        args = [
+            "$(rootpath @openroad)",
+            "$(rootpath %s)" % tcl,
+            "$(rootpath %s)" % verilog,
+            str(len(lefs)),
+        ] + ["$(rootpath %s)" % f for f in lefs + libs],
+        data = [
+            "load.tcl",
+            tcl,
+            verilog,
+            "@openroad",
+        ] + lefs + libs,
+    )
+    for name, tcl, verilog, lefs, libs in [
+        # ASAP7's ICG with its enable tied high: patches/0108.
+        (
+            "icg_tied_enable_test",
+            "icg_tied_enable.tcl",
+            "gate.v",
+            ASAP7_LEFS,
+            ASAP7_LIBS,
+        ),
+    ]
+]
