@@ -1650,6 +1650,39 @@ parent from synthesis to global route in four hours.
 **To revisit:** the skew of T1's worst paths, the parent's floorplan
 time in the dissolve, and FltRegionModule's write-port path.
 
+## 50. The parent's clock skew: one late pocket, and the CTS knobs left alone
+
+Entry 49 left the skew of the worst paths to look at. The clock latency
+of every register clock pin in the parent after CTS (no repair), with
+the blocks' CTS-stage abstracts, on a placement at density 0.3:
+
+| | |
+|---|---:|
+| clock pins with a latency | 153,692 |
+| median latency | 2,065 ps |
+| 1st to 99th percentile | 181 ps |
+| latest sink | +326 ps |
+
+The tree is even except for one pocket: about 4,000 of intRegion's
+issue-queue flops, between x 150 and 600 um and y 750 and 1,050 um, at
++140 to +210 ps. The latest of them sits at the die's west edge, and its
+leaf buffer hangs 850 um from the nearest tap of the tree; the clock-net
+repair bridges the gap with eight wire buffers, 289 ps. Sink clustering
+grouped flops the H-tree's taps do not reach.
+
+**A yak-shave, decided against for now.** The CTS knobs (cluster size
+and diameter, buffer distance, the tree's stop criteria) could be
+computed from the placement by an `orfs_arguments` script before the
+parent's CTS, as `lb_32x128_auto_utilization` does for the floorplan.
+Which tap a leaf cluster is matched to is not a knob, though, so
+whether knobs remove the pocket would take a sweep, and a fix in the
+matching belongs to CTS itself. It is also not what sets the period: on
+a full build of the parent, every one of the 200 worst paths after
+global route launches from MemBlock, with about 2,158 ps of each inside
+its abstract, and the skew on them is negative. So the knobs stay as
+they are, and we wait for upstream CTS improvements, measured with the
+same skew profile when they come.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
