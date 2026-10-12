@@ -45,6 +45,10 @@ VERILOG_FILES = [
             {"AUTO_MEMORIES_MACRO_PLACE": "regfile"},
         ),
         (
+            "netlist_service0",
+            {"AUTO_MEMORIES_MACRO_PLACE": "regfile"},
+        ),
+        (
             "macro",
             {"AUTO_MEMORIES_MACRO_PLACE": "regfile"},
         ),
@@ -63,6 +67,7 @@ VERILOG_FILES = [
         ("flops", "@orfs//flow/designs/asap7/riscv32i:riscv_top_%s"),
         ("inlined", ":riscv_top_inlined_%s"),
         ("netlist", ":riscv_top_netlist_%s"),
+        ("netlist_service0", ":riscv_top_netlist_service0_%s"),
         ("macro", ":riscv_top_macro_%s"),
     ]
     for stage in [
