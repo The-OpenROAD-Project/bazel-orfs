@@ -145,6 +145,16 @@ class Daemon(object):
     def worst_paths(self, count=10):
         return self.call("od_worst_paths", int(count), timeout=3600)
 
+    def check_setup(self, examples=10, depth=3, top=20, out=""):
+        return self.call(
+            "od_check_setup",
+            int(examples),
+            int(depth),
+            int(top),
+            os.path.abspath(out) if out else "",
+            timeout=3600,
+        )
+
     def report(self, command, timeout=3600):
         result, out = self.tcl_verbose("od_capture {%s}" % command, timeout)
         return out or result

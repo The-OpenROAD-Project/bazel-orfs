@@ -124,6 +124,25 @@ def _worst(d, a):
 
 
 @tool(
+    "check_setup",
+    "check_setup -verbose, summarized: each warning (unclocked register pins, multiple clocks, unconstrained endpoints, loops, missing input/output delays, unconnected generated clocks) with its count, example pins and the instance prefixes they cluster in. Needs timing loaded.",
+    {
+        "examples": ("integer", "Example pins per warning; default 10"),
+        "depth": ("integer", "Hierarchy levels in a prefix; default 3"),
+        "top": ("integer", "Prefixes per warning, most common first; default 20"),
+        "out": (
+            "string",
+            "File for every line of the verbose report, as the daemon sees paths; default none",
+        ),
+    },
+)
+def _check_setup(d, a):
+    return d.check_setup(
+        a.get("examples", 10), a.get("depth", 3), a.get("top", 20), a.get("out", "")
+    )
+
+
+@tool(
     "report",
     "Run an OpenROAD command and return what it printed: report_checks -path_delay max, report_design_area, report_wire_length ...",
     {"command": ("string", "The Tcl command line to run")},
