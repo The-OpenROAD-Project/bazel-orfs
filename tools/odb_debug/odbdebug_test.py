@@ -64,6 +64,8 @@ class FakeDaemon(object):
             }
         if code.startswith("od_cell "):
             return {"ok": False, "error": "no instance named x", "stdout": "", "ms": 1}
+        if code.startswith("od_check_setup "):
+            return {"ok": True, "result": "[]", "stdout": "", "ms": 1}
         if code.startswith("od_capture "):
             return {"ok": True, "result": "", "stdout": "report text\n", "ms": 1}
         return {"ok": True, "result": code, "stdout": "hello\n", "ms": 1}
@@ -96,6 +98,16 @@ class ClientTest(unittest.TestCase):
             " ".join(["od_dump", odbdebug.tcl_quote("/a b/c"), odbdebug.tcl_quote(1)])
         )
         self.assertEqual(self.fake.requests[-1], "od_dump {/a b/c} 1")
+
+    def test_check_setup_sends_an_absolute_out(self):
+        d = odbdebug.Daemon(self.fake.dir)
+        self.assertEqual(d.check_setup(), [])
+        self.assertEqual(self.fake.requests[-1], "od_check_setup 10 3 20 {}")
+        d.check_setup(5, 2, 7, "cs.txt")
+        self.assertEqual(
+            self.fake.requests[-1],
+            "od_check_setup 5 2 7 " + os.path.abspath("cs.txt"),
+        )
 
     def test_empty_argument_is_one_word(self):
         # an empty string is a word of its own, not a missing argument
@@ -154,7 +166,15 @@ class McpTest(unittest.TestCase):
         tools = self.rpc("tools/list")["result"]["tools"]
         names = {t["name"] for t in tools}
         self.assertTrue(
-            {"status", "macros", "cell_info", "check_placement", "tcl", "report"}
+            {
+                "status",
+                "macros",
+                "cell_info",
+                "check_placement",
+                "check_setup",
+                "tcl",
+                "report",
+            }
             <= names
         )
         cell = [t for t in tools if t["name"] == "cell_info"][0]

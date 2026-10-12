@@ -293,6 +293,96 @@ proc od_worst_paths { {count 10} } {
   return [od_jarr $items]
 }
 
+# check_setup -verbose without the pin lists in the reply: each warning
+# with its count, the first `examples` pins and the `top` most common
+# module paths `depth` levels deep, so 100k unclocked pins come back as
+# the few modules they sit in. Hierarchy is split at "/" and at the "."
+# of a flattened yosys name; a port is grouped by its bus name. Up to
+# `classify` unconstrained endpoints are sorted by whether every
+# startpoint in their fan-in is an input port: what an SDC without
+# set_input_delay leaves unconstrained by design. `out`, when given,
+# gets every line. What each warning means:
+# .claude/commands/check-setup.md.
+proc od_check_setup { {examples 10} {depth 3} {top 20} {out ""} {classify 200} } {
+  od_require_timing
+  # no_input_delay no_output_delay multiple_clock no_clock unconstrained
+  # loops generated_clocks: everything, as a bare check_setup does
+  set errors [sta::check_timing_cmd 1 1 1 1 1 1 1]
+  if { $out ne "" } {
+    set fh [open $out w]
+    foreach error $errors { puts $fh [join $error "\n  "] }
+    close $fh
+  }
+  set items {}
+  foreach error $errors {
+    set msg [lindex $error 0]
+    set objs {}
+    foreach obj [lrange $error 1 end] {
+      if { [string match "|*" $obj] || [string match "---*" $obj] } { continue }
+      lappend objs $obj
+    }
+    set count [llength $objs]
+    regexp {There (?:is|are) (\d+) } $msg -> count
+    set prefixes [dict create]
+    foreach obj $objs {
+      dict incr prefixes [od_module_path $obj $depth]
+    }
+    set ranked [lsort -integer -decreasing -stride 2 -index 1 $prefixes]
+    set prefix_items {}
+    foreach {key n} [lrange $ranked 0 [expr { 2 * $top - 1 }]] {
+      lappend prefix_items [od_jobj [list prefix [od_jstr $key] count $n]]
+    }
+    set example_items {}
+    foreach obj [lrange $objs 0 [expr { $examples - 1 }]] {
+      lappend example_items [od_jstr $obj]
+    }
+    set pairs [list \
+      warning [od_jstr $msg] \
+      count $count \
+      prefixes [od_jarr $prefix_items] \
+      examples [od_jarr $example_items]]
+    if { [string match "*unconstrained endpoint*" $msg] && $classify > 0 } {
+      lappend pairs inputs_only [od_inputs_only [lrange $objs 0 [expr { $classify - 1 }]]]
+    }
+    lappend items [od_jobj $pairs]
+  }
+  return [od_jarr $items]
+}
+
+# The module path of a pin `depth` levels deep: the instance's own name
+# and the pin dropped. A port (no hierarchy) is its bus name.
+proc od_module_path { obj depth } {
+  set slash [string last / $obj]
+  if { $slash < 0 } {
+    return [regsub {\[\d+\]$} $obj {}]
+  }
+  set parts [split [string range $obj 0 [expr { $slash - 1 }]] /.]
+  set parts [lrange $parts 0 end-1]
+  if { $parts eq {} } { return "(top)" }
+  return [join [lrange $parts 0 [expr { $depth - 1 }]] /]
+}
+
+# Of these endpoints, how many have only input ports as the startpoints
+# of their fan-in, and how many have a register too.
+proc od_inputs_only { endpoints } {
+  set only 0
+  set other {}
+  foreach name $endpoints {
+    set pin [get_pins -quiet $name]
+    if { $pin eq "" } { set pin [get_ports -quiet $name] }
+    if { $pin eq "" } { continue }
+    set starts [get_fanin -to $pin -startpoints_only -flat]
+    # a startpoint inside the design is an instance pin, "inst/pin"
+    set reg 0
+    foreach s $starts {
+      if { [string first / [get_full_name $s]] >= 0 } { set reg 1; break }
+    }
+    if { $reg } { lappend other [od_jstr $name] } else { incr only }
+  }
+  return [od_jobj [list classified [llength $endpoints] inputs_only $only \
+    with_register [llength $other] with_register_examples [od_jarr [lrange $other 0 9]]]]
+}
+
 # Run a command and return what it printed through OpenROAD's logger: the
 # report_* family, check_placement -verbose, anything that reports.
 proc od_capture { script } {

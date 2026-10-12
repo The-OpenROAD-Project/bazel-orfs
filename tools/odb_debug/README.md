@@ -141,6 +141,7 @@ another ODB without restarting the agent. Tools:
 | `check_placement` | unplaced count, cells inside macros, `check_placement -verbose` text |
 | `dump_geometry dir` | writes the text files `geometry.py` reads |
 | `wns`, `worst_paths n` | worst slack and its endpoints; the n worst paths |
+| `check_setup` | each `check_setup` warning with its count, example pins and the instance prefixes they cluster in (`.claude/commands/check-setup.md`) |
 | `report cmd` | what any `report_*` command prints |
 | `tcl code` | anything else: result and captured stdout |
 
@@ -157,6 +158,7 @@ Every proc returns a JSON string; lengths are microns.
 | `od_check_placement` | as `check_placement` |
 | `od_dump dir ?insts?` | `summary.txt`, `rows.txt`, `macros.txt`, `blockages.txt`, and with `insts` 1 (default) `insts.txt` |
 | `od_wns`, `od_worst_paths ?n?` | need timing |
+| `od_check_setup ?examples? ?depth? ?top? ?out?` | needs timing; as `check_setup`, every line to `out` if given |
 | `od_capture script` | run `script`, return its stdout as a plain string |
 
 Add your own: `tcl` with a `proc od_mine {} { ... }` defines it for the
