@@ -169,6 +169,10 @@ archive_override(
         # 0022: generate_ram -bit_folds, a word's slices in rows. On 0021
         # (OpenROAD #11669); not upstreamed.
         "//patches:0022-openroad-ram-bit-folds.patch",
+        # 0023: generate_ram_netlist -periphery verilog, the core a block of
+        # its own and its periphery a Verilog wrapper. On 0022 (OpenROAD
+        # #11669); not upstreamed.
+        "//patches:0023-openroad-ram-periphery-verilog.patch",
     ],
     strip_prefix = "OpenROAD-a3bf6124782f205ba5fa9e2e402dae8b665fc4fc",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/a3bf6124782f205ba5fa9e2e402dae8b665fc4fc.tar.gz"],

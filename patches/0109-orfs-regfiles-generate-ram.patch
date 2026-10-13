@@ -58,7 +58,7 @@ diff --git a/flow/scripts/memories/regfile_ram.py b/flow/scripts/memories/regfil
 new file mode 100644
 --- /dev/null
 +++ b/flow/scripts/memories/regfile_ram.py
-@@ -0,0 +1,525 @@
+@@ -0,0 +1,558 @@
 +"""AUTO_MEMORIES_REGFILES through OpenROAD's generate_ram.
 +
 +A register-file spec (the keys generate_regfile reads) is translated to
@@ -76,9 +76,11 @@ new file mode 100644
 +
 +The flops take the RTL's names where the spec gives them (store_name,
 +read_reg_name), for equivalence checking: renamed in the database from
-+generate_ram's own. A spec with the periphery as Verilog, or kept as a
-+macro to the end, is left to generate_regfile for now; supported() says
-+which.
++generate_ram's own. With `periphery verilog` generate_ram writes the
++periphery as a Verilog module, <module>_ram, around the core,
++<module>_ram_core, which is then what is inlined or the macro. A
++register file kept as a macro to the end is left to generate_regfile
++for now; supported() says which.
 +"""
 +
 +from __future__ import annotations
@@ -141,11 +143,7 @@ new file mode 100644
 +    which generate_ram_netlist does only with its periphery unplaced."""
 +    lines = parse(spec)
 +    keys = {line[0] for line in lines}
-+    return (
-+        not (keys & UNSUPPORTED)
-+        and _one(lines, "periphery") != "verilog"
-+        and shape != "macro"
-+    )
++    return not (keys & UNSUPPORTED) and shape != "macro"
 +
 +
 +def _address_bits(words: int) -> int:
@@ -202,7 +200,9 @@ new file mode 100644
 +    ]
 +    if roles:
 +        args += ["-cells", "{" + " ".join(roles) + "}"]
-+    if shape == "netlist":
++    if _one(lines, "periphery") == "verilog":
++        args += ["-periphery", "verilog", "-pin_layer", _one(lines, "pin_layer", "M4")]
++    elif shape == "netlist":
 +        args += ["-periphery", "unplaced", "-pin_layer", _one(lines, "pin_layer", "M4")]
 +    return args
 +
@@ -332,7 +332,13 @@ new file mode 100644
 +                        )
 +                    )
 +    reg = _one(lines, "read_reg_name")
-+    if reg and _one(lines, "read_latency", "0") != "0":
++    # (with the periphery as Verilog the address registers are in the
++    # wrapper, under generate_ram's names)
++    if (
++        reg
++        and _one(lines, "read_latency", "0") != "0"
++        and _one(lines, "periphery") != "verilog"
++    ):
 +        banks = int(_one(lines, "banks", "1"))
 +        a = _address_bits(words)
 +        ab = _address_bits(words // banks)
@@ -487,6 +493,21 @@ new file mode 100644
 +    )
 +
 +
++def _module_header_ports(verilog: str, module: str) -> dict[str, tuple[str, int]]:
++    """A module's ports, name -> (direction, width), from its header."""
++    body = verilog[verilog.index(f"module {module} (") :]
++    body = body[: body.index(");")]
++    ports = {}
++    for line in body.splitlines():
++        words = line.strip().rstrip(",").split()
++        if words and words[0] in ("input", "output"):
++            width = 1
++            if len(words) == 3 and words[1].startswith("["):
++                width = int(words[1][1 : words[1].index(":")]) + 1
++            ports[words[-1]] = (words[0], width)
++    return ports
++
++
 +def generate(
 +    spec: Path,
 +    module: str,
@@ -498,7 +519,11 @@ new file mode 100644
 +    """Build the spec's RAM, shape inline, netlist or macro; return what
 +    the flow lists: the block, and whether it is a macro and dissolves."""
 +    lines = parse(spec)
-+    block = f"{module}_ram"
++    ram = f"{module}_ram"
++    # -periphery verilog: the block is the core, the periphery a module
++    verilog_periphery = _one(lines, "periphery") == "verilog"
++    block = f"{ram}_core" if verilog_periphery else ram
++    periphery_v = out_dir / f"{ram}.periphery.v"
 +    libs = os.environ.get("LIB_FILES", "").split()
 +    if not libs:
 +        raise SystemExit("regfile_ram: generate_ram needs LIB_FILES")
@@ -511,7 +536,8 @@ new file mode 100644
 +            reads
 +            + "".join(f"read_lef {lef}\n" for lef in lefs)
 +            + "generate_ram_netlist "
-+            + " ".join(_args(spec_lines, block, shape))
++            + " ".join(_args(spec_lines, ram, shape))
++            + (f" -wrapper_verilog {periphery_v}" if verilog_periphery else "")
 +            + f"\nwrite_db {out_dir / f'{block}.odb'}\n"
 +            + "set die [[ord::get_db_block] getDieArea]\n"
 +            + f"set f [open {outline} w]\n"
@@ -566,16 +592,23 @@ new file mode 100644
 +        tcl += _MACRO_TCL.format(out=out_dir, block=block)
 +    views.write_text(tcl)
 +    subprocess.check_call([openroad, "-exit", "-no_init", "-no_splash", str(views)])
-+    ram_ports = _buses((out_dir / f"{block}.ports").read_text().splitlines())
++    core_ports = _buses((out_dir / f"{block}.ports").read_text().splitlines())
++    ram_ports = core_ports
++    periphery = ""
++    if verilog_periphery:
++        periphery = periphery_v.read_text()
++        ram_ports = _module_header_ports(periphery, ram)
 +    rtl_ports = _module_ports(out_dir.parent / "memories_inferred.json", module)
-+    wrapper = _wrapper(lines, module, block, ram_ports, rtl_ports)
++    wrapper = _wrapper(lines, module, ram, ram_ports, rtl_ports)
++    if periphery:
++        wrapper += "\n" + periphery
 +    if shape == "inline":
 +        wrapper += "\n" + (out_dir / f"{block}.netlist.v").read_text()
 +    else:
 +        # the macro, a blackbox to synthesis
 +        decl = ",\n".join(
 +            f"  {d} {'' if w == 1 else f'[{w - 1}:0] '}{n}"
-+            for n, (d, w) in ram_ports.items()
++            for n, (d, w) in core_ports.items()
 +        )
 +        wrapper += f"\n(* blackbox *)\nmodule {block} (\n{decl}\n);\nendmodule\n"
 +    (out_dir / f"{module}.v").write_text(wrapper)

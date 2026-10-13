@@ -164,7 +164,8 @@ ASAP7 = {
 # read addresses (patch 0017), on Q and QN flops; and holding words by a
 # mux per bit instead of a clock gate (patch 0018), and with its periphery
 # left unplaced (patch 0019); with cells given by role (patch 0020); and a
-# word's bits folded into rows (patch 0022).
+# word's bits folded into rows (patch 0022); and the periphery as Verilog
+# around the core (patch 0023), clock gates and tristates included.
 [
     [
         genrule(
@@ -190,6 +191,9 @@ read_db $(@D)/{name}.odb
 write_verilog $(@D)/{name}.v
 TCL
 $(location @openroad//:openroad) -exit -no_init -no_splash $(@D)/{name}_v.tcl >> $(@D)/{name}.log 2>&1 || {{ cat $(@D)/{name}.log; exit 1; }}
+# -periphery verilog: the wrapper (the periphery as Verilog) around the
+# core's netlist
+if [ -f $(@D)/{name}_wrap.v ]; then cat $(@D)/{name}_wrap.v >> $(@D)/{name}.v; fi
 sed -e 's/^module RAM{words}x8 /module RAM8x8_gen /' $(@D)/{name}.v > $(location {name}_gen.v)
 sed -i 's/^module RAM{words}x8 /module RAM8x8 /' $(location {name}_model.v)
 """.format(
@@ -254,5 +258,7 @@ sed -i 's/^module RAM{words}x8 /module RAM8x8 /' $(location {name}_model.v)
         ("ram_2w_cells_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -cells {inv INVx1_ASAP7_75t_R and2 AND2x2_ASAP7_75t_R buffer BUFx2_ASAP7_75t_R aoi22 AOI22x1_ASAP7_75t_R ao22 AO22x2_ASAP7_75t_R or2 OR2x2_ASAP7_75t_R nand2 NAND2x1_ASAP7_75t_R nor2 NOR2x1_ASAP7_75t_R} -name RAM8x8", "tb_ram_2w", 8),
         ("ram_2w_folds", NANGATE45, "-storage_cell DFF_X1 -mask_size 4 -bit_folds 2 -decoder word", "tb_ram_2w", 8),
         ("ram_2w_folds_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -mask_size 2 -bit_folds 4 -banks 4 -bank_columns 2 -bank_order interleaved -write_style mux -read_latency 1", "tb_ram_2w", 8),
+        ("ram_2w_periphery_verilog_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -periphery verilog -pin_layer M4 -wrapper_verilog $(@D)/ram_2w_periphery_verilog_asap7_wrap.v -banks 4 -bank_columns 2 -write_style mux", "tb_ram_2w", 8),
+        ("ram_2w_periphery_verilog", NANGATE45, "-storage_cell DFF_X1 -periphery verilog -pin_layer metal4 -wrapper_verilog $(@D)/ram_2w_periphery_verilog_wrap.v", "tb_ram_2w", 8),
     ]
 ]
