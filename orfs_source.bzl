@@ -124,27 +124,15 @@ ORFS_PATCHES = [
     # //:bump onto an ORFS that carries it.
     Label("//patches:0094-orfs-synth-verilog-surgery.patch"),
     # 0089: AUTO_MEMORIES_REGFILES: register files listed by spec are
-    # built by OpenROAD's generate_regfile (OpenROAD patch 0010) as
-    # macros of placed standard cells; in `mode netlist` each dissolves
-    # into its cells at the end of macro placement, its core FIRM where
-    # the macro was placed, its address decode left to placement.
-    # Replaces STRUCTURED_MEMORIES (0071, 0078, 0082, 0084). Upstream as
-    # The-OpenROAD-Project/OpenROAD-flow-scripts#4651, without its
-    # example designs; retires at a bump onto an ORFS that carries it.
+    # built by OpenROAD's generate_ram (OpenROAD patches 0011 to 0026)
+    # through memories/regfile_ram.py, a wrapper in the RTL module's
+    # place; inlined, or macro-placed where AUTO_MEMORIES_MACRO_PLACE names
+    # them, in `mode netlist` dissolving into their cells after macro
+    # placement. Replaces STRUCTURED_MEMORIES (0071, 0078, 0082, 0084).
+    # ORFS #4651 carries an earlier form, on generate_regfile. Not
+    # upstreamed in this form; retires at a bump onto an ORFS that carries
+    # it.
     Label("//patches:0089-orfs-auto-memories-regfiles.patch"),
-    # 0091: AUTO_MEMORIES_MACRO_PLACE lists the register files placed as
-    # macros; any other AUTO_MEMORIES_REGFILES register file is inlined,
-    # its generated netlist read in synthesis in the module's place. On
-    # 0089; the second commit of ORFS #4651.
-    Label("//patches:0091-orfs-auto-memories-macro-place.patch"),
-    # 0099: an inlined register file in place of a parameterized module:
-    # its instances' parameters dropped before the netlist is read. On
-    # 0091; the third commit of ORFS #4651.
-    Label("//patches:0099-orfs-regfile-inline-parameterized.patch"),
-    # 0107: AUTO_MEMORIES_REGFILES with SYNTH_VERILOG_SURGERY reads the
-    # surgered copies, where a module surgery creates is declared. Fixes
-    # 0089 with 0094; retires with 0089. Not upstreamed.
-    Label("//patches:0107-orfs-auto-memories-regfiles-surgery.patch"),
     # 0102: asap7/coralnpu as a synthesis build of its snapshot: SRAMs
     # through AUTO_MEMORIES with their write masks, not USE_ASAP7's
     # maskless fakerams; firtool's verification layers removed by
@@ -152,7 +140,7 @@ ORFS_PATCHES = [
     # 0094. Upstream as ORFS #4653 (draft), with 0103 and 0106.
     Label("//patches:0102-orfs-coralnpu-idiomatic.patch"),
     # 0103: asap7/coralnpu-regfile: Regfile's 31 words moved by surgery
-    # into Regfile_rf and generated. Needs 0102 and 0107.
+    # into Regfile_rf and generated. Needs 0089 and 0102.
     Label("//patches:0103-orfs-coralnpu-regfile.patch"),
     # 0106: asap7/coralnpu-exmem and coralnpu-regfile-exmem: LsuV1's
     # inputs registered by surgery, the EX/MEM register, as a stand-in
@@ -338,6 +326,9 @@ exports_files(
 exports_files(
     [
         "scripts/flow.tcl",
+        # the register-file spec's translation to generate_ram (ORFS patch
+        # 0089), which test/regfile/cores runs on its own
+        "scripts/memories/regfile_ram.py",
         "scripts/synth.tcl",
         "scripts/variables.yaml",
     ],

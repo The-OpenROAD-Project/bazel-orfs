@@ -1,4 +1,4 @@
-# RegFile as a register file of placed standard cells (generate_regfile).
+# RegFile as a register file of placed standard cells (generate_ram).
 # mode netlist: a macro through synthesis and macro placement, then its
 # cells, the core FIRM where the macro was placed, the address decode
 # left to placement.

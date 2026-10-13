@@ -62,7 +62,7 @@ build_test(
 
 # The same register file replaced *by name* inside a parent: the parent's
 # RTL instantiates rf32x32, AUTO_MEMORIES_REGFILES lists the spec, and the
-# memories step runs generate_regfile, writes the views beside the
+# memories step runs generate_ram, writes the views beside the
 # AUTO_MEMORIES ones and blackboxes the module. The floorplan then places
 # one macro. This is the hook the XiangShan register files use.
 orfs_flow(
@@ -92,8 +92,9 @@ build_test(
     targets = [":rf_parent_floorplan"],
 )
 
-# The module reached the netlist as a cell, not as flops: blackboxes.txt
-# names it and 1_2_yosys.v instantiates it.
+# The module reached the netlist as a cell, not as flops: generate_ram's
+# block, rf32x32_ram, in the wrapper that takes the module's place;
+# blackboxes.txt names it and 1_2_yosys.v instantiates it.
 genrule(
     name = "rf_parent_replaced",
     srcs = [":rf_parent_synth"],
@@ -101,8 +102,8 @@ genrule(
     cmd = "files=$$(echo $(locations :rf_parent_synth) | tr ' ' '\\n'); " +
           "bb=$$(echo \"$$files\" | grep '/memories$$')/blackboxes.txt; " +
           "net=$$(echo \"$$files\" | grep '/1_2_yosys.v$$'); " +
-          "grep -q '^rf32x32 ' $$bb ||{ echo 'rf32x32 not in blackboxes.txt'; exit 1; }; " +
-          "grep -q '^ *rf32x32 ' $$net || { echo 'rf32x32 not a cell in the netlist'; exit 1; }; " +
+          "grep -q '^rf32x32_ram ' $$bb ||{ echo 'rf32x32_ram not in blackboxes.txt'; exit 1; }; " +
+          "grep -q '^ *rf32x32_ram ' $$net || { echo 'rf32x32_ram not a cell in the netlist'; exit 1; }; " +
           "echo 'rf32x32 replaced by the generated macro' > $@",
 )
 

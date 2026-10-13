@@ -159,9 +159,16 @@ def main(argv):
         f.write("\n")
         f.write(parent(spec, top, "u_file"))
     with open(a.macro_placement, "w") as f:
-        f.write("# %s's lower-left corner in the parent, um\n" % spec["module"])
         f.write(
-            "place_macro -macro_name u_file -location {%s} -orientation R0\n" % a.corner
+            "# %s's lower-left corner in the parent, um: the macro is\n"
+            "# generate_ram's RAM, ram, in the wrapper in the module's place\n"
+            % spec["module"]
+        )
+        f.write(
+            "foreach name {u_file u_file/ram u_file.ram} {\n"
+            '  if { [[ord::get_db_block] findInst $name] ne "NULL" } { break }\n'
+            "}\n"
+            "place_macro -macro_name $name -location {%s} -orientation R0\n" % a.corner
         )
     print("%s: %d ports, parent %s" % (spec["module"], len(ports(spec)), top))
 

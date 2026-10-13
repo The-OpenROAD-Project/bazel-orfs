@@ -1,8 +1,6 @@
-From 2776b6a8776344f4b217af1dcff8ef6a40d7198f Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Tue, 6 Oct 2026 17:16:46 +0200
 Subject: [PATCH] AUTO_MEMORIES_REGFILES: register files of placed standard
- cells
+ cells, built by generate_ram
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -12,40 +10,43 @@ single-port model does not describe it, and synthesised to flops its
 mux trees are placed by a placer that does not know they are an array.
 
 AUTO_MEMORIES_REGFILES lists spec files, one per RTL module.
-gen_memories.py runs OpenROAD's generate_regfile on each: it checks the
-spec against the module's ports and writes the cells (<m>.v), an
-abstract whose pins sit where their connections land in the array
-(<m>.lef) and a timing model (<m>.lib, <m>_pre_layout.lib) beside the
-FakeRAM views. The module joins blackboxes.txt with the area its .lib
-states, so synthesis and macro placement see a macro that
-SYNTH_MINIMUM_KEEP_SIZE can cost, and memories.json records it with kind
-`regfile` (the others get `fakeram` or `flops`).
+memories/regfile_ram.py translates each to OpenROAD generate_ram_netlist
+options (ports, banks, folds, the zero word, reset, read latency, write
+style and priority, cells), checks it against the module's ports from
+synthesis (a stray, missing or mis-sized port stops the build), and
+writes a wrapper in the module's place around the RAM, <m>_ram: an
+active-high reset inverted for an active-low flop, addresses narrowed
+or widened. A register file is inlined unless AUTO_MEMORIES_MACRO_PLACE
+names it: its cells are then placed, sized and buffered with the rest
+of the design. A named one is a macro to synthesis and macro placement
+(an abstract LEF and a liberty of its area beside the FakeRAM views, in
+blackboxes.txt; a parameterized module's instances lose parameters the
+netlist does not declare). In `mode netlist` it dissolves into its
+cells at the end of macro placement (regfile_dissolve.tcl): the core
+FIRM where the placer put the macro, flipped as it was, row parity
+kept; the periphery left to global placement and the resizer; then
+eliminate_dead_logic. `mode macro` keeps it, with pins, a power grid
+and a timing model from write_timing_model.
 
-In `mode netlist` the macro dissolves into its cells at the end of
-macro placement (regfile_dissolve.tcl): the core FIRM where the placer
-put the macro, flipped as it was, row parity kept; the address decode
-left to global placement and the resizer; the core's own cells and
-nets dont_touch except the flops (CTS rewires them) and the cells on
-the core's boundary (repair_design buffers their nets); then
-eliminate_dead_logic, as at synthesis. `mode macro` keeps the macro.
+Where a row holds several words they sit side by side, and a word whose
+bits would run more than 150 um is folded into more rows: XiangShan's
+RobEntryFile and RenameBufferFile, dissolved into a parent, did not
+legalize otherwise (the parent buffers the word's selects inside the
+full array).
 
-designs/asap7/regfile is the smallest example: one 16x8 2R2W file in a
-parent of flops, seconds to global route.
-
-Moving parts into OpenROAD, the dissolve in particular, is left for
-later: faster, unit-testable, maintained with the database it edits.
-
-Needs OpenROAD's generate_regfile:
-https://github.com/The-OpenROAD-Project/OpenROAD/pull/11669
+Needs generate_ram's register-file options, carried in bazel-orfs as
+patches 0011 to 0026 and to be proposed to OpenROAD one at a time (see
+OpenROAD #11669). Not upstreamed; retires at a //:bump onto an ORFS that
+carries it.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
 diff --git a/docs/user/AutoMemories.md b/docs/user/AutoMemories.md
-index d6c9b7aa4..dbc1bd4e2 100644
+index d6c9b7aa4..3fe7a9c50 100644
 --- a/docs/user/AutoMemories.md
 +++ b/docs/user/AutoMemories.md
-@@ -122,6 +122,110 @@ the left edge, alternating horizontal M4 `VDD`/`VSS` straps across the
+@@ -122,6 +122,129 @@ the left edge, alternating horizontal M4 `VDD`/`VSS` straps across the
  macro (which the platform's PDN macro grid connects to M5), and an `OBS`
  covering M1 to M4.
  
@@ -55,8 +56,8 @@ index d6c9b7aa4..dbc1bd4e2 100644
 +SRAM: FakeRAM's single-port model does not describe it, and synthesised
 +to flops its mux trees are placed by a placer that does not know they
 +are an array. `AUTO_MEMORIES_REGFILES` lists spec files, one per RTL
-+module, and OpenROAD's `generate_regfile` builds each as an array of
-+placed standard cells: a flop per bit, its write mux beside it, the read
++module, and OpenROAD's `generate_ram` builds each as an array of placed
++standard cells: a flop per bit, its write logic beside it, the read
 +trees in columns. The spec names the module, its words and bits, its
 +read and write ports by the module's own port names, and the cells:
 +
@@ -72,26 +73,52 @@ index d6c9b7aa4..dbc1bd4e2 100644
 +...
 +```
 +
-+`generate_regfile` checks the spec against the module's ports, then
-+writes `<m>.v` (the cells), `<m>.lef` (an abstract, its pins where
-+their connections land in the array) and `<m>.lib`/`<m>_pre_layout.lib`
-+(a timing model) beside the FakeRAM views. The module joins
-+`blackboxes.txt`, so synthesis and macro placement see a macro.
++`memories/regfile_ram.py` translates the spec to `generate_ram_netlist`
++options (ports, banks, folds, the zero word, reset, read latency, write
++style and priority, cells) and checks it against the module's ports,
++from synthesis: a port in one and not the other, or a data port of
++another width, stops the build rather than miswire the parent. The RAM
++is a block `<m>_ram`, and a wrapper takes the module's place,
++connecting the module's ports to the RAM's (an active-high reset
++inverted for an active-low flop, an address narrowed or widened). What
++happens next depends on `AUTO_MEMORIES_MACRO_PLACE`, the register files
++to place as macros:
 +
-+In `mode netlist` (the usual one) the macro dissolves into its cells at
-+the end of macro placement (`regfile_dissolve.tcl`): the array's core
-+lands FIRM where the macro was placed, flipped as the macro was, on the
-+parent's rows; the address decode is left to global placement and the
-+resizer, and dead logic is eliminated as at synthesis. From there on it
-+is standard cells. `mode macro` keeps the macro to the end.
++- **Not listed (the default): inlined.** Synthesis reads the wrapper
++  and the RAM's netlist in the module's place; from there on their cells
++  are placed, sized and buffered with the rest of the design. No macro,
++  no abstract, no dissolve. The better shape for a small design, where a
++  macro's outline and channels cost more core than the array saves.
++- **Listed: a macro.** `<m>_ram` is a macro to synthesis and macro
++  placement: its abstract `<m>_ram.lef` and a liberty of its area and
++  pins land beside the FakeRAM views and it joins `blackboxes.txt`. In
++  `mode netlist` (the usual one) `generate_ram` places only the array's
++  core and leaves its periphery (decode, select and input buffers) to
++  the parent, and the macro dissolves into its cells at the end of macro
++  placement (`regfile_dissolve.tcl`): the core lands FIRM where the
++  macro was placed, flipped as the macro was, on the parent's rows; the
++  periphery is left to global placement and the resizer, and dead logic
++  is eliminated as at synthesis. `mode macro` keeps the macro to the
++  end, its pins placed on its edges, a power grid with `VDD`/`VSS` pins
++  and a timing model from `write_timing_model`. A large design whose
++  floorplan plans its register files lists them.
++
++A word holds its value between writes either through a hold mux per
++bit (`write_style mux`, the default here) or through one integrated
++clock gate per word, enabled by its write selects (`write_style
++clock_gate`, `generate_ram`'s own default). Where a row holds more than
++one word (`bank_columns`), each word's bits sit side by side, so its
++selects and write enables are no longer than its bits; and a word whose
++bits would run more than 150 um is folded into more rows. `tap_columns`
++and `service_sites` leave empty columns in the array for the buffers a
++parent puts on the nets that cross it.
 +
 +Listed register files appear in `memories.json` with kind `regfile`;
-+the rest have kind `fakeram` or `flops`. `designs/asap7/regfile` is the
-+smallest example.
++the rest have kind `fakeram` or `flops`.
 +
-+Moving parts of this into OpenROAD, the dissolve in particular, is left
-+for later: it would make them faster, testable at unit level and
-+maintained with the database they edit.
++Moving the dissolve into OpenROAD is left for later: it would make it
++faster, testable at unit level and maintained with the database it
++edits.
 +
 +### Designs to measure it on
 +
@@ -105,7 +132,7 @@ index d6c9b7aa4..dbc1bd4e2 100644
 +| Design | Module | Today | Shape | Ready? |
 +|---|---|---|---|---|
 +| asap7/riscv32i | `regfile` | flip-flops: `reg [31:0] rf[31:0]`, mapped to flops (no AUTO_MEMORIES) | 32 x 32, 2R1W, x0 reads 0 | Yes: the ports are the spec's (`zero_word 0`). Also exercises `OPENROAD_HIERARCHICAL=1` beside two FakeRAM macros. |
-+| asap7/ibex | `ibex_register_file_ff` | flip-flops: `RegFile = RegFileFF`, the default | 32 x 32, 2R1W, x0 reads 0 | Not yet: `test_en_i` and `dummy_instr_id_i` are ports the array does not use, which a spec cannot yet name, and `rst_ni` resets the flops to 0 where the generator's flops have no reset (the ISA leaves x1-x31 undefined after reset). |
++| asap7/ibex | `ibex_register_file_ff` | flip-flops: `RegFile = RegFileFF`, the default | 32 x 32, 2R1W, x0 reads 0 | Yes: `unused` names `test_en_i` and `dummy_instr_id_i`, ports the array does not use, and `async_reset rst_ni low` resets the flops to 0 as ibex does; simulated against ibex's RTL. |
 +| asap7/cva6 | `ariane_regfile` (`ariane_regfile_ff.sv`) | flip-flops: cv32a65x has `FpgaEn` 0 | 32 x 32, 2R1W | Not yet: the ports are packed arrays (`raddr_i[1:0][4:0]`), one port per slice, which a spec cannot yet address; asynchronous reset as ibex. |
 +| asap7/swerv_wrapper | `dec_gpr_ctl_*` | flip-flops | 32 x 32, 4R3W | Not yet: read enables, bank ids and scan ports around the array need a seam in the RTL. |
 +
@@ -114,75 +141,71 @@ index d6c9b7aa4..dbc1bd4e2 100644
 +tinyRocket keep their register file inside the CPU module: those need a
 +seam in their RTL first.
 +
-+`designs/asap7/regfile` is the smallest case, for turnaround rather
-+than measurement.
++### Status: at parity on riscv32i, on a smaller core
 +
-+### Status: a prototype, slower and bigger on riscv32i
-+
-+`designs/asap7/riscv32i-regfile` is riscv32i with its register file
-+generated; the study case for what the generator gets wrong, because it
-+reaches global route in minutes. To global route, against
-+`designs/asap7/riscv32i`:
++riscv32i with its register file generated and inlined (a spec in
++`AUTO_MEMORIES_REGFILES`, `zero_word 0`), at riscv32i's own
++utilisation, against `designs/asap7/riscv32i`. To global route, 950 ps
++clock, minimum period from placement parasitics on the global-route
++database:
 +
 +| | flops | register file |
 +|---|---|---|
-+| minimum period (950 ps clock, global-route parasitics) | 954 ps | 998 ps |
-+| place to global route, stage time | 211 s | 536 s |
-+| core area | 4 012 um2 (62 %) | 7 573 um2 (45 %) |
-+| standard-cell area, without taps | 1 284 um2 | 1 413 um2 |
-+| failing endpoints after global route | 79 | 992 |
++| minimum period | 950 ps | 943 ps |
++| core area | 4 012 um2 | 3 503 um2 |
 +
-+Synthesis takes a second either way: a 32 x 32 file is too small for
-+its synthesis time to show, which is where the larger files of a large
-+core are expected to gain.
++Both are limited by the same single-cycle path: the instruction into
++the register file's read, the ALU, the data memory and back into the
++register file's write. The register file's share of it, decode and read
++tree, is about 260 ps in either.
 +
-+Why it is slower: every failing endpoint is a flop of the array, all
-+within 50 ps, and the worst path runs from the instruction through the
-+array's read path -- the address decode as three serial AND2 stages,
-+the word select, five levels of OR2 -- into the ALU and back to the
-+array's write mux: 232 ps from `instr` to read data. The flops
-+version's same loop closes. `repair_timing` then spends its time at CTS
-+and global route on 992 endpoints it cannot fix.
++What did not pay, measured on the same design:
 +
-+Why it is bigger: standard-cell area is within a tenth of the flops',
-+and the array's cells fill 58 % of its box. The core is bigger because
-+`riscv32i-regfile/config.mk` sets 45 % utilisation: at riscv32i's 62 %
-+no macro placement fits the array beside the four FakeRAMs.
-+
-+The rest is the generator's to fix: decode as a tree sized for its
-+fanout, a read tree of AO22 and NAND/NOR rather than AND2 and OR2,
-+cells the resizer may swap in place.
++- the register file as a macro dissolved after macro placement: it does
++  not fit riscv32i's 62 % beside the four FakeRAMs, and at 55 % it is
++  959 ps on a 4 644 um2 core;
++- a hold mux per bit instead of the clock gate: 994 ps inlined, every
++  array endpoint carrying the mux;
++- predecoded read selects: 960 ps;
++- a tree of 2:1 muxes steered by the address bits instead of a decoded
++  one-hot read: 959 ps, the address bits' fanout (about 1 000 inputs a
++  port) needs as many buffer levels as the decode it replaces;
++- four-input gates in the read tree, stronger cells: 950 to 954 ps,
++  within what any change to the placement moves.
 +
  ## Platform support
  
  **asap7 only.** `gen_memories.py` rejects any other platform. The
-@@ -183,3 +287,4 @@ bazel-orfs implements this.
+@@ -183,3 +306,5 @@ bazel-orfs implements this.
  
  - [AUTO_MEMORIES](FlowVariables.md#AUTO_MEMORIES)
  - [ADDITIONAL_MEMORIES](FlowVariables.md#ADDITIONAL_MEMORIES)
++- [AUTO_MEMORIES_MACRO_PLACE](FlowVariables.md#AUTO_MEMORIES_MACRO_PLACE)
 +- [AUTO_MEMORIES_REGFILES](FlowVariables.md#AUTO_MEMORIES_REGFILES)
 diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
-index c503aa30f..f3aaa0ab4 100644
+index c503aa30f..b5290419a 100644
 --- a/docs/user/FlowVariables.md
 +++ b/docs/user/FlowVariables.md
-@@ -104,6 +104,7 @@ configuration file.
+@@ -104,6 +104,8 @@ configuration file.
  | <a name="ADDITIONAL_SITES"></a>ADDITIONAL_SITES| Passed as -additional_sites to initialize_floorplan.| |
  | <a name="ASAP7_USE_VT"></a>ASAP7_USE_VT| A space separated list of VT options to use with the ASAP7 standard cell library: RVT, LVT, SLVT.| RVT|
  | <a name="AUTO_MEMORIES"></a>AUTO_MEMORIES| Experimental. When set to 1, memories that yosys infers in the RTL (`$mem_v2` cells, module boundary only) are detected pre-synthesis, inventoried in `$(RESULTS_DIR)/memories.json`, and — when idiomatic as an SRAM macro — given generated .lib/.lef views under `$(RESULTS_DIR)/memories/`. Synthesis blackboxes those modules and all later stages read the generated views, so an existing design gets macro-based results without a memory compiler. Supported for the asap7 platform only. See docs/user/AutoMemories.md.| 0|
-+| <a name="AUTO_MEMORIES_REGFILES"></a>AUTO_MEMORIES_REGFILES| Experimental. Space-separated list of register-file spec files, one per RTL module to build as a register file of placed standard cells rather than synthesise to flops. Each spec names its module, words, bits, read and write ports by the RTL's own port names, and the cells; OpenROAD's generate_regfile checks the spec against the module's ports and writes `<module>.lef`, `<module>.lib` and `<module>_pre_layout.lib` under `$(RESULTS_DIR)/memories/`, and the module is blackboxed like an AUTO_MEMORIES macro and placed as one. A spec in `mode netlist` then dissolves into its cells after macro placement: its core FIRM where the macro was placed, in the macro's orientation, its address decode left to placement. Every register file appears in memories.json with kind `regfile`. Requires AUTO_MEMORIES=1.| |
++| <a name="AUTO_MEMORIES_MACRO_PLACE"></a>AUTO_MEMORIES_MACRO_PLACE| Experimental. Space-separated list of module names of AUTO_MEMORIES_REGFILES register files to place as macros, blackboxed in synthesis and placed by the macro placer (and, in `mode netlist`, dissolved after macro placement). A register file not listed is inlined: its generated netlist of standard cells replaces the module's body in synthesis, and its cells are placed, sized and buffered with the rest of the design -- the better shape for a small design, where a macro's outline and channels cost more core than the array saves. A name no spec builds stops the build. Requires AUTO_MEMORIES=1.| |
++| <a name="AUTO_MEMORIES_REGFILES"></a>AUTO_MEMORIES_REGFILES| Experimental. Space-separated list of register-file spec files, one per RTL module to build as a register file of placed standard cells rather than synthesise to flops. Each spec names its module, words, bits, read and write ports by the RTL's own port names, and the cells. memories/regfile_ram.py checks the spec against the module's ports and has OpenROAD's generate_ram build it as `<module>_ram`, under `$(RESULTS_DIR)/memories/`, with a wrapper in the module's place. A module named in AUTO_MEMORIES_MACRO_PLACE is blackboxed like an AUTO_MEMORIES macro and placed as one; any other is inlined as its generated netlist. A placed spec in `mode netlist` then dissolves into its cells after macro placement: its core FIRM where the macro was placed, in the macro's orientation, its periphery left to placement. Every register file appears in memories.json with kind `regfile`. Requires AUTO_MEMORIES=1.| |
  | <a name="BALANCE_ROWS"></a>BALANCE_ROWS| Balance rows during placement.| 0|
  | <a name="BLOCKS"></a>BLOCKS| Blocks used as hard macros in a hierarchical flow. Do note that you have to specify block-specific inputs file in the directory mentioned by Makefile.| |
  | <a name="BUFFER_PORTS_ARGS"></a>BUFFER_PORTS_ARGS| Specify arguments to the buffer_ports call during placement. Only used if DONT_BUFFER_PORTS=0.| |
-@@ -346,6 +347,7 @@ configuration file.
+@@ -346,6 +348,8 @@ configuration file.
  - [ABC_SCRIPT](#ABC_SCRIPT)
  - [ADDER_MAP_FILE](#ADDER_MAP_FILE)
  - [ADDITIONAL_MEMORIES](#ADDITIONAL_MEMORIES)
++- [AUTO_MEMORIES_MACRO_PLACE](#AUTO_MEMORIES_MACRO_PLACE)
 +- [AUTO_MEMORIES_REGFILES](#AUTO_MEMORIES_REGFILES)
  - [CACHED_REPORTS](#CACHED_REPORTS)
  - [CLKGATE_MAP_FILE](#CLKGATE_MAP_FILE)
  - [DFF_LIB_FILE](#DFF_LIB_FILE)
 diff --git a/flow/Makefile b/flow/Makefile
-index 759e13578..675d5b4cb 100644
+index 759e13578..bcef4554d 100644
 --- a/flow/Makefile
 +++ b/flow/Makefile
 @@ -279,10 +279,14 @@ do-auto-memories: $(RESULTS_DIR)/memories_inferred.json
@@ -190,9 +213,9 @@ index 759e13578..675d5b4cb 100644
  	  --out-dir $(RESULTS_DIR)/memories \
  	  --json $(RESULTS_DIR)/memories.json \
 -	  $(foreach file,$(ADDITIONAL_MEMORIES),--memories $(file))
-+	  $(foreach file,$(VERILOG_FILES),--verilog $(file)) \
 +	  $(foreach file,$(ADDITIONAL_MEMORIES),--memories $(file)) \
 +	  $(foreach file,$(AUTO_MEMORIES_REGFILES),--regfile-spec $(file)) \
++	  $(foreach m,$(AUTO_MEMORIES_MACRO_PLACE),--macro-place $(m)) \
 +	  $(if $(AUTO_MEMORIES_REGFILES),--openroad $(OPENROAD_EXE)) \
 +	  $(foreach file,$(TECH_LEF) $(SC_LEF),--lef $(file))
  
@@ -203,10 +226,39 @@ index 759e13578..675d5b4cb 100644
  
  yosys-dependencies: $(RESULTS_DIR)/memories.json
 diff --git a/flow/scripts/macro_place.tcl b/flow/scripts/macro_place.tcl
-index 0789129e4..2fca773e9 100644
+index 0789129e4..556cc30cc 100644
 --- a/flow/scripts/macro_place.tcl
 +++ b/flow/scripts/macro_place.tcl
-@@ -7,6 +7,9 @@ source $::env(SCRIPTS_DIR)/macro_place_util.tcl
+@@ -3,10 +3,38 @@ erase_non_stage_variables floorplan
+ load_design 2_1_floorplan.odb 2_1_floorplan.sdc
+ source_step_tcl PRE MACRO_PLACE
+ 
++# A register file in `mode netlist` dissolves onto the parent's rows
++# after macro placement, and the rows are then cut MACRO_ROWS_HALO_X/Y
++# around every other macro: a halo that wide keeps them off its core,
++# which fills its outline to the edge.
++set regfile_list "$::env(RESULTS_DIR)/memories/regfiles.txt"
++if { [env_var_equals AUTO_MEMORIES 1] && [file exists $regfile_list] } {
++  set f [open $regfile_list r]
++  set regfile_masters [split [string trim [read $f]] "\n"]
++  close $f
++  set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
++  set halo {}
++  foreach v {MACRO_ROWS_HALO_X MACRO_ROWS_HALO_Y} {
++    set um [expr { [env_var_exists_and_non_empty $v] ? $::env($v) : 0 }]
++    lappend halo [expr { round($um * $dbu) }]
++  }
++  lassign $halo x y
++  foreach inst [[ord::get_db_block] getInsts] {
++    if { [[$inst getMaster] getName] in $regfile_masters } {
++      # the instance's own halo, left bottom right top, which the macro
++      # placer keeps clear of other macros
++      odb::dbBox_create $inst $x $y $x $y
++    }
++  }
++}
++
+ source $::env(SCRIPTS_DIR)/macro_place_util.tcl
  
  source_step_tcl POST MACRO_PLACE
  
@@ -217,19 +269,22 @@ index 0789129e4..2fca773e9 100644
  
  orfs_write_db $::env(RESULTS_DIR)/2_2_floorplan_macro.odb
 diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_memories.py
-index 98e3febea..411012d9a 100644
+index 98e3febea..269ccc53b 100644
 --- a/flow/scripts/memories/gen_memories.py
 +++ b/flow/scripts/memories/gen_memories.py
-@@ -10,6 +10,8 @@ collects its $mem_v2 cells, merges user-supplied `.memories` files
+@@ -10,6 +10,11 @@ collects its $mem_v2 cells, merges user-supplied `.memories` files
    <out-dir>/<m>.lib             Liberty view per converted memory
    <out-dir>/<m>_pre_layout.lib  ideal-clock variant for pre-CTS consumers
    <out-dir>/<m>.lef             abstract LEF per converted memory
 +  <out-dir>/regfiles.txt        register files to dissolve into their cells
 +                                after macro placement (`mode netlist`)
++  <out-dir>/inline.txt          register files whose generated netlist
++                                replaces their module in synthesis (those
++                                not in AUTO_MEMORIES_MACRO_PLACE)
    <out-dir>/blackboxes.txt      `<module> <area>` per line, area in um^2 as
                                  the .lib states it — what synthesis
                                  blackboxes and the cost it gives each
-@@ -21,6 +23,8 @@ between the generator and the flow.
+@@ -21,6 +26,8 @@ between the generator and the flow.
  from __future__ import annotations
  
  import argparse
@@ -238,7 +293,13 @@ index 98e3febea..411012d9a 100644
  import sys
  from pathlib import Path
  
-@@ -35,6 +39,180 @@ import schema  # noqa: E402
+@@ -30,11 +37,158 @@ import subprocess
+ 
+ import detect  # noqa: E402
+ import idiomatic  # noqa: E402
++import regfile_ram  # noqa: E402
+ import schema  # noqa: E402
+ 
  FAKERAM_RUN_PY = Path(__file__).resolve().parents[3] / "tools/FakeRAM2.0/run.py"
  
  
@@ -274,67 +335,6 @@ index 98e3febea..411012d9a 100644
 +    return "macro"
 +
 +
-+# DEF orientation names to the database's (what dbInst::setOrient takes).
-+_DEF_ORIENT = {
-+    "N": "R0",
-+    "S": "R180",
-+    "W": "R90",
-+    "E": "R270",
-+    "FN": "MY",
-+    "FS": "MX",
-+    "FW": "MXR90",
-+    "FE": "MYR90",
-+}
-+
-+
-+def _def_placement(def_path: Path, out_path: Path) -> dict:
-+    """The placed cells of the generator's DEF as `name x y orient` lines,
-+    plus the die and the first row's orientation and height, so the
-+    parent's floorplan can drop the array onto its own rows."""
-+    text = def_path.read_text()
-+    m = re.search(
-+        r"DIEAREA\s*\(\s*(-?\d+)\s+(-?\d+)\s*\)\s*\(\s*(-?\d+)\s+(-?\d+)\s*\)", text
-+    )
-+    die = [int(v) for v in m.groups()] if m else None
-+    rows = re.findall(r"^ROW\s+\S+\s+(\S+)\s+(-?\d+)\s+(-?\d+)\s+(\w+)", text, re.M)
-+    row0 = None
-+    row_h = None
-+    if rows:
-+        rows_sorted = sorted(((int(y), o, s_) for s_, x, y, o in rows))
-+        row0 = _DEF_ORIENT.get(rows_sorted[0][1], rows_sorted[0][1])
-+        ys = sorted({y for y, _, _ in rows_sorted})
-+        if len(ys) > 1:
-+            row_h = ys[1] - ys[0]
-+    comp = re.search(r"COMPONENTS\s+\d+\s*;(.*?)END COMPONENTS", text, re.S)
-+    lines = []
-+    if comp:
-+        for entry in comp.group(1).split(";"):
-+            e = entry.split()
-+            if len(e) < 3 or e[0] != "-":
-+                continue
-+            pm = re.search(
-+                r"\+\s*(PLACED|FIXED|FIRM|COVER)\s*\(\s*(-?\d+)\s+(-?\d+)\s*\)\s*(\w+)",
-+                entry,
-+            )
-+            if pm:
-+                orient = _DEF_ORIENT.get(pm.group(4), pm.group(4))
-+                lines.append(f"{e[1]} {pm.group(2)} {pm.group(3)} {orient}")
-+    out_path.write_text("".join(l + "\n" for l in lines))
-+    return {"die": die, "row0_orient": row0, "row_height": row_h, "cells": len(lines)}
-+
-+
-+def _file_defining(module: str, verilog: list[Path]) -> Path:
-+    """The Verilog file that declares `module`, for the port check."""
-+    pat = re.compile(rf"^\s*module\s+{re.escape(module)}\b", re.M)
-+    for path in verilog:
-+        if pat.search(path.read_text(errors="replace")):
-+            return path
-+    raise SystemExit(
-+        f"gen_memories: AUTO_MEMORIES_REGFILES names module {module}, "
-+        f"which none of the Verilog files declare"
-+    )
-+
-+
 +def _lib_area(lib: Path) -> str:
 +    """The cell area `lib` states, in um^2: what blackboxes.txt gives a
 +    register file beside its name, as FakeRAM does for its macros."""
@@ -344,16 +344,41 @@ index 98e3febea..411012d9a 100644
 +    return m.group(1)
 +
 +
++def _regfile_memory(spec: Path, module: str, reason: str) -> schema.Memory:
++    """A register file's memories.json record, its shape from its spec."""
++    mem = schema.Memory(name=module, kind="regfile", source="listed", spec=str(spec))
++    words = _spec_value(spec, "words")
++    bits = _spec_value(spec, "bits")
++    mem.rows = int(words[0][0]) if words else 0
++    mem.bits = int(bits[0][0]) if bits else 0
++    mem.read_ports = len(_spec_value(spec, "read")) + len(
++        _spec_value(spec, "read_banked")
++    )
++    mem.write_ports = len(_spec_value(spec, "write"))
++    mem.reason = reason
++    return mem
++
++
 +def run_regfiles(
 +    specs: list[Path],
 +    openroad: str | None,
 +    lefs: list[Path],
-+    verilog: list[Path],
 +    out_dir: Path,
++    macro_place: list[str] | None = None,
 +) -> list[schema.Memory]:
-+    """Generate every listed register file with OpenROAD's generate_regfile.
++    """Generate every listed register file with OpenROAD's generate_ram,
++    through regfile_ram.py: a wrapper in the RTL module's place connects
++    its ports to the generated RAM's.
 +
-+    A register file is a macro to synthesis and to macro placement: its
++    A register file not named in AUTO_MEMORIES_MACRO_PLACE is inlined: its
++    generated netlist replaces the module's body in synthesis (inline.txt),
++    and from there on its cells are placed, sized and buffered with the
++    rest of the design. No macro, no abstract, no dissolve: the best shape
++    for a small design, where a macro's outline and channels cost more
++    core than the array saves.
++
++    A register file named in AUTO_MEMORIES_MACRO_PLACE is a macro to
++    synthesis and to macro placement: its
 +    abstract LEF and model liberty land beside the FakeRAM views and the
 +    module joins blackboxes.txt. In `mode netlist` it then dissolves into
 +    its placed cells after macro placement (regfile_dissolve.tcl), which
@@ -362,8 +387,16 @@ index 98e3febea..411012d9a 100644
 +    are not the module's stops the build here rather than miswire the
 +    parent.
 +    """
++    macro_place = set(macro_place or [])
 +    if not specs:
 +        (out_dir / "regfiles.txt").write_text("")
++        (out_dir / "inline.txt").write_text("")
++        if macro_place:
++            raise SystemExit(
++                "gen_memories: AUTO_MEMORIES_MACRO_PLACE names "
++                + " ".join(sorted(macro_place))
++                + " but AUTO_MEMORIES_REGFILES lists no register file"
++            )
 +        return []
 +    if not openroad:
 +        raise SystemExit(
@@ -373,64 +406,64 @@ index 98e3febea..411012d9a 100644
 +        raise SystemExit(
 +            "gen_memories: AUTO_MEMORIES_REGFILES needs TECH_LEF and SC_LEF"
 +        )
++    modules = [_spec_module(spec) for spec in specs]
++    unknown = sorted(macro_place - set(modules))
++    if unknown:
++        raise SystemExit(
++            "gen_memories: AUTO_MEMORIES_MACRO_PLACE names "
++            + " ".join(unknown)
++            + ", which no AUTO_MEMORIES_REGFILES spec builds; it lists "
++            + " ".join(modules)
++        )
 +    memories = []
 +    dissolve = []
-+    for spec in specs:
-+        module = _spec_module(spec)
++    cores = []
++    inline = []
++    for spec, module in zip(specs, modules):
 +        mode = _spec_mode(spec)
-+        rtl = _file_defining(module, verilog)
-+        tcl = out_dir / f"{module}.generate.tcl"
-+        tcl.write_text(
-+            "".join(f"read_lef {lef}\n" for lef in lefs)
-+            + f"generate_regfile -spec {spec} -check_ports {rtl}"
-+            + f" -verilog {out_dir / f'{module}.v'} -def {out_dir / f'{module}.def'}"
-+            + f" -lef {out_dir / f'{module}.lef'} -liberty {out_dir / f'{module}.lib'}\n"
++        # the RTL module's place taken by a wrapper around the RAM
++        shape = mode if module in macro_place else "inline"
++        regfile_ram.check(spec)
++        ram = regfile_ram.generate(spec, module, shape, openroad, lefs, out_dir)
++        memories.append(
++            _regfile_memory(spec, module, f"register file, generate_ram, {shape}")
 +        )
-+        subprocess.check_call([openroad, "-exit", "-no_init", "-no_splash", str(tcl)])
-+        mem = schema.Memory(
-+            name=module, kind="regfile", source="listed", spec=str(spec)
-+        )
-+        words = _spec_value(spec, "words")
-+        bits = _spec_value(spec, "bits")
-+        mem.rows = int(words[0][0]) if words else 0
-+        mem.bits = int(bits[0][0]) if bits else 0
-+        mem.read_ports = len(_spec_value(spec, "read")) + len(
-+            _spec_value(spec, "read_banked")
-+        )
-+        mem.write_ports = len(_spec_value(spec, "write"))
-+        mem.reason = f"register file, mode {mode}"
-+        if mode == "netlist":
-+            _def_placement(out_dir / f"{module}.def", out_dir / f"{module}.place")
-+            dissolve.append(module)
-+        memories.append(mem)
++        inline.append(module)
++        if ram["macro"]:
++            cores.append(ram["block"])
++        if ram["dissolve"]:
++            dissolve.append(ram["block"])
 +        sys.stderr.write(
-+            f"gen_memories: {module} -> register file, mode {mode} ({spec.name})\n"
++            f"gen_memories: {module} -> register file, generate_ram, "
++            f"{shape} ({spec.name})\n"
 +        )
 +    with (out_dir / "blackboxes.txt").open("a") as f:
 +        f.write(
 +            "".join(
-+                f"{m.name} {_lib_area(out_dir / f'{m.name}.lib')}\n" for m in memories
++                f"{name} {_lib_area(out_dir / f'{name}.lib')}\n"
++                for name in [m.name for m in memories if m.name not in inline] + cores
 +            )
 +        )
 +    (out_dir / "regfiles.txt").write_text("".join(f"{m}\n" for m in dissolve))
++    (out_dir / "inline.txt").write_text("".join(f"{m}\n" for m in inline))
 +    return memories
 +
 +
  def run(
      yosys_json: Path,
      memories_files: list[Path],
-@@ -42,6 +220,10 @@ def run(
+@@ -42,6 +196,10 @@ def run(
      out_dir: Path,
      json_path: Path,
      top: str | None = None,
-+    verilog: list[Path] | None = None,
 +    regfile_specs: list[Path] | None = None,
 +    openroad: str | None = None,
 +    lefs: list[Path] | None = None,
++    macro_place: list[str] | None = None,
  ) -> int:
      if platform != "asap7":
          sys.stderr.write(f"gen_memories: unsupported platform {platform}\n")
-@@ -55,6 +237,11 @@ def run(
+@@ -55,6 +213,11 @@ def run(
      for path in memories_files:
          overrides.extend(schema.load(path))
      memories = schema.merge(found, overrides)
@@ -442,14 +475,14 @@ index 98e3febea..411012d9a 100644
  
      out_dir.mkdir(parents=True, exist_ok=True)
      json_path.parent.mkdir(parents=True, exist_ok=True)
-@@ -75,8 +262,18 @@ def run(
+@@ -75,8 +238,18 @@ def run(
          ]
      )
  
 +    # After FakeRAM has written blackboxes.txt for the inferred memories,
 +    # and recorded in memories.json beside them.
 +    regfiles = run_regfiles(
-+        regfile_specs or [], openroad, lefs or [], verilog or [], out_dir
++        regfile_specs or [], openroad, lefs or [], out_dir, macro_place
 +    )
 +    if regfiles:
 +        listed = {m.name for m in regfiles}
@@ -462,17 +495,10 @@ index 98e3febea..411012d9a 100644
          sys.stderr.write(
              f"gen_memories: {mem.name} {mem.rows}x{mem.bits} "
              f"R={mem.read_ports} W={mem.write_ports} RW={mem.rw_ports} "
-@@ -103,6 +300,32 @@ def main(argv: list[str] | None = None) -> int:
+@@ -103,6 +276,32 @@ def main(argv: list[str] | None = None) -> int:
          help="User-supplied .memories file merged onto the "
          "detected set (repeatable).",
      )
-+    p.add_argument(
-+        "--verilog",
-+        action="append",
-+        default=[],
-+        type=Path,
-+        help="Verilog file searched for a listed register file's module (repeatable).",
-+    )
 +    p.add_argument(
 +        "--regfile-spec",
 +        action="append",
@@ -483,7 +509,7 @@ index 98e3febea..411012d9a 100644
 +    p.add_argument(
 +        "--openroad",
 +        default=None,
-+        help="The openroad that runs generate_regfile (OPENROAD_EXE).",
++        help="The openroad that runs generate_ram (OPENROAD_EXE).",
 +    )
 +    p.add_argument(
 +        "--lef",
@@ -492,25 +518,36 @@ index 98e3febea..411012d9a 100644
 +        type=Path,
 +        help="Technology and cell LEF for the generator (repeatable).",
 +    )
++    p.add_argument(
++        "--macro-place",
++        action="append",
++        default=[],
++        help="A register file placed as a macro, AUTO_MEMORIES_MACRO_PLACE "
++        "(repeatable); the others are inlined.",
++    )
      p.add_argument("--platform", required=True)
      p.add_argument(
          "--out-dir",
-@@ -129,6 +352,10 @@ def main(argv: list[str] | None = None) -> int:
+@@ -129,6 +328,10 @@ def main(argv: list[str] | None = None) -> int:
          args.out_dir,
          args.json,
          args.top,
-+        args.verilog,
 +        args.regfile_spec,
 +        args.openroad,
 +        args.lef,
++        args.macro_place,
      )
  
  
 diff --git a/flow/scripts/memories/gen_memories_test.py b/flow/scripts/memories/gen_memories_test.py
-index 74a5929a0..1f285d6e8 100644
+index 74a5929a0..aaa39125a 100644
 --- a/flow/scripts/memories/gen_memories_test.py
 +++ b/flow/scripts/memories/gen_memories_test.py
-@@ -117,6 +117,7 @@ class GenMemoriesTest(unittest.TestCase):
+@@ -114,9 +114,11 @@ class GenMemoriesTest(unittest.TestCase):
+             sorted(p.name for p in mems_dir.iterdir()),
+             [
+                 "blackboxes.txt",
++                "inline.txt",
                  "mem_128x32.lef",
                  "mem_128x32.lib",
                  "mem_128x32_pre_layout.lib",
@@ -518,11 +555,12 @@ index 74a5929a0..1f285d6e8 100644
              ],
          )
          # one `<module> <area>` line; the area is the one the .lib states,
-@@ -194,6 +195,25 @@ class GenMemoriesTest(unittest.TestCase):
+@@ -194,6 +196,26 @@ class GenMemoriesTest(unittest.TestCase):
          self.assertEqual(code, 0)
          self.assertEqual(json.loads((d / "memories.json").read_text())["memories"], [])
          self.assertEqual((d / "memories" / "blackboxes.txt").read_text(), "")
 +        self.assertEqual((d / "memories" / "regfiles.txt").read_text(), "")
++        self.assertEqual((d / "memories" / "inline.txt").read_text(), "")
 +
 +    def test_regfile_area_is_the_lib_cell_area(self):
 +        # a register file's blackboxes.txt line carries the area its
@@ -544,8 +582,753 @@ index 74a5929a0..1f285d6e8 100644
  
  
  if __name__ == "__main__":
+diff --git a/flow/scripts/memories/regfile_ram.py b/flow/scripts/memories/regfile_ram.py
+new file mode 100644
+index 000000000..cc389245d
+--- /dev/null
++++ b/flow/scripts/memories/regfile_ram.py
+@@ -0,0 +1,739 @@
++"""AUTO_MEMORIES_REGFILES through OpenROAD's generate_ram.
++
++A register-file spec (KEYS below) is translated to
++generate_ram_netlist's options, and the generated RAM, a block named
++<module>_ram, stands in for the RTL module through a wrapper written in
++the module's place: its ports, from the design's yosys JSON, connected
++to generate_ram's (clk, rst_n, D0, we0, addr_w0, addr_r0, Q0, ...), an
++active-high reset inverted for an active-low flop. The wrapper is
++always inlined; the RAM is
++
++- inlined: its netlist follows the wrapper in <module>.v;
++- mode netlist: a macro with its periphery unplaced, which
++  regfile_dissolve.tcl dissolves after macro placement from
++  <module>_ram.v (one instance a line) and <module>_ram.place;
++- mode macro: a macro kept to the end.
++
++The flops take the RTL's names where the spec gives them (store_name,
++read_reg_name), for equivalence checking: renamed in the database from
++generate_ram's own. With `periphery verilog` generate_ram writes the
++periphery as a Verilog module, <module>_ram, around the core,
++<module>_ram_core, which is then what is inlined or the macro. A macro
++kept to the end (mode macro) gets its pins from OpenROAD's pin placer on
++the spec's pin layers, its liberty from write_timing_model and its
++power from rails on its rows and straps with the VDD and VSS pins
++(power_rails, power_layer, power_width, power_pitch, power_offset;
++asap7's by default).
++"""
++
++from __future__ import annotations
++
++import json
++import math
++import os
++import re
++import subprocess
++from pathlib import Path
++
++# the longest a word's bits may run in a row before it is folded, um
++WORD_SPAN_UM = 150
++
++# the keys a spec may have: a misspelt one is refused, not ignored
++KEYS = {
++    "module",
++    "mode",
++    "words",
++    "bits",
++    "clock",
++    "read",
++    "read_banked",
++    "write",
++    "write_priority",
++    "write_style",
++    "zero_word",
++    "banks",
++    "bank_columns",
++    "bank_order",
++    "bank_column_layout",
++    "read_latency",
++    "bit_folds",
++    "async_reset",
++    "reset",
++    "unused",
++    "store_name",
++    "read_reg_name",
++    "cell",
++    "periphery",
++    "pin_layer",
++    "pin_layer_h",
++    "pin_layer_v",
++    "tap_columns",
++    "service_sites",
++    "power_rails",
++    "power_rail_width",
++    "power_layer",
++    "power_width",
++    "power_pitch",
++    "power_offset",
++}
++
++# a spec's `cell <role> <master>` roles, as generate_ram's -cells names them
++CELL_ROLES = {
++    "inv": "inv",
++    "and2": "and2",
++    "or2": "or2",
++    "ao22": "ao22",
++    "aoi22": "aoi22",
++    "nand2": "nand2",
++    "nor2": "nor2",
++    "icg": "clock_gate",
++    "tie_hi": "tie",
++    "buffer": "buffer",
++}
++
++
++# AUTO_MEMORIES is asap7's
++DEFAULT_CELLS = {
++    "aoi22": "AOI22xp5_ASAP7_75t_R",
++    "nand2": "NAND2xp5_ASAP7_75t_R",
++    "nor2": "NOR2x1_ASAP7_75t_R",
++    "buffer": "BUFx2_ASAP7_75t_R",
++}
++
++
++def parse(spec: Path) -> list[list[str]]:
++    """The spec's lines as [key, value, ...], comments and blanks out."""
++    lines = []
++    for line in spec.read_text().splitlines():
++        words = line.split("#", 1)[0].split()
++        if words:
++            lines.append(words)
++    return lines
++
++
++def _values(lines: list[list[str]], key: str) -> list[list[str]]:
++    return [line[1:] for line in lines if line[0] == key]
++
++
++def _one(lines: list[list[str]], key: str, default: str = "") -> str:
++    values = _values(lines, key)
++    return values[-1][0] if values and values[-1] else default
++
++
++def check(spec: Path) -> None:
++    """Refuse a spec with a key this translation does not read."""
++    for line in parse(spec):
++        if line[0] not in KEYS:
++            raise SystemExit(f"regfile_ram: {spec}: unknown key `{line[0]}`")
++
++
++def _address_bits(words: int) -> int:
++    return max(1, math.ceil(math.log2(words)))
++
++
++def _args(lines: list[list[str]], block: str, shape: str) -> list[str]:
++    """generate_ram_netlist's options for the spec."""
++    words = int(_one(lines, "words"))
++    bits = int(_one(lines, "bits"))
++    folds = int(_one(lines, "bit_folds", "1"))
++    cells = {line[1]: line[2] for line in lines if line[0] == "cell"}
++    async_reset = _values(lines, "async_reset")
++    storage = cells.get("flop_r" if async_reset else "flop")
++    args = [
++        "-name",
++        block,
++        "-mask_size",
++        str(-(-bits // folds)),
++        "-word_size",
++        str(bits),
++        "-num_words",
++        str(words),
++        "-r_ports",
++        str(len(_values(lines, "read"))),
++        "-w_ports",
++        str(len(_values(lines, "write"))),
++        "-write_style",
++        _one(lines, "write_style", "mux"),
++        # a balanced AND2 tree per word: the row decoder's chain is
++        # slower on a register file's read path
++        "-decoder",
++        "word",
++    ]
++    if len(_values(lines, "write")) > 1:
++        # two ports writing one word in a cycle: OR their data by
++        # default, as firtool's register files do
++        args += ["-write_priority", _one(lines, "write_priority", "or")]
++    if int(_one(lines, "bank_columns", "1")) > 1 and not _values(
++        lines, "bank_column_layout"
++    ):
++        # a row's words each contiguous: interleaved, a word's selects and
++        # write enables run the whole row (XiangShan's RobEntryFile: 6,483
++        # slew violations in a parent, against 608)
++        args += ["-bank_column_layout", "contiguous"]
++    if storage:
++        args += ["-storage_cell", storage]
++    if folds > 1:
++        # a word's bits in folds rows, a slice each
++        args += ["-bit_folds", str(folds)]
++    if _values(lines, "read_banked"):
++        args += ["-rb_ports", str(len(_values(lines, "read_banked")))]
++    for key in (
++        "zero_word",
++        "banks",
++        "bank_columns",
++        "bank_order",
++        "bank_column_layout",
++        "read_latency",
++    ):
++        if _values(lines, key):
++            args += [f"-{key}", _one(lines, key)]
++    if async_reset:
++        args += ["-reset_value", "0"]
++    # asap7 cells where the spec names none, and a buffer for the select
++    # buffers (the smallest asap7 buffer is the hold buffer HB1xp67)
++    cells = DEFAULT_CELLS | cells
++    roles = [
++        f"{CELL_ROLES[role]} {master}"
++        for role, master in cells.items()
++        if role in CELL_ROLES
++    ]
++    if roles:
++        args += ["-cells", "{" + " ".join(roles) + "}"]
++    # service columns: `service_sites` empty sites after
++    # every `tap_columns` storage columns, room for a parent's buffers in
++    # the array; 40 by default in a macro kept to the end, else none
++    sites = int(_one(lines, "service_sites", "40" if shape == "macro" else "0"))
++    if sites > 0:
++        every = _one(lines, "tap_columns", "8")
++        args += ["-service_columns", f"{{{every} {sites}}}"]
++    if _one(lines, "periphery") == "verilog":
++        args += ["-periphery", "verilog", "-pin_layer", _one(lines, "pin_layer", "M4")]
++    elif shape == "netlist":
++        args += ["-periphery", "unplaced", "-pin_layer", _one(lines, "pin_layer", "M4")]
++    return args
++
++
++# The second session's Tcl: the generated block's ports, and for a macro
++# its views, from its database.
++_VIEWS_TCL = r"""
++set block [ord::get_db_block]
++set f [open {out}/{block}.ports w]
++foreach term [$block getBTerms] {{
++  if {{[$term getSigType] in {{POWER GROUND}}}} {{ continue }}
++  puts $f "[$term getName] [$term getIoType]"
++}}
++close $f
++"""
++
++_MACRO_TCL = r"""
++# the netlist, one instance a line, as regfile_dissolve.tcl reads it
++set f [open {out}/{block}.v w]
++foreach inst [$block getInsts] {{
++  set conns {{}}
++  foreach it [$inst getITerms] {{
++    set net [$it getNet]
++    if {{$net eq "NULL" || [$net getSigType] in {{POWER GROUND}}}} {{ continue }}
++    lappend conns ".[[$it getMTerm] getName](\\[$net getName] )"
++  }}
++  puts $f "[[$inst getMaster] getName] \\[$inst getName] ([join $conns {{, }}]);"
++}}
++close $f
++# where each placed cell is, as the generator laid it out
++set f [open {out}/{block}.place w]
++foreach inst [$block getInsts] {{
++  if {{![$inst isPlaced]}} {{ continue }}
++  lassign [$inst getLocation] x y
++  puts $f "[$inst getName] $x $y [$inst getOrient]"
++}}
++close $f
++write_abstract_lef {out}/{block}.lef
++# a liberty of its area and pins: a blackbox to synthesis
++set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
++set die [$block getDieArea]
++set area [expr {{double([$die dx]) / $dbu * [$die dy] / $dbu}}]
++set f [open {out}/{block}.lib w]
++puts $f "library({block}) {{"
++puts $f "  delay_model : table_lookup;"
++puts $f "  time_unit : \"1ns\";"
++puts $f "  voltage_unit : \"1V\";"
++puts $f "  current_unit : \"1uA\";"
++puts $f "  leakage_power_unit : \"1uW\";"
++puts $f "  capacitive_load_unit (1,pf);"
++puts $f "  pulling_resistance_unit : \"1kohm\";"
++set buses [dict create]
++foreach term [$block getBTerms] {{
++  if {{[$term getSigType] in {{POWER GROUND}}}} {{ continue }}
++  set name [$term getName]
++  set dir [expr {{[$term getIoType] eq "INPUT" ? "input" : "output"}}]
++  if {{[regexp {{^(.*)\[(\d+)\]$}} $name -> base index]}} {{
++    set hi [expr {{[dict exists $buses $base] ? max([lindex [dict get $buses $base] 1], $index) : $index}}]
++    dict set buses $base [list $dir $hi]
++  }} else {{
++    dict set buses $name [list $dir -1]
++  }}
++}}
++set widths {{}}
++dict for {{name info}} $buses {{
++  set hi [lindex $info 1]
++  if {{$hi >= 0 && [lsearch $widths [expr {{$hi + 1}}]] < 0}} {{ lappend widths [expr {{$hi + 1}}] }}
++}}
++foreach w $widths {{
++  puts $f "  type ({block}_bus_$w) {{ base_type : array; data_type : bit; bit_width : $w; bit_from : [expr {{$w - 1}}]; bit_to : 0; downto : true; }}"
++}}
++puts $f "  cell({block}) {{"
++puts $f "    area : $area;"
++puts $f "    is_macro_cell : true;"
++puts $f "    dont_touch : true;"
++dict for {{name info}} $buses {{
++  lassign $info dir hi
++  if {{$hi < 0}} {{
++    puts $f "    pin($name) {{ direction : $dir; capacitance : 0.001; }}"
++  }} else {{
++    puts $f "    bus($name) {{ bus_type : {block}_bus_[expr {{$hi + 1}}]; direction : $dir; capacitance : 0.001; }}"
++  }}
++}}
++puts $f "  }}"
++puts $f "}}"
++close $f
++"""
++
++
++def _word_at(lines: list[list[str]], row: int, w: int) -> int:
++    """The word generate_ram (-decoder word) puts at (row, word in the
++    row): RamGen::wordAt."""
++    words = int(_one(lines, "words"))
++    banks = int(_one(lines, "banks", "1"))
++    columns = int(_one(lines, "bank_columns", "1"))
++    per_bank = words // banks
++    bank = (row // per_bank) * columns + w
++    i = row % per_bank
++    if _one(lines, "bank_order", "contiguous") == "interleaved":
++        return i * banks + bank
++    return bank * per_bank + i
++
++
++def _renames(lines: list[list[str]]) -> list[tuple[str, str]]:
++    """generate_ram's flop names to the spec's store_name and
++    read_reg_name, the RTL's names for equivalence checking."""
++    renames = []
++    words = int(_one(lines, "words"))
++    bits = int(_one(lines, "bits"))
++    columns = int(_one(lines, "bank_columns", "1"))
++    store = _one(lines, "store_name")
++    per_fold = bits // int(_one(lines, "bit_folds", "1"))
++    if store:
++        for row in range(words // columns):
++            for w in range(columns):
++                word = _word_at(lines, row, w)
++                if word == int(_one(lines, "zero_word", "-1")):
++                    continue
++                for bit in range(bits):
++                    renames.append(
++                        (
++                            f"storage_{row}_{w}_{bit // per_fold * per_fold}"
++                            f".bit{bit}.bit",
++                            store.replace("{word}", str(word)).replace(
++                                "{bit}", str(bit)
++                            ),
++                        )
++                    )
++    reg = _one(lines, "read_reg_name")
++    # (with the periphery as Verilog the address registers are in the
++    # wrapper, under generate_ram's names)
++    if (
++        reg
++        and _one(lines, "read_latency", "0") != "0"
++        and _one(lines, "periphery") != "verilog"
++    ):
++        banks = int(_one(lines, "banks", "1"))
++        a = _address_bits(words)
++        ab = _address_bits(words // banks)
++        # generate_ram's ports: writes, then plain reads, then each banked
++        # read port's banks; the spec's read ports, plain and banked, in
++        # the order it lists them
++        first_read = len(_values(lines, "write"))
++        plain = len(_values(lines, "read"))
++        spec_port = 0
++        plain_seen = 0
++        banked_seen = 0
++        for line in lines:
++            if line[0] == "read":
++                p = first_read + plain_seen
++                plain_seen += 1
++                for i in range(a):
++                    renames.append(
++                        (
++                            f"decoder_p{p}.addr_reg_p{p}_a{i}",
++                            reg.replace("{port}", str(spec_port))
++                            .replace("{bank}", "0")
++                            .replace("{bit}", str(i)),
++                        )
++                    )
++                spec_port += 1
++            elif line[0] == "read_banked":
++                for b in range((len(line) - 1) // 2):
++                    p = first_read + plain + banked_seen * banks + b
++                    for i in range(ab):
++                        renames.append(
++                            (
++                                f"decoder_p{p}.addr_reg_p{p}_a{i}",
++                                reg.replace("{port}", str(spec_port))
++                                .replace("{bank}", str(b))
++                                .replace("{bit}", str(i)),
++                            )
++                        )
++                banked_seen += 1
++                spec_port += 1
++    return renames
++
++
++def _module_ports(yosys_json: Path, module: str) -> dict[str, tuple[str, int]]:
++    """The RTL module's ports, name -> (direction, width), from the
++    design's yosys JSON; empty where it does not have the module."""
++    if not yosys_json.exists():
++        return {}
++    modules = json.loads(yosys_json.read_text()).get("modules", {})
++    for name, body in modules.items():
++        if name.lstrip("\\") == module:
++            return {
++                port: (info["direction"], len(info["bits"]))
++                for port, info in body.get("ports", {}).items()
++            }
++    return {}
++
++
++def _buses(port_lines: list[str]) -> dict[str, tuple[str, int]]:
++    """generate_ram's ports, base name -> (direction, width)."""
++    buses: dict[str, tuple[str, int]] = {}
++    for line in port_lines:
++        name, io = line.split()
++        base, width = name, 1
++        if name.endswith("]") and "[" in name:
++            base = name[: name.rindex("[")]
++            width = int(name[name.rindex("[") + 1 : -1]) + 1
++        direction = "input" if io == "INPUT" else "output"
++        old = buses.get(base, (direction, 0))[1]
++        buses[base] = (direction, max(old, width))
++    return buses
++
++
++def _wrapper(
++    lines: list[list[str]],
++    module: str,
++    block: str,
++    ram_ports: dict[str, tuple[str, int]],
++    rtl_ports: dict[str, tuple[str, int]],
++) -> str:
++    """The module the RTL's stands in for: its ports to generate_ram's."""
++    words = int(_one(lines, "words"))
++    bits = int(_one(lines, "bits"))
++    banks = int(_one(lines, "banks", "1"))
++    conns: dict[str, str] = {}
++    widths: dict[str, tuple[str, int]] = {}
++
++    def port(name: str, direction: str, width: int) -> str:
++        widths.setdefault(name, rtl_ports.get(name, (direction, width)))
++        return name
++
++    def fit(name: str, width: int) -> str:
++        """An RTL address as wide as generate_ram's."""
++        have = widths[name][1]
++        if have == width:
++            return name
++        if have > width:
++            return f"{name}[{width - 1}:0]"
++        return f"{{{width - have}'b0, {name}}}"
++
++    conns["clk"] = port(_one(lines, "clock", "clock"), "input", 1)
++    # ports the RTL has and the array ignores, any number a line
++    for key in ("reset", "unused"):
++        for values in _values(lines, key):
++            for name in values:
++                port(name, "input", 1)
++    for values in _values(lines, "async_reset"):
++        name = port(values[0], "input", 1)
++        low = values[1] == "low" if len(values) > 1 else True
++        if "rst_n" in ram_ports:
++            conns["rst_n"] = name if low else f"~{name}"
++        else:
++            conns["rst"] = f"~{name}" if low else name
++    reads = _values(lines, "read")
++    a = _address_bits(words)
++    for i, (addr, data) in enumerate(reads):
++        conns[f"addr_r{i}"] = fit(port(addr, "input", a), a)
++        conns["Q" if len(reads) == 1 else f"Q{i}"] = port(data, "output", bits)
++    writes = _values(lines, "write")
++    for w, values in enumerate(writes):
++        suffix = "" if len(writes) == 1 else str(w)
++        conns[f"addr_w{suffix}"] = fit(port(values[0], "input", a), a)
++        conns[f"D{suffix}"] = port(values[1], "input", bits)
++        conns[f"we{suffix}"] = (
++            port(values[2], "input", 1) if len(values) > 2 else "1'b1"
++        )
++    ab = _address_bits(words // banks)
++    for k, values in enumerate(_values(lines, "read_banked")):
++        for b in range(len(values) // 2):
++            conns[f"addr_rb{k}_b{b}"] = fit(port(values[2 * b], "input", ab), ab)
++            conns[f"Qrb{k}_b{b}"] = port(values[2 * b + 1], "output", bits)
++    for name in ram_ports:
++        if name not in conns:
++            raise SystemExit(
++                f"regfile_ram: {module}: generate_ram's port {name} has no "
++                "counterpart in the spec"
++            )
++    # the spec's ports are the module's: a stray or missing one would be
++    # left unconnected in the parent, not refused
++    if rtl_ports:
++        stray = sorted(set(widths) - set(rtl_ports))
++        missing = sorted(set(rtl_ports) - set(widths))
++        if stray or missing:
++            raise SystemExit(
++                f"regfile_ram: {module}: the spec's ports are not the "
++                f"module's: not in the module {stray}, not in the spec "
++                f"{missing} (list ports the array ignores with `unused`)"
++            )
++        data = [values[1] for values in reads + writes] + [
++            name for values in _values(lines, "read_banked") for name in values[1::2]
++        ]
++        for name in data:
++            if rtl_ports[name][1] != bits:
++                raise SystemExit(
++                    f"regfile_ram: {module}: {name} is "
++                    f"{rtl_ports[name][1]} bits, the spec's words {bits}"
++                )
++    # the RTL's ports in its own order where the JSON has them
++    order = list(rtl_ports) or list(widths)
++    for name in widths:
++        if name not in order:
++            order.append(name)
++    decl = []
++    for name in order:
++        direction, width = widths[name] if name in widths else rtl_ports[name]
++        decl.append(f"  {direction} {'' if width == 1 else f'[{width - 1}:0] '}{name}")
++    body = ",\n".join(decl)
++    inst = ",\n".join(f"    .{p}({c})" for p, c in conns.items())
++    return (
++        f"// generated by regfile_ram.py: {module} as generate_ram's {block}\n"
++        f"module {module} (\n{body}\n);\n  {block} ram (\n{inst}\n  );\nendmodule\n"
++    )
++
++
++def _module_header_ports(verilog: str, module: str) -> dict[str, tuple[str, int]]:
++    """A module's ports, name -> (direction, width), from its header."""
++    body = verilog[verilog.index(f"module {module} (") :]
++    body = body[: body.index(");")]
++    ports = {}
++    for line in body.splitlines():
++        words = line.strip().rstrip(",").split()
++        if words and words[0] in ("input", "output"):
++            width = 1
++            if len(words) == 3 and words[1].startswith("["):
++                width = int(words[1][1 : words[1].index(":")]) + 1
++            ports[words[-1]] = (words[0], width)
++    return ports
++
++
++def generate(
++    spec: Path,
++    module: str,
++    shape: str,
++    openroad: str,
++    lefs: list[Path],
++    out_dir: Path,
++) -> dict:
++    """Build the spec's RAM, shape inline, netlist or macro; return what
++    the flow lists: the block, and whether it is a macro and dissolves."""
++    lines = parse(spec)
++    ram = f"{module}_ram"
++    # -periphery verilog: the block is the core, the periphery a module
++    verilog_periphery = _one(lines, "periphery") == "verilog"
++    block = f"{ram}_core" if verilog_periphery else ram
++    periphery_v = out_dir / f"{ram}.periphery.v"
++    libs = os.environ.get("LIB_FILES", "").split()
++    if not libs:
++        raise SystemExit("regfile_ram: generate_ram needs LIB_FILES")
++    reads = "".join(f"read_liberty {lib}\n" for lib in libs)
++    gen = out_dir / f"{module}.generate.tcl"
++    outline = out_dir / f"{block}.outline"
++
++    def build(spec_lines: list[list[str]]) -> tuple[float, float]:
++        gen.write_text(
++            reads
++            + "".join(f"read_lef {lef}\n" for lef in lefs)
++            + "generate_ram_netlist "
++            + " ".join(_args(spec_lines, ram, shape))
++            + (f" -wrapper_verilog {periphery_v}" if verilog_periphery else "")
++            + f"\nwrite_db {out_dir / f'{block}.odb'}\n"
++            + "set die [[ord::get_db_block] getDieArea]\n"
++            + f"set f [open {outline} w]\n"
++            + 'puts $f "[$die dx] [$die dy] [[ord::get_db_tech] getDbUnitsPerMicron]"\n'
++            + "close $f\n"
++        )
++        subprocess.check_call([openroad, "-exit", "-no_init", "-no_splash", str(gen)])
++        width, height, _ = outline.read_text().split()
++        return float(width), float(height)
++
++    width, height = build(lines)
++    # where the spec names no folds, fold a word into a power of two of
++    # rows while
++    #
++    # - the array is more than 8 times as wide as tall, toward the square
++    #   (XiangShan's IntRegFile, 12 reads and 9 writes, 48 to one); a strip
++    #   of a few to one can be the shape that fits (riscv32i's, 6, sits
++    #   under its FakeRAMs), so that alone does not fold;
++    # - or one word's bits span more than WORD_SPAN_UM: its selects and
++    #   write enables, driven from one cell, are that long, and a parent
++    #   buffers them inside the full array, where nothing legalizes
++    #   (XiangShan's RenameBufferFile, a word a row 258 um wide, failed;
++    #   RobEntryFile at 74 um and IntRegFile at 96 um a word did not).
++    #
++    # A spec names bit_folds to choose.
++    bits = int(_one(lines, "bits"))
++    dbu = float(outline.read_text().split()[2])
++    # the words side by side in a row, each contiguous (see _args) unless
++    # the spec interleaves them, when a word spans the row
++    row_words = (
++        int(_one(lines, "bank_columns", "1"))
++        if _one(lines, "bank_column_layout", "contiguous") == "contiguous"
++        else 1
++    )
++    span_um = width / dbu / row_words
++    if not _values(lines, "bit_folds"):
++        folds = 1
++        # a short last fold is allowed, an empty one is not
++        while (
++            folds * 2 <= bits
++            and (folds * 2 - 1) * -(-bits // (folds * 2)) < bits
++            and (
++                (width > 8 * height and (folds * 2) ** 2 <= 2 * width / height)
++                or span_um / folds > WORD_SPAN_UM
++            )
++        ):
++            folds *= 2
++        if folds > 1:
++            lines = lines + [["bit_folds", str(folds)]]
++            build(lines)
++    views = out_dir / f"{module}.views.tcl"
++    tcl = reads + f"read_db {out_dir / f'{block}.odb'}\n"
++    # the RTL's flop names, for equivalence checking
++    renames = _renames(lines)
++    if renames:
++        (out_dir / f"{block}.renames").write_text(
++            "".join(f"{{{old}}} {{{new}}}\n" for old, new in renames)
++        )
++        tcl += (
++            f"set f [open {out_dir / f'{block}.renames'} r]\n"
++            "while {[gets $f line] >= 0} {\n"
++            "  lassign $line old new\n"
++            "  set inst [[ord::get_db_block] findInst $old]\n"
++            '  if {$inst eq "NULL"} { error "regfile_ram: no $old to name $new" }\n'
++            "  $inst rename $new\n"
++            "}\n"
++            "close $f\n"
++        )
++    tcl += _VIEWS_TCL.format(out=out_dir, block=block)
++    if shape == "inline":
++        tcl += f"write_verilog {out_dir / f'{block}.netlist.v'}\n"
++    else:
++        if shape == "macro":
++            # a macro kept to the end: its pins on its edges, by the pin
++            # placer
++            h = _one(lines, "pin_layer", _one(lines, "pin_layer_h", "M4"))
++            v = _one(lines, "pin_layer_v", "M5")
++            # tracks on the two pin layers, from their own pitch
++            for layer in (h, v):
++                tcl += (
++                    f"set l [[ord::get_db_tech] findLayer {layer}]\n"
++                    "set u [[ord::get_db_tech] getDbUnitsPerMicron]\n"
++                    "set p [expr {double([$l getPitch]) / $u}]\n"
++                    "set o [expr {double([$l getOffset]) / $u}]\n"
++                    f"make_tracks {layer} -x_offset $o -x_pitch $p"
++                    " -y_offset $o -y_pitch $p\n"
++                )
++            # its power, as a hardened block's: rails on the rows, straps
++            # with the VDD and VSS pins the parent's grid connects to
++            # (asap7's BLOCK_grid_strategy.tcl, without its ring)
++            rails = (_values(lines, "power_rails") or [["M1", "M2"]])[-1]
++            rail_w = _one(lines, "power_rail_width", "0.018")
++            strap = _one(lines, "power_layer", "M5")
++            strap_w = _one(lines, "power_width", "0.12")
++            pitch = _one(lines, "power_pitch", "2.976")
++            offset = _one(lines, "power_offset", "1.5")
++            tcl += (
++                "set block [ord::get_db_block]\n"
++                "foreach {name type} {VDD POWER VSS GROUND} {\n"
++                "  set net [$block findNet $name]\n"
++                '  if {$net eq "NULL"} { set net [odb::dbNet_create $block $name] }\n'
++                "  $net setSpecial\n"
++                "  $net setSigType $type\n"
++                "}\n"
++                "add_global_connection -net VDD -inst_pattern {.*}"
++                " -pin_pattern {^VDD$} -power\n"
++                "add_global_connection -net VSS -inst_pattern {.*}"
++                " -pin_pattern {^VSS$} -ground\n"
++                "global_connect\n"
++                "set_voltage_domain -name CORE -power VDD -ground VSS\n"
++                f"define_pdn_grid -name block -voltage_domains CORE -pins {strap}\n"
++            )
++            for rail in rails:
++                tcl += (
++                    f"add_pdn_stripe -grid block -layer {rail} -width {rail_w}"
++                    " -followpins\n"
++                )
++            tcl += (
++                f"add_pdn_stripe -grid block -layer {strap} -width {strap_w}"
++                f" -pitch {pitch} -offset {offset} -extend_to_boundary\n"
++            )
++            for lo, hi in zip(rails + [strap], rails[1:] + [strap]):
++                if lo != hi:
++                    tcl += f"add_pdn_connect -grid block -layers {{{lo} {hi}}}\n"
++            tcl += "pdngen\n"
++            tcl += f"place_pins -hor_layers {h} -ver_layers {v}\n"
++        tcl += _MACRO_TCL.format(out=out_dir, block=block)
++        if shape == "macro":
++            # and its timing, the block's own, for the parent's STA
++            clock = "clk"
++            tcl += (
++                f"create_clock -name {clock} -period 1 [get_ports {clock}]\n"
++                "estimate_parasitics -placement\n"
++                f"write_timing_model {out_dir / f'{block}.lib'}\n"
++            )
++    views.write_text(tcl)
++    subprocess.check_call([openroad, "-exit", "-no_init", "-no_splash", str(views)])
++    if shape == "macro":
++        # write_timing_model states no area; the flow costs a macro by it
++        width, height, dbu = (float(v) for v in outline.read_text().split())
++        lib = out_dir / f"{block}.lib"
++        text = lib.read_text()
++        text = re.sub(
++            r"(cell\s*\(\s*\\?\"?" + re.escape(block) + r"\"?\s*\)\s*\{)",
++            lambda m: m.group(1) + f"\n    area : {width * height / dbu / dbu:.4f};",
++            text,
++            count=1,
++        )
++        lib.write_text(text)
++    core_ports = _buses((out_dir / f"{block}.ports").read_text().splitlines())
++    ram_ports = core_ports
++    periphery = ""
++    if verilog_periphery:
++        periphery = periphery_v.read_text()
++        ram_ports = _module_header_ports(periphery, ram)
++    rtl_ports = _module_ports(out_dir.parent / "memories_inferred.json", module)
++    wrapper = _wrapper(lines, module, ram, ram_ports, rtl_ports)
++    if periphery:
++        wrapper += "\n" + periphery
++    if shape == "inline":
++        wrapper += "\n" + (out_dir / f"{block}.netlist.v").read_text()
++    else:
++        # the macro, a blackbox to synthesis
++        decl = ",\n".join(
++            f"  {d} {'' if w == 1 else f'[{w - 1}:0] '}{n}"
++            for n, (d, w) in core_ports.items()
++        )
++        wrapper += f"\n(* blackbox *)\nmodule {block} (\n{decl}\n);\nendmodule\n"
++    (out_dir / f"{module}.v").write_text(wrapper)
++    return {
++        "block": block,
++        "macro": shape != "inline",
++        "dissolve": shape == "netlist",
++    }
 diff --git a/flow/scripts/memories/schema.py b/flow/scripts/memories/schema.py
-index 754ae8373..b83d892b9 100644
+index 754ae8373..9141b9cc7 100644
 --- a/flow/scripts/memories/schema.py
 +++ b/flow/scripts/memories/schema.py
 @@ -61,10 +61,19 @@ class Memory:
@@ -560,12 +1343,12 @@ index 754ae8373..b83d892b9 100644
      idiomatic: bool = False
      reason: str = ""
 +    # What the memory becomes: "fakeram" (an SRAM macro), "regfile" (a
-+    # register file generate_regfile builds from `spec`) or "flops".
++    # register file generate_ram builds from `spec`) or "flops".
 +    kind: str = "flops"
 +    # "detected" (yosys inferred it), "listed" (AUTO_MEMORIES_REGFILES
 +    # names it) or "override" (an ADDITIONAL_MEMORIES file).
 +    source: str = "detected"
-+    # The register-file spec generate_regfile reads, for kind "regfile".
++    # The register-file spec, for kind "regfile".
 +    spec: str = ""
  
      def total_ports(self) -> int:
@@ -582,7 +1365,7 @@ index 754ae8373..b83d892b9 100644
  
 diff --git a/flow/scripts/regfile_dissolve.tcl b/flow/scripts/regfile_dissolve.tcl
 new file mode 100644
-index 000000000..bd6f46c5e
+index 000000000..a797461fb
 --- /dev/null
 +++ b/flow/scripts/regfile_dissolve.tcl
 @@ -0,0 +1,352 @@
@@ -605,7 +1388,7 @@ index 000000000..bd6f46c5e
 +# synthesis ODB step does for every other cell.
 +
 +proc regfile_netlist { file } {
-+  # one instance per line, as generate_regfile writes it:
++  # one instance per line, as regfile_ram.py writes it:
 +  #   MASTER \name (.PIN(net), .PIN(\net ), ...);
 +  set cells {}
 +  set f [open $file r]
@@ -938,16 +1721,102 @@ index 000000000..bd6f46c5e
 +    }
 +  }
 +}
+diff --git a/flow/scripts/synth_preamble.tcl b/flow/scripts/synth_preamble.tcl
+index 0d5d45873..7d3fd037e 100644
+--- a/flow/scripts/synth_preamble.tcl
++++ b/flow/scripts/synth_preamble.tcl
+@@ -81,6 +81,38 @@ proc auto_memories_blackboxes { } {
+   return [dict keys [auto_memories_areas]]
+ }
+ 
++# AUTO_MEMORIES: register files inlined (AUTO_MEMORIES_REGFILES not in
++# AUTO_MEMORIES_MACRO_PLACE): the RTL module is read as a blackbox and its
++# generated netlist of standard cells is read in its place.
++proc auto_memories_inline { } {
++  if { ![env_var_equals AUTO_MEMORIES 1] } {
++    return {}
++  }
++  set f "$::env(RESULTS_DIR)/memories/inline.txt"
++  if { ![file exists $f] } {
++    return {}
++  }
++  set fh [open $f r]
++  set content [read $fh]
++  close $fh
++  return [regexp -all -inline {\S+} $content]
++}
++
++proc read_auto_memories_inline { } {
++  foreach m [auto_memories_inline] {
++    # A parameterized RTL module (ibex_register_file_ff #(...)) is
++    # instantiated with parameters the generated netlist has no
++    # declaration for, which hierarchy refuses. The netlist is that module
++    # at the instance's widths, as regfile_ram.py's port check has
++    # confirmed: drop the parameters from its instances.
++    set dump [tee -q -s result.string dump t:$m]
++    foreach {- name} [regexp -all -inline -- {parameter \\(\S+)} $dump] {
++      setparam -unset $name t:$m
++    }
++    read_verilog -overwrite "$::env(RESULTS_DIR)/memories/$m.v"
++  }
++}
++
+ proc read_design_sources { } {
+   # We are reading Verilog sources
+   source $::env(SCRIPTS_DIR)/synth_stdcells.tcl
+@@ -141,7 +173,7 @@ proc read_design_sources { } {
+ 
+     # Blackbox AUTO_MEMORIES-detected memory modules so their generated
+     # liberty view wins over their behavioral bodies.
+-    foreach m [auto_memories_blackboxes] {
++    foreach m [concat [auto_memories_blackboxes] [auto_memories_inline]] {
+       lappend slang_args --blackboxed-module "$m"
+     }
+ 
+@@ -149,6 +181,7 @@ proc read_design_sources { } {
+     lappend slang_args {*}$::env(SYNTH_SLANG_ARGS)
+ 
+     yosys read_slang {*}$slang_args
++    read_auto_memories_inline
+ 
+     # Workaround for yosys-slang#119
+     setattr -unset init
+@@ -170,7 +203,7 @@ proc read_design_sources { } {
+     if { [env_var_exists_and_non_empty SYNTH_BLACKBOXES] } {
+       error "Non-empty SYNTH_BLACKBOXES unsupported with HDL frontend \"verific\""
+     }
+-    if { [llength [auto_memories_blackboxes]] > 0 } {
++    if { [llength [concat [auto_memories_blackboxes] [auto_memories_inline]]] > 0 } {
+       error "AUTO_MEMORIES unsupported with HDL frontend \"$::env(SYNTH_HDL_FRONTEND)\""
+     }
+   } elseif { ![env_var_exists_and_non_empty SYNTH_HDL_FRONTEND] } {
+@@ -204,6 +237,10 @@ proc read_design_sources { } {
+       }
+       hierarchy -check -top $::env(DESIGN_NAME)
+     }
++    if { [llength [auto_memories_inline]] > 0 } {
++      read_auto_memories_inline
++      hierarchy -check -top $::env(DESIGN_NAME)
++    }
+     if { [env_var_exists_and_non_empty SYNTH_BLACKBOXES] } {
+       hierarchy -check -top $::env(DESIGN_NAME)
+       foreach m $::env(SYNTH_BLACKBOXES) {
 diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
-index c094bdc47..0ec531439 100644
+index c094bdc47..1d2a98523 100644
 --- a/flow/scripts/variables.json
 +++ b/flow/scripts/variables.json
-@@ -74,6 +74,12 @@
+@@ -74,6 +74,18 @@
      "default": 0,
      "description": "Experimental. When set to 1, memories that yosys infers in the RTL (`$mem_v2` cells, module boundary only) are detected pre-synthesis, inventoried in `$(RESULTS_DIR)/memories.json`, and \u2014 when idiomatic as an SRAM macro \u2014 given generated .lib/.lef views under `$(RESULTS_DIR)/memories/`. Synthesis blackboxes those modules and all later stages read the generated views, so an existing design gets macro-based results without a memory compiler. Supported for the asap7 platform only. See docs/user/AutoMemories.md.\n"
    },
++  "AUTO_MEMORIES_MACRO_PLACE": {
++    "description": "Experimental. Space-separated list of module names of AUTO_MEMORIES_REGFILES register files to place as macros, blackboxed in synthesis and placed by the macro placer (and, in `mode netlist`, dissolved after macro placement). A register file not listed is inlined: its generated netlist of standard cells replaces the module's body in synthesis, and its cells are placed, sized and buffered with the rest of the design -- the better shape for a small design, where a macro's outline and channels cost more core than the array saves. A name no spec builds stops the build. Requires AUTO_MEMORIES=1.\n",
++    "stages": [
++      "synth"
++    ]
++  },
 +  "AUTO_MEMORIES_REGFILES": {
-+    "description": "Experimental. Space-separated list of register-file spec files, one per RTL module to build as a register file of placed standard cells rather than synthesise to flops. Each spec names its module, words, bits, read and write ports by the RTL's own port names, and the cells; OpenROAD's generate_regfile checks the spec against the module's ports and writes `<module>.lef`, `<module>.lib` and `<module>_pre_layout.lib` under `$(RESULTS_DIR)/memories/`, and the module is blackboxed like an AUTO_MEMORIES macro and placed as one. A spec in `mode netlist` then dissolves into its cells after macro placement: its core FIRM where the macro was placed, in the macro's orientation, its address decode left to placement. Every register file appears in memories.json with kind `regfile`. Requires AUTO_MEMORIES=1.\n",
++    "description": "Experimental. Space-separated list of register-file spec files, one per RTL module to build as a register file of placed standard cells rather than synthesise to flops. Each spec names its module, words, bits, read and write ports by the RTL's own port names, and the cells. memories/regfile_ram.py checks the spec against the module's ports and has OpenROAD's generate_ram build it as `<module>_ram`, under `$(RESULTS_DIR)/memories/`, with a wrapper in the module's place. A module named in AUTO_MEMORIES_MACRO_PLACE is blackboxed like an AUTO_MEMORIES macro and placed as one; any other is inlined as its generated netlist. A placed spec in `mode netlist` then dissolves into its cells after macro placement: its core FIRM where the macro was placed, in the macro's orientation, its periphery left to placement. Every register file appears in memories.json with kind `regfile`. Requires AUTO_MEMORIES=1.\n",
 +    "stages": [
 +      "synth"
 +    ]
@@ -956,10 +1825,10 @@ index c094bdc47..0ec531439 100644
      "default": 0,
      "description": "Balance rows during placement.\n",
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
-index a994f7ec9..7451ce4b7 100644
+index a994f7ec9..9d460de70 100644
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -256,6 +256,23 @@ SYNTH_VERILOG_SURGERY_ARGS:
+@@ -256,6 +256,37 @@ SYNTH_VERILOG_SURGERY_ARGS:
      Arguments to SYNTH_VERILOG_SURGERY, before the ones the flow adds.
    stages:
      - synth
@@ -968,16 +1837,30 @@ index a994f7ec9..7451ce4b7 100644
 +    Experimental. Space-separated list of register-file spec files, one
 +    per RTL module to build as a register file of placed standard cells
 +    rather than synthesise to flops. Each spec names its module, words,
-+    bits, read and write ports by the RTL's own port names, and the cells;
-+    OpenROAD's generate_regfile checks the spec against the module's
-+    ports and writes `<module>.lef`, `<module>.lib` and
-+    `<module>_pre_layout.lib` under `$(RESULTS_DIR)/memories/`, and the
-+    module is blackboxed like an AUTO_MEMORIES macro and placed as one. A
-+    spec in `mode netlist` then dissolves into its cells after macro
-+    placement: its core FIRM where the macro was placed, in the macro's
-+    orientation, its address decode left to placement. Every register
++    bits, read and write ports by the RTL's own port names, and the cells.
++    memories/regfile_ram.py checks the spec against the module's ports
++    and has OpenROAD's generate_ram build it as `<module>_ram`, under
++    `$(RESULTS_DIR)/memories/`, with a wrapper in the module's place. A
++    module named in AUTO_MEMORIES_MACRO_PLACE is blackboxed like an
++    AUTO_MEMORIES macro and placed as one; any other is inlined as its
++    generated netlist. A placed spec in `mode netlist` then dissolves into
++    its cells after macro placement: its core FIRM where the macro was
++    placed, in the macro's orientation, its periphery left to placement. Every register
 +    file appears in memories.json with kind `regfile`. Requires
 +    AUTO_MEMORIES=1.
++  stages:
++    - synth
++AUTO_MEMORIES_MACRO_PLACE:
++  description: >
++    Experimental. Space-separated list of module names of
++    AUTO_MEMORIES_REGFILES register files to place as macros, blackboxed
++    in synthesis and placed by the macro placer (and, in `mode netlist`,
++    dissolved after macro placement). A register file not listed is
++    inlined: its generated netlist of standard cells replaces the module's
++    body in synthesis, and its cells are placed, sized and buffered with
++    the rest of the design -- the better shape for a small design, where a
++    macro's outline and channels cost more core than the array saves. A
++    name no spec builds stops the build. Requires AUTO_MEMORIES=1.
 +  stages:
 +    - synth
  SYNTH_MEMORY_MAX_BITS:

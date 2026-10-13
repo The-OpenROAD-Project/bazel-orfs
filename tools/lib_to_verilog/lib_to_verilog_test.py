@@ -56,8 +56,7 @@ class TestLibertyExprToVerilog(unittest.TestCase):
 
 class TestParseLibCells(unittest.TestCase):
     def test_simple_dff(self):
-        lib = textwrap.dedent(
-            """\
+        lib = textwrap.dedent("""\
             library (test) {
               cell (DFFx1) {
                 pin (Q) {
@@ -76,8 +75,7 @@ class TestParseLibCells(unittest.TestCase):
                 }
               }
             }
-        """
-        )
+        """)
         cells = parse_lib_cells(lib)
         assert len(cells) == 1
         c = cells[0]
@@ -89,9 +87,36 @@ class TestParseLibCells(unittest.TestCase):
         assert c.ff.var2 == "IQN"
         assert len(c.pins) == 3
 
+    def test_dff_quoted_state(self):
+        # Nangate45 quotes its state variables: ff ("IQ" , "IQN")
+        lib = textwrap.dedent("""\
+            library (test) {
+              cell (DFF_X1) {
+                pin (Q) {
+                  direction : output;
+                  function : "IQ";
+                }
+                pin (D) {
+                  direction : input;
+                }
+                pin (CK) {
+                  direction : input;
+                }
+                ff ("IQ" , "IQN") {
+                  next_state : "D";
+                  clocked_on : "CK";
+                }
+              }
+            }
+        """)
+        c = parse_lib_cells(lib)[0]
+        assert c.ff is not None
+        assert c.ff.var1 == "IQ"
+        assert c.ff.var2 == "IQN"
+        assert c.ff.clocked_on == "CK"
+
     def test_dff_with_inverted_output(self):
-        lib = textwrap.dedent(
-            """\
+        lib = textwrap.dedent("""\
             library (test) {
               cell (DFFHQNx1) {
                 pin (QN) {
@@ -110,8 +135,7 @@ class TestParseLibCells(unittest.TestCase):
                 }
               }
             }
-        """
-        )
+        """)
         cells = parse_lib_cells(lib)
         assert len(cells) == 1
         c = cells[0]
@@ -119,8 +143,7 @@ class TestParseLibCells(unittest.TestCase):
         assert c.ff.next_state == "!D"
 
     def test_dff_with_async_reset(self):
-        lib = textwrap.dedent(
-            """\
+        lib = textwrap.dedent("""\
             library (test) {
               cell (DFFASRx1) {
                 pin (QN) {
@@ -147,8 +170,7 @@ class TestParseLibCells(unittest.TestCase):
                 }
               }
             }
-        """
-        )
+        """)
         cells = parse_lib_cells(lib)
         assert len(cells) == 1
         c = cells[0]
@@ -156,8 +178,7 @@ class TestParseLibCells(unittest.TestCase):
         assert c.ff.preset == "!RESETN"
 
     def test_latch(self):
-        lib = textwrap.dedent(
-            """\
+        lib = textwrap.dedent("""\
             library (test) {
               cell (DLLx1) {
                 pin (Q) {
@@ -176,8 +197,7 @@ class TestParseLibCells(unittest.TestCase):
                 }
               }
             }
-        """
-        )
+        """)
         cells = parse_lib_cells(lib)
         assert len(cells) == 1
         c = cells[0]
@@ -186,8 +206,7 @@ class TestParseLibCells(unittest.TestCase):
         assert c.latch.data_in == "D"
 
     def test_keeps_combinational_cells(self):
-        lib = textwrap.dedent(
-            """\
+        lib = textwrap.dedent("""\
             library (test) {
               cell (INVx1) {
                 pin (Y) {
@@ -199,8 +218,7 @@ class TestParseLibCells(unittest.TestCase):
                 }
               }
             }
-        """
-        )
+        """)
         cells = parse_lib_cells(lib)
         assert len(cells) == 1
         c = cells[0]
@@ -212,21 +230,18 @@ class TestParseLibCells(unittest.TestCase):
 
     def test_skips_pure_physical_cells(self):
         """A cell with no ff/latch and no function on its outputs is dropped."""
-        lib = textwrap.dedent(
-            """\
+        lib = textwrap.dedent("""\
             library (test) {
               cell (TAPCELL) {
                 pin (VDD) { direction : input; }
               }
             }
-        """
-        )
+        """)
         cells = parse_lib_cells(lib)
         assert len(cells) == 0
 
     def test_multiple_cells(self):
-        lib = textwrap.dedent(
-            """\
+        lib = textwrap.dedent("""\
             library (test) {
               cell (DFFx1) {
                 pin (Q) { direction : output; function : "IQ"; }
@@ -245,8 +260,7 @@ class TestParseLibCells(unittest.TestCase):
                 ff (IQ,IQN) { clocked_on : "CLK"; next_state : "D"; }
               }
             }
-        """
-        )
+        """)
         cells = parse_lib_cells(lib)
         assert len(cells) == 3
         assert cells[0].name == "DFFx1"
@@ -255,8 +269,7 @@ class TestParseLibCells(unittest.TestCase):
 
     def test_nested_braces_in_timing(self):
         """Verify parser handles deeply nested timing groups without confusion."""
-        lib = textwrap.dedent(
-            """\
+        lib = textwrap.dedent("""\
             library (test) {
               cell (DFFx1) {
                 pin (Q) {
@@ -278,16 +291,14 @@ class TestParseLibCells(unittest.TestCase):
                 ff (IQ,IQN) { clocked_on : "CLK"; next_state : "D"; }
               }
             }
-        """
-        )
+        """)
         cells = parse_lib_cells(lib)
         assert len(cells) == 1
         assert cells[0].ff.clocked_on == "CLK"
 
     def test_ignores_power_down_function(self):
         """power_down_function should not override function."""
-        lib = textwrap.dedent(
-            """\
+        lib = textwrap.dedent("""\
             library (test) {
               cell (DFFx1) {
                 pin (QN) {
@@ -300,16 +311,14 @@ class TestParseLibCells(unittest.TestCase):
                 ff (IQN,IQNN) { clocked_on : "CLK"; next_state : "!D"; }
               }
             }
-        """
-        )
+        """)
         cells = parse_lib_cells(lib)
         assert len(cells) == 1
         assert cells[0].pins[0].function == "IQN"
 
     def test_ignores_pg_pins(self):
         """pg_pin (VDD/VSS) should not appear as regular pins."""
-        lib = textwrap.dedent(
-            """\
+        lib = textwrap.dedent("""\
             library (test) {
               cell (DFFx1) {
                 pg_pin (VDD) { pg_type : primary_power; }
@@ -320,8 +329,7 @@ class TestParseLibCells(unittest.TestCase):
                 ff (IQ,IQN) { clocked_on : "CLK"; next_state : "D"; }
               }
             }
-        """
-        )
+        """)
         cells = parse_lib_cells(lib)
         assert len(cells) == 1
         pin_names = [p.name for p in cells[0].pins]
@@ -479,10 +487,40 @@ class TestGenerateCombinationalVerilog(unittest.TestCase):
         assert "assign CO = A & B;" in v
 
 
+class TestTristate(unittest.TestCase):
+    def test_tbuf(self):
+        # Nangate45's TBUF_X1: Z is high impedance while EN is high
+        lib = textwrap.dedent("""\
+            library (test) {
+              cell (TBUF_X1) {
+                pin (A) {
+                  direction : input;
+                }
+                pin (EN) {
+                  direction : input;
+                }
+                pin (Z) {
+                  direction : output;
+                  function : "A";
+                  three_state : "EN";
+                  timing () {
+                    related_pin : "EN";
+                    timing_type : three_state_disable;
+                  }
+                }
+              }
+            }
+        """)
+        c = parse_lib_cells(lib)[0]
+        z = [p for p in c.pins if p.name == "Z"][0]
+        assert z.three_state == "EN"
+        v = generate_combinational_verilog(c)
+        assert "assign Z = (EN) ? 1'bz : (A);" in v, v
+
+
 class TestParseLefMacros(unittest.TestCase):
     def test_basic(self):
-        lef = textwrap.dedent(
-            """\
+        lef = textwrap.dedent("""\
             MACRO TAPCELL_ASAP7_75t_R
               CLASS CORE ENDCAP ;
               SIZE 0.27 BY 0.27 ;
@@ -492,8 +530,7 @@ class TestParseLefMacros(unittest.TestCase):
               CLASS CORE ;
               SIZE 0.54 BY 0.27 ;
             END INVx1_ASAP7_75t_R
-        """
-        )
+        """)
         macros = parse_lef_macros(lef)
         assert macros == {"TAPCELL_ASAP7_75t_R", "INVx1_ASAP7_75t_R"}
 
@@ -559,8 +596,7 @@ class TestGenerateDffV(unittest.TestCase):
 class TestRealAsap7Lib(unittest.TestCase):
     """Integration tests using real ASAP7 .lib data snippets."""
 
-    ASAP7_DFFHQN = textwrap.dedent(
-        """\
+    ASAP7_DFFHQN = textwrap.dedent("""\
         library (asap7) {
           cell (DFFHQNx1_ASAP7_75t_R) {
             area : 0.2916;
@@ -622,8 +658,7 @@ class TestRealAsap7Lib(unittest.TestCase):
             }
           }
         }
-    """
-    )
+    """)
 
     def test_parse_asap7_dff(self):
         cells = parse_lib_cells(self.ASAP7_DFFHQN)
@@ -650,6 +685,7 @@ class TestRealAsap7Lib(unittest.TestCase):
             assert "QN <= ~D;" in v
             assert "endmodule" in v
 
+
 ICG_TEMPLATE = """\
 library (test) {{
   cell ({name}) {{
@@ -663,7 +699,7 @@ library (test) {{
 }}
 """
 
-SE_PIN = '    pin (SE) { direction : input; clock_gate_test_pin : true; }\n'
+SE_PIN = "    pin (SE) { direction : input; clock_gate_test_pin : true; }\n"
 
 
 def icg_lib(flavour, name="ICGx1", test_pin=True):
@@ -694,8 +730,10 @@ class TestIcgParsing(unittest.TestCase):
 
     def test_roles_survive_vendor_pin_names(self):
         """Pin names are the vendor's; the role attributes are the contract."""
-        lib = icg_lib("latch_posedge_precontrol").replace("ENA", "E1").replace(
-            "GCLK", "ECK"
+        lib = (
+            icg_lib("latch_posedge_precontrol")
+            .replace("ENA", "E1")
+            .replace("GCLK", "ECK")
         )
         v = generate_icg_verilog(parse_lib_cells(lib)[0])
         assert "en_latched = E1 | SE;" in v
@@ -705,7 +743,9 @@ class TestIcgParsing(unittest.TestCase):
 class TestIcgVerilog(unittest.TestCase):
     def test_posedge_precontrol(self):
         """Test-enable joins the enable before the latch; output ANDs."""
-        v = generate_icg_verilog(parse_lib_cells(icg_lib("latch_posedge_precontrol"))[0])
+        v = generate_icg_verilog(
+            parse_lib_cells(icg_lib("latch_posedge_precontrol"))[0]
+        )
         assert "if (~CLK)" in v
         assert "en_latched = ENA | SE;" in v
         assert "assign GCLK = CLK & en_latched;" in v
@@ -733,7 +773,9 @@ class TestIcgVerilog(unittest.TestCase):
         assert "assign GCLK = CLK | ~en_latched;" in v
 
     def test_ports_are_outputs_then_inputs(self):
-        v = generate_icg_verilog(parse_lib_cells(icg_lib("latch_posedge_precontrol"))[0])
+        v = generate_icg_verilog(
+            parse_lib_cells(icg_lib("latch_posedge_precontrol"))[0]
+        )
         assert v.startswith("module ICGx1 (GCLK, CLK, ENA, SE);")
         assert "    output GCLK;" in v
         assert "endmodule" in v
@@ -807,12 +849,19 @@ class TestSpecifyPaths(unittest.TestCase):
     def test_checks_on_inputs_are_not_paths(self):
         """A check says when a signal must be stable, not how long it
         takes to arrive. Emitting one as a path invents a delay."""
-        for check in ("setup_rising", "hold_rising", "min_pulse_width",
-                      "recovery_rising", "removal_rising"):
+        for check in (
+            "setup_rising",
+            "hold_rising",
+            "min_pulse_width",
+            "recovery_rising",
+            "removal_rising",
+        ):
             cell = arc_cell(in_type=check)
             self.assertEqual(
-                [p for p in specify_paths(cell) if "CLK" in p], [],
-                "%s on an input pin must not declare a path" % check)
+                [p for p in specify_paths(cell) if "CLK" in p],
+                [],
+                "%s on an input pin must not declare a path" % check,
+            )
 
     def test_a_cell_with_no_arcs_gets_no_block(self):
         cell = Cell(name="TIE", pins=[Pin("Y", "output", "1'b1")])
@@ -824,7 +873,8 @@ class TestSpecifyPaths(unittest.TestCase):
         lib = lib.replace(
             'timing () { related_pin : "A"; timing_type : combinational; }',
             'timing () { related_pin : "A"; timing_type : combinational; }\n'
-            '      timing () { related_pin : "A"; timing_type : combinational; }')
+            '      timing () { related_pin : "A"; timing_type : combinational; }',
+        )
         block = specify_block(parse_lib_cells(lib)[0])
         self.assertEqual(block.count("(A => Y)"), 1)
 

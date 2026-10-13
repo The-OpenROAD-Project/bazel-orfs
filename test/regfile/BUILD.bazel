@@ -6,7 +6,7 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 # AUTO_MEMORIES_REGFILES (ORFS patch 0089 on OpenROAD patch 0010) in its
 # smallest form: one 16 x 8 register file with two read and two write
 # ports in a parent of flops, seconds to global route. regfile_top places
-# it as a macro (AUTO_MEMORIES_MACRO_PLACE, patch 0091), which dissolves
+# it as a macro (AUTO_MEMORIES_MACRO_PLACE, ORFS patch 0089), which dissolves
 # into its cells after macro placement; the inlined variant does not
 # list it, so synthesis reads the generated netlist in the module's place.
 [
@@ -128,7 +128,9 @@ filegroup(
 )
 
 # Synthesis reached its netlist, and the register file is a macro
-# instance, not a module of its own.
+# instance, not a module of its own: generate_ram's RegFile_ram, behind
+# the wrapper in RegFile's place (ORFS patch 0089), which hierarchical
+# synthesis may keep.
 sh_test(
     name = "regfile_top_keep_synth_test",
     size = "small",
@@ -136,24 +138,51 @@ sh_test(
     args = [
         "$(location :regfile_top_keep_synth_netlist)",
         "regfile_top",
-        "!RegFile",
+        "!RegFile_ram",
     ],
     data = [":regfile_top_keep_synth_netlist"],
 )
 
-# The register file's line in blackboxes.txt is `RegFile <area>`.
+# The register file's line in blackboxes.txt is `RegFile_ram <area>`:
+# generate_ram's RAM is the macro, a wrapper in RegFile's place (ORFS
+# patch 0089).
 genrule(
     name = "regfile_top_keep_blackboxes",
     srcs = [":regfile_top_keep_synth"],
     outs = ["regfile_top_keep_blackboxes.txt"],
     cmd = "files=$$(echo $(locations :regfile_top_keep_synth) | tr ' ' '\\n'); " +
           "bb=$$(echo \"$$files\" | grep '/memories$$')/blackboxes.txt; " +
-          "grep -Eq '^RegFile [0-9]+[.][0-9]+$$' $$bb || " +
-          "{ echo 'no `RegFile <area>` line in blackboxes.txt'; cat $$bb; exit 1; }; " +
+          "grep -Eq '^RegFile_ram [0-9]+[.][0-9]+$$' $$bb || " +
+          "{ echo 'no `RegFile_ram <area>` line in blackboxes.txt'; cat $$bb; exit 1; }; " +
           "cp $$bb $@",
 )
 
 build_test(
     name = "regfile_top_keep_blackboxes_test",
     targets = [":regfile_top_keep_blackboxes"],
+)
+
+# OpenROAD's own ram tests, generate_ram's and those patches 0011 to 0023
+# add, so a change to the generator runs them here: CI tests this
+# repository's packages, not @openroad's.
+test_suite(
+    name = "openroad_ram_tests",
+    tests = [
+        "@openroad//src/ram/test:make_7x7_1r2w_nangate45-tcl_test",
+        "@openroad//src/ram/test:make_7x7_2r1w_nangate45-tcl_test",
+        "@openroad//src/ram/test:make_7x7_nangate45-tcl_test",
+        "@openroad//src/ram/test:make_8x8_2r1w_and_or_asap7-tcl_test",
+        "@openroad//src/ram/test:make_8x8_2r1w_banks_asap7-tcl_test",
+        "@openroad//src/ram/test:make_8x8_2r1w_contiguous_asap7-tcl_test",
+        "@openroad//src/ram/test:make_8x8_2r1w_mux_asap7-tcl_test",
+        "@openroad//src/ram/test:make_8x8_2r1w_reset_asap7-tcl_test",
+        "@openroad//src/ram/test:make_8x8_2r1w_service_asap7-tcl_test",
+        "@openroad//src/ram/test:make_8x8_2r1w_sky130-tcl_test",
+        "@openroad//src/ram/test:make_8x8_2r1w_unplaced_asap7-tcl_test",
+        "@openroad//src/ram/test:make_8x8_2r1w_zero_asap7-tcl_test",
+        "@openroad//src/ram/test:make_8x8_2r2w_or_asap7-tcl_test",
+        "@openroad//src/ram/test:make_8x8_rb_asap7-tcl_test",
+        "@openroad//src/ram/test:make_8x8_rb_latency_asap7-tcl_test",
+        "@openroad//src/ram/test:make_8x8_sky130-tcl_test",
+    ],
 )

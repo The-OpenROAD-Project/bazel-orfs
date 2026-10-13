@@ -27,13 +27,6 @@ Not upstreamed: carried in bazel-orfs for the register-file campaign.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- .../asap7/coralnpu-regfile/Regfile_rf.regfile |  34 +++
- flow/designs/asap7/coralnpu-regfile/config.mk |   8 +
- flow/designs/asap7/coralnpu/surgery.py        | 218 ++++++++++++++++++
- 3 files changed, 260 insertions(+)
- create mode 100644 flow/designs/asap7/coralnpu-regfile/Regfile_rf.regfile
- create mode 100644 flow/designs/asap7/coralnpu-regfile/config.mk
-
 diff --git a/flow/designs/asap7/coralnpu-regfile/Regfile_rf.regfile b/flow/designs/asap7/coralnpu-regfile/Regfile_rf.regfile
 new file mode 100644
 index 000000000..ef9f5a2bf
@@ -331,6 +324,3 @@ index e621221c1..bd9aa4a6c 100644
              print(
                  "coralnpu surgery: %s: removed %d verification files"
                  % (os.path.basename(path), len(removed))
--- 
-2.53.0
-

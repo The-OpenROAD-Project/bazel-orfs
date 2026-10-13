@@ -2103,7 +2103,7 @@ def _yosys_impl(ctx):
             fail("AUTO_MEMORIES=1 but no FakeRAM run.py among the files of " +
                  str(ctx.attr._fakeram.label) + " in " + str(ctx.label))
 
-    # AUTO_MEMORIES_REGFILES: OpenROAD's generate_regfile builds each
+    # AUTO_MEMORIES_REGFILES: OpenROAD's generate_ram builds each
     # listed register file inside the memories step, so openroad is a
     # tool of the canonicalize action, named to make through
     # OPENROAD_EXE. The views land in results/memories beside the

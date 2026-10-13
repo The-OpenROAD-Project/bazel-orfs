@@ -1,10 +1,14 @@
-# generate_regfile's spec keys a small fixture does not reach, each
-# simulated against the RTL it replaces (sim.bzl), every read compared
-# under random reads, writes and resets. Seconds each.
+# Register files of real designs through generate_ram (OpenROAD patches
+# 0011 to 0023), by ORFS's own translation of their specs (regfile_ram.py,
+# ORFS patch 0089), each simulated against the RTL it replaces (sim.bzl),
+# every read compared under random reads, writes and resets. Seconds
+# each.
 #
-# - ibex's register file: `async_reset` (every word reset to zero), the
-#   port check reading a SystemVerilog header with a parameter list, and
-#   `unused` inputs; with a negative control, the reset dropped.
+# - riscv32i's register file, in each write style and with its periphery
+#   as Verilog.
+# - ibex's register file: `async_reset` (every word reset to zero), its
+#   SystemVerilog header, and `unused` inputs; with a negative control,
+#   the reset dropped.
 # - rf_wp: `write_priority last`, two writes to one word in one cycle,
 #   the later port winning; with a negative control whose RTL lets the
 #   earlier port win.
@@ -18,6 +22,16 @@ py_binary(
     name = "gen_tb",
     srcs = ["gen_tb.py"],
     main = "gen_tb.py",
+)
+
+py_binary(
+    name = "ram_gen",
+    srcs = ["ram_gen.py"],
+    main = "ram_gen.py",
+    visibility = [
+        "//test/structured_gen_lec:__pkg__",
+        "//tools/structured_gen:__pkg__",
+    ],
 )
 
 stdcell_verilog(
@@ -73,4 +87,28 @@ regfile_sim_test(
     rtl = [":write_first.v"],
     rtl_module = "rf_wp",
     spec = ":rf_wp.regfile",
+)
+
+# riscv32i's register file (test/regfile/riscv32i's specs): a hold mux
+# per bit, a clock gate per word, and the periphery as Verilog.
+[
+    regfile_sim_test(
+        name = "riscv32i_%s_sim_test" % shape,
+        module = "regfile",
+        rtl = ["@orfs//flow/designs/src/riscv32i:regfile.v"],
+        rtl_module = "regfile",
+        spec = spec,
+    )
+    for shape, spec in [
+        ("mux", ":riscv32i_mux.regfile"),
+        ("clock_gate", "//test/regfile/riscv32i:inlined.regfile"),
+        ("periphery_verilog", "//test/regfile/riscv32i:inlined_verilog.regfile"),
+    ]
+]
+
+genrule(
+    name = "riscv32i_mux_regfile",
+    srcs = ["//test/regfile/riscv32i:inlined.regfile"],
+    outs = ["riscv32i_mux.regfile"],
+    cmd = "sed 's/^write_style clock_gate$$/write_style mux/' $< > $@ && grep -q '^write_style mux$$' $@",
 )

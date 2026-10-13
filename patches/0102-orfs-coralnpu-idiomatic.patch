@@ -28,12 +28,6 @@ bump onto an ORFS that has it.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- flow/designs/asap7/coralnpu/config.mk      |  35 +++--
- flow/designs/asap7/coralnpu/constraint.sdc |  23 ++-
- flow/designs/asap7/coralnpu/surgery.py     | 172 +++++++++++++++++++++
- 3 files changed, 214 insertions(+), 16 deletions(-)
- create mode 100644 flow/designs/asap7/coralnpu/surgery.py
-
 diff --git a/flow/designs/asap7/coralnpu/config.mk b/flow/designs/asap7/coralnpu/config.mk
 index abf9df8b2..652760363 100644
 --- a/flow/designs/asap7/coralnpu/config.mk
@@ -300,6 +294,3 @@ index 000000000..e621221c1
 +
 +if __name__ == "__main__":
 +    main()
--- 
-2.53.0
-
