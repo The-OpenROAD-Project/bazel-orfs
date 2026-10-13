@@ -30,6 +30,9 @@ class Pin:
     name: str
     direction: str  # "input", "output" or "internal"
     function: str = ""
+    # A tristate output: high impedance while this holds (Liberty's
+    # `three_state`).
+    three_state: str = ""
     # Liberty marks each pin of an integrated clock gate with its role,
     # which is the only portable way to tell ENA from SE: the pin names
     # are the vendor's to choose.
@@ -177,6 +180,9 @@ def parse_lib_cells(text: str) -> list[Cell]:
             m = re.search(r'(?<!\w)function\s*:\s*"([^"]*)"', stripped)
             if m:
                 current_pin.function = m.group(1)
+            m = re.search(r'(?<!\w)three_state\s*:\s*"([^"]*)"', stripped)
+            if m:
+                current_pin.three_state = m.group(1)
             m = re.search(r"clock_gate_(\w+?)_pin\s*:\s*true", stripped)
             if m:
                 current_pin.clock_gate_role = m.group(1)
@@ -186,14 +192,17 @@ def parse_lib_cells(text: str) -> list[Cell]:
             current_pin = None
 
         # ff group start
-        m = re.search(r"ff\s*\(\s*(\w+)\s*,\s*(\w+)\s*\)", stripped)
+        # the state variables bare or quoted: ff (IQ,IQN), ff ("IQ" , "IQN")
+        m = re.search(r'ff\s*\(\s*"?(\w+)"?\s*,\s*"?(\w+)"?\s*\)', stripped)
         if m:
             cell.ff = FfInfo(var1=m.group(1), var2=m.group(2))
             in_ff = True
             ff_depth = brace_depth
 
         # latch group start
-        m = re.search(r"latch\s*\(\s*(\w+)\s*,\s*(\w+)\s*\)", stripped)
+        m = re.search(
+            r'latch\s*\(\s*"?(\w+)"?\s*,\s*"?(\w+)"?\s*\)', stripped
+        )
         if m:
             cell.latch = LatchInfo(var1=m.group(1), var2=m.group(2))
             in_latch = True
@@ -318,19 +327,23 @@ def generate_ff_verilog(cell: Cell) -> str:
 
         sens = ", ".join([f"posedge {clk_expr}"] + async_signals)
         lines.append(f"    always @({sens}) begin")
+        # Each branch a block: a cell with both Q and QN assigns two
+        # outputs in it.
         if preset_expr:
-            lines.append(f"        if ({preset_expr})")
+            lines.append(f"        if ({preset_expr}) begin")
             # preset sets ff.var1 to 1
             for name, expr in out_assigns:
                 val = expr.replace("next_val", "1'b1").replace("~1'b1", "1'b0")
                 lines.append(f"            {name} <= {val};")
+            lines.append("        end")
         if clear_expr:
             kw = "else if" if preset_expr else "if"
-            lines.append(f"        {kw} ({clear_expr})")
+            lines.append(f"        {kw} ({clear_expr}) begin")
             # clear sets ff.var1 to 0
             for name, expr in out_assigns:
                 val = expr.replace("next_val", "1'b0").replace("~1'b0", "1'b1")
                 lines.append(f"            {name} <= {val};")
+            lines.append("        end")
         lines.append("        else begin")
         for name, expr in out_assigns:
             lines.append(
@@ -601,6 +614,11 @@ def generate_combinational_verilog(cell: Cell) -> str:
     for p in outputs:
         if p.function:
             expr = liberty_expr_to_verilog(p.function)
+            if p.three_state:
+                # released while three_state holds, so drivers of a shared
+                # net (a tristate bitline) resolve
+                off = liberty_expr_to_verilog(p.three_state)
+                expr = f"({off}) ? 1'bz : ({expr})"
             lines.append(f"    assign {p.name} = {expr};")
     spec = specify_block(cell)
     if spec:

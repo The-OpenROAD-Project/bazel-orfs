@@ -89,6 +89,36 @@ class TestParseLibCells(unittest.TestCase):
         assert c.ff.var2 == "IQN"
         assert len(c.pins) == 3
 
+    def test_dff_quoted_state(self):
+        # Nangate45 quotes its state variables: ff ("IQ" , "IQN")
+        lib = textwrap.dedent(
+            """\
+            library (test) {
+              cell (DFF_X1) {
+                pin (Q) {
+                  direction : output;
+                  function : "IQ";
+                }
+                pin (D) {
+                  direction : input;
+                }
+                pin (CK) {
+                  direction : input;
+                }
+                ff ("IQ" , "IQN") {
+                  next_state : "D";
+                  clocked_on : "CK";
+                }
+              }
+            }
+        """
+        )
+        c = parse_lib_cells(lib)[0]
+        assert c.ff is not None
+        assert c.ff.var1 == "IQ"
+        assert c.ff.var2 == "IQN"
+        assert c.ff.clocked_on == "CK"
+
     def test_dff_with_inverted_output(self):
         lib = textwrap.dedent(
             """\
@@ -477,6 +507,39 @@ class TestGenerateCombinationalVerilog(unittest.TestCase):
         v = generate_combinational_verilog(cell)
         assert "assign SO = A^B;" in v
         assert "assign CO = A & B;" in v
+
+
+class TestTristate(unittest.TestCase):
+    def test_tbuf(self):
+        # Nangate45's TBUF_X1: Z is high impedance while EN is high
+        lib = textwrap.dedent(
+            """\
+            library (test) {
+              cell (TBUF_X1) {
+                pin (A) {
+                  direction : input;
+                }
+                pin (EN) {
+                  direction : input;
+                }
+                pin (Z) {
+                  direction : output;
+                  function : "A";
+                  three_state : "EN";
+                  timing () {
+                    related_pin : "EN";
+                    timing_type : three_state_disable;
+                  }
+                }
+              }
+            }
+        """
+        )
+        c = parse_lib_cells(lib)[0]
+        z = [p for p in c.pins if p.name == "Z"][0]
+        assert z.three_state == "EN"
+        v = generate_combinational_verilog(c)
+        assert "assign Z = (EN) ? 1'bz : (A);" in v, v
 
 
 class TestParseLefMacros(unittest.TestCase):
