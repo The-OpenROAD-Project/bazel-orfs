@@ -147,6 +147,9 @@ archive_override(
         # banks, each word decoded whole. On 0014 (OpenROAD #11669); not
         # upstreamed.
         "//patches:0015-openroad-ram-banks.patch",
+        # 0016: generate_ram -rb_ports, read ports with an address and data
+        # per bank. On 0015 (OpenROAD #11669); not upstreamed.
+        "//patches:0016-openroad-ram-banked-read-ports.patch",
     ],
     strip_prefix = "OpenROAD-a3bf6124782f205ba5fa9e2e402dae8b665fc4fc",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/a3bf6124782f205ba5fa9e2e402dae8b665fc4fc.tar.gz"],
