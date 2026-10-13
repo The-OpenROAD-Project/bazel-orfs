@@ -154,7 +154,8 @@ ASAP7 = {
 # Each shape of generate_ram's 8 x 8, two write ports and one read:
 # Nangate45's tristate bitlines (patch 0011), its AND-OR trees asked for
 # (patch 0012), and asap7's, which has no tristate cell, with its QN-only
-# flop (the storage cell named: the smallest flop is negative-edge).
+# flop (the storage cell named: the smallest flop is negative-edge), and
+# with a word reading 0 (patch 0013), on either polarity of flop.
 [
     [
         genrule(
@@ -218,6 +219,8 @@ sed 's/^module RAM8x8 /module RAM8x8_gen /' $(@D)/{name}.v > $(location {name}_g
     for name, platform, args in [
         ("ram_2w", NANGATE45, "-storage_cell DFF_X1"),
         ("ram_2w_and_or", NANGATE45, "-storage_cell DFF_X1 -read_style and_or"),
+        ("ram_2w_and_or_zero", NANGATE45, "-storage_cell DFF_X1 -read_style and_or -zero_word 3"),
         ("ram_2w_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R"),
+        ("ram_2w_asap7_zero", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -zero_word 0"),
     ]
 ]
