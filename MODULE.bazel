@@ -143,6 +143,10 @@ archive_override(
         # word, per bit cleared or preset. On 0013 (OpenROAD #11669); not
         # upstreamed.
         "//patches:0014-openroad-ram-reset.patch",
+        # 0015: generate_ram -banks, -bank_columns, -bank_order: words in
+        # banks, each word decoded whole. On 0014 (OpenROAD #11669); not
+        # upstreamed.
+        "//patches:0015-openroad-ram-banks.patch",
     ],
     strip_prefix = "OpenROAD-a3bf6124782f205ba5fa9e2e402dae8b665fc4fc",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/a3bf6124782f205ba5fa9e2e402dae8b665fc4fc.tar.gz"],

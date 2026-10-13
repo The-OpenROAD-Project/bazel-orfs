@@ -157,7 +157,9 @@ ASAP7 = {
 # flop (the storage cell named: the smallest flop is negative-edge), and
 # with a word reading 0 (patch 0013), on either polarity of flop; and
 # with an asynchronous reset to a value of both 0s and 1s (patch 0014),
-# on Nangate45's set/reset flop and asap7's, which stores !D.
+# on Nangate45's set/reset flop and asap7's, which stores !D; and in
+# banks (patch 0015), contiguous and interleaved, side by side and
+# stacked, tristate and AND-OR, and 12 words in banks of 3.
 [
     [
         genrule(
@@ -171,7 +173,7 @@ ASAP7 = {
 cat > $(@D)/{name}.tcl <<TCL
 {read_libs}
 {read_lefs}
-generate_ram_netlist -mask_size 8 -word_size 8 -num_words 8 -r_ports 1 -w_ports 2 {args} -write_behavioral_verilog $(@D)/{name}_model.v
+generate_ram_netlist -mask_size 8 -word_size 8 -num_words {words} -r_ports 1 -w_ports 2 {args} -write_behavioral_verilog $(@D)/{name}_model.v
 write_db $(@D)/{name}.odb
 TCL
 $(location @openroad//:openroad) -exit -no_init -no_splash $(@D)/{name}.tcl > $(@D)/{name}.log 2>&1 || {{ cat $(@D)/{name}.log; exit 1; }}
@@ -183,19 +185,21 @@ read_db $(@D)/{name}.odb
 write_verilog $(@D)/{name}.v
 TCL
 $(location @openroad//:openroad) -exit -no_init -no_splash $(@D)/{name}_v.tcl >> $(@D)/{name}.log 2>&1 || {{ cat $(@D)/{name}.log; exit 1; }}
-sed 's/^module RAM8x8 /module RAM8x8_gen /' $(@D)/{name}.v > $(location {name}_gen.v)
+sed -e 's/^module RAM{words}x8 /module RAM8x8_gen /' $(@D)/{name}.v > $(location {name}_gen.v)
+sed -i 's/^module RAM{words}x8 /module RAM8x8 /' $(location {name}_model.v)
 """.format(
                 name = name,
                 args = args,
                 read_lefs = "\n".join(["read_lef $(location %s)" % f for f in platform["lefs"]]),
                 read_libs = "\n".join(["read_liberty $(location %s)" % f for f in platform["libs"]]),
+                words = words,
             ),
             tools = ["@openroad"],
         ),
         verilog_library(
             name = "tb_%s_rtl" % name,
             srcs = [
-                "%s.v" % tb,
+                ("%s.v" % tb) if words == 8 else ("%s_%d.v" % (tb, words)),
                 ":%s_gen.v" % name,
                 ":%s_model.v" % name,
             ] + platform["stdcell"],
@@ -215,17 +219,23 @@ sed 's/^module RAM8x8 /module RAM8x8_gen /' $(@D)/{name}.v > $(location {name}_g
             name = "%s_sim_test" % name,
             size = "small",
             srcs = ["%s.cc" % tb],
+            defines = ["WORDS=%d" % words],
             deps = [":tb_%s" % name],
         ),
     ]
-    for name, platform, args, tb in [
-        ("ram_2w", NANGATE45, "-storage_cell DFF_X1", "tb_ram_2w"),
-        ("ram_2w_and_or", NANGATE45, "-storage_cell DFF_X1 -read_style and_or", "tb_ram_2w"),
-        ("ram_2w_and_or_zero", NANGATE45, "-storage_cell DFF_X1 -read_style and_or -zero_word 3", "tb_ram_2w"),
-        ("ram_2w_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R", "tb_ram_2w"),
-        ("ram_2w_asap7_zero", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -zero_word 0", "tb_ram_2w"),
-        ("ram_2w_rst", NANGATE45, "-storage_cell DFFRS_X1 -reset_value 0xa5", "tb_ram_2w_rst"),
-        ("ram_2w_rst_and_or", NANGATE45, "-storage_cell DFFRS_X1 -read_style and_or -reset_value 0xa5", "tb_ram_2w_rst"),
-        ("ram_2w_rst_asap7", ASAP7, "-storage_cell DFFASRHQNx1_ASAP7_75t_R -reset_value 0xa5", "tb_ram_2w_rst"),
+    for name, platform, args, tb, words in [
+        ("ram_2w", NANGATE45, "-storage_cell DFF_X1", "tb_ram_2w", 8),
+        ("ram_2w_and_or", NANGATE45, "-storage_cell DFF_X1 -read_style and_or", "tb_ram_2w", 8),
+        ("ram_2w_and_or_zero", NANGATE45, "-storage_cell DFF_X1 -read_style and_or -zero_word 3", "tb_ram_2w", 8),
+        ("ram_2w_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R", "tb_ram_2w", 8),
+        ("ram_2w_asap7_zero", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -zero_word 0", "tb_ram_2w", 8),
+        ("ram_2w_rst", NANGATE45, "-storage_cell DFFRS_X1 -reset_value 0xa5", "tb_ram_2w_rst", 8),
+        ("ram_2w_rst_and_or", NANGATE45, "-storage_cell DFFRS_X1 -read_style and_or -reset_value 0xa5", "tb_ram_2w_rst", 8),
+        ("ram_2w_rst_asap7", ASAP7, "-storage_cell DFFASRHQNx1_ASAP7_75t_R -reset_value 0xa5", "tb_ram_2w_rst", 8),
+        ("ram_2w_banks", NANGATE45, "-storage_cell DFF_X1 -banks 4 -bank_columns 2 -bank_order interleaved", "tb_ram_2w", 8),
+        ("ram_2w_banks_and_or", NANGATE45, "-storage_cell DFF_X1 -read_style and_or -banks 2 -bank_columns 2", "tb_ram_2w", 8),
+        ("ram_2w_banks_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -banks 4 -bank_columns 2 -bank_order interleaved -zero_word 0", "tb_ram_2w", 8),
+        ("ram_2w_banks12_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -banks 4 -bank_columns 2", "tb_ram_2w", 12),
+        ("ram_2w_banks12", NANGATE45, "-storage_cell DFF_X1 -banks 4 -bank_columns 4 -bank_order interleaved", "tb_ram_2w", 12),
     ]
 ]

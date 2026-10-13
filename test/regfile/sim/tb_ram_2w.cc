@@ -9,6 +9,10 @@
 
 #include "Vtb_ram_2w.h"
 
+#ifndef WORDS
+#define WORDS 8
+#endif
+
 int main() {
   Vtb_ram_2w tb;
   std::mt19937 rng(1);
@@ -34,14 +38,14 @@ int main() {
     tb.eval();
     ++cycle;
   };
-  for (int w = 0; w < 8; ++w) {
+  for (int w = 0; w < WORDS; ++w) {
     step(false, true, w, rng() & 0xff, false, 0, 0, w);
   }
   for (int i = 0; i < 20000 && bad < 10; ++i) {
-    const int a0 = rng() % 8;
-    const int a1 = rng() % 4 == 0 ? a0 : rng() % 8;
+    const int a0 = rng() % WORDS;
+    const int a1 = rng() % 4 == 0 ? a0 : rng() % WORDS;
     step(true, rng() % 2, a0, rng() & 0xff, rng() % 2, a1, rng() & 0xff,
-         rng() % 8);
+         rng() % WORDS);
   }
   std::printf("%d cycles, %d mismatches\n", cycle, bad);
   return bad == 0 ? 0 : 1;
