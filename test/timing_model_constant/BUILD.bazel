@@ -1,0 +1,33 @@
+# write_timing_model on a block with constant outputs, and a parent timed
+# against the model: what a constant output feeds holds the constant and
+# is not an unconstrained endpoint. patches/0113.
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+LEFS = [
+    "@orfs//flow:platforms/asap7/lef/asap7_tech_1x_201209.lef",
+    "@orfs//flow:platforms/asap7/lef/asap7sc7p5t_28_R_1x_220121a.lef",
+]
+
+LIBS = [
+    "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_TT_nldm_220122.lib.gz",
+    "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_TT_nldm_220123.lib",
+    "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_TT_nldm_211120.lib.gz",
+]
+
+sh_test(
+    name = "timing_model_constant_test",
+    size = "small",
+    srcs = ["timing_model_constant_test.sh"],
+    args = [
+        "$(rootpath @openroad)",
+        str(len(LEFS)),
+    ] + ["$(rootpath %s)" % f for f in LEFS + LIBS],
+    data = [
+        "blk.lef",
+        "blk.v",
+        "check_parent.tcl",
+        "top.v",
+        "write_model.tcl",
+        "@openroad",
+    ] + LEFS + LIBS,
+)
