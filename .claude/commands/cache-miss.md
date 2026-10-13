@@ -8,6 +8,12 @@ ARGUMENTS: $ARGUMENTS
 
 **Is the other machine on the same tree?** Every ORFS stage action, synthesis included, takes the whole patched ORFS `flow/scripts` tree as input: the synthesis canonicalize action's inputs include `global_place.tcl`, `global_route.tcl`, `detail_place.tcl` and `variables.yaml`. So one carried patch in `patches/` for global placement changes the key of every stage from synthesis on, and a patch to OpenROAD itself changes the `openroad` binary, which every stage also takes as input. A day with a batch of carried patches is a day nothing built before it is reusable. `git rev-parse HEAD^{tree}` on both machines settles most cases; `git log -1` does not, because a commit hash dies in a rebase and the tree hash does not.
 
+## Trust the cache; never clean it
+
+Bazel's caches are keyed on content: what they serve is the result of those inputs. Never clean them: not `bazel clean` (the guard blocks it), not `--expunge`, not deleting the disk cache, the output base or a `bazel-*` tree. A rebuild you did not expect is a key that changed, and this skill finds which.
+
+When an artifact has to be rebuilt anyway (a cached result that is wrong, or stale), poison the cache: change code so that the artifact's key changes. The change has to reach the key of the action that builds the artifact. A comment can be canonicalized away before it gets there: synthesis canonicalizes the RTL first, so a Verilog comment re-runs the canonicalize action and can leave its output, and with it every stage after, byte-identical and cached. Change something the building action itself reads, and confirm with this skill that the target now misses. The change re-keys the artifact on every machine and in CI; a clean would rebuild it on one.
+
 ## What is already known to be hermetic
 
 Measured, so you do not measure it again unless something changed:
