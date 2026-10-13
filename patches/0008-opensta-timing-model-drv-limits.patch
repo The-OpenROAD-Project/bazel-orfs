@@ -29,7 +29,7 @@ diff --git a/src/sta/search/MakeTimingModel.cc b/src/sta/search/MakeTimingModel.
  #include <map>
  #include <memory>
  #include <string>
-@@ -218,6 +219,7 @@
+@@ -217,6 +218,7 @@ MakeTimingModel::makePorts()
          LibertyPort *lib_bit_port = modelPort(pin);
          float load_cap = graph_delay_calc_->loadCap(pin, scene_, min_max_);
          lib_bit_port->setCapacitance(load_cap);
@@ -37,7 +37,7 @@ diff --git a/src/sta/search/MakeTimingModel.cc b/src/sta/search/MakeTimingModel.
        }
        delete member_iter;
      }
-@@ -227,11 +229,60 @@
+@@ -226,11 +228,60 @@ MakeTimingModel::makePorts()
        Pin *pin = network_->findPin(top_inst, port);
        float load_cap = graph_delay_calc_->loadCap(pin, scene_, min_max_);
        lib_port->setCapacitance(load_cap);
@@ -101,7 +101,7 @@ diff --git a/src/sta/search/MakeTimingModel.cc b/src/sta/search/MakeTimingModel.
 diff --git a/src/sta/search/MakeTimingModelPvt.hh b/src/sta/search/MakeTimingModelPvt.hh
 --- a/src/sta/search/MakeTimingModelPvt.hh
 +++ b/src/sta/search/MakeTimingModelPvt.hh
-@@ -80,6 +80,8 @@
+@@ -72,6 +72,8 @@ private:
    void makeCell();
    float findArea();
    void makePorts();
@@ -109,4 +109,4 @@ diff --git a/src/sta/search/MakeTimingModelPvt.hh b/src/sta/search/MakeTimingMod
 +                     LibertyPort *lib_port);
    void checkClock(Clock *clk);
    void findTimingFromInputs();
-   void findTimingFromInputsBatch(const PinSeq &batch,
+   void findTimingFromInput(Port *input_port);
