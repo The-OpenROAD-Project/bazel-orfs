@@ -163,23 +163,32 @@ class TestRunBuildifier(unittest.TestCase):
 
 
 class TestRunBlack(unittest.TestCase):
-    @mock.patch("fix_lint.shutil.which", return_value="/usr/bin/black")
     @mock.patch("fix_lint.subprocess.check_call")
-    def test_formats_python_files(self, mock_call, _which):
+    def test_formats_python_files(self, mock_call):
         fix_lint.run_black(["a.py", "b.py"])
-        mock_call.assert_called_once_with(["black", "--quiet", "a.py", "b.py"])
+        mock_call.assert_called_once()
+        args, kwargs = mock_call.call_args
+        # black from this binary's own dependencies, not the host's PATH
+        self.assertEqual(
+            args[0], [sys.executable, "-m", "black", "--quiet", "a.py", "b.py"]
+        )
+        self.assertEqual(kwargs["env"]["PYTHONPATH"], os.pathsep.join(sys.path))
 
-    @mock.patch("fix_lint.shutil.which", return_value=None)
     @mock.patch("fix_lint.subprocess.check_call")
-    def test_skips_when_black_not_found(self, mock_call, _which):
-        fix_lint.run_black(["a.py"])
-        mock_call.assert_not_called()
-
-    @mock.patch("fix_lint.shutil.which", return_value="/usr/bin/black")
-    @mock.patch("fix_lint.subprocess.check_call")
-    def test_no_files_is_noop(self, mock_call, _which):
+    def test_no_files_is_noop(self, mock_call):
         fix_lint.run_black([])
         mock_call.assert_not_called()
+
+    def test_black_formats_a_file(self):
+        """The pinned black, run for real: no host install needed."""
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root)
+        path = os.path.join(root, "x.py")
+        with open(path, "w") as f:
+            f.write('x = {  "a":1,"b" :2 }\n')
+        fix_lint.run_black([path])
+        with open(path) as f:
+            self.assertEqual(f.read(), 'x = {"a": 1, "b": 2}\n')
 
 
 class TestGetMergeBase(unittest.TestCase):

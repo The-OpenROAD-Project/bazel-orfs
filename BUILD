@@ -286,6 +286,7 @@ py_library(
     name = "fix_lint_lib",
     srcs = ["fix_lint.py"],
     visibility = ["//test:__pkg__"],
+    deps = ["@bazel-orfs-dev-pip//black"],
 )
 
 # `bazelisk run //:public_surface` checks MODULE.bazel's dev/non-dev split
@@ -330,6 +331,7 @@ py_binary(
     srcs = ["fix_lint.py"],
     data = ["@buildifier_prebuilt//:buildifier"],
     main = "fix_lint.py",
+    deps = ["@bazel-orfs-dev-pip//black"],
 )
 
 compile_pip_requirements(

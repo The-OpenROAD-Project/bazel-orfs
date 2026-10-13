@@ -60,7 +60,7 @@ stop and ask the human rather than publishing it.
 Before committing, run `bazelisk run //:fix_lint` to format and lint all changed files. This is the single source of truth — do NOT run `buildifier` or `black` individually, as `fix_lint` handles all of them with the correct CI-compatible configuration:
 
 - `buildifier` on changed `.bzl`/`BUILD`/`MODULE.bazel` files (respects `.bazelignore`)
-- `black` on changed `.py` files
+- `black` on changed `.py` files, the version `requirements_dev` pins, run from bazel: nothing to install on the host
 
 Just run:
 
