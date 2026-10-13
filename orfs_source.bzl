@@ -124,7 +124,7 @@ ORFS_PATCHES = [
     # //:bump onto an ORFS that carries it.
     Label("//patches:0094-orfs-synth-verilog-surgery.patch"),
     # 0089: AUTO_MEMORIES_REGFILES: register files listed by spec are
-    # built by OpenROAD's generate_regfile (OpenROAD patch 0010) as
+    # built by OpenROAD's generate_ram (OpenROAD patches 0011 to 0023) as
     # macros of placed standard cells; in `mode netlist` each dissolves
     # into its cells at the end of macro placement, its core FIRM where
     # the macro was placed, its address decode left to placement.
@@ -165,8 +165,7 @@ ORFS_PATCHES = [
     # upstreamed.
     Label("//patches:0108-orfs-regfile-periphery-verilog.patch"),
     # 0109: register files through generate_ram (OpenROAD patches 0011 to
-    # 0020) where it builds the spec, a wrapper in the RTL module's place;
-    # the rest stay with generate_regfile. On 0089, 0091 and 0108; retires
+    # 0023), a wrapper in the RTL module's place; every spec. On 0089, 0091 and 0108; retires
     # with 0089. Not upstreamed.
     Label("//patches:0109-orfs-regfiles-generate-ram.patch"),
 ]

@@ -16,7 +16,7 @@ generate_ram; see OpenROAD #11669. Not upstreamed.
 
 ---
 diff --git a/src/ram/include/ram/ram.h b/src/ram/include/ram/ram.h
-index 5400b8b04a..2d9b7181d2 100644
+index 4b82175c0d..1cafb2c0b2 100644
 --- a/src/ram/include/ram/ram.h
 +++ b/src/ram/include/ram/ram.h
 @@ -124,7 +124,8 @@ class RamGen
@@ -29,7 +29,7 @@ index 5400b8b04a..2d9b7181d2 100644
  
    void ramPdngen(const char* power_net_name,
                   const char* ground_net_name,
-@@ -413,6 +414,15 @@ class RamGen
+@@ -414,6 +415,15 @@ class RamGen
    Cell* periphery_cell_{nullptr};
    std::vector<odb::dbInst*> periphery_insts_;
    void unplacePeriphery();
@@ -46,7 +46,7 @@ index 5400b8b04a..2d9b7181d2 100644
    std::string addr_flop_d_, addr_flop_clk_, addr_flop_q_;
    bool addr_flop_inverted_{false};
 diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
-index cf48730c73..7b670b6da9 100644
+index a49a3612cb..a56b944946 100644
 --- a/src/ram/src/ram.cpp
 +++ b/src/ram/src/ram.cpp
 @@ -13,6 +13,7 @@
@@ -57,7 +57,7 @@ index cf48730c73..7b670b6da9 100644
  #include <sstream>
  #include <string>
  #include <utility>
-@@ -1943,7 +1944,8 @@ void RamGen::generate(const int mask_size,
+@@ -1950,7 +1951,8 @@ void RamGen::generate(const int mask_size,
                        const std::string& cells,
                        const std::string& name,
                        const std::string& decoder,
@@ -67,7 +67,7 @@ index cf48730c73..7b670b6da9 100644
  {
    // Banks: every port decodes every word's whole address, and a row holds
    // bank_columns words, laid out as the column mux lays out its words;
-@@ -1976,7 +1978,13 @@ void RamGen::generate(const int mask_size,
+@@ -1983,7 +1985,13 @@ void RamGen::generate(const int mask_size,
    rb_ports_ = rb_ports;
    read_latency_ = read_latency;
    write_mux_ = write_style == "mux";
@@ -82,7 +82,7 @@ index cf48730c73..7b670b6da9 100644
    pin_layer_ = pin_layer;
    periphery_insts_.clear();
    marking_periphery_ = false;
-@@ -2231,7 +2239,10 @@ void RamGen::generate(const int mask_size,
+@@ -2250,7 +2258,10 @@ void RamGen::generate(const int mask_size,
  
    block_ = chip->getBlock();
    if (!block_) {
@@ -94,7 +94,7 @@ index cf48730c73..7b670b6da9 100644
    }
  
    // One column per bit plus one select/control column per slice,
-@@ -3118,8 +3129,235 @@ void RamGen::generate(const int mask_size,
+@@ -3152,8 +3163,235 @@ void RamGen::generate(const int mask_size,
  // (those of the periphery too, while they are still placed), on the pin
  // layer's track grid inside the outline: these pins are for a macro
  // placer to orient the core by, never routed.
@@ -331,10 +331,10 @@ index cf48730c73..7b670b6da9 100644
        = db_->getTech()->findLayer(pin_layer_.c_str());
    if (layer == nullptr) {
 diff --git a/src/ram/src/ram.i b/src/ram/src/ram.i
-index 4aaa60f0f3..d70a2aecda 100644
+index 78d76a9488..0040503bfd 100644
 --- a/src/ram/src/ram.i
 +++ b/src/ram/src/ram.i
-@@ -57,7 +57,8 @@ generate_ram_netlist_cmd(int mask_size,
+@@ -56,7 +56,8 @@ generate_ram_netlist_cmd(int mask_size,
                           const char* cells,
                           const char* name,
                           const char* decoder,
@@ -344,7 +344,7 @@ index 4aaa60f0f3..d70a2aecda 100644
  {
    RamGen* ram_gen = ord::getRamGen();
    odb::dbDatabase* db = ord::getDb();
-@@ -112,7 +113,7 @@ generate_ram_netlist_cmd(int mask_size,
+@@ -111,7 +112,7 @@ generate_ram_netlist_cmd(int mask_size,
                      tapcell, max_tap_dist, read_style, zero_word,
                      reset_value, banks, bank_columns, bank_order, rb_ports,
                      read_latency, write_style, periphery, pin_layer, cells,
@@ -352,9 +352,9 @@ index 4aaa60f0f3..d70a2aecda 100644
 +                    name, decoder, bit_folds, wrapper_verilog);
  }
  
- void generate_regfile_cmd(const char* spec_path,
+ void ram_pdngen(const char* power_net_name, const char* ground_net_name,
 diff --git a/src/ram/src/ram.tcl b/src/ram/src/ram.tcl
-index db7e1d06c8..19b99d4205 100644
+index 8e7ef1167c..0797431e65 100644
 --- a/src/ram/src/ram.tcl
 +++ b/src/ram/src/ram.tcl
 @@ -28,7 +28,8 @@ sta::define_cmd_args "generate_ram_netlist" {[-mask_size bits]
@@ -376,7 +376,7 @@ index db7e1d06c8..19b99d4205 100644
  
    set column_mux_ratio 1
    if { [info exists keys(-column_mux_ratio)] } {
-@@ -200,10 +201,14 @@ proc generate_ram_netlist { args } {
+@@ -202,10 +203,14 @@ proc generate_ram_netlist { args } {
    set periphery placed
    if { [info exists keys(-periphery)] } {
      set periphery $keys(-periphery)
@@ -393,7 +393,7 @@ index db7e1d06c8..19b99d4205 100644
    set pin_layer ""
    if { [info exists keys(-pin_layer)] } {
      set pin_layer $keys(-pin_layer)
-@@ -269,7 +274,7 @@ proc generate_ram_netlist { args } {
+@@ -271,7 +276,7 @@ proc generate_ram_netlist { args } {
      $column_mux_ratio $use_latch $storage_cell $tristate_cell $inv_cell $tapcell $max_tap_dist \
      $read_style $zero_word $reset_value $banks $bank_columns $bank_order \
      $rb_ports $read_latency $write_style $periphery $pin_layer $cells $name \

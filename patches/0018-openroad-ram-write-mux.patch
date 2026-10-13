@@ -15,7 +15,7 @@ see OpenROAD #11669. Not upstreamed.
 
 ---
 diff --git a/src/ram/README.md b/src/ram/README.md
-index 9b6f2bbc35..3f6215e900 100644
+index 28950270a6..d00ea4266f 100644
 --- a/src/ram/README.md
 +++ b/src/ram/README.md
 @@ -51,6 +51,7 @@ generate_ram [-mask_size bits]
@@ -258,10 +258,10 @@ index d5521b13ab..728cf882bf 100644
      if (read_latency_ != 1) {
        logger_->error(RAM, 71, "-read_latency is 0 or 1.");
 diff --git a/src/ram/src/ram.i b/src/ram/src/ram.i
-index 4494870fdb..57351d4216 100644
+index f5b0df9f45..eb39047776 100644
 --- a/src/ram/src/ram.i
 +++ b/src/ram/src/ram.i
-@@ -50,7 +50,8 @@ generate_ram_netlist_cmd(int mask_size,
+@@ -49,7 +49,8 @@ generate_ram_netlist_cmd(int mask_size,
                           const int bank_columns,
                           const char* bank_order,
                           const int rb_ports,
@@ -271,7 +271,7 @@ index 4494870fdb..57351d4216 100644
  {
    RamGen* ram_gen = ord::getRamGen();
    odb::dbDatabase* db = ord::getDb();
-@@ -104,7 +105,7 @@ generate_ram_netlist_cmd(int mask_size,
+@@ -103,7 +104,7 @@ generate_ram_netlist_cmd(int mask_size,
                      column_mux_ratio, use_latch, storage_cell, tristate_cell, inv_cell, 
                      tapcell, max_tap_dist, read_style, zero_word,
                      reset_value, banks, bank_columns, bank_order, rb_ports,
@@ -279,9 +279,9 @@ index 4494870fdb..57351d4216 100644
 +                    read_latency, write_style);
  }
  
- void generate_regfile_cmd(const char* spec_path,
+ void ram_pdngen(const char* power_net_name, const char* ground_net_name,
 diff --git a/src/ram/src/ram.tcl b/src/ram/src/ram.tcl
-index 75d6fbb387..309cad8d03 100644
+index 1be985d19b..7206ca848b 100644
 --- a/src/ram/src/ram.tcl
 +++ b/src/ram/src/ram.tcl
 @@ -15,6 +15,7 @@ sta::define_cmd_args "generate_ram_netlist" {[-mask_size bits]
@@ -354,7 +354,7 @@ index 75d6fbb387..309cad8d03 100644
        lappend ram_netlist_args $key $keys($key)
      }
 diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index 83fa973277..604b8fa6be 100644
+index f76c0a994a..a7d89256e0 100644
 --- a/src/ram/test/BUILD
 +++ b/src/ram/test/BUILD
 @@ -13,6 +13,7 @@ COMPULSORY_TESTS = [
@@ -365,7 +365,7 @@ index 83fa973277..604b8fa6be 100644
      "make_8x8_rb_latency_asap7",
      "make_8x8_rb_asap7",
      "make_8x8_2r1w_banks_asap7",
-@@ -122,6 +123,11 @@ filegroup(
+@@ -83,6 +84,11 @@ filegroup(
                  "//test:asap7_nldm_data",
                  "make_8x8_rb_latency_asap7_behavioral.vok",
              ],

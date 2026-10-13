@@ -1,10 +1,7 @@
-# What generate_regfile builds computes what the RTL it replaces does:
-# riscv32i's register file as generate_regfile writes it, simulated beside
-# src/riscv32i/regfile.v under random reads and writes, every read
-# compared. One netlist per write style: a hold mux per bit, and a clock
-# gate per word; and the clock gate with its periphery as assigns
-# (`periphery verilog`), inlined and, in mode netlist, as a wrapper
-# around the core's own netlist (regfile_core.v).
+# generate_ram's RAMs (OpenROAD patches 0011 to 0023) simulated beside
+# their own behavioral models under random reads and writes, every read
+# compared, in the shapes the patches add. The register files of real
+# designs are simulated against their RTL in test/regfile/cores.
 load("@rules_cc//cc:defs.bzl", "cc_test")
 load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
 load("@rules_verilog//verilog:defs.bzl", "verilog_library")
@@ -23,93 +20,6 @@ stdcell_verilog(
         "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_TT_nldm_211120.lib.gz",
     ],
 )
-
-[
-    [
-        genrule(
-            name = "regfile_%s_v" % style,
-            srcs = [
-                ":regfile.regfile",
-                "@orfs//flow/designs/src/riscv32i:regfile.v",
-                "@orfs//flow:platforms/asap7/lef/asap7_tech_1x_201209.lef",
-                "@orfs//flow:platforms/asap7/lef/asap7sc7p5t_28_R_1x_220121a.lef",
-            ],
-            outs = ["regfile_%s.v" % style] + (
-                ["regfile_core.v"] if "periphery verilog" in lines and "mode netlist" in lines else []
-            ),
-            cmd = """
-grep -v '^write_style' $(location :regfile.regfile) > $(@D)/regfile_{style}.regfile
-{extra}
-cat > $(@D)/regfile_{style}.tcl <<TCL
-read_lef $(location @orfs//flow:platforms/asap7/lef/asap7_tech_1x_201209.lef)
-read_lef $(location @orfs//flow:platforms/asap7/lef/asap7sc7p5t_28_R_1x_220121a.lef)
-generate_regfile -spec $(@D)/regfile_{style}.regfile -check_ports $(location @orfs//flow/designs/src/riscv32i:regfile.v) -verilog $(@D)/regfile_{style}.gen.v
-TCL
-$(location @openroad//:openroad) -exit -no_init -no_splash $(@D)/regfile_{style}.tcl > $(@D)/regfile_{style}.log 2>&1 || {{ cat $(@D)/regfile_{style}.log; exit 1; }}
-sed -e 's/^module regfile(/module regfile_gen(/' -e '/^(\\* blackbox \\*)$$/,$$d' $(@D)/regfile_{style}.gen.v > $(@D)/regfile_{style}.v
-""".format(
-                extra = "\n".join([
-                    "echo '%s' >> $(@D)/regfile_%s.regfile" % (line, style)
-                    for line in lines
-                ]),
-                style = style,
-            ),
-            tools = ["@openroad"],
-        ),
-        verilog_library(
-            name = "tb_%s_rtl" % style,
-            srcs = [
-                "tb_top.v",
-                ":regfile_%s.v" % style,
-            ] + (
-                [":regfile_core.v"] if "periphery verilog" in lines and "mode netlist" in lines else []
-            ) + [
-                ":asap7_stdcell.v",
-                ":asap7_stdcell_empty.v",
-                "@orfs//flow/designs/src/riscv32i:regfile.v",
-            ],
-        ),
-        verilator_cc_library(
-            name = "tb_%s" % style,
-            module = ":tb_%s_rtl" % style,
-            module_top = "tb_top",
-            trace_mode = "none",
-            vopts = [
-                "-Wno-fatal",
-                "--x-initial",
-                "0",
-            ],
-        ),
-        cc_test(
-            name = "regfile_%s_sim_test" % style,
-            size = "small",
-            srcs = ["tb_main.cc"],
-            deps = [":tb_%s" % style],
-        ),
-    ]
-    for style, lines in [
-        ("mux", []),
-        (
-            "clock_gate",
-            ["write_style clock_gate"],
-        ),
-        (
-            "clock_gate_verilog",
-            [
-                "write_style clock_gate",
-                "periphery verilog",
-            ],
-        ),
-        (
-            "netlist_verilog",
-            [
-                "mode netlist",
-                "write_style clock_gate",
-                "periphery verilog",
-            ],
-        ),
-    ]
-]
 
 # generate_ram with two write ports (OpenROAD patch 0011): its netlist
 # beside its own behavioral model on Nangate45, whose tristate buffers
@@ -238,10 +148,14 @@ sed -i 's/^module RAM{words}x8 /module RAM8x8 /' $(location {name}_model.v)
         ("ram_2w_and_or_zero", NANGATE45, "-storage_cell DFF_X1 -read_style and_or -zero_word 3", "tb_ram_2w", 8),
         ("ram_2w_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R", "tb_ram_2w", 8),
         ("ram_2w_asap7_zero", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -zero_word 0", "tb_ram_2w", 8),
+        ("ram_2w_or", NANGATE45, "-storage_cell DFF_X1 -write_priority or", "tb_ram_2w", 8),
+        ("ram_2w_or_asap7_mux", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -write_style mux -write_priority or", "tb_ram_2w", 8),
         ("ram_2w_rst", NANGATE45, "-storage_cell DFFRS_X1 -reset_value 0xa5", "tb_ram_2w_rst", 8),
         ("ram_2w_rst_and_or", NANGATE45, "-storage_cell DFFRS_X1 -read_style and_or -reset_value 0xa5", "tb_ram_2w_rst", 8),
         ("ram_2w_rst_asap7", ASAP7, "-storage_cell DFFASRHQNx1_ASAP7_75t_R -reset_value 0xa5", "tb_ram_2w_rst", 8),
         ("ram_2w_banks", NANGATE45, "-storage_cell DFF_X1 -banks 4 -bank_columns 2 -bank_order interleaved", "tb_ram_2w", 8),
+        ("ram_2w_banks_contiguous", NANGATE45, "-storage_cell DFF_X1 -banks 4 -bank_columns 2 -bank_order interleaved -bank_column_layout contiguous", "tb_ram_2w", 8),
+        ("ram_2w_banks_contiguous_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -banks 4 -bank_columns 4 -bank_column_layout contiguous -bit_folds 3 -mask_size 3 -write_style mux -write_priority or", "tb_ram_2w", 8),
         ("ram_2w_banks_and_or", NANGATE45, "-storage_cell DFF_X1 -read_style and_or -banks 2 -bank_columns 2", "tb_ram_2w", 8),
         ("ram_2w_banks_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -banks 4 -bank_columns 2 -bank_order interleaved -zero_word 0", "tb_ram_2w", 8),
         ("ram_2w_banks12_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -banks 4 -bank_columns 2", "tb_ram_2w", 12),
@@ -257,6 +171,9 @@ sed -i 's/^module RAM{words}x8 /module RAM8x8 /' $(location {name}_model.v)
         ("ram_2w_unplaced_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -write_style mux -banks 4 -bank_columns 2 -periphery unplaced -pin_layer M4", "tb_ram_2w", 8),
         ("ram_2w_cells_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -cells {inv INVx1_ASAP7_75t_R and2 AND2x2_ASAP7_75t_R buffer BUFx2_ASAP7_75t_R aoi22 AOI22x1_ASAP7_75t_R ao22 AO22x2_ASAP7_75t_R or2 OR2x2_ASAP7_75t_R nand2 NAND2x1_ASAP7_75t_R nor2 NOR2x1_ASAP7_75t_R} -name RAM8x8", "tb_ram_2w", 8),
         ("ram_2w_folds", NANGATE45, "-storage_cell DFF_X1 -mask_size 4 -bit_folds 2 -decoder word", "tb_ram_2w", 8),
+        # 8 bits in 3 folds of 3: the last fold short, one pad column
+        ("ram_2w_folds_short", NANGATE45, "-storage_cell DFF_X1 -mask_size 3 -bit_folds 3 -decoder word", "tb_ram_2w", 8),
+        ("ram_2w_folds_short_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -mask_size 3 -bit_folds 3 -write_style mux -write_priority or", "tb_ram_2w", 8),
         ("ram_2w_folds_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -mask_size 2 -bit_folds 4 -banks 4 -bank_columns 2 -bank_order interleaved -write_style mux -read_latency 1", "tb_ram_2w", 8),
         ("ram_2w_periphery_verilog_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -periphery verilog -pin_layer M4 -wrapper_verilog $(@D)/ram_2w_periphery_verilog_asap7_wrap.v -banks 4 -bank_columns 2 -write_style mux", "tb_ram_2w", 8),
         ("ram_2w_periphery_verilog", NANGATE45, "-storage_cell DFF_X1 -periphery verilog -pin_layer metal4 -wrapper_verilog $(@D)/ram_2w_periphery_verilog_wrap.v", "tb_ram_2w", 8),

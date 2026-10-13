@@ -9,16 +9,39 @@ source $::env(SCRIPTS_DIR)/load.tcl
 load_design 2_floorplan.odb 2_floorplan.sdc
 set block [ord::get_db_block]
 # the core: every cell a netlist's .place file names, under its instance
-# (NETLISTS: the plan's <module> <instance> pairs)
+# (NETLISTS: the plan's <module> <instance> pairs). The block is
+# generate_ram's <module>_ram (its core <module>_ram_core with the
+# periphery as Verilog) inside the wrapper in the module's place, its
+# cells under the wrapper's ram instance; or the module itself.
 set core [dict create]
 foreach {module path} $::env(NETLISTS) {
-  set place "$::env(RESULTS_DIR)/memories/$module.place"
-  if { ![file exists $place] } { error "leftover_macros.tcl: no $place for $path" }
+  set place ""
+  foreach name [list ${module}_ram_core ${module}_ram $module] {
+    if { [file exists "$::env(RESULTS_DIR)/memories/$name.place"] } {
+      set place "$::env(RESULTS_DIR)/memories/$name.place"
+      break
+    }
+  }
+  if { $place eq "" } { error "leftover_macros.tcl: no .place for $module ($path)" }
+  set names {}
   set f [open $place r]
   while { [gets $f pl] >= 0 } {
-    if { [lindex $pl 0] ne "" } { dict set core "$path/[lindex $pl 0]" 1 }
+    if { [lindex $pl 0] ne "" } { lappend names [lindex $pl 0] }
   }
   close $f
+  # the prefix: try names until one is there (a cell the parent never
+  # reads is gone as dead logic)
+  set prefix "$path/"
+  foreach name $names {
+    foreach candidate [list "$path/" "$path.ram/" "$path/ram/"] {
+      if { [$block findInst "$candidate$name"] ne "NULL" } {
+        set prefix $candidate
+        break
+      }
+    }
+    if { [$block findInst "$prefix$name"] ne "NULL" } { break }
+  }
+  foreach name $names { dict set core "$prefix$name" 1 }
 }
 set macros {}
 array set box {}
@@ -33,7 +56,8 @@ foreach inst [$block getInsts] {
     }
     continue
   }
-  set key [file dirname [$inst getName]]
+  # a netlist by its instance, the wrapper's ram folded into it
+  regsub {[./]ram$} [file dirname [$inst getName]] "" key
   if { ![string match u_file* $key] } { continue }
   if { ![info exists cells($key)] } {
     set loose($key) 0

@@ -47,17 +47,22 @@ foreach {lo hi} {
 puts "place_macros.tcl: $bands soft placement blockage(s) over the blocks' bands; the rows stay"
 # The plan's register files (AUTO_MEMORIES_REGFILES in mode netlist) are
 # macros until the end of this step, each found by its instance and placed
-# where the plan put it; they dissolve into their cells after it.
+# where the plan put it; they dissolve into their cells after it. The
+# macro is the instance itself, or generate_ram's RAM, ram, inside the
+# wrapper that takes the module's place.
 foreach {inst x y} {
   u_filea 20.944 148.717
   u_fileb 61.744 148.717
   u_filec 20.944 107.400
 } {
-  set i [$block findInst $inst]
+  foreach name [list $inst $inst/ram $inst.ram] {
+    set i [$block findInst $name]
+    if { $i ne "NULL" } { break }
+  }
   if { $i eq "NULL" } {
     utl::error FLW 2 "plan: no register file instance $inst"
   }
-  place_macro -macro_name $inst -location [list $x $y] -orientation R0 -exact
+  place_macro -macro_name [$i getName] -location [list $x $y] -orientation R0 -exact
   $i setPlacementStatus FIRM
   puts "place_macros.tcl: register file $inst at $x $y um, R0"
 }

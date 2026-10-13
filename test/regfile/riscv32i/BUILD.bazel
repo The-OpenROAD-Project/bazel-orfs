@@ -1,12 +1,21 @@
 load("@orfs_designs//:designs.bzl", "DESIGNS")
 load("//:openroad.bzl", "odb_debug", "orfs_flow")
 
-# riscv32i's register file in each shape generate_regfile offers, on
+# riscv32i's register file in each shape generate_ram offers, on
 # ORFS's own riscv32i config (62 %, its io.tcl), to global route: flops
 # (ORFS's riscv32i), inlined (synthesis reads the generated netlist),
 # netlist (macro-placed, then dissolved) and macro (macro-placed, kept).
 # A study, not a gate: every target is manual.
 package(default_visibility = ["//visibility:private"])
+
+# simulated against riscv32i's RTL in test/regfile/cores
+exports_files(
+    [
+        "inlined.regfile",
+        "inlined_verilog.regfile",
+    ],
+    visibility = ["//test/regfile/cores:__pkg__"],
+)
 
 RISCV32I = DESIGNS["asap7/riscv32i"]
 

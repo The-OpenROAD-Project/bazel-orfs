@@ -15,7 +15,7 @@ see OpenROAD #11669. Not upstreamed.
 
 ---
 diff --git a/src/ram/README.md b/src/ram/README.md
-index 5f4dcdaa51..9b6f2bbc35 100644
+index a6fbf28bc9..28950270a6 100644
 --- a/src/ram/README.md
 +++ b/src/ram/README.md
 @@ -50,6 +50,7 @@ generate_ram [-mask_size bits]
@@ -299,10 +299,10 @@ index 9d75d28322..d5521b13ab 100644
    // cycle, the last one's data is kept.
    std::string data_declarations;
 diff --git a/src/ram/src/ram.i b/src/ram/src/ram.i
-index 037e28f5ff..4494870fdb 100644
+index 5df5f55134..f5b0df9f45 100644
 --- a/src/ram/src/ram.i
 +++ b/src/ram/src/ram.i
-@@ -49,7 +49,8 @@ generate_ram_netlist_cmd(int mask_size,
+@@ -48,7 +48,8 @@ generate_ram_netlist_cmd(int mask_size,
                           const int banks,
                           const int bank_columns,
                           const char* bank_order,
@@ -312,7 +312,7 @@ index 037e28f5ff..4494870fdb 100644
  {
    RamGen* ram_gen = ord::getRamGen();
    odb::dbDatabase* db = ord::getDb();
-@@ -102,7 +103,8 @@ generate_ram_netlist_cmd(int mask_size,
+@@ -101,7 +102,8 @@ generate_ram_netlist_cmd(int mask_size,
    ram_gen->generate(mask_size, word_size, num_words, rw_ports, r_ports, w_ports,
                      column_mux_ratio, use_latch, storage_cell, tristate_cell, inv_cell, 
                      tapcell, max_tap_dist, read_style, zero_word,
@@ -321,9 +321,9 @@ index 037e28f5ff..4494870fdb 100644
 +                    read_latency);
  }
  
- void generate_regfile_cmd(const char* spec_path,
+ void ram_pdngen(const char* power_net_name, const char* ground_net_name,
 diff --git a/src/ram/src/ram.tcl b/src/ram/src/ram.tcl
-index 3466fe562c..75d6fbb387 100644
+index 9c541fc52f..1be985d19b 100644
 --- a/src/ram/src/ram.tcl
 +++ b/src/ram/src/ram.tcl
 @@ -14,12 +14,14 @@ sta::define_cmd_args "generate_ram_netlist" {[-mask_size bits]
@@ -391,7 +391,7 @@ index 3466fe562c..75d6fbb387 100644
        lappend ram_netlist_args $key $keys($key)
      }
 diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index cd2a6d7cdb..83fa973277 100644
+index 218e3bff6b..f76c0a994a 100644
 --- a/src/ram/test/BUILD
 +++ b/src/ram/test/BUILD
 @@ -13,6 +13,7 @@ COMPULSORY_TESTS = [
@@ -402,7 +402,7 @@ index cd2a6d7cdb..83fa973277 100644
      "make_8x8_rb_asap7",
      "make_8x8_2r1w_banks_asap7",
      "make_8x8_2r1w_reset_asap7",
-@@ -116,6 +117,11 @@ filegroup(
+@@ -77,6 +78,11 @@ filegroup(
                  "//test:asap7_nldm_data",
                  "make_8x8_rb_asap7_behavioral.vok",
              ],

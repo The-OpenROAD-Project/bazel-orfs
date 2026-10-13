@@ -18,7 +18,7 @@ see OpenROAD #11669. Not upstreamed.
 
 ---
 diff --git a/src/ram/README.md b/src/ram/README.md
-index 918957177a..fde50b5ba1 100644
+index 9203ca0651..683015ddab 100644
 --- a/src/ram/README.md
 +++ b/src/ram/README.md
 @@ -52,6 +52,8 @@ generate_ram [-mask_size bits]
@@ -273,10 +273,10 @@ index 4cdfe57e2c..74d6985251 100644
    int r_total = rw_ports + r_ports;
    const int num_write = rw_ports + w_ports;
 diff --git a/src/ram/src/ram.i b/src/ram/src/ram.i
-index 1d62729854..b9b51b3a13 100644
+index 5c34560b47..bc76a2c750 100644
 --- a/src/ram/src/ram.i
 +++ b/src/ram/src/ram.i
-@@ -53,7 +53,9 @@ generate_ram_netlist_cmd(int mask_size,
+@@ -52,7 +52,9 @@ generate_ram_netlist_cmd(int mask_size,
                           const int read_latency,
                           const char* write_style,
                           const char* periphery,
@@ -287,7 +287,7 @@ index 1d62729854..b9b51b3a13 100644
  {
    RamGen* ram_gen = ord::getRamGen();
    odb::dbDatabase* db = ord::getDb();
-@@ -107,7 +109,8 @@ generate_ram_netlist_cmd(int mask_size,
+@@ -106,7 +108,8 @@ generate_ram_netlist_cmd(int mask_size,
                      column_mux_ratio, use_latch, storage_cell, tristate_cell, inv_cell, 
                      tapcell, max_tap_dist, read_style, zero_word,
                      reset_value, banks, bank_columns, bank_order, rb_ports,
@@ -296,9 +296,9 @@ index 1d62729854..b9b51b3a13 100644
 +                    name);
  }
  
- void generate_regfile_cmd(const char* spec_path,
+ void ram_pdngen(const char* power_net_name, const char* ground_net_name,
 diff --git a/src/ram/src/ram.tcl b/src/ram/src/ram.tcl
-index 7ae7eb7754..8bafbdd5b6 100644
+index e8e86010b3..460941a99a 100644
 --- a/src/ram/src/ram.tcl
 +++ b/src/ram/src/ram.tcl
 @@ -16,6 +16,8 @@ sta::define_cmd_args "generate_ram_netlist" {[-mask_size bits]

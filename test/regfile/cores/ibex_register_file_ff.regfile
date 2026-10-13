@@ -1,5 +1,5 @@
 # ibex's register file (src/ibex_sv/ibex_register_file_ff.sv) as
-# generate_regfile builds it, for simulation against that RTL: 32 x 32
+# generate_ram builds it, for simulation against that RTL: 32 x 32
 # with x0 reading zero, two combinational reads, one write through a
 # clock gate per word, every word reset to zero asynchronously by
 # rst_ni. With ibex's default

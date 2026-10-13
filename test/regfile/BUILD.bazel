@@ -162,29 +162,25 @@ build_test(
     targets = [":regfile_top_keep_blackboxes"],
 )
 
-# OpenROAD's own ram tests, generate_ram's and generate_regfile's (patch
-# 0010), so a change to the generator runs them here: CI tests this
+# OpenROAD's own ram tests, generate_ram's and those patches 0011 to 0023
+# add, so a change to the generator runs them here: CI tests this
 # repository's packages, not @openroad's.
 test_suite(
     name = "openroad_ram_tests",
     tests = [
-        "@openroad//src/ram/test:generate_regfile_asap7-tcl_test",
-        "@openroad//src/ram/test:generate_regfile_clock_gate_asap7-tcl_test",
-        "@openroad//src/ram/test:generate_regfile_modes_asap7-tcl_test",
-        "@openroad//src/ram/test:generate_regfile_reset_asap7-tcl_test",
-        "@openroad//src/ram/test:generate_regfile_reset_high_asap7-tcl_test",
-        "@openroad//src/ram/test:generate_regfile_sv_ports_asap7-tcl_test",
-        "@openroad//src/ram/test:generate_regfile_write_priority_asap7-tcl_test",
         "@openroad//src/ram/test:make_7x7_1r2w_nangate45-tcl_test",
         "@openroad//src/ram/test:make_7x7_2r1w_nangate45-tcl_test",
         "@openroad//src/ram/test:make_7x7_nangate45-tcl_test",
         "@openroad//src/ram/test:make_8x8_2r1w_and_or_asap7-tcl_test",
         "@openroad//src/ram/test:make_8x8_2r1w_banks_asap7-tcl_test",
+        "@openroad//src/ram/test:make_8x8_2r1w_contiguous_asap7-tcl_test",
         "@openroad//src/ram/test:make_8x8_2r1w_mux_asap7-tcl_test",
         "@openroad//src/ram/test:make_8x8_2r1w_reset_asap7-tcl_test",
+        "@openroad//src/ram/test:make_8x8_2r1w_service_asap7-tcl_test",
         "@openroad//src/ram/test:make_8x8_2r1w_sky130-tcl_test",
         "@openroad//src/ram/test:make_8x8_2r1w_unplaced_asap7-tcl_test",
         "@openroad//src/ram/test:make_8x8_2r1w_zero_asap7-tcl_test",
+        "@openroad//src/ram/test:make_8x8_2r2w_or_asap7-tcl_test",
         "@openroad//src/ram/test:make_8x8_rb_asap7-tcl_test",
         "@openroad//src/ram/test:make_8x8_rb_latency_asap7-tcl_test",
         "@openroad//src/ram/test:make_8x8_sky130-tcl_test",

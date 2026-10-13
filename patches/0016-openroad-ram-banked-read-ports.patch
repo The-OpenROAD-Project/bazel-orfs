@@ -14,7 +14,7 @@ see OpenROAD #11669. Not upstreamed.
 
 ---
 diff --git a/src/ram/README.md b/src/ram/README.md
-index 8fabb35c70..5f4dcdaa51 100644
+index caca31e8b5..a6fbf28bc9 100644
 --- a/src/ram/README.md
 +++ b/src/ram/README.md
 @@ -49,6 +49,7 @@ generate_ram [-mask_size bits]
@@ -357,10 +357,10 @@ index 43a2724490..9d75d28322 100644
      std::string port_name = (r_total == 1) ? "Q" : fmt::format("Q{}", i);
      std::string addr_name;
 diff --git a/src/ram/src/ram.i b/src/ram/src/ram.i
-index d5eb7723c5..037e28f5ff 100644
+index cafbfcad18..5df5f55134 100644
 --- a/src/ram/src/ram.i
 +++ b/src/ram/src/ram.i
-@@ -48,7 +48,8 @@ generate_ram_netlist_cmd(int mask_size,
+@@ -47,7 +47,8 @@ generate_ram_netlist_cmd(int mask_size,
                           const char* reset_value,
                           const int banks,
                           const int bank_columns,
@@ -370,7 +370,7 @@ index d5eb7723c5..037e28f5ff 100644
  {
    RamGen* ram_gen = ord::getRamGen();
    odb::dbDatabase* db = ord::getDb();
-@@ -101,7 +102,7 @@ generate_ram_netlist_cmd(int mask_size,
+@@ -100,7 +101,7 @@ generate_ram_netlist_cmd(int mask_size,
    ram_gen->generate(mask_size, word_size, num_words, rw_ports, r_ports, w_ports,
                      column_mux_ratio, use_latch, storage_cell, tristate_cell, inv_cell, 
                      tapcell, max_tap_dist, read_style, zero_word,
@@ -378,9 +378,9 @@ index d5eb7723c5..037e28f5ff 100644
 +                    reset_value, banks, bank_columns, bank_order, rb_ports);
  }
  
- void generate_regfile_cmd(const char* spec_path,
+ void ram_pdngen(const char* power_net_name, const char* ground_net_name,
 diff --git a/src/ram/src/ram.tcl b/src/ram/src/ram.tcl
-index 315a3d88bd..3466fe562c 100644
+index 6e404175da..9c541fc52f 100644
 --- a/src/ram/src/ram.tcl
 +++ b/src/ram/src/ram.tcl
 @@ -13,11 +13,13 @@ sta::define_cmd_args "generate_ram_netlist" {[-mask_size bits]
@@ -456,7 +456,7 @@ index 315a3d88bd..3466fe562c 100644
        lappend ram_netlist_args $key $keys($key)
      }
 diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index fdb75124a0..cd2a6d7cdb 100644
+index b882508c0c..218e3bff6b 100644
 --- a/src/ram/test/BUILD
 +++ b/src/ram/test/BUILD
 @@ -13,6 +13,7 @@ COMPULSORY_TESTS = [
@@ -467,7 +467,7 @@ index fdb75124a0..cd2a6d7cdb 100644
      "make_8x8_2r1w_banks_asap7",
      "make_8x8_2r1w_reset_asap7",
      "make_8x8_2r1w_zero_asap7",
-@@ -110,6 +111,11 @@ filegroup(
+@@ -71,6 +72,11 @@ filegroup(
                  "//test:asap7_nldm_data",
                  "make_8x8_2r1w_banks_asap7_behavioral.vok",
              ],

@@ -8,8 +8,8 @@ load(":scaffold.bzl", "array_scaffold")
 # miniature planned parent and the parent itself. A 305 um array grows
 # nets the resizer wants to buffer, which the small files never do
 # (inventory entry 16); CTS rewires its flops and seats its buffers in the
-# service columns at the real count. The outlines are the generator's
-# .def DIEAREA for each spec; a stale pair fails at floorplan.
+# service columns at the real count. The outlines are generate_ram's,
+# for each spec in the netlist shape; a stale pair fails at floorplan.
 py_binary(
     name = "scaffold_gen",
     srcs = ["scaffold_gen.py"],
@@ -20,26 +20,29 @@ XS_SPECS = "//test/coremark_joule/designs/asap7/xiangshan:"
 
 array_scaffold(
     name = "RenameBufferFile",
-    height_um = 192.24,
+    height_um = 190.35,
+    periphery_um2 = 7027,
     spec = XS_SPECS + "RenameBufferFile.regfile",
-    width_um = 306.504,
+    width_um = 129.06,
 )
 
 array_scaffold(
     name = "RobEntryFile",
-    height_um = 192.51,
+    height_um = 95.31,
+    periphery_um2 = 7027,
     spec = XS_SPECS + "RobEntryFile.regfile",
-    width_um = 318.384,
+    width_um = 295.002,
 )
 
 array_scaffold(
     name = "IntRegFile",
-    height_um = 243.27,
+    height_um = 242.19,
+    periphery_um2 = 3236,
     spec = XS_SPECS + "IntRegFile.regfile",
-    width_um = 406.404,
+    width_um = 192.294,
 )
 
-# generate_regfile's golden case (tools/structured_gen:golden_test).
+# generate_ram's golden case (tools/structured_gen:golden_test).
 exports_files(
     ["SmallFile.regfile"],
     visibility = ["//tools/structured_gen:__pkg__"],

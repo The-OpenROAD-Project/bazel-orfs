@@ -58,7 +58,7 @@ diff --git a/flow/scripts/memories/regfile_ram.py b/flow/scripts/memories/regfil
 new file mode 100644
 --- /dev/null
 +++ b/flow/scripts/memories/regfile_ram.py
-@@ -0,0 +1,597 @@
+@@ -0,0 +1,690 @@
 +"""AUTO_MEMORIES_REGFILES through OpenROAD's generate_ram.
 +
 +A register-file spec (the keys generate_regfile reads) is translated to
@@ -81,7 +81,10 @@ new file mode 100644
 +periphery as a Verilog module, <module>_ram, around the core,
 +<module>_ram_core, which is then what is inlined or the macro. A macro
 +kept to the end (mode macro) gets its pins from OpenROAD's pin placer on
-+the spec's pin layers and its liberty from write_timing_model.
++the spec's pin layers, its liberty from write_timing_model and its
++power from rails on its rows and straps with the VDD and VSS pins
++(power_rails, power_layer, power_width, power_pitch, power_offset;
++asap7's by default).
 +"""
 +
 +from __future__ import annotations
@@ -92,6 +95,9 @@ new file mode 100644
 +import re
 +import subprocess
 +from pathlib import Path
++
++# the longest a word's bits may run in a row before it is folded, um
++WORD_SPAN_UM = 150
 +
 +# keys generate_ram has no counterpart for yet
 +UNSUPPORTED = {"pin_track", "lib"}
@@ -164,7 +170,7 @@ new file mode 100644
 +        "-name",
 +        block,
 +        "-mask_size",
-+        str(bits // folds),
++        str(-(-bits // folds)),
 +        "-word_size",
 +        str(bits),
 +        "-num_words",
@@ -179,6 +185,18 @@ new file mode 100644
 +        "-decoder",
 +        "word",
 +    ]
++    if len(_values(lines, "write")) > 1:
++        # two ports writing one word in a cycle: generate_regfile's
++        # default ORs their data, as firtool's register files do
++        args += ["-write_priority", _one(lines, "write_priority", "or")]
++    if int(_one(lines, "bank_columns", "1")) > 1 and not _values(
++        lines, "bank_column_layout"
++    ):
++        # a row's words each contiguous, as generate_regfile's tile per
++        # word: interleaved, a word's selects and write enables run the
++        # whole row (XiangShan's RobEntryFile: 6,483 slew violations in a
++        # parent, against 608)
++        args += ["-bank_column_layout", "contiguous"]
 +    if storage:
 +        args += ["-storage_cell", storage]
 +    if folds > 1:
@@ -186,7 +204,14 @@ new file mode 100644
 +        args += ["-bit_folds", str(folds)]
 +    if _values(lines, "read_banked"):
 +        args += ["-rb_ports", str(len(_values(lines, "read_banked")))]
-+    for key in ("zero_word", "banks", "bank_columns", "bank_order", "read_latency"):
++    for key in (
++        "zero_word",
++        "banks",
++        "bank_columns",
++        "bank_order",
++        "bank_column_layout",
++        "read_latency",
++    ):
 +        if _values(lines, key):
 +            args += [f"-{key}", _one(lines, key)]
 +    if async_reset:
@@ -202,6 +227,13 @@ new file mode 100644
 +    ]
 +    if roles:
 +        args += ["-cells", "{" + " ".join(roles) + "}"]
++    # generate_regfile's service columns: `service_sites` empty sites after
++    # every `tap_columns` storage columns, room for a parent's buffers in
++    # the array; 40 by default in a macro kept to the end, else none
++    sites = int(_one(lines, "service_sites", "40" if shape == "macro" else "0"))
++    if sites > 0:
++        every = _one(lines, "tap_columns", "8")
++        args += ["-service_columns", f"{{{every} {sites}}}"]
 +    if _one(lines, "periphery") == "verilog":
 +        args += ["-periphery", "verilog", "-pin_layer", _one(lines, "pin_layer", "M4")]
 +    elif shape == "netlist":
@@ -554,18 +586,41 @@ new file mode 100644
 +        return float(width), float(height)
 +
 +    width, height = build(lines)
-+    # generate_regfile chose its rows per word itself: where the spec names
-+    # no folds and a word in one row came out more than 8 times as wide as
-+    # tall (XiangShan's IntRegFile, 12 reads and 9 writes, 48), fold it
-+    # into the power of two of rows nearest the square. A heuristic: a
-+    # strip of a few to one can be the shape that fits (riscv32i's, 6, sits
-+    # under its FakeRAMs), so a spec names bit_folds to choose.
++    # generate_regfile chose its rows per word itself; where the spec names
++    # no folds, fold a word into a power of two of rows while
++    #
++    # - the array is more than 8 times as wide as tall, toward the square
++    #   (XiangShan's IntRegFile, 12 reads and 9 writes, 48 to one); a strip
++    #   of a few to one can be the shape that fits (riscv32i's, 6, sits
++    #   under its FakeRAMs), so that alone does not fold;
++    # - or one word's bits span more than WORD_SPAN_UM: its selects and
++    #   write enables, driven from one cell, are that long, and a parent
++    #   buffers them inside the full array, where nothing legalizes
++    #   (XiangShan's RenameBufferFile, a word a row 258 um wide, failed;
++    #   RobEntryFile at 74 um and IntRegFile at 96 um a word did not).
++    #
++    # A spec names bit_folds to choose.
 +    bits = int(_one(lines, "bits"))
-+    if not _values(lines, "bit_folds") and width > 8 * height:
++    dbu = float(outline.read_text().split()[2])
++    # the words side by side in a row, each contiguous (see _args) unless
++    # the spec interleaves them, when a word spans the row
++    row_words = (
++        int(_one(lines, "bank_columns", "1"))
++        if _one(lines, "bank_column_layout", "contiguous") == "contiguous"
++        else 1
++    )
++    span_um = width / dbu / row_words
++    if not _values(lines, "bit_folds"):
 +        folds = 1
-+        while folds * 2 <= bits and bits % (folds * 2) == 0 and (
-+            folds * 2
-+        ) ** 2 <= 2 * width / height:
++        # a short last fold is allowed, an empty one is not
++        while (
++            folds * 2 <= bits
++            and (folds * 2 - 1) * -(-bits // (folds * 2)) < bits
++            and (
++                (width > 8 * height and (folds * 2) ** 2 <= 2 * width / height)
++                or span_um / folds > WORD_SPAN_UM
++            )
++        ):
 +            folds *= 2
 +        if folds > 1:
 +            lines = lines + [["bit_folds", str(folds)]]
@@ -607,6 +662,44 @@ new file mode 100644
 +                    f"make_tracks {layer} -x_offset $o -x_pitch $p"
 +                    " -y_offset $o -y_pitch $p\n"
 +                )
++            # its power, as a hardened block's: rails on the rows, straps
++            # with the VDD and VSS pins the parent's grid connects to
++            # (asap7's BLOCK_grid_strategy.tcl, without its ring)
++            rails = (_values(lines, "power_rails") or [["M1", "M2"]])[-1]
++            rail_w = _one(lines, "power_rail_width", "0.018")
++            strap = _one(lines, "power_layer", "M5")
++            strap_w = _one(lines, "power_width", "0.12")
++            pitch = _one(lines, "power_pitch", "2.976")
++            offset = _one(lines, "power_offset", "1.5")
++            tcl += (
++                "set block [ord::get_db_block]\n"
++                "foreach {name type} {VDD POWER VSS GROUND} {\n"
++                "  set net [$block findNet $name]\n"
++                '  if {$net eq "NULL"} { set net [odb::dbNet_create $block $name] }\n'
++                "  $net setSpecial\n"
++                "  $net setSigType $type\n"
++                "}\n"
++                "add_global_connection -net VDD -inst_pattern {.*}"
++                " -pin_pattern {^VDD$} -power\n"
++                "add_global_connection -net VSS -inst_pattern {.*}"
++                " -pin_pattern {^VSS$} -ground\n"
++                "global_connect\n"
++                "set_voltage_domain -name CORE -power VDD -ground VSS\n"
++                f"define_pdn_grid -name block -voltage_domains CORE -pins {strap}\n"
++            )
++            for rail in rails:
++                tcl += (
++                    f"add_pdn_stripe -grid block -layer {rail} -width {rail_w}"
++                    " -followpins\n"
++                )
++            tcl += (
++                f"add_pdn_stripe -grid block -layer {strap} -width {strap_w}"
++                f" -pitch {pitch} -offset {offset} -extend_to_boundary\n"
++            )
++            for lo, hi in zip(rails + [strap], rails[1:] + [strap]):
++                if lo != hi:
++                    tcl += f"add_pdn_connect -grid block -layers {{{lo} {hi}}}\n"
++            tcl += "pdngen\n"
 +            tcl += f"place_pins -hor_layers {h} -ver_layers {v}\n"
 +        tcl += _MACRO_TCL.format(out=out_dir, block=block)
 +        if shape == "macro":

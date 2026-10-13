@@ -14,7 +14,7 @@ see OpenROAD #11669. Not upstreamed.
 
 ---
 diff --git a/src/ram/README.md b/src/ram/README.md
-index f7981d19fc..c73f269d6c 100644
+index b289c8104b..6702d6699a 100644
 --- a/src/ram/README.md
 +++ b/src/ram/README.md
 @@ -44,6 +44,7 @@ generate_ram [-mask_size bits]
@@ -312,10 +312,10 @@ index 463e1f3a86..7362a35c8e 100644
                                 mask_size,
                                 mask_size,
 diff --git a/src/ram/src/ram.i b/src/ram/src/ram.i
-index fed815886b..5f765b215b 100644
+index bb90a0c434..35f5bf3157 100644
 --- a/src/ram/src/ram.i
 +++ b/src/ram/src/ram.i
-@@ -43,7 +43,8 @@ generate_ram_netlist_cmd(int mask_size,
+@@ -42,7 +42,8 @@ generate_ram_netlist_cmd(int mask_size,
                           const char* inv_cell_name,
                           const char* tapcell_name,
                           const int max_tap_dist,
@@ -325,7 +325,7 @@ index fed815886b..5f765b215b 100644
  {
    RamGen* ram_gen = ord::getRamGen();
    odb::dbDatabase* db = ord::getDb();
-@@ -95,7 +96,7 @@ generate_ram_netlist_cmd(int mask_size,
+@@ -94,7 +95,7 @@ generate_ram_netlist_cmd(int mask_size,
  
    ram_gen->generate(mask_size, word_size, num_words, rw_ports, r_ports, w_ports,
                      column_mux_ratio, use_latch, storage_cell, tristate_cell, inv_cell, 
@@ -333,9 +333,9 @@ index fed815886b..5f765b215b 100644
 +                    tapcell, max_tap_dist, read_style, zero_word);
  }
  
- void generate_regfile_cmd(const char* spec_path,
+ void ram_pdngen(const char* power_net_name, const char* ground_net_name,
 diff --git a/src/ram/src/ram.tcl b/src/ram/src/ram.tcl
-index 2eb5896319..998f61fde5 100644
+index 8ae362eb9e..2494d4c873 100644
 --- a/src/ram/src/ram.tcl
 +++ b/src/ram/src/ram.tcl
 @@ -8,6 +8,8 @@ sta::define_cmd_args "generate_ram_netlist" {[-mask_size bits]
@@ -394,7 +394,7 @@ index 2eb5896319..998f61fde5 100644
      lappend ram_netlist_args -inv_cell $keys(-inv_cell)
    }
 diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index 87d3ef72a7..0bd0331ed9 100644
+index 5fe9d8b0a3..1192665493 100644
 --- a/src/ram/test/BUILD
 +++ b/src/ram/test/BUILD
 @@ -13,6 +13,7 @@ COMPULSORY_TESTS = [
@@ -404,11 +404,11 @@ index 87d3ef72a7..0bd0331ed9 100644
 +    "make_8x8_2r1w_zero_asap7",
      "make_8x8_2r1w_and_or_asap7",
      "make_7x7_1r2w_nangate45",
-     "generate_regfile_asap7",
-@@ -92,6 +93,11 @@ filegroup(
-             "generate_regfile_write_priority_asap7": REGFILE_TEST_DATA + [
-                 "generate_regfile_asap7.regfile",
+ ]
+@@ -53,6 +54,11 @@ filegroup(
+                 test_name + ".*",
              ],
+         ) + {
 +            "make_8x8_2r1w_zero_asap7": [
 +                "//test:asap7_data",
 +                "//test:asap7_nldm_data",

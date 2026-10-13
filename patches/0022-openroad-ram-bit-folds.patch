@@ -1,8 +1,10 @@
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Subject: [PATCH] ram: generate_ram -bit_folds, a word's slices in rows
 
--bit_folds k lays a word's mask slices (-mask_size word/k) in k rows
-instead of side by side. generate_ram puts a word in one row, a bit's
+-bit_folds k lays a word's mask slices (-mask_size, word/k rounded up)
+in k rows instead of side by side; where k does not divide the word the
+last fold is short, its missing bits empty columns (XiangShan's
+FtqMetaQueueRedirect, 211 bits in 4 folds). generate_ram puts a word in one row, a bit's
 cells side by side, so a wide word with many ports is a long thin
 array: XiangShan's integer register file, 64 bits, 12 read and 9 write
 ports, came out 1458 x 31 um. With folds the decoder, select-buffer and
@@ -19,7 +21,7 @@ see OpenROAD #11669. Not upstreamed.
 
 ---
 diff --git a/src/ram/include/ram/ram.h b/src/ram/include/ram/ram.h
-index d253b23818..5400b8b04a 100644
+index d253b23818..4b82175c0d 100644
 --- a/src/ram/include/ram/ram.h
 +++ b/src/ram/include/ram/ram.h
 @@ -123,7 +123,8 @@ class RamGen
@@ -32,7 +34,7 @@ index d253b23818..5400b8b04a 100644
  
    void ramPdngen(const char* power_net_name,
                   const char* ground_net_name,
-@@ -385,6 +386,28 @@ class RamGen
+@@ -385,6 +386,29 @@ class RamGen
    // a row; each pin where its connections land, on pin_layer_'s tracks
    bool periphery_unplaced_{false};
    std::string ram_name_;  // the block's and the behavioral model's name
@@ -40,6 +42,7 @@ index d253b23818..5400b8b04a 100644
 +  // so a wide word with many ports is as tall as it is wide; every
 +  // column is k rows a word
 +  int bit_folds_{1};
++  int word_bits_{0};  // the word's bits, short of the folds' pads
 +  int slice_width_{0};  // a slice's columns: its bits, and its select
 +  // with -bit_folds a word is written whole: its write logic (enables,
 +  // priority, hold, clock gate, reset tie, select inverters) built in its
@@ -62,7 +65,7 @@ index d253b23818..5400b8b04a 100644
    bool marking_periphery_{false};
    Cell* periphery_cell_{nullptr};
 diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
-index b5a03e9315..cf48730c73 100644
+index b5a03e9315..a49a3612cb 100644
 --- a/src/ram/src/ram.cpp
 +++ b/src/ram/src/ram.cpp
 @@ -349,18 +349,25 @@ void RamGen::makeSlice(const int slice_idx,
@@ -136,7 +139,7 @@ index b5a03e9315..cf48730c73 100644
      vector<dbNet*> we(num_write);
      for (int w = 0; w < num_write; ++w) {
        we[w] = makeNet(prefix, fmt::format("we{}", w));
-@@ -490,6 +501,10 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -490,7 +501,18 @@ void RamGen::makeSlice(const int slice_idx,
      }
    }
  
@@ -145,9 +148,17 @@ index b5a03e9315..cf48730c73 100644
 +  }
 +
    for (int local_bit = 0; local_bit < mask_size; ++local_bit) {
++    if (start_bit_idx + local_bit >= word_bits_) {
++      // a short fold's pad: its column empty in this row
++      ram_grid_.addCell(nullptr,
++                        sliceOffset(slice_idx)
++                            + local_bit * column_mux_ratio + word_idx);
++      continue;
++    }
      auto name = fmt::format("{}.bit{}", prefix, start_bit_idx + local_bit);
      vector<dbNet*> outs(r_total);
-@@ -606,13 +621,13 @@ void RamGen::makeSlice(const int slice_idx,
+     for (int r_port = 0; r_port < r_total; ++r_port) {
+@@ -606,13 +628,13 @@ void RamGen::makeSlice(const int slice_idx,
        }
      }
  
@@ -163,7 +174,7 @@ index b5a03e9315..cf48730c73 100644
      makeInst(sel_cell.get(),
               prefix,
               "cg",
-@@ -640,7 +655,7 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -640,7 +662,7 @@ void RamGen::makeSlice(const int slice_idx,
    // Make clock and
    // this AND gate needs to be fed a net created by a decoder
    // adding any net will automatically connect with any port
@@ -172,7 +183,7 @@ index b5a03e9315..cf48730c73 100644
      makeInst(sel_cell.get(),
               prefix,
               "gcand",
-@@ -651,7 +666,7 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -651,7 +673,7 @@ void RamGen::makeSlice(const int slice_idx,
    }
  
    // Make select inverters
@@ -181,7 +192,7 @@ index b5a03e9315..cf48730c73 100644
      for (int i = 0; i < r_total; ++i) {
        if (selects[num_write + i] == nullptr) {
          continue;  // a banked read port's other banks
-@@ -665,9 +680,10 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -665,9 +687,10 @@ void RamGen::makeSlice(const int slice_idx,
      }
    }
  
@@ -194,7 +205,7 @@ index b5a03e9315..cf48730c73 100644
  }
  
  // Note: For column_mux_ratio > 1, creates one shared select_b net per row and
-@@ -703,7 +719,8 @@ void RamGen::makeWord(const int slices_per_word,
+@@ -703,7 +726,8 @@ void RamGen::makeWord(const int slices_per_word,
      for (size_t w = 0; w < data_input.size(); ++w) {
        slice_inputs.emplace_back(data_input[w].begin() + start_idx,
                                  data_input[w].begin() + start_idx + mask_size);
@@ -204,7 +215,7 @@ index b5a03e9315..cf48730c73 100644
      }
      std::vector<std::vector<odb::dbNet*>> slice_outputs;
      slice_outputs.reserve(r_total);
-@@ -789,6 +806,9 @@ void RamGen::makeDecoderColumn(
+@@ -789,6 +813,9 @@ void RamGen::makeDecoderColumn(
        }
      }
      decoder_layout->addCell(std::move(word_cell));
@@ -214,7 +225,7 @@ index b5a03e9315..cf48730c73 100644
    }
    marking_periphery_ = false;
    ram_grid_.addLayout(std::move(decoder_layout));
-@@ -819,6 +839,9 @@ void RamGen::makeBufferColumn(const std::string& prefix,
+@@ -819,6 +846,9 @@ void RamGen::makeBufferColumn(const std::string& prefix,
             {buffer_ports_[{PortRoleType::DataOut, 0}], select_nets[word]}});
      }
      buffer_layout->addCell(std::move(buf_cell));
@@ -224,7 +235,7 @@ index b5a03e9315..cf48730c73 100644
    }
    marking_periphery_ = false;
    ram_grid_.addLayout(std::move(buffer_layout));
-@@ -876,6 +899,9 @@ void RamGen::makeWordDecoderColumn(
+@@ -876,6 +906,9 @@ void RamGen::makeWordDecoderColumn(
        }
      }
      decoder_layout->addCell(std::move(row_cell));
@@ -234,7 +245,16 @@ index b5a03e9315..cf48730c73 100644
    }
    marking_periphery_ = false;
    ram_grid_.addLayout(std::move(decoder_layout));
-@@ -1916,7 +1942,8 @@ void RamGen::generate(const int mask_size,
+@@ -1891,7 +1924,7 @@ void RamGen::ramRouting(int thread_count)
+ }
+ 
+ void RamGen::generate(const int mask_size,
+-                      const int word_size,
++                      const int word_bits,
+                       const int num_words,
+                       const int rw_ports,
+                       const int r_ports,
+@@ -1916,7 +1949,8 @@ void RamGen::generate(const int mask_size,
                        const std::string& pin_layer,
                        const std::string& cells,
                        const std::string& name,
@@ -244,19 +264,31 @@ index b5a03e9315..cf48730c73 100644
  {
    // Banks: every port decodes every word's whole address, and a row holds
    // bank_columns words, laid out as the column mux lays out its words;
-@@ -1980,6 +2007,23 @@ void RamGen::generate(const int mask_size,
+@@ -1980,13 +2014,42 @@ void RamGen::generate(const int mask_size,
    // the words in a row: the column mux's, or the banks side by side
    const int column_mux_ratio = banked_ ? bank_columns_ : column_mux_ratio_arg;
    words_per_row_ = column_mux_ratio;
 +  bit_folds_ = std::max(bit_folds, 1);
 +  slice_width_ = mask_size * column_mux_ratio + column_mux_ratio;
++  // the word's own bits; with -bit_folds the last fold may be short, its
++  // missing bits pads: columns with no port, flop or read tree
++  word_bits_ = word_bits;
++  const int word_size = bit_folds_ > 1 ? mask_size * bit_folds_ : word_bits;
 +  if (bit_folds_ > 1) {
-+    if (word_size / mask_size != bit_folds_) {
++    const int fold = (word_bits + bit_folds_ - 1) / bit_folds_;
++    if (mask_size != fold) {
 +      logger_->error(RAM,
 +                     83,
 +                     "-bit_folds {} needs -mask_size {}: a fold is a slice.",
 +                     bit_folds_,
-+                     word_size / bit_folds_);
++                     fold);
++    }
++    if (word_size - word_bits >= mask_size) {
++      logger_->error(RAM,
++                     88,
++                     "-bit_folds {} leaves a fold of -word_size {} empty.",
++                     bit_folds_,
++                     word_bits);
 +    }
 +    if (use_latch || (!banked_ && column_mux_ratio > 1)) {
 +      logger_->error(RAM,
@@ -268,7 +300,15 @@ index b5a03e9315..cf48730c73 100644
    if (num_words / column_mux_ratio == 1) {
      logger_->error(RAM, 42, "1-row RAMs are not supported.");
    }
-@@ -2039,6 +2083,7 @@ void RamGen::generate(const int mask_size,
+   const int slices_per_word = word_size / mask_size;
+   // the block's name: -name, or RAM<words>x<bits>
+   const std::string ram_name
+-      = name.empty() ? fmt::format("RAM{}x{}", num_words, word_size) : name;
++      = name.empty() ? fmt::format("RAM{}x{}", num_words, word_bits) : name;
+   ram_name_ = ram_name;
+ 
+   // error checking for column_mux_ratio
+@@ -2039,6 +2102,7 @@ void RamGen::generate(const int mask_size,
    storage_inverted_ = false;
    storage_nets_.clear();
    tree_nodes_.clear();
@@ -276,7 +316,7 @@ index b5a03e9315..cf48730c73 100644
    storage_cell_ = storage_cell;
    tristate_cell_ = tristate_cell;
    inv_cell_ = inv_cell;
-@@ -2208,7 +2253,8 @@ void RamGen::generate(const int mask_size,
+@@ -2208,7 +2272,8 @@ void RamGen::generate(const int mask_size,
  
    // mux layout columns + per-port buffer/decoder columns + inverter columns
    int col_cell_count
@@ -286,7 +326,7 @@ index b5a03e9315..cf48730c73 100644
    ram_grid_.setNumLayouts(col_cell_count);
  
    auto clock = makeBTerm("clk", dbIoType::INPUT);
-@@ -2231,7 +2277,9 @@ void RamGen::generate(const int mask_size,
+@@ -2231,7 +2296,9 @@ void RamGen::generate(const int mask_size,
        num_write, vector<dbBTerm*>(slices_per_word, nullptr));
    for (int w = 0; w < num_write; ++w) {
      const std::string we = num_write == 1 ? "we" : fmt::format("we{}", w);
@@ -297,7 +337,53 @@ index b5a03e9315..cf48730c73 100644
        write_enable[w][slice]
            = makeBTerm(fmt::format("{}[{}]", we, slice), dbIoType::INPUT);
      }
-@@ -2763,10 +2811,19 @@ void RamGen::generate(const int mask_size,
+@@ -2398,6 +2465,16 @@ void RamGen::generate(const int mask_size,
+   vector<vector<dbBTerm*>> data_inputs(num_write);
+   vector<vector<dbNet*>> D_nets(num_write, vector<dbNet*>(word_size));
+   for (int bit = 0; bit < word_size; ++bit) {
++    if (bit >= word_bits_) {
++      // a short fold's pad: no ports
++      for (int w = 0; w < num_write; ++w) {
++        data_inputs[w].push_back(nullptr);
++      }
++      for (auto& q : q_outputs_) {
++        q.push_back(nullptr);
++      }
++      continue;
++    }
+     for (int w = 0; w < num_write; ++w) {
+       const std::string d = num_write == 1 ? "D" : fmt::format("D{}", w);
+       data_inputs[w].push_back(
+@@ -2440,7 +2517,9 @@ void RamGen::generate(const int mask_size,
+     for (int w = 0; w < column_mux_ratio; ++w) {
+       for (int port = 0; port < r_total; ++port) {
+         for (int bit = 0; bit < word_size; ++bit) {
+-          word_q_nets[w][port][bit] = q_outputs_[port][bit]->getNet();
++          word_q_nets[w][port][bit] = q_outputs_[port][bit]
++                                          ? q_outputs_[port][bit]->getNet()
++                                          : nullptr;
+         }
+       }
+     }
+@@ -2503,7 +2582,7 @@ void RamGen::generate(const int mask_size,
+         if (wordAt(row, w) == zero_word_) {
+           continue;
+         }
+-        for (int bit = 0; bit < word_size; ++bit) {
++        for (int bit = 0; bit < word_bits_; ++bit) {
+           const std::string prefix = fmt::format(
+               "storage_{}_{}_{}", row, w, (bit / mask_size) * mask_size);
+           storage_nets_[{row, w, bit}] = makeNet(
+@@ -2537,7 +2616,7 @@ void RamGen::generate(const int mask_size,
+         const vector<Term> terms = terms_of(port, w);
+         const int n = static_cast<int>(terms.size());
+         const bool flip = treeInverted(0, n) != storage_inverted_;
+-        for (int bit = 0; bit < word_size; ++bit) {
++        for (int bit = 0; bit < word_bits_; ++bit) {
+           const std::string prefix
+               = banked_ ? fmt::format("read_p{}_b{}", port, bit)
+                         : fmt::format("read_w{}_p{}_b{}", w, port, bit);
+@@ -2763,10 +2842,22 @@ void RamGen::generate(const int mask_size,
      }
    }
  
@@ -312,13 +398,16 @@ index b5a03e9315..cf48730c73 100644
 +      int buf_col = sliceOffset(slice) + bit * column_mux_ratio;
 +      auto& buffer_grid_cell
 +          = buffer_cells[{buf_col, bit_folds_ > 1 ? slice : 0}];
++      if (bit_idx >= word_bits_) {
++        continue;  // a short fold's pad: an empty cell
++      }
 +      if (!buffer_grid_cell) {
 +        buffer_grid_cell = std::make_unique<Cell>();
 +      }
        marking_periphery_ = true;  // the input buffers
        for (int w = 0; w < num_write; ++w) {
          makeInst(buffer_grid_cell.get(),
-@@ -2779,11 +2836,11 @@ void RamGen::generate(const int mask_size,
+@@ -2779,11 +2870,11 @@ void RamGen::generate(const int mask_size,
                     D_nets[w][bit_idx]}});
        }
        marking_periphery_ = false;
@@ -333,7 +422,7 @@ index b5a03e9315..cf48730c73 100644
  
    // indices for creating buffers
    int r_buf_idx = 0;
-@@ -2834,7 +2891,7 @@ void RamGen::generate(const int mask_size,
+@@ -2834,7 +2925,7 @@ void RamGen::generate(const int mask_size,
      for (int col = 0; col < inv_col_count; ++col) {
        int start_port = col * ports_per_col;
        int end_port = std::min(start_port + ports_per_col, total_ports);
@@ -342,7 +431,7 @@ index b5a03e9315..cf48730c73 100644
                                               num_row_bits,
                                               start_port,
                                               end_port,
-@@ -2933,7 +2990,9 @@ void RamGen::generate(const int mask_size,
+@@ -2933,7 +3024,9 @@ void RamGen::generate(const int mask_size,
    }
    // // One extra row at the top for placing input buffers, one extra row for
    // // negative latches if use latch-based ram
@@ -353,7 +442,7 @@ index b5a03e9315..cf48730c73 100644
  
    // auto cell_inv_layout = std::make_unique<Layout>(odb::vertical);
    // // check for AND gate, specific case for 2 words
-@@ -3042,9 +3101,10 @@ void RamGen::generate(const int mask_size,
+@@ -3042,9 +3135,10 @@ void RamGen::generate(const int mask_size,
      unplacePeriphery();
    }
  
@@ -362,15 +451,15 @@ index b5a03e9315..cf48730c73 100644
 -                         slices_per_word,
 -                         mask_size,
 +                         bit_folds_ > 1 ? 1 : slices_per_word,
-+                         bit_folds_ > 1 ? word_size : mask_size,
++                         bit_folds_ > 1 ? word_bits_ : mask_size,
                           num_words,
                           rw_ports,
                           r_ports,
 diff --git a/src/ram/src/ram.i b/src/ram/src/ram.i
-index 6fdfcf5eda..4aaa60f0f3 100644
+index 41f4ec7c5c..78d76a9488 100644
 --- a/src/ram/src/ram.i
 +++ b/src/ram/src/ram.i
-@@ -56,7 +56,8 @@ generate_ram_netlist_cmd(int mask_size,
+@@ -55,7 +55,8 @@ generate_ram_netlist_cmd(int mask_size,
                           const char* pin_layer,
                           const char* cells,
                           const char* name,
@@ -380,7 +469,7 @@ index 6fdfcf5eda..4aaa60f0f3 100644
  {
    RamGen* ram_gen = ord::getRamGen();
    odb::dbDatabase* db = ord::getDb();
-@@ -111,7 +112,7 @@ generate_ram_netlist_cmd(int mask_size,
+@@ -110,7 +111,7 @@ generate_ram_netlist_cmd(int mask_size,
                      tapcell, max_tap_dist, read_style, zero_word,
                      reset_value, banks, bank_columns, bank_order, rb_ports,
                      read_latency, write_style, periphery, pin_layer, cells,
@@ -388,9 +477,9 @@ index 6fdfcf5eda..4aaa60f0f3 100644
 +                    name, decoder, bit_folds);
  }
  
- void generate_regfile_cmd(const char* spec_path,
+ void ram_pdngen(const char* power_net_name, const char* ground_net_name,
 diff --git a/src/ram/src/ram.tcl b/src/ram/src/ram.tcl
-index 1b056eaabf..db7e1d06c8 100644
+index 8efed6fdfd..8e7ef1167c 100644
 --- a/src/ram/src/ram.tcl
 +++ b/src/ram/src/ram.tcl
 @@ -19,6 +19,7 @@ sta::define_cmd_args "generate_ram_netlist" {[-mask_size bits]
@@ -418,7 +507,18 @@ index 1b056eaabf..db7e1d06c8 100644
  
    set column_mux_ratio 1
    if { [info exists keys(-column_mux_ratio)] } {
-@@ -221,6 +223,11 @@ proc generate_ram_netlist { args } {
+@@ -65,7 +67,9 @@ proc generate_ram_netlist { args } {
+     set mask_size $word_size
+   }
+ 
+-  if { $word_size % $mask_size != 0 } {
++  # with -bit_folds the last fold may be short
++  set folded [expr { [info exists keys(-bit_folds)] && $keys(-bit_folds) > 1 }]
++  if { $word_size % $mask_size != 0 && !$folded } {
+     utl::error RAM 26 "The -word_size ($word_size) must be divisible by -mask_size ($mask_size)."
+   }
+ 
+@@ -221,6 +225,11 @@ proc generate_ram_netlist { args } {
    # The address decoders: row, a decoder per row (an AND2 chain), the
    # column mux selecting within it; or word, a balanced AND2 tree over
    # each word's whole address.
@@ -430,7 +530,7 @@ index 1b056eaabf..db7e1d06c8 100644
    set decoder row
    if { [info exists keys(-decoder)] } {
      set decoder $keys(-decoder)
-@@ -262,7 +269,7 @@ proc generate_ram_netlist { args } {
+@@ -262,7 +271,7 @@ proc generate_ram_netlist { args } {
      $column_mux_ratio $use_latch $storage_cell $tristate_cell $inv_cell $tapcell $max_tap_dist \
      $read_style $zero_word $reset_value $banks $bank_columns $bank_order \
      $rb_ports $read_latency $write_style $periphery $pin_layer $cells $name \
@@ -439,7 +539,7 @@ index 1b056eaabf..db7e1d06c8 100644
  }
  
  sta::define_cmd_args "generate_ram" {[-mask_size bits]
-@@ -298,7 +305,7 @@ proc generate_ram { args } {
+@@ -298,7 +307,7 @@ proc generate_ram { args } {
             -hor_layer -filler_cells -tapcell -max_tap_dist
             -write_behavioral_verilog -read_style -zero_word -reset_value
             -banks -bank_columns -bank_order -rb_ports -read_latency -write_style
@@ -448,7 +548,7 @@ index 1b056eaabf..db7e1d06c8 100644
  
    sta::check_argc_eq0 "generate_ram" $args
  
-@@ -348,7 +355,7 @@ proc generate_ram { args } {
+@@ -348,7 +357,7 @@ proc generate_ram { args } {
    }
  
    foreach key {-banks -bank_columns -bank_order -rb_ports -read_latency -write_style

@@ -1,10 +1,14 @@
-# generate_regfile's spec keys a small fixture does not reach, each
-# simulated against the RTL it replaces (sim.bzl), every read compared
-# under random reads, writes and resets. Seconds each.
+# Register files of real designs through generate_ram (OpenROAD patches
+# 0011 to 0023), by ORFS's own translation of their specs (regfile_ram.py,
+# ORFS patch 0109), each simulated against the RTL it replaces (sim.bzl),
+# every read compared under random reads, writes and resets. Seconds
+# each.
 #
-# - ibex's register file: `async_reset` (every word reset to zero), the
-#   port check reading a SystemVerilog header with a parameter list, and
-#   `unused` inputs; with a negative control, the reset dropped.
+# - riscv32i's register file, in each write style and with its periphery
+#   as Verilog.
+# - ibex's register file: `async_reset` (every word reset to zero), its
+#   SystemVerilog header, and `unused` inputs; with a negative control,
+#   the reset dropped.
 # - rf_wp: `write_priority last`, two writes to one word in one cycle,
 #   the later port winning; with a negative control whose RTL lets the
 #   earlier port win.
@@ -24,6 +28,10 @@ py_binary(
     name = "ram_gen",
     srcs = ["ram_gen.py"],
     main = "ram_gen.py",
+    visibility = [
+        "//test/structured_gen_lec:__pkg__",
+        "//tools/structured_gen:__pkg__",
+    ],
 )
 
 stdcell_verilog(
@@ -81,49 +89,26 @@ regfile_sim_test(
     spec = ":rf_wp.regfile",
 )
 
-# The same four through generate_ram (OpenROAD patches 0011 to 0023), by
-# ORFS's own translation of the spec (regfile_ram.py, patch 0109): the
-# wrapper in the RTL module's place, the reset's polarity adapted there,
-# the unused inputs, the write priority; the negative controls show the
-# harness sees generate_ram's netlist too.
+# riscv32i's register file (test/regfile/riscv32i's specs): a hold mux
+# per bit, a clock gate per word, and the periphery as Verilog.
 [
     regfile_sim_test(
-        name = name,
-        expect_mismatch = expect_mismatch,
-        generator = "generate_ram",
-        module = module,
-        rtl = rtl,
-        rtl_module = module,
+        name = "riscv32i_%s_sim_test" % shape,
+        module = "regfile",
+        rtl = ["@orfs//flow/designs/src/riscv32i:regfile.v"],
+        rtl_module = "regfile",
         spec = spec,
     )
-    for name, module, spec, rtl, expect_mismatch in [
-        (
-            "ibex_ram_sim_test",
-            "ibex_register_file_ff",
-            ":ibex_register_file_ff.regfile",
-            ["@orfs//flow/designs/src/ibex_sv:ibex_register_file_ff.sv"],
-            False,
-        ),
-        (
-            "ibex_no_reset_ram_sim_test",
-            "ibex_register_file_ff",
-            ":ibex_no_reset.regfile",
-            ["@orfs//flow/designs/src/ibex_sv:ibex_register_file_ff.sv"],
-            True,
-        ),
-        (
-            "write_last_ram_sim_test",
-            "rf_wp",
-            ":rf_wp.regfile",
-            [":write_last.v"],
-            False,
-        ),
-        (
-            "write_first_ram_sim_test",
-            "rf_wp",
-            ":rf_wp.regfile",
-            [":write_first.v"],
-            True,
-        ),
+    for shape, spec in [
+        ("mux", ":riscv32i_mux.regfile"),
+        ("clock_gate", "//test/regfile/riscv32i:inlined.regfile"),
+        ("periphery_verilog", "//test/regfile/riscv32i:inlined_verilog.regfile"),
     ]
 ]
+
+genrule(
+    name = "riscv32i_mux_regfile",
+    srcs = ["//test/regfile/riscv32i:inlined.regfile"],
+    outs = ["riscv32i_mux.regfile"],
+    cmd = "sed 's/^write_style clock_gate$$/write_style mux/' $< > $@ && grep -q '^write_style mux$$' $@",
+)

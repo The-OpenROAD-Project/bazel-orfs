@@ -10,18 +10,26 @@ CORE_UM = 10.0  # die to core
 def _r(x):
     return int(x * 1000 + 0.5) / 1000.0
 
-def array_scaffold(name, spec, width_um, height_um):
+def array_scaffold(name, spec, width_um, height_um, periphery_um2):
     """The scaffold flow for one spec: <name>_scaffold_<stage>, to CTS: a smoke test that
     the array dissolves and CTS seats its buffers; nothing reads a route.
 
     Args:
       name: the module the spec names (RenameBufferFile, ...).
       spec: the .regfile label, mode netlist.
-      width_um, height_um: the array's outline as structured_gen draws it
-        (its .def DIEAREA); the die is the array plus a ring of flops. A
+      width_um, height_um: the array's outline as generate_ram draws it
+        in the netlist shape (regfile_ram.py's <module>_ram.outline); the
+        die is the array plus a ring of flops. A
         wrong pair fails at floorplan (FLW-0004, the array leaves the core),
         so the numbers are checked by the flow, not trusted.
+      periphery_um2: the cell area generate_ram leaves outside the
+        outline (decoders, select and input buffers) for the parent to
+        place. The ring is widened to hold it at the flow's 0.5 placement
+        density, beside the parent's flops.
     """
+
+    # the periphery at density 0.5 spread along the ring's length
+    ring = RING_UM + 2 * periphery_um2 / (2 * (width_um + height_um + 4 * RING_UM))
     top = name + "_scaffold"
     native.genrule(
         name = top + "_rtl",
@@ -31,13 +39,13 @@ def array_scaffold(name, spec, width_um, height_um):
             spec,
             top,
             top,
-            _r(CORE_UM + RING_UM),
-            _r(CORE_UM + RING_UM),
+            _r(CORE_UM + ring),
+            _r(CORE_UM + ring),
         ),
         tools = [":scaffold_gen"],
     )
-    die_w = width_um + 2 * (CORE_UM + RING_UM)
-    die_h = height_um + 2 * (CORE_UM + RING_UM)
+    die_w = width_um + 2 * (CORE_UM + ring)
+    die_h = height_um + 2 * (CORE_UM + ring)
     orfs_flow(
         name = top,
         arguments = TURNAROUND_ARGS | {

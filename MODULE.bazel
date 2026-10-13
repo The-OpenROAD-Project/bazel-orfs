@@ -121,16 +121,11 @@ archive_override(
         # pull request carries a gtest. Retires at a bump onto an OpenROAD
         # that has it.
         "//patches:0004-openroad-dpl-window-supply.patch",
-        # 0010: generate_regfile in the ram module, a multi-port register
-        # file as placed standard cells, which AUTO_MEMORIES_REGFILES
-        # (ORFS patch 0089) runs. The net diff of upstream
-        # The-OpenROAD-Project/OpenROAD#11669; retires at a bump onto an
-        # OpenROAD that has it.
-        "//patches:0010-openroad-ram-generate-regfile.patch",
+        # 0011 to 0026: OpenROAD #11669's register-file generator carried
+        # onto generate_ram, as options on it, one patch per pull request
+        # to come; not upstreamed.
         # 0011: generate_ram with more than one write port, each with its
         # own decoder and data, the last port winning a word both write.
-        # The first generate_regfile feature carried onto generate_ram
-        # (OpenROAD #11669); not upstreamed.
         "//patches:0011-openroad-ram-multiple-write-ports.patch",
         # 0012: generate_ram reads through AND-OR trees where the library
         # has no tristate cell (asap7), or when asked; a QN-only storage
@@ -173,6 +168,17 @@ archive_override(
         # its own and its periphery a Verilog wrapper. On 0022 (OpenROAD
         # #11669); not upstreamed.
         "//patches:0023-openroad-ram-periphery-verilog.patch",
+        # 0024: generate_ram -write_priority or, ports writing one word in
+        # a cycle write the OR of their data. On 0023 (OpenROAD #11669);
+        # not upstreamed.
+        "//patches:0024-openroad-ram-write-priority-or.patch",
+        # 0025: generate_ram -service_columns, empty columns in the array
+        # for a parent's buffers. On 0024 (OpenROAD #11669); not upstreamed.
+        "//patches:0025-openroad-ram-service-columns.patch",
+        # 0026: generate_ram -bank_column_layout contiguous, a word's bits
+        # side by side in its row. On 0025 (OpenROAD #11669); not
+        # upstreamed.
+        "//patches:0026-openroad-ram-bank-column-layout.patch",
     ],
     strip_prefix = "OpenROAD-a3bf6124782f205ba5fa9e2e402dae8b665fc4fc",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/a3bf6124782f205ba5fa9e2e402dae8b665fc4fc.tar.gz"],

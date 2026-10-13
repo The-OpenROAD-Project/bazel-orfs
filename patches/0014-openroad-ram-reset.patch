@@ -20,7 +20,7 @@ see OpenROAD #11669. Not upstreamed.
 
 ---
 diff --git a/src/ram/README.md b/src/ram/README.md
-index c73f269d6c..7fbfe970a5 100644
+index 6702d6699a..d9f544454f 100644
 --- a/src/ram/README.md
 +++ b/src/ram/README.md
 @@ -45,6 +45,7 @@ generate_ram [-mask_size bits]
@@ -415,10 +415,10 @@ index 7362a35c8e..a6481b09fd 100644
                                           read_port_logic);
  
 diff --git a/src/ram/src/ram.i b/src/ram/src/ram.i
-index 5f765b215b..9ccfcf5790 100644
+index 35f5bf3157..d24bbf4966 100644
 --- a/src/ram/src/ram.i
 +++ b/src/ram/src/ram.i
-@@ -44,7 +44,8 @@ generate_ram_netlist_cmd(int mask_size,
+@@ -43,7 +43,8 @@ generate_ram_netlist_cmd(int mask_size,
                           const char* tapcell_name,
                           const int max_tap_dist,
                           const char* read_style,
@@ -428,7 +428,7 @@ index 5f765b215b..9ccfcf5790 100644
  {
    RamGen* ram_gen = ord::getRamGen();
    odb::dbDatabase* db = ord::getDb();
-@@ -96,7 +97,8 @@ generate_ram_netlist_cmd(int mask_size,
+@@ -95,7 +96,8 @@ generate_ram_netlist_cmd(int mask_size,
  
    ram_gen->generate(mask_size, word_size, num_words, rw_ports, r_ports, w_ports,
                      column_mux_ratio, use_latch, storage_cell, tristate_cell, inv_cell, 
@@ -437,9 +437,9 @@ index 5f765b215b..9ccfcf5790 100644
 +                    reset_value);
  }
  
- void generate_regfile_cmd(const char* spec_path,
+ void ram_pdngen(const char* power_net_name, const char* ground_net_name,
 diff --git a/src/ram/src/ram.tcl b/src/ram/src/ram.tcl
-index 998f61fde5..6d41e0bda8 100644
+index 2494d4c873..89ff8eb8f1 100644
 --- a/src/ram/src/ram.tcl
 +++ b/src/ram/src/ram.tcl
 @@ -9,7 +9,9 @@ sta::define_cmd_args "generate_ram_netlist" {[-mask_size bits]
@@ -499,7 +499,7 @@ index 998f61fde5..6d41e0bda8 100644
      lappend ram_netlist_args -inv_cell $keys(-inv_cell)
    }
 diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index 0bd0331ed9..b964c56b3b 100644
+index 1192665493..522282eae9 100644
 --- a/src/ram/test/BUILD
 +++ b/src/ram/test/BUILD
 @@ -13,6 +13,7 @@ COMPULSORY_TESTS = [
@@ -510,7 +510,7 @@ index 0bd0331ed9..b964c56b3b 100644
      "make_8x8_2r1w_zero_asap7",
      "make_8x8_2r1w_and_or_asap7",
      "make_7x7_1r2w_nangate45",
-@@ -98,6 +99,11 @@ filegroup(
+@@ -59,6 +60,11 @@ filegroup(
                  "//test:asap7_nldm_data",
                  "make_8x8_2r1w_zero_asap7_behavioral.vok",
              ],

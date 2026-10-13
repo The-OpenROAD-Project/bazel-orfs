@@ -21,7 +21,7 @@ see OpenROAD #11669. Not upstreamed.
 
 ---
 diff --git a/src/ram/README.md b/src/ram/README.md
-index 1c921505d2..008107da2d 100644
+index 94c5df3036..dc03e5b6cb 100644
 --- a/src/ram/README.md
 +++ b/src/ram/README.md
 @@ -62,9 +62,9 @@ generate_ram [-mask_size bits]
@@ -990,7 +990,7 @@ index 2d2c537800..7e97ae2600 100644
  
    std::ofstream vf(filename);
 diff --git a/src/ram/src/ram.tcl b/src/ram/src/ram.tcl
-index 505b551342..6ca3a68023 100644
+index 4e58c50163..98f5e607ad 100644
 --- a/src/ram/src/ram.tcl
 +++ b/src/ram/src/ram.tcl
 @@ -87,8 +87,12 @@ proc generate_ram_netlist { args } {
@@ -1026,7 +1026,7 @@ index 505b551342..6ca3a68023 100644
    set max_tap_dist 0
    if { [info exists keys(-tapcell)] } {
 diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index 2e4ff86aba..cec5372c33 100644
+index 071fa2c0f0..af915fc087 100644
 --- a/src/ram/test/BUILD
 +++ b/src/ram/test/BUILD
 @@ -13,6 +13,7 @@ COMPULSORY_TESTS = [
@@ -1034,13 +1034,13 @@ index 2e4ff86aba..cec5372c33 100644
  
  PASSFAIL_TESTS = [
 +    "make_7x7_1r2w_nangate45",
-     "generate_regfile_asap7",
-     "generate_regfile_clock_gate_asap7",
-     "generate_regfile_modes_asap7",
-@@ -90,6 +91,12 @@ filegroup(
-             "generate_regfile_write_priority_asap7": REGFILE_TEST_DATA + [
-                 "generate_regfile_asap7.regfile",
+ ]
+ 
+ ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
+@@ -51,6 +52,12 @@ filegroup(
+                 test_name + ".*",
              ],
+         ) + {
 +            "make_7x7_1r2w_nangate45": [
 +                "make_7x7_1r2w_nangate45_behavioral.vok",
 +                "Nangate45/Nangate45.lef",

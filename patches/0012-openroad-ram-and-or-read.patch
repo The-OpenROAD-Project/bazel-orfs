@@ -24,7 +24,7 @@ see OpenROAD #11669. Not upstreamed.
 
 ---
 diff --git a/src/ram/README.md b/src/ram/README.md
-index 008107da2d..f7981d19fc 100644
+index dc03e5b6cb..b289c8104b 100644
 --- a/src/ram/README.md
 +++ b/src/ram/README.md
 @@ -43,6 +43,7 @@ generate_ram [-mask_size bits]
@@ -676,10 +676,10 @@ index 7e97ae2600..463e1f3a86 100644
      // one select_b_net per row for column_mux_ratio > 1
      vector<dbNet*> shared_select_b_nets(r_total);
 diff --git a/src/ram/src/ram.i b/src/ram/src/ram.i
-index c4584484fa..fed815886b 100644
+index 8b225fcc89..bb90a0c434 100644
 --- a/src/ram/src/ram.i
 +++ b/src/ram/src/ram.i
-@@ -42,7 +42,8 @@ generate_ram_netlist_cmd(int mask_size,
+@@ -41,7 +41,8 @@ generate_ram_netlist_cmd(int mask_size,
                           const char* tristate_cell_name,
                           const char* inv_cell_name,
                           const char* tapcell_name,
@@ -689,7 +689,7 @@ index c4584484fa..fed815886b 100644
  {
    RamGen* ram_gen = ord::getRamGen();
    odb::dbDatabase* db = ord::getDb();
-@@ -94,7 +95,7 @@ generate_ram_netlist_cmd(int mask_size,
+@@ -93,7 +94,7 @@ generate_ram_netlist_cmd(int mask_size,
  
    ram_gen->generate(mask_size, word_size, num_words, rw_ports, r_ports, w_ports,
                      column_mux_ratio, use_latch, storage_cell, tristate_cell, inv_cell, 
@@ -697,9 +697,9 @@ index c4584484fa..fed815886b 100644
 +                    tapcell, max_tap_dist, read_style);
  }
  
- void generate_regfile_cmd(const char* spec_path,
+ void ram_pdngen(const char* power_net_name, const char* ground_net_name,
 diff --git a/src/ram/src/ram.tcl b/src/ram/src/ram.tcl
-index 6ca3a68023..2eb5896319 100644
+index 98f5e607ad..8ae362eb9e 100644
 --- a/src/ram/src/ram.tcl
 +++ b/src/ram/src/ram.tcl
 @@ -7,6 +7,7 @@ sta::define_cmd_args "generate_ram_netlist" {[-mask_size bits]
@@ -769,7 +769,7 @@ index 6ca3a68023..2eb5896319 100644
      lappend ram_netlist_args -inv_cell $keys(-inv_cell)
    }
 diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index cec5372c33..87d3ef72a7 100644
+index af915fc087..5fe9d8b0a3 100644
 --- a/src/ram/test/BUILD
 +++ b/src/ram/test/BUILD
 @@ -13,6 +13,7 @@ COMPULSORY_TESTS = [
@@ -778,12 +778,12 @@ index cec5372c33..87d3ef72a7 100644
  PASSFAIL_TESTS = [
 +    "make_8x8_2r1w_and_or_asap7",
      "make_7x7_1r2w_nangate45",
-     "generate_regfile_asap7",
-     "generate_regfile_clock_gate_asap7",
-@@ -91,6 +92,11 @@ filegroup(
-             "generate_regfile_write_priority_asap7": REGFILE_TEST_DATA + [
-                 "generate_regfile_asap7.regfile",
+ ]
+ 
+@@ -52,6 +53,11 @@ filegroup(
+                 test_name + ".*",
              ],
+         ) + {
 +            "make_8x8_2r1w_and_or_asap7": [
 +                "//test:asap7_data",
 +                "//test:asap7_nldm_data",
@@ -1566,3 +1566,28 @@ index d6ce26bfc6..cb958fabc3 100644
 +  make_8x8_2r1w_and_or_asap7
    make_8x8_latch_sky130
  }
+diff --git a/test/BUILD b/test/BUILD
+index 66146170ea..01eac4066a 100644
+--- a/test/BUILD
++++ b/test/BUILD
+@@ -103,6 +103,20 @@ filegroup(
+     visibility = ["//visibility:public"],
+ )
+ 
++# asap7's NLDM liberty, for the cells' functions: the ram module's asap7
++# tests find their cells by them.
++filegroup(
++    name = "asap7_nldm_data",
++    srcs = [
++        "asap7/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz",
++        "asap7/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz",
++        "asap7/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz",
++        "asap7/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib",
++        "asap7/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz",
++    ],
++    visibility = ["//visibility:public"],
++)
++
+ # CCS (current source model) liberty. Required by delay calculators that need
+ # output current waveforms, e.g. prima; the asap7 libs above are NLDM only.
+ # Holds four cells: AND2x2, BUFx2, DFFHQx4, INVx2.
