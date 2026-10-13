@@ -176,6 +176,7 @@ test_suite(
         "@openroad//src/ram/test:make_7x7_nangate45-tcl_test",
         "@openroad//src/ram/test:make_8x8_2r1w_and_or_asap7-tcl_test",
         "@openroad//src/ram/test:make_8x8_2r1w_banks_asap7-tcl_test",
+        "@openroad//src/ram/test:make_8x8_2r1w_mux_asap7-tcl_test",
         "@openroad//src/ram/test:make_8x8_2r1w_reset_asap7-tcl_test",
         "@openroad//src/ram/test:make_8x8_2r1w_sky130-tcl_test",
         "@openroad//src/ram/test:make_8x8_2r1w_zero_asap7-tcl_test",

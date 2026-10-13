@@ -153,6 +153,9 @@ archive_override(
         # 0017: generate_ram -read_latency 1, registered read addresses. On
         # 0016 (OpenROAD #11669); not upstreamed.
         "//patches:0017-openroad-ram-read-latency.patch",
+        # 0018: generate_ram -write_style mux, a hold mux per bit for the
+        # clock gate per word. On 0017 (OpenROAD #11669); not upstreamed.
+        "//patches:0018-openroad-ram-write-mux.patch",
     ],
     strip_prefix = "OpenROAD-a3bf6124782f205ba5fa9e2e402dae8b665fc4fc",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/a3bf6124782f205ba5fa9e2e402dae8b665fc4fc.tar.gz"],
