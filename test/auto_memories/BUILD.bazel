@@ -30,7 +30,7 @@ exports_files([
 
 orfs_flow(
     name = "am_top",
-    abstract_stage = "place",
+    abstract_stage = "cts",
     arguments = {
         "AUTO_MEMORIES": "1",
         # The point of the fixture. SYNTH_HIERARCHICAL is what selects
@@ -104,6 +104,38 @@ py_test(
 
 # The expensive half: what AUTO_MEMORIES actually did to this design.
 # Manual -- it needs synthesis.
+# The pre-layout abstract a parent times its floorplan and place
+# against reads the AUTO_MEMORIES .lib views like the CTS one does:
+# the memory's outputs are timed in both.
+[
+    filegroup(
+        name = name + "_lib",
+        srcs = [":" + name],
+        output_group = "am_top_typ.lib",
+        tags = ["manual"],
+    )
+    for name in [
+        "am_top_pre_layout_generate_abstract",
+        "am_top_generate_abstract",
+    ]
+]
+
+py_test(
+    name = "am_top_pre_layout_arcs_test",
+    size = "small",
+    srcs = ["check_pre_layout_arcs.py"],
+    args = [
+        "$(rootpath :am_top_pre_layout_generate_abstract_lib)",
+        "$(rootpath :am_top_generate_abstract_lib)",
+    ],
+    data = [
+        ":am_top_generate_abstract_lib",
+        ":am_top_pre_layout_generate_abstract_lib",
+    ],
+    main = "check_pre_layout_arcs.py",
+    tags = ["manual"],
+)
+
 genrule(
     name = "am_top_memories_check",
     srcs = [":am_top_synth"],
