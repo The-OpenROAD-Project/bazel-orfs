@@ -1227,7 +1227,14 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     # is told to use it. The layer adjustment is the value the tile
     # flows settled on (OpenROAD's GRT-0704 hint), 9 percent more
     # capacity on every layer than the platform's 0.25.
-    arguments["PLACE_DENSITY"] = "0.2"
+    #
+    # 0.3, not 0.2: the parent's utilization is 0.18, and at 0.2 global
+    # placement cannot bring overflow under its target. It runs to about
+    # 0.19 and diverges (GPL-0307) on the OpenROAD this module bumps to;
+    # older ones reverted to that snapshot and carried on. At 0.3 it
+    # converges cleanly, overflow under 0.1 by iteration 550, still far
+    # from take 23's 60 percent.
+    arguments["PLACE_DENSITY"] = "0.3"
     arguments["ROUTING_LAYER_ADJUSTMENT"] = "0.1"
 
     # The rest of the measured configuration, in the flow rather than in
