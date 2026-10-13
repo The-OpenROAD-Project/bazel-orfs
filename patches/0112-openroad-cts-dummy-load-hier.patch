@@ -13,7 +13,8 @@ off the net and its capacitance is not seen. On XiangShan's
 FltRegionModule, 662 dummy loads. Applies on top of 0111, which joins a
 load in the driver's module to the driver's hierarchical net.
 
-Not upstreamed. Retires on the //:bump onto an OpenROAD that carries it.
+Upstream as The-OpenROAD-Project/OpenROAD#11719. Retires on the //:bump onto an OpenROAD that carries
+it.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---

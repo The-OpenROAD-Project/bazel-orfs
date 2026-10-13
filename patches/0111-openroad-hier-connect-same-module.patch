@@ -21,7 +21,8 @@ A load in the source's module now joins the source's hierarchical net,
 and when hierarchicalConnect first creates that net for the source, the
 loads in its module already on the flat net join it too.
 
-Not upstreamed. Retires on the //:bump onto an OpenROAD that carries it.
+Upstream as The-OpenROAD-Project/OpenROAD#11718. Retires on the //:bump onto an OpenROAD that carries
+it.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
