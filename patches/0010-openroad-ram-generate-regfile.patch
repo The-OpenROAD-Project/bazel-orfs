@@ -75,7 +75,7 @@ diff --git a/src/ram/README.md b/src/ram/README.md
 index 94c5df30369..034eb02a14c 100644
 --- a/src/ram/README.md
 +++ b/src/ram/README.md
-@@ -80,9 +80,70 @@ generate_ram [-mask_size bits]
+@@ -80,9 +80,71 @@ generate_ram [-mask_size bits]
  | `-use_latch` | If set to `1`, uses a two-phase latch-based design instead of flip-flops for the storage elements. Functionally equivalent to flip-flop design with smaller storage cell area. Default: `0`. |
  | `-write_behavioral_verilog` | Write a behavioral Verilog model of the RAM array to the specified file. |
  
@@ -135,6 +135,7 @@ index 94c5df30369..034eb02a14c 100644
 +| `bit_folds n` | The word split into `n` bit bands stacked one above the other. |
 +| `read_latency 0\|1` | `1` registers each read address on the clock first. |
 +| `zero_word n` | A word with no storage that reads 0 and drops writes (RISC-V x0). |
++| `periphery generator\|verilog` | Who builds the periphery (address inverters, decode, write muxes, hold): `generator` (the default), as cells placed with the array or, in `mode netlist`, left to the parent; `verilog`, as assigns of those cells' functions in the netlist, for synthesis to map with the parent's logic, the clock gates kept as cells. Which is better depends on how the array is integrated. Not yet with `mode netlist`, whose cells the flow dissolves. |
 +| `tap_columns n`, `service_sites n` | A tap column every `n` bit columns, and free sites beside each for the clock tree: 40 in a macro, none in `mode netlist`, whose clock tree is the parent's. |
 +| `store_name pattern`, `read_reg_name pattern` | Instance names of the flops, from `{word}`, `{bit}`, `{port}` and `{bank}`. |
 +| `lib knob value` | The timing model's parameters: `gate_delay_ps`, `wire_factor`, `input_load_ff`, `clock_load_ff`, `leakage_nw_per_cell`, `output_max_cap_ff`, `hold_ps`. |
@@ -254,7 +255,7 @@ new file mode 100644
 index 00000000000..fb4b113bda1
 --- /dev/null
 +++ b/src/ram/src/regfile.cpp
-@@ -0,0 +1,1712 @@
+@@ -0,0 +1,1810 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
 +
@@ -263,6 +264,7 @@ index 00000000000..fb4b113bda1
 +#include "regfile.h"
 +
 +#include <algorithm>
++#include <cctype>
 +#include <cmath>
 +#include <fstream>
 +#include <functional>
@@ -1583,6 +1585,13 @@ index 00000000000..fb4b113bda1
 +        box_h / static_cast<double>(tech->getLefUnits()),
 +        rows);
 +  }
++  if (s.periphery == "verilog") {
++    // synthesis maps the periphery from its assigns; the cells here are
++    // only its description
++    for (dbInst* inst : periphery_insts_) {
++      inst->setPlacementStatus(odb::dbPlacementStatus::UNPLACED);
++    }
++  }
 +  return block_;
 +}
 +
@@ -1629,6 +1638,13 @@ index 00000000000..fb4b113bda1
 +               + ": mode is macro or netlist, not `" + v[0] + "`");
 +      }
 +      s.mode = v[0];
++    } else if (key == "periphery") {
++      need(1);
++      if (v[0] != "generator" && v[0] != "verilog") {
++        Refuse(path + ":" + std::to_string(lineno)
++               + ": periphery is generator or verilog, not `" + v[0] + "`");
++      }
++      s.periphery = v[0];
 +    } else if (key == "words") {
 +      need(1);
 +      s.words = std::stoi(v[0]);
@@ -1867,6 +1883,12 @@ index 00000000000..fb4b113bda1
 +  if (s.module.empty()) {
 +    Refuse(path + ": no `module`");
 +  }
++  if (s.periphery == "verilog" && s.mode == "netlist") {
++    // the flow dissolves the netlist's cells; assigns need a module of
++    // their own around the core, which it does not split out yet
++    Refuse(path + ": `periphery verilog` with `mode netlist` is not "
++           "supported yet");
++  }
 +  if (s.cells.flop.empty() || s.cells.and2.empty() || s.cells.or2.empty()
 +      || s.cells.ao22.empty() || s.cells.inv.empty()) {
 +    Refuse(path + ": cells flop, and2, or2, ao22 and inv are all required");
@@ -1885,8 +1907,51 @@ index 00000000000..fb4b113bda1
 +  return b.Run();
 +}
 +
-+void WriteVerilog(odb::dbBlock* block, const std::string& path)
++void WriteVerilog(odb::dbBlock* block,
++                  const std::string& path,
++                  const Spec& spec)
 +{
++  // With `periphery verilog`, each unplaced logic cell of the periphery
++  // as an assign of its function: output pin, and the expression over
++  // its input pins, `@PIN` standing for the pin's net.
++  struct Function
++  {
++    std::string out;
++    std::string expr;
++  };
++  std::map<std::string, Function> functions;
++  if (spec.periphery == "verilog") {
++    const Pins& p = g_pins;
++    auto add = [&](const std::string& master, const Function& f) {
++      if (master.empty()) {
++        return;
++      }
++      auto [it, fresh] = functions.emplace(master, f);
++      if (!fresh && it->second.expr != f.expr) {
++        Refuse("cell " + master + " serves two roles with different "
++               "functions; `periphery verilog` needs one per cell");
++      }
++    };
++    auto pin = [](const std::string& n) { return "@" + n; };
++    add(spec.cells.and2,
++        {p.and2[2], pin(p.and2[0]) + " & " + pin(p.and2[1])});
++    add(spec.cells.or2, {p.or2[2], pin(p.or2[0]) + " | " + pin(p.or2[1])});
++    add(spec.cells.nand2,
++        {p.nand2[2], "~(" + pin(p.nand2[0]) + " & " + pin(p.nand2[1]) + ")"});
++    add(spec.cells.nor2,
++        {p.nor2[2], "~(" + pin(p.nor2[0]) + " | " + pin(p.nor2[1]) + ")"});
++    add(spec.cells.inv, {p.inv[1], "~" + pin(p.inv[0])});
++    add(spec.cells.ao22,
++        {p.ao22[4],
++         "(" + pin(p.ao22[0]) + " & " + pin(p.ao22[1]) + ") | ("
++             + pin(p.ao22[2]) + " & " + pin(p.ao22[3]) + ")"});
++    add(spec.cells.aoi22,
++        {p.aoi22[4],
++         "~((" + pin(p.aoi22[0]) + " & " + pin(p.aoi22[1]) + ") | ("
++             + pin(p.aoi22[2]) + " & " + pin(p.aoi22[3]) + "))"});
++    add(spec.cells.tie_hi, {p.tie_hi[0], "1'b1"});
++    add(spec.cells.tie_lo, {p.tie_lo[0], "1'b0"});
++  }
 +  std::ofstream out(path);
 +  if (!out) {
 +    Refuse("cannot write " + path);
@@ -1919,7 +1984,8 @@ index 00000000000..fb4b113bda1
 +    }
 +    it->second.hi = std::max(it->second.hi, idx);
 +  }
-+  out << "// Generated by generate_regfile. Structural: every cell placed.\n";
++  out << "// Generated by generate_regfile. Structural"
++      << (functions.empty() ? "" : ", the periphery as assigns") << ".\n";
 +  out << "module " << block->getName() << "(\n";
 +  for (size_t i = 0; i < order.size(); ++i) {
 +    const Bus& b = buses[order[i]];
@@ -1940,7 +2006,40 @@ index 00000000000..fb4b113bda1
 +    }
 +    out << "  wire \\" << n->getName() << " ;\n";
 +  }
++  // A port net by its port name, buses with [i] intact; any other net
++  // escaped.
++  auto ref = [](odb::dbNet* n) {
++    return n->getBTerms().begin() != n->getBTerms().end()
++               ? n->getName()
++               : "\\" + n->getName() + " ";
++  };
 +  for (odb::dbInst* inst : block->getInsts()) {
++    auto f = functions.find(inst->getMaster()->getName());
++    if (f != functions.end() && !inst->getPlacementStatus().isPlaced()) {
++      odb::dbITerm* y = inst->findITerm(f->second.out.c_str());
++      if (y == nullptr || y->getNet() == nullptr) {
++        continue;  // drives nothing
++      }
++      std::string expr = f->second.expr;
++      for (size_t at = expr.find('@'); at != std::string::npos;
++           at = expr.find('@', at)) {
++        size_t end = at + 1;
++        while (end < expr.size()
++               && (std::isalnum(static_cast<unsigned char>(expr[end]))
++                   || expr[end] == '_')) {
++          ++end;
++        }
++        odb::dbITerm* in = inst->findITerm(expr.substr(at + 1, end - at - 1).c_str());
++        const std::string r = in != nullptr && in->getNet() != nullptr
++                                  ? ref(in->getNet())
++                                  : "1'b0";
++        expr.replace(at, end - at, r);
++        at += r.size();
++      }
++      out << "  assign " << ref(y->getNet()) << " = " << expr << ";  // "
++          << inst->getName() << "\n";
++      continue;
++    }
 +    out << "  " << inst->getMaster()->getName() << " \\" << inst->getName()
 +        << " (";
 +    bool first = true;
@@ -1972,7 +2071,7 @@ new file mode 100644
 index 00000000000..649ac3fe814
 --- /dev/null
 +++ b/src/ram/src/regfile.h
-@@ -0,0 +1,184 @@
+@@ -0,0 +1,194 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
 +
@@ -2063,6 +2162,13 @@ index 00000000000..649ac3fe814
 +  // flow); the generator builds the same block either way. The flow's
 +  // memories step reads this key too, and decides which views to ask for.
 +  std::string mode = "macro";
++  // Who builds the periphery -- address inverters, decode, write muxes,
++  // hold: "generator" (cells, placed with the array or, in mode netlist,
++  // left unplaced for the parent) or "verilog" (written as assigns of
++  // the cells' functions, for synthesis to map with the parent's logic;
++  // the clock gates stay cells). Neither dominates: it depends on how
++  // the array is integrated.
++  std::string periphery = "generator";
 +  std::string module;  // generated module and block name
 +  int words = 0;
 +  int bits = 0;
@@ -2153,8 +2259,11 @@ index 00000000000..649ac3fe814
 +                       const Spec& spec);
 +
 +// Writes the block as a structural Verilog module, cells as instances,
-+// for simulation and for the flow's netlist view.
-+void WriteVerilog(odb::dbBlock* block, const std::string& path);
++// for simulation and for the flow's netlist view; with `periphery
++// verilog`, the unplaced periphery's logic cells as assigns.
++void WriteVerilog(odb::dbBlock* block,
++                  const std::string& path,
++                  const Spec& spec);
 +
 +}  // namespace ram::regfile
 diff --git a/src/ram/src/regfile_cmd.cpp b/src/ram/src/regfile_cmd.cpp
@@ -2228,7 +2337,7 @@ index 00000000000..d90332ba559
 +                   fixed);
 +    }
 +    if (!verilog_path.empty()) {
-+      regfile::WriteVerilog(block, verilog_path);
++      regfile::WriteVerilog(block, verilog_path, spec);
 +    }
 +    if (!def_path.empty()) {
 +      odb::DefOut writer(logger);

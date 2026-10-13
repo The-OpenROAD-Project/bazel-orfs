@@ -2,7 +2,8 @@
 # riscv32i's register file as generate_regfile writes it, simulated beside
 # src/riscv32i/regfile.v under random reads and writes, every read
 # compared. One netlist per write style: a hold mux per bit, and a clock
-# gate per word.
+# gate per word; and the clock gate with its periphery as assigns
+# (`periphery verilog`).
 load("@rules_cc//cc:defs.bzl", "cc_test")
 load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
 load("@rules_verilog//verilog:defs.bzl", "verilog_library")
@@ -44,7 +45,10 @@ TCL
 $(location @openroad//:openroad) -exit -no_init -no_splash $(@D)/regfile_{style}.tcl > $(@D)/regfile_{style}.log 2>&1 || {{ cat $(@D)/regfile_{style}.log; exit 1; }}
 sed 's/^module regfile(/module regfile_gen(/' $(@D)/regfile_{style}.gen.v > $@
 """.format(
-                extra = "echo 'write_style clock_gate' >> $(@D)/regfile_%s.regfile" % style if style == "clock_gate" else "",
+                extra = "\n".join([
+                    "echo '%s' >> $(@D)/regfile_%s.regfile" % (line, style)
+                    for line in lines
+                ]),
                 style = style,
             ),
             tools = ["@openroad"],
@@ -77,8 +81,18 @@ sed 's/^module regfile(/module regfile_gen(/' $(@D)/regfile_{style}.gen.v > $@
             deps = [":tb_%s" % style],
         ),
     ]
-    for style in [
-        "mux",
-        "clock_gate",
+    for style, lines in [
+        ("mux", []),
+        (
+            "clock_gate",
+            ["write_style clock_gate"],
+        ),
+        (
+            "clock_gate_verilog",
+            [
+                "write_style clock_gate",
+                "periphery verilog",
+            ],
+        ),
     ]
 ]

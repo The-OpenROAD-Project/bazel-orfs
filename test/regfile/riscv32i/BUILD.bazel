@@ -52,6 +52,7 @@ NARROW = RISCV32I["arguments"] | {"RTLMP_MIN_CHANNEL_SIZE": "2 2"}
     ]
     for regfile, macro_place in [
         ("inlined", {}),
+        ("inlined_verilog", {}),
         (
             "netlist",
             {"AUTO_MEMORIES_MACRO_PLACE": "regfile"},
@@ -97,6 +98,7 @@ orfs_flow(
     for shape, src in [
         ("flops", "@orfs//flow/designs/asap7/riscv32i:riscv_top_%s"),
         ("inlined", ":riscv_top_inlined_%s"),
+        ("inlined_verilog", ":riscv_top_inlined_verilog_%s"),
         ("netlist", ":riscv_top_netlist_%s"),
         ("netlist_service0", ":riscv_top_netlist_service0_%s"),
         ("macro", ":riscv_top_macro_%s"),
@@ -109,6 +111,7 @@ orfs_flow(
         for shape in [
             "flops",
             "inlined",
+            "inlined_verilog",
             "netlist",
             "netlist_service0",
             "macro",
