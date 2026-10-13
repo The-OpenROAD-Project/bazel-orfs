@@ -160,7 +160,8 @@ ASAP7 = {
 # on Nangate45's set/reset flop and asap7's, which stores !D; and in
 # banks (patch 0015), contiguous and interleaved, side by side and
 # stacked, tristate and AND-OR, and 12 words in banks of 3; and with a
-# banked read port beside a plain one (patch 0016).
+# banked read port beside a plain one (patch 0016); and with registered
+# read addresses (patch 0017), on Q and QN flops.
 [
     [
         genrule(
@@ -240,5 +241,8 @@ sed -i 's/^module RAM{words}x8 /module RAM8x8 /' $(location {name}_model.v)
         ("ram_2w_banks12", NANGATE45, "-storage_cell DFF_X1 -banks 4 -bank_columns 4 -bank_order interleaved", "tb_ram_2w", 12),
         ("ram_rb", NANGATE45, "-storage_cell DFF_X1 -banks 4 -bank_columns 2 -bank_order interleaved -rb_ports 1", "tb_ram_rb", 8),
         ("ram_rb_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -banks 4 -bank_columns 2 -rb_ports 1 -zero_word 0", "tb_ram_rb", 8),
+        ("ram_2w_latency", NANGATE45, "-storage_cell DFF_X1 -read_latency 1", "tb_ram_2w", 8),
+        ("ram_2w_latency_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -read_latency 1 -banks 4 -bank_columns 2 -bank_order interleaved -zero_word 0", "tb_ram_2w", 8),
+        ("ram_rb_latency_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -read_latency 1 -banks 4 -bank_columns 2 -rb_ports 1", "tb_ram_rb", 8),
     ]
 ]

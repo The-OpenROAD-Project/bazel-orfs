@@ -180,6 +180,7 @@ test_suite(
         "@openroad//src/ram/test:make_8x8_2r1w_sky130-tcl_test",
         "@openroad//src/ram/test:make_8x8_2r1w_zero_asap7-tcl_test",
         "@openroad//src/ram/test:make_8x8_rb_asap7-tcl_test",
+        "@openroad//src/ram/test:make_8x8_rb_latency_asap7-tcl_test",
         "@openroad//src/ram/test:make_8x8_sky130-tcl_test",
     ],
 )
