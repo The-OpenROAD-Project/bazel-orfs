@@ -1,0 +1,164 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Tue, 13 Oct 2026 09:30:00 +0200
+Subject: [PATCH] sta: check_setup extends the set_max_delay -to precedent to
+ set_max_delay generally
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+check_setup's unconstrained-endpoint check counts an output port named
+by set_max_delay -to as constrained (hasMaxDelay). This follows that
+precedent and extends it to set_max_delay generally: an input port
+named by -from, an output port named by -to, and a setup endpoint whose
+arrival a set_max_delay constrains are not reported. report_checks
+already times these paths against the set_max_delay.
+
+The port warnings follow the endpoint warning's pattern, "There are N
+unconstrained input ports.", and say what was found rather than which
+command to add.
+
+Not upstreamed: held until the maintainer reacts to the follow-up
+comment on parallaxsw/OpenSTA#532. Framing agreed for the pull request:
+title "check_setup: extend the set_max_delay -to precedent to
+set_max_delay generally", leading with hasMaxDelay as the precedent.
+Retires on the //:bump onto an OpenROAD whose OpenSTA carries it.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+diff --git a/src/sta/search/CheckTiming.cc b/src/sta/search/CheckTiming.cc
+--- a/src/sta/search/CheckTiming.cc
++++ b/src/sta/search/CheckTiming.cc
+@@ -44,6 +44,7 @@
+ #include "SdcClass.hh"
+ #include "Sim.hh"
+ #include "StaState.hh"
++#include "Tag.hh"
+ #include "TimingArc.hh"
+ #include "TimingRole.hh"
+ 
+@@ -120,12 +121,13 @@ CheckTiming::checkNoInputDelay()
+           && !sdc_->hasInputDelay(pin)
+           // OpenROAD fork: analysis_corner support.
+           && !modeHasCornerInputDelay(mode_, pin)
+-          && !sim_->isConstant(pin))
++          && !sim_->isConstant(pin)
++          && !hasMaxDelayFrom(pin))
+         no_arrival.insert(pin);
+     }
+   }
+   delete pin_iter;
+-  pushPinErrors("Warning: There {} {} input port{} missing set_input_delay.",no_arrival);
++  pushPinErrors("Warning: There {} {} unconstrained input port{}.",no_arrival);
+ }
+ 
+ void
+@@ -133,7 +135,7 @@ CheckTiming::checkNoOutputDelay()
+ {
+   PinSet no_departure(network_);
+   checkNoOutputDelay(no_departure);
+-  pushPinErrors("Warning: There {} {} output port{} missing set_output_delay.",
++  pushPinErrors("Warning: There {} {} unconstrained output port{}.",
+                 no_departure);
+ }
+ 
+@@ -149,7 +151,8 @@ CheckTiming::checkNoOutputDelay(PinSet &no_departure)
+         && !sdc_->hasOutputDelay(pin)
+         // OpenROAD fork: analysis_corner support.
+         && !modeHasCornerOutputDelay(mode_, pin)
+-        && !sim_->isConstant(pin))
++        && !sim_->isConstant(pin)
++        && !hasMaxDelay(pin))
+       no_departure.insert(pin);
+   }
+   delete pin_iter;
+@@ -296,7 +299,7 @@ CheckTiming::hasClkedDepature(Pin *pin)
+ 
+ // Check for max delay exception that ends at pin.
+ bool
+-CheckTiming::hasMaxDelay(Pin *pin)
++CheckTiming::hasMaxDelay(const Pin *pin)
+ {
+   for (const ExceptionPath *exception : sdc_->exceptions()) {
+     ExceptionTo *to = exception->to();
+@@ -310,6 +313,22 @@ CheckTiming::hasMaxDelay(Pin *pin)
+   return false;
+ }
+ 
++// Check for max delay exception that starts at pin.
++bool
++CheckTiming::hasMaxDelayFrom(const Pin *pin)
++{
++  for (const ExceptionPath *exception : sdc_->exceptions()) {
++    ExceptionFrom *from = exception->from();
++    if (exception->isPathDelay()
++        && exception->minMax() == MinMaxAll::max()
++        && from
++        && from->hasPins()
++        && from->pins()->contains(pin))
++      return true;
++  }
++  return false;
++}
++
+ void
+ CheckTiming::checkUnconstrainedSetups(PinSet &unconstrained_ends)
+ {
+@@ -322,7 +341,8 @@ CheckTiming::checkUnconstrainedSetups(PinSet &unconstrained_ends)
+         Edge *edge = edge_iter.next();
+         if (edge->role() == TimingRole::setup()
+             && (!clk_network_->isClock(edge->from(graph_))
+-                || !hasClkedArrival(edge->to(graph_)))) {
++                || !(hasClkedArrival(edge->to(graph_))
++                     || hasMaxDelayArrival(edge->to(graph_))))) {
+           unconstrained_ends.insert(vertex->pin());
+           break;
+         }
+@@ -376,6 +396,33 @@ CheckTiming::hasClkedArrival(Vertex *vertex)
+   return false;
+ }
+ 
++// Check for a data arrival a max delay exception ending at vertex
++// constrains, such as one from an input port with no input delay.
++bool
++CheckTiming::hasMaxDelayArrival(Vertex *vertex)
++{
++  const Pin *pin = vertex->pin();
++  VertexPathIterator path_iter(vertex, this);
++  while (path_iter.hasNext()) {
++    Path *path = path_iter.next();
++    const ExceptionStateSet *states = path->tag(this)->states();
++    if (path->minMax(this) != MinMax::max()
++        || states == nullptr)
++      continue;
++    for (const ExceptionState *state : *states) {
++      const ExceptionPath *exception = state->exception();
++      const ExceptionTo *to = exception->to();
++      if (exception->isPathDelay()
++          && exception->minMax() == MinMaxAll::max()
++          && state->nextThru() == nullptr
++          && (to == nullptr
++              || to->matches(pin, path->transition(this), network_)))
++        return true;
++    }
++  }
++  return false;
++}
++
+ void
+ CheckTiming::checkGeneratedClocks()
+ {
+diff --git a/src/sta/search/CheckTiming.hh b/src/sta/search/CheckTiming.hh
+--- a/src/sta/search/CheckTiming.hh
++++ b/src/sta/search/CheckTiming.hh
+@@ -71,7 +71,9 @@ protected:
+   void checkLoops();
+   bool hasClkedDepature(Pin *pin);
+   bool hasClkedCheck(Vertex *vertex);
+-  bool hasMaxDelay(Pin *pin);
++  bool hasMaxDelay(const Pin *pin);
++  bool hasMaxDelayFrom(const Pin *pin);
++  bool hasMaxDelayArrival(Vertex *vertex);
+   void checkGeneratedClocks();
+   void pushPinErrors(std::string_view msg,
+                      PinSet &pins);

@@ -1,4 +1,4 @@
-# The design the test names, with a clock on clk and an arrival on d.
+# The design the test names, with a clock on clk.
 foreach lef $::env(LEFS) {
   read_lef $lef
 }
@@ -8,7 +8,6 @@ foreach lib $::env(LIBS) {
 read_verilog $::env(VERILOG)
 link_design top
 create_clock -name clk -period 1000 [get_ports clk]
-set_input_delay 0 -clock clk [get_ports d]
 
 # The pins check_setup calls unclocked registers.
 proc unclocked_pins {} {
@@ -20,4 +19,15 @@ proc unclocked_pins {} {
     lappend pins {*}[lrange $error 1 end]
   }
   return $pins
+}
+
+# The pins check_setup names under each of its port and endpoint
+# warnings, as a dict from the warning to its pins.
+proc constraint_warnings {} {
+  set warnings {}
+  foreach error [sta::check_timing_cmd 1 1 0 0 1 0 0] {
+    puts [join $error "\n  "]
+    dict set warnings [lindex $error 0] [lrange $error 1 end]
+  }
+  return $warnings
 }
