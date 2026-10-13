@@ -16,8 +16,9 @@ Such an output now gets the constant as its function, as a tie cell's
 output has, so the parent's constant propagation carries it to what it
 feeds.
 
-Not upstreamed. Retires on the //:bump onto an OpenROAD whose OpenSTA
-carries it.
+Not upstreamed: to be proposed after parallaxsw/OpenSTA#535, which
+changes the same file. Retires on the //:bump onto an OpenROAD whose
+OpenSTA carries it.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
