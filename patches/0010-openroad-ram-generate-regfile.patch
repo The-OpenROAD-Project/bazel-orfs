@@ -3001,7 +3001,7 @@ diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
 index 071fa2c0f0b..9a834644a3e 100644
 --- a/src/ram/test/BUILD
 +++ b/src/ram/test/BUILD
-@@ -13,10 +13,32 @@ COMPULSORY_TESTS = [
+@@ -13,10 +13,27 @@ COMPULSORY_TESTS = [
  ]
  
  PASSFAIL_TESTS = [
@@ -3020,13 +3020,8 @@ index 071fa2c0f0b..9a834644a3e 100644
 +# liberty for constant propagation, the base spec's module. Every test
 +# but generate_regfile_asap7 (whose own glob has it) adds the spec.
 +REGFILE_TEST_DATA = [
-+    "asap7/asap7_tech_1x_201209.lef",
-+    "asap7/asap7sc7p5t_28_R_1x_220121a.lef",
-+    "asap7/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz",
-+    "asap7/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz",
-+    "asap7/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz",
-+    "asap7/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib",
-+    "asap7/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz",
++    "//test:asap7_data",
++    "//test:asap7_nldm_data",
 +    "generate_regfile_asap7_rtl.v",
 +    "regfile_checks.tcl",
 +]
@@ -3081,14 +3076,6 @@ index 8545b3dbca9..a02f25bf641 100644
 +    generate_regfile_write_priority_asap7
  )
 -
-diff --git a/src/ram/test/asap7 b/src/ram/test/asap7
-new file mode 120000
-index 00000000000..16dbc1fd7b7
---- /dev/null
-+++ b/src/ram/test/asap7
-@@ -0,0 +1 @@
-+../../../test/asap7
-\ No newline at end of file
 diff --git a/src/ram/test/generate_regfile_asap7.regfile b/src/ram/test/generate_regfile_asap7.regfile
 new file mode 100644
 index 00000000000..ad31829371c
@@ -3601,13 +3588,13 @@ index 00000000000..56b5ae3ce8a
 +# generate_regfile tests after helpers.tcl.
 +
 +proc rf_read_libraries { } {
-+  read_lef asap7/asap7_tech_1x_201209.lef
-+  read_lef asap7/asap7sc7p5t_28_R_1x_220121a.lef
++  read_lef ../../../test/asap7/asap7_tech_1x_201209.lef
++  read_lef ../../../test/asap7/asap7sc7p5t_28_R_1x_220121a.lef
 +  foreach kind { AO OA SIMPLE } {
-+    read_liberty asap7/asap7sc7p5t_${kind}_RVT_FF_nldm_211120.lib.gz
++    read_liberty ../../../test/asap7/asap7sc7p5t_${kind}_RVT_FF_nldm_211120.lib.gz
 +  }
-+  read_liberty asap7/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz
-+  read_liberty asap7/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib
++  read_liberty ../../../test/asap7/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz
++  read_liberty ../../../test/asap7/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib
 +}
 +
 +# A spec file: the base spec with `lines` appended, in the results dir.
@@ -3731,3 +3718,27 @@ index 00000000000..56b5ae3ce8a
 +  }
 +  return $n
 +}
+diff --git a/test/BUILD b/test/BUILD
+--- a/test/BUILD
++++ b/test/BUILD
+@@ -102,6 +102,20 @@ filegroup(
+     ],
+     visibility = ["//visibility:public"],
+ )
++
++# asap7's NLDM liberty, for the cells' functions: generate_regfile's
++# tests read them through OpenSTA's constant propagation.
++filegroup(
++    name = "asap7_nldm_data",
++    srcs = [
++        "asap7/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz",
++        "asap7/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz",
++        "asap7/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz",
++        "asap7/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib",
++        "asap7/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz",
++    ],
++    visibility = ["//visibility:public"],
++)
+ 
+ # CCS (current source model) liberty. Required by delay calculators that need
+ # output current waveforms, e.g. prima; the asap7 libs above are NLDM only.
