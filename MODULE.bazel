@@ -160,6 +160,9 @@ archive_override(
         # placed and outlined, for a parent to dissolve. On 0018 (OpenROAD
         # #11669); not upstreamed.
         "//patches:0019-openroad-ram-periphery-unplaced.patch",
+        # 0020: generate_ram -cells {role master ...} and -name. On 0019
+        # (OpenROAD #11669); not upstreamed.
+        "//patches:0020-openroad-ram-cells-name.patch",
     ],
     strip_prefix = "OpenROAD-a3bf6124782f205ba5fa9e2e402dae8b665fc4fc",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/a3bf6124782f205ba5fa9e2e402dae8b665fc4fc.tar.gz"],
