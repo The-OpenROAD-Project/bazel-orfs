@@ -138,6 +138,16 @@ design usually starts there, not in the router:
   planner that draws the floorplan from them, the calibration and the
   gates; tools in `tools/macro_select`, harness in `test/macro_select`.
 
+Which registers the timer never sees is its own skill, and stock
+OpenSTA's `check_setup` is blind to the worst case:
+
+- `check-setup` — what each warning means, why the count in
+  `2_1_floorplan.log` is not enough, the pins and their modules through
+  odb-debug's `check_setup` tool, what this flow's `set_max_delay` SDC
+  produces by design, and carried patches 0108/0109 (a flop behind a
+  tied-enable ICG, a clock that reaches a register only on the wrong
+  edge).
+
 How to constrain a hardened block is its own skill, and the advice in
 circulation is wrong for this flow:
 
