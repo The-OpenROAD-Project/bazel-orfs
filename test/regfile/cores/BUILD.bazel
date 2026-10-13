@@ -20,6 +20,12 @@ py_binary(
     main = "gen_tb.py",
 )
 
+py_binary(
+    name = "ram_gen",
+    srcs = ["ram_gen.py"],
+    main = "ram_gen.py",
+)
+
 stdcell_verilog(
     name = "asap7_stdcell",
     lefs = ["@orfs//flow:platforms/asap7/lef/asap7sc7p5t_28_R_1x_220121a.lef"],
@@ -74,3 +80,50 @@ regfile_sim_test(
     rtl_module = "rf_wp",
     spec = ":rf_wp.regfile",
 )
+
+# The same four through generate_ram (OpenROAD patches 0011 to 0023), by
+# ORFS's own translation of the spec (regfile_ram.py, patch 0109): the
+# wrapper in the RTL module's place, the reset's polarity adapted there,
+# the unused inputs, the write priority; the negative controls show the
+# harness sees generate_ram's netlist too.
+[
+    regfile_sim_test(
+        name = name,
+        expect_mismatch = expect_mismatch,
+        generator = "generate_ram",
+        module = module,
+        rtl = rtl,
+        rtl_module = module,
+        spec = spec,
+    )
+    for name, module, spec, rtl, expect_mismatch in [
+        (
+            "ibex_ram_sim_test",
+            "ibex_register_file_ff",
+            ":ibex_register_file_ff.regfile",
+            ["@orfs//flow/designs/src/ibex_sv:ibex_register_file_ff.sv"],
+            False,
+        ),
+        (
+            "ibex_no_reset_ram_sim_test",
+            "ibex_register_file_ff",
+            ":ibex_no_reset.regfile",
+            ["@orfs//flow/designs/src/ibex_sv:ibex_register_file_ff.sv"],
+            True,
+        ),
+        (
+            "write_last_ram_sim_test",
+            "rf_wp",
+            ":rf_wp.regfile",
+            [":write_last.v"],
+            False,
+        ),
+        (
+            "write_first_ram_sim_test",
+            "rf_wp",
+            ":rf_wp.regfile",
+            [":write_first.v"],
+            True,
+        ),
+    ]
+]

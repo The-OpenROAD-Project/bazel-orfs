@@ -343,6 +343,9 @@ exports_files(
 exports_files(
     [
         "scripts/flow.tcl",
+        # the register-file spec's translation to generate_ram (ORFS patch
+        # 0109), which test/regfile/cores runs on its own
+        "scripts/memories/regfile_ram.py",
         "scripts/synth.tcl",
         "scripts/variables.yaml",
     ],
