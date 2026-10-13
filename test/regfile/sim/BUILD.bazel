@@ -155,7 +155,9 @@ ASAP7 = {
 # Nangate45's tristate bitlines (patch 0011), its AND-OR trees asked for
 # (patch 0012), and asap7's, which has no tristate cell, with its QN-only
 # flop (the storage cell named: the smallest flop is negative-edge), and
-# with a word reading 0 (patch 0013), on either polarity of flop.
+# with a word reading 0 (patch 0013), on either polarity of flop; and
+# with an asynchronous reset to a value of both 0s and 1s (patch 0014),
+# on Nangate45's set/reset flop and asap7's, which stores !D.
 [
     [
         genrule(
@@ -193,7 +195,7 @@ sed 's/^module RAM8x8 /module RAM8x8_gen /' $(@D)/{name}.v > $(location {name}_g
         verilog_library(
             name = "tb_%s_rtl" % name,
             srcs = [
-                "tb_ram_2w.v",
+                "%s.v" % tb,
                 ":%s_gen.v" % name,
                 ":%s_model.v" % name,
             ] + platform["stdcell"],
@@ -201,7 +203,7 @@ sed 's/^module RAM8x8 /module RAM8x8_gen /' $(@D)/{name}.v > $(location {name}_g
         verilator_cc_library(
             name = "tb_%s" % name,
             module = ":tb_%s_rtl" % name,
-            module_top = "tb_ram_2w",
+            module_top = tb,
             trace_mode = "none",
             vopts = [
                 "-Wno-fatal",
@@ -212,15 +214,18 @@ sed 's/^module RAM8x8 /module RAM8x8_gen /' $(@D)/{name}.v > $(location {name}_g
         cc_test(
             name = "%s_sim_test" % name,
             size = "small",
-            srcs = ["tb_ram_2w.cc"],
+            srcs = ["%s.cc" % tb],
             deps = [":tb_%s" % name],
         ),
     ]
-    for name, platform, args in [
-        ("ram_2w", NANGATE45, "-storage_cell DFF_X1"),
-        ("ram_2w_and_or", NANGATE45, "-storage_cell DFF_X1 -read_style and_or"),
-        ("ram_2w_and_or_zero", NANGATE45, "-storage_cell DFF_X1 -read_style and_or -zero_word 3"),
-        ("ram_2w_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R"),
-        ("ram_2w_asap7_zero", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -zero_word 0"),
+    for name, platform, args, tb in [
+        ("ram_2w", NANGATE45, "-storage_cell DFF_X1", "tb_ram_2w"),
+        ("ram_2w_and_or", NANGATE45, "-storage_cell DFF_X1 -read_style and_or", "tb_ram_2w"),
+        ("ram_2w_and_or_zero", NANGATE45, "-storage_cell DFF_X1 -read_style and_or -zero_word 3", "tb_ram_2w"),
+        ("ram_2w_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R", "tb_ram_2w"),
+        ("ram_2w_asap7_zero", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -zero_word 0", "tb_ram_2w"),
+        ("ram_2w_rst", NANGATE45, "-storage_cell DFFRS_X1 -reset_value 0xa5", "tb_ram_2w_rst"),
+        ("ram_2w_rst_and_or", NANGATE45, "-storage_cell DFFRS_X1 -read_style and_or -reset_value 0xa5", "tb_ram_2w_rst"),
+        ("ram_2w_rst_asap7", ASAP7, "-storage_cell DFFASRHQNx1_ASAP7_75t_R -reset_value 0xa5", "tb_ram_2w_rst"),
     ]
 ]

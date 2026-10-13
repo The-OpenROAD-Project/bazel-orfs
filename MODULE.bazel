@@ -139,6 +139,10 @@ archive_override(
         # 0013: generate_ram -zero_word, a word that reads 0 and drops its
         # writes (a RISC-V x0). On 0012 (OpenROAD #11669); not upstreamed.
         "//patches:0013-openroad-ram-zero-word.patch",
+        # 0014: generate_ram -reset_value, an asynchronous reset of every
+        # word, per bit cleared or preset. On 0013 (OpenROAD #11669); not
+        # upstreamed.
+        "//patches:0014-openroad-ram-reset.patch",
     ],
     strip_prefix = "OpenROAD-a3bf6124782f205ba5fa9e2e402dae8b665fc4fc",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/a3bf6124782f205ba5fa9e2e402dae8b665fc4fc.tar.gz"],
