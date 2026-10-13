@@ -57,15 +57,6 @@ ORFS_BAZEL_PLATFORMS = [
 # 0056-0058 (WIRE_LOAD_TCL) as #4619, a declarative WIRE_LOAD_MODEL.
 ORFS_PATCHES = [
     Label("//patches:0039-orfs-slang-plugin-fallback.patch"),
-    # The ASAP7 FakeRAM backend hardcodes column_mux_factor 1, so a
-    # generated array is `rows` cells tall with nothing folding it: an
-    # 8192x32 memory comes out 4.18 x 2654 um, an aspect ratio of 635:1
-    # that no floorplan can place. The platform's own fakeram7_* views
-    # were generated with a per-shape factor -- 4 for 2048x39, 2 for
-    # 256x32, 1 for 256x256 -- so the constant is the bug. Picks one by
-    # squaring the array.
-    # Not upstreamed -- retire at a bump onto an ORFS that picks one.
-    Label("//patches:0067-orfs-fakeram-asap7-column-mux.patch"),
     # synth's -extra-map runs inside the techmap step, which is after
     # flatten, so it cannot substitute a module the design defines
     # itself -- by then the instances have been inlined. VeeR's clock
@@ -113,8 +104,8 @@ ORFS_PATCHES = [
     # 0088: a generated asap7 macro is at least one M5 power-strap pitch
     # wide. A 64x16 array folded to 4.18 um, narrower than the 5.4 um
     # pitch, could land between two straps of a net; its macro grid then
-    # had no shapes and pdngen failed the design (PDN-0233). Builds on
-    # 0067; retires at a bump onto an ORFS whose FakeRAM asap7
+    # had no shapes and pdngen failed the design (PDN-0233). Applies
+    # after 0073; retires at a bump onto an ORFS whose FakeRAM asap7
     # backend has a width floor.
     Label("//patches:0088-orfs-fakeram-min-width.patch"),
     # 0094: SYNTH_VERILOG_SURGERY, a script that edits copies of

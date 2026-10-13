@@ -1,7 +1,8 @@
-From c1384d439c54a5b32327897b28213013e84d4df9 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Thu, 1 Oct 2026 09:26:33 +0200
-Subject: [PATCH] FakeRAM asap7: a macro at least one power-strap pitch wide
+Subject: [PATCH] FakeRAM asap7: a macro at least one power-strap pitch
+ wide
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -22,19 +23,25 @@ and the asap7 backend sets it to one pitch plus one strap plus the
 rails' inset at both edges, 5.616 um: a strap of each net then crosses
 the rails wherever the macro is placed. Wider macros are unchanged.
 
-Not upstreamed (builds on carried patch 0067).
+Not upstreamed (applies after carried patch 0073).
 Retires at a //:bump onto an ORFS whose FakeRAM asap7 backend has a
 width floor.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ---
+ tools/FakeRAM2.0/orfs_asap7/generate.py   |  9 ++++++
+ tools/FakeRAM2.0/test/macro_dim_test.py   | 14 ++++++++
+ tools/FakeRAM2.0/test/spsram_mask_test.py | 39 +++++++++++++++++++++++
+ tools/FakeRAM2.0/utils/class_process.py   |  4 +++
+ 4 files changed, 66 insertions(+)
+
 diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asap7/generate.py
-index 40de65149..2feb62822 100644
+index 1e39732d9..774684095 100644
 --- a/tools/FakeRAM2.0/orfs_asap7/generate.py
 +++ b/tools/FakeRAM2.0/orfs_asap7/generate.py
-@@ -39,6 +39,15 @@ ASAP7_PROCESS_CONFIG = {
-     "column_mux_factor": 1,
+@@ -38,6 +38,15 @@ ASAP7_PROCESS_CONFIG = {
+     "fin_pitch_nm": 27,
      "snap_width_nm": 190,
      "snap_height_nm": 1400,
 +    # A macro's power pins are horizontal M4 rails, which the platform's
@@ -50,7 +57,7 @@ index 40de65149..2feb62822 100644
  
  ASAP7_TIMING_CONFIG = {
 diff --git a/tools/FakeRAM2.0/test/macro_dim_test.py b/tools/FakeRAM2.0/test/macro_dim_test.py
-index 849fc0451..be7040e4a 100755
+index 37820e936..ec23a2f04 100755
 --- a/tools/FakeRAM2.0/test/macro_dim_test.py
 +++ b/tools/FakeRAM2.0/test/macro_dim_test.py
 @@ -71,6 +71,20 @@ class MacroDimTest(unittest.TestCase):
@@ -139,10 +146,10 @@ index 1aa7ea1fe..2eea040f4 100644
          pins = rw0_pins(32, 5, 0)
          for p in pins:
 diff --git a/tools/FakeRAM2.0/utils/class_process.py b/tools/FakeRAM2.0/utils/class_process.py
-index 487a853e6..b9107216b 100644
+index 58fd503fb..f7899e6df 100644
 --- a/tools/FakeRAM2.0/utils/class_process.py
 +++ b/tools/FakeRAM2.0/utils/class_process.py
-@@ -60,6 +60,9 @@ class Process:
+@@ -91,6 +91,9 @@ class Process:
          self._calc_y_step()
          self.bitcell_width_um = json_data.get("bitcell_width_um", None)
          self.bitcell_height_um = json_data.get("bitcell_height_um", None)
@@ -152,7 +159,7 @@ index 487a853e6..b9107216b 100644
  
          # Set to True when we want to use the process parameters or bitcell
          # sizes to calculate the macro dimensions. Set to False for spreadsheet
-@@ -118,6 +121,7 @@ class Process:
+@@ -153,6 +156,7 @@ class Process:
          total_width = all_bitcell_width * 1.2
  
          total_height += additional_height
@@ -160,3 +167,6 @@ index 487a853e6..b9107216b 100644
  
          return (total_width, total_height)
  
+-- 
+2.53.0
+

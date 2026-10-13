@@ -38,17 +38,31 @@ mask lanes does. The backend computes the height the pins need and
 passes the difference as additional_height, instead of leaving each
 macro to fail on its own.
 
-Applies after 0067 (column mux), whose per-memory process object is what
-the pin-track height is computed against.
+The pin-track height is computed against the macro the column mux
+factor ORFS #4659 picks per memory folds the array into.
 
 Not upstreamed -- carried in bazel-orfs per the moratorium. Retires at
 a bump onto an ORFS that carries the change.
 ---
+ tools/FakeRAM2.0/orfs_asap7/generate.py       |  86 ++++++-
+ tools/FakeRAM2.0/test/spsram_mask_test.py     | 233 ++++++++++++++++++
+ tools/FakeRAM2.0/utils/basic_port_creator.py  |  10 +
+ tools/FakeRAM2.0/utils/class_memory.py        |   1 +
+ tools/FakeRAM2.0/utils/lef_exporter.py        |   7 +
+ tools/FakeRAM2.0/utils/liberty_exporter.py    |  13 +
+ tools/FakeRAM2.0/utils/memory_config.py       |  32 ++-
+ tools/FakeRAM2.0/utils/rw_port_group.py       |  16 ++
+ tools/FakeRAM2.0/utils/single_port_ram.py     |  19 +-
+ .../utils/single_port_ram_liberty_exporter.py |   4 +
+ .../utils/single_port_ram_verilog_exporter.py |  42 +++-
+ 11 files changed, 450 insertions(+), 13 deletions(-)
+ create mode 100644 tools/FakeRAM2.0/test/spsram_mask_test.py
+
 diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asap7/generate.py
-index 4343b27bc..40de65149 100644
+index ebec9c7ec..1e39732d9 100644
 --- a/tools/FakeRAM2.0/orfs_asap7/generate.py
 +++ b/tools/FakeRAM2.0/orfs_asap7/generate.py
-@@ -1,3 +1,18 @@
+@@ -1,4 +1,20 @@
 +"""ORFS asap7 backend: emit .lib/.lef views for the memories AUTO_MEMORIES converts.
 +
 +The input is memories.json, ORFS's inventory. Every converted memory
@@ -65,9 +79,11 @@ index 4343b27bc..40de65149 100644
 +"""
 +
  import json
- import math
++import math
  import sys
-@@ -34,6 +49,57 @@ ASAP7_TIMING_CONFIG = {
+ from pathlib import Path
+ 
+@@ -32,6 +48,57 @@ ASAP7_TIMING_CONFIG = {
      "leakage": 0.001,
  }
  
@@ -123,9 +139,9 @@ index 4343b27bc..40de65149 100644
 +    return max(0.0, needed - height)
 +
  
- def pick_column_mux_factor(rows, bits):
-     """Fold a tall array into a square one.
-@@ -80,8 +146,20 @@ def run_orfs_asap7(platform: str, out_dir: Path, json_path: Path):
+ def run_orfs_asap7(platform: str, out_dir: Path, json_path: Path):
+     if platform != "asap7":
+@@ -56,14 +123,29 @@ def run_orfs_asap7(platform: str, out_dir: Path, json_path: Path):
      blackboxes = []
      for m in converted:
          name = m["name"]
@@ -146,9 +162,8 @@ index 4343b27bc..40de65149 100644
 +            )
 +            return 1
  
-         process_config = dict(ASAP7_PROCESS_CONFIG)
-         process_config["column_mux_factor"] = pick_column_mux_factor(rows, bits)
-@@ -92,6 +170,9 @@ def run_orfs_asap7(platform: str, out_dir: Path, json_path: Path):
+         sram_dict = {
+             "name": name,
              "width": bits,
              "depth": rows,
              "banks": 1,
@@ -714,3 +729,6 @@ index 6955b8be3..e5c1a8415 100644
 +        else:
 +            out_fh.write(f"   input {ce_pin}\n")
          self.export_bb_footer(out_fh)
+-- 
+2.53.0
+
