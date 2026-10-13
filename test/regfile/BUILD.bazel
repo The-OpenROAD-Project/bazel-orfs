@@ -128,7 +128,9 @@ filegroup(
 )
 
 # Synthesis reached its netlist, and the register file is a macro
-# instance, not a module of its own.
+# instance, not a module of its own: generate_ram's RegFile_ram, behind
+# the wrapper in RegFile's place (ORFS patch 0109), which hierarchical
+# synthesis may keep.
 sh_test(
     name = "regfile_top_keep_synth_test",
     size = "small",
@@ -136,20 +138,22 @@ sh_test(
     args = [
         "$(location :regfile_top_keep_synth_netlist)",
         "regfile_top",
-        "!RegFile",
+        "!RegFile_ram",
     ],
     data = [":regfile_top_keep_synth_netlist"],
 )
 
-# The register file's line in blackboxes.txt is `RegFile <area>`.
+# The register file's line in blackboxes.txt is `RegFile_ram <area>`:
+# generate_ram's RAM is the macro, a wrapper in RegFile's place (ORFS
+# patch 0109).
 genrule(
     name = "regfile_top_keep_blackboxes",
     srcs = [":regfile_top_keep_synth"],
     outs = ["regfile_top_keep_blackboxes.txt"],
     cmd = "files=$$(echo $(locations :regfile_top_keep_synth) | tr ' ' '\\n'); " +
           "bb=$$(echo \"$$files\" | grep '/memories$$')/blackboxes.txt; " +
-          "grep -Eq '^RegFile [0-9]+[.][0-9]+$$' $$bb || " +
-          "{ echo 'no `RegFile <area>` line in blackboxes.txt'; cat $$bb; exit 1; }; " +
+          "grep -Eq '^RegFile_ram [0-9]+[.][0-9]+$$' $$bb || " +
+          "{ echo 'no `RegFile_ram <area>` line in blackboxes.txt'; cat $$bb; exit 1; }; " +
           "cp $$bb $@",
 )
 

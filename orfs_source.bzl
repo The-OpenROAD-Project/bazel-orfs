@@ -164,6 +164,11 @@ ORFS_PATCHES = [
     # in the module's place. On 0089 and 0091; retires with 0089. Not
     # upstreamed.
     Label("//patches:0108-orfs-regfile-periphery-verilog.patch"),
+    # 0109: register files through generate_ram (OpenROAD patches 0011 to
+    # 0020) where it builds the spec, a wrapper in the RTL module's place;
+    # the rest stay with generate_regfile. On 0089, 0091 and 0108; retires
+    # with 0089. Not upstreamed.
+    Label("//patches:0109-orfs-regfiles-generate-ram.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

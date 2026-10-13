@@ -29,7 +29,7 @@ foreach i [$b getInsts] {
   if {[string match *WELLTAP $t] || [string match ENDCAP* $t] || [string match TAP* [$i getName]] || [string match PHY_* [$i getName]]} { set tap [expr {$tap+$a}]; continue }
   if {[string match *FILL* [$m getName]] || [string match *DECAP* [$m getName]]} { set fill [expr {$fill+$a}]; continue }
   if {![$i isPlaced]} { set unplaced [expr {$unplaced+$a}] }
-  if {[string match {riscv.dp[./]rf/*} [$i getName]]} {
+  if {[string match {riscv.dp[./]rf[./]*} [$i getName]]} {
     set rf [expr {$rf+$a}]; incr nrf
     if {[$i getPlacementStatus] eq "FIRM"} {
       set bb [$i getBBox]; set rfbox [expr {$rfbox+$a}]

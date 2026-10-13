@@ -163,6 +163,9 @@ archive_override(
         # 0020: generate_ram -cells {role master ...} and -name. On 0019
         # (OpenROAD #11669); not upstreamed.
         "//patches:0020-openroad-ram-cells-name.patch",
+        # 0021: generate_ram -decoder word, a balanced AND2 tree per word.
+        # On 0020 (OpenROAD #11669); not upstreamed.
+        "//patches:0021-openroad-ram-word-decoder.patch",
     ],
     strip_prefix = "OpenROAD-a3bf6124782f205ba5fa9e2e402dae8b665fc4fc",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/a3bf6124782f205ba5fa9e2e402dae8b665fc4fc.tar.gz"],

@@ -1,0 +1,452 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] AUTO_MEMORIES_REGFILES: register files through generate_ram
+
+A register-file spec that generate_ram can build is built by it, not by
+generate_regfile: memories/regfile_ram.py translates the spec to
+generate_ram_netlist's options (OpenROAD patches 0011 to 0020) and
+writes a wrapper in the RTL module's place connecting its ports, from
+the design's yosys JSON, to generate_ram's, a reset's polarity adapted
+there. The wrapper is always inlined; the RAM, <module>_ram, is inlined
+too, or in mode netlist a macro with its periphery unplaced that
+regfile_dissolve.tcl dissolves as before (a netlist of one instance a
+line, a .place file, write_abstract_lef's LEF, a liberty of area and
+pins). A spec using a key generate_ram lacks yet (flop names for
+equivalence checking, folded bits, the periphery as Verilog), or kept
+as a macro to the end, stays with generate_regfile.
+
+On 0089, 0091 and 0108. Not upstreamed: AUTO_MEMORIES_REGFILES is
+carried here only. Retires with 0089.
+
+---
+diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_memories.py
+--- a/flow/scripts/memories/gen_memories.py
++++ b/flow/scripts/memories/gen_memories.py
+@@ -37,6 +37,7 @@
+ 
+ import detect  # noqa: E402
+ import idiomatic  # noqa: E402
++import regfile_ram  # noqa: E402
+ import schema  # noqa: E402
+ 
+ FAKERAM_RUN_PY = Path(__file__).resolve().parents[3] / "tools/FakeRAM2.0/run.py"
+@@ -232,6 +233,24 @@
+     inline = []
+     for spec, module in zip(specs, modules):
+         mode = _spec_mode(spec)
++        # generate_ram, Austin Rovinski's generator, where it builds the
++        # spec: the RTL module's place taken by a wrapper around the RAM
++        shape = mode if module in macro_place else "inline"
++        if regfile_ram.supported(spec, shape):
++            ram = regfile_ram.generate(spec, module, shape, openroad, lefs, out_dir)
++            memories.append(
++                _regfile_memory(spec, module, f"register file, generate_ram, {shape}")
++            )
++            inline.append(module)
++            if ram["macro"]:
++                cores.append(ram["block"])
++            if ram["dissolve"]:
++                dissolve.append(ram["block"])
++            sys.stderr.write(
++                f"gen_memories: {module} -> register file, generate_ram, "
++                f"{shape} ({spec.name})\n"
++            )
++            continue
+         rtl = _file_defining(module, verilog)
+         tcl = out_dir / f"{module}.generate.tcl"
+         if module not in macro_place:
+diff --git a/flow/scripts/memories/regfile_ram.py b/flow/scripts/memories/regfile_ram.py
+new file mode 100644
+--- /dev/null
++++ b/flow/scripts/memories/regfile_ram.py
+@@ -0,0 +1,391 @@
++"""AUTO_MEMORIES_REGFILES through OpenROAD's generate_ram.
++
++A register-file spec (the keys generate_regfile reads) is translated to
++generate_ram_netlist's options, and the generated RAM, a block named
++<module>_ram, stands in for the RTL module through a wrapper written in
++the module's place: its ports, from the design's yosys JSON, connected
++to generate_ram's (clk, rst_n, D0, we0, addr_w0, addr_r0, Q0, ...), an
++active-high reset inverted for an active-low flop. The wrapper is
++always inlined; the RAM is
++
++- inlined: its netlist follows the wrapper in <module>.v;
++- mode netlist: a macro with its periphery unplaced, which
++  regfile_dissolve.tcl dissolves after macro placement from
++  <module>_ram.v (one instance a line) and <module>_ram.place;
++A spec using a key generate_ram does not have yet (flop names for
++equivalence checking, folded bits, the periphery as Verilog), or kept
++as a macro to the end, is left to generate_regfile; supported() says
++which.
++"""
++
++from __future__ import annotations
++
++import json
++import math
++import os
++import subprocess
++from pathlib import Path
++
++# keys generate_ram has no counterpart for yet
++UNSUPPORTED = {"store_name", "read_reg_name", "bit_folds", "pin_track", "lib"}
++
++# a spec's `cell <role> <master>` roles, as generate_ram's -cells names them
++CELL_ROLES = {
++    "inv": "inv",
++    "and2": "and2",
++    "or2": "or2",
++    "ao22": "ao22",
++    "aoi22": "aoi22",
++    "nand2": "nand2",
++    "nor2": "nor2",
++    "icg": "clock_gate",
++    "tie_hi": "tie",
++    "buffer": "buffer",
++}
++
++
++# AUTO_MEMORIES is asap7's
++DEFAULT_CELLS = {
++    "aoi22": "AOI22xp5_ASAP7_75t_R",
++    "nand2": "NAND2xp5_ASAP7_75t_R",
++    "nor2": "NOR2x1_ASAP7_75t_R",
++    "buffer": "BUFx2_ASAP7_75t_R",
++}
++
++
++def parse(spec: Path) -> list[list[str]]:
++    """The spec's lines as [key, value, ...], comments and blanks out."""
++    lines = []
++    for line in spec.read_text().splitlines():
++        words = line.split("#", 1)[0].split()
++        if words:
++            lines.append(words)
++    return lines
++
++
++def _values(lines: list[list[str]], key: str) -> list[list[str]]:
++    return [line[1:] for line in lines if line[0] == key]
++
++
++def _one(lines: list[list[str]], key: str, default: str = "") -> str:
++    values = _values(lines, key)
++    return values[-1][0] if values and values[-1] else default
++
++
++def supported(spec: Path, shape: str) -> bool:
++    """Whether generate_ram builds this spec in this shape (inline,
++    netlist or macro). A macro kept to the end needs its pins placed,
++    which generate_ram_netlist does only with its periphery unplaced."""
++    lines = parse(spec)
++    keys = {line[0] for line in lines}
++    return (
++        not (keys & UNSUPPORTED)
++        and _one(lines, "periphery") != "verilog"
++        and shape != "macro"
++    )
++
++
++def _address_bits(words: int) -> int:
++    return max(1, math.ceil(math.log2(words)))
++
++
++def _args(lines: list[list[str]], block: str, shape: str) -> list[str]:
++    """generate_ram_netlist's options for the spec."""
++    words = int(_one(lines, "words"))
++    bits = int(_one(lines, "bits"))
++    cells = {line[1]: line[2] for line in lines if line[0] == "cell"}
++    async_reset = _values(lines, "async_reset")
++    storage = cells.get("flop_r" if async_reset else "flop")
++    args = [
++        "-name",
++        block,
++        "-mask_size",
++        str(bits),
++        "-word_size",
++        str(bits),
++        "-num_words",
++        str(words),
++        "-r_ports",
++        str(len(_values(lines, "read"))),
++        "-w_ports",
++        str(len(_values(lines, "write"))),
++        "-write_style",
++        _one(lines, "write_style", "mux"),
++        # a balanced tree per word, as generate_regfile decodes
++        "-decoder",
++        "word",
++    ]
++    if storage:
++        args += ["-storage_cell", storage]
++    if _values(lines, "read_banked"):
++        args += ["-rb_ports", str(len(_values(lines, "read_banked")))]
++    for key in ("zero_word", "banks", "bank_columns", "bank_order", "read_latency"):
++        if _values(lines, key):
++            args += [f"-{key}", _one(lines, key)]
++    if async_reset:
++        args += ["-reset_value", "0"]
++    # generate_regfile's asap7 defaults where the spec names no cell, and
++    # a buffer for the select buffers (the smallest asap7 buffer is the
++    # hold buffer HB1xp67)
++    cells = DEFAULT_CELLS | cells
++    roles = [
++        f"{CELL_ROLES[role]} {master}"
++        for role, master in cells.items()
++        if role in CELL_ROLES
++    ]
++    if roles:
++        args += ["-cells", "{" + " ".join(roles) + "}"]
++    if shape == "netlist":
++        args += ["-periphery", "unplaced", "-pin_layer", _one(lines, "pin_layer", "M4")]
++    return args
++
++
++# The second session's Tcl: the generated block's ports, and for a macro
++# its views, from its database.
++_VIEWS_TCL = r"""
++set block [ord::get_db_block]
++set f [open {out}/{block}.ports w]
++foreach term [$block getBTerms] {{
++  if {{[$term getSigType] in {{POWER GROUND}}}} {{ continue }}
++  puts $f "[$term getName] [$term getIoType]"
++}}
++close $f
++"""
++
++_MACRO_TCL = r"""
++# the netlist, one instance a line, as regfile_dissolve.tcl reads it
++set f [open {out}/{block}.v w]
++foreach inst [$block getInsts] {{
++  set conns {{}}
++  foreach it [$inst getITerms] {{
++    set net [$it getNet]
++    if {{$net eq "NULL" || [$net getSigType] in {{POWER GROUND}}}} {{ continue }}
++    lappend conns ".[[$it getMTerm] getName](\\[$net getName] )"
++  }}
++  puts $f "[[$inst getMaster] getName] \\[$inst getName] ([join $conns {{, }}]);"
++}}
++close $f
++# where each placed cell is, as the generator laid it out
++set f [open {out}/{block}.place w]
++foreach inst [$block getInsts] {{
++  if {{![$inst isPlaced]}} {{ continue }}
++  lassign [$inst getLocation] x y
++  puts $f "[$inst getName] $x $y [$inst getOrient]"
++}}
++close $f
++write_abstract_lef {out}/{block}.lef
++# a liberty of its area and pins: a blackbox to synthesis
++set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
++set die [$block getDieArea]
++set area [expr {{double([$die dx]) / $dbu * [$die dy] / $dbu}}]
++set f [open {out}/{block}.lib w]
++puts $f "library({block}) {{"
++puts $f "  delay_model : table_lookup;"
++puts $f "  time_unit : \"1ns\";"
++puts $f "  voltage_unit : \"1V\";"
++puts $f "  current_unit : \"1uA\";"
++puts $f "  leakage_power_unit : \"1uW\";"
++puts $f "  capacitive_load_unit (1,pf);"
++puts $f "  pulling_resistance_unit : \"1kohm\";"
++set buses [dict create]
++foreach term [$block getBTerms] {{
++  if {{[$term getSigType] in {{POWER GROUND}}}} {{ continue }}
++  set name [$term getName]
++  set dir [expr {{[$term getIoType] eq "INPUT" ? "input" : "output"}}]
++  if {{[regexp {{^(.*)\[(\d+)\]$}} $name -> base index]}} {{
++    set hi [expr {{[dict exists $buses $base] ? max([lindex [dict get $buses $base] 1], $index) : $index}}]
++    dict set buses $base [list $dir $hi]
++  }} else {{
++    dict set buses $name [list $dir -1]
++  }}
++}}
++set widths {{}}
++dict for {{name info}} $buses {{
++  set hi [lindex $info 1]
++  if {{$hi >= 0 && [lsearch $widths [expr {{$hi + 1}}]] < 0}} {{ lappend widths [expr {{$hi + 1}}] }}
++}}
++foreach w $widths {{
++  puts $f "  type ({block}_bus_$w) {{ base_type : array; data_type : bit; bit_width : $w; bit_from : [expr {{$w - 1}}]; bit_to : 0; downto : true; }}"
++}}
++puts $f "  cell({block}) {{"
++puts $f "    area : $area;"
++puts $f "    is_macro_cell : true;"
++puts $f "    dont_touch : true;"
++dict for {{name info}} $buses {{
++  lassign $info dir hi
++  if {{$hi < 0}} {{
++    puts $f "    pin($name) {{ direction : $dir; capacitance : 0.001; }}"
++  }} else {{
++    puts $f "    bus($name) {{ bus_type : {block}_bus_[expr {{$hi + 1}}]; direction : $dir; capacitance : 0.001; }}"
++  }}
++}}
++puts $f "  }}"
++puts $f "}}"
++close $f
++"""
++
++
++def _module_ports(yosys_json: Path, module: str) -> dict[str, tuple[str, int]]:
++    """The RTL module's ports, name -> (direction, width), from the
++    design's yosys JSON; empty where it does not have the module."""
++    if not yosys_json.exists():
++        return {}
++    modules = json.loads(yosys_json.read_text()).get("modules", {})
++    for name, body in modules.items():
++        if name.lstrip("\\") == module:
++            return {
++                port: (info["direction"], len(info["bits"]))
++                for port, info in body.get("ports", {}).items()
++            }
++    return {}
++
++
++def _buses(port_lines: list[str]) -> dict[str, tuple[str, int]]:
++    """generate_ram's ports, base name -> (direction, width)."""
++    buses: dict[str, tuple[str, int]] = {}
++    for line in port_lines:
++        name, io = line.split()
++        base, width = name, 1
++        if name.endswith("]") and "[" in name:
++            base = name[: name.rindex("[")]
++            width = int(name[name.rindex("[") + 1 : -1]) + 1
++        direction = "input" if io == "INPUT" else "output"
++        old = buses.get(base, (direction, 0))[1]
++        buses[base] = (direction, max(old, width))
++    return buses
++
++
++def _wrapper(
++    lines: list[list[str]],
++    module: str,
++    block: str,
++    ram_ports: dict[str, tuple[str, int]],
++    rtl_ports: dict[str, tuple[str, int]],
++) -> str:
++    """The module the RTL's stands in for: its ports to generate_ram's."""
++    words = int(_one(lines, "words"))
++    bits = int(_one(lines, "bits"))
++    banks = int(_one(lines, "banks", "1"))
++    conns: dict[str, str] = {}
++    widths: dict[str, tuple[str, int]] = {}
++
++    def port(name: str, direction: str, width: int) -> str:
++        widths.setdefault(name, rtl_ports.get(name, (direction, width)))
++        return name
++
++    def fit(name: str, width: int) -> str:
++        """An RTL address as wide as generate_ram's."""
++        have = widths[name][1]
++        if have == width:
++            return name
++        if have > width:
++            return f"{name}[{width - 1}:0]"
++        return f"{{{width - have}'b0, {name}}}"
++
++    conns["clk"] = port(_one(lines, "clock", "clock"), "input", 1)
++    for values in _values(lines, "reset"):
++        port(values[0], "input", 1)
++    for values in _values(lines, "unused"):
++        port(values[0], "input", 1)
++    for values in _values(lines, "async_reset"):
++        name = port(values[0], "input", 1)
++        low = values[1] == "low" if len(values) > 1 else True
++        if "rst_n" in ram_ports:
++            conns["rst_n"] = name if low else f"~{name}"
++        else:
++            conns["rst"] = f"~{name}" if low else name
++    reads = _values(lines, "read")
++    a = _address_bits(words)
++    for i, (addr, data) in enumerate(reads):
++        conns[f"addr_r{i}"] = fit(port(addr, "input", a), a)
++        conns["Q" if len(reads) == 1 else f"Q{i}"] = port(data, "output", bits)
++    writes = _values(lines, "write")
++    for w, values in enumerate(writes):
++        suffix = "" if len(writes) == 1 else str(w)
++        conns[f"addr_w{suffix}"] = fit(port(values[0], "input", a), a)
++        conns[f"D{suffix}"] = port(values[1], "input", bits)
++        conns[f"we{suffix}"] = (
++            port(values[2], "input", 1) if len(values) > 2 else "1'b1"
++        )
++    ab = _address_bits(words // banks)
++    for k, values in enumerate(_values(lines, "read_banked")):
++        for b in range(len(values) // 2):
++            conns[f"addr_rb{k}_b{b}"] = fit(port(values[2 * b], "input", ab), ab)
++            conns[f"Qrb{k}_b{b}"] = port(values[2 * b + 1], "output", bits)
++    for name in ram_ports:
++        if name not in conns:
++            raise SystemExit(
++                f"regfile_ram: {module}: generate_ram's port {name} has no "
++                "counterpart in the spec"
++            )
++    # the RTL's ports in its own order where the JSON has them
++    order = list(rtl_ports) or list(widths)
++    for name in widths:
++        if name not in order:
++            order.append(name)
++    decl = []
++    for name in order:
++        direction, width = widths[name] if name in widths else rtl_ports[name]
++        decl.append(
++            f"  {direction} {'' if width == 1 else f'[{width - 1}:0] '}{name}"
++        )
++    body = ",\n".join(decl)
++    inst = ",\n".join(f"    .{p}({c})" for p, c in conns.items())
++    return (
++        f"// generated by regfile_ram.py: {module} as generate_ram's {block}\n"
++        f"module {module} (\n{body}\n);\n  {block} ram (\n{inst}\n  );\nendmodule\n"
++    )
++
++
++def generate(
++    spec: Path,
++    module: str,
++    shape: str,
++    openroad: str,
++    lefs: list[Path],
++    out_dir: Path,
++) -> dict:
++    """Build the spec's RAM, shape inline, netlist or macro; return what
++    the flow lists: the block, and whether it is a macro and dissolves."""
++    lines = parse(spec)
++    block = f"{module}_ram"
++    libs = os.environ.get("LIB_FILES", "").split()
++    if not libs:
++        raise SystemExit("regfile_ram: generate_ram needs LIB_FILES")
++    reads = "".join(f"read_liberty {lib}\n" for lib in libs)
++    gen = out_dir / f"{module}.generate.tcl"
++    gen.write_text(
++        reads
++        + "".join(f"read_lef {lef}\n" for lef in lefs)
++        + "generate_ram_netlist "
++        + " ".join(_args(lines, block, shape))
++        + f"\nwrite_db {out_dir / f'{block}.odb'}\n"
++    )
++    subprocess.check_call([openroad, "-exit", "-no_init", "-no_splash", str(gen)])
++    views = out_dir / f"{module}.views.tcl"
++    tcl = reads + f"read_db {out_dir / f'{block}.odb'}\n"
++    tcl += _VIEWS_TCL.format(out=out_dir, block=block)
++    if shape == "inline":
++        tcl += f"write_verilog {out_dir / f'{block}.netlist.v'}\n"
++    else:
++        tcl += _MACRO_TCL.format(out=out_dir, block=block)
++    views.write_text(tcl)
++    subprocess.check_call([openroad, "-exit", "-no_init", "-no_splash", str(views)])
++    ram_ports = _buses((out_dir / f"{block}.ports").read_text().splitlines())
++    rtl_ports = _module_ports(out_dir.parent / "memories_inferred.json", module)
++    wrapper = _wrapper(lines, module, block, ram_ports, rtl_ports)
++    if shape == "inline":
++        wrapper += "\n" + (out_dir / f"{block}.netlist.v").read_text()
++    else:
++        # the macro, a blackbox to synthesis
++        decl = ",\n".join(
++            f"  {d} {'' if w == 1 else f'[{w - 1}:0] '}{n}"
++            for n, (d, w) in ram_ports.items()
++        )
++        wrapper += f"\n(* blackbox *)\nmodule {block} (\n{decl}\n);\nendmodule\n"
++    (out_dir / f"{module}.v").write_text(wrapper)
++    return {
++        "block": block,
++        "macro": shape != "inline",
++        "dissolve": shape == "netlist",
++    }
