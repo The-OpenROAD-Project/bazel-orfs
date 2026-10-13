@@ -58,7 +58,7 @@ diff --git a/flow/scripts/memories/regfile_ram.py b/flow/scripts/memories/regfil
 new file mode 100644
 --- /dev/null
 +++ b/flow/scripts/memories/regfile_ram.py
-@@ -0,0 +1,496 @@
+@@ -0,0 +1,525 @@
 +"""AUTO_MEMORIES_REGFILES through OpenROAD's generate_ram.
 +
 +A register-file spec (the keys generate_regfile reads) is translated to
@@ -504,14 +504,43 @@ new file mode 100644
 +        raise SystemExit("regfile_ram: generate_ram needs LIB_FILES")
 +    reads = "".join(f"read_liberty {lib}\n" for lib in libs)
 +    gen = out_dir / f"{module}.generate.tcl"
-+    gen.write_text(
-+        reads
-+        + "".join(f"read_lef {lef}\n" for lef in lefs)
-+        + "generate_ram_netlist "
-+        + " ".join(_args(lines, block, shape))
-+        + f"\nwrite_db {out_dir / f'{block}.odb'}\n"
-+    )
-+    subprocess.check_call([openroad, "-exit", "-no_init", "-no_splash", str(gen)])
++    outline = out_dir / f"{block}.outline"
++
++    def build(spec_lines: list[list[str]]) -> tuple[float, float]:
++        gen.write_text(
++            reads
++            + "".join(f"read_lef {lef}\n" for lef in lefs)
++            + "generate_ram_netlist "
++            + " ".join(_args(spec_lines, block, shape))
++            + f"\nwrite_db {out_dir / f'{block}.odb'}\n"
++            + "set die [[ord::get_db_block] getDieArea]\n"
++            + f"set f [open {outline} w]\n"
++            + "puts $f \"[$die dx] [$die dy]\"\n"
++            + "close $f\n"
++        )
++        subprocess.check_call(
++            [openroad, "-exit", "-no_init", "-no_splash", str(gen)]
++        )
++        width, height = outline.read_text().split()
++        return float(width), float(height)
++
++    width, height = build(lines)
++    # generate_regfile chose its rows per word itself: where the spec names
++    # no folds and a word in one row came out more than 8 times as wide as
++    # tall (XiangShan's IntRegFile, 12 reads and 9 writes, 48), fold it
++    # into the power of two of rows nearest the square. A heuristic: a
++    # strip of a few to one can be the shape that fits (riscv32i's, 6, sits
++    # under its FakeRAMs), so a spec names bit_folds to choose.
++    bits = int(_one(lines, "bits"))
++    if not _values(lines, "bit_folds") and width > 8 * height:
++        folds = 1
++        while folds * 2 <= bits and bits % (folds * 2) == 0 and (
++            folds * 2
++        ) ** 2 <= 2 * width / height:
++            folds *= 2
++        if folds > 1:
++            lines = lines + [["bit_folds", str(folds)]]
++            build(lines)
 +    views = out_dir / f"{module}.views.tcl"
 +    tcl = reads + f"read_db {out_dir / f'{block}.odb'}\n"
 +    # the RTL's flop names, for equivalence checking
