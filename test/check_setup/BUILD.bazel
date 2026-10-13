@@ -43,6 +43,14 @@ ASAP7_LIBS = [
             ASAP7_LEFS,
             ASAP7_LIBS,
         ),
+        # set_max_delay is a constraint, not a missing one: patches/0110.
+        (
+            "max_delay_test",
+            "max_delay.tcl",
+            "max_delay.v",
+            ASAP7_LEFS,
+            [ASAP7_SEQ],
+        ),
         # A clock that reaches a flop on the wrong edge only: patches/0109.
         (
             "launch_edge_test",
