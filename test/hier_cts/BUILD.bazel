@@ -1,6 +1,8 @@
 # CTS on a hierarchical netlist: a leaf buffer drives registers in the
 # top module and in a kept submodule. Read back from 4_cts.odb, as every
 # later stage reads it, each register is clocked: patches/0111, 0112.
+# The CTS stage stops when a clock pin is off its hierarchical net:
+# patches/0114.
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:openroad.bzl", "orfs_flow", "orfs_run")
 
@@ -41,5 +43,25 @@ sh_test(
     srcs = ["check_cts_test.sh"],
     args = ["$(rootpath :hier_cts_check)"],
     data = [":hier_cts_check"],
+    tags = ["manual"],
+)
+
+orfs_run(
+    name = "hier_cts_stop",
+    src = ":hier_cts_cts",
+    outs = ["hier_cts_stop.txt"],
+    script = ":check_stop.tcl",
+    tags = ["manual"],
+    user_arguments = {
+        "OUTPUT": "hier_cts_stop.txt",
+    },
+)
+
+sh_test(
+    name = "hier_cts_stop_test",
+    size = "small",
+    srcs = ["check_stop_test.sh"],
+    args = ["$(rootpath :hier_cts_stop)"],
+    data = [":hier_cts_stop"],
     tags = ["manual"],
 )

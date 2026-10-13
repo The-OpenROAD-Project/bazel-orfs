@@ -159,6 +159,11 @@ ORFS_PATCHES = [
     # for a fresh snapshot of coralnpu; and the coralnpu README. Needs
     # 0103.
     Label("//patches:0106-orfs-coralnpu-exmem.patch"),
+    # 0114: the CTS stage stops when a clock pin is off its hierarchical
+    # net, which leaves registers unclocked in every stage that reads the
+    # database back (OpenROAD#11718, #11719; patches 0111, 0112). Not
+    # upstreamed.
+    Label("//patches:0114-orfs-cts-hier-clock-nets.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
