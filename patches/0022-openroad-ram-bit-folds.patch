@@ -7,7 +7,8 @@ cells side by side, so a wide word with many ports is a long thin
 array: XiangShan's integer register file, 64 bits, 12 read and 9 write
 ports, came out 1458 x 31 um. With folds the decoder, select-buffer and
 address-inverter columns take k rows a word, and a column's input
-buffers share its cell. A folded word is written whole: one write
+buffers stack a row a fold above the words, so a wide word's buffers do
+not set the column's width. A folded word is written whole: one write
 enable a port, and the word's write logic (enables, priority, hold,
 clock gate, reset tie, select inverters) built in its first fold and
 shared by the others. Not with -use_latch or the row decoder's column
@@ -61,7 +62,7 @@ index d253b23818..5400b8b04a 100644
    bool marking_periphery_{false};
    Cell* periphery_cell_{nullptr};
 diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
-index b5a03e9315..9b47ad7032 100644
+index b5a03e9315..cf48730c73 100644
 --- a/src/ram/src/ram.cpp
 +++ b/src/ram/src/ram.cpp
 @@ -349,18 +349,25 @@ void RamGen::makeSlice(const int slice_idx,
@@ -296,26 +297,28 @@ index b5a03e9315..9b47ad7032 100644
        write_enable[w][slice]
            = makeBTerm(fmt::format("{}[{}]", we, slice), dbIoType::INPUT);
      }
-@@ -2763,10 +2811,17 @@ void RamGen::generate(const int mask_size,
+@@ -2763,10 +2811,19 @@ void RamGen::generate(const int mask_size,
      }
    }
  
-+  // the input buffers, a cell a column (with -bit_folds, every fold's
-+  // buffer of the column in it)
-+  std::map<int, std::unique_ptr<Cell>> buffer_cells;
++  // the input buffers, a cell a column and slice: with -bit_folds a
++  // column's folds stack theirs in k rows, so the buffers of a wide word
++  // do not set the column's width
++  std::map<std::pair<int, int>, std::unique_ptr<Cell>> buffer_cells;
    for (int slice = 0; slice < slices_per_word; ++slice) {
      for (int bit = 0; bit < mask_size; ++bit) {
        int bit_idx = bit + slice * mask_size;
 -      auto buffer_grid_cell = std::make_unique<Cell>();
 +      int buf_col = sliceOffset(slice) + bit * column_mux_ratio;
-+      auto& buffer_grid_cell = buffer_cells[buf_col];
++      auto& buffer_grid_cell
++          = buffer_cells[{buf_col, bit_folds_ > 1 ? slice : 0}];
 +      if (!buffer_grid_cell) {
 +        buffer_grid_cell = std::make_unique<Cell>();
 +      }
        marking_periphery_ = true;  // the input buffers
        for (int w = 0; w < num_write; ++w) {
          makeInst(buffer_grid_cell.get(),
-@@ -2779,11 +2834,11 @@ void RamGen::generate(const int mask_size,
+@@ -2779,11 +2836,11 @@ void RamGen::generate(const int mask_size,
                     D_nets[w][bit_idx]}});
        }
        marking_periphery_ = false;
@@ -324,13 +327,13 @@ index b5a03e9315..9b47ad7032 100644
 -      ram_grid_.addCell(std::move(buffer_grid_cell), buf_col);
      }
    }
-+  for (auto& [buf_col, cell] : buffer_cells) {
-+    ram_grid_.addCell(std::move(cell), buf_col);
++  for (auto& [key, cell] : buffer_cells) {
++    ram_grid_.addCell(std::move(cell), key.first);
 +  }
  
    // indices for creating buffers
    int r_buf_idx = 0;
-@@ -2834,7 +2889,7 @@ void RamGen::generate(const int mask_size,
+@@ -2834,7 +2891,7 @@ void RamGen::generate(const int mask_size,
      for (int col = 0; col < inv_col_count; ++col) {
        int start_port = col * ports_per_col;
        int end_port = std::min(start_port + ports_per_col, total_ports);
@@ -339,16 +342,18 @@ index b5a03e9315..9b47ad7032 100644
                                               num_row_bits,
                                               start_port,
                                               end_port,
-@@ -2933,7 +2988,7 @@ void RamGen::generate(const int mask_size,
+@@ -2933,7 +2990,9 @@ void RamGen::generate(const int mask_size,
    }
    // // One extra row at the top for placing input buffers, one extra row for
    // // negative latches if use latch-based ram
 -  const int num_rows_grid = num_rows + 1 + (use_latch_ ? 1 : 0);
-+  const int num_rows_grid = num_rows * bit_folds_ + 1 + (use_latch_ ? 1 : 0);
++  // the words' rows, then the input buffers' (a row, or one a fold)
++  const int num_rows_grid
++      = num_rows * bit_folds_ + bit_folds_ + (use_latch_ ? 1 : 0);
  
    // auto cell_inv_layout = std::make_unique<Layout>(odb::vertical);
    // // check for AND gate, specific case for 2 words
-@@ -3042,9 +3097,10 @@ void RamGen::generate(const int mask_size,
+@@ -3042,9 +3101,10 @@ void RamGen::generate(const int mask_size,
      unplacePeriphery();
    }
  
