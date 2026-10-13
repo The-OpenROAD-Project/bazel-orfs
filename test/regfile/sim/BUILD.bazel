@@ -121,65 +121,103 @@ stdcell_verilog(
     libs = ["@orfs//flow:platforms/nangate45/lib/NangateOpenCellLibrary_typical.lib"],
 )
 
-genrule(
-    name = "ram_2w_v",
-    srcs = [
+NANGATE45 = {
+    "lefs": [
         "@orfs//flow:platforms/nangate45/lef/NangateOpenCellLibrary.tech.lef",
         "@orfs//flow:platforms/nangate45/lef/NangateOpenCellLibrary.macro.mod.lef",
-        "@orfs//flow:platforms/nangate45/lib/NangateOpenCellLibrary_typical.lib",
     ],
-    outs = [
-        "ram_2w_gen.v",
-        "ram_2w_model.v",
-    ],
-    cmd = """
-cat > $(@D)/ram_2w.tcl <<TCL
-read_liberty $(location @orfs//flow:platforms/nangate45/lib/NangateOpenCellLibrary_typical.lib)
-read_lef $(location @orfs//flow:platforms/nangate45/lef/NangateOpenCellLibrary.tech.lef)
-read_lef $(location @orfs//flow:platforms/nangate45/lef/NangateOpenCellLibrary.macro.mod.lef)
-generate_ram_netlist -mask_size 8 -word_size 8 -num_words 8 -r_ports 1 -w_ports 2 -storage_cell DFF_X1 -write_behavioral_verilog $(@D)/ram_2w_model.v
-write_db $(@D)/ram_2w.odb
-TCL
-$(location @openroad//:openroad) -exit -no_init -no_splash $(@D)/ram_2w.tcl > $(@D)/ram_2w.log 2>&1 || { cat $(@D)/ram_2w.log; exit 1; }
-# write_verilog needs the network linked to the block, as reading it back
-# does
-cat > $(@D)/ram_2w_v.tcl <<TCL
-read_liberty $(location @orfs//flow:platforms/nangate45/lib/NangateOpenCellLibrary_typical.lib)
-read_db $(@D)/ram_2w.odb
-write_verilog $(@D)/ram_2w.v
-TCL
-$(location @openroad//:openroad) -exit -no_init -no_splash $(@D)/ram_2w_v.tcl >> $(@D)/ram_2w.log 2>&1 || { cat $(@D)/ram_2w.log; exit 1; }
-sed 's/^module RAM8x8 /module RAM8x8_gen /' $(@D)/ram_2w.v > $(location ram_2w_gen.v)
-""",
-    tools = ["@openroad"],
-)
-
-verilog_library(
-    name = "tb_ram_2w_rtl",
-    srcs = [
-        "tb_ram_2w.v",
+    "libs": ["@orfs//flow:platforms/nangate45/lib/NangateOpenCellLibrary_typical.lib"],
+    "stdcell": [
         ":nangate45_stdcell.v",
         ":nangate45_stdcell_empty.v",
-        ":ram_2w_gen.v",
-        ":ram_2w_model.v",
     ],
-)
+}
 
-verilator_cc_library(
-    name = "tb_ram_2w",
-    module = ":tb_ram_2w_rtl",
-    module_top = "tb_ram_2w",
-    trace_mode = "none",
-    vopts = [
-        "-Wno-fatal",
-        "--x-initial",
-        "0",
+ASAP7 = {
+    "lefs": [
+        "@orfs//flow:platforms/asap7/lef/asap7_tech_1x_201209.lef",
+        "@orfs//flow:platforms/asap7/lef/asap7sc7p5t_28_R_1x_220121a.lef",
     ],
-)
+    "libs": [
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_TT_nldm_211120.lib.gz",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_TT_nldm_220122.lib.gz",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_TT_nldm_211120.lib.gz",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_TT_nldm_220123.lib",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_TT_nldm_211120.lib.gz",
+    ],
+    "stdcell": [
+        ":asap7_stdcell.v",
+        ":asap7_stdcell_empty.v",
+    ],
+}
 
-cc_test(
-    name = "ram_2w_sim_test",
-    size = "small",
-    srcs = ["tb_ram_2w.cc"],
-    deps = [":tb_ram_2w"],
-)
+# Each shape of generate_ram's 8 x 8, two write ports and one read:
+# Nangate45's tristate bitlines (patch 0011), its AND-OR trees asked for
+# (patch 0012), and asap7's, which has no tristate cell, with its QN-only
+# flop (the storage cell named: the smallest flop is negative-edge).
+[
+    [
+        genrule(
+            name = "%s_v" % name,
+            srcs = platform["lefs"] + platform["libs"],
+            outs = [
+                "%s_gen.v" % name,
+                "%s_model.v" % name,
+            ],
+            cmd = """
+cat > $(@D)/{name}.tcl <<TCL
+{read_libs}
+{read_lefs}
+generate_ram_netlist -mask_size 8 -word_size 8 -num_words 8 -r_ports 1 -w_ports 2 {args} -write_behavioral_verilog $(@D)/{name}_model.v
+write_db $(@D)/{name}.odb
+TCL
+$(location @openroad//:openroad) -exit -no_init -no_splash $(@D)/{name}.tcl > $(@D)/{name}.log 2>&1 || {{ cat $(@D)/{name}.log; exit 1; }}
+# write_verilog needs the network linked to the block, as reading it back
+# does
+cat > $(@D)/{name}_v.tcl <<TCL
+{read_libs}
+read_db $(@D)/{name}.odb
+write_verilog $(@D)/{name}.v
+TCL
+$(location @openroad//:openroad) -exit -no_init -no_splash $(@D)/{name}_v.tcl >> $(@D)/{name}.log 2>&1 || {{ cat $(@D)/{name}.log; exit 1; }}
+sed 's/^module RAM8x8 /module RAM8x8_gen /' $(@D)/{name}.v > $(location {name}_gen.v)
+""".format(
+                name = name,
+                args = args,
+                read_lefs = "\n".join(["read_lef $(location %s)" % f for f in platform["lefs"]]),
+                read_libs = "\n".join(["read_liberty $(location %s)" % f for f in platform["libs"]]),
+            ),
+            tools = ["@openroad"],
+        ),
+        verilog_library(
+            name = "tb_%s_rtl" % name,
+            srcs = [
+                "tb_ram_2w.v",
+                ":%s_gen.v" % name,
+                ":%s_model.v" % name,
+            ] + platform["stdcell"],
+        ),
+        verilator_cc_library(
+            name = "tb_%s" % name,
+            module = ":tb_%s_rtl" % name,
+            module_top = "tb_ram_2w",
+            trace_mode = "none",
+            vopts = [
+                "-Wno-fatal",
+                "--x-initial",
+                "0",
+            ],
+        ),
+        cc_test(
+            name = "%s_sim_test" % name,
+            size = "small",
+            srcs = ["tb_ram_2w.cc"],
+            deps = [":tb_%s" % name],
+        ),
+    ]
+    for name, platform, args in [
+        ("ram_2w", NANGATE45, "-storage_cell DFF_X1"),
+        ("ram_2w_and_or", NANGATE45, "-storage_cell DFF_X1 -read_style and_or"),
+        ("ram_2w_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R"),
+    ]
+]

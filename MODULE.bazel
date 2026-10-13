@@ -132,6 +132,10 @@ archive_override(
         # The first generate_regfile feature carried onto generate_ram
         # (OpenROAD #11669); not upstreamed.
         "//patches:0011-openroad-ram-multiple-write-ports.patch",
+        # 0012: generate_ram reads through AND-OR trees where the library
+        # has no tristate cell (asap7), or when asked; a QN-only storage
+        # flop taken there. On 0011 (OpenROAD #11669); not upstreamed.
+        "//patches:0012-openroad-ram-and-or-read.patch",
     ],
     strip_prefix = "OpenROAD-a3bf6124782f205ba5fa9e2e402dae8b665fc4fc",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/a3bf6124782f205ba5fa9e2e402dae8b665fc4fc.tar.gz"],
