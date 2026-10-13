@@ -1,0 +1,70 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] AUTO_MEMORIES_REGFILES: periphery verilog in mode netlist
+
+A register file whose spec says `periphery verilog` and `mode netlist`
+is generated (OpenROAD patch 0010) as a core, <module>_core, and a
+wrapper module in the RTL module's place: the periphery as assigns for
+synthesis to map with the parent's logic, the clock gates as cells,
+around an instance of the core. The wrapper is inlined (inline.txt);
+the core is the macro: its abstract and liberty are <module>_core.lef
+and .lib, it joins blackboxes.txt and regfiles.txt, and it dissolves
+from <module>_core.v and .place after macro placement.
+
+On 0089 and 0091. Not upstreamed: AUTO_MEMORIES_REGFILES is carried
+here only. Retires with 0089.
+
+---
+diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_memories.py
+--- a/flow/scripts/memories/gen_memories.py
++++ b/flow/scripts/memories/gen_memories.py
+@@ -228,6 +228,7 @@ def run_regfiles(
+         )
+     memories = []
+     dissolve = []
++    cores = []
+     inline = []
+     for spec, module in zip(specs, modules):
+         mode = _spec_mode(spec)
+@@ -249,17 +250,25 @@ def run_regfiles(
+                 f"gen_memories: {module} -> register file, inlined ({spec.name})\n"
+             )
+             continue
++        # `periphery verilog` in mode netlist: the macro is the core
++        # alone, <module>_core, and <module>.v a wrapper of the periphery
++        # around it, read in the module's place like an inlined one
++        split = mode == "netlist" and _spec_value(spec, "periphery") == [["verilog"]]
++        block = f"{module}_core" if split else module
+         tcl.write_text(
+             "".join(f"read_lef {lef}\n" for lef in lefs)
+             + f"generate_regfile -spec {spec} -check_ports {rtl}"
+-            + f" -verilog {out_dir / f'{module}.v'} -def {out_dir / f'{module}.def'}"
+-            + f" -lef {out_dir / f'{module}.lef'} -liberty {out_dir / f'{module}.lib'}\n"
++            + f" -verilog {out_dir / f'{module}.v'} -def {out_dir / f'{block}.def'}"
++            + f" -lef {out_dir / f'{block}.lef'} -liberty {out_dir / f'{block}.lib'}\n"
+         )
+         subprocess.check_call([openroad, "-exit", "-no_init", "-no_splash", str(tcl)])
+         mem = _regfile_memory(spec, module, f"register file, mode {mode}")
+         if mode == "netlist":
+-            _def_placement(out_dir / f"{module}.def", out_dir / f"{module}.place")
+-            dissolve.append(module)
++            _def_placement(out_dir / f"{block}.def", out_dir / f"{block}.place")
++            dissolve.append(block)
++        if split:
++            inline.append(module)
++            cores.append(block)
+         memories.append(mem)
+         sys.stderr.write(
+             f"gen_memories: {module} -> register file, mode {mode} ({spec.name})\n"
+@@ -267,9 +276,9 @@ def run_regfiles(
+     with (out_dir / "blackboxes.txt").open("a") as f:
+         f.write(
+             "".join(
+-                f"{m.name} {_lib_area(out_dir / f'{m.name}.lib')}\n"
+-                for m in memories
+-                if m.name not in inline
++                f"{name} {_lib_area(out_dir / f'{name}.lib')}\n"
++                for name in [m.name for m in memories if m.name not in inline]
++                + cores
+             )
+         )
+     (out_dir / "regfiles.txt").write_text("".join(f"{m}\n" for m in dissolve))

@@ -62,6 +62,10 @@ NARROW = RISCV32I["arguments"] | {"RTLMP_MIN_CHANNEL_SIZE": "2 2"}
             {"AUTO_MEMORIES_MACRO_PLACE": "regfile"},
         ),
         (
+            "netlist_verilog",
+            {"AUTO_MEMORIES_MACRO_PLACE": "regfile"},
+        ),
+        (
             "macro",
             {"AUTO_MEMORIES_MACRO_PLACE": "regfile"},
         ),
@@ -71,21 +75,27 @@ NARROW = RISCV32I["arguments"] | {"RTLMP_MIN_CHANNEL_SIZE": "2 2"}
 # The netlist shape at 55 %, where AutoMemories.md measured the padded
 # abstract (959 ps on a 4 644 um2 core): at 62 % the four 42 um tall
 # FakeRAMs and the register file with its row halo do not tile.
-orfs_flow(
-    name = "riscv_top",
-    arguments = NARROW | {
-        "AUTO_MEMORIES": "1",
-        "AUTO_MEMORIES_MACRO_PLACE": "regfile",
-        "CORE_UTILIZATION": "55",
-    },
-    last_stage = "grt",
-    sources = SOURCES | {
-        "AUTO_MEMORIES_REGFILES": [":netlist.regfile"],
-    },
-    tags = ["manual"],
-    variant = "netlist_narrow_55",
-    verilog_files = VERILOG_FILES,
-)
+[
+    orfs_flow(
+        name = "riscv_top",
+        arguments = NARROW | {
+            "AUTO_MEMORIES": "1",
+            "AUTO_MEMORIES_MACRO_PLACE": "regfile",
+            "CORE_UTILIZATION": "55",
+        },
+        last_stage = "grt",
+        sources = SOURCES | {
+            "AUTO_MEMORIES_REGFILES": [":%s.regfile" % regfile],
+        },
+        tags = ["manual"],
+        variant = "%s_narrow_55" % regfile,
+        verilog_files = VERILOG_FILES,
+    )
+    for regfile in [
+        "netlist",
+        "netlist_verilog",
+    ]
+]
 
 # odb-debug sessions on each stage, for ledger.tcl
 # and questions.
@@ -103,6 +113,7 @@ orfs_flow(
         ("netlist_service0", ":riscv_top_netlist_service0_%s"),
         ("macro", ":riscv_top_macro_%s"),
         ("netlist_narrow_55", ":riscv_top_netlist_narrow_55_%s"),
+        ("netlist_verilog_narrow_55", ":riscv_top_netlist_verilog_narrow_55_%s"),
     ] + [
         (
             shape + "_narrow",

@@ -135,7 +135,7 @@ index 94c5df30369..034eb02a14c 100644
 +| `bit_folds n` | The word split into `n` bit bands stacked one above the other. |
 +| `read_latency 0\|1` | `1` registers each read address on the clock first. |
 +| `zero_word n` | A word with no storage that reads 0 and drops writes (RISC-V x0). |
-+| `periphery generator\|verilog` | Who builds the periphery (address inverters, decode, write muxes, hold): `generator` (the default), as cells placed with the array or, in `mode netlist`, left to the parent; `verilog`, as assigns of those cells' functions in the netlist, for synthesis to map with the parent's logic, the clock gates kept as cells. Which is better depends on how the array is integrated. Not yet with `mode netlist`, whose cells the flow dissolves. |
++| `periphery generator\|verilog` | Who builds the periphery (address inverters, decode, write muxes, hold): `generator` (the default), as cells placed with the array or, in `mode netlist`, left to the parent; `verilog`, as assigns of those cells' functions in the netlist, for synthesis to map with the parent's logic, the clock gates kept as cells. Which is better depends on how the array is integrated. With `mode netlist` the block is the core alone, `<module>_core`, its ports the nets it shares with the periphery: `-lef`, `-liberty` and `-def` describe it, `-verilog` writes the wrapper module, the periphery around an instance of the core declared a blackbox, and `<module>_core.v` beside it the core's netlist. |
 +| `tap_columns n`, `service_sites n` | A tap column every `n` bit columns, and free sites beside each for the clock tree: 40 in a macro, none in `mode netlist`, whose clock tree is the parent's. |
 +| `store_name pattern`, `read_reg_name pattern` | Instance names of the flops, from `{word}`, `{bit}`, `{port}` and `{bank}`. |
 +| `lib knob value` | The timing model's parameters: `gate_delay_ps`, `wire_factor`, `input_load_ff`, `clock_load_ff`, `leakage_nw_per_cell`, `output_max_cap_ff`, `hold_ps`. |
@@ -255,7 +255,7 @@ new file mode 100644
 index 00000000000..fb4b113bda1
 --- /dev/null
 +++ b/src/ram/src/regfile.cpp
-@@ -0,0 +1,1810 @@
+@@ -0,0 +1,2054 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
 +
@@ -269,6 +269,7 @@ index 00000000000..fb4b113bda1
 +#include <fstream>
 +#include <functional>
 +#include <map>
++#include <set>
 +#include <sstream>
 +#include <stdexcept>
 +#include <string>
@@ -343,6 +344,32 @@ index 00000000000..fb4b113bda1
 +};
 +
 +Pins g_pins;  // set by ReadSpec, read by Generate
++
++// `periphery verilog` with `mode netlist`: the block is the core alone,
++// <module>_core, its ports the module's ports it uses and the nets it
++// shares with the periphery; the periphery is a wrapper module around it,
++// written by WriteVerilog. Generate fills this, WriteVerilog reads it.
++struct WrapperCell
++{
++  std::string master;
++  std::string name;
++  std::vector<std::pair<std::string, std::string>> conns;  // pin, net
++};
++struct Wrapper
++{
++  std::string module;  // the RTL module the wrapper stands in for
++  std::string core;    // the block: <module>_core
++  std::vector<std::pair<std::string, odb::dbIoType>> ports;  // the module's
++  std::vector<std::string> wires;  // its nets that are not ports
++  std::vector<WrapperCell> cells;  // the periphery
++  std::vector<std::pair<std::string, std::string>> core_conns;  // port, net
++};
++Wrapper g_wrapper;
++
++bool SplitPeriphery(const Spec& s)
++{
++  return s.periphery == "verilog" && s.mode == "netlist";
++}
 +
 +// Everything the builder needs while it lays cells into rows.
 +class Builder
@@ -587,6 +614,105 @@ index 00000000000..fb4b113bda1
 +    bp->setPlacementStatus(odb::dbPlacementStatus::FIRM);
 +  }
 +
++  // `periphery verilog` with `mode netlist`: the periphery leaves the
++  // block for the wrapper module (g_wrapper); a net it shares with the
++  // core becomes a port of the core, an input where the periphery drives
++  // it, an output where the core does. A module port only the periphery
++  // uses leaves the core.
++  void SplitCore()
++  {
++    std::set<uint> periphery;  // by id: odb objects have no order
++    for (dbInst* inst : periphery_insts_) {
++      periphery.insert(inst->getId());
++    }
++    auto ref = [](dbNet* n) {
++      return n->getBTerms().begin() != n->getBTerms().end()
++                 ? std::string((*n->getBTerms().begin())->getName())
++                 : "\\" + n->getName() + " ";
++    };
++    g_wrapper.module = spec_.module;
++    g_wrapper.core = block_->getName();
++    for (odb::dbBTerm* t : block_->getBTerms()) {
++      g_wrapper.ports.emplace_back(t->getName(), t->getIoType());
++    }
++    std::vector<odb::dbBTerm*> dropped;
++    std::vector<std::pair<dbNet*, odb::dbIoType>> shared;
++    for (dbNet* n : block_->getNets()) {
++      if (n->getSigType() == odb::dbSigType::POWER
++          || n->getSigType() == odb::dbSigType::GROUND) {
++        continue;
++      }
++      bool in_periphery = false;
++      bool in_core = false;
++      bool periphery_drives = false;
++      for (odb::dbITerm* it : n->getITerms()) {
++        const bool p = periphery.count(it->getInst()->getId()) > 0;
++        in_periphery |= p;
++        in_core |= !p;
++        if (p && it->getIoType() == odb::dbIoType::OUTPUT) {
++          periphery_drives = true;
++        }
++      }
++      const bool port = n->getBTerms().begin() != n->getBTerms().end();
++      if (port) {
++        if (in_core) {
++          const std::string name = (*n->getBTerms().begin())->getName();
++          g_wrapper.core_conns.emplace_back(name, name);
++        } else {
++          for (odb::dbBTerm* t : n->getBTerms()) {
++            dropped.push_back(t);
++          }
++        }
++        continue;
++      }
++      if (in_periphery) {
++        g_wrapper.wires.push_back(ref(n));
++      }
++      if (in_periphery && in_core) {
++        shared.emplace_back(n, periphery_drives ? odb::dbIoType::INPUT
++                                                : odb::dbIoType::OUTPUT);
++      }
++    }
++    for (dbInst* inst : periphery_insts_) {
++      WrapperCell cell{inst->getMaster()->getName(), inst->getName(), {}};
++      for (odb::dbITerm* it : inst->getITerms()) {
++        if (it->getNet() != nullptr
++            && it->getNet()->getSigType() != odb::dbSigType::POWER
++            && it->getNet()->getSigType() != odb::dbSigType::GROUND) {
++          cell.conns.emplace_back(it->getMTerm()->getName(), ref(it->getNet()));
++        }
++      }
++      g_wrapper.cells.push_back(std::move(cell));
++    }
++    for (auto& [n, io] : shared) {
++      dbBTerm* t = dbBTerm::create(n, n->getName().c_str());
++      t->setIoType(io);
++      t->setSigType(odb::dbSigType::SIGNAL);
++      g_wrapper.core_conns.emplace_back(n->getName(), ref(n));
++    }
++    for (odb::dbBTerm* t : dropped) {
++      std::vector<odb::dbBPin*> pins(t->getBPins().begin(),
++                                     t->getBPins().end());
++      for (odb::dbBPin* bp : pins) {
++        odb::dbBPin::destroy(bp);
++      }
++      odb::dbBTerm::destroy(t);
++    }
++    for (dbInst* inst : periphery_insts_) {
++      dbInst::destroy(inst);
++    }
++    periphery_insts_.clear();
++    std::vector<dbNet*> empty;
++    for (dbNet* n : block_->getNets()) {
++      if (n->getITerms().empty() && n->getBTerms().empty()) {
++        empty.push_back(n);
++      }
++    }
++    for (dbNet* n : empty) {
++      dbNet::destroy(n);
++    }
++  }
++
 +  odb::dbDatabase* db_;
 +  utl::Logger* logger_;
 +  const Spec& spec_;
@@ -693,7 +819,10 @@ index 00000000000..fb4b113bda1
 +    Refuse("the database already has a top block ("
 +           + chip->getBlock()->getName() + "); one generation per database");
 +  }
-+  block_ = dbBlock::create(chip, s.module.c_str());
++  g_wrapper = Wrapper{};
++  const std::string block_name
++      = SplitPeriphery(s) ? s.module + "_core" : s.module;
++  block_ = dbBlock::create(chip, block_name.c_str());
 +  if (block_ == nullptr) {
 +    Refuse("could not create block " + s.module);
 +  }
@@ -1483,6 +1612,9 @@ index 00000000000..fb4b113bda1
 +  // nobody's, and a parent sizing its floorplan by utilization would
 +  // charge them as macro area.
 +  // A macro is the generator's to the last cell and keeps its periphery.
++  if (SplitPeriphery(s)) {
++    SplitCore();
++  }
 +  if (s.mode == "netlist") {
 +    // The abstract a parent's macro placer sees before the block dissolves
 +    // into its rows: each port's pin where its connections land, at the
@@ -1883,12 +2015,6 @@ index 00000000000..fb4b113bda1
 +  if (s.module.empty()) {
 +    Refuse(path + ": no `module`");
 +  }
-+  if (s.periphery == "verilog" && s.mode == "netlist") {
-+    // the flow dissolves the netlist's cells; assigns need a module of
-+    // their own around the core, which it does not split out yet
-+    Refuse(path + ": `periphery verilog` with `mode netlist` is not "
-+           "supported yet");
-+  }
 +  if (s.cells.flop.empty() || s.cells.and2.empty() || s.cells.or2.empty()
 +      || s.cells.ao22.empty() || s.cells.inv.empty()) {
 +    Refuse(path + ": cells flop, and2, or2, ao22 and inv are all required");
@@ -1907,18 +2033,17 @@ index 00000000000..fb4b113bda1
 +  return b.Run();
 +}
 +
-+void WriteVerilog(odb::dbBlock* block,
-+                  const std::string& path,
-+                  const Spec& spec)
++// With `periphery verilog`, each unplaced logic cell of the periphery
++// as an assign of its function: output pin, and the expression over
++// its input pins, `@PIN` standing for the pin's net.
++struct Function
 +{
-+  // With `periphery verilog`, each unplaced logic cell of the periphery
-+  // as an assign of its function: output pin, and the expression over
-+  // its input pins, `@PIN` standing for the pin's net.
-+  struct Function
-+  {
-+    std::string out;
-+    std::string expr;
-+  };
++  std::string out;
++  std::string expr;
++};
++
++static std::map<std::string, Function> PeripheryFunctions(const Spec& spec)
++{
 +  std::map<std::string, Function> functions;
 +  if (spec.periphery == "verilog") {
 +    const Pins& p = g_pins;
@@ -1952,24 +2077,52 @@ index 00000000000..fb4b113bda1
 +    add(spec.cells.tie_hi, {p.tie_hi[0], "1'b1"});
 +    add(spec.cells.tie_lo, {p.tie_lo[0], "1'b0"});
 +  }
-+  std::ofstream out(path);
-+  if (!out) {
-+    Refuse("cannot write " + path);
-+  }
-+  // Group bterms into buses by `name[i]`.
-+  struct Bus
-+  {
-+    odb::dbIoType io;
-+    int hi = -1;
-+    bool scalar = false;
-+  };
-+  std::map<std::string, Bus> buses;
-+  std::vector<std::string> order;
-+  for (odb::dbBTerm* t : block->getBTerms()) {
-+    std::string n = t->getName();
-+    if (t->getSigType() != odb::dbSigType::SIGNAL) {
-+      continue;
++  return functions;
++}
++
++// A port net by its port name, buses with [i] intact; any other net
++// escaped.
++static std::string NetRef(odb::dbNet* n)
++{
++  return n->getBTerms().begin() != n->getBTerms().end()
++             ? n->getName()
++             : "\\" + n->getName() + " ";
++}
++
++// An assign of `f` for `inst`, its pins by their nets as `net` names them.
++static std::string Assign(const Function& f,
++                          const std::string& name,
++                          const std::function<std::string(const std::string&)>& net)
++{
++  std::string expr = f.expr;
++  for (size_t at = expr.find('@'); at != std::string::npos;
++       at = expr.find('@', at)) {
++    size_t end = at + 1;
++    while (end < expr.size()
++           && (std::isalnum(static_cast<unsigned char>(expr[end]))
++               || expr[end] == '_')) {
++      ++end;
 +    }
++    const std::string r = net(expr.substr(at + 1, end - at - 1));
++    expr.replace(at, end - at, r.empty() ? "1'b0" : r);
++    at += r.empty() ? 4 : r.size();
++  }
++  return "  assign " + net(f.out) + " = " + expr + ";  // " + name + "\n";
++}
++
++// The block's ports grouped into buses by `name[i]`, in order.
++struct Bus
++{
++  odb::dbIoType io;
++  int hi = -1;
++  bool scalar = false;
++};
++static std::vector<std::pair<std::string, Bus>> Buses(
++    const std::vector<std::pair<std::string, odb::dbIoType>>& ports)
++{
++  std::map<std::string, size_t> at;
++  std::vector<std::pair<std::string, Bus>> buses;
++  for (const auto& [n, io] : ports) {
 +    auto lb = n.rfind('[');
 +    std::string base = n;
 +    int idx = -1;
@@ -1977,25 +2130,56 @@ index 00000000000..fb4b113bda1
 +      base = n.substr(0, lb);
 +      idx = std::stoi(n.substr(lb + 1, n.size() - lb - 2));
 +    }
-+    auto it = buses.find(base);
-+    if (it == buses.end()) {
-+      order.push_back(base);
-+      it = buses.emplace(base, Bus{t->getIoType(), -1, idx < 0}).first;
++    auto it = at.find(base);
++    if (it == at.end()) {
++      it = at.emplace(base, buses.size()).first;
++      buses.push_back({base, Bus{io, -1, idx < 0}});
 +    }
-+    it->second.hi = std::max(it->second.hi, idx);
++    buses[it->second].second.hi = std::max(buses[it->second].second.hi, idx);
 +  }
-+  out << "// Generated by generate_regfile. Structural"
-+      << (functions.empty() ? "" : ", the periphery as assigns") << ".\n";
-+  out << "module " << block->getName() << "(\n";
-+  for (size_t i = 0; i < order.size(); ++i) {
-+    const Bus& b = buses[order[i]];
++  return buses;
++}
++
++static std::vector<std::pair<std::string, odb::dbIoType>> Ports(
++    odb::dbBlock* block)
++{
++  std::vector<std::pair<std::string, odb::dbIoType>> ports;
++  for (odb::dbBTerm* t : block->getBTerms()) {
++    if (t->getSigType() == odb::dbSigType::SIGNAL) {
++      ports.emplace_back(t->getName(), t->getIoType());
++    }
++  }
++  return ports;
++}
++
++static void Header(std::ostream& out,
++                   const std::string& module,
++                   const std::vector<std::pair<std::string, Bus>>& buses)
++{
++  out << "module " << module << "(\n";
++  for (size_t i = 0; i < buses.size(); ++i) {
++    const Bus& b = buses[i].second;
 +    out << "  " << (b.io == odb::dbIoType::INPUT ? "input" : "output");
 +    if (!b.scalar) {
 +      out << " [" << b.hi << ":0]";
 +    }
-+    out << " " << order[i] << (i + 1 < order.size() ? ",\n" : "\n");
++    out << " " << buses[i].first << (i + 1 < buses.size() ? ",\n" : "\n");
 +  }
 +  out << ");\n";
++}
++
++static void WriteStructural(odb::dbBlock* block,
++                            const std::string& path,
++                            const Spec& spec)
++{
++  const std::map<std::string, Function> functions = PeripheryFunctions(spec);
++  std::ofstream out(path);
++  if (!out) {
++    Refuse("cannot write " + path);
++  }
++  out << "// Generated by generate_regfile. Structural"
++      << (functions.empty() ? "" : ", the periphery as assigns") << ".\n";
++  Header(out, block->getName(), Buses(Ports(block)));
 +  for (odb::dbNet* n : block->getNets()) {
 +    if (n->getBTerms().begin() != n->getBTerms().end()) {
 +      continue;  // a port
@@ -2006,13 +2190,6 @@ index 00000000000..fb4b113bda1
 +    }
 +    out << "  wire \\" << n->getName() << " ;\n";
 +  }
-+  // A port net by its port name, buses with [i] intact; any other net
-+  // escaped.
-+  auto ref = [](odb::dbNet* n) {
-+    return n->getBTerms().begin() != n->getBTerms().end()
-+               ? n->getName()
-+               : "\\" + n->getName() + " ";
-+  };
 +  for (odb::dbInst* inst : block->getInsts()) {
 +    auto f = functions.find(inst->getMaster()->getName());
 +    if (f != functions.end() && !inst->getPlacementStatus().isPlaced()) {
@@ -2020,24 +2197,11 @@ index 00000000000..fb4b113bda1
 +      if (y == nullptr || y->getNet() == nullptr) {
 +        continue;  // drives nothing
 +      }
-+      std::string expr = f->second.expr;
-+      for (size_t at = expr.find('@'); at != std::string::npos;
-+           at = expr.find('@', at)) {
-+        size_t end = at + 1;
-+        while (end < expr.size()
-+               && (std::isalnum(static_cast<unsigned char>(expr[end]))
-+                   || expr[end] == '_')) {
-+          ++end;
-+        }
-+        odb::dbITerm* in = inst->findITerm(expr.substr(at + 1, end - at - 1).c_str());
-+        const std::string r = in != nullptr && in->getNet() != nullptr
-+                                  ? ref(in->getNet())
-+                                  : "1'b0";
-+        expr.replace(at, end - at, r);
-+        at += r.size();
-+      }
-+      out << "  assign " << ref(y->getNet()) << " = " << expr << ";  // "
-+          << inst->getName() << "\n";
++      out << Assign(f->second, inst->getName(), [&](const std::string& pin) {
++        odb::dbITerm* it = inst->findITerm(pin.c_str());
++        return it != nullptr && it->getNet() != nullptr ? NetRef(it->getNet())
++                                                         : std::string();
++      });
 +      continue;
 +    }
 +    out << "  " << inst->getMaster()->getName() << " \\" << inst->getName()
@@ -2063,6 +2227,86 @@ index 00000000000..fb4b113bda1
 +    out << ");\n";
 +  }
 +  out << "endmodule\n";
++}
++
++// `periphery verilog` with `mode netlist`: the wrapper module in the RTL
++// module's place, the periphery as assigns and its clock gates as cells
++// around an instance of the core, and the core declared a blackbox for
++// synthesis; the core's netlist goes to <core>.v beside it, for the flow
++// to dissolve.
++static void WriteWrapper(odb::dbBlock* block,
++                         const std::string& path,
++                         const Spec& spec)
++{
++  const Wrapper& w = g_wrapper;
++  std::map<std::string, Function> functions = PeripheryFunctions(spec);
++  std::ofstream out(path);
++  if (!out) {
++    Refuse("cannot write " + path);
++  }
++  out << "// Generated by generate_regfile: the periphery around "
++      << w.core << ".\n";
++  Header(out, w.module, Buses(w.ports));
++  for (const auto& n : w.wires) {
++    if (n[0] == '\\') {
++      out << "  wire " << n << ";\n";
++    }
++  }
++  for (const auto& cell : w.cells) {
++    auto f = functions.find(cell.master);
++    auto net = [&](const std::string& pin) {
++      for (const auto& [p, n] : cell.conns) {
++        if (p == pin) {
++          return n;
++        }
++      }
++      return std::string();
++    };
++    if (f != functions.end()) {
++      if (!net(f->second.out).empty()) {
++        out << Assign(f->second, cell.name, net);
++      }
++      continue;
++    }
++    out << "  " << cell.master << " \\" << cell.name << " (";
++    for (size_t i = 0; i < cell.conns.size(); ++i) {
++      out << (i ? ", " : "") << "." << cell.conns[i].first << "("
++          << cell.conns[i].second << ")";
++    }
++    out << ");\n";
++  }
++  // The core by its ports: a bus of the module's whole, a shared net bit
++  // by bit.
++  const auto core_buses = Buses(Ports(block));
++  out << "  " << w.core << " core (";
++  for (size_t i = 0; i < core_buses.size(); ++i) {
++    const std::string& p = core_buses[i].first;
++    std::string n = p;
++    for (const auto& [port, net] : w.core_conns) {
++      if (port == p) {
++        n = net;
++      }
++    }
++    out << (i ? ", " : "") << "." << p << "(" << n << ")";
++  }
++  out << ");\nendmodule\n\n(* blackbox *)\n";
++  Header(out, w.core, core_buses);
++  out << "endmodule\n";
++  const auto slash = path.rfind('/');
++  const std::string dir
++      = slash == std::string::npos ? "" : path.substr(0, slash + 1);
++  WriteStructural(block, dir + w.core + ".v", spec);
++}
++
++void WriteVerilog(odb::dbBlock* block,
++                  const std::string& path,
++                  const Spec& spec)
++{
++  if (!g_wrapper.core.empty() && block->getName() == g_wrapper.core) {
++    WriteWrapper(block, path, spec);
++  } else {
++    WriteStructural(block, path, spec);
++  }
 +}
 +
 +}  // namespace ram::regfile
@@ -2370,7 +2614,7 @@ new file mode 100644
 index 00000000000..1fe0e3bba55
 --- /dev/null
 +++ b/src/ram/src/views.cpp
-@@ -0,0 +1,662 @@
+@@ -0,0 +1,752 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
 +
@@ -2647,6 +2891,92 @@ index 00000000000..1fe0e3bba55
 +  writer.writeAbstractLef(block);
 +}
 +
++// The core of `periphery verilog` in `mode netlist`, <module>_core: a
++// blackbox to synthesis and a macro to macro placement until it
++// dissolves, so its area and its pins, and no arcs; its ports are the
++// nets it shares with the periphery, which the spec's model knows
++// nothing of.
++static void WriteCoreLiberty(odb::dbBlock* block, const std::string& path)
++{
++  std::ofstream o(path);
++  if (!o) {
++    throw std::runtime_error("cannot write " + path);
++  }
++  const std::string cell = block->getName();
++  const odb::Rect die = block->getDieArea();
++  const double dbu = block->getDbUnitsPerMicron();
++  struct Bus
++  {
++    bool input = true;
++    int hi = -1;
++  };
++  std::map<std::string, Bus> buses;
++  std::vector<std::string> order;
++  for (odb::dbBTerm* t : block->getBTerms()) {
++    if (t->getSigType() != odb::dbSigType::SIGNAL) {
++      continue;
++    }
++    std::string n = t->getName();
++    int idx = -1;
++    const auto lb = n.rfind('[');
++    if (lb != std::string::npos && n.back() == ']') {
++      idx = std::stoi(n.substr(lb + 1, n.size() - lb - 2));
++      n = n.substr(0, lb);
++    }
++    if (buses.find(n) == buses.end()) {
++      order.push_back(n);
++      buses[n].input = t->getIoType() == odb::dbIoType::INPUT;
++    }
++    buses[n].hi = std::max(buses[n].hi, idx);
++  }
++  o << "library(" << cell << ") {\n"
++    << "    comment : \"generate_regfile: the core of a periphery verilog "
++       "register file, area and pins only\";\n"
++    << "    delay_model : table_lookup;\n"
++    << "    time_unit : \"1ns\";\n"
++    << "    voltage_unit : \"1V\";\n"
++    << "    current_unit : \"1uA\";\n"
++    << "    leakage_power_unit : \"1uW\";\n"
++    << "    capacitive_load_unit (1,pf);\n"
++    << "    pulling_resistance_unit : \"1kohm\";\n"
++    << "    nom_process : 1;\n"
++    << "    nom_temperature : 25.000;\n"
++    << "    nom_voltage : 0.700;\n";
++  std::set<int> widths;
++  for (const auto& [n, b] : buses) {
++    if (b.hi >= 0) {
++      widths.insert(b.hi + 1);
++    }
++  }
++  for (int w : widths) {
++    o << "    type (" << cell << "_bus_" << w << ") {\n"
++      << "        base_type : array ;\n"
++      << "        data_type : bit ;\n"
++      << "        bit_width : " << w << ";\n"
++      << "        bit_from : " << w - 1 << ";\n"
++      << "        bit_to : 0 ;\n"
++      << "        downto : true ;\n"
++      << "    }\n";
++  }
++  o << "cell(" << cell << ") {\n"
++    << "    area : " << F(die.dx() / dbu * (die.dy() / dbu)) << ";\n"
++    << "    is_macro_cell : true;\n"
++    << "    dont_touch : true;\n";
++  for (const auto& n : order) {
++    const Bus& b = buses[n];
++    const char* dir = b.input ? "input" : "output";
++    if (b.hi < 0) {
++      o << "    pin(" << n << ") {\n        direction : " << dir
++        << ";\n        capacitance : 0.001;\n    }\n";
++    } else {
++      o << "    bus(" << n << ") {\n        bus_type : " << cell << "_bus_"
++        << b.hi + 1 << ";\n        direction : " << dir
++        << ";\n        capacitance : 0.001;\n    }\n";
++    }
++  }
++  o << "}\n}\n";
++}
++
 +void WriteLiberty(odb::dbBlock* block,
 +                  const Spec& spec,
 +                  const LibModel& m,
@@ -2656,6 +2986,10 @@ index 00000000000..1fe0e3bba55
 +  std::ofstream o(path);
 +  if (!o) {
 +    throw std::runtime_error("cannot write " + path);
++  }
++  if (block->getName() != spec.module) {
++    WriteCoreLiberty(block, path);
++    return;
 +  }
 +  const std::string cell = spec.module;
 +  const int A = AddrWidth(spec.words);

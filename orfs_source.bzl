@@ -159,6 +159,11 @@ ORFS_PATCHES = [
     # for a fresh snapshot of coralnpu; and the coralnpu README. Needs
     # 0103.
     Label("//patches:0106-orfs-coralnpu-exmem.patch"),
+    # 0108: a register file with `periphery verilog` in mode netlist: its
+    # core the macro, <module>_core, and a wrapper of the periphery read
+    # in the module's place. On 0089 and 0091; retires with 0089. Not
+    # upstreamed.
+    Label("//patches:0108-orfs-regfile-periphery-verilog.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

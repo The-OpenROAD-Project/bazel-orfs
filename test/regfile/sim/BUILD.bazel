@@ -3,7 +3,8 @@
 # src/riscv32i/regfile.v under random reads and writes, every read
 # compared. One netlist per write style: a hold mux per bit, and a clock
 # gate per word; and the clock gate with its periphery as assigns
-# (`periphery verilog`).
+# (`periphery verilog`), inlined and, in mode netlist, as a wrapper
+# around the core's own netlist (regfile_core.v).
 load("@rules_cc//cc:defs.bzl", "cc_test")
 load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
 load("@rules_verilog//verilog:defs.bzl", "verilog_library")
@@ -33,7 +34,9 @@ stdcell_verilog(
                 "@orfs//flow:platforms/asap7/lef/asap7_tech_1x_201209.lef",
                 "@orfs//flow:platforms/asap7/lef/asap7sc7p5t_28_R_1x_220121a.lef",
             ],
-            outs = ["regfile_%s.v" % style],
+            outs = ["regfile_%s.v" % style] + (
+                ["regfile_core.v"] if "periphery verilog" in lines and "mode netlist" in lines else []
+            ),
             cmd = """
 grep -v '^write_style' $(location :regfile.regfile) > $(@D)/regfile_{style}.regfile
 {extra}
@@ -43,7 +46,7 @@ read_lef $(location @orfs//flow:platforms/asap7/lef/asap7sc7p5t_28_R_1x_220121a.
 generate_regfile -spec $(@D)/regfile_{style}.regfile -check_ports $(location @orfs//flow/designs/src/riscv32i:regfile.v) -verilog $(@D)/regfile_{style}.gen.v
 TCL
 $(location @openroad//:openroad) -exit -no_init -no_splash $(@D)/regfile_{style}.tcl > $(@D)/regfile_{style}.log 2>&1 || {{ cat $(@D)/regfile_{style}.log; exit 1; }}
-sed 's/^module regfile(/module regfile_gen(/' $(@D)/regfile_{style}.gen.v > $@
+sed -e 's/^module regfile(/module regfile_gen(/' -e '/^(\\* blackbox \\*)$$/,$$d' $(@D)/regfile_{style}.gen.v > $(@D)/regfile_{style}.v
 """.format(
                 extra = "\n".join([
                     "echo '%s' >> $(@D)/regfile_%s.regfile" % (line, style)
@@ -58,6 +61,9 @@ sed 's/^module regfile(/module regfile_gen(/' $(@D)/regfile_{style}.gen.v > $@
             srcs = [
                 "tb_top.v",
                 ":regfile_%s.v" % style,
+            ] + (
+                [":regfile_core.v"] if "periphery verilog" in lines and "mode netlist" in lines else []
+            ) + [
                 ":asap7_stdcell.v",
                 ":asap7_stdcell_empty.v",
                 "@orfs//flow/designs/src/riscv32i:regfile.v",
@@ -90,6 +96,14 @@ sed 's/^module regfile(/module regfile_gen(/' $(@D)/regfile_{style}.gen.v > $@
         (
             "clock_gate_verilog",
             [
+                "write_style clock_gate",
+                "periphery verilog",
+            ],
+        ),
+        (
+            "netlist_verilog",
+            [
+                "mode netlist",
                 "write_style clock_gate",
                 "periphery verilog",
             ],

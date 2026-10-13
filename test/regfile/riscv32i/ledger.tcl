@@ -2,7 +2,8 @@
 # core is in exactly one line: macros by master (box, halo ring), core
 # not covered by rows (cut around macros, margins), standard cells,
 # taps/endcaps, fill, and empty row area. The register file's cells
-# (riscv.dp/rf/*) are split out of the standard cells, and their
+# (riscv.dp/rf/*, or riscv.dp.rf/* where synthesis flattened a
+# periphery wrapper) are split out of the standard cells, and their
 # bounding box and fill are reported once dissolved.
 set b [ord::get_db_block]; set u [expr double([$b getDbUnitsPerMicron])]
 proc um2 {a} { return [expr {$a/$::u/$::u}] }
@@ -28,7 +29,7 @@ foreach i [$b getInsts] {
   if {[string match *WELLTAP $t] || [string match ENDCAP* $t] || [string match TAP* [$i getName]] || [string match PHY_* [$i getName]]} { set tap [expr {$tap+$a}]; continue }
   if {[string match *FILL* [$m getName]] || [string match *DECAP* [$m getName]]} { set fill [expr {$fill+$a}]; continue }
   if {![$i isPlaced]} { set unplaced [expr {$unplaced+$a}] }
-  if {[string match riscv.dp/rf/* [$i getName]]} {
+  if {[string match {riscv.dp[./]rf/*} [$i getName]]} {
     set rf [expr {$rf+$a}]; incr nrf
     if {[$i getPlacementStatus] eq "FIRM"} {
       set bb [$i getBBox]; set rfbox [expr {$rfbox+$a}]
