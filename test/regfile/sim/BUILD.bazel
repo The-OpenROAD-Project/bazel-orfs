@@ -163,7 +163,8 @@ ASAP7 = {
 # banked read port beside a plain one (patch 0016); and with registered
 # read addresses (patch 0017), on Q and QN flops; and holding words by a
 # mux per bit instead of a clock gate (patch 0018), and with its periphery
-# left unplaced (patch 0019); and with cells given by role (patch 0020).
+# left unplaced (patch 0019); with cells given by role (patch 0020); and a
+# word's bits folded into rows (patch 0022).
 [
     [
         genrule(
@@ -251,5 +252,7 @@ sed -i 's/^module RAM{words}x8 /module RAM8x8 /' $(location {name}_model.v)
         ("ram_2w_rst_mux_asap7", ASAP7, "-storage_cell DFFASRHQNx1_ASAP7_75t_R -write_style mux -reset_value 0xa5", "tb_ram_2w_rst", 8),
         ("ram_2w_unplaced_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -write_style mux -banks 4 -bank_columns 2 -periphery unplaced -pin_layer M4", "tb_ram_2w", 8),
         ("ram_2w_cells_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -cells {inv INVx1_ASAP7_75t_R and2 AND2x2_ASAP7_75t_R buffer BUFx2_ASAP7_75t_R aoi22 AOI22x1_ASAP7_75t_R ao22 AO22x2_ASAP7_75t_R or2 OR2x2_ASAP7_75t_R nand2 NAND2x1_ASAP7_75t_R nor2 NOR2x1_ASAP7_75t_R} -name RAM8x8", "tb_ram_2w", 8),
+        ("ram_2w_folds", NANGATE45, "-storage_cell DFF_X1 -mask_size 4 -bit_folds 2 -decoder word", "tb_ram_2w", 8),
+        ("ram_2w_folds_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -mask_size 2 -bit_folds 4 -banks 4 -bank_columns 2 -bank_order interleaved -write_style mux -read_latency 1", "tb_ram_2w", 8),
     ]
 ]

@@ -166,6 +166,9 @@ archive_override(
         # 0021: generate_ram -decoder word, a balanced AND2 tree per word.
         # On 0020 (OpenROAD #11669); not upstreamed.
         "//patches:0021-openroad-ram-word-decoder.patch",
+        # 0022: generate_ram -bit_folds, a word's slices in rows. On 0021
+        # (OpenROAD #11669); not upstreamed.
+        "//patches:0022-openroad-ram-bit-folds.patch",
     ],
     strip_prefix = "OpenROAD-a3bf6124782f205ba5fa9e2e402dae8b665fc4fc",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/a3bf6124782f205ba5fa9e2e402dae8b665fc4fc.tar.gz"],

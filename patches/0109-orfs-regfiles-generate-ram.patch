@@ -58,7 +58,7 @@ diff --git a/flow/scripts/memories/regfile_ram.py b/flow/scripts/memories/regfil
 new file mode 100644
 --- /dev/null
 +++ b/flow/scripts/memories/regfile_ram.py
-@@ -0,0 +1,391 @@
+@@ -0,0 +1,496 @@
 +"""AUTO_MEMORIES_REGFILES through OpenROAD's generate_ram.
 +
 +A register-file spec (the keys generate_regfile reads) is translated to
@@ -72,10 +72,12 @@ new file mode 100644
 +- inlined: its netlist follows the wrapper in <module>.v;
 +- mode netlist: a macro with its periphery unplaced, which
 +  regfile_dissolve.tcl dissolves after macro placement from
-+  <module>_ram.v (one instance a line) and <module>_ram.place;
-+A spec using a key generate_ram does not have yet (flop names for
-+equivalence checking, folded bits, the periphery as Verilog), or kept
-+as a macro to the end, is left to generate_regfile; supported() says
++  <module>_ram.v (one instance a line) and <module>_ram.place.
++
++The flops take the RTL's names where the spec gives them (store_name,
++read_reg_name), for equivalence checking: renamed in the database from
++generate_ram's own. A spec with the periphery as Verilog, or kept as a
++macro to the end, is left to generate_regfile for now; supported() says
 +which.
 +"""
 +
@@ -88,7 +90,7 @@ new file mode 100644
 +from pathlib import Path
 +
 +# keys generate_ram has no counterpart for yet
-+UNSUPPORTED = {"store_name", "read_reg_name", "bit_folds", "pin_track", "lib"}
++UNSUPPORTED = {"pin_track", "lib"}
 +
 +# a spec's `cell <role> <master>` roles, as generate_ram's -cells names them
 +CELL_ROLES = {
@@ -154,6 +156,7 @@ new file mode 100644
 +    """generate_ram_netlist's options for the spec."""
 +    words = int(_one(lines, "words"))
 +    bits = int(_one(lines, "bits"))
++    folds = int(_one(lines, "bit_folds", "1"))
 +    cells = {line[1]: line[2] for line in lines if line[0] == "cell"}
 +    async_reset = _values(lines, "async_reset")
 +    storage = cells.get("flop_r" if async_reset else "flop")
@@ -161,7 +164,7 @@ new file mode 100644
 +        "-name",
 +        block,
 +        "-mask_size",
-+        str(bits),
++        str(bits // folds),
 +        "-word_size",
 +        str(bits),
 +        "-num_words",
@@ -178,6 +181,9 @@ new file mode 100644
 +    ]
 +    if storage:
 +        args += ["-storage_cell", storage]
++    if folds > 1:
++        # a word's bits in folds rows, a slice each
++        args += ["-bit_folds", str(folds)]
 +    if _values(lines, "read_banked"):
 +        args += ["-rb_ports", str(len(_values(lines, "read_banked")))]
 +    for key in ("zero_word", "banks", "bank_columns", "bank_order", "read_latency"):
@@ -284,6 +290,89 @@ new file mode 100644
 +puts $f "}}"
 +close $f
 +"""
++
++
++def _word_at(lines: list[list[str]], row: int, w: int) -> int:
++    """The word generate_ram (-decoder word) puts at (row, word in the
++    row): RamGen::wordAt."""
++    words = int(_one(lines, "words"))
++    banks = int(_one(lines, "banks", "1"))
++    columns = int(_one(lines, "bank_columns", "1"))
++    per_bank = words // banks
++    bank = (row // per_bank) * columns + w
++    i = row % per_bank
++    if _one(lines, "bank_order", "contiguous") == "interleaved":
++        return i * banks + bank
++    return bank * per_bank + i
++
++
++def _renames(lines: list[list[str]]) -> list[tuple[str, str]]:
++    """generate_ram's flop names to the spec's store_name and
++    read_reg_name, as generate_regfile names them."""
++    renames = []
++    words = int(_one(lines, "words"))
++    bits = int(_one(lines, "bits"))
++    columns = int(_one(lines, "bank_columns", "1"))
++    store = _one(lines, "store_name")
++    per_fold = bits // int(_one(lines, "bit_folds", "1"))
++    if store:
++        for row in range(words // columns):
++            for w in range(columns):
++                word = _word_at(lines, row, w)
++                if word == int(_one(lines, "zero_word", "-1")):
++                    continue
++                for bit in range(bits):
++                    renames.append(
++                        (
++                            f"storage_{row}_{w}_{bit // per_fold * per_fold}"
++                            f".bit{bit}.bit",
++                            store.replace("{word}", str(word)).replace(
++                                "{bit}", str(bit)
++                            ),
++                        )
++                    )
++    reg = _one(lines, "read_reg_name")
++    if reg and _one(lines, "read_latency", "0") != "0":
++        banks = int(_one(lines, "banks", "1"))
++        a = _address_bits(words)
++        ab = _address_bits(words // banks)
++        # generate_ram's ports: writes, then plain reads, then each banked
++        # read port's banks; the spec's read ports, plain and banked, in
++        # the order it lists them
++        first_read = len(_values(lines, "write"))
++        plain = len(_values(lines, "read"))
++        spec_port = 0
++        plain_seen = 0
++        banked_seen = 0
++        for line in lines:
++            if line[0] == "read":
++                p = first_read + plain_seen
++                plain_seen += 1
++                for i in range(a):
++                    renames.append(
++                        (
++                            f"decoder_p{p}.addr_reg_p{p}_a{i}",
++                            reg.replace("{port}", str(spec_port))
++                            .replace("{bank}", "0")
++                            .replace("{bit}", str(i)),
++                        )
++                    )
++                spec_port += 1
++            elif line[0] == "read_banked":
++                for b in range((len(line) - 1) // 2):
++                    p = first_read + plain + banked_seen * banks + b
++                    for i in range(ab):
++                        renames.append(
++                            (
++                                f"decoder_p{p}.addr_reg_p{p}_a{i}",
++                                reg.replace("{port}", str(spec_port))
++                                .replace("{bank}", str(b))
++                                .replace("{bit}", str(i)),
++                            )
++                        )
++                banked_seen += 1
++                spec_port += 1
++    return renames
 +
 +
 +def _module_ports(yosys_json: Path, module: str) -> dict[str, tuple[str, int]]:
@@ -425,6 +514,22 @@ new file mode 100644
 +    subprocess.check_call([openroad, "-exit", "-no_init", "-no_splash", str(gen)])
 +    views = out_dir / f"{module}.views.tcl"
 +    tcl = reads + f"read_db {out_dir / f'{block}.odb'}\n"
++    # the RTL's flop names, for equivalence checking
++    renames = _renames(lines)
++    if renames:
++        (out_dir / f"{block}.renames").write_text(
++            "".join(f"{{{old}}} {{{new}}}\n" for old, new in renames)
++        )
++        tcl += (
++            f"set f [open {out_dir / f'{block}.renames'} r]\n"
++            "while {[gets $f line] >= 0} {\n"
++            "  lassign $line old new\n"
++            "  set inst [[ord::get_db_block] findInst $old]\n"
++            '  if {$inst eq "NULL"} { error "regfile_ram: no $old to name $new" }\n'
++            "  $inst rename $new\n"
++            "}\n"
++            "close $f\n"
++        )
 +    tcl += _VIEWS_TCL.format(out=out_dir, block=block)
 +    if shape == "inline":
 +        tcl += f"write_verilog {out_dir / f'{block}.netlist.v'}\n"
