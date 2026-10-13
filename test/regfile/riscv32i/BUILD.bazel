@@ -67,6 +67,25 @@ NARROW = RISCV32I["arguments"] | {"RTLMP_MIN_CHANNEL_SIZE": "2 2"}
     ] + ([("", {})] if suffix else [])
 ]
 
+# The netlist shape at 55 %, where AutoMemories.md measured the padded
+# abstract (959 ps on a 4 644 um2 core): at 62 % the four 42 um tall
+# FakeRAMs and the register file with its row halo do not tile.
+orfs_flow(
+    name = "riscv_top",
+    arguments = NARROW | {
+        "AUTO_MEMORIES": "1",
+        "AUTO_MEMORIES_MACRO_PLACE": "regfile",
+        "CORE_UTILIZATION": "55",
+    },
+    last_stage = "grt",
+    sources = SOURCES | {
+        "AUTO_MEMORIES_REGFILES": [":netlist.regfile"],
+    },
+    tags = ["manual"],
+    variant = "netlist_narrow_55",
+    verilog_files = VERILOG_FILES,
+)
+
 # odb-debug sessions on each stage, for ledger.tcl
 # and questions.
 [
@@ -81,6 +100,7 @@ NARROW = RISCV32I["arguments"] | {"RTLMP_MIN_CHANNEL_SIZE": "2 2"}
         ("netlist", ":riscv_top_netlist_%s"),
         ("netlist_service0", ":riscv_top_netlist_service0_%s"),
         ("macro", ":riscv_top_macro_%s"),
+        ("netlist_narrow_55", ":riscv_top_netlist_narrow_55_%s"),
     ] + [
         (
             shape + "_narrow",
