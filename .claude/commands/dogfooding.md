@@ -70,3 +70,7 @@ Every OpenROAD stage action takes all of ORFS's `flow/scripts/*.tcl` as one inpu
 While a script change for the parent is being tested, keep its patch out of `ORFS_PATCHES`, `//:deps start` the parent's stage on the cached blocks, copy the edited script into the lane's tree and iterate there (`deps-lane`); a single substep (`do-2_2_floorplan_macro` on the lane's `2_1_floorplan.odb`) turns around in minutes. Write down each hand edit, and give each number from the lane the lane's caveat. When the change has settled, put the patch in the series and run the full Bazel build once: the final, full dress rehearsal, a belt-and-braces check that the result stands from a clean commit. It is not where the change gets tested.
 
 The worked example: dissolving hardened blocks into XSTile after macro placement. The first parent floorplan with the new ORFS patch spent 5.8 hours rebuilding all five blocks, then failed in its first minute on a check the patch itself added; a fix to one loop in `regfile_dissolve.tcl` would have re-keyed the blocks again.
+
+## 13. Trust the Bazel cache
+
+Never clean the Bazel cache, partly or wholly; a surprising rebuild is investigated through its keys (`cache-miss`). An artifact that must be rebuilt is re-keyed by poisoning the cache: a code change that reaches the building action's key. A comment may be canonicalized away before it reaches it, so check that the target now misses.

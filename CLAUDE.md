@@ -157,7 +157,7 @@ pull request, or it is not shared:
   says what is; public PR tests check intended behaviour, not `.ok`
   output; a PR on an unmerged upstream PR is a draft; relative paths;
   unattended means continue; check what our flow skipped before blaming
-  a tool.
+  a tool; trust the Bazel cache, never clean it.
 
 A target that another machine built but that is not a remote cache hit
 here, or that rebuilds when nothing seemed to change, has its own skill:
@@ -165,7 +165,9 @@ here, or that rebuilds when nothing seemed to change, has its own skill:
 - `cache-miss` — ask whether a target is cached without building it,
   from a laptop (`//tools/cache_evidence`): every miss and every action
   left unreached behind one; when another machine built it, compare
-  tree hashes first, then the two machines' miss lists.
+  tree hashes first, then the two machines' miss lists. Never clean a
+  cache: rebuild an artifact by poisoning the cache, a code change that
+  reaches its key (a comment may be canonicalized away).
 
 Running a flow's stages by hand, one after another in one tree, is fast
 and gives up what Bazel guarantees; it has its own skill:
