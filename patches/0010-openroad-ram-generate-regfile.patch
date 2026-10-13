@@ -116,7 +116,7 @@ index 94c5df30369..034eb02a14c 100644
 +| Key | Description |
 +| ---------------------- | -------------------------------------- |
 +| `module name` | The module and block name. |
-+| `mode macro\|netlist` | `macro` (default): the block is a macro to its parent; every cell is placed, the address inverters placed but movable so the macro's own repair can size them. `netlist`: the block is placed as a macro and then dissolves into its parent's cells: the core (storage flops and read bitlines) is fixed where it lies, and the periphery (address inverters, decode, hold) is left unplaced, RAM-0052 says how much, for the parent's placer and resizer, which alone know the drivers and loads outside the array; the abstract's pins sit where their connections land in the array. Which shape is better, and whether the periphery should be unplaced or placed but movable, is still being measured. |
++| `mode macro\|netlist` | `macro` (default): the block is a macro to its parent; every cell is placed, the address inverters placed but movable so the macro's own repair can size them. `netlist`: the block is placed as a macro and then dissolves into its parent's cells: the core (storage flops and read bitlines) is fixed where it lies, and the periphery (address inverters, decode, hold) is left unplaced, RAM-0052 says how much, for the parent's placer and resizer, which alone know the drivers and loads outside the array; the abstract is the core's bounding box, its pins where their connections land in the array. Which shape is better, and whether the periphery should be unplaced or placed but movable, is still being measured. |
 +| `words n`, `bits n` | Depth and width. |
 +| `clock port` | The clock port. |
 +| `reset port` | A reset port the RTL has and the array ignores. |
@@ -135,7 +135,7 @@ index 94c5df30369..034eb02a14c 100644
 +| `bit_folds n` | The word split into `n` bit bands stacked one above the other. |
 +| `read_latency 0\|1` | `1` registers each read address on the clock first. |
 +| `zero_word n` | A word with no storage that reads 0 and drops writes (RISC-V x0). |
-+| `tap_columns n`, `service_sites n` | A tap column every `n` bit columns, and free sites beside each for the clock tree. |
++| `tap_columns n`, `service_sites n` | A tap column every `n` bit columns, and free sites beside each for the clock tree: 40 in a macro, none in `mode netlist`, whose clock tree is the parent's. |
 +| `store_name pattern`, `read_reg_name pattern` | Instance names of the flops, from `{word}`, `{bit}`, `{port}` and `{bank}`. |
 +| `lib knob value` | The timing model's parameters: `gate_delay_ps`, `wire_factor`, `input_load_ff`, `clock_load_ff`, `leakage_nw_per_cell`, `output_max_cap_ff`, `hold_ps`. |
 +
@@ -254,7 +254,7 @@ new file mode 100644
 index 00000000000..fb4b113bda1
 --- /dev/null
 +++ b/src/ram/src/regfile.cpp
-@@ -0,0 +1,1642 @@
+@@ -0,0 +1,1712 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
 +
@@ -888,11 +888,16 @@ index 00000000000..fb4b113bda1
 +  // legal without them; what needs the room is what comes after -- the
 +  // clock tree's buffers and any repair -- and the slack inside a tile
 +  // is a few sites at a time, which a BUFx24 cannot use. Contiguous free
-+  // sites next to the flops are where a clock buffer wants to be.
++  // sites next to the flops are where a clock buffer wants to be. In
++  // netlist mode the block dissolves into the parent's rows before the
++  // clock tree, whose buffers go wherever the parent has room: none by
++  // default.
++  const int service_sites
++      = s.service_sites >= 0 ? s.service_sites : (s.mode == "netlist" ? 0 : 40);
 +  const int tap_w = (tap_ ? static_cast<int>(tap_->getWidth()) : 0)
-+                    + std::max(s.service_sites, 0) * site_w_;
++                    + service_sites * site_w_;
 +  const int tap_every = std::max(s.tap_columns, 1);
-+  const int tap_cols = (tap_ || s.service_sites > 0)
++  const int tap_cols = (tap_ || service_sites > 0)
 +                           ? (bits_per_fold + tap_every - 1) / tap_every
 +                           : 0;
 +  // Banks: the word column folded into `banks` columns, `bank_cols` of
@@ -1470,8 +1475,11 @@ index 00000000000..fb4b113bda1
 +  // flow places, sizes and buffers it like any logic: it alone knows the
 +  // drivers and loads outside the array. Fixed by the generator, an
 +  // address inverter drove its literal into every word's decode at a
-+  // 3.7 ns slew on XiangShan's ROB that nothing was allowed to repair. The
-+  // header column and the address band stay as free sites beside the core.
++  // 3.7 ns slew on XiangShan's ROB that nothing was allowed to repair.
++  // The abstract is then the core's bounding box and no more: the header
++  // column, the address band and the ring margin are the periphery's or
++  // nobody's, and a parent sizing its floorplan by utilization would
++  // charge them as macro area.
 +  // A macro is the generator's to the last cell and keeps its periphery.
 +  if (s.mode == "netlist") {
 +    // The abstract a parent's macro placer sees before the block dissolves
@@ -1496,22 +1504,84 @@ index 00000000000..fb4b113bda1
 +        ++n;
 +      }
 +      if (n > 0) {
-+        // on the track grid, as the edge pins are (MPL-0005 otherwise)
-+        moves.push_back({t,
-+                         {on_track(static_cast<int>(sx / n)),
-+                          on_track(static_cast<int>(sy / n))}});
++        moves.push_back(
++            {t, {static_cast<int>(sx / n), static_cast<int>(sy / n)}});
 +      }
 +    }
++    for (dbInst* inst : periphery_insts_) {
++      inst->setPlacementStatus(odb::dbPlacementStatus::UNPLACED);
++    }
++    // The core's bounding box, on the site and row grid as its cells are,
++    // and one row above it becomes the die, its lower left the origin: a
++    // parent whose rows are of the other parity there moves the core up a
++    // row as it dissolves, and the row must be the block's.
++    odb::Rect core;
++    core.mergeInit();
++    for (dbInst* inst : block_->getInsts()) {
++      if (inst->getPlacementStatus().isPlaced()) {
++        core.merge(inst->getBBox()->getBox());
++      }
++    }
++    const int dx = core.xMin();
++    const int dy = core.yMin();
++    const int first_row = (dy - core_y0_) / row_h_;
++    const int rows = core.dy() / row_h_ + 1;
++    const int box_h = rows * row_h_;
++    for (dbInst* inst : block_->getInsts()) {
++      if (inst->getPlacementStatus().isPlaced()) {
++        const odb::Point at = inst->getLocation();
++        const odb::dbPlacementStatus status = inst->getPlacementStatus();
++        // a FIRM cell's origin is fixed (ODB-0359)
++        inst->setPlacementStatus(odb::dbPlacementStatus::PLACED);
++        inst->setLocation(at.x() - dx, at.y() - dy);
++        inst->setPlacementStatus(status);
++      }
++    }
++    std::vector<odb::dbRow*> old_rows(block_->getRows().begin(),
++                                      block_->getRows().end());
++    for (odb::dbRow* row : old_rows) {
++      odb::dbRow::destroy(row);
++    }
++    for (int r = 0; r < rows; ++r) {
++      std::string rn = "ROW_" + std::to_string(r);
++      odb::dbRow::create(block_,
++                         rn.c_str(),
++                         site_,
++                         0,
++                         r * row_h_,
++                         (first_row + r) % 2 == 0 ? odb::dbOrientType::R0
++                                                  : odb::dbOrientType::MX,
++                         odb::dbRowDir::HORIZONTAL,
++                         core.dx() / site_w_,
++                         site_w_);
++    }
++    block_->setDieArea(odb::Rect(0, 0, core.dx(), box_h));
++    // Each pin where its connections land, moved with the core and kept
++    // inside it, on the track grid as the edge pins are (MPL-0005
++    // otherwise).
++    auto inside = [&](int v, int hi) {
++      int t = on_track(std::clamp(v, edge, hi - edge));
++      while (t > hi - edge && t - track_pitch >= 0) {
++        t -= track_pitch;
++      }
++      return t;
++    };
 +    for (auto& [t, xy] : moves) {
 +      std::vector<odb::dbBPin*> old(t->getBPins().begin(), t->getBPins().end());
 +      for (odb::dbBPin* bp : old) {
 +        odb::dbBPin::destroy(bp);
 +      }
-+      Pin(t, layer_h_, xy.first, xy.second);
++      Pin(t,
++          layer_h_,
++          inside(xy.first - dx, core.dx()),
++          inside(xy.second - dy, box_h));
 +    }
-+    for (dbInst* inst : periphery_insts_) {
-+      inst->setPlacementStatus(odb::dbPlacementStatus::UNPLACED);
-+    }
++    logger_->report(
++        "generate_regfile: mode netlist, the abstract is the core: {} x {} "
++        "um, {} rows",
++        core.dx() / static_cast<double>(tech->getLefUnits()),
++        box_h / static_cast<double>(tech->getLefUnits()),
++        rows);
 +  }
 +  return block_;
 +}
@@ -1902,7 +1972,7 @@ new file mode 100644
 index 00000000000..649ac3fe814
 --- /dev/null
 +++ b/src/ram/src/regfile.h
-@@ -0,0 +1,182 @@
+@@ -0,0 +1,184 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
 +
@@ -2012,7 +2082,9 @@ index 00000000000..649ac3fe814
 +  std::vector<Port> write;
 +  Cells cells;
 +  int tap_columns = 8;     // a tap column every N bit columns
-+  int service_sites = 40;  // free sites beside each tap, for the clock tree
++  // free sites beside each tap, for the clock tree; -1: 40 in a macro,
++  // none in netlist mode
++  int service_sites = -1;
 +  int banks = 1;           // word columns side by side; words % banks == 0
 +  // How many of the banks stand side by side; the rest stack below them.
 +  // 0 means all of them, one row of banks. The outline is bank_columns
