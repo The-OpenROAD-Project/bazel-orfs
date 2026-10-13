@@ -1,0 +1,26 @@
+# The Alpha 21264's integer register file in one copy: 80 words of 64
+# bits, four read and six write ports. Hrishikesh et al. (ISCA 2002)
+# give its access time from CACTI 3.0 at 100 nm as 0.39 ns, 10.8 FO4 at
+# their 360 ps per drawn micron: the calibration row's literature number.
+module      alpha80x64
+words       80
+bits        64
+clock       clock
+read        io_readPorts_0_addr  io_readPorts_0_data
+read        io_readPorts_1_addr  io_readPorts_1_data
+read        io_readPorts_2_addr  io_readPorts_2_data
+read        io_readPorts_3_addr  io_readPorts_3_data
+write       io_writePorts_0_addr io_writePorts_0_data io_writePorts_0_wen
+write       io_writePorts_1_addr io_writePorts_1_data io_writePorts_1_wen
+write       io_writePorts_2_addr io_writePorts_2_data io_writePorts_2_wen
+write       io_writePorts_3_addr io_writePorts_3_data io_writePorts_3_wen
+write       io_writePorts_4_addr io_writePorts_4_data io_writePorts_4_wen
+write       io_writePorts_5_addr io_writePorts_5_data io_writePorts_5_wen
+cell flop   DFFHQNx1_ASAP7_75t_R
+cell and2   AND2x2_ASAP7_75t_R
+cell or2    OR2x2_ASAP7_75t_R
+cell ao22   AO22x2_ASAP7_75t_R
+cell inv    INVx1_ASAP7_75t_R
+cell tap    TAPCELL_ASAP7_75t_R
+pin_layer   M4
+tap_columns 8

@@ -1,0 +1,40 @@
+# The pilot's calibration row: generated register files timed on their
+# own placement, against the literature's register-file access time.
+
+ASAP7 = "@orfs//flow:platforms/asap7/"
+
+LIBS = [ASAP7 + "lib/NLDM/" + f for f in [
+    "asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz",
+    "asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz",
+    "asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz",
+    "asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz",
+    "asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib",
+]]
+
+LEFS = [
+    ASAP7 + "lef/asap7_tech_1x_201209.lef",
+    ASAP7 + "lef/asap7sc7p5t_28_R_1x_220121a.lef",
+]
+
+SPECS = glob(["*.regfile"])
+
+genrule(
+    name = "regfile_read",
+    srcs = ["regfile_read.tcl"] + LEFS + LIBS + SPECS + [ASAP7 + "setRC.tcl"],
+    outs = ["regfile_read.jsonl"],
+    cmd = " ".join(
+        [
+            "$(location :calibrate.sh) $(location @openroad)",
+            "$(location :regfile_read.tcl)",
+        ] + ["$(location %s)" % f for f in LEFS] + [
+            "$(location %ssetRC.tcl)" % ASAP7,
+            "$@ --",
+        ] + ["$(location %s)" % f for f in LIBS] + ["--"] +
+        ["$(location %s)" % s for s in SPECS],
+    ),
+    tags = ["manual"],
+    tools = [
+        ":calibrate.sh",
+        "@openroad",
+    ],
+)

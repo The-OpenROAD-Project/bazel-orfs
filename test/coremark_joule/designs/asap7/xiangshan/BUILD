@@ -267,3 +267,82 @@ py_test(
     main = "synth_config_test.py",
     tags = ["manual"],
 )
+
+# The potential report's pilot (tools/potential_report): tier 1 on a
+# module of XiangShan's flat Verilog, read by slang the way synthesis
+# reads it (synth_preamble.tcl's arguments), with no block flow under
+# it. Manual and advisory; no stage reads the findings.
+XS_VERILOG = ["//test/coremark_joule/xiangshan:xiangshan_flat.sv"]
+
+genrule(
+    name = "xs_module_names",
+    srcs = XS_VERILOG,
+    outs = ["xs_module_names.txt"],
+    cmd = "grep -ohE '^module [A-Za-z0-9_]+' $(SRCS) | cut -d' ' -f2 | sort -u > $@",
+    tags = ["manual"],
+)
+
+XS_SLANG = "read_slang -D SYNTHESIS --keep-hierarchy --compat=vcs --ignore-assertions --top {top} $(SRCS)"
+
+[
+    genrule(
+        name = top + "_potential_findings",
+        srcs = XS_VERILOG,
+        outs = [top + "_potential_findings.json"],
+        cmd = " && ".join([
+            "$(location @yosys) -m $(location @sv-elab//src/yosys_plugin:slang.so) -q -l $(RULEDIR)/{top}_potential.log -p '" + XS_SLANG + "; proc; opt_clean; write_json $(RULEDIR)/{top}_potential.json'",
+            "$(location //tools/potential_report:detect) $(RULEDIR)/{top}_potential.json --out $@",
+            "rm $(RULEDIR)/{top}_potential.json",
+        ]).format(top = top),
+        tags = ["manual"],
+        tools = [
+            "//tools/potential_report:detect",
+            "@sv-elab//src/yosys_plugin:slang.so",
+            "@yosys",
+        ],
+    )
+    for top in [
+        "Rob",
+        "PhysicalStoreQueue",
+        "LoadQueueReplay",
+        "IssueQueueAluMul",
+        "IssueQueueVialu",
+        "TLBNonBlock",
+        "MissQueue",
+        "AgeDetector",
+        "AgeDetector_36",
+    ]
+]
+
+# Tier 2: the parent synthesised with its replicated leaf kept (as
+# SYNTH_KEEP_MODULES keeps it) and flattened (constants propagate, ABC
+# shares across the copies), on generic gates, mapped for area and for
+# depth. Minutes per module; the module, not the block.
+[
+    genrule(
+        name = top + "_potential_whatif",
+        srcs = XS_VERILOG,
+        outs = [top + "_potential_whatif.json"],
+        cmd = " ".join([
+            "$(location //tools/potential_report:whatif)",
+            "--yosys $(location @yosys)",
+            "--plugin $(location @sv-elab//src/yosys_plugin:slang.so)",
+            "--read '" + XS_SLANG.format(top = top) + "'",
+            "--top " + top,
+            "--leaf '" + leaf + "*'",
+            "--log $(RULEDIR)/" + top + "_potential_whatif",
+            "--out $@",
+        ]),
+        tags = ["manual"],
+        tools = [
+            "//tools/potential_report:whatif",
+            "@sv-elab//src/yosys_plugin:slang.so",
+            "@yosys",
+        ],
+    )
+    for top, leaf in [
+        ("Rob", "RobEntryCell"),
+        ("PhysicalStoreQueue", "SqEntryCell"),
+        ("MissQueue", "MissEntry"),
+    ]
+]

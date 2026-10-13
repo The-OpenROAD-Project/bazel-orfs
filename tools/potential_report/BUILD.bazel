@@ -1,0 +1,36 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+# The potential report's pilot: does the RTL or the flow leave a
+# repeating structure short of what it should reach? See README.md.
+
+py_binary(
+    name = "detect",
+    srcs = ["detect.py"],
+    main = "detect.py",
+    visibility = ["//test/coremark_joule/designs/asap7/xiangshan:__pkg__"],
+)
+
+py_binary(
+    name = "whatif",
+    srcs = ["whatif.py"],
+    main = "whatif.py",
+    visibility = ["//test/coremark_joule/designs/asap7/xiangshan:__pkg__"],
+)
+
+FIXTURES = glob(["fixtures/*.v"])
+
+# Each fixture's findings, kinds and counts, against the shape it was
+# written to have; the what-if on the constant-index fixture must find
+# the shared decode.
+py_test(
+    name = "detect_test",
+    size = "small",
+    srcs = [
+        "detect.py",
+        "detect_test.py",
+        "whatif.py",
+    ],
+    args = ["$(rootpath @yosys)"],
+    data = FIXTURES + ["@yosys"],
+    main = "detect_test.py",
+)
