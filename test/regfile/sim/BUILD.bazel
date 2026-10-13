@@ -162,7 +162,8 @@ ASAP7 = {
 # stacked, tristate and AND-OR, and 12 words in banks of 3; and with a
 # banked read port beside a plain one (patch 0016); and with registered
 # read addresses (patch 0017), on Q and QN flops; and holding words by a
-# mux per bit instead of a clock gate (patch 0018).
+# mux per bit instead of a clock gate (patch 0018), and with its periphery
+# left unplaced (patch 0019).
 [
     [
         genrule(
@@ -248,5 +249,6 @@ sed -i 's/^module RAM{words}x8 /module RAM8x8 /' $(location {name}_model.v)
         ("ram_2w_mux", NANGATE45, "-storage_cell DFF_X1 -write_style mux", "tb_ram_2w", 8),
         ("ram_2w_mux_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -write_style mux -banks 4 -bank_columns 2 -read_latency 1", "tb_ram_2w", 8),
         ("ram_2w_rst_mux_asap7", ASAP7, "-storage_cell DFFASRHQNx1_ASAP7_75t_R -write_style mux -reset_value 0xa5", "tb_ram_2w_rst", 8),
+        ("ram_2w_unplaced_asap7", ASAP7, "-storage_cell DFFHQNx1_ASAP7_75t_R -write_style mux -banks 4 -bank_columns 2 -periphery unplaced -pin_layer M4", "tb_ram_2w", 8),
     ]
 ]
