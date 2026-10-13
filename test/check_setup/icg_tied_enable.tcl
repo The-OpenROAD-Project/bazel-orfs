@@ -3,6 +3,7 @@
 # arc set (falling edge only) disabled the rising default arc, and
 # report_checks -to r/D found no path.
 source [file join [file dirname [info script]] load.tcl]
+set_input_delay 0 -clock clk [get_ports d]
 
 set unclocked [unclocked_pins]
 set paths [find_timing_paths -to [get_pins r/D] -path_delay max]
