@@ -1,0 +1,69 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] cts: stop on a clock pin off its hierarchical net
+
+With OPENROAD_HIERARCHICAL=1, CTS could connect a clock pin to the flat
+net only (OpenROAD#11718, #11719). The session that ran CTS times it;
+every stage that reads 4_1_cts.odb back builds the hierarchical view,
+where the pin is undriven and what it clocks is unclocked: 258 to 6,830
+register pins on each of XiangShan's blocks, found only by check_setup
+on the read-back database. The CTS stage now stops before writing the
+database when a clock net has a hierarchical net and pins on none.
+
+Not upstreamed. Retires when OpenROAD#11718 and #11719 are in and the
+check has been upstreamed or found unneeded.
+
+---
+diff --git a/flow/scripts/cts.tcl b/flow/scripts/cts.tcl
+--- a/flow/scripts/cts.tcl
++++ b/flow/scripts/cts.tcl
+@@ -86,5 +86,12 @@ report_metrics 4 "cts final"
+ 
+ source_step_tcl POST CTS
+ 
++# A clock pin left off its hierarchical net is undriven once the
++# database is read back, and every register behind it unclocked in each
++# later stage, though this session still times it.
++if { $::env(OPENROAD_HIERARCHICAL) } {
++  check_hier_clock_nets
++}
++
+ orfs_write_db $::env(RESULTS_DIR)/4_1_cts.odb
+ orfs_write_sdc $::env(RESULTS_DIR)/4_cts.sdc
+diff --git a/flow/scripts/util.tcl b/flow/scripts/util.tcl
+--- a/flow/scripts/util.tcl
++++ b/flow/scripts/util.tcl
+@@ -226,6 +226,34 @@ proc source_env_var_if_exists { env_var } {
+ }
+ 
+ 
++# Stops on a clock net that has a hierarchical net and pins that are on
++# none: the hierarchical view, which a stage reading the database back
++# times, leaves those pins undriven.
++proc check_hier_clock_nets { } {
++  set off {}
++  foreach net [[ord::get_db_block] getNets] {
++    if { [$net getSigType] != "CLOCK" } {
++      continue
++    }
++    set on_hier_net 0
++    set flat_only {}
++    foreach iterm [$net getITerms] {
++      if { [$iterm getModNet] == "NULL" } {
++        lappend flat_only [$iterm getName]
++      } else {
++        set on_hier_net 1
++      }
++    }
++    if { $on_hier_net } {
++      lappend off {*}$flat_only
++    }
++  }
++  if { [llength $off] > 0 } {
++    error "[llength $off] clock pins are off their hierarchical net,\
++      e.g. [lrange $off 0 4]: read back, what they clock is unclocked."
++  }
++}
++
+ # Feature toggle for now, eventually the -hier option
+ # will be default and this code will be deleted.
+ proc hier_options { } {
