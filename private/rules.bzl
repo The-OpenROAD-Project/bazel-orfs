@@ -2850,7 +2850,12 @@ def _make_impl(
         for f in all_outputs:
             ctx.actions.write(output = f, content = "{}" if f in json_set else "")
     else:
-        rename_candidates = ctx.files.src
+        # The flow globs the AUTO_MEMORIES views out of its own
+        # $(RESULTS_DIR)/memories, so a stage of another variant than
+        # its src (the pre-layout abstract) moves them along with the
+        # .odb. Left behind, the glob found nothing and the abstract was
+        # written with each memory a black box: its outputs untimed.
+        rename_candidates = ctx.files.src + ctx.attr.src[OrfsInfo].memories.to_list()
         if rename_data:
             rename_candidates = depset(
                 ctx.files.src,
