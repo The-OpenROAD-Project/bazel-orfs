@@ -110,3 +110,76 @@ sed -e 's/^module regfile(/module regfile_gen(/' -e '/^(\\* blackbox \\*)$$/,$$d
         ),
     ]
 ]
+
+# generate_ram with two write ports (OpenROAD patch 0011): its netlist
+# beside its own behavioral model on Nangate45, whose tristate buffers
+# make the read bitlines, under random writes on both ports, a quarter
+# of them to the same word, the last port winning.
+stdcell_verilog(
+    name = "nangate45_stdcell",
+    lefs = ["@orfs//flow:platforms/nangate45/lef/NangateOpenCellLibrary.macro.mod.lef"],
+    libs = ["@orfs//flow:platforms/nangate45/lib/NangateOpenCellLibrary_typical.lib"],
+)
+
+genrule(
+    name = "ram_2w_v",
+    srcs = [
+        "@orfs//flow:platforms/nangate45/lef/NangateOpenCellLibrary.tech.lef",
+        "@orfs//flow:platforms/nangate45/lef/NangateOpenCellLibrary.macro.mod.lef",
+        "@orfs//flow:platforms/nangate45/lib/NangateOpenCellLibrary_typical.lib",
+    ],
+    outs = [
+        "ram_2w_gen.v",
+        "ram_2w_model.v",
+    ],
+    cmd = """
+cat > $(@D)/ram_2w.tcl <<TCL
+read_liberty $(location @orfs//flow:platforms/nangate45/lib/NangateOpenCellLibrary_typical.lib)
+read_lef $(location @orfs//flow:platforms/nangate45/lef/NangateOpenCellLibrary.tech.lef)
+read_lef $(location @orfs//flow:platforms/nangate45/lef/NangateOpenCellLibrary.macro.mod.lef)
+generate_ram_netlist -mask_size 8 -word_size 8 -num_words 8 -r_ports 1 -w_ports 2 -storage_cell DFF_X1 -write_behavioral_verilog $(@D)/ram_2w_model.v
+write_db $(@D)/ram_2w.odb
+TCL
+$(location @openroad//:openroad) -exit -no_init -no_splash $(@D)/ram_2w.tcl > $(@D)/ram_2w.log 2>&1 || { cat $(@D)/ram_2w.log; exit 1; }
+# write_verilog needs the network linked to the block, as reading it back
+# does
+cat > $(@D)/ram_2w_v.tcl <<TCL
+read_liberty $(location @orfs//flow:platforms/nangate45/lib/NangateOpenCellLibrary_typical.lib)
+read_db $(@D)/ram_2w.odb
+write_verilog $(@D)/ram_2w.v
+TCL
+$(location @openroad//:openroad) -exit -no_init -no_splash $(@D)/ram_2w_v.tcl >> $(@D)/ram_2w.log 2>&1 || { cat $(@D)/ram_2w.log; exit 1; }
+sed 's/^module RAM8x8 /module RAM8x8_gen /' $(@D)/ram_2w.v > $(location ram_2w_gen.v)
+""",
+    tools = ["@openroad"],
+)
+
+verilog_library(
+    name = "tb_ram_2w_rtl",
+    srcs = [
+        "tb_ram_2w.v",
+        ":nangate45_stdcell.v",
+        ":nangate45_stdcell_empty.v",
+        ":ram_2w_gen.v",
+        ":ram_2w_model.v",
+    ],
+)
+
+verilator_cc_library(
+    name = "tb_ram_2w",
+    module = ":tb_ram_2w_rtl",
+    module_top = "tb_ram_2w",
+    trace_mode = "none",
+    vopts = [
+        "-Wno-fatal",
+        "--x-initial",
+        "0",
+    ],
+)
+
+cc_test(
+    name = "ram_2w_sim_test",
+    size = "small",
+    srcs = ["tb_ram_2w.cc"],
+    deps = [":tb_ram_2w"],
+)

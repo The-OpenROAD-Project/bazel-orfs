@@ -127,6 +127,11 @@ archive_override(
         # The-OpenROAD-Project/OpenROAD#11669; retires at a bump onto an
         # OpenROAD that has it.
         "//patches:0010-openroad-ram-generate-regfile.patch",
+        # 0011: generate_ram with more than one write port, each with its
+        # own decoder and data, the last port winning a word both write.
+        # The first generate_regfile feature carried onto generate_ram
+        # (OpenROAD #11669); not upstreamed.
+        "//patches:0011-openroad-ram-multiple-write-ports.patch",
     ],
     strip_prefix = "OpenROAD-a3bf6124782f205ba5fa9e2e402dae8b665fc4fc",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/a3bf6124782f205ba5fa9e2e402dae8b665fc4fc.tar.gz"],
