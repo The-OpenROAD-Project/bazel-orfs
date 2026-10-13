@@ -189,7 +189,7 @@ def keep_modules(arguments):
 # one would build without the register files it asks for.
 RETIRED_ARGUMENTS = {
     "STRUCTURED_MEMORIES": "AUTO_MEMORIES_REGFILES lists the register-file " +
-                           "specs, built by OpenROAD's generate_regfile",
+                           "specs, built by OpenROAD's generate_ram",
     "STRUCTURED_PLACEMENT": "AUTO_MEMORIES_MACRO_PLACE lists the register " +
                             "files placed as macros, which dissolve into " +
                             "their cells after macro placement; place them " +

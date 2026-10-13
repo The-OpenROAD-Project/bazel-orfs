@@ -65,7 +65,7 @@ SOURCE_VARS = {
     # before synthesis; run during canonicalization, so staged.
     "SYNTH_VERILOG_SURGERY",
     # AUTO_MEMORIES_REGFILES: register-file spec files gen_memories.py
-    # hands to OpenROAD's generate_regfile during canonicalization;
+    # translates to OpenROAD's generate_ram during canonicalization;
     # staged like the .memories files above.
     "AUTO_MEMORIES_REGFILES",
 }

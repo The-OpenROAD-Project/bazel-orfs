@@ -1,4 +1,4 @@
-"""A testbench for a generate_regfile spec: the generated netlist beside a reference.
+"""A testbench for a register-file spec: the generated netlist beside a reference.
 
 The reference is the RTL module the spec replaces (--rtl-module) or,
 when there is none, a behavioural memory built from the spec: words x bits, combinational
@@ -41,8 +41,11 @@ MODELLED = {
     "service_sites",
     "lib",
     "flop_output",
+    "pin_layer",
     "pin_layer_h",
     "pin_layer_v",
+    "periphery",
+    "mode",
     "store_name",
     "unused",
     "write_priority",

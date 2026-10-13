@@ -1,17 +1,40 @@
 # What the macro step left of test/regfile's regfile_top register file, as JSON:
-# whether the RegFile macro is gone, its cells by kind, and the facts
-# check_dissolve.py asserts. The core is the cells memories/RegFile.place
-# names; the rest under u_rf/ is the periphery.
+# whether the macro is gone, its cells by kind, and the facts
+# check_dissolve.py asserts. The macro is generate_ram's RegFile_ram behind
+# a wrapper in RegFile's place (ORFS patch 0089); the core is the cells
+# its .place file names, the rest under its instance the periphery.
 # The stage's ODB is ODB_FILE, in another repository's results directory:
 # read it directly, and the generator's files from beside it.
 read_db $::env(ODB_FILE)
 set block [ord::get_db_block]
-set place [dict create]
-set f [open [file dirname $::env(ODB_FILE)]/memories/RegFile.place r]
+set memories [file dirname $::env(ODB_FILE)]/memories
+set macro_master RegFile_ram
+set names {}
+set f [open $memories/$macro_master.place r]
 while { [gets $f line] >= 0 } {
-  if { [lindex $line 0] ne "" } { dict set place "u_rf/[lindex $line 0]" 1 }
+  if { [lindex $line 0] ne "" } { lappend names [lindex $line 0] }
 }
 close $f
+# the dissolved cells' prefix: the macro's instance, u_rf/ or, inside the
+# flattened wrapper, u_rf.ram/
+# (a cell the parent never reads is gone as dead logic: try names until
+# one is there)
+set prefix u_rf/
+foreach name $names {
+  set found ""
+  foreach candidate {u_rf/ u_rf.ram/ u_rf/ram/} {
+    if { [$block findInst "$candidate$name"] ne "NULL" } {
+      set found $candidate
+      break
+    }
+  }
+  if { $found ne "" } {
+    set prefix $found
+    break
+  }
+}
+set place [dict create]
+foreach name $names { dict set place "$prefix$name" 1 }
 set row_orient [dict create]
 foreach row [$block getRows] {
   dict set row_orient [[$row getBBox] yMin] [$row getOrient]
@@ -27,9 +50,9 @@ set periphery_placed 0
 set stray_firm 0
 foreach inst [$block getInsts] {
   set master [$inst getMaster]
-  if { [$master getName] eq "RegFile" } { incr macros }
+  if { [$master getName] eq $macro_master } { incr macros }
   set name [$inst getName]
-  if { ![string match u_rf/* $name] } { continue }
+  if { ![string match "$prefix*" $name] } { continue }
   if { [dict exists $place $name] } {
     incr core
     if { [$inst getPlacementStatus] eq "FIRM" } { incr core_firm }
@@ -52,7 +75,7 @@ foreach inst [$block getInsts] {
 }
 set internal_nets 0
 foreach net [$block getNets] {
-  if { [string match u_rf/* [$net getName]] && [$net isDoNotTouch] } { incr internal_nets }
+  if { [string match "$prefix*" [$net getName]] && [$net isDoNotTouch] } { incr internal_nets }
 }
 set out [open $::env(OUTPUT_JSON) w]
 puts $out "{"

@@ -245,7 +245,7 @@ index 000000000..41d3ee3f6
 +implementation step on a snapshot, verified by the simulation above
 +and not by coralnpu's own test suite.
 diff --git a/flow/designs/asap7/coralnpu/surgery.py b/flow/designs/asap7/coralnpu/surgery.py
-index 76b7464d4..44c936d54 100644
+index bd9aa4a6c..d4b891578 100644
 --- a/flow/designs/asap7/coralnpu/surgery.py
 +++ b/flow/designs/asap7/coralnpu/surgery.py
 @@ -1,6 +1,6 @@
@@ -256,7 +256,7 @@ index 76b7464d4..44c936d54 100644
  file of the build concatenated, each behind a marker line
  
      // ----- 8< ----- FILE "<path>" ----- 8< -----
-@@ -355,6 +355,152 @@ def make_regfile_seam(text, path):
+@@ -330,6 +330,152 @@ def make_regfile_seam(text, path):
      return text[: m.start()] + mod + text[m.end() :] + regfile_rf_module()
  
  
@@ -409,7 +409,7 @@ index 76b7464d4..44c936d54 100644
  def fail(msg):
      sys.exit("coralnpu surgery: " + msg)
  
-@@ -389,23 +535,32 @@ def main():
+@@ -364,23 +510,32 @@ def main():
          action="store_true",
          help="also move Regfile's storage into Regfile_rf",
      )

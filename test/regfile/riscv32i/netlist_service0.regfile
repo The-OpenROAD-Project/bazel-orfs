@@ -1,0 +1,19 @@
+# As netlist.regfile, with no free sites beside the tap columns: the
+# parent's clock tree finds its room in the parent's rows.
+module regfile
+mode netlist
+words 32
+bits 32
+clock clk
+read ra1 rd1
+read ra2 rd2
+write wa3 wd3 we3
+zero_word 0
+write_style clock_gate
+cell icg ICGx1_ASAP7_75t_R
+cell flop DFFHQNx1_ASAP7_75t_R
+cell and2 AND2x2_ASAP7_75t_R
+cell or2 OR2x2_ASAP7_75t_R
+cell ao22 AO22x2_ASAP7_75t_R
+cell inv INVx1_ASAP7_75t_R
+service_sites 0

@@ -1,7 +1,7 @@
 // A 16 x 8 register file with two read ports and two write ports,
 // behavioural, as RTL writes one. With AUTO_MEMORIES_REGFILES naming its
 // spec the flow never synthesises this module: OpenROAD's
-// generate_regfile builds it of placed standard cells instead.
+// generate_ram builds it of placed standard cells instead.
 module RegFile(
   input         clock,
   input  [3:0]  io_r0_addr,

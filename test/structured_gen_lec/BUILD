@@ -100,14 +100,14 @@ regfile_lec(
     spec_args = "--spec-latency 0",
 )
 
-# OpenROAD's generate_regfile on the same fixtures, in both write styles.
+# OpenROAD's generate_ram on the same fixtures, in both write styles.
 # A clock gate per word puts the write enable on the clock, which
 # kepler-formal's combinational check cannot model: those flops' next
 # state is left out (skip_gated_clock_flops, experimental, patch
 # kepler-formal-0002) and the rest -- every read, through every flop's
 # output -- is compared.
-GENERATE_REGFILE_LEC = [
-    "%s%d_%s_generate_regfile_lec_test" % (
+GENERATE_RAM_LEC = [
+    "%s%d_%s_generate_ram_lec_test" % (
         shape,
         sizes[0],
         style,
@@ -120,7 +120,7 @@ GENERATE_REGFILE_LEC = [
 ]
 
 [regfile_lec(
-    name = "%s%d_%s_generate_regfile_lec_test" % (
+    name = "%s%d_%s_generate_ram_lec_test" % (
         shape,
         sizes[0],
         style,
@@ -129,7 +129,7 @@ GENERATE_REGFILE_LEC = [
         sizes[0],
         args,
     ),
-    generator = "generate_regfile",
+    generator = "generate_ram",
     module = "%s%d" % (
         shape.capitalize(),
         sizes[0],
@@ -144,10 +144,10 @@ GENERATE_REGFILE_LEC = [
 # The skip must not hide a read-path bug: the same spec error as above,
 # clock-gated, still caught.
 regfile_lec(
-    name = "fp8_unregistered_clock_gate_generate_regfile_lec_test",
+    name = "fp8_unregistered_clock_gate_generate_ram_lec_test",
     args = "--words 8 --bits 4 --reads 14 --writes 7 --latency 1",
     expect_equivalent = False,
-    generator = "generate_regfile",
+    generator = "generate_ram",
     module = "Fp8gu",
     skip_gated_clock_flops = True,
     spec_args = "--spec-latency 0",
@@ -159,8 +159,8 @@ test_suite(
     tags = ["manual"],
     tests = ["%s%d_lec_test" % (shape, words) for shape, (_, sizes) in SHAPES.items() for words in sizes] + [
         "fp8_unregistered_lec_test",
-    ] + GENERATE_REGFILE_LEC + [
-        "fp8_unregistered_clock_gate_generate_regfile_lec_test",
+    ] + GENERATE_RAM_LEC + [
+        "fp8_unregistered_clock_gate_generate_ram_lec_test",
     ],
 )
 

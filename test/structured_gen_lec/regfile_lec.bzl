@@ -7,6 +7,8 @@ ASAP7_LEFS = [
     "@orfs//flow:platforms/asap7/lef/asap7sc7p5t_28_R_1x_220121a.lef",
 ]
 
+_REGFILE_RAM = "@orfs//flow:scripts/memories/regfile_ram.py"
+
 LIBERTY = [
     "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib",
     ":asap7_simple.lib",
@@ -26,6 +28,15 @@ opt_clean -purge
 write_verilog -noattr {raw}
 """
 
+# kepler-formal pairs flops by their full name: the wrapper's RAM
+# instance (ram) is flattened away so the flops keep the RTL's names.
+_FLATTEN_SCRIPT = """read_liberty -lib {libs}
+read_verilog {hier}
+hierarchy -top {module}
+flatten
+write_verilog -noattr {flat}
+"""
+
 def regfile_lec(
         name,
         module,
@@ -43,10 +54,11 @@ def regfile_lec(
         args: lec_fixture.py's shape and size arguments.
         expect_equivalent: False for a case that must be caught.
         spec_args: extra lec_fixture.py arguments for the spec alone.
-        generator: structured_gen, or generate_regfile (OpenROAD patch
-            0010), which builds the gate netlist from the same spec.
+        generator: structured_gen, or generate_ram (through ORFS's
+            regfile_ram.py, the netlist AUTO_MEMORIES_REGFILES inlines),
+            which builds the gate netlist from the same spec.
         spec_lines: lines appended to the spec for the gate netlist
-            (`write_style clock_gate`); generate_regfile only.
+            (`write_style clock_gate`); generate_ram only.
         skip_gated_clock_flops: the lec_test option of that name, for a
             clock-gated gate netlist.
     """
@@ -100,7 +112,7 @@ def regfile_lec(
     else:
         native.genrule(
             name = name + "_gate",
-            srcs = [name + ".spec"] + ASAP7_LEFS,
+            srcs = [name + ".spec", _REGFILE_RAM] + ASAP7_LEFS + LIBERTY,
             outs = [name + "_gate.v"],
             cmd = " && ".join([
                 "cp $(location {}.spec) $(RULEDIR)/{}_gate.spec".format(name, name),
@@ -109,14 +121,34 @@ def regfile_lec(
                 "echo '{}' >> $(RULEDIR)/{}_gate.spec".format(line, name)
                 for line in spec_lines
             ] + [
-                "printf 'read_lef %s\\nread_lef %s\\ngenerate_regfile -spec %s -verilog %s\\n' $(location {t}) $(location {c}) $(RULEDIR)/{n}_gate.spec $@ > $(RULEDIR)/{n}_gate.tcl".format(
-                    n = name,
-                    t = ASAP7_LEFS[0],
-                    c = ASAP7_LEFS[1],
+                " ".join([
+                    "$(execpath //test/regfile/cores:ram_gen)",
+                    "--regfile-ram $(location {})".format(_REGFILE_RAM),
+                    "--spec $(RULEDIR)/{}_gate.spec".format(name),
+                    "--module " + module,
+                    "--openroad $(location @openroad//:openroad)",
+                    "--lef $(location {}) --lef $(location {})".format(ASAP7_LEFS[0], ASAP7_LEFS[1]),
+                ] + ["--lib $(location {})".format(lib) for lib in LIBERTY] + [
+                    "--suffix ''",
+                    "--out $(RULEDIR)/{}_hier.v".format(name),
+                ]),
+                "printf '%s' '{}' > $(RULEDIR)/{}_flat.ys".format(
+                    _FLATTEN_SCRIPT.format(
+                        libs = " ".join(["$(location {})".format(lib) for lib in LIBERTY]),
+                        hier = "$(RULEDIR)/{}_hier.v".format(name),
+                        module = module,
+                        flat = "$(RULEDIR)/{}_flat.v".format(name),
+                    ),
+                    name,
                 ),
-                "$(location @openroad//:openroad) -exit -no_init -no_splash $(RULEDIR)/{}_gate.tcl > /dev/null".format(name),
+                "$(location @yosys//:yosys) -q -s $(RULEDIR)/{}_flat.ys".format(name),
+                "sed 's/[\\\\]ram[.]/\\\\/' $(RULEDIR)/{}_flat.v > $@".format(name),
             ]),
-            tools = ["@openroad//:openroad"],
+            tools = [
+                "//test/regfile/cores:ram_gen",
+                "@openroad//:openroad",
+                "@yosys//:yosys",
+            ],
         )
     lec_test(
         name = name,
