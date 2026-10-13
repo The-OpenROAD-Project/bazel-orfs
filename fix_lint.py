@@ -6,7 +6,6 @@ Usage: bazelisk run //:fix_lint
 
 import os
 import re
-import shutil
 import subprocess
 import sys
 
@@ -162,11 +161,14 @@ def run_buildifier(buildifier, files):
 
 
 def run_black(files):
-    """Format Python files with black."""
-    if not files or not shutil.which("black"):
+    """Format Python files with black, the version requirements_dev pins:
+    this binary's own dependency, so every machine and CI format alike."""
+    if not files:
         return
     print(f"black: {len(files)} file(s)")
-    subprocess.check_call(["black", "--quiet"] + files)
+    # black runs in this interpreter, with this binary's import path
+    env = dict(os.environ, PYTHONPATH=os.pathsep.join(sys.path))
+    subprocess.check_call([sys.executable, "-m", "black", "--quiet"] + files, env=env)
 
 
 def main():
