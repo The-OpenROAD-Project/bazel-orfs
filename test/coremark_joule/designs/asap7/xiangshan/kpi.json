@@ -261,6 +261,19 @@
         "VecRegionModule": 1278
       },
       "note": "the parent repairs setup at global route with the route's parasitics (SKIP_INCREMENTAL_REPAIR dropped, hold repair off there): 3,276 to 2,406 ps on row 14's build, its worst path now CtrlBlock's flush redirect into Frontend; 1,525 VT swaps, 74 buffers; global route 84 min against 19, 102 GB against 83; the blocks unchanged"
+    },
+    {
+      "date": "2026-10-14",
+      "measured": "the blocks built from source at f40bf601 (register files through generate_ram, OpenSTA #532 as 0108); the parent's global route in the deps lane from f40bf601's CTS checkpoint, with #1241 (patch 0122: grt's edge-usage guard warns)",
+      "parent_ps": 9431,
+      "blocks": {
+        "CoupledL2": 1982,
+        "Frontend": 6998,
+        "MemBlock": 1815,
+        "FltRegionModule": 1406,
+        "VecRegionModule": 1351
+      },
+      "note": "the parent's worst path, intRegion's pipeToBJU2 into Frontend's io_backend_toFtq_resolve_2_bits_mispredict; global route's setup repair 9,628 to 9,431 ps (197 ps, flat after iteration 869 of ~1,000), and 5,835 endpoints violate hold past the flow's -1,000 ps margin, the worst by 6,412 ps; CTS latency balancing inserts 2,502 delay buffers (518 at ffe02d5d) and 6,995 hold buffers. Frontend's worst path is the BPU's meta valid into the Ftq's generate_ram queue (metaQueueResolve.ram/addr_w); Flt's and Vec's end at their generate_ram register files' write address. Global route 209 min, 119.9 GB peak; the parent's placement 7 h. Earlier rows predate OpenSTA #532 and may leave gated-clock paths untimed"
     }
   ]
 }
