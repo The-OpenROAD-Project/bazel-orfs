@@ -1,0 +1,253 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] asap7/tinyRocket-regfile: Rocket's integer register file,
+ generated
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Rocket keeps its integer register file inline, as firtool writes a
+Chisel Mem: 31 words of 32 bits, two combinational reads, one write,
+addressed by the inverted register number. A memory inside a larger
+module stays flip-flops, since AUTO_MEMORIES_REGFILES replaces a module.
+A SYNTH_VERILOG_SURGERY script, tinyRocket/surgery.py --regfile, moves
+the array into Rocket_rf, a module of its own with the same ports, and
+instantiates it where the array was; Rocket_rf.regfile has generate_ram
+build it. The script recognises the array's declaration, reads, write
+and random initialisation text for text and stops on anything else; the
+function is unchanged. tinyRocket's config.mk names its own directory
+rather than DESIGN_NICKNAME's, so the variant can include it.
+
+Not upstreamed: carried in bazel-orfs to measure the register-file
+options on ORFS's designs (OpenROAD #11723); retires at a bump onto an
+ORFS that carries it.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ .../tinyRocket-regfile/Rocket_rf.regfile      |  18 +++
+ .../asap7/tinyRocket-regfile/config.mk        |   9 ++
+ flow/designs/asap7/tinyRocket/config.mk       |  14 +-
+ flow/designs/asap7/tinyRocket/surgery.py      | 148 ++++++++++++++++++
+ 4 files changed, 182 insertions(+), 7 deletions(-)
+ create mode 100644 flow/designs/asap7/tinyRocket-regfile/Rocket_rf.regfile
+ create mode 100644 flow/designs/asap7/tinyRocket-regfile/config.mk
+ create mode 100644 flow/designs/asap7/tinyRocket/surgery.py
+
+diff --git a/flow/designs/asap7/tinyRocket-regfile/Rocket_rf.regfile b/flow/designs/asap7/tinyRocket-regfile/Rocket_rf.regfile
+new file mode 100644
+index 000000000..0f2eff44d
+--- /dev/null
++++ b/flow/designs/asap7/tinyRocket-regfile/Rocket_rf.regfile
+@@ -0,0 +1,18 @@
++# Rocket's integer register file, Rocket_rf, the module surgery.py
++# --regfile moves Rocket's array into: 31 words of 32 bits (x1 to x31,
++# addressed by the inverted register number), two combinational reads,
++# one write, no reset, a clock gate per word.
++module Rocket_rf
++words 31
++bits 32
++clock clock
++read r0_addr r0_data
++read r1_addr r1_data
++write w0_addr w0_data w0_en
++write_style clock_gate
++cell icg ICGx1_ASAP7_75t_R
++cell flop DFFHQNx1_ASAP7_75t_R
++cell and2 AND2x2_ASAP7_75t_R
++cell or2 OR2x2_ASAP7_75t_R
++cell ao22 AO22x2_ASAP7_75t_R
++cell inv INVx1_ASAP7_75t_R
+diff --git a/flow/designs/asap7/tinyRocket-regfile/config.mk b/flow/designs/asap7/tinyRocket-regfile/config.mk
+new file mode 100644
+index 000000000..1e38b2a47
+--- /dev/null
++++ b/flow/designs/asap7/tinyRocket-regfile/config.mk
+@@ -0,0 +1,9 @@
++# tinyRocket with Rocket's integer register file generated: surgery.py
++# --regfile moves the array firtool wrote inline in Rocket into
++# Rocket_rf, and Rocket_rf.regfile has generate_ram build it.
++export DESIGN_NICKNAME = tinyRocket-regfile
++include designs/asap7/tinyRocket/config.mk
++export DESIGN_NICKNAME = tinyRocket-regfile
++export SYNTH_VERILOG_SURGERY      = $(DESIGN_HOME)/$(PLATFORM)/tinyRocket/surgery.py
++export SYNTH_VERILOG_SURGERY_ARGS = --regfile
++export AUTO_MEMORIES_REGFILES     = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/Rocket_rf.regfile
+diff --git a/flow/designs/asap7/tinyRocket/config.mk b/flow/designs/asap7/tinyRocket/config.mk
+index f5a073d27..00f8d4f66 100644
+--- a/flow/designs/asap7/tinyRocket/config.mk
++++ b/flow/designs/asap7/tinyRocket/config.mk
+@@ -7,14 +7,14 @@ export PLATFORM    = asap7
+ # tinyRocket there is no hand-written platform memory-mapping file and
+ # no checked-in fakeram .lib/.lef -- AUTO_MEMORIES detects the memories
+ # and generates macro views for them instead.
+-export VERILOG_FILES = $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/AsyncResetReg.v \
+-                       $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/ClockDivider2.v \
+-                       $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/ClockDivider3.v \
+-                       $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/plusarg_reader.v \
+-                       $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/freechips.rocketchip.system.TinyConfig.v \
+-                       $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/memories.v
++export VERILOG_FILES = $(DESIGN_HOME)/src/tinyRocket/AsyncResetReg.v \
++                       $(DESIGN_HOME)/src/tinyRocket/ClockDivider2.v \
++                       $(DESIGN_HOME)/src/tinyRocket/ClockDivider3.v \
++                       $(DESIGN_HOME)/src/tinyRocket/plusarg_reader.v \
++                       $(DESIGN_HOME)/src/tinyRocket/freechips.rocketchip.system.TinyConfig.v \
++                       $(DESIGN_HOME)/$(PLATFORM)/tinyRocket/memories.v
+ 
+-export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/constraint.sdc
++export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/tinyRocket/constraint.sdc
+ 
+ export AUTO_MEMORIES = 1
+ export CORE_UTILIZATION = 40
+diff --git a/flow/designs/asap7/tinyRocket/surgery.py b/flow/designs/asap7/tinyRocket/surgery.py
+new file mode 100644
+index 000000000..b59ebb5d3
+--- /dev/null
++++ b/flow/designs/asap7/tinyRocket/surgery.py
+@@ -0,0 +1,148 @@
++"""SYNTH_VERILOG_SURGERY for tinyRocket: Rocket's register file in a module.
++
++Rocket keeps its integer register file inline, as firtool writes a
++Chisel Mem: `reg [31:0] _T_288 [0:30]`, two combinational reads and one
++write, addressed by the inverted register number (x31 is word 0; x0,
++address 31, is out of range and Rocket reads zero for it elsewhere).
++yosys infers it as a memory inside Rocket, and a memory inside a larger
++module stays flip-flops: AUTO_MEMORIES_REGFILES replaces a module.
++
++This moves the array into Rocket_rf, a module of its own with the same
++two reads and one write, and instantiates it in Rocket where the array
++was. The function is unchanged. Rocket is recognised by the array's
++declaration, its three port assignments, its write and its random
++initialisation, text for text; anything else stops the build. Every
++other file is copied unchanged.
++"""
++
++import argparse
++import os
++import re
++import sys
++
++DECL = "  reg [31:0] _T_288 [0:30];"
++READS = (
++    (
++        "293",
++        "  `ifndef RANDOMIZE_GARBAGE_ASSIGN\n"
++        "  assign _T_288__T_293_data = _T_288[_T_288__T_293_addr];",
++        "  `else\n"
++        "  assign _T_288__T_293_data = _T_288__T_293_addr >= 5'h1f ? _RAND_1[31:0]"
++        " : _T_288[_T_288__T_293_addr];",
++    ),
++    (
++        "299",
++        "  `ifndef RANDOMIZE_GARBAGE_ASSIGN\n"
++        "  assign _T_288__T_299_data = _T_288[_T_288__T_299_addr];",
++        "  `else\n"
++        "  assign _T_288__T_299_data = _T_288__T_299_addr >= 5'h1f ? _RAND_2[31:0]"
++        " : _T_288[_T_288__T_299_addr];",
++    ),
++)
++WRITE = re.compile(
++    r"    if\(_T_288__T_953_en & _T_288__T_953_mask\) begin\n"
++    r"      _T_288\[_T_288__T_953_addr\] <= _T_288__T_953_data;[^\n]*\n"
++    r"    end\n"
++)
++INIT = re.compile(
++    r"  for \(initvar = 0; initvar < 31; initvar = initvar\+1\)\n"
++    r"    _T_288\[initvar\] = _RAND_0\[31:0\];\n"
++)
++RF = """
++// Rocket's register file, moved out of Rocket by surgery.py: 31 words of
++// 32 bits, two combinational reads and one write, as Rocket had it.
++module Rocket_rf(
++  input         clock,
++  input  [4:0]  r0_addr,
++  output [31:0] r0_data,
++  input  [4:0]  r1_addr,
++  output [31:0] r1_data,
++  input  [4:0]  w0_addr,
++  input  [31:0] w0_data,
++  input         w0_en
++);
++  reg [31:0] mem [0:30];
++  assign r0_data = mem[r0_addr];
++  assign r1_data = mem[r1_addr];
++  always @(posedge clock) begin
++    if (w0_en) mem[w0_addr] <= w0_data;
++  end
++endmodule
++"""
++INST = """  Rocket_rf rf ( // surgery.py: Rocket's register file, _T_288
++    .clock(clock),
++    .r0_addr(_T_288__T_293_addr),
++    .r0_data(_T_288__T_293_data),
++    .r1_addr(_T_288__T_299_addr),
++    .r1_data(_T_288__T_299_data),
++    .w0_addr(_T_288__T_953_addr),
++    .w0_data(_T_288__T_953_data),
++    .w0_en(_T_288__T_953_en & _T_288__T_953_mask)
++  );
++"""
++
++
++def fail(msg):
++    sys.stderr.write("tinyRocket surgery: %s\n" % msg)
++    sys.exit(1)
++
++
++def strip_comment(line):
++    i = line.find(" // @[")
++    return line if i < 0 else line[:i]
++
++
++def make_regfile_seam(text):
++    start = text.find("\nmodule Rocket(")
++    if start < 0:
++        fail("no module Rocket")
++    end = text.find("\nendmodule", start)
++    mod = "\n".join(strip_comment(l) for l in text[start:end].split("\n"))
++    if mod.count(DECL + "\n") != 1:
++        fail("Rocket: _T_288 is not declared as `%s`" % DECL.strip())
++    mod = mod.replace(DECL + "\n", "", 1)
++    for port, first, second in READS:
++        block = first + "\n" + second + "\n  `endif // RANDOMIZE_GARBAGE_ASSIGN\n"
++        if mod.count(block) != 1:
++            fail("Rocket: read port _T_%s is not the read this surgery knows" % port)
++        mod = mod.replace(block, "", 1)
++    if len(WRITE.findall(mod)) != 1:
++        fail("Rocket: _T_288's write is not the one this surgery knows")
++    mod = WRITE.sub("", mod, count=1)
++    if len(INIT.findall(mod)) != 1:
++        fail("Rocket: _T_288's random initialisation is not the one this surgery knows")
++    mod = INIT.sub("", mod, count=1)
++    if "_T_288[" in mod:
++        fail("Rocket: _T_288 is used where this surgery does not know")
++    mod = mod.rstrip("\n") + "\n" + INST
++    return text[:start] + mod + text[end:] + "\n" + RF
++
++
++def main():
++    p = argparse.ArgumentParser()
++    p.add_argument("--out-dir", required=True)
++    p.add_argument(
++        "--regfile",
++        action="store_true",
++        help="move Rocket's register file into Rocket_rf",
++    )
++    p.add_argument("files", nargs="+")
++    a = p.parse_args()
++    done = 0
++    for path in a.files:
++        with open(path, encoding="utf-8") as f:
++            text = f.read()
++        if a.regfile and "\nmodule Rocket(" in text:
++            text = make_regfile_seam(text)
++            print("tinyRocket surgery: %s: Rocket_rf" % os.path.basename(path))
++            done += 1
++        with open(
++            os.path.join(a.out_dir, os.path.basename(path)), "w", encoding="utf-8"
++        ) as f:
++            f.write(text)
++    if a.regfile and done != 1:
++        fail("module Rocket found in %d files, not one" % done)
++
++
++if __name__ == "__main__":
++    main()
