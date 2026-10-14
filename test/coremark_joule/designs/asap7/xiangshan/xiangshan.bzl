@@ -37,7 +37,9 @@ XS_USER_STAGES = {v: ["floorplan"] for v in XS_USER_ARGUMENTS + XS_USER_SOURCES}
 
 # The flat core. Elaborated without Chisel's verification layer (see the
 # generator's firtool arguments), so slang reads it with the hierarchy kept.
-XS_VERILOG = ["//test/coremark_joule/xiangshan:xiangshan_flat.sv"]
+# After the surgery that folds the constants XiangShan ties into the
+# modules this flow keeps (surgery/xs_surgery.py, surgery/manifest.json).
+XS_VERILOG = ["//test/coremark_joule/designs/asap7/xiangshan/surgery:xiangshan_surgered.sv"]
 
 XS_PARENT = {
     "arguments": {
