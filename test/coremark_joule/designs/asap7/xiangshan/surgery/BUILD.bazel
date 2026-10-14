@@ -1,0 +1,87 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+# Surgery on the books: the constants XiangShan ties into the modules this
+# flow keeps, folded before synthesis by xs_surgery.py from manifest.json,
+# each entry's precondition checked exactly (xs_surgery.py says how).
+
+py_binary(
+    name = "xs_surgery",
+    srcs = ["xs_surgery.py"],
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+py_test(
+    name = "xs_surgery_test",
+    size = "small",
+    srcs = [
+        "xs_surgery.py",
+        "xs_surgery_test.py",
+    ],
+    main = "xs_surgery_test.py",
+)
+
+# XiangShan's flat Verilog after the surgery: what every XiangShan flow
+# synthesises (XS_VERILOG). XSTile's own ports are what the SoC stitch
+# and the gate-level simulation plug into, so they are protected.
+genrule(
+    name = "xiangshan_surgered",
+    srcs = [
+        "manifest.json",
+        "//test/coremark_joule/xiangshan:xiangshan_flat",
+    ],
+    outs = ["xiangshan_surgered.sv"],
+    cmd = "$(execpath :xs_surgery) apply --manifest $(location manifest.json) --protect XSTile " +
+          "$(location //test/coremark_joule/xiangshan:xiangshan_flat) $@",
+    tools = [":xs_surgery"],
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+# The surgered file is still SystemVerilog slang elaborates under XSTile,
+# the way the flow's canonicalisation reads it. Manual: a minute, the
+# whole core.
+genrule(
+    name = "xiangshan_surgered_elaborates",
+    srcs = [":xiangshan_surgered"],
+    outs = ["xiangshan_surgered_elaborates.log"],
+    cmd = "$(execpath @yosys//:yosys) -q -m $(execpath @sv-elab//src/yosys_plugin:slang.so) " +
+          "-p 'read_slang --top XSTile $(location :xiangshan_surgered); hierarchy -top XSTile; tee -o $@ stat -top XSTile' > /dev/null",
+    tags = ["manual"],
+    tools = [
+        "@sv-elab//src/yosys_plugin:slang.so",
+        "@yosys//:yosys",
+    ],
+)
+
+py_binary(
+    name = "constant_outputs",
+    srcs = ["constant_outputs.py"],
+)
+
+# Round-2 discovery: after the surgery, which outputs of the kept modules
+# yosys proves constant (constant_outputs.py). Manual and offline: what it
+# finds goes into manifest.json, never straight into the flow.
+genrule(
+    name = "constant_outputs_found",
+    srcs = [
+        ":xiangshan_surgered",
+        "//test/coremark_joule/designs/asap7/xiangshan:plan/plan.json",
+        "//test/coremark_joule/designs/asap7/xiangshan:plan/plan.bzl",
+    ],
+    outs = ["constant_outputs_found.json"],
+    cmd = " && ".join([
+        "PLAN='--plan $(location //test/coremark_joule/designs/asap7/xiangshan:plan/plan.json) " +
+        "--plan-bzl $(location //test/coremark_joule/designs/asap7/xiangshan:plan/plan.bzl)'",
+        "$(execpath :constant_outputs) select $$PLAN --out $(@D)/select.ys",
+        "$(execpath @yosys//:yosys) -q -m $(execpath @sv-elab//src/yosys_plugin:slang.so) " +
+        "-p 'read_slang --top XSTile $(location :xiangshan_surgered); hierarchy -top XSTile; " +
+        "proc; opt -full -purge; script $(@D)/select.ys; write_json -selected $(@D)/kept.json' > /dev/null",
+        "$(execpath :constant_outputs) scan $(@D)/kept.json $$PLAN --out $@",
+        "rm $(@D)/kept.json $(@D)/select.ys",
+    ]),
+    tags = ["manual"],
+    tools = [
+        ":constant_outputs",
+        "@sv-elab//src/yosys_plugin:slang.so",
+        "@yosys//:yosys",
+    ],
+)

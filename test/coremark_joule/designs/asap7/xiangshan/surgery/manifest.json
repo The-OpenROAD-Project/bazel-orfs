@@ -1,0 +1,5242 @@
+{
+ "entries": [
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "CompressUnit",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_oddFtqVec_0",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Dispatch",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_fromRename_0_bits_vlsInstr",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Dispatch",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_fromRename_1_bits_vlsInstr",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Dispatch",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_fromRename_2_bits_vlsInstr",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Dispatch",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_fromRename_3_bits_vlsInstr",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Dispatch",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_fromRename_4_bits_vlsInstr",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Dispatch",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_fromRename_5_bits_vlsInstr",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Dispatch",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_fromRename_6_bits_vlsInstr",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Dispatch",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_fromRename_7_bits_vlsInstr",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "ExuBlock",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_0_bits_ctrl_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_0_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_0_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_0_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_0_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_0_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_1_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_1_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_1_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_1_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_1_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_0_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_0_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_0_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_0_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_0_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_1_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_1_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_1_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_1_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_1_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_0_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_0_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_0_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_0_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_0_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_1_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_1_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_1_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_1_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_1_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_0_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_0_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_0_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_0_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_0_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_1_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_1_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_1_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_1_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_1_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_fpWbM3Wakeup_0_loadDependency_0",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_fpWbM3Wakeup_0_loadDependency_1",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_fpWbM3Wakeup_0_loadDependency_2",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_fpWbM3Wakeup_1_loadDependency_0",
+   "round": 1,
+   "value": "2'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_fpWbM3Wakeup_1_loadDependency_1",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_fpWbM3Wakeup_1_loadDependency_2",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_fpWbM3Wakeup_2_loadDependency_0",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_fpWbM3Wakeup_2_loadDependency_1",
+   "round": 1,
+   "value": "2'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_fpWbM3Wakeup_2_loadDependency_2",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_fpWbM3Wakeup_3_loadDependency_0",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_fpWbM3Wakeup_3_loadDependency_1",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_fpWbM3Wakeup_3_loadDependency_2",
+   "round": 1,
+   "value": "2'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_wakeupFromI2F_delay",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromMem_ldCancel_0_ld1Cancel",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromMem_ldCancel_1_ld1Cancel",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "FltRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromMem_ldCancel_2_ld1Cancel",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmul",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_gpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmul",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_v0Wen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmul",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_vlWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmul",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_vpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmul",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0RdFail",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmul",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0WtFail",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmulFcvtFcmp",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_v0Wen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmulFcvtFcmp",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_vlWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmulFcvtFcmp",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_vpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmulFcvtFcmp",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0RdFail",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmulFcvtFcmp",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0WtFail",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmulFdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_gpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmulFdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_v0Wen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmulFdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_vlWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmulFdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_vpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmulFdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0RdFail",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmulFdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0WtFail",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmulFdiv_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_gpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmulFdiv_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_v0Wen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmulFdiv_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_vlWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmulFdiv_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_vpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmulFdiv_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0RdFail",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeFaluFmulFdiv_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0WtFail",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_0",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_1",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_2",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_3",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_4",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_5",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_6",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_7",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_8",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0LdCancel",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_fpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_gpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_vlWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0RdFail",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0WtFail",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVidivVfmacVfdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_0",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVidivVfmacVfdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_1",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVidivVfmacVfdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_2",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVidivVfmacVfdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_3",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVidivVfmacVfdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_4",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVidivVfmacVfdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_5",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVidivVfmacVfdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_6",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVidivVfmacVfdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_7",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVidivVfmacVfdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_8",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVidivVfmacVfdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0LdCancel",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVidivVfmacVfdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_fpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVidivVfmacVfdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_gpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVidivVfmacVfdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_vlWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVidivVfmacVfdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0RdFail",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVidivVfmacVfdiv",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0WtFail",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVimacVmoveVfcvtVfmac",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_0",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVimacVmoveVfcvtVfmac",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_1",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVimacVmoveVfcvtVfmac",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_2",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVimacVmoveVfcvtVfmac",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_3",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVimacVmoveVfcvtVfmac",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_4",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVimacVmoveVfcvtVfmac",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_5",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVimacVmoveVfcvtVfmac",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_6",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVimacVmoveVfcvtVfmac",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_7",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVimacVmoveVfcvtVfmac",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_8",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVimacVmoveVfcvtVfmac",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0LdCancel",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVimacVmoveVfcvtVfmac",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_vlWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVimacVmoveVfcvtVfmac",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0RdFail",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialuVimacVmoveVfcvtVfmac",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0WtFail",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_0",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_1",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_2",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_3",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_4",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_5",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_6",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_7",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_gpWb0_8",
+   "round": 1,
+   "value": "64'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0LdCancel",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_fpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_gpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0Next_bits_vlWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0RdFail",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "IssuePipeVialu_1",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_is0WtFail",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "L2TLBWrapper",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "cg_bore_cgen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "NewCSR",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "fromAIA_notice_pending",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "PrefetcherWrapper",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_trainSource_s3_store_0_bits_miss",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "PrefetcherWrapper",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_trainSource_s3_store_0_valid",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "PrefetcherWrapper",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_trainSource_s3_store_1_bits_miss",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "PrefetcherWrapper",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_trainSource_s3_store_1_valid",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Region",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "cg_bore_1_cgen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Region",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "cg_bore_2_cgen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Region",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "cg_bore_3_cgen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Region",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "cg_bore_4_cgen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Region",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "cg_bore_5_cgen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Region",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "cg_bore_6_cgen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Region",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "cg_bore_cgen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_fromGrantBuffer_blockSinkReqEntrance_blockG_s1",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_fromMSHRCtl_blockC_s1",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_fromMSHRCtl_blockG_s1",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_fromMainPipe_blockA_s1",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_mshrTask_bits_aMergeTask_meta_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_mshrTask_bits_aMergeTask_meta_dataErr",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_mshrTask_bits_aMergeTask_meta_prefetch",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_mshrTask_bits_aMergeTask_meta_prefetchSrc",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_mshrTask_bits_aMergeTask_meta_tagErr",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_mshrTask_bits_bufIdx",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_mshrTask_bits_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_mshrTask_bits_cmoAll",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_mshrTask_bits_expCompAck",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_mshrTask_bits_fwdNID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_mshrTask_bits_fwdTxnID",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_mshrTask_bits_likelyshared",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_mshrTask_bits_memAttr_device",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_mshrTask_bits_needHint",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_mshrTask_bits_needProbeAckData",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_mshrTask_bits_pCrdType",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_mshrTask_bits_srcID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_mshrTask_bits_vaddr",
+   "round": 1,
+   "value": "44'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_mshrTask_bits_wayMask",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkA_bits_wayMask",
+   "round": 1,
+   "value": "8'hFF"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_aMergeTask_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_aMergeTask_isKeyword",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_aMergeTask_meta_accessed",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_aMergeTask_meta_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_aMergeTask_meta_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_aMergeTask_meta_clients",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_aMergeTask_meta_dataErr",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_aMergeTask_meta_dirty",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_aMergeTask_meta_prefetch",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_aMergeTask_meta_prefetchSrc",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_aMergeTask_meta_state",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_aMergeTask_meta_tagErr",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_aMergeTask_off",
+   "round": 1,
+   "value": "6'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_aMergeTask_opcode",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_aMergeTask_param",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_aMergeTask_sourceId",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_aMergeTask_vaddr",
+   "round": 1,
+   "value": "44'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_aliasTask",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_allowRetry",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_bufIdx",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_channel",
+   "round": 1,
+   "value": "3'h2"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_cmoAll",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_cmoTask",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_corrupt",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_dbID",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_denied",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_dirty",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_dsWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_expCompAck",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_fromL2pft",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_fwdState",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_homeNID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_isKeyword",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_likelyshared",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_memAttr_allocate",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_memAttr_cacheable",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_memAttr_device",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_memAttr_ewa",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_mergeA",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_metaWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_meta_accessed",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_meta_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_meta_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_meta_clients",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_meta_dataErr",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_meta_dirty",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_meta_prefetch",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_meta_prefetchSrc",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_meta_state",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_meta_tagErr",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_mshrId",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_mshrRetry",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_mshrTask",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_needHint",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_needProbeAckData",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_opcode",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_pCrdType",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_param",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_readProbeDataDown",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_replTask",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_reqSource",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_resp",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_size",
+   "round": 1,
+   "value": "3'h6"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_sourceId",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_tagWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_tgtID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_txChannel",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_useProbeData",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_vaddr",
+   "round": 1,
+   "value": "44'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_way",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "RequestArb",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_sinkB_bits_wayMask",
+   "round": 1,
+   "value": "8'hFF"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Rob",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_enq_req_1_bits_snapshot",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Rob",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_enq_req_2_bits_snapshot",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Rob",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_enq_req_3_bits_snapshot",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Rob",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_enq_req_4_bits_snapshot",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Rob",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_enq_req_5_bits_snapshot",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Rob",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_enq_req_6_bits_snapshot",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Rob",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_enq_req_7_bits_snapshot",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Rob",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_writeback_15_bits_exceptionVec_13",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Rob",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_writeback_15_bits_exceptionVec_21",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Rob",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_writeback_15_bits_exceptionVec_4",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "Rob",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_writeback_15_bits_exceptionVec_5",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_aMergeTask_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_aMergeTask_meta_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_aMergeTask_meta_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_aMergeTask_meta_prefetchSrc",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_aMergeTask_meta_state",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_aMergeTask_off",
+   "round": 1,
+   "value": "6'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_aMergeTask_opcode",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_aMergeTask_param",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_aMergeTask_sourceId",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_aMergeTask_vaddr",
+   "round": 1,
+   "value": "44'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_chiOpcode",
+   "round": 1,
+   "value": "6'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_dbID",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_fwdNID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_fwdState",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_fwdTxnID",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_homeNID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_meta_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_meta_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_meta_prefetchSrc",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_meta_state",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_mshrId",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_pCrdType",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_reqSource",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_resp",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_snpHitReleaseIdx",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_snpHitReleaseMeta_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_snpHitReleaseMeta_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_snpHitReleaseMeta_prefetchSrc",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_snpHitReleaseMeta_state",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_srcID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_tgtID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_txChannel",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_txnID",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_vaddr",
+   "round": 1,
+   "value": "44'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_0_bits_way",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_aMergeTask_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_aMergeTask_meta_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_aMergeTask_meta_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_aMergeTask_meta_prefetchSrc",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_aMergeTask_meta_state",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_aMergeTask_off",
+   "round": 1,
+   "value": "6'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_aMergeTask_opcode",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_aMergeTask_param",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_aMergeTask_sourceId",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_aMergeTask_vaddr",
+   "round": 1,
+   "value": "44'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_chiOpcode",
+   "round": 1,
+   "value": "6'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_dbID",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_fwdNID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_fwdState",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_fwdTxnID",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_homeNID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_meta_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_meta_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_meta_prefetchSrc",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_meta_state",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_mshrId",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_pCrdType",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_reqSource",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_resp",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_snpHitReleaseIdx",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_snpHitReleaseMeta_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_snpHitReleaseMeta_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_snpHitReleaseMeta_prefetchSrc",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_snpHitReleaseMeta_state",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_srcID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_tgtID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_txChannel",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_txnID",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_vaddr",
+   "round": 1,
+   "value": "44'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_1_bits_way",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_aMergeTask_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_aMergeTask_meta_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_aMergeTask_meta_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_aMergeTask_meta_prefetchSrc",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_aMergeTask_meta_state",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_aMergeTask_off",
+   "round": 1,
+   "value": "6'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_aMergeTask_opcode",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_aMergeTask_param",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_aMergeTask_sourceId",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_aMergeTask_vaddr",
+   "round": 1,
+   "value": "44'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_chiOpcode",
+   "round": 1,
+   "value": "6'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_dbID",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_fwdNID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_fwdState",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_fwdTxnID",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_homeNID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_meta_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_meta_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_meta_prefetchSrc",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_meta_state",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_mshrId",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_pCrdType",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_reqSource",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_resp",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_snpHitReleaseIdx",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_snpHitReleaseMeta_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_snpHitReleaseMeta_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_snpHitReleaseMeta_prefetchSrc",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_snpHitReleaseMeta_state",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_srcID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_tgtID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_txChannel",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_txnID",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_vaddr",
+   "round": 1,
+   "value": "44'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_2_bits_way",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_aMergeTask_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_aMergeTask_meta_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_aMergeTask_meta_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_aMergeTask_meta_prefetchSrc",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_aMergeTask_meta_state",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_aMergeTask_off",
+   "round": 1,
+   "value": "6'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_aMergeTask_opcode",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_aMergeTask_param",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_aMergeTask_sourceId",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_aMergeTask_vaddr",
+   "round": 1,
+   "value": "44'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_chiOpcode",
+   "round": 1,
+   "value": "6'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_dbID",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_fwdNID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_fwdState",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_fwdTxnID",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_homeNID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_meta_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_meta_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_meta_prefetchSrc",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_meta_state",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_mshrId",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_pCrdType",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_reqSource",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_resp",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_snpHitReleaseIdx",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_snpHitReleaseMeta_alias",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_snpHitReleaseMeta_cdpPfDepth",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_snpHitReleaseMeta_prefetchSrc",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_snpHitReleaseMeta_state",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_srcID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_tgtID",
+   "round": 1,
+   "value": "7'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_txChannel",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_txnID",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_vaddr",
+   "round": 1,
+   "value": "44'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "TwoLevelRRArbiter_16",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_in_3_bits_way",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_0_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_0_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_0_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_0_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_0_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_1_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_1_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_1_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_1_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_0_1_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_0_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_0_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_0_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_0_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_0_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_1_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_1_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_1_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_1_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_1_1_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_0_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_0_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_0_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_0_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_0_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_1_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_1_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_1_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_1_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_2_1_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_0_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_0_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_0_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_0_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_0_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_1_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_1_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_1_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_1_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromDispatch_uops_3_1_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_gpWbWakeUp_0_delay",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_gpWbWakeUp_1_delay",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_gpWbWakeUp_2_delay",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_gpWbWakeUp_3_delay",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_gpWbWakeUp_4_delay",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_gpWbWakeUp_5_delay",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_gpWbWakeUp_6_delay",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_gpWbWakeUp_7_delay",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_gpWbWakeUp_8_delay",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_fflagsWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_fpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_gpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_imm",
+   "round": 1,
+   "value": "32'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_oldVType_illegal",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_oldVType_vlmul",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_oldVType_vma",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_oldVType_vsew",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_oldVType_vta",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_pdest",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_pdestVl",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_psrcVl",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_selImm",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_src12Rev",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_srcStateV0",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_srcStateVl",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_v0Wen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_vlWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_vm",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_vpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_0_bits_vxsatWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_fflagsWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_fpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_gpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_imm",
+   "round": 1,
+   "value": "32'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_oldVType_illegal",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_oldVType_vlmul",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_oldVType_vma",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_oldVType_vsew",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_oldVType_vta",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_pdest",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_pdestVl",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_psrcVl",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_selImm",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_src12Rev",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_srcStateV0",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_srcStateVl",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_v0Wen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_vlWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_vm",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_vpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_0_1_bits_vxsatWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_fflagsWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_fpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_gpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_imm",
+   "round": 1,
+   "value": "32'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_oldVType_illegal",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_oldVType_vlmul",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_oldVType_vma",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_oldVType_vsew",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_oldVType_vta",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_pdest",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_pdestVl",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_psrcVl",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_selImm",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_src12Rev",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_srcStateV0",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_srcStateVl",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_v0Wen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_vlWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_vm",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_vpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_0_bits_vxsatWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_fflagsWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_flushPipe",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_fpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_gpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_imm",
+   "round": 1,
+   "value": "32'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_oldVType_illegal",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_oldVType_vlmul",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_oldVType_vma",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_oldVType_vsew",
+   "round": 1,
+   "value": "3'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_oldVType_vta",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_pdest",
+   "round": 1,
+   "value": "8'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_pdestV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_pdestVl",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_psrcV0",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_psrcVl",
+   "round": 1,
+   "value": "5'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_selImm",
+   "round": 1,
+   "value": "4'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_src12Rev",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_srcStateV0",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_srcStateVl",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_v0Ren",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_v0Wen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_vlRen",
+   "round": 1,
+   "value": "1'h1"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_vlWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_vm",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_vpWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromIntRegion_vstdUops_1_1_bits_vxsatWen",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromMem_vldS3WakeUp_0_delay",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromMem_vldS3WakeUp_1_delay",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromMem_vldS3WakeUp_2_delay",
+   "round": 1,
+   "value": "2'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromVecExcpMod_r_1_bits_isV0",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromVecExcpMod_r_2_bits_isV0",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromVecExcpMod_r_3_bits_isV0",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromVecExcpMod_r_5_bits_isV0",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromVecExcpMod_r_6_bits_isV0",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromVecExcpMod_r_7_bits_isV0",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromVecExcpMod_w_1_bits_isV0",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromVecExcpMod_w_2_bits_isV0",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "macro",
+   "module": "VecRegionModule",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "in_fromVecExcpMod_w_3_bits_isV0",
+   "round": 1,
+   "value": "1'h0"
+  },
+  {
+   "instances": 1,
+   "kind": "keep",
+   "module": "XSCore",
+   "origin": "boundary_constants.py: one literal on every instance",
+   "port": "io_l2_flush_done",
+   "round": 1,
+   "value": "1'h0"
+  }
+ ]
+}
