@@ -1,0 +1,46 @@
+load("@rules_chisel//chisel:defs.bzl", "chisel_binary")
+load("@rules_chisel//verilog:defs.bzl", "verilog_directory")
+load("@rules_python//python:defs.bzl", "py_test")
+load("//test/coremark_joule/xiangshan:clock_gate.bzl", "CLOCK_GATE_OPTS")
+
+# Utility's ClockGate through firtool with XiangShan's clock-gate options:
+# a constant enable folds, a live one stays a ClockGate instance
+# (fold_test.py says what and why).
+
+chisel_binary(
+    name = "generator",
+    srcs = ["Fold.scala"],
+    main_class = "clockgatefold.Main",
+    scalacopts = ["-Xcheckinit:false"],
+    deps = ["@xs_utility//:utility"],
+)
+
+genrule(
+    name = "fold_hw",
+    outs = ["fold.mlir"],
+    cmd = " ".join([
+        "FIRTOOL_DIR=$$(dirname $$(realpath $(execpath @chisel_firtool//:bin/firtool)));",
+        "PATH=$$FIRTOOL_DIR:$$PATH",
+        "CHISEL_FIRTOOL_PATH=$$FIRTOOL_DIR",
+        "$(execpath :generator)",
+        "-o $@",
+    ]),
+    tools = [
+        ":generator",
+        "@chisel_firtool//:bin/firtool",
+    ],
+)
+
+verilog_directory(
+    name = "fold_sv",
+    srcs = [":fold_hw"],
+    opts = CLOCK_GATE_OPTS,
+)
+
+py_test(
+    name = "fold_test",
+    srcs = ["fold_test.py"],
+    args = ["$(location :fold_sv)"],
+    data = [":fold_sv"],
+    tags = ["manual"],
+)

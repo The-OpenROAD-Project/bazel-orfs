@@ -8,6 +8,7 @@
 load("@rules_chisel//chisel:defs.bzl", "chisel_binary")
 load("@rules_chisel//verilog:defs.bzl", "verilog_directory", "verilog_single_file_library")
 load("@rules_verilog//verilog:defs.bzl", "verilog_library")
+load(":clock_gate.bzl", "CLOCK_GATE_OPTS")
 
 package(default_visibility = [
     "//test/coremark_joule:__subpackages__",
@@ -162,7 +163,7 @@ exports_files(glob([
         opts = [
             "--disable-all-randomization",
             "--lowering-options=disallowPackedArrays,disallowLocalVariables,noAlwaysComb",
-        ],
+        ] + CLOCK_GATE_OPTS,
     )
     for prefix in [
         "xiangshan",
@@ -222,7 +223,10 @@ exports_files(glob([
 [
     verilog_single_file_library(
         name = prefix + "_concat" + suffix,
-        srcs = [":" + prefix + "_sv" + suffix],
+        srcs = [
+            ":" + prefix + "_sv" + suffix,
+            "ClockGate.sv",
+        ],
     )
     for prefix in [
         "xiangshan",
