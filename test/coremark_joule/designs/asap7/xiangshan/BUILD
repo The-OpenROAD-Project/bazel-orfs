@@ -44,6 +44,16 @@ exports_files([
     "xs_icg_map.v",
 ])
 
+# The plan names the modules the flow keeps, which the surgery folds
+# constants into (surgery/).
+exports_files(
+    [
+        "plan/plan.bzl",
+        "plan/plan.json",
+    ],
+    visibility = ["//test/coremark_joule/designs/asap7/xiangshan/surgery:__pkg__"],
+)
+
 # The parent's legalization hook, on the miniature planned parent too:
 # stranded_cells_test checks it there in minutes.
 exports_files(
@@ -266,4 +276,22 @@ py_test(
     data = [":%s_1_synth.mk" % design for design in ["XSTile"] + PLAN["macros"].keys()],
     main = "synth_config_test.py",
     tags = ["manual"],
+)
+
+# Constants on the ports of the modules this plan keeps (blocks, kept
+# modules, generated register files): what firtool left and yosys cannot
+# fold across a kept boundary (boundary_constants.py).
+genrule(
+    name = "XSTile_boundary_constants",
+    srcs = [
+        "//test/coremark_joule/xiangshan:xiangshan_flat",
+        "plan/plan.json",
+        "plan/plan.bzl",
+    ],
+    outs = ["XSTile_boundary_constants.json"],
+    cmd = "$(execpath //test/coremark_joule/scripts:boundary_constants) " +
+          "$(location //test/coremark_joule/xiangshan:xiangshan_flat) --top XSTile " +
+          "--plan $(location plan/plan.json) --plan-bzl $(location plan/plan.bzl) --out $@",
+    tags = ["manual"],
+    tools = ["//test/coremark_joule/scripts:boundary_constants"],
 )
