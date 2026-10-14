@@ -1682,6 +1682,85 @@ its abstract, and the skew on them is negative. So the knobs stay as
 they are, and we wait for upstream CTS improvements, measured with the
 same skew profile when they come.
 
+## 51. Dissolving hardened blocks after macro placement: negative, three times
+
+**Before trying this again:** dissolving XSTile's hardened blocks into
+the parent has now failed three times (entry 47's D2v, and phase B and
+phase C below), each time on the period and, with every block
+dissolved, on runtime too. Do not run it again as a way to a shorter
+period without first fixing what is listed at the end of this entry,
+and measure a one-block arm before an all-block one. The dissolve
+itself works; what the parent does with the cells afterwards does not.
+
+The method: each block is hardened through place, macro-placed in the
+parent as an abstract at its real outline, and then dissolved. Its
+placed cells become the parent's, translated rigidly by the macro's
+placement. The block's core goes FIRM (resizable, footprint kept), and
+its port cones (port to first flop) stay movable, so placement has
+something to pull across the seams. Inner macros stay macros where the
+block put them. The block brings logic only: its taps are left behind,
+the parent taps over the placed core, the overlapping core cells pack
+along their rows, and power is the parent's PDN. The dissolve was an
+OpenROAD `dissolve_macro` command and an ORFS `block_dissolve.tcl`,
+carried as patches on a branch that is not proposed for merge.
+
+Checked on the ODB, the mechanics are sound: the dissolved cells sit at
+one common offset, the tap pack moves a few percent of them by whole
+sites (at most 0.86 um), and every cell is legal and powered.
+
+All three arms ran in `_deps` lanes from floorplan on, on #1187's base
+with row 15's parent settings, against a control on the same die with
+every block a macro. The lane numbers compare with each other only, not
+with the KPI rows.
+
+| Stage | Control | Phase B: FltRegionModule | Phase C: all five blocks |
+|---|---|---|---|
+| cells dissolved | | 417,311 | 6.9 M |
+| place | ~5 h 05 | 5 h 25 (1.07x) | 9 h 00 (1.77x), 604,570 buffers from global placement's repair |
+| CTS | 2 h 06 | 2 h 17 (1.09x) | stopped at 5 h 37 (>2.7x), in setup repair |
+| global route | 3 h 10 | 3 h 54 (1.23x) | not reached |
+| reg2reg period | 3,316 ps | 4,292 ps (1.29x) | not reached; -18.9 ns worst slack at CTS |
+
+The gate was: the run completes, no stage over 2x the control's time,
+the period at most 1.2x the control's.
+
+- **Phase B** missed the period gate, and not in the dissolved block.
+  Both lanes' worst path is the parent's reorder buffer reading its
+  register file: the plan puts robEntryFile at the die's west edge (x 21
+  um, its FIRM core at median x 144 um) while placement puts rob's logic
+  by MemBlock and CoupledL2 (median x ~1,900 um). Dissolving one block
+  moved where the file's movable edge cells landed (254 right of x 700
+  um against 32 in the control), and the path crosses the die twice.
+- **Phase C** failed on time and on slack. At CTS's setup repair every
+  one of the parent's 571,504 endpoints violated, the worst at -18.9 ns
+  in Frontend's branch target registers, and the repair, at about ten
+  steps a minute and a half over 5,715 endpoints, would have needed some
+  13 hours more. OpenROAD held 58 GB of a 62 GB machine with 127 GB of
+  swap in use. It was stopped by hand; the stage timeout would have
+  ended it two hours later with nothing more.
+
+With the blocks as macros, their internal paths were closed by their own
+flows and the parent saw abstracts. Dissolved, the parent times and
+repairs six million cells it cannot move, through port cones that
+global placement stretches and then buffers, at the parent's own
+density and on its own clock tree. Entry 40's buffer chains, at scale.
+
+What would have to change first:
+
+- The plan has to place register files by connectivity to their logic,
+  not at the die's edge (robEntryFile above). A control with only that
+  move is being measured.
+- The parent's placement must not stretch a FIRM core's port cones
+  across the die: either a region per dissolved block or the cones kept
+  near their core.
+- The block's own clock tree and timing closure must survive the
+  dissolve, or the parent has to redo them for every block at once, which
+  is what phase C could not do in a day.
+- Found on the way: the parent's own register-file cores are dont_touch,
+  and `global_connect` skips dont_touch instances, so 406,272 of them
+  have no supply nets in the netlist (the M1 rails touch them
+  physically). That is independent of the dissolve and open.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
