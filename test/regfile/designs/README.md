@@ -24,7 +24,7 @@ The register file reaches the flow by one of these routes:
 
 Surgery is either a change the RTL might make for a tapeout, or a
 stand-in for a feature yosys does not have. It is checked, and it never
-changes function. The patches are carried here: ORFS 0095–0099 and 0122.
+changes function. The patches are carried here: ORFS 0095–0099 and 0123.
 
 ## Method
 
@@ -124,7 +124,7 @@ OpenROAD's web viewer.
 swerv_wrapper, cva6, coralnpu-regfile, coralnpu-regfile-exmem and
 coralnpu-regfiles-exmem (both register files) are prepared but not
 measured:
-- their carried patches (0097, 0098, 0122, and the coralnpu patches
+- their carried patches (0097, 0098, 0123, and the coralnpu patches
   already here);
 - their surgery, checked on coralnpu's FRegfile by simulation against
   the original: 20,000 cycles, no mismatch;
