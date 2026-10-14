@@ -1,0 +1,15 @@
+# pdk name generate_ram arguments
+asap7 base -mask_size 8 -word_size 8 -num_words 8 -r_ports 2 -w_ports 1 -storage_cell DFFHQNx1_ASAP7_75t_R
+asap7 two_writes_mux_zero -mask_size 8 -word_size 8 -num_words 8 -r_ports 2 -w_ports 2 -storage_cell DFFHQNx1_ASAP7_75t_R -write_style mux -write_priority or -zero_word 0
+asap7 banks_rb_latency -mask_size 8 -word_size 8 -num_words 32 -r_ports 1 -w_ports 1 -storage_cell DFFHQNx1_ASAP7_75t_R -banks 4 -bank_columns 2 -bank_order interleaved -rb_ports 1 -register_read_address 1
+asap7 contiguous_word_decoder -mask_size 8 -word_size 8 -num_words 32 -r_ports 2 -w_ports 1 -storage_cell DFFHQNx1_ASAP7_75t_R -banks 4 -bank_columns 2 -bank_column_layout contiguous -decoder word
+asap7 folds_service_reset -mask_size 8 -word_size 16 -num_words 8 -r_ports 2 -w_ports 1 -storage_cell DFFASRHQNx1_ASAP7_75t_R -bit_folds 2 -service_columns {4 10} -reset_value 0
+asap7 periphery_verilog -mask_size 8 -word_size 8 -num_words 8 -r_ports 2 -w_ports 1 -storage_cell DFFHQNx1_ASAP7_75t_R -name rf -periphery verilog -wrapper_verilog rf_wrapper.v
+nangate45 base -mask_size 8 -word_size 8 -num_words 8 -rw_ports 1 -storage_cell DFF_X1
+nangate45 two_writes_and_or_zero -mask_size 8 -word_size 8 -num_words 8 -r_ports 2 -w_ports 2 -storage_cell DFF_X1 -read_style and_or -zero_word 0
+nangate45 banks_latency_mux -mask_size 8 -word_size 8 -num_words 16 -r_ports 2 -w_ports 1 -storage_cell DFF_X1 -read_style and_or -banks 4 -bank_columns 2 -register_read_address 1 -write_style mux
+nangate45 folds_service_reset -mask_size 8 -word_size 16 -num_words 8 -r_ports 1 -w_ports 1 -storage_cell DFFRS_X1 -read_style and_or -bit_folds 2 -service_columns {4 10} -reset_value 0 -decoder word
+sky130hd base -mask_size 8 -word_size 8 -num_words 8 -rw_ports 1 -storage_cell sky130_fd_sc_hd__dfxtp_1
+sky130hd two_writes_and_or_zero -mask_size 8 -word_size 8 -num_words 8 -r_ports 2 -w_ports 2 -storage_cell sky130_fd_sc_hd__dfxtp_1 -read_style and_or -zero_word 0 -write_priority or
+sky130hd banks_rb_contiguous -mask_size 8 -word_size 8 -num_words 16 -r_ports 1 -w_ports 1 -storage_cell sky130_fd_sc_hd__dfxtp_1 -read_style and_or -banks 4 -bank_columns 2 -rb_ports 1 -bank_column_layout contiguous -register_read_address 1
+sky130hd folds_mux_reset -mask_size 8 -word_size 16 -num_words 8 -r_ports 1 -w_ports 1 -storage_cell sky130_fd_sc_hd__dfbbp_1 -read_style and_or -bit_folds 2 -write_style mux -reset_value 0 -decoder word -cells {tie sky130_fd_sc_hd__conb_1}
