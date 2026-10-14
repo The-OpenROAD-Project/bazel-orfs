@@ -31,6 +31,11 @@ import odbdebug  # noqa: E402
 
 PROTOCOL_VERSION = "2024-11-05"
 
+# A reply is read into the agent's context. One report_checks or a tcl
+# loop over a million instances would flood it, so a reply longer than
+# this keeps its head and tail and says what was dropped.
+MAX_TEXT = 16000
+
 # name -> (description, {property: (type, description)}, required, handler)
 TOOLS = []
 
@@ -189,8 +194,26 @@ def call_tool(name, arguments, odb_debug_dir=None):
         except odbdebug.DaemonError as e:
             return _error_result(str(e))
         text = value if isinstance(value, str) else json.dumps(value, indent=1)
-        return {"content": [{"type": "text", "text": text}], "isError": False}
+        return {"content": [{"type": "text", "text": cap(text)}], "isError": False}
     return _error_result("unknown tool %r" % name)
+
+
+def cap(text, limit=MAX_TEXT):
+    """text, or its head and tail on line boundaries with a note between."""
+    if len(text) <= limit:
+        return text
+    half = limit // 2
+    head = text[:half]
+    head = head[: head.rfind("\n") + 1] or head
+    tail = text[-half:]
+    tail = tail[tail.find("\n") + 1 :] or tail
+    dropped = text[len(head) : len(text) - len(tail)]
+    return (
+        "%s\n[odb-debug: %d of %d characters (%d lines) dropped; narrow the"
+        " query, or redirect it to a file (report_checks ... > file) and read"
+        " the part you need]\n\n%s"
+        % (head, len(dropped), len(text), dropped.count("\n"), tail)
+    )
 
 
 def _error_result(message):

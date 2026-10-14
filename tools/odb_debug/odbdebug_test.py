@@ -66,6 +66,9 @@ class FakeDaemon(object):
             return {"ok": False, "error": "no instance named x", "stdout": "", "ms": 1}
         if code.startswith("od_check_setup "):
             return {"ok": True, "result": "[]", "stdout": "", "ms": 1}
+        if code.startswith("od_capture {report_long"):
+            text = "".join("line %06d\n" % i for i in range(100000))
+            return {"ok": True, "result": "", "stdout": text, "ms": 1}
         if code.startswith("od_capture "):
             return {"ok": True, "result": "", "stdout": "report text\n", "ms": 1}
         return {"ok": True, "result": code, "stdout": "hello\n", "ms": 1}
@@ -191,6 +194,26 @@ class McpTest(unittest.TestCase):
         r = self.rpc("tools/call", {"name": "tcl", "arguments": {"code": "puts hi"}})
         body = json.loads(r["result"]["content"][0]["text"])
         self.assertEqual(body, {"result": "puts hi", "stdout": "hello\n"})
+
+    def test_long_reply_is_capped_with_head_and_tail(self):
+        r = self.rpc(
+            "tools/call", {"name": "report", "arguments": {"command": "report_long"}}
+        )
+        text = r["result"]["content"][0]["text"]
+        self.assertLess(len(text), mcp_server.MAX_TEXT + 500)
+        self.assertTrue(text.startswith("line 000000\n"))
+        self.assertTrue(text.endswith("line 099999\n"))
+        self.assertIn("characters", text)
+        self.assertIn("dropped", text)
+
+    def test_cap_keeps_whole_lines_and_short_text(self):
+        self.assertEqual(mcp_server.cap("short\n"), "short\n")
+        text = "".join("%04d\n" % i for i in range(100))
+        capped = mcp_server.cap(text, 100)
+        kept = [l for l in capped.splitlines() if l and not l.startswith("[")]
+        self.assertTrue(all(len(l) == 4 for l in kept))
+        self.assertIn("0000", kept)
+        self.assertIn("0099", kept)
 
     def test_daemon_error_is_tool_error_not_rpc_error(self):
         r = self.rpc("tools/call", {"name": "cell_info", "arguments": {"name": "x"}})

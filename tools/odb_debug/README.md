@@ -145,6 +145,11 @@ another ODB without restarting the agent. Tools:
 | `report cmd` | what any `report_*` command prints |
 | `tcl code` | anything else: result and captured stdout |
 
+A reply longer than 16000 characters (`MAX_TEXT` in `mcp_server.py`)
+keeps its head and tail and says how much was dropped, so one
+`report_checks` cannot flood the agent's context. The shell client is not
+capped.
+
 ## The daemon's procs
 
 Every proc returns a JSON string; lengths are microns.
