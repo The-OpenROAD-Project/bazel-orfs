@@ -15,8 +15,10 @@ routed database. As a warning the route completes, with 54 edges over
 the limit, all in that box.
 
 A temporary unblock, warning unconditionally: the flow passes
--allow_congestion here. Not upstreamed; dropped when grt honours
--allow_congestion at this guard (upstream fix to follow).
+-allow_congestion here. The fix is upstream as
+The-OpenROAD-Project/OpenROAD#11754 (it keeps the early error without
+-allow_congestion); this patch is dropped at the //:bump onto an
+OpenROAD that carries it.
 
 ---
 diff --git a/src/grt/src/fastroute/src/utility.cpp b/src/grt/src/fastroute/src/utility.cpp
