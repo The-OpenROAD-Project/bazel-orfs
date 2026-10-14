@@ -582,3 +582,19 @@ py_test(
     ],
     main = "clock_gate_census_test.py",
 )
+
+py_binary(
+    name = "boundary_constants",
+    srcs = ["boundary_constants.py"],
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+py_test(
+    name = "boundary_constants_test",
+    size = "small",
+    srcs = [
+        "boundary_constants.py",
+        "boundary_constants_test.py",
+    ],
+    main = "boundary_constants_test.py",
+)
