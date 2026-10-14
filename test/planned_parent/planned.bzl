@@ -57,6 +57,9 @@ def mini_planned_flow(rtl, files):
         "SDC_FILE": [":constraints.sdc"],
         "AUTO_MEMORIES_REGFILES": files,
     }
+    if PLAN["parent"].get("pins"):
+        # every port on the plan's port side
+        parent_sources["IO_CONSTRAINTS"] = [":plan/%s" % PLAN["parent"]["pins"]]
     parent_macros = [":%s_generate_abstract" % b for b in sorted(PLAN["macros"])]
     orfs_flow(
         name = "mini_top",

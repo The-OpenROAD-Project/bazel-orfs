@@ -125,18 +125,22 @@ def file_sv(name, words, bits, nr, nw):
 
 
 def file_spec(name, words, bits, nr, nw):
-    lines = [
-        (
-            "# {}: a generated macro inside the miniature parent, not in the plan."
-            if name in MACRO_FILES
-            else "# {}: a placed netlist inside the miniature parent (mode netlist)."
-        ).format(name),
-        "module " + name,
-    ] + ([] if name in MACRO_FILES else ["mode netlist"]) + [
-        "words {}".format(words),
-        "bits {}".format(bits),
-        "clock clock",
-    ]
+    lines = (
+        [
+            (
+                "# {}: a generated macro inside the miniature parent, not in the plan."
+                if name in MACRO_FILES
+                else "# {}: a placed netlist inside the miniature parent (mode netlist)."
+            ).format(name),
+            "module " + name,
+        ]
+        + ([] if name in MACRO_FILES else ["mode netlist"])
+        + [
+            "words {}".format(words),
+            "bits {}".format(bits),
+            "clock clock",
+        ]
+    )
     for r in range(nr):
         lines.append("read io_readPorts_{0}_addr io_readPorts_{0}_data".format(r))
     for w in range(nw):
@@ -315,11 +319,13 @@ def plan(out_dir):
             "density": 0.5,
             "core_margin_um": 10,
             "keep": [],
+            # every port on the bottom edge: clock, seed, sum and BlockB's
+            # ext pins, 161 signal ports, BlockB's 32 of them its own
+            "port_side": "bottom",
+            "ports": 161,
         },
         "macros": macros,
-        # FileA and FileB in the planner's row along the region's top; the
-        # region between the two block rows is 125 um wide, so FileC takes
-        # the row below, at the same left edge (gap_um in from the region)
+        # the three files in the planner's row along the region's top
         "netlists": [
             {
                 "module": "FileA",
@@ -338,8 +344,6 @@ def plan(out_dir):
                 "instance": "u_filec",
                 "w_um": FILE_W_UM,
                 "h_um": FILE_H_UM,
-                "x_um": 20.944,
-                "y_um": 107.4,
             },
         ],
         # the planner opens this from where it runs: the repo root
