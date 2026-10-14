@@ -58,6 +58,12 @@ def ports(spec):
     aw = clog2(spec["words"])
     baw = clog2(spec["words"] // spec.get("banks", 1))
     out = [(spec["clock"], "input", 1)]
+    # a reset the array honours (async_reset) or ignores (reset), and any
+    # other input it ignores (unused): the module has them, so the
+    # wrapper in its place must too
+    for key in ("async_reset", "reset", "unused"):
+        if spec.get(key):
+            out.append((spec[key], "input", 1))
     for addr, data in spec["reads"]:
         out.append((addr, "input", aw))
     for pairs in spec["reads_banked"]:
@@ -142,7 +148,11 @@ def main(argv):
     )
     ap.add_argument("--spec", required=True)
     ap.add_argument("--sv", required=True)
-    ap.add_argument("--macro-placement", required=True)
+    ap.add_argument(
+        "--macro-placement",
+        default=None,
+        help="write the MACRO_PLACEMENT_TCL here; none for an inlined file",
+    )
     ap.add_argument(
         "--top", default=None, help="parent module name (default <module>_scaffold)"
     )
@@ -158,6 +168,9 @@ def main(argv):
         f.write(model(spec))
         f.write("\n")
         f.write(parent(spec, top, "u_file"))
+    if a.macro_placement is None:
+        print("%s: %d ports, parent %s" % (spec["module"], len(ports(spec)), top))
+        return
     with open(a.macro_placement, "w") as f:
         f.write(
             "# %s's lower-left corner in the parent, um: the macro is\n"
