@@ -21,9 +21,10 @@ on an edge one of its clock-to-output arcs starts from. check_timing
 runs the arrival search for that check as it already did for
 unconstrained endpoints.
 
-Not upstreamed: held until parallaxsw/OpenSTA#532 is decided. Its only
-natural reproducer is #532's tied-enable ICG; if #532 merges, the case
-for it is a safety net and its test needs the falling-only cell here.
+Not upstreamed. parallaxsw/OpenSTA#532 is decided (fdb00f48, patch
+0108), so the tied-enable ICG no longer reproduces it; this is a safety
+net for any cell whose clock arc reaches a register only on the edge it
+does not launch on, and its test keeps the falling-only cell here.
 Retires on the //:bump onto an OpenROAD whose OpenSTA carries it.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
