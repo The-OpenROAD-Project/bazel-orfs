@@ -1029,6 +1029,12 @@ http_archive(
     name = "xs_utility",
     build_file = "//test/coremark_joule/xiangshan:utility.BUILD.bazel",
     dev_dependency = True,
+    patch_strip = 1,
+    patches = [
+        # Carried, not upstreamed: ClockGate on CIRCT's clock gate, so
+        # firtool folds a constant enable (see the patch header).
+        "//test/coremark_joule/xiangshan:patches/0010-utility-clockgate-circt-intrinsic.patch",
+    ],
     sha256 = "97d53e87d1cf314b2f977c9563f8e7a77d6c13f015f122d8ce6eb622a8f33bf4",
     strip_prefix = "Utility-eb8e12b00a33e4716e7778175f6dd45b7a3a9ede",
     urls = ["https://github.com/OpenXiangShan/Utility/archive/eb8e12b00a33e4716e7778175f6dd45b7a3a9ede.tar.gz"],
