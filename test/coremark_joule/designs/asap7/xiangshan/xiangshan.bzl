@@ -1072,6 +1072,16 @@ XS_PLACE_DENSITY = {
     "MemBlock": "0.8",
 }
 
+# The annealer's channel between facing macros, per block where the default
+# does not serve it. CoupledL2's four data SRAMs keep every pin on one edge,
+# and the annealer faces those edges across the channel: at 4 um no buffer
+# fits beside the pins, write data and control cross the 332 um macro row
+# unbuffered, and the block's period is 1,982 ps; at 12 um it is 1,437 ps
+# (place stage, deps lane).
+XS_ANNEAL_CHANNEL_UM = {
+    "CoupledL2": "12.0",
+}
+
 # Outline knobs a planned flow replaces with DIE_AREA/CORE_AREA, and the
 # legaliser window the parent no longer needs once the channels are planned.
 # SKIP_REPORT_METRICS stays on: report_metrics on a 3.7 M-instance parent
@@ -1168,6 +1178,8 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     macros = sorted(plan["macros"].keys())
     for block in macros:
         cfg = blocks.get(block, XS_BLOCK_DEFAULT)
+        if block in XS_ANNEAL_CHANNEL_UM:
+            cfg = dict(cfg, user_arguments = cfg["user_arguments"] | {"ANNEAL_CHANNEL_UM": XS_ANNEAL_CHANNEL_UM[block]})
         entry = plan["macros"][block]
         arguments, sources = _planned_block(cfg, entry, plan_dir, block, blocks)
 
