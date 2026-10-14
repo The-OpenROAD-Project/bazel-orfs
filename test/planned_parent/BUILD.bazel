@@ -47,15 +47,10 @@ mini_planned_flow(
     rtl = ":rtl",
 )
 
-# Manual until the open finding is fixed: the parent's global route stops
-# in pin access on exactly one pin per block (DRT-0073, e.g. u_blockd/din[0]),
-# the same pin whatever its position and with the block's obstructions
-# moved away; the parent XSCore failed on one pin per block the same way
-# (take 23, 2026-09-22). Reproducer: read the parent's 4_cts.odb and run
-# pin_access. Through CTS it passes.
+# The parent through global route: pin access reaches every block pin
+# (DRT-0073 stopped it while the plan drew pins two wire widths wide).
 build_test(
     name = "mini_top_grt_build_test",
-    tags = ["manual"],
     targets = [":mini_top_grt"],
 )
 

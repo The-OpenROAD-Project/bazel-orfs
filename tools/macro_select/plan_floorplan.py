@@ -669,7 +669,9 @@ def place_exact(m, segs, tech):
             if x < last[lay["name"]] + 2 * lay["pitch"] - 1e-9:
                 x = last[lay["name"]] + 2 * lay["pitch"]
             last[lay["name"]] = x
-            w = 2 * lay["width"]
+            # the layer's wire width: at two, no asap7 M3 pin had an access
+            # point in the parent's pin access (DRT-0073), every M5 pin did
+            w = lay["width"]
             if horizontal_edge:
                 y = m["h_um"] - pin_len / 2.0 if side == "top" else pin_len / 2.0
                 out.append(

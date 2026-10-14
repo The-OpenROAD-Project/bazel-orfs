@@ -266,6 +266,20 @@ class ExactPinTest(unittest.TestCase):
             for a, b in zip(xs, xs[1:]):
                 self.assertGreaterEqual(b - a, 2 * lay["pitch"] - 1e-6)
 
+    def test_pins_are_their_layers_wire_width(self):
+        # at two widths, a parent's pin access found no access point on
+        # any asap7 M3 pin (DRT-0073)
+        widths = {
+            l["name"]: l["width"]
+            for l in self.LAYERS["pin_layers_v"] + self.LAYERS["pin_layers_h"]
+        }
+        for side, n in (("top", 0), ("right", 1)):
+            m = {"name": "a", "pin_side": side, "w_um": 100.0, "h_um": 50.0}
+            segs = [("b", 5.0, 25.0, ["p%d" % i for i in range(20)])]
+            rows = plan_floorplan.place_exact(m, segs, dict(TECH, **self.LAYERS))
+            for pin, layer, x, y, w, h in rows:
+                self.assertAlmostEqual((w, h)[n], widths[layer], 6)
+
     def test_refuses_a_segment_too_short(self):
         m = {"name": "a", "pin_side": "top", "w_um": 100.0, "h_um": 50.0}
         segs = [("b", 5.0, 6.0, ["p%d" % i for i in range(200)])]
