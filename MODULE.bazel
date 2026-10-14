@@ -229,6 +229,12 @@ archive_override(
         "//patches:0120-openroad-ram-routed-tests.patch",
         # 0121: generate_ram's help lists its options.
         "//patches:0121-openroad-ram-help.patch",
+        # 0122: global route's 100x-capacity edge guard warns instead of
+        # stopping, a temporary unblock for a grt bug: the guard ignores
+        # -allow_congestion. On the XSTile parent it stops global route at a
+        # pile of CTS delay buffers. Not upstreamed; dropped when grt honours
+        # -allow_congestion there.
+        "//patches:0122-openroad-grt-edge-usage-warn.patch",
     ],
     strip_prefix = "OpenROAD-5007b49201487b5093218a67f5b2f7ea457b5258",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/5007b49201487b5093218a67f5b2f7ea457b5258.tar.gz"],
