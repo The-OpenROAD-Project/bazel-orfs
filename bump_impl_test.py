@@ -1,6 +1,8 @@
 import tempfile
+import io
 import os
 import unittest
+from unittest import mock
 import bump_impl
 
 
@@ -359,6 +361,27 @@ index 1111111..2222222 100644
         twice = self._regenerate(once, ws)
         self.assertNotEqual(once, twice)
         self.assertEqual(twice, self._regenerate(twice, ws))
+
+
+class TestModTidyFailure(unittest.TestCase):
+    """A failed mod tidy names the way back: bump.py with plain python3."""
+
+    def test_failure_exits_with_its_status_and_the_hint(self):
+        failed = mock.Mock(returncode=7)
+        with mock.patch.object(bump_impl.subprocess, "run", return_value=failed):
+            with mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+                with self.assertRaises(SystemExit) as cm:
+                    bump_impl.run_mod_tidy(".")
+        self.assertEqual(cm.exception.code, 7)
+        self.assertIn("bump.py", err.getvalue())
+        self.assertIn("python3", err.getvalue())
+
+    def test_success_prints_no_hint(self):
+        ok = mock.Mock(returncode=0)
+        with mock.patch.object(bump_impl.subprocess, "run", return_value=ok):
+            with mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+                bump_impl.run_mod_tidy(".")
+        self.assertEqual(err.getvalue(), "")
 
 
 class TestUpdateOrfsSourceTag(unittest.TestCase):
