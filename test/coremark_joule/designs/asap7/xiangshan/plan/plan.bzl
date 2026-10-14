@@ -8,7 +8,7 @@ PLAN = {
             "MOCK_AREA": "0.8384",
             "SYNTH_KEEP_MODULES": "MSHRCtl Slice VpnTable MainPipe_1 RequestArb SentUnit RequestBuffer TwoLevelRRArbiter_22 FtTrainPipeline SinkC MMIOBridge CDPPrefetcher Directory OffsetScoreTable_1 TwoLevelRRArbiter_16 MSHR OverwriteQueue_1",
             "pin_side": "top",
-            "x_um": 1292.688,
+            "x_um": 1313.856,
             "y_um": 86.4,
         },
         "FltRegionModule": {
@@ -17,7 +17,7 @@ PLAN = {
             "MOCK_AREA": "0.8229",
             "SYNTH_KEEP_MODULES": "FMulFlt FDivSqrtFlt IssuePipeFaluFmulFcvtFcmp IssuePipeFaluFmulFdiv IssuePipeFaluFmulFdiv_1 IssuePipeFaluFmul IssueQueueFaluFmulFcvtFcmp IssueQueueFaluFmulFdiv IssueQueueFaluFmulFdiv_1 IssueQueueFaluFmul",
             "pin_side": "top",
-            "x_um": 10.224,
+            "x_um": 31.392,
             "y_um": 226.8,
         },
         "Frontend": {
@@ -26,8 +26,8 @@ PLAN = {
             "MOCK_AREA": "0.8667",
             "SYNTH_KEEP_MODULES": "Ifu ResolveQueue ICache Phr Bpu Sc TLB IBuffer AheadBtb Ittage Tage MicroTage PMP WriteBuffer_4 Ftq PMPChecker",
             "pin_side": "bottom",
-            "x_um": 173.52,
-            "y_um": 1725.84,
+            "x_um": 194.832,
+            "y_um": 1708.56,
         },
         "MemBlock": {
             "CORE_AREA": "10.000 10.000 987.920 987.920",
@@ -35,8 +35,8 @@ PLAN = {
             "MOCK_AREA": "0.8418",
             "SYNTH_KEEP_MODULES": "LoadQueueReplay PrefetcherWrapper Sbuffer PtwCache DCacheWrapper TLBNonBlock MissQueue LoadQueueUncache SbufferData TLBNonBlock_2 TLBNonBlock_1 SqForwardPipe L2TLBWrapper VirtualStoreQueue LoadQueueRAR HPerfMonitor_3 LoadQueueRAW PhysicalStoreQueue Uncache L1PrefetchSourceArray BankedDataArray MainPipe PTWNewFilter VirtualLoadQueue L1ErrorMetaArray L1CohMetaArray LLPTW",
             "pin_side": "bottom",
-            "x_um": 1011.888,
-            "y_um": 1794.96,
+            "x_um": 1033.056,
+            "y_um": 1777.68,
         },
         "VecRegionModule": {
             "CORE_AREA": "10.000 10.000 797.840 797.840",
@@ -44,13 +44,13 @@ PLAN = {
             "MOCK_AREA": "0.8831",
             "SYNTH_KEEP_MODULES": "VFDivWrapper VIDiv VIMacU IssuePipeVialuVimacVmoveVfcvtVfmac IssuePipeVialuVidivVfmacVfdiv IssuePipeVialu IssuePipeVialu_1 VectorCvt IssueQueueVialuVimacVmoveVfcvtVfmac IssueQueueVialu IssueQueueVialu_1 IssueQueueVialuVidivVfmacVfdiv VFMacWrapper",
             "pin_side": "top",
-            "x_um": 568.512,
+            "x_um": 589.68,
             "y_um": 32.4,
         },
     },
     "parent": {
-        "CORE_AREA": "10.000 10.000 2015.399 2655.830",
-        "DIE_AREA": "0.000 0.000 2025.399 2665.830",
+        "CORE_AREA": "10.000 10.000 2057.726 2638.470",
+        "DIE_AREA": "0.000 0.000 2067.726 2648.470",
         "SYNTH_KEEP_MODULES": "Backend CtrlBlock FusionDecoder Region DecodeStage SimpleDecodeChannel UopBufferCtrlDecoder Rob Dispatch Rename MemCtrl IssueQueueAluCsrFenceLinkBrhNjmp IssueQueueAluDivBrhNjmp IssueQueueAluI2fBrhNjmp IssueQueueAluBkuVset IssueQueueAluMul IssueQueueLdu IssueQueueStaMou IssueQueueStaMou_1 IssueQueueStdMoud IssueQueueStdMoud_1 DataPath ExuBlock VectorDecodeChannel RenameBuffer VTypeBuffer RobEntryCell BusyTable BusyTable_1 RenameTableWrapper CompressUnit SSIT LFST EntriesAluCsrFenceLinkBrhNjmp EntriesAluDivBrhNjmp EntriesAluI2fBrhNjmp EntriesAluBkuVset EntriesAluMul EntriesLdu EntriesStaMou EntriesStdMoud ExeUnitImp NewCSR Frontend MemBlock VecRegionModule FltRegionModule XSCore L2Top",
         "netlists": [
             {
@@ -59,7 +59,7 @@ PLAN = {
                 "module": "RobEntryFile",
                 "w_um": 318.384,
                 "x_um": 20.944,
-                "y_um": 1482.358,
+                "y_um": 1464.998,
             },
             {
                 "h_um": 243.0,
@@ -67,7 +67,7 @@ PLAN = {
                 "module": "IntRegFile",
                 "w_um": 406.0,
                 "x_um": 350.128,
-                "y_um": 1431.868,
+                "y_um": 1414.508,
             },
             {
                 "h_um": 192.24,
@@ -75,8 +75,9 @@ PLAN = {
                 "module": "RenameBufferFile",
                 "w_um": 306.504,
                 "x_um": 766.928,
-                "y_um": 1482.628,
+                "y_um": 1465.268,
             },
         ],
+        "pins": "parent_pins.tcl",
     },
 }

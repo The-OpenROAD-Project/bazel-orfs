@@ -3,11 +3,11 @@
 # origin off the pin lattice the plan put it on).
 set block [ord::get_db_block]
 foreach {master x y} {
-  FltRegionModule 10.224 226.800
-  VecRegionModule 568.512 32.400
-  CoupledL2 1292.688 86.400
-  Frontend 173.520 1725.840
-  MemBlock 1011.888 1794.960
+  FltRegionModule 31.392 226.800
+  VecRegionModule 589.680 32.400
+  CoupledL2 1313.856 86.400
+  Frontend 194.832 1708.560
+  MemBlock 1033.056 1777.680
 } {
   set insts {}
   foreach inst [$block getInsts] {
@@ -39,7 +39,7 @@ set core [$block getCoreArea]
 set bands 0
 foreach {lo hi} {
   32.400 745.804
-  1794.960 2635.009
+  1777.680 2617.729
 } {
   set bl [odb::dbBlockage_create $block [$core xMin] [expr { int($lo * $dbu) }] [$core xMax] [expr { int($hi * $dbu) }]]
   $bl setSoft
@@ -52,9 +52,9 @@ puts "place_macros.tcl: $bands soft placement blockage(s) over the blocks' bands
 # macro is the instance itself, or generate_ram's RAM, ram, inside the
 # wrapper that takes the module's place.
 foreach {inst x y} {
-  core/backend/inner_ctrlBlock/rob/robEntryFile 20.944 1482.358
-  core/backend/inner_intRegion/intDataPath/intRegFile 350.128 1431.868
-  core/backend/inner_ctrlBlock/rob/rab/renameBuffer 766.928 1482.628
+  core/backend/inner_ctrlBlock/rob/robEntryFile 20.944 1464.998
+  core/backend/inner_intRegion/intDataPath/intRegFile 350.128 1414.508
+  core/backend/inner_ctrlBlock/rob/rab/renameBuffer 766.928 1465.268
 } {
   foreach name [list $inst $inst/ram $inst.ram] {
     set i [$block findInst $name]

@@ -3,10 +3,10 @@
 # origin off the pin lattice the plan put it on).
 set block [ord::get_db_block]
 foreach {master x y} {
-  BlockA 14.544 32.400
-  BlockD 79.344 34.560
-  BlockB 10.224 190.080
-  BlockC 83.664 190.080
+  BlockA 20.304 41.040
+  BlockB 85.104 32.400
+  BlockC 26.784 190.080
+  BlockD 89.424 190.080
 } {
   set insts {}
   foreach inst [$block getInsts] {
@@ -37,8 +37,8 @@ set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
 set core [$block getCoreArea]
 set bands 0
 foreach {lo hi} {
-  32.400 86.400
-  190.080 252.720
+  32.400 95.040
+  190.080 241.920
 } {
   set bl [odb::dbBlockage_create $block [$core xMin] [expr { int($lo * $dbu) }] [$core xMax] [expr { int($hi * $dbu) }]]
   $bl setSoft
@@ -51,9 +51,9 @@ puts "place_macros.tcl: $bands soft placement blockage(s) over the blocks' bands
 # macro is the instance itself, or generate_ram's RAM, ram, inside the
 # wrapper that takes the module's place.
 foreach {inst x y} {
-  u_filea 20.944 148.717
-  u_fileb 61.744 148.717
-  u_filec 20.944 107.400
+  u_filea 20.944 147.727
+  u_fileb 61.744 147.727
+  u_filec 102.544 147.727
 } {
   foreach name [list $inst $inst/ram $inst.ram] {
     set i [$block findInst $name]

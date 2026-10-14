@@ -1275,6 +1275,9 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
 
     # the plan's blocks and register files, placed by the plan
     sources["MACRO_PLACEMENT_TCL"] = [":%s/place_macros.tcl" % plan_dir]
+    if plan["parent"].get("pins"):
+        # every port on the plan's port side, the edge facing the NoC
+        sources["IO_CONSTRAINTS"] = [":%s/%s" % (plan_dir, plan["parent"]["pins"])]
 
     # Every legalization of the parent -- placement's, CTS's two, global
     # route's -- first moves each movable cell the resizer or CTS left

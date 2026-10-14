@@ -85,7 +85,10 @@
    "FltRegionModule",
    "XSCore",
    "L2Top"
-  ]
+  ],
+  "port_side": "bottom",
+  "ports": 1557,
+  "partner_layout": false
  },
  "margins": {
   "pin_side": 1.5,
