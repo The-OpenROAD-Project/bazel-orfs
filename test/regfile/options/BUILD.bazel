@@ -1,0 +1,40 @@
+load(":options.bzl", "TWO_WRITES", "option_flow")
+
+# Each generate_ram option the flow reaches through a register-file spec
+# (AUTO_MEMORIES_REGFILES), on a 16 x 8 file inlined in a parent of
+# flops, synthesis through detailed route: minutes each. Manual: they add
+# nothing to CI. What each option computes is checked by OpenROAD's ram
+# tests and //test/regfile's simulations; these check that the flow
+# builds and routes it.
+#
+#   bazelisk build //test/regfile/options:all_route
+
+OPTIONS = {
+    "base": "",
+    "two_writes_or": "",
+    "two_writes_last": "write_priority last\n",
+    "clock_gate": "write_style clock_gate\n",
+    "zero_word": "zero_word 0\n",
+    "async_reset": "async_reset rst_n low\n",
+    "banks": "banks 4\nbank_columns 2\nbank_order interleaved\n",
+    "bank_column_layout": "banks 4\nbank_columns 2\nbank_column_layout interleaved\n",
+    "read_latency": "read_latency 1\n",
+    "bit_folds": "bit_folds 2\n",
+    "periphery_verilog": "periphery verilog\n",
+    "service_columns": "tap_columns 4\nservice_sites 10\n",
+}
+
+[
+    option_flow(
+        name = name,
+        lines = lines,
+        writes = TWO_WRITES if name.startswith("two_writes") else None,
+    )
+    for name, lines in OPTIONS.items()
+]
+
+filegroup(
+    name = "all_route",
+    srcs = [":%s_route" % name for name in OPTIONS],
+    tags = ["manual"],
+)
