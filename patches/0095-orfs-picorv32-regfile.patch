@@ -1,0 +1,81 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] asap7/picorv32-regfile: picorv32's register file as a
+ generated register file
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+picorv32 offers the seam itself: with PICORV32_REGS defined it
+instantiates that module as its register file instead of the inline
+cpuregs array, and its source has one, picorv32_regs (31 words, two
+combinational reads, one write). The variant defines PICORV32_REGS as
+picorv32_regs and has an AUTO_MEMORIES_REGFILES spec replace it; the
+RTL is unchanged. picorv32's SDC_FILE names its own directory rather
+than DESIGN_NICKNAME's, so the variant can include its config.mk.
+
+Not upstreamed: carried in bazel-orfs to measure the register-file
+options on ORFS's designs (OpenROAD #11723); retires at a bump onto an
+ORFS that carries it.
+
+---
+diff --git a/flow/designs/asap7/picorv32-regfile/config.mk b/flow/designs/asap7/picorv32-regfile/config.mk
+new file mode 100644
+index 000000000..7cf1015da
+--- /dev/null
++++ b/flow/designs/asap7/picorv32-regfile/config.mk
+@@ -0,0 +1,13 @@
++# picorv32 with its register file built by AUTO_MEMORIES_REGFILES rather
++# than synthesised to flip-flops: the same RTL, constraints and
++# utilisation. picorv32 offers the seam itself: with PICORV32_REGS
++# defined it instantiates that module as its register file, and its
++# source has one, picorv32_regs. picorv32_regs.regfile has generate_ram
++# build it. Not in AUTO_MEMORIES_MACRO_PLACE, so it is inlined.
++export DESIGN_NICKNAME = picorv32-regfile
++
++include designs/asap7/picorv32/config.mk
++
++export VERILOG_DEFINES        = -D PICORV32_REGS=picorv32_regs
++export AUTO_MEMORIES          = 1
++export AUTO_MEMORIES_REGFILES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/picorv32_regs.regfile
+diff --git a/flow/designs/asap7/picorv32-regfile/picorv32_regs.regfile b/flow/designs/asap7/picorv32-regfile/picorv32_regs.regfile
+new file mode 100644
+index 000000000..eda85a721
+--- /dev/null
++++ b/flow/designs/asap7/picorv32-regfile/picorv32_regs.regfile
+@@ -0,0 +1,23 @@
++# picorv32_regs, the register file picorv32 instantiates with
++# PICORV32_REGS defined: x1 to x31 behind 6-bit addresses (the top bit
++# always 0), two combinational reads, one write, no reset. picorv32 never
++# writes x0 and reads zero for it outside the array, so the generated file
++# addresses words directly, 32 of them with word 0 the zero word, where
++# picorv32_regs inverts the address over 31: the same register for every
++# register number picorv32 uses. Without ENABLE_REGS_DUALPORT the second
++# read's address is 0.
++module picorv32_regs
++words 32
++bits 32
++clock clk
++read raddr1 rdata1
++read raddr2 rdata2
++write waddr wdata wen
++zero_word 0
++write_style clock_gate
++cell icg ICGx1_ASAP7_75t_R
++cell flop DFFHQNx1_ASAP7_75t_R
++cell and2 AND2x2_ASAP7_75t_R
++cell or2 OR2x2_ASAP7_75t_R
++cell ao22 AO22x2_ASAP7_75t_R
++cell inv INVx1_ASAP7_75t_R
+diff --git a/flow/designs/asap7/picorv32/config.mk b/flow/designs/asap7/picorv32/config.mk
+index 68d0a0b28..d0b825d7e 100644
+--- a/flow/designs/asap7/picorv32/config.mk
++++ b/flow/designs/asap7/picorv32/config.mk
+@@ -2,7 +2,7 @@ export PLATFORM = asap7
+ export DESIGN_NAME = picorv32
+ 
+ export VERILOG_FILES = $(sort $(wildcard $(DESIGN_HOME)/src/picorv32/*.sv))
+-export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/constraint.sdc
++export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/picorv32/constraint.sdc
+ 
+ export ASAP7_USE_VT = RVT LVT SLVT
+ 
