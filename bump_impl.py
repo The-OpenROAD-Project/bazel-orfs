@@ -1497,9 +1497,7 @@ def copy_patches(bazel_orfs_dir, workspace_dir, owned=None):
         return
 
     if owned is None:
-        owned = bazel_orfs_owned_patches(
-            os.path.join(bazel_orfs_dir, "MODULE.bazel")
-        )
+        owned = bazel_orfs_owned_patches(os.path.join(bazel_orfs_dir, "MODULE.bazel"))
     needed = {name for names in owned.values() for name in names}
 
     os.makedirs(dst_dir, exist_ok=True)
@@ -1583,9 +1581,7 @@ def reconcile_patch_labels(content, owned):
                 continue
             kept.append(line)
 
-        rendered = [
-            f'{indent}"//{BAZEL_ORFS_PATCHES_DIR}:{name}",' for name in names
-        ]
+        rendered = [f'{indent}"//{BAZEL_ORFS_PATCHES_DIR}:{name}",' for name in names]
         new_body = "\n" + "\n".join(rendered + kept) + "\n" + indent[:-4]
         new_block = block[: m.start(2)] + new_body + block[m.end(2) :]
         if new_block != block:
@@ -2153,11 +2149,30 @@ def run_mod_tidy(workspace_dir):
     rewritten file in place so the human can inspect, and exit with the
     subprocess's status. A Python traceback would just hide the real error
     that bazelisk already printed to stderr.
+
+    A patch that no longer applies is now inlined in MODULE.bazel, and
+    bazel applies it to resolve the module graph, so ``bazelisk run
+    //:bump`` cannot start again once the patch is rebased. bump.py needs
+    nothing but python3, and the re-run regenerates the inlined copy from
+    the rebased file; the hint says so.
     """
     print("Running bazelisk mod tidy to update MODULE.bazel.lock...")
     result = subprocess.run(["bazelisk", "mod", "tidy"], cwd=workspace_dir)
     if result.returncode != 0:
+        sys.stderr.write(MOD_TIDY_FAILED_HINT)
         sys.exit(result.returncode)
+
+
+MOD_TIDY_FAILED_HINT = """
+bump: MODULE.bazel is rewritten, but bazelisk mod tidy failed (above).
+If a patch failed to apply, rebase the patch file it names, then re-run
+from the workspace root with bazel-orfs's bump.py, which needs only
+python3, since bazel cannot load this MODULE.bazel to run //:bump:
+
+    python3 path/to/bazel-orfs/bump.py <the same arguments>
+
+That re-inlines the rebased patch and runs mod tidy again.
+"""
 
 
 _HEAD_TOOLS = {module_name for module_name, _ in ORFS_TOOLS.values()}
