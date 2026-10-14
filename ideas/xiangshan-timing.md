@@ -1748,8 +1748,11 @@ density and on its own clock tree. Entry 40's buffer chains, at scale.
 What would have to change first:
 
 - The plan has to place register files by connectivity to their logic,
-  not at the die's edge (robEntryFile above). A control with only that
-  move is being measured.
+  not at the die's edge (robEntryFile above). The control with only
+  that move, robEntryFile placed by hand next to rob's logic, gives
+  3,058 ps against 3,316 (-7.8 %), in the same lane. Hold after global
+  route is modest in all three lanes: worst -143 to -213 ps, 549 to 646
+  endpoints, -16 to -35 ns in total.
 - The parent's placement must not stretch a FIRM core's port cones
   across the die: either a region per dissolved block or the cones kept
   near their core.
