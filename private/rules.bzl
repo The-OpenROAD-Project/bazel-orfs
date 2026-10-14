@@ -2855,7 +2855,12 @@ def _make_impl(
         # its src (the pre-layout abstract) moves them along with the
         # .odb. Left behind, the glob found nothing and the abstract was
         # written with each memory a black box: its outputs untimed.
-        rename_candidates = ctx.files.src + ctx.attr.src[OrfsInfo].memories.to_list()
+        # A depset: src's files already carry the memories when src is
+        # the synthesis, and a view moved twice fails the second mv.
+        rename_candidates = depset(
+            ctx.files.src,
+            transitive = [ctx.attr.src[OrfsInfo].memories],
+        ).to_list()
         if rename_data:
             rename_candidates = depset(
                 ctx.files.src,
