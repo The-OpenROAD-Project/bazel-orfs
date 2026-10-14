@@ -14,7 +14,10 @@ exports_files(
         "inlined.regfile",
         "inlined_verilog.regfile",
     ],
-    visibility = ["//test/regfile/cores:__pkg__"],
+    visibility = [
+        "//test/regfile/cores:__pkg__",
+        "//test/regfile/designs:__pkg__",
+    ],
 )
 
 RISCV32I = DESIGNS["asap7/riscv32i"]
