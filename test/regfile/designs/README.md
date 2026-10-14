@@ -108,6 +108,17 @@ work, so times are indicative only.
 - At the calibrated clock, run time depends mostly on how hard repair
   works.
 
+## Open it
+
+To open a routed design with its register file generated:
+
+    bazelisk run @orfs//flow/designs/asap7/ibex-regfile:ibex_core_route web_route
+
+This builds ibex-regfile through detailed route, then opens it in
+OpenROAD's web viewer.
+
+![ibex-regfile, routed, in the web viewer](ibex_regfile_web_route.png)
+
 ## Not run yet: swerv, cva6, coralnpu
 
 swerv_wrapper, cva6, coralnpu-regfile, coralnpu-regfile-exmem and
