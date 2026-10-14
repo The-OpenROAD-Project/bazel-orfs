@@ -198,6 +198,16 @@ exports_files(glob([
     ]
 ]
 
+# Every clock gate XSTile hardens, and which are always on: the census
+# that says what patches/0010's fold left (clock_gate_census.py).
+genrule(
+    name = "xstile_clock_gates",
+    srcs = [":xiangshan_flat"],
+    outs = ["xstile_clock_gates.json"],
+    cmd = "$(execpath //test/coremark_joule/scripts:clock_gate_census) $(location :xiangshan_flat) --top XSTile --out $@",
+    tools = ["//test/coremark_joule/scripts:clock_gate_census"],
+)
+
 # The port list of a generated module, as a readable artifact. The SoC
 # wrapper has to match XSTop's AXI ports exactly, and those are decided by
 # elaboration rather than by anything checked in.

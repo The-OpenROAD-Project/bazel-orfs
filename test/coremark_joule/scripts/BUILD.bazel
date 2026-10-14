@@ -566,3 +566,19 @@ py_binary(
     srcs = ["module_closure.py"],
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
+
+py_binary(
+    name = "clock_gate_census",
+    srcs = ["clock_gate_census.py"],
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+py_test(
+    name = "clock_gate_census_test",
+    size = "small",
+    srcs = [
+        "clock_gate_census.py",
+        "clock_gate_census_test.py",
+    ],
+    main = "clock_gate_census_test.py",
+)
