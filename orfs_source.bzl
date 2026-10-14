@@ -160,9 +160,9 @@ ORFS_PATCHES = [
     # 0099: asap7/tinyRocket-regfile: Rocket's register file, inline in
     # Rocket, moved by surgery into Rocket_rf and generated.
     Label("//patches:0099-orfs-tinyrocket-regfile.patch"),
-    # 0122: asap7/coralnpu-regfiles-exmem: coralnpu-regfile-exmem with
+    # 0123: asap7/coralnpu-regfiles-exmem: coralnpu-regfile-exmem with
     # FRegfile's words also moved by surgery into FRegfile_rf and generated.
-    Label("//patches:0122-orfs-coralnpu-fregfile.patch"),
+    Label("//patches:0123-orfs-coralnpu-fregfile.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
