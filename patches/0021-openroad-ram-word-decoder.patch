@@ -1,16 +1,33 @@
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Subject: [PATCH] ram: generate_ram -decoder word, a balanced tree per word
+Subject: [PATCH] ram: generate_ram -decoder word, a balanced tree per
+ word
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
 -decoder word decodes each word's whole address through a balanced
-AND2 tree, the banks' decoders (patch 0015) without banks. The default,
+AND2 tree, the banks' decoders (the -banks commit) without banks. The default,
 row, is generate_ram's decoder per row, an AND2 chain over the row
 address: four AND2 deep for 32 rows where a tree is three. On riscv32i's
 register file the chain is about 60 ps of the read path's 220.
 
-The eleventh of the generate_regfile features carried onto generate_ram;
-see OpenROAD #11669. Not upstreamed.
+Tested: src/ram/test/decoder_word_asap7.tcl.
 
+Commit 11 of 23 in OpenROAD #11723, carried here from it. Not
+upstreamed; retires at a //:bump onto an OpenROAD that has it.
 ---
+ src/ram/README.md                   |  2 ++
+ src/ram/include/ram/ram.h           |  3 ++-
+ src/ram/src/ram.cpp                 |  7 +++++--
+ src/ram/src/ram.i                   |  5 +++--
+ src/ram/src/ram.tcl                 | 21 +++++++++++++++----
+ src/ram/test/BUILD                  |  5 +++++
+ src/ram/test/CMakeLists.txt         |  1 +
+ src/ram/test/decoder_word_asap7.tcl | 32 +++++++++++++++++++++++++++++
+ src/ram/test/regression_tests.tcl   |  1 +
+ 9 files changed, 68 insertions(+), 9 deletions(-)
+ create mode 100644 src/ram/test/decoder_word_asap7.tcl
+
 diff --git a/src/ram/README.md b/src/ram/README.md
 index 683015ddab..4e17cb1167 100644
 --- a/src/ram/README.md
@@ -46,10 +63,10 @@ index eea3100f24..d253b23818 100644
    void ramPdngen(const char* power_net_name,
                   const char* ground_net_name,
 diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
-index 74d6985251..b5a03e9315 100644
+index ab935f6238..cf0f024bda 100644
 --- a/src/ram/src/ram.cpp
 +++ b/src/ram/src/ram.cpp
-@@ -1915,12 +1915,15 @@ void RamGen::generate(const int mask_size,
+@@ -1914,12 +1914,15 @@ void RamGen::generate(const int mask_size,
                        const std::string& periphery,
                        const std::string& pin_layer,
                        const std::string& cells,
@@ -157,3 +174,86 @@ index 93ed30dc07..61a0297a92 100644
      if { [info exists keys($key)] } {
        lappend ram_netlist_args $key $keys($key)
      }
+diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
+index be028702f5..3286ae0a67 100644
+--- a/src/ram/test/BUILD
++++ b/src/ram/test/BUILD
+@@ -23,6 +23,7 @@ PASSFAIL_TESTS = [
+     "write_mux_asap7",
+     "periphery_unplaced_asap7",
+     "cells_name_asap7",
++    "decoder_word_asap7",
+ ]
+ 
+ ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
+@@ -103,6 +104,10 @@ filegroup(
+                 "//test:asap7_data",
+                 "//test:asap7_nldm_data",
+             ],
++            "decoder_word_asap7": [
++                "//test:asap7_data",
++                "//test:asap7_nldm_data",
++            ],
+             "make_7x7_2r1w_nangate45": [
+                 "make_7x7_2r1w_nangate45_behavioral.vok",
+                 "Nangate45/Nangate45.lef",
+diff --git a/src/ram/test/CMakeLists.txt b/src/ram/test/CMakeLists.txt
+index bf21a0d4d7..3916b7070c 100644
+--- a/src/ram/test/CMakeLists.txt
++++ b/src/ram/test/CMakeLists.txt
+@@ -16,5 +16,6 @@ or_integration_tests(
+     write_mux_asap7
+     periphery_unplaced_asap7
+     cells_name_asap7
++    decoder_word_asap7
+ )
+ 
+diff --git a/src/ram/test/decoder_word_asap7.tcl b/src/ram/test/decoder_word_asap7.tcl
+new file mode 100644
+index 0000000000..c248846671
+--- /dev/null
++++ b/src/ram/test/decoder_word_asap7.tcl
+@@ -0,0 +1,32 @@
++# -decoder word: each word's select is a balanced tree of AND2s over its
++# whole address, ceil(log2(5)) = 3 deep for 32 words, and one more where
++# the select meets the write enable: 4, where the row decoder's chain of
++# AND2s makes 5.
++
++source "helpers.tcl"
++source "ram_sim.tcl"
++
++read_liberty ../../../test/asap7/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz
++read_liberty ../../../test/asap7/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz
++read_liberty ../../../test/asap7/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz
++read_liberty ../../../test/asap7/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib
++read_liberty ../../../test/asap7/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz
++
++read_lef ../../../test/asap7/asap7_tech_1x_201209.lef
++read_lef ../../../test/asap7/asap7sc7p5t_28_R_1x_220121a.lef
++
++
++generate_ram_netlist \
++  -mask_size 4 -word_size 4 -num_words 32 -r_ports 1 -w_ports 1 \
++  -storage_cell DFFHQNx1_ASAP7_75t_R -decoder word
++
++ram_sim::load
++set d [ram_sim::depth AND2*]
++ram_sim::check { $d <= 4 } "the decode is $d AND2s deep, not 4"
++ram_sim::exercise {
++  words 32 bits 4
++  writes {{addr_w D {we[0]}}}
++  reads {{addr_r0 Q}}
++}
++
++puts "pass"
+diff --git a/src/ram/test/regression_tests.tcl b/src/ram/test/regression_tests.tcl
+index db41cfc027..5843f8aaa8 100644
+--- a/src/ram/test/regression_tests.tcl
++++ b/src/ram/test/regression_tests.tcl
+@@ -15,5 +15,6 @@ record_tests {
+   write_mux_asap7
+   periphery_unplaced_asap7
+   cells_name_asap7
++  decoder_word_asap7
+   make_8x8_latch_sky130
+ }

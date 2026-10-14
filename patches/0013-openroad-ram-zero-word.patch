@@ -1,5 +1,8 @@
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Subject: [PATCH] ram: generate_ram -zero_word, a word that reads 0
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
 -zero_word n makes word n read 0 and drop its writes, as a RISC-V
 register file's x0: its row keeps its place in the grid but has no
@@ -9,10 +12,23 @@ stays in them, its term its own select, so the inverter at the root
 reads it as 0. The behavioral model reads 0 there and ignores writes.
 Needs -read_style and_or and -column_mux_ratio 1 (RAM-0060).
 
-The third of the generate_regfile features carried onto generate_ram;
-see OpenROAD #11669. Not upstreamed.
+Tested: src/ram/test/zero_word_asap7.tcl.
 
+Commit 3 of 23 in OpenROAD #11723, carried here from it. Not
+upstreamed; retires at a //:bump onto an OpenROAD that has it.
 ---
+ src/ram/README.md                 |   2 +
+ src/ram/include/ram/ram.h         |   6 +-
+ src/ram/src/ram.cpp               | 145 +++++++++++++++++++++++-------
+ src/ram/src/ram.i                 |   5 +-
+ src/ram/src/ram.tcl               |  17 +++-
+ src/ram/test/BUILD                |   5 ++
+ src/ram/test/CMakeLists.txt       |   1 +
+ src/ram/test/regression_tests.tcl |   1 +
+ src/ram/test/zero_word_asap7.tcl  |  28 ++++++
+ 9 files changed, 172 insertions(+), 38 deletions(-)
+ create mode 100644 src/ram/test/zero_word_asap7.tcl
+
 diff --git a/src/ram/README.md b/src/ram/README.md
 index b289c8104b..6702d6699a 100644
 --- a/src/ram/README.md
@@ -68,7 +84,7 @@ index db535732f0..e7fc10c122 100644
    // cells placed in that bit's cell
    std::map<std::tuple<int, int, int>, odb::dbNet*> storage_nets_;
 diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
-index 463e1f3a86..7362a35c8e 100644
+index 73aa57fd26..173cd465c7 100644
 --- a/src/ram/src/ram.cpp
 +++ b/src/ram/src/ram.cpp
 @@ -181,6 +181,7 @@ bool RamGen::treeInverted(const int lo, const int hi) const
@@ -79,18 +95,19 @@ index 463e1f3a86..7362a35c8e 100644
                                       const int lo,
                                       const int hi,
                                       const vector<dbNet*>& selects,
-@@ -192,32 +193,39 @@ RamGen::TreeEnd RamGen::planReadTree(const std::string& prefix,
+@@ -192,31 +193,39 @@ RamGen::TreeEnd RamGen::planReadTree(const std::string& prefix,
                   const vector<std::pair<std::string, dbNet*>>& conns) {
      tree_nodes_[{row, word_idx, bit}].push_back({master, prefix, name, conns});
    };
+-  auto q
+-      = [&](const int row) { return storage_nets_.at({row, word_idx, bit}); };
 +  // the zero word's term, where the trees read inverted data: its own
 +  // select, the inverted form of a stored 0 (the zero word is in the
 +  // tree only then)
-   auto q = [&](const int row) {
--    return storage_nets_.at({row, word_idx, bit});
++  auto q = [&](const int row) {
 +    return row == zero_word_ ? selects[row]
 +                             : storage_nets_.at({row, word_idx, bit});
-   };
++  };
    auto net = [&](dbNet* given) {
      return given ? given : makeNet(prefix, fmt::format("t{}_{}", lo, hi));
    };
@@ -130,7 +147,7 @@ index 463e1f3a86..7362a35c8e 100644
           {aoi22_out_, y}});
      return {y, true};
    }
-@@ -226,13 +234,14 @@ RamGen::TreeEnd RamGen::planReadTree(const std::string& prefix,
+@@ -225,13 +234,14 @@ RamGen::TreeEnd RamGen::planReadTree(const std::string& prefix,
      half *= 2;
    }
    const int mid = lo + half;
@@ -149,7 +166,7 @@ index 463e1f3a86..7362a35c8e 100644
          inv_cell_,
          fmt::format("inv_r{}_{}", mid, hi),
          {{inv_ports_[{PortRoleType::DataIn, 0}], b.net},
-@@ -288,6 +297,29 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -287,6 +297,31 @@ void RamGen::makeSlice(const int slice_idx,
    std::string prefix
        = fmt::format("storage_{}_{}_{}", row_idx, word_idx, start_bit_idx);
  
@@ -166,20 +183,22 @@ index 463e1f3a86..7362a35c8e 100644
 +          makeInst(cell.get(), node.prefix, node.name, node.master, node.conns);
 +        }
 +      }
-+      ram_grid_.addCell(std::move(cell),
-+                        slice_idx * (mask_size * column_mux_ratio + column_mux_ratio)
-+                            + local_bit * column_mux_ratio + word_idx);
++      ram_grid_.addCell(
++          std::move(cell),
++          slice_idx * (mask_size * column_mux_ratio + column_mux_ratio)
++              + local_bit * column_mux_ratio + word_idx);
 +    }
-+    ram_grid_.addCell(nullptr,
-+                      slice_idx * (mask_size * column_mux_ratio + column_mux_ratio)
-+                          + mask_size * column_mux_ratio + word_idx);
++    ram_grid_.addCell(
++        nullptr,
++        slice_idx * (mask_size * column_mux_ratio + column_mux_ratio)
++            + mask_size * column_mux_ratio + word_idx);
 +    return;
 +  }
 +
    int r_total = rw_ports + r_ports;
    vector<dbNet*> select_b_nets(r_total);
    if (and_or_read_) {
-@@ -1525,7 +1557,8 @@ void RamGen::generate(const int mask_size,
+@@ -1524,7 +1559,8 @@ void RamGen::generate(const int mask_size,
                        dbMaster* inv_cell,
                        dbMaster* tapcell,
                        int max_tap_dist,
@@ -189,7 +208,7 @@ index 463e1f3a86..7362a35c8e 100644
  {
    if (num_words / column_mux_ratio == 1) {
      logger_->error(RAM, 42, "1-row RAMs are not supported.");
-@@ -1573,6 +1606,7 @@ void RamGen::generate(const int mask_size,
+@@ -1572,6 +1608,7 @@ void RamGen::generate(const int mask_size,
    use_latch_ = use_latch;
    num_write_ = rw_ports + w_ports;
    read_style_ = read_style;
@@ -197,7 +216,7 @@ index 463e1f3a86..7362a35c8e 100644
    and_or_read_ = false;
    storage_inverted_ = false;
    storage_nets_.clear();
-@@ -1617,6 +1651,24 @@ void RamGen::generate(const int mask_size,
+@@ -1616,6 +1653,21 @@ void RamGen::generate(const int mask_size,
  
    findMasters();
  
@@ -205,11 +224,8 @@ index 463e1f3a86..7362a35c8e 100644
 +  // has no flops, and the read trees leave it out.
 +  if (zero_word_ >= 0) {
 +    if (zero_word_ >= num_words) {
-+      logger_->error(RAM,
-+                     59,
-+                     "-zero_word {} is not a word of {}.",
-+                     zero_word_,
-+                     num_words);
++      logger_->error(
++          RAM, 59, "-zero_word {} is not a word of {}.", zero_word_, num_words);
 +    }
 +    if (!and_or_read_ || column_mux_ratio != 1) {
 +      logger_->error(RAM,
@@ -222,7 +238,7 @@ index 463e1f3a86..7362a35c8e 100644
    auto chip = db_->getChip();
    if (!chip) {
      chip = odb::dbChip::create(
-@@ -1839,7 +1891,19 @@ void RamGen::generate(const int mask_size,
+@@ -1838,7 +1890,19 @@ void RamGen::generate(const int mask_size,
    // Where the storage flop's output is QN, or the tree's root is
    // inverted, but not both, an inverter at the bottom row puts it right.
    if (and_or_read_) {
@@ -242,7 +258,7 @@ index 463e1f3a86..7362a35c8e 100644
        for (int w = 0; w < column_mux_ratio; ++w) {
          for (int bit = 0; bit < word_size; ++bit) {
            const std::string prefix = fmt::format(
-@@ -1849,7 +1913,8 @@ void RamGen::generate(const int mask_size,
+@@ -1848,7 +1912,8 @@ void RamGen::generate(const int mask_size,
          }
        }
      }
@@ -252,18 +268,18 @@ index 463e1f3a86..7362a35c8e 100644
      for (int w = 0; w < column_mux_ratio; ++w) {
        for (int port = 0; port < r_total; ++port) {
          for (int bit = 0; bit < word_size; ++bit) {
-@@ -1860,8 +1925,9 @@ void RamGen::generate(const int mask_size,
-               = planReadTree(prefix,
-                              w,
-                              bit,
-+                             stored_rows,
-                              0,
--                             num_rows,
-+                             stored,
-                              read_select_nets[port],
-                              flip ? nullptr : out);
+@@ -1858,8 +1923,9 @@ void RamGen::generate(const int mask_size,
+           const TreeEnd root = planReadTree(prefix,
+                                             w,
+                                             bit,
++                                            stored_rows,
+                                             0,
+-                                            num_rows,
++                                            stored,
+                                             read_select_nets[port],
+                                             flip ? nullptr : out);
            if (flip) {
-@@ -2451,12 +2517,24 @@ void RamGen::writeBehavioralVerilog(const std::string& filename,
+@@ -2448,12 +2514,24 @@ void RamGen::writeBehavioralVerilog(const std::string& filename,
      if (i > 0) {
        read_port_logic += "\n";
      }
@@ -291,26 +307,40 @@ index 463e1f3a86..7362a35c8e 100644
    }
  
    // Write logic, the ports in order: where two write the same word in a
-@@ -2472,13 +2550,18 @@ void RamGen::writeBehavioralVerilog(const std::string& filename,
+@@ -2468,20 +2546,23 @@ void RamGen::writeBehavioralVerilog(const std::string& filename,
+         += fmt::format("  input [{}:0] {};\n", word_size_bit - 1, wbus("D", w));
      enable_declarations += fmt::format(
          "  input [{}:0] {};\n", slices_per_word - 1, wbus("we", w));
-     write_logic += fmt::format(R"(    for (i = 0; i < {}; i = i + 1) begin
+-    write_logic += fmt::format(R"(    for (i = 0; i < {}; i = i + 1) begin
 -      if ({}[i]) begin
++    write_logic += fmt::format(
++        R"(    for (i = 0; i < {}; i = i + 1) begin
 +      if ({}[i]{}) begin
          mem[{}][i*{} +:{}] <= {}[i*{} +:{}];
        end
      end
  )",
-                                slices_per_word,
-                                wbus("we", w),
-+                               zero_word_ >= 0
-+                                   ? fmt::format(" && {} != {}",
-+                                                 write_addr,
-+                                                 zero_word_)
-+                                   : std::string(),
-                                write_addr,
-                                mask_size,
-                                mask_size,
+-                               slices_per_word,
+-                               wbus("we", w),
+-                               write_addr,
+-                               mask_size,
+-                               mask_size,
+-                               wbus("D", w),
+-                               mask_size,
+-                               mask_size);
++        slices_per_word,
++        wbus("we", w),
++        zero_word_ >= 0 ? fmt::format(" && {} != {}", write_addr, zero_word_)
++                        : std::string(),
++        write_addr,
++        mask_size,
++        mask_size,
++        wbus("D", w),
++        mask_size,
++        mask_size);
+   }
+ 
+   std::string verilog_code = fmt::format(R"(module {} ({}
 diff --git a/src/ram/src/ram.i b/src/ram/src/ram.i
 index bb90a0c434..35f5bf3157 100644
 --- a/src/ram/src/ram.i
@@ -393,698 +423,60 @@ index 8ae362eb9e..5354026764 100644
      lappend ram_netlist_args -inv_cell $keys(-inv_cell)
    }
 diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index 5fe9d8b0a3..1192665493 100644
+index bd95a9a46b..2263ea1ca3 100644
 --- a/src/ram/test/BUILD
 +++ b/src/ram/test/BUILD
-@@ -13,6 +13,7 @@ COMPULSORY_TESTS = [
+@@ -15,6 +15,7 @@ COMPULSORY_TESTS = [
+ PASSFAIL_TESTS = [
+     "write_ports_nangate45",
+     "and_or_read_asap7",
++    "zero_word_asap7",
  ]
  
- PASSFAIL_TESTS = [
-+    "make_8x8_2r1w_zero_asap7",
-     "make_8x8_2r1w_and_or_asap7",
-     "make_7x7_1r2w_nangate45",
- ]
-@@ -53,6 +54,11 @@ filegroup(
-                 test_name + ".*",
-             ],
-         ) + {
-+            "make_8x8_2r1w_zero_asap7": [
-+                "//test:asap7_data",
-+                "//test:asap7_nldm_data",
-+                "make_8x8_2r1w_zero_asap7_behavioral.vok",
-+            ],
-             "make_8x8_2r1w_and_or_asap7": [
+ ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
+@@ -63,6 +64,10 @@ filegroup(
                  "//test:asap7_data",
                  "//test:asap7_nldm_data",
-diff --git a/src/ram/test/make_8x8_2r1w_zero_asap7.defok b/src/ram/test/make_8x8_2r1w_zero_asap7.defok
+             ],
++            "zero_word_asap7": [
++                "//test:asap7_data",
++                "//test:asap7_nldm_data",
++            ],
+             "make_7x7_2r1w_nangate45": [
+                 "make_7x7_2r1w_nangate45_behavioral.vok",
+                 "Nangate45/Nangate45.lef",
+diff --git a/src/ram/test/CMakeLists.txt b/src/ram/test/CMakeLists.txt
+index aa99c13cb0..bc908ecd4f 100644
+--- a/src/ram/test/CMakeLists.txt
++++ b/src/ram/test/CMakeLists.txt
+@@ -8,5 +8,6 @@ or_integration_tests(
+   PASSFAIL_TESTS
+     write_ports_nangate45
+     and_or_read_asap7
++    zero_word_asap7
+ )
+ 
+diff --git a/src/ram/test/regression_tests.tcl b/src/ram/test/regression_tests.tcl
+index a84a4a0412..af286e9cad 100644
+--- a/src/ram/test/regression_tests.tcl
++++ b/src/ram/test/regression_tests.tcl
+@@ -7,5 +7,6 @@ record_tests {
+   make_7x7_2r1w_nangate45
+   write_ports_nangate45
+   and_or_read_asap7
++  zero_word_asap7
+   make_8x8_latch_sky130
+ }
+diff --git a/src/ram/test/zero_word_asap7.tcl b/src/ram/test/zero_word_asap7.tcl
 new file mode 100644
-index 0000000000..33234d5b80
+index 0000000000..9a193fb223
 --- /dev/null
-+++ b/src/ram/test/make_8x8_2r1w_zero_asap7.defok
-@@ -0,0 +1,653 @@
-+VERSION 5.8 ;
-+DIVIDERCHAR "/" ;
-+BUSBITCHARS "[]" ;
-+DESIGN RAM8x8 ;
-+UNITS DISTANCE MICRONS 100 ;
-+DIEAREA ( 0 0 ) ( 1803 243 ) ;
-+ROW RAM_ROW0 asap7sc7p5t 0 0 N DO 334 BY 1 STEP 5 0 ;
-+ROW RAM_ROW1 asap7sc7p5t 0 27 FS DO 334 BY 1 STEP 5 0 ;
-+ROW RAM_ROW2 asap7sc7p5t 0 54 N DO 334 BY 1 STEP 5 0 ;
-+ROW RAM_ROW3 asap7sc7p5t 0 81 FS DO 334 BY 1 STEP 5 0 ;
-+ROW RAM_ROW4 asap7sc7p5t 0 108 N DO 334 BY 1 STEP 5 0 ;
-+ROW RAM_ROW5 asap7sc7p5t 0 135 FS DO 334 BY 1 STEP 5 0 ;
-+ROW RAM_ROW6 asap7sc7p5t 0 162 N DO 334 BY 1 STEP 5 0 ;
-+ROW RAM_ROW7 asap7sc7p5t 0 189 FS DO 334 BY 1 STEP 5 0 ;
-+ROW RAM_ROW8 asap7sc7p5t 0 216 N DO 334 BY 1 STEP 5 0 ;
-+COMPONENTS 271 ;
-+    - buffer.in[0] HB1xp67_ASAP7_75t_R + PLACED ( 0 216 ) N ;
-+    - buffer.in[1] HB1xp67_ASAP7_75t_R + PLACED ( 172 216 ) N ;
-+    - buffer.in[2] HB1xp67_ASAP7_75t_R + PLACED ( 345 216 ) N ;
-+    - buffer.in[3] HB1xp67_ASAP7_75t_R + PLACED ( 518 216 ) N ;
-+    - buffer.in[4] HB1xp67_ASAP7_75t_R + PLACED ( 691 216 ) N ;
-+    - buffer.in[5] HB1xp67_ASAP7_75t_R + PLACED ( 864 216 ) N ;
-+    - buffer.in[6] HB1xp67_ASAP7_75t_R + PLACED ( 1036 216 ) N ;
-+    - buffer.in[7] HB1xp67_ASAP7_75t_R + PLACED ( 1209 216 ) N ;
-+    - decoder_p0.and_layer0_word0 AND2x2_ASAP7_75t_R + PLACED ( 1533 0 ) N ;
-+    - decoder_p0.and_layer0_word1 AND2x2_ASAP7_75t_R + PLACED ( 1533 27 ) FS ;
-+    - decoder_p0.and_layer0_word2 AND2x2_ASAP7_75t_R + PLACED ( 1533 54 ) N ;
-+    - decoder_p0.and_layer0_word3 AND2x2_ASAP7_75t_R + PLACED ( 1533 81 ) FS ;
-+    - decoder_p0.and_layer0_word4 AND2x2_ASAP7_75t_R + PLACED ( 1533 108 ) N ;
-+    - decoder_p0.and_layer0_word5 AND2x2_ASAP7_75t_R + PLACED ( 1533 135 ) FS ;
-+    - decoder_p0.and_layer0_word6 AND2x2_ASAP7_75t_R + PLACED ( 1533 162 ) N ;
-+    - decoder_p0.and_layer0_word7 AND2x2_ASAP7_75t_R + PLACED ( 1533 189 ) FS ;
-+    - decoder_p0.and_layer1_word0 AND2x2_ASAP7_75t_R + PLACED ( 1566 0 ) N ;
-+    - decoder_p0.and_layer1_word1 AND2x2_ASAP7_75t_R + PLACED ( 1566 27 ) FS ;
-+    - decoder_p0.and_layer1_word2 AND2x2_ASAP7_75t_R + PLACED ( 1566 54 ) N ;
-+    - decoder_p0.and_layer1_word3 AND2x2_ASAP7_75t_R + PLACED ( 1566 81 ) FS ;
-+    - decoder_p0.and_layer1_word4 AND2x2_ASAP7_75t_R + PLACED ( 1566 108 ) N ;
-+    - decoder_p0.and_layer1_word5 AND2x2_ASAP7_75t_R + PLACED ( 1566 135 ) FS ;
-+    - decoder_p0.and_layer1_word6 AND2x2_ASAP7_75t_R + PLACED ( 1566 162 ) N ;
-+    - decoder_p0.and_layer1_word7 AND2x2_ASAP7_75t_R + PLACED ( 1566 189 ) FS ;
-+    - decoder_p0.inv_p0_a0 INVx1_ASAP7_75t_R + PLACED ( 1771 108 ) N ;
-+    - decoder_p0.inv_p0_a1 INVx1_ASAP7_75t_R + PLACED ( 1771 54 ) N ;
-+    - decoder_p0.inv_p0_a2 INVx1_ASAP7_75t_R + PLACED ( 1771 0 ) N ;
-+    - decoder_p1.and_layer0_word0 AND2x2_ASAP7_75t_R + PLACED ( 1620 0 ) N ;
-+    - decoder_p1.and_layer0_word1 AND2x2_ASAP7_75t_R + PLACED ( 1620 27 ) FS ;
-+    - decoder_p1.and_layer0_word2 AND2x2_ASAP7_75t_R + PLACED ( 1620 54 ) N ;
-+    - decoder_p1.and_layer0_word3 AND2x2_ASAP7_75t_R + PLACED ( 1620 81 ) FS ;
-+    - decoder_p1.and_layer0_word4 AND2x2_ASAP7_75t_R + PLACED ( 1620 108 ) N ;
-+    - decoder_p1.and_layer0_word5 AND2x2_ASAP7_75t_R + PLACED ( 1620 135 ) FS ;
-+    - decoder_p1.and_layer0_word6 AND2x2_ASAP7_75t_R + PLACED ( 1620 162 ) N ;
-+    - decoder_p1.and_layer0_word7 AND2x2_ASAP7_75t_R + PLACED ( 1620 189 ) FS ;
-+    - decoder_p1.and_layer1_word0 AND2x2_ASAP7_75t_R + PLACED ( 1652 0 ) N ;
-+    - decoder_p1.and_layer1_word1 AND2x2_ASAP7_75t_R + PLACED ( 1652 27 ) FS ;
-+    - decoder_p1.and_layer1_word2 AND2x2_ASAP7_75t_R + PLACED ( 1652 54 ) N ;
-+    - decoder_p1.and_layer1_word3 AND2x2_ASAP7_75t_R + PLACED ( 1652 81 ) FS ;
-+    - decoder_p1.and_layer1_word4 AND2x2_ASAP7_75t_R + PLACED ( 1652 108 ) N ;
-+    - decoder_p1.and_layer1_word5 AND2x2_ASAP7_75t_R + PLACED ( 1652 135 ) FS ;
-+    - decoder_p1.and_layer1_word6 AND2x2_ASAP7_75t_R + PLACED ( 1652 162 ) N ;
-+    - decoder_p1.and_layer1_word7 AND2x2_ASAP7_75t_R + PLACED ( 1652 189 ) FS ;
-+    - decoder_p1.inv_p1_a0 INVx1_ASAP7_75t_R + PLACED ( 1771 135 ) FS ;
-+    - decoder_p1.inv_p1_a1 INVx1_ASAP7_75t_R + PLACED ( 1771 81 ) FS ;
-+    - decoder_p1.inv_p1_a2 INVx1_ASAP7_75t_R + PLACED ( 1771 27 ) FS ;
-+    - decoder_p2.and_layer0_word0 AND2x2_ASAP7_75t_R + PLACED ( 1706 0 ) N ;
-+    - decoder_p2.and_layer0_word1 AND2x2_ASAP7_75t_R + PLACED ( 1706 27 ) FS ;
-+    - decoder_p2.and_layer0_word2 AND2x2_ASAP7_75t_R + PLACED ( 1706 54 ) N ;
-+    - decoder_p2.and_layer0_word3 AND2x2_ASAP7_75t_R + PLACED ( 1706 81 ) FS ;
-+    - decoder_p2.and_layer0_word4 AND2x2_ASAP7_75t_R + PLACED ( 1706 108 ) N ;
-+    - decoder_p2.and_layer0_word5 AND2x2_ASAP7_75t_R + PLACED ( 1706 135 ) FS ;
-+    - decoder_p2.and_layer0_word6 AND2x2_ASAP7_75t_R + PLACED ( 1706 162 ) N ;
-+    - decoder_p2.and_layer0_word7 AND2x2_ASAP7_75t_R + PLACED ( 1706 189 ) FS ;
-+    - decoder_p2.and_layer1_word0 AND2x2_ASAP7_75t_R + PLACED ( 1738 0 ) N ;
-+    - decoder_p2.and_layer1_word1 AND2x2_ASAP7_75t_R + PLACED ( 1738 27 ) FS ;
-+    - decoder_p2.and_layer1_word2 AND2x2_ASAP7_75t_R + PLACED ( 1738 54 ) N ;
-+    - decoder_p2.and_layer1_word3 AND2x2_ASAP7_75t_R + PLACED ( 1738 81 ) FS ;
-+    - decoder_p2.and_layer1_word4 AND2x2_ASAP7_75t_R + PLACED ( 1738 108 ) N ;
-+    - decoder_p2.and_layer1_word5 AND2x2_ASAP7_75t_R + PLACED ( 1738 135 ) FS ;
-+    - decoder_p2.and_layer1_word6 AND2x2_ASAP7_75t_R + PLACED ( 1738 162 ) N ;
-+    - decoder_p2.and_layer1_word7 AND2x2_ASAP7_75t_R + PLACED ( 1738 189 ) FS ;
-+    - decoder_p2.inv_p2_a0 INVx1_ASAP7_75t_R + PLACED ( 1787 108 ) N ;
-+    - decoder_p2.inv_p2_a1 INVx1_ASAP7_75t_R + PLACED ( 1787 54 ) N ;
-+    - decoder_p2.inv_p2_a2 INVx1_ASAP7_75t_R + PLACED ( 1787 0 ) N ;
-+    - read_w0_p0_b0.aoi_r0 AOI22xp33_ASAP7_75t_R + PLACED ( 0 0 ) N ;
-+    - read_w0_p0_b0.aoi_r2 AOI22xp33_ASAP7_75t_R + PLACED ( 108 54 ) N ;
-+    - read_w0_p0_b0.aoi_r4 AOI22xp33_ASAP7_75t_R + PLACED ( 108 108 ) N ;
-+    - read_w0_p0_b0.aoi_r6 AOI22xp33_ASAP7_75t_R + PLACED ( 108 162 ) N ;
-+    - read_w0_p0_b0.nand_r0_4 NAND2xp33_ASAP7_75t_R + PLACED ( 108 27 ) FS ;
-+    - read_w0_p0_b0.nand_r4_8 NAND2xp33_ASAP7_75t_R + PLACED ( 108 135 ) FS ;
-+    - read_w0_p0_b0.nor_r0_8 NOR2xp33_ASAP7_75t_R + PLACED ( 108 81 ) FS ;
-+    - read_w0_p0_b1.aoi_r0 AOI22xp33_ASAP7_75t_R + PLACED ( 172 0 ) N ;
-+    - read_w0_p0_b1.aoi_r2 AOI22xp33_ASAP7_75t_R + PLACED ( 280 54 ) N ;
-+    - read_w0_p0_b1.aoi_r4 AOI22xp33_ASAP7_75t_R + PLACED ( 280 108 ) N ;
-+    - read_w0_p0_b1.aoi_r6 AOI22xp33_ASAP7_75t_R + PLACED ( 280 162 ) N ;
-+    - read_w0_p0_b1.nand_r0_4 NAND2xp33_ASAP7_75t_R + PLACED ( 280 27 ) FS ;
-+    - read_w0_p0_b1.nand_r4_8 NAND2xp33_ASAP7_75t_R + PLACED ( 280 135 ) FS ;
-+    - read_w0_p0_b1.nor_r0_8 NOR2xp33_ASAP7_75t_R + PLACED ( 280 81 ) FS ;
-+    - read_w0_p0_b2.aoi_r0 AOI22xp33_ASAP7_75t_R + PLACED ( 345 0 ) N ;
-+    - read_w0_p0_b2.aoi_r2 AOI22xp33_ASAP7_75t_R + PLACED ( 453 54 ) N ;
-+    - read_w0_p0_b2.aoi_r4 AOI22xp33_ASAP7_75t_R + PLACED ( 453 108 ) N ;
-+    - read_w0_p0_b2.aoi_r6 AOI22xp33_ASAP7_75t_R + PLACED ( 453 162 ) N ;
-+    - read_w0_p0_b2.nand_r0_4 NAND2xp33_ASAP7_75t_R + PLACED ( 453 27 ) FS ;
-+    - read_w0_p0_b2.nand_r4_8 NAND2xp33_ASAP7_75t_R + PLACED ( 453 135 ) FS ;
-+    - read_w0_p0_b2.nor_r0_8 NOR2xp33_ASAP7_75t_R + PLACED ( 453 81 ) FS ;
-+    - read_w0_p0_b3.aoi_r0 AOI22xp33_ASAP7_75t_R + PLACED ( 518 0 ) N ;
-+    - read_w0_p0_b3.aoi_r2 AOI22xp33_ASAP7_75t_R + PLACED ( 626 54 ) N ;
-+    - read_w0_p0_b3.aoi_r4 AOI22xp33_ASAP7_75t_R + PLACED ( 626 108 ) N ;
-+    - read_w0_p0_b3.aoi_r6 AOI22xp33_ASAP7_75t_R + PLACED ( 626 162 ) N ;
-+    - read_w0_p0_b3.nand_r0_4 NAND2xp33_ASAP7_75t_R + PLACED ( 626 27 ) FS ;
-+    - read_w0_p0_b3.nand_r4_8 NAND2xp33_ASAP7_75t_R + PLACED ( 626 135 ) FS ;
-+    - read_w0_p0_b3.nor_r0_8 NOR2xp33_ASAP7_75t_R + PLACED ( 626 81 ) FS ;
-+    - read_w0_p0_b4.aoi_r0 AOI22xp33_ASAP7_75t_R + PLACED ( 691 0 ) N ;
-+    - read_w0_p0_b4.aoi_r2 AOI22xp33_ASAP7_75t_R + PLACED ( 799 54 ) N ;
-+    - read_w0_p0_b4.aoi_r4 AOI22xp33_ASAP7_75t_R + PLACED ( 799 108 ) N ;
-+    - read_w0_p0_b4.aoi_r6 AOI22xp33_ASAP7_75t_R + PLACED ( 799 162 ) N ;
-+    - read_w0_p0_b4.nand_r0_4 NAND2xp33_ASAP7_75t_R + PLACED ( 799 27 ) FS ;
-+    - read_w0_p0_b4.nand_r4_8 NAND2xp33_ASAP7_75t_R + PLACED ( 799 135 ) FS ;
-+    - read_w0_p0_b4.nor_r0_8 NOR2xp33_ASAP7_75t_R + PLACED ( 799 81 ) FS ;
-+    - read_w0_p0_b5.aoi_r0 AOI22xp33_ASAP7_75t_R + PLACED ( 864 0 ) N ;
-+    - read_w0_p0_b5.aoi_r2 AOI22xp33_ASAP7_75t_R + PLACED ( 972 54 ) N ;
-+    - read_w0_p0_b5.aoi_r4 AOI22xp33_ASAP7_75t_R + PLACED ( 972 108 ) N ;
-+    - read_w0_p0_b5.aoi_r6 AOI22xp33_ASAP7_75t_R + PLACED ( 972 162 ) N ;
-+    - read_w0_p0_b5.nand_r0_4 NAND2xp33_ASAP7_75t_R + PLACED ( 972 27 ) FS ;
-+    - read_w0_p0_b5.nand_r4_8 NAND2xp33_ASAP7_75t_R + PLACED ( 972 135 ) FS ;
-+    - read_w0_p0_b5.nor_r0_8 NOR2xp33_ASAP7_75t_R + PLACED ( 972 81 ) FS ;
-+    - read_w0_p0_b6.aoi_r0 AOI22xp33_ASAP7_75t_R + PLACED ( 1036 0 ) N ;
-+    - read_w0_p0_b6.aoi_r2 AOI22xp33_ASAP7_75t_R + PLACED ( 1144 54 ) N ;
-+    - read_w0_p0_b6.aoi_r4 AOI22xp33_ASAP7_75t_R + PLACED ( 1144 108 ) N ;
-+    - read_w0_p0_b6.aoi_r6 AOI22xp33_ASAP7_75t_R + PLACED ( 1144 162 ) N ;
-+    - read_w0_p0_b6.nand_r0_4 NAND2xp33_ASAP7_75t_R + PLACED ( 1144 27 ) FS ;
-+    - read_w0_p0_b6.nand_r4_8 NAND2xp33_ASAP7_75t_R + PLACED ( 1144 135 ) FS ;
-+    - read_w0_p0_b6.nor_r0_8 NOR2xp33_ASAP7_75t_R + PLACED ( 1144 81 ) FS ;
-+    - read_w0_p0_b7.aoi_r0 AOI22xp33_ASAP7_75t_R + PLACED ( 1209 0 ) N ;
-+    - read_w0_p0_b7.aoi_r2 AOI22xp33_ASAP7_75t_R + PLACED ( 1317 54 ) N ;
-+    - read_w0_p0_b7.aoi_r4 AOI22xp33_ASAP7_75t_R + PLACED ( 1317 108 ) N ;
-+    - read_w0_p0_b7.aoi_r6 AOI22xp33_ASAP7_75t_R + PLACED ( 1317 162 ) N ;
-+    - read_w0_p0_b7.nand_r0_4 NAND2xp33_ASAP7_75t_R + PLACED ( 1317 27 ) FS ;
-+    - read_w0_p0_b7.nand_r4_8 NAND2xp33_ASAP7_75t_R + PLACED ( 1317 135 ) FS ;
-+    - read_w0_p0_b7.nor_r0_8 NOR2xp33_ASAP7_75t_R + PLACED ( 1317 81 ) FS ;
-+    - read_w0_p1_b0.aoi_r0 AOI22xp33_ASAP7_75t_R + PLACED ( 32 0 ) N ;
-+    - read_w0_p1_b0.aoi_r2 AOI22xp33_ASAP7_75t_R + PLACED ( 140 54 ) N ;
-+    - read_w0_p1_b0.aoi_r4 AOI22xp33_ASAP7_75t_R + PLACED ( 140 108 ) N ;
-+    - read_w0_p1_b0.aoi_r6 AOI22xp33_ASAP7_75t_R + PLACED ( 140 162 ) N ;
-+    - read_w0_p1_b0.nand_r0_4 NAND2xp33_ASAP7_75t_R + PLACED ( 129 27 ) FS ;
-+    - read_w0_p1_b0.nand_r4_8 NAND2xp33_ASAP7_75t_R + PLACED ( 129 135 ) FS ;
-+    - read_w0_p1_b0.nor_r0_8 NOR2xp33_ASAP7_75t_R + PLACED ( 129 81 ) FS ;
-+    - read_w0_p1_b1.aoi_r0 AOI22xp33_ASAP7_75t_R + PLACED ( 205 0 ) N ;
-+    - read_w0_p1_b1.aoi_r2 AOI22xp33_ASAP7_75t_R + PLACED ( 313 54 ) N ;
-+    - read_w0_p1_b1.aoi_r4 AOI22xp33_ASAP7_75t_R + PLACED ( 313 108 ) N ;
-+    - read_w0_p1_b1.aoi_r6 AOI22xp33_ASAP7_75t_R + PLACED ( 313 162 ) N ;
-+    - read_w0_p1_b1.nand_r0_4 NAND2xp33_ASAP7_75t_R + PLACED ( 302 27 ) FS ;
-+    - read_w0_p1_b1.nand_r4_8 NAND2xp33_ASAP7_75t_R + PLACED ( 302 135 ) FS ;
-+    - read_w0_p1_b1.nor_r0_8 NOR2xp33_ASAP7_75t_R + PLACED ( 302 81 ) FS ;
-+    - read_w0_p1_b2.aoi_r0 AOI22xp33_ASAP7_75t_R + PLACED ( 378 0 ) N ;
-+    - read_w0_p1_b2.aoi_r2 AOI22xp33_ASAP7_75t_R + PLACED ( 486 54 ) N ;
-+    - read_w0_p1_b2.aoi_r4 AOI22xp33_ASAP7_75t_R + PLACED ( 486 108 ) N ;
-+    - read_w0_p1_b2.aoi_r6 AOI22xp33_ASAP7_75t_R + PLACED ( 486 162 ) N ;
-+    - read_w0_p1_b2.nand_r0_4 NAND2xp33_ASAP7_75t_R + PLACED ( 475 27 ) FS ;
-+    - read_w0_p1_b2.nand_r4_8 NAND2xp33_ASAP7_75t_R + PLACED ( 475 135 ) FS ;
-+    - read_w0_p1_b2.nor_r0_8 NOR2xp33_ASAP7_75t_R + PLACED ( 475 81 ) FS ;
-+    - read_w0_p1_b3.aoi_r0 AOI22xp33_ASAP7_75t_R + PLACED ( 550 0 ) N ;
-+    - read_w0_p1_b3.aoi_r2 AOI22xp33_ASAP7_75t_R + PLACED ( 658 54 ) N ;
-+    - read_w0_p1_b3.aoi_r4 AOI22xp33_ASAP7_75t_R + PLACED ( 658 108 ) N ;
-+    - read_w0_p1_b3.aoi_r6 AOI22xp33_ASAP7_75t_R + PLACED ( 658 162 ) N ;
-+    - read_w0_p1_b3.nand_r0_4 NAND2xp33_ASAP7_75t_R + PLACED ( 648 27 ) FS ;
-+    - read_w0_p1_b3.nand_r4_8 NAND2xp33_ASAP7_75t_R + PLACED ( 648 135 ) FS ;
-+    - read_w0_p1_b3.nor_r0_8 NOR2xp33_ASAP7_75t_R + PLACED ( 648 81 ) FS ;
-+    - read_w0_p1_b4.aoi_r0 AOI22xp33_ASAP7_75t_R + PLACED ( 723 0 ) N ;
-+    - read_w0_p1_b4.aoi_r2 AOI22xp33_ASAP7_75t_R + PLACED ( 831 54 ) N ;
-+    - read_w0_p1_b4.aoi_r4 AOI22xp33_ASAP7_75t_R + PLACED ( 831 108 ) N ;
-+    - read_w0_p1_b4.aoi_r6 AOI22xp33_ASAP7_75t_R + PLACED ( 831 162 ) N ;
-+    - read_w0_p1_b4.nand_r0_4 NAND2xp33_ASAP7_75t_R + PLACED ( 820 27 ) FS ;
-+    - read_w0_p1_b4.nand_r4_8 NAND2xp33_ASAP7_75t_R + PLACED ( 820 135 ) FS ;
-+    - read_w0_p1_b4.nor_r0_8 NOR2xp33_ASAP7_75t_R + PLACED ( 820 81 ) FS ;
-+    - read_w0_p1_b5.aoi_r0 AOI22xp33_ASAP7_75t_R + PLACED ( 896 0 ) N ;
-+    - read_w0_p1_b5.aoi_r2 AOI22xp33_ASAP7_75t_R + PLACED ( 1004 54 ) N ;
-+    - read_w0_p1_b5.aoi_r4 AOI22xp33_ASAP7_75t_R + PLACED ( 1004 108 ) N ;
-+    - read_w0_p1_b5.aoi_r6 AOI22xp33_ASAP7_75t_R + PLACED ( 1004 162 ) N ;
-+    - read_w0_p1_b5.nand_r0_4 NAND2xp33_ASAP7_75t_R + PLACED ( 993 27 ) FS ;
-+    - read_w0_p1_b5.nand_r4_8 NAND2xp33_ASAP7_75t_R + PLACED ( 993 135 ) FS ;
-+    - read_w0_p1_b5.nor_r0_8 NOR2xp33_ASAP7_75t_R + PLACED ( 993 81 ) FS ;
-+    - read_w0_p1_b6.aoi_r0 AOI22xp33_ASAP7_75t_R + PLACED ( 1069 0 ) N ;
-+    - read_w0_p1_b6.aoi_r2 AOI22xp33_ASAP7_75t_R + PLACED ( 1177 54 ) N ;
-+    - read_w0_p1_b6.aoi_r4 AOI22xp33_ASAP7_75t_R + PLACED ( 1177 108 ) N ;
-+    - read_w0_p1_b6.aoi_r6 AOI22xp33_ASAP7_75t_R + PLACED ( 1177 162 ) N ;
-+    - read_w0_p1_b6.nand_r0_4 NAND2xp33_ASAP7_75t_R + PLACED ( 1166 27 ) FS ;
-+    - read_w0_p1_b6.nand_r4_8 NAND2xp33_ASAP7_75t_R + PLACED ( 1166 135 ) FS ;
-+    - read_w0_p1_b6.nor_r0_8 NOR2xp33_ASAP7_75t_R + PLACED ( 1166 81 ) FS ;
-+    - read_w0_p1_b7.aoi_r0 AOI22xp33_ASAP7_75t_R + PLACED ( 1242 0 ) N ;
-+    - read_w0_p1_b7.aoi_r2 AOI22xp33_ASAP7_75t_R + PLACED ( 1350 54 ) N ;
-+    - read_w0_p1_b7.aoi_r4 AOI22xp33_ASAP7_75t_R + PLACED ( 1350 108 ) N ;
-+    - read_w0_p1_b7.aoi_r6 AOI22xp33_ASAP7_75t_R + PLACED ( 1350 162 ) N ;
-+    - read_w0_p1_b7.nand_r0_4 NAND2xp33_ASAP7_75t_R + PLACED ( 1339 27 ) FS ;
-+    - read_w0_p1_b7.nand_r4_8 NAND2xp33_ASAP7_75t_R + PLACED ( 1339 135 ) FS ;
-+    - read_w0_p1_b7.nor_r0_8 NOR2xp33_ASAP7_75t_R + PLACED ( 1339 81 ) FS ;
-+    - sel_buf_r_p1.sel_buf_0 HB1xp67_ASAP7_75t_R + PLACED ( 1598 0 ) N ;
-+    - sel_buf_r_p1.sel_buf_1 HB1xp67_ASAP7_75t_R + PLACED ( 1598 27 ) FS ;
-+    - sel_buf_r_p1.sel_buf_2 HB1xp67_ASAP7_75t_R + PLACED ( 1598 54 ) N ;
-+    - sel_buf_r_p1.sel_buf_3 HB1xp67_ASAP7_75t_R + PLACED ( 1598 81 ) FS ;
-+    - sel_buf_r_p1.sel_buf_4 HB1xp67_ASAP7_75t_R + PLACED ( 1598 108 ) N ;
-+    - sel_buf_r_p1.sel_buf_5 HB1xp67_ASAP7_75t_R + PLACED ( 1598 135 ) FS ;
-+    - sel_buf_r_p1.sel_buf_6 HB1xp67_ASAP7_75t_R + PLACED ( 1598 162 ) N ;
-+    - sel_buf_r_p1.sel_buf_7 HB1xp67_ASAP7_75t_R + PLACED ( 1598 189 ) FS ;
-+    - sel_buf_r_p2.sel_buf_0 HB1xp67_ASAP7_75t_R + PLACED ( 1684 0 ) N ;
-+    - sel_buf_r_p2.sel_buf_1 HB1xp67_ASAP7_75t_R + PLACED ( 1684 27 ) FS ;
-+    - sel_buf_r_p2.sel_buf_2 HB1xp67_ASAP7_75t_R + PLACED ( 1684 54 ) N ;
-+    - sel_buf_r_p2.sel_buf_3 HB1xp67_ASAP7_75t_R + PLACED ( 1684 81 ) FS ;
-+    - sel_buf_r_p2.sel_buf_4 HB1xp67_ASAP7_75t_R + PLACED ( 1684 108 ) N ;
-+    - sel_buf_r_p2.sel_buf_5 HB1xp67_ASAP7_75t_R + PLACED ( 1684 135 ) FS ;
-+    - sel_buf_r_p2.sel_buf_6 HB1xp67_ASAP7_75t_R + PLACED ( 1684 162 ) N ;
-+    - sel_buf_r_p2.sel_buf_7 HB1xp67_ASAP7_75t_R + PLACED ( 1684 189 ) FS ;
-+    - sel_buf_w_p0.sel_buf_0 HB1xp67_ASAP7_75t_R + PLACED ( 1512 0 ) N ;
-+    - sel_buf_w_p0.sel_buf_1 HB1xp67_ASAP7_75t_R + PLACED ( 1512 27 ) FS ;
-+    - sel_buf_w_p0.sel_buf_2 HB1xp67_ASAP7_75t_R + PLACED ( 1512 54 ) N ;
-+    - sel_buf_w_p0.sel_buf_3 HB1xp67_ASAP7_75t_R + PLACED ( 1512 81 ) FS ;
-+    - sel_buf_w_p0.sel_buf_4 HB1xp67_ASAP7_75t_R + PLACED ( 1512 108 ) N ;
-+    - sel_buf_w_p0.sel_buf_5 HB1xp67_ASAP7_75t_R + PLACED ( 1512 135 ) FS ;
-+    - sel_buf_w_p0.sel_buf_6 HB1xp67_ASAP7_75t_R + PLACED ( 1512 162 ) N ;
-+    - sel_buf_w_p0.sel_buf_7 HB1xp67_ASAP7_75t_R + PLACED ( 1512 189 ) FS ;
-+    - storage_1_0_0.bit0.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 0 27 ) FS ;
-+    - storage_1_0_0.bit1.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 172 27 ) FS ;
-+    - storage_1_0_0.bit2.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 345 27 ) FS ;
-+    - storage_1_0_0.bit3.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 518 27 ) FS ;
-+    - storage_1_0_0.bit4.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 691 27 ) FS ;
-+    - storage_1_0_0.bit5.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 864 27 ) FS ;
-+    - storage_1_0_0.bit6.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 1036 27 ) FS ;
-+    - storage_1_0_0.bit7.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 1209 27 ) FS ;
-+    - storage_1_0_0.cg ICGx1_ASAP7_75t_R + PLACED ( 1382 27 ) FS ;
-+    - storage_1_0_0.gcand AND2x2_ASAP7_75t_R + PLACED ( 1479 27 ) FS ;
-+    - storage_2_0_0.bit0.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 0 54 ) N ;
-+    - storage_2_0_0.bit1.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 172 54 ) N ;
-+    - storage_2_0_0.bit2.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 345 54 ) N ;
-+    - storage_2_0_0.bit3.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 518 54 ) N ;
-+    - storage_2_0_0.bit4.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 691 54 ) N ;
-+    - storage_2_0_0.bit5.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 864 54 ) N ;
-+    - storage_2_0_0.bit6.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 1036 54 ) N ;
-+    - storage_2_0_0.bit7.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 1209 54 ) N ;
-+    - storage_2_0_0.cg ICGx1_ASAP7_75t_R + PLACED ( 1382 54 ) N ;
-+    - storage_2_0_0.gcand AND2x2_ASAP7_75t_R + PLACED ( 1479 54 ) N ;
-+    - storage_3_0_0.bit0.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 0 81 ) FS ;
-+    - storage_3_0_0.bit1.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 172 81 ) FS ;
-+    - storage_3_0_0.bit2.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 345 81 ) FS ;
-+    - storage_3_0_0.bit3.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 518 81 ) FS ;
-+    - storage_3_0_0.bit4.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 691 81 ) FS ;
-+    - storage_3_0_0.bit5.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 864 81 ) FS ;
-+    - storage_3_0_0.bit6.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 1036 81 ) FS ;
-+    - storage_3_0_0.bit7.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 1209 81 ) FS ;
-+    - storage_3_0_0.cg ICGx1_ASAP7_75t_R + PLACED ( 1382 81 ) FS ;
-+    - storage_3_0_0.gcand AND2x2_ASAP7_75t_R + PLACED ( 1479 81 ) FS ;
-+    - storage_4_0_0.bit0.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 0 108 ) N ;
-+    - storage_4_0_0.bit1.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 172 108 ) N ;
-+    - storage_4_0_0.bit2.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 345 108 ) N ;
-+    - storage_4_0_0.bit3.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 518 108 ) N ;
-+    - storage_4_0_0.bit4.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 691 108 ) N ;
-+    - storage_4_0_0.bit5.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 864 108 ) N ;
-+    - storage_4_0_0.bit6.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 1036 108 ) N ;
-+    - storage_4_0_0.bit7.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 1209 108 ) N ;
-+    - storage_4_0_0.cg ICGx1_ASAP7_75t_R + PLACED ( 1382 108 ) N ;
-+    - storage_4_0_0.gcand AND2x2_ASAP7_75t_R + PLACED ( 1479 108 ) N ;
-+    - storage_5_0_0.bit0.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 0 135 ) FS ;
-+    - storage_5_0_0.bit1.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 172 135 ) FS ;
-+    - storage_5_0_0.bit2.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 345 135 ) FS ;
-+    - storage_5_0_0.bit3.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 518 135 ) FS ;
-+    - storage_5_0_0.bit4.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 691 135 ) FS ;
-+    - storage_5_0_0.bit5.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 864 135 ) FS ;
-+    - storage_5_0_0.bit6.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 1036 135 ) FS ;
-+    - storage_5_0_0.bit7.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 1209 135 ) FS ;
-+    - storage_5_0_0.cg ICGx1_ASAP7_75t_R + PLACED ( 1382 135 ) FS ;
-+    - storage_5_0_0.gcand AND2x2_ASAP7_75t_R + PLACED ( 1479 135 ) FS ;
-+    - storage_6_0_0.bit0.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 0 162 ) N ;
-+    - storage_6_0_0.bit1.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 172 162 ) N ;
-+    - storage_6_0_0.bit2.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 345 162 ) N ;
-+    - storage_6_0_0.bit3.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 518 162 ) N ;
-+    - storage_6_0_0.bit4.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 691 162 ) N ;
-+    - storage_6_0_0.bit5.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 864 162 ) N ;
-+    - storage_6_0_0.bit6.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 1036 162 ) N ;
-+    - storage_6_0_0.bit7.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 1209 162 ) N ;
-+    - storage_6_0_0.cg ICGx1_ASAP7_75t_R + PLACED ( 1382 162 ) N ;
-+    - storage_6_0_0.gcand AND2x2_ASAP7_75t_R + PLACED ( 1479 162 ) N ;
-+    - storage_7_0_0.bit0.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 0 189 ) FS ;
-+    - storage_7_0_0.bit1.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 172 189 ) FS ;
-+    - storage_7_0_0.bit2.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 345 189 ) FS ;
-+    - storage_7_0_0.bit3.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 518 189 ) FS ;
-+    - storage_7_0_0.bit4.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 691 189 ) FS ;
-+    - storage_7_0_0.bit5.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 864 189 ) FS ;
-+    - storage_7_0_0.bit6.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 1036 189 ) FS ;
-+    - storage_7_0_0.bit7.bit DFFHQNx1_ASAP7_75t_R + PLACED ( 1209 189 ) FS ;
-+    - storage_7_0_0.cg ICGx1_ASAP7_75t_R + PLACED ( 1382 189 ) FS ;
-+    - storage_7_0_0.gcand AND2x2_ASAP7_75t_R + PLACED ( 1479 189 ) FS ;
-+END COMPONENTS
-+PINS 35 ;
-+    - D[0] + NET D[0] + DIRECTION INPUT + USE SIGNAL ;
-+    - D[1] + NET D[1] + DIRECTION INPUT + USE SIGNAL ;
-+    - D[2] + NET D[2] + DIRECTION INPUT + USE SIGNAL ;
-+    - D[3] + NET D[3] + DIRECTION INPUT + USE SIGNAL ;
-+    - D[4] + NET D[4] + DIRECTION INPUT + USE SIGNAL ;
-+    - D[5] + NET D[5] + DIRECTION INPUT + USE SIGNAL ;
-+    - D[6] + NET D[6] + DIRECTION INPUT + USE SIGNAL ;
-+    - D[7] + NET D[7] + DIRECTION INPUT + USE SIGNAL ;
-+    - Q0[0] + NET Q0[0] + DIRECTION OUTPUT + USE SIGNAL ;
-+    - Q0[1] + NET Q0[1] + DIRECTION OUTPUT + USE SIGNAL ;
-+    - Q0[2] + NET Q0[2] + DIRECTION OUTPUT + USE SIGNAL ;
-+    - Q0[3] + NET Q0[3] + DIRECTION OUTPUT + USE SIGNAL ;
-+    - Q0[4] + NET Q0[4] + DIRECTION OUTPUT + USE SIGNAL ;
-+    - Q0[5] + NET Q0[5] + DIRECTION OUTPUT + USE SIGNAL ;
-+    - Q0[6] + NET Q0[6] + DIRECTION OUTPUT + USE SIGNAL ;
-+    - Q0[7] + NET Q0[7] + DIRECTION OUTPUT + USE SIGNAL ;
-+    - Q1[0] + NET Q1[0] + DIRECTION OUTPUT + USE SIGNAL ;
-+    - Q1[1] + NET Q1[1] + DIRECTION OUTPUT + USE SIGNAL ;
-+    - Q1[2] + NET Q1[2] + DIRECTION OUTPUT + USE SIGNAL ;
-+    - Q1[3] + NET Q1[3] + DIRECTION OUTPUT + USE SIGNAL ;
-+    - Q1[4] + NET Q1[4] + DIRECTION OUTPUT + USE SIGNAL ;
-+    - Q1[5] + NET Q1[5] + DIRECTION OUTPUT + USE SIGNAL ;
-+    - Q1[6] + NET Q1[6] + DIRECTION OUTPUT + USE SIGNAL ;
-+    - Q1[7] + NET Q1[7] + DIRECTION OUTPUT + USE SIGNAL ;
-+    - addr_r0[0] + NET addr_r0[0] + DIRECTION INPUT + USE SIGNAL ;
-+    - addr_r0[1] + NET addr_r0[1] + DIRECTION INPUT + USE SIGNAL ;
-+    - addr_r0[2] + NET addr_r0[2] + DIRECTION INPUT + USE SIGNAL ;
-+    - addr_r1[0] + NET addr_r1[0] + DIRECTION INPUT + USE SIGNAL ;
-+    - addr_r1[1] + NET addr_r1[1] + DIRECTION INPUT + USE SIGNAL ;
-+    - addr_r1[2] + NET addr_r1[2] + DIRECTION INPUT + USE SIGNAL ;
-+    - addr_w[0] + NET addr_w[0] + DIRECTION INPUT + USE SIGNAL ;
-+    - addr_w[1] + NET addr_w[1] + DIRECTION INPUT + USE SIGNAL ;
-+    - addr_w[2] + NET addr_w[2] + DIRECTION INPUT + USE SIGNAL ;
-+    - clk + NET clk + DIRECTION INPUT + USE SIGNAL ;
-+    - we[0] + NET we[0] + DIRECTION INPUT + USE SIGNAL ;
-+END PINS
-+NETS 290 ;
-+    - D[0] ( PIN D[0] ) ( buffer.in[0] A ) + USE SIGNAL ;
-+    - D[1] ( PIN D[1] ) ( buffer.in[1] A ) + USE SIGNAL ;
-+    - D[2] ( PIN D[2] ) ( buffer.in[2] A ) + USE SIGNAL ;
-+    - D[3] ( PIN D[3] ) ( buffer.in[3] A ) + USE SIGNAL ;
-+    - D[4] ( PIN D[4] ) ( buffer.in[4] A ) + USE SIGNAL ;
-+    - D[5] ( PIN D[5] ) ( buffer.in[5] A ) + USE SIGNAL ;
-+    - D[6] ( PIN D[6] ) ( buffer.in[6] A ) + USE SIGNAL ;
-+    - D[7] ( PIN D[7] ) ( buffer.in[7] A ) + USE SIGNAL ;
-+    - D_nets.b0 ( buffer.in[0] Y ) ( storage_7_0_0.bit0.bit D ) ( storage_6_0_0.bit0.bit D ) ( storage_5_0_0.bit0.bit D ) ( storage_4_0_0.bit0.bit D ) ( storage_3_0_0.bit0.bit D ) ( storage_2_0_0.bit0.bit D )
-+      ( storage_1_0_0.bit0.bit D ) + USE SIGNAL ;
-+    - D_nets.b1 ( buffer.in[1] Y ) ( storage_7_0_0.bit1.bit D ) ( storage_6_0_0.bit1.bit D ) ( storage_5_0_0.bit1.bit D ) ( storage_4_0_0.bit1.bit D ) ( storage_3_0_0.bit1.bit D ) ( storage_2_0_0.bit1.bit D )
-+      ( storage_1_0_0.bit1.bit D ) + USE SIGNAL ;
-+    - D_nets.b2 ( buffer.in[2] Y ) ( storage_7_0_0.bit2.bit D ) ( storage_6_0_0.bit2.bit D ) ( storage_5_0_0.bit2.bit D ) ( storage_4_0_0.bit2.bit D ) ( storage_3_0_0.bit2.bit D ) ( storage_2_0_0.bit2.bit D )
-+      ( storage_1_0_0.bit2.bit D ) + USE SIGNAL ;
-+    - D_nets.b3 ( buffer.in[3] Y ) ( storage_7_0_0.bit3.bit D ) ( storage_6_0_0.bit3.bit D ) ( storage_5_0_0.bit3.bit D ) ( storage_4_0_0.bit3.bit D ) ( storage_3_0_0.bit3.bit D ) ( storage_2_0_0.bit3.bit D )
-+      ( storage_1_0_0.bit3.bit D ) + USE SIGNAL ;
-+    - D_nets.b4 ( buffer.in[4] Y ) ( storage_7_0_0.bit4.bit D ) ( storage_6_0_0.bit4.bit D ) ( storage_5_0_0.bit4.bit D ) ( storage_4_0_0.bit4.bit D ) ( storage_3_0_0.bit4.bit D ) ( storage_2_0_0.bit4.bit D )
-+      ( storage_1_0_0.bit4.bit D ) + USE SIGNAL ;
-+    - D_nets.b5 ( buffer.in[5] Y ) ( storage_7_0_0.bit5.bit D ) ( storage_6_0_0.bit5.bit D ) ( storage_5_0_0.bit5.bit D ) ( storage_4_0_0.bit5.bit D ) ( storage_3_0_0.bit5.bit D ) ( storage_2_0_0.bit5.bit D )
-+      ( storage_1_0_0.bit5.bit D ) + USE SIGNAL ;
-+    - D_nets.b6 ( buffer.in[6] Y ) ( storage_7_0_0.bit6.bit D ) ( storage_6_0_0.bit6.bit D ) ( storage_5_0_0.bit6.bit D ) ( storage_4_0_0.bit6.bit D ) ( storage_3_0_0.bit6.bit D ) ( storage_2_0_0.bit6.bit D )
-+      ( storage_1_0_0.bit6.bit D ) + USE SIGNAL ;
-+    - D_nets.b7 ( buffer.in[7] Y ) ( storage_7_0_0.bit7.bit D ) ( storage_6_0_0.bit7.bit D ) ( storage_5_0_0.bit7.bit D ) ( storage_4_0_0.bit7.bit D ) ( storage_3_0_0.bit7.bit D ) ( storage_2_0_0.bit7.bit D )
-+      ( storage_1_0_0.bit7.bit D ) + USE SIGNAL ;
-+    - Q0[0] ( PIN Q0[0] ) ( read_w0_p0_b0.nor_r0_8 Y ) + USE SIGNAL ;
-+    - Q0[1] ( PIN Q0[1] ) ( read_w0_p0_b1.nor_r0_8 Y ) + USE SIGNAL ;
-+    - Q0[2] ( PIN Q0[2] ) ( read_w0_p0_b2.nor_r0_8 Y ) + USE SIGNAL ;
-+    - Q0[3] ( PIN Q0[3] ) ( read_w0_p0_b3.nor_r0_8 Y ) + USE SIGNAL ;
-+    - Q0[4] ( PIN Q0[4] ) ( read_w0_p0_b4.nor_r0_8 Y ) + USE SIGNAL ;
-+    - Q0[5] ( PIN Q0[5] ) ( read_w0_p0_b5.nor_r0_8 Y ) + USE SIGNAL ;
-+    - Q0[6] ( PIN Q0[6] ) ( read_w0_p0_b6.nor_r0_8 Y ) + USE SIGNAL ;
-+    - Q0[7] ( PIN Q0[7] ) ( read_w0_p0_b7.nor_r0_8 Y ) + USE SIGNAL ;
-+    - Q1[0] ( PIN Q1[0] ) ( read_w0_p1_b0.nor_r0_8 Y ) + USE SIGNAL ;
-+    - Q1[1] ( PIN Q1[1] ) ( read_w0_p1_b1.nor_r0_8 Y ) + USE SIGNAL ;
-+    - Q1[2] ( PIN Q1[2] ) ( read_w0_p1_b2.nor_r0_8 Y ) + USE SIGNAL ;
-+    - Q1[3] ( PIN Q1[3] ) ( read_w0_p1_b3.nor_r0_8 Y ) + USE SIGNAL ;
-+    - Q1[4] ( PIN Q1[4] ) ( read_w0_p1_b4.nor_r0_8 Y ) + USE SIGNAL ;
-+    - Q1[5] ( PIN Q1[5] ) ( read_w0_p1_b5.nor_r0_8 Y ) + USE SIGNAL ;
-+    - Q1[6] ( PIN Q1[6] ) ( read_w0_p1_b6.nor_r0_8 Y ) + USE SIGNAL ;
-+    - Q1[7] ( PIN Q1[7] ) ( read_w0_p1_b7.nor_r0_8 Y ) + USE SIGNAL ;
-+    - addr_r0.inv_addr[0] ( decoder_p1.inv_p1_a0 Y ) ( decoder_p1.and_layer0_word6 A ) ( decoder_p1.and_layer0_word4 A ) ( decoder_p1.and_layer0_word2 A ) ( decoder_p1.and_layer0_word0 A ) + USE SIGNAL ;
-+    - addr_r0.inv_addr[1] ( decoder_p1.inv_p1_a1 Y ) ( decoder_p1.and_layer1_word5 A ) ( decoder_p1.and_layer1_word4 A ) ( decoder_p1.and_layer1_word1 A ) ( decoder_p1.and_layer1_word0 A ) + USE SIGNAL ;
-+    - addr_r0.inv_addr[2] ( decoder_p1.inv_p1_a2 Y ) ( decoder_p1.and_layer1_word3 B ) ( decoder_p1.and_layer1_word2 B ) ( decoder_p1.and_layer1_word1 B ) ( decoder_p1.and_layer1_word0 B ) + USE SIGNAL ;
-+    - addr_r0[0] ( PIN addr_r0[0] ) ( decoder_p1.inv_p1_a0 A ) ( decoder_p1.and_layer0_word7 A ) ( decoder_p1.and_layer0_word5 A ) ( decoder_p1.and_layer0_word3 A ) ( decoder_p1.and_layer0_word1 A ) + USE SIGNAL ;
-+    - addr_r0[1] ( PIN addr_r0[1] ) ( decoder_p1.inv_p1_a1 A ) ( decoder_p1.and_layer1_word7 A ) ( decoder_p1.and_layer1_word6 A ) ( decoder_p1.and_layer1_word3 A ) ( decoder_p1.and_layer1_word2 A ) + USE SIGNAL ;
-+    - addr_r0[2] ( PIN addr_r0[2] ) ( decoder_p1.inv_p1_a2 A ) ( decoder_p1.and_layer1_word7 B ) ( decoder_p1.and_layer1_word6 B ) ( decoder_p1.and_layer1_word5 B ) ( decoder_p1.and_layer1_word4 B ) + USE SIGNAL ;
-+    - addr_r1.inv_addr[0] ( decoder_p2.inv_p2_a0 Y ) ( decoder_p2.and_layer0_word6 A ) ( decoder_p2.and_layer0_word4 A ) ( decoder_p2.and_layer0_word2 A ) ( decoder_p2.and_layer0_word0 A ) + USE SIGNAL ;
-+    - addr_r1.inv_addr[1] ( decoder_p2.inv_p2_a1 Y ) ( decoder_p2.and_layer1_word5 A ) ( decoder_p2.and_layer1_word4 A ) ( decoder_p2.and_layer1_word1 A ) ( decoder_p2.and_layer1_word0 A ) + USE SIGNAL ;
-+    - addr_r1.inv_addr[2] ( decoder_p2.inv_p2_a2 Y ) ( decoder_p2.and_layer1_word3 B ) ( decoder_p2.and_layer1_word2 B ) ( decoder_p2.and_layer1_word1 B ) ( decoder_p2.and_layer1_word0 B ) + USE SIGNAL ;
-+    - addr_r1[0] ( PIN addr_r1[0] ) ( decoder_p2.inv_p2_a0 A ) ( decoder_p2.and_layer0_word7 A ) ( decoder_p2.and_layer0_word5 A ) ( decoder_p2.and_layer0_word3 A ) ( decoder_p2.and_layer0_word1 A ) + USE SIGNAL ;
-+    - addr_r1[1] ( PIN addr_r1[1] ) ( decoder_p2.inv_p2_a1 A ) ( decoder_p2.and_layer1_word7 A ) ( decoder_p2.and_layer1_word6 A ) ( decoder_p2.and_layer1_word3 A ) ( decoder_p2.and_layer1_word2 A ) + USE SIGNAL ;
-+    - addr_r1[2] ( PIN addr_r1[2] ) ( decoder_p2.inv_p2_a2 A ) ( decoder_p2.and_layer1_word7 B ) ( decoder_p2.and_layer1_word6 B ) ( decoder_p2.and_layer1_word5 B ) ( decoder_p2.and_layer1_word4 B ) + USE SIGNAL ;
-+    - addr_w.inv_addr[0] ( decoder_p0.inv_p0_a0 Y ) ( decoder_p0.and_layer0_word6 A ) ( decoder_p0.and_layer0_word4 A ) ( decoder_p0.and_layer0_word2 A ) ( decoder_p0.and_layer0_word0 A ) + USE SIGNAL ;
-+    - addr_w.inv_addr[1] ( decoder_p0.inv_p0_a1 Y ) ( decoder_p0.and_layer1_word5 A ) ( decoder_p0.and_layer1_word4 A ) ( decoder_p0.and_layer1_word1 A ) ( decoder_p0.and_layer1_word0 A ) + USE SIGNAL ;
-+    - addr_w.inv_addr[2] ( decoder_p0.inv_p0_a2 Y ) ( decoder_p0.and_layer1_word3 B ) ( decoder_p0.and_layer1_word2 B ) ( decoder_p0.and_layer1_word1 B ) ( decoder_p0.and_layer1_word0 B ) + USE SIGNAL ;
-+    - addr_w[0] ( PIN addr_w[0] ) ( decoder_p0.inv_p0_a0 A ) ( decoder_p0.and_layer0_word7 A ) ( decoder_p0.and_layer0_word5 A ) ( decoder_p0.and_layer0_word3 A ) ( decoder_p0.and_layer0_word1 A ) + USE SIGNAL ;
-+    - addr_w[1] ( PIN addr_w[1] ) ( decoder_p0.inv_p0_a1 A ) ( decoder_p0.and_layer1_word7 A ) ( decoder_p0.and_layer1_word6 A ) ( decoder_p0.and_layer1_word3 A ) ( decoder_p0.and_layer1_word2 A ) + USE SIGNAL ;
-+    - addr_w[2] ( PIN addr_w[2] ) ( decoder_p0.inv_p0_a2 A ) ( decoder_p0.and_layer1_word7 B ) ( decoder_p0.and_layer1_word6 B ) ( decoder_p0.and_layer1_word5 B ) ( decoder_p0.and_layer1_word4 B ) + USE SIGNAL ;
-+    - clk ( PIN clk ) ( storage_7_0_0.cg CLK ) ( storage_6_0_0.cg CLK ) ( storage_5_0_0.cg CLK ) ( storage_4_0_0.cg CLK ) ( storage_3_0_0.cg CLK ) ( storage_2_0_0.cg CLK )
-+      ( storage_1_0_0.cg CLK ) + USE SIGNAL ;
-+    - decoder_p0.layer_in0_word0 ( decoder_p0.and_layer1_word0 Y ) ( decoder_p0.and_layer0_word0 B ) + USE SIGNAL ;
-+    - decoder_p0.layer_in0_word1 ( decoder_p0.and_layer1_word1 Y ) ( decoder_p0.and_layer0_word1 B ) + USE SIGNAL ;
-+    - decoder_p0.layer_in0_word2 ( decoder_p0.and_layer1_word2 Y ) ( decoder_p0.and_layer0_word2 B ) + USE SIGNAL ;
-+    - decoder_p0.layer_in0_word3 ( decoder_p0.and_layer1_word3 Y ) ( decoder_p0.and_layer0_word3 B ) + USE SIGNAL ;
-+    - decoder_p0.layer_in0_word4 ( decoder_p0.and_layer1_word4 Y ) ( decoder_p0.and_layer0_word4 B ) + USE SIGNAL ;
-+    - decoder_p0.layer_in0_word5 ( decoder_p0.and_layer1_word5 Y ) ( decoder_p0.and_layer0_word5 B ) + USE SIGNAL ;
-+    - decoder_p0.layer_in0_word6 ( decoder_p0.and_layer1_word6 Y ) ( decoder_p0.and_layer0_word6 B ) + USE SIGNAL ;
-+    - decoder_p0.layer_in0_word7 ( decoder_p0.and_layer1_word7 Y ) ( decoder_p0.and_layer0_word7 B ) + USE SIGNAL ;
-+    - decoder_p0.word0 ( decoder_p0.and_layer0_word0 Y ) ( sel_buf_w_p0.sel_buf_0 A ) + USE SIGNAL ;
-+    - decoder_p0.word1 ( decoder_p0.and_layer0_word1 Y ) ( sel_buf_w_p0.sel_buf_1 A ) + USE SIGNAL ;
-+    - decoder_p0.word2 ( decoder_p0.and_layer0_word2 Y ) ( sel_buf_w_p0.sel_buf_2 A ) + USE SIGNAL ;
-+    - decoder_p0.word3 ( decoder_p0.and_layer0_word3 Y ) ( sel_buf_w_p0.sel_buf_3 A ) + USE SIGNAL ;
-+    - decoder_p0.word4 ( decoder_p0.and_layer0_word4 Y ) ( sel_buf_w_p0.sel_buf_4 A ) + USE SIGNAL ;
-+    - decoder_p0.word5 ( decoder_p0.and_layer0_word5 Y ) ( sel_buf_w_p0.sel_buf_5 A ) + USE SIGNAL ;
-+    - decoder_p0.word6 ( decoder_p0.and_layer0_word6 Y ) ( sel_buf_w_p0.sel_buf_6 A ) + USE SIGNAL ;
-+    - decoder_p0.word7 ( decoder_p0.and_layer0_word7 Y ) ( sel_buf_w_p0.sel_buf_7 A ) + USE SIGNAL ;
-+    - decoder_p1.layer_in0_word0 ( decoder_p1.and_layer1_word0 Y ) ( decoder_p1.and_layer0_word0 B ) + USE SIGNAL ;
-+    - decoder_p1.layer_in0_word1 ( decoder_p1.and_layer1_word1 Y ) ( decoder_p1.and_layer0_word1 B ) + USE SIGNAL ;
-+    - decoder_p1.layer_in0_word2 ( decoder_p1.and_layer1_word2 Y ) ( decoder_p1.and_layer0_word2 B ) + USE SIGNAL ;
-+    - decoder_p1.layer_in0_word3 ( decoder_p1.and_layer1_word3 Y ) ( decoder_p1.and_layer0_word3 B ) + USE SIGNAL ;
-+    - decoder_p1.layer_in0_word4 ( decoder_p1.and_layer1_word4 Y ) ( decoder_p1.and_layer0_word4 B ) + USE SIGNAL ;
-+    - decoder_p1.layer_in0_word5 ( decoder_p1.and_layer1_word5 Y ) ( decoder_p1.and_layer0_word5 B ) + USE SIGNAL ;
-+    - decoder_p1.layer_in0_word6 ( decoder_p1.and_layer1_word6 Y ) ( decoder_p1.and_layer0_word6 B ) + USE SIGNAL ;
-+    - decoder_p1.layer_in0_word7 ( decoder_p1.and_layer1_word7 Y ) ( decoder_p1.and_layer0_word7 B ) + USE SIGNAL ;
-+    - decoder_p1.word0 ( decoder_p1.and_layer0_word0 Y ) ( sel_buf_r_p1.sel_buf_0 A ) + USE SIGNAL ;
-+    - decoder_p1.word1 ( decoder_p1.and_layer0_word1 Y ) ( sel_buf_r_p1.sel_buf_1 A ) + USE SIGNAL ;
-+    - decoder_p1.word2 ( decoder_p1.and_layer0_word2 Y ) ( sel_buf_r_p1.sel_buf_2 A ) + USE SIGNAL ;
-+    - decoder_p1.word3 ( decoder_p1.and_layer0_word3 Y ) ( sel_buf_r_p1.sel_buf_3 A ) + USE SIGNAL ;
-+    - decoder_p1.word4 ( decoder_p1.and_layer0_word4 Y ) ( sel_buf_r_p1.sel_buf_4 A ) + USE SIGNAL ;
-+    - decoder_p1.word5 ( decoder_p1.and_layer0_word5 Y ) ( sel_buf_r_p1.sel_buf_5 A ) + USE SIGNAL ;
-+    - decoder_p1.word6 ( decoder_p1.and_layer0_word6 Y ) ( sel_buf_r_p1.sel_buf_6 A ) + USE SIGNAL ;
-+    - decoder_p1.word7 ( decoder_p1.and_layer0_word7 Y ) ( sel_buf_r_p1.sel_buf_7 A ) + USE SIGNAL ;
-+    - decoder_p2.layer_in0_word0 ( decoder_p2.and_layer1_word0 Y ) ( decoder_p2.and_layer0_word0 B ) + USE SIGNAL ;
-+    - decoder_p2.layer_in0_word1 ( decoder_p2.and_layer1_word1 Y ) ( decoder_p2.and_layer0_word1 B ) + USE SIGNAL ;
-+    - decoder_p2.layer_in0_word2 ( decoder_p2.and_layer1_word2 Y ) ( decoder_p2.and_layer0_word2 B ) + USE SIGNAL ;
-+    - decoder_p2.layer_in0_word3 ( decoder_p2.and_layer1_word3 Y ) ( decoder_p2.and_layer0_word3 B ) + USE SIGNAL ;
-+    - decoder_p2.layer_in0_word4 ( decoder_p2.and_layer1_word4 Y ) ( decoder_p2.and_layer0_word4 B ) + USE SIGNAL ;
-+    - decoder_p2.layer_in0_word5 ( decoder_p2.and_layer1_word5 Y ) ( decoder_p2.and_layer0_word5 B ) + USE SIGNAL ;
-+    - decoder_p2.layer_in0_word6 ( decoder_p2.and_layer1_word6 Y ) ( decoder_p2.and_layer0_word6 B ) + USE SIGNAL ;
-+    - decoder_p2.layer_in0_word7 ( decoder_p2.and_layer1_word7 Y ) ( decoder_p2.and_layer0_word7 B ) + USE SIGNAL ;
-+    - decoder_p2.word0 ( decoder_p2.and_layer0_word0 Y ) ( sel_buf_r_p2.sel_buf_0 A ) + USE SIGNAL ;
-+    - decoder_p2.word1 ( decoder_p2.and_layer0_word1 Y ) ( sel_buf_r_p2.sel_buf_1 A ) + USE SIGNAL ;
-+    - decoder_p2.word2 ( decoder_p2.and_layer0_word2 Y ) ( sel_buf_r_p2.sel_buf_2 A ) + USE SIGNAL ;
-+    - decoder_p2.word3 ( decoder_p2.and_layer0_word3 Y ) ( sel_buf_r_p2.sel_buf_3 A ) + USE SIGNAL ;
-+    - decoder_p2.word4 ( decoder_p2.and_layer0_word4 Y ) ( sel_buf_r_p2.sel_buf_4 A ) + USE SIGNAL ;
-+    - decoder_p2.word5 ( decoder_p2.and_layer0_word5 Y ) ( sel_buf_r_p2.sel_buf_5 A ) + USE SIGNAL ;
-+    - decoder_p2.word6 ( decoder_p2.and_layer0_word6 Y ) ( sel_buf_r_p2.sel_buf_6 A ) + USE SIGNAL ;
-+    - decoder_p2.word7 ( decoder_p2.and_layer0_word7 Y ) ( sel_buf_r_p2.sel_buf_7 A ) + USE SIGNAL ;
-+    - r_sel_p1.select_r0 ( sel_buf_r_p1.sel_buf_0 Y ) ( read_w0_p0_b7.aoi_r0 A2 ) ( read_w0_p0_b7.aoi_r0 A1 ) ( read_w0_p0_b6.aoi_r0 A2 ) ( read_w0_p0_b6.aoi_r0 A1 ) ( read_w0_p0_b5.aoi_r0 A2 ) ( read_w0_p0_b5.aoi_r0 A1 )
-+      ( read_w0_p0_b4.aoi_r0 A2 ) ( read_w0_p0_b4.aoi_r0 A1 ) ( read_w0_p0_b3.aoi_r0 A2 ) ( read_w0_p0_b3.aoi_r0 A1 ) ( read_w0_p0_b2.aoi_r0 A2 ) ( read_w0_p0_b2.aoi_r0 A1 ) ( read_w0_p0_b1.aoi_r0 A2 ) ( read_w0_p0_b1.aoi_r0 A1 )
-+      ( read_w0_p0_b0.aoi_r0 A2 ) ( read_w0_p0_b0.aoi_r0 A1 ) + USE SIGNAL ;
-+    - r_sel_p1.select_r1 ( sel_buf_r_p1.sel_buf_1 Y ) ( read_w0_p0_b7.aoi_r0 B1 ) ( read_w0_p0_b6.aoi_r0 B1 ) ( read_w0_p0_b5.aoi_r0 B1 ) ( read_w0_p0_b4.aoi_r0 B1 ) ( read_w0_p0_b3.aoi_r0 B1 ) ( read_w0_p0_b2.aoi_r0 B1 )
-+      ( read_w0_p0_b1.aoi_r0 B1 ) ( read_w0_p0_b0.aoi_r0 B1 ) + USE SIGNAL ;
-+    - r_sel_p1.select_r2 ( sel_buf_r_p1.sel_buf_2 Y ) ( read_w0_p0_b7.aoi_r2 A1 ) ( read_w0_p0_b6.aoi_r2 A1 ) ( read_w0_p0_b5.aoi_r2 A1 ) ( read_w0_p0_b4.aoi_r2 A1 ) ( read_w0_p0_b3.aoi_r2 A1 ) ( read_w0_p0_b2.aoi_r2 A1 )
-+      ( read_w0_p0_b1.aoi_r2 A1 ) ( read_w0_p0_b0.aoi_r2 A1 ) + USE SIGNAL ;
-+    - r_sel_p1.select_r3 ( sel_buf_r_p1.sel_buf_3 Y ) ( read_w0_p0_b7.aoi_r2 B1 ) ( read_w0_p0_b6.aoi_r2 B1 ) ( read_w0_p0_b5.aoi_r2 B1 ) ( read_w0_p0_b4.aoi_r2 B1 ) ( read_w0_p0_b3.aoi_r2 B1 ) ( read_w0_p0_b2.aoi_r2 B1 )
-+      ( read_w0_p0_b1.aoi_r2 B1 ) ( read_w0_p0_b0.aoi_r2 B1 ) + USE SIGNAL ;
-+    - r_sel_p1.select_r4 ( sel_buf_r_p1.sel_buf_4 Y ) ( read_w0_p0_b7.aoi_r4 A1 ) ( read_w0_p0_b6.aoi_r4 A1 ) ( read_w0_p0_b5.aoi_r4 A1 ) ( read_w0_p0_b4.aoi_r4 A1 ) ( read_w0_p0_b3.aoi_r4 A1 ) ( read_w0_p0_b2.aoi_r4 A1 )
-+      ( read_w0_p0_b1.aoi_r4 A1 ) ( read_w0_p0_b0.aoi_r4 A1 ) + USE SIGNAL ;
-+    - r_sel_p1.select_r5 ( sel_buf_r_p1.sel_buf_5 Y ) ( read_w0_p0_b7.aoi_r4 B1 ) ( read_w0_p0_b6.aoi_r4 B1 ) ( read_w0_p0_b5.aoi_r4 B1 ) ( read_w0_p0_b4.aoi_r4 B1 ) ( read_w0_p0_b3.aoi_r4 B1 ) ( read_w0_p0_b2.aoi_r4 B1 )
-+      ( read_w0_p0_b1.aoi_r4 B1 ) ( read_w0_p0_b0.aoi_r4 B1 ) + USE SIGNAL ;
-+    - r_sel_p1.select_r6 ( sel_buf_r_p1.sel_buf_6 Y ) ( read_w0_p0_b7.aoi_r6 A1 ) ( read_w0_p0_b6.aoi_r6 A1 ) ( read_w0_p0_b5.aoi_r6 A1 ) ( read_w0_p0_b4.aoi_r6 A1 ) ( read_w0_p0_b3.aoi_r6 A1 ) ( read_w0_p0_b2.aoi_r6 A1 )
-+      ( read_w0_p0_b1.aoi_r6 A1 ) ( read_w0_p0_b0.aoi_r6 A1 ) + USE SIGNAL ;
-+    - r_sel_p1.select_r7 ( sel_buf_r_p1.sel_buf_7 Y ) ( read_w0_p0_b7.aoi_r6 B1 ) ( read_w0_p0_b6.aoi_r6 B1 ) ( read_w0_p0_b5.aoi_r6 B1 ) ( read_w0_p0_b4.aoi_r6 B1 ) ( read_w0_p0_b3.aoi_r6 B1 ) ( read_w0_p0_b2.aoi_r6 B1 )
-+      ( read_w0_p0_b1.aoi_r6 B1 ) ( read_w0_p0_b0.aoi_r6 B1 ) + USE SIGNAL ;
-+    - r_sel_p2.select_r0 ( sel_buf_r_p2.sel_buf_0 Y ) ( read_w0_p1_b7.aoi_r0 A2 ) ( read_w0_p1_b7.aoi_r0 A1 ) ( read_w0_p1_b6.aoi_r0 A2 ) ( read_w0_p1_b6.aoi_r0 A1 ) ( read_w0_p1_b5.aoi_r0 A2 ) ( read_w0_p1_b5.aoi_r0 A1 )
-+      ( read_w0_p1_b4.aoi_r0 A2 ) ( read_w0_p1_b4.aoi_r0 A1 ) ( read_w0_p1_b3.aoi_r0 A2 ) ( read_w0_p1_b3.aoi_r0 A1 ) ( read_w0_p1_b2.aoi_r0 A2 ) ( read_w0_p1_b2.aoi_r0 A1 ) ( read_w0_p1_b1.aoi_r0 A2 ) ( read_w0_p1_b1.aoi_r0 A1 )
-+      ( read_w0_p1_b0.aoi_r0 A2 ) ( read_w0_p1_b0.aoi_r0 A1 ) + USE SIGNAL ;
-+    - r_sel_p2.select_r1 ( sel_buf_r_p2.sel_buf_1 Y ) ( read_w0_p1_b7.aoi_r0 B1 ) ( read_w0_p1_b6.aoi_r0 B1 ) ( read_w0_p1_b5.aoi_r0 B1 ) ( read_w0_p1_b4.aoi_r0 B1 ) ( read_w0_p1_b3.aoi_r0 B1 ) ( read_w0_p1_b2.aoi_r0 B1 )
-+      ( read_w0_p1_b1.aoi_r0 B1 ) ( read_w0_p1_b0.aoi_r0 B1 ) + USE SIGNAL ;
-+    - r_sel_p2.select_r2 ( sel_buf_r_p2.sel_buf_2 Y ) ( read_w0_p1_b7.aoi_r2 A1 ) ( read_w0_p1_b6.aoi_r2 A1 ) ( read_w0_p1_b5.aoi_r2 A1 ) ( read_w0_p1_b4.aoi_r2 A1 ) ( read_w0_p1_b3.aoi_r2 A1 ) ( read_w0_p1_b2.aoi_r2 A1 )
-+      ( read_w0_p1_b1.aoi_r2 A1 ) ( read_w0_p1_b0.aoi_r2 A1 ) + USE SIGNAL ;
-+    - r_sel_p2.select_r3 ( sel_buf_r_p2.sel_buf_3 Y ) ( read_w0_p1_b7.aoi_r2 B1 ) ( read_w0_p1_b6.aoi_r2 B1 ) ( read_w0_p1_b5.aoi_r2 B1 ) ( read_w0_p1_b4.aoi_r2 B1 ) ( read_w0_p1_b3.aoi_r2 B1 ) ( read_w0_p1_b2.aoi_r2 B1 )
-+      ( read_w0_p1_b1.aoi_r2 B1 ) ( read_w0_p1_b0.aoi_r2 B1 ) + USE SIGNAL ;
-+    - r_sel_p2.select_r4 ( sel_buf_r_p2.sel_buf_4 Y ) ( read_w0_p1_b7.aoi_r4 A1 ) ( read_w0_p1_b6.aoi_r4 A1 ) ( read_w0_p1_b5.aoi_r4 A1 ) ( read_w0_p1_b4.aoi_r4 A1 ) ( read_w0_p1_b3.aoi_r4 A1 ) ( read_w0_p1_b2.aoi_r4 A1 )
-+      ( read_w0_p1_b1.aoi_r4 A1 ) ( read_w0_p1_b0.aoi_r4 A1 ) + USE SIGNAL ;
-+    - r_sel_p2.select_r5 ( sel_buf_r_p2.sel_buf_5 Y ) ( read_w0_p1_b7.aoi_r4 B1 ) ( read_w0_p1_b6.aoi_r4 B1 ) ( read_w0_p1_b5.aoi_r4 B1 ) ( read_w0_p1_b4.aoi_r4 B1 ) ( read_w0_p1_b3.aoi_r4 B1 ) ( read_w0_p1_b2.aoi_r4 B1 )
-+      ( read_w0_p1_b1.aoi_r4 B1 ) ( read_w0_p1_b0.aoi_r4 B1 ) + USE SIGNAL ;
-+    - r_sel_p2.select_r6 ( sel_buf_r_p2.sel_buf_6 Y ) ( read_w0_p1_b7.aoi_r6 A1 ) ( read_w0_p1_b6.aoi_r6 A1 ) ( read_w0_p1_b5.aoi_r6 A1 ) ( read_w0_p1_b4.aoi_r6 A1 ) ( read_w0_p1_b3.aoi_r6 A1 ) ( read_w0_p1_b2.aoi_r6 A1 )
-+      ( read_w0_p1_b1.aoi_r6 A1 ) ( read_w0_p1_b0.aoi_r6 A1 ) + USE SIGNAL ;
-+    - r_sel_p2.select_r7 ( sel_buf_r_p2.sel_buf_7 Y ) ( read_w0_p1_b7.aoi_r6 B1 ) ( read_w0_p1_b6.aoi_r6 B1 ) ( read_w0_p1_b5.aoi_r6 B1 ) ( read_w0_p1_b4.aoi_r6 B1 ) ( read_w0_p1_b3.aoi_r6 B1 ) ( read_w0_p1_b2.aoi_r6 B1 )
-+      ( read_w0_p1_b1.aoi_r6 B1 ) ( read_w0_p1_b0.aoi_r6 B1 ) + USE SIGNAL ;
-+    - read_w0_p0_b0.t0_2 ( read_w0_p0_b0.nand_r0_4 A ) ( read_w0_p0_b0.aoi_r0 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b0.t0_4 ( read_w0_p0_b0.nor_r0_8 A ) ( read_w0_p0_b0.nand_r0_4 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b0.t2_4 ( read_w0_p0_b0.aoi_r2 Y ) ( read_w0_p0_b0.nand_r0_4 B ) + USE SIGNAL ;
-+    - read_w0_p0_b0.t4_6 ( read_w0_p0_b0.nand_r4_8 A ) ( read_w0_p0_b0.aoi_r4 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b0.t4_8 ( read_w0_p0_b0.nand_r4_8 Y ) ( read_w0_p0_b0.nor_r0_8 B ) + USE SIGNAL ;
-+    - read_w0_p0_b0.t6_8 ( read_w0_p0_b0.aoi_r6 Y ) ( read_w0_p0_b0.nand_r4_8 B ) + USE SIGNAL ;
-+    - read_w0_p0_b1.t0_2 ( read_w0_p0_b1.nand_r0_4 A ) ( read_w0_p0_b1.aoi_r0 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b1.t0_4 ( read_w0_p0_b1.nor_r0_8 A ) ( read_w0_p0_b1.nand_r0_4 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b1.t2_4 ( read_w0_p0_b1.aoi_r2 Y ) ( read_w0_p0_b1.nand_r0_4 B ) + USE SIGNAL ;
-+    - read_w0_p0_b1.t4_6 ( read_w0_p0_b1.nand_r4_8 A ) ( read_w0_p0_b1.aoi_r4 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b1.t4_8 ( read_w0_p0_b1.nand_r4_8 Y ) ( read_w0_p0_b1.nor_r0_8 B ) + USE SIGNAL ;
-+    - read_w0_p0_b1.t6_8 ( read_w0_p0_b1.aoi_r6 Y ) ( read_w0_p0_b1.nand_r4_8 B ) + USE SIGNAL ;
-+    - read_w0_p0_b2.t0_2 ( read_w0_p0_b2.nand_r0_4 A ) ( read_w0_p0_b2.aoi_r0 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b2.t0_4 ( read_w0_p0_b2.nor_r0_8 A ) ( read_w0_p0_b2.nand_r0_4 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b2.t2_4 ( read_w0_p0_b2.aoi_r2 Y ) ( read_w0_p0_b2.nand_r0_4 B ) + USE SIGNAL ;
-+    - read_w0_p0_b2.t4_6 ( read_w0_p0_b2.nand_r4_8 A ) ( read_w0_p0_b2.aoi_r4 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b2.t4_8 ( read_w0_p0_b2.nand_r4_8 Y ) ( read_w0_p0_b2.nor_r0_8 B ) + USE SIGNAL ;
-+    - read_w0_p0_b2.t6_8 ( read_w0_p0_b2.aoi_r6 Y ) ( read_w0_p0_b2.nand_r4_8 B ) + USE SIGNAL ;
-+    - read_w0_p0_b3.t0_2 ( read_w0_p0_b3.nand_r0_4 A ) ( read_w0_p0_b3.aoi_r0 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b3.t0_4 ( read_w0_p0_b3.nor_r0_8 A ) ( read_w0_p0_b3.nand_r0_4 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b3.t2_4 ( read_w0_p0_b3.aoi_r2 Y ) ( read_w0_p0_b3.nand_r0_4 B ) + USE SIGNAL ;
-+    - read_w0_p0_b3.t4_6 ( read_w0_p0_b3.nand_r4_8 A ) ( read_w0_p0_b3.aoi_r4 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b3.t4_8 ( read_w0_p0_b3.nand_r4_8 Y ) ( read_w0_p0_b3.nor_r0_8 B ) + USE SIGNAL ;
-+    - read_w0_p0_b3.t6_8 ( read_w0_p0_b3.aoi_r6 Y ) ( read_w0_p0_b3.nand_r4_8 B ) + USE SIGNAL ;
-+    - read_w0_p0_b4.t0_2 ( read_w0_p0_b4.nand_r0_4 A ) ( read_w0_p0_b4.aoi_r0 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b4.t0_4 ( read_w0_p0_b4.nor_r0_8 A ) ( read_w0_p0_b4.nand_r0_4 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b4.t2_4 ( read_w0_p0_b4.aoi_r2 Y ) ( read_w0_p0_b4.nand_r0_4 B ) + USE SIGNAL ;
-+    - read_w0_p0_b4.t4_6 ( read_w0_p0_b4.nand_r4_8 A ) ( read_w0_p0_b4.aoi_r4 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b4.t4_8 ( read_w0_p0_b4.nand_r4_8 Y ) ( read_w0_p0_b4.nor_r0_8 B ) + USE SIGNAL ;
-+    - read_w0_p0_b4.t6_8 ( read_w0_p0_b4.aoi_r6 Y ) ( read_w0_p0_b4.nand_r4_8 B ) + USE SIGNAL ;
-+    - read_w0_p0_b5.t0_2 ( read_w0_p0_b5.nand_r0_4 A ) ( read_w0_p0_b5.aoi_r0 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b5.t0_4 ( read_w0_p0_b5.nor_r0_8 A ) ( read_w0_p0_b5.nand_r0_4 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b5.t2_4 ( read_w0_p0_b5.aoi_r2 Y ) ( read_w0_p0_b5.nand_r0_4 B ) + USE SIGNAL ;
-+    - read_w0_p0_b5.t4_6 ( read_w0_p0_b5.nand_r4_8 A ) ( read_w0_p0_b5.aoi_r4 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b5.t4_8 ( read_w0_p0_b5.nand_r4_8 Y ) ( read_w0_p0_b5.nor_r0_8 B ) + USE SIGNAL ;
-+    - read_w0_p0_b5.t6_8 ( read_w0_p0_b5.aoi_r6 Y ) ( read_w0_p0_b5.nand_r4_8 B ) + USE SIGNAL ;
-+    - read_w0_p0_b6.t0_2 ( read_w0_p0_b6.nand_r0_4 A ) ( read_w0_p0_b6.aoi_r0 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b6.t0_4 ( read_w0_p0_b6.nor_r0_8 A ) ( read_w0_p0_b6.nand_r0_4 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b6.t2_4 ( read_w0_p0_b6.aoi_r2 Y ) ( read_w0_p0_b6.nand_r0_4 B ) + USE SIGNAL ;
-+    - read_w0_p0_b6.t4_6 ( read_w0_p0_b6.nand_r4_8 A ) ( read_w0_p0_b6.aoi_r4 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b6.t4_8 ( read_w0_p0_b6.nand_r4_8 Y ) ( read_w0_p0_b6.nor_r0_8 B ) + USE SIGNAL ;
-+    - read_w0_p0_b6.t6_8 ( read_w0_p0_b6.aoi_r6 Y ) ( read_w0_p0_b6.nand_r4_8 B ) + USE SIGNAL ;
-+    - read_w0_p0_b7.t0_2 ( read_w0_p0_b7.nand_r0_4 A ) ( read_w0_p0_b7.aoi_r0 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b7.t0_4 ( read_w0_p0_b7.nor_r0_8 A ) ( read_w0_p0_b7.nand_r0_4 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b7.t2_4 ( read_w0_p0_b7.aoi_r2 Y ) ( read_w0_p0_b7.nand_r0_4 B ) + USE SIGNAL ;
-+    - read_w0_p0_b7.t4_6 ( read_w0_p0_b7.nand_r4_8 A ) ( read_w0_p0_b7.aoi_r4 Y ) + USE SIGNAL ;
-+    - read_w0_p0_b7.t4_8 ( read_w0_p0_b7.nand_r4_8 Y ) ( read_w0_p0_b7.nor_r0_8 B ) + USE SIGNAL ;
-+    - read_w0_p0_b7.t6_8 ( read_w0_p0_b7.aoi_r6 Y ) ( read_w0_p0_b7.nand_r4_8 B ) + USE SIGNAL ;
-+    - read_w0_p1_b0.t0_2 ( read_w0_p1_b0.nand_r0_4 A ) ( read_w0_p1_b0.aoi_r0 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b0.t0_4 ( read_w0_p1_b0.nor_r0_8 A ) ( read_w0_p1_b0.nand_r0_4 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b0.t2_4 ( read_w0_p1_b0.aoi_r2 Y ) ( read_w0_p1_b0.nand_r0_4 B ) + USE SIGNAL ;
-+    - read_w0_p1_b0.t4_6 ( read_w0_p1_b0.nand_r4_8 A ) ( read_w0_p1_b0.aoi_r4 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b0.t4_8 ( read_w0_p1_b0.nand_r4_8 Y ) ( read_w0_p1_b0.nor_r0_8 B ) + USE SIGNAL ;
-+    - read_w0_p1_b0.t6_8 ( read_w0_p1_b0.aoi_r6 Y ) ( read_w0_p1_b0.nand_r4_8 B ) + USE SIGNAL ;
-+    - read_w0_p1_b1.t0_2 ( read_w0_p1_b1.nand_r0_4 A ) ( read_w0_p1_b1.aoi_r0 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b1.t0_4 ( read_w0_p1_b1.nor_r0_8 A ) ( read_w0_p1_b1.nand_r0_4 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b1.t2_4 ( read_w0_p1_b1.aoi_r2 Y ) ( read_w0_p1_b1.nand_r0_4 B ) + USE SIGNAL ;
-+    - read_w0_p1_b1.t4_6 ( read_w0_p1_b1.nand_r4_8 A ) ( read_w0_p1_b1.aoi_r4 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b1.t4_8 ( read_w0_p1_b1.nand_r4_8 Y ) ( read_w0_p1_b1.nor_r0_8 B ) + USE SIGNAL ;
-+    - read_w0_p1_b1.t6_8 ( read_w0_p1_b1.aoi_r6 Y ) ( read_w0_p1_b1.nand_r4_8 B ) + USE SIGNAL ;
-+    - read_w0_p1_b2.t0_2 ( read_w0_p1_b2.nand_r0_4 A ) ( read_w0_p1_b2.aoi_r0 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b2.t0_4 ( read_w0_p1_b2.nor_r0_8 A ) ( read_w0_p1_b2.nand_r0_4 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b2.t2_4 ( read_w0_p1_b2.aoi_r2 Y ) ( read_w0_p1_b2.nand_r0_4 B ) + USE SIGNAL ;
-+    - read_w0_p1_b2.t4_6 ( read_w0_p1_b2.nand_r4_8 A ) ( read_w0_p1_b2.aoi_r4 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b2.t4_8 ( read_w0_p1_b2.nand_r4_8 Y ) ( read_w0_p1_b2.nor_r0_8 B ) + USE SIGNAL ;
-+    - read_w0_p1_b2.t6_8 ( read_w0_p1_b2.aoi_r6 Y ) ( read_w0_p1_b2.nand_r4_8 B ) + USE SIGNAL ;
-+    - read_w0_p1_b3.t0_2 ( read_w0_p1_b3.nand_r0_4 A ) ( read_w0_p1_b3.aoi_r0 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b3.t0_4 ( read_w0_p1_b3.nor_r0_8 A ) ( read_w0_p1_b3.nand_r0_4 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b3.t2_4 ( read_w0_p1_b3.aoi_r2 Y ) ( read_w0_p1_b3.nand_r0_4 B ) + USE SIGNAL ;
-+    - read_w0_p1_b3.t4_6 ( read_w0_p1_b3.nand_r4_8 A ) ( read_w0_p1_b3.aoi_r4 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b3.t4_8 ( read_w0_p1_b3.nand_r4_8 Y ) ( read_w0_p1_b3.nor_r0_8 B ) + USE SIGNAL ;
-+    - read_w0_p1_b3.t6_8 ( read_w0_p1_b3.aoi_r6 Y ) ( read_w0_p1_b3.nand_r4_8 B ) + USE SIGNAL ;
-+    - read_w0_p1_b4.t0_2 ( read_w0_p1_b4.nand_r0_4 A ) ( read_w0_p1_b4.aoi_r0 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b4.t0_4 ( read_w0_p1_b4.nor_r0_8 A ) ( read_w0_p1_b4.nand_r0_4 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b4.t2_4 ( read_w0_p1_b4.aoi_r2 Y ) ( read_w0_p1_b4.nand_r0_4 B ) + USE SIGNAL ;
-+    - read_w0_p1_b4.t4_6 ( read_w0_p1_b4.nand_r4_8 A ) ( read_w0_p1_b4.aoi_r4 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b4.t4_8 ( read_w0_p1_b4.nand_r4_8 Y ) ( read_w0_p1_b4.nor_r0_8 B ) + USE SIGNAL ;
-+    - read_w0_p1_b4.t6_8 ( read_w0_p1_b4.aoi_r6 Y ) ( read_w0_p1_b4.nand_r4_8 B ) + USE SIGNAL ;
-+    - read_w0_p1_b5.t0_2 ( read_w0_p1_b5.nand_r0_4 A ) ( read_w0_p1_b5.aoi_r0 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b5.t0_4 ( read_w0_p1_b5.nor_r0_8 A ) ( read_w0_p1_b5.nand_r0_4 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b5.t2_4 ( read_w0_p1_b5.aoi_r2 Y ) ( read_w0_p1_b5.nand_r0_4 B ) + USE SIGNAL ;
-+    - read_w0_p1_b5.t4_6 ( read_w0_p1_b5.nand_r4_8 A ) ( read_w0_p1_b5.aoi_r4 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b5.t4_8 ( read_w0_p1_b5.nand_r4_8 Y ) ( read_w0_p1_b5.nor_r0_8 B ) + USE SIGNAL ;
-+    - read_w0_p1_b5.t6_8 ( read_w0_p1_b5.aoi_r6 Y ) ( read_w0_p1_b5.nand_r4_8 B ) + USE SIGNAL ;
-+    - read_w0_p1_b6.t0_2 ( read_w0_p1_b6.nand_r0_4 A ) ( read_w0_p1_b6.aoi_r0 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b6.t0_4 ( read_w0_p1_b6.nor_r0_8 A ) ( read_w0_p1_b6.nand_r0_4 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b6.t2_4 ( read_w0_p1_b6.aoi_r2 Y ) ( read_w0_p1_b6.nand_r0_4 B ) + USE SIGNAL ;
-+    - read_w0_p1_b6.t4_6 ( read_w0_p1_b6.nand_r4_8 A ) ( read_w0_p1_b6.aoi_r4 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b6.t4_8 ( read_w0_p1_b6.nand_r4_8 Y ) ( read_w0_p1_b6.nor_r0_8 B ) + USE SIGNAL ;
-+    - read_w0_p1_b6.t6_8 ( read_w0_p1_b6.aoi_r6 Y ) ( read_w0_p1_b6.nand_r4_8 B ) + USE SIGNAL ;
-+    - read_w0_p1_b7.t0_2 ( read_w0_p1_b7.nand_r0_4 A ) ( read_w0_p1_b7.aoi_r0 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b7.t0_4 ( read_w0_p1_b7.nor_r0_8 A ) ( read_w0_p1_b7.nand_r0_4 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b7.t2_4 ( read_w0_p1_b7.aoi_r2 Y ) ( read_w0_p1_b7.nand_r0_4 B ) + USE SIGNAL ;
-+    - read_w0_p1_b7.t4_6 ( read_w0_p1_b7.nand_r4_8 A ) ( read_w0_p1_b7.aoi_r4 Y ) + USE SIGNAL ;
-+    - read_w0_p1_b7.t4_8 ( read_w0_p1_b7.nand_r4_8 Y ) ( read_w0_p1_b7.nor_r0_8 B ) + USE SIGNAL ;
-+    - read_w0_p1_b7.t6_8 ( read_w0_p1_b7.aoi_r6 Y ) ( read_w0_p1_b7.nand_r4_8 B ) + USE SIGNAL ;
-+    - storage_1_0_0.bit0.storage ( storage_1_0_0.bit0.bit QN ) ( read_w0_p1_b0.aoi_r0 B2 ) ( read_w0_p0_b0.aoi_r0 B2 ) + USE SIGNAL ;
-+    - storage_1_0_0.bit1.storage ( storage_1_0_0.bit1.bit QN ) ( read_w0_p1_b1.aoi_r0 B2 ) ( read_w0_p0_b1.aoi_r0 B2 ) + USE SIGNAL ;
-+    - storage_1_0_0.bit2.storage ( storage_1_0_0.bit2.bit QN ) ( read_w0_p1_b2.aoi_r0 B2 ) ( read_w0_p0_b2.aoi_r0 B2 ) + USE SIGNAL ;
-+    - storage_1_0_0.bit3.storage ( storage_1_0_0.bit3.bit QN ) ( read_w0_p1_b3.aoi_r0 B2 ) ( read_w0_p0_b3.aoi_r0 B2 ) + USE SIGNAL ;
-+    - storage_1_0_0.bit4.storage ( storage_1_0_0.bit4.bit QN ) ( read_w0_p1_b4.aoi_r0 B2 ) ( read_w0_p0_b4.aoi_r0 B2 ) + USE SIGNAL ;
-+    - storage_1_0_0.bit5.storage ( storage_1_0_0.bit5.bit QN ) ( read_w0_p1_b5.aoi_r0 B2 ) ( read_w0_p0_b5.aoi_r0 B2 ) + USE SIGNAL ;
-+    - storage_1_0_0.bit6.storage ( storage_1_0_0.bit6.bit QN ) ( read_w0_p1_b6.aoi_r0 B2 ) ( read_w0_p0_b6.aoi_r0 B2 ) + USE SIGNAL ;
-+    - storage_1_0_0.bit7.storage ( storage_1_0_0.bit7.bit QN ) ( read_w0_p1_b7.aoi_r0 B2 ) ( read_w0_p0_b7.aoi_r0 B2 ) + USE SIGNAL ;
-+    - storage_1_0_0.gclock ( storage_1_0_0.cg GCLK ) ( storage_1_0_0.bit7.bit CLK ) ( storage_1_0_0.bit6.bit CLK ) ( storage_1_0_0.bit5.bit CLK ) ( storage_1_0_0.bit4.bit CLK ) ( storage_1_0_0.bit3.bit CLK ) ( storage_1_0_0.bit2.bit CLK )
-+      ( storage_1_0_0.bit1.bit CLK ) ( storage_1_0_0.bit0.bit CLK ) + USE SIGNAL ;
-+    - storage_1_0_0.we ( storage_1_0_0.gcand Y ) ( storage_1_0_0.cg ENA ) + USE SIGNAL ;
-+    - storage_2_0_0.bit0.storage ( read_w0_p1_b0.aoi_r2 A2 ) ( read_w0_p0_b0.aoi_r2 A2 ) ( storage_2_0_0.bit0.bit QN ) + USE SIGNAL ;
-+    - storage_2_0_0.bit1.storage ( read_w0_p1_b1.aoi_r2 A2 ) ( read_w0_p0_b1.aoi_r2 A2 ) ( storage_2_0_0.bit1.bit QN ) + USE SIGNAL ;
-+    - storage_2_0_0.bit2.storage ( read_w0_p1_b2.aoi_r2 A2 ) ( read_w0_p0_b2.aoi_r2 A2 ) ( storage_2_0_0.bit2.bit QN ) + USE SIGNAL ;
-+    - storage_2_0_0.bit3.storage ( read_w0_p1_b3.aoi_r2 A2 ) ( read_w0_p0_b3.aoi_r2 A2 ) ( storage_2_0_0.bit3.bit QN ) + USE SIGNAL ;
-+    - storage_2_0_0.bit4.storage ( read_w0_p1_b4.aoi_r2 A2 ) ( read_w0_p0_b4.aoi_r2 A2 ) ( storage_2_0_0.bit4.bit QN ) + USE SIGNAL ;
-+    - storage_2_0_0.bit5.storage ( read_w0_p1_b5.aoi_r2 A2 ) ( read_w0_p0_b5.aoi_r2 A2 ) ( storage_2_0_0.bit5.bit QN ) + USE SIGNAL ;
-+    - storage_2_0_0.bit6.storage ( read_w0_p1_b6.aoi_r2 A2 ) ( read_w0_p0_b6.aoi_r2 A2 ) ( storage_2_0_0.bit6.bit QN ) + USE SIGNAL ;
-+    - storage_2_0_0.bit7.storage ( read_w0_p1_b7.aoi_r2 A2 ) ( read_w0_p0_b7.aoi_r2 A2 ) ( storage_2_0_0.bit7.bit QN ) + USE SIGNAL ;
-+    - storage_2_0_0.gclock ( storage_2_0_0.cg GCLK ) ( storage_2_0_0.bit7.bit CLK ) ( storage_2_0_0.bit6.bit CLK ) ( storage_2_0_0.bit5.bit CLK ) ( storage_2_0_0.bit4.bit CLK ) ( storage_2_0_0.bit3.bit CLK ) ( storage_2_0_0.bit2.bit CLK )
-+      ( storage_2_0_0.bit1.bit CLK ) ( storage_2_0_0.bit0.bit CLK ) + USE SIGNAL ;
-+    - storage_2_0_0.we ( storage_2_0_0.gcand Y ) ( storage_2_0_0.cg ENA ) + USE SIGNAL ;
-+    - storage_3_0_0.bit0.storage ( storage_3_0_0.bit0.bit QN ) ( read_w0_p1_b0.aoi_r2 B2 ) ( read_w0_p0_b0.aoi_r2 B2 ) + USE SIGNAL ;
-+    - storage_3_0_0.bit1.storage ( storage_3_0_0.bit1.bit QN ) ( read_w0_p1_b1.aoi_r2 B2 ) ( read_w0_p0_b1.aoi_r2 B2 ) + USE SIGNAL ;
-+    - storage_3_0_0.bit2.storage ( storage_3_0_0.bit2.bit QN ) ( read_w0_p1_b2.aoi_r2 B2 ) ( read_w0_p0_b2.aoi_r2 B2 ) + USE SIGNAL ;
-+    - storage_3_0_0.bit3.storage ( storage_3_0_0.bit3.bit QN ) ( read_w0_p1_b3.aoi_r2 B2 ) ( read_w0_p0_b3.aoi_r2 B2 ) + USE SIGNAL ;
-+    - storage_3_0_0.bit4.storage ( storage_3_0_0.bit4.bit QN ) ( read_w0_p1_b4.aoi_r2 B2 ) ( read_w0_p0_b4.aoi_r2 B2 ) + USE SIGNAL ;
-+    - storage_3_0_0.bit5.storage ( storage_3_0_0.bit5.bit QN ) ( read_w0_p1_b5.aoi_r2 B2 ) ( read_w0_p0_b5.aoi_r2 B2 ) + USE SIGNAL ;
-+    - storage_3_0_0.bit6.storage ( storage_3_0_0.bit6.bit QN ) ( read_w0_p1_b6.aoi_r2 B2 ) ( read_w0_p0_b6.aoi_r2 B2 ) + USE SIGNAL ;
-+    - storage_3_0_0.bit7.storage ( storage_3_0_0.bit7.bit QN ) ( read_w0_p1_b7.aoi_r2 B2 ) ( read_w0_p0_b7.aoi_r2 B2 ) + USE SIGNAL ;
-+    - storage_3_0_0.gclock ( storage_3_0_0.cg GCLK ) ( storage_3_0_0.bit7.bit CLK ) ( storage_3_0_0.bit6.bit CLK ) ( storage_3_0_0.bit5.bit CLK ) ( storage_3_0_0.bit4.bit CLK ) ( storage_3_0_0.bit3.bit CLK ) ( storage_3_0_0.bit2.bit CLK )
-+      ( storage_3_0_0.bit1.bit CLK ) ( storage_3_0_0.bit0.bit CLK ) + USE SIGNAL ;
-+    - storage_3_0_0.we ( storage_3_0_0.gcand Y ) ( storage_3_0_0.cg ENA ) + USE SIGNAL ;
-+    - storage_4_0_0.bit0.storage ( read_w0_p1_b0.aoi_r4 A2 ) ( read_w0_p0_b0.aoi_r4 A2 ) ( storage_4_0_0.bit0.bit QN ) + USE SIGNAL ;
-+    - storage_4_0_0.bit1.storage ( read_w0_p1_b1.aoi_r4 A2 ) ( read_w0_p0_b1.aoi_r4 A2 ) ( storage_4_0_0.bit1.bit QN ) + USE SIGNAL ;
-+    - storage_4_0_0.bit2.storage ( read_w0_p1_b2.aoi_r4 A2 ) ( read_w0_p0_b2.aoi_r4 A2 ) ( storage_4_0_0.bit2.bit QN ) + USE SIGNAL ;
-+    - storage_4_0_0.bit3.storage ( read_w0_p1_b3.aoi_r4 A2 ) ( read_w0_p0_b3.aoi_r4 A2 ) ( storage_4_0_0.bit3.bit QN ) + USE SIGNAL ;
-+    - storage_4_0_0.bit4.storage ( read_w0_p1_b4.aoi_r4 A2 ) ( read_w0_p0_b4.aoi_r4 A2 ) ( storage_4_0_0.bit4.bit QN ) + USE SIGNAL ;
-+    - storage_4_0_0.bit5.storage ( read_w0_p1_b5.aoi_r4 A2 ) ( read_w0_p0_b5.aoi_r4 A2 ) ( storage_4_0_0.bit5.bit QN ) + USE SIGNAL ;
-+    - storage_4_0_0.bit6.storage ( read_w0_p1_b6.aoi_r4 A2 ) ( read_w0_p0_b6.aoi_r4 A2 ) ( storage_4_0_0.bit6.bit QN ) + USE SIGNAL ;
-+    - storage_4_0_0.bit7.storage ( read_w0_p1_b7.aoi_r4 A2 ) ( read_w0_p0_b7.aoi_r4 A2 ) ( storage_4_0_0.bit7.bit QN ) + USE SIGNAL ;
-+    - storage_4_0_0.gclock ( storage_4_0_0.cg GCLK ) ( storage_4_0_0.bit7.bit CLK ) ( storage_4_0_0.bit6.bit CLK ) ( storage_4_0_0.bit5.bit CLK ) ( storage_4_0_0.bit4.bit CLK ) ( storage_4_0_0.bit3.bit CLK ) ( storage_4_0_0.bit2.bit CLK )
-+      ( storage_4_0_0.bit1.bit CLK ) ( storage_4_0_0.bit0.bit CLK ) + USE SIGNAL ;
-+    - storage_4_0_0.we ( storage_4_0_0.gcand Y ) ( storage_4_0_0.cg ENA ) + USE SIGNAL ;
-+    - storage_5_0_0.bit0.storage ( storage_5_0_0.bit0.bit QN ) ( read_w0_p1_b0.aoi_r4 B2 ) ( read_w0_p0_b0.aoi_r4 B2 ) + USE SIGNAL ;
-+    - storage_5_0_0.bit1.storage ( storage_5_0_0.bit1.bit QN ) ( read_w0_p1_b1.aoi_r4 B2 ) ( read_w0_p0_b1.aoi_r4 B2 ) + USE SIGNAL ;
-+    - storage_5_0_0.bit2.storage ( storage_5_0_0.bit2.bit QN ) ( read_w0_p1_b2.aoi_r4 B2 ) ( read_w0_p0_b2.aoi_r4 B2 ) + USE SIGNAL ;
-+    - storage_5_0_0.bit3.storage ( storage_5_0_0.bit3.bit QN ) ( read_w0_p1_b3.aoi_r4 B2 ) ( read_w0_p0_b3.aoi_r4 B2 ) + USE SIGNAL ;
-+    - storage_5_0_0.bit4.storage ( storage_5_0_0.bit4.bit QN ) ( read_w0_p1_b4.aoi_r4 B2 ) ( read_w0_p0_b4.aoi_r4 B2 ) + USE SIGNAL ;
-+    - storage_5_0_0.bit5.storage ( storage_5_0_0.bit5.bit QN ) ( read_w0_p1_b5.aoi_r4 B2 ) ( read_w0_p0_b5.aoi_r4 B2 ) + USE SIGNAL ;
-+    - storage_5_0_0.bit6.storage ( storage_5_0_0.bit6.bit QN ) ( read_w0_p1_b6.aoi_r4 B2 ) ( read_w0_p0_b6.aoi_r4 B2 ) + USE SIGNAL ;
-+    - storage_5_0_0.bit7.storage ( storage_5_0_0.bit7.bit QN ) ( read_w0_p1_b7.aoi_r4 B2 ) ( read_w0_p0_b7.aoi_r4 B2 ) + USE SIGNAL ;
-+    - storage_5_0_0.gclock ( storage_5_0_0.cg GCLK ) ( storage_5_0_0.bit7.bit CLK ) ( storage_5_0_0.bit6.bit CLK ) ( storage_5_0_0.bit5.bit CLK ) ( storage_5_0_0.bit4.bit CLK ) ( storage_5_0_0.bit3.bit CLK ) ( storage_5_0_0.bit2.bit CLK )
-+      ( storage_5_0_0.bit1.bit CLK ) ( storage_5_0_0.bit0.bit CLK ) + USE SIGNAL ;
-+    - storage_5_0_0.we ( storage_5_0_0.gcand Y ) ( storage_5_0_0.cg ENA ) + USE SIGNAL ;
-+    - storage_6_0_0.bit0.storage ( read_w0_p1_b0.aoi_r6 A2 ) ( read_w0_p0_b0.aoi_r6 A2 ) ( storage_6_0_0.bit0.bit QN ) + USE SIGNAL ;
-+    - storage_6_0_0.bit1.storage ( read_w0_p1_b1.aoi_r6 A2 ) ( read_w0_p0_b1.aoi_r6 A2 ) ( storage_6_0_0.bit1.bit QN ) + USE SIGNAL ;
-+    - storage_6_0_0.bit2.storage ( read_w0_p1_b2.aoi_r6 A2 ) ( read_w0_p0_b2.aoi_r6 A2 ) ( storage_6_0_0.bit2.bit QN ) + USE SIGNAL ;
-+    - storage_6_0_0.bit3.storage ( read_w0_p1_b3.aoi_r6 A2 ) ( read_w0_p0_b3.aoi_r6 A2 ) ( storage_6_0_0.bit3.bit QN ) + USE SIGNAL ;
-+    - storage_6_0_0.bit4.storage ( read_w0_p1_b4.aoi_r6 A2 ) ( read_w0_p0_b4.aoi_r6 A2 ) ( storage_6_0_0.bit4.bit QN ) + USE SIGNAL ;
-+    - storage_6_0_0.bit5.storage ( read_w0_p1_b5.aoi_r6 A2 ) ( read_w0_p0_b5.aoi_r6 A2 ) ( storage_6_0_0.bit5.bit QN ) + USE SIGNAL ;
-+    - storage_6_0_0.bit6.storage ( read_w0_p1_b6.aoi_r6 A2 ) ( read_w0_p0_b6.aoi_r6 A2 ) ( storage_6_0_0.bit6.bit QN ) + USE SIGNAL ;
-+    - storage_6_0_0.bit7.storage ( read_w0_p1_b7.aoi_r6 A2 ) ( read_w0_p0_b7.aoi_r6 A2 ) ( storage_6_0_0.bit7.bit QN ) + USE SIGNAL ;
-+    - storage_6_0_0.gclock ( storage_6_0_0.cg GCLK ) ( storage_6_0_0.bit7.bit CLK ) ( storage_6_0_0.bit6.bit CLK ) ( storage_6_0_0.bit5.bit CLK ) ( storage_6_0_0.bit4.bit CLK ) ( storage_6_0_0.bit3.bit CLK ) ( storage_6_0_0.bit2.bit CLK )
-+      ( storage_6_0_0.bit1.bit CLK ) ( storage_6_0_0.bit0.bit CLK ) + USE SIGNAL ;
-+    - storage_6_0_0.we ( storage_6_0_0.gcand Y ) ( storage_6_0_0.cg ENA ) + USE SIGNAL ;
-+    - storage_7_0_0.bit0.storage ( storage_7_0_0.bit0.bit QN ) ( read_w0_p1_b0.aoi_r6 B2 ) ( read_w0_p0_b0.aoi_r6 B2 ) + USE SIGNAL ;
-+    - storage_7_0_0.bit1.storage ( storage_7_0_0.bit1.bit QN ) ( read_w0_p1_b1.aoi_r6 B2 ) ( read_w0_p0_b1.aoi_r6 B2 ) + USE SIGNAL ;
-+    - storage_7_0_0.bit2.storage ( storage_7_0_0.bit2.bit QN ) ( read_w0_p1_b2.aoi_r6 B2 ) ( read_w0_p0_b2.aoi_r6 B2 ) + USE SIGNAL ;
-+    - storage_7_0_0.bit3.storage ( storage_7_0_0.bit3.bit QN ) ( read_w0_p1_b3.aoi_r6 B2 ) ( read_w0_p0_b3.aoi_r6 B2 ) + USE SIGNAL ;
-+    - storage_7_0_0.bit4.storage ( storage_7_0_0.bit4.bit QN ) ( read_w0_p1_b4.aoi_r6 B2 ) ( read_w0_p0_b4.aoi_r6 B2 ) + USE SIGNAL ;
-+    - storage_7_0_0.bit5.storage ( storage_7_0_0.bit5.bit QN ) ( read_w0_p1_b5.aoi_r6 B2 ) ( read_w0_p0_b5.aoi_r6 B2 ) + USE SIGNAL ;
-+    - storage_7_0_0.bit6.storage ( storage_7_0_0.bit6.bit QN ) ( read_w0_p1_b6.aoi_r6 B2 ) ( read_w0_p0_b6.aoi_r6 B2 ) + USE SIGNAL ;
-+    - storage_7_0_0.bit7.storage ( storage_7_0_0.bit7.bit QN ) ( read_w0_p1_b7.aoi_r6 B2 ) ( read_w0_p0_b7.aoi_r6 B2 ) + USE SIGNAL ;
-+    - storage_7_0_0.gclock ( storage_7_0_0.cg GCLK ) ( storage_7_0_0.bit7.bit CLK ) ( storage_7_0_0.bit6.bit CLK ) ( storage_7_0_0.bit5.bit CLK ) ( storage_7_0_0.bit4.bit CLK ) ( storage_7_0_0.bit3.bit CLK ) ( storage_7_0_0.bit2.bit CLK )
-+      ( storage_7_0_0.bit1.bit CLK ) ( storage_7_0_0.bit0.bit CLK ) + USE SIGNAL ;
-+    - storage_7_0_0.we ( storage_7_0_0.gcand Y ) ( storage_7_0_0.cg ENA ) + USE SIGNAL ;
-+    - w_sel_p0.select_w0 ( sel_buf_w_p0.sel_buf_0 Y ) + USE SIGNAL ;
-+    - w_sel_p0.select_w1 ( sel_buf_w_p0.sel_buf_1 Y ) ( storage_1_0_0.gcand A ) + USE SIGNAL ;
-+    - w_sel_p0.select_w2 ( sel_buf_w_p0.sel_buf_2 Y ) ( storage_2_0_0.gcand A ) + USE SIGNAL ;
-+    - w_sel_p0.select_w3 ( sel_buf_w_p0.sel_buf_3 Y ) ( storage_3_0_0.gcand A ) + USE SIGNAL ;
-+    - w_sel_p0.select_w4 ( sel_buf_w_p0.sel_buf_4 Y ) ( storage_4_0_0.gcand A ) + USE SIGNAL ;
-+    - w_sel_p0.select_w5 ( sel_buf_w_p0.sel_buf_5 Y ) ( storage_5_0_0.gcand A ) + USE SIGNAL ;
-+    - w_sel_p0.select_w6 ( sel_buf_w_p0.sel_buf_6 Y ) ( storage_6_0_0.gcand A ) + USE SIGNAL ;
-+    - w_sel_p0.select_w7 ( sel_buf_w_p0.sel_buf_7 Y ) ( storage_7_0_0.gcand A ) + USE SIGNAL ;
-+    - we[0] ( PIN we[0] ) ( storage_7_0_0.gcand B ) ( storage_6_0_0.gcand B ) ( storage_5_0_0.gcand B ) ( storage_4_0_0.gcand B ) ( storage_3_0_0.gcand B ) ( storage_2_0_0.gcand B )
-+      ( storage_1_0_0.gcand B ) + USE SIGNAL ;
-+END NETS
-+END DESIGN
-diff --git a/src/ram/test/make_8x8_2r1w_zero_asap7.tcl b/src/ram/test/make_8x8_2r1w_zero_asap7.tcl
-new file mode 100644
-index 0000000000..83d65a7d08
---- /dev/null
-+++ b/src/ram/test/make_8x8_2r1w_zero_asap7.tcl
-@@ -0,0 +1,33 @@
-+# generate_ram on asap7, which has no tristate cell: the read ports are
-+# AND-OR trees, the storage flop's only output is QN, and word 0 reads
-+# 0 (a RISC-V x0).
++++ b/src/ram/test/zero_word_asap7.tcl
+@@ -0,0 +1,28 @@
++# -zero_word 0: word 0 reads 0 whatever is written to it, as a RISC-V
++# register file's x0, and holds no flops; every other word reads back.
 +source "helpers.tcl"
++source "ram_sim.tcl"
 +
 +read_liberty ../../../test/asap7/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz
 +read_liberty ../../../test/asap7/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz
@@ -1095,81 +487,17 @@ index 0000000000..83d65a7d08
 +read_lef ../../../test/asap7/asap7_tech_1x_201209.lef
 +read_lef ../../../test/asap7/asap7sc7p5t_28_R_1x_220121a.lef
 +
-+set behavioral_file [make_result_file make_8x8_2r1w_zero_asap7_behavioral.v]
-+
 +generate_ram_netlist \
-+  -mask_size 8 \
-+  -word_size 8 \
-+  -num_words 8 \
-+  -r_ports 2 \
-+  -w_ports 1 \
-+  -storage_cell DFFHQNx1_ASAP7_75t_R \
-+  -zero_word 0 \
-+  -write_behavioral_verilog $behavioral_file
++  -mask_size 8 -word_size 8 -num_words 8 -r_ports 2 -w_ports 1 \
++  -storage_cell DFFHQNx1_ASAP7_75t_R -zero_word 0
 +
-+set def_file [make_result_file make_8x8_2r1w_zero_asap7.def]
-+write_def $def_file
-+diff_files make_8x8_2r1w_zero_asap7.defok $def_file
-+
-+diff_files make_8x8_2r1w_zero_asap7_behavioral.vok $behavioral_file
++ram_sim::load
++ram_sim::check { [llength $ram_sim::flops] == 7 * 8 } \
++  "[llength $ram_sim::flops] storage flops, not 7 words of 8"
++ram_sim::exercise {
++  words 8 bits 8 zero_word 0
++  writes {{addr_w D {we[0]}}}
++  reads {{addr_r0 Q0} {addr_r1 Q1}}
++}
 +
 +puts "pass"
-diff --git a/src/ram/test/make_8x8_2r1w_zero_asap7_behavioral.vok b/src/ram/test/make_8x8_2r1w_zero_asap7_behavioral.vok
-new file mode 100644
-index 0000000000..373f465efb
---- /dev/null
-+++ b/src/ram/test/make_8x8_2r1w_zero_asap7_behavioral.vok
-@@ -0,0 +1,42 @@
-+module RAM8x8 (
-+  clk,
-+  D,
-+  Q0,
-+  Q1,
-+  addr_w,
-+  addr_r0,
-+  addr_r1,
-+  we
-+);
-+  input clk;
-+  input [7:0] D;
-+  output reg [7:0] Q0;
-+  output reg [7:0] Q1;
-+  input [2:0] addr_w;
-+  input [2:0] addr_r0;
-+  input [2:0] addr_r1;
-+  input [0:0] we;
-+
-+  // memory array declaration
-+  reg [7:0] mem[0:7];
-+
-+  // write logic
-+  integer i;
-+  always @(posedge clk) begin
-+    for (i = 0; i < 1; i = i + 1) begin
-+      if (we[i] && addr_w != 0) begin
-+        mem[addr_w][i*8 +:8] <= D[i*8 +:8];
-+      end
-+    end
-+  end
-+
-+  // read logic
-+  always @(*) begin
-+    Q0 = addr_r0 == 0 ? 8'd0 : mem[addr_r0];
-+  end
-+
-+  always @(*) begin
-+    Q1 = addr_r1 == 0 ? 8'd0 : mem[addr_r1];
-+  end
-+
-+endmodule
-diff --git a/src/ram/test/regression_tests.tcl b/src/ram/test/regression_tests.tcl
-index cb958fabc3..ad53c742b5 100644
---- a/src/ram/test/regression_tests.tcl
-+++ b/src/ram/test/regression_tests.tcl
-@@ -7,5 +7,6 @@ record_tests {
-   make_7x7_2r1w_nangate45
-   make_7x7_1r2w_nangate45
-   make_8x8_2r1w_and_or_asap7
-+  make_8x8_2r1w_zero_asap7
-   make_8x8_latch_sky130
- }

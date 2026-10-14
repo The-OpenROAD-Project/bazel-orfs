@@ -156,9 +156,10 @@ archive_override(
         # pull request carries a gtest. Retires at a bump onto an OpenROAD
         # that has it.
         "//patches:0004-openroad-dpl-window-supply.patch",
-        # 0011 to 0026: OpenROAD #11669's register-file generator carried
-        # onto generate_ram, as options on it, one patch per pull request
-        # to come; not upstreamed.
+        # 0011 to 0026 and 0115 to 0121: OpenROAD #11723's 23 commits,
+        # generate_ram's register-file options, one patch a commit, in its
+        # order; regenerated from it. Not upstreamed; each retires at a
+        # //:bump onto an OpenROAD that has #11723.
         # 0011: generate_ram with more than one write port, each with its
         # own decoder and data, the last port winning a word both write.
         "//patches:0011-openroad-ram-multiple-write-ports.patch",
@@ -214,6 +215,20 @@ archive_override(
         # side by side in its row. On 0025 (OpenROAD #11669); not
         # upstreamed.
         "//patches:0026-openroad-ram-bank-column-layout.patch",
+        # 0115: out-of-range option values stop, each with its message.
+        "//patches:0115-openroad-ram-option-errors.patch",
+        # 0116: the ram test BUILD's per-test data in sorted order.
+        "//patches:0116-openroad-ram-test-build-sorted.patch",
+        # 0117: -read_latency is -register_read_address.
+        "//patches:0117-openroad-ram-register-read-address.patch",
+        # 0118: generate_ram routes on asap7: -tracks, pins off its straps.
+        "//patches:0118-openroad-ram-routes-on-asap7.patch",
+        # 0119: generate_ram -periphery verilog, the core routed.
+        "//patches:0119-openroad-ram-periphery-verilog-routed.patch",
+        # 0120: the ram option tests route through generate_ram.
+        "//patches:0120-openroad-ram-routed-tests.patch",
+        # 0121: generate_ram's help lists its options.
+        "//patches:0121-openroad-ram-help.patch",
     ],
     strip_prefix = "OpenROAD-5007b49201487b5093218a67f5b2f7ea457b5258",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/5007b49201487b5093218a67f5b2f7ea457b5258.tar.gz"],

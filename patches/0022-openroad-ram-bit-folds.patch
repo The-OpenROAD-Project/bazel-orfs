@@ -1,5 +1,8 @@
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Subject: [PATCH] ram: generate_ram -bit_folds, a word's slices in rows
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
 -bit_folds k lays a word's mask slices (-mask_size, word/k rounded up)
 in k rows instead of side by side; where k does not divide the word the
@@ -16,10 +19,23 @@ clock gate, reset tie, select inverters) built in its first fold and
 shared by the others. Not with -use_latch or the row decoder's column
 mux.
 
-The twelfth of the generate_regfile features carried onto generate_ram;
-see OpenROAD #11669. Not upstreamed.
+Tested: src/ram/test/bit_folds_asap7.tcl.
 
+Commit 12 of 23 in OpenROAD #11723, carried here from it. Not
+upstreamed; retires at a //:bump onto an OpenROAD that has it.
 ---
+ src/ram/README.md                 |   2 +
+ src/ram/include/ram/ram.h         |  26 ++++-
+ src/ram/src/ram.cpp               | 167 +++++++++++++++++++++++-------
+ src/ram/src/ram.i                 |   5 +-
+ src/ram/src/ram.tcl               |  18 +++-
+ src/ram/test/BUILD                |   5 +
+ src/ram/test/CMakeLists.txt       |   1 +
+ src/ram/test/bit_folds_asap7.tcl  |  34 ++++++
+ src/ram/test/regression_tests.tcl |   1 +
+ 9 files changed, 213 insertions(+), 46 deletions(-)
+ create mode 100644 src/ram/test/bit_folds_asap7.tcl
+
 diff --git a/src/ram/README.md b/src/ram/README.md
 index 4e17cb1167..21c00d7457 100644
 --- a/src/ram/README.md
@@ -41,7 +57,7 @@ index 4e17cb1167..21c00d7457 100644
  | `-routing_layer` | A list of the metal layer and metal width (in microns) for generating standard cell power tracks (followpins). Example: `{met1 0.48}`. |
  | `-power_net_name` | Name of the power net to create. Default: `VDD`. |
 diff --git a/src/ram/include/ram/ram.h b/src/ram/include/ram/ram.h
-index d253b23818..4b82175c0d 100644
+index d253b23818..276af99c4f 100644
 --- a/src/ram/include/ram/ram.h
 +++ b/src/ram/include/ram/ram.h
 @@ -123,7 +123,8 @@ class RamGen
@@ -62,7 +78,7 @@ index d253b23818..4b82175c0d 100644
 +  // so a wide word with many ports is as tall as it is wide; every
 +  // column is k rows a word
 +  int bit_folds_{1};
-+  int word_bits_{0};  // the word's bits, short of the folds' pads
++  int word_bits_{0};    // the word's bits, short of the folds' pads
 +  int slice_width_{0};  // a slice's columns: its bits, and its select
 +  // with -bit_folds a word is written whole: its write logic (enables,
 +  // priority, hold, clock gate, reset tie, select inverters) built in its
@@ -85,21 +101,22 @@ index d253b23818..4b82175c0d 100644
    bool marking_periphery_{false};
    Cell* periphery_cell_{nullptr};
 diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
-index b5a03e9315..a49a3612cb 100644
+index cf0f024bda..d4355802b1 100644
 --- a/src/ram/src/ram.cpp
 +++ b/src/ram/src/ram.cpp
-@@ -349,18 +349,25 @@ void RamGen::makeSlice(const int slice_idx,
-         }
+@@ -350,19 +350,24 @@ void RamGen::makeSlice(const int slice_idx,
        }
-       ram_grid_.addCell(std::move(cell),
--                        slice_idx * (mask_size * column_mux_ratio + column_mux_ratio)
-+                        sliceOffset(slice_idx)
-                             + local_bit * column_mux_ratio + word_idx);
+       ram_grid_.addCell(
+           std::move(cell),
+-          slice_idx * (mask_size * column_mux_ratio + column_mux_ratio)
+-              + local_bit * column_mux_ratio + word_idx);
++          sliceOffset(slice_idx) + local_bit * column_mux_ratio + word_idx);
      }
-     ram_grid_.addCell(nullptr,
--                      slice_idx * (mask_size * column_mux_ratio + column_mux_ratio)
-+                      sliceOffset(slice_idx)
-                           + mask_size * column_mux_ratio + word_idx);
+     ram_grid_.addCell(
+         nullptr,
+-        slice_idx * (mask_size * column_mux_ratio + column_mux_ratio)
+-            + mask_size * column_mux_ratio + word_idx);
++        sliceOffset(slice_idx) + mask_size * column_mux_ratio + word_idx);
      return;
    }
  
@@ -117,13 +134,13 @@ index b5a03e9315..a49a3612cb 100644
      // the AND-OR trees read the true selects
    } else if (column_mux_ratio == 1 || banked_) {
      for (int i = 0; i < r_total; ++i) {
-@@ -374,13 +381,15 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -376,13 +381,15 @@ void RamGen::makeSlice(const int slice_idx,
  
    // the flops' clock: the word's gated clock, or with -write_style mux
    // the clock itself
 -  auto gclock_net = write_mux_ ? clock : makeNet(prefix, "gclock");
 -  auto we_net = makeNet(prefix, "we");
-+  auto gclock_net = shared      ? word_write.gclock
++  auto gclock_net = shared       ? word_write.gclock
 +                    : write_mux_ ? clock
 +                                 : makeNet(prefix, "gclock");
 +  auto we_net = shared ? word_write.we : makeNet(prefix, "we");
@@ -137,7 +154,7 @@ index b5a03e9315..a49a3612cb 100644
      hold = makeNet(prefix, "hold");
      makeInst(sel_cell.get(),
               prefix,
-@@ -430,8 +439,8 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -432,8 +439,8 @@ void RamGen::makeSlice(const int slice_idx,
    };
  
    // -reset_value: one tie per word slice holds the flops' unused pins off
@@ -148,7 +165,7 @@ index b5a03e9315..a49a3612cb 100644
      reset_off = makeNet(prefix, "reset_off");
      makeInst(sel_cell.get(),
               prefix,
-@@ -446,7 +455,9 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -448,7 +455,9 @@ void RamGen::makeSlice(const int slice_idx,
    // last port wins, as in the behavioral model. The clock gate opens for
    // any of them.
    vector<dbNet*> take(num_write);
@@ -159,7 +176,7 @@ index b5a03e9315..a49a3612cb 100644
      vector<dbNet*> we(num_write);
      for (int w = 0; w < num_write; ++w) {
        we[w] = makeNet(prefix, fmt::format("we{}", w));
-@@ -490,7 +501,18 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -492,7 +501,18 @@ void RamGen::makeSlice(const int slice_idx,
      }
    }
  
@@ -170,21 +187,22 @@ index b5a03e9315..a49a3612cb 100644
    for (int local_bit = 0; local_bit < mask_size; ++local_bit) {
 +    if (start_bit_idx + local_bit >= word_bits_) {
 +      // a short fold's pad: its column empty in this row
-+      ram_grid_.addCell(nullptr,
-+                        sliceOffset(slice_idx)
-+                            + local_bit * column_mux_ratio + word_idx);
++      ram_grid_.addCell(
++          nullptr,
++          sliceOffset(slice_idx) + local_bit * column_mux_ratio + word_idx);
 +      continue;
 +    }
      auto name = fmt::format("{}.bit{}", prefix, start_bit_idx + local_bit);
      vector<dbNet*> outs(r_total);
      for (int r_port = 0; r_port < r_total; ++r_port) {
-@@ -606,13 +628,13 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -608,13 +628,13 @@ void RamGen::makeSlice(const int slice_idx,
        }
      }
  
 -    int bit_col = slice_idx * (mask_size * column_mux_ratio + column_mux_ratio)
-+    int bit_col = sliceOffset(slice_idx)
-                   + local_bit * column_mux_ratio + word_idx;
+-                  + local_bit * column_mux_ratio + word_idx;
++    int bit_col
++        = sliceOffset(slice_idx) + local_bit * column_mux_ratio + word_idx;
      ram_grid_.addCell(std::move(bit_cell), bit_col);
    }
  
@@ -194,7 +212,7 @@ index b5a03e9315..a49a3612cb 100644
      makeInst(sel_cell.get(),
               prefix,
               "cg",
-@@ -640,7 +662,7 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -642,7 +662,7 @@ void RamGen::makeSlice(const int slice_idx,
    // Make clock and
    // this AND gate needs to be fed a net created by a decoder
    // adding any net will automatically connect with any port
@@ -203,7 +221,7 @@ index b5a03e9315..a49a3612cb 100644
      makeInst(sel_cell.get(),
               prefix,
               "gcand",
-@@ -651,7 +673,7 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -653,7 +673,7 @@ void RamGen::makeSlice(const int slice_idx,
    }
  
    // Make select inverters
@@ -212,20 +230,21 @@ index b5a03e9315..a49a3612cb 100644
      for (int i = 0; i < r_total; ++i) {
        if (selects[num_write + i] == nullptr) {
          continue;  // a banked read port's other banks
-@@ -665,9 +687,10 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -667,9 +687,10 @@ void RamGen::makeSlice(const int slice_idx,
      }
    }
  
 -  int sel_col = slice_idx * (mask_size * column_mux_ratio + column_mux_ratio)
-+  int sel_col = sliceOffset(slice_idx)
-                 + mask_size * column_mux_ratio + word_idx;
+-                + mask_size * column_mux_ratio + word_idx;
 -  ram_grid_.addCell(std::move(sel_cell), sel_col);
++  int sel_col
++      = sliceOffset(slice_idx) + mask_size * column_mux_ratio + word_idx;
 +  // a fold sharing its word's logic has an empty select cell
 +  ram_grid_.addCell(shared ? nullptr : std::move(sel_cell), sel_col);
  }
  
  // Note: For column_mux_ratio > 1, creates one shared select_b net per row and
-@@ -703,7 +726,8 @@ void RamGen::makeWord(const int slices_per_word,
+@@ -705,7 +726,8 @@ void RamGen::makeWord(const int slices_per_word,
      for (size_t w = 0; w < data_input.size(); ++w) {
        slice_inputs.emplace_back(data_input[w].begin() + start_idx,
                                  data_input[w].begin() + start_idx + mask_size);
@@ -235,7 +254,7 @@ index b5a03e9315..a49a3612cb 100644
      }
      std::vector<std::vector<odb::dbNet*>> slice_outputs;
      slice_outputs.reserve(r_total);
-@@ -789,6 +813,9 @@ void RamGen::makeDecoderColumn(
+@@ -791,6 +813,9 @@ void RamGen::makeDecoderColumn(
        }
      }
      decoder_layout->addCell(std::move(word_cell));
@@ -245,7 +264,7 @@ index b5a03e9315..a49a3612cb 100644
    }
    marking_periphery_ = false;
    ram_grid_.addLayout(std::move(decoder_layout));
-@@ -819,6 +846,9 @@ void RamGen::makeBufferColumn(const std::string& prefix,
+@@ -822,6 +847,9 @@ void RamGen::makeBufferColumn(const std::string& prefix,
             {buffer_ports_[{PortRoleType::DataOut, 0}], select_nets[word]}});
      }
      buffer_layout->addCell(std::move(buf_cell));
@@ -255,7 +274,7 @@ index b5a03e9315..a49a3612cb 100644
    }
    marking_periphery_ = false;
    ram_grid_.addLayout(std::move(buffer_layout));
-@@ -876,6 +906,9 @@ void RamGen::makeWordDecoderColumn(
+@@ -879,6 +907,9 @@ void RamGen::makeWordDecoderColumn(
        }
      }
      decoder_layout->addCell(std::move(row_cell));
@@ -265,7 +284,7 @@ index b5a03e9315..a49a3612cb 100644
    }
    marking_periphery_ = false;
    ram_grid_.addLayout(std::move(decoder_layout));
-@@ -1891,7 +1924,7 @@ void RamGen::ramRouting(int thread_count)
+@@ -1890,7 +1921,7 @@ void RamGen::ramRouting(int thread_count)
  }
  
  void RamGen::generate(const int mask_size,
@@ -274,7 +293,7 @@ index b5a03e9315..a49a3612cb 100644
                        const int num_words,
                        const int rw_ports,
                        const int r_ports,
-@@ -1916,7 +1949,8 @@ void RamGen::generate(const int mask_size,
+@@ -1915,7 +1946,8 @@ void RamGen::generate(const int mask_size,
                        const std::string& pin_layer,
                        const std::string& cells,
                        const std::string& name,
@@ -284,7 +303,7 @@ index b5a03e9315..a49a3612cb 100644
  {
    // Banks: every port decodes every word's whole address, and a row holds
    // bank_columns words, laid out as the column mux lays out its words;
-@@ -1980,13 +2014,42 @@ void RamGen::generate(const int mask_size,
+@@ -1980,13 +2012,42 @@ void RamGen::generate(const int mask_size,
    // the words in a row: the column mux's, or the banks side by side
    const int column_mux_ratio = banked_ ? bank_columns_ : column_mux_ratio_arg;
    words_per_row_ = column_mux_ratio;
@@ -328,7 +347,7 @@ index b5a03e9315..a49a3612cb 100644
    ram_name_ = ram_name;
  
    // error checking for column_mux_ratio
-@@ -2039,6 +2102,7 @@ void RamGen::generate(const int mask_size,
+@@ -2039,6 +2100,7 @@ void RamGen::generate(const int mask_size,
    storage_inverted_ = false;
    storage_nets_.clear();
    tree_nodes_.clear();
@@ -336,17 +355,18 @@ index b5a03e9315..a49a3612cb 100644
    storage_cell_ = storage_cell;
    tristate_cell_ = tristate_cell;
    inv_cell_ = inv_cell;
-@@ -2208,7 +2272,8 @@ void RamGen::generate(const int mask_size,
+@@ -2205,8 +2267,8 @@ void RamGen::generate(const int mask_size,
+   // one extra decoder column at far right shared across all row
  
    // mux layout columns + per-port buffer/decoder columns + inverter columns
-   int col_cell_count
+-  int col_cell_count
 -      = slices_per_word * (mask_size * column_mux_ratio + column_mux_ratio);
-+      = (bit_folds_ > 1 ? 1 : slices_per_word)
-+        * (mask_size * column_mux_ratio + column_mux_ratio);
++  int col_cell_count = (bit_folds_ > 1 ? 1 : slices_per_word)
++                       * (mask_size * column_mux_ratio + column_mux_ratio);
    ram_grid_.setNumLayouts(col_cell_count);
  
    auto clock = makeBTerm("clk", dbIoType::INPUT);
-@@ -2231,7 +2296,9 @@ void RamGen::generate(const int mask_size,
+@@ -2229,7 +2291,9 @@ void RamGen::generate(const int mask_size,
        num_write, vector<dbBTerm*>(slices_per_word, nullptr));
    for (int w = 0; w < num_write; ++w) {
      const std::string we = num_write == 1 ? "we" : fmt::format("we{}", w);
@@ -357,7 +377,7 @@ index b5a03e9315..a49a3612cb 100644
        write_enable[w][slice]
            = makeBTerm(fmt::format("{}[{}]", we, slice), dbIoType::INPUT);
      }
-@@ -2398,6 +2465,16 @@ void RamGen::generate(const int mask_size,
+@@ -2395,6 +2459,16 @@ void RamGen::generate(const int mask_size,
    vector<vector<dbBTerm*>> data_inputs(num_write);
    vector<vector<dbNet*>> D_nets(num_write, vector<dbNet*>(word_size));
    for (int bit = 0; bit < word_size; ++bit) {
@@ -374,7 +394,7 @@ index b5a03e9315..a49a3612cb 100644
      for (int w = 0; w < num_write; ++w) {
        const std::string d = num_write == 1 ? "D" : fmt::format("D{}", w);
        data_inputs[w].push_back(
-@@ -2440,7 +2517,9 @@ void RamGen::generate(const int mask_size,
+@@ -2437,7 +2511,9 @@ void RamGen::generate(const int mask_size,
      for (int w = 0; w < column_mux_ratio; ++w) {
        for (int port = 0; port < r_total; ++port) {
          for (int bit = 0; bit < word_size; ++bit) {
@@ -385,7 +405,7 @@ index b5a03e9315..a49a3612cb 100644
          }
        }
      }
-@@ -2503,7 +2582,7 @@ void RamGen::generate(const int mask_size,
+@@ -2500,7 +2576,7 @@ void RamGen::generate(const int mask_size,
          if (wordAt(row, w) == zero_word_) {
            continue;
          }
@@ -393,8 +413,8 @@ index b5a03e9315..a49a3612cb 100644
 +        for (int bit = 0; bit < word_bits_; ++bit) {
            const std::string prefix = fmt::format(
                "storage_{}_{}_{}", row, w, (bit / mask_size) * mask_size);
-           storage_nets_[{row, w, bit}] = makeNet(
-@@ -2537,7 +2616,7 @@ void RamGen::generate(const int mask_size,
+           storage_nets_[{row, w, bit}]
+@@ -2534,7 +2610,7 @@ void RamGen::generate(const int mask_size,
          const vector<Term> terms = terms_of(port, w);
          const int n = static_cast<int>(terms.size());
          const bool flip = treeInverted(0, n) != storage_inverted_;
@@ -403,7 +423,7 @@ index b5a03e9315..a49a3612cb 100644
            const std::string prefix
                = banked_ ? fmt::format("read_p{}_b{}", port, bit)
                          : fmt::format("read_w{}_p{}_b{}", w, port, bit);
-@@ -2763,10 +2842,22 @@ void RamGen::generate(const int mask_size,
+@@ -2760,10 +2836,22 @@ void RamGen::generate(const int mask_size,
      }
    }
  
@@ -426,9 +446,9 @@ index b5a03e9315..a49a3612cb 100644
 +      }
        marking_periphery_ = true;  // the input buffers
        for (int w = 0; w < num_write; ++w) {
-         makeInst(buffer_grid_cell.get(),
-@@ -2779,11 +2870,11 @@ void RamGen::generate(const int mask_size,
-                    D_nets[w][bit_idx]}});
+         makeInst(
+@@ -2776,11 +2864,11 @@ void RamGen::generate(const int mask_size,
+              {buffer_ports_[{PortRoleType::DataOut, 0}], D_nets[w][bit_idx]}});
        }
        marking_periphery_ = false;
 -      int buf_col = slice * (mask_size * column_mux_ratio + column_mux_ratio)
@@ -442,7 +462,7 @@ index b5a03e9315..a49a3612cb 100644
  
    // indices for creating buffers
    int r_buf_idx = 0;
-@@ -2834,7 +2925,7 @@ void RamGen::generate(const int mask_size,
+@@ -2831,7 +2919,7 @@ void RamGen::generate(const int mask_size,
      for (int col = 0; col < inv_col_count; ++col) {
        int start_port = col * ports_per_col;
        int end_port = std::min(start_port + ports_per_col, total_ports);
@@ -451,7 +471,7 @@ index b5a03e9315..a49a3612cb 100644
                                               num_row_bits,
                                               start_port,
                                               end_port,
-@@ -2933,7 +3024,9 @@ void RamGen::generate(const int mask_size,
+@@ -2930,7 +3018,9 @@ void RamGen::generate(const int mask_size,
    }
    // // One extra row at the top for placing input buffers, one extra row for
    // // negative latches if use latch-based ram
@@ -462,7 +482,7 @@ index b5a03e9315..a49a3612cb 100644
  
    // auto cell_inv_layout = std::make_unique<Layout>(odb::vertical);
    // // check for AND gate, specific case for 2 words
-@@ -3042,9 +3135,10 @@ void RamGen::generate(const int mask_size,
+@@ -3039,9 +3129,10 @@ void RamGen::generate(const int mask_size,
      unplacePeriphery();
    }
  
@@ -569,3 +589,88 @@ index 61a0297a92..fc5921e935 100644
      if { [info exists keys($key)] } {
        lappend ram_netlist_args $key $keys($key)
      }
+diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
+index 3286ae0a67..c4d9a45532 100644
+--- a/src/ram/test/BUILD
++++ b/src/ram/test/BUILD
+@@ -24,6 +24,7 @@ PASSFAIL_TESTS = [
+     "periphery_unplaced_asap7",
+     "cells_name_asap7",
+     "decoder_word_asap7",
++    "bit_folds_asap7",
+ ]
+ 
+ ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
+@@ -108,6 +109,10 @@ filegroup(
+                 "//test:asap7_data",
+                 "//test:asap7_nldm_data",
+             ],
++            "bit_folds_asap7": [
++                "//test:asap7_data",
++                "//test:asap7_nldm_data",
++            ],
+             "make_7x7_2r1w_nangate45": [
+                 "make_7x7_2r1w_nangate45_behavioral.vok",
+                 "Nangate45/Nangate45.lef",
+diff --git a/src/ram/test/CMakeLists.txt b/src/ram/test/CMakeLists.txt
+index 3916b7070c..6549d2cc86 100644
+--- a/src/ram/test/CMakeLists.txt
++++ b/src/ram/test/CMakeLists.txt
+@@ -17,5 +17,6 @@ or_integration_tests(
+     periphery_unplaced_asap7
+     cells_name_asap7
+     decoder_word_asap7
++    bit_folds_asap7
+ )
+ 
+diff --git a/src/ram/test/bit_folds_asap7.tcl b/src/ram/test/bit_folds_asap7.tcl
+new file mode 100644
+index 0000000000..0f5425599f
+--- /dev/null
++++ b/src/ram/test/bit_folds_asap7.tcl
+@@ -0,0 +1,34 @@
++# -bit_folds 3 on a 7-bit word: each word in three rows of 3, 3 and 1
++# bits, written whole and read back.
++
++source "helpers.tcl"
++source "ram_sim.tcl"
++
++read_liberty ../../../test/asap7/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz
++read_liberty ../../../test/asap7/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz
++read_liberty ../../../test/asap7/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz
++read_liberty ../../../test/asap7/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib
++read_liberty ../../../test/asap7/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz
++
++read_lef ../../../test/asap7/asap7_tech_1x_201209.lef
++read_lef ../../../test/asap7/asap7sc7p5t_28_R_1x_220121a.lef
++
++
++generate_ram_netlist \
++  -mask_size 3 -word_size 7 -num_words 8 -r_ports 2 -w_ports 1 \
++  -storage_cell DFFHQNx1_ASAP7_75t_R -decoder word -bit_folds 3
++
++ram_sim::load
++ram_sim::check { [llength $ram_sim::flops] == 8 * 7 } \
++  "[llength $ram_sim::flops] storage flops, not 8 words of 7"
++dict for {word insts} [ram_sim::words_of_flops] {
++  set ys [lsort -unique [lmap i $insts { lindex [$i getLocation] 1 }]]
++  ram_sim::check { [llength $ys] == 3 } "word $word is in [llength $ys] rows, not 3"
++}
++ram_sim::exercise {
++  words 8 bits 7
++  writes {{addr_w D {we[0]}}}
++  reads {{addr_r0 Q0} {addr_r1 Q1}}
++}
++
++puts "pass"
+diff --git a/src/ram/test/regression_tests.tcl b/src/ram/test/regression_tests.tcl
+index 5843f8aaa8..da84aab2bd 100644
+--- a/src/ram/test/regression_tests.tcl
++++ b/src/ram/test/regression_tests.tcl
+@@ -16,5 +16,6 @@ record_tests {
+   periphery_unplaced_asap7
+   cells_name_asap7
+   decoder_word_asap7
++  bit_folds_asap7
+   make_8x8_latch_sky130
+ }

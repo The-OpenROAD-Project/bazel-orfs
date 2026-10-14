@@ -115,14 +115,15 @@ ORFS_PATCHES = [
     # //:bump onto an ORFS that carries it.
     Label("//patches:0094-orfs-synth-verilog-surgery.patch"),
     # 0089: AUTO_MEMORIES_REGFILES: register files listed by spec are
-    # built by OpenROAD's generate_ram (OpenROAD patches 0011 to 0026)
-    # through memories/regfile_ram.py, a wrapper in the RTL module's
-    # place; inlined, or macro-placed where AUTO_MEMORIES_MACRO_PLACE names
-    # them, in `mode netlist` dissolving into their cells after macro
-    # placement. Replaces STRUCTURED_MEMORIES (0071, 0078, 0082, 0084).
-    # ORFS #4651 carries an earlier form, on generate_regfile. Not
-    # upstreamed in this form; retires at a bump onto an ORFS that carries
-    # it.
+    # built by OpenROAD's generate_ram (OpenROAD #11723, patches 0011 to
+    # 0026 and 0115 to 0121) through memories/regfile_ram.py, a wrapper in
+    # the RTL module's place; inlined, or macro-placed where
+    # AUTO_MEMORIES_MACRO_PLACE names them, in `mode netlist` dissolving
+    # into their cells after macro placement. Refuses a module whose
+    # memory has an initial value. Replaces STRUCTURED_MEMORIES (0071,
+    # 0078, 0082, 0084). ORFS #4651, an earlier form on generate_regfile,
+    # is closed; carried here until OpenROAD has #11723. Not upstreamed;
+    # retires at a bump onto an ORFS that carries it.
     Label("//patches:0089-orfs-auto-memories-regfiles.patch"),
     # 0102: asap7/coralnpu as a synthesis build of its snapshot: SRAMs
     # through AUTO_MEMORIES with their write masks, not USE_ASAP7's
