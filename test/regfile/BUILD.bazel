@@ -9,6 +9,11 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 # it as a macro (AUTO_MEMORIES_MACRO_PLACE, ORFS patch 0089), which dissolves
 # into its cells after macro placement; the inlined variant does not
 # list it, so synthesis reads the generated netlist in the module's place.
+exports_files(
+    ["constraint.sdc"],
+    visibility = ["//test/regfile/options:__pkg__"],
+)
+
 [
     orfs_flow(
         name = "regfile_top",
@@ -162,27 +167,37 @@ build_test(
     targets = [":regfile_top_keep_blackboxes"],
 )
 
-# OpenROAD's own ram tests, generate_ram's and those patches 0011 to 0023
-# add, so a change to the generator runs them here: CI tests this
-# repository's packages, not @openroad's.
+# OpenROAD's own ram tests, generate_ram's and those OpenROAD #11723
+# adds (patches 0011 to 0026 and 0115 to 0120), each routing its block
+# through generate_ram: seconds to minutes each in an optimized build,
+# ten times that without one. Manual, to keep them out of this
+# repository's CI time; run them after a change to the patches:
+#
+#   bazelisk test -c opt //test/regfile:openroad_ram_tests
 test_suite(
     name = "openroad_ram_tests",
+    tags = ["manual"],
     tests = [
-        "@openroad//src/ram/test:make_7x7_1r2w_nangate45-tcl_test",
+        "@openroad//src/ram/test:and_or_read_asap7-tcl_test",
+        "@openroad//src/ram/test:bank_column_layout_asap7-tcl_test",
+        "@openroad//src/ram/test:banked_read_ports_asap7-tcl_test",
+        "@openroad//src/ram/test:banks_asap7-tcl_test",
+        "@openroad//src/ram/test:bit_folds_asap7-tcl_test",
+        "@openroad//src/ram/test:cells_name_asap7-tcl_test",
+        "@openroad//src/ram/test:decoder_word_asap7-tcl_test",
         "@openroad//src/ram/test:make_7x7_2r1w_nangate45-tcl_test",
         "@openroad//src/ram/test:make_7x7_nangate45-tcl_test",
-        "@openroad//src/ram/test:make_8x8_2r1w_and_or_asap7-tcl_test",
-        "@openroad//src/ram/test:make_8x8_2r1w_banks_asap7-tcl_test",
-        "@openroad//src/ram/test:make_8x8_2r1w_contiguous_asap7-tcl_test",
-        "@openroad//src/ram/test:make_8x8_2r1w_mux_asap7-tcl_test",
-        "@openroad//src/ram/test:make_8x8_2r1w_reset_asap7-tcl_test",
-        "@openroad//src/ram/test:make_8x8_2r1w_service_asap7-tcl_test",
         "@openroad//src/ram/test:make_8x8_2r1w_sky130-tcl_test",
-        "@openroad//src/ram/test:make_8x8_2r1w_unplaced_asap7-tcl_test",
-        "@openroad//src/ram/test:make_8x8_2r1w_zero_asap7-tcl_test",
-        "@openroad//src/ram/test:make_8x8_2r2w_or_asap7-tcl_test",
-        "@openroad//src/ram/test:make_8x8_rb_asap7-tcl_test",
-        "@openroad//src/ram/test:make_8x8_rb_latency_asap7-tcl_test",
         "@openroad//src/ram/test:make_8x8_sky130-tcl_test",
+        "@openroad//src/ram/test:option_errors_asap7-tcl_test",
+        "@openroad//src/ram/test:periphery_unplaced_asap7-tcl_test",
+        "@openroad//src/ram/test:periphery_verilog_asap7-tcl_test",
+        "@openroad//src/ram/test:register_read_address_asap7-tcl_test",
+        "@openroad//src/ram/test:reset_asap7-tcl_test",
+        "@openroad//src/ram/test:service_columns_asap7-tcl_test",
+        "@openroad//src/ram/test:write_mux_asap7-tcl_test",
+        "@openroad//src/ram/test:write_ports_nangate45-tcl_test",
+        "@openroad//src/ram/test:write_priority_or_asap7-tcl_test",
+        "@openroad//src/ram/test:zero_word_asap7-tcl_test",
     ],
 )

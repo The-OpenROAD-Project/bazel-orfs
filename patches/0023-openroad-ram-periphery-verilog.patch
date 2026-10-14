@@ -1,5 +1,8 @@
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Subject: [PATCH] ram: generate_ram_netlist -periphery verilog
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
 -periphery verilog makes the block the core alone, <name>_core, and
 writes the periphery to -wrapper_verilog as a module <name> around an
@@ -11,10 +14,23 @@ leaves the core. The core is then outlined and pinned as with
 -periphery unplaced. An option beside generator-built periphery, not a
 replacement: which is better depends on how the array is integrated.
 
-The fourteenth of the generate_regfile features carried onto
-generate_ram; see OpenROAD #11669. Not upstreamed.
+Tested: src/ram/test/periphery_verilog_asap7.tcl.
 
+Commit 13 of 23 in OpenROAD #11723, carried here from it. Not
+upstreamed; retires at a //:bump onto an OpenROAD that has it.
 ---
+ src/ram/README.md                        |   2 +-
+ src/ram/include/ram/ram.h                |  12 +-
+ src/ram/src/ram.cpp                      | 242 ++++++++++++++++++++++-
+ src/ram/src/ram.i                        |   5 +-
+ src/ram/src/ram.tcl                      |  15 +-
+ src/ram/test/BUILD                       |   5 +
+ src/ram/test/CMakeLists.txt              |   1 +
+ src/ram/test/periphery_verilog_asap7.tcl |  38 ++++
+ src/ram/test/regression_tests.tcl        |   1 +
+ 9 files changed, 309 insertions(+), 12 deletions(-)
+ create mode 100644 src/ram/test/periphery_verilog_asap7.tcl
+
 diff --git a/src/ram/README.md b/src/ram/README.md
 index 21c00d7457..ca5af6c2dd 100644
 --- a/src/ram/README.md
@@ -29,7 +45,7 @@ index 21c00d7457..ca5af6c2dd 100644
  | `-name` | The block's and the behavioral model's name. Default: `RAM<words>x<bits>`. |
  | `-decoder` | `row`: a decoder per row, an AND2 chain over the row address, the column mux selecting within the row. `word`: a balanced AND2 tree over each word's whole address, as with banks; shallower for the read path. Default: `row`. |
 diff --git a/src/ram/include/ram/ram.h b/src/ram/include/ram/ram.h
-index 4b82175c0d..1cafb2c0b2 100644
+index 276af99c4f..598a0b4a8e 100644
 --- a/src/ram/include/ram/ram.h
 +++ b/src/ram/include/ram/ram.h
 @@ -124,7 +124,8 @@ class RamGen
@@ -59,7 +75,7 @@ index 4b82175c0d..1cafb2c0b2 100644
    std::string addr_flop_d_, addr_flop_clk_, addr_flop_q_;
    bool addr_flop_inverted_{false};
 diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
-index a49a3612cb..a56b944946 100644
+index d4355802b1..6315d6b63c 100644
 --- a/src/ram/src/ram.cpp
 +++ b/src/ram/src/ram.cpp
 @@ -13,6 +13,7 @@
@@ -70,7 +86,7 @@ index a49a3612cb..a56b944946 100644
  #include <sstream>
  #include <string>
  #include <utility>
-@@ -1950,7 +1951,8 @@ void RamGen::generate(const int mask_size,
+@@ -1947,7 +1948,8 @@ void RamGen::generate(const int mask_size,
                        const std::string& cells,
                        const std::string& name,
                        const std::string& decoder,
@@ -80,7 +96,7 @@ index a49a3612cb..a56b944946 100644
  {
    // Banks: every port decodes every word's whole address, and a row holds
    // bank_columns words, laid out as the column mux lays out its words;
-@@ -1983,7 +1985,13 @@ void RamGen::generate(const int mask_size,
+@@ -1980,7 +1982,13 @@ void RamGen::generate(const int mask_size,
    rb_ports_ = rb_ports;
    read_latency_ = read_latency;
    write_mux_ = write_style == "mux";
@@ -95,7 +111,7 @@ index a49a3612cb..a56b944946 100644
    pin_layer_ = pin_layer;
    periphery_insts_.clear();
    marking_periphery_ = false;
-@@ -2250,7 +2258,10 @@ void RamGen::generate(const int mask_size,
+@@ -2246,7 +2254,10 @@ void RamGen::generate(const int mask_size,
  
    block_ = chip->getBlock();
    if (!block_) {
@@ -107,14 +123,13 @@ index a49a3612cb..a56b944946 100644
    }
  
    // One column per bit plus one select/control column per slice,
-@@ -3152,8 +3163,235 @@ void RamGen::generate(const int mask_size,
+@@ -3146,8 +3157,233 @@ void RamGen::generate(const int mask_size,
  // (those of the periphery too, while they are still placed), on the pin
  // layer's track grid inside the outline: these pins are for a macro
  // placer to orient the core by, never routed.
 +// A liberty function as a Verilog expression, its pins by their nets.
-+static std::string verilogExpr(
-+    const sta::FuncExpr* f,
-+    const std::map<std::string, std::string>& nets)
++static std::string verilogExpr(const sta::FuncExpr* f,
++                               const std::map<std::string, std::string>& nets)
 +{
 +  if (f == nullptr) {
 +    return "1'b0";
@@ -167,8 +182,7 @@ index a49a3612cb..a56b944946 100644
 +    const auto& [dir, hi] = buses[base];
 +    decls.emplace_back(
 +        base,
-+        hi < 0 ? dir + " " + base
-+               : fmt::format("{} [{}:0] {}", dir, hi, base));
++        hi < 0 ? dir + " " + base : fmt::format("{} [{}:0] {}", dir, hi, base));
 +  }
 +  return decls;
 +}
@@ -253,15 +267,15 @@ index a49a3612cb..a56b944946 100644
 +    if (outputs == 1 && out->function() && !out->direction()->isTristate()
 +        && nets.count(out->name())) {
 +      body << "  assign " << nets[out->name()] << " = "
-+           << verilogExpr(out->function(), nets) << ";  // "
-+           << inst->getName() << "\n";
++           << verilogExpr(out->function(), nets) << ";  // " << inst->getName()
++           << "\n";
 +      continue;
 +    }
 +    body << "  " << inst->getMaster()->getName() << " \\" << inst->getName()
 +         << " (";
 +    for (size_t i = 0; i < conns.size(); ++i) {
-+      body << (i ? ", " : "") << "." << conns[i].first << "("
-+           << conns[i].second << ")";
++      body << (i ? ", " : "") << "." << conns[i].first << "(" << conns[i].second
++           << ")";
 +    }
 +    body << ");\n";
 +  }
@@ -275,9 +289,9 @@ index a49a3612cb..a56b944946 100644
 +        c = '_';
 +      }
 +    }
-+    while (block_->findBTerm(name.c_str()) != nullptr
-+           || (name != n->getName()
-+               && block_->findNet(name.c_str()) != nullptr)) {
++    while (
++        block_->findBTerm(name.c_str()) != nullptr
++        || (name != n->getName() && block_->findNet(name.c_str()) != nullptr)) {
 +      name += "_";
 +    }
 +    shared_ref[name] = ref(n);
@@ -340,9 +354,9 @@ index a49a3612cb..a56b944946 100644
 +  if (periphery_verilog_) {
 +    splitPeriphery();
 +  }
-   odb::dbTechLayer* layer
-       = db_->getTech()->findLayer(pin_layer_.c_str());
+   odb::dbTechLayer* layer = db_->getTech()->findLayer(pin_layer_.c_str());
    if (layer == nullptr) {
+     logger_->error(RAM,
 diff --git a/src/ram/src/ram.i b/src/ram/src/ram.i
 index 78d76a9488..0040503bfd 100644
 --- a/src/ram/src/ram.i
@@ -415,3 +429,92 @@ index fc5921e935..87eaf2694e 100644
  }
  
  sta::define_cmd_args "generate_ram" {[-mask_size bits]
+diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
+index c4d9a45532..24234b211d 100644
+--- a/src/ram/test/BUILD
++++ b/src/ram/test/BUILD
+@@ -25,6 +25,7 @@ PASSFAIL_TESTS = [
+     "cells_name_asap7",
+     "decoder_word_asap7",
+     "bit_folds_asap7",
++    "periphery_verilog_asap7",
+ ]
+ 
+ ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
+@@ -113,6 +114,10 @@ filegroup(
+                 "//test:asap7_data",
+                 "//test:asap7_nldm_data",
+             ],
++            "periphery_verilog_asap7": [
++                "//test:asap7_data",
++                "//test:asap7_nldm_data",
++            ],
+             "make_7x7_2r1w_nangate45": [
+                 "make_7x7_2r1w_nangate45_behavioral.vok",
+                 "Nangate45/Nangate45.lef",
+diff --git a/src/ram/test/CMakeLists.txt b/src/ram/test/CMakeLists.txt
+index 6549d2cc86..a0c299f333 100644
+--- a/src/ram/test/CMakeLists.txt
++++ b/src/ram/test/CMakeLists.txt
+@@ -18,5 +18,6 @@ or_integration_tests(
+     cells_name_asap7
+     decoder_word_asap7
+     bit_folds_asap7
++    periphery_verilog_asap7
+ )
+ 
+diff --git a/src/ram/test/periphery_verilog_asap7.tcl b/src/ram/test/periphery_verilog_asap7.tcl
+new file mode 100644
+index 0000000000..a99497949f
+--- /dev/null
++++ b/src/ram/test/periphery_verilog_asap7.tcl
+@@ -0,0 +1,38 @@
++# -periphery verilog: the block is the core alone, <name>_core, and the
++# periphery a Verilog module, <name>, around it. Simulated together, the
++# wrapper and the core read back every word written.
++
++source "helpers.tcl"
++source "ram_sim.tcl"
++
++read_liberty ../../../test/asap7/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz
++read_liberty ../../../test/asap7/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz
++read_liberty ../../../test/asap7/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz
++read_liberty ../../../test/asap7/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib
++read_liberty ../../../test/asap7/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz
++
++read_lef ../../../test/asap7/asap7_tech_1x_201209.lef
++read_lef ../../../test/asap7/asap7sc7p5t_28_R_1x_220121a.lef
++
++
++set wrapper [make_result_file periphery_verilog_asap7_wrapper.v]
++generate_ram_netlist \
++  -mask_size 8 -word_size 8 -num_words 8 -r_ports 2 -w_ports 1 \
++  -storage_cell DFFHQNx1_ASAP7_75t_R -name rf -pin_layer M4 \
++  -periphery verilog -wrapper_verilog $wrapper
++
++ram_sim::check { [[ord::get_db_block] getName] eq "rf_core" } \
++  "the block is [[ord::get_db_block] getName], not rf_core"
++foreach inst [[ord::get_db_block] getInsts] {
++  ram_sim::check { ![string match decoder* [$inst getName]] } \
++    "the core holds the periphery's [$inst getName]"
++}
++ram_sim::load
++ram_sim::add_wrapper $wrapper
++ram_sim::exercise {
++  words 8 bits 8
++  writes {{addr_w D {we[0]}}}
++  reads {{addr_r0 Q0} {addr_r1 Q1}}
++}
++
++puts "pass"
+diff --git a/src/ram/test/regression_tests.tcl b/src/ram/test/regression_tests.tcl
+index da84aab2bd..790c7e959d 100644
+--- a/src/ram/test/regression_tests.tcl
++++ b/src/ram/test/regression_tests.tcl
+@@ -17,5 +17,6 @@ record_tests {
+   cells_name_asap7
+   decoder_word_asap7
+   bit_folds_asap7
++  periphery_verilog_asap7
+   make_8x8_latch_sky130
+ }

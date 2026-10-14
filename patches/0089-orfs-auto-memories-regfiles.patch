@@ -34,10 +34,14 @@ RobEntryFile and RenameBufferFile, dissolved into a parent, did not
 legalize otherwise (the parent buffers the word's selects inside the
 full array).
 
-Needs generate_ram's register-file options, carried in bazel-orfs as
-patches 0011 to 0026 and to be proposed to OpenROAD one at a time (see
-OpenROAD #11669). Not upstreamed; retires at a //:bump onto an ORFS that
-carries it.
+A module named in a spec whose memory has an initial value stops the
+build: generate_ram's storage has none, and the value would be lost
+without a word. The spec's read_latency, a key shared with
+structured_gen's specs, is generate_ram's -register_read_address.
+
+Needs generate_ram's register-file options, OpenROAD #11723, carried in
+bazel-orfs as patches 0011 to 0026 and 0115 to 0121. Not upstreamed;
+retires at a //:bump onto an ORFS that carries it.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
@@ -268,8 +272,65 @@ index 0789129e4..556cc30cc 100644
  report_design_area
  
  orfs_write_db $::env(RESULTS_DIR)/2_2_floorplan_macro.odb
+diff --git a/flow/scripts/memories/detect.py b/flow/scripts/memories/detect.py
+index 234335042..83ab8ce65 100644
+--- a/flow/scripts/memories/detect.py
++++ b/flow/scripts/memories/detect.py
+@@ -305,6 +305,23 @@ def scan_yosys_json(
+     return dedupe(out)
+ 
+ 
++def initialized_modules(data: dict | str | Path, top: str | None = None) -> set[str]:
++    """Modules holding a memory with an initial value: a $mem_v2 whose INIT
++    has a 0 or 1 bit (yosys writes an uninitialized memory's INIT as x)."""
++    if isinstance(data, (str, Path)):
++        data = json.loads(Path(data).read_text())
++    out = set()
++    for mod_name, mod_info in data.get("modules", {}).items():
++        name = mod_name[1:] if mod_name.startswith("\\") else mod_name
++        for cell in mod_info.get("cells", {}).values():
++            if cell.get("type", "") not in ("$mem_v2", "$mem"):
++                continue
++            init = str(cell.get("parameters", {}).get("INIT", ""))
++            if "0" in init or "1" in init:
++                out.add(definition_name(name, top))
++    return out
++
++
+ def definition_name(module: str, top: str | None) -> str:
+     """`array_64x114$top.u0` -> `array_64x114` for top module `top`.
+ 
+diff --git a/flow/scripts/memories/detect_test.py b/flow/scripts/memories/detect_test.py
+index c1f70e0ef..dd5940b21 100644
+--- a/flow/scripts/memories/detect_test.py
++++ b/flow/scripts/memories/detect_test.py
+@@ -270,5 +270,24 @@ class FirtoolConventionTest(unittest.TestCase):
+         self.assertEqual([m.name for m in mems], ["am_regs.Memory"])
+ 
+ 
++class InitializedModulesTest(unittest.TestCase):
++    def test_only_a_memory_with_a_0_or_1_bit_is_initialized(self):
++        def module(init):
++            params = {"SIZE": 2, "WIDTH": 2, "RD_PORTS": 1, "WR_PORTS": 1}
++            if init is not None:
++                params["INIT"] = init
++            return {"cells": {"\\m": {"type": "$mem_v2", "parameters": params}}}
++
++        data = {
++            "modules": {
++                "\\none": module(None),
++                "\\all_x": module("xxxx"),
++                "\\zeros": module("0000"),
++                "\\some$top.u0": module("xx1x"),
++            }
++        }
++        self.assertEqual(detect.initialized_modules(data, "top"), {"zeros", "some"})
++
++
+ if __name__ == "__main__":
+     unittest.main()
 diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_memories.py
-index 98e3febea..269ccc53b 100644
+index 98e3febea..f51a356db 100644
 --- a/flow/scripts/memories/gen_memories.py
 +++ b/flow/scripts/memories/gen_memories.py
 @@ -10,6 +10,11 @@ collects its $mem_v2 cells, merges user-supplied `.memories` files
@@ -463,7 +524,25 @@ index 98e3febea..269ccc53b 100644
  ) -> int:
      if platform != "asap7":
          sys.stderr.write(f"gen_memories: unsupported platform {platform}\n")
-@@ -55,6 +213,11 @@ def run(
+@@ -49,12 +207,29 @@ def run(
+ 
+     found = detect.scan_yosys_json(yosys_json, top)
+ 
++    # generate_ram builds storage with no initial value: a register file
++    # with one would lose it without a word
++    initialized = detect.initialized_modules(yosys_json, top)
++    for spec in regfile_specs or []:
++        module = _spec_module(spec)
++        if module in initialized:
++            raise SystemExit(
++                f"gen_memories: {module} ({spec}) has a memory with an initial "
++                "value, which a register file from generate_ram does not "
++                "have; remove it from AUTO_MEMORIES_REGFILES"
++            )
++
+     idiomatic.apply(found)
+ 
+     overrides: list[schema.Memory] = []
      for path in memories_files:
          overrides.extend(schema.load(path))
      memories = schema.merge(found, overrides)
@@ -475,7 +554,7 @@ index 98e3febea..269ccc53b 100644
  
      out_dir.mkdir(parents=True, exist_ok=True)
      json_path.parent.mkdir(parents=True, exist_ok=True)
-@@ -75,8 +238,18 @@ def run(
+@@ -75,8 +250,18 @@ def run(
          ]
      )
  
@@ -495,7 +574,7 @@ index 98e3febea..269ccc53b 100644
          sys.stderr.write(
              f"gen_memories: {mem.name} {mem.rows}x{mem.bits} "
              f"R={mem.read_ports} W={mem.write_ports} RW={mem.rw_ports} "
-@@ -103,6 +276,32 @@ def main(argv: list[str] | None = None) -> int:
+@@ -103,6 +288,32 @@ def main(argv: list[str] | None = None) -> int:
          help="User-supplied .memories file merged onto the "
          "detected set (repeatable).",
      )
@@ -528,7 +607,7 @@ index 98e3febea..269ccc53b 100644
      p.add_argument("--platform", required=True)
      p.add_argument(
          "--out-dir",
-@@ -129,6 +328,10 @@ def main(argv: list[str] | None = None) -> int:
+@@ -129,6 +340,10 @@ def main(argv: list[str] | None = None) -> int:
          args.out_dir,
          args.json,
          args.top,
@@ -540,7 +619,7 @@ index 98e3febea..269ccc53b 100644
  
  
 diff --git a/flow/scripts/memories/gen_memories_test.py b/flow/scripts/memories/gen_memories_test.py
-index 74a5929a0..aaa39125a 100644
+index e71aed784..4b5d0402e 100644
 --- a/flow/scripts/memories/gen_memories_test.py
 +++ b/flow/scripts/memories/gen_memories_test.py
 @@ -114,9 +114,11 @@ class GenMemoriesTest(unittest.TestCase):
@@ -555,7 +634,7 @@ index 74a5929a0..aaa39125a 100644
              ],
          )
          # one `<module> <area>` line; the area is the one the .lib states,
-@@ -194,6 +196,26 @@ class GenMemoriesTest(unittest.TestCase):
+@@ -224,6 +226,49 @@ class GenMemoriesTest(unittest.TestCase):
          self.assertEqual(code, 0)
          self.assertEqual(json.loads((d / "memories.json").read_text())["memories"], [])
          self.assertEqual((d / "memories" / "blackboxes.txt").read_text(), "")
@@ -579,15 +658,38 @@ index 74a5929a0..aaa39125a 100644
 +            lib.write_text("library (RegFile) {\n  cell (RegFile) {\n  }\n}\n")
 +            with self.assertRaises(SystemExit):
 +                gen_memories._lib_area(lib)
++
++    def test_initialized_register_file_stops(self):
++        # a spec naming a module whose memory has an initial value stops:
++        # generate_ram's storage has none, and the value would be lost
++        d = Path(self.tmp.name)
++        netlist = json.loads(json.dumps(SAMPLE_YOSYS_NETLIST))
++        cell = netlist["modules"]["\\cache_tags"]["cells"]["\\$mem_0"]
++        cell["parameters"]["INIT"] = "x" * 75 + "01" * 12 + "1"
++        netlist_json = d / "memories_inferred.json"
++        netlist_json.write_text(json.dumps(netlist))
++        spec = d / "cache_tags.regfile"
++        spec.write_text("module cache_tags\n")
++        with self.assertRaises(SystemExit) as stop:
++            gen_memories.run(
++                netlist_json,
++                [],
++                "asap7",
++                d / "memories",
++                d / "memories.json",
++                regfile_specs=[spec],
++            )
++        self.assertIn("cache_tags", str(stop.exception))
++        self.assertIn("initial value", str(stop.exception))
  
  
  if __name__ == "__main__":
 diff --git a/flow/scripts/memories/regfile_ram.py b/flow/scripts/memories/regfile_ram.py
 new file mode 100644
-index 000000000..cc389245d
+index 000000000..1eac6d18c
 --- /dev/null
 +++ b/flow/scripts/memories/regfile_ram.py
-@@ -0,0 +1,739 @@
+@@ -0,0 +1,742 @@
 +"""AUTO_MEMORIES_REGFILES through OpenROAD's generate_ram.
 +
 +A register-file spec (KEYS below) is translated to
@@ -773,10 +875,13 @@ index 000000000..cc389245d
 +        "bank_columns",
 +        "bank_order",
 +        "bank_column_layout",
-+        "read_latency",
 +    ):
 +        if _values(lines, key):
 +            args += [f"-{key}", _one(lines, key)]
++    # the spec's read_latency, a key shared with structured_gen's specs,
++    # is generate_ram's read address register
++    if _values(lines, "read_latency"):
++        args += ["-register_read_address", _one(lines, "read_latency")]
 +    if async_reset:
 +        args += ["-reset_value", "0"]
 +    # asap7 cells where the spec names none, and a buffer for the select
