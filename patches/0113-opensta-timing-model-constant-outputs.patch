@@ -23,9 +23,10 @@ OpenSTA carries it.
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
 diff --git a/src/sta/search/MakeTimingModel.cc b/src/sta/search/MakeTimingModel.cc
+index 1b79848..03253dc 100644
 --- a/src/sta/search/MakeTimingModel.cc
 +++ b/src/sta/search/MakeTimingModel.cc
-@@ -41,11 +41,13 @@
+@@ -40,11 +40,13 @@
  #include "ContainerHelpers.hh"
  #include "Debug.hh"
  #include "Delay.hh"
@@ -39,7 +40,7 @@ diff --git a/src/sta/search/MakeTimingModel.cc b/src/sta/search/MakeTimingModel.
  #include "Network.hh"
  #include "NetworkClass.hh"
  #include "Path.hh"
-@@ -56,6 +58,7 @@
+@@ -55,6 +57,7 @@
  #include "Sdc.hh"
  #include "SdcClass.hh"
  #include "Search.hh"
@@ -47,7 +48,7 @@ diff --git a/src/sta/search/MakeTimingModel.cc b/src/sta/search/MakeTimingModel.
  #include "Sta.hh"
  #include "StaState.hh"
  #include "TableModel.hh"
-@@ -112,6 +115,7 @@ MakeTimingModel::makeTimingModel()
+@@ -111,6 +114,7 @@ MakeTimingModel::makeTimingModel()
  
    sta_->searchPreamble();
  
@@ -55,7 +56,7 @@ diff --git a/src/sta/search/MakeTimingModel.cc b/src/sta/search/MakeTimingModel.
    findTimingFromInputs();
    findClkedOutputPaths();
    findClkTreeDelays();
-@@ -235,6 +239,28 @@ MakeTimingModel::makePorts()
+@@ -234,6 +238,28 @@ MakeTimingModel::makePorts()
    delete port_iter;
  }
  
@@ -81,13 +82,14 @@ diff --git a/src/sta/search/MakeTimingModel.cc b/src/sta/search/MakeTimingModel.
 +  delete pin_iter;
 +}
 +
- // A port's design rule limits are those of the cells behind it: an
- // input's the tightest max_transition of its loads, an output's the
- // max_capacitance of its driver, each falling back to the library
+ // Find port max_cap/max_slew limits.
+ void
+ MakeTimingModel::setPortLimits(const Pin *pin,
 diff --git a/src/sta/search/MakeTimingModelPvt.hh b/src/sta/search/MakeTimingModelPvt.hh
+index 4d7afc9..87cc0a7 100644
 --- a/src/sta/search/MakeTimingModelPvt.hh
 +++ b/src/sta/search/MakeTimingModelPvt.hh
-@@ -80,6 +80,7 @@ private:
+@@ -72,6 +72,7 @@ private:
    void makeCell();
    float findArea();
    void makePorts();
