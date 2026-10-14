@@ -20,6 +20,7 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:openroad.bzl", "orfs_flow")
 load("//test:auto_memories_outputs_test.bzl", "auto_memories_outputs_test")
+load("//test:variant_move_once_test.bzl", "variant_move_once_test")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -206,4 +207,37 @@ sh_test(
         "!am_ram_2048x32",
     ],
     data = [":am_top_keep_synth_netlist"],
+)
+
+# A variant whose floorplan starts from the base flow's synthesis. Its
+# stage moves the synthesis's results into its own results directory,
+# and the AUTO_MEMORIES views with them; the synthesis's files already
+# carry those views, so the move has to list each once (a second mv
+# found the file gone).
+orfs_flow(
+    name = "am_top",
+    arguments = {
+        "AUTO_MEMORIES": "1",
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_KEEP_MODULES": "am_regs",
+        "SYNTH_NUM_PARTITIONS": "1",
+        "CORE_UTILIZATION": "30",
+        "SKIP_REPORT_METRICS": "1",
+    },
+    last_stage = "floorplan",
+    previous_stage = {"floorplan": ":am_top_synth"},
+    sources = {
+        "ADDITIONAL_MEMORIES": [":am_ram_2048x32.memories"],
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    variant = "shared",
+    verilog_files = [
+        "am_top.v",
+        "am_ram_macros.v",
+    ],
+)
+
+variant_move_once_test(
+    name = "am_top_shared_move_once_test",
+    target_under_test = ":am_top_shared_floorplan",
 )
