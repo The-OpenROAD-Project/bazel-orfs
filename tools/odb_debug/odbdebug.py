@@ -209,12 +209,18 @@ class Daemon(object):
         `path`. area: [x0, y0, x1, y1] in um; options: {control: bool}
         display overrides, e.g. {"tracks_pref": True}."""
         path = os.path.abspath(path)
+        # save_image -web logs WEB-0024 "Saved" and writes nothing when
+        # the directory is missing, so make it, and check the file after.
+        if not os.path.isdir(os.path.dirname(path)):
+            os.makedirs(os.path.dirname(path))
         words = ["save_image", "-web", "-width", str(int(width))]
         if area:
             words += ["-area", "{%s}" % " ".join(str(float(v)) for v in area)]
         for k, v in sorted((options or {}).items()):
             words += ["-display_option", "{%s %s}" % (k, "true" if v else "false")]
         self.tcl(" ".join(words + [tcl_quote(path)]), timeout)
+        if not os.path.isfile(path):
+            raise DaemonError("save_image -web wrote no file at %s" % path)
         return {"path": path, "bytes": os.path.getsize(path)}
 
 

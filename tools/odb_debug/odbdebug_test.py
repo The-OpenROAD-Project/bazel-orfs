@@ -167,6 +167,20 @@ class ClientTest(unittest.TestCase):
         )
         self.assertEqual(r, {"path": path, "bytes": 3})
 
+    def test_image_makes_its_directory(self):
+        d = odbdebug.Daemon(self.fake.dir)
+        path = os.path.join(self.fake.dir, "new", "dir", "b.png")
+        with self.assertRaises(odbdebug.DaemonError):
+            d.image(path)
+        self.assertTrue(os.path.isdir(os.path.dirname(path)))
+
+    def test_image_that_wrote_nothing_raises(self):
+        # the fake viewer, like save_image -web into a missing directory,
+        # reports success and writes nothing
+        d = odbdebug.Daemon(self.fake.dir)
+        with self.assertRaisesRegex(odbdebug.DaemonError, "wrote no file"):
+            d.image(os.path.join(self.fake.dir, "absent.png"))
+
     def test_missing_daemon(self):
         d = odbdebug.Daemon(os.path.join(self.fake.dir, "nowhere"))
         with self.assertRaises(odbdebug.DaemonError):
@@ -263,6 +277,35 @@ class McpTest(unittest.TestCase):
         r = self.rpc("tools/call", {"name": "cell_info", "arguments": {"name": "x"}})
         self.assertTrue(r["result"]["isError"])
         self.assertIn("no instance", r["result"]["content"][0]["text"])
+
+    def test_any_tool_exception_is_a_tool_error(self):
+        # an exception that is not a DaemonError used to escape serve()
+        # and end the server; it is the call's error, and the next call
+        # is answered
+        def boom(d, a):
+            raise OSError("disk on fire")
+
+        saved = mcp_server.TOOLS
+        mcp_server.TOOLS = [("boom", "", {}, [], boom)] + list(saved)
+        try:
+            r = self.rpc("tools/call", {"name": "boom", "arguments": {}})
+        finally:
+            mcp_server.TOOLS = saved
+        self.assertTrue(r["result"]["isError"])
+        self.assertIn("OSError: disk on fire", r["result"]["content"][0]["text"])
+        r = self.rpc("tools/call", {"name": "status", "arguments": {}})
+        self.assertFalse(r["result"]["isError"])
+
+    def test_image_that_wrote_nothing_is_a_tool_error(self):
+        r = self.rpc(
+            "tools/call",
+            {
+                "name": "image",
+                "arguments": {"path": os.path.join(self.fake.dir, "none.png")},
+            },
+        )
+        self.assertTrue(r["result"]["isError"])
+        self.assertIn("wrote no file", r["result"]["content"][0]["text"])
 
     def test_missing_argument(self):
         r = self.rpc("tools/call", {"name": "cell_info", "arguments": {}})
