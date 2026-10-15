@@ -227,6 +227,11 @@ def call_tool(name, arguments, odb_debug_dir=None):
             value = fn(odbdebug.Daemon(odb_debug_dir), arguments)
         except odbdebug.DaemonError as e:
             return _error_result(str(e))
+        except Exception as e:  # noqa: BLE001
+            # Anything else a tool raises is a tool error too: escaping
+            # serve() would end the server, and every tool with it, for
+            # the rest of the agent's session.
+            return _error_result("%s: %s" % (type(e).__name__, e))
         text = value if isinstance(value, str) else json.dumps(value, indent=1)
         return {"content": [{"type": "text", "text": cap(text)}], "isError": False}
     return _error_result("unknown tool %r" % name)
