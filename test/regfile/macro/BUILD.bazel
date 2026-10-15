@@ -1,0 +1,110 @@
+load("@bazel-orfs//:openroad.bzl", "orfs_flow")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_python//python:defs.bzl", "py_test")
+
+# A register file kept as a macro is a flow of its own, whose abstract the
+# parent reads: the flow builds the register file's clock tree before the
+# abstract is written, so the macro's clock pin is a buffer's and its
+# model carries the tree (check_macro_lib.py). mode macro, which wrote the
+# model from generate_ram's netlist unclocked, presented this register
+# file's whole clock net as one 8.5 pF pin; it now stops (ORFS patch 0125).
+#
+# A wide register file, the shape that exposed it on XiangShan
+# (FtqMetaQueueResolve, 954 bits): 64 words of 256 bits, one read and one
+# write, a hold mux per bit.
+SPEC = """\
+module RegFile
+words 64
+bits 256
+clock clock
+read r0_addr r0_data
+write w0_addr w0_data w0_en
+cell flop DFFHQNx1_ASAP7_75t_R
+cell and2 AND2x2_ASAP7_75t_R
+cell or2 OR2x2_ASAP7_75t_R
+cell ao22 AO22x2_ASAP7_75t_R
+cell inv INVx1_ASAP7_75t_R
+cell tap TAPCELL_ASAP7_75t_R
+pin_layer M4
+tap_columns 8
+service_sites 40
+bit_folds 4
+"""
+
+write_file(
+    name = "wide_spec",
+    out = "RegFile.regfile",
+    content = [SPEC],
+    tags = ["manual"],
+)
+
+genrule(
+    name = "wide_rtl",
+    srcs = [":RegFile.regfile"],
+    outs = ["wide_top.sv"],
+    cmd = "$(execpath //test/structured_netlist:scaffold_gen) --spec $< --sv $@ --top wide_top",
+    tags = ["manual"],
+    tools = ["//test/structured_netlist:scaffold_gen"],
+)
+
+# The register file as a macro of its own: its module is a flow's top,
+# generate_ram's netlist inlined in the module's place (not macro-placed:
+# a top whose only flops sit in a macro has no registers at synthesis,
+# and the platform SDC's groups and boundary limits need them), and the
+# flow builds its clock tree before the abstract (at grt) is written.
+orfs_flow(
+    name = "RegFile",
+    abstract_stage = "grt",
+    arguments = {
+        "AUTO_MEMORIES": "1",
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.6",
+        "SYNTH_HDL_FRONTEND": "slang",
+    },
+    sources = {
+        "AUTO_MEMORIES_REGFILES": [":RegFile.regfile"],
+        # a block's grid, so the parent's macro grid connects to it
+        "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
+        "SDC_FILE": ["//test/regfile:constraint.sdc"],
+    },
+    tags = ["manual"],
+    verilog_files = [":wide_top.sv"],
+)
+
+# The parent, with the register file as that macro.
+orfs_flow(
+    name = "wide_top_hard",
+    arguments = {
+        # room for the macro grid's core rings
+        "CORE_MARGIN": "4",
+        "CORE_UTILIZATION": "30",
+        "PLACE_DENSITY": "0.5",
+        "SYNTH_HDL_FRONTEND": "slang",
+    },
+    last_stage = "cts",
+    macros = [":RegFile_generate_abstract"],
+    sources = {
+        "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCKS_grid_strategy.tcl"],
+        "SDC_FILE": ["//test/regfile:constraint.sdc"],
+    },
+    tags = ["manual"],
+    top = "wide_top",
+    verilog_files = [":wide_top.sv"],
+)
+
+# the abstract's files (the abstract target itself is executable)
+filegroup(
+    name = "RegFile_abstract",
+    srcs = [":RegFile_generate_abstract"],
+    tags = ["manual"],
+)
+
+py_test(
+    name = "check_macro_lib_test",
+    size = "small",
+    srcs = ["check_macro_lib.py"],
+    args = ["$(rootpaths :RegFile_abstract)"],
+    data = [":RegFile_abstract"],
+    main = "check_macro_lib.py",
+    tags = ["manual"],
+)

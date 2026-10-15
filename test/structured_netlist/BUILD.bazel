@@ -14,7 +14,10 @@ py_binary(
     name = "scaffold_gen",
     srcs = ["scaffold_gen.py"],
     main = "scaffold_gen.py",
-    visibility = ["//test/regfile/options:__pkg__"],
+    visibility = [
+        "//test/regfile/macro:__pkg__",
+        "//test/regfile/options:__pkg__",
+    ],
 )
 
 XS_SPECS = "//test/coremark_joule/designs/asap7/xiangshan:"

@@ -169,6 +169,12 @@ ORFS_PATCHES = [
     # Not upstreamed -- retire with the regfile drafts at a bump onto an
     # ORFS that connects them.
     Label("//patches:0124-orfs-pdn-dont-touch-supplies.patch"),
+    # 0125: mode macro register files stop: their model was written from
+    # generate_ram's netlist before any clock tree (a whole clock net as
+    # one pin). A register file wanted as a macro is its own orfs_flow
+    # (test/regfile/macro); mode netlist is the only mode. On 0089. Not
+    # upstreamed; carried with 0089.
+    Label("//patches:0125-orfs-regfile-mode-macro-stops.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

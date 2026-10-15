@@ -4,7 +4,8 @@ load("//:openroad.bzl", "odb_debug", "orfs_flow")
 # riscv32i's register file in each shape generate_ram offers, on
 # ORFS's own riscv32i config (62 %, its io.tcl), to global route: flops
 # (ORFS's riscv32i), inlined (synthesis reads the generated netlist),
-# netlist (macro-placed, then dissolved) and macro (macro-placed, kept).
+# netlist (macro-placed, then dissolved). A register file kept as a macro
+# is a flow of its own whose abstract the parent reads (test/regfile/macro).
 # A study, not a gate: every target is manual.
 package(default_visibility = ["//visibility:private"])
 
@@ -77,10 +78,6 @@ NARROW = RISCV32I["arguments"] | {"RTLMP_MIN_CHANNEL_SIZE": "2 2"}
             "netlist_verilog",
             {"AUTO_MEMORIES_MACRO_PLACE": "regfile"},
         ),
-        (
-            "macro",
-            {"AUTO_MEMORIES_MACRO_PLACE": "regfile"},
-        ),
     ] + ([("", {})] if suffix else [])
 ]
 
@@ -123,7 +120,6 @@ NARROW = RISCV32I["arguments"] | {"RTLMP_MIN_CHANNEL_SIZE": "2 2"}
         ("inlined_verilog", ":riscv_top_inlined_verilog_%s"),
         ("netlist", ":riscv_top_netlist_%s"),
         ("netlist_service0", ":riscv_top_netlist_service0_%s"),
-        ("macro", ":riscv_top_macro_%s"),
         ("netlist_narrow_55", ":riscv_top_netlist_narrow_55_%s"),
         ("netlist_verilog_narrow_55", ":riscv_top_netlist_verilog_narrow_55_%s"),
     ] + [
@@ -137,7 +133,6 @@ NARROW = RISCV32I["arguments"] | {"RTLMP_MIN_CHANNEL_SIZE": "2 2"}
             "inlined_verilog",
             "netlist",
             "netlist_service0",
-            "macro",
         ]
     ]
     for stage in [
