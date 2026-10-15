@@ -36,10 +36,12 @@ def literal(bits):
 def scan(design, keep):
     rows = []
     partial = 0
+    scanned = []
     for name, mod in sorted(design["modules"].items()):
         base = name.split("$")[0]
         if base not in keep:
             continue
+        scanned.append(name)
         for port, info in sorted(mod.get("ports", {}).items()):
             if info["direction"] != "output":
                 continue
@@ -49,7 +51,9 @@ def scan(design, keep):
                 rows.append({"module": name, "port": port, "value": literal(bits)})
             elif any(const):
                 partial += 1
-    return rows, partial
+    if not scanned:
+        raise SystemExit("constant_outputs: no kept module in the design")
+    return rows, partial, scanned
 
 
 def main():
@@ -72,11 +76,22 @@ def main():
         return
     with open(a.design) as f:
         design = json.load(f)
-    rows, partial = scan(design, keep)
+    rows, partial, scanned = scan(design, keep)
     with open(a.out, "w") as f:
-        json.dump({"constant": rows, "partially_constant_ports": partial}, f, indent=1, sort_keys=True)
+        json.dump(
+            {
+                "constant": rows,
+                "partially_constant_ports": partial,
+                "modules_scanned": scanned,
+            },
+            f,
+            indent=1,
+            sort_keys=True,
+        )
         f.write("\n")
-    sys.stdout.write("%d constant outputs, %d partially constant\n" % (len(rows), partial))
+    sys.stdout.write(
+        "%d constant outputs, %d partially constant\n" % (len(rows), partial)
+    )
 
 
 if __name__ == "__main__":
