@@ -154,6 +154,15 @@ class BlockTest(unittest.TestCase):
         with open(out, "rb") as f:
             self.assertEqual(f.read(8), b"\x89PNG\r\n\x1a\n")
 
+    def test_image_into_a_missing_directory_is_an_error(self):
+        # save_image -web used to log WEB-0024 "Saved" and write nothing
+        # (patches/0133); the write's failure is WEB-0116 now.
+        out = os.path.join(os.environ["TEST_TMPDIR"], "missing", "p36.png")
+        with self.assertRaises(odbdebug.DaemonError) as e:
+            self.d.tcl("save_image -web -width 50 %s" % out)
+        self.assertIn("WEB-0116", str(e.exception))
+        self.assertFalse(os.path.exists(out))
+
 
 class IdleExitTest(unittest.TestCase):
     def test_a_request_longer_than_the_idle_time_survives_then_it_exits(self):
