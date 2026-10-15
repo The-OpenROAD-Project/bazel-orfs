@@ -1,0 +1,48 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] synth_syn: read the platform's clock gate as the Yosys flow does
+
+The Yosys flow adds CLKGATE_MAP_FILE to the frontend's inputs itself
+(synth_preamble.tcl); OpenROAD's own synthesis (SYNTH_USE_SYN,
+synth_syn.tcl) did not, so asap7/swerv_wrapper, which instantiates
+OPENROAD_CLKGATE, named $(CLKGATE_MAP_FILE) in its VERILOG_FILES. A
+flow that reads config.mk without make's platform variables cannot
+resolve that reference: bazel-orfs dropped it, and swerv_wrapper's
+synthesis failed with "unknown module 'OPENROAD_CLKGATE'".
+
+synth_syn.tcl now adds CLKGATE_MAP_FILE when it is set, and
+swerv_wrapper no longer names it. swerv_wrapper-yosys, which includes
+swerv_wrapper's config.mk, no longer reads the clock gate twice.
+
+Not upstreamed; retires at a //:bump onto an ORFS that carries it.
+---
+diff --git a/flow/designs/asap7/swerv_wrapper/config.mk b/flow/designs/asap7/swerv_wrapper/config.mk
+index 055969887..4692da5f2 100644
+--- a/flow/designs/asap7/swerv_wrapper/config.mk
++++ b/flow/designs/asap7/swerv_wrapper/config.mk
+@@ -45,8 +45,7 @@ export SYNTH_KEEP_MODULES ?= \
+ export LIB_MODEL = CCS
+ 
+ export VERILOG_FILES = $(DESIGN_HOME)/src/swerv/swerv_wrapper.sv2v.v \
+-                       $(DESIGN_HOME)/$(PLATFORM)/swerv_wrapper/macros.v \
+-                       $(CLKGATE_MAP_FILE)
++                       $(DESIGN_HOME)/$(PLATFORM)/swerv_wrapper/macros.v
+ export SDC_FILE      = $(DESIGN_HOME)/$(PLATFORM)/swerv_wrapper/constraint.sdc
+ 
+ export ADDITIONAL_LEFS = $(sort $(wildcard $(DESIGN_HOME)/$(PLATFORM)/swerv_wrapper/lef/*.lef))
+diff --git a/flow/scripts/synth_syn.tcl b/flow/scripts/synth_syn.tcl
+index 52617bd5a..69af98c87 100644
+--- a/flow/scripts/synth_syn.tcl
++++ b/flow/scripts/synth_syn.tcl
+@@ -33,6 +33,12 @@ set elaborate_args [list \
+ set verilog_files [synth_verilog_files]
+ lappend elaborate_args {*}$verilog_files
+ 
++# Add clock gate cell definition, if available, as the Yosys flow does
++# (synth_preamble.tcl)
++if { [env_var_exists_and_non_empty CLKGATE_MAP_FILE] } {
++  lappend elaborate_args $::env(CLKGATE_MAP_FILE)
++}
++
+ # Apply top-level parameters
+ dict for {key value} [env_var_or_empty VERILOG_TOP_PARAMS] {
+   lappend elaborate_args -G "$key=$value"

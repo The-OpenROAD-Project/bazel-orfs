@@ -775,6 +775,15 @@ analysis_test(
     ],
 )
 
+# swerv_wrapper's OpenROAD synthesis (SYNTH_USE_SYN) finds the platform's
+# OPENROAD_CLKGATE (ORFS patch 0131): it was named in VERILOG_FILES as
+# $(CLKGATE_MAP_FILE), which config_mk_parser cannot resolve and dropped.
+build_test(
+    name = "swerv_wrapper_synth_build_test",
+    tags = ["manual"],
+    targets = ["@orfs//flow/designs/asap7/swerv_wrapper:swerv_wrapper_synth"],
+)
+
 # aes-block synthesizes with slang, its parent and its blocks (ORFS patch
 # 0128): the aes sources' #1 delays stop canonicalization without
 # --ignore-timing, and a block runs from block.mk alone.

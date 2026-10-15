@@ -180,6 +180,12 @@ ORFS_PATCHES = [
     # core sizes so its 21 macros keep fitting. ORFS #4681 (draft);
     # retires at a bump onto an ORFS that carries it.
     Label("//patches:0128-orfs-aes-block-slang.patch"),
+    # 0131: OpenROAD's own synthesis (SYNTH_USE_SYN) reads the platform's
+    # clock gate (CLKGATE_MAP_FILE) as the Yosys flow does, and
+    # asap7/swerv_wrapper no longer names $(CLKGATE_MAP_FILE), a platform
+    # variable config_mk_parser cannot resolve, in VERILOG_FILES. On 0094.
+    # Not upstreamed; retires at a bump onto an ORFS that carries it.
+    Label("//patches:0131-orfs-syn-clkgate-map.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
