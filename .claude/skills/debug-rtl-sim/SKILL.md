@@ -171,7 +171,7 @@ between RTL and netlist, or sequential equivalence checking (SEC) across
 a transformation. `test/lec` wires up kepler-formal's combinational LEC
 as a Bazel test (`lec.bzl`): gold and gate must keep the same sequential
 boundaries and the same names for sequential instances and top
-terminals. `test/structured_gen_lec` uses it to check generated register
+terminals. `test/regfile_lec` uses it to check generate_ram's register
 files against yosys's synthesis of their RTL. Sequential equivalence
 across a transformation that moves registers is not wired up.
 

@@ -13,7 +13,7 @@ load(":clock_gate.bzl", "CLOCK_GATE_OPTS")
 package(default_visibility = [
     "//test/coremark_joule:__subpackages__",
     # faithful_test: the generated register files, against lec_fixture.py
-    "//test/structured_gen_lec:__pkg__",
+    "//test/regfile_lec:__pkg__",
 ])
 
 # The overlays, and the patch MODULE.bazel applies to the XiangShan archive.

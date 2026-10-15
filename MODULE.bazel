@@ -132,12 +132,6 @@ archive_override(
         # as OpenROAD#11719, which creates the dummy in the loaded buffer's
         # module; retires at a bump onto an OpenROAD that has it.
         "//patches:0112-openroad-cts-dummy-load-hier.patch",
-        # openroad_lib, the whole tool as one cc_library, is visible only
-        # to OpenROAD's own packages. Public, so tools/structured_gen can
-        # link odb, utl and sta from this repository; nothing else changes.
-        # Not upstreamed -- retire at a bump onto an OpenROAD that exposes
-        # a library target for embedding.
-        "//patches:0002-openroad-openroad-lib-public.patch",
         # detailed_placement checks, before its search, that the cells can be
         # legalized at all within the displacement window: Hall's condition on
         # windows, demand of cells against the free sites they can reach. A
