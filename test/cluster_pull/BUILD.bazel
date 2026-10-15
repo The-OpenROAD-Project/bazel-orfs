@@ -24,5 +24,8 @@ ARMS = {
         "asap7/riscv32i-mock-sram",
         "asap7/swerv_wrapper",
         "gf180/uart-blocks",
+        "nangate45/bp_fe_top",
+        "nangate45/bp_be_top",
+        "nangate45/ariane133",
     ]
 ]
