@@ -33,6 +33,28 @@ HIERARCHY = {
     ]
 }
 
+# Phase B, rung 4: groups (the macro placer's clusters) pulled toward the
+# macros they exchange data with (patch 0130), no centroid pull.
+DATAFLOW = {
+    "df_w%d" % weight: "-dataflow_pull_weight %d" % weight
+    for weight in [
+        1,
+        4,
+    ]
+}
+
+DATAFLOW_DESIGNS = [
+    "asap7/swerv_wrapper",
+    "nangate45/bp_be_top",
+    "nangate45/bp_fe_top",
+]
+
+# no-harm: a design without macros, and one with BLOCKS
+DATAFLOW_NO_HARM = [
+    "asap7/aes-block",
+    "asap7/gcd",
+]
+
 HIERARCHICAL = [
     "nangate45/bp_be_top",
     "nangate45/bp_fe_top",
@@ -50,7 +72,7 @@ FINE_SIZES = {
         ARMS | (fine_arms(
             ARMS,
             FINE_SIZES[key],
-        ) if key in FINE_SIZES else {}) | (HIERARCHY if key in HIERARCHICAL else {}),
+        ) if key in FINE_SIZES else {}) | (HIERARCHY if key in HIERARCHICAL else {}) | (DATAFLOW if key in DATAFLOW_DESIGNS else {}) | ({"df_w4": DATAFLOW["df_w4"]} if key in DATAFLOW_NO_HARM else {}),
     )
     for key in [
         "asap7/gcd",

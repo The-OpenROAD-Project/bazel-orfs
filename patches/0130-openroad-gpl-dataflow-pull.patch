@@ -1,0 +1,560 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] gpl: -dataflow_pull_weight, groups pulled toward the macros
+ they feed
+
+Rung 4 of bazel-orfs #1263, after DG-RePlAce's dataflow virtual nets:
+before Nesterov placement, a walk from each macro, forward from its
+outputs and backward from its inputs, through combinational cells and
+up to three register stages (nets of more than 50 pins skipped, so
+clock, reset and enable trees do not count) gives each group of cells
+(-cluster_pull_depth's groups) an affinity to each macro: the mean over
+its cells of 0.5^stage. A group keeps its four strongest macros. In
+Nesterov placement every cell of a group is pulled with the group's
+pull toward those macros, bounded by weight times affinity per macro and
+fading with the cluster pull over -cluster_pull_iters.
+
+rtl_macro_placer no longer models dataflow, so the walk is here. It uses
+the liberty view to tell registers from combinational cells. Results are
+the same at any thread count: the walk and the group centroids are
+serial, in a fixed order.
+
+Carried in bazel-orfs to measure the idea of issue #1263; not upstreamed.
+Retires with 0127.
+---
+ src/gpl/include/gpl/Replace.h |   4 +
+ src/gpl/src/nesterovBase.cpp  | 105 ++++++++++++++++-
+ src/gpl/src/nesterovBase.h    |  24 ++++
+ src/gpl/src/replace.cpp       | 213 +++++++++++++++++++++++++++++++++-
+ src/gpl/src/replace.i         |   1 +
+ src/gpl/src/replace.tcl       |   2 +
+ 6 files changed, 344 insertions(+), 5 deletions(-)
+
+diff --git a/src/gpl/include/gpl/Replace.h b/src/gpl/include/gpl/Replace.h
+index 5bbe81cfbc..37368a22f0 100644
+--- a/src/gpl/include/gpl/Replace.h
++++ b/src/gpl/include/gpl/Replace.h
+@@ -86,6 +86,10 @@ struct PlaceOptions
+   // 0: rtl_macro_placer's clusters. d > 0: cells grouped by the first d
+   // components of their hierarchical name (module instances at depth d).
+   int clusterPullDepth = 0;
++  // Groups (as -cluster_pull_depth picks them) pulled toward the macros
++  // they exchange data with within three register stages, fading with
++  // the cluster pull. 0 is off.
++  float dataflowPullWeight = 0;
+   float initDensityPenaltyFactor = 0.00008;
+   float initWireLengthCoef = 0.25;
+   // Scale the density-penalty controller measures a wirelength change
+diff --git a/src/gpl/src/nesterovBase.cpp b/src/gpl/src/nesterovBase.cpp
+index c67ede4e2f..b38793f7a4 100644
+--- a/src/gpl/src/nesterovBase.cpp
++++ b/src/gpl/src/nesterovBase.cpp
+@@ -1193,7 +1193,8 @@ NesterovBaseVars::NesterovBaseVars(const PlaceOptions& options)
+       initialPlacePerturbationDist(options.initialPlacePerturbationDist),
+       clusterPullWeight(options.clusterPullWeight),
+       clusterPullIters(options.clusterPullIters),
+-      clusterPullDepth(options.clusterPullDepth)
++      clusterPullDepth(options.clusterPullDepth),
++      dataflowPullWeight(options.dataflowPullWeight)
+ {
+ }
+ 
+@@ -4002,6 +4003,7 @@ void NesterovBase::updateGradients(std::vector<FloatPoint>& sumGrads,
+   }
+ 
+   const bool cluster_pull = updateClusterPull();
++  const bool dataflow_pull = updateDataflowPull();
+ 
+   const size_t numGCells = nb_gcells_.size();
+ #pragma omp parallel for num_threads(nbc_->getNumThreads())
+@@ -4058,6 +4060,13 @@ void NesterovBase::updateGradients(std::vector<FloatPoint>& sumGrads,
+         wireLengthPreCondi.x + (densityPenalty_ * densityPrecondi.x),
+         wireLengthPreCondi.y + (densityPenalty_ * densityPrecondi.y));
+ 
++    if (dataflow_pull && dataflow_group_[i] >= 0) {
++      sumGrads[i].x += dataflow_grads_[i].x;
++      sumGrads[i].y += dataflow_grads_[i].y;
++      sumPrecondi.x += dataflow_precond_[i];
++      sumPrecondi.y += dataflow_precond_[i];
++    }
++
+     if (cluster_pull && cluster_pull_member_[i]) {
+       // The pull is bounded by the weight, like that many pins, and
+       // preconditioned as that many pins.
+@@ -4166,6 +4175,93 @@ bool NesterovBase::updateClusterPull()
+   return true;
+ }
+ 
++bool NesterovBase::updateDataflowPull()
++{
++  if (nbVars_.dataflowPullWeight <= 0 || !dataflow_
++      || cluster_pull_iter_ >= nbVars_.clusterPullIters) {
++    return false;
++  }
++  const float weight = nbVars_.dataflowPullWeight
++                       * (1.0f
++                          - static_cast<float>(cluster_pull_iter_)
++                                / static_cast<float>(nbVars_.clusterPullIters));
++
++  const size_t numGCells = nb_gcells_.size();
++  if (!dataflow_cached_) {
++    dataflow_group_.assign(numGCells, -1);
++    for (size_t i = 0; i < numGCells; i++) {
++      GCell* gCell = nb_gcells_[i];
++      if (!gCell->isInstance() || gCell->isLocked()) {
++        continue;
++      }
++      const auto it = dataflow_->inst_group.find(gCell->insts()[0]->dbInst());
++      if (it != dataflow_->inst_group.end()
++          && !dataflow_->targets[it->second].empty()) {
++        dataflow_group_[i] = it->second;
++      }
++    }
++    dataflow_grads_.assign(numGCells, FloatPoint(0, 0));
++    dataflow_precond_.assign(numGCells, 0);
++    dataflow_cached_ = true;
++  }
++
++  // Group centroids serially, in cell order.
++  const size_t numGroups = dataflow_->targets.size();
++  std::vector<double> sum_x(numGroups, 0);
++  std::vector<double> sum_y(numGroups, 0);
++  std::vector<double> sum_area(numGroups, 0);
++  for (size_t i = 0; i < numGCells; i++) {
++    const int g = dataflow_group_[i];
++    if (g < 0) {
++      continue;
++    }
++    GCell* gCell = nb_gcells_[i];
++    const double area = static_cast<double>(gCell->dDx()) * gCell->dDy();
++    sum_x[g] += area * gCell->dCx();
++    sum_y[g] += area * gCell->dCy();
++    sum_area[g] += area;
++  }
++
++  // Every cell of a group gets the group's pull toward its macros, so the
++  // group moves as a whole; bounded by weight * affinity per macro.
++  const double density = std::max(targetDensity_, 0.01f);
++  std::vector<FloatPoint> group_grad(numGroups, FloatPoint(0, 0));
++  std::vector<float> group_precond(numGroups, 0);
++  for (size_t g = 0; g < numGroups; g++) {
++    if (sum_area[g] <= 0) {
++      continue;
++    }
++    const double cx = sum_x[g] / sum_area[g];
++    const double cy = sum_y[g] / sum_area[g];
++    const double radius2 = sum_area[g] / density / 4.0;
++    for (const auto& [center, affinity] : dataflow_->targets[g]) {
++      const double dx = center.x() - cx;
++      const double dy = center.y() - cy;
++      const double norm = std::sqrt(dx * dx + dy * dy + radius2);
++      group_grad[g].x += weight * affinity * dx / norm;
++      group_grad[g].y += weight * affinity * dy / norm;
++      group_precond[g] += weight * affinity;
++    }
++  }
++  for (size_t i = 0; i < numGCells; i++) {
++    const int g = dataflow_group_[i];
++    if (g >= 0) {
++      dataflow_grads_[i] = group_grad[g];
++      dataflow_precond_[i] = group_precond[g];
++    }
++  }
++
++  if (!dataflow_reported_) {
++    log_->info(GPL,
++               9106,
++               "Dataflow pull: weight {:g} fading to 0 at iteration {}.",
++               weight,
++               nbVars_.clusterPullIters);
++    dataflow_reported_ = true;
++  }
++  return true;
++}
++
+ // Cells to clusters, and which cells are pulled (clusters of two or more
+ // cells). Static while the cells are; createCbkGCell, destroyCbkGCell,
+ // destroyFillerGCell and restoreRemovedFillers change or reorder
+@@ -4203,8 +4299,7 @@ void NesterovBase::cacheClusterPull()
+       continue;
+     }
+     odb::dbGroup* group = db_inst->getGroup();
+-    if (group == nullptr
+-        || group->getType() != odb::dbGroupType::VISUAL_DEBUG
++    if (group == nullptr || group->getType() != odb::dbGroupType::VISUAL_DEBUG
+         || group->getParentGroup() == nullptr) {
+       continue;
+     }
+@@ -5107,6 +5202,7 @@ void NesterovBase::updateGCellState(float wlCoeffX, float wlCoeffY)
+ void NesterovBase::createCbkGCell(odb::dbInst* db_inst, size_t stor_index)
+ {
+   cluster_pull_cached_ = false;
++  dataflow_cached_ = false;
+   debugPrint(log_,
+              GPL,
+              "callbacks",
+@@ -5190,6 +5286,7 @@ std::optional<std::pair<odb::dbInst*, size_t>> NesterovBase::destroyCbkGCell(
+     odb::dbInst* db_inst)
+ {
+   cluster_pull_cached_ = false;
++  dataflow_cached_ = false;
+   debugPrint(log_,
+              GPL,
+              "callbacks",
+@@ -5431,6 +5528,7 @@ void NesterovBase::cutFillerCells(int64_t inflation_area)
+ void NesterovBase::destroyFillerGCell(size_t nb_index_remove)
+ {
+   cluster_pull_cached_ = false;
++  dataflow_cached_ = false;
+   debugPrint(log_,
+              GPL,
+              "callbacks",
+@@ -5486,6 +5584,7 @@ void NesterovBase::destroyFillerGCell(size_t nb_index_remove)
+ void NesterovBase::restoreRemovedFillers()
+ {
+   cluster_pull_cached_ = false;
++  dataflow_cached_ = false;
+   pullCoordsFromDevice();
+   log_->info(GPL,
+              80,
+diff --git a/src/gpl/src/nesterovBase.h b/src/gpl/src/nesterovBase.h
+index a8bae4e87a..7593c20c6e 100644
+--- a/src/gpl/src/nesterovBase.h
++++ b/src/gpl/src/nesterovBase.h
+@@ -825,6 +825,7 @@ struct NesterovBaseVars
+   const float clusterPullWeight;
+   const int clusterPullIters;
+   const int clusterPullDepth;
++  const float dataflowPullWeight;
+ 
+   static constexpr float minWireLengthForceBar = -300;
+ };
+@@ -1081,9 +1082,23 @@ class NesterovBaseCommon
+ // along with fillers and virtual blockages
+ // Also stores the bin grid for the power domain
+ // Used to calculate density gradient
++// -dataflow_pull_weight: each group of cells and the macros it exchanges
++// data with, computed once by Replace before Nesterov placement.
++struct DataflowTargets
++{
++  std::unordered_map<odb::dbInst*, int> inst_group;
++  // per group: (macro center, affinity in (0, 1])
++  std::vector<std::vector<std::pair<odb::Point, float>>> targets;
++};
++
+ class NesterovBase
+ {
+  public:
++  void setDataflowTargets(std::shared_ptr<const DataflowTargets> targets)
++  {
++    dataflow_ = std::move(targets);
++    dataflow_cached_ = false;
++  }
+   NesterovBase(NesterovBaseVars nbVars,
+                std::shared_ptr<PlacerBase> pb,
+                std::shared_ptr<NesterovBaseCommon> nbc,
+@@ -1532,6 +1547,15 @@ class NesterovBase
+   std::vector<FloatPoint> cluster_pull_grads_;
+   std::vector<char> cluster_pull_member_;
+ 
++  // Dataflow pull: like the cluster pull, toward the group's macros.
++  bool updateDataflowPull();
++  std::shared_ptr<const DataflowTargets> dataflow_;
++  bool dataflow_cached_ = false;
++  bool dataflow_reported_ = false;
++  std::vector<int> dataflow_group_;
++  std::vector<FloatPoint> dataflow_grads_;
++  std::vector<float> dataflow_precond_;
++
+   const NesterovPlaceVars* npVars_ = nullptr;
+ 
+   float minSumOverflow_ = 1e30;
+diff --git a/src/gpl/src/replace.cpp b/src/gpl/src/replace.cpp
+index 5bdcb25020..dcc6a263b7 100644
+--- a/src/gpl/src/replace.cpp
++++ b/src/gpl/src/replace.cpp
+@@ -5,9 +5,15 @@
+ 
+ #include <algorithm>
+ #include <chrono>
++#include <cmath>
++#include <cstddef>
++#include <deque>
++#include <map>
+ #include <memory>
+ #include <string>
++#include <unordered_map>
+ #include <utility>
++#include <vector>
+ 
+ #include "AbstractGraphics.h"
+ #include "clockBase.h"
+@@ -24,6 +30,7 @@
+ #include "routeBase.h"
+ #include "rsz/Resizer.hh"
+ #include "sta/Graph.hh"
++#include "sta/Liberty.hh"
+ #include "sta/Path.hh"
+ #include "sta/StaMain.hh"
+ #include "sta/StaState.hh"
+@@ -316,6 +323,199 @@ void Replace::runMBFF(const int max_sz,
+   pntset.Run(max_sz, alpha, beta, clock_power_weight);
+ }
+ 
++namespace {
++
++// The group a cell is pulled with: the first `depth` components of its
++// hierarchical name, or with depth 0 rtl_macro_placer's cluster
++// (-keep_clustering_data). -1 when it has none.
++class Grouper
++{
++ public:
++  explicit Grouper(int depth) : depth_(depth) {}
++
++  int group(odb::dbInst* inst)
++  {
++    if (depth_ > 0) {
++      const std::string name = inst->getName();
++      size_t end = std::string::npos;
++      size_t pos = 0;
++      for (int d = 0; d < depth_; d++) {
++        const size_t slash = name.find('/', pos);
++        if (slash == std::string::npos) {
++          break;
++        }
++        end = slash;
++        pos = slash + 1;
++      }
++      if (end == std::string::npos) {
++        return -1;
++      }
++      return names_.try_emplace(name.substr(0, end), size()).first->second;
++    }
++    odb::dbGroup* group = inst->getGroup();
++    if (group == nullptr || group->getType() != odb::dbGroupType::VISUAL_DEBUG
++        || group->getParentGroup() == nullptr) {
++      return -1;
++    }
++    return groups_.try_emplace(group, size()).first->second;
++  }
++
++  int size() const { return static_cast<int>(names_.size() + groups_.size()); }
++
++ private:
++  const int depth_;
++  std::unordered_map<std::string, int> names_;
++  std::unordered_map<odb::dbGroup*, int> groups_;
++};
++
++// For each macro, the cells within kStages register stages of it, forward
++// from its outputs and backward from its inputs, through nets of at most
++// kMaxNetPins pins (clock, reset and enable trees are skipped, as
++// rtl_macro_placer skips large nets). A group's affinity to a macro is
++// the mean over its cells of 0.5^stage; it keeps its kMaxTargets
++// strongest macros.
++std::shared_ptr<DataflowTargets> computeDataflowTargets(odb::dbBlock* block,
++                                                        sta::dbNetwork* network,
++                                                        int depth,
++                                                        utl::Logger* log)
++{
++  constexpr int kStages = 3;
++  constexpr int kMaxNetPins = 50;
++  constexpr size_t kMaxTargets = 4;
++  constexpr size_t kMaxVisited = 500000;
++
++  auto targets = std::make_shared<DataflowTargets>();
++  Grouper grouper(depth);
++  std::vector<odb::dbInst*> macros;
++  std::vector<int> group_cells;
++  for (odb::dbInst* inst : block->getInsts()) {
++    if (inst->isBlock()) {
++      macros.push_back(inst);
++      continue;
++    }
++    const int g = grouper.group(inst);
++    if (g < 0) {
++      continue;
++    }
++    targets->inst_group[inst] = g;
++    if (g >= static_cast<int>(group_cells.size())) {
++      group_cells.resize(g + 1, 0);
++    }
++    group_cells[g]++;
++  }
++  const int num_groups = grouper.size();
++  group_cells.resize(num_groups, 0);
++
++  std::unordered_map<odb::dbMaster*, bool> sequential;
++  auto is_sequential = [&](odb::dbInst* inst) {
++    const auto [it, inserted]
++        = sequential.try_emplace(inst->getMaster(), false);
++    if (inserted) {
++      const sta::LibertyCell* cell
++          = network->libertyCell(network->dbToSta(inst));
++      it->second = cell != nullptr && cell->isSequential();
++    }
++    return it->second;
++  };
++
++  // per group: macro index -> summed 0.5^stage
++  std::vector<std::map<int, double>> affinity(num_groups);
++  for (size_t m = 0; m < macros.size(); m++) {
++    std::unordered_map<odb::dbInst*, int> stage;
++    for (const bool forward : {true, false}) {
++      std::deque<std::pair<odb::dbInst*, int>> queue;
++      // From inst at stage s, the cells on the far side of its pins in
++      // the walk's direction.
++      auto expand = [&](odb::dbInst* inst, int s) {
++        for (odb::dbITerm* iterm : inst->getITerms()) {
++          const odb::dbIoType dir = iterm->getIoType();
++          const bool out
++              = dir == odb::dbIoType::OUTPUT || dir == odb::dbIoType::INOUT;
++          const bool in
++              = dir == odb::dbIoType::INPUT || dir == odb::dbIoType::INOUT;
++          if (forward ? !out : !in) {
++            continue;
++          }
++          odb::dbNet* net = iterm->getNet();
++          if (net == nullptr || net->getSigType().isSupply()
++              || net->getSigType() == odb::dbSigType::CLOCK
++              || net->getITerms().size() > kMaxNetPins) {
++            continue;
++          }
++          for (odb::dbITerm* other : net->getITerms()) {
++            const odb::dbIoType odir = other->getIoType();
++            const bool takes = forward ? (odir == odb::dbIoType::INPUT
++                                          || odir == odb::dbIoType::INOUT)
++                                       : (odir == odb::dbIoType::OUTPUT
++                                          || odir == odb::dbIoType::INOUT);
++            odb::dbInst* next = other->getInst();
++            if (!takes || next == inst || next->isBlock()) {
++              continue;
++            }
++            const int ns = s + (is_sequential(next) ? 1 : 0);
++            if (ns > kStages) {
++              continue;
++            }
++            const auto [it, inserted] = stage.try_emplace(next, ns);
++            if (!inserted) {
++              if (it->second <= ns) {
++                continue;
++              }
++              it->second = ns;
++            }
++            queue.emplace_back(next, ns);
++          }
++        }
++      };
++      expand(macros[m], 0);
++      while (!queue.empty() && stage.size() < kMaxVisited) {
++        const auto [inst, s] = queue.front();
++        queue.pop_front();
++        if (stage[inst] < s) {
++          continue;
++        }
++        expand(inst, s);
++      }
++    }
++    for (const auto& [inst, s] : stage) {
++      const auto it = targets->inst_group.find(inst);
++      if (it != targets->inst_group.end()) {
++        affinity[it->second][m] += std::pow(0.5, s);
++      }
++    }
++  }
++
++  // Deterministic: groups in id order, macros by affinity then index.
++  targets->targets.resize(num_groups);
++  int pairs = 0;
++  for (int g = 0; g < num_groups; g++) {
++    std::vector<std::pair<double, int>> ranked;
++    for (const auto& [m, a] : affinity[g]) {
++      ranked.emplace_back(a / std::max(group_cells[g], 1), m);
++    }
++    std::sort(ranked.begin(), ranked.end(), [](const auto& a, const auto& b) {
++      return a.first != b.first ? a.first > b.first : a.second < b.second;
++    });
++    for (size_t k = 0; k < std::min(ranked.size(), kMaxTargets); k++) {
++      const odb::Rect box = macros[ranked[k].second]->getBBox()->getBox();
++      targets->targets[g].emplace_back(
++          odb::Point((box.xMin() + box.xMax()) / 2,
++                     (box.yMin() + box.yMax()) / 2),
++          static_cast<float>(ranked[k].first));
++      pairs++;
++    }
++  }
++  log->info(GPL,
++            9107,
++            "Dataflow pull: {} groups, {} macros, {} group-macro pairs.",
++            num_groups,
++            macros.size(),
++            pairs);
++  return targets;
++}
++
++}  // namespace
++
+ bool Replace::initNesterovPlace(const PlaceOptions& options,
+                                 const int threads,
+                                 bool check_density)
+@@ -353,6 +553,16 @@ bool Replace::initNesterovPlace(const PlaceOptions& options,
+     for (const auto& pb : pbVec_) {
+       nbVec_.push_back(std::make_shared<NesterovBase>(nbVars, pb, nbc_, log_));
+     }
++
++    if (options.dataflowPullWeight > 0) {
++      const auto targets = computeDataflowTargets(db_->getChip()->getBlock(),
++                                                  sta_->getDbNetwork(),
++                                                  options.clusterPullDepth,
++                                                  log_);
++      for (const auto& nb : nbVec_) {
++        nb->setDataflowTargets(targets);
++      }
++    }
+   }
+ 
+   if (!rb_) {
+@@ -610,8 +820,7 @@ void PlaceOptions::validate(utl::Logger* logger)
+                   424);
+   val.check_range(
+       "keep_resize_below_overflow", keepResizeBelowOverflow, 0.0f, 1.0f, 425);
+-  val.check_range(
+-      "cluster_pull_weight", clusterPullWeight, 0.0f, 1000.0f, 337);
++  val.check_range("cluster_pull_weight", clusterPullWeight, 0.0f, 1000.0f, 337);
+   val.check_positive("cluster_pull_iters", clusterPullIters, 338);
+ }
+ 
+diff --git a/src/gpl/src/replace.i b/src/gpl/src/replace.i
+index 13556b5f6f..e427aaa44b 100644
+--- a/src/gpl/src/replace.i
++++ b/src/gpl/src/replace.i
+@@ -90,6 +90,7 @@ static gpl::PlaceOptions getOptions(
+   checkKey(keys, "-cluster_pull_weight", options.clusterPullWeight);
+   checkKey(keys, "-cluster_pull_iters", options.clusterPullIters);
+   checkKey(keys, "-cluster_pull_depth", options.clusterPullDepth);
++  checkKey(keys, "-dataflow_pull_weight", options.dataflowPullWeight);
+   checkKey(keys, "-min_phi_coef", options.minPhiCoef);
+   checkKey(keys, "-max_phi_coef", options.maxPhiCoef);
+   checkKey(keys, "-init_density_penalty", options.initDensityPenaltyFactor);
+diff --git a/src/gpl/src/replace.tcl b/src/gpl/src/replace.tcl
+index 6e7e0bffac..6fe421b045 100644
+--- a/src/gpl/src/replace.tcl
++++ b/src/gpl/src/replace.tcl
+@@ -42,6 +42,7 @@ sta::define_cmd_args "global_placement" {\
+     [-cluster_pull_weight cluster_pull_weight]\
+     [-cluster_pull_iters cluster_pull_iters]\
+     [-cluster_pull_depth cluster_pull_depth]\
++    [-dataflow_pull_weight dataflow_pull_weight]\
+     [-timing_driven_repair_tns_end_percent timing_driven_repair_tns_end_percent]\
+     [-pad_left pad_left]\
+     [-pad_right pad_right]\
+@@ -76,6 +77,7 @@ proc global_placement { args } {
+       -keep_resize_below_overflow \
+       -virtual_cts_max_skew_fraction \
+       -cluster_pull_weight -cluster_pull_iters -cluster_pull_depth \
++      -dataflow_pull_weight \
+       -random_seed \
+       -perturb_dist \
+       -pad_left -pad_right} \
+-- 
+2.53.0
+

@@ -254,6 +254,10 @@ archive_override(
         # logical hierarchy instead of the macro placer's clusters. On
         # 0127, retires with it.
         "//patches:0129-openroad-gpl-cluster-pull-depth.patch",
+        # 0130: global_placement -dataflow_pull_weight, groups pulled toward
+        # the macros they exchange data with within three register stages
+        # (rung 4 of #1263, after DG-RePlAce). On 0129, retires with 0127.
+        "//patches:0130-openroad-gpl-dataflow-pull.patch",
     ],
     strip_prefix = "OpenROAD-bfac0546a502f30db57e92d801f1eecea86e38ab",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bfac0546a502f30db57e92d801f1eecea86e38ab.tar.gz"],
