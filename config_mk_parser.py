@@ -173,6 +173,8 @@ class ConfigMkParser:
         # sibling of the designs directory, and the logical flow_home is a
         # label prefix rather than a path.
         self.platforms_dir = platforms_dir
+        # Variables make's command line sets for the file being parsed.
+        self._command_line_vars = frozenset()
 
     def parse(self, config_path, base_dir=None, overrides=None):
         """Parse a config.mk file and return a ParsedDesign.
@@ -181,10 +183,14 @@ class ConfigMkParser:
             config_path: Path to the config.mk file.
             base_dir: Base directory for resolving relative include paths.
                       Defaults to the directory containing config_path.
-            overrides: Optional dict of structural-var overrides applied
-                      after file parsing. Used by the shared-block.mk
+            overrides: Optional dict of structural-var overrides, as make's
+                      command line sets them. Used by the shared-block.mk
                       BLOCKS path to pin DESIGN_NAME / DESIGN_NICKNAME per
-                      block (mirrors make's GENERATE_ABSTRACT_RULE).
+                      block (mirrors make's GENERATE_ABSTRACT_RULE). Known
+                      while the file is read, as make knows them, so a
+                      conditional on DESIGN_NAME in block.mk takes the
+                      block's branch; the file's own assignments to them
+                      are ignored, as make ignores them.
 
         Returns:
             ParsedDesign with all parsed information.
@@ -209,8 +215,15 @@ class ConfigMkParser:
 
         result = ParsedDesign(config_path=config_path)
         raw_vars = {}  # var_name -> (value, assignment_op, line_number)
+        for var_name, value in (overrides or {}).items():
+            raw_vars[var_name] = (value, "=", 0)
 
-        self._parse_file(config_path, base_dir, raw_vars, result, set())
+        saved = self._command_line_vars
+        self._command_line_vars = frozenset(overrides or ())
+        try:
+            self._parse_file(config_path, base_dir, raw_vars, result, set())
+        finally:
+            self._command_line_vars = saved
 
         # Set platform from parsed or derived
         if "PLATFORM" in raw_vars:
@@ -752,6 +765,11 @@ class ConfigMkParser:
         op = match.group(2)
         value = match.group(3).strip()
         value = _strip_inline_comment(value)
+
+        # A variable set on make's command line ignores the file's
+        # assignments to it.
+        if var_name in self._command_line_vars:
+            return
 
         # For ?= only set if not already defined
         if op == "?=" and var_name in raw_vars and not conditional:
