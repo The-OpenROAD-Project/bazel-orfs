@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """Client for an odb-debug daemon: a persistent OpenROAD session on a
-stage ODB, answering Tcl over a localhost socket (see daemon.tcl).
+stage ODB, served by OpenROAD's web viewer on localhost (see daemon.tcl).
 
-Protocol, one request per line: the line is base64 of UTF-8 Tcl code,
-evaluated at the daemon's global scope. The reply is one line of JSON:
+A request is base64 of UTF-8 Tcl code, sent as `od_web_request <base64>`
+through the viewer's tcl_eval and evaluated at the daemon's global scope.
+The reply is one JSON object:
 
     {"ok": true,  "result": "<string>", "stdout": "<string>", "ms": <int>}
     {"ok": false, "error":  "<message>", "stdout": "<string>", "ms": <int>}
 
 `stdout` is whatever the code wrote with `puts`; `result` is the code's
 own return value. The daemon's own procs (od_*) return JSON strings, so
-`call()` decodes them.
+`call()` decodes them. Every debug pause the code meets is continued
+(webclient.py), and what the logger printed meanwhile is kept.
 
 Standard library only, Python 3.6 syntax: the MCP server imports this and
 runs under whatever `python3` the host has.
@@ -25,7 +27,6 @@ import base64
 import json
 import os
 import re
-import socket
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -82,70 +83,34 @@ class Daemon(object):
                 )
         return self._info
 
-    @property
-    def web(self):
-        """True when the daemon serves through OpenROAD's web viewer."""
-        return self.info.get("backend") == "web"
-
-    def web_eval(self, code, timeout=DEFAULT_TIMEOUT):
-        """Evaluate Tcl through a web daemon's viewer, continuing every
-        debug pause. Returns webclient.Viewer.tcl()'s dict."""
-        if not self.web:
-            raise DaemonError(
-                "this needs a web daemon (ODB_DEBUG_BACKEND=web); %s serves "
-                "the socket backend" % self.path
-            )
+    def exchange(self, code, timeout=DEFAULT_TIMEOUT):
+        """Send Tcl `code`; return (reply dict, logger output, debug
+        pauses continued)."""
         try:
             viewer = webclient.Viewer(self.info["port"], timeout=timeout)
         except webclient.WebError as e:
             self._info = None
-            raise DaemonError(str(e))
+            raise DaemonError(
+                "%s (an idle daemon exits on its own, see ODB_DEBUG_IDLE_SECS)" % e
+            )
+        b64 = base64.b64encode(code.encode("utf-8")).decode("ascii")
         try:
-            return viewer.tcl(code)
+            out = viewer.tcl("od_web_request " + b64)
         except (webclient.WebError, OSError) as e:
             raise DaemonError(str(e))
         finally:
             viewer.close()
+        if out["is_error"]:
+            raise DaemonError(out["result"])
+        try:
+            reply = json.loads(out["result"])
+        except ValueError:
+            raise DaemonError("malformed reply: %r" % out["result"][:200])
+        return reply, out["log"], out["pauses"]
 
     def request(self, code, timeout=DEFAULT_TIMEOUT):
         """Send Tcl `code`, return the decoded reply dict."""
-        if self.web:
-            b64 = base64.b64encode(code.encode("utf-8")).decode("ascii")
-            out = self.web_eval("od_web_request " + b64, timeout)
-            if out["is_error"]:
-                raise DaemonError(out["result"])
-            try:
-                return json.loads(out["result"])
-            except ValueError:
-                raise DaemonError("malformed reply: %r" % out["result"][:200])
-        port = int(self.info["port"])
-        try:
-            s = socket.create_connection(("127.0.0.1", port), timeout=timeout)
-        except OSError as e:
-            self._info = None
-            raise DaemonError(
-                "daemon at 127.0.0.1:%d not reachable (%s); it may have exited "
-                "on its idle timeout -- relaunch it" % (port, e)
-            )
-        try:
-            s.sendall(base64.b64encode(code.encode("utf-8")) + b"\n")
-            chunks = []
-            while True:
-                chunk = s.recv(1 << 16)
-                if not chunk:
-                    break
-                chunks.append(chunk)
-                if chunk.endswith(b"\n"):
-                    break
-        finally:
-            s.close()
-        raw = b"".join(chunks).decode("utf-8", "replace").strip()
-        if not raw:
-            raise DaemonError("empty reply from daemon")
-        try:
-            return json.loads(raw)
-        except ValueError:
-            raise DaemonError("malformed reply from daemon: %r" % raw[:200])
+        return self.exchange(code, timeout)[0]
 
     def tcl(self, code, timeout=DEFAULT_TIMEOUT):
         """Evaluate Tcl; return its result string (stdout discarded)."""
@@ -217,19 +182,22 @@ class Daemon(object):
         one pin ("inst:term", or "PIN:port" for a top-level port) and
         return why each access candidate of that pin was rejected.
         pin_access runs over the whole design: on a large one, ask a
-        whittled copy. Web backend only."""
+        whittled copy."""
         code = (
             "detailed_route_debug -pa -pa_markers -pin %s\n"
             "set od_rc [catch {pin_access -verbose 1} od_msg]\n"
             "detailed_route_debug\n"
             "list $od_rc $od_msg"
         ) % tcl_quote(pin)
-        out = self.web_eval(code, timeout)
-        summary = parse_pa_log(out["log"])
+        reply, log, pauses = self.exchange(code, timeout)
+        if not reply.get("ok"):
+            raise DaemonError(reply.get("error", "unknown daemon error"))
+        result = reply.get("result", "")
+        summary = parse_pa_log(log)
         summary.update(
             pin=pin,
-            pauses=out["pauses"],
-            error=out["result"] if out["result"].startswith("1 ") else "",
+            pauses=pauses,
+            error=result[2:] if result.startswith("1 ") else "",
             dbu_per_micron=int(
                 self.tcl("[ord::get_db_tech] getDbUnitsPerMicron", timeout)
             ),
@@ -237,8 +205,8 @@ class Daemon(object):
         return summary
 
     def image(self, path, area=None, width=1024, options=None, timeout=600):
-        """Render the design headless (save_image -web, either backend:
-        it needs no running viewer) to a PNG at `path`. area: [x0, y0, x1, y1] in um; options: {control: bool}
+        """Render the design headless (save_image -web) to a PNG at
+        `path`. area: [x0, y0, x1, y1] in um; options: {control: bool}
         display overrides, e.g. {"tracks_pref": True}."""
         path = os.path.abspath(path)
         words = ["save_image", "-web", "-width", str(int(width))]

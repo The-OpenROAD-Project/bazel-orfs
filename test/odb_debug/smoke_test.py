@@ -12,10 +12,22 @@ import mcp_server
 import odbdebug
 
 
+def output_file(name):
+    """The daemon's output goes to a file, not a pipe: a pipe nobody reads
+    fills up and stops the daemon mid-write."""
+    return open(os.path.join(os.environ["TEST_TMPDIR"], name + ".log"), "w+b")
+
+
+def output(f):
+    f.seek(0)
+    return f.read().decode(errors="replace")
+
+
 class SmokeTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.dir = os.path.join(os.environ["TEST_TMPDIR"], "odb-debug")
+        cls.out = output_file("daemon")
         cls.proc = subprocess.Popen(
             [
                 sys.argv[1],
@@ -23,7 +35,7 @@ class SmokeTest(unittest.TestCase):
                 "LOG_DIR=" + os.path.join(os.environ["TEST_TMPDIR"], "log"),
                 "ODB_DEBUG_IDLE_SECS=0",
             ],
-            stdout=subprocess.PIPE,
+            stdout=cls.out,
             stderr=subprocess.STDOUT,
             start_new_session=True,
         )
@@ -31,10 +43,7 @@ class SmokeTest(unittest.TestCase):
         deadline = time.time() + 600
         while not os.path.exists(info):
             if cls.proc.poll() is not None:
-                raise AssertionError(
-                    "daemon exited early:\n"
-                    + cls.proc.stdout.read().decode(errors="replace")
-                )
+                raise AssertionError("daemon exited early:\n" + output(cls.out))
             if time.time() > deadline:
                 raise AssertionError("daemon did not write daemon.json")
             time.sleep(0.5)
@@ -44,6 +53,7 @@ class SmokeTest(unittest.TestCase):
     def tearDownClass(cls):
         os.killpg(cls.proc.pid, signal.SIGTERM)
         cls.proc.wait(timeout=60)
+        cls.out.close()
 
     def test_status(self):
         s = self.d.status()
@@ -114,6 +124,7 @@ class RelativeDirTest(unittest.TestCase):
         # the user was in BUILD_WORKING_DIRECTORY.
         cwd = os.path.join(os.environ["TEST_TMPDIR"], "user_cwd")
         os.makedirs(cwd)
+        out = output_file("daemon_rel")
         proc = subprocess.Popen(
             [
                 sys.argv[1],
@@ -123,7 +134,7 @@ class RelativeDirTest(unittest.TestCase):
                 "GUI_TIMING=0",
             ],
             env=dict(os.environ, BUILD_WORKING_DIRECTORY=cwd),
-            stdout=subprocess.PIPE,
+            stdout=out,
             stderr=subprocess.STDOUT,
             start_new_session=True,
         )
@@ -132,10 +143,7 @@ class RelativeDirTest(unittest.TestCase):
             deadline = time.time() + 120
             while not os.path.exists(info):
                 if proc.poll() is not None:
-                    raise AssertionError(
-                        "daemon exited early:\n"
-                        + proc.stdout.read().decode(errors="replace")
-                    )
+                    raise AssertionError("daemon exited early:\n" + output(out))
                 if time.time() > deadline:
                     raise AssertionError("daemon did not write " + info)
                 time.sleep(0.5)
@@ -144,6 +152,7 @@ class RelativeDirTest(unittest.TestCase):
         finally:
             os.killpg(proc.pid, signal.SIGTERM)
             proc.wait(timeout=60)
+            out.close()
 
 
 if __name__ == "__main__":

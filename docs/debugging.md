@@ -87,8 +87,9 @@ Two things to know:
 
 Where the flow left the design is in the stage's ODB, not in its log.
 `odb_debug(name, src = ":cpu_place")` (`openroad.bzl`) is a runnable
-target that opens that ODB in the flow's own OpenROAD and keeps it open
-behind a localhost socket; `tools/odb_debug/odbdebug.py` asks it from a
+target that opens that ODB in the flow's own OpenROAD and serves it
+through OpenROAD's web viewer on localhost (a browser on its URL is the
+GUI); `tools/odb_debug/odbdebug.py` asks it from a
 shell, `tools/odb_debug/mcp_server.py` from an agent, and
 `tools/odb_debug/geometry.py` turns a geometry dump into the placement
 forensics a failed legaliser needs. `tools/odb_debug/README.md` is the

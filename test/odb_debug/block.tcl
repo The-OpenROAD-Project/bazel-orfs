@@ -1,7 +1,7 @@
 # A 10 x 10 um asap7 BLOCK with three M3 pins on its top edge, 18, 36 and
-# 90 nm wide, M4 obstructed over the block, served by the odb-debug daemon
-# through the web viewer. The 36 nm pin has no access point (DRT-0073):
-# OpenROAD issue 11766.
+# 90 nm wide, M4 obstructed over the block, served by the odb-debug
+# daemon. The 36 nm pin has no access point (DRT-0073): OpenROAD issue
+# 11766.
 set here [file dirname [file normalize [info script]]]
 read_lef $::env(TECH_LEF)
 read_lef $here/block.lef

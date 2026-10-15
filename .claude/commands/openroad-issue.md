@@ -108,6 +108,12 @@ to understand:
 - What conditions trigger it
 - What the intended behavior is
 
+When the error is a verdict without a reason (DRT-0073 and the like), get
+the tool's own reason before reading code: the odb-debug daemon's
+`pin_access` tool returns DRT's markers per rejected candidate, and its
+`image` tool draws the area headless for the issue (`/odb-debug` §3). A
+maintainer reads the constraint DRT names faster than any theory of ours.
+
 ### 2. Create or find reproduction
 
 If a reproduction already exists (e.g. bug.tar.gz, failing bazel build):

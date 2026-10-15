@@ -1,7 +1,7 @@
-"""Client and MCP server against a fake daemon speaking the wire protocol.
+"""Client and MCP server against a fake daemon.
 
-The real daemon is an OpenROAD process on a design; here a thread answers
-the same base64-Tcl-in, JSON-out protocol with canned replies, so the
+The real daemon is an OpenROAD web viewer on a design; here a fake viewer
+(fake_viewer.py) answers od_web_request with canned replies, so the
 client's framing, quoting and error handling and the server's JSON-RPC
 dispatch are tested without a design.
 """
@@ -12,47 +12,45 @@ import json
 import os
 import socket
 import tempfile
-import threading
 import unittest
 
+import fake_viewer
 import mcp_server
 import odbdebug
 
+# What detailed_route_debug -pa_markers logs for a rejected pin, cut down.
+PA_LOG = [
+    "[INFO DRT-0292] Marker frcLef58RectOnlyConstraint at (6480, 12502) (6498, 12538).",
+    "Via VIA34 markers 1",
+    "[INFO DRT-0119] Marker (6411, 12528) (6509, 12552) on M4:",
+    "Short",
+    "[ERROR DRT-0073] No access point for u_blk/p36 (BLK).",
+]
+
 
 class FakeDaemon(object):
-    """Answers od_status and echoes anything else as its result."""
+    """A fake viewer answering od_web_request like daemon.tcl: od_status,
+    errors, reports, a pin_access with debug pauses, and an echo for
+    anything else."""
 
     def __init__(self):
-        self.sock = socket.socket()
-        self.sock.bind(("127.0.0.1", 0))
-        self.sock.listen(4)
-        self.port = self.sock.getsockname()[1]
         self.requests = []
+        self.viewer = fake_viewer.FakeViewer(self.handle)
+        self.port = self.viewer.port
         self.dir = tempfile.mkdtemp(prefix="odb_debug_test.")
         with open(os.path.join(self.dir, "daemon.json"), "w") as f:
             json.dump(
                 {"port": self.port, "pid": 1, "design": "fake", "timing": False}, f
             )
-        self.thread = threading.Thread(target=self.run)
-        self.thread.daemon = True
-        self.thread.start()
 
-    def run(self):
-        while True:
-            try:
-                conn, _ = self.sock.accept()
-            except OSError:
-                return
-            with conn:
-                line = b""
-                while not line.endswith(b"\n"):
-                    chunk = conn.recv(4096)
-                    if not chunk:
-                        break
-                    line += chunk
-                code = base64.b64decode(line.strip()).decode("utf-8")
-                self.requests.append(code)
-                conn.sendall((json.dumps(self.reply(code)) + "\n").encode("utf-8"))
+    def handle(self, cmd):
+        verb, _, b64 = cmd.partition(" ")
+        if verb != "od_web_request":
+            return {"result": "invalid command name", "is_error": True}
+        code = base64.b64decode(b64).decode("utf-8")
+        self.requests.append(code)
+        reply, extra = self.reply(code)
+        return dict(extra, result=json.dumps(reply))
 
     def reply(self, code):
         if code == "od_status":
@@ -61,20 +59,32 @@ class FakeDaemon(object):
                 "result": json.dumps({"design": "fake", "insts": 3}),
                 "stdout": "",
                 "ms": 1,
-            }
+            }, {}
         if code.startswith("od_cell "):
-            return {"ok": False, "error": "no instance named x", "stdout": "", "ms": 1}
+            return {
+                "ok": False,
+                "error": "no instance named x",
+                "stdout": "",
+                "ms": 1,
+            }, {}
         if code.startswith("od_check_setup "):
-            return {"ok": True, "result": "[]", "stdout": "", "ms": 1}
+            return {"ok": True, "result": "[]", "stdout": "", "ms": 1}, {}
         if code.startswith("od_capture {report_long"):
             text = "".join("line %06d\n" % i for i in range(100000))
-            return {"ok": True, "result": "", "stdout": text, "ms": 1}
+            return {"ok": True, "result": "", "stdout": text, "ms": 1}, {}
         if code.startswith("od_capture "):
-            return {"ok": True, "result": "", "stdout": "report text\n", "ms": 1}
-        return {"ok": True, "result": code, "stdout": "hello\n", "ms": 1}
+            return {"ok": True, "result": "", "stdout": "report text\n", "ms": 1}, {}
+        if code.startswith("detailed_route_debug -pa -pa_markers -pin "):
+            return {"ok": True, "result": "1 DRT-0073", "stdout": "", "ms": 1}, {
+                "log": PA_LOG,
+                "pauses": 3,
+            }
+        if code.startswith("[ord::get_db_tech] getDbUnitsPerMicron"):
+            return {"ok": True, "result": "1000", "stdout": "", "ms": 1}, {}
+        return {"ok": True, "result": code, "stdout": "hello\n", "ms": 1}, {}
 
     def close(self):
-        self.sock.close()
+        self.viewer.close()
 
 
 class ClientTest(unittest.TestCase):
@@ -124,6 +134,38 @@ class ClientTest(unittest.TestCase):
     def test_report_returns_stdout(self):
         d = odbdebug.Daemon(self.fake.dir)
         self.assertEqual(d.report("report_design_area"), "report text\n")
+
+    def test_pin_access_continues_pauses_and_groups_markers(self):
+        d = odbdebug.Daemon(self.fake.dir)
+        r = d.pin_access("u_blk:p36")
+        self.assertTrue(self.fake.requests[-2].startswith("detailed_route_debug"))
+        self.assertEqual(r["pauses"], 3)
+        self.assertEqual(r["error"], "DRT-0073")
+        self.assertTrue(r["no_access_point"])
+        self.assertEqual(
+            r["planar_markers"],
+            {
+                "frcLef58RectOnlyConstraint": {
+                    "count": 1,
+                    "boxes": [[6480, 12502, 6498, 12538]],
+                }
+            },
+        )
+        self.assertEqual(list(r["via_markers"]), ["Short on M4"])
+        self.assertEqual(r["dbu_per_micron"], 1000)
+
+    def test_image_sends_save_image_web(self):
+        d = odbdebug.Daemon(self.fake.dir)
+        path = os.path.join(self.fake.dir, "a.png")
+        with open(path, "wb") as f:
+            f.write(b"png")
+        r = d.image(path, [1, 2, 3, 4], 300, {"tracks_pref": True})
+        self.assertEqual(
+            self.fake.requests[-1],
+            "save_image -web -width 300 -area {1.0 2.0 3.0 4.0} "
+            "-display_option {tracks_pref true} " + path,
+        )
+        self.assertEqual(r, {"path": path, "bytes": 3})
 
     def test_missing_daemon(self):
         d = odbdebug.Daemon(os.path.join(self.fake.dir, "nowhere"))
@@ -177,6 +219,8 @@ class McpTest(unittest.TestCase):
                 "check_setup",
                 "tcl",
                 "report",
+                "pin_access",
+                "image",
             }
             <= names
         )

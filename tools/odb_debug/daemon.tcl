@@ -1,6 +1,7 @@
-# odb-debug daemon: a persistent OpenROAD session on a stage ODB, answering
-# Tcl over a localhost socket, so a person or an agent can ask a placed or
-# routed design questions without paying the ODB and liberty load for each.
+# odb-debug daemon: a persistent OpenROAD session on a stage ODB, served by
+# OpenROAD's web viewer on localhost, so a person or an agent can ask a
+# placed or routed design questions without paying the ODB and liberty load
+# for each, step through a tool's debug renderer and draw it headless.
 #
 # Run it as a flow stage's companion so it gets the flow's exact environment
 # (ODB, SDC, liberty set, RC, derates), either through bazel
@@ -22,22 +23,19 @@
 # queries answer that no timing is loaded. Without it the design's liberty
 # set loads and the timing queries work too.
 #
-# Protocol, one request per line: the line is base64 of UTF-8 Tcl, evaluated
-# at global scope. The reply is one JSON line:
+# Requests: `od_web_request <base64 of UTF-8 Tcl>` through the viewer's
+# tcl_eval (odbdebug.py does this); the reply is one JSON object,
 #   {"ok":true,"result":"<string>","stdout":"<string>","ms":<int>}
 #   {"ok":false,"error":"<message>","stdout":"<string>","ms":<int>}
 # The od_* procs return JSON strings, so a client decodes .result. Anything
 # else is fair game; the session has the trust model of an interactive
-# `openroad` shell on the same machine. It listens on 127.0.0.1 only.
+# `openroad` shell on the same machine. It listens on 127.0.0.1 only, and a
+# browser on that address is the GUI.
 #
-# ODB_DEBUG_BACKEND=web serves the same requests through OpenROAD's web
-# viewer instead (README.md, "The web backend"): what only the viewer
-# has, debug renderers that pause for a continue and headless images,
-# reaches the client too.
-#
-# Files, all under ODB_DEBUG_DIR (required): daemon.json, written when the
-# socket is ready -- port, pid, design, odb, workspace, commit, timing --
-# and removed when the daemon exits on its own. ODB_DEBUG_IDLE_SECS is the
+# Files, all under ODB_DEBUG_DIR (required): daemon.json, written before the
+# viewer starts -- port, pid, url, design, odb, workspace, commit, timing --
+# and removed when the daemon exits on its own; heartbeat, for the idle
+# exit. ODB_DEBUG_IDLE_SECS is the
 # idle time before it exits (0 disables; default twice the load time, at
 # least 120 s), so a forgotten daemon gives its memory back.
 
@@ -398,7 +396,7 @@ proc od_capture { script } {
   return $out
 }
 
-# ---- Socket server -----------------------------------------------------------
+# ---- Requests ----------------------------------------------------------------
 
 # Evaluate one request, capturing puts to stdout.
 proc od_eval_capture { code } {
@@ -421,42 +419,41 @@ proc od_eval_capture { code } {
   return [list $rc $result $::od_stdout]
 }
 
-# One request, base64 of UTF-8 Tcl, to its JSON reply line.
-proc od_reply { b64 } {
-  set ::od_last_request [clock seconds]
+# The idle watchdog reads this: "busy <t>" while a request runs, "idle <t>"
+# from when it ended, so a request longer than the idle time is neither
+# cut short nor followed by an exit the moment it returns.
+proc od_heartbeat { state } {
+  set tmp $::od_heartbeat_path.tmp
+  set f [open $tmp w]
+  puts $f "$state [clock seconds]"
+  close $f
+  file rename -force $tmp $::od_heartbeat_path
+}
+
+# One request: base64 of UTF-8 Tcl, evaluated at global scope; the reply
+# is one JSON object,
+#   {"ok":true,"result":"<string>","stdout":"<string>","ms":<int>}
+#   {"ok":false,"error":"<message>","stdout":"<string>","ms":<int>}
+# The client sends `od_web_request <base64>` through the viewer's
+# tcl_eval and decodes the result.
+proc od_web_request { b64 } {
+  od_heartbeat busy
   set t0 [clock milliseconds]
   if { [catch { binary decode base64 [string trim $b64] } bytes] } {
+    od_heartbeat idle
     return [od_jobj [list ok false error [od_jstr "request is not base64"] stdout [od_jstr ""] ms 0]]
   }
   set code [encoding convertfrom utf-8 $bytes]
   lassign [od_eval_capture $code] rc result out
   set ms [expr { [clock milliseconds] - $t0 }]
+  od_heartbeat idle
   if { $rc } {
     return [od_jobj [list ok false error [od_jstr $result] stdout [od_jstr $out] ms $ms]]
   }
   return [od_jobj [list ok true result [od_jstr $result] stdout [od_jstr $out] ms $ms]]
 }
 
-# The web backend's entry: the client sends `od_web_request <base64>`
-# through the viewer's tcl_eval and gets the socket protocol's reply as
-# the result, so both backends answer alike.
-proc od_web_request { b64 } {
-  return [od_reply $b64]
-}
-
-proc od_readable { chan } {
-  if { [gets $chan line] < 0 } {
-    if { [eof $chan] } { catch { close $chan } }
-    return
-  }
-  puts $chan [od_reply $line]
-  flush $chan
-}
-
-proc od_accept { chan addr port } {
-  fconfigure $chan -buffering line -blocking 1 -encoding utf-8
-  fileevent $chan readable [list od_readable $chan]
-}
+# ---- Serving -----------------------------------------------------------------
 
 # Provenance: the workspace and commit this daemon serves, when known. A
 # daemon left over from an earlier session happily serves a stale ODB;
@@ -467,66 +464,71 @@ if { $::od_workspace ne "" } {
   catch { set ::od_commit [string trim [exec git -C $::od_workspace rev-parse HEAD]] }
 }
 
-# ODB_DEBUG_BACKEND=web serves through OpenROAD's web viewer instead of
-# the socket below: the same requests (od_web_request over tcl_eval),
-# plus what only the viewer has -- headless save_image -web and debug
-# renderers that pause for a continue (detailed_route_debug -pa_markers).
-set ::od_backend [expr { [info exists ::env(ODB_DEBUG_BACKEND)] ? $::env(ODB_DEBUG_BACKEND) : "socket" }]
-if { $::od_backend ni {socket web} } {
-  error "ODB_DEBUG_BACKEND must be socket or web, not $::od_backend"
-}
-
+# web_server takes a port, not a listening socket: find a free one.
 set od_port [expr { [info exists ::env(ODB_DEBUG_PORT)] ? $::env(ODB_DEBUG_PORT) : 0 }]
-if { $::od_backend eq "web" } {
-  # web_server takes a port, not a listening socket: find a free one.
-  if { $od_port == 0 } {
-    set probe [socket -server {apply {{c a p} {close $c}}} -myaddr 127.0.0.1 0]
-    set od_port [lindex [fconfigure $probe -sockname] 2]
-    close $probe
-  }
-} else {
-  set od_server [socket -server od_accept -myaddr 127.0.0.1 $od_port]
-  set od_port [lindex [fconfigure $od_server -sockname] 2]
+if { $od_port == 0 } {
+  set probe [socket -server {apply {{c a p} {close $c}}} -myaddr 127.0.0.1 0]
+  set od_port [lindex [fconfigure $probe -sockname] 2]
+  close $probe
 }
 
-set od_info_path [file join $::env(ODB_DEBUG_DIR) daemon.json]
-set fh [open $od_info_path w]
+set ::od_heartbeat_path [file join $::env(ODB_DEBUG_DIR) heartbeat]
+od_heartbeat idle
+
+# daemon.json is the client's signal to connect, so it appears only once
+# the viewer takes requests (see the end of this file); until then it is
+# daemon.json.pending.
+set ::od_info_path [file join $::env(ODB_DEBUG_DIR) daemon.json]
+set od_pending $::od_info_path.pending
+catch { file delete $::od_info_path }
+set fh [open $od_pending w]
 puts $fh [od_jobj [list port $od_port pid [pid] dir [od_jstr $::env(ODB_DEBUG_DIR)] \
-  backend [od_jstr $::od_backend] \
+  url [od_jstr "http://127.0.0.1:$od_port"] \
   design [od_jstr [[ord::get_db_block] getName]] \
   odb [od_jstr [expr { [info exists ::env(ODB_FILE)] ? $::env(ODB_FILE) : "" }]] \
   workspace [od_jstr $::od_workspace] commit [od_jstr $::od_commit] timing [od_jbool $::od_timing]]]
 close $fh
-puts "odb-debug: daemon ($::od_backend) listening on 127.0.0.1:$od_port (info: $od_info_path)"
+puts "odb-debug: daemon on http://127.0.0.1:$od_port (info: $::od_info_path)"
 puts "odb-debug: design [[ord::get_db_block] getName], [llength [[ord::get_db_block] getInsts]] insts, loaded in $::od_load_secs s, timing [expr { $::od_timing ? "on" : "off" }]"
-
-if { $::od_backend eq "web" } {
-  # A debug pause inside tcl_eval holds the thread serving it; with one
-  # thread nothing is left to deliver the continue.
-  if { [thread_count] < 2 } {
-    puts "odb-debug: web backend needs two threads, raising from [thread_count]"
-    set_thread_count 2
-  }
-  # Nobody browses: web_server would try to open a browser.
-  set ::env(BROWSER) true
-  # web_server blocks until web_server -stop or exit, and Tcl's event loop
-  # does not run meanwhile, so the idle exit below does not apply.
-  web_server -port $od_port -bind 127.0.0.1
-  catch { file delete $::od_info_path }
-  exit 0
-}
 
 # Idle exit: give the memory back when nobody asks. Default twice the load
 # time, at least two minutes; ODB_DEBUG_IDLE_SECS overrides, 0 disables.
-set ::od_last_request [clock seconds]
+# web_server blocks and Tcl's event loop does not run under it, so a timer
+# here would never fire: a shell beside the daemon watches the heartbeat
+# and stops it. Requests typed in a browser bypass the heartbeat; browse
+# with ODB_DEBUG_IDLE_SECS=0.
 set ::od_idle [expr { [info exists ::env(ODB_DEBUG_IDLE_SECS)] ? int($::env(ODB_DEBUG_IDLE_SECS)) : max(120, int(2 * $::od_load_secs)) }]
-proc od_idle_check {} {
-  if { $::od_idle > 0 && [clock seconds] - $::od_last_request > $::od_idle } {
-    puts "odb-debug: idle for $::od_idle s, exiting"
-    catch { file delete $::od_info_path }
-    exit 0
+if { $::od_idle > 0 } {
+  set od_poll [expr { max(1, min(10, $::od_idle / 2)) }]
+  set od_watchdog {
+    pid=$1 heartbeat=$2 idle=$3 info=$4 poll=$5
+    while kill -0 "$pid" 2>/dev/null; do
+      sleep "$poll"
+      read state since < "$heartbeat" || continue
+      if [ "$state" = idle ] && [ $(( $(date +%s) - since )) -gt "$idle" ]; then
+        echo "odb-debug: idle for $idle s, exiting"
+        grep -q "\"pid\":$pid," "$info" && rm -f "$info"
+        kill "$pid"
+        exit 0
+      fi
+    done
   }
-  after 10000 od_idle_check
+  exec sh -c $od_watchdog odb-debug-watchdog [pid] $::od_heartbeat_path $::od_idle $::od_info_path $od_poll >@ stdout 2>@ stderr &
 }
-after 10000 od_idle_check
-vwait forever
+
+# A debug pause inside tcl_eval holds the thread serving it; with one
+# thread nothing is left to deliver the continue.
+if { [thread_count] < 2 } {
+  puts "odb-debug: raising threads from [thread_count] to 2 for the web viewer"
+  set_thread_count 2
+}
+# Nobody browses by default: web_server would try to open a browser.
+set ::env(BROWSER) true
+# web_server listens, then runs xdg-open, then lets requests in; a request
+# that arrives in between crashes OpenROAD (signal 11). It blocks, so the
+# rename that tells clients to connect happens beside it, after a grace.
+exec sh -c {sleep 2; [ -f "$1" ] && mv -f "$1" "$2"} odb-debug-ready \
+  $od_pending $::od_info_path >@ stdout 2>@ stderr &
+web_server -port $od_port -bind 127.0.0.1
+catch { file delete $::od_info_path }
+exit 0

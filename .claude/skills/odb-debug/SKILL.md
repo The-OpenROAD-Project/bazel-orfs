@@ -5,9 +5,12 @@ description: >-
   flow stage's ODB (the odb-debug daemon and its MCP tools): where the macros are, which
   cells sit inside a macro footprint or in a sliver between macros, what check_placement
   and the worst paths say, and whether a period is set by a few outliers or a mass of
-  paths (the endpoint histogram and the false-path peel). Use when a legaliser fails or
-  stalls, when a floorplan looks wrong, before choosing a fix for a period, or whenever
-  the answer is in the database rather than the log.
+  paths (the endpoint histogram and the false-path peel), why a pin has no access point
+  (DRT-0073: DRT's own markers for every rejected candidate), what any *_debug renderer
+  shows when stepped unattended, and a headless picture of an area for a report or an
+  issue. Use when a legaliser fails or stalls, when a floorplan looks wrong, when a stage
+  stops on an error that names an object but not a reason, before choosing a fix for a
+  period, or whenever the answer is in the database rather than the log.
 ---
 
 # odb-debug

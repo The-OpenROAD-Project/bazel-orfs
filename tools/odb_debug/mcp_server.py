@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""MCP server over an odb-debug daemon.
+"""MCP server over an odb-debug daemon (OpenROAD's web viewer on a
+loaded design, see daemon.tcl).
 
 Model Context Protocol, JSON-RPC 2.0 over stdio, one message per line.
 Each tool is a thin wrapper over a daemon proc (daemon.tcl) through the
@@ -170,7 +171,7 @@ def _tcl(d, a):
 
 @tool(
     "pin_access",
-    "Why a pin has (or has no) access points: runs pin_access under detailed_route_debug -pa -pa_markers for that pin and returns the markers DRT logged for every rejected candidate, grouped by constraint (planar: frcLef58RectOnlyConstraint, frcLef58EolKeepOutConstraint ...; via: Short on M4, RECTONLY on M3 ...), boxes in DBU, and whether DRT-0073 was raised. Web daemon only (ODB_DEBUG_BACKEND=web). pin_access runs over the whole design, so on a large one ask a whittled copy; the logger prints a message id at most 1000 times per process, see message_limit_hit.",
+    "Why a pin has (or has no) access points: runs pin_access under detailed_route_debug -pa -pa_markers for that pin and returns the markers DRT logged for every rejected candidate, grouped by constraint (planar: frcLef58RectOnlyConstraint, frcLef58EolKeepOutConstraint ...; via: Short on M4, RECTONLY on M3 ...), boxes in DBU, and whether DRT-0073 was raised. pin_access runs over the whole design, so on a large one ask a whittled copy; the logger prints a message id at most 1000 times per process, see message_limit_hit.",
     {
         "pin": (
             "string",
@@ -185,7 +186,7 @@ def _pin_access(d, a):
 
 @tool(
     "image",
-    "Render the design headless to a PNG (save_image -web): an area in um, a width in pixels, display overrides (stdcells, macros, routing, special_nets, pins, blockages, tracks_pref, rudy ...). Works on either backend. Returns the file's path; read it to look.",
+    "Render the design headless to a PNG (save_image -web): an area in um, a width in pixels, display overrides (stdcells, macros, routing, special_nets, pins, blockages, tracks_pref, rudy ...). Returns the file's path; read it to look.",
     {
         "path": (
             "string",

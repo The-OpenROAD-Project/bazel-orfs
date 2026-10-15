@@ -1,8 +1,9 @@
-"""The odb-debug daemon on its web backend, on a block whose 36 nm M3 pin
-has no access point: the MCP pin_access tool must say why, from the
-markers DRT's own pin-access debug logs.
+"""The odb-debug daemon on a 10 um block whose 36 nm M3 pin has no access
+point: the MCP pin_access tool must say why, from the markers DRT's own
+pin-access debug logs; image must draw it headless; and an idle daemon
+must exit while a long request must not be cut short.
 
-argv: openroad, the asap7 tech LEF, web_block.tcl, daemon.tcl.
+argv: openroad, the asap7 tech LEF, block.tcl, daemon.tcl.
 """
 
 import json
@@ -33,16 +34,17 @@ def call(name, arguments, directory):
     return json.loads(result["content"][0]["text"])
 
 
-class WebBackendTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
+class Launched(object):
+    """A daemon on the block, its output in a file: DRT's debug output
+    would fill a pipe nobody reads and stop the daemon mid-write."""
+
+    def __init__(self, name, idle_secs):
         openroad, tech_lef, script, daemon = sys.argv[1:5]
-        cls.dir = os.path.join(os.environ["TEST_TMPDIR"], "odb-debug")
-        # A file, not a pipe: DRT's debug output would fill a pipe nobody
-        # reads and stop the daemon mid-write.
-        cls.log = os.path.join(os.environ["TEST_TMPDIR"], "daemon.log")
-        cls.log_file = open(cls.log, "wb")
-        cls.proc = subprocess.Popen(
+        tmp = os.environ["TEST_TMPDIR"]
+        self.dir = os.path.join(tmp, name)
+        self.log = os.path.join(tmp, name + ".log")
+        self.log_file = open(self.log, "wb")
+        self.proc = subprocess.Popen(
             # One thread on purpose: the daemon must raise it, or a debug
             # pause inside tcl_eval holds the only thread there is.
             [openroad, "-no_init", "-no_splash", "-threads", "1", script],
@@ -50,33 +52,47 @@ class WebBackendTest(unittest.TestCase):
                 os.environ,
                 TECH_LEF=os.path.abspath(tech_lef),
                 ODB_DEBUG_DAEMON=os.path.abspath(daemon),
-                ODB_DEBUG_DIR=cls.dir,
-                ODB_DEBUG_BACKEND="web",
+                ODB_DEBUG_DIR=self.dir,
+                ODB_DEBUG_IDLE_SECS=str(idle_secs),
             ),
-            stdout=cls.log_file,
+            stdout=self.log_file,
             stderr=subprocess.STDOUT,
             start_new_session=True,
         )
-        info = os.path.join(cls.dir, "daemon.json")
+        self.info = os.path.join(self.dir, "daemon.json")
         deadline = time.time() + 30
-        while not os.path.exists(info):
-            if cls.proc.poll() is not None or time.time() > deadline:
-                cls.tearDownClass()
-                with open(cls.log, "rb") as f:
-                    log = f.read().decode(errors="replace")
-                raise AssertionError("daemon did not start:\n" + log)
+        while not os.path.exists(self.info):
+            if self.proc.poll() is not None or time.time() > deadline:
+                self.stop()
+                raise AssertionError("daemon did not start:\n" + self.output())
             time.sleep(0.2)
-        cls.d = odbdebug.Daemon(cls.dir)
+        self.d = odbdebug.Daemon(self.dir)
+
+    def output(self):
+        with open(self.log, "rb") as f:
+            return f.read().decode(errors="replace")
+
+    def stop(self):
+        if self.proc.poll() is None:
+            os.killpg(self.proc.pid, signal.SIGTERM)
+        self.proc.wait(timeout=60)
+        self.log_file.close()
+
+
+class BlockTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.daemon = Launched("block", 0)
+        cls.dir, cls.d = cls.daemon.dir, cls.daemon.d
 
     @classmethod
     def tearDownClass(cls):
-        if cls.proc.poll() is None:
-            os.killpg(cls.proc.pid, signal.SIGTERM)
-        cls.proc.wait(timeout=60)
-        cls.log_file.close()
+        cls.daemon.stop()
 
-    def test_a_the_socket_tools_answer_through_the_viewer(self):
-        self.assertEqual(self.d.info["backend"], "web")
+    def test_a_the_tools_answer_through_the_viewer(self):
+        self.assertEqual(
+            self.d.info["url"], "http://127.0.0.1:%d" % self.d.info["port"]
+        )
         self.assertEqual(call("status", {}, self.dir)["design"], "top")
         self.assertEqual(
             call("tcl", {"code": "puts hello; expr 6 * 7"}, self.dir),
@@ -88,6 +104,7 @@ class WebBackendTest(unittest.TestCase):
     def test_b_p36_has_no_access_point_and_says_why(self):
         r = call("pin_access", {"pin": "u_blk:p36"}, self.dir)
         self.assertTrue(r["no_access_point"])
+        self.assertEqual(r["error"], "DRT-0073")
         self.assertGreater(r["pauses"], 0)
         # Planar exits from inside the pin step from 36 nm to the 18 nm
         # wire; from its ends they meet the end-of-line keep-out.
@@ -116,6 +133,21 @@ class WebBackendTest(unittest.TestCase):
         self.assertEqual(r["path"], out)
         with open(out, "rb") as f:
             self.assertEqual(f.read(8), b"\x89PNG\r\n\x1a\n")
+
+
+class IdleExitTest(unittest.TestCase):
+    def test_a_request_longer_than_the_idle_time_survives_then_it_exits(self):
+        daemon = Launched("idle", 2)
+        try:
+            # Busy for twice the idle time: not cut short, and answered.
+            self.assertEqual(daemon.d.tcl("after 4000; expr 1 + 1"), "2")
+            # Not gone the moment it returned either: idle counts from the end.
+            self.assertIsNone(daemon.proc.poll())
+            daemon.proc.wait(timeout=30)
+            self.assertFalse(os.path.exists(daemon.info))
+            self.assertIn("idle for 2 s, exiting", daemon.output())
+        finally:
+            daemon.stop()
 
 
 if __name__ == "__main__":
