@@ -1,0 +1,304 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] gpl: -cluster_pull_weight pulls rtl_macro_placer's clusters
+ together
+
+rtl_macro_placer -keep_clustering_data writes its clusters into the
+database as VISUAL_DEBUG groups, which global placement ignores. With
+-cluster_pull_weight w, Nesterov placement pulls each cluster's cells
+(every group under the root) toward the cluster's area-weighted
+centroid. The force on a cell is bounded by w, like w pins, and grows
+with distance inside the cluster's packed radius; it fades linearly to
+0 at iteration -cluster_pull_iters (150), after which placement is the
+stock code path. A pull that never fades fights density spreading and
+diverges; DG-RePlAce decays its virtual-net weights for the same reason.
+
+The pull enters the summed gradient only, not the wirelength gradient,
+so the initial density penalty and the reported wirelength are those
+without it. Cells are mapped to clusters serially, in cell order, on
+every gradient update, so the result is the same at any thread count.
+With the weight at 0 nothing is computed and placement is unchanged.
+
+Carried in bazel-orfs to measure Hier-RTLMP clusters in global
+placement (bazel-orfs #1263); not upstreamed. Retires when an upstream
+gpl has a cluster or dataflow term, or when the measurement says no.
+---
+ src/gpl/include/gpl/Replace.h |   5 ++
+ src/gpl/src/nesterovBase.cpp  | 124 +++++++++++++++++++++++++++++++++-
+ src/gpl/src/nesterovBase.h    |  17 +++++
+ src/gpl/src/replace.cpp       |   3 +
+ src/gpl/src/replace.i         |   2 +
+ src/gpl/src/replace.tcl       |   3 +
+ 6 files changed, 153 insertions(+), 1 deletion(-)
+
+diff --git a/src/gpl/include/gpl/Replace.h b/src/gpl/include/gpl/Replace.h
+index 91a18a1424..64413e4345 100644
+--- a/src/gpl/include/gpl/Replace.h
++++ b/src/gpl/include/gpl/Replace.h
+@@ -78,6 +78,11 @@ struct PlaceOptions
+   float virtualCtsMaxSkewFraction = 0.10f;
+   float minPhiCoef = 0.95;
+   float maxPhiCoef = 1.05;
++  // rtl_macro_placer -keep_clustering_data's clusters pulled to their
++  // centroids during Nesterov placement, the weight fading linearly from
++  // clusterPullWeight to 0 at iteration clusterPullIters. 0 is off.
++  float clusterPullWeight = 0;
++  int clusterPullIters = 150;
+   float initDensityPenaltyFactor = 0.00008;
+   float initWireLengthCoef = 0.25;
+   // Scale the density-penalty controller measures a wirelength change
+diff --git a/src/gpl/src/nesterovBase.cpp b/src/gpl/src/nesterovBase.cpp
+index caefe45dcd..4106de6695 100644
+--- a/src/gpl/src/nesterovBase.cpp
++++ b/src/gpl/src/nesterovBase.cpp
+@@ -1190,7 +1190,9 @@ NesterovBaseVars::NesterovBaseVars(const PlaceOptions& options)
+       minPhiCoef(options.minPhiCoef),
+       maxPhiCoef(options.maxPhiCoef),
+       initialPlacePerturbationSeed(options.initialPlacePerturbationSeed),
+-      initialPlacePerturbationDist(options.initialPlacePerturbationDist)
++      initialPlacePerturbationDist(options.initialPlacePerturbationDist),
++      clusterPullWeight(options.clusterPullWeight),
++      clusterPullIters(options.clusterPullIters)
+ {
+ }
+ 
+@@ -3936,6 +3938,9 @@ void NesterovBase::updateGradients(std::vector<FloatPoint>& sumGrads,
+ 
+ #ifdef ENABLE_GPU
+   if (nb_device_ctx_) {
++    if (nbVars_.clusterPullWeight > 0) {
++      log_->error(GPL, 9103, "-cluster_pull_weight is not on the GPU path.");
++    }
+     SumGradSlot target = SumGradSlot::Cur;
+     SlpSlot coord_slot = SlpSlot::Cur;
+     if (&sumGrads == &prevSLPSumGrads_) {
+@@ -3995,6 +4000,9 @@ void NesterovBase::updateGradients(std::vector<FloatPoint>& sumGrads,
+     io_follower_wl_grad_[follower_io] = wireLengthGrads[ioNbPos(follower_io)];
+   }
+ 
++  updateClusterPull();
++  const bool cluster_pull = !cluster_pull_grads_.empty();
++
+   const size_t numGCells = nb_gcells_.size();
+ #pragma omp parallel for num_threads(nbc_->getNumThreads())
+   for (size_t i = 0; i < numGCells; i++) {
+@@ -4050,6 +4058,15 @@ void NesterovBase::updateGradients(std::vector<FloatPoint>& sumGrads,
+         wireLengthPreCondi.x + (densityPenalty_ * densityPrecondi.x),
+         wireLengthPreCondi.y + (densityPenalty_ * densityPrecondi.y));
+ 
++    if (cluster_pull && cluster_pull_member_[i]) {
++      // The pull is bounded by the weight, like that many pins, and
++      // preconditioned as that many pins.
++      sumGrads[i].x += cluster_pull_grads_[i].x;
++      sumGrads[i].y += cluster_pull_grads_[i].y;
++      sumPrecondi.x += cluster_pull_weight_now_;
++      sumPrecondi.y += cluster_pull_weight_now_;
++    }
++
+     sumPrecondi.x
+         = std::max(sumPrecondi.x, NesterovPlaceVars::minPreconditioner);
+     sumPrecondi.y
+@@ -4081,6 +4098,109 @@ void NesterovBase::updateGradients(std::vector<FloatPoint>& sumGrads,
+   debugPrint(log_, GPL, "updateGrad", 1, "GradSum: {:g}", gradSum);
+ }
+ 
++void NesterovBase::updateClusterPull()
++{
++  cluster_pull_grads_.clear();
++  cluster_pull_member_.clear();
++  cluster_pull_weight_now_ = 0;
++  if (nbVars_.clusterPullWeight <= 0) {
++    return;
++  }
++  if (cluster_pull_iter_ >= nbVars_.clusterPullIters) {
++    if (cluster_pull_reported_) {
++      log_->info(GPL,
++                 9102,
++                 "Cluster pull faded out at iteration {}.",
++                 cluster_pull_iter_);
++      cluster_pull_reported_ = false;
++    }
++    return;
++  }
++  cluster_pull_weight_now_
++      = nbVars_.clusterPullWeight
++        * (1.0f
++           - static_cast<float>(cluster_pull_iter_)
++                 / static_cast<float>(nbVars_.clusterPullIters));
++
++  // Cells to clusters, serially and in nb_gcells_ order: cells are added
++  // and removed mid-run (timing-driven), so nothing is cached by index.
++  const size_t numGCells = nb_gcells_.size();
++  std::vector<int> cluster(numGCells, -1);
++  for (size_t i = 0; i < numGCells; i++) {
++    GCell* gCell = nb_gcells_[i];
++    if (!gCell->isInstance() || gCell->isLocked() || gCell->isIOPin()) {
++      continue;
++    }
++    odb::dbGroup* group = gCell->insts()[0]->dbInst()->getGroup();
++    if (group == nullptr
++        || group->getType() != odb::dbGroupType::VISUAL_DEBUG
++        || group->getParentGroup() == nullptr) {
++      continue;
++    }
++    const auto [it, inserted] = cluster_pull_ids_.try_emplace(
++        group, static_cast<int>(cluster_pull_ids_.size()));
++    cluster[i] = it->second;
++  }
++
++  const size_t numClusters = cluster_pull_ids_.size();
++  std::vector<double> sum_x(numClusters, 0);
++  std::vector<double> sum_y(numClusters, 0);
++  std::vector<double> sum_area(numClusters, 0);
++  std::vector<int> count(numClusters, 0);
++  for (size_t i = 0; i < numGCells; i++) {
++    if (cluster[i] < 0) {
++      continue;
++    }
++    GCell* gCell = nb_gcells_[i];
++    const double area = static_cast<double>(gCell->dDx()) * gCell->dDy();
++    sum_x[cluster[i]] += area * gCell->dCx();
++    sum_y[cluster[i]] += area * gCell->dCy();
++    sum_area[cluster[i]] += area;
++    count[cluster[i]]++;
++  }
++
++  cluster_pull_grads_.assign(numGCells, FloatPoint(0, 0));
++  cluster_pull_member_.assign(numGCells, 0);
++  int pulled_clusters = 0;
++  int pulled_cells = 0;
++  for (size_t c = 0; c < numClusters; c++) {
++    if (count[c] >= 2 && sum_area[c] > 0) {
++      pulled_clusters++;
++      pulled_cells += count[c];
++    }
++  }
++  // A cell inside its cluster's packed radius feels a pull growing with
++  // its distance; outside it, the full weight.
++  const double density = std::max(targetDensity_, 0.01f);
++  const float weight = cluster_pull_weight_now_;
++#pragma omp parallel for num_threads(nbc_->getNumThreads())
++  for (size_t i = 0; i < numGCells; i++) {
++    const int c = cluster[i];
++    if (c < 0 || count[c] < 2 || sum_area[c] <= 0) {
++      continue;
++    }
++    GCell* gCell = nb_gcells_[i];
++    const double dx = sum_x[c] / sum_area[c] - gCell->dCx();
++    const double dy = sum_y[c] / sum_area[c] - gCell->dCy();
++    const double radius2 = sum_area[c] / density / 4.0;
++    const double norm = std::sqrt(dx * dx + dy * dy + radius2);
++    cluster_pull_grads_[i] = FloatPoint(weight * dx / norm, weight * dy / norm);
++    cluster_pull_member_[i] = 1;
++  }
++
++  if (!cluster_pull_reported_) {
++    log_->info(GPL,
++               9101,
++               "Cluster pull: {} clusters, {} cells, weight {:g} fading to 0 "
++               "at iteration {}.",
++               pulled_clusters,
++               pulled_cells,
++               cluster_pull_weight_now_,
++               nbVars_.clusterPullIters);
++    cluster_pull_reported_ = true;
++  }
++}
++
+ void NesterovBase::nbUpdatePrevGradient(float wlCoeffX, float wlCoeffY)
+ {
+   updateGradients(prevSLPSumGrads_,
+@@ -4268,6 +4388,8 @@ void NesterovBase::updateNextIter(const int iter)
+     return;
+   }
+ 
++  cluster_pull_iter_ = iter + 1;
++
+   // swap vector pointers
+   std::swap(prevSLPCoordi_, curSLPCoordi_);
+   std::swap(prevSLPWireLengthGrads_, curSLPWireLengthGrads_);
+diff --git a/src/gpl/src/nesterovBase.h b/src/gpl/src/nesterovBase.h
+index 05ed98c345..2d1ef5faa0 100644
+--- a/src/gpl/src/nesterovBase.h
++++ b/src/gpl/src/nesterovBase.h
+@@ -820,6 +820,10 @@ struct NesterovBaseVars
+   float maxPhiCoef;  // may be updated after initialization
+   const int initialPlacePerturbationSeed;
+   const float initialPlacePerturbationDist;
++  // -cluster_pull_weight/-cluster_pull_iters: rtl_macro_placer's clusters
++  // (-keep_clustering_data) pulled to their centroids, fading to zero.
++  const float clusterPullWeight;
++  const int clusterPullIters;
+ 
+   static constexpr float minWireLengthForceBar = -300;
+ };
+@@ -1509,6 +1513,19 @@ class NesterovBase
+ 
+   bool isDiverged_ = false;
+ 
++  // Cluster pull: rtl_macro_placer's clusters, each a dbGroup of type
++  // VISUAL_DEBUG under the root group, pulled to their area-weighted
++  // centroids with a force that fades linearly to zero over
++  // nbVars_.clusterPullIters iterations. Empty grads mean the pull is off
++  // and the gradient is exactly what it is without it.
++  void updateClusterPull();
++  int cluster_pull_iter_ = 0;
++  float cluster_pull_weight_now_ = 0;
++  bool cluster_pull_reported_ = false;
++  std::unordered_map<odb::dbGroup*, int> cluster_pull_ids_;
++  std::vector<FloatPoint> cluster_pull_grads_;
++  std::vector<char> cluster_pull_member_;
++
+   const NesterovPlaceVars* npVars_ = nullptr;
+ 
+   float minSumOverflow_ = 1e30;
+diff --git a/src/gpl/src/replace.cpp b/src/gpl/src/replace.cpp
+index 498ce387b0..a13b6dd165 100644
+--- a/src/gpl/src/replace.cpp
++++ b/src/gpl/src/replace.cpp
+@@ -610,6 +610,9 @@ void PlaceOptions::validate(utl::Logger* logger)
+                   424);
+   val.check_range(
+       "keep_resize_below_overflow", keepResizeBelowOverflow, 0.0f, 1.0f, 425);
++  val.check_range(
++      "cluster_pull_weight", clusterPullWeight, 0.0f, 1000.0f, 9104);
++  val.check_positive("cluster_pull_iters", clusterPullIters, 9105);
+ }
+ 
+ void PlaceOptions::skipIo()
+diff --git a/src/gpl/src/replace.i b/src/gpl/src/replace.i
+index 7675fa4deb..d79fd2b4e0 100644
+--- a/src/gpl/src/replace.i
++++ b/src/gpl/src/replace.i
+@@ -87,6 +87,8 @@ static gpl::PlaceOptions getOptions(
+            "-virtual_cts_max_skew_fraction",
+            options.virtualCtsMaxSkewFraction);
+   checkKey(keys, "-timing_driven_nets_percentage", options.timingDrivenNetsPercentage);
++  checkKey(keys, "-cluster_pull_weight", options.clusterPullWeight);
++  checkKey(keys, "-cluster_pull_iters", options.clusterPullIters);
+   checkKey(keys, "-min_phi_coef", options.minPhiCoef);
+   checkKey(keys, "-max_phi_coef", options.maxPhiCoef);
+   checkKey(keys, "-init_density_penalty", options.initDensityPenaltyFactor);
+diff --git a/src/gpl/src/replace.tcl b/src/gpl/src/replace.tcl
+index 0090fca9c6..6b1754da0c 100644
+--- a/src/gpl/src/replace.tcl
++++ b/src/gpl/src/replace.tcl
+@@ -39,6 +39,8 @@ sta::define_cmd_args "global_placement" {\
+     [-timing_driven_net_weight_max timing_driven_net_weight_max]\
+     [-timing_driven_nets_percentage timing_driven_nets_percentage]\
+     [-virtual_cts_max_skew_fraction virtual_cts_max_skew_fraction]\
++    [-cluster_pull_weight cluster_pull_weight]\
++    [-cluster_pull_iters cluster_pull_iters]\
+     [-timing_driven_repair_tns_end_percent timing_driven_repair_tns_end_percent]\
+     [-pad_left pad_left]\
+     [-pad_right pad_right]\
+@@ -72,6 +74,7 @@ proc global_placement { args } {
+       -timing_driven_repair_tns_end_percent \
+       -keep_resize_below_overflow \
+       -virtual_cts_max_skew_fraction \
++      -cluster_pull_weight -cluster_pull_iters \
+       -random_seed \
+       -perturb_dist \
+       -pad_left -pad_right} \
+-- 
+2.53.0
+
