@@ -41,6 +41,23 @@ Frontend block's 14,114 ps, and the runs before it are in the table only.
 `kpi.json` is the series, and `kpi.py` draws the chart and writes this
 table. When a change moves the number, add a row and re-run it.
 
+### What remains
+
+![reg2reg endpoints by period, stacked by part](kpi_hist.png)
+
+Every reg2reg endpoint of the latest run, by its period (the SDC period
+minus its slack), stacked: one colour for the parent and one per block.
+The endpoints right of 2,000 ps are what remains; the legend counts them
+per part. Each part's worst path, and what it is:
+
+<!-- kpi-worst begin: written by kpi.py -->
+<!-- kpi-worst end -->
+
+`kpi_run.tcl` writes each part's histogram in 10 ps bins, and
+`kpi.py --histograms parent=XSTile_kpi.txt Frontend=Frontend_kpi.txt ...`
+records them and the worst paths in the latest row; `kpi.py --hist-only
+--bin 20 --log` redraws the chart alone, from the json.
+
 The KPI is the design's minimum clock period, the red line: the largest
 of the parent's period and each block's, since the design is only as
 fast as its slowest part. On main it is **3,162 ps**, the parent's (run
