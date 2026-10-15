@@ -1,9 +1,15 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 # daemon.tcl is the script an odb_debug() target runs inside the flow's
-# OpenROAD; consumers reach it by label, so it is public.
+# OpenROAD, and its idle exit stops it through odbdebug.py and
+# webclient.py beside it; consumers reach all three by label, so they are
+# public.
 exports_files(
-    ["daemon.tcl"],
+    [
+        "daemon.tcl",
+        "odbdebug.py",
+        "webclient.py",
+    ],
     visibility = ["//visibility:public"],
 )
 

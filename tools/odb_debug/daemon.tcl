@@ -496,24 +496,49 @@ puts "odb-debug: design [[ord::get_db_block] getName], [llength [[ord::get_db_bl
 # web_server blocks and Tcl's event loop does not run under it, so a timer
 # here would never fire: a shell beside the daemon watches the heartbeat
 # and stops it. Requests typed in a browser bypass the heartbeat; browse
-# with ODB_DEBUG_IDLE_SECS=0.
+# with ODB_DEBUG_IDLE_SECS=0. It stops it as a browser's `exit` does,
+# through the viewer with the client beside this script: web_server
+# returns and the daemon exits 0 below. A kill would end it with
+# SIGTERM, which make reports as a failed run.
+set od_client [file join [file dirname [file normalize [info script]]] odbdebug.py]
+if { ![file exists $od_client] } {
+  error "odb-debug: $od_client is missing beside daemon.tcl; the idle exit stops the daemon through it"
+}
 set ::od_idle [expr { [info exists ::env(ODB_DEBUG_IDLE_SECS)] ? int($::env(ODB_DEBUG_IDLE_SECS)) : max(120, int(2 * $::od_load_secs)) }]
 if { $::od_idle > 0 } {
   set od_poll [expr { max(1, min(10, $::od_idle / 2)) }]
   set od_watchdog {
-    pid=$1 heartbeat=$2 idle=$3 info=$4 poll=$5
-    while kill -0 "$pid" 2>/dev/null; do
+    pid=$1 heartbeat=$2 idle=$3 info=$4 poll=$5 python=$6 client=$7 dir=$8
+    # This shell holds openroad's stdout, the pipe its parent tees, so the
+    # parent reaps openroad only once this shell has exited too: an exited
+    # openroad is a zombie until then, and kill -0 still finds a zombie.
+    alive() {
+      state=$(ps -o stat= -p "$pid" 2>/dev/null) && [ "${state#Z}" = "$state" ]
+    }
+    while alive; do
       sleep "$poll"
       read state since < "$heartbeat" || continue
       if [ "$state" = idle ] && [ $(( $(date +%s) - since )) -gt "$idle" ]; then
         echo "odb-debug: idle for $idle s, exiting"
+        # openroad exits inside web_server and never reaches the delete
+        # below it, so the request deletes daemon.json first: the client
+        # has read the port from it by then. Its reply is the viewer
+        # closing, so its output only matters when that fails.
+        out=$("$python" "$client" "$dir" --tcl "file delete {$info}; exit" 2>&1)
+        for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+          alive || exit 0
+          sleep 0.5
+        done
+        echo "odb-debug: the daemon did not exit through the viewer; killing it"
+        printf '%s\n' "$out" | tail -n 5
         grep -q "\"pid\":$pid," "$info" && rm -f "$info"
         kill "$pid"
-        exit 0
+        exit 1
       fi
     done
   }
-  exec sh -c $od_watchdog odb-debug-watchdog [pid] $::od_heartbeat_path $::od_idle $::od_info_path $od_poll >@ stdout 2>@ stderr &
+  exec sh -c $od_watchdog odb-debug-watchdog [pid] $::od_heartbeat_path $::od_idle $::od_info_path $od_poll \
+    $::env(PYTHON_EXE) $od_client $::env(ODB_DEBUG_DIR) >@ stdout 2>@ stderr &
 }
 
 # A debug pause inside tcl_eval holds the thread serving it; with one

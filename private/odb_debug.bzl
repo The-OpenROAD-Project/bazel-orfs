@@ -33,6 +33,13 @@ def odb_debug(name, src, **kwargs):
         **kwargs: Passed to `orfs_run_executable`: `arguments` for make
             variables such as `{"GUI_TIMING": "0"}`, `visibility`, `tags`.
     """
+
+    # The idle exit stops the daemon through its own client, which has to
+    # sit beside daemon.tcl.
+    kwargs["data"] = kwargs.get("data", []) + [
+        "@bazel-orfs//tools/odb_debug:odbdebug.py",
+        "@bazel-orfs//tools/odb_debug:webclient.py",
+    ]
     orfs_run_executable(
         name = name,
         src = src,
