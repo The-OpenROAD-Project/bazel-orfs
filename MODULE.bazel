@@ -140,6 +140,11 @@ archive_override(
         # after CTS on XiangShan's FltRegionModule. Upstream as
         # OpenROAD#11718; retires at a bump onto an OpenROAD that has it.
         "//patches:0111-openroad-hier-connect-same-module.patch",
+        # save_image -web logged WEB-0024 "Saved" for a file it could not
+        # write (a missing directory): a failed write is now WEB-0116.
+        # Not upstreamed; retires at a bump onto an OpenROAD that checks
+        # lodepng::save_file's result.
+        "//patches:0133-openroad-web-save-image-write-error.patch",
         # CTS connected its dummy loads to the flat net only, so read back
         # they were off the leaf net and their capacitance unseen. Upstream
         # as OpenROAD#11719, which creates the dummy in the loaded buffer's
