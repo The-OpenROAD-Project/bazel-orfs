@@ -70,7 +70,6 @@ comm -23 \
 | Target | What it tests |
 |--------|--------------|
 | `//test:lb_32x128_openroad_gui_*` | Source-built OpenROAD with GUI |
-| `//chisel:*` | Chisel integration (separate MODULE.bazel) |
 
 ## Feature coverage
 
@@ -226,12 +225,10 @@ These cannot be tested via `bazelisk test ...`:
 The following directories are excluded from `//...` via `.bazelignore`.
 They contain code that doesn't belong in bazel-orfs long-term -- bazel-orfs
 is hosting it temporarily until the respective owners provide native Bazel
-support. Each has its own `MODULE.bazel` for independent development
-(`cd chisel && bazelisk test ... --override_module=bazel-orfs=$(pwd)/..`).
+support.
 
 | Directory | Why it's here | Who should own it |
 |-----------|--------------|-------------------|
-| `chisel/` | Chisel integration examples/tests. Chisel rules already moved to BCR `rules_chisel`. | rules_chisel examples repo |
 | `naja/` | Naja EDA netlist cleaning example | naja repo |
 
 These are tested post-merge to catch breakage, but don't block PRs.
