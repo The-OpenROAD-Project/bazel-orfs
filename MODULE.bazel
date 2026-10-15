@@ -63,6 +63,19 @@ bazel_dep(name = "tcl_lang", version = "9.0.2.bcr.2")
 # dropped for non-root modules). It also lets downstream roots reference
 # the plugin label.
 bazel_dep(name = "sv-elab", version = "2026-07-07")
+
+# A redefined net (`output q; wire q, q;`, which slang accepts with
+# -Wredefinition) gets a wire of its own that takes the port wire's name;
+# with --keep-hierarchy the module loses the port, and nangate45/ariane133
+# failed canonicalization ("does not have a port named 'flush_ex_o'"). The
+# redefinition now shares the wire name lookup finds. Not upstreamed;
+# retires at a bump onto an sv-elab that carries it.
+single_version_override(
+    module_name = "sv-elab",
+    patch_strip = 1,
+    patches = ["//patches:sv-elab-0001-redefinition-shares-wire.patch"],
+)
+
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",

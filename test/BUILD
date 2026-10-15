@@ -784,6 +784,16 @@ build_test(
     targets = ["@orfs//flow/designs/asap7/swerv_wrapper:swerv_wrapper_synth"],
 )
 
+# nangate45/ariane133's synthesis keeps controller's flush_ex_o port, which
+# its RTL redeclares (`wire ..., flush_ex_o, ..., flush_ex_o, ...`): the
+# slang frontend gave the redefinition a wire of its own and the module
+# lost the port (patches/sv-elab-0001).
+build_test(
+    name = "ariane133_synth_build_test",
+    tags = ["manual"],
+    targets = ["@orfs//flow/designs/nangate45/ariane133:ariane_synth"],
+)
+
 # aes-block synthesizes with slang, its parent and its blocks (ORFS patch
 # 0128): the aes sources' #1 delays stop canonicalization without
 # --ignore-timing, and a block runs from block.mk alone.
