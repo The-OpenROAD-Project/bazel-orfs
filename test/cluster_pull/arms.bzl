@@ -18,7 +18,9 @@ def cluster_pull_arms(key, arms):
     Args:
       key: the DESIGNS key, e.g. "asap7/aes-block".
       arms: dict of arm name to GLOBAL_PLACEMENT_ARGS, None for an arm
-        that keeps the clusters and does not pull them.
+        that keeps the clusters and does not pull them; or to a dict
+        {"gpl": <the same>, "arguments": {...}} for an arm that also
+        sets flow variables (the macro placer's clustering, say).
     """
     design = DESIGNS[key]
     name = design["name"]
@@ -46,8 +48,13 @@ def cluster_pull_arms(key, arms):
     ]
     stock = design["arguments"].get("GLOBAL_PLACEMENT_ARGS", "")
     first = None
-    for arm, gpl_args in arms.items():
-        arguments = dict(design["arguments"])
+    for arm, spec in arms.items():
+        extra = {}
+        gpl_args = spec
+        if type(spec) == "dict":
+            gpl_args = spec.get("gpl")
+            extra = spec.get("arguments", {})
+        arguments = dict(design["arguments"]) | extra
 
         # The partition count orfs_design() gives ORFS's own flow, so the
         # first arm's synthesis is ORFS's.

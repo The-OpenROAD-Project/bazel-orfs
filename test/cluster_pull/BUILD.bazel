@@ -9,6 +9,12 @@ package(default_visibility = ["//visibility:private"])
 
 # weight: the bounded pull on a cell, in pins; it fades to 0 at the
 # 150th Nesterov iteration.
+MID_SIZE = [
+    "asap7/swerv_wrapper",
+    "nangate45/bp_fe_top",
+    "nangate45/bp_be_top",
+]
+
 ARMS = {
     "off": None,
     "w1": "-cluster_pull_weight 1",
@@ -16,8 +22,29 @@ ARMS = {
     "w16": "-cluster_pull_weight 16",
 }
 
+# Rung 5, the macro placer's clustering granularity: a deeper cluster
+# hierarchy (RTLMP_MAX_LEVEL, default 2) gives more, smaller clusters.
+# The clustering also moves the macros, so each level has its own "off".
+GRANULARITY = {
+    "%s_l%d" % (arm, level): {
+        "arguments": {"RTLMP_MAX_LEVEL": str(level)},
+        "gpl": ARMS[arm],
+    }
+    for level in [
+        3,
+        4,
+    ]
+    for arm in [
+        "off",
+        "w4",
+    ]
+}
+
 [
-    cluster_pull_arms(key, ARMS)
+    cluster_pull_arms(
+        key,
+        ARMS | (GRANULARITY if key in MID_SIZE else {}),
+    )
     for key in [
         "asap7/gcd",
         "asap7/aes-block",
