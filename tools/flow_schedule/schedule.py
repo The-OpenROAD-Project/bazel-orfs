@@ -218,6 +218,12 @@ def main(argv=None):
 
     free = mem_available_gb()
     budget = args.budget if args.budget is not None else free - args.margin
+    if budget > free - args.margin:
+        print(
+            f"warning: budget {budget:.0f} GB is above free memory less the margin "
+            f"({free - args.margin:.0f} GB): a full wave will page or be killed",
+            file=sys.stderr,
+        )
     peaks = {u: unit_peak(units[u]) for u in macros}
     waves = [("macros", w) for w in pack(peaks, budget)]
     waves += [("parent", [p]) for p in parents]
