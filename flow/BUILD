@@ -39,6 +39,7 @@ alias(
             "//test/coremark_joule/designs:__subpackages__",
             "//test/macro_select:__pkg__",
             "//test/planned_parent:__pkg__",
+            "//test/regfile/macro:__pkg__",
             "//test/structured_netlist:__pkg__",
         ],
     )

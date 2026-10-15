@@ -11,7 +11,10 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 # list it, so synthesis reads the generated netlist in the module's place.
 exports_files(
     ["constraint.sdc"],
-    visibility = ["//test/regfile/options:__pkg__"],
+    visibility = [
+        "//test/regfile/macro:__pkg__",
+        "//test/regfile/options:__pkg__",
+    ],
 )
 
 [

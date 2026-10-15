@@ -1,0 +1,87 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] memories: a register file in mode macro stops; mode netlist is the only mode
+
+mode macro wrote a register file's timing model (write_timing_model)
+from generate_ram's netlist before any clock tree was built, so the
+macro's clock pin was the whole unbuffered clock net: 8.5 pF for 64
+words of 256 bits on asap7, 32 pF for XiangShan's 954-bit Ftq queue,
+whose clock then arrived 7.7 ns late in its parent and set the parent's
+whole clock tree.
+
+A register file wanted as a macro is a design of its own: run it
+through the flow, where CTS builds its clock tree, and give the parent
+its abstract as a macro. mode macro now stops with that advice; a spec
+without a mode line means mode netlist, which dissolves the register
+file into its parent after macro placement.
+
+Not upstreamed: on 0089, carried with it.
+---
+diff --git a/docs/user/AutoMemories.md b/docs/user/AutoMemories.md
+--- a/docs/user/AutoMemories.md
++++ b/docs/user/AutoMemories.md
+@@ -164,16 +164,21 @@
+ - **Listed: a macro.** `<m>_ram` is a macro to synthesis and macro
+   placement: its abstract `<m>_ram.lef` and a liberty of its area and
+   pins land beside the FakeRAM views and it joins `blackboxes.txt`. In
+-  `mode netlist` (the usual one) `generate_ram` places only the array's
++  `mode netlist` (the only one) `generate_ram` places only the array's
+   core and leaves its periphery (decode, select and input buffers) to
+   the parent, and the macro dissolves into its cells at the end of macro
+   placement (`regfile_dissolve.tcl`): the core lands FIRM where the
+   macro was placed, flipped as the macro was, on the parent's rows; the
+   periphery is left to global placement and the resizer, and dead logic
+-  is eliminated as at synthesis. `mode macro` keeps the macro to the
+-  end, its pins placed on its edges, a power grid with `VDD`/`VSS` pins
+-  and a timing model from `write_timing_model`. A large design whose
+-  floorplan plans its register files lists them.
++  is eliminated as at synthesis. A large design whose floorplan plans
++  its register files lists them.
++- **A macro of its own.** A register file wanted as a macro to the end
++  is a design of its own: run its module through the flow (in
++  bazel-orfs, its own `orfs_flow`, its spec listed and macro-placed so
++  it dissolves there) and give the parent its abstract as a macro. Its
++  clock tree is then built and its timing model is written from it.
++  `mode macro`, which wrote the model from `generate_ram`'s netlist
++  before any clock tree, stops with that advice.
+ 
+ A word holds its value between writes either through a hold mux per
+ bit (`write_style mux`, the default here) or through one integrated
+diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_memories.py
+--- a/flow/scripts/memories/gen_memories.py
++++ b/flow/scripts/memories/gen_memories.py
+@@ -63,16 +63,30 @@
+ 
+ 
+ def _spec_mode(spec: Path) -> str:
+-    """`mode macro` (the default) or `mode netlist` of a register-file spec."""
++    """`mode netlist`, the only mode, of a register-file spec.
++
++    `mode macro` stops: it wrote the macro's timing model from
++    generate_ram's netlist before any clock tree was built, so its clock
++    pin was the whole unbuffered clock net (8.5 pF for 64 x 256 bits on
++    asap7). A register file wanted as a macro is a design of its own:
++    run it through the flow and give its abstract to the parent as a
++    macro."""
+     for line in spec.read_text().splitlines():
+         parts = line.split("#", 1)[0].split()
+         if len(parts) == 2 and parts[0] == "mode":
+-            if parts[1] not in ("macro", "netlist"):
++            if parts[1] == "macro":
++                raise SystemExit(
++                    f"gen_memories: {spec}: mode macro is gone. A register file "
++                    "wanted as a macro is a design of its own: run it through "
++                    "the flow (in bazel-orfs, its own orfs_flow) and give the "
++                    "parent its abstract as a macro. Here, mode netlist "
++                    "dissolves it into this design."
++                )
++            if parts[1] != "netlist":
+                 raise SystemExit(
+-                    f"gen_memories: {spec}: mode is macro or netlist, not {parts[1]}"
++                    f"gen_memories: {spec}: mode is netlist, not {parts[1]}"
+                 )
+-            return parts[1]
+-    return "macro"
++    return "netlist"
+ 
+ 
+ def _lib_area(lib: Path) -> str:
