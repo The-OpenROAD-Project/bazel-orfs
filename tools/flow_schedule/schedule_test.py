@@ -98,6 +98,23 @@ class Refresh(unittest.TestCase):
         _, changed = schedule.refresh(old, self.MEASURED)
         self.assertTrue(changed)
 
+    def test_partial_run_keeps_estimates(self):
+        old = {
+            "source": "estimated",
+            "basis": "x",
+            "stages": {
+                "cts": {"peak_gb": 25, "minutes": 160},
+                "grt": {"peak_gb": 35, "minutes": 60},
+            },
+        }
+        new, changed = schedule.refresh(
+            old, {"floorplan": {"peak_gb": 10.1, "minutes": 36.4}}, complete=False
+        )
+        self.assertTrue(changed)
+        self.assertEqual(new["source"], "estimated")
+        self.assertEqual(schedule.unit_peak(new), 35 * schedule.ESTIMATE_PAD)
+        self.assertIn("floorplan", new["stages"])
+
     def test_nothing_measured(self):
         old = {"source": "estimated", "stages": {"grt": {"peak_gb": 30}}}
         self.assertEqual(schedule.refresh(old, {}), (old, False))

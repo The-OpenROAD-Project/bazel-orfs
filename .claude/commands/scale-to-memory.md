@@ -38,6 +38,11 @@ Calibrated on XiangShan's XSTile parent (about 3.6 M instances, 2026-10):
 | cts | ~23 kB | ~25 min per M instances |
 | grt (route-0, repair) | ~33 kB | 15-60 min per M instances, repair-bound |
 
+A quicker proxy when stage databases already exist: about 20 GB of peak
+per GB of the stage's `.odb` (XSTile's grt, Frontend's CTS). It
+underestimates small blocks: FltRegionModule's placement took 10 GB
+against 6 estimated from its 0.3 GB db; pad blocks under 1 GB by 2x.
+
 These come from one large parent. Blocks of a few hundred thousand
 instances fit them loosely: Frontend's CTS peaked at 20 GB. When a
 `:build` run measures a block, replace the estimate (the run does it) and
@@ -46,9 +51,14 @@ correct this table when a measurement is more than 30 % off a factor.
 ## Run
 
 ```sh
+bazelisk shutdown
 systemd-run --user --scope -q -p MemoryMax=<budget>G -p MemorySwapMax=64G \
   bazelisk run //<pkg>:build
 ```
+
+- `bazelisk shutdown` first: the actions run in the Bazel server, and a
+  server keeps the cgroup it was started in. One started earlier,
+  outside the scope, builds uncapped.
 
 - The scope keeps the build to the budget; swap lets an underestimate
   page instead of the kernel killing it. After the run, check
