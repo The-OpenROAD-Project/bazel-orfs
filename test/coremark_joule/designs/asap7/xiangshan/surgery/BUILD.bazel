@@ -1,5 +1,5 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
-load(":surgery.bzl", "xs_surgery_chain")
+load(":surgery.bzl", "kept_cells", "xs_surgery_chain")
 
 # Surgery on the books: the constants XiangShan ties into the modules this
 # flow keeps, folded before synthesis by xs_surgery.py from manifest.json,
@@ -45,7 +45,7 @@ genrule(
     tags = ["manual"],
     tools = [
         "@sv-elab//src/yosys_plugin:slang.so",
-        "@yosys//:yosys",
+        "@yosys",
     ],
 )
 
@@ -54,3 +54,19 @@ py_binary(
     srcs = ["constant_outputs.py"],
 )
 
+py_binary(
+    name = "kept_cells",
+    srcs = ["kept_cells.py"],
+)
+
+# What the surgery removes before synthesis maps anything: cells and flop
+# bits of every kept module without it and with it.
+kept_cells(
+    name = "kept_cells_before",
+    src = "//test/coremark_joule/xiangshan:xiangshan_flat",
+)
+
+kept_cells(
+    name = "kept_cells_after",
+    src = ":xiangshan_surgered",
+)
