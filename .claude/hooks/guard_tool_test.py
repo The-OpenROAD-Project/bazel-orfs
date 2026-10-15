@@ -48,6 +48,24 @@ CASES = [
     ("command", "sed -i 's/foo/bar/' src/CMakeLists.txt", None),
     ("command", "git log --oneline -- CMakeLists.txt", None),
     ("command", "bazelisk build @openroad//:openroad", None),
+    # --- the OpenROAD GUI -----------------------------------------------
+    ("command", "./openroad-qt -gui debug.tcl", "odb-debug"),
+    ("command", "openroad -gui -no_init debug.tcl", "odb-debug"),
+    (
+        "command",
+        "PIN=p36 QT_QPA_PLATFORM=offscreen timeout 60 ./openroad-qt -gui x.tcl",
+        "odb-debug",
+    ),
+    ("command", "cd tmp && openroad-qt", "odb-debug"),
+    ("command", "bazelisk run @openroad//:openroad-qt -- -gui", "odb-debug"),
+    ("command", "bazelisk run @openroad//:openroad -- -gui x.tcl", "odb-debug"),
+    # Building it, the web viewer odb-debug drives, and the CLI are fine.
+    ("command", "bazelisk build @openroad//:openroad-qt", None),
+    ("command", "openroad -web -no_init daemon.tcl", None),
+    ("command", "openroad -exit -no_init repro.tcl", None),
+    ("command", "./run.sh ../openroad", None),
+    ("command", "grep -n openroad-qt BUILD.bazel", None),
+    ("command", "openroad -exit set_guide.tcl", None),
     # --- bazel clean -----------------------------------------------------
     ("command", "bazel clean", "protects bazel cache"),
     ("command", "bazelisk clean --expunge", "protects bazel cache"),
