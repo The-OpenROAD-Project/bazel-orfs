@@ -33,11 +33,11 @@ Stock already counts an output port named by `set_max_delay -to` as constrained 
 
 ## check_setup was blind to the case that matters most
 
-Stock OpenSTA calls a register unclocked only when its clock network misses it, and that network is found without regard to rise and fall. A register whose clock pin sees only the edge it does not launch on is in the network: `check_setup` says nothing while `report_checks -to` its D says `No paths found`. ASAP7's ICG with its enable tied high is one: its enabled `CLK->GCLK` arc set carries only the falling edge, and Sim disabled the rising default arc with it (parallaxsw/OpenSTA#532).
+Stock OpenSTA calls a register unclocked only when its clock network misses it, and that network is found without regard to rise and fall. A register whose clock pin sees only the edge it does not launch on is in the network: `check_setup` says nothing while `report_checks -to` its D says `No paths found`. ASAP7's ICG with its enable tied high is one: its enabled `CLK->GCLK` arc set carries only the falling edge, and Sim disabled the rising default arc with it (parallaxsw/OpenSTA#532). The library is what is broken; OpenSTA tolerates it since parallaxsw/OpenSTA@fdb00f48.
 
 Two carried patches, each with its own test in `test/check_setup`:
 
-- `patches/0108-opensta-icg-cond-arc-sim.patch` (#532): the flop behind the gate is clocked and timed (`icg_tied_enable_test`).
+- `patches/0108-opensta-icg-cond-arc-sim.patch` (fdb00f48, which resolves #532): the flop behind the gate is clocked and timed (`icg_tied_enable_test`).
 - `patches/0109-opensta-check-setup-launch-edge.patch`: `check_setup` counts a register no clock reaches on its launch edge as unclocked (`launch_edge_test`, a clock through a cell that carries only the falling edge).
 
 Patch 0110 (above) is a third concern; it applies on top of 0109.
@@ -66,6 +66,8 @@ The parent, `XSTile`, is where #532 bites. Its floorplan has 7 ICGs; the two in 
 | 0109 only | 20878 | 687 / 952 | 4621 (0 / 500) |
 | 0108 + 0109 | 0 | 687 / 952 | 800 (221 / 279) |
 | 0108 + 0109 + 0110 | 0 | 0 / 0 | 280 (0 / 280, all classified) |
+
+The two gates are XiangShan's own: `ExeUnit` gives every function unit a clock gate and sets the CSR and fence units' enable to `true.B` (`ckAlwaysEn`). Utility's `ClockGate` was a black box firtool could not fold, so `xs_icg.ys` mapped them onto the ICG. `test/coremark_joule/xiangshan/patches/0010` makes it CIRCT's clock gate, which firtool folds when an enable is constant: `xstile_clock_gates` counts 268 gates under XSTile, 2 always on, before it and 263, none always on, after (the other 3 are `GatedSplittedSRAM` gates with the same inputs, merged into one).
 
 Stock `check_setup` says nothing about the 20,878 untimed flops; it shows them only as part of 4,621 unconstrained endpoints, a warning this SDC style always raises. With 0108 they are timed and the count drops to 800. With 0110 the port warnings and the input-only endpoints are gone: 280 endpoints are left, each with a register in its fan-in, 230 of them under `core/backend` (hardened-block input pins such as `inner_fpRegion/in_fromVecRegion_wbM3Wakeup_*`).
 
