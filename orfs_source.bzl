@@ -175,6 +175,11 @@ ORFS_PATCHES = [
     # (test/regfile/macro); mode netlist is the only mode. On 0089. Not
     # upstreamed; carried with 0089.
     Label("//patches:0125-orfs-regfile-mode-macro-stops.patch"),
+    # 0128: asap7/aes-block synthesizes with slang, parent and blocks
+    # (--ignore-timing for the sources' #1 delays), at absolute die and
+    # core sizes so its 21 macros keep fitting. ORFS #4681 (draft);
+    # retires at a bump onto an ORFS that carries it.
+    Label("//patches:0128-orfs-aes-block-slang.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
