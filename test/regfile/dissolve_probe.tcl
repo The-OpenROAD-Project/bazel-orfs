@@ -44,6 +44,7 @@ set core 0
 set core_firm 0
 set core_dont_touch 0
 set core_flops 0
+set core_unpowered 0
 set off_row 0
 set periphery 0
 set periphery_placed 0
@@ -58,6 +59,13 @@ foreach inst [$block getInsts] {
     if { [$inst getPlacementStatus] eq "FIRM" } { incr core_firm }
     if { [$inst isDoNotTouch] } { incr core_dont_touch }
     if { [$master isSequential] } { incr core_flops }
+    foreach iterm [$inst getITerms] {
+      set type [[$iterm getMTerm] getSigType]
+      if { ($type eq "POWER" || $type eq "GROUND") && [$iterm getNet] eq "NULL" } {
+        incr core_unpowered
+        break
+      }
+    }
     set y [[$inst getBBox] yMin]
     if { ![dict exists $row_orient $y] } {
       incr off_row
@@ -85,6 +93,7 @@ puts $out "  \"core\": $core,"
 puts $out "  \"core_firm\": $core_firm,"
 puts $out "  \"core_dont_touch\": $core_dont_touch,"
 puts $out "  \"core_flops\": $core_flops,"
+puts $out "  \"core_unpowered\": $core_unpowered,"
 puts $out "  \"core_off_row\": $off_row,"
 puts $out "  \"periphery\": $periphery,"
 puts $out "  \"periphery_placed\": $periphery_placed,"

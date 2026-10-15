@@ -163,6 +163,12 @@ ORFS_PATCHES = [
     # 0123: asap7/coralnpu-regfiles-exmem: coralnpu-regfile-exmem with
     # FRegfile's words also moved by surgery into FRegfile_rf and generated.
     Label("//patches:0123-orfs-coralnpu-fregfile.patch"),
+    # global_connect skips dont_touch instances, and 0089 marks the
+    # dissolved register files' cores dont_touch before the PDN step, so
+    # their supply pins stayed on no net. The PDN step connects them.
+    # Not upstreamed -- retire with the regfile drafts at a bump onto an
+    # ORFS that connects them.
+    Label("//patches:0124-orfs-pdn-dont-touch-supplies.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
