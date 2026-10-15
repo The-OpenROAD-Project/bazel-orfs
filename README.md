@@ -361,7 +361,6 @@ one by one and deleted here as they land.
 | Tool | Description | Documentation |
 |------|-------------|---------------|
 | Artifact pinning | Cache long-running build results | [tools/pin](tools/pin/README.md) |
-| Post-synthesis cleanup | najaeda netlist cleaning (experimental) | [naja](naja/README.md) |
 | SRAM macros | fakeram and mock SRAM | [sram](sram/README.md) |
 | Equivalence checking (LEC) | kepler-formal logic equivalence, for bazel-orfs's own generators (dev-only) | [test/lec](test/lec/README.md) |
 

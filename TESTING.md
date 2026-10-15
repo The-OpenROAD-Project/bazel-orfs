@@ -220,19 +220,6 @@ These cannot be tested via `bazelisk test ...`:
 - **ORFS image**: Testing with preinstalled ORFS from the OCI image.
 - **Buildifier lint**: `bazelisk run @buildifier_prebuilt//:buildifier -- -lint warn -r .` (run in CI as a pre-test step).
 
-## Sub-modules (.bazelignore)
-
-The following directories are excluded from `//...` via `.bazelignore`.
-They contain code that doesn't belong in bazel-orfs long-term -- bazel-orfs
-is hosting it temporarily until the respective owners provide native Bazel
-support.
-
-| Directory | Why it's here | Who should own it |
-|-----------|--------------|-------------------|
-| `naja/` | Naja EDA netlist cleaning example | naja repo |
-
-These are tested post-merge to catch breakage, but don't block PRs.
-
 ## Profiling
 
 ```sh

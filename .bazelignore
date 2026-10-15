@@ -1,12 +1,5 @@
 .bazelbsp
 tmp
-# Sub-modules: these directories have their own MODULE.bazel and are
-# developed/tested independently (cd <dir> && bazelisk test ...).
-# Excluding them from //... keeps the root module fast.
-
-naja
-test/docker
-bazel-orfs-bazel-dev
 
 # Claude Code keeps its worktrees under .claude/worktrees, each with its
 # own bazel-<name> convenience symlink into an output base. Root-level
