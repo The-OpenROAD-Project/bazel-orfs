@@ -12,6 +12,8 @@ dissolve_probe.tcl counts what is there; this asserts what should be:
   lines remain;
 - the core's flops are not dont_touch (CTS rewires their clock pins),
   some of its other cells and nets are;
+- every core cell has its supply pins on the supply nets, dont_touch
+  or not (global_connect skips dont_touch instances; ORFS patch 0124);
 - the periphery, the address decode, is left unplaced for global
   placement, none of it FIRM.
 """
@@ -46,6 +48,9 @@ class Dissolved(unittest.TestCase):
         self.assertGreater(p["core_dont_touch"], 0)
         self.assertLessEqual(p["core_dont_touch"], p["core"] - p["core_flops"])
         self.assertGreater(p["internal_nets_dont_touch"], 0)
+
+    def test_core_powered(self):
+        self.assertEqual(self.p["core_unpowered"], 0)
 
     def test_periphery_unplaced(self):
         p = self.p

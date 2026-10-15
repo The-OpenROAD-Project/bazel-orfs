@@ -1,0 +1,72 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] pdn: connect the supply pins of dont_touch instances
+
+regfile_dissolve.tcl (0089) marks the cores of dissolved register files
+dont_touch at the macro step, before the PDN step defines the global
+connections, and global_connect skips dont_touch instances (ODB-0383,
+deliberate in odb). Their VDD and VSS pins stayed on no net through
+final: 896 of riscv32i's 7,089 instances in test/regfile, 406,272 cells
+on XiangShan's XSTile parent. The M1 rails touch them, so timing and
+routing were unaffected; the netlist, LVS and power analysis saw them
+unpowered.
+
+Every dont_touch instance with a supply pin on no net has its dont_touch
+lifted while the platform's PDN script makes its global connections,
+and restored after: one connection, no ODB-0383 warning per instance
+(406,272 on XSTile). A supply pin already on a net is left alone.
+
+Not upstreamed; it goes with the regfile drafts. Retires when the
+//:bump lands an ORFS that connects them (in pdn.tcl or in
+regfile_dissolve.tcl).
+
+---
+ flow/scripts/pdn.tcl | 35 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
+
+diff --git a/flow/scripts/pdn.tcl b/flow/scripts/pdn.tcl
+index 2230e05f8..5f2a2cf86 100644
+--- a/flow/scripts/pdn.tcl
++++ b/flow/scripts/pdn.tcl
+@@ -3,7 +3,42 @@ erase_non_stage_variables floorplan
+ load_design 2_3_floorplan_tapcell.odb 2_1_floorplan.sdc
+ source_step_tcl PRE PDN
+ 
++# global_connect skips dont_touch instances (ODB-0383, a warning each),
++# and the cores of dissolved register files are dont_touch by now
++# (regfile_dissolve.tcl), so their supply pins were left on no net: in
++# the netlist, LVS and power analysis they were unpowered. A supply pin on
++# no net changes no logic when it is connected, so dont_touch is lifted
++# from those instances for the platform's global connections and
++# restored after. A supply pin already on a net is left alone.
++proc dont_touch_unsupplied { } {
++  set insts {}
++  foreach inst [[ord::get_db_block] getInsts] {
++    if { ![$inst isDoNotTouch] } {
++      continue
++    }
++    foreach iterm [$inst getITerms] {
++      set type [[$iterm getMTerm] getSigType]
++      if { ($type eq "POWER" || $type eq "GROUND") && [$iterm getNet] eq "NULL" } {
++        lappend insts $inst
++        break
++      }
++    }
++  }
++  return $insts
++}
++set lifted [dont_touch_unsupplied]
++foreach inst $lifted {
++  $inst setDoNotTouch 0
++}
+ source $::env(PDN_TCL)
++foreach inst $lifted {
++  $inst setDoNotTouch 1
++}
++if { [llength $lifted] > 0 } {
++  utl::info FLW 18 "[llength $lifted] dont_touch instances had a supply pin\
++    on no net; connected by the global connections"
++}
++
+ pdngen
+ 
+ source_step_tcl POST PDN
