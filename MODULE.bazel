@@ -220,6 +220,11 @@ archive_override(
         # pile of CTS delay buffers. Not upstreamed; dropped when grt honours
         # -allow_congestion there.
         "//patches:0122-openroad-grt-edge-usage-warn.patch",
+        # 0126: web_server -no_browser, the url reported and no browser
+        # launched, for odb-debug's daemon. The one flag of OpenROAD#11658,
+        # spelled as it spells it. Not upstreamed by us; retires at a
+        # //:bump onto an OpenROAD that has #11658.
+        "//patches:0126-openroad-web-server-no-browser.patch",
     ],
     strip_prefix = "OpenROAD-eb14e40b7b9527a642a07548ed1dc39c4c611cb3",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/eb14e40b7b9527a642a07548ed1dc39c4c611cb3.tar.gz"],

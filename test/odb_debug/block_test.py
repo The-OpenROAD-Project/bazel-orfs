@@ -1,7 +1,8 @@
 """The odb-debug daemon on a 10 um block whose 36 nm M3 pin has no access
 point: the MCP pin_access tool must say why, from the markers DRT's own
-pin-access debug logs; image must draw it headless; and an idle daemon
-must exit while a long request must not be cut short.
+pin-access debug logs; image must draw it headless; no browser may be
+launched; and an idle daemon must exit while a long request must not be
+cut short.
 
 argv: openroad, the asap7 tech LEF, block.tcl, daemon.tcl.
 """
@@ -44,6 +45,16 @@ class Launched(object):
         self.dir = os.path.join(tmp, name)
         self.log = os.path.join(tmp, name + ".log")
         self.log_file = open(self.log, "wb")
+        # A browser launcher first on PATH that records being run: the
+        # daemon must not run one (web_server -no_browser).
+        bin_dir = os.path.join(tmp, name + "-bin")
+        os.makedirs(bin_dir, exist_ok=True)
+        self.launched = os.path.join(tmp, name + ".launched")
+        for launcher in ("xdg-open", "open"):
+            path = os.path.join(bin_dir, launcher)
+            with open(path, "w") as f:
+                f.write('#!/bin/sh\necho "$@" >> "%s"\n' % self.launched)
+            os.chmod(path, 0o755)
         self.proc = subprocess.Popen(
             # One thread on purpose: the daemon must raise it, or a debug
             # pause inside tcl_eval holds the only thread there is.
@@ -54,6 +65,7 @@ class Launched(object):
                 ODB_DEBUG_DAEMON=os.path.abspath(daemon),
                 ODB_DEBUG_DIR=self.dir,
                 ODB_DEBUG_IDLE_SECS=str(idle_secs),
+                PATH=bin_dir + os.pathsep + os.environ.get("PATH", ""),
             ),
             stdout=self.log_file,
             stderr=subprocess.STDOUT,
@@ -97,6 +109,14 @@ class BlockTest(unittest.TestCase):
         self.assertEqual(
             call("tcl", {"code": "puts hello; expr 6 * 7"}, self.dir),
             {"result": "42", "stdout": "hello\n"},
+        )
+
+    def test_a_no_browser_is_launched(self):
+        # web_server -no_browser: the url is reported, no launcher runs.
+        self.assertIn("WEB-0001", self.daemon.output())
+        self.assertFalse(
+            os.path.exists(self.daemon.launched),
+            "the daemon ran a browser launcher",
         )
 
     # Named to run before p18: the logger prints a message id at most

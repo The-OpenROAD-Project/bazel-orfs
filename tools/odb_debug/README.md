@@ -177,8 +177,12 @@ The rough edges are OpenROAD's; the daemon works around them or says so:
 
 - With one thread, a debug pause inside `tcl_eval` holds the only thread
   that could deliver the Continue; the daemon raises the count to two.
-- `web_server` listens, runs `xdg-open`, and only then lets requests in; a
-  request in between crashes OpenROAD (signal 11). `daemon.json` therefore
+- `web_server` would open a browser wherever it runs; on a desktop
+  `xdg-open` ignores `$BROWSER`. The daemon passes `-no_browser`
+  (carried patch 0126, the flag of OpenROAD#11658), so nothing opens.
+- `web_server` listens, runs the browser launcher (skipped here), and
+  only then lets requests in; a request in between crashes OpenROAD
+  (signal 11). `daemon.json` therefore
   appears two seconds after the viewer starts (`daemon.json.pending`
   until then).
 - `web_server` blocks, and Tcl's event loop does not run under it, so the
