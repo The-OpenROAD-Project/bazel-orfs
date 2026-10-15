@@ -1158,6 +1158,12 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
     # block's maze iterations take hours.
     arguments["GLOBAL_ROUTE_ARGS"] = "-congestion_iterations 0 -allow_congestion -verbose"
 
+    # Pin access stops on one generated SRAM pin in MemBlock (DRT-0073,
+    # array_32x148's RW0_clk), as it does on the parent's block pins.
+    # Skipped as the parent skips it; carried ORFS patch 0085 retires
+    # with the bug.
+    arguments["SKIP_PIN_ACCESS"] = "1"
+
     # Synthesis keeps exactly the plan's modules and flattens the rest,
     # stated rather than left to SYNTH_HIERARCHICAL=1's rule, and OpenROAD
     # keeps that hierarchy.
