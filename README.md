@@ -212,6 +212,9 @@ Where to go next:
   monitoring long stages, where CI time goes.
 - [docs/reference.md](docs/reference.md): target naming, dependency
   deployment, how Bazel takes over from the ORFS Makefile.
+- [docs/schedule.md](docs/schedule.md): `orfs_schedule()`, a scheduler
+  at home: a design's macros in waves that fit the machine's memory, the
+  parent alone, managed by an AI skill.
 
 ### Examples versus tests
 

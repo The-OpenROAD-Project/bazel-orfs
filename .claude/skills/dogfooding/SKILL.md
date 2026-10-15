@@ -91,3 +91,12 @@ The worked example: dissolving hardened blocks into XSTile after macro placement
 ## 13. Trust the Bazel cache
 
 Never clean the Bazel cache, partly or wholly; a surprising rebuild is investigated through its keys (`cache-miss`). An artifact that must be rebuilt is re-keyed by poisoning the cache: a code change that reaches the building action's key. A comment may be canonicalized away before it reaches it, so check that the target now misses.
+
+## Scale builds to memory, at home
+
+A design with several hardened macros is built with `orfs_schedule()`
+(`bazelisk run //<pkg>:build`): macros in waves that fit the memory there
+is, the parent alone and last, the record (`resources.json`) kept under
+version control and refreshed from measurement. The first record is an
+AI assessment in minutes (`scale-to-memory` skill). Two OOM-killed
+XSTile builds taught this.
