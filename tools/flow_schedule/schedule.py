@@ -173,6 +173,20 @@ def log_dir(bin_dir, package, unit, variant):
     return None
 
 
+def run(waves, macros, parents, build):
+    """Build the waves in order: {wave number: exit code}, a skipped wave absent.
+
+    A failed macro wave does not stop the other macro waves, which do not
+    read each other; it stops the parents, which read every macro."""
+    results = {}
+    for i, (kind, wave) in enumerate(waves, 1):
+        if kind == "parent" and any(results.values()):
+            continue
+        targets = [t for u in wave for t in (macros.get(u) or parents.get(u))]
+        results[i] = build(i, wave, targets)
+    return results
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--package", required=True)
@@ -246,9 +260,8 @@ def main(argv=None):
 
     bin_dir = bazel_bin(workspace)
     changed = []
-    rc = 0
-    for i, (kind, wave) in enumerate(waves, 1):
-        targets = [t for u in wave for t in (macros.get(u) or parents.get(u))]
+
+    def build(i, wave, targets):
         print(f"wave {i}: bazelisk build {' '.join(targets)}", flush=True)
         rc = subprocess.call(
             ["bazelisk", "build"] + args.bazel_arg + targets, cwd=workspace
@@ -260,8 +273,17 @@ def main(argv=None):
                 units[u] = entry
                 changed.append(u)
         if rc:
-            print(f"wave {i} failed ({rc}); later waves not run", file=sys.stderr)
-            break
+            print(f"wave {i} failed ({rc})", file=sys.stderr)
+        return rc
+
+    results = run(waves, macros, parents, build)
+    for i, (kind, wave) in enumerate(waves, 1):
+        if i not in results:
+            print(
+                f"wave {i} ({kind}) not run: a macro wave failed, and a parent reads every macro",
+                file=sys.stderr,
+            )
+    rc = max(results.values(), default=0)
     if changed:
         with open(path, "w") as f:
             json.dump(record, f, indent=2, sort_keys=True)
