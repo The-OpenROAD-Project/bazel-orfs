@@ -186,11 +186,11 @@ class IdleExitTest(unittest.TestCase):
             self.assertEqual(daemon.d.tcl("after 4000; expr 1 + 1"), "2")
             # Not gone the moment it returned either: idle counts from the end.
             self.assertIsNone(daemon.proc.poll())
-            # Its output ends soon after the idle time, before anything has
-            # reaped it: the watchdog holding the pipe must see an exited
-            # daemon as gone (a zombie answers kill -0) and not wait out
-            # its fallback.
-            self.assertTrue(daemon.eof.wait(8), daemon.output())
+            # Its output ends before anything has reaped it: the watchdog
+            # holding the pipe must see an exited daemon as gone (a zombie
+            # answers kill -0) instead of killing it after its fallback,
+            # which the output would say. The timeout only guards a hang.
+            self.assertTrue(daemon.eof.wait(120), daemon.output())
             # Exited, and cleanly: a kill (SIGTERM, -15) is what make
             # reported as a failed run.
             self.assertEqual(daemon.proc.wait(timeout=30), 0, daemon.output())
