@@ -131,5 +131,8 @@ commit its refreshes.
 - One workstation, one workspace: waves are consecutive Bazel
   invocations, not concurrent ones.
 - Peaks are per unit, not per action.
+- Macros of macros are not units of their own: a block builds the
+  macros it reads (XiangShan's register files) inside its own wave, and
+  its recorded peak absorbs them. Fine while they are small beside it.
 - Remote execution is out of scope: there memory is the executor's
   problem, not the scheduler's.
