@@ -1,0 +1,99 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] asap7/aes-block: synthesize with slang, at absolute sizes
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+yosys's own Verilog frontend is on its way out for SystemVerilog;
+aes-block now reads its sources with slang, the parent (config.mk) and
+its blocks (block.mk) alike.
+
+TL;DR the snags:
+
+- The aes sources write their registers with `<= #1`, which slang
+  refuses as unsynthesizable timing control ("Compilation failed" at
+  canonicalization); read_verilog ignored the delays silently.
+  --ignore-timing does the same under slang, as asap7/aes-mbff has.
+  The blocks need it too: a block runs from block.mk alone, while the
+  parent blackboxes it, so a parent-only setting leaves aes_rcon
+  failing on its own.
+- slang's netlist is 1.3 % smaller (5,592 vs 5,667 um^2), so
+  CORE_UTILIZATION 47 gave a smaller core, and rtl_macro_placer found
+  no valid tiling for its 21 macros (MPL-0003).
+
+The parent and each block now have DIE_AREA/CORE_AREA, today's result
+of their utilizations with read_verilog. Absolute sizes keep the
+macros fitting as yosys and OpenROAD improve: aes-block is the smoke
+test of BLOCKS plus macro placement, not of utilization.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+
+Carried in bazel-orfs until the bump onto an ORFS that has it; the
+upstream pull request is linked from orfs_source.bzl.
+---
+ flow/designs/asap7/aes-block/block.mk  | 19 ++++++++++++++++---
+ flow/designs/asap7/aes-block/config.mk | 13 ++++++++++---
+ 2 files changed, 26 insertions(+), 6 deletions(-)
+
+diff --git a/flow/designs/asap7/aes-block/block.mk b/flow/designs/asap7/aes-block/block.mk
+index 841f0405b..d0a1571c1 100644
+--- a/flow/designs/asap7/aes-block/block.mk
++++ b/flow/designs/asap7/aes-block/block.mk
+@@ -3,11 +3,24 @@ export PLATFORM               = asap7
+ export VERILOG_FILES = $(sort $(wildcard ./designs/src/aes/*.v))
+ export SDC_FILE      = ./designs/$(PLATFORM)/aes/constraint.sdc
+ 
++export SYNTH_HDL_FRONTEND     = slang
++# ignore unsynthesizable timing controls (the sources' #1 delays)
++export SYNTH_SLANG_ARGS += --ignore-timing
++
+ export ABC_AREA               = 1
+ 
+-export CORE_UTILIZATION       = 40 
+-export CORE_ASPECT_RATIO      = 1
+-export CORE_MARGIN            = 2
++# Absolute sizes, today's result of CORE_UTILIZATION 40 with yosys's
++# Verilog frontend, so the parent's macros keep their size as yosys and
++# OpenROAD improve: aes-block is the smoke test of BLOCKS plus macro
++# placement, not of utilization.
++ifeq ($(DESIGN_NAME),aes_rcon)
++export DIE_AREA               = 0 0 9.144 9.144
++export CORE_AREA              = 2.052 2.160 7.128 7.020
++else
++export DIE_AREA               = 0 0 15.866 15.866
++export CORE_AREA              = 2.052 2.160 13.824 13.770
++endif
++
+ export PLACE_DENSITY          = 0.70
+ 
+ export MAX_ROUTING_LAYER       ?= M5
+diff --git a/flow/designs/asap7/aes-block/config.mk b/flow/designs/asap7/aes-block/config.mk
+index a6574cb03..d58e6cc4c 100644
+--- a/flow/designs/asap7/aes-block/config.mk
++++ b/flow/designs/asap7/aes-block/config.mk
+@@ -6,11 +6,18 @@ export DESIGN_NICKNAME        = aes-block
+ export VERILOG_FILES = $(sort $(wildcard $(DESIGN_HOME)/src/aes/*.v))
+ export SDC_FILE      = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/constraint.sdc
+ 
++export SYNTH_HDL_FRONTEND     = slang
++# ignore unsynthesizable timing controls (the sources' #1 delays)
++export SYNTH_SLANG_ARGS += --ignore-timing
++
+ export ABC_AREA               = 1
+ 
+-export CORE_UTILIZATION       = 47
+-export CORE_ASPECT_RATIO      = 1
+-export CORE_MARGIN            = 2
++# Absolute sizes, today's result of CORE_UTILIZATION 47 with yosys's
++# Verilog frontend, so the macros keep fitting as yosys and OpenROAD
++# improve: this design is the smoke test of BLOCKS plus macro placement,
++# not of utilization.
++export DIE_AREA               = 0 0 113.801 113.801
++export CORE_AREA              = 2.052 2.160 111.780 111.780
+ 
+ export BLOCKS ?= aes_rcon aes_sbox
+ export SYNTH_HIERARCHICAL = 1
+-- 
+2.53.0
+

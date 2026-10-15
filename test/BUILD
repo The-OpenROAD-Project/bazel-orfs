@@ -775,6 +775,19 @@ analysis_test(
     ],
 )
 
+# aes-block synthesizes with slang, its parent and its blocks (ORFS patch
+# 0128): the aes sources' #1 delays stop canonicalization without
+# --ignore-timing, and a block runs from block.mk alone.
+build_test(
+    name = "aes_block_synth_build_test",
+    tags = ["manual"],
+    targets = [
+        "@orfs//flow/designs/asap7/aes-block:aes_cipher_top_synth",
+        "@orfs//flow/designs/asap7/aes-block:aes_rcon_synth",
+        "@orfs//flow/designs/asap7/aes-block:aes_sbox_synth",
+    ],
+)
+
 auto_memories_outputs_test(
     name = "no_auto_memories_outputs_test",
     forbidden = [
