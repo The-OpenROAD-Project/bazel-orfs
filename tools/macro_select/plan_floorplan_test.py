@@ -515,6 +515,122 @@ class NetlistTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             plan_floorplan.place_netlists(out, p)
 
+    def _owner_plan(self, netlists):
+        p = plan([dict(m) for m in LayoutTest.MACROS])
+        p["netlists"] = netlists
+        out = plan_floorplan.layout(p)
+        return p, out, plan_floorplan.place_netlists(out, p)
+
+    def test_netlist_centred_on_its_owner(self):
+        out = plan_floorplan.layout(plan([dict(m) for m in LayoutTest.MACROS]))
+        x0, y0, x1, y1 = out["region_um"]
+        owner = [x0 + 0.7 * (x1 - x0), y0 + 0.4 * (y1 - y0)]
+        p, out, rows = self._owner_plan(
+            [
+                {
+                    "module": "A",
+                    "instance": "top/rob/a",
+                    "w_um": 300.0,
+                    "h_um": 200.0,
+                    "owner_um": owner,
+                }
+            ]
+        )
+        (r,) = rows
+        self.assertAlmostEqual(r[2] + 150.0, owner[0], 2)
+        self.assertAlmostEqual(r[3] + 100.0, owner[1], 2)
+
+    def test_owner_outside_the_region_stays_inside(self):
+        p, out, rows = self._owner_plan(
+            [
+                {
+                    "module": "A",
+                    "instance": "top/a",
+                    "w_um": 300.0,
+                    "h_um": 200.0,
+                    "owner_um": [-1000.0, 1e6],
+                }
+            ]
+        )
+        x0, y0, x1, y1 = out["region_um"]
+        gap = p["margins"]["gap_um"]
+        (r,) = rows
+        self.assertAlmostEqual(r[2], x0 + gap, 3)
+        self.assertAlmostEqual(r[3], y1 - gap - 200.0, 3)
+
+    def test_netlists_sharing_an_owner_do_not_overlap(self):
+        out = plan_floorplan.layout(plan([dict(m) for m in LayoutTest.MACROS]))
+        x0, y0, x1, y1 = out["region_um"]
+        owner = [(x0 + x1) / 2.0, (y0 + y1) / 2.0]
+        items = [
+            {
+                "module": "A",
+                "instance": "top/rob/a",
+                "w_um": 300.0,
+                "h_um": 200.0,
+                "owner_um": owner,
+            },
+            {
+                "module": "B",
+                "instance": "top/rob/b",
+                "w_um": 200.0,
+                "h_um": 100.0,
+                "owner_um": owner,
+            },
+            # in the row along the top, which the owners' files keep clear of
+            {"module": "C", "instance": "top/c", "w_um": 100.0, "h_um": 100.0},
+        ]
+        p, out, rows = self._owner_plan(items)
+        gap = p["margins"]["gap_um"]
+        x0, y0, x1, y1 = out["region_um"]
+        boxes = [r[2:] for r in rows]
+        for i in range(len(boxes)):
+            x, y, w, h = boxes[i]
+            self.assertGreaterEqual(x, x0 + gap - 1e-6)
+            self.assertGreaterEqual(y, y0 + gap - 1e-6)
+            self.assertLessEqual(x + w, x1 - gap + 1e-6)
+            self.assertLessEqual(y + h, y1 - gap + 1e-6)
+            for j in range(i):
+                self.assertFalse(plan_floorplan._overlaps(boxes[i], boxes[j], gap))
+        # the first is on its owner; the second as near as the first allows
+        self.assertAlmostEqual(boxes[0][0] + 150.0, owner[0], 2)
+        d = abs(boxes[1][0] + 100.0 - owner[0]) + abs(boxes[1][1] + 50.0 - owner[1])
+        self.assertLessEqual(d, 150.0 + 50.0 + 2 * gap + gap)
+
+    def test_region_holds_a_netlist_at_its_owner(self):
+        p, out, rows = self._owner_plan(
+            [
+                {
+                    "module": "Big",
+                    "instance": "top/big",
+                    "w_um": 5000.0,
+                    "h_um": 700.0,
+                    "owner_um": [0.0, 0.0],
+                }
+            ]
+        )
+        x0, y0, x1, y1 = out["region_um"]
+        gap = p["margins"]["gap_um"]
+        self.assertGreaterEqual(x1 - x0, 5000.0 + 2 * gap - 1e-6)
+        self.assertGreaterEqual(y1 - y0, 700.0 + 2 * gap - 1e-6)
+        self.assertEqual(plan_floorplan.check(out), [])
+
+    def test_a_fixed_corner_wins_over_the_owner(self):
+        p, out, rows = self._owner_plan(
+            [
+                {
+                    "module": "A",
+                    "instance": "top/a",
+                    "w_um": 100.0,
+                    "h_um": 100.0,
+                    "x_um": 50.0,
+                    "y_um": 60.0,
+                    "owner_um": [900.0, 900.0],
+                }
+            ]
+        )
+        self.assertEqual(rows[0][2:4], (50.0, 60.0))
+
 
 class LoadTest(unittest.TestCase):
     def test_partners_relative_to_the_plan(self):

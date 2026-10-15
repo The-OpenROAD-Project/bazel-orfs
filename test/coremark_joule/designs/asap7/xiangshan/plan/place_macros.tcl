@@ -52,9 +52,9 @@ puts "place_macros.tcl: $bands soft placement blockage(s) over the blocks' bands
 # macro is the instance itself, or generate_ram's RAM, ram, inside the
 # wrapper that takes the module's place.
 foreach {inst x y} {
-  core/backend/inner_ctrlBlock/rob/robEntryFile 20.944 1464.998
-  core/backend/inner_intRegion/intDataPath/intRegFile 350.128 1414.508
-  core/backend/inner_ctrlBlock/rob/rab/renameBuffer 766.928 1465.268
+  core/backend/inner_ctrlBlock/rob/robEntryFile 1566.808 1038.745
+  core/backend/inner_intRegion/intDataPath/intRegFile 116.000 1147.500
+  core/backend/inner_ctrlBlock/rob/rab/renameBuffer 809.748 1465.268
 } {
   foreach name [list $inst $inst/ram $inst.ram] {
     set i [$block findInst $name]

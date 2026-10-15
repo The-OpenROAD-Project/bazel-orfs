@@ -1752,7 +1752,8 @@ What would have to change first:
   that move, robEntryFile placed by hand next to rob's logic, gives
   3,058 ps against 3,316 (-7.8 %), in the same lane. Hold after global
   route is modest in all three lanes: worst -143 to -213 ps, 549 to 646
-  endpoints, -16 to -35 ns in total.
+  endpoints, -16 to -35 ns in total. (Withdrawn in entry 53: the
+  control lane never reproduced the built parent's period.)
 - The parent's placement must not stretch a FIRM core's port cones
   across the die: either a region per dissolved block or the cones kept
   near their core.
@@ -1780,6 +1781,67 @@ scoreboard, a wide one-hot select) become worth building as placed
 macros, structured_gen is in git history to resurrect. The generate_ram
 work is probably the better starting point: it is where the register
 files' features, tests and upstream review now are (OpenROAD #11723).
+
+## 53. Register files at their owner's logic: open, needs a full run
+
+2026-10-15. The planner places each register file the plan lists in a
+row along the top of the logic region. On XSTile that puts robEntryFile
+at the die's west edge, while placement puts rob's own cells, 650,000 of
+them, about 1,800 um east. The file's core is FIRM, so global placement
+cannot bring it to its logic; it stretches the file's periphery (the
+decode and select cells the generator leaves to the parent) across the
+gap instead.
+
+**The change.** A plan's netlist entry takes `owner_um`, where the
+file's owner (the module that instantiates it) put its own cells in an
+earlier placement of the parent, and the planner centres the file there,
+inside the logic region and clear of the other files.
+`tools/macro_select/probe_netlist_owners.tcl` measures it on a placed
+parent. On main's XSTile plan, file centre to owner median:
+
+| File | in the row | at its owner |
+|---|---|---|
+| robEntryFile | 1,972 um | 0 |
+| intRegFile | 501 um | 0 |
+| renameBuffer | 80 um | 37 um (the region's top edge holds it) |
+
+XSTile's `owner_um` are mapped from the old base's placement below by
+their fraction of the logic region, not measured on main; the blocks sit
+in the same arrangement on a smaller die.
+
+**The evidence is placement only.** On the old base (entry 51's base),
+the control's 3_3_place_gp against lane R, which is the control with
+robEntryFile moved by hand to rob's logic:
+
+| | Control | R |
+|---|---|---|
+| rob's own cells, median | (1,977, 1,279) um | (1,555, 1,383) um |
+| robEntryFile periphery more than 500 um from its core | 11,571 cells | 117 |
+| renameBuffer periphery more than 500 um from its core | 1,983 | 72 |
+
+Moving the file 1,780 um to its logic moved the logic about 240 um: the
+owner's median is a stable target, not one placement chases.
+
+**The lane periods are withdrawn**: entry 51's 3,316 ps control, R's
+3,058 ps (-7.8 %) and the hold numbers. The control lane was never
+checked against a build, and it read 3,316 ps where the built parent
+read 3,860; the blocks were also abstracted at CTS then (entry 25's
+28 % on Frontend). No timing claim is made for the change.
+
+**The miniature does not show it.** test/planned_parent with FileC moved
+under an owner fed from one block: with a few hundred owner cells the
+owner settles on the file wherever the file is. With a 16-stage chain
+tied to the block at both ends, the owner sits about 68 um from the row
+and centring the file on it shortens FileC's nets 5.2 % while FileA's
+and FileB's grow 4.6 and 6.0 % (all three +3.5 %). A 168 um die cannot
+show a 1,972 um effect; the miniature was not changed.
+
+**What decides it**, in a full build of main with the change: the KPI
+at grt against main's, and the periphery scatter at 3_3_place_gp, which
+only this change moves. Scatter down and the KPI not better: the idea is
+dead. Then `owner_um` is measured on main's own placement with the probe
+and the plan regenerated; a second iteration should move the files only
+a little (the 240 um above).
 
 ## Method notes
 
