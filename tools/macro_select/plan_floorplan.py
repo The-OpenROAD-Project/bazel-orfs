@@ -94,7 +94,12 @@ def load_plan(path):
     into their cells after the macro step: the planner lays them in a row
     along the top of the logic region, left to right, a gap apart, and
     place_macros.tcl places each by its instance; an entry may fix its
-    own x_um and y_um instead.
+    own x_um and y_um instead. An entry with owner_um, [x, y], is centred
+    there instead, inside the region and clear of the other netlists:
+    owner_um is where the file's owner, the module that instantiates it,
+    put its own cells in an earlier placement of the parent
+    (probe_netlist_owners.tcl). A file away from its owner's logic
+    stretches that logic's decode and select cells across the gap.
 
     pin_partners (optional) is probe_pin_partners.tcl's dump, one
     "pin <block> <pin> <partner>" line per block pin, partner a block
@@ -972,23 +977,27 @@ def netlist_row(plan):
     """(width, height) of the row place_netlists lays along the region's
     top: the region has to be at least that wide and that tall, whatever
     its cell area alone would make it. Netlists with a fixed corner are
-    not in the row."""
+    not in the row; one at its owner is not either, but the region holds
+    it."""
     gap = plan["margins"]["gap_um"]
-    row = [n for n in plan.get("netlists") or [] if not ("x_um" in n and "y_um" in n)]
-    if not row:
+    items = [n for n in plan.get("netlists") or [] if not ("x_um" in n and "y_um" in n)]
+    row = [n for n in items if "owner_um" not in n]
+    # a netlist at its owner needs the region to hold it, not the row's width
+    w = max([2 * gap + n["w_um"] for n in items if "owner_um" in n] or [0.0])
+    if row:
+        w = max(w, gap * (len(row) + 1) + sum(n["w_um"] for n in row))
+    if not items:
         return 0.0, 0.0
-    return (
-        gap * (len(row) + 1) + sum(n["w_um"] for n in row),
-        2 * gap + max(n["h_um"] for n in row),
-    )
+    return w, 2 * gap + max(n["h_um"] for n in items)
 
 
 def place_netlists(out, plan):
     """[(module, instance, x_um, y_um, w_um, h_um)]: the parent's placed
     netlists in a row along the top of the logic region, left to right,
-    gap_um apart, unless an entry fixes its corner. The region is where
-    the parent's logic goes and the arrays are that logic's densest
-    part; the top of it keeps them off the blocks' pin sides."""
+    gap_um apart, unless an entry fixes its corner or names where its
+    owner's logic is (owner_um, at_owner). The region is where the
+    parent's logic goes and the arrays are that logic's densest part; the
+    top of it keeps them off the blocks' pin sides."""
     items = plan.get("netlists") or []
     if not items:
         return []
@@ -998,6 +1007,9 @@ def place_netlists(out, plan):
     rows = []
     for n in items:
         w, h = n["w_um"], n["h_um"]
+        if "owner_um" in n and not ("x_um" in n and "y_um" in n):
+            rows.append(None)  # after the fixed corners and the row
+            continue
         if "x_um" in n and "y_um" in n:
             rows.append(
                 (
@@ -1019,7 +1031,62 @@ def place_netlists(out, plan):
         y = y1 - gap - h
         rows.append((n["module"], n["instance"], round(x, 3), round(y, 3), w, h))
         x += w + gap
+    taken = [r[2:] for r in rows if r]
+    for k, n in enumerate(items):
+        if rows[k] is None:
+            ax, ay = at_owner(n, out["region_um"], gap, taken)
+            rows[k] = (n["module"], n["instance"], ax, ay, n["w_um"], n["h_um"])
+            taken.append(rows[k][2:])
     return rows
+
+
+def _overlaps(a, b, gap):
+    ax, ay, aw, ah = a
+    bx, by, bw, bh = b
+    return (
+        ax < bx + bw + gap - 1e-6
+        and bx < ax + aw + gap - 1e-6
+        and ay < by + bh + gap - 1e-6
+        and by < ay + ah + gap - 1e-6
+    )
+
+
+def at_owner(n, region, gap, taken):
+    """(x_um, y_um): the corner that centres netlist n on its owner_um,
+    inside the region a gap from its edges and a gap clear of the
+    netlists already placed (taken, [(x, y, w, h)]); when the centre is
+    taken, the nearest free corner on a gap-sized grid around it."""
+    x0, y0, x1, y1 = region
+    w, h = n["w_um"], n["h_um"]
+    lo_x, hi_x = x0 + gap, x1 - gap - w
+    lo_y, hi_y = y0 + gap, y1 - gap - h
+    if hi_x < lo_x - 1e-6 or hi_y < lo_y - 1e-6:
+        raise SystemExit(
+            "plan_floorplan: %s (%.0f x %.0f um) does not fit in the region"
+            % (n["module"], w, h)
+        )
+    ox, oy = n["owner_um"]
+    cx = min(max(ox - w / 2.0, lo_x), hi_x)
+    cy = min(max(oy - h / 2.0, lo_y), hi_y)
+    steps_x = int((hi_x - lo_x) / gap) + 1
+    steps_y = int((hi_y - lo_y) / gap) + 1
+    best = None
+    for i in range(-steps_x, steps_x + 1):
+        for j in range(-steps_y, steps_y + 1):
+            x = min(max(cx + i * gap, lo_x), hi_x)
+            y = min(max(cy + j * gap, lo_y), hi_y)
+            d = abs(x - cx) + abs(y - cy)
+            if best is not None and d >= best[0]:
+                continue
+            if any(_overlaps((x, y, w, h), t, gap) for t in taken):
+                continue
+            best = (d, x, y)
+    if best is None:
+        raise SystemExit(
+            "plan_floorplan: no room in the region for %s next to its owner"
+            % n["module"]
+        )
+    return round(best[1], 3), round(best[2], 3)
 
 
 def block_bands(out):

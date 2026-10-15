@@ -233,19 +233,22 @@
    "module": "RobEntryFile",
    "instance": "core/backend/inner_ctrlBlock/rob/robEntryFile",
    "w_um": 318.384,
-   "h_um": 192.51
+   "h_um": 192.51,
+   "owner_um": [1726, 1135]
   },
   {
    "module": "IntRegFile",
    "instance": "core/backend/inner_intRegion/intDataPath/intRegFile",
    "w_um": 406.0,
-   "h_um": 243.0
+   "h_um": 243.0,
+   "owner_um": [319, 1269]
   },
   {
    "module": "RenameBufferFile",
    "instance": "core/backend/inner_ctrlBlock/rob/rab/renameBuffer",
    "w_um": 306.504,
-   "h_um": 192.24
+   "h_um": 192.24,
+   "owner_um": [963, 1598]
   }
  ],
  "pin_partners": "pin_partners.txt"
