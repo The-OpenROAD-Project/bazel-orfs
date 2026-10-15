@@ -45,10 +45,21 @@ py_binary(
     deps = [":odbdebug_lib"],
 )
 
+# A stand-in for OpenROAD's web viewer, for the tests below.
+py_library(
+    name = "fake_viewer",
+    testonly = True,
+    srcs = ["fake_viewer.py"],
+    imports = ["."],
+)
+
 py_test(
     name = "odbdebug_test",
     srcs = ["odbdebug_test.py"],
-    deps = [":odbdebug_lib"],
+    deps = [
+        ":fake_viewer",
+        ":odbdebug_lib",
+    ],
 )
 
 py_test(
@@ -60,5 +71,8 @@ py_test(
 py_test(
     name = "webclient_test",
     srcs = ["webclient_test.py"],
-    deps = [":odbdebug_lib"],
+    deps = [
+        ":fake_viewer",
+        ":odbdebug_lib",
+    ],
 )

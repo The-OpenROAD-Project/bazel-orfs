@@ -18,23 +18,24 @@ py_test(
     deps = ["//tools/odb_debug:odbdebug_lib"],
 )
 
-# The web backend on a 10 um block with no flow behind it: the daemon
-# serves through OpenROAD's web viewer, and pin_access reports DRT's own
-# markers for a pin with no access point. Seconds, not a flow.
+# The daemon on a 10 um block with no flow behind it: pin_access reports
+# DRT's own markers for a pin with no access point, image draws it, and
+# the idle exit neither kills a long request nor misses an idle daemon.
+# Seconds, not a flow.
 py_test(
-    name = "web_test",
+    name = "block_test",
     size = "small",
-    srcs = ["web_test.py"],
+    srcs = ["block_test.py"],
     args = [
         "$(rootpath @openroad)",
         "$(rootpath @orfs//flow:platforms/asap7/lef/asap7_tech_1x_201209.lef)",
-        "$(rootpath web_block.tcl)",
+        "$(rootpath block.tcl)",
         "$(rootpath //tools/odb_debug:daemon.tcl)",
     ],
     data = [
         "block.lef",
+        "block.tcl",
         "design.def",
-        "web_block.tcl",
         "//tools/odb_debug:daemon.tcl",
         "@openroad",
         "@orfs//flow:platforms/asap7/lef/asap7_tech_1x_201209.lef",

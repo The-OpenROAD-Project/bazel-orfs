@@ -8,25 +8,30 @@ ODB and, for timing, the liberty set: seconds to minutes on a large
 design, every time a script opens it to print one number.
 
 odb-debug loads the design once, in the flow's own OpenROAD with the flow's
-environment, and keeps it open behind a localhost socket. A person asks
-through a small Python client, an agent through an MCP server that exposes
-the daemon's procs as tools. Every question after the load is milliseconds.
+environment, and serves it through OpenROAD's web viewer on localhost. A
+person asks through a small Python client or looks in a browser, an agent
+asks through an MCP server that exposes the daemon's procs as tools. Every
+question after the load is milliseconds, and the viewer brings what a
+plain session lacks: debug renderers that can be stepped from a script and
+headless pictures.
 
 ```
                  bazelisk run //my:cpu_place_odb_debug  (or ./make run in a //:deps tree)
                                      |
-   agent --MCP stdio--> mcp_server.py --socket--> daemon.tcl in openroad, design loaded
-   shell -------------> odbdebug.py  --socket-->     |
+   agent --MCP stdio--> mcp_server.py --websocket--> daemon.tcl in openroad (web_server)
+   shell -------------> odbdebug.py  --websocket-->     |
+   browser ------------------------- http://127.0.0.1:<port> --^
                                                      v
                         geometry.py <-- od_dump text files (offline forensics, pictures)
 ```
 
-Three files do the work, and none needs anything beyond a stock `python3`:
+These files do the work, and none needs anything beyond a stock `python3`:
 
 | file | role |
 |---|---|
-| `daemon.tcl` | Runs inside openroad. Opens the stage through ORFS's `open.tcl`, defines the `od_*` procs, serves Tcl over a socket, writes `daemon.json`, exits when idle. |
-| `odbdebug.py` | Client. `Daemon(dir).status()`, `.tcl(code)`, `.call(proc, ...)`; a CLI for one-off questions. |
+| `daemon.tcl` | Runs inside openroad. Opens the stage through ORFS's `open.tcl`, defines the `od_*` procs, serves them through `web_server`, writes `daemon.json`, exits when idle. |
+| `webclient.py` | The web viewer's websocket protocol, from a script: `tcl_eval`, log pushes, and a Continue for every debug pause. |
+| `odbdebug.py` | Client. `Daemon(dir).status()`, `.tcl(code)`, `.call(proc, ...)`, `.pin_access(pin)`, `.image(path, ...)`; a CLI for one-off questions. |
 | `mcp_server.py` | MCP server over the client: JSON-RPC 2.0 on stdio, one tool per proc plus `tcl` and `report`. |
 | `geometry.py` | Placement forensics on an `od_dump` directory: free sites, cells inside macros, where the failed cells are. Optional `--png`. |
 
@@ -74,18 +79,26 @@ the daemon on it:
     ODB_DEBUG_DIR=$PWD/tmp/odb-debug GUI_TIMING=0
 ```
 
-### From an open GUI
+### Look at it
 
-`source tools/odb_debug/daemon.tcl` in a GUI session attaches to the design
-already loaded there; `ODB_DEBUG_DIR` must be set in the environment.
+The daemon is a web viewer: open `url` from `daemon.json` in a browser for
+the GUI, on the same loaded design the client asks. Commands typed in the
+browser do not count as activity, so browse with `ODB_DEBUG_IDLE_SECS=0`.
+
+A script that has already loaded a design can `source
+tools/odb_debug/daemon.tcl` to serve it instead of opening a stage;
+`ODB_DEBUG_DIR` must be set in the environment (`//test/odb_debug:block_test`
+does this with a hand-made LEF and DEF).
 
 ### `daemon.json`
 
-Written when the socket is ready, removed when the daemon exits on its own:
+Written once the viewer takes requests, removed when the daemon exits on
+its own:
 
 ```json
-{"port":41123,"pid":12345,"dir":"...","backend":"socket","design":"cpu",
- "odb":".../3_place.odb","workspace":"...","commit":"8dd2fb5...","timing":false}
+{"port":41123,"pid":12345,"dir":"...","url":"http://127.0.0.1:41123",
+ "design":"cpu","odb":".../3_place.odb","workspace":"...","commit":"8dd2fb5...",
+ "timing":false}
 ```
 
 Check `commit` against the tree you are studying. A daemon left over from
@@ -144,49 +157,41 @@ another ODB without restarting the agent. Tools:
 | `check_setup` | each `check_setup` warning with its count, example pins and the instance prefixes they cluster in (`.claude/commands/check-setup.md`) |
 | `report cmd` | what any `report_*` command prints |
 | `tcl code` | anything else: result and captured stdout |
-| `image path` | a PNG of an area (`save_image -web`, headless, either backend) |
-| `pin_access pin` | why a pin has no access point: DRT's markers for each rejected candidate, by constraint (web backend) |
+| `image path` | a PNG of an area (`save_image -web`, headless) |
+| `pin_access pin` | why a pin has no access point: DRT's markers for each rejected candidate, by constraint |
 
 A reply longer than 16000 characters (`MAX_TEXT` in `mcp_server.py`)
 keeps its head and tail and says how much was dropped, so one
 `report_checks` cannot flood the agent's context. The shell client is not
 capped.
 
-## The web backend
+## Debug renderers and the viewer's rough edges
 
-`ODB_DEBUG_BACKEND=web` serves the same daemon through OpenROAD's web
-viewer (`web_server`) instead of its own socket, on the flow's own binary:
+`detailed_route_debug`, `global_placement_debug` and the like stop at every
+step for a Continue. The client continues each stop and collects what was
+logged on the way, so a command that pauses hundreds of times runs to the
+end in seconds, through `tcl` or a typed tool. `pin_access` is built on
+this: why DRT rejects a candidate exists only in `-pa_markers`'s output.
 
-```sh
-bazelisk run //my:design_place_odb_debug -- ODB_DEBUG_DIR=tmp/odb-debug ODB_DEBUG_BACKEND=web
-```
-
-Every tool works as before: the client sends each request as
-`od_web_request <base64>` through the viewer's `tcl_eval` and gets the
-socket protocol's reply back. What only the viewer has:
-
-- Debug renderers. `detailed_route_debug`, `global_placement_debug` and the
-  like stop at every step for a Continue. The client continues each stop
-  and collects what was logged on the way, so a command that pauses
-  hundreds of times runs to the end in seconds. `pin_access` is built on
-  this: the reason DRT rejects a candidate exists only in
-  `-pa_markers`'s output.
-- A browser, if wanted: the URL is `http://127.0.0.1:<port>` from
-  `daemon.json`.
-
-Rough edges, all OpenROAD's:
+The rough edges are OpenROAD's; the daemon works around them or says so:
 
 - With one thread, a debug pause inside `tcl_eval` holds the only thread
   that could deliver the Continue; the daemon raises the count to two.
+- `web_server` listens, runs `xdg-open`, and only then lets requests in; a
+  request in between crashes OpenROAD (signal 11). `daemon.json` therefore
+  appears two seconds after the viewer starts (`daemon.json.pending`
+  until then).
+- `web_server` blocks, and Tcl's event loop does not run under it, so the
+  idle exit is a shell beside the daemon that watches `heartbeat`: busy
+  while a request runs, idle from when it ended, so a long request is
+  neither cut short nor followed by an exit the moment it returns.
 - The logger prints a message id at most 1000 times per process
   (`utl::Logger::max_message_print`). Repeated `pin_access` calls on one
   daemon run out of DRT-0119 (via markers); the reply's
   `message_limit_hit` says so. Relaunch for the full set.
-- `web_server` blocks and Tcl's event loop does not run under it, so the
-  idle exit does not apply; stop the daemon yourself.
 
 The websocket protocol is the viewer's own and unversioned;
-`//test/odb_debug:web_test` is what notices when a bump changes it.
+`//test/odb_debug:block_test` is what notices when a bump changes it.
 
 ## The daemon's procs
 
@@ -237,8 +242,9 @@ and the cells in question.
 
 ## Protocol
 
-One request per line: base64 of UTF-8 Tcl, evaluated at global scope. One
-JSON reply per line:
+A request is `od_web_request <base64 of UTF-8 Tcl>`, sent as the viewer's
+`tcl_eval` over its websocket (`ws://127.0.0.1:<port>/ws`) and evaluated at
+global scope. Its result is one JSON reply:
 
 ```
 {"ok":true,"result":"<string>","stdout":"<string>","ms":<int>}
@@ -246,16 +252,20 @@ JSON reply per line:
 ```
 
 Base64 keeps newlines and braces out of the framing, so multi-line Tcl is
-one request. The daemon listens on `127.0.0.1` only and has the trust model
-of an interactive openroad shell on the same machine.
+one request. The websocket framing is the viewer's: JSON requests, binary
+replies `[4-byte id][1-byte kind][3 reserved][payload]`, id 0 for pushes
+(`log`, `debug_paused`); `webclient.py` has the details. The daemon listens
+on `127.0.0.1` only and has the trust model of an interactive openroad
+shell on the same machine.
 
 ## Tests
 
 `//tools/odb_debug:odbdebug_test` runs the client and the MCP server
-against a fake daemon speaking the protocol; `:geometry_test` runs the
-forensics on a hand-made dump; `:webclient_test` runs the websocket client
-against a fake viewer and the pin-access parser on DRT's real output;
-`//test/odb_debug:smoke_test` launches the real daemon on a placed
-multiplier and asks it everything once; `//test/odb_debug:web_test` runs
-the web backend on a 10 µm block whose 36 nm M3 pin has no access point,
-in seconds.
+against a fake viewer (`fake_viewer.py`) answering `od_web_request`;
+`:webclient_test` runs the websocket client against the same fake and the
+pin-access parser on DRT's real output; `:geometry_test` runs the
+forensics on a hand-made dump. `//test/odb_debug:smoke_test` launches the
+real daemon on a placed multiplier and asks it everything once;
+`//test/odb_debug:block_test` launches it on a 10 µm block whose 36 nm M3
+pin has no access point, asks `pin_access` and `image`, and checks the
+idle exit, in seconds.

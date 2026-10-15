@@ -10,8 +10,8 @@
     bazelisk run //my:cpu_place_odb_debug -- ODB_DEBUG_DIR=tmp/odb-debug
 
 opens the stage's ODB in the flow's own OpenROAD, with the flow's SDC,
-liberty set, RC and derates, and serves Tcl over a localhost socket until
-it has been idle for a while. tools/odb_debug/odbdebug.py is the client,
+liberty set, RC and derates, and serves it through OpenROAD's web viewer
+on localhost until it has been idle for a while. tools/odb_debug/odbdebug.py is the client,
 tools/odb_debug/mcp_server.py the MCP server an agent talks to, and
 tools/odb_debug/README.md the manual.
 

@@ -6,8 +6,8 @@ ARGUMENTS: $ARGUMENTS
 
 The tool is `tools/odb_debug/` in bazel-orfs (`README.md` there is the
 manual): a daemon Tcl that opens a stage's ODB in the flow's own OpenROAD
-and answers Tcl over a localhost socket, a stdlib Python client, and an MCP
-server exposing the daemon's procs as tools. Loading a large design once
+and serves it through OpenROAD's web viewer on localhost, a stdlib Python
+client, and an MCP server exposing the daemon's procs as tools. Loading a large design once
 and asking it many questions is the point: a 1 M-instance ODB loads in
 seconds without liberty and in minutes with it, and every question after
 that is milliseconds.
@@ -120,7 +120,9 @@ the workspace and its git commit: **check the commit against the tree you
 are studying** before trusting a number — a daemon from an earlier session
 happily serves a stale ODB. The daemon exits on its own after an idle
 period (default twice its load time, at least two minutes;
-`ODB_DEBUG_IDLE_SECS` overrides, `0` disables).
+`ODB_DEBUG_IDLE_SECS` overrides, `0` disables). Its `url` is the GUI: the
+same loaded design in a browser, no Qt build needed (browse with
+`ODB_DEBUG_IDLE_SECS=0`; the browser's commands do not count as activity).
 
 ## 3. Ask
 
@@ -147,13 +149,12 @@ output; ask for that before guessing.** DRT-0073 names a pin and
 nothing else; why each access candidate failed (RECTONLY, end-of-line
 keep-out, a short with an obstruction) exists only in
 `detailed_route_debug -pa -pa_markers`, which stops at every candidate
-for a Continue. Launch the daemon with `ODB_DEBUG_BACKEND=web` and the
-`pin_access` tool runs it to the end and returns the markers by
-constraint; `image` draws the area headless. Neither needs a Qt build,
-a display or a click: the web viewer in the flow's own binary does the
-pausing, and the client continues. The same holds for any tool with a
-debug renderer — through `tcl` on a web daemon, every pause is
-continued and its log returned.
+for a Continue. The `pin_access` tool runs it to the end and returns the
+markers by constraint; `image` draws the area headless. Neither needs a
+Qt build, a display or a click: the web viewer in the flow's own binary
+does the pausing, and the client continues. The same holds for any tool
+with a debug renderer — through `tcl`, every pause is continued and its
+log returned.
 
 ## 4. Placement forensics, the common case
 

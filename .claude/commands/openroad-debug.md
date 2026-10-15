@@ -38,6 +38,9 @@ problem, not the tool's: the stage is doing its job on an input it cannot
 finish, and waiting it out teaches nothing. Before treating it as a tool
 failure, open the previous stage's ODB and ask why (`/odb-debug` §0);
 the fix is often a floorplan, macro or RTL decision made stages earlier.
+A stage that stops on an error naming an object but no reason (DRT-0073,
+"No access point for <pin>") has the reason in its debug renderer; the
+odb-debug daemon steps it unattended (`/odb-debug` §3), no Qt build.
 The tests below separate that live loop from a deadlock or a race.
 
 Sample the *real* openroad process, not the `make`/`tee`/`bash -c` parent
