@@ -88,6 +88,22 @@ OPENROAD_GUI_RUN = re.compile(
     BAZEL + r"(?:\s+--?\S+)*\s+run\s[^;&|]*(?:openroad-qt(?![\w-])|\s-gui(?![\w-]))"
 )
 
+# odb-debug's client and MCP server, run from a shell: `python3
+# tools/odb_debug/odbdebug.py`, the script run directly, or `bazel run` of
+# either. The agent asks through the MCP tools, whose replies are capped;
+# the shell client's are not. Starting the daemon (`<stage>_odb_debug`),
+# reading these files and running their tests stay open.
+ODB_DEBUG_SHELL = re.compile(
+    r"^(?:\w+=\S*\s+)*"
+    r"(?:(?:sudo|time|nohup|timeout(?:\s+-\S+)*\s+\S+)\s+)*"
+    r"(?:(?:\S*/)?python[\d.]*(?:\s+-\S+)*\s+)?"
+    r"(?:\S*/)?(?:odbdebug|odb_debug/mcp_server)\.py(?![\w.-])"
+)
+ODB_DEBUG_SHELL_RUN = re.compile(
+    BAZEL
+    + r"(?:\s+--?\S+)*\s+run\s[^;&|]*//tools/odb_debug:(?:odbdebug|mcp_server)(?![\w-])"
+)
+
 BAZEL_OUTPUT_DIR = re.compile(r"(^|/)bazel-(out|bin|testlogs)(/|$)")
 CACHE_DIR = re.compile(r"(^|/)\.cache(/|$)")
 # Matches /tmp and /tmp/..., but not ./tmp or /somewhere/tmp.
@@ -328,6 +344,23 @@ def check_openroad_gui(request):
     return None
 
 
+ODB_DEBUG_SHELL_MESSAGE = (
+    "Running odb-debug's client or MCP server from a shell is verboten: ask "
+    "through the odb-debug MCP tools (`tcl` runs anything the openroad shell "
+    "would), whose replies are capped at 16000 characters; the shell "
+    "client's are not. Starting the daemon stays open, from any worktree: "
+    "`bazelisk run <stage>_odb_debug -- ODB_DEBUG_DIR=<absolute path of the "
+    "session's tmp/odb-debug>` and the session's MCP server reaches it."
+)
+
+
+def check_odb_debug_shell(request):
+    for segment in segments(request.code):
+        if ODB_DEBUG_SHELL.match(segment) or ODB_DEBUG_SHELL_RUN.search(segment):
+            return ODB_DEBUG_SHELL_MESSAGE
+    return None
+
+
 def tmp_exempt(path):
     """True when `path` is a small existing file in the agent's own /tmp tree.
 
@@ -380,6 +413,17 @@ RULES = (
         "`tools/odb_debug` when no tool there answers the question. Building "
         "`@openroad//:openroad-qt` stays allowed.",
         check_openroad_gui,
+    ),
+    (
+        "odb-debug-shell",
+        "Running odb-debug's client or MCP server from a shell "
+        "(`python3 tools/odb_debug/odbdebug.py`, `tools/odb_debug/mcp_server.py`, "
+        "or `bazel run` of either) is blocked; ask through the odb-debug MCP "
+        "tools, whose replies are capped. Starting the daemon "
+        "(`bazelisk run <stage>_odb_debug`) stays allowed, from any worktree: "
+        "an absolute `ODB_DEBUG_DIR` naming the session's `tmp/odb-debug` "
+        "reaches the session's MCP server.",
+        check_odb_debug_shell,
     ),
     (
         "git-local-branch",

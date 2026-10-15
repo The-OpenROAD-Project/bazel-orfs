@@ -130,12 +130,16 @@ With the MCP server registered (`.mcp.json` in this repo does it for Claude
 Code; the daemon directory is `tmp/odb-debug` relative to the workspace),
 the tools are `status`, `macros`, `cell_info`, `net_info`,
 `check_placement`, `dump_geometry`, `wns`, `worst_paths`, `report`,
-`image`, `pin_access` and `tcl`. Without it, the same from a shell:
+`image`, `pin_access` and `tcl`. Ask through them and never through the
+shell client (`odbdebug.py`), which the guard refuses an agent: its
+replies are not capped, the MCP tools' are. The server reads `daemon.json`
+on every call, so a daemon started from another worktree is reached by
+giving it this workspace's directory, absolute:
 
 ```bash
-python3 tools/odb_debug/odbdebug.py tmp/odb-debug od_status
-python3 tools/odb_debug/odbdebug.py tmp/odb-debug od_cell rob/u_buf_1234
-python3 tools/odb_debug/odbdebug.py tmp/odb-debug --tcl 'report_checks -path_delay max -group_path_count 3'
+# from ../other-worktree
+bazelisk run //my:cpu_place_odb_debug -- \
+    ODB_DEBUG_DIR=/abs/path/of/this/workspace/tmp/odb-debug GUI_TIMING=0 &
 ```
 
 Start with `status`: design, instance and macro counts, timing on or off,
@@ -191,11 +195,12 @@ stage, and a hierarchical flow usually does, because the metrics cost a
 timing graph per stage. The daemon is then the only way to a period, and
 it is one question:
 
-```bash
-python3 tools/odb_debug/odbdebug.py tmp/odb-debug --tcl \
-  'set p [get_property [get_clocks] period]
-   set w [sta::worst_slack -max]
-   puts "period $p ps  wns $w ps  min period [expr {$p - $w}] ps"'
+MCP `tcl`, `code`:
+
+```tcl
+set p [get_property [get_clocks] period]
+set w [sta::worst_slack -max]
+puts "period $p ps  wns $w ps  min period [expr {$p - $w}] ps"
 ```
 
 **Ask which group is worst before reading anything into the number.**
@@ -204,27 +209,29 @@ optimization targets whose real check happens one level up
 (`macro-constraints`). A worst slack quoted without its group is how a
 study chases an optimization target for a week:
 
-```bash
-python3 tools/odb_debug/odbdebug.py tmp/odb-debug --tcl \
-  'foreach g {reg2reg in2reg reg2out in2out} {
-     set ps [find_timing_paths -path_group $g -sort_by_slack -group_path_count 1]
-     if {[llength $ps]} {
-       set t [lindex $ps 0]
-       puts [format "%-8s %8.0f ps  %s -> %s" $g [get_property $t slack] \
-         [get_property [get_property $t startpoint] full_name] \
-         [get_property [get_property $t endpoint] full_name]]
-     }
-   }'
+MCP `tcl`, `code`:
+
+```tcl
+foreach g {reg2reg in2reg reg2out in2out} {
+  set ps [find_timing_paths -path_group $g -sort_by_slack -group_path_count 1]
+  if {[llength $ps]} {
+    set t [lindex $ps 0]
+    puts [format "%-8s %8.0f ps  %s -> %s" $g [get_property $t slack] \
+      [get_property [get_property $t startpoint] full_name] \
+      [get_property [get_property $t endpoint] full_name]]
+  }
+}
 ```
 
 Then read the worst path itself. `report_checks` writes to the session's
 stdout, not to the Tcl result, so capture it:
 
-```bash
-python3 tools/odb_debug/odbdebug.py tmp/odb-debug --tcl \
-  'utl::redirectStringBegin
-   report_checks -path_delay max -path_group reg2reg -group_path_count 1 -digits 0
-   puts [utl::redirectStringEnd]'
+MCP `tcl`, `code`:
+
+```tcl
+utl::redirectStringBegin
+report_checks -path_delay max -path_group reg2reg -group_path_count 1 -digits 0
+puts [utl::redirectStringEnd]
 ```
 
 The first line of that report worth reading is **clock network delay**.
@@ -236,10 +243,11 @@ minimum period was the clock reaching one block's pin, whose liberty
 model said 145 071 fF. Nothing about that design's logic was in the
 number. Check the pin against its model before believing a period:
 
-```bash
-python3 tools/odb_debug/odbdebug.py tmp/odb-debug --tcl \
-  'foreach b {BlockA BlockB} {
-     puts "$b [get_property [get_lib_pins $b/clock] capacitance] fF" }'
+MCP `tcl`, `code`:
+
+```tcl
+foreach b {BlockA BlockB} {
+  puts "$b [get_property [get_lib_pins $b/clock] capacitance] fF" }
 ```
 
 **What it costs.** Timing needs `GUI_TIMING=1` and the whole liberty
@@ -271,17 +279,18 @@ flop that is worst at 700 endpoints hides the flops a few picoseconds
 behind it at the same endpoints. Read it as "where the wall is", and let
 the peel say how many problems stand in front of it.
 
-```bash
-python3 tools/odb_debug/odbdebug.py tmp/odb-debug --tcl \
-  'set p [get_property [get_clocks] period]
-   set out {}
-   foreach t [find_timing_paths -path_group reg2reg -sort_by_slack \
-                -group_path_count 100000 -endpoint_path_count 1] {
-     lappend out [format "%.0f %s %s" [expr {$p - [get_property $t slack]}] \
-       [get_full_name [get_property $t startpoint]] \
-       [get_full_name [get_property $t endpoint]]]
-   }
-   set f [open tmp/endpoints.txt w]; puts $f [join $out \n]; close $f'
+MCP `tcl`, `code`:
+
+```tcl
+set p [get_property [get_clocks] period]
+set out {}
+foreach t [find_timing_paths -path_group reg2reg -sort_by_slack \
+             -group_path_count 100000 -endpoint_path_count 1] {
+  lappend out [format "%.0f %s %s" [expr {$p - [get_property $t slack]}] \
+    [get_full_name [get_property $t startpoint]] \
+    [get_full_name [get_property $t endpoint]]]
+}
+set f [open tmp/endpoints.txt w]; puts $f [join $out \n]; close $f
 ```
 
 **The peel.** Record the worst path, then `set_false_path -from` its
@@ -291,16 +300,17 @@ outliers, and the peeled startpoints are the list to fix; a slow,
 steady decline, a few picoseconds a register from ever-new startpoints,
 means a mass, and no single path is worth chasing.
 
-```bash
-python3 tools/odb_debug/odbdebug.py tmp/odb-debug --tcl \
-  'set p [get_property [get_clocks] period]
-   for {set i 0} {$i < 40} {incr i} {
-     set w [lindex [find_timing_paths -path_group reg2reg -sort_by_slack -group_path_count 1] 0]
-     set sp [get_property $w startpoint]
-     puts [format "%2d %6.0f %s -> %s" $i [expr {$p - [get_property $w slack]}] \
-       [get_full_name $sp] [get_full_name [get_property $w endpoint]]]
-     set_false_path -from [get_cells -of_objects $sp]
-   }'
+MCP `tcl`, `code`:
+
+```tcl
+set p [get_property [get_clocks] period]
+for {set i 0} {$i < 40} {incr i} {
+  set w [lindex [find_timing_paths -path_group reg2reg -sort_by_slack -group_path_count 1] 0]
+  set sp [get_property $w startpoint]
+  puts [format "%2d %6.0f %s -> %s" $i [expr {$p - [get_property $w slack]}] \
+    [get_full_name $sp] [get_full_name [get_property $w endpoint]]]
+  set_false_path -from [get_cells -of_objects $sp]
+}
 ```
 
 The false paths are a measurement inside a session that is thrown away,

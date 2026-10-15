@@ -66,6 +66,44 @@ CASES = [
     ("command", "./run.sh ../openroad", None),
     ("command", "grep -n openroad-qt BUILD.bazel", None),
     ("command", "openroad -exit set_guide.tcl", None),
+    # --- odb-debug from a shell ----------------------------------------
+    (
+        "command",
+        "python3 tools/odb_debug/odbdebug.py tmp/odb-debug od_status",
+        "MCP tools",
+    ),
+    (
+        "command",
+        "python3 -I tools/odb_debug/odbdebug.py tmp/odb-debug --tcl 'puts 1'",
+        "MCP tools",
+    ),
+    ("command", "./tools/odb_debug/odbdebug.py tmp/odb-debug od_macros", "MCP tools"),
+    (
+        "command",
+        "cd tools/odb_debug && python3 odbdebug.py ../../tmp/odb-debug od_status",
+        "MCP tools",
+    ),
+    (
+        "command",
+        "ODB_DEBUG_DIR=tmp/odb-debug timeout 60 python3 tools/odb_debug/mcp_server.py",
+        "MCP tools",
+    ),
+    (
+        "command",
+        "bazelisk run //tools/odb_debug:odbdebug -- tmp/odb-debug od_status",
+        "MCP tools",
+    ),
+    ("command", "bazelisk run //tools/odb_debug:mcp_server", "MCP tools"),
+    # The daemon, the files and the tests stay open.
+    (
+        "command",
+        "bazelisk run //my:cpu_place_odb_debug -- ODB_DEBUG_DIR=/abs/tmp/odb-debug GUI_TIMING=0",
+        None,
+    ),
+    ("command", "grep -n od_status tools/odb_debug/odbdebug.py", None),
+    ("command", "python3 tools/odb_debug/odbdebug_test.py", None),
+    ("command", "bazelisk test //tools/odb_debug:odbdebug_test", None),
+    ("command", "python3 other/mcp_server.py", None),
     # --- bazel clean -----------------------------------------------------
     ("command", "bazel clean", "protects bazel cache"),
     ("command", "bazelisk clean --expunge", "protects bazel cache"),
