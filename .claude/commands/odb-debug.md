@@ -341,6 +341,9 @@ register and stayed at 3,276 ps, on one startpoint, for 40 rounds.
 
 ## 6. Rules
 
+- Never run the Qt GUI (`openroad-qt`, `openroad -gui`); the guard
+  refuses it. A question only the GUI seems to answer becomes a new
+  tool here, in `mcp_server.py` and the daemon, with its test.
 - Never read a large ODB, log or geometry dump into context; ask the
   daemon or run `geometry.py` and read their summaries.
 - `tcl` has the trust model of an interactive openroad shell on the same

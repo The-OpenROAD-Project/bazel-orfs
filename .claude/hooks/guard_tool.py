@@ -75,6 +75,19 @@ CMAKE_BUILD = re.compile(
     r"(?:\S*/)?(?:cmake|ccmake|cmake-gui|cmake3|Build\.sh)(?![\w-])"
 )
 
+# The OpenROAD Qt GUI, run rather than built: `openroad-qt` or `openroad ...
+# -gui` in command position (behind env assignments, sudo/time/nohup or a
+# timeout), or `bazel run` of either. Building `@openroad//:openroad-qt` is
+# fine -- the human runs it. `-web` is odb-debug's own backend and stays open.
+OPENROAD_GUI = re.compile(
+    r"^(?:\w+=\S*\s+)*"
+    r"(?:(?:sudo|time|nohup|xvfb-run|timeout(?:\s+-\S+)*\s+\S+)\s+)*"
+    r"(?:\S*/)?openroad(?:-qt(?![\w-])|(?![\w-])[^;&|]*\s-gui(?![\w-]))"
+)
+OPENROAD_GUI_RUN = re.compile(
+    BAZEL + r"(?:\s+--?\S+)*\s+run\s[^;&|]*(?:openroad-qt(?![\w-])|\s-gui(?![\w-]))"
+)
+
 BAZEL_OUTPUT_DIR = re.compile(r"(^|/)bazel-(out|bin|testlogs)(/|$)")
 CACHE_DIR = re.compile(r"(^|/)\.cache(/|$)")
 # Matches /tmp and /tmp/..., but not ./tmp or /somewhere/tmp.
@@ -299,6 +312,22 @@ def check_cmake(request):
     return None
 
 
+OPENROAD_GUI_MESSAGE = (
+    "Running the OpenROAD GUI is verboten: the agent cannot see a window, and "
+    "what a GUI run reports (pin access markers, *_debug renderers, a picture) "
+    "odb-debug reports headless. Ask the design through the odb-debug MCP "
+    "server (`.mcp.json`, `/odb-debug`); if no odb-debug tool answers the "
+    "question, extend `tools/odb_debug` with one."
+)
+
+
+def check_openroad_gui(request):
+    for segment in segments(request.code):
+        if OPENROAD_GUI.match(segment) or OPENROAD_GUI_RUN.search(segment):
+            return OPENROAD_GUI_MESSAGE
+    return None
+
+
 def tmp_exempt(path):
     """True when `path` is a small existing file in the agent's own /tmp tree.
 
@@ -343,6 +372,14 @@ RULES = (
         "Building with CMake (`cmake`, `ccmake`, OpenROAD's `etc/Build.sh`) is "
         "blocked; bazel is the only build path.",
         check_cmake,
+    ),
+    (
+        "openroad-gui",
+        "Running the OpenROAD GUI (`openroad-qt`, `openroad -gui`) is blocked; "
+        "the agent cannot see it. Use the odb-debug MCP server, and extend "
+        "`tools/odb_debug` when no tool there answers the question. Building "
+        "`@openroad//:openroad-qt` stays allowed.",
+        check_openroad_gui,
     ),
     (
         "git-local-branch",

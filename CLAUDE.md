@@ -237,6 +237,7 @@ and missing for the other.
 
 - `bazelisk clean` and `bazel clean` are blocked.
 - Building with CMake (`cmake`, `ccmake`, OpenROAD's `etc/Build.sh`) is blocked; bazel is the only build path.
+- Running the OpenROAD GUI (`openroad-qt`, `openroad -gui`) is blocked; the agent cannot see it. Use the odb-debug MCP server, and extend `tools/odb_debug` when no tool there answers the question. Building `@openroad//:openroad-qt` stays allowed.
 - Git operations (`checkout`, `switch`, `rebase`, `cherry-pick`, `merge`, `reset`, `pull`) on local `master` or `main` branches are blocked. Use remote-tracking branches or detached HEADs instead.
 - `git push` to `master` or `main` is blocked; push a feature branch and open a pull request instead.
 - Deleting, moving or force-updating a local `master`/`main` (`git branch -f/-D`, `git update-ref`, `git worktree add`) is blocked.
