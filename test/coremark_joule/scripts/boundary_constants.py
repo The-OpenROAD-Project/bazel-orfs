@@ -23,10 +23,17 @@ import re
 import sys
 
 _MODULE = re.compile(r"^module\s+([A-Za-z_][A-Za-z_0-9$]*)", re.M)
-_INSTANCE = re.compile(r"^\s+([A-Za-z_][A-Za-z_0-9$]*)\s+([A-Za-z_][A-Za-z_0-9$]*)\s*\(", re.M)
+_INSTANCE = re.compile(
+    r"^\s+([A-Za-z_][A-Za-z_0-9$]*)\s+([A-Za-z_][A-Za-z_0-9$]*)\s*\(", re.M
+)
 _PORT = re.compile(r"^\s*\.(\w+)\s*\((.*?)\)\s*,?\s*(?://.*)?$", re.M)
 _LITERAL = re.compile(r"^\d+'[bhd][0-9a-fA-F_xz]+$")
-_CONST_WIRE = re.compile(r"^\s*wire\s+(?:\[[^\]]+\]\s*)?(\w+)\s*=\s*(\d+'[bhd][0-9a-fA-F_xz]+)\s*;", re.M)
+# `wire x = <literal>;`, or `assign x = <literal>;` as xs_surgery.py
+# writes a constant output into its parent.
+_CONST_WIRE = re.compile(
+    r"^\s*(?:wire\s+(?:\[[^\]]+\]\s*)?|assign\s+)(\w+)\s*=\s*(\d+'[bhd][0-9a-fA-F_xz]+)\s*;",
+    re.M,
+)
 _KEEP = re.compile(r'"SYNTH_KEEP_MODULES":\s*"([^"]*)"')
 
 
@@ -80,7 +87,8 @@ def scan(text, top, kinds):
             instances_of[child] = instances_of.get(child, 0) + 1
             ports = body[m.end() : body.find(");", m.end())]
             for port, expr in _PORT.findall(ports):
-                expr = expr.strip()
+                # firtool writes an unconnected output as `/* unused */`.
+                expr = re.sub(r"/\*.*?\*/", "", expr).strip()
                 value = None
                 if _LITERAL.match(expr):
                     value = expr
