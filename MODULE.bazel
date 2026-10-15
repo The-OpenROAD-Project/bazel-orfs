@@ -145,6 +145,12 @@ archive_override(
         # Not upstreamed; retires at a bump onto an OpenROAD that checks
         # lodepng::save_file's result.
         "//patches:0133-openroad-web-save-image-write-error.patch",
+        # An `exit` sent through the web viewer woke the main thread,
+        # which restored Tcl's `exit` while the io thread was still in its
+        # Tcl_Eval: TclStackFree corruption, signal 11. stop() now takes
+        # the evaluator's mutex first. Not upstreamed; retires at a bump
+        # onto an OpenROAD that serializes it.
+        "//patches:0134-openroad-web-exit-waits-for-eval.patch",
         # CTS connected its dummy loads to the flat net only, so read back
         # they were off the leaf net and their capacitance unseen. Upstream
         # as OpenROAD#11719, which creates the dummy in the loaded buffer's
