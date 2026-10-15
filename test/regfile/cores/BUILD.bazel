@@ -112,3 +112,42 @@ genrule(
     outs = ["riscv32i_mux.regfile"],
     cmd = "sed 's/^write_style clock_gate$$/write_style mux/' $< > $@ && grep -q '^write_style mux$$' $@",
 )
+
+# Synthetic specs, one per spec feature the designs above leave out: banks
+# (contiguous and interleaved, side by side and stacked, banked reads, the
+# zero word), bit folds, netlist mode, tap columns, and a registered read
+# with the RTL's flop names. Each against a behavioural memory built from
+# the spec itself (gen_tb.py), no RTL needed.
+#
+# These test OpenROAD's generate_ram, not bazel-orfs. They are here only
+# because OpenROAD has no good place for them today, and they are manual:
+# CI has no business building them. generate_ram is to emit Verilog
+# behavioural models of what it builds; once OpenROAD takes delivery of
+# these tests, or its own models make them redundant, delete them here.
+[
+    regfile_sim_test(
+        name = "golden_%s_sim_test" % spec,
+        module = module,
+        spec = "golden/%s.regfile" % spec,
+        tags = ["manual"],
+    )
+    for spec, module in [
+        ("banked", "GoldenBanked"),
+        ("folds", "GoldenFolds"),
+        ("netlist", "GoldenNetlist"),
+        ("plain", "GoldenPlain"),
+        ("registered", "GoldenRegistered"),
+    ]
+]
+
+test_suite(
+    name = "golden_sim_tests",
+    tags = ["manual"],
+    tests = [":golden_%s_sim_test" % s for s in [
+        "banked",
+        "folds",
+        "netlist",
+        "plain",
+        "registered",
+    ]],
+)

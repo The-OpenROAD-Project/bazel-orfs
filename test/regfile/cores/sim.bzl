@@ -31,7 +31,8 @@ def regfile_sim_test(
         rtl_module = None,
         ties = {},
         expect_mismatch = False,
-        stdcells = ":asap7_stdcell"):
+        stdcells = ":asap7_stdcell",
+        tags = []):
     """Simulates generate_ram's netlist for `spec` against a reference.
 
     Args:
@@ -45,6 +46,7 @@ def regfile_sim_test(
       expect_mismatch: a negative control, a spec known to be wrong: the
         test passes only if some read differs.
       stdcells: the stdcell_verilog target.
+      tags: on every target, so `manual` keeps generate_ram out of `//...`.
     """
     native.genrule(
         name = name + "_gen_v",
@@ -61,6 +63,7 @@ def regfile_sim_test(
         ] + ["--lib $(location %s)" % lib for lib in _LIBS] + [
             "--out $@",
         ]),
+        tags = tags,
         tools = ["@openroad", ":ram_gen"],
     )
     tie_args = " ".join(["--tie %s=%s" % (k, v) for k, v in ties.items()])
@@ -78,6 +81,7 @@ def regfile_sim_test(
             "--tb $(location %s_tb_top.v)" % name,
             "--config $(location %s_config.cc)" % name,
         ]),
+        tags = tags,
         tools = [":gen_tb"],
     )
     verilog_library(
@@ -88,6 +92,7 @@ def regfile_sim_test(
             stdcells + ".v",
             stdcells + "_empty.v",
         ] + rtl,
+        tags = tags,
     )
     verilator_cc_library(
         name = name + "_vtb",
@@ -99,10 +104,12 @@ def regfile_sim_test(
             "--x-initial",
             "0",
         ],
+        tags = tags,
     )
     cc_test(
         name = name,
         size = "small",
         srcs = ["tb_main.cc", name + "_config.cc"],
         deps = [":" + name + "_vtb"],
+        tags = tags,
     )

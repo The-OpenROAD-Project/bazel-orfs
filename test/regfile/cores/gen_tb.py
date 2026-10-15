@@ -49,6 +49,10 @@ MODELLED = {
     "store_name",
     "unused",
     "write_priority",
+    "read_banked",
+    "bank_order",
+    "read_latency",
+    "read_reg_name",
 }
 
 
@@ -60,6 +64,10 @@ def read_spec(path):
         "reset": None,
         "unused": [],
         "write_priority": "or",
+        "read_banked": [],
+        "banks": 1,
+        "bank_order": "contiguous",
+        "read_latency": 0,
     }
     with open(path) as f:
         for line in f:
@@ -81,15 +89,32 @@ def read_spec(path):
                 spec["reset"] = (v[0], None)
             elif key == "async_reset":
                 spec["reset"] = (v[0], v[1])
-            elif key in ("words", "bits", "zero_word"):
+            elif key == "read_banked":
+                spec["read_banked"].append(list(zip(v[0::2], v[1::2])))
+            elif key in ("words", "bits", "zero_word", "banks", "read_latency"):
                 spec[key] = int(v[0])
+            elif key == "bank_order":
+                spec[key] = v[0]
             elif key in ("module", "clock"):
                 spec[key] = v[0]
     spec.setdefault("clock", "clock")
     for w in spec["write"]:
         if len(w) < 3 and len(spec["write"]) > 1:
             sys.exit("%s: a write port without an enable among several" % path)
+    for rb in spec["read_banked"]:
+        if len(rb) != spec["banks"]:
+            sys.exit("%s: a banked read port without one address per bank" % path)
     return spec
+
+
+def bank_word(spec, bank, index):
+    """The word a banked read port's `index` in `bank` addresses: banks
+    contiguous in the address, or interleaved (the word's bank is its
+    address modulo banks)."""
+    per_bank = spec["words"] // spec["banks"]
+    if spec["bank_order"] == "interleaved":
+        return "(%s) * %d + %d" % (index, spec["banks"], bank), per_bank
+    return "%d + (%s)" % (bank * per_bank, index), per_bank
 
 
 def addr_bits(words):
@@ -121,6 +146,10 @@ def main():
     ports = []  # (name, width) of every spec input
     for r in s["read"]:
         ports.append((r[0], A))
+    AB = addr_bits(s["words"] // s["banks"])
+    for rb in s["read_banked"]:
+        for addr, _ in rb:
+            ports.append((addr, AB))
     for w in s["write"]:
         ports.append((w[0], A))
         ports.append((w[1], B))
@@ -149,6 +178,9 @@ def main():
     drive = {}
     for i, r in enumerate(s["read"]):
         drive[r[0]] = raw[r[0]]
+    for rb in s["read_banked"]:
+        for addr, _ in rb:
+            drive[addr] = raw[addr]
     for i, w in enumerate(s["write"]):
         drive[w[0]] = "(init_mode ? %s : %s)" % (
             "init_addr" if i == 0 else raw[w[0]],
@@ -179,6 +211,10 @@ def main():
     for r in s["read"]:
         o.append("  wire [%d:0] %s_ref, %s_gen;" % (B - 1, r[1], r[1]))
         outs.append(r[1])
+    for rb in s["read_banked"]:
+        for _, data in rb:
+            o.append("  wire [%d:0] %s_ref, %s_gen;" % (B - 1, data, data))
+            outs.append(data)
     conns = [".%s(clk)" % s["clock"]] + [".%s(%s)" % (n, n) for n, _ in ports]
     if reset:
         conns.append(".%s(%s)" % (reset[0], reset[0]))
@@ -218,14 +254,39 @@ def main():
         if reset and reset[1]:
             o.append("    end")
         o.append("  end")
-        for r in s["read"]:
+
+        def addr(name, width):
+            # read_latency 1: the address is registered, a plain flop, and
+            # the data follows a cycle later.
+            if not s["read_latency"]:
+                return name
+            o.append("  reg [%d:0] %s_q;" % (width - 1, name))
+            o.append("  always @(posedge clk) %s_q <= %s;" % (name, name))
+            return name + "_q"
+
+        def read(data, word, limit):
             z = ""
             if s["zero_word"] is not None:
-                z = "%s == %d ? %d'd0 : " % (r[0], s["zero_word"], B)
+                z = "%s == %d ? %d'd0 : " % (word, s["zero_word"], B)
             o.append(
                 "  assign %s_ref = %s%s < %d ? mem[%s] : %d'd0;"
-                % (r[1], z, r[0], s["words"], r[0], B)
+                % (data, z, limit, s["words"], word, B)
             )
+
+        for r in s["read"]:
+            a_ = addr(r[0], A)
+            read(r[1], a_, a_)
+        for rb in s["read_banked"]:
+            for bank, (address, data) in enumerate(rb):
+                a_ = addr(address, AB)
+                word, per_bank = bank_word(s, bank, a_)
+                # An index past its bank reads 0, as a word past the end.
+                o.append("  wire [%d:0] %s_word = %s;" % (A, data, word))
+                read(
+                    data,
+                    "%s_word" % data,
+                    "(%s < %d ? %s_word : %d)" % (a_, per_bank, data, s["words"]),
+                )
     o.append(
         "  assign mismatch = %s;"
         % " | ".join("(%s_ref != %s_gen)" % (d, d) for d in outs)
