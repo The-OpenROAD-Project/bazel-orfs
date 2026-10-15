@@ -1092,22 +1092,33 @@ XS_ANNEAL_CHANNEL_UM = {
 # odb-debug in seconds instead.
 _PLAN_DROPS = ["CORE_UTILIZATION", "CORE_ASPECT_RATIO", "CORE_MARGIN", "DETAIL_PLACEMENT_ARGS"]
 
-def _regfile_macro(spec, made, tags):
+def _regfile_macro(spec, made, tags, outlines = {}):
     """A generated register file as a macro of its own: its RTL module as
     a flow's top, generate_ram's netlist inlined there, implemented through
     global route like the blocks, its abstract for the parent (docs: a
     register file kept as a macro is a flow of its own, #1257). Each made
-    once; returns the abstract's label."""
+    once; returns the abstract's label.
+
+    outlines maps a module to the plan's outline for it, {w_um, h_um}: a
+    register file the plan places in the parent is built to the outline
+    the plan left for it, as a block is, or it lands on its neighbours
+    (MPL-0041). Without one, its size follows from its utilization."""
     module = spec.split(":")[-1].removesuffix(".regfile")
     if module not in made:
         made[module] = True
+        size = {"CORE_UTILIZATION": "40"}
+        if module in outlines:
+            w, h = outlines[module]["w_um"], outlines[module]["h_um"]
+            size = {
+                "CORE_AREA": "%s %s %s %s" % (_REGFILE_MARGIN_UM, _REGFILE_MARGIN_UM, w - _REGFILE_MARGIN_UM, h - _REGFILE_MARGIN_UM),
+                "DIE_AREA": "0 0 %s %s" % (w, h),
+            }
         orfs_flow(
             name = module,
             abstract_stage = "grt",
-            arguments = {
+            arguments = size | {
                 "ASAP7_USE_VT": XS_VT,
                 "AUTO_MEMORIES": "1",
-                "CORE_UTILIZATION": "40",
                 "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
                 "PLACE_DENSITY": "0.6",
                 "SYNTH_HDL_FRONTEND": "slang",
@@ -1124,6 +1135,10 @@ def _regfile_macro(spec, made, tags):
             verilog_files = XS_VERILOG,
         )
     return ":%s_generate_abstract" % module
+
+# a planned register file's core inside its outline: no ring on a
+# macro's BLOCK grid, so only the row and pin clearance
+_REGFILE_MARGIN_UM = 2.0
 
 def _regfiles(own_sources, keep, blocks):
     """The generated register files a planned flow hardens: its own, plus
@@ -1317,7 +1332,8 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     parent_keep = " ".join([k for k in arguments.get("SYNTH_KEEP_MODULES", "").split(" ") if k and k not in macros])
 
     # the parent's register files are macros of their own (_regfile_macro)
-    parent_regfiles = [_regfile_macro(m, made, tags) for m in _regfiles(parent["sources"], parent_keep, blocks)]
+    outlines = {n["module"]: n for n in plan["parent"].get("netlists", [])}
+    parent_regfiles = [_regfile_macro(m, made, tags, outlines) for m in _regfiles(parent["sources"], parent_keep, blocks)]
     sources.pop("AUTO_MEMORIES_REGFILES", None)
 
     # the plan's blocks and register files, placed by the plan
