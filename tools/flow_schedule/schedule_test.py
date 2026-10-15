@@ -132,5 +132,31 @@ class Units(unittest.TestCase):
             schedule.parse_units(["nope"])
 
 
+class Run(unittest.TestCase):
+    WAVES = [("macros", ["A"]), ("macros", ["B"]), ("parent", ["P"])]
+    MACROS = {"A": ["//p:a"], "B": ["//p:b"]}
+    PARENTS = {"P": ["//p:p"]}
+
+    def run_with(self, failing):
+        built = []
+
+        def build(i, wave, targets):
+            built.append(targets)
+            return 1 if wave[0] in failing else 0
+
+        results = schedule.run(self.WAVES, self.MACROS, self.PARENTS, build)
+        return results, built
+
+    def test_all_waves(self):
+        results, built = self.run_with(set())
+        self.assertEqual(results, {1: 0, 2: 0, 3: 0})
+        self.assertEqual(built, [["//p:a"], ["//p:b"], ["//p:p"]])
+
+    def test_failed_macro_wave_skips_only_the_parent(self):
+        results, built = self.run_with({"A"})
+        self.assertEqual(results, {1: 1, 2: 0})
+        self.assertEqual(built, [["//p:a"], ["//p:b"]])
+
+
 if __name__ == "__main__":
     unittest.main()

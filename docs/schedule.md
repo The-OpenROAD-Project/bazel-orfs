@@ -55,7 +55,8 @@ this repository.
 3. **Build.** One `bazelisk build` per wave in your workspace. Bazel
    allows one invocation per workspace at a time, so the waves run one
    after another, with Bazel's own parallelism inside each. A failed
-   wave stops the run.
+   macro wave does not stop the other macro waves, which do not read
+   each other; it stops the parent, which reads them all.
 4. **Measure.** Every ORFS step log ends with `Elapsed time ... Peak
    memory ...`; cache hits carry the logs of the run that made them. The
    runner reads them (`logs/<platform>/<unit>/<variant>`, the files
