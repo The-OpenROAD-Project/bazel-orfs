@@ -1,3 +1,4 @@
+load("@bazel_skylib//rules:analysis_test.bzl", "analysis_test")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_python//python:defs.bzl", "py_test")
@@ -760,6 +761,18 @@ auto_memories_outputs_test(
 build_test(
     name = "tinyrocket_synth_build_test",
     targets = ["@orfs//flow/designs/asap7/tinyRocket:RocketTile_synth"],
+)
+
+# A BLOCKS= design's blocks are as visible as the design: a package that
+# builds the parent with arguments of its own takes the blocks' abstracts
+# as its macros. Analysis only, nothing is built.
+analysis_test(
+    name = "orfs_blocks_visible_test",
+    tags = ["manual"],
+    targets = [
+        "@orfs//flow/designs/asap7/aes-block:aes_rcon_generate_abstract",
+        "@orfs//flow/designs/asap7/aes-block:aes_sbox_generate_abstract",
+    ],
 )
 
 auto_memories_outputs_test(
