@@ -1134,6 +1134,34 @@ class TestBlocksSubMacros(unittest.TestCase):
         self.assertEqual(result.block_configs[1].design_name, "b2")
         self.assertEqual(result.block_configs[1].design_nickname, "parent-block_b2")
 
+    def test_block_config_shared_block_mk_conditional(self):
+        """A shared block.mk's conditional on DESIGN_NAME takes each block's
+        branch: make knows DESIGN_NAME=<block> from its command line while
+        it reads block.mk. asap7/aes-block sizes its blocks this way.
+        """
+        tmpdir = tempfile.mkdtemp()
+        base_dir = os.path.join(tmpdir, "flow/designs/asap7/sized-block")
+        os.makedirs(base_dir, exist_ok=True)
+        with open(os.path.join(base_dir, "config.mk"), "w") as f:
+            f.write("export PLATFORM = asap7\n")
+            f.write("export DESIGN_NAME = parent\n")
+            f.write("export BLOCKS = small big\n")
+        with open(os.path.join(base_dir, "block.mk"), "w") as f:
+            f.write("export PLATFORM = asap7\n")
+            f.write("export DESIGN_NAME = placeholder\n")
+            f.write("ifeq ($(DESIGN_NAME),small)\n")
+            f.write("export DIE_AREA = 0 0 9 9\n")
+            f.write("else\n")
+            f.write("export DIE_AREA = 0 0 16 16\n")
+            f.write("endif\n")
+
+        result = self.parser.parse(os.path.join(base_dir, "config.mk"))
+        sizes = {
+            block.design_name: block.arguments["DIE_AREA"]
+            for block in result.block_configs
+        }
+        self.assertEqual(sizes, {"small": "0 0 9 9", "big": "0 0 16 16"})
+
     def test_block_config_per_block_takes_precedence(self):
         """Per-block sub-dir config.mk wins over a sibling block.mk."""
         tmpdir = tempfile.mkdtemp()
