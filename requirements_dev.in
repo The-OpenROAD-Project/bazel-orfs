@@ -5,6 +5,5 @@ scikit-learn
 matplotlib
 tabulate
 pytest
-najaeda
 zstandard
 black
