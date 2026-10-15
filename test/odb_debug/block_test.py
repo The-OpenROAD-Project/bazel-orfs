@@ -12,6 +12,7 @@ import os
 import signal
 import subprocess
 import sys
+import threading
 import time
 import unittest
 
@@ -36,8 +37,11 @@ def call(name, arguments, directory):
 
 
 class Launched(object):
-    """A daemon on the block, its output in a file: DRT's debug output
-    would fill a pipe nobody reads and stop the daemon mid-write."""
+    """A daemon on the block, its output read from a pipe into a file, as
+    ORFS's run_command.py tees it: a pipe nobody reads would fill with
+    DRT's debug output and stop the daemon mid-write, and a parent that
+    reaps only at EOF is what turns an exited daemon into a zombie while
+    anything else holds the pipe."""
 
     def __init__(self, name, idle_secs):
         openroad, tech_lef, script, daemon = sys.argv[1:5]
@@ -65,12 +69,15 @@ class Launched(object):
                 ODB_DEBUG_DAEMON=os.path.abspath(daemon),
                 ODB_DEBUG_DIR=self.dir,
                 ODB_DEBUG_IDLE_SECS=str(idle_secs),
+                PYTHON_EXE=sys.executable,
                 PATH=bin_dir + os.pathsep + os.environ.get("PATH", ""),
             ),
-            stdout=self.log_file,
+            stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             start_new_session=True,
         )
+        self.eof = threading.Event()
+        threading.Thread(target=self._copy, daemon=True).start()
         self.info = os.path.join(self.dir, "daemon.json")
         deadline = time.time() + 30
         while not os.path.exists(self.info):
@@ -80,6 +87,12 @@ class Launched(object):
             time.sleep(0.2)
         self.d = odbdebug.Daemon(self.dir)
 
+    def _copy(self):
+        for chunk in iter(lambda: self.proc.stdout.read1(65536), b""):
+            self.log_file.write(chunk)
+            self.log_file.flush()
+        self.eof.set()
+
     def output(self):
         with open(self.log, "rb") as f:
             return f.read().decode(errors="replace")
@@ -88,6 +101,7 @@ class Launched(object):
         if self.proc.poll() is None:
             os.killpg(self.proc.pid, signal.SIGTERM)
         self.proc.wait(timeout=60)
+        self.eof.wait(60)
         self.log_file.close()
 
 
@@ -172,9 +186,17 @@ class IdleExitTest(unittest.TestCase):
             self.assertEqual(daemon.d.tcl("after 4000; expr 1 + 1"), "2")
             # Not gone the moment it returned either: idle counts from the end.
             self.assertIsNone(daemon.proc.poll())
-            daemon.proc.wait(timeout=30)
+            # Its output ends soon after the idle time, before anything has
+            # reaped it: the watchdog holding the pipe must see an exited
+            # daemon as gone (a zombie answers kill -0) and not wait out
+            # its fallback.
+            self.assertTrue(daemon.eof.wait(8), daemon.output())
+            # Exited, and cleanly: a kill (SIGTERM, -15) is what make
+            # reported as a failed run.
+            self.assertEqual(daemon.proc.wait(timeout=30), 0, daemon.output())
             self.assertFalse(os.path.exists(daemon.info))
             self.assertIn("idle for 2 s, exiting", daemon.output())
+            self.assertNotIn("killing it", daemon.output())
         finally:
             daemon.stop()
 

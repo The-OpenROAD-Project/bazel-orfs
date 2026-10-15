@@ -188,7 +188,12 @@ The rough edges are OpenROAD's; the daemon works around them or says so:
 - `web_server` blocks, and Tcl's event loop does not run under it, so the
   idle exit is a shell beside the daemon that watches `heartbeat`: busy
   while a request runs, idle from when it ended, so a long request is
-  neither cut short nor followed by an exit the moment it returns.
+  neither cut short nor followed by an exit the moment it returns. It
+  stops the daemon as a browser's `exit` does, through the viewer with
+  `odbdebug.py` (which `odb_debug()` ships beside `daemon.tcl`), so
+  `web_server` returns and the run ends with status 0; a kill, the
+  fallback when that fails, ends it with SIGTERM, which make reports as a
+  failed run.
 - The logger prints a message id at most 1000 times per process
   (`utl::Logger::max_message_print`). Repeated `pin_access` calls on one
   daemon run out of DRT-0119 (via markers); the reply's
