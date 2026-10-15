@@ -1092,11 +1092,38 @@ XS_ANNEAL_CHANNEL_UM = {
 # odb-debug in seconds instead.
 _PLAN_DROPS = ["CORE_UTILIZATION", "CORE_ASPECT_RATIO", "CORE_MARGIN", "DETAIL_PLACEMENT_ARGS"]
 
-def _macro_place(specs):
-    """Every register file placed as a macro, by the module its spec
-    names (<Module>.regfile): the plan places them, and inlined they
-    would have no instance to place."""
-    return " ".join([s.split(":")[-1].removesuffix(".regfile") for s in specs])
+def _regfile_macro(spec, made, tags):
+    """A generated register file as a macro of its own: its RTL module as
+    a flow's top, generate_ram's netlist inlined there, implemented through
+    global route like the blocks, its abstract for the parent (docs: a
+    register file kept as a macro is a flow of its own, #1257). Each made
+    once; returns the abstract's label."""
+    module = spec.split(":")[-1].removesuffix(".regfile")
+    if module not in made:
+        made[module] = True
+        orfs_flow(
+            name = module,
+            abstract_stage = "grt",
+            arguments = {
+                "ASAP7_USE_VT": XS_VT,
+                "AUTO_MEMORIES": "1",
+                "CORE_UTILIZATION": "40",
+                "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
+                "PLACE_DENSITY": "0.6",
+                "SYNTH_HDL_FRONTEND": "slang",
+            },
+            pdk = "//flow:asap7",
+            sources = {
+                "AUTO_MEMORIES_REGFILES": [spec],
+                # a block's grid, so its parent's macro grid connects to it
+                "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
+                "SDC_FILE": ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"],
+            },
+            stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
+            tags = tags,
+            verilog_files = XS_VERILOG,
+        )
+    return ":%s_generate_abstract" % module
 
 def _regfiles(own_sources, keep, blocks):
     """The generated register files a planned flow hardens: its own, plus
@@ -1143,10 +1170,9 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
     arguments["OPENROAD_HIERARCHICAL"] = "1"
     arguments["ASAP7_USE_VT"] = XS_VT
     sources = dict(cfg["sources"])
-    mems = _regfiles(cfg["sources"], entry.get("SYNTH_KEEP_MODULES", ""), blocks)
-    if mems:
-        sources["AUTO_MEMORIES_REGFILES"] = mems
-        arguments["AUTO_MEMORIES_MACRO_PLACE"] = _macro_place(mems)
+
+    # the block's register files are macros of their own (_regfile_macro)
+    sources.pop("AUTO_MEMORIES_REGFILES", None)
     sources["IO_CONSTRAINTS"] = [":%s/%s_pins.tcl" % (plan_dir, block)]
     sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"]
     return arguments, sources
@@ -1185,12 +1211,17 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     read at grt.
     """
     macros = sorted(plan["macros"].keys())
+    made = {}
     for block in macros:
         cfg = blocks.get(block, XS_BLOCK_DEFAULT)
         if block in XS_ANNEAL_CHANNEL_UM:
             cfg = dict(cfg, user_arguments = cfg["user_arguments"] | {"ANNEAL_CHANNEL_UM": XS_ANNEAL_CHANNEL_UM[block]})
         entry = plan["macros"][block]
         arguments, sources = _planned_block(cfg, entry, plan_dir, block, blocks)
+        regfiles = [
+            _regfile_macro(m, made, tags)
+            for m in _regfiles(cfg["sources"], entry.get("SYNTH_KEEP_MODULES", ""), blocks)
+        ]
 
         # The parent places the block's footprint, its outline scaled so its
         # core holds the block's content at the plan's block_density; the
@@ -1206,6 +1237,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             name = block,
             abstract_stage = "grt",
             arguments = arguments,
+            macros = regfiles,
             # hold stays with CTS's repair, as the parent's
             stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
             pdk = "//flow:asap7",
@@ -1277,10 +1309,10 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     # the memories of what the parent still holds; a hardened block's
     # are the block's own
     parent_keep = " ".join([k for k in arguments.get("SYNTH_KEEP_MODULES", "").split(" ") if k and k not in macros])
-    mems = _regfiles(parent["sources"], parent_keep, blocks)
-    if mems:
-        sources["AUTO_MEMORIES_REGFILES"] = mems
-        arguments["AUTO_MEMORIES_MACRO_PLACE"] = _macro_place(mems)
+
+    # the parent's register files are macros of their own (_regfile_macro)
+    parent_regfiles = [_regfile_macro(m, made, tags) for m in _regfiles(parent["sources"], parent_keep, blocks)]
+    sources.pop("AUTO_MEMORIES_REGFILES", None)
 
     # the plan's blocks and register files, placed by the plan
     sources["MACRO_PLACEMENT_TCL"] = [":%s/place_macros.tcl" % plan_dir]
@@ -1302,7 +1334,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     orfs_flow(
         name = name,
         arguments = arguments,
-        macros = [":%s_generate_abstract" % b for b in macros],
+        macros = [":%s_generate_abstract" % b for b in macros] + parent_regfiles,
         # The parent repairs setup at global route, with the route's
         # parasitics: 3,276 to 2,406 ps on #1187's tip (KPI row 15), its
         # worst paths a mass of CtrlBlock control that the repairs before
