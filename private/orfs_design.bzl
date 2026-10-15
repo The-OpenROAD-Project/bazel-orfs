@@ -238,6 +238,7 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
         local_arguments = local_arguments,
         quick_pins = quick_pins,
         block_mock_area = block_mock_area,
+        visibility = visibility,
     )
 
     # Real flow — uses Docker image with real OpenROAD/Yosys
@@ -471,8 +472,12 @@ def _block_mock_area(block_mock_area, block_name):
         return block_mock_area.get(block_name, None)
     return block_mock_area
 
-def _create_block_targets(config, designs, platform, design, pkg, tags, mock_openroad, mock_yosys = None, abstract_stage = _BLOCK_ABSTRACT_STAGE, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], quick_pins = False, block_mock_area = None):
+def _create_block_targets(config, designs, platform, design, pkg, tags, mock_openroad, mock_yosys = None, abstract_stage = _BLOCK_ABSTRACT_STAGE, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], quick_pins = False, block_mock_area = None, visibility = None):
     """Create sub-macro orfs_flow() targets for BLOCKS.
+
+    The blocks' flows get the design's visibility: a consumer that
+    builds the parent with its own arguments needs the blocks'
+    abstracts as macros.
 
     Returns:
         Tuple of (macros, lint_macros) where macros references real flow
@@ -526,6 +531,7 @@ def _create_block_targets(config, designs, platform, design, pkg, tags, mock_ope
             user_stages = block_user_stages,
             quick_pins = quick_pins,
             tags = tags,
+            visibility = visibility,
         )
         macros.append(":%s_generate_abstract" % block_config["name"])
 
