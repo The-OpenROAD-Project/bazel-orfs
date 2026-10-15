@@ -122,21 +122,37 @@ def measure(log_dir):
     return stages
 
 
-def refresh(entry, measured):
-    """The entry to record for a unit after a run, and whether it changed."""
+def refresh(entry, measured, complete=True):
+    """The entry to record for a unit after a run, and whether it changed.
+
+    Measured stages are merged into the entry: a stage that did not run
+    keeps what was recorded, so a failed or interrupted wave never shrinks
+    a unit to the stages it reached. The unit becomes `measured` only when
+    its wave completed."""
     if not measured:
         return entry, False
-    old = entry or {}
-    if old.get("source") != "measured":
-        return {"source": "measured", "stages": measured}, True
+    old = entry or {"source": "estimated", "stages": {}}
+    stages = dict(old.get("stages", {}))
+    moved = False
     for stage, now in measured.items():
-        was = old["stages"].get(stage)
-        if was is None:
-            return {"source": "measured", "stages": measured}, True
-        for key in ("peak_gb", "minutes"):
-            if was.get(key) and abs(now[key] - was[key]) > REFRESH * was[key]:
-                return {"source": "measured", "stages": measured}, True
-    return old, False
+        was = stages.get(stage)
+        if (
+            was is None
+            or old.get("source") != "measured"
+            or any(
+                was.get(k) and abs(now[k] - was[k]) > REFRESH * was[k]
+                for k in ("peak_gb", "minutes")
+            )
+        ):
+            moved = moved or was != now
+            stages[stage] = now
+    source = "measured" if complete else old.get("source", "estimated")
+    if not moved and source == old.get("source"):
+        return old, False
+    new = dict(old, source=source, stages=stages)
+    if source == "measured":
+        new.pop("basis", None)
+    return new, True
 
 
 def bazel_bin(workspace):
@@ -233,7 +249,7 @@ def main(argv=None):
         )
         for u in wave:
             d = log_dir(bin_dir, args.package, u, args.variant)
-            entry, did = refresh(units.get(u), measure(d) if d else {})
+            entry, did = refresh(units.get(u), measure(d) if d else {}, rc == 0)
             if did:
                 units[u] = entry
                 changed.append(u)
