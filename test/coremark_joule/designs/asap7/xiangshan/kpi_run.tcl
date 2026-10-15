@@ -23,6 +23,24 @@ foreach g {reg2reg in2reg reg2out in2out} {
     if { $g eq "reg2reg" } { set r2r [get_property $t slack] }
   }
 }
+# Every reg2reg endpoint's period (the SDC period minus its slack), in 10 ps
+# bins from the first occupied one: the mass above a target, not only the
+# worst path. Fine enough to rebin when drawing.
+set bin 10
+array set hist {}
+set ends [find_timing_paths -path_group reg2reg -endpoint_path_count 1 \
+  -group_path_count [sta::endpoint_count] -unique_paths_to_endpoint]
+foreach t $ends {
+  set b [expr { int(floor(($p - [get_property $t slack]) / $bin)) }]
+  if { [info exists hist($b)] } { incr hist($b) } else { set hist($b) 1 }
+}
+set bins [lsort -integer [array names hist]]
+set counts {}
+for { set b [lindex $bins 0] } { $b <= [lindex $bins end] } { incr b } {
+  lappend counts [expr { [info exists hist($b)] ? $hist($b) : 0 }]
+}
+lappend out [format "reg2reg endpoints bin %d ps from %d ps: %s" $bin \
+  [expr { [lindex $bins 0] * $bin }] [join $counts " "]]
 lappend out [format "reg2reg min period %.0f ps" [expr { $p - $r2r }]]
 set f [open $::env(KPI_OUT) w]
 puts $f [join $out "\n"]
