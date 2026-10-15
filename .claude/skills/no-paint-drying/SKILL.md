@@ -37,3 +37,11 @@ ARGUMENTS: $ARGUMENTS
 ## Where the mechanics live
 
 `/openroad-debug` for the `@bazel-orfs//:dirty` tree and bring-your-own-binary loop that makes a stage a seconds-scale experiment; `/odb-debug` for questions the ODB answers without re-running anything; `debug-rtl-sim` for the simulation ladder. This skill decides the order and the moment to stop asking; those decide how.
+
+## Scaling the long run
+
+A long run of several flows, macros then a parent, goes through
+`orfs_schedule()` (`bazelisk run //<pkg>:build`), which packs the macros
+into waves that fit memory and runs the parent alone; its first
+`resources.json` is a minutes-long assessment, not a measuring build
+(`scale-to-memory` skill).

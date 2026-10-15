@@ -1,4 +1,4 @@
-load("@bazel-orfs//:openroad.bzl", "odb_debug")
+load("@bazel-orfs//:openroad.bzl", "odb_debug", "orfs_schedule")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("//test/coremark_joule/flow:power.bzl", "census_probe", "grt_netlist", "hier_probe", "physical_probe", "stage_power", "stage_power_units")
 load(":plan/plan.bzl", "PLAN")
@@ -79,6 +79,21 @@ exports_files(
 xiangshan_flow(
     name = "XSTile",
     plan = PLAN,
+)
+
+# The blocks and the parent, scheduled to the memory there is
+# (docs/schedule.md): bazelisk run //test/coremark_joule/designs/asap7/xiangshan:build
+orfs_schedule(
+    name = "build",
+    macros = {
+        block: [
+            ":%s_kpi" % block,
+            ":%s_generate_abstract" % block,
+        ]
+        for block in sorted(PLAN["macros"].keys())
+    },
+    parent = {"XSTile": [":XSTile_kpi"]},
+    tags = ["manual"],
 )
 
 # The planned parent's synthesis: the blocks as blackboxes over the flat

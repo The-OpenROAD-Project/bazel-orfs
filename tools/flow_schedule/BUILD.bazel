@@ -1,0 +1,19 @@
+load("@rules_python//python:defs.bzl", "py_test")
+
+# The at-home scheduler behind orfs_schedule() (docs/schedule.md): the
+# script is a source of every design's schedule target.
+exports_files(
+    ["schedule.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "schedule_test",
+    size = "small",
+    srcs = [
+        "schedule.py",
+        "schedule_test.py",
+    ],
+    imports = ["."],
+    main = "schedule_test.py",
+)
