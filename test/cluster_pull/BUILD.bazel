@@ -1,0 +1,28 @@
+load(":arms.bzl", "cluster_pull_arms")
+
+# The cluster-pull study (issue #1263, patch 0127): ORFS designs to
+# global route, each from ORFS's own synthesis. "off" keeps the macro
+# placer's clusters in the database and does not pull them; its
+# placement must be ORFS's own (@orfs//flow/designs/<key>:<name>_grt).
+# A study, not a gate: every target is manual.
+package(default_visibility = ["//visibility:private"])
+
+# weight: the bounded pull on a cell, in pins; it fades to 0 at the
+# 150th Nesterov iteration.
+ARMS = {
+    "off": None,
+    "w1": "-cluster_pull_weight 1",
+    "w4": "-cluster_pull_weight 4",
+    "w16": "-cluster_pull_weight 16",
+}
+
+[
+    cluster_pull_arms(key, ARMS)
+    for key in [
+        "asap7/gcd",
+        "asap7/aes-block",
+        "asap7/riscv32i-mock-sram",
+        "asap7/swerv_wrapper",
+        "gf180/uart-blocks",
+    ]
+]
