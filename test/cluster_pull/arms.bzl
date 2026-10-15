@@ -77,3 +77,26 @@ def cluster_pull_arms(key, arms):
             verilog_files = verilog_files,
         )
         first = first or arm
+
+def fine_arms(arms, sizes):
+    """"off" and "w4" again at explicit cluster sizes, as "<arm>_fine".
+
+    Args:
+      arms: the arm dict, for the "off" and "w4" GLOBAL_PLACEMENT_ARGS.
+      sizes: (min_inst, max_inst) for the macro placer's std-cell clusters.
+
+    Returns:
+      dict of arm name to {"gpl": ..., "arguments": ...}.
+    """
+    return {
+        arm + "_fine": {
+            "arguments": {
+                "RTLMP_MAX_INST": sizes[1],
+                "RTLMP_MAX_MACRO": "4",
+                "RTLMP_MIN_INST": sizes[0],
+                "RTLMP_MIN_MACRO": "1",
+            },
+            "gpl": arms[arm],
+        }
+        for arm in ["off", "w4"]
+    }

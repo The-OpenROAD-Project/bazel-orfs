@@ -1,4 +1,4 @@
-load(":arms.bzl", "cluster_pull_arms")
+load(":arms.bzl", "cluster_pull_arms", "fine_arms")
 
 # The cluster-pull study (issue #1263, patch 0127): ORFS designs to
 # global route, each from ORFS's own synthesis. "off" keeps the macro
@@ -9,12 +9,6 @@ package(default_visibility = ["//visibility:private"])
 
 # weight: the bounded pull on a cell, in pins; it fades to 0 at the
 # 150th Nesterov iteration.
-MID_SIZE = [
-    "asap7/swerv_wrapper",
-    "nangate45/bp_fe_top",
-    "nangate45/bp_be_top",
-]
-
 ARMS = {
     "off": None,
     "w1": "-cluster_pull_weight 1",
@@ -22,28 +16,25 @@ ARMS = {
     "w16": "-cluster_pull_weight 16",
 }
 
-# Rung 5, the macro placer's clustering granularity: a deeper cluster
-# hierarchy (RTLMP_MAX_LEVEL, default 2) gives more, smaller clusters.
-# The clustering also moves the macros, so each level has its own "off".
-GRANULARITY = {
-    "%s_l%d" % (arm, level): {
-        "arguments": {"RTLMP_MAX_LEVEL": str(level)},
-        "gpl": ARMS[arm],
-    }
-    for level in [
-        3,
-        4,
-    ]
-    for arm in [
-        "off",
-        "w4",
-    ]
+# Rung 5, the macro placer's cluster granularity. With automatic sizes it
+# clusters at one level when a design has fewer than 15 macro masters
+# (ClusteringEngine::setBaseThresholds), whatever RTLMP_MAX_LEVEL says:
+# 3-11 clusters on these designs. Explicit sizes skip that override and
+# aim at roughly 25-50 std-cell clusters. The sizes also move the macros,
+# so "fine" has its own "off".
+FINE_SIZES = {
+    "asap7/swerv_wrapper": ("2000", "4000"),
+    "nangate45/bp_be_top": ("1000", "2000"),
+    "nangate45/bp_fe_top": ("600", "1200"),
 }
 
 [
     cluster_pull_arms(
         key,
-        ARMS | (GRANULARITY if key in MID_SIZE else {}),
+        ARMS | (fine_arms(
+            ARMS,
+            FINE_SIZES[key],
+        ) if key in FINE_SIZES else {}),
     )
     for key in [
         "asap7/gcd",
