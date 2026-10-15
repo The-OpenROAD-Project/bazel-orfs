@@ -1,5 +1,4 @@
-# SmallFile, the 16 x 8 2R2W register file of the golden test
-# (tools/structured_gen:golden_test), in mode netlist.
+# SmallFile, a 16 x 8 2R2W register file, in mode netlist.
 module SmallFile
 mode netlist
 words 16

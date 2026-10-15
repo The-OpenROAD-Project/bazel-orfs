@@ -7,7 +7,7 @@ clock clock
 read io_r0_addr io_r0_data
 read_banked io_rb_addr_0 io_rb_data_0 io_rb_addr_1 io_rb_data_1 io_rb_addr_2 io_rb_data_2 io_rb_addr_3 io_rb_data_3
 write io_w0_addr io_w0_data io_w0_en
-write io_w1_addr io_w1_data
+write io_w1_addr io_w1_data io_w1_en
 cell flop DFFHQNx1_ASAP7_75t_R
 cell and2 AND2x2_ASAP7_75t_R
 cell or2 OR2x2_ASAP7_75t_R
