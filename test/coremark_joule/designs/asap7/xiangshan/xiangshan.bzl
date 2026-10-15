@@ -1063,6 +1063,15 @@ def _user_stages(user_arguments, user_sources):
 # memory banks inside, pins on two layers per direction).
 XS_BLOCK_DEFAULT = dict(XS_BLOCKS["Bpu"], arguments = {k: v for k, v in XS_BLOCKS["Bpu"]["arguments"].items() if k != "SYNTH_KEEP_MODULES"})
 
+# Placement density per block where the default spreads it too thin.
+# MemBlock is ~37 % utilised with every pin on one edge: at 0.6 the
+# dcache's port-less flop arrays drift to the empty far side and its worst
+# path crosses the die twice; at 0.8 its period is 1,696 ps against 1,815,
+# at 0.9 2,217 (over-packed). Place stage, deps lane.
+XS_PLACE_DENSITY = {
+    "MemBlock": "0.8",
+}
+
 # Outline knobs a planned flow replaces with DIE_AREA/CORE_AREA, and the
 # legaliser window the parent no longer needs once the channels are planned.
 # SKIP_REPORT_METRICS stays on: report_metrics on a 3.7 M-instance parent
@@ -1112,6 +1121,8 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
         fail("planned block %s states no SYNTH_KEEP_MODULES; a block keeps the modules its plan names, and only those" % block)
     arguments["SYNTH_KEEP_MODULES"] = entry["SYNTH_KEEP_MODULES"]
     arguments["SYNTH_HIERARCHICAL"] = "0"
+    if block in XS_PLACE_DENSITY:
+        arguments["PLACE_DENSITY"] = XS_PLACE_DENSITY[block]
     arguments["OPENROAD_HIERARCHICAL"] = "1"
     arguments["ASAP7_USE_VT"] = XS_VT
     sources = dict(cfg["sources"])
