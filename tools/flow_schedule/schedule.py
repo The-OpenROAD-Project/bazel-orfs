@@ -80,12 +80,89 @@ def pack(peaks, budget):
     return waves
 
 
-def mem_available_gb(meminfo="/proc/meminfo"):
+def meminfo_gb(key, meminfo="/proc/meminfo"):
+    """A /proc/meminfo field in GB, e.g. "MemAvailable" or "SwapFree"."""
     with open(meminfo) as f:
         for line in f:
-            if line.startswith("MemAvailable:"):
+            if line.startswith(key + ":"):
                 return int(line.split()[1]) / 1024 / 1024
-    raise SystemExit("schedule: no MemAvailable in " + meminfo)
+    raise SystemExit(f"schedule: no {key} in {meminfo}")
+
+
+def mem_available_gb(meminfo="/proc/meminfo"):
+    return meminfo_gb("MemAvailable", meminfo)
+
+
+OOMD_SOCKET = "/run/systemd/oom/io.systemd.ManagedOOM"
+UNIT_DIRS = ("/etc/systemd/system", "/run/systemd/system", "/usr/lib/systemd/system")
+KILL = re.compile(r"^\s*(ManagedOOM(?:MemoryPressure|Swap))\s*=\s*kill\b", re.M)
+
+
+def oomd_killer(cgroup="/proc/self/cgroup", socket=OOMD_SOCKET, unit_dirs=UNIT_DIRS):
+    """What would kill this process for using swap, or None.
+
+    systemd-oomd kills a whole cgroup under a unit set to
+    ManagedOOMMemoryPressure=kill once memory pressure stays over its limit
+    (Ubuntu ships user@.service at 50 % for 20 s), and paging is exactly
+    that pressure. Read from files only: oomctl talks to oomd's socket,
+    which starts oomd when it was stopped. None when oomd's socket is gone,
+    that is when oomd and its socket are stopped."""
+    if not os.path.exists(socket):
+        return None
+    try:
+        with open(cgroup) as f:
+            path = f.read().strip().split("::", 1)[-1]
+    except OSError:
+        return None
+    for unit in path.strip("/").split("/"):
+        template = re.sub(r"@[^.]*\.", "@.", unit)
+        names = [unit] if template == unit else [unit, template]
+        for d in unit_dirs:
+            for name in names:
+                files = [os.path.join(d, name)]
+                dropins = os.path.join(d, name + ".d")
+                if os.path.isdir(dropins):
+                    files += [
+                        os.path.join(dropins, c)
+                        for c in sorted(os.listdir(dropins))
+                        if c.endswith(".conf")
+                    ]
+                for f in files:
+                    if not os.path.isfile(f):
+                        continue
+                    with open(f, errors="replace") as fh:
+                        m = KILL.search(fh.read())
+                    if m:
+                        return f"systemd-oomd: {m.group(1)}=kill on {unit} ({f})"
+    return None
+
+
+def preflight(waves, peaks, ram_free, swap_free, margin, killer):
+    """Why the plan cannot run on this machine; empty when it can.
+
+    A wave whose summed peak does not fit free RAM and swap is killed by
+    the kernel, however it is packed: a unit over the budget runs alone and
+    no budget makes it smaller. A wave that pages, under a systemd-oomd
+    that kills on memory pressure, is killed by oomd, and it takes the
+    other processes of the cgroup, such as the session that started it,
+    with it."""
+    refusals = []
+    for i, (_, wave) in enumerate(waves, 1):
+        total = sum(peaks[u] for u in wave)
+        if total > ram_free + swap_free - margin:
+            refusals.append(
+                f"wave {i} ({', '.join(wave)}) peaks at {total:.0f} GB: more than "
+                f"free RAM and swap ({ram_free:.0f} + {swap_free:.0f} GB) less the "
+                f"{margin:.0f} GB margin. Add swap, or build it on a larger machine."
+            )
+        elif killer and total > ram_free - margin:
+            refusals.append(
+                f"wave {i} ({', '.join(wave)}) peaks at {total:.0f} GB, more than "
+                f"free RAM ({ram_free:.0f} GB) less the margin, so it pages, and "
+                f"{killer} kills it. Stop oomd for the build: sudo systemctl stop "
+                "systemd-oomd.socket systemd-oomd.service (start them after)."
+            )
+    return refusals
 
 
 def parse_log(text):
@@ -231,17 +308,23 @@ def main(argv=None):
         )
 
     free = mem_available_gb()
+    swap = meminfo_gb("SwapFree")
     budget = args.budget if args.budget is not None else free - args.margin
-    if budget > free - args.margin:
-        print(
-            f"warning: budget {budget:.0f} GB is above free memory less the margin "
-            f"({free - args.margin:.0f} GB): a full wave will page or be killed",
-            file=sys.stderr,
-        )
     peaks = {u: unit_peak(units[u]) for u in macros}
     waves = [("macros", w) for w in pack(peaks, budget)]
     waves += [("parent", [p]) for p in parents]
-    print(f"budget {budget:.0f} GB ({free:.0f} free, {args.margin:.0f} margin)")
+    refusals = preflight(
+        waves,
+        {u: unit_peak(units[u]) for u in list(macros) + list(parents)},
+        free,
+        swap,
+        args.margin,
+        oomd_killer(),
+    )
+    print(
+        f"budget {budget:.0f} GB ({free:.0f} free, {swap:.0f} swap free, "
+        f"{args.margin:.0f} margin)"
+    )
     for i, (kind, wave) in enumerate(waves, 1):
         sizes = ", ".join(
             f"{u} ({unit_peak(units[u]):.0f}"
@@ -255,6 +338,10 @@ def main(argv=None):
         print(
             f"wave {i} ({kind}): {sizes}  peak {total:.0f} GB, ~{minutes:.0f} min{note}"
         )
+    if refusals:
+        for r in refusals:
+            print(f"schedule: refused: {r}", file=sys.stderr)
+        return 2
     if args.plan_only:
         return 0
 

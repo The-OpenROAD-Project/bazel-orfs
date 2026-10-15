@@ -25,6 +25,72 @@ class Pack(unittest.TestCase):
         self.assertEqual(schedule.pack({"big": 100, "s": 5}, 50), [["big"], ["s"]])
 
 
+class OomdKiller(unittest.TestCase):
+    """oomd_killer reads files only; a fake socket, cgroup and unit tree."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        d = self.tmp.name
+        self.socket = os.path.join(d, "io.systemd.ManagedOOM")
+        open(self.socket, "w").close()
+        self.cgroup = os.path.join(d, "cgroup")
+        with open(self.cgroup, "w") as f:
+            f.write(
+                "0::/user.slice/user-1000.slice/user@1000.service/app.slice/x.scope\n"
+            )
+        self.units = os.path.join(d, "system")
+        dropins = os.path.join(self.units, "user@.service.d")
+        os.makedirs(dropins)
+        with open(
+            os.path.join(dropins, "10-oomd-user-service-defaults.conf"), "w"
+        ) as f:
+            f.write("[Service]\nManagedOOMMemoryPressure=kill\n")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def killer(self, socket=None):
+        return schedule.oomd_killer(self.cgroup, socket or self.socket, (self.units,))
+
+    def test_ubuntu_user_service_template(self):
+        got = self.killer()
+        self.assertIn("ManagedOOMMemoryPressure=kill on user@1000.service", got)
+
+    def test_none_when_oomd_stopped(self):
+        self.assertIsNone(self.killer(socket=os.path.join(self.tmp.name, "gone")))
+
+    def test_none_outside_a_killing_unit(self):
+        with open(self.cgroup, "w") as f:
+            f.write("0::/system.slice/build.service\n")
+        self.assertIsNone(self.killer())
+
+
+class Preflight(unittest.TestCase):
+    KILLER = "systemd-oomd: ManagedOOMMemoryPressure=kill on user@1000.service"
+
+    def test_fits_in_ram(self):
+        waves = [("macros", ["a"]), ("parent", ["p"])]
+        got = schedule.preflight(waves, {"a": 30, "p": 50}, 60, 250, 5, self.KILLER)
+        self.assertEqual(got, [])
+
+    def test_pages_without_a_killer(self):
+        got = schedule.preflight([("parent", ["p"])], {"p": 120}, 60, 250, 5, None)
+        self.assertEqual(got, [])
+
+    def test_pages_under_oomd(self):
+        got = schedule.preflight(
+            [("parent", ["p"])], {"p": 120}, 60, 250, 5, self.KILLER
+        )
+        self.assertEqual(len(got), 1)
+        self.assertIn("pages", got[0])
+        self.assertIn("systemctl stop systemd-oomd.socket", got[0])
+
+    def test_beyond_ram_and_swap(self):
+        got = schedule.preflight([("parent", ["p"])], {"p": 400}, 60, 250, 5, None)
+        self.assertEqual(len(got), 1)
+        self.assertIn("more than free RAM and swap", got[0])
+
+
 class Peaks(unittest.TestCase):
     def test_estimate_is_padded(self):
         e = {"source": "estimated", "stages": {"grt": {"peak_gb": 10}}}
