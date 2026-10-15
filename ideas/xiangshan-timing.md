@@ -1748,12 +1748,12 @@ density and on its own clock tree. Entry 40's buffer chains, at scale.
 What would have to change first:
 
 - The plan has to place register files by connectivity to their logic,
-  not at the die's edge (robEntryFile above). The control with only
-  that move, robEntryFile placed by hand next to rob's logic, gives
-  3,058 ps against 3,316 (-7.8 %), in the same lane. Hold after global
-  route is modest in all three lanes: worst -143 to -213 ps, 549 to 646
-  endpoints, -16 to -35 ns in total. (Withdrawn in entry 53: the
-  control lane never reproduced the built parent's period.)
+  not at the die's edge (robEntryFile above). The planner does that now
+  (`owner_um`, #1260); entry 53 has the evidence, which is placement
+  only, and the full run that decides it. The period this bullet first
+  gave for robEntryFile moved by hand (3,058 ps against 3,316, -7.8 %)
+  and the hold numbers of the three lanes are withdrawn: the control
+  lane never reproduced the built parent's period (entry 53).
 - The parent's placement must not stretch a FIRM core's port cones
   across the die: either a region per dissolved block or the cones kept
   near their core.
@@ -1762,8 +1762,10 @@ What would have to change first:
   is what phase C could not do in a day.
 - Found on the way: the parent's own register-file cores are dont_touch,
   and `global_connect` skips dont_touch instances, so 406,272 of them
-  have no supply nets in the netlist (the M1 rails touch them
-  physically). That is independent of the dissolve and open.
+  had no supply nets in the netlist (the M1 rails touch them
+  physically). That is independent of the dissolve, and fixed: ORFS
+  patch 0124 (#1254) lifts dont_touch from an instance with a supply pin
+  on no net for the platform's global connections, and restores it.
 
 ## 52. tools/structured_gen retired; generate_ram builds the register files
 
