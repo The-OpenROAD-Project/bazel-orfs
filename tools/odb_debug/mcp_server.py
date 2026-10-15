@@ -168,6 +168,39 @@ def _tcl(d, a):
     return {"result": result, "stdout": out}
 
 
+@tool(
+    "pin_access",
+    "Why a pin has (or has no) access points: runs pin_access under detailed_route_debug -pa -pa_markers for that pin and returns the markers DRT logged for every rejected candidate, grouped by constraint (planar: frcLef58RectOnlyConstraint, frcLef58EolKeepOutConstraint ...; via: Short on M4, RECTONLY on M3 ...), boxes in DBU, and whether DRT-0073 was raised. Web daemon only (ODB_DEBUG_BACKEND=web). pin_access runs over the whole design, so on a large one ask a whittled copy; the logger prints a message id at most 1000 times per process, see message_limit_hit.",
+    {
+        "pin": (
+            "string",
+            "inst:term, e.g. u_blk:din[0]; PIN:<port> for a top-level port",
+        )
+    },
+    ["pin"],
+)
+def _pin_access(d, a):
+    return d.pin_access(a["pin"])
+
+
+@tool(
+    "image",
+    "Render the design headless to a PNG (save_image -web): an area in um, a width in pixels, display overrides (stdcells, macros, routing, special_nets, pins, blockages, tracks_pref, rudy ...). Works on either backend. Returns the file's path; read it to look.",
+    {
+        "path": (
+            "string",
+            "Output PNG; relative paths resolve against the server's cwd",
+        ),
+        "area": ("array", "[x0, y0, x1, y1] in um; default the whole design"),
+        "width": ("integer", "Image width in pixels; default 1024"),
+        "options": ("object", 'Display overrides, e.g. {"tracks_pref": true}'),
+    },
+    ["path"],
+)
+def _image(d, a):
+    return d.image(a["path"], a.get("area"), a.get("width", 1024), a.get("options"))
+
+
 def tool_list():
     items = []
     for name, desc, params, required, _ in TOOLS:

@@ -84,8 +84,8 @@ already loaded there; `ODB_DEBUG_DIR` must be set in the environment.
 Written when the socket is ready, removed when the daemon exits on its own:
 
 ```json
-{"port":41123,"pid":12345,"dir":"...","design":"cpu","odb":".../3_place.odb",
- "workspace":"...","commit":"8dd2fb5...","timing":false}
+{"port":41123,"pid":12345,"dir":"...","backend":"socket","design":"cpu",
+ "odb":".../3_place.odb","workspace":"...","commit":"8dd2fb5...","timing":false}
 ```
 
 Check `commit` against the tree you are studying. A daemon left over from
@@ -144,11 +144,49 @@ another ODB without restarting the agent. Tools:
 | `check_setup` | each `check_setup` warning with its count, example pins and the instance prefixes they cluster in (`.claude/commands/check-setup.md`) |
 | `report cmd` | what any `report_*` command prints |
 | `tcl code` | anything else: result and captured stdout |
+| `image path` | a PNG of an area (`save_image -web`, headless, either backend) |
+| `pin_access pin` | why a pin has no access point: DRT's markers for each rejected candidate, by constraint (web backend) |
 
 A reply longer than 16000 characters (`MAX_TEXT` in `mcp_server.py`)
 keeps its head and tail and says how much was dropped, so one
 `report_checks` cannot flood the agent's context. The shell client is not
 capped.
+
+## The web backend
+
+`ODB_DEBUG_BACKEND=web` serves the same daemon through OpenROAD's web
+viewer (`web_server`) instead of its own socket, on the flow's own binary:
+
+```sh
+bazelisk run //my:design_place_odb_debug -- ODB_DEBUG_DIR=tmp/odb-debug ODB_DEBUG_BACKEND=web
+```
+
+Every tool works as before: the client sends each request as
+`od_web_request <base64>` through the viewer's `tcl_eval` and gets the
+socket protocol's reply back. What only the viewer has:
+
+- Debug renderers. `detailed_route_debug`, `global_placement_debug` and the
+  like stop at every step for a Continue. The client continues each stop
+  and collects what was logged on the way, so a command that pauses
+  hundreds of times runs to the end in seconds. `pin_access` is built on
+  this: the reason DRT rejects a candidate exists only in
+  `-pa_markers`'s output.
+- A browser, if wanted: the URL is `http://127.0.0.1:<port>` from
+  `daemon.json`.
+
+Rough edges, all OpenROAD's:
+
+- With one thread, a debug pause inside `tcl_eval` holds the only thread
+  that could deliver the Continue; the daemon raises the count to two.
+- The logger prints a message id at most 1000 times per process
+  (`utl::Logger::max_message_print`). Repeated `pin_access` calls on one
+  daemon run out of DRT-0119 (via markers); the reply's
+  `message_limit_hit` says so. Relaunch for the full set.
+- `web_server` blocks and Tcl's event loop does not run under it, so the
+  idle exit does not apply; stop the daemon yourself.
+
+The websocket protocol is the viewer's own and unversioned;
+`//test/odb_debug:web_test` is what notices when a bump changes it.
 
 ## The daemon's procs
 
@@ -215,5 +253,9 @@ of an interactive openroad shell on the same machine.
 
 `//tools/odb_debug:odbdebug_test` runs the client and the MCP server
 against a fake daemon speaking the protocol; `:geometry_test` runs the
-forensics on a hand-made dump; `//test/odb_debug:smoke_test` launches the
-real daemon on a placed multiplier and asks it everything once.
+forensics on a hand-made dump; `:webclient_test` runs the websocket client
+against a fake viewer and the pin-access parser on DRT's real output;
+`//test/odb_debug:smoke_test` launches the real daemon on a placed
+multiplier and asks it everything once; `//test/odb_debug:web_test` runs
+the web backend on a 10 µm block whose 36 nm M3 pin has no access point,
+in seconds.
