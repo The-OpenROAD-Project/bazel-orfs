@@ -52,17 +52,32 @@ this repository.
    the budget, largest first; an `estimated` peak is padded by 20 %. A
    unit larger than the budget runs alone. The parent units run alone,
    last. A unit with no entry stops the run (see below).
-3. **Build.** One `bazelisk build` per wave in your workspace. Bazel
+3. **Refuse what the machine cannot finish.** Before any build, and
+   with `--plan-only` too, the run stops (exit status 2) and says why
+   when:
+   - a wave's peak is more than free RAM and free swap (`SwapFree`) less
+     the margin: the kernel would kill it, and no budget helps a unit
+     that already runs alone;
+   - a wave pages (its peak is more than free RAM less the margin) and
+     systemd-oomd is set to kill our cgroup on memory pressure
+     (`ManagedOOMMemoryPressure=kill`, or `ManagedOOMSwap=kill`, on a unit
+     in `/proc/self/cgroup`; Ubuntu ships `user@.service` at 50 % for
+     20 s). Paging is that pressure, and oomd kills the whole cgroup,
+     the session that started the build with it. Stop oomd for the
+     build (`sudo systemctl stop systemd-oomd.socket
+     systemd-oomd.service`, and start both after): the check reads
+     files only, and finds oomd gone when its socket is.
+4. **Build.** One `bazelisk build` per wave in your workspace. Bazel
    allows one invocation per workspace at a time, so the waves run one
    after another, with Bazel's own parallelism inside each. A failed
    macro wave does not stop the other macro waves, which do not read
    each other; it stops the parent, which reads them all.
-4. **Measure.** Every ORFS step log ends with `Elapsed time ... Peak
+5. **Measure.** Every ORFS step log ends with `Elapsed time ... Peak
    memory ...`; cache hits carry the logs of the run that made them. The
    runner reads them (`logs/<platform>/<unit>/<variant>`, the files
    directly in it, never a recursive walk) and turns `estimated` entries
    into `measured` ones.
-5. **Refresh.** An entry more than 20 % off is rewritten in your
+6. **Refresh.** An entry more than 20 % off is rewritten in your
    workspace, and the run says so. Commit `resources.json` when it is
    materially out of date: a new unit, a new stage, a peak that moved.
 
