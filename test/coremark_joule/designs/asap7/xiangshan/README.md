@@ -60,8 +60,9 @@ overall worst slack is -2,006 ps and belongs to another group, while
 
 The parent, XSTile with its clock tree, is **3,860 ps** at global route
 with the route's own parasitics; its `reg2reg` group does not see the
-paths inside a block's abstract. Each block is measured alone at its
-place stage against an ideal clock, through `<block>_place_odb_debug`:
+paths inside a block's abstract. Each block is measured alone, likewise
+at its global route with its clock tree (`<block>_kpi`); the table below
+is an earlier run's, at each block's place stage against an ideal clock:
 
 | block | minimum period | worst `reg2reg` path |
 |---|---|---|
@@ -80,13 +81,13 @@ is built. ABC gets no delay target: ORFS passes the SDC period as `-D`
 with a script file, and Yosys hands `-D` to ABC only through the `{D}`
 placeholder of its built-in and inline scripts (ORFS #4585).
 
-The blocks are abstracted at `cts`, and that is a choice with a measured
-cost. On Frontend, the `cts` checkpoint's period was 28 percent
-pessimistic against a route-0 global route and its `repair_design` on
-the same checkpoint, with the same worst paths. Abstracting at `grt`
-costs a route-0 global route per block. The grt probe,
-`Frontend_grt_probe_grt`, measures it; `ideas/xiangshan-timing.md`,
-entry 25, has the table.
+The blocks are implemented through a route-0 global route and abstracted
+there, as a macro is: the parent's paths through a block are timed
+against the block's clock tree and its timing as repaired with the
+route's parasitics. Abstracted at `cts`, as they were before, Frontend's
+period was 28 percent pessimistic against its route-0 global route and
+`repair_design` on the same checkpoint, with the same worst paths
+(`ideas/xiangshan-timing.md`, entry 25).
 
 ## The 333 ps goal
 

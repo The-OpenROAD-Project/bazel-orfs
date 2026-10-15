@@ -11,8 +11,10 @@ The red series is the design's minimum clock period, the KPI: the largest
 of the parent's period and each block's, since the design is only as fast
 as its slowest part. The parent and each block are drawn dashed beneath
 it, each a period that has to be at or below the design's. The parent's
-number is its reg2reg group with its clock tree; each block's is that
-block alone at its own place stage, against an ideal clock. A run that
+number is its reg2reg group with its clock tree, at global route; each
+block's is that block alone, likewise at its global route with its clock
+tree (rows up to 2026-10-14 read the blocks at their place stage,
+against an ideal clock). A run that
 did not measure the blocks gives only a lower bound, drawn hollow.
 
 The image carries no text beyond its axes and legend: the numbers and

@@ -4,8 +4,9 @@ Generated once from the design table the config.mk DSL produced (the
 parent and its 34 blocks), then maintained by hand: the study outgrew the
 DSL, and a macro set chosen by interface rather than by synthesis time is
 edited here as data. The parent is XSTile, the core and its L2; every
-planned block is its own flow abstracted at place, and the parent's
-synthesis blackboxes the blocks by name from their abstracts.
+planned block is its own flow implemented through global route and
+abstracted there, and the parent's synthesis blackboxes the blocks by
+name from their abstracts.
 """
 
 load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run")
@@ -1122,9 +1123,13 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
     arguments["DIE_AREA"] = entry["DIE_AREA"]
     arguments["CORE_AREA"] = entry["CORE_AREA"]
 
-    # The block is abstracted at cts and repairs its timing there, as the
-    # parent does (#1144): the abstract is what the parent's paths through
-    # the block are timed against.
+    # The block is implemented through global route and abstracted there,
+    # as a macro is: its clock tree built and its timing repaired with the
+    # route's parasitics, which is what the parent's paths through the
+    # block are timed against. Route-0 with congestion allowed, as the
+    # parent routes: the repair and the parasitics move the period, and a
+    # block's maze iterations take hours.
+    arguments["GLOBAL_ROUTE_ARGS"] = "-congestion_iterations 0 -allow_congestion -verbose"
 
     # Synthesis keeps exactly the plan's modules and flattens the rest,
     # stated rather than left to SYNTH_HIERARCHICAL=1's rule, and OpenROAD
@@ -1164,18 +1169,20 @@ def _kpi(part, stage, arguments, sources, tags):
         },
     )
 
-def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan_dir = "plan", grt_probe_blocks = []):
-    """The plan's blocks, each abstracted at cts, then the parent.
+def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan_dir = "plan"):
+    """The plan's blocks, each implemented through global route, then the parent.
 
     `plan` is the PLAN dict plan_floorplan.py --emit wrote to
     plan_dir/plan.bzl: each block a real flow at the planned outline with
     its pins on the planned side, the parent at the planned die with
     plan_dir/place_macros.tcl placing the blocks R0 where the plan put
-    them. The blocks are abstracted at cts, so the parent's CTS and
+    them. The blocks are abstracted at grt, so the parent's CTS and
     timing see each block's clock pin as its tree's root buffer and its
     insertion delay, not the whole unbuffered clock net (entry 17 of
-    ideas/xiangshan-timing.md); the parent's synthesis, floorplan and place
-    read the place-stage abstract the flow emits beside it.
+    ideas/xiangshan-timing.md), and its timing as repaired with the
+    route's parasitics; the parent's synthesis, floorplan and place read
+    the place-stage abstract the flow emits beside it. Every part's KPI is
+    read at grt.
     """
     macros = sorted(plan["macros"].keys())
     for block in macros:
@@ -1197,8 +1204,10 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             }
         orfs_flow(
             name = block,
-            abstract_stage = "cts",
+            abstract_stage = "grt",
             arguments = arguments,
+            # hold stays with CTS's repair, as the parent's
+            stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
             pdk = "//flow:asap7",
             sources = sources,
             tags = tags,
@@ -1208,32 +1217,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             verilog_files = XS_VERILOG,
             **mock
         )
-        _kpi(block, "place", arguments, sources, tags)
-        if block in grt_probe_blocks:
-            # The block's own global route on its CTS checkpoint, with
-            # the post-route repair ORFS runs there: what the block's
-            # timing is once the flow has finished repairing it, against
-            # the cts checkpoint the abstract is written from. Route-0
-            # with congestion allowed, as the parent routes: the repair
-            # and the parasitics are what move the period, and a block's
-            # maze iterations take hours; the route-0 overflow is read
-            # next to the period, which is optimistic where it is high.
-            orfs_flow(
-                name = block,
-                arguments = arguments | {
-                    "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
-                },
-                last_stage = "grt",
-                pdk = "//flow:asap7",
-                previous_stage = {"grt": ":%s_cts" % block},
-                sources = sources,
-                tags = tags,
-                user_arguments = cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS,
-                user_sources = cfg["user_sources"] | XS_ICG_USER_SOURCES,
-                user_stages = _user_stages(cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS, cfg["user_sources"] | XS_ICG_USER_SOURCES),
-                variant = "grt_probe",
-                verilog_files = XS_VERILOG,
-            )
+        _kpi(block, "grt", arguments, sources, tags)
     arguments = {k: v for k, v in parent["arguments"].items() if k not in _PLAN_DROPS}
     arguments["DIE_AREA"] = plan["parent"]["DIE_AREA"]
     arguments["CORE_AREA"] = plan["parent"]["CORE_AREA"]

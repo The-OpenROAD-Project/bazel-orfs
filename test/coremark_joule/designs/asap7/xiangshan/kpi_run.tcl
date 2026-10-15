@@ -1,8 +1,8 @@
 # A part's KPI, read in the build: its reg2reg period (the SDC period minus the
 # group's worst slack) and the worst path of each group, written to KPI_OUT.
-# The parent is read at global route with the route's parasitics and its clock
-# tree; each block alone at its place stage against an ideal clock, as the
-# README measures them (KPI_STAGE grt or place).
+# Every part, the parent and each block alone, is read at global route with the
+# route's parasitics and its clock tree, as the README measures them
+# (KPI_STAGE grt; place reads a place-stage checkpoint against an ideal clock).
 source $::env(SCRIPTS_DIR)/load.tcl
 if { $::env(KPI_STAGE) eq "grt" } {
   load_design 5_1_grt.odb 5_1_grt.sdc
