@@ -1843,6 +1843,52 @@ dead. Then `owner_um` is measured on main's own placement with the probe
 and the plan regenerated; a second iteration should move the files only
 a little (the 240 um above).
 
+**The full run, step by step.** On main from #1260 on, nothing else
+needed. `X` below is `//test/coremark_joule/designs/asap7/xiangshan`; every
+build in its own `systemd-run --user --scope` with `--jobs=12`, one
+XSTile build at a time (the parent peaks near 60 GB).
+
+1. The blocks are identical to main's before #1260: `X:<block>_kpi` for
+   Frontend, MemBlock, FltRegionModule, VecRegionModule and CoupledL2.
+   Ask the cache first (`/cache-miss`); build what misses.
+2. `X:XSTile_place`, about 6 h after the blocks.
+3. The gate, on the placed parent:
+
+   ```sh
+   bazelisk run //test/coremark_joule/designs/asap7/xiangshan:XSTile_place_odb_debug -- ODB_DEBUG_DIR=tmp/odb-debug GUI_TIMING=0 &
+   python3 tools/odb_debug/odbdebug.py tmp/odb-debug --tcl "set ::env(NETLISTS) {core/backend/inner_ctrlBlock/rob/robEntryFile core/backend/inner_intRegion/intDataPath/intRegFile core/backend/inner_ctrlBlock/rob/rab/renameBuffer}; set ::env(PROBE_OUT) $PWD/tmp/owners.txt; source $PWD/tools/macro_select/probe_netlist_owners.tcl"
+   ```
+
+   The reference, the same probe on the old base's control (files in the
+   row), at 3_3_place_gp; the odb_debug target opens the detailed
+   placement, a few um of legalization later:
+
+   | File | owner median, um | core box, um | periphery | p50 | p90 | beyond 500 um |
+   |---|---|---|---|---|---|---|
+   | robEntryFile | 1,976.9, 1,278.6 | 21-270, 1,702-1,894 | 73,432 | 204 | 581 | 11,571 |
+   | intRegFile | 363.7, 1,436.4 | 359-611, 1,652-1,894 | 32,091 | 25 | 204 | 241 |
+   | renameBuffer | 1,102.0, 1,823.0 | 767-1,008, 1,703-1,894 | 73,432 | 45 | 184 | 1,983 |
+
+   Pass: robEntryFile's beyond-500 count at most a tenth of the
+   reference (1,157), and each owner median within 250 um of the file's
+   centre. Fail: stop the run and record it here; the plan's owner_um
+   did not hold on main, and the probe's medians are the next owner_um
+   to try (regenerate the plan as the design's BUILD says).
+4. `X:XSTile_kpi` through grt. The KPI is kpi.py's: the largest of the
+   parent's period and each block's.
+5. The baseline is main just before #1260 (2c23c4a4), the same blocks:
+   the KPI row from that commit if one is recorded, else `X:XSTile_kpi`
+   built there (another ~11 h on the cached blocks).
+6. The verdict, against the baseline, with the gate passed:
+   - at least 3 % faster: the idea holds. Re-measure owner_um with step
+     3's probe on this run's placement, regenerate, and record the move;
+     under 250 um per file, stop iterating.
+   - anything less: the files reached their logic and the period did not
+     follow, so the idea is dead. Revert the three owner_um lines and
+     the regenerated plan; the planner option and the probe stay.
+
+   Record the run in README.md's KPI table and here.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
