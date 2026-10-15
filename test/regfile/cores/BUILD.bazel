@@ -29,8 +29,7 @@ py_binary(
     srcs = ["ram_gen.py"],
     main = "ram_gen.py",
     visibility = [
-        "//test/structured_gen_lec:__pkg__",
-        "//tools/structured_gen:__pkg__",
+        "//test/regfile_lec:__pkg__",
     ],
 )
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A register file as firtool writes it, and the structured_gen spec for it.
+"""A register file as firtool writes it, and the register-file spec for it.
 
 Writes <out>.sv (the RTL module) and <out>.spec (the generator's spec for
 the same module) from one set of parameters, so the two cannot disagree.
@@ -99,10 +99,20 @@ def rtl(a):
         if a.banked:
             for k in range(banks):
                 entries = [(l, l * banks + k) for l in range(n // banks)]
-                t = read(f"io_readPorts_{r}_data_{k}_REG", f"io_readPorts_{r}_addr_{k}", al, entries)
+                t = read(
+                    f"io_readPorts_{r}_data_{k}_REG",
+                    f"io_readPorts_{r}_addr_{k}",
+                    al,
+                    entries,
+                )
                 data_ports.append((f"io_readPorts_{r}_data_{k}", t))
         else:
-            t = read(f"io_readPorts_{r}_data_REG", f"io_readPorts_{r}_addr", aw, [(i, i) for i in range(n)])
+            t = read(
+                f"io_readPorts_{r}_data_REG",
+                f"io_readPorts_{r}_addr",
+                aw,
+                [(i, i) for i in range(n)],
+            )
             data_ports.append((f"io_readPorts_{r}_data", t))
 
     # firtool numbers the write enables by stored word, not by address:
@@ -123,7 +133,9 @@ def rtl(a):
     for i in words:
         ens = ", ".join(wen(i, w) for w in reversed(range(w_ports)))
         out.append(f"    if (|{{{ens}}})" if w_ports > 1 else f"    if ({ens})")
-        terms = [f"({wen(i, w)} ? io_writePorts_{w}_data : {b}'h0)" for w in range(w_ports)]
+        terms = [
+            f"({wen(i, w)} ? io_writePorts_{w}_data : {b}'h0)" for w in range(w_ports)
+        ]
         out.append(f"      mem_{i} <=")
         out.append("        " + "\n        | ".join(terms) + ";")
     out += reg_assigns
@@ -159,7 +171,9 @@ def spec(a):
             f"write io_writePorts_{w}_addr io_writePorts_{w}_data "
             f"io_writePorts_{w}_wen"
         )
-    lines.append(f"read_latency {a.latency if a.spec_latency is None else a.spec_latency}")
+    lines.append(
+        f"read_latency {a.latency if a.spec_latency is None else a.spec_latency}"
+    )
     if a.banked:
         lines.append("bank_order interleaved")
     if a.zero_word:

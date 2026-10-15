@@ -1,4 +1,4 @@
-"""A structured_gen register file against yosys's synthesis of the RTL it replaces."""
+"""generate_ram's register file against yosys's synthesis of the RTL it replaces."""
 
 load("//test/lec:lec.bzl", "lec_test")
 
@@ -43,7 +43,6 @@ def regfile_lec(
         args,
         expect_equivalent = True,
         spec_args = "",
-        generator = "structured_gen",
         spec_lines = [],
         skip_gated_clock_flops = False):
     """The fixture, its gold and gate netlists, and a manual lec_test.
@@ -54,11 +53,8 @@ def regfile_lec(
         args: lec_fixture.py's shape and size arguments.
         expect_equivalent: False for a case that must be caught.
         spec_args: extra lec_fixture.py arguments for the spec alone.
-        generator: structured_gen, or generate_ram (through ORFS's
-            regfile_ram.py, the netlist AUTO_MEMORIES_REGFILES inlines),
-            which builds the gate netlist from the same spec.
         spec_lines: lines appended to the spec for the gate netlist
-            (`write_style clock_gate`); generate_ram only.
+            (`write_style clock_gate`).
         skip_gated_clock_flops: the lec_test option of that name, for a
             clock-gated gate netlist.
     """
@@ -97,59 +93,49 @@ def regfile_lec(
         ]),
         tools = ["@yosys//:yosys"],
     )
-    if generator == "structured_gen":
-        native.genrule(
-            name = name + "_gate",
-            srcs = [name + ".spec"] + ASAP7_LEFS,
-            outs = [name + "_gate.v"],
-            cmd = "$(location //tools/structured_gen:structured_gen) --spec $(location {n}.spec) --lef $(location {t}) --lef $(location {c}) --verilog $@ > /dev/null".format(
-                n = name,
-                t = ASAP7_LEFS[0],
-                c = ASAP7_LEFS[1],
-            ),
-            tools = ["//tools/structured_gen:structured_gen"],
-        )
-    else:
-        native.genrule(
-            name = name + "_gate",
-            srcs = [name + ".spec", _REGFILE_RAM] + ASAP7_LEFS + LIBERTY,
-            outs = [name + "_gate.v"],
-            cmd = " && ".join([
-                "cp $(location {}.spec) $(RULEDIR)/{}_gate.spec".format(name, name),
-                "chmod u+w $(RULEDIR)/{}_gate.spec".format(name),
-            ] + [
-                "echo '{}' >> $(RULEDIR)/{}_gate.spec".format(line, name)
-                for line in spec_lines
-            ] + [
-                " ".join([
-                    "$(execpath //test/regfile/cores:ram_gen)",
-                    "--regfile-ram $(location {})".format(_REGFILE_RAM),
-                    "--spec $(RULEDIR)/{}_gate.spec".format(name),
-                    "--module " + module,
-                    "--openroad $(location @openroad//:openroad)",
-                    "--lef $(location {}) --lef $(location {})".format(ASAP7_LEFS[0], ASAP7_LEFS[1]),
-                ] + ["--lib $(location {})".format(lib) for lib in LIBERTY] + [
-                    "--suffix ''",
-                    "--out $(RULEDIR)/{}_hier.v".format(name),
-                ]),
-                "printf '%s' '{}' > $(RULEDIR)/{}_flat.ys".format(
-                    _FLATTEN_SCRIPT.format(
-                        libs = " ".join(["$(location {})".format(lib) for lib in LIBERTY]),
-                        hier = "$(RULEDIR)/{}_hier.v".format(name),
-                        module = module,
-                        flat = "$(RULEDIR)/{}_flat.v".format(name),
-                    ),
-                    name,
-                ),
-                "$(location @yosys//:yosys) -q -s $(RULEDIR)/{}_flat.ys".format(name),
-                "sed 's/[\\\\]ram[.]/\\\\/' $(RULEDIR)/{}_flat.v > $@".format(name),
+
+    # The gate netlist: generate_ram, through ORFS's regfile_ram.py (the
+    # netlist AUTO_MEMORIES_REGFILES inlines), from the same spec.
+    native.genrule(
+        name = name + "_gate",
+        srcs = [name + ".spec", _REGFILE_RAM] + ASAP7_LEFS + LIBERTY,
+        outs = [name + "_gate.v"],
+        cmd = " && ".join([
+            "cp $(location {}.spec) $(RULEDIR)/{}_gate.spec".format(name, name),
+            "chmod u+w $(RULEDIR)/{}_gate.spec".format(name),
+        ] + [
+            "echo '{}' >> $(RULEDIR)/{}_gate.spec".format(line, name)
+            for line in spec_lines
+        ] + [
+            " ".join([
+                "$(execpath //test/regfile/cores:ram_gen)",
+                "--regfile-ram $(location {})".format(_REGFILE_RAM),
+                "--spec $(RULEDIR)/{}_gate.spec".format(name),
+                "--module " + module,
+                "--openroad $(location @openroad//:openroad)",
+                "--lef $(location {}) --lef $(location {})".format(ASAP7_LEFS[0], ASAP7_LEFS[1]),
+            ] + ["--lib $(location {})".format(lib) for lib in LIBERTY] + [
+                "--suffix ''",
+                "--out $(RULEDIR)/{}_hier.v".format(name),
             ]),
-            tools = [
-                "//test/regfile/cores:ram_gen",
-                "@openroad//:openroad",
-                "@yosys//:yosys",
-            ],
-        )
+            "printf '%s' '{}' > $(RULEDIR)/{}_flat.ys".format(
+                _FLATTEN_SCRIPT.format(
+                    libs = " ".join(["$(location {})".format(lib) for lib in LIBERTY]),
+                    hier = "$(RULEDIR)/{}_hier.v".format(name),
+                    module = module,
+                    flat = "$(RULEDIR)/{}_flat.v".format(name),
+                ),
+                name,
+            ),
+            "$(location @yosys//:yosys) -q -s $(RULEDIR)/{}_flat.ys".format(name),
+            "sed 's/[\\\\]ram[.]/\\\\/' $(RULEDIR)/{}_flat.v > $@".format(name),
+        ]),
+        tools = [
+            "//test/regfile/cores:ram_gen",
+            "@openroad//:openroad",
+            "@yosys//:yosys",
+        ],
+    )
     lec_test(
         name = name,
         size = "small",

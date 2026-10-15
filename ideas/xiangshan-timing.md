@@ -1764,6 +1764,23 @@ What would have to change first:
   have no supply nets in the netlist (the M1 rails touch them
   physically). That is independent of the dissolve and open.
 
+## 52. tools/structured_gen retired; generate_ram builds the register files
+
+2026-10-15. `tools/structured_gen`, bazel-orfs's own C++ generator of
+placed register files, is deleted. The flows have
+built their register files with OpenROAD's `generate_ram` since
+AUTO_MEMORIES_REGFILES (patches 0011 to 0023, 0089); structured_gen's
+only remaining users were its own C++ tests, which linked OpenROAD's
+library through patch 0002 (also retired) and rebuilt on every OpenROAD
+patch change, and the LEC harness, now `test/regfile_lec` on
+`generate_ram` alone.
+
+If generated CAMs or other regular structures (a TLB's match array, a
+scoreboard, a wide one-hot select) become worth building as placed
+macros, structured_gen is in git history to resurrect. The generate_ram
+work is probably the better starting point: it is where the register
+files' features, tests and upstream review now are (OpenROAD #11723).
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance

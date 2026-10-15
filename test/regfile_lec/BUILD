@@ -1,12 +1,11 @@
-# structured_gen's register files against yosys's synthesis of the RTL
+# generate_ram's register files against yosys's synthesis of the RTL
 # they replace, by logic equivalence (kepler-formal, //test/lec). The RTL
 # comes from lec_fixture.py, which at XiangShan's sizes reproduces
 # firtool's FpRegFile, VfRegFile and IntRegFile token for token
-# (faithful_test); here it is small, so a check takes seconds: the
-# generator builds every size from the same code. Every test is manual.
+# (faithful_test); here it is small, so a check takes seconds. Every test
+# is manual: kepler-formal builds from source.
 #
-#   bazelisk test //test/structured_gen_lec:all_lec_tests
-
+#   bazelisk test //test/regfile_lec:all_lec_tests
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load(":regfile_lec.bzl", "regfile_lec")
 
@@ -39,68 +38,33 @@ py_library(
     ("invbuf", "220122"),
 ]]
 
-# The shapes, each at a few small sizes. Int starts at 16 words: at 8 a
+# The shapes, each at a small size. Int is 16 words: at 8 a
 # bank's address is one bit, and yosys names a one-bit register without
 # the [0] the spec's name pattern carries.
 SHAPES = {
     # RobEntryFile, RenameBufferFile, the Ftq queues: a combinational read.
     "comb": (
         "--reads 4 --writes 2 --latency 0",
-        [
-            8,
-            16,
-            32,
-        ],
+        8,
     ),
     # FpRegFile: the read address registered.
     "fp": (
         "--reads 14 --writes 7 --latency 1 --gen-banks 2",
-        [
-            8,
-            16,
-            32,
-        ],
+        8,
     ),
     # VfRegFile.
     "vf": (
         "--reads 14 --writes 7 --latency 1 --gen-banks 2",
-        [
-            8,
-            16,
-            32,
-        ],
+        8,
     ),
     # IntRegFile: banked reads over interleaved banks, word 0 the zero.
     "int": (
         "--reads 12 --writes 9 --latency 1 --banks 4 --banked --zero-word",
-        [
-            16,
-            32,
-        ],
+        16,
     ),
 }
 
-[regfile_lec(
-    name = "%s%d_lec_test" % (shape, words),
-    args = "--words %d --bits 4 %s" % (words, args),
-    module = "%s%d" % (
-        shape.capitalize(),
-        words,
-    ),
-) for shape, (args, sizes) in SHAPES.items() for words in sizes]
-
-# The bug this harness was written for: the generator read a registered
-# address combinationally. A spec that says so (read_latency 0) for an
-# RTL that registers it must be caught.
-regfile_lec(
-    name = "fp8_unregistered_lec_test",
-    args = "--words 8 --bits 4 --reads 14 --writes 7 --latency 1",
-    expect_equivalent = False,
-    module = "Fp8u",
-    spec_args = "--spec-latency 0",
-)
-
-# OpenROAD's generate_ram on the same fixtures, in both write styles.
+# Each shape in both write styles.
 # A clock gate per word puts the write enable on the clock, which
 # kepler-formal's combinational check cannot model: those flops' next
 # state is left out (skip_gated_clock_flops, experimental, patch
@@ -109,10 +73,10 @@ regfile_lec(
 GENERATE_RAM_LEC = [
     "%s%d_%s_generate_ram_lec_test" % (
         shape,
-        sizes[0],
+        words,
         style,
     )
-    for shape, (_, sizes) in SHAPES.items()
+    for shape, (_, words) in SHAPES.items()
     for style in [
         "mux",
         "clock_gate",
@@ -122,32 +86,32 @@ GENERATE_RAM_LEC = [
 [regfile_lec(
     name = "%s%d_%s_generate_ram_lec_test" % (
         shape,
-        sizes[0],
+        words,
         style,
     ),
     args = "--words %d --bits 4 %s" % (
-        sizes[0],
+        words,
         args,
     ),
-    generator = "generate_ram",
     module = "%s%d" % (
         shape.capitalize(),
-        sizes[0],
+        words,
     ),
     skip_gated_clock_flops = style == "clock_gate",
     spec_lines = ["write_style clock_gate"] if style == "clock_gate" else [],
-) for shape, (args, sizes) in SHAPES.items() for style in [
+) for shape, (args, words) in SHAPES.items() for style in [
     "mux",
     "clock_gate",
 ]]
 
-# The skip must not hide a read-path bug: the same spec error as above,
-# clock-gated, still caught.
+# The bug this harness was written for: a registered address read
+# combinationally. A spec that says so (read_latency 0) for an RTL that
+# registers it must be caught, clock-gated too: the skip must not hide a
+# read-path bug.
 regfile_lec(
     name = "fp8_unregistered_clock_gate_generate_ram_lec_test",
     args = "--words 8 --bits 4 --reads 14 --writes 7 --latency 1",
     expect_equivalent = False,
-    generator = "generate_ram",
     module = "Fp8gu",
     skip_gated_clock_flops = True,
     spec_args = "--spec-latency 0",
@@ -157,9 +121,7 @@ regfile_lec(
 test_suite(
     name = "all_lec_tests",
     tags = ["manual"],
-    tests = ["%s%d_lec_test" % (shape, words) for shape, (_, sizes) in SHAPES.items() for words in sizes] + [
-        "fp8_unregistered_lec_test",
-    ] + GENERATE_RAM_LEC + [
+    tests = GENERATE_RAM_LEC + [
         "fp8_unregistered_clock_gate_generate_ram_lec_test",
     ],
 )
