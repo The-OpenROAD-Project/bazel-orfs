@@ -250,6 +250,10 @@ archive_override(
         # upstreamed; measured on issue #1263, retires when upstream gpl
         # has a cluster term or the measurement says no.
         "//patches:0127-openroad-gpl-cluster-pull.patch",
+        # 0129: global_placement -cluster_pull_depth, groups from the
+        # logical hierarchy instead of the macro placer's clusters. On
+        # 0127, retires with it.
+        "//patches:0129-openroad-gpl-cluster-pull-depth.patch",
     ],
     strip_prefix = "OpenROAD-bfac0546a502f30db57e92d801f1eecea86e38ab",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bfac0546a502f30db57e92d801f1eecea86e38ab.tar.gz"],

@@ -22,6 +22,22 @@ ARMS = {
 # 3-11 clusters on these designs. Explicit sizes skip that override and
 # aim at roughly 25-50 std-cell clusters. The sizes also move the macros,
 # so "fine" has its own "off".
+# Phase A: groups from the logical hierarchy (patch 0129), module
+# instances at depth 1 and 2, against the same "off". Black Parrot keeps
+# its hierarchy in instance names; swerv_wrapper's database is flat.
+HIERARCHY = {
+    "h%d_w4" % depth: "-cluster_pull_weight 4 -cluster_pull_depth %d" % depth
+    for depth in [
+        1,
+        2,
+    ]
+}
+
+HIERARCHICAL = [
+    "nangate45/bp_be_top",
+    "nangate45/bp_fe_top",
+]
+
 FINE_SIZES = {
     "asap7/swerv_wrapper": ("2000", "4000"),
     "nangate45/bp_be_top": ("1000", "2000"),
@@ -34,7 +50,7 @@ FINE_SIZES = {
         ARMS | (fine_arms(
             ARMS,
             FINE_SIZES[key],
-        ) if key in FINE_SIZES else {}),
+        ) if key in FINE_SIZES else {}) | (HIERARCHY if key in HIERARCHICAL else {}),
     )
     for key in [
         "asap7/gcd",

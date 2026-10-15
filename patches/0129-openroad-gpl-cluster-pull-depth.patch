@@ -1,0 +1,161 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] gpl: -cluster_pull_depth, pull groups from the logical
+ hierarchy
+
+-cluster_pull_depth d > 0 pulls groups of cells taken from their
+hierarchical names (the first d components, the module instances at
+depth d) instead of rtl_macro_placer's clusters. A cell in a shallower
+module is grouped with that module; one at the top level is not pulled.
+The macro placer's clusters are its units for placing macros and stay as
+they are; with automatic sizes it makes 3 to 11 of them on designs of
+30,000 to 100,000 cells, too coarse to say whether a pull of groups that
+belong together helps placement.
+
+Carried in bazel-orfs to measure the idea of issue #1263; not upstreamed.
+Retires with 0127.
+---
+ src/gpl/include/gpl/Replace.h |  3 +++
+ src/gpl/src/nesterovBase.cpp  | 36 +++++++++++++++++++++++++++++++----
+ src/gpl/src/nesterovBase.h    |  2 ++
+ src/gpl/src/replace.i         |  1 +
+ src/gpl/src/replace.tcl       |  3 ++-
+ 5 files changed, 40 insertions(+), 5 deletions(-)
+
+diff --git a/src/gpl/include/gpl/Replace.h b/src/gpl/include/gpl/Replace.h
+index 64413e4345..5bbe81cfbc 100644
+--- a/src/gpl/include/gpl/Replace.h
++++ b/src/gpl/include/gpl/Replace.h
+@@ -83,6 +83,9 @@ struct PlaceOptions
+   // clusterPullWeight to 0 at iteration clusterPullIters. 0 is off.
+   float clusterPullWeight = 0;
+   int clusterPullIters = 150;
++  // 0: rtl_macro_placer's clusters. d > 0: cells grouped by the first d
++  // components of their hierarchical name (module instances at depth d).
++  int clusterPullDepth = 0;
+   float initDensityPenaltyFactor = 0.00008;
+   float initWireLengthCoef = 0.25;
+   // Scale the density-penalty controller measures a wirelength change
+diff --git a/src/gpl/src/nesterovBase.cpp b/src/gpl/src/nesterovBase.cpp
+index 6ff6d5c58d..c67ede4e2f 100644
+--- a/src/gpl/src/nesterovBase.cpp
++++ b/src/gpl/src/nesterovBase.cpp
+@@ -1192,7 +1192,8 @@ NesterovBaseVars::NesterovBaseVars(const PlaceOptions& options)
+       initialPlacePerturbationSeed(options.initialPlacePerturbationSeed),
+       initialPlacePerturbationDist(options.initialPlacePerturbationDist),
+       clusterPullWeight(options.clusterPullWeight),
+-      clusterPullIters(options.clusterPullIters)
++      clusterPullIters(options.clusterPullIters),
++      clusterPullDepth(options.clusterPullDepth)
+ {
+ }
+ 
+@@ -4127,7 +4128,9 @@ bool NesterovBase::updateClusterPull()
+   // Centroids serially, in cell order, so the sums are the same at any
+   // thread count. Areas are summed here too: a cell's density size
+   // changes under routability inflation and timing-driven resizing.
+-  const size_t numClusters = cluster_pull_ids_.size();
++  const size_t numClusters = nbVars_.clusterPullDepth > 0
++                                 ? cluster_pull_names_.size()
++                                 : cluster_pull_ids_.size();
+   std::vector<double> sum_x(numClusters, 0);
+   std::vector<double> sum_y(numClusters, 0);
+   std::vector<double> sum_area(numClusters, 0);
+@@ -4176,7 +4179,30 @@ void NesterovBase::cacheClusterPull()
+     if (!gCell->isInstance() || gCell->isLocked() || gCell->isIOPin()) {
+       continue;
+     }
+-    odb::dbGroup* group = gCell->insts()[0]->dbInst()->getGroup();
++    odb::dbInst* db_inst = gCell->insts()[0]->dbInst();
++    if (nbVars_.clusterPullDepth > 0) {
++      // The first clusterPullDepth components of the hierarchical name;
++      // a cell in a shallower module is grouped with that module.
++      const std::string name = db_inst->getName();
++      size_t end = std::string::npos;
++      size_t pos = 0;
++      for (int d = 0; d < nbVars_.clusterPullDepth; d++) {
++        const size_t slash = name.find('/', pos);
++        if (slash == std::string::npos) {
++          break;
++        }
++        end = slash;
++        pos = slash + 1;
++      }
++      if (end == std::string::npos) {
++        continue;  // at the top level
++      }
++      const auto [it, inserted] = cluster_pull_names_.try_emplace(
++          name.substr(0, end), static_cast<int>(cluster_pull_names_.size()));
++      cluster[i] = it->second;
++      continue;
++    }
++    odb::dbGroup* group = db_inst->getGroup();
+     if (group == nullptr
+         || group->getType() != odb::dbGroupType::VISUAL_DEBUG
+         || group->getParentGroup() == nullptr) {
+@@ -4187,7 +4213,9 @@ void NesterovBase::cacheClusterPull()
+     cluster[i] = it->second;
+   }
+ 
+-  const size_t numClusters = cluster_pull_ids_.size();
++  const size_t numClusters = nbVars_.clusterPullDepth > 0
++                                 ? cluster_pull_names_.size()
++                                 : cluster_pull_ids_.size();
+   std::vector<double> area(numClusters, 0);
+   std::vector<int> count(numClusters, 0);
+   for (size_t i = 0; i < numGCells; i++) {
+diff --git a/src/gpl/src/nesterovBase.h b/src/gpl/src/nesterovBase.h
+index eb637447bb..a8bae4e87a 100644
+--- a/src/gpl/src/nesterovBase.h
++++ b/src/gpl/src/nesterovBase.h
+@@ -824,6 +824,7 @@ struct NesterovBaseVars
+   // (-keep_clustering_data) pulled to their centroids, fading to zero.
+   const float clusterPullWeight;
+   const int clusterPullIters;
++  const int clusterPullDepth;
+ 
+   static constexpr float minWireLengthForceBar = -300;
+ };
+@@ -1526,6 +1527,7 @@ class NesterovBase
+   bool cluster_pull_reported_ = false;
+   bool cluster_pull_cached_ = false;
+   std::unordered_map<odb::dbGroup*, int> cluster_pull_ids_;
++  std::unordered_map<std::string, int> cluster_pull_names_;
+   std::vector<int> cluster_pull_cluster_;
+   std::vector<FloatPoint> cluster_pull_grads_;
+   std::vector<char> cluster_pull_member_;
+diff --git a/src/gpl/src/replace.i b/src/gpl/src/replace.i
+index d79fd2b4e0..13556b5f6f 100644
+--- a/src/gpl/src/replace.i
++++ b/src/gpl/src/replace.i
+@@ -89,6 +89,7 @@ static gpl::PlaceOptions getOptions(
+   checkKey(keys, "-timing_driven_nets_percentage", options.timingDrivenNetsPercentage);
+   checkKey(keys, "-cluster_pull_weight", options.clusterPullWeight);
+   checkKey(keys, "-cluster_pull_iters", options.clusterPullIters);
++  checkKey(keys, "-cluster_pull_depth", options.clusterPullDepth);
+   checkKey(keys, "-min_phi_coef", options.minPhiCoef);
+   checkKey(keys, "-max_phi_coef", options.maxPhiCoef);
+   checkKey(keys, "-init_density_penalty", options.initDensityPenaltyFactor);
+diff --git a/src/gpl/src/replace.tcl b/src/gpl/src/replace.tcl
+index 6b1754da0c..6e7e0bffac 100644
+--- a/src/gpl/src/replace.tcl
++++ b/src/gpl/src/replace.tcl
+@@ -41,6 +41,7 @@ sta::define_cmd_args "global_placement" {\
+     [-virtual_cts_max_skew_fraction virtual_cts_max_skew_fraction]\
+     [-cluster_pull_weight cluster_pull_weight]\
+     [-cluster_pull_iters cluster_pull_iters]\
++    [-cluster_pull_depth cluster_pull_depth]\
+     [-timing_driven_repair_tns_end_percent timing_driven_repair_tns_end_percent]\
+     [-pad_left pad_left]\
+     [-pad_right pad_right]\
+@@ -74,7 +75,7 @@ proc global_placement { args } {
+       -timing_driven_repair_tns_end_percent \
+       -keep_resize_below_overflow \
+       -virtual_cts_max_skew_fraction \
+-      -cluster_pull_weight -cluster_pull_iters \
++      -cluster_pull_weight -cluster_pull_iters -cluster_pull_depth \
+       -random_seed \
+       -perturb_dist \
+       -pad_left -pad_right} \
+-- 
+2.53.0
+
