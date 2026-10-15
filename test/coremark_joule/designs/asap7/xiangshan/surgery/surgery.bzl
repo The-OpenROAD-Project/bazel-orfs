@@ -43,6 +43,13 @@ def xs_surgery_chain(name, src, manifest, rounds, protect):
     proven again on every build. <name>.sv is the last round's result;
     <name>_boundary_<r> and <name>_proven_<r> are the discovery that
     writes round r+1 into the manifest.
+
+    Args:
+      name: the last round's genrule; its output is <name>.sv.
+      src: the flat Verilog the first round reads.
+      manifest: xs_surgery.py's manifest, every round's entries.
+      rounds: how many rounds the manifest has.
+      protect: modules whose ports no entry may touch.
     """
     prev = src
     for r in range(1, rounds + 1):
@@ -63,5 +70,32 @@ def xs_surgery_chain(name, src, manifest, rounds, protect):
             visibility = ["//test/coremark_joule:__subpackages__"],
         )
         prev = ":" + out
+
         # Discovery for the next round, on this round's result.
         _boundary("%s_boundary_%d" % (name, r), prev)
+
+def kept_cells(name, src):
+    """Cells and flop bits per kept module of src.
+
+    kept_cells.py after the same proc and opt -fast the proof runs.
+    Manual: a measurement.
+
+    Args:
+      name: the genrule; its output is <name>.json.
+      src: the flat Verilog to measure.
+    """
+    native.genrule(
+        name = name,
+        srcs = [src, _PLAN_JSON, _PLAN_BZL],
+        outs = [name + ".json"],
+        cmd = " && ".join([
+            "$(execpath :constant_outputs) select --plan $(location %s) --plan-bzl $(location %s) --out $(@D)/%s.ys" % (_PLAN_JSON, _PLAN_BZL, name),
+            "$(execpath %s) -q -m $(execpath %s) " % (_YOSYS, _SLANG) +
+            "-p 'read_slang --keep-hierarchy --top XSTile $(location %s); hierarchy -top XSTile; " % src +
+            "script $(@D)/%s.ys; opt -fast -purge; write_json -selected $(@D)/%s.kept.json' > /dev/null" % (name, name),
+            "$(execpath :kept_cells) $(@D)/%s.kept.json --out $@" % name,
+            "rm $(@D)/%s.kept.json $(@D)/%s.ys" % (name, name),
+        ]),
+        tags = ["manual"],
+        tools = [":constant_outputs", ":kept_cells", _SLANG, _YOSYS],
+    )
