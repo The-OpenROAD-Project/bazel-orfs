@@ -522,13 +522,12 @@ if { [thread_count] < 2 } {
   puts "odb-debug: raising threads from [thread_count] to 2 for the web viewer"
   set_thread_count 2
 }
-# Nobody browses by default: web_server would try to open a browser.
-set ::env(BROWSER) true
-# web_server listens, then runs xdg-open, then lets requests in; a request
+# web_server listens, then runs the browser launcher (skipped here with
+# -no_browser, patch 0126), then lets requests in; a request
 # that arrives in between crashes OpenROAD (signal 11). It blocks, so the
 # rename that tells clients to connect happens beside it, after a grace.
 exec sh -c {sleep 2; [ -f "$1" ] && mv -f "$1" "$2"} odb-debug-ready \
   $od_pending $::od_info_path >@ stdout 2>@ stderr &
-web_server -port $od_port -bind 127.0.0.1
+web_server -no_browser -port $od_port -bind 127.0.0.1
 catch { file delete $::od_info_path }
 exit 0
