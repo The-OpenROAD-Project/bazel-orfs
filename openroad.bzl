@@ -58,6 +58,10 @@ load(
     _orfs_variables = "orfs_variables",
 )
 load(
+    "//private:schedule.bzl",
+    _orfs_schedule = "orfs_schedule",
+)
+load(
     "//private:stages.bzl",
     _ALL_STAGES = "ALL_STAGES",
     _ALL_STAGE_TO_VARIABLES = "ALL_STAGE_TO_VARIABLES",
@@ -129,6 +133,7 @@ NUM_CPUS = _NUM_CPUS
 
 # Flow macros
 orfs_flow = _orfs_flow
+orfs_schedule = _orfs_schedule
 orfs_synth = _orfs_synth
 
 # Design config macros

@@ -73,3 +73,9 @@ Write the caveat beside the number, in the same words wherever it goes (PR, READ
 ## Leaving the lane: wrap it up
 
 Move the settled edits into the flow's BUILD file and sources, then `bazel build`. The tree is not reused; `start --fresh` makes a new one from the build.
+
+## Beside a scheduled build
+
+A deps-lane run holds memory that `orfs_schedule()`'s budget does not
+see: lower `--budget` on a `:build` run while a lane works, or wait
+(`scale-to-memory` skill).
