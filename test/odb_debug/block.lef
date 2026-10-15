@@ -1,0 +1,39 @@
+VERSION 5.8 ;
+BUSBITCHARS "[]" ;
+DIVIDERCHAR "/" ;
+
+MACRO BLK
+  CLASS BLOCK ;
+  ORIGIN 0 0 ;
+  SIZE 10 BY 10 ;
+  PIN p18
+    DIRECTION INPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M3 ;
+        RECT 1.800 9.64 1.818 10 ;
+    END
+  END p18
+  PIN p36
+    DIRECTION INPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M3 ;
+        RECT 3.591 9.64 3.627 10 ;
+    END
+  END p36
+  PIN p90
+    DIRECTION INPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M3 ;
+        RECT 5.364 9.64 5.454 10 ;
+    END
+  END p90
+  OBS
+    LAYER M4 ;
+      RECT 0 0 10 10 ;
+  END
+END BLK
+
+END LIBRARY

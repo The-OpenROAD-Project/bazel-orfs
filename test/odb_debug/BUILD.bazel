@@ -17,3 +17,27 @@ py_test(
     data = [":multiplier_place_odb_debug"],
     deps = ["//tools/odb_debug:odbdebug_lib"],
 )
+
+# The web backend on a 10 um block with no flow behind it: the daemon
+# serves through OpenROAD's web viewer, and pin_access reports DRT's own
+# markers for a pin with no access point. Seconds, not a flow.
+py_test(
+    name = "web_test",
+    size = "small",
+    srcs = ["web_test.py"],
+    args = [
+        "$(rootpath @openroad)",
+        "$(rootpath @orfs//flow:platforms/asap7/lef/asap7_tech_1x_201209.lef)",
+        "$(rootpath web_block.tcl)",
+        "$(rootpath //tools/odb_debug:daemon.tcl)",
+    ],
+    data = [
+        "block.lef",
+        "design.def",
+        "web_block.tcl",
+        "//tools/odb_debug:daemon.tcl",
+        "@openroad",
+        "@orfs//flow:platforms/asap7/lef/asap7_tech_1x_201209.lef",
+    ],
+    deps = ["//tools/odb_debug:odbdebug_lib"],
+)

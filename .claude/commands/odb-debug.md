@@ -127,8 +127,8 @@ period (default twice its load time, at least two minutes;
 With the MCP server registered (`.mcp.json` in this repo does it for Claude
 Code; the daemon directory is `tmp/odb-debug` relative to the workspace),
 the tools are `status`, `macros`, `cell_info`, `net_info`,
-`check_placement`, `dump_geometry`, `wns`, `worst_paths`, `report` and
-`tcl`. Without it, the same from a shell:
+`check_placement`, `dump_geometry`, `wns`, `worst_paths`, `report`,
+`image`, `pin_access` and `tcl`. Without it, the same from a shell:
 
 ```bash
 python3 tools/odb_debug/odbdebug.py tmp/odb-debug od_status
@@ -141,6 +141,19 @@ die and core. Then the question you came with. `tcl` runs anything the
 openroad shell would (odb API, `sta::`, `gpl::`, `dpl::`, `grt::`); it
 returns the result and captured `puts` output separately. Prefer the
 typed tools where one fits — their answers are JSON in microns.
+
+**A stage that reports only a verdict has the reason in its debug
+output; ask for that before guessing.** DRT-0073 names a pin and
+nothing else; why each access candidate failed (RECTONLY, end-of-line
+keep-out, a short with an obstruction) exists only in
+`detailed_route_debug -pa -pa_markers`, which stops at every candidate
+for a Continue. Launch the daemon with `ODB_DEBUG_BACKEND=web` and the
+`pin_access` tool runs it to the end and returns the markers by
+constraint; `image` draws the area headless. Neither needs a Qt build,
+a display or a click: the web viewer in the flow's own binary does the
+pausing, and the client continues. The same holds for any tool with a
+debug renderer — through `tcl` on a web daemon, every pause is
+continued and its log returned.
 
 ## 4. Placement forensics, the common case
 

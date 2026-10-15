@@ -1,0 +1,23 @@
+VERSION 5.8 ;
+DIVIDERCHAR "/" ;
+BUSBITCHARS "[]" ;
+DESIGN top ;
+UNITS DISTANCE MICRONS 1000 ;
+DIEAREA ( 0 0 ) ( 20160 20160 ) ;
+COMPONENTS 1 ;
+  - u_blk BLK + PLACED ( 2880 2880 ) N ;
+END COMPONENTS
+PINS 3 ;
+  - io_p18 + NET n_p18 + DIRECTION INPUT + USE SIGNAL
+    + LAYER M4 ( -12 -50 ) ( 12 50 ) + PLACED ( 0 3024 ) E ;
+  - io_p36 + NET n_p36 + DIRECTION INPUT + USE SIGNAL
+    + LAYER M4 ( -12 -50 ) ( 12 50 ) + PLACED ( 0 4464 ) E ;
+  - io_p90 + NET n_p90 + DIRECTION INPUT + USE SIGNAL
+    + LAYER M4 ( -12 -50 ) ( 12 50 ) + PLACED ( 0 5904 ) E ;
+END PINS
+NETS 3 ;
+  - n_p18 ( PIN io_p18 ) ( u_blk p18 ) + USE SIGNAL ;
+  - n_p36 ( PIN io_p36 ) ( u_blk p36 ) + USE SIGNAL ;
+  - n_p90 ( PIN io_p90 ) ( u_blk p90 ) + USE SIGNAL ;
+END NETS
+END DESIGN
