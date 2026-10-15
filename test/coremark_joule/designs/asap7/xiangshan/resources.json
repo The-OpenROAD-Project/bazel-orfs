@@ -1,0 +1,114 @@
+{
+  "commit": "6dfe6690",
+  "date": "2026-10-15",
+  "units": {
+    "CoupledL2": {
+      "basis": "area 741,000 um^2 scaled from Frontend's measured CTS (20 GB, 46 min at 911,490 um^2); grt at 33/23 of CTS per instance",
+      "source": "estimated",
+      "stages": {
+        "cts": {
+          "minutes": 37,
+          "peak_gb": 16.3
+        },
+        "grt": {
+          "minutes": 49,
+          "peak_gb": 23.3
+        },
+        "place": {
+          "minutes": 73,
+          "peak_gb": 6.5
+        }
+      }
+    },
+    "FltRegionModule": {
+      "basis": "area 442,597 um^2 scaled from Frontend's measured CTS (20 GB, 46 min at 911,490 um^2); grt at 33/23 of CTS per instance; its place measured 10 GB",
+      "source": "estimated",
+      "stages": {
+        "cts": {
+          "minutes": 22,
+          "peak_gb": 9.7
+        },
+        "grt": {
+          "minutes": 29,
+          "peak_gb": 13.9
+        },
+        "place": {
+          "minutes": 44,
+          "peak_gb": 10
+        }
+      }
+    },
+    "Frontend": {
+      "basis": "area 911,490 um^2 scaled from Frontend's measured CTS (20 GB, 46 min at 911,490 um^2); grt at 33/23 of CTS per instance",
+      "source": "estimated",
+      "stages": {
+        "cts": {
+          "minutes": 46,
+          "peak_gb": 20.0
+        },
+        "grt": {
+          "minutes": 60,
+          "peak_gb": 28.7
+        },
+        "place": {
+          "minutes": 90,
+          "peak_gb": 8.0
+        }
+      }
+    },
+    "MemBlock": {
+      "basis": "area 991,538 um^2 scaled from Frontend's measured CTS (20 GB, 46 min at 911,490 um^2); grt at 33/23 of CTS per instance",
+      "source": "estimated",
+      "stages": {
+        "cts": {
+          "minutes": 50,
+          "peak_gb": 21.8
+        },
+        "grt": {
+          "minutes": 65,
+          "peak_gb": 31.2
+        },
+        "place": {
+          "minutes": 98,
+          "peak_gb": 8.7
+        }
+      }
+    },
+    "VecRegionModule": {
+      "basis": "area 652,605 um^2 scaled from Frontend's measured CTS (20 GB, 46 min at 911,490 um^2); grt at 33/23 of CTS per instance",
+      "source": "estimated",
+      "stages": {
+        "cts": {
+          "minutes": 33,
+          "peak_gb": 14.3
+        },
+        "grt": {
+          "minutes": 43,
+          "peak_gb": 20.5
+        },
+        "place": {
+          "minutes": 64,
+          "peak_gb": 5.7
+        }
+      }
+    },
+    "XSTile": {
+      "basis": "KPI row 16 (2026-10-14): placement 7 h, global route 209 min at 119.9 GB peak; CTS at 23/33 of grt per instance",
+      "source": "estimated",
+      "stages": {
+        "cts": {
+          "minutes": 90,
+          "peak_gb": 84.0
+        },
+        "grt": {
+          "minutes": 209,
+          "peak_gb": 120.0
+        },
+        "place": {
+          "minutes": 420,
+          "peak_gb": 30.0
+        }
+      }
+    }
+  }
+}
