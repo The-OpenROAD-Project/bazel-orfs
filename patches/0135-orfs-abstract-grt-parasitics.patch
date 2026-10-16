@@ -1,0 +1,32 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] generate_abstract: an abstract from global route is timed
+ with the route's parasitics
+
+generate_abstract read SPEF for a final-stage abstract and estimated
+placement parasitics for every stage from place on, global route
+included. An abstract written from 5_1_grt.odb therefore modelled the
+block with placement parasitics, while the block itself is timed at
+global route with the route's. On a large block the two differ by a
+factor: XiangShan's MemBlock times an input-to-output path at 1,840 ps
+with global-route parasitics and 6,911 ps with placement parasitics,
+and the abstract's liberty carried the 6.9 ns arc into the parent,
+where it set the parent's worst paths.
+
+From global route on, without a SPEF, the abstract now estimates
+parasitics from the global route, as the stage's own timing does.
+
+Not upstreamed. Retires at a //:bump onto an ORFS that times a
+global-route abstract with the route's parasitics.
+---
+diff --git a/flow/scripts/generate_abstract.tcl b/flow/scripts/generate_abstract.tcl
+--- a/flow/scripts/generate_abstract.tcl
++++ b/flow/scripts/generate_abstract.tcl
+@@ -15,6 +15,8 @@
+ 
+ if { $design_stage >= 6 && [file exists $::env(RESULTS_DIR)/$stem.spef] } {
+   log_cmd read_spef $::env(RESULTS_DIR)/$stem.spef
++} elseif { $design_stage >= 5 } {
++  log_cmd estimate_parasitics -global_routing
+ } elseif { $design_stage >= 3 } {
+   log_cmd estimate_parasitics -placement
+ }

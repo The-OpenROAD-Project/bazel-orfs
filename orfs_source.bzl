@@ -186,6 +186,12 @@ ORFS_PATCHES = [
     # variable config_mk_parser cannot resolve, in VERILOG_FILES. On 0094.
     # Not upstreamed; retires at a bump onto an ORFS that carries it.
     Label("//patches:0131-orfs-syn-clkgate-map.patch"),
+    # 0135: an abstract written from global route is timed with the
+    # route's parasitics, not placement's: XiangShan's MemBlock carried a
+    # 6.9 ns input-to-output arc into its parent that times at 1.84 ns at
+    # its own global route. Not upstreamed; retires at a bump onto an ORFS
+    # that does the same.
+    Label("//patches:0135-orfs-abstract-grt-parasitics.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
