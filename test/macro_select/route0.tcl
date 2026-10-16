@@ -1,6 +1,7 @@
 # Route-0 on a CTS checkpoint: a zero-iteration global route with congestion
-# allowed, and what it reports, as JSON. The wall shows here as GRT-0228
-# (FastRoute's usage guard on one gcell edge) or as the Total row's
+# allowed, and what it reports, as JSON. The wall shows here as FastRoute's
+# usage guard on one gcell edge (GRT-0251/0299 with -allow_congestion,
+# GRT-0228/0229 without) or as the Total row's
 # congestion; either way the route is not attempted, only measured.
 # declared beside the flow it probes, so its RESULTS_DIR is the flow's
 source $::env(SCRIPTS_DIR)/load.tcl
@@ -25,8 +26,8 @@ if { [regexp -line {^Total\s+\d+\s+\d+\s+([\d.]+)%\s+(\d+)\s*/\s*(\d+)\s*/\s*(\d
 set wl 0
 regexp {Total wirelength: (\d+) um} $text - wl
 set guard ""
-regexp -line {GRT-0228\] (.*)$} $text - guard
-if { !$ok } { regexp -line {GRT-0228\] (.*)$} $err - guard; if { $guard eq "" } { set guard $err } }
+regexp -line {GRT-0(?:228|229|251|299)\] (.*)$} $text - guard
+if { !$ok } { regexp -line {GRT-0(?:228|229|251|299)\] (.*)$} $err - guard; if { $guard eq "" } { set guard $err } }
 set fp [open $::env(OUTPUT_JSON) w]
 puts $fp "{"
 puts $fp "  \"ok\": $ok,"

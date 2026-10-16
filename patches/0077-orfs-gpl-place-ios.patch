@@ -21,7 +21,8 @@ leaves a marker file; 3_2_place_iop legalises the pins as before; and
 its parasitics estimate, flop clustering and metrics. The three
 checkpoints and their names are unchanged, so nothing downstream moves.
 FLOORPLAN_DEF, FOOTPRINT and already-placed pins keep their existing
-paths. With either driven mode on nothing changes.
+paths. With either driven mode on nothing changes. The pin layers for
+-place_ios are IO_PLACER_H/IO_PLACER_V, set with set_place_config.
 
 On a 500 um anchored wirebound the two solves were 1:45 and 1:30; on the
 1.5 M-instance XiangShan parent the second was 17 minutes. Measured
@@ -81,7 +82,7 @@ diff --git a/flow/scripts/global_place_skip_io.tcl b/flow/scripts/global_place_s
 index 38c58917d..25c3ce8bd 100644
 --- a/flow/scripts/global_place_skip_io.tcl
 +++ b/flow/scripts/global_place_skip_io.tcl
-@@ -7,7 +7,60 @@ if { [env_var_exists_and_non_empty FLOORPLAN_DEF] } {
+@@ -7,7 +7,64 @@ if { [env_var_exists_and_non_empty FLOORPLAN_DEF] } {
    puts "FLOORPLAN_DEF is set. Skipping global placement without IOs"
  } elseif { [all_pins_placed] } {
    puts "All pins are placed. Skipping global placement without IOs"
@@ -91,6 +92,10 @@ index 38c58917d..25c3ce8bd 100644
 +  # global_placement; the marker file tells it so.
 +  puts "Timing- and routability-driven placement are off: placing IO pins with global placement (-place_ios)"
 +  set_dont_use $::env(DONT_USE_CELLS)
++  # -place_ios holds the pins on place_pins' slots, on the layers
++  # 3_2_place_iop uses (GPL-0174 without them).
++  log_cmd set_place_config -io_pin_hor_layers $::env(IO_PLACER_H) \
++    -io_pin_ver_layers $::env(IO_PLACER_V)
 +  if { ![env_var_exists_and_non_empty FOOTPRINT] && !$::env(DONT_BUFFER_PORTS) } {
 +    puts "Perform port buffering..."
 +    buffer_ports {*}[env_var_or_empty BUFFER_PORTS_ARGS]
