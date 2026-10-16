@@ -97,6 +97,23 @@ class Launched(object):
         with open(self.log, "rb") as f:
             return f.read().decode(errors="replace")
 
+    def exited(self, lines=60):
+        """None while the daemon runs; once it has exited, its status and
+        the end of its output. A client sees a dead daemon only as a
+        closed connection, which says nothing of a crash."""
+        status = self.proc.poll()
+        if status is None:
+            return None
+        if status < 0:
+            how = "killed by %s" % signal.Signals(-status).name
+        else:
+            how = "exit status %d" % status
+        if not lines:
+            return how
+        self.eof.wait(5)
+        tail = "\n".join(self.output().splitlines()[-lines:])
+        return "%s; its last %d lines:\n%s" % (how, lines, tail)
+
     def stop(self):
         if self.proc.poll() is None:
             os.killpg(self.proc.pid, signal.SIGTERM)
@@ -114,6 +131,24 @@ class BlockTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.daemon.stop()
+
+    # The tests share one daemon. One that died fails the test that sees
+    # it first with how it ended and the end of its output (the next
+    # test, if it was still dying), and every later test with how it
+    # ended, not with "connection refused".
+    told = False
+
+    def daemon_exited(self, when):
+        exited = self.daemon.exited(lines=0 if BlockTest.told else 60)
+        if exited:
+            BlockTest.told = True
+            self.fail("the daemon exited%s: %s" % (when, exited))
+
+    def setUp(self):
+        self.daemon_exited(" before this test")
+
+    def tearDown(self):
+        self.daemon_exited("")
 
     def test_a_the_tools_answer_through_the_viewer(self):
         self.assertEqual(
