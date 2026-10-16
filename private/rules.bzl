@@ -1,5 +1,6 @@
 """Rule implementations and declarations for OpenROAD-flow-scripts Bazel rules."""
 
+load("@config//:global_config.bzl", "CONFIG_OPENROAD")
 load(
     "//private:attrs.bzl",
     "flow_attrs",
@@ -45,6 +46,7 @@ load(
     "orfs_additional_arguments",
     "out_dir_arguments",
     "pdk_inputs",
+    "platform_openroad_files",
     "rename_inputs",
     "renames",
     "required_arguments",
@@ -276,7 +278,59 @@ def _create_make_script(ctx, name, extra_substitutions = {}, deploy_stage = ""):
 
 # --- PDK rule ---
 
+def _pdk_relative_path(ctx, f):
+    """The path of a PDK file inside the orfs_pdk's package."""
+    prefix = "/".join([p for p in [ctx.label.workspace_root, ctx.label.package] if p]) + "/"
+    if not f.path.startswith(prefix):
+        fail("{}: {} is not under the orfs_pdk's package {}".format(ctx.label, f.path, prefix))
+    return f.path[len(prefix):]
+
+def _pdk_openroad_view(ctx):
+    """The platform as the OpenROAD stages see it: every .lib binary.
+
+    A mirror of the platform files under <name>_blib/, the same relative
+    paths and names, where each liberty file holds the binary liberty
+    (.blib) that write_liberty_binary makes of it and every other file is
+    a symlink to the original. read_liberty recognizes a binary library
+    by its contents, not its name, so the platform's own config.mk builds
+    LIB_FILES as it always does, pointing at binary libraries, and ORFS
+    reads them unchanged. One conversion per library, shared by every
+    design. Yosys cannot read .blib: synthesis keeps the text platform.
+
+    Returns:
+      (files, config): the mirrored files and the mirrored config.mk.
+    """
+    script = ctx.actions.declare_file(ctx.attr.name + "_blib.tcl")
+    ctx.actions.write(script, "write_liberty_binary $::env(LIB) $::env(BLIB)\n")
+    libs = {f.path: f for f in ctx.files.libs}
+    config = ctx.file.config
+    files = []
+    mirrored_config = None
+    for f in {f.path: f for f in ctx.files.srcs + ctx.files.libs}.values():
+        out = ctx.actions.declare_file(
+            "{}_blib/{}".format(ctx.attr.name, _pdk_relative_path(ctx, f)),
+        )
+        if f.path in libs:
+            ctx.actions.run(
+                executable = ctx.executable.openroad,
+                arguments = ["-no_init", "-no_splash", "-exit", script.path],
+                inputs = [f, script],
+                outputs = [out],
+                env = {"BLIB": out.path, "LIB": f.path},
+                mnemonic = "WriteLibertyBinary",
+                progress_message = "Writing binary liberty %{output}",
+            )
+        else:
+            ctx.actions.symlink(output = out, target_file = f)
+        if config and f.path == config.path:
+            mirrored_config = out
+        files.append(out)
+    if config and not mirrored_config:
+        fail("{}: config {} is not among srcs".format(ctx.label, config.path))
+    return files, mirrored_config
+
 def _pdk_impl(ctx):
+    openroad_files, openroad_config = _pdk_openroad_view(ctx)
     return [
         DefaultInfo(
             files = depset(ctx.files.srcs),
@@ -286,6 +340,8 @@ def _pdk_impl(ctx):
             files = depset(ctx.files.srcs),
             libs = depset(ctx.files.libs),
             config = ctx.attr.config,
+            openroad_files = depset(openroad_files),
+            openroad_config = openroad_config,
         ),
     ]
 
@@ -302,6 +358,14 @@ orfs_pdk = rule(
         "libs": attr.label_list(
             allow_files = True,
             providers = [DefaultInfo],
+        ),
+        "openroad": attr.label(
+            doc = "OpenROAD binary that writes the binary liberty files. " +
+                  "Its format version must be one the stages' OpenROAD reads.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = CONFIG_OPENROAD,
         ),
     },
 )
@@ -2997,6 +3061,7 @@ def _make_impl(
         transitive = [
             ctx.attr.src[PdkInfo].files,
             ctx.attr.src[PdkInfo].libs,
+            platform_openroad_files(ctx),
             ctx.attr.src[OrfsInfo].additional_gds,
             ctx.attr.src[OrfsInfo].additional_lefs,
             ctx.attr.src[OrfsInfo].additional_libs,

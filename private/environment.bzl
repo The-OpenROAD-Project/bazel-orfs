@@ -363,6 +363,7 @@ def source_inputs(ctx, use_pre_layout = None, gds = True, logging = True):
             ctx.attr.src[OrfsInfo].memories,
             ctx.attr.src[PdkInfo].files,
             ctx.attr.src[PdkInfo].libs,
+            platform_openroad_files(ctx),
             # LoggingInfo.jsons/.reports are gated by `logging` above;
             # LoggingInfo.logs never: non-idempotent by design (wall-clock
             # lines on every run) and a sandbox-collision hazard.
@@ -442,9 +443,31 @@ def platform(ctx):
     )
 
 def platform_config(ctx):
-    return (
-        ctx.attr.pdk[PdkInfo] if hasattr(ctx.attr, "pdk") else ctx.attr.src[PdkInfo]
-    ).config.files.to_list()[0]
+    """The platform config.mk whose directory is the stage's PLATFORM_DIR.
+
+    Synthesis (the rules with a pdk attribute) reads the text platform,
+    as yosys must. The OpenROAD stages read orfs_pdk's mirror of it, whose
+    liberty files are binary (.blib): read_liberty parses asap7's 3.7x
+    faster, and recognizes them by their contents, so ORFS reads them
+    through the platform's own LIB_FILES unchanged. A lint flow keeps the
+    text platform: its mock OpenROAD reads no binary liberty, and the
+    conversion would build the real OpenROAD the lint flow exists to skip.
+    """
+    if hasattr(ctx.attr, "pdk"):
+        return ctx.attr.pdk[PdkInfo].config.files.to_list()[0]
+    if binary_liberty(ctx):
+        return ctx.attr.src[PdkInfo].openroad_config
+    return ctx.attr.src[PdkInfo].config.files.to_list()[0]
+
+def binary_liberty(ctx):
+    """Whether a stage reads orfs_pdk's binary liberty platform."""
+    return not hasattr(ctx.attr, "pdk") and not getattr(ctx.attr, "lint", False)
+
+def platform_openroad_files(ctx):
+    """The binary liberty platform's files, for a stage that reads it."""
+    if binary_liberty(ctx):
+        return ctx.attr.src[PdkInfo].openroad_files
+    return depset()
 
 def required_arguments(ctx):
     return {

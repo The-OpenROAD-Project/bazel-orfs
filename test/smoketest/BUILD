@@ -1,7 +1,7 @@
 """Multi-PDK smoke tests: verify the full ORFS flow completes for all supported PDKs."""
 
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
-load("//:openroad.bzl", "orfs_flow")
+load("//:openroad.bzl", "orfs_flow", "orfs_run")
 
 PDKS = [
     "asap7",
@@ -43,8 +43,23 @@ FAST_SETTINGS = {
     visibility = ["//:__subpackages__"],
 ) for pdk in PDKS]
 
+# The OpenROAD stages read the platform's liberty files in binary form.
+[orfs_run(
+    name = "lb_32x128_{}_binary_liberty".format(pdk),
+    src = ":lb_32x128_{}_floorplan".format(pdk),
+    outs = ["lb_32x128_{}_binary_liberty_ok.txt".format(pdk)],
+    script = ":check_binary_liberty.tcl",
+    tags = ["manual"],
+    user_arguments = {
+        "OUTPUT": "lb_32x128_{}_binary_liberty_ok.txt".format(pdk),
+    },
+) for pdk in PDKS]
+
 [build_test(
     name = "lb_32x128_{}_build_test".format(pdk),
     tags = ["manual"],
-    targets = [":lb_32x128_{}_generate_abstract".format(pdk)],
+    targets = [
+        ":lb_32x128_{}_binary_liberty".format(pdk),
+        ":lb_32x128_{}_generate_abstract".format(pdk),
+    ],
 ) for pdk in PDKS]
