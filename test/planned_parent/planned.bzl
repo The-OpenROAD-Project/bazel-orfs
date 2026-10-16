@@ -15,7 +15,7 @@ BASE_ARGS = TURNAROUND_ARGS | {
     "SYNTH_HDL_FRONTEND": "slang",
 }
 
-def mini_planned_flow(rtl, files):
+def mini_planned_flow(rtl, files, macro_files = []):
     """The blocks named in PLAN, each at its planned outline with its pins on
     the planned side, abstracted at cts; the parent at the planned die,
     the blocks placed by the plan, the files as register files the plan
@@ -24,7 +24,30 @@ def mini_planned_flow(rtl, files):
     Args:
       rtl: the genrule that writes blocks.sv, files.sv and top.sv.
       files: the register-file spec labels (mode netlist).
+      macro_files: register files kept as macros the plan does not name:
+        each a flow of its own (its module the top, generate_ram's netlist
+        inlined), abstracted at cts like the blocks, a macro of the parent.
     """
+    file_macros = []
+    for f in macro_files:
+        module = f.split(":")[-1].removesuffix(".regfile")
+        orfs_flow(
+            name = module,
+            abstract_stage = "cts",
+            arguments = BASE_ARGS | {
+                "AUTO_MEMORIES": "1",
+                "CORE_UTILIZATION": "40",
+            },
+            pdk = "//flow:asap7",
+            sources = {
+                "AUTO_MEMORIES_REGFILES": [f],
+                # a block's grid, so the parent's macro grid connects to it
+                "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
+                "SDC_FILE": [":constraints.sdc"],
+            },
+            verilog_files = [":files.sv"],
+        )
+        file_macros.append(":%s_generate_abstract" % module)
     for block in sorted(PLAN["macros"]):
         entry = PLAN["macros"][block]
         orfs_flow(
@@ -60,7 +83,7 @@ def mini_planned_flow(rtl, files):
     if PLAN["parent"].get("pins"):
         # every port on the plan's port side
         parent_sources["IO_CONSTRAINTS"] = [":plan/%s" % PLAN["parent"]["pins"]]
-    parent_macros = [":%s_generate_abstract" % b for b in sorted(PLAN["macros"])]
+    parent_macros = [":%s_generate_abstract" % b for b in sorted(PLAN["macros"])] + file_macros
     orfs_flow(
         name = "mini_top",
         arguments = parent_args,
