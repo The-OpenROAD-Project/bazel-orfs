@@ -79,7 +79,7 @@ single_version_override(
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
-    integrity = "sha256-06ZVXEW4XZMaEp9TQcTE2lS0VLELTFneCw9j5KchjlY=",
+    integrity = "sha256-hszPf4LpwGYStel046V19NFc/bG98+Lt9LoV4lfiRAE=",
     # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
     # so vendor src/sta (OpenSTA) and third-party/abc from their own
     # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
@@ -87,7 +87,7 @@ archive_override(
     # aren't covered by archive_override's integrity.  Regenerated
     # by bump.py on every commit bump; do not edit by hand.
     patch_cmds = [
-        "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-src-sta-80fbbb2945fee2702a84e711a95a0a3bb7050f22.tar.gz https://github.com/The-OpenROAD-Project/OpenSTA/archive/80fbbb2945fee2702a84e711a95a0a3bb7050f22.tar.gz && echo '193809d43805981754924ed22e07f27c623c580e79c156872685c1943aa72b1e  .openroad-submodule-src-sta-80fbbb2945fee2702a84e711a95a0a3bb7050f22.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-src-sta-80fbbb2945fee2702a84e711a95a0a3bb7050f22.tar.gz --strip-components=1 -C src/sta && rm .openroad-submodule-src-sta-80fbbb2945fee2702a84e711a95a0a3bb7050f22.tar.gz",
+        "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-src-sta-846862b15a70f4b3a04b4c1aecf176b310a7fb47.tar.gz https://github.com/The-OpenROAD-Project/OpenSTA/archive/846862b15a70f4b3a04b4c1aecf176b310a7fb47.tar.gz && echo 'f5d744d6a5ba8895de97bcb4c4e9921cb56f6ef85ab4c6a8ad16386dfb683331  .openroad-submodule-src-sta-846862b15a70f4b3a04b4c1aecf176b310a7fb47.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-src-sta-846862b15a70f4b3a04b4c1aecf176b310a7fb47.tar.gz --strip-components=1 -C src/sta && rm .openroad-submodule-src-sta-846862b15a70f4b3a04b4c1aecf176b310a7fb47.tar.gz",
         "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz https://github.com/The-OpenROAD-Project/abc/archive/d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz && echo '0cbf538e60d0303d0e00360d8973aaad7dae198954bed6e34cc31c9a13b3f802  .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz --strip-components=1 -C third-party/abc && rm .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz",
         "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz https://github.com/povik/yosys-slang/archive/82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz && echo 'ea31b4a205ebb1fe5ec3789bcd66f21f4975e73c0901622af667f843b833ff10  .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz --strip-components=1 -C third-party/slang-elab && rm .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz",
         "find . -name BUILD -exec sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|g' {} +",
@@ -145,12 +145,6 @@ archive_override(
         # Not upstreamed; retires at a bump onto an OpenROAD that checks
         # lodepng::save_file's result.
         "//patches:0133-openroad-web-save-image-write-error.patch",
-        # An `exit` sent through the web viewer woke the main thread,
-        # which restored Tcl's `exit` while the io thread was still in its
-        # Tcl_Eval: TclStackFree corruption, signal 11. stop() now takes
-        # the evaluator's mutex first. Not upstreamed; retires at a bump
-        # onto an OpenROAD that serializes it.
-        "//patches:0134-openroad-web-exit-waits-for-eval.patch",
         # CTS connected its dummy loads to the flat net only, so read back
         # they were off the leaf net and their capacitance unseen. Upstream
         # as OpenROAD#11719, which creates the dummy in the loaded buffer's
@@ -238,20 +232,14 @@ archive_override(
         "//patches:0120-openroad-ram-routed-tests.patch",
         # 0121: generate_ram's help lists its options.
         "//patches:0121-openroad-ram-help.patch",
-        # 0122: global route's 100x-capacity edge guard warns instead of
-        # stopping, a temporary unblock for a grt bug: the guard ignores
-        # -allow_congestion. On the XSTile parent it stops global route at a
-        # pile of CTS delay buffers. Not upstreamed; dropped when grt honours
-        # -allow_congestion there.
-        "//patches:0122-openroad-grt-edge-usage-warn.patch",
         # 0126: web_server -no_browser, the url reported and no browser
         # launched, for odb-debug's daemon. The one flag of OpenROAD#11658,
         # spelled as it spells it. Not upstreamed by us; retires at a
         # //:bump onto an OpenROAD that has #11658.
         "//patches:0126-openroad-web-server-no-browser.patch",
     ],
-    strip_prefix = "OpenROAD-eb14e40b7b9527a642a07548ed1dc39c4c611cb3",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/eb14e40b7b9527a642a07548ed1dc39c4c611cb3.tar.gz"],
+    strip_prefix = "OpenROAD-bfac0546a502f30db57e92d801f1eecea86e38ab",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bfac0546a502f30db57e92d801f1eecea86e38ab.tar.gz"],
 )
 
 # OpenROAD pins sv-lang 10.0.bcr.2, which is not yet published in BCR.
@@ -672,8 +660,8 @@ orfs = use_extension("//:extension.bzl", "orfs_repositories")
 # `patches` on an override is honoured only from the root module and
 # would therefore land on whoever is root. Rewritten by //:bump.
 orfs.source(
-    commit = "9c431405a71909ca9aa5b9000d3d11fa36b2a32a",
-    integrity = "sha256-GJSbuVFixHzrafRTF+9jxpBYmTy3/z52nESiaCGke2s=",
+    commit = "8b5e62fbba91fda9680d117caf05373fac9dbd44",
+    integrity = "sha256-N0VUJX8fKTNLm0IiC1meEDz21WTpX/q4qc+rEZHte20=",
 )
 orfs.default(
     # Expose the slang yosys plugin (from BCR sv-elab) via
