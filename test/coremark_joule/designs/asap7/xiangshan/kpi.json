@@ -274,6 +274,89 @@
         "VecRegionModule": 1351
       },
       "note": "the parent's worst path, intRegion's pipeToBJU2 into Frontend's io_backend_toFtq_resolve_2_bits_mispredict; global route's setup repair 9,628 to 9,431 ps (197 ps, flat after iteration 869 of ~1,000), and 5,835 endpoints violate hold past the flow's -1,000 ps margin, the worst by 6,412 ps; CTS latency balancing inserts 2,502 delay buffers (518 at ffe02d5d) and 6,995 hold buffers. Frontend's worst path is the BPU's meta valid into the Ftq's generate_ram queue (metaQueueResolve.ram/addr_w); Flt's and Vec's end at their generate_ram register files' write address. Global route 209 min, 119.9 GB peak; the parent's placement 7 h. Earlier rows predate OpenSTA #532 and may leave gated-clock paths untimed"
+    },
+    {
+      "date": "2026-10-16",
+      "measured": "every block, register-file macro and the parent built from source with orfs_schedule (#1259 at 25f75524) and #1274, #1277 and #1281 (patch 0135) applied; each part's KPI at its own global route",
+      "parent_ps": 2504,
+      "blocks": {
+        "CoupledL2": 978,
+        "Frontend": 1355,
+        "MemBlock": 1449,
+        "FltRegionModule": 1067,
+        "VecRegionModule": 992
+      },
+      "note": "the parent's worst path, intRegion's io_toMemExu_2_0 lqIdx through MemBlock into intRegion's load issue queue wakeup; 5,259 of the parent's 156,690 reg2reg endpoints are above 2,000 ps, none of any block's. Patch 0135 times a global-route abstract with the route's parasitics: MemBlock's lqIdx-to-pdest arc was 6.9 ns with placement parasitics and is 1.84 ns, as MemBlock times itself; the parent was 7,855 ps without it. The register files are macros with their own clock trees (#1257, #1265), and the parent's CTS takes 40 min where run 16's took about 10 h. Every earlier row's block abstracts carry placement parasitics. Parent place 3.9 h, global route 45 min at 98 GB",
+      "histograms": {
+        "parent": {
+          "bin_ps": 10,
+          "from_ps": -110,
+          "counts": [1, 1, 1, 1, 3, 3, 2, 15, 12, 10, 18, 17, 10, 11, 18, 333, 2492, 2810, 919, 314, 279, 469, 423, 324, 229, 215, 187, 172, 178, 184, 169, 171, 137, 189, 156, 165, 144, 117, 135, 132, 157, 147, 162, 191, 210, 232, 249, 276, 249, 218, 320, 380, 383, 405, 450, 462, 477, 537, 611, 656, 741, 833, 850, 945, 948, 978, 1010, 1220, 1367, 1248, 1162, 1248, 1422, 1229, 1308, 1207, 1187, 1249, 1172, 1193, 1031, 1068, 1034, 966, 1063, 995, 913, 823, 737, 715, 605, 592, 605, 543, 643, 576, 613, 652, 612, 675, 639, 737, 834, 841, 787, 780, 911, 1048, 1121, 1186, 1115, 1140, 1190, 1222, 1534, 1786, 1974, 2002, 1760, 1909, 1993, 1878, 1879, 1874, 1763, 1921, 1731, 1712, 1504, 1302, 1159, 926, 934, 903, 833, 693, 817, 779, 775, 690, 721, 715, 895, 854, 948, 972, 1049, 1052, 1012, 964, 1010, 1033, 1256, 1270, 1155, 1088, 1014, 1032, 1089, 994, 956, 823, 832, 903, 747, 698, 680, 685, 787, 686, 725, 669, 641, 575, 468, 460, 513, 522, 499, 500, 402, 364, 397, 460, 433, 345, 306, 271, 246, 248, 277, 277, 281, 365, 331, 379, 445, 561, 533, 529, 508, 453, 467, 436, 384, 337, 315, 308, 245, 262, 276, 243, 208, 253, 197, 186, 197, 136, 171, 146, 151, 131, 129, 177, 208, 224, 158, 196, 203, 189, 236, 228, 183, 199, 238, 234, 125, 129, 123, 41, 10, 2, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 2]
+        },
+        "Frontend": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [191, 405, 108, 146, 52, 109, 182, 130, 178, 192, 270, 283, 319, 361, 335, 324, 301, 330, 408, 488, 489, 604, 928, 1492, 1673, 1382, 1322, 1413, 1363, 1234, 1286, 1372, 1183, 1272, 1467, 1522, 1289, 1008, 808, 940, 1184, 1684, 1446, 923, 763, 851, 949, 1495, 2250, 2830, 1802, 1803, 2144, 2584, 2559, 2405, 1562, 1448, 966, 767, 879, 750, 660, 881, 1174, 1262, 1340, 2328, 3537, 2711, 1263, 742, 797, 913, 975, 954, 1357, 1660, 1364, 1591, 1408, 1333, 1474, 1047, 1271, 1689, 2262, 3072, 2622, 730, 410, 694, 1119, 1057, 1206, 1172, 1337, 1213, 1446, 1004, 800, 808, 954, 922, 1189, 1755, 2371, 1943, 1497, 736, 469, 586, 375, 164, 128, 122, 162, 149, 107, 144, 215, 116, 144, 145, 81, 14, 26, 15, 6, 6, 2, 6, 6]
+        },
+        "MemBlock": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [244, 1417, 728, 440, 406, 336, 259, 196, 284, 184, 209, 301, 330, 428, 501, 677, 990, 1230, 1564, 1711, 2044, 2532, 3197, 3683, 3874, 4282, 4135, 4630, 5360, 5789, 5904, 5584, 5553, 5314, 4947, 4180, 2985, 2122, 1996, 2204, 2621, 2515, 2414, 2631, 2449, 2564, 2353, 2539, 2376, 2873, 3344, 3245, 3890, 5286, 5875, 5240, 3608, 2927, 2159, 1686, 1953, 2322, 3654, 5058, 5284, 3560, 2300, 1888, 1981, 2245, 2007, 1810, 1873, 2151, 2134, 1885, 2179, 2289, 2924, 3612, 4308, 3683, 2645, 2941, 3852, 3626, 2690, 2015, 2031, 1677, 1799, 1994, 2293, 2147, 1631, 1403, 1328, 909, 640, 697, 1008, 1659, 1952, 1974, 2445, 3332, 4237, 4255, 3374, 2487, 1907, 1572, 980, 764, 377, 267, 256, 168, 117, 68, 113, 114, 180, 156, 163, 214, 295, 345, 476, 477, 271, 308, 270, 73, 12, 12, 7, 0, 1, 4, 4, 1]
+        },
+        "CoupledL2": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [355, 446, 221, 242, 120, 93, 76, 99, 324, 196, 110, 119, 87, 75, 34, 50, 89, 223, 167, 230, 179, 292, 449, 637, 722, 863, 1352, 1675, 1297, 665, 815, 889, 1194, 1545, 1453, 1458, 1129, 1247, 1121, 800, 863, 954, 915, 1195, 1665, 1756, 2299, 2023, 1810, 1065, 560, 631, 929, 1446, 2463, 2548, 2562, 1805, 612, 109, 69, 101, 273, 401, 721, 716, 712, 1249, 1453, 1440, 933, 736, 730, 661, 1107, 2306, 2899, 2565, 2844, 2329, 1758, 1503, 1061, 906, 1034, 1149, 1222, 2452, 1841, 448, 58, 161, 94, 21, 3]
+        },
+        "FltRegionModule": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [15, 14, 6, 44, 106, 16, 37, 67, 41, 43, 65, 65, 40, 85, 56, 51, 41, 45, 28, 39, 25, 43, 28, 33, 38, 61, 60, 63, 86, 90, 125, 106, 162, 226, 346, 465, 526, 1080, 1378, 1175, 835, 739, 677, 784, 953, 739, 355, 268, 235, 145, 163, 180, 223, 316, 366, 364, 338, 246, 174, 182, 125, 142, 205, 184, 104, 87, 103, 83, 78, 88, 95, 93, 83, 86, 116, 102, 140, 125, 111, 75, 57, 38, 21, 21, 21, 22, 23, 16, 28, 35, 52, 56, 50, 51, 32, 43, 29, 28, 26, 14, 10, 5, 1, 1]
+        },
+        "VecRegionModule": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [318, 470, 71, 229, 547, 347, 40, 38, 51, 60, 58, 58, 81, 106, 104, 141, 263, 266, 279, 270, 349, 343, 334, 350, 334, 402, 371, 376, 421, 459, 608, 525, 476, 527, 595, 723, 1077, 1353, 1430, 1401, 1505, 1898, 1852, 1222, 676, 816, 973, 1088, 695, 531, 987, 1242, 959, 681, 485, 511, 575, 953, 2060, 2187, 1020, 599, 548, 552, 598, 567, 655, 750, 745, 664, 541, 402, 327, 345, 314, 275, 195, 174, 130, 120, 118, 126, 133, 111, 132, 120, 132, 154, 219, 284, 431, 435, 403, 342, 189, 63, 2]
+        }
+      },
+      "worst_paths": {
+        "parent": {
+          "period_ps": 2504,
+          "from": "core/backend/inner_intRegion/io_toMemExu_2_0_bits_lqIdx_value[2]$_DFFE_PP_/QN",
+          "to": "core/backend/inner_intRegion/issueQueueLDU2_Ldu/io_wakeupToIQ_0_bits_pdestCopy_6[7]$_DFF_P_/D",
+          "what": "From the integer region's load-queue index register out through MemBlock (its 1.84 ns input-to-output arc) and back into the integer load issue queue's wakeup: a round trip through a hardened block in one cycle."
+        },
+        "Frontend": {
+          "period_ps": 1355,
+          "from": "inner_ftq/io_toBpu_train_bits_meta_mbtb_entries_1_3_rawHit$_DFFE_PP0N_/QN",
+          "to": "inner_ftq/io_toBpu_train_bits_meta_tage_entries_3_useProvider$_DFFE_PP0N_/D",
+          "what": "Inside the FTQ: one main-BTB entry's hit flag to a TAGE entry's useProvider bit, both in the training metadata the FTQ sends back to the branch predictor."
+        },
+        "MemBlock": {
+          "period_ps": 1449,
+          "from": "inner_dcache/dcache.mainPipe/s1_req_vaddr[16]$_DFFE_PP_/QN",
+          "to": "inner_dcache/dcache.bankedDataArray/data_banks_0_19.data_bank.array.array_ext/RW0_addr[6]",
+          "what": "DCache main pipeline, stage 1: the request's virtual address to the address pin of a data-bank SRAM macro; index bits travelling to a memory."
+        },
+        "CoupledL2": {
+          "period_ps": 978,
+          "from": "slices_0/directory/metaAll_s3_1_state[0]$_DFFE_PP0P_/QN",
+          "to": "slices_0/directory/metaArray.array.array_ext/RW0_en",
+          "what": "The L2 directory's stage-3 metadata state register to the write-enable of the directory's metadata SRAM: a state decision gating a memory write."
+        },
+        "FltRegionModule": {
+          "period_ps": 1067,
+          "from": "fpRegFile/io_readPorts_0_data[43]",
+          "to": "issuePipes/exu.exFadd_0_bits_data_src_0[43]$_DFFE_PP_/D",
+          "what": "The floating-point register file macro's read port to the FP adder's source-operand register: read data out of the register-file macro."
+        },
+        "VecRegionModule": {
+          "period_ps": 992,
+          "from": "issuePipes_1/exu.Vfdiv/vfdivs_1.u_vector_float_divider_r64.f_r_s_q_72bit[42]$_DFFE_PP_/QN",
+          "to": "issuePipes_1/exu.Vfmac/a0_1_fpB[50]$_DFFE_PP_/D",
+          "what": "The vector floating-point divider's quotient register to the vector multiply-add's operand register, in the same issue pipe."
+        }
+      }
     }
   ]
 }
