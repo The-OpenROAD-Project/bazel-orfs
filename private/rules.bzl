@@ -1186,13 +1186,12 @@ def orfs_run_executable(**kwargs):
     like Optuna, where the overhead of a full `bazel build` would be too slow.
 
     **Execution Constraints**:
-    1. **What the framework writes**: for the default `cmd = "run"`, the ORFS
-       Makefile's `run` target does `mkdir -p` on `RESULTS_DIR`, `LOG_DIR`,
-       `REPORTS_DIR` and `OBJECTS_DIR`, and writes exactly one file:
-       `$(LOG_DIR)/$(RUN_LOG_NAME_STEM).log` (default `run.log`) — the full
-       tool output plus a final elapsed-time line, opened in overwrite mode
-       on every invocation. Nothing else is written by the framework; no
-       metrics JSON is produced (unlike the flow stages).
+    1. **What the framework writes**: for the default `cmd = "run"`, one
+       file, `$(LOG_DIR)/$(RUN_LOG_NAME_STEM).log` (default `run.log`): the
+       full tool output plus a final elapsed-time line, overwritten on every
+       invocation. No metrics JSON is produced, unlike the flow stages.
+       That is the ORFS `run` target's side of docs/reference.md, "The ORFS
+       Makefile contract".
     2. **Pass LOG_DIR**: the executable sets its working directory (`pwd`) to
        the Bazel runfiles root, and `LOG_DIR` defaults to the log directory of
        the flow the `src` stage belongs to — where the stage logs are, and

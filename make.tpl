@@ -64,12 +64,12 @@ if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
   export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}"
 fi
 
-# A deployed tree holds one stage's inputs exactly as bazel built them. A
-# bare stage target lets ORFS's dependency chain decide that an upstream
-# result is stale and rebuild it here, from inputs bazel never gave the
-# tree, and what the tree runs stops matching what the build produced.
-# The honest targets are the `do-` ones, which run that stage and nothing
-# else; `run`, `open_*` and `gui_*` pass. Stop before make does.
+# A deployed tree holds one stage's inputs exactly as bazel built them,
+# and runs the targets that run on what is there: the `do-` ones, `run`,
+# `open_*` and `gui_*` (docs/reference.md, "The ORFS Makefile contract").
+# A bare stage target follows ORFS's dependency chain instead and would
+# rebuild upstream results from inputs bazel never gave the tree. Stop
+# before make does.
 #
 # `for _arg do` and not `for _arg in "$@"`: the rules substitute the
 # literal "$@" in this template to inject DESIGN_CONFIG, so spelling it

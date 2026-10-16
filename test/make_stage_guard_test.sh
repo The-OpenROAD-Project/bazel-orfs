@@ -2,11 +2,8 @@
 #
 # Regression test for make.tpl's deployed-tree stage guard.
 #
-# A deployed tree (//:deps) holds one stage's inputs exactly as bazel built
-# them. A bare stage target lets ORFS's dependency chain rebuild the
-# upstream results from inputs the tree never received, so what the tree
-# runs stops matching what the build produced. The guard refuses those
-# targets and names the `do-` form instead.
+# The guard refuses a bare stage target in a deployed tree (//:deps) and
+# names the `do-` form instead; make.tpl says why.
 #
 # Two things are pinned besides the refusal itself:
 #

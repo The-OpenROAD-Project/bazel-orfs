@@ -72,8 +72,8 @@ orfs_run(
 The rule declares `study_results` as a tree artifact and exports its path
 to the script as `$RUN_OUTPUT_DIR`; the script decides what files land
 there. `outs` and `out_dir` compose (at least one is required). The name is
-deliberately not `RESULTS_DIR` — the ORFS Makefile owns that variable for
-staged flow outputs.
+not `RESULTS_DIR`: the ORFS Makefile owns the tree layout (see
+[The ORFS Makefile contract](reference.md#the-orfs-makefile-contract)).
 
 For `orfs_run_executable` the same contract is by convention: the caller
 passes an absolute scratch path per invocation (like `LOG_DIR`), e.g.

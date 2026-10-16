@@ -149,9 +149,9 @@ def log_timestamps_make_arg(ctx):
 
     ORFS routes every logged tool invocation through RUN_CMD
     (flow/scripts/variables.mk), so replacing it stamps every stage log
-    without patching ORFS. It has to be a make *command-line*
-    assignment: variables.mk sets RUN_CMD with `=`, which beats both the
-    environment and the `?=` lines of the generated argument include.
+    without patching ORFS. variables.mk sets RUN_CMD with `=`, so this
+    is a make command-line assignment (docs/reference.md, "The ORFS
+    Makefile contract").
     """
     if not log_timestamps_enabled(ctx):
         return ""
@@ -685,9 +685,8 @@ def fork_arguments(ctx, short = False):
 def out_dir_arguments(out_dir):
     """Points run scripts at their declared output directory, if any.
 
-    Deliberately not named RESULTS_DIR: the ORFS Makefile owns that
-    variable (staged flow outputs live there), so overriding it would
-    break input loading.
+    Not named RESULTS_DIR: the ORFS Makefile owns the tree layout
+    (docs/reference.md, "The ORFS Makefile contract").
     """
     if out_dir:
         return {"RUN_OUTPUT_DIR": out_dir.path}
