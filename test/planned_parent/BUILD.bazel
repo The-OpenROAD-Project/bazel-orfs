@@ -42,8 +42,10 @@ mini_planned_flow(
         ":FileA.regfile",
         ":FileB.regfile",
         ":FileC.regfile",
-        ":FileM.regfile",
     ],
+    # a register file kept as a macro is a flow of its own (ORFS patch
+    # 0125): the macro the plan does not name
+    macro_files = [":FileM.regfile"],
     rtl = ":rtl",
 )
 
