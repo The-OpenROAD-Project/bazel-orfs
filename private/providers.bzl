@@ -33,6 +33,11 @@ PdkInfo = provider(
         "files",
         "config",
         "libs",
+        # The platform as the OpenROAD stages read it: the files above
+        # mirrored, every liberty file in binary (.blib) form under its
+        # own name, and the mirrored config.mk. Synthesis reads the text.
+        "openroad_files",
+        "openroad_config",
     ],
 )
 TopInfo = provider(
