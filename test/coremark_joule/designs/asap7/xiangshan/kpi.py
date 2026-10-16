@@ -154,14 +154,15 @@ def draw(runs, target, out):
 
 
 def rebin(h, width):
-    """A part's histogram {bin_ps, from_ps, counts} as (left edges, counts) at
-    `width` ps, a multiple of the recorded bin."""
-    step = max(1, width // h["bin_ps"])
-    edges, counts = [], []
-    for i in range(0, len(h["counts"]), step):
-        edges.append(h["from_ps"] + i * h["bin_ps"])
-        counts.append(sum(h["counts"][i : i + step]))
-    return edges, counts
+    """A part's histogram {bin_ps, from_ps, counts} as {left edge: count} at
+    `width` ps, a multiple of the recorded bin, on a grid aligned to multiples
+    of `width`, so every part's bins line up."""
+    out = {}
+    for i, c in enumerate(h["counts"]):
+        edge = h["from_ps"] + i * h["bin_ps"]
+        key = edge - edge % width
+        out[key] = out.get(key, 0) + c
+    return out
 
 
 def above(h, ps):
@@ -225,7 +226,7 @@ def draw_hist(runs, out, width=HIST_BIN_PS, log=False):
     worst = with_hist[-1].get("worst_paths", {})
     parts = [p for p in ["parent"] + block_names(runs) if p in hists]
     parts += sorted(set(hists) - set(parts))
-    rebinned = {p: dict(zip(*rebin(hists[p], width))) for p in parts}
+    rebinned = {p: rebin(hists[p], width) for p in parts}
     lo = min(min(r) for r in rebinned.values())
     hi = max(max(r) for r in rebinned.values())
     edges = list(range(lo, hi + width, width))
@@ -248,8 +249,8 @@ def draw_hist(runs, out, width=HIST_BIN_PS, log=False):
         prev = with_hist[-2]["histograms"]
         total = {}
         for h in prev.values():
-            for e, c in zip(*rebin(h, width)):
-                total[e - e % width] = total.get(e - e % width, 0) + c
+            for e, c in rebin(h, width).items():
+                total[e] = total.get(e, 0) + c
         pe = sorted(total)
         ax.step(
             pe + [pe[-1] + width],
