@@ -249,6 +249,13 @@ archive_override(
         # spelled as it spells it. Not upstreamed by us; retires at a
         # //:bump onto an OpenROAD that has #11658.
         "//patches:0126-openroad-web-server-no-browser.patch",
+        # 0136: estimate_parasitics without a flag picks the source: the
+        # global routes when there are any, else placement, nothing after
+        # read_spef; an unplaced design, a congested route that was not
+        # accepted and a placement without wire RC are errors. -placement
+        # and -global_routing behave as before. ORFS patch 0137 depends on
+        # it. Retires at the //:bump onto an OpenROAD that has it.
+        "//patches:0136-openroad-estimate-parasitics-auto.patch",
     ],
     strip_prefix = "OpenROAD-eb14e40b7b9527a642a07548ed1dc39c4c611cb3",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/eb14e40b7b9527a642a07548ed1dc39c4c611cb3.tar.gz"],

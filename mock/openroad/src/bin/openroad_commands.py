@@ -667,6 +667,16 @@ def cmd_grt_have_routes(interp, args):
     return "1"
 
 
+def cmd_grt_design_is_placed(interp, args):
+    """grt::design_is_placed — returns 1 (pretend placement succeeded)."""
+    return "1"
+
+
+def cmd_est_parasitics_source(interp, args):
+    """est::parasitics_source — "none": the mock estimates nothing."""
+    return "none"
+
+
 def cmd_detailed_route(interp, args):
     print("lint: detailed_route (skipped)", file=sys.stderr)
     return ""
@@ -1528,6 +1538,10 @@ def register_all(interp):
 
     # Register grt:: namespace commands
     interp.register_command("grt::have_routes", cmd_grt_have_routes)
+    interp.register_command("grt::design_is_placed", cmd_grt_design_is_placed)
+
+    # Register est:: namespace commands
+    interp.register_command("est::parasitics_source", cmd_est_parasitics_source)
 
     # Register gpl:: namespace commands
     interp.register_command(

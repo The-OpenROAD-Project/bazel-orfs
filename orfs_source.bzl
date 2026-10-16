@@ -192,6 +192,12 @@ ORFS_PATCHES = [
     # its own global route. Not upstreamed; retires at a bump onto an ORFS
     # that does the same.
     Label("//patches:0135-orfs-abstract-grt-parasitics.patch"),
+    # 0137: the flow calls a bare estimate_parasitics and OpenROAD picks
+    # the source (0136); 6_final is timed with 6_final.spef when the final
+    # stage extracted it, never because a .spef file exists. On 0135, which
+    # it subsumes. Not upstreamed yet; retires at a bump onto an ORFS that
+    # carries it.
+    Label("//patches:0137-orfs-estimate-parasitics-auto.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

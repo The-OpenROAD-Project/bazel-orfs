@@ -1,0 +1,332 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] flow: OpenROAD picks the parasitics, the flow says when
+
+The flow decided which parasitics to time with in four places, open.tcl,
+generate_abstract.tcl, write_endpoint_slack and final_outputs.tcl, from
+the stage number, grt::have_routes and whether a .spef file exists. A
+file on disk says nothing about whether it belongs to the design being
+timed: re-running a flow from place or global route leaves the previous
+final's SPEF in the results directory.
+
+The stage scripts call a bare estimate_parasitics, under log_cmd, where
+they want to pay for an estimate, and OpenROAD picks the source (0136).
+6_final is timed with 6_final.spef when the final stage extracted it,
+which final_extracts_parasitics says from RCX_RULES and
+SKIP_DETAILED_ROUTE; read_spef fails if the file is missing. A placed
+design is timed with parasitics, a design before placement without.
+Subsumes 0135's generate_abstract change, on which it applies.
+
+Not upstreamed yet: a draft ORFS pull request that depends on the
+OpenROAD one. Retires at a //:bump onto an ORFS that carries it.
+---
+diff --git a/flow/scripts/cts.tcl b/flow/scripts/cts.tcl
+index 9da1243cf..260ec45e3 100644
+--- a/flow/scripts/cts.tcl
++++ b/flow/scripts/cts.tcl
+@@ -36,7 +36,7 @@ set_dont_use $::env(DONT_USE_CELLS)
+ log_cmd clock_tree_synthesis {*}$cts_args
+ 
+ utl::push_metrics_stage "cts__{}__pre_repair_timing"
+-log_cmd estimate_parasitics -placement
++log_cmd estimate_parasitics
+ if { $::env(DETAILED_METRICS) } {
+   report_metrics 4 "cts pre-repair-timing"
+ }
+@@ -52,7 +52,7 @@ if { $result != 0 } {
+   error "Detailed placement failed in CTS: $msg"
+ }
+ 
+-log_cmd estimate_parasitics -placement
++log_cmd estimate_parasitics
+ 
+ if { $::env(CTS_SNAPSHOTS) } {
+   save_progress 4_1_pre_repair_setup_hold
+@@ -79,7 +79,7 @@ if { !$::env(SKIP_CTS_REPAIR_TIMING) } {
+ 
+   check_placement -verbose
+ 
+-  log_cmd estimate_parasitics -placement
++  log_cmd estimate_parasitics
+ }
+ 
+ report_metrics 4 "cts final"
+diff --git a/flow/scripts/detail_place.tcl b/flow/scripts/detail_place.tcl
+index b552218cd..bc08c19ec 100644
+--- a/flow/scripts/detail_place.tcl
++++ b/flow/scripts/detail_place.tcl
+@@ -26,7 +26,7 @@ proc do_dpl { } {
+ 
+   utl::info FLW 12 "Placement violations [check_placement -verbose]."
+ 
+-  log_cmd estimate_parasitics -placement
++  log_cmd estimate_parasitics
+ }
+ 
+ set result [catch { do_dpl } errMsg]
+diff --git a/flow/scripts/final_outputs.tcl b/flow/scripts/final_outputs.tcl
+index 520b9d037..99d97a0fa 100644
+--- a/flow/scripts/final_outputs.tcl
++++ b/flow/scripts/final_outputs.tcl
+@@ -20,10 +20,7 @@ if { $::env(SEC_CHECK) } {
+ }
+ 
+ # Run extraction and STA
+-if {
+-  [env_var_exists_and_non_empty RCX_RULES]
+-  && !$::env(SKIP_DETAILED_ROUTE)
+-} {
++if { [final_extracts_parasitics] } {
+   # RCX section
+   define_process_corner -ext_model_index 0 X
+   set_extraction_rules_file $::env(RCX_RULES)
+@@ -35,7 +32,6 @@ if {
+ 
+   # Read Spef for OpenSTA
+   read_spef $::env(RESULTS_DIR)/6_final.spef
+-  set final_parasitics rcx
+ 
+   # Static IR drop analysis
+   if { [env_var_exists_and_non_empty PWR_NETS_VOLTAGES] } {
+@@ -57,12 +53,10 @@ if {
+     puts "IR drop analysis for ground nets is skipped because GND_NETS_VOLTAGES is undefined"
+   }
+ } else {
+-  puts "OpenRCX is not enabled for this platform."
+-  puts "Falling back to global route-based estimates."
+-  log_cmd estimate_parasitics -global_routing
+-  set final_parasitics global_routing
++  puts "OpenRCX is not enabled for this platform or detailed route was skipped."
++  log_cmd estimate_parasitics
+ }
+-write_endpoint_slack 6_final $final_parasitics
++write_endpoint_slack 6_final
+ 
+ report_cell_usage
+ 
+diff --git a/flow/scripts/generate_abstract.tcl b/flow/scripts/generate_abstract.tcl
+index 7b6ec30cb..586e89f7b 100644
+--- a/flow/scripts/generate_abstract.tcl
++++ b/flow/scripts/generate_abstract.tcl
+@@ -13,12 +13,11 @@ set sdc_file [lindex $result 1]
+ 
+ log_cmd load_design $stem.odb [file tail $sdc_file]
+ 
+-if { $design_stage >= 6 && [file exists $::env(RESULTS_DIR)/$stem.spef] } {
+-  log_cmd read_spef $::env(RESULTS_DIR)/$stem.spef
+-} elseif { $design_stage >= 5 } {
+-  log_cmd estimate_parasitics -global_routing
+-} elseif { $design_stage >= 3 } {
+-  log_cmd estimate_parasitics -placement
++if { $stem == "6_final" && [final_extracts_parasitics] } {
++  log_cmd read_spef $::env(RESULTS_DIR)/6_final.spef
++}
++if { [grt::design_is_placed] } {
++  log_cmd estimate_parasitics
+ }
+ 
+ if { $design_stage >= 4 } {
+diff --git a/flow/scripts/global_place.tcl b/flow/scripts/global_place.tcl
+index d7a54c36c..6ba6a8123 100644
+--- a/flow/scripts/global_place.tcl
++++ b/flow/scripts/global_place.tcl
+@@ -77,11 +77,11 @@ if { $result != 0 } {
+   error $errMsg
+ }
+ 
+-log_cmd estimate_parasitics -placement
++log_cmd estimate_parasitics
+ 
+ if { $::env(CLUSTER_FLOPS) } {
+   log_cmd cluster_flops {*}[env_var_or_empty CLUSTER_FLOPS_ARGS]
+-  log_cmd estimate_parasitics -placement
++  log_cmd estimate_parasitics
+ }
+ 
+ # Cells global placement left where there is no site. It ignores rows and
+diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
+index 153c1b379..8a1cbbc07 100644
+--- a/flow/scripts/global_route.tcl
++++ b/flow/scripts/global_route.tcl
+@@ -39,7 +39,8 @@ proc global_route_helper { } {
+         error $errMsg
+       }
+       orfs_write_sdc $::env(RESULTS_DIR)/5_1_grt.sdc
+-      orfs_write_db $::env(RESULTS_DIR)/5_1_grt.odb
++      # A route that failed has no parasitics to time the endpoints with.
++      orfs_write_db $::env(RESULTS_DIR)/5_1_grt.odb 0
+       return 0
+     }
+     return 1
+@@ -85,7 +86,7 @@ proc global_route_helper { } {
+     -right $::env(CELL_PAD_IN_SITES_DETAIL_PLACEMENT)
+ 
+   set_propagated_clock [all_clocks]
+-  log_cmd estimate_parasitics -global_routing
++  log_cmd estimate_parasitics
+ 
+   if { [env_var_exists_and_non_empty DONT_USE_CELLS] } {
+     set_dont_use $::env(DONT_USE_CELLS)
+@@ -117,7 +118,7 @@ proc global_route_helper { } {
+ 
+     # Repair timing using global route parasitics
+     puts "Repair setup and hold violations..."
+-    log_cmd estimate_parasitics -global_routing
++    log_cmd estimate_parasitics
+ 
+     repair_timing_helper
+ 
+@@ -137,7 +138,7 @@ proc global_route_helper { } {
+       return
+     }
+ 
+-    log_cmd estimate_parasitics -global_routing
++    log_cmd estimate_parasitics
+ 
+     if { $::env(OPT_POST_GRT_WNS) } {
+       set repair_timing_args \
+@@ -182,7 +183,7 @@ proc global_route_helper { } {
+   }
+ 
+   puts "Estimate parasitics..."
+-  log_cmd estimate_parasitics -global_routing
++  log_cmd estimate_parasitics
+ 
+   report_metrics 5 "global route"
+ 
+diff --git a/flow/scripts/open.tcl b/flow/scripts/open.tcl
+index c8061687a..fdc0ea6f5 100644
+--- a/flow/scripts/open.tcl
++++ b/flow/scripts/open.tcl
+@@ -59,16 +59,14 @@ proc read_timing { input_file } {
+     set_propagated_clock [all_clocks]
+   }
+ 
+-  if { $design_stage >= 6 && [file exist $::env(RESULTS_DIR)/6_final.spef] } {
++  if {
++    [file rootname [file tail $input_file]] == "6_final"
++    && [final_extracts_parasitics]
++  } {
+     log_cmd read_spef $::env(RESULTS_DIR)/6_final.spef
+-  } elseif { $design_stage >= 5 } {
+-    if { [log_cmd grt::have_routes] } {
+-      log_cmd estimate_parasitics -global_routing
+-    } else {
+-      puts "No global routing results available, skipping estimate_parasitics"
+-    }
+-  } elseif { $design_stage >= 3 } {
+-    log_cmd estimate_parasitics -placement
++  }
++  if { [grt::design_is_placed] } {
++    log_cmd estimate_parasitics
+   }
+ 
+   # Warm up OpenSTA, so clicking on timing related buttons reacts faster
+diff --git a/flow/scripts/resize.tcl b/flow/scripts/resize.tcl
+index e46ac4b32..fa8a26da3 100644
+--- a/flow/scripts/resize.tcl
++++ b/flow/scripts/resize.tcl
+@@ -4,7 +4,7 @@ erase_non_stage_variables place
+ load_design 3_3_place_gp.odb 2_floorplan.sdc
+ source_step_tcl PRE RESIZE
+ 
+-log_cmd estimate_parasitics -placement
++log_cmd estimate_parasitics
+ 
+ set instance_count_before [sta::network_leaf_instance_count]
+ set pin_count_before [sta::network_leaf_pin_count]
+@@ -28,7 +28,7 @@ repair_design_helper
+ if { $::env(ENABLE_PLACE_REPAIR_TIMING) } {
+   # Repair timing using placement parasitics.
+   puts "Repair setup and hold violations..."
+-  log_cmd estimate_parasitics -placement
++  log_cmd estimate_parasitics
+ 
+   repair_timing_helper
+ }
+diff --git a/flow/scripts/util.tcl b/flow/scripts/util.tcl
+index 78419d9b6..8beb3d4da 100644
+--- a/flow/scripts/util.tcl
++++ b/flow/scripts/util.tcl
+@@ -343,32 +343,29 @@ proc endpoint_slack_file { step } {
+   return $::env(REPORTS_DIR)/${step}_endpoint_slack.json
+ }
+ 
++# The final stage extracts parasitics into 6_final.spef when the platform
++# has OpenRCX rules and the design is detail routed. 6_final.odb is timed
++# with that SPEF; whether a .spef file exists says nothing.
++proc final_extracts_parasitics { } {
++  return [expr {
++    [env_var_exists_and_non_empty RCX_RULES]
++    && ![env_var_equals SKIP_DETAILED_ROUTE 1]
++  }]
++}
++
+ # Write the setup and hold slack of every endpoint at the end of a flow
+ # step so they can be compared across steps with
+-# flow/util/endpointSlack.py. Parasitics are estimated the same way as
+-# open.tcl so that every step is timed consistently, unless the caller
+-# has already loaded parasitics (e.g. extracted ones) and passes their
+-# name as parasitics.
+-proc write_endpoint_slack { step { parasitics "" } } {
++# flow/util/endpointSlack.py. A placed design is timed with the parasitics
++# OpenROAD has for it, a design before placement without any.
++proc write_endpoint_slack { step } {
+   if { !$::env(REPORT_ENDPOINT_SLACK) || [string match "*-failed" $step] } {
+     return
+   }
+   set filename [endpoint_slack_file $step]
+   puts "Writing endpoint slack to $filename"
+ 
+-  if { $parasitics == "" } {
+-    set design_stage [lindex [split $step _] 0]
+-    set parasitics none
+-    if { $design_stage >= 5 } {
+-      if { [grt::have_routes] } {
+-        set parasitics global_routing
+-      }
+-    } elseif { $design_stage >= 3 } {
+-      set parasitics placement
+-    }
+-    if { $parasitics != "none" } {
+-      estimate_parasitics -$parasitics
+-    }
++  if { [grt::design_is_placed] } {
++    log_cmd estimate_parasitics
+   }
+   # Update timing before sta::endpoints: the endpoint set is cached the
+   # first time it is requested and misses gated clock enable checks if the
+@@ -379,7 +376,7 @@ proc write_endpoint_slack { step { parasitics "" } } {
+   puts $fileId "{"
+   puts $fileId "\"design\": \"$::env(DESIGN_NAME)\","
+   puts $fileId "\"step\": \"$step\","
+-  puts $fileId "\"parasitics\": \"$parasitics\","
++  puts $fileId "\"parasitics\": \"[est::parasitics_source]\","
+   # Seconds per reported time unit
+   puts $fileId "\"time_unit\": [sta::time_ui_sta 1],"
+   # endpoint: [setup slack, hold slack], null if unconstrained
+diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
+index 1d2a98523..eebe39b2a 100644
+--- a/flow/scripts/variables.json
++++ b/flow/scripts/variables.json
+@@ -1217,7 +1217,8 @@
+     "description": "Skips detailed route.\n",
+     "stages": [
+       "route",
+-      "final"
++      "final",
++      "generate_abstract"
+     ]
+   },
+   "SKIP_GATE_CLONING": {
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+index 9d460de70..1cdae922e 100644
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -1686,6 +1686,7 @@ SKIP_DETAILED_ROUTE:
+   stages:
+     - route
+     - final
++    - generate_abstract
+ MAX_REPAIR_ANTENNAS_ITER_DRT:
+   default: 5
+   description: >

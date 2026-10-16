@@ -866,6 +866,12 @@ class TestRoutingAndFlowPredicates:
         assert interp.eval("grt::have_routes") == "1"
         assert interp.eval("expr {![grt::have_routes]}") == "0"
 
+    def test_grt_design_is_placed(self, interp):
+        assert interp.eval("grt::design_is_placed") == "1"
+
+    def test_est_parasitics_source(self, interp):
+        assert interp.eval("est::parasitics_source") == "none"
+
     def test_design_is_routed(self, interp):
         assert interp.eval("design_is_routed") == "1"
         assert interp.eval("expr {![design_is_routed]}") == "0"

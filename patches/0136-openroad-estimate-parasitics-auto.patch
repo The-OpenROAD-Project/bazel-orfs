@@ -1,0 +1,550 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] est: estimate_parasitics without a flag picks the source
+
+A flow that times a design has to say -placement or -global_routing,
+so every flow script that loads a design re-derives which one applies:
+from a stage number, from grt::have_routes, from whether a .spef file
+is on disk. Each copy can get it wrong, and a missing piece fails
+quietly: -placement without wire RC only warns (EST-0018), and a
+congested global route that was not accepted makes -global_routing
+fail with EST-0005, "Run global_route", after global_route ran.
+
+Without a flag, estimate_parasitics estimates from the global routes
+when there are any, else from placement, and does nothing once
+read_spef has read parasitics, until an estimate with a flag replaces
+them. An unplaced design (EST-0009), global routes that are congested
+and were not accepted (EST-0020) and a placement estimate without wire
+RC (EST-0014) are errors. -placement and -global_routing behave as
+before, except that a congested route fails with EST-0008, which names
+the congestion. grt::have_congested_routes, grt::design_is_placed and
+est::parasitics_source let a flow ask.
+
+The two commits of an OpenROAD pull request, squashed. Retires at the
+//:bump onto an OpenROAD that has it; 0137 depends on it.
+---
+diff --git a/src/est/README.md b/src/est/README.md
+index 2b2b4035c7..faeec0084b 100644
+--- a/src/est/README.md
++++ b/src/est/README.md
+@@ -146,15 +146,23 @@ Standard Parasitic Exchange Format.
+ 
+ ```tcl
+ estimate_parasitics
+-    -placement|-global_routing
++    [-placement|-global_routing]
+     [-spef_file spef_file]
+ ```
+ 
++Without `-placement` or `-global_routing`, `estimate_parasitics` estimates
++from what the design has: from the global routes when there are any, else
++from placement. It does nothing once `read_spef` has read parasitics, until
++`estimate_parasitics -placement` or `-global_routing` replaces them. An
++unplaced design, global routes that are congested and were not accepted with
++`global_route -allow_congestion`, and a placement estimate without wire RC
++are errors.
++
+ #### Options
+ 
+ | Switch Name | Description |
+ | -------------- | ---------------------------------------------- |
+-| `-placement` or `-global_routing` | Either of these flags must be set. Parasitics are estimated based after placement stage versus after global routing stage. |
++| `-placement` or `-global_routing` | Optional. Parasitics are estimated from placement or from global routing. Without either, the design decides. |
+ | `-spef_file` | Optional. File name to write SPEF files. If more than one corner is available for the design, the files will be written as filename_corner.spef. |
+ 
+ 
+@@ -165,6 +173,7 @@ If you are a developer, you might find these useful. More details can be found i
+ | Command Name | Description |
+ | ----- | ----- |
+ | `check_parasitics` | Check if the `estimate_parasitics` command has been called. |
++| `parasitics_source` | Where the parasitics came from: `spef`, `placement`, `global_routing` or `none`. |
+ | `check_corner_wire_caps` | Check wire capacitance for corner. |
+ | `dblayer_wire_rc` | Get layer RC values. |
+ | `set_dblayer_wire_rc` | Set layer RC values. |
+diff --git a/src/est/include/est/EstimateParasitics.h b/src/est/include/est/EstimateParasitics.h
+index e0463fc227..b422179721 100644
+--- a/src/est/include/est/EstimateParasitics.h
++++ b/src/est/include/est/EstimateParasitics.h
+@@ -151,6 +151,14 @@ class EstimateParasitics : public sta::dbStaState, public ParasiticsService
+   void estimateParasitics(ParasiticsSrc src);
+   void estimateParasitics(ParasiticsSrc src,
+                           std::map<sta::Scene*, std::ostream*>& spef_streams);
++  // The parasitics the design has: global routes when it has them, else
++  // placement; kNone once a SPEF has been read. An unplaced design, a
++  // congested route and a placement without wire RC are errors.
++  ParasiticsSrc designParasiticsSrc();
++  // read_spef annotated the parasitics; designParasiticsSrc leaves them.
++  void spefRead() { spef_read_ = true; }
++  // Where the parasitics came from: spef, placement, global_routing or none.
++  const char* parasiticsSource() const;
+   void estimateWireParasitics(sta::SpefWriter* spef_writer = nullptr);
+   void estimateWireParasitic(const sta::Net* net,
+                              sta::SpefWriter* spef_writer = nullptr);
+@@ -246,7 +254,6 @@ class EstimateParasitics : public sta::dbStaState, public ParasiticsService
+   // unset for a tech falls back to the defaults (nullptr entry) independently.
+   template <typename T>
+   const std::vector<T>& resolveWireRC(std::vector<T> WireRC::*category) const;
+-  void ensureParasitics();
+   bool isSkipPin(const sta::Pin* pin) const;
+   bool hasIdealClocks(const sta::Mode* mode) const;
+   bool hasIdealClocks() const;
+@@ -307,6 +314,7 @@ class EstimateParasitics : public sta::dbStaState, public ParasiticsService
+   std::unordered_map<odb::dbTech*, WireRC> wire_rc_;
+ 
+   ParasiticsSrc parasitics_src_ = ParasiticsSrc::kNone;
++  bool spef_read_ = false;
+ 
+   std::unordered_set<const sta::Net*, NetHash> parasitics_invalid_;
+ 
+diff --git a/src/est/src/EstimateParasitics.cpp b/src/est/src/EstimateParasitics.cpp
+index f9f7c47db4..6029878290 100644
+--- a/src/est/src/EstimateParasitics.cpp
++++ b/src/est/src/EstimateParasitics.cpp
+@@ -517,11 +517,58 @@ void EstimateParasitics::initChip(odb::dbChip* chip)
+   initBlock();
+ }
+ 
+-void EstimateParasitics::ensureParasitics()
++ParasiticsSrc EstimateParasitics::designParasiticsSrc()
+ {
+-  estimateParasitics(global_router_->haveRoutes()
+-                         ? ParasiticsSrc::kGlobalRouting
+-                         : ParasiticsSrc::kPlacement);
++  if (spef_read_) {
++    debugPrint(logger_,
++               EST,
++               "estimate_parasitics",
++               1,
++               "parasitics were read from SPEF, not estimated");
++    return ParasiticsSrc::kNone;
++  }
++  if (!global_router_->designIsPlaced()) {
++    logger_->error(
++        EST, 9, "The design is not placed: no parasitics to estimate.");
++  }
++  if (global_router_->haveRoutes()) {
++    return ParasiticsSrc::kGlobalRouting;
++  }
++  if (global_router_->haveCongestedRoutes()) {
++    logger_->error(EST,
++                   20,
++                   "The global routes are congested. Use global_route "
++                   "-allow_congestion to estimate parasitics from them.");
++  }
++  for (const sta::Scene* scene : sta_->scenes()) {
++    if (wireSignalCapacitance(scene) == 0.0) {
++      logger_->error(EST,
++                     14,
++                     "wire capacitance for corner {} is zero. Use the "
++                     "set_wire_rc command to set wire resistance and "
++                     "capacitance.",
++                     scene->name());
++    }
++  }
++  return ParasiticsSrc::kPlacement;
++}
++
++const char* EstimateParasitics::parasiticsSource() const
++{
++  if (spef_read_) {
++    return "spef";
++  }
++  switch (parasitics_src_) {
++    case ParasiticsSrc::kPlacement:
++      return "placement";
++    case ParasiticsSrc::kGlobalRouting:
++      return "global_routing";
++    case ParasiticsSrc::kDetailedRouting:
++      return "detailed_routing";
++    case ParasiticsSrc::kNone:
++      break;
++  }
++  return "none";
+ }
+ 
+ void EstimateParasitics::estimateParasitics(ParasiticsSrc src)
+@@ -535,6 +582,7 @@ void EstimateParasitics::estimateParasitics(
+     std::map<sta::Scene*, std::ostream*>& spef_streams)
+ {
+   initBlock();
++  spef_read_ = false;
+   std::unique_ptr<sta::SpefWriter> spef_writer;
+   if (!spef_streams.empty()) {
+     spef_writer
+diff --git a/src/est/src/EstimateParasitics.i b/src/est/src/EstimateParasitics.i
+index bb95049138..fdf5dd7ca1 100644
+--- a/src/est/src/EstimateParasitics.i
++++ b/src/est/src/EstimateParasitics.i
+@@ -289,6 +289,30 @@ estimate_parasitics_cmd(ParasiticsSrc src, const char* path)
+   spef_files.clear();
+ }
+ 
++void
++ensure_parasitics_cmd(const char* path)
++{
++  ensureLinked();
++  ParasiticsSrc src = getEstimateParasitics()->designParasiticsSrc();
++  if (src != ParasiticsSrc::kNone) {
++    estimate_parasitics_cmd(src, path);
++  }
++}
++
++const char*
++parasitics_source()
++{
++  ensureLinked();
++  return getEstimateParasitics()->parasiticsSource();
++}
++
++void
++spef_read()
++{
++  ensureLinked();
++  getEstimateParasitics()->spefRead();
++}
++
+ // For debugging. Does not protect against annotating power/gnd.
+ void
+ estimate_parasitic_net(const Net *net)
+diff --git a/src/est/src/EstimateParasitics.tcl b/src/est/src/EstimateParasitics.tcl
+index bc26a136f8..27b1fa839a 100644
+--- a/src/est/src/EstimateParasitics.tcl
++++ b/src/est/src/EstimateParasitics.tcl
+@@ -1,7 +1,7 @@
+ # SPDX-License-Identifier: BSD-3-Clause
+ # Copyright (c) 2019-2025, The OpenROAD Authors
+ 
+-sta::define_cmd_args "estimate_parasitics" { -placement|-global_routing \
++sta::define_cmd_args "estimate_parasitics" { [-placement|-global_routing] \
+                                             [-spef_file filename]}
+ 
+ proc estimate_parasitics { args } {
+@@ -21,11 +21,14 @@ proc estimate_parasitics { args } {
+     if { [grt::have_routes] } {
+       # should check for layer rc
+       est::estimate_parasitics_cmd "global_routing" $filename
++    } elseif { [grt::have_congested_routes] } {
++      utl::error EST 8 "The global routes are congested.\
++        Use global_route -allow_congestion to estimate parasitics from them."
+     } else {
+       utl::error EST 5 "Run global_route before estimating parasitics for global routing."
+     }
+   } else {
+-    utl::error EST 3 "missing -placement or -global_routing flag."
++    est::ensure_parasitics_cmd $filename
+   }
+ }
+ 
+@@ -384,6 +387,14 @@ proc set_wire_rc { args } {
+ }
+ 
+ namespace eval est {
++# estimate_parasitics without a flag leaves parasitics read from a SPEF.
++proc spef_read_trace { cmd code result op } {
++  if { $code == 0 && $result } {
++    est::spef_read
++  }
++}
++trace add execution sta::read_spef leave est::spef_read_trace
++
+ proc get_db_tech_checked { } {
+   set tech [ord::get_db_tech]
+   if { $tech == "NULL" } {
+diff --git a/src/est/test/BUILD b/src/est/test/BUILD
+index 1f546febf0..2d862c1f29 100644
+--- a/src/est/test/BUILD
++++ b/src/est/test/BUILD
+@@ -49,6 +49,13 @@ filegroup(
+     ],
+ ) for test_name in TESTS]
+ 
++regression_test(
++    name = "estimate_parasitics_source",
++    check_log = False,
++    check_passfail = True,
++    data = [":test_resources"],
++)
++
+ cc_test(
+     name = "TestEstimateParasitics",
+     srcs = ["cpp/TestEstimateParasitics.cc"],
+diff --git a/src/est/test/CMakeLists.txt b/src/est/test/CMakeLists.txt
+index b48fe21418..9173c7f52d 100644
+--- a/src/est/test/CMakeLists.txt
++++ b/src/est/test/CMakeLists.txt
+@@ -16,6 +16,8 @@ or_integration_tests(
+     set_wire_rc_rdl_ignored
+     set_wire_rc_selectors
+     set_wire_rc_rdl_mixed_tech
++  PASSFAIL_TESTS
++    estimate_parasitics_source
+ )
+ 
+ add_executable(TestEstimateParasitics cpp/TestEstimateParasitics.cc)
+diff --git a/src/est/test/estimate_parasitics_source.tcl b/src/est/test/estimate_parasitics_source.tcl
+new file mode 100644
+index 0000000000..1018823516
+--- /dev/null
++++ b/src/est/test/estimate_parasitics_source.tcl
+@@ -0,0 +1,75 @@
++# estimate_parasitics without a flag estimates from what the design has,
++# placement here, and leaves parasitics read from a SPEF alone.
++source "helpers.tcl"
++read_lef Nangate45/Nangate45.lef
++read_liberty Nangate45/Nangate45_typ.lib
++read_def reg3.def
++
++create_clock -period 10 clk
++set_input_delay -clock clk 0 in1
++
++# The SPEF a file holds, without its date.
++proc spef_body { filename } {
++  set stream [open $filename r]
++  set body {}
++  foreach line [split [read $stream] "\n"] {
++    if { ![string match "\*DATE*" $line] } {
++      lappend body $line
++    }
++  }
++  close $stream
++  return $body
++}
++
++check "before an estimate there are no parasitics" {
++  est::parasitics_source
++} none
++
++check "the design is placed" {
++  grt::design_is_placed
++} 1
++
++check_error "a placement without wire RC is an error" {
++  estimate_parasitics
++} EST-0014
++
++source Nangate45/Nangate45.rc
++set_wire_rc -layer metal2
++
++set placement_spef [make_result_file estimate_parasitics_placement.spef]
++estimate_parasitics -placement -spef_file $placement_spef
++set auto_spef [make_result_file estimate_parasitics_auto.spef]
++estimate_parasitics -spef_file $auto_spef
++check "without global routes, estimate_parasitics estimates from placement" {
++  expr { [spef_body $auto_spef] == [spef_body $placement_spef] }
++} 1
++check "the parasitics come from placement" {
++  est::parasitics_source
++} placement
++
++read_spef $placement_spef
++set after_read_spef [make_result_file estimate_parasitics_after_read_spef.spef]
++estimate_parasitics -spef_file $after_read_spef
++check "after read_spef, estimate_parasitics does nothing" {
++  file exists $after_read_spef
++} 0
++check "the parasitics come from the SPEF" {
++  est::parasitics_source
++} spef
++
++estimate_parasitics -placement
++set after_placement [make_result_file estimate_parasitics_after_placement.spef]
++estimate_parasitics -spef_file $after_placement
++check "an explicit estimate after read_spef makes estimate_parasitics estimate" {
++  file exists $after_placement
++} 1
++
++[[ord::get_db_block] findInst u1] setPlacementStatus NONE
++check "with an unplaced instance, the design is not placed" {
++  grt::design_is_placed
++} 0
++check_error "an unplaced design is an error" {
++  estimate_parasitics
++} EST-0009
++
++exit_summary
+diff --git a/src/grt/README.md b/src/grt/README.md
+index c618582a44..f80f6253c4 100644
+--- a/src/grt/README.md
++++ b/src/grt/README.md
+@@ -407,6 +407,8 @@ If you are a developer, you might find these useful. More details can be found i
+ | `parse_layer_range` | Parses a range from `layer_range` argument of format (%s-%s). `cmd` argument is not used. |
+ | `check_region` | Checks the defined region if its within the die area. |
+ | `have_detailed_route` | Checks if block has detailed route already. |
++| `design_is_placed` | Checks if every pin and every instance on a signal net is placed. |
++| `have_congested_routes` | Checks if block has global routes that are congested and were not accepted with `-allow_congestion`. |
+ 
+ ## Regression tests
+ 
+diff --git a/src/grt/include/grt/GlobalRouter.h b/src/grt/include/grt/GlobalRouter.h
+index 20c307003c..ad85d5848a 100644
+--- a/src/grt/include/grt/GlobalRouter.h
++++ b/src/grt/include/grt/GlobalRouter.h
+@@ -267,6 +267,9 @@ class GlobalRouter
+   odb::PtrSet<odb::dbNet> getDirtyNets() { return dirty_nets_; }
+   // check_antennas
+   bool haveRoutes();
++  // Routes exist but are congested and the congestion was not accepted
++  // (-allow_congestion), so haveRoutes() is false.
++  bool haveCongestedRoutes();
+   bool haveDbGuides();
+   bool designIsPlaced();
+   bool haveDetailedRoutes();
+diff --git a/src/grt/src/GlobalRouter.cpp b/src/grt/src/GlobalRouter.cpp
+index 77f5453cd6..4e19ba6dc7 100644
+--- a/src/grt/src/GlobalRouter.cpp
++++ b/src/grt/src/GlobalRouter.cpp
+@@ -378,6 +378,16 @@ bool GlobalRouter::haveRoutes()
+   return !routes_.empty() && !congested_routes;
+ }
+ 
++bool GlobalRouter::haveCongestedRoutes()
++{
++  if (!designIsPlaced()) {
++    return false;
++  }
++  loadGuidesFromDB();
++  bool congested_routes = is_congested_ && !congestion_accepted_ && !use_cugr_;
++  return !routes_.empty() && congested_routes;
++}
++
+ bool GlobalRouter::haveDetailedRoutes()
+ {
+   if (block_ == nullptr) {
+diff --git a/src/grt/src/GlobalRouter.i b/src/grt/src/GlobalRouter.i
+index ed375a2c72..a75cb0bc3e 100644
+--- a/src/grt/src/GlobalRouter.i
++++ b/src/grt/src/GlobalRouter.i
+@@ -42,6 +42,18 @@ have_routes()
+   return getGlobalRouter()->haveRoutes();
+ }
+ 
++bool
++design_is_placed()
++{
++  return getGlobalRouter()->designIsPlaced();
++}
++
++bool
++have_congested_routes()
++{
++  return getGlobalRouter()->haveCongestedRoutes();
++}
++
+ bool
+ have_detailed_routes()
+ {
+diff --git a/src/grt/test/BUILD b/src/grt/test/BUILD
+index e1a221cdcd..72b446f80a 100644
+--- a/src/grt/test/BUILD
++++ b/src/grt/test/BUILD
+@@ -228,6 +228,13 @@ regression_test(
+     data = [":test_resources"],
+ )
+ 
++regression_test(
++    name = "congested_routes_are_reported",
++    check_log = False,
++    check_passfail = True,
++    data = [":test_resources"],
++)
++
+ regression_test(
+     name = "congestion_markers_cugr",
+     check_log = False,
+diff --git a/src/grt/test/CMakeLists.txt b/src/grt/test/CMakeLists.txt
+index 9f091966bd..3be1eb7c81 100644
+--- a/src/grt/test/CMakeLists.txt
++++ b/src/grt/test/CMakeLists.txt
+@@ -148,6 +148,7 @@ or_integration_tests(
+     write_segments1
+     write_segments2
+   PASSFAIL_TESTS
++    congested_routes_are_reported
+     congestion_markers_cugr
+     congestion_acceptance_is_recorded
+     congestion_report_file_cugr
+diff --git a/src/grt/test/congested_routes_are_reported.tcl b/src/grt/test/congested_routes_are_reported.tcl
+new file mode 100644
+index 0000000000..a8e2a71dc3
+--- /dev/null
++++ b/src/grt/test/congested_routes_are_reported.tcl
+@@ -0,0 +1,80 @@
++# A congested global route that was not accepted is reported as congested,
++# not as missing, so the error names the cause.
++source "helpers.tcl"
++read_liberty Nangate45/Nangate45_typ.lib
++read_lef Nangate45/Nangate45.lef
++read_def gcd.def
++create_clock [get_ports clk] -name core_clock -period 0.45
++source Nangate45/Nangate45.rc
++set_wire_rc -layer metal3
++
++set_global_routing_layer_adjustment metal2 0.9
++set_global_routing_layer_adjustment metal3 0.9
++set_global_routing_layer_adjustment metal4-metal10 1
++
++set_routing_layers -signal metal2-metal10
++
++check "before global_route there are no congested routes" {
++  grt::have_congested_routes
++} 0
++
++check "the route is congested: global_route without -allow_congestion fails" {
++  catch { global_route }
++} 1
++
++check "a congested route that was not accepted is not usable" {
++  grt::have_routes
++} 0
++
++check "a congested route that was not accepted is reported" {
++  grt::have_congested_routes
++} 1
++
++check_error "estimate_parasitics -global_routing says the route is congested" {
++  estimate_parasitics -global_routing
++} EST-0008
++
++check_error "estimate_parasitics without a flag says the route is congested" {
++  estimate_parasitics
++} EST-0020
++
++global_route -allow_congestion
++
++check "an accepted route is not reported as congested" {
++  grt::have_congested_routes
++} 0
++
++check "estimate_parasitics -global_routing uses an accepted route" {
++  catch { estimate_parasitics -global_routing }
++} 0
++
++# The SPEF a file holds, without its date.
++proc spef_body { filename } {
++  set stream [open $filename r]
++  set body {}
++  foreach line [split [read $stream] "\n"] {
++    if { ![string match "\*DATE*" $line] } {
++      lappend body $line
++    }
++  }
++  close $stream
++  return $body
++}
++
++set placement_spef [make_result_file congested_routes_placement.spef]
++estimate_parasitics -placement -spef_file $placement_spef
++set global_routing_spef [make_result_file congested_routes_global_routing.spef]
++estimate_parasitics -global_routing -spef_file $global_routing_spef
++set auto_spef [make_result_file congested_routes_auto.spef]
++estimate_parasitics -spef_file $auto_spef
++check "with an accepted route, estimate_parasitics estimates from it" {
++  expr { [spef_body $auto_spef] == [spef_body $global_routing_spef] }
++} 1
++check "the global route estimate is not the placement estimate" {
++  expr { [spef_body $auto_spef] == [spef_body $placement_spef] }
++} 0
++check "the parasitics come from global routing" {
++  est::parasitics_source
++} global_routing
++
++exit_summary
