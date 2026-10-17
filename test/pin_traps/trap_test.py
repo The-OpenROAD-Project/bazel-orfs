@@ -47,9 +47,13 @@ def check_face_away(p, bits=32, block_w=100.08):
     claims = []
     for port in ("e_in", "e_out"):
         s = side_share(own_a, port, "right")
-        claims.append(("own: %s on the east side < 25 %%" % port, s < 0.25, "%.0f %%" % (100 * s)))
+        claims.append(
+            ("own: %s on the east side < 25 %%" % port, s < 0.25, "%.0f %%" % (100 * s))
+        )
         s = side_share(hand_a, port, "right")
-        claims.append(("hand: %s all on the east side" % port, s == 1.0, "%.0f %%" % (100 * s)))
+        claims.append(
+            ("hand: %s all on the east side" % port, s == 1.0, "%.0f %%" % (100 * s))
+        )
     bad = bits * block_w
     claims.append(
         (
@@ -101,11 +105,34 @@ def check_both_own(p, bits=32, block_w=60.048):
     for block, side in (("a", "right"), ("b", "left")):
         for port in ("x_in", "x_out"):
             s = side_share(p["own:" + block], port, side)
-            claims.append(("own: %s.%s facing < 25 %%" % (block, port), s < 0.25, "%.0f %%" % (100 * s)))
+            claims.append(
+                (
+                    "own: %s.%s facing < 25 %%" % (block, port),
+                    s < 0.25,
+                    "%.0f %%" % (100 * s),
+                )
+            )
             s = side_share(p["hand:" + block], port, side)
-            claims.append(("hand: %s.%s all facing" % (block, port), s == 1.0, "%.0f %%" % (100 * s)))
-    claims.append(_ratio_claim("hand: parent wire", p["hand:top"]["wirelength_um"], p["own:top"]["wirelength_um"], 0.5))
-    claims.append(_ratio_claim("hand: block + parent wire", _total(p, "hand"), _total(p, "own"), 2.0 / 3))
+            claims.append(
+                (
+                    "hand: %s.%s all facing" % (block, port),
+                    s == 1.0,
+                    "%.0f %%" % (100 * s),
+                )
+            )
+    claims.append(
+        _ratio_claim(
+            "hand: parent wire",
+            p["hand:top"]["wirelength_um"],
+            p["own:top"]["wirelength_um"],
+            0.5,
+        )
+    )
+    claims.append(
+        _ratio_claim(
+            "hand: block + parent wire", _total(p, "hand"), _total(p, "own"), 2.0 / 3
+        )
+    )
     return claims
 
 
@@ -118,9 +145,15 @@ def check_narrow_channel(p, bits=32, block_w=40.032):
     own_t, hand_t = p["own:top"]["wirelength_um"], p["hand:top"]["wirelength_um"]
     bad = 2 * bits * block_w
     return [
-        ("own: parent wire >= 2 * bits * block_w = %.0f um" % bad, own_t >= bad, "%d um" % own_t),
+        (
+            "own: parent wire >= 2 * bits * block_w = %.0f um" % bad,
+            own_t >= bad,
+            "%d um" % own_t,
+        ),
         _ratio_claim("hand: parent wire", hand_t, own_t, 0.25),
-        _ratio_claim("hand: block + parent wire", _total(p, "hand"), _total(p, "own"), 0.5),
+        _ratio_claim(
+            "hand: block + parent wire", _total(p, "hand"), _total(p, "own"), 0.5
+        ),
     ]
 
 
@@ -132,9 +165,19 @@ def check_split_logic(p):
     nothing overflows and the parent's wire is at most four fifths."""
     own_t, hand_t = p["own:top"], p["hand:top"]
     return [
-        ("own: parent overflows", own_t["total_overflow"] > 0, "%d" % own_t["total_overflow"]),
-        ("hand: parent does not overflow", hand_t["total_overflow"] == 0, "%d" % hand_t["total_overflow"]),
-        _ratio_claim("hand: parent wire", hand_t["wirelength_um"], own_t["wirelength_um"], 0.8),
+        (
+            "own: parent overflows",
+            own_t["total_overflow"] > 0,
+            "%d" % own_t["total_overflow"],
+        ),
+        (
+            "hand: parent does not overflow",
+            hand_t["total_overflow"] == 0,
+            "%d" % hand_t["total_overflow"],
+        ),
+        _ratio_claim(
+            "hand: parent wire", hand_t["wirelength_um"], own_t["wirelength_um"], 0.8
+        ),
     ]
 
 
@@ -148,10 +191,24 @@ def check_tidy_row(p, bits=16, core_h=115.776, file_h=19.44):
     own_t, hand_t = p["own:top"], p["hand:top"]
     bad = 2 * bits * (core_h - 2 * file_h)
     return [
-        ("own: parent wire >= %.0f um" % bad, own_t["wirelength_um"] >= bad, "%d um" % own_t["wirelength_um"]),
-        ("own: parent overflows", own_t["total_overflow"] > 0, "%d" % own_t["total_overflow"]),
-        ("hand: parent does not overflow", hand_t["total_overflow"] == 0, "%d" % hand_t["total_overflow"]),
-        _ratio_claim("hand: parent wire", hand_t["wirelength_um"], own_t["wirelength_um"], 0.5),
+        (
+            "own: parent wire >= %.0f um" % bad,
+            own_t["wirelength_um"] >= bad,
+            "%d um" % own_t["wirelength_um"],
+        ),
+        (
+            "own: parent overflows",
+            own_t["total_overflow"] > 0,
+            "%d" % own_t["total_overflow"],
+        ),
+        (
+            "hand: parent does not overflow",
+            hand_t["total_overflow"] == 0,
+            "%d" % hand_t["total_overflow"],
+        ),
+        _ratio_claim(
+            "hand: parent wire", hand_t["wirelength_um"], own_t["wirelength_um"], 0.5
+        ),
     ]
 
 
@@ -200,7 +257,11 @@ def check_random_io(p):
     more freedom, own's wire is still longer than the constrained hand
     answer by a third or more."""
     own, hand = p["own:top"], p["hand:top"]
-    return [_ratio_claim("hand: parent wire", hand["wirelength_um"], own["wirelength_um"], 0.75)]
+    return [
+        _ratio_claim(
+            "hand: parent wire", hand["wirelength_um"], own["wirelength_um"], 0.75
+        )
+    ]
 
 
 def check_wide_pins(p):
@@ -211,8 +272,16 @@ def check_wide_pins(p):
     as in XiangShan's one pin per block. The wire is the same."""
     own, hand = p["own:top"], p["hand:top"]
     return [
-        ("own: pin access stops on DRT-0073", "DRT-0073" in own["pin_access"], own["pin_access"]),
-        ("hand: pin access finds every pin", hand["pin_access"] == "ok", hand["pin_access"]),
+        (
+            "own: pin access stops on DRT-0073",
+            "DRT-0073" in own["pin_access"],
+            own["pin_access"],
+        ),
+        (
+            "hand: pin access finds every pin",
+            hand["pin_access"] == "ok",
+            hand["pin_access"],
+        ),
     ]
 
 
@@ -224,9 +293,19 @@ def check_mini_top(p):
     own against 2 201, 4 459 and 18 447 by hand, 0.53 of own)."""
     own, hand = p["own:top"], p["hand:top"]
     return [
-        ("own: parent overflows", own["total_overflow"] > 0, "%d" % own["total_overflow"]),
-        ("hand: parent does not overflow", hand["total_overflow"] == 0, "%d" % hand["total_overflow"]),
-        _ratio_claim("hand: block + parent wire", _total(p, "hand"), _total(p, "own"), 2.0 / 3),
+        (
+            "own: parent overflows",
+            own["total_overflow"] > 0,
+            "%d" % own["total_overflow"],
+        ),
+        (
+            "hand: parent does not overflow",
+            hand["total_overflow"] == 0,
+            "%d" % hand["total_overflow"],
+        ),
+        _ratio_claim(
+            "hand: block + parent wire", _total(p, "hand"), _total(p, "own"), 2.0 / 3
+        ),
     ]
 
 
@@ -258,17 +337,35 @@ def check_loop(p, trap, rounds):
     own = _total(p, "own")
     for k in range(1, rounds + 1):
         rk = _total(p, "r%d" % k)
-        claims.append(("r%d: block + parent wire <= own" % k, rk <= own, "%d vs %d um" % (rk, own)))
+        claims.append(
+            (
+                "r%d: block + parent wire <= own" % k,
+                rk <= own,
+                "%d vs %d um" % (rk, own),
+            )
+        )
     if trap in PIN_ANSWERED:
         r1, hand = _total(p, "r1"), _total(p, "hand")
-        claims.append(("r1: block + parent wire <= 1.1 x hand", r1 <= 1.1 * hand, "%d vs %d um" % (r1, hand)))
+        claims.append(
+            (
+                "r1: block + parent wire <= 1.1 x hand",
+                r1 <= 1.1 * hand,
+                "%d vs %d um" % (r1, hand),
+            )
+        )
     return claims
 
 
 def main(argv):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--trap", required=True, choices=sorted(CHECKS))
-    ap.add_argument("--loop", type=int, default=0, metavar="ROUNDS", help="check the pin loop's rounds instead of the trap")
+    ap.add_argument(
+        "--loop",
+        type=int,
+        default=0,
+        metavar="ROUNDS",
+        help="check the pin loop's rounds instead of the trap",
+    )
     ap.add_argument("probes", nargs="+", metavar="ARM:PART=JSON")
     a = ap.parse_args(argv)
     probes = {}

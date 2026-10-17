@@ -192,9 +192,7 @@ def split_logic(t, n):
     31, the logic region a strip)."""
     k = max(2, n // 8)
     return (
-        _bank(f"{t}_a", n, f"{t}: block a")
-        + _bank(f"{t}_b", n, f"{t}: block b")
-        + f"""
+        _bank(f"{t}_a", n, f"{t}: block a") + _bank(f"{t}_b", n, f"{t}: block b") + f"""
 module {t}_top (
   input clock,
   input [{k - 1}:0] p_in,
@@ -228,21 +226,17 @@ def tidy_row(t, n):
     logic = []
     for e in ("w", "e", "s", "n"):
         ports.append(f"  input [{n - 1}:0] p{e}_in,\n  output [{n - 1}:0] p{e}_out")
-        logic.append(
-            f"""  wire [{n - 1}:0] q{e};
+        logic.append(f"""  wire [{n - 1}:0] q{e};
   reg [{n - 1}:0] d{e}, o{e};
   always @(posedge clock) begin
     d{e} <= {_mix(n, f"p{e}_in")};
     o{e} <= {_mix(n, f"q{e}")};
   end
   {t}_f u_f{e} (.clock(clock), .d(d{e}), .q(q{e}));
-  assign p{e}_out = o{e};"""
-        )
+  assign p{e}_out = o{e};""")
     port_list = ",\n".join(ports)
     logic_list = "\n".join(logic)
-    return (
-        body
-        + f"""
+    return body + f"""
 module {t}_top (
   input clock,
 {port_list}
@@ -250,7 +244,6 @@ module {t}_top (
 {logic_list}
 endmodule
 """
-    )
 
 
 def flip(t, n):
@@ -334,12 +327,16 @@ def mini_top(t, n):
         for decl in header.group(1).split(","):
             m = re.match(r"\s*(input|output)\s*(\[[^\]]*\])?\s*(\w+)\s*$", decl)
             if m is None:
-                raise SystemExit("mini_top: cannot read port %r of %s_top" % (decl, trap))
+                raise SystemExit(
+                    "mini_top: cannot read port %r of %s_top" % (decl, trap)
+                )
             direction, width, port = m.groups()
             if port == "clock":
                 conns.append(".clock(clock)")
                 continue
-            ports.append("  %s %s%s_%s" % (direction, (width + " ") if width else "", trap, port))
+            ports.append(
+                "  %s %s%s_%s" % (direction, (width + " ") if width else "", trap, port)
+            )
             conns.append(".%s(%s_%s)" % (port, trap, port))
         insts.append("  %s_top u_%s (%s);" % (trap, trap, ", ".join(conns)))
     port_list = ",\n".join(["  input clock"] + ports)
