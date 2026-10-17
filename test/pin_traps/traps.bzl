@@ -38,7 +38,7 @@ def _areas(w, h, margin_x = 2.0, margin_y = 2.0):
 def _pins(contract, arm_pins):
     return " ".join([p for p in [contract, arm_pins] if p])
 
-def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own", round_variant = ""):
+def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"], round_variant = ""):
     """One trap's flows and probes.
 
     Args:
@@ -57,10 +57,14 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own", r
       arms: {arm: {"pins": {block: PIN_GROUPS added to the contract},
         "blocks": {block: overrides}, "parent": overrides}}: an arm changes
         only what its trap is about.
-      rounds: rounds of the pin loop: arm r<k> is round_base with every
-        block's pins written by pins_from_parent.tcl from arm r<k-1>'s
-        placed parent (r0 is round_base itself).
-      round_base: the arm the loop starts from.
+      rounds: rounds of the pin loop from each of round_bases: arm r<k>
+        (from own) or <base>_r<k> is the base arm with every block's pins
+        written by pins_from_parent.tcl from round k-1's placed parent
+        (round 0 is the base itself); where the base parent's ports are
+        free, its ports too, so a base the macro placer places (no locs)
+        is the joint loop, the blocks re-placed each round on the pins
+        the last round gave them.
+      round_bases: the arms the loop starts from.
       round_variant: a prefix for the rounds' block variants, for a parent
         whose blocks are other traps' (the combined parent): their own
         arms are reused with "reuse": {block: [abstract, probe]} in the
@@ -81,23 +85,29 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own", r
     )
     arms = dict(arms)
     round_of = {}
-    for k in range(1, rounds + 1):
-        prev = round_base if k == 1 else "r{}".format(k - 1)
-        spec = dict(arms[round_base])
-        spec["blocks"] = {
-            block: spec.get("blocks", {}).get(block, {}) | {
-                "io": ":{}_{}_r{}_pins.tcl".format(name, block, k),
+    for base in round_bases:
+        prefix = "r" if base == "own" else base + "_r"
+        free_ports = not (parent | arms[base].get("parent", {})).get("pins")
+        for k in range(1, rounds + 1):
+            rname = "{}{}".format(prefix, k)
+            prev = base if k == 1 else "{}{}".format(prefix, k - 1)
+            spec = dict(arms[base])
+            spec["blocks"] = {
+                block: spec.get("blocks", {}).get(block, {}) | {
+                    "io": ":{}_{}_{}_pins.tcl".format(name, block, rname),
+                }
+                for block in blocks
             }
-            for block in blocks
-        }
-        spec["pins"] = {}
-        spec.pop("reuse", None)
-        arms["r{}".format(k)] = spec
-        round_of[prev] = k
+            spec["pins"] = {}
+            spec.pop("reuse", None)
+            if free_ports:
+                spec["parent"] = spec.get("parent", {}) | {"io": ":{}_top_{}_pins.tcl".format(name, rname)}
+            arms[rname] = spec
+            round_of[prev] = (rname, free_ports)
     for arm in sorted(arms):
         spec = arms[arm]
         macros = []
-        variant = (round_variant + arm) if arm.startswith("r") and arm[1:].isdigit() else arm
+        variant = (round_variant + arm) if arm in [r for r, _ in round_of.values()] else arm
         for block in sorted(blocks):
             if block in spec.get("reuse", {}):
                 abstract, probe = spec["reuse"][block]
@@ -155,7 +165,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own", r
             "RTLMP_MIN_CHANNEL_SIZE": "{} {}".format(_r(channel), _r(channel)),
         } | p.get("args", {})
         sources = {
-            "IO_CONSTRAINTS": [":pins.tcl"],
+            "IO_CONSTRAINTS": [p.get("io", ":pins.tcl")],
             # the parent's grid over hardened blocks
             "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCKS_grid_strategy.tcl"],
             "SDC_FILE": [":constraints.sdc"],
@@ -193,19 +203,23 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own", r
         )
         probes["{}:top".format(arm)] = ":{}_{}_top_probe".format(name, arm)
         if arm in round_of:
-            k = round_of[arm]
-            outs = ["{}_{}_r{}_pins.tcl".format(name, block, k) for block in sorted(blocks)]
+            rname, free_ports = round_of[arm]
+            outs = ["{}_{}_{}_pins.tcl".format(name, block, rname) for block in sorted(blocks)]
+            parent_out = {}
+            if free_ports:
+                outs.append("{}_top_{}_pins.tcl".format(name, rname))
+                parent_out = {"PARENT_PINS_OUT": "$(location {}_top_{}_pins.tcl)".format(name, rname)}
             orfs_run(
-                name = "{}_r{}_pins".format(name, k),
+                name = "{}_{}_pins".format(name, rname),
                 src = ":{}_{}_place".format(top, arm),
                 outs = outs,
                 arguments = args,
                 script = ":pins_from_parent.tcl",
                 sources = sources,
-                user_arguments = user | {
+                user_arguments = user | parent_out | {
                     "PINS_OUT": " ".join([
                         "{} $(location {}) 0 0".format(blocks[block].get("module", "{}_{}".format(name, block)), out)
-                        for block, out in zip(sorted(blocks), outs)
+                        for block, out in zip(sorted(blocks), outs[:len(blocks)])
                     ]),
                 },
                 variant = arm,
@@ -220,11 +234,18 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own", r
         data = [probes[key] for key in sorted(probes)],
         main = "trap_test.py",
     )
-    if rounds:
+
+    # the pin loop's claims hold where own's blocks are placed by the
+    # trap; where the macro placer places them (no locs), own's rounds are
+    # the joint loop, measured and reported, not claimed
+    if rounds and (parent | arms["own"].get("parent", {})).get("locs"):
         py_test(
             name = name + "_loop_test",
             srcs = [":trap_test.py"],
-            args = ["--trap", name, "--loop", str(rounds)] + [
+            # the pin loop's claims are on the rounds from own; rounds from
+            # another base (the joint loop from the macro placer's arm) are
+            # measured and reported, not claimed
+            args = ["--trap", name, "--loop", str(rounds), "--base=own"] + [
                 "{}=$(rootpath {})".format(key, probes[key])
                 for key in sorted(probes)
             ],
