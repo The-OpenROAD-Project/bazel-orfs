@@ -82,14 +82,14 @@ those cells drive, and the clock tree of the flops it keeps, walked in the
 database. A path that crosses a block's boundary times as in the whole
 block; a path inside a block is the block's own KPI. Each block's modules
 are renamed `<block>__<module>` (`sta_prefix.py`) so the same RTL module
-synthesised in two blocks does not collide. OpenSTA reads it all
+synthesised in two blocks does not collide, and a net repair made inside a
+submodule gets back its local name (the hierarchical writer declares it
+with the submodule's path in front, where the SPEF does not), so every net
+in the SPEF is found. OpenSTA reads it all
 (`sta_flat.tcl`), with parasitics reduced as read, in about ten minutes.
 Paths are selected from every register's clock pin to every
 register's data pin: the parent's SDC names its own registers in its
-reg2reg group, so a block's flop is in no group. Known gap: inside a
-block, nets that cross a submodule boundary are named differently in the
-netlist and the SPEF, and those wires carry no parasitics yet, so in-block
-segments read optimistic.
+reg2reg group, so a block's flop is in no group.
 
 Each part alone, at its own global route with its abstracts (`<part>_kpi`):
 
