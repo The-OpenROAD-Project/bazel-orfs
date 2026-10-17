@@ -216,10 +216,25 @@ def check_wide_pins(p):
     ]
 
 
+def check_mini_top(p):
+    """The combined parent: traps 1, 9 and 10 in bands of one die. The
+    traps still catch today's flow when they share a die: own overflows
+    and hand does not, and hand's block + parent wire is at most two
+    thirds of own's (the three traps alone: 9 187, 13 771 and 23 738 um
+    own against 2 201, 4 459 and 18 447 by hand, 0.53 of own)."""
+    own, hand = p["own:top"], p["hand:top"]
+    return [
+        ("own: parent overflows", own["total_overflow"] > 0, "%d" % own["total_overflow"]),
+        ("hand: parent does not overflow", hand["total_overflow"] == 0, "%d" % hand["total_overflow"]),
+        _ratio_claim("hand: block + parent wire", _total(p, "hand"), _total(p, "own"), 2.0 / 3),
+    ]
+
+
 CHECKS = {
     "both_own": check_both_own,
     "face_away": check_face_away,
     "flip": check_flip,
+    "mini_top": check_mini_top,
     "narrow_channel": check_narrow_channel,
     "random_io": check_random_io,
     "split_logic": check_split_logic,

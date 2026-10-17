@@ -312,3 +312,116 @@ pin_trap(
         "pins": "p_* right",
     },
 )
+
+# The combined parent: traps 1, 9 and 10 stacked in bands of one die, 34.56
+# um each, their parents as submodules, their blocks the traps' own. Own
+# and hand reuse the traps' blocks; the parent's placer is now free to
+# trade between the traps across the bands, which is the question: does
+# each trap still catch today's flow, and does the loop still answer it.
+pin_trap(
+    name = "mini_top",
+    arms = {
+        "hand": {
+            "parent": {"locs": "u_face_away/u_a 2.16 2.16 R0 u_narrow_channel/u_a 2.16 36.72 R0 u_narrow_channel/u_b 56.448 36.72 R0 u_split_logic/u_a 2.16 71.28 R0 u_split_logic/u_b 77.904 71.28 R0"},
+            "reuse": {
+                "fa_a": [
+                    ":face_away_a_hand_generate_abstract",
+                    ":face_away_hand_a_probe",
+                ],
+                "nc_a": [
+                    ":narrow_channel_a_hand_generate_abstract",
+                    ":narrow_channel_hand_a_probe",
+                ],
+                "nc_b": [
+                    ":narrow_channel_b_hand_generate_abstract",
+                    ":narrow_channel_hand_b_probe",
+                ],
+                "sl_a": [
+                    ":split_logic_a_hand_generate_abstract",
+                    ":split_logic_hand_a_probe",
+                ],
+                "sl_b": [
+                    ":split_logic_b_hand_generate_abstract",
+                    ":split_logic_hand_b_probe",
+                ],
+            },
+        },
+        "own": {"reuse": {
+                "fa_a": [
+                    ":face_away_a_own_generate_abstract",
+                    ":face_away_own_a_probe",
+                ],
+                "nc_a": [
+                    ":narrow_channel_a_own_generate_abstract",
+                    ":narrow_channel_own_a_probe",
+                ],
+                "nc_b": [
+                    ":narrow_channel_b_own_generate_abstract",
+                    ":narrow_channel_own_b_probe",
+                ],
+                "sl_a": [
+                    ":split_logic_a_own_generate_abstract",
+                    ":split_logic_own_a_probe",
+                ],
+                "sl_b": [
+                    ":split_logic_b_own_generate_abstract",
+                    ":split_logic_own_b_probe",
+                ],
+        }},
+    },
+    bits = 2,
+    blocks = {
+        "fa_a": {
+            "die": [
+                100.08,
+                30.24,
+            ],
+            "module": "face_away_a",
+            "pins": "w_* left",
+        },
+        "nc_a": {
+            "die": [
+                40.032,
+                30.24,
+            ],
+            "module": "narrow_channel_a",
+            "pins": "w_* left e_* right",
+        },
+        "nc_b": {
+            "die": [
+                40.032,
+                30.24,
+            ],
+            "module": "narrow_channel_b",
+            "pins": "w_* left e_* right",
+        },
+        "sl_a": {
+            "die": [
+                40.032,
+                30.24,
+            ],
+            "module": "split_logic_a",
+        },
+        "sl_b": {
+            "die": [
+                40.032,
+                30.24,
+            ],
+            "module": "split_logic_b",
+        },
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            140.0,
+            103.68,
+        ],
+        "locs": "u_face_away/u_a 2.16 2.16 R0 u_narrow_channel/u_a 2.16 36.72 R0 u_narrow_channel/u_b 44.352 36.72 R0 u_split_logic/u_a 20.16 71.28 R0 u_split_logic/u_b 60.192 71.28 R0",
+        "pins": "face_away_p_* left:2.16-32.4 narrow_channel_pw_* left:36.72-66.96 narrow_channel_pe_* right:36.72-66.96",
+    },
+    round_variant = "mini_top_",
+    rounds = 2,
+)
