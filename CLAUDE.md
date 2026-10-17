@@ -25,7 +25,7 @@ committing.
 
 Do not use sunset or deprecated GitHub features; when a `gh` command fails
 on one (Projects classic breaks `gh pr edit`, for instance), follow
-`.claude/commands/github-deprecations.md`, which lists the known ones and
+`.claude/skills/github-deprecations/SKILL.md`, which lists the known ones and
 the REST or Actions replacement for each.
 
 ## Confidentiality purge
@@ -92,7 +92,7 @@ the docstring in `host_tools.py` is the policy. CI runs it after
 flows are exempt). yosys's own Verilog frontend is effectively deprecated
 for SystemVerilog and parses at a few MB/s: XiangShan's flat core cost
 seven minutes of canonicalisation per synthesis on it, one on slang.
-`.claude/commands/prefer-slang.md`.
+`.claude/skills/prefer-slang/SKILL.md`.
 
 ## Bumping
 
@@ -114,8 +114,8 @@ file. Details: `docs/openroad.md`, "Shapes the bumper recognizes".
 ## Debugging OpenROAD/ORFS failures
 
 When an ORFS stage fails in openroad/yosys/opensta — a crash, a hang, a
-parallel race, or a nondeterministic result — the `.claude/commands/`
-slash-commands are the single source of truth. Downstream projects that
+parallel race, or a nondeterministic result — the skills in `.claude/skills/`
+are the single source of truth. Downstream projects that
 consume bazel-orfs should point at these rather than duplicating the
 mechanics:
 

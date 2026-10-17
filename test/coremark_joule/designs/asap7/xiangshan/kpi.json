@@ -8,7 +8,7 @@
     "",
     "parent_ps is the parent's SDC period minus the worst slack of its",
     "reg2reg group at global route, the only group that can fail timing",
-    "closure; see .claude/commands/odb-debug.md for how to ask a checkpoint",
+    "closure; see .claude/skills/odb-debug/SKILL.md for how to ask a checkpoint",
     "for it, and .claude/skills/macro-constraints for why the other groups",
     "are not the number. The parent's reg2reg group does not see the paths",
     "inside a block's abstract. Ask for the group by name: on",

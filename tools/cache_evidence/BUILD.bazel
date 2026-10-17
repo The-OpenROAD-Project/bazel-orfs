@@ -1,7 +1,7 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
 # Whether a target is a remote cache hit here, asked without building it:
-# .claude/commands/cache-miss.md.
+# .claude/skills/cache-miss/SKILL.md.
 py_binary(
     name = "cache_evidence",
     srcs = ["cache_evidence.py"],

@@ -305,7 +305,7 @@ proc od_worst_paths { {count 10} } {
 # startpoint in their fan-in is an input port: what an SDC without
 # set_input_delay leaves unconstrained by design. `out`, when given,
 # gets every line. What each warning means:
-# .claude/commands/check-setup.md.
+# .claude/skills/check-setup/SKILL.md.
 proc od_check_setup { {examples 10} {depth 3} {top 20} {out ""} {classify 200} } {
   od_require_timing
   # no_input_delay no_output_delay multiple_clock no_clock unconstrained

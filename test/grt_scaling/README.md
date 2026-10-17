@@ -79,4 +79,4 @@ with the human choosing the next arm. Only then does the same matrix run
 on XiangShan's `4_cts.odb`, overnight, every combination, no input. A
 code change to the router is measured on the arm sweep (its curve
 against grid size is what an upstream review wants), then on XiangShan,
-one concern per patch. See `.claude/commands/no-paint-drying.md`.
+one concern per patch. See `.claude/skills/no-paint-drying/SKILL.md`.

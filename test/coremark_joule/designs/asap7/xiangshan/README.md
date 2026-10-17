@@ -122,7 +122,7 @@ below it.
 
 Each part's period is its SDC period minus the worst slack of its
 `reg2reg` group, which is the only group that can fail timing closure.
-Ask a checkout for it with `.claude/commands/odb-debug.md`, and read
+Ask a checkout for it with `.claude/skills/odb-debug/SKILL.md`, and read
 `.claude/skills/macro-constraints` before quoting any other group. Ask
 for the group by name and not for the worst slack: on VecRegionModule the
 overall worst slack is -2,006 ps and belongs to another group, while
