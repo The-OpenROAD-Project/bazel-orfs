@@ -381,6 +381,40 @@ def check_in2out(p):
     ]
 
 
+def check_tidy_row_large(p):
+    """Trap 11 on the large rung (1.2 mm die, owners of thousands of
+    cells): by hand the parent's wire is at most half of the tidy row's."""
+    own, hand = p["own:top"], p["hand:top"]
+    return [
+        _ratio_claim(
+            "hand: parent wire", hand["wirelength_um"], own["wirelength_um"], 0.5
+        )
+    ]
+
+
+def check_random_io_large(p):
+    """Trap 12 on the large rung: the macro placer against random pins,
+    with every owner above its 1 000-cell cluster floor, still lands at
+    least twice the hand answer's parent wire, and overflows where the
+    hand answer does not."""
+    own, hand = p["own:top"], p["hand:top"]
+    return [
+        _ratio_claim(
+            "hand: parent wire", hand["wirelength_um"], own["wirelength_um"], 0.5
+        ),
+        (
+            "own: parent overflows",
+            own["total_overflow"] > 0,
+            "%d" % own["total_overflow"],
+        ),
+        (
+            "hand: parent does not overflow",
+            hand["total_overflow"] == 0,
+            "%d" % hand["total_overflow"],
+        ),
+    ]
+
+
 CHECKS = {
     "aspect": check_aspect,
     "both_own": check_both_own,
@@ -390,9 +424,11 @@ CHECKS = {
     "mini_top": check_mini_top,
     "narrow_channel": check_narrow_channel,
     "random_io": check_random_io,
+    "random_io_large": check_random_io_large,
     "selfish": check_selfish,
     "split_logic": check_split_logic,
     "tidy_row": check_tidy_row,
+    "tidy_row_large": check_tidy_row_large,
     "wide_pins": check_wide_pins,
 }
 

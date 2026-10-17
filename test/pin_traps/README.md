@@ -44,8 +44,8 @@ where it is the signal.
 | 8 | `wide_pins`: pins two wire widths wide; pin access stops on DRT-0073 | DRT-0073 | ok | | | entry 12 |
 | 9 | `narrow_channel`: a channel sized for the wires has no rows for the parent's registers | 13 771 | 4 459 | 9 215 | 9 171 | entry 5 |
 | 10 | `split_logic`: partners side by side cut the parent's logic in two (overflow) | 23 738 (697) | 18 447 (0) | 17 366 (323) | 17 295 (488) | entry 31 |
-| 11 | `tidy_row`: register files in a row, away from their owners (overflow) | 11 325 (71) | 4 001 (0) | 10 665 (0) | 8 838 (0) | entry 53 |
-| 12 | `random_io`: today's flow, every pin free, macros placed against random pins | 6 112 | 4 001 | 7 132 (575) | 6 331 (117) | ORFS patch 0077 |
+| 11 | `tidy_row`: register files in a row, away from their owners (overflow) | 11 332 (66) | 3 996 (0) | 10 674 (0) | 8 892 (0) | entry 53 |
+| 12 | `random_io`: today's flow, every pin free, macros placed against random pins | 6 285 | 3 996 | 6 848 (385) | 6 310 (0) | ORFS patch 0077 |
 | 13 | `aspect`: a square core twenty blocks cannot tile; the macro placer refuses it (MPL-0065), and places all twenty on 100 x 78 um of the same area | refused | 20 of 20 | | | ORFS #4681 |
 | | `in2out`: the parent's worst path runs through a block's adder from input pin to output pin; the hand arm is the RTL after surgery, the adder in the parent (minimum period, ps) | 450.7 | 316.6 | | | entry 26 |
 | | `mini_top`: traps 1, 9 and 10 in bands of one die | 46 730 (166) | 28 787 (0) | 29 237 (68) | 27 166 (137) | |
@@ -86,8 +86,8 @@ brackets:
 | Trap | Own | Macro placer | Round 1 | Round 2 | Hand |
 |---|---|---|---|---|---|
 | `narrow_channel` | 13 771 (147) | 12 989 (321) | 23 835 (943) | 11 177 (228) | 4 459 (87) |
-| `tidy_row` | 11 325 (71) | 11 406 (0) | 11 717 (0) | 11 807 (30) | 4 001 (0) |
-| `random_io` | 6 112 (1) | (own) | 7 132 (575) | 6 331 (117) | 4 001 (0) |
+| `tidy_row` | 11 332 (66) | 11 522 (32) | 11 723 (0) | 11 633 (380) | 3 996 (0) |
+| `random_io` | 6 285 (0) | (own) | 6 848 (385) | 6 310 (0) | 3 996 (0) |
 | `split_logic` | 23 738 (697) | refused | | | 18 447 (0) |
 
 The macro placer alone lands where own's local rule does, and feeding
@@ -98,6 +98,51 @@ nothing: blocks the core's height do not fit with or without a channel
 M5 pin with the track grid (MPL-0005). `narrow_channel`'s mpl arm has
 that taller die and no channel too. None of these rounds is claimed by a
 test; they are what a joint step inside the macro placer has to beat.
+
+Results move with things that do not change function. Renaming the
+small `tidy_row` netlist's registers (one per stage, for the large rung)
+moved its numbers by up to 3 % and `random_io`'s own-arm overflow from 1
+to 0. A difference of a few percent between arms is not a result here;
+the traps' claims are multiples.
+
+## The large rung
+
+The traps are small: a few hundred cells and 20 to 150 um of wire. That
+is enough for the wire ratios above, which do not depend on scale, and
+not for three things that do. Wire delay: asap7's buffered wire is about
+0.6 ps/um, so the in2out trap's 134 ps is a nanosecond at XiangShan's
+millimetres. Congestion: trap 3 never overflowed. And the macro
+placer, whose clusters have a floor of 1 000 standard cells
+(`clusterEngine.cpp`, `min_num_std_cells_allowed`): a parent of a few
+hundred cells is one cluster to it, so the small rung's macro placer
+results above say nothing about how it places a real design.
+
+`tidy_row_large` and `random_io_large` are traps 11 and 12 with 64-bit
+files and owners of eight register stages on each side of their file,
+thousands of cells each, on a 1.2 mm die. They are tagged manual:
+
+```sh
+bazelisk test //test/pin_traps:tidy_row_large_test //test/pin_traps:random_io_large_test
+```
+
+| Trap | Own | Hand | r1 | r2 |
+|---|---|---|---|---|
+| `tidy_row_large`, the pin loop | 319 061 (0) | 114 284 (0) | 318 713 (0) | 317 784 (3 318) |
+| `random_io_large`, own the macro placer | 376 697 (2 271) | 114 284 (0) | MPL-0045 | |
+
+Above its cluster floor, the macro placer against random pins still
+lands 3.3 times the hand answer, with overflow. Fed the ports back where
+that placement left them, it stops: "Cannot find a balanced partitioning
+for the clusters" (MPL-0045). With the ports on their edges, on
+`tidy_row_large`, it stopped on MPL-0005 aligning a file's M5 pin with
+the track grid, though the same file placed by hand on the 0.144 um
+lattice has every pin on the parent's tracks; the snapper searches 50
+track steps either side of where the annealer put the block, and why no
+aligned position was among them is not yet known. With MPL-0006 on
+`split_logic` and `narrow_channel`, that is three ways the macro placer
+refuses a simple parent of hardened blocks, and where it places, it
+lands with today's local rules. A joint step needs a macro placer that
+places these.
 
 ## Not traps, and why
 

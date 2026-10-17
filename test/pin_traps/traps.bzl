@@ -38,7 +38,7 @@ def _areas(w, h, margin_x = 2.0, margin_y = 2.0):
 def _pins(contract, arm_pins):
     return " ".join([p for p in [contract, arm_pins] if p])
 
-def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"], round_variant = ""):
+def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"], round_variant = "", tags = []):
     """One trap's flows and probes.
 
     Args:
@@ -65,6 +65,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
         is the joint loop, the blocks re-placed each round on the pins
         the last round gave them.
       round_bases: the arms the loop starts from.
+      tags: for every target, ["manual"] for a rung too large for every run.
       round_variant: a prefix for the rounds' block variants, for a parent
         whose blocks are other traps' (the combined parent): their own
         arms are reused with "reuse": {block: [abstract, probe]} in the
@@ -78,6 +79,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
     sv = name + ".sv"
     probes = {}
     native.genrule(
+        tags = tags,
         name = name + "_rtl",
         outs = [sv],
         cmd = "$(execpath :trap_gen) --trap {} --bits {} --out $@".format(name, bits),
@@ -125,6 +127,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
             }
             user = {"PIN_GROUPS": _pins(b.get("pins", ""), spec.get("pins", {}).get(block, ""))} | b.get("user", {})
             orfs_flow(
+                tags = tags,
                 name = module,
                 top = module,
                 # at cts when the parent is timed: at place the block's
@@ -141,6 +144,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
             macros.append(":{}_{}_generate_abstract".format(module, variant))
             probes["{}:{}".format(arm, block)] = ":{}_{}_{}_probe".format(name, arm, block)
             orfs_run(
+                tags = tags,
                 name = "{}_{}_{}_probe".format(name, arm, block),
                 src = ":{}_{}_place".format(module, variant),
                 outs = ["{}_{}_{}_probe.json".format(name, arm, block)],
@@ -176,6 +180,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
             sources["MACRO_PLACEMENT_TCL"] = [":place_blocks.tcl"]
             user["BLOCK_LOCS"] = p["locs"]
         orfs_flow(
+            tags = tags,
             name = top,
             top = p.get("top", top),
             arguments = args,
@@ -188,6 +193,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
             verilog_files = [":" + sv],
         )
         orfs_run(
+            tags = tags,
             name = "{}_{}_top_probe".format(name, arm),
             src = ":{}_{}_place".format(top, arm),
             outs = ["{}_{}_top_probe.json".format(name, arm)],
@@ -210,6 +216,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
                 outs.append("{}_top_{}_pins.tcl".format(name, rname))
                 parent_out = {"PARENT_PINS_OUT": "$(location {}_top_{}_pins.tcl)".format(name, rname)}
             orfs_run(
+                tags = tags,
                 name = "{}_{}_pins".format(name, rname),
                 src = ":{}_{}_place".format(top, arm),
                 outs = outs,
@@ -225,6 +232,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
                 variant = arm,
             )
     py_test(
+        tags = tags,
         name = name + "_test",
         srcs = [":trap_test.py"],
         args = ["--trap", name] + [
@@ -240,6 +248,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
     # the joint loop, measured and reported, not claimed
     if rounds and (parent | arms["own"].get("parent", {})).get("locs"):
         py_test(
+            tags = tags,
             name = name + "_loop_test",
             srcs = [":trap_test.py"],
             # the pin loop's claims are on the rounds from own; rounds from

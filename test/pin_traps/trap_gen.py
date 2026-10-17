@@ -215,25 +215,40 @@ endmodule
     )
 
 
-def tidy_row(t, n):
+def _pipe(name, n, src, depth):
+    """depth register stages of n bits from src, each mixing a bit with its
+    neighbour: the owner logic a trap's rung sizes. Returns the Verilog
+    and the last stage's name."""
+    lines = []
+    prev = src
+    for k in range(depth):
+        r = "%s%d" % (name, k)
+        lines.append(f"  reg [{n - 1}:0] {r};")
+        lines.append(f"  always @(posedge clock) {r} <= {_mix(n, prev)};")
+        prev = r
+    return "\n".join(lines), prev
+
+
+def tidy_row(t, n, depth=1):
     """Four small register files, each owned by logic tied to the ports
     on one edge of the die. A tidy row along one edge is what a packing
     cost asks for; three of the four files then sit across the die from
     their owners (pin trap 11; XiangShan entry 53, a file 1 972 um from
-    its owner)."""
+    its owner). depth is the owner's register stages on each side of its
+    file: the large rung's owners are thousands of cells, above the macro
+    placer's 1 000-cell cluster floor, so it can tell them apart."""
     body = _bank(f"{t}_f", n, f"{t}: a file, four instances")
     ports = []
     logic = []
     for e in ("w", "e", "s", "n"):
         ports.append(f"  input [{n - 1}:0] p{e}_in,\n  output [{n - 1}:0] p{e}_out")
+        din, dlast = _pipe(f"d{e}_", n, f"p{e}_in", depth)
+        dout, olast = _pipe(f"o{e}_", n, f"q{e}", depth)
         logic.append(f"""  wire [{n - 1}:0] q{e};
-  reg [{n - 1}:0] d{e}, o{e};
-  always @(posedge clock) begin
-    d{e} <= {_mix(n, f"p{e}_in")};
-    o{e} <= {_mix(n, f"q{e}")};
-  end
-  {t}_f u_f{e} (.clock(clock), .d(d{e}), .q(q{e}));
-  assign p{e}_out = o{e};""")
+{din}
+{dout}
+  {t}_f u_f{e} (.clock(clock), .d({dlast}), .q(q{e}));
+  assign p{e}_out = {olast};""")
     port_list = ",\n".join(ports)
     logic_list = "\n".join(logic)
     return body + f"""
@@ -524,6 +539,16 @@ endmodule
 """
 
 
+def tidy_row_large(t, n):
+    """Trap 11 on the large rung: owners of 8 stages a side."""
+    return tidy_row(t, n, depth=8)
+
+
+def random_io_large(t, n):
+    """Trap 12 on the large rung: trap 11's large netlist, every pin free."""
+    return tidy_row(t, n, depth=8)
+
+
 TRAPS = {
     "aspect": aspect,
     "both_own": both_own,
@@ -533,9 +558,11 @@ TRAPS = {
     "mini_top": mini_top,
     "narrow_channel": narrow_channel,
     "random_io": random_io,
+    "random_io_large": random_io_large,
     "selfish": selfish,
     "split_logic": split_logic,
     "tidy_row": tidy_row,
+    "tidy_row_large": tidy_row_large,
     "wide_pins": wide_pins,
 }
 
