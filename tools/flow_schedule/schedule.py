@@ -54,9 +54,14 @@ def parse_units(specs):
     return units
 
 
-def unit_peak(entry):
-    """A unit's footprint in GB: its largest stage, padded if estimated."""
-    peak = max(s["peak_gb"] for s in entry["stages"].values())
+def unit_peak(entry, stage=None):
+    """A unit's footprint in GB: its largest stage, or `stage` alone when the
+    record has it (a lane runs one stage), padded if estimated."""
+    stages = entry["stages"]
+    if stage in stages:
+        peak = stages[stage]["peak_gb"]
+    else:
+        peak = max(s["peak_gb"] for s in stages.values())
     return peak * ESTIMATE_PAD if entry.get("source") != "measured" else peak
 
 
@@ -250,6 +255,22 @@ def log_dir(bin_dir, package, unit, variant):
     return None
 
 
+def lane_tree(lane_dir, unit):
+    """A unit's deps-lane tree, relative to the workspace."""
+    return os.path.join(lane_dir, unit)
+
+
+def lane_start(deps, package, unit, stage, tree, bazel_args):
+    """The command that installs `unit`'s `stage` in its own lane tree:
+    Bazel builds what the stage needs and copies it in (deps-lane skill)."""
+    return (
+        ["bazelisk", "run"]
+        + bazel_args
+        + [deps, "--", "start", "//%s:%s" % (package, unit), stage]
+        + ["--dir", tree, "--fresh"]
+    )
+
+
 def run(waves, macros, parents, build):
     """Build the waves in order: {wave number: exit code}, a skipped wave absent.
 
@@ -280,6 +301,16 @@ def main(argv=None):
     ap.add_argument(
         "--bazel-arg", action="append", default=[], help="passed to every build"
     )
+    ap.add_argument(
+        "--lane",
+        metavar="STAGE",
+        help="run STAGE of each unit in its own deps-lane tree instead of a "
+        "bazelisk build; units of a wave run side by side",
+    )
+    ap.add_argument(
+        "--lane-dir", default="tmp/schedule", help="where the lane trees go"
+    )
+    ap.add_argument("--deps", default="//:deps", help="bazel-orfs's deps target")
     args = ap.parse_args(argv)
 
     workspace = os.environ.get("BUILD_WORKSPACE_DIRECTORY")
@@ -310,12 +341,13 @@ def main(argv=None):
     free = mem_available_gb()
     swap = meminfo_gb("SwapFree")
     budget = args.budget if args.budget is not None else free - args.margin
-    peaks = {u: unit_peak(units[u]) for u in macros}
+    stage = args.lane
+    peaks = {u: unit_peak(units[u], stage) for u in macros}
     waves = [("macros", w) for w in pack(peaks, budget)]
     waves += [("parent", [p]) for p in parents]
     refusals = preflight(
         waves,
-        {u: unit_peak(units[u]) for u in list(macros) + list(parents)},
+        {u: unit_peak(units[u], stage) for u in list(macros) + list(parents)},
         free,
         swap,
         args.margin,
@@ -324,15 +356,16 @@ def main(argv=None):
     print(
         f"budget {budget:.0f} GB ({free:.0f} free, {swap:.0f} swap free, "
         f"{args.margin:.0f} margin)"
+        + (f"; lane mode, stage {stage}, trees in {args.lane_dir}" if stage else "")
     )
     for i, (kind, wave) in enumerate(waves, 1):
         sizes = ", ".join(
-            f"{u} ({unit_peak(units[u]):.0f}"
+            f"{u} ({unit_peak(units[u], stage):.0f}"
             + ("" if units[u].get("source") == "measured" else ", estimated")
             + ")"
             for u in wave
         )
-        total = sum(unit_peak(units[u]) for u in wave)
+        total = sum(unit_peak(units[u], stage) for u in wave)
         minutes = max(unit_minutes(units[u]) for u in wave)
         note = "  OVER BUDGET: runs alone" if total > budget else ""
         print(
@@ -345,7 +378,7 @@ def main(argv=None):
     if args.plan_only:
         return 0
 
-    bin_dir = bazel_bin(workspace)
+    bin_dir = None if stage else bazel_bin(workspace)
     changed = []
 
     def build(i, wave, targets):
@@ -363,7 +396,44 @@ def main(argv=None):
             print(f"wave {i} failed ({rc})", file=sys.stderr)
         return rc
 
-    results = run(waves, macros, parents, build)
+    def lane(i, wave, targets):
+        trees = {}
+        for u in wave:
+            tree = lane_tree(args.lane_dir, u)
+            cmd = lane_start(args.deps, args.package, u, stage, tree, args.bazel_arg)
+            print(f"wave {i}: {' '.join(cmd)}", flush=True)
+            rc = subprocess.call(cmd, cwd=workspace)
+            if rc:
+                print(f"wave {i}: {u}'s lane did not start ({rc})", file=sys.stderr)
+                return rc
+            trees[u] = os.path.join(workspace, tree)
+        procs = {}
+        for u, tree in trees.items():
+            log = open(os.path.join(tree, "schedule.log"), "w")
+            print(f"wave {i}: {tree}/make do-{stage} > {log.name}", flush=True)
+            procs[u] = (
+                subprocess.Popen(
+                    [os.path.join(tree, "make"), "do-" + stage],
+                    cwd=workspace,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                ),
+                log,
+            )
+        rcs = {}
+        for u, (p, log) in procs.items():
+            rcs[u] = p.wait()
+            log.close()
+            d = log_dir(os.path.join(trees[u], "_main"), args.package, u, args.variant)
+            entry, did = refresh(units.get(u), measure(d) if d else {}, rcs[u] == 0)
+            if did:
+                units[u] = entry
+                changed.append(u)
+            if rcs[u]:
+                print(f"wave {i}: {u} failed ({rcs[u]})", file=sys.stderr)
+        return max(rcs.values(), default=0)
+
+    results = run(waves, macros, parents, lane if stage else build)
     for i, (kind, wave) in enumerate(waves, 1):
         if i not in results:
             print(

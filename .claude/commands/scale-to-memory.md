@@ -69,6 +69,15 @@ systemd-run --user --scope -q -p MemoryMax=<budget>G -p MemorySwapMax=64G \
 - A deps-lane run (`deps-lane` skill) is outside the scheduler: it holds
   memory the budget does not see. Lower `--budget` while one runs.
 
+## Lane mode
+
+To iterate on one stage across several units, schedule it in deps-lane
+trees: `bazelisk run //<pkg>:build -- --lane <stage> [--units A,B]`. Waves
+pack by the stage's own recorded peak; the trees land in
+`tmp/schedule/<unit>`, where `make do-<stage>` (or an edited `config.mk`)
+runs again by hand. A stage the record lacks packs by the unit's largest.
+Run it inside the same memory scope as a build, after `bazelisk shutdown`.
+
 ## After a run
 
 The run prints `resources.json updated for [...]` when a unit was
