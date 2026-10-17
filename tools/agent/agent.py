@@ -47,6 +47,7 @@ EXPORTED_SKILLS = (
     "orfs-deps-preflight",
     "prefer-slang",
     "repair-timing-grt",
+    "surgery",
 )
 
 # bazel-orfs's own: its pull requests and studies, GitHub housekeeping,
