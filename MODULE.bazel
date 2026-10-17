@@ -237,6 +237,13 @@ archive_override(
         # spelled as it spells it. Not upstreamed by us; retires at a
         # //:bump onto an OpenROAD that has #11658.
         "//patches:0126-openroad-web-server-no-browser.patch",
+        # 0138: a web session whose client left before its search indices
+        # were built was destroyed on its own init thread, which joined
+        # itself: openroad aborted (signal 6, resource deadlock avoided),
+        # and //test/odb_debug:smoke_test failed now and then under load.
+        # Not upstreamed; retires at a //:bump onto an OpenROAD whose web
+        # session does not join its own thread.
+        "//patches:0138-openroad-web-session-self-join.patch",
     ],
     strip_prefix = "OpenROAD-bfac0546a502f30db57e92d801f1eecea86e38ab",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bfac0546a502f30db57e92d801f1eecea86e38ab.tar.gz"],
