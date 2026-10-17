@@ -224,5 +224,46 @@ class Run(unittest.TestCase):
         self.assertEqual(built, [["//p:a"], ["//p:b"]])
 
 
+class Lane(unittest.TestCase):
+    ENTRY = {
+        "source": "measured",
+        "stages": {"place": {"peak_gb": 30}, "grt": {"peak_gb": 80}},
+    }
+
+    def test_stage_peak_packs_a_lane(self):
+        self.assertEqual(schedule.unit_peak(self.ENTRY, "place"), 30)
+        self.assertEqual(schedule.unit_peak(self.ENTRY), 80)
+
+    def test_unknown_stage_falls_back_to_the_largest(self):
+        self.assertEqual(schedule.unit_peak(self.ENTRY, "cts"), 80)
+
+    def test_estimated_stage_is_padded(self):
+        entry = dict(self.ENTRY, source="estimated")
+        self.assertAlmostEqual(schedule.unit_peak(entry, "place"), 36)
+
+    def test_start_command(self):
+        tree = schedule.lane_tree("tmp/schedule", "MemBlock")
+        self.assertEqual(tree, "tmp/schedule/MemBlock")
+        self.assertEqual(
+            schedule.lane_start(
+                "@@//:deps", "pkg", "MemBlock", "grt", tree, ["-c", "opt"]
+            ),
+            [
+                "bazelisk",
+                "run",
+                "-c",
+                "opt",
+                "@@//:deps",
+                "--",
+                "start",
+                "//pkg:MemBlock",
+                "grt",
+                "--dir",
+                "tmp/schedule/MemBlock",
+                "--fresh",
+            ],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

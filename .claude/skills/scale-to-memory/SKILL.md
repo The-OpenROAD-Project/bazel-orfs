@@ -5,7 +5,8 @@ description: >-
   (bazelisk run //<pkg>:build), the bazel-orfs scheduler at home: write the first
   resources.json from a qualitative reading of the design and a fast (minutes) per-instance
   estimate, show the waves with --plan-only, run under a memory scope with swap as a
-  backstop, and commit the measured refreshes. Use when a design has more than one hardened
+  backstop, and commit the measured refreshes; or run one stage of several units side by
+  side in deps-lane trees within the budget (--lane STAGE). Use when a design has more than one hardened
   macro, when a build would run several large flows at once, when resources.json is missing
   or a run says it was updated, or before any multi-hour build on a shared workstation.
 ---

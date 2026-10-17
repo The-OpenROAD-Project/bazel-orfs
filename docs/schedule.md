@@ -132,6 +132,26 @@ following the skill:
 After the first real run the record is measured, and later sessions only
 commit its refreshes.
 
+## Lane mode
+
+```sh
+bazelisk run //<pkg>:build -- --lane grt --units Frontend,MemBlock
+```
+
+`--lane STAGE` runs one stage of each unit in its own deps-lane tree
+(`tmp/schedule/<unit>`, the `deps-lane` skill) instead of a `bazelisk
+build`: per wave, `//:deps -- start //<pkg>:<unit> STAGE --fresh` installs
+what the stage needs, one unit after another (Bazel builds anything not
+cached), then the units' `make do-STAGE` run side by side. Waves are
+packed by that stage's recorded peak, not the unit's largest, and each
+tree's logs refresh `resources.json` as a build's do.
+
+It is for iterating on a stage across several units at once, by hand or
+with a `config.mk` or script edited in the trees between runs (`next`
+and `make` in a tree work as usual). It gives up what the lane gives up:
+nothing reaches the Bazel cache, and a parent's lane reads its blocks
+from Bazel's build, not from the blocks' lanes.
+
 ## Guards
 
 - The skill runs the build inside a memory scope at the budget with swap
