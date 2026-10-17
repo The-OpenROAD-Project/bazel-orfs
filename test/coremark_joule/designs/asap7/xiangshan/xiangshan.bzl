@@ -1216,6 +1216,27 @@ def _kpi(part, stage, arguments, sources, tags):
         },
     )
 
+def _sta_part(part, arguments, sources, tags, ilm = False):
+    """<part>_sta_part: the part at global route as sta_flat.tcl reads it: its
+    netlist read flat, the route's parasitics, its SDC and its liberty files."""
+    outs = ["%s.v" % part, "%s.spef" % part, "%s.sdc" % part, "%s_libs.tar" % part]
+    orfs_run(
+        name = "%s_sta_part" % part,
+        src = ":%s_grt" % part,
+        outs = ["sta/%s" % o for o in outs],
+        arguments = arguments,
+        script = "//test/coremark_joule/designs/asap7/xiangshan:sta_part.tcl",
+        sources = sources,
+        tags = tags,
+        user_arguments = {
+            "PART_LIBS": "$(location sta/%s_libs.tar)" % part,
+            "PART_SDC": "$(location sta/%s.sdc)" % part,
+            "PART_SPEF": "$(location sta/%s.spef)" % part,
+            "PART_V": "$(location sta/%s.v)" % part,
+            "STA_ILM": "1" if ilm else "0",
+        },
+    )
+
 def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan_dir = "plan"):
     """The plan's blocks, each implemented through global route, then the parent.
 
@@ -1271,6 +1292,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             **mock
         )
         _kpi(block, "grt", arguments, sources, tags)
+        _sta_part(block, arguments, sources, tags, ilm = True)
     arguments = {k: v for k, v in parent["arguments"].items() if k not in _PLAN_DROPS}
     arguments["DIE_AREA"] = plan["parent"]["DIE_AREA"]
     arguments["CORE_AREA"] = plan["parent"]["CORE_AREA"]
@@ -1375,3 +1397,33 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         visibility = ["//visibility:public"],
     )
     _kpi(name, "grt", arguments, sources, tags)
+    _sta_part(name, arguments, sources, tags)
+    parts = [name] + list(macros)
+
+    # with wires (the KPI) and without (each path's logic alone)
+    for suffix, wires in [("", "1"), ("_nowire", "0")]:
+        native.genrule(
+            name = "%s_kpi_flat%s" % (name, suffix),
+            srcs = [":%s_sta_part" % p for p in parts] + [":sta_flat.tcl"] +
+                   [":sta/%s.%s" % (p, ext) for p in parts for ext in ["v", "spef", "sdc"]] +
+                   [":sta/%s_libs.tar" % p for p in parts],
+            outs = ["%s_kpi_flat%s.txt" % (name, suffix), "%s_kpi_flat%s_paths.txt" % (name, suffix)],
+            # each block's modules renamed <block>__<module> (sta_prefix.py), the
+            # rest beside them in one directory sta_flat.tcl reads
+            cmd = " && ".join([
+                "w=$$(mktemp -d)",
+                "for f in $(execpath :sta/%s.v) %s; do ln -s $$PWD/$$f $$w/; done" % (
+                    name,
+                    " ".join(["$(execpath :sta/%s.%s)" % (p, ext) for p in parts for ext in ["spef", "sdc"]] +
+                             ["$(execpath :sta/%s_libs.tar)" % p for p in parts]),
+                ),
+            ] + [
+                "$(execpath :sta_prefix) %s $(execpath :sta/%s.v) $$w/%s.v" % (b, b, b)
+                for b in macros
+            ] + [
+                "ulimit -s unlimited",
+                "STA_DIR=$$w STA_PARENT=%s STA_PARTS='%s' STA_WIRES=%s STA_OUT=$(location %s_kpi_flat%s.txt) STA_PATHS=$(location %s_kpi_flat%s_paths.txt) $(execpath @openroad//src/sta:opensta) -no_splash -threads max -exit $(execpath :sta_flat.tcl)" % (name, " ".join(parts), wires, name, suffix, name, suffix),
+            ]),
+            tools = [":sta_prefix", "@openroad//src/sta:opensta"],
+            tags = tags,
+        )

@@ -356,6 +356,255 @@
           "to": "issuePipes_1/exu.Vfmac/a0_1_fpB[50]$_DFFE_PP_/D",
           "what": "The vector floating-point divider's quotient register to the vector multiply-add's operand register, in the same issue pipe."
         }
+      },
+      "flat": {
+        "period_ps": 2455,
+        "logic_ps": 1603,
+        "groups": {
+          "inside a block": {
+            "bin_ps": 10,
+            "from_ps": 30,
+            "counts": [3, 267, 1332, 410, 227, 113, 78, 58, 63, 77, 54, 68, 45, 46, 81, 40, 27, 48, 20, 22, 16, 3, 5, 2, 4, 3, 1, 3, 3, 5, 2, 1, 0, 0, 2, 1, 1, 0, 2, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 3, 4, 3, 9, 15, 11, 7, 14, 7, 1]
+          },
+          "block → block": {
+            "bin_ps": 10,
+            "from_ps": -180,
+            "counts": [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 2, 3, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 2, 2, 2, 2, 1, 3, 2, 0, 0, 0, 2, 4, 4, 4, 3, 3, 2, 3, 3, 2, 6, 4, 1, 6, 1, 1, 6, 1, 3, 4, 3, 7, 3, 3, 6, 3, 3, 3, 3, 3, 2, 5, 1, 2, 4, 1, 0, 2, 2, 1, 3, 5, 5, 3, 3, 3, 2, 5, 9, 13, 1, 1, 1, 0, 7, 3, 1, 1, 9, 16, 14, 7, 3, 6, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 4, 4, 6, 16, 13, 9, 4, 10, 10, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 3, 3, 1, 8, 4, 2, 0, 1, 11, 13, 5, 8, 5, 7, 4, 17, 5, 13, 5, 6, 2]
+          },
+          "block → parent": {
+            "bin_ps": 10,
+            "from_ps": -130,
+            "counts": [1, 1, 6, 3, 3, 12, 8, 3, 4, 2, 11, 3, 25, 34, 30, 14, 11, 21, 18, 26, 35, 33, 34, 31, 43, 57, 37, 36, 18, 11, 21, 38, 50, 56, 46, 42, 33, 33, 58, 59, 58, 49, 41, 44, 58, 30, 24, 33, 33, 41, 20, 10, 20, 17, 15, 22, 12, 18, 17, 14, 22, 18, 26, 29, 13, 26, 12, 20, 10, 15, 26, 18, 24, 20, 42, 23, 21, 23, 28, 40, 36, 54, 43, 38, 36, 45, 30, 33, 33, 28, 30, 29, 23, 26, 31, 32, 52, 40, 33, 47, 72, 73, 52, 51, 51, 63, 64, 65, 58, 104, 87, 146, 94, 82, 107, 90, 99, 109, 124, 134, 172, 176, 171, 177, 149, 155, 157, 190, 186, 170, 165, 127, 180, 264, 264, 369, 352, 341, 387, 380, 400, 475, 445, 377, 339, 268, 244, 227, 216, 193, 207, 190, 238, 279, 293, 208, 198, 162, 152, 118, 98, 89, 101, 83, 107, 112, 111, 156, 198, 186, 226, 248, 258, 330, 310, 327, 325, 349, 450, 515, 475, 441, 422, 415, 367, 316, 345, 376, 344, 272, 203, 218, 222, 290, 300, 248, 220, 204, 240, 222, 247, 185, 221, 197, 196, 216, 175, 222, 157, 157, 158, 138, 136, 92, 113, 92, 112, 103, 82, 130, 142, 168, 124, 168, 152, 159, 209, 144, 152, 168, 188, 142, 111, 114, 96, 24, 6]
+          },
+          "parent → block": {
+            "bin_ps": 10,
+            "from_ps": 50,
+            "counts": [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 2, 5, 1, 1, 3, 2, 2, 1, 2, 0, 0, 0, 0, 0, 0, 0, 1, 1, 4, 7, 3, 3, 6, 2, 4, 6, 5, 5, 4, 1, 6, 5, 1, 3, 0, 6, 4, 7, 3, 4, 2, 3, 16, 3, 4, 1, 1, 10, 8, 3, 2, 3, 0, 3, 9, 6, 19, 26, 20, 14, 11, 11, 20, 26, 37, 45, 55, 76, 64, 89, 58, 26, 28, 38, 25, 28, 50, 36, 57, 50, 107, 169, 342, 414, 520, 210, 58, 78, 90, 152, 203, 315, 413, 641, 584, 556, 410, 300, 383, 413, 423, 382, 431, 273, 235, 284, 186, 170, 157, 184, 205, 190, 178, 223, 192, 158, 221, 193, 157, 100, 81, 70, 46, 72, 41, 57, 67, 28, 28, 60, 180, 220, 90, 35, 29, 53, 109, 222, 140, 80, 114, 156, 159, 157, 138, 83, 54, 49, 70, 183, 245, 188, 205, 156, 96, 76, 106, 142, 197, 70, 15, 12, 15, 20, 31, 23, 26, 35, 59, 95, 210, 309, 298, 106, 8, 14, 6, 4, 7, 20, 8, 5, 24, 19, 16, 11, 16, 12, 6, 5, 5, 2, 3, 1, 1, 1, 0, 0, 1]
+          },
+          "parent → parent": {
+            "bin_ps": 10,
+            "from_ps": 30,
+            "counts": [9, 310, 2471, 2804, 955, 468, 411, 562, 530, 407, 308, 260, 230, 191, 181, 183, 146, 157, 130, 163, 136, 142, 128, 109, 120, 106, 160, 149, 146, 164, 195, 198, 235, 251, 235, 220, 311, 378, 401, 419, 462, 453, 500, 577, 620, 615, 719, 824, 825, 925, 955, 962, 1007, 1213, 1334, 1223, 1113, 1204, 1376, 1171, 1250, 1154, 1162, 1241, 1185, 1229, 1038, 1111, 1093, 1039, 1110, 1080, 1003, 859, 763, 693, 551, 571, 606, 570, 630, 533, 546, 572, 556, 595, 564, 709, 788, 781, 739, 812, 933, 968, 1080, 1129, 1056, 1063, 1103, 1103, 1406, 1669, 1848, 1803, 1578, 1804, 1942, 1856, 1824, 1794, 1655, 1807, 1643, 1677, 1449, 1212, 1066, 803, 813, 808, 726, 585, 694, 638, 623, 603, 660, 650, 800, 727, 874, 928, 1012, 1015, 1073, 961, 1025, 1052, 1193, 1185, 1089, 993, 982, 990, 1006, 956, 944, 809, 809, 859, 780, 718, 729, 711, 709, 664, 673, 602, 548, 456, 343, 310, 386, 381, 344, 348, 330, 341, 332, 358, 323, 299, 295, 323, 337, 354, 452, 501, 447, 415, 399, 394, 346, 386, 389, 399, 388, 388, 316, 286, 323, 220, 249, 172, 164, 189, 156, 87, 89, 73, 93, 88, 76, 64, 57, 52, 31, 34, 35, 44, 33, 63, 62, 68, 100, 139, 146, 120, 90, 55, 81, 103, 28, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1]
+          }
+        },
+        "classes": {
+          "CoupledL2": {
+            "worst_ps": 425,
+            "logic_ps": 203,
+            "over_goal": 0,
+            "endpoints": 132,
+            "from": "l2top/inner_l2cache/slices_0/reqArb/io_status_vec_1_valid$_DFF_PP0_/QN",
+            "to": "l2top/inner_l2cache/allCanFire_REG_2$_DFF_P_/D",
+            "what": ""
+          },
+          "CoupledL2->MemBlock": {
+            "worst_ps": 1344,
+            "logic_ps": 621,
+            "over_goal": 0,
+            "endpoints": 60,
+            "from": "l2top/inner_l2cache/prefetcher.vbop.reqFilter.io_tlb_req_req_valid$_DFF_P_/QN",
+            "to": "core/memBlock/inner_dtlb_prefetch_tlb_prefetch/entries.page_pftlb_storage_fa.hitVecReg_5$_DFFE_PP_/D",
+            "what": ""
+          },
+          "CoupledL2->XSTile": {
+            "worst_ps": 1226,
+            "logic_ps": 117,
+            "over_goal": 0,
+            "endpoints": 1395,
+            "from": "l2top/inner_l2cache/slices_0/mshrCtl/sourceB.probes_1_rdy$_DFF_PP0_/QN",
+            "to": "l2top/inner_buffer.nodeIn_b_q.ram_ext.Memory[1][52]$_DFFE_PP_/D",
+            "what": ""
+          },
+          "FltRegionModule": {
+            "worst_ps": 1541,
+            "logic_ps": 911,
+            "over_goal": 0,
+            "endpoints": 227,
+            "from": "core/backend/inner_fpRegion/issueQueues_1/fastEntries_14_valid$_DFF_PP0_/QN",
+            "to": "core/backend/inner_fpRegion/issueQueues/enqEntriesKeepNext_0_bits_payload_fpWen$_DFF_P_/D",
+            "what": ""
+          },
+          "FltRegionModule->VecRegionModule": {
+            "worst_ps": 2082,
+            "logic_ps": 1508,
+            "over_goal": 64,
+            "endpoints": 160,
+            "from": "core/backend/inner_fpRegion/issueQueues_3/fastEntries_8_valid$_DFF_PP0_/QN",
+            "to": "core/backend/inner_vecRegion/issueQueues_4.enqEntryOldest_age.age_0_1$_DFFE_PP0P_/D",
+            "what": "An FP issue-queue entry valid into the vector issue queue's age matrix: block to block through the parent. 52 stages, 832 ps in repeaters."
+          },
+          "FltRegionModule->XSTile": {
+            "worst_ps": 2238,
+            "logic_ps": 1356,
+            "over_goal": 2982,
+            "endpoints": 17335,
+            "from": "core/backend/inner_fpRegion/issueQueues_1/fastEntries_14_valid$_DFF_PP0_/QN",
+            "to": "core/backend/inner_ctrlBlock/decodeBufBits_0_instr[24]$_DFFE_PP_/D",
+            "what": "The FP issue queues' entry valids, through out_toDispatch_canAccept, into ctrlBlock's decode buffer: backpressure from the FP region to dispatch, crossing from one hardened block into the parent. 69 stages, 1,026 ps in repeaters."
+          },
+          "Frontend": {
+            "worst_ps": 337,
+            "logic_ps": 246,
+            "over_goal": 0,
+            "endpoints": 1077,
+            "from": "core/frontend/inner_bpu/tage/tables_7.tage_entry_write_buffer_bank0.dirty_1_0$_DFF_PP0_/QN",
+            "to": "core/frontend/inner_bpu/tage/tables_7.tage_entry_sram_bank0_way1.array.array_ext/RW0_wdata[2]",
+            "what": ""
+          },
+          "Frontend->MemBlock": {
+            "worst_ps": 1119,
+            "logic_ps": 759,
+            "over_goal": 0,
+            "endpoints": 9,
+            "from": "core/frontend/inner_wfiReq_delay.io_out$_DFF_P_/QN",
+            "to": "core/memBlock/inner_frontendBridge.instr_uncache.nodeOut_a_q.enq_ptr_value$_DFFE_PP0P_/D",
+            "what": ""
+          },
+          "Frontend->XSTile": {
+            "worst_ps": 1983,
+            "logic_ps": 601,
+            "over_goal": 0,
+            "endpoints": 525,
+            "from": "core/frontend/inner_ibuffer/io_out_0_valid$_DFF_PP0_/QN",
+            "to": "core/backend/inner_ctrlBlock/memCtrl/ssit/io_rdata_6_strict$_DFFE_PP_/D",
+            "what": ""
+          },
+          "MemBlock": {
+            "worst_ps": 468,
+            "logic_ps": 324,
+            "over_goal": 0,
+            "endpoints": 1543,
+            "from": "core/memBlock/inner_dtlb_st_tlb_st/entries.page_sttlb_storage_fa.hitVecReg_1_34$_DFFE_PP_/QN",
+            "to": "core/memBlock/inner_StoreUnit_1.s1.io_pipeOut_bits_tlbHit$_DFFE_PP_/D",
+            "what": ""
+          },
+          "MemBlock->CoupledL2": {
+            "worst_ps": 1591,
+            "logic_ps": 537,
+            "over_goal": 0,
+            "endpoints": 124,
+            "from": "core/memBlock/inner_pmp_checkers_6.res_pmp_r_31$_DFFE_PP0P_/QN",
+            "to": "l2top/inner_l2cache/prefetcher.vbop.reqFilter.entries_13_paddrValid$_DFF_P_/D",
+            "what": ""
+          },
+          "MemBlock->FltRegionModule": {
+            "worst_ps": 1157,
+            "logic_ps": -126,
+            "over_goal": 0,
+            "endpoints": 58,
+            "from": "core/memBlock/inner_LoadUnit_1.s1.io_pipeOut_valid$_DFF_PP0_/QN",
+            "to": "core/backend/inner_fpRegion/fpWbDataPath.out_wb0_5_wen$_DFF_PP0_/D",
+            "what": ""
+          },
+          "MemBlock->Frontend": {
+            "worst_ps": 626,
+            "logic_ps": -41,
+            "over_goal": 0,
+            "endpoints": 8,
+            "from": "core/memBlock/inner_LoadUnit_2.s0.io_pipeOut_valid$_DFF_PP0_/QN",
+            "to": "core/frontend/inner_icache/softPrefetch_isSoftPrefetch$_DFF_PP0_/D",
+            "what": ""
+          },
+          "MemBlock->VecRegionModule": {
+            "worst_ps": 1385,
+            "logic_ps": 387,
+            "over_goal": 0,
+            "endpoints": 57,
+            "from": "core/memBlock/inner_LoadUnit_0.s1.io_pipeOut_valid$_DFF_PP0_/QN",
+            "to": "core/backend/inner_vecRegion/issueQueues_1/vpWbM3D1WakeUp_4_wen$_DFF_P_/D",
+            "what": ""
+          },
+          "MemBlock->XSTile": {
+            "worst_ps": 2065,
+            "logic_ps": 582,
+            "over_goal": 9,
+            "endpoints": 10831,
+            "from": "core/memBlock/inner_LoadUnit_1.s1.io_pipeOut_valid$_DFF_PP0_/QN",
+            "to": "core/backend/inner_intRegion/issueQueueSTD0_StdMoud/io_deqDelay_0_bits_rfBankRen_0_3$_DFF_P_/D",
+            "what": "A load unit's stage-1 valid out of MemBlock into an integer store-data issue queue's dequeue. 81 stages, 1,709 ps in repeaters: almost all distance."
+          },
+          "VecRegionModule": {
+            "worst_ps": 326,
+            "logic_ps": 180,
+            "over_goal": 0,
+            "endpoints": 234,
+            "from": "core/backend/inner_vecRegion/issuePipes/is0_valid$_DFF_PP0_/QN",
+            "to": "core/backend/inner_vecRegion/issueQueues_5.vpWbM3D1WakeUp_0_wen$_DFF_P_/D",
+            "what": ""
+          },
+          "VecRegionModule->FltRegionModule": {
+            "worst_ps": -102,
+            "logic_ps": -468,
+            "over_goal": 0,
+            "endpoints": 2,
+            "from": "core/backend/inner_vecRegion/issuePipes_1/out_is1FpRdAddrNext_0_robIdx_flag$_DFFE_PP_/QN",
+            "to": "core/backend/inner_fpRegion/fltRFReadArbiter.arbiters_13.robIdxVecReg_1_flag$_DFF_P_/D",
+            "what": ""
+          },
+          "VecRegionModule->XSTile": {
+            "worst_ps": 1123,
+            "logic_ps": 341,
+            "over_goal": 0,
+            "endpoints": 273,
+            "from": "core/backend/inner_vecRegion/issuePipes_4.exu.ex_0_bits_fuSel_0$_DFFE_PP_/QN",
+            "to": "core/backend/inner_ctrlBlock/delayedNotFlushedWriteBackNums_delayed_bits_r_17[0]$_DFFE_PP_/D",
+            "what": ""
+          },
+          "XSTile->CoupledL2": {
+            "worst_ps": 1677,
+            "logic_ps": 1263,
+            "over_goal": 0,
+            "endpoints": 825,
+            "from": "l2top/inner_buffer.nodeOut_c_q.deq_ptr_value$_DFFE_PP0P_/QN",
+            "to": "l2top/inner_l2cache/slices_0/mshrCtl/mshrs_13/io_msInfo_bits_meta_tagErr$_DFFE_PP0P_/D",
+            "what": ""
+          },
+          "XSTile->FltRegionModule": {
+            "worst_ps": 2030,
+            "logic_ps": 862,
+            "over_goal": 1,
+            "endpoints": 1638,
+            "from": "core/backend/inner_ctrlBlock/s1_robFlushRedirect_valid_last_REG$_DFF_PP0_/QN",
+            "to": "core/backend/inner_fpRegion/fpRegFile/io_readPorts_13_addr[7]",
+            "what": "ctrlBlock's ROB flush redirect into the FP register file's read address. 70 stages, 1,722 ps in repeaters."
+          },
+          "XSTile->Frontend": {
+            "worst_ps": 1947,
+            "logic_ps": 1411,
+            "over_goal": 0,
+            "endpoints": 7838,
+            "from": "core/backend/inner_intRegion/pipeToBJU0.io_out_bits_data_src_1[45]$_DFFE_PP_/QN",
+            "to": "core/frontend/inner_ftq/io_toBpu_train_bits_meta_tage_entries_3_useProvider$_DFFE_PP0N_/D",
+            "what": ""
+          },
+          "XSTile->MemBlock": {
+            "worst_ps": 2113,
+            "logic_ps": 1388,
+            "over_goal": 46,
+            "endpoints": 4434,
+            "from": "core/backend/inner_ctrlBlock/s1_robFlushRedirect_valid_last_REG$_DFF_PP0_/QN",
+            "to": "core/memBlock/inner_frontendBridge.icache.nodeOut_a_q.enq_ptr_value$_DFFE_PP0P_/D",
+            "what": "ctrlBlock's ROB flush redirect into MemBlock's instruction-fetch bridge queue pointer. 52 stages, 1,361 ps in repeaters."
+          },
+          "XSTile->VecRegionModule": {
+            "worst_ps": 2364,
+            "logic_ps": 1603,
+            "over_goal": 1375,
+            "endpoints": 3070,
+            "from": "core/backend/inner_intRegion/pipeToALU0.io_out_bits_ctrl_fuType[30]$_DFFE_PP_/QN",
+            "to": "core/backend/inner_vecRegion/issuePipes_1/is0_valid$_DFF_PP0_/D",
+            "what": "The integer region's ALU pipeline register (fuType) into the vector region's issue pipe valid: the parent's dispatch steering into a hardened block. 93 stages, 1,151 ps in repeaters."
+          },
+          "parent": {
+            "worst_ps": 2455,
+            "logic_ps": 1482,
+            "over_goal": 1921,
+            "endpoints": 146537,
+            "from": "core/backend/inner_ctrlBlock/decodeBufValid_0$_DFF_PP0_/QN",
+            "to": "core/backend/inner_ctrlBlock/memCtrl/ssit/io_rdata_7_strict$_DFFE_PP_/D",
+            "what": "Decode into the memory dependence predictor: ctrlBlock's decode-buffer valid bit to a strict bit read from the store-set identifier table (memCtrl.ssit). 60 cell stages, 1,044 ps of them repeaters."
+          }
+        }
       }
     }
   ]
