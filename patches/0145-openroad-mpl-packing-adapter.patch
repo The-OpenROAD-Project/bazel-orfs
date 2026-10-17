@@ -1,0 +1,397 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] mpl: the annealer's question as a packing problem
+
+toPackingProblem() states what an annealer is asked: its sequence-pair
+macros inside its outline, each with every shape the annealer can give
+it (SoftMacro::resizeRandomly's area per width interval), fixed ones
+where they are; terminals and empty macros take no room. The test checks
+that every shape the annealer produces is one the problem allows.
+
+Not upstreamed; retires at the //:bump onto an OpenROAD that has it.
+
+---
+diff --git a/src/mpl/BUILD b/src/mpl/BUILD
+index 566915f97f..a72148bad7 100644
+--- a/src/mpl/BUILD
++++ b/src/mpl/BUILD
+@@ -85,6 +85,25 @@ cc_library(
+     ],
+ )
+ 
++cc_library(
++    name = "packing_adapter",
++    srcs = [
++        "src/packingAdapter.cpp",
++    ],
++    hdrs = [
++        "src/packingAdapter.h",
++    ],
++    includes = [
++        "src",
++    ],
++    deps = [
++        ":packing",
++        ":pusher",
++        ":shapes",
++        "//src/odb/src/db",
++    ],
++)
++
+ cc_library(
+     name = "mpl_impl",
+     srcs = [
+diff --git a/src/mpl/CMakeLists.txt b/src/mpl/CMakeLists.txt
+index d2056e5bf0..b320b2c853 100644
+--- a/src/mpl/CMakeLists.txt
++++ b/src/mpl/CMakeLists.txt
+@@ -42,6 +42,7 @@ add_library(mpl_lib
+   src/rtl_mp.cpp
+   src/hier_rtlmp.cpp
+   src/packing.cpp
++  src/packingAdapter.cpp
+   src/SimulatedAnnealingCore.cpp
+   src/SACoreHardMacro.cpp
+   src/SACoreSoftMacro.cpp
+diff --git a/src/mpl/src/object.h b/src/mpl/src/object.h
+index d65dd83f87..b1ce480cff 100644
+--- a/src/mpl/src/object.h
++++ b/src/mpl/src/object.h
+@@ -450,6 +450,8 @@ class SoftMacro
+ 
+   // Debug
+   void reportShapeCurve(utl::Logger* logger) const;
++  const IntervalList& getWidthIntervals() const { return width_intervals_; }
++  const IntervalList& getHeightIntervals() const { return height_intervals_; }
+ 
+  private:
+   int findIntervalIndex(const IntervalList& interval_list,
+diff --git a/src/mpl/src/packingAdapter.cpp b/src/mpl/src/packingAdapter.cpp
+new file mode 100644
+index 0000000000..a72d56a946
+--- /dev/null
++++ b/src/mpl/src/packingAdapter.cpp
+@@ -0,0 +1,129 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++#include "packingAdapter.h"
++
++#include <cstdint>
++#include <vector>
++
++#include "object.h"
++#include "odb/geom.h"
++#include "packing.h"
++#include "shapes.h"
++
++namespace mpl {
++
++namespace {
++
++int packedCount(const int sequence_pair_macros, const size_t size)
++{
++  return sequence_pair_macros > 0 ? sequence_pair_macros
++                                  : static_cast<int>(size);
++}
++
++PackingBlock fixedBlock(const std::string& name,
++                        const int x,
++                        const int y,
++                        const int width,
++                        const int height)
++{
++  PackingBlock block;
++  block.name = name;
++  block.shapes.emplace_back(width, height);
++  block.fixed_x = x;
++  block.fixed_y = y;
++  return block;
++}
++
++}  // namespace
++
++PackingProblem toPackingProblem(const odb::Rect& outline,
++                                const std::vector<SoftMacro>& macros,
++                                const int sequence_pair_macros,
++                                std::vector<int>* macro_of_block)
++{
++  PackingProblem problem{outline.dx(), outline.dy(), {}};
++  const int count = packedCount(sequence_pair_macros, macros.size());
++  for (int i = 0; i < count; i++) {
++    const SoftMacro& macro = macros[i];
++    if (static_cast<int64_t>(macro.getWidth()) * macro.getHeight() == 0) {
++      continue;  // takes no room
++    }
++    if (macro.isFixed()) {
++      if (macro_of_block) {
++        macro_of_block->push_back(i);
++      }
++      problem.blocks.push_back(fixedBlock(macro.getName(),
++                                          macro.getX(),
++                                          macro.getY(),
++                                          macro.getWidth(),
++                                          macro.getHeight()));
++      continue;
++    }
++    PackingBlock block;
++    block.name = macro.getName();
++    const IntervalList& widths = macro.getWidthIntervals();
++    const IntervalList& heights = macro.getHeightIntervals();
++    bool rigid = true;
++    for (size_t k = 0; k < widths.size(); k++) {
++      rigid
++          &= widths[k].min == widths[k].max && heights[k].min == heights[k].max;
++    }
++    if (widths.empty()) {
++      // No shape curve: the annealer never resizes it.
++      block.shapes.emplace_back(macro.getWidth(), macro.getHeight());
++    } else if (rigid) {
++      for (size_t k = 0; k < widths.size(); k++) {
++        block.shapes.emplace_back(widths[k].min, heights[k].min);
++      }
++    } else {
++      // SoftMacro::resizeRandomly: piece k keeps the area
++      // min width * max height, and height = floor(area / width).
++      for (size_t k = 0; k < widths.size(); k++) {
++        block.soft_shapes.push_back(
++            {widths[k], widths[k].min * static_cast<int64_t>(heights[k].max)});
++      }
++    }
++    if (macro_of_block) {
++      macro_of_block->push_back(i);
++    }
++    problem.blocks.push_back(block);
++  }
++  return problem;
++}
++
++PackingProblem toPackingProblem(const odb::Rect& outline,
++                                const std::vector<HardMacro>& macros,
++                                const int sequence_pair_macros,
++                                std::vector<int>* macro_of_block)
++{
++  PackingProblem problem{outline.dx(), outline.dy(), {}};
++  const int count = packedCount(sequence_pair_macros, macros.size());
++  for (int i = 0; i < count; i++) {
++    const HardMacro& macro = macros[i];
++    if (macro.getArea() == 0) {
++      continue;
++    }
++    if (macro.isFixed()) {
++      if (macro_of_block) {
++        macro_of_block->push_back(i);
++      }
++      problem.blocks.push_back(fixedBlock(macro.getName(),
++                                          macro.getX(),
++                                          macro.getY(),
++                                          macro.getWidth(),
++                                          macro.getHeight()));
++      continue;
++    }
++    PackingBlock block;
++    block.name = macro.getName();
++    block.shapes.emplace_back(macro.getWidth(), macro.getHeight());
++    if (macro_of_block) {
++      macro_of_block->push_back(i);
++    }
++    problem.blocks.push_back(block);
++  }
++  return problem;
++}
++
++}  // namespace mpl
+diff --git a/src/mpl/src/packingAdapter.h b/src/mpl/src/packingAdapter.h
+new file mode 100644
+index 0000000000..7218a36f5a
+--- /dev/null
++++ b/src/mpl/src/packingAdapter.h
+@@ -0,0 +1,29 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++#pragma once
++
++#include <vector>
++
++#include "object.h"
++#include "odb/geom.h"
++#include "packing.h"
++
++namespace mpl {
++
++// The packing problem an annealer is asked to solve: its first
++// `sequence_pair_macros` macros (0: all) inside `outline`. The remaining
++// macros are terminals for wirelength only. Macro locations are relative to
++// the outline's lower-left corner, as the annealer keeps them.
++// `macro_of_block`, when given, receives each block's index in `macros`;
++// macros that take no room have no block.
++PackingProblem toPackingProblem(const odb::Rect& outline,
++                                const std::vector<SoftMacro>& macros,
++                                int sequence_pair_macros,
++                                std::vector<int>* macro_of_block = nullptr);
++PackingProblem toPackingProblem(const odb::Rect& outline,
++                                const std::vector<HardMacro>& macros,
++                                int sequence_pair_macros,
++                                std::vector<int>* macro_of_block = nullptr);
++
++}  // namespace mpl
+diff --git a/src/mpl/test/BUILD b/src/mpl/test/BUILD
+index 4e20b11c7a..469399bf95 100644
+--- a/src/mpl/test/BUILD
++++ b/src/mpl/test/BUILD
+@@ -362,6 +362,21 @@ cc_test(
+     ],
+ )
+ 
++cc_test(
++    name = "mpl_packing_adapter_unittest",
++    srcs = ["cpp/TestPackingAdapter.cpp"],
++    deps = [
++        "//src/mpl:packing",
++        "//src/mpl:packing_adapter",
++        "//src/mpl:pusher",
++        "//src/mpl:shapes",
++        "//src/odb/src/db",
++        "//src/utl",
++        "@googletest//:gtest",
++        "@googletest//:gtest_main",
++    ],
++)
++
+ # Not a test: runs the macro placer on a design as long as asked, for a
+ # developer's machine. bazelisk run //src/mpl/test:mpl_bench -- <odb> ...
+ cc_binary(
+diff --git a/src/mpl/test/cpp/TestPackingAdapter.cpp b/src/mpl/test/cpp/TestPackingAdapter.cpp
+new file mode 100644
+index 0000000000..5d5d08231f
+--- /dev/null
++++ b/src/mpl/test/cpp/TestPackingAdapter.cpp
+@@ -0,0 +1,128 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++// The exact check must ask the question the annealer answers: every shape
++// the annealer can give a macro is one the packing problem allows, and a
++// placement the check finds can be handed back to the annealer as a
++// sequence pair.
++
++#include <algorithm>
++#include <cstdint>
++#include <random>
++#include <vector>
++
++#include "gtest/gtest.h"
++#include "object.h"
++#include "odb/geom.h"
++#include "packing.h"
++#include "packingAdapter.h"
++#include "utl/Logger.h"
++
++namespace mpl {
++namespace {
++
++bool allows(const PackingBlock& block, const int width, const int height)
++{
++  for (const Tiling& shape : block.shapes) {
++    if (shape.width() == width && shape.height() == height) {
++      return true;
++    }
++  }
++  for (const SoftShape& shape : block.soft_shapes) {
++    if (shape.width.min <= width && width <= shape.width.max
++        && height == shape.area / width) {
++      return true;
++    }
++  }
++  return false;
++}
++
++class PackingAdapter : public ::testing::Test
++{
++ protected:
++  utl::Logger logger_;
++  std::mt19937 rng_{7};
++  std::uniform_real_distribution<float> unit_{0.0f, 1.0f};
++
++  // Every shape resizeRandomly() gives `macro` is allowed by its block.
++  void expectEveryResizeAllowed(SoftMacro macro)
++  {
++    const PackingProblem problem = toPackingProblem(
++        odb::Rect(0, 0, 1000000, 1000000), std::vector<SoftMacro>{macro}, 0);
++    ASSERT_EQ(problem.blocks.size(), 1);
++    for (int i = 0; i < 2000; i++) {
++      macro.resizeRandomly(unit_, rng_);
++      ASSERT_TRUE(
++          allows(problem.blocks[0], macro.getWidth(), macro.getHeight()))
++          << macro.getWidth() << " x " << macro.getHeight();
++    }
++  }
++};
++
++TEST_F(PackingAdapter, StdCellClusterShapesAreAllowed)
++{
++  Cluster cluster(1, "std", &logger_);
++  cluster.setClusterType(StdCellCluster);
++  SoftMacro macro(&cluster);
++  macro.setShapes(IntervalList{Interval(1000, 3000)}, 2000003);
++  expectEveryResizeAllowed(macro);
++}
++
++TEST_F(PackingAdapter, MixedClusterWithSeveralPiecesIsAllowed)
++{
++  Cluster cluster(2, "mixed", &logger_);
++  cluster.setClusterType(MixedCluster);
++  SoftMacro macro(&cluster);
++  macro.setShapes(IntervalList{Interval(1000, 1500), Interval(2500, 4000)},
++                  5000017);
++  expectEveryResizeAllowed(macro);
++}
++
++TEST_F(PackingAdapter, MacroClusterTilingsAreAllowed)
++{
++  Cluster cluster(3, "macros", &logger_);
++  cluster.setClusterType(HardMacroCluster);
++  SoftMacro macro(&cluster);
++  macro.setShapes(TilingList{Tiling(400, 100), Tiling(200, 200)}, true);
++  expectEveryResizeAllowed(macro);
++}
++
++TEST_F(PackingAdapter, TerminalsAndEmptyMacrosTakeNoRoom)
++{
++  Cluster cluster(4, "macros", &logger_);
++  cluster.setClusterType(HardMacroCluster);
++  SoftMacro packed(&cluster);
++  packed.setShapes(TilingList{Tiling(10, 10)}, true);
++  // A blockage is fixed where it is.
++  SoftMacro blockage(odb::Rect(5, 6, 25, 36), "blockage");
++  // Zero area: takes no room.
++  SoftMacro empty(odb::Point(0, 0), "empty", 0, 0, nullptr);
++  // Past the sequence pair: a terminal for wirelength only.
++  SoftMacro io(odb::Point(0, 0), "io", 500, 500, nullptr);
++  std::vector<int> macro_of_block;
++  const PackingProblem problem
++      = toPackingProblem(odb::Rect(100, 100, 200, 200),
++                         std::vector<SoftMacro>{packed, blockage, empty, io},
++                         3,
++                         &macro_of_block);
++  ASSERT_EQ(problem.blocks.size(), 2);
++  EXPECT_EQ(macro_of_block, (std::vector<int>{0, 1}));
++  EXPECT_EQ(problem.width, 100);
++  ASSERT_TRUE(problem.blocks[1].isFixed());
++  EXPECT_EQ(*problem.blocks[1].fixed_x, 5);
++  EXPECT_EQ(*problem.blocks[1].fixed_y, 6);
++  EXPECT_EQ(problem.blocks[1].shapes.front(), Tiling(20, 30));
++}
++
++TEST_F(PackingAdapter, HardMacrosAreRigidWithTheirHalos)
++{
++  HardMacro macro(30, 40, "m");
++  const PackingProblem problem = toPackingProblem(
++      odb::Rect(0, 0, 100, 100), std::vector<HardMacro>{macro}, 0);
++  ASSERT_EQ(problem.blocks.size(), 1);
++  EXPECT_FALSE(problem.blocks[0].isFixed());
++  EXPECT_EQ(problem.blocks[0].shapes, std::vector<Tiling>{Tiling(30, 40)});
++}
++
++}  // namespace
++}  // namespace mpl

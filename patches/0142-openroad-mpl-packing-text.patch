@@ -1,0 +1,218 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] mpl: a plain-text form of a packing problem
+
+writePackingProblem() and readPackingProblem() write and read a problem
+one line per item, so a problem can be shared as a reproducer and read
+by tests.
+
+Not upstreamed; retires at the //:bump onto an OpenROAD that has it.
+
+---
+diff --git a/src/mpl/src/packing.cpp b/src/mpl/src/packing.cpp
+index cf88e3ed57..44a1142a79 100644
+--- a/src/mpl/src/packing.cpp
++++ b/src/mpl/src/packing.cpp
+@@ -4,11 +4,14 @@
+ #include "packing.h"
+ 
+ #include <algorithm>
++#include <cctype>
+ #include <cstdint>
+ #include <cstdlib>
++#include <istream>
+ #include <limits>
+ #include <map>
+ #include <numeric>
++#include <ostream>
+ #include <stdexcept>
+ #include <string>
+ #include <vector>
+@@ -675,4 +678,94 @@ PackingResult checkPacking(const PackingProblem& problem,
+   return ladder(problem, used);
+ }
+ 
++void writePackingProblem(std::ostream& out,
++                         const std::string& tag,
++                         const PackingProblem& problem)
++{
++  out << "P " << tag << " " << problem.width << " " << problem.height << " "
++      << problem.blocks.size() << "\n";
++  for (const PackingBlock& block : problem.blocks) {
++    std::string name = block.name.empty() ? "_" : block.name;
++    std::replace_if(
++        name.begin(), name.end(), [](char c) { return std::isspace(c); }, '_');
++    out << "B " << name;
++    if (block.isFixed()) {
++      out << " F " << *block.fixed_x << " " << *block.fixed_y << " "
++          << block.shapes.front().width() << " "
++          << block.shapes.front().height();
++    } else if (block.isSoft()) {
++      out << " S " << block.soft_shapes.size();
++      for (const SoftShape& shape : block.soft_shapes) {
++        out << " " << shape.width.min << " " << shape.width.max << " "
++            << shape.area;
++      }
++    } else {
++      out << " R " << block.shapes.size();
++      for (const Tiling& shape : block.shapes) {
++        out << " " << shape.width() << " " << shape.height();
++      }
++    }
++    out << "\n";
++  }
++}
++
++bool readPackingProblem(std::istream& in,
++                        std::string& tag,
++                        PackingProblem& problem)
++{
++  std::string token;
++  if (!(in >> token)) {
++    return false;
++  }
++  auto fail = [](const std::string& what) {
++    throw std::runtime_error("malformed packing problem: " + what);
++  };
++  size_t count = 0;
++  if (token != "P"
++      || !(in >> tag >> problem.width >> problem.height >> count)) {
++    fail("expected P <tag> <width> <height> <blocks>");
++  }
++  problem.blocks.clear();
++  for (size_t i = 0; i < count; i++) {
++    PackingBlock block;
++    std::string kind;
++    if (!(in >> token >> block.name >> kind) || token != "B") {
++      fail("expected B <name> <kind> in " + tag);
++    }
++    if (kind == "F") {
++      int x, y, w, h;
++      if (!(in >> x >> y >> w >> h)) {
++        fail("fixed block " + block.name);
++      }
++      block.fixed_x = x;
++      block.fixed_y = y;
++      block.shapes.emplace_back(w, h);
++    } else if (kind == "R" || kind == "S") {
++      size_t k = 0;
++      if (!(in >> k) || k == 0) {
++        fail("shape count of " + block.name);
++      }
++      for (size_t j = 0; j < k; j++) {
++        if (kind == "R") {
++          int w, h;
++          if (!(in >> w >> h)) {
++            fail("rigid shape of " + block.name);
++          }
++          block.shapes.emplace_back(w, h);
++        } else {
++          SoftShape shape;
++          if (!(in >> shape.width.min >> shape.width.max >> shape.area)) {
++            fail("soft piece of " + block.name);
++          }
++          block.soft_shapes.push_back(shape);
++        }
++      }
++    } else {
++      fail("block kind " + kind);
++    }
++    problem.blocks.push_back(block);
++  }
++  return true;
++}
++
+ }  // namespace mpl
+diff --git a/src/mpl/src/packing.h b/src/mpl/src/packing.h
+index e77bed8426..e4cdc11ca8 100644
+--- a/src/mpl/src/packing.h
++++ b/src/mpl/src/packing.h
+@@ -4,6 +4,7 @@
+ #pragma once
+ 
+ #include <cstdint>
++#include <iosfwd>
+ #include <optional>
+ #include <string>
+ #include <vector>
+@@ -99,4 +100,18 @@ struct PackingLimits
+ PackingResult checkPacking(const PackingProblem& problem,
+                            const PackingLimits& limits = {});
+ 
++// A plain-text form of a problem, one line per item, for reproducers:
++//   P <tag> <width> <height> <blocks>
++//   B <name> F <x> <y> <width> <height>        a fixed block
++//   B <name> R <k> <width> <height> ...        k rigid shapes
++//   B <name> S <k> <min> <max> <area> ...      k soft pieces
++// Names must not contain white space.
++void writePackingProblem(std::ostream& out,
++                         const std::string& tag,
++                         const PackingProblem& problem);
++// Returns false at the end of the input; throws on malformed input.
++bool readPackingProblem(std::istream& in,
++                        std::string& tag,
++                        PackingProblem& problem);
++
+ }  // namespace mpl
+diff --git a/src/mpl/test/cpp/TestPacking.cpp b/src/mpl/test/cpp/TestPacking.cpp
+index c217cccef0..782bab9788 100644
+--- a/src/mpl/test/cpp/TestPacking.cpp
++++ b/src/mpl/test/cpp/TestPacking.cpp
+@@ -8,6 +8,8 @@
+ #include <algorithm>
+ #include <cstdint>
+ #include <random>
++#include <sstream>
++#include <stdexcept>
+ #include <string>
+ #include <utility>
+ #include <vector>
+@@ -234,6 +236,49 @@ TEST(Packing, SameInputSameAnswer)
+   }
+ }
+ 
++// A problem written out and read back is the same problem, every kind of
++// block included, so a reproducer can be shared as text.
++TEST(PackingText, RoundTrips)
++{
++  PackingBlock soft_block = soft(1000, 10, 100);
++  soft_block.soft_shapes.push_back({Interval(200, 300), 5000});
++  PackingBlock several;
++  several.shapes = {Tiling(10, 20), Tiling(20, 10)};
++  const PackingProblem problem{
++      500, 400, {rigid(30, 40), fixedAt(5, 6, 7, 8), soft_block, several}};
++  std::stringstream text;
++  writePackingProblem(text, "case", problem);
++  std::string tag;
++  PackingProblem back;
++  ASSERT_TRUE(readPackingProblem(text, tag, back));
++  EXPECT_EQ(tag, "case");
++  EXPECT_EQ(back.width, 500);
++  EXPECT_EQ(back.height, 400);
++  ASSERT_EQ(back.blocks.size(), problem.blocks.size());
++  for (size_t i = 0; i < problem.blocks.size(); i++) {
++    const PackingBlock& a = problem.blocks[i];
++    const PackingBlock& b = back.blocks[i];
++    EXPECT_EQ(a.shapes, b.shapes) << i;
++    EXPECT_EQ(a.fixed_x, b.fixed_x) << i;
++    EXPECT_EQ(a.fixed_y, b.fixed_y) << i;
++    ASSERT_EQ(a.soft_shapes.size(), b.soft_shapes.size()) << i;
++    for (size_t k = 0; k < a.soft_shapes.size(); k++) {
++      EXPECT_EQ(a.soft_shapes[k].width.min, b.soft_shapes[k].width.min);
++      EXPECT_EQ(a.soft_shapes[k].width.max, b.soft_shapes[k].width.max);
++      EXPECT_EQ(a.soft_shapes[k].area, b.soft_shapes[k].area);
++    }
++  }
++  EXPECT_FALSE(readPackingProblem(text, tag, back));
++}
++
++TEST(PackingText, MalformedInputIsRefused)
++{
++  std::stringstream text("P case 10 10 1\nB b0 Q 1 2\n");
++  std::string tag;
++  PackingProblem problem;
++  EXPECT_THROW(readPackingProblem(text, tag, problem), std::runtime_error);
++}
++
+ // Identical rectangles that cannot rotate: an exhaustive search on a small
+ // grid agrees with the answer for every outline.
+ bool bruteForceFits(const int width,

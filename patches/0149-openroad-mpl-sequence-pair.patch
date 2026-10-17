@@ -1,0 +1,233 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] mpl: a sequence pair from a placement
+
+sequencePairOf() turns non-overlapping rectangles into a sequence pair
+whose packing is that placement or tighter: a pair side by side or one
+above the other orders both sequences, a diagonal pair only the one its
+two readings agree on. The test packs the result independently of the
+annealer and checks it against 200 random guillotine placements.
+
+Not upstreamed; retires at the //:bump onto an OpenROAD that has it.
+
+---
+diff --git a/src/mpl/src/packingAdapter.cpp b/src/mpl/src/packingAdapter.cpp
+index a72d56a946..1351ddfa1f 100644
+--- a/src/mpl/src/packingAdapter.cpp
++++ b/src/mpl/src/packingAdapter.cpp
+@@ -126,4 +126,86 @@ PackingProblem toPackingProblem(const odb::Rect& outline,
+   return problem;
+ }
+ 
++SequencePair sequencePairOf(const std::vector<odb::Rect>& rects)
++{
++  const int n = static_cast<int>(rects.size());
++  std::vector<int> sized;
++  std::vector<int> empty;
++  for (int i = 0; i < n; i++) {
++    (rects[i].area() > 0 ? sized : empty).push_back(i);
++  }
++  // before[k][a][b]: a precedes b in sequence k (0: positive, 1: negative).
++  const int m = static_cast<int>(sized.size());
++  std::vector<std::vector<std::vector<int>>> successors(
++      2, std::vector<std::vector<int>>(m));
++  std::vector<std::vector<int>> in_degree(2, std::vector<int>(m, 0));
++  auto precede = [&](const int sequence, const int a, const int b) {
++    successors[sequence][a].push_back(b);
++    in_degree[sequence][b]++;
++  };
++  // A pair side by side or one above the other fixes its order in both
++  // sequences. A diagonal pair is both side by side and one above the
++  // other: either reading is true, and the two readings differ in one
++  // sequence only, so it fixes only the other one. Any order that respects
++  // the fixed constraints is then a sequence pair all of whose relations
++  // hold in the placement (Murata et al., 1995, prove one exists).
++  for (int a = 0; a < m; a++) {
++    for (int b = 0; b < m; b++) {
++      if (a == b) {
++        continue;
++      }
++      const odb::Rect& ra = rects[sized[a]];
++      const odb::Rect& rb = rects[sized[b]];
++      const bool left = ra.xMax() <= rb.xMin();
++      const bool right = rb.xMax() <= ra.xMin();
++      const bool below = ra.yMax() <= rb.yMin();
++      const bool above = rb.yMax() <= ra.yMin();
++      // Each pair is read once, from the block on the left, or from the
++      // lower block when neither is left of the other.
++      if (right || (above && !left)) {
++        continue;
++      }
++      if (left && below) {
++        precede(1, a, b);  // south-west: the positive sequence is free
++      } else if (left && above) {
++        precede(0, a, b);  // north-west: the negative sequence is free
++      } else if (left) {
++        precede(0, a, b);
++        precede(1, a, b);
++      } else if (below) {
++        precede(0, b, a);
++        precede(1, a, b);
++      } else {
++        return {};  // overlap
++      }
++    }
++  }
++  SequencePair pair;
++  for (int sequence = 0; sequence < 2; sequence++) {
++    std::vector<int>& order
++        = sequence == 0 ? pair.pos_sequence : pair.neg_sequence;
++    std::vector<int> ready;
++    for (int i = m - 1; i >= 0; i--) {
++      if (in_degree[sequence][i] == 0) {
++        ready.push_back(i);
++      }
++    }
++    while (!ready.empty()) {
++      const int a = ready.back();
++      ready.pop_back();
++      order.push_back(sized[a]);
++      for (const int b : successors[sequence][a]) {
++        if (--in_degree[sequence][b] == 0) {
++          ready.push_back(b);
++        }
++      }
++    }
++    if (static_cast<int>(order.size()) != m) {
++      return {};  // the relations are cyclic
++    }
++    order.insert(order.end(), empty.begin(), empty.end());
++  }
++  return pair;
++}
++
+ }  // namespace mpl
+diff --git a/src/mpl/src/packingAdapter.h b/src/mpl/src/packingAdapter.h
+index 7218a36f5a..f8dfa4234a 100644
+--- a/src/mpl/src/packingAdapter.h
++++ b/src/mpl/src/packingAdapter.h
+@@ -26,4 +26,11 @@ PackingProblem toPackingProblem(const odb::Rect& outline,
+                                 int sequence_pair_macros,
+                                 std::vector<int>* macro_of_block = nullptr);
+ 
++// A sequence pair that packs to these non-overlapping rectangles or
++// tighter: a block left of another precedes it in both sequences, a block
++// below another follows it in the positive sequence and precedes it in the
++// negative one. Rectangles of zero area go last. Empty when the rectangles
++// overlap.
++SequencePair sequencePairOf(const std::vector<odb::Rect>& rects);
++
+ }  // namespace mpl
+diff --git a/src/mpl/test/cpp/TestPackingAdapter.cpp b/src/mpl/test/cpp/TestPackingAdapter.cpp
+index 5d5d08231f..fbb500f9de 100644
+--- a/src/mpl/test/cpp/TestPackingAdapter.cpp
++++ b/src/mpl/test/cpp/TestPackingAdapter.cpp
+@@ -124,5 +124,109 @@ TEST_F(PackingAdapter, HardMacrosAreRigidWithTheirHalos)
+   EXPECT_EQ(problem.blocks[0].shapes, std::vector<Tiling>{Tiling(30, 40)});
+ }
+ 
++// Cut [x0, x1) x [y0, y1) into `pieces` rectangles by guillotine cuts.
++void cut(const odb::Rect& rect,
++         const int pieces,
++         std::mt19937& rng,
++         std::vector<odb::Rect>& out)
++{
++  if (pieces == 1 || (rect.dx() < 2 && rect.dy() < 2)) {
++    out.push_back(rect);
++    return;
++  }
++  const bool vertical = rect.dx() >= rect.dy();
++  const int side = vertical ? rect.dx() : rect.dy();
++  const int at = std::uniform_int_distribution<int>(1, side - 1)(rng);
++  const int left = std::uniform_int_distribution<int>(1, pieces - 1)(rng);
++  if (vertical) {
++    cut(odb::Rect(rect.xMin(), rect.yMin(), rect.xMin() + at, rect.yMax()),
++        left,
++        rng,
++        out);
++    cut(odb::Rect(rect.xMin() + at, rect.yMin(), rect.xMax(), rect.yMax()),
++        pieces - left,
++        rng,
++        out);
++  } else {
++    cut(odb::Rect(rect.xMin(), rect.yMin(), rect.xMax(), rect.yMin() + at),
++        left,
++        rng,
++        out);
++    cut(odb::Rect(rect.xMin(), rect.yMin() + at, rect.xMax(), rect.yMax()),
++        pieces - left,
++        rng,
++        out);
++  }
++}
++
++// Murata's packing of a sequence pair, written here independently of the
++// annealer's packFloorplan().
++std::vector<odb::Rect> pack(const SequencePair& pair,
++                            const std::vector<odb::Rect>& rects)
++{
++  const int n = static_cast<int>(rects.size());
++  std::vector<int> pos(n), neg(n);
++  for (int i = 0; i < n; i++) {
++    pos[pair.pos_sequence[i]] = i;
++    neg[pair.neg_sequence[i]] = i;
++  }
++  std::vector<int> x(n, 0), y(n, 0);
++  // Positions follow the negative sequence, which orders both relations.
++  for (const int b : pair.neg_sequence) {
++    for (const int a : pair.neg_sequence) {
++      if (a == b || neg[a] > neg[b]) {
++        continue;
++      }
++      if (pos[a] < pos[b]) {  // a left of b
++        x[b] = std::max(x[b], x[a] + rects[a].dx());
++      } else {  // a below b
++        y[b] = std::max(y[b], y[a] + rects[a].dy());
++      }
++    }
++  }
++  std::vector<odb::Rect> packed;
++  for (int i = 0; i < n; i++) {
++    packed.emplace_back(x[i], y[i], x[i] + rects[i].dx(), y[i] + rects[i].dy());
++  }
++  return packed;
++}
++
++TEST_F(PackingAdapter, SequencePairDescribesThePlacementAndPacksInsideIt)
++{
++  for (int trial = 0; trial < 200; trial++) {
++    std::vector<odb::Rect> rects;
++    const int pieces = std::uniform_int_distribution<int>(1, 20)(rng_);
++    cut(odb::Rect(0, 0, 1000, 700), pieces, rng_, rects);
++    // Shrink each piece a little so there are gaps, as in a real floorplan.
++    for (odb::Rect& rect : rects) {
++      rect = odb::Rect(rect.xMin(),
++                       rect.yMin(),
++                       std::max(rect.xMin() + 1, rect.xMax() - 3),
++                       std::max(rect.yMin() + 1, rect.yMax() - 2));
++    }
++    std::shuffle(rects.begin(), rects.end(), rng_);
++    const SequencePair pair = sequencePairOf(rects);
++    ASSERT_EQ(pair.pos_sequence.size(), rects.size()) << trial;
++    const std::vector<odb::Rect> packed = pack(pair, rects);
++    for (size_t i = 0; i < packed.size(); i++) {
++      EXPECT_LE(packed[i].xMax(), 1000) << trial;
++      EXPECT_LE(packed[i].yMax(), 700) << trial;
++      for (size_t j = i + 1; j < packed.size(); j++) {
++        odb::Rect overlap;
++        packed[i].intersection(packed[j], overlap);
++        EXPECT_TRUE(overlap.dx() <= 0 || overlap.dy() <= 0)
++            << trial << ": " << i << " and " << j << " overlap";
++      }
++    }
++  }
++}
++
++TEST_F(PackingAdapter, OverlappingRectanglesHaveNoSequencePair)
++{
++  const SequencePair pair
++      = sequencePairOf({odb::Rect(0, 0, 10, 10), odb::Rect(5, 5, 15, 15)});
++  EXPECT_TRUE(pair.pos_sequence.empty());
++}
++
+ }  // namespace
+ }  // namespace mpl

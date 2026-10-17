@@ -1,0 +1,68 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] mpl: shapes as a library of their own
+
+Tiling and Interval are plain value types; a library of their own lets
+code that needs only them depend on them without object.cpp and odb.
+No change in behaviour.
+
+Not upstreamed; retires at the //:bump onto an OpenROAD that has it.
+
+---
+diff --git a/src/mpl/BUILD b/src/mpl/BUILD
+index 91069fefe9..ab1c05ef11 100644
+--- a/src/mpl/BUILD
++++ b/src/mpl/BUILD
+@@ -28,23 +28,35 @@ cc_library(
+     ],
+ )
+ 
++cc_library(
++    name = "shapes",
++    srcs = [
++        "src/shapes.cpp",
++    ],
++    hdrs = [
++        "src/shapes.h",
++    ],
++    includes = [
++        "src",
++    ],
++)
++
+ cc_library(
+     name = "pusher",
+     srcs = [
+         "src/object.cpp",
+         "src/pusher.cpp",
+-        "src/shapes.cpp",
+     ],
+     hdrs = [
+         "src/mpl-util.h",
+         "src/object.h",
+         "src/pusher.h",
+-        "src/shapes.h",
+     ],
+     includes = [
+         "src",
+     ],
+     deps = [
++        ":shapes",
+         "//src/odb/src/db",
+         "//src/utl",
+         "@boost.random",
+@@ -79,6 +91,7 @@ cc_library(
+     ],
+     deps = [
+         ":pusher",
++        ":shapes",
+         ":snapper",
+         "//src/dbSta:dbNetwork",
+         "//src/odb/src/db",
+@@ -124,6 +137,7 @@ cc_library(
+     deps = [
+         ":mpl_impl",
+         ":pusher",
++        ":shapes",
+         "//:ord",
+         "//src/odb/src/db",
+         "//src/utl",

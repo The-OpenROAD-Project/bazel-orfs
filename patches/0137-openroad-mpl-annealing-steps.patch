@@ -1,0 +1,61 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] mpl: MacroPlacer::setAnnealingSteps sets the annealing budget
+
+The step budget of each annealing run was a constant. A setter lets a
+caller trade time for quality, for a measurement or a design-space
+search; the default stays 2000.
+
+Not upstreamed; retires at the //:bump onto an OpenROAD that has it.
+
+---
+diff --git a/src/mpl/include/mpl/rtl_mp.h b/src/mpl/include/mpl/rtl_mp.h
+index e532fdb581..b6ec848acc 100644
+--- a/src/mpl/include/mpl/rtl_mp.h
++++ b/src/mpl/include/mpl/rtl_mp.h
+@@ -79,6 +79,9 @@ class MacroPlacer
+   void setMacroPlacementFile(const std::string& file_name);
+   void addGuidanceRegion(odb::dbInst* macro, odb::Rect region);
+   void setMinChannelSize(int width, int height);
++  // The step budget of each annealing run (default 2000); runs also stop
++  // once their best result has not improved for a fifth of it.
++  void setAnnealingSteps(int steps);
+ 
+   void setDebug(std::unique_ptr<MplObserver>& graphics);
+   void setDebugShowBundledNets(bool show_bundled_nets);
+diff --git a/src/mpl/src/hier_rtlmp.h b/src/mpl/src/hier_rtlmp.h
+index 081e83e301..077fe07a67 100644
+--- a/src/mpl/src/hier_rtlmp.h
++++ b/src/mpl/src/hier_rtlmp.h
+@@ -81,6 +81,7 @@ class HierRTLMP
+   // Hierarchical Macro Placement Related Options
+   void setGlobalFence(odb::Rect global_fence);
+   void setMinChannelSize(int width, int height);
++  void setAnnealingSteps(int steps) { max_num_step_ = steps; }
+   void setGuidanceRegions(
+       const odb::PtrMap<odb::dbInst, odb::Rect>& guidance_regions);
+ 
+@@ -315,7 +316,7 @@ class HierRTLMP
+ 
+   // Fast SA hyperparameter
+   float init_prob_ = 0.9;
+-  const int max_num_step_ = 2000;
++  int max_num_step_ = 2000;
+   const int num_perturb_per_step_ = 500;
+ 
+   // probability of each action
+diff --git a/src/mpl/src/rtl_mp.cpp b/src/mpl/src/rtl_mp.cpp
+index 09ec695b58..5bece11802 100644
+--- a/src/mpl/src/rtl_mp.cpp
++++ b/src/mpl/src/rtl_mp.cpp
+@@ -226,6 +226,11 @@ void MacroPlacer::setMinChannelSize(int width, int height)
+   hier_rtlmp_->setMinChannelSize(width, height);
+ }
+ 
++void MacroPlacer::setAnnealingSteps(int steps)
++{
++  hier_rtlmp_->setAnnealingSteps(steps);
++}
++
+ void MacroPlacer::blockMacroChannels()
+ {
+   hier_rtlmp_->blockMacroChannels();

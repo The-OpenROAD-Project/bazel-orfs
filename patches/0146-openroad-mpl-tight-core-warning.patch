@@ -1,0 +1,132 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] mpl: warn when the core leaves the macros no room (MPL-0085)
+
+When the macros and halos fill at least 75% of the core, the core's
+smallest width and height are measured exactly; if it can shrink by less
+than 2% both ways, a warning says so: the placement is legal, but there
+is no room left to improve QoR, and the result is a design-space signal
+or a reason to revisit the core, the halos or the macro selection.
+
+Not upstreamed; retires at the //:bump onto an OpenROAD that has it.
+
+---
+diff --git a/src/mpl/BUILD b/src/mpl/BUILD
+index a72148bad7..e60f151fe7 100644
+--- a/src/mpl/BUILD
++++ b/src/mpl/BUILD
+@@ -131,6 +131,8 @@ cc_library(
+         "//src/mpl:__subpackages__",
+     ],
+     deps = [
++        ":packing",
++        ":packing_adapter",
+         ":pusher",
+         ":shapes",
+         ":snapper",
+diff --git a/src/mpl/src/hier_rtlmp.cpp b/src/mpl/src/hier_rtlmp.cpp
+index a2f6fc4f1d..34ca4b2386 100644
+--- a/src/mpl/src/hier_rtlmp.cpp
++++ b/src/mpl/src/hier_rtlmp.cpp
+@@ -38,6 +38,8 @@
+ #include "odb/geom.h"
+ #include "odb/geom_boost.h"
+ #include "odb/util.h"
++#include "packing.h"
++#include "packingAdapter.h"
+ #include "par/PartitionMgr.h"
+ #include "pusher.h"
+ #include "snapper.h"
+@@ -408,6 +410,61 @@ void HierRTLMP::setRootShapes()
+ // Ignore all the standard-cell clusters.
+ // At this stage, we assume the standard cell placer will automatically
+ // place standard cells in the empty space between macros.
++void HierRTLMP::warnIfTight(const PackingProblem& problem) const
++{
++  // Measuring the room costs exact checks; only near-full cores pay it.
++  const double outline_area
++      = static_cast<double>(problem.width) * problem.height;
++  double area = 0;
++  for (const PackingBlock& block : problem.blocks) {
++    if (block.isFixed()) {
++      continue;
++    }
++    int64_t least = std::numeric_limits<int64_t>::max();
++    for (const Tiling& shape : block.shapes) {
++      least = std::min(least, shape.area());
++    }
++    for (const SoftShape& shape : block.soft_shapes) {
++      least = std::min(least, shape.area);
++    }
++    area += least;
++  }
++  if (outline_area == 0 || area / outline_area < 0.75) {
++    return;
++  }
++  int site_width = 1;
++  int row_height = 1;
++  for (odb::dbRow* row : block_->getRows()) {
++    site_width = row->getSite()->getWidth();
++    row_height = row->getSite()->getHeight();
++    break;
++  }
++  const DimensionFix height = smallestHeight(problem, row_height);
++  const DimensionFix width = smallestWidth(problem, site_width);
++  if (!height.found || !width.found) {
++    return;
++  }
++  const int spare_height = problem.height - height.upper;
++  const int spare_width = problem.width - width.upper;
++  if (spare_height >= 0.02 * problem.height
++      || spare_width >= 0.02 * problem.width) {
++    return;
++  }
++  logger_->warn(
++      MPL,
++      85,
++      "The macros, halos included, fill {:.0f}% of the {:.3f} x {:.3f} um "
++      "core; it can shrink by at most {:.3f} um in width or {:.3f} um in "
++      "height. The placement is legal, but there is no room left to improve "
++      "QoR: use the result as a design-space signal, or revisit the core "
++      "area, the halos or which modules are macros.",
++      100 * area / outline_area,
++      block_->dbuToMicrons(problem.width),
++      block_->dbuToMicrons(problem.height),
++      block_->dbuToMicrons(spare_width),
++      block_->dbuToMicrons(spare_height));
++}
++
+ void HierRTLMP::calculateChildrenTilings(Cluster* parent)
+ {
+   // base case, no macros in current cluster
+@@ -636,6 +693,10 @@ void HierRTLMP::calculateChildrenTilings(Cluster* parent)
+                    parent->getName());
+   }
+ 
++  if (parent == tree_->root.get()) {
++    warnIfTight(toPackingProblem(outline, macros, 0));
++  }
++
+   TilingList tilings_list(tilings_set.begin(), tilings_set.end());
+   std::ranges::sort(tilings_list, isAreaSmaller);
+ 
+diff --git a/src/mpl/src/hier_rtlmp.h b/src/mpl/src/hier_rtlmp.h
+index 077fe07a67..7986a6b6d4 100644
+--- a/src/mpl/src/hier_rtlmp.h
++++ b/src/mpl/src/hier_rtlmp.h
+@@ -18,6 +18,7 @@
+ #include "odb/db.h"
+ #include "odb/dbTypes.h"
+ #include "odb/geom.h"
++#include "packing.h"
+ #include "shapes.h"
+ 
+ namespace sta {
+@@ -147,6 +148,8 @@ class HierRTLMP
+   void runCoarseShaping();
+   void setRootShapes();
+   void calculateChildrenTilings(Cluster* parent);
++  // Warn when the core leaves the macros next to no room.
++  void warnIfTight(const PackingProblem& problem) const;
+   void calculateMacroTilings(Cluster* cluster);
+   IntervalList computeWidthIntervals(const TilingList& tilings);
+   TilingList generateTilingsForMacroCluster(int macro_width,

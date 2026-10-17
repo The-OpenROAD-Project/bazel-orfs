@@ -1,0 +1,191 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] mpl: words for why a packing does not fit
+
+explainDoesNotFit() states that the problem is proven not to fit, its
+cause, and each single change to the outline that fixes it, in microns.
+
+Not upstreamed; retires at the //:bump onto an OpenROAD that has it.
+
+---
+diff --git a/src/mpl/src/packing.cpp b/src/mpl/src/packing.cpp
+index bca8e2c6c3..3fdbb00b34 100644
+--- a/src/mpl/src/packing.cpp
++++ b/src/mpl/src/packing.cpp
+@@ -6,6 +6,7 @@
+ #include <algorithm>
+ #include <cctype>
+ #include <cstdint>
++#include <cstdio>
+ #include <cstdlib>
+ #include <istream>
+ #include <limits>
+@@ -830,6 +831,106 @@ PackingFixes findFixes(const PackingProblem& problem,
+   return fixes;
+ }
+ 
++namespace {
++
++std::string microns(const int64_t dbu, const int dbu_per_micron)
++{
++  char text[32];
++  std::snprintf(
++      text, sizeof(text), "%.3f", static_cast<double>(dbu) / dbu_per_micron);
++  return text;
++}
++
++// "123.456" or "between 123.456 and 130.000" when a check was undecided.
++std::string fixText(const DimensionFix& fix, const int dbu_per_micron)
++{
++  if (fix.lower == fix.upper) {
++    return microns(fix.upper, dbu_per_micron);
++  }
++  return "between " + microns(fix.lower, dbu_per_micron) + " and "
++         + microns(fix.upper, dbu_per_micron);
++}
++
++}  // namespace
++
++std::string explainDoesNotFit(const PackingProblem& problem,
++                              const PackingResult& result,
++                              const PackingFixes& fixes,
++                              const int dbu_per_micron)
++{
++  auto um = [dbu_per_micron](const int64_t dbu) {
++    return microns(dbu, dbu_per_micron);
++  };
++  std::string text = "The blocks, halos included, cannot fit in the "
++                     + um(problem.width) + " x " + um(problem.height)
++                     + " um outline (proven).\n  Cause: ";
++  int64_t area = 0;
++  for (const PackingBlock& block : problem.blocks) {
++    if (block.isFixed()) {
++      continue;
++    }
++    int64_t least = std::numeric_limits<int64_t>::max();
++    for (const Tiling& shape : block.shapes) {
++      least = std::min(least, shape.area());
++    }
++    for (const SoftShape& shape : block.soft_shapes) {
++      least = std::min(least, shape.area - shape.width.max + 1);
++    }
++    area += least;
++  }
++  switch (result.cause) {
++    case PackingCause::kBlockTooWide:
++    case PackingCause::kBlockTooTall: {
++      const PackingBlock& block = problem.blocks[result.block];
++      const bool wide = result.cause == PackingCause::kBlockTooWide;
++      text += block.name + " is " + (wide ? "wider" : "taller")
++              + " than the outline in every shape it can take.";
++      break;
++    }
++    case PackingCause::kArea: {
++      const double square
++          = static_cast<double>(dbu_per_micron) * dbu_per_micron;
++      char numbers[96];
++      std::snprintf(
++          numbers,
++          sizeof(numbers),
++          "%.1f um^2, the outline has %.1f um^2",
++          area / square,
++          static_cast<double>(problem.width) * problem.height / square);
++      text += std::string("the blocks need at least ") + numbers
++              + "; no arrangement helps.";
++      break;
++    }
++    case PackingCause::kArrangement:
++    case PackingCause::kNone:
++      text += "the area suffices ("
++              + std::to_string(
++                  100 * area
++                  / (static_cast<int64_t>(problem.width) * problem.height))
++              + "% of the outline), but no arrangement of the blocks does.";
++      break;
++  }
++  text += "\n  It fits with any one of:";
++  if (fixes.height.found) {
++    text += "\n    same width " + um(problem.width)
++            + " um: height >= " + fixText(fixes.height, dbu_per_micron) + " um";
++  } else {
++    text += "\n    same width " + um(problem.width) + " um: no height suffices";
++  }
++  if (fixes.width.found) {
++    text += "\n    same height " + um(problem.height)
++            + " um: width >= " + fixText(fixes.width, dbu_per_micron) + " um";
++  } else {
++    text
++        += "\n    same height " + um(problem.height) + " um: no width suffices";
++  }
++  if (fixes.same_aspect.found) {
++    text += "\n    same aspect ratio: width >= "
++            + fixText(fixes.same_aspect, dbu_per_micron) + " um";
++  }
++  return text;
++}
++
+ void writePackingProblem(std::ostream& out,
+                          const std::string& tag,
+                          const PackingProblem& problem)
+diff --git a/src/mpl/src/packing.h b/src/mpl/src/packing.h
+index b858a1a19a..b43cb7e4bf 100644
+--- a/src/mpl/src/packing.h
++++ b/src/mpl/src/packing.h
+@@ -144,6 +144,13 @@ PackingFixes findFixes(const PackingProblem& problem,
+ // The height that goes with `width` under smallestSameAspect().
+ int sameAspectHeight(const PackingProblem& problem, int width, int height_step);
+ 
++// A user-facing explanation of why `problem` does not fit and what single
++// change would make it fit, in microns. `result` must be kDoesNotFit.
++std::string explainDoesNotFit(const PackingProblem& problem,
++                              const PackingResult& result,
++                              const PackingFixes& fixes,
++                              int dbu_per_micron);
++
+ // A plain-text form of a problem, one line per item, for reproducers:
+ //   P <tag> <width> <height> <blocks>
+ //   B <name> F <x> <y> <width> <height>        a fixed block
+diff --git a/src/mpl/test/cpp/TestPacking.cpp b/src/mpl/test/cpp/TestPacking.cpp
+index 3fef7ee559..bf3fb6b77a 100644
+--- a/src/mpl/test/cpp/TestPacking.cpp
++++ b/src/mpl/test/cpp/TestPacking.cpp
+@@ -413,5 +413,40 @@ TEST(PackingFix, BlockWiderThanAnyHeightAllowsIsNotFixedByHeight)
+   EXPECT_FALSE(smallestHeight(problem, 1).found);
+ }
+ 
++// The explanation states the facts a user acts on: that it is proven, the
++// cause, and each single change with its number.
++TEST(PackingExplain, ArrangementNamesEachFix)
++{
++  const int s = 1000;  // 1 um at 1000 DBU per um
++  const PackingProblem problem{
++      2 * s - 1, 2 * s - 1, {rigid(s, s), rigid(s, s)}};
++  const PackingResult result = checkPacking(problem);
++  ASSERT_EQ(result.status, PackingStatus::kDoesNotFit);
++  const PackingFixes fixes = findFixes(problem, 1, 1);
++  const std::string text = explainDoesNotFit(problem, result, fixes, 1000);
++  EXPECT_NE(text.find("(proven)"), std::string::npos) << text;
++  EXPECT_NE(text.find("no arrangement"), std::string::npos) << text;
++  // Two 1 um squares side by side: 2 um wide at the same height.
++  EXPECT_NE(text.find("same height 1.999 um: width >= 2.000 um"),
++            std::string::npos)
++      << text;
++  EXPECT_NE(text.find("same width 1.999 um: height >= 2.000 um"),
++            std::string::npos)
++      << text;
++}
++
++TEST(PackingExplain, TooWideBlockIsNamedAndHeightCannotHelp)
++{
++  PackingBlock wide = rigid(3000, 100);
++  wide.name = "sram0";
++  const PackingProblem problem{2000, 2000, {wide}};
++  const PackingResult result = checkPacking(problem);
++  const std::string text
++      = explainDoesNotFit(problem, result, findFixes(problem, 1, 1), 1000);
++  EXPECT_NE(text.find("sram0 is wider"), std::string::npos) << text;
++  EXPECT_NE(text.find("no height suffices"), std::string::npos) << text;
++  EXPECT_NE(text.find("width >= 3.000 um"), std::string::npos) << text;
++}
++
+ }  // namespace
+ }  // namespace mpl

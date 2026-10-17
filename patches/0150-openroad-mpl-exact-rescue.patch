@@ -1,0 +1,532 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] mpl: anneal from an exact placement when annealing finds none
+
+When every annealing run of a cluster placement ends outside its outline
+(MPL-0040 at the root, MPL-0008 below it, MPL-0010 for macros inside a
+cluster), the exact check settles whether a placement exists, at each
+standard cell utilization the annealer tried. If one does, it seeds an
+annealer, as a sequence pair and shapes, that keeps to legal states and
+improves the wirelength from there (MPL-0083). If none does, the error
+carries the proof and the fixes, and says whether the outline is the
+core or mpl's own allocation from the parent level.
+
+The annealer headers are exported to the tests for the gtest of this
+path: a planted packing that fills its outline exactly, handed to the
+annealer as its exact placement, stays inside the outline.
+
+Not upstreamed; retires at the //:bump onto an OpenROAD that has it.
+
+---
+diff --git a/src/mpl/BUILD b/src/mpl/BUILD
+index e60f151fe7..e25e466435 100644
+--- a/src/mpl/BUILD
++++ b/src/mpl/BUILD
+@@ -108,11 +108,8 @@ cc_library(
+     name = "mpl_impl",
+     srcs = [
+         "src/SACoreHardMacro.cpp",
+-        "src/SACoreHardMacro.h",
+         "src/SACoreSoftMacro.cpp",
+-        "src/SACoreSoftMacro.h",
+         "src/SimulatedAnnealingCore.cpp",
+-        "src/SimulatedAnnealingCore.h",
+         "src/clusterEngine.cpp",
+         "src/hier_rtlmp.cpp",
+         "src/hier_rtlmp.h",
+@@ -121,6 +118,9 @@ cc_library(
+     hdrs = [
+         "include/mpl/rtl_mp.h",
+         "src/MplObserver.h",
++        "src/SACoreHardMacro.h",
++        "src/SACoreSoftMacro.h",
++        "src/SimulatedAnnealingCore.h",
+         "src/clusterEngine.h",
+     ],
+     includes = [
+diff --git a/src/mpl/src/hier_rtlmp.cpp b/src/mpl/src/hier_rtlmp.cpp
+index d792b09d78..26ec9ab098 100644
+--- a/src/mpl/src/hier_rtlmp.cpp
++++ b/src/mpl/src/hier_rtlmp.cpp
+@@ -515,6 +515,40 @@ std::string HierRTLMP::explainChannel(Cluster* parent, const odb::Rect& outline)
+   return "\n  Channel: undecided at the PDN's minimum " + floor + " um.";
+ }
+ 
++std::vector<SoftMacro> HierRTLMP::seedSoftMacros(
++    std::vector<SoftMacro> macros,
++    const std::vector<PlacedBlock>& placement,
++    const std::vector<int>& macro_of_block)
++{
++  for (size_t k = 0; k < placement.size(); k++) {
++    SoftMacro& macro = macros[macro_of_block[k]];
++    if (macro.isFixed()) {
++      continue;
++    }
++    macro.setShapeF(placement[k].width, placement[k].height);
++    macro.setLocationF(placement[k].x, placement[k].y);
++  }
++  return macros;
++}
++
++template <class T>
++SequencePair HierRTLMP::sequencePairOf(const std::vector<T>& macros,
++                                       const int sequence_pair_macros) const
++{
++  std::vector<odb::Rect> rects;
++  for (int i = 0; i < sequence_pair_macros; i++) {
++    rects.push_back(macros[i].getBBox());
++  }
++  SequencePair pair = mpl::sequencePairOf(rects);
++  if (pair.pos_sequence.empty()) {
++    logger_->error(MPL,
++                   84,
++                   "The exact placement overlaps; please report this "
++                   "internal error.");
++  }
++  return pair;
++}
++
+ void HierRTLMP::warnIfTight(const PackingProblem& problem) const
+ {
+   // Measuring the room costs exact checks; only near-full cores pay it.
+@@ -1581,6 +1615,41 @@ void HierRTLMP::placeChildren(Cluster* parent)
+   int remaining_runs = total_number_of_runs;
+   int run_id = 0;
+ 
++  const bool single_array_single_std_cell_cluster
++      = singleArraySingleStdCellCluster(macros);
++  auto make_sa = [&](const std::vector<SoftMacro>& inflated) {
++    std::unique_ptr<SACoreSoftMacro> sa
++        = std::make_unique<SACoreSoftMacro>(tree_.get(),
++                                            outline,
++                                            inflated,
++                                            placement_core_weights_,
++                                            cluster_placement_weights_,
++                                            notch_h_th_,
++                                            notch_v_th_,
++                                            pos_swap_prob_ / action_sum,
++                                            neg_swap_prob_ / action_sum,
++                                            double_swap_prob_ / action_sum,
++                                            exchange_swap_prob_ / action_sum,
++                                            resize_prob_ / action_sum,
++                                            init_prob_,
++                                            max_num_step_,
++                                            num_perturb_per_step,
++                                            random_seed_,
++                                            graphics_.get(),
++                                            logger_,
++                                            block_);
++    sa->setNumberOfSequencePairMacros(number_of_sequence_pair_macros);
++    sa->enableEnhancements();
++    sa->setFences(fences);
++    sa->setGuides(guides);
++    sa->setNets(nets);
++    sa->setSoftBlockages(soft_blockages);
++    if (single_array_single_std_cell_cluster) {
++      sa->forceCentralization();
++    }
++    return sa;
++  };
++
+   std::unique_ptr<SACoreSoftMacro> best_sa;
+   std::set<int> skipped_utilization_indices;
+   while (remaining_runs > 0) {
+@@ -1607,38 +1676,7 @@ void HierRTLMP::placeChildren(Cluster* parent)
+       std::vector<SoftMacro> inflated_macros
+           = applyUtilization(utilization, outline, macros);
+ 
+-      const bool single_array_single_std_cell_cluster
+-          = singleArraySingleStdCellCluster(macros);
+-
+-      std::unique_ptr<SACoreSoftMacro> sa
+-          = std::make_unique<SACoreSoftMacro>(tree_.get(),
+-                                              outline,
+-                                              inflated_macros,
+-                                              placement_core_weights_,
+-                                              cluster_placement_weights_,
+-                                              notch_h_th_,
+-                                              notch_v_th_,
+-                                              pos_swap_prob_ / action_sum,
+-                                              neg_swap_prob_ / action_sum,
+-                                              double_swap_prob_ / action_sum,
+-                                              exchange_swap_prob_ / action_sum,
+-                                              resize_prob_ / action_sum,
+-                                              init_prob_,
+-                                              max_num_step_,
+-                                              num_perturb_per_step,
+-                                              random_seed_,
+-                                              graphics_.get(),
+-                                              logger_,
+-                                              block_);
+-      sa->setNumberOfSequencePairMacros(number_of_sequence_pair_macros);
+-      sa->enableEnhancements();
+-      sa->setFences(fences);
+-      sa->setGuides(guides);
+-      sa->setNets(nets);
+-      sa->setSoftBlockages(soft_blockages);
+-      if (single_array_single_std_cell_cluster) {
+-        sa->forceCentralization();
+-      }
++      std::unique_ptr<SACoreSoftMacro> sa = make_sa(inflated_macros);
+ 
+       sa_batch.push_back(std::move(sa));
+     }
+@@ -1681,24 +1719,78 @@ void HierRTLMP::placeChildren(Cluster* parent)
+     }
+   }
+ 
++  // Every annealing run ended outside the outline: settle whether a
++  // placement exists, at the utilizations the annealer tried, and anneal
++  // from it if so.
++  std::string proof;
++  for (int index = 0; !best_sa && index < utilization_list.size(); index++) {
++    const float utilization = utilization_list[index];
++    if (!validUtilization(utilization, outline, macros)) {
++      continue;
++    }
++    std::vector<SoftMacro> inflated
++        = applyUtilization(utilization, outline, macros);
++    std::vector<int> macro_of_block;
++    const PackingProblem problem = toPackingProblem(
++        outline, inflated, number_of_sequence_pair_macros, &macro_of_block);
++    const PackingResult fit = checkPacking(problem);
++    if (fit.status == PackingStatus::kDoesNotFit) {
++      // The last one is the sparsest standard cell utilization.
++      proof = explainOutline(problem, fit);
++    }
++    if (fit.status != PackingStatus::kFits) {
++      continue;
++    }
++    const std::vector<SoftMacro> seeded
++        = seedSoftMacros(inflated, fit.placement, macro_of_block);
++    std::unique_ptr<SACoreSoftMacro> sa = make_sa(seeded);
++    sa->setInitialSequencePair(
++        sequencePairOf(seeded, number_of_sequence_pair_macros));
++    sa->disallowInvalidStates();
++    runSA<SACoreSoftMacro>(sa.get());
++    if (!sa->isValid()) {
++      logger_->error(MPL,
++                     82,
++                     "Annealing from the exact placement of cluster {} left "
++                     "its outline; please report this internal error.",
++                     parent->getName());
++    }
++    logger_->info(MPL,
++                  83,
++                  "Annealing found no placement for cluster {}; an exact "
++                  "check did, at utilization {:.3f}, and annealing improved "
++                  "it from there.",
++                  parent->getName(),
++                  utilization);
++    best_sa = std::move(sa);
++  }
++
+   if (!best_sa) {
+     if (parent == tree_->root.get()) {
+       logger_->error(
+           MPL,
+           40,
+           "Failed to find a valid solution for any of the standard cell "
+-          "densities below.\n\n{}\n\nCore utilization is probably too high. "
+-          "Please, reduce it and try again.",
++          "densities below.\n\n{}\n\n{}",
+           buildClusterPlacementErrorTable(utilization_list,
+-                                          skipped_utilization_indices));
++                                          skipped_utilization_indices),
++          proof.empty() ? "Core utilization is probably too high. Please, "
++                          "reduce it and try again."
++                        : "At the sparsest of them: " + proof
++                              + "\n  The outline is the core area.");
+     } else {
+       logger_->error(MPL,
+                      8,
+                      "Annealing engine failed to find a valid solution. "
+                      "Please, report this internal error.\nFailed at cluster "
+-                     "({}): {}",
++                     "({}): {}{}",
+                      parent->getId(),
+-                     parent->getName());
++                     parent->getName(),
++                     proof.empty()
++                         ? ""
++                         : "\n" + proof
++                               + "\n  The outline is mpl's own allocation "
++                                 "from the parent cluster.");
+     }
+   }
+ 
+@@ -2230,14 +2322,75 @@ void HierRTLMP::placeMacros(Cluster* cluster)
+   }
+ 
+   if (best_sa == nullptr) {
+-    for (auto& sa : sa_containers) {
+-      sa->printResults();
+-    }
+-    logger_->error(MPL,
+-                   10,
+-                   "Macro placement failed for macro cluster: {}",
+-                   cluster->getName());
+-  } else {
++    // Every annealing run ended outside the outline: settle whether a
++    // placement exists, and anneal from it if so.
++    std::vector<int> macro_of_block;
++    const PackingProblem problem = toPackingProblem(
++        outline, sa_macros, number_of_sequence_pair_macros, &macro_of_block);
++    const PackingResult fit = checkPacking(problem);
++    if (fit.status == PackingStatus::kFits) {
++      std::vector<HardMacro> seeded = sa_macros;
++      for (size_t k = 0; k < fit.placement.size(); k++) {
++        HardMacro& macro = seeded[macro_of_block[k]];
++        if (!macro.isFixed()) {
++          macro.setX(fit.placement[k].x);
++          macro.setY(fit.placement[k].y);
++        }
++      }
++      auto sa = std::make_unique<SACoreHardMacro>(tree_.get(),
++                                                  outline,
++                                                  seeded,
++                                                  placement_core_weights_,
++                                                  pos_swap_prob,
++                                                  neg_swap_prob,
++                                                  double_swap_prob,
++                                                  exchange_swap_prob,
++                                                  init_prob_,
++                                                  max_num_step_,
++                                                  perturbations_per_step,
++                                                  random_seed_,
++                                                  graphics_.get(),
++                                                  logger_,
++                                                  block_);
++      sa->setNumberOfSequencePairMacros(number_of_sequence_pair_macros);
++      sa->setNets(nets);
++      sa->setFences(fences);
++      sa->setGuides(guides);
++      sa->setInitialSequencePair(
++          sequencePairOf(seeded, number_of_sequence_pair_macros));
++      sa->disallowInvalidStates();
++      runSA<SACoreHardMacro>(sa.get());
++      if (!sa->isValid()) {
++        logger_->error(MPL,
++                       86,
++                       "Annealing from the exact placement of cluster {} "
++                       "left its outline; please report this internal error.",
++                       cluster->getName());
++      }
++      logger_->info(MPL,
++                    87,
++                    "Annealing found no placement for cluster {}; an exact "
++                    "check did, and annealing improved it from there.",
++                    cluster->getName());
++      best_sa = sa.get();
++      sa_containers.push_back(std::move(sa));
++    } else {
++      for (auto& sa : sa_containers) {
++        sa->printResults();
++      }
++      logger_->error(MPL,
++                     10,
++                     "Macro placement failed for macro cluster: {}{}",
++                     cluster->getName(),
++                     fit.status == PackingStatus::kDoesNotFit
++                         ? ". " + explainOutline(problem, fit)
++                               + "\n  The outline is mpl's own allocation "
++                                 "from the parent cluster."
++                         : "; the exact check could not decide within its "
++                           "budget.");
++    }
++  }
++  if (best_sa != nullptr) {
+     std::vector<HardMacro> best_macros = best_sa->getMacros();
+ 
+     if (logger_->debugCheck(MPL, "hierarchical_macro_placement", 1)) {
+diff --git a/src/mpl/src/hier_rtlmp.h b/src/mpl/src/hier_rtlmp.h
+index 8d8b516958..45df2cb44e 100644
+--- a/src/mpl/src/hier_rtlmp.h
++++ b/src/mpl/src/hier_rtlmp.h
+@@ -158,6 +158,15 @@ class HierRTLMP
+   std::optional<PackingProblem> tilingProblemAtChannel(Cluster* parent,
+                                                        const odb::Rect& outline,
+                                                        const Channel& channel);
++  // `macros` shaped and placed as an exact check placed them.
++  static std::vector<SoftMacro> seedSoftMacros(
++      std::vector<SoftMacro> macros,
++      const std::vector<PlacedBlock>& placement,
++      const std::vector<int>& macro_of_block);
++  // The sequence pair of the first `sequence_pair_macros` macros, as placed.
++  template <class T>
++  SequencePair sequencePairOf(const std::vector<T>& macros,
++                              int sequence_pair_macros) const;
+   // Warn when the core leaves the macros next to no room.
+   void warnIfTight(const PackingProblem& problem) const;
+   // What the PDN's minimum channel would do for `parent`'s children.
+diff --git a/src/mpl/test/BUILD b/src/mpl/test/BUILD
+index 469399bf95..f79f85bd34 100644
+--- a/src/mpl/test/BUILD
++++ b/src/mpl/test/BUILD
+@@ -377,6 +377,26 @@ cc_test(
+     ],
+ )
+ 
++cc_test(
++    name = "mpl_seeded_annealing_unittest",
++    srcs = [
++        "cpp/MplTest.h",
++        "cpp/TestSeededAnnealing.cpp",
++    ],
++    deps = [
++        "//src/mpl:mpl_impl",
++        "//src/mpl:packing",
++        "//src/mpl:packing_adapter",
++        "//src/mpl:pusher",
++        "//src/mpl:shapes",
++        "//src/odb/src/db",
++        "//src/tst",
++        "//src/utl",
++        "@googletest//:gtest",
++        "@googletest//:gtest_main",
++    ],
++)
++
+ # Not a test: runs the macro placer on a design as long as asked, for a
+ # developer's machine. bazelisk run //src/mpl/test:mpl_bench -- <odb> ...
+ cc_binary(
+diff --git a/src/mpl/test/cpp/TestSeededAnnealing.cpp b/src/mpl/test/cpp/TestSeededAnnealing.cpp
+new file mode 100644
+index 0000000000..40a09fa0db
+--- /dev/null
++++ b/src/mpl/test/cpp/TestSeededAnnealing.cpp
+@@ -0,0 +1,135 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++// An annealer started from a legal placement, with legal moves only, ends
++// inside its outline: the rescue mpl falls back on when annealing alone
++// finds no placement.
++
++#include <algorithm>
++#include <memory>
++#include <random>
++#include <string>
++#include <vector>
++
++#include "MplTest.h"
++#include "SACoreHardMacro.h"
++#include "clusterEngine.h"
++#include "gtest/gtest.h"
++#include "object.h"
++#include "odb/geom.h"
++#include "packing.h"
++#include "packingAdapter.h"
++
++namespace mpl {
++namespace {
++
++class SeededAnnealing : public MplTest
++{
++ protected:
++  // Hard macros that tile `outline` exactly: a perfect packing exists and
++  // no annealing move has any slack.
++  std::vector<HardMacro> planted(const int width,
++                                 const int height,
++                                 const int pieces,
++                                 std::mt19937& rng)
++  {
++    struct Piece
++    {
++      int width;
++      int height;
++    };
++    std::vector<Piece> work{{width, height}};
++    while (static_cast<int>(work.size()) < pieces) {
++      const size_t index
++          = std::uniform_int_distribution<size_t>(0, work.size() - 1)(rng);
++      const Piece piece = work[index];
++      const bool vertical = piece.width >= piece.height;
++      const int side = vertical ? piece.width : piece.height;
++      if (side < 2000) {
++        continue;
++      }
++      // Cuts on a 200 DBU grid keep the exact check on its coarse levels.
++      const int at
++          = 200 * std::uniform_int_distribution<int>(5, side / 200 - 5)(rng);
++      work.erase(work.begin() + index);
++      if (vertical) {
++        work.push_back({at, piece.height});
++        work.push_back({piece.width - at, piece.height});
++      } else {
++        work.push_back({piece.width, at});
++        work.push_back({piece.width, piece.height - at});
++      }
++    }
++    std::shuffle(work.begin(), work.end(), rng);
++    std::vector<HardMacro> macros;
++    for (size_t i = 0; i < work.size(); i++) {
++      macros.emplace_back(
++          work[i].width, work[i].height, "m" + std::to_string(i));
++    }
++    return macros;
++  }
++
++  std::unique_ptr<SACoreHardMacro> annealer(
++      const odb::Rect& outline,
++      const std::vector<HardMacro>& macros)
++  {
++    tree_.die_area = outline;
++    SACoreWeights weights;
++    weights.outline = 1.0f;
++    weights.wirelength = 1.0f;
++    return std::make_unique<SACoreHardMacro>(&tree_,
++                                             outline,
++                                             macros,
++                                             weights,
++                                             0.2f,
++                                             0.2f,
++                                             0.2f,
++                                             0.4f,
++                                             0.95f,
++                                             200,
++                                             50,
++                                             1,
++                                             nullptr,
++                                             &logger_,
++                                             db_->getChip()->getBlock());
++  }
++
++  PhysicalHierarchy tree_;
++};
++
++TEST_F(SeededAnnealing, LegalStartStaysInsideTheOutline)
++{
++  std::mt19937 rng(11);
++  const odb::Rect outline(0, 0, 102400, 71600);
++  for (int pieces = 2; pieces <= 10; pieces++) {
++    std::vector<HardMacro> macros
++        = planted(outline.dx(), outline.dy(), pieces, rng);
++    const PackingProblem problem = toPackingProblem(outline, macros, 0);
++    const PackingResult fit = checkPacking(problem);
++    ASSERT_EQ(fit.status, PackingStatus::kFits) << pieces;
++
++    std::vector<odb::Rect> rects;
++    for (size_t i = 0; i < macros.size(); i++) {
++      const PlacedBlock& placed = fit.placement[i];
++      macros[i].setX(placed.x);
++      macros[i].setY(placed.y);
++      rects.emplace_back(placed.x,
++                         placed.y,
++                         placed.x + placed.width,
++                         placed.y + placed.height);
++    }
++    const SequencePair pair = sequencePairOf(rects);
++    ASSERT_EQ(pair.pos_sequence.size(), macros.size()) << pieces;
++
++    std::unique_ptr<SACoreHardMacro> sa = annealer(outline, macros);
++    sa->setInitialSequencePair(pair);
++    sa->disallowInvalidStates();
++    runSA(sa.get());
++    EXPECT_TRUE(sa->isValid()) << pieces << " macros";
++    EXPECT_LE(sa->getWidth(), outline.dx()) << pieces;
++    EXPECT_LE(sa->getHeight(), outline.dy()) << pieces;
++  }
++}
++
++}  // namespace
++}  // namespace mpl

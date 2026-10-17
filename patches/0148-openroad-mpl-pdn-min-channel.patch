@@ -1,0 +1,330 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] mpl: -pdn_min_channel_size proposes a channel when macros do not fit
+
+Halos are often what keeps macros from fitting. With
+-pdn_min_channel_size, the narrowest channel the user trusts the PDN to
+repair, the MPL-0003 error rebuilds the macro clusters at that channel,
+through the clustering engine's own halo rule and the tiling generator,
+and says whether it fits or how far the core must grow even at it. The
+option changes no placement. Clusters that hold standard cells are shaped
+by annealing and get no proposal. The value is the user's: whether the
+PDN can repair a channel depends on where its straps fall, not only on
+the channel's width, so mpl does not derive it.
+
+Not upstreamed; retires at the //:bump onto an OpenROAD that has it.
+
+---
+diff --git a/src/mpl/README.md b/src/mpl/README.md
+index e847eeb6d4..946d952776 100644
+--- a/src/mpl/README.md
++++ b/src/mpl/README.md
+@@ -27,6 +27,7 @@ rtl_macro_placer
+     [-coarsening_ratio coarsening_ratio]
+     [-large_net_threshold large_net_threshold]
+     [-min_channel_size {width [height]}]
++    [-pdn_min_channel_size {width [height]}]
+     [-halo_width halo_width]
+     [-halo_height halo_height]
+     [-fence_lx fence_lx] 
+@@ -60,6 +61,7 @@ rtl_macro_placer
+ | `-coarsening_ratio` | The larger the coarsening_ratio, the faster the convergence process. The allowed values are floats, and the default value is `10.0`. |
+ | `-large_net_threshold` | Ignore nets with many connections during clustering, such as global nets. The default value is `50`, and the allowed values are integers `[0, MAX_INT]`. |
+ | `-min_channel_size` | Minimum channel width and height between macros (microns), given as `{width}` or `{width height}`. If `height` is omitted, it defaults to `width`. The default value is `0.0` for both. |
++| `-pdn_min_channel_size` | The narrowest channel between macros that the PDN can repair (microns), given as `{width}` or `{width height}`. It does not change the placement: when the macros do not fit, the error proposes this channel, or says how far the outline must grow even at it. |
+ | `-halo_width`, `-halo_height` | **Deprecated: use `-min_channel_size` instead.** Horizontal/vertical halo around macros (microns), applied uniformly on all sides. Equivalent to `-min_channel_size {2*halo_width 2*halo_height}`. |
+ | `-fence_lx`, `-fence_ly`, `-fence_ux`, `-fence_uy` | Defines the global fence bounding box coordinates. The default values are the core area coordinates. |
+ | `-target_util` | Specifies the target utilization. The allowed values are floats and the default value is `0.25`. |
+@@ -179,6 +181,10 @@ bazelisk test //src/mpl/...
+   budget. A problem it cannot decide within that budget gets the error
+   without a proof; this happens when the macros fill nearly all of the
+   outline (on the ORFS designs, one problem at 99% fill).
++- `-pdn_min_channel_size` is given by the user. mpl does not derive it from
++  the PDN: whether the PDN can repair a channel depends on where its straps
++  fall relative to the channel, not only on the channel's width, and mpl
++  runs before the PDN is defined.
+ 
+ ## References
+ 1. A. B. Kahng, R. Varadarajan and Z. Wang, 
+diff --git a/src/mpl/include/mpl/rtl_mp.h b/src/mpl/include/mpl/rtl_mp.h
+index b6ec848acc..8a3d257980 100644
+--- a/src/mpl/include/mpl/rtl_mp.h
++++ b/src/mpl/include/mpl/rtl_mp.h
+@@ -79,6 +79,9 @@ class MacroPlacer
+   void setMacroPlacementFile(const std::string& file_name);
+   void addGuidanceRegion(odb::dbInst* macro, odb::Rect region);
+   void setMinChannelSize(int width, int height);
++  // The narrowest channel the PDN can repair; used to propose a channel when
++  // the macros do not fit.
++  void setPdnMinChannelSize(int width, int height);
+   // The step budget of each annealing run (default 2000); runs also stop
+   // once their best result has not improved for a fifth of it.
+   void setAnnealingSteps(int steps);
+diff --git a/src/mpl/src/clusterEngine.cpp b/src/mpl/src/clusterEngine.cpp
+index d224a92dec..2cef79554f 100644
+--- a/src/mpl/src/clusterEngine.cpp
++++ b/src/mpl/src/clusterEngine.cpp
+@@ -2150,6 +2150,12 @@ int ClusteringEngine::getNumberOfIOs(Cluster* target) const
+   return number_of_ios;
+ }
+ 
++HardMacro::Halo ClusteringEngine::macroHaloAt(odb::dbInst* inst,
++                                              const Channel& channel) const
++{
++  return buildMacroHalo(inst, getMinimumSpacing(), channel);
++}
++
+ HardMacro::Halo ClusteringEngine::buildMacroHalo(odb::dbInst* inst,
+                                                  int minimum_spacing,
+                                                  const Channel& channel) const
+diff --git a/src/mpl/src/clusterEngine.h b/src/mpl/src/clusterEngine.h
+index dc91f36652..ef34f32bd2 100644
+--- a/src/mpl/src/clusterEngine.h
++++ b/src/mpl/src/clusterEngine.h
+@@ -97,6 +97,8 @@ struct IOBundleSpans
+ class ClusteringEngine
+ {
+  public:
++  // The halo clustering gives `inst` when the minimum channel is `channel`.
++  HardMacro::Halo macroHaloAt(odb::dbInst* inst, const Channel& channel) const;
+   ClusteringEngine(odb::dbBlock* block,
+                    utl::Logger* logger,
+                    par::PartitionMgr* triton_part,
+diff --git a/src/mpl/src/hier_rtlmp.cpp b/src/mpl/src/hier_rtlmp.cpp
+index 8283a1a8b5..d792b09d78 100644
+--- a/src/mpl/src/hier_rtlmp.cpp
++++ b/src/mpl/src/hier_rtlmp.cpp
+@@ -119,6 +119,11 @@ void HierRTLMP::setMinChannelSize(int width, int height)
+   min_channel_ = {width, height};
+ }
+ 
++void HierRTLMP::setPdnMinChannelSize(int width, int height)
++{
++  pdn_min_channel_ = {width, height};
++}
++
+ void HierRTLMP::setGuidanceRegions(
+     const odb::PtrMap<odb::dbInst, odb::Rect>& guidance_regions)
+ {
+@@ -427,6 +432,89 @@ std::string HierRTLMP::explainOutline(const PackingProblem& problem,
+                            block_->getDbUnitsPerMicron());
+ }
+ 
++std::optional<PackingProblem> HierRTLMP::tilingProblemAtChannel(
++    Cluster* parent,
++    const odb::Rect& outline,
++    const Channel& channel)
++{
++  PackingProblem problem{outline.dx(), outline.dy(), {}};
++  for (auto& cluster : parent->getChildren()) {
++    if (cluster->getNumMacro() == 0) {
++      continue;
++    }
++    if (cluster->getClusterType() != HardMacroCluster
++        && !cluster->isFixedMacro()) {
++      return std::nullopt;  // shaped by annealing standard cells too
++    }
++    const std::vector<HardMacro*> hard_macros = cluster->getHardMacros();
++    odb::dbInst* inst = hard_macros.front()->getInst();
++    HardMacro macro(inst, clustering_engine_->macroHaloAt(inst, channel));
++    PackingBlock block;
++    block.name = cluster->getName();
++    if (cluster->isFixedMacro()) {
++      macro.setRealLocation(inst->getLocation());
++      block.shapes.emplace_back(macro.getWidth(), macro.getHeight());
++      block.fixed_x = macro.getX() - outline.xMin();
++      block.fixed_y = macro.getY() - outline.yMin();
++    } else {
++      const int count = static_cast<int>(hard_macros.size());
++      TilingList tilings = generateTilingsForMacroCluster(
++          macro.getWidth(), macro.getHeight(), count);
++      if (tilings.empty()) {
++        tilings = generateTilingsForMacroCluster(
++            macro.getWidth(), macro.getHeight(), count + 1);
++      }
++      if (tilings.empty()) {
++        // No array of these macros fits the core at all; a block no
++        // shape of which fits says so.
++        tilings.emplace_back(macro.getWidth() * count, macro.getHeight());
++      }
++      block.shapes = tilings;
++    }
++    problem.blocks.push_back(block);
++  }
++  return problem;
++}
++
++std::string HierRTLMP::explainChannel(Cluster* parent, const odb::Rect& outline)
++{
++  const double dbu = block_->getDbUnitsPerMicron();
++  auto um = [dbu](int value) { return fmt::format("{:.3f}", value / dbu); };
++  const std::string current
++      = um(min_channel_.width) + " " + um(min_channel_.height);
++  if (pdn_min_channel_.width == 0 && pdn_min_channel_.height == 0) {
++    return "\n  Channel: -min_channel_size is " + current
++           + " um; set -pdn_min_channel_size to the narrowest channel the PDN"
++             " can repair to get a channel proposal.";
++  }
++  const std::string floor
++      = um(pdn_min_channel_.width) + " " + um(pdn_min_channel_.height);
++  if (pdn_min_channel_.width >= min_channel_.width
++      && pdn_min_channel_.height >= min_channel_.height) {
++    return "\n  Channel: -min_channel_size " + current
++           + " um is already at or below the PDN's minimum " + floor + " um.";
++  }
++  const std::optional<PackingProblem> problem
++      = tilingProblemAtChannel(parent, outline, pdn_min_channel_);
++  if (!problem) {
++    return "\n  Channel: no proposal; some clusters hold standard cells, "
++           "whose shapes depend on annealing.";
++  }
++  const PackingResult fit = checkPacking(*problem);
++  if (fit.status == PackingStatus::kFits) {
++    return "\n  Channel: -min_channel_size " + floor
++           + " um, the PDN's minimum, fits in this outline.";
++  }
++  if (fit.status == PackingStatus::kDoesNotFit) {
++    std::string text = explainOutline(*problem, fit);
++    return "\n  Channel: even at the PDN's minimum, -min_channel_size " + floor
++           + " um, the outline must grow:"
++           + text.substr(text.find("\n  It fits with any one of:")
++                         + std::string("\n  It fits with any one of:").size());
++  }
++  return "\n  Channel: undecided at the PDN's minimum " + floor + " um.";
++}
++
+ void HierRTLMP::warnIfTight(const PackingProblem& problem) const
+ {
+   // Measuring the room costs exact checks; only near-full cores pay it.
+@@ -732,6 +820,7 @@ void HierRTLMP::calculateChildrenTilings(Cluster* parent)
+           parent->getName(),
+           fit.status == PackingStatus::kDoesNotFit
+               ? ". " + explainOutline(problem, fit)
++                    + explainChannel(parent, outline)
+                     + "\n  The outline is the core area."
+               : "; the exact check could not decide within its budget.");
+     }
+diff --git a/src/mpl/src/hier_rtlmp.h b/src/mpl/src/hier_rtlmp.h
+index e5e0db63b5..8d8b516958 100644
+--- a/src/mpl/src/hier_rtlmp.h
++++ b/src/mpl/src/hier_rtlmp.h
+@@ -5,6 +5,7 @@
+ 
+ #include <map>
+ #include <memory>
++#include <optional>
+ #include <queue>
+ #include <set>
+ #include <string>
+@@ -82,6 +83,7 @@ class HierRTLMP
+   // Hierarchical Macro Placement Related Options
+   void setGlobalFence(odb::Rect global_fence);
+   void setMinChannelSize(int width, int height);
++  void setPdnMinChannelSize(int width, int height);
+   void setAnnealingSteps(int steps) { max_num_step_ = steps; }
+   void setGuidanceRegions(
+       const odb::PtrMap<odb::dbInst, odb::Rect>& guidance_regions);
+@@ -151,8 +153,15 @@ class HierRTLMP
+   // Why `problem` does not fit, with the outline changes that would fix it.
+   std::string explainOutline(const PackingProblem& problem,
+                              const PackingResult& result) const;
++  // The tiling problem of `parent`'s children if the minimum channel were
++  // `channel`; none when a child's shapes come from annealing.
++  std::optional<PackingProblem> tilingProblemAtChannel(Cluster* parent,
++                                                       const odb::Rect& outline,
++                                                       const Channel& channel);
+   // Warn when the core leaves the macros next to no room.
+   void warnIfTight(const PackingProblem& problem) const;
++  // What the PDN's minimum channel would do for `parent`'s children.
++  std::string explainChannel(Cluster* parent, const odb::Rect& outline);
+   void calculateMacroTilings(Cluster* cluster);
+   IntervalList computeWidthIntervals(const TilingList& tilings);
+   TilingList generateTilingsForMacroCluster(int macro_width,
+@@ -313,6 +322,7 @@ class HierRTLMP
+   odb::PtrMap<odb::dbInst, odb::Rect> guides_;  // Macro -> Guidance Region
+ 
+   Channel min_channel_;
++  Channel pdn_min_channel_;
+ 
+   std::vector<odb::Rect> placement_blockages_;
+   std::vector<odb::Rect> io_blockages_;
+diff --git a/src/mpl/src/mpl.i b/src/mpl/src/mpl.i
+index af91cb2297..61216130c1 100644
+--- a/src/mpl/src/mpl.i
++++ b/src/mpl/src/mpl.i
+@@ -141,6 +141,14 @@ set_min_channel(float width,
+   getMacroPlacer()->setMinChannelSize(block->micronsToDbu(width), block->micronsToDbu(height));
+ }
+ 
++void
++set_pdn_min_channel(float width,
++                    float height)
++{
++  odb::dbBlock* block = ord::OpenRoad::openRoad()->getDb()->getChip()->getBlock();
++  getMacroPlacer()->setPdnMinChannelSize(block->micronsToDbu(width), block->micronsToDbu(height));
++}
++
+ void
+ set_macro_placement_file(std::string file_name)
+ {
+diff --git a/src/mpl/src/mpl.tcl b/src/mpl/src/mpl.tcl
+index 3e5262bf43..505b910a9e 100644
+--- a/src/mpl/src/mpl.tcl
++++ b/src/mpl/src/mpl.tcl
+@@ -10,6 +10,7 @@ sta::define_cmd_args "rtl_macro_placer" { -max_num_macro  max_num_macro \
+                                           -coarsening_ratio coarsening_ratio \
+                                           -large_net_threshold large_net_threshold \
+                                           -min_channel_size min_channel_size \
++                                          -pdn_min_channel_size pdn_min_channel_size \
+                                           -halo_width halo_width \
+                                           -halo_height halo_height \
+                                           -fence_lx   fence_lx \
+@@ -36,7 +37,7 @@ proc rtl_macro_placer { args } {
+   sta::parse_key_args "rtl_macro_placer" args \
+     keys {-max_num_macro -min_num_macro -max_num_inst -min_num_inst -tolerance \
+          -max_num_level -coarsening_ratio -large_net_threshold \
+-         -min_channel_size \
++         -min_channel_size -pdn_min_channel_size \
+          -halo_width -halo_height \
+          -fence_lx -fence_ly -fence_ux -fence_uy \
+          -area_weight -outline_weight -wirelength_weight -guidance_weight -fence_weight \
+@@ -131,6 +132,24 @@ proc rtl_macro_placer { args } {
+     mpl::set_min_channel [expr { 2 * $halo_width }] [expr { 2 * $halo_height }]
+   }
+ 
++  if { [info exists keys(-pdn_min_channel_size)] } {
++    set pdn_min_channel_size $keys(-pdn_min_channel_size)
++    set length [llength $pdn_min_channel_size]
++
++    if { $length != 1 && $length != 2 } {
++      utl::error MPL 81 "-pdn_min_channel_size must have 1 or 2 values."
++    }
++
++    if { $length == 1 } {
++      set pdn_channel_width [lindex $pdn_min_channel_size 0]
++      set pdn_channel_height $pdn_channel_width
++    } else {
++      lassign $pdn_min_channel_size pdn_channel_width pdn_channel_height
++    }
++
++    mpl::set_pdn_min_channel $pdn_channel_width $pdn_channel_height
++  }
++
+   if { [info exists keys(-min_channel_size)] } {
+     set min_channel_size $keys(-min_channel_size)
+     set length [llength $min_channel_size]
+diff --git a/src/mpl/src/rtl_mp.cpp b/src/mpl/src/rtl_mp.cpp
+index 5bece11802..239b0a2015 100644
+--- a/src/mpl/src/rtl_mp.cpp
++++ b/src/mpl/src/rtl_mp.cpp
+@@ -226,6 +226,11 @@ void MacroPlacer::setMinChannelSize(int width, int height)
+   hier_rtlmp_->setMinChannelSize(width, height);
+ }
+ 
++void MacroPlacer::setPdnMinChannelSize(int width, int height)
++{
++  hier_rtlmp_->setPdnMinChannelSize(width, height);
++}
++
+ void MacroPlacer::setAnnealingSteps(int steps)
+ {
+   hier_rtlmp_->setAnnealingSteps(steps);

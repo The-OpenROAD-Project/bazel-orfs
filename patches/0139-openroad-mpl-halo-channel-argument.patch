@@ -1,0 +1,82 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] mpl: the macro halo builder takes the channel as an argument
+
+buildMacroHalo() and buildPinAwareHalo() read the minimum channel from
+the clustering engine; they now take it as an argument, so a halo can be
+computed for a channel other than the configured one. No change in
+behaviour.
+
+Not upstreamed; retires at the //:bump onto an OpenROAD that has it.
+
+---
+diff --git a/src/mpl/src/clusterEngine.cpp b/src/mpl/src/clusterEngine.cpp
+index 26b9e980f8..d224a92dec 100644
+--- a/src/mpl/src/clusterEngine.cpp
++++ b/src/mpl/src/clusterEngine.cpp
+@@ -2079,7 +2079,8 @@ void ClusteringEngine::createHardMacros()
+         tree_->has_fixed_macros = true;
+       }
+ 
+-      HardMacro::Halo halo = buildMacroHalo(inst, minimum_spacing);
++      HardMacro::Halo halo
++          = buildMacroHalo(inst, minimum_spacing, min_channel_);
+ 
+       auto macro = std::make_unique<HardMacro>(inst, halo);
+ 
+@@ -2150,16 +2151,17 @@ int ClusteringEngine::getNumberOfIOs(Cluster* target) const
+ }
+ 
+ HardMacro::Halo ClusteringEngine::buildMacroHalo(odb::dbInst* inst,
+-                                                 int minimum_spacing) const
++                                                 int minimum_spacing,
++                                                 const Channel& channel) const
+ {
+   HardMacro::Halo halo(minimum_spacing);
+-  halo = halo.flooredToChannel(min_channel_);
++  halo = halo.flooredToChannel(channel);
+ 
+   if (inst->getHalo() != nullptr) {
+     const HardMacro::Halo inst_halo(inst->getHalo());
+     halo = halo.flooredToHalo(inst_halo);
+   } else if (pin_aware_channels_) {
+-    halo = buildPinAwareHalo(inst, minimum_spacing);
++    halo = buildPinAwareHalo(inst, minimum_spacing, channel);
+   }
+ 
+   // Adjust halo orientation for fixed macros here, since those
+@@ -2177,11 +2179,13 @@ HardMacro::Halo ClusteringEngine::buildMacroHalo(odb::dbInst* inst,
+   return halo;
+ }
+ 
+-HardMacro::Halo ClusteringEngine::buildPinAwareHalo(odb::dbInst* inst,
+-                                                    int minimum_spacing) const
++HardMacro::Halo ClusteringEngine::buildPinAwareHalo(
++    odb::dbInst* inst,
++    int minimum_spacing,
++    const Channel& channel) const
+ {
+   HardMacro::Halo halo(minimum_spacing);
+-  halo = halo.flooredToChannel(min_channel_);
++  halo = halo.flooredToChannel(channel);
+ 
+   HardMacro::Halo min_halo(minimum_spacing);
+ 
+diff --git a/src/mpl/src/clusterEngine.h b/src/mpl/src/clusterEngine.h
+index 33448c4c38..dc91f36652 100644
+--- a/src/mpl/src/clusterEngine.h
++++ b/src/mpl/src/clusterEngine.h
+@@ -226,9 +226,12 @@ class ClusteringEngine
+ 
+   bool isValidNet(odb::dbNet* net);
+ 
+-  HardMacro::Halo buildMacroHalo(odb::dbInst* inst, int minimum_spacing) const;
++  HardMacro::Halo buildMacroHalo(odb::dbInst* inst,
++                                 int minimum_spacing,
++                                 const Channel& channel) const;
+   HardMacro::Halo buildPinAwareHalo(odb::dbInst* inst,
+-                                    int minimum_spacing) const;
++                                    int minimum_spacing,
++                                    const Channel& channel) const;
+   int getMinimumSpacing() const;
+   bool isEquidistantDifferentDirections(
+       std::pair<int, Boundary> candidate,

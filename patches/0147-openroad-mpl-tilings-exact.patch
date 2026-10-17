@@ -1,0 +1,128 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] mpl: settle missing tilings with the exact check (MPL-0003)
+
+MPL-0003 said only that annealing found no tiling. When no run finds
+one, the exact check now either finds an arrangement, whose bounding box
+becomes the tiling, or proves that none exists, and the error says why
+and which single change to the core fixes it, on the row and site grid:
+
+  [ERROR MPL-0003] There are no valid tilings for mixed cluster root.
+  The blocks, halos included, cannot fit in the 108.432 x 108.270 um
+  outline (proven).
+    Cause: the area suffices (83% of the outline), but no arrangement of
+    the blocks does.
+    It fits with any one of:
+      same width 108.432 um: height >= 109.350 um
+      same height 108.270 um: width >= 109.350 um
+      same aspect ratio: width >= 109.296 um
+    The outline is the core area.
+
+That is asap7/aes-block at a core of 110.5 um; a core 109.350 um wide
+(2025 sites) places, one site narrower does not. A problem the check
+cannot decide within its budget keeps the plain error; the README's
+limitations say so.
+
+Not upstreamed; retires at the //:bump onto an OpenROAD that has it.
+
+---
+diff --git a/src/mpl/README.md b/src/mpl/README.md
+index 08d6d00347..e847eeb6d4 100644
+--- a/src/mpl/README.md
++++ b/src/mpl/README.md
+@@ -174,6 +174,12 @@ bazelisk test //src/mpl/...
+ 
+ ## Limitations
+ 
++- When annealing finds no tiling or no placement for a cluster, an exact
++  check (OR-tools CP-SAT) settles whether one exists, on a deterministic
++  budget. A problem it cannot decide within that budget gets the error
++  without a proof; this happens when the macros fill nearly all of the
++  outline (on the ORFS designs, one problem at 99% fill).
++
+ ## References
+ 1. A. B. Kahng, R. Varadarajan and Z. Wang, 
+ "RTL-MP: Toward Practical, Human-Quality Chip Planning and Macro Placement",
+diff --git a/src/mpl/src/hier_rtlmp.cpp b/src/mpl/src/hier_rtlmp.cpp
+index 34ca4b2386..8283a1a8b5 100644
+--- a/src/mpl/src/hier_rtlmp.cpp
++++ b/src/mpl/src/hier_rtlmp.cpp
+@@ -410,6 +410,23 @@ void HierRTLMP::setRootShapes()
+ // Ignore all the standard-cell clusters.
+ // At this stage, we assume the standard cell placer will automatically
+ // place standard cells in the empty space between macros.
++std::string HierRTLMP::explainOutline(const PackingProblem& problem,
++                                      const PackingResult& result) const
++{
++  // Outlines snap to sites and rows, so the fixes are on that grid.
++  int site_width = 1;
++  int row_height = 1;
++  for (odb::dbRow* row : block_->getRows()) {
++    site_width = row->getSite()->getWidth();
++    row_height = row->getSite()->getHeight();
++    break;
++  }
++  return explainDoesNotFit(problem,
++                           result,
++                           findFixes(problem, site_width, row_height),
++                           block_->getDbUnitsPerMicron());
++}
++
+ void HierRTLMP::warnIfTight(const PackingProblem& problem) const
+ {
+   // Measuring the room costs exact checks; only near-full cores pay it.
+@@ -687,10 +704,37 @@ void HierRTLMP::calculateChildrenTilings(Cluster* parent)
+   }
+ 
+   if (tilings_set.empty()) {
+-    logger_->error(MPL,
+-                   3,
+-                   "There are no valid tilings for mixed cluster: {}",
+-                   parent->getName());
++    // No annealing run found an arrangement; settle whether one exists.
++    const PackingProblem problem = toPackingProblem(outline, macros, 0);
++    const PackingResult fit = checkPacking(problem);
++    if (fit.status == PackingStatus::kFits) {
++      int width = 0;
++      int height = 0;
++      for (const PlacedBlock& block : fit.placement) {
++        width = std::max(width, block.x + block.width);
++        height = std::max(height, block.y + block.height);
++      }
++      debugPrint(logger_,
++                 MPL,
++                 "coarse_shaping",
++                 1,
++                 "Annealing found no tiling for {}; the exact check found "
++                 "{} x {}",
++                 parent->getName(),
++                 width,
++                 height);
++      tilings_set.insert({width, height});
++    } else {
++      logger_->error(
++          MPL,
++          3,
++          "There are no valid tilings for mixed cluster {}{}",
++          parent->getName(),
++          fit.status == PackingStatus::kDoesNotFit
++              ? ". " + explainOutline(problem, fit)
++                    + "\n  The outline is the core area."
++              : "; the exact check could not decide within its budget.");
++    }
+   }
+ 
+   if (parent == tree_->root.get()) {
+diff --git a/src/mpl/src/hier_rtlmp.h b/src/mpl/src/hier_rtlmp.h
+index 7986a6b6d4..e5e0db63b5 100644
+--- a/src/mpl/src/hier_rtlmp.h
++++ b/src/mpl/src/hier_rtlmp.h
+@@ -148,6 +148,9 @@ class HierRTLMP
+   void runCoarseShaping();
+   void setRootShapes();
+   void calculateChildrenTilings(Cluster* parent);
++  // Why `problem` does not fit, with the outline changes that would fix it.
++  std::string explainOutline(const PackingProblem& problem,
++                             const PackingResult& result) const;
+   // Warn when the core leaves the macros next to no room.
+   void warnIfTight(const PackingProblem& problem) const;
+   void calculateMacroTilings(Cluster* cluster);

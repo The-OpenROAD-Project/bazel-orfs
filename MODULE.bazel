@@ -237,6 +237,26 @@ archive_override(
         # spelled as it spells it. Not upstreamed by us; retires at a
         # //:bump onto an OpenROAD that has #11658.
         "//patches:0126-openroad-web-server-no-browser.patch",
+        # 0136 to 0151: OpenROAD mpl, an exact packing check (OR-tools CP-SAT)
+        # behind the macro placer's annealing, one patch a commit of the
+        # upstream series. Not upstreamed; they retire at a //:bump onto an
+        # OpenROAD that has them.
+        "//patches:0136-openroad-mpl-early-stop.patch",
+        "//patches:0137-openroad-mpl-annealing-steps.patch",
+        "//patches:0138-openroad-mpl-shapes-library.patch",
+        "//patches:0139-openroad-mpl-halo-channel-argument.patch",
+        "//patches:0140-openroad-mpl-bench.patch",
+        "//patches:0141-openroad-mpl-packing-check.patch",
+        "//patches:0142-openroad-mpl-packing-text.patch",
+        "//patches:0143-openroad-mpl-packing-fixes.patch",
+        "//patches:0144-openroad-mpl-packing-explain.patch",
+        "//patches:0145-openroad-mpl-packing-adapter.patch",
+        "//patches:0146-openroad-mpl-tight-core-warning.patch",
+        "//patches:0147-openroad-mpl-tilings-exact.patch",
+        "//patches:0148-openroad-mpl-pdn-min-channel.patch",
+        "//patches:0149-openroad-mpl-sequence-pair.patch",
+        "//patches:0150-openroad-mpl-exact-rescue.patch",
+        "//patches:0151-openroad-mpl-real-design-tests.patch",
     ],
     strip_prefix = "OpenROAD-bfac0546a502f30db57e92d801f1eecea86e38ab",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bfac0546a502f30db57e92d801f1eecea86e38ab.tar.gz"],
