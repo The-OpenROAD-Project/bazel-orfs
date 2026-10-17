@@ -38,7 +38,7 @@ def _areas(w, h, margin_x = 2.0, margin_y = 2.0):
 def _pins(contract, arm_pins):
     return " ".join([p for p in [contract, arm_pins] if p])
 
-def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own"):
+def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own", round_variant = ""):
     """One trap's flows and probes.
 
     Args:
@@ -59,6 +59,12 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own"):
         block's pins written by pins_from_parent.tcl from arm r<k-1>'s
         placed parent (r0 is round_base itself).
       round_base: the arm the loop starts from.
+      round_variant: a prefix for the rounds' block variants, for a parent
+        whose blocks are other traps' (the combined parent): their own
+        arms are reused with "reuse": {block: [abstract, probe]} in the
+        arm, and its rounds must not collide with theirs.
+
+    A block's module is <name>_<block> unless the block says "module".
 
     Targets: <name>_<block>_<arm>_* and <name>_top_<arm>_* flows, and
     <name>_<arm>_<block>_probe / <name>_<arm>_top_probe JSON.
@@ -83,14 +89,21 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own"):
             for block in blocks
         }
         spec["pins"] = {}
+        spec.pop("reuse", None)
         arms["r{}".format(k)] = spec
         round_of[prev] = k
     for arm in sorted(arms):
         spec = arms[arm]
         macros = []
+        variant = (round_variant + arm) if arm.startswith("r") and arm[1:].isdigit() else arm
         for block in sorted(blocks):
+            if block in spec.get("reuse", {}):
+                abstract, probe = spec["reuse"][block]
+                macros.append(abstract)
+                probes["{}:{}".format(arm, block)] = probe
+                continue
             b = blocks[block] | spec.get("blocks", {}).get(block, {})
-            module = "{}_{}".format(name, block)
+            module = b.get("module", "{}_{}".format(name, block))
             args = TRAP_BASE_ARGS | _areas(b["die"][0], b["die"][1])
             sources = {
                 "IO_CONSTRAINTS": [b.get("io", ":pins.tcl")],
@@ -107,14 +120,14 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own"):
                 pdk = "//flow:asap7",
                 sources = sources,
                 user_arguments = user,
-                variant = arm,
+                variant = variant,
                 verilog_files = [":" + sv],
             )
-            macros.append(":{}_{}_generate_abstract".format(module, arm))
+            macros.append(":{}_{}_generate_abstract".format(module, variant))
             probes["{}:{}".format(arm, block)] = ":{}_{}_{}_probe".format(name, arm, block)
             orfs_run(
                 name = "{}_{}_{}_probe".format(name, arm, block),
-                src = ":{}_{}_place".format(module, arm),
+                src = ":{}_{}_place".format(module, variant),
                 outs = ["{}_{}_{}_probe.json".format(name, arm, block)],
                 arguments = args,
                 script = ":probe.tcl",
@@ -122,7 +135,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own"):
                 user_arguments = user | {
                     "OUTPUT_JSON": "$(location {}_{}_{}_probe.json)".format(name, arm, block),
                 },
-                variant = arm,
+                variant = variant,
             )
         top = name + "_top"
         p = parent | spec.get("parent", {})
@@ -185,7 +198,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own"):
                 sources = sources,
                 user_arguments = user | {
                     "PINS_OUT": " ".join([
-                        "{}_{} $(location {})".format(name, block, out)
+                        "{} $(location {})".format(blocks[block].get("module", "{}_{}".format(name, block)), out)
                         for block, out in zip(sorted(blocks), outs)
                     ]),
                 },

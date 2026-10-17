@@ -16,6 +16,7 @@ Plain Verilog-2005 so either frontend reads it.
 """
 
 import argparse
+import re
 import sys
 
 
@@ -307,10 +308,56 @@ def wide_pins(t, n):
     return flip(t, n)
 
 
+# The combined parent: these traps, each its own parent as a submodule,
+# their ports prefixed with the trap's name, at the widths their own
+# traps use.
+COMBINED = (("face_away", 32), ("narrow_channel", 32), ("split_logic", 64))
+
+
+def mini_top(t, n):
+    """Several traps' parents in one parent, each in a band of its own:
+    whether each trap still catches today's flow, and whether the pin
+    loop still finds its answer, once the traps share a die and the
+    parent's placer can trade between them. n is not used: each trap
+    keeps its own width."""
+    del n
+    text = []
+    ports = []
+    insts = []
+    for trap, bits in COMBINED:
+        sv = TRAPS[trap](trap, bits)
+        text.append(sv)
+        header = re.search(r"module %s_top \((.*?)\);" % trap, sv, re.S)
+        if header is None:
+            raise SystemExit("mini_top: no %s_top header" % trap)
+        conns = []
+        for decl in header.group(1).split(","):
+            m = re.match(r"\s*(input|output)\s*(\[[^\]]*\])?\s*(\w+)\s*$", decl)
+            if m is None:
+                raise SystemExit("mini_top: cannot read port %r of %s_top" % (decl, trap))
+            direction, width, port = m.groups()
+            if port == "clock":
+                conns.append(".clock(clock)")
+                continue
+            ports.append("  %s %s%s_%s" % (direction, (width + " ") if width else "", trap, port))
+            conns.append(".%s(%s_%s)" % (port, trap, port))
+        insts.append("  %s_top u_%s (%s);" % (trap, trap, ", ".join(conns)))
+    port_list = ",\n".join(["  input clock"] + ports)
+    inst_list = "\n".join(insts)
+    return "".join(text) + f"""
+module {t}_top (
+{port_list}
+);
+{inst_list}
+endmodule
+"""
+
+
 TRAPS = {
     "both_own": both_own,
     "face_away": face_away,
     "flip": flip,
+    "mini_top": mini_top,
     "narrow_channel": narrow_channel,
     "random_io": random_io,
     "split_logic": split_logic,
