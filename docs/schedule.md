@@ -140,7 +140,7 @@ bazelisk run //<pkg>:build -- --lane grt --units Frontend,MemBlock
 
 `--lane STAGE` runs one stage of each unit in its own deps-lane tree
 (`tmp/schedule/<unit>`, the `deps-lane` skill) instead of a `bazelisk
-build`: per wave, `//:deps -- start //<pkg>:<unit> STAGE --fresh` installs
+build`: per wave, `@bazel-orfs//:deps -- start //<pkg>:<unit> STAGE --fresh` installs
 what the stage needs, one unit after another (Bazel builds anything not
 cached), then the units' `make do-STAGE` run side by side. Waves are
 packed by that stage's recorded peak, not the unit's largest, and each
