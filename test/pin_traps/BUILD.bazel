@@ -18,6 +18,7 @@ py_binary(
 # or below it.
 pin_trap(
     name = "face_away",
+    rounds = 2,
     arms = {
         "hand": {"pins": {"a": "e_* right"}},
         "own": {},
@@ -59,6 +60,7 @@ odb_debug(
 # each other across the gap.
 pin_trap(
     name = "both_own",
+    rounds = 2,
     arms = {
         "hand": {"pins": {
             "a": "x_* right",
@@ -103,6 +105,7 @@ pin_trap(
 # registers; by hand the same die with the strip moved into the channel.
 pin_trap(
     name = "narrow_channel",
+    rounds = 2,
     arms = {
         "hand": {"parent": {"locs": "u_a 2.16 2.16 R0 u_b 56.448 2.16 R0"}},
         "own": {},
@@ -145,6 +148,7 @@ pin_trap(
 # logic between them. The blocks are the same in both arms.
 pin_trap(
     name = "split_logic",
+    rounds = 2,
     arms = {
         "hand": {"parent": {"locs": "u_a 2.16 2.16 R0 u_b 77.904 2.16 R0"}},
         "own": {},
@@ -179,6 +183,7 @@ pin_trap(
 # in both arms.
 pin_trap(
     name = "tidy_row",
+    rounds = 2,
     arms = {
         "hand": {"parent": {"locs": "u_fw 2.16 51.84 R0 u_fe 97.776 51.84 R0 u_fs 49.968 2.16 R0 u_fn 49.968 97.2 R0"}},
         "own": {},
@@ -212,6 +217,7 @@ pin_trap(
 # them: a mirror puts every M3 pin between two of the parent's tracks.
 pin_trap(
     name = "flip",
+    rounds = 2,
     arms = {
         "hand": {"pins": {"a": "x_* top:22-38"}},
         "own": {
@@ -246,6 +252,7 @@ pin_trap(
 # owner's edge, trap 11's answer.
 pin_trap(
     name = "random_io",
+    rounds = 2,
     arms = {
         "hand": {"parent": {
             "locs": "u_fw 2.16 51.84 R0 u_fe 97.776 51.84 R0 u_fs 49.968 2.16 R0 u_fn 49.968 97.2 R0",

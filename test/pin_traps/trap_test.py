@@ -228,9 +228,32 @@ CHECKS = {
 }
 
 
+# The traps whose answer is a block's pins: a loop that writes each
+# block's pins from its placed parent must reach the hand answer there.
+# The others are answered by where the parent puts its blocks, which the
+# pin loop does not move; there it must only do no harm.
+PIN_ANSWERED = ("both_own", "face_away", "flip")
+
+
+def check_loop(p, trap, rounds):
+    """The pin loop's rounds r1..r<rounds> against own and hand: never
+    more block + parent wire than own; on a trap answered by pins, round
+    1 within a tenth of hand's."""
+    claims = []
+    own = _total(p, "own")
+    for k in range(1, rounds + 1):
+        rk = _total(p, "r%d" % k)
+        claims.append(("r%d: block + parent wire <= own" % k, rk <= own, "%d vs %d um" % (rk, own)))
+    if trap in PIN_ANSWERED:
+        r1, hand = _total(p, "r1"), _total(p, "hand")
+        claims.append(("r1: block + parent wire <= 1.1 x hand", r1 <= 1.1 * hand, "%d vs %d um" % (r1, hand)))
+    return claims
+
+
 def main(argv):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--trap", required=True, choices=sorted(CHECKS))
+    ap.add_argument("--loop", type=int, default=0, metavar="ROUNDS", help="check the pin loop's rounds instead of the trap")
     ap.add_argument("probes", nargs="+", metavar="ARM:PART=JSON")
     a = ap.parse_args(argv)
     probes = {}
@@ -240,7 +263,7 @@ def main(argv):
             raise SystemExit("bad probe argument %r, want ARM:PART=JSON" % spec)
         with open(path) as f:
             probes[key] = json.load(f)
-    claims = CHECKS[a.trap](probes)
+    claims = check_loop(probes, a.trap, a.loop) if a.loop else CHECKS[a.trap](probes)
     failed = 0
     for claim, ok, detail in claims:
         print("%s  %s: %s" % ("PASS" if ok else "FAIL", claim, detail))
