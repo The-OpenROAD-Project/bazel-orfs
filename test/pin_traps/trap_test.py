@@ -325,6 +325,34 @@ def check_aspect(p):
     ]
 
 
+def check_selfish(p):
+    """Trap 4. The block is better off alone with its own pins: its free
+    circuit reads all of its contract circuit, so pins by its own logic
+    give it at most half the wire of the hand answer's pins, where n of
+    its nets cross it. The parent pays twice that: block + parent by hand
+    is at most three fifths of own's."""
+    claims = []
+    for port in ("e_in", "e_out"):
+        s = side_share(p["own:a"], port, "right")
+        claims.append(
+            ("own: %s on the east side < 25 %%" % port, s < 0.25, "%.0f %%" % (100 * s))
+        )
+    own_a, hand_a = p["own:a"]["wirelength_um"], p["hand:a"]["wirelength_um"]
+    claims.append(
+        (
+            "own: the block alone <= 1/2 of hand's block",
+            own_a * 2 <= hand_a,
+            "%d vs %d um" % (own_a, hand_a),
+        )
+    )
+    claims.append(
+        _ratio_claim(
+            "hand: block + parent wire", _total(p, "hand"), _total(p, "own"), 0.6
+        )
+    )
+    return claims
+
+
 CHECKS = {
     "aspect": check_aspect,
     "both_own": check_both_own,
@@ -333,6 +361,7 @@ CHECKS = {
     "mini_top": check_mini_top,
     "narrow_channel": check_narrow_channel,
     "random_io": check_random_io,
+    "selfish": check_selfish,
     "split_logic": check_split_logic,
     "tidy_row": check_tidy_row,
     "wide_pins": check_wide_pins,
@@ -343,7 +372,7 @@ CHECKS = {
 # block's pins from its placed parent must reach the hand answer there.
 # The others are answered by where the parent puts its blocks, which the
 # pin loop does not move; there it must only do no harm.
-PIN_ANSWERED = ("both_own", "face_away", "flip")
+PIN_ANSWERED = ("both_own", "face_away", "flip", "selfish")
 
 
 def check_loop(p, trap, rounds):

@@ -464,3 +464,39 @@ packing_trap(
         ],
     },
 )
+
+# Trap 4, the block better alone: trap 1's geometry, the block's free
+# circuit reading every bit of its contract circuit, so its own pins are
+# its shortest wire and the parent's longest.
+# The block spans the parent's core height, so no parent cell fits above
+# or below it.
+pin_trap(
+    name = "selfish",
+    arms = {
+        "hand": {"pins": {"a": "e_* right"}},
+        "own": {},
+    },
+    bits = 32,
+    blocks = {
+        "a": {
+            "die": [
+                100.08,
+                30.24,
+            ],
+            "pins": "w_* left",
+        },
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            140.0,
+            34.56,
+        ],
+        "locs": "u_a 2.16 2.16 R0",
+        "pins": "p_* left",
+    },
+    rounds = 2,
+)
