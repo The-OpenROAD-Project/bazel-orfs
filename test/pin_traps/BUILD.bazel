@@ -1,0 +1,54 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+load("@bazel-orfs//:openroad.bzl", "odb_debug")
+load(":traps.bzl", "pin_trap")
+
+# Pin traps: each a parent and its hardened blocks in which a block's own
+# choice, built alone, is right for the block and pathological for the
+# parent. traps.bzl says how a trap is built and measured.
+
+py_binary(
+    name = "trap_gen",
+    srcs = ["trap_gen.py"],
+    main = "trap_gen.py",
+)
+
+# Trap 1, pins face away: block a's contract pins on its west side, its
+# free interface answered by parent logic that can only sit east of it.
+# The block spans the parent's core height, so no parent cell fits above
+# or below it.
+pin_trap(
+    name = "face_away",
+    arms = {
+        "hand": {"pins": {"a": "e_* right"}},
+        "own": {},
+    },
+    bits = 32,
+    blocks = {
+        "a": {
+            "die": [
+                100.08,
+                30.24,
+            ],
+            "pins": "w_* left",
+        },
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            140.0,
+            34.56,
+        ],
+        "locs": "u_a 2.16 2.16 R0",
+        "pins": "p_* left",
+    },
+)
+
+# A placed parent in a persistent OpenROAD session, for looking at a trap
+# (tools/odb_debug/README.md).
+odb_debug(
+    name = "face_away_hand_odb_debug",
+    src = ":face_away_top_hand_place",
+)
