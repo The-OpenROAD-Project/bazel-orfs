@@ -6,6 +6,12 @@ load(":traps.bzl", "packing_trap", "pin_trap")
 # choice, built alone, is right for the block and pathological for the
 # parent. traps.bzl says how a trap is built and measured.
 
+# the pin loop's round, for XiangShan's planned parent too
+exports_files(
+    ["pins_from_parent.tcl"],
+    visibility = ["//test/coremark_joule/designs/asap7/xiangshan:__pkg__"],
+)
+
 py_binary(
     name = "trap_gen",
     srcs = ["trap_gen.py"],

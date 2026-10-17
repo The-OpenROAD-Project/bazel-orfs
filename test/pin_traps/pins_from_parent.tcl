@@ -8,9 +8,12 @@
 # per side, from the first to the last projection, widened to room for
 # them all; the pin placer orders them inside it.
 #
-# PINS_OUT is a list of <block module> <path>: one pin script per block,
-# for the block's next build (IO_CONSTRAINTS). A block with several
-# instances is written from the first by name, and says so.
+# PINS_OUT is a list of <block module> <path> <width um> <height um>: one
+# pin script per entry, for the block's next build (IO_CONSTRAINTS). A
+# width and height of 0 write it in the frame of the master the parent
+# placed; others scale every place and stretch to a die of that size, for
+# a block whose parent sees a mocked outline of the same shape. A block
+# with several instances is written from the first by name, and says so.
 source $::env(SCRIPTS_DIR)/load.tcl
 load_design 3_place.odb 3_place.sdc
 set block [ord::get_db_block]
@@ -37,7 +40,7 @@ proc to_block_frame { inst x y } {
 }
 
 set out [dict create]
-foreach {module path} $::env(PINS_OUT) { dict set out $module $path }
+foreach {module path tw th} $::env(PINS_OUT) { dict lappend out $module [list $path $tw $th] }
 set done [dict create]
 set insts [lsort -command { apply {{a b} { string compare [$a getName] [$b getName] }} } [$block getInsts]]
 foreach inst $insts {
@@ -86,31 +89,39 @@ foreach inst $insts {
     set pos [expr { $side in {left right} ? $py : $px }]
     dict lappend sides $side [list [[$iterm getMTerm] getName] [expr { $pos / double($dbu) }]]
   }
-  set f [open [dict get $out $module] w]
-  puts $f "# Written by pins_from_parent.tcl from [$block getName]'s placement, instance [$inst getName]."
-  foreach side {left right bottom top} {
-    set pins [dict get $sides $side]
-    if { [llength $pins] == 0 } { continue }
-    set len [expr { ($side in {left right} ? $h : $w) / double($dbu) }]
-    set ps [lmap p $pins { lindex $p 1 }]
-    set lo [tcl::mathfunc::min {*}$ps]
-    set hi [tcl::mathfunc::max {*}$ps]
-    set need [expr { [llength $pins] * $room_um }]
-    if { $need > $len } {
-      error "pins_from_parent.tcl: $module needs $need um of its $side side for [llength $pins] pins, has $len"
+  foreach target [dict get $out $module] {
+    lassign $target path tw th
+    set mw [expr { $w / double($dbu) }]
+    set mh [expr { $h / double($dbu) }]
+    set sx [expr { $tw > 0 ? $tw / $mw : 1.0 }]
+    set sy [expr { $th > 0 ? $th / $mh : 1.0 }]
+    set f [open $path w]
+    puts $f "# Written by pins_from_parent.tcl from [$block getName]'s placement, instance [$inst getName], scaled [format %.4f $sx] x [format %.4f $sy]."
+    foreach side {left right bottom top} {
+      set pins [dict get $sides $side]
+      if { [llength $pins] == 0 } { continue }
+      set scale [expr { $side in {left right} ? $sy : $sx }]
+      set len [expr { ($side in {left right} ? $mh : $mw) * $scale }]
+      set ps [lmap p $pins { expr { [lindex $p 1] * $scale } }]
+      set lo [tcl::mathfunc::min {*}$ps]
+      set hi [tcl::mathfunc::max {*}$ps]
+      set need [expr { [llength $pins] * $room_um }]
+      if { $need > $len } {
+        error "pins_from_parent.tcl: $module needs $need um of its $side side for [llength $pins] pins, has $len"
+      }
+      if { $hi - $lo < $need } {
+        set mid [expr { ($lo + $hi) / 2 }]
+        set lo [expr { $mid - $need / 2 }]
+        set hi [expr { $mid + $need / 2 }]
+      }
+      # inside the side, the shift keeping the stretch's length
+      if { $lo < 0 } { set hi [expr { $hi - $lo }]; set lo 0 }
+      if { $hi > $len } { set lo [expr { $lo - ($hi - $len) }]; set hi $len }
+      puts $f "set_io_pin_constraint -region $side:[format %.3f $lo]-[format %.3f $hi] -pin_names {[lmap p $pins { lindex $p 0 }]}"
+      puts "pins_from_parent.tcl: $path: $module [llength $pins] pins on $side [format %.3f $lo]-[format %.3f $hi] um"
     }
-    if { $hi - $lo < $need } {
-      set mid [expr { ($lo + $hi) / 2 }]
-      set lo [expr { $mid - $need / 2 }]
-      set hi [expr { $mid + $need / 2 }]
-    }
-    # inside the side, the shift keeping the stretch's length
-    if { $lo < 0 } { set hi [expr { $hi - $lo }]; set lo 0 }
-    if { $hi > $len } { set lo [expr { $lo - ($hi - $len) }]; set hi $len }
-    puts $f "set_io_pin_constraint -region $side:[format %.3f $lo]-[format %.3f $hi] -pin_names {[lmap p $pins { lindex $p 0 }]}"
-    puts "pins_from_parent.tcl: $module [llength $pins] pins on $side [format %.3f $lo]-[format %.3f $hi] um"
+    close $f
   }
-  close $f
 }
 foreach module [dict keys $out] {
   if { ![dict exists $done $module] } {
