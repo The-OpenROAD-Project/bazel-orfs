@@ -1,0 +1,73 @@
+From 6c74efa4f00ec53ba8df2bb924637d7687a8ec1d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Sat, 17 Oct 2026 21:44:12 +0200
+Subject: [PATCH] mpl: a flat cluster area cannot split is split by instance
+ count
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+breakLargeFlatCluster splits a flat cluster in two with TritonPart,
+weighting each macro and std cell by its area, and relaxes the balance
+constraint until a split is found or the constraint reaches 90 %, where
+it stopped on MPL-0045. A cluster of one macro and a few thousand std
+cells has no such split: the macro outweighs everything else by more
+than nine to one (a 39 000 um2 block among 5 276 cells of about
+1 000 um2 in all). The flat parent of a hardened-block design reached
+that cluster.
+
+Before giving up, the split is tried once more with every instance
+weighted 1, from the default balance, so the macro goes with the part
+it is most connected to; MPL-0082 says when. MPL-0045 stays for a
+cluster that splits by neither.
+
+Not upstreamed. Retires at a //:bump onto an OpenROAD whose macro
+placer splits such a cluster.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/mpl/src/clusterEngine.cpp | 21 +++++++++++++++++++--
+ 1 file changed, 19 insertions(+), 2 deletions(-)
+
+diff --git a/src/mpl/src/clusterEngine.cpp b/src/mpl/src/clusterEngine.cpp
+index 26b9e980f8..4a23662697 100644
+--- a/src/mpl/src/clusterEngine.cpp
++++ b/src/mpl/src/clusterEngine.cpp
+@@ -1192,6 +1192,7 @@ void ClusteringEngine::breakLargeFlatCluster(Cluster* parent)
+   // the constraint until we find a reasonable split.
+   constexpr float balance_constraint_relaxation_factor = 10.0f;
+   std::vector<int> solution;
++  bool by_count = false;
+   do {
+     debugPrint(
+         logger_,
+@@ -1203,8 +1204,24 @@ void ClusteringEngine::breakLargeFlatCluster(Cluster* parent)
+         balance_constraint);
+ 
+     if (balance_constraint >= 90) {
+-      logger_->error(
+-          MPL, 45, "Cannot find a balanced partitioning for the clusters.");
++      if (by_count) {
++        logger_->error(
++            MPL, 45, "Cannot find a balanced partitioning for the clusters.");
++      }
++      // One vertex can outweigh the rest of its cluster by area, a macro
++      // among a few thousand std cells, and then no balance short of
++      // giving up splits the cluster. Split it by instance count instead:
++      // the macro goes with the part it is most connected to.
++      logger_->info(MPL,
++                    82,
++                    "Cluster {} cannot be split by area; split by instance "
++                    "count.",
++                    parent->getName());
++      std::fill(vertex_weight.begin() + num_other_cluster_vertices,
++                vertex_weight.end(),
++                1.0f);
++      by_count = true;
++      balance_constraint = default_balance_constraint;
+     }
+ 
+     solution = triton_part_->PartitionKWaySimpleMode(num_parts,
+-- 
+2.53.0
+
