@@ -65,8 +65,13 @@ def unit_peak(entry, stage=None):
     return peak * ESTIMATE_PAD if entry.get("source") != "measured" else peak
 
 
-def unit_minutes(entry):
-    return sum(s.get("minutes", 0) for s in entry["stages"].values())
+def unit_minutes(entry, stage=None):
+    """A unit's time: its stages one after another, or `stage` alone when
+    the record has it (a lane runs one stage)."""
+    stages = entry["stages"]
+    if stage in stages:
+        return stages[stage].get("minutes", 0)
+    return sum(s.get("minutes", 0) for s in stages.values())
 
 
 def pack(peaks, budget):
@@ -366,7 +371,7 @@ def main(argv=None):
             for u in wave
         )
         total = sum(unit_peak(units[u], stage) for u in wave)
-        minutes = max(unit_minutes(units[u]) for u in wave)
+        minutes = max(unit_minutes(units[u], stage) for u in wave)
         note = "  OVER BUDGET: runs alone" if total > budget else ""
         print(
             f"wave {i} ({kind}): {sizes}  peak {total:.0f} GB, ~{minutes:.0f} min{note}"
