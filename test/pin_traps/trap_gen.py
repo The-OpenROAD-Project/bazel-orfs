@@ -298,6 +298,15 @@ def random_io(t, n):
     return tidy_row(t, n)
 
 
+def wide_pins(t, n):
+    """Trap 7's netlist, the block's pins placed exactly on its top edge
+    and drawn wider than a wire: safer for the block, a margin against
+    a pin too thin to hit; the parent's pin access may find no access
+    point on them (pin trap 8; XiangShan entry 12, DRT-0073 on one pin
+    per block while the planner drew pins two wire widths wide)."""
+    return flip(t, n)
+
+
 TRAPS = {
     "both_own": both_own,
     "face_away": face_away,
@@ -306,6 +315,7 @@ TRAPS = {
     "random_io": random_io,
     "split_logic": split_logic,
     "tidy_row": tidy_row,
+    "wide_pins": wide_pins,
 }
 
 

@@ -65,6 +65,16 @@ if { ![regexp -line {^Total\s+\d+\s+\d+\s+([\d.]+)%\s+(\d+)\s*/\s*(\d+)\s*/\s*(\
 if { ![regexp {Total wirelength: (\d+) um} $text - wl] } {
   error "probe.tcl: no total wirelength in the global route report"
 }
+# pin access, as the flow's global route stage runs it before routing: a
+# pin it finds no access point for stops it (DRT-0073)
+set access "not run"
+if { [info exists ::env(PROBE_PIN_ACCESS)] && $::env(PROBE_PIN_ACCESS) } {
+  if { [catch { pin_access } err] } {
+    regsub -all {"} [lindex [split $err "\n"] 0] {'} access
+  } else {
+    set access "ok"
+  }
+}
 set fp [open $::env(OUTPUT_JSON) w]
 puts $fp "{"
 puts $fp "  \"design\": \"[$block getName]\","
@@ -75,6 +85,7 @@ puts $fp "  \"max_v_overflow\": $total_v,"
 puts $fp "  \"total_overflow\": $total_c,"
 puts $fp "  \"block_pin_shapes\": $blockpins,"
 puts $fp "  \"block_pins_off_track\": $offtrack,"
+puts $fp "  \"pin_access\": \"$access\","
 puts $fp "  \"pin_sides\": {"
 set ports [lsort [dict keys $sides]]
 foreach port $ports {

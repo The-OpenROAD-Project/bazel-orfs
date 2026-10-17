@@ -45,10 +45,13 @@ def pin_trap(name, bits, blocks, parent, arms):
       name: the trap, a trap_gen.py --trap name; modules are <name>_<block>
         and <name>_top.
       bits: the interface width passed to the generator.
-      blocks: {block: {"die": [w, h], "pins": PIN_GROUPS}}, the pins being
-        the block's contract, common to every arm.
+      blocks: {block: {"die": [w, h], "pins": PIN_GROUPS, "io": a pin
+        script in place of pins.tcl, "user": its variables}}, the pins
+        being the block's contract, common to every arm.
       parent: {"die": [w, h], "core_margin": [x, y], "pins": PIN_GROUPS,
-        "locs": BLOCK_LOCS or None for the macro placer, "channel": um}.
+        "locs": BLOCK_LOCS or None for the macro placer, "channel": um,
+        "args": ORFS arguments for the parent, "pin_access": True to run
+        pin access on the parent in its probe}.
       arms: {arm: {"pins": {block: PIN_GROUPS added to the contract},
         "blocks": {block: overrides}, "parent": overrides}}: an arm changes
         only what its trap is about.
@@ -72,12 +75,12 @@ def pin_trap(name, bits, blocks, parent, arms):
             module = "{}_{}".format(name, block)
             args = TRAP_BASE_ARGS | _areas(b["die"][0], b["die"][1])
             sources = {
-                "IO_CONSTRAINTS": [":pins.tcl"],
+                "IO_CONSTRAINTS": [b.get("io", ":pins.tcl")],
                 # a block's grid: rails and straps a parent's grid connects to
                 "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
                 "SDC_FILE": [":constraints.sdc"],
             }
-            user = {"PIN_GROUPS": _pins(b.get("pins", ""), spec.get("pins", {}).get(block, ""))}
+            user = {"PIN_GROUPS": _pins(b.get("pins", ""), spec.get("pins", {}).get(block, ""))} | b.get("user", {})
             orfs_flow(
                 name = module,
                 top = module,
@@ -114,7 +117,7 @@ def pin_trap(name, bits, blocks, parent, arms):
             "DONT_BUFFER_PORTS": "1",
             # a minimum channel is twice the halo it replaced, as in mpl
             "RTLMP_MIN_CHANNEL_SIZE": "{} {}".format(_r(channel), _r(channel)),
-        }
+        } | p.get("args", {})
         sources = {
             "IO_CONSTRAINTS": [":pins.tcl"],
             # the parent's grid over hardened blocks
@@ -147,6 +150,7 @@ def pin_trap(name, bits, blocks, parent, arms):
             sources = sources,
             user_arguments = user | {
                 "OUTPUT_JSON": "$(location {}_{}_top_probe.json)".format(name, arm),
+                "PROBE_PIN_ACCESS": "1" if p.get("pin_access") else "0",
             },
             variant = arm,
         )
