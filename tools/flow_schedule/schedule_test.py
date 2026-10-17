@@ -234,6 +234,17 @@ class Lane(unittest.TestCase):
         self.assertEqual(schedule.unit_peak(self.ENTRY, "place"), 30)
         self.assertEqual(schedule.unit_peak(self.ENTRY), 80)
 
+    def test_lane_time_is_the_stage_alone(self):
+        entry = {
+            "source": "measured",
+            "stages": {
+                "place": {"peak_gb": 30, "minutes": 40},
+                "grt": {"peak_gb": 80, "minutes": 50},
+            },
+        }
+        self.assertEqual(schedule.unit_minutes(entry, "grt"), 50)
+        self.assertEqual(schedule.unit_minutes(entry), 90)
+
     def test_unknown_stage_falls_back_to_the_largest(self):
         self.assertEqual(schedule.unit_peak(self.ENTRY, "cts"), 80)
 
