@@ -601,4 +601,3 @@ build_test(
         ":in2out_equiv_negative",
     ],
 )
-

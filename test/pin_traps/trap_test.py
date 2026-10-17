@@ -362,8 +362,17 @@ def check_in2out(p):
     most four fifths of own's."""
     own, hand = p["own:top"]["timing"], p["hand:top"]["timing"]
     return [
-        ("own: the worst path crosses u_b in2out", "u_b" in own["in2out_blocks"], "%s -> %s through %s" % (own["startpoint"], own["endpoint"], own["in2out_blocks"])),
-        ("hand: the worst path crosses no block", hand["in2out_blocks"] == [], "%s -> %s" % (hand["startpoint"], hand["endpoint"])),
+        (
+            "own: the worst path crosses u_b in2out",
+            "u_b" in own["in2out_blocks"],
+            "%s -> %s through %s"
+            % (own["startpoint"], own["endpoint"], own["in2out_blocks"]),
+        ),
+        (
+            "hand: the worst path crosses no block",
+            hand["in2out_blocks"] == [],
+            "%s -> %s" % (hand["startpoint"], hand["endpoint"]),
+        ),
         (
             "hand: minimum period <= 0.8 of own",
             hand["min_period_ps"] <= 0.8 * own["min_period_ps"],
