@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# //:deps: a flow's stages in a tree you can run by hand.
+# //:dirty: a flow's stages in a tree you can run by hand.
 #
-#   bazelisk run //:deps -- start   <flow> <stage> [--dir D] [--variant V] [--fresh]
-#   bazelisk run //:deps -- next    <stage>        [--dir D]
-#   bazelisk run //:deps -- status                 [--dir D]
-#   bazelisk run //:deps -- archive <flow> <stage> <file.tar.gz> [--variant V]
+#   bazelisk run //:dirty -- start   <flow> <stage> [--dir D] [--variant V] [--fresh]
+#   bazelisk run //:dirty -- next    <stage>        [--dir D]
+#   bazelisk run //:dirty -- status                 [--dir D]
+#   bazelisk run //:dirty -- archive <flow> <stage> <file.tar.gz> [--variant V]
 #
 # start   Bazel builds everything <stage> needs (every stage before it)
 #         and installs it, with <stage>'s scripts, in one tree per flow:
@@ -13,14 +13,14 @@
 #         <tree>/make do-<stage>.
 # next    Adds <stage>'s scripts to the same tree and keeps the results
 #         already in it: a stage run by hand carries on into the next one
-#         (the _deps lane, .claude/skills/deps-lane/SKILL.md). Builds no stage.
+#         (the dirty lane, .claude/skills/dirty-lane/SKILL.md). Builds no stage.
 # status  Says where each stage's result in the tree came from, Bazel or
 #         a hand-run make, and which settings were edited.
 # archive A self-contained reproducer .tar.gz of what <stage> needs.
 #
 # <flow> is the flow's label, //test:lb_32x128; a stage target's label,
 # //test:lb_32x128_place, is accepted in place of <flow> <stage>.
-# DEPS_STARTUP_OPTS (e.g. --output_base=...) and DEPS_BUILD_OPTS (e.g.
+# DIRTY_STARTUP_OPTS (e.g. --output_base=...) and DIRTY_BUILD_OPTS (e.g.
 # --jobs=8) are passed to the bazelisk calls this makes.
 # Building a stage's scripts is instant: Bazel builds only the output
 # groups asked for, the same actions a plain build caches.
@@ -30,7 +30,7 @@ set -euo pipefail
 STAGES="synth floorplan place cts grt route final generate_abstract"
 
 die() {
-    echo "deps: $*" >&2
+    echo "dirty: $*" >&2
     exit 1
 }
 
@@ -41,14 +41,14 @@ usage() {
 
 # bazel run executes from the runfiles tree; nested bazelisk calls and the
 # trees belong to the workspace, relative paths to where the user typed.
-WS="${BUILD_WORKSPACE_DIRECTORY:?run me with bazelisk run //:deps -- ...}"
+WS="${BUILD_WORKSPACE_DIRECTORY:?run me with bazelisk run //:dirty -- ...}"
 CWD="${BUILD_WORKING_DIRECTORY:-$WS}"
 cd "$WS"
 
 # bazelisk with the caller's startup options
 bz() {
     # shellcheck disable=SC2086 # options are words
-    bazelisk ${DEPS_STARTUP_OPTS:-} "$@"
+    bazelisk ${DIRTY_STARTUP_OPTS:-} "$@"
 }
 
 is_stage() {
@@ -102,7 +102,7 @@ check_tmp_ignored() {
 # build_group <target> <group>: build an output group, print the manifest
 build_group() {
     local target="$1" group="$2"
-    bz build ${DEPS_BUILD_OPTS:-} --output_groups="$group" "$target" >&2 ||
+    bz build ${DIRTY_BUILD_OPTS:-} --output_groups="$group" "$target" >&2 ||
         die "bazelisk build --output_groups=$group $target failed (is it an ORFS stage target?)"
     local manifest
     manifest="$(bz cquery --output=files --output_groups=deps_scripts "$target" 2>/dev/null |
@@ -174,13 +174,13 @@ install_tree() {
     mv -f "$dst/make" "$dst/make.stage"
     cat >"$dst/make" <<'EOF'
 #!/usr/bin/env bash
-# Runs the installed stage's make and records the run in .deps, so
-# `bazelisk run //:deps -- status` can say which results were made here.
+# Runs the installed stage's make and records the run in .dirty, so
+# `bazelisk run //:dirty -- status` can say which results were made here.
 here="$(cd "$(dirname "$0")" && pwd)"
 rc=0
 "$here/make.stage" "$@" || rc=$?
 for a in "$@"; do
-    case "$a" in do-*) echo "ran $a $(date '+%Y-%m-%d %H:%M') exit $rc" >>"$here/.deps" ;; esac
+    case "$a" in do-*) echo "ran $a $(date '+%Y-%m-%d %H:%M') exit $rc" >>"$here/.dirty" ;; esac
 done
 exit $rc
 EOF
@@ -291,29 +291,39 @@ flow_and_stage() {
     die "'${POS[0]}' names no stage; stages are: $STAGES"
 }
 
+# a tree //:deps installed before it was renamed //:dirty: its record
+# is .deps
+renamed_tree() {
+    if [ -f "$1/.deps" ] && [ ! -f "$1/.dirty" ]; then
+        die "${1#"$CWD"/} was installed by //:deps, now //:dirty: 'mv ${1#"$CWD"/}/.deps ${1#"$CWD"/}/.dirty' to carry on in it"
+    fi
+}
+
 # the tree `next` and `status` work on: --dir, the tree the user is in,
 # or the one last started
 find_tree() {
     if [ -n "$DIR" ]; then
-        [ -f "$DIR/.deps" ] || die "no tree in ${DIR#"$CWD"/}: start one first"
+        renamed_tree "$DIR"
+        [ -f "$DIR/.dirty" ] || die "no tree in ${DIR#"$CWD"/}: start one first"
         return
     fi
     local d="$CWD"
     while [ "$d" != / ]; do
-        if [ -f "$d/.deps" ]; then
+        renamed_tree "$d"
+        if [ -f "$d/.dirty" ]; then
             DIR="$d"
             return
         fi
         d="$(dirname "$d")"
     done
-    if [ -f "$WS/tmp/.deps_last" ]; then
-        DIR="$(cat "$WS/tmp/.deps_last")"
-        [ -f "$DIR/.deps" ] && return
+    if [ -f "$WS/tmp/.dirty_last" ]; then
+        DIR="$(cat "$WS/tmp/.dirty_last")"
+        [ -f "$DIR/.dirty" ] && return
     fi
-    die "no tree here: start one with bazelisk run //:deps -- start <flow> <stage>"
+    die "no tree here: start one with bazelisk run //:dirty -- start <flow> <stage>"
 }
 
-deps_value() { sed -n "s/^$1 //p" "$DIR/.deps" | head -1; }
+tree_value() { sed -n "s/^$1 //p" "$DIR/.dirty" | head -1; }
 
 case "$CMD" in
 start)
@@ -323,9 +333,9 @@ start)
     [ -n "$DIR" ] || DIR="$(default_dir "$FLOW" "$VARIANT")"
     if [ -e "$DIR" ] && [ -n "$(ls -A "$DIR" 2>/dev/null)" ]; then
         if [ "$FRESH" = 0 ]; then
-            if [ -f "$DIR/.deps" ]; then
-                echo "deps: ${DIR#"$CWD"/} already holds a tree; what it holds:" >&2
-                grep -E '^(flow|stage|ran) ' "$DIR/.deps" | sed 's/^/  /' >&2
+            if [ -f "$DIR/.dirty" ]; then
+                echo "dirty: ${DIR#"$CWD"/} already holds a tree; what it holds:" >&2
+                grep -E '^(flow|stage|ran) ' "$DIR/.dirty" | sed 's/^/  /' >&2
             fi
             die "refusing to replace ${DIR#"$CWD"/}: carry on with 'next <stage>', or 'start ... --fresh' to replace it"
         fi
@@ -340,12 +350,12 @@ start)
         echo "variant ${VARIANT:-base}"
         echo "tree $(tree_id)"
         echo "stage $STAGE scripts, earlier stages' results from bazel ($(date '+%Y-%m-%d %H:%M'))"
-    } >"$DIR/.deps"
-    echo "$DIR" >"$WS/tmp/.deps_last"
+    } >"$DIR/.dirty"
+    echo "$DIR" >"$WS/tmp/.dirty_last"
     if [ "$STAGE" = synth ] &&
         grep -qE '^export SYNTH_NUM_PARTITIONS\??=[1-9]' "$DIR/_main/config.mk"; then
         echo
-        echo "deps: note: Bazel synthesises this design on its parallel path, in"
+        echo "dirty: note: Bazel synthesises this design on its parallel path, in"
         echo "      partitions; a tree runs ORFS's serial synthesis, which can differ"
         echo "      from it or fail (AUTO_MEMORIES with SYNTH_HIERARCHICAL does). To"
         echo "      iterate after synthesis, start the lane at floorplan."
@@ -357,8 +367,8 @@ next)
     STAGE="${POS[0]}"
     is_stage "$STAGE" || die "'$STAGE' is not a stage; stages are: $STAGES"
     find_tree
-    FLOW="$(deps_value flow)"
-    VARIANT="$(deps_value variant)"
+    FLOW="$(tree_value flow)"
+    VARIANT="$(tree_value variant)"
     TARGET="$(stage_target "$FLOW" "$STAGE" "$VARIANT")"
     MANIFEST="$(build_group "$TARGET" deps_inputs)"
     missing="$(results_missing "$MANIFEST" "$DIR")"
@@ -366,27 +376,27 @@ next)
         die "$STAGE needs ${missing#_main/}, which this tree does not have yet: run the stage before it here, or 'start $FLOW $STAGE' to have Bazel build it"
     fi
     if [ -f "$DIR/_main/config.mk" ] && ! cmp -s "$DIR/_main/config.mk" "$DIR/.config.mk.installed"; then
-        prev="$(sed -n 's/^stage \([a-z_]*\) .*/\1/p' "$DIR/.deps" | tail -1)"
+        prev="$(sed -n 's/^stage \([a-z_]*\) .*/\1/p' "$DIR/.dirty" | tail -1)"
         cp -f "$DIR/_main/config.mk" "$DIR/config.mk.${prev:-edited}"
-        echo "deps: your edited config.mk is kept as config.mk.${prev:-edited}; $STAGE has its own"
+        echo "dirty: your edited config.mk is kept as config.mk.${prev:-edited}; $STAGE has its own"
     fi
     install_tree "$MANIFEST" "$DIR" keep-results
-    echo "stage $STAGE scripts added by next ($(date '+%Y-%m-%d %H:%M'))" >>"$DIR/.deps"
-    echo "$DIR" >"$WS/tmp/.deps_last"
+    echo "stage $STAGE scripts added by next ($(date '+%Y-%m-%d %H:%M'))" >>"$DIR/.dirty"
+    echo "$DIR" >"$WS/tmp/.dirty_last"
     next_steps "$DIR" "$STAGE"
     ;;
 status)
     [ ${#POS[@]} -eq 0 ] || die "usage: status [--dir D]"
     find_tree
-    echo "${DIR#"$CWD"/} ($(deps_value flow), variant $(deps_value variant))"
-    echo "source tree: $(deps_value tree)"
-    sed -n 's/^\(stage\|ran\) /  \1 /p' "$DIR/.deps"
+    echo "${DIR#"$CWD"/} ($(tree_value flow), variant $(tree_value variant))"
+    echo "source tree: $(tree_value tree)"
+    sed -n 's/^\(stage\|ran\) /  \1 /p' "$DIR/.dirty"
     if ! cmp -s "$DIR/_main/config.mk" "$DIR/.config.mk.installed"; then
         echo "  config.mk edited:"
         { diff "$DIR/.config.mk.installed" "$DIR/_main/config.mk" || true; } | sed -n 's/^> /    /p'
     fi
-    if grep -q '^ran ' "$DIR/.deps" || ! cmp -s "$DIR/_main/config.mk" "$DIR/.config.mk.installed"; then
-        echo "A number from this tree carries the caveat: from a _deps lane, not a clean build."
+    if grep -q '^ran ' "$DIR/.dirty" || ! cmp -s "$DIR/_main/config.mk" "$DIR/.config.mk.installed"; then
+        echo "A number from this tree carries the caveat: from the dirty lane, not a clean build."
     fi
     ;;
 archive)
@@ -394,7 +404,7 @@ archive)
     [ ${#POS[@]} -eq 1 ] || die "usage: archive <flow> <stage> <file.tar.gz>"
     OUT="$(abspath "${POS[0]}")"
     TARGET="$(stage_target "$FLOW" "$STAGE" "$VARIANT")"
-    bz build ${DEPS_BUILD_OPTS:-} --output_groups=deps "$TARGET" >&2 || die "bazelisk build --output_groups=deps $TARGET failed"
+    bz build ${DIRTY_BUILD_OPTS:-} --output_groups=deps "$TARGET" >&2 || die "bazelisk build --output_groups=deps $TARGET failed"
     TAR="$(bz cquery --output=files --output_groups=deps "$TARGET" 2>/dev/null | grep '\.tar\.gz$' || true)"
     [ -n "$TAR" ] || die "$TARGET has no deps archive (is it an ORFS stage target?)"
     cp -f "$(bz info execution_root 2>/dev/null)/$TAR" "$OUT"

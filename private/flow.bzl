@@ -172,7 +172,7 @@ def _filter_stage_args(stage, **kwargs):
 
     # What the stages after this one are configured with, for a deployed
     # tree of this stage run under ORFS_DEPLOY_ANY_STAGE=1. A tree carries
-    # one stage's variables (docs/local-flow.md, the fence), so a later
+    # one stage's variables (docs/dirty-lane.md, the fence), so a later
     # stage run there otherwise silently takes the platform's defaults:
     # a study measured M7 and a 0.25 layer adjustment for a week because
     # of it. Only literal values travel. A value naming a file resolves
@@ -504,7 +504,7 @@ def orfs_flow(
         stable designs like RAM macros where intermediate stages don't need inspection.
       substeps: if True, capture intermediate substep .odb files as additional
         action outputs in per-substep output groups. Enables shared cache of
-        substep intermediates for debugging via //:deps. Default False to
+        substep intermediates for debugging via //:dirty. Default False to
         control cache budget -- enable for designs under active development.
       save_odb: if False, skip synth_odb generation. Needed when SYNTH_BLACKBOXES
         includes modules without LEF masters. Default True.

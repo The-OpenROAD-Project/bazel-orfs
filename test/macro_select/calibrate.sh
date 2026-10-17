@@ -25,8 +25,8 @@ print(json.dumps({"designs": designs,
 PY
 for a in $ARMS; do
   mkdir -p tmp/pinwall/$a
-  DEPS_STARTUP_OPTS="${OB:+--output_base=$OB}" DEPS_BUILD_OPTS="--jobs=$JOBS" \
-    bazelisk ${OB:+--output_base=$OB} run //:deps -- start //test/macro_select:pinwall_top grt \
+  DIRTY_STARTUP_OPTS="${OB:+--output_base=$OB}" DIRTY_BUILD_OPTS="--jobs=$JOBS" \
+    bazelisk ${OB:+--output_base=$OB} run //:dirty -- start //test/macro_select:pinwall_top grt \
     --variant "$a" --dir "$PWD/tmp/pinwall/$a/deps" --fresh > tmp/pinwall/$a/install.log 2>&1 || echo "install failed: $a"
 done
 python3 test/grt_scaling/grt_bench.py tmp/pinwall/matrix.json tmp/pinwall/results > tmp/pinwall/bench.log 2>&1

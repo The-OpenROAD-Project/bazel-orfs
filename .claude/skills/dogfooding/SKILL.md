@@ -8,7 +8,7 @@ description: >-
   output; a PR on an unmerged upstream PR is a draft; choices in the flow script, facts in
   the .odb; relative paths; unattended means continue; Chesterton's fence, check
   what our flow skipped before blaming a tool; watch a run that grinds past its expected
-  time; test script changes for the parent in a _deps lane on cached blocks, the full
+  time; test script changes for the parent in a dirty lane on cached blocks, the full
   build is the final dress rehearsal; trust the Bazel cache and never clean it, re-key
   an artifact by a code change that reaches its key. Use before proposing a fix for a timing or flow problem found
   on a big design, before writing a design README or status, before opening a PR that
@@ -64,7 +64,7 @@ A command's choice (accept congestion, say) is passed explicitly on every call t
 
 ## 8. Relative paths
 
-Commands and docs use paths relative to the working directory, never `$PWD/...` or `/home/...`. A tool that `bazel run` starts from its runfiles tree resolves a relative path against `BUILD_WORKING_DIRECTORY`, as `--dir` on `@bazel-orfs//:deps` and `ODB_DEBUG_DIR` on an odb-debug target do; a new one does the same.
+Commands and docs use paths relative to the working directory, never `$PWD/...` or `/home/...`. A tool that `bazel run` starts from its runfiles tree resolves a relative path against `BUILD_WORKING_DIRECTORY`, as `--dir` on `@bazel-orfs//:dirty` and `ODB_DEBUG_DIR` on an odb-debug target do; a new one does the same.
 
 ## 9. Unattended means continue
 
@@ -80,11 +80,11 @@ The same fence stands in front of every comparison run under a turnaround settin
 
 Give a long run an expected duration before launch. At one and a half to twice that, look at it rather than wait: what is it doing (a `perf` sample, the stage's own progress), does the question need it to finish, or is the answer already in hand? If the remaining work is not what the question measures, kill it and take the measurement the cheap way, often an odb-debug session on the checkpoint that already exists. The worked example: Frontend's grt stage ground through `repair_timing` (setup and hold) for a comparison that needed only the state after `repair_design`, which one session on the `cts` checkpoint gave in 25 minutes (`ideas/xiangshan-timing.md`, entry 25).
 
-## 12. Test script changes for the parent in a `_deps` lane; the full build is the dress rehearsal
+## 12. Test script changes for the parent in a dirty lane; the full build is the dress rehearsal
 
 Every OpenROAD stage action takes all of ORFS's `flow/scripts/*.tcl` as one input (the `makefile` filegroup `orfs_source.bzl` generates), so a carried ORFS patch that edits any script re-keys every block's floorplan, place and CTS. On XSTile that is hours of block rebuilds before the parent stage the change is for even starts, and again for every revision of the change.
 
-While a script change for the parent is being tested, keep its patch out of `ORFS_PATCHES`, `@bazel-orfs//:deps start` the parent's stage on the cached blocks, copy the edited script into the lane's tree and iterate there (`deps-lane`); a single substep (`do-2_2_floorplan_macro` on the lane's `2_1_floorplan.odb`) turns around in minutes. Write down each hand edit, and give each number from the lane the lane's caveat. When the change has settled, put the patch in the series and run the full Bazel build once: the final, full dress rehearsal, a belt-and-braces check that the result stands from a clean commit. It is not where the change gets tested.
+While a script change for the parent is being tested, keep its patch out of `ORFS_PATCHES`, `@bazel-orfs//:dirty start` the parent's stage on the cached blocks, copy the edited script into the lane's tree and iterate there (`dirty-lane`); a single substep (`do-2_2_floorplan_macro` on the lane's `2_1_floorplan.odb`) turns around in minutes. Write down each hand edit, and give each number from the lane the lane's caveat. When the change has settled, put the patch in the series and run the full Bazel build once: the final, full dress rehearsal, a belt-and-braces check that the result stands from a clean commit. It is not where the change gets tested.
 
 The worked example: dissolving hardened blocks into XSTile after macro placement. The first parent floorplan with the new ORFS patch spent 5.8 hours rebuilding all five blocks, then failed in its first minute on a check the patch itself added; a fix to one loop in `regfile_dissolve.tcl` would have re-keyed the blocks again.
 

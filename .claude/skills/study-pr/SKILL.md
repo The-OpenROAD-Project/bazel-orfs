@@ -44,7 +44,7 @@ with their measured effect, never opened. The human decides when.
 ## The edit/measure loop
 
 - Iterate with a bring-your-own binary (`byo-openroad` skill) or a tree
-  deployed by `bazelisk run //:deps -- start <flow> <stage>`; record arms with the carried patch through the module graph.
+  deployed by `bazelisk run //:dirty -- start <flow> <stage>`; record arms with the carried patch through the module graph.
 - Time from the log, not from bazel: `--@bazel-orfs//:log_timestamps`
   stamps every line with elapsed seconds, and a cached stage rebuilds for
   free, so a bazel wall clock measures the cache. Use the tool's own runtime
@@ -207,7 +207,7 @@ spends its time, with the patches it points at`. Not the question.
 6. Limits and caveats, written before anyone asks.
 7. Upstream candidates: `PR-to-be | patches | measured effect, alone`, with
    the Chesterton's Fence paragraph per patch. Listed, not acted on.
-8. Reproducing: fenced `sh` with the exact bazel lines, the `//:deps` deploy,
+8. Reproducing: fenced `sh` with the exact bazel lines, the `//:dirty` deploy,
    the plot regeneration, and the traps hit on the way.
 
 **Images**: commit PNG/SVG to the branch and reference them by **pinned-SHA

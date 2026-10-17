@@ -2015,17 +2015,17 @@ py_test(
     deps = ["//:host_tools_lib"],
 )
 
-# //:deps locates the reproducer tarball through the {name}_deps_tar
+# //:dirty locates the reproducer tarball through the {name}_deps_tar
 # companion, never through {name}_deps, which owns no tarball. Driven
 # with a stub 'bazelisk' on PATH so no ORFS stage has to be built; also
 # pins that a missing tarball prints a diagnostic instead of the bare
 # 'set -e' abort it used to die of.
 sh_test(
-    name = "deps_wrapper_test",
+    name = "dirty_wrapper_test",
     size = "small",
-    srcs = ["deps_wrapper_test.sh"],
-    args = ["$(rootpath //:deps)"],
-    data = ["//:deps"],
+    srcs = ["dirty_wrapper_test.sh"],
+    args = ["$(rootpath //:dirty)"],
+    data = ["//:dirty"],
 )
 
 # make.tpl's deployed-tree guard: a bare stage target is refused and the
@@ -2170,7 +2170,7 @@ orfs_flow(
 # The stages' reproducer tarballs, for the tests below: each stage target
 # carries one in its "deps" output group, built only when asked for.
 # Test-only names; shipped flows have no per-stage deps targets
-# (`bazelisk run //:deps -- archive <flow> <stage> <file>` makes one).
+# (`bazelisk run //:dirty -- archive <flow> <stage> <file>` makes one).
 
 filegroup(
     name = "lb_32x128_mock_floorplan_deps_tar",
@@ -2348,7 +2348,7 @@ sh_test(
     data = [":tag_array_64x184_mock_floorplan_deps_tar"],
 )
 
-# //:deps's output groups on a stage: `next` builds deps_scripts and
+# //:dirty's output groups on a stage: `next` builds deps_scripts and
 # deps_inputs, which must not carry the earlier stage's results.
 deps_groups_test(
     name = "deps_groups_floorplan_test",

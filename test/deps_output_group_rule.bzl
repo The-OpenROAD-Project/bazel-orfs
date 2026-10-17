@@ -106,7 +106,7 @@ output_group_test = rule(
 )
 
 def _deps_groups_test_impl(ctx):
-    """The //:deps output groups, checked at analysis: deps_scripts is
+    """The //:dirty output groups, checked at analysis: deps_scripts is
     the four small files `next` installs, and deps_inputs leaves out the
     earlier stage's results that deps_files carries."""
     info = ctx.attr.target[OutputGroupInfo]

@@ -388,7 +388,7 @@ cells. The deterministic handover rule (entry 5's proposal) stands.
 
 Chain 4 ran the parent's CTS, both routes and its pin placement from the
 floorplan stage's deploy tree, whose `config.mk` is scoped to the
-floorplan stage (the fence in docs/local-flow.md). Everything the bazel
+floorplan stage (the fence in docs/dirty-lane.md). Everything the bazel
 flow sets for later stages was therefore the platform default:
 `MAX_ROUTING_LAYER` M7 instead of M9, `ROUTING_LAYER_ADJUSTMENT` 0.25,
 `PLACE_PINS_ARGS` without the annealer, `IO_PLACER_H/V` defaults,
@@ -1708,7 +1708,7 @@ Checked on the ODB, the mechanics are sound: the dissolved cells sit at
 one common offset, the tap pack moves a few percent of them by whole
 sites (at most 0.86 um), and every cell is legal and powered.
 
-All three arms ran in `_deps` lanes from floorplan on, on #1187's base
+All three arms ran in dirty lanes from floorplan on, on #1187's base
 with row 15's parent settings, against a control on the same die with
 every block a macro. The lane numbers compare with each other only, not
 with the KPI rows.

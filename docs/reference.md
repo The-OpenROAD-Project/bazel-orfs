@@ -18,19 +18,19 @@ The stages are:
 * `final`
 * `generate_abstract`
 
-Individual substeps within a stage can be run in a tree deployed by `//:deps`.
-See [Substep targets](local-flow.md#substep-targets).
+Individual substeps within a stage can be run in a tree deployed by `//:dirty`.
+See [Substep targets](dirty-lane.md#substep-targets).
 
 ### Dependency deployment
 
-Dependencies are deployed with `//:deps`, which builds everything the stage needs (every earlier stage) and installs it, with the stage's scripts, in one tree per flow:
+Dependencies are deployed with `//:dirty`, which builds everything the stage needs (every earlier stage) and installs it, with the stage's scripts, in one tree per flow:
 
 ```bash
-bazelisk run //:deps -- start <flow> <stage>   # e.g. //test:lb_32x128 place
+bazelisk run //:dirty -- start <flow> <stage>   # e.g. //test:lb_32x128 place
 <tree>/make do-<stage>
 ```
 
-This prepares the environment for running ORFS stage targets locally. The tree is `tmp/<package>/<flow>[_<variant>]/` by default, or `--dir`. `next <stage>` carries a hand-run stage into the next in the same tree, `status` says what in the tree was run by hand, and `archive <flow> <stage> <file.tar.gz>` writes a self-contained reproducer. See [Local flow and substeps](local-flow.md).
+This prepares the environment for running ORFS stage targets locally. The tree is `tmp/<package>/<flow>[_<variant>]/` by default, or `--dir`. `next <stage>` carries a hand-run stage into the next in the same tree, `status` says what in the tree was run by hand, and `archive <flow> <stage> <file.tar.gz>` writes a self-contained reproducer. See [Local flow and substeps](dirty-lane.md).
 
 Each stage depends on two generated `.mk` files that provide the ORFS configuration:
 
@@ -106,7 +106,7 @@ These are the genrules spawned in this macro:
 
 * ORFS stage-specific (named: `target_name + "_" + stage` or `target_name + "_" + variant + "_" + stage`)
 
-Dependency deployment is handled via output groups on stage targets (`deps_files` for a tree, `deps` for an archive), accessed through `//:deps`.
+Dependency deployment is handled via output groups on stage targets (`deps_files` for a tree, `deps` for an archive), accessed through `//:dirty`.
 
 ### Bazel flow
 
@@ -124,13 +124,13 @@ bazel build <target>_<stage>
 
 A mutable build folder can be set up to prepare for a local synthesis run, useful when digging into some detail of the synthesis flow:
 
-    $ bazelisk run //:deps -- start //test:tag_array_64x184 synth
+    $ bazelisk run //:dirty -- start //test:tag_array_64x184 synth
 
 ### Create a make issue archive
 
 To create and test a `make issue` archive for floorplan:
 
-    bazelisk run //:deps -- start //test:lb_32x128 floorplan
+    bazelisk run //:dirty -- start //test:lb_32x128 floorplan
     tmp/test/lb_32x128/make ISSUE_TAG=test floorplan_issue
 
 This results in `tmp/test/lb_32x128/floorplan_test.tar.gz`, which can be run provided the `openroad` application is in the path.

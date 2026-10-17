@@ -1,5 +1,5 @@
 # A place substep of a deployed tree through pathology.tcl:
-#   bazelisk run //:deps -- start <flow> place
+#   bazelisk run //:dirty -- start <flow> place
 #   <tree>/make run RUN_SCRIPT=$PWD/probe_deps.tcl \
 #     PROBE_ODB=3_4_place_resized.odb OUTPUT_JSON=... PATHOLOGY_TCL=... KEPT_EXPECTED=...
 source $::env(SCRIPTS_DIR)/load.tcl

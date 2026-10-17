@@ -1,10 +1,16 @@
-# Local flow and substeps
+# The dirty lane
 
-Everything here runs an ORFS stage *outside* the Bazel sandbox, in a
-deployed directory under `tmp/`, so you can edit Tcl, re-run one substep,
-or point the flow at a locally built ORFS. Start from a working
-`bazelisk build` of the stage you want to poke at.
+Solved problems are hermetic and never change; unsolved problems need a
+workbench. Everything here runs an ORFS stage *outside* the Bazel
+sandbox, in a plain directory under `tmp/`, with ORFS's own `make`, the
+`.tcl` scripts and the `openroad` executable: edit Tcl, re-run one
+substep, pull an `.odb` or `.sdc` out of a run and test a downstream
+stage on it, or point the flow at a locally built ORFS or OpenROAD.
+Once you know the answer, put it in the flow's BUILD file, a script or
+a carried patch and build it hermetically. The
+[README](../README.md) says why.
 
+Start from a working `bazelisk build` of the stage you want to poke at.
 Command lines use `//test:...` targets from a clone of this repository;
 substitute your own design's targets.
 
@@ -24,13 +30,13 @@ The local flow lets you build with a locally compiled [ORFS](https://openroad-fl
 
    ```bash
    # Install the synthesis stage's inputs and scripts
-   bazelisk run //:deps -- start //test:L1MetadataArray synth
+   bazelisk run //:dirty -- start //test:L1MetadataArray synth
 
    # Build synthesis using local ORFS (start prints this line)
    tmp/test/L1MetadataArray/make do-yosys-canonicalize do-yosys <results>/1_2_yosys.sdc do-1_synth
 
    # Carry on into floorplan in the same tree, on the synthesis just run
-   bazelisk run //:deps -- next floorplan
+   bazelisk run //:dirty -- next floorplan
 
    # Build floorplan
    tmp/test/L1MetadataArray/make do-floorplan
@@ -45,20 +51,20 @@ The local flow lets you build with a locally compiled [ORFS](https://openroad-fl
 > To choose the directory, pass `--dir`:
 >
 > ```bash
-> bazelisk run //:deps -- start <flow> <stage> --dir tmp/my_tree
+> bazelisk run //:dirty -- start <flow> <stage> --dir tmp/my_tree
 > ```
 >
 > A relative directory is relative to where you ran `bazelisk run`.
 >
 > This is useful on systems where `/tmp` is small or when you want to place the build artifacts in a specific location.
 
-The four commands of `//:deps`:
+The four commands of `//:dirty`:
 
 ```bash
-bazelisk run //:deps -- start   <flow> <stage> [--dir D] [--variant V] [--fresh]
-bazelisk run //:deps -- next    <stage>        [--dir D]
-bazelisk run //:deps -- status                 [--dir D]
-bazelisk run //:deps -- archive <flow> <stage> <file.tar.gz> [--variant V]
+bazelisk run //:dirty -- start   <flow> <stage> [--dir D] [--variant V] [--fresh]
+bazelisk run //:dirty -- next    <stage>        [--dir D]
+bazelisk run //:dirty -- status                 [--dir D]
+bazelisk run //:dirty -- archive <flow> <stage> <file.tar.gz> [--variant V]
 ```
 
 `<flow>` is the flow's label (`//test:lb_32x128`); a stage target's label
@@ -76,10 +82,10 @@ bazelisk run //:deps -- archive <flow> <stage> <file.tar.gz> [--variant V]
 - `archive` writes a self-contained reproducer `.tar.gz` (the stage
   target's `deps` output group).
 
-Building `//:deps` itself is instant; `start` builds only output groups
+Building `//:dirty` itself is instant; `start` builds only output groups
 of the stage target, the same actions a plain build caches, so after a
 finished build nothing re-runs. Iterating stage by stage this way is the
-`_deps` lane: [`.claude/skills/deps-lane/SKILL.md`](../.claude/skills/deps-lane/SKILL.md).
+dirty lane: [`.claude/skills/dirty-lane/SKILL.md`](../.claude/skills/dirty-lane/SKILL.md).
 
 ## A deployed tree runs its own stage, and only that
 
@@ -87,7 +93,7 @@ After `start <flow> floorplan`, `tmp/.../<flow>/make do-floorplan` is the
 tree's purpose. `make do-place` in the same tree is refused (exit 2), as
 are the place sub-steps (`do-3_3_place_gp`, ...) and any other stage's
 targets; the message names the stage the tree was deployed for. To move
-on, `bazelisk run //:deps -- next place` installs place's scripts and
+on, `bazelisk run //:dirty -- next place` installs place's scripts and
 `config.mk` in the tree, and its `make` then runs place. Bare stage names
 (`place`, `floorplan`) were already refused, because they let ORFS rebuild
 upstream stages from inputs bazel never gave the tree.
@@ -132,7 +138,7 @@ because the flow said M9 and 0.18 and the tree never heard.
 Any make target of the tree's stage runs through the tree's `make`:
 
 ```bash
-bazelisk run //:deps -- start <flow> <stage>
+bazelisk run //:dirty -- start <flow> <stage>
 tmp/<pkg>/<flow>/make <make args...>
 ```
 
@@ -142,8 +148,8 @@ Trees of different flows are independent and can run in parallel:
 
 ```bash
 # Deploy and build two independent designs in parallel
-bazelisk run //:deps -- start //test:tag_array_64x184 synth
-bazelisk run //:deps -- start //test:lb_32x128 synth
+bazelisk run //:dirty -- start //test:tag_array_64x184 synth
+bazelisk run //:dirty -- start //test:lb_32x128 synth
 
 # Run synthesis in parallel (each in its own directory)
 tmp/test/tag_array_64x184/make do-yosys-canonicalize do-yosys <results>/1_2_yosys.sdc do-1_synth &
@@ -156,7 +162,7 @@ give each its own `--dir`:
 
 ```bash
 for stage in floorplan place; do
-  bazelisk run //:deps -- start //test:L1MetadataArray $stage --dir tmp/L1_$stage
+  bazelisk run //:dirty -- start //test:L1MetadataArray $stage --dir tmp/L1_$stage
 done
 
 # Now iterate on either stage without re-deploying
@@ -176,14 +182,14 @@ passing the substep name to the tree's `make`:
 
 ```bash
 # Deploy place artifacts and run only the resizing substep
-bazelisk run //:deps -- start //coralnpu:CoreMiniAxi place
+bazelisk run //:dirty -- start //coralnpu:CoreMiniAxi place
 tmp/coralnpu/CoreMiniAxi/make do-3_4_place_resized
 
 # Open GUI to inspect
 tmp/coralnpu/CoreMiniAxi/make gui_place
 
 # After editing BUILD, re-deploy and re-run
-bazelisk run //:deps -- start //coralnpu:CoreMiniAxi place --fresh
+bazelisk run //:dirty -- start //coralnpu:CoreMiniAxi place --fresh
 tmp/coralnpu/CoreMiniAxi/make do-3_4_place_resized
 ```
 
@@ -246,18 +252,18 @@ from shared caching.
 > `STAGE_SUBSTEPS` truly derived from ORFS rather than maintained as a copy
 > in bazel-orfs.
 
-### Common `//:deps` workflows
+### Common `//:dirty` workflows
 
 | I want to... | Command |
 |---|---|
-| Deploy a stage | `bazelisk run //:deps -- start <flow> <stage>` |
+| Deploy a stage | `bazelisk run //:dirty -- start <flow> <stage>` |
 | Run a single substep | `tmp/<pkg>/<flow>/make do-<substep>` |
 | View result in GUI | `tmp/<pkg>/<flow>/make gui_<stage>` |
 | Run arbitrary make targets | `tmp/<pkg>/<flow>/make <make args...>` |
 | Edit Tcl scripts and re-run without Bazel | `tmp/<pkg>/<flow>/make do-<substep>` |
-| Carry a hand-run stage into the next | `bazelisk run //:deps -- next <stage>` |
-| See what in the tree was run by hand | `bazelisk run //:deps -- status` |
-| Create a reproducer archive | `bazelisk run //:deps -- archive <flow> <stage> <file.tar.gz>` |
+| Carry a hand-run stage into the next | `bazelisk run //:dirty -- next <stage>` |
+| See what in the tree was run by hand | `bazelisk run //:dirty -- status` |
+| Create a reproducer archive | `bazelisk run //:dirty -- archive <flow> <stage> <file.tar.gz>` |
 | Create a `make issue` archive | `start <flow> <stage>`, then `tmp/.../make <stage>_issue` |
 | Use a local ORFS installation | `tmp/<pkg>/<flow>/make do-<stage>` with `FLOW_HOME` set |
 | Use a locally built openroad | `OPENROAD_EXE=/path/to/openroad tmp/<pkg>/<flow>/make do-<stage>` |

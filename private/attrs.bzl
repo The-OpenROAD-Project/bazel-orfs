@@ -303,6 +303,6 @@ def openroad_attrs():
             doc = "When True, capture intermediate substep .odb files as " +
                   "additional action outputs in per-substep output groups. " +
                   "Enables shared cache of substep intermediates for " +
-                  "debugging via //:deps.",
+                  "debugging via //:dirty.",
         ),
     }

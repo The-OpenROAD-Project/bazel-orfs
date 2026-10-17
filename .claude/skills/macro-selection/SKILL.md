@@ -146,13 +146,13 @@ module where the idiom is present, measured per module on its own
 synthesis, kept where it pays in period and in time; the list stays
 short and named, since ORFS does not verify it.
 
-The parent from the plan. Iterate a stage in a `@bazel-orfs//:deps` tree
-(`bazelisk run @bazel-orfs//:deps -- start <flow> <stage> --dir <dir>`, then
-`<dir>/make do-<stage>`, and `bazelisk run @bazel-orfs//:deps -- next <stage>` to
-carry on into the next stage; [`deps-lane.md`](deps-lane.md)): a deployed
+The parent from the plan. Iterate a stage in a `@bazel-orfs//:dirty` tree
+(`bazelisk run @bazel-orfs//:dirty -- start <flow> <stage> --dir <dir>`, then
+`<dir>/make do-<stage>`, and `bazelisk run @bazel-orfs//:dirty -- next <stage>` to
+carry on into the next stage; the `dirty-lane` skill): a deployed
 tree carries only its current stage's variables, and its wrapper refuses
 another stage's targets for the reason written in
-`make.tpl` and `docs/local-flow.md`. Then the gates, cheapest first, each a hard
+`make.tpl` and `docs/dirty-lane.md`. Then the gates, cheapest first, each a hard
 stop: the annealer's channel check at floorplan; the free-site picture
 and the RUDY map at place (`/odb-debug`); the legaliser's window check;
 the zero-iteration global route, total overflow under about 100 k and no

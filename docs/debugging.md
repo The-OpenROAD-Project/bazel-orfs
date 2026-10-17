@@ -71,7 +71,7 @@ one variable every logged tool invocation goes through) with
 involved, and every logged tool is stamped, not just OpenROAD.
 
 Scope is the build actions — `bazelisk build` and `bazelisk test`. A tree
-deployed by `//:deps` runs ORFS's own `RUN_CMD` and logs unstamped.
+deployed by `//:dirty` runs ORFS's own `RUN_CMD` and logs unstamped.
 
 Two things to know:
 

@@ -222,14 +222,21 @@ filegroup(
     visibility = ["//tools/agent:__pkg__"],
 )
 
-# `bazelisk run //:deps -- start <flow> <stage>`: a flow's stages in a
-# tree to run by hand, `next <stage>` to carry on in it, `status`,
-# `archive`. Building it is instant; `start` builds what the stage needs
-# (every stage before it) through the stage target's output groups.
-# .claude/skills/deps-lane/SKILL.md.
+# `bazelisk run //:dirty -- start <flow> <stage>`: the dirty lane, a
+# flow's stages in a tree to run by hand, `next <stage>` to carry on in
+# it, `status`, `archive`. Building it is instant; `start` builds what
+# the stage needs (every stage before it) through the stage target's
+# output groups. .claude/skills/dirty-lane/SKILL.md.
+sh_binary(
+    name = "dirty",
+    srcs = ["dirty_wrapper.sh"],
+    visibility = ["//visibility:public"],
+)
+
+# The old name: says the new one and fails. Goes at a later bump.
 sh_binary(
     name = "deps",
-    srcs = ["deps_wrapper.sh"],
+    srcs = ["deps_renamed.sh"],
     visibility = ["//visibility:public"],
 )
 
