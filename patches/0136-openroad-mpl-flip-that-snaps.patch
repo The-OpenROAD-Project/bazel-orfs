@@ -1,0 +1,262 @@
+From 4d682e0971d4e912680cce34d67eac75f241f590 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Sat, 17 Oct 2026 21:25:01 +0200
+Subject: [PATCH] mpl: a flip that cannot snap onto the track grid falls back
+ to one that can
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The orientation step flips macros to shorten wires, and the snapper
+then puts the macro's pins on the track grid. When two of the macro's
+pin layers are RightWayOnGridOnly and their tracks are offset
+differently from the macro's own (asap7's M3 at 9 + 36k and M5 at
+12 + 48k dbu, a block with pins on both), mirroring moves one layer's
+pins by a different residue than the other's, and no location aligns
+both: in MY, M3 needs the origin at 18 mod 36 and M5 at 24 mod 48,
+which disagree mod 12. The snapper stopped on MPL-0005.
+
+Snapper::snapMacro now says whether every RightWayOnGridOnly pin was
+aligned, reporting only when asked. When it was not, the macro keeps
+its location and takes the first of R0, MX, MY, R180 that snaps, with
+MPL-0081 saying which; if none does, the chosen orientation stays and
+MPL-0005 says why, as before.
+
+Not upstreamed. Retires at a //:bump onto an OpenROAD whose macro
+placer does not choose an orientation it cannot snap.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/mpl/src/hier_rtlmp.cpp | 41 ++++++++++++++++++++++++
+ src/mpl/src/hier_rtlmp.h   |  3 ++
+ src/mpl/src/snapper.cpp    | 65 +++++++++++++++++++++++++++-----------
+ src/mpl/src/snapper.h      | 14 +++++---
+ 4 files changed, 101 insertions(+), 22 deletions(-)
+
+diff --git a/src/mpl/src/hier_rtlmp.cpp b/src/mpl/src/hier_rtlmp.cpp
+index a2f6fc4f1d..ed97997dce 100644
+--- a/src/mpl/src/hier_rtlmp.cpp
++++ b/src/mpl/src/hier_rtlmp.cpp
+@@ -2513,6 +2513,44 @@ void HierRTLMP::updateMacroOnDb(const HardMacro* hard_macro)
+   inst->setPlacementStatus(odb::dbPlacementStatus::PLACED);
+ }
+ 
++// A flip chosen to shorten wires can leave a macro in an orientation where
++// its pins on RightWayOnGridOnly layers cannot all be on the track grid at
++// any location: when two such layers' tracks are offset differently from
++// the macro's own, mirroring moves one layer's pins by a different residue
++// than the other's (asap7's M3 and M5, a block with pins on both, mirrored
++// about Y). Keep the location and take the first orientation that snaps;
++// if none does, the macro stays as chosen and snapMacro reports why.
++void HierRTLMP::snapToAlignableOrientation(Snapper& snapper,
++                                           odb::dbInst* inst,
++                                           HardMacro* hard_macro)
++{
++  const odb::dbOrientType chosen = inst->getOrient();
++  const odb::Point location = inst->getLocation();
++  for (const odb::dbOrientType orient : {odb::dbOrientType::R0,
++                                         odb::dbOrientType::MX,
++                                         odb::dbOrientType::MY,
++                                         odb::dbOrientType::R180}) {
++    if (orient == chosen) {
++      continue;
++    }
++    inst->setOrient(orient);
++    inst->setLocation(location.x(), location.y());
++    if (snapper.snapMacro(/*report=*/false)) {
++      hard_macro->setOrientation(orient);
++      logger_->info(utl::MPL,
++                    81,
++                    "Macro {} cannot have its pins on the track grid in {}; "
++                    "placed in {} instead.",
++                    inst->getName(),
++                    chosen.getString(),
++                    orient.getString());
++      return;
++    }
++  }
++  inst->setOrient(chosen);
++  inst->setLocation(location.x(), location.y());
++}
++
+ void HierRTLMP::commitMacroPlacementToDb()
+ {
+   Snapper snapper(logger_);
+@@ -2520,6 +2558,9 @@ void HierRTLMP::commitMacroPlacementToDb()
+   for (auto& [inst, hard_macro] : tree_->maps.inst_to_hard) {
+     if (!inst->isFixed()) {
+       snapper.setMacro(inst);
++      if (!snapper.snapMacro(/*report=*/false)) {
++        snapToAlignableOrientation(snapper, inst, hard_macro.get());
++      }
+       snapper.snapMacro();
+       inst->setPlacementStatus(odb::dbPlacementStatus::LOCKED);
+     }
+diff --git a/src/mpl/src/hier_rtlmp.h b/src/mpl/src/hier_rtlmp.h
+index 081e83e301..9f5dfe5323 100644
+--- a/src/mpl/src/hier_rtlmp.h
++++ b/src/mpl/src/hier_rtlmp.h
+@@ -136,6 +136,9 @@ class HierRTLMP
+   void updateMacrosOnDb();
+   void updateMacroOnDb(const HardMacro* hard_macro);
+   void commitMacroPlacementToDb();
++  void snapToAlignableOrientation(Snapper& snapper,
++                                  odb::dbInst* inst,
++                                  HardMacro* hard_macro);
+   void commitClusteringDataToDb() const;
+   void createGroupForCluster(Cluster* cluster,
+                              odb::dbGroup* parent_group) const;
+diff --git a/src/mpl/src/snapper.cpp b/src/mpl/src/snapper.cpp
+index c7e5837e14..1f8214f2af 100644
+--- a/src/mpl/src/snapper.cpp
++++ b/src/mpl/src/snapper.cpp
+@@ -25,13 +25,15 @@ Snapper::Snapper(utl::Logger* logger, odb::dbInst* inst)
+ {
+ }
+ 
+-void Snapper::snapMacro()
++bool Snapper::snapMacro(const bool report)
+ {
+-  snap(odb::dbTechLayerDir::VERTICAL);
+-  snap(odb::dbTechLayerDir::HORIZONTAL);
++  const bool vertical = snap(odb::dbTechLayerDir::VERTICAL, report);
++  const bool horizontal = snap(odb::dbTechLayerDir::HORIZONTAL, report);
++  return vertical && horizontal;
+ }
+ 
+-void Snapper::snap(const odb::dbTechLayerDir& target_direction)
++bool Snapper::snap(const odb::dbTechLayerDir& target_direction,
++                   const bool report)
+ {
+   LayerDataList layers_data_list = computeLayerDataList(target_direction);
+ 
+@@ -42,7 +44,7 @@ void Snapper::snap(const odb::dbTechLayerDir& target_direction)
+   if (layers_data_list.empty()) {
+     alignWithManufacturingGrid(origin);
+     setOrigin(origin, target_direction);
+-    return;
++    return true;
+   }
+ 
+   const std::vector<int>& lowest_grid_positions
+@@ -65,8 +67,8 @@ void Snapper::snap(const odb::dbTechLayerDir& target_direction)
+                     lowest_grid_positions[starting_position_index],
+                     target_direction);
+ 
+-  attemptSnapToExtraPatterns(
+-      starting_position_index, layers_data_list, target_direction);
++  return attemptSnapToExtraPatterns(
++      starting_position_index, layers_data_list, target_direction, report);
+ }
+ 
+ void Snapper::setOrigin(const int origin,
+@@ -201,10 +203,11 @@ void Snapper::getTrackGridPattern(odb::dbTrackGrid* track_grid,
+   }
+ }
+ 
+-void Snapper::attemptSnapToExtraPatterns(
++bool Snapper::attemptSnapToExtraPatterns(
+     const int start_index,
+     const LayerDataList& layers_data_list,
+-    const odb::dbTechLayerDir& target_direction)
++    const odb::dbTechLayerDir& target_direction,
++    const bool report)
+ {
+   const int total_attempts = 100;
+   const int total_pins = std::accumulate(layers_data_list.begin(),
+@@ -244,17 +247,43 @@ void Snapper::attemptSnapToExtraPatterns(
+ 
+   snapPinToPosition(snap_pin, positions[best_index], target_direction);
+ 
+-  if (best_snapped_pins != total_pins) {
+-    totalAlignedPins(layers_data_list, target_direction, true);
++  if (best_snapped_pins == total_pins) {
++    return true;
++  }
++  if (!report) {
++    return rightWayOnGridAligned(layers_data_list, target_direction);
++  }
++
++  // errors on a pin of a RightWayOnGridOnly layer left off the grid
++  totalAlignedPins(layers_data_list, target_direction, true);
++
++  logger_->warn(utl::MPL,
++                2,
++                "Could not align all pins of the macro {} to the track-grid. "
++                "{} out of {} pins were aligned.",
++                inst_->getName(),
++                best_snapped_pins,
++                total_pins);
++  return true;
++}
+ 
+-    logger_->warn(utl::MPL,
+-                  2,
+-                  "Could not align all pins of the macro {} to the track-grid. "
+-                  "{} out of {} pins were aligned.",
+-                  inst_->getName(),
+-                  best_snapped_pins,
+-                  total_pins);
++bool Snapper::rightWayOnGridAligned(const LayerDataList& layers_data_list,
++                                    const odb::dbTechLayerDir& direction)
++{
++  for (const auto& data : layers_data_list) {
++    if (!data.track_grid->getTechLayer()->isRightWayOnGridOnly()) {
++      continue;
++    }
++    for (odb::dbITerm* pin : data.pins) {
++      const int center = direction == odb::dbTechLayerDir::VERTICAL
++                             ? pin->getBBox().xCenter()
++                             : pin->getBBox().yCenter();
++      if (!std::ranges::binary_search(data.available_positions, center)) {
++        return false;
++      }
++    }
+   }
++  return true;
+ }
+ 
+ int Snapper::totalAlignedPins(const LayerDataList& layers_data_list,
+diff --git a/src/mpl/src/snapper.h b/src/mpl/src/snapper.h
+index ea01a21a38..cd6d3e3693 100644
+--- a/src/mpl/src/snapper.h
++++ b/src/mpl/src/snapper.h
+@@ -30,7 +30,10 @@ class Snapper
+   Snapper(utl::Logger* logger, odb::dbInst* inst);
+ 
+   void setMacro(odb::dbInst* inst) { inst_ = inst; }
+-  void snapMacro();
++  // Snaps the macro's pins onto the track grid. Returns false when a pin on
++  // a RightWayOnGridOnly layer cannot be aligned; with report, that is an
++  // error (MPL-0005) and partly aligned pins on other layers a warning.
++  bool snapMacro(bool report = true);
+ 
+  private:
+   struct LayerData
+@@ -45,7 +48,7 @@ class Snapper
+   using TrackGridToPinListMap
+       = odb::PtrMap<odb::dbTrackGrid, std::vector<odb::dbITerm*>>;
+ 
+-  void snap(const odb::dbTechLayerDir& target_direction);
++  bool snap(const odb::dbTechLayerDir& target_direction, bool report);
+   void alignWithManufacturingGrid(int& origin);
+   void setOrigin(int origin, const odb::dbTechLayerDir& target_direction);
+   int totalAlignedPins(const LayerDataList& layers_data_list,
+@@ -64,9 +67,12 @@ class Snapper
+   void snapPinToPosition(odb::dbITerm* pin,
+                          int position,
+                          const odb::dbTechLayerDir& direction);
+-  void attemptSnapToExtraPatterns(int start_index,
++  bool attemptSnapToExtraPatterns(int start_index,
+                                   const LayerDataList& layers_data_list,
+-                                  const odb::dbTechLayerDir& target_direction);
++                                  const odb::dbTechLayerDir& target_direction,
++                                  bool report);
++  bool rightWayOnGridAligned(const LayerDataList& layers_data_list,
++                             const odb::dbTechLayerDir& direction);
+ 
+   utl::Logger* logger_;
+   odb::dbInst* inst_;
+-- 
+2.53.0
+

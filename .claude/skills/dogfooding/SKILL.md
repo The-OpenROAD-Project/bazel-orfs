@@ -28,7 +28,7 @@ When a timing or flow problem comes from the tools, fix the tools. Never:
 - write an SDC exception (`set_multicycle_path`, `set_false_path`) to hide it: an exception is a claim about the design's behaviour that nothing checks, and a wrong one fails in silicon while the flow reports clean (a `set_false_path` peel inside a thrown-away timing session is a measurement, not an exception: `odb-debug`, "Outliers or a mass");
 - change the RTL to add a register or a cycle of latency: that is a behaviour change the designers did not specify and verification did not cover.
 
-What is allowed: a fix in OpenROAD, yosys or ORFS (carried here as a patch until upstream takes it); a flow hard stop (rule 2); an equivalence-preserving mapping, such as a behavioural clock-gate module mapped onto the platform's ICG cell. Upstream RTL patches are for functional bugs only.
+What is allowed: a fix in OpenROAD, yosys or ORFS (carried here as a patch until upstream takes it); a flow hard stop (rule 2); an equivalence-preserving mapping, such as a behavioural clock-gate module mapped onto the platform's ICG cell, and more generally checked surgery that keeps function (logic moved across a boundary, storage given a module): the `surgery` skill says when a problem is one. Upstream RTL patches are for functional bugs only.
 
 Example: XSCore's Frontend measured 14.1 ns alone, its worst path ending at XiangShan's behavioural `ClockGate` latch. The fix for the latch is a mapping onto the ICG cell (`xs_icg.ys`), not a multicycle path on the enable and not a register per SRAM bank. The other 8 ns turned out not to be a tool bug at all: see rule 10.
 

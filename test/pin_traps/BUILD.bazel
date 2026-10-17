@@ -1,0 +1,715 @@
+load("@bazel-orfs//:openroad.bzl", "odb_debug")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_python//python:defs.bzl", "py_binary")
+load(":traps.bzl", "packing_trap", "pin_trap")
+
+# Pin traps: each a parent and its hardened blocks in which a block's own
+# choice, built alone, is right for the block and pathological for the
+# parent. traps.bzl says how a trap is built and measured.
+
+# the pin loop's round, for XiangShan's planned parent too
+exports_files(
+    ["pins_from_parent.tcl"],
+    visibility = ["//test/coremark_joule/designs/asap7/xiangshan:__pkg__"],
+)
+
+py_binary(
+    name = "trap_gen",
+    srcs = ["trap_gen.py"],
+    main = "trap_gen.py",
+)
+
+# Trap 1, pins face away: block a's contract pins on its west side, its
+# free interface answered by parent logic that can only sit east of it.
+# The block spans the parent's core height, so no parent cell fits above
+# or below it.
+pin_trap(
+    name = "face_away",
+    arms = {
+        "hand": {"pins": {"a": "e_* right"}},
+        "own": {},
+    },
+    bits = 32,
+    blocks = {
+        "a": {
+            "die": [
+                100.08,
+                30.24,
+            ],
+            "pins": "w_* left",
+        },
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            140.0,
+            34.56,
+        ],
+        "locs": "u_a 2.16 2.16 R0",
+        "pins": "p_* left",
+    },
+    rounds = 2,
+)
+
+# A placed parent in a persistent OpenROAD session, for looking at a trap
+# (tools/odb_debug/README.md).
+odb_debug(
+    name = "face_away_hand_odb_debug",
+    src = ":face_away_top_hand_place",
+)
+
+# Trap 2, both blocks their own: a and b side by side 4.32 um apart, each
+# with its contract on its top edge (registered by the parent in a strip
+# above) and a free interface to the other. By hand the interfaces face
+# each other across the gap.
+pin_trap(
+    name = "both_own",
+    arms = {
+        "hand": {"pins": {
+            "a": "x_* right",
+            "b": "x_* left",
+        }},
+        "own": {},
+    },
+    bits = 32,
+    blocks = {
+        "a": {
+            "die": [
+                60.048,
+                30.24,
+            ],
+            "pins": "t_* top",
+        },
+        "b": {
+            "die": [
+                60.048,
+                30.24,
+            ],
+            "pins": "t_* top",
+        },
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            128.736,
+            47.52,
+        ],
+        "locs": "u_a 2.16 2.16 R0 u_b 66.528 2.16 R0",
+        "pins": "pa_* top pb_* top",
+    },
+    rounds = 2,
+)
+
+# Trap 9, a channel sized for the wires: a and b face each other, the
+# parent's registers on every wire between them. Own: a 2.16 um channel
+# (no rows once the halos are cut) and a 12 um strip east of b for the
+# registers; by hand the same die with the strip moved into the channel.
+pin_trap(
+    name = "narrow_channel",
+    arms = {
+        "hand": {"parent": {"locs": "u_a 2.16 2.16 R0 u_b 56.448 2.16 R0"}},
+        # the macro placer places the blocks, from the same blocks as own;
+        # no channel and the die 2.16 um taller, or blocks the core's
+        # height do not fit (MPL-0006)
+        "mpl": {"parent": {
+            "channel": 0.0,
+            "die": [
+                98.64,
+                36.72,
+            ],
+            "locs": None,
+        }},
+        "own": {},
+    },
+    bits = 32,
+    blocks = {
+        "a": {
+            "die": [
+                40.032,
+                30.24,
+            ],
+            "pins": "w_* left e_* right",
+        },
+        "b": {
+            "die": [
+                40.032,
+                30.24,
+            ],
+            "pins": "w_* left e_* right",
+        },
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            98.64,
+            34.56,
+        ],
+        "locs": "u_a 2.16 2.16 R0 u_b 44.352 2.16 R0",
+        "pins": "pw_* left pe_* right",
+    },
+    round_bases = [
+        "own",
+        "mpl",
+    ],
+    rounds = 2,
+)
+
+# Trap 10, partners side by side split the parent's logic: two blocks
+# spanning the core's height, the parent's logic one cluster talking to
+# both. Own: the blocks abut in the middle, the logic is cut into a west
+# and an east region; by hand the blocks sit at the die's edges and the
+# logic between them. The blocks are the same in both arms.
+pin_trap(
+    name = "split_logic",
+    arms = {
+        "hand": {"parent": {"locs": "u_a 2.16 2.16 R0 u_b 77.904 2.16 R0"}},
+        # the macro placer places the blocks, from the same blocks as own;
+        # no channel and the die 2.16 um taller, or blocks the core's
+        # height do not fit (MPL-0006)
+        "mpl": {"parent": {
+            "channel": 0.0,
+            "die": [
+                120.096,
+                36.72,
+            ],
+            "locs": None,
+        }},
+        "own": {},
+    },
+    bits = 64,
+    blocks = {
+        "a": {"die": [
+            40.032,
+            30.24,
+        ]},
+        "b": {"die": [
+            40.032,
+            30.24,
+        ]},
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            120.096,
+            34.56,
+        ],
+        "locs": "u_a 20.16 2.16 R0 u_b 60.192 2.16 R0",
+    },
+    round_bases = [
+        "own",
+        "mpl",
+    ],
+    rounds = 2,
+)
+
+# Trap 11, a tidy row of files: four register files, each owned by logic
+# tied to the ports on one edge. Own: the files in a row along the bottom
+# edge; by hand each file at its owner's edge. The file is the same block
+# in both arms.
+pin_trap(
+    name = "tidy_row",
+    arms = {
+        "hand": {"parent": {"locs": "u_fw 2.16 51.84 R0 u_fe 97.776 51.84 R0 u_fs 49.968 2.16 R0 u_fn 49.968 97.2 R0"}},
+        # the macro placer places the blocks, from the same blocks as own
+        "mpl": {"parent": {"locs": None}},
+        "own": {},
+    },
+    bits = 16,
+    blocks = {
+        "f": {"die": [
+            20.16,
+            19.44,
+        ]},
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            120.096,
+            120.096,
+        ],
+        "locs": "u_fw 2.16 2.16 R0 u_fe 25.92 2.16 R0 u_fs 49.68 2.16 R0 u_fn 73.44 2.16 R0",
+        "pins": "pw_* left pe_* right ps_* bottom pn_* top",
+    },
+    round_bases = [
+        "own",
+        "mpl",
+    ],
+    rounds = 2,
+)
+
+# Trap 7, the flip that wins on wire: block a's pins on the west half of
+# its top edge, the parent's logic and ports to the east. "plain" places
+# the block as built; "own" is the parent's cheap fix, the block mirrored
+# (MY); "hand" rebuilds the block with its pins on the east half. The
+# block is 40.05 um wide, which is half an M3 pitch off a whole number of
+# them: a mirror puts every M3 pin between two of the parent's tracks.
+pin_trap(
+    name = "flip",
+    arms = {
+        "hand": {"pins": {"a": "x_* top:22-38"}},
+        "own": {
+            "parent": {"locs": "u_a 2.16 2.16 MY"},
+            "pins": {"a": "x_* top:2-18"},
+        },
+        "plain": {"pins": {"a": "x_* top:2-18"}},
+    },
+    bits = 32,
+    blocks = {"a": {"die": [
+        40.05,
+        30.24,
+    ]}},
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            80.064,
+            60.48,
+        ],
+        "locs": "u_a 2.16 2.16 R0",
+        "pin_access": True,
+        "pins": "p_* right",
+    },
+    rounds = 2,
+)
+
+# Trap 12, random pins before the macro placer: trap 11's netlist. Own is
+# today's flow, every parent pin free and the files placed by the macro
+# placer; by hand the pins on their owners' edges and each file at its
+# owner's edge, trap 11's answer.
+pin_trap(
+    name = "random_io",
+    arms = {
+        "hand": {"parent": {
+            "locs": "u_fw 2.16 51.84 R0 u_fe 97.776 51.84 R0 u_fs 49.968 2.16 R0 u_fn 49.968 97.2 R0",
+            "pins": "pw_* left pe_* right ps_* bottom pn_* top",
+        }},
+        "own": {},
+    },
+    bits = 16,
+    blocks = {
+        "f": {"die": [
+            20.16,
+            19.44,
+        ]},
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            120.096,
+            120.096,
+        ],
+        "locs": None,
+    },
+    rounds = 2,
+)
+
+# Trap 8, pins wider than a wire: trap 7's netlist, the block's pins at
+# exact places on its top edge, one every four M3 tracks. Own draws them
+# two M3 wire widths wide, a margin the block can afford; by hand one
+# wire width. The parent's probe runs pin access.
+pin_trap(
+    name = "wide_pins",
+    arms = {
+        "hand": {"blocks": {"a": {"user": {"WIDE_PIN_UM": "0.018"}}}},
+        "own": {"blocks": {"a": {"user": {"WIDE_PIN_UM": "0.036"}}}},
+    },
+    bits = 32,
+    blocks = {"a": {
+        "die": [
+            40.032,
+            30.24,
+        ],
+        "io": ":wide_pins.tcl",
+    }},
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            80.064,
+            60.48,
+        ],
+        "locs": "u_a 2.16 2.16 R0",
+        "pin_access": True,
+        "pins": "p_* right",
+    },
+)
+
+# The combined parent: traps 1, 9 and 10 stacked in bands of one die, 34.56
+# um each, their parents as submodules, their blocks the traps' own. Own
+# and hand reuse the traps' blocks; the parent's placer is now free to
+# trade between the traps across the bands, which is the question: does
+# each trap still catch today's flow, and does the loop still answer it.
+pin_trap(
+    name = "mini_top",
+    arms = {
+        "hand": {
+            "parent": {"locs": "u_face_away/u_a 2.16 2.16 R0 u_narrow_channel/u_a 2.16 36.72 R0 u_narrow_channel/u_b 56.448 36.72 R0 u_split_logic/u_a 2.16 71.28 R0 u_split_logic/u_b 77.904 71.28 R0"},
+            "reuse": {
+                "fa_a": [
+                    ":face_away_a_hand_generate_abstract",
+                    ":face_away_hand_a_probe",
+                ],
+                "nc_a": [
+                    ":narrow_channel_a_hand_generate_abstract",
+                    ":narrow_channel_hand_a_probe",
+                ],
+                "nc_b": [
+                    ":narrow_channel_b_hand_generate_abstract",
+                    ":narrow_channel_hand_b_probe",
+                ],
+                "sl_a": [
+                    ":split_logic_a_hand_generate_abstract",
+                    ":split_logic_hand_a_probe",
+                ],
+                "sl_b": [
+                    ":split_logic_b_hand_generate_abstract",
+                    ":split_logic_hand_b_probe",
+                ],
+            },
+        },
+        "own": {"reuse": {
+            "fa_a": [
+                ":face_away_a_own_generate_abstract",
+                ":face_away_own_a_probe",
+            ],
+            "nc_a": [
+                ":narrow_channel_a_own_generate_abstract",
+                ":narrow_channel_own_a_probe",
+            ],
+            "nc_b": [
+                ":narrow_channel_b_own_generate_abstract",
+                ":narrow_channel_own_b_probe",
+            ],
+            "sl_a": [
+                ":split_logic_a_own_generate_abstract",
+                ":split_logic_own_a_probe",
+            ],
+            "sl_b": [
+                ":split_logic_b_own_generate_abstract",
+                ":split_logic_own_b_probe",
+            ],
+        }},
+    },
+    bits = 2,
+    blocks = {
+        "fa_a": {
+            "die": [
+                100.08,
+                30.24,
+            ],
+            "module": "face_away_a",
+            "pins": "w_* left",
+        },
+        "nc_a": {
+            "die": [
+                40.032,
+                30.24,
+            ],
+            "module": "narrow_channel_a",
+            "pins": "w_* left e_* right",
+        },
+        "nc_b": {
+            "die": [
+                40.032,
+                30.24,
+            ],
+            "module": "narrow_channel_b",
+            "pins": "w_* left e_* right",
+        },
+        "sl_a": {
+            "die": [
+                40.032,
+                30.24,
+            ],
+            "module": "split_logic_a",
+        },
+        "sl_b": {
+            "die": [
+                40.032,
+                30.24,
+            ],
+            "module": "split_logic_b",
+        },
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            140.0,
+            103.68,
+        ],
+        "locs": "u_face_away/u_a 2.16 2.16 R0 u_narrow_channel/u_a 2.16 36.72 R0 u_narrow_channel/u_b 44.352 36.72 R0 u_split_logic/u_a 20.16 71.28 R0 u_split_logic/u_b 60.192 71.28 R0",
+        "pins": "face_away_p_* left:2.16-32.4 narrow_channel_pw_* left:36.72-66.96 narrow_channel_pe_* right:36.72-66.96",
+    },
+    round_variant = "mini_top_",
+    rounds = 2,
+)
+
+# Trap 13, a square core: twenty 15.12 um blocks, each 19.12 um with its
+# share of the 4 um channels, tile five by four on a 100 x 78 um core; a
+# square of the same area, 88.32 um, holds four columns of four (five
+# columns need 95.6 um), so no placer can place them. The area is what
+# the macro placer's own capacity check (MPL-0065) asks for, 20 x 19.12
+# squared = 7 311 um2. The floorplan is built
+# with the blocks placed by hand on a larger core; the probe remakes the
+# rows for each shape and runs the macro placer.
+packing_trap(
+    name = "aspect",
+    bits = 8,
+    block_die = [
+        15.12,
+        15.12,
+    ],
+    channel = 4.0,
+    locs = "u_m0 2.16 2.16 R0 u_m1 23.76 2.16 R0 u_m2 45.36 2.16 R0 u_m3 66.96 2.16 R0 u_m4 88.56 2.16 R0 u_m5 2.16 23.76 R0 u_m6 23.76 23.76 R0 u_m7 45.36 23.76 R0 u_m8 66.96 23.76 R0 u_m9 88.56 23.76 R0 u_m10 2.16 45.36 R0 u_m11 23.76 45.36 R0 u_m12 45.36 45.36 R0 u_m13 66.96 45.36 R0 u_m14 88.56 45.36 R0 u_m15 2.16 66.96 R0 u_m16 23.76 66.96 R0 u_m17 45.36 66.96 R0 u_m18 66.96 66.96 R0 u_m19 88.56 66.96 R0",
+    parent_die = [
+        120.096,
+        120.096,
+    ],
+    shapes = {
+        "hand": [
+            100.0,
+            78.0,
+        ],
+        "own": [
+            88.32,
+            88.32,
+        ],
+    },
+)
+
+# Trap 4, the block better alone: trap 1's geometry, the block's free
+# circuit reading every bit of its contract circuit, so its own pins are
+# its shortest wire and the parent's longest.
+# The block spans the parent's core height, so no parent cell fits above
+# or below it.
+pin_trap(
+    name = "selfish",
+    arms = {
+        "hand": {"pins": {"a": "e_* right"}},
+        "own": {},
+    },
+    bits = 32,
+    blocks = {
+        "a": {
+            "die": [
+                100.08,
+                30.24,
+            ],
+            "pins": "w_* left",
+        },
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            140.0,
+            34.56,
+        ],
+        "locs": "u_a 2.16 2.16 R0",
+        "pins": "p_* left",
+    },
+    rounds = 2,
+)
+
+# The surgery trap, an in2out path through a block on the parent's worst
+# path: blocks x and c side by side at the die's west edge, block b across
+# the die where its own registered interface (m_*, to the east ports)
+# puts it, and the parent's path from x through b's adder to c. Own is the
+# RTL as written; hand is the RTL after surgery, the adder moved from b
+# into the parent between x and c. The parent is timed at placement.
+pin_trap(
+    name = "in2out",
+    arms = {
+        "hand": {
+            "blocks": {"b": {
+                "module": "in2out_b_s",
+                "pins": "m_* right",
+            }},
+            "parent": {"top": "in2out_top_s"},
+        },
+        "own": {},
+    },
+    bits = 16,
+    blocks = {
+        "b": {
+            "die": [
+                40.032,
+                40.32,
+            ],
+            "pins": "m_* right f_* left",
+        },
+        "c": {
+            "die": [
+                20.16,
+                20.16,
+            ],
+            "pins": "cq* left",
+        },
+        "x": {
+            "die": [
+                20.16,
+                20.16,
+            ],
+            "pins": "xi* left",
+        },
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            160.0,
+            100.08,
+        ],
+        "locs": "u_x 2.16 2.16 R0 u_c 25.92 2.16 R0 u_b 115.2 56.16 R0",
+        "pins": "px_* left pc_* left pm_* right",
+        "timing": True,
+    },
+)
+
+# The surgery keeps function: own's parent and hand's, flattened, proven
+# equivalent by yosys.
+genrule(
+    name = "in2out_equiv",
+    srcs = [
+        ":equiv.ys",
+        ":in2out.sv",
+    ],
+    outs = ["in2out_equiv.log"],
+    cmd = "sed -e 's#@SV@#$(location :in2out.sv)#' -e 's#@GOLD@#in2out_top#' -e 's#@GATE@#in2out_top_s#' " +
+          "$(location :equiv.ys) > $(@D)/in2out_equiv.ys && " +
+          "$(execpath @yosys//:yosys) -q -l $@ $(@D)/in2out_equiv.ys",
+    tools = ["@yosys"],
+)
+
+# The negative control: the same proof on a surgery that broke the adder
+# (its + turned into ^ in the parent after surgery) must fail, or a pass
+# above says nothing.
+genrule(
+    name = "in2out_equiv_negative",
+    srcs = [
+        ":equiv.ys",
+        ":in2out.sv",
+    ],
+    outs = ["in2out_equiv_negative.log"],
+    cmd = "sed -e '/module in2out_top_s/,$$ s/(f_in + /(f_in ^ /' $(location :in2out.sv) > $(@D)/in2out_broken.sv && " +
+          "grep -q '(f_in ^ ' $(@D)/in2out_broken.sv && " +
+          "sed -e 's#@SV@#$(@D)/in2out_broken.sv#' -e 's#@GOLD@#in2out_top#' -e 's#@GATE@#in2out_top_s#' " +
+          "$(location :equiv.ys) > $(@D)/in2out_negative.ys && " +
+          "if $(execpath @yosys//:yosys) -q -l $@.yosys $(@D)/in2out_negative.ys; then " +
+          "echo 'in2out_equiv_negative: a broken surgery was proven equivalent' >&2; exit 1; " +
+          "else echo 'broken surgery refused, as it must be' > $@; fi",
+    tools = ["@yosys"],
+)
+
+build_test(
+    name = "in2out_equiv_test",
+    targets = [
+        ":in2out_equiv",
+        ":in2out_equiv_negative",
+    ],
+)
+
+# The large rung of traps 11 and 12: the same netlists with 64-bit files
+# and owners of eight register stages on each side of their file
+# (thousands of cells each, above the macro placer's 1 000-cell cluster
+# floor), on a 1.2 mm die, so wire costs hundreds of ps and the macro
+# placer can tell the owners apart. Geometry is the small rung's, scaled.
+# Without carried patch 0136 the macro placer stopped on MPL-0005 on
+# tidy_row_large's mpl arm: it had mirrored three files, which on asap7 no
+# location can put on the M3 and M5 tracks at once.
+pin_trap(
+    name = "tidy_row_large",
+    arms = {
+        "hand": {"parent": {"locs": "u_fw 2.16 501.12 R0 u_fe 997.776 501.12 R0 u_fs 499.968 2.16 R0 u_fn 499.968 997.92 R0"}},
+        # the macro placer places the files, from the same files as own
+        "mpl": {"parent": {"locs": None}},
+        "own": {},
+    },
+    bits = 64,
+    blocks = {
+        "f": {"die": [
+            200.16,
+            194.4,
+        ]},
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            1200.096,
+            1200.096,
+        ],
+        "locs": "u_fw 2.16 2.16 R0 u_fe 259.2 2.16 R0 u_fs 516.24 2.16 R0 u_fn 773.28 2.16 R0",
+        "pins": "pw_* left pe_* right ps_* bottom pn_* top",
+    },
+    round_bases = [
+        "own",
+        "mpl",
+    ],
+    rounds = 2,
+    # a measurement, built on request: too large for every run
+    tags = ["manual"],
+)
+
+pin_trap(
+    name = "random_io_large",
+    arms = {
+        "hand": {"parent": {
+            "locs": "u_fw 2.16 501.12 R0 u_fe 997.776 501.12 R0 u_fs 499.968 2.16 R0 u_fn 499.968 997.92 R0",
+            "pins": "pw_* left pe_* right ps_* bottom pn_* top",
+        }},
+        "own": {},
+    },
+    bits = 64,
+    blocks = {
+        "f": {"die": [
+            200.16,
+            194.4,
+        ]},
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            1200.096,
+            1200.096,
+        ],
+        "locs": None,
+    },
+    rounds = 2,
+    # a measurement, built on request: too large for every run
+    tags = ["manual"],
+)
