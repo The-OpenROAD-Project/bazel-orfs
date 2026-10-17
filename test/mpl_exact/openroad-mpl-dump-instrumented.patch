@@ -1,0 +1,1853 @@
+Study instrumentation, not an upstream candidate.
+
+The OpenROAD the dumps in this study came from: master at 169af073e4 plus
+the study's work in progress at the time (the packing check's first form)
+and the instrumentation that writes each annealing problem, its outcome and
+its improvement trace to $MPL_DUMP_DIR/mpl_dump.<pid>.jsonl. Apply it to an
+OpenROAD checkout at 169af073e4 with `git apply`, build //:openroad and run
+the floorplan stage with OPENROAD_EXE pointing at it (dump_all.sh).
+
+diff --git a/src/mpl/BUILD b/src/mpl/BUILD
+index 91069fefe9..e60f151fe7 100644
+--- a/src/mpl/BUILD
++++ b/src/mpl/BUILD
+@@ -28,29 +28,82 @@ cc_library(
+     ],
+ )
+ 
++cc_library(
++    name = "shapes",
++    srcs = [
++        "src/shapes.cpp",
++    ],
++    hdrs = [
++        "src/shapes.h",
++    ],
++    includes = [
++        "src",
++    ],
++)
++
+ cc_library(
+     name = "pusher",
+     srcs = [
+         "src/object.cpp",
+         "src/pusher.cpp",
+-        "src/shapes.cpp",
+     ],
+     hdrs = [
+         "src/mpl-util.h",
+         "src/object.h",
+         "src/pusher.h",
+-        "src/shapes.h",
+     ],
+     includes = [
+         "src",
+     ],
+     deps = [
++        ":shapes",
+         "//src/odb/src/db",
+         "//src/utl",
+         "@boost.random",
+     ],
+ )
+ 
++cc_library(
++    name = "packing",
++    srcs = [
++        "src/packing.cpp",
++    ],
++    hdrs = [
++        "src/packing.h",
++    ],
++    includes = [
++        "src",
++    ],
++    deps = [
++        ":shapes",
++        "@or-tools//ortools/sat:cp_model",
++        "@or-tools//ortools/sat:cp_model_cc_proto",
++        "@or-tools//ortools/sat:cp_model_checker",
++        "@or-tools//ortools/sat:cp_model_solver",
++        "@or-tools//ortools/sat:sat_parameters_cc_proto",
++        "@or-tools//ortools/util:sorted_interval_list",
++    ],
++)
++
++cc_library(
++    name = "packing_adapter",
++    srcs = [
++        "src/packingAdapter.cpp",
++    ],
++    hdrs = [
++        "src/packingAdapter.h",
++    ],
++    includes = [
++        "src",
++    ],
++    deps = [
++        ":packing",
++        ":pusher",
++        ":shapes",
++        "//src/odb/src/db",
++    ],
++)
++
+ cc_library(
+     name = "mpl_impl",
+     srcs = [
+@@ -78,7 +131,10 @@ cc_library(
+         "//src/mpl:__subpackages__",
+     ],
+     deps = [
++        ":packing",
++        ":packing_adapter",
+         ":pusher",
++        ":shapes",
+         ":snapper",
+         "//src/dbSta:dbNetwork",
+         "//src/odb/src/db",
+@@ -124,6 +180,7 @@ cc_library(
+     deps = [
+         ":mpl_impl",
+         ":pusher",
++        ":shapes",
+         "//:ord",
+         "//src/odb/src/db",
+         "//src/utl",
+diff --git a/src/mpl/src/SimulatedAnnealingCore.cpp b/src/mpl/src/SimulatedAnnealingCore.cpp
+index bd828582b8..c5d539b9ab 100644
+--- a/src/mpl/src/SimulatedAnnealingCore.cpp
++++ b/src/mpl/src/SimulatedAnnealingCore.cpp
+@@ -9,7 +9,9 @@
+ #include <fstream>
+ #include <iostream>
+ #include <map>
++#include <mutex>
+ #include <numeric>
++#include <sstream>
+ #include <random>
+ #include <string>
+ #include <utility>
+@@ -21,8 +23,11 @@
+ #include "mpl-util.h"
+ #include "object.h"
+ #include "odb/db.h"
++#include "packing.h"
++#include "packingAdapter.h"
+ #include "odb/geom.h"
+ #include "utl/Logger.h"
++#include <unistd.h>
+ 
+ namespace mpl {
+ 
+@@ -721,6 +726,10 @@ void SimulatedAnnealingCore<T>::fastSA()
+       = std::exp(std::log(min_t / init_temperature_) / max_num_step_);
+ 
+   updateBestResult(cost);
++  initial_valid_ = isValid() ? 1 : 0;
++  if (initial_valid_) {
++    first_valid_step_ = 0;
++  }
+ 
+   while (step <= max_num_step_) {
+     for (int i = 0; i < num_perturb_per_step_; i++) {
+@@ -729,6 +738,9 @@ void SimulatedAnnealingCore<T>::fastSA()
+       cost = calNormCost();
+ 
+       const bool is_valid = isValid();
++      if (is_valid && first_valid_step_ < 0) {
++        first_valid_step_ = step;
++      }
+       if (!invalid_states_allowed_ && !is_valid) {
+         restoreState();
+         continue;
+@@ -738,6 +750,8 @@ void SimulatedAnnealingCore<T>::fastSA()
+       if ((!is_best_result_valid_ || is_valid) && found_new_best_result) {
+         updateBestResult(cost);
+         is_best_result_valid_ = is_valid;
++        last_improvement_step_ = step;
++        improvements_.emplace_back(step, cost);
+       }
+ 
+       const float delta_cost = cost - pre_cost;
+@@ -836,6 +850,116 @@ void SimulatedAnnealingCore<T>::writeCostFile(
+   }
+ }
+ 
++// Study instrumentation: one JSON line per annealing run in
++// $MPL_DUMP_DIR/mpl_dump.<pid>.jsonl.
++template <class T>
++void SimulatedAnnealingCore<T>::dump(const double seconds) const
++{
++  const char* dir = std::getenv("MPL_DUMP_DIR");
++  if (dir == nullptr) {
++    return;
++  }
++  std::ostringstream os;
++  auto quote = [](const std::string& text) {
++    std::string out = "\"";
++    for (const char c : text) {
++      if (c == '"' || c == '\\') {
++        out += '\\';
++        out += c;
++      } else if (c == '\n') {
++        out += "\\n";
++      } else {
++        out += c;
++      }
++    }
++    return out + "\"";
++  };
++  os << "{\"tag\":" << quote(dump_tag_)
++     << ",\"kind\":" << quote(std::is_same_v<T, SoftMacro> ? "soft" : "hard")
++     << ",\"dbu\":" << block_->getDbUnitsPerMicron() << ",\"outline\":["
++     << outline_.xMin() << "," << outline_.yMin() << "," << outline_.xMax()
++     << "," << outline_.yMax() << "]"
++     << ",\"steps\":" << max_num_step_
++     << ",\"perturb_per_step\":" << num_perturb_per_step_
++     << ",\"seq_pair_macros\":" << number_of_sequence_pair_macros_
++     << ",\"invalid_states_allowed\":" << invalid_states_allowed_
++     << ",\"initial_sequence_pair\":" << has_initial_sequence_pair_
++     << ",\"initial_valid\":" << initial_valid_
++     << ",\"first_valid_step\":" << first_valid_step_
++     << ",\"last_improvement_step\":" << last_improvement_step_
++     << ",\"improvements\":[" << [&] {
++          std::string text;
++          for (const auto& [at, cost] : improvements_) {
++            text += (text.empty() ? "[" : ",[") + std::to_string(at) + ","
++                    + std::to_string(cost) + "]";
++          }
++          return text;
++        }() << "]"
++     << ",\"valid\":" << isValid() << ",\"width\":" << width_
++     << ",\"height\":" << height_ << ",\"norm_cost\":" << calNormCost()
++     << ",\"seconds\":" << seconds << ",\"macros\":[";
++  bool first = true;
++  for (const T& macro : macros_) {
++    os << (first ? "" : ",") << "{\"name\":" << quote(macro.getName())
++       << ",\"w\":" << macro.getWidth() << ",\"h\":" << macro.getHeight()
++       << ",\"x\":" << macro.getX() << ",\"y\":" << macro.getY()
++       << ",\"fixed\":" << macro.isFixed();
++    if constexpr (std::is_same_v<T, SoftMacro>) {
++      const char* type = "other";
++      if (macro.isBlockage()) {
++        type = "blockage";
++      } else if (macro.getCluster() == nullptr) {
++        type = "terminal";
++      } else if (macro.isMacroCluster()) {
++        type = "macro";
++      } else if (macro.isMixedCluster()) {
++        type = "mixed";
++      } else if (macro.isStdCellCluster()) {
++        type = "std";
++      } else if (macro.isClusterOfUnplacedIOPins()) {
++        type = "io";
++      }
++      os << ",\"type\":" << quote(type) << ",\"area\":" << macro.getArea()
++         << ",\"wi\":[";
++      bool first_interval = true;
++      for (const Interval& interval : macro.getWidthIntervals()) {
++        os << (first_interval ? "" : ",") << "[" << interval.min << ","
++           << interval.max << "]";
++        first_interval = false;
++      }
++      os << "],\"hi\":[";
++      first_interval = true;
++      for (const Interval& interval : macro.getHeightIntervals()) {
++        os << (first_interval ? "" : ",") << "[" << interval.min << ","
++           << interval.max << "]";
++        first_interval = false;
++      }
++      os << "]";
++    } else {
++      os << ",\"rw\":" << macro.getRealWidth()
++         << ",\"rh\":" << macro.getRealHeight();
++    }
++    os << "}";
++    first = false;
++  }
++  os << "],\"packing\":" << quote([&] {
++    std::ostringstream text;
++    writePackingProblem(
++        text,
++        "_",
++        toPackingProblem(outline_, macros_, number_of_sequence_pair_macros_));
++    return text.str();
++  }());
++  os << "}\n";
++
++  static std::mutex mutex;
++  std::lock_guard<std::mutex> lock(mutex);
++  std::ofstream out(std::string(dir) + "/mpl_dump."
++                        + std::to_string(getpid()) + ".jsonl",
++                    std::ios::app);
++  out << os.str();
++}
++
+ template class SimulatedAnnealingCore<SoftMacro>;
+ template class SimulatedAnnealingCore<HardMacro>;
+ 
+diff --git a/src/mpl/src/SimulatedAnnealingCore.h b/src/mpl/src/SimulatedAnnealingCore.h
+index ad5cde0f02..a53de7d9c2 100644
+--- a/src/mpl/src/SimulatedAnnealingCore.h
++++ b/src/mpl/src/SimulatedAnnealingCore.h
+@@ -3,11 +3,14 @@
+ 
+ #pragma once
+ 
++#include <chrono>
+ #include <cstdint>
++#include <cstdlib>
+ #include <limits>
+ #include <map>
+ #include <random>
+ #include <string>
++#include <utility>
+ #include <vector>
+ 
+ #include "MplObserver.h"
+@@ -69,6 +72,9 @@ class SimulatedAnnealingCore
+   void setGuides(const std::map<int, odb::Rect>& guides);
+   void setInitialSequencePair(const SequencePair& sequence_pair);
+   void disallowInvalidStates() { invalid_states_allowed_ = false; }
++  // Study instrumentation: MPL_DUMP_DIR
++  void setDumpTag(const std::string& tag) { dump_tag_ = tag; }
++  void dump(double seconds) const;
+ 
+   virtual bool isValid() const;
+   bool fitsIn(const odb::Rect& outline) const;
+@@ -222,6 +228,11 @@ class SimulatedAnnealingCore
+ 
+   bool has_initial_sequence_pair_ = false;
+   bool invalid_states_allowed_{true};
++  std::string dump_tag_;
++  int first_valid_step_{-1};
++  int last_improvement_step_{0};
++  std::vector<std::pair<int, float>> improvements_;
++  int initial_valid_{-1};
+ };
+ 
+ // SACore wrapper function
+@@ -229,8 +240,14 @@ class SimulatedAnnealingCore
+ template <class T>
+ void runSA(T* sa_core)
+ {
++  const auto start = std::chrono::steady_clock::now();
+   sa_core->initialize();
+   sa_core->run();
++  if (std::getenv("MPL_DUMP_DIR")) {
++    const std::chrono::duration<double> elapsed
++        = std::chrono::steady_clock::now() - start;
++    sa_core->dump(elapsed.count());
++  }
+ }
+ 
+ }  // namespace mpl
+diff --git a/src/mpl/src/hier_rtlmp.cpp b/src/mpl/src/hier_rtlmp.cpp
+index a2f6fc4f1d..8016b65ac6 100644
+--- a/src/mpl/src/hier_rtlmp.cpp
++++ b/src/mpl/src/hier_rtlmp.cpp
+@@ -547,6 +547,7 @@ void HierRTLMP::calculateChildrenTilings(Cluster* parent)
+                                               graphics_.get(),
+                                               logger_,
+                                               block_);
++      sa->setDumpTag("tiling_mixed:" + parent->getName());
+       sa_batch.push_back(std::move(sa));
+     }
+     if (sa_batch.size() == 1) {
+@@ -605,6 +606,7 @@ void HierRTLMP::calculateChildrenTilings(Cluster* parent)
+                                               graphics_.get(),
+                                               logger_,
+                                               block_);
++      sa->setDumpTag("tiling_mixed:" + parent->getName());
+       sa_batch.push_back(std::move(sa));
+     }
+     if (sa_batch.size() == 1) {
+@@ -1446,6 +1448,7 @@ void HierRTLMP::placeChildren(Cluster* parent)
+         sa->forceCentralization();
+       }
+ 
++      sa->setDumpTag("place_children:" + parent->getName());
+       sa_batch.push_back(std::move(sa));
+     }
+ 
+@@ -2001,6 +2004,7 @@ void HierRTLMP::placeMacros(Cluster* cluster)
+         sa->disallowInvalidStates();
+       }
+ 
++      sa->setDumpTag("place_macros:" + cluster->getName());
+       sa_batch.push_back(std::move(sa));
+ 
+       run_id++;
+diff --git a/src/mpl/src/object.h b/src/mpl/src/object.h
+index d65dd83f87..b1ce480cff 100644
+--- a/src/mpl/src/object.h
++++ b/src/mpl/src/object.h
+@@ -450,6 +450,8 @@ class SoftMacro
+ 
+   // Debug
+   void reportShapeCurve(utl::Logger* logger) const;
++  const IntervalList& getWidthIntervals() const { return width_intervals_; }
++  const IntervalList& getHeightIntervals() const { return height_intervals_; }
+ 
+  private:
+   int findIntervalIndex(const IntervalList& interval_list,
+diff --git a/src/mpl/src/packing.cpp b/src/mpl/src/packing.cpp
+new file mode 100644
+index 0000000000..672253cf3e
+--- /dev/null
++++ b/src/mpl/src/packing.cpp
+@@ -0,0 +1,693 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++#include "packing.h"
++
++#include <algorithm>
++#include <cctype>
++#include <cstdint>
++#include <cstdlib>
++#include <istream>
++#include <ostream>
++#include <limits>
++#include <string>
++#include <stdexcept>
++#include <vector>
++
++#include "ortools/sat/cp_model.h"
++#include "ortools/sat/cp_model.pb.h"
++#include "ortools/sat/cp_model_checker.h"
++#include "ortools/sat/cp_model_solver.h"
++#include "ortools/sat/sat_parameters.pb.h"
++#include "ortools/util/sorted_interval_list.h"
++
++namespace mpl {
++
++namespace sat = operations_research::sat;
++using operations_research::Domain;
++
++namespace {
++
++// The height a soft block takes at `width`: mpl's SoftMacro rounds down.
++int64_t softHeight(const SoftShape& shape, const int64_t width)
++{
++  return shape.area / width;
++}
++
++// The narrowest and the lowest the block can be, and its least area, inside
++// the outline. Returns false when no shape fits the outline at all.
++struct Extent
++{
++  int64_t min_width{std::numeric_limits<int64_t>::max()};
++  int64_t min_height{std::numeric_limits<int64_t>::max()};
++  int64_t min_area{std::numeric_limits<int64_t>::max()};
++};
++
++Extent extentOf(const PackingBlock& block, const int width, const int height)
++{
++  Extent extent;
++  if (block.isFixed() || !block.isSoft()) {
++    for (const Tiling& shape : block.shapes) {
++      if (block.isFixed() || (shape.width() <= width && shape.height() <= height)) {
++        extent.min_width = std::min<int64_t>(extent.min_width, shape.width());
++        extent.min_height
++            = std::min<int64_t>(extent.min_height, shape.height());
++        extent.min_area = std::min(extent.min_area, shape.area());
++      }
++    }
++    return extent;
++  }
++  for (const SoftShape& shape : block.soft_shapes) {
++    const int64_t lo = std::max(shape.width.min, 1);
++    const int64_t hi = std::min(shape.width.max, width);
++    if (lo > hi) {
++      continue;
++    }
++    // Height decreases with width: the widest width gives the lowest height.
++    if (softHeight(shape, hi) > height) {
++      continue;
++    }
++    extent.min_width = std::min(extent.min_width, lo);
++    extent.min_height = std::min(extent.min_height, softHeight(shape, hi));
++    // width * floor(area / width) > area - width.
++    extent.min_area = std::min(extent.min_area, shape.area - hi + 1);
++  }
++  return extent;
++}
++
++bool sameRigidShape(const PackingBlock& a, const PackingBlock& b)
++{
++  return !a.isFixed() && !b.isFixed() && !a.isSoft() && !b.isSoft()
++         && a.shapes.size() == 1 && b.shapes.size() == 1
++         && a.shapes.front() == b.shapes.front();
++}
++
++int64_t floorDiv(const int64_t a, const int64_t b)
++{
++  return a >= 0 ? a / b : -((-a + b - 1) / b);
++}
++
++int64_t ceilDiv(const int64_t a, const int64_t b)
++{
++  return -floorDiv(-a, b);
++}
++
++// How a problem is put on a grid of `grid` DBU:
++//  - kInner rounds blocks up: a placement found is legal at full
++//    resolution, finding none proves nothing;
++//  - kOuter rounds blocks down: finding none proves the problem does not
++//    fit, a placement found proves nothing.
++// At grid 1 both are the problem itself.
++enum class Rounding
++{
++  kInner,
++  kOuter
++};
++
++struct GridSolve
++{
++  sat::CpSolverStatus status{sat::CpSolverStatus::UNKNOWN};
++  double deterministic_time{0.0};
++  bool found{false};                   // kInner found a placement
++  std::vector<PlacedBlock> placement;  // full resolution, when found
++};
++
++GridSolve solveOnGrid(const PackingProblem& problem,
++                      const int grid,
++                      const Rounding rounding,
++                      const double deterministic_time,
++                      const PackingLimits& limits)
++{
++  const bool inner = rounding == Rounding::kInner;
++  const int64_t g = grid;
++  const int64_t width = problem.width / g;
++  const int64_t height = problem.height / g;
++  auto size = [&](const int64_t value) {
++    return inner ? ceilDiv(value, g) : floorDiv(value, g);
++  };
++  const int n = static_cast<int>(problem.blocks.size());
++
++  sat::CpModelBuilder model;
++  GridSolve result;
++  std::vector<sat::IntVar> xs(n), ys(n), ws(n);
++  std::vector<std::vector<sat::BoolVar>> choices(n);
++  std::vector<sat::IntervalVar> x_intervals, y_intervals;
++  std::vector<int> owner;
++  std::vector<bool> is_fixed;
++  for (int i = 0; i < n; i++) {
++    const PackingBlock& block = problem.blocks[i];
++    sat::IntVar x, y, w, h;
++    if (block.isFixed()) {
++      const Tiling& shape = block.shapes.front();
++      // Inner: the fixed block grows to the grid; outer: it shrinks.
++      const int64_t x0 = inner ? floorDiv(*block.fixed_x, g)
++                               : ceilDiv(*block.fixed_x, g);
++      const int64_t y0 = inner ? floorDiv(*block.fixed_y, g)
++                               : ceilDiv(*block.fixed_y, g);
++      const int64_t x1 = inner ? ceilDiv(*block.fixed_x + shape.width(), g)
++                               : floorDiv(*block.fixed_x + shape.width(), g);
++      const int64_t y1 = inner ? ceilDiv(*block.fixed_y + shape.height(), g)
++                               : floorDiv(*block.fixed_y + shape.height(), g);
++      if (x1 <= x0 || y1 <= y0 || shape.area() == 0) {
++        continue;
++      }
++      x_intervals.push_back(model.NewFixedSizeIntervalVar(x0, x1 - x0));
++      y_intervals.push_back(model.NewFixedSizeIntervalVar(y0, y1 - y0));
++      owner.push_back(i);
++      is_fixed.push_back(true);
++      continue;
++    }
++    if (block.isSoft()) {
++      w = model.NewIntVar(Domain(0, width));
++      h = model.NewIntVar(Domain(0, height));
++      for (const SoftShape& shape : block.soft_shapes) {
++        const int64_t area = shape.area;
++        // Widths on the grid that the piece allows.
++        const int64_t lo = inner ? ceilDiv(std::max(shape.width.min, 1), g)
++                                 : floorDiv(std::max(shape.width.min, 1), g);
++        const int64_t hi = std::min(floorDiv(shape.width.max, g), width);
++        if (lo > hi) {
++          continue;
++        }
++        const sat::BoolVar choice = model.NewBoolVar();
++        choices[i].push_back(choice);
++        model.AddGreaterOrEqual(w, lo).OnlyEnforceIf(choice);
++        model.AddLessOrEqual(w, hi).OnlyEnforceIf(choice);
++        if (g == 1) {
++          // height = floor(area / width):
++          // width * height <= area < width * (height + 1).
++          const sat::IntVar product
++              = model.NewIntVar(Domain(0, width * height));
++          model.AddMultiplicationEquality(product, {w, h});
++          model.AddLessOrEqual(product, area).OnlyEnforceIf(choice);
++          model.AddGreaterOrEqual(product + w, area + 1).OnlyEnforceIf(choice);
++        } else if (inner) {
++          // The real block is (g w, floor(area / (g w))), which fits in
++          // g h iff area < g w (g h + 1) = g^2 w h + g w.
++          const sat::IntVar product
++              = model.NewIntVar(Domain(0, width * height));
++          model.AddMultiplicationEquality(product, {w, h});
++          model.AddGreaterOrEqual(g * g * product + g * w, area + 1)
++              .OnlyEnforceIf(choice);
++          model.AddGreaterOrEqual(w, 1).OnlyEnforceIf(choice);
++        } else {
++          // Any real (w, h) maps to (floor(w / g), floor(h / g)); since
++          // area < w (h + 1) < g^2 (w' + 1)(h' + 1), require that.
++          const sat::IntVar w1 = model.NewIntVar(Domain(1, width + 1));
++          const sat::IntVar h1 = model.NewIntVar(Domain(1, height + 1));
++          model.AddEquality(w1, w + 1);
++          model.AddEquality(h1, h + 1);
++          const sat::IntVar product
++              = model.NewIntVar(Domain(0, (width + 1) * (height + 1)));
++          model.AddMultiplicationEquality(product, {w1, h1});
++          model.AddGreaterOrEqual(g * g * product, area + 1)
++              .OnlyEnforceIf(choice);
++        }
++      }
++    } else {
++      sat::LinearExpr width_sum, height_sum;
++      for (const Tiling& shape : block.shapes) {
++        const int64_t sw = size(shape.width());
++        const int64_t sh = size(shape.height());
++        const sat::BoolVar choice = model.NewBoolVar();
++        choices[i].push_back(choice);
++        if (sw > width || sh > height) {
++          model.AddEquality(choice, 0);
++        }
++        width_sum += choice * sw;
++        height_sum += choice * sh;
++      }
++      w = model.NewIntVar(Domain(0, width));
++      h = model.NewIntVar(Domain(0, height));
++      model.AddEquality(w, width_sum);
++      model.AddEquality(h, height_sum);
++    }
++    if (choices[i].empty()) {
++      // No shape fits on this grid.
++      result.status = sat::CpSolverStatus::INFEASIBLE;
++      return result;
++    }
++    model.AddExactlyOne(choices[i]);
++    x = model.NewIntVar(Domain(0, width));
++    y = model.NewIntVar(Domain(0, height));
++    const sat::IntVar x_end = model.NewIntVar(Domain(0, width));
++    const sat::IntVar y_end = model.NewIntVar(Domain(0, height));
++    x_intervals.push_back(model.NewIntervalVar(x, w, x_end));
++    y_intervals.push_back(model.NewIntervalVar(y, h, y_end));
++    owner.push_back(i);
++    is_fixed.push_back(false);
++    xs[i] = x;
++    ys[i] = y;
++    ws[i] = w;
++  }
++
++  // Fixed blocks may overlap each other (a blockage over a fixed macro);
++  // only movable blocks must avoid them.
++  std::vector<int> fixed, movable;
++  for (int k = 0; k < static_cast<int>(owner.size()); k++) {
++    (is_fixed[k] ? fixed : movable).push_back(k);
++  }
++  auto add_rectangles = [&](sat::NoOverlap2DConstraint& constraint,
++                            const std::vector<int>& indices) {
++    for (const int k : indices) {
++      constraint.AddRectangle(x_intervals[k], y_intervals[k]);
++    }
++  };
++  if (fixed.empty()) {
++    sat::NoOverlap2DConstraint constraint = model.AddNoOverlap2D();
++    add_rectangles(constraint, movable);
++  }
++  for (const int f : fixed) {
++    sat::NoOverlap2DConstraint constraint = model.AddNoOverlap2D();
++    add_rectangles(constraint, movable);
++    add_rectangles(constraint, {f});
++  }
++
++  // Identical rigid blocks are interchangeable: order them, left to right
++  // then bottom to top, so the solver never explores a permutation twice.
++  int previous = -1;
++  for (int i = 0; i < n; i++) {
++    if (problem.blocks[i].isFixed()) {
++      continue;
++    }
++    if (previous >= 0
++        && sameRigidShape(problem.blocks[previous], problem.blocks[i])) {
++      model.AddLessOrEqual(xs[previous] * (height + 1) + ys[previous],
++                           xs[i] * (height + 1) + ys[i]);
++    }
++    previous = i;
++  }
++
++  std::string parameters = "num_workers: " + std::to_string(limits.workers)
++                           + " random_seed: " + std::to_string(limits.seed)
++                           + " max_deterministic_time: "
++                           + std::to_string(deterministic_time);
++  if (limits.workers > 1) {
++    parameters += " interleave_search: true";
++  }
++  if (const char* extra = std::getenv("MPL_PACKING_PARAMS")) {
++    parameters += std::string(" ") + extra;
++  }
++  sat::Model solver;
++  solver.Add(sat::NewSatParameters(parameters));
++  const sat::CpModelProto proto = model.Build();
++  const sat::CpSolverResponse response = sat::SolveCpModel(proto, &solver);
++  result.status = response.status();
++  result.deterministic_time = response.deterministic_time();
++  if (result.status == sat::CpSolverStatus::MODEL_INVALID) {
++    throw std::logic_error("checkPacking built an invalid model: "
++                           + sat::ValidateCpModel(proto));
++  }
++  const bool found = result.status == sat::CpSolverStatus::OPTIMAL
++                     || result.status == sat::CpSolverStatus::FEASIBLE;
++  if (!found || !inner) {
++    return result;
++  }
++  result.found = true;
++  for (int i = 0; i < n; i++) {
++    const PackingBlock& block = problem.blocks[i];
++    if (block.isFixed()) {
++      result.placement.push_back({*block.fixed_x,
++                                  *block.fixed_y,
++                                  block.shapes.front().width(),
++                                  block.shapes.front().height()});
++      continue;
++    }
++    PlacedBlock placed;
++    placed.x = static_cast<int>(sat::SolutionIntegerValue(response, xs[i]) * g);
++    placed.y = static_cast<int>(sat::SolutionIntegerValue(response, ys[i]) * g);
++    int chosen = 0;
++    while (!sat::SolutionBooleanValue(response, choices[i][chosen])) {
++      chosen++;
++    }
++    if (block.isSoft()) {
++      // Choices were made only for pieces with a grid width; map back.
++      int piece = -1;
++      for (const SoftShape& shape : block.soft_shapes) {
++        piece++;
++        const int64_t lo = g == 1 ? std::max(shape.width.min, 1)
++                                  : ceilDiv(std::max(shape.width.min, 1), g);
++        const int64_t hi = std::min(floorDiv(shape.width.max, g), width);
++        if (lo > hi) {
++          continue;
++        }
++        if (chosen-- == 0) {
++          break;
++        }
++      }
++      const SoftShape& shape = block.soft_shapes[piece];
++      placed.width
++          = static_cast<int>(sat::SolutionIntegerValue(response, ws[i]) * g);
++      placed.height = static_cast<int>(shape.area / placed.width);
++    } else {
++      placed.width = block.shapes[chosen].width();
++      placed.height = block.shapes[chosen].height();
++    }
++    result.placement.push_back(placed);
++  }
++  return result;
++}
++
++// Independent check of a placement at full resolution; a failure is a bug.
++void assertLegal(const PackingProblem& problem,
++                 const std::vector<PlacedBlock>& placement)
++{
++  const int n = static_cast<int>(problem.blocks.size());
++  for (int i = 0; i < n; i++) {
++    const PlacedBlock& p = placement[i];
++    if (problem.blocks[i].isFixed()) {
++      continue;
++    }
++    if (p.x < 0 || p.y < 0 || p.x + p.width > problem.width
++        || p.y + p.height > problem.height) {
++      throw std::logic_error("checkPacking placed " + problem.blocks[i].name
++                             + " outside the outline");
++    }
++  }
++  for (int i = 0; i < n; i++) {
++    for (int j = i + 1; j < n; j++) {
++      if (problem.blocks[i].isFixed() && problem.blocks[j].isFixed()) {
++        continue;
++      }
++      const PlacedBlock& a = placement[i];
++      const PlacedBlock& b = placement[j];
++      if (static_cast<int64_t>(a.width) * a.height == 0
++          || static_cast<int64_t>(b.width) * b.height == 0) {
++        continue;
++      }
++      if (a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height
++          && b.y < a.y + a.height) {
++        throw std::logic_error("checkPacking overlapped "
++                               + problem.blocks[i].name + " and "
++                               + problem.blocks[j].name);
++      }
++    }
++  }
++}
++
++}  // namespace
++
++PackingResult checkPacking(const PackingProblem& problem,
++                           const PackingLimits& limits)
++{
++  PackingResult result;
++  const int width = problem.width;
++  const int height = problem.height;
++  const int n = static_cast<int>(problem.blocks.size());
++
++  // Bounds that need no search, cheapest first.
++  int64_t total_area = 0;
++  for (int i = 0; i < n; i++) {
++    const PackingBlock& block = problem.blocks[i];
++    const Extent extent = extentOf(block, width, height);
++    if (extent.min_area == std::numeric_limits<int64_t>::max()) {
++      // No shape fits on its own: say which side is too short.
++      bool fits_wide = false;
++      if (block.isSoft()) {
++        for (const SoftShape& shape : block.soft_shapes) {
++          fits_wide |= shape.width.min <= width;
++        }
++      } else {
++        for (const Tiling& shape : block.shapes) {
++          fits_wide |= shape.width() <= width;
++        }
++      }
++      result.status = PackingStatus::kDoesNotFit;
++      result.cause = fits_wide ? PackingCause::kBlockTooTall
++                               : PackingCause::kBlockTooWide;
++      result.block = i;
++      return result;
++    }
++    if (!block.isFixed()) {
++      total_area += extent.min_area;
++    }
++  }
++  if (total_area > static_cast<int64_t>(width) * height) {
++    result.status = PackingStatus::kDoesNotFit;
++    result.cause = PackingCause::kArea;
++    return result;
++  }
++
++  // Coarse grids first: most problems are decided there in milliseconds.
++  // Each level tries the inner rounding (a fit is final) and the outer one
++  // (no fit is final); grid 1 is the problem itself.
++  std::vector<int> grids;
++  for (int64_t grid = std::max<int64_t>(1, std::max(width, height) / 512);
++       grid > 1;
++       grid /= 4) {
++    grids.push_back(static_cast<int>(grid));
++  }
++  grids.push_back(1);
++  double remaining = limits.deterministic_time;
++  for (size_t level = 0; level < grids.size(); level++) {
++    const int grid = grids[level];
++    const double share = remaining / (grids.size() - level);
++    const GridSolve fit
++        = solveOnGrid(problem, grid, Rounding::kInner, share / 2, limits);
++    remaining -= fit.deterministic_time;
++    if (fit.found) {
++      assertLegal(problem, fit.placement);
++      result.status = PackingStatus::kFits;
++      result.placement = fit.placement;
++      return result;
++    }
++    if (grid == 1) {
++      if (fit.status == sat::CpSolverStatus::INFEASIBLE) {
++        result.status = PackingStatus::kDoesNotFit;
++        result.cause = PackingCause::kArrangement;
++      } else {
++        result.solver_status = sat::CpSolverStatus_Name(fit.status);
++      }
++      return result;
++    }
++    const GridSolve proof = solveOnGrid(
++        problem, grid, Rounding::kOuter, remaining / (grids.size() - level) / 2,
++        limits);
++    remaining -= proof.deterministic_time;
++    if (proof.status == sat::CpSolverStatus::INFEASIBLE) {
++      result.status = PackingStatus::kDoesNotFit;
++      result.cause = PackingCause::kArrangement;
++      return result;
++    }
++  }
++  return result;
++}
++
++namespace {
++
++int64_t roundUp(const int64_t value, const int step)
++{
++  return (value + step - 1) / step * step;
++}
++
++// Bisect over multiples of `step` for the smallest value at which
++// `resize(value)` fits. `fits(value)` must be monotone.
++template <typename Resize>
++DimensionFix bisect(const PackingProblem& problem,
++                    const int step,
++                    const int64_t limit,
++                    const PackingLimits& limits,
++                    Resize resize)
++{
++  auto check = [&](const int64_t value) {
++    return checkPacking(resize(problem, static_cast<int>(value)), limits)
++        .status;
++  };
++  // proven_lo: largest value proven not to fit; lo: largest value not
++  // known to fit (proven or undecided); hi: smallest value proven to fit.
++  DimensionFix fix;
++  int64_t proven_lo = 0;
++  int64_t lo = 0;
++  int64_t hi = step;
++  const int64_t top = roundUp(limit, step);
++  for (;; hi = std::min(roundUp(hi * 2, step), top)) {
++    if (hi <= lo) {
++      return fix;  // nothing up to the search limit fits
++    }
++    const PackingStatus status = check(hi);
++    if (status == PackingStatus::kFits) {
++      break;
++    }
++    if (status == PackingStatus::kDoesNotFit) {
++      proven_lo = hi;
++    }
++    lo = hi;
++  }
++  while (hi - lo > step) {
++    const int64_t probe = std::min(roundUp(lo + (hi - lo) / 2, step), hi - step);
++    switch (check(probe)) {
++      case PackingStatus::kFits:
++        hi = probe;
++        break;
++      case PackingStatus::kDoesNotFit:
++        proven_lo = std::max(proven_lo, probe);
++        lo = probe;
++        break;
++      case PackingStatus::kUndecided:
++        lo = probe;
++        break;
++    }
++  }
++  fix.found = true;
++  fix.upper = static_cast<int>(hi);
++  fix.lower = static_cast<int>(std::min(proven_lo + step, hi));
++  return fix;
++}
++
++int64_t searchLimit(const PackingProblem& problem)
++{
++  int64_t limit = std::max(problem.width, problem.height);
++  for (const PackingBlock& block : problem.blocks) {
++    int64_t largest = 0;
++    for (const Tiling& shape : block.shapes) {
++      largest = std::max<int64_t>(largest, shape.width() + shape.height());
++    }
++    for (const SoftShape& shape : block.soft_shapes) {
++      largest = std::max<int64_t>(largest, shape.area);
++    }
++    if (block.isFixed()) {
++      largest += std::max(*block.fixed_x, *block.fixed_y);
++    }
++    limit += largest;
++  }
++  return std::min<int64_t>(limit, std::numeric_limits<int>::max() / 2);
++}
++
++}  // namespace
++
++DimensionFix smallestHeight(const PackingProblem& problem,
++                            const int step,
++                            const PackingLimits& limits)
++{
++  return bisect(problem,
++                step,
++                searchLimit(problem),
++                limits,
++                [](PackingProblem copy, const int value) {
++                  copy.height = value;
++                  return copy;
++                });
++}
++
++DimensionFix smallestWidth(const PackingProblem& problem,
++                           const int step,
++                           const PackingLimits& limits)
++{
++  return bisect(problem,
++                step,
++                searchLimit(problem),
++                limits,
++                [](PackingProblem copy, const int value) {
++                  copy.width = value;
++                  return copy;
++                });
++}
++
++DimensionFix smallestSameAspect(const PackingProblem& problem,
++                                const int step,
++                                const PackingLimits& limits)
++{
++  const int64_t width = problem.width;
++  const int64_t height = problem.height;
++  return bisect(problem,
++                step,
++                searchLimit(problem),
++                limits,
++                [=](PackingProblem copy, const int value) {
++                  copy.width = value;
++                  copy.height = static_cast<int>(
++                      roundUp((value * height + width - 1) / width, step));
++                  return copy;
++                });
++}
++
++void writePackingProblem(std::ostream& out,
++                         const std::string& tag,
++                         const PackingProblem& problem)
++{
++  out << "P " << tag << " " << problem.width << " " << problem.height << " "
++      << problem.blocks.size() << "\n";
++  for (const PackingBlock& block : problem.blocks) {
++    std::string name = block.name.empty() ? "_" : block.name;
++    std::replace_if(
++        name.begin(), name.end(), [](char c) { return std::isspace(c); }, '_');
++    out << "B " << name;
++    if (block.isFixed()) {
++      out << " F " << *block.fixed_x << " " << *block.fixed_y << " "
++          << block.shapes.front().width() << " "
++          << block.shapes.front().height();
++    } else if (block.isSoft()) {
++      out << " S " << block.soft_shapes.size();
++      for (const SoftShape& shape : block.soft_shapes) {
++        out << " " << shape.width.min << " " << shape.width.max << " "
++            << shape.area;
++      }
++    } else {
++      out << " R " << block.shapes.size();
++      for (const Tiling& shape : block.shapes) {
++        out << " " << shape.width() << " " << shape.height();
++      }
++    }
++    out << "\n";
++  }
++}
++
++bool readPackingProblem(std::istream& in,
++                        std::string& tag,
++                        PackingProblem& problem)
++{
++  std::string token;
++  if (!(in >> token)) {
++    return false;
++  }
++  auto fail = [](const std::string& what) {
++    throw std::runtime_error("malformed packing problem: " + what);
++  };
++  size_t count = 0;
++  if (token != "P" || !(in >> tag >> problem.width >> problem.height >> count)) {
++    fail("expected P <tag> <width> <height> <blocks>");
++  }
++  problem.blocks.clear();
++  for (size_t i = 0; i < count; i++) {
++    PackingBlock block;
++    std::string kind;
++    if (!(in >> token >> block.name >> kind) || token != "B") {
++      fail("expected B <name> <kind> in " + tag);
++    }
++    if (kind == "F") {
++      int x, y, w, h;
++      if (!(in >> x >> y >> w >> h)) {
++        fail("fixed block " + block.name);
++      }
++      block.fixed_x = x;
++      block.fixed_y = y;
++      block.shapes.emplace_back(w, h);
++    } else if (kind == "R" || kind == "S") {
++      size_t k = 0;
++      if (!(in >> k) || k == 0) {
++        fail("shape count of " + block.name);
++      }
++      for (size_t j = 0; j < k; j++) {
++        if (kind == "R") {
++          int w, h;
++          if (!(in >> w >> h)) {
++            fail("rigid shape of " + block.name);
++          }
++          block.shapes.emplace_back(w, h);
++        } else {
++          SoftShape shape;
++          if (!(in >> shape.width.min >> shape.width.max >> shape.area)) {
++            fail("soft piece of " + block.name);
++          }
++          block.soft_shapes.push_back(shape);
++        }
++      }
++    } else {
++      fail("block kind " + kind);
++    }
++    problem.blocks.push_back(block);
++  }
++  return true;
++}
++
++}  // namespace mpl
+diff --git a/src/mpl/src/packing.h b/src/mpl/src/packing.h
+new file mode 100644
+index 0000000000..addca0e6af
+--- /dev/null
++++ b/src/mpl/src/packing.h
+@@ -0,0 +1,142 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++#pragma once
++
++#include <cstdint>
++#include <iosfwd>
++#include <optional>
++#include <string>
++#include <vector>
++
++#include "shapes.h"
++
++namespace mpl {
++
++// Exact feasibility of a fixed-outline packing: can these rectangles be
++// placed inside a W x H outline without overlap? Coordinates and sizes are
++// integers (DBU), relative to the outline's lower-left corner, halos
++// included. No odb dependency, so the questions can be asked from unit tests
++// and from the annealer's callers alike.
++
++// One piece of a soft block's shape curve: any width in `width`, with
++// height = floor(area / width), as mpl's SoftMacro resizes.
++struct SoftShape
++{
++  Interval width;
++  int64_t area{0};
++};
++
++struct PackingBlock
++{
++  std::string name;
++  // Allowed (width, height) pairs; one entry for a rigid block.
++  std::vector<Tiling> shapes;
++  // A soft block's shape curve; used instead of `shapes` when not empty.
++  std::vector<SoftShape> soft_shapes;
++  // A block that may not move; it uses shapes.front().
++  std::optional<int> fixed_x;
++  std::optional<int> fixed_y;
++
++  bool isFixed() const { return fixed_x.has_value(); }
++  bool isSoft() const { return !soft_shapes.empty(); }
++};
++
++struct PackingProblem
++{
++  int width{0};
++  int height{0};
++  std::vector<PackingBlock> blocks;
++};
++
++enum class PackingStatus
++{
++  kFits,
++  kDoesNotFit,
++  kUndecided  // the solver's deterministic limit ran out
++};
++
++// Why a problem does not fit, in the order they are checked.
++enum class PackingCause
++{
++  kNone,
++  kBlockTooWide,   // one block is wider than the outline in every shape
++  kBlockTooTall,   // one block is taller than the outline in every shape
++  kArea,           // the blocks' minimum areas exceed the outline's area
++  kArrangement     // the area suffices, no arrangement does
++};
++
++struct PlacedBlock
++{
++  int x{0};
++  int y{0};
++  int width{0};
++  int height{0};
++};
++
++struct PackingResult
++{
++  PackingStatus status{PackingStatus::kUndecided};
++  PackingCause cause{PackingCause::kNone};
++  // Index of the block named by kBlockTooWide/kBlockTooTall.
++  int block{-1};
++  // One entry per block when status is kFits.
++  std::vector<PlacedBlock> placement;
++  // The solver's status when it decided nothing, for diagnostics.
++  std::string solver_status;
++};
++
++struct PackingLimits
++{
++  // CP-SAT deterministic time, independent of machine load.
++  double deterministic_time{10.0};
++  int seed{0};
++  // More than one worker runs CP-SAT's portfolio interleaved, which keeps
++  // the answer independent of thread scheduling.
++  int workers{1};
++};
++
++PackingResult checkPacking(const PackingProblem& problem,
++                           const PackingLimits& limits = {});
++
++// The smallest outline dimension at which the problem fits, searched on
++// multiples of `step` (a row height, a site width). `lower` is proven not to
++// fit below it, `upper` proven to fit; they are equal unless a check was
++// undecided. A bigger outline never makes a packing impossible, so the
++// search is a bisection over exact checks.
++struct DimensionFix
++{
++  bool found{false};  // no outline up to the search limit fits
++  int lower{0};
++  int upper{0};
++};
++
++// Keep the width, grow or shrink the height.
++DimensionFix smallestHeight(const PackingProblem& problem,
++                            int step,
++                            const PackingLimits& limits = {});
++// Keep the height, grow or shrink the width.
++DimensionFix smallestWidth(const PackingProblem& problem,
++                           int step,
++                           const PackingLimits& limits = {});
++// Keep the aspect ratio; the result is the width, the height follows as
++// ceil(width * height / problem.width) rounded up to `step`.
++DimensionFix smallestSameAspect(const PackingProblem& problem,
++                                int step,
++                                const PackingLimits& limits = {});
++
++// A plain-text form of a problem, one line per item, for reproducers:
++//   P <tag> <width> <height> <blocks>
++//   B <name> F <x> <y> <width> <height>        a fixed block
++//   B <name> R <k> <width> <height> ...        k rigid shapes
++//   B <name> S <k> <min> <max> <area> ...      k soft pieces
++// Names must not contain white space.
++void writePackingProblem(std::ostream& out,
++                         const std::string& tag,
++                         const PackingProblem& problem);
++// Returns false at the end of the input; throws on malformed input.
++bool readPackingProblem(std::istream& in,
++                        std::string& tag,
++                        PackingProblem& problem);
++
++}  // namespace mpl
+diff --git a/src/mpl/src/packingAdapter.cpp b/src/mpl/src/packingAdapter.cpp
+new file mode 100644
+index 0000000000..fc5131171d
+--- /dev/null
++++ b/src/mpl/src/packingAdapter.cpp
+@@ -0,0 +1,115 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++#include "packingAdapter.h"
++
++#include <cstdint>
++#include <vector>
++
++#include "object.h"
++#include "odb/geom.h"
++#include "packing.h"
++#include "shapes.h"
++
++namespace mpl {
++
++namespace {
++
++int packedCount(const int sequence_pair_macros, const size_t size)
++{
++  return sequence_pair_macros > 0 ? sequence_pair_macros
++                                  : static_cast<int>(size);
++}
++
++PackingBlock fixedBlock(const std::string& name,
++                        const int x,
++                        const int y,
++                        const int width,
++                        const int height)
++{
++  PackingBlock block;
++  block.name = name;
++  block.shapes.emplace_back(width, height);
++  block.fixed_x = x;
++  block.fixed_y = y;
++  return block;
++}
++
++}  // namespace
++
++PackingProblem toPackingProblem(const odb::Rect& outline,
++                                const std::vector<SoftMacro>& macros,
++                                const int sequence_pair_macros)
++{
++  PackingProblem problem{outline.dx(), outline.dy(), {}};
++  const int count = packedCount(sequence_pair_macros, macros.size());
++  for (int i = 0; i < count; i++) {
++    const SoftMacro& macro = macros[i];
++    if (static_cast<int64_t>(macro.getWidth()) * macro.getHeight() == 0) {
++      continue;  // takes no room
++    }
++    if (macro.isFixed()) {
++      problem.blocks.push_back(fixedBlock(macro.getName(),
++                                          macro.getX(),
++                                          macro.getY(),
++                                          macro.getWidth(),
++                                          macro.getHeight()));
++      continue;
++    }
++    PackingBlock block;
++    block.name = macro.getName();
++    const IntervalList& widths = macro.getWidthIntervals();
++    const IntervalList& heights = macro.getHeightIntervals();
++    bool rigid = true;
++    for (size_t k = 0; k < widths.size(); k++) {
++      rigid &= widths[k].min == widths[k].max
++               && heights[k].min == heights[k].max;
++    }
++    if (widths.empty()) {
++      // No shape curve: the annealer never resizes it.
++      block.shapes.emplace_back(macro.getWidth(), macro.getHeight());
++    } else if (rigid) {
++      for (size_t k = 0; k < widths.size(); k++) {
++        block.shapes.emplace_back(widths[k].min, heights[k].min);
++      }
++    } else {
++      // SoftMacro::resizeRandomly: piece k keeps the area
++      // min width * max height, and height = floor(area / width).
++      for (size_t k = 0; k < widths.size(); k++) {
++        block.soft_shapes.push_back(
++            {widths[k], widths[k].min * static_cast<int64_t>(heights[k].max)});
++      }
++    }
++    problem.blocks.push_back(block);
++  }
++  return problem;
++}
++
++PackingProblem toPackingProblem(const odb::Rect& outline,
++                                const std::vector<HardMacro>& macros,
++                                const int sequence_pair_macros)
++{
++  PackingProblem problem{outline.dx(), outline.dy(), {}};
++  const int count = packedCount(sequence_pair_macros, macros.size());
++  for (int i = 0; i < count; i++) {
++    const HardMacro& macro = macros[i];
++    if (macro.getArea() == 0) {
++      continue;
++    }
++    if (macro.isFixed()) {
++      problem.blocks.push_back(fixedBlock(macro.getName(),
++                                          macro.getX(),
++                                          macro.getY(),
++                                          macro.getWidth(),
++                                          macro.getHeight()));
++      continue;
++    }
++    PackingBlock block;
++    block.name = macro.getName();
++    block.shapes.emplace_back(macro.getWidth(), macro.getHeight());
++    problem.blocks.push_back(block);
++  }
++  return problem;
++}
++
++}  // namespace mpl
+diff --git a/src/mpl/src/packingAdapter.h b/src/mpl/src/packingAdapter.h
+new file mode 100644
+index 0000000000..11209a2e50
+--- /dev/null
++++ b/src/mpl/src/packingAdapter.h
+@@ -0,0 +1,25 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++#pragma once
++
++#include <vector>
++
++#include "object.h"
++#include "odb/geom.h"
++#include "packing.h"
++
++namespace mpl {
++
++// The packing problem an annealer is asked to solve: its first
++// `sequence_pair_macros` macros (0: all) inside `outline`. The remaining
++// macros are terminals for wirelength only. Macro locations are relative to
++// the outline's lower-left corner, as the annealer keeps them.
++PackingProblem toPackingProblem(const odb::Rect& outline,
++                                const std::vector<SoftMacro>& macros,
++                                int sequence_pair_macros);
++PackingProblem toPackingProblem(const odb::Rect& outline,
++                                const std::vector<HardMacro>& macros,
++                                int sequence_pair_macros);
++
++}  // namespace mpl
+diff --git a/src/mpl/test/BUILD b/src/mpl/test/BUILD
+index e973342a7e..ba4290ffef 100644
+--- a/src/mpl/test/BUILD
++++ b/src/mpl/test/BUILD
+@@ -4,6 +4,7 @@
+ # Test Parity Note: All tests from CMakeLists.txt are included in this BUILD file.
+ # No tests are intentionally excluded. See .kiro/specs/bazel-cmake-test-parity/intentional_exclusions.md
+ 
++load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+ load("@rules_cc//cc:cc_test.bzl", "cc_test")
+ load("@rules_python//python:defs.bzl", "py_test")
+ load("//test:regression.bzl", "doc_check_test", "regression_test")
+@@ -347,3 +348,20 @@ doc_check_test(
+     ],
+     visibility = ["//visibility:public"],
+ )
++
++cc_binary(
++    name = "packing_driver",
++    srcs = ["cpp/packing_driver.cpp"],
++    tags = ["manual"],
++    deps = ["//src/mpl:packing"],
++)
++
++cc_test(
++    name = "mpl_packing_unittest",
++    srcs = ["cpp/TestPacking.cpp"],
++    deps = [
++        "//src/mpl:packing",
++        "@googletest//:gtest",
++        "@googletest//:gtest_main",
++    ],
++)
+diff --git a/src/mpl/test/cpp/TestPacking.cpp b/src/mpl/test/cpp/TestPacking.cpp
+new file mode 100644
+index 0000000000..6362346960
+--- /dev/null
++++ b/src/mpl/test/cpp/TestPacking.cpp
+@@ -0,0 +1,349 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++// What checkPacking() must do, checked against answers known by
++// construction and against a validator written here, never against the
++// solver's own view of legality.
++
++#include <algorithm>
++#include <cstdint>
++#include <functional>
++#include <random>
++#include <string>
++#include <tuple>
++#include <vector>
++
++#include "gtest/gtest.h"
++#include "packing.h"
++
++namespace mpl {
++namespace {
++
++PackingBlock rigid(const int width, const int height)
++{
++  PackingBlock block;
++  block.shapes.emplace_back(width, height);
++  return block;
++}
++
++PackingBlock fixedAt(const int x, const int y, const int width, const int height)
++{
++  PackingBlock block = rigid(width, height);
++  block.fixed_x = x;
++  block.fixed_y = y;
++  return block;
++}
++
++PackingBlock soft(const int64_t area, const int min_width, const int max_width)
++{
++  PackingBlock block;
++  block.soft_shapes.push_back({Interval(min_width, max_width), area});
++  return block;
++}
++
++// Independent legality: inside the outline, an allowed shape, no overlap
++// between blocks that are not both fixed, fixed blocks where they were put.
++::testing::AssertionResult isLegal(const PackingProblem& problem,
++                                   const PackingResult& result)
++{
++  if (result.status != PackingStatus::kFits) {
++    return ::testing::AssertionFailure()
++           << "status is not kFits " << result.solver_status;
++  }
++  const int n = static_cast<int>(problem.blocks.size());
++  if (static_cast<int>(result.placement.size()) != n) {
++    return ::testing::AssertionFailure() << "placement size";
++  }
++  for (int i = 0; i < n; i++) {
++    const PackingBlock& block = problem.blocks[i];
++    const PlacedBlock& p = result.placement[i];
++    if (block.isFixed()) {
++      if (p.x != *block.fixed_x || p.y != *block.fixed_y
++          || p.width != block.shapes.front().width()
++          || p.height != block.shapes.front().height()) {
++        return ::testing::AssertionFailure() << "fixed block " << i << " moved";
++      }
++      continue;
++    }
++    if (p.x < 0 || p.y < 0 || p.x + p.width > problem.width
++        || p.y + p.height > problem.height) {
++      return ::testing::AssertionFailure() << "block " << i << " outside";
++    }
++    if (block.isSoft()) {
++      // mpl's SoftMacro: a width in one piece, height = floor(area / width).
++      bool shaped = false;
++      for (const SoftShape& shape : block.soft_shapes) {
++        shaped |= shape.width.min <= p.width && p.width <= shape.width.max
++                  && p.height == shape.area / p.width;
++      }
++      if (!shaped) {
++        return ::testing::AssertionFailure() << "soft block " << i << " shape";
++      }
++    } else if (std::find(block.shapes.begin(),
++                         block.shapes.end(),
++                         Tiling(p.width, p.height))
++               == block.shapes.end()) {
++      return ::testing::AssertionFailure() << "block " << i << " shape";
++    }
++  }
++  for (int i = 0; i < n; i++) {
++    for (int j = i + 1; j < n; j++) {
++      if (problem.blocks[i].isFixed() && problem.blocks[j].isFixed()) {
++        continue;
++      }
++      const PlacedBlock& a = result.placement[i];
++      const PlacedBlock& b = result.placement[j];
++      if (a.width * static_cast<int64_t>(a.height) == 0
++          || b.width * static_cast<int64_t>(b.height) == 0) {
++        continue;
++      }
++      const bool apart = a.x + a.width <= b.x || b.x + b.width <= a.x
++                         || a.y + a.height <= b.y || b.y + b.height <= a.y;
++      if (!apart) {
++        return ::testing::AssertionFailure()
++               << "blocks " << i << " and " << j << " overlap";
++      }
++    }
++  }
++  return ::testing::AssertionSuccess();
++}
++
++// Cut a width x height rectangle into `pieces` rigid blocks by random
++// guillotine cuts: a perfect packing exists by construction.
++std::vector<PackingBlock> plantGuillotine(const int width,
++                                          const int height,
++                                          const int pieces,
++                                          std::mt19937& rng)
++{
++  struct Piece
++  {
++    int width;
++    int height;
++  };
++  std::vector<Piece> work{{width, height}};
++  while (static_cast<int>(work.size()) < pieces) {
++    std::uniform_int_distribution<size_t> pick(0, work.size() - 1);
++    const size_t index = pick(rng);
++    const Piece piece = work[index];
++    const bool vertical = piece.width >= piece.height;
++    const int side = vertical ? piece.width : piece.height;
++    if (side < 2) {
++      continue;
++    }
++    std::uniform_int_distribution<int> cut(1, side - 1);
++    const int at = cut(rng);
++    work.erase(work.begin() + index);
++    if (vertical) {
++      work.push_back({at, piece.height});
++      work.push_back({piece.width - at, piece.height});
++    } else {
++      work.push_back({piece.width, at});
++      work.push_back({piece.width, piece.height - at});
++    }
++  }
++  std::vector<PackingBlock> blocks;
++  for (const Piece& piece : work) {
++    blocks.push_back(rigid(piece.width, piece.height));
++  }
++  std::shuffle(blocks.begin(), blocks.end(), rng);
++  return blocks;
++}
++
++TEST(Packing, EmptyProblemFits)
++{
++  const PackingProblem problem{100, 100, {}};
++  EXPECT_EQ(checkPacking(problem).status, PackingStatus::kFits);
++}
++
++TEST(Packing, PlantedPerfectPackingsFit)
++{
++  std::mt19937 rng(1);
++  for (int pieces = 1; pieces <= 12; pieces++) {
++    PackingProblem problem{1000, 700, plantGuillotine(1000, 700, pieces, rng)};
++    const PackingResult result = checkPacking(problem);
++    EXPECT_TRUE(isLegal(problem, result)) << pieces << " pieces";
++  }
++}
++
++TEST(Packing, OneRowShortDoesNotFitByArea)
++{
++  std::mt19937 rng(2);
++  for (int pieces = 2; pieces <= 12; pieces++) {
++    PackingProblem problem{1000, 699, plantGuillotine(1000, 700, pieces, rng)};
++    // A piece that spans the full height no longer fits on its own.
++    const bool full_height = std::any_of(
++        problem.blocks.begin(),
++        problem.blocks.end(),
++        [](const PackingBlock& b) { return b.shapes.front().height() == 700; });
++    const PackingResult result = checkPacking(problem);
++    EXPECT_EQ(result.status, PackingStatus::kDoesNotFit) << pieces;
++    EXPECT_EQ(result.cause,
++              full_height ? PackingCause::kBlockTooTall : PackingCause::kArea)
++        << pieces;
++  }
++}
++
++// Two s x s squares in a (2s - 1) x (2s - 1) outline: the area suffices,
++// but neither side holds both.
++TEST(Packing, TwoSquaresDoNotFitByArrangement)
++{
++  const int s = 10;
++  const PackingProblem problem{2 * s - 1, 2 * s - 1, {rigid(s, s), rigid(s, s)}};
++  const PackingResult result = checkPacking(problem);
++  EXPECT_EQ(result.status, PackingStatus::kDoesNotFit);
++  EXPECT_EQ(result.cause, PackingCause::kArrangement);
++}
++
++TEST(Packing, BlockWiderThanOutlineIsNamed)
++{
++  const PackingProblem problem{100, 100, {rigid(10, 10), rigid(101, 5)}};
++  const PackingResult result = checkPacking(problem);
++  EXPECT_EQ(result.status, PackingStatus::kDoesNotFit);
++  EXPECT_EQ(result.cause, PackingCause::kBlockTooWide);
++  EXPECT_EQ(result.block, 1);
++}
++
++TEST(Packing, BlockTallerThanOutlineIsNamed)
++{
++  const PackingProblem problem{100, 100, {rigid(5, 101)}};
++  const PackingResult result = checkPacking(problem);
++  EXPECT_EQ(result.cause, PackingCause::kBlockTooTall);
++  EXPECT_EQ(result.block, 0);
++}
++
++TEST(Packing, AlternativeShapeIsUsedWhenOnlyItFits)
++{
++  PackingBlock block;
++  block.shapes = {Tiling(200, 10), Tiling(10, 200)};
++  const PackingProblem problem{50, 300, {block}};
++  const PackingResult result = checkPacking(problem);
++  ASSERT_TRUE(isLegal(problem, result));
++  EXPECT_EQ(result.placement[0].width, 10);
++}
++
++TEST(Packing, MovableBlocksAvoidFixedOnes)
++{
++  // A fixed block in the middle leaves an L of free space.
++  const PackingProblem problem{
++      100, 100, {fixedAt(0, 0, 60, 60), rigid(40, 100), rigid(60, 40)}};
++  EXPECT_TRUE(isLegal(problem, checkPacking(problem)));
++}
++
++TEST(Packing, FixedBlocksMayOverlapEachOther)
++{
++  const PackingProblem problem{
++      100, 100, {fixedAt(0, 0, 50, 50), fixedAt(25, 25, 50, 50), rigid(10, 10)}};
++  EXPECT_TRUE(isLegal(problem, checkPacking(problem)));
++}
++
++TEST(Packing, FixedBlockLeavesNoRoom)
++{
++  const PackingProblem problem{
++      100, 100, {fixedAt(0, 0, 60, 100), rigid(41, 10)}};
++  EXPECT_EQ(checkPacking(problem).status, PackingStatus::kDoesNotFit);
++}
++
++TEST(Packing, SoftBlockTakesTheShapeThatFits)
++{
++  // Area 1000 fits a 100 x 10 slot only at width 91 or more.
++  const PackingProblem problem{
++      100, 50, {rigid(100, 40), soft(1000, 10, 100)}};
++  const PackingResult result = checkPacking(problem);
++  ASSERT_TRUE(isLegal(problem, result));
++  EXPECT_GE(result.placement[1].width, 91);
++}
++
++TEST(Packing, SoftBlockOutsideItsWidthsDoesNotFit)
++{
++  const PackingProblem problem{
++      100, 50, {rigid(100, 40), soft(1000, 10, 90)}};
++  EXPECT_EQ(checkPacking(problem).status, PackingStatus::kDoesNotFit);
++}
++
++TEST(Packing, SameInputSameAnswer)
++{
++  std::mt19937 rng(3);
++  const PackingProblem problem{900, 900, plantGuillotine(900, 900, 10, rng)};
++  const PackingResult a = checkPacking(problem);
++  const PackingResult b = checkPacking(problem);
++  ASSERT_EQ(a.status, PackingStatus::kFits);
++  ASSERT_EQ(a.placement.size(), b.placement.size());
++  for (size_t i = 0; i < a.placement.size(); i++) {
++    EXPECT_EQ(a.placement[i].x, b.placement[i].x);
++    EXPECT_EQ(a.placement[i].y, b.placement[i].y);
++  }
++}
++
++// A planted W x H perfect packing kept at width W must need exactly
++// height H: the area alone forbids less, the plant proves H suffices.
++TEST(PackingFix, SmallestHeightOfPlantedPackingIsItsHeight)
++{
++  std::mt19937 rng(4);
++  for (int pieces = 2; pieces <= 8; pieces++) {
++    const PackingProblem problem{
++        1000, 300, plantGuillotine(1000, 700, pieces, rng)};
++    const DimensionFix fix = smallestHeight(problem, 1);
++    ASSERT_TRUE(fix.found) << pieces;
++    EXPECT_EQ(fix.lower, 700) << pieces;
++    EXPECT_EQ(fix.upper, 700) << pieces;
++  }
++}
++
++TEST(PackingFix, SmallestWidthOfPlantedPackingIsItsWidth)
++{
++  std::mt19937 rng(5);
++  for (int pieces = 2; pieces <= 8; pieces++) {
++    const PackingProblem problem{
++        3000, 700, plantGuillotine(1000, 700, pieces, rng)};
++    const DimensionFix fix = smallestWidth(problem, 1);
++    ASSERT_TRUE(fix.found) << pieces;
++    EXPECT_EQ(fix.lower, 1000) << pieces;
++    EXPECT_EQ(fix.upper, 1000) << pieces;
++  }
++}
++
++// Every proposed fix, applied, fits; one step less does not.
++TEST(PackingFix, FixesAreTightOnTheGrid)
++{
++  const int step = 7;
++  const PackingProblem problem{
++      50, 50, {rigid(30, 30), rigid(30, 30), rigid(20, 45)}};
++  for (const auto& [name, fix, apply] :
++       std::vector<std::tuple<std::string,
++                              DimensionFix,
++                              std::function<PackingProblem(int)>>>{
++           {"height",
++            smallestHeight(problem, step),
++            [&](int v) { return PackingProblem{50, v, problem.blocks}; }},
++           {"width",
++            smallestWidth(problem, step),
++            [&](int v) { return PackingProblem{v, 50, problem.blocks}; }},
++       }) {
++    ASSERT_TRUE(fix.found) << name;
++    EXPECT_EQ(fix.lower, fix.upper) << name;
++    EXPECT_EQ(fix.upper % step, 0) << name;
++    EXPECT_EQ(checkPacking(apply(fix.upper)).status, PackingStatus::kFits)
++        << name;
++    EXPECT_EQ(checkPacking(apply(fix.upper - step)).status,
++              PackingStatus::kDoesNotFit)
++        << name;
++  }
++}
++
++TEST(PackingFix, SameAspectKeepsTheRatio)
++{
++  // 2:1 outline; two 60 x 60 squares need 120 wide, so 120 x 60.
++  const PackingProblem problem{100, 50, {rigid(60, 60), rigid(60, 60)}};
++  const DimensionFix fix = smallestSameAspect(problem, 1);
++  ASSERT_TRUE(fix.found);
++  EXPECT_EQ(fix.upper, 120);
++}
++
++TEST(PackingFix, BlockWiderThanAnyHeightAllowsIsNotFixedByHeight)
++{
++  const PackingProblem problem{100, 100, {rigid(150, 10)}};
++  EXPECT_FALSE(smallestHeight(problem, 1).found);
++}
++
++}  // namespace
++}  // namespace mpl
+diff --git a/src/mpl/test/cpp/packing_driver.cpp b/src/mpl/test/cpp/packing_driver.cpp
+new file mode 100644
+index 0000000000..0a2509c065
+--- /dev/null
++++ b/src/mpl/test/cpp/packing_driver.cpp
+@@ -0,0 +1,65 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++// Study driver: reads packing problems (writePackingProblem's format) from
++// stdin, prints one CSV row each.
++//   packing_driver [deterministic_time [workers [fixes]]]
++// With "fixes", each problem that does not fit also gets the smallest
++// height at its width, width at its height and same-aspect width.
++
++#include <chrono>
++#include <cstdlib>
++#include <iostream>
++#include <string>
++
++#include "packing.h"
++
++int main(int argc, char** argv)
++{
++  mpl::PackingLimits limits;
++  if (argc > 1) {
++    limits.deterministic_time = std::atof(argv[1]);
++  }
++  if (argc > 2) {
++    limits.workers = std::atoi(argv[2]);
++  }
++  const bool fixes = argc > 3 && std::string(argv[3]) == "fixes";
++  const char* status_names[] = {"fits", "does_not_fit", "undecided"};
++  const char* cause_names[]
++      = {"none", "block_too_wide", "block_too_tall", "area", "arrangement"};
++  std::cout << "tag,width,height,blocks,status,cause,seconds"
++            << (fixes ? ",min_height,min_width,same_aspect_width" : "")
++            << "\n";
++  std::string tag;
++  mpl::PackingProblem problem;
++  while (mpl::readPackingProblem(std::cin, tag, problem)) {
++    const auto start = std::chrono::steady_clock::now();
++    const mpl::PackingResult result = mpl::checkPacking(problem, limits);
++    const std::chrono::duration<double> elapsed
++        = std::chrono::steady_clock::now() - start;
++    std::cout << tag << "," << problem.width << "," << problem.height << ","
++              << problem.blocks.size() << ","
++              << status_names[static_cast<int>(result.status)] << ","
++              << cause_names[static_cast<int>(result.cause)] << ","
++              << elapsed.count();
++    if (fixes) {
++      auto range = [](const mpl::DimensionFix& fix) {
++        if (!fix.found) {
++          return std::string("none");
++        }
++        return fix.lower == fix.upper ? std::to_string(fix.upper)
++                                      : std::to_string(fix.lower) + "-"
++                                            + std::to_string(fix.upper);
++      };
++      if (result.status == mpl::PackingStatus::kDoesNotFit) {
++        std::cout << "," << range(mpl::smallestHeight(problem, 1, limits))
++                  << "," << range(mpl::smallestWidth(problem, 1, limits))
++                  << "," << range(mpl::smallestSameAspect(problem, 1, limits));
++      } else {
++        std::cout << ",,,";
++      }
++    }
++    std::cout << "\n";
++  }
++  return 0;
++}

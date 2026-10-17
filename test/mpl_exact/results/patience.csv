@@ -1,0 +1,16 @@
+run_kind,runs,patience_steps,steps_kept_pct,loss_median_pct,loss_p95_pct,loss_worst_pct
+cluster placement,249,100,21.4,0.19,179.23,255.84
+cluster placement,249,200,41.2,0.00,0.10,9.85
+cluster placement,249,300,51.0,0.00,0.02,9.85
+cluster placement,249,400,59.3,0.00,0.01,0.19
+cluster placement,249,600,70.5,0.00,0.00,0.08
+macros in a cluster,259,100,8.6,0.00,0.01,1.38
+macros in a cluster,259,200,15.7,0.00,0.00,0.00
+macros in a cluster,259,300,22.1,0.00,0.00,0.00
+macros in a cluster,259,400,28.4,0.00,0.00,0.00
+macros in a cluster,259,600,39.7,0.00,0.00,0.00
+tilings,338,100,7.5,0.00,12.57,2242.17
+tilings,338,200,13.6,0.00,3.45,20.00
+tilings,338,300,19.3,0.00,0.01,9.62
+tilings,338,400,24.7,0.00,0.00,9.62
+tilings,338,600,35.4,0.00,0.00,9.62

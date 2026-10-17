@@ -1,0 +1,24 @@
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+# The mpl exact-check study: dumps of mpl's annealing problems, the exact
+# check against them, the early-stop replay, the runtime bench, the core
+# sweep and the QoR arms. The scripts drive floorplan lanes and OpenROAD
+# builds on a developer's machine; only their parsers are tested here.
+
+py_library(
+    name = "harness",
+    srcs = [
+        "bench.py",
+        "compare.py",
+        "dump_to_problems.py",
+        "make_table.py",
+        "patience.py",
+    ],
+    imports = ["."],
+)
+
+py_test(
+    name = "parsers_test",
+    srcs = ["parsers_test.py"],
+    deps = [":harness"],
+)
