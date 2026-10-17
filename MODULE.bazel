@@ -159,6 +159,14 @@ archive_override(
         # pull request carries a gtest. Retires at a bump onto an OpenROAD
         # that has it.
         "//patches:0004-openroad-dpl-window-supply.patch",
+        # The macro placer flipped a block into an orientation its pins
+        # cannot snap in (asap7 M3 and M5 tracks offset differently, a
+        # mirror moving each layer's pins by a different residue) and
+        # stopped on MPL-0005; the macro now keeps an orientation that
+        # snaps (MPL-0081). test/pin_traps:tidy_row_large's mpl arm. Not
+        # upstreamed; retires at a bump onto an OpenROAD whose macro placer
+        # does not choose an orientation it cannot snap.
+        "//patches:0136-openroad-mpl-flip-that-snaps.patch",
         # 0011 to 0026 and 0115 to 0121: OpenROAD #11723's 23 commits,
         # generate_ram's register-file options, one patch a commit, in its
         # order; regenerated from it. Not upstreamed; each retires at a
