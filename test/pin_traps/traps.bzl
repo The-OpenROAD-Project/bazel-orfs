@@ -225,3 +225,80 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own", r
             data = [probes[key] for key in sorted(probes)],
             main = "trap_test.py",
         )
+
+def packing_trap(name, bits, block_die, parent_die, locs, shapes, channel):
+    """A parent of equal blocks and the macro placer on core shapes of one
+    area: one floorplan built with the blocks placed by hand (locs), then
+    packing_probe.tcl remakes its rows for each of shapes ({shape: [w, h]})
+    and runs rtl_macro_placer on it. Targets <name>_packing (JSON) and
+    <name>_test."""
+    sv = name + ".sv"
+    native.genrule(
+        name = name + "_rtl",
+        outs = [sv],
+        cmd = "$(execpath :trap_gen) --trap {} --bits {} --out $@".format(name, bits),
+        tools = [":trap_gen"],
+    )
+    module = name + "_m"
+    orfs_flow(
+        name = module,
+        top = module,
+        abstract_stage = "place",
+        arguments = TRAP_BASE_ARGS | _areas(block_die[0], block_die[1]),
+        pdk = "//flow:asap7",
+        sources = {
+            "IO_CONSTRAINTS": [":pins.tcl"],
+            "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
+            "SDC_FILE": [":constraints.sdc"],
+        },
+        verilog_files = [":" + sv],
+    )
+    args = TRAP_BASE_ARGS | _areas(parent_die[0], parent_die[1], 2.16, 2.16) | {
+        "DONT_BUFFER_PORTS": "1",
+        "RTLMP_MIN_CHANNEL_SIZE": "{} {}".format(_r(channel), _r(channel)),
+    }
+    sources = {
+        "IO_CONSTRAINTS": [":pins.tcl"],
+        "MACRO_PLACEMENT_TCL": [":place_blocks.tcl"],
+        "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCKS_grid_strategy.tcl"],
+        "SDC_FILE": [":constraints.sdc"],
+    }
+    user = {
+        "BLOCK_LOCS": locs,
+        "PIN_GROUPS": "",
+    }
+    orfs_flow(
+        name = name + "_top",
+        top = name + "_top",
+        arguments = args,
+        last_stage = "floorplan",
+        macros = [":{}_generate_abstract".format(module)],
+        pdk = "//flow:asap7",
+        sources = sources,
+        user_arguments = user,
+        verilog_files = [":" + sv],
+    )
+    orfs_run(
+        name = name + "_packing",
+        src = ":{}_top_floorplan".format(name),
+        outs = [name + "_packing.json"],
+        arguments = args,
+        script = ":packing_probe.tcl",
+        sources = sources,
+        user_arguments = user | {
+            "OUTPUT_JSON": "$(location {}_packing.json)".format(name),
+            "PACKING_CHANNEL_UM": "{} {}".format(_r(channel), _r(channel)),
+            "SHAPES": " ".join(["{} {} {}".format(s, _r(shapes[s][0]), _r(shapes[s][1])) for s in sorted(shapes)]),
+        },
+    )
+    py_test(
+        name = name + "_test",
+        srcs = [":trap_test.py"],
+        args = [
+            "--trap",
+            name,
+            "own:top=$(rootpath :{}_packing)".format(name),
+        ],
+        data = [":" + name + "_packing"],
+        main = "trap_test.py",
+    )

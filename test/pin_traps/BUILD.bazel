@@ -1,6 +1,6 @@
 load("@bazel-orfs//:openroad.bzl", "odb_debug")
 load("@rules_python//python:defs.bzl", "py_binary")
-load(":traps.bzl", "pin_trap")
+load(":traps.bzl", "packing_trap", "pin_trap")
 
 # Pin traps: each a parent and its hardened blocks in which a block's own
 # choice, built alone, is right for the block and pathological for the
@@ -424,4 +424,37 @@ pin_trap(
     },
     round_variant = "mini_top_",
     rounds = 2,
+)
+
+# Trap 13, a square core: twenty 15.12 um blocks, each 19.12 um with its
+# share of the 4 um channels, tile five by four on a 100 x 78 um core; a
+# square of the same area, 88.32 um, holds four columns of four (five
+# columns need 95.6 um), so no placer can place them. The area is what
+# the macro placer's own capacity check (MPL-0065) asks for, 20 x 19.12
+# squared = 7 311 um2. The floorplan is built
+# with the blocks placed by hand on a larger core; the probe remakes the
+# rows for each shape and runs the macro placer.
+packing_trap(
+    name = "aspect",
+    bits = 8,
+    block_die = [
+        15.12,
+        15.12,
+    ],
+    channel = 4.0,
+    locs = "u_m0 2.16 2.16 R0 u_m1 23.76 2.16 R0 u_m2 45.36 2.16 R0 u_m3 66.96 2.16 R0 u_m4 88.56 2.16 R0 u_m5 2.16 23.76 R0 u_m6 23.76 23.76 R0 u_m7 45.36 23.76 R0 u_m8 66.96 23.76 R0 u_m9 88.56 23.76 R0 u_m10 2.16 45.36 R0 u_m11 23.76 45.36 R0 u_m12 45.36 45.36 R0 u_m13 66.96 45.36 R0 u_m14 88.56 45.36 R0 u_m15 2.16 66.96 R0 u_m16 23.76 66.96 R0 u_m17 45.36 66.96 R0 u_m18 66.96 66.96 R0 u_m19 88.56 66.96 R0",
+    parent_die = [
+        120.096,
+        120.096,
+    ],
+    shapes = {
+        "hand": [
+            100.0,
+            78.0,
+        ],
+        "own": [
+            88.32,
+            88.32,
+        ],
+    },
 )
