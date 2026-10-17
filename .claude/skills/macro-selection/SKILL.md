@@ -30,7 +30,7 @@ them instead of asking a placer to discover it.
 ## 1. The space table, before any flow runs
 
 ```sh
-bazelisk run //tools/macro_select:select_table -- --sv $PWD/bazel-bin/<design>_flat.sv \
+bazelisk run @bazel-orfs//tools/macro_select:select_table -- --sv $PWD/bazel-bin/<design>_flat.sv \
     --module Frontend --module MemBlock --children Frontend=Bpu,Ftq,Ifu,ICache,IBuffer \
     --area Bpu=381000 --area Ftq=354000 ...
 ```
@@ -77,7 +77,7 @@ global route and nowhere else.
 ## 3. The plan, from both tables
 
 ```sh
-bazelisk run //tools/macro_select:plan_floorplan -- $PWD/plan.json --out $PWD/plan_out.json
+bazelisk run @bazel-orfs//tools/macro_select:plan_floorplan -- $PWD/plan.json --out $PWD/plan_out.json
 ```
 
 Per macro: pins, area, worst boundary slack. The planner returns the pin
@@ -146,9 +146,9 @@ module where the idiom is present, measured per module on its own
 synthesis, kept where it pays in period and in time; the list stays
 short and named, since ORFS does not verify it.
 
-The parent from the plan. Iterate a stage in a `//:deps` tree
-(`bazelisk run //:deps -- start <flow> <stage> --dir <dir>`, then
-`<dir>/make do-<stage>`, and `bazelisk run //:deps -- next <stage>` to
+The parent from the plan. Iterate a stage in a `@bazel-orfs//:deps` tree
+(`bazelisk run @bazel-orfs//:deps -- start <flow> <stage> --dir <dir>`, then
+`<dir>/make do-<stage>`, and `bazelisk run @bazel-orfs//:deps -- next <stage>` to
 carry on into the next stage; [`deps-lane.md`](deps-lane.md)): a deployed
 tree carries only its current stage's variables, and its wrapper refuses
 another stage's targets for the reason written in

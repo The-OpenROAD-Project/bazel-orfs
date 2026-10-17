@@ -1,7 +1,7 @@
 ---
 name: deps-lane
 description: >-
-  Run a flow's stages by hand in one tree, stage after stage, with `bazelisk run //:deps --
+  Run a flow's stages by hand in one tree, stage after stage, with `bazelisk run @bazel-orfs//:deps --
   start <flow> <stage>`, `next <stage>`, `status` and `archive`: minutes per change during
   bring-up instead of rebuilds, at the price of dependencies not being respected and results
   that never reach the Bazel cache. Says when a number from the lane, with its caveat, is
@@ -22,18 +22,18 @@ ARGUMENTS: $ARGUMENTS
 ```sh
 # Bazel builds everything floorplan needs (synthesis) and installs it,
 # with floorplan's scripts, in one tree per flow: tmp/<package>/<flow>.
-bazelisk run //:deps -- start //test:lb_32x128 floorplan
+bazelisk run @bazel-orfs//:deps -- start //test:lb_32x128 floorplan
 #   next: tmp/test/lb_32x128/make do-floorplan
 
 tmp/test/lb_32x128/make do-floorplan     # edit _main/config.mk or scripts, re-run
 
 # Carry on in the same tree: place's scripts and config, and the
 # floorplan you made, untouched.
-bazelisk run //:deps -- next place
+bazelisk run @bazel-orfs//:deps -- next place
 tmp/test/lb_32x128/make do-place
 
 # Where each result came from, and which settings were edited.
-bazelisk run //:deps -- status
+bazelisk run @bazel-orfs//:deps -- status
 ```
 
 - `start <flow> <stage>` refuses to replace a tree; `--fresh` replaces it, `--dir` puts a second one beside it, `--variant` picks a flow variant. A stage target's label (`//test:lb_32x128_place`) works in place of `<flow> <stage>`.
@@ -41,7 +41,7 @@ bazelisk run //:deps -- status
 - The tree's `make` runs only its current stage's targets; synthesis is `do-yosys-canonicalize do-yosys <RESULTS_DIR>/1_2_yosys.sdc do-1_synth`, which `start` prints. A design that Bazel synthesises on its parallel path (`SYNTH_NUM_PARTITIONS`) gets a serial synthesis in the tree, which can differ or fail; start such a lane at floorplan.
 - `OPENROAD_EXE=/path/to/openroad <tree>/make do-<stage>` runs a binary of your own (`/byo-openroad`).
 - `archive <flow> <stage> <file.tar.gz>` is the self-contained reproducer (`/untar-and-run-report`).
-- Building `//:deps` is instant, and `start` builds only the stage target's output groups: the same actions, keys and cache entries as a plain `bazel build`, so after a finished build nothing re-runs.
+- Building `@bazel-orfs//:deps` is instant, and `start` builds only the stage target's output groups: the same actions, keys and cache entries as a plain `bazel build`, so after a finished build nothing re-runs.
 
 ## What the lane gives up
 

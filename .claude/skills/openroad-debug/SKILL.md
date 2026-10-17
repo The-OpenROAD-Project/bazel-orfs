@@ -83,9 +83,9 @@ gdb). Use `perf record --call-graph dwarf -p <pid>` on the live hang instead
 — it doesn't perturb scheduling and usually names the hot function — and
 point the maintainer at TSAN / `rr`.
 
-## 3. Stage the exact environment with `//:deps`
+## 3. Stage the exact environment with `@bazel-orfs//:deps`
 
-`bazelisk run //:deps -- start <flow> <stage>` builds everything the stage
+`bazelisk run @bazel-orfs//:deps -- start <flow> <stage>` builds everything the stage
 needs (every earlier stage) and installs it in one tree per flow,
 `tmp/<package>/<flow>[_<variant>]` (or `--dir`): the pinned openroad binary,
 the PDK, generated macro LEF/LIB, the input ODB, the SDC, the ORFS
@@ -93,7 +93,7 @@ the PDK, generated macro LEF/LIB, the input ODB, the SDC, the ORFS
 wrapper. Never hand-assemble libraries — they drift.
 
 ```bash
-bazelisk run //:deps -- start //<project>:<module> <stage>
+bazelisk run @bazel-orfs//:deps -- start //<project>:<module> <stage>
 tmp/<project>/<module>/make do-<stage>
 ```
 
@@ -103,7 +103,7 @@ input). Get the current stage's ODB from the materialized output in
 `bazel-bin/…/results/…/` (build without `--remote_download_minimal`) or by
 running the stage's `make do-<substep>` in the tree.
 
-For a portable copy, `bazelisk run //:deps -- archive <flow> <stage>
+For a portable copy, `bazelisk run @bazel-orfs//:deps -- archive <flow> <stage>
 <file.tar.gz>` writes the same layout (`make`, `_main/config.mk`,
 `_main/external/<repo>`) as a self-contained `.tar.gz`; untar it and run
 `./make do-<substep>`.
@@ -117,20 +117,20 @@ even checking out CI's exact commit re-executes stages locally (the
 remote-cache key includes platform properties). Plan for a full stage rerun
 when the cache is cold.
 
-## 4. Fast local iteration on an OpenROAD *source* change (`//:deps` + bring-your-own binary)
+## 4. Fast local iteration on an OpenROAD *source* change (`@bazel-orfs//:deps` + bring-your-own binary)
 
 When you are **modifying OpenROAD itself** (a patch to `rsz`/`grt`/…) and
 want its effect on a real stage, do **not** iterate through the flow: the
 openroad binary is a *tool input to every ORFS stage action*, so any edit to
 it invalidates synth→floorplan→place→cts→… and forces a **full P&R rebuild
 per edit** (hours — this is the trap). Decouple the binary from the frozen
-prior stages via `//:deps`:
+prior stages via `@bazel-orfs//:deps`:
 
 1. **Freeze the inputs once, from a cached build.** In a checkout where the
    upstream stages are already in the remote cache, install the stage's
    tree:
    ```bash
-   bazelisk run //:deps -- start //<project>:<module> <stage>   # cache hit → minutes
+   bazelisk run @bazel-orfs//:deps -- start //<project>:<module> <stage>   # cache hit → minutes
    ```
    It holds the frozen previous-stage ODB + SDC + libs + `flow/scripts` +
    the *unpatched* pinned openroad + a `make` wrapper (§3). Built with the
@@ -151,11 +151,11 @@ prior stages via `//:deps`:
    Every prior stage is reused from the frozen tree, so each iteration is just
    the one stage (minutes), not a full flow.
 
-Same `//:deps` mechanism as §3, opposite direction: there you ship
+Same `@bazel-orfs//:deps` mechanism as §3, opposite direction: there you ship
 binary-agnostic inputs *for a maintainer*; here you hold the inputs fixed and
 swap the binary to *develop* an OpenROAD change (algorithm / effort knobs /
 DSE). A stage run by hand carries on into the next with
-`bazelisk run //:deps -- next <stage>` (the `_deps` lane,
+`bazelisk run @bazel-orfs//:deps -- next <stage>` (the `_deps` lane,
 [`deps-lane.md`](deps-lane.md)).
 
 ## 5. Split a stage `.tcl` at an ODB checkpoint — re-run only a *read-only* late step
@@ -205,7 +205,7 @@ debugger. Instead:
 - **`repro.tcl` locates its own inputs**, so `openroad repro.tcl` works from
   anywhere with no setup:
   ```tcl
-  set RF [file dirname [file normalize [info script]]]   ;# the //:deps tree (or untarred archive) root
+  set RF [file dirname [file normalize [info script]]]   ;# the @bazel-orfs//:deps tree (or untarred archive) root
   sta::set_thread_count 32   ;# the one knob; edit to change (some bugs need many threads)
   read_liberty $RF/.../*.lib ; read_db -hier $RF/.../<prev>.odb ; read_sdc $RF/.../*.sdc
   source $RF/.../setRC.tcl ; estimate_parasitics -placement ; sta::find_timing
@@ -213,7 +213,7 @@ debugger. Instead:
   List the `read_liberty` lines explicitly (the exact set from the failing
   log) — don't glob a whole NLDM dir or you'll pull duplicate date-stamped
   corners. Bundle the staged files (libs, ODB, SDC, setRC) from the
-  `//:deps` tree; the maintainer supplies the binary.
+  `@bazel-orfs//:deps` tree; the maintainer supplies the binary.
 - **`run.sh` is short and readable** — takes the openroad path, loops,
   reports the first hang (this is where the reproducer supplies the timeout
   the harness used to own, §1):
@@ -232,7 +232,7 @@ debugger. Instead:
   ```
 - `chmod +x run.sh` **before** packaging. Tarball as `.tar.gz`.
 - **Do NOT ship the openroad binary in a bring-your-own reproducer.** A
-  `//:deps` tree or archive ships the pinned openroad (§3, for local staging), so when you
+  `@bazel-orfs//:deps` tree or archive ships the pinned openroad (§3, for local staging), so when you
   package a bundle from one **strip `openroad+/openroad` (and `-qt`)
   first**: it's hundreds of MB of dead weight and muddies which binary is
   under test. Make `run.sh` take the openroad path as a *required* arg — no

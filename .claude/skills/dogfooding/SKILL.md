@@ -15,7 +15,7 @@ description: >-
   depends on another, and before writing a test for a public PR.
 ---
 
-> **Repo**: Run from the bazel-orfs root. Rules learned building XiangShan with bazel-orfs; they apply to any large design.
+> **Repo**: Run from bazel-orfs or any workspace that depends on it. Rules learned building XiangShan with bazel-orfs; they apply to any large design.
 
 The standing rules from dogfooding bazel-orfs on XiangShan. A rule learned on one machine is written here, in a pull request, or it is not shared: a local memory reaches no other machine or session.
 
@@ -56,7 +56,7 @@ What generated logic computes can be tested without a simulator: set the inputs 
 
 ## 6. A PR that depends on an unmerged upstream PR is a draft
 
-An ORFS change that needs an OpenROAD change not yet in ORFS: test it locally against that OpenROAD, as an A/B with and without it, open it as a draft whose first line names the dependency, and mark it ready only when that PR is merged and ORFS's OpenROAD is bumped past it. Backwards-compatible OpenROAD code kept for the transition is removed afterwards. Every upstream write still needs the human's order (`CLAUDE.md`).
+An ORFS change that needs an OpenROAD change not yet in ORFS: test it locally against that OpenROAD, as an A/B with and without it, open it as a draft whose first line names the dependency, and mark it ready only when that PR is merged and ORFS's OpenROAD is bumped past it. Backwards-compatible OpenROAD code kept for the transition is removed afterwards. Every upstream write still needs the human's order.
 
 ## 7. Choices in the flow script, facts in the database
 
@@ -64,7 +64,7 @@ A command's choice (accept congestion, say) is passed explicitly on every call t
 
 ## 8. Relative paths
 
-Commands and docs use paths relative to the working directory, never `$PWD/...` or `/home/...`. A tool that `bazel run` starts from its runfiles tree resolves a relative path against `BUILD_WORKING_DIRECTORY`, as `--dir` on `//:deps` and `ODB_DEBUG_DIR` on an odb-debug target do; a new one does the same.
+Commands and docs use paths relative to the working directory, never `$PWD/...` or `/home/...`. A tool that `bazel run` starts from its runfiles tree resolves a relative path against `BUILD_WORKING_DIRECTORY`, as `--dir` on `@bazel-orfs//:deps` and `ODB_DEBUG_DIR` on an odb-debug target do; a new one does the same.
 
 ## 9. Unattended means continue
 
@@ -84,7 +84,7 @@ Give a long run an expected duration before launch. At one and a half to twice t
 
 Every OpenROAD stage action takes all of ORFS's `flow/scripts/*.tcl` as one input (the `makefile` filegroup `orfs_source.bzl` generates), so a carried ORFS patch that edits any script re-keys every block's floorplan, place and CTS. On XSTile that is hours of block rebuilds before the parent stage the change is for even starts, and again for every revision of the change.
 
-While a script change for the parent is being tested, keep its patch out of `ORFS_PATCHES`, `//:deps start` the parent's stage on the cached blocks, copy the edited script into the lane's tree and iterate there (`deps-lane`); a single substep (`do-2_2_floorplan_macro` on the lane's `2_1_floorplan.odb`) turns around in minutes. Write down each hand edit, and give each number from the lane the lane's caveat. When the change has settled, put the patch in the series and run the full Bazel build once: the final, full dress rehearsal, a belt-and-braces check that the result stands from a clean commit. It is not where the change gets tested.
+While a script change for the parent is being tested, keep its patch out of `ORFS_PATCHES`, `@bazel-orfs//:deps start` the parent's stage on the cached blocks, copy the edited script into the lane's tree and iterate there (`deps-lane`); a single substep (`do-2_2_floorplan_macro` on the lane's `2_1_floorplan.odb`) turns around in minutes. Write down each hand edit, and give each number from the lane the lane's caveat. When the change has settled, put the patch in the series and run the full Bazel build once: the final, full dress rehearsal, a belt-and-braces check that the result stands from a clean commit. It is not where the change gets tested.
 
 The worked example: dissolving hardened blocks into XSTile after macro placement. The first parent floorplan with the new ORFS patch spent 5.8 hours rebuilding all five blocks, then failed in its first minute on a check the patch itself added; a fix to one loop in `regfile_dissolve.tcl` would have re-keyed the blocks again.
 

@@ -10,7 +10,7 @@ description: >-
   or before blaming Scala, a toolchain or the cache.
 ---
 
-> **Repo**: Run from the bazel-orfs root. Applies to any target, and was written for `//test/coremark_joule/designs/asap7/xiangshan:XSTile_grt`, whose cold build is six hours.
+> **Repo**: Run from bazel-orfs or any workspace that depends on it. Applies to any target, and was written for `//test/coremark_joule/designs/asap7/xiangshan:XSTile_grt`, whose cold build is six hours.
 
 *Is this target a remote cache hit here?* is a capture that never executes an action, minutes on any machine, a laptop included. Never commit an execution log.
 
@@ -38,7 +38,7 @@ Measured, so you do not measure it again unless something changed:
 ## Is it cached?
 
 ```sh
-bazelisk run //tools/cache_evidence -- capture \
+bazelisk run @bazel-orfs//tools/cache_evidence -- capture \
   //test/coremark_joule/designs/asap7/xiangshan:XSTile_cts
 ```
 
