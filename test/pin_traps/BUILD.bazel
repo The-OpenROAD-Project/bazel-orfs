@@ -1,5 +1,5 @@
-load("@rules_python//python:defs.bzl", "py_binary")
 load("@bazel-orfs//:openroad.bzl", "odb_debug")
+load("@rules_python//python:defs.bzl", "py_binary")
 load(":traps.bzl", "pin_trap")
 
 # Pin traps: each a parent and its hardened blocks in which a block's own
@@ -18,7 +18,6 @@ py_binary(
 # or below it.
 pin_trap(
     name = "face_away",
-    rounds = 2,
     arms = {
         "hand": {"pins": {"a": "e_* right"}},
         "own": {},
@@ -45,6 +44,7 @@ pin_trap(
         "locs": "u_a 2.16 2.16 R0",
         "pins": "p_* left",
     },
+    rounds = 2,
 )
 
 # A placed parent in a persistent OpenROAD session, for looking at a trap
@@ -60,7 +60,6 @@ odb_debug(
 # each other across the gap.
 pin_trap(
     name = "both_own",
-    rounds = 2,
     arms = {
         "hand": {"pins": {
             "a": "x_* right",
@@ -97,6 +96,7 @@ pin_trap(
         "locs": "u_a 2.16 2.16 R0 u_b 66.528 2.16 R0",
         "pins": "pa_* top pb_* top",
     },
+    rounds = 2,
 )
 
 # Trap 9, a channel sized for the wires: a and b face each other, the
@@ -105,7 +105,6 @@ pin_trap(
 # registers; by hand the same die with the strip moved into the channel.
 pin_trap(
     name = "narrow_channel",
-    rounds = 2,
     arms = {
         "hand": {"parent": {"locs": "u_a 2.16 2.16 R0 u_b 56.448 2.16 R0"}},
         "own": {},
@@ -139,6 +138,7 @@ pin_trap(
         "locs": "u_a 2.16 2.16 R0 u_b 44.352 2.16 R0",
         "pins": "pw_* left pe_* right",
     },
+    rounds = 2,
 )
 
 # Trap 10, partners side by side split the parent's logic: two blocks
@@ -148,7 +148,6 @@ pin_trap(
 # logic between them. The blocks are the same in both arms.
 pin_trap(
     name = "split_logic",
-    rounds = 2,
     arms = {
         "hand": {"parent": {"locs": "u_a 2.16 2.16 R0 u_b 77.904 2.16 R0"}},
         "own": {},
@@ -175,6 +174,7 @@ pin_trap(
         ],
         "locs": "u_a 20.16 2.16 R0 u_b 60.192 2.16 R0",
     },
+    rounds = 2,
 )
 
 # Trap 11, a tidy row of files: four register files, each owned by logic
@@ -183,7 +183,6 @@ pin_trap(
 # in both arms.
 pin_trap(
     name = "tidy_row",
-    rounds = 2,
     arms = {
         "hand": {"parent": {"locs": "u_fw 2.16 51.84 R0 u_fe 97.776 51.84 R0 u_fs 49.968 2.16 R0 u_fn 49.968 97.2 R0"}},
         "own": {},
@@ -207,6 +206,7 @@ pin_trap(
         "locs": "u_fw 2.16 2.16 R0 u_fe 25.92 2.16 R0 u_fs 49.68 2.16 R0 u_fn 73.44 2.16 R0",
         "pins": "pw_* left pe_* right ps_* bottom pn_* top",
     },
+    rounds = 2,
 )
 
 # Trap 7, the flip that wins on wire: block a's pins on the west half of
@@ -217,7 +217,6 @@ pin_trap(
 # them: a mirror puts every M3 pin between two of the parent's tracks.
 pin_trap(
     name = "flip",
-    rounds = 2,
     arms = {
         "hand": {"pins": {"a": "x_* top:22-38"}},
         "own": {
@@ -244,6 +243,7 @@ pin_trap(
         "pin_access": True,
         "pins": "p_* right",
     },
+    rounds = 2,
 )
 
 # Trap 12, random pins before the macro placer: trap 11's netlist. Own is
@@ -252,7 +252,6 @@ pin_trap(
 # owner's edge, trap 11's answer.
 pin_trap(
     name = "random_io",
-    rounds = 2,
     arms = {
         "hand": {"parent": {
             "locs": "u_fw 2.16 51.84 R0 u_fe 97.776 51.84 R0 u_fs 49.968 2.16 R0 u_fn 49.968 97.2 R0",
@@ -278,6 +277,7 @@ pin_trap(
         ],
         "locs": None,
     },
+    rounds = 2,
 )
 
 # Trap 8, pins wider than a wire: trap 7's netlist, the block's pins at
@@ -347,26 +347,26 @@ pin_trap(
             },
         },
         "own": {"reuse": {
-                "fa_a": [
-                    ":face_away_a_own_generate_abstract",
-                    ":face_away_own_a_probe",
-                ],
-                "nc_a": [
-                    ":narrow_channel_a_own_generate_abstract",
-                    ":narrow_channel_own_a_probe",
-                ],
-                "nc_b": [
-                    ":narrow_channel_b_own_generate_abstract",
-                    ":narrow_channel_own_b_probe",
-                ],
-                "sl_a": [
-                    ":split_logic_a_own_generate_abstract",
-                    ":split_logic_own_a_probe",
-                ],
-                "sl_b": [
-                    ":split_logic_b_own_generate_abstract",
-                    ":split_logic_own_b_probe",
-                ],
+            "fa_a": [
+                ":face_away_a_own_generate_abstract",
+                ":face_away_own_a_probe",
+            ],
+            "nc_a": [
+                ":narrow_channel_a_own_generate_abstract",
+                ":narrow_channel_own_a_probe",
+            ],
+            "nc_b": [
+                ":narrow_channel_b_own_generate_abstract",
+                ":narrow_channel_own_b_probe",
+            ],
+            "sl_a": [
+                ":split_logic_a_own_generate_abstract",
+                ":split_logic_own_a_probe",
+            ],
+            "sl_b": [
+                ":split_logic_b_own_generate_abstract",
+                ":split_logic_own_b_probe",
+            ],
         }},
     },
     bits = 2,
