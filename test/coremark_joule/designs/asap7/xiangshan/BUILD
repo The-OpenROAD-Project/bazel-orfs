@@ -78,7 +78,25 @@ exports_files(
 # probe_pin_partners.tcl on XSTile_synth_odb_debug (GUI_TIMING=0).
 xiangshan_flow(
     name = "XSTile",
+    pins_out = "pins_r1",
     plan = PLAN,
+)
+
+# One round of the pin loop (test/pin_traps): every block rebuilt with
+# its pins where XSTile's placement says their partners are, and the
+# parent on those blocks. XSTile_pins_r1_kpi against XSTile_kpi, and the
+# two grt stages' route-0 overflow, are the comparison.
+xiangshan_flow(
+    name = "XSTile",
+    pins = {
+        block: {
+            "mock": ":pins/pins_r1/%s_mock_pins.tcl" % block,
+            "real": ":pins/pins_r1/%s_pins.tcl" % block,
+        }
+        for block in PLAN["macros"]
+    },
+    plan = PLAN,
+    variant = "pins_r1",
 )
 
 # The planned parent's synthesis: the blocks as blackboxes over the flat

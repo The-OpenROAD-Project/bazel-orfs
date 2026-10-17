@@ -1092,7 +1092,7 @@ XS_ANNEAL_CHANNEL_UM = {
 # odb-debug in seconds instead.
 _PLAN_DROPS = ["CORE_UTILIZATION", "CORE_ASPECT_RATIO", "CORE_MARGIN", "DETAIL_PLACEMENT_ARGS"]
 
-def _regfile_macro(spec, made, tags, outlines = {}):
+def _regfile_macro(spec, made, tags, outlines = {}, define = True):
     """A generated register file as a macro of its own: its RTL module as
     a flow's top, generate_ram's netlist inlined there, implemented through
     global route like the blocks, its abstract for the parent (docs: a
@@ -1102,9 +1102,10 @@ def _regfile_macro(spec, made, tags, outlines = {}):
     outlines maps a module to the plan's outline for it, {w_um, h_um}: a
     register file the plan places in the parent is built to the outline
     the plan left for it, as a block is, or it lands on its neighbours
-    (MPL-0041). Without one, its size follows from its utilization."""
+    (MPL-0041). Without one, its size follows from its utilization.
+    define = False returns the label of the one a base flow made."""
     module = spec.split(":")[-1].removesuffix(".regfile")
-    if module not in made:
+    if module not in made and define:
         made[module] = True
         size = {"CORE_UTILIZATION": "40"}
         if module in outlines:
@@ -1237,7 +1238,7 @@ def _sta_part(part, arguments, sources, tags, ilm = False):
         },
     )
 
-def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan_dir = "plan"):
+def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan_dir = "plan", variant = None, pins = None, pins_out = None):
     """The plan's blocks, each implemented through global route, then the parent.
 
     `plan` is the PLAN dict plan_floorplan.py --emit wrote to
@@ -1251,6 +1252,19 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     route's parasitics; the parent's synthesis, floorplan and place read
     the place-stage abstract the flow emits beside it. Every part's KPI is
     read at grt.
+
+    variant and pins make another arm of the same flow: every block's pin
+    script from pins ({block: {"real": label, "mock": label}}, the block's
+    own outline and the mocked one the parent places) in place of the
+    plan's, every flow named with variant, the register files the base
+    flow's. An arm is its blocks, its parent and the parent's KPI,
+    without the base's per-block KPI and STA targets.
+
+    pins_out names the next round of the pin loop (test/pin_traps): the
+    parent's placement writes every block's pin script for it,
+    pins/<pins_out>/<block>_pins.tcl on the block's own outline and
+    <block>_mock_pins.tcl on the mocked one the parent places, target
+    <name>[_<variant>]_<pins_out>_pins.
     """
     macros = sorted(plan["macros"].keys())
     made = {}
@@ -1261,7 +1275,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         entry = plan["macros"][block]
         arguments, sources = _planned_block(cfg, entry, plan_dir, block, blocks)
         regfiles = [
-            _regfile_macro(m, made, tags)
+            _regfile_macro(m, made, tags, define = variant == None)
             for m in _regfiles(cfg["sources"], entry.get("SYNTH_KEEP_MODULES", ""), blocks)
         ]
 
@@ -1273,8 +1287,10 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         if "MOCK_AREA" in entry:
             mock = {
                 "mock_area": float(entry["MOCK_AREA"]),
-                "mock_sources": {"IO_CONSTRAINTS": [":%s/%s_mock_pins.tcl" % (plan_dir, block)]},
+                "mock_sources": {"IO_CONSTRAINTS": [pins[block]["mock"] if pins else ":%s/%s_mock_pins.tcl" % (plan_dir, block)]},
             }
+        if pins:
+            sources["IO_CONSTRAINTS"] = [pins[block]["real"]]
         orfs_flow(
             name = block,
             abstract_stage = "grt",
@@ -1289,8 +1305,11 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             user_sources = cfg["user_sources"] | XS_ICG_USER_SOURCES,
             user_stages = _user_stages(cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS, cfg["user_sources"] | XS_ICG_USER_SOURCES),
             verilog_files = XS_VERILOG,
+            variant = variant,
             **mock
         )
+        if variant:
+            continue
         _kpi(block, "grt", arguments, sources, tags)
         _sta_part(block, arguments, sources, tags, ilm = True)
     arguments = {k: v for k, v in parent["arguments"].items() if k not in _PLAN_DROPS}
@@ -1355,7 +1374,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
 
     # the parent's register files are macros of their own (_regfile_macro)
     outlines = {n["module"]: n for n in plan["parent"].get("netlists", [])}
-    parent_regfiles = [_regfile_macro(m, made, tags, outlines) for m in _regfiles(parent["sources"], parent_keep, blocks)]
+    parent_regfiles = [_regfile_macro(m, made, tags, outlines, define = variant == None) for m in _regfiles(parent["sources"], parent_keep, blocks)]
     sources.pop("AUTO_MEMORIES_REGFILES", None)
 
     # the plan's blocks and register files, placed by the plan
@@ -1378,7 +1397,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     orfs_flow(
         name = name,
         arguments = arguments,
-        macros = [":%s_generate_abstract" % b for b in macros] + parent_regfiles,
+        macros = [":%s_generate_abstract" % (b if not variant else "%s_%s" % (b, variant)) for b in macros] + parent_regfiles,
         # The parent repairs setup at global route, with the route's
         # parasitics: 3,276 to 2,406 ps on #1187's tip (KPI row 15), its
         # worst paths a mass of CtrlBlock control that the repairs before
@@ -1394,8 +1413,33 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         user_sources = user_sources | XS_ICG_USER_SOURCES,
         user_stages = _user_stages(user_arguments | XS_ICG_USER_ARGUMENTS, user_sources | XS_ICG_USER_SOURCES),
         verilog_files = XS_VERILOG,
+        variant = variant,
         visibility = ["//visibility:public"],
     )
+    part = name if not variant else "%s_%s" % (name, variant)
+    if pins_out:
+        outs = []
+        entries = []
+        for b in macros:
+            die = plan["macros"][b]["DIE_AREA"].split(" ")
+            for kind, w, h in [("mock_pins", "0", "0"), ("pins", die[2], die[3])]:
+                out = "pins/%s/%s_%s.tcl" % (pins_out, b, kind)
+                outs.append(out)
+                entries.append("%s $(location %s) %s %s" % (b, out, w, h))
+        orfs_run(
+            name = "%s_%s_pins" % (part, pins_out),
+            src = ":%s_place" % part,
+            outs = outs,
+            arguments = arguments,
+            script = "//test/pin_traps:pins_from_parent.tcl",
+            sources = sources,
+            tags = tags,
+            user_arguments = {"PINS_OUT": " ".join(entries)},
+            variant = variant,
+        )
+    if variant:
+        _kpi(part, "grt", arguments, sources, tags)
+        return
     _kpi(name, "grt", arguments, sources, tags)
     _sta_part(name, arguments, sources, tags)
     parts = [name] + list(macros)

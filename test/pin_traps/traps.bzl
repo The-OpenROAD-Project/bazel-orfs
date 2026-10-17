@@ -198,7 +198,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own", r
                 sources = sources,
                 user_arguments = user | {
                     "PINS_OUT": " ".join([
-                        "{} $(location {})".format(blocks[block].get("module", "{}_{}".format(name, block)), out)
+                        "{} $(location {}) 0 0".format(blocks[block].get("module", "{}_{}".format(name, block)), out)
                         for block, out in zip(sorted(blocks), outs)
                     ]),
                 },
