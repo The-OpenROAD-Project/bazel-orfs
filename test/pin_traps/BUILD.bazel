@@ -172,6 +172,17 @@ pin_trap(
     name = "split_logic",
     arms = {
         "hand": {"parent": {"locs": "u_a 2.16 2.16 R0 u_b 77.904 2.16 R0"}},
+        # the macro placer places the blocks, from the same blocks as own;
+        # no channel and the die 2.16 um taller, or blocks the core's
+        # height do not fit (MPL-0006)
+        "mpl": {"parent": {
+            "channel": 0.0,
+            "die": [
+                120.096,
+                36.72,
+            ],
+            "locs": None,
+        }},
         "own": {},
     },
     bits = 64,
@@ -196,6 +207,10 @@ pin_trap(
         ],
         "locs": "u_a 20.16 2.16 R0 u_b 60.192 2.16 R0",
     },
+    round_bases = [
+        "own",
+        "mpl",
+    ],
     rounds = 2,
 )
 
@@ -628,15 +643,15 @@ build_test(
 # (thousands of cells each, above the macro placer's 1 000-cell cluster
 # floor), on a 1.2 mm die, so wire costs hundreds of ps and the macro
 # placer can tell the owners apart. Geometry is the small rung's, scaled.
-# There is no macro-placer arm on tidy_row_large: with the ports on their
-# edges the placer stopped on MPL-0005, aligning a file's M5 pin with the
-# track grid, though the same file placed by hand on the 0.144 um lattice
-# has every pin on the parent's tracks; random_io_large's own arm is the
-# macro placer, with the ports free.
+# Without carried patch 0136 the macro placer stopped on MPL-0005 on
+# tidy_row_large's mpl arm: it had mirrored three files, which on asap7 no
+# location can put on the M3 and M5 tracks at once.
 pin_trap(
     name = "tidy_row_large",
     arms = {
         "hand": {"parent": {"locs": "u_fw 2.16 501.12 R0 u_fe 997.776 501.12 R0 u_fs 499.968 2.16 R0 u_fn 499.968 997.92 R0"}},
+        # the macro placer places the files, from the same files as own
+        "mpl": {"parent": {"locs": None}},
         "own": {},
     },
     bits = 64,
@@ -658,6 +673,10 @@ pin_trap(
         "locs": "u_fw 2.16 2.16 R0 u_fe 259.2 2.16 R0 u_fs 516.24 2.16 R0 u_fn 773.28 2.16 R0",
         "pins": "pw_* left pe_* right ps_* bottom pn_* top",
     },
+    round_bases = [
+        "own",
+        "mpl",
+    ],
     rounds = 2,
     # a measurement, built on request: too large for every run
     tags = ["manual"],
@@ -690,6 +709,7 @@ pin_trap(
         ],
         "locs": None,
     },
+    rounds = 2,
     # a measurement, built on request: too large for every run
     tags = ["manual"],
 )

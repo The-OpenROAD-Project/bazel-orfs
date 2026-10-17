@@ -88,16 +88,18 @@ brackets:
 | `narrow_channel` | 13 771 (147) | 12 989 (321) | 23 835 (943) | 11 177 (228) | 4 459 (87) |
 | `tidy_row` | 11 332 (66) | 11 522 (32) | 11 723 (0) | 11 633 (380) | 3 996 (0) |
 | `random_io` | 6 285 (0) | (own) | 6 848 (385) | 6 310 (0) | 3 996 (0) |
-| `split_logic` | 23 738 (697) | refused | | | 18 447 (0) |
+| `split_logic` | 23 738 (697) | 23 767 (971) | 12 768 (0) | 12 780 (0) | 18 447 (0) |
 
-The macro placer alone lands where own's local rule does, and feeding
-it the pins back does not converge on the hand answer: it swings, and
-on `narrow_channel` round 1 doubles the wire. On `split_logic` it places
-nothing: blocks the core's height do not fit with or without a channel
-(MPL-0006), and on a die one row band taller it cannot align a block's
-M5 pin with the track grid (MPL-0005). `narrow_channel`'s mpl arm has
-that taller die and no channel too. None of these rounds is claimed by a
-test; they are what a joint step inside the macro placer has to beat.
+On the small rung the macro placer alone lands where own's local rule
+does; it sees each parent as one cluster (below). Fed the pins back, it
+swings on `narrow_channel`, and on `split_logic` it goes below the hand
+answer with no overflow. That arm is not the hand arm's geometry: the
+macro placer refuses blocks the core's height (MPL-0006, its halo is at
+least the minimum spacing, even with no channel), so `split_logic`'s
+and `narrow_channel`'s mpl arms have a die one row band taller and no
+channel, and the parent's logic has rows above the blocks that the hand
+arm does not. `split_logic`'s mpl arm placed only with carried patch
+0136 (below). None of these rounds is claimed by a test.
 
 Results move with things that do not change function. Renaming the
 small `tidy_row` netlist's registers (one per stage, for the large rung)
@@ -125,24 +127,39 @@ thousands of cells each, on a 1.2 mm die. They are tagged manual:
 bazelisk test //test/pin_traps:tidy_row_large_test //test/pin_traps:random_io_large_test
 ```
 
-| Trap | Own | Hand | r1 | r2 |
-|---|---|---|---|---|
-| `tidy_row_large`, the pin loop | 319 061 (0) | 114 284 (0) | 318 713 (0) | 317 784 (3 318) |
-| `random_io_large`, own the macro placer | 376 697 (2 271) | 114 284 (0) | MPL-0045 | |
+| Trap | Own | Macro placer | Round 1 | Round 2 | Hand |
+|---|---|---|---|---|---|
+| `tidy_row_large`, pins only | 319 061 (0) | | 318 713 (0) | 317 784 (3 318) | 114 284 (0) |
+| `tidy_row_large`, joint | | 403 564 (34) | 403 246 (29) | 402 608 (61) | 114 284 (0) |
+| `random_io_large`, joint | 376 697 (2 271) | (own) | 96 252 (561) | 93 532 (508) | 114 284 (0) |
 
-Above its cluster floor, the macro placer against random pins still
-lands 3.3 times the hand answer, with overflow. Fed the ports back where
-that placement left them, it stops: "Cannot find a balanced partitioning
-for the clusters" (MPL-0045). With the ports on their edges, on
-`tidy_row_large`, it stopped on MPL-0005 aligning a file's M5 pin with
-the track grid, though the same file placed by hand on the 0.144 um
-lattice has every pin on the parent's tracks; the snapper searches 50
-track steps either side of where the annealer put the block, and why no
-aligned position was among them is not yet known. With MPL-0006 on
-`split_logic` and `narrow_channel`, that is three ways the macro placer
-refuses a simple parent of hardened blocks, and where it places, it
-lands with today's local rules. A joint step needs a macro placer that
-places these.
+With its ports free, the joint loop goes from 3.3 times the hand answer
+to below it in one round, the ports moving with the files, at about 500
+of overflow where the hand answer has none (the hand answer ties each
+port to its owner's edge; the loop does not). With the ports on their
+edges, the macro placer puts the files 3.5 times the hand answer away
+and the rounds do not move them. The macro placer clusters by the RTL's
+hierarchy, and in these parents the owners are logic of the top module,
+not modules of their own: it sees one flat cluster, `(root)_glue_logic`,
+of the four files and 8 704 cells, and splits it with a partitioner that
+knows only connectivity.
+
+Two of the macro placer's refusals here are carried as fixes, each only
+changing what used to stop the run:
+
+- **0136, a flip that cannot snap** (MPL-0005, now MPL-0081). The macro
+  placer mirrors blocks to shorten wires and then snaps their pins to
+  the track grid. asap7's M3 tracks are at 9 + 36k dbu and M5's at
+  12 + 48k; a block with pins on both, mirrored, needs its origin at
+  18 mod 36 and 24 mod 48, which disagree mod 12: no location aligns
+  both. The macro now keeps an orientation that snaps.
+- **0137, a cluster area cannot split** (MPL-0045, now MPL-0082). A flat
+  cluster of one file and 5 276 cells cannot be halved by area, the file
+  outweighing the cells nine to one; it is now split by instance count.
+
+MPL-0006, a block the core's height, is left: the halo is the macro
+placer's spacing rule, and the annealer would have to treat a halo at
+the core's edge differently.
 
 ## Not traps, and why
 
