@@ -290,6 +290,11 @@ real `klayout` instead, or to override a tool on one target, see
 [docs/tools.md](docs/tools.md). [docs/openroad.md](docs/openroad.md)
 covers the from-source OpenROAD build and its gotchas.
 
+To give an agent (Claude Code) in your workspace the skills, rules and
+odb-debug MCP server bazel-orfs's own development uses, at the version
+your `MODULE.bazel` pins, run `bazelisk run @bazel-orfs//:agent -- setup`
+once and commit what it lists: [tools/agent](tools/agent/README.md).
+
 ## Carry patches while upstream decides
 
 bazel-orfs is built to vendor patches, the way Bazel itself is. ORFS,
@@ -353,6 +358,7 @@ one by one and deleted here as they land.
 | Diagnose a build failure on my host | [docs/debugging.md](docs/debugging.md#host-platform--older-distributions) |
 | Fast PPA estimate, gate a PR against merge-base | [docs/estimate.md](docs/estimate.md) |
 | Pin slow-to-build artifacts | [tools/pin/README.md](tools/pin/README.md) |
+| Give my agent bazel-orfs's skills and MCP server | [tools/agent/README.md](tools/agent/README.md) |
 | Upgrade bazel-orfs, ORFS or OpenROAD | [Upgrade bazel-orfs](#upgrade-bazel-orfs) |
 | Target and stage naming, internals | [docs/reference.md](docs/reference.md) |
 

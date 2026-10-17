@@ -84,116 +84,25 @@ a host-run python file whose syntax floor is above 3.6 (RHEL 8, SLES 15);
 the docstring in `host_tools.py` is the policy. CI runs it after
 `//:public_surface`.
 
-## Synthesis frontend
+## Rules every bazel-orfs workspace shares
 
-`orfs_flow` synthesises with slang: `SYNTH_HDL_FRONTEND` defaults to
-`slang` and a flow that sets another frontend is refused unless it passes
-`yosys_frontend_reason = "<why>"` next to the setting (`SYNTH_USE_SYN`
-flows are exempt). yosys's own Verilog frontend is effectively deprecated
-for SystemVerilog and parses at a few MB/s: XiangShan's flat core cost
-seven minutes of canonicalisation per synthesis on it, one on slang.
-`.claude/skills/prefer-slang/SKILL.md`.
+The rules for synthesis, bumping, the Bazel cache and debugging, with the
+skills that carry them, are written once for bazel-orfs and every
+workspace that depends on it; consumers get them, and the skills
+`tools/agent/agent.py` lists in `EXPORTED_SKILLS`, through
+`@bazel-orfs//:agent` (`tools/agent/README.md`):
 
-## Bumping
+@docs/agent-rules.md
 
-`bazelisk run //:bump` rewrites the override shapes it recognizes and
-stops, naming the block, when it meets one it does not. It never writes a
-partial file: `MODULE.bazel` is read once and written once at the end, so
-a refusal leaves it byte-identical.
+These skills stay in bazel-orfs, for reporting what the skills above
+found:
 
-If a bump is refused because a block is unrecognized, fix the file — the
-bumper does not carry migrations for old shapes. Re-seed `MODULE.bazel`
-from the template in `README.md` and re-apply the local edits. `--ignore`
-downgrades the refusal to a warning and updates only the parts the bumper
-recognizes; the unrecognized block is left untouched.
-
-`bump.py` always downloads the newest `bump_impl.py`, so the bumper is
-never stale; the only thing that can be out of date is the consumer's
-file. Details: `docs/openroad.md`, "Shapes the bumper recognizes".
-
-## Debugging OpenROAD/ORFS failures
-
-When an ORFS stage fails in openroad/yosys/opensta — a crash, a hang, a
-parallel race, or a nondeterministic result — the skills in `.claude/skills/`
-are the single source of truth. Downstream projects that
-consume bazel-orfs should point at these rather than duplicating the
-mechanics:
-
-- `/openroad-debug` — diagnose the failure (decode the exit code,
-  characterize a hang vs race with the `-threads 1` test, set up a fast
-  `//:deps` tree + bring-your-own-binary edit/measure loop, split a stage at an ODB
-  checkpoint) and shape a self-contained reproducer.
 - `/openroad-issue` — file it upstream as a `git am` patch + failing bazel test.
 - `/untar-and-run-report` — ship it as an untar-and-run `.tar.gz` archive.
 - `/odb-to-cpp` — turn a whittled `.odb` into a self-contained C++ unit test.
-- `/odb-debug` — ask a stage's ODB questions through a persistent OpenROAD
-  session (macros, cells inside macros, slivers, legality, worst paths)
-  from a shell or the `odb-debug` MCP server in `.mcp.json`.
+- `/study-pr` — publish a measurement study as a closed bazel-orfs pull request.
 
-Which modules to harden, and the floorplan their interfaces dictate, is
-its own skill; a global route that will not converge on a hierarchical
-design usually starts there, not in the router:
-
-- `/macro-selection` — the space and time tables that name the cuts, the
-  planner that draws the floorplan from them, the calibration and the
-  gates; tools in `tools/macro_select`, harness in `test/macro_select`.
-
-Which registers the timer never sees is its own skill, and stock
-OpenSTA's `check_setup` is blind to the worst case:
-
-- `check-setup` — what each warning means, why the count in
-  `2_1_floorplan.log` is not enough, the pins and their modules through
-  odb-debug's `check_setup` tool, what this flow's `set_max_delay` SDC
-  produces by design, and carried patches 0108/0109 (a flop behind a
-  tied-enable ICG, a clock that reaches a register only on the wrong
-  edge).
-
-How to constrain a hardened block is its own skill, and the advice in
-circulation is wrong for this flow:
-
-- `macro-constraints` — only register-to-register paths can fail timing
-  closure, boundary paths are optimization targets written with
-  `set_max_delay`, and `set_input_delay` cannot be written at all without
-  assuming a clock insertion latency the block does not know.
-  `flow/platforms/asap7/constraints.sdc` is the reference.
-
-The rules learned dogfooding on XiangShan apply to any large design and
-are a skill of their own. A rule learned on one machine goes there, in a
-pull request, or it is not shared:
-
-- `dogfooding` — fix the tools, never the design (no multicycle or
-  false-path exceptions, no added RTL registers); hard stops where a
-  problem is made; finish the macros before the parent; a design README
-  says what is; public PR tests check intended behaviour, not `.ok`
-  output; a PR on an unmerged upstream PR is a draft; relative paths;
-  unattended means continue; check what our flow skipped before blaming
-  a tool; trust the Bazel cache, never clean it.
-
-A target that another machine built but that is not a remote cache hit
-here, or that rebuilds when nothing seemed to change, has its own skill:
-
-- `cache-miss` — ask whether a target is cached without building it,
-  from a laptop (`//tools/cache_evidence`): every miss and every action
-  left unreached behind one; when another machine built it, compare
-  tree hashes first, then the two machines' miss lists. Never clean a
-  cache: rebuild an artifact by poisoning the cache, a code change that
-  reaches its key (a comment may be canonicalized away).
-
-Running a flow's stages by hand, one after another in one tree, is fast
-and gives up what Bazel guarantees; it has its own skill:
-
-- `deps-lane` — `bazelisk run //:deps -- start <flow> <stage>`, `next
-  <stage>`, `status`, `archive`; what the lane gives up, when a number
-  from it with its caveat beats no number, and when it is not enough.
-
-A simulation that hangs, produces no output or computes the wrong answer
-is a different problem from an OpenROAD failure, and has its own skill:
-
-- `debug-rtl-sim` — the cheapest-first ladder for an RTL or gate-level
-  simulation, and the harness properties each rung needs. Never read a
-  raw log or waveform into context.
-
-### Upstream repositories: moratorium on pull requests
+## Upstream repositories: moratorium on pull requests
 
 Upstream repositories are **read-only for you** unless the human gives an
 explicit order for a specific change. That covers every write: opening a

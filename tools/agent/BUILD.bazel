@@ -1,0 +1,22 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+# `bazelisk run @bazel-orfs//:agent -- setup` from a workspace that
+# depends on bazel-orfs: the skills, rules and odb-debug MCP server, linked
+# at the pinned version. README.md.
+py_binary(
+    name = "agent",
+    srcs = ["agent.py"],
+    visibility = ["//:__pkg__"],
+)
+
+py_test(
+    name = "agent_test",
+    srcs = [
+        "agent.py",
+        "agent_test.py",
+    ],
+    # The skills as bazel-orfs ships them: which are exported, and that
+    # each reads the same from a link in another workspace.
+    data = ["//:skills"],
+    imports = ["."],
+)

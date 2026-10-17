@@ -207,6 +207,21 @@ py_test(
     deps = [":monitor-test"],
 )
 
+# `bazelisk run @bazel-orfs//:agent -- setup` gives a workspace that
+# depends on bazel-orfs the skills, rules and odb-debug MCP server below,
+# at the version its MODULE.bazel pins. tools/agent/README.md.
+alias(
+    name = "agent",
+    actual = "//tools/agent",
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "skills",
+    srcs = glob([".claude/skills/*/SKILL.md"]),
+    visibility = ["//tools/agent:__pkg__"],
+)
+
 # `bazelisk run //:deps -- start <flow> <stage>`: a flow's stages in a
 # tree to run by hand, `next <stage>` to carry on in it, `status`,
 # `archive`. Building it is instant; `start` builds what the stage needs
