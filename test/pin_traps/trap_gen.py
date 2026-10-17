@@ -252,10 +252,58 @@ endmodule
     )
 
 
+def flip(t, n):
+    """A block whose pins sit on the west half of its top edge, under the
+    parent's logic that answers them from the east. The parent's cheap fix
+    is to mirror the block (MY) rather than ask for new pins: the pins
+    land under the logic, and the wire is the hand-made block's. But a
+    mirror moves each pin from x to w - x, and unless the block's width is
+    a whole number of track pitches from the parent's tracks, every pin on
+    a vertical layer lands between two of them (pin trap 7;
+    macro_anneal.flip_legal, XiangShan entry 12's pin access)."""
+    return f"""// {t}: the flip that wins on wire (pin trap 7).
+module {t}_a (
+  input clock,
+  input [{n - 1}:0] x_in,
+  output [{n - 1}:0] x_out
+);
+  reg [{n - 1}:0] r;
+  always @(posedge clock) r <= {_mix(n, "x_in")};
+  assign x_out = r;
+endmodule
+
+module {t}_top (
+  input clock,
+  input [{n - 1}:0] p_in,
+  output [{n - 1}:0] p_out
+);
+  wire [{n - 1}:0] q;
+  reg [{n - 1}:0] d, o;
+  always @(posedge clock) begin
+    d <= {_mix(n, "p_in")};
+    o <= {_mix(n, "q")};
+  end
+  {t}_a u_a (.clock(clock), .x_in(d), .x_out(q));
+  assign p_out = o;
+endmodule
+"""
+
+
+def random_io(t, n):
+    """Trap 11's netlist with every pin free and the files left to the
+    macro placer: today's flow places the parent's pins at random, places
+    the macros against them, and only after global placement puts the
+    pins where the logic is; by then the macros are fixed (pin trap 12;
+    ORFS patch 0077, ppl after gpl)."""
+    return tidy_row(t, n)
+
+
 TRAPS = {
     "both_own": both_own,
     "face_away": face_away,
+    "flip": flip,
     "narrow_channel": narrow_channel,
+    "random_io": random_io,
     "split_logic": split_logic,
     "tidy_row": tidy_row,
 }

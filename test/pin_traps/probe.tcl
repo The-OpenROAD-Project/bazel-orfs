@@ -24,6 +24,34 @@ foreach bterm [$block getBTerms] {
   dict lappend xs $port [expr { double($cx - [$die xMin]) / [$die dx] }]
   dict lappend ys $port [expr { double($cy - [$die yMin]) / [$die dy] }]
 }
+# block pins off the parent's tracks: a pin on a vertical layer whose
+# centre is not on one of the parent's x tracks of that layer (a horizontal
+# one, y), as a block flipped in the parent can leave them (pin trap 7)
+set offtrack 0
+set blockpins 0
+foreach inst [$block getInsts] {
+  if { ![[$inst getMaster] isBlock] } { continue }
+  foreach iterm [$inst getITerms] {
+    if { [$iterm getSigType] ne "SIGNAL" } { continue }
+    set mpins [[$iterm getMTerm] getMPins]
+    if { [llength $mpins] == 0 } { continue }
+    set layer [[lindex [[lindex $mpins 0] getGeometry] 0] getTechLayer]
+    if { $layer eq "NULL" || [$layer getType] ne "ROUTING" } { continue }
+    set grid [$block findTrackGrid $layer]
+    if { $grid eq "NULL" } { continue }
+    # the pin's placed box: one shape per pin in a block's abstract
+    set box [$iterm getBBox]
+    incr blockpins
+    if { [$layer getDirection] eq "VERTICAL" } {
+      set c [expr { ([$box xMin] + [$box xMax]) / 2 }]
+      set tracks [$grid getGridX]
+    } else {
+      set c [expr { ([$box yMin] + [$box yMax]) / 2 }]
+      set tracks [$grid getGridY]
+    }
+    if { [lsearch -exact -integer -sorted $tracks $c] < 0 } { incr offtrack }
+  }
+}
 set_routing_layers -signal $::env(MIN_ROUTING_LAYER)-$::env(MAX_ROUTING_LAYER)
 utl::redirectStringBegin
 set ok [expr { ![catch { global_route -congestion_iterations 0 -allow_congestion -verbose } err] }]
@@ -45,6 +73,8 @@ puts $fp "  \"usage_percent\": $usage,"
 puts $fp "  \"max_h_overflow\": $total_h,"
 puts $fp "  \"max_v_overflow\": $total_v,"
 puts $fp "  \"total_overflow\": $total_c,"
+puts $fp "  \"block_pin_shapes\": $blockpins,"
+puts $fp "  \"block_pins_off_track\": $offtrack,"
 puts $fp "  \"pin_sides\": {"
 set ports [lsort [dict keys $sides]]
 foreach port $ports {

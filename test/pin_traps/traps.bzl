@@ -48,7 +48,7 @@ def pin_trap(name, bits, blocks, parent, arms):
       blocks: {block: {"die": [w, h], "pins": PIN_GROUPS}}, the pins being
         the block's contract, common to every arm.
       parent: {"die": [w, h], "core_margin": [x, y], "pins": PIN_GROUPS,
-        "locs": BLOCK_LOCS, "channel": um}.
+        "locs": BLOCK_LOCS or None for the macro placer, "channel": um}.
       arms: {arm: {"pins": {block: PIN_GROUPS added to the contract},
         "blocks": {block: overrides}, "parent": overrides}}: an arm changes
         only what its trap is about.
@@ -117,15 +117,15 @@ def pin_trap(name, bits, blocks, parent, arms):
         }
         sources = {
             "IO_CONSTRAINTS": [":pins.tcl"],
-            "MACRO_PLACEMENT_TCL": [":place_blocks.tcl"],
             # the parent's grid over hardened blocks
             "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCKS_grid_strategy.tcl"],
             "SDC_FILE": [":constraints.sdc"],
         }
-        user = {
-            "BLOCK_LOCS": p["locs"],
-            "PIN_GROUPS": p.get("pins", ""),
-        }
+        user = {"PIN_GROUPS": p.get("pins", "")}
+        if p.get("locs"):
+            # the trap's geometry; without it the macro placer places them
+            sources["MACRO_PLACEMENT_TCL"] = [":place_blocks.tcl"]
+            user["BLOCK_LOCS"] = p["locs"]
         orfs_flow(
             name = top,
             top = top,
