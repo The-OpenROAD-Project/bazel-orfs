@@ -160,7 +160,9 @@ def check_flip(p):
     built (plain), and by hand the rebuilt block wins at least as much;
     but the mirror puts block pins between the parent's tracks, where by
     hand (R0) none are. Off-track is geometry, checked against the
-    parent's track grids, not a pin access run."""
+    parent's track grids: the parent's pin access still finds every pin
+    here, so the trap shows the mirror's geometry, not a failure it
+    causes."""
     plain, own, hand = p["plain:top"], p["own:top"], p["hand:top"]
     return [
         (
@@ -201,6 +203,19 @@ def check_random_io(p):
     return [_ratio_claim("hand: parent wire", hand["wirelength_um"], own["wirelength_um"], 0.75)]
 
 
+def check_wide_pins(p):
+    """Trap 8. Pins drawn two M3 wire widths wide leave the parent's pin
+    access without an access point (DRT-0073); one wire width, at the
+    same places, does not. The pin it stops on need not be a wide one:
+    a neighbour the pin placer put beside the first wide pin is enough,
+    as in XiangShan's one pin per block. The wire is the same."""
+    own, hand = p["own:top"], p["hand:top"]
+    return [
+        ("own: pin access stops on DRT-0073", "DRT-0073" in own["pin_access"], own["pin_access"]),
+        ("hand: pin access finds every pin", hand["pin_access"] == "ok", hand["pin_access"]),
+    ]
+
+
 CHECKS = {
     "both_own": check_both_own,
     "face_away": check_face_away,
@@ -209,6 +224,7 @@ CHECKS = {
     "random_io": check_random_io,
     "split_logic": check_split_logic,
     "tidy_row": check_tidy_row,
+    "wide_pins": check_wide_pins,
 }
 
 

@@ -235,6 +235,7 @@ pin_trap(
             60.48,
         ],
         "locs": "u_a 2.16 2.16 R0",
+        "pin_access": True,
         "pins": "p_* right",
     },
 )
@@ -269,5 +270,38 @@ pin_trap(
             120.096,
         ],
         "locs": None,
+    },
+)
+
+# Trap 8, pins wider than a wire: trap 7's netlist, the block's pins at
+# exact places on its top edge, one every four M3 tracks. Own draws them
+# two M3 wire widths wide, a margin the block can afford; by hand one
+# wire width. The parent's probe runs pin access.
+pin_trap(
+    name = "wide_pins",
+    arms = {
+        "hand": {"blocks": {"a": {"user": {"WIDE_PIN_UM": "0.018"}}}},
+        "own": {"blocks": {"a": {"user": {"WIDE_PIN_UM": "0.036"}}}},
+    },
+    bits = 32,
+    blocks = {"a": {
+        "die": [
+            40.032,
+            30.24,
+        ],
+        "io": ":wide_pins.tcl",
+    }},
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            80.064,
+            60.48,
+        ],
+        "locs": "u_a 2.16 2.16 R0",
+        "pin_access": True,
+        "pins": "p_* right",
     },
 )
