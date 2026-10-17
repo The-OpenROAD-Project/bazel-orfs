@@ -404,23 +404,26 @@ CHECKS = {
 PIN_ANSWERED = ("both_own", "face_away", "flip", "selfish")
 
 
-def check_loop(p, trap, rounds):
-    """The pin loop's rounds r1..r<rounds> against own and hand: no more
-    block + parent wire than own, within 2 % (on random_io, where the loop
-    has nothing to fix, a round moves by a few um either way as the placer
-    reseats the same pins); on a trap answered by pins, round 1 within a
-    tenth of hand's."""
+def check_loop(p, trap, rounds, bases=("own",)):
+    """The loop's rounds from each base arm (r<k> from own, <base>_r<k>
+    from another) against their base and hand: no more block + parent wire
+    than the base, within 2 % (where the pin loop has little to fix, a
+    round moves by a few um either way as the placer reseats the same
+    pins); on a trap answered by pins, round 1 from own within a tenth of
+    hand's."""
     claims = []
-    own = _total(p, "own")
-    for k in range(1, rounds + 1):
-        rk = _total(p, "r%d" % k)
-        claims.append(
-            (
-                "r%d: block + parent wire <= 1.02 x own" % k,
-                rk <= 1.02 * own,
-                "%d vs %d um" % (rk, own),
+    for base in bases:
+        prefix = "r" if base == "own" else base + "_r"
+        b = _total(p, base)
+        for k in range(1, rounds + 1):
+            rk = _total(p, "%s%d" % (prefix, k))
+            claims.append(
+                (
+                    "%s%d: block + parent wire <= 1.02 x %s" % (prefix, k, base),
+                    rk <= 1.02 * b,
+                    "%d vs %d um" % (rk, b),
+                )
             )
-        )
     if trap in PIN_ANSWERED:
         r1, hand = _total(p, "r1"), _total(p, "hand")
         claims.append(
@@ -443,6 +446,12 @@ def main(argv):
         metavar="ROUNDS",
         help="check the pin loop's rounds instead of the trap",
     )
+    ap.add_argument(
+        "--base",
+        action="append",
+        default=[],
+        help="an arm the loop starts from (default own)",
+    )
     ap.add_argument("probes", nargs="+", metavar="ARM:PART=JSON")
     a = ap.parse_args(argv)
     probes = {}
@@ -452,7 +461,11 @@ def main(argv):
             raise SystemExit("bad probe argument %r, want ARM:PART=JSON" % spec)
         with open(path) as f:
             probes[key] = json.load(f)
-    claims = check_loop(probes, a.trap, a.loop) if a.loop else CHECKS[a.trap](probes)
+    claims = (
+        check_loop(probes, a.trap, a.loop, a.base or ["own"])
+        if a.loop
+        else CHECKS[a.trap](probes)
+    )
     failed = 0
     for claim, ok, detail in claims:
         print("%s  %s: %s" % ("PASS" if ok else "FAIL", claim, detail))

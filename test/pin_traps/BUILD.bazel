@@ -114,6 +114,17 @@ pin_trap(
     name = "narrow_channel",
     arms = {
         "hand": {"parent": {"locs": "u_a 2.16 2.16 R0 u_b 56.448 2.16 R0"}},
+        # the macro placer places the blocks, from the same blocks as own;
+        # no channel and the die 2.16 um taller, or blocks the core's
+        # height do not fit (MPL-0006)
+        "mpl": {"parent": {
+            "channel": 0.0,
+            "die": [
+                98.64,
+                36.72,
+            ],
+            "locs": None,
+        }},
         "own": {},
     },
     bits = 32,
@@ -145,6 +156,10 @@ pin_trap(
         "locs": "u_a 2.16 2.16 R0 u_b 44.352 2.16 R0",
         "pins": "pw_* left pe_* right",
     },
+    round_bases = [
+        "own",
+        "mpl",
+    ],
     rounds = 2,
 )
 
@@ -192,6 +207,8 @@ pin_trap(
     name = "tidy_row",
     arms = {
         "hand": {"parent": {"locs": "u_fw 2.16 51.84 R0 u_fe 97.776 51.84 R0 u_fs 49.968 2.16 R0 u_fn 49.968 97.2 R0"}},
+        # the macro placer places the blocks, from the same blocks as own
+        "mpl": {"parent": {"locs": None}},
         "own": {},
     },
     bits = 16,
@@ -213,6 +230,10 @@ pin_trap(
         "locs": "u_fw 2.16 2.16 R0 u_fe 25.92 2.16 R0 u_fs 49.68 2.16 R0 u_fn 73.44 2.16 R0",
         "pins": "pw_* left pe_* right ps_* bottom pn_* top",
     },
+    round_bases = [
+        "own",
+        "mpl",
+    ],
     rounds = 2,
 )
 

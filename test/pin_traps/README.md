@@ -43,9 +43,9 @@ where it is the signal.
 | 7 | `flip`: the parent mirrors a block rather than ask for pins; 14 of 64 pins land off its tracks | 4 628 | 4 340 | 3 328 | 3 207 | `macro_anneal.flip_legal` |
 | 8 | `wide_pins`: pins two wire widths wide; pin access stops on DRT-0073 | DRT-0073 | ok | | | entry 12 |
 | 9 | `narrow_channel`: a channel sized for the wires has no rows for the parent's registers | 13 771 | 4 459 | 9 215 | 9 171 | entry 5 |
-| 10 | `split_logic`: partners side by side cut the parent's logic in two (overflow) | 23 738 (697) | 18 447 (0) | 17 230 (465) | 17 269 (208) | entry 31 |
+| 10 | `split_logic`: partners side by side cut the parent's logic in two (overflow) | 23 738 (697) | 18 447 (0) | 17 366 (323) | 17 295 (488) | entry 31 |
 | 11 | `tidy_row`: register files in a row, away from their owners (overflow) | 11 325 (71) | 4 001 (0) | 10 665 (0) | 8 838 (0) | entry 53 |
-| 12 | `random_io`: today's flow, every pin free, macros placed against random pins | 6 112 | 4 001 | 6 117 | 5 870 | ORFS patch 0077 |
+| 12 | `random_io`: today's flow, every pin free, macros placed against random pins | 6 112 | 4 001 | 7 132 (575) | 6 331 (117) | ORFS patch 0077 |
 | 13 | `aspect`: a square core twenty blocks cannot tile; the macro placer refuses it (MPL-0065), and places all twenty on 100 x 78 um of the same area | refused | 20 of 20 | | | ORFS #4681 |
 | | `in2out`: the parent's worst path runs through a block's adder from input pin to output pin; the hand arm is the RTL after surgery, the adder in the parent (minimum period, ps) | 450.7 | 316.6 | | | entry 26 |
 | | `mini_top`: traps 1, 9 and 10 in bands of one die | 46 730 (166) | 28 787 (0) | 29 237 (68) | 27 166 (137) | |
@@ -72,6 +72,32 @@ Traps 1, 2, 4 and 7 are answered by a block's pins, and the loop reaches the
 hand answer in one round. Traps 9 to 12 are answered by where the parent
 puts its blocks, which the pin loop does not move: the pins help there and
 do not reach the hand answer.
+
+## The joint loop: the macro placer in every round
+
+On the traps answered by where the parent puts its blocks, the arm `mpl`
+lets OpenROAD's macro placer place them, from own's blocks; rounds
+`mpl_r1`, `mpl_r2` rebuild every block with the pins the last placement
+gave it, feed the parent's free ports back where they ended, and run the
+macro placer again. On `random_io` own is that arm already, so its r1
+and r2 are joint rounds. Block + parent wire in um, parent overflow in
+brackets:
+
+| Trap | Own | Macro placer | Round 1 | Round 2 | Hand |
+|---|---|---|---|---|---|
+| `narrow_channel` | 13 771 (147) | 12 989 (321) | 23 835 (943) | 11 177 (228) | 4 459 (87) |
+| `tidy_row` | 11 325 (71) | 11 406 (0) | 11 717 (0) | 11 807 (30) | 4 001 (0) |
+| `random_io` | 6 112 (1) | (own) | 7 132 (575) | 6 331 (117) | 4 001 (0) |
+| `split_logic` | 23 738 (697) | refused | | | 18 447 (0) |
+
+The macro placer alone lands where own's local rule does, and feeding
+it the pins back does not converge on the hand answer: it swings, and
+on `narrow_channel` round 1 doubles the wire. On `split_logic` it places
+nothing: blocks the core's height do not fit with or without a channel
+(MPL-0006), and on a die one row band taller it cannot align a block's
+M5 pin with the track grid (MPL-0005). `narrow_channel`'s mpl arm has
+that taller die and no channel too. None of these rounds is claimed by a
+test; they are what a joint step inside the macro placer has to beat.
 
 ## Not traps, and why
 
