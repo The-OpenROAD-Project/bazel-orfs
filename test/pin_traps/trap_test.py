@@ -77,8 +77,90 @@ def check_face_away(p, bits=32, block_w=100.08):
     return claims
 
 
+def _total(p, arm):
+    """Block + parent wire of one arm: every probe of that arm, once per
+    built block (the parent's instances of one block share its wire)."""
+    return sum(v["wirelength_um"] for k, v in p.items() if k.split(":")[0] == arm)
+
+
+def _ratio_claim(label, good, bad, frac):
+    return (
+        "%s <= %.2f of own" % (label, frac),
+        good <= bad * frac,
+        "%d vs %d um" % (good, bad),
+    )
+
+
+def check_both_own(p, bits=32, block_w=60.048):
+    """Trap 2. Two blocks, each its own: neither puts more than a quarter
+    of its x pins on the side that faces the other; by hand all of them
+    do. Every one of the 2 * bits interface wires then runs along the top
+    edges instead of across the 4.32 um gap: the parent's wire by hand is
+    at most half of own's, block + parent at most two thirds."""
+    claims = []
+    for block, side in (("a", "right"), ("b", "left")):
+        for port in ("x_in", "x_out"):
+            s = side_share(p["own:" + block], port, side)
+            claims.append(("own: %s.%s facing < 25 %%" % (block, port), s < 0.25, "%.0f %%" % (100 * s)))
+            s = side_share(p["hand:" + block], port, side)
+            claims.append(("hand: %s.%s all facing" % (block, port), s == 1.0, "%.0f %%" % (100 * s)))
+    claims.append(_ratio_claim("hand: parent wire", p["hand:top"]["wirelength_um"], p["own:top"]["wirelength_um"], 0.5))
+    claims.append(_ratio_claim("hand: block + parent wire", _total(p, "hand"), _total(p, "own"), 2.0 / 3))
+    return claims
+
+
+def check_narrow_channel(p, bits=32, block_w=40.032):
+    """Trap 9. A 2.16 um channel has no rows once the halos are cut, so
+    the parent's 2 * bits registers between the blocks go to the strip
+    east of b, and each register's two wires cross b: own's parent wire
+    >= 2 * bits * block_w. By hand the registers sit in the channel: at
+    most a quarter of own's parent wire, half of block + parent."""
+    own_t, hand_t = p["own:top"]["wirelength_um"], p["hand:top"]["wirelength_um"]
+    bad = 2 * bits * block_w
+    return [
+        ("own: parent wire >= 2 * bits * block_w = %.0f um" % bad, own_t >= bad, "%d um" % own_t),
+        _ratio_claim("hand: parent wire", hand_t, own_t, 0.25),
+        _ratio_claim("hand: block + parent wire", _total(p, "hand"), _total(p, "own"), 0.5),
+    ]
+
+
+def check_split_logic(p):
+    """Trap 10. The parent's logic is one cluster; with the blocks abutting
+    in the middle of a core they span the height of, the cluster is cut
+    in two and every wire across the cut crosses both blocks over their
+    tops. Own overflows; by hand (blocks at the edges, the logic between)
+    nothing overflows and the parent's wire is at most four fifths."""
+    own_t, hand_t = p["own:top"], p["hand:top"]
+    return [
+        ("own: parent overflows", own_t["total_overflow"] > 0, "%d" % own_t["total_overflow"]),
+        ("hand: parent does not overflow", hand_t["total_overflow"] == 0, "%d" % hand_t["total_overflow"]),
+        _ratio_claim("hand: parent wire", hand_t["wirelength_um"], own_t["wirelength_um"], 0.8),
+    ]
+
+
+def check_tidy_row(p, bits=16, core_h=115.776, file_h=19.44):
+    """Trap 11. Four files in a row along the bottom: the north owner's
+    2 * bits wires each run from the top edge's ports to its file at the
+    bottom, at least the core height less two files, so own's parent wire
+    >= 2 * bits * (core_h - 2 * file_h). By hand each file sits at its
+    owner's edge: at most half of own's wire, and no overflow where own
+    has some."""
+    own_t, hand_t = p["own:top"], p["hand:top"]
+    bad = 2 * bits * (core_h - 2 * file_h)
+    return [
+        ("own: parent wire >= %.0f um" % bad, own_t["wirelength_um"] >= bad, "%d um" % own_t["wirelength_um"]),
+        ("own: parent overflows", own_t["total_overflow"] > 0, "%d" % own_t["total_overflow"]),
+        ("hand: parent does not overflow", hand_t["total_overflow"] == 0, "%d" % hand_t["total_overflow"]),
+        _ratio_claim("hand: parent wire", hand_t["wirelength_um"], own_t["wirelength_um"], 0.5),
+    ]
+
+
 CHECKS = {
+    "both_own": check_both_own,
     "face_away": check_face_away,
+    "narrow_channel": check_narrow_channel,
+    "split_logic": check_split_logic,
+    "tidy_row": check_tidy_row,
 }
 
 
