@@ -73,8 +73,191 @@ endmodule
 """
 
 
+def _worker(name, n, contract, free, comment):
+    """A block with a contract circuit (contract_in to contract_out, two
+    register stages) and a free circuit (free_in to free_out, one stage)
+    that touches the contract circuit by one net, en: built alone, the free
+    circuit's cells follow en to wherever the contract pins hold the
+    contract circuit, and the free pins follow them."""
+    return f"""// {comment}
+module {name} (
+  input clock,
+  input [{n - 1}:0] {contract}_in,
+  output [{n - 1}:0] {contract}_out,
+  input [{n - 1}:0] {free}_in,
+  output [{n - 1}:0] {free}_out
+);
+  reg [{n - 1}:0] r1, r2, fr;
+  reg en;
+  always @(posedge clock) begin
+    r1 <= {contract}_in ^ {{{contract}_in[0], {contract}_in[{n - 1}:1]}};
+    r2 <= r1 ^ {{r1[{n - 2}:0], r1[{n - 1}]}};
+    en <= ^r2;
+    fr <= {free}_in ^ {{{n}{{en}}}};
+  end
+  assign {contract}_out = r2;
+  assign {free}_out = fr;
+endmodule
+"""
+
+
+def _bank(name, n, comment):
+    """A block that registers its input: what the parent sees as a small
+    register file or a pipeline stage, n bits in and out."""
+    return f"""// {comment}
+module {name} (
+  input clock,
+  input [{n - 1}:0] d,
+  output [{n - 1}:0] q
+);
+  reg [{n - 1}:0] r;
+  always @(posedge clock) r <= d ^ {{d[0], d[{n - 1}:1]}};
+  assign q = r;
+endmodule
+"""
+
+
+def _mix(n, src):
+    """n bits of src mixed with its neighbour: one xor per bit."""
+    return f"{src} ^ {{{src}[0], {src}[{n - 1}:1]}}"
+
+
+def both_own(t, n):
+    """Two blocks side by side, each with its contract on its top edge and
+    a free interface to the other: built alone, each puts its free pins
+    by its own logic, and neither faces the other across the gap
+    between them (pin trap 2; XiangShan inventory entry 13). The parent
+    registers each block's contract inputs in a strip above the blocks."""
+    return (
+        _worker(f"{t}_a", n, "t", "x", f"{t}: block a")
+        + _worker(f"{t}_b", n, "t", "x", f"{t}: block b")
+        + f"""
+module {t}_top (
+  input clock,
+  input [{n - 1}:0] pa_in,
+  output [{n - 1}:0] pa_out,
+  input [{n - 1}:0] pb_in,
+  output [{n - 1}:0] pb_out
+);
+  wire [{n - 1}:0] ab, ba;
+  reg [{n - 1}:0] ra, rb;
+  always @(posedge clock) begin
+    ra <= {_mix(n, "pa_in")};
+    rb <= {_mix(n, "pb_in")};
+  end
+  {t}_a u_a (.clock(clock), .t_in(ra), .t_out(pa_out), .x_in(ba), .x_out(ab));
+  {t}_b u_b (.clock(clock), .t_in(rb), .t_out(pb_out), .x_in(ab), .x_out(ba));
+endmodule
+"""
+    )
+
+
+def narrow_channel(t, n):
+    """Two blocks facing each other across a channel, the parent's own
+    registers between them on every wire. A channel just wide enough for
+    the wires has no rows for those registers, so the parent places them
+    in what room it has elsewhere and every wire goes there and back
+    (pin trap 9; macro_anneal's channel floor, XiangShan entry 5)."""
+    return (
+        _worker(f"{t}_a", n, "w", "e", f"{t}: block a")
+        + _worker(f"{t}_b", n, "e", "w", f"{t}: block b")
+        + f"""
+module {t}_top (
+  input clock,
+  input [{n - 1}:0] pw_in,
+  output [{n - 1}:0] pw_out,
+  input [{n - 1}:0] pe_in,
+  output [{n - 1}:0] pe_out
+);
+  wire [{n - 1}:0] a_e, b_w;
+  reg [{n - 1}:0] to_b, to_a;
+  always @(posedge clock) begin
+    to_b <= {_mix(n, "a_e")};
+    to_a <= {_mix(n, "b_w")};
+  end
+  {t}_a u_a (.clock(clock), .w_in(pw_in), .w_out(pw_out), .e_in(to_a), .e_out(a_e));
+  {t}_b u_b (.clock(clock), .e_in(pe_in), .e_out(pe_out), .w_in(to_b), .w_out(b_w));
+endmodule
+"""
+    )
+
+
+def split_logic(t, n):
+    """The parent's logic is one cluster (a shared reduction ties its
+    registers together) that talks to two blocks, n wires each, and the
+    blocks talk to each other by a few. Placing the partners side by side
+    is what a pairwise cost asks for; it cuts the parent's logic in two,
+    and the cluster pays across the cut (pin trap 10; XiangShan entry
+    31, the logic region a strip)."""
+    k = max(2, n // 8)
+    return (
+        _bank(f"{t}_a", n, f"{t}: block a")
+        + _bank(f"{t}_b", n, f"{t}: block b")
+        + f"""
+module {t}_top (
+  input clock,
+  input [{k - 1}:0] p_in,
+  output [{k - 1}:0] p_out
+);
+  wire [{n - 1}:0] qa, qb;
+  reg [{n - 1}:0] la, lb;
+  reg s;
+  always @(posedge clock) begin
+    s <= ^la ^ ^lb;
+    la <= {_mix(n, "qb")} ^ {{{n}{{s}}}};
+    lb <= {_mix(n, "qa")} ^ {{{n}{{s}}}};
+  end
+  // the partners' own few wires: a's low bits into b's, through the ports
+  {t}_a u_a (.clock(clock), .d(la), .q(qa));
+  {t}_b u_b (.clock(clock), .d(lb ^ {{{{{n - k}{{1'b0}}}}, p_in}}), .q(qb));
+  assign p_out = qa[{k - 1}:0] ^ qb[{k - 1}:0];
+endmodule
+"""
+    )
+
+
+def tidy_row(t, n):
+    """Four small register files, each owned by logic tied to the ports
+    on one edge of the die. A tidy row along one edge is what a packing
+    cost asks for; three of the four files then sit across the die from
+    their owners (pin trap 11; XiangShan entry 53, a file 1 972 um from
+    its owner)."""
+    body = _bank(f"{t}_f", n, f"{t}: a file, four instances")
+    ports = []
+    logic = []
+    for e in ("w", "e", "s", "n"):
+        ports.append(f"  input [{n - 1}:0] p{e}_in,\n  output [{n - 1}:0] p{e}_out")
+        logic.append(
+            f"""  wire [{n - 1}:0] q{e};
+  reg [{n - 1}:0] d{e}, o{e};
+  always @(posedge clock) begin
+    d{e} <= {_mix(n, f"p{e}_in")};
+    o{e} <= {_mix(n, f"q{e}")};
+  end
+  {t}_f u_f{e} (.clock(clock), .d(d{e}), .q(q{e}));
+  assign p{e}_out = o{e};"""
+        )
+    port_list = ",\n".join(ports)
+    logic_list = "\n".join(logic)
+    return (
+        body
+        + f"""
+module {t}_top (
+  input clock,
+{port_list}
+);
+{logic_list}
+endmodule
+"""
+    )
+
+
 TRAPS = {
+    "both_own": both_own,
     "face_away": face_away,
+    "narrow_channel": narrow_channel,
+    "split_logic": split_logic,
+    "tidy_row": tidy_row,
 }
 
 

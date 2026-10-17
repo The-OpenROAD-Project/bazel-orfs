@@ -52,3 +52,154 @@ odb_debug(
     name = "face_away_hand_odb_debug",
     src = ":face_away_top_hand_place",
 )
+
+# Trap 2, both blocks their own: a and b side by side 4.32 um apart, each
+# with its contract on its top edge (registered by the parent in a strip
+# above) and a free interface to the other. By hand the interfaces face
+# each other across the gap.
+pin_trap(
+    name = "both_own",
+    arms = {
+        "hand": {"pins": {
+            "a": "x_* right",
+            "b": "x_* left",
+        }},
+        "own": {},
+    },
+    bits = 32,
+    blocks = {
+        "a": {
+            "die": [
+                60.048,
+                30.24,
+            ],
+            "pins": "t_* top",
+        },
+        "b": {
+            "die": [
+                60.048,
+                30.24,
+            ],
+            "pins": "t_* top",
+        },
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            128.736,
+            47.52,
+        ],
+        "locs": "u_a 2.16 2.16 R0 u_b 66.528 2.16 R0",
+        "pins": "pa_* top pb_* top",
+    },
+)
+
+# Trap 9, a channel sized for the wires: a and b face each other, the
+# parent's registers on every wire between them. Own: a 2.16 um channel
+# (no rows once the halos are cut) and a 12 um strip east of b for the
+# registers; by hand the same die with the strip moved into the channel.
+pin_trap(
+    name = "narrow_channel",
+    arms = {
+        "hand": {"parent": {"locs": "u_a 2.16 2.16 R0 u_b 56.448 2.16 R0"}},
+        "own": {},
+    },
+    bits = 32,
+    blocks = {
+        "a": {
+            "die": [
+                40.032,
+                30.24,
+            ],
+            "pins": "w_* left e_* right",
+        },
+        "b": {
+            "die": [
+                40.032,
+                30.24,
+            ],
+            "pins": "w_* left e_* right",
+        },
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            98.64,
+            34.56,
+        ],
+        "locs": "u_a 2.16 2.16 R0 u_b 44.352 2.16 R0",
+        "pins": "pw_* left pe_* right",
+    },
+)
+
+# Trap 10, partners side by side split the parent's logic: two blocks
+# spanning the core's height, the parent's logic one cluster talking to
+# both. Own: the blocks abut in the middle, the logic is cut into a west
+# and an east region; by hand the blocks sit at the die's edges and the
+# logic between them. The blocks are the same in both arms.
+pin_trap(
+    name = "split_logic",
+    arms = {
+        "hand": {"parent": {"locs": "u_a 2.16 2.16 R0 u_b 77.904 2.16 R0"}},
+        "own": {},
+    },
+    bits = 64,
+    blocks = {
+        "a": {"die": [
+            40.032,
+            30.24,
+        ]},
+        "b": {"die": [
+            40.032,
+            30.24,
+        ]},
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            120.096,
+            34.56,
+        ],
+        "locs": "u_a 20.16 2.16 R0 u_b 60.192 2.16 R0",
+    },
+)
+
+# Trap 11, a tidy row of files: four register files, each owned by logic
+# tied to the ports on one edge. Own: the files in a row along the bottom
+# edge; by hand each file at its owner's edge. The file is the same block
+# in both arms.
+pin_trap(
+    name = "tidy_row",
+    arms = {
+        "hand": {"parent": {"locs": "u_fw 2.16 51.84 R0 u_fe 97.776 51.84 R0 u_fs 49.968 2.16 R0 u_fn 49.968 97.2 R0"}},
+        "own": {},
+    },
+    bits = 16,
+    blocks = {
+        "f": {"die": [
+            20.16,
+            19.44,
+        ]},
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            120.096,
+            120.096,
+        ],
+        "locs": "u_fw 2.16 2.16 R0 u_fe 25.92 2.16 R0 u_fs 49.68 2.16 R0 u_fn 73.44 2.16 R0",
+        "pins": "pw_* left pe_* right ps_* bottom pn_* top",
+    },
+)
