@@ -315,7 +315,9 @@ def main(argv=None):
     ap.add_argument(
         "--lane-dir", default="tmp/schedule", help="where the lane trees go"
     )
-    ap.add_argument("--deps", default="//:deps", help="bazel-orfs's deps target")
+    ap.add_argument(
+        "--deps", default="@bazel-orfs//:deps", help="bazel-orfs's deps target"
+    )
     args = ap.parse_args(argv)
 
     workspace = os.environ.get("BUILD_WORKSPACE_DIRECTORY")
