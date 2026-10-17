@@ -331,6 +331,51 @@ endmodule
 """
 
 
+def selfish(t, n):
+    """Trap 1 with a block that is better off alone: its free circuit
+    reads every bit of its contract circuit, not one en net, so pins by
+    its own logic are the block's shortest wire, and the hand answer
+    pays n long nets inside the block for the 2n it saves the parent
+    (pin trap 4; XiangShan entry 35, CoupledL2's own pins 17.8 % faster
+    and the parent's overflow 17.6 % up)."""
+    return f"""// {t}: the block is better alone (pin trap 4).
+module {t}_a (
+  input clock,
+  input [{n - 1}:0] w_in,
+  output [{n - 1}:0] w_out,
+  input [{n - 1}:0] e_in,
+  output [{n - 1}:0] e_out
+);
+  reg [{n - 1}:0] r1, r2, er;
+  always @(posedge clock) begin
+    r1 <= {_mix(n, "w_in")};
+    r2 <= {_mix(n, "r1")};
+    er <= e_in ^ r2;
+  end
+  assign w_out = r2;
+  assign e_out = er;
+endmodule
+
+module {t}_top (
+  input clock,
+  input [{n - 1}:0] p_in,
+  output [{n - 1}:0] p_out
+);
+  wire [{n - 1}:0] a_e_out;
+  reg [{n - 1}:0] q;
+  always @(posedge clock)
+    q <= {_mix(n, "a_e_out")};
+  {t}_a u_a (
+    .clock(clock),
+    .w_in(p_in),
+    .w_out(p_out),
+    .e_in(q),
+    .e_out(a_e_out)
+  );
+endmodule
+"""
+
+
 # The combined parent: these traps, each its own parent as a submodule,
 # their ports prefixed with the trap's name, at the widths their own
 # traps use.
@@ -388,6 +433,7 @@ TRAPS = {
     "mini_top": mini_top,
     "narrow_channel": narrow_channel,
     "random_io": random_io,
+    "selfish": selfish,
     "split_logic": split_logic,
     "tidy_row": tidy_row,
     "wide_pins": wide_pins,

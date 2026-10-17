@@ -39,6 +39,7 @@ where it is the signal.
 |---|---|---|---|---|---|---|
 | 1 | `face_away`: a block's free pins follow its logic to the side away from the parent's | 9 187 | 2 201 | 2 232 | 2 185 | |
 | 2 | `both_own`: two blocks, each its own, neither facing the other across a 4.32 um gap | 13 424 | 7 249 | 7 579 | 7 411 | XiangShan inventory entry 13 |
+| 4 | `selfish`: trap 1 with a block better off alone: its own pins are a third of the hand answer's wire inside it (1 383 against 4 054) | 9 979 | 4 753 | 4 725 | | entry 35, CoupledL2's pins |
 | 7 | `flip`: the parent mirrors a block rather than ask for pins; 14 of 64 pins land off its tracks | 4 628 | 4 340 | 3 354 | 3 302 | `macro_anneal.flip_legal` |
 | 8 | `wide_pins`: pins two wire widths wide; pin access stops on DRT-0073 | DRT-0073 | ok | | | entry 12 |
 | 9 | `narrow_channel`: a channel sized for the wires has no rows for the parent's registers | 13 771 | 4 459 | 9 207 | 9 247 | entry 5 |
@@ -53,7 +54,7 @@ access still finds the 14 off-track pins. In trap 8 the pin it stops on is
 the block's clock pin, which the pin placer put beside the first wide pin,
 as XiangShan's one pin per block.
 
-Traps 1, 2 and 7 are answered by a block's pins, and the loop reaches the
+Traps 1, 2, 4 and 7 are answered by a block's pins, and the loop reaches the
 hand answer in one round. Traps 9 to 12 are answered by where the parent
 puts its blocks, which the pin loop does not move: the pins help there and
 do not reach the hand answer.
@@ -68,8 +69,6 @@ do not reach the hand answer.
 - **6, a generous outline** (entry 42). With the pins fixed, wire hardly
   depends on the outline (4 859 against 4 390 um), and the die areas were
   set by hand in both arms: the trap measured nothing the flow did.
-- **4, a selfish block** (entry 35, CoupledL2's pins): needs a timing
-  probe and a block whose period moves with its pins. Not attempted.
 - **5, every block square** (entries 21, 22): the cost on XiangShan was
   rows removed without a blockage, a flow defect carried patch 0086 fixes,
   not a choice a pin or macro loop makes. Not attempted.
@@ -83,3 +82,15 @@ rebuilds every block and the parent on them. The comparison is
 `XSTile_pins_r1_kpi` against `XSTile_kpi`, and the two grt stages'
 route-0 overflow. The parent's global route needs a machine with more
 than 128 GB; nothing of the arm has been built.
+
+The base arm is not in the remote cache at this branch's base either. A
+`//tools/cache_evidence` capture of `XSTile_place` there: 11 677 spawns,
+11 521 hits, 156 misses, 606 actions not reached behind them; the first
+misses are a surgery proof (`xiangshan_surgered_proven_2.json`), every
+block's synthesis SDC and the register files' stages. The run is both
+arms from synthesis:
+
+```sh
+bazelisk build //test/coremark_joule/designs/asap7/xiangshan:XSTile_kpi \
+  //test/coremark_joule/designs/asap7/xiangshan:XSTile_pins_r1_kpi
+```
