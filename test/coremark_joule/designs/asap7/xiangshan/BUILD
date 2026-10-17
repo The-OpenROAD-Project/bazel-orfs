@@ -73,7 +73,7 @@ exports_files(
 # The planned parent: the blocks the macro selection tables named, each a
 # real flow at the outline plan_floorplan.py drew with its pins on one
 # side, the parent at the planned die. plan/ is generated (see
-# .claude/commands/macro-selection.md, step 3); regenerate it, never edit it:
+# .claude/skills/macro-selection/SKILL.md, step 3); regenerate it, never edit it:
 # plan/plan.json is its input, with pin_partners.txt beside it from
 # probe_pin_partners.tcl on XSTile_synth_odb_debug (GUI_TIMING=0).
 xiangshan_flow(

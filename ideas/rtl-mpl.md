@@ -105,8 +105,8 @@ OpenROAD flow outcomes). References:
 
 Each is independently useful and justified by a finding above; together
 they make the selector clean. Develop against a local OpenROAD checkout
-via the BYO loop (`OPENROAD_EXE` injection — see `.claude/commands/` /
-the byo-openroad workflow) before proposing upstream.
+via the BYO loop (`OPENROAD_EXE` injection — see the byo-openroad skill)
+before proposing upstream.
 
 1. **`rtl_macro_placer -random_seed`** (tiny): expose the SA RNG seed so
    the placer is a distribution generator. Entry: `src/mpl/src/mpl.tcl`

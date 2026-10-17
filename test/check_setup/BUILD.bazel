@@ -1,6 +1,6 @@
 # check_setup on the smallest designs that show what it is for: a flop
 # that is not clocked is not timed, and a period measured with one is a
-# lower bound. .claude/commands/check-setup.md.
+# lower bound. .claude/skills/check-setup/SKILL.md.
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 ASAP7_LEFS = [

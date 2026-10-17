@@ -8,7 +8,7 @@ labels only; what each numbered marker means is in README.md next to it,
 so the picture stays readable at any width and the words stay editable.
 
 Every number and every rectangle below was asked of the baseline's routed
-checkpoint through the odb-debug session (.claude/commands/odb-debug.md),
+checkpoint through the odb-debug session (.claude/skills/odb-debug/SKILL.md),
 not read out of a log. The drawing is qualitative: the geometry is to
 scale, the congestion overlay is a coarse sample, and the four callouts
 are a judgement about which measured facts cost the most clock period.

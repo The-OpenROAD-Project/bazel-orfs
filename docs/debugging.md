@@ -93,7 +93,7 @@ GUI); `tools/odb_debug/odbdebug.py` asks it from a
 shell, `tools/odb_debug/mcp_server.py` from an agent, and
 `tools/odb_debug/geometry.py` turns a geometry dump into the placement
 forensics a failed legaliser needs. `tools/odb_debug/README.md` is the
-manual; `.claude/commands/odb-debug.md` the procedure.
+manual; `.claude/skills/odb-debug/SKILL.md` the procedure.
 
 ## Builds & the from-source toolchain
 

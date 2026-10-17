@@ -154,7 +154,7 @@ another ODB without restarting the agent. Tools:
 | `check_placement` | unplaced count, cells inside macros, `check_placement -verbose` text |
 | `dump_geometry dir` | writes the text files `geometry.py` reads |
 | `wns`, `worst_paths n` | worst slack and its endpoints; the n worst paths |
-| `check_setup` | each `check_setup` warning with its count, example pins and the instance prefixes they cluster in (`.claude/commands/check-setup.md`) |
+| `check_setup` | each `check_setup` warning with its count, example pins and the instance prefixes they cluster in (`.claude/skills/check-setup/SKILL.md`) |
 | `report cmd` | what any `report_*` command prints |
 | `tcl code` | anything else: result and captured stdout |
 | `image path` | a PNG of an area (`save_image -web`, headless) |

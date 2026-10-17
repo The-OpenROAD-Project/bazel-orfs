@@ -13,7 +13,7 @@
 #         <tree>/make do-<stage>.
 # next    Adds <stage>'s scripts to the same tree and keeps the results
 #         already in it: a stage run by hand carries on into the next one
-#         (the _deps lane, .claude/commands/deps-lane.md). Builds no stage.
+#         (the _deps lane, .claude/skills/deps-lane/SKILL.md). Builds no stage.
 # status  Says where each stage's result in the tree came from, Bazel or
 #         a hand-run make, and which settings were edited.
 # archive A self-contained reproducer .tar.gz of what <stage> needs.

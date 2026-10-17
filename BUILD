@@ -211,7 +211,7 @@ py_test(
 # tree to run by hand, `next <stage>` to carry on in it, `status`,
 # `archive`. Building it is instant; `start` builds what the stage needs
 # (every stage before it) through the stage target's output groups.
-# .claude/commands/deps-lane.md.
+# .claude/skills/deps-lane/SKILL.md.
 sh_binary(
     name = "deps",
     srcs = ["deps_wrapper.sh"],

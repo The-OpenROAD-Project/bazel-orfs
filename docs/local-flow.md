@@ -79,7 +79,7 @@ bazelisk run //:deps -- archive <flow> <stage> <file.tar.gz> [--variant V]
 Building `//:deps` itself is instant; `start` builds only output groups
 of the stage target, the same actions a plain build caches, so after a
 finished build nothing re-runs. Iterating stage by stage this way is the
-`_deps` lane: [`.claude/commands/deps-lane.md`](../.claude/commands/deps-lane.md).
+`_deps` lane: [`.claude/skills/deps-lane/SKILL.md`](../.claude/skills/deps-lane/SKILL.md).
 
 ## A deployed tree runs its own stage, and only that
 
