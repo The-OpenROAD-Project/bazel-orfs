@@ -301,6 +301,36 @@ def wide_pins(t, n):
     return flip(t, n)
 
 
+def aspect(t, n):
+    """Twenty equal blocks and a few registers of the parent's: on a core
+    of a given area the blocks tile five by four with their channels, and
+    the same area as a square holds only four columns of four. A square
+    core is every flow's default; for this parent it is infeasible, and
+    no macro placer can find what does not exist (pin trap 13; ORFS #4681
+    aes-block MPL-0003, the sliver outlines of mpl's real-design table)."""
+    insts = "\n".join(
+        f"  {t}_m u_m{i} (.clock(clock), .d(r ^ {i}), .q(q[{i}]));" for i in range(20)
+    )
+    return _bank(f"{t}_m", n, f"{t}: one block, twenty instances") + f"""
+module {t}_top (
+  input clock,
+  input [{n - 1}:0] p_in,
+  output p_out
+);
+  wire [{n - 1}:0] q [0:19];
+  reg [{n - 1}:0] r;
+  reg o;
+  always @(posedge clock) begin
+    r <= p_in;
+    o <= ^(q[0] ^ q[1] ^ q[2] ^ q[3] ^ q[4] ^ q[5] ^ q[6] ^ q[7] ^ q[8] ^ q[9]
+        ^ q[10] ^ q[11] ^ q[12] ^ q[13] ^ q[14] ^ q[15] ^ q[16] ^ q[17] ^ q[18] ^ q[19]);
+  end
+{insts}
+  assign p_out = o;
+endmodule
+"""
+
+
 # The combined parent: these traps, each its own parent as a submodule,
 # their ports prefixed with the trap's name, at the widths their own
 # traps use.
@@ -351,6 +381,7 @@ endmodule
 
 
 TRAPS = {
+    "aspect": aspect,
     "both_own": both_own,
     "face_away": face_away,
     "flip": flip,

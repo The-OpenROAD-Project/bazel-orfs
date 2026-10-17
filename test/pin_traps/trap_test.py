@@ -309,7 +309,24 @@ def check_mini_top(p):
     ]
 
 
+def check_aspect(p):
+    """Trap 13. One area, two shapes: on the square the macro placer
+    places nothing (five columns of 19.12 um blocks need 95.6 um and the
+    square is 88.32), on 100 x 78 it places every block inside the core."""
+    shapes = p["own:top"]["shapes"]
+    own, hand = shapes["own"], shapes["hand"]
+    return [
+        ("own: the square is refused", not own["placed"], own["error"] or "placed"),
+        (
+            "hand: every block placed inside the core",
+            bool(hand["placed"]) and hand["inside"] == hand["macros"],
+            "%d of %d" % (hand["inside"], hand["macros"]),
+        ),
+    ]
+
+
 CHECKS = {
+    "aspect": check_aspect,
     "both_own": check_both_own,
     "face_away": check_face_away,
     "flip": check_flip,
