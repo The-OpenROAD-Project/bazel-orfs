@@ -155,10 +155,58 @@ def check_tidy_row(p, bits=16, core_h=115.776, file_h=19.44):
     ]
 
 
+def check_flip(p):
+    """Trap 7. The block mirrored (own) wins on wire against the block as
+    built (plain), and by hand the rebuilt block wins at least as much;
+    but the mirror puts block pins between the parent's tracks, where by
+    hand (R0) none are. Off-track is geometry, checked against the
+    parent's track grids, not a pin access run."""
+    plain, own, hand = p["plain:top"], p["own:top"], p["hand:top"]
+    return [
+        (
+            "own: the mirror shortens the wire",
+            own["wirelength_um"] < plain["wirelength_um"],
+            "%d vs %d um" % (own["wirelength_um"], plain["wirelength_um"]),
+        ),
+        (
+            "own: block pins off the parent's tracks",
+            own["block_pins_off_track"] > 0,
+            "%d of %d" % (own["block_pins_off_track"], own["block_pin_shapes"]),
+        ),
+        (
+            "plain: no block pin off the parent's tracks",
+            plain["block_pins_off_track"] == 0,
+            "%d of %d" % (plain["block_pins_off_track"], plain["block_pin_shapes"]),
+        ),
+        (
+            "hand: no block pin off the parent's tracks",
+            hand["block_pins_off_track"] == 0,
+            "%d of %d" % (hand["block_pins_off_track"], hand["block_pin_shapes"]),
+        ),
+        (
+            "hand: wire no longer than own",
+            hand["wirelength_um"] <= own["wirelength_um"],
+            "%d vs %d um" % (hand["wirelength_um"], own["wirelength_um"]),
+        ),
+    ]
+
+
+def check_random_io(p):
+    """Trap 12. Today's flow, every parent pin free and the files placed
+    by the macro placer against pins placed at random, against the hand
+    answer, which also ties every pin to its owner's edge: with strictly
+    more freedom, own's wire is still longer than the constrained hand
+    answer by a third or more."""
+    own, hand = p["own:top"], p["hand:top"]
+    return [_ratio_claim("hand: parent wire", hand["wirelength_um"], own["wirelength_um"], 0.75)]
+
+
 CHECKS = {
     "both_own": check_both_own,
     "face_away": check_face_away,
+    "flip": check_flip,
     "narrow_channel": check_narrow_channel,
+    "random_io": check_random_io,
     "split_logic": check_split_logic,
     "tidy_row": check_tidy_row,
 }

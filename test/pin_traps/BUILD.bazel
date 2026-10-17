@@ -203,3 +203,71 @@ pin_trap(
         "pins": "pw_* left pe_* right ps_* bottom pn_* top",
     },
 )
+
+# Trap 7, the flip that wins on wire: block a's pins on the west half of
+# its top edge, the parent's logic and ports to the east. "plain" places
+# the block as built; "own" is the parent's cheap fix, the block mirrored
+# (MY); "hand" rebuilds the block with its pins on the east half. The
+# block is 40.05 um wide, which is half an M3 pitch off a whole number of
+# them: a mirror puts every M3 pin between two of the parent's tracks.
+pin_trap(
+    name = "flip",
+    arms = {
+        "hand": {"pins": {"a": "x_* top:22-38"}},
+        "own": {
+            "parent": {"locs": "u_a 2.16 2.16 MY"},
+            "pins": {"a": "x_* top:2-18"},
+        },
+        "plain": {"pins": {"a": "x_* top:2-18"}},
+    },
+    bits = 32,
+    blocks = {"a": {"die": [
+        40.05,
+        30.24,
+    ]}},
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            80.064,
+            60.48,
+        ],
+        "locs": "u_a 2.16 2.16 R0",
+        "pins": "p_* right",
+    },
+)
+
+# Trap 12, random pins before the macro placer: trap 11's netlist. Own is
+# today's flow, every parent pin free and the files placed by the macro
+# placer; by hand the pins on their owners' edges and each file at its
+# owner's edge, trap 11's answer.
+pin_trap(
+    name = "random_io",
+    arms = {
+        "hand": {"parent": {
+            "locs": "u_fw 2.16 51.84 R0 u_fe 97.776 51.84 R0 u_fs 49.968 2.16 R0 u_fn 49.968 97.2 R0",
+            "pins": "pw_* left pe_* right ps_* bottom pn_* top",
+        }},
+        "own": {},
+    },
+    bits = 16,
+    blocks = {
+        "f": {"die": [
+            20.16,
+            19.44,
+        ]},
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            120.096,
+            120.096,
+        ],
+        "locs": None,
+    },
+)
