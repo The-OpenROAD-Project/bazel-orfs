@@ -353,11 +353,31 @@ def check_selfish(p):
     return claims
 
 
+def check_in2out(p):
+    """The surgery trap. The parent's worst path as written runs from x
+    through block b's adder (an in2out arc of b's timing model) to c; after
+    the surgery the adder sits in the parent and the worst path crosses no
+    block. The blocks are placed alike in both arms, so what moves the
+    period is the surgery alone: by hand the parent's minimum period is at
+    most four fifths of own's."""
+    own, hand = p["own:top"]["timing"], p["hand:top"]["timing"]
+    return [
+        ("own: the worst path crosses u_b in2out", "u_b" in own["in2out_blocks"], "%s -> %s through %s" % (own["startpoint"], own["endpoint"], own["in2out_blocks"])),
+        ("hand: the worst path crosses no block", hand["in2out_blocks"] == [], "%s -> %s" % (hand["startpoint"], hand["endpoint"])),
+        (
+            "hand: minimum period <= 0.8 of own",
+            hand["min_period_ps"] <= 0.8 * own["min_period_ps"],
+            "%.1f vs %.1f ps" % (hand["min_period_ps"], own["min_period_ps"]),
+        ),
+    ]
+
+
 CHECKS = {
     "aspect": check_aspect,
     "both_own": check_both_own,
     "face_away": check_face_away,
     "flip": check_flip,
+    "in2out": check_in2out,
     "mini_top": check_mini_top,
     "narrow_channel": check_narrow_channel,
     "random_io": check_random_io,

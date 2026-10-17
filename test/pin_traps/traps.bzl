@@ -51,7 +51,9 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own", r
       parent: {"die": [w, h], "core_margin": [x, y], "pins": PIN_GROUPS,
         "locs": BLOCK_LOCS or None for the macro placer, "channel": um,
         "args": ORFS arguments for the parent, "pin_access": True to run
-        pin access on the parent in its probe}.
+        pin access on the parent in its probe, "timing": True to time it
+        (the blocks then abstracted at cts), "top": the parent's module
+        when an arm's RTL differs, as after surgery}.
       arms: {arm: {"pins": {block: PIN_GROUPS added to the contract},
         "blocks": {block: overrides}, "parent": overrides}}: an arm changes
         only what its trap is about.
@@ -115,7 +117,10 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own", r
             orfs_flow(
                 name = module,
                 top = module,
-                abstract_stage = "place",
+                # at cts when the parent is timed: at place the block's
+                # clock pin carries its whole unbuffered clock net
+                # (XiangShan inventory entry 17)
+                abstract_stage = "cts" if parent.get("timing") else "place",
                 arguments = args,
                 pdk = "//flow:asap7",
                 sources = sources,
@@ -162,7 +167,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own", r
             user["BLOCK_LOCS"] = p["locs"]
         orfs_flow(
             name = top,
-            top = top,
+            top = p.get("top", top),
             arguments = args,
             last_stage = "place",
             macros = macros,
@@ -182,6 +187,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own", r
             user_arguments = user | {
                 "OUTPUT_JSON": "$(location {}_{}_top_probe.json)".format(name, arm),
                 "PROBE_PIN_ACCESS": "1" if p.get("pin_access") else "0",
+                "PROBE_TIMING": "1" if p.get("timing") else "0",
             },
             variant = arm,
         )

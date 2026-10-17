@@ -1,4 +1,5 @@
 load("@bazel-orfs//:openroad.bzl", "odb_debug")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_python//python:defs.bzl", "py_binary")
 load(":traps.bzl", "packing_trap", "pin_trap")
 
@@ -500,3 +501,104 @@ pin_trap(
     },
     rounds = 2,
 )
+
+# The surgery trap, an in2out path through a block on the parent's worst
+# path: blocks x and c side by side at the die's west edge, block b across
+# the die where its own registered interface (m_*, to the east ports)
+# puts it, and the parent's path from x through b's adder to c. Own is the
+# RTL as written; hand is the RTL after surgery, the adder moved from b
+# into the parent between x and c. The parent is timed at placement.
+pin_trap(
+    name = "in2out",
+    arms = {
+        "hand": {
+            "blocks": {"b": {
+                "module": "in2out_b_s",
+                "pins": "m_* right",
+            }},
+            "parent": {"top": "in2out_top_s"},
+        },
+        "own": {},
+    },
+    bits = 16,
+    blocks = {
+        "b": {
+            "die": [
+                40.032,
+                40.32,
+            ],
+            "pins": "m_* right f_* left",
+        },
+        "c": {
+            "die": [
+                20.16,
+                20.16,
+            ],
+            "pins": "cq* left",
+        },
+        "x": {
+            "die": [
+                20.16,
+                20.16,
+            ],
+            "pins": "xi* left",
+        },
+    },
+    parent = {
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            160.0,
+            100.08,
+        ],
+        "locs": "u_x 2.16 2.16 R0 u_c 25.92 2.16 R0 u_b 115.2 56.16 R0",
+        "pins": "px_* left pc_* left pm_* right",
+        "timing": True,
+    },
+)
+
+# The surgery keeps function: own's parent and hand's, flattened, proven
+# equivalent by yosys.
+genrule(
+    name = "in2out_equiv",
+    srcs = [
+        ":equiv.ys",
+        ":in2out.sv",
+    ],
+    outs = ["in2out_equiv.log"],
+    cmd = "sed -e 's#@SV@#$(location :in2out.sv)#' -e 's#@GOLD@#in2out_top#' -e 's#@GATE@#in2out_top_s#' " +
+          "$(location :equiv.ys) > $(@D)/in2out_equiv.ys && " +
+          "$(execpath @yosys//:yosys) -q -l $@ $(@D)/in2out_equiv.ys",
+    tools = ["@yosys"],
+)
+
+# The negative control: the same proof on a surgery that broke the adder
+# (its + turned into ^ in the parent after surgery) must fail, or a pass
+# above says nothing.
+genrule(
+    name = "in2out_equiv_negative",
+    srcs = [
+        ":equiv.ys",
+        ":in2out.sv",
+    ],
+    outs = ["in2out_equiv_negative.log"],
+    cmd = "sed -e '/module in2out_top_s/,$$ s/(f_in + /(f_in ^ /' $(location :in2out.sv) > $(@D)/in2out_broken.sv && " +
+          "grep -q '(f_in ^ ' $(@D)/in2out_broken.sv && " +
+          "sed -e 's#@SV@#$(@D)/in2out_broken.sv#' -e 's#@GOLD@#in2out_top#' -e 's#@GATE@#in2out_top_s#' " +
+          "$(location :equiv.ys) > $(@D)/in2out_negative.ys && " +
+          "if $(execpath @yosys//:yosys) -q -l $@.yosys $(@D)/in2out_negative.ys; then " +
+          "echo 'in2out_equiv_negative: a broken surgery was proven equivalent' >&2; exit 1; " +
+          "else echo 'broken surgery refused, as it must be' > $@; fi",
+    tools = ["@yosys"],
+)
+
+build_test(
+    name = "in2out_equiv_test",
+    targets = [
+        ":in2out_equiv",
+        ":in2out_equiv_negative",
+    ],
+)
+

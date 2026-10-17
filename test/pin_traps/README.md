@@ -47,12 +47,19 @@ where it is the signal.
 | 11 | `tidy_row`: register files in a row, away from their owners (overflow) | 11 325 (71) | 4 001 (0) | 10 928 (0) | 8 867 (6) | entry 53 |
 | 12 | `random_io`: today's flow, every pin free, macros placed against random pins | 6 112 | 4 001 | 6 088 | 6 049 | ORFS patch 0077 |
 | 13 | `aspect`: a square core twenty blocks cannot tile; the macro placer refuses it (MPL-0065), and places all twenty on 100 x 78 um of the same area | refused | 20 of 20 | | | ORFS #4681 |
+| | `in2out`: the parent's worst path runs through a block's adder from input pin to output pin; the hand arm is the RTL after surgery, the adder in the parent (minimum period, ps) | 450.7 | 316.6 | | | entry 26 |
 | | `mini_top`: traps 1, 9 and 10 in bands of one die | 46 730 (166) | 28 787 (0) | 29 370 (70) | 26 960 (67) | |
 
 Trap 7 shows the mirror's geometry, not a failure: the parent's pin
 access still finds the 14 off-track pins. In trap 8 the pin it stops on is
 the block's clock pin, which the pin placer put beside the first wide pin,
 as XiangShan's one pin per block.
+
+`in2out` is a surgery problem, not a placement one: the blocks are
+placed alike in both arms, and the hand arm's RTL is own's with the adder
+moved from block b into the parent, proven equivalent by yosys
+(`in2out_equiv_test`, with a negative control that breaks the adder and
+must fail). The `surgery` skill says how to recognise such problems.
 
 Traps 1, 2, 4 and 7 are answered by a block's pins, and the loop reaches the
 hand answer in one round. Traps 9 to 12 are answered by where the parent
