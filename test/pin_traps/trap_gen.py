@@ -376,6 +376,105 @@ endmodule
 """
 
 
+def in2out(t, n):
+    """A combinational path through a hardened block on the parent's worst
+    path. Block x registers its output, block c registers its input, and
+    the two sit side by side; between them the parent's path runs through
+    block b, an adder from b's f_in pins to its f_out pins with no
+    register on the way, and b sits across the die where its own
+    registered interface (m_in, m_out) puts it. No placement of the parent
+    shortens x to b to c without moving b off its own interface, and the
+    blocks are placed as built: this is a surgery problem, not a placement
+    one (surgery trap; XiangShan inventory entry 26, the parent's worst
+    paths bare wires between blocks).
+
+    The surgery, written out here as the modules <t>_b_s and <t>_top_s:
+    the adder leaves b for the parent, between x and c, and b keeps its
+    own interface. No register is added or moved; in2out_equiv proves the
+    two parents equivalent."""
+    h = n // 2
+    cone = f"(f_in + {{f_in[{h - 1}:0], f_in[{n - 1}:{h}]}})"
+    return f"""// {t}: an in2out path through a block on the worst path (surgery trap).
+module {t}_x (
+  input clock,
+  input [{n - 1}:0] xi,
+  output [{n - 1}:0] xq
+);
+  reg [{n - 1}:0] r;
+  always @(posedge clock) r <= {_mix(n, "xi")};
+  assign xq = r;
+endmodule
+
+module {t}_c (
+  input clock,
+  input [{n - 1}:0] cd,
+  output [{n - 1}:0] cq
+);
+  reg [{n - 1}:0] r;
+  always @(posedge clock) r <= {_mix(n, "cd")};
+  assign cq = r;
+endmodule
+
+module {t}_b (
+  input clock,
+  input [{n - 1}:0] m_in,
+  output [{n - 1}:0] m_out,
+  input [{n - 1}:0] f_in,
+  output [{n - 1}:0] f_out
+);
+  reg [{n - 1}:0] r1, r2;
+  always @(posedge clock) begin
+    r1 <= {_mix(n, "m_in")};
+    r2 <= {_mix(n, "r1")};
+  end
+  assign m_out = r2;
+  assign f_out = {cone};
+endmodule
+
+module {t}_top (
+  input clock,
+  input [{n - 1}:0] px_in,
+  output [{n - 1}:0] pc_out,
+  input [{n - 1}:0] pm_in,
+  output [{n - 1}:0] pm_out
+);
+  wire [{n - 1}:0] xq, bf;
+  {t}_x u_x (.clock(clock), .xi(px_in), .xq(xq));
+  {t}_b u_b (.clock(clock), .m_in(pm_in), .m_out(pm_out), .f_in(xq), .f_out(bf));
+  {t}_c u_c (.clock(clock), .cd(bf), .cq(pc_out));
+endmodule
+
+// after surgery: the adder in the parent, b with its own interface only
+module {t}_b_s (
+  input clock,
+  input [{n - 1}:0] m_in,
+  output [{n - 1}:0] m_out
+);
+  reg [{n - 1}:0] r1, r2;
+  always @(posedge clock) begin
+    r1 <= {_mix(n, "m_in")};
+    r2 <= {_mix(n, "r1")};
+  end
+  assign m_out = r2;
+endmodule
+
+module {t}_top_s (
+  input clock,
+  input [{n - 1}:0] px_in,
+  output [{n - 1}:0] pc_out,
+  input [{n - 1}:0] pm_in,
+  output [{n - 1}:0] pm_out
+);
+  wire [{n - 1}:0] xq, f_in, bf;
+  {t}_x u_x (.clock(clock), .xi(px_in), .xq(xq));
+  {t}_b_s u_b (.clock(clock), .m_in(pm_in), .m_out(pm_out));
+  assign f_in = xq;
+  assign bf = {cone};
+  {t}_c u_c (.clock(clock), .cd(bf), .cq(pc_out));
+endmodule
+"""
+
+
 # The combined parent: these traps, each its own parent as a submodule,
 # their ports prefixed with the trap's name, at the widths their own
 # traps use.
@@ -430,6 +529,7 @@ TRAPS = {
     "both_own": both_own,
     "face_away": face_away,
     "flip": flip,
+    "in2out": in2out,
     "mini_top": mini_top,
     "narrow_channel": narrow_channel,
     "random_io": random_io,

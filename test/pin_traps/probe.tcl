@@ -65,6 +65,41 @@ if { ![regexp -line {^Total\s+\d+\s+\d+\s+([\d.]+)%\s+(\d+)\s*/\s*(\d+)\s*/\s*(\
 if { ![regexp {Total wirelength: (\d+) um} $text - wl] } {
   error "probe.tcl: no total wirelength in the global route report"
 }
+# timing, when PROBE_TIMING asks: the worst setup path with placement
+# parasitics, its slack, the period less that slack, and the blocks the
+# path crosses from an input pin to an output pin (an in2out arc of the
+# block's timing model): a block on the worst path that way is a path no
+# placement of the parent removes
+set timing ""
+if { [info exists ::env(PROBE_TIMING)] && $::env(PROBE_TIMING) } {
+  estimate_parasitics -placement
+  set pe [lindex [find_timing_paths -path_delay max -group_path_count 1 -sort_by_slack] 0]
+  if { $pe eq "" } { error "probe.tcl: no setup path to report" }
+  set slack [get_property $pe slack]
+  set period [get_property [lindex [all_clocks] 0] period]
+  set crossed {}
+  set prev ""
+  foreach pt [get_property $pe points] {
+    set name [get_full_name [get_property $pt pin]]
+    set i [string last / $name]
+    if { $i > 0 } {
+      set inst [$block findInst [string range $name 0 [expr { $i - 1 }]]]
+      if { $inst ne "NULL" && [[$inst getMaster] isBlock] } {
+        set iterm [$inst findITerm [string range $name [expr { $i + 1 }] end]]
+        if { $prev ne "" && [lindex $prev 0] eq [$inst getName] && [lindex $prev 1] eq "INPUT" && [$iterm getIoType] eq "OUTPUT" } {
+          lappend crossed [$inst getName]
+        }
+        set prev [list [$inst getName] [$iterm getIoType]]
+        continue
+      }
+    }
+    set prev ""
+  }
+  set timing [format {"slack_ps": %.1f, "period_ps": %.1f, "min_period_ps": %.1f, "startpoint": "%s", "endpoint": "%s", "in2out_blocks": [%s]} \
+    $slack $period [expr { $period - $slack }] \
+    [get_full_name [get_property $pe startpoint]] [get_full_name [get_property $pe endpoint]] \
+    [join [lmap c $crossed { string cat {"} $c {"} }] {, }]]
+}
 # pin access, as the flow's global route stage runs it before routing: a
 # pin it finds no access point for stops it (DRT-0073)
 set access "not run"
@@ -86,6 +121,7 @@ puts $fp "  \"total_overflow\": $total_c,"
 puts $fp "  \"block_pin_shapes\": $blockpins,"
 puts $fp "  \"block_pins_off_track\": $offtrack,"
 puts $fp "  \"pin_access\": \"$access\","
+if { $timing ne "" } { puts $fp "  \"timing\": {$timing}," }
 puts $fp "  \"pin_sides\": {"
 set ports [lsort [dict keys $sides]]
 foreach port $ports {
