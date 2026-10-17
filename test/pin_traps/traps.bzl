@@ -38,7 +38,7 @@ def _areas(w, h, margin_x = 2.0, margin_y = 2.0):
 def _pins(contract, arm_pins):
     return " ".join([p for p in [contract, arm_pins] if p])
 
-def pin_trap(name, bits, blocks, parent, arms):
+def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_base = "own"):
     """One trap's flows and probes.
 
     Args:
@@ -55,6 +55,10 @@ def pin_trap(name, bits, blocks, parent, arms):
       arms: {arm: {"pins": {block: PIN_GROUPS added to the contract},
         "blocks": {block: overrides}, "parent": overrides}}: an arm changes
         only what its trap is about.
+      rounds: rounds of the pin loop: arm r<k> is round_base with every
+        block's pins written by pins_from_parent.tcl from arm r<k-1>'s
+        placed parent (r0 is round_base itself).
+      round_base: the arm the loop starts from.
 
     Targets: <name>_<block>_<arm>_* and <name>_top_<arm>_* flows, and
     <name>_<arm>_<block>_probe / <name>_<arm>_top_probe JSON.
@@ -67,6 +71,20 @@ def pin_trap(name, bits, blocks, parent, arms):
         cmd = "$(execpath :trap_gen) --trap {} --bits {} --out $@".format(name, bits),
         tools = [":trap_gen"],
     )
+    arms = dict(arms)
+    round_of = {}
+    for k in range(1, rounds + 1):
+        prev = round_base if k == 1 else "r{}".format(k - 1)
+        spec = dict(arms[round_base])
+        spec["blocks"] = {
+            block: spec.get("blocks", {}).get(block, {}) | {
+                "io": ":{}_{}_r{}_pins.tcl".format(name, block, k),
+            }
+            for block in blocks
+        }
+        spec["pins"] = {}
+        arms["r{}".format(k)] = spec
+        round_of[prev] = k
     for arm in sorted(arms):
         spec = arms[arm]
         macros = []
@@ -155,6 +173,24 @@ def pin_trap(name, bits, blocks, parent, arms):
             variant = arm,
         )
         probes["{}:top".format(arm)] = ":{}_{}_top_probe".format(name, arm)
+        if arm in round_of:
+            k = round_of[arm]
+            outs = ["{}_{}_r{}_pins.tcl".format(name, block, k) for block in sorted(blocks)]
+            orfs_run(
+                name = "{}_r{}_pins".format(name, k),
+                src = ":{}_{}_place".format(top, arm),
+                outs = outs,
+                arguments = args,
+                script = ":pins_from_parent.tcl",
+                sources = sources,
+                user_arguments = user | {
+                    "PINS_OUT": " ".join([
+                        "{}_{} $(location {})".format(name, block, out)
+                        for block, out in zip(sorted(blocks), outs)
+                    ]),
+                },
+                variant = arm,
+            )
     py_test(
         name = name + "_test",
         srcs = [":trap_test.py"],
@@ -165,3 +201,14 @@ def pin_trap(name, bits, blocks, parent, arms):
         data = [probes[key] for key in sorted(probes)],
         main = "trap_test.py",
     )
+    if rounds:
+        py_test(
+            name = name + "_loop_test",
+            srcs = [":trap_test.py"],
+            args = ["--trap", name, "--loop", str(rounds)] + [
+                "{}=$(rootpath {})".format(key, probes[key])
+                for key in sorted(probes)
+            ],
+            data = [probes[key] for key in sorted(probes)],
+            main = "trap_test.py",
+        )
