@@ -18,8 +18,16 @@ source $::env(SCRIPTS_DIR)/load.tcl
 load_design 3_place.odb 3_place.sdc
 set block [ord::get_db_block]
 set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
-# room per pin along a side: four M3 tracks, asap7's planner pitch
-set room_um 0.144
+# room per pin along a side: eight M3 tracks, twice asap7's planner
+# pitch, since the pin placer does not use every slot on every layer, and
+# down to four (the planner's pitch) where a side is crowded; a stretch at
+# least min_um long; and corner_um kept clear at each end of a side, where
+# the pin placer avoids the corners. A stretch of exactly the pitch at a
+# side's end once stopped the pin placer on a bare "vector".
+set room_um 0.288
+set tight_um 0.144
+set min_um 2.0
+set corner_um 1.0
 
 proc to_block_frame { inst x y } {
   # a point of the parent in the frame of the block's master, for the
@@ -105,18 +113,23 @@ foreach inst $insts {
       set ps [lmap p $pins { expr { [lindex $p 1] * $scale } }]
       set lo [tcl::mathfunc::min {*}$ps]
       set hi [tcl::mathfunc::max {*}$ps]
-      set need [expr { [llength $pins] * $room_um }]
-      if { $need > $len } {
-        error "pins_from_parent.tcl: $module needs $need um of its $side side for [llength $pins] pins, has $len"
+      set free [expr { $len - 2 * $corner_um }]
+      set need [expr { max(min([llength $pins] * $room_um, $free), [llength $pins] * $tight_um, $min_um) }]
+      if { $need > $free } {
+        error "pins_from_parent.tcl: $module needs $need um of its $side side for [llength $pins] pins, has $free between its corners"
       }
       if { $hi - $lo < $need } {
         set mid [expr { ($lo + $hi) / 2 }]
         set lo [expr { $mid - $need / 2 }]
         set hi [expr { $mid + $need / 2 }]
       }
-      # inside the side, the shift keeping the stretch's length
-      if { $lo < 0 } { set hi [expr { $hi - $lo }]; set lo 0 }
-      if { $hi > $len } { set lo [expr { $lo - ($hi - $len) }]; set hi $len }
+      # inside the side and clear of its corners, the shift keeping the
+      # stretch's length
+      if { $lo < $corner_um } { set hi [expr { $hi + $corner_um - $lo }]; set lo $corner_um }
+      if { $hi > $len - $corner_um } {
+        set lo [expr { $lo - ($hi - ($len - $corner_um)) }]
+        set hi [expr { $len - $corner_um }]
+      }
       puts $f "set_io_pin_constraint -region $side:[format %.3f $lo]-[format %.3f $hi] -pin_names {[lmap p $pins { lindex $p 0 }]}"
       puts "pins_from_parent.tcl: $path: $module [llength $pins] pins on $side [format %.3f $lo]-[format %.3f $hi] um"
     }
