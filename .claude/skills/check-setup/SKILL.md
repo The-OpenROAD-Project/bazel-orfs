@@ -35,7 +35,7 @@ From `search/CheckTiming.cc`; a bare `check_setup` runs every check, each printi
 
 ORFS's `floorplan.tcl` runs a bare `check_setup` right after reading the netlist and the SDC, so `logs/.../2_1_floorplan.log` has one line per warning and no pins. To learn which pins, and which modules they sit in, ask the floorplan's database (`.claude/skills/odb-debug/SKILL.md`): start the daemon on `2_1_floorplan.odb` with timing, then the `check_setup` tool (`od_check_setup`). It returns each warning with its count, example pins and the module paths the pins cluster in, and, for unconstrained endpoints, how many have only input ports in their fan-in. `out` writes every line to a file; never read a 100k-line list into context.
 
-A `_deps` lane at floorplan (the `deps-lane` skill) gets the database for a design nobody has built: synthesis and the floorplan, minutes on a block.
+A dirty lane at floorplan (the `dirty-lane` skill) gets the database for a design nobody has built: synthesis and the floorplan, minutes on a block.
 
 ## A set_max_delay is a constraint, not a missing one
 

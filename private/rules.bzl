@@ -109,7 +109,7 @@ def _tar_paths(f):
 
 def _package_stage(ctx, config, make, runfiles_depset, renames = [], results = []):
     """Create a portable .tar.gz from stage dependencies, and the output
-    groups //:deps installs a tree from.
+    groups //:dirty installs a tree from.
 
     Args:
       ctx: the rule context.
@@ -118,7 +118,7 @@ def _package_stage(ctx, config, make, runfiles_depset, renames = [], results = [
       runfiles_depset: every file the deployed tree needs.
       renames: files installed under a second name.
       results: the earlier stages' results among runfiles_depset. The
-        manifest marks them, so `//:deps next` never overwrites one a
+        manifest marks them, so `//:dirty next` never overwrites one a
         person made by hand.
 
     Returns:
@@ -2578,7 +2578,7 @@ def _yosys_impl(ctx):
     # Collect all files needed for deployment (tools, PDK, stage inputs).
     # Uses flow_inputs (CLI openroad), not flow_runfiles: the tarball and
     # the OrfsDepInfo.runfiles consumed by downstream rules (orfs_step,
-    # //:deps) are headless paths. openroad_qt is only added to
+    # //:dirty) are headless paths. openroad_qt is only added to
     # DefaultInfo.runfiles below so `bazelisk run :synth gui_synth` works.
     deploy_files = depset(
         [config_short, make] +
@@ -2593,7 +2593,7 @@ def _yosys_impl(ctx):
         ],
     )
 
-    # Portable tarball and the //:deps output groups.
+    # Portable tarball and the //:dirty output groups.
     deps_groups = _package_stage(
         ctx,
         config = config_short,
@@ -3022,7 +3022,7 @@ def _make_impl(
     # Collect all files needed for deployment.
     # Uses flow_inputs (CLI openroad), not flow_runfiles: the tarball and
     # the OrfsDepInfo.runfiles consumed by downstream rules (orfs_step,
-    # //:deps) are headless paths. openroad_qt is only added to
+    # //:dirty) are headless paths. openroad_qt is only added to
     # DefaultInfo.runfiles below so `bazelisk run :stage gui_<stage>` works.
     stage_renames = renames(ctx, ctx.files.src, short = True)
     deploy_files = depset(
@@ -3035,8 +3035,8 @@ def _make_impl(
         ],
     )
 
-    # Portable tarball and the //:deps output groups. The previous
-    # stage's results are marked, so `//:deps next` keeps a hand-made one.
+    # Portable tarball and the //:dirty output groups. The previous
+    # stage's results are marked, so `//:dirty next` keeps a hand-made one.
     deps_groups = _package_stage(
         ctx,
         config = config_short,

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Integration test for //:deps workflow.
+# Integration test for //:dirty workflow.
 #
-# Exercises the real bazelisk run //:deps workflow end-to-end.
+# Exercises the real bazelisk run //:dirty workflow end-to-end.
 # Cannot run inside bazel test (creates files outside sandbox, nested bazelisk).
 #
 # Usage:
@@ -55,8 +55,8 @@ assert_file_contains() {
 # deploy <stage target> <dir>: a fresh tree for the stage
 deploy() {
     local target="$1" dir="$2"
-    echo "--- Deploying: bazelisk run //:deps -- start $target --dir $dir --fresh"
-    bazelisk run //:deps -- start "$target" --dir "$WORKSPACE_DIR/$dir" --fresh
+    echo "--- Deploying: bazelisk run //:dirty -- start $target --dir $dir --fresh"
+    bazelisk run //:dirty -- start "$target" --dir "$WORKSPACE_DIR/$dir" --fresh
 }
 
 # --- Test cases ---
@@ -157,14 +157,14 @@ test_lane() {
     "$dir/make" do-floorplan
     local before after
     before="$(sha1sum "$results/2_floorplan.odb")"
-    bazelisk run //:deps -- next place --dir "$WORKSPACE_DIR/$dir"
+    bazelisk run //:dirty -- next place --dir "$WORKSPACE_DIR/$dir"
     after="$(sha1sum "$results/2_floorplan.odb")"
     [ "$before" = "$after" ] && pass "next kept the hand-made floorplan" ||
         fail "next replaced the hand-made floorplan"
     "$dir/make" do-place
     assert_file_exists "$results/3_place.odb"
     local status
-    status="$(bazelisk run //:deps -- status --dir "$WORKSPACE_DIR/$dir" 2>/dev/null)"
+    status="$(bazelisk run //:dirty -- status --dir "$WORKSPACE_DIR/$dir" 2>/dev/null)"
     grep -q "ran do-place" <<<"$status" &&
         pass "status records the hand-run place" || fail "status lost the place run"
 }

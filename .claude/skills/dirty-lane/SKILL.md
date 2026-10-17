@@ -1,19 +1,23 @@
 ---
-name: deps-lane
+name: dirty-lane
 description: >-
-  Run a flow's stages by hand in one tree, stage after stage, with `bazelisk run @bazel-orfs//:deps --
-  start <flow> <stage>`, `next <stage>`, `status` and `archive`: minutes per change during
-  bring-up instead of rebuilds, at the price of dependencies not being respected and results
-  that never reach the Bazel cache. Says when a number from the lane, with its caveat, is
-  better than no number (perfection is the enemy of the good: hours-long builds, low risk, a
-  clean build coming anyway) and when it is not enough (A/B arms, numbers a decision rests on,
-  an uncertain tree history). Use when iterating on a stage's settings or scripts, when
-  deploying a stage to debug it, or before quoting a number from a deployed tree.
+  The dirty lane: hack an unsolved problem in a plain tree with ORFS's make, the .tcl scripts
+  and the openroad executable, no Bazel in the way, then wrap the answer up as a hermetic
+  build. `bazelisk run @bazel-orfs//:dirty -- start <flow> <stage>`, `next <stage>`, `status`
+  and `archive`: minutes per change instead of rebuilds, at the price of dependencies not being
+  respected and results that never reach the Bazel cache. Says when a number from the lane,
+  with its caveat, is better than no number (perfection is the enemy of the good: hours-long
+  builds, low risk, a clean build coming anyway) and when it is not enough (A/B arms, numbers a
+  decision rests on, an uncertain tree history). Use when iterating on a stage's settings or
+  scripts, when deploying a stage to debug it, when pulling an .odb or .sdc out of a run to
+  test a downstream stage, or before quoting a number from a deployed tree.
 ---
 
-> **Repo**: Run from the bazel-orfs root, or from any workspace that depends on bazel-orfs (`bazelisk run @bazel-orfs//:deps -- ...`). Applies to every ORFS flow.
+> **Repo**: Run from the bazel-orfs root, or from any workspace that depends on bazel-orfs (`bazelisk run @bazel-orfs//:dirty -- ...`). Applies to every ORFS flow.
 
-A flow's stages in one tree, run by hand, stage after stage. During bring-up that turns an hour of rebuilds per change into minutes, because nothing downstream is rebuilt behind your back. It also gives up what Bazel guarantees, and this skill says what it gives up and when that matters.
+Solved problems are hermetic and never change; unsolved problems need a workbench. The dirty lane is the workbench: a flow's stages in one tree, run by hand with ORFS's own `make`, the `.tcl` scripts and the `openroad` executable. Hack, look at things directly, get an `.odb` or `.sdc` however you can, run a downstream stage on it, re-run, borrow pieces from anywhere, swap in your own OpenROAD, and get through the flow by any means necessary. Once you know the answer, plug it in as a setting, a script or a carried patch and build it hermetically; git records it as if it had been right the first time.
+
+During bring-up the lane turns an hour of rebuilds per change into minutes, because nothing downstream is rebuilt behind your back. It also gives up what Bazel guarantees, and this skill says what it gives up and when that matters.
 
 ARGUMENTS: $ARGUMENTS
 
@@ -22,18 +26,18 @@ ARGUMENTS: $ARGUMENTS
 ```sh
 # Bazel builds everything floorplan needs (synthesis) and installs it,
 # with floorplan's scripts, in one tree per flow: tmp/<package>/<flow>.
-bazelisk run @bazel-orfs//:deps -- start //test:lb_32x128 floorplan
+bazelisk run @bazel-orfs//:dirty -- start //test:lb_32x128 floorplan
 #   next: tmp/test/lb_32x128/make do-floorplan
 
 tmp/test/lb_32x128/make do-floorplan     # edit _main/config.mk or scripts, re-run
 
 # Carry on in the same tree: place's scripts and config, and the
 # floorplan you made, untouched.
-bazelisk run @bazel-orfs//:deps -- next place
+bazelisk run @bazel-orfs//:dirty -- next place
 tmp/test/lb_32x128/make do-place
 
 # Where each result came from, and which settings were edited.
-bazelisk run @bazel-orfs//:deps -- status
+bazelisk run @bazel-orfs//:dirty -- status
 ```
 
 - `start <flow> <stage>` refuses to replace a tree; `--fresh` replaces it, `--dir` puts a second one beside it, `--variant` picks a flow variant. A stage target's label (`//test:lb_32x128_place`) works in place of `<flow> <stage>`.
@@ -41,7 +45,7 @@ bazelisk run @bazel-orfs//:deps -- status
 - The tree's `make` runs only its current stage's targets; synthesis is `do-yosys-canonicalize do-yosys <RESULTS_DIR>/1_2_yosys.sdc do-1_synth`, which `start` prints. A design that Bazel synthesises on its parallel path (`SYNTH_NUM_PARTITIONS`) gets a serial synthesis in the tree, which can differ or fail; start such a lane at floorplan.
 - `OPENROAD_EXE=/path/to/openroad <tree>/make do-<stage>` runs a binary of your own (`/byo-openroad`).
 - `archive <flow> <stage> <file.tar.gz>` is the self-contained reproducer (`/untar-and-run-report`).
-- Building `@bazel-orfs//:deps` is instant, and `start` builds only the stage target's output groups: the same actions, keys and cache entries as a plain `bazel build`, so after a finished build nothing re-runs.
+- Building `@bazel-orfs//:dirty` is instant, and `start` builds only the stage target's output groups: the same actions, keys and cache entries as a plain `bazel build`, so after a finished build nothing re-runs.
 
 ## What the lane gives up
 
@@ -57,7 +61,7 @@ Perfection is the enemy of the good. When a clean build takes hours, a lane numb
 - when the risk that the lane's shortcuts moved the result is judged low;
 - and a fresh build from scratch will come soon enough anyway as the project proceeds.
 
-Write the caveat beside the number, in the same words wherever it goes (PR, README, `kpi.json` note): *from a `_deps` lane, not a clean build*, and which stages were run by hand. `status` prints both. The next clean build confirms or replaces the number.
+Write the caveat beside the number, in the same words wherever it goes (PR, README, `kpi.json` note): *from a dirty lane, not a clean build*, and which stages were run by hand. `status` prints both. The next clean build confirms or replaces the number.
 
 ## When the lane is not enough
 
@@ -66,6 +70,6 @@ Write the caveat beside the number, in the same words wherever it goes (PR, READ
 - When the tree's history (which stages ran with what) is no longer certain: `status` is the record, and a hand edit outside `make` is not in it.
 - When a setting has settled: it moves into the BUILD file.
 
-## Leaving the lane
+## Leaving the lane: wrap it up
 
 Move the settled edits into the flow's BUILD file and sources, then `bazel build`. The tree is not reused; `start --fresh` makes a new one from the build.

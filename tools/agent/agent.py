@@ -37,7 +37,7 @@ EXPORTED_SKILLS = (
     "cache-miss",
     "check-setup",
     "debug-rtl-sim",
-    "deps-lane",
+    "dirty-lane",
     "dogfooding",
     "macro-constraints",
     "macro-selection",

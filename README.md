@@ -5,54 +5,123 @@
 (ORFS): RTL to GDS with OpenROAD, Yosys and an open PDK, driven by
 `bazelisk build`.
 
-## Why Bazel on top of ORFS?
+## "Hermetic, and a new way of working"? No: dirty, and the same.
 
-**Nothing to install.** Bazel downloads, builds and caches every
-dependency: OpenROAD, OpenSTA, Yosys, ABC, GNU Make, Qt, Python, the C++
-toolchain and the PDKs. A developer machine or a CI runner needs Bazelisk
-and a standard Linux install, and gets a bit-for-bit reproducible flow. No
-Docker, no `apt install`, no "works on my machine". The RHEL 8 story in
-[bazel-orfs #869](https://github.com/The-OpenROAD-Project/bazel-orfs/issues/869)
-is what this buys you: the two things that broke were a host `curl` and a
-host Python that had leaked into the build, and both were fixed by making
-them hermetic.
+The usual assumption is that Bazel seals your flow in a sandbox and
+makes you learn a new way of working. Both halves are wrong for
+bazel-orfs.
 
-"A standard Linux install" is meant literally, and `bazelisk run
-//:host_tools` holds the line. What is used from the host, and nowhere
-else, is:
+**Dirty.** Most of the time, bazel-orfs is used in a plain directory
+you can change: edit a script, re-run a stage, open the .odb and poke
+at it.
 
-- **Base tools** — `curl`, `sha256sum`, `tar`, `sed`, `find`, `nproc` and
-  the rest of coreutils/findutils/gawk. OpenROAD's `archive_override`
-  vendors three git submodules through `curl` + `sha256sum -c`, because a
-  GitHub `/archive/<sha>.tar.gz` does not carry submodules and
-  `archive_override`'s `integrity` does not cover bytes fetched by
-  `patch_cmds`. The curl flags stay within reach of curl 7.52 (2016) on
-  purpose; RHEL 8 ships 7.61.
-- **`python3`** — for a fetch-phase repository rule
-  (`private/designs.bzl` parses every ORFS `config.mk`), the mock tools,
-  and `//tools/pin`. Every such file stays parseable by Python 3.6, the
-  oldest `python3` on a distro still receiving updates.
+**The same.** In that directory it's ORFS's make targets, the .tcl
+scripts and the openroad executable, the way ORFS always was. There's
+no Bazel in the way and nothing new to learn.
 
-Not needed, and checked: `jq`, `yq`, `perl`, `bc`, `docker`, `cmake`,
-`wget`, `rsync`, `unzip`, `xz`. `yq` is fetched by Bazel with a pinned
-SHA256 rather than expected on the host; GNU Make is built from source.
-`klayout` is the one opt-in exception — the default is a mock, see
-[docs/klayout.md](docs/klayout.md).
+```bash
+bazelisk run //:dirty -- start <flow> <stage>
+```
 
-**Plumbing an AI understands.** bazel-orfs has turned out to be the
-right shape for AI-assisted work. Every input is a label, every stage is a
-target, every variable is checked against ORFS's own `variables.yaml`, and
-a stage that fails can be re-run outside the sandbox with one command. An
-AI assistant wires up a new design, a new PDK or a patched tool without
-being told how, because there is exactly one way to do each of those
-things and the build tells you when you got it wrong.
+## "Dirty is bad"? No: dirty is the solution.
 
-**All of Bazel, all of ORFS.** Artifacts, parallel builds, remote caching,
-remote execution, and a flow that only rebuilds the stages a change
-touches. ORFS is used unmodified, so you get the latest OpenROAD and ORFS
-features, the ORFS debugging tools such as `make issue` and
-`deltaDebug.py`, and GitHub issues you file are immediately actionable for
-the OpenROAD and ORFS maintainers.
+For a problem you haven't solved yet, dirty is the only thing that
+works:
+
+- **Turnaround.** A stage on a large design takes hours. Rebuilding
+  everything before it, cleanly, for every experiment leaves you
+  testing one idea a day. In the dirty lane you re-run only the step
+  you changed, and get your answer in minutes.
+- **Seeing.** The answer is in the state partway through a stage: an
+  .odb before repair, the .sdc as the tool actually read it, a log
+  you can grep. A sandbox hides that state on purpose; a directory
+  leaves it there for you.
+- **Shortcuts.** Get an .odb or .sdc however you can and run a
+  downstream stage on it. Split a stage at a checkpoint. Borrow
+  pieces from another run. That's how you get to the hard part
+  without paying for everything before it again, and how a three-hour
+  failure becomes a reproducer an upstream maintainer can run in
+  seconds.
+- **Your own tools.** Forking and modifying ORFS isn't dirty enough.
+  The answer is often in OpenROAD, Yosys or another tool, so hack
+  those too: in your own repository, on your own secret code, at your
+  own pace. Swap your own openroad binary into the dirty lane, or
+  carry the change as a patch in your `MODULE.bazel`, and see whether
+  the fix holds long before upstream ships it, or whether upstream
+  ever hears about it.
+- **Equivalence checking.** kepler-formal LEC needs hacking and
+  patches of its own (`patches/kepler-formal-*.patch`), and it pays
+  for them: a passing LEC is a strong signal that a hand change kept
+  the logic, which is what lets you, or an AI, do Verilog surgery
+  (`SYNTH_VERILOG_SURGERY`, carried as
+  [patches/0094](patches/0094-orfs-synth-verilog-surgery.patch)) or
+  hand-code a netlist to close timing, and trust the result.
+- **Throwaway work.** While you're exploring, nobody needs to
+  reproduce the dead ends. They need to reproduce the answer, so
+  being reproducible at that stage buys you nothing and costs you
+  speed.
+- **AI.** An assistant working through a problem needs the same fast,
+  visible, editable loop you do. The dirty lane gives it that.
+
+[docs/dirty-lane.md](docs/dirty-lane.md) has the commands.
+
+## Solved problems are hermetic
+
+So where does hermetic come in? Go back to what a flow is for:
+
+**Solved problems should be hermetic and never change. Unsolved
+problems need a workbench.**
+
+Once you know the answer, plug it in as a flow setting, a script or a
+carried patch, and wrap it up as a hermetic build: one tool to
+install, every version pinned, every stage cached, the same answer on
+any machine, today and next year
+([docs/hermetic.md](docs/hermetic.md)). Git records it as if you'd got
+it right the first time.
+
+Hermetic is where your answers end up. Dirty is where you find them,
+and you find them the way you always have.
+
+### Carry patches while upstream decides
+
+bazel-orfs is built to vendor patches, the way Bazel itself is. ORFS,
+OpenROAD, Yosys and every other dependency is a pinned archive with a
+`patches` list, so a project can carry a fix or a policy change for as
+long as it needs to, and drop it the day upstream lands something better.
+
+- **ORFS**: `orfs.source(commit = ..., integrity = ..., patches = [...])`
+  in your `MODULE.bazel`. bazel-orfs applies its own ORFS patches from
+  [patches/](patches/) first, then yours.
+- **OpenROAD, Yosys, anything else**: `patches` on the `git_override` or
+  `archive_override` in the root `MODULE.bazel`, as for any Bazel module.
+
+This is not only for bugs. Many OpenROAD issues are about *policy*, where
+the tool's default is reasonable for most users and wrong for one project,
+and the upstream fix has to wait for a decision about the right knob.
+Two from titan73's reports:
+
+- [OpenROAD #8558](https://github.com/The-OpenROAD-Project/OpenROAD/issues/8558):
+  the gap between power domains is a hard-coded six row heights in
+  `ifp`. Upstream had to settle whether that becomes a global setter or an
+  option on `initialize_floorplan` and `make_rows`, and whether domains
+  need different gaps. For the project that hit it, the fix is a one-line
+  patch changing a constant, which an AI writes in a minute and the
+  project carries until the option ships.
+- [OpenROAD #8771](https://github.com/The-OpenROAD-Project/OpenROAD/issues/8771):
+  a cell library without tie cells. Upstream's answer was that this is a
+  discouraged design style and low priority, which is a fair policy for
+  OpenROAD and no help to a project with the library it has. A patched
+  tool, or a fake tie-cell LEF carried as a source, is the project's
+  problem to solve and bazel-orfs makes it a small one.
+
+Compare [OpenROAD #6063](https://github.com/The-OpenROAD-Project/OpenROAD/issues/6063),
+a straightforward bug that titan73 fixed upstream the same week. Bugs
+should go upstream. Policy can wait upstream while you ship.
+
+The same mechanism is how bazel-orfs itself develops: a PR here carries
+the ORFS, OpenROAD and Yosys patches it needs, is tested against real
+designs through `@orfs//flow/designs/...`, and the patches are upstreamed
+one by one and deleted here as they land.
 
 ORFS and OpenROAD are work in progress. For large designs expect to get
 involved with the community, or to need a support contract with
@@ -205,9 +274,9 @@ Where to go next:
 - [docs/customize.md](docs/customize.md): variables, constraints, macros
   and abstracts, mock areas, iterating on floorplan settings, design space
   exploration.
-- [docs/local-flow.md](docs/local-flow.md): deploy a stage to a directory
-  under `tmp/` and re-run single substeps outside Bazel, with a locally
-  built ORFS if you like.
+- [docs/dirty-lane.md](docs/dirty-lane.md): the dirty lane. Deploy a
+  stage to a directory under `tmp/` and re-run single substeps outside
+  Bazel, with a locally built ORFS or OpenROAD if you like.
 - [docs/performance.md](docs/performance.md): speeding up builds,
   monitoring long stages, where CI time goes.
 - [docs/reference.md](docs/reference.md): target naming, dependency
@@ -295,47 +364,6 @@ odb-debug MCP server bazel-orfs's own development uses, at the version
 your `MODULE.bazel` pins, run `bazelisk run @bazel-orfs//:agent -- setup`
 once and commit what it lists: [tools/agent](tools/agent/README.md).
 
-## Carry patches while upstream decides
-
-bazel-orfs is built to vendor patches, the way Bazel itself is. ORFS,
-OpenROAD, Yosys and every other dependency is a pinned archive with a
-`patches` list, so a project can carry a fix or a policy change for as
-long as it needs to, and drop it the day upstream lands something better.
-
-- **ORFS**: `orfs.source(commit = ..., integrity = ..., patches = [...])`
-  in your `MODULE.bazel`. bazel-orfs applies its own ORFS patches from
-  [patches/](patches/) first, then yours.
-- **OpenROAD, Yosys, anything else**: `patches` on the `git_override` or
-  `archive_override` in the root `MODULE.bazel`, as for any Bazel module.
-
-This is not only for bugs. Many OpenROAD issues are about *policy*, where
-the tool's default is reasonable for most users and wrong for one project,
-and the upstream fix has to wait for a decision about the right knob.
-Two from titan73's reports:
-
-- [OpenROAD #8558](https://github.com/The-OpenROAD-Project/OpenROAD/issues/8558):
-  the gap between power domains is a hard-coded six row heights in
-  `ifp`. Upstream had to settle whether that becomes a global setter or an
-  option on `initialize_floorplan` and `make_rows`, and whether domains
-  need different gaps. For the project that hit it, the fix is a one-line
-  patch changing a constant, which an AI writes in a minute and the
-  project carries until the option ships.
-- [OpenROAD #8771](https://github.com/The-OpenROAD-Project/OpenROAD/issues/8771):
-  a cell library without tie cells. Upstream's answer was that this is a
-  discouraged design style and low priority, which is a fair policy for
-  OpenROAD and no help to a project with the library it has. A patched
-  tool, or a fake tie-cell LEF carried as a source, is the project's
-  problem to solve and bazel-orfs makes it a small one.
-
-Compare [OpenROAD #6063](https://github.com/The-OpenROAD-Project/OpenROAD/issues/6063),
-a straightforward bug that titan73 fixed upstream the same week. Bugs
-should go upstream. Policy can wait upstream while you ship.
-
-The same mechanism is how bazel-orfs itself develops: a PR here carries
-the ORFS, OpenROAD and Yosys patches it needs, is tested against real
-designs through `@orfs//flow/designs/...`, and the patches are upstreamed
-one by one and deleted here as they land.
-
 ## Find your way around
 
 | I want to... | Go to |
@@ -348,7 +376,7 @@ one by one and deleted here as they land.
 | Create macros with LEF/LIB, estimate macro sizes | [docs/customize.md](docs/customize.md#work-with-macros-and-abstracts) |
 | Tweak floorplan or placement and iterate | [docs/customize.md](docs/customize.md#tweak-and-iterate-on-designs) |
 | Sweep design parameters | [docs/customize.md](docs/customize.md#design-space-exploration) |
-| Run a single substep, edit Tcl, use a local ORFS | [docs/local-flow.md](docs/local-flow.md) |
+| Hack in the dirty lane: run a substep, edit Tcl, use a local ORFS or OpenROAD | [docs/dirty-lane.md](docs/dirty-lane.md) |
 | Speed up CI or development builds | [docs/performance.md](docs/performance.md) |
 | Monitor a long-running build | [docs/performance.md](docs/performance.md#monitor-long-running-builds) |
 | Understand where CI time goes | [docs/performance.md](docs/performance.md#where-ci-time-goes) |

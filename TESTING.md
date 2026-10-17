@@ -38,7 +38,7 @@ Tests mock the external environment so they run in the Bazel sandbox.
 
 | Binary | Use-case | Test | How it's tested |
 |--------|----------|------|-----------------|
-| `//:deps` | Deploy a flow's stages in a tree to run by hand (`start`, `next`, `status`, `archive`) | `deps.yml` CI workflow | Real end-to-end: deploy + make (4 cases) |
+| `//:dirty` | Deploy a flow's stages in a tree to run by hand (`start`, `next`, `status`, `archive`) | `deps.yml` CI workflow | Real end-to-end: deploy + make (4 cases) |
 | `//:bump` | Upgrade ORFS/bazel-orfs/OpenROAD versions | `//test/bump:bump_test` | Mock fetch functions, fixture MODULE.bazel |
 | `//:bump` (unrecognized shapes) | Refuse a shape the bumper no longer rewrites, writing nothing | `//test/bump:bump_test` | Legacy-shape fixtures; assert BumpError and a byte-identical file |
 | `//:fix_lint` | Format changed Bazel/Python files | `//test:fix_lint_test` | Unit test core logic, mock git/buildifier |
@@ -215,7 +215,7 @@ Pin placement should be bumped when:
 
 These cannot be tested via `bazelisk test ...`:
 
-- **`//:deps` workflow**: `bazelisk run //:deps -- start //test:lb_32x128_mock_openroad_floorplan` then
+- **`//:dirty` workflow**: `bazelisk run //:dirty -- start //test:lb_32x128_mock_openroad_floorplan` then
   `tmp/test/lb_32x128_mock_openroad/make do-floorplan`. Tests the local escape-hatch build workflow.
 - **ORFS image**: Testing with preinstalled ORFS from the OCI image.
 - **Buildifier lint**: `bazelisk run @buildifier_prebuilt//:buildifier -- -lint warn -r .` (run in CI as a pre-test step).

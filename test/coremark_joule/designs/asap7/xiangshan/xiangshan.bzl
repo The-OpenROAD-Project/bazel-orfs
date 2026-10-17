@@ -1070,7 +1070,7 @@ XS_BLOCK_DEFAULT = dict(XS_BLOCKS["Bpu"], arguments = {k: v for k, v in XS_BLOCK
 # MemBlock is ~37 % utilised with every pin on one edge: at 0.6 the
 # dcache's port-less flop arrays drift to the empty far side and its worst
 # path crosses the die twice; at 0.8 its period is 1,696 ps against 1,815,
-# at 0.9 2,217 (over-packed). Place stage, deps lane.
+# at 0.9 2,217 (over-packed). Place stage, dirty lane.
 XS_PLACE_DENSITY = {
     "MemBlock": "0.8",
 }
@@ -1080,7 +1080,7 @@ XS_PLACE_DENSITY = {
 # and the annealer faces those edges across the channel: at 4 um no buffer
 # fits beside the pins, write data and control cross the 332 um macro row
 # unbuffered, and the block's period is 1,982 ps; at 12 um it is 1,437 ps
-# (place stage, deps lane).
+# (place stage, dirty lane).
 XS_ANNEAL_CHANNEL_UM = {
     "CoupledL2": "12.0",
 }

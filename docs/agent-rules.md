@@ -48,7 +48,7 @@ source of truth; do not duplicate their mechanics:
 
 - `openroad-debug` — diagnose the failure (decode the exit code,
   characterize a hang vs race with the `-threads 1` test, set up a fast
-  `@bazel-orfs//:deps` tree + bring-your-own-binary edit/measure loop,
+  `@bazel-orfs//:dirty` tree + bring-your-own-binary edit/measure loop,
   split a stage at an ODB checkpoint) and shape a self-contained
   reproducer.
 - `byo-openroad` — the bring-your-own OpenROAD binary loop for a source
@@ -106,7 +106,9 @@ here, or that rebuilds when nothing seemed to change, has its own skill:
 Running a flow's stages by hand, one after another in one tree, is fast
 and gives up what Bazel guarantees; it has its own skill:
 
-- `deps-lane` — `bazelisk run @bazel-orfs//:deps -- start <flow> <stage>`,
+- `dirty-lane` — solved problems are hermetic, unsolved ones are hacked
+  in the dirty lane and wrapped up hermetically once solved:
+  `bazelisk run @bazel-orfs//:dirty -- start <flow> <stage>`,
   `next <stage>`, `status`, `archive`; what the lane gives up, when a
   number from it with its caveat beats no number, and when it is not
   enough. `orfs-deps-preflight` checks, before an hours-long stage run in

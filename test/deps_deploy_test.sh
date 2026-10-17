@@ -20,7 +20,7 @@ set -euo pipefail
 TARBALL="$1"; shift
 CHECK="$1"; shift
 
-# --- Deploy (mirrors deps_wrapper.sh logic) ---
+# --- Deploy (mirrors dirty_wrapper.sh logic) ---
 
 DST="$(mktemp -d)"
 trap 'rm -rf "$DST"' EXIT

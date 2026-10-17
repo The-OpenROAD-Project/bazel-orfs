@@ -264,7 +264,7 @@
     },
     {
       "date": "2026-10-14",
-      "measured": "the blocks built from source at f40bf601 (register files through generate_ram, OpenSTA #532 as 0108); the parent's global route in the deps lane from f40bf601's CTS checkpoint, with #1241 (patch 0122: grt's edge-usage guard warns)",
+      "measured": "the blocks built from source at f40bf601 (register files through generate_ram, OpenSTA #532 as 0108); the parent's global route in the dirty lane from f40bf601's CTS checkpoint, with #1241 (patch 0122: grt's edge-usage guard warns)",
       "parent_ps": 9431,
       "blocks": {
         "CoupledL2": 1982,

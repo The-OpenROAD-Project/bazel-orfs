@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# //:deps without building a stage: a stub 'bazelisk' on PATH records each
+# //:dirty without building a stage: a stub 'bazelisk' on PATH records each
 # call and fails every build, so the test sees which stage target and output
 # group a command asks for, the refusals, and status on a hand-made tree.
 set -uo pipefail
 
-DEPS="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+DIRTY="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 WS="$TEST_TMPDIR/ws"
 STUB="$TEST_TMPDIR/bin"
 CALLS="$TEST_TMPDIR/calls"
@@ -22,7 +22,7 @@ export PATH="$STUB:$PATH" CALLS BUILD_WORKSPACE_DIRECTORY="$WS" BUILD_WORKING_DI
 FAILS=0
 run() {
     : >"$CALLS"
-    OUT="$("$DEPS" "$@" 2>&1)"
+    OUT="$("$DIRTY" "$@" 2>&1)"
     RC=$?
 }
 check() {
@@ -59,8 +59,8 @@ run start //p:blk grt --variant probe
 check "--variant names the variant's stage target" \
     'grep -q -- "--output_groups=deps_files //p:blk_probe_grt" "$CALLS"'
 
-DEPS_STARTUP_OPTS="--output_base=/ob" DEPS_BUILD_OPTS="--jobs=3" run start //test:lb place
-check "DEPS_STARTUP_OPTS and DEPS_BUILD_OPTS reach the nested build" \
+DIRTY_STARTUP_OPTS="--output_base=/ob" DIRTY_BUILD_OPTS="--jobs=3" run start //test:lb place
+check "DIRTY_STARTUP_OPTS and DIRTY_BUILD_OPTS reach the nested build" \
     'grep -q -- "--output_base=/ob build --jobs=3 --output_groups=deps_files" "$CALLS"'
 
 mkdir -p "$WS/tmp/test/lb"
@@ -77,7 +77,7 @@ check "next names a word that is not a stage" '[ $RC -ne 0 ] && grep -q "banana.
 
 T="$WS/tmp/test/lb"
 mkdir -p "$T/_main"
-cat >"$T/.deps" <<'EOF'
+cat >"$T/.dirty" <<'EOF'
 flow //test:lb
 variant base
 tree 0123 dirty
@@ -89,7 +89,13 @@ printf 'export A?=1\nexport PLACE_DENSITY = 0.5\n' >"$T/_main/config.mk"
 run status --dir "$T"
 check "status shows the history" 'grep -q "ran do-floorplan" <<<"$OUT"'
 check "status shows an edited setting" 'grep -q "PLACE_DENSITY = 0.5" <<<"$OUT"'
-check "status says a number from the tree needs the caveat" 'grep -q "from a _deps lane, not a clean build" <<<"$OUT"'
+check "status says a number from the tree needs the caveat" 'grep -q "from the dirty lane, not a clean build" <<<"$OUT"'
+
+mkdir -p "$WS/tmp/old"
+touch "$WS/tmp/old/.deps"
+run status --dir "$WS/tmp/old"
+check "a tree //:deps installed is named, with the move that carries it on" \
+    '[ $RC -ne 0 ] && grep -q "installed by //:deps, now //:dirty" <<<"$OUT" && grep -q "mv tmp/old/.deps tmp/old/.dirty" <<<"$OUT"'
 
 run next place --dir "$T"
 check "next asks Bazel for the stage's inputs, not its results" \

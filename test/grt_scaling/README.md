@@ -41,10 +41,10 @@ Timing repair is off everywhere: the measurement is the router.
 ## The measurement: `grt_bench.tcl`
 
 One script, run through ORFS's `run` target from a grt tree deployed by
-`//:deps`, on the wirebound arms and on XiangShan alike:
+`//:dirty`, on the wirebound arms and on XiangShan alike:
 
 ```sh
-bazelisk run //:deps -- start //test/grt_scaling:wirebound_grid_d2000_g32_grt --dir tmp/wb2000
+bazelisk run //:dirty -- start //test/grt_scaling:wirebound_grid_d2000_g32_grt --dir tmp/wb2000
 cd tmp/wb2000 && ./make run RUN_SCRIPT=$PWD/../../test/grt_scaling/grt_bench.tcl \
     ODB_FILE=$PWD/_main/test/grt_scaling/results/asap7/wirebound/d2000_g32/4_cts.odb \
     GRT_BENCH_OUT=$PWD/../baseline.json

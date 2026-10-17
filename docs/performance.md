@@ -100,11 +100,11 @@ Wrapper macros (like those for SRAMs or register files) that call
 sub-macros are typically stable once working and don't need per-stage
 inspection.
 
-You can still use `//:deps` to deploy and debug individual substeps of a
+You can still use `//:dirty` to deploy and debug individual substeps of a
 squashed flow if something goes wrong:
 
 ```bash
-bazelisk run //:deps -- start //sram:sram_64x128_place
+bazelisk run //:dirty -- start //sram:sram_64x128_place
 tmp/sram/sram_64x128/make do-3_4_place_resized
 ```
 
@@ -173,7 +173,7 @@ find ~/.cache/bazel -name "*.tmp.log" -size +0c 2>/dev/null | \
 
 ```bash
 # Start the build in the local flow
-bazelisk run //:deps -- start //test:L1MetadataArray cts
+bazelisk run //:dirty -- start //test:L1MetadataArray cts
 tmp/test/L1MetadataArray/make do-cts &
 
 # In another terminal, watch the log

@@ -16,7 +16,7 @@ plain session lacks: debug renderers that can be stepped from a script and
 headless pictures.
 
 ```
-                 bazelisk run //my:cpu_place_odb_debug  (or ./make run in a //:deps tree)
+                 bazelisk run //my:cpu_place_odb_debug  (or ./make run in a //:dirty tree)
                                      |
    agent --MCP stdio--> mcp_server.py --websocket--> daemon.tcl in openroad (web_server)
    shell -------------> odbdebug.py  --websocket-->     |
@@ -65,12 +65,12 @@ matter here:
 | `ODB_DEBUG_PORT` | Fixed port instead of an ephemeral one. |
 | `LOG_DIR` | Where make writes `run.log`; defaults inside the runfiles tree, pass an absolute path to keep it pristine. |
 
-### From a tree deployed by `//:deps`
+### From a tree deployed by `//:dirty`
 
 A stage that failed or was stopped has no finished ODB, but ORFS writes a
 checkpoint per substep (`3_2_place_iop.odb`, `3_3_place_gp.odb`,
 `3_4_place_resized.odb`, ...). Deploy the stage with
-`bazelisk run //:deps -- start <flow> <stage>` (see `docs/local-flow.md`), copy the checkpoint into its `results/`, and run
+`bazelisk run //:dirty -- start <flow> <stage>` (see `docs/dirty-lane.md`), copy the checkpoint into its `results/`, and run
 the daemon on it:
 
 ```sh

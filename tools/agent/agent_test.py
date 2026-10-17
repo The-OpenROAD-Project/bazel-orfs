@@ -109,8 +109,8 @@ class Sync(unittest.TestCase):
         self.assertTrue(os.path.isdir(os.path.join(skills, "mine")))
 
     def test_refuses_a_workspace_skill_of_the_same_name(self):
-        os.makedirs(os.path.join(self.ws, ".claude", "skills", "deps-lane"))
-        with self.assertRaisesRegex(agent.Refused, "deps-lane"):
+        os.makedirs(os.path.join(self.ws, ".claude", "skills", "dirty-lane"))
+        with self.assertRaisesRegex(agent.Refused, "dirty-lane"):
             agent.sync(self.ws, self.root, _no_git)
         self.assertFalse(
             os.path.lexists(os.path.join(self.ws, ".claude", "bazel-orfs"))
@@ -126,8 +126,8 @@ class Sync(unittest.TestCase):
             agent.sync(self.root, self.root, _no_git)
 
     def test_refuses_a_root_without_an_exported_skill(self):
-        shutil.rmtree(os.path.join(self.root, ".claude", "skills", "deps-lane"))
-        with self.assertRaisesRegex(agent.Refused, "deps-lane"):
+        shutil.rmtree(os.path.join(self.root, ".claude", "skills", "dirty-lane"))
+        with self.assertRaisesRegex(agent.Refused, "dirty-lane"):
             agent.sync(self.ws, self.root, _no_git)
 
     def test_keeps_the_links_out_of_git(self):
@@ -144,7 +144,7 @@ class Sync(unittest.TestCase):
         self.assertIn("mine\n", text)
         self.assertEqual(text.count(agent.EXCLUDE_BEGIN), 1)
         self.assertIn("/.claude/bazel-orfs\n", text)
-        self.assertIn("/.claude/skills/deps-lane\n", text)
+        self.assertIn("/.claude/skills/dirty-lane\n", text)
         status = subprocess.check_output(
             ["git", "status", "--porcelain", "--untracked-files=all"],
             cwd=self.ws,
