@@ -1,5 +1,5 @@
 load("@bazel-orfs//:openroad.bzl", "odb_debug")
-load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("//test/coremark_joule/flow:power.bzl", "census_probe", "grt_netlist", "hier_probe", "physical_probe", "stage_power", "stage_power_units")
 load(":plan/plan.bzl", "PLAN")
 load(":xiangshan.bzl", "xiangshan_flow")
@@ -276,4 +276,22 @@ genrule(
           "--plan $(location plan/plan.json) --plan-bzl $(location plan/plan.bzl) --out $@",
     tags = ["manual"],
     tools = ["//test/coremark_joule/scripts:boundary_constants"],
+)
+
+# each block netlist's modules renamed <block>__<module> for the flat KPI
+# (xiangshan.bzl, <parent>_kpi_flat)
+py_binary(
+    name = "sta_prefix",
+    srcs = ["sta_prefix.py"],
+    main = "sta_prefix.py",
+)
+
+py_test(
+    name = "sta_prefix_test",
+    srcs = [
+        "sta_prefix.py",
+        "sta_prefix_test.py",
+    ],
+    imports = ["."],
+    main = "sta_prefix_test.py",
 )

@@ -44,12 +44,54 @@ table. When a change moves the number, add a row and re-run it.
 
 ### What remains
 
-![reg2reg endpoints by period, stacked by part](kpi_hist.png)
+![reg2reg endpoints by period, stacked by where the path starts and ends](kpi_hist.png)
 
-Every reg2reg endpoint of the latest run, by its period (the SDC period
-minus its slack), stacked: one colour for the parent and one per block.
-The endpoints right of 2,000 ps are what remains; the legend counts them
-per part. Each part's worst path, and what it is:
+Every register-to-register endpoint of the latest run, by its period (the
+SDC period minus its slack), timed flat: the parent with every block's
+real cells and wires in place of the block's abstract
+(`XSTile_kpi_flat`, below). Stacked by where the endpoint's worst path
+starts and ends: in the parent, inside one block, or across a block's
+boundary. The endpoints right of 2,000 ps are what remains.
+
+<!-- kpi-flat begin: written by kpi.py -->
+| class | endpoints above 2,000 | worst | logic only | worst path | what it is |
+|---|---|---|---|---|---|
+| FltRegionModule → parent | 2,982 of 17,335 | 2,238 | 1,356 | `core/backend/inner_fpRegion/issueQueues_1/fastEntries_14_valid$_DFF_PP0_/QN` → `core/backend/inner_ctrlBlock/decodeBufBits_0_instr[24]$_DFFE_PP_/D` | The FP issue queues' entry valids, through out_toDispatch_canAccept, into ctrlBlock's decode buffer: backpressure from the FP region to dispatch, crossing from one hardened block into the parent. 69 stages, 1,026 ps in repeaters. |
+| parent | 1,921 of 146,537 | 2,455 | 1,482 | `core/backend/inner_ctrlBlock/decodeBufValid_0$_DFF_PP0_/QN` → `core/backend/inner_ctrlBlock/memCtrl/ssit/io_rdata_7_strict$_DFFE_PP_/D` | Decode into the memory dependence predictor: ctrlBlock's decode-buffer valid bit to a strict bit read from the store-set identifier table (memCtrl.ssit). 60 cell stages, 1,044 ps of them repeaters. |
+| parent → VecRegionModule | 1,375 of 3,070 | 2,364 | 1,603 | `core/backend/inner_intRegion/pipeToALU0.io_out_bits_ctrl_fuType[30]$_DFFE_PP_/QN` → `core/backend/inner_vecRegion/issuePipes_1/is0_valid$_DFF_PP0_/D` | The integer region's ALU pipeline register (fuType) into the vector region's issue pipe valid: the parent's dispatch steering into a hardened block. 93 stages, 1,151 ps in repeaters. |
+| FltRegionModule → VecRegionModule | 64 of 160 | 2,082 | 1,508 | `core/backend/inner_fpRegion/issueQueues_3/fastEntries_8_valid$_DFF_PP0_/QN` → `core/backend/inner_vecRegion/issueQueues_4.enqEntryOldest_age.age_0_1$_DFFE_PP0P_/D` | An FP issue-queue entry valid into the vector issue queue's age matrix: block to block through the parent. 52 stages, 832 ps in repeaters. |
+| parent → MemBlock | 46 of 4,434 | 2,113 | 1,388 | `core/backend/inner_ctrlBlock/s1_robFlushRedirect_valid_last_REG$_DFF_PP0_/QN` → `core/memBlock/inner_frontendBridge.icache.nodeOut_a_q.enq_ptr_value$_DFFE_PP0P_/D` | ctrlBlock's ROB flush redirect into MemBlock's instruction-fetch bridge queue pointer. 52 stages, 1,361 ps in repeaters. |
+| MemBlock → parent | 9 of 10,831 | 2,065 | 582 | `core/memBlock/inner_LoadUnit_1.s1.io_pipeOut_valid$_DFF_PP0_/QN` → `core/backend/inner_intRegion/issueQueueSTD0_StdMoud/io_deqDelay_0_bits_rfBankRen_0_3$_DFF_P_/D` | A load unit's stage-1 valid out of MemBlock into an integer store-data issue queue's dequeue. 81 stages, 1,709 ps in repeaters: almost all distance. |
+| parent → FltRegionModule | 1 of 1,638 | 2,030 | 862 | `core/backend/inner_ctrlBlock/s1_robFlushRedirect_valid_last_REG$_DFF_PP0_/QN` → `core/backend/inner_fpRegion/fpRegFile/io_readPorts_13_addr[7]` | ctrlBlock's ROB flush redirect into the FP register file's read address. 70 stages, 1,722 ps in repeaters. |
+<!-- kpi-flat end -->
+
+*Logic only* is the same path timed without wires (`XSTile_kpi_flat_nowire`):
+the cells and the repeaters already placed, at their pin loads. No
+endpoint of any class is above 2,000 ps without wires, so what remains is
+distance: on each worst path 40 to 80 percent of the delay is in
+repeaters. It is a placement and floorplan problem, not logic too deep for
+the period.
+
+**Timed flat.** `<parent>_kpi_flat` times the design as one netlist. Each
+part's pieces come from its own global route (`<part>_sta_part`,
+`sta_part.tcl`): its netlist written hierarchically, so its names are the
+SPEF's, the route's parasitics as SPEF, and its liberty files. A block
+contributes its interface logic only: the cells from its data inputs to the
+first flops and from the last flops to its outputs, every load of a net
+those cells drive, and the clock tree of the flops it keeps, walked in the
+database. A path that crosses a block's boundary times as in the whole
+block; a path inside a block is the block's own KPI. Each block's modules
+are renamed `<block>__<module>` (`sta_prefix.py`) so the same RTL module
+synthesised in two blocks does not collide. OpenSTA reads it all
+(`sta_flat.tcl`), with parasitics reduced as read, in about ten minutes.
+Paths are selected from every register's clock pin to every
+register's data pin: the parent's SDC names its own registers in its
+reg2reg group, so a block's flop is in no group. Known gap: inside a
+block, nets that cross a submodule boundary are named differently in the
+netlist and the SPEF, and those wires carry no parasitics yet, so in-block
+segments read optimistic.
+
+Each part alone, at its own global route with its abstracts (`<part>_kpi`):
 
 <!-- kpi-worst begin: written by kpi.py -->
 | part | period | worst reg2reg path | what it is |
@@ -64,8 +106,10 @@ per part. Each part's worst path, and what it is:
 
 `kpi_run.tcl` writes each part's histogram in 10 ps bins, and
 `kpi.py --histograms parent=XSTile_kpi.txt Frontend=Frontend_kpi.txt ...`
-records them and the worst paths in the latest row; `kpi.py --hist-only
---bin 20 --log` redraws the chart alone, from the json.
+records them and the worst paths in the latest row; `kpi.py --flat
+XSTile_kpi_flat.txt XSTile_kpi_flat_nowire.txt` records the flat timing's
+classes; `kpi.py --hist-only --bin 20 --log` redraws the chart alone, from
+the json.
 
 The KPI is the design's minimum clock period, the red line: the largest
 of the parent's period and each block's, since the design is only as

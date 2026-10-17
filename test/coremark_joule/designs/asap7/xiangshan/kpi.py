@@ -67,6 +67,19 @@ GOAL_PS = 2000
 # kpi_hist.png's bin width: a multiple of the json's (10 ps)
 HIST_BIN_PS = 50
 
+# the flat timing's (sta_flat.tcl) classes, grouped for the histogram: where
+# an endpoint's worst path starts and ends
+PARENT = "XSTile"
+GROUP_COLORS = {
+    "parent → parent": "0.3",
+    "block → parent": "#d94801",
+    "parent → block": "#2171b5",
+    "block → block": "#807dba",
+    "inside a block": "#bdbdbd",
+}
+FLAT_BEGIN = "<!-- kpi-flat begin: written by kpi.py -->"
+FLAT_END = "<!-- kpi-flat end -->"
+
 TABLE_BEGIN = "<!-- kpi-table begin: written by kpi.py -->"
 TABLE_END = "<!-- kpi-table end -->"
 WORST_BEGIN = "<!-- kpi-worst begin: written by kpi.py -->"
@@ -123,6 +136,23 @@ def draw(runs, target, out):
         zorder=2,
         label="parent",
     )
+
+    # the parent's own flops, timed with every block's real cells (flat)
+    pts = [
+        (x, r["flat"]["classes"]["parent"]["worst_ps"])
+        for x, r in zip(xs, drawn)
+        if r.get("flat")
+    ]
+    if pts:
+        ax.plot(
+            [p[0] for p in pts],
+            [p[1] for p in pts],
+            "D",
+            color="0.1",
+            ms=6,
+            zorder=5,
+            label="parent → parent (flat)",
+        )
 
     # the design, red: the KPI
     design = [design_ps(r) for r in drawn]
@@ -207,6 +237,76 @@ def read_histogram(text):
     }
 
 
+CLASS_WORST = re.compile(r"^class (\S+) worst (-?\d+) ps  (\S+) -> (\S+)", re.M)
+CLASS_HIST = re.compile(
+    r"^class (\S+) endpoints bin (\d+) ps from (-?\d+) ps: ([\d ]+)", re.M
+)
+
+
+def group(c):
+    """A flat class's group: where its endpoints' worst paths start and end."""
+    if c == "parent":
+        return "parent → parent"
+    if "->" not in c:
+        return "inside a block"
+    s, e = c.split("->")
+    if e == PARENT:
+        return "block → parent"
+    if s == PARENT:
+        return "parent → block"
+    return "block → block"
+
+
+def merge(hists):
+    """Histograms on the same bin as one."""
+    b = hists[0]["bin_ps"]
+    lo = min(h["from_ps"] for h in hists)
+    hi = max(h["from_ps"] + b * len(h["counts"]) for h in hists)
+    counts = [0] * ((hi - lo) // b)
+    for h in hists:
+        off = (h["from_ps"] - lo) // b
+        for i, c in enumerate(h["counts"]):
+            counts[off + i] += c
+    return {"bin_ps": b, "from_ps": lo, "counts": counts}
+
+
+def read_flat(text, nowire, old):
+    """sta_flat.tcl's report with wires and without, as kpi.json keeps it; a
+    class's hand-written `what` survives re-reading the same path."""
+    hists = {
+        m.group(1): {
+            "bin_ps": int(m.group(2)),
+            "from_ps": int(m.group(3)),
+            "counts": [int(c) for c in m.group(4).split()],
+        }
+        for m in CLASS_HIST.finditer(text)
+    }
+    logic = {m.group(1): int(m.group(2)) for m in CLASS_WORST.finditer(nowire)}
+    classes = {}
+    for m in CLASS_WORST.finditer(text):
+        c = m.group(1)
+        was = old.get("classes", {}).get(c, {})
+        same = (was.get("from"), was.get("to")) == (m.group(3), m.group(4))
+        classes[c] = {
+            "worst_ps": int(m.group(2)),
+            "logic_ps": logic.get(c),
+            "over_goal": above(hists[c], GOAL_PS),
+            "endpoints": sum(hists[c]["counts"]),
+            "from": m.group(3),
+            "to": m.group(4),
+            "what": was.get("what", "") if same else "",
+        }
+    groups = {}
+    for c, h in hists.items():
+        groups.setdefault(group(c), []).append(h)
+    return {
+        "period_ps": int(PERIOD_LINE.search(text).group(1)),
+        "logic_ps": int(PERIOD_LINE.search(nowire).group(1)),
+        "groups": {g: merge(hs) for g, hs in groups.items()},
+        "classes": classes,
+    }
+
+
 def legend(part, hist, worst):
     """A part's legend entry: its worst period, and its endpoints above the goal."""
     head = f"{part}: worst {worst['period_ps']:,} ps, " if worst else f"{part}: "
@@ -219,13 +319,30 @@ def draw_hist(runs, out, width=HIST_BIN_PS, log=False):
     bar says where the paths at that period are. The run before it that
     recorded histograms is outlined, its total. The mass right of the goal
     line is what remains to be done."""
+    flat = [r for r in runs if r.get("flat")]
     with_hist = [r for r in runs if r.get("histograms")]
-    if not with_hist:
+    if not with_hist and not flat:
         return False
-    hists = with_hist[-1]["histograms"]
-    worst = with_hist[-1].get("worst_paths", {})
-    parts = [p for p in ["parent"] + block_names(runs) if p in hists]
-    parts += sorted(set(hists) - set(parts))
+    if flat:
+        # the flat timing's groups, the most accurate reading there is
+        hists = flat[-1]["flat"]["groups"]
+        parts = [g for g in GROUP_COLORS if g in hists]
+        worst = {
+            g: {
+                "period_ps": max(
+                    c["worst_ps"]
+                    for n, c in flat[-1]["flat"]["classes"].items()
+                    if group(n) == g
+                )
+            }
+            for g in parts
+        }
+        with_hist = []
+    else:
+        hists = with_hist[-1]["histograms"]
+        worst = with_hist[-1].get("worst_paths", {})
+        parts = [p for p in ["parent"] + block_names(runs) if p in hists]
+        parts += sorted(set(hists) - set(parts))
     rebinned = {p: rebin(hists[p], width) for p in parts}
     lo = min(min(r) for r in rebinned.values())
     hi = max(max(r) for r in rebinned.values())
@@ -241,7 +358,8 @@ def draw_hist(runs, out, width=HIST_BIN_PS, log=False):
             width=width,
             bottom=bottom,
             align="edge",
-            color="0.3" if part == "parent" else BLOCK_COLORS.get(part, OTHER_COLOR),
+            color=GROUP_COLORS.get(part)
+            or ("0.3" if part == "parent" else BLOCK_COLORS.get(part, OTHER_COLOR)),
             label=legend(part, hists[part], worst.get(part)),
         )
         bottom = [b + c for b, c in zip(bottom, counts)]
@@ -322,6 +440,38 @@ def worst_table(runs):
     return "\n".join(lines)
 
 
+def flat_table(runs):
+    """The flat timing's classes with endpoints above the goal: how many, the
+    worst with wires and with the logic alone, and the worst path in words."""
+    flat = [r for r in runs if r.get("flat")]
+    if not flat:
+        return None
+    classes = flat[-1]["flat"]["classes"]
+    lines = [
+        "| class | endpoints above %s | worst | logic only | worst path | what it is |"
+        % f"{GOAL_PS:,}",
+        "|---|---|---|---|---|---|",
+    ]
+    for c, v in sorted(classes.items(), key=lambda kv: -kv[1]["over_goal"]):
+        if not v["over_goal"]:
+            continue
+        name = c.replace("->", " → ").replace(PARENT, "parent")
+        lines.append(
+            "| %s | %s of %s | %s | %s | `%s` → `%s` | %s |"
+            % (
+                name,
+                f"{v['over_goal']:,}",
+                f"{v['endpoints']:,}",
+                f"{v['worst_ps']:,}",
+                f"{v['logic_ps']:,}" if v["logic_ps"] is not None else "",
+                v["from"],
+                v["to"],
+                v["what"].replace("|", "\\|"),
+            )
+        )
+    return "\n".join(lines)
+
+
 def write_table(readme, text, begin=TABLE_BEGIN, end=TABLE_END):
     with open(readme) as f:
         src = f.read()
@@ -350,15 +500,25 @@ def main():
         help="record these parts' <part>_kpi.txt histograms in the last run "
         "(the parent's part name is 'parent'), then draw",
     )
+    ap.add_argument(
+        "--flat",
+        nargs=2,
+        metavar=("KPI_FLAT_TXT", "KPI_FLAT_NOWIRE_TXT"),
+        help="record <parent>_kpi_flat.txt and its _nowire twin in the last run, then draw",
+    )
     args = ap.parse_args()
     path = os.path.join(HERE, "kpi.json")
     with open(path) as f:
         d = json.load(f)
-    if args.histograms:
+    if args.flat:
+        run = d["runs"][-1]
+        with open(args.flat[0]) as f, open(args.flat[1]) as g:
+            run["flat"] = read_flat(f.read(), g.read(), run.get("flat", {}))
+    if args.histograms or args.flat:
         run = d["runs"][-1]
         hists = run.setdefault("histograms", {})
         worst = run.setdefault("worst_paths", {})
-        for spec in args.histograms:
+        for spec in args.histograms or []:
             part, _, txt = spec.partition("=")
             with open(txt) as f:
                 text = f.read()
@@ -395,6 +555,9 @@ def main():
     worst = worst_table(d["runs"])
     if worst:
         write_table(readme, worst, WORST_BEGIN, WORST_END)
+    flat = flat_table(d["runs"])
+    if flat:
+        write_table(readme, flat, FLAT_BEGIN, FLAT_END)
     print(readme)
 
 
