@@ -6,7 +6,7 @@ description: >-
   resources.json from a qualitative reading of the design and a fast (minutes) per-instance
   estimate, show the waves with --plan-only, run under a memory scope with swap as a
   backstop, and commit the measured refreshes; or run one stage of several units side by
-  side in deps-lane trees within the budget (--lane STAGE). Use when a design has more than one hardened
+  side in dirty-lane trees within the budget (--dirty STAGE). Use when a design has more than one hardened
   macro, when a build would run several large flows at once, when resources.json is missing
   or a run says it was updated, or before any multi-hour build on a shared workstation.
 ---
@@ -79,17 +79,20 @@ systemd-run --user --scope -q -p MemoryMax=<budget>G -p MemorySwapMax=64G \
 - One parent at a time, ever, and nothing heavy beside it.
 - Stop a runaway job by its recorded PID, never by a pattern
   (`pgrep -f` matches your own shell).
-- A deps-lane run (`deps-lane` skill) is outside the scheduler: it holds
-  memory the budget does not see. Lower `--budget` while one runs.
+- A dirty-lane run (`dirty-lane` skill) is outside the scheduler: it
+  holds memory the budget does not see. Lower `--budget` while one runs.
 
-## Lane mode
+## In the dirty lane
 
-To iterate on one stage across several units, schedule it in deps-lane
-trees: `bazelisk run //<pkg>:build -- --lane <stage> [--units A,B]`. Waves
-pack by the stage's own recorded peak; the trees land in
-`tmp/schedule/<unit>`, where `make do-<stage>` (or an edited `config.mk`)
-runs again by hand. A stage the record lacks packs by the unit's largest.
-Run it inside the same memory scope as a build, after `bazelisk shutdown`.
+To hack one stage across several units, let the schedule lay out the
+dirty-lane trees: `bazelisk run //<pkg>:build -- --dirty <stage>
+[--units A,B]`. Waves pack by the stage's own recorded peak; the trees
+land in `tmp/schedule/<unit>`, where `make do-<stage>` (after an edited
+`config.mk` or script, or with your own `openroad`) runs again by hand.
+Once the answer is known it goes in as a setting, a script or a carried
+patch, and `:build` makes it hermetic. A stage the record lacks packs by
+the unit's largest. Run it inside the same memory scope as a build,
+after `bazelisk shutdown`.
 
 ## After a run
 

@@ -224,17 +224,17 @@ class Run(unittest.TestCase):
         self.assertEqual(built, [["//p:a"], ["//p:b"]])
 
 
-class Lane(unittest.TestCase):
+class Dirty(unittest.TestCase):
     ENTRY = {
         "source": "measured",
         "stages": {"place": {"peak_gb": 30}, "grt": {"peak_gb": 80}},
     }
 
-    def test_stage_peak_packs_a_lane(self):
+    def test_stage_peak_packs_a_dirty_lane(self):
         self.assertEqual(schedule.unit_peak(self.ENTRY, "place"), 30)
         self.assertEqual(schedule.unit_peak(self.ENTRY), 80)
 
-    def test_lane_time_is_the_stage_alone(self):
+    def test_dirty_time_is_the_stage_alone(self):
         entry = {
             "source": "measured",
             "stages": {
@@ -253,18 +253,18 @@ class Lane(unittest.TestCase):
         self.assertAlmostEqual(schedule.unit_peak(entry, "place"), 36)
 
     def test_start_command(self):
-        tree = schedule.lane_tree("tmp/schedule", "MemBlock")
+        tree = schedule.dirty_tree("tmp/schedule", "MemBlock")
         self.assertEqual(tree, "tmp/schedule/MemBlock")
         self.assertEqual(
-            schedule.lane_start(
-                "@@//:deps", "pkg", "MemBlock", "grt", tree, ["-c", "opt"]
+            schedule.dirty_start(
+                "@@//:dirty", "pkg", "MemBlock", "grt", tree, ["-c", "opt"]
             ),
             [
                 "bazelisk",
                 "run",
                 "-c",
                 "opt",
-                "@@//:deps",
+                "@@//:dirty",
                 "--",
                 "start",
                 "//pkg:MemBlock",
