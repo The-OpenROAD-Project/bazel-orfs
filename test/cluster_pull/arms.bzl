@@ -37,11 +37,6 @@ def cluster_pull_arms(key, arms):
         if "$(" not in f and "${" not in f and "//." not in f and not f.endswith(":")
     ]
 
-    # config_mk_parser cannot resolve $(CLKGATE_MAP_FILE), which only the
-    # platform's config.mk defines, and drops it; OpenROAD's own synthesis
-    # (SYNTH_USE_SYN) then finds no OPENROAD_CLKGATE. asap7's is RVT.
-    if "$(CLKGATE_MAP_FILE)" in design["verilog_files"]:
-        verilog_files.append("@orfs//flow:platforms/asap7/yoSys/cells_clkgate_R.v")
     macros = [
         "%s:%s_generate_abstract" % (pkg, DESIGNS["%s_%s" % (key, block)]["name"])
         for block in design.get("blocks", [])

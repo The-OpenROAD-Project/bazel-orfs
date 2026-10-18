@@ -22,18 +22,18 @@ Carried in bazel-orfs to measure the idea of issue #1263; not upstreamed.
 Retires with 0127.
 ---
  src/gpl/include/gpl/Replace.h |   4 +
- src/gpl/src/nesterovBase.cpp  | 105 ++++++++++++++++-
+ src/gpl/src/nesterovBase.cpp  | 102 ++++++++++++++++-
  src/gpl/src/nesterovBase.h    |  24 ++++
- src/gpl/src/replace.cpp       | 213 +++++++++++++++++++++++++++++++++-
+ src/gpl/src/replace.cpp       | 210 ++++++++++++++++++++++++++++++++++
  src/gpl/src/replace.i         |   1 +
  src/gpl/src/replace.tcl       |   2 +
- 6 files changed, 344 insertions(+), 5 deletions(-)
+ 6 files changed, 342 insertions(+), 1 deletion(-)
 
 diff --git a/src/gpl/include/gpl/Replace.h b/src/gpl/include/gpl/Replace.h
-index 5bbe81cfbc..37368a22f0 100644
+index 2cf30fc083..2c26a10e88 100644
 --- a/src/gpl/include/gpl/Replace.h
 +++ b/src/gpl/include/gpl/Replace.h
-@@ -86,6 +86,10 @@ struct PlaceOptions
+@@ -91,6 +91,10 @@ struct PlaceOptions
    // 0: rtl_macro_placer's clusters. d > 0: cells grouped by the first d
    // components of their hierarchical name (module instances at depth d).
    int clusterPullDepth = 0;
@@ -45,10 +45,10 @@ index 5bbe81cfbc..37368a22f0 100644
    float initWireLengthCoef = 0.25;
    // Scale the density-penalty controller measures a wirelength change
 diff --git a/src/gpl/src/nesterovBase.cpp b/src/gpl/src/nesterovBase.cpp
-index c67ede4e2f..b38793f7a4 100644
+index f6f61fff21..c3a3af8b92 100644
 --- a/src/gpl/src/nesterovBase.cpp
 +++ b/src/gpl/src/nesterovBase.cpp
-@@ -1193,7 +1193,8 @@ NesterovBaseVars::NesterovBaseVars(const PlaceOptions& options)
+@@ -1179,7 +1179,8 @@ NesterovBaseVars::NesterovBaseVars(const PlaceOptions& options)
        initialPlacePerturbationDist(options.initialPlacePerturbationDist),
        clusterPullWeight(options.clusterPullWeight),
        clusterPullIters(options.clusterPullIters),
@@ -58,15 +58,15 @@ index c67ede4e2f..b38793f7a4 100644
  {
  }
  
-@@ -4002,6 +4003,7 @@ void NesterovBase::updateGradients(std::vector<FloatPoint>& sumGrads,
-   }
+@@ -3389,6 +3390,7 @@ void NesterovBase::updateGradients(std::vector<FloatPoint>& sumGrads,
+   // Two-phase: parallel per-cell compute, then deterministic serial reduce.
  
    const bool cluster_pull = updateClusterPull();
 +  const bool dataflow_pull = updateDataflowPull();
  
    const size_t numGCells = nb_gcells_.size();
  #pragma omp parallel for num_threads(nbc_->getNumThreads())
-@@ -4058,6 +4060,13 @@ void NesterovBase::updateGradients(std::vector<FloatPoint>& sumGrads,
+@@ -3405,6 +3407,13 @@ void NesterovBase::updateGradients(std::vector<FloatPoint>& sumGrads,
          wireLengthPreCondi.x + (densityPenalty_ * densityPrecondi.x),
          wireLengthPreCondi.y + (densityPenalty_ * densityPrecondi.y));
  
@@ -80,7 +80,7 @@ index c67ede4e2f..b38793f7a4 100644
      if (cluster_pull && cluster_pull_member_[i]) {
        // The pull is bounded by the weight, like that many pins, and
        // preconditioned as that many pins.
-@@ -4166,6 +4175,93 @@ bool NesterovBase::updateClusterPull()
+@@ -3513,6 +3522,93 @@ bool NesterovBase::updateClusterPull()
    return true;
  }
  
@@ -174,17 +174,7 @@ index c67ede4e2f..b38793f7a4 100644
  // Cells to clusters, and which cells are pulled (clusters of two or more
  // cells). Static while the cells are; createCbkGCell, destroyCbkGCell,
  // destroyFillerGCell and restoreRemovedFillers change or reorder
-@@ -4203,8 +4299,7 @@ void NesterovBase::cacheClusterPull()
-       continue;
-     }
-     odb::dbGroup* group = db_inst->getGroup();
--    if (group == nullptr
--        || group->getType() != odb::dbGroupType::VISUAL_DEBUG
-+    if (group == nullptr || group->getType() != odb::dbGroupType::VISUAL_DEBUG
-         || group->getParentGroup() == nullptr) {
-       continue;
-     }
-@@ -5107,6 +5202,7 @@ void NesterovBase::updateGCellState(float wlCoeffX, float wlCoeffY)
+@@ -4451,6 +4547,7 @@ void NesterovBase::updateGCellState(float wlCoeffX, float wlCoeffY)
  void NesterovBase::createCbkGCell(odb::dbInst* db_inst, size_t stor_index)
  {
    cluster_pull_cached_ = false;
@@ -192,7 +182,7 @@ index c67ede4e2f..b38793f7a4 100644
    debugPrint(log_,
               GPL,
               "callbacks",
-@@ -5190,6 +5286,7 @@ std::optional<std::pair<odb::dbInst*, size_t>> NesterovBase::destroyCbkGCell(
+@@ -4534,6 +4631,7 @@ std::optional<std::pair<odb::dbInst*, size_t>> NesterovBase::destroyCbkGCell(
      odb::dbInst* db_inst)
  {
    cluster_pull_cached_ = false;
@@ -200,7 +190,7 @@ index c67ede4e2f..b38793f7a4 100644
    debugPrint(log_,
               GPL,
               "callbacks",
-@@ -5431,6 +5528,7 @@ void NesterovBase::cutFillerCells(int64_t inflation_area)
+@@ -4775,6 +4873,7 @@ void NesterovBase::cutFillerCells(int64_t inflation_area)
  void NesterovBase::destroyFillerGCell(size_t nb_index_remove)
  {
    cluster_pull_cached_ = false;
@@ -208,7 +198,7 @@ index c67ede4e2f..b38793f7a4 100644
    debugPrint(log_,
               GPL,
               "callbacks",
-@@ -5486,6 +5584,7 @@ void NesterovBase::destroyFillerGCell(size_t nb_index_remove)
+@@ -4830,6 +4929,7 @@ void NesterovBase::destroyFillerGCell(size_t nb_index_remove)
  void NesterovBase::restoreRemovedFillers()
  {
    cluster_pull_cached_ = false;
@@ -217,10 +207,10 @@ index c67ede4e2f..b38793f7a4 100644
    log_->info(GPL,
               80,
 diff --git a/src/gpl/src/nesterovBase.h b/src/gpl/src/nesterovBase.h
-index a8bae4e87a..7593c20c6e 100644
+index 995ce5ee32..47b7226200 100644
 --- a/src/gpl/src/nesterovBase.h
 +++ b/src/gpl/src/nesterovBase.h
-@@ -825,6 +825,7 @@ struct NesterovBaseVars
+@@ -819,6 +819,7 @@ struct NesterovBaseVars
    const float clusterPullWeight;
    const int clusterPullIters;
    const int clusterPullDepth;
@@ -228,7 +218,7 @@ index a8bae4e87a..7593c20c6e 100644
  
    static constexpr float minWireLengthForceBar = -300;
  };
-@@ -1081,9 +1082,23 @@ class NesterovBaseCommon
+@@ -1076,9 +1077,23 @@ class NesterovBaseCommon
  // along with fillers and virtual blockages
  // Also stores the bin grid for the power domain
  // Used to calculate density gradient
@@ -252,7 +242,7 @@ index a8bae4e87a..7593c20c6e 100644
    NesterovBase(NesterovBaseVars nbVars,
                 std::shared_ptr<PlacerBase> pb,
                 std::shared_ptr<NesterovBaseCommon> nbc,
-@@ -1532,6 +1547,15 @@ class NesterovBase
+@@ -1530,6 +1545,15 @@ class NesterovBase
    std::vector<FloatPoint> cluster_pull_grads_;
    std::vector<char> cluster_pull_member_;
  
@@ -269,7 +259,7 @@ index a8bae4e87a..7593c20c6e 100644
  
    float minSumOverflow_ = 1e30;
 diff --git a/src/gpl/src/replace.cpp b/src/gpl/src/replace.cpp
-index 5bdcb25020..dcc6a263b7 100644
+index 44e820382c..bb31bd4c33 100644
 --- a/src/gpl/src/replace.cpp
 +++ b/src/gpl/src/replace.cpp
 @@ -5,9 +5,15 @@
@@ -288,7 +278,7 @@ index 5bdcb25020..dcc6a263b7 100644
  
  #include "AbstractGraphics.h"
  #include "clockBase.h"
-@@ -24,6 +30,7 @@
+@@ -26,6 +32,7 @@
  #include "routeBase.h"
  #include "rsz/Resizer.hh"
  #include "sta/Graph.hh"
@@ -296,8 +286,8 @@ index 5bdcb25020..dcc6a263b7 100644
  #include "sta/Path.hh"
  #include "sta/StaMain.hh"
  #include "sta/StaState.hh"
-@@ -316,6 +323,199 @@ void Replace::runMBFF(const int max_sz,
-   pntset.Run(max_sz, alpha, beta, clock_power_weight);
+@@ -342,6 +349,199 @@ void Replace::initIoPinPlace()
+   }
  }
  
 +namespace {
@@ -496,9 +486,9 @@ index 5bdcb25020..dcc6a263b7 100644
  bool Replace::initNesterovPlace(const PlaceOptions& options,
                                  const int threads,
                                  bool check_density)
-@@ -353,6 +553,16 @@ bool Replace::initNesterovPlace(const PlaceOptions& options,
-     for (const auto& pb : pbVec_) {
-       nbVec_.push_back(std::make_shared<NesterovBase>(nbVars, pb, nbc_, log_));
+@@ -382,6 +582,16 @@ bool Replace::initNesterovPlace(const PlaceOptions& options,
+     if (options.placeIosMode) {
+       initIoPinPlace();
      }
 +
 +    if (options.dataflowPullWeight > 0) {
@@ -513,18 +503,8 @@ index 5bdcb25020..dcc6a263b7 100644
    }
  
    if (!rb_) {
-@@ -610,8 +820,7 @@ void PlaceOptions::validate(utl::Logger* logger)
-                   424);
-   val.check_range(
-       "keep_resize_below_overflow", keepResizeBelowOverflow, 0.0f, 1.0f, 425);
--  val.check_range(
--      "cluster_pull_weight", clusterPullWeight, 0.0f, 1000.0f, 337);
-+  val.check_range("cluster_pull_weight", clusterPullWeight, 0.0f, 1000.0f, 337);
-   val.check_positive("cluster_pull_iters", clusterPullIters, 338);
- }
- 
 diff --git a/src/gpl/src/replace.i b/src/gpl/src/replace.i
-index 13556b5f6f..e427aaa44b 100644
+index d77356a5b0..6bc2981eb8 100644
 --- a/src/gpl/src/replace.i
 +++ b/src/gpl/src/replace.i
 @@ -90,6 +90,7 @@ static gpl::PlaceOptions getOptions(
@@ -536,7 +516,7 @@ index 13556b5f6f..e427aaa44b 100644
    checkKey(keys, "-max_phi_coef", options.maxPhiCoef);
    checkKey(keys, "-init_density_penalty", options.initDensityPenaltyFactor);
 diff --git a/src/gpl/src/replace.tcl b/src/gpl/src/replace.tcl
-index 6e7e0bffac..6fe421b045 100644
+index 4cb8008bbb..4c7ddc3bad 100644
 --- a/src/gpl/src/replace.tcl
 +++ b/src/gpl/src/replace.tcl
 @@ -42,6 +42,7 @@ sta::define_cmd_args "global_placement" {\
