@@ -49,9 +49,9 @@ Stock already counts an output port named by `set_max_delay -to` as constrained 
 
 Stock OpenSTA calls a register unclocked only when its clock network misses it, and that network is found without regard to rise and fall. A register whose clock pin sees only the edge it does not launch on is in the network: `check_setup` says nothing while `report_checks -to` its D says `No paths found`. ASAP7's ICG with its enable tied high is one: its enabled `CLK->GCLK` arc set carries only the falling edge, and Sim disabled the rising default arc with it (parallaxsw/OpenSTA#532). The library is what is broken; OpenSTA tolerates it since parallaxsw/OpenSTA@fdb00f48.
 
-Two carried patches, each with its own test in `test/check_setup`:
+Each has its own test in `test/check_setup`:
 
-- `patches/0108-opensta-icg-cond-arc-sim.patch` (fdb00f48, which resolves #532): the flop behind the gate is clocked and timed (`icg_tied_enable_test`).
+- fdb00f48 (resolves #532), in OpenROAD's OpenSTA since the bump that retired it as patch 0108: the flop behind the gate is clocked and timed (`icg_tied_enable_test`).
 - `patches/0109-opensta-check-setup-launch-edge.patch`: `check_setup` counts a register no clock reaches on its launch edge as unclocked (`launch_edge_test`, a clock through a cell that carries only the falling edge).
 
 Patch 0110 (above) is a third concern; it applies on top of 0109.

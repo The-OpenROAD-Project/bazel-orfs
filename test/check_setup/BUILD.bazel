@@ -35,7 +35,7 @@ ASAP7_LIBS = [
         ] + lefs + libs,
     )
     for name, tcl, verilog, lefs, libs in [
-        # ASAP7's ICG with its enable tied high: patches/0108.
+        # ASAP7's ICG with its enable tied high: parallaxsw/OpenSTA@fdb00f4.
         (
             "icg_tied_enable_test",
             "icg_tied_enable.tcl",
