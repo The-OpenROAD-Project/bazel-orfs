@@ -241,8 +241,8 @@ archive_override(
         # were built was destroyed on its own init thread, which joined
         # itself: openroad aborted (signal 6, resource deadlock avoided),
         # and //test/odb_debug:smoke_test failed now and then under load.
-        # Not upstreamed; retires at a //:bump onto an OpenROAD whose web
-        # session does not join its own thread.
+        # Upstream as OpenROAD#11818; retires at a //:bump onto an OpenROAD
+        # that has it.
         "//patches:0138-openroad-web-session-self-join.patch",
     ],
     strip_prefix = "OpenROAD-bfac0546a502f30db57e92d801f1eecea86e38ab",
