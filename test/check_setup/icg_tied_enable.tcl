@@ -1,5 +1,5 @@
 # A flop behind an ICG whose enable is tied high is clocked through the
-# gate and timed: patches/0108. Before it, the conditioned CLK->GCLK
+# gate and timed: parallaxsw/OpenSTA@fdb00f4. Before it, the conditioned CLK->GCLK
 # arc set (falling edge only) disabled the rising default arc, and
 # report_checks -to r/D found no path.
 source [file join [file dirname [info script]] load.tcl]
