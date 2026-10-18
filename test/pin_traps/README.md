@@ -132,6 +132,7 @@ bazelisk test //test/pin_traps:tidy_row_large_test //test/pin_traps:random_io_la
 | `tidy_row_large`, pins only | 319 061 (0) | | 318 713 (0) | 317 784 (3 318) | 114 284 (0) |
 | `tidy_row_large`, joint | | 403 564 (34) | 403 246 (29) | 402 608 (61) | 114 284 (0) |
 | `random_io_large`, joint | 376 697 (2 271) | (own) | 96 252 (561) | 93 532 (508) | 114 284 (0) |
+| `tidy_row_mod`, joint | 319 554 (0) | 252 771 (1) | 287 490 (1 898) | 287 541 (3 250) | 114 237 (0) |
 
 With its ports free, the joint loop goes from 3.3 times the hand answer
 to below it in one round, the ports moving with the files, at about 500
@@ -143,6 +144,14 @@ hierarchy, and in these parents the owners are logic of the top module,
 not modules of their own: it sees one flat cluster, `(root)_glue_logic`,
 of the four files and 8 704 cells, and splits it with a partitioner that
 knows only connectivity.
+
+`tidy_row_mod` is `tidy_row_large` with each owner a module of its own,
+kept through synthesis: the same function, the hierarchy a real design
+has. With it the macro placer does better than with one flat cluster
+(252 771 against 403 564, and better than own's tidy row) and still
+lands 2.2 times the hand answer; the joint rounds make it worse, with
+overflow. Hierarchy is part of what the macro placer was missing, not
+all of it.
 
 Two of the macro placer's refusals here are carried as fixes, each only
 changing what used to stop the run:

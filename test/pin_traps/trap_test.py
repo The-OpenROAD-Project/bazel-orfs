@@ -429,6 +429,7 @@ CHECKS = {
     "split_logic": check_split_logic,
     "tidy_row": check_tidy_row,
     "tidy_row_large": check_tidy_row_large,
+    "tidy_row_mod": check_tidy_row_large,
     "wide_pins": check_wide_pins,
 }
 

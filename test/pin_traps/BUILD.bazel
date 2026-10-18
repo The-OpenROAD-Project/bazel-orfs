@@ -713,3 +713,50 @@ pin_trap(
     # a measurement, built on request: too large for every run
     tags = ["manual"],
 )
+
+# tidy_row_large with each owner a module of its own (tidy_row_mod_owner),
+# the same function and the hierarchy a real design has: whether the macro
+# placer, which clusters by the RTL's hierarchy and saw tidy_row_large's
+# top-module owners as one flat cluster, finds the owners then.
+pin_trap(
+    name = "tidy_row_mod",
+    arms = {
+        "hand": {"parent": {"locs": "u_fw 2.16 501.12 R0 u_fe 997.776 501.12 R0 u_fs 499.968 2.16 R0 u_fn 499.968 997.92 R0"}},
+        # the macro placer places the files, from the same files as own
+        "mpl": {"parent": {"locs": None}},
+        "own": {},
+    },
+    bits = 64,
+    blocks = {
+        "f": {"die": [
+            200.16,
+            194.4,
+        ]},
+    },
+    parent = {
+        # each owner a module the macro placer can cluster by: kept through
+        # synthesis, and OpenROAD reads the hierarchy
+        "args": {
+            "OPENROAD_HIERARCHICAL": "1",
+            "SYNTH_HIERARCHICAL": "0",
+            "SYNTH_KEEP_MODULES": "tidy_row_mod_owner",
+        },
+        "core_margin": [
+            2.0,
+            2.16,
+        ],
+        "die": [
+            1200.096,
+            1200.096,
+        ],
+        "locs": "u_fw 2.16 2.16 R0 u_fe 259.2 2.16 R0 u_fs 516.24 2.16 R0 u_fn 773.28 2.16 R0",
+        "pins": "pw_* left pe_* right ps_* bottom pn_* top",
+    },
+    round_bases = [
+        "own",
+        "mpl",
+    ],
+    rounds = 2,
+    # a measurement, built on request: too large for every run
+    tags = ["manual"],
+)

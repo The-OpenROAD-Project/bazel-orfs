@@ -490,6 +490,49 @@ endmodule
 """
 
 
+def tidy_row_mod(t, n):
+    """tidy_row_large with each owner a module of its own, <t>_owner,
+    instanced once per edge beside its file: the same function, the
+    hierarchy a real design has. The macro placer clusters by the RTL's
+    hierarchy; in tidy_row_large the owners are top-module logic and it
+    sees one flat cluster. Kept through synthesis by SYNTH_KEEP_MODULES."""
+    depth = 8
+    body = _bank(f"{t}_f", n, f"{t}: a file, four instances")
+    din, dlast = _pipe("d_", n, "p_in", depth)
+    dout, olast = _pipe("o_", n, "q", depth)
+    owner = f"""// {t}: an owner, the logic between one edge's ports and its file
+module {t}_owner (
+  input clock,
+  input [{n - 1}:0] p_in,
+  output [{n - 1}:0] p_out,
+  output [{n - 1}:0] d,
+  input [{n - 1}:0] q
+);
+{din}
+{dout}
+  assign d = {dlast};
+  assign p_out = {olast};
+endmodule
+"""
+    ports = []
+    insts = []
+    for e in ("w", "e", "s", "n"):
+        ports.append(f"  input [{n - 1}:0] p{e}_in,\n  output [{n - 1}:0] p{e}_out")
+        insts.append(f"""  wire [{n - 1}:0] d{e}, q{e};
+  {t}_owner u_o{e} (.clock(clock), .p_in(p{e}_in), .p_out(p{e}_out), .d(d{e}), .q(q{e}));
+  {t}_f u_f{e} (.clock(clock), .d(d{e}), .q(q{e}));""")
+    port_list = ",\n".join(ports)
+    inst_list = "\n".join(insts)
+    return body + owner + f"""
+module {t}_top (
+  input clock,
+{port_list}
+);
+{inst_list}
+endmodule
+"""
+
+
 # The combined parent: these traps, each its own parent as a submodule,
 # their ports prefixed with the trap's name, at the widths their own
 # traps use.
@@ -563,6 +606,7 @@ TRAPS = {
     "split_logic": split_logic,
     "tidy_row": tidy_row,
     "tidy_row_large": tidy_row_large,
+    "tidy_row_mod": tidy_row_mod,
     "wide_pins": wide_pins,
 }
 
