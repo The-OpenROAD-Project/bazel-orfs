@@ -38,7 +38,7 @@ def _areas(w, h, margin_x = 2.0, margin_y = 2.0):
 def _pins(contract, arm_pins):
     return " ".join([p for p in [contract, arm_pins] if p])
 
-def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"], round_variant = "", tags = []):
+def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"], round_variant = "", tags = [], verilog = None, sdc = ":constraints.sdc", test = True, variant_prefix = ""):
     """One trap's flows and probes.
 
     Args:
@@ -46,8 +46,9 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
         and <name>_top.
       bits: the interface width passed to the generator.
       blocks: {block: {"die": [w, h], "pins": PIN_GROUPS, "io": a pin
-        script in place of pins.tcl, "user": its variables}}, the pins
-        being the block's contract, common to every arm.
+        script in place of pins.tcl, "user": its variables, "args": ORFS
+        arguments, "sdc": its constraints}}, the pins being the block's
+        contract, common to every arm.
       parent: {"die": [w, h], "core_margin": [x, y], "pins": PIN_GROUPS,
         "locs": BLOCK_LOCS or None for the macro placer, "channel": um,
         "args": ORFS arguments for the parent, "pin_access": True to run
@@ -66,6 +67,13 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
         the last round gave them.
       round_bases: the arms the loop starts from.
       tags: for every target, ["manual"] for a rung too large for every run.
+      verilog: the RTL, in place of trap_gen.py's (a real design); an arm
+        may give its own as "verilog", as after surgery.
+      sdc: the constraints of every flow.
+      test: whether trap_test.py has a check for this trap; a smoke test
+        of a real design has none.
+      variant_prefix: before every flow's variant, for traps whose blocks
+        or parent share a module with another trap's.
       round_variant: a prefix for the rounds' block variants, for a parent
         whose blocks are other traps' (the combined parent): their own
         arms are reused with "reuse": {block: [abstract, probe]} in the
@@ -76,15 +84,17 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
     Targets: <name>_<block>_<arm>_* and <name>_top_<arm>_* flows, and
     <name>_<arm>_<block>_probe / <name>_<arm>_top_probe JSON.
     """
-    sv = name + ".sv"
     probes = {}
-    native.genrule(
-        tags = tags,
-        name = name + "_rtl",
-        outs = [sv],
-        cmd = "$(execpath :trap_gen) --trap {} --bits {} --out $@".format(name, bits),
-        tools = [":trap_gen"],
-    )
+    if verilog == None:
+        sv = name + ".sv"
+        native.genrule(
+            tags = tags,
+            name = name + "_rtl",
+            outs = [sv],
+            cmd = "$(execpath :trap_gen) --trap {} --bits {} --out $@".format(name, bits),
+            tools = [":trap_gen"],
+        )
+        verilog = [":" + sv]
     arms = dict(arms)
     round_of = {}
     for base in round_bases:
@@ -109,7 +119,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
     for arm in sorted(arms):
         spec = arms[arm]
         macros = []
-        variant = (round_variant + arm) if arm in [r for r, _ in round_of.values()] else arm
+        variant = variant_prefix + ((round_variant + arm) if arm in [r for r, _ in round_of.values()] else arm)
         for block in sorted(blocks):
             if block in spec.get("reuse", {}):
                 abstract, probe = spec["reuse"][block]
@@ -118,12 +128,15 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
                 continue
             b = blocks[block] | spec.get("blocks", {}).get(block, {})
             module = b.get("module", "{}_{}".format(name, block))
-            args = TRAP_BASE_ARGS | _areas(b["die"][0], b["die"][1])
+
+            # a die, or an outline from the block's own arguments
+            # (CORE_UTILIZATION), as a real design's block config gives it
+            args = TRAP_BASE_ARGS | (_areas(b["die"][0], b["die"][1]) if "die" in b else {}) | b.get("args", {})
             sources = {
                 "IO_CONSTRAINTS": [b.get("io", ":pins.tcl")],
                 # a block's grid: rails and straps a parent's grid connects to
                 "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
-                "SDC_FILE": [":constraints.sdc"],
+                "SDC_FILE": [b.get("sdc", sdc)],
             }
             user = {"PIN_GROUPS": _pins(b.get("pins", ""), spec.get("pins", {}).get(block, ""))} | b.get("user", {})
             orfs_flow(
@@ -139,7 +152,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
                 sources = sources,
                 user_arguments = user,
                 variant = variant,
-                verilog_files = [":" + sv],
+                verilog_files = spec.get("verilog", verilog),
             )
             macros.append(":{}_{}_generate_abstract".format(module, variant))
             probes["{}:{}".format(arm, block)] = ":{}_{}_{}_probe".format(name, arm, block)
@@ -157,10 +170,11 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
                 variant = variant,
             )
         top = name + "_top"
+        pvariant = variant_prefix + arm
         p = parent | spec.get("parent", {})
         mx, my = p.get("core_margin", [2.0, 2.0])
         channel = p.get("channel", 4.0)
-        args = TRAP_BASE_ARGS | _areas(p["die"][0], p["die"][1], mx, my) | {
+        args = TRAP_BASE_ARGS | (_areas(p["die"][0], p["die"][1], mx, my) if "die" in p else {}) | {
             # a port's buffer goes where the parent has rows, which in a
             # trap is wherever its geometry put the parent's logic: every
             # port wire would run there and back, in every arm alike
@@ -172,7 +186,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
             "IO_CONSTRAINTS": [p.get("io", ":pins.tcl")],
             # the parent's grid over hardened blocks
             "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCKS_grid_strategy.tcl"],
-            "SDC_FILE": [":constraints.sdc"],
+            "SDC_FILE": [sdc],
         }
         user = {"PIN_GROUPS": p.get("pins", "")}
         if p.get("locs"):
@@ -189,13 +203,13 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
             pdk = "//flow:asap7",
             sources = sources,
             user_arguments = user,
-            variant = arm,
-            verilog_files = [":" + sv],
+            variant = pvariant,
+            verilog_files = spec.get("verilog", verilog),
         )
         orfs_run(
             tags = tags,
             name = "{}_{}_top_probe".format(name, arm),
-            src = ":{}_{}_place".format(top, arm),
+            src = ":{}_{}_place".format(top, pvariant),
             outs = ["{}_{}_top_probe.json".format(name, arm)],
             arguments = args,
             script = ":probe.tcl",
@@ -205,7 +219,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
                 "PROBE_PIN_ACCESS": "1" if p.get("pin_access") else "0",
                 "PROBE_TIMING": "1" if p.get("timing") else "0",
             },
-            variant = arm,
+            variant = pvariant,
         )
         probes["{}:top".format(arm)] = ":{}_{}_top_probe".format(name, arm)
         if arm in round_of:
@@ -218,7 +232,7 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
             orfs_run(
                 tags = tags,
                 name = "{}_{}_pins".format(name, rname),
-                src = ":{}_{}_place".format(top, arm),
+                src = ":{}_{}_place".format(top, pvariant),
                 outs = outs,
                 arguments = args,
                 script = ":pins_from_parent.tcl",
@@ -229,24 +243,25 @@ def pin_trap(name, bits, blocks, parent, arms, rounds = 0, round_bases = ["own"]
                         for block, out in zip(sorted(blocks), outs[:len(blocks)])
                     ]),
                 },
-                variant = arm,
+                variant = pvariant,
             )
-    py_test(
-        tags = tags,
-        name = name + "_test",
-        srcs = [":trap_test.py"],
-        args = ["--trap", name] + [
-            "{}=$(rootpath {})".format(key, probes[key])
-            for key in sorted(probes)
-        ],
-        data = [probes[key] for key in sorted(probes)],
-        main = "trap_test.py",
-    )
+    if test:
+        py_test(
+            tags = tags,
+            name = name + "_test",
+            srcs = [":trap_test.py"],
+            args = ["--trap", name] + [
+                "{}=$(rootpath {})".format(key, probes[key])
+                for key in sorted(probes)
+            ],
+            data = [probes[key] for key in sorted(probes)],
+            main = "trap_test.py",
+        )
 
     # the pin loop's claims hold where own's blocks are placed by the
     # trap; where the macro placer places them (no locs), own's rounds are
     # the joint loop, measured and reported, not claimed
-    if rounds and (parent | arms["own"].get("parent", {})).get("locs"):
+    if test and rounds and (parent | arms["own"].get("parent", {})).get("locs"):
         py_test(
             tags = tags,
             name = name + "_loop_test",

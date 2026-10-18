@@ -170,6 +170,41 @@ MPL-0006, a block the core's height, is left: the halo is the macro
 placer's spacing rule, and the annealer would have to treat a halo at
 the core's edge differently.
 
+## A real design: aes-block with room
+
+`aes_room` is ORFS's asap7/aes-block, its RTL and block configuration as
+ORFS has them (20 `aes_sbox`, one `aes_rcon`), at `CORE_UTILIZATION` 25
+instead of 47: at 47 the blocks barely tile (ORFS #4681) and nothing can
+move. `aes_room_uniq` is the same with one `aes_sbox` module per instance
+(`aes_uniq.py`, proven equivalent by yosys with a negative control,
+`aes_uniq_equiv_test`), so each block gets pins of its own rather than
+one set shared by twenty. Both are manual smoke tests: there is no hand
+answer, and own is today's flow, r1 and r2 the joint rounds. Three
+departures from ORFS's configuration, in every arm alike: `--ignore-timing`
+for slang (the RTL's `<= #1`), the default pin assignment rather than
+`-annealing` (which leaves pins outside the rounds' regions, PPL-0107),
+and the blocks timed at cts with aes's own block constraints.
+
+Parent at placement, global route wire in um and the minimum period:
+
+| | Own | Round 1 | Round 2 |
+|---|---|---|---|
+| `aes_room` | 56 778, 788.3 ps | 45 594, 767.9 ps | 51 672, 847.3 ps |
+| `aes_room_uniq` | 47 463, 831.4 ps | 49 498, 844.9 ps | 47 225, 783.6 ps |
+
+The loop runs end to end on a real design and moves nothing by a
+multiple: round 1 of `aes_room` is a fifth less wire, round 2 gives some
+back, and the period moves by less than a tenth either way, which here
+is noise. In every arm the worst path crosses an sbox from its input to
+its output (`in2out_blocks`): aes-block hardens a combinational block on
+the state's every path, a surgery problem (`surgery` skill, class 7).
+
+The rounds also hit #11819's failure on a real design's RTL: with block
+pins written from an earlier placement, the macro placer's orientation
+step mirrors blocks it then cannot snap (18 of 21 in round 2). Stock
+OpenROAD stops on MPL-0005 there; with patch 0136 it places. With the
+blocks' own pins it never did.
+
 ## Not traps, and why
 
 - **3, shortest wire and the worst overflow** (entry 35). Pins bunched in

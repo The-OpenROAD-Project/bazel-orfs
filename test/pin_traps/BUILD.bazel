@@ -604,7 +604,7 @@ genrule(
         ":in2out.sv",
     ],
     outs = ["in2out_equiv.log"],
-    cmd = "sed -e 's#@SV@#$(location :in2out.sv)#' -e 's#@GOLD@#in2out_top#' -e 's#@GATE@#in2out_top_s#' " +
+    cmd = "sed -e 's#@GOLD_SV@#$(location :in2out.sv)#' -e 's#@GATE_SV@#$(location :in2out.sv)#' -e 's#@GOLD@#in2out_top#' -e 's#@GATE@#in2out_top_s#' " +
           "$(location :equiv.ys) > $(@D)/in2out_equiv.ys && " +
           "$(execpath @yosys//:yosys) -q -l $@ $(@D)/in2out_equiv.ys",
     tools = ["@yosys"],
@@ -622,11 +622,12 @@ genrule(
     outs = ["in2out_equiv_negative.log"],
     cmd = "sed -e '/module in2out_top_s/,$$ s/(f_in + /(f_in ^ /' $(location :in2out.sv) > $(@D)/in2out_broken.sv && " +
           "grep -q '(f_in ^ ' $(@D)/in2out_broken.sv && " +
-          "sed -e 's#@SV@#$(@D)/in2out_broken.sv#' -e 's#@GOLD@#in2out_top#' -e 's#@GATE@#in2out_top_s#' " +
+          "sed -e 's#@GOLD_SV@#$(@D)/in2out_broken.sv#' -e 's#@GATE_SV@#$(@D)/in2out_broken.sv#' -e 's#@GOLD@#in2out_top#' -e 's#@GATE@#in2out_top_s#' " +
           "$(location :equiv.ys) > $(@D)/in2out_negative.ys && " +
           "if $(execpath @yosys//:yosys) -q -l $@.yosys $(@D)/in2out_negative.ys; then " +
-          "echo 'in2out_equiv_negative: a broken surgery was proven equivalent' >&2; exit 1; " +
-          "else echo 'broken surgery refused, as it must be' > $@; fi",
+          "echo 'in2out_equiv_negative: a broken surgery was proven equivalent' >&2; exit 1; fi; " +
+          # refused by the proof, not by anything before it
+          "grep -q 'unproven .equiv cells' $@.yosys && echo 'broken surgery refused, as it must be' > $@",
     tools = ["@yosys"],
 )
 
@@ -759,4 +760,477 @@ pin_trap(
     rounds = 2,
     # a measurement, built on request: too large for every run
     tags = ["manual"],
+)
+
+# A real design: ORFS's asap7/aes-block, its RTL and block configuration
+# as ORFS has them, at a quarter utilization instead of 47 percent so the
+# macro placer has room to move its 21 blocks (20 aes_sbox, one aes_rcon).
+# A smoke test of the pin loop and the joint loop, with no hand answer to
+# claim against: own is today's flow, r1 and r2 the joint rounds.
+# aes_sbox is combinational, an in2out block on the state's paths.
+py_binary(
+    name = "aes_uniq",
+    srcs = ["aes_uniq.py"],
+    main = "aes_uniq.py",
+)
+
+genrule(
+    name = "aes_plain_rtl",
+    srcs = [
+        "@orfs//flow/designs/src/aes:aes_cipher_top.v",
+        "@orfs//flow/designs/src/aes:aes_key_expand_128.v",
+        "@orfs//flow/designs/src/aes:aes_rcon.v",
+        "@orfs//flow/designs/src/aes:aes_sbox.v",
+    ],
+    outs = ["aes_plain.v"],
+    cmd = "$(execpath :aes_uniq) --out $@ $(location @orfs//flow/designs/src/aes:aes_cipher_top.v) $(location @orfs//flow/designs/src/aes:aes_key_expand_128.v) $(location @orfs//flow/designs/src/aes:aes_rcon.v) $(location @orfs//flow/designs/src/aes:aes_sbox.v)",
+    tags = ["manual"],
+    tools = [":aes_uniq"],
+)
+
+# one aes_sbox module per instance, so each block gets its own pins
+genrule(
+    name = "aes_uniq_rtl",
+    srcs = [
+        "@orfs//flow/designs/src/aes:aes_cipher_top.v",
+        "@orfs//flow/designs/src/aes:aes_key_expand_128.v",
+        "@orfs//flow/designs/src/aes:aes_rcon.v",
+        "@orfs//flow/designs/src/aes:aes_sbox.v",
+    ],
+    outs = ["aes_uniq.v"],
+    cmd = "$(execpath :aes_uniq) --copies --out $@ $(location @orfs//flow/designs/src/aes:aes_cipher_top.v) $(location @orfs//flow/designs/src/aes:aes_key_expand_128.v) $(location @orfs//flow/designs/src/aes:aes_rcon.v) $(location @orfs//flow/designs/src/aes:aes_sbox.v)",
+    tags = ["manual"],
+    tools = [":aes_uniq"],
+)
+
+# the negative control: one copy's table broken
+genrule(
+    name = "aes_broken_rtl",
+    srcs = [
+        "@orfs//flow/designs/src/aes:aes_cipher_top.v",
+        "@orfs//flow/designs/src/aes:aes_key_expand_128.v",
+        "@orfs//flow/designs/src/aes:aes_rcon.v",
+        "@orfs//flow/designs/src/aes:aes_sbox.v",
+    ],
+    outs = ["aes_broken.v"],
+    cmd = "$(execpath :aes_uniq) --copies --break --out $@ $(location @orfs//flow/designs/src/aes:aes_cipher_top.v) $(location @orfs//flow/designs/src/aes:aes_key_expand_128.v) $(location @orfs//flow/designs/src/aes:aes_rcon.v) $(location @orfs//flow/designs/src/aes:aes_sbox.v)",
+    tags = ["manual"],
+    tools = [":aes_uniq"],
+)
+
+pin_trap(
+    name = "aes_room",
+    arms = {"own": {}},
+    bits = 0,
+    blocks = {
+        "rcon": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_rcon",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "sbox": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+    },
+    parent = {
+        "args": {
+            "CORE_ASPECT_RATIO": "1",
+            "CORE_MARGIN": "2",
+            # aes-block's 47, made 25: room for the macro placer to move
+            # the blocks, which at 47 barely tile (ORFS #4681)
+            "CORE_UTILIZATION": "25",
+            "DONT_BUFFER_PORTS": "0",
+            "MAX_ROUTING_LAYER": "M9",
+            # aes-block's -annealing leaves pins outside the regions the
+            # joint rounds give them (PPL-0107); the default assignment in
+            # every arm alike
+            "PLACE_PINS_ARGS": "",
+            "ROUTING_LAYER_ADJUSTMENT": "0.3",
+            "SYNTH_HIERARCHICAL": "1",
+            # aes's nonblocking assignments carry #1 delays
+            "SYNTH_SLANG_ARGS": "--ignore-timing",
+        },
+        "channel": 6.0,
+        "locs": None,
+        "timing": True,
+        "top": "aes_cipher_top",
+    },
+    rounds = 2,
+    sdc = ":aes_constraint.sdc",
+    tags = ["manual"],
+    test = False,
+    verilog = [":aes_plain.v"],
+)
+
+pin_trap(
+    name = "aes_room_uniq",
+    arms = {"own": {}},
+    bits = 0,
+    blocks = {
+        "rcon": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_rcon",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "us00": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_us00",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "us01": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_us01",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "us02": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_us02",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "us03": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_us03",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "us10": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_us10",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "us11": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_us11",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "us12": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_us12",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "us13": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_us13",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "us20": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_us20",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "us21": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_us21",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "us22": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_us22",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "us23": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_us23",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "us30": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_us30",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "us31": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_us31",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "us32": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_us32",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "us33": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_us33",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "k0": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_k0",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "k1": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_k1",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "k2": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_k2",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+        "k3": {
+            "args": {
+                "CORE_ASPECT_RATIO": "1",
+                "CORE_MARGIN": "2",
+                "CORE_UTILIZATION": "40",
+                "MAX_ROUTING_LAYER": "M5",
+                "PLACE_DENSITY": "0.70",
+                # aes's nonblocking assignments carry #1 delays
+                "SYNTH_SLANG_ARGS": "--ignore-timing",
+            },
+            "module": "aes_sbox_k3",
+            "sdc": ":aes_block_constraint.sdc",
+        },
+    },
+    parent = {
+        "args": {
+            "CORE_ASPECT_RATIO": "1",
+            "CORE_MARGIN": "2",
+            # aes-block's 47, made 25: room for the macro placer to move
+            # the blocks, which at 47 barely tile (ORFS #4681)
+            "CORE_UTILIZATION": "25",
+            "DONT_BUFFER_PORTS": "0",
+            "MAX_ROUTING_LAYER": "M9",
+            # aes-block's -annealing leaves pins outside the regions the
+            # joint rounds give them (PPL-0107); the default assignment in
+            # every arm alike
+            "PLACE_PINS_ARGS": "",
+            "ROUTING_LAYER_ADJUSTMENT": "0.3",
+            "SYNTH_HIERARCHICAL": "1",
+            # aes's nonblocking assignments carry #1 delays
+            "SYNTH_SLANG_ARGS": "--ignore-timing",
+        },
+        "channel": 6.0,
+        "locs": None,
+        "timing": True,
+        "top": "aes_cipher_top",
+    },
+    rounds = 2,
+    sdc = ":aes_constraint.sdc",
+    tags = ["manual"],
+    test = False,
+    variant_prefix = "uniq_",
+    verilog = [":aes_uniq.v"],
+)
+
+# The copies keep function: aes_cipher_top as written and with one sbox
+# module per instance, flattened, proven equivalent by yosys; the same
+# proof against a broken copy must fail.
+genrule(
+    name = "aes_uniq_equiv",
+    srcs = [
+        ":aes_plain.v",
+        ":aes_uniq.v",
+        ":equiv.ys",
+    ],
+    outs = ["aes_uniq_equiv.log"],
+    cmd = "sed -e 's#@GOLD_SV@#$(location :aes_plain.v)#' -e 's#@GATE_SV@#$(location :aes_uniq.v)#' -e 's#@GOLD@#aes_cipher_top#' -e 's#@GATE@#aes_cipher_top#' " +
+          "$(location :equiv.ys) > $(@D)/aes_uniq_equiv.ys && " +
+          "$(execpath @yosys//:yosys) -q -l $@ $(@D)/aes_uniq_equiv.ys",
+    tags = ["manual"],
+    tools = ["@yosys"],
+)
+
+genrule(
+    name = "aes_uniq_equiv_negative",
+    srcs = [
+        ":aes_broken.v",
+        ":aes_plain.v",
+        ":equiv.ys",
+    ],
+    outs = ["aes_uniq_equiv_negative.log"],
+    cmd = "sed -e 's#@GOLD_SV@#$(location :aes_plain.v)#' -e 's#@GATE_SV@#$(location :aes_broken.v)#' -e 's#@GOLD@#aes_cipher_top#' -e 's#@GATE@#aes_cipher_top#' " +
+          "$(location :equiv.ys) > $(@D)/aes_negative.ys && " +
+          "if $(execpath @yosys//:yosys) -q -l $@.yosys $(@D)/aes_negative.ys; then " +
+          "echo 'aes_uniq_equiv_negative: a broken copy was proven equivalent' >&2; exit 1; fi; " +
+          # refused by the proof, not by anything before it
+          "grep -q 'unproven .equiv cells' $@.yosys && echo 'broken copy refused, as it must be' > $@",
+    tags = ["manual"],
+    tools = ["@yosys"],
+)
+
+build_test(
+    name = "aes_uniq_equiv_test",
+    tags = ["manual"],
+    targets = [
+        ":aes_uniq_equiv",
+        ":aes_uniq_equiv_negative",
+    ],
 )

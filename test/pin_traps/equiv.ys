@@ -1,15 +1,15 @@
 # Two parents equivalent: the gold top as written, the gate top after
 # surgery, each flattened; registers are paired by name and the logic
-# between them proven equal (equiv_simple, then equiv_induct). @SV@,
-# @GOLD@ and @GATE@ are filled in by the genrule.
-read_verilog @SV@
+# between them proven equal (equiv_simple, then equiv_induct). @GOLD_SV@,
+# @GATE_SV@, @GOLD@ and @GATE@ are filled in by the genrule.
+read_verilog @GOLD_SV@
 hierarchy -top @GOLD@
-proc; flatten; opt_clean
+proc; memory; flatten; opt_clean
 rename @GOLD@ gold
 design -stash gold
-read_verilog @SV@
+read_verilog @GATE_SV@
 hierarchy -top @GATE@
-proc; flatten; opt_clean
+proc; memory; flatten; opt_clean
 rename @GATE@ gate
 design -stash gate
 design -copy-from gold -as gold gold
