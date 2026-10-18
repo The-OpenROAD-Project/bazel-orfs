@@ -48,6 +48,7 @@ EXPORTED_SKILLS = (
     "prefer-slang",
     "repair-timing-grt",
     "scale-to-memory",
+    "surgery",
 )
 
 # bazel-orfs's own: its pull requests and studies, GitHub housekeeping,

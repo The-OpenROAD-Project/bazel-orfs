@@ -84,6 +84,18 @@ circulation is wrong for this flow:
   assuming a clock insertion latency the block does not know.
   `flow/platforms/asap7/constraints.sdc` is the reference.
 
+Whether a period problem is about where things sit or about the logic
+itself is its own skill; no floorplan fixes logic on the wrong side of a
+boundary:
+
+- `surgery` — the test (would any placement fix it?), the eight classes
+  of surgery problem seen here (storage without a module, constants
+  behind a kept boundary, clock gates, simulation constructs, per-instance
+  decode, cones cut by kept hierarchy, in2out paths through a hardened
+  block, ports by the hundred thousand), and the rules: function kept and
+  checked with a negative control that fails for the right reason, no
+  register added, carried as `SYNTH_VERILOG_SURGERY`.
+
 The rules learned dogfooding on XiangShan apply to any large design and
 are a skill of their own:
 
