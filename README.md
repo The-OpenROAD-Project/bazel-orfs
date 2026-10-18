@@ -5,23 +5,62 @@
 (ORFS): RTL to GDS with OpenROAD, Yosys and an open PDK, driven by
 `bazelisk build`.
 
-## "Hermetic, and a new way of working"? No: dirty, and the same.
+## "Hermetic, and a new way of working"? Wrong, and right.
 
 The usual assumption is that Bazel seals your flow in a sandbox and
-makes you learn a new way of working. Both halves are wrong for
-bazel-orfs.
+makes you learn a new way of working. Both halves are wrong and right
+at the same time; which one depends on whether you have solved the
+problem yet.
 
-**Dirty.** Most of the time, bazel-orfs is used in a plain directory
-you can change: edit a script, re-run a stage, open the .odb and poke
-at it.
-
-**The same.** In that directory it's ORFS's make targets, the .tcl
-scripts and the openroad executable, the way ORFS always was. There's
-no Bazel in the way and nothing new to learn.
+- **Unsolved: dirty, and the same.** A plain directory with ORFS's
+  make targets, the .tcl scripts and the openroad executable, the way
+  ORFS always was. Edit a script, re-run a stage, open the .odb and
+  poke at it. There's no Bazel in the way and nothing new to learn.
+- **Solved: hermetic, and new.** `bazelisk build`: every version
+  pinned, every stage cached, the same answer on any machine, today
+  and next year.
 
 ```bash
 bazelisk run //:dirty -- start <flow> <stage>
 ```
+
+## Why "dirty"?
+
+There are exactly two ways of working in bazel-orfs, and each needs a
+name that leaves no doubt which one you're in:
+
+- **Dirty**: a directory you change by hand. Fast, visible, and it
+  promises nothing about reproducibility.
+- **Hermetic**: pinned, cached, the same answer on any machine. It
+  promises everything, and you don't hack it.
+
+There's no third lane. Humans and AI assistants both work best with
+hard stops. "Local", "dev" or "scratch" would blur the line, and
+"dirty" says plainly which promises are off.
+
+## Chesterton's fence: why does ORFS fork?
+
+bazel-orfs started out a hermetic purist: pin everything, seal
+everything, and treat a fork of ORFS as a hack to engineer away. Then
+it asked the fence question: someone built this on purpose, so why?
+
+Because the answer to an unsolved problem is often in the flow
+scripts, OpenROAD, Yosys or another tool. You have to be able to
+change any of them, now, and carry the change until it settles.
+Forking is how ORFS does that, and it's right.
+
+So bazel-orfs was reworked around that reason, with two ways to act
+on it, both first class:
+
+- **Forks**, the ORFS way: work in public forks and upstream as you
+  go.
+- **Modules**: carry patches in your own `MODULE.bazel` against pinned
+  public archives. On a confidential project you don't publish a fork
+  of a public repository. You keep your patches next to your design
+  and upstream only what's relevant and leaks nothing.
+
+Either way, swap your own openroad binary into the dirty lane and see
+whether a fix holds long before upstream ships it.
 
 ## "Dirty is bad"? No: dirty is the solution.
 
@@ -42,13 +81,6 @@ works:
   without paying for everything before it again, and how a three-hour
   failure becomes a reproducer an upstream maintainer can run in
   seconds.
-- **Your own tools.** Forking and modifying ORFS isn't dirty enough.
-  The answer is often in OpenROAD, Yosys or another tool, so hack
-  those too: in your own repository, on your own secret code, at your
-  own pace. Swap your own openroad binary into the dirty lane, or
-  carry the change as a patch in your `MODULE.bazel`, and see whether
-  the fix holds long before upstream ships it, or whether upstream
-  ever hears about it.
 - **Equivalence checking.** kepler-formal LEC needs hacking and
   patches of its own (`patches/kepler-formal-*.patch`), and it pays
   for them: a passing LEC is a strong signal that a hand change kept
