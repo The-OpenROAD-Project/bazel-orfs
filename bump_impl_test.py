@@ -466,6 +466,17 @@ orfs.default(
         self.assertIsNone(bump_impl.find_orfs_source_tag(content))
 
 
+class TestValidateBazelPatch(unittest.TestCase):
+    HUNK = "--- a/f\n+++ b/f\n@@ -1,2 +1,2 @@\n a\n-b\n+c\n"
+
+    def test_format_patch_signature_is_not_counted(self):
+        bump_impl.validate_bazel_patch("p.patch", self.HUNK + "-- \n2.53.0\n\n")
+
+    def test_short_hunk_is_refused(self):
+        with self.assertRaises(bump_impl.BumpError):
+            bump_impl.validate_bazel_patch("p.patch", self.HUNK[:-3])
+
+
 class TestOrfsPatchPairing(unittest.TestCase):
     ORFS_SOURCE = """ORFS_BAZEL_PLATFORMS = ["asap7"]
 

@@ -1070,6 +1070,10 @@ def validate_bazel_patch(patch_path, patch_content):
                 new_actual = 0
             else:
                 in_hunk = False
+        elif in_hunk and old_actual == old_expected and new_actual == new_expected:
+            # The hunk has all its lines; what follows, such as the
+            # "-- " signature git format-patch appends, is not part of it.
+            in_hunk = False
         elif in_hunk:
             if line.startswith("+"):
                 new_actual += 1
