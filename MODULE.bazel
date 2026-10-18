@@ -76,6 +76,13 @@ single_version_override(
     patches = ["//patches:sv-elab-0001-redefinition-shares-wire.patch"],
 )
 
+# OpenROAD's web viewer bundles npm packages with rules_js, which below
+# 3.5.0 links a package's dependencies wrongly when the package store is
+# in an external repository's sub-package (aspect-build/rules_js#2864):
+# @openroad//src/web:third_party_licenses fails on a missing
+# package.json whenever OpenROAD is not the root module. A floor, not a
+# use: retires when OpenROAD itself asks for rules_js >= 3.5.0.
+bazel_dep(name = "aspect_rules_js", version = "3.5.1")
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",

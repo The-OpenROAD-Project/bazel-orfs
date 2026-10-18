@@ -8,7 +8,9 @@ wrong, and both have gone wrong here before:
 
 1. A non-dev dependency nothing shipped uses. It costs every consumer a
    module in their graph and an MVS constraint they never asked for.
-   The fix is `dev_dependency = True`, or deleting it.
+   The fix is `dev_dependency = True`, or deleting it. A version floor
+   a dependency's own graph needs, which MVS must carry to consumers,
+   is the exception, listed with its reason in _ALLOWED_VERSION_FLOORS.
 2. A shipped file that references a dev-only repo. It loads and
    analyses fine from this root and fails downstream with "No
    repository visible as '@x'". The fix is making the repo non-dev, or
@@ -53,6 +55,14 @@ _ALLOWED_DEV_REFERENCES = {
     # extension see each other by name, so this never resolves through
     # MODULE.bazel's use_repo at all.
     "mock_klayout": {"extension.bzl"},
+}
+
+# A non-dev bazel_dep that nothing here uses, kept as a version floor
+# that MVS carries into every consumer's graph, and why.
+_ALLOWED_VERSION_FLOORS = {
+    # OpenROAD's web viewer needs rules_js >= 3.5.0 when OpenROAD is not
+    # the root module (aspect-build/rules_js#2864); see MODULE.bazel.
+    "aspect_rules_js",
 }
 
 _BUILD_NAMES = {"BUILD", "BUILD.bazel"}
@@ -274,6 +284,8 @@ def check(root, files):
     module_refs = set(_APPARENT_REPO.findall(module.text))
     for name, dev in sorted(module.bazel_deps.items()):
         if dev or name in referenced or name in module_refs:
+            continue
+        if name in _ALLOWED_VERSION_FLOORS:
             continue
         problems.append(
             "MODULE.bazel: bazel_dep %r is non-dev but nothing shipped references "
