@@ -163,16 +163,16 @@ archive_override(
         # cannot snap in (asap7 M3 and M5 tracks offset differently, a
         # mirror moving each layer's pins by a different residue) and
         # stopped on MPL-0005; the macro now keeps an orientation that
-        # snaps (MPL-0081). test/pin_traps:tidy_row_large's mpl arm. Not
-        # upstreamed; retires at a bump onto an OpenROAD whose macro placer
-        # does not choose an orientation it cannot snap.
+        # snaps (MPL-0081). test/pin_traps:tidy_row_large's mpl arm. Filed
+        # as OpenROAD#11819 with a reproducer, this as one possible fix;
+        # retires at a bump onto an OpenROAD that fixes the issue.
         "//patches:0136-openroad-mpl-flip-that-snaps.patch",
         # The macro placer stopped on MPL-0045 splitting a flat cluster of
         # one macro and a few thousand std cells, which no area-balanced
         # split can halve; it now splits such a cluster by instance count
-        # (MPL-0082). test/pin_traps:random_io_large's round 1. Not
-        # upstreamed; retires at a bump onto an OpenROAD whose macro placer
-        # splits such a cluster.
+        # (MPL-0082). test/pin_traps:random_io_large's round 1. Filed as
+        # OpenROAD#11820 with a reproducer, this as one possible fix;
+        # retires at a bump onto an OpenROAD that fixes the issue.
         "//patches:0137-openroad-mpl-split-by-count.patch",
         # 0011 to 0026 and 0115 to 0121: OpenROAD #11723's 23 commits,
         # generate_ram's register-file options, one patch a commit, in its
