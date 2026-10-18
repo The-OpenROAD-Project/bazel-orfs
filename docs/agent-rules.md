@@ -120,9 +120,9 @@ is a scheduler at home, managed by its own skill:
 - `scale-to-memory` — `orfs_schedule()` (`bazelisk run //<pkg>:build`,
   docs/schedule.md) packs the macros into waves that fit free memory and
   runs the parent alone; the first `resources.json` comes from a
-  minutes-long assessment, later runs measure and refresh it. `--lane
-  <stage>` runs one stage of several units in deps-lane trees side by
-  side within the same budget.
+  minutes-long assessment, later runs measure and refresh it. `--dirty
+  <stage>` lays out a dirty-lane tree per unit and runs one stage of
+  several units side by side within the same budget.
 
 A long run is settled small first: `no-paint-drying` (settle questions at
 seconds-to-minutes scale, then run unattended); `repair-timing-grt` for a

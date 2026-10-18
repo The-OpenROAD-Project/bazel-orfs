@@ -39,7 +39,7 @@ def orfs_schedule(name, macros = {}, parent = {}, resources = "resources.json", 
         args = [
             "--package=" + native.package_name(),
             "--resources=" + resources,
-            "--deps=" + str(Label("//:deps")),
+            "--dirty-target=" + str(Label("//:dirty")),
         ] + _units("--macro", macros) + _units("--parent", parent),
         **kwargs
     )

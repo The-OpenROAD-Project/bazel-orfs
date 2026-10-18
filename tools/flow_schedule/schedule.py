@@ -56,7 +56,7 @@ def parse_units(specs):
 
 def unit_peak(entry, stage=None):
     """A unit's footprint in GB: its largest stage, or `stage` alone when the
-    record has it (a lane runs one stage), padded if estimated."""
+    record has it (a dirty lane runs one stage), padded if estimated."""
     stages = entry["stages"]
     if stage in stages:
         peak = stages[stage]["peak_gb"]
@@ -67,7 +67,7 @@ def unit_peak(entry, stage=None):
 
 def unit_minutes(entry, stage=None):
     """A unit's time: its stages one after another, or `stage` alone when
-    the record has it (a lane runs one stage)."""
+    the record has it (a dirty lane runs one stage)."""
     stages = entry["stages"]
     if stage in stages:
         return stages[stage].get("minutes", 0)
@@ -260,18 +260,18 @@ def log_dir(bin_dir, package, unit, variant):
     return None
 
 
-def lane_tree(lane_dir, unit):
-    """A unit's deps-lane tree, relative to the workspace."""
-    return os.path.join(lane_dir, unit)
+def dirty_tree(dirty_dir, unit):
+    """A unit's dirty-lane tree, relative to the workspace."""
+    return os.path.join(dirty_dir, unit)
 
 
-def lane_start(deps, package, unit, stage, tree, bazel_args):
-    """The command that installs `unit`'s `stage` in its own lane tree:
-    Bazel builds what the stage needs and copies it in (deps-lane skill)."""
+def dirty_start(dirty, package, unit, stage, tree, bazel_args):
+    """The command that installs `unit`'s `stage` in its own dirty-lane tree:
+    Bazel builds what the stage needs and copies it in (dirty-lane skill)."""
     return (
         ["bazelisk", "run"]
         + bazel_args
-        + [deps, "--", "start", "//%s:%s" % (package, unit), stage]
+        + [dirty, "--", "start", "//%s:%s" % (package, unit), stage]
         + ["--dir", tree, "--fresh"]
     )
 
@@ -307,16 +307,18 @@ def main(argv=None):
         "--bazel-arg", action="append", default=[], help="passed to every build"
     )
     ap.add_argument(
-        "--lane",
+        "--dirty",
         metavar="STAGE",
-        help="run STAGE of each unit in its own deps-lane tree instead of a "
+        help="run STAGE of each unit in its own dirty-lane tree instead of a "
         "bazelisk build; units of a wave run side by side",
     )
     ap.add_argument(
-        "--lane-dir", default="tmp/schedule", help="where the lane trees go"
+        "--dirty-dir", default="tmp/schedule", help="where the dirty-lane trees go"
     )
     ap.add_argument(
-        "--deps", default="@bazel-orfs//:deps", help="bazel-orfs's deps target"
+        "--dirty-target",
+        default="@bazel-orfs//:dirty",
+        help="bazel-orfs's dirty-lane target",
     )
     args = ap.parse_args(argv)
 
@@ -348,7 +350,7 @@ def main(argv=None):
     free = mem_available_gb()
     swap = meminfo_gb("SwapFree")
     budget = args.budget if args.budget is not None else free - args.margin
-    stage = args.lane
+    stage = args.dirty
     peaks = {u: unit_peak(units[u], stage) for u in macros}
     waves = [("macros", w) for w in pack(peaks, budget)]
     waves += [("parent", [p]) for p in parents]
@@ -363,7 +365,7 @@ def main(argv=None):
     print(
         f"budget {budget:.0f} GB ({free:.0f} free, {swap:.0f} swap free, "
         f"{args.margin:.0f} margin)"
-        + (f"; lane mode, stage {stage}, trees in {args.lane_dir}" if stage else "")
+        + (f"; dirty lane, stage {stage}, trees in {args.dirty_dir}" if stage else "")
     )
     for i, (kind, wave) in enumerate(waves, 1):
         sizes = ", ".join(
@@ -403,15 +405,19 @@ def main(argv=None):
             print(f"wave {i} failed ({rc})", file=sys.stderr)
         return rc
 
-    def lane(i, wave, targets):
+    def dirty(i, wave, targets):
         trees = {}
         for u in wave:
-            tree = lane_tree(args.lane_dir, u)
-            cmd = lane_start(args.deps, args.package, u, stage, tree, args.bazel_arg)
+            tree = dirty_tree(args.dirty_dir, u)
+            cmd = dirty_start(
+                args.dirty_target, args.package, u, stage, tree, args.bazel_arg
+            )
             print(f"wave {i}: {' '.join(cmd)}", flush=True)
             rc = subprocess.call(cmd, cwd=workspace)
             if rc:
-                print(f"wave {i}: {u}'s lane did not start ({rc})", file=sys.stderr)
+                print(
+                    f"wave {i}: {u}'s dirty lane did not start ({rc})", file=sys.stderr
+                )
                 return rc
             trees[u] = os.path.join(workspace, tree)
         procs = {}
@@ -440,7 +446,7 @@ def main(argv=None):
                 print(f"wave {i}: {u} failed ({rcs[u]})", file=sys.stderr)
         return max(rcs.values(), default=0)
 
-    results = run(waves, macros, parents, lane if stage else build)
+    results = run(waves, macros, parents, dirty if stage else build)
     for i, (kind, wave) in enumerate(waves, 1):
         if i not in results:
             print(

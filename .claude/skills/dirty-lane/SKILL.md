@@ -76,9 +76,9 @@ Move the settled edits into the flow's BUILD file and sources, then `bazel build
 
 ## Beside a scheduled build
 
-A deps-lane run holds memory that `orfs_schedule()`'s budget does not
-see: lower `--budget` on a `:build` run while a lane works, or wait
-(`scale-to-memory` skill). To run one stage of several units in lanes at
-once, let the schedule pack them: `bazelisk run //<pkg>:build -- --lane
-<stage>` makes a tree per unit (`tmp/schedule/<unit>`) and runs the units
-of a wave side by side within the budget.
+A dirty-lane run holds memory that `orfs_schedule()`'s budget does not
+see: lower `--budget` on a `:build` run while a tree works, or wait
+(`scale-to-memory` skill). To hack one stage of several units at once,
+let the schedule lay the trees out: `bazelisk run //<pkg>:build --
+--dirty <stage>` makes a tree per unit (`tmp/schedule/<unit>`) and runs
+the units of a wave side by side within the budget.

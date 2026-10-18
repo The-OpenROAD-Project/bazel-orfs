@@ -132,25 +132,28 @@ following the skill:
 After the first real run the record is measured, and later sessions only
 commit its refreshes.
 
-## Lane mode
+## In the dirty lane
 
 ```sh
-bazelisk run //<pkg>:build -- --lane grt --units Frontend,MemBlock
+bazelisk run //<pkg>:build -- --dirty grt --units Frontend,MemBlock
 ```
 
-`--lane STAGE` runs one stage of each unit in its own deps-lane tree
-(`tmp/schedule/<unit>`, the `deps-lane` skill) instead of a `bazelisk
-build`: per wave, `@bazel-orfs//:deps -- start //<pkg>:<unit> STAGE --fresh` installs
-what the stage needs, one unit after another (Bazel builds anything not
-cached), then the units' `make do-STAGE` run side by side. Waves are
-packed by that stage's recorded peak, not the unit's largest, and each
-tree's logs refresh `resources.json` as a build's do.
+A scheduled build is for solved problems. An unsolved one is hacked in
+the dirty lane (the `dirty-lane` skill), and when it spans several units,
+one stage of each, `--dirty STAGE` lays the trees out and keeps them
+inside the memory budget: per wave, `@bazel-orfs//:dirty -- start
+//<pkg>:<unit> STAGE --fresh` installs what the stage needs in
+`tmp/schedule/<unit>`, one unit after another (Bazel builds anything not
+cached), then the units' `make do-STAGE` run side by side. Waves pack by
+that stage's own recorded peak and time, and each tree's logs refresh
+`resources.json` as a build's do.
 
-It is for iterating on a stage across several units at once, by hand or
-with a `config.mk` or script edited in the trees between runs (`next`
-and `make` in a tree work as usual). It gives up what the lane gives up:
-nothing reaches the Bazel cache, and a parent's lane reads its blocks
-from Bazel's build, not from the blocks' lanes.
+Between runs, hack the trees as the skill says: edit a `config.mk` or a
+script, swap in your own `openroad`, `make` again. Once the answer is
+known, it goes in as a setting, a script or a carried patch, and the
+scheduled build makes it hermetic. Meanwhile the lane's terms hold:
+nothing reaches the Bazel cache, and a parent's tree reads its blocks
+from Bazel's build, not from the blocks' trees.
 
 ## Guards
 
