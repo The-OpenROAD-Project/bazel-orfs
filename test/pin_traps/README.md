@@ -153,6 +153,20 @@ lands 2.2 times the hand answer; the joint rounds make it worse, with
 overflow. Hierarchy is part of what the macro placer was missing, not
 all of it.
 
+Why, from the macro placer's own report (`-report_directory`, root
+level): it sees each owner as a cluster of 2 176 cells and its port
+group as a cluster tied to its edge (the constraint region, which it
+does use), with the right nets, owner to ports and file to owner, 192
+each. But a soft cluster is shaped to fill the free space: the east
+owner becomes three fifths of the die, the north owner its top half.
+A file is pulled to its owner's centre, mid-die, not to the owner's
+edge. The boundary penalty and a weight-10 clique among the files (the
+clock) then pack all four files into one corner. With the boundary
+weight at 0 they pack mid-die instead; a wire weight ten times higher,
+or an area weight of 10 instead of 0.1, changes nothing. The files'
+positions follow where the soft clusters' centres land, and those say
+little about where the owners' cells want to be.
+
 Two of the macro placer's refusals here are carried as fixes, each only
 changing what used to stop the run:
 
