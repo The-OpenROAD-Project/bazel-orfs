@@ -166,14 +166,13 @@ forgotten the feature existed. That is the finding, and it generalises:
 
 The invisibility is structural rather than a memory failure. Lint
 targets do not exist until you pass `mock_openroad`
-(`orfs_design.bzl:308`); `_html` targets do not exist until you pass
-`html = True` (`flow.bzl:464`, default `False`). A user who does not
+(`orfs_design.bzl:308`). A user who does not
 already know the feature exists therefore cannot discover it -- not by
 `bazel query`, not by tab completion, not by reading the target list.
 The kwarg gates the *existence* of the thing that would have advertised
 it.
 
-Adding `flush_pipe = False` as a fifth such kwarg would reproduce the
+Adding `flush_pipe = False` as another such kwarg would reproduce the
 defect exactly. If the answer to "why did nobody use lint" is "they
 forgot", then the answer to "why did nobody use flush_pipe" will be the
 same, and the feature will have cost more than it returned.
