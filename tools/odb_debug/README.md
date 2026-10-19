@@ -32,7 +32,8 @@ These files do the work, and none needs anything beyond a stock `python3`:
 | `daemon.tcl` | Runs inside openroad. Opens the stage through ORFS's `open.tcl`, defines the `od_*` procs, serves them through `web_server`, writes `daemon.json`, exits when idle. |
 | `webclient.py` | The web viewer's websocket protocol, from a script: `tcl_eval`, log pushes, and a Continue for every debug pause. |
 | `odbdebug.py` | Client. `Daemon(dir).status()`, `.tcl(code)`, `.call(proc, ...)`, `.pin_access(pin)`, `.image(path, ...)`; a CLI for one-off questions. |
-| `mcp_server.py` | MCP server over the client: JSON-RPC 2.0 on stdio, one tool per proc plus `tcl` and `report`. |
+| `mcp_server.py` | MCP server over the client: JSON-RPC 2.0 on stdio, one tool per proc plus `tcl` and `report`, and `open`/`gui` to start a daemon and hand over its GUI. |
+| `gui_proxy.py` | The GUI link: lets a browser on another machine reach the viewer, only with the daemon's token, and records its activity for the idle exit. |
 | `geometry.py` | Placement forensics on an `od_dump` directory: free sites, cells inside macros, where the failed cells are. Optional `--png`. |
 
 ## Launch
@@ -61,8 +62,10 @@ matter here:
 |---|---|
 | `ODB_DEBUG_DIR` | Required. Where `daemon.json` goes. Absolute, so the client finds it from any directory. |
 | `GUI_TIMING=0` | Skip the liberty files. Geometry queries work, timing queries report that no timing is loaded. A 1.35 M-instance ODB loads in seconds instead of minutes. |
-| `ODB_DEBUG_IDLE_SECS` | Idle time before the daemon exits; default twice its load time and at least 120 s; `0` disables. |
+| `ODB_DEBUG_IDLE_SECS` | Idle time before the daemon exits, counted from the first interaction (a loaded daemon waits for that without a limit); default twice its load time and at least 120 s; `0` disables. |
 | `ODB_DEBUG_PORT` | Fixed port instead of an ephemeral one. |
+| `ODB_DEBUG_GUI_BIND` | Address the GUI link listens on; default the one the ssh session came in on (`SSH_CONNECTION`), else 127.0.0.1. |
+| `ODB_DEBUG_GUI_PORT` | Fixed GUI port instead of an ephemeral one. |
 | `LOG_DIR` | Where make writes `run.log`; defaults inside the runfiles tree, pass an absolute path to keep it pristine. |
 
 ### From a tree deployed by `//:dirty`
@@ -81,9 +84,28 @@ the daemon on it:
 
 ### Look at it
 
-The daemon is a web viewer: open `url` from `daemon.json` in a browser for
-the GUI, on the same loaded design the client asks. Commands typed in the
-browser do not count as activity, so browse with `ODB_DEBUG_IDLE_SECS=0`.
+The daemon is a web viewer: open `gui_url` from `daemon.json` (or the MCP
+`gui` tool) in a browser for the GUI, on the same loaded design the client
+asks. It works from another machine, over a VPN for one:
+
+- The link goes through `gui_proxy.py`, which listens on
+  `ODB_DEBUG_GUI_BIND`. That is by default the address the ssh session
+  that started the daemon came in on, the one the human's machine
+  reaches; without ssh it is 127.0.0.1.
+- The viewer evaluates any Tcl it is sent and has no authentication, so
+  the proxy forwards only what carries the link's token. The link's
+  token turns into a cookie for the rest of the visit. `daemon.json` is
+  readable by its owner only.
+- Every byte the browser sends through it counts as interaction for the
+  idle exit. The viewer's own `url`, on 127.0.0.1, works on the machine
+  itself, but there the browser does not count, so browse through
+  `gui_url` or with `ODB_DEBUG_IDLE_SECS=0`.
+
+A loaded daemon waits for its first question or browser visit with no
+idle exit, so a design started after a build is still there when the
+human comes to look; the `warm-gui` skill does that. The MCP `open` tool
+starts a daemon detached, in a session of its own that outlives the
+agent's, and `gui` says when it is ready.
 
 A script that has already loaded a design can `source
 tools/odb_debug/daemon.tcl` to serve it instead of opening a stage;
@@ -97,7 +119,7 @@ its own:
 
 ```json
 {"port":41123,"pid":12345,"dir":"...","url":"http://127.0.0.1:41123",
- "design":"cpu","odb":".../3_place.odb","workspace":"...","commit":"8dd2fb5...",
+ "gui_url":"http://10.8.0.5:41150/?token=...","design":"cpu","odb":".../3_place.odb","workspace":"...","commit":"8dd2fb5...",
  "timing":false}
 ```
 
@@ -159,6 +181,8 @@ another ODB without restarting the agent. Tools:
 | `tcl code` | anything else: result and captured stdout |
 | `image path` | a PNG of an area (`save_image -web`, headless) |
 | `pin_access pin` | why a pin has no access point: DRT's markers for each rejected candidate, by constraint |
+| `open target` | start `bazelisk run <target>`, an `odb_debug()` target, detached; returns at once |
+| `gui` | `loading` (end of the launch log), `ready` (the GUI link and how to open it) or `stopped` |
 
 A reply longer than 16000 characters (`MAX_TEXT` in `mcp_server.py`)
 keeps its head and tail and says how much was dropped, so one
@@ -270,11 +294,14 @@ shell on the same machine.
 ## Tests
 
 `//tools/odb_debug:odbdebug_test` runs the client and the MCP server
-against a fake viewer (`fake_viewer.py`) answering `od_web_request`;
+against a fake viewer (`fake_viewer.py`) answering `od_web_request`, and
+`open` against a stand-in bazelisk; `:gui_proxy_test` checks that only the
+token gets through, in front of a stand-in viewer;
 `:webclient_test` runs the websocket client against the same fake and the
 pin-access parser on DRT's real output; `:geometry_test` runs the
 forensics on a hand-made dump. `//test/odb_debug:smoke_test` launches the
 real daemon on a placed multiplier and asks it everything once;
 `//test/odb_debug:block_test` launches it on a 10 µm block whose 36 nm M3
 pin has no access point, asks `pin_access` and `image`, and checks the
-idle exit, in seconds.
+idle exit and the GUI link (a loaded daemon waits for its first visitor,
+the token gates the viewer, the visit starts the idle clock), in seconds.

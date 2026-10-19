@@ -12,6 +12,7 @@ import json
 import os
 import socket
 import tempfile
+import time
 import unittest
 
 import fake_viewer
@@ -336,6 +337,92 @@ class McpTest(unittest.TestCase):
         lines = [json.loads(l) for l in stdout.getvalue().splitlines()]
         self.assertEqual([l.get("id") for l in lines], [1, None, 2])
         self.assertEqual(lines[1]["error"]["code"], -32700)
+
+
+class LaunchTest(unittest.TestCase):
+    """launch() and gui_state() with a bazelisk stand-in that records its
+    arguments and holds until the test lets it go."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="odb_debug_launch.")
+        self.dir = os.path.join(self.tmp, "odb-debug")
+        self.args = os.path.join(self.tmp, "args")
+        self.release = os.path.join(self.tmp, "release")
+        self.bazelisk = os.path.join(self.tmp, "bazelisk")
+        with open(self.bazelisk, "w") as f:
+            f.write(
+                "#!/bin/sh\n"
+                'printf "%%s\\n" "$@" > %s.tmp && mv %s.tmp %s\n'
+                "echo building the stage\n"
+                "while [ ! -f %s ]; do sleep 0.1; done\n"
+                "echo the stage failed\n"
+                % (self.args, self.args, self.args, self.release)
+            )
+        os.chmod(self.bazelisk, 0o755)
+
+    def wait_for(self, what, done):
+        deadline = time.time() + 60
+        while not done():
+            self.assertLess(time.time(), deadline, "timed out waiting for " + what)
+            time.sleep(0.05)
+
+    def test_launch_loads_in_the_background_and_reports_its_end(self):
+        env = {"SSH_CONNECTION": "10.0.0.2 51000 10.8.0.5 22"}
+        saved = dict(os.environ)
+        os.environ.update(env)
+        try:
+            r = odbdebug.launch(
+                "//x:final_odb_debug",
+                self.dir,
+                ["GUI_TIMING=0"],
+                workspace=self.tmp,
+                bazelisk=self.bazelisk,
+            )
+        finally:
+            os.environ.clear()
+            os.environ.update(saved)
+        self.assertEqual(r["state"], "loading")
+        self.wait_for("the arguments", lambda: os.path.exists(self.args))
+        with open(self.args) as f:
+            self.assertEqual(
+                f.read().split("\n")[:-1],
+                [
+                    "run",
+                    "//x:final_odb_debug",
+                    "--",
+                    "ODB_DEBUG_DIR=" + os.path.abspath(self.dir),
+                    "ODB_DEBUG_GUI_BIND=10.8.0.5",
+                    "GUI_TIMING=0",
+                ],
+            )
+        self.assertEqual(odbdebug.gui_state(self.dir)["state"], "loading")
+        # One daemon per directory: a second launch says what is there.
+        with self.assertRaises(odbdebug.DaemonError) as e:
+            odbdebug.launch("//y:z", self.dir, bazelisk=self.bazelisk)
+        self.assertIn("already loading", str(e.exception))
+        self.assertIn("//x:final_odb_debug", str(e.exception))
+        # A launch that ends without a daemon is stopped, with its log.
+        open(self.release, "w").close()
+        self.wait_for(
+            "the launch to end",
+            lambda: odbdebug.gui_state(self.dir)["state"] == "stopped",
+        )
+        self.assertIn("the stage failed", odbdebug.gui_state(self.dir)["log_tail"])
+
+    def test_nothing_launched_is_stopped(self):
+        self.assertEqual(odbdebug.gui_state(self.dir), {"state": "stopped"})
+
+    def test_the_gui_binds_where_the_ssh_session_came_in(self):
+        self.assertEqual(
+            odbdebug.gui_bind({"SSH_CONNECTION": "1.2.3.4 5 10.8.0.5 22"}), "10.8.0.5"
+        )
+        self.assertEqual(
+            odbdebug.gui_bind(
+                {"SSH_CONNECTION": "1.2.3.4 5 6.7.8.9 22", "ODB_DEBUG_GUI_BIND": "a"}
+            ),
+            "a",
+        )
+        self.assertIsNone(odbdebug.gui_bind({}))
 
 
 if __name__ == "__main__":

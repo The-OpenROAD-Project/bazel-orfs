@@ -1,12 +1,14 @@
 """The odb-debug daemon on a 10 um block whose 36 nm M3 pin has no access
 point: the MCP pin_access tool must say why, from the markers DRT's own
 pin-access debug logs; image must draw it headless; no browser may be
-launched; and an idle daemon must exit while a long request must not be
-cut short.
+launched; an idle daemon must exit while a long request must not be
+cut short; and a loaded daemon must wait for its first visitor, let only
+the GUI link's token through, and count the browser as interaction.
 
 argv: openroad, the asap7 tech LEF, block.tcl, daemon.tcl.
 """
 
+import http.client
 import json
 import os
 import signal
@@ -15,6 +17,7 @@ import sys
 import threading
 import time
 import unittest
+from urllib.parse import urlsplit
 
 import mcp_server
 import odbdebug
@@ -69,6 +72,7 @@ class Launched(object):
                 ODB_DEBUG_DAEMON=os.path.abspath(daemon),
                 ODB_DEBUG_DIR=self.dir,
                 ODB_DEBUG_IDLE_SECS=str(idle_secs),
+                ODB_DEBUG_GUI_BIND="127.0.0.1",
                 PYTHON_EXE=sys.executable,
                 PATH=bin_dir + os.pathsep + os.environ.get("PATH", ""),
             ),
@@ -232,6 +236,46 @@ class IdleExitTest(unittest.TestCase):
             self.assertFalse(os.path.exists(daemon.info))
             self.assertIn("idle for 2 s, exiting", daemon.output())
             self.assertNotIn("killing it", daemon.output())
+        finally:
+            daemon.stop()
+
+
+def get(url, path=None, cookie=None):
+    u = urlsplit(url)
+    c = http.client.HTTPConnection(u.hostname, u.port, timeout=30)
+    target = path or (u.path + ("?" + u.query if u.query else ""))
+    c.request("GET", target, headers={"Cookie": cookie} if cookie else {})
+    r = c.getresponse()
+    return r.status, dict(r.getheaders()), r.read()
+
+
+class GuiTest(unittest.TestCase):
+    def test_it_waits_for_the_browser_then_idles_out(self):
+        daemon = Launched("gui", 2)
+        try:
+            # The link carries the session's only key: its owner reads it.
+            self.assertEqual(os.stat(daemon.info).st_mode & 0o777, 0o600)
+            state = call("gui", {}, daemon.dir)
+            self.assertEqual(state["state"], "ready")
+            url = state["gui_url"]
+            self.assertTrue(url.startswith("http://127.0.0.1:"), url)
+            # Loaded and not asked: well past the idle time it is still
+            # there. (Only an exit could fail this, never a slow machine.)
+            time.sleep(6)
+            self.assertIsNone(daemon.exited(), "exited before anyone came")
+            # Without the token, nothing.
+            status, _, _ = get(url, path="/")
+            self.assertEqual(status, 403)
+            # The link: a cookie, then the viewer's own page.
+            status, headers, _ = get(url)
+            self.assertEqual(status, 302)
+            cookie = headers["Set-Cookie"].split(";")[0]
+            status, _, body = get(url, path=headers["Location"], cookie=cookie)
+            self.assertEqual(status, 200)
+            self.assertIn(b"<html", body.lower())
+            # The visit started the idle clock: it exits on its own, cleanly.
+            self.assertEqual(daemon.proc.wait(timeout=60), 0, daemon.output())
+            self.assertIn("idle for 2 s, exiting", daemon.output())
         finally:
             daemon.stop()
 

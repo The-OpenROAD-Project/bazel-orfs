@@ -27,7 +27,9 @@ import base64
 import json
 import os
 import re
+import subprocess
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import webclient  # noqa: E402
@@ -272,6 +274,121 @@ def parse_pa_log(text):
         "via_markers": {k: {"count": len(v), "boxes": v[:4]} for k, v in via.items()},
         "no_access_point": "DRT-0073" in text,
         "message_limit_hit": limited,
+    }
+
+
+# The daemon a launch() started: written when bazelisk is spawned, read by
+# gui_state() while the design loads and daemon.json does not exist yet.
+LAUNCH_FILE = "launch.json"
+LAUNCH_LOG = "launch.log"
+
+
+def pid_alive(pid):
+    """False once `pid` has exited; a zombie counts as exited."""
+    try:
+        with open("/proc/%d/stat" % pid) as f:
+            return f.read().rsplit(")", 1)[1].split()[0] != "Z"
+    except (OSError, IndexError, ValueError):
+        return False
+
+
+def gui_bind(environ=None):
+    """The address a browser on the human's machine reaches: the one
+    their ssh session came in on, else None (the daemon's default)."""
+    environ = os.environ if environ is None else environ
+    if environ.get("ODB_DEBUG_GUI_BIND"):
+        return environ["ODB_DEBUG_GUI_BIND"]
+    fields = environ.get("SSH_CONNECTION", "").split()
+    return fields[2] if len(fields) == 4 else None
+
+
+def launch(target, odb_debug_dir, arguments=(), workspace=None, bazelisk="bazelisk"):
+    """Start `bazelisk run <target>`, an odb_debug() daemon target, detached
+    in a session of its own, so it outlives the agent session that asked
+    for it; return at once. The design loads in the background:
+    gui_state() says when the GUI is ready."""
+    directory = os.path.abspath(odb_debug_dir)
+    running = gui_state(directory)
+    if running["state"] in ("loading", "ready"):
+        raise DaemonError(
+            "a daemon is already %s in %s (%s); stop it first with the tcl"
+            " tool's `exit`, or use another ODB_DEBUG_DIR"
+            % (
+                running["state"],
+                directory,
+                running.get("target") or running.get("design"),
+            )
+        )
+    if not os.path.isdir(directory):
+        os.makedirs(directory)
+    for stale in ("daemon.json", "daemon.json.pending"):
+        try:
+            os.remove(os.path.join(directory, stale))
+        except OSError:
+            pass
+    make_args = ["ODB_DEBUG_DIR=" + directory]
+    bind = gui_bind()
+    if bind:
+        make_args.append("ODB_DEBUG_GUI_BIND=" + bind)
+    make_args += list(arguments)
+    log_path = os.path.join(directory, LAUNCH_LOG)
+    with open(log_path, "wb") as log:
+        proc = subprocess.Popen(
+            [bazelisk, "run", target, "--"] + make_args,
+            cwd=workspace or os.getcwd(),
+            stdin=subprocess.DEVNULL,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    record = {
+        "pid": proc.pid,
+        "target": target,
+        "log": log_path,
+        "started": int(time.time()),
+    }
+    with open(os.path.join(directory, LAUNCH_FILE), "w") as f:
+        json.dump(record, f)
+    return {"state": "loading", "target": target, "log": log_path}
+
+
+def log_tail(path, lines=20):
+    try:
+        with open(path, "rb") as f:
+            text = f.read().decode("utf-8", "replace")
+    except OSError:
+        return ""
+    return "\n".join(text.splitlines()[-lines:])
+
+
+def gui_state(odb_debug_dir=None):
+    """Where the daemon in `odb_debug_dir` is: "ready" with the GUI link,
+    "loading" with the end of the launch log, or "stopped"."""
+    directory = os.path.dirname(info_path(odb_debug_dir))
+    try:
+        with open(os.path.join(directory, "daemon.json")) as f:
+            info = json.load(f)
+    except (OSError, ValueError):
+        info = None
+    if info and pid_alive(info.get("pid", 0)):
+        return {
+            "state": "ready",
+            "gui_url": info.get("gui_url", ""),
+            "design": info.get("design", ""),
+            "odb": info.get("odb", ""),
+            "timing": info.get("timing"),
+        }
+    try:
+        with open(os.path.join(directory, LAUNCH_FILE)) as f:
+            record = json.load(f)
+    except (OSError, ValueError):
+        return {"state": "stopped"}
+    state = "loading" if pid_alive(record.get("pid", 0)) else "stopped"
+    return {
+        "state": state,
+        "target": record.get("target", ""),
+        "log": record.get("log", ""),
+        "log_tail": log_tail(record.get("log", "")),
     }
 
 
