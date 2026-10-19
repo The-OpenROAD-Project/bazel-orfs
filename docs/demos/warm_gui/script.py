@@ -1,38 +1,51 @@
-"""The bazel-orfs demo: what is shown and what is said.
+"""Around the EDA World in N Minutes: what is shown and what is said.
 
 A scene is (kind, options, sentences). The kind picks its picture in
 video.py; each sentence is spoken and burned in as one caption, and the
-scene lasts as long as its sentences. Terminal and bullet scenes reveal
-lines as the sentences go ("show": lines visible at each sentence); a
-lanes scene lights the lane a sentence is about ("light": sentence ->
-lane).
+scene lasts as long as its sentences. Scenes that build up ("show",
+"states", "lit", "light") change with each sentence. "{N}" is the video's
+own length, settled by video.py once the narration is spoken.
 
-FULL is the landscape video, SHORT the cell-phone one. The commands are
+The frame is Jules Verne's (1872, public domain): you are Phileas Fogg,
+bazel-orfs is Passepartout ("goes everywhere"), and Inspector Fix is the
+AI reviewer who suspects everything. Audience questions carry the role
+of who would ask them.
+
+FULL is the talk, landscape; SHORT the cell-phone cut. The commands are
 the ones run on ORFS's asap7 gcd and aes-block; 10.7.0.3 stands for the
 viewer's VPN address and is made up, as the frames say.
 """
 
-TITLE = "bazel-orfs: work your own way"
+TITLE = "Around the EDA World in {N}"
 
 # Written form -> spoken form, for the narrator.
 SAY = [
     ("bazel-orfs's", "bazel orfs's"),
     ("bazel-orfs", "bazel orfs"),
+    ("@bazel-orfs//:bump", "bazel orfs bump"),
     ("bazelisk", "bazel-isk"),
     ("make gui_final", "make gooey final"),
+    ("orfs_flow", "orfs flow"),
+    ("config.mk", "config dot M K"),
     ("odb-debug", "O D B debug"),
     ("OpenROAD", "Open Road"),
+    ("MODULE.bazel", "the module file"),
+    ("Passepartout", "Pass-par-too"),
+    ("Phileas Fogg", "Fileas Fogg"),
     ("yosys", "yo-sis"),
     ("asap7", "A sap seven"),
+    ("Optuna", "Op-tuna"),
     ("ORFS", "orfs"),
+    ("RTL", "R T L"),
     ("PDK", "P D K"),
     ("MCP", "M C P"),
     ("VPN", "V P N"),
     ("GUI", "gooey"),
+    ("EDA", "E D A"),
     ("Tcl", "tickle"),
-    ("CI", "C I"),
     ("AES", "A E S"),
     ("gcd", "G C D"),
+    ("+0.24", "plus zero point two four"),
 ]
 
 
@@ -44,38 +57,44 @@ def say(text):
 
 VPN = "10.7.0.3: your VPN address (made up for this video)"
 SERVER = "Server, 10.7.0.3 (your VPN address, made up)"
+# A GUI screenshot's layout panel, as fractions of width and height: a
+# phone shows that, not the whole page.
+CROP = [0.155, 0.055, 0.70, 0.705]
 
-INSTALL = [
-    "$ # the one thing to install: bazelisk",
+CHORES = [
+    "build OpenROAD",
+    "build yosys",
+    "find versions that agree",
+    "set up the PDK",
+    "synthesis again: you moved a placement knob",
+    "wait for the GUI",
+]
+
+ROUTES = ["Student", "Design space", "Hyperparameters", "Maintainer", "Tapeout", "AI"]
+
+STUDENT = [
     "$ bazelisk build @orfs//flow/designs/asap7/gcd:gcd_final",
-]
-
-LANES = [
-    (
-        "Hermetic lane",
-        [
-            "bazelisk build",
-            "cached, reproducible, shared",
-            "for solved problems: numbers, CI, colleagues",
-        ],
-    ),
-    (
-        "Dirty lane",
-        [
-            "a plain ORFS tree: make, Tcl",
-            "minutes per change, hack anything",
-            "for unsolved problems: exploring, debugging",
-        ],
-    ),
-]
-
-DIRTY = [
     "$ bazelisk run //:dirty -- start @orfs//flow/designs/asap7/gcd:gcd final",
     "$ cd tmp/orfs/flow/designs/asap7/gcd/gcd",
     "$ ./make do-final",
     "$ ./make gui_final",
     "odb-debug: open the GUI: http://10.7.0.3:33321/?token=...",
 ]
+
+FLOW = [
+    'load("@bazel-orfs//:openroad.bzl", "orfs_flow")',
+    "",
+    "orfs_flow(",
+    '    name = "mac",',
+    '    verilog_files = ["mac.v"],',
+    '    sources = {"SDC_FILE": [":constraints.sdc"]},',
+    '    arguments = {"CORE_UTILIZATION": "40", "PLACE_DENSITY": "0.65"},',
+    ")",
+]
+
+STAGES = ["synth", "floorplan", "place", "cts", "grt", "route", "final"]
+ALL = ["cached"] * 7
+KNOB = ["cached", "cached", "rerun", "rerun", "rerun", "rerun", "rerun"]
 
 AGENT = [
     "> build grt aes-blocks asap7",
@@ -85,101 +104,426 @@ AGENT = [
     "GUI ready: http://10.7.0.3:42459/?token=...",
 ]
 
+CONTEXT = [
+    "Tokens cost money, on every turn",
+    "Tokens cost time, on every turn",
+    "Irrelevant tokens lower quality: the model loses the thread and fills the gaps",
+]
+
 PROMPT = [
     "> look at bazel-orfs, make an MCP server for our project",
     "  that saves tokens, time and avoids context explosion",
 ]
 
-MCP = [
-    "Question in, summary out: no context explosion",
-    "Warm: answers in seconds, not minutes",
-]
 
-OWN = [
-    "Generic OpenROAD MCP: a start",
-    "A large project's questions are its own",
-    "bazel-orfs's: small, no options, no extension points",
-    "Vendor it, extend it, or have your AI write one",
-]
+def q(role, question, said, **opts):
+    """An audience question: the role and the question on screen, the
+    question spoken first, then the answer."""
+    return (
+        "qa",
+        dict(opts, role=role, question=question),
+        ["The %s asks: %s" % (role.lower(), question)] + said,
+    )
 
-# The layout panel of a GUI screenshot, as fractions of width and height:
-# a phone shows that, not the whole page.
-CROP = [0.155, 0.055, 0.70, 0.705]
-
-END = {"title": "bazel-orfs", "sub": "github.com/The-OpenROAD-Project/bazel-orfs"}
-
-S = {
-    1: "bazel-orfs builds OpenROAD flows with Bazel, and lets you work your own way.",
-    2: "Installing tools is a solved problem: install bazelisk, and you are done.",
-    3: "OpenROAD, yosys, the flow scripts and the PDK are fetched and built for you, at the versions your project pins.",
-    4: "Both lanes are good; they are for different problems.",
-    5: "The hermetic lane is for solved problems: the results are cached, reproducible, and shared by everyone who builds, so use it for numbers, for CI, and for your colleagues.",
-    6: "The dirty lane is for unsolved problems: a plain ORFS tree where you edit Tcl and rerun a stage in minutes, so use it while you explore and debug.",
-    7: "Once you know the answer, you wrap it up hermetically.",
-    8: "Here is the dirty lane on a small design, gcd: lay out the tree, and run the final stage by hand.",
-    9: "Then make gui_final loads the result into a warm, headless OpenROAD session, and prints a link.",
-    10: "That is gcd's final layout, in OpenROAD's GUI, in your browser.",
-    11: "In the hermetic lane, the agent does the same after every build.",
-    12: "Ask it for global route of the AES block design; it reports the result, and unasked, loads it into a warm headless OpenROAD session.",
-    13: "The flow runs on a powerful server; you sit at a laptop.",
-    14: "Over your VPN, the link reaches a small proxy that lets only the token through, to the session that is already loaded.",
-    15: "One click, and the design is there.",
-    16: "The agent asks the same session through bazel-orfs's odb-debug MCP server.",
-    17: "It takes a question and replies with a summary, so the agent's context does not explode into delusions and cost.",
-    18: "And because the design is already loaded, it answers in seconds, not minutes.",
-    19: "You can use a generic OpenROAD MCP server, but on a large project your questions soon become specific to that project.",
-    20: "bazel-orfs's MCP server is project-specific too. It is small, a little more than a configuration example, with no options and no extension points.",
-    21: "So do not wait for it to grow options: vendor it, the licence allows it, or have your AI build your own.",
-    22: "This is code an AI writes in one shot; you need not read it.",
-    23: "Ask your AI to look at bazel-orfs and make an MCP server for your project that saves tokens and time, and avoids context explosion.",
-    24: "bazel-orfs: work your own way, and build on what works.",
-}
-
-MCP_HEAD = "bazel-orfs's odb-debug MCP server"
-OWN_HEAD = "Your own MCP server"
 
 FULL = [
-    ("title", {}, [S[1]]),
-    ("terminal", {"lines": INSTALL, "show": [2, 2]}, [S[2], S[3]]),
-    ("lanes", {"lanes": LANES, "light": {1: 0, 2: 1}}, [S[4], S[5], S[6], S[7]]),
-    ("terminal", {"lines": DIRTY, "show": [3, 5], "note": VPN}, [S[8], S[9]]),
-    ("image", {"image": "gcd", "label": "gcd, final, in your browser"}, [S[10]]),
-    ("terminal", {"lines": AGENT, "show": [1, 5], "note": VPN}, [S[11], S[12]]),
-    ("system", {"server": SERVER}, [S[13], S[14]]),
+    # Prologue: the chores.
+    (
+        "trunk",
+        {"items": CHORES, "show": [0, 6]},
+        [
+            "Phileas Fogg did not pack his own trunk.",
+            "Yet before you can learn anything from OpenROAD, you pack for days: build the tools, find versions that agree, set up the PDK, run synthesis again because you moved a placement knob, and wait for the GUI.",
+        ],
+    ),
+    (
+        "trunk",
+        {"items": CHORES, "show": [6], "struck": True, "answer": "$ install bazelisk"},
+        [
+            'Meet your Passepartout: bazel-orfs. The name is French for "goes everywhere".',
+            "He packs, he books, he fetches. You choose the journey.",
+        ],
+    ),
+    ("title", {"sub": "One install, many journeys"}, ["Around the EDA world in {N}."]),
+    q(
+        "Skeptic",
+        "One install? I've heard that before.",
+        [
+            "The first time, Passepartout builds everything from source, and that takes a while. After that, nothing is built twice, and with a shared cache, not even once on your machine.",
+        ],
+    ),
+    # The voyage map.
+    (
+        "voyage",
+        {"routes": ROUTES, "hub": "You are here: bazelisk"},
+        [
+            "From here, the routes go everywhere.",
+            "Every route uses two lanes. The hermetic lane is for solved problems: pinned, cached, the same answer on any machine. The dirty lane is for unsolved ones: a plain ORFS tree, where you edit Tcl and rerun a stage in minutes.",
+            "Both are good. Explore dirty; once you know the answer, wrap it up hermetically.",
+        ],
+    ),
+    # Port 1: the student route.
+    (
+        "voyage",
+        {"routes": ROUTES, "hub": "You are here: bazelisk", "lit": [0]},
+        ["First port: the student route. Build it, look at it, change it."],
+    ),
+    (
+        "terminal",
+        {"lines": STUDENT, "show": [2, 6], "note": VPN},
+        [
+            "A small design, gcd: build it, then lay it out in a tree of your own, and run the final stage by hand.",
+            "make gui_final loads it into OpenROAD, headless, and prints a link.",
+        ],
+    ),
+    (
+        "image",
+        {"image": "gcd", "label": "gcd, routed, in your browser"},
+        ["That is gcd, routed, in OpenROAD's GUI, in your browser."],
+    ),
+    q(
+        "Student",
+        "Do I have to learn Bazel?",
+        [
+            "No. Bazel sounds scary, and it solves hard problems, but it doesn't change how you work.",
+            "Your AI writes the BUILD files you need; you review the diff. What you need is a picture of what you want.",
+        ],
+    ),
+    q(
+        "Student",
+        "Where does my own design go?",
+        [
+            "Into a few lines next to your RTL: orfs_flow takes your Verilog, your constraints and ORFS's own settings, and makes one target per stage.",
+        ],
+        lines=FLOW,
+    ),
+    q(
+        "ORFS user",
+        "I already have a config.mk. Do I rewrite it?",
+        [
+            "No. A domain-specific language is a small language for one job, and config.mk is one: a few make variables that say what a design is.",
+        ],
+    ),
+    (
+        "mapping",
+        {
+            "heading": "config.mk, read by bazel-orfs",
+            "rows": [
+                ("DESIGN_NAME, PLATFORM", "the flow's name and PDK"),
+                ("VERILOG_FILES, SDC_FILE, PDN_TCL, ...", "its sources, as labels"),
+                ("every other variable", "its settings"),
+                ("BLOCKS", "its macros, each from its own config.mk"),
+            ],
+        },
+        [
+            "bazel-orfs reads it as it stands, so every ORFS design, from gcd up, is already a flow you can build.",
+        ],
+    ),
+    # Port 2: the design-space route.
+    (
+        "voyage",
+        {"routes": ROUTES, "hub": "You are here: bazelisk", "lit": [1]},
+        ["Second port: design space. What does your RTL really cost?"],
+    ),
+    (
+        "stages",
+        {"stages": STAGES, "states": [ALL, KNOB]},
+        [
+            "Every stage is one Bazel action, keyed by exactly what it reads.",
+            "Change a placement setting, and synthesis and floorplan come from the cache; only placement onward runs again.",
+        ],
+    ),
+    (
+        "table",
+        {
+            "heading": "orfs_sweep: design points as targets",
+            "header": ["design point", "PLACE_DENSITY", "target"],
+            "rows": [
+                ["base", "0.65", "//my:mac_final"],
+                ["dense", "0.80", "//my:mac_dense_final"],
+                ["loose", "0.50", "//my:mac_loose_final"],
+            ],
+        },
+        [
+            "So sweep: tens of design points as targets, built in parallel, each one cached. Change one, and only it is rebuilt.",
+        ],
+    ),
+    q(
+        "Architect",
+        "What does my RTL change cost in area and timing?",
+        [
+            "Make the change a design point, and the sweep answers it next to every other point, from the same pinned tools.",
+        ],
+    ),
+    # Port 3: the hyperparameter route.
+    (
+        "voyage",
+        {"routes": ROUTES, "hub": "You are here: bazelisk", "lit": [2]},
+        ["Third port: hyperparameters. Here, Bazel steps aside."],
+    ),
+    (
+        "lanes",
+        {
+            "lanes": [
+                (
+                    "Bazel loop",
+                    ["tens of design points", "cached targets", "orfs_sweep"],
+                ),
+                (
+                    "Optimizer loop",
+                    [
+                        "thousands of trials",
+                        "one executable, built once",
+                        "orfs_run_executable",
+                    ],
+                ),
+            ],
+            "light": {0: 1},
+        },
+        [
+            "Bazel builds one standalone executable of the flow, once. Optuna, or any optimizer, calls it in its own loop with new settings each time.",
+        ],
+    ),
+    q(
+        "Bazel expert",
+        "Why not just call bazel build from the optimizer?",
+        [
+            "Each call pays Bazel's own overhead, and every new setting re-keys every stage that reads it. A build system is the wrong tool for a trial loop; its job is to make the executable the same everywhere.",
+        ],
+    ),
+    (
+        "tree",
+        {
+            "heading": "fork: shared stages, paid once",
+            "root": "synth, floorplan, place: shared",
+            "leaves": ["trial 1", "trial 2", "trial 3", "trial 4"],
+        },
+        [
+            "When trials share their first stages, one OpenROAD process walks the whole tree, and pays each shared stage once.",
+        ],
+    ),
+    q(
+        "Researcher",
+        "Is there a worked example?",
+        [
+            "The estimation ladder in bazel-orfs: an Optuna study that trades an estimator's runtime against its accuracy, checked against a full global route.",
+        ],
+    ),
+    # Port 4: the maintainer route.
+    (
+        "voyage",
+        {"routes": ROUTES, "hub": "You are here: bazelisk", "lit": [3]},
+        ["Fourth port: the maintainer route. Carry it, prove it, propose it."],
+    ),
+    (
+        "bullets",
+        {
+            "heading": "Every tool: a pinned archive with a patches list",
+            "items": [
+                "bazel-orfs",
+                "OpenROAD, built from source",
+                "ORFS: flow scripts and platforms",
+                "yosys, the slang frontend, the PDK",
+            ],
+        },
+        [
+            "Every tool is a pinned archive with a list of patches, so a fix can be carried until upstream takes it."
+        ],
+    ),
+    (
+        "bullets",
+        {
+            "heading": "Carry it, prove it, propose it",
+            "items": [
+                "Ask the AI for a fix, carried as a patch",
+                "Sweep the ORFS designs; the AI reports on what you fixed",
+                "You read the data, and you decide",
+                "A draft upstream pull request, with the data",
+            ],
+            "show": [2, 4],
+        },
+        [
+            "The ORFS designs are a test bench the maintainers know by heart. Carry a fix, sweep them, and have your AI report the result.",
+            "You read the data and decide. Then a draft pull request goes upstream, data included.",
+        ],
+    ),
+    (
+        "fix",
+        {
+            "who": "Inspector Fix, the AI reviewer",
+            "claim": "This can return undefined; return Promise.resolve(null) instead.",
+            "verdicts": [
+                "Check it against the code.",
+                "Not taken: the fallback below returns a Promise.",
+            ],
+        },
+        [
+            "And then Inspector Fix arrives: the AI reviewer, who suspects everything.",
+            "Trust him, but verify every claim he makes.",
+        ],
+    ),
+    q(
+        "OpenROAD maintainer",
+        "So we'll get floods of AI pull requests?",
+        [
+            "No. A human reads the sweep and decides; the pull request carries the data; and the carried patch stays put while you review, so nothing is rushed upstream.",
+        ],
+    ),
+    q(
+        "Bazel expert",
+        "How are the versions kept current?",
+        [
+            "One command, bazelisk run @bazel-orfs//:bump, moves every pin forward together."
+        ],
+    ),
+    # Port 5: tapeout.
+    (
+        "voyage",
+        {"routes": ROUTES, "hub": "You are here: bazelisk", "lit": [4]},
+        [
+            "Fifth port: tapeout. Few take this route, but the track is there: every tool pinned, every result reproducible, the same answer next year as today."
+        ],
+    ),
+    q(
+        "Tapeout engineer",
+        "Can I prove what produced a result?",
+        [
+            "Yes. The pins in MODULE.bazel and the patches beside them say exactly what built it."
+        ],
+    ),
+    # Port 6: AI.
+    (
+        "voyage",
+        {"routes": ROUTES, "hub": "You are here: bazelisk", "lit": [5]},
+        ["Last port: AI. A warm session, and a small context."],
+    ),
+    (
+        "terminal",
+        {"lines": AGENT, "show": [5], "note": VPN},
+        [
+            "Ask your agent for a build: global route of the AES block design. It reports the result, and unasked, loads it into a warm, headless OpenROAD session."
+        ],
+    ),
+    (
+        "system",
+        {"server": SERVER},
+        [
+            "The flow runs on a powerful server; you sit at a laptop. Over your VPN, the link reaches a small proxy that lets only its token through."
+        ],
+    ),
     (
         "image",
         {"image": "gui", "label": "aes-block, global route, one click away"},
-        [S[15]],
+        ["One click, and the design is there."],
     ),
     (
         "bullets",
-        {"heading": MCP_HEAD, "items": MCP, "show": [0, 1, 2]},
-        [S[16], S[17], S[18]],
+        {
+            "heading": "Keep the context small and relevant",
+            "items": CONTEXT,
+            "show": [0, 3, 3],
+        },
+        [
+            "The agent asks the same session through an MCP server: a question in, a summary out.",
+            "Why summaries? Every token in an agent's context costs money and time, and irrelevant ones lower the quality: the model loses the thread and fills the gaps.",
+            "And because the design is already loaded, it answers in seconds, not minutes.",
+        ],
+    ),
+    q(
+        "AI practitioner",
+        "Is there a generic OpenROAD MCP server?",
+        [
+            "You can use one, but on a large project your questions soon become your project's own.",
+            "bazel-orfs's server is small and project-specific, a little more than a configuration example. Copy it, or have your AI write yours.",
+        ],
     ),
     (
-        "bullets",
-        {"heading": OWN_HEAD, "items": OWN, "show": [2, 3, 4]},
-        [S[19], S[20], S[21]],
+        "terminal",
+        {"lines": PROMPT, "show": [2]},
+        [
+            "Ask your AI to look at bazel-orfs and make one for your project. You review what it writes."
+        ],
     ),
-    ("terminal", {"lines": PROMPT, "show": [2, 2]}, [S[22], S[23]]),
-    ("title", END, [S[24]]),
+    # Epilogue: the day gained.
+    (
+        "voyage",
+        {"routes": ROUTES, "hub": "Home: a day gained"},
+        [
+            "Fogg came home thinking he had lost the wager, then found he had gained a day without noticing.",
+            "Your cache does the same: every stage already built is time you get back.",
+        ],
+    ),
+    (
+        "title",
+        {
+            "sub": "Install bazelisk. Choose your journey.  github.com/The-OpenROAD-Project/bazel-orfs"
+        },
+        ["Install bazelisk. Choose your journey."],
+    ),
 ]
 
 SHORT = [
-    ("title", {}, [S[1]]),
-    ("terminal", {"lines": INSTALL, "show": [2]}, [S[2]]),
-    ("lanes", {"lanes": LANES}, [S[4], S[7]]),
-    ("terminal", {"lines": AGENT, "show": [5], "note": VPN}, [S[12]]),
-    ("system", {"server": SERVER}, [S[13]]),
+    (
+        "trunk",
+        {"items": CHORES, "show": [6]},
+        [
+            "Before you can learn anything from OpenROAD, you pack for days: build the tools, find versions that agree, and wait for the GUI."
+        ],
+    ),
+    (
+        "trunk",
+        {"items": CHORES, "show": [6], "struck": True, "answer": "$ install bazelisk"},
+        [
+            'Meet your Passepartout, French for "goes everywhere": bazel-orfs. He packs, he books, he fetches. You choose the journey.'
+        ],
+    ),
+    ("title", {"sub": "One install, many journeys"}, ["Around the EDA world in {N}."]),
+    (
+        "voyage",
+        {"routes": ROUTES, "hub": "You are here: bazelisk"},
+        [
+            "Every route has two lanes: hermetic for solved problems, dirty for the ones you are still exploring."
+        ],
+    ),
+    (
+        "terminal",
+        {"lines": STUDENT, "show": [6], "note": VPN},
+        [
+            "Build a design, lay it out in a tree of your own, and make gui_final prints a link."
+        ],
+    ),
     (
         "image",
-        {"image": "gui", "label": "One click: already loaded", "portrait_crop": CROP},
-        [S[15]],
+        {
+            "image": "gcd",
+            "label": "gcd, routed, in your browser",
+            "portrait_crop": CROP,
+        },
+        ["That is gcd, routed, in OpenROAD's GUI, in your browser."],
     ),
-    ("bullets", {"heading": MCP_HEAD, "items": MCP[:1], "show": [1]}, [S[17]]),
-    ("bullets", {"heading": OWN_HEAD, "items": OWN[3:], "show": [1]}, [S[21]]),
-    ("terminal", {"lines": PROMPT, "show": [2]}, [S[23]]),
-    ("title", END, [S[24]]),
+    (
+        "stages",
+        {"stages": STAGES, "states": [KNOB]},
+        [
+            "Change a setting, and only the stages it touches run again: sweep tens of design points, every one cached."
+        ],
+    ),
+    (
+        "bullets",
+        {
+            "heading": "Keep the context small and relevant",
+            "items": CONTEXT,
+            "show": [3],
+        },
+        [
+            "Your AI asks a warm OpenROAD session for summaries, not logs: every token costs money and time, and irrelevant ones lower the quality."
+        ],
+    ),
+    (
+        "title",
+        {"sub": "Install bazelisk. Choose your journey."},
+        ["Install bazelisk. Choose your journey."],
+    ),
 ]
 
 SCRIPTS = {"full": FULL, "short": SHORT}
