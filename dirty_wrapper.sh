@@ -76,7 +76,20 @@ stage_target() {
 }
 
 # //pkg:name -> pkg
-label_pkg() { local l="${1#//}"; echo "${l%%:*}"; }
+# The tree's directory under tmp/: //pkg:flow is pkg, @repo//pkg:flow
+# repo/pkg.
+label_pkg() {
+    local l="$1"
+    case "$l" in
+    @*)
+        l="${l#@}"
+        l="${l#@}"
+        l="${l%%//*}/${l#*//}"
+        ;;
+    *) l="${l#//}" ;;
+    esac
+    echo "${l%%:*}"
+}
 label_name() { echo "${1##*:}"; }
 
 default_dir() {

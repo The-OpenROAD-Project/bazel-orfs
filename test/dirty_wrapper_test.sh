@@ -63,6 +63,13 @@ DIRTY_STARTUP_OPTS="--output_base=/ob" DIRTY_BUILD_OPTS="--jobs=3" run start //t
 check "DIRTY_STARTUP_OPTS and DIRTY_BUILD_OPTS reach the nested build" \
     'grep -q -- "--output_base=/ob build --jobs=3 --output_groups=deps_files" "$CALLS"'
 
+mkdir -p "$WS/tmp/orfs/flow/designs/asap7/gcd/gcd"
+echo keep >"$WS/tmp/orfs/flow/designs/asap7/gcd/gcd/mine"
+run start @orfs//flow/designs/asap7/gcd:gcd final
+check "a flow in another repository has its tree under tmp/<repo>/<package>/<flow>" \
+    '[ $RC -ne 0 ] && grep -q "refusing to replace tmp/orfs/flow/designs/asap7/gcd/gcd" <<<"$OUT"'
+rm -rf "$WS/tmp/orfs"
+
 mkdir -p "$WS/tmp/test/lb"
 echo keep >"$WS/tmp/test/lb/mine"
 run start //test:lb place
