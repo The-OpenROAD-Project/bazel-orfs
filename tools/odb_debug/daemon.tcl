@@ -541,7 +541,12 @@ puts $fh [od_jobj [list port $od_port pid [pid] dir [od_jstr $::env(ODB_DEBUG_DI
   workspace [od_jstr $::od_workspace] commit [od_jstr $::od_commit] timing [od_jbool $::od_timing]]]
 close $fh
 puts "odb-debug: daemon on http://127.0.0.1:$od_port (info: $::od_info_path)"
-puts "odb-debug: GUI on http://$::od_gui_bind:$::od_gui_port/, the link with its token is daemon.json's gui_url"
+if { [info exists ::env(ODB_DEBUG_PRINT_LINK)] && $::env(ODB_DEBUG_PRINT_LINK) } {
+  # make gui_<stage>: the human at this terminal is the one to click it.
+  puts "odb-debug: open the GUI: $::od_gui_url"
+} else {
+  puts "odb-debug: GUI on http://$::od_gui_bind:$::od_gui_port/, the link with its token is daemon.json's gui_url"
+}
 puts "odb-debug: design [[ord::get_db_block] getName], [llength [[ord::get_db_block] getInsts]] insts, loaded in $::od_load_secs s, timing [expr { $::od_timing ? "on" : "off" }]"
 
 # Idle exit: give the memory back when nobody asks. Default twice the load

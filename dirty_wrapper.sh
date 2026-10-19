@@ -2,8 +2,8 @@
 #
 # //:dirty: a flow's stages in a tree you can run by hand.
 #
-#   bazelisk run //:dirty -- start   <flow> <stage> [--dir D] [--variant V] [--fresh]
-#   bazelisk run //:dirty -- next    <stage>        [--dir D]
+#   bazelisk run //:dirty -- start   <flow> <stage> [--dir D] [--variant V] [--fresh] [--qt]
+#   bazelisk run //:dirty -- next    <stage>        [--dir D] [--qt]
 #   bazelisk run //:dirty -- status                 [--dir D]
 #   bazelisk run //:dirty -- archive <flow> <stage> <file.tar.gz> [--variant V]
 #
@@ -17,6 +17,11 @@
 # status  Says where each stage's result in the tree came from, Bazel or
 #         a hand-run make, and which settings were edited.
 # archive A self-contained reproducer .tar.gz of what <stage> needs.
+#
+# <tree>/make gui_<stage> opens a result in the web viewer: a link with
+# a token, reachable over a VPN. --qt also builds the Qt-linked openroad
+# and installs it, for <tree>/make qt_<stage>; without it nothing builds
+# Qt, which is a long build.
 #
 # <flow> is the flow's label, //test:lb_32x128; a stage target's label,
 # //test:lb_32x128_place, is accepted in place of <flow> <stage>.
@@ -112,7 +117,8 @@ build_group() {
 }
 
 # install_tree <manifest> <dir> <mode>: mode "all" installs every file,
-# "keep-results" never writes an earlier stage's result.
+# "keep-results" never writes an earlier stage's result, "add" installs
+# files into a tree that already has its make and config (--qt).
 install_tree() {
     local manifest="$1" dst="$2" mode="$3"
     local execroot outbase
@@ -170,6 +176,7 @@ install_tree() {
         name="$(basename "$repo")"
         [ -e "$dst/${name%+}" ] || ln -s "$name" "$dst/${name%+}"
     done
+    [ "$mode" = add ] && return
     # The manifest's make wrapper runs the stage; ours records the run.
     mv -f "$dst/make" "$dst/make.stage"
     cat >"$dst/make" <<'EOF'
@@ -236,6 +243,24 @@ next_steps() {
     echo
     echo "Installed in ${dir#"$CWD"/}"
     echo "next: ${dir#"$CWD"/}/make $(stage_make "$stage" "$dir")"
+    echo "look: ${dir#"$CWD"/}/make gui_$stage    (the web viewer; a link with a token)"
+    if [ -f "$dir/.qt" ]; then
+        echo "      ${dir#"$CWD"/}/make qt_$stage     (the Qt GUI)"
+    fi
+}
+
+# install_qt <target>: the Qt-linked openroad into the tree, for qt_<stage>.
+install_qt() {
+    local target="$1" manifest
+    echo "dirty: building the Qt-linked openroad (--qt); a long build the first time" >&2
+    bz build ${DIRTY_BUILD_OPTS:-} --output_groups=deps_qt "$target" >&2 ||
+        die "bazelisk build --output_groups=deps_qt $target failed"
+    manifest="$(bz cquery --output=files --output_groups=deps_qt "$target" 2>/dev/null |
+        grep '_qt_manifest\.txt$' || true)"
+    [ -n "$manifest" ] || die "$target has no Qt manifest (is it an ORFS stage target?)"
+    install_tree "$manifest" "$DIR" add
+    touch "$DIR/.qt"
+    echo "qt installed ($(date '+%Y-%m-%d %H:%M'))" >>"$DIR/.dirty"
 }
 
 # --- arguments ----------------------------------------------------------------
@@ -243,7 +268,7 @@ next_steps() {
 [ $# -ge 1 ] || usage
 CMD="$1"
 shift
-DIR="" VARIANT="" FRESH=0
+DIR="" VARIANT="" FRESH=0 QT=0
 POS=()
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -254,6 +279,10 @@ while [ $# -gt 0 ]; do
     --variant)
         VARIANT="${2:?--variant needs a name}"
         shift 2
+        ;;
+    --qt)
+        QT=1
+        shift
         ;;
     --fresh)
         FRESH=1
@@ -360,6 +389,7 @@ start)
         echo "      from it or fail (AUTO_MEMORIES with SYNTH_HIERARCHICAL does). To"
         echo "      iterate after synthesis, start the lane at floorplan."
     fi
+    [ "$QT" = 0 ] || install_qt "$TARGET"
     next_steps "$DIR" "$STAGE"
     ;;
 next)
@@ -383,6 +413,7 @@ next)
     install_tree "$MANIFEST" "$DIR" keep-results
     echo "stage $STAGE scripts added by next ($(date '+%Y-%m-%d %H:%M'))" >>"$DIR/.dirty"
     echo "$DIR" >"$WS/tmp/.dirty_last"
+    [ "$QT" = 0 ] || install_qt "$TARGET"
     next_steps "$DIR" "$STAGE"
     ;;
 status)
