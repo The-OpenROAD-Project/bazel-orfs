@@ -56,6 +56,9 @@ source of truth; do not duplicate their mechanics:
 - `odb-debug` — ask a stage's ODB questions through a persistent OpenROAD
   session (macros, cells inside macros, slivers, legality, worst paths)
   from a shell or the `odb-debug` MCP server.
+- `warm-gui` — after a build, load the stage the human will want to look
+  at into an odb-debug daemon in the background and hand over the web
+  viewer's link, token-gated and reachable over a VPN.
 
 Which modules to harden, and the floorplan their interfaces dictate, is
 its own skill; a global route that will not converge on a hierarchical
