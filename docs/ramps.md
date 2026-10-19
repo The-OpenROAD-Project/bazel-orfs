@@ -9,13 +9,17 @@ take it back out whenever you want:
 | on-ramp | an ORFS design into a bazel-orfs clone, with a `BUILD.bazel` that builds it | `bazelisk run //:import -- <ORFS design dir>` |
 | hermetic lane | Bazel builds it: pinned, cached, the same answer on any machine | `bazelisk build <flow>_final` |
 | dirty lane | a plain ORFS tree for one stage, to hack with make ([dirty-lane.md](dirty-lane.md)) | `bazelisk run //:dirty -- start <flow> <stage>` |
-| off-ramp | a flow out to a plain ORFS design: `config.mk`, `inputs/`, `run.sh` | `bazelisk run //:export -- <dir> <flow>` |
+| off-ramp | a flow out to a plain ORFS design, `config.mk` and `inputs/`, made with ORFS's make as usual | `bazelisk run //:export -- <dir> <flow>` |
 
 ## Try it in a clone
 
-Nothing here touches your ORFS checkout. Import only reads it, and
-everything it writes goes into the clone, so deleting the clone removes
-every trace.
+The easy way to get to know bazel-orfs is the same as for ORFS: clone it.
+That is not the only way. Just as you can use ORFS from a repository of
+your own, you can use bazel-orfs from yours (the README's "Use bazel-orfs
+from your own project"); a clone just saves setting one up while you look
+around.
+
+Nothing here touches your ORFS checkout. Import only reads it.
 
 ```sh
 git clone https://github.com/The-OpenROAD-Project/bazel-orfs
@@ -40,6 +44,22 @@ replaces the copy.
 
 The values come from ORFS's own make (`make print-VAR`), so wildcards,
 includes and conditionals come out the way the ORFS flow would see them.
+
+## Where the files go
+
+By default, what bazel-orfs writes for you goes under the clone:
+`imported/` for import, and `tmp/` for the dirty lane's trees and other
+scratch work. So it does not fill up your system's `/tmp`, and deleting
+the clone deletes it. Both are git-ignored. They are only defaults:
+`//:import --dest` and `//:dirty start --dir` put them anywhere you
+like.
+
+Bazel's own cache is different. Bazel keeps it outside the clone, in
+`~/.cache/bazel` by default, and refuses to keep it inside a repository.
+It is shared by every clone and workspace on the machine, which is why a
+second clone does not build OpenROAD again. To remove it after a try-out,
+run `bazelisk shutdown` in the clone and delete the directory
+`bazelisk info output_base` names, or all of `~/.cache/bazel`.
 
 ## Look at the BUILD.bazel
 
@@ -74,18 +94,27 @@ One difference from ORFS's make: `orfs_flow()` synthesises with slang
 where ORFS's make reads the Verilog with yosys's own frontend. The
 generated `BUILD.bazel` says so when that applies.
 
-## Export: hand it to make
+## Export: make as usual in ORFS
 
 ```sh
-bazelisk run //:export -- ~/gcd-orfs //imported/asap7/gcd:gcd
-FLOW_HOME=~/OpenROAD-flow-scripts/flow ~/gcd-orfs/run.sh
+bazelisk run //:export -- \
+    ~/OpenROAD-flow-scripts/flow/designs/asap7/gcd-bazel //imported/asap7/gcd:gcd
+cd ~/OpenROAD-flow-scripts/flow
+make DESIGN_CONFIG=./designs/asap7/gcd-bazel/config.mk
 ```
 
-`~/gcd-orfs` holds a `config.mk`, every input under `inputs/` and a
-`run.sh` that runs ORFS's make. Nothing in it refers to the clone: copy
-it to another machine, or hand it to someone who has never run Bazel. Use
-it for a test with a locally built tool, a peer's review, or an ORFS
-issue.
+An export is an ORFS design like any other: a `config.mk` and its
+inputs under `inputs/`. Put it next to ORFS's own designs and make it as
+usual; results, logs and reports go where ORFS always puts them. Export
+prints the make line to type. For a flow Bazel builds only partway, the
+line names the last stage (`make DESIGN_CONFIG=... place`), and so does
+the `config.mk`. Nothing in the export refers to the clone: copy it to
+another machine, or hand it to someone who has never run Bazel. Use it
+for a test with a locally built tool, a peer's review, or an ORFS issue.
+
+An export of gcd shares `results/asap7/gcd/base` with ORFS's own gcd:
+the design is the same name. Export says so when that directory holds an
+earlier run; `FLOW_VARIANT=bazel` on the make line keeps the two apart.
 
 The values are the ones Bazel configures each stage with, merged into one
 `config.mk`. That includes bazel-orfs's own defaults, such as
@@ -94,8 +123,12 @@ With the same ORFS and the same tools, the results are the same:
 
 | flow | stages run by make | compared with Bazel's |
 |---|---|---|
-| gcd, imported from ORFS | synth … finish, 44 s | `5_route.odb` byte-identical |
-| `//test:lb_32x128_top`, one hardened macro | synth … place, 19 s | `2_floorplan.odb` byte-identical |
+| gcd, imported from ORFS | synth … finish, 49 s | `5_route.odb` byte-identical |
+| `//test:lb_32x128_top`, one hardened macro | synth … place, 21 s | `2_floorplan.odb` byte-identical |
+
+Measured with the export under the pinned ORFS's `flow/designs/` and
+plain `make` run from `flow/`, with the OpenROAD and Yosys binaries Bazel
+used.
 
 Imported and then exported, ORFS's gcd keeps every design setting, with
 its RTL and SDC byte-identical.

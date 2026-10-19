@@ -111,5 +111,63 @@ class ConfigTest(unittest.TestCase):
         )
 
 
+class OrfsTest(unittest.TestCase):
+    """Where an export lands in an ORFS checkout, and what it says to run."""
+
+    def setUp(self):
+        self.flow = os.path.join(
+            tempfile.mkdtemp(dir=os.environ.get("TEST_TMPDIR")), "flow"
+        )
+        os.makedirs(os.path.join(self.flow, "scripts"))
+        open(os.path.join(self.flow, "Makefile"), "w").close()
+        open(os.path.join(self.flow, "scripts", "variables.mk"), "w").close()
+        self.dest = os.path.join(self.flow, "designs", "asap7", "gcd-bazel")
+        os.makedirs(self.dest)
+        self.merged = {"PLATFORM": "asap7", "DESIGN_NAME": "gcd"}
+
+    def test_make_as_usual_in_flow(self):
+        self.assertEqual(
+            export_design.next_step(self.dest, self.merged, "final"),
+            [
+                "next:   cd " + self.flow,
+                "        make DESIGN_CONFIG=./designs/asap7/gcd-bazel/config.mk",
+            ],
+        )
+
+    def test_a_flow_bazel_builds_partway_names_its_last_stage(self):
+        self.assertTrue(
+            export_design.next_step(self.dest, self.merged, "place")[1].endswith(
+                "config.mk place"
+            )
+        )
+
+    def test_notes_an_earlier_run_of_the_same_design(self):
+        os.makedirs(os.path.join(self.flow, "results", "asap7", "gcd", "base"))
+        note = export_design.next_step(self.dest, self.merged, "final")[-1]
+        self.assertIn("FLOW_VARIANT=bazel", note)
+
+    def test_outside_orfs(self):
+        dest = tempfile.mkdtemp(dir=os.environ.get("TEST_TMPDIR"))
+        self.assertEqual(
+            export_design.next_step(dest, self.merged, "final"),
+            ["next:   make -C <ORFS>/flow DESIGN_CONFIG={}/config.mk".format(dest)],
+        )
+
+    def test_writes_only_an_orfs_design(self):
+        export_design.write_config(
+            self.dest,
+            "//pkg:gcd",
+            dict(self.merged, CORE_UTILIZATION="65"),
+            [],
+            "final",
+        )
+        self.assertEqual(os.listdir(self.dest), ["config.mk"])
+        with open(os.path.join(self.dest, "config.mk")) as f:
+            text = f.read()
+        self.assertTrue(text.startswith(export_design.MARKER))
+        self.assertIn("export PLATFORM = asap7\nexport DESIGN_NAME = gcd\n", text)
+        self.assertIn("export CORE_UTILIZATION = 65\n", text)
+
+
 if __name__ == "__main__":
     unittest.main()
