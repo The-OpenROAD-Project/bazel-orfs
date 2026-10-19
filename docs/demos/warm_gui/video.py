@@ -3,13 +3,14 @@
 
 Each sentence is spoken by Piper (offline, a pinned voice) and becomes one
 still frame with the sentence burned in as a caption, held for as long as
-it is spoken. The narration is spoken first, so "{N}" in the script (the
-title's "in N minutes") says how long the video really is. The stills go through ffmpeg's concat demuxer, the voice is
-one WAV beside them, and the ffmpeg that imageio-ffmpeg pins encodes both:
+it is spoken. A scene marked "animate" draws itself over its first second
+instead, and a gauge in the corner slides between the values the scenes
+set. The frames go through ffmpeg's concat demuxer, the voice is one WAV
+beside them, and the ffmpeg that imageio-ffmpeg pins encodes both:
 nothing is taken from the host.
 
     video.py --script full|short --format landscape|portrait \
-        --voice-onnx F --voice-json F --gui PNG --gcd PNG \
+        --voice-onnx F --voice-json F --gui PNG \
         --out out.mp4 --srt out.srt [--test]
 
 --test keeps the first two sentences, for a test that it encodes.
@@ -31,6 +32,10 @@ import script as SCRIPT  # noqa: E402
 
 FORMATS = {"landscape": (1920, 1080), "portrait": (1080, 1920)}
 FPS = 30
+# An animated scene draws itself over its first ANIM seconds, at ANIM_FPS,
+# then holds its last frame.
+ANIM = 1.2
+ANIM_FPS = 15
 # Silence after each sentence, and after a scene's last one.
 GAP = 0.35
 SCENE_GAP = 0.6
@@ -68,10 +73,10 @@ class Canvas(object):
         self.args = args
         self.portrait = self.h > self.w
         self.unit = min(self.w, self.h) / 1080.0
-        self.n_text = "N Minutes"
-
-    def fmt(self, text):
-        return text.replace("{N}", self.n_text)
+        # Animation progress of the frame being drawn, 0..1.
+        self.t = 1.0
+        self.gauge_from = None
+        self.gauge_to = None
 
     def px(self, n):
         return int(round(n * self.unit))
@@ -104,9 +109,9 @@ class Canvas(object):
     # One method per scene kind: (img, draw, opts, sentence index).
     def title(self, img, draw, opts, k):
         mid = self.caption_top() / 2
-        title = self.fmt(opts.get("title", SCRIPT.TITLE))
+        title = opts.get("title", SCRIPT.TITLE)
         self.centred(draw, mid - self.px(160), title, 72, FG)
-        sub = self.fmt(opts.get("sub", ""))
+        sub = opts.get("sub", "")
         self.centred(
             draw, mid + self.px(80 if not self.portrait else 160), sub, 40, ACCENT
         )
@@ -114,7 +119,7 @@ class Canvas(object):
     def terminal(self, img, draw, opts, k):
         shown = opts["lines"][: opts["show"][min(k, len(opts["show"]) - 1)]]
         margin = self.px(60)
-        room = self.px(340) if opts.get("figures") and not self.portrait else margin
+        room = margin
         box = [margin, margin, self.w - room, self.caption_top() - margin]
         draw.rounded_rectangle(box, radius=self.px(18), fill=PANEL, outline=DIM)
         fnt = font(self.px(36 if not self.portrait else 34))
@@ -139,154 +144,6 @@ class Canvas(object):
                     font=note,
                     fill=DIM,
                 )
-
-    def lanes(self, img, draw, opts, k):
-        """Two columns, one per lane; the sentence about a lane lights it."""
-        head, body = font(self.px(48)), font(self.px(36))
-        n = len(opts["lanes"])
-        margin, gap = self.px(70), self.px(50)
-        area = self.caption_top() - 2 * margin
-        for i, (name, rows) in enumerate(opts["lanes"]):
-            if self.portrait:
-                h = (area - gap) / n
-                box = [
-                    margin,
-                    margin + i * (h + gap),
-                    self.w - margin,
-                    margin + i * (h + gap) + h,
-                ]
-            else:
-                w = (self.w - 2 * margin - gap) / n
-                box = [
-                    margin + i * (w + gap),
-                    margin,
-                    margin + i * (w + gap) + w,
-                    margin + area,
-                ]
-            lit = opts.get("light", {}).get(k) == i
-            draw.rounded_rectangle(
-                box,
-                radius=self.px(20),
-                fill=PANEL,
-                outline=ACCENT if lit else DIM,
-                width=self.px(6 if lit else 2),
-            )
-            x, y = box[0] + self.px(40), box[1] + self.px(36)
-            draw.text((x, y), name, font=head, fill=ACCENT if lit else FG)
-            y += self.px(90)
-            for row in rows:
-                for part in wrap(draw, row, body, box[2] - box[0] - self.px(80)):
-                    draw.text(
-                        (x, y),
-                        part,
-                        font=body,
-                        fill=FG if lit or not opts.get("light") else DIM,
-                    )
-                    y += self.px(48)
-                y += self.px(22)
-
-    def system(self, img, draw, opts, k):
-        """The laptop and the server it reaches over the VPN. Items sit on a
-        grid of (row, column); a phone transposes it."""
-        items = {
-            "browser": (0, 0, "Browser", "OpenROAD's GUI"),
-            "claude": (1, 0, "Claude terminal", ""),
-            "proxy": (0, 1, "gui_proxy", "token checked"),
-            "agent": (1, 1, "Claude Code", ""),
-            "daemon": (0, 2, "odb-debug", "OpenROAD, design loaded"),
-            "mcp": (1, 2, "MCP server", "summaries"),
-        }
-        links = [
-            ("browser", "proxy", "VPN"),
-            ("claude", "agent", "ssh"),
-            ("proxy", "daemon", ""),
-            ("agent", "mcp", ""),
-            ("mcp", "daemon", ""),
-        ]
-        top, bottom = self.px(150), self.caption_top() - self.px(60)
-        left, right = self.px(60), self.w - self.px(60)
-        cols, rows = 3, 2
-        if self.portrait:
-            along, across = (bottom - top), (right - left)
-            bw, bh = across / rows - self.px(60), along / cols - self.px(150)
-        else:
-            along, across = (right - left), (bottom - top)
-            bw, bh = along / cols - self.px(150), across / rows - self.px(120)
-        bh = min(bh, self.px(200))
-
-        def centre(r, c):
-            if self.portrait:
-                return (
-                    left + (r + 0.5) * (right - left) / rows,
-                    top + (c + 0.5) * (bottom - top) / cols,
-                )
-            return (
-                left + (c + 0.5) * (right - left) / cols,
-                top + (r + 0.5) * (bottom - top) / rows,
-            )
-
-        def rect(key):
-            x, y = centre(*items[key][:2])
-            return [x - bw / 2, y - bh / 2, x + bw / 2, y + bh / 2]
-
-        # The two machines around their items.
-        groups = [
-            (["browser", "claude"], "Laptop"),
-            (["proxy", "agent", "daemon", "mcp"], opts.get("server", "Server")),
-        ]
-        label = font(self.px(34))
-        headings = []
-        for keys, name in groups:
-            rs = [rect(key) for key in keys]
-            pad = self.px(28)
-            g = [
-                min(r[0] for r in rs) - pad,
-                min(r[1] for r in rs) - pad - self.px(50),
-                max(r[2] for r in rs) + pad,
-                max(r[3] for r in rs) + pad,
-            ]
-            draw.rounded_rectangle(g, radius=self.px(24), outline=DIM, width=self.px(3))
-            headings.append(((g[0] + self.px(24), g[1] + self.px(10)), name))
-        for a, b, text in links:
-            ra, rb = rect(a), rect(b)
-            ca = ((ra[0] + ra[2]) / 2, (ra[1] + ra[3]) / 2)
-            cb = ((rb[0] + rb[2]) / 2, (rb[1] + rb[3]) / 2)
-            if abs(ca[0] - cb[0]) > abs(ca[1] - cb[1]):
-                sx = 1 if cb[0] > ca[0] else -1
-                p, q = (ca[0] + sx * bw / 2, ca[1]), (cb[0] - sx * bw / 2, cb[1])
-            else:
-                sy = 1 if cb[1] > ca[1] else -1
-                p, q = (ca[0], ca[1] + sy * bh / 2), (cb[0], cb[1] - sy * bh / 2)
-            self.arrow(draw, p, q, False)
-            if text:
-                f = font(self.px(32))
-                mx, my = (p[0] + q[0]) / 2, (p[1] + q[1]) / 2
-                if p[0] == q[0]:
-                    # Beside a vertical arrow, not on it.
-                    at = (mx + self.px(14), my - self.px(18))
-                else:
-                    at = (mx - draw.textlength(text, font=f) / 2, my - self.px(46))
-                draw.text(at, text, font=f, fill=ACCENT)
-        # The machines' names over the arrows that cross their borders.
-        for (x, y), name in headings:
-            w = draw.textlength(name, font=label)
-            draw.rectangle(
-                [x - self.px(8), y, x + w + self.px(8), y + self.px(42)], fill=BG
-            )
-            draw.text((x, y), name, font=label, fill=DIM)
-        name_f, note_f = font(self.px(38)), font(self.px(26))
-        for key, (_, _, name, note) in items.items():
-            r = rect(key)
-            draw.rounded_rectangle(r, radius=self.px(16), fill=PANEL, outline=ACCENT)
-            for text, f, colour, dy in (
-                (name, name_f, FG, 0.28 if note else 0.4),
-                (note, note_f, DIM, 0.62),
-            ):
-                if text:
-                    tx = (r[0] + r[2] - draw.textlength(text, font=f)) / 2
-                    draw.text(
-                        (tx, r[1] + (r[3] - r[1]) * dy), text, font=f, fill=colour
-                    )
 
     def arrow(self, draw, a, b, backwards):
         draw.line([a, b], fill=DIM, width=self.px(6))
@@ -321,24 +178,6 @@ class Canvas(object):
         img.paste(pic, (int((self.w - pic.width) / 2), y))
         self.centred(draw, self.px(30), opts["label"], 40, ACCENT)
 
-    def bullets(self, img, draw, opts, k):
-        fnt = font(self.px(46))
-        y = self.px(100)
-        if "heading" in opts:
-            self.centred(draw, self.px(50), opts["heading"], 52, ACCENT)
-            y = self.px(200)
-        show = opts.get("show", [len(opts["items"])])
-        for item in opts["items"][: show[min(k, len(show) - 1)]]:
-            for j, line in enumerate(wrap(draw, item, fnt, self.w - self.px(260))):
-                if j == 0:
-                    draw.ellipse(
-                        [self.px(90), y + self.px(14), self.px(118), y + self.px(42)],
-                        fill=ACCENT,
-                    )
-                draw.text((self.px(150), y), line, font=fnt, fill=FG)
-                y += self.px(62)
-            y += self.px(40)
-
     def box(self, draw, r, outline=ACCENT, fill=PANEL, width=2):
         draw.rounded_rectangle(
             r, radius=self.px(16), fill=fill, outline=outline, width=self.px(width)
@@ -355,588 +194,437 @@ class Canvas(object):
             draw.text((x, y), line, font=fnt, fill=fill)
             y += step
 
-    def trunk(self, img, draw, opts, k):
-        """The chores: a packing list that grows, then one line strikes it."""
-        fnt = font(self.px(44))
-        y = self.px(90)
-        shown = opts["items"][: opts["show"][min(k, len(opts["show"]) - 1)]]
-        struck = opts.get("struck", False)
-        for item in shown:
-            for line in wrap(draw, "- " + item, fnt, self.w - self.px(240)):
-                draw.text((self.px(110), y), line, font=fnt, fill=DIM if struck else FG)
-                if struck:
-                    w = draw.textlength(line, font=fnt)
-                    draw.line(
-                        [
-                            (self.px(110), y + self.px(26)),
-                            (self.px(110) + w, y + self.px(26)),
-                        ],
-                        fill=ACCENT,
-                        width=self.px(5),
-                    )
-                y += self.px(62)
-        if struck:
-            y += self.px(40)
-            self.centred(draw, y, opts.get("answer", ""), 64, GOOD)
+    # ---- the gauge and the animated scenes ------------------------------
 
-    def voyage(self, img, draw, opts, k):
-        """The voyage map: routes leaving "you are here"; a legend says a
-        solid track is hermetic and a dashed one dirty."""
-        routes = opts["routes"]
-        cx, cy = self.w / 2, self.caption_top() * (0.5 if not self.portrait else 0.45)
-        rx = self.w * (0.36 if not self.portrait else 0.36)
-        ry = self.caption_top() * (0.34 if not self.portrait else 0.32)
-        lit = opts.get("lit")
+    def ease(self):
+        return 1 - (1 - self.t) ** 2
+
+    def gauge(self, draw):
+        """Minutes until you can decide, per lane, in the top right corner;
+        it slides from the previous scene's values to this one's."""
+        if not self.gauge_to:
+            return
+        rows = self.gauge_to
+        prev = dict(self.gauge_from or [])
+        e = self.ease()
+        w, rh = self.px(560), self.px(54)
+        x0 = self.w - w - self.px(30)
+        y0 = self.px(24)
+        h = self.px(60) + rh * len(rows)
+        draw.rounded_rectangle(
+            [x0, y0, x0 + w, y0 + h],
+            radius=self.px(14),
+            fill=PANEL,
+            outline=DIM,
+            width=2,
+        )
+        draw.text(
+            (x0 + self.px(20), y0 + self.px(12)),
+            "minutes until you can decide",
+            font=font(self.px(26)),
+            fill=DIM,
+        )
+        top = max(6.0, max(v for _, v in rows))
+        for i, (lane, v) in enumerate(rows):
+            a = prev.get(lane, v)
+            val = a + (v - a) * e
+            y = y0 + self.px(52) + i * rh
+            f = font(self.px(28))
+            draw.text((x0 + self.px(20), y), lane, font=f, fill=FG)
+            bx0, bx1 = x0 + self.px(180), x0 + w - self.px(110)
+            draw.rectangle(
+                [bx0, y + self.px(6), bx1, y + self.px(30)], outline=DIM, width=1
+            )
+            draw.rectangle(
+                [
+                    bx0,
+                    y + self.px(6),
+                    bx0 + (bx1 - bx0) * min(val, top) / top,
+                    y + self.px(30),
+                ],
+                fill=ACCENT if lane == "Bazel" else GOOD,
+            )
+            draw.text((bx1 + self.px(12), y), "%.1f" % val, font=f, fill=FG)
+
+    def landscape(self, img, draw, opts, k):
+        """Hills and cliffs, from big drops to a plateau that ends at WNS = 0;
+        a walker moves along it."""
         import math
 
-        hub = [cx - self.px(190), cy - self.px(55), cx + self.px(190), cy + self.px(55)]
-        for i, name in enumerate(routes):
-            a = -math.pi / 2 + 2 * math.pi * i / len(routes)
-            x, y = cx + rx * math.cos(a), cy + ry * math.sin(a)
-            on = lit is None or i in lit
-            colour = ACCENT if on else DIM
-            # Each route has both lanes: a solid track beside a dashed one.
-            dx, dy = -math.sin(a) * self.px(7), math.cos(a) * self.px(7)
-            draw.line(
-                [(cx + dx, cy + dy), (x + dx, y + dy)], fill=colour, width=self.px(5)
+        left, right = self.px(80), self.w - self.px(80)
+        top, bottom = self.px(220), self.caption_top() - self.px(120)
+        pts = []
+        n = 240
+        for j in range(n + 1):
+            x = j / float(n)
+            # Big rough drops early, a gentle plateau late, a cliff at the end.
+            y = (
+                0.95 * (1 - x) ** 2.2
+                + 0.12 * math.sin(14 * x) * (1 - x) ** 1.5
+                + 0.06 * abs(math.sin(31 * x)) * (1 - x)
             )
-            steps = 14
-            for j in range(0, steps, 2):
-                p0 = (cx - dx + (x - cx) * j / steps, cy - dy + (y - cy) * j / steps)
-                p1 = (
-                    cx - dx + (x - cx) * (j + 1) / steps,
-                    cy - dy + (y - cy) * (j + 1) / steps,
-                )
-                draw.line([p0, p1], fill=colour, width=self.px(5))
-            r = [x - self.px(150), y - self.px(42), x + self.px(150), y + self.px(42)]
-            self.box(draw, r, outline=colour, width=4 if on else 2)
-            self.text_in(draw, r, name, 34, FG if on else DIM)
-        self.box(draw, hub, outline=GOOD, width=5)
-        self.text_in(draw, hub, opts.get("hub", "You are here"), 36)
-        at = opts.get("fogg", "hub")
-        if at is not None:
-            fh = self.px(150)
-            if at == "hub":
-                fx, ff = hub[0] - self.px(70), hub[3]
-            else:
-                a = -math.pi / 2 + 2 * math.pi * at / len(routes)
-                x, y = cx + rx * math.cos(a), cy + ry * math.sin(a)
-                fx = x + (self.px(200) if math.cos(a) >= -0.01 else -self.px(200))
-                ff = y + self.px(42)
-            self.figure(
-                draw, "fogg", fx, ff, fh, opts.get("pose", "stand"), label=False
+            pts.append(
+                (left + x * (right - left) * 0.92, top + (1 - y) * (bottom - top) * 0.8)
             )
-        legend = font(self.px(30))
-        lx, ly = self.px(60), self.caption_top() - self.px(90)
-        draw.line([(lx, ly), (lx + self.px(70), ly)], fill=FG, width=self.px(5))
+        draw.line(pts, fill=FG, width=self.px(4))
+        cliff_x = pts[-1][0]
+        draw.line([pts[-1], (cliff_x, bottom)], fill=FG, width=self.px(4))
+        draw.line([(cliff_x, top), (cliff_x, bottom)], fill=GOOD, width=self.px(2))
         draw.text(
-            (lx + self.px(90), ly - self.px(18)),
-            "hermetic: solved problems",
-            font=legend,
-            fill=FG,
+            (cliff_x - self.px(140), top - self.px(50)),
+            "WNS = 0",
+            font=font(self.px(40)),
+            fill=GOOD,
         )
-        ly += self.px(46)
-        for j in range(0, 70, 20):
-            draw.line(
-                [(lx + self.px(j), ly), (lx + self.px(j + 10), ly)],
-                fill=FG,
-                width=self.px(5),
-            )
         draw.text(
-            (lx + self.px(90), ly - self.px(18)),
-            "dirty: unsolved problems",
-            font=legend,
-            fill=FG,
-        )
-
-    def stages(self, img, draw, opts, k):
-        """The flow's stages in a row; each sentence sets their states."""
-        names = opts["stages"]
-        states = opts["states"][min(k, len(opts["states"]) - 1)]
-        n = len(names)
-        if self.portrait:
-            bw, bh = self.w - self.px(360), self.px(110)
-            xs = [self.px(80)] * n
-            ys = [self.px(80) + i * self.px(150) for i in range(n)]
-        else:
-            gap = self.px(30)
-            bw = (self.w - self.px(120) - gap * (n - 1)) / n
-            bh = self.px(130)
-            xs = [self.px(60) + i * (bw + gap) for i in range(n)]
-            ys = [self.caption_top() / 2 - bh] * n
-        colours = {"cached": GOOD, "rerun": ACCENT, "": DIM}
-        label = font(self.px(28))
-        for i, name in enumerate(names):
-            r = [xs[i], ys[i], xs[i] + bw, ys[i] + bh]
-            st = states[i]
-            self.box(draw, r, outline=colours[st], width=5 if st else 2)
-            self.text_in(draw, r, name, 34)
-            if st:
-                text = "cached" if st == "cached" else "re-run"
-                if self.portrait:
-                    at = (r[2] + self.px(20), (r[1] + r[3]) / 2 - self.px(16))
-                else:
-                    at = (
-                        (r[0] + r[2] - draw.textlength(text, font=label)) / 2,
-                        r[3] + self.px(16),
-                    )
-                draw.text(at, text, font=label, fill=colours[st])
-        if "note" in opts:
-            self.centred(draw, self.caption_top() - self.px(110), opts["note"], 36, DIM)
-
-    def table(self, img, draw, opts, k):
-        rows = [opts["header"]] + opts["rows"]
-        cols = len(opts["header"])
-        top = self.px(140)
-        if "heading" in opts:
-            self.centred(draw, self.px(50), opts["heading"], 48, ACCENT)
-        width = self.w - self.px(160)
-        cw = width / cols
-        fnt = font(self.px(36 if not self.portrait else 32))
-        for i, row in enumerate(rows):
-            y = top + i * self.px(76)
-            if i == 0:
-                draw.line(
-                    [
-                        (self.px(80), y + self.px(60)),
-                        (self.px(80) + width, y + self.px(60)),
-                    ],
-                    fill=DIM,
-                    width=self.px(2),
-                )
-            for j, cell in enumerate(row):
-                draw.text(
-                    (self.px(80) + j * cw, y),
-                    cell,
-                    font=fnt,
-                    fill=ACCENT if i == 0 else FG,
-                )
-
-    def qa(self, img, draw, opts, k):
-        """An audience question in a speech bubble, the role above it, and
-        optionally what the answer shows."""
-        role, q = opts["role"], opts["question"]
-        fnt = font(self.px(44))
-        # The asker stands at the left, under the bubble's tail.
-        x0 = self.px(80) if self.portrait else self.px(330)
-        self.figure(
-            draw,
-            opts["who"],
-            self.px(170),
-            self.caption_top() - self.px(55),
-            self.px(280 if not self.portrait else 230),
-            "ask",
-        )
-        lines = wrap(draw, q, fnt, self.w - x0 - self.px(240))
-        top = self.px(60)
-        h = self.px(120) + len(lines) * self.px(56)
-        r = [x0, top, self.w - self.px(80), top + h]
-        self.box(draw, r, outline=ACCENT, width=4)
-        tail = [
-            (r[0] + self.px(30), r[3] - self.px(2)),
-            (r[0] + self.px(90), r[3] - self.px(2)),
-            (r[0] - self.px(40), r[3] + self.px(60)),
-        ]
-        draw.polygon(tail, fill=PANEL)
-        draw.line([tail[0], tail[2], tail[1]], fill=ACCENT, width=self.px(4))
-        draw.text(
-            (r[0] + self.px(40), r[1] + self.px(24)),
-            role,
-            font=font(self.px(34)),
-            fill=ACCENT,
-        )
-        for i, line in enumerate(lines):
-            draw.text(
-                (r[0] + self.px(40), r[1] + self.px(84) + i * self.px(56)),
-                line,
-                font=fnt,
-                fill=FG,
-            )
-        if "lines" in opts:
-            code = font(self.px(32))
-            y = r[3] + self.px(100)
-            box = [
-                x0,
-                y - self.px(30),
-                self.w - self.px(80),
-                self.caption_top() - self.px(40),
-            ]
-            self.box(draw, box, outline=DIM)
-            for line in opts["lines"]:
-                for part in wrap(draw, line, code, box[2] - box[0] - self.px(60)) or [
-                    ""
-                ]:
-                    draw.text((box[0] + self.px(30), y), part, font=code, fill=FG)
-                    y += self.px(44)
-
-    def mapping(self, img, draw, opts, k):
-        """config.mk on the left, what bazel-orfs makes of it on the right."""
-        self.centred(draw, self.px(40), opts["heading"], 46, ACCENT)
-        rows = opts["rows"]
-        fnt = font(self.px(36 if not self.portrait else 30))
-        top = self.px(150)
-        if self.portrait:
-            for i, (a, b) in enumerate(rows):
-                y = top + i * self.px(230)
-                ra = [self.px(60), y, self.w - self.px(60), y + self.px(80)]
-                rb = [
-                    self.px(160),
-                    y + self.px(130),
-                    self.w - self.px(60),
-                    y + self.px(200),
-                ]
-                self.box(draw, ra, outline=DIM)
-                self.text_in(draw, ra, a, 30)
-                self.arrow(
-                    draw,
-                    (self.px(100), ra[3]),
-                    (self.px(100), rb[1] + self.px(30)),
-                    False,
-                )
-                self.box(draw, rb)
-                self.text_in(draw, rb, b, 30)
-            return
-        lw = self.w * 0.44
-        for i, (a, b) in enumerate(rows):
-            y = top + i * self.px(150)
-            ra = [self.px(60), y, self.px(60) + lw, y + self.px(110)]
-            rb = [
-                self.w - self.px(60) - lw * 0.85,
-                y,
-                self.w - self.px(60),
-                y + self.px(110),
-            ]
-            self.box(draw, ra, outline=DIM)
-            self.text_in(draw, ra, a, 32)
-            self.arrow(
-                draw,
-                (ra[2] + self.px(10), y + self.px(55)),
-                (rb[0] - self.px(10), y + self.px(55)),
-                False,
-            )
-            self.box(draw, rb)
-            self.text_in(draw, rb, b, 32)
-
-    def tree(self, img, draw, opts, k):
-        """fork: the shared stages once, the trials below them."""
-        self.centred(draw, self.px(40), opts["heading"], 46, ACCENT)
-        root = opts["root"]
-        leaves = opts["leaves"]
-        top = self.px(170)
-        rw = self.w * 0.5
-        r = [(self.w - rw) / 2, top, (self.w + rw) / 2, top + self.px(120)]
-        self.box(draw, r, outline=GOOD, width=5)
-        self.text_in(draw, r, root, 36)
-        n = len(leaves)
-        bottom = self.caption_top() - self.px(80)
-        lw = (self.w - self.px(120) - self.px(30) * (n - 1)) / n
-        for i, leaf in enumerate(leaves):
-            x = self.px(60) + i * (lw + self.px(30))
-            rl = [x, bottom - self.px(110), x + lw, bottom]
-            self.arrow(
-                draw, ((r[0] + r[2]) / 2, r[3]), ((rl[0] + rl[2]) / 2, rl[1]), False
-            )
-            self.box(draw, rl)
-            self.text_in(draw, rl, leaf, 30)
-
-    def fix(self, img, draw, opts, k):
-        """Inspector Fix: a review comment under his magnifying glass."""
-        r = [
-            self.px(80),
-            self.px(120),
-            self.w - self.px(80),
-            self.px(120) + self.px(300),
-        ]
-        self.box(draw, r, outline=DIM)
-        draw.text(
-            (r[0] + self.px(30), r[1] + self.px(24)),
-            opts["who"],
+            (left, top - self.px(50)),
+            "easy problems: big drops",
             font=font(self.px(32)),
             fill=DIM,
         )
-        fnt = font(self.px(38))
-        for i, line in enumerate(
-            wrap(draw, opts["claim"], fnt, r[2] - r[0] - self.px(60))
-        ):
-            draw.text(
-                (r[0] + self.px(30), r[1] + self.px(84) + i * self.px(50)),
-                line,
-                font=fnt,
-                fill=FG,
-            )
-        # Fix himself, below the comment, peering up at it.
-        self.figure(
-            draw,
-            "fix",
-            self.w - self.px(260),
-            self.caption_top() - self.px(55),
-            self.px(300),
-            "peer",
+        draw.text(
+            (left + (right - left) * 0.48, top + (bottom - top) * 0.55),
+            "a few percent apart",
+            font=font(self.px(32)),
+            fill=DIM,
         )
-        verdicts = opts["verdicts"][: k + 1]
-        y = r[3] + self.px(120)
-        f = font(self.px(44))
-        for v in verdicts:
-            draw.text((self.px(120), y), v, font=f, fill=GOOD)
-            y += self.px(70)
-
-    # ---- stick figures --------------------------------------------------
-
-    def figure(self, draw, who, x, feet, height, pose="stand", label=True):
-        """A stick figure with its character's prop, feet at (x, feet)."""
-        s = height
-        hr = s * 0.09
-        top = feet - s
-        hx, hy = x, top + hr
-        neck = top + 2 * hr
-        hip = feet - s * 0.42
-        sh = neck + s * 0.06
-        w = max(2, int(s * 0.025))
-        line = lambda pts, c=FG: draw.line(pts, fill=c, width=w)  # noqa: E731
-        if who == "dan":
-            pose = "cross"
-        if who == "sam":
-            # The backpack behind the body.
-            draw.rounded_rectangle(
-                [x - s * 0.17, sh, x - s * 0.04, sh + s * 0.24],
-                radius=int(s * 0.03),
-                outline=ACCENT,
-                width=w,
-            )
-        draw.ellipse([hx - hr, hy - hr, hx + hr, hy + hr], outline=FG, width=w)
-        line([(x, neck), (x, hip)])
-        line([(x, hip), (x - s * 0.12, feet)])
-        line([(x, hip), (x + s * 0.12, feet)])
-        left = (x - s * 0.16, sh + s * 0.25)
-        right = {
-            "stand": (x + s * 0.16, sh + s * 0.25),
-            "ask": (x + s * 0.2, sh - s * 0.2),
-            "wave": (x + s * 0.2, sh - s * 0.2),
-            "tip": (x + s * 0.07, top + s * 0.02),
-            "watch": (x + s * 0.22, sh + s * 0.07),
-            "carry": (x + s * 0.18, sh + s * 0.3),
-            "point": (x + s * 0.32, sh),
-            "peer": (x + s * 0.24, sh - s * 0.06),
-        }.get(pose, (x + s * 0.16, sh + s * 0.25))
-        if pose == "cross":
-            line([(x - s * 0.14, sh + s * 0.04), (x + s * 0.13, sh + s * 0.14)])
-            line([(x + s * 0.14, sh + s * 0.04), (x - s * 0.13, sh + s * 0.14)])
-        else:
-            line([(x, sh), left])
-            line([(x, sh), right])
-        self.prop(
-            draw, who, pose, x, s, hr, hx, hy, top, neck, sh, feet, left, right, w
+        # The walker, a dot, moves along as the sentences go.
+        where = opts.get("walk", [0.1, 0.9])[min(k, len(opts.get("walk", [0])) - 1)]
+        prev = (
+            opts.get("walk", [0.1])[max(0, min(k, len(opts.get("walk", [0])) - 1) - 1)]
+            if k
+            else 0.0
         )
-        if label:
-            name = dict(SCRIPT.PEOPLE).get(who, who)
-            f = font(max(12, int(s * 0.085)))
+        pos = prev + (where - prev) * self.ease()
+        px, py = pts[min(n, int(pos * n))]
+        r = self.px(16)
+        draw.ellipse([px - r, py - 2 * r, px + r, py], fill=ACCENT)
+
+    def timeline(self, img, draw, opts, k):
+        """Builds on a timeline, each ending in a decision; the last, the
+        tapeout build, ends in a chip."""
+        n = 9
+        left, right = self.px(100), self.w - self.px(160)
+        y = self.caption_top() * 0.55
+        draw.line([(left, y), (right + self.px(60), y)], fill=DIM, width=self.px(3))
+        shown = max(1, int(round(n * self.ease()))) if opts.get("grow") else n
+        for j in range(shown):
+            x = left + j * (right - left) / (n - 1)
+            last = j == n - 1
+            draw.rectangle(
+                [x - self.px(40), y - self.px(50), x + self.px(40), y],
+                outline=FG,
+                width=2,
+                fill=PANEL,
+            )
+            if last:
+                c = self.px(26)
+                draw.rectangle(
+                    [x - c, y - self.px(130) - c, x + c, y - self.px(130) + c],
+                    outline=GOOD,
+                    width=self.px(4),
+                )
+                for t in range(-2, 3):
+                    draw.line(
+                        [
+                            (x + t * c / 2.5, y - self.px(130) - c - self.px(12)),
+                            (x + t * c / 2.5, y - self.px(130) - c),
+                        ],
+                        fill=GOOD,
+                        width=2,
+                    )
+                draw.text(
+                    (x - self.px(60), y + self.px(20)),
+                    "tapeout",
+                    font=font(self.px(30)),
+                    fill=GOOD,
+                )
+            else:
+                draw.text(
+                    (x - self.px(8), y - self.px(110)),
+                    "?",
+                    font=font(self.px(48)),
+                    fill=ACCENT,
+                )
+        draw.text(
+            (left, y + self.px(20)),
+            "every build before it: data for a decision",
+            font=font(self.px(30)),
+            fill=DIM,
+        )
+
+    def stagebars(self, img, draw, opts, k):
+        """The measured stage times as bars that grow in time-lapse; a cut
+        after a stage greys out what the decision does not need."""
+        bars = opts["bars"]
+        cut = opts.get("cut", [None])[min(k, len(opts.get("cut", [None])) - 1)]
+        top = self.px(150)
+        bottom = self.caption_top() - self.px(120)
+        step = (bottom - top) / len(bars)
+        bh = min(step * 0.7, self.px(64))
+        x0, x1 = self.px(280), self.w - self.px(700 if not self.portrait else 260)
+        scale = (x1 - x0) / float(max(v for _, v in bars))
+        e = self.ease() if opts.get("grow") and k == 0 else 1.0
+        f = font(self.px(34))
+        after = False
+        total_kept = 0
+        for i, (name, v) in enumerate(bars):
+            y = top + i * step
+            grey = after
+            colour = DIM if grey else ACCENT
             draw.text(
-                (x - draw.textlength(name, font=f) / 2, feet + s * 0.03),
+                (self.px(60), y + bh / 2 - self.px(20)),
                 name,
                 font=f,
-                fill=DIM,
+                fill=DIM if grey else FG,
+            )
+            draw.rectangle([x0, y, x0 + v * scale * e, y + bh], fill=colour)
+            draw.text(
+                (x0 + v * scale * e + self.px(14), y + bh / 2 - self.px(20)),
+                "%g s" % v,
+                font=f,
+                fill=colour,
+            )
+            if not grey:
+                total_kept += v
+            if name == cut:
+                after = True
+                yc = y + bh + (step - bh) / 2
+                draw.line(
+                    [(self.px(40), yc), (x1 + self.px(160), yc)],
+                    fill=GOOD,
+                    width=self.px(4),
+                )
+                draw.text(
+                    (x1 - self.px(120), yc - self.px(46)),
+                    "decide here",
+                    font=f,
+                    fill=GOOD,
+                )
+        total = sum(v for _, v in bars)
+        note = (
+            "%g s to final" % total
+            if cut is None
+            else "%g s to decide, %g s to final" % (total_kept, total)
+        )
+        self.centred(draw, bottom + self.px(30), note, 38, GOOD if cut else FG)
+
+    def buildrun(self, img, draw, opts, k):
+        """bazelisk build in a sealed box; bazelisk run reaching out."""
+        mid = self.w / 2
+        top, h = self.px(200), self.px(420)
+        lb = [self.px(120), top, mid - self.px(80), top + h]
+        rb = [mid + self.px(80), top, self.w - self.px(120), top + h]
+        lit = opts.get("light", [0, 1])[min(k, len(opts.get("light", [0])) - 1)]
+        for j, (r, title, lines) in enumerate(
+            (
+                (
+                    lb,
+                    "bazelisk build",
+                    [
+                        "sealed off from your machine",
+                        "every input recorded",
+                        "result remembered",
+                    ],
+                ),
+                (
+                    rb,
+                    "bazelisk run",
+                    [
+                        "build, then run the result",
+                        "in your terminal and browser",
+                        "the dirty lane, the GUI",
+                    ],
+                ),
+            )
+        ):
+            on = lit in (j, 2)
+            draw.rounded_rectangle(
+                r,
+                radius=self.px(20),
+                fill=PANEL,
+                outline=ACCENT if on else DIM,
+                width=self.px(6 if on else 2),
+            )
+            draw.text(
+                (r[0] + self.px(36), r[1] + self.px(30)),
+                title,
+                font=font(self.px(48)),
+                fill=ACCENT if on else FG,
+            )
+            for i, line in enumerate(lines):
+                draw.text(
+                    (r[0] + self.px(36), r[1] + self.px(130) + i * self.px(60)),
+                    line,
+                    font=font(self.px(34)),
+                    fill=FG if on else DIM,
+                )
+        # The sealed box: a padlock line around the build box.
+        draw.rectangle(
+            [
+                lb[0] - self.px(14),
+                lb[1] - self.px(14),
+                lb[2] + self.px(14),
+                lb[3] + self.px(14),
+            ],
+            outline=DIM,
+            width=self.px(2),
+        )
+        e = self.ease()
+        for dy in (0.3, 0.6):
+            y = rb[1] + h * dy
+            draw.line(
+                [(rb[2], y), (rb[2] + self.px(90) * e, y)], fill=GOOD, width=self.px(5)
             )
 
-    def prop(
-        self, draw, who, pose, x, s, hr, hx, hy, top, neck, sh, feet, left, right, w
-    ):
-        a = ACCENT
-        if who == "fogg":
-            # A top hat, tipped when he tips it.
-            lift = s * 0.05 if pose == "tip" else 0
-            draw.rectangle(
-                [
-                    hx - hr * 0.8,
-                    top - hr * 1.5 - lift,
-                    hx + hr * 0.8,
-                    top + hr * 0.15 - lift,
-                ],
-                fill=a,
+    def cards(self, img, draw, opts, k):
+        """Results as cards: a new one slides in for a change; switching back
+        brings the old one forward without running anything."""
+        items = opts["cards"]
+        sel = opts["select"][min(k, len(opts["select"]) - 1)]
+        cw, ch = self.px(420), self.px(300)
+        y = self.px(220)
+        gap = (self.w - len(items) * cw) / (len(items) + 1)
+        for j, (title, sub) in enumerate(items):
+            x = gap + j * (cw + gap)
+            on = j == sel
+            lift = self.px(40) * self.ease() if on else 0
+            r = [x, y - lift, x + cw, y + ch - lift]
+            draw.rounded_rectangle(
+                r,
+                radius=self.px(18),
+                fill=PANEL,
+                outline=ACCENT if on else DIM,
+                width=self.px(6 if on else 2),
             )
-            draw.line(
-                [
-                    (hx - hr * 1.3, top + hr * 0.15 - lift),
-                    (hx + hr * 1.3, top + hr * 0.15 - lift),
-                ],
-                fill=a,
-                width=w,
+            self.text_in(draw, [r[0], r[1], r[2], r[1] + ch * 0.55], title, 40, FG)
+            self.text_in(
+                draw, [r[0], r[1] + ch * 0.5, r[2], r[3]], sub, 32, GOOD if on else DIM
             )
-            if pose == "watch":
-                r = s * 0.035
-                draw.ellipse(
-                    [right[0] - r, right[1] - r, right[0] + r, right[1] + r],
-                    outline=a,
-                    width=w,
-                )
-        elif who == "passepartout":
-            t = s * 0.04
-            draw.polygon(
-                [
-                    (x, neck + t * 0.2),
-                    (x - t * 1.4, neck - t * 0.6),
-                    (x - t * 1.4, neck + t),
-                ],
-                fill=a,
-            )
-            draw.polygon(
-                [
-                    (x, neck + t * 0.2),
-                    (x + t * 1.4, neck - t * 0.6),
-                    (x + t * 1.4, neck + t),
-                ],
-                fill=a,
-            )
-            if pose == "carry":
-                draw.rectangle(
-                    [
-                        right[0] - s * 0.04,
-                        right[1],
-                        right[0] + s * 0.22,
-                        right[1] + s * 0.15,
-                    ],
-                    outline=a,
-                    width=w,
-                )
-                draw.line(
-                    [(right[0] + s * 0.05, right[1]), (right[0] + s * 0.13, right[1])],
-                    fill=a,
-                    width=w,
-                )
-            if pose == "point":
-                # Handing over the link: a small card.
-                draw.rectangle(
-                    [
-                        right[0],
-                        right[1] - s * 0.05,
-                        right[0] + s * 0.12,
-                        right[1] + s * 0.03,
-                    ],
-                    outline=GOOD,
-                    width=w,
-                )
-        elif who == "fix":
-            draw.arc(
-                [hx - hr * 1.15, hy - hr * 1.3, hx + hr * 1.15, hy + hr * 0.6],
-                180,
-                360,
-                fill=a,
-                width=w * 2,
-            )
-            draw.line(
-                [(hx - hr * 1.8, hy - hr * 0.3), (hx + hr * 1.8, hy - hr * 0.3)],
-                fill=a,
-                width=w,
-            )
-            gx, gy = (
-                (right[0] + s * 0.06, right[1] - s * 0.06)
-                if pose == "peer"
-                else (right[0], right[1] + s * 0.06)
-            )
-            r = s * 0.07
-            draw.ellipse([gx - r, gy - r, gx + r, gy + r], outline=a, width=w)
-            draw.line([right, (gx - r * 0.7, gy + r * 0.7)], fill=a, width=w)
-        elif who == "maya":
-            draw.chord(
-                [hx - hr * 1.15, hy - hr * 1.4, hx + hr * 1.15, hy + hr * 0.4],
-                180,
-                360,
-                fill=a,
-            )
-            draw.line(
-                [(hx - hr * 1.5, hy - hr * 0.5), (hx + hr * 1.5, hy - hr * 0.5)],
-                fill=a,
-                width=w,
-            )
-        elif who == "arthur":
-            draw.line(
-                [
-                    (left[0] - s * 0.05, left[1] + s * 0.06),
-                    (left[0] + s * 0.06, left[1] - s * 0.1),
-                ],
-                fill=a,
-                width=w * 4,
-            )
-        elif who == "basil":
-            b = s * 0.08
-            for i in range(3):
-                draw.rectangle(
-                    [x - s * 0.36, feet - b * (i + 1), x - s * 0.36 + b, feet - b * i],
-                    outline=a,
-                    width=w,
-                )
-        elif who == "otto":
-            draw.line(
-                [left, (left[0] - s * 0.05, left[1] + s * 0.12)], fill=a, width=w * 2
-            )
-            r = s * 0.03
-            cx, cy = left[0] - s * 0.06, left[1] + s * 0.15
-            draw.arc([cx - r, cy - r, cx + r, cy + r], 0, 300, fill=a, width=w)
-        elif who == "priya":
-            b = s * 0.11
-            bx, by = x - s * 0.4, feet - b
-            draw.rectangle([bx, by, bx + b, feet], outline=a, width=w)
-            draw.line([(bx + b / 2, by), (bx + b / 2, by - b * 0.4)], fill=a, width=w)
-            for ex in (0.3, 0.7):
-                draw.ellipse(
-                    [
-                        bx + b * ex - 2,
-                        by + b * 0.35 - 2,
-                        bx + b * ex + 2,
-                        by + b * 0.35 + 2,
-                    ],
-                    fill=a,
-                )
-        elif who == "rita":
-            d = s * 0.06
-            for i in range(2):
-                dx = left[0] - s * 0.08 + i * d * 1.3
-                draw.rectangle([dx, left[1], dx + d, left[1] + d], outline=a, width=w)
-        elif who == "tara":
-            c = s * 0.08
-            cx, cy = left[0] - c / 2, left[1]
-            draw.rectangle([cx, cy, cx + c, cy + c], outline=a, width=w)
-            for t in (0.25, 0.5, 0.75):
-                draw.line(
-                    [(cx - c * 0.2, cy + c * t), (cx, cy + c * t)], fill=a, width=1
-                )
-                draw.line(
-                    [(cx + c, cy + c * t), (cx + c * 1.2, cy + c * t)], fill=a, width=1
-                )
 
-    def figures(self, draw, opts, k):
-        """The figures a scene asks for, at named places, for sentence k."""
-        figs = opts.get("figures")
-        if isinstance(figs, dict):
-            figs = figs.get(k, figs.get("all", []))
-        h = self.px(280 if not self.portrait else 230)
-        feet = self.caption_top() - self.px(55)
-        spots = {
-            "right": self.w - self.px(170),
-            "left": self.px(170),
-            "right2": self.w - self.px(380),
-            "centre": self.w / 2,
-        }
-        for who, spot, pose in figs or []:
-            self.figure(draw, who, spots[spot], feet, h, pose)
+    def deps(self, img, draw, opts, k):
+        """An edited flow script: Bazel lights every stage that reads the
+        scripts; the dirty lane lights one substep."""
+        stages = ["synth", "floorplan", "place", "cts", "grt", "route", "final"]
+        subs = ["3_1 gp_skip_io", "3_2 iop", "3_3 gp", "3_4 resized", "3_5 dp"]
+        e = self.ease()
+        f = font(self.px(32))
+        y1, y2 = self.px(200), self.px(500)
+        draw.text(
+            (self.px(60), y1 - self.px(70)),
+            "bazelisk build: every stage that reads the flow scripts",
+            font=f,
+            fill=ACCENT,
+        )
+        bw = (self.w - self.px(120) - self.px(20) * 6) / 7
+        lit = int(round(6 * e)) if k == 0 else 6
+        for i, s_ in enumerate(stages):
+            x = self.px(60) + i * (bw + self.px(20))
+            on = 1 <= i <= lit
+            draw.rounded_rectangle(
+                [x, y1, x + bw, y1 + self.px(90)],
+                radius=self.px(12),
+                fill=PANEL,
+                outline=ACCENT if on else DIM,
+                width=self.px(5 if on else 2),
+            )
+            self.text_in(
+                draw, [x, y1, x + bw, y1 + self.px(90)], s_, 30, FG if on else DIM
+            )
+        draw.text(
+            (self.px(60), y2 - self.px(70)),
+            "dirty lane: make do-3_3_place_gp",
+            font=f,
+            fill=GOOD,
+        )
+        sw = (self.w - self.px(120) - self.px(20) * 4) / 5
+        for i, s_ in enumerate(subs):
+            x = self.px(60) + i * (sw + self.px(20))
+            on = i == 2 and k >= 1
+            draw.rounded_rectangle(
+                [x, y2, x + sw, y2 + self.px(90)],
+                radius=self.px(12),
+                fill=PANEL,
+                outline=GOOD if on else DIM,
+                width=self.px(5 if on else 2),
+            )
+            self.text_in(
+                draw, [x, y2, x + sw, y2 + self.px(90)], s_, 30, FG if on else DIM
+            )
+        if k >= 1:
+            draw.text(
+                (self.px(60), y2 + self.px(120)),
+                "12 s",
+                font=font(self.px(56)),
+                fill=GOOD,
+            )
 
-    def cast(self, img, draw, opts, k):
-        """Who is who: the figures in a row (two on a phone), named."""
-        self.centred(draw, self.px(50), opts["heading"], 56, ACCENT)
-        who = opts["cast"]
-        # Up to five abreast, so the names fit under them.
-        per_row = len(who) if len(who) <= 5 else (len(who) + 1) // 2
-        rows = [who[i : i + per_row] for i in range(0, len(who), per_row)]
-        h = self.px(300 if len(who) <= 3 else 230)
-        area_top = self.px(170)
-        step = (self.caption_top() - area_top - self.px(40)) / len(rows)
-        for r, row in enumerate(rows):
-            feet = area_top + step * (r + 1) - self.px(50)
-            for i, key in enumerate(row):
-                x = self.w * (i + 0.5) / len(row)
-                pose = {"fogg": "watch", "passepartout": "carry", "fix": "peer"}.get(
-                    key, "stand"
+    def repair(self, img, draw, opts, k):
+        """The shape of a repair_timing run (coralnpu, OpenROAD #11684): most
+        of the gain early, a long flat stretch, then a late jump."""
+        left, right = self.px(160), self.w - self.px(120)
+        top, bottom = self.px(170), self.caption_top() - self.px(140)
+        draw.line(
+            [(left, top), (left, bottom), (right, bottom)], fill=DIM, width=self.px(3)
+        )
+        f = font(self.px(28))
+        draw.text(
+            (left - self.px(120), top - self.px(50)), "WNS gained", font=f, fill=DIM
+        )
+        draw.text(
+            (right - self.px(280), bottom + self.px(16)),
+            "repair progress",
+            font=f,
+            fill=DIM,
+        )
+
+        # A shape, not a scale: the RFC gives the proportions (80 % of the
+        # main phase's gain in its first 10 % of rows, nothing for the next
+        # 42 %) and the last gasp's two values, not the starting WNS.
+        def wns(x):
+            if x < 0.10:
+                return 0.8 * (x / 0.10) ** 0.6
+            if x < 0.52:
+                return 0.8
+            if x < 0.90:
+                return 0.8 + 0.2 * ((x - 0.52) / 0.38) ** 2
+            return 1.0 + 0.3 * min(1.0, (x - 0.90) / 0.04)
+
+        lo, hi = 0.0, 1.35
+        e = self.ease() if k == 0 else 1.0
+        n = 200
+        pts = []
+        for j in range(int(n * e) + 1):
+            x = j / float(n)
+            v = wns(x)
+            pts.append(
+                (
+                    left + x * (right - left),
+                    bottom - (v - lo) / (hi - lo) * (bottom - top),
                 )
-                self.figure(draw, key, x, feet, h, pose)
+            )
+        if len(pts) > 1:
+            draw.line(pts, fill=ACCENT, width=self.px(5))
+        if k >= 1:
+            xa, xb = left + 0.10 * (right - left), left + 0.52 * (right - left)
+            draw.text(
+                ((xa + xb) / 2 - self.px(140), top + self.px(40)),
+                "nothing for 42 % of the run",
+                font=f,
+                fill=GOOD,
+            )
+            draw.text(
+                (right - self.px(420), top - self.px(10)),
+                "last gasp: -46.6 to -35.0 ps",
+                font=f,
+                fill=GOOD,
+            )
+        draw.text(
+            (left, bottom + self.px(56)),
+            "shape from coralnpu, OpenROAD #11684",
+            font=font(self.px(24)),
+            fill=DIM,
+        )
 
 
 class Voice(object):
@@ -973,7 +661,6 @@ def main(argv):
     p.add_argument("--voice-onnx", required=True)
     p.add_argument("--voice-json", required=True)
     p.add_argument("--gui", required=True)
-    p.add_argument("--gcd", required=True)
     p.add_argument("--out", required=True)
     p.add_argument("--srt", required=True)
     p.add_argument("--test", action="store_true")
@@ -998,31 +685,9 @@ def main(argv):
             spoken[text] = voice.say(text, path)
         return spoken[text]
 
-    def length(n_text):
-        total = 0.0
-        for i, (_, _, k, text) in enumerate(sentences):
-            r, samples = speak(text.replace("{N}", n_text))
-            last = i + 1 == len(sentences) or sentences[i + 1][2] == 0
-            total += len(samples) / float(r) + (SCENE_GAP if last else GAP)
-        return total
-
-    def minutes(n):
-        return "%d Minute%s" % (n, "" if n == 1 else "s")
-
-    # "{N}" is the video's own length, which depends on how long the
-    # sentence that says it takes: settle it.
-    n = 1
-    for _ in range(4):
-        found = max(1, int(round(length(minutes(n)) / 60.0)))
-        if found == n:
-            break
-        n = found
-    canvas.n_text = minutes(n)
-
     audio, rate, t = array.array("h"), None, 0.0
     concat, captions = [], []
     for i, (kind, opts, k, text) in enumerate(sentences):
-        text = canvas.fmt(text)
         r, samples = speak(text)
         if rate is None:
             rate = r
@@ -1034,13 +699,37 @@ def main(argv):
         captions.append((t, t + len(samples) / float(rate), text))
         t += seconds
 
-        img, draw = canvas.new()
-        getattr(canvas, kind)(img, draw, opts, k)
-        canvas.figures(draw, opts, k)
-        canvas.caption(draw, text)
-        frame = os.path.join(tmp, "f%03d.png" % i)
-        img.save(frame)
-        concat.append("file '%s'\nduration %.3f\n" % (frame, seconds))
+        # The gauge: this sentence's values, sliding from the last ones.
+        # A scene sets it, keeps it (no "gauge"), or hides it ("hide").
+        g = opts.get("gauge", "keep")
+        if isinstance(g, dict):
+            g = g.get(k, g.get("all", "keep"))
+        if g == "keep":
+            g = canvas.gauge_to
+        elif g == "hide":
+            g = None
+        canvas.gauge_from, canvas.gauge_to = canvas.gauge_to, g
+        moving = canvas.gauge_from != canvas.gauge_to and bool(canvas.gauge_to)
+        steps = (
+            int(ANIM * ANIM_FPS)
+            if (opts.get("animate") or moving) and seconds > ANIM
+            else 1
+        )
+        for j in range(steps):
+            canvas.t = (j + 1) / float(steps)
+            img, draw = canvas.new()
+            getattr(canvas, kind)(img, draw, opts, k)
+            canvas.gauge(draw)
+            canvas.caption(draw, text)
+            frame = os.path.join(tmp, "f%03d_%02d.png" % (i, j))
+            img.save(frame)
+            held = (
+                seconds - (steps - 1) / float(ANIM_FPS)
+                if j == steps - 1
+                else 1.0 / ANIM_FPS
+            )
+            concat.append("file '%s'\nduration %.3f\n" % (frame, held))
+        canvas.t = 1.0
 
     # The concat demuxer drops the last entry's duration unless the file
     # is listed once more.

@@ -9,9 +9,8 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 #
 # Narrated offline by Piper's pinned ljspeech voice (public domain, its
 # MODEL_CARD is in the runfiles), encoded by the ffmpeg imageio-ffmpeg
-# pins. gui.png is the web viewer on aes-block's grt through the GUI link
-# and gcd.png on gcd's final from `make gui_final` in a //:dirty tree,
-# both taken with headless Chrome:
+# pins. gui.png is the web viewer on aes-block's grt through the GUI link,
+# taken with headless Chrome:
 #
 #   google-chrome --headless=new --window-size=1600,1000 \
 #       --virtual-time-budget=20000 --screenshot=gui.png '<gui_url>'
@@ -34,7 +33,6 @@ py_binary(
 [genrule(
     name = name,
     srcs = [
-        "gcd.png",
         "gui.png",
         "@piper_voice_json//file",
         "@piper_voice_onnx//file",
@@ -52,7 +50,6 @@ py_binary(
         "--voice-onnx $(execpath @piper_voice_onnx//file)",
         "--voice-json $(execpath @piper_voice_json//file)",
         "--gui $(execpath gui.png)",
-        "--gcd $(execpath gcd.png)",
         "--out $(execpath warm_gui_%s.mp4)" % name,
         "--srt $(execpath warm_gui_%s.srt)" % name,
     ]),
