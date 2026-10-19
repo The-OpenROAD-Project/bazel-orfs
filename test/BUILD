@@ -922,6 +922,21 @@ test_suite(
         "//sram:sram_build_test",
         # iverilog, a dev dependency CI does not build.
         "//test/glitch_smoke:glitch_smoke_test",
+        # Deps tarballs (_deps.tar.gz): about 1.2 GB each, mostly the same
+        # binaries and PDK files again. CI keeps one,
+        # tag_array_64x184_mock_floorplan's, and the three tests on it.
+        ":deps_deploy_floorplan_test",
+        ":deps_deploy_hierarchy_test",
+        ":deps_deploy_openroad_exe_env_test",
+        ":deps_deploy_run_executable_test",
+        ":deps_deploy_run_test",
+        ":deps_deploy_synth_test",
+        ":deps_output_group_floorplan_test",
+        ":deps_output_group_run_executable_test",
+        ":deps_output_group_run_test",
+        ":deps_output_group_squashed_test",
+        ":deps_output_group_substeps_test",
+        ":deps_output_group_synth_test",
         # A miniature planned parent: five macros, 20 to 29 stages each.
         "//test/planned_parent:clock_pin_test",
         "//test/planned_parent:cts_delay_buffers_test",
@@ -2289,10 +2304,12 @@ sh_test(
         "DESIGN_NAME",
     ],
     data = [":lb_32x128_mock_run_with_deps_deps_tar"],
+    tags = ["manual"],
 )
 
 deps_output_group_test(
     name = "deps_output_group_run_test",
+    tags = ["manual"],
     target = ":lb_32x128_mock_run_with_deps_deps_tar",
 )
 
@@ -2308,6 +2325,7 @@ sh_test(
         "dir_exists",
     ],
     data = [":lb_32x128_mock_synth_deps_tar"],
+    tags = ["manual"],
 )
 
 sh_test(
@@ -2318,6 +2336,7 @@ sh_test(
         "print_flow_home",
     ],
     data = [":lb_32x128_mock_floorplan_deps_tar"],
+    tags = ["manual"],
 )
 
 sh_test(
@@ -2339,6 +2358,7 @@ sh_test(
         "ADDITIONAL_LEFS",
     ],
     data = [":lb_32x128_top_mock_full_hierarchy_floorplan_deps_tar"],
+    tags = ["manual"],
 )
 
 sh_test(
@@ -2349,6 +2369,7 @@ sh_test(
         "openroad_exe_env",
     ],
     data = [":lb_32x128_mock_floorplan_deps_tar"],
+    tags = ["manual"],
 )
 
 sh_test(
@@ -2384,18 +2405,21 @@ deps_groups_test(
 # Test deps tarball on synth (yosys) stage
 deps_output_group_test(
     name = "deps_output_group_synth_test",
+    tags = ["manual"],
     target = ":lb_32x128_synth_deps_tar",
 )
 
 # Test deps tarball on floorplan (openroad) stage
 deps_output_group_test(
     name = "deps_output_group_floorplan_test",
+    tags = ["manual"],
     target = ":lb_32x128_mock_openroad_floorplan_deps_tar",
 )
 
 # Test deps tarball on squashed flow stage
 deps_output_group_test(
     name = "deps_output_group_squashed_test",
+    tags = ["manual"],
     target = ":lb_32x128_squashed_final_final_deps_tar",
 )
 
@@ -2432,6 +2456,7 @@ output_group_test(
 # deps tarball still works alongside substeps=True
 deps_output_group_test(
     name = "deps_output_group_substeps_test",
+    tags = ["manual"],
     target = ":lb_32x128_substeps_floorplan_deps_tar",
 )
 
@@ -2601,6 +2626,7 @@ orfs_run_executable(
 
 deps_output_group_test(
     name = "deps_output_group_run_executable_test",
+    tags = ["manual"],
     target = ":mock_tuner_executable_with_deps_deps_tar",
 )
 
@@ -2613,6 +2639,7 @@ sh_test(
         "DESIGN_NAME",
     ],
     data = [":mock_tuner_executable_with_deps_deps_tar"],
+    tags = ["manual"],
 )
 
 orfs_run_executable(
