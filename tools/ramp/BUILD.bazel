@@ -2,7 +2,7 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
 # `bazelisk run //:import -- <ORFS design dir>`: the on-ramp, an ORFS
 # design copied into imported/ of this clone with a BUILD.bazel that
-# builds it.
+# builds it. docs/ramps.md.
 py_binary(
     name = "import",
     srcs = ["import_design.py"],
