@@ -5,6 +5,27 @@
 (ORFS): RTL to GDS with OpenROAD, Yosys and an open PDK, driven by
 `bazelisk build`.
 
+## bazel-orfs helps you with ORFS
+
+It does not replace it. An ORFS design is a `config.mk`: bring one into a
+clone of this repository, build it, and take it back out to make
+whenever you want. Your ORFS checkout is only read, and deleting the
+clone removes every trace.
+
+```sh
+bazelisk run //:import -- ~/OpenROAD-flow-scripts/flow/designs/asap7/gcd
+bazelisk build //imported/asap7/gcd:gcd_final
+bazelisk run //:export -- ~/gcd-orfs //imported/asap7/gcd:gcd
+```
+
+The first build in a fresh clone builds OpenROAD and Yosys from source,
+30 to 60 minutes. After that gcd takes about three minutes from RTL to
+final, and building it again with nothing changed takes under a second.
+`~/gcd-orfs/run.sh` runs the export with ORFS's make, and with the same
+ORFS and tools gives byte-identical results.
+[docs/ramps.md](docs/ramps.md) has the rest, including how your AI
+adapts import and export to a project's own ORFS.
+
 ## "Hermetic, and a new way of working"? Wrong, and right.
 
 The usual assumption is that Bazel seals your flow in a sandbox and
