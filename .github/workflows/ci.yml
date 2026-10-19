@@ -1,5 +1,11 @@
 name: CI
 
+# The budget is 30 minutes on this 4-core runner. Turnaround is the point:
+# a human waits on it, and an AI agent working on this repository is
+# limited by it far more, because what an agent gets done is the number
+# of decisions it can make per hour, and each one waits on a result.
+# Tests too expensive for that are in //test:local, run by hand.
+
 on:
   workflow_dispatch:
   push:
@@ -132,40 +138,8 @@ jobs:
           bazelisk build --nobuild --keep_going
           $(bazelisk query 'filter("_route$", kind(rule, @orfs//flow/designs/...))')
 
-      # OpenROAD and yosys are compiled once, in the exec configuration the
-      # flow stages run them in. A test that lists `@openroad` or `@yosys`
-      # in its data compiles the binary, and everything it links, a second
-      # time in the target configuration: hours on this runner. Such a
-      # test lists //test:openroad_exec or //test:yosys_exec instead
-      # (test/exec_tool.bzl).
-      - name: OpenROAD and yosys built once
-        run: |
-          tests=$(bazelisk query 'tests(//...) except attr(tags, "manual", tests(//...))' | grep '^//' | tr '\n' ' ')
-          for tool in @openroad//:openroad @yosys//:yosys; do
-            found=$(bazelisk cquery "rdeps(set($tests), config($tool, target), 1)")
-            if [ -n "$found" ]; then
-              echo "$tool is built in the target configuration for:"
-              echo "$found"
-              exit 1
-            fi
-          done
-
-      # No test needs openroad-qt: a stage's default runfiles carry it
-      # for `bazelisk run <stage> gui_*`, and a test that takes them
-      # builds Qt, an hour of this runner. A rule consuming a stage takes
-      # its data_runfiles, which leave Qt out.
-      - name: No Qt in tests
-        run: |
-          tests=$(bazelisk query 'tests(//...) except attr(tags, "manual", tests(//...))' | grep '^//' | tr '\n' ' ')
-          found=$(bazelisk cquery "set($tests)" --output=starlark \
-            --starlark:expr='str(target.label) if [f for f in providers(target)["DefaultInfo"].default_runfiles.files.to_list() if f.basename == "openroad-qt"] else ""' \
-            | grep . || true)
-          if [ -n "$found" ]; then
-            echo "openroad-qt is in the runfiles of:"
-            echo "$found"
-            exit 1
-          fi
-
+      # What the tests build is checked by hand, not here:
+      # `bazelisk run //local:check-ci-clean` (local/check_ci_clean.py).
       # --- Unit tests ---
       - name: Run tests
         run: bazelisk test ... --build_tests_only --test_output=errors --profile=test.profile

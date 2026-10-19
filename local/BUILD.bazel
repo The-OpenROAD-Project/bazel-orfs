@@ -1,0 +1,10 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+
+# Checks run by hand, not in CI: CI's minutes go to the tests.
+
+# Does CI's test set build only what it has to? check_ci_clean.py.
+py_binary(
+    name = "check-ci-clean",
+    srcs = ["check_ci_clean.py"],
+    main = "check_ci_clean.py",
+)
