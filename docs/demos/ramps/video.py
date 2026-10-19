@@ -127,6 +127,10 @@ class Canvas(object):
             + len(opts["lines"]) * self.px(96)
             + (self.px(80) if "note" in opts else 0)
         )
+        # More lines than fit: smaller type, never past the box.
+        room_h = self.caption_top() - 2 * margin - self.head
+        scale = min(1.0, room_h / float(lines_h))
+        lines_h = int(lines_h * scale)
         box = [
             margin,
             margin + self.head,
@@ -134,7 +138,7 @@ class Canvas(object):
             min(self.caption_top() - margin, margin + self.head + lines_h),
         ]
         draw.rounded_rectangle(box, radius=self.px(18), fill=PANEL, outline=DIM)
-        fnt = font(self.px(52 if not self.portrait else 34))
+        fnt = font(int(self.px(52 if not self.portrait else 34) * scale))
         y = box[1] + self.px(50)
         command = False
         for line in shown:
@@ -154,8 +158,8 @@ class Canvas(object):
             )
             for part in wrap(draw, body, fnt, box[2] - x - self.px(40)):
                 draw.text((x, y), part, font=fnt, fill=colour)
-                y += self.px(78)
-            y += self.px(16)
+                y += int(self.px(78) * scale)
+            y += int(self.px(16) * scale)
             command = command and line.endswith("\\")
         if "note" in opts:
             note = font(self.px(32))

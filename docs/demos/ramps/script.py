@@ -44,6 +44,18 @@ EXPORT = [
     "$ make DESIGN_CONFIG=./designs/asap7/gcd-bazel/config.mk",
 ]
 
+# examples/generated/BUILD, abridged.
+GENERATED = [
+    'py_binary(name = "gen", srcs = ["gen_mac.py"])',
+    "genrule(",
+    '    name = "mac_v",',
+    '    outs = ["mac.v"],',
+    '    cmd = "$(execpath :gen) --bits 8 > $@",',
+    '    tools = [":gen"],',
+    ")",
+    'orfs_flow(name = "mac", verilog_files = [":mac_v"])',
+]
+
 ON = (
     "terminal",
     {"lines": IMPORT, "show": [4, 4], "headline": "On: import"},
@@ -101,6 +113,30 @@ TALK = [
             "headline": "The same result",
         },
         ["With the same ORFS and tools, make gives a byte-identical result."],
+    ),
+    (
+        "terminal",
+        {"lines": GENERATED, "show": [8, 8], "headline": "Beyond ORFS's make"},
+        [
+            "In a more advanced project, the flow does things ORFS's make has no place for.",
+            "Here the RTL is generated. Bazel runs your generator, and a change to it rebuilds only what it reaches.",
+        ],
+    ),
+    (
+        "cards",
+        {
+            "animate": True,
+            "cards": [
+                ("in Bazel", "generator, RTL, flow"),
+                ("in config.mk", "the Verilog it made"),
+            ],
+            "select": [1, 0],
+            "headline": "Export: ORFS idioms only",
+        },
+        [
+            "Export writes what a config.mk can say: the generated Verilog, as it was built.",
+            "The generator stays in Bazel.",
+        ],
     ),
     (
         "title",
