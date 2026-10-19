@@ -953,6 +953,9 @@ ln -sfn $(pwd) {bin_dir}
         ctx.attr.src[TopInfo],
         DefaultInfo(
             executable = test,
+            # The source stage's data_runfiles, not its default_runfiles:
+            # those add openroad_qt for `bazelisk run <stage> gui_*`, and a
+            # test is headless, so it would build Qt for nothing.
             runfiles = ctx.runfiles(
                 transitive_files = depset(
                     [config, test] + script_inputs + extra_files,
@@ -965,7 +968,7 @@ ln -sfn $(pwd) {bin_dir}
                         ctx.attr.src[OrfsDepInfo].files,
                     ],
                 ),
-            ).merge(ctx.attr.src[DefaultInfo].default_runfiles).merge(ctx.attr.src[OrfsDepInfo].runfiles),
+            ).merge(ctx.attr.src[DefaultInfo].data_runfiles).merge(ctx.attr.src[OrfsDepInfo].runfiles),
         ),
     ]
 
