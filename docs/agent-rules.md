@@ -33,6 +33,17 @@ never stale; the only thing that can be out of date is the consumer's
 file. Details: bazel-orfs's `docs/openroad.md`, "Shapes the bumper
 recognizes".
 
+The bumper rewrites the blocks it recognizes, the pins among them. The
+rest of what Bazel honours only from the root module, the toolchain
+registrations, the `single_version_override`s
+and the override patches copied into the consumer, is synced by hand, by
+you, after the bump: diff bazel-orfs's `MODULE.bazel` and `patches/`
+between the old pin and the new one, and carry each change into the
+consumer's root, its reason with it. Do not write a generator for it; the
+blocks change shape with every upstream, and a generator is out of date
+the day the next one does. Details: bazel-orfs's `docs/openroad.md`,
+"Root MODULE.bazel requirements".
+
 ## Warm the GUI after every build
 
 After every flow build or stage, finished or failed, start an odb-debug
