@@ -50,7 +50,7 @@ class VideoTest(unittest.TestCase):
                     CONFIG,
                     "--gui",
                     PICTURE,
-                    "--layout",
+                    "--gcd",
                     PICTURE,
                     "--out",
                     out,

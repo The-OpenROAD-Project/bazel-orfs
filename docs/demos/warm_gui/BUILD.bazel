@@ -1,32 +1,20 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
-load("//:openroad.bzl", "orfs_run")
 
-# The warm-gui demo videos (bazel-orfs #1300): what happens after
-# "build grt aes-blocks asap7".
+# The bazel-orfs demo videos (bazel-orfs #1300): the hermetic and dirty
+# lanes, then the warm GUI and the MCP server after "build grt aes-blocks
+# asap7".
 #
 #   bazelisk build //docs/demos/warm_gui:video        # 1920x1080
 #   bazelisk build //docs/demos/warm_gui:short        # 1080x1920, a phone
 #
 # Narrated offline by Piper's pinned ljspeech voice (public domain, its
 # MODEL_CARD is in the runfiles), encoded by the ffmpeg imageio-ffmpeg
-# pins. gui.png is the web viewer on aes-block's grt through the GUI link,
-# taken with headless Chrome:
+# pins. gui.png is the web viewer on aes-block's grt through the GUI link
+# and gcd.png on gcd's final from `make gui_final` in a //:dirty tree,
+# both taken with headless Chrome:
 #
 #   google-chrome --headless=new --window-size=1600,1000 \
 #       --virtual-time-budget=20000 --screenshot=gui.png '<gui_url>'
-#
-# The layout frame is drawn by the build itself, below.
-
-# aes-block at grt, drawn headless: the design the screenshot shows.
-orfs_run(
-    name = "layout",
-    src = "@orfs//flow/designs/asap7/aes-block:aes_cipher_top_grt",
-    outs = ["layout.png"],
-    arguments = {"GUI_TIMING": "0"},
-    script = "layout.tcl",
-    tags = ["manual"],
-    user_arguments = {"OUTPUT": "layout.png"},
-)
 
 py_binary(
     name = "video_bin",
@@ -46,8 +34,8 @@ py_binary(
 [genrule(
     name = name,
     srcs = [
+        "gcd.png",
         "gui.png",
-        ":layout",
         "@piper_voice_json//file",
         "@piper_voice_onnx//file",
     ],
@@ -64,7 +52,7 @@ py_binary(
         "--voice-onnx $(execpath @piper_voice_onnx//file)",
         "--voice-json $(execpath @piper_voice_json//file)",
         "--gui $(execpath gui.png)",
-        "--layout $(execpath :layout)",
+        "--gcd $(execpath gcd.png)",
         "--out $(execpath warm_gui_%s.mp4)" % name,
         "--srt $(execpath warm_gui_%s.srt)" % name,
     ]),

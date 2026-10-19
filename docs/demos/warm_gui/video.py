@@ -8,7 +8,7 @@ one WAV beside them, and the ffmpeg that imageio-ffmpeg pins encodes both:
 nothing is taken from the host.
 
     video.py --script full|short --format landscape|portrait \
-        --voice-onnx F --voice-json F --gui PNG --layout PNG \
+        --voice-onnx F --voice-json F --gui PNG --gcd PNG \
         --out out.mp4 --srt out.srt [--test]
 
 --test keeps the first two sentences, for a test that it encodes.
@@ -99,8 +99,8 @@ class Canvas(object):
     # One method per scene kind: (img, draw, opts, sentence index).
     def title(self, img, draw, opts, k):
         mid = self.caption_top() / 2
-        self.centred(draw, mid - self.px(120), SCRIPT.TITLE, 72, FG)
-        sub = opts.get("sub", "odb-debug in bazel-orfs")
+        self.centred(draw, mid - self.px(120), opts.get("title", SCRIPT.TITLE), 72, FG)
+        sub = opts.get("sub", "")
         self.centred(
             draw, mid + self.px(80 if not self.portrait else 160), sub, 40, ACCENT
         )
@@ -113,47 +113,173 @@ class Canvas(object):
         fnt = font(self.px(36 if not self.portrait else 34))
         y = box[1] + self.px(40)
         for line in shown:
-            colour = (
-                ACCENT if line.startswith(">") else (GOOD if "ready" in line else FG)
-            )
+            if line.startswith(("$", ">")):
+                colour = ACCENT
+            elif "GUI" in line and "http" in line:
+                colour = GOOD
+            else:
+                colour = FG
             for part in wrap(draw, line, fnt, box[2] - box[0] - self.px(80)):
                 draw.text((box[0] + self.px(40), y), part, font=fnt, fill=colour)
                 y += self.px(54)
             y += self.px(16)
+        if "note" in opts:
+            note = font(self.px(32))
+            for i, line in enumerate(wrap(draw, opts["note"], note, box[2] - box[0])):
+                draw.text(
+                    (box[0] + self.px(40), box[3] - self.px(70) + i * self.px(40)),
+                    line,
+                    font=note,
+                    fill=DIM,
+                )
 
-    def diagram(self, img, draw, opts, k):
-        boxes = [
-            ("Your browser", "on your machine"),
-            ("gui_proxy.py", "VPN address, token checked"),
-            ("Web viewer", "127.0.0.1, the warm design"),
-            ("Agent", "MCP tools, same session"),
-        ]
-        fnt, small = font(self.px(40)), font(self.px(28))
-        area_h = self.caption_top()
-        if self.portrait:
-            bw, bh = self.w - self.px(200), self.px(170)
-            xs = [self.px(100)] * 4
-            ys = [self.px(120) + i * self.px(300) for i in range(4)]
-        else:
-            bw, bh = self.px(380), self.px(200)
-            gap = (self.w - 4 * bw) / 5
-            xs = [int(gap + i * (bw + gap)) for i in range(4)]
-            ys = [int(area_h / 2 - bh / 2)] * 4
-        for (name, note), x, y in zip(boxes, xs, ys):
-            draw.rounded_rectangle(
-                [x, y, x + bw, y + bh], radius=self.px(16), fill=PANEL, outline=ACCENT
-            )
-            for text, f, colour, dy in ((name, fnt, FG, 0.3), (note, small, DIM, 0.62)):
-                tx = x + (bw - draw.textlength(text, font=f)) / 2
-                draw.text((tx, y + bh * dy), text, font=f, fill=colour)
-        for i in range(3):
+    def lanes(self, img, draw, opts, k):
+        """Two columns, one per lane; the sentence about a lane lights it."""
+        head, body = font(self.px(48)), font(self.px(36))
+        n = len(opts["lanes"])
+        margin, gap = self.px(70), self.px(50)
+        area = self.caption_top() - 2 * margin
+        for i, (name, rows) in enumerate(opts["lanes"]):
             if self.portrait:
-                x = xs[i] + bw / 2
-                a, b = (x, ys[i] + bh), (x, ys[i + 1])
+                h = (area - gap) / n
+                box = [
+                    margin,
+                    margin + i * (h + gap),
+                    self.w - margin,
+                    margin + i * (h + gap) + h,
+                ]
             else:
-                y = ys[i] + bh / 2
-                a, b = (xs[i] + bw, y), (xs[i + 1], y)
-            self.arrow(draw, a, b, i == 2)
+                w = (self.w - 2 * margin - gap) / n
+                box = [
+                    margin + i * (w + gap),
+                    margin,
+                    margin + i * (w + gap) + w,
+                    margin + area,
+                ]
+            lit = opts.get("light", {}).get(k) == i
+            draw.rounded_rectangle(
+                box,
+                radius=self.px(20),
+                fill=PANEL,
+                outline=ACCENT if lit else DIM,
+                width=self.px(6 if lit else 2),
+            )
+            x, y = box[0] + self.px(40), box[1] + self.px(36)
+            draw.text((x, y), name, font=head, fill=ACCENT if lit else FG)
+            y += self.px(90)
+            for row in rows:
+                for part in wrap(draw, row, body, box[2] - box[0] - self.px(80)):
+                    draw.text(
+                        (x, y),
+                        part,
+                        font=body,
+                        fill=FG if lit or not opts.get("light") else DIM,
+                    )
+                    y += self.px(48)
+                y += self.px(22)
+
+    def system(self, img, draw, opts, k):
+        """The laptop and the server it reaches over the VPN. Items sit on a
+        grid of (row, column); a phone transposes it."""
+        items = {
+            "browser": (0, 0, "Browser", "OpenROAD's GUI"),
+            "claude": (1, 0, "Claude terminal", ""),
+            "proxy": (0, 1, "gui_proxy", "token checked"),
+            "agent": (1, 1, "Claude Code", ""),
+            "daemon": (0, 2, "odb-debug", "OpenROAD, design loaded"),
+            "mcp": (1, 2, "MCP server", "summaries"),
+        }
+        links = [
+            ("browser", "proxy", "VPN"),
+            ("claude", "agent", "ssh"),
+            ("proxy", "daemon", ""),
+            ("agent", "mcp", ""),
+            ("mcp", "daemon", ""),
+        ]
+        top, bottom = self.px(150), self.caption_top() - self.px(60)
+        left, right = self.px(60), self.w - self.px(60)
+        cols, rows = 3, 2
+        if self.portrait:
+            along, across = (bottom - top), (right - left)
+            bw, bh = across / rows - self.px(60), along / cols - self.px(150)
+        else:
+            along, across = (right - left), (bottom - top)
+            bw, bh = along / cols - self.px(150), across / rows - self.px(120)
+        bh = min(bh, self.px(200))
+
+        def centre(r, c):
+            if self.portrait:
+                return (
+                    left + (r + 0.5) * (right - left) / rows,
+                    top + (c + 0.5) * (bottom - top) / cols,
+                )
+            return (
+                left + (c + 0.5) * (right - left) / cols,
+                top + (r + 0.5) * (bottom - top) / rows,
+            )
+
+        def rect(key):
+            x, y = centre(*items[key][:2])
+            return [x - bw / 2, y - bh / 2, x + bw / 2, y + bh / 2]
+
+        # The two machines around their items.
+        groups = [
+            (["browser", "claude"], "Laptop"),
+            (["proxy", "agent", "daemon", "mcp"], opts.get("server", "Server")),
+        ]
+        label = font(self.px(34))
+        headings = []
+        for keys, name in groups:
+            rs = [rect(key) for key in keys]
+            pad = self.px(28)
+            g = [
+                min(r[0] for r in rs) - pad,
+                min(r[1] for r in rs) - pad - self.px(50),
+                max(r[2] for r in rs) + pad,
+                max(r[3] for r in rs) + pad,
+            ]
+            draw.rounded_rectangle(g, radius=self.px(24), outline=DIM, width=self.px(3))
+            headings.append(((g[0] + self.px(24), g[1] + self.px(10)), name))
+        for a, b, text in links:
+            ra, rb = rect(a), rect(b)
+            ca = ((ra[0] + ra[2]) / 2, (ra[1] + ra[3]) / 2)
+            cb = ((rb[0] + rb[2]) / 2, (rb[1] + rb[3]) / 2)
+            if abs(ca[0] - cb[0]) > abs(ca[1] - cb[1]):
+                sx = 1 if cb[0] > ca[0] else -1
+                p, q = (ca[0] + sx * bw / 2, ca[1]), (cb[0] - sx * bw / 2, cb[1])
+            else:
+                sy = 1 if cb[1] > ca[1] else -1
+                p, q = (ca[0], ca[1] + sy * bh / 2), (cb[0], cb[1] - sy * bh / 2)
+            self.arrow(draw, p, q, False)
+            if text:
+                f = font(self.px(32))
+                mx, my = (p[0] + q[0]) / 2, (p[1] + q[1]) / 2
+                if p[0] == q[0]:
+                    # Beside a vertical arrow, not on it.
+                    at = (mx + self.px(14), my - self.px(18))
+                else:
+                    at = (mx - draw.textlength(text, font=f) / 2, my - self.px(46))
+                draw.text(at, text, font=f, fill=ACCENT)
+        # The machines' names over the arrows that cross their borders.
+        for (x, y), name in headings:
+            w = draw.textlength(name, font=label)
+            draw.rectangle(
+                [x - self.px(8), y, x + w + self.px(8), y + self.px(42)], fill=BG
+            )
+            draw.text((x, y), name, font=label, fill=DIM)
+        name_f, note_f = font(self.px(38)), font(self.px(26))
+        for key, (_, _, name, note) in items.items():
+            r = rect(key)
+            draw.rounded_rectangle(r, radius=self.px(16), fill=PANEL, outline=ACCENT)
+            for text, f, colour, dy in (
+                (name, name_f, FG, 0.28 if note else 0.4),
+                (note, note_f, DIM, 0.62),
+            ):
+                if text:
+                    tx = (r[0] + r[2] - draw.textlength(text, font=f)) / 2
+                    draw.text(
+                        (tx, r[1] + (r[3] - r[1]) * dy), text, font=f, fill=colour
+                    )
 
     def arrow(self, draw, a, b, backwards):
         draw.line([a, b], fill=DIM, width=self.px(6))
@@ -190,8 +316,12 @@ class Canvas(object):
 
     def bullets(self, img, draw, opts, k):
         fnt = font(self.px(46))
-        y = self.px(140)
-        for i, item in enumerate(opts["items"][: k + 1]):
+        y = self.px(100)
+        if "heading" in opts:
+            self.centred(draw, self.px(50), opts["heading"], 52, ACCENT)
+            y = self.px(200)
+        show = opts.get("show", list(range(1, len(opts["items"]) + 1)))
+        for item in opts["items"][: show[min(k, len(show) - 1)]]:
             for j, line in enumerate(wrap(draw, item, fnt, self.w - self.px(260))):
                 if j == 0:
                     draw.ellipse(
@@ -237,7 +367,7 @@ def main(argv):
     p.add_argument("--voice-onnx", required=True)
     p.add_argument("--voice-json", required=True)
     p.add_argument("--gui", required=True)
-    p.add_argument("--layout", required=True)
+    p.add_argument("--gcd", required=True)
     p.add_argument("--out", required=True)
     p.add_argument("--srt", required=True)
     p.add_argument("--test", action="store_true")
