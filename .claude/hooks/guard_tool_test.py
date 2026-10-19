@@ -61,6 +61,12 @@ CASES = [
     ("command", "bazelisk run @openroad//:openroad -- -gui x.tcl", "odb-debug"),
     # Building it, the web viewer odb-debug drives, and the CLI are fine.
     ("command", "bazelisk build @openroad//:openroad-qt", None),
+    ("command", "tmp/test/lb/make qt_final", "odb-debug"),
+    ("command", "cd tmp/x && ./make qt_6_final.odb", "odb-debug"),
+    ("command", "bazelisk run //test:lb_final qt_final", "odb-debug"),
+    ("command", "tmp/test/lb/make gui_final", None),
+    ("command", "bazelisk run //test:lb_final gui_final", None),
+    ("command", "grep -n qt_final docs/dirty-lane.md", None),
     ("command", "openroad -web -no_init daemon.tcl", None),
     ("command", "openroad -exit -no_init repro.tcl", None),
     ("command", "./run.sh ../openroad", None),

@@ -240,7 +240,7 @@ and reports under `bazel-bin/<package>/reports/...`. Every stage target is
 also a `bazelisk run` entry point:
 
 ```bash
-bazelisk run <target>_<stage> gui_<stage>    # OpenROAD GUI
+bazelisk run <target>_<stage> gui_<stage>    # OpenROAD's web viewer: prints a link
 bazelisk run <target>_<stage> open_<stage>   # OpenROAD Tcl shell
 ```
 

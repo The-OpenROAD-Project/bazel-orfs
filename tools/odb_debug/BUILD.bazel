@@ -7,6 +7,21 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 exports_files(
     [
         "daemon.tcl",
+        "gui.sh",
+        "gui_proxy.py",
+        "odbdebug.py",
+        "webclient.py",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# What `make gui_<stage>` runs in a stage's tree (make.tpl): gui.sh starts
+# the daemon, which needs its client and proxy beside it.
+filegroup(
+    name = "gui",
+    srcs = [
+        "daemon.tcl",
+        "gui.sh",
         "gui_proxy.py",
         "odbdebug.py",
         "webclient.py",
