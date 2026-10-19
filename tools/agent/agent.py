@@ -49,6 +49,7 @@ EXPORTED_SKILLS = (
     "repair-timing-grt",
     "scale-to-memory",
     "surgery",
+    "warm-gui",
 )
 
 # bazel-orfs's own: its pull requests and studies, GitHub housekeeping,

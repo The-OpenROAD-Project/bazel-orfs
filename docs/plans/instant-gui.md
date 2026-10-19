@@ -13,8 +13,9 @@ the GUI is one click away.
 
 ## Proposal
 
-The odb-debug daemon (`tools/odb_debug`) already is a warm, headless
-`web_server` that a browser attaches to. What is missing:
+The odb-debug daemon (`tools/odb_debug`) already was a warm, headless
+`web_server` that a browser attaches to. What it lacked, and now has
+(`tools/odb_debug/README.md`, "Look at it"; the `warm-gui` skill):
 
 1. **The MCP server starts it.** A tool `open(target)` runs
    `bazelisk run <target>_odb_debug` detached and returns at once;
@@ -42,7 +43,11 @@ The odb-debug daemon (`tools/odb_debug`) already is a warm, headless
    without one. The warm session is not in the Bazel cache, and the
    skill says so.
 
-First test: `gcd` on asap7, on a workstation.
+First tried on ORFS's asap7 `gcd`, its final stage
+(`//test/odb_debug:gcd_final_odb_debug`), on a workstation.
+
+Not done: an `odb_debug()` companion for every stage of every
+`orfs_flow`, so the skill never has to add one first.
 
 ## Alternatives considered
 

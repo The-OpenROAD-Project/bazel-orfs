@@ -33,6 +33,13 @@ never stale; the only thing that can be out of date is the consumer's
 file. Details: bazel-orfs's `docs/openroad.md`, "Shapes the bumper
 recognizes".
 
+## Warm the GUI after every build
+
+After every flow build or stage, finished or failed, start an odb-debug
+daemon on the stage the human will want to look at and hand over the web
+viewer's link with the build's result, unasked: the design loads while
+they read it. The `warm-gui` skill.
+
 ## Never clean the Bazel cache
 
 Never run `bazel clean` or delete an output base, partly or wholly. A
