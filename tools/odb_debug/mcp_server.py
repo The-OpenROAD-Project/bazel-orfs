@@ -49,6 +49,48 @@ def tool(name, description, params=None, required=()):
     return wrap
 
 
+GUI_HOW = (
+    "Open gui_url in a browser on your own machine. It works over the VPN"
+    " when the machine is reachable at that address; if the browser cannot"
+    " connect, check that the VPN is up and nothing blocks the port, or"
+    " tunnel it: ssh -L <port>:<address>:<port> <this machine>, then open"
+    " the link with localhost:<port>. The token in the link is the only"
+    " key to the session; do not paste it anywhere public."
+)
+
+
+@tool(
+    "open",
+    "Start the daemon on a flow stage in the background and return at once: `bazelisk run <target>` of an odb_debug() target, in a session of its own that outlives this one. The design loads while the human is away; it waits, without an idle exit, for the first question or browser visit. Poll `gui` for the link.",
+    {
+        "target": (
+            "string",
+            "Bazel label of an odb_debug() target, e.g. //my:cpu_final_odb_debug",
+        ),
+        "arguments": (
+            "array",
+            'Make variables for the daemon, e.g. ["GUI_TIMING=0"]; default none',
+        ),
+    },
+    ["target"],
+)
+def _open(d, a):
+    return odbdebug.launch(
+        a["target"], os.path.dirname(d.path), a.get("arguments") or ()
+    )
+
+
+@tool(
+    "gui",
+    "Whether the daemon is loading, ready or stopped; when ready, the GUI link (gui_url, with its token) and how to open it; while loading or after a failed launch, the end of the launch log.",
+)
+def _gui(d, a):
+    state = odbdebug.gui_state(os.path.dirname(d.path))
+    if state["state"] == "ready":
+        state["how"] = GUI_HOW
+    return state
+
+
 @tool(
     "status",
     "Design, ODB, workspace commit, whether timing is loaded, instance/net/row counts, die and core boxes in um.",

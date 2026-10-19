@@ -33,11 +33,19 @@
 # browser on that address is the GUI.
 #
 # Files, all under ODB_DEBUG_DIR (required): daemon.json, written before the
-# viewer starts -- port, pid, url, design, odb, workspace, commit, timing --
-# and removed when the daemon exits on its own; heartbeat, for the idle
-# exit. ODB_DEBUG_IDLE_SECS is the
-# idle time before it exits (0 disables; default twice the load time, at
-# least 120 s), so a forgotten daemon gives its memory back.
+# viewer starts -- port, pid, url, gui_url, design, odb, workspace, commit,
+# timing -- readable by its owner only, and removed when the daemon exits on
+# its own; heartbeat and activity, for the idle exit. ODB_DEBUG_IDLE_SECS is
+# the idle time before it exits (0 disables; default twice the load time, at
+# least 120 s), so a forgotten daemon gives its memory back. A loaded daemon
+# waits for its first interaction without a time limit: a build's result
+# loads while the human is away, and is there when they come to look.
+#
+# The GUI: gui_url is a link a browser on another machine can open, through
+# gui_proxy.py beside this script. It listens on ODB_DEBUG_GUI_BIND, by
+# default the address the human's ssh session came in on (SSH_CONNECTION),
+# else 127.0.0.1, and forwards to the viewer only what carries the token in
+# the link: the viewer evaluates any Tcl it is sent.
 
 set ::od_t0 [clock milliseconds]
 
@@ -473,7 +481,50 @@ if { $od_port == 0 } {
 }
 
 set ::od_heartbeat_path [file join $::env(ODB_DEBUG_DIR) heartbeat]
-od_heartbeat idle
+set ::od_activity_path [file join $::env(ODB_DEBUG_DIR) activity]
+catch { file delete $::od_activity_path }
+# Loaded, and nobody has asked yet: the watchdog leaves a waiting daemon
+# alone until the first request or browser activity.
+od_heartbeat waiting
+
+# The GUI link: a token, and the proxy that checks it on the address a
+# browser on the human's machine reaches.
+set f [open /dev/urandom rb]
+set ::od_token [binary encode hex [read $f 16]]
+close $f
+if { [info exists ::env(ODB_DEBUG_GUI_BIND)] && $::env(ODB_DEBUG_GUI_BIND) ne "" } {
+  set ::od_gui_bind $::env(ODB_DEBUG_GUI_BIND)
+} elseif {
+  [info exists ::env(SSH_CONNECTION)] && [llength $::env(SSH_CONNECTION)] == 4
+} {
+  # client address, client port, server address, server port
+  set ::od_gui_bind [lindex $::env(SSH_CONNECTION) 2]
+} else {
+  set ::od_gui_bind 127.0.0.1
+}
+# A probe on the address itself: one this machine does not have fails
+# here, by name, rather than in the proxy after daemon.json advertised it.
+if {
+  [catch {
+    socket -server {apply {{c a p} {close $c}}} -myaddr $::od_gui_bind \
+      [expr { [info exists ::env(ODB_DEBUG_GUI_PORT)] ? $::env(ODB_DEBUG_GUI_PORT) : 0 }]
+  } probe]
+} {
+  error "odb-debug: cannot listen on $::od_gui_bind for the GUI ($probe); set ODB_DEBUG_GUI_BIND"
+}
+set ::od_gui_port [lindex [fconfigure $probe -sockname] 2]
+close $probe
+set od_proxy [file join [file dirname [file normalize [info script]]] gui_proxy.py]
+if { ![file exists $od_proxy] } {
+  error "odb-debug: $od_proxy is missing beside daemon.tcl"
+}
+# The token reaches the proxy through its environment: argv is public.
+set ::env(ODB_DEBUG_TOKEN) $::od_token
+exec $::env(PYTHON_EXE) $od_proxy --listen $::od_gui_bind --port $::od_gui_port \
+  --target-port $od_port --activity $::od_activity_path --pid [pid] \
+  >@ stdout 2>@ stderr &
+unset ::env(ODB_DEBUG_TOKEN)
+set ::od_gui_url "http://$::od_gui_bind:$::od_gui_port/?token=$::od_token"
 
 # daemon.json is the client's signal to connect, so it appears only once
 # the viewer takes requests (see the end of this file); until then it is
@@ -481,22 +532,27 @@ od_heartbeat idle
 set ::od_info_path [file join $::env(ODB_DEBUG_DIR) daemon.json]
 set od_pending $::od_info_path.pending
 catch { file delete $::od_info_path }
-set fh [open $od_pending w]
+# The GUI token is in it: its owner only.
+set fh [open $od_pending {WRONLY CREAT TRUNC} 0600]
 puts $fh [od_jobj [list port $od_port pid [pid] dir [od_jstr $::env(ODB_DEBUG_DIR)] \
-  url [od_jstr "http://127.0.0.1:$od_port"] \
+  url [od_jstr "http://127.0.0.1:$od_port"] gui_url [od_jstr $::od_gui_url] \
   design [od_jstr [[ord::get_db_block] getName]] \
   odb [od_jstr [expr { [info exists ::env(ODB_FILE)] ? $::env(ODB_FILE) : "" }]] \
   workspace [od_jstr $::od_workspace] commit [od_jstr $::od_commit] timing [od_jbool $::od_timing]]]
 close $fh
 puts "odb-debug: daemon on http://127.0.0.1:$od_port (info: $::od_info_path)"
+puts "odb-debug: GUI on http://$::od_gui_bind:$::od_gui_port/, the link with its token is daemon.json's gui_url"
 puts "odb-debug: design [[ord::get_db_block] getName], [llength [[ord::get_db_block] getInsts]] insts, loaded in $::od_load_secs s, timing [expr { $::od_timing ? "on" : "off" }]"
 
 # Idle exit: give the memory back when nobody asks. Default twice the load
 # time, at least two minutes; ODB_DEBUG_IDLE_SECS overrides, 0 disables.
-# web_server blocks and Tcl's event loop does not run under it, so a timer
-# here would never fire: a shell beside the daemon watches the heartbeat
-# and stops it. Requests typed in a browser bypass the heartbeat; browse
-# with ODB_DEBUG_IDLE_SECS=0. It stops it as a browser's `exit` does,
+# The clock starts at the first interaction: until a request or a browser
+# through the GUI link arrives, the daemon waits, and the watchdog looks
+# only once a minute. web_server blocks and Tcl's event loop does not run
+# under it, so a timer here would never fire: a shell beside the daemon
+# watches the heartbeat and the proxy's activity file and stops it. A
+# browser on the viewer's own 127.0.0.1 port bypasses both; browse through
+# gui_url, or with ODB_DEBUG_IDLE_SECS=0. It stops it as a browser's `exit` does,
 # through the viewer with the client beside this script: web_server
 # returns and the daemon exits 0 below. A kill would end it with
 # SIGTERM, which make reports as a failed run.
@@ -507,18 +563,32 @@ if { ![file exists $od_client] } {
 set ::od_idle [expr { [info exists ::env(ODB_DEBUG_IDLE_SECS)] ? int($::env(ODB_DEBUG_IDLE_SECS)) : max(120, int(2 * $::od_load_secs)) }]
 if { $::od_idle > 0 } {
   set od_poll [expr { max(1, min(10, $::od_idle / 2)) }]
+  set od_wait_poll [expr { max($od_poll, min(60, $::od_idle)) }]
   set od_watchdog {
     pid=$1 heartbeat=$2 idle=$3 info=$4 poll=$5 python=$6 client=$7 dir=$8
+    activity=$9 wait_poll=${10}
     # This shell holds openroad's stdout, the pipe its parent tees, so the
     # parent reaps openroad only once this shell has exited too: an exited
     # openroad is a zombie until then, and kill -0 still finds a zombie.
     alive() {
       state=$(ps -o stat= -p "$pid" 2>/dev/null) && [ "${state#Z}" = "$state" ]
     }
+    nap=$wait_poll
     while alive; do
-      sleep "$poll"
+      sleep "$nap"
       read state since < "$heartbeat" || continue
-      if [ "$state" = idle ] && [ $(( $(date +%s) - since )) -gt "$idle" ]; then
+      # The browser's last byte through the GUI link, when there was one.
+      act=0
+      [ -f "$activity" ] && { read _ act < "$activity" || act=0; }
+      if [ "$state" = waiting ] && [ "$act" -eq 0 ]; then
+        nap=$wait_poll
+        continue
+      fi
+      nap=$poll
+      [ "$state" = busy ] && continue
+      last=$since
+      [ "$act" -gt "$last" ] && last=$act
+      if [ $(( $(date +%s) - last )) -gt "$idle" ]; then
         echo "odb-debug: idle for $idle s, exiting"
         # openroad exits inside web_server and never reaches the delete
         # below it, so the request deletes daemon.json first: the client
@@ -538,7 +608,8 @@ if { $::od_idle > 0 } {
     done
   }
   exec sh -c $od_watchdog odb-debug-watchdog [pid] $::od_heartbeat_path $::od_idle $::od_info_path $od_poll \
-    $::env(PYTHON_EXE) $od_client $::env(ODB_DEBUG_DIR) >@ stdout 2>@ stderr &
+    $::env(PYTHON_EXE) $od_client $::env(ODB_DEBUG_DIR) $::od_activity_path $od_wait_poll \
+    >@ stdout 2>@ stderr &
 }
 
 # A debug pause inside tcl_eval holds the thread serving it; with one
