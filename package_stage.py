@@ -21,8 +21,11 @@ def main():
     manifest_path = sys.argv[1]
     output_path = sys.argv[2]
 
+    # Level 1, not gzip's default 9: on lb_32x128's synth stage (750 MB,
+    # mostly the OpenROAD and yosys binaries) 9 took 187 s and 1 takes
+    # 24 s, for a file 6% larger.
     with open(output_path, "wb") as raw, gzip.GzipFile(
-        filename="", mode="wb", fileobj=raw, mtime=0
+        filename="", mode="wb", fileobj=raw, mtime=0, compresslevel=1
     ) as gz, tarfile.open(fileobj=gz, mode="w", format=tarfile.GNU_FORMAT) as tar:
         seen = set()
         with open(manifest_path) as f:
