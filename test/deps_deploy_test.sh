@@ -41,13 +41,10 @@ if [ -z "$MAKE_BIN" ] || [ ! -f "$MAKE_BIN" ]; then
     exit 1
 fi
 
-# Find the config file (*.short.mk)
-CONFIG="$(find "$DST" -type f -name '*.short.mk' | head -1)"
-
-# Create _main/config.mk from the short config
-if [ -f "$CONFIG" ]; then
-    cp "$CONFIG" "$DST/_main/config.mk"
-fi
+# The tarball carries the stage's own config as _main/config.mk. It also
+# holds the earlier stages' *.short.mk; copying "the first one find
+# lists" over it picked synth's config for a floorplan on some
+# filesystems, whose directory order put 1_synth first.
 
 # Create the make wrapper script
 MAKE_REL="${MAKE_BIN#$DST/_main/}"
