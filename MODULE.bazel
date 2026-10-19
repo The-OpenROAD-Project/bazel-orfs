@@ -1122,3 +1122,34 @@ http_archive(
     strip_prefix = "espresso-2.5.1",
     urls = ["https://github.com/chipsalliance/espresso/archive/refs/tags/v2.5.1.tar.gz"],
 )
+
+# The narrator of the docs/demos videos: Piper's en_US-ljspeech-high
+# voice, trained on the public-domain LJ Speech dataset (its MODEL_CARD
+# rides along), pinned to one revision of rhasspy/piper-voices.
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+
+PIPER_VOICE = "https://huggingface.co/rhasspy/piper-voices/resolve/c10ece1aade47bb51c153c893d14e5bf8e5b7117/en/en_US/ljspeech/high/"
+
+http_file(
+    name = "piper_voice_onnx",
+    dev_dependency = True,
+    downloaded_file_path = "en_US-ljspeech-high.onnx",
+    sha256 = "5d4f08ba6a2a48c44592eed3ce56bf85e9de3dd4e20df90541ae68a8310c029a",
+    urls = [PIPER_VOICE + "en_US-ljspeech-high.onnx"],
+)
+
+http_file(
+    name = "piper_voice_json",
+    dev_dependency = True,
+    downloaded_file_path = "en_US-ljspeech-high.onnx.json",
+    sha256 = "7e1f4634af596d83cca997fb7a931ba80b70f8a316a2655ee69c55365e0ace14",
+    urls = [PIPER_VOICE + "en_US-ljspeech-high.onnx.json"],
+)
+
+http_file(
+    name = "piper_voice_card",
+    dev_dependency = True,
+    downloaded_file_path = "MODEL_CARD",
+    sha256 = "289f7421072d689a3d91f6c632f486af46f9b8b04417536104a4ea667b8a394b",
+    urls = [PIPER_VOICE + "MODEL_CARD"],
+)
