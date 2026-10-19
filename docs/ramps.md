@@ -133,6 +133,29 @@ used.
 Imported and then exported, ORFS's gcd keeps every design setting, with
 its RTL and SDC byte-identical.
 
+### What config.mk can say
+
+A more advanced flow does things ORFS's make has no place for. Its RTL
+may be generated, as in [examples/generated](../examples/generated/BUILD),
+where Bazel runs the generator and the flow reads what it writes. An
+export is limited to what a `config.mk` can say, ORFS's idioms, so
+anything else travels as the file it made, or not at all:
+
+| in the Bazel flow | in the export |
+|---|---|
+| generated RTL | the Verilog as built, under `inputs/`: a snapshot |
+| the generator, its options, its tests | not exported: they stay in Bazel |
+| a hardened macro | its abstract (`.lef`, `.lib`), as built |
+| `orfs_run` steps, sweeps, variants, checks | not exported |
+
+`//examples/generated:mac`, exported and made with the pinned ORFS and
+the tools Bazel used, ran from synth to finish in 45 s with a final
+report identical to Bazel's: the same cells, area, extraction and IR
+drop. Its `.odb` is not byte-identical, unlike gcd's: Yosys records the
+source file's path in the netlist, and the path is the export's, not the
+clone's; the netlists differ in nothing else. gcd synthesises with
+OpenROAD, which records none.
+
 ## Import and export with your AI
 
 Your project may well not be on the latest ORFS. It may carry patches,
