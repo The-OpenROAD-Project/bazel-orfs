@@ -49,7 +49,9 @@ class Refused(Exception):
 
 
 def refuse(msg):
-    raise Refused(msg + "\n(tools/ramp/import_design.py is the file to patch)")
+    raise Refused(
+        msg + "\n(tools/ramp/import_design.py is the file to patch; docs/ramps.md)"
+    )
 
 
 def make_print(make, flow, config, names):

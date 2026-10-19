@@ -44,6 +44,25 @@ blocks change shape with every upstream, and a generator is out of date
 the day the next one does. Details: bazel-orfs's `docs/openroad.md`,
 "Root MODULE.bazel requirements".
 
+## Import and export
+
+`bazelisk run //:import` brings an ORFS design into a bazel-orfs clone,
+`bazelisk run //:export` takes a flow back out to a plain ORFS design
+(bazel-orfs's `docs/ramps.md`). When either refuses something, or maps it
+wrong, fix the tool, `tools/ramp/import_design.py` or
+`tools/ramp/export_design.py` in the clone, and run it again; do not
+hand-edit what it wrote to cover a mapping it got wrong. Check the fix
+with the round trip: import, export, and compare the two `config.mk`
+files with ORFS's make (`make print-<VAR>`). Making an imported
+`BUILD.bazel` idiomatic afterwards is a separate edit, and welcome.
+
+When the imported Verilog was generated, building it in Bazel is the next
+step. Search the Bazel Central Registry for a rule set for the
+generator's language or hardware DSL before writing a `genrule`, and
+prefer a registry module to a hand-written rule. Keep the copied Verilog
+until the generated Verilog is identical to it, or shown equivalent, and
+delete the copy in the same commit as the rule that replaces it.
+
 ## Warm the GUI after every build
 
 After every flow build or stage, finished or failed, start an odb-debug
