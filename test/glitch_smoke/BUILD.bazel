@@ -14,6 +14,8 @@
 
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
+# Manual, in //test:local: iverilog is a dev dependency, and this test
+# alone made CI compile it and the Tcl it links.
 sh_test(
     name = "glitch_smoke_test",
     size = "small",
@@ -31,4 +33,6 @@ sh_test(
         "@iverilog//:ivl_base",
         "@iverilog//:vvp",
     ],
+    tags = ["manual"],
+    visibility = ["//test:__pkg__"],
 )

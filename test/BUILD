@@ -920,6 +920,8 @@ test_suite(
         ":orfs_mock_alu_final_build_test",
         # 34 stages: eight macros and their parents.
         "//sram:sram_build_test",
+        # iverilog, a dev dependency CI does not build.
+        "//test/glitch_smoke:glitch_smoke_test",
         # A miniature planned parent: five macros, 20 to 29 stages each.
         "//test/planned_parent:clock_pin_test",
         "//test/planned_parent:cts_delay_buffers_test",
