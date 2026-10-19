@@ -186,6 +186,11 @@ ORFS_PATCHES = [
     # variable config_mk_parser cannot resolve, in VERILOG_FILES. On 0094.
     # Not upstreamed; retires at a bump onto an ORFS that carries it.
     Label("//patches:0131-orfs-syn-clkgate-map.patch"),
+    # 0139: gui_<stage> opens the web viewer, qt_<stage> the Qt GUI
+    # (web_<stage> goes), so a GUI needs no Qt build; bazel-orfs runs
+    # gui_ through the odb-debug daemon. Not upstreamed; retires at a
+    # bump onto an ORFS that names the GUI targets this way.
+    Label("//patches:0139-orfs-gui-is-web.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
