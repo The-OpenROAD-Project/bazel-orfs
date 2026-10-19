@@ -4,7 +4,11 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+  # `closed` too: the closing event's run joins the pull request's
+  # concurrency group, cancels the run still going (hours, when cold)
+  # and runs no job itself.
   pull_request:
+    types: [opened, synchronize, reopened, closed]
 
 # A superseded pull request run is cancelled. A main run is not: it is
 # the only run that saves the disk cache, and a push to main cancelling
@@ -16,6 +20,7 @@ concurrency:
 jobs:
   ci:
     name: CI
+    if: github.event.action != 'closed'
     runs-on: ubuntu-22.04
     defaults:
       run:
