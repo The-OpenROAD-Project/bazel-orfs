@@ -22,7 +22,7 @@ daemon on the checkpoint by hand; the README shows how.
 
 load("//private:rules.bzl", "orfs_run_executable")
 
-def odb_debug(name, src, **kwargs):
+def odb_debug(name, src, odb = None, **kwargs):
     """A runnable daemon target for the ODB of a flow stage.
 
     Args:
@@ -30,6 +30,9 @@ def odb_debug(name, src, **kwargs):
         src: The flow stage whose ODB to serve (`orfs_flow`'s `_floorplan`,
             `_place`, `_cts`, `_grt`, `_route` or `_final`; `_synth` when
             it saves an ODB).
+        odb: An ODB to open in place of the stage's own, in the stage's
+            environment: a file `src`'s stage did not write, such as a
+            flat_view (tools/flat_view).
         **kwargs: Passed to `orfs_run_executable`: `arguments` for make
             variables such as `{"GUI_TIMING": "0"}`, `visibility`, `tags`.
     """
@@ -41,6 +44,8 @@ def odb_debug(name, src, **kwargs):
         "@bazel-orfs//tools/odb_debug:odbdebug.py",
         "@bazel-orfs//tools/odb_debug:webclient.py",
     ]
+    if odb:
+        kwargs["user_sources"] = kwargs.get("user_sources", {}) | {"ODB_DEBUG_ODB": [odb]}
     orfs_run_executable(
         name = name,
         src = src,

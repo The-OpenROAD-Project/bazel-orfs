@@ -924,6 +924,7 @@ test_suite(
         "//test/planned_parent:clock_pin_test",
         "//test/planned_parent:cts_delay_buffers_test",
         "//test/planned_parent:drv_limits_test",
+        "//test/planned_parent:flat_view_test",
         "//test/planned_parent:leftover_macros_test",
         "//test/planned_parent:mini_top_cts_build_test",
         "//test/planned_parent:mini_top_grt_build_test",
