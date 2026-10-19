@@ -1,0 +1,23 @@
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+# How the demo videos' narrator says this project's words, the same for
+# every video: phonemes for the voice, checked against it.
+py_library(
+    name = "pronunciation",
+    srcs = ["pronunciation.py"],
+    imports = ["."],
+    visibility = ["//docs/demos:__subpackages__"],
+)
+
+py_test(
+    name = "pronunciation_test",
+    srcs = ["pronunciation_test.py"],
+    args = ["$(rootpath @piper_voice_json//file)"] + ["$(rootpath %s)" % s for s in [
+        "//docs/demos/ramps:script.py",
+    ]],
+    data = [
+        "//docs/demos/ramps:script.py",
+        "@piper_voice_json//file",
+    ],
+    deps = [":pronunciation"],
+)

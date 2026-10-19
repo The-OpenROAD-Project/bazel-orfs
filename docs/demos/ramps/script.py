@@ -15,23 +15,11 @@ FULL is the video, SAMPLE one scene to judge the pace before a full
 render.
 """
 
+# How the narrator says ORFS, bazelisk and the rest is
+# docs/demos/pronunciation.py, the same for every video.
+import pronunciation
+
 TITLE = "On and off ORFS"
-
-# Written form -> spoken form, for the narrator.
-SAY = [
-    ("bazelisk", "bazel-isk"),
-    ("bazel-orfs", "bazel orfs"),
-    ("config.mk", "config dot M K"),
-    ("ORFS", "orfs"),
-    ("AI", "A.I."),
-]
-
-
-def say(text):
-    for written, spoken in SAY:
-        text = text.replace(written, spoken)
-    return text
-
 
 IMPORT = [
     "$ git clone .../bazel-orfs && cd bazel-orfs",
@@ -49,9 +37,11 @@ BUILD = [
 ]
 
 EXPORT = [
-    "$ bazelisk run //:export -- ~/gcd-orfs \\",
+    "$ bazelisk run //:export -- \\",
+    "    ~/ORFS/flow/designs/asap7/gcd-bazel \\",
     "    //imported/asap7/gcd:gcd",
-    "$ FLOW_HOME=~/ORFS/flow ~/gcd-orfs/run.sh",
+    "$ cd ~/ORFS/flow",
+    "$ make DESIGN_CONFIG=./designs/asap7/gcd-bazel/config.mk",
 ]
 
 ON = (
@@ -96,10 +86,10 @@ TALK = [
     ),
     (
         "terminal",
-        {"lines": EXPORT, "show": [2, 3], "headline": "Off: export"},
+        {"lines": EXPORT, "show": [3, 5], "headline": "Off: export"},
         [
             "Export takes it back out, as a plain ORFS design.",
-            "Run it with make, on any machine.",
+            "Make it as usual, in ORFS, on any machine.",
         ],
     ),
     (
@@ -115,11 +105,11 @@ TALK = [
     (
         "title",
         {
-            "title": "Try it. Delete the clone.",
+            "title": "Try it in a clone.",
             "sub": "One install: bazelisk.   github.com/The-OpenROAD-Project/bazel-orfs",
         },
-        ["Try it, then delete the clone. Nothing of it is left."],
+        ["Try it in a clone of bazel-orfs, the quickest way to look around."],
     ),
 ]
 
-SCRIPTS = {"full": TALK, "sample": [ON]}
+SCRIPTS = {"full": TALK, "sample": [ON], "words": pronunciation.words_scenes()}
