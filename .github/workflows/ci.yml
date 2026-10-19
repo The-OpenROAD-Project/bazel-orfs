@@ -134,6 +134,24 @@ jobs:
           bazelisk build --nobuild --keep_going
           $(bazelisk query 'filter("_route$", kind(rule, @orfs//flow/designs/...))')
 
+      # OpenROAD and yosys are compiled once, in the exec configuration the
+      # flow stages run them in. A test that lists `@openroad` or `@yosys`
+      # in its data compiles the binary, and everything it links, a second
+      # time in the target configuration: hours on this runner. Such a
+      # test lists //test:openroad_exec or //test:yosys_exec instead
+      # (test/exec_tool.bzl).
+      - name: OpenROAD and yosys built once
+        run: |
+          tests=$(bazelisk query 'tests(//...) except attr(tags, "manual", tests(//...))' | grep '^//' | tr '\n' ' ')
+          for tool in @openroad//:openroad @yosys//:yosys; do
+            found=$(bazelisk cquery "rdeps(set($tests), config($tool, target), 1)")
+            if [ -n "$found" ]; then
+              echo "$tool is built in the target configuration for:"
+              echo "$found"
+              exit 1
+            fi
+          done
+
       # --- Unit tests ---
       - name: Run tests
         run: bazelisk test ... --build_tests_only --test_output=errors --profile=test.profile
