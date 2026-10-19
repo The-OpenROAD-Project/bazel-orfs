@@ -1,0 +1,95 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] flow: gui_ is the web viewer, qt_ the Qt GUI
+
+gui_<stage> opened the Qt GUI and web_<stage> the web viewer. The web
+viewer is OpenROAD's GUI going forward and needs no Qt build, so it
+takes the short name: gui_<stage> and view_cells open it, and the Qt
+GUI moves to qt_<stage> and view_cells_qt, run by OPENROAD_QT_CMD
+(was OPENROAD_GUI_CMD). web_<stage> and view_cells_web go.
+
+Not upstreamed. Retires at a //:bump onto an ORFS that names the GUI
+targets this way.
+---
+ flow/Makefile             | 12 +++++++-----
+ flow/scripts/variables.mk |  4 ++--
+ flow/util/utils.mk        |  9 ++++-----
+ 3 files changed, 13 insertions(+), 12 deletions(-)
+
+diff --git a/flow/Makefile b/flow/Makefile
+index 759e13578..874feaa7b 100644
+--- a/flow/Makefile
++++ b/flow/Makefile
+@@ -346,21 +346,23 @@ $(OBJECTS_DIR)/copyright.txt:
+ 	mkdir -p $(OBJECTS_DIR)
+ 	@touch $(OBJECTS_DIR)/copyright.txt
+ 
++# gui_ is the web viewer; qt_ is the Qt GUI, which needs an openroad built
++# with Qt.
+ define OPEN_GUI_SHORTCUT
+-.PHONY: gui_$(1) open_$(1) web_$(1)
++.PHONY: gui_$(1) open_$(1) qt_$(1)
+ gui_$(1): gui_$(2)
+ open_$(1): open_$(2)
+-web_$(1): web_$(2)
++qt_$(1): qt_$(2)
+ endef
+ 
+ define OPEN_GUI
+-.PHONY: open_$(1) gui_$(1) web_$(1)
++.PHONY: open_$(1) gui_$(1) qt_$(1)
+ open_$(1):
+ 	$(2)=$(RESULTS_DIR)/$(1) $(OPENROAD_NO_EXIT_CMD) $(SCRIPTS_DIR)/open.tcl
+ gui_$(1):
+-	$(2)=$(RESULTS_DIR)/$(1) $(OPENROAD_GUI_CMD) $(SCRIPTS_DIR)/open.tcl
+-web_$(1):
+ 	$(2)=$(RESULTS_DIR)/$(1) $(OPENROAD_WEB_CMD) $(SCRIPTS_DIR)/open.tcl
++qt_$(1):
++	$(2)=$(RESULTS_DIR)/$(1) $(OPENROAD_QT_CMD) $(SCRIPTS_DIR)/open.tcl
+ endef
+ 
+ # Enables "make gui_5_1_grt-failed"
+diff --git a/flow/scripts/variables.mk b/flow/scripts/variables.mk
+index 69e692ee7..d71049328 100644
+--- a/flow/scripts/variables.mk
++++ b/flow/scripts/variables.mk
+@@ -111,7 +111,7 @@ OPENROAD_IS_VALID := $(if $(OPENROAD_EXE),$(shell test -x $(OPENROAD_EXE) && ech
+ export OPENROAD_ARGS = -no_init -threads $(NUM_CORES) $(OR_ARGS)
+ export OPENROAD_CMD = $(OPENROAD_EXE) -exit $(OPENROAD_ARGS)
+ export OPENROAD_NO_EXIT_CMD = $(OPENROAD_EXE) $(OPENROAD_ARGS)
+-export OPENROAD_GUI_CMD = $(OPENROAD_EXE) -gui -threads $(NUM_CORES) $(OR_ARGS)
++export OPENROAD_QT_CMD = $(OPENROAD_EXE) -gui -threads $(NUM_CORES) $(OR_ARGS)
+ export OPENROAD_WEB_CMD = $(OPENROAD_EXE) -web -threads $(NUM_CORES) $(OR_ARGS)
+ 
+ ifneq (${IN_NIX_SHELL},)
+@@ -186,7 +186,7 @@ export RESULTS_V = $(notdir $(sort $(wildcard $(RESULTS_DIR)/*.v)))
+ export GDS_MERGED_FILE = $(RESULTS_DIR)/6_1_merged.$(STREAM_SYSTEM_EXT)
+ 
+ define get_variables
+-$(foreach V, $(.VARIABLES),$(if $(filter-out $(1), $(origin $V)), $(if $(filter-out .% %QT_QPA_PLATFORM% KLAYOUT% OPENROAD_EXE OPENROAD_ARGS OPENROAD_CMD OPENROAD_NO_EXIT_CMD OPENROAD_GUI_CMD OPENROAD_WEB_CMD OPENROAD_IS_VALID OPENSTA% PYTHON% YOSYS% GENERATE_ABSTRACT_RULE% do-step% do-copy% OPEN_GUI% OPEN_GUI_SHORTCUT% SUB_MAKE% UNSET_VARS% export%, $(V)), $V$ )))
++$(foreach V, $(.VARIABLES),$(if $(filter-out $(1), $(origin $V)), $(if $(filter-out .% %QT_QPA_PLATFORM% KLAYOUT% OPENROAD_EXE OPENROAD_ARGS OPENROAD_CMD OPENROAD_NO_EXIT_CMD OPENROAD_QT_CMD OPENROAD_WEB_CMD OPENROAD_IS_VALID OPENSTA% PYTHON% YOSYS% GENERATE_ABSTRACT_RULE% do-step% do-copy% OPEN_GUI% OPEN_GUI_SHORTCUT% SUB_MAKE% UNSET_VARS% export%, $(V)), $V$ )))
+ endef
+ 
+ export UNSET_VARIABLES_NAMES := $(call get_variables,command% line environment% default automatic)
+diff --git a/flow/util/utils.mk b/flow/util/utils.mk
+index 195db144a..145b0deaf 100644
+--- a/flow/util/utils.mk
++++ b/flow/util/utils.mk
+@@ -183,14 +183,13 @@ gallery: check-klayout $(RESULTS_DIR)/6_final_no_power.def $(RESULTS_DIR)/6_fina
+ 	        -rd tech_file=$(OBJECTS_DIR)/klayout.lyt \
+ 	        -rm $(UTILS_DIR)/createGallery.py
+ 
+-.PHONY: view_cells view_cells_web
++.PHONY: view_cells view_cells_qt
+ view_cells:
+-	$(OPENROAD_GUI_CMD) $(SCRIPTS_DIR)/view_cells.tcl
+-
+-.PHONY: view_cells_web
+-view_cells_web:
+ 	$(OPENROAD_WEB_CMD) $(SCRIPTS_DIR)/view_cells.tcl
+ 
++view_cells_qt:
++	$(OPENROAD_QT_CMD) $(SCRIPTS_DIR)/view_cells.tcl
++
+ ## Quick access to command line
+ .PHONY: command
+ command:

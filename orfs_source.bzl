@@ -192,6 +192,11 @@ ORFS_PATCHES = [
     # its own global route. Not upstreamed; retires at a bump onto an ORFS
     # that does the same.
     Label("//patches:0135-orfs-abstract-grt-parasitics.patch"),
+    # 0139: gui_<stage> opens the web viewer, qt_<stage> the Qt GUI
+    # (web_<stage> goes), so a GUI needs no Qt build; bazel-orfs runs
+    # gui_ through the odb-debug daemon. Not upstreamed; retires at a
+    # bump onto an ORFS that names the GUI targets this way.
+    Label("//patches:0139-orfs-gui-is-web.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
