@@ -231,6 +231,14 @@ sh_binary(
     visibility = ["//visibility:public"],
 )
 
+# `bazelisk run //:import -- <ORFS design dir>`: an ORFS design into
+# imported/ of this clone, with a BUILD.bazel that builds it; the ORFS
+# checkout is only read.
+alias(
+    name = "import",
+    actual = "//tools/ramp:import",
+)
+
 # The old name: says the new one and fails. Goes at a later bump.
 sh_binary(
     name = "deps",
