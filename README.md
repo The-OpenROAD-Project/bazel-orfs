@@ -7,24 +7,30 @@
 
 ## bazel-orfs helps you with ORFS
 
-It does not replace it. An ORFS design is a `config.mk`: bring one into a
-clone of this repository, build it, and take it back out to make
-whenever you want. Your ORFS checkout is only read, and deleting the
-clone removes every trace.
+It does not replace it. An ORFS design is a `config.mk`: bring one in,
+build it, and take it back out to make whenever you want. To get to know
+bazel-orfs, clone it, as you would ORFS; like ORFS, it can also be used
+from a repository of your own, but a clone is the quickest way to look
+around. Your ORFS checkout is only read.
 
 ```sh
 bazelisk run //:import -- ~/OpenROAD-flow-scripts/flow/designs/asap7/gcd
 bazelisk build //imported/asap7/gcd:gcd_final
-bazelisk run //:export -- ~/gcd-orfs //imported/asap7/gcd:gcd
+bazelisk run //:export -- \
+    ~/OpenROAD-flow-scripts/flow/designs/asap7/gcd-bazel //imported/asap7/gcd:gcd
 ```
 
 The first build in a fresh clone builds OpenROAD and Yosys from source,
 30 to 60 minutes. After that gcd takes about three minutes from RTL to
 final, and building it again with nothing changed takes under a second.
-`~/gcd-orfs/run.sh` runs the export with ORFS's make, and with the same
-ORFS and tools gives byte-identical results.
-[docs/ramps.md](docs/ramps.md) has the rest, including how your AI
-adapts import and export to a project's own ORFS.
+The export is an ORFS design like any other: in ORFS's `flow/`,
+`make DESIGN_CONFIG=./designs/asap7/gcd-bazel/config.mk` as usual, and
+with the same ORFS and tools the results are byte-identical. What
+bazel-orfs writes for you goes under the clone by default, `imported/`
+and `tmp/`, so deleting the clone deletes it; Bazel's own cache is
+outside it, in `~/.cache/bazel`. [docs/ramps.md](docs/ramps.md) has the
+rest, including how your AI adapts import and export to a project's own
+ORFS.
 
 ## "Hermetic, and a new way of working"? Wrong, and right.
 
