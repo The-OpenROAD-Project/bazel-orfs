@@ -1198,7 +1198,7 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
     sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"]
     return arguments, sources
 
-def _kpi(part, stage, arguments, sources, tags):
+def _kpi(part, stage, arguments, sources, tags, variant = None):
     """<part>_kpi: the part's reg2reg period and each group's worst path, read
     in the build from its own stage (kpi_run.tcl), so the number is the
     build's and needs no session."""
@@ -1214,6 +1214,7 @@ def _kpi(part, stage, arguments, sources, tags):
             "KPI_OUT": "$(location %s_kpi.txt)" % part,
             "KPI_STAGE": stage,
         },
+        variant = variant,
     )
 
 def _sta_part(part, arguments, sources, tags, ilm = False):
@@ -1427,3 +1428,63 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             tools = [":sta_prefix", "@openroad//src/sta:opensta"],
             tags = tags,
         )
+
+def xiangshan_flat_flow(name, variant, parent = XS_PARENT, blocks = XS_BLOCKS, tags = ["manual"]):
+    """The whole tile as one flow, <name>_<variant>_<stage>: no hardened blocks.
+
+    ORFS's own hierarchical synthesis (SYNTH_HIERARCHICAL with its keep
+    rule, not a plan's SYNTH_KEEP_MODULES), then floorplan to global route
+    on the one netlist, so macro placement and global placement see every
+    cell and every macro of the tile at once. OPENROAD_HIERARCHICAL keeps
+    the kept modules in the ODB, so the hierarchy is there to look at.
+
+    The register files are the macros xiangshan_flow makes, the same
+    targets, so a build of either reuses the other's; declare this after
+    it. The memories are AUTO_MEMORIES', as in every flow. The rest is
+    the planned parent's global route settings.
+    """
+    arguments = {k: v for k, v in parent["arguments"].items() if k != "SYNTH_KEEP_MODULES"}
+    arguments["ASAP7_USE_VT"] = XS_VT
+
+    # the planned parent's route, which is what this one is compared with:
+    # zero iterations with congestion allowed, the congestion map and
+    # stop; pin access skipped on the generated macros' pins (DRT-0073,
+    # carried ORFS patch 0085)
+    arguments["GLOBAL_ROUTE_ARGS"] = "-congestion_iterations 0 -allow_congestion -verbose"
+    arguments["SKIP_PIN_ACCESS"] = "1"
+    arguments["ROUTING_LAYER_ADJUSTMENT"] = "0.1"
+    arguments["MAX_ROUTING_LAYER"] = "M9"
+    arguments["MIN_ROUTING_LAYER"] = "M2"
+    sources = dict(parent["sources"])
+    sources.pop("AUTO_MEMORIES_REGFILES", None)
+
+    # cells the resizer or CTS leave inside a register file's footprint,
+    # out before each legalization (DPL-0036), as in the planned parent
+    for hook in ["PRE_DETAIL_PLACE_TCL", "PRE_CTS_TCL", "PRE_GLOBAL_ROUTE_TCL"]:
+        sources[hook] = ["//test/coremark_joule/designs/asap7/xiangshan:legalize_out_of_blocks.tcl"]
+
+    # every register file of the tile, each the macro xiangshan_flow made
+    specs = list(parent["sources"].get("AUTO_MEMORIES_REGFILES", []))
+    for cfg in blocks.values():
+        for m in cfg.get("sources", {}).get("AUTO_MEMORIES_REGFILES", []):
+            if m not in specs:
+                specs.append(m)
+    regfiles = [":%s_generate_abstract" % m.split(":")[-1].removesuffix(".regfile") for m in sorted(specs)]
+    user_arguments = parent["user_arguments"] | XS_ICG_USER_ARGUMENTS
+    user_sources = parent["user_sources"] | XS_ICG_USER_SOURCES
+    orfs_flow(
+        name = name,
+        arguments = arguments,
+        macros = regfiles,
+        # hold stays with CTS's repair, as the planned parent's
+        stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
+        pdk = "//flow:asap7",
+        sources = sources,
+        tags = tags,
+        user_arguments = user_arguments,
+        user_sources = user_sources,
+        user_stages = _user_stages(user_arguments, user_sources),
+        variant = variant,
+        verilog_files = XS_VERILOG,
+    )
+    _kpi("%s_%s" % (name, variant), "grt", arguments, sources, tags, variant = variant)
