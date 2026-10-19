@@ -9,6 +9,14 @@ odb_debug(
     src = "//test/estimation_ladder:multiplier_asap7_place",
 )
 
+# The warm-gui skill's example, and the design its GUI was tried on: ORFS's
+# gcd, its final stage. Manual: a run target, nothing tests it.
+odb_debug(
+    name = "gcd_final_odb_debug",
+    src = "@orfs//flow/designs/asap7/gcd:gcd_final",
+    tags = ["manual"],
+)
+
 py_test(
     name = "smoke_test",
     size = "large",
