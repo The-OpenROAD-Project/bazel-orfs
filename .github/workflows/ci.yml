@@ -6,9 +6,12 @@ on:
     branches: [main]
   pull_request:
 
+# A superseded pull request run is cancelled. A main run is not: it is
+# the only run that saves the disk cache, and a push to main cancelling
+# the one before it left every later run cold.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   ci:
@@ -60,14 +63,9 @@ jobs:
                 - MODULE.bazel
                 - .github/openroad-cache-version
 
-      - name: Repository cache
-        uses: actions/cache/restore@v6
-        with:
-          path: ~/.cache/bazel-repo
-          key: bazel-repo-v2-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            bazel-repo-v2-${{ runner.os }}-
-
+      # No repository cache: it had grown to 6.9 GB, took as long to
+      # restore as downloading the archives does, and its two copies
+      # evicted the disk cache, the one that saves hours.
       - name: Disk cache
         uses: actions/cache/restore@v6
         with:
@@ -76,10 +74,14 @@ jobs:
           restore-keys: |
             bazel-disk-v2-${{ runner.os }}-
 
+      # Bazel's idle garbage collection (.bazelrc caps the disk cache at
+      # 2G for workstations) deleted files while the save step tarred
+      # them, and the save failed. CI prunes the cache itself before
+      # saving, with Bazel stopped.
       - name: Configure caches
         run: |
-          echo "common --repository_cache=$HOME/.cache/bazel-repo" >> ~/.bazelrc
           echo "common --disk_cache=$HOME/.cache/bazel-disk" >> ~/.bazelrc
+          echo "build --experimental_disk_cache_gc_max_size=0" >> ~/.bazelrc
           echo "common --show_progress_rate_limit=60" >> ~/.bazelrc
           echo "test --test_summary=terse" >> ~/.bazelrc
 
@@ -156,15 +158,24 @@ jobs:
       - name: Run tests
         run: bazelisk test ... --build_tests_only --test_output=errors --profile=test.profile
 
-      # --- Save caches (main branch only) ---
-      - name: Save Repository cache
+      # --- Save the disk cache (main branch only) ---
+      #
+      # Stop Bazel so nothing writes the cache while it is saved, then
+      # delete the least recently used entries (Bazel touches an entry on
+      # every hit) until it fits in 8 GB, under the repository's 10 GB of
+      # Actions cache.
+      - name: Prune disk cache
         if: always() && github.ref == 'refs/heads/main'
-        uses: actions/cache/save@v6
-        with:
-          path: ~/.cache/bazel-repo
-          key: bazel-repo-v2-${{ runner.os }}-${{ github.sha }}
+        run: |
+          bazelisk shutdown
+          du -sh ~/.cache/bazel-disk
+          find ~/.cache/bazel-disk -type f -printf '%T@ %s %p\n' \
+            | sort -rn \
+            | awk -v cap=$((8 * 1024 * 1024 * 1024)) '{ total += $2; if (total > cap) print $3 }' \
+            | xargs -r rm -f
+          du -sh ~/.cache/bazel-disk
 
-      - name: Save Disk cache
+      - name: Save disk cache
         if: always() && github.ref == 'refs/heads/main'
         uses: actions/cache/save@v6
         with:
