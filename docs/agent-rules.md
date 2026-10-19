@@ -33,6 +33,13 @@ never stale; the only thing that can be out of date is the consumer's
 file. Details: bazel-orfs's `docs/openroad.md`, "Shapes the bumper
 recognizes".
 
+## Warm the GUI after every build
+
+After every flow build or stage, finished or failed, start an odb-debug
+daemon on the stage the human will want to look at and hand over the web
+viewer's link with the build's result, unasked: the design loads while
+they read it. The `warm-gui` skill.
+
 ## Never clean the Bazel cache
 
 Never run `bazel clean` or delete an output base, partly or wholly. A
@@ -56,9 +63,6 @@ source of truth; do not duplicate their mechanics:
 - `odb-debug` — ask a stage's ODB questions through a persistent OpenROAD
   session (macros, cells inside macros, slivers, legality, worst paths)
   from a shell or the `odb-debug` MCP server.
-- `warm-gui` — after a build, load the stage the human will want to look
-  at into an odb-debug daemon in the background and hand over the web
-  viewer's link, token-gated and reachable over a VPN.
 
 Which modules to harden, and the floorplan their interfaces dictate, is
 its own skill; a global route that will not converge on a hierarchical

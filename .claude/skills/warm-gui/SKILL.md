@@ -1,19 +1,26 @@
 ---
 name: warm-gui
 description: >-
-  After a build finishes, load the stage the human most likely wants to look at into
+  ALWAYS, unasked, after every flow build or stage finishes or fails: load the stage the
+  human most likely wants to look at into
   the odb-debug daemon in the background (the MCP server's `open` tool), so OpenROAD's
   web viewer is warm and one click away when they come to look: tens of minutes of
   loading on a large design happen while they read the build's summary. Picks the
   stage, starts it, hands over the GUI link (token-gated, reachable over a VPN) and
-  says how to open it. Use when a flow build or a stage has just finished or failed,
-  when the human asks for the GUI or wants to look at a design, or before a long
-  build ends unattended.
+  says how to open it. Do not offer it, do it: the load is meant to run while the human
+  reads the build's result. Also when the human asks for the GUI or wants to look at a
+  design.
 ---
 
 > **Repo**: Run from your ORFS workspace root (the one with `MODULE.bazel` and the `bazel-orfs` dep). Examples use the neutral `//<project>:<module>_<stage>` naming; substitute your own targets.
 
 ARGUMENTS: $ARGUMENTS
+
+Do this after every flow build or stage, finished or failed, without
+asking: report the build's result and the GUI's state together. Asking
+first spends the very minutes the load was meant to hide. Adding the
+`odb_debug()` target a flow lacks is part of the job, not a change to
+ask about; leave it uncommitted unless the human wants it kept.
 
 The web viewer is the GUI. On a large design, loading the ODB, the
 liberty set and parasitics and warming up timing takes tens of minutes,
