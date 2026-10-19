@@ -37,6 +37,9 @@ jobs:
         shell: bash
     env:
       DEBIAN_FRONTEND: noninteractive
+      # The disk cache saved from main is pruned to this, under the
+      # repository's 10 GB of Actions cache.
+      DISK_CACHE_CAP_GB: 8
     steps:
       - name: Free Disk Space
         uses: jlumbroso/free-disk-space@main
@@ -86,6 +89,13 @@ jobs:
           echo "build --experimental_disk_cache_gc_max_size=0" >> ~/.bazelrc
           echo "common --show_progress_rate_limit=60" >> ~/.bazelrc
           echo "test --test_summary=terse" >> ~/.bazelrc
+          echo "common --repo_env=DO_NOT_TRACK=1" >> ~/.bazelrc
+          # What the restore brought: the working set below is what is
+          # newer than the marker, and an unchanged file count means
+          # the run added nothing to save.
+          mkdir -p ~/.cache/bazel-disk
+          touch ~/.cache/bazel-disk.restored
+          find ~/.cache/bazel-disk -type f | wc -l > ~/.cache/bazel-disk.files
 
       # Isolate the one-time Bazel module-graph resolution so the Lint step
       # below reflects actual lint work, not first-invocation setup.
@@ -154,6 +164,24 @@ jobs:
           bazelisk run //test/ci:slowest_actions -- "$PWD/test.profile" 30 | tee slowest_actions.txt
           { echo '```'; cat slowest_actions.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
+      # What this run read or wrote in the disk cache: Bazel touches an
+      # entry on every hit, so everything newer than the restore. Above
+      # the cap, the prune below drops entries the next run needs, the
+      # compile outputs first since a cold build writes them first, and
+      # main stays cold run after run: fail, on a pull request too,
+      # before it merges. Above 80%, warn while there is room.
+      - name: Disk cache working set
+        if: always()
+        run: |
+          used=$(find ~/.cache/bazel-disk -type f -newer ~/.cache/bazel-disk.restored -printf '%s\n' \
+            | awk '{ total += $1 } END { print total + 0 }')
+          cap=$((DISK_CACHE_CAP_GB * 1024 * 1024 * 1024))
+          pct=$((used * 100 / cap))
+          msg="Disk cache working set: $((used / 1024 / 1024)) MiB, ${pct}% of the ${DISK_CACHE_CAP_GB} GB cap"
+          echo "$msg" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$pct" -ge 100 ]; then echo "::error::$msg"; exit 1; fi
+          if [ "$pct" -ge 80 ]; then echo "::warning::$msg"; fi
+
       - name: Upload profile
         if: always() && hashFiles('test.profile') != ''
         uses: actions/upload-artifact@v7
@@ -168,21 +196,28 @@ jobs:
       #
       # Stop Bazel so nothing writes the cache while it is saved, then
       # delete the least recently used entries (Bazel touches an entry on
-      # every hit) until it fits in 8 GB, under the repository's 10 GB of
-      # Actions cache.
+      # every hit) until it fits in DISK_CACHE_CAP_GB. A run that added
+      # nothing saves nothing: the cache it restored already holds all
+      # of it, and saving 5 GB again only churns the Actions cache.
       - name: Prune disk cache
+        id: prune
         if: always() && github.ref == 'refs/heads/main'
         run: |
           bazelisk shutdown
+          if [ "$(find ~/.cache/bazel-disk -type f | wc -l)" = "$(cat ~/.cache/bazel-disk.files)" ]; then
+            echo "Nothing added to the disk cache since the restore; not saving it"
+            exit 0
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
           du -sh ~/.cache/bazel-disk
           find ~/.cache/bazel-disk -type f -printf '%T@ %s %p\n' \
             | sort -rn \
-            | awk -v cap=$((8 * 1024 * 1024 * 1024)) '{ total += $2; if (total > cap) print $3 }' \
+            | awk -v cap=$((DISK_CACHE_CAP_GB * 1024 * 1024 * 1024)) '{ total += $2; if (total > cap) print $3 }' \
             | xargs -r rm -f
           du -sh ~/.cache/bazel-disk
 
       - name: Save disk cache
-        if: always() && github.ref == 'refs/heads/main'
+        if: always() && steps.prune.outputs.changed == 'true'
         uses: actions/cache/save@v6
         with:
           path: ~/.cache/bazel-disk
