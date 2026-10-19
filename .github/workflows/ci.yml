@@ -13,8 +13,12 @@ on:
 # A superseded pull request run is cancelled. A main run is not: it is
 # the only run that saves the disk cache, and a push to main cancelling
 # the one before it left every later run cold.
+#
+# A pull request's group is its number, not github.ref: the run for a
+# merged pull request's `closed` event has github.ref refs/heads/main, and
+# keyed on that it joined main's group and cancelled main's run.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
