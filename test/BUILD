@@ -880,8 +880,10 @@ ORFS_FLOWS = {
     "uart": "@orfs//flow/designs/asap7/uart:uart_final",
     # OPENROAD_HIERARCHICAL=1, SWAP_ARITH_OPERATORS=1, and a config.mk
     # that `include`s designs/src/mock-alu/defaults.mk -- an included
-    # makefile is a shape config_mk_parser has to resolve.
-    "mock_alu": "@orfs//flow/designs/asap7/mock-alu:MockAlu_final",
+    # makefile is a shape config_mk_parser has to resolve. Through CTS:
+    # its global and detailed route are 12 minutes of CI, in
+    # :orfs_mock_alu_final_build_test (:local).
+    "mock_alu": "@orfs//flow/designs/asap7/mock-alu:MockAlu_cts",
 }
 
 [
@@ -897,6 +899,40 @@ test_suite(
     tests = [
         ":orfs_{}_build_test".format(name)
         for name in ORFS_FLOWS
+    ],
+)
+
+build_test(
+    name = "orfs_mock_alu_final_build_test",
+    tags = ["manual"],
+    targets = ["@orfs//flow/designs/asap7/mock-alu:MockAlu_final"],
+)
+
+# Tests too expensive for CI's 30 minutes, for what changes them seldom:
+# run them locally before merging a change to what they cover.
+#
+#   bazelisk test //test:local
+test_suite(
+    name = "local",
+    tags = ["manual"],
+    tests = [
+        # mock-alu's global and detailed route: 12 minutes.
+        ":orfs_mock_alu_final_build_test",
+        # 34 stages: eight macros and their parents.
+        "//sram:sram_build_test",
+        # A miniature planned parent: five macros, 20 to 29 stages each.
+        "//test/planned_parent:clock_pin_test",
+        "//test/planned_parent:cts_delay_buffers_test",
+        "//test/planned_parent:drv_limits_test",
+        "//test/planned_parent:leftover_macros_test",
+        "//test/planned_parent:mini_top_cts_build_test",
+        "//test/planned_parent:mini_top_grt_build_test",
+        "//test/planned_parent:stranded_cells_test",
+        # XiangShan's register files at real size: IntRegFile's floorplan
+        # alone is 27 minutes.
+        "//test/structured_netlist:IntRegFile_scaffold_cts_build_test",
+        "//test/structured_netlist:RenameBufferFile_scaffold_cts_build_test",
+        "//test/structured_netlist:RobEntryFile_scaffold_cts_build_test",
     ],
 )
 

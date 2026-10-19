@@ -67,5 +67,7 @@ def array_scaffold(name, spec, width_um, height_um, periphery_um2):
     )
     build_test(
         name = top + "_cts_build_test",
+        tags = ["manual"],
+        visibility = ["//test:__pkg__"],
         targets = [":" + top + "_cts"],
     )

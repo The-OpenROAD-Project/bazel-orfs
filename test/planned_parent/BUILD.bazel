@@ -53,12 +53,16 @@ mini_planned_flow(
 # (DRT-0073 stopped it while the plan drew pins two wire widths wide).
 build_test(
     name = "mini_top_grt_build_test",
+    tags = ["manual"],
     targets = [":mini_top_grt"],
+    visibility = ["//test:__pkg__"],
 )
 
 build_test(
     name = "mini_top_cts_build_test",
+    tags = ["manual"],
     targets = [":mini_top_cts"],
+    visibility = ["//test:__pkg__"],
 )
 
 # CTS with and without insertion-delay balancing, on the same placement:
@@ -73,6 +77,8 @@ py_test(
         ":cts_buffers_nid.json",
     ],
     main = "cts_delay_buffers_test.py",
+    tags = ["manual"],
+    visibility = ["//test:__pkg__"],
 )
 
 # The clock pin the parent sees on each block: the whole unbuffered clock
@@ -127,6 +133,8 @@ py_test(
         ]
     ],
     main = "clock_pin_test.py",
+    tags = ["manual"],
+    visibility = ["//test:__pkg__"],
 )
 
 # Every signal port of each block's cts abstract carries its design-rule
@@ -160,6 +168,8 @@ py_test(
         ]
     ],
     main = "drv_limits_test.py",
+    tags = ["manual"],
+    visibility = ["//test:__pkg__"],
 )
 
 # plan/ is what mini_gen.py and the planner produce; regen.sh rewrites it.
@@ -188,6 +198,8 @@ py_test(
     ],
     data = [":leftover_macros.json"],
     main = "leftover_macros_test.py",
+    tags = ["manual"],
+    visibility = ["//test:__pkg__"],
 )
 
 # The parent's legalization hook takes the cells the resizer left inside a
@@ -198,4 +210,6 @@ py_test(
     args = ["$(rootpath :stranded_cells.json)"],
     data = [":stranded_cells.json"],
     main = "stranded_cells_test.py",
+    tags = ["manual"],
+    visibility = ["//test:__pkg__"],
 )
