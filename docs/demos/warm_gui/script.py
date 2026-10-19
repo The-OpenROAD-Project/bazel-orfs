@@ -55,6 +55,24 @@ def say(text):
     return text
 
 
+# Who is who: the cast, then the passengers, one letter each.
+PEOPLE = [
+    ("fogg", "Phileas Fogg: you"),
+    ("passepartout", "Passepartout: bazel-orfs"),
+    ("fix", "Inspector Fix: the AI reviewer"),
+    ("dan", "Dan the Doubter"),
+    ("sam", "Sam the Student"),
+    ("otto", "Otto the ORFS user"),
+    ("arthur", "Arthur the Architect"),
+    ("basil", "Basil the Bazel expert"),
+    ("rita", "Rita the Researcher"),
+    ("maya", "Maya the Maintainer"),
+    ("tara", "Tara the Tapeout engineer"),
+    ("priya", "Priya the Prompt engineer"),
+]
+NAME = dict(PEOPLE)
+PASSENGERS = ["dan", "sam", "otto", "arthur", "basil", "rita", "maya", "tara", "priya"]
+
 VPN = "10.7.0.3: your VPN address (made up for this video)"
 SERVER = "Server, 10.7.0.3 (your VPN address, made up)"
 # A GUI screenshot's layout panel, as fractions of width and height: a
@@ -116,21 +134,38 @@ PROMPT = [
 ]
 
 
-def q(role, question, said, **opts):
-    """An audience question: the role and the question on screen, the
+def q(who, question, said, **opts):
+    """A passenger's question: the asker and the bubble on screen, the
     question spoken first, then the answer."""
     return (
         "qa",
-        dict(opts, role=role, question=question),
-        ["The %s asks: %s" % (role.lower(), question)] + said,
+        dict(opts, who=who, role=NAME[who], question=question),
+        ["%s asks: %s" % (NAME[who], question)] + said,
     )
 
 
 FULL = [
+    # Welcome: how the story goes, and who is in it.
+    (
+        "cast",
+        {"heading": "Welcome aboard", "cast": ["fogg", "passepartout", "fix"]},
+        [
+            "Welcome aboard. This talk is a story, because stories keep people awake. That is the joke, and also the point.",
+            "You are Phileas Fogg. bazel-orfs is your Passepartout. And keep an eye on Inspector Fix.",
+        ],
+    ),
+    (
+        "cast",
+        {"heading": "Your fellow passengers", "cast": PASSENGERS},
+        [
+            "And your fellow passengers: Dan the Doubter, Sam the Student, Otto the ORFS user, Arthur the Architect, Basil the Bazel expert, Rita the Researcher, Maya the Maintainer, Tara the Tapeout engineer, and Priya the Prompt engineer.",
+            "They will interrupt with the questions you would ask.",
+        ],
+    ),
     # Prologue: the chores.
     (
         "trunk",
-        {"items": CHORES, "show": [0, 6]},
+        {"items": CHORES, "show": [0, 6], "figures": [("fogg", "right", "watch")]},
         [
             "Phileas Fogg did not pack his own trunk.",
             "Yet before you can learn anything from OpenROAD, you pack for days: build the tools, find versions that agree, set up the PDK, run synthesis again because you moved a placement knob, and wait for the GUI.",
@@ -138,15 +173,28 @@ FULL = [
     ),
     (
         "trunk",
-        {"items": CHORES, "show": [6], "struck": True, "answer": "$ install bazelisk"},
+        {
+            "items": CHORES,
+            "show": [6],
+            "struck": True,
+            "answer": "$ install bazelisk",
+            "figures": [("passepartout", "right", "carry")],
+        },
         [
             'Meet your Passepartout: bazel-orfs. The name is French for "goes everywhere".',
             "He packs, he books, he fetches. You choose the journey.",
         ],
     ),
-    ("title", {"sub": "One install, many journeys"}, ["Around the EDA world in {N}."]),
+    (
+        "title",
+        {
+            "sub": "One install, many journeys",
+            "figures": [("fogg", "left", "tip"), ("passepartout", "right", "carry")],
+        },
+        ["Around the EDA world in {N}."],
+    ),
     q(
-        "Skeptic",
+        "dan",
         "One install? I've heard that before.",
         [
             "The first time, Passepartout builds everything from source, and that takes a while. After that, nothing is built twice, and with a shared cache, not even once on your machine.",
@@ -165,12 +213,17 @@ FULL = [
     # Port 1: the student route.
     (
         "voyage",
-        {"routes": ROUTES, "hub": "You are here: bazelisk", "lit": [0]},
+        {"routes": ROUTES, "hub": "You are here: bazelisk", "lit": [0], "fogg": 0},
         ["First port: the student route. Build it, look at it, change it."],
     ),
     (
         "terminal",
-        {"lines": STUDENT, "show": [2, 6], "note": VPN},
+        {
+            "lines": STUDENT,
+            "show": [2, 6],
+            "note": VPN,
+            "figures": [("fogg", "right", "watch")],
+        },
         [
             "A small design, gcd: build it, then lay it out in a tree of your own, and run the final stage by hand.",
             "make gui_final loads it into OpenROAD, headless, and prints a link.",
@@ -178,11 +231,15 @@ FULL = [
     ),
     (
         "image",
-        {"image": "gcd", "label": "gcd, routed, in your browser"},
+        {
+            "image": "gcd",
+            "label": "gcd, routed, in your browser",
+            "figures": [("fogg", "right", "tip")],
+        },
         ["That is gcd, routed, in OpenROAD's GUI, in your browser."],
     ),
     q(
-        "Student",
+        "sam",
         "Do I have to learn Bazel?",
         [
             "No. Bazel sounds scary, and it solves hard problems, but it doesn't change how you work.",
@@ -190,7 +247,7 @@ FULL = [
         ],
     ),
     q(
-        "Student",
+        "sam",
         "Where does my own design go?",
         [
             "Into a few lines next to your RTL: orfs_flow takes your Verilog, your constraints and ORFS's own settings, and makes one target per stage.",
@@ -198,7 +255,7 @@ FULL = [
         lines=FLOW,
     ),
     q(
-        "ORFS user",
+        "otto",
         "I already have a config.mk. Do I rewrite it?",
         [
             "No. A domain-specific language is a small language for one job, and config.mk is one: a few make variables that say what a design is.",
@@ -222,12 +279,16 @@ FULL = [
     # Port 2: the design-space route.
     (
         "voyage",
-        {"routes": ROUTES, "hub": "You are here: bazelisk", "lit": [1]},
+        {"routes": ROUTES, "hub": "You are here: bazelisk", "lit": [1], "fogg": 1},
         ["Second port: design space. What does your RTL really cost?"],
     ),
     (
         "stages",
-        {"stages": STAGES, "states": [ALL, KNOB]},
+        {
+            "stages": STAGES,
+            "states": [ALL, KNOB],
+            "figures": [("passepartout", "right", "carry")],
+        },
         [
             "Every stage is one Bazel action, keyed by exactly what it reads.",
             "Change a placement setting, and synthesis and floorplan come from the cache; only placement onward runs again.",
@@ -249,7 +310,7 @@ FULL = [
         ],
     ),
     q(
-        "Architect",
+        "arthur",
         "What does my RTL change cost in area and timing?",
         [
             "Make the change a design point, and the sweep answers it next to every other point, from the same pinned tools.",
@@ -258,7 +319,7 @@ FULL = [
     # Port 3: the hyperparameter route.
     (
         "voyage",
-        {"routes": ROUTES, "hub": "You are here: bazelisk", "lit": [2]},
+        {"routes": ROUTES, "hub": "You are here: bazelisk", "lit": [2], "fogg": 2},
         ["Third port: hyperparameters. Here, Bazel steps aside."],
     ),
     (
@@ -285,7 +346,7 @@ FULL = [
         ],
     ),
     q(
-        "Bazel expert",
+        "basil",
         "Why not just call bazel build from the optimizer?",
         [
             "Each call pays Bazel's own overhead, and every new setting re-keys every stage that reads it. A build system is the wrong tool for a trial loop; its job is to make the executable the same everywhere.",
@@ -303,7 +364,7 @@ FULL = [
         ],
     ),
     q(
-        "Researcher",
+        "rita",
         "Is there a worked example?",
         [
             "The estimation ladder in bazel-orfs: an Optuna study that trades an estimator's runtime against its accuracy, checked against a full global route.",
@@ -312,7 +373,7 @@ FULL = [
     # Port 4: the maintainer route.
     (
         "voyage",
-        {"routes": ROUTES, "hub": "You are here: bazelisk", "lit": [3]},
+        {"routes": ROUTES, "hub": "You are here: bazelisk", "lit": [3], "fogg": 3},
         ["Fourth port: the maintainer route. Carry it, prove it, propose it."],
     ),
     (
@@ -363,14 +424,14 @@ FULL = [
         ],
     ),
     q(
-        "OpenROAD maintainer",
+        "maya",
         "So we'll get floods of AI pull requests?",
         [
             "No. A human reads the sweep and decides; the pull request carries the data; and the carried patch stays put while you review, so nothing is rushed upstream.",
         ],
     ),
     q(
-        "Bazel expert",
+        "basil",
         "How are the versions kept current?",
         [
             "One command, bazelisk run @bazel-orfs//:bump, moves every pin forward together."
@@ -379,13 +440,13 @@ FULL = [
     # Port 5: tapeout.
     (
         "voyage",
-        {"routes": ROUTES, "hub": "You are here: bazelisk", "lit": [4]},
+        {"routes": ROUTES, "hub": "You are here: bazelisk", "lit": [4], "fogg": 4},
         [
             "Fifth port: tapeout. Few take this route, but the track is there: every tool pinned, every result reproducible, the same answer next year as today."
         ],
     ),
     q(
-        "Tapeout engineer",
+        "tara",
         "Can I prove what produced a result?",
         [
             "Yes. The pins in MODULE.bazel and the patches beside them say exactly what built it."
@@ -394,12 +455,17 @@ FULL = [
     # Port 6: AI.
     (
         "voyage",
-        {"routes": ROUTES, "hub": "You are here: bazelisk", "lit": [5]},
+        {"routes": ROUTES, "hub": "You are here: bazelisk", "lit": [5], "fogg": 5},
         ["Last port: AI. A warm session, and a small context."],
     ),
     (
         "terminal",
-        {"lines": AGENT, "show": [5], "note": VPN},
+        {
+            "lines": AGENT,
+            "show": [5],
+            "note": VPN,
+            "figures": [("passepartout", "right", "carry")],
+        },
         [
             "Ask your agent for a build: global route of the AES block design. It reports the result, and unasked, loads it into a warm, headless OpenROAD session."
         ],
@@ -413,7 +479,11 @@ FULL = [
     ),
     (
         "image",
-        {"image": "gui", "label": "aes-block, global route, one click away"},
+        {
+            "image": "gui",
+            "label": "aes-block, global route, one click away",
+            "figures": [("passepartout", "left", "point"), ("fogg", "right", "tip")],
+        },
         ["One click, and the design is there."],
     ),
     (
@@ -430,7 +500,7 @@ FULL = [
         ],
     ),
     q(
-        "AI practitioner",
+        "priya",
         "Is there a generic OpenROAD MCP server?",
         [
             "You can use one, but on a large project your questions soon become your project's own.",
@@ -447,7 +517,7 @@ FULL = [
     # Epilogue: the day gained.
     (
         "voyage",
-        {"routes": ROUTES, "hub": "Home: a day gained"},
+        {"routes": ROUTES, "hub": "Home: a day gained", "pose": "tip"},
         [
             "Fogg came home thinking he had lost the wager, then found he had gained a day without noticing.",
             "Your cache does the same: every stage already built is time you get back.",
@@ -456,13 +526,21 @@ FULL = [
     (
         "title",
         {
-            "sub": "Install bazelisk. Choose your journey.  github.com/The-OpenROAD-Project/bazel-orfs"
+            "sub": "Install bazelisk. Choose your journey.  github.com/The-OpenROAD-Project/bazel-orfs",
+            "figures": [("fogg", "left", "tip"), ("passepartout", "right", "wave")],
         },
         ["Install bazelisk. Choose your journey."],
     ),
 ]
 
 SHORT = [
+    (
+        "cast",
+        {"heading": "Welcome aboard", "cast": ["fogg", "passepartout", "fix"]},
+        [
+            "Welcome aboard: this is a story, so you stay awake. You are Phileas Fogg; bazel-orfs is your Passepartout."
+        ],
+    ),
     (
         "trunk",
         {"items": CHORES, "show": [6]},
@@ -472,12 +550,25 @@ SHORT = [
     ),
     (
         "trunk",
-        {"items": CHORES, "show": [6], "struck": True, "answer": "$ install bazelisk"},
+        {
+            "items": CHORES,
+            "show": [6],
+            "struck": True,
+            "answer": "$ install bazelisk",
+            "figures": [("passepartout", "right", "carry")],
+        },
         [
             'Meet your Passepartout, French for "goes everywhere": bazel-orfs. He packs, he books, he fetches. You choose the journey.'
         ],
     ),
-    ("title", {"sub": "One install, many journeys"}, ["Around the EDA world in {N}."]),
+    (
+        "title",
+        {
+            "sub": "One install, many journeys",
+            "figures": [("fogg", "left", "tip"), ("passepartout", "right", "carry")],
+        },
+        ["Around the EDA world in {N}."],
+    ),
     (
         "voyage",
         {"routes": ROUTES, "hub": "You are here: bazelisk"},

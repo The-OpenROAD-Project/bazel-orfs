@@ -114,7 +114,8 @@ class Canvas(object):
     def terminal(self, img, draw, opts, k):
         shown = opts["lines"][: opts["show"][min(k, len(opts["show"]) - 1)]]
         margin = self.px(60)
-        box = [margin, margin, self.w - margin, self.caption_top() - margin]
+        room = self.px(340) if opts.get("figures") and not self.portrait else margin
+        box = [margin, margin, self.w - room, self.caption_top() - margin]
         draw.rounded_rectangle(box, radius=self.px(18), fill=PANEL, outline=DIM)
         fnt = font(self.px(36 if not self.portrait else 34))
         y = box[1] + self.px(40)
@@ -412,6 +413,19 @@ class Canvas(object):
             self.text_in(draw, r, name, 34, FG if on else DIM)
         self.box(draw, hub, outline=GOOD, width=5)
         self.text_in(draw, hub, opts.get("hub", "You are here"), 36)
+        at = opts.get("fogg", "hub")
+        if at is not None:
+            fh = self.px(150)
+            if at == "hub":
+                fx, ff = hub[0] - self.px(70), hub[3]
+            else:
+                a = -math.pi / 2 + 2 * math.pi * at / len(routes)
+                x, y = cx + rx * math.cos(a), cy + ry * math.sin(a)
+                fx = x + (self.px(200) if math.cos(a) >= -0.01 else -self.px(200))
+                ff = y + self.px(42)
+            self.figure(
+                draw, "fogg", fx, ff, fh, opts.get("pose", "stand"), label=False
+            )
         legend = font(self.px(30))
         lx, ly = self.px(60), self.caption_top() - self.px(90)
         draw.line([(lx, ly), (lx + self.px(70), ly)], fill=FG, width=self.px(5))
@@ -503,15 +517,25 @@ class Canvas(object):
         optionally what the answer shows."""
         role, q = opts["role"], opts["question"]
         fnt = font(self.px(44))
-        lines = wrap(draw, q, fnt, self.w - self.px(320))
+        # The asker stands at the left, under the bubble's tail.
+        x0 = self.px(80) if self.portrait else self.px(330)
+        self.figure(
+            draw,
+            opts["who"],
+            self.px(170),
+            self.caption_top() - self.px(55),
+            self.px(280 if not self.portrait else 230),
+            "ask",
+        )
+        lines = wrap(draw, q, fnt, self.w - x0 - self.px(240))
         top = self.px(60)
         h = self.px(120) + len(lines) * self.px(56)
-        r = [self.px(80), top, self.w - self.px(80), top + h]
+        r = [x0, top, self.w - self.px(80), top + h]
         self.box(draw, r, outline=ACCENT, width=4)
         tail = [
-            (self.px(160), r[3] - self.px(2)),
-            (self.px(220), r[3] - self.px(2)),
-            (self.px(150), r[3] + self.px(50)),
+            (r[0] + self.px(30), r[3] - self.px(2)),
+            (r[0] + self.px(90), r[3] - self.px(2)),
+            (r[0] - self.px(40), r[3] + self.px(60)),
         ]
         draw.polygon(tail, fill=PANEL)
         draw.line([tail[0], tail[2], tail[1]], fill=ACCENT, width=self.px(4))
@@ -532,7 +556,7 @@ class Canvas(object):
             code = font(self.px(32))
             y = r[3] + self.px(100)
             box = [
-                self.px(80),
+                x0,
                 y - self.px(30),
                 self.w - self.px(80),
                 self.caption_top() - self.px(40),
@@ -640,21 +664,279 @@ class Canvas(object):
                 font=fnt,
                 fill=FG,
             )
-        # The glass sits below the comment, looking up at it.
-        cx, cy, rad = self.w * 0.78, r[3] + self.px(170), self.px(100)
-        draw.ellipse(
-            [cx - rad, cy - rad, cx + rad, cy + rad], outline=ACCENT, width=self.px(12)
-        )
-        draw.line(
-            [(cx + rad * 0.7, cy + rad * 0.7), (cx + rad * 1.6, cy + rad * 1.6)],
-            fill=ACCENT,
-            width=self.px(24),
+        # Fix himself, below the comment, peering up at it.
+        self.figure(
+            draw,
+            "fix",
+            self.w - self.px(260),
+            self.caption_top() - self.px(55),
+            self.px(300),
+            "peer",
         )
         verdicts = opts["verdicts"][: k + 1]
-        y = r[3] + self.px(200)
+        y = r[3] + self.px(120)
+        f = font(self.px(44))
         for v in verdicts:
-            self.centred(draw, y, v, 44, GOOD)
+            draw.text((self.px(120), y), v, font=f, fill=GOOD)
             y += self.px(70)
+
+    # ---- stick figures --------------------------------------------------
+
+    def figure(self, draw, who, x, feet, height, pose="stand", label=True):
+        """A stick figure with its character's prop, feet at (x, feet)."""
+        s = height
+        hr = s * 0.09
+        top = feet - s
+        hx, hy = x, top + hr
+        neck = top + 2 * hr
+        hip = feet - s * 0.42
+        sh = neck + s * 0.06
+        w = max(2, int(s * 0.025))
+        line = lambda pts, c=FG: draw.line(pts, fill=c, width=w)  # noqa: E731
+        if who == "dan":
+            pose = "cross"
+        if who == "sam":
+            # The backpack behind the body.
+            draw.rounded_rectangle(
+                [x - s * 0.17, sh, x - s * 0.04, sh + s * 0.24],
+                radius=int(s * 0.03),
+                outline=ACCENT,
+                width=w,
+            )
+        draw.ellipse([hx - hr, hy - hr, hx + hr, hy + hr], outline=FG, width=w)
+        line([(x, neck), (x, hip)])
+        line([(x, hip), (x - s * 0.12, feet)])
+        line([(x, hip), (x + s * 0.12, feet)])
+        left = (x - s * 0.16, sh + s * 0.25)
+        right = {
+            "stand": (x + s * 0.16, sh + s * 0.25),
+            "ask": (x + s * 0.2, sh - s * 0.2),
+            "wave": (x + s * 0.2, sh - s * 0.2),
+            "tip": (x + s * 0.07, top + s * 0.02),
+            "watch": (x + s * 0.22, sh + s * 0.07),
+            "carry": (x + s * 0.18, sh + s * 0.3),
+            "point": (x + s * 0.32, sh),
+            "peer": (x + s * 0.24, sh - s * 0.06),
+        }.get(pose, (x + s * 0.16, sh + s * 0.25))
+        if pose == "cross":
+            line([(x - s * 0.14, sh + s * 0.04), (x + s * 0.13, sh + s * 0.14)])
+            line([(x + s * 0.14, sh + s * 0.04), (x - s * 0.13, sh + s * 0.14)])
+        else:
+            line([(x, sh), left])
+            line([(x, sh), right])
+        self.prop(
+            draw, who, pose, x, s, hr, hx, hy, top, neck, sh, feet, left, right, w
+        )
+        if label:
+            name = dict(SCRIPT.PEOPLE).get(who, who)
+            f = font(max(12, int(s * 0.085)))
+            draw.text(
+                (x - draw.textlength(name, font=f) / 2, feet + s * 0.03),
+                name,
+                font=f,
+                fill=DIM,
+            )
+
+    def prop(
+        self, draw, who, pose, x, s, hr, hx, hy, top, neck, sh, feet, left, right, w
+    ):
+        a = ACCENT
+        if who == "fogg":
+            # A top hat, tipped when he tips it.
+            lift = s * 0.05 if pose == "tip" else 0
+            draw.rectangle(
+                [
+                    hx - hr * 0.8,
+                    top - hr * 1.5 - lift,
+                    hx + hr * 0.8,
+                    top + hr * 0.15 - lift,
+                ],
+                fill=a,
+            )
+            draw.line(
+                [
+                    (hx - hr * 1.3, top + hr * 0.15 - lift),
+                    (hx + hr * 1.3, top + hr * 0.15 - lift),
+                ],
+                fill=a,
+                width=w,
+            )
+            if pose == "watch":
+                r = s * 0.035
+                draw.ellipse(
+                    [right[0] - r, right[1] - r, right[0] + r, right[1] + r],
+                    outline=a,
+                    width=w,
+                )
+        elif who == "passepartout":
+            t = s * 0.04
+            draw.polygon(
+                [
+                    (x, neck + t * 0.2),
+                    (x - t * 1.4, neck - t * 0.6),
+                    (x - t * 1.4, neck + t),
+                ],
+                fill=a,
+            )
+            draw.polygon(
+                [
+                    (x, neck + t * 0.2),
+                    (x + t * 1.4, neck - t * 0.6),
+                    (x + t * 1.4, neck + t),
+                ],
+                fill=a,
+            )
+            if pose == "carry":
+                draw.rectangle(
+                    [
+                        right[0] - s * 0.04,
+                        right[1],
+                        right[0] + s * 0.22,
+                        right[1] + s * 0.15,
+                    ],
+                    outline=a,
+                    width=w,
+                )
+                draw.line(
+                    [(right[0] + s * 0.05, right[1]), (right[0] + s * 0.13, right[1])],
+                    fill=a,
+                    width=w,
+                )
+            if pose == "point":
+                # Handing over the link: a small card.
+                draw.rectangle(
+                    [
+                        right[0],
+                        right[1] - s * 0.05,
+                        right[0] + s * 0.12,
+                        right[1] + s * 0.03,
+                    ],
+                    outline=GOOD,
+                    width=w,
+                )
+        elif who == "fix":
+            draw.arc(
+                [hx - hr * 1.15, hy - hr * 1.3, hx + hr * 1.15, hy + hr * 0.6],
+                180,
+                360,
+                fill=a,
+                width=w * 2,
+            )
+            draw.line(
+                [(hx - hr * 1.8, hy - hr * 0.3), (hx + hr * 1.8, hy - hr * 0.3)],
+                fill=a,
+                width=w,
+            )
+            gx, gy = (
+                (right[0] + s * 0.06, right[1] - s * 0.06)
+                if pose == "peer"
+                else (right[0], right[1] + s * 0.06)
+            )
+            r = s * 0.07
+            draw.ellipse([gx - r, gy - r, gx + r, gy + r], outline=a, width=w)
+            draw.line([right, (gx - r * 0.7, gy + r * 0.7)], fill=a, width=w)
+        elif who == "maya":
+            draw.chord(
+                [hx - hr * 1.15, hy - hr * 1.4, hx + hr * 1.15, hy + hr * 0.4],
+                180,
+                360,
+                fill=a,
+            )
+            draw.line(
+                [(hx - hr * 1.5, hy - hr * 0.5), (hx + hr * 1.5, hy - hr * 0.5)],
+                fill=a,
+                width=w,
+            )
+        elif who == "arthur":
+            draw.line(
+                [
+                    (left[0] - s * 0.05, left[1] + s * 0.06),
+                    (left[0] + s * 0.06, left[1] - s * 0.1),
+                ],
+                fill=a,
+                width=w * 4,
+            )
+        elif who == "basil":
+            b = s * 0.08
+            for i in range(3):
+                draw.rectangle(
+                    [x - s * 0.36, feet - b * (i + 1), x - s * 0.36 + b, feet - b * i],
+                    outline=a,
+                    width=w,
+                )
+        elif who == "otto":
+            draw.line(
+                [left, (left[0] - s * 0.05, left[1] + s * 0.12)], fill=a, width=w * 2
+            )
+            r = s * 0.03
+            cx, cy = left[0] - s * 0.06, left[1] + s * 0.15
+            draw.arc([cx - r, cy - r, cx + r, cy + r], 0, 300, fill=a, width=w)
+        elif who == "priya":
+            b = s * 0.11
+            bx, by = x - s * 0.4, feet - b
+            draw.rectangle([bx, by, bx + b, feet], outline=a, width=w)
+            draw.line([(bx + b / 2, by), (bx + b / 2, by - b * 0.4)], fill=a, width=w)
+            for ex in (0.3, 0.7):
+                draw.ellipse(
+                    [
+                        bx + b * ex - 2,
+                        by + b * 0.35 - 2,
+                        bx + b * ex + 2,
+                        by + b * 0.35 + 2,
+                    ],
+                    fill=a,
+                )
+        elif who == "rita":
+            d = s * 0.06
+            for i in range(2):
+                dx = left[0] - s * 0.08 + i * d * 1.3
+                draw.rectangle([dx, left[1], dx + d, left[1] + d], outline=a, width=w)
+        elif who == "tara":
+            c = s * 0.08
+            cx, cy = left[0] - c / 2, left[1]
+            draw.rectangle([cx, cy, cx + c, cy + c], outline=a, width=w)
+            for t in (0.25, 0.5, 0.75):
+                draw.line(
+                    [(cx - c * 0.2, cy + c * t), (cx, cy + c * t)], fill=a, width=1
+                )
+                draw.line(
+                    [(cx + c, cy + c * t), (cx + c * 1.2, cy + c * t)], fill=a, width=1
+                )
+
+    def figures(self, draw, opts, k):
+        """The figures a scene asks for, at named places, for sentence k."""
+        figs = opts.get("figures")
+        if isinstance(figs, dict):
+            figs = figs.get(k, figs.get("all", []))
+        h = self.px(280 if not self.portrait else 230)
+        feet = self.caption_top() - self.px(55)
+        spots = {
+            "right": self.w - self.px(170),
+            "left": self.px(170),
+            "right2": self.w - self.px(380),
+            "centre": self.w / 2,
+        }
+        for who, spot, pose in figs or []:
+            self.figure(draw, who, spots[spot], feet, h, pose)
+
+    def cast(self, img, draw, opts, k):
+        """Who is who: the figures in a row (two on a phone), named."""
+        self.centred(draw, self.px(50), opts["heading"], 56, ACCENT)
+        who = opts["cast"]
+        # Up to five abreast, so the names fit under them.
+        per_row = len(who) if len(who) <= 5 else (len(who) + 1) // 2
+        rows = [who[i : i + per_row] for i in range(0, len(who), per_row)]
+        h = self.px(300 if len(who) <= 3 else 230)
+        area_top = self.px(170)
+        step = (self.caption_top() - area_top - self.px(40)) / len(rows)
+        for r, row in enumerate(rows):
+            feet = area_top + step * (r + 1) - self.px(50)
+            for i, key in enumerate(row):
+                x = self.w * (i + 0.5) / len(row)
+                pose = {"fogg": "watch", "passepartout": "carry", "fix": "peer"}.get(
+                    key, "stand"
+                )
+                self.figure(draw, key, x, feet, h, pose)
 
 
 class Voice(object):
@@ -754,6 +1036,7 @@ def main(argv):
 
         img, draw = canvas.new()
         getattr(canvas, kind)(img, draw, opts, k)
+        canvas.figures(draw, opts, k)
         canvas.caption(draw, text)
         frame = os.path.join(tmp, "f%03d.png" % i)
         img.save(frame)
