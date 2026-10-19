@@ -1,10 +1,10 @@
 """`bazelisk run //:export -- <dest> <orfs_flow target>`: a flow out to ORFS.
 
-The off-ramp. Writes <dest>/config.mk, every input the flow reads under
-<dest>/inputs/ and <dest>/run.sh, which runs the whole flow from RTL with
-ORFS's make in any ORFS checkout. Nothing in <dest> refers to this
-workspace: copy it to another machine, mail it, hand it to someone who
-has never run Bazel.
+The off-ramp. Writes <dest>/config.mk and every input the flow reads
+under <dest>/inputs/: an ORFS design, run with ORFS's make as usual,
+`make DESIGN_CONFIG=<dest>/config.mk` in an ORFS checkout's flow/. Nothing
+in <dest> refers to this workspace: copy it to another machine, mail it,
+hand it to someone who has never run Bazel.
 
 The values are the ones Bazel configures each stage with: the stage's own
 config.mk, the one //:dirty installs, for every stage of the flow, merged
@@ -18,8 +18,10 @@ a variable two stages set differently, a value that is an earlier stage's
 result. A project with its own ORFS changes is expected to have an AI patch
 this file to match.
 
-    bazelisk run //:export -- ~/gcd-orfs //imported/asap7/gcd:gcd
-    FLOW_HOME=~/OpenROAD-flow-scripts/flow ~/gcd-orfs/run.sh
+    bazelisk run //:export -- \\
+        ~/OpenROAD-flow-scripts/flow/designs/asap7/gcd-bazel //imported/asap7/gcd:gcd
+    cd ~/OpenROAD-flow-scripts/flow
+    make DESIGN_CONFIG=./designs/asap7/gcd-bazel/config.mk
 """
 
 import argparse
@@ -33,8 +35,8 @@ MARKER = "# Exported by `bazelisk run //:export`"
 
 STAGES = ["synth", "floorplan", "place", "cts", "grt", "route", "final"]
 
-# The ORFS install supplies these: where its platform lives, and where a
-# run writes. run.sh sets WORK_HOME to <dest>/work.
+# The ORFS checkout supplies these: where its platform lives, and where a
+# run writes.
 DROPPED = {"WORK_HOME", "PLATFORM_DIR", "FLOW_VARIANT"}
 
 FIRST = ["PLATFORM", "DESIGN_NAME", "DESIGN_NICKNAME"]
@@ -157,10 +159,26 @@ class Inputs:
         return rel
 
 
-def write_config(dest, flow, merged, includes):
+# ORFS's make target for a flow's last stage.
+MAKE_TARGET = {"final": "finish"}
+
+
+def write_config(dest, flow, merged, includes, last):
     lines = [
         MARKER + " from {}.".format(flow),
-        "# Runs in an ORFS checkout: FLOW_HOME=<ORFS>/flow ./run.sh",
+        "# An ORFS design: in an ORFS checkout's flow/,",
+        "#   make DESIGN_CONFIG=<this file>{}".format(
+            "" if last == "final" else " " + MAKE_TARGET.get(last, last)
+        ),
+    ]
+    if last != "final":
+        lines.append("# Bazel builds this flow to {} only.".format(last))
+    if merged.get("SYNTH_HDL_FRONTEND") == "slang":
+        lines.append(
+            "# Synthesis reads the Verilog with slang: yosys needs the yosys-slang"
+            " plugin."
+        )
+    lines += [
         "",
         "# This directory, wherever it is copied to.",
         "export EXPORT_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))",
@@ -174,49 +192,44 @@ def write_config(dest, flow, merged, includes):
         f.write("\n".join(lines) + "\n")
 
 
-RUN_SH = """#!/usr/bin/env bash
-# Runs this export with ORFS's make: the flow from RTL to {last}, as Bazel
-# builds it, or the make targets given (synth, floorplan, ..., gui_final).
-#
-#   FLOW_HOME=~/OpenROAD-flow-scripts/flow ./run.sh
-#
-# The ORFS checkout's own tools run it, or OPENROAD_EXE / YOSYS_EXE{slang}.
-# Results go to work/ next to this file.
-set -euo pipefail
-here="$(cd "$(dirname "$0")" && pwd)"
-FLOW_HOME="${{FLOW_HOME:-{flow_home}}}"
-[ -n "$FLOW_HOME" ] || {{
-    echo "run.sh: set FLOW_HOME to an ORFS checkout's flow/ directory" >&2
-    exit 1
-}}
-[ -f "$FLOW_HOME/Makefile" ] || {{
-    echo "run.sh: FLOW_HOME=$FLOW_HOME has no ORFS Makefile" >&2
-    exit 1
-}}
-[ $# -gt 0 ] || set -- {last}
-exec make -C "$FLOW_HOME" DESIGN_CONFIG="$here/config.mk" WORK_HOME="$here/work" "$@"
-"""
-
-# ORFS's make target for a flow's last stage.
-MAKE_TARGET = {"final": "finish"}
+def orfs_flow_dir(path):
+    """The ORFS flow/ directory a path is inside, if any."""
+    d = path
+    while d != os.path.dirname(d):
+        if os.path.isfile(os.path.join(d, "Makefile")) and os.path.isfile(
+            os.path.join(d, "scripts", "variables.mk")
+        ):
+            return d
+        d = os.path.dirname(d)
+    return None
 
 
-def write_run_sh(dest, flow_home, last, slang):
-    path = os.path.join(dest, "run.sh")
-    note = (
-        "; synthesis\n# reads the Verilog with slang, which needs the yosys-slang plugin"
-        if slang
-        else ""
-    )
-    with open(path, "w") as f:
-        f.write(
-            RUN_SH.format(
-                flow_home=flow_home or "",
-                last=MAKE_TARGET.get(last, last),
-                slang=note,
+def next_step(dest, merged, last):
+    """What to type to run the export, and a note when it shares results."""
+    target = "" if last == "final" else " " + MAKE_TARGET.get(last, last)
+    flow = orfs_flow_dir(dest)
+    if not flow:
+        return [
+            "next:   make -C <ORFS>/flow DESIGN_CONFIG={}/config.mk{}".format(
+                dest, target
             )
+        ]
+    lines = [
+        "next:   cd {}".format(flow),
+        "        make DESIGN_CONFIG=./{}/config.mk{}".format(
+            os.path.relpath(dest, flow), target
+        ),
+    ]
+    nickname = merged.get("DESIGN_NICKNAME") or merged.get("DESIGN_NAME")
+    results = os.path.join(
+        flow, "results", merged.get("PLATFORM", ""), nickname, "base"
+    )
+    if os.path.isdir(results):
+        lines.append(
+            "note:   {} holds an earlier run of {}: add FLOW_VARIANT=bazel to keep"
+            " this one apart".format(os.path.relpath(results, flow), nickname)
         )
-    os.chmod(path, 0o755)
+    return lines
 
 
 def bazelisk(ws, *args):
@@ -249,7 +262,7 @@ def group_files(ws, target, group):
     return r.stdout.split()
 
 
-def export_flow(ws, flow, variant, dest, flow_home):
+def export_flow(ws, flow, variant, dest):
     targets = stage_targets(ws, flow, variant)
     labels = [t for _, t in targets]
     print("export: building the configs and inputs of {} stages".format(len(labels)))
@@ -289,11 +302,9 @@ def export_flow(ws, flow, variant, dest, flow_home):
     inputs = Inputs(execroot, dest, manifest, platform, pkg)
     merged = {k: inputs.rewrite(k, v) for k, v in merged.items()}
     includes = [inputs.rewrite("include", i) for i in includes]
-    write_config(dest, flow, merged, includes)
-    write_run_sh(
-        dest, flow_home, targets[-1][0], merged.get("SYNTH_HDL_FRONTEND") == "slang"
-    )
-    return inputs.copied
+    last = targets[-1][0]
+    write_config(dest, flow, merged, includes, last)
+    return inputs.copied, next_step(dest, merged, last)
 
 
 def main(argv=None):
@@ -301,7 +312,6 @@ def main(argv=None):
     ap.add_argument("dest", help="the directory to write; replaced if an export")
     ap.add_argument("flow", help="an orfs_flow() label, //pkg:name")
     ap.add_argument("--variant", help="the flow's variant, if not base")
-    ap.add_argument("--flow-home", help="an ORFS flow/ directory, run.sh's default")
     args = ap.parse_args(argv)
 
     ws = os.environ.get("BUILD_WORKSPACE_DIRECTORY", os.getcwd())
@@ -310,9 +320,6 @@ def main(argv=None):
     flow = args.flow if args.flow.startswith(("//", "@")) else "//" + args.flow
     if ":" not in flow:
         flow += ":" + flow.rsplit("/", 1)[-1]
-    flow_home = (
-        os.path.abspath(os.path.expanduser(args.flow_home)) if args.flow_home else ""
-    )
     try:
         config = os.path.join(dest, "config.mk")
         if os.path.exists(dest) and os.listdir(dest):
@@ -324,7 +331,7 @@ def main(argv=None):
                 )
             shutil.rmtree(dest)
         os.makedirs(dest)
-        copied = export_flow(ws, flow, args.variant, dest, flow_home)
+        copied, steps = export_flow(ws, flow, args.variant, dest)
     except Refused as e:
         print("export: " + str(e), file=sys.stderr)
         return 1
@@ -332,7 +339,8 @@ def main(argv=None):
     if shown.startswith(".."):
         shown = dest
     print("export: {} inputs into {}".format(len(copied), shown))
-    print("next:   FLOW_HOME=<ORFS>/flow {}/run.sh".format(shown))
+    for line in steps:
+        print(line)
     return 0
 
 
