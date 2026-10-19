@@ -923,13 +923,15 @@ test_suite(
         # iverilog, a dev dependency CI does not build.
         "//test/glitch_smoke:glitch_smoke_test",
         # Deps tarballs (_deps.tar.gz): about 1.2 GB each, mostly the same
-        # binaries and PDK files again. CI keeps one,
-        # tag_array_64x184_mock_floorplan's, and the three tests on it.
+        # binaries and PDK files again; CI builds none of them.
         ":deps_deploy_floorplan_test",
         ":deps_deploy_hierarchy_test",
+        ":deps_deploy_make_passthrough_test",
         ":deps_deploy_openroad_exe_env_test",
+        ":deps_deploy_real_floorplan_test",
         ":deps_deploy_run_executable_test",
         ":deps_deploy_run_test",
+        ":deps_deploy_run_substep_test",
         ":deps_deploy_synth_test",
         ":deps_output_group_floorplan_test",
         ":deps_output_group_run_executable_test",
@@ -2347,6 +2349,7 @@ sh_test(
         "print_flow_home",
     ],
     data = [":tag_array_64x184_mock_floorplan_deps_tar"],
+    tags = ["manual"],
 )
 
 sh_test(
@@ -2380,6 +2383,7 @@ sh_test(
         "make_passthrough",
     ],
     data = [":tag_array_64x184_mock_floorplan_deps_tar"],
+    tags = ["manual"],
 )
 
 sh_test(
@@ -2390,6 +2394,7 @@ sh_test(
         "run_substep",
     ],
     data = [":tag_array_64x184_mock_floorplan_deps_tar"],
+    tags = ["manual"],
 )
 
 # //:dirty's output groups on a stage: `next` builds deps_scripts and
