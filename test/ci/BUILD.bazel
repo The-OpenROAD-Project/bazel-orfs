@@ -1,0 +1,22 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+# Where a CI run's time went, from its Bazel profile: ci.yml runs it after
+# the tests and uploads the profile.
+py_library(
+    name = "slowest_actions_lib",
+    srcs = ["slowest_actions.py"],
+    imports = ["."],
+)
+
+py_binary(
+    name = "slowest_actions",
+    srcs = ["slowest_actions.py"],
+    main = "slowest_actions.py",
+)
+
+py_test(
+    name = "slowest_actions_test",
+    size = "small",
+    srcs = ["slowest_actions_test.py"],
+    deps = [":slowest_actions_lib"],
+)
