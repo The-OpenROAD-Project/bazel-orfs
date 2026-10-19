@@ -19,7 +19,7 @@ sh_test(
     size = "small",
     srcs = ["timing_model_constant_test.sh"],
     args = [
-        "$(rootpath @openroad)",
+        "$(rootpath //test:openroad_exec)",
         str(len(LEFS)),
     ] + ["$(rootpath %s)" % f for f in LEFS + LIBS],
     data = [
@@ -28,6 +28,6 @@ sh_test(
         "check_parent.tcl",
         "top.v",
         "write_model.tcl",
-        "@openroad",
+        "//test:openroad_exec",
     ] + LEFS + LIBS,
 )

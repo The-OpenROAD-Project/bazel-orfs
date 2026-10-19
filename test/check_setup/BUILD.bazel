@@ -22,7 +22,7 @@ ASAP7_LIBS = [
         size = "small",
         srcs = ["check_setup_test.sh"],
         args = [
-            "$(rootpath @openroad)",
+            "$(rootpath //test:openroad_exec)",
             "$(rootpath %s)" % tcl,
             "$(rootpath %s)" % verilog,
             str(len(lefs)),
@@ -31,7 +31,7 @@ ASAP7_LIBS = [
             "load.tcl",
             tcl,
             verilog,
-            "@openroad",
+            "//test:openroad_exec",
         ] + lefs + libs,
     )
     for name, tcl, verilog, lefs, libs in [

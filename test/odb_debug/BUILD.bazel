@@ -27,7 +27,7 @@ py_test(
     size = "small",
     srcs = ["block_test.py"],
     args = [
-        "$(rootpath @openroad)",
+        "$(rootpath //test:openroad_exec)",
         "$(rootpath @orfs//flow:platforms/asap7/lef/asap7_tech_1x_201209.lef)",
         "$(rootpath block.tcl)",
         "$(rootpath //tools/odb_debug:daemon.tcl)",
@@ -36,8 +36,8 @@ py_test(
         "block.lef",
         "block.tcl",
         "design.def",
+        "//test:openroad_exec",
         "//tools/odb_debug:daemon.tcl",
-        "@openroad",
         "@orfs//flow:platforms/asap7/lef/asap7_tech_1x_201209.lef",
     ],
     deps = ["//tools/odb_debug:odbdebug_lib"],

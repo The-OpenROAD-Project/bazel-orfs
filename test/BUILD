@@ -9,6 +9,7 @@ load("//:orfs_genrule.bzl", "orfs_genrule")
 load("//:sweep.bzl", "orfs_sweep")
 load(":auto_memories_outputs_test.bzl", "auto_memories_outputs_test")
 load(":deps_output_group_rule.bzl", "deps_groups_test", "deps_output_group_test", "output_group_test")
+load(":exec_tool.bzl", "exec_tool")
 load(":hierarchical_default_test.bzl", "hierarchical_default_test_suite")
 load(":keep_modules_test.bzl", "keep_modules_test_suite")
 load(":mock_pin_knobs_test.bzl", "mock_pin_knobs_test")
@@ -2396,6 +2397,21 @@ deps_output_group_test(
     target = ":lb_32x128_substeps_floorplan_deps_tar",
 )
 
+# The binaries a test runs directly, in the exec configuration the flow
+# stages build them in: `@openroad` or `@yosys` in a test's data would
+# compile each a second time (exec_tool.bzl).
+exec_tool(
+    name = "openroad_exec",
+    tool = "@openroad",
+    visibility = ["//test:__subpackages__"],
+)
+
+exec_tool(
+    name = "yosys_exec",
+    tool = "@yosys",
+    visibility = ["//test:__subpackages__"],
+)
+
 # --- BCR yosys module layout tests ---
 # Smoke tests over the BCR yosys module's layout (plugin hdrs, share
 # tree): glob + analysis only, no compilation. A yosys bump that
@@ -2421,7 +2437,7 @@ sh_test(
     name = "synth_retime_select_test",
     srcs = ["synth_retime_select_test.sh"],
     args = [
-        "$(location @yosys//:yosys)",
+        "$(rootpath :yosys_exec)",
         "$(location :synth_retime_select_test.tcl)",
         "$(location :synth_retime_select_test.v)",
         "$(location //:synth.tcl)",
@@ -2429,8 +2445,8 @@ sh_test(
     data = [
         ":synth_retime_select_test.tcl",
         ":synth_retime_select_test.v",
+        ":yosys_exec",
         "//:synth.tcl",
-        "@yosys",
     ],
 )
 
@@ -2444,7 +2460,7 @@ sh_test(
     name = "synth_keep_modules_check_test",
     srcs = ["synth_keep_modules_check_test.sh"],
     args = [
-        "$(location @yosys//:yosys)",
+        "$(rootpath :yosys_exec)",
         "$(location :synth_keep_modules_check_test.tcl)",
         "$(location :synth_keep_modules_check_test.v)",
         "$(location //:synth.tcl)",
@@ -2453,9 +2469,9 @@ sh_test(
     data = [
         ":synth_keep_modules_check_test.tcl",
         ":synth_keep_modules_check_test.v",
+        ":yosys_exec",
         "//:synth.tcl",
         "//:synth_keep.tcl",
-        "@yosys",
     ],
 )
 
