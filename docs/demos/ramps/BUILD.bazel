@@ -8,9 +8,15 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 #   bazelisk build //docs/demos/ramps:video     # 1920x1080
 #   bazelisk build //docs/demos/ramps:sample    # one scene, to judge pace
 #
+#   bazelisk run //docs/demos/ramps:save_words -- <dir>   # each word, said
+#
 # Narrated offline by Piper's pinned ljspeech voice as a draft (public
 # domain, its MODEL_CARD is in the runfiles), encoded by the ffmpeg
 # imageio-ffmpeg pins.
+
+# The script, for //docs/demos:pronunciation_test: every word it checks
+# is said by a video.
+exports_files(["script.py"])
 
 py_binary(
     name = "video_bin",
@@ -21,6 +27,7 @@ py_binary(
     data = ["@piper_voice_card//file"],
     main = "video.py",
     deps = [
+        "//docs/demos:pronunciation",
         "@bazel-orfs-dev-pip//imageio_ffmpeg",
         "@bazel-orfs-dev-pip//pillow",
         "@bazel-orfs-dev-pip//piper_tts",
@@ -54,6 +61,8 @@ py_binary(
     ("video", "full", "landscape"),
     # One scene, to judge the pace before a full render.
     ("sample", "sample", "landscape"),
+    # Each word of docs/demos/pronunciation.py, said once.
+    ("words", "words", "landscape"),
 ]]
 
 # bazelisk run //docs/demos/ramps:save -- ~/Desktop, and :save_sample: the
@@ -67,6 +76,7 @@ py_binary(
 ) for save, render in [
     ("save", "video"),
     ("save_sample", "sample"),
+    ("save_words", "words"),
 ]]
 
 # Two sentences in each format encode, with sound, at the right size.
@@ -88,6 +98,7 @@ py_test(
     ],
     main = "video_test.py",
     deps = [
+        "//docs/demos:pronunciation",
         "@bazel-orfs-dev-pip//imageio_ffmpeg",
         "@bazel-orfs-dev-pip//pillow",
         "@bazel-orfs-dev-pip//piper_tts",

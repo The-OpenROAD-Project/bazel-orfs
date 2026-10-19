@@ -27,6 +27,7 @@ import imageio_ffmpeg
 from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import pronunciation  # noqa: E402
 import script as SCRIPT  # noqa: E402
 
 FORMATS = {"landscape": (1920, 1080), "portrait": (1080, 1920)}
@@ -446,7 +447,9 @@ class Voice(object):
     def say(self, text, path):
         """Speak `text` into a WAV at `path`; return (rate, int16 samples)."""
         with wave.open(path, "wb") as w:
-            self.voice.synthesize_wav(SCRIPT.say(text), w, syn_config=self.config)
+            self.voice.synthesize_wav(
+                pronunciation.say(text), w, syn_config=self.config
+            )
         with wave.open(path, "rb") as r:
             if r.getnchannels() != 1 or r.getsampwidth() != 2:
                 raise SystemExit("unexpected voice format in %s" % path)
