@@ -133,17 +133,18 @@ orchestrate the flow, they don't influence how OpenROAD compiles. So build
 ```bash
 git clone --recursive https://github.com/The-OpenROAD-Project/OpenROAD.git
 cd OpenROAD
-bazelisk build //:openroad //:openroad-qt //src/sta:opensta
+bazelisk build //:openroad //src/sta:opensta
 ```
 
-All three are required by bazel-orfs. `openroad-qt` lands in the
-`bazelisk run :<target>_<stage> gui_<stage>` runfiles, so it has to build even
-for headless flows, and `//src/sta:opensta` is the OpenSTA binary bazel-orfs
-runs (it lives in the `src/sta` submodule, hence `--recursive`).
+Both are required by bazel-orfs. `//src/sta:opensta` is the OpenSTA binary
+bazel-orfs runs (it lives in the `src/sta` submodule, hence `--recursive`).
+`//:openroad-qt` is needed only for the Qt GUI, `qt_<stage>`, in a tree
+`bazelisk run //:dirty -- start ... --qt` installed it into; the GUI,
+`gui_<stage>`, is the web viewer and needs no Qt.
 
 That one command tells you where you stand:
 
-- **All three build** — your failure is in bazel-orfs's own territory and an
+- **Both build** — your failure is in bazel-orfs's own territory and an
   issue here is the right place for it.
 - **Any of them fails** — the failure is upstream, and a bazel-orfs issue can
   only
@@ -169,8 +170,8 @@ orfs.default(
 
 `@bazel-orfs//:openroad` is a two-line wrapper that `exec`s whichever
 `openroad` is on `PATH`. Reuse it for `openroad_qt` only when the PATH binary
-was built with GUI support; a headless build works for the flow stages but not
-for `gui_<stage>`. This does not make the build hermetic and does not remove
+was built with Qt; a headless build works for the flow stages and for
+`gui_<stage>`, the web viewer, but not for `qt_<stage>`. This does not make the build hermetic and does not remove
 the remaining from-source deps (yosys, abc, GNU Make), but it is often enough
 to get a flow running on a host the full source build can't handle. See
 [openroad.md](openroad.md), "Using a Locally Installed OpenROAD".

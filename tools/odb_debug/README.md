@@ -68,6 +68,21 @@ matter here:
 | `ODB_DEBUG_GUI_PORT` | Fixed GUI port instead of an ephemeral one. |
 | `LOG_DIR` | Where make writes `run.log`; defaults inside the runfiles tree, pass an absolute path to keep it pristine. |
 
+### As the GUI: `gui_<stage>`
+
+ORFS's `gui_<stage>` make target is the web viewer (carried patch 0139;
+`qt_<stage>` is the Qt GUI), and bazel-orfs runs it as this daemon,
+through `gui.sh`, with no `odb_debug()` target:
+
+```sh
+bazelisk run //my:cpu_final gui_final          # any stage target
+tmp/my/cpu/make gui_final                      # a //:dirty tree
+```
+
+It prints the GUI link and holds the terminal; Ctrl-C ends it. Its
+`ODB_DEBUG_DIR` is the workspace's `tmp/odb-debug`, where the MCP server
+looks, so the agent asks the session the human is looking at.
+
 ### From a tree deployed by `//:dirty`
 
 A stage that failed or was stopped has no finished ODB, but ORFS writes a

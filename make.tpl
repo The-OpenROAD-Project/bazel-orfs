@@ -31,17 +31,36 @@ if [ -z "$FLOW_HOME" ]; then
   if [ -n "${OPENROAD_EXE:-}" ]; then
     _openroad_exe="$OPENROAD_EXE"
   else
-    # Select the Qt-linked openroad only when the caller asked for a
-    # gui_* make target. Build-time stages and the portable tarball
-    # invoke CLI make targets and therefore keep ${OPENROAD_PATH}.
+    # The Qt-linked openroad only for a qt_* target, and only where
+    # //:dirty --qt installed it: nothing else builds it.
     _openroad_exe="${OPENROAD_PATH}"
     for _arg in "$@"; do
       case "$_arg" in
-        gui_*|gui-*) _openroad_exe="${OPENROAD_QT_PATH}"; break ;;
+        qt_*|qt-*)
+          _openroad_exe="${OPENROAD_QT_PATH}"
+          if [ ! -x "$_openroad_exe" ]; then
+            echo "make: '$_arg' needs the Qt-linked openroad, which is not in this tree." >&2
+            echo "      Install it: bazelisk run //:dirty -- start <flow> <stage> --qt" >&2
+            echo "      Or use the web viewer, which needs no Qt build: make gui_${_arg#qt_}" >&2
+            exit 2
+          fi
+          break ;;
       esac
     done
   fi
   export OPENROAD_EXE="$_openroad_exe"
+  # gui_* is the web viewer (ORFS's OPENROAD_WEB_CMD), served by the
+  # odb-debug daemon: a token link that works over a VPN, and the same
+  # session the agent's MCP tools ask. A command-line variable, so it
+  # wins over ORFS's assignment.
+  _gui_args=
+  for _arg do
+    case "$_arg" in
+      gui_*|gui-*)
+        _gui_args="OPENROAD_WEB_CMD=$(cd "$(dirname "${ODB_DEBUG_GUI_PATH}")" && pwd)/gui.sh"
+        break ;;
+    esac
+  done
   export OPENSTA_EXE="${OPENSTA_PATH}"
   export KLAYOUT_CMD="${KLAYOUT_PATH}"
   export STDBUF_CMD="${STDBUF_PATH}"
@@ -69,7 +88,7 @@ fi
 # result is stale and rebuild it here, from inputs bazel never gave the
 # tree, and what the tree runs stops matching what the build produced.
 # The honest targets are the `do-` ones, which run that stage and nothing
-# else; `run`, `open_*` and `gui_*` pass. Stop before make does.
+# else; `run`, `open_*`, `gui_*` and `qt_*` pass. Stop before make does.
 #
 # `for _arg do` and not `for _arg in "$@"`: the rules substitute the
 # literal "$@" in this template to inject DESIGN_CONFIG, so spelling it
@@ -124,7 +143,7 @@ fi
 # caller who supplies the later stage's variables by hand, and says so.
 #
 # The stage a `do-` target belongs to; empty for a target that is not one
-# stage's (run, open_*, gui_*, ...), which passes.
+# stage's (run, open_*, gui_*, qt_*, ...), which passes.
 _stage_of_target() {
   case "$1" in
     do-1_3_floorplan_to_place) echo floorplan ;;
@@ -195,4 +214,4 @@ _LATER_VARS_EOF
   echo "make: ORFS_DEPLOY_LATER_VARS=0 to use none of them." >&2
 fi
 
-exec $MAKE_PATH --file "$FLOW_HOME/Makefile" "$@"
+exec $MAKE_PATH --file "$FLOW_HOME/Makefile" ${_gui_args:+"$_gui_args"} "$@"

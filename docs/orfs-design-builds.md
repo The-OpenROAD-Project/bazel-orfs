@@ -97,11 +97,11 @@ Note the path: designs live under **`flow/designs/`**, not `designs/`.
 no such package '@@orfs+//designs/asap7/gcd': BUILD file not found
 ```
 
-`gui_<stage>` works because the stage rules put the Qt-linked
-`openroad_qt` into `DefaultInfo.runfiles` for exactly this, while keeping
-it out of build actions -- so the GUI is available to `bazelisk run`
-without forcing a Qt-linked binary into every build. The first invocation
-builds OpenROAD with Qt, which is not quick; later ones are cached.
+`gui_<stage>` opens the web viewer through the odb-debug daemon
+(`tools/odb_debug`): the CLI openroad the stage already built, a link with
+a token, reachable over a VPN. No Qt is built for it. The Qt GUI is
+`qt_<stage>`, in a tree `bazelisk run //:dirty -- start ... --qt`
+installed the Qt-linked openroad into.
 
 ## How generation works
 

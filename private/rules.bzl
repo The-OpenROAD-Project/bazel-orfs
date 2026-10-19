@@ -35,6 +35,7 @@ load(
     "flow_substitutions",
     "fork_arguments",
     "generation_commands",
+    "gui_inputs",
     "hack_away_prefix",
     "input_commands",
     "log_dir_arguments",
@@ -107,6 +108,26 @@ def _tar_paths(f):
         return [rel, "_main/external/" + rel]
     return ["_main/" + sp]
 
+def _qt_group(ctx):
+    """//:dirty --qt: the Qt-linked openroad, and a manifest that installs
+    it in a tree where the stage's make looks for it (OPENROAD_QT_PATH).
+    An output group of its own, so only `--qt` builds it."""
+    qt = ctx.attr.openroad_qt[DefaultInfo]
+    files = depset(
+        [qt.files_to_run.executable],
+        transitive = [qt.default_runfiles.files],
+    ).to_list()
+    manifest = declare_artifact(ctx, "results", ctx.attr.name + "_qt_manifest.txt")
+    ctx.actions.write(
+        output = manifest,
+        content = "".join([
+            "{}\t{}\tinput\n".format(f.path, dst)
+            for f in files
+            for dst in _tar_paths(f)
+        ]),
+    )
+    return depset([manifest] + files)
+
 def _package_stage(ctx, config, make, runfiles_depset, renames = [], results = []):
     """Create a portable .tar.gz from stage dependencies, and the output
     groups //:dirty installs a tree from.
@@ -124,7 +145,8 @@ def _package_stage(ctx, config, make, runfiles_depset, renames = [], results = [
     Returns:
       The OutputGroupInfo fields: deps (the tarball), deps_scripts (the
       manifest, config and make scripts: instant), deps_inputs (every file
-      but the results) and deps_files (every file).
+      but the results), deps_files (every file) and, where the rule has a
+      Qt-linked openroad, deps_qt (it and its manifest, for --qt).
     """
     tar = declare_artifact(ctx, "results", ctx.attr.name + "_deps.tar.gz")
     manifest = declare_artifact(ctx, "results", ctx.attr.name + "_deps_manifest.txt")
@@ -182,12 +204,15 @@ def _package_stage(ctx, config, make, runfiles_depset, renames = [], results = [
     )
 
     scripts = [manifest, make_wrapper, config, make]
-    return {
+    groups = {
         "deps": depset([tar]),
         "deps_files": depset(scripts + all_files),
         "deps_inputs": depset(scripts + [f for f in all_files if f.path not in result_paths]),
         "deps_scripts": depset(scripts),
     }
+    if hasattr(ctx.attr, "openroad_qt"):
+        groups["deps_qt"] = _qt_group(ctx)
+    return groups
 
 def _expand_deploy_template(ctx, exe, config, make, genfiles, name = "", renames = []):
     """Expands the deploy template for a stage.
@@ -2576,16 +2601,16 @@ def _yosys_impl(ctx):
     )
 
     # Collect all files needed for deployment (tools, PDK, stage inputs).
-    # Uses flow_inputs (CLI openroad), not flow_runfiles: the tarball and
-    # the OrfsDepInfo.runfiles consumed by downstream rules (orfs_step,
-    # //:dirty) are headless paths. openroad_qt is only added to
-    # DefaultInfo.runfiles below so `bazelisk run :synth gui_synth` works.
+    # flow_inputs (the CLI openroad) and gui_inputs (what gui_<stage>
+    # runs): the tarball and the //:dirty tree have the web viewer, and
+    # no Qt; //:dirty --qt adds the Qt-linked openroad on request.
     deploy_files = depset(
         [config_short, make] +
         ctx.files.verilog_files +
         ctx.files.extra_configs,
         transitive = [
             flow_inputs(ctx),
+            gui_inputs(ctx),
             yosys_inputs(ctx),
             data_inputs(ctx),
             pdk_inputs(ctx),
@@ -2612,12 +2637,8 @@ def _yosys_impl(ctx):
         DefaultInfo(
             executable = exe,
             files = depset(outputs),
-            # default_runfiles includes openroad_qt so `bazelisk run
-            # :synth gui_synth` finds the Qt-linked binary in the
-            # deployed temp folder. data_runfiles deliberately omits
-            # openroad_qt so downstream rules that consume this stage
-            # via `data =` (e.g. orfs_generate_metadata) do not drag
-            # the Qt binary into their build action graph.
+            # default_runfiles has gui.sh (flow_runfiles), so
+            # `bazelisk run :synth gui_synth` opens the web viewer.
             default_runfiles = ctx.runfiles(
                 _runfiles_files,
                 transitive_files = depset(
@@ -3020,15 +3041,15 @@ def _make_impl(
     )
 
     # Collect all files needed for deployment.
-    # Uses flow_inputs (CLI openroad), not flow_runfiles: the tarball and
-    # the OrfsDepInfo.runfiles consumed by downstream rules (orfs_step,
-    # //:dirty) are headless paths. openroad_qt is only added to
-    # DefaultInfo.runfiles below so `bazelisk run :stage gui_<stage>` works.
+    # flow_inputs (the CLI openroad) and gui_inputs (what gui_<stage>
+    # runs): the tarball and the //:dirty tree have the web viewer, and
+    # no Qt; //:dirty --qt adds the Qt-linked openroad on request.
     stage_renames = renames(ctx, ctx.files.src, short = True)
     deploy_files = depset(
         [config_short, make] + ctx.files.src + ctx.files.extra_configs + all_jsons,
         transitive = [
             flow_inputs(ctx),
+            gui_inputs(ctx),
             data_inputs(ctx),
             source_inputs(ctx),
             rename_inputs(ctx),
@@ -3072,13 +3093,9 @@ def _make_impl(
         DefaultInfo(
             executable = exe,
             files = depset(forwards + results + reports),
-            # default_runfiles includes openroad_qt so `bazelisk run
-            # :stage gui_<stage>` finds the Qt-linked binary in the
-            # deployed temp folder. data_runfiles deliberately omits
-            # openroad_qt so downstream rules that consume this stage
-            # via `data =` (e.g. orfs_generate_metadata pulling synth
-            # and floorplan outputs) do not drag the Qt binary into
-            # their build action graph.
+            # default_runfiles has gui.sh (flow_runfiles), so
+            # `bazelisk run :stage gui_<stage>` opens the web viewer;
+            # data_runfiles, what a consumer's `data =` pulls, does not.
             default_runfiles = ctx.runfiles(
                 _runfiles_files,
                 transitive_files = depset(

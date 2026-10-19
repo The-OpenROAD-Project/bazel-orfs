@@ -206,28 +206,27 @@ def flow_inputs_lite(ctx):
         ],
     )
 
+def gui_inputs(ctx):
+    """What `gui_<stage>` runs in a stage's tree: the odb-debug daemon
+    behind gui.sh (make.tpl). Scripts only, and kept out of every stage
+    action's inputs: they are in the trees, not in a stage's cache key."""
+    return depset(ctx.files._odb_debug_gui)
+
 def flow_runfiles(ctx):
-    """Runfiles for stage rules' DefaultInfo: flow_inputs + openroad_qt.
+    """Runfiles for stage rules' DefaultInfo: flow_inputs + gui_inputs.
 
     Only stage rules (orfs_synth_rule, orfs_floorplan, orfs_place, ...)
-    should include this in their DefaultInfo.runfiles, so that
-    `bazelisk run :foo_<stage> gui_<stage>` finds openroad_qt in the
-    deployed temp folder and make.tpl picks it as OPENROAD_EXE.
+    include this in their DefaultInfo.runfiles, so that
+    `bazelisk run :foo_<stage> gui_<stage>` finds gui.sh.
 
-    Deliberately kept out of:
-      - flow_inputs / flow_inputs_lite (build-time `tools=` of every
-        stage action) — pulling openroad_qt would force a Qt-linked
-        rebuild every time the user tinkers with GUI source code.
-      - the stage rules' `deploy_files` depset, which feeds the
-        portable `_deps.tar.gz` action and `OrfsDepInfo.runfiles` —
-        those are headless paths.
-      - orfs_run / orfs_run_executable — build-flow rules with no
-        interactive entry point.
+    No openroad_qt: a Qt-linked openroad is a long build, and the web
+    viewer needs none. `qt_<stage>` takes it from a tree that
+    `bazelisk run //:dirty -- start ... --qt` installed it into.
     """
     return depset(
         transitive = [
             flow_inputs(ctx),
-            _runfiles([ctx.attr.openroad_qt]),
+            gui_inputs(ctx),
         ],
     )
 
@@ -408,13 +407,14 @@ def flow_substitutions(ctx):
         "${KLAYOUT_PATH}": "./" + _klayout_attr(ctx)[DefaultInfo].files_to_run.executable.short_path,
         "${MAKEFILE_PATH}": ctx.file._makefile.path,
         "${MAKE_PATH}": "./" + ctx.executable._make.short_path,
-        # CLI openroad for normal (non-GUI) make targets. The Qt-linked
-        # binary is selected at runtime by make.tpl when "$@" contains a
-        # gui_* target, so non-GUI invocations and the portable tarball
-        # remain independent of openroad_qt as a build/action input.
+        # CLI openroad for every make target but qt_*. The Qt-linked
+        # binary is selected at runtime by make.tpl for a qt_* target and
+        # is in a tree only when //:dirty --qt put it there, so nothing
+        # builds it unasked.
         "${OPENROAD_PATH}": "./" + ctx.attr.openroad[DefaultInfo].files_to_run.executable.short_path,
         "${OPENROAD_QT_PATH}": "./" + ctx.attr.openroad_qt[DefaultInfo].files_to_run.executable.short_path,
         "${OPENSTA_PATH}": "./" + ctx.attr.opensta[DefaultInfo].files_to_run.executable.short_path,
+        "${ODB_DEBUG_GUI_PATH}": "./" + [f for f in ctx.files._odb_debug_gui if f.basename == "gui.sh"][0].short_path,
         "${STDBUF_PATH}": "",
     }
 

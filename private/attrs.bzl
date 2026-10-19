@@ -146,14 +146,18 @@ def flow_attrs():
             default = CONFIG_OPENROAD,
         ),
         "openroad_qt": attr.label(
-            doc = "OpenROAD binary with Qt GUI linked in. Used by " +
-                  "`bazelisk run <target> gui_<stage>` so opening the " +
-                  "GUI reuses the CLI binary's cache instead of " +
-                  "triggering a full Qt-linked rebuild.",
+            doc = "OpenROAD binary with Qt GUI linked in, for " +
+                  "`qt_<stage>`. Built only when asked for: " +
+                  "`bazelisk run //:dirty -- start <flow> <stage> --qt` " +
+                  "installs it into the tree.",
             executable = True,
             allow_files = True,
             cfg = "exec",
             default = CONFIG_OPENROAD_QT,
+        ),
+        "_odb_debug_gui": attr.label(
+            doc = "What `gui_<stage>` runs: the odb-debug daemon behind gui.sh.",
+            default = Label("//tools/odb_debug:gui"),
         ),
         "opensta": attr.label(
             doc = "OpenSTA binary. Override to use a custom or locally-built opensta.",
