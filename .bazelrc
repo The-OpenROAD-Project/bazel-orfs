@@ -16,6 +16,12 @@ common --lockfile_mode=off
 # Required by OpenROAD's MODULE.bazel (uses isolate = True in use_extension)
 common --experimental_isolated_extension_usages
 
+# protoc from protobuf's release binaries, not compiled from source:
+# or-tools, under OpenROAD, generates its .pb.cc with it. The generated
+# code is the same, so only protoc's own ~190 compiles go. Canonical
+# name: protobuf is not a direct dependency of this module.
+common --@@protobuf+//bazel/toolchains:prefer_prebuilt_protoc
+
 # Garbage-collect disk cache to avoid exhausting CI runner disk.
 build --experimental_disk_cache_gc_max_size=2G
 
