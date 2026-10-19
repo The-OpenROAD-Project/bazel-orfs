@@ -1,0 +1,95 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+# "On and off ORFS": a short video for ORFS users, peers and testers,
+# import an ORFS design into a bazel-orfs clone, build it, export it back
+# to make. docs/ramps.md has the commands and the measurements.
+#
+#   bazelisk build //docs/demos/ramps:video     # 1920x1080
+#   bazelisk build //docs/demos/ramps:sample    # one scene, to judge pace
+#
+# Narrated offline by Piper's pinned ljspeech voice as a draft (public
+# domain, its MODEL_CARD is in the runfiles), encoded by the ffmpeg
+# imageio-ffmpeg pins.
+
+py_binary(
+    name = "video_bin",
+    srcs = [
+        "script.py",
+        "video.py",
+    ],
+    data = ["@piper_voice_card//file"],
+    main = "video.py",
+    deps = [
+        "@bazel-orfs-dev-pip//imageio_ffmpeg",
+        "@bazel-orfs-dev-pip//pillow",
+        "@bazel-orfs-dev-pip//piper_tts",
+    ],
+)
+
+[genrule(
+    name = name,
+    srcs = [
+        "@piper_voice_json//file",
+        "@piper_voice_onnx//file",
+    ],
+    outs = [
+        "ramps_%s.mp4" % name,
+        "ramps_%s.srt" % name,
+    ],
+    cmd = " ".join([
+        "$(execpath :video_bin)",
+        "--script",
+        script,
+        "--format",
+        fmt,
+        "--voice-onnx $(execpath @piper_voice_onnx//file)",
+        "--voice-json $(execpath @piper_voice_json//file)",
+        "--out $(execpath ramps_%s.mp4)" % name,
+        "--srt $(execpath ramps_%s.srt)" % name,
+    ]),
+    tags = ["manual"],
+    tools = [":video_bin"],
+) for name, script, fmt in [
+    ("video", "full", "landscape"),
+    # One scene, to judge the pace before a full render.
+    ("sample", "sample", "landscape"),
+]]
+
+# bazelisk run //docs/demos/ramps:save -- ~/Desktop, and :save_sample: the
+# render and its .srt copied out of the build, to watch or to hand on.
+[sh_binary(
+    name = save,
+    srcs = ["save.sh"],
+    args = ["$(rootpaths :%s)" % render],
+    data = [":" + render],
+    tags = ["manual"],
+) for save, render in [
+    ("save", "video"),
+    ("save_sample", "sample"),
+]]
+
+# Two sentences in each format encode, with sound, at the right size.
+py_test(
+    name = "video_test",
+    size = "medium",
+    srcs = [
+        "script.py",
+        "video.py",
+        "video_test.py",
+    ],
+    args = [
+        "$(rootpath @piper_voice_onnx//file)",
+        "$(rootpath @piper_voice_json//file)",
+    ],
+    data = [
+        "@piper_voice_json//file",
+        "@piper_voice_onnx//file",
+    ],
+    main = "video_test.py",
+    deps = [
+        "@bazel-orfs-dev-pip//imageio_ffmpeg",
+        "@bazel-orfs-dev-pip//pillow",
+        "@bazel-orfs-dev-pip//piper_tts",
+    ],
+)

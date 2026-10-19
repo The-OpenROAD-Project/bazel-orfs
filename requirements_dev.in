@@ -7,3 +7,6 @@ tabulate
 pytest
 zstandard
 black
+pillow
+imageio-ffmpeg
+piper-tts
