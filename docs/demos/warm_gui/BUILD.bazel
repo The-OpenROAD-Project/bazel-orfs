@@ -1,0 +1,103 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("//:openroad.bzl", "orfs_run")
+
+# The warm-gui demo videos (bazel-orfs #1300): what happens after
+# "build grt aes-blocks asap7".
+#
+#   bazelisk build //docs/demos/warm_gui:video        # 1920x1080
+#   bazelisk build //docs/demos/warm_gui:short        # 1080x1920, a phone
+#
+# Narrated offline by Piper's pinned ljspeech voice (public domain, its
+# MODEL_CARD is in the runfiles), encoded by the ffmpeg imageio-ffmpeg
+# pins. gui.png is the web viewer on aes-block's grt through the GUI link,
+# taken with headless Chrome:
+#
+#   google-chrome --headless=new --window-size=1600,1000 \
+#       --virtual-time-budget=20000 --screenshot=gui.png '<gui_url>'
+#
+# The layout frame is drawn by the build itself, below.
+
+# aes-block at grt, drawn headless: the design the screenshot shows.
+orfs_run(
+    name = "layout",
+    src = "@orfs//flow/designs/asap7/aes-block:aes_cipher_top_grt",
+    outs = ["layout.png"],
+    arguments = {"GUI_TIMING": "0"},
+    script = "layout.tcl",
+    tags = ["manual"],
+    user_arguments = {"OUTPUT": "layout.png"},
+)
+
+py_binary(
+    name = "video_bin",
+    srcs = [
+        "script.py",
+        "video.py",
+    ],
+    data = ["@piper_voice_card//file"],
+    main = "video.py",
+    deps = [
+        "@bazel-orfs-dev-pip//imageio_ffmpeg",
+        "@bazel-orfs-dev-pip//pillow",
+        "@bazel-orfs-dev-pip//piper_tts",
+    ],
+)
+
+[genrule(
+    name = name,
+    srcs = [
+        "gui.png",
+        ":layout",
+        "@piper_voice_json//file",
+        "@piper_voice_onnx//file",
+    ],
+    outs = [
+        "warm_gui_%s.mp4" % name,
+        "warm_gui_%s.srt" % name,
+    ],
+    cmd = " ".join([
+        "$(execpath :video_bin)",
+        "--script",
+        script,
+        "--format",
+        fmt,
+        "--voice-onnx $(execpath @piper_voice_onnx//file)",
+        "--voice-json $(execpath @piper_voice_json//file)",
+        "--gui $(execpath gui.png)",
+        "--layout $(execpath :layout)",
+        "--out $(execpath warm_gui_%s.mp4)" % name,
+        "--srt $(execpath warm_gui_%s.srt)" % name,
+    ]),
+    tags = ["manual"],
+    tools = [":video_bin"],
+) for name, script, fmt in [
+    ("video", "full", "landscape"),
+    ("short", "short", "portrait"),
+]]
+
+# Two sentences in each format encode, with sound, at the right size.
+py_test(
+    name = "video_test",
+    size = "medium",
+    srcs = [
+        "script.py",
+        "video.py",
+        "video_test.py",
+    ],
+    args = [
+        "$(rootpath @piper_voice_onnx//file)",
+        "$(rootpath @piper_voice_json//file)",
+        "$(rootpath gui.png)",
+    ],
+    data = [
+        "gui.png",
+        "@piper_voice_json//file",
+        "@piper_voice_onnx//file",
+    ],
+    main = "video_test.py",
+    deps = [
+        "@bazel-orfs-dev-pip//imageio_ffmpeg",
+        "@bazel-orfs-dev-pip//pillow",
+        "@bazel-orfs-dev-pip//piper_tts",
+    ],
+)
