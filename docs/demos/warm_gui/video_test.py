@@ -1,8 +1,8 @@
-"""The first two sentences of each video encode, with sound, at the size the
+"""The first two sentences of the video encode, with sound, at the size the
 format promises: a broken voice, script or encoder fails here in seconds,
 not after the full render.
 
-argv: the voice .onnx, its .json, and a picture for the image scenes.
+argv: the voice .onnx and its .json.
 """
 
 import os
@@ -16,7 +16,7 @@ import imageio_ffmpeg
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import video  # noqa: E402
 
-ONNX, CONFIG, PICTURE = sys.argv[1:4]
+ONNX, CONFIG = sys.argv[1:3]
 
 
 def probe(path):
@@ -48,8 +48,6 @@ class VideoTest(unittest.TestCase):
                     ONNX,
                     "--voice-json",
                     CONFIG,
-                    "--gui",
-                    PICTURE,
                     "--out",
                     out,
                     "--srt",
@@ -71,9 +69,6 @@ class VideoTest(unittest.TestCase):
 
     def test_landscape(self):
         self.check("full", "landscape", (1920, 1080))
-
-    def test_portrait(self):
-        self.check("short", "portrait", (1080, 1920))
 
 
 if __name__ == "__main__":

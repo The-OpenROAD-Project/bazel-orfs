@@ -1,19 +1,15 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
-# The bazel-orfs demo videos (bazel-orfs #1300): the hermetic and dirty
-# lanes, then the warm GUI and the MCP server after "build grt aes-blocks
-# asap7".
+# "ORFS, at the speed of your ideas": a short video for ORFS users on what
+# bazel-orfs is, ORFS with a memory, and why it is worth a closer look.
+# ideas/videos.md has the series it starts and the rules it follows.
 #
-#   bazelisk build //docs/demos/warm_gui:video        # 1920x1080
-#   bazelisk build //docs/demos/warm_gui:short        # 1080x1920, a phone
+#   bazelisk build //docs/demos/warm_gui:video     # 1920x1080
+#   bazelisk build //docs/demos/warm_gui:sample    # one scene, to judge pace
 #
-# Narrated offline by Piper's pinned ljspeech voice (public domain, its
-# MODEL_CARD is in the runfiles), encoded by the ffmpeg imageio-ffmpeg
-# pins. gui.png is the web viewer on aes-block's grt through the GUI link,
-# taken with headless Chrome:
-#
-#   google-chrome --headless=new --window-size=1600,1000 \
-#       --virtual-time-budget=20000 --screenshot=gui.png '<gui_url>'
+# Narrated offline by Piper's pinned ljspeech voice as a draft (public
+# domain, its MODEL_CARD is in the runfiles), encoded by the ffmpeg
+# imageio-ffmpeg pins.
 
 py_binary(
     name = "video_bin",
@@ -33,7 +29,6 @@ py_binary(
 [genrule(
     name = name,
     srcs = [
-        "gui.png",
         "@piper_voice_json//file",
         "@piper_voice_onnx//file",
     ],
@@ -49,7 +44,6 @@ py_binary(
         fmt,
         "--voice-onnx $(execpath @piper_voice_onnx//file)",
         "--voice-json $(execpath @piper_voice_json//file)",
-        "--gui $(execpath gui.png)",
         "--out $(execpath warm_gui_%s.mp4)" % name,
         "--srt $(execpath warm_gui_%s.srt)" % name,
     ]),
@@ -57,7 +51,8 @@ py_binary(
     tools = [":video_bin"],
 ) for name, script, fmt in [
     ("video", "full", "landscape"),
-    ("short", "short", "portrait"),
+    # One scene, to judge the pace before a full render.
+    ("sample", "sample", "landscape"),
 ]]
 
 # Two sentences in each format encode, with sound, at the right size.
@@ -72,10 +67,8 @@ py_test(
     args = [
         "$(rootpath @piper_voice_onnx//file)",
         "$(rootpath @piper_voice_json//file)",
-        "$(rootpath gui.png)",
     ],
     data = [
-        "gui.png",
         "@piper_voice_json//file",
         "@piper_voice_onnx//file",
     ],
