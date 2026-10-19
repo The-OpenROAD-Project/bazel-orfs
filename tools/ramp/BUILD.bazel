@@ -1,0 +1,35 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+# `bazelisk run //:import -- <ORFS design dir>`: the on-ramp, an ORFS
+# design copied into imported/ of this clone with a BUILD.bazel that
+# builds it.
+py_binary(
+    name = "import",
+    srcs = ["import_design.py"],
+    data = ["@gnumake//:make"],
+    env = {"IMPORT_MAKE": "$(rootpath @gnumake//:make)"},
+    main = "import_design.py",
+    visibility = ["//:__pkg__"],
+)
+
+py_test(
+    name = "import_design_test",
+    srcs = [
+        "import_design.py",
+        "import_design_test.py",
+    ],
+    # The pinned ORFS's flow, asap7 and gcd: an ORFS checkout as import
+    # reads one, plus designs it has to refuse.
+    data = [
+        "@gnumake//:make",
+        "@orfs//flow:asap7",
+        "@orfs//flow:makefile",
+        "@orfs//flow/designs/asap7/gcd:design_config",
+        "@orfs//flow/designs/src/gcd:verilog",
+    ] + glob(["testdata/**"]),
+    env = {
+        "IMPORT_MAKE": "$(rootpath @gnumake//:make)",
+        "ORFS_MAKEFILE": "$(rootpath @orfs//flow:makefile)",
+    },
+    imports = ["."],
+)
