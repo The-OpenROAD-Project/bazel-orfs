@@ -54,10 +54,7 @@ bazelisk run //my:cpu_place_odb_debug -- ODB_DEBUG_DIR=tmp/odb-debug GUI_TIMING=
 ```
 
 `bazelisk run` builds the stage first if it is out of date, then opens its
-ODB with the stage's SDC, liberty set, RC and derates. `odb = <label>`
-opens another ODB in the stage's environment instead, such as a
-hierarchical flow's flat view (`tools/flat_view/flat_view.bzl`, which
-makes the target itself). Variables after `--`
+ODB with the stage's SDC, liberty set, RC and derates. Variables after `--`
 are make overrides, so anything the flow reads can be set; the ones that
 matter here:
 

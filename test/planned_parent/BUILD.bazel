@@ -1,7 +1,5 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
-load("//:openroad.bzl", "orfs_run")
-load("//tools/flat_view:flat_view.bzl", "flat_view")
 load(":plan/plan.bzl", "PLAN")
 load(":planned.bzl", "mini_planned_flow")
 
@@ -212,40 +210,6 @@ py_test(
     args = ["$(rootpath :stranded_cells.json)"],
     data = [":stranded_cells.json"],
     main = "stranded_cells_test.py",
-    tags = ["manual"],
-    visibility = ["//test:__pkg__"],
-)
-
-# The parent through global route with each block's CTS stage in its place:
-# one ODB of the whole miniature (tools/flat_view).
-flat_view(
-    name = "mini_top_flat_grt",
-    src = ":mini_top_grt",
-    blocks = {":%s_cts" % b: "cts" for b in sorted(PLAN["macros"])},
-)
-
-orfs_run(
-    name = "flat_view",
-    src = ":mini_top_grt",
-    outs = ["flat_view.json"],
-    script = ":flat_view.tcl",
-    tags = ["manual"],
-    user_arguments = {
-        "OUTPUT_JSON": "$(location flat_view.json)",
-    },
-    user_sources = {
-        "BLOCK_ODBS": [":mini_top_flat_grt_%s_cts_odb" % b for b in sorted(PLAN["macros"])],
-        "FLAT_ODB": [":mini_top_flat_grt"],
-    },
-)
-
-# flat_view_test.py says what is checked.
-py_test(
-    name = "flat_view_test",
-    srcs = ["flat_view_test.py"],
-    args = ["$(rootpath :flat_view.json)"],
-    data = [":flat_view.json"],
-    main = "flat_view_test.py",
     tags = ["manual"],
     visibility = ["//test:__pkg__"],
 )

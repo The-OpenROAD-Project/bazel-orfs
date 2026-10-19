@@ -236,6 +236,17 @@ tree (`bazelisk run //:dirty -- start //test/coremark_joule/designs/asap7/xiangs
 `XSTile_cts_odb_debug` and `XSTile_grt_odb_debug` open a checkpoint for
 questions.
 
+`XSTile_flat_grt` is the same tile as one flow, with no hardened blocks:
+ORFS's own hierarchical synthesis of the whole tile (its keep rule, not
+the plan's), then macro and global placement over all of it, through
+global route, the kept modules in the ODB (`OPENROAD_HIERARCHICAL`). The
+register files are the planned flow's macros, the same targets. No
+number from it is in the KPI.
+
+```
+bazelisk run //test/coremark_joule/designs/asap7/xiangshan:XSTile_flat_grt gui_grt
+```
+
 `/cache-miss` asks whether a target is cached without building it: a
 capture never executes a flow action, a miss is killed as it appears and
 the build carries on, so a laptop can ask in minutes.

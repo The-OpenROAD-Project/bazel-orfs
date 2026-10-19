@@ -1,9 +1,8 @@
 load("@bazel-orfs//:openroad.bzl", "odb_debug", "orfs_schedule")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("//test/coremark_joule/flow:power.bzl", "census_probe", "grt_netlist", "hier_probe", "physical_probe", "stage_power", "stage_power_units")
-load("//tools/flat_view:flat_view.bzl", "flat_view")
 load(":plan/plan.bzl", "PLAN")
-load(":xiangshan.bzl", "xiangshan_flow")
+load(":xiangshan.bzl", "xiangshan_flat_flow", "xiangshan_flow")
 
 exports_files(["constraints.sdc"])
 
@@ -82,6 +81,17 @@ xiangshan_flow(
     plan = PLAN,
 )
 
+# The tile as one flow, no hardened blocks: ORFS's hierarchical synthesis
+# of the whole tile, then macro and global placement over all of it,
+# through global route, with the hierarchy kept in the ODB. The planned
+# flow's register-file macros, reused. The GUI:
+#
+#   bazelisk run :XSTile_flat_grt gui_grt
+xiangshan_flat_flow(
+    name = "XSTile",
+    variant = "flat",
+)
+
 # The blocks and the parent, scheduled to the memory there is
 # (docs/schedule.md): bazelisk run //test/coremark_joule/designs/asap7/xiangshan:build
 orfs_schedule(
@@ -122,16 +132,6 @@ odb_debug(
 odb_debug(
     name = "XSTile_grt_odb_debug",
     src = ":XSTile_grt",
-)
-
-# The whole tile at global route: the parent with each block's own global
-# route in its place, one ODB to look at (tools/flat_view). The GUI:
-#
-#   bazelisk run :XSTile_flat_grt_odb_debug -- ODB_DEBUG_DIR=tmp/odb-debug
-flat_view(
-    name = "XSTile_flat_grt",
-    src = ":XSTile_grt",
-    blocks = {":%s_grt" % b: "grt" for b in sorted(PLAN["macros"])},
 )
 
 # The planned blocks' synthesis netlists with timing: the time table's
@@ -267,7 +267,10 @@ census_probe(
         output_group = "1_synth.mk",
         tags = ["manual"],
     )
-    for design in ["XSTile"] + PLAN["macros"].keys()
+    for design in [
+        "XSTile",
+        "XSTile_flat",
+    ] + PLAN["macros"].keys()
 ]
 
 py_test(
@@ -275,13 +278,19 @@ py_test(
     srcs = ["synth_config_test.py"],
     args = [
         arg
-        for design in ["XSTile"] + PLAN["macros"].keys()
+        for design in [
+            "XSTile",
+            "XSTile_flat",
+        ] + PLAN["macros"].keys()
         for arg in [
             design,
             "$(rootpath :%s_1_synth.mk)" % design,
         ]
     ],
-    data = [":%s_1_synth.mk" % design for design in ["XSTile"] + PLAN["macros"].keys()],
+    data = [":%s_1_synth.mk" % design for design in [
+        "XSTile",
+        "XSTile_flat",
+    ] + PLAN["macros"].keys()],
     main = "synth_config_test.py",
     tags = ["manual"],
 )

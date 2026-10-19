@@ -68,10 +68,6 @@ file mkdir $::env(ODB_DEBUG_DIR)
 set ::od_attached 0
 catch { if { [ord::get_db_block] ne "NULL" } { set ::od_attached 1 } }
 if { !$::od_attached } {
-  # odb_debug(odb = ...): another ODB in the stage's environment
-  if { [info exists ::env(ODB_DEBUG_ODB)] && $::env(ODB_DEBUG_ODB) ne "" } {
-    set ::env(ODB_FILE) [file normalize $::env(ODB_DEBUG_ODB)]
-  }
   source $::env(SCRIPTS_DIR)/open.tcl
 }
 set ::od_load_secs [expr { ([clock milliseconds] - $::od_t0) / 1000.0 }]
