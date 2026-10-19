@@ -39,6 +39,14 @@ check() {
 run
 check "no arguments prints usage and fails" '[ $RC -ne 0 ] && grep -q "start" <<<"$OUT"'
 
+check "usage offers --qt" 'grep -q -- "--qt" <<<"$OUT"'
+
+run start //test:lb place --qt
+check "--qt is an option of start, not a stray argument" \
+    '! grep -q "unexpected arguments" <<<"$OUT" && grep -q -- "--output_groups=deps_files //test:lb_place" "$CALLS"'
+check "--qt does not build Qt before the tree is installed" \
+    '! grep -q -- "deps_qt" "$CALLS"'
+
 run frobnicate
 check "an unknown command is named" '[ $RC -ne 0 ] && grep -q "unknown command .frobnicate." <<<"$OUT"'
 

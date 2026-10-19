@@ -87,6 +87,13 @@ OPENROAD_GUI = re.compile(
 OPENROAD_GUI_RUN = re.compile(
     BAZEL + r"(?:\s+--?\S+)*\s+run\s[^;&|]*(?:openroad-qt(?![\w-])|\s-gui(?![\w-]))"
 )
+# ORFS's qt_<stage> make target opens the Qt GUI too, from a tree's make
+# or `bazel run` of a stage; gui_<stage> is the web viewer, odb-debug's
+# daemon, and stays open.
+OPENROAD_QT_TARGET = re.compile(
+    r"(?:(?:^|\s)(?:\S*/)?make(?:\.stage)?|" + BAZEL + r"(?:\s+--?\S+)*\s+run)"
+    r"\s[^;&|]*(?<![\w./-])qt_[\w.-]+"
+)
 
 # odb-debug's client and MCP server, run from a shell: `python3
 # tools/odb_debug/odbdebug.py`, the script run directly, or `bazel run` of
@@ -339,7 +346,11 @@ OPENROAD_GUI_MESSAGE = (
 
 def check_openroad_gui(request):
     for segment in segments(request.code):
-        if OPENROAD_GUI.match(segment) or OPENROAD_GUI_RUN.search(segment):
+        if (
+            OPENROAD_GUI.match(segment)
+            or OPENROAD_GUI_RUN.search(segment)
+            or OPENROAD_QT_TARGET.search(segment)
+        ):
             return OPENROAD_GUI_MESSAGE
     return None
 
@@ -408,10 +419,11 @@ RULES = (
     ),
     (
         "openroad-gui",
-        "Running the OpenROAD GUI (`openroad-qt`, `openroad -gui`) is blocked; "
-        "the agent cannot see it. Use the odb-debug MCP server, and extend "
-        "`tools/odb_debug` when no tool there answers the question. Building "
-        "`@openroad//:openroad-qt` stays allowed.",
+        "Running the OpenROAD Qt GUI (`openroad-qt`, `openroad -gui`, "
+        "`make qt_<stage>`) is blocked; the agent cannot see it. Use the "
+        "odb-debug MCP server, and extend `tools/odb_debug` when no tool there "
+        "answers the question. Building `@openroad//:openroad-qt` and the web "
+        "viewer's `make gui_<stage>` stay allowed.",
         check_openroad_gui,
     ),
     (

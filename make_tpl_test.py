@@ -11,11 +11,12 @@ import tempfile
 import unittest
 
 
-def render(stage, label="//pkg:flow_" + "x", later=""):
+def render(stage, label="//pkg:flow_" + "x", later="", qt="/bin/true"):
     d = tempfile.mkdtemp(prefix="make_tpl.")
+    os.makedirs(os.path.join(d, "odb_debug"))
     stub = os.path.join(d, "make_stub")
     with open(stub, "w") as f:
-        f.write('#!/bin/sh\necho "STUB $@"\n')
+        f.write('#!/bin/sh\necho "STUB $@"\necho "OPENROAD_EXE=$OPENROAD_EXE"\n')
     os.chmod(stub, 0o755)
     with open("make.tpl") as f:
         text = f.read()
@@ -23,7 +24,8 @@ def render(stage, label="//pkg:flow_" + "x", later=""):
         "${MAKE_PATH}": stub,
         "${YOSYS_PATH}": "",
         "${OPENROAD_PATH}": "/bin/true",
-        "${OPENROAD_QT_PATH}": "/bin/true",
+        "${OPENROAD_QT_PATH}": qt,
+        "${ODB_DEBUG_GUI_PATH}": os.path.join(d, "odb_debug", "gui.sh"),
         "${OPENSTA_PATH}": "/bin/true",
         "${KLAYOUT_PATH}": "/bin/true",
         "${STDBUF_PATH}": "",
@@ -181,6 +183,37 @@ class LaterStageVariablesTest(unittest.TestCase):
         r = run(make, "do-floorplan")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertNotIn("the build's values", r.stderr)
+
+
+class GuiTest(unittest.TestCase):
+    """gui_ is the web viewer through the odb-debug daemon; qt_ the Qt GUI,
+    only where //:dirty --qt installed it."""
+
+    def test_gui_runs_the_daemon_with_the_cli_openroad(self):
+        make = render("final")
+        r = run(make, "gui_final")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        gui = os.path.join(os.path.dirname(make), "odb_debug", "gui.sh")
+        self.assertIn("OPENROAD_WEB_CMD=" + gui, r.stdout)
+        self.assertIn("OPENROAD_EXE=/bin/true", r.stdout)
+
+    def test_other_targets_leave_the_web_command_alone(self):
+        r = run(render("final"), "do-final")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertNotIn("OPENROAD_WEB_CMD", r.stdout)
+
+    def test_qt_without_the_qt_openroad_says_how_to_get_it(self):
+        r = run(render("final", qt="/nonexistent/openroad-qt"), "qt_final")
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("--qt", r.stderr)
+        self.assertIn("make gui_final", r.stderr)
+        self.assertNotIn("STUB", r.stdout)
+
+    def test_qt_with_the_qt_openroad_uses_it(self):
+        r = run(render("final", qt="/bin/echo"), "qt_final")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("OPENROAD_EXE=/bin/echo", r.stdout)
+        self.assertNotIn("OPENROAD_WEB_CMD", r.stdout)
 
 
 if __name__ == "__main__":
