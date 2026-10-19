@@ -83,9 +83,6 @@ DENIED_TOOLS = frozenset(
 
 # Where a denied tool is nevertheless tolerated, and why.
 TOLERATED = {
-    # Dev convenience: opens a report in a browser. Fails loudly, and no
-    # build depends on it.
-    "open_html.sh": {"xdg-open"},
     # Opt-in escape hatch. The default klayout is @mock_klayout, so a stock
     # consumer never runs this. See docs/klayout.md.
     "klayout.sh": {"klayout"},

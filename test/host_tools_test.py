@@ -128,10 +128,10 @@ class DeniedToolTest(unittest.TestCase):
         self.assertEqual(check(clean_tree(**{"r.sh": "pipefail_helper --x\n"})), [])
 
     def test_tolerated_tools_are_allowed_only_in_their_own_file(self):
-        self.assertEqual(check(clean_tree(**{"open_html.sh": "exec xdg-open x\n"})), [])
-        problems = check(clean_tree(**{"other.sh": "exec xdg-open x\n"}))
+        self.assertEqual(check(clean_tree(**{"klayout.sh": "exec klayout x\n"})), [])
+        problems = check(clean_tree(**{"other.sh": "exec klayout x\n"}))
         self.assertEqual(len(problems), 1, problems)
-        self.assertIn("other.sh runs xdg-open", problems[0])
+        self.assertIn("other.sh runs klayout", problems[0])
 
     def test_a_denied_tool_in_patch_cmds_is_a_problem(self):
         root = clean_tree(
