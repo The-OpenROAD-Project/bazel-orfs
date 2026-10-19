@@ -183,6 +183,7 @@ orfs_flow(
 # covering every non-manual target in the package.
 build_test(
     name = "sram_build_test",
+    tags = ["manual"],
     targets = [
         ":lef_file",
         ":sdq_17x64_megaboom_variables",
@@ -196,4 +197,5 @@ build_test(
         ":top_mix_variables",
         ":top_variables",
     ],
+    visibility = ["//test:__pkg__"],
 )
