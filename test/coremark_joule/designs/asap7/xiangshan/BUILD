@@ -1,6 +1,7 @@
 load("@bazel-orfs//:openroad.bzl", "odb_debug", "orfs_schedule")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("//test/coremark_joule/flow:power.bzl", "census_probe", "grt_netlist", "hier_probe", "physical_probe", "stage_power", "stage_power_units")
+load("//tools/flat_view:flat_view.bzl", "flat_view")
 load(":plan/plan.bzl", "PLAN")
 load(":xiangshan.bzl", "xiangshan_flow")
 
@@ -121,6 +122,16 @@ odb_debug(
 odb_debug(
     name = "XSTile_grt_odb_debug",
     src = ":XSTile_grt",
+)
+
+# The whole tile at global route: the parent with each block's own global
+# route in its place, one ODB to look at (tools/flat_view). The GUI:
+#
+#   bazelisk run :XSTile_flat_grt_odb_debug -- ODB_DEBUG_DIR=tmp/odb-debug
+flat_view(
+    name = "XSTile_flat_grt",
+    src = ":XSTile_grt",
+    blocks = {":%s_grt" % b: "grt" for b in sorted(PLAN["macros"])},
 )
 
 # The planned blocks' synthesis netlists with timing: the time table's

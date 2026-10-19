@@ -1,0 +1,6 @@
+# flat_view(): a hierarchical flow's stage with its blocks' own stages put
+# back in place, for looking at (flat_view.bzl).
+exports_files(
+    ["flatten.tcl"],
+    visibility = ["//visibility:public"],
+)
