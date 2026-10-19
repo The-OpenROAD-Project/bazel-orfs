@@ -15,8 +15,9 @@ import re
 
 # written -> (phonemes for the voice, what it sounds like)
 WORDS = {
-    "ORFS": ("ˈoʊ ˈɑːɹ ˈɛf ˈɛs", "O-R-F-S"),
-    "bazel-orfs": ("bˈeɪzəl ˈoʊ ˈɑːɹ ˈɛf ˈɛs", "BAY-zel O-R-F-S"),
+    # The letters run together, as espeak says an acronym it knows (RTL).
+    "ORFS": ("ˌoʊˌɑːɹˌɛfˈɛs", "O-R-F-S"),
+    "bazel-orfs": ("bˈeɪzəlˌoʊˌɑːɹˌɛfˈɛs", "bazel-O-R-F-S"),
     "bazelisk": ("bˈeɪzəlɪsk", "BAY-zuh-lisk"),
     "byte-identical": ("bˈaɪt aɪdˈɛntɪkəl", "byte identical"),
     "asap7": ("ˈeɪsæp sˈɛvən", "AY-sap seven"),

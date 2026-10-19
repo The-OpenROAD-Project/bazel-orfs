@@ -36,13 +36,11 @@ class PronunciationTest(unittest.TestCase):
     def test_longest_word_wins(self):
         self.assertEqual(
             pronunciation.say("bazel-orfs helps you with ORFS."),
-            "[[ bˈeɪzəl ˈoʊ ˈɑːɹ ˈɛf ˈɛs ]] helps you with [[ ˈoʊ ˈɑːɹ ˈɛf ˈɛs ]].",
+            "[[ bˈeɪzəlˌoʊˌɑːɹˌɛfˈɛs ]] helps you with [[ ˌoʊˌɑːɹˌɛfˈɛs ]].",
         )
 
     def test_whole_words_only(self):
-        self.assertEqual(
-            pronunciation.say("ORFS's make"), "[[ ˈoʊ ˈɑːɹ ˈɛf ˈɛs ]]'s make"
-        )
+        self.assertEqual(pronunciation.say("ORFS's make"), "[[ ˌoʊˌɑːɹˌɛfˈɛs ]]'s make")
         self.assertEqual(pronunciation.say("AIR and FAIRY"), "AIR and FAIRY")
 
 
