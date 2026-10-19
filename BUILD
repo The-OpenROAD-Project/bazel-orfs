@@ -239,6 +239,13 @@ alias(
     actual = "//tools/ramp:import",
 )
 
+# `bazelisk run //:export -- <dest> <orfs_flow target>`: a flow out to a
+# plain ORFS design, config.mk, inputs/ and run.sh, for any ORFS checkout.
+alias(
+    name = "export",
+    actual = "//tools/ramp:export",
+)
+
 # The old name: says the new one and fails. Goes at a later bump.
 sh_binary(
     name = "deps",

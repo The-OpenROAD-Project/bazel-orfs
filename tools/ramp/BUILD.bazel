@@ -33,3 +33,21 @@ py_test(
     },
     imports = ["."],
 )
+
+# `bazelisk run //:export -- <dest> <orfs_flow target>`: the off-ramp, a
+# flow written out as a plain ORFS design, config.mk, inputs/ and run.sh.
+py_binary(
+    name = "export",
+    srcs = ["export_design.py"],
+    main = "export_design.py",
+    visibility = ["//:__pkg__"],
+)
+
+py_test(
+    name = "export_design_test",
+    srcs = [
+        "export_design.py",
+        "export_design_test.py",
+    ],
+    imports = ["."],
+)
