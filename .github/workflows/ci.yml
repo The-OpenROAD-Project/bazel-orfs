@@ -154,6 +154,22 @@ jobs:
             fi
           done
 
+      # No test needs openroad-qt: a stage's default runfiles carry it
+      # for `bazelisk run <stage> gui_*`, and a test that takes them
+      # builds Qt, an hour of this runner. A rule consuming a stage takes
+      # its data_runfiles, which leave Qt out.
+      - name: No Qt in tests
+        run: |
+          tests=$(bazelisk query 'tests(//...) except attr(tags, "manual", tests(//...))' | grep '^//' | tr '\n' ' ')
+          found=$(bazelisk cquery "set($tests)" --output=starlark \
+            --starlark:expr='str(target.label) if [f for f in providers(target)["DefaultInfo"].default_runfiles.files.to_list() if f.basename == "openroad-qt"] else ""' \
+            | grep . || true)
+          if [ -n "$found" ]; then
+            echo "openroad-qt is in the runfiles of:"
+            echo "$found"
+            exit 1
+          fi
+
       # --- Unit tests ---
       - name: Run tests
         run: bazelisk test ... --build_tests_only --test_output=errors --profile=test.profile
