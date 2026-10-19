@@ -17,6 +17,11 @@ timing path, the multiplier feeding the adder, for the GUI to show.
 | [mac.v](mac.v) | The RTL |
 | [constraints.sdc](constraints.sdc) | The clock, and I/O budgets as optimization targets |
 
+[generated/](generated/BUILD) builds the same unit from a generator:
+Bazel runs `gen_mac.py --bits 8`, and the flow reads the Verilog it
+writes. A change to the generator or its options rebuilds only what it
+reaches.
+
 ## Things to try
 
 Change `PLACE_DENSITY` in `BUILD` and rerun. Only placement and the stages
