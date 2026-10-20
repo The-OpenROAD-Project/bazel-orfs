@@ -13,6 +13,7 @@ load(":exec_tool.bzl", "exec_tool")
 load(":hierarchical_default_test.bzl", "hierarchical_default_test_suite")
 load(":keep_modules_test.bzl", "keep_modules_test_suite")
 load(":mock_pin_knobs_test.bzl", "mock_pin_knobs_test")
+load(":partition_key_test.bzl", "partition_key_test")
 load(":provider_test_rule.bzl", "lib_pre_layout_test")
 load(":quick_pins_test_rule.bzl", "quick_pins_data_dep_test")
 load(":retired_arguments_test.bzl", "retired_argument_test")
@@ -977,6 +978,15 @@ orfs_synth(
 build_test(
     name = "kept_modules_synth_test",
     targets = [":kept_modules_synth"],
+)
+
+partition_key_test(
+    name = "kept_modules_partition_key_test",
+    modules = [
+        "adder",
+        "counter",
+    ],
+    target_under_test = ":kept_modules_synth",
 )
 
 # The other branch of parallel synthesis: SYNTH_HIERARCHICAL=1 with no

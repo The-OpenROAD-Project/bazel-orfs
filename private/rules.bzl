@@ -1335,6 +1335,10 @@ SYNTH_OUTPUTS = ["1_2_yosys.v", "1_2_yosys.sdc", "mem.json"]
 SYN_OUTPUTS = ["1_synth.odb", "1_synth.sdc", "1_synth.v"]
 SYNTH_REPORTS = ["synth_stat.txt", "synth_mocked_memories.txt"]
 
+def _sanitize_module(module):
+    """A kept module's name as a file name component (synth_partition.sh's sanitize())."""
+    return module.replace("$", "_").replace(".", "_").replace("[", "_").replace("]", "_")
+
 def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments = {}, sdc_overrides = [], synth_data_inputs = None, sdc_only_inputs = None, memories_inputs = []):
     """Parallel synthesis: keep → kept-json → N partitions → merge.
 
@@ -1519,7 +1523,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     per_module_rtlil = {}
     per_module_name_file = {}
     for module in kept_modules_list:
-        sanitized = module.replace("$", "_").replace(".", "_").replace("[", "_").replace("]", "_")
+        sanitized = _sanitize_module(module)
         per_module_out = declare_artifact(
             ctx,
             "results",
@@ -1675,6 +1679,24 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
 
     filter_json = write_stage_filter(ctx, "results", "1_synth_partition", ["synth"])
 
+    # With a pinned list of one module per partition, each partition is
+    # named by its module and reads its own config, whose SYNTH_KEEP_MODULES
+    # is that module alone -- all synth.tcl can see of the list in a slice.
+    # Neither the list nor an index reaches the action's key, so editing
+    # SYNTH_KEEP_MODULES re-runs only the modules whose slice it changes.
+    by_module = bool(skip_keep) and bool(kept_modules_list) and num_partitions == len(kept_modules_list)
+    module_partition_inputs = depset(
+        [
+            parallel_makefile,
+            ctx.file._synth_partition_script,
+            ctx.file._synth_tcl,
+        ] + extra_partition_inputs + ctx.files.extra_configs + memories_inputs,
+        transitive = [
+            synth_data_inputs,
+            pdk_inputs(ctx),
+        ],
+    )
+
     for i in range(num_partitions):
         # Build a human-readable progress message showing which modules
         # this partition will synthesize.
@@ -1687,6 +1709,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 progress_msg = "Synthesizing partition {}/{} (empty)".format(i, num_partitions)
         else:
             progress_msg = "Synthesizing partition {}/{}".format(i, num_partitions)
+        suffix = _sanitize_module(my_modules[0]) if by_module else str(i)
 
         # Scope this partition's macro inputs to just the macros listed
         # for the kept modules it synthesises. Also generate a partition-
@@ -1694,9 +1717,13 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         # those macros — otherwise `yosys-dependencies` would expect the
         # full macro set as Make prereqs and fail with "no rule to make
         # target" on the macros we've excluded from inputs.
+        overlay = {}
+        includes = [f.path for f in ctx.files.extra_configs]
+        config_inputs = []
+        needs_config = by_module
         if getattr(ctx.file, "filter_script", None):
             filtered_macros_dir = ctx.actions.declare_directory(
-                ctx.label.name + "_filtered_macros_" + str(i),
+                ctx.label.name + "_filtered_macros_" + suffix,
             )
             ctx.actions.run(
                 executable = ctx.executable._python,
@@ -1714,49 +1741,12 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 inputs = [ctx.file.filter_script, canon_output, kept_json, macros_json_file] + all_macro_files.to_list(),
                 outputs = [filtered_macros_dir],
                 mnemonic = "FilterPartitionMacros",
-                progress_message = "Filtering macros for partition {}".format(i),
+                progress_message = "Filtering macros for partition {}".format(suffix),
             )
-
             my_macro_files = depset([filtered_macros_dir])
-            my_arguments = merge_arguments(
-                base_arguments,
-                {},
-            )
-            my_analysis_args = config_arguments(ctx, my_arguments)
-            my_analysis_json = declare_artifact(ctx, "results", "1_synth_partition_{}.analysis.json".format(i))
-            ctx.actions.write(
-                output = my_analysis_json,
-                content = json.encode(my_analysis_args),
-            )
-
-            my_config = declare_artifact(
-                ctx,
-                "results",
-                "1_synth_partition_{}.mk".format(i),
-            )
-            my_jsons = [my_analysis_json] + ctx.files.extra_arguments
-
-            my_args = [
-                ctx.file._merge_arguments.path,
-                my_config.path,
-                "--filter",
-                filter_json.path,
-            ]
-            for f in ctx.files.extra_configs + [filtered_macros_dir]:
-                if f == filtered_macros_dir:
-                    my_args.extend(["--include", filtered_macros_dir.path + "/filtered_config.mk"])
-                else:
-                    my_args.extend(["--include", f.path])
-            my_args.extend([f.path for f in my_jsons])
-
-            ctx.actions.run(
-                executable = ctx.executable._python,
-                arguments = my_args,
-                inputs = my_jsons + [ctx.file._merge_arguments, filter_json, filtered_macros_dir] + ctx.files.extra_configs,
-                outputs = [my_config],
-            )
-            extra_partition_config = [my_config]
-            partition_env_override = {"DESIGN_CONFIG": my_config.path}
+            includes.append(filtered_macros_dir.path + "/filtered_config.mk")
+            config_inputs = [filtered_macros_dir]
+            needs_config = True
         elif use_kept_macros_scoping:
             macro_name_set = {}
             for m in my_modules:
@@ -1769,49 +1759,61 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                     if n in macro_files_by_name
                 ],
             )
-            my_deps_infos = [
-                macro_dep_by_name[n][OrfsInfo]
-                for n in macro_name_set
-                if n in macro_dep_by_name
-            ]
-            my_arguments = merge_arguments(
-                base_arguments,
-                orfs_additional_arguments(my_deps_infos, use_pre_layout = True),
+            overlay = orfs_additional_arguments(
+                [
+                    macro_dep_by_name[n][OrfsInfo]
+                    for n in macro_name_set
+                    if n in macro_dep_by_name
+                ],
+                use_pre_layout = True,
             )
-            my_analysis_args = config_arguments(ctx, my_arguments)
-            my_analysis_json = declare_artifact(ctx, "results", "1_synth_partition_{}.analysis.json".format(i))
-            ctx.actions.write(
-                output = my_analysis_json,
-                content = json.encode(my_analysis_args),
+            needs_config = True
+        else:
+            my_macro_files = all_macro_files
+
+            # The design's whole macro set, as the global config has it.
+            overlay = orfs_additional_arguments(
+                [dep[OrfsInfo] for dep in ctx.attr.deps],
+                use_pre_layout = True,
             )
 
+        if needs_config:
+            my_arguments = merge_arguments(base_arguments, overlay)
+            if by_module:
+                my_arguments = {
+                    k: v
+                    for k, v in my_arguments.items()
+                    if k != "SYNTH_NUM_PARTITIONS"
+                } | {"SYNTH_KEEP_MODULES": my_modules[0]}
+            my_analysis_json = declare_artifact(ctx, "results", "1_synth_partition_{}.analysis.json".format(suffix))
+            ctx.actions.write(
+                output = my_analysis_json,
+                content = json.encode(config_arguments(ctx, my_arguments)),
+            )
             my_config = declare_artifact(
                 ctx,
                 "results",
-                "1_synth_partition_{}.mk".format(i),
+                "1_synth_partition_{}.mk".format(suffix),
             )
             my_jsons = [my_analysis_json] + ctx.files.extra_arguments
-
             my_args = [
                 ctx.file._merge_arguments.path,
                 my_config.path,
                 "--filter",
                 filter_json.path,
             ]
-            for f in ctx.files.extra_configs:
-                my_args.extend(["--include", f.path])
+            for path in includes:
+                my_args.extend(["--include", path])
             my_args.extend([f.path for f in my_jsons])
-
             ctx.actions.run(
                 executable = ctx.executable._python,
                 arguments = my_args,
-                inputs = my_jsons + [ctx.file._merge_arguments, filter_json] + ctx.files.extra_configs,
+                inputs = my_jsons + [ctx.file._merge_arguments, filter_json] + config_inputs + ctx.files.extra_configs,
                 outputs = [my_config],
             )
             extra_partition_config = [my_config]
             partition_env_override = {"DESIGN_CONFIG": my_config.path}
         else:
-            my_macro_files = all_macro_files
             extra_partition_config = []
             partition_env_override = {}
 
@@ -1839,11 +1841,14 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             my_per_module_files.append(checkpoint_output)
         partition_inputs = depset(
             [base_inp for base_inp in extra_partition_config] + my_per_module_files,
-            transitive = [base_partition_inputs, my_macro_files],
+            transitive = [
+                module_partition_inputs if by_module else base_partition_inputs,
+                my_macro_files,
+            ],
         )
 
-        part_output = declare_artifact(ctx, "results", "partition_{}.v".format(i))
-        partition_outputs.append(part_output)
+        part_output = declare_artifact(ctx, "results", "partition_{}.v".format(suffix))
+        partition_outputs.append((suffix, part_output))
         part_commands = [_make_cmd(ctx)] + generation_commands([part_output])
         ctx.actions.run_shell(
             arguments = [
@@ -1854,9 +1859,12 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 "SYNTH_PARTITION_SCRIPT=" + ctx.file._synth_partition_script.path,
             ] + memories_old_file_args + sdc_overrides,
             command = " && ".join(part_commands),
-            env = base_env | partition_env_extra | partition_env_override | {
-                "SYNTH_PARTITION_ID": str(i),
-                "SYNTH_NUM_PARTITIONS": str(num_partitions),
+            env = base_env | partition_env_extra | partition_env_override | (
+                {"SYNTH_PARTITION_MODULE": my_modules[0]} if by_module else {
+                    "SYNTH_PARTITION_ID": str(i),
+                    "SYNTH_NUM_PARTITIONS": str(num_partitions),
+                }
+            ) | {
                 "SYNTH_TCL": ctx.file._synth_tcl.path,
             },
             inputs = partition_inputs,
@@ -1897,8 +1905,12 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         progress_message = "Synthesizing top module %s" % module_top(ctx),
     )
 
-    # Action 5: merge partition outputs + top module → 1_2_yosys.v
-    all_parts = partition_outputs + [top_output]
+    # Action 5: merge partition outputs + top module → 1_2_yosys.v. By
+    # module name, so reordering SYNTH_KEEP_MODULES leaves 1_2_yosys.v as
+    # it was.
+    if by_module:
+        partition_outputs = sorted(partition_outputs)
+    all_parts = [part for _, part in partition_outputs] + [top_output]
     ctx.actions.run_shell(
         command = "cat {inputs} > {output}".format(
             inputs = " ".join([p.path for p in all_parts]),
