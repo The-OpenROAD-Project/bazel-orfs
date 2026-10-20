@@ -19,7 +19,10 @@ tools/odb_debug/headroom.tcl on the whole: the reg2reg period, the
 one-flop-loop and retiming floors, useful skew and threshold voltage
 (with the leakage it costs), each split into the parent's part and the
 blocks', and with a `target` the mass at or over it at each. `<name>.json` has them, and
-`<name>_nowire.json` the zero-wire floor. The odb-debug daemon's
+`<name>_nowire.json` the zero-wire floor, and `<name>_classes.txt` every
+reg2reg endpoint by where its worst path runs (classify.tcl): within the
+parent or a block, from one part to another, or through a block it neither
+starts nor ends in, the in2out arc surgery takes apart. The odb-debug daemon's
 `headroom` tool asks the same of one stage alone, a block being its
 abstract. When to ask and how to read the answer:
 .claude/skills/repair-headroom/SKILL.md.
@@ -72,11 +75,15 @@ def orfs_headroom(name, parent, parent_stage, blocks, ends = 0, target = 0, tags
         )
     files = ["%s/%s.%s" % (name, p, e) for p in parts for e in ["v", "spef", "sdc"]] + \
             ["%s/%s_libs.tar" % (name, p) for p in parts]
-    for suffix, wires in [("", "1"), ("_nowire", "0")]:
+    for suffix, wires, ext, classes in [
+        ("", "1", "json", ""),
+        ("_nowire", "0", "json", ""),
+        ("_classes", "1", "txt", "$(execpath %s)" % Label("//tools/headroom:classify.tcl")),
+    ]:
         native.genrule(
             name = name + suffix,
             srcs = [":" + f for f in files],
-            outs = [name + suffix + ".json"],
+            outs = [name + suffix + "." + ext],
             cmd = " && ".join([
                 "w=$$(mktemp -d -p $$PWD)",
                 # the parent and every part's parasitics, SDC and liberty
@@ -102,13 +109,14 @@ def orfs_headroom(name, parent, parent_stage, blocks, ends = 0, target = 0, tags
             ] + [
                 "ulimit -s unlimited",
                 ("STA_DIR=$$w STA_PARENT=%s STA_PARTS='%s' STA_WIRES=%s HR_ENDS=%d HR_TARGET=%s " +
-                 "HR_TCL=$(execpath %s) HR_OUT=$@ $(execpath %s) -no_splash -threads max " +
-                 "-exit $(execpath %s)") % (
+                 "HR_CLASSES='%s' HR_TCL=$(execpath %s) HR_OUT=$@ $(execpath %s) -no_splash " +
+                 "-threads max -exit $(execpath %s)") % (
                     parent,
                     " ".join(parts.keys()),
                     wires,
                     ends,
                     target,
+                    classes,
                     Label("//tools/odb_debug:headroom.tcl"),
                     Label("@openroad//src/sta:opensta"),
                     Label("//tools/headroom:headroom_flat.tcl"),
@@ -116,6 +124,7 @@ def orfs_headroom(name, parent, parent_stage, blocks, ends = 0, target = 0, tags
             ]),
             tags = tags,
             tools = [
+                Label("//tools/headroom:classify.tcl"),
                 Label("//tools/headroom:headroom_flat.tcl"),
                 Label("//tools/headroom:sta_prefix"),
                 Label("//tools/odb_debug:headroom.tcl"),
