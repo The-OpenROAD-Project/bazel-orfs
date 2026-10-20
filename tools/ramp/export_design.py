@@ -35,6 +35,12 @@ files placed as macros (AUTO_MEMORIES_MACRO_PLACE) is refused: its
 as Bazel built it, laid out as ORFS's work tree under <dest>/start/;
 make then runs do-<stage> and the stages after it.
 
+--cached-only runs no flow stage: it builds the RTL, takes every other
+file from the remote cache, and leaves out, saying so in EXPORT.md, what
+is optional and not cached (the netlist, the snapshot). reference/ is
+always made that way: each cached stage's logs' measurements and
+metrics.
+
 A flow that synthesises with yosys ships yosys's netlist as built,
 1_2_yosys.v named by SYNTH_NETLIST_FILES beside its config.mk, so make skips synthesis. Every
 value that names a file made for the export, by Bazel or by the export,
@@ -60,8 +66,12 @@ import argparse
 import os
 import re
 import shutil
+import json
 import subprocess
 import sys
+import tempfile
+
+from killer import Killer
 
 MARKER = "# Exported by `bazelisk run //:export`"
 
@@ -234,11 +244,21 @@ class Inputs:
     """Copies a flow's input files under <dest>/inputs/."""
 
     def __init__(
-        self, execroot, dest, manifest, platform, pkg, copied=None, ensure=None
+        self,
+        execroot,
+        dest,
+        manifest,
+        platform,
+        pkg,
+        copied=None,
+        ensure=None,
+        cached_only=False,
     ):
         self.execroot = execroot
-        # called with an input's execroot path when it is not built yet
+        # called with an input's execroot path when it is not built yet, and
+        # with cached_only for every Bazel-built one
         self.ensure = ensure
+        self.cached_only = cached_only
         self.pkg = pkg
         self.dest = dest
         self.manifest = manifest
@@ -282,7 +302,10 @@ class Inputs:
         to = os.path.join(self.dest, "inputs", rel)
         os.makedirs(os.path.dirname(to), exist_ok=True)
         frm = os.path.join(self.execroot, src)
-        if not os.path.exists(frm) and self.ensure:
+        if self.ensure and (
+            not os.path.exists(frm)
+            or (self.cached_only and src.startswith("bazel-out/"))
+        ):
             self.ensure(src)
         if os.path.isdir(frm):
             shutil.copytree(frm, to, dirs_exist_ok=True)
@@ -589,14 +612,19 @@ def wants_netlist(merged):
     return merged.get("SYNTH_USE_SYN") != "1" and "SYNTH_NETLIST_FILES" not in merged
 
 
-def netlist(ws, execroot, design, dest):
+def netlist(ws, execroot, design, dest, cached_only=False):
     """design's yosys netlist, 1_2_yosys.v, beside its config.mk, as config.mk
-    names it: the file ORFS's synthesis copies SYNTH_NETLIST_FILES to."""
+    names it: the file ORFS's synthesis copies SYNTH_NETLIST_FILES to. With
+    cached_only, None when synthesis is not cached."""
     synth = design.targets[0][1]
-    build(ws, "1_2_yosys.v", [synth])
+    built = build(ws, "1_2_yosys.v", [synth], cached=cached_only)
+    if cached_only:
+        built = synth in built
     v = [f for f in group_files(ws, synth, "1_2_yosys.v") if f.endswith("1_2_yosys.v")]
     if len(v) != 1:
         refuse("{} has no one 1_2_yosys.v: {}".format(synth, v))
+    if not built:
+        return None
     to = os.path.join(dest, design.rel, "1_2_yosys.v")
     os.makedirs(os.path.dirname(to), exist_ok=True)
     shutil.copy2(os.path.join(execroot, v[0]), to)
@@ -659,7 +687,9 @@ def start_files(entries, platform, nickname):
     return out
 
 
-def start_at(ws, execroot, design, stage, entries, dest, platform, nickname):
+def start_at(
+    ws, execroot, design, stage, entries, dest, platform, nickname, cached_only=False
+):
     """Copies what stage reads from earlier stages to dest/start/<stage>/;
     the make targets that run the flow from there."""
     if design.blocks:
@@ -670,7 +700,9 @@ def start_at(ws, execroot, design, stage, entries, dest, platform, nickname):
     target = dict(design.targets).get(stage)
     if target is None:
         refuse("{} has no {} stage to start at".format(design.label, stage))
-    build(ws, "deps_files", [target])
+    built = build(ws, "deps_files", [target], cached=cached_only)
+    if cached_only and target not in built:
+        refuse("--start {}: what {} reads is not all cached".format(stage, target))
     files = start_files(entries, platform, nickname)
     if not files:
         refuse(
@@ -800,27 +832,153 @@ def export_md(flow, command, commit, tools, steps, notes=()):
         for l in steps
     ]
     lines += ["```", ""]
-    lines += list(notes)
+    lines += [
+        "Bazel's measurements and metrics, stage by stage: `reference/README.md`.",
+        "",
+    ]
+    if notes:
+        lines += ["## Not in this export", ""] + list(notes) + [""]
     return "\n".join(lines) + "\n"
 
 
-def build(ws, groups, labels, extra=()):
-    """bazelisk build of labels' output groups, or a refusal."""
-    r = subprocess.run(
-        ["bazelisk"]
-        + os.environ.get("EXPORT_STARTUP_OPTS", "").split()
-        + ["build", "--output_groups=" + groups]
-        + list(extra)
-        + os.environ.get("EXPORT_BUILD_OPTS", "").split()
-        + list(labels),
-        cwd=ws,
+# A row of the table ORFS's stage logs end with:
+#   3_5_place_dp           .odb          2        3     1.02      268 1ede690e71
+LOG_ROW = re.compile(
+    r"^(\d\S*)\s+(?:(\.\S+)\s+)?(\d+)\s+(\d+)\s+([\d.]+)\s+(\d+)\s+(\S+)\s*$"
+)
+
+
+def log_rows(text):
+    """[(step, ext, elapsed s, peak MB, sha1)] of a stage log's table."""
+    return [
+        (m.group(1), m.group(2) or "", int(m.group(3)), int(m.group(6)), m.group(7))
+        for m in map(LOG_ROW.match, text.splitlines())
+        if m
+    ]
+
+
+def reference(ws, execroot, designs, dest):
+    """reference/: each stage's logs' measurements and metrics, as Bazel's
+    build left them, of the stages that are cached; builds none. Returns the
+    notes for EXPORT.md."""
+    targets = [(d, s, t) for d in designs for s, t in d.targets]
+    done = build(ws, "logs,jsons", [t for _, _, t in targets], cached=True)
+    rows, missing = [], []
+    for d, stage, t in targets:
+        if t not in done:
+            missing.append(t)
+            continue
+        files = group_files(ws, t, "logs") + group_files(ws, t, "jsons")
+        logs = [f for f in files if f.endswith(".log")]
+        for f in sorted(files):
+            to = os.path.join(dest, "reference", d.base, os.path.basename(f))
+            os.makedirs(os.path.dirname(to), exist_ok=True)
+            shutil.copy2(os.path.join(execroot, f), to)
+            os.chmod(to, 0o644)
+        for f in sorted(logs):
+            with open(os.path.join(execroot, f), errors="replace") as fh:
+                rows += [(d.label, stage) + r for r in log_rows(fh.read())]
+    lines = [
+        "# Reference: what Bazel's build measured",
+        "",
+        "Each step's elapsed time and peak memory, as the stage logs report",
+        "them, on whichever machine ran the step; the sha1 is the first ten",
+        "digits of the step's output. Only the stages that were cached when",
+        "the export was made are here; the logs and metrics are beside this",
+        "file, by flow.",
+        "",
+        "| flow | stage | step | output | elapsed s | peak MB | sha1 |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    lines += ["| {} | {} | {} | {} | {} | {} | {} |".format(*r) for r in rows]
+    if missing:
+        lines += [
+            "",
+            "Not cached: " + ", ".join("`{}`".format(t) for t in missing) + ".",
+        ]
+    os.makedirs(os.path.join(dest, "reference"), exist_ok=True)
+    with open(os.path.join(dest, "reference", "README.md"), "w") as f:
+        f.write("\n".join(lines) + "\n")
+    print(
+        "export: reference, {} steps of {} stages; {} stages not cached".format(
+            len(rows), len(targets) - len(missing), len(missing)
+        )
     )
-    if r.returncode:
+    return (
+        ["- The reference results of {} stages: not cached.".format(len(missing))]
+        if missing
+        else []
+    )
+
+
+def completed(events):
+    """The labels a build's event stream (--build_event_json_file) reports
+    built, each as //pkg:name."""
+    done = set()
+    for line in events.splitlines():
+        try:
+            e = json.loads(line)
+        except ValueError:
+            continue
+        label = e.get("id", {}).get("targetCompleted", {}).get("label")
+        if label and e.get("completed", {}).get("success"):
+            done.add(re.sub(r"^@@?(?=//)", "", label))
+    return done
+
+
+def build(ws, groups, labels, extra=(), required=True, cached=False):
+    """bazelisk build of labels' output groups, or a refusal; with required
+    False, whether it built everything instead.
+
+    cached: build only what the cache (remote, or this machine's) has, and
+    return the labels that built. Every action that would run is spawned
+    sandboxed and killed at once (tools/cache_evidence/killer.py), and the
+    build carries on without it: no flow stage runs, however long. Which
+    labels built comes from Bazel, not from the files: a killed action
+    leaves an earlier build's outputs where they were.
+    """
+    if cached:
+        fd, events = tempfile.mkstemp(suffix=".json")
+        os.close(fd)
+        extra = list(extra) + [
+            "--keep_going",
+            "--spawn_strategy=sandboxed",
+            "--build_event_json_file=" + events,
+        ]
+        output_base = bazelisk(ws, "info", "output_base").stdout.strip()
+        killer = Killer(output_base)
+        killer.start()
+    try:
+        r = subprocess.run(
+            ["bazelisk"]
+            + os.environ.get("EXPORT_STARTUP_OPTS", "").split()
+            + ["build", "--output_groups=" + groups]
+            + list(extra)
+            + os.environ.get("EXPORT_BUILD_OPTS", "").split()
+            + list(labels),
+            cwd=ws,
+        )
+    finally:
+        if cached:
+            killer.stop()
+    if cached:
+        with open(events) as f:
+            done = completed(f.read())
+        os.remove(events)
+        if killer.killed:
+            print(
+                "export: not cached, stopped and not run: {}".format(
+                    " ".join(sorted(set(labels) - done)) or "(an action)"
+                )
+            )
+        return done
+    if r.returncode and required:
         refuse(
             "bazelisk build --output_groups={} {} failed".format(
                 groups, " ".join(labels)
             )
         )
+    return r.returncode == 0
 
 
 def export_flow(
@@ -833,6 +991,7 @@ def export_flow(
     abstracts=False,
     start=None,
     command="",
+    cached_only=False,
 ):
     pkg, name = flow.split("//", 1)[1].split(":")
     base = name + ("_" + variant if variant and variant != "base" else "")
@@ -847,25 +1006,63 @@ def export_flow(
     # which would build the whole flow; synthesis's are the RTL and the
     # macros. Any other input is built when it is copied (ensure, below).
     build(ws, "deps_scripts", labels)
-    build(ws, "deps_inputs", [d.targets[0][1] for d in designs])
+    synths = [d.targets[0][1] for d in designs]
+    notes = []
+    if cached_only:
+        # the RTL is built, generated if need be; of the rest, what is cached
+        rtl = [
+            l
+            for t in synths
+            for l in query_lines(ws, "labels(verilog_files, {})".format(t))
+        ]
+        build(ws, "default", rtl)
+        done = build(ws, "deps_inputs", synths, cached=True)
+        for t in synths:
+            if t not in done:
+                refuse(
+                    "{}'s inputs are not all cached (the macros' abstracts among"
+                    " them?): --cached-only runs no flow stage; /cache-miss names"
+                    " the misses".format(t)
+                )
+    else:
+        build(ws, "deps_inputs", synths)
+    floorplans = [t for d in designs for s, t in d.targets if s == "floorplan"]
+    floorplans_built = set(floorplans)
     if snapshot_macros:
         # the floorplan .odb, and the openroad that reads it: a stage
         # target's tool, so the exec configuration the remote cache has
-        build(
+        built = build(
             ws,
             "2_floorplan.odb",
-            [t for d in designs for s, t in d.targets if s == "floorplan"],
+            floorplans,
             ["--remote_download_regex=.*/openroad$"],
+            cached=cached_only,
         )
+        if cached_only:
+            floorplans_built = built
     execroot = bazelisk(ws, "info", "execution_root").stdout.strip()
-    ensured = set()
+    # the stages whose inputs are built: synthesis's, above
+    ensured = set(synths)
 
     def ensure(where):
+        """Builds src's stage inputs when src is missing; with cached_only,
+        confirms every Bazel-built src as cached, since a file on disk may be
+        an earlier build's."""
+
         def built(src):
             target = where.get(src)
-            if target is None or target in ensured:
+            if target in ensured:
+                return
+            if target is None:
                 refuse("{} is not built, and no stage builds it".format(src))
             ensured.add(target)
+            if cached_only:
+                if target not in build(ws, "deps_inputs", [target], cached=True):
+                    refuse(
+                        "{}, an input of {}, is not cached: --cached-only runs no"
+                        " flow stage".format(src, target)
+                    )
+                return
             print("export: building {}'s inputs, for {}".format(target, src))
             build(ws, "deps_inputs", [target])
 
@@ -922,9 +1119,22 @@ def export_flow(
             )
         made = set()
         if wants_netlist(merged):
-            merged["SYNTH_NETLIST_FILES"] = netlist(ws, execroot, design, dest)
-            made.add("SYNTH_NETLIST_FILES")
-        if snapshot_macros:
+            v = netlist(ws, execroot, design, dest, cached_only)
+            if v:
+                merged["SYNTH_NETLIST_FILES"] = v
+                made.add("SYNTH_NETLIST_FILES")
+            else:
+                notes.append(
+                    "- {}'s netlist: its synthesis is not cached, so make"
+                    " synthesises it from the RTL.".format(design.label)
+                )
+        floorplan = dict(design.targets).get("floorplan")
+        if snapshot_macros and floorplan not in floorplans_built:
+            notes.append(
+                "- {}'s macro placement snapshot: its floorplan is not cached,"
+                " so its MACRO_PLACEMENT_TCL is the flow's own.".format(design.label)
+            )
+        elif snapshot_macros:
             placement = snapshot(
                 ws,
                 execroot,
@@ -938,7 +1148,14 @@ def export_flow(
         here = os.path.join(dest, design.rel)
         os.makedirs(here, exist_ok=True)
         inputs = Inputs(
-            execroot, dest, manifest, platform, design.pkg, copied, ensure(where)
+            execroot,
+            dest,
+            manifest,
+            platform,
+            design.pkg,
+            copied,
+            ensure(where),
+            cached_only,
         )
         merged = {k: inputs.rewrite(k, v) for k, v in merged.items()}
         incs = [inputs.rewrite("include", i) for i in includes]
@@ -965,6 +1182,7 @@ def export_flow(
                     dest,
                     platform,
                     merged.get("DESIGN_NICKNAME") or merged["DESIGN_NAME"],
+                    cached_only,
                 )
             steps = next_step(dest, merged, last, start, targets)
             # EXPORT.md's, wherever the export is copied to
@@ -975,6 +1193,7 @@ def export_flow(
         refuse(
             "--drop {}: no flow of the export sets it".format(" ".join(sorted(unused)))
         )
+    notes += reference(ws, execroot, designs, dest)
     with open(os.path.join(dest, "EXPORT.md"), "w") as f:
         f.write(
             export_md(
@@ -983,6 +1202,7 @@ def export_flow(
                 workspace_commit(ws),
                 tool_patches(ws, dest),
                 md_steps,
+                notes,
             )
         )
     return copied, steps
@@ -1017,6 +1237,12 @@ def main(argv=None):
         choices=STAGES[1:],
         help="ship the earlier stages' results Bazel built, so make starts at this"
         " stage",
+    )
+    ap.add_argument(
+        "--cached-only",
+        action="store_true",
+        help="run no flow stage: build the RTL, take the rest from the cache, and"
+        " say in EXPORT.md what was not cached",
     )
     args = ap.parse_args(argv)
     if args.drop and not args.snapshot_macro_placement:
@@ -1053,6 +1279,7 @@ def main(argv=None):
                 "<dest>" if a == args.dest else a
                 for a in (sys.argv[1:] if argv is None else argv)
             ),
+            args.cached_only,
         )
     except Refused as e:
         print("export: " + str(e), file=sys.stderr)
