@@ -691,6 +691,119 @@ def start_at(ws, execroot, design, stage, entries, dest, platform, nickname):
     return ["do-" + s for s in stages[stages.index(stage) :]]
 
 
+# The tools a flow is built with, as `bazelisk mod show_repo` names them.
+TOOLS = [("ORFS", "@orfs"), ("OpenROAD", "@openroad"), ("yosys", "@yosys")]
+
+
+def parse_show_repo(text):
+    """{"@name": (first url, [patch label], number of registry patches)}
+    from `bazelisk mod show_repo` output."""
+    out = {}
+    for block in re.split(r"^## ", text, flags=re.M)[1:]:
+        name = block.split(":", 1)[0].strip()
+        url = re.search(r'^\s*urls = \["([^"]+)"', block, re.M)
+        patches = re.search(r"^\s*patches = \[(.*)\],?$", block, re.M)
+        remote = re.search(r"^\s*remote_patches = \{(.*)\},?$", block, re.M)
+        out[name] = (
+            url.group(1) if url else None,
+            re.findall(r'Label\("([^"]+)"\)', patches.group(1)) if patches else [],
+            len(re.findall(r'"https?://[^"]+":', remote.group(1))) if remote else 0,
+        )
+    return out
+
+
+def tool_patches(ws, dest):
+    """[(tool, url, [patches/<tool>/<file>], registry patches)] of the tools,
+    their carried patches copied under dest/patches/<tool>/ in apply order."""
+    r = bazelisk(ws, "mod", "show_repo", *[repo for _, repo in TOOLS])
+    if r.returncode:
+        refuse("bazelisk mod show_repo failed:\n{}".format(r.stderr[-2000:]))
+    repos = parse_show_repo(r.stdout)
+    out = []
+    for tool, repo in TOOLS:
+        if repo not in repos:
+            refuse("bazelisk mod show_repo names no {}".format(repo))
+        url, labels, remote = repos[repo]
+        copied = []
+        for i, label in enumerate(labels):
+            loc = query_lines(ws, "--output=location", label)
+            path = loc[0].split(":", 1)[0] if loc else ""
+            if not os.path.isfile(path):
+                refuse("{} is not a file export can copy: {}".format(label, loc))
+            rel = os.path.join(
+                "patches",
+                tool.lower(),
+                "{:04d}-{}".format(i + 1, os.path.basename(path)),
+            )
+            os.makedirs(os.path.join(dest, os.path.dirname(rel)), exist_ok=True)
+            shutil.copy2(path, os.path.join(dest, rel))
+            copied.append(rel)
+        out.append((tool, url, copied, remote))
+    return out
+
+
+def workspace_commit(ws):
+    """The workspace's git commit, and whether it has local changes; None."""
+    r = subprocess.run(
+        ["git", "-C", ws, "rev-parse", "HEAD"], capture_output=True, text=True
+    )
+    if r.returncode:
+        return None
+    dirty = subprocess.run(
+        ["git", "-C", ws, "status", "--porcelain", "--untracked-files=no"],
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    return r.stdout.strip() + (" with local changes" if dirty else "")
+
+
+def export_md(flow, command, commit, tools, steps, notes=()):
+    """EXPORT.md: what the export is, what made it, how to make it."""
+    lines = [
+        "# {}, exported from bazel-orfs".format(flow),
+        "",
+        "Written by `bazelisk run //:export -- {}`{}.".format(
+            command, " at {}".format(commit) if commit else ""
+        ),
+        "",
+        "## The tools Bazel built it with",
+        "",
+        "| tool | source | carried patches |",
+        "|---|---|---|",
+    ]
+    for tool, url, patches, remote in tools:
+        carried = (
+            "{} in `patches/{}/`".format(len(patches), tool.lower())
+            if patches
+            else "none"
+        )
+        if remote:
+            carried += ", and {} of its registry module".format(remote)
+        lines.append("| {} | {} | {} |".format(tool, url or "?", carried))
+    lines += [
+        "",
+        "ORFS's make needs the same: an ORFS without the carried patches",
+        "ignores a variable it does not know, silently. Apply them in order, in",
+        "the ORFS checkout and in its `tools/OpenROAD`:",
+        "",
+        "```sh",
+        "git -C <ORFS> am <this directory>/patches/orfs/*.patch",
+        "git -C <ORFS>/tools/OpenROAD am <this directory>/patches/openroad/*.patch",
+        "```",
+        "",
+        "## Make it",
+        "",
+        "```sh",
+    ]
+    lines += [
+        l.split(":", 1)[1].strip() if l.startswith(("next:", "note:")) else l.strip()
+        for l in steps
+    ]
+    lines += ["```", ""]
+    lines += list(notes)
+    return "\n".join(lines) + "\n"
+
+
 def build(ws, groups, labels, extra=()):
     """bazelisk build of labels' output groups, or a refusal."""
     r = subprocess.run(
@@ -719,6 +832,7 @@ def export_flow(
     drop=(),
     abstracts=False,
     start=None,
+    command="",
 ):
     pkg, name = flow.split("//", 1)[1].split(":")
     base = name + ("_" + variant if variant and variant != "base" else "")
@@ -760,6 +874,7 @@ def export_flow(
     copied = {}
     unused = set(drop)
     steps = None
+    md_steps = []
 
     def export(design, parent, depth):
         """Writes design's config.mk; parent is (label, nickname, rel) for a block."""
@@ -852,11 +967,23 @@ def export_flow(
                     merged.get("DESIGN_NICKNAME") or merged["DESIGN_NAME"],
                 )
             steps = next_step(dest, merged, last, start, targets)
+            # EXPORT.md's, wherever the export is copied to
+            md_steps[:] = next_step("<this directory>", merged, last, start, targets)
 
     export(top, None, 0)
     if unused:
         refuse(
             "--drop {}: no flow of the export sets it".format(" ".join(sorted(unused)))
+        )
+    with open(os.path.join(dest, "EXPORT.md"), "w") as f:
+        f.write(
+            export_md(
+                top.label,
+                command,
+                workspace_commit(ws),
+                tool_patches(ws, dest),
+                md_steps,
+            )
         )
     return copied, steps
 
@@ -921,6 +1048,11 @@ def main(argv=None):
             args.drop,
             args.abstracts,
             args.start,
+            # the command line, with the destination, a local path, left out
+            " ".join(
+                "<dest>" if a == args.dest else a
+                for a in (sys.argv[1:] if argv is None else argv)
+            ),
         )
     except Refused as e:
         print("export: " + str(e), file=sys.stderr)
