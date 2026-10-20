@@ -1891,6 +1891,74 @@ XSTile build at a time (the parent peaks near 60 GB).
 
    Record the run in README.md's KPI table and here.
 
+## 54. Cluster pull in global placement: stopped, no XSTile result
+
+2026-10-20, issue #1263. The idea, from Andrew Kahng's group's
+Hier-RTLMP and DG-RePlAce: hold logic that belongs together together in
+global placement, with a force that fades to zero by Nesterov iteration
+150 (a pull that never fades fights density spreading and diverges, as
+the first try did). Three OpenROAD patches on the branch
+`study/gpl-cluster-pull`, not on main; the first is recorded as the
+draft OpenROAD #11768, not for review:
+
+| Patch | Pull |
+|---|---|
+| 0127 `-cluster_pull_weight` | each of rtl_macro_placer's clusters (`RTLMP_KEEP_CLUSTERING`) to its centroid |
+| 0129 `-cluster_pull_depth` | groups from the logical hierarchy instead: module instances at depth d |
+| 0130 `-dataflow_pull_weight` | each group toward the macros it reaches within three register stages |
+
+**Stopped before the XSTile answer.** XSTile's control on main (d70bb5b3)
+reproduced row 17 exactly: 2,504 ps, 5,259 of 156,690 reg2reg endpoints
+over 2,000 ps, 733 ns of excess over it. The two pull arms (centroid and
+dataflow, weight 4, the 391 module groups at depth 5) were stopped
+unread. What the mid-size ORFS designs say, ranked by the failing mass
+(a WNS outlier is a problem of its own, with its own fix), at global
+route against a control that keeps the clusters and does not pull them,
+one seed per arm:
+
+| Design (TNS of the control) | centroid w1 / w4 / w16 | dataflow w1 / w4 |
+|---|---|---|
+| swerv_wrapper (-2,162) | +23 % / +2 % / +13 % | -6 % / -9 % |
+| bp_fe_top (-6.6) | -10 % / +389 % / -16 % | -15 % / -14 % |
+| bp_be_top, riscv32i-mock-sram, aes-block, uart-blocks | TNS about 0 | |
+
+By the minimum period no variant wins consistently (-4.1 % to +2.1 %).
+The dataflow pull is the only one that took failing mass off both
+designs that have any, and it diverged (GPL-0307) on aes-block, where
+21 small macros pull their groups into blocked area.
+
+**What the study found on the way:**
+
+- **rtl_macro_placer's clusters are too coarse to pull.** With automatic
+  sizes and fewer than 15 macro masters, `setBaseThresholds` clusters at
+  one level whatever `-max_num_level` says: 3 to 11 clusters on designs
+  of 30,000 to 100,000 cells. Forced finer with explicit
+  `RTLMP_MIN/MAX_INST`, its own macro placement fails (MPL-0003,
+  MPL-0008, or PDN-0179 after it).
+- **XSTile keeps its hierarchy, the mid-size designs do not.** After
+  synthesis they have 1 to 9 module groups (swerv_wrapper's database is
+  flat); XSTile has 391 at depth 5, the largest 180,000 cells. XSTile's
+  macros are placed by its plan, not by rtl_macro_placer, so on XSTile
+  only the hierarchy groups exist.
+- **The pull costs nothing in the Nesterov loop** (0.00 % of the
+  samples). Global placement on swerv_wrapper is mostly timing analysis:
+  4.65 of 48 cores, the main thread 86 % busy, 69 % of it STA inside the
+  timing-driven iterations. Speeding that up is not pursued here: what
+  looks easy in it has been tried.
+- **A bring-your-own binary is built `-c opt`.** The pull arms' global
+  placement took 16 h against the control's 4.6 h on a fastbuild study
+  binary; that was the build, not the pull (#1335).
+
+**Before trying this again:** the arms are ready on the branch
+(`test/cluster_pull` for the ORFS designs; XSTile's were dirty lanes from
+the control's floorplan with `GLOBAL_PLACEMENT_ARGS`). Run the dataflow
+arm first, on an optimized study binary rebased onto the then main,
+against a built control, and read it by the failing mass. A first XSTile
+attempt on a tree before ORFS patch 0135 measured nothing: its worst
+paths were the MemBlock abstract arc that 0135 fixes, a timing-model
+error that also steered the timing-driven placement and repair of both
+arms.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
