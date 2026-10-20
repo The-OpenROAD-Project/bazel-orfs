@@ -133,10 +133,12 @@ orchestrate the flow, they don't influence how OpenROAD compiles. So build
 ```bash
 git clone --recursive https://github.com/The-OpenROAD-Project/OpenROAD.git
 cd OpenROAD
-bazelisk build //:openroad //src/sta:opensta
+bazelisk build -c opt //:openroad //src/sta:opensta
 ```
 
-Both are required by bazel-orfs. `//src/sta:opensta` is the OpenSTA binary
+Both are required by bazel-orfs, built with `-c opt` as the flow's own
+binaries are (`fastbuild`, the default, is unoptimized and several times
+slower). `//src/sta:opensta` is the OpenSTA binary
 bazel-orfs runs (it lives in the `src/sta` submodule, hence `--recursive`).
 `//:openroad-qt` is needed only for the Qt GUI, `qt_<stage>`, in a tree
 `bazelisk run //:dirty -- start ... --qt` installed it into; the GUI,

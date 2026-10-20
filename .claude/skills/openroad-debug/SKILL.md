@@ -138,14 +138,16 @@ prior stages via `@bazel-orfs//:dirty`:
 2. **Build your modified openroad separately** (`git apply` your patch in the
    OpenROAD checkout, or carry it in `MODULE.bazel`):
    ```bash
-   bazelisk build @openroad//:openroad   # only the changed module recompiles → fast incremental
+   bazelisk build -c opt @openroad//:openroad   # only the changed module recompiles → fast incremental
+   # -c opt: the flow's own binary is optimized; fastbuild is several
+   # times slower (byo-openroad skill, "Build it with -c opt")
    ```
 3. **Run just that stage against the frozen tree, with your binary.** A
    caller-supplied `OPENROAD_EXE` wins over the pinned one. Point at the
    patched binary **at its build location** (it needs the adjacent
    `.runfiles`; don't copy just the ELF):
    ```bash
-   PATCHED=$(readlink -f .../bazel-bin/external/openroad+/openroad)
+   PATCHED=$(readlink -f .../bazel-out/k8-opt/bin/external/openroad+/openroad)
    OPENROAD_EXE="$PATCHED" tmp/<project>/<module>/make do-<substep> NUM_CORES=<N>
    ```
    Every prior stage is reused from the frozen tree, so each iteration is just
