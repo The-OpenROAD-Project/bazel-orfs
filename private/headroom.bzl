@@ -16,8 +16,8 @@ exports each part at its stage (its netlist, its parasitics, its SDC and
 liberty), stitches them in OpenSTA with every block's real cells in place
 of its abstract, and runs the measurements of
 tools/odb_debug/headroom.tcl on the whole: the reg2reg period, the
-one-flop-loop floor, useful skew and threshold voltage, each split into
-the parent's part and the blocks'. `<name>.json` has them, and
+one-flop-loop floor, useful skew and threshold voltage (with the leakage
+it costs), each split into the parent's part and the blocks'. `<name>.json` has them, and
 `<name>_nowire.json` the zero-wire floor. The odb-debug daemon's
 `headroom` tool asks the same of one stage alone, a block being its
 abstract. When to ask and how to read the answer:

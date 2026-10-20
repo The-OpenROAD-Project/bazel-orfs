@@ -124,6 +124,15 @@ class SmokeTest(unittest.TestCase):
 
         vt = self.d.vt_headroom()
         self.assertAlmostEqual(vt["restored"], start["period"], delta=eps)
+        # the leakage is measured, comes back with the undo, and a swap to
+        # a faster VT never lowers it
+        self.assertGreater(vt["leakage_start"], 0)
+        self.assertAlmostEqual(
+            vt["leakage_restored"],
+            vt["leakage_start"],
+            delta=1e-6 * vt["leakage_start"],
+        )
+        self.assertGreaterEqual(vt["leakage_vt"], vt["leakage_start"] * (1 - 1e-6))
         self.assertIn("R", vt["vts_in_cones"])
         if vt["swapped_parent"] + vt["swapped_block"] == 0:
             # one VT loaded: nothing faster to swap to, nothing gained
