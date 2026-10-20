@@ -17,7 +17,7 @@ sideways past that. The last column gets a grip too: dragging it sets
 its minimum, kept on the table across a re-render. A timing-table cell narrower than its text elides it,
 as Qt does, rather than writing over the next column.
 
-Upstream: The-OpenROAD-Project/OpenROAD#11857 (draft).
+Upstream: The-OpenROAD-Project/OpenROAD#11858 (draft).
 
 ---
 diff --git a/src/web/src/style.css b/src/web/src/style.css

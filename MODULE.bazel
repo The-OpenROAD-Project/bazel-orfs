@@ -230,7 +230,7 @@ archive_override(
         # 0140: the web viewer shows a busy cursor while a timing report it
         # was asked for is built (a slack-histogram bucket click, a bin
         # double-click, the timing widget's Update), as the Qt GUI does.
-        # Upstream as OpenROAD#11857 (draft); retires at the //:bump onto
+        # Upstream as OpenROAD#11860 (draft); retires at the //:bump onto
         # an OpenROAD that has it.
         "//patches:0140-openroad-web-busy-cursor.patch",
         # 0141: the web viewer's slack histogram names the clocks its
@@ -240,17 +240,17 @@ archive_override(
         "//patches:0141-openroad-web-slack-histogram-clocks.patch",
         # 0142: widening a column of the web viewer's timing, hierarchy or
         # selection table widens the table instead of squeezing the other
-        # columns, as the Qt GUI does. Upstream as OpenROAD#11857
+        # columns, as the Qt GUI does. Upstream as OpenROAD#11858
         # (draft); retires at the //:bump onto an OpenROAD that has it.
         "//patches:0142-openroad-web-column-resize-widens-table.patch",
         # 0143: the web viewer's timing widget gets the Qt GUI's "Expand
         # clock": off by default, a path's clock network is one "clock
-        # network delay" row. Upstream as OpenROAD#11857
+        # network delay" row. Upstream as OpenROAD#11859
         # (draft); retires at the //:bump onto an OpenROAD that has it.
         "//patches:0143-openroad-web-expand-clock.patch",
         # 0144: the web viewer's table columns are measured from their rows
         # until the user drags one (the timing table, first drawn empty,
-        # opened cramped). Upstream as OpenROAD#11857 (draft);
+        # opened cramped). Upstream as OpenROAD#11858 (draft);
         # retires with 0142.
         "//patches:0144-openroad-web-columns-measured-from-rows.patch",
     ],

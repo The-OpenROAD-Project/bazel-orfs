@@ -20,7 +20,7 @@ first 200 rows, at the table's font size), not from the layout: a
 histogram click fills the timing table while its panel is hidden, every
 offsetWidth is then 0, and the last column, End, took the whole panel.
 
-Upstream: The-OpenROAD-Project/OpenROAD#11857 (draft).
+Upstream: The-OpenROAD-Project/OpenROAD#11858 (draft).
 
 ---
 diff --git a/src/web/src/ui-utils.js b/src/web/src/ui-utils.js

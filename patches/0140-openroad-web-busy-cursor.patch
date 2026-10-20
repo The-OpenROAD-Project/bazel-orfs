@@ -15,7 +15,7 @@ requests keep it until the last one ends, and cleared when the request
 fails. Used by the bucket click, the fanout/net-length bin double-click
 and the timing widget's Update.
 
-Upstream: The-OpenROAD-Project/OpenROAD#11857 (draft).
+Upstream: The-OpenROAD-Project/OpenROAD#11860 (draft).
 
 ---
 diff --git a/src/web/src/charts-widget.js b/src/web/src/charts-widget.js

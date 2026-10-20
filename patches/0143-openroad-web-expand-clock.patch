@@ -15,7 +15,7 @@ An "Expand clock" checkbox on the timing toolbar does the same here, off
 by default, for the data and the capture path. A click on the summary
 row highlights the register's clock pin.
 
-Upstream: The-OpenROAD-Project/OpenROAD#11857 (draft).
+Upstream: The-OpenROAD-Project/OpenROAD#11859 (draft).
 
 ---
 diff --git a/src/web/src/style.css b/src/web/src/style.css
