@@ -44,6 +44,25 @@ py_binary(
     visibility = ["//:__pkg__"],
 )
 
+# `bazelisk run //tools/ramp:export_roundtrip -- <orfs_flow target>`:
+# export with the macro placement snapshot, make it with ORFS's make,
+# compare the floorplans. Runs bazelisk and make, so a binary, not a
+# test: run by hand on //test/regfile/macro:wide_top_hard and on
+# //test:lb_32x128_top --abstracts.
+py_binary(
+    name = "export_roundtrip",
+    srcs = [
+        "export_design.py",
+        "export_roundtrip.py",
+    ],
+    data = [
+        "roundtrip_compare.tcl",
+        "snapshot_macros.tcl",
+    ],
+    imports = ["."],
+    main = "export_roundtrip.py",
+)
+
 py_test(
     name = "export_design_test",
     srcs = [
