@@ -79,11 +79,21 @@ def make_env():
     return env
 
 
-def compare(openroad, a, b, move=""):
-    """(same, report lines) of roundtrip_compare.tcl on two .odb files."""
+def compare(openroad, a, b, move="", seeds=True):
+    """(same, report lines) of roundtrip_compare.tcl on two .odb files.
+
+    seeds False: standard cells merely PLACED are left out, the seeds
+    rtl_macro_placer leaves in a floorplan, which a snapshot skips.
+    """
     r = subprocess.run(
         [openroad, "-no_init", "-no_splash", "-exit", COMPARE_TCL],
-        env=dict(os.environ, COMPARE_A=a, COMPARE_B=b, COMPARE_MOVE=move),
+        env=dict(
+            os.environ,
+            COMPARE_A=a,
+            COMPARE_B=b,
+            COMPARE_MOVE=move,
+            COMPARE_SEEDS="1" if seeds else "0",
+        ),
         capture_output=True,
         text=True,
     )
@@ -222,15 +232,21 @@ def main(argv=None):
                     )
                 )
                 failures += not ok
-            same, lines = compare(openroad, bazel_odbs[rel], made)
+            seeds = stage != "floorplan"
+            same, lines = compare(openroad, bazel_odbs[rel], made, seeds=seeds)
             print("roundtrip: {} {}: {}".format(label, stage, lines[-1]))
+            for l in lines:
+                if l.startswith("roundtrip: note: "):
+                    print("  " + l)
             if not same:
                 failures += 1
                 for l in lines[:-1][:20]:
                     print("  " + l)
             macro = re.search(r"^snapshot_macro \{([^}]*)\}", _read(dest, rel), re.M)
             if macro:
-                same, lines = compare(openroad, bazel_odbs[rel], made, macro.group(1))
+                same, lines = compare(
+                    openroad, bazel_odbs[rel], made, macro.group(1), seeds
+                )
                 ok = not same and any(macro.group(1) in l for l in lines)
                 print(
                     "roundtrip: {} negative control, {} moved one site: {}".format(

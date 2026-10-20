@@ -8,6 +8,11 @@
 #   COMPARE_A, COMPARE_B  the two .odb files (Bazel's, make's)
 #   COMPARE_MOVE          optional: a macro to move one site in B before
 #                         comparing, the negative control
+#   COMPARE_SEEDS         optional, 0: the checksum leaves out standard
+#                         cells not fixed (PLACED or NONE): the seeds
+#                         rtl_macro_placer leaves at its cluster centres,
+#                         which a macro placement snapshot does not run;
+#                         their counts are printed, not compared
 #
 # Prints each difference and "roundtrip: same" or "roundtrip: N
 # differences"; the caller reads the last line.
@@ -43,10 +48,21 @@ proc facts { path move } {
       [$b getMaxDensity]]
   }
   # every instance's place, as one checksum: a cell moved is a difference
+  set seeds [expr { [info exists ::env(COMPARE_SEEDS)] && !$::env(COMPARE_SEEDS) }]
   set cells {}
+  set seeded {PLACED 0 NONE 0}
   foreach inst [$block getInsts] {
+    set status [$inst getPlacementStatus]
+    if { $seeds && ![$inst isBlock] && $status in {PLACED NONE} } {
+      dict incr seeded $status
+      continue
+    }
     lappend cells [list [$inst getName] [$inst getLocation] [$inst getOrient] \
       [$inst getPlacementStatus]]
+  }
+  if { $seeds } {
+    puts "roundtrip: note: standard cells not fixed in $::side, not compared:\
+      [dict get $seeded PLACED] PLACED, [dict get $seeded NONE] NONE"
   }
   lappend out [list placement [zlib crc32 [join [lsort $cells] "\n"]]]
   lappend out [list obstructions [llength [$block getObstructions]]]
@@ -56,7 +72,9 @@ proc facts { path move } {
 }
 
 set move [expr { [info exists ::env(COMPARE_MOVE)] ? $::env(COMPARE_MOVE) : "" }]
+set ::side A
 set a [facts $::env(COMPARE_A) ""]
+set ::side B
 set b [facts $::env(COMPARE_B) $move]
 set n 0
 foreach f $a {
