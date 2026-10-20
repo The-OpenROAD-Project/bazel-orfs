@@ -121,29 +121,65 @@ proc hr_min_slack { pins prop } {
   return $m
 }
 
-# The one-flop-loop floor: the worst path from a flop back to itself, over
-# the flops of the `ends` worst paths. Neither clock skew nor retiming can
-# make a loop through one register shorter than its own delay, so the
-# period cannot go below this whatever they do; on the designs measured so
-# far, useful skew landed within 1 % of it.
+# The one-flop-loop floor: the worst path from a flop back to itself. Neither
+# clock skew nor retiming can make a loop through one register shorter than
+# its own delay, so the period cannot go below this whatever they do; on the
+# designs measured so far, useful skew landed within 1 % of it.
+#
+# Exact, and cheap by a bound: a flop's loop is one of the paths into its own
+# data pin, so the flop's endpoint period is at least its loop. The endpoints
+# are visited worst first, a loop search each (find_timing_paths -from its
+# clock pin -to its data pin, about 0.25 s on a 450k-instance block), and the
+# visit stops at the first endpoint whose period is below the worst loop
+# found: no flop after it can have a worse one. `visited` and `stop` say how
+# far it went.
+#
+# With ends > 0 only the flops of the `ends` worst endpoints are searched,
+# without the bound: the result is then a lower bound of the floor, conclusive
+# only above a target (`scope` says so). XiangShan's FltRegionModule gave 213
+# ps scoped to 1,000 endpoints and 762.2 ps exact.
 proc hr_floor_cycles { {ends 0} } {
   set p [hr_clock_period]
   set worst ""
   set at ""
   set loops 0
-  foreach c [hr_worst_flops $ends] {
+  set visited 0
+  set stop "every endpoint visited"
+  # each endpoint's period and flop as values first: the next
+  # find_timing_paths frees the path ends this one returned
+  set order {}
+  foreach pe [hr_worst_ends $ends] {
+    lappend order [expr { $p - [get_property $pe slack] }] \
+      [get_full_name [get_cells -of_objects [get_property $pe endpoint]]]
+  }
+  set seen [dict create]
+  foreach { period n } $order {
+    if { $ends <= 0 && $worst ne "" && $period < $worst } {
+      set stop [format "endpoint period %.1f below the worst loop" $period]
+      break
+    }
+    incr visited
+    if { [dict exists $seen $n] } { continue }
+    dict set seen $n 1
+    set c [get_cells $n]
     lassign [hr_flop_pins $c] ck d q
     if { [llength $ck] != 1 || ![llength $d] } { continue }
-    set pe [lindex [find_timing_paths -from $ck -to $d -group_path_count 1] 0]
-    if { $pe eq "" } { continue }
+    set loop [lindex [find_timing_paths -from $ck -to $d -group_path_count 1] 0]
+    if { $loop eq "" } { continue }
     incr loops
-    set per [expr { $p - [get_property $pe slack] }]
+    set per [expr { $p - [get_property $loop slack] }]
     if { $worst eq "" || $per > $worst } {
       set worst $per
-      set at [get_full_name $c]
+      set at $n
     }
   }
-  return [dict create floor $worst flop $at loops $loops]
+  if { $ends > 0 } {
+    set scope "lower bound: the flops of the $ends worst endpoints only"
+  } else {
+    set scope exact
+  }
+  return [dict create floor $worst flop $at loops $loops visited $visited \
+    stop $stop scope $scope]
 }
 
 # Useful skew, in timing only: each flop of the `ends` worst paths gets its

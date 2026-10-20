@@ -520,7 +520,8 @@ proc od_headroom { {ends 0} {target ""} } {
   set rows [list period [dict get $p period]]
   lassign [od_rc_mode] rc mode
   set ::hr_parasitics "estimate_parasitics -$mode"
-  # two chains, each above its floor: wires as built,
+  # The loop floors are always exact (hr_floor_cycles' bound makes that
+  # cheap); `ends` scopes the moves. Two chains, each above its floor: wires as built,
   #   period >= vt, skew >= floor_retime >= floor_cycles
   # and wires removed,
   #   period >= floor_wire >= floor_wire_skew >= floor_cycles_nowire
@@ -528,10 +529,10 @@ proc od_headroom { {ends 0} {target ""} } {
       vt [hr_vt $ends] vt \
       skew [hr_skew $ends 1] skew \
       floor_retime [hr_floor_retime $ends] floor \
-      floor_cycles [hr_floor_cycles $ends] floor \
+      floor_cycles [hr_floor_cycles] floor \
       floor_wire [hr_floor_wire $rc $mode] floor \
       floor_wire_skew [hr_floor_wire_skew $rc $mode $ends] floor \
-      floor_cycles_nowire [hr_floor_cycles_nowire $rc $mode $ends] floor] {
+      floor_cycles_nowire [hr_floor_cycles_nowire $rc $mode] floor] {
     lappend rows $name [dict get $d $key]
   }
   set pairs [list clock_period [od_jnum [dict get $p clock_period]] \

@@ -60,12 +60,19 @@ loop the borrowing sums to zero, which is why only a loop bounds it.
 `floor_wire_skew` is the combination: neither wire nor skew can give more
 than it does, and it never passes `floor_cycles_nowire`.
 
-**Never scope a loop floor**: the worst loop need not sit on the worst
-paths. XiangShan's FltRegionModule at grt gave 213 ps over the flops of
-its 1,000 worst endpoints (6 minutes) and 762.2 ps over all 17,021
-one-flop loops (71 minutes, `issuePipes/is0_valid`). Give it the time, and
-keep a long run's result in a file the Tcl writes itself: the daemon's
-MCP call is cut after 30 silent minutes.
+**The loop floors are exact, and cheap by a bound.** A flop's loop is
+one of the paths into its own data pin, so the flop's endpoint period is
+at least its loop. `floor_cycles` visits the endpoints worst first, a loop
+search each, and stops at the first endpoint whose period is below the
+worst loop found; `visited` and `stop` say how far it went. On XiangShan's
+FltRegionModule at grt that is 1,421 of 18,207 endpoints, 4 min 47 s,
+where searching every flop took 71 minutes, for the same 762.2 ps
+(`issuePipes/is0_valid`). The headroom runs always take the floors exact,
+whatever `ends` scopes the moves to. `floor_cycles ends=N` searches the
+flops of the N worst endpoints only, without the bound: a lower bound of
+the floor, labelled `scope: lower bound`, conclusive only above a target.
+On the same block it said 213 ps: the worst loop's flop is not on the
+1,000 worst paths.
 
 ## Step 1 — make sure repair actually gave up
 
@@ -108,7 +115,7 @@ Load the stage (`odb-debug`, `warm-gui`) and ask:
 Each tool undoes its what-if and reports `restored`, the period measured
 again: it must equal the start. The scope (`ends`) defaults to every
 endpoint; limit it only when a very large design does not answer
-otherwise, never for a loop floor (above), and say so with the number (skew needs the flops around the
+otherwise, and say so with the number; the loop floors stay exact (above) (skew needs the flops around the
 violations free to move: riscv32i scoped to its 1,000 worst endpoints gave
 613.8 ps instead of 562.2).
 

@@ -223,7 +223,7 @@ def _floor_wire(d, a):
 
 @tool(
     "floor_cycles",
-    "One-flop-loop floor, wires as built: the worst path from a flop back to itself. Launch and capture are the same flop, so neither useful skew nor retiming can go below it; only the loop's own cells, wires or logic can. Never scope it: the worst loop need not sit on the worst paths. Needs timing loaded.",
+    "One-flop-loop floor, wires as built: the worst path from a flop back to itself. Launch and capture are the same flop, so neither useful skew nor retiming can go below it; only the loop's own cells, wires or logic can. Exact by default, cheap by a bound: endpoints worst first, stopping below the worst loop found (visited, stop). ends>0 searches only the flops of the worst ends, a lower bound labelled in `scope`. Needs timing loaded.",
     {"ends": ENDS},
 )
 def _floor_cycles(d, a):
@@ -241,7 +241,7 @@ def _floor_wire_skew(d, a):
 
 @tool(
     "floor_cycles_nowire",
-    "One-flop-loop floor at zero wire: each loop's logic alone. No skew, retiming or wire change passes it; only the loop's own cells (sizing, VT) or its logic. Never scope it. Needs timing loaded.",
+    "One-flop-loop floor at zero wire: each loop's logic alone. No skew, retiming or wire change passes it; only the loop's own cells (sizing, VT) or its logic. Exact by default, as floor_cycles. Needs timing loaded.",
     {"ends": ENDS},
 )
 def _floor_cycles_nowire(d, a):
