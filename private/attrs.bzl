@@ -205,6 +205,11 @@ def yosys_only_attrs():
             cfg = "exec",
             default = CONFIG_YOSYS_PLUGINS,
         ),
+        "_tcl_library": attr.label(
+            doc = "Tcl's script library (init.tcl), read by yosys' Tcl at start-up through TCL_LIBRARY.",
+            cfg = "exec",
+            default = "@tcl_lang//:tcl_core",
+        ),
     }
 
 def renamed_inputs_attr():
