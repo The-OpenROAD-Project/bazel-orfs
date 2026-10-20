@@ -1,0 +1,61 @@
+load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_headroom")
+load("@rules_python//python:defs.bzl", "py_test")
+
+# A parent and a hardened block with a path through the block it neither
+# starts nor ends in (via.sv): the stitched view's classes
+# (orfs_headroom's <name>_classes, //tools/headroom:classify.tcl) must name
+# it via_top->via:Pass->via_top. Minutes from RTL; manual, run by hand.
+orfs_flow(
+    name = "Pass",
+    abstract_stage = "grt",
+    arguments = {
+        "CORE_UTILIZATION": "30",
+        # a block's grid, so the parent's macro grid connects to it
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
+        "PLACE_DENSITY": "0.6",
+        "SYNTH_HDL_FRONTEND": "slang",
+    },
+    sources = {
+        "SDC_FILE": [":constraint.sdc"],
+    },
+    tags = ["manual"],
+    verilog_files = [":via.sv"],
+)
+
+orfs_flow(
+    name = "via_top",
+    arguments = {
+        # the block's 9.9 um square and its halo, with room for the macro
+        # grid's core rings: a parent this small sized by its own cells
+        # leaves no room for the macro
+        "CORE_AREA": "4 4 46 46",
+        "DIE_AREA": "0 0 50 50",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
+        "PLACE_DENSITY": "0.5",
+        "SYNTH_HDL_FRONTEND": "slang",
+    },
+    last_stage = "grt",
+    macros = [":Pass_generate_abstract"],
+    sources = {
+        "SDC_FILE": [":constraint.sdc"],
+    },
+    tags = ["manual"],
+    verilog_files = [":via.sv"],
+)
+
+orfs_headroom(
+    name = "via_top_headroom",
+    blocks = {"Pass": ":Pass_grt"},
+    parent = "via_top",
+    parent_stage = ":via_top_grt",
+)
+
+py_test(
+    name = "classes_test",
+    size = "small",
+    srcs = ["classes_test.py"],
+    args = ["$(rootpath :via_top_headroom_classes)"],
+    data = [":via_top_headroom_classes"],
+    main = "classes_test.py",
+    tags = ["manual"],
+)

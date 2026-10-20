@@ -8,6 +8,7 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 # so they are public.
 exports_files(
     [
+        "classify.tcl",
         "headroom_flat.tcl",
         "sta_part.tcl",
     ],

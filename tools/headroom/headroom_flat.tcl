@@ -7,7 +7,7 @@
 #   STA_DIR=<dir with each part's .v (blocks prefixed by sta_prefix.py),
 #   .spef, .sdc, _libs.tar> STA_PARENT=<module> STA_PARTS="<parent> <block>..."
 #   STA_WIRES=1|0 HR_TCL=<headroom.tcl> HR_ENDS=0 HR_TARGET=0 HR_OUT=<file>
-#   sta -exit headroom_flat.tcl
+#   [HR_CLASSES=<classify.tcl>] sta -exit headroom_flat.tcl
 #
 # STA_WIRES=0 reads no SPEF: the period then is the zero-wire floor, and
 # that is all it reports. The output is one JSON object; what it means:
@@ -60,6 +60,22 @@ if { $wires } {
   set ::hr_parasitics hr_read_spefs
 }
 set_propagated_clock [all_clocks]
+
+# HR_CLASSES names classify.tcl: classify every reg2reg endpoint's worst
+# path by where it runs (orfs_headroom's <name>_classes) and stop
+if { [info exists ::env(HR_CLASSES)] && $::env(HR_CLASSES) ne "" } {
+  source $::env(HR_CLASSES)
+  set where {}
+  foreach b $blocks {
+    foreach inst [get_cells -hierarchical -filter "ref_name == $b"] {
+      lappend where [get_full_name $inst] $b
+    }
+  }
+  set f [open $::env(HR_OUT) w]
+  puts $f [join [hr_classes $where $parent] "\n"]
+  close $f
+  exit
+}
 
 proc jstr { x } {
   return "\"[string map {\\ \\\\ \" \\\"} $x]\""
