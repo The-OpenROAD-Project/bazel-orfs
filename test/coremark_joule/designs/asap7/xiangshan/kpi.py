@@ -68,7 +68,8 @@ GOAL_PS = 2000
 HIST_BIN_PS = 50
 
 # the flat timing's (sta_flat.tcl) classes, grouped for the histogram: where
-# an endpoint's worst path starts and ends
+# an endpoint's worst path starts and ends, and whether it passes through a
+# block it neither starts nor ends in
 PARENT = "XSTile"
 GROUP_COLORS = {
     "parent → parent": "0.3",
@@ -76,6 +77,7 @@ GROUP_COLORS = {
     "parent → block": "#2171b5",
     "block → block": "#807dba",
     "inside a block": "#bdbdbd",
+    "through a block": "#e7298a",
 }
 FLAT_BEGIN = "<!-- kpi-flat begin: written by kpi.py -->"
 FLAT_END = "<!-- kpi-flat end -->"
@@ -244,7 +246,10 @@ CLASS_HIST = re.compile(
 
 
 def group(c):
-    """A flat class's group: where its endpoints' worst paths start and end."""
+    """A flat class's group: where its endpoints' worst paths start and end,
+    or that they pass through a block (classify.tcl's S->via:B->E)."""
+    if "->via:" in c:
+        return "through a block"
     if c == "parent":
         return "parent → parent"
     if "->" not in c:

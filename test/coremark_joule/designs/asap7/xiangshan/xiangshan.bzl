@@ -1405,7 +1405,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     for suffix, wires in [("", "1"), ("_nowire", "0")]:
         native.genrule(
             name = "%s_kpi_flat%s" % (name, suffix),
-            srcs = [":%s_sta_part" % p for p in parts] + [":sta_flat.tcl"] +
+            srcs = [":%s_sta_part" % p for p in parts] + [":sta_flat.tcl", "//tools/headroom:classify.tcl"] +
                    [":sta/%s.%s" % (p, ext) for p in parts for ext in ["v", "spef", "sdc"]] +
                    [":sta/%s_libs.tar" % p for p in parts],
             outs = ["%s_kpi_flat%s.txt" % (name, suffix), "%s_kpi_flat%s_paths.txt" % (name, suffix)],
@@ -1423,7 +1423,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
                 for b in macros
             ] + [
                 "ulimit -s unlimited",
-                "STA_DIR=$$w STA_PARENT=%s STA_PARTS='%s' STA_WIRES=%s STA_OUT=$(location %s_kpi_flat%s.txt) STA_PATHS=$(location %s_kpi_flat%s_paths.txt) $(execpath @openroad//src/sta:opensta) -no_splash -threads max -exit $(execpath :sta_flat.tcl)" % (name, " ".join(parts), wires, name, suffix, name, suffix),
+                "STA_CLASSIFY=$(execpath //tools/headroom:classify.tcl) STA_DIR=$$w STA_PARENT=%s STA_PARTS='%s' STA_WIRES=%s STA_OUT=$(location %s_kpi_flat%s.txt) STA_PATHS=$(location %s_kpi_flat%s_paths.txt) $(execpath @openroad//src/sta:opensta) -no_splash -threads max -exit $(execpath :sta_flat.tcl)" % (name, " ".join(parts), wires, name, suffix, name, suffix),
             ]),
             tools = [":sta_prefix", "@openroad//src/sta:opensta"],
             tags = tags,
