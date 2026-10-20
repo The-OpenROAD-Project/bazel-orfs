@@ -536,7 +536,7 @@ ORFS_DESIGN_BZL_EOF
 # config.mk files reference, not by the directory's contents -- src/cva6
 # declares files("verilog") while holding no .v or .sv at all, and
 # prim/rtl holds both .sv and .svh but declares files("include"). So
-# these 117 files are carried as data rather than guessed at. That is the
+# these 114 files are carried as data rather than guessed at. That is the
 # distinction: generating a name that happens to be wrong renames a
 # target and breaks a reference in an unrelated design's config, far from
 # the guess.
@@ -546,7 +546,10 @@ ORFS_DESIGN_BZL_EOF
 # 119 files, the two extras being uncommitted local edits.
 #
 # Absent-only, so this is a no-op against an ORFS that still ships them
-# and correct against one that has deleted them. Together with the
+# and correct against one that has deleted them. Only into a directory
+# ORFS still has: a record for a design ORFS has since deleted would
+# otherwise make a package of a lone BUILD, whose design() fails on the
+# missing config.mk (asap7/mock-cpu, ORFS 396cd1e80). Together with the
 # config.mk generator and _GENERATE_FLOW_BUILD, it means ORFS need carry
 # no bazel files at all.
 #
@@ -562,9 +565,8 @@ def _write_recorded_builds():
     parts = []
     for path in sorted(RECORDED_BUILDS):
         parts.append(
-            ("if [ ! -e {path} ] && [ ! -e {dir}/BUILD.bazel ] && " +
-             "[ ! -e {dir}/BUILD ]; then\n" +
-             "mkdir -p {dir}\n" +
+            ("if [ -d {dir} ] && [ ! -e {path} ] && " +
+             "[ ! -e {dir}/BUILD.bazel ] && [ ! -e {dir}/BUILD ]; then\n" +
              "cat > {path} <<'ORFS_RECORDED_BUILD_EOF'\n" +
              "{content}ORFS_RECORDED_BUILD_EOF\n" +
              "fi\n").format(
