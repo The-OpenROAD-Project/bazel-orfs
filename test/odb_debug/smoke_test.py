@@ -115,6 +115,15 @@ class SmokeTest(unittest.TestCase):
         cycles = self.d.floor_cycles()
         if cycles["loops"]:
             self.assertLessEqual(cycles["floor"], start["period"] + eps)
+        # exact by default, and the bound that cuts the visit short changes
+        # nothing: every flop searched gives the same floor
+        self.assertEqual(cycles["scope"], "exact")
+        self.assertLessEqual(cycles["visited"], start["endpoints"])
+        every = self.d.floor_cycles(start["endpoints"])
+        self.assertTrue(every["scope"].startswith("lower bound"))
+        self.assertEqual(every["visited"], start["endpoints"])
+        if cycles["loops"]:
+            self.assertAlmostEqual(every["floor"], cycles["floor"], delta=eps)
 
         # wires removed: zero wire, then useful skew on it, above the
         # one-flop loop at zero wire, and each undone

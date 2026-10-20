@@ -105,7 +105,7 @@ proc emit { out } {
 }
 emit $out
 if { $wires } {
-  lappend out "\"floor_cycles\":[json [hr_floor_cycles $ends]]"
+  lappend out "\"floor_cycles\":[json [hr_floor_cycles]]"
   emit $out
   lappend out "\"skew\":[json [hr_skew $ends 1 60 $paths]]"
   emit $out
@@ -117,7 +117,7 @@ if { $wires } {
 } else {
   # at zero wire: the one-flop-loop floor of the logic alone, and useful
   # skew on it, the most wire and skew together could give
-  lappend out "\"floor_cycles\":[json [hr_floor_cycles $ends]]"
+  lappend out "\"floor_cycles\":[json [hr_floor_cycles]]"
   emit $out
   lappend out "\"skew\":[json [hr_skew $ends 1 60 $paths]]"
 }
