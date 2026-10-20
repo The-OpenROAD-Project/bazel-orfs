@@ -15,6 +15,7 @@ and written back absent-only. These tests hold the data honest.
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -39,9 +40,10 @@ def _writer_script(recorded):
     for path in sorted(recorded):
         d = path.rsplit("/", 1)[0]
         parts.append(
-            "if [ ! -e %s ] && [ ! -e %s/BUILD.bazel ] && [ ! -e %s/BUILD ]; then\n"
-            "mkdir -p %s\ncat > %s <<'%s'\n%s%s\nfi\n"
-            % (path, d, d, d, path, _DELIMITER, recorded[path], _DELIMITER)
+            "if [ -d %s ] && [ ! -e %s ] && "
+            "[ ! -e %s/BUILD.bazel ] && [ ! -e %s/BUILD ]; then\n"
+            "cat > %s <<'%s'\n%s%s\nfi\n"
+            % (d, path, d, d, path, _DELIMITER, recorded[path], _DELIMITER)
         )
     return "".join(parts)
 
@@ -53,7 +55,7 @@ class TestRecordedData(unittest.TestCase):
     def test_the_expected_number_of_files(self):
         # A sudden change here means ORFS added or removed design
         # packages, or the recorder was run against a dirty tree.
-        self.assertEqual(len(self.recorded), 117)
+        self.assertEqual(len(self.recorded), 114)
 
     def test_records_the_orfs_commit_it_came_from(self):
         self.assertRegex(self.commit, r"^[0-9a-f]{40}$")
@@ -100,6 +102,9 @@ class TestWriter(unittest.TestCase):
         self.recorded, _ = _recorded()
         self.script = _writer_script(self.recorded)
         self.tmp = tempfile.mkdtemp()
+        # An ORFS that has every recorded directory, and no BUILD in any.
+        for path in self.recorded:
+            pathlib.Path(self.tmp, path).parent.mkdir(parents=True, exist_ok=True)
 
     def _run(self):
         subprocess.run(["bash", "-c", self.script], cwd=self.tmp, check=True)
@@ -115,14 +120,20 @@ class TestWriter(unittest.TestCase):
 
     def test_absent_only(self):
         target = pathlib.Path(self.tmp, "flow/designs/src/cva6/BUILD")
-        target.parent.mkdir(parents=True)
         target.write_text("# hand written, must survive\n")
         self._run()
         self.assertEqual(target.read_text(), "# hand written, must survive\n")
 
+    def test_a_deleted_design_gets_no_package(self):
+        # ORFS deleted asap7/mock-cpu; a lone BUILD there made a package
+        # whose design() failed on the missing config.mk.
+        d = pathlib.Path(self.tmp, "flow/designs/src/cva6")
+        shutil.rmtree(d)
+        self._run()
+        self.assertFalse(d.exists())
+
     def test_bazel_suffixed_name_also_counts_as_present(self):
         d = pathlib.Path(self.tmp, "flow/designs/src/cva6")
-        d.mkdir(parents=True)
         (d / "BUILD.bazel").write_text("# hand written\n")
         self._run()
         self.assertFalse((d / "BUILD").exists())
