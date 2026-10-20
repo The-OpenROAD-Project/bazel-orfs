@@ -118,6 +118,11 @@ class NetlistTest(unittest.TestCase):
     def test_not_for_openroad_synthesis(self):
         self.assertFalse(export_design.wants_netlist({"SYNTH_USE_SYN": "1"}))
 
+    def test_not_with_auto_memories(self):
+        # extract_memories.tcl exits at the netlist, before the RTL it reads
+        self.assertFalse(export_design.wants_netlist({"AUTO_MEMORIES": "1"}))
+        self.assertTrue(export_design.wants_netlist({"AUTO_MEMORIES": "0"}))
+
     def test_not_over_a_flows_own(self):
         self.assertFalse(
             export_design.wants_netlist({"SYNTH_NETLIST_FILES": "pkg/n.v"})
