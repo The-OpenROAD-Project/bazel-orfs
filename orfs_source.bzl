@@ -76,6 +76,9 @@ ORFS_PATCHES = [
     # pins-blind solve, place_pins and a second solve. Not upstreamed --
     # retire at a bump onto an ORFS that places pins with global placement.
     Label("//patches:0077-orfs-gpl-place-ios.patch"),
+    # 0145: -place_ios spaces the pins as PLACE_PINS_ARGS asks place_pins
+    # to, so a pin constraint that fits place_pins fits it. Rides on 0077.
+    Label("//patches:0145-orfs-place-ios-pin-spacing.patch"),
     # 0083: the macro step skips rtl_macro_placer when MACRO_PLACEMENT_TCL
     # fixed every macro (a planned parent: its blocks and register files
     # placed by the plan). Written for the FIRM cells of the retired

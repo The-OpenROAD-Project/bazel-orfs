@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Oyvind Harboe <oyvind.harboe@zylin.com>
+Date: Tue, 20 Oct 2026 00:00:00 +0000
+Subject: [PATCH] place: -place_ios spaces the pins as PLACE_PINS_ARGS asks
+ place_pins to
+
+global_placement -place_ios (0077) places the pins on place_pins' slots
+but read none of PLACE_PINS_ARGS, so it made its slots at the default
+spacing where place_pins would have made them at the one the design
+asks for. A pin constraint that fits place_pins' slots then did not fit
+the placer's: a small block with -min_distance_in_tracks -min_distance 1
+and 52 pins held to one edge stopped 3_1_place_gp_skip_io with PPL-0110
+"Constraint has 52 pins, but only 36 available slots" and PPL-0111.
+
+The -min_distance, -min_distance_in_tracks and -corner_avoidance of
+PLACE_PINS_ARGS now reach set_place_config as -io_pin_min_distance,
+-io_pin_min_distance_in_tracks and -io_pin_corner_avoidance. Without
+them the call is as before.
+
+Not upstreamed: rides on 0077, which is not upstreamed either; retires
+with it.
+
+Signed-off-by: Oyvind Harboe <oyvind.harboe@zylin.com>
+---
+diff --git a/flow/scripts/global_place_skip_io.tcl b/flow/scripts/global_place_skip_io.tcl
+--- a/flow/scripts/global_place_skip_io.tcl
++++ b/flow/scripts/global_place_skip_io.tcl
+@@ -14,9 +14,25 @@
+   puts "Timing- and routability-driven placement are off: placing IO pins with global placement (-place_ios)"
+   set_dont_use $::env(DONT_USE_CELLS)
+   # -place_ios holds the pins on place_pins' slots, on the layers
+-  # 3_2_place_iop uses (GPL-0174 without them).
+-  log_cmd set_place_config -io_pin_hor_layers $::env(IO_PLACER_H) \
+-    -io_pin_ver_layers $::env(IO_PLACER_V)
++  # 3_2_place_iop uses (GPL-0174 without them), at the spacing
++  # PLACE_PINS_ARGS gives place_pins: a pin constraint that fits the
++  # slots place_pins makes fits these.
++  set io_config [list -io_pin_hor_layers $::env(IO_PLACER_H) \
++    -io_pin_ver_layers $::env(IO_PLACER_V)]
++  set place_pins_args [env_var_or_empty PLACE_PINS_ARGS]
++  set i [lsearch -exact $place_pins_args -min_distance]
++  if { $i >= 0 } {
++    lappend io_config -io_pin_min_distance [lindex $place_pins_args [expr { $i + 1 }]]
++    if { [lsearch -exact $place_pins_args -min_distance_in_tracks] >= 0 } {
++      lappend io_config -io_pin_min_distance_in_tracks
++    }
++  }
++  set i [lsearch -exact $place_pins_args -corner_avoidance]
++  if { $i >= 0 } {
++    lappend io_config -io_pin_corner_avoidance \
++      [lindex $place_pins_args [expr { $i + 1 }]]
++  }
++  log_cmd set_place_config {*}$io_config
+   if { ![env_var_exists_and_non_empty FOOTPRINT] && !$::env(DONT_BUFFER_PORTS) } {
+     puts "Perform port buffering..."
+     buffer_ports {*}[env_var_or_empty BUFFER_PORTS_ARGS]
