@@ -16,6 +16,9 @@ over (at least the width it started with), and the containers scroll
 sideways past that. The last column gets a grip too: dragging it sets
 its minimum, kept on the table across a re-render. A timing-table cell narrower than its text elides it,
 as Qt does, rather than writing over the next column.
+
+Upstream: The-OpenROAD-Project/OpenROAD#11857 (draft).
+
 ---
 diff --git a/src/web/src/style.css b/src/web/src/style.css
 index e4cca3e..27f748e 100644

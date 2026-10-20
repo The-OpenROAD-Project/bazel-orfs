@@ -19,6 +19,9 @@ They are measured from the text (the longest of the header and the
 first 200 rows, at the table's font size), not from the layout: a
 histogram click fills the timing table while its panel is hidden, every
 offsetWidth is then 0, and the last column, End, took the whole panel.
+
+Upstream: The-OpenROAD-Project/OpenROAD#11857 (draft).
+
 ---
 diff --git a/src/web/src/ui-utils.js b/src/web/src/ui-utils.js
 index 9b1b05d..d584229 100644

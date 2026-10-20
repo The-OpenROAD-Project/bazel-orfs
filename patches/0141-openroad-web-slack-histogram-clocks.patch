@@ -13,6 +13,9 @@ The slack histogram reply now carries `clocks` (the filter's clock, or
 every clock), each with its period in the reply's time unit, and the
 chart draws the title as Qt does, in at most two lines, the second then
 saying how many clocks it left out.
+
+Upstream: The-OpenROAD-Project/OpenROAD#11857 (draft).
+
 ---
 diff --git a/src/web/src/charts-widget.js b/src/web/src/charts-widget.js
 index d3fbce5..f831fe0 100644

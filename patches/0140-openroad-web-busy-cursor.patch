@@ -14,6 +14,9 @@ the map included, while a request runs; it is counted, so overlapping
 requests keep it until the last one ends, and cleared when the request
 fails. Used by the bucket click, the fanout/net-length bin double-click
 and the timing widget's Update.
+
+Upstream: The-OpenROAD-Project/OpenROAD#11857 (draft).
+
 ---
 diff --git a/src/web/src/charts-widget.js b/src/web/src/charts-widget.js
 index 53d3b24..d3fbce5 100644
