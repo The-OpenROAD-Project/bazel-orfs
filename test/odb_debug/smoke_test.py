@@ -116,11 +116,25 @@ class SmokeTest(unittest.TestCase):
         if cycles["loops"]:
             self.assertLessEqual(cycles["floor"], start["period"] + eps)
 
+        # wires removed: zero wire, then useful skew on it, above the
+        # one-flop loop at zero wire, and each undone
+        wire_skew = self.d.floor_wire_skew()
+        self.assertAlmostEqual(wire_skew["restored"], start["period"], delta=eps)
+        self.assertLessEqual(wire_skew["floor"], wire["floor"] + eps)
+        cycles_nowire = self.d.floor_cycles_nowire()
+        self.assertAlmostEqual(cycles_nowire["restored"], start["period"], delta=eps)
+        if cycles_nowire["loops"]:
+            self.assertGreaterEqual(wire_skew["floor"], cycles_nowire["floor"] - eps)
+            self.assertLessEqual(cycles_nowire["floor"], cycles["floor"] + eps)
+
         skew = self.d.skew_headroom()
         self.assertAlmostEqual(skew["restored"], start["period"], delta=eps)
         self.assertLessEqual(skew["skew"], start["period"] + eps)
         if skew["hold_slack"] != "":
             self.assertGreaterEqual(skew["hold_slack"], -eps)
+        # wires as built: no clock arrival shortens a loop through one flop
+        if cycles["loops"]:
+            self.assertGreaterEqual(skew["skew"], cycles["floor"] - eps)
 
         vt = self.d.vt_headroom()
         self.assertAlmostEqual(vt["restored"], start["period"], delta=eps)
@@ -141,7 +155,16 @@ class SmokeTest(unittest.TestCase):
         table = self.d.headroom()
         self.assertEqual(
             [r["name"] for r in table["rows"]],
-            ["period", "floor_wire", "floor_cycles", "skew", "floor_retime", "vt"],
+            [
+                "period",
+                "vt",
+                "skew",
+                "floor_retime",
+                "floor_cycles",
+                "floor_wire",
+                "floor_wire_skew",
+                "floor_cycles_nowire",
+            ],
         )
         self.assertAlmostEqual(self.d.period()["period"], start["period"], delta=eps)
 

@@ -188,6 +188,12 @@ class Daemon(object):
     def floor_cycles(self, ends=0):
         return self.call("od_floor_cycles", int(ends), timeout=7200)
 
+    def floor_wire_skew(self, ends=0):
+        return self.call("od_floor_wire_skew", int(ends), timeout=14400)
+
+    def floor_cycles_nowire(self, ends=0):
+        return self.call("od_floor_cycles_nowire", int(ends), timeout=7200)
+
     def skew_headroom(self, ends=0, hold=True):
         return self.call("od_skew_headroom", int(ends), 1 if hold else 0, timeout=14400)
 

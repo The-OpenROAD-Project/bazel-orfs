@@ -114,6 +114,12 @@ if { $wires } {
   lappend out "\"vt\":[json [hr_vt $ends $paths 0]]"
   emit $out
   lappend out "\"vt_parent_only\":[json [hr_vt $ends $paths 1]]"
+} else {
+  # at zero wire: the one-flop-loop floor of the logic alone, and useful
+  # skew on it, the most wire and skew together could give
+  lappend out "\"floor_cycles\":[json [hr_floor_cycles $ends]]"
+  emit $out
+  lappend out "\"skew\":[json [hr_skew $ends 1 60 $paths]]"
 }
 lappend out "\"seconds\":[expr { [clock seconds] - $t0 }]"
 emit $out

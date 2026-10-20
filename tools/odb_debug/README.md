@@ -197,7 +197,8 @@ another ODB without restarting the agent. Tools:
 | `image path` | a PNG of an area (`save_image -web`, headless) |
 | `pin_access pin` | why a pin has no access point: DRT's markers for each rejected candidate, by constraint |
 | `period` | the reg2reg period, violating reg2reg endpoints, their TNS |
-| `floor_wire`, `floor_cycles` | the zero-wire and one-flop-loop floors of the reg2reg period |
+| `floor_wire`, `floor_wire_skew` | the reg2reg period at zero wire, at today's clock arrivals and with useful skew |
+| `floor_cycles`, `floor_cycles_nowire` | the one-flop-loop floor, with wires as built and at zero wire |
 | `skew_headroom`, `vt_headroom` | the period with useful skew (timing only, hold kept) or the cones at the fastest VT loaded, with the leakage it costs; undone after |
 | `headroom` | all of the above in one table, and how each stage ended (`.claude/skills/repair-headroom/SKILL.md`) |
 | `open target` | start `bazelisk run <target>`, an `odb_debug()` target, detached; returns at once |
@@ -259,7 +260,7 @@ Every proc returns a JSON string; lengths are microns.
 | `od_dump dir ?insts?` | `summary.txt`, `rows.txt`, `macros.txt`, `blockages.txt`, and with `insts` 1 (default) `insts.txt` |
 | `od_wns`, `od_worst_paths ?n?` | need timing |
 | `od_check_setup ?examples? ?depth? ?top? ?out?` | needs timing; as `check_setup`, every line to `out` if given |
-| `od_period`, `od_floor_wire`, `od_floor_cycles ?ends?`, `od_skew_headroom ?ends? ?hold?`, `od_vt_headroom ?ends?`, `od_headroom ?ends?` | need timing; as the tools of the same names. The measurements are `hr_*` procs in `headroom.tcl` beside `daemon.tcl`, shared with `orfs_headroom`'s stitched view of a parent and its blocks |
+| `od_period`, `od_floor_wire`, `od_floor_cycles ?ends?`, `od_floor_wire_skew ?ends?`, `od_floor_cycles_nowire ?ends?`, `od_skew_headroom ?ends? ?hold?`, `od_vt_headroom ?ends?`, `od_headroom ?ends?` | need timing; as the tools of the same names. The measurements are `hr_*` procs in `headroom.tcl` beside `daemon.tcl`, shared with `orfs_headroom`'s stitched view of a parent and its blocks |
 | `od_capture script` | run `script`, return its stdout as a plain string |
 
 Add your own: `tcl` with a `proc od_mine {} { ... }` defines it for the

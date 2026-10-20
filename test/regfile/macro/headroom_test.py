@@ -37,6 +37,21 @@ class HeadroomTest(unittest.TestCase):
                 self.r["floor_cycles"]["floor"], self.period + self.eps
             )
 
+    def test_zero_wire_chain(self):
+        # wires removed: useful skew on the logic alone stays above the
+        # one-flop loop at zero wire, which is no higher than with wires
+        n = self.nowire
+        self.assertLessEqual(n["skew"]["skew"], n["period"]["period"] + self.eps)
+        if n["floor_cycles"]["loops"]:
+            self.assertGreaterEqual(
+                n["skew"]["skew"], n["floor_cycles"]["floor"] - self.eps
+            )
+            if self.r["floor_cycles"]["loops"]:
+                self.assertLessEqual(
+                    n["floor_cycles"]["floor"],
+                    self.r["floor_cycles"]["floor"] + self.eps,
+                )
+
     def test_retiming_floor_is_above_the_one_flop_loop(self):
         # no clock arrival shortens a loop through one register, so skew
         # without hold cannot pass the one-flop-loop floor; its moves are
