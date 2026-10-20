@@ -33,7 +33,10 @@ The hook runs `sync`, which makes links, never copies:
 ```
 
 The links are kept out of git in the clone's `.git/info/exclude`, since
-they point into this machine's output base. When the set of exported
+they point into this machine's output base. A workspace whose `.claude/skills`
+is itself a link to a skills directory it shares with other agents gets
+the skill links in that directory, relative to it, and kept out of git
+there. When the set of exported
 skills changed, the hook asks Claude Code to reload its skills, so a bump
 shows in the same session. A build holding the Bazel lock delays the hook
 by at most its 60 s timeout; the session then starts on the links the

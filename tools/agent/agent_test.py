@@ -152,6 +152,58 @@ class Sync(unittest.TestCase):
         )
         self.assertEqual(status, "")
 
+    def _share_skills(self):
+        """.claude/skills as a link to a skills directory other agents share."""
+        os.makedirs(os.path.join(self.ws, ".shared", "mine"))
+        os.makedirs(os.path.join(self.ws, ".claude"))
+        os.symlink(
+            os.path.join("..", ".shared"), os.path.join(self.ws, ".claude", "skills")
+        )
+
+    def test_links_into_a_shared_skills_directory(self):
+        self._share_skills()
+        paths, _ = agent.sync(self.ws, self.root, _no_git)
+        for s in agent.EXPORTED_SKILLS:
+            path = os.path.join(self.ws, ".shared", s)
+            self.assertEqual(
+                os.readlink(path),
+                os.path.join("..", ".claude", "bazel-orfs", ".claude", "skills", s),
+            )
+            self.assertTrue(
+                os.path.isfile(
+                    os.path.join(self.ws, ".claude", "skills", s, "SKILL.md")
+                )
+            )
+        self.assertIn(os.path.join(".shared", "dirty-lane"), paths)
+        self.assertTrue(os.path.isdir(os.path.join(self.ws, ".shared", "mine")))
+        _, changed = agent.sync(self.ws, self.root, _no_git)
+        self.assertFalse(changed)
+
+    def test_keeps_links_in_a_shared_skills_directory_out_of_git(self):
+        if shutil.which("git") is None:
+            self.skipTest("no git")
+        self._share_skills()
+        subprocess.check_call(["git", "init", "-q", self.ws])
+        with open(os.path.join(self.ws, ".shared", "mine", "SKILL.md"), "w") as f:
+            f.write("mine\n")
+        subprocess.check_call(["git", "add", "-A"], cwd=self.ws)
+        agent.sync(self.ws, self.root)
+        status = subprocess.check_output(
+            ["git", "status", "--porcelain", "--untracked-files=all"],
+            cwd=self.ws,
+            universal_newlines=True,
+        )
+        self.assertEqual(
+            sorted(line[3:] for line in status.splitlines()),
+            [".claude/skills", ".shared/mine/SKILL.md"],
+        )
+
+    def test_refuses_a_skills_directory_outside_the_workspace(self):
+        os.makedirs(os.path.join(self.ws, ".claude"))
+        os.symlink(self.base, os.path.join(self.ws, ".claude", "skills"))
+        with self.assertRaisesRegex(agent.Refused, "outside the workspace"):
+            agent.sync(self.ws, self.root, _no_git)
+
 
 class Setup(unittest.TestCase):
     def setUp(self):
