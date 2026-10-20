@@ -91,6 +91,15 @@ xiangshan_flow(
     variant = "pinplan",
 )
 
+# The same, its plans made from each part's placement instead of its
+# global route: if <part>_pin_plan_diff finds the two plans the same, a
+# first pass need only reach place.
+xiangshan_flow(
+    name = "XSTile",
+    plan = PLAN,
+    variant = "pinplan_place",
+)
+
 # The tile as one flow, no hardened blocks: ORFS's hierarchical synthesis
 # of the whole tile, then macro and global placement over all of it,
 # through global route, with the hierarchy kept in the ODB. The planned
