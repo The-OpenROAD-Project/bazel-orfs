@@ -162,6 +162,52 @@ class StartTest(unittest.TestCase):
         self.assertTrue(lines[1].endswith("config.mk do-cts do-grt"))
 
 
+class ExportMdTest(unittest.TestCase):
+    SHOW_REPO = """## @orfs:
+http_archive(
+  name = "+orfs_repositories+orfs",
+  patches = [Label("//patches:0039-orfs-a.patch"), Label("//patches:0068-orfs-b.patch")],
+  urls = ["https://github.com/o/ORFS/archive/abc.tar.gz"],
+)
+
+## @yosys:
+http_archive(
+  urls = ["https://github.com/YosysHQ/yosys/releases/download/v0.68/yosys.tar.gz"],
+  remote_patches = {"https://r/p1.patch": "sha256-x", "https://r/p2.patch": "sha256-y"},
+  patches = [Label("//patches:yosys-0001.patch")],
+)
+"""
+
+    def test_reads_sources_and_patches_in_order(self):
+        repos = export_design.parse_show_repo(self.SHOW_REPO)
+        self.assertEqual(
+            repos["@orfs"],
+            (
+                "https://github.com/o/ORFS/archive/abc.tar.gz",
+                ["//patches:0039-orfs-a.patch", "//patches:0068-orfs-b.patch"],
+                0,
+            ),
+        )
+        self.assertEqual(repos["@yosys"][1:], (["//patches:yosys-0001.patch"], 2))
+
+    def test_says_what_made_it_without_a_local_path(self):
+        dest = tempfile.mkdtemp(dir=os.environ.get("TEST_TMPDIR"))
+        steps = export_design.next_step(
+            "<this directory>", {"PLATFORM": "asap7"}, "final"
+        )
+        text = export_design.export_md(
+            "//pkg:mac",
+            "--snapshot-macro-placement <dest> //pkg:mac",
+            "abc123",
+            [("ORFS", "https://o/abc.tar.gz", ["patches/orfs/0001-a.patch"], 0)],
+            steps,
+        )
+        self.assertIn("at abc123", text)
+        self.assertIn("| ORFS | https://o/abc.tar.gz | 1 in `patches/orfs/` |", text)
+        self.assertIn("DESIGN_CONFIG=<this directory>/config.mk", text)
+        self.assertNotIn(dest, text)
+
+
 class InputsTest(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.mkdtemp(dir=os.environ.get("TEST_TMPDIR"))
