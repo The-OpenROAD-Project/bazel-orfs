@@ -75,14 +75,33 @@ design directory.
 ## The BYO loop
 
 ```bash
-# 1. Build openroad from your checkout (the working tree is the source).
-cd /path/to/OpenROAD          # your OpenROAD checkout / ORFS tools/OpenROAD
-bazelisk build //:openroad    # bazel only -- see below
+# 1. Build openroad from your checkout (the working tree is the source),
+#    optimized: -c opt, see below.
+cd /path/to/OpenROAD                # your OpenROAD checkout / ORFS tools/OpenROAD
+bazelisk build -c opt //:openroad   # bazel only -- see below
 
 # 2. Point the flow / extracted stage harness at it.
-export OPENROAD_EXE="$(readlink -f bazel-bin/openroad)"
+export OPENROAD_EXE="$(readlink -f bazel-out/k8-opt/bin/openroad)"
 # ... then run the ORFS stage (make do-<stage>, in a @bazel-orfs//:dirty tree).
 ```
+
+**Build it with `-c opt`.** A flow stage runs OpenROAD from the exec
+configuration, which compiles optimized (`--host_compilation_mode`
+defaults to `opt`). A plain `bazelisk build //:openroad` builds in the
+target configuration, `fastbuild` by default: unoptimized, several times
+slower, and free to round floating point differently (FMA contraction),
+so the stage it runs is neither as fast nor quite the same as the flow's.
+An XSTile global placement on such a binary took 16 h where the flow's
+took 4.6 h, and the difference was first read as the cost of the change
+under test. The path says which you have: `k8-opt`, not `k8-fastbuild`.
+Do not put `-c opt` in `.bazelrc` instead: the compilation mode is in
+every target-configuration output path, so it would re-key every flow
+stage of every design.
+
+**Time one stage before trusting a runtime difference.** Run the same
+stage on the same input with the flow's own binary and with yours, the
+change switched off; the two should take about the same time. Minutes of
+checking against hours of misreading.
 
 **Building with CMake is VERBOTEN, and the guard blocks it.** Not a style
 preference: a cmake build uses whatever compiler, flags and system libraries
@@ -90,8 +109,8 @@ the machine happens to have, while the flow's binary comes from the pinned
 hermetic bazel toolchain. Swap one for the other and the binary under test is
 no longer the binary the flow builds, so every number measured with it is
 measuring the toolchain as much as the change -- silently, because it still
-runs and still produces plausible output. `bazelisk build //:openroad` in the
-checkout, or `bazelisk build @openroad//:openroad` here.
+runs and still produces plausible output. `bazelisk build -c opt //:openroad`
+in the checkout, or `bazelisk build -c opt @openroad//:openroad` here.
 
 A raw `git clone` of OpenROAD will NOT build: the GitHub tarball and a
 blobless clone both arrive without `src/sta` and `third-party/abc`. bazel-orfs
