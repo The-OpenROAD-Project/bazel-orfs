@@ -22,19 +22,49 @@ class HeadroomTest(unittest.TestCase):
         self.assertGreater(self.r["period"]["endpoints"], 0)
 
     def test_every_what_if_is_undone(self):
-        for name in ("skew", "vt", "vt_parent_only"):
+        for name in ("skew", "floor_retime", "vt", "vt_parent_only"):
             self.assertAlmostEqual(
                 self.r[name]["restored"], self.period, delta=self.eps, msg=name
             )
 
     def test_no_floor_or_ceiling_above_the_period(self):
         self.assertLessEqual(self.r["skew"]["skew"], self.period + self.eps)
+        self.assertLessEqual(self.r["floor_retime"]["floor"], self.period + self.eps)
         self.assertLessEqual(self.r["vt"]["vt"], self.period + self.eps)
         self.assertLessEqual(self.nowire["period"]["period"], self.period + self.eps)
         if self.r["floor_cycles"]["loops"]:
             self.assertLessEqual(
                 self.r["floor_cycles"]["floor"], self.period + self.eps
             )
+
+    def test_retiming_floor_is_above_the_one_flop_loop(self):
+        # no clock arrival shortens a loop through one register, so skew
+        # without hold cannot pass the one-flop-loop floor; its moves are
+        # named by instance, the retiming candidates
+        r = self.r["floor_retime"]
+        if self.r["floor_cycles"]["loops"]:
+            self.assertGreaterEqual(
+                r["floor"], self.r["floor_cycles"]["floor"] - self.eps
+            )
+        self.assertIsInstance(r["top_moved"], list)
+        for entry in r["top_moved"]:
+            inst, flops, ps = entry.rsplit(" ", 2)
+            self.assertGreater(int(flops), 0, entry)
+            self.assertGreaterEqual(float(ps), 0, entry)
+
+    def test_mass_over_the_target(self):
+        # the period is over a 1 ps target, so at least its endpoint is
+        # counted, never more endpoints than there are; every what-if
+        # reports its own mass
+        p = self.r["period"]
+        self.assertEqual(p["target"], 1)
+        self.assertGreater(p["over_target"], 0)
+        self.assertLessEqual(p["over_target"], p["endpoints"])
+        self.assertGreaterEqual(p["excess_target"], self.period - 1 - self.eps)
+        for name in ("skew", "floor_retime", "vt", "vt_parent_only"):
+            self.assertGreater(self.r[name]["over_target"], 0, name)
+            self.assertGreaterEqual(self.r[name]["excess_target"], 0, name)
+        self.assertGreater(self.nowire["period"]["over_target"], 0)
 
     def test_leakage_is_measured_and_comes_back(self):
         for name in ("vt", "vt_parent_only"):

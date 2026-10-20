@@ -177,7 +177,9 @@ class Daemon(object):
 
     # Repair headroom (headroom.tcl): each measures a what-if and undoes
     # it; "restored" is the period measured again afterwards.
-    def period(self):
+    def period(self, target=0):
+        if target:
+            return self.call("od_period", float(target), timeout=3600)
         return self.call("od_period", timeout=3600)
 
     def floor_wire(self):
@@ -189,10 +191,15 @@ class Daemon(object):
     def skew_headroom(self, ends=0, hold=True):
         return self.call("od_skew_headroom", int(ends), 1 if hold else 0, timeout=14400)
 
+    def floor_retime(self, ends=0):
+        return self.call("od_floor_retime", int(ends), timeout=14400)
+
     def vt_headroom(self, ends=0):
         return self.call("od_vt_headroom", int(ends), timeout=7200)
 
-    def headroom(self, ends=0):
+    def headroom(self, ends=0, target=0):
+        if target:
+            return self.call("od_headroom", int(ends), float(target), timeout=28800)
         return self.call("od_headroom", int(ends), timeout=28800)
 
     def report(self, command, timeout=3600):

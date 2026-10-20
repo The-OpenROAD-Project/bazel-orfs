@@ -415,7 +415,7 @@ source [file join [file dirname [file normalize [info script]]] headroom.tcl]
 proc od_hr_json { d } {
   set pairs {}
   dict for {k v} $d {
-    if { [llength $v] > 1 || [string match "vts_*" $k] } {
+    if { [string match "vts_*" $k] || [string match "top_*" $k] } {
       lappend pairs $k [od_jarr [lmap x $v { od_jstr $x }]]
     } elseif { [string is double -strict $v] } {
       lappend pairs $k [od_jnum $v]
@@ -426,8 +426,11 @@ proc od_hr_json { d } {
   return [od_jobj $pairs]
 }
 
-proc od_period {} {
+# target: a period to count the mass at or over (endpoints, excess), in
+# the liberty's time unit; it stays set for the measurements after it.
+proc od_period { {target ""} } {
   od_require_timing
+  if { $target ne "" } { set ::hr_target $target }
   return [od_hr_json [hr_period]]
 }
 
@@ -439,6 +442,11 @@ proc od_floor_cycles { {ends 0} } {
 proc od_skew_headroom { {ends 0} {hold 1} } {
   od_require_timing
   return [od_hr_json [hr_skew $ends $hold]]
+}
+
+proc od_floor_retime { {ends 0} } {
+  od_require_timing
+  return [od_hr_json [hr_floor_retime $ends]]
 }
 
 proc od_vt_headroom { {ends 0} } {
@@ -492,8 +500,9 @@ proc od_stage_setup {} {
 
 # Everything at once, the stage's period first: a table of the floors and
 # ceilings, each with its gain over the period repair left.
-proc od_headroom { {ends 0} } {
+proc od_headroom { {ends 0} {target ""} } {
   od_require_timing
+  if { $target ne "" } { set ::hr_target $target }
   set t0 [clock milliseconds]
   set p [hr_period]
   set rows [list period [dict get $p period]]
@@ -503,11 +512,17 @@ proc od_headroom { {ends 0} } {
       floor_wire [hr_floor_wire $rc $mode] floor \
       floor_cycles [hr_floor_cycles $ends] floor \
       skew [hr_skew $ends 1] skew \
+      floor_retime [hr_floor_retime $ends] floor \
       vt [hr_vt $ends] vt] {
     lappend rows $name [dict get $d $key]
   }
   set pairs [list clock_period [od_jnum [dict get $p clock_period]] \
     violating [od_jnum [dict get $p violating]] tns [od_jnum [dict get $p tns]]]
+  if { $::hr_target > 0 } {
+    lappend pairs target [od_jnum $::hr_target] \
+      over_target [od_jnum [dict get $p over_target]] \
+      excess_target [od_jnum [dict get $p excess_target]]
+  }
   set table {}
   set base [dict get $p period]
   foreach {name v} $rows {

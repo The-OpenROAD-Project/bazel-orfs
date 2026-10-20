@@ -6,7 +6,7 @@
 #
 #   STA_DIR=<dir with each part's .v (blocks prefixed by sta_prefix.py),
 #   .spef, .sdc, _libs.tar> STA_PARENT=<module> STA_PARTS="<parent> <block>..."
-#   STA_WIRES=1|0 HR_TCL=<headroom.tcl> HR_ENDS=0 HR_OUT=<file>
+#   STA_WIRES=1|0 HR_TCL=<headroom.tcl> HR_ENDS=0 HR_TARGET=0 HR_OUT=<file>
 #   sta -exit headroom_flat.tcl
 #
 # STA_WIRES=0 reads no SPEF: the period then is the zero-wire floor, and
@@ -19,6 +19,7 @@ set parts $::env(STA_PARTS)
 set blocks [lsearch -all -inline -not -exact $parts $parent]
 set ends [expr { [info exists ::env(HR_ENDS)] ? $::env(HR_ENDS) : 0 }]
 set wires [expr { ![info exists ::env(STA_WIRES)] || $::env(STA_WIRES) }]
+if { [info exists ::env(HR_TARGET)] } { set ::hr_target $::env(HR_TARGET) }
 
 # every part's liberty once, except a block's own abstract: its cells are
 # the block's netlist now
@@ -60,15 +61,19 @@ if { $wires } {
 }
 set_propagated_clock [all_clocks]
 
+proc jstr { x } {
+  return "\"[string map {\\ \\\\ \" \\\"} $x]\""
+}
+
 proc json { d } {
   set parts {}
   dict for {k v} $d {
-    if { [string match "vts_*" $k] || [llength $v] > 1 } {
-      lappend parts "\"$k\":\[[join [lmap x $v { string cat \" $x \" }] ,]\]"
+    if { [string match "vts_*" $k] || [string match "top_*" $k] } {
+      lappend parts "\"$k\":\[[join [lmap x $v { jstr $x }] ,]\]"
     } elseif { [string is double -strict $v] } {
       lappend parts "\"$k\":$v"
     } else {
-      lappend parts "\"$k\":\"$v\""
+      lappend parts "\"$k\":[jstr $v]"
     }
   }
   return "{[join $parts ,]}"
@@ -87,6 +92,8 @@ if { $wires } {
   lappend out "\"floor_cycles\":[json [hr_floor_cycles $ends]]"
   emit $out
   lappend out "\"skew\":[json [hr_skew $ends 1 60 $paths]]"
+  emit $out
+  lappend out "\"floor_retime\":[json [hr_floor_retime $ends 60 $paths]]"
   emit $out
   lappend out "\"vt\":[json [hr_vt $ends $paths 0]]"
   emit $out

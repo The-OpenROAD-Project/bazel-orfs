@@ -135,13 +135,15 @@ orfs_flow(
 )
 
 # scoped to the 200 worst endpoints: every endpoint (16,896) took 206 s,
-# and what is checked does not depend on the scope
+# and what is checked does not depend on the scope; a 1 ps target, which
+# every reg2reg endpoint is over, so the mass is counted at each
 orfs_headroom(
     name = "wide_top_headroom",
     blocks = {"RegFile": ":RegFile_grt"},
     ends = 200,
     parent = "wide_top",
     parent_stage = ":wide_top_grt_hr_grt",
+    target = 1,
 )
 
 py_test(
