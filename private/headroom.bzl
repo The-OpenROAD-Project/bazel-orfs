@@ -19,10 +19,12 @@ tools/odb_debug/headroom.tcl on the whole: the reg2reg period, the
 one-flop-loop and retiming floors, useful skew and threshold voltage
 (with the leakage it costs), each split into the parent's part and the
 blocks', and with a `target` the mass at or over it at each. `<name>.json` has them, and
-`<name>_nowire.json` the zero-wire floor, and `<name>_classes.txt` every
-reg2reg endpoint by where its worst path runs (classify.tcl): within the
-parent or a block, from one part to another, or through a block it neither
-starts nor ends in, the in2out arc surgery takes apart. The odb-debug daemon's
+`<name>_nowire.json` the same at zero wire: the period, the one-flop-loop
+floor of the logic alone and useful skew on it, and `<name>_classes.txt`
+every reg2reg endpoint by where its worst path runs (classify.tcl): within
+the parent or a block, from one part to another, or through a block it
+neither starts nor ends in, the in2out arc surgery takes apart. The
+odb-debug daemon's
 `headroom` tool asks the same of one stage alone, a block being its
 abstract. When to ask and how to read the answer:
 .claude/skills/repair-headroom/SKILL.md.

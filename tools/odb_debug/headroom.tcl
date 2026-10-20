@@ -427,13 +427,25 @@ proc hr_update_parasitics {} {
   }
 }
 
-# The zero-wire floor, in OpenROAD: every routing layer's and the default
+# The zero-wire bound, in OpenROAD: every routing layer's and the default
 # wire's resistance and capacitance near zero, parasitics estimated the
 # way the stage had them, the period measured, the stage's own RC put back
 # and estimated again. Clock wires go to zero too, as in the flat view's
-# STA_WIRES=0, so the floor carries the clock's change with it.
+# STA_WIRES=0, so the bound carries the clock's change with it. It times
+# the clock arrivals as they are, so it is no floor: useful skew passes it
+# (hr_floor_wire_skew), the one-flop loop at zero wire bounds both.
 proc hr_floor_wire { rc_file mode } {
   set start [dict get [hr_period] period]
+  hr_wires_zero $mode
+  set floor [dict get [hr_period] period]
+  hr_wires_back $rc_file $mode
+  set restored [dict get [hr_period] period]
+  return [dict create start $start floor $floor restored $restored]
+}
+
+# Every routing layer's and every wire's R and C near zero, the clock's
+# too, and the parasitics estimated again: each path's logic alone.
+proc hr_wires_zero { mode } {
   set tech [ord::get_db_tech]
   foreach layer [$tech getLayers] {
     if { [$layer getType] ne "ROUTING" } { continue }
@@ -442,9 +454,37 @@ proc hr_floor_wire { rc_file mode } {
   set_wire_rc -signal -resistance 1e-9 -capacitance 1e-9
   set_wire_rc -clock -resistance 1e-9 -capacitance 1e-9
   estimate_parasitics -$mode
-  set floor [dict get [hr_period] period]
+}
+
+# The stage's own RC back, and the parasitics estimated with it.
+proc hr_wires_back { rc_file mode } {
   source $rc_file
   estimate_parasitics -$mode
+}
+
+# Zero wire, then useful skew on it, hold kept: what wire and skew together
+# could give, the logic alone clocked at its best. The one-flop loop at
+# zero wire (hr_floor_cycles_nowire) bounds it; nothing else wire or skew
+# can do passes it.
+proc hr_floor_wire_skew { rc_file mode {ends 0} } {
+  set start [dict get [hr_period] period]
+  hr_wires_zero $mode
+  set floor_wire [dict get [hr_period] period]
+  set s [hr_skew $ends 1]
+  hr_wires_back $rc_file $mode
   set restored [dict get [hr_period] period]
-  return [dict create start $start floor $floor restored $restored]
+  return [dict merge $s [dict create start $start floor_wire $floor_wire \
+    floor [dict get $s skew] restored $restored]]
+}
+
+# The one-flop-loop floor at zero wire: each loop's logic alone. No skew,
+# retiming or wire (placement, buffering, reseating) passes it; only the
+# loop's own cells (sizing, VT) or its logic can.
+proc hr_floor_cycles_nowire { rc_file mode {ends 0} } {
+  set start [dict get [hr_period] period]
+  hr_wires_zero $mode
+  set c [hr_floor_cycles $ends]
+  hr_wires_back $rc_file $mode
+  set restored [dict get [hr_period] period]
+  return [dict merge $c [dict create start $start restored $restored]]
 }

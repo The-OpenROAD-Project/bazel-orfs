@@ -215,7 +215,7 @@ def _period(d, a):
 
 @tool(
     "floor_wire",
-    "Zero-wire floor: the reg2reg period with every wire's R and C near zero (clock wires too), then the stage's RC put back. What any placement, buffering or reseating could at most win. Needs timing loaded.",
+    "Zero-wire bound: the reg2reg period with every wire's R and C near zero (clock wires too), at the clock arrivals as they are, then the stage's RC put back. What placement, buffering or reseating could win at today's arrivals; no floor, useful skew passes it (floor_wire_skew). Needs timing loaded.",
 )
 def _floor_wire(d, a):
     return d.floor_wire()
@@ -223,11 +223,29 @@ def _floor_wire(d, a):
 
 @tool(
     "floor_cycles",
-    "One-flop-loop floor: the worst path from a flop back to itself among the flops of the worst paths. Neither useful skew nor retiming can go below it. Needs timing loaded.",
+    "One-flop-loop floor, wires as built: the worst path from a flop back to itself. Launch and capture are the same flop, so neither useful skew nor retiming can go below it; only the loop's own cells, wires or logic can. Never scope it: the worst loop need not sit on the worst paths. Needs timing loaded.",
     {"ends": ENDS},
 )
 def _floor_cycles(d, a):
     return d.floor_cycles(a.get("ends", 0))
+
+
+@tool(
+    "floor_wire_skew",
+    "Zero wire, then useful skew on it, hold kept: what wire and skew together could give, the logic alone clocked at its best. floor_cycles_nowire bounds it. Needs timing loaded.",
+    {"ends": ENDS},
+)
+def _floor_wire_skew(d, a):
+    return d.floor_wire_skew(a.get("ends", 0))
+
+
+@tool(
+    "floor_cycles_nowire",
+    "One-flop-loop floor at zero wire: each loop's logic alone. No skew, retiming or wire change passes it; only the loop's own cells (sizing, VT) or its logic. Never scope it. Needs timing loaded.",
+    {"ends": ENDS},
+)
+def _floor_cycles_nowire(d, a):
+    return d.floor_cycles_nowire(a.get("ends", 0))
 
 
 @tool(
