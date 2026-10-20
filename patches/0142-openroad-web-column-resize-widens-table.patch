@@ -1,0 +1,240 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] web: widening a table column widens the table
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The timing, hierarchy and selection tables lock their column widths in a
+fixed-layout table held at 100 % of the panel, so the browser shares the
+panel among the columns: dragging the start- or end-point column wider,
+to read a long hierarchical path name, squeezed every other column. Qt's
+header view widens the table and scrolls instead.
+
+makeResizableHeaders() now sizes the table to the sum of its columns,
+the last one without a width of its own, taking what the panel has left
+over (at least the width it started with), and the containers scroll
+sideways past that. The last column gets a grip too: dragging it sets
+its minimum, kept on the table across a re-render. A timing-table cell narrower than its text elides it,
+as Qt does, rather than writing over the next column.
+---
+diff --git a/src/web/src/style.css b/src/web/src/style.css
+index e4cca3e..27f748e 100644
+--- a/src/web/src/style.css
++++ b/src/web/src/style.css
+@@ -2214,13 +2214,13 @@ body {
+ 
+ .timing-path-table-container {
+     flex: 1;
+-    overflow-y: auto;
++    overflow: auto;
+     min-height: 80px;
+ }
+ 
+ .timing-detail-table-container {
+     flex: 1;
+-    overflow-y: auto;
++    overflow: auto;
+     min-height: 80px;
+     border-top: 1px solid var(--border);
+ }
+@@ -2270,6 +2270,10 @@ body {
+ .timing-table tbody td {
+     padding: 3px var(--space-md);
+     white-space: nowrap;
++    /* a column narrower than its longest name elides it, as Qt does,
++       rather than writing over the next column */
++    overflow: hidden;
++    text-overflow: ellipsis;
+     color: var(--fg-primary);
+     font-family: var(--font-mono);
+ }
+@@ -2368,7 +2372,7 @@ body {
+ 
+ .hierarchy-table-container {
+     flex: 1;
+-    overflow-y: auto;
++    overflow: auto;
+     min-height: 0;
+ }
+ 
+diff --git a/src/web/src/timing-widget.js b/src/web/src/timing-widget.js
+index 34aaffe..28c58d4 100644
+--- a/src/web/src/timing-widget.js
++++ b/src/web/src/timing-widget.js
+@@ -646,6 +646,7 @@ export class TimingWidget {
+             const pinTh = this._detailTable.querySelector('thead th');
+             if (pinTh) {
+                 pinTh.style.width = '30ch';
++                this._detailTable.fitColumns?.();
+             }
+         }
+     }
+diff --git a/src/web/src/ui-utils.js b/src/web/src/ui-utils.js
+index 31afff1..9b1b05d 100644
+--- a/src/web/src/ui-utils.js
++++ b/src/web/src/ui-utils.js
+@@ -611,21 +611,44 @@ export function runTclScript(app, script, echo) {
+ // widths is an optional array of CSS width strings (e.g. saved from a
+ // previous render); when given, it is applied directly instead of
+ // measuring natural widths, avoiding a forced reflow.
++// Widening a column widens the table, as Qt's header view does, rather than
++// taking the width from the other columns: a fixed-layout table held at 100 %
++// of its panel shares the panel among its columns, so dragging one long
++// path-name column wider squeezed every other one.  The last column has no
++// width of its own and takes whatever the panel has left over, at least the
++// width it started with or was dragged to (kept on the table, so a re-render
++// that rebuilds the header keeps it); the container scrolls sideways past
++// that.
+ export function makeResizableHeaders(table, widths) {
+     const headers = table.querySelectorAll('thead th');
+     if (!widths || !widths[0]) {
+         // Reset to auto layout so browser computes natural column widths;
+         // reading offsetWidth forces a reflow.
+         table.style.tableLayout = 'auto';
++        table.style.width = '';
+         headers.forEach((th) => th.style.width = '');
+         widths = Array.from(headers, (th) => th.offsetWidth + 'px');
+     }
++    const last = headers.length - 1;
++    let lastMin = parseFloat(table.dataset.lastMinWidth)
++        || parseFloat(widths[last])
++        || (last >= 0 ? headers[last].offsetWidth : 0) || 0;
+     // Lock in widths and switch to fixed layout
+-    headers.forEach((th, i) => th.style.width = widths[i] || '');
++    headers.forEach((th, i) => th.style.width = i === last ? '' : (widths[i] || ''));
+     table.style.tableLayout = 'fixed';
++    const fit = () => {
++        table.dataset.lastMinWidth = String(lastMin);
++        let total = lastMin;
++        headers.forEach((th, i) => {
++            if (i !== last) total += parseFloat(th.style.width) || th.offsetWidth;
++        });
++        table.style.width = total + 'px';
++        table.style.minWidth = '100%';
++    };
++    table.fitColumns = fit;
++    fit();
+ 
+     headers.forEach((th, idx) => {
+-        if (idx === headers.length - 1) return; // skip last column
+         const grip = document.createElement('div');
+         grip.className = 'col-resize-grip';
+         th.style.position = 'relative';
+@@ -633,7 +656,13 @@ export function makeResizableHeaders(table, widths) {
+ 
+         let startX, startW;
+         const onMouseMove = (e) => {
+-            th.style.width = Math.max(30, startW + e.clientX - startX) + 'px';
++            const w = Math.max(30, startW + e.clientX - startX);
++            if (idx === last) {
++                lastMin = w;  // the last column keeps no width of its own
++            } else {
++                th.style.width = w + 'px';
++            }
++            fit();
+         };
+         const onMouseUp = () => {
+             document.removeEventListener('mousemove', onMouseMove);
+diff --git a/src/web/test/js/test-timing-widget.js b/src/web/test/js/test-timing-widget.js
+index dd8dde4..a8e827f 100644
+--- a/src/web/test/js/test-timing-widget.js
++++ b/src/web/test/js/test-timing-widget.js
+@@ -5,6 +5,7 @@ import './setup-dom.js';
+ import { describe, it } from 'node:test';
+ import assert from 'node:assert/strict';
+ import { TimingWidget } from '../../src/timing-widget.js';
++import { makeResizableHeaders } from '../../src/ui-utils.js';
+ 
+ // jsdom does not implement scrollIntoView; stub it so _selectPathRow runs.
+ if (!window.HTMLElement.prototype.scrollIntoView) {
+@@ -230,13 +231,13 @@ describe('TimingWidget path table sorting', () => {
+         const widget = new TimingWidget(app, () => {});
+         widget.showPaths('setup', [makePath(0.0, 'a'), makePath(0.1, 'b')]);
+ 
+-        // All columns except the last get a resize grip.
++        // Every column gets a resize grip, the last one included.
+         const gripCount = () =>
+             widget._pathTable.querySelectorAll('thead .col-resize-grip').length;
+-        assert.equal(gripCount(), TimingWidget.PATH_COLS.length - 1);
++        assert.equal(gripCount(), TimingWidget.PATH_COLS.length);
+ 
+         headerByLabel(widget, 'Fanout').click();
+-        assert.equal(gripCount(), TimingWidget.PATH_COLS.length - 1);
++        assert.equal(gripCount(), TimingWidget.PATH_COLS.length);
+     });
+ 
+     it('does not change the sort when a column resize drag ends', () => {
+@@ -340,3 +341,73 @@ describe('TimingWidget path table sorting', () => {
+         assert.equal(tip.style.display, 'none');
+     });
+ });
++
++describe('makeResizableHeaders', () => {
++    function table3(widths) {
++        const table = document.createElement('table');
++        const thead = document.createElement('thead');
++        const tr = document.createElement('tr');
++        for (const name of ['Start', 'End', 'Slack']) {
++            const th = document.createElement('th');
++            th.textContent = name;
++            tr.appendChild(th);
++        }
++        thead.appendChild(tr);
++        table.appendChild(thead);
++        document.body.appendChild(table);
++        makeResizableHeaders(table, widths);
++        return table;
++    }
++
++    it('sizes the table to its columns, the last taking what is left', () => {
++        const table = table3(['100px', '200px', '50px']);
++        const ths = table.querySelectorAll('thead th');
++        assert.equal(ths[0].style.width, '100px');
++        assert.equal(ths[1].style.width, '200px');
++        assert.equal(ths[2].style.width, '');
++        assert.equal(table.style.width, '350px');
++        assert.equal(table.style.minWidth, '100%');
++    });
++
++    it('widens the table when a column is dragged wider, not the others narrower', () => {
++        const table = table3(['100px', '200px', '50px']);
++        const ths = table.querySelectorAll('thead th');
++        // jsdom has no layout: the dragged column reports its styled width
++        Object.defineProperty(ths[0], 'offsetWidth', { value: 100 });
++        const grip = ths[0].querySelector('.col-resize-grip');
++        grip.dispatchEvent(new window.MouseEvent('mousedown', { clientX: 0, bubbles: true }));
++        document.dispatchEvent(new window.MouseEvent('mousemove', { clientX: 400 }));
++        document.dispatchEvent(new window.MouseEvent('mouseup', {}));
++        assert.equal(ths[0].style.width, '500px');
++        assert.equal(ths[1].style.width, '200px');
++        assert.equal(table.style.width, '750px');
++    });
++
++    it('widens the last column too, and keeps it when the header is rebuilt', () => {
++        const table = table3(['100px', '200px', '50px']);
++        let ths = table.querySelectorAll('thead th');
++        Object.defineProperty(ths[2], 'offsetWidth', { value: 50 });
++        const grip = ths[2].querySelector('.col-resize-grip');
++        assert.ok(grip, 'the last column has a grip');
++        grip.dispatchEvent(new window.MouseEvent('mousedown', { clientX: 0, bubbles: true }));
++        document.dispatchEvent(new window.MouseEvent('mousemove', { clientX: 250 }));
++        document.dispatchEvent(new window.MouseEvent('mouseup', {}));
++        assert.equal(ths[2].style.width, '');
++        assert.equal(table.style.width, '600px');
++        // a re-render rebuilds the header and passes the saved widths back
++        ths = table.querySelectorAll('thead th');
++        const saved = Array.from(ths, (th) => th.style.width);
++        table.querySelector('thead').remove();
++        const thead = document.createElement('thead');
++        const tr = document.createElement('tr');
++        for (const name of ['Start', 'End', 'Slack']) {
++            const th = document.createElement('th');
++            th.textContent = name;
++            tr.appendChild(th);
++        }
++        thead.appendChild(tr);
++        table.appendChild(thead);
++        makeResizableHeaders(table, saved);
++        assert.equal(table.style.width, '600px');
++    });
++});

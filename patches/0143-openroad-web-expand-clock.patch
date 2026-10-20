@@ -1,0 +1,200 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] web: "Expand clock" in the timing widget, as in Qt
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The Qt GUI's timing widget has an "Expand clock" setting, off by
+default: a path's clock network, every clock node after the source up
+to the register's clock pin, is one "clock network delay" row, its time
+the arrival at the clock pin and its delay the network's insertion. On a
+design with a deep clock tree the clock rows outnumber the data path's.
+The web viewer always listed every clock pin.
+
+An "Expand clock" checkbox on the timing toolbar does the same here, off
+by default, for the data and the capture path. A click on the summary
+row highlights the register's clock pin.
+---
+diff --git a/src/web/src/style.css b/src/web/src/style.css
+index 27f748e..36b2488 100644
+--- a/src/web/src/style.css
++++ b/src/web/src/style.css
+@@ -2166,6 +2166,14 @@ body {
+     flex-shrink: 0;
+ }
+ 
++.timing-expand-clock {
++    display: inline-flex;
++    align-items: center;
++    gap: 3px;
++    font-size: var(--fs-12);
++    user-select: none;
++}
++
+ .timing-path-count {
+     color: var(--fg-muted);
+     font-size: var(--fs-12);
+diff --git a/src/web/src/timing-widget.js b/src/web/src/timing-widget.js
+index 28c58d4..dd3e48a 100644
+--- a/src/web/src/timing-widget.js
++++ b/src/web/src/timing-widget.js
+@@ -6,6 +6,21 @@
+ import { isStaticMode, makeResizableHeaders, withBusyCursor }
+     from './ui-utils.js';
+ 
++// The rows a path's detail table shows, as the Qt GUI's "Expand clock"
++// setting does.  Collapsed (the default), the clock network -- every clock
++// node after the source, up to the register's clock pin -- is one "clock
++// network delay" row: its time the arrival at the clock pin, its delay the
++// network's insertion.  Each row is { node, summary }: `node` the index of
++// the path node it stands for (for the summary, the clock pin, which a click
++// highlights).
++export function detailRows(nodes, expandClock) {
++    let clkEnd = -1;
++    while (clkEnd + 1 < nodes.length && nodes[clkEnd + 1].clk) clkEnd++;
++    const all = nodes.map((_, i) => ({ node: i, summary: false }));
++    if (expandClock || clkEnd < 1) return all;
++    return [all[0], { node: clkEnd, summary: true }, ...all.slice(clkEnd + 1)];
++}
++
+ export class TimingWidget {
+     constructor(app, redrawAllLayers, refreshOverlay) {
+         this._app = app;
+@@ -43,7 +58,21 @@ export class TimingWidget {
+         this._pathCountLabel = document.createElement('span');
+         this._pathCountLabel.className = 'timing-path-count';
+ 
++        // Qt's "Expand clock": off, each path's clock network is one row.
++        this._expandClock = false;
++        const expandLabel = document.createElement('label');
++        expandLabel.className = 'timing-expand-clock';
++        this._expandClockBox = document.createElement('input');
++        this._expandClockBox.type = 'checkbox';
++        this._expandClockBox.addEventListener('change', () => {
++            this._expandClock = this._expandClockBox.checked;
++            this._renderDetailTable();
++        });
++        expandLabel.appendChild(this._expandClockBox);
++        expandLabel.appendChild(document.createTextNode(' Expand clock'));
++
+         toolbar.appendChild(this._updateBtn);
++        toolbar.appendChild(expandLabel);
+         toolbar.appendChild(this._pathCountLabel);
+         el.appendChild(toolbar);
+ 
+@@ -576,6 +605,7 @@ export class TimingWidget {
+         const paths = this._currentTab === 'setup' ? this._setupPaths : this._holdPaths;
+         const path = paths[this._selectedPathIndex];
+         const nodes = this._detailTab === 'data' ? path.data_nodes : path.capture_nodes;
++        const node = nodes[this._detailRows[idx].node];
+         // Use _originalIndex when paths were filtered (e.g. by histogram
+         // column click in static mode) so the overlay lookup matches.
+         const highlightIdx = path._originalIndex ?? this._selectedPathIndex;
+@@ -583,7 +613,7 @@ export class TimingWidget {
+             type: 'timing_highlight',
+             path_index: highlightIdx,
+             is_setup: this._currentTab === 'setup',
+-            pin_name: nodes[idx].pin,
++            pin_name: node.pin,
+         }).then(() => this._refreshOverlay());
+     }
+ 
+@@ -612,10 +642,17 @@ export class TimingWidget {
+         this._detailTable.appendChild(thead);
+ 
+         const tbody = document.createElement('tbody');
+-        nodes.forEach((n, idx) => {
++        this._detailRows = detailRows(nodes, this._expandClock);
++        this._detailRows.forEach((row, idx) => {
++            const n = nodes[row.node];
+             const tr = document.createElement('tr');
+             if (n.clk) tr.classList.add('timing-clock-row');
+-            const vals = [
++            const vals = row.summary ? [
++                'clock network delay', '', '',
++                fmtTime(n.time),
++                fmtTime(n.time - nodes[0].time),
++                '', '',
++            ] : [
+                 n.pin,
+                 n.fanout,
+                 n.rise ? '↑' : '↓',
+diff --git a/src/web/test/js/test-timing-widget.js b/src/web/test/js/test-timing-widget.js
+index a8e827f..2a381a2 100644
+--- a/src/web/test/js/test-timing-widget.js
++++ b/src/web/test/js/test-timing-widget.js
+@@ -4,7 +4,7 @@
+ import './setup-dom.js';
+ import { describe, it } from 'node:test';
+ import assert from 'node:assert/strict';
+-import { TimingWidget } from '../../src/timing-widget.js';
++import { TimingWidget, detailRows } from '../../src/timing-widget.js';
+ import { makeResizableHeaders } from '../../src/ui-utils.js';
+ 
+ // jsdom does not implement scrollIntoView; stub it so _selectPathRow runs.
+@@ -411,3 +411,65 @@ describe('makeResizableHeaders', () => {
+         assert.equal(table.style.width, '600px');
+     });
+ });
++
++// A launch path through a two-buffer clock tree: source, two buffers, the
++// register's clock pin, then data.
++function clockedNodes() {
++    const n = (pin, clk, time) => ({ pin, clk, time, fanout: 1, rise: true,
++                                     delay: 0, slew: 0, load: 0 });
++    return [n('clock', true, 0), n('cb1/Y', true, 40), n('cb2/Y', true, 90),
++            n('r1/CLK', true, 100), n('r1/QN', false, 160),
++            n('u1/Y', false, 200), n('r2/D', false, 210)];
++}
++
++describe('detailRows (Expand clock)', () => {
++    it('collapses the clock network to one row, as Qt does', () => {
++        const rows = detailRows(clockedNodes(), false);
++        assert.deepEqual(rows.map((r) => [r.node, r.summary]), [
++            [0, false], [3, true], [4, false], [5, false], [6, false]]);
++    });
++
++    it('lists every clock node when expanded', () => {
++        assert.equal(detailRows(clockedNodes(), true).length, 7);
++    });
++
++    it('has nothing to collapse without a clock network', () => {
++        const nodes = clockedNodes().slice(3);  // ideal clock: pin, then data
++        assert.equal(detailRows(nodes, false).length, 4);
++        assert.equal(detailRows([], false).length, 0);
++    });
++});
++
++describe('TimingWidget Expand clock', () => {
++    it('shows the clock network delay row, and every clock pin when checked', () => {
++        const app = createMockApp();
++        const widget = new TimingWidget(app, () => {});
++        document.body.appendChild(widget.element);
++        widget.showPaths('setup', [makePath(-0.1, 'r2/D',
++                                            { data_nodes: clockedNodes() })]);
++        widget._selectPathRow(0);
++        const pins = () => Array.from(
++            widget._detailTable.querySelectorAll('tbody tr'),
++            (tr) => tr.firstChild.textContent);
++        assert.deepEqual(pins(), ['clock', 'clock network delay',
++                                  'r1/QN', 'u1/Y', 'r2/D']);
++        // the summary row's time is the arrival at the register's clock pin,
++        // and with the source at 0 its delay (the insertion) is the same
++        const summary = widget._detailTable.querySelectorAll('tbody tr')[1];
++        const summaryTime = summary.children[3].textContent;
++        assert.equal(summary.children[4].textContent, summaryTime);
++
++        // clicking the summary highlights the register's clock pin
++        app.requests.length = 0;
++        widget._selectDetailRow(1);
++        const hl = app.requests.find((r) => r.type === 'timing_highlight');
++        assert.equal(hl.pin_name, 'r1/CLK');
++
++        widget._expandClockBox.checked = true;
++        widget._expandClockBox.dispatchEvent(new window.Event('change'));
++        assert.equal(pins().length, 7);
++        assert.equal(pins()[3], 'r1/CLK');
++        const clkRow = widget._detailTable.querySelectorAll('tbody tr')[3];
++        assert.equal(clkRow.children[3].textContent, summaryTime);
++    });
++});

@@ -1,0 +1,199 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] web: the slack histogram names its clocks and periods
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The Qt GUI's endpoint-slack histogram titles its axis "Slack [ps],
+Clocks: <name> <period>, ...", two clocks on the first line and three
+on each after: the period is what every slack is measured against. The
+web viewer wrote "Slack [ps]" alone.
+
+The slack histogram reply now carries `clocks` (the filter's clock, or
+every clock), each with its period in the reply's time unit, and the
+chart draws the title as Qt does, in at most two lines, the second then
+saying how many clocks it left out.
+---
+diff --git a/src/web/src/charts-widget.js b/src/web/src/charts-widget.js
+index d3fbce5..f831fe0 100644
+--- a/src/web/src/charts-widget.js
++++ b/src/web/src/charts-widget.js
+@@ -162,6 +162,31 @@ function computeLogYAxis(maxCount) {
+     return { yMax: topDecade, yTicks: ticks };
+ }
+ 
++// The slack axis title, as the Qt GUI writes it: the unit, then every clock
++// the endpoints are timed against with its period, two clocks on the first
++// line and three on each after.  Returns the lines; at most `maxLines`, the
++// last one then saying how many clocks it left out.
++export function slackAxisTitle(unit, clocks, maxLines = 2) {
++    let first = `Slack [${unit}]`;
++    if (!clocks || clocks.length === 0) return [first];
++    const fmt = (c) => {
++        const p = Math.abs(c.period) < 1
++            ? Math.round(c.period * 1000) / 1000 : c.period;
++        return `${c.name} ${Number(p.toFixed(3))}`;
++    };
++    const lines = [`${first}, Clocks: ` + clocks.slice(0, 2).map(fmt).join(', ')];
++    for (let i = 2; i < clocks.length; i += 3) {
++        lines.push(clocks.slice(i, i + 3).map(fmt).join(', '));
++    }
++    if (lines.length > maxLines) {
++        const shown = 2 + 3 * (maxLines - 1) - 3;
++        const kept = lines.slice(0, maxLines - 1);
++        kept.push(`… and ${clocks.length - shown} more clocks`);
++        return kept;
++    }
++    return lines;
++}
++
+ // Build CSV text for a histogram (bins + optional stacked series) or a line
+ // chart.  Pure — extracted for testability.
+ export function buildChartCsv(kind, data) {
+@@ -631,10 +656,11 @@ export class ChartsWidget {
+         ctx.textAlign = 'center';
+         ctx.textBaseline = 'top';
+         let xTitle;
+-        if (tab === 'fanout') xTitle = 'Fanout (loads)';
+-        else if (tab === 'netlength') xTitle = `Net length [${unit}]`;
+-        else xTitle = `Slack [${unit}]`;
+-        ctx.fillText(xTitle, (ca.left + ca.right) / 2, ca.bottom + 22);
++        if (tab === 'fanout') xTitle = ['Fanout (loads)'];
++        else if (tab === 'netlength') xTitle = [`Net length [${unit}]`];
++        else xTitle = slackAxisTitle(unit, this._histogramData.clocks);
++        xTitle.forEach((line, i) => ctx.fillText(
++            line, (ca.left + ca.right) / 2, ca.bottom + 22 + 13 * i));
+     }
+ 
+     _drawBars(ctx) {
+diff --git a/src/web/src/timing_report.cpp b/src/web/src/timing_report.cpp
+index 90cb0f5..daf0e74 100644
+--- a/src/web/src/timing_report.cpp
++++ b/src/web/src/timing_report.cpp
+@@ -522,7 +522,14 @@ SlackHistogramResult TimingReport::getSlackHistogram(
+ 
+   sta_->ensureGraph();
+   sta_->searchPreamble();
+-  result.time_unit = sta_->units()->timeUnit()->scaleAbbrevSuffix();
++  sta::Unit* time_unit = sta_->units()->timeUnit();
++  result.time_unit = time_unit->scaleAbbrevSuffix();
++  for (sta::Clock* clk : sta_->cmdScene()->sdc()->clocks()) {
++    if (clock_name.empty() || clock_name == clk->name()) {
++      result.clocks.push_back(
++          {clk->name(), static_cast<float>(time_unit->staToUser(clk->period()))});
++    }
++  }
+ 
+   // Build (group_name, slacks) entries.  Multiple entries → stacked series.
+   std::vector<std::pair<std::string, std::vector<float>>> group_slacks;
+@@ -958,6 +965,15 @@ boost::json::object serializeSlackHistogram(const SlackHistogramResult& h)
+   o["unconstrained_count"] = h.unconstrained_count;
+   o["total_endpoints"] = h.total_endpoints;
+   o["time_unit"] = h.time_unit;
++  boost::json::array clocks;
++  clocks.reserve(h.clocks.size());
++  for (const auto& c : h.clocks) {
++    boost::json::object co;
++    co["name"] = c.name;
++    co["period"] = c.period;
++    clocks.emplace_back(std::move(co));
++  }
++  o["clocks"] = std::move(clocks);
+   if (!h.series.empty()) {
+     boost::json::array series;
+     series.reserve(h.series.size());
+diff --git a/src/web/src/timing_report.h b/src/web/src/timing_report.h
+index b92af37..e2b49ee 100644
+--- a/src/web/src/timing_report.h
++++ b/src/web/src/timing_report.h
+@@ -69,12 +69,22 @@ struct SlackHistogramSeries
+   std::vector<int> counts;
+ };
+ 
++// A clock the histogram's endpoints are timed against, for the axis title
++// (Qt's "Clocks: <name> <period>").
++struct SlackHistogramClock
++{
++  std::string name;
++  float period;  // in time_unit
++};
++
+ struct SlackHistogramResult
+ {
+   std::vector<SlackHistogramBin> bins;
+   int unconstrained_count = 0;
+   int total_endpoints = 0;
+   std::string time_unit;
++  // The filter's clock, or every clock when none is given.
++  std::vector<SlackHistogramClock> clocks;
+   // Per-path-group breakdown over the same bin edges.  Empty for the single
+   // aggregate histogram; populated when multiple path groups are requested.
+   std::vector<SlackHistogramSeries> series;
+diff --git a/src/web/test/cpp/TestSaveReport.cpp b/src/web/test/cpp/TestSaveReport.cpp
+index 7252103..984f4d9 100644
+--- a/src/web/test/cpp/TestSaveReport.cpp
++++ b/src/web/test/cpp/TestSaveReport.cpp
+@@ -347,9 +347,12 @@ TEST_F(SaveReportTest, SerializeSlackHistogramRoundTrip)
+   h.unconstrained_count = 5;
+   h.total_endpoints = 35;
+   h.time_unit = "ns";
++  h.clocks.push_back({"core_clock", 0.473f});
+ 
+   const std::string json = boost::json::serialize(serializeSlackHistogram(h));
+ 
++  EXPECT_TRUE(contains(json, "\"clocks\":"));
++  EXPECT_TRUE(contains(json, "\"core_clock\""));
+   EXPECT_TRUE(contains(json, "\"bins\":"));
+   EXPECT_TRUE(contains(json, "\"unconstrained_count\":5"));
+   EXPECT_TRUE(contains(json, "\"total_endpoints\":35"));
+diff --git a/src/web/test/js/test-charts-widget.js b/src/web/test/js/test-charts-widget.js
+index 28b1548..2cc1338 100644
+--- a/src/web/test/js/test-charts-widget.js
++++ b/src/web/test/js/test-charts-widget.js
+@@ -6,7 +6,7 @@ import { describe, it } from 'node:test';
+ import assert from 'node:assert/strict';
+ import {
+     ChartsWidget,
+-    computeHistogramLayout, hitTestColumn, buildChartCsv,
++    computeHistogramLayout, hitTestColumn, buildChartCsv, slackAxisTitle,
+     kLeftMargin, kRightMargin, kTopMargin, kBottomMargin,
+ } from '../../src/charts-widget.js';
+ 
+@@ -497,3 +497,37 @@ describe('ChartsWidget fanout tab', () => {
+         assert.doesNotMatch(widget._statusLabel.textContent, /20 nets/);
+     });
+ });
++
++describe('slackAxisTitle', () => {
++    it('is the unit alone without clocks', () => {
++        assert.deepEqual(slackAxisTitle('ps', []), ['Slack [ps]']);
++        assert.deepEqual(slackAxisTitle('ps', undefined), ['Slack [ps]']);
++    });
++
++    it('names each clock with its period, as Qt does', () => {
++        assert.deepEqual(
++            slackAxisTitle('ps', [{ name: 'clock', period: 473 }]),
++            ['Slack [ps], Clocks: clock 473']);
++        assert.deepEqual(
++            slackAxisTitle('ns', [{ name: 'clk', period: 0.47312 }]),
++            ['Slack [ns], Clocks: clk 0.473']);
++    });
++
++    it('wraps two clocks on the first line, three after', () => {
++        const clocks = ['a', 'b', 'c', 'd', 'e'].map(
++            (name, i) => ({ name, period: 100 * (i + 1) }));
++        assert.deepEqual(slackAxisTitle('ps', clocks), [
++            'Slack [ps], Clocks: a 100, b 200',
++            'c 300, d 400, e 500',
++        ]);
++    });
++
++    it('says how many clocks it leaves out past the last line', () => {
++        const clocks = Array.from({ length: 9 },
++            (_, i) => ({ name: `c${i}`, period: 1000 }));
++        const lines = slackAxisTitle('ps', clocks);
++        assert.equal(lines.length, 2);
++        assert.equal(lines[0], 'Slack [ps], Clocks: c0 1000, c1 1000');
++        assert.equal(lines[1], '… and 7 more clocks');
++    });
++});
