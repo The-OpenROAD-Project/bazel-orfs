@@ -1,0 +1,32 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+# The stitched repair-headroom view of a parent and its blocks
+# (private/headroom.bzl's orfs_headroom): each part exported at its stage
+# by sta_part.tcl, each block's netlist renamed by sta_prefix.py, all of it
+# timed by headroom_flat.tcl with the measurements of
+# //tools/odb_debug:headroom.tcl. Consumers reach them through the macro,
+# so they are public.
+exports_files(
+    [
+        "headroom_flat.tcl",
+        "sta_part.tcl",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "sta_prefix",
+    srcs = ["sta_prefix.py"],
+    main = "sta_prefix.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "sta_prefix_test",
+    srcs = [
+        "sta_prefix.py",
+        "sta_prefix_test.py",
+    ],
+    imports = ["."],
+    main = "sta_prefix_test.py",
+)
