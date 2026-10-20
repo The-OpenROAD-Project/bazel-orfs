@@ -1,6 +1,6 @@
 ---
 name: repair-headroom
-description: Measure how much of a design's reg2reg period is left on the table after repair_timing, and in which kind of move — useful clock skew, threshold voltage, wires (placement, buffering, reseating) — against floors no repair can beat (zero wire, the one-flop loop). The odb-debug daemon's headroom tools answer for one loaded stage (a block is its abstract); orfs_headroom answers across a parent and its hardened blocks, stitched in OpenSTA, which is the answer for XiangShan-sized designs and needs a machine with memory to match. Also how to find out why repair_timing stopped (grt-stage repair arms with its own stop reasons logged). Use before tuning or blaming repair_timing, before choosing between skew, VT, sizing, a floorplan change or surgery, and when a hierarchical design's period will not come down.
+description: Measure how much of a design's reg2reg period is left on the table after repair_timing, and in which kind of move — useful clock skew, threshold voltage, wires (placement, buffering, reseating) — against the floor no repair can beat (the one-flop loop) and the zero-wire bound, which holds only at the clock arrivals as built: useful skew can go below it. The odb-debug daemon's headroom tools answer for one loaded stage (a block is its abstract); orfs_headroom answers across a parent and its hardened blocks, stitched in OpenSTA, which is the answer for XiangShan-sized designs and needs a machine with memory to match. Also how to find out why repair_timing stopped (grt-stage repair arms with its own stop reasons logged). Use before tuning or blaming repair_timing, before choosing between skew, VT, sizing, a floorplan change or surgery, and when a hierarchical design's period will not come down.
 ---
 
 ## The question
@@ -8,7 +8,10 @@ description: Measure how much of a design's reg2reg period is left on the table 
 `repair_timing` stops with WNS negative. Is that the best any repair could
 do, or is there more on the table, and where? The tools here bound it from
 both sides: what a move would win if done perfectly (skew, VT), and what
-nothing can beat (zero wire, the one-flop loop). Every number is a
+nothing can beat (the one-flop loop). Zero wire is a bound only at the
+clock arrivals as built, not a floor: useful skew gives a path more than
+one period by borrowing from its neighbours, so the period can go below
+it (Reading the answer). Every number is a
 **reg2reg period**: the clock period minus the worst register-to-register
 slack. IO paths are left out; ORFS SDCs constrain them as optimization
 targets, not as the design's period (`macro-constraints`).
@@ -42,7 +45,7 @@ Load the stage (`odb-debug`, `warm-gui`) and ask:
 | MCP tool | Answers |
 |---|---|
 | `period` | the reg2reg period, violating endpoints, TNS |
-| `floor_wire` | zero-wire floor: every wire's R and C near zero, clock wires too |
+| `floor_wire` | zero-wire bound: every wire's R and C near zero, clock wires too, at the clock arrivals as built; useful skew can beat it |
 | `floor_cycles` | one-flop-loop floor: the worst path from a flop back to itself |
 | `skew_headroom` | useful skew in timing only, hold kept |
 | `floor_retime` | retiming floor: useful skew with hold ignored, and the instances whose flops it moves |
@@ -131,6 +134,16 @@ repair stalled:
   after the undo); weigh the gain against it.
 - **Wire**: zero wire is worth 10–24 % (ariane 24 %); what of it any
   placement or buffering could recover is not answered here.
+- **Zero wire is not a floor on the period.** It times every path at the
+  clock arrivals as built, so it bounds a path's delay at zero skew only.
+  Useful skew lends a path time from the paths before and after it on the
+  same flops (launch earlier, capture later), and a path can then take
+  more than one period. Only a loop bounds that: around any cycle of
+  flops the borrowing sums to zero, so the period is at least the
+  cycle's delay over its number of flops, the one-flop loop's delay for
+  a loop through one flop. Read a period above the zero-wire bound as
+  wire plus logic at today's arrivals, and the one-flop-loop floor (and
+  `floor_retime`) as what no move at all can pass.
 - **Block abstracts at grt** timed riscv32i's parent 5 % pessimistic
   against the stitched view (668 against 634.9 ps).
 
