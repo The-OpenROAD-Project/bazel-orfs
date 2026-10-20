@@ -374,5 +374,10 @@ register and stayed at 3,276 ps, on one startpoint, for 40 rounds.
 - `tcl` has the trust model of an interactive openroad shell on the same
   machine, and the daemon listens on `127.0.0.1` only. Do not write the
   ODB from the daemon; a study wants the flow's files read-only.
+- A human who wants to look gets the link, `gui_url` (the `gui` tool;
+  `warm-gui` says how to hand it over), never the viewer's own `url` and
+  never an ssh tunnel (`ssh -L`) while the link reaches them: a tunnel
+  to the viewer's port skips the token and the idle accounting, and the
+  daemon exits under the human.
 - One daemon per `ODB_DEBUG_DIR`. Relaunching overwrites `daemon.json`;
   stop the old one first, or use another directory.

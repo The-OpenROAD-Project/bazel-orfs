@@ -52,10 +52,12 @@ def tool(name, description, params=None, required=()):
 GUI_HOW = (
     "Open gui_url in a browser on your own machine. It works over the VPN"
     " when the machine is reachable at that address; if the browser cannot"
-    " connect, check that the VPN is up and nothing blocks the port, or"
-    " tunnel it: ssh -L <port>:<address>:<port> <this machine>, then open"
-    " the link with localhost:<port>. The token in the link is the only"
-    " key to the session; do not paste it anywhere public."
+    " connect, check that the VPN is up and nothing blocks the port, and"
+    " that the link listens on the address your machine reaches (else"
+    " restart with ODB_DEBUG_GUI_BIND=<that address>). Do not tunnel with"
+    " ssh -L while the link can reach you: a tunnel to the viewer's own port"
+    " skips the token and the idle accounting. The token in the link is the"
+    " only key to the session; do not paste it anywhere public."
 )
 
 

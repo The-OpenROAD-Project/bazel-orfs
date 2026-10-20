@@ -39,8 +39,8 @@ The odb-debug daemon (`tools/odb_debug`) already was a warm, headless
    picks the likeliest stage (the one the command named; else `final`;
    after a failure, the last one that succeeded), calls `open`, and
    tells the human how to open the GUI: click the link over the VPN,
-   what to check when it does not connect, `ssh -L` as the fallback
-   without one. The warm session is not in the Bazel cache, and the
+   what to check when it does not connect, and an `ssh -L` tunnel to
+   the link's port only when the machine cannot be reached at all. The warm session is not in the Bazel cache, and the
    skill says so.
 
 First tried on ORFS's asap7 `gcd`, its final stage
