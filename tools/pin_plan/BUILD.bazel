@@ -1,3 +1,5 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
 # A macro pin plan from a placed parent (pin_plan.tcl): each hardened
 # macro's pins on the sides that face their logic, the macros' places, and
 # a report of how many pins face away. Run with orfs_run on a parent's
@@ -5,4 +7,26 @@
 exports_files(
     ["pin_plan.tcl"],
     visibility = ["//visibility:public"],
+)
+
+# Two plans of one part side by side: pins on another side, stretches and
+# macro places moved, pins facing away in each.
+py_library(
+    name = "pin_plan_diff_lib",
+    srcs = ["pin_plan_diff.py"],
+    imports = ["."],
+)
+
+py_binary(
+    name = "pin_plan_diff",
+    srcs = ["pin_plan_diff.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "pin_plan_diff_test",
+    size = "small",
+    srcs = ["pin_plan_diff_test.py"],
+    imports = ["."],
+    deps = [":pin_plan_diff_lib"],
 )
