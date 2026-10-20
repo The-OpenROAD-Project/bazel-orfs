@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Per-partition parallel synthesis.
-# Reads kept_modules.json, picks modules where index % N == partition_id,
-# and synthesizes each one. With a pinned SYNTH_KEEP_MODULES the source is
+# Synthesizes the kept module SYNTH_PARTITION_MODULE names, or reads
+# kept_modules.json and picks the modules where index % N == partition_id. With a pinned SYNTH_KEEP_MODULES the source is
 # the module's dedicated per-module RTLIL slice (produced by
 # synth_canonicalize_module.tcl, all other kept modules blackboxed);
 # with a discovered list it is the global keep checkpoint plus
@@ -13,8 +13,10 @@
 # help wall time, and there's no per-module slice that contains the top).
 #
 # Environment:
-#   SYNTH_PARTITION_ID   - this partition's index (0..N-1) or "top"
-#   SYNTH_NUM_PARTITIONS - total number of partitions
+#   SYNTH_PARTITION_MODULE - the one kept module this partition synthesizes
+#                            (pinned SYNTH_KEEP_MODULES only); else
+#   SYNTH_PARTITION_ID     - this partition's index (0..N-1) or "top"
+#   SYNTH_NUM_PARTITIONS   - total number of partitions
 #   RESULTS_DIR, SCRIPTS_DIR, etc. - standard ORFS env
 set -euo pipefail
 
@@ -77,78 +79,89 @@ if [ "${SYNTH_PARTITION_LIB:-0}" = "1" ]; then
   return 0
 fi
 
-
-PARTITION_ID=${SYNTH_PARTITION_ID:?}
-NUM_PARTITIONS=${SYNTH_NUM_PARTITIONS:?}
-KEPT_JSON="$RESULTS_DIR/kept_modules.json"
-OUTPUT="$RESULTS_DIR/partition_${PARTITION_ID}.v"
-
-# Parse module list from JSON. Module names can contain '[' and ']'
-# (slang elaborates parameterized instances to names like
-# 'foo$bar.gen_tiles[0].i_tile.gen_banks[3]'), so a greedy sed regex is
-# unsafe. Module names cannot contain '"', so extracting all quoted
-# strings and skipping the first ("modules" key) is correct.
-ALL_MODULES=$(grep -oE '"[^"]+"' "$KEPT_JSON" | tail -n +2 | sed 's/"//g')
-
-if [ "$PARTITION_ID" = "top" ]; then
-  # Top integration: synthesize the top module from the global checkpoint
-  # with every kept module blackboxed. This path retains the original
-  # behavior — top doesn't have a per-module slice, and the macro inputs
-  # aren't scoped here anyway.
-  if [ "${SYNTH_SKIP_KEEP:-0}" = "1" ]; then
-    CHECKPOINT="$RESULTS_DIR/1_1_yosys_canonicalize.rtlil"
-    # SYNTH_KEEP_MODULES carries bare names; resolve each to canonical for
-    # blackboxing. Same algorithm as synth_canonicalize_module.tcl.
-    RTLIL_MODULES_FILE=$(mktemp)
-    # Every module in the checkpoint, as yosys names it. An
-    # unparameterized module is "\name"; a parameterized one is
-    # "$paramod\name\param=value" or "$paramod$<hash>\name". Matching
-    # only the first form finds nothing in a design that parameterizes
-    # its submodules -- SERV parameterizes all of them -- and
-    # SYNTH_KEEP_MODULES then fails on names that are present under a
-    # mangled spelling.
-    grep '^module ' "$CHECKPOINT" | sed 's/^module //;s/ .*//' | grep -v '^$' > "$RTLIL_MODULES_FILE"
-    RESOLVED_MODULES=()
-    for module in $ALL_MODULES; do
-      canonical=$(rtlil_module_for "$module" "$RTLIL_MODULES_FILE")
-      if [ -z "$canonical" ]; then
-        echo "ERROR: SYNTH_KEEP_MODULES lists '$module' but it does not exist in the design." >&2
-        echo "Available modules: $(rtlil_base_names "$RTLIL_MODULES_FILE" | tr '\n' ' ')" >&2
-        rm -f "$RTLIL_MODULES_FILE"
-        exit 1
-      fi
-      RESOLVED_MODULES+=("$canonical")
-    done
-    rm -f "$RTLIL_MODULES_FILE"
-    ALL_MODULES=$(printf '%s\n' "${RESOLVED_MODULES[@]}")
-  else
-    CHECKPOINT="$RESULTS_DIR/1_1_yosys_keep.rtlil"
+if [ -n "${SYNTH_PARTITION_MODULE:-}" ]; then
+  # The partition is named by its module, not by an index into the kept
+  # list, so nothing about the list reaches its action key.
+  if [ "${SYNTH_SKIP_KEEP:-0}" != "1" ]; then
+    echo "ERROR: SYNTH_PARTITION_MODULE needs a pinned SYNTH_KEEP_MODULES (SYNTH_SKIP_KEEP=1)." >&2
+    exit 1
   fi
-  BLACKBOXES=$(echo "$ALL_MODULES" | tr '\n' ' ')
-  echo "=== Synthesizing top module: $DESIGN_NAME (blackboxes: $BLACKBOXES) ==="
-  SYNTH_CHECKPOINT="$CHECKPOINT" \
-  SYNTH_BLACKBOXES="$BLACKBOXES" \
-    "$SCRIPTS_DIR/synth.sh" \
-    "$SYNTH_TCL" \
-    "$LOG_DIR/1_2_yosys_partition_top.log"
-  cp "$RESULTS_DIR/1_2_yosys.v" "$OUTPUT"
-  exit 0
-fi
+  PARTITION_ID=$(sanitize "$SYNTH_PARTITION_MODULE")
+  OUTPUT="$RESULTS_DIR/partition_${PARTITION_ID}.v"
+  MY_MODULES=("$SYNTH_PARTITION_MODULE")
+else
+  PARTITION_ID=${SYNTH_PARTITION_ID:?}
+  NUM_PARTITIONS=${SYNTH_NUM_PARTITIONS:?}
+  KEPT_JSON="$RESULTS_DIR/kept_modules.json"
+  OUTPUT="$RESULTS_DIR/partition_${PARTITION_ID}.v"
 
-# Pick this partition's modules: index % N == partition_id
-MY_MODULES=()
-idx=0
-while IFS= read -r module; do
-  if (( idx % NUM_PARTITIONS == PARTITION_ID )); then
-    MY_MODULES+=("$module")
+  # Parse module list from JSON. Module names can contain '[' and ']'
+  # (slang elaborates parameterized instances to names like
+  # 'foo$bar.gen_tiles[0].i_tile.gen_banks[3]'), so a greedy sed regex is
+  # unsafe. Module names cannot contain '"', so extracting all quoted
+  # strings and skipping the first ("modules" key) is correct.
+  ALL_MODULES=$(grep -oE '"[^"]+"' "$KEPT_JSON" | tail -n +2 | sed 's/"//g')
+
+  if [ "$PARTITION_ID" = "top" ]; then
+    # Top integration: synthesize the top module from the global checkpoint
+    # with every kept module blackboxed. This path retains the original
+    # behavior — top doesn't have a per-module slice, and the macro inputs
+    # aren't scoped here anyway.
+    if [ "${SYNTH_SKIP_KEEP:-0}" = "1" ]; then
+      CHECKPOINT="$RESULTS_DIR/1_1_yosys_canonicalize.rtlil"
+      # SYNTH_KEEP_MODULES carries bare names; resolve each to canonical for
+      # blackboxing. Same algorithm as synth_canonicalize_module.tcl.
+      RTLIL_MODULES_FILE=$(mktemp)
+      # Every module in the checkpoint, as yosys names it. An
+      # unparameterized module is "\name"; a parameterized one is
+      # "$paramod\name\param=value" or "$paramod$<hash>\name". Matching
+      # only the first form finds nothing in a design that parameterizes
+      # its submodules -- SERV parameterizes all of them -- and
+      # SYNTH_KEEP_MODULES then fails on names that are present under a
+      # mangled spelling.
+      grep '^module ' "$CHECKPOINT" | sed 's/^module //;s/ .*//' | grep -v '^$' > "$RTLIL_MODULES_FILE"
+      RESOLVED_MODULES=()
+      for module in $ALL_MODULES; do
+        canonical=$(rtlil_module_for "$module" "$RTLIL_MODULES_FILE")
+        if [ -z "$canonical" ]; then
+          echo "ERROR: SYNTH_KEEP_MODULES lists '$module' but it does not exist in the design." >&2
+          echo "Available modules: $(rtlil_base_names "$RTLIL_MODULES_FILE" | tr '\n' ' ')" >&2
+          rm -f "$RTLIL_MODULES_FILE"
+          exit 1
+        fi
+        RESOLVED_MODULES+=("$canonical")
+      done
+      rm -f "$RTLIL_MODULES_FILE"
+      ALL_MODULES=$(printf '%s\n' "${RESOLVED_MODULES[@]}")
+    else
+      CHECKPOINT="$RESULTS_DIR/1_1_yosys_keep.rtlil"
+    fi
+    BLACKBOXES=$(echo "$ALL_MODULES" | tr '\n' ' ')
+    echo "=== Synthesizing top module: $DESIGN_NAME (blackboxes: $BLACKBOXES) ==="
+    SYNTH_CHECKPOINT="$CHECKPOINT" \
+    SYNTH_BLACKBOXES="$BLACKBOXES" \
+      "$SCRIPTS_DIR/synth.sh" \
+      "$SYNTH_TCL" \
+      "$LOG_DIR/1_2_yosys_partition_top.log"
+    cp "$RESULTS_DIR/1_2_yosys.v" "$OUTPUT"
+    exit 0
   fi
-  ((idx++)) || true
-done <<< "$ALL_MODULES"
 
-if [ ${#MY_MODULES[@]} -eq 0 ]; then
-  # No modules assigned to this partition — produce empty output
-  touch "$OUTPUT"
-  exit 0
+  # Pick this partition's modules: index % N == partition_id
+  MY_MODULES=()
+  idx=0
+  while IFS= read -r module; do
+    if (( idx % NUM_PARTITIONS == PARTITION_ID )); then
+      MY_MODULES+=("$module")
+    fi
+    ((idx++)) || true
+  done <<< "$ALL_MODULES"
+
+  if [ ${#MY_MODULES[@]} -eq 0 ]; then
+    # No modules assigned to this partition — produce empty output
+    touch "$OUTPUT"
+    exit 0
+  fi
 fi
 
 echo "Partition $PARTITION_ID: synthesizing ${#MY_MODULES[@]} modules: ${MY_MODULES[*]}"
