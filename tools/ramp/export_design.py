@@ -31,6 +31,12 @@ variables only that tool read. A flow whose floorplan dissolves register
 files placed as macros (AUTO_MEMORIES_MACRO_PLACE) is refused: its
 2_floorplan.odb no longer has them.
 
+A flow that synthesises with yosys ships yosys's netlist as built,
+1_2_yosys.v named by SYNTH_NETLIST_FILES beside its config.mk, so make skips synthesis. Every
+value that names a file made for the export, by Bazel or by the export,
+is written with ?=: `make ... SYNTH_NETLIST_FILES=` synthesises from the
+RTL.
+
 What cannot be said in one config.mk is refused, naming it and this file:
 a variable two stages set differently, a value that is an earlier stage's
 result, a mocked macro. A project with its own ORFS changes is expected to
@@ -236,6 +242,8 @@ class Inputs:
         # execroot path -> inputs-relative path, shared by a parent and
         # its blocks, which copy into the same inputs/
         self.copied = {} if copied is None else copied
+        # the variables that name a file Bazel built: config.mk says ?=
+        self.generated = set()
 
     def rewrite(self, var, value):
         """A value with each word that is a file replaced by its export path."""
@@ -251,6 +259,8 @@ class Inputs:
                     "{} names {}, an earlier stage's result: an export runs the"
                     " flow from RTL, and ORFS's make writes its own".format(var, w)
                 )
+            if src.startswith("bazel-out/"):
+                self.generated.add(var)
             rel = platform_relative(self.platform, src)
             words.append(rel if rel else "$(EXPORT_DIR)/inputs/" + self.copy(src, w))
         return " ".join(words)
@@ -283,8 +293,12 @@ class Inputs:
 MAKE_TARGET = {"final": "finish"}
 
 
-def write_config(dest, flow, merged, includes, last, depth=0, parent=None):
-    """dest/config.mk; a block's, depth directories below the export's."""
+def write_config(dest, flow, merged, includes, last, depth=0, parent=None, defaults=()):
+    """dest/config.mk; a block's, depth directories below the export's.
+
+    defaults: the variables written with ?=, the files made for this
+    export rather than written by hand.
+    """
     if parent is None:
         lines = [
             MARKER + " from {}.".format(flow),
@@ -313,6 +327,19 @@ def write_config(dest, flow, merged, includes, last, depth=0, parent=None):
             "# Synthesis reads the Verilog with slang: yosys needs the yosys-slang"
             " plugin."
         )
+    if defaults:
+        lines.append(
+            "# A ?= value is a file made for you, by Bazel or by the export:"
+            " override it"
+        )
+        lines.append("# on the make line.")
+        if "SYNTH_NETLIST_FILES" in defaults:
+            lines.append("#   make ... SYNTH_NETLIST_FILES=   synthesises from the RTL")
+        if "MACRO_PLACEMENT_TCL" in defaults:
+            lines.append(
+                "#   make ... MACRO_PLACEMENT_TCL=   places the macros with"
+                " ORFS's placer"
+            )
     lines += [
         "",
         "# The export's directory, wherever it is copied to.",
@@ -322,7 +349,9 @@ def write_config(dest, flow, merged, includes, last, depth=0, parent=None):
         "",
     ]
     for k in [k for k in FIRST if k in merged] + sorted(set(merged) - set(FIRST)):
-        lines.append("export {} = {}".format(k, merged[k]))
+        lines.append(
+            "export {} {} {}".format(k, "?=" if k in defaults else "=", merged[k])
+        )
     for inc in includes:
         lines.append("include {}".format(inc))
     with open(os.path.join(dest, "config.mk"), "w") as f:
@@ -529,6 +558,30 @@ def snapshot(ws, execroot, design, dest, openroad):
     return "$(EXPORT_DIR)/" + os.path.join(design.rel, "macro_placement.tcl")
 
 
+def wants_netlist(merged):
+    """Whether a flow's export ships the netlist Bazel's yosys made.
+
+    Not for SYNTH_USE_SYN: ORFS's OpenROAD synthesis ignores a netlist.
+    Not where the flow names its own.
+    """
+    return merged.get("SYNTH_USE_SYN") != "1" and "SYNTH_NETLIST_FILES" not in merged
+
+
+def netlist(ws, execroot, design, dest):
+    """design's yosys netlist, 1_2_yosys.v, beside its config.mk, as config.mk
+    names it: the file ORFS's synthesis copies SYNTH_NETLIST_FILES to."""
+    synth = design.targets[0][1]
+    build(ws, "1_2_yosys.v", [synth])
+    v = [f for f in group_files(ws, synth, "1_2_yosys.v") if f.endswith("1_2_yosys.v")]
+    if len(v) != 1:
+        refuse("{} has no one 1_2_yosys.v: {}".format(synth, v))
+    to = os.path.join(dest, design.rel, "1_2_yosys.v")
+    os.makedirs(os.path.dirname(to), exist_ok=True)
+    shutil.copy2(os.path.join(execroot, v[0]), to)
+    os.chmod(to, os.stat(to).st_mode | 0o200)
+    return "$(EXPORT_DIR)/" + os.path.join(design.rel, "1_2_yosys.v")
+
+
 def read_stages(ws, execroot, design, abstracts=False):
     """(stage configs, manifest, includes, where) of a design's stages.
 
@@ -665,6 +718,10 @@ def export_flow(
                     design.label
                 )
             )
+        made = set()
+        if wants_netlist(merged):
+            merged["SYNTH_NETLIST_FILES"] = netlist(ws, execroot, design, dest)
+            made.add("SYNTH_NETLIST_FILES")
         if snapshot_macros:
             placement = snapshot(
                 ws,
@@ -675,6 +732,7 @@ def export_flow(
             )
             if placement:
                 merged["MACRO_PLACEMENT_TCL"] = placement
+                made.add("MACRO_PLACEMENT_TCL")
         here = os.path.join(dest, design.rel)
         os.makedirs(here, exist_ok=True)
         inputs = Inputs(
@@ -691,6 +749,7 @@ def export_flow(
             last,
             depth=depth,
             parent=None if parent is None else parent[0],
+            defaults=made | inputs.generated,
         )
         if parent is None:
             steps = next_step(dest, merged, last)

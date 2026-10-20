@@ -111,6 +111,19 @@ class StripPreLayoutTest(unittest.TestCase):
         self.assertEqual(export_design.strip_pre_layout(stages), stages)
 
 
+class NetlistTest(unittest.TestCase):
+    def test_a_yosys_flow_ships_its_netlist(self):
+        self.assertTrue(export_design.wants_netlist({"DESIGN_NAME": "mac"}))
+
+    def test_not_for_openroad_synthesis(self):
+        self.assertFalse(export_design.wants_netlist({"SYNTH_USE_SYN": "1"}))
+
+    def test_not_over_a_flows_own(self):
+        self.assertFalse(
+            export_design.wants_netlist({"SYNTH_NETLIST_FILES": "pkg/n.v"})
+        )
+
+
 class InputsTest(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.mkdtemp(dir=os.environ.get("TEST_TMPDIR"))
@@ -134,6 +147,11 @@ class InputsTest(unittest.TestCase):
             ),
         }
         self.inputs = Inputs(self.execroot, self.dest, manifest, "asap7", "pkg")
+
+    def test_a_file_bazel_built_is_generated(self):
+        self.inputs.rewrite("VERILOG_FILES", "pkg/rtl/top.v pkg/gen.v")
+        self.inputs.rewrite("SDC_FILE", "other/c.sdc")
+        self.assertEqual(self.inputs.generated, {"VERILOG_FILES"})
 
     def test_copies_inputs_under_their_package_path(self):
         value = self.inputs.rewrite("VERILOG_FILES", "pkg/rtl/top.v pkg/gen.v")
@@ -266,6 +284,26 @@ class OrfsTest(unittest.TestCase):
             "export EXPORT_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/..)\n",
             text,
         )
+
+    def test_what_was_made_for_the_export_is_a_default(self):
+        export_design.write_config(
+            self.dest,
+            "//pkg:gcd",
+            dict(
+                self.merged,
+                SYNTH_NETLIST_FILES="$(EXPORT_DIR)/1_2_yosys.v",
+                VERILOG_FILES="$(EXPORT_DIR)/inputs/gcd.v",
+            ),
+            [],
+            "final",
+            defaults={"SYNTH_NETLIST_FILES"},
+        )
+        with open(os.path.join(self.dest, "config.mk")) as f:
+            text = f.read()
+        self.assertIn("export SYNTH_NETLIST_FILES ?= $(EXPORT_DIR)/1_2_yosys.v\n", text)
+        self.assertIn("export VERILOG_FILES = $(EXPORT_DIR)/inputs/gcd.v\n", text)
+        self.assertIn("make ... SYNTH_NETLIST_FILES=", text)
+        self.assertNotIn("MACRO_PLACEMENT_TCL=", text)
 
 
 if __name__ == "__main__":
