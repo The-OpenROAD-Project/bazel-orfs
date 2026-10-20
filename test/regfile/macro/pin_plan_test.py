@@ -1,5 +1,7 @@
 """The pin plan (//tools/pin_plan) puts the register file's pins where their
-logic is: after it, fewer of the macro's pins face away from their logic."""
+logic is: after it, fewer than one pin in ten faces away from its logic.
+Fewer than before is not enough: the parent placing the base flow's
+register file, not the planned one, still moved 240 to 59."""
 
 import re
 import sys
@@ -24,6 +26,7 @@ class PinPlanTest(unittest.TestCase):
         self.assertEqual(pins0, pins1, before + after)
         self.assertGreater(away0, 0, "nothing to plan:\n" + before)
         self.assertLess(away1, away0, before + after)
+        self.assertLess(away1 * 10, pins1, before + after)
 
 
 if __name__ == "__main__":

@@ -229,6 +229,10 @@ orfs_flow(
         "PLACE_DENSITY": "0.6",
         "SYNTH_HDL_FRONTEND": "slang",
     },
+    # a pin plan changes nothing synthesis reads; only a flow without
+    # macros can share it: a later stage takes its macros from its src,
+    # synthesis, and would place the base flow's
+    previous_stage = {"floorplan": ":RegFile_synth"},
     sources = {
         "AUTO_MEMORIES_REGFILES": [":RegFile.regfile"],
         "IO_CONSTRAINTS": [":RegFile_pins.tcl"],
@@ -260,6 +264,43 @@ orfs_flow(
     top = "wide_top",
     variant = "pinplan",
     verilog_files = [":wide_top.sv"],
+)
+
+# The same plan from wide_top through global route (wide_top_grt_hr, the
+# same settings as wide_top_hard), side by side with the plan from its
+# placement: does a plan need the route, or does the placement say it?
+orfs_run(
+    name = "wide_top_pin_plan_grt",
+    src = ":wide_top_grt_hr_grt",
+    outs = [
+        "grt/RegFile_pins.tcl",
+        "grt/wide_top_macros.tcl",
+        "grt/wide_top_pins_before.txt",
+    ],
+    script = "//tools/pin_plan:pin_plan.tcl",
+    tags = ["manual"],
+    user_arguments = {
+        "PINS_OUT": "RegFile $(location grt/RegFile_pins.tcl) 0 0",
+        "PIN_PLAN_PLACEMENT": "$(location grt/wide_top_macros.tcl)",
+        "PIN_PLAN_REPORT": "$(location grt/wide_top_pins_before.txt)",
+        "PIN_PLAN_STAGE": "5_1_grt",
+    },
+)
+
+genrule(
+    name = "wide_top_pin_plan_diff",
+    srcs = [
+        "wide_top_pins_before.txt",
+        "grt/wide_top_pins_before.txt",
+        "wide_top_macros.tcl",
+        "grt/wide_top_macros.tcl",
+        "RegFile_pins.tcl",
+        "grt/RegFile_pins.tcl",
+    ],
+    outs = ["wide_top_pin_plan_diff.txt"],
+    cmd = "$(execpath //tools/pin_plan:pin_plan_diff) $@ place grt $(SRCS)",
+    tags = ["manual"],
+    tools = ["//tools/pin_plan:pin_plan_diff"],
 )
 
 orfs_run(
