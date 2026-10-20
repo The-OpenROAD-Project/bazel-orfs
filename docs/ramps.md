@@ -183,6 +183,33 @@ does not, ORFS unsets it before each block's make.
 read in the first, yosys from the RTL in the second, and in both a
 `2_floorplan.odb` the same as Bazel's.
 
+### What else an export carries
+
+- **`EXPORT.md`**: the command that made the export, the commit, ORFS,
+  OpenROAD and yosys as Bazel pinned them, and their carried patches
+  under `patches/<tool>/`, numbered in the order they apply. An ORFS
+  without them ignores a variable it does not know, silently.
+- **`reference/`**: what Bazel's build measured, for each stage that is
+  cached: every step's elapsed time, peak memory and output sha1 from the
+  stage logs, and the logs and metrics themselves. It never runs a stage
+  to get them.
+- **`--start <stage>`**: the stage's inputs from the stages before it,
+  as Bazel built them, laid out as ORFS's work tree under
+  `start/<stage>/`. Copy it into `flow/` and make runs from that stage on:
+
+  ```sh
+  cp -rp <export>/start/place/. <ORFS>/flow/
+  make -C <ORFS>/flow DESIGN_CONFIG=<export>/config.mk do-place do-cts do-grt do-route do-final
+  ```
+
+  `//examples/generated:mac --start place`, round-tripped: make's
+  `3_place.odb` the same as Bazel's, to every cell's location.
+- **`--cached-only`**: no flow stage runs. The export builds the RTL and
+  takes the rest from the cache; what is optional and not cached (the
+  netlist, the snapshot) is left out, and `EXPORT.md` says so. A design
+  whose stages take hours exports in minutes, from what other machines
+  built.
+
 ### Blocks and a macro placement snapshot
 
 A flow whose macros are flows of their own exports the way ORFS writes a
