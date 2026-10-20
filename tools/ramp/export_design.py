@@ -696,8 +696,15 @@ def wants_netlist(merged):
 
     Not for SYNTH_USE_SYN: ORFS's OpenROAD synthesis ignores a netlist.
     Not where the flow names its own.
+    Not with AUTO_MEMORIES: ORFS's extract_memories.tcl sources
+    synth_preamble.tcl, which copies the netlist and exits before reading
+    the RTL, so memories_inferred.json, the memories' views, is never made.
     """
-    return merged.get("SYNTH_USE_SYN") != "1" and "SYNTH_NETLIST_FILES" not in merged
+    return (
+        merged.get("SYNTH_USE_SYN") != "1"
+        and "SYNTH_NETLIST_FILES" not in merged
+        and merged.get("AUTO_MEMORIES") != "1"
+    )
 
 
 def netlist(ws, execroot, design, dest, cached_only=False):
@@ -1213,6 +1220,14 @@ def export_flow(
                 )
             )
         made = set()
+        if merged.get("AUTO_MEMORIES") == "1" and wants_netlist(
+            dict(merged, AUTO_MEMORIES="0")
+        ):
+            notes.append(
+                "- {}'s netlist: with AUTO_MEMORIES, ORFS's memory extraction"
+                " skips the RTL when SYNTH_NETLIST_FILES is set, so make"
+                " synthesises from the RTL.".format(design.label)
+            )
         if wants_netlist(merged):
             v = netlist(ws, execroot, design, dest, cached_only)
             if v:
