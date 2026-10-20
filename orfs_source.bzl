@@ -71,11 +71,6 @@ ORFS_PATCHES = [
     Label("//patches:0068-orfs-synth-techmap-hook.patch"),
     Label("//patches:0073-orfs-fakeram-declared-pins-write-mask.patch"),
     Label("//patches:0074-orfs-skip-extract-fa.patch"),
-    # With GPL_TIMING_DRIVEN and GPL_ROUTABILITY_DRIVEN both off, the place
-    # stage runs one global placement with -place_ios instead of a
-    # pins-blind solve, place_pins and a second solve. Not upstreamed --
-    # retire at a bump onto an ORFS that places pins with global placement.
-    Label("//patches:0077-orfs-gpl-place-ios.patch"),
     # 0083: the macro step skips rtl_macro_placer when MACRO_PLACEMENT_TCL
     # fixed every macro (a planned parent: its blocks and register files
     # placed by the plan). Written for the FIRM cells of the retired
