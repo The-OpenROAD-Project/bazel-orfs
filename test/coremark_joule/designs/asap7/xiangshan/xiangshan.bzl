@@ -1092,7 +1092,7 @@ XS_ANNEAL_CHANNEL_UM = {
 # odb-debug in seconds instead.
 _PLAN_DROPS = ["CORE_UTILIZATION", "CORE_ASPECT_RATIO", "CORE_MARGIN", "DETAIL_PLACEMENT_ARGS"]
 
-def _regfile_macro(spec, made, tags, outlines = {}):
+def _regfile_macro(spec, made, tags, outlines = {}, variant = None, pins = {}):
     """A generated register file as a macro of its own: its RTL module as
     a flow's top, generate_ram's netlist inlined there, implemented through
     global route like the blocks, its abstract for the parent (docs: a
@@ -1102,7 +1102,11 @@ def _regfile_macro(spec, made, tags, outlines = {}):
     outlines maps a module to the plan's outline for it, {w_um, h_um}: a
     register file the plan places in the parent is built to the outline
     the plan left for it, as a block is, or it lands on its neighbours
-    (MPL-0041). Without one, its size follows from its utilization."""
+    (MPL-0041). Without one, its size follows from its utilization.
+
+    variant names a variant of every flow; pins maps a module to a pin
+    plan's IO_CONSTRAINTS for it (//tools/pin_plan), its pins on the sides
+    that face their logic in the parent."""
     module = spec.split(":")[-1].removesuffix(".regfile")
     if module not in made:
         made[module] = True
@@ -1129,12 +1133,43 @@ def _regfile_macro(spec, made, tags, outlines = {}):
                 # a block's grid, so its parent's macro grid connects to it
                 "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
                 "SDC_FILE": ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"],
-            },
+            } | ({"IO_CONSTRAINTS": [pins[module]]} if module in pins else {}),
             stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
             tags = tags,
+            variant = variant,
             verilog_files = XS_VERILOG,
         )
-    return ":%s_generate_abstract" % module
+    return _abstract(module, variant)
+
+def _abstract(flow, variant):
+    """A flow's abstract, of its variant."""
+    if variant:
+        return ":%s_%s_generate_abstract" % (flow, variant)
+    return ":%s_generate_abstract" % flow
+
+def _pin_plan(name, stage, modules, tags):
+    """<name>_pin_plan: //tools/pin_plan on a flow's stage, its macros'
+    pins (modules) planned from where their logic sits, the macros' places,
+    and a report of the pins facing away from their logic: the pinplan
+    variant's input, built forward from this pass, never checked in."""
+    stage_odb = {"place": "3_place", "cts": "4_cts", "grt": "5_1_grt"}[stage]
+    outs = ["pin_plan/%s/%s_pins.tcl" % (name, m) for m in modules] + [
+        "pin_plan/%s/%s_macros.tcl" % (name, name),
+        "pin_plan/%s/%s_pins_report.txt" % (name, name),
+    ]
+    orfs_run(
+        name = "%s_pin_plan" % name,
+        src = ":%s_%s" % (name, stage),
+        outs = outs,
+        script = "//tools/pin_plan:pin_plan.tcl",
+        tags = tags,
+        user_arguments = {
+            "PINS_OUT": " ".join(["%s $(location pin_plan/%s/%s_pins.tcl) 0 0" % (m, name, m) for m in modules]),
+            "PIN_PLAN_PLACEMENT": "$(location pin_plan/%s/%s_macros.tcl)" % (name, name),
+            "PIN_PLAN_REPORT": "$(location pin_plan/%s/%s_pins_report.txt)" % (name, name),
+            "PIN_PLAN_STAGE": stage_odb,
+        },
+    )
 
 # a planned register file's core inside its outline: no ring on a
 # macro's BLOCK grid, so only the row and pin clearance
@@ -1238,7 +1273,7 @@ def _sta_part(part, arguments, sources, tags, ilm = False):
         },
     )
 
-def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan_dir = "plan"):
+def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan_dir = "plan", variant = None):
     """The plan's blocks, each implemented through global route, then the parent.
 
     `plan` is the PLAN dict plan_floorplan.py --emit wrote to
@@ -1252,19 +1287,40 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     route's parasitics; the parent's synthesis, floorplan and place read
     the place-stage abstract the flow emits beside it. Every part's KPI is
     read at grt.
+
+    Without a variant, <part>_pin_plan plans each part's register-file
+    pins and macro places from its grt (//tools/pin_plan). With one, every
+    flow is that variant of itself and reads those plans, forward from the
+    base flow in one graph: the register files' pins on the sides facing
+    their logic, each block's macros where the plan was made. The KPI and
+    the stitched views stay the base flow's.
     """
     macros = sorted(plan["macros"].keys())
     made = {}
+
+    # each register file's pins from the plan of the part it is a macro of
+    pins = {}
+    places = {}
+    if variant:
+        for block in macros:
+            entry = plan["macros"][block]
+            cfg = blocks.get(block, XS_BLOCK_DEFAULT)
+            places[block] = ":pin_plan/%s/%s_macros.tcl" % (block, block)
+            for m in _regfiles(cfg["sources"], entry.get("SYNTH_KEEP_MODULES", ""), blocks):
+                module = m.split(":")[-1].removesuffix(".regfile")
+                pins[module] = ":pin_plan/%s/%s_pins.tcl" % (block, module)
     for block in macros:
         cfg = blocks.get(block, XS_BLOCK_DEFAULT)
         if block in XS_ANNEAL_CHANNEL_UM:
             cfg = dict(cfg, user_arguments = cfg["user_arguments"] | {"ANNEAL_CHANNEL_UM": XS_ANNEAL_CHANNEL_UM[block]})
         entry = plan["macros"][block]
         arguments, sources = _planned_block(cfg, entry, plan_dir, block, blocks)
-        regfiles = [
-            _regfile_macro(m, made, tags)
-            for m in _regfiles(cfg["sources"], entry.get("SYNTH_KEEP_MODULES", ""), blocks)
-        ]
+        modules = _regfiles(cfg["sources"], entry.get("SYNTH_KEEP_MODULES", ""), blocks)
+        regfiles = [_regfile_macro(m, made, tags, variant = variant, pins = pins) for m in modules]
+        if block in places:
+            # the macros where the pin plan's placement put them, so the
+            # planned pins face their logic
+            sources = dict(sources, MACRO_PLACEMENT_TCL = [places[block]])
 
         # The parent places the block's footprint, its outline scaled so its
         # core holds the block's content at the plan's block_density; the
@@ -1289,11 +1345,15 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             user_arguments = cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS,
             user_sources = cfg["user_sources"] | XS_ICG_USER_SOURCES,
             user_stages = _user_stages(cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS, cfg["user_sources"] | XS_ICG_USER_SOURCES),
+            variant = variant,
             verilog_files = XS_VERILOG,
             **mock
         )
+        if variant:
+            continue
         _kpi(block, "grt", arguments, sources, tags)
         _sta_part(block, arguments, sources, tags, ilm = True)
+        _pin_plan(block, "grt", [m.split(":")[-1].removesuffix(".regfile") for m in modules], tags)
     arguments = {k: v for k, v in parent["arguments"].items() if k not in _PLAN_DROPS}
     arguments["DIE_AREA"] = plan["parent"]["DIE_AREA"]
     arguments["CORE_AREA"] = plan["parent"]["CORE_AREA"]
@@ -1356,7 +1416,16 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
 
     # the parent's register files are macros of their own (_regfile_macro)
     outlines = {n["module"]: n for n in plan["parent"].get("netlists", [])}
-    parent_regfiles = [_regfile_macro(m, made, tags, outlines) for m in _regfiles(parent["sources"], parent_keep, blocks)]
+    parent_modules = _regfiles(parent["sources"], parent_keep, blocks)
+    if variant:
+        for m in parent_modules:
+            module = m.split(":")[-1].removesuffix(".regfile")
+            pins[module] = ":pin_plan/%s/%s_pins.tcl" % (name, module)
+    if variant:
+        for m in parent_modules:
+            module = m.split(":")[-1].removesuffix(".regfile")
+            pins[module] = ":pin_plan/%s/%s_pins.tcl" % (name, module)
+    parent_regfiles = [_regfile_macro(m, made, tags, outlines, variant = variant, pins = pins) for m in parent_modules]
     sources.pop("AUTO_MEMORIES_REGFILES", None)
 
     # the plan's blocks and register files, placed by the plan
@@ -1379,7 +1448,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     orfs_flow(
         name = name,
         arguments = arguments,
-        macros = [":%s_generate_abstract" % b for b in macros] + parent_regfiles,
+        macros = [_abstract(b, variant) for b in macros] + parent_regfiles,
         # The parent repairs setup at global route, with the route's
         # parasitics: 3,276 to 2,406 ps on #1187's tip (KPI row 15), its
         # worst paths a mass of CtrlBlock control that the repairs before
@@ -1394,9 +1463,13 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         user_arguments = user_arguments | XS_ICG_USER_ARGUMENTS,
         user_sources = user_sources | XS_ICG_USER_SOURCES,
         user_stages = _user_stages(user_arguments | XS_ICG_USER_ARGUMENTS, user_sources | XS_ICG_USER_SOURCES),
+        variant = variant,
         verilog_files = XS_VERILOG,
         visibility = ["//visibility:public"],
     )
+    if variant:
+        return
+    _pin_plan(name, "grt", [m.split(":")[-1].removesuffix(".regfile") for m in parent_modules], tags)
     _kpi(name, "grt", arguments, sources, tags)
     _sta_part(name, arguments, sources, tags)
     parts = [name] + list(macros)
