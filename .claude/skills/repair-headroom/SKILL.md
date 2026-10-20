@@ -26,6 +26,15 @@ until repair leaves violations, and measure there. With every VT loaded,
 aes-block closed at 405 ps and stalled at 365; riscv32i closed down to
 770 ps and stalled at 620.
 
+The opposite case is a design whose SDC asks far less than anyone hopes to
+reach, so that nearly every endpoint violates: XiangShan's tile asks
+473 ps against a 2,000 ps goal. Its violating count and TNS say nothing;
+the period alone says where one path went. Give a **target** (`period` and
+`headroom` take `target`, `orfs_headroom` takes `target = 2000`): every
+measurement then also counts the reg2reg endpoints at or over it and their
+total excess over it, the mass a move has to shift, and that is what to
+compare.
+
 ## Step 2 — one stage, through the odb-debug daemon
 
 Load the stage (`odb-debug`, `warm-gui`) and ask:
@@ -36,6 +45,7 @@ Load the stage (`odb-debug`, `warm-gui`) and ask:
 | `floor_wire` | zero-wire floor: every wire's R and C near zero, clock wires too |
 | `floor_cycles` | one-flop-loop floor: the worst path from a flop back to itself |
 | `skew_headroom` | useful skew in timing only, hold kept |
+| `floor_retime` | retiming floor: useful skew with hold ignored, and the instances whose flops it moves |
 | `vt_headroom` | the data cells of the cones at the fastest VT loaded, and its leakage cost |
 | `headroom` | all of them in one table, each with its gain in percent, and how each stage ended |
 
@@ -61,6 +71,7 @@ orfs_headroom(
     parent = "cpu",                    # the parent's module name
     parent_stage = ":cpu_grt",
     blocks = {"alu": ":alu_grt", "regfile": ":regfile_grt"},
+    target = 2000,                     # optional: count the mass over it
 )
 ```
 
@@ -69,7 +80,9 @@ at its stage, stitches them in OpenSTA with every block's real cells in
 place of its abstract (a block used N times is placed N times), and runs
 the same measurements (`tools/odb_debug/headroom.tcl`). `cpu_headroom.json`
 has the period, `floor_cycles`, `skew` (its moves split `moved_parent` /
-`moved_block`) and `vt` / `vt_parent_only`; `cpu_headroom_nowire.json` the
+`moved_block`), `floor_retime` and `vt` / `vt_parent_only`, each with
+`over_target` / `excess_target` when a target is given;
+`cpu_headroom_nowire.json` the
 zero-wire floor. Measure at grt: the blocks' abstracts there carry their
 clock trees and the route's parasitics.
 
@@ -95,6 +108,20 @@ repair stalled:
   aes-block has 296 flops on one-flop loops (its round state), so neither
   can pass 347.5 ps there. Yosys retiming (`SYNTH_RETIME_MODULES`, `abc
   -dff`, unverified) made aes-block worse: 406 against 386 ps.
+- **Retiming** has something to work with only where `floor_retime` is
+  below the period. Moving a register through its logic shifts the same
+  path delays a clock arrival does, in whole gates, and the hold it breaks
+  can be padded; so it cannot pass the balance skew reaches with hold
+  ignored, set by the loops through the registers (their delay per
+  register), and the one-flop-loop floor is a floor of that floor. The gap
+  between `floor_retime` and `skew` is what hold costs skew and does not
+  cost retiming. `top_moved` lists the instances whose flops the balance
+  moves most ("instance flops ps"): a retiming tool works inside one
+  module, never across a hardened block or a memory, so these are the
+  `SYNTH_RETIME_MODULES` candidates, each with its loops inside it or not
+  worth trying. A retimed module is not the RTL's state: prove it
+  equivalent (sequential equivalence with a negative control, `surgery`),
+  or do not ship it.
 - **VT** that repair left: riscv32i −4.9 % in the parent's own cells;
   aes-block −6.9 %, all of it inside its sbox blocks. A block is repaired
   against its own SDC; when that SDC asks less than the parent's paths

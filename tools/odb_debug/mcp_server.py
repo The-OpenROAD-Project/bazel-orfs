@@ -198,12 +198,19 @@ ENDS = (
 )
 
 
+TARGET = (
+    "number",
+    "A target period in the liberty's time unit: also count the reg2reg endpoints at or over it and their total excess, the mass a move has to shift. Use it when the SDC asks far less than the goal, so nearly every endpoint violates and TNS says nothing. Stays set for the measurements after it",
+)
+
+
 @tool(
     "period",
-    "The stage's reg2reg period (clock period minus the worst reg2reg slack over every endpoint), its violating reg2reg endpoints and their TNS. The measure the headroom tools compare against. Needs timing loaded.",
+    "The stage's reg2reg period (clock period minus the worst reg2reg slack over every endpoint), its violating reg2reg endpoints and their TNS; with a target, the endpoints at or over it and their excess. The measure the headroom tools compare against. Needs timing loaded.",
+    {"target": TARGET},
 )
 def _period(d, a):
-    return d.period()
+    return d.period(a.get("target", 0))
 
 
 @tool(
@@ -233,6 +240,15 @@ def _skew_headroom(d, a):
 
 
 @tool(
+    "floor_retime",
+    "Retiming floor: useful skew with hold ignored, which no retiming can pass; the gap to the period is the most retiming could win, none means it has nothing to work with. top_moved names the instances whose flops would move: a retiming tool works inside one module. Needs timing loaded.",
+    {"ends": ENDS},
+)
+def _floor_retime(d, a):
+    return d.floor_retime(a.get("ends", 0))
+
+
+@tool(
     "vt_headroom",
     "Threshold-voltage headroom: the reg2reg period with every data cell of the worst cones at the fastest VT the stage loaded, then put back. Reports which VTs the cones use (one VT loaded means nothing to swap to) and the design's leakage before, with the swap and after the undo. Needs timing loaded.",
     {"ends": ENDS},
@@ -243,11 +259,11 @@ def _vt_headroom(d, a):
 
 @tool(
     "headroom",
-    "All repair-headroom measurements on the loaded stage in one table: the period, the zero-wire and one-flop-loop floors, useful skew and VT, each with its gain in percent, and how each flow stage ended (setup WNS, TNS, violations from its metrics): a stage that met timing measures nothing. The stage alone: a block is its abstract; across blocks, use the stitched view (.claude/skills/repair-headroom). Minutes to hours on a large design. Needs timing loaded.",
-    {"ends": ENDS},
+    "All repair-headroom measurements on the loaded stage in one table: the period, the zero-wire, one-flop-loop and retiming floors, useful skew and VT, each with its gain in percent, and how each flow stage ended (setup WNS, TNS, violations from its metrics): a stage that met timing measures nothing. The stage alone: a block is its abstract; across blocks, use the stitched view (.claude/skills/repair-headroom). Minutes to hours on a large design. Needs timing loaded.",
+    {"ends": ENDS, "target": TARGET},
 )
 def _headroom(d, a):
-    return d.headroom(a.get("ends", 0))
+    return d.headroom(a.get("ends", 0), a.get("target", 0))
 
 
 @tool(

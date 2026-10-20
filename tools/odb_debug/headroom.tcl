@@ -26,14 +26,25 @@ proc hr_clock_period {} {
   return [get_property [lindex [all_clocks] 0] period]
 }
 
+# A target period, in the liberty's time unit; 0 is none. A design whose
+# SDC asks far less than anyone hopes to reach (XiangShan's tile: 473 ps
+# against a 2,000 ps goal) violates at nearly every endpoint, so the
+# violating count and TNS say nothing; the endpoints at or over the target
+# and their excess over it are the mass a move has to shift.
+set ::hr_target 0
+
 # The reg2reg period (clock period minus the worst reg2reg slack), its
-# violating endpoints and their total negative slack. The worst slack is
+# violating endpoints and their total negative slack, and with a target
+# the endpoints at or over it and their total excess. The worst slack is
 # taken over every endpoint's own worst path: the single worst-path search
 # was seen to differ by a few ps between two calls on an unchanged design.
 proc hr_period {} {
   set worst ""
   set viol 0
   set tns 0.0
+  set over 0
+  set excess 0.0
+  set p [hr_clock_period]
   set ends [find_timing_paths {*}[hr_r2r] -endpoint_path_count 1 \
     -group_path_count [sta::endpoint_count] -unique_paths_to_endpoint]
   foreach pe $ends {
@@ -43,13 +54,30 @@ proc hr_period {} {
       incr viol
       set tns [expr { $tns + $s }]
     }
+    if { $::hr_target > 0 && $p - $s >= $::hr_target } {
+      incr over
+      set excess [expr { $excess + $p - $s - $::hr_target }]
+    }
   }
   if { $worst eq "" } {
     error "no reg2reg paths: is the clock defined and propagated to registers?"
   }
-  return [dict create period [expr { [hr_clock_period] - $worst }] \
-    clock_period [hr_clock_period] endpoints [llength $ends] \
-    violating $viol tns $tns]
+  set d [dict create period [expr { $p - $worst }] \
+    clock_period $p endpoints [llength $ends] violating $viol tns $tns]
+  if { $::hr_target > 0 } {
+    dict set d target $::hr_target
+    dict set d over_target $over
+    dict set d excess_target $excess
+  }
+  return $d
+}
+
+# The mass over the target of a period dict, as keys to merge into a
+# measurement's answer; nothing without a target.
+proc hr_mass { d } {
+  if { $::hr_target <= 0 } { return {} }
+  return [dict create over_target [dict get $d over_target] \
+    excess_target [dict get $d excess_target]]
 }
 
 # The `count` worst reg2reg path ends; 0 is all of them.
@@ -139,8 +167,10 @@ proc hr_skew { {ends 0} {hold 1} {iters 60} {blocks {}} } {
   }
   set n [llength $flops]
   set delta [lrepeat $n 0.0]
-  set start [dict get [hr_period] period]
+  set pd [hr_period]
+  set start [dict get $pd period]
   set best $start
+  set best_pd $pd
   set stall 0
   set rounds 0
   for { set it 1 } { $it <= $iters && $n } { incr it } {
@@ -169,14 +199,17 @@ proc hr_skew { {ends 0} {hold 1} {iters 60} {blocks {}} } {
       hr_set_latency [lindex $flops $i] [lindex $delta $i]
     }
     if { $hold } { hr_skew_hold_back $flops delta }
-    set w [dict get [hr_period] period]
+    set pd [hr_period]
+    set w [dict get $pd period]
     if { $w < $best - 1e-3 * $p } {
-      set best $w
       set stall 0
     } else {
       incr stall
     }
-    if { $w < $best } { set best $w }
+    if { $w < $best } {
+      set best $w
+      set best_pd $pd
+    }
     if { $stall >= 5 } { break }
   }
   set holdslack ""
@@ -189,25 +222,65 @@ proc hr_skew { {ends 0} {hold 1} {iters 60} {blocks {}} } {
   set dmax 0.0
   set moved_parent 0
   set moved_block 0
+  set by_inst [dict create]
   for { set i 0 } { $i < $n } { incr i } {
     set v [lindex $delta $i]
     set dmin [expr { min($dmin, $v) }]
     set dmax [expr { max($dmax, $v) }]
     if { abs($v) <= 1e-4 * $p } { continue }
-    if { [hr_in_blocks [get_full_name [lindex $flops $i 0]] $blocks] } {
+    set pin [get_full_name [lindex $flops $i 0]]
+    if { [hr_in_blocks $pin $blocks] } {
       incr moved_block
     } else {
       incr moved_parent
     }
+    # the instance the flop sits in: its name up to the last two levels
+    # (the flop, its pin)
+    set inst [join [lrange [split $pin /] 0 end-2] /]
+    if { $inst eq "" } { set inst "(top)" }
+    dict update by_inst $inst m {
+      if { ![info exists m] } { set m {0 0.0} }
+      lassign $m c a
+      set m [list [incr c] [expr { $a + abs($v) }]]
+    }
+  }
+  # where the moves sit, most moved first: each "instance flops ps", the
+  # flops moved and the sum of their moves
+  set top_moved {}
+  foreach {inst m} [lsort -stride 2 -index {1 1} -real -decreasing $by_inst] {
+    if { [llength $top_moved] >= 20 } { break }
+    lassign $m c a
+    lappend top_moved [format "%s %d %.0f" $inst $c $a]
   }
   foreach f $flops {
     lassign $f ck
     unset_clock_latency $ck
   }
   set after [dict get [hr_period] period]
-  return [dict create start $start skew $best flops $n rounds $rounds \
+  return [dict merge [dict create start $start skew $best flops $n rounds $rounds \
     moved_parent $moved_parent moved_block $moved_block \
-    delta_min $dmin delta_max $dmax hold_slack $holdslack restored $after]
+    delta_min $dmin delta_max $dmax hold_slack $holdslack restored $after \
+    top_moved $top_moved] [hr_mass $best_pd]]
+}
+
+# The retiming floor: useful skew without hold. Moving a register through
+# its logic (retiming) shifts the same path delays a clock arrival does,
+# in steps of whole gates, and creates no hold problem it cannot fix by
+# padding; so it cannot pass the balance skew reaches with hold ignored,
+# which is set by the loops through the registers (their delay per
+# register). The gap to the period is the most any retiming could win;
+# none, and retiming has nothing to work with. top_moved names the
+# instances whose flops would have to move: a retiming tool works inside
+# a module (yosys's abc -dff on SYNTH_RETIME_MODULES), never across a
+# hardened block or a memory. The damped balancing may stop short of the
+# exact floor: the answer is an upper bound on it, below the one-flop loop
+# only by error.
+proc hr_floor_retime { {ends 0} {iters 60} {blocks {}} } {
+  set d [hr_skew $ends 0 $iters $blocks]
+  dict set d floor [dict get $d skew]
+  dict unset d skew
+  dict unset d hold_slack
+  return $d
 }
 
 # Whether an instance or pin path lies inside one of the block instance
@@ -323,7 +396,8 @@ proc hr_vt { {ends 0} {blocks {}} {parent_only 0} } {
     if { $in_block } { incr n_block } else { incr n_parent }
   }
   hr_update_parasitics
-  set after [dict get [hr_period] period]
+  set after_pd [hr_period]
+  set after [dict get $after_pd period]
   set leak_vt [hr_leakage]
   foreach s $swapped {
     lassign $s c lc
@@ -331,11 +405,11 @@ proc hr_vt { {ends 0} {blocks {}} {parent_only 0} } {
   }
   hr_update_parasitics
   set restored [dict get [hr_period] period]
-  return [dict create start $start vt $after \
+  return [dict merge [dict create start $start vt $after \
     leakage_start $leak_start leakage_vt $leak_vt leakage_restored [hr_leakage] \
     swapped_parent $n_parent \
     swapped_block $n_block already_fastest $already_fastest \
-    vts_in_cones [lsort [dict keys $have_vts]] restored $restored]
+    vts_in_cones [lsort [dict keys $have_vts]] restored $restored] [hr_mass $after_pd]]
 }
 
 # After a cell swap: OpenSTA deletes the reduced parasitics of every net

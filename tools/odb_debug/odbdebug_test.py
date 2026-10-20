@@ -73,6 +73,7 @@ class FakeDaemon(object):
             "od_floor_wire",
             "od_floor_cycles",
             "od_skew_headroom",
+            "od_floor_retime",
             "od_vt_headroom",
             "od_headroom",
         ):
@@ -254,6 +255,7 @@ class McpTest(unittest.TestCase):
                 "floor_wire",
                 "floor_cycles",
                 "skew_headroom",
+                "floor_retime",
                 "vt_headroom",
                 "headroom",
             }
@@ -274,12 +276,15 @@ class McpTest(unittest.TestCase):
         # choice passed through as Tcl words, defaults when not given
         for name, args, code in [
             ("period", {}, "od_period"),
+            ("period", {"target": 2000}, "od_period 2000.0"),
+            ("floor_retime", {"ends": 9}, "od_floor_retime 9"),
             ("floor_wire", {}, "od_floor_wire"),
             ("floor_cycles", {}, "od_floor_cycles 0"),
             ("skew_headroom", {"ends": 50, "hold": False}, "od_skew_headroom 50 0"),
             ("skew_headroom", {}, "od_skew_headroom 0 1"),
             ("vt_headroom", {"ends": 7}, "od_vt_headroom 7"),
             ("headroom", {}, "od_headroom 0"),
+            ("headroom", {"ends": 5, "target": 1500}, "od_headroom 5 1500.0"),
         ]:
             r = self.rpc("tools/call", {"name": name, "arguments": args})
             self.assertFalse(r["result"]["isError"], name)
