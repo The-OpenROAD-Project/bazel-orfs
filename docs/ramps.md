@@ -124,7 +124,7 @@ With the same ORFS and the same tools, the results are the same:
 | flow | stages run by make | compared with Bazel's |
 |---|---|---|
 | gcd, imported from ORFS | synth … finish, 49 s | `5_route.odb` byte-identical |
-| `//test:lb_32x128_top`, one hardened macro | synth … place, 21 s | `2_floorplan.odb` byte-identical |
+| `//test:lb_32x128_top`, one hardened macro, `--abstracts` | synth … place, 21 s | `2_floorplan.odb` byte-identical |
 
 Measured with the export under the pinned ORFS's `flow/designs/` and
 plain `make` run from `flow/`, with the OpenROAD and Yosys binaries Bazel
@@ -145,7 +145,9 @@ anything else travels as the file it made, or not at all:
 |---|---|
 | generated RTL | the Verilog as built, under `inputs/`: a snapshot |
 | the generator, its options, its tests | not exported: they stay in Bazel |
-| a hardened macro | its abstract (`.lef`, `.lib`), as built |
+| a macro that is an `orfs_flow()` | one of ORFS's `BLOCKS`: its own `config.mk` in `<module>/`, built by the parent's make; with `--abstracts`, its abstract (`.lef`, `.lib`) as built |
+| a mocked macro (`mock_area`) | refused: ORFS has no mock; `--abstracts` ships the mocked abstract |
+| the macro placement: a placer, a script, a plan | with `--snapshot-macro-placement`, a `MACRO_PLACEMENT_TCL` that puts every macro back where the build put it |
 | `orfs_run` steps, sweeps, variants, checks | not exported |
 
 `//examples/generated:mac`, exported and made with the pinned ORFS and
@@ -155,6 +157,79 @@ drop. Its `.odb` is not byte-identical, unlike gcd's: Yosys records the
 source file's path in the netlist, and the path is the export's, not the
 clone's; the netlists differ in nothing else. gcd synthesises with
 OpenROAD, which records none.
+
+### Blocks and a macro placement snapshot
+
+A flow whose macros are flows of their own exports the way ORFS writes a
+hierarchical design (its `designs/asap7/aes-block`): the parent's
+`config.mk` says `BLOCKS = <module> ...`, and each block has its own
+`config.mk` in `<module>/`. The parent's make builds each block with
+`generate_abstract` and hands the parent its abstract. Every block shares
+the export's `inputs/`.
+
+```sh
+bazelisk run //:export -- --snapshot-macro-placement \
+    ~/OpenROAD-flow-scripts/flow/designs/asap7/wide_top \
+    //test/regfile/macro:wide_top_hard
+```
+
+`--snapshot-macro-placement` takes the macro placement out of the
+export's hands: whatever placed the macros in Bazel, `rtl_macro_placer`,
+a placement script or a floorplan plan, each flow gets a
+`macro_placement.tcl` written from its `2_floorplan.odb` by
+`tools/ramp/snapshot_macros.tcl`. It places every macro where the build
+did, with `place_macro -exact` and the macro's placement status, and makes
+the placement blockages again. The macro halos, blockages tied to a
+macro, the flow makes itself. A tool the export cannot carry, such as an
+annealer that runs from the placement script, is not needed to make the
+design; `--drop VAR` leaves out the variables only that tool read.
+A flow that sets `AUTO_MEMORIES_MACRO_PLACE` is refused: those register
+files are macros only until its floorplan dissolves them into cells, so
+`2_floorplan.odb` has no placement of them to snapshot.
+
+`--abstracts` keeps the macros the files they are instead: each
+macro's abstract as built, under `inputs/`, and make builds only the
+top. Bazel's pre-layout `.lib`, which the stages before CTS read, is
+taken out where a later stage names the abstract's own, so every stage
+reads the abstract's. It is the export for a block ORFS's `BLOCKS` cannot
+make, such as a mocked one.
+
+What make does that Bazel did not:
+
+- **The blocks run to finish.** ORFS's `generate_abstract` depends on
+  `6_final`, so make routes every block, even one Bazel abstracts at an
+  earlier stage. `ABSTRACT_SOURCE` still abstracts the stage Bazel did,
+  so the parent sees the same abstract; the route costs time, and runs
+  on ORFS's defaults for every stage Bazel never configured.
+- **A block's `.lib`.** Bazel gives the parent's stages before CTS each
+  block's pre-layout `.lib`, ORFS gives every stage the abstract's own.
+  The floorplan is the same; timing before CTS can differ.
+- **Upstream ORFS runs `rtl_macro_placer` on a fully fixed set of
+  macros.** The pinned ORFS carries patch 0083, which skips it once
+  `MACRO_PLACEMENT_TCL` has fixed every macro, as a snapshot does.
+
+The round trip checks all of it, on any flow, with the ORFS, make and
+tools Bazel used:
+
+```sh
+bazelisk run //tools/ramp:export_roundtrip -- //test/regfile/macro:wide_top_hard
+bazelisk run //tools/ramp:export_roundtrip -- --abstracts //test:lb_32x128_top
+```
+
+It exports with the snapshot, runs ORFS's make to the parent's
+floorplan, and compares each flow's `2_floorplan.odb` with Bazel's:
+every macro's location, orientation and status, every placement
+blockage, the obstructions, the instance and net counts. The same
+comparison with one macro moved by one site must fail and name it.
+Every literal value of each `config.mk` must be the one make sees.
+
+| flow | export | make, the blocks to finish | each flow's `2_floorplan.odb` |
+|---|---|---|---|
+| `//test/regfile/macro:wide_top_hard`, a register-file block | `BLOCKS`, snapshot | 31.6 min | the same as Bazel's, top and block |
+| `//test:lb_32x128_top`, a mocked block | `--abstracts`, snapshot | 0.2 min | the same as Bazel's |
+
+Measured with the pinned ORFS and the tools Bazel used. In each, the
+negative control fails, and every literal value is the one make sees.
 
 ## Import and export with your AI
 
@@ -166,8 +241,8 @@ and export are a starting point, and your AI does the rest, locally:
   `tools/ramp/import_design.py` and `tools/ramp/export_design.py`. Your
   AI can patch them to match your project and run them again.
 - **They stop at what they do not know.** Neither one guesses. When it
-  meets something it cannot map, such as `BLOCKS` (hierarchical macros,
-  not handled yet), a file that does not exist or a variable two stages
+  meets something it cannot map, such as `BLOCKS` in an import
+  (hierarchical macros, not handled yet), a file that does not exist or a variable two stages
   set differently, it names the thing and the file to patch.
 - **The round trip is the check.** Import, export, and compare the two
   `config.mk` files with ORFS's make.
