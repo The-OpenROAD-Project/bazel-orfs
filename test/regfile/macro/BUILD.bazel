@@ -1,4 +1,4 @@
-load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_headroom")
+load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_headroom", "orfs_run")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_python//python:defs.bzl", "py_test")
 
@@ -193,4 +193,100 @@ py_test(
         ":RegFile_grt_jsons",
         ":RegFile_grt_logs",
     ],
+)
+
+# A macro pin plan, two passes in one graph (//tools/pin_plan): wide_top's
+# placement with the register file as built tells the register file where
+# its pins belong, on the sides that face their logic; the register file is
+# built again with them, and the parent placed again with the macro where
+# the plan was made. pin_plan_test checks that fewer pins face away from
+# their logic. Manual: two register-file flows and two parents.
+orfs_run(
+    name = "wide_top_pin_plan",
+    src = ":wide_top_hard_place",
+    outs = [
+        "RegFile_pins.tcl",
+        "wide_top_macros.tcl",
+        "wide_top_pins_before.txt",
+    ],
+    script = "//tools/pin_plan:pin_plan.tcl",
+    tags = ["manual"],
+    user_arguments = {
+        "PINS_OUT": "RegFile $(location RegFile_pins.tcl) 0 0",
+        "PIN_PLAN_PLACEMENT": "$(location wide_top_macros.tcl)",
+        "PIN_PLAN_REPORT": "$(location wide_top_pins_before.txt)",
+        "PIN_PLAN_STAGE": "3_place",
+    },
+)
+
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "RegFile",
+    abstract_stage = "grt",
+    arguments = {
+        "AUTO_MEMORIES": "1",
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.6",
+        "SYNTH_HDL_FRONTEND": "slang",
+    },
+    sources = {
+        "AUTO_MEMORIES_REGFILES": [":RegFile.regfile"],
+        "IO_CONSTRAINTS": [":RegFile_pins.tcl"],
+        "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
+        "SDC_FILE": ["//test/regfile:constraint.sdc"],
+    },
+    tags = ["manual"],
+    variant = "pinplan",
+    verilog_files = [":wide_top.sv"],
+)
+
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "wide_top_hard",
+    arguments = {
+        "CORE_MARGIN": "4",
+        "CORE_UTILIZATION": "30",
+        "PLACE_DENSITY": "0.5",
+        "SYNTH_HDL_FRONTEND": "slang",
+    },
+    last_stage = "place",
+    macros = [":RegFile_pinplan_generate_abstract"],
+    sources = {
+        "MACRO_PLACEMENT_TCL": [":wide_top_macros.tcl"],
+        "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCKS_grid_strategy.tcl"],
+        "SDC_FILE": ["//test/regfile:constraint.sdc"],
+    },
+    tags = ["manual"],
+    top = "wide_top",
+    variant = "pinplan",
+    verilog_files = [":wide_top.sv"],
+)
+
+orfs_run(
+    name = "wide_top_pins_after",
+    src = ":wide_top_hard_pinplan_place",
+    outs = ["wide_top_pins_after.txt"],
+    script = "//tools/pin_plan:pin_plan.tcl",
+    tags = ["manual"],
+    user_arguments = {
+        "PINS_OUT": "",
+        "PIN_PLAN_REPORT": "$(location wide_top_pins_after.txt)",
+        "PIN_PLAN_STAGE": "3_place",
+    },
+)
+
+py_test(
+    name = "pin_plan_test",
+    size = "small",
+    srcs = ["pin_plan_test.py"],
+    args = [
+        "$(rootpath :wide_top_pins_before.txt)",
+        "$(rootpath :wide_top_pins_after.txt)",
+    ],
+    data = [
+        ":wide_top_pins_after.txt",
+        ":wide_top_pins_before.txt",
+    ],
+    main = "pin_plan_test.py",
+    tags = ["manual"],
 )

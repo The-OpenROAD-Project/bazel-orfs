@@ -1,0 +1,8 @@
+# A macro pin plan from a placed parent (pin_plan.tcl): each hardened
+# macro's pins on the sides that face their logic, the macros' places, and
+# a report of how many pins face away. Run with orfs_run on a parent's
+# stage; .claude/skills/macro-selection says when.
+exports_files(
+    ["pin_plan.tcl"],
+    visibility = ["//visibility:public"],
+)
