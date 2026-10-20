@@ -141,7 +141,7 @@ class SmokeTest(unittest.TestCase):
         table = self.d.headroom()
         self.assertEqual(
             [r["name"] for r in table["rows"]],
-            ["period", "floor_wire", "floor_cycles", "skew", "vt"],
+            ["period", "floor_wire", "floor_cycles", "skew", "floor_retime", "vt"],
         )
         self.assertAlmostEqual(self.d.period()["period"], start["period"], delta=eps)
 
