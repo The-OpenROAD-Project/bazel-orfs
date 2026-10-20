@@ -22,6 +22,7 @@ load(":slang_frontend_test.bzl", "slang_frontend_test_suite")
 load(":source_input_propagation_test.bzl", "source_input_propagation_test")
 load(":stages_filter_test.bzl", "stages_filter_test_suite")
 load(":work_home_test.bzl", "work_home_test_suite")
+load(":yosys_tcl_library_test.bzl", "yosys_tcl_library_test")
 
 exports_files(
     glob([
@@ -978,6 +979,11 @@ orfs_synth(
 build_test(
     name = "kept_modules_synth_test",
     targets = [":kept_modules_synth"],
+)
+
+yosys_tcl_library_test(
+    name = "kept_modules_yosys_tcl_library_test",
+    target_under_test = ":kept_modules_synth",
 )
 
 partition_key_test(

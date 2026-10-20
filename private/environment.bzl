@@ -106,6 +106,11 @@ def yosys_environment(ctx):
         "YOSYS_MAX_THREADS": "1",
     } | orfs_environment(ctx)
 
+    # yosys links Tcl without its script library, so Tcl_Init finds no
+    # init.tcl and every yosys run warned "Tcl_Init() call failed".
+    if ctx.files._tcl_library:
+        env["TCL_LIBRARY"] = ctx.files._tcl_library[0].path.split("/library/", 1)[0] + "/library"
+
     # Tell yosys where to find out-of-tree plugins (e.g. yosys-slang)
     # via YOSYS_PLUGIN_PATH. BCR yosys discovers plugins via
     # /proc/self/exe and won't find plugins that live outside its own
@@ -245,7 +250,7 @@ def test_inputs(ctx):
 
 def yosys_inputs(ctx):
     return depset(
-        ctx.files._yosys_share + ctx.files._yosys_plugins,
+        ctx.files._yosys_share + ctx.files._yosys_plugins + ctx.files._tcl_library,
         transitive = [
             _runfiles(
                 [
