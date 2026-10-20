@@ -38,6 +38,79 @@ class MergeTest(unittest.TestCase):
         self.assertIn("export_design.py is the file to patch", str(e.exception))
 
 
+class StripBlocksTest(unittest.TestCase):
+    PREFIXES = ["pkg/results/asap7/BlockA/"]
+
+    def test_takes_out_the_blocks_abstracts(self):
+        self.assertEqual(
+            export_design.strip_blocks(
+                {
+                    "ADDITIONAL_LEFS": "pkg/results/asap7/BlockA/base/BlockA.lef m.lef",
+                    "ADDITIONAL_LIBS": "pkg/results/asap7/BlockA/pre_layout/BlockA_typ.lib",
+                    "CORE_UTILIZATION": "40",
+                },
+                self.PREFIXES,
+            ),
+            {"ADDITIONAL_LEFS": "m.lef", "CORE_UTILIZATION": "40"},
+        )
+
+    def test_pre_layout_and_abstract_libs_merge_once_taken_out(self):
+        stages = [
+            (
+                "place",
+                {
+                    "ADDITIONAL_LIBS": "pkg/results/asap7/BlockA/pre_layout/BlockA_typ.lib"
+                },
+            ),
+            (
+                "cts",
+                {"ADDITIONAL_LIBS": "pkg/results/asap7/BlockA/base/BlockA_typ.lib"},
+            ),
+        ]
+        with self.assertRaises(Refused):
+            merge(stages)
+        self.assertEqual(
+            merge(
+                [(s, export_design.strip_blocks(e, self.PREFIXES)) for s, e in stages]
+            ),
+            {},
+        )
+
+    def test_refuses_a_block_file_elsewhere(self):
+        with self.assertRaises(Refused) as e:
+            export_design.strip_blocks(
+                {"MACRO_PLACEMENT_TCL": "pkg/results/asap7/BlockA/base/x.tcl"},
+                self.PREFIXES,
+            )
+        self.assertIn("MACRO_PLACEMENT_TCL names a block's result", str(e.exception))
+
+    def test_another_flows_results_stay(self):
+        exports = {"ADDITIONAL_LEFS": "pkg/results/asap7/BlockAB/base/BlockAB.lef"}
+        self.assertEqual(export_design.strip_blocks(exports, self.PREFIXES), exports)
+
+
+class StripPreLayoutTest(unittest.TestCase):
+    PRE = "pkg/results/asap7/BlockA/unmocked_pre_layout/BlockA_typ.lib"
+    OWN = "pkg/results/asap7/BlockA/unmocked/BlockA_typ.lib"
+
+    def test_abstracts_keep_the_abstracts_own_lib(self):
+        stages = export_design.strip_pre_layout(
+            [
+                ("place", {"ADDITIONAL_LIBS": self.PRE}),
+                ("cts", {"ADDITIONAL_LIBS": self.OWN}),
+            ]
+        )
+        self.assertEqual(merge(stages), {"ADDITIONAL_LIBS": self.OWN})
+
+    def test_a_flow_that_ends_before_cts_keeps_its_only_lib(self):
+        stages = [("floorplan", {"ADDITIONAL_LIBS": self.PRE})]
+        self.assertEqual(export_design.strip_pre_layout(stages), stages)
+
+    def test_an_empty_value_is_a_value(self):
+        stages = [("floorplan", {"TAPCELL_TCL": "", "ADDITIONAL_LIBS": self.PRE})]
+        self.assertEqual(export_design.strip_pre_layout(stages), stages)
+
+
 class InputsTest(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.mkdtemp(dir=os.environ.get("TEST_TMPDIR"))
@@ -167,6 +240,32 @@ class OrfsTest(unittest.TestCase):
         self.assertTrue(text.startswith(export_design.MARKER))
         self.assertIn("export PLATFORM = asap7\nexport DESIGN_NAME = gcd\n", text)
         self.assertIn("export CORE_UTILIZATION = 65\n", text)
+
+    def test_a_block_finds_the_exports_inputs_above_it(self):
+        block = os.path.join(self.dest, "BlockA")
+        os.makedirs(block)
+        export_design.write_config(
+            block,
+            "//pkg:BlockA",
+            {
+                "PLATFORM": "asap7",
+                "DESIGN_NAME": "BlockA",
+                "DESIGN_NICKNAME": "gcd_BlockA",
+                "ABSTRACT_SOURCE": "4_cts",
+            },
+            [],
+            "cts",
+            depth=1,
+            parent="//pkg:gcd",
+        )
+        with open(os.path.join(block, "config.mk")) as f:
+            text = f.read()
+        self.assertIn("One of //pkg:gcd's BLOCKS", text)
+        self.assertIn("and abstracts 4_cts.odb", text)
+        self.assertIn(
+            "export EXPORT_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/..)\n",
+            text,
+        )
 
 
 if __name__ == "__main__":

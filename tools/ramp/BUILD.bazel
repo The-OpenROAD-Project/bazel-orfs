@@ -39,6 +39,7 @@ py_test(
 py_binary(
     name = "export",
     srcs = ["export_design.py"],
+    data = ["snapshot_macros.tcl"],
     main = "export_design.py",
     visibility = ["//:__pkg__"],
 )
