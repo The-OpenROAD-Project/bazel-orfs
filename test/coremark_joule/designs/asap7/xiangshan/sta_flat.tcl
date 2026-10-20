@@ -3,8 +3,9 @@
 # so a path starts and ends at a real flop wherever it is. Run by OpenSTA:
 #   STA_PARENT=XSTile STA_PARTS="XSTile Frontend ..." STA_DIR=<dir with each
 #   part's .v, .spef, .sdc, _libs.tar> STA_OUT=<report> sta -exit sta_flat.tcl
-# Every reg2reg endpoint is classified by where its worst path starts and
-# ends: in the parent, or inside a block.
+# Every reg2reg endpoint is classified by where its worst path runs: its
+# start and end, in the parent or inside a block, and any block it passes
+# through on the way (STA_CLASSIFY=<classify.tcl>).
 set dir $::env(STA_DIR)
 set parent $::env(STA_PARENT)
 set parts $::env(STA_PARTS)
@@ -38,16 +39,6 @@ foreach b $blocks {
 }
 set_propagated_clock [all_clocks]
 
-# where a pin is: the block whose instance contains it, or the parent
-proc part_of { pin } {
-  global where parent
-  set name [get_full_name $pin]
-  foreach { path b } $where {
-    if { [string first "$path/" $name] == 0 } { return $b }
-  }
-  return $parent
-}
-
 set p [get_property [lindex [all_clocks] 0] period]
 # register to register over the whole linked design: the parent's SDC lists
 # the parent's own registers in its reg2reg group (write_sdc expands
@@ -68,36 +59,12 @@ puts $f [join [concat $out [list $kpi]] "\n"]
 close $f
 
 # every reg2reg endpoint's period (a block's own endpoints are those its
-# interface logic model keeps: the flops at its boundary), by the class of its worst path, 10 ps bins
-set bin 10
-set ends [find_timing_paths {*}$r2r -endpoint_path_count 1 \
-  -group_path_count [sta::endpoint_count]]
-array set hist {}
-array set worst {}
-foreach t $ends {
-  set s [part_of [get_property $t startpoint]]
-  set e [part_of [get_property $t endpoint]]
-  set c [expr { $s eq $e ? ($s eq $parent ? "parent" : $s) : "$s->$e" }]
-  set slack [get_property $t slack]
-  set b [expr { int(floor(($p - $slack) / $bin)) }]
-  if { [info exists hist($c,$b)] } { incr hist($c,$b) } else { set hist($c,$b) 1 }
-  if { ![info exists worst($c)] || $slack < [lindex $worst($c) 0] } {
-    set worst($c) [list $slack [get_full_name [get_property $t startpoint]] [get_full_name [get_property $t endpoint]]]
-  }
-}
-foreach c [lsort [array names worst]] {
-  set bins {}
-  foreach k [array names hist "$c,*"] { lappend bins [lindex [split $k ,] end] }
-  set bins [lsort -integer $bins]
-  set counts {}
-  for { set b [lindex $bins 0] } { $b <= [lindex $bins end] } { incr b } {
-    lappend counts [expr { [info exists hist($c,$b)] ? $hist($c,$b) : 0 }]
-  }
-  lassign $worst($c) slack from to
-  lappend out [format "class %s worst %.0f ps  %s -> %s" $c [expr { $p - $slack }] $from $to]
-  lappend out [format "class %s endpoints bin %d ps from %d ps: %s" $c $bin \
-    [expr { [lindex $bins 0] * $bin }] [join $counts " "]]
-}
+# interface logic model keeps: the flops at its boundary), by the class of
+# its worst path, 10 ps bins: within the parent or a block, from one part to
+# another, or through a block it neither starts nor ends in
+# (//tools/headroom:classify.tcl)
+source $::env(STA_CLASSIFY)
+set out [concat $out [hr_classes $where $parent 10 worst]]
 lappend out $kpi
 set f [open $::env(STA_OUT) w]
 puts $f [join $out "\n"]
