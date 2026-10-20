@@ -208,6 +208,34 @@ http_archive(
         self.assertNotIn(dest, text)
 
 
+class ReferenceTest(unittest.TestCase):
+    def test_reads_the_stage_log_table(self):
+        log = """Log                    Ext     Elapsed      CPU     CPU/ Peak Mem sha1sum
+                                     s        s  Elapsed       MB [0:10)
+3_5_place_dp           .odb          2        3     1.02      268 1ede690e71
+memories_extract                     0        0     1.00       77 N/A
+"""
+        self.assertEqual(
+            export_design.log_rows(log),
+            [("3_5_place_dp", ".odb", 2, 268, "1ede690e71")],
+        )
+
+
+class CompletedTest(unittest.TestCase):
+    def test_only_what_the_build_says_it_built(self):
+        events = "\n".join(
+            [
+                '{"id":{"targetCompleted":{"label":"//pkg:a_synth"}},"completed":{"success":true}}',
+                '{"id":{"targetCompleted":{"label":"@@//pkg:a_floorplan"}},"completed":{}}',
+                '{"id":{"targetCompleted":{"label":"@@//pkg:a_place"}},"completed":{"success":true}}',
+                '{"id":{"progress":{}}}',
+            ]
+        )
+        self.assertEqual(
+            export_design.completed(events), {"//pkg:a_synth", "//pkg:a_place"}
+        )
+
+
 class InputsTest(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.mkdtemp(dir=os.environ.get("TEST_TMPDIR"))
