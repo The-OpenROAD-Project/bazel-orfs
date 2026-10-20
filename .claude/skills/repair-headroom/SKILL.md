@@ -1,20 +1,71 @@
 ---
 name: repair-headroom
-description: Measure how much of a design's reg2reg period is left on the table after repair_timing, and in which kind of move — useful clock skew, threshold voltage, wires (placement, buffering, reseating) — against the floor no repair can beat (the one-flop loop) and the zero-wire bound, which holds only at the clock arrivals as built: useful skew can go below it. The odb-debug daemon's headroom tools answer for one loaded stage (a block is its abstract); orfs_headroom answers across a parent and its hardened blocks, stitched in OpenSTA, which is the answer for XiangShan-sized designs and needs a machine with memory to match. Also how to find out why repair_timing stopped (grt-stage repair arms with its own stop reasons logged). Use before tuning or blaming repair_timing, before choosing between skew, VT, sizing, a floorplan change or surgery, and when a hierarchical design's period will not come down.
+description: Measure how much of a design's reg2reg period is left on the table after repair_timing, and in which kind of move — useful clock skew, threshold voltage, wires (placement, buffering, reseating) — against the one-flop-loop floors no skew or retiming can pass, with wires as built and at zero wire; zero wire alone is no floor, useful skew passes it, so wire and skew are also measured together. The odb-debug daemon's headroom tools answer for one loaded stage (a block is its abstract); orfs_headroom answers across a parent and its hardened blocks, stitched in OpenSTA, which is the answer for XiangShan-sized designs and needs a machine with memory to match. Also how to find out why repair_timing stopped (grt-stage repair arms with its own stop reasons logged). Use before tuning or blaming repair_timing, before choosing between skew, VT, sizing, a floorplan change or surgery, and when a hierarchical design's period will not come down.
 ---
 
 ## The question
 
 `repair_timing` stops with WNS negative. Is that the best any repair could
 do, or is there more on the table, and where? The tools here bound it from
-both sides: what a move would win if done perfectly (skew, VT), and what
-nothing can beat (the one-flop loop). Zero wire is a bound only at the
-clock arrivals as built, not a floor: useful skew gives a path more than
-one period by borrowing from its neighbours, so the period can go below
-it (Reading the answer). Every number is a
+both sides: what a move would win if done perfectly (skew, VT, wire, wire
+and skew together), and what no skew or retiming can pass (the one-flop
+loop, with wires as built and at zero wire). The next section says which
+move each bound stops. Every number is a
 **reg2reg period**: the clock period minus the worst register-to-register
 slack. IO paths are left out; ORFS SDCs constrain them as optimization
 targets, not as the design's period (`macro-constraints`).
+
+## The bounds, and which move each one stops
+
+A reg2reg period is set by its worst path. Each measurement moves one
+thing and keeps the rest, so each bounds a different move, in two chains
+each above its own floor:
+
+    wires as built:  period >= vt, skew >= floor_retime >= floor_cycles
+    wires removed:   period >= floor_wire >= floor_wire_skew >= floor_cycles_nowire
+
+| measure | moves | bounds |
+|---|---|---|
+| `vt` | the cones' data cells to the fastest VT loaded | what VT swapping can give |
+| `skew` | each flop's clock arrival, hold kept | what useful skew can give, wires as they are |
+| `floor_retime` | each flop's clock arrival, hold ignored | what retiming can give |
+| `floor_cycles` | nothing: the worst loop from a flop back to itself, wires as built | what skew and retiming can never pass |
+| `floor_wire` | every wire to near zero, clock arrivals as built | what wire can give at today's arrivals: not a floor |
+| `floor_wire_skew` | every wire to near zero, then the arrivals by useful skew | what wire and skew together can give: the logic alone, clocked at its best |
+| `floor_cycles_nowire` | nothing: the worst one-flop loop at zero wire | what skew, retiming and wire together can never pass |
+
+**The one-flop loop.** A path that starts at a flop's output and comes
+back to the same flop's input within one cycle: a state bit whose next
+value depends on itself, `valid <= f(valid, ...)`. Launch and capture are
+the same flop on the same clock pin, so shifting its clock arrival moves
+both ends at once: useful skew cannot lend the loop time. Retiming moves
+registers along paths, but a loop through one register keeps one
+register: the loop's whole delay stays in one cycle. A loop through k
+flops spreads over k cycles, so it bounds the period at its delay over k;
+the one-flop loop is the tightest. `floor_cycles` is the worst one-flop
+loop over every flop with the wires as built, `floor_cycles_nowire` the
+same with the wires gone, the loop's logic alone.
+
+**What can lower it** is the loop itself getting faster: repair on the
+loop's own cells and wires (sizing, a faster VT, shorter wires: the gap
+between the two floors), or a change to its logic, in the RTL or by
+surgery. A floor far above the target says the loop has to change, not
+the clock tree.
+
+**Why zero wire is not a floor.** `floor_wire` times every path at the
+clock arrivals as built, so it bounds a path's delay at today's skew
+only. Useful skew lends a path time from its neighbours on the same flops
+(launch earlier, capture later) and takes the period below it; around any
+loop the borrowing sums to zero, which is why only a loop bounds it.
+`floor_wire_skew` is the combination: neither wire nor skew can give more
+than it does, and it never passes `floor_cycles_nowire`.
+
+**Never scope a loop floor**: the worst loop need not sit on the worst
+paths. XiangShan's FltRegionModule at grt gave 213 ps over the flops of
+its 1,000 worst endpoints (6 minutes) and 762.2 ps over all 17,021
+one-flop loops (71 minutes, `issuePipes/is0_valid`). Give it the time, and
+keep a long run's result in a file the Tcl writes itself: the daemon's
+MCP call is cut after 30 silent minutes.
 
 ## Step 1 — make sure repair actually gave up
 
@@ -46,7 +97,9 @@ Load the stage (`odb-debug`, `warm-gui`) and ask:
 |---|---|
 | `period` | the reg2reg period, violating endpoints, TNS |
 | `floor_wire` | zero-wire bound: every wire's R and C near zero, clock wires too, at the clock arrivals as built; useful skew can beat it |
-| `floor_cycles` | one-flop-loop floor: the worst path from a flop back to itself |
+| `floor_cycles` | one-flop-loop floor, wires as built: the worst path from a flop back to itself |
+| `floor_cycles_nowire` | the same at zero wire: the loop's logic alone |
+| `floor_wire_skew` | zero wire, then useful skew on it, hold kept |
 | `skew_headroom` | useful skew in timing only, hold kept |
 | `floor_retime` | retiming floor: useful skew with hold ignored, and the instances whose flops it moves |
 | `vt_headroom` | the data cells of the cones at the fastest VT loaded, and its leakage cost |
@@ -55,17 +108,9 @@ Load the stage (`odb-debug`, `warm-gui`) and ask:
 Each tool undoes its what-if and reports `restored`, the period measured
 again: it must equal the start. The scope (`ends`) defaults to every
 endpoint; limit it only when a very large design does not answer
-otherwise, and say so with the number (skew needs the flops around the
+otherwise, never for a loop floor (above), and say so with the number (skew needs the flops around the
 violations free to move: riscv32i scoped to its 1,000 worst endpoints gave
 613.8 ps instead of 562.2).
-
-Never scope `floor_cycles`: the worst one-flop loop need not sit on the
-worst paths. XiangShan's FltRegionModule at grt gave 213 ps over the
-flops of its 1,000 worst endpoints (6 minutes) and 762.2 ps over all
-17,021 one-flop loops (71 minutes, `issuePipes/is0_valid`); a scoped
-floor is no floor. Its runtime grows with the flops, so give it the time,
-and keep the result: the daemon's MCP call is cut after 30 silent
-minutes, so have the Tcl write each result to a file as it lands.
 
 The daemon holds one ODB. On a hierarchical design that is the parent
 with each block as its abstract: the parent's own flops and cells are
@@ -94,7 +139,8 @@ has the period, `floor_cycles`, `skew` (its moves split `moved_parent` /
 `moved_block`), `floor_retime` and `vt` / `vt_parent_only`, each with
 `over_target` / `excess_target` when a target is given;
 `cpu_headroom_nowire.json` the
-zero-wire floor. Measure at grt: the blocks' abstracts there carry their
+same at zero wire: the period (`floor_wire`), `floor_cycles` (the loop
+floor of the logic alone) and `skew` (`floor_wire_skew`). Measure at grt: the blocks' abstracts there carry their
 clock trees and the route's parasitics.
 
 On XiangShan this is a whole core in one OpenSTA session: the flat KPI that
@@ -142,16 +188,10 @@ repair stalled:
   after the undo); weigh the gain against it.
 - **Wire**: zero wire is worth 10–24 % (ariane 24 %); what of it any
   placement or buffering could recover is not answered here.
-- **Zero wire is not a floor on the period.** It times every path at the
-  clock arrivals as built, so it bounds a path's delay at zero skew only.
-  Useful skew lends a path time from the paths before and after it on the
-  same flops (launch earlier, capture later), and a path can then take
-  more than one period. Only a loop bounds that: around any cycle of
-  flops the borrowing sums to zero, so the period is at least the
-  cycle's delay over its number of flops, the one-flop loop's delay for
-  a loop through one flop. Read a period above the zero-wire bound as
-  wire plus logic at today's arrivals, and the one-flop-loop floor (and
-  `floor_retime`) as what no move at all can pass.
+- **Zero wire is a bound at today's clock arrivals, not a floor** (The
+  bounds): read the gap from `floor_wire` down to `floor_wire_skew` as
+  what skew adds once the wires are gone, and `floor_cycles_nowire` as
+  the floor under both.
 - **Block abstracts at grt** timed riscv32i's parent 5 % pessimistic
   against the stitched view (668 against 634.9 ps).
 
