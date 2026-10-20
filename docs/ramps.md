@@ -166,6 +166,11 @@ built it, `1_2_yosys.v` beside `config.mk`, named by
 `SYNTH_NETLIST_FILES`: make copies it and skips synthesis, without
 reading the RTL. A flow that synthesises with OpenROAD
 (`SYNTH_USE_SYN=1`) ships none; ORFS's path for it ignores a netlist.
+Nor does a flow with `AUTO_MEMORIES=1`: ORFS's memory extraction,
+`scripts/memories/extract_memories.tcl`, sources `synth_preamble.tcl`,
+which copies the netlist and exits before reading the RTL, so the
+memories' views are never made. Make synthesises such a flow from the
+RTL, and `EXPORT.md` says so.
 
 Every value that names a file made for you, by Bazel (generated RTL, a
 script an `orfs_run` wrote) or by the export (the netlist, a macro
@@ -287,6 +292,12 @@ What make does that Bazel did not:
 - **Upstream ORFS runs `rtl_macro_placer` on a fully fixed set of
   macros.** The pinned ORFS carries patch 0083, which skips it once
   `MACRO_PLACEMENT_TCL` has fixed every macro, as a snapshot does.
+- **No standard-cell seeds.** `rtl_macro_placer` leaves the standard
+  cells it clusters `PLACED` at the cluster centres; a snapshot does not
+  run it, so make's floorplan leaves them unplaced. The round trip
+  compares a floorplan without the cells that are not fixed, and prints
+  how many there are on each side. Whether global placement starts from
+  the seeds is not measured here.
 
 The round trip checks all of it, on any flow, with the ORFS, make and
 tools Bazel used:
@@ -299,7 +310,8 @@ bazelisk run //tools/ramp:export_roundtrip -- --abstracts //test:lb_32x128_top
 It exports with the snapshot, runs ORFS's make to the parent's
 floorplan, and compares each flow's `2_floorplan.odb` with Bazel's:
 every macro's location, orientation and status, every placement
-blockage, the obstructions, the instance and net counts. The same
+blockage, the obstructions, the instance and net counts, and every fixed
+instance's place. The same
 comparison with one macro moved by one site must fail and name it.
 Every literal value of each `config.mk` must be the one make sees.
 
@@ -316,8 +328,8 @@ negative control fails, and every literal value is the one make sees.
 The XiangShan tile exports with `--abstracts --snapshot-macro-placement`:
 the five hardened blocks (`CoupledL2`, `FltRegionModule`, `Frontend`,
 `MemBlock`, `VecRegionModule`) as their mocked `.lef` and `.lib`, the
-parent as a flat ORFS design with yosys's netlist. Made with stock ORFS
-and OpenROAD, it needs these first:
+parent as a flat ORFS design. Made with stock ORFS and OpenROAD, it
+needs these first:
 
 - OpenROAD #11718, `hierarchicalConnect` leaves no stray load
   (`OPENROAD_HIERARCHICAL`), carried as patch 0111.
@@ -331,11 +343,16 @@ and OpenROAD, it needs these first:
   PDN; not upstream.
 - ORFS patch 0073, FakeRAM from the declared pins and write mask, if the
   parent's memories have a write mask; not upstream.
+- ORFS #4649, `SYNTH_VERILOG_SURGERY`, and ORFS patch 0068,
+  `SYNTH_POST_HIERARCHY_SCRIPTS` (XiangShan's clock gate onto ASAP7's
+  ICG; not upstream): the parent sets `AUTO_MEMORIES`, so make
+  synthesises it from the RTL (above).
+- ORFS: memory extraction that reads the RTL when `SYNTH_NETLIST_FILES`
+  is set; not written yet. With it, the export ships yosys's netlist for
+  an `AUTO_MEMORIES` flow too, and the synthesis entries above drop off
+  this list.
 
-Synthesis is not on the list, the export ships the netlist: synthesising
-from the RTL (`make ... SYNTH_NETLIST_FILES=`) needs ORFS #4649,
-`SYNTH_VERILOG_SURGERY`, as well. A `BLOCKS` export of the tile, the
-blocks made by ORFS, needs OpenROAD #11723 (`generate_ram`) and
+A `BLOCKS` export of the tile, the blocks made by ORFS, needs OpenROAD #11723 (`generate_ram`) and
 `AUTO_MEMORIES_REGFILES` (ORFS patch 0089), and the parent re-planned on
 the blocks' own outlines. Until then, `EXPORT.md` lists every patch the
 pinned tools carry, and a `//:dirty` tree has them applied.
