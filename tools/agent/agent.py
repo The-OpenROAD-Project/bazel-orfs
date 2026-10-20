@@ -66,7 +66,7 @@ INTERNAL_SKILLS = (
 LINK = os.path.join(".claude", "bazel-orfs")
 SKILLS = os.path.join(".claude", "skills")
 # A skill link points through LINK, so a moved output base is one link.
-SKILL_TARGET = os.path.join("..", "bazel-orfs", ".claude", "skills")
+LINKED_SKILLS = os.path.join(LINK, ".claude", "skills")
 
 MCP_SERVER = "odb-debug"
 MCP_ENTRY = {
@@ -113,8 +113,20 @@ def _replace_link(path, target):
     return True
 
 
-def _ours(path):
-    return os.path.islink(path) and os.readlink(path).startswith(SKILL_TARGET + os.sep)
+def _ours(path, target):
+    return os.path.islink(path) and os.readlink(path).startswith(target + os.sep)
+
+
+def _skills_dir(workspace):
+    """Where the skill links go, relative to the workspace: .claude/skills,
+    or the directory it links to when the workspace shares one skills
+    directory between agents. The links are made there, relative to it,
+    and git sees them there."""
+    skills = os.path.realpath(os.path.join(workspace, SKILLS))
+    rel = os.path.relpath(skills, os.path.realpath(workspace))
+    if rel == os.pardir or rel.startswith(os.pardir + os.sep):
+        raise Refused("%s points outside the workspace, to %s" % (SKILLS, skills))
+    return rel
 
 
 def sync(workspace, root, run=subprocess.run):
@@ -131,12 +143,14 @@ def sync(workspace, root, run=subprocess.run):
     ]
     if missing:
         raise Refused("%s has no skill(s) %s" % (root, ", ".join(missing)))
-    skills = os.path.join(workspace, SKILLS)
+    skills_rel = _skills_dir(workspace)
+    skills = os.path.join(workspace, skills_rel)
+    target = os.path.relpath(LINKED_SKILLS, skills_rel)
     in_the_way = [
-        os.path.join(SKILLS, s)
+        os.path.join(skills_rel, s)
         for s in EXPORTED_SKILLS
         if os.path.lexists(os.path.join(skills, s))
-        and not _ours(os.path.join(skills, s))
+        and not _ours(os.path.join(skills, s), target)
     ]
     if in_the_way:
         raise Refused(
@@ -147,15 +161,14 @@ def sync(workspace, root, run=subprocess.run):
     os.makedirs(skills, exist_ok=True)
     changed = _replace_link(os.path.join(workspace, LINK), root)
     for s in EXPORTED_SKILLS:
-        target = os.path.join(SKILL_TARGET, s)
-        changed |= _replace_link(os.path.join(skills, s), target)
+        changed |= _replace_link(os.path.join(skills, s), os.path.join(target, s))
     for name in sorted(os.listdir(skills)):
         path = os.path.join(skills, name)
-        if name not in EXPORTED_SKILLS and _ours(path):
+        if name not in EXPORTED_SKILLS and _ours(path, target):
             os.remove(path)
             changed = True
 
-    paths = [LINK] + [os.path.join(SKILLS, s) for s in EXPORTED_SKILLS]
+    paths = [LINK] + [os.path.join(skills_rel, s) for s in EXPORTED_SKILLS]
     exclude_from_git(workspace, paths, run)
     return paths, changed
 
