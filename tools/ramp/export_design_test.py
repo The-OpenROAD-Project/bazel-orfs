@@ -124,6 +124,44 @@ class NetlistTest(unittest.TestCase):
         )
 
 
+class StartTest(unittest.TestCase):
+    def test_earlier_results_land_in_orfs_work_tree(self):
+        entries = {
+            "_main/pkg/results/asap7/mac/base/3_place.odb": (
+                "bazel-out/k8/bin/pkg/results/asap7/mac/base/3_place.odb",
+                "result",
+            ),
+            "_main/pkg/objects/asap7/mac/base/lib/merged.lib": (
+                "bazel-out/k8/bin/pkg/objects/asap7/mac/base/lib/merged.lib",
+                "result",
+            ),
+            "_main/pkg/mac.v": ("bazel-out/k8/bin/pkg/mac.v", "input"),
+        }
+        self.assertEqual(
+            export_design.start_files(entries, "asap7", "mac_nick"),
+            [
+                (
+                    "bazel-out/k8/bin/pkg/objects/asap7/mac/base/lib/merged.lib",
+                    "objects/asap7/mac_nick/base/lib/merged.lib",
+                ),
+                (
+                    "bazel-out/k8/bin/pkg/results/asap7/mac/base/3_place.odb",
+                    "results/asap7/mac_nick/base/3_place.odb",
+                ),
+            ],
+        )
+
+    def test_make_starts_where_asked(self):
+        dest = tempfile.mkdtemp(dir=os.environ.get("TEST_TMPDIR"))
+        lines = export_design.next_step(
+            dest, {"PLATFORM": "asap7"}, "final", "cts", ["do-cts", "do-grt"]
+        )
+        self.assertEqual(
+            lines[0], "next:   cp -rp {}/start/cts/. <ORFS>/flow/".format(dest)
+        )
+        self.assertTrue(lines[1].endswith("config.mk do-cts do-grt"))
+
+
 class InputsTest(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.mkdtemp(dir=os.environ.get("TEST_TMPDIR"))

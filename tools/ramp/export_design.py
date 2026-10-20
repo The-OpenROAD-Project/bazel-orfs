@@ -31,6 +31,10 @@ variables only that tool read. A flow whose floorplan dissolves register
 files placed as macros (AUTO_MEMORIES_MACRO_PLACE) is refused: its
 2_floorplan.odb no longer has them.
 
+--start <stage> ships what that stage reads from the stages before it,
+as Bazel built it, laid out as ORFS's work tree under <dest>/start/;
+make then runs do-<stage> and the stages after it.
+
 A flow that synthesises with yosys ships yosys's netlist as built,
 1_2_yosys.v named by SYNTH_NETLIST_FILES beside its config.mk, so make skips synthesis. Every
 value that names a file made for the export, by Bazel or by the export,
@@ -370,22 +374,40 @@ def orfs_flow_dir(path):
     return None
 
 
-def next_step(dest, merged, last):
-    """What to type to run the export, and a note when it shares results."""
+def next_step(dest, merged, last, start=None, targets=()):
+    """What to type to run the export, and a note when it shares results.
+
+    With start, the earlier stages' results go into ORFS's work tree first,
+    and make runs targets, the stages from start on, one after another.
+    """
     target = "" if last == "final" else " " + MAKE_TARGET.get(last, last)
+    if start:
+        target = " " + " ".join(targets)
     flow = orfs_flow_dir(dest)
     if not flow:
-        return [
-            "next:   make -C <ORFS>/flow DESIGN_CONFIG={}/config.mk{}".format(
-                dest, target
+        lines = []
+        if start:
+            lines.append(
+                "next:   cp -rp {}/start/{}/. <ORFS>/flow/".format(dest, start)
             )
-        ]
-    lines = [
-        "next:   cd {}".format(flow),
+        lines.append(
+            "{}make -C <ORFS>/flow DESIGN_CONFIG={}/config.mk{}".format(
+                "        " if start else "next:   ", dest, target
+            )
+        )
+        return lines
+    lines = ["next:   cd {}".format(flow)]
+    if start:
+        lines.append(
+            "        cp -rp ./{}/start/{}/. .".format(
+                os.path.relpath(dest, flow), start
+            )
+        )
+    lines.append(
         "        make DESIGN_CONFIG=./{}/config.mk{}".format(
             os.path.relpath(dest, flow), target
-        ),
-    ]
+        )
+    )
     nickname = merged.get("DESIGN_NICKNAME") or merged.get("DESIGN_NAME")
     results = os.path.join(
         flow, "results", merged.get("PLATFORM", ""), nickname, "base"
@@ -583,11 +605,12 @@ def netlist(ws, execroot, design, dest):
 
 
 def read_stages(ws, execroot, design, abstracts=False):
-    """(stage configs, manifest, includes, where) of a design's stages.
+    """(stage configs, manifest, includes, where, per_stage) of a design's stages.
 
     where: {execroot path: the first stage target that reads it}.
+    per_stage: {stage: its manifest}.
     """
-    stage_configs, manifest, includes, where = [], {}, [], {}
+    stage_configs, manifest, includes, where, per_stage = [], {}, [], {}, {}
     prefixes = [b.prefix for b in design.blocks]
     for stage, target in design.targets:
         files = group_files(ws, target, "deps_scripts")
@@ -603,12 +626,69 @@ def read_stages(ws, execroot, design, abstracts=False):
         for src, _ in entries.values():
             where.setdefault(src, target)
         manifest.update(entries)
+        per_stage[stage] = entries
         exports, incs = read_config(os.path.join(execroot, cfg[0]))
         stage_configs.append((stage, strip_blocks(exports, prefixes)))
         includes += [i for i in incs if i not in includes]
     if abstracts:
         stage_configs = strip_pre_layout(stage_configs)
-    return stage_configs, manifest, includes, where
+    return stage_configs, manifest, includes, where, per_stage
+
+
+# A stage's result, as its manifest names it in the tree:
+# _main/<pkg>/<results|objects|reports|logs>/<platform>/<flow>/<variant>/<file>
+RESULT = re.compile(
+    r"^_main/.*?/(results|objects|reports|logs)/[^/]+/[^/]+/[^/]+/(.+)$"
+)
+
+
+def start_files(entries, platform, nickname):
+    """[(execroot path, path under ORFS's WORK_HOME)] of what a stage reads
+    that earlier stages made, from its manifest: ORFS's results tree, as
+    make would have left it."""
+    out = []
+    for tree, (src, kind) in sorted(entries.items()):
+        if kind != "result":
+            continue
+        m = RESULT.match(tree)
+        if not m:
+            refuse("{}: a result export does not know where to put".format(tree))
+        out.append(
+            (src, os.path.join(m.group(1), platform, nickname, "base", m.group(2)))
+        )
+    return out
+
+
+def start_at(ws, execroot, design, stage, entries, dest, platform, nickname):
+    """Copies what stage reads from earlier stages to dest/start/<stage>/;
+    the make targets that run the flow from there."""
+    if design.blocks:
+        refuse(
+            "--start with BLOCKS: make's do-<stage> builds no block, so the parent"
+            " has no abstracts; --abstracts ships them"
+        )
+    target = dict(design.targets).get(stage)
+    if target is None:
+        refuse("{} has no {} stage to start at".format(design.label, stage))
+    build(ws, "deps_files", [target])
+    files = start_files(entries, platform, nickname)
+    if not files:
+        refuse(
+            "{} reads no earlier stage's result: nothing to start from".format(target)
+        )
+    for src, rel in files:
+        to = os.path.join(dest, "start", stage, rel)
+        os.makedirs(os.path.dirname(to), exist_ok=True)
+        frm = os.path.join(execroot, src)
+        if os.path.isdir(frm):
+            shutil.copytree(frm, to, dirs_exist_ok=True)
+        else:
+            shutil.copy2(frm, to)
+            # Bazel's outputs are read-only and executable; ORFS's are files
+            os.chmod(to, 0o644)
+    print("export: {} files to start {} at {}".format(len(files), design.label, stage))
+    stages = [s for s, _ in design.targets]
+    return ["do-" + s for s in stages[stages.index(stage) :]]
 
 
 def build(ws, groups, labels, extra=()):
@@ -631,7 +711,14 @@ def build(ws, groups, labels, extra=()):
 
 
 def export_flow(
-    ws, flow, variant, dest, snapshot_macros=False, drop=(), abstracts=False
+    ws,
+    flow,
+    variant,
+    dest,
+    snapshot_macros=False,
+    drop=(),
+    abstracts=False,
+    start=None,
 ):
     pkg, name = flow.split("//", 1)[1].split(":")
     base = name + ("_" + variant if variant and variant != "base" else "")
@@ -677,7 +764,7 @@ def export_flow(
     def export(design, parent, depth):
         """Writes design's config.mk; parent is (label, nickname, rel) for a block."""
         nonlocal steps
-        stage_configs, manifest, includes, where = read_stages(
+        stage_configs, manifest, includes, where, per_stage = read_stages(
             ws, execroot, design, abstracts
         )
         merged = merge(stage_configs)
@@ -752,7 +839,19 @@ def export_flow(
             defaults=made | inputs.generated,
         )
         if parent is None:
-            steps = next_step(dest, merged, last)
+            targets = ()
+            if start:
+                targets = start_at(
+                    ws,
+                    execroot,
+                    design,
+                    start,
+                    per_stage[start],
+                    dest,
+                    platform,
+                    merged.get("DESIGN_NICKNAME") or merged["DESIGN_NAME"],
+                )
+            steps = next_step(dest, merged, last, start, targets)
 
     export(top, None, 0)
     if unused:
@@ -786,6 +885,12 @@ def main(argv=None):
         help="ship each macro's abstract as built instead of making the macros"
         " that are flows ORFS BLOCKS",
     )
+    ap.add_argument(
+        "--start",
+        choices=STAGES[1:],
+        help="ship the earlier stages' results Bazel built, so make starts at this"
+        " stage",
+    )
     args = ap.parse_args(argv)
     if args.drop and not args.snapshot_macro_placement:
         ap.error("--drop goes with --snapshot-macro-placement")
@@ -815,6 +920,7 @@ def main(argv=None):
             args.snapshot_macro_placement,
             args.drop,
             args.abstracts,
+            args.start,
         )
     except Refused as e:
         print("export: " + str(e), file=sys.stderr)
