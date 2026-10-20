@@ -46,6 +46,7 @@ EXPORTED_SKILLS = (
     "openroad-debug",
     "orfs-deps-preflight",
     "prefer-slang",
+    "repair-headroom",
     "repair-timing-grt",
     "scale-to-memory",
     "surgery",
