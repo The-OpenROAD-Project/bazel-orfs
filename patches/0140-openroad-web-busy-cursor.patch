@@ -1,0 +1,210 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] web: a busy cursor while a timing report is built
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The Qt GUI shows a wait cursor while it builds the timing report a click
+on a slack-histogram bucket asks for. The web viewer showed nothing: on
+a large design (XiangShan's tile, 2.7 M instances) the report takes
+seconds, and the click looks ignored.
+
+withBusyCursor() (ui-utils.js) puts a progress cursor on the whole page,
+the map included, while a request runs; it is counted, so overlapping
+requests keep it until the last one ends, and cleared when the request
+fails. Used by the bucket click, the fanout/net-length bin double-click
+and the timing widget's Update.
+---
+diff --git a/src/web/src/charts-widget.js b/src/web/src/charts-widget.js
+index 53d3b24..d3fbce5 100644
+--- a/src/web/src/charts-widget.js
++++ b/src/web/src/charts-widget.js
+@@ -7,7 +7,7 @@
+ // canvas.
+ 
+ import { getThemeColors } from './theme.js';
+-import { isStaticMode, beginSelection, isCurrentSelection }
++import { isStaticMode, beginSelection, isCurrentSelection, withBusyCursor }
+     from './ui-utils.js';
+ 
+ // Layout margins (pixels)
+@@ -788,13 +788,14 @@ export class ChartsWidget {
+         if (!bar || bar.count === 0) return;
+ 
+         try {
+-            const resp = await this._app.websocketManager.request({
+-                type: 'timing_report',
+-                is_setup: this._currentTab === 'setup',
+-                max_paths: 50,
+-                slack_min: bar.lower,
+-                slack_max: bar.upper,
+-            });
++            const resp = await withBusyCursor(
++                () => this._app.websocketManager.request({
++                    type: 'timing_report',
++                    is_setup: this._currentTab === 'setup',
++                    max_paths: 50,
++                    slack_min: bar.lower,
++                    slack_max: bar.upper,
++                }));
+             if (this._app.timingWidget) {
+                 this._app.timingWidget.showPaths(
+                     this._currentTab, resp.paths || []);
+@@ -821,12 +822,13 @@ export class ChartsWidget {
+         // other panel's in-flight selection (see ui-utils.js).
+         const token = beginSelection(this._app);
+         try {
+-            const resp = await this._app.websocketManager.request({
+-                type,
+-                lower: bar.lower,
+-                upper: bar.upper,
+-                use_dbu: this._app.showDbu,
+-            });
++            const resp = await withBusyCursor(
++                () => this._app.websocketManager.request({
++                    type,
++                    lower: bar.lower,
++                    upper: bar.upper,
++                    use_dbu: this._app.showDbu,
++                }));
+             if (!isCurrentSelection(this._app, token)) return;
+             if (resp && resp.truncated) {
+                 console.warn(
+diff --git a/src/web/src/style.css b/src/web/src/style.css
+index 99becbb..e4cca3e 100644
+--- a/src/web/src/style.css
++++ b/src/web/src/style.css
+@@ -295,6 +295,15 @@ html[data-theme="light"] {
+ .leaflet-container.label-mode-cursor {
+     cursor: crosshair !important;
+ }
++
++/* While a request the user waits on runs (withBusyCursor in ui-utils.js):
++   the progress cursor everywhere, the map included, whose own cursors are
++   !important and as specific as two classes. */
++body.op-busy,
++body.op-busy *,
++body.op-busy .leaflet-container.leaflet-container {
++    cursor: progress !important;
++}
+ .ruler-label {
+     background: var(--bg-hud);
+     color: var(--fg-hud);
+diff --git a/src/web/src/timing-widget.js b/src/web/src/timing-widget.js
+index 6005142..34aaffe 100644
+--- a/src/web/src/timing-widget.js
++++ b/src/web/src/timing-widget.js
+@@ -3,7 +3,8 @@
+ 
+ // Timing report widget — path summary + detail tables.
+ 
+-import { isStaticMode, makeResizableHeaders } from './ui-utils.js';
++import { isStaticMode, makeResizableHeaders, withBusyCursor }
++    from './ui-utils.js';
+ 
+ export class TimingWidget {
+     constructor(app, redrawAllLayers, refreshOverlay) {
+@@ -371,10 +372,11 @@ export class TimingWidget {
+         this._updateBtn.disabled = true;
+         this._updateBtn.textContent = 'Loading...';
+         try {
+-            const [setupData, holdData] = await Promise.all([
+-                this._app.websocketManager.request({ type: 'timing_report', is_setup: true, max_paths: 100 }),
+-                this._app.websocketManager.request({ type: 'timing_report', is_setup: false, max_paths: 100 }),
+-            ]);
++            const [setupData, holdData] = await withBusyCursor(
++                () => Promise.all([
++                    this._app.websocketManager.request({ type: 'timing_report', is_setup: true, max_paths: 100 }),
++                    this._app.websocketManager.request({ type: 'timing_report', is_setup: false, max_paths: 100 }),
++                ]));
+             // Copy the arrays: in static mode the response is a shared
+             // cached object whose path order must keep matching the
+             // server-side overlay indices, so it must not be sorted.
+diff --git a/src/web/src/ui-utils.js b/src/web/src/ui-utils.js
+index 8c4c220..31afff1 100644
+--- a/src/web/src/ui-utils.js
++++ b/src/web/src/ui-utils.js
+@@ -197,6 +197,24 @@ export function onSelectionReset(app, fn) {
+     app.selectionResetters.push(fn);
+ }
+ 
++// A busy cursor over the whole page while `fn` runs, as the Qt GUI sets a
++// wait cursor while it builds a timing report: a click whose answer takes
++// seconds on a large design otherwise looks ignored.  Counted, so overlapping
++// requests keep it until the last one ends; cleared when `fn` throws.
++// `root` is the element that carries the class (document.body in the page).
++export async function withBusyCursor(fn, root = document.body) {
++    root.busyCount = (root.busyCount || 0) + 1;
++    root.classList.add('op-busy');
++    try {
++        return await fn();
++    } finally {
++        root.busyCount -= 1;
++        if (root.busyCount === 0) {
++            root.classList.remove('op-busy');
++        }
++    }
++}
++
+ // Leaflet map options for the 2D layout viewer.
+ //
+ // zoomSnap:1 + zoomDelta:1 force the map to rest only at INTEGER zoom levels,
+diff --git a/src/web/test/js/test-ui-utils.js b/src/web/test/js/test-ui-utils.js
+index 70f50a7..4744132 100644
+--- a/src/web/test/js/test-ui-utils.js
++++ b/src/web/test/js/test-ui-utils.js
+@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
+ import { applyArrowStep, boundsEqual, computeBoundsTransforms, computeScaleBar,
+          cssColorToHex, fittedTileSizeCss, installWheelPanning, isValidHexColor,
+          kArrowStepDefault, kZoomMargin, maxUsefulZoom, MAX_TILE_ZOOM,
+-         niceRoundParts }
++         niceRoundParts, withBusyCursor }
+     from '../../src/ui-utils.js';
+ import { isDeviceExactTileSize, TILE_SIZE_CSS, TILE_SIZE_QUANTUM }
+     from '../../src/tile-request.js';
+@@ -539,3 +539,45 @@ describe('applyArrowStep', () => {
+         assert.doesNotThrow(() => applyArrowStep({ keyboard: {} }, 100));
+     });
+ });
++
++// A stand-in for document.body: just the class list withBusyCursor touches.
++function fakeRoot() {
++    const classes = new Set();
++    return { classList: { add: (c) => classes.add(c),
++                          remove: (c) => classes.delete(c) },
++             has: (c) => classes.has(c) };
++}
++
++describe('withBusyCursor', () => {
++    it('is busy while the request runs and clears after it', async () => {
++        const root = fakeRoot();
++        let during;
++        const result = await withBusyCursor(async () => {
++            during = root.has('op-busy');
++            return 42;
++        }, root);
++        assert.equal(during, true);
++        assert.equal(result, 42);
++        assert.equal(root.has('op-busy'), false);
++    });
++
++    it('stays busy until the last overlapping request ends', async () => {
++        const root = fakeRoot();
++        let finishFirst;
++        const first = withBusyCursor(
++            () => new Promise((resolve) => { finishFirst = resolve; }), root);
++        await withBusyCursor(async () => {}, root);
++        assert.equal(root.has('op-busy'), true);
++        finishFirst();
++        await first;
++        assert.equal(root.has('op-busy'), false);
++    });
++
++    it('clears when the request fails', async () => {
++        const root = fakeRoot();
++        await assert.rejects(withBusyCursor(async () => {
++            throw new Error('timing report failed');
++        }, root));
++        assert.equal(root.has('op-busy'), false);
++    });
++});
