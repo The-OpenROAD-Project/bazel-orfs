@@ -418,5 +418,73 @@ class OrfsTest(unittest.TestCase):
         self.assertNotIn("MACRO_PLACEMENT_TCL=", text)
 
 
+class BazelOrfsDefaultsTest(unittest.TestCase):
+    def setUp(self):
+        self.dest = tempfile.mkdtemp(dir=os.environ.get("TEST_TMPDIR"))
+
+    def config(self, merged, **kwargs):
+        export_design.write_config(
+            self.dest, "//pkg:top", merged, [], "final", **kwargs
+        )
+        with open(os.path.join(self.dest, "config.mk")) as f:
+            return f.read()
+
+    def test_a_bazel_orfs_default_says_what_orfs_does(self):
+        text = self.config(
+            {"DESIGN_NAME": "top", "OPENROAD_HIERARCHICAL": "1", "LEC_CHECK": "0"}
+        )
+        self.assertIn(
+            "# bazel-orfs's default: ORFS's is 0; hierarchical is to become ORFS's"
+            " default (bazel-orfs private/flow.bzl, hierarchical_arguments).\n"
+            "export OPENROAD_HIERARCHICAL = 1\n",
+            text,
+        )
+        self.assertIn("(ORFS issue #3907).\nexport LEC_CHECK = 0\n", text)
+
+    def test_a_flows_own_other_value_is_not_a_default(self):
+        text = self.config({"DESIGN_NAME": "top", "OPENROAD_HIERARCHICAL": "0"})
+        self.assertNotIn("bazel-orfs's default", text)
+
+    def test_bazels_failure_artifacts_stay_in_bazel(self):
+        self.assertEqual(
+            merge([("synth", {"GENERATE_ARTIFACTS_ON_FAILURE": "1", "X": "1"})]),
+            {"X": "1"},
+        )
+
+
+class MockTest(unittest.TestCase):
+    MOCKS = [
+        ("//pkg:lb_generate_abstract", "lb", "0.7"),
+        ("//pkg:io_generate_abstract", "io", "pins"),
+    ]
+
+    def test_config_says_the_parent_was_planned_on_the_mock(self):
+        dest = tempfile.mkdtemp(dir=os.environ.get("TEST_TMPDIR"))
+        export_design.write_config(
+            dest, "//pkg:top", {"DESIGN_NAME": "top"}, [], "final", mocks=self.MOCKS
+        )
+        with open(os.path.join(dest, "config.mk")) as f:
+            text = f.read()
+        self.assertIn("# Mocked macros, a bazel-orfs feature ORFS does not have", text)
+        self.assertIn(
+            "#   lb (//pkg:lb_generate_abstract): the block's floorplan scaled by"
+            " 0.7 on each side\n",
+            text,
+        )
+        self.assertIn(
+            "#   io (//pkg:io_generate_abstract): the die fitted to its pins", text
+        )
+        # still only comments above the variables
+        self.assertIn("\nexport EXPORT_DIR := ", text)
+
+    def test_export_md_lists_them(self):
+        text = export_design.export_md(
+            "//pkg:top", "<dest> //pkg:top", None, [], [], mocks=self.MOCKS
+        )
+        self.assertIn("## Mocked macros\n", text)
+        self.assertIn("\n- lb (//pkg:lb_generate_abstract): the block's", text)
+        self.assertNotIn("## Not in this export", text)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -47,9 +47,18 @@ value that names a file made for the export, by Bazel or by the export,
 is written with ?=: `make ... SYNTH_NETLIST_FILES=` synthesises from the
 RTL.
 
+A value bazel-orfs defaults differently from ORFS (BAZEL_ORFS_DEFAULTS)
+is written as any other, with a comment saying so: make runs the flow
+Bazel ran, and the comment says what ORFS would have done.
+
+A mocked macro (orfs_flow(mock_area = ...)) is a bazel-orfs feature ORFS
+does not have. With --abstracts it ships as Bazel built it, the mock's
+.lef and the block's own .lib, and config.mk and EXPORT.md say so: the
+parent was planned on the mock's footprint, not the block's outline.
+
 What cannot be said in one config.mk is refused, naming it and this file:
 a variable two stages set differently, a value that is an earlier stage's
-result, a mocked macro. A project with its own ORFS changes is expected to
+result, a mocked macro as one of BLOCKS. A project with its own ORFS changes is expected to
 have an AI patch this file to match.
 
     bazelisk run //:export -- \\
@@ -78,8 +87,30 @@ MARKER = "# Exported by `bazelisk run //:export`"
 STAGES = ["synth", "floorplan", "place", "cts", "grt", "route", "final"]
 
 # The ORFS checkout supplies these: where its platform lives, and where a
-# run writes.
-DROPPED = {"WORK_HOME", "PLATFORM_DIR", "FLOW_VARIANT"}
+# run writes. GENERATE_ARTIFACTS_ON_FAILURE is Bazel's: a failed action
+# must still leave its outputs to look at; make fails the step, as ORFS's
+# default does.
+DROPPED = {"WORK_HOME", "PLATFORM_DIR", "FLOW_VARIANT", "GENERATE_ARTIFACTS_ON_FAILURE"}
+
+# What bazel-orfs defaults differently from ORFS: {variable: (bazel-orfs's
+# value, what ORFS does instead, and why)}. A flow's config.mk says so
+# beside the value, where it is bazel-orfs's.
+BAZEL_ORFS_DEFAULTS = {
+    "OPENROAD_HIERARCHICAL": (
+        "1",
+        "ORFS's is 0; hierarchical is to become ORFS's default"
+        " (bazel-orfs private/flow.bzl, hierarchical_arguments)",
+    ),
+    "SYNTH_HDL_FRONTEND": (
+        "slang",
+        "ORFS's is yosys's own read_verilog"
+        " (bazel-orfs private/flow.bzl, slang_arguments)",
+    ),
+    "LEC_CHECK": (
+        "0",
+        "ORFS's checks when kepler-formal is installed" " (ORFS issue #3907)",
+    ),
+}
 
 FIRST = ["PLATFORM", "DESIGN_NAME", "DESIGN_NICKNAME"]
 
@@ -320,11 +351,14 @@ class Inputs:
 MAKE_TARGET = {"final": "finish"}
 
 
-def write_config(dest, flow, merged, includes, last, depth=0, parent=None, defaults=()):
+def write_config(
+    dest, flow, merged, includes, last, depth=0, parent=None, defaults=(), mocks=()
+):
     """dest/config.mk; a block's, depth directories below the export's.
 
     defaults: the variables written with ?=, the files made for this
     export rather than written by hand.
+    mocks: the flow's mocked macros, as mock_notes() says them.
     """
     if parent is None:
         lines = [
@@ -367,6 +401,9 @@ def write_config(dest, flow, merged, includes, last, depth=0, parent=None, defau
                 "#   make ... MACRO_PLACEMENT_TCL=   places the macros with"
                 " ORFS's placer"
             )
+    if mocks:
+        lines.append("#")
+        lines += ["# " + l if l else "#" for l in mock_notes(mocks)]
     lines += [
         "",
         "# The export's directory, wherever it is copied to.",
@@ -376,6 +413,10 @@ def write_config(dest, flow, merged, includes, last, depth=0, parent=None, defau
         "",
     ]
     for k in [k for k in FIRST if k in merged] + sorted(set(merged) - set(FIRST)):
+        if BAZEL_ORFS_DEFAULTS.get(k, (None,))[0] == merged[k]:
+            lines.append(
+                "# bazel-orfs's default: {}.".format(BAZEL_ORFS_DEFAULTS[k][1])
+            )
         lines.append(
             "export {} {} {}".format(k, "?=" if k in defaults else "=", merged[k])
         )
@@ -383,6 +424,32 @@ def write_config(dest, flow, merged, includes, last, depth=0, parent=None, defau
         lines.append("include {}".format(inc))
     with open(os.path.join(dest, "config.mk"), "w") as f:
         f.write("\n".join(lines) + "\n")
+
+
+def mock_notes(mocks):
+    """Lines saying what each mocked macro, (label, module, MOCK_AREA), is."""
+    if not mocks:
+        return []
+    lines = [
+        "Mocked macros, a bazel-orfs feature ORFS does not have"
+        " (orfs_flow(mock_area = ...)):",
+        "each ships as Bazel built it, the mock's .lef, the block's own .lib.",
+        "The parent was planned on the mock's footprint, not the block's outline.",
+        "",
+    ]
+    for label, module, area in mocks:
+        lines.append(
+            "  {} ({}): {}".format(
+                module,
+                label,
+                (
+                    "the die fitted to its pins"
+                    if area == "pins"
+                    else "the block's floorplan scaled by {} on each side".format(area)
+                ),
+            )
+        )
+    return lines
 
 
 def orfs_flow_dir(path):
@@ -492,6 +559,7 @@ class Design:
         self.base = base
         self.targets = targets
         self.blocks = []
+        self.mocks = []  # (orfs_macro label, module, MOCK_AREA) with --abstracts
         self.abstract_stage = None  # a block's: the stage its abstract is cut at
         self.prefix = None  # a block's: where its results are, as its parent names them
         self.rel = ""  # the directory under the export, "" for the top
@@ -507,13 +575,15 @@ def discover(ws, pkg, base, abstracts=False):
     With abstracts, the macros stay the files they are, and none is a block.
     """
     design = Design(pkg, base, stage_targets(ws, pkg, base))
-    if abstracts:
-        return design
     synth = design.targets[0][1]
     for line in query_lines(
         ws, "--output=label_kind", "labels(deps, {})".format(synth)
     ):
         kind, label = line.split()[0], line.split()[-1]
+        if abstracts:
+            if kind == "orfs_macro":
+                design.mocks.append(mock(ws, label))
+            continue
         if kind == "orfs_macro":
             refuse(
                 "{} is a mocked abstract (orfs_flow(mock_area = ...)): ORFS's BLOCKS"
@@ -537,6 +607,24 @@ def discover(ws, pkg, base, abstracts=False):
         block.prefix = os.path.dirname(os.path.dirname(short_path(lefs[0]))) + "/"
         design.blocks.append(block)
     return design
+
+
+def mock(ws, label):
+    """(label, module, MOCK_AREA) of an orfs_macro that orfs_flow(mock_area)
+    made: its .lef is the _mocked flow's, whose generate_area target holds
+    MOCK_AREA."""
+    text = "\n".join(query_lines(ws, "--output=build", label))
+    module = re.search(r'^\s*module_top = "([^"]+)"', text, re.M)
+    lef = re.search(r'^\s*lef = "([^"]+)_generate_abstract"', text, re.M)
+    if not (module and lef):
+        refuse("{} is an orfs_macro export does not know".format(label))
+    area = re.search(
+        r'"MOCK_AREA": "([^"]+)"',
+        "\n".join(query_lines(ws, "--output=build", lef.group(1) + "_generate_area")),
+    )
+    if not area:
+        refuse("{}: no MOCK_AREA in {}_generate_area".format(label, lef.group(1)))
+    return (label, module.group(1), area.group(1))
 
 
 def walk(design):
@@ -789,7 +877,7 @@ def workspace_commit(ws):
     return r.stdout.strip() + (" with local changes" if dirty else "")
 
 
-def export_md(flow, command, commit, tools, steps, notes=()):
+def export_md(flow, command, commit, tools, steps, notes=(), mocks=()):
     """EXPORT.md: what the export is, what made it, how to make it."""
     lines = [
         "# {}, exported from bazel-orfs".format(flow),
@@ -836,6 +924,12 @@ def export_md(flow, command, commit, tools, steps, notes=()):
         "Bazel's measurements and metrics, stage by stage: `reference/README.md`.",
         "",
     ]
+    if mocks:
+        lines += ["## Mocked macros", ""]
+        lines += [
+            "- " + l.strip() if l.startswith("  ") else l for l in mock_notes(mocks)
+        ]
+        lines += [""]
     if notes:
         lines += ["## Not in this export", ""] + list(notes) + [""]
     return "\n".join(lines) + "\n"
@@ -1069,6 +1163,7 @@ def export_flow(
         return built
 
     copied = {}
+    mocked = []
     unused = set(drop)
     steps = None
     md_steps = []
@@ -1169,7 +1264,9 @@ def export_flow(
             depth=depth,
             parent=None if parent is None else parent[0],
             defaults=made | inputs.generated,
+            mocks=design.mocks,
         )
+        mocked.extend(design.mocks)
         if parent is None:
             targets = ()
             if start:
@@ -1203,6 +1300,7 @@ def export_flow(
                 tool_patches(ws, dest),
                 md_steps,
                 notes,
+                mocked,
             )
         )
     return copied, steps
