@@ -158,6 +158,31 @@ source file's path in the netlist, and the path is the export's, not the
 clone's; the netlists differ in nothing else. gcd synthesises with
 OpenROAD, which records none.
 
+### The netlist, and what was made for you
+
+A flow that synthesises with yosys exports yosys's netlist as Bazel
+built it, `1_2_yosys.v` beside `config.mk`, named by
+`SYNTH_NETLIST_FILES`: make copies it and skips synthesis, without
+reading the RTL. A flow that synthesises with OpenROAD
+(`SYNTH_USE_SYN=1`) ships none; ORFS's path for it ignores a netlist.
+
+Every value that names a file made for you, by Bazel (generated RTL, a
+script an `orfs_run` wrote) or by the export (the netlist, a macro
+placement snapshot), is written with `?=`, so the make line overrides it:
+
+```sh
+make DESIGN_CONFIG=./designs/asap7/mac/config.mk SYNTH_NETLIST_FILES=
+```
+
+synthesises from the RTL, as ORFS would. A value from the command line
+reaches every one of a design's `BLOCKS` too; a `config.mk`'s own
+does not, ORFS unsets it before each block's make.
+
+`//examples/generated:mac`, round-tripped with the netlist and with
+`SYNTH_NETLIST_FILES=` on the make line: the netlist copied with no RTL
+read in the first, yosys from the RTL in the second, and in both a
+`2_floorplan.odb` the same as Bazel's.
+
 ### Blocks and a macro placement snapshot
 
 A flow whose macros are flows of their own exports the way ORFS writes a
