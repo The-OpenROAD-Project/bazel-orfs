@@ -1,0 +1,390 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] gpl: -clusters_file, groups of cells pulled toward an anchor
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Nesterov placement minimises the sum of wirelength plus a density
+penalty. A module whose partners sit on opposite sides of the die is
+spread between them by that sum, and the paths inside it pay: on
+XiangShan's XSTile parent, CtrlBlock's cells fill 8 % of their bounding
+box and its worst paths are a wall of control logic at 2,406 ps, where
+the same module placed alone closes at 1,200 ps.
+
+global_placement -clusters_file <json> names groups of cells by
+instance-name prefix; each group's cells are pulled toward its anchor,
+or its own centroid when it has none:
+
+  {"tau_iter": 0,
+   "clusters": [{"name": "CtrlBlock",
+                 "prefixes": ["core/backend/inner_ctrlBlock"],
+                 "anchor_um": [1200, 1250],
+                 "weight": 1.0}]}
+
+The pull is the descent direction of k * |x - a|^2, k chosen so that a
+cell one RMS radius from the centroid is pulled with `weight` times the
+mean wirelength gradient. With tau_iter > 0 it decays as
+exp(-iter / tau_iter): a short tau shapes the start of placement and
+lets go, as DG-RePlAce's cluster constraint does (Kahng et al., IEEE
+TCAD 2024); 0 holds the group to the end. The file is meant to come from
+the macro placer's clustering (rtl_macro_placer), which already places
+standard-cell clusters as soft macros. Hard stops: an unreadable or
+malformed file (GPL-0343/0344), a group that matches no cell
+(GPL-0342). CPU only: the GPU path refuses it (GPL-0340).
+
+Not upstreamed; carried in bazel-orfs to measure on CoralNPU and
+XiangShan first.
+---
+diff --git a/src/gpl/BUILD b/src/gpl/BUILD
+index 98d0bf5..c58318d 100644
+--- a/src/gpl/BUILD
++++ b/src/gpl/BUILD
+@@ -190,6 +190,7 @@ cc_library(
+         "//src/sta:opensta_lib",
+         "//src/utl",
+         "@abseil-cpp//absl/container:inlined_vector",
++        "@boost.json",
+         "@boost.polygon",
+         "@boost.random",
+         "@boost.scope_exit",
+diff --git a/src/gpl/include/gpl/Replace.h b/src/gpl/include/gpl/Replace.h
+index fe74f80..f0bfdfb 100644
+--- a/src/gpl/include/gpl/Replace.h
++++ b/src/gpl/include/gpl/Replace.h
+@@ -72,6 +72,10 @@ struct PlaceOptions
+   int nesterovPlaceMaxIter = 5000;
+   // timing driven check overflow to keep resizer changes (non-virtual resizer)
+   float keepResizeBelowOverflow = 1.0;
++  // Clusters (-clusters_file): a JSON file naming groups of cells by
++  // instance-name prefix, each pulled toward an anchor (or its own
++  // centroid) during Nesterov placement. Empty: off.
++  std::string clustersFile;
+   bool routabilityUseRudy = true;
+   bool disableRevertIfDiverge = false;
+   bool disablePinDensityAdjust = false;
+diff --git a/src/gpl/src/nesterovBase.cpp b/src/gpl/src/nesterovBase.cpp
+index 3a3160f..a381c08 100644
+--- a/src/gpl/src/nesterovBase.cpp
++++ b/src/gpl/src/nesterovBase.cpp
+@@ -22,6 +22,7 @@
+ #include <vector>
+ 
+ #include "backendContext.h"
++#include "boost/json.hpp"
+ #include "boost/polygon/polygon.hpp"
+ #include "boost/random/normal_distribution.hpp"
+ #include "boost/random/uniform_int_distribution.hpp"
+@@ -1196,6 +1197,7 @@ NesterovPlaceVars::NesterovPlaceVars(const PlaceOptions& options,
+       routability_end_overflow(options.routabilityCheckOverflow),
+       routability_snapshot_overflow(options.routabilitySnapshotOverflow),
+       keepResizeBelowOverflow(options.keepResizeBelowOverflow),
++      clustersFile(options.clustersFile),
+       timingDrivenMode(options.timingDrivenMode),
+       timingDrivenRepairTiming(options.timingDrivenRepairTiming),
+       timingDrivenRepairTnsEndPercent(options.timingDrivenRepairTnsEndPercent),
+@@ -3327,6 +3329,9 @@ void NesterovBase::updateGradients(std::vector<FloatPoint>& sumGrads,
+   (void) wlCoeffY;
+ 
+ #ifdef ENABLE_GPU
++  if (nb_device_ctx_ && !npVars_->clustersFile.empty()) {
++    log_->error(GPL, 340, "-clusters_file is not supported on the GPU path.");
++  }
+   if (nb_device_ctx_) {
+     SumGradSlot target = SumGradSlot::Cur;
+     SlpSlot coord_slot = SlpSlot::Cur;
+@@ -3380,6 +3385,13 @@ void NesterovBase::updateGradients(std::vector<FloatPoint>& sumGrads,
+   nbc_->getAllWireLengthGradientsWA(nb_gcells_, wireLengthGrads);
+   density_grad_backend_->getCellGradients(nb_gcells_, densityGrads);
+ 
++  if (npVars_ != nullptr && !npVars_->clustersFile.empty()) {
++    if (cohesion_group_.size() != nb_gcells_.size()) {
++      buildCohesionGroups();
++    }
++    addCohesionForces(wireLengthGrads, cohesion_force_);
++  }
++
+   // Two-phase: parallel per-cell compute, then deterministic serial reduce.
+ 
+   const size_t numGCells = nb_gcells_.size();
+@@ -3389,6 +3401,10 @@ void NesterovBase::updateGradients(std::vector<FloatPoint>& sumGrads,
+ 
+     sumGrads[i].x = wireLengthGrads[i].x + densityPenalty_ * densityGrads[i].x;
+     sumGrads[i].y = wireLengthGrads[i].y + densityPenalty_ * densityGrads[i].y;
++    if (!cohesion_force_.empty()) {
++      sumGrads[i].x += cohesion_force_[i].x;
++      sumGrads[i].y += cohesion_force_[i].y;
++    }
+ 
+     FloatPoint wireLengthPreCondi = nbc_->getWireLengthPreconditioner(gCell);
+     FloatPoint densityPrecondi = getDensityPreconditioner(gCell);
+@@ -3609,6 +3625,8 @@ void NesterovBase::updateNextIter(const int iter)
+     return;
+   }
+ 
++  cohesion_iter_ = iter;
++
+   // swap vector pointers
+   std::swap(prevSLPCoordi_, curSLPCoordi_);
+   std::swap(prevSLPWireLengthGrads_, curSLPWireLengthGrads_);
+@@ -5360,4 +5378,171 @@ static float getSecondNorm(const std::vector<FloatPoint>& a)
+   }
+   return std::sqrt(norm / (2.0 * a.size()));
+ }
++
++// -clusters_file: groups of cells, each pulled toward an anchor (or its own
++// centroid). The objective sum is wirelength plus density; a module whose
++// partners sit across the die is spread between them by it, and the paths
++// inside that module pay. The pull is the descent direction of
++// k * |x - a|^2 per cell, k chosen so that a cell one RMS radius from the
++// cluster's centroid is pulled with `weight` times the mean wirelength
++// gradient: the weight is dimensionless and scales with the design. With
++// tau_iter > 0 the pull decays as exp(-iter / tau_iter): a short tau shapes
++// the start of placement and lets it go (DG-RePlAce, Kahng et al., TCAD
++// 2024), tau_iter 0 holds the cluster together to the end.
++//
++// {"tau_iter": 0,
++//  "clusters": [{"name": "CtrlBlock",
++//                "prefixes": ["core/backend/inner_ctrlBlock"],
++//                "anchor_um": [1200, 1250],   // optional
++//                "weight": 1.0}]}
++void NesterovBase::buildCohesionGroups()
++{
++  cohesion_group_.assign(nb_gcells_.size(), -1);
++  cohesion_clusters_.clear();
++  const std::string& path = npVars_->clustersFile;
++  std::ifstream in(path);
++  if (!in) {
++    log_->error(GPL, 343, "-clusters_file: cannot read {}.", path);
++  }
++  const std::string text((std::istreambuf_iterator<char>(in)),
++                         std::istreambuf_iterator<char>());
++  boost::system::error_code ec;
++  const boost::json::value doc = boost::json::parse(text, ec);
++  if (ec || !doc.is_object() || !doc.as_object().contains("clusters")
++      || !doc.as_object().at("clusters").is_array()) {
++    log_->error(
++        GPL, 344, "-clusters_file {}: expected an object with a clusters array.", path);
++  }
++  const auto& top = doc.as_object();
++  if (top.contains("tau_iter")) {
++    cohesion_tau_ = boost::json::value_to<double>(top.at("tau_iter"));
++  }
++  const double dbu = pb_->db()->getChip()->getBlock()->getDbUnitsPerMicron();
++  for (const auto& v : top.at("clusters").as_array()) {
++    const auto& o = v.as_object();
++    CohesionCluster c;
++    c.name = boost::json::value_to<std::string>(o.at("name"));
++    c.prefixes = boost::json::value_to<std::vector<std::string>>(o.at("prefixes"));
++    c.weight = boost::json::value_to<double>(o.at("weight"));
++    if (c.weight < 0 || c.prefixes.empty()) {
++      log_->error(GPL,
++                  344,
++                  "-clusters_file {}: cluster {} needs prefixes and a weight >= 0.",
++                  path,
++                  c.name);
++    }
++    if (o.contains("anchor_um")) {
++      const auto a = boost::json::value_to<std::vector<double>>(o.at("anchor_um"));
++      if (a.size() != 2) {
++        log_->error(GPL, 344, "-clusters_file {}: anchor_um of {} is not [x, y].", path, c.name);
++      }
++      c.has_anchor = true;
++      c.anchor_x = a[0] * dbu;
++      c.anchor_y = a[1] * dbu;
++    }
++    cohesion_clusters_.push_back(std::move(c));
++  }
++  std::vector<int64_t> members(cohesion_clusters_.size(), 0);
++  for (size_t i = 0; i < nb_gcells_.size(); i++) {
++    const GCell* cell = nb_gcells_[i];
++    if (!cell->isInstance() || cell->insts().empty()) {
++      continue;
++    }
++    // The longest matching prefix wins: a module's prefix also covers the
++    // child modules that the clustering put in other clusters.
++    const std::string name = cell->insts()[0]->dbInst()->getName();
++    size_t best_len = 0;
++    for (size_t g = 0; g < cohesion_clusters_.size(); g++) {
++      for (const std::string& prefix : cohesion_clusters_[g].prefixes) {
++        if (prefix.size() > best_len && name.compare(0, prefix.size(), prefix) == 0
++            && (name.size() == prefix.size() || name[prefix.size()] == '/')) {
++          cohesion_group_[i] = static_cast<int>(g);
++          best_len = prefix.size();
++        }
++      }
++    }
++    if (cohesion_group_[i] >= 0) {
++      members[cohesion_group_[i]]++;
++    }
++  }
++  for (size_t g = 0; g < cohesion_clusters_.size(); g++) {
++    const auto& c = cohesion_clusters_[g];
++    if (members[g] == 0) {
++      log_->error(GPL, 342, "-clusters_file {}: cluster {} matches no cell.", path, c.name);
++    }
++    log_->info(GPL,
++               341,
++               "Cluster {} weight {:g}{}: {} cells.",
++               c.name,
++               c.weight,
++               c.has_anchor ? " anchored" : "",
++               members[g]);
++  }
++}
++
++void NesterovBase::addCohesionForces(
++    const std::vector<FloatPoint>& wireLengthGrads,
++    std::vector<FloatPoint>& cohesionForce) const
++{
++  const size_t groups = cohesion_clusters_.size();
++  const size_t n = nb_gcells_.size();
++  cohesionForce.assign(n, FloatPoint(0, 0));
++  const double decay
++      = cohesion_tau_ > 0 ? std::exp(-cohesion_iter_ / cohesion_tau_) : 1.0;
++  if (decay < 1e-6) {
++    return;
++  }
++  std::vector<double> sx(groups, 0), sy(groups, 0);
++  std::vector<int64_t> cnt(groups, 0);
++  double wl_sum = 0;
++  int64_t wl_n = 0;
++  for (size_t i = 0; i < n; i++) {
++    const GCell* cell = nb_gcells_[i];
++    if (cell->isInstance()) {
++      wl_sum += std::fabs(wireLengthGrads[i].x) + std::fabs(wireLengthGrads[i].y);
++      wl_n++;
++    }
++    const int g = cohesion_group_[i];
++    if (g >= 0) {
++      sx[g] += cell->dCx();
++      sy[g] += cell->dCy();
++      cnt[g]++;
++    }
++  }
++  if (wl_n == 0) {
++    return;
++  }
++  const double wl_mean = wl_sum / wl_n;
++  std::vector<double> cx(groups), cy(groups), tx(groups), ty(groups), r2(groups, 0);
++  for (size_t g = 0; g < groups; g++) {
++    cx[g] = cnt[g] ? sx[g] / cnt[g] : 0;
++    cy[g] = cnt[g] ? sy[g] / cnt[g] : 0;
++    const auto& c = cohesion_clusters_[g];
++    tx[g] = c.has_anchor ? c.anchor_x : cx[g];
++    ty[g] = c.has_anchor ? c.anchor_y : cy[g];
++  }
++  for (size_t i = 0; i < n; i++) {
++    const int g = cohesion_group_[i];
++    if (g >= 0) {
++      const double dx = nb_gcells_[i]->dCx() - cx[g];
++      const double dy = nb_gcells_[i]->dCy() - cy[g];
++      r2[g] += dx * dx + dy * dy;
++    }
++  }
++  std::vector<double> k(groups, 0);
++  for (size_t g = 0; g < groups; g++) {
++    if (cnt[g] > 0) {
++      const double rms = std::max(1.0, std::sqrt(r2[g] / cnt[g]));
++      k[g] = decay * cohesion_clusters_[g].weight * wl_mean / rms;
++    }
++  }
++  for (size_t i = 0; i < n; i++) {
++    const int g = cohesion_group_[i];
++    if (g >= 0) {
++      cohesionForce[i] = FloatPoint(k[g] * (tx[g] - nb_gcells_[i]->dCx()),
++                                    k[g] * (ty[g] - nb_gcells_[i]->dCy()));
++    }
++  }
++}
++
+ }  // namespace gpl
+diff --git a/src/gpl/src/nesterovBase.h b/src/gpl/src/nesterovBase.h
+index 7981e0f..e4b3658 100644
+--- a/src/gpl/src/nesterovBase.h
++++ b/src/gpl/src/nesterovBase.h
+@@ -844,6 +844,7 @@ struct NesterovPlaceVars
+   const float routability_end_overflow;
+   const float routability_snapshot_overflow;
+   const float keepResizeBelowOverflow;
++  const std::string clustersFile;
+ 
+   static constexpr int maxRecursionWlCoef = 10;
+   static constexpr int maxRecursionInitSLPCoef = 10;
+@@ -1206,6 +1207,13 @@ class NesterovBase
+                        float wlCoeffX,
+                        float wlCoeffY);
+ 
++  // Clusters (-clusters_file): each cluster's cells pulled toward its
++  // anchor (or its centroid), w * mean |wirelength gradient| at one RMS
++  // radius, times exp(-iter / tau_iter) when tau_iter > 0.
++  void buildCohesionGroups();
++  void addCohesionForces(const std::vector<FloatPoint>& wireLengthGrads,
++                         std::vector<FloatPoint>& cohesionForce) const;
++
+   void nbUpdatePrevGradient(float wlCoeffX, float wlCoeffY);
+   void nbUpdateCurGradient(float wlCoeffX, float wlCoeffY);
+   void nbUpdateNextGradient(float wlCoeffX, float wlCoeffY);
+@@ -1508,6 +1516,21 @@ class NesterovBase
+   bool isDiverged_ = false;
+ 
+   const NesterovPlaceVars* npVars_ = nullptr;
++  // per nb_gcells_ index: the -cohesion group it belongs to, or -1
++  std::vector<int> cohesion_group_;
++  std::vector<FloatPoint> cohesion_force_;
++  struct CohesionCluster
++  {
++    std::string name;
++    std::vector<std::string> prefixes;
++    bool has_anchor = false;
++    double anchor_x = 0;  // dbu
++    double anchor_y = 0;
++    double weight = 0;
++  };
++  std::vector<CohesionCluster> cohesion_clusters_;
++  double cohesion_tau_ = 0;
++  int cohesion_iter_ = 0;
+ 
+   float minSumOverflow_ = 1e30;
+   float hpwlWithMinSumOverflow_ = 1e30;
+diff --git a/src/gpl/src/replace.i b/src/gpl/src/replace.i
+index 52c19df..42946cf 100644
+--- a/src/gpl/src/replace.i
++++ b/src/gpl/src/replace.i
+@@ -9,6 +9,7 @@
+ #include "utl/cpu_topology.h"
+ #include "utl/options.h"
+ 
++
+ namespace ord {
+ OpenRoad*
+ getOpenRoad();
+@@ -83,6 +84,9 @@ static gpl::PlaceOptions getOptions(
+   checkKey(keys, "-timing_driven_net_weight_max", options.timingNetWeightMax);
+   checkKey(
+       keys, "-keep_resize_below_overflow", options.keepResizeBelowOverflow);
++  if (auto it = keys.find("-clusters_file"); it != keys.end()) {
++    options.clustersFile = it->second;
++  }
+   checkKey(keys,
+            "-virtual_cts_max_skew_fraction",
+            options.virtualCtsMaxSkewFraction);
+diff --git a/src/gpl/src/replace.tcl b/src/gpl/src/replace.tcl
+index 3775f42..7ee0eff 100644
+--- a/src/gpl/src/replace.tcl
++++ b/src/gpl/src/replace.tcl
+@@ -35,6 +35,7 @@ sta::define_cmd_args "global_placement" {\
+     [-routability_congested_nets_percentage routability_congested_nets_percentage]\
+     [-routability_rc_coefficients routability_rc_coefficients]\
+     [-keep_resize_below_overflow keep_resize_below_overflow]\
++    [-clusters_file clusters_file]\
+     [-timing_driven_net_reweight_overflow timing_driven_net_reweight_overflow]\
+     [-timing_driven_net_weight_max timing_driven_net_weight_max]\
+     [-timing_driven_nets_percentage timing_driven_nets_percentage]\
+@@ -71,6 +72,7 @@ proc global_placement { args } {
+       -timing_driven_nets_percentage \
+       -timing_driven_repair_tns_end_percent \
+       -keep_resize_below_overflow \
++      -clusters_file \
+       -virtual_cts_max_skew_fraction \
+       -random_seed \
+       -perturb_dist \

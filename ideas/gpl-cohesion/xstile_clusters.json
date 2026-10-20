@@ -1,0 +1,59 @@
+{
+ "tau_iter": 0,
+ "clusters": [
+  {
+   "name": "dispatch",
+   "prefixes": [
+    "core/backend/inner_ctrlBlock/dispatch"
+   ],
+   "weight": 1.0
+  },
+  {
+   "name": "decode",
+   "prefixes": [
+    "core/backend/inner_ctrlBlock/decode"
+   ],
+   "weight": 1.0
+  },
+  {
+   "name": "rename",
+   "prefixes": [
+    "core/backend/inner_ctrlBlock/rename"
+   ],
+   "weight": 1.0
+  },
+  {
+   "name": "memCtrl",
+   "prefixes": [
+    "core/backend/inner_ctrlBlock/memCtrl"
+   ],
+   "weight": 1.0
+  },
+  {
+   "name": "intIssueQueues",
+   "prefixes": [
+    "core/backend/inner_intRegion/issueQueueALU0BJU0_AluCsrFenceLinkBrhNjmp",
+    "core/backend/inner_intRegion/issueQueueALU1BJU1_AluDivBrhNjmp",
+    "core/backend/inner_intRegion/issueQueueALU2BJU2_AluI2fBrhNjmp",
+    "core/backend/inner_intRegion/issueQueueALU3_AluBkuVset",
+    "core/backend/inner_intRegion/issueQueueALU4_AluMul",
+    "core/backend/inner_intRegion/issueQueueALU5_AluMul",
+    "core/backend/inner_intRegion/issueQueueLDU0_Ldu",
+    "core/backend/inner_intRegion/issueQueueLDU1_Ldu",
+    "core/backend/inner_intRegion/issueQueueLDU2_Ldu",
+    "core/backend/inner_intRegion/issueQueueSTA0_StaMou",
+    "core/backend/inner_intRegion/issueQueueSTA1_StaMou",
+    "core/backend/inner_intRegion/issueQueueSTD0_StdMoud",
+    "core/backend/inner_intRegion/issueQueueSTD1_StdMoud"
+   ],
+   "weight": 1.0
+  },
+  {
+   "name": "fusionDecoder",
+   "prefixes": [
+    "core/backend/inner_ctrlBlock/fusionDecoder"
+   ],
+   "weight": 1.0
+  }
+ ]
+}
