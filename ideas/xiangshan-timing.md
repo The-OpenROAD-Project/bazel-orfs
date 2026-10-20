@@ -1959,6 +1959,50 @@ paths were the MemBlock abstract arc that 0135 fixes, a timing-model
 error that also steered the timing-driven placement and repair of both
 arms.
 
+## 55. Where the period is left: the headroom plan, retiming included
+
+Progress is judged by the mass over 2,000 ps: the reg2reg endpoints at or
+over it and their total excess, at global route, not the worst path
+alone. The worst path is one problem; the mass is what a lever moves, and
+what it leaves is a list of specific problems, each with its own lever.
+The constraints ask 473 ps, so nearly every endpoint violates and TNS
+against the SDC says nothing.
+
+Where the arms stand, the parent at global route (abstracts):
+
+| Arm | Worst | Endpoints >= 2,000 ps | Excess |
+|---|---:|---:|---:|
+| main, no change | 2,504 | 5,259 | 733 ns |
+| global placement with cluster cohesion (6 clusters) | 2,484 | 4,499 | 466 ns |
+| the same + Flt's `canAccept` cone cut into the parent | 2,419 | 5,741 | 763 ns |
+
+Cohesion pulls each named module's cells towards their own centroid
+during Nesterov placement (an OpenROAD gpl patch, not upstreamed). The
+cut moved the worst path and made the mass worse: the entry valids it
+leaves inside Flt keep the crossing. It is dropped.
+
+The arms guessed at where the period is. `XSTile_headroom`
+(`orfs_headroom`, the `repair-headroom` skill) measures it on the
+stitched tile, every block's real netlist in place of its abstract, with
+`target = 2000`: the mass at the period as built, with wires at zero, at
+the one-flop-loop and retiming floors, with useful skew, and with the
+cones at the fastest VT (all three are loaded; what is left is what
+repair did not use). The retiming floor is skew with hold ignored, which
+no retiming passes; `top_moved` names the instances whose flops it moves.
+
+The next experiment follows from where the mass goes away:
+
+| Mass removed mostly by | Next |
+|---|---|
+| zero wire | placement: cohesion as a flow setting, then clusters for memCtrl, dispatch, the ROB in parts (all of it at once diverged), the store data queues' round trip to MemBlock |
+| VT | repair stopped early: grt repair arms with the repair log (why it stopped), and whether a block's SDC stops its repair before the parent's paths need it to |
+| retiming | `SYNTH_RETIME_MODULES` on the `top_moved` modules whose loops stay inside them, a block first; each module proven sequentially equivalent with a negative control, dropped if it cannot be; judged by the mass |
+| nothing above the floors | logic: the residual paths go to the `surgery` list and to Chisel candidates; no RTL edit here |
+
+Order: a scoped run (`ends = 1000`) to learn the time and memory of a
+whole tile in one OpenSTA session, then every endpoint, then the
+cohesion build with its own headroom run, one heavy job at a time.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance

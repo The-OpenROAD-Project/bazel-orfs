@@ -9,7 +9,7 @@ abstracted there, and the parent's synthesis blackboxes the blocks by
 name from their abstracts.
 """
 
-load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run")
+load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_headroom", "orfs_run")
 
 # Read by anneal_in_flow.tcl, not by ORFS: bypass the variables.yaml
 # validator, and scoped to the floorplan so a knob edit re-runs the
@@ -1428,6 +1428,18 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             tools = [":sta_prefix", "@openroad//src/sta:opensta"],
             tags = tags,
         )
+
+    # how much of the period repair left, and in which move: wire, VT,
+    # skew, retiming; the floors no repair beats (repair-headroom skill)
+    orfs_headroom(
+        name = "%s_headroom" % name,
+        parent = name,
+        parent_stage = ":%s_grt" % name,
+        blocks = {b: ":%s_grt" % b for b in macros},
+        # the goal; the SDC's 473 ps makes nearly every endpoint violate
+        target = 2000,
+        tags = tags,
+    )
 
 def xiangshan_flat_flow(name, variant, parent = XS_PARENT, blocks = XS_BLOCKS, tags = ["manual"]):
     """The whole tile as one flow, <name>_<variant>_<stage>: no hardened blocks.
