@@ -6,6 +6,93 @@ and that we improve one concern at a time.
 
 Nothing here runs in CI. Every target is `tags = ["manual"]`.
 
+## TL;DR for OpenROAD maintainers: XiangShan in the dirty lane
+
+How to get a stage of XiangShan in front of a locally built `openroad`,
+for example to see what a resizer change does, without Bazel in the
+loop once it is set up. The skills named here are in `.claude/skills/`.
+
+**1. Pick the size.** The parent, `XSTile`, is the real case; a block is
+the small one, with real repair work in it. Measured per stage at
+`25f75524` (`resources.json`), minutes and peak GB:
+
+| flow | place | cts | grt |
+|---|---|---|---|
+| XSTile, the parent | 225, 47 | 45, 42 | 42, 85 |
+| Frontend | 43, 17 | 30, 21 | 43, 31 |
+| FltRegionModule | 18, 6 | 2, 5 | 4, 9 |
+
+The parent needs a machine with 128 GB. FltRegionModule builds on a
+32 GB machine: measured on 16 cores and 30 GB, from nothing to its CTS
+in 1 h 49 min with OpenROAD and Yosys from a remote cache (building
+them from source adds 30 to 60 minutes), about 50 of it its register
+file `FpRegFile`, a macro of its own; then its global route in the
+dirty lane in 5 min 23 s at 9.4 GB, ending with `RSZ-0062 Unable to
+repair all setup violations`: repair gave up, so there is something to
+study.
+
+**2. Build up to the stage before yours, in Bazel.** Nothing of
+XiangShan is in a cache you can reach (`/cache-miss` asks), so the first
+build is cold: OpenROAD and Yosys from source, the RTL from XiangShan's
+Chisel sources, then the flow.
+
+```sh
+git clone https://github.com/The-OpenROAD-Project/bazel-orfs && cd bazel-orfs
+# a block:
+bazelisk build //test/coremark_joule/designs/asap7/xiangshan:FltRegionModule_cts
+# the parent: its blocks first, in waves that fit free memory, then the parent
+bazelisk run //test/coremark_joule/designs/asap7/xiangshan:build -- \
+    --units CoupledL2,FltRegionModule,Frontend,MemBlock,VecRegionModule
+bazelisk build //test/coremark_joule/designs/asap7/xiangshan:XSTile_cts
+```
+
+`:build -- ... --plan-only` prints the waves and builds nothing; on a
+machine without the memory it says which block is over budget, and when
+systemd-oomd would kill it.
+
+**3. Open the stage in the dirty lane** (`dirty-lane`), and run it with
+ORFS's make, as often as you like:
+
+```sh
+bazelisk run //:dirty -- start //test/coremark_joule/designs/asap7/xiangshan:FltRegionModule grt
+tmp/test/coremark_joule/designs/asap7/xiangshan/FltRegionModule/make do-grt
+```
+
+`start` builds every stage before `grt` and lays out a plain tree: the
+`.odb` and `.sdc` it starts from, ORFS's scripts with bazel-orfs's
+carried patches, and the openroad Bazel built. Your own openroad
+(`byo-openroad`):
+
+```sh
+OPENROAD_EXE=~/OpenROAD/build/bin/openroad \
+    tmp/test/coremark_joule/designs/asap7/xiangshan/FltRegionModule/make do-grt
+```
+
+**4. Where the resizer runs in this flow**, and what steers it
+(`xiangshan.bzl`):
+
+- Floorplan (`2_1_floorplan`): `repair_timing -setup` with the moves
+  `unbuffer,sizeup,swap,vt_swap`, since this flow keeps yosys's buffers
+  (no `REMOVE_ABC_BUFFERS`).
+- Placement (`3_4_place_resized`): `repair_design`; `repair_timing` only
+  with `ENABLE_PLACE_REPAIR_TIMING`, which this flow does not set.
+- CTS (`4_1_cts`): `repair_timing`, setup and hold.
+- Global route (`5_1_grt`): `repair_design`, then `repair_timing` with
+  the route's parasitics (`repair-timing-grt`), setup only: hold is left
+  to CTS (`HOLD_SLACK_MARGIN=-1000` at grt). On the parent it took 84 min
+  in KPI run 15, 45 in run 17.
+- Every flow repairs the worst 1 % of endpoints' TNS (`TNS_END_PERCENT=1`)
+  and skips the last-gasp pass (`SKIP_LAST_GASP=1`).
+
+**5. How far repair got, and what is left** (`repair-headroom`): load the
+stage in the odb-debug daemon and ask `headroom` for the reg2reg period
+against what useful skew, the fastest VT and zero wire would give, and
+the one-flop-loop floor no repair can beat.
+
+**6. Share it.** `bazelisk run //:dirty -- archive <flow> <stage>
+<file.tar.gz>` packs a stage as an untar-and-run reproducer for an
+issue.
+
 ## The KPI
 
 ![minimum clock period](kpi.png)
