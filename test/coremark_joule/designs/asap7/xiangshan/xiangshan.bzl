@@ -1134,6 +1134,11 @@ def _regfile_macro(spec, made, tags, outlines = {}, variant = None, pins = {}):
                 "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
                 "SDC_FILE": ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"],
             } | ({"IO_CONSTRAINTS": [pins[module]]} if module in pins else {}),
+            # a variant changes nothing synthesis reads; shared only by a
+            # flow without macros: a later stage takes its macros from its
+            # src, synthesis, so a block or the parent sharing it would
+            # place the base flow's
+            previous_stage = {"floorplan": ":%s_synth" % module} if variant else {},
             stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
             tags = tags,
             variant = variant,
@@ -1147,27 +1152,75 @@ def _abstract(flow, variant):
         return ":%s_%s_generate_abstract" % (flow, variant)
     return ":%s_generate_abstract" % flow
 
-def _pin_plan(name, stage, modules, tags):
-    """<name>_pin_plan: //tools/pin_plan on a flow's stage, its macros'
+# The plans a pin plan variant reads: <part>_pin_plan from the part's
+# global route, <part>_pin_plan_place from its placement. Whether the
+# placement already says what the route says is what the second answers:
+# if it does, a first pass need only reach place.
+_PIN_PLAN_STAGES = {
+    "pinplan": ("pin_plan", "grt"),
+    "pinplan_place": ("pin_plan_place", "place"),
+}
+
+_STAGE_ODB = {"place": "3_place", "cts": "4_cts", "grt": "5_1_grt"}
+
+def _pin_plan(name, stage, modules, tags, outdir = "pin_plan"):
+    """<name>_<outdir>: //tools/pin_plan on a flow's stage, its macros'
     pins (modules) planned from where their logic sits, the macros' places,
-    and a report of the pins facing away from their logic: the pinplan
+    and a report of the pins facing away from their logic: a pin plan
     variant's input, built forward from this pass, never checked in."""
-    stage_odb = {"place": "3_place", "cts": "4_cts", "grt": "5_1_grt"}[stage]
-    outs = ["pin_plan/%s/%s_pins.tcl" % (name, m) for m in modules] + [
-        "pin_plan/%s/%s_macros.tcl" % (name, name),
-        "pin_plan/%s/%s_pins_report.txt" % (name, name),
+    outs = ["%s/%s/%s_pins.tcl" % (outdir, name, m) for m in modules] + [
+        "%s/%s/%s_macros.tcl" % (outdir, name, name),
+        "%s/%s/%s_pins_report.txt" % (outdir, name, name),
     ]
     orfs_run(
-        name = "%s_pin_plan" % name,
+        name = "%s_%s" % (name, outdir),
         src = ":%s_%s" % (name, stage),
         outs = outs,
         script = "//tools/pin_plan:pin_plan.tcl",
         tags = tags,
         user_arguments = {
-            "PINS_OUT": " ".join(["%s $(location pin_plan/%s/%s_pins.tcl) 0 0" % (m, name, m) for m in modules]),
-            "PIN_PLAN_PLACEMENT": "$(location pin_plan/%s/%s_macros.tcl)" % (name, name),
-            "PIN_PLAN_REPORT": "$(location pin_plan/%s/%s_pins_report.txt)" % (name, name),
-            "PIN_PLAN_STAGE": stage_odb,
+            "PINS_OUT": " ".join(["%s $(location %s/%s/%s_pins.tcl) 0 0" % (m, outdir, name, m) for m in modules]),
+            "PIN_PLAN_PLACEMENT": "$(location %s/%s/%s_macros.tcl)" % (outdir, name, name),
+            "PIN_PLAN_REPORT": "$(location %s/%s/%s_pins_report.txt)" % (outdir, name, name),
+            "PIN_PLAN_STAGE": _STAGE_ODB[stage],
+        },
+    )
+
+def _pin_plans(name, modules, tags):
+    """A part's pin plans, from its placement and from its global route,
+    and <name>_pin_plan_diff, the two side by side (pin_plan_diff.py)."""
+    for outdir, stage in _PIN_PLAN_STAGES.values():
+        _pin_plan(name, stage, modules, tags, outdir)
+    a, b = "pin_plan_place", "pin_plan"
+    files = ["%s/%s/%s_pins_report.txt", "%s/%s/%s_macros.tcl"]
+    srcs = []
+    for f in files:
+        srcs += [":" + f % (a, name, name), ":" + f % (b, name, name)]
+    for m in modules:
+        srcs += [":%s/%s/%s_pins.tcl" % (a, name, m), ":%s/%s/%s_pins.tcl" % (b, name, m)]
+    native.genrule(
+        name = "%s_pin_plan_diff" % name,
+        srcs = srcs,
+        outs = ["pin_plan_diff/%s.txt" % name],
+        cmd = "$(execpath //tools/pin_plan:pin_plan_diff) $@ place grt " + " ".join(["$(location %s)" % s for s in srcs]),
+        tags = tags,
+        tools = ["//tools/pin_plan:pin_plan_diff"],
+    )
+
+def _pins_after(name, variant, tags):
+    """<name>_<variant>_pins_after: the variant's macro pins at its global
+    route, the same table as the plan's report, nothing planned."""
+    out = "%s_pins_after/%s_pins_report.txt" % (variant, name)
+    orfs_run(
+        name = "%s_%s_pins_after" % (name, variant),
+        src = ":%s_%s_grt" % (name, variant),
+        outs = [out],
+        script = "//tools/pin_plan:pin_plan.tcl",
+        tags = tags,
+        user_arguments = {
+            "PINS_OUT": "",
+            "PIN_PLAN_REPORT": "$(location %s)" % out,
+            "PIN_PLAN_STAGE": _STAGE_ODB["grt"],
         },
     )
 
@@ -1289,11 +1342,15 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     read at grt.
 
     Without a variant, <part>_pin_plan plans each part's register-file
-    pins and macro places from its grt (//tools/pin_plan). With one, every
-    flow is that variant of itself and reads those plans, forward from the
+    pins and macro places from its grt (//tools/pin_plan),
+    <part>_pin_plan_place from its place, and <part>_pin_plan_diff sets
+    the two side by side. With a variant (_PIN_PLAN_STAGES), every flow is
+    that variant of itself and reads one of those plans, forward from the
     base flow in one graph: the register files' pins on the sides facing
-    their logic, each block's macros where the plan was made. The KPI and
-    the stitched views stay the base flow's.
+    their logic, each block's macros where the plan was made, the register
+    files' synthesis shared with the base flow, and
+    <part>_<variant>_pins_after the pins facing away at its grt. The KPI
+    and the stitched views stay the base flow's.
     """
     macros = sorted(plan["macros"].keys())
     made = {}
@@ -1302,13 +1359,14 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     pins = {}
     places = {}
     if variant:
+        outdir = _PIN_PLAN_STAGES[variant][0]
         for block in macros:
             entry = plan["macros"][block]
             cfg = blocks.get(block, XS_BLOCK_DEFAULT)
-            places[block] = ":pin_plan/%s/%s_macros.tcl" % (block, block)
+            places[block] = ":%s/%s/%s_macros.tcl" % (outdir, block, block)
             for m in _regfiles(cfg["sources"], entry.get("SYNTH_KEEP_MODULES", ""), blocks):
                 module = m.split(":")[-1].removesuffix(".regfile")
-                pins[module] = ":pin_plan/%s/%s_pins.tcl" % (block, module)
+                pins[module] = ":%s/%s/%s_pins.tcl" % (outdir, block, module)
     for block in macros:
         cfg = blocks.get(block, XS_BLOCK_DEFAULT)
         if block in XS_ANNEAL_CHANNEL_UM:
@@ -1350,10 +1408,11 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             **mock
         )
         if variant:
+            _pins_after(block, variant, tags)
             continue
         _kpi(block, "grt", arguments, sources, tags)
         _sta_part(block, arguments, sources, tags, ilm = True)
-        _pin_plan(block, "grt", [m.split(":")[-1].removesuffix(".regfile") for m in modules], tags)
+        _pin_plans(block, [m.split(":")[-1].removesuffix(".regfile") for m in modules], tags)
     arguments = {k: v for k, v in parent["arguments"].items() if k not in _PLAN_DROPS}
     arguments["DIE_AREA"] = plan["parent"]["DIE_AREA"]
     arguments["CORE_AREA"] = plan["parent"]["CORE_AREA"]
@@ -1420,11 +1479,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     if variant:
         for m in parent_modules:
             module = m.split(":")[-1].removesuffix(".regfile")
-            pins[module] = ":pin_plan/%s/%s_pins.tcl" % (name, module)
-    if variant:
-        for m in parent_modules:
-            module = m.split(":")[-1].removesuffix(".regfile")
-            pins[module] = ":pin_plan/%s/%s_pins.tcl" % (name, module)
+            pins[module] = ":%s/%s/%s_pins.tcl" % (_PIN_PLAN_STAGES[variant][0], name, module)
     parent_regfiles = [_regfile_macro(m, made, tags, outlines, variant = variant, pins = pins) for m in parent_modules]
     sources.pop("AUTO_MEMORIES_REGFILES", None)
 
@@ -1468,8 +1523,9 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         visibility = ["//visibility:public"],
     )
     if variant:
+        _pins_after(name, variant, tags)
         return
-    _pin_plan(name, "grt", [m.split(":")[-1].removesuffix(".regfile") for m in parent_modules], tags)
+    _pin_plans(name, [m.split(":")[-1].removesuffix(".regfile") for m in parent_modules], tags)
     _kpi(name, "grt", arguments, sources, tags)
     _sta_part(name, arguments, sources, tags)
     parts = [name] + list(macros)
