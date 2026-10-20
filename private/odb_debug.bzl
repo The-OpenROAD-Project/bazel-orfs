@@ -34,10 +34,12 @@ def odb_debug(name, src, **kwargs):
             variables such as `{"GUI_TIMING": "0"}`, `visibility`, `tags`.
     """
 
-    # The idle exit stops the daemon through its own client, and the GUI
-    # link is a proxy; both have to sit beside daemon.tcl.
+    # The idle exit stops the daemon through its own client, the GUI link
+    # is a proxy and the headroom measurements are a library it sources;
+    # all of them have to sit beside daemon.tcl.
     kwargs["data"] = kwargs.get("data", []) + [
         "@bazel-orfs//tools/odb_debug:gui_proxy.py",
+        "@bazel-orfs//tools/odb_debug:headroom.tcl",
         "@bazel-orfs//tools/odb_debug:odbdebug.py",
         "@bazel-orfs//tools/odb_debug:webclient.py",
     ]

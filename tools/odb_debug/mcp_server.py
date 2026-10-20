@@ -190,6 +190,64 @@ def _check_setup(d, a):
     )
 
 
+ENDS = (
+    "integer",
+    "Scope: the cones of this many worst reg2reg endpoints; default 0, every endpoint. Limit it only when a very large design does not answer otherwise: skew needs the flops around the violations free to move",
+)
+
+
+@tool(
+    "period",
+    "The stage's reg2reg period (clock period minus the worst reg2reg slack over every endpoint), its violating reg2reg endpoints and their TNS. The measure the headroom tools compare against. Needs timing loaded.",
+)
+def _period(d, a):
+    return d.period()
+
+
+@tool(
+    "floor_wire",
+    "Zero-wire floor: the reg2reg period with every wire's R and C near zero (clock wires too), then the stage's RC put back. What any placement, buffering or reseating could at most win. Needs timing loaded.",
+)
+def _floor_wire(d, a):
+    return d.floor_wire()
+
+
+@tool(
+    "floor_cycles",
+    "One-flop-loop floor: the worst path from a flop back to itself among the flops of the worst paths. Neither useful skew nor retiming can go below it. Needs timing loaded.",
+    {"ends": ENDS},
+)
+def _floor_cycles(d, a):
+    return d.floor_cycles(a.get("ends", 0))
+
+
+@tool(
+    "skew_headroom",
+    "Useful skew in timing only: the reg2reg period if each flop of the worst paths got the clock arrival that balances its paths in and out, hold kept, then removed. Not a clock tree anyone built. Needs timing loaded.",
+    {"ends": ENDS, "hold": ("boolean", "Keep hold slack >= 0; default true")},
+)
+def _skew_headroom(d, a):
+    return d.skew_headroom(a.get("ends", 0), a.get("hold", True))
+
+
+@tool(
+    "vt_headroom",
+    "Threshold-voltage headroom: the reg2reg period with every data cell of the worst cones at the fastest VT the stage loaded, then put back. Reports which VTs the cones use; one VT loaded means nothing to swap to. Leakage is not measured. Needs timing loaded.",
+    {"ends": ENDS},
+)
+def _vt_headroom(d, a):
+    return d.vt_headroom(a.get("ends", 0))
+
+
+@tool(
+    "headroom",
+    "All repair-headroom measurements on the loaded stage in one table: the period, the zero-wire and one-flop-loop floors, useful skew and VT, each with its gain in percent, and how each flow stage ended (setup WNS, TNS, violations from its metrics): a stage that met timing measures nothing. The stage alone: a block is its abstract; across blocks, use the stitched view (.claude/skills/repair-headroom). Minutes to hours on a large design. Needs timing loaded.",
+    {"ends": ENDS},
+)
+def _headroom(d, a):
+    return d.headroom(a.get("ends", 0))
+
+
 @tool(
     "report",
     "Run an OpenROAD command and return what it printed: report_checks -path_delay max, report_design_area, report_wire_length ...",

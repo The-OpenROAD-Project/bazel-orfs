@@ -404,6 +404,123 @@ proc od_capture { script } {
   return $out
 }
 
+# ---- Repair headroom (needs liberty) -------------------------------------------
+
+# The measurements live in headroom.tcl beside this file, shared with the
+# stitched view of a parent and its blocks (private/headroom.bzl); here
+# they see the loaded stage alone, a block being its abstract. What they
+# mean: .claude/skills/repair-headroom/SKILL.md.
+source [file join [file dirname [file normalize [info script]]] headroom.tcl]
+
+proc od_hr_json { d } {
+  set pairs {}
+  dict for {k v} $d {
+    if { [llength $v] > 1 || [string match "vts_*" $k] } {
+      lappend pairs $k [od_jarr [lmap x $v { od_jstr $x }]]
+    } elseif { [string is double -strict $v] } {
+      lappend pairs $k [od_jnum $v]
+    } else {
+      lappend pairs $k [od_jstr $v]
+    }
+  }
+  return [od_jobj $pairs]
+}
+
+proc od_period {} {
+  od_require_timing
+  return [od_hr_json [hr_period]]
+}
+
+proc od_floor_cycles { {ends 0} } {
+  od_require_timing
+  return [od_hr_json [hr_floor_cycles $ends]]
+}
+
+proc od_skew_headroom { {ends 0} {hold 1} } {
+  od_require_timing
+  return [od_hr_json [hr_skew $ends $hold]]
+}
+
+proc od_vt_headroom { {ends 0} } {
+  od_require_timing
+  set ::hr_parasitics "estimate_parasitics -[lindex [od_rc_mode] 1]"
+  return [od_hr_json [hr_vt $ends]]
+}
+
+# Wires at zero and back, estimated the way open.tcl estimated the stage:
+# with the route's parasitics when it has a route, else placement's.
+proc od_rc_mode {} {
+  if { [env_var_exists_and_non_empty LAYER_PARASITICS_FILE] } {
+    set rc $::env(LAYER_PARASITICS_FILE)
+  } else {
+    set rc $::env(PLATFORM_DIR)/setRC.tcl
+  }
+  set mode placement
+  catch { if { [grt::have_routes] } { set mode global_routing } }
+  return [list $rc $mode]
+}
+
+proc od_floor_wire {} {
+  od_require_timing
+  lassign [od_rc_mode] rc mode
+  return [od_hr_json [dict merge [hr_floor_wire $rc $mode] [dict create parasitics $mode]]]
+}
+
+# How each stage ended, from the metrics the flow wrote beside it (LOG_DIR's
+# <stage>.json; the logs themselves are not in a daemon's runfiles): its
+# setup WNS, TNS and violation count. A stage whose repair met timing
+# measures nothing here: tighten its clock first.
+proc od_stage_setup {} {
+  set stages {}
+  if { ![info exists ::env(LOG_DIR)] } { return $stages }
+  foreach f [lsort [glob -nocomplain -directory $::env(LOG_DIR) *.json]] {
+    set fh [open $f]
+    set text [read $fh]
+    close $fh
+    set ws ""
+    set tns ""
+    set viol ""
+    regexp -- {"[a-z_]+__timing__setup__ws": *(-?[0-9.eE+-]+)} $text -> ws
+    regexp -- {"[a-z_]+__timing__setup__tns": *(-?[0-9.eE+-]+)} $text -> tns
+    regexp -- {"[a-z_]+__timing__drv__setup_violation_count": *([0-9]+)} $text -> viol
+    if { $ws eq "" } { continue }
+    lappend stages [od_jobj [list stage [od_jstr [file rootname [file tail $f]]] \
+      setup_ws [od_jnum $ws] setup_tns [od_jnum $tns] setup_violations [od_jnum $viol]]]
+  }
+  return $stages
+}
+
+# Everything at once, the stage's period first: a table of the floors and
+# ceilings, each with its gain over the period repair left.
+proc od_headroom { {ends 0} } {
+  od_require_timing
+  set t0 [clock milliseconds]
+  set p [hr_period]
+  set rows [list period [dict get $p period]]
+  lassign [od_rc_mode] rc mode
+  set ::hr_parasitics "estimate_parasitics -$mode"
+  foreach {name d key} [list \
+      floor_wire [hr_floor_wire $rc $mode] floor \
+      floor_cycles [hr_floor_cycles $ends] floor \
+      skew [hr_skew $ends 1] skew \
+      vt [hr_vt $ends] vt] {
+    lappend rows $name [dict get $d $key]
+  }
+  set pairs [list clock_period [od_jnum [dict get $p clock_period]] \
+    violating [od_jnum [dict get $p violating]] tns [od_jnum [dict get $p tns]]]
+  set table {}
+  set base [dict get $p period]
+  foreach {name v} $rows {
+    set gain [expr { $v eq "" ? "" : 100.0 * ($v - $base) / $base }]
+    lappend table [od_jobj [list name [od_jstr $name] period [od_jnum $v] \
+      gain_percent [od_jnum [expr { $gain eq "" ? "" : [format %.1f $gain] }]]]]
+  }
+  lappend pairs rows [od_jarr $table] \
+    stages [od_jarr [od_stage_setup]] \
+    seconds [od_jnum [expr { ([clock milliseconds] - $t0) / 1000.0 }]]
+  return [od_jobj $pairs]
+}
+
 # ---- Requests ----------------------------------------------------------------
 
 # Evaluate one request, capturing puts to stdout.

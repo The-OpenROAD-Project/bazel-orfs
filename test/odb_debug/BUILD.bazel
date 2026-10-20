@@ -46,6 +46,7 @@ py_test(
         "design.def",
         "//test:openroad_exec",
         "//tools/odb_debug:daemon.tcl",
+        "//tools/odb_debug:headroom.tcl",
         "@orfs//flow:platforms/asap7/lef/asap7_tech_1x_201209.lef",
     ],
     deps = ["//tools/odb_debug:odbdebug_lib"],
