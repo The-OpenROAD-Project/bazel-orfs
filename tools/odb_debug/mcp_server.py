@@ -232,7 +232,7 @@ def _skew_headroom(d, a):
 
 @tool(
     "vt_headroom",
-    "Threshold-voltage headroom: the reg2reg period with every data cell of the worst cones at the fastest VT the stage loaded, then put back. Reports which VTs the cones use; one VT loaded means nothing to swap to. Leakage is not measured. Needs timing loaded.",
+    "Threshold-voltage headroom: the reg2reg period with every data cell of the worst cones at the fastest VT the stage loaded, then put back. Reports which VTs the cones use (one VT loaded means nothing to swap to) and the design's leakage before, with the swap and after the undo. Needs timing loaded.",
     {"ends": ENDS},
 )
 def _vt_headroom(d, a):

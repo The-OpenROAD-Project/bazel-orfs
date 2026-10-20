@@ -269,14 +269,25 @@ proc hr_vt_keep { cell ref } {
     || [regexp {^(ICG|DFF|DHL|DLL|SDF|ASYNC)} $ref] }]
 }
 
+# The design's leakage power in watts (OpenSTA's power with its default
+# activities), or "" when it cannot be computed. Leakage does not depend
+# on activity, so the defaults do not matter for it.
+proc hr_leakage {} {
+  if { [catch { lindex [sta::design_power [sta::cmd_scene]] 2 } leak] } {
+    return ""
+  }
+  return $leak
+}
+
 # Threshold-voltage headroom: every data cell in the fanin cones of the
 # `ends` worst reg2reg endpoints moved to the fastest VT that is loaded, the
 # period measured, every cell put back. `blocks` are instance paths whose
 # cells are counted apart (a stitched view: those belong to the blocks' own
 # repair, not the parent's); with `parent_only` they are not swapped.
-# The leakage this costs is not measured.
+# What it costs is the leakage before, with the swap, and after the undo.
 proc hr_vt { {ends 0} {blocks {}} {parent_only 0} } {
   set start [dict get [hr_period] period]
+  set leak_start [hr_leakage]
   set order [hr_vt_order]
   set eps {}
   foreach pe [hr_worst_ends $ends] { lappend eps [get_property $pe endpoint] }
@@ -313,13 +324,16 @@ proc hr_vt { {ends 0} {blocks {}} {parent_only 0} } {
   }
   hr_update_parasitics
   set after [dict get [hr_period] period]
+  set leak_vt [hr_leakage]
   foreach s $swapped {
     lassign $s c lc
     replace_cell $c [lindex $lc 0]
   }
   hr_update_parasitics
   set restored [dict get [hr_period] period]
-  return [dict create start $start vt $after swapped_parent $n_parent \
+  return [dict create start $start vt $after \
+    leakage_start $leak_start leakage_vt $leak_vt leakage_restored [hr_leakage] \
+    swapped_parent $n_parent \
     swapped_block $n_block already_fastest $already_fastest \
     vts_in_cones [lsort [dict keys $have_vts]] restored $restored]
 }

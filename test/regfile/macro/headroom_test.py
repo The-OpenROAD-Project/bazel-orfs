@@ -36,6 +36,20 @@ class HeadroomTest(unittest.TestCase):
                 self.r["floor_cycles"]["floor"], self.period + self.eps
             )
 
+    def test_leakage_is_measured_and_comes_back(self):
+        for name in ("vt", "vt_parent_only"):
+            v = self.r[name]
+            self.assertGreater(v["leakage_start"], 0, name)
+            self.assertAlmostEqual(
+                v["leakage_restored"],
+                v["leakage_start"],
+                delta=1e-6 * v["leakage_start"],
+                msg=name,
+            )
+            self.assertGreaterEqual(
+                v["leakage_vt"], v["leakage_start"] * (1 - 1e-6), name
+            )
+
     def test_skew_keeps_hold(self):
         hold = self.r["skew"]["hold_slack"]
         if hold != "":

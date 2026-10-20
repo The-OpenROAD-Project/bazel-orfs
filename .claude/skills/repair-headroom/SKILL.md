@@ -36,7 +36,7 @@ Load the stage (`odb-debug`, `warm-gui`) and ask:
 | `floor_wire` | zero-wire floor: every wire's R and C near zero, clock wires too |
 | `floor_cycles` | one-flop-loop floor: the worst path from a flop back to itself |
 | `skew_headroom` | useful skew in timing only, hold kept |
-| `vt_headroom` | the data cells of the cones at the fastest VT loaded |
+| `vt_headroom` | the data cells of the cones at the fastest VT loaded, and its leakage cost |
 | `headroom` | all of them in one table, each with its gain in percent, and how each stage ended |
 
 Each tool undoes its what-if and reports `restored`, the period measured
@@ -100,7 +100,8 @@ repair stalled:
   against its own SDC; when that SDC asks less than the parent's paths
   need, the block stops early, and the parent's repair cannot reach in.
   Flows that load one VT (ORFS's asap7 default is RVT only) leave all of it.
-  Leakage is not measured.
+  `vt_headroom` reports what the swap costs in leakage (before, with it,
+  after the undo); weigh the gain against it.
 - **Wire**: zero wire is worth 10–24 % (ariane 24 %); what of it any
   placement or buffering could recover is not answered here.
 - **Block abstracts at grt** timed riscv32i's parent 5 % pessimistic
@@ -153,6 +154,5 @@ the violating cones to SLVT met timing.
 - **The single worst-path search wobbles**: `find_timing_paths
   -group_path_count 1` gave periods 4 ps apart on an unchanged design;
   `period` takes the worst over every endpoint, which repeats exactly.
-- **`report_power` crashes** on an `OPENROAD_HIERARCHICAL` design.
 - **Units**: periods are in the liberty's time unit (ps on asap7, ns on
   gf180 and ihp-sg13g2).

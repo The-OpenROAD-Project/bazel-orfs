@@ -198,7 +198,7 @@ another ODB without restarting the agent. Tools:
 | `pin_access pin` | why a pin has no access point: DRT's markers for each rejected candidate, by constraint |
 | `period` | the reg2reg period, violating reg2reg endpoints, their TNS |
 | `floor_wire`, `floor_cycles` | the zero-wire and one-flop-loop floors of the reg2reg period |
-| `skew_headroom`, `vt_headroom` | the period with useful skew (timing only, hold kept) or the cones at the fastest VT loaded; undone after |
+| `skew_headroom`, `vt_headroom` | the period with useful skew (timing only, hold kept) or the cones at the fastest VT loaded, with the leakage it costs; undone after |
 | `headroom` | all of the above in one table, and how each stage ended (`.claude/skills/repair-headroom/SKILL.md`) |
 | `open target` | start `bazelisk run <target>`, an `odb_debug()` target, detached; returns at once |
 | `gui` | `loading` (end of the launch log), `ready` (the GUI link and how to open it) or `stopped` |
