@@ -1891,7 +1891,7 @@ XSTile build at a time (the parent peaks near 60 GB).
 
    Record the run in README.md's KPI table and here.
 
-## 54. Cluster pull in global placement: stopped, no XSTile result
+## 54. Cluster pull in global placement: mixed on ORFS designs, a third of XSTile's excess
 
 2026-10-20, issue #1263. The idea, from Andrew Kahng's group's
 Hier-RTLMP and DG-RePlAce: hold logic that belongs together together in
@@ -1958,6 +1958,32 @@ attempt on a tree before ORFS patch 0135 measured nothing: its worst
 paths were the MemBlock abstract arc that 0135 fixes, a timing-model
 error that also steered the timing-driven placement and repair of both
 arms.
+
+**XSTile's answer, from a parallel arm.** The same idea with named
+hierarchy groups instead of rtl_macro_placer's clusters: OpenROAD's
+`global_placement -clusters_file` (a patch, not upstreamed), each group
+pulled toward its own centroid with weight 1 and no fade. The pull ran in
+dirty lanes from the control's floorplan through grt, one seed per arm,
+and the KPI was read at grt with block abstracts, not the stitched view:
+
+| Arm | Worst | Endpoints >= 2,000 ps | Excess |
+|---|---:|---:|---:|
+| control (row 17) | 2,504 | 5,259 | 733 ns |
+| dispatch, decode, rename, memCtrl, the 13 integer issue queues | 2,524 | 4,336 | 548 ns |
+| the same and fusionDecoder | 2,484 | 4,499 | 466 ns |
+| the same and the ROB (658,000 cells) | diverged (GPL-0307) | | |
+
+With six groups, the excess over 2,000 ps falls by more than a third, and
+the worst path barely moves. A group as large as the ROB diverges under a
+pull that never fades, as the first try here did. The residual over
+2,000 ps then sits in memCtrl (about 1,150 endpoints), dispatch (1,030),
+the store-data issue queues' round trip to MemBlock (538, worst 2,513 ps)
+and fusionDecoder.
+
+The patch, the six groups and the lane are on the branch
+`study/gpl-cohesion` (`ideas/gpl-cohesion/`). To read it on a built tree
+rather than a lane: one full build with the patch and the groups, then the
+stitched headroom view (entry 55).
 
 ## 55. Where the period is left: the headroom plan, retiming included
 
