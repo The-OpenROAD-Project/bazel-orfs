@@ -141,6 +141,23 @@ class EmitTest(unittest.TestCase):
             ),
             place,
         )
+        # each row carries the outline the plan made room for, and the script
+        # stops before place_macro when the built macro is another size,
+        # instead of place_macro blaming the neighbour it overlaps (MPL-0041)
+        self.assertIn(
+            "  Frontend {:.3f} {:.3f} {:.3f} {:.3f}".format(
+                by["Frontend"]["x_um"],
+                by["Frontend"]["y_um"],
+                by["Frontend"]["w_um"],
+                by["Frontend"]["h_um"],
+            ),
+            place,
+        )
+        self.assertIn("proc plan_check_size", place)
+        self.assertIn("utl::error FLW 3", place)
+        self.assertEqual(
+            place.count("  plan_check_size "), place.count("  place_macro ")
+        )
         self.assertIn("-orientation R0 -exact", place)
         self.assertIn("setPlacementStatus FIRM", place)
         self.assertIn(
@@ -315,7 +332,9 @@ class ExactPinTest(unittest.TestCase):
         place = open(os.path.join(d, "place_macros.tcl")).read()
         for m in out["macros"]:
             self.assertIn(
-                "\n  %s %.3f %.3f\n" % (m["name"], m["x_um"], m["y_um"]), place
+                "\n  %s %.3f %.3f %.3f %.3f\n"
+                % (m["name"], m["x_um"], m["y_um"], m["w_um"], m["h_um"]),
+                place,
             )
         self.assertNotIn("\n  a0 ", place)
         scope = {}
@@ -487,7 +506,10 @@ class NetlistTest(unittest.TestCase):
         d = tempfile.mkdtemp(prefix="plan_netlists.")
         plan_floorplan.emit(out, p, d)
         text = open(os.path.join(d, "place_macros.tcl")).read()
-        self.assertIn("  top/a %.3f %.3f\n" % (rows[0][2], rows[0][3]), text)
+        self.assertIn(
+            "  top/a %.3f %.3f %.3f %.3f\n" % (rows[0][2], rows[0][3], 300.0, 200.0),
+            text,
+        )
         bzl = open(os.path.join(d, "plan.bzl")).read()
         self.assertIn('"netlists"', bzl)
 

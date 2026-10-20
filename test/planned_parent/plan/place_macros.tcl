@@ -2,11 +2,26 @@
 # by its master and placed R0 with -exact (mpl's snapper would move the
 # origin off the pin lattice the plan put it on).
 set block [ord::get_db_block]
-foreach {master x y} {
-  BlockA 20.304 41.040
-  BlockB 85.104 32.400
-  BlockC 26.784 190.080
-  BlockD 89.424 190.080
+# A macro built larger than the plan's outline is placed where the plan
+# made room for the planned one: it overlaps a neighbour, and place_macro
+# blames the neighbour (MPL-0041). Stop here, naming both. A smaller one
+# fits the room (a register file generate_ram sizes, for one).
+proc plan_check_size { what inst w h } {
+  set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
+  set master [$inst getMaster]
+  set bw [expr { double([$master getWidth]) / $dbu }]
+  set bh [expr { double([$master getHeight]) / $dbu }]
+  foreach {built planned} [list $bw $w $bh $h] {
+    if { $built - $planned > max(1.0, 0.005 * $planned) } {
+      utl::error FLW 3 [format "plan: %s is %.3f x %.3f um as built, larger than the %.3f x %.3f um the plan made room for; build it to the plan's outline or regenerate the plan" $what $bw $bh $w $h]
+    }
+  }
+}
+foreach {master x y w h} {
+  BlockA 20.304 41.040 54.000 54.000
+  BlockB 85.104 32.400 62.640 62.640
+  BlockC 26.784 190.080 51.840 51.840
+  BlockD 89.424 190.080 51.840 51.840
 } {
   set insts {}
   foreach inst [$block getInsts] {
@@ -15,6 +30,7 @@ foreach {master x y} {
   if { [llength $insts] != 1 } {
     utl::error FLW 1 "plan: $master has [llength $insts] instances, the plan places one"
   }
+  plan_check_size $master [lindex $insts 0] $w $h
   place_macro -macro_name [[lindex $insts 0] getName] -location [list $x $y] -orientation R0 -exact
   [lindex $insts 0] setPlacementStatus FIRM
   puts "place_macros.tcl: $master at $x $y um, R0"
@@ -50,10 +66,10 @@ puts "place_macros.tcl: $bands soft placement blockage(s) over the blocks' bands
 # where the plan put it; they dissolve into their cells after it. The
 # macro is the instance itself, or generate_ram's RAM, ram, inside the
 # wrapper that takes the module's place.
-foreach {inst x y} {
-  u_filea 20.944 147.727
-  u_fileb 61.744 147.727
-  u_filec 102.544 147.727
+foreach {inst x y w h} {
+  u_filea 20.944 147.727 30.000 10.500
+  u_fileb 61.744 147.727 30.000 10.500
+  u_filec 102.544 147.727 30.000 10.500
 } {
   foreach name [list $inst $inst/ram $inst.ram] {
     set i [$block findInst $name]
@@ -62,6 +78,7 @@ foreach {inst x y} {
   if { $i eq "NULL" } {
     utl::error FLW 2 "plan: no register file instance $inst"
   }
+  plan_check_size "register file $inst" $i $w $h
   place_macro -macro_name [$i getName] -location [list $x $y] -orientation R0 -exact
   $i setPlacementStatus FIRM
   puts "place_macros.tcl: register file $inst at $x $y um, R0"
