@@ -68,6 +68,20 @@ class FakeDaemon(object):
                 "stdout": "",
                 "ms": 1,
             }, {}
+        if code.split(" ")[0] in (
+            "od_period",
+            "od_floor_wire",
+            "od_floor_cycles",
+            "od_skew_headroom",
+            "od_vt_headroom",
+            "od_headroom",
+        ):
+            return {
+                "ok": True,
+                "result": json.dumps({"code": code}),
+                "stdout": "",
+                "ms": 1,
+            }, {}
         if code.startswith("od_check_setup "):
             return {"ok": True, "result": "[]", "stdout": "", "ms": 1}, {}
         if code.startswith("od_capture {report_long"):
@@ -236,6 +250,12 @@ class McpTest(unittest.TestCase):
                 "report",
                 "pin_access",
                 "image",
+                "period",
+                "floor_wire",
+                "floor_cycles",
+                "skew_headroom",
+                "vt_headroom",
+                "headroom",
             }
             <= names
         )
@@ -248,6 +268,23 @@ class McpTest(unittest.TestCase):
         self.assertEqual(
             json.loads(r["result"]["content"][0]["text"])["design"], "fake"
         )
+
+    def test_headroom_tools_call_their_procs_with_scope(self):
+        # each headroom tool is its daemon proc, the scope and the hold
+        # choice passed through as Tcl words, defaults when not given
+        for name, args, code in [
+            ("period", {}, "od_period"),
+            ("floor_wire", {}, "od_floor_wire"),
+            ("floor_cycles", {}, "od_floor_cycles 0"),
+            ("skew_headroom", {"ends": 50, "hold": False}, "od_skew_headroom 50 0"),
+            ("skew_headroom", {}, "od_skew_headroom 0 1"),
+            ("vt_headroom", {"ends": 7}, "od_vt_headroom 7"),
+            ("headroom", {}, "od_headroom 0"),
+        ]:
+            r = self.rpc("tools/call", {"name": name, "arguments": args})
+            self.assertFalse(r["result"]["isError"], name)
+            body = json.loads(r["result"]["content"][0]["text"])
+            self.assertEqual(body, {"code": code}, name)
 
     def test_call_tcl(self):
         r = self.rpc("tools/call", {"name": "tcl", "arguments": {"code": "puts hi"}})

@@ -96,6 +96,46 @@ class SmokeTest(unittest.TestCase):
         self.assertEqual(len(self.d.worst_paths(3)), 3)
         self.assertIn("Design area", self.d.report("report_design_area"))
 
+    def test_headroom_measures_and_undoes(self):
+        # Each headroom tool tries a what-if on the shared session and must
+        # leave the design as it found it: the period it measures again at
+        # the end is the period it started from. And a floor or a ceiling
+        # is never above the period repair left. This daemon loads the
+        # flow's liberty, so the measurements must run, not skip.
+        self.assertTrue(self.d.status()["timing"])
+        start = self.d.period()
+        self.assertGreater(start["period"], 0)
+        self.assertGreaterEqual(start["endpoints"], 1)
+        eps = 1e-3 * start["period"]
+
+        wire = self.d.floor_wire()
+        self.assertAlmostEqual(wire["restored"], start["period"], delta=eps)
+        self.assertLessEqual(wire["floor"], start["period"] + eps)
+
+        cycles = self.d.floor_cycles()
+        if cycles["loops"]:
+            self.assertLessEqual(cycles["floor"], start["period"] + eps)
+
+        skew = self.d.skew_headroom()
+        self.assertAlmostEqual(skew["restored"], start["period"], delta=eps)
+        self.assertLessEqual(skew["skew"], start["period"] + eps)
+        if skew["hold_slack"] != "":
+            self.assertGreaterEqual(skew["hold_slack"], -eps)
+
+        vt = self.d.vt_headroom()
+        self.assertAlmostEqual(vt["restored"], start["period"], delta=eps)
+        self.assertIn("R", vt["vts_in_cones"])
+        if vt["swapped_parent"] + vt["swapped_block"] == 0:
+            # one VT loaded: nothing faster to swap to, nothing gained
+            self.assertAlmostEqual(vt["vt"], start["period"], delta=eps)
+
+        table = self.d.headroom()
+        self.assertEqual(
+            [r["name"] for r in table["rows"]],
+            ["period", "floor_wire", "floor_cycles", "skew", "vt"],
+        )
+        self.assertAlmostEqual(self.d.period()["period"], start["period"], delta=eps)
+
     def test_errors_and_stdout(self):
         with self.assertRaises(odbdebug.DaemonError):
             self.d.cell_info("no/such/instance")

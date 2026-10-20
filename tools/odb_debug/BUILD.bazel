@@ -2,13 +2,16 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 # daemon.tcl is the script an odb_debug() target runs inside the flow's
 # OpenROAD; its idle exit stops it through odbdebug.py and webclient.py
-# beside it, and gui_proxy.py beside it is the GUI link. Consumers reach
-# all four by label, so they are public.
+# beside it, gui_proxy.py beside it is the GUI link, and headroom.tcl
+# beside it holds the repair-headroom measurements it shares with the
+# stitched view (private/headroom.bzl). Consumers reach all of them by
+# label, so they are public.
 exports_files(
     [
         "daemon.tcl",
         "gui.sh",
         "gui_proxy.py",
+        "headroom.tcl",
         "odbdebug.py",
         "webclient.py",
     ],
@@ -16,13 +19,14 @@ exports_files(
 )
 
 # What `make gui_<stage>` runs in a stage's tree (make.tpl): gui.sh starts
-# the daemon, which needs its client and proxy beside it.
+# the daemon, which needs its client, proxy and headroom.tcl beside it.
 filegroup(
     name = "gui",
     srcs = [
         "daemon.tcl",
         "gui.sh",
         "gui_proxy.py",
+        "headroom.tcl",
         "odbdebug.py",
         "webclient.py",
     ],
