@@ -1,7 +1,8 @@
 # Compares two floorplan .odb files on what a macro placement decides:
 # every macro's location, orientation and placement status, every
 # placement blockage (a macro's halo by its macro), the routing
-# obstructions, and the instance and net counts. Run by
+# obstructions, the instance and net counts, and a checksum of every
+# instance's place. Run by
 # export_roundtrip.py, with openroad:
 #
 #   COMPARE_A, COMPARE_B  the two .odb files (Bazel's, make's)
@@ -41,6 +42,13 @@ proc facts { path move } {
       [list [$r xMin] [$r yMin] [$r xMax] [$r yMax]] [$b isSoft] \
       [$b getMaxDensity]]
   }
+  # every instance's place, as one checksum: a cell moved is a difference
+  set cells {}
+  foreach inst [$block getInsts] {
+    lappend cells [list [$inst getName] [$inst getLocation] [$inst getOrient] \
+      [$inst getPlacementStatus]]
+  }
+  lappend out [list placement [zlib crc32 [join [lsort $cells] "\n"]]]
   lappend out [list obstructions [llength [$block getObstructions]]]
   lappend out [list instances [llength [$block getInsts]]]
   lappend out [list nets [llength [$block getNets]]]

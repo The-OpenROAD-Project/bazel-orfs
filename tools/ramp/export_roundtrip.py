@@ -33,7 +33,7 @@ import sys
 import time
 
 import export_design
-from export_design import Refused, bazelisk, group_files, refuse
+from export_design import STAGE_ODB, Refused, bazelisk, build, group_files, refuse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 COMPARE_TCL = os.path.join(HERE, "roundtrip_compare.tcl")
@@ -69,9 +69,14 @@ def make_env():
     A py_binary's launcher sets PYTHONSAFEPATH and RUNFILES_*: inherited
     by make, the first stops FakeRAM's run.py importing its own modules.
     """
-    return {
+    env = {
         k: v for k, v in os.environ.items() if not k.startswith(("PYTHON", "RUNFILES"))
     }
+    # the tree is the synthesis stage's; the export's config.mk says every
+    # stage's variables, so any stage runs, with none of the tree's own
+    env["ORFS_DEPLOY_ANY_STAGE"] = "1"
+    env["ORFS_DEPLOY_LATER_VARS"] = "0"
+    return env
 
 
 def compare(openroad, a, b, move=""):
@@ -105,6 +110,11 @@ def main(argv=None):
         "--abstracts", action="store_true", help="passed to export --abstracts"
     )
     ap.add_argument(
+        "--start",
+        help="passed to export --start: make runs that stage alone, on the"
+        " results Bazel built, and its .odb is compared",
+    )
+    ap.add_argument(
         "--make-arg",
         action="append",
         default=[],
@@ -125,6 +135,7 @@ def main(argv=None):
             ["--snapshot-macro-placement"]
             + ["--drop=" + d for d in args.drop]
             + (["--abstracts"] if args.abstracts else [])
+            + (["--start=" + args.start] if args.start else [])
             + [dest, args.flow]
         )
         if rc:
@@ -148,17 +159,22 @@ def main(argv=None):
         exports = {rel: read_exports(path) for rel, path in found}
         platform = exports["."]["PLATFORM"]
         nickname = exports["."].get("DESIGN_NICKNAME") or exports["."]["DESIGN_NAME"]
-        target = os.path.join(
-            work, "results", platform, nickname, "base", "2_floorplan.odb"
-        )
+        stage = args.start or "floorplan"
+        odb_name = STAGE_ODB[stage] + ".odb"
         if os.path.exists(work):
             shutil.rmtree(work)
-        os.makedirs(work)
+        if args.start:
+            # what export shipped: the earlier stages' results, as ORFS's tree
+            shutil.copytree(os.path.join(dest, "start", stage), work, symlinks=True)
+            target = "do-" + stage
+            found = found[:1]
+            what = "{} alone, on Bazel's earlier results".format(stage)
+        else:
+            os.makedirs(work)
+            target = os.path.join(work, "results", platform, nickname, "base", odb_name)
+            what = "the blocks to finish and the parent to floorplan"
         log = os.path.join(top, "make.log")
-        print(
-            "roundtrip: make, the blocks to finish and the parent to floorplan;"
-            " log in {}".format(log)
-        )
+        print("roundtrip: make, {}; log in {}".format(what, log))
         start = time.time()
         with open(log, "w") as f:
             r = subprocess.run(
@@ -180,18 +196,17 @@ def main(argv=None):
         for rel, path in found:
             e = exports[rel]
             label = open(path).readline().split(" from ")[-1].rstrip(".\n")
+            build(ws, odb_name, [label + "_" + stage])
             odb = [
                 f
-                for f in group_files(ws, label + "_floorplan", "2_floorplan.odb")
+                for f in group_files(ws, label + "_" + stage, odb_name)
                 if f.endswith(".odb")
             ]
             execroot = bazelisk(ws, "info", "execution_root").stdout.strip()
             bazel_odbs[rel] = os.path.join(execroot, odb[0])
             nick = e.get("DESIGN_NICKNAME") or e["DESIGN_NAME"]
-            made = os.path.join(
-                work, "results", platform, nick, "base", "2_floorplan.odb"
-            )
-            if "SYNTH_NETLIST_FILES" in e:
+            made = os.path.join(work, "results", platform, nick, "base", odb_name)
+            if "SYNTH_NETLIST_FILES" in e and not args.start:
                 # with a netlist, ORFS's synthesis copies it and exits
                 # before it reads the RTL, so writes no canonical RTLIL
                 cleared = "SYNTH_NETLIST_FILES=" in args.make_arg
@@ -208,7 +223,7 @@ def main(argv=None):
                 )
                 failures += not ok
             same, lines = compare(openroad, bazel_odbs[rel], made)
-            print("roundtrip: {} floorplan: {}".format(label, lines[-1]))
+            print("roundtrip: {} {}: {}".format(label, stage, lines[-1]))
             if not same:
                 failures += 1
                 for l in lines[:-1][:20]:
