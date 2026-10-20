@@ -1,11 +1,22 @@
-load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 # Whether a target is a remote cache hit here, asked without building it:
 # .claude/skills/cache-miss/SKILL.md.
 py_binary(
     name = "cache_evidence",
     srcs = ["cache_evidence.py"],
-    deps = ["@bazel-orfs-dev-pip//zstandard"],
+    deps = [
+        ":killer",
+        "@bazel-orfs-dev-pip//zstandard",
+    ],
+)
+
+# The killer alone, no dependencies: //:export --cached-only runs it too.
+py_library(
+    name = "killer",
+    srcs = ["killer.py"],
+    imports = ["."],
+    visibility = ["//tools/ramp:__pkg__"],
 )
 
 py_test(
@@ -15,5 +26,8 @@ py_test(
         "cache_evidence_test.py",
     ],
     main = "cache_evidence_test.py",
-    deps = ["@bazel-orfs-dev-pip//zstandard"],
+    deps = [
+        ":killer",
+        "@bazel-orfs-dev-pip//zstandard",
+    ],
 )
