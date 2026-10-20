@@ -146,7 +146,8 @@ anything else travels as the file it made, or not at all:
 | generated RTL | the Verilog as built, under `inputs/`: a snapshot |
 | the generator, its options, its tests | not exported: they stay in Bazel |
 | a macro that is an `orfs_flow()` | one of ORFS's `BLOCKS`: its own `config.mk` in `<module>/`, built by the parent's make; with `--abstracts`, its abstract (`.lef`, `.lib`) as built |
-| a mocked macro (`mock_area`) | refused: ORFS has no mock; `--abstracts` ships the mocked abstract |
+| a mocked macro (`mock_area`) | refused as one of `BLOCKS`: ORFS has no mock; `--abstracts` ships the mock's `.lef` and the block's `.lib`, and says so |
+| a variable bazel-orfs defaults differently from ORFS | written as Bazel ran it, with a comment saying what ORFS does |
 | the macro placement: a placer, a script, a plan | with `--snapshot-macro-placement`, a `MACRO_PLACEMENT_TCL` that puts every macro back where the build put it |
 | `orfs_run` steps, sweeps, variants, checks | not exported |
 
@@ -182,6 +183,33 @@ does not, ORFS unsets it before each block's make.
 `SYNTH_NETLIST_FILES=` on the make line: the netlist copied with no RTL
 read in the first, yosys from the RTL in the second, and in both a
 `2_floorplan.odb` the same as Bazel's.
+
+### bazel-orfs's own defaults
+
+A few variables bazel-orfs defaults differently from ORFS:
+`OPENROAD_HIERARCHICAL=1`, `SYNTH_HDL_FRONTEND=slang` and `LEC_CHECK=0`
+(`BAZEL_ORFS_DEFAULTS` in `tools/ramp/export_design.py`). The export
+writes them as Bazel ran them, each with a comment saying what ORFS does
+instead, so make runs the flow Bazel ran:
+
+```make
+# bazel-orfs's default: ORFS's is 0; hierarchical is to become ORFS's default (...).
+export OPENROAD_HIERARCHICAL = 1
+```
+
+`GENERATE_ARTIFACTS_ON_FAILURE=1` is left out: Bazel needs a failed
+action's outputs to look at, make fails the step, as ORFS's default does.
+
+### Mocked macros
+
+`orfs_flow(mock_area = ...)` is a bazel-orfs feature ORFS does not have:
+the parent places a block at a footprint scaled from its floorplan, or
+fitted to its pins, with the block's own `.lib`. With `--abstracts` the
+export ships it as Bazel built it, the mock's `.lef` and the block's
+`.lib`, and both `config.mk` and `EXPORT.md` say which macros are mocked
+and how: the parent was planned on the mock's footprint, not on the
+block's outline, so it is not the design a `BLOCKS` export of the same
+blocks would make.
 
 ### What else an export carries
 
@@ -282,6 +310,35 @@ Every literal value of each `config.mk` must be the one make sees.
 
 Measured with the pinned ORFS and the tools Bazel used. In each, the
 negative control fails, and every literal value is the one make sees.
+
+### XiangShan in ORFS: waiting on upstream
+
+The XiangShan tile exports with `--abstracts --snapshot-macro-placement`:
+the five hardened blocks (`CoupledL2`, `FltRegionModule`, `Frontend`,
+`MemBlock`, `VecRegionModule`) as their mocked `.lef` and `.lib`, the
+parent as a flat ORFS design with yosys's netlist. Made with stock ORFS
+and OpenROAD, it needs these first:
+
+- OpenROAD #11718, `hierarchicalConnect` leaves no stray load
+  (`OPENROAD_HIERARCHICAL`), carried as patch 0111.
+- OpenROAD #11719, a CTS dummy load joins its leaf net in the
+  hierarchy, carried as patch 0112.
+- ORFS #4662, a FakeRAM asap7 macro at least one power-strap pitch wide,
+  carried as patch 0088: the parent's `AUTO_MEMORIES` macros.
+- ORFS patch 0083, `rtl_macro_placer` skipped once a snapshot fixes
+  every macro; not upstream.
+- ORFS patch 0124, the supplies of `dont_touch` instances connected by
+  PDN; not upstream.
+- ORFS patch 0073, FakeRAM from the declared pins and write mask, if the
+  parent's memories have a write mask; not upstream.
+
+Synthesis is not on the list, the export ships the netlist: synthesising
+from the RTL (`make ... SYNTH_NETLIST_FILES=`) needs ORFS #4649,
+`SYNTH_VERILOG_SURGERY`, as well. A `BLOCKS` export of the tile, the
+blocks made by ORFS, needs OpenROAD #11723 (`generate_ram`) and
+`AUTO_MEMORIES_REGFILES` (ORFS patch 0089), and the parent re-planned on
+the blocks' own outlines. Until then, `EXPORT.md` lists every patch the
+pinned tools carry, and a `//:dirty` tree has them applied.
 
 ## Import and export with your AI
 
