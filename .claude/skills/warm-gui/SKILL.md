@@ -86,10 +86,17 @@ log that says why. Give the human the link as it is, with:
   machine reaches. Started from a session that is not ssh, it listens on
   127.0.0.1; set `ODB_DEBUG_GUI_BIND=<the VPN address>` in `arguments`
   to reach it from elsewhere.
-- **If the browser cannot connect:** is the VPN up, does the address
-  answer, does a firewall block the port? Without a VPN, tunnel it:
-  `ssh -L <port>:<address>:<port> <machine>`, then open the link with
-  `localhost:<port>` in place of `<address>:<port>`.
+- **If the browser cannot connect,** fix the link, not the route: is the
+  VPN up, does the address answer, does a firewall block the port, does
+  the link listen on the address the human's machine reaches? If not,
+  restart the daemon with `ODB_DEBUG_GUI_BIND=<that address>`.
+- **Never an ssh tunnel (`ssh -L`) while the link can do the job**, that
+  is whenever the human's machine reaches any address of this one. A
+  tunnel is one more thing for the human to type and keep open, and a
+  tunnel to the viewer's own port skips the proxy: no token, and the
+  browser's activity does not count, so the daemon idles out under it.
+  Only with no route to the machine at all is a tunnel the answer, and
+  then to the link's port (`gui_url`'s), never the viewer's.
 - **A browser on the viewer's own 127.0.0.1 port** (daemon.json's `url`)
   works on the machine itself, but its activity does not count: the
   daemon idles out under it. Use the link.
