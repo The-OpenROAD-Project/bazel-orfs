@@ -77,6 +77,9 @@ proc write_regions { f what sides lens } {
       set lo [expr { $lo - ($hi - ($len - $corner_um)) }]
       set hi [expr { $len - $corner_um }]
     }
+    # projections reaching both corners span more than the room between
+    # them, and the shifts above push the stretch past the side's start
+    set lo [expr { max($lo, $corner_um) }]
     puts $f "set_io_pin_constraint -region $side:[format %.3f $lo]-[format %.3f $hi] -pin_names {[lmap p $pins { lindex $p 0 }]}"
     puts "pin_plan.tcl: $what [llength $pins] pins on $side [format %.3f $lo]-[format %.3f $hi] um"
   }
