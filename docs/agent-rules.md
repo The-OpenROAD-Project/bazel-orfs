@@ -177,6 +177,16 @@ A long run is settled small first: `no-paint-drying` (settle questions at
 seconds-to-minutes scale, then run unattended); `repair-timing-grt` for a
 global-route repair that grinds.
 
+How much of a period `repair_timing` leaves on the table, and in which
+move, has its own skill and tools:
+
+- `repair-headroom` — first make sure repair gave up (WNS < 0), then the
+  odb-debug `headroom` tools on one stage, or `orfs_headroom` across a
+  parent and its hardened blocks: useful skew, threshold voltage, the
+  zero-wire and one-flop-loop floors, each undone after measuring; and
+  grt-stage repair arms with repair's own stop reasons logged, to find
+  out why it stopped.
+
 A simulation that hangs, produces no output or computes the wrong answer
 is a different problem from an OpenROAD failure, and has its own skill:
 
