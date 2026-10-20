@@ -45,7 +45,9 @@ def read_exports(path):
     out = {}
     with open(path) as f:
         for line in f:
-            m = re.match(r"^export ([A-Za-z_][A-Za-z0-9_]*) = (.*)$", line.rstrip("\n"))
+            m = re.match(
+                r"^export ([A-Za-z_][A-Za-z0-9_]*) \??= (.*)$", line.rstrip("\n")
+            )
             if m:
                 out[m.group(1)] = m.group(2)
     return out
@@ -102,6 +104,13 @@ def main(argv=None):
     ap.add_argument(
         "--abstracts", action="store_true", help="passed to export --abstracts"
     )
+    ap.add_argument(
+        "--make-arg",
+        action="append",
+        default=[],
+        metavar="VAR=VALUE",
+        help="passed to make, e.g. SYNTH_NETLIST_FILES= to synthesise from the RTL",
+    )
     args = ap.parse_args(argv)
 
     ws = os.environ.get("BUILD_WORKSPACE_DIRECTORY", os.getcwd())
@@ -153,7 +162,9 @@ def main(argv=None):
         start = time.time()
         with open(log, "w") as f:
             r = subprocess.run(
-                [runner, "DESIGN_CONFIG=" + found[0][1], "WORK_HOME=" + work, target],
+                [runner, "DESIGN_CONFIG=" + found[0][1], "WORK_HOME=" + work]
+                + args.make_arg
+                + [target],
                 cwd=main_dir,
                 env=make_env(),
                 stdout=f,
@@ -180,6 +191,22 @@ def main(argv=None):
             made = os.path.join(
                 work, "results", platform, nick, "base", "2_floorplan.odb"
             )
+            if "SYNTH_NETLIST_FILES" in e:
+                # with a netlist, ORFS's synthesis copies it and exits
+                # before it reads the RTL, so writes no canonical RTLIL
+                cleared = "SYNTH_NETLIST_FILES=" in args.make_arg
+                rtlil = os.path.exists(
+                    os.path.join(os.path.dirname(made), "1_1_yosys_canonicalize.rtlil")
+                )
+                ok = rtlil == cleared
+                print(
+                    "roundtrip: {} synthesis: {}{}".format(
+                        label,
+                        "from the RTL" if rtlil else "the netlist, copied",
+                        "" if ok else ", NOT what config.mk and the make line ask",
+                    )
+                )
+                failures += not ok
             same, lines = compare(openroad, bazel_odbs[rel], made)
             print("roundtrip: {} floorplan: {}".format(label, lines[-1]))
             if not same:
