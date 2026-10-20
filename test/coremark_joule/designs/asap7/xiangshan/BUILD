@@ -81,6 +81,16 @@ xiangshan_flow(
     plan = PLAN,
 )
 
+# The same tile with a macro pin plan (//tools/pin_plan), built forward from
+# the flow above in one graph: each part's <part>_pin_plan reads its grt and
+# plans its register files' pins on the sides that face their logic and its
+# macros' places, and this variant's flows build with them.
+xiangshan_flow(
+    name = "XSTile",
+    plan = PLAN,
+    variant = "pinplan",
+)
+
 # The tile as one flow, no hardened blocks: ORFS's hierarchical synthesis
 # of the whole tile, then macro and global placement over all of it,
 # through global route, with the hierarchy kept in the ODB. The planned
