@@ -59,6 +59,14 @@ otherwise, and say so with the number (skew needs the flops around the
 violations free to move: riscv32i scoped to its 1,000 worst endpoints gave
 613.8 ps instead of 562.2).
 
+Never scope `floor_cycles`: the worst one-flop loop need not sit on the
+worst paths. XiangShan's FltRegionModule at grt gave 213 ps over the
+flops of its 1,000 worst endpoints (6 minutes) and 762.2 ps over all
+17,021 one-flop loops (71 minutes, `issuePipes/is0_valid`); a scoped
+floor is no floor. Its runtime grows with the flops, so give it the time,
+and keep the result: the daemon's MCP call is cut after 30 silent
+minutes, so have the Tcl write each result to a file as it lands.
+
 The daemon holds one ODB. On a hierarchical design that is the parent
 with each block as its abstract: the parent's own flops and cells are
 measured, a path through a block is a fixed arc. That misses what sits
