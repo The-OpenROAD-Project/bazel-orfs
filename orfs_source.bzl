@@ -186,15 +186,6 @@ ORFS_PATCHES = [
     # gui_ through the odb-debug daemon. Not upstreamed; retires at a
     # bump onto an ORFS that names the GUI targets this way.
     Label("//patches:0139-orfs-gui-is-web.patch"),
-    # 0147-0149: asap7/riscv32i at a clock repair cannot meet (780 ps) with
-    # IO budgets clear of reg2reg; SWAP_ARITH_OPERATORS's measured effect
-    # beside the setting; flat synthesis, since the size rule kept dmem for
-    # its SRAMs' area and its boundary cut the worst path (test/cut_riscv32i,
-    # tools/macro_select/cut). riscv32i-mock-sram keeps today's settings.
-    # ORFS #4713 (draft); retire at a bump onto an ORFS that carries them.
-    Label("//patches:0147-orfs-riscv32i-sdc.patch"),
-    Label("//patches:0148-orfs-riscv32i-swap-arith-noted.patch"),
-    Label("//patches:0149-orfs-riscv32i-flat.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
