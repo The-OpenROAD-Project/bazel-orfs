@@ -1,0 +1,85 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] asap7/riscv32i: a clock repair cannot meet, IO budgets clear of reg2reg
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+At 950 ps every configuration of riscv32i measured closed at the clock,
+so WNS could not tell two of them apart. At 780 ps it does, and with the
+input and output budgets at 2 % of the period instead of 12.5 % WNS is a
+register-to-register path: an input-to-register path (instr through
+the decoder into the register file) set it at 12.5 %. No hold buffers
+are inserted, and the worst hold slack is +35 ps.
+
+riscv32i-mock-sram includes riscv32i's config.mk and was tuned at
+950 ps; it gets a copy of today's constraint.sdc and is unchanged.
+
+Not upstreamed. Retires on the //:bump onto an ORFS that carries it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+---
+diff --git a/flow/designs/asap7/riscv32i/config.mk b/flow/designs/asap7/riscv32i/config.mk
+index cfb6ed6a..373bb22e 100644
+--- a/flow/designs/asap7/riscv32i/config.mk
++++ b/flow/designs/asap7/riscv32i/config.mk
+@@ -7,7 +7,7 @@ export SYNTH_HIERARCHICAL ?= 1
+ export SYNTH_MINIMUM_KEEP_SIZE ?= 10000
+ 
+ export VERILOG_FILES = $(sort $(wildcard $(DESIGN_HOME)/src/riscv32i/*.v))
+-export SDC_FILE      = $(DESIGN_HOME)/$(PLATFORM)/riscv32i/constraint.sdc
++export SDC_FILE     ?= $(DESIGN_HOME)/$(PLATFORM)/riscv32i/constraint.sdc
+ 
+ ifeq ($(BLOCKS),)
+ 	export ADDITIONAL_LEFS = $(PLATFORM_DIR)/lef/fakeram7_256x32.lef
+diff --git a/flow/designs/asap7/riscv32i/constraint.sdc b/flow/designs/asap7/riscv32i/constraint.sdc
+index d411b8d8..bb055a15 100644
+--- a/flow/designs/asap7/riscv32i/constraint.sdc
++++ b/flow/designs/asap7/riscv32i/constraint.sdc
+@@ -2,8 +2,8 @@ current_design riscv_top
+ 
+ set clk_name clk
+ set clk_port_name clk
+-set clk_period 950
+-set clk_io_pct 0.125
++set clk_period 780
++set clk_io_pct 0.02
+ 
+ set clk_port [get_ports $clk_port_name]
+ 
+diff --git a/flow/designs/asap7/riscv32i-mock-sram/config.mk b/flow/designs/asap7/riscv32i-mock-sram/config.mk
+index 4d33d818..6e7ba024 100644
+--- a/flow/designs/asap7/riscv32i-mock-sram/config.mk
++++ b/flow/designs/asap7/riscv32i-mock-sram/config.mk
+@@ -6,4 +6,7 @@ export BLOCKS=fakeram7_256x32
+ # with margin keeps them from failing together.
+ export SETUP_SLACK_MARGIN ?= 30
+ 
++# riscv32i's constraints at the clock this design was tuned for
++export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/constraint.sdc
++
+ include designs/asap7/riscv32i/config.mk
+diff --git a/flow/designs/asap7/riscv32i-mock-sram/constraint.sdc b/flow/designs/asap7/riscv32i-mock-sram/constraint.sdc
+new file mode 100644
+index 00000000..d411b8d8
+--- /dev/null
++++ b/flow/designs/asap7/riscv32i-mock-sram/constraint.sdc
+@@ -0,0 +1,18 @@
++current_design riscv_top
++
++set clk_name clk
++set clk_port_name clk
++set clk_period 950
++set clk_io_pct 0.125
++
++set clk_port [get_ports $clk_port_name]
++
++create_clock -name $clk_name -period $clk_period $clk_port
++set clk_io_name vclk_$clk_name
++create_clock -name $clk_io_name -period $clk_period
++set_clock_latency 142.965 [get_clocks $clk_name]
++set_clock_latency 142.965 [get_clocks $clk_io_name]
++
++set non_clock_inputs [all_inputs -no_clocks]
++set_input_delay [expr $clk_period * $clk_io_pct] -clock $clk_io_name $non_clock_inputs
++set_output_delay [expr $clk_period * $clk_io_pct] -clock $clk_io_name [all_outputs]
