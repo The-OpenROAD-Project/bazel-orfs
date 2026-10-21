@@ -2057,14 +2057,35 @@ endpoints it had not finished after 18 hours. Judging each round by the
 paths through the flops it moves, measuring in full only once, is the
 next change to the tool.
 
-Next on the tile, the loop at grt, after the last repair that changes
-cells (the loop's clock cancels, its wire and cells do not):
+The loop at grt, after the last repair that changes cells (the loop's
+clock cancels, its wire and cells do not), each what-if undone and the
+loop measured again at 2,151.2 ps:
 
-| Reading of the `decodeBufValid_3` loop | Bounds |
-|---|---|
-| `floor_cycles`, the route's wire: 2,151 ps | what skew and retiming never pass |
-| `floor_cycles_nowire`, zero wire, cells as built | skew, retiming and wire together |
-| zero wire, the loop's cells at fastest VT and size | resizing too; above 2,000 ps only logic is left (surgery, Chisel) |
+| Reading of the `decodeBufValid_3` loop | Loop | Bounds |
+|---|---:|---|
+| `floor_cycles`, the route's wire | 2,151 ps | what skew and retiming never pass |
+| zero wire, cells as built | 1,250 ps | skew, retiming and wire together |
+| zero wire, the loop's 20 cells not yet SLVT at SLVT | 1,213 ps | resizing too |
+
+**The loop is the flow's, not the logic's.** With its wires at zero the
+loop is 1,250 ps, well under 2,000: no Chisel change is needed to reach
+the target, and VT is worth 37 ps. Its 66 stages are 31 logic cells and 35
+repeaters: of the 2,078 ps from the register's output back to its input,
+941 ps are buffers, 778 ps logic and 360 ps wire. The loop crosses about
+ten high-fanout control nets, each driven through a chain of two to four
+small buffers (fanout 7, 18, 32 in series, many `BUFx2` at LVT or RVT):
+fanout trees that do not know which sink is critical, built under the
+SDC's `set_max_fanout 32`, a value its own comment calls unswept.
+
+It is not one loop's problem. The 300 worst one-flop loops are all the
+decode buffer's state in `inner_ctrlBlock` (`decodeBufValid_*`,
+`decodeBufBits_*_vtype`, `decodeBufBits_*_instr`), and across them
+repeaters take 41 % of the loop delay and wire 16 %. So the fix to try is
+general, in the flow: how high-fanout control nets are buffered and
+placed, read by the floor and the mass over 2,000 ps at grt. The first
+arm re-places the parent without `set_max_fanout`; timing-driven
+buffering of the critical sink (repair_timing's rebuffer moves at grt) is
+the next.
 
 A flow could report the floor after grt and at the end, beside the worst
 slack. A period at the floor says only that loop's wire, cells or logic
