@@ -1952,6 +1952,158 @@ class TestUpdateOpenroadArchiveOverride(unittest.TestCase):
         self.assertIn("patch_strip = 1", result)
 
 
+class TestOpenroadOnSvElab(unittest.TestCase):
+    """OpenROAD replaced third-party/slang-elab with third-party/sv-elab.
+
+    A bump onto ORFS's OpenROAD pin may land on either side of that change:
+    slang-elab is vendored, with its sed lines, only while the commit has
+    it, and archive_override(sv-elab) follows the sv-elab submodule.
+    """
+
+    OPENROAD_BLOCK = (
+        "archive_override(\n"
+        '    module_name = "openroad",\n'
+        '    integrity = "sha256-OLD=",\n'
+        "    patch_cmds = [\n"
+        '        "curl -sSfL ... tar xzf ...",\n'
+        "    ],\n"
+        '    strip_prefix = "OpenROAD-oldsha",\n'
+        '    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/oldsha.tar.gz"],\n'
+        ")\n"
+    )
+    SV_ELAB_BLOCK = (
+        'bazel_dep(name = "sv-elab", version = "2026-10-13")\n'
+        "archive_override(\n"
+        '    module_name = "sv-elab",\n'
+        '    integrity = "sha256-OLDELAB=",\n'
+        "    patch_strip = 1,\n"
+        '    patches = ["//patches:sv-elab-0001-redefinition-shares-wire.patch"],\n'
+        '    strip_prefix = "sv-elab-oldelab",\n'
+        '    urls = ["https://github.com/povik/sv-elab/archive/oldelab.tar.gz"],\n'
+        ")\n"
+    )
+
+    def _integrity(self, url):
+        return "sha256-ELAB=" if "sv-elab" in url else "sha256-PARENT="
+
+    def _sha256(self, _url):
+        return "f" * 64
+
+    def _on_sv_elab(self, _parent_repo, _parent_commit, path):
+        return {
+            "src/sta": "stasha",
+            "third-party/abc": "abcsha",
+            "third-party/sv-elab": "elabsha",
+        }.get(path)
+
+    def _on_slang_elab(self, _parent_repo, _parent_commit, path):
+        return {
+            "src/sta": "stasha",
+            "third-party/abc": "abcsha",
+            "third-party/slang-elab": "slangsha",
+        }.get(path)
+
+    def _openroad(self, submodule_sha):
+        return bump.update_openroad_archive_override(
+            self.OPENROAD_BLOCK,
+            "newsha",
+            fetch_integrity_fn=self._integrity,
+            fetch_sha256_hex_fn=self._sha256,
+            fetch_submodule_sha_fn=submodule_sha,
+        )
+
+    def test_openroad_on_sv_elab_vendors_no_frontend(self):
+        result = self._openroad(self._on_sv_elab)
+        self.assertIn("OpenSTA/archive/stasha.tar.gz", result)
+        self.assertIn("abc/archive/abcsha.tar.gz", result)
+        self.assertNotIn("slang-elab", result)
+        self.assertNotIn("sv-elab", result)
+        self.assertNotIn("@sv-lang", result)
+        self.assertNotIn("fmt/format.h", result)
+
+    def test_openroad_on_slang_elab_keeps_vendoring_it(self):
+        result = self._openroad(self._on_slang_elab)
+        self.assertIn("yosys-slang/archive/slangsha.tar.gz", result)
+        self.assertIn("@sv-lang//:libsvlang", result)
+        self.assertIn("fmt/format.h", result)
+
+    def test_missing_required_submodule_is_an_error(self):
+        def no_abc(parent_repo, parent_commit, path):
+            if path == "third-party/abc":
+                return None
+            return self._on_sv_elab(parent_repo, parent_commit, path)
+
+        with self.assertRaises(RuntimeError):
+            self._openroad(no_abc)
+
+    def test_sv_elab_follows_the_submodule(self):
+        content, sha = bump.update_sv_elab_archive_override(
+            self.SV_ELAB_BLOCK,
+            "newsha",
+            fetch_integrity_fn=self._integrity,
+            fetch_submodule_sha_fn=self._on_sv_elab,
+        )
+        self.assertEqual(sha, "elabsha")
+        self.assertIn("povik/sv-elab/archive/elabsha.tar.gz", content)
+        self.assertIn('strip_prefix = "sv-elab-elabsha"', content)
+        self.assertIn('integrity = "sha256-ELAB="', content)
+        self.assertIn("sv-elab-0001-redefinition-shares-wire.patch", content)
+        self.assertNotIn("oldelab", content)
+
+    def test_sv_elab_at_the_sha_keeps_its_integrity(self):
+        def fail(_url):
+            raise AssertionError("re-hashed an archive already pinned")
+
+        def at_old(_parent_repo, _parent_commit, _path):
+            return "oldelab"
+
+        content, sha = bump.update_sv_elab_archive_override(
+            self.SV_ELAB_BLOCK,
+            "newsha",
+            fetch_integrity_fn=fail,
+            fetch_submodule_sha_fn=at_old,
+        )
+        self.assertEqual(sha, "oldelab")
+        self.assertEqual(content, self.SV_ELAB_BLOCK)
+
+    def test_sv_elab_left_alone_before_openroad_has_it(self):
+        content, sha = bump.update_sv_elab_archive_override(
+            self.SV_ELAB_BLOCK,
+            "newsha",
+            fetch_integrity_fn=self._integrity,
+            fetch_submodule_sha_fn=self._on_slang_elab,
+        )
+        self.assertIsNone(sha)
+        self.assertEqual(content, self.SV_ELAB_BLOCK)
+
+    def test_bump_moves_sv_elab_with_openroad(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module = os.path.join(tmp, "MODULE.bazel")
+            with open(module, "w") as f:
+                f.write(
+                    'module(name = "bazel-orfs")\n'
+                    'bazel_dep(name = "orfs")\n'
+                    'bazel_dep(name = "openroad")\n'
+                    + self.OPENROAD_BLOCK
+                    + self.SV_ELAB_BLOCK
+                )
+            bump.bump(
+                module,
+                fetch_commit_fn=mock_fetch_commit,
+                fetch_integrity_fn=self._integrity,
+                fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+                fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+                fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+                fetch_sha256_hex_fn=self._sha256,
+                fetch_submodule_sha_fn=self._on_sv_elab,
+                ignore_errors=True,
+            )
+            with open(module) as f:
+                content = f.read()
+        self.assertIn(f"OpenROAD/archive/{OPENROAD_COMMIT}.tar.gz", content)
+        self.assertIn("povik/sv-elab/archive/elabsha.tar.gz", content)
+
+
 class TestExtractPatchCmds(unittest.TestCase):
     def test_comment_between_commands_is_not_a_command(self):
         block = (

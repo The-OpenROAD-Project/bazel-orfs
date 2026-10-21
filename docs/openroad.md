@@ -61,8 +61,19 @@ git_override(
     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
 )
 
-# The slang frontend: orfs_flow synthesises with slang.
+# The slang frontend: orfs_flow synthesises with slang, and OpenROAD's syn
+# compiles it. OpenROAD pins it as a submodule, which reaches no other
+# root; copy this block from bazel-orfs's MODULE.bazel, with the patch it
+# names. `bazelisk run @bazel-orfs//:bump` moves it with OpenROAD.
 bazel_dep(name = "sv-elab", version = "<the version bazel-orfs uses>")
+archive_override(
+    module_name = "sv-elab",
+    integrity = "...",
+    patch_strip = 1,
+    patches = [...],
+    strip_prefix = "sv-elab-<commit>",
+    urls = ["https://github.com/povik/sv-elab/archive/<commit>.tar.gz"],
+)
 
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
 orfs.source(
@@ -362,7 +373,12 @@ Two ways forward when a shape is refused:
 
 Compatibility code in `bump_impl.py` is temporary by the same logic: a
 migration branch for a shape bazel-orfs no longer emits is deleted, not
-maintained. There is none today.
+maintained. There is one today, for an upstream shape rather than yours:
+OpenROAD replaced its `third-party/slang-elab` submodule with
+`third-party/sv-elab`, and ORFS's OpenROAD pin may still be on either side
+of that, so the bumper vendors slang-elab only while the commit has it
+(`OPENROAD_TRANSITIONAL_SUBMODULES`). It goes once ORFS's `tools/OpenROAD`
+is past the change.
 
 ## Testing
 
