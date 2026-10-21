@@ -60,6 +60,37 @@ in a clean build, `test/cut_riscv32i`:
   route, at a clock repair cannot meet: at riscv32i's own 950 ps every
   keep set closed at the clock.
 
+## SYNTH_MINIMUM_KEEP_SIZE and macros
+
+riscv32i's lesson generalises as a flaw in the size rule (ORFS #4714):
+`convert_liberty_areas` gives a macro the gate equivalent of its area, so
+a wrapper around SRAMs looks like a large module of logic, though yosys
+does no work on a macro. `test/cut_keep_size` measures what a macro cost
+of 0 changes:
+
+- **Which keeps** (`keep_probe.py`, yosys up to the keep decision, today
+  and with macros at cost 0, each design with its own frontend): of the
+  eleven ORFS designs that synthesise hierarchically with a keep
+  threshold and macros, nine keep fewer modules (`keeps.json`). Every
+  module dropped is a memory wrapper or a module holding one; coralnpu and
+  tinyRocket are unchanged.
+- **What it does**, through global route at a clock repair cannot meet,
+  reg2reg endpoints within 10 % of the period:
+
+  | design | clock | today | macros at cost 0 | | faster / slower |
+  |---|---|---:|---:|---:|---:|
+  | asap7/riscv32i | 780 ps | 835.6 ps | 791.8 ps | −5.2 % | 995 / 3 |
+  | nangate45/bp_be_top | 1.90 ns | 1.993 ns | 1.975 ns | −0.9 % | 225 / 7 |
+  | nangate45/bp_fe_top | 1.38 ns | 1.680 ns | 1.671 ns | −0.5 % | 21 / 33 |
+
+  No hold buffers in any arm. At 2.21 ns, a clock bp_be_top's reg2reg
+  meets, the same comparison read +1.9 %: the trap riscv32i showed at
+  950 ps.
+- **Not measured here:** ariane133/136, mempool_group, black_parrot,
+  bp_multi_top and bp_quad, whose flows do not fit this machine's budget,
+  and the gf12 designs (private PDK). Their keep changes are in
+  `keeps.json`.
+
 ## Caveats
 
 - Numbers are from floorplan, with no wire and outside Bazel's cache. Put
