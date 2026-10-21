@@ -94,7 +94,6 @@ bazel_dep(name = "rules_python", version = "2.3.2")
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(is_default = True, python_version = "3.13")
 
-single_version_override(module_name = "sv-lang", version = "10.0.1-20260316-f04e8156")
 single_version_override(module_name = "sed", version = "4.9.bcr.5")
 single_version_override(module_name = "gawk", version = "5.3.2.bcr.7")
 single_version_override(module_name = "m4", version = "1.4.21.bcr.4")

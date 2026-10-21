@@ -250,13 +250,6 @@ archive_override(
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/edf6b24017f413f733c1d25752cf5fd7965f5263.tar.gz"],
 )
 
-# OpenROAD pins sv-lang 10.0.bcr.2, which is not yet published in BCR.
-# Force the resolution to the latest published version until BCR catches up.
-single_version_override(
-    module_name = "sv-lang",
-    version = "10.0.1-20260316-f04e8156",
-)
-
 # sed (transitive: abc -> ncurses -> sed): its vendored gnulib headers shadow
 # libc headers (stdio.h, error.h), which hermetic-llvm's explicit libc -isystem
 # entries outrank, so 4.9.bcr.3 fails to compile (BCR #7642). 4.9.bcr.5 carries
