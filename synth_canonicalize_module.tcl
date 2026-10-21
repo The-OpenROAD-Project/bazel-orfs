@@ -146,10 +146,20 @@ if { [env_var_set_nonempty SYNTH_REPEATABLE_BUILD] && $::env(SYNTH_REPEATABLE_BU
     setattr -unset capacitance =*
     # Private names such as $procmux$1234 are numbered by Yosys's
     # whole-design counter, so a cell gained anywhere in the design
-    # renumbers this slice. With src unset, rename -src gives every
-    # private name $<n>, counted within its own module, and keeps it
-    # private. `yosys rename`: Tcl's own rename survives `yosys -import`.
+    # renumbers this slice. rename -src numbers them within their own
+    # module instead, but with src unset it names them $<n> without
+    # checking that the name is free: slang's private names include $2,
+    # and the cell renamed onto it replaced the one that held it (a
+    # counter lost its register; YosysHQ/yosys#6380, where log_assert is
+    # compiled out). So every private name first gets a marker as its
+    # src, rename -src gives it the public \canonical_slice$<n> that no
+    # object holds, and the written slice below turns the marker back
+    # into the private $<n>.
+    # `yosys rename`: Tcl's own rename survives `yosys -import`.
+    select -assert-none {=*/w:canonical_slice$*} {=*/c:canonical_slice$*}
+    setattr -set src {"canonical_slice"} {w:$*} {c:$*}
     yosys rename -src
+    setattr -unset src =*
 }
 
 # Persist the canonical name in a sidecar so synth_partition.sh can pass
@@ -164,13 +174,14 @@ close $fp
 
 write_rtlil $::env(MODULE_RTLIL_OUT)
 
-# The autoidx line is that whole-design counter. Nothing in the renamed
-# slice depends on its value, and a later pass never generates a bare
-# $<n>, so the line goes.
+# The renamed objects become private again. The autoidx line is that
+# whole-design counter. Nothing in the renamed slice depends on its
+# value, and a later pass never generates a bare $<n>, so the line goes.
 if { [env_var_set_nonempty SYNTH_REPEATABLE_BUILD] && $::env(SYNTH_REPEATABLE_BUILD) != "0" } {
     set fp [open $::env(MODULE_RTLIL_OUT) r]
     set text [read $fp]
     close $fp
+    regsub -all {\\canonical_slice\$([0-9]+)} $text {$\1} text
     regsub -line {^autoidx [0-9]+\n} $text {} text
     set fp [open $::env(MODULE_RTLIL_OUT) w]
     puts -nonewline $fp $text

@@ -1,0 +1,25 @@
+# The private names slang gives a counter: the register's $driver$cnt and
+# the adder's $2. rename -src renames the register onto $2 while the
+# adder still holds it.
+module \unit
+  wire input 1 \clk
+  wire width 8 output 2 \count
+  wire width 8 $2y
+  cell $dff $driver$cnt
+    parameter \CLK_POLARITY 1
+    parameter \WIDTH 8
+    connect \CLK \clk
+    connect \D $2y
+    connect \Q \count
+  end
+  cell $add $2
+    parameter \A_WIDTH 8
+    parameter \B_WIDTH 8
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \Y_WIDTH 8
+    connect \A \count
+    connect \B 8'00000001
+    connect \Y $2y
+  end
+end
