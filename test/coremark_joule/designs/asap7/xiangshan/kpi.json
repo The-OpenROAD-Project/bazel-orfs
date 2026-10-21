@@ -279,6 +279,9 @@
       "date": "2026-10-16",
       "measured": "every block, register-file macro and the parent built from source with orfs_schedule (#1259 at 25f75524) and #1274, #1277 and #1281 (patch 0135) applied; each part's KPI at its own global route",
       "parent_ps": 2504,
+      "floor_ps": 2151,
+      "floor_register": "core/backend/inner_ctrlBlock/decodeBufValid_3",
+      "floor_measured": "report_floor_cycles.tcl on this run's parent at grt, exact: 2,394 loops searched in 767 s",
       "blocks": {
         "CoupledL2": 978,
         "Frontend": 1355,
