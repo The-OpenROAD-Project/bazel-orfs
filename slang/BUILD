@@ -1,7 +1,7 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//:openroad.bzl", "orfs_flow", "orfs_synth")
 
-# The slang yosys plugin (slang.so) is provided from BCR sv-elab via
+# The slang yosys plugin (slang.so) is provided from @sv-elab via
 # orfs.default(yosys_plugins=...) in MODULE.bazel.
 orfs_flow(
     name = "test",

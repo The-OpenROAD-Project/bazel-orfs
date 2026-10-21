@@ -55,25 +55,37 @@ single_version_override(
 # downstream roots build //fork:liborfsfork.so through orfs_run targets.
 bazel_dep(name = "tcl_lang", version = "9.0.2.bcr.2")
 
-# The slang yosys frontend plugin (slang.so). yosys-slang was renamed to
-# sv-elab and published on BCR; it's not bundled in BCR yosys, so we load
-# it as an out-of-tree plugin via orfs.default(yosys_plugins=...) below.
+# The slang frontend, sv-elab (formerly yosys-slang): the yosys plugin
+# (slang.so), loaded via orfs.default(yosys_plugins=...) below since BCR
+# yosys does not bundle it, and OpenROAD's syn, which compiles its sources.
 # Non-dev: the orfs.default tag references @sv-elab, so the repo must stay
 # visible even when bazel-orfs is consumed as a dependency (a dev dep is
 # dropped for non-root modules). It also lets downstream roots reference
 # the plugin label.
-bazel_dep(name = "sv-elab", version = "2026-07-07")
-
-# A redefined net (`output q; wire q, q;`, which slang accepts with
-# -Wredefinition) gets a wire of its own that takes the port wire's name;
-# with --keep-hierarchy the module loses the port, and nangate45/ariane133
-# failed canonicalization ("does not have a port named 'flush_ex_o'"). The
-# redefinition now shares the wire name lookup finds. Not upstreamed;
-# retires at a bump onto an sv-elab that carries it.
-single_version_override(
+#
+# OpenROAD pins sv-elab as its third-party/sv-elab submodule through a
+# local_path_override, which Bazel honours only in the root module, and
+# BCR has no release that recent. This override follows that submodule's
+# sha instead: //:bump regenerates it with the openroad block, so the
+# plugin and OpenROAD's syn always share one frontend. Retires when BCR
+# carries the version OpenROAD asks for.
+bazel_dep(name = "sv-elab", version = "2026-10-13")
+archive_override(
     module_name = "sv-elab",
+    integrity = "sha256-J6NDnArq4W0MSgpUlSGwV4TefkjZPvDc8/xEbkOK9LE=",
     patch_strip = 1,
-    patches = ["//patches:sv-elab-0001-redefinition-shares-wire.patch"],
+    patches = [
+        # A redefined net (`output q; wire q, q;`, which slang accepts with
+        # -Wredefinition) gets a wire of its own that takes the port wire's
+        # name; with --keep-hierarchy the module loses the port, and
+        # nangate45/ariane133 failed canonicalization ("does not have a port
+        # named 'flush_ex_o'"). The redefinition now shares the wire name
+        # lookup finds. Not upstreamed; retires at a bump onto an sv-elab
+        # that carries it.
+        "//patches:sv-elab-0001-redefinition-shares-wire.patch",
+    ],
+    strip_prefix = "sv-elab-3e152133b9c22b7883a6a03d483ed35e8c74aba5",
+    urls = ["https://github.com/povik/sv-elab/archive/3e152133b9c22b7883a6a03d483ed35e8c74aba5.tar.gz"],
 )
 
 # OpenROAD's web viewer bundles npm packages with rules_js, which below
@@ -86,7 +98,7 @@ bazel_dep(name = "aspect_rules_js", version = "3.5.1")
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
-    integrity = "sha256-FhrIZEGXxAcIdJ8YiUFDu5dvDeFDQxrRLYhghObnfyU=",
+    integrity = "sha256-i7dgOt4Jfu1T4BUReQRCy82o1yP7XN3DDZrFtwC6TiY=",
     # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
     # so vendor src/sta (OpenSTA) and third-party/abc from their own
     # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
@@ -96,9 +108,6 @@ archive_override(
     patch_cmds = [
         "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-src-sta-3ebab02e2e6572925962bb157f9a406e30a38c3a.tar.gz https://github.com/The-OpenROAD-Project/OpenSTA/archive/3ebab02e2e6572925962bb157f9a406e30a38c3a.tar.gz && echo '24a81d9e385ff90666815d4e297f57441eef23abde9e41b497592ed788afdcad  .openroad-submodule-src-sta-3ebab02e2e6572925962bb157f9a406e30a38c3a.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-src-sta-3ebab02e2e6572925962bb157f9a406e30a38c3a.tar.gz --strip-components=1 -C src/sta && rm .openroad-submodule-src-sta-3ebab02e2e6572925962bb157f9a406e30a38c3a.tar.gz",
         "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz https://github.com/The-OpenROAD-Project/abc/archive/d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz && echo '0cbf538e60d0303d0e00360d8973aaad7dae198954bed6e34cc31c9a13b3f802  .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz --strip-components=1 -C third-party/abc && rm .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz",
-        "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz https://github.com/povik/yosys-slang/archive/82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz && echo 'ea31b4a205ebb1fe5ec3789bcd66f21f4975e73c0901622af667f843b833ff10  .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz --strip-components=1 -C third-party/slang-elab && rm .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz",
-        "find . -name BUILD -exec sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|g' {} +",
-        "sed -i 's|defines = \\[|copts = [\"-include\", \"fmt/format.h\"],\\n    defines = [|' src/syn/src/elab/BUILD third-party/slang-elab/src/BUILD",
         # write_timing_model gave an output a constant drives no arc and
         # no function, so a parent found nothing arriving there and
         # check_setup called what it feeds unconstrained: 151 endpoints on
@@ -121,13 +130,6 @@ archive_override(
     ],
     patch_strip = 1,
     patches = [
-        # hierarchicalConnect left a load in the source's own module off
-        # the source's hierarchical net, so CTS hung top-module registers
-        # from a leaf buffer the hierarchical view, read back from the
-        # .odb, shows undriven: 258 unclocked register pins in every stage
-        # after CTS on XiangShan's FltRegionModule. Upstream as
-        # OpenROAD#11718; retires at a bump onto an OpenROAD that has it.
-        "//patches:0111-openroad-hier-connect-same-module.patch",
         # CTS connected its dummy loads to the flat net only, so read back
         # they were off the leaf net and their capacitance unseen. Upstream
         # as OpenROAD#11719, which creates the dummy in the loaded buffer's
@@ -246,8 +248,8 @@ archive_override(
         # opened cramped). Not upstreamed; retires with 0142.
         "//patches:0144-openroad-web-columns-measured-from-rows.patch",
     ],
-    strip_prefix = "OpenROAD-edf6b24017f413f733c1d25752cf5fd7965f5263",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/edf6b24017f413f733c1d25752cf5fd7965f5263.tar.gz"],
+    strip_prefix = "OpenROAD-72228b6e2a2c82c9223b2ddecfc4e62b17c14c77",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/72228b6e2a2c82c9223b2ddecfc4e62b17c14c77.tar.gz"],
 )
 
 # sed (transitive: abc -> ncurses -> sed): its vendored gnulib headers shadow
@@ -661,11 +663,11 @@ orfs = use_extension("//:extension.bzl", "orfs_repositories")
 # `patches` on an override is honoured only from the root module and
 # would therefore land on whoever is root. Rewritten by //:bump.
 orfs.source(
-    commit = "bf3f9b344bf7d9d999f199778a722833bccbd33c",
-    integrity = "sha256-3kbmx0hBrEsK59yVb+jf5fmHaWDtTZ3RJ20tbDYgKSo=",
+    commit = "f52850725e4ffe4030175328aa976cd8fb4943b9",
+    integrity = "sha256-z0+lYKA4Eq3Oxp0bnXSBA+vfw/rbktER4/nw4OVaIVI=",
 )
 orfs.default(
-    # Expose the slang yosys plugin (from BCR sv-elab) via
+    # Expose the slang yosys plugin (from @sv-elab, above) via
     # YOSYS_PLUGIN_PATH so SYNTH_HDL_FRONTEND=slang works.
     yosys_plugins = ["@sv-elab//src/yosys_plugin:slang.so"],
 )

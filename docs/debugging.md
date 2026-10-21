@@ -34,10 +34,13 @@ others by name. The module named in the error is the unit to attack; combine
 with `YOSYS_FLAGS=` to see the underlying error.
 
 ### Two independent slang consumers — don't conflate
-1. **OpenROAD's in-tree `src/syn` elaborator** — the `third-party/slang-elab`
-   submodule + the `@slang` → `@sv-lang` alias.
-2. **The yosys plugin `slang.so`** — from BCR `sv-elab`, exposed via
-   `orfs.default(yosys_plugins=[…])` → `YOSYS_PLUGIN_PATH`.
+1. **OpenROAD's in-tree `src/syn` elaborator** — compiles `@sv-elab`'s
+   frontend sources against its own backend.
+2. **The yosys plugin `slang.so`** — `@sv-elab//src/yosys_plugin`, exposed
+   via `orfs.default(yosys_plugins=[…])` → `YOSYS_PLUGIN_PATH`.
+
+Both are the one `@sv-elab`, at the commit OpenROAD's `third-party/sv-elab`
+pins, with bazel-orfs's patches: a frontend fix carried there reaches both.
 
 RTL canonicalization uses the plugin (2). `Can't load module './slang': …
 cannot open slang.so` means the plugin isn't wired (yosys fell back to its
@@ -248,8 +251,8 @@ submodule (e.g. `third-party/slang-elab`) must itself be a `patch_cmds` step
 
 ### Local overrides skip `patch_cmds`
 `--override_module` / `local_path_override` use the working tree as-is — the
-archive's submodule vendoring and the `@slang` → `@sv-lang` sed do **not** run.
-Apply those fix-ups by hand when iterating on a local OpenROAD checkout, e.g.
+archive's submodule vendoring does **not** run.
+Apply it by hand when iterating on a local OpenROAD checkout, e.g.
 `common --override_module=openroad=/path/to/OpenROAD` in `user.bazelrc`.
 
 ### A module override must keep the module's declared name
