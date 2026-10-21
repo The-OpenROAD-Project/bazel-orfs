@@ -27,6 +27,18 @@ sanitize() {
   printf '%s' "$1" | tr '$.[]' '____'
 }
 
+# A partition log's file name, the module given: past 200 characters its
+# first 180 and the whole name's checksum, so the file system takes it
+# (255 bytes) and two long names stay apart. A pinned keep list names a
+# partition after its module, so the name holds the module twice.
+log_name() {
+  local n="1_2_yosys_partition_${PARTITION_ID}_$1"
+  if [ "${#n}" -gt 200 ]; then
+    n="${n:0:180}_$(printf '%s' "$n" | cksum | cut -d' ' -f1)"
+  fi
+  printf '%s.log' "$n"
+}
+
 # The design's name for an RTLIL module, stripped of yosys's mangling.
 # "\\serv_alu" and "$paramod\\serv_alu\\W=1" and
 # "$paramod$<hash>\\serv_alu" all name serv_alu: the design's name is the
@@ -202,7 +214,7 @@ for module in "${MY_MODULES[@]}"; do
     DESIGN_NAME="$module" \
       "$SCRIPTS_DIR/synth.sh" \
       "$SYNTH_TCL" \
-      "$LOG_DIR/1_2_yosys_partition_${PARTITION_ID}_${log_module}.log"
+      "$LOG_DIR/$(log_name "$log_module")"
     cat "$RESULTS_DIR/1_2_yosys.v" >> "$OUTPUT"
     continue
   fi
@@ -224,7 +236,7 @@ for module in "${MY_MODULES[@]}"; do
   DESIGN_NAME="$canonical_name" \
     "$SCRIPTS_DIR/synth.sh" \
     "$SYNTH_TCL" \
-    "$LOG_DIR/1_2_yosys_partition_${PARTITION_ID}_${log_module}.log"
+    "$LOG_DIR/$(log_name "$log_module")"
 
   # Append this module's netlist to partition output
   cat "$RESULTS_DIR/1_2_yosys.v" >> "$OUTPUT"

@@ -84,5 +84,44 @@ class TestKeptModulesParser(unittest.TestCase):
         self.assertEqual(modules, ["only"])
 
 
+def _log_name(partition_id, module):
+    """log_name() from synth_partition.sh itself, run on its own."""
+    script = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "synth_partition.sh"
+    )
+    if not os.path.exists(script):
+        script = os.environ["SYNTH_PARTITION_SH"]
+    text = open(script).read()
+    start = text.index("log_name() {")
+    end = text.index("\n}\n", start) + 3
+    result = subprocess.run(
+        ["bash", "-c", text[start:end] + 'log_name "$1"', "_", module],
+        env={**os.environ, "PARTITION_ID": partition_id},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout
+
+
+class TestLogName(unittest.TestCase):
+    def test_a_short_name_is_kept_whole(self):
+        self.assertEqual(_log_name("3", "alu"), "1_2_yosys_partition_3_alu.log")
+
+    def test_a_pinned_long_module_fits_the_file_system(self):
+        # bp_be_top's calculator, partition named after it and the module
+        # appended again: 300+ characters, over the 255-byte limit
+        m = "bp_be_calculator_top_vaddr_width_p56_paddr_width_p22_asid_width_p10_branch_metadata_fwd_width_p36_core_els_p1_num_lce_p2_lce_sets_p64_cce_block_size_in_bytes_p64"
+        n = _log_name(m, m[:80])
+        self.assertLessEqual(len(n.encode()), 255)
+        self.assertTrue(n.startswith("1_2_yosys_partition_bp_be_calculator_top"))
+        self.assertTrue(n.endswith(".log"))
+
+    def test_two_long_names_with_one_prefix_stay_apart(self):
+        a = "x" * 190 + "a"
+        b = "x" * 190 + "b"
+        self.assertNotEqual(_log_name(a, "m"), _log_name(b, "m"))
+
+
 if __name__ == "__main__":
     unittest.main()
