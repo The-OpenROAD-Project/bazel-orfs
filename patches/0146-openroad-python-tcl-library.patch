@@ -1,0 +1,68 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] python: Tcl's library for the interpreter Tech() makes
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A Bazel build embeds Tcl's library scripts (init.tcl and friends) in a
+zip that the openroad binary mounts in main() before Tcl_Init
+(in_bazel::SetupTclEnvironment). The Python bindings' Tech() creates its
+interpreter and runs Tcl_Init without it, so init.tcl is never read and
+what it defines is missing: ORFS's load.tcl and every script that calls
+`clock` fail with
+
+  Ambiguous command name "clock": clock_gating clock_tree_synthesis.
+
+ord_py.tcl_library_init() mounts the library for the current OpenROAD's
+interpreter and runs Tcl_Init again. It is in the Python wrapper only, so
+the openroad binary and everything keyed on it are unchanged.
+
+Not upstreamed. Retires on the //:bump onto an OpenROAD whose Python
+bindings initialise Tcl's library themselves.
+---
+diff --git a/BUILD.bazel b/BUILD.bazel
+index e51f604e..11f7c745 100644
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -437,7 +437,9 @@ python_wrap_library(
+     deps = [
+         ":openroad_lib",
+         ":ord",
++        "//bazel:tcl_library_init",
+         "//src/ifp",
++        "@tcl_lang//:tcl",
+     ],
+ )
+ 
+diff --git a/src/OpenRoad-py.i b/src/OpenRoad-py.i
+index 54d6d567..cfb9b8f6 100644
+--- a/src/OpenRoad-py.i
++++ b/src/OpenRoad-py.i
+@@ -68,6 +68,27 @@ get_db_block();
+ #ifdef BAZEL
+ %import "src/odb/src/swig/common/odb.i"
+ %import "src/utl/src/Logger-py.i"
++
++%{
++#include "bazel/tcl_library_init.h"
++#include "ord/OpenRoad.hh"
++#include "tcl.h"
++%}
++
++%inline %{
++// Tech() runs Tcl_Init on an interpreter that has no library: a Bazel
++// build embeds Tcl's library scripts in a zip the openroad binary mounts
++// in main() (SetupTclEnvironment), and nothing mounts it for Python, so
++// init.tcl and what it defines (clock, among others) are missing. Mounts
++// it for the current OpenROAD's interpreter and runs Tcl_Init again;
++// true when both succeed.
++bool tcl_library_init()
++{
++  Tcl_Interp* interp = ord::OpenRoad::openRoad()->tclInterp();
++  return in_bazel::SetupTclEnvironment(interp) == TCL_OK
++         && Tcl_Init(interp) == TCL_OK;
++}
++%}
+ #endif
+ 
+ %newobject Design::getFloorplan();

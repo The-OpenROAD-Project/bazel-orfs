@@ -1,0 +1,34 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] bazel: the Python bindings build from an external repository
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+OpenRoad-py.i imports src/odb/src/swig/common/odb.i and
+src/utl/src/Logger-py.i by their path from the repository root. That
+resolves from the execroot when OpenROAD is the main repository, and
+nowhere when it is an external one (external/openroad+/src/...), so
+@openroad//:openroad_py failed in swig:
+
+  Error: Unable to find 'src/odb/src/swig/common/odb.i'
+
+The repository root is now one of openroad_swig-py's swig includes.
+
+Not upstreamed. Retires on the //:bump onto an OpenROAD whose
+@openroad//:openroad_py builds as a dependency.
+---
+diff --git a/BUILD.bazel b/BUILD.bazel
+index ac30a5ea..e51f604e 100644
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -417,6 +417,10 @@ python_wrap_cc(
+     module = "ord_py",
+     root_swig_src = "src/OpenRoad-py.i",
+     swig_includes = [
++        # OpenRoad-py.i imports src/odb/... and src/utl/... from the
++        # repository root, which is not the execroot when OpenROAD is an
++        # external repository.
++        ".",
+         "include",
+         "src",
+     ],

@@ -247,6 +247,17 @@ archive_override(
         # until the user drags one (the timing table, first drawn empty,
         # opened cramped). Not upstreamed; retires with 0142.
         "//patches:0144-openroad-web-columns-measured-from-rows.patch",
+        # 0145: @openroad//:openroad_py builds as a dependency; swig did not
+        # find the imports OpenRoad-py.i names from the repository root.
+        # Not upstreamed; retires at a //:bump onto an OpenROAD whose Python
+        # bindings build from an external repository.
+        "//patches:0145-openroad-python-bindings-external-repo.patch",
+        # 0146: ord_py.tcl_library_init(), Tcl's embedded library for the
+        # interpreter the Python bindings' Tech() makes (no `clock`, no
+        # init.tcl, without it). Python wrapper only: the openroad binary
+        # is unchanged. Not upstreamed; retires at a //:bump onto an
+        # OpenROAD whose Python bindings do it themselves.
+        "//patches:0146-openroad-python-tcl-library.patch",
     ],
     strip_prefix = "OpenROAD-72228b6e2a2c82c9223b2ddecfc4e62b17c14c77",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/72228b6e2a2c82c9223b2ddecfc4e62b17c14c77.tar.gz"],
