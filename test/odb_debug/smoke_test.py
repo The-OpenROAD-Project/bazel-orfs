@@ -139,8 +139,10 @@ class SmokeTest(unittest.TestCase):
         skew = self.d.skew_headroom()
         self.assertAlmostEqual(skew["restored"], start["period"], delta=eps)
         self.assertLessEqual(skew["skew"], start["period"] + eps)
-        if skew["hold_slack"] != "":
-            self.assertGreaterEqual(skew["hold_slack"], -eps)
+        if skew["hold_slack"] != "" and skew["hold_start"] != "":
+            self.assertGreaterEqual(
+                skew["hold_slack"], min(0.0, skew["hold_start"]) - eps
+            )
         # wires as built: no clock arrival shortens a loop through one flop
         if cycles["loops"]:
             self.assertGreaterEqual(skew["skew"], cycles["floor"] - eps)

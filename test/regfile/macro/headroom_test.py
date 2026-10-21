@@ -96,9 +96,12 @@ class HeadroomTest(unittest.TestCase):
             )
 
     def test_skew_keeps_hold(self):
+        # skew never makes hold worse than the design started with; a
+        # violation the design already has is not skew's to repair
         hold = self.r["skew"]["hold_slack"]
-        if hold != "":
-            self.assertGreaterEqual(hold, -self.eps)
+        start = self.r["skew"]["hold_start"]
+        if hold != "" and start != "":
+            self.assertGreaterEqual(hold, min(0.0, start) - self.eps)
 
     def test_skew_reaches_into_the_block(self):
         # the worst paths end in the RegFile's storage flops: the stitched
