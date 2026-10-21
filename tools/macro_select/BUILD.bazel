@@ -74,6 +74,7 @@ py_test(
 
 # The probes the odb-debug session runs to produce the dumps timing_table reads.
 exports_files([
+    "keep_census.tcl",
     "probe_boundaries.tcl",
     "probe_netlist_owners.tcl",
     "probe_paths.tcl",
