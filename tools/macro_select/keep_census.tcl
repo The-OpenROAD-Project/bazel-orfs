@@ -12,14 +12,25 @@
 #   CENSUS_TARGET=2000 CENSUS_OUT=census.tsv  (source this, then keep_census)
 #
 # CENSUS_OUT gets one line per row, tab separated:
-#   cross <module instance> <master> <paths> <excess>
+#   cross <module instance> <master> <paths> <excess> <worst>
 #     a path crossing the instance's boundary between two logic cells, in
-#     or out; excess is the sum of the paths' periods over the target
+#     or out; excess is the sum of the paths' periods over the target,
+#     worst the largest: a cut whose worst is the census's worst period
+#     over the target is on the worst path, and only such a cut can move
+#     the period
 #   inside <module instance> <master> <paths> <logic delay>
 #     the logic delay the paths spend in cells directly inside the instance:
 #     where a cone is long and uncut, a keep added is the candidate
-#   macro <block instance> <master> <paths> <excess>
+#   macro <block instance> <master> <paths> <excess> <worst>
 #     a path launched or captured at a hardened block's pin
+#   module <module instance> <master> <cells> <area>
+#     every module instance, "(top)" for the top, with the cells and the
+#     area (um^2) under it, its children's included
+#   edge <module instance> <module instance> <paths> <excess> <worst>
+#     the pair of instances a path runs between, from the first to the
+#     second, between two logic cells; "(top)" for the top
+#   period <worst reg2reg period> <clock period>
+#     the worst register-to-register path, whatever the target
 #   paths <count> <target> <worst period> <seconds>
 # Flattening does not dominate: .claude/skills/macro-selection says how to
 # read the rows, in both directions.
@@ -38,13 +49,14 @@ proc census_owner { inst } {
   return [list [$mi getHierarchicalName] [census_module $m]]
 }
 
+# One more path at key: its count, the sum of its excess and the largest.
 proc census_add { var key n } {
   upvar $var d
   if { [dict exists $d $key] } {
-    lassign [dict get $d $key] c s
-    dict set d $key [list [expr { $c + 1 }] [expr { $s + $n }]]
+    lassign [dict get $d $key] c s w
+    dict set d $key [list [expr { $c + 1 }] [expr { $s + $n }] [expr { max($w, $n) }]]
   } else {
-    dict set d $key [list 1 $n]
+    dict set d $key [list 1 $n $n]
   }
 }
 
@@ -81,6 +93,7 @@ proc keep_census {} {
   set cross [dict create]
   set inside [dict create]
   set macro [dict create]
+  set edge [dict create]
   set worst 0
   foreach path $paths {
     lassign $path per stages
@@ -139,6 +152,11 @@ proc keep_census {} {
       set a [lindex $pown 0]
       set b [lindex $own 0]
       if { $a eq $b } { continue }
+      # the pair of instances the cone runs between, once per path
+      if { ![dict exists $seen e$a>$b] } {
+        dict set seen e$a>$b 1
+        census_add edge [list $a $b] $excess
+      }
       # every module instance left or entered between the two cells
       set pa [split $a /]
       set pb [split $b /]
@@ -165,11 +183,38 @@ proc keep_census {} {
   foreach mi [[ord::get_db_block] getModInsts] {
     dict set masters [$mi getHierarchicalName] [census_module [$mi getMaster]]
   }
+  # every module instance's cells and area, its children's included: the
+  # mass a viewer draws for it
+  set dbu [[[ord::get_db] getTech] getDbUnitsPerMicron]
+  set size [dict create "" [list 0 0.0]]
+  foreach inst [[ord::get_db_block] getInsts] {
+    set m [$inst getMaster]
+    set a [expr { double([$m getWidth]) * [$m getHeight] / $dbu / $dbu }]
+    set path [lindex [census_owner $inst] 0]
+    set parts [split $path /]
+    for { set l [llength $parts] } { $l >= 0 } { incr l -1 } {
+      set p [join [lrange $parts 0 [expr { $l - 1 }]] /]
+      set c 0
+      set s 0.0
+      if { [dict exists $size $p] } { lassign [dict get $size $p] c s }
+      dict set size $p [list [expr { $c + 1 }] [expr { $s + $a }]]
+    }
+  }
   set f [open $::env(CENSUS_OUT) w]
-  dict for { path v } $cross {
+  dict for { path v } $size {
     lassign $v c s
+    if { $path eq "" } {
+      set master [census_module [[ord::get_db_block] getTopModule]]
+      set path "(top)"
+    } else {
+      set master [expr { [dict exists $masters $path] ? [dict get $masters $path] : "?" }]
+    }
+    puts $f [format "module\t%s\t%s\t%d\t%.2f" $path $master $c $s]
+  }
+  dict for { path v } $cross {
+    lassign $v c s w
     set master [expr { [dict exists $masters $path] ? [dict get $masters $path] : "?" }]
-    puts $f [format "cross\t%s\t%s\t%d\t%.1f" $path $master $c $s]
+    puts $f [format "cross\t%s\t%s\t%d\t%.1f\t%.1f" $path $master $c $s $w]
   }
   dict for { key v } $inside {
     lassign $key path master
@@ -179,9 +224,20 @@ proc keep_census {} {
   }
   dict for { key v } $macro {
     lassign $key iname master
-    lassign $v c s
-    puts $f [format "macro\t%s\t%s\t%d\t%.1f" $iname $master $c $s]
+    lassign $v c s w
+    puts $f [format "macro\t%s\t%s\t%d\t%.1f\t%.1f" $iname $master $c $s $w]
   }
+  dict for { key v } $edge {
+    lassign $key a b
+    lassign $v c s w
+    if { $a eq "" } { set a "(top)" }
+    if { $b eq "" } { set b "(top)" }
+    puts $f [format "edge\t%s\t%s\t%d\t%.1f\t%.1f" $a $b $c $s $w]
+  }
+  # the worst reg2reg path, whatever the target
+  set top [find_timing_paths {*}$r2r -sort_by_slack -group_path_count 1]
+  set worst_all [expr { [llength $top] ? $period - [get_property [lindex $top 0] slack] : 0.0 }]
+  puts $f [format "period\t%.1f\t%.1f" $worst_all $period]
   set secs [expr { ([clock milliseconds] - $t0) / 1000.0 }]
   puts $f [format "paths\t%d\t%s\t%.1f\t%.1f" [llength $paths] $target $worst $secs]
   close $f
