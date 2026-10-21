@@ -25,10 +25,12 @@ class FloorCyclesTest(unittest.TestCase):
 
     def test_the_log_names_the_register(self):
         m = re.search(
-            r"One-flop-loop floor: ([0-9.]+) at (\S+) \((\d+) loops", self.log
+            r"One-flop-loop floor: ([0-9.]+) at (\S+) "
+            r"\((\d+) stages, (\d+) buffers; (\d+) loops",
+            self.log,
         )
         self.assertIsNotNone(m, "no floor line in the grt log")
-        self.assertGreater(int(m.group(3)), 0)
+        self.assertGreater(int(m.group(5)), 0)
         self.assertTrue(m.group(2))
 
     def test_the_floor_is_not_above_the_minimum_period(self):

@@ -1,0 +1,59 @@
+load("@bazel-orfs//:openroad.bzl", "orfs_flow")
+load("@rules_python//python:defs.bzl", "py_test")
+
+# A tiny reproducer of XiangShan's decode-buffer loops
+# (ideas/xiangshan-timing.md entry 55): a register looping back to itself
+# through one gate while driving 64 other sinks. The two flows differ only
+# in the SDC's set_max_fanout 32; each reports its one-flop-loop floor at
+# the end of global route, with the loop's stages and repeaters.
+[orfs_flow(
+    name = "fanout_loop",
+    arguments = {
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.6",
+        "SYNTH_HDL_FRONTEND": "slang",
+    },
+    last_stage = "grt",
+    sources = {
+        "POST_GLOBAL_ROUTE_TCL": ["//tools/headroom:report_floor_cycles.tcl"],
+        "SDC_FILE": [sdc],
+    },
+    tags = ["manual"],
+    top = "fanout_loop",
+    variant = variant,
+    verilog_files = ["fanout_loop.sv"],
+) for variant, sdc in [
+    ("base", ":constraints.sdc"),
+    ("capped", ":constraints_max_fanout.sdc"),
+    # the same cap with the loop violating: does timing repair take the
+    # buffer back off the loop?
+    ("capped_tight", ":constraints_max_fanout_tight.sdc"),
+    ("base_tight", ":constraints_tight.sdc"),
+]]
+
+[filegroup(
+    name = "fanout_loop_%s_grt_logs" % variant,
+    srcs = [":fanout_loop%s_grt" % ("" if variant == "base" else "_" + variant)],
+    output_group = "logs",
+    tags = ["manual"],
+) for variant in [
+    "base",
+    "base_tight",
+    "capped",
+]]
+
+py_test(
+    name = "fanout_loop_test",
+    size = "small",
+    srcs = ["fanout_loop_test.py"],
+    args = [
+        "$(rootpaths :fanout_loop_base_grt_logs)",
+        "$(rootpaths :fanout_loop_capped_grt_logs)",
+        "$(rootpaths :fanout_loop_base_tight_grt_logs)",
+    ],
+    data = [
+        ":fanout_loop_base_grt_logs",
+        ":fanout_loop_base_tight_grt_logs",
+        ":fanout_loop_capped_grt_logs",
+    ],
+)
