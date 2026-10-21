@@ -135,6 +135,30 @@ has the partner dump), `place_macros.tcl` for the parent (by master, R0,
 `xiangshan_flow(name = "XSTile", plan = PLAN)`, targets `XSTile_*`). `keep_under.py` lists the masters under a block in the
 boundary probe for the block's own `SYNTH_KEEP_MODULES`.
 
+**The keep lists are a first pass, not a timing decision.** They came from
+module size (`keep_under.py --min-cells`) and the literature, to split
+synthesis into parallel partitions. Re-decide each keep on timing
+evidence: for the endpoints over the target, which kept boundaries their
+worst paths cross between two logic cells, where the boundary cuts a
+cone that ABC then optimizes in pieces, without the arrivals at its
+inputs. A crossing at a register or a buffer costs nothing.
+
+Flattening everything does not dominate as a timing solution. Keeping a
+module sometimes helps, and the difference can be dramatic; why is not
+known yet. So when a keep makes a cone worse, the answer may be a module
+missing from the list rather than one too many, and an A/B runs both
+ways: a keep dropped, and a keep added. When flattening loses, shrink it
+to the smallest pair of netlists that shows it: it is either a yosys or
+ABC bug to report, or a mechanism to learn and write down here.
+
+The same holds past synthesis. A flat global placement does not dominate
+one that sees the hierarchy, and hardening no blocks does not dominate a
+design with macros; here too the reason is not known. Treat each as the
+keep list is treated: a measured A/B per boundary, in both directions,
+and a loss shrunk until it explains itself. Anything learned about why a
+boundary helps is a thread to pull on: a rule for choosing boundaries, a
+tool bug, or a reason to change the flow.
+
 ## 4. Build, with the gates on
 
 Blocks as real flows with the planned outline and pins on the planned
