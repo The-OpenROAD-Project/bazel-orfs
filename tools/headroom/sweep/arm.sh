@@ -12,6 +12,8 @@
 #   keep      from floorplan with REMOVE_ABC_BUFFERS=0: synthesis's buffers stay
 #   remove    from floorplan with REMOVE_ABC_BUFFERS=1: floorplan removes them
 #   keep_iso  keep, with isolate_loop_sinks.tcl before CTS
+#   iso_late  iso, and isolate_loop_sinks.tcl again at the end of global
+#             route, after its repair: repair adds buffers to loops too
 set -u
 D=$1 N=$2 ARM=$3 SEED=$4
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -24,6 +26,7 @@ EXTRA="GPL_RANDOM_SEED=$SEED"
 FIRST=place
 case "$ARM" in
   iso | keep_iso) EXTRA="$EXTRA PRE_CTS_TCL=$HERE/../isolate_loop_sinks.tcl ISOLATE_LOOP_SINKS=100" ;;
+  iso_late) EXTRA="$EXTRA PRE_CTS_TCL=$HERE/../isolate_loop_sinks.tcl POST_GLOBAL_ROUTE_TCL=$HERE/../isolate_loop_sinks.tcl ISOLATE_LOOP_SINKS=100" ;;
 esac
 case "$ARM" in
   keep | keep_iso) FIRST=floorplan EXTRA="$EXTRA REMOVE_ABC_BUFFERS=0" ;;

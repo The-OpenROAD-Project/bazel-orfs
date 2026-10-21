@@ -49,8 +49,13 @@ proc isolate_loop_sinks { {loops 100} } {
   return $moved
 }
 
-# As a flow hook (PRE_CTS_TCL): isolate, then re-estimate.
+# As a flow hook (PRE_CTS_TCL, or POST_GLOBAL_ROUTE_TCL after grt's repair):
+# isolate, then re-estimate the way the stage does.
 if { [info exists ::env(ISOLATE_LOOP_SINKS)] && $::env(ISOLATE_LOOP_SINKS) } {
   puts "Isolated [isolate_loop_sinks $::env(ISOLATE_LOOP_SINKS)] loop sinks"
-  estimate_parasitics -placement
+  if { [catch { grt::have_routes } routed] || !$routed } {
+    estimate_parasitics -placement
+  } else {
+    estimate_parasitics -global_routing
+  }
 }
