@@ -1111,12 +1111,33 @@ def _extract_patches(block):
     return re.findall(r'"(//[^"]*\.patch)"', block)
 
 
-def _extract_patch_cmds(block):
-    """Return the list of patch_cmds strings found inside a Starlark block."""
-    m = re.search(r"patch_cmds\s*=\s*\[(.*?)\]", block, re.DOTALL)
+def _patch_cmds_span(block):
+    """``(start, end)`` of the ``patch_cmds = [...]`` list, brackets included.
+
+    Found by bracket matching, which skips strings and comments: a regex up
+    to the first ``]`` stopped inside a command that contains one.
+    """
+    m = re.search(r"patch_cmds\s*=\s*\[", block)
     if not m:
+        return None
+    start = m.end() - 1
+    return start, find_starlark_call_end(block, start)
+
+
+def _extract_patch_cmds(block):
+    """Return the list of patch_cmds strings found inside a Starlark block.
+
+    A quoted phrase in a comment between the entries is not one of them.
+    """
+    span = _patch_cmds_span(block)
+    if not span:
         return []
-    return [match.group(1) for match in re.finditer(r'"((?:\\.|[^"\\])*)"', m.group(1))]
+    body = block[span[0] : span[1]]
+    return [
+        match.group(1)
+        for match in re.finditer(r'"((?:\\.|[^"\\])*)"', body)
+        if not _position_is_in_comment(body, match.start())
+    ]
 
 
 def _is_custom_patch_cmd(cmd):
@@ -1281,12 +1302,12 @@ def update_openroad_archive_override(
     start, end = span
     old_block = content[start:end]
 
-    m_suffix = re.search(
-        r"patch_cmds\s*=\s*\[.*?\](\s*\+\s*[A-Za-z0-9_]+)?,", old_block, re.DOTALL
-    )
     patch_cmds_suffix = ""
-    if m_suffix and m_suffix.group(1):
-        patch_cmds_suffix = m_suffix.group(1).strip()
+    cmds_span = _patch_cmds_span(old_block)
+    if cmds_span:
+        m_suffix = re.match(r"(\s*\+\s*[A-Za-z0-9_]+)?,", old_block[cmds_span[1] :])
+        if m_suffix and m_suffix.group(1):
+            patch_cmds_suffix = m_suffix.group(1).strip()
 
     old_patch_cmds = _extract_patch_cmds(old_block)
     custom_cmds = [cmd for cmd in old_patch_cmds if _is_custom_patch_cmd(cmd)]
