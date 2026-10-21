@@ -149,7 +149,6 @@ CASES = [
     ("command", "git branch -D master", "verboten"),
     ("command", "git update-ref refs/heads/main abc1234", "verboten"),
     ("command", "git worktree add ../wt main", "verboten"),
-    ("command", "git worktree add ../wt origin/main", None),
     ("command", "git branch -D feature/x", None),
     ("command", "git branch --show-current", None),
     # --- merging is the human's call --------------------------------------
@@ -476,6 +475,76 @@ class SpelunkExemptionTest(unittest.TestCase):
         path = self.make("metrics.json", 128)
         command = f"bazel clean && cat {path}"
         self.assertIn("protects bazel cache", self.reason("command", command) or "")
+
+
+class WorktreeLocationTest(unittest.TestCase):
+    """Where `git worktree add` may put a worktree, in a real checkout.
+
+    The rule asks the filesystem where the checkout's top is (the directory
+    holding `.git`), so these cases run inside a scratch one.
+    """
+
+    def setUp(self):
+        base = os.environ.get("TEST_TMPDIR") or os.path.join(
+            HERE, os.pardir, os.pardir, "tmp"
+        )
+        base = os.path.abspath(base)
+        if base.startswith("/tmp/") or base == "/tmp":
+            # The /tmp rule would deny these commands first.
+            self.skipTest(f"scratch base {base} is under /tmp")
+        os.makedirs(base, exist_ok=True)
+        self.root = tempfile.mkdtemp(dir=base, prefix="guard_tool_test.")
+        self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
+        os.makedirs(os.path.join(self.root, ".git"))
+        self.sub = os.path.join(self.root, "src", "deep")
+        os.makedirs(self.sub)
+
+    def reason(self, command, cwd):
+        payload = CLAUDE_PAYLOAD["command"](command)
+        payload["cwd"] = cwd
+        return claude_reason(run_guard(payload))
+
+    def test_under_tmp_is_allowed(self):
+        for command in (
+            "git worktree add tmp/wt origin/main",
+            "git worktree add -b feature/x tmp/wt origin/main",
+            "git worktree add --detach ./tmp/wt",
+            f"git worktree add {self.root}/tmp/a/b origin/main",
+            "git -C src worktree add ../tmp/wt origin/main",
+        ):
+            with self.subTest(command=command):
+                self.assertIsNone(self.reason(command, self.root))
+
+    def test_outside_tmp_is_denied(self):
+        for command in (
+            "git worktree add ../wt origin/main",
+            "git worktree add -b feature/x ../wt origin/main",
+            "git worktree add wt origin/main",
+            "git worktree add tmp origin/main",
+            "git worktree add tmp/../wt origin/main",
+            "git worktree add ~/wt origin/main",
+            "git -C src worktree add tmp/wt origin/main",
+            "git fetch -q && git worktree add -b x ../wt origin/main",
+        ):
+            with self.subTest(command=command):
+                self.assertIn("./tmp/", self.reason(command, self.root))
+
+    def test_path_resolves_from_where_the_command_runs(self):
+        self.assertIsNone(
+            self.reason("git worktree add ../../tmp/wt origin/main", self.sub)
+        )
+        self.assertIsNotNone(self.reason("git worktree add tmp/wt", self.sub))
+        self.assertIsNone(
+            self.reason(f"cd {self.root} && git worktree add tmp/wt", self.sub)
+        )
+        self.assertIsNotNone(
+            self.reason(f"cd {self.sub} && git worktree add tmp/wt", self.root)
+        )
+
+    def test_other_worktree_commands_are_allowed(self):
+        for command in ("git worktree list", "git worktree remove ../wt"):
+            with self.subTest(command=command):
+                self.assertIsNone(self.reason(command, self.root))
 
 
 class ProtocolTest(unittest.TestCase):

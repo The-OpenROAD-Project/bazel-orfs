@@ -34,6 +34,7 @@ prose can never drift from what is actually enforced.
 import json
 import os
 import re
+import shlex
 import stat
 import sys
 
@@ -274,6 +275,81 @@ def check_git_protected_ref(request):
     return None
 
 
+WORKTREE_MESSAGE = (
+    "git worktree add outside ./tmp/ => verboten. Put the worktree under the "
+    "checkout's own tmp/ (git worktree add tmp/<name> ...), where it is "
+    "scratch space next to the rest of the session's."
+)
+# `git worktree add` options that take the next word as their value.
+WORKTREE_ADD_VALUE_OPTIONS = ("-b", "-B", "--reason")
+CD_SEGMENT = re.compile(r"^cd\s+(\S+)$")
+# Also through `git -C <dir>` and other global options.
+GIT_WORKTREE_ADD_ANY = re.compile(r"\bgit\b[^;&|]*\bworktree\s+add\b")
+
+
+def checkout_root(directory):
+    """The top of the checkout `directory` is in: where `.git` is, or None."""
+    directory = os.path.abspath(directory)
+    while True:
+        if os.path.exists(os.path.join(directory, ".git")):
+            return directory
+        parent = os.path.dirname(directory)
+        if parent == directory:
+            return None
+        directory = parent
+
+
+def worktree_add_target(segment, cwd):
+    """``(path, directory it resolves from)`` a `git worktree add` names, or None.
+
+    `git -C <dir>` moves where the path resolves from, as it does for git.
+    """
+    try:
+        words = shlex.split(segment)
+    except ValueError:
+        words = segment.split()
+    try:
+        git = words.index("git")
+        add = words.index("add", git)
+    except ValueError:
+        return None
+    for i in range(git + 1, add):
+        if words[i] == "-C" and i + 1 < add:
+            cwd = os.path.join(cwd, words[i + 1])
+    i = add + 1
+    while i < len(words):
+        word = words[i]
+        if word in WORKTREE_ADD_VALUE_OPTIONS:
+            i += 2
+        elif word.startswith("-"):
+            i += 1
+        else:
+            return word, cwd
+    return None
+
+
+def check_worktree_location(request):
+    cwd = request.cwd
+    for segment in segments(request.code):
+        cd = CD_SEGMENT.match(segment)
+        if cd:
+            cwd = os.path.join(cwd, os.path.expanduser(cd.group(1)))
+            continue
+        if not GIT_WORKTREE_ADD_ANY.search(segment):
+            continue
+        target = worktree_add_target(segment, cwd)
+        if target is None:
+            continue
+        path, base = target
+        root = checkout_root(base)
+        if root is None:
+            continue
+        path = os.path.normpath(os.path.join(base, os.path.expanduser(path)))
+        if not path.startswith(os.path.join(root, "tmp") + os.sep):
+            return WORKTREE_MESSAGE
+    return None
+
+
 def check_merge(request):
     for segment in segments(request.code):
         if GH_MERGE.search(segment):
@@ -455,6 +531,12 @@ RULES = (
         "Deleting, moving or force-updating a local `master`/`main` "
         "(`git branch -f/-D`, `git update-ref`, `git worktree add`) is blocked.",
         check_git_protected_ref,
+    ),
+    (
+        "git-worktree-location",
+        "Creating a git worktree outside the checkout's own `./tmp/` "
+        "(`git worktree add <path>`) is blocked; put it under `tmp/`.",
+        check_worktree_location,
     ),
     (
         "merge",
