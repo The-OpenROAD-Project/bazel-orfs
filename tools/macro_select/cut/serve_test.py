@@ -5,6 +5,7 @@ import json
 import os
 import socket
 import struct
+import threading
 import unittest
 
 import serve
@@ -106,6 +107,114 @@ class ServerTest(unittest.TestCase):
         _, data = serve.ws_read(s)
         self.assertEqual(serve.unframe(data)[:2], (6, serve.T_ERROR))
         s.close()
+
+
+class FakeClock(object):
+    def __init__(self):
+        self.t = 1000.0
+
+    def __call__(self):
+        return self.t
+
+
+def handshake(port, cookie):
+    s = socket.create_connection(("127.0.0.1", port))
+    key = base64.b64encode(os.urandom(16)).decode()
+    s.sendall(
+        (
+            "GET / HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+            "Sec-WebSocket-Key: %s\r\nSec-WebSocket-Version: 13\r\nCookie: %s\r\n\r\n"
+            % (key, cookie)
+        ).encode()
+    )
+    head = b""
+    while b"\r\n\r\n" not in head:
+        head += s.recv(1)
+    return s
+
+
+def wait_for(what, cond):
+    """Waits for a thread of the server to act; asserts nothing about time."""
+    for _ in range(500):
+        if cond():
+            return
+        threading.Event().wait(0.01)
+    raise AssertionError("never happened: " + what)
+
+
+class HeartbeatTest(unittest.TestCase):
+    """The browser may be on another machine: a page that went away is
+    found by the heartbeat, not by a close frame."""
+
+    def setUp(self):
+        self.clock = FakeClock()
+        self.logged = []
+        self.srv = serve.Server(
+            "127.0.0.1",
+            0,
+            "sesame",
+            "",
+            lambda: {},
+            log=self.logged.append,
+            clock=self.clock,
+        )
+        self.srv.start(heartbeat=False)
+        self.cookie = "odbdebug%d=sesame" % self.srv.port
+
+    def test_no_idle_time_before_the_first_browser(self):
+        self.assertIsNone(self.srv.idle_for(self.clock()))
+
+    def test_a_closed_page_starts_the_idle_time(self):
+        s = handshake(self.srv.port, self.cookie)
+        wait_for("the browser counted", lambda: self.srv.viewers() == 1)
+        self.assertIsNone(self.srv.idle_for(self.clock()))
+        mask = os.urandom(4)
+        s.sendall(bytes([0x88, 0x80]) + mask)
+        wait_for("the browser dropped", lambda: self.srv.viewers() == 0)
+        self.clock.t += 42
+        self.assertEqual(self.srv.idle_for(self.clock()), 42)
+        self.assertIn("closed the page", self.logged[-1])
+        s.close()
+
+    def test_a_silent_browser_is_dropped(self):
+        s = handshake(self.srv.port, self.cookie)
+        wait_for("the browser counted", lambda: self.srv.viewers() == 1)
+        self.clock.t += serve.Server.DEAD_AFTER - 1
+        self.srv.sweep(self.clock())
+        self.assertEqual(self.srv.viewers(), 1)
+        self.clock.t += 2
+        self.srv.sweep(self.clock())
+        self.assertEqual(self.srv.viewers(), 0)
+        self.assertIn("no reply", self.logged[-1])
+        s.close()
+
+    def test_a_browser_that_answers_pings_stays(self):
+        s = handshake(self.srv.port, self.cookie)
+        wait_for("the browser counted", lambda: self.srv.viewers() == 1)
+        self.clock.t += serve.Server.DEAD_AFTER - 1
+        self.srv.sweep(self.clock())
+        opcode, _ = serve.ws_read(s)
+        self.assertEqual(opcode, 0x9)
+        mask = os.urandom(4)
+        s.sendall(bytes([0x8A, 0x80]) + mask)
+        b = list(self.srv.browsers.values())[0]
+        wait_for("the pong seen", lambda: b.seen == self.clock.t)
+        self.clock.t += serve.Server.DEAD_AFTER - 1
+        self.srv.sweep(self.clock())
+        self.assertEqual(self.srv.viewers(), 1)
+        s.close()
+
+
+class BrowserTest(unittest.TestCase):
+    def test_only_the_latest_push_waits(self):
+        b = serve.Browser("x", 0)
+        b.send(b"old", push=True)
+        b.send(b"reply")
+        b.send(b"new", push=True)
+        self.assertEqual(b.next(), b"reply")
+        self.assertEqual(b.next(), b"new")
+        b.close()
+        self.assertIsNone(b.next())
 
 
 if __name__ == "__main__":

@@ -165,7 +165,8 @@ function render() {
   document.getElementById("title").textContent = "Module cut search: " + (state.design || state.flow);
   document.getElementById("meta").textContent =
     state.phase + (state.clock ? " · clock " + state.clock + " ps · census target " + state.target + " ps" : "") +
-    (state.types.length ? " · " + state.types.length + " module types: " + state.types.join(", ") : "");
+    (state.types.length ? " · " + state.types.length + " module types: " + state.types.join(", ") : "") +
+    " · " + state.viewers + (state.viewers === 1 ? " viewer" : " viewers");
   document.getElementById("note").textContent = state.note || "";
   renderArms(); renderLadder(); renderGraph(); renderQueue();
 }

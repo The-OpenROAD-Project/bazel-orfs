@@ -125,6 +125,7 @@ class Search(object):
                 "best": list(b) if b is not None else None,
                 "arms": [dict(a) for a in self.arms],
                 "queue": list(self.queue),
+                "viewers": self.server.viewers() if self.server else 0,
             }
 
     def changed(self, **kw):
@@ -420,6 +421,14 @@ def main(argv):
         help="census target as a fraction of the clock period",
     )
     ap.add_argument("--fresh", action="store_true", help="lay the trees out again")
+    ap.add_argument(
+        "--idle",
+        type=float,
+        default=300,
+        help="once the search is over, exit when no browser has been connected"
+        " for this many seconds, counted from the first one leaving; 0 serves"
+        " until Ctrl-C",
+    )
     args = ap.parse_args(argv)
 
     ws = os.environ.get("BUILD_WORKSPACE_DIRECTORY")
@@ -433,7 +442,7 @@ def main(argv):
         page = f.read()
     bind = odbdebug.gui_bind() or "127.0.0.1"
     token = secrets.token_urlsafe(24)
-    s.server = serve.Server(bind, args.port, token, page, s.state)
+    s.server = serve.Server(bind, args.port, token, page, s.state, log=say)
     s.server.start()
     print(
         "generate_cut: http://%s:%d/?token=%s" % (bind, s.server.port, token),
@@ -454,13 +463,33 @@ def main(argv):
         print("generate_cut: %s" % e, file=sys.stderr)
         raise
     finally:
-        print("generate_cut: the page stays up; Ctrl-C to stop", flush=True)
-        try:
-            while True:
-                time.sleep(3600)
-        except KeyboardInterrupt:
-            pass
+        linger(s.server, args.idle)
     return 0
+
+
+def say(msg):
+    print("generate_cut: %s %s" % (time.strftime("%H:%M:%S"), msg), flush=True)
+
+
+def linger(server, idle):
+    """Serve the finished search until no browser has been connected for
+    idle seconds, after the first one left; until Ctrl-C if idle is 0."""
+    if idle:
+        say(
+            "the page stays up until no browser has been connected for %.0f s"
+            " (heartbeat every %.0f s); Ctrl-C to stop" % (idle, server.PING_EVERY)
+        )
+    else:
+        say("the page stays up; Ctrl-C to stop")
+    try:
+        while True:
+            time.sleep(1)
+            gone = server.idle_for(server.clock())
+            if idle and gone is not None and gone >= idle:
+                say("no browser for %.0f s; exiting" % gone)
+                return
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":
