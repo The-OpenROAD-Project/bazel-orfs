@@ -1,0 +1,66 @@
+# A per-module RTLIL slice must be byte-identical when only the rest of
+# the design changes, or its partition synthesis misses the cache.
+#
+# before.v and after.v differ only in `other`, declared ahead of `unit`,
+# so `other`'s extra cells advance Yosys's whole-design counter before
+# `unit`'s cells are numbered.
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+package(default_visibility = ["//visibility:private"])
+
+[genrule(
+    name = "checkpoint_" + design,
+    srcs = [design + ".v"],
+    outs = ["checkpoint_%s.rtlil" % design],
+    cmd = "$(location @yosys//:yosys) -q -p \"" + "; ".join([
+        "read_verilog $<",
+        "hierarchy -top top",
+        "proc",
+        "opt_clean -purge",
+        "write_rtlil $@",
+    ]) + "\" > /dev/null",
+    tools = ["@yosys"],
+) for design in [
+    "before",
+    "after",
+]]
+
+[genrule(
+    name = "slice_" + design,
+    srcs = [":checkpoint_" + design],
+    outs = ["slice_%s.rtlil" % design],
+    cmd = " ".join([
+        "SYNTH_CHECKPOINT=$<",
+        "MODULE_TARGET_NAME=unit",
+        "MODULE_BLACKBOXES=",
+        "MODULE_RTLIL_OUT=$@",
+        "MODULE_NAME_OUT=$(RULEDIR)/slice_%s.name" % design,
+        "SYNTH_REPEATABLE_BUILD=1",
+        "$(location @yosys//:yosys) -q -c $(location //:synth_canonicalize_module.tcl) > /dev/null",
+    ]),
+    tools = [
+        "//:synth_canonicalize_module.tcl",
+        "@yosys",
+    ],
+) for design in [
+    "before",
+    "after",
+]]
+
+sh_test(
+    name = "canonical_slice_test",
+    size = "small",
+    srcs = ["canonical_slice_test.sh"],
+    args = [
+        "$(location :checkpoint_before)",
+        "$(location :checkpoint_after)",
+        "$(location :slice_before)",
+        "$(location :slice_after)",
+    ],
+    data = [
+        ":checkpoint_after",
+        ":checkpoint_before",
+        ":slice_after",
+        ":slice_before",
+    ],
+)
