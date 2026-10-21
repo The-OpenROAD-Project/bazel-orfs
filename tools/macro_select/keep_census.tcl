@@ -76,6 +76,7 @@ proc keep_census {} {
     lappend paths [list $per $stages]
   }
   set kinds [dict create]
+  set blocks [dict create]
   set owners [dict create]
   set cross [dict create]
   set inside [dict create]
@@ -97,6 +98,7 @@ proc keep_census {} {
         set m [$inst getMaster]
         if { [$m isBlock] } {
           set k macro
+          dict set blocks $iname [$m getName]
         } elseif { [$m isSequential] } {
           set k reg
         } elseif { [regexp {^(BUF|HB)} [$m getName]] } {
@@ -114,7 +116,7 @@ proc keep_census {} {
     # a launch or capture at a hardened block's pin
     foreach end [list [lindex $chain 0] [lindex $chain end]] {
       if { [lindex $end 0] ne "macro" } { continue }
-      set key [list [lindex $end 3] [lindex [lindex $end 1] 1]]
+      set key [list [lindex $end 3] [dict get $blocks [lindex $end 3]]]
       if { ![dict exists $seen m$key] } {
         dict set seen m$key 1
         census_add macro $key $excess
