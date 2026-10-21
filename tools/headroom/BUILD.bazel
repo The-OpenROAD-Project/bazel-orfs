@@ -10,6 +10,7 @@ exports_files(
     [
         "classify.tcl",
         "headroom_flat.tcl",
+        "report_floor_cycles.tcl",
         "sta_part.tcl",
     ],
     visibility = ["//visibility:public"],

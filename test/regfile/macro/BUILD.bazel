@@ -63,6 +63,9 @@ orfs_flow(
     },
     sources = {
         "AUTO_MEMORIES_REGFILES": [":RegFile.regfile"],
+        # the one-flop-loop floor, reported at the end of grt: its storage
+        # flops hold through a mux back to themselves
+        "POST_GLOBAL_ROUTE_TCL": ["//tools/headroom:report_floor_cycles.tcl"],
         # a block's grid, so the parent's macro grid connects to it
         "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
         "SDC_FILE": ["//test/regfile:constraint.sdc"],
@@ -157,5 +160,37 @@ py_test(
     data = [
         ":wide_top_headroom",
         ":wide_top_headroom_nowire",
+    ],
+)
+
+# The one-flop-loop floor reported at the end of the RegFile's global route
+# (tools/headroom/report_floor_cycles.tcl as POST_GLOBAL_ROUTE_TCL): the
+# log names the register, and the metric is a period no larger than the
+# stage's own minimum period, since a loop is one of its paths.
+filegroup(
+    name = "RegFile_grt_logs",
+    srcs = [":RegFile_grt"],
+    output_group = "logs",
+    tags = ["manual"],
+)
+
+filegroup(
+    name = "RegFile_grt_jsons",
+    srcs = [":RegFile_grt"],
+    output_group = "jsons",
+    tags = ["manual"],
+)
+
+py_test(
+    name = "floor_cycles_test",
+    size = "small",
+    srcs = ["floor_cycles_test.py"],
+    args = [
+        "$(rootpaths :RegFile_grt_logs)",
+        "$(rootpaths :RegFile_grt_jsons)",
+    ],
+    data = [
+        ":RegFile_grt_jsons",
+        ":RegFile_grt_logs",
     ],
 )
