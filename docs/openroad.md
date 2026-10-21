@@ -77,7 +77,7 @@ use_repo(orfs, "gnumake")
 
 **Toolchain and versions.** OpenROAD builds against the BCR `llvm` module
 (hermetic-llvm), registered only as a `dev_dependency`, so each root
-registers it. `rules_pycross`, pulled in through sv-lang, fails on Python 3.8
+registers it. `rules_pycross`, which OpenROAD depends on, fails on Python 3.8
 unless the root configures its environments. The `single_version_override`s
 pin the versions bazel-orfs builds with:
 

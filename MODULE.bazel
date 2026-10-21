@@ -349,7 +349,7 @@ single_version_override(
     version = "1.4.21.bcr.4",
 )
 
-# sv-lang pulls in rules_pycross, whose toolchain extension fails on Python
+# OpenROAD depends on rules_pycross, whose toolchain extension fails on Python
 # 3.8 (transitively registered via or-tools -> pybind11_abseil, dropped
 # from rules_python 2.0.0's MINOR_MAPPING). pycross.configure_environments
 # is root-honored only, so the workaround must live here (mirrored from
@@ -411,7 +411,7 @@ single_version_override(
 
 # dev_dependency: configure_environments above is root-honored only, so
 # this pair does nothing for a downstream root, which must repeat it (as
-# ORFS does). sv-lang keeps pulling rules_pycross in transitively.
+# ORFS does). OpenROAD keeps pulling rules_pycross in.
 bazel_dep(name = "rules_pycross", version = "0.8.3", dev_dependency = True)
 
 pycross = use_extension("@rules_pycross//pycross/extensions:pycross.bzl", "pycross", dev_dependency = True)
