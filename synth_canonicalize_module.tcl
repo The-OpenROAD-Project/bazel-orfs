@@ -144,6 +144,12 @@ if { [env_var_set_nonempty SYNTH_REPEATABLE_BUILD] && $::env(SYNTH_REPEATABLE_BU
     setattr -mod -unset src =*
     setattr -mod -unset area =*
     setattr -unset capacitance =*
+    # Private names such as $procmux$1234 are numbered by Yosys's
+    # whole-design counter, so a cell gained anywhere in the design
+    # renumbers this slice. With src unset, rename -src gives every
+    # private name $<n>, counted within its own module, and keeps it
+    # private. `yosys rename`: Tcl's own rename survives `yosys -import`.
+    yosys rename -src
 }
 
 # Persist the canonical name in a sidecar so synth_partition.sh can pass
@@ -157,3 +163,16 @@ puts $fp $canonical_design
 close $fp
 
 write_rtlil $::env(MODULE_RTLIL_OUT)
+
+# The autoidx line is that whole-design counter. Nothing in the renamed
+# slice depends on its value, and a later pass never generates a bare
+# $<n>, so the line goes.
+if { [env_var_set_nonempty SYNTH_REPEATABLE_BUILD] && $::env(SYNTH_REPEATABLE_BUILD) != "0" } {
+    set fp [open $::env(MODULE_RTLIL_OUT) r]
+    set text [read $fp]
+    close $fp
+    regsub -line {^autoidx [0-9]+\n} $text {} text
+    set fp [open $::env(MODULE_RTLIL_OUT) w]
+    puts -nonewline $fp $text
+    close $fp
+}
