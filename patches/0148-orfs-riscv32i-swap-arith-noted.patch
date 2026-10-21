@@ -10,7 +10,8 @@ with it and 943.4 ps without, 11 % shorter; with flat synthesis 791.8
 and 895.7 ps. The comment records it beside the setting, so the next
 change to it starts from the number.
 
-Not upstreamed. Retires on the //:bump onto an ORFS that carries it.
+Upstream as The-OpenROAD-Project/OpenROAD-flow-scripts#4713 (draft).
+Retires on the //:bump onto an ORFS that carries it.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>

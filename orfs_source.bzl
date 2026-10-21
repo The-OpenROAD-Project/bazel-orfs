@@ -191,7 +191,7 @@ ORFS_PATCHES = [
     # beside the setting; flat synthesis, since the size rule kept dmem for
     # its SRAMs' area and its boundary cut the worst path (test/cut_riscv32i,
     # tools/macro_select/cut). riscv32i-mock-sram keeps today's settings.
-    # Not upstreamed; retire at a bump onto an ORFS that carries them.
+    # ORFS #4713 (draft); retire at a bump onto an ORFS that carries them.
     Label("//patches:0147-orfs-riscv32i-sdc.patch"),
     Label("//patches:0148-orfs-riscv32i-swap-arith-noted.patch"),
     Label("//patches:0149-orfs-riscv32i-flat.patch"),
