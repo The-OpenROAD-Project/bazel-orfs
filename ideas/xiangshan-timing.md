@@ -2053,11 +2053,26 @@ parent's KPI does not see; 13,744 against the parent's 5,259 is not yet
 split into the parent's and the blocks' share.
 
 The skew measurement re-times every endpoint each round; on 761k
-endpoints it had not finished after 18 hours.
-Judging each round by the paths through the flops it moves, measuring in
-full only once, is the next change to the tool. Next on the tile: the
-`decodeBufValid_3` loop itself, wire against cells against logic, then
-the zero-wire floor (`XSTile_headroom_nowire`).
+endpoints it had not finished after 18 hours. Judging each round by the
+paths through the flops it moves, measuring in full only once, is the
+next change to the tool.
+
+Next on the tile, the loop at grt, after the last repair that changes
+cells (the loop's clock cancels, its wire and cells do not):
+
+| Reading of the `decodeBufValid_3` loop | Bounds |
+|---|---|
+| with the route's wire: 2,151 ps | what the tile has |
+| zero wire, cells as built | placement, skew and retiming together |
+| zero wire, the loop's cells at fastest VT and size | resizing too; above 2,000 ps only logic is left (surgery, Chisel) |
+
+A flow could report the floor after grt and at the end, beside the worst
+slack. A period at the floor says only that loop's wire, cells or logic
+help; a floor above the target says no flow setting reaches it, and
+names the register, before anyone spends a placement arm on it. The
+check would belong in OpenROAD or OpenSTA, scoped to the registers of
+the worst endpoints so that it is cheap enough to run always; that is to
+be measured on ORFS-sized designs first.
 
 ## Method notes
 
