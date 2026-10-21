@@ -590,13 +590,19 @@ def fetch_submodule_sha(parent_repo, parent_commit, path):
     """Submodule SHA at ``path`` inside ``parent_repo`` at ``parent_commit``.
 
     Same shape as ``fetch_orfs_tool_sha`` (which is specialized to ORFS tools)
-    but generic: used for OpenROAD's src/sta and third-party/abc.
+    but generic: used for OpenROAD's src/sta and third-party/abc.  None when
+    nothing exists at ``path``: a submodule OpenROAD has dropped.
     """
     url = (
         f"https://api.github.com/repos/{parent_repo}/contents/{path}"
         f"?ref={parent_commit}"
     )
-    data = fetch_json(url)
+    try:
+        data = fetch_json(url)
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return None
+        raise
     if data.get("type") != "submodule":
         raise RuntimeError(
             f"{parent_repo}/{path} is not a submodule at {parent_commit} "
@@ -1000,13 +1006,15 @@ def _format_openroad_archive_override(
     # `path` against the *consumer* workspace root.  Consumers don't have
     # OpenROAD's bazel/ directory there, so the alias fetch fails the moment
     # anything references @slang.  Rewrite the lone reference in slang-elab
-    # to use @sv-lang directly so the alias is never triggered.
-    lines.append(
-        r"""        "find . -name BUILD -exec sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|g' {} +","""
-    )
-    lines.append(
-        r"""        "sed -i 's|defines = \\[|copts = [\"-include\", \"fmt/format.h\"],\\n    defines = [|' src/syn/src/elab/BUILD third-party/slang-elab/src/BUILD","""
-    )
+    # to use @sv-lang directly so the alias is never triggered.  An OpenROAD
+    # on sv-elab has neither, and gets neither line.
+    if any(info[0] == "third-party/slang-elab" for info in submodule_info):
+        lines.append(
+            r"""        "find . -name BUILD -exec sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|g' {} +","""
+        )
+        lines.append(
+            r"""        "sed -i 's|defines = \\[|copts = [\"-include\", \"fmt/format.h\"],\\n    defines = [|' src/syn/src/elab/BUILD third-party/slang-elab/src/BUILD","""
+        )
 
     for comments, label, cmd in submodule_patch_cmds:
         for c in comments:
@@ -1257,6 +1265,12 @@ def _resolve_openroad_archives(
 
     def resolve_submodule(path, github_repo):
         sub_sha = fetch_submodule_sha_fn(OPENROAD_REPO, openroad_commit, path)
+        if sub_sha is None:
+            if path in OPENROAD_TRANSITIONAL_SUBMODULES:
+                return None
+            raise RuntimeError(
+                f"{OPENROAD_REPO}/{path} does not exist at {openroad_commit}"
+            )
         known = known_digests.get(path)
         if known and known[0] == sub_sha:
             return (path, github_repo, sub_sha, known[1])
@@ -1271,7 +1285,7 @@ def _resolve_openroad_archives(
             pool.submit(resolve_submodule, path, github_repo)
             for path, github_repo in OPENROAD_SUBMODULES
         ]
-        return parent.result(), [f.result() for f in subs]
+        return parent.result(), [f.result() for f in subs if f.result()]
 
 
 def update_openroad_archive_override(
@@ -1411,11 +1425,17 @@ def update_openroad_archive_override(
     if _parse_openroad_parent_commit(old_block) == openroad_commit:
         digests = _parse_submodule_digests(old_block)
         m_integrity = re.search(r'integrity\s*=\s*"([^"]*)"', old_block)
-        if m_integrity and all(path in digests for path, _ in OPENROAD_SUBMODULES):
+        required = [
+            path
+            for path, _ in OPENROAD_SUBMODULES
+            if path not in OPENROAD_TRANSITIONAL_SUBMODULES
+        ]
+        if m_integrity and all(path in digests for path in required):
             parent_integrity = m_integrity.group(1)
             submodule_info = [
                 (path, github_repo) + digests[path]
                 for path, github_repo in OPENROAD_SUBMODULES
+                if path in digests
             ]
             print("  openroad already at target commit; skipping re-hash")
 
@@ -1444,6 +1464,35 @@ def update_openroad_archive_override(
     return content[:start] + new_block + content[end:]
 
 
+def update_sv_elab_archive_override(
+    content,
+    openroad_commit,
+    fetch_integrity_fn=compute_integrity,
+    fetch_submodule_sha_fn=fetch_submodule_sha,
+):
+    """Point ``archive_override(module_name = "sv-elab")`` at OpenROAD's pin.
+
+    Returns ``(content, sha)``.  ``sha`` is None, and ``content`` unchanged,
+    when there is no such block or the OpenROAD commit has no
+    third-party/sv-elab submodule yet.  A block already at the sha keeps its
+    integrity: GitHub's archives are not byte-stable, and re-hashing could
+    move a digest whose content did not.
+    """
+    span = find_archive_override_block(content, "sv-elab")
+    if span is None:
+        return content, None
+    sha = fetch_submodule_sha_fn(OPENROAD_REPO, openroad_commit, SV_ELAB_SUBMODULE)
+    if sha is None:
+        return content, None
+    if github_archive_url(SV_ELAB_REPO, sha) in content[span[0] : span[1]]:
+        return content, sha
+    integrity = fetch_integrity_fn(github_archive_url(SV_ELAB_REPO, sha))
+    return (
+        update_archive_override(content, "sv-elab", SV_ELAB_REPO, sha, integrity),
+        sha,
+    )
+
+
 # Non-BCR deps that downstream projects need overrides for.
 # These are read from bazel-orfs's own MODULE.bazel and injected
 # into downstream projects during bump.
@@ -1451,6 +1500,7 @@ NON_BCR_DEPS = [
     "orfs",
     "openroad",
     "qt-bazel",
+    "sv-elab",
 ]
 
 
@@ -1812,6 +1862,21 @@ OPENROAD_SUBMODULES = [
     ("third-party/slang-elab", "povik/yosys-slang"),
 ]
 
+# OpenROAD replaced third-party/slang-elab (a feature branch of yosys-slang)
+# with third-party/sv-elab (mainline sv-elab, a Bazel module).  A bump onto
+# ORFS's OpenROAD pin may still land before that change, so slang-elab is
+# vendored, with the sed lines it needs, only while the commit carries it.
+# Retire the entry once ORFS's tools/OpenROAD is past it.
+OPENROAD_TRANSITIONAL_SUBMODULES = {"third-party/slang-elab"}
+
+# sv-elab is consumed as a Bazel module, not vendored: OpenROAD points
+# bazel_dep(sv-elab) at the submodule with a local_path_override, which
+# Bazel ignores outside the root module.  The root's archive_override(sv-elab)
+# follows the submodule's sha instead, so the yosys plugin and OpenROAD's
+# syn share the one frontend OpenROAD tests against.
+SV_ELAB_SUBMODULE = "third-party/sv-elab"
+SV_ELAB_REPO = "povik/sv-elab"
+
 # yosys is consumed from the Bazel Central Registry.  ORFS's tools/yosys pins
 # a specific master commit (often between tagged releases), so we read the
 # ``YOSYS_VER`` line from yosys/Makefile at that commit to learn the (M, m)
@@ -1834,7 +1899,12 @@ def fetch_orfs_tool_sha(orfs_commit, tool):
         f"https://api.github.com/repos/{ORFS_REPO}/contents/tools/{tool}"
         f"?ref={orfs_commit}"
     )
-    data = fetch_json(url)
+    try:
+        data = fetch_json(url)
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return None
+        raise
     if data.get("type") != "submodule":
         raise RuntimeError(
             f"tools/{tool} is not a submodule at {orfs_commit} (got {data.get('type')!r})"
@@ -2131,6 +2201,16 @@ def bump(
                     workspace_dir=workspace_dir,
                 )
                 updated_modules.append(f"{module_name} -> {sha[:12]} ({source})")
+                content, sv_elab_sha = update_sv_elab_archive_override(
+                    content,
+                    sha,
+                    fetch_integrity_fn=fetch_integrity_fn,
+                    fetch_submodule_sha_fn=fetch_submodule_sha_fn,
+                )
+                if sv_elab_sha:
+                    updated_modules.append(
+                        f"sv-elab -> {sv_elab_sha[:12]} (OpenROAD {SV_ELAB_SUBMODULE})"
+                    )
             else:
                 _expect(
                     find_git_override_block(content, module_name),

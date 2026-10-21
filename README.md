@@ -402,6 +402,17 @@ git_override(
     commit = "<the qt-bazel commit bazel-orfs pins>",
 )
 bazel_dep(name = "sv-elab", version = "<the version bazel-orfs uses>")
+archive_override(
+    module_name = "sv-elab",
+    # Copy this block from bazel-orfs's MODULE.bazel too, with the patch
+    # it names: it follows OpenROAD's third-party/sv-elab, and the bump
+    # moves it with OpenROAD.
+    integrity = "...",
+    patch_strip = 1,
+    patches = [...],
+    strip_prefix = "sv-elab-<commit>",
+    urls = ["https://github.com/povik/sv-elab/archive/<commit>.tar.gz"],
+)
 
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
 orfs.source(
