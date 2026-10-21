@@ -37,6 +37,18 @@ class HeadroomTest(unittest.TestCase):
                 self.r["floor_cycles"]["floor"], self.period + self.eps
             )
 
+    def test_the_floor_says_whether_it_binds(self):
+        # binds when the worst loop is the worst endpoint; the worst path
+        # through the loop's buffers is never better than the loop itself
+        c = self.r["floor_cycles"]
+        if not c["loops"]:
+            return
+        self.assertEqual(bool(c["binds"]), c["floor"] >= c["period"] - 0.05, c)
+        if c["buffers"]:
+            self.assertGreaterEqual(c["through"], c["floor"] - self.eps, c)
+        else:
+            self.assertEqual(c["through"], "", c)
+
     def test_zero_wire_chain(self):
         # wires removed: useful skew on the logic alone stays above the
         # one-flop loop at zero wire, which is no higher than with wires
