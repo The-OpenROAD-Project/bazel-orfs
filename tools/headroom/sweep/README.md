@@ -16,6 +16,11 @@ dirty lane reads the runfile manifests of the workspace's Bazel server, and
 another build running there meanwhile replaces files the lane is installing
 ("... is not built").
 
+`arm.sh`'s `keep`, `remove` and `keep_iso` arms start at floorplan with
+`REMOVE_ABC_BUFFERS` set, to compare isolation with floorplan's removal of
+synthesis's buffers. `report.py results.txt` summarizes per design: each arm's
+mean over its seeds against the first arm, with the noise band.
+
 Each result line: the reg2reg period (clock period minus the worst reg2reg
 slack), the reg2reg violating endpoints and their total slack, the buffer
 count, the cell area (um^2), and `report_floor_cycles.tcl`'s line: the
