@@ -216,8 +216,13 @@ proc hr_skew { {ends 0} {hold 1} {iters 60} {blocks {}} } {
   set delta [lrepeat $n 0.0]
   set pd [hr_period]
   set start [dict get $pd period]
-  set best $start
-  set best_pd $pd
+  # Each round is judged by the paths through the flops it moves, the only
+  # paths a move changes: the worst slack at their data and output pins.
+  # The full measurement (every endpoint's worst path, hr_period) is taken
+  # once, at the best round: on XiangShan's tile, 761,301 endpoints, it is
+  # the cost of the whole design, and every round used to pay it.
+  set best [hr_scope_period $flops]
+  set best_delta $delta
   set stall 0
   set rounds 0
   for { set it 1 } { $it <= $iters && $n } { incr it } {
@@ -246,8 +251,7 @@ proc hr_skew { {ends 0} {hold 1} {iters 60} {blocks {}} } {
       hr_set_latency [lindex $flops $i] [lindex $delta $i]
     }
     if { $hold } { hr_skew_hold_back $flops delta }
-    set pd [hr_period]
-    set w [dict get $pd period]
+    set w [hr_scope_period $flops]
     if { $w < $best - 1e-3 * $p } {
       set stall 0
     } else {
@@ -255,9 +259,28 @@ proc hr_skew { {ends 0} {hold 1} {iters 60} {blocks {}} } {
     }
     if { $w < $best } {
       set best $w
-      set best_pd $pd
+      set best_delta $delta
     }
     if { $stall >= 5 } { break }
+  }
+  # back to the best round, measured in full
+  for { set i 0 } { $i < $n } { incr i } {
+    if { [lindex $delta $i] != [lindex $best_delta $i] } {
+      hr_set_latency [lindex $flops $i] [lindex $best_delta $i]
+    }
+  }
+  set delta $best_delta
+  set best_pd [hr_period]
+  set best [dict get $best_pd period]
+  if { $best > $start } {
+    # moving nothing is a skew too: the rounds' best was worse in full,
+    # so every flop goes back to its own arrival
+    for { set i 0 } { $i < $n } { incr i } {
+      if { [lindex $delta $i] != 0 } { hr_set_latency [lindex $flops $i] 0.0 }
+    }
+    set best $start
+    set best_pd $pd
+    set delta [lrepeat $n 0.0]
   }
   set holdslack [hr_hold_slack]
   # where the arrivals moved: in the parent's clock tree, or inside a
@@ -327,6 +350,20 @@ proc hr_floor_retime { {ends 0} {iters 60} {blocks {}} } {
   dict unset d hold_slack
   dict unset d hold_start
   return $d
+}
+
+# The period as the paths through `flops` see it: the clock period minus
+# the worst setup slack at their data and output pins.
+proc hr_scope_period { flops } {
+  set worst ""
+  foreach f $flops {
+    lassign $f ck d q
+    foreach s [list [hr_min_slack $d slack_max] [hr_min_slack $q slack_max]] {
+      if { $s ne "" && ($worst eq "" || $s < $worst) } { set worst $s }
+    }
+  }
+  if { $worst eq "" } { return [hr_clock_period] }
+  return [expr { [hr_clock_period] - $worst }]
 }
 
 # Whether an instance or pin path lies inside one of the block instance
