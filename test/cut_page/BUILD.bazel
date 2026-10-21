@@ -1,0 +1,50 @@
+# Recording the module-cut search's page headless, with Chrome for
+# Testing's headless shell (a dev-only download, MODULE.bazel):
+#
+#   bazelisk run //test/cut_page:record -- <flow> out.json frames/
+#
+# a PNG every 10 s, and report.json: the arms the page showed running and
+# finished, and its console. tools/macro_select/cut/README.md shows frames
+# from it.
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+py_binary(
+    name = "record",
+    srcs = ["record.py"],
+    args = [
+        "--chrome=$(rlocationpath @chrome_headless_shell//:chrome-headless-shell)",
+        "--generate-cut=$(rlocationpath //tools/macro_select/cut:generate_cut)",
+    ],
+    data = [
+        "//tools/macro_select/cut:generate_cut",
+        "@chrome_headless_shell//:chrome-headless-shell",
+    ],
+    deps = ["@rules_python//python/runfiles"],
+)
+
+py_library(
+    name = "record_lib",
+    srcs = ["record.py"],
+    imports = ["."],
+    deps = ["@rules_python//python/runfiles"],
+)
+
+py_test(
+    name = "page_test",
+    size = "small",
+    srcs = ["page_test.py"],
+    args = [
+        "$(rlocationpath aes_state.json)",
+        "$(rlocationpath //tools/macro_select/cut:page.html)",
+        "$(rlocationpath @chrome_headless_shell//:chrome-headless-shell)",
+    ],
+    data = [
+        "aes_state.json",
+        "//tools/macro_select/cut:page.html",
+        "@chrome_headless_shell//:chrome-headless-shell",
+    ],
+    deps = [
+        ":record_lib",
+        "//tools/macro_select/cut:cut_lib",
+    ],
+)

@@ -103,6 +103,7 @@ class Search(object):
         self.clock = None
         self.target = None
         self.server = None
+        self.done = 0
         worker, repo = runfile("tools/macro_select/cut/worker")
         self.worker = worker
         self.census_tcl = runfile("tools/macro_select/keep_census.tcl")[0]
@@ -113,7 +114,7 @@ class Search(object):
 
     def state(self):
         with self.lock:
-            b = cut.best(self.results)
+            b = self.best_keep()
             return {
                 "flow": self.flow,
                 "design": self.design,
@@ -123,7 +124,7 @@ class Search(object):
                 "target": self.target,
                 "types": self.types,
                 "best": list(b) if b is not None else None,
-                "arms": [dict(a) for a in self.arms],
+                "arms": [{k: v for k, v in a.items() if k != "dir"} for a in self.arms],
                 "queue": list(self.queue),
                 "viewers": self.server.viewers() if self.server else 0,
             }
@@ -203,9 +204,10 @@ class Search(object):
             hier = cut.rtlil_hierarchy(f)
         design = env["DESIGN_NAME"]
         clock = clock_period(os.path.join(main, self.results_rel, "1_synth.sdc"))
+        self.groups = cut.module_groups(cut.types_under(hier, design))
         self.changed(
             design=design,
-            types=cut.types_under(hier, design),
+            types=sorted(self.groups),
             clock=clock,
             target=round(clock * self.args.target_frac, 1),
         )
@@ -218,12 +220,15 @@ class Search(object):
                 stderr=subprocess.STDOUT,
             )
         if rc:
-            raise ArmFailed("make %s exit %d; see %s" % (" ".join(targets), rc, log))
+            raise ArmFailed(
+                "make %s exit %d; see %s"
+                % (" ".join(targets), rc, os.path.relpath(log, self.ws))
+            )
 
     # --- one arm -------------------------------------------------------------
 
     def run_arm(self, arm):
-        key = cut.arm_key(arm["keep"])
+        key = self.key(arm)
         d = arm["dir"]
         try:
             self.step(arm, "copying the trees")
@@ -234,14 +239,29 @@ class Search(object):
             subprocess.check_call(["cp", "-a", os.path.join(self.dir, "synth"), synth])
             subprocess.check_call(["cp", "-a", os.path.join(self.dir, "floorplan"), fp])
             with open(os.path.join(synth, "_main", "config.mk"), "a") as f:
-                f.write(
-                    "\n# generate_cut arm %d: yosys, only these modules kept\n"
-                    "export SYNTH_USE_SYN=0\n"
-                    "export SYNTH_HIERARCHICAL=1\n"
-                    "export SYNTH_MINIMUM_KEEP_SIZE=1000000000\n"
-                    "export SYNTH_KEEP_MODULES=%s\n"
-                    % (arm["id"], " ".join(arm["keep"]))
-                )
+                if arm.get("control"):
+                    # the flow's own keep settings, synthesised by yosys as
+                    # every arm is
+                    f.write(
+                        "\n# generate_cut arm %d: the flow's own keep settings\n"
+                        "export SYNTH_USE_SYN=0\n" % arm["id"]
+                    )
+                else:
+                    f.write(
+                        "\n# generate_cut arm %d: yosys, only these modules kept\n"
+                        "export SYNTH_USE_SYN=0\n"
+                        "export SYNTH_HIERARCHICAL=1\n"
+                        "export SYNTH_MINIMUM_KEEP_SIZE=1000000000\n"
+                        "export SYNTH_KEEP_MODULES=%s\n"
+                        % (
+                            arm["id"],
+                            " ".join(
+                                m.replace("$", "$$")
+                                for t in arm["keep"]
+                                for m in self.groups[t]
+                            ),
+                        )
+                    )
             self.step(arm, "synthesis")
             t0 = time.time()
             self.make(
@@ -283,7 +303,8 @@ class Search(object):
                 )
             if rc:
                 raise ArmFailed(
-                    "census exit %d; see %s" % (rc, os.path.join(d, "census.log"))
+                    "census exit %d; see %s"
+                    % (rc, os.path.relpath(os.path.join(d, "census.log"), self.ws))
                 )
             with open(out) as f:
                 c = cut.parse_census(f)
@@ -294,12 +315,22 @@ class Search(object):
                 "t_syn": round(t_syn, 1),
             }
             with self.lock:
+                if arm.get("control"):
+                    # what the flow's settings kept, read off the census
+                    kept = set()
+                    for m in c["module"]:
+                        t = cut.rtl_type(m["master"], self.types)
+                        if m["inst"] != "(top)" and t is not None:
+                            kept.add(t)
+                    arm["keep"] = sorted(kept)
                 self.census[key] = c
                 self.results[key] = result
                 arm.update(result)
                 arm["status"] = "done"
                 arm["step"] = ""
                 arm["census"] = c
+                self.done += 1
+                arm["done_seq"] = self.done
         except ArmFailed as e:
             with self.lock:
                 self.results[key] = {"P": None, "failed": str(e)}
@@ -316,51 +347,82 @@ class Search(object):
 
     # --- the search ------------------------------------------------------------
 
+    CONTROL = ("@control",)
+
+    def key(self, arm):
+        return self.CONTROL if arm.get("control") else cut.arm_key(arm["keep"])
+
+    def best_keep(self):
+        """The best arm's keep list as a key: the control's is what its
+        census says the flow's settings kept."""
+        b = cut.best(self.results)
+        if b == self.CONTROL:
+            ctl = [a for a in self.arms if a.get("control")][0]
+            return cut.arm_key(ctl["keep"])
+        return b
+
+    def census_of(self, key):
+        if key in self.census:
+            return self.census[key]
+        for a in self.arms:
+            if a.get("control") and cut.arm_key(a["keep"] or []) == key:
+                return self.census.get(self.CONTROL)
+        return None
+
     def replan(self):
         with self.lock:
-            b = cut.best(self.results)
-            q = cut.plan(self.types, self.results, b, self.census.get)
+            b = self.best_keep()
+            # a keep set the control already measured is not tried again
+            seen = dict(self.results)
+            for a in self.arms:
+                if a.get("control") and a["keep"] is not None:
+                    seen.setdefault(cut.arm_key(a["keep"]), self.results[self.CONTROL])
+            q = cut.plan(self.types, seen, b, self.census_of)
             self.queue = q
         if self.server:
             self.server.push()
 
+    def launch(self, nxt, control=False):
+        with self.lock:
+            n = len(self.arms)
+            name = "control" if control else ("+".join(nxt["keep"]) or "flat")
+            arm = {
+                "id": n,
+                "control": control,
+                "keep": None if control else nxt["keep"],
+                "pred": None if control else nxt["pred"],
+                "pred_sum": None if control else nxt["pred_sum"],
+                "why": "the flow's own keep settings" if control else nxt["why"],
+                "status": "running",
+                "step": "",
+                "dir": os.path.join(self.dir, "arms", ("%02d-%s" % (n, name))[:80]),
+            }
+            self.arms.append(arm)
+            self.results[self.key(arm)] = None
+            if not control:
+                self.queue = [x for x in self.queue if x is not nxt]
+        t = threading.Thread(target=self.run_arm, args=(arm,))
+        t.daemon = True
+        t.start()
+        return t
+
     def search(self):
         self.changed(phase="searching", note="")
         self.replan()
-        threads = []
+        threads = [self.launch(None, control=True)]
         while True:
             with self.lock:
                 running = [a for a in self.arms if a["status"] == "running"]
                 q = list(self.queue)
                 waiting_for_base = any(
-                    cut.arm_key(a["keep"]) == cut.arm_key(self.types) for a in running
+                    not a.get("control")
+                    and cut.arm_key(a["keep"]) == cut.arm_key(self.types)
+                    for a in running
                 )
             if not q and not running:
                 break
             if q and len(running) < self.args.jobs and not waiting_for_base:
-                nxt = q[0]
-                with self.lock:
-                    n = len(self.arms)
-                    name = "+".join(nxt["keep"]) or "flat"
-                    arm = {
-                        "id": n,
-                        "keep": nxt["keep"],
-                        "pred": nxt["pred"],
-                        "pred_sum": nxt["pred_sum"],
-                        "why": nxt["why"],
-                        "status": "running",
-                        "step": "",
-                        "dir": os.path.join(
-                            self.dir, "arms", ("%02d-%s" % (n, name))[:80]
-                        ),
-                    }
-                    self.arms.append(arm)
-                    self.results[cut.arm_key(arm["keep"])] = None
-                    self.queue = [x for x in self.queue if x is not nxt]
-                t = threading.Thread(target=self.run_arm, args=(arm,))
-                t.daemon = True
-                t.start()
-                threads.append(t)
+                threads.append(self.launch(q[0]))
                 continue
             time.sleep(0.5)
         for t in threads:
@@ -368,7 +430,7 @@ class Search(object):
 
     def write_out(self, path):
         with self.lock:
-            b = cut.best(self.results)
+            b = self.best_keep()
             out = {
                 "flow": self.flow,
                 "design": self.design,
@@ -383,6 +445,7 @@ class Search(object):
                         k: a.get(k)
                         for k in (
                             "id",
+                            "control",
                             "keep",
                             "status",
                             "P",
@@ -453,7 +516,7 @@ def main(argv):
         s.bazel_trees()
         s.search()
         s.write_out(out)
-        b = cut.best(s.results)
+        b = s.best_keep()
         s.changed(phase="done", note="wrote %s" % out)
         print(
             "generate_cut: best keep list %s; wrote %s" % (list(b) if b else None, out)

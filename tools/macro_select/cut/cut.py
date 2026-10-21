@@ -85,17 +85,28 @@ _CELL = re.compile(r"^\s*cell\s+\\?(\S+)\s+\\?(\S+)")
 
 
 def rtlil_hierarchy(lines):
-    """{module: [module types it instantiates]} from an RTLIL file."""
+    """{module: [modules it instantiates]} from an RTLIL file. A blackbox
+    (a macro's liberty stub) is not a module synthesis can keep or
+    flatten, and is left out."""
     hier = {}
+    blackbox = set()
     cur = None
     cells = []
+    attrs = []
     for line in lines:
+        if line.startswith("attribute "):
+            attrs.append(line.split()[1])
+            continue
         m = _MODULE.match(line)
         if m:
             cur = m.group(1)
             cells = []
             hier[cur] = cells
+            if "\\blackbox" in attrs:
+                blackbox.add(cur)
+            attrs = []
             continue
+        attrs = []
         if line.strip() == "end" and cur is not None and line.startswith("end"):
             cur = None
             continue
@@ -103,7 +114,11 @@ def rtlil_hierarchy(lines):
             m = _CELL.match(line)
             if m:
                 cells.append(m.group(1))
-    return {k: [t for t in v if t in hier] for k, v in hier.items()}
+    return {
+        k: [t for t in v if t in hier and t not in blackbox]
+        for k, v in hier.items()
+        if k not in blackbox
+    }
 
 
 def types_under(hier, top):
@@ -119,6 +134,16 @@ def types_under(hier, top):
                 todo.append(t)
     seen.discard(top)
     return sorted(seen)
+
+
+def module_groups(modules):
+    """{RTL module type: [module names]}: slang's canonicalisation gives
+    every instance a module of its own, <module>$<instance path>, and the
+    search keeps or flattens a type with all its instances."""
+    groups = {}
+    for m in modules:
+        groups.setdefault(m.split("$", 1)[0], []).append(m)
+    return {k: sorted(v) for k, v in groups.items()}
 
 
 def rtl_type(master, types):

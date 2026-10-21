@@ -12,7 +12,14 @@ py_library(
         "serve.py",
     ],
     imports = ["."],
+    visibility = ["//test/cut_page:__pkg__"],
     deps = ["//tools/odb_debug:odbdebug_lib"],
+)
+
+# test/cut_page loads the page in a headless browser
+exports_files(
+    ["page.html"],
+    visibility = ["//test/cut_page:__pkg__"],
 )
 
 py_binary(

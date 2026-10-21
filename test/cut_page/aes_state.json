@@ -1,0 +1,2480 @@
+{
+"flow": "@orfs//flow/designs/asap7/aes:aes_cipher_top",
+"design": "aes_cipher_top",
+"phase": "searching",
+"note": "",
+"clock": 380.0,
+"target": 304.0,
+"types": [
+"aes_key_expand_128",
+"aes_rcon",
+"aes_sbox"
+],
+"best": [
+"aes_key_expand_128",
+"aes_rcon"
+],
+"arms": [
+{
+"id": 0,
+"control": true,
+"keep": [],
+"status": "done",
+"P": 346.4,
+"area": 1565.31,
+"t_syn": 36.4,
+"t_fp": 5.3,
+"pred": null,
+"pred_sum": null,
+"why": "the flow's own keep settings",
+"step": "",
+"census": {
+"module": [
+{
+"inst": "(top)",
+"master": "aes_cipher_top",
+"cells": 14739,
+"area": 1565.31
+}
+],
+"cross": [],
+"inside": [
+{
+"inst": "(top)",
+"master": "aes_cipher_top",
+"paths": 160,
+"sum": 33108.4
+}
+],
+"edge": [],
+"macro": [],
+"period": {
+"worst": 346.4,
+"clock": 380.0
+},
+"paths": {
+"count": 160,
+"target": 304.0,
+"worst": 346.4,
+"seconds": 1.6
+}
+},
+"done_seq": 1
+},
+{
+"id": 1,
+"control": false,
+"keep": [
+"aes_key_expand_128",
+"aes_rcon",
+"aes_sbox"
+],
+"status": "done",
+"P": 343.8,
+"area": 1584.57,
+"t_syn": 5.9,
+"t_fp": 5.4,
+"pred": null,
+"pred_sum": null,
+"why": "exhaustive, 8 arms; no census yet",
+"step": "",
+"census": {
+"module": [
+{
+"inst": "(top)",
+"master": "aes_cipher_top",
+"cells": 14576,
+"area": 1584.57
+},
+{
+"inst": "u0",
+"master": "aes_key_expand_128",
+"cells": 3133,
+"area": 349.8
+},
+{
+"inst": "u0/r0",
+"master": "aes_rcon",
+"cells": 101,
+"area": 9.75
+},
+{
+"inst": "u0/u0",
+"master": "aes_sbox",
+"cells": 567,
+"area": 58.26
+},
+{
+"inst": "u0/u1",
+"master": "aes_sbox_u1",
+"cells": 567,
+"area": 58.26
+},
+{
+"inst": "u0/u2",
+"master": "aes_sbox_u2",
+"cells": 567,
+"area": 58.26
+},
+{
+"inst": "u0/u3",
+"master": "aes_sbox_u3",
+"cells": 567,
+"area": 58.26
+},
+{
+"inst": "us00",
+"master": "aes_sbox_us00",
+"cells": 567,
+"area": 58.26
+},
+{
+"inst": "us01",
+"master": "aes_sbox_us01",
+"cells": 567,
+"area": 58.26
+},
+{
+"inst": "us02",
+"master": "aes_sbox_us02",
+"cells": 567,
+"area": 58.26
+},
+{
+"inst": "us03",
+"master": "aes_sbox_us03",
+"cells": 567,
+"area": 58.26
+},
+{
+"inst": "us10",
+"master": "aes_sbox_us10",
+"cells": 567,
+"area": 58.26
+},
+{
+"inst": "us11",
+"master": "aes_sbox_us11",
+"cells": 567,
+"area": 58.26
+},
+{
+"inst": "us12",
+"master": "aes_sbox_us12",
+"cells": 567,
+"area": 58.26
+},
+{
+"inst": "us13",
+"master": "aes_sbox_us13",
+"cells": 567,
+"area": 58.26
+},
+{
+"inst": "us20",
+"master": "aes_sbox_us20",
+"cells": 567,
+"area": 58.26
+},
+{
+"inst": "us21",
+"master": "aes_sbox_us21",
+"cells": 567,
+"area": 58.26
+},
+{
+"inst": "us22",
+"master": "aes_sbox_us22",
+"cells": 567,
+"area": 58.26
+},
+{
+"inst": "us23",
+"master": "aes_sbox_us23",
+"cells": 567,
+"area": 58.26
+},
+{
+"inst": "us30",
+"master": "aes_sbox_us30",
+"cells": 567,
+"area": 58.26
+},
+{
+"inst": "us31",
+"master": "aes_sbox_us31",
+"cells": 567,
+"area": 58.26
+},
+{
+"inst": "us32",
+"master": "aes_sbox_us32",
+"cells": 567,
+"area": 58.26
+},
+{
+"inst": "us33",
+"master": "aes_sbox_us33",
+"cells": 567,
+"area": 58.26
+}
+],
+"cross": [
+{
+"inst": "us13",
+"master": "aes_sbox_us13",
+"paths": 10,
+"sum": 255.4,
+"worst": 39.8
+},
+{
+"inst": "us00",
+"master": "aes_sbox_us00",
+"paths": 12,
+"sum": 258.9,
+"worst": 37.9
+},
+{
+"inst": "us23",
+"master": "aes_sbox_us23",
+"paths": 11,
+"sum": 277.8,
+"worst": 37.5
+},
+{
+"inst": "us21",
+"master": "aes_sbox_us21",
+"paths": 9,
+"sum": 211.9,
+"worst": 37.3
+},
+{
+"inst": "us32",
+"master": "aes_sbox_us32",
+"paths": 9,
+"sum": 251.5,
+"worst": 37.0
+},
+{
+"inst": "us30",
+"master": "aes_sbox_us30",
+"paths": 8,
+"sum": 180.4,
+"worst": 37.0
+},
+{
+"inst": "us31",
+"master": "aes_sbox_us31",
+"paths": 6,
+"sum": 127.3,
+"worst": 35.3
+},
+{
+"inst": "us01",
+"master": "aes_sbox_us01",
+"paths": 11,
+"sum": 254.2,
+"worst": 31.7
+},
+{
+"inst": "us33",
+"master": "aes_sbox_us33",
+"paths": 8,
+"sum": 190.2,
+"worst": 31.6
+},
+{
+"inst": "us02",
+"master": "aes_sbox_us02",
+"paths": 10,
+"sum": 218.0,
+"worst": 31.0
+},
+{
+"inst": "us10",
+"master": "aes_sbox_us10",
+"paths": 6,
+"sum": 154.8,
+"worst": 28.5
+},
+{
+"inst": "us22",
+"master": "aes_sbox_us22",
+"paths": 4,
+"sum": 94.9,
+"worst": 28.4
+},
+{
+"inst": "us20",
+"master": "aes_sbox_us20",
+"paths": 6,
+"sum": 135.1,
+"worst": 26.3
+},
+{
+"inst": "us11",
+"master": "aes_sbox_us11",
+"paths": 8,
+"sum": 168.1,
+"worst": 25.4
+},
+{
+"inst": "us03",
+"master": "aes_sbox_us03",
+"paths": 8,
+"sum": 175.4,
+"worst": 24.9
+},
+{
+"inst": "us12",
+"master": "aes_sbox_us12",
+"paths": 2,
+"sum": 35.6,
+"worst": 17.9
+},
+{
+"inst": "u0/u2",
+"master": "aes_sbox_u2",
+"paths": 7,
+"sum": 23.5,
+"worst": 6.7
+},
+{
+"inst": "u0/u0",
+"master": "aes_sbox",
+"paths": 7,
+"sum": 13.6,
+"worst": 4.3
+},
+{
+"inst": "u0/u3",
+"master": "aes_sbox_u3",
+"paths": 5,
+"sum": 8.3,
+"worst": 4.2
+},
+{
+"inst": "u0/u1",
+"master": "aes_sbox_u1",
+"paths": 5,
+"sum": 7.7,
+"worst": 3.6
+}
+],
+"inside": [
+{
+"inst": "(top)",
+"master": "aes_cipher_top",
+"paths": 128,
+"sum": 15627.0
+},
+{
+"inst": "us13",
+"master": "aes_sbox_us13",
+"paths": 10,
+"sum": 1045.8
+},
+{
+"inst": "us00",
+"master": "aes_sbox_us00",
+"paths": 12,
+"sum": 1184.4
+},
+{
+"inst": "us23",
+"master": "aes_sbox_us23",
+"paths": 11,
+"sum": 1154.4
+},
+{
+"inst": "us21",
+"master": "aes_sbox_us21",
+"paths": 9,
+"sum": 876.4
+},
+{
+"inst": "us32",
+"master": "aes_sbox_us32",
+"paths": 9,
+"sum": 978.4
+},
+{
+"inst": "us30",
+"master": "aes_sbox_us30",
+"paths": 8,
+"sum": 811.0
+},
+{
+"inst": "us31",
+"master": "aes_sbox_us31",
+"paths": 6,
+"sum": 607.9
+},
+{
+"inst": "us01",
+"master": "aes_sbox_us01",
+"paths": 11,
+"sum": 1064.3
+},
+{
+"inst": "us33",
+"master": "aes_sbox_us33",
+"paths": 8,
+"sum": 761.8
+},
+{
+"inst": "us02",
+"master": "aes_sbox_us02",
+"paths": 10,
+"sum": 1012.1
+},
+{
+"inst": "us10",
+"master": "aes_sbox_us10",
+"paths": 6,
+"sum": 632.9
+},
+{
+"inst": "us22",
+"master": "aes_sbox_us22",
+"paths": 4,
+"sum": 426.9
+},
+{
+"inst": "us20",
+"master": "aes_sbox_us20",
+"paths": 6,
+"sum": 606.9
+},
+{
+"inst": "us11",
+"master": "aes_sbox_us11",
+"paths": 8,
+"sum": 739.6
+},
+{
+"inst": "us03",
+"master": "aes_sbox_us03",
+"paths": 8,
+"sum": 742.5
+},
+{
+"inst": "us12",
+"master": "aes_sbox_us12",
+"paths": 2,
+"sum": 193.0
+},
+{
+"inst": "u0",
+"master": "aes_key_expand_128",
+"paths": 24,
+"sum": 2349.0
+},
+{
+"inst": "u0/u2",
+"master": "aes_sbox_u2",
+"paths": 7,
+"sum": 776.5
+},
+{
+"inst": "u0/u0",
+"master": "aes_sbox",
+"paths": 7,
+"sum": 864.1
+},
+{
+"inst": "u0/u3",
+"master": "aes_sbox_u3",
+"paths": 5,
+"sum": 564.9
+},
+{
+"inst": "u0/u1",
+"master": "aes_sbox_u1",
+"paths": 5,
+"sum": 564.5
+}
+],
+"edge": [
+{
+"a": "(top)",
+"b": "us13",
+"paths": 10,
+"excess": 255.4,
+"worst": 39.8
+},
+{
+"a": "us13",
+"b": "(top)",
+"paths": 10,
+"excess": 255.4,
+"worst": 39.8
+},
+{
+"a": "(top)",
+"b": "us00",
+"paths": 12,
+"excess": 258.9,
+"worst": 37.9
+},
+{
+"a": "us00",
+"b": "(top)",
+"paths": 12,
+"excess": 258.9,
+"worst": 37.9
+},
+{
+"a": "(top)",
+"b": "us23",
+"paths": 11,
+"excess": 277.8,
+"worst": 37.5
+},
+{
+"a": "us23",
+"b": "(top)",
+"paths": 11,
+"excess": 277.8,
+"worst": 37.5
+},
+{
+"a": "(top)",
+"b": "us21",
+"paths": 9,
+"excess": 211.9,
+"worst": 37.3
+},
+{
+"a": "us21",
+"b": "(top)",
+"paths": 9,
+"excess": 211.9,
+"worst": 37.3
+},
+{
+"a": "(top)",
+"b": "us32",
+"paths": 9,
+"excess": 251.5,
+"worst": 37.0
+},
+{
+"a": "us32",
+"b": "(top)",
+"paths": 9,
+"excess": 251.5,
+"worst": 37.0
+},
+{
+"a": "(top)",
+"b": "us30",
+"paths": 8,
+"excess": 180.4,
+"worst": 37.0
+},
+{
+"a": "us30",
+"b": "(top)",
+"paths": 8,
+"excess": 180.4,
+"worst": 37.0
+},
+{
+"a": "(top)",
+"b": "us31",
+"paths": 6,
+"excess": 127.3,
+"worst": 35.3
+},
+{
+"a": "us31",
+"b": "(top)",
+"paths": 6,
+"excess": 127.3,
+"worst": 35.3
+},
+{
+"a": "(top)",
+"b": "us01",
+"paths": 11,
+"excess": 254.2,
+"worst": 31.7
+},
+{
+"a": "us01",
+"b": "(top)",
+"paths": 11,
+"excess": 254.2,
+"worst": 31.7
+},
+{
+"a": "(top)",
+"b": "us33",
+"paths": 8,
+"excess": 190.2,
+"worst": 31.6
+},
+{
+"a": "us33",
+"b": "(top)",
+"paths": 8,
+"excess": 190.2,
+"worst": 31.6
+},
+{
+"a": "(top)",
+"b": "us02",
+"paths": 10,
+"excess": 218.0,
+"worst": 31.0
+},
+{
+"a": "us02",
+"b": "(top)",
+"paths": 10,
+"excess": 218.0,
+"worst": 31.0
+},
+{
+"a": "(top)",
+"b": "us10",
+"paths": 6,
+"excess": 154.8,
+"worst": 28.5
+},
+{
+"a": "us10",
+"b": "(top)",
+"paths": 6,
+"excess": 154.8,
+"worst": 28.5
+},
+{
+"a": "(top)",
+"b": "us22",
+"paths": 4,
+"excess": 94.9,
+"worst": 28.4
+},
+{
+"a": "us22",
+"b": "(top)",
+"paths": 4,
+"excess": 94.9,
+"worst": 28.4
+},
+{
+"a": "(top)",
+"b": "us20",
+"paths": 6,
+"excess": 135.1,
+"worst": 26.3
+},
+{
+"a": "us20",
+"b": "(top)",
+"paths": 6,
+"excess": 135.1,
+"worst": 26.3
+},
+{
+"a": "(top)",
+"b": "us11",
+"paths": 8,
+"excess": 168.1,
+"worst": 25.4
+},
+{
+"a": "us11",
+"b": "(top)",
+"paths": 8,
+"excess": 168.1,
+"worst": 25.4
+},
+{
+"a": "(top)",
+"b": "us03",
+"paths": 8,
+"excess": 175.4,
+"worst": 24.9
+},
+{
+"a": "us03",
+"b": "(top)",
+"paths": 8,
+"excess": 175.4,
+"worst": 24.9
+},
+{
+"a": "(top)",
+"b": "us12",
+"paths": 2,
+"excess": 35.6,
+"worst": 17.9
+},
+{
+"a": "us12",
+"b": "(top)",
+"paths": 2,
+"excess": 35.6,
+"worst": 17.9
+},
+{
+"a": "u0",
+"b": "u0/u2",
+"paths": 7,
+"excess": 23.5,
+"worst": 6.7
+},
+{
+"a": "u0/u2",
+"b": "u0",
+"paths": 7,
+"excess": 23.5,
+"worst": 6.7
+},
+{
+"a": "u0",
+"b": "u0/u0",
+"paths": 7,
+"excess": 13.6,
+"worst": 4.3
+},
+{
+"a": "u0/u0",
+"b": "u0",
+"paths": 7,
+"excess": 13.6,
+"worst": 4.3
+},
+{
+"a": "u0",
+"b": "u0/u3",
+"paths": 5,
+"excess": 8.3,
+"worst": 4.2
+},
+{
+"a": "u0/u3",
+"b": "u0",
+"paths": 5,
+"excess": 8.3,
+"worst": 4.2
+},
+{
+"a": "u0",
+"b": "u0/u1",
+"paths": 5,
+"excess": 7.7,
+"worst": 3.6
+},
+{
+"a": "u0/u1",
+"b": "u0",
+"paths": 5,
+"excess": 7.7,
+"worst": 3.6
+}
+],
+"macro": [],
+"period": {
+"worst": 343.8,
+"clock": 380.0
+},
+"paths": {
+"count": 152,
+"target": 304.0,
+"worst": 343.8,
+"seconds": 1.6
+}
+},
+"done_seq": 2
+},
+{
+"id": 2,
+"control": false,
+"keep": [],
+"status": "done",
+"P": 341.2,
+"area": 1581.51,
+"t_syn": 36.5,
+"t_fp": 5.4,
+"pred": 39.8,
+"pred_sum": 3042.6000000000004,
+"why": "exhaustive, 8 arms; drop aes_key_expand_128: cuts 0 paths, the worst 0 ps over target; drop aes_rcon: cuts 0 paths, the worst 0 ps over target; drop aes_sbox: cuts 152 paths, the worst 40 ps over target",
+"step": "",
+"census": {
+"module": [
+{
+"inst": "(top)",
+"master": "aes_cipher_top",
+"cells": 14888,
+"area": 1581.51
+}
+],
+"cross": [],
+"inside": [
+{
+"inst": "(top)",
+"master": "aes_cipher_top",
+"paths": 160,
+"sum": 34660.6
+}
+],
+"edge": [],
+"macro": [],
+"period": {
+"worst": 341.2,
+"clock": 380.0
+},
+"paths": {
+"count": 160,
+"target": 304.0,
+"worst": 341.2,
+"seconds": 1.6
+}
+},
+"done_seq": 3
+},
+{
+"id": 3,
+"control": false,
+"keep": [
+"aes_key_expand_128"
+],
+"status": "done",
+"P": 337.8,
+"area": 1537.02,
+"t_syn": 36.5,
+"t_fp": 5.3,
+"pred": 39.8,
+"pred_sum": 3042.6000000000004,
+"why": "exhaustive, 8 arms; drop aes_rcon: cuts 0 paths, the worst 0 ps over target; drop aes_sbox: cuts 152 paths, the worst 40 ps over target",
+"step": "",
+"census": {
+"module": [
+{
+"inst": "(top)",
+"master": "aes_cipher_top",
+"cells": 14360,
+"area": 1537.02
+},
+{
+"inst": "u0",
+"master": "aes_key_expand_128",
+"cells": 3156,
+"area": 349.53
+}
+],
+"cross": [],
+"inside": [
+{
+"inst": "(top)",
+"master": "aes_cipher_top",
+"paths": 128,
+"sum": 28079.8
+},
+{
+"inst": "u0",
+"master": "aes_key_expand_128",
+"paths": 13,
+"sum": 2865.4
+}
+],
+"edge": [],
+"macro": [],
+"period": {
+"worst": 337.8,
+"clock": 380.0
+},
+"paths": {
+"count": 141,
+"target": 304.0,
+"worst": 337.8,
+"seconds": 1.6
+}
+},
+"done_seq": 4
+},
+{
+"id": 4,
+"control": false,
+"keep": [
+"aes_rcon"
+],
+"status": "done",
+"P": 347.8,
+"area": 1551.65,
+"t_syn": 36.2,
+"t_fp": 5.5,
+"pred": 0.0,
+"pred_sum": 0.0,
+"why": "exhaustive, 8 arms; keep aes_rcon: unmeasured, no boundary to count yet",
+"step": "",
+"census": {
+"module": [
+{
+"inst": "(top)",
+"master": "aes_cipher_top",
+"cells": 14541,
+"area": 1551.65
+},
+{
+"inst": "u0.r0",
+"master": "aes_rcon",
+"cells": 101,
+"area": 9.75
+}
+],
+"cross": [],
+"inside": [
+{
+"inst": "(top)",
+"master": "aes_cipher_top",
+"paths": 160,
+"sum": 35841.3
+}
+],
+"edge": [],
+"macro": [],
+"period": {
+"worst": 347.8,
+"clock": 380.0
+},
+"paths": {
+"count": 160,
+"target": 304.0,
+"worst": 347.8,
+"seconds": 1.7
+}
+},
+"done_seq": 5
+},
+{
+"id": 5,
+"control": false,
+"keep": [
+"aes_sbox"
+],
+"status": "done",
+"P": 342.7,
+"area": 1540.01,
+"t_syn": 5.2,
+"t_fp": 5.5,
+"pred": 0.0,
+"pred_sum": 0.0,
+"why": "exhaustive, 8 arms; drop aes_key_expand_128: cuts 0 paths, the worst 0 ps over target; keep aes_sbox: unmeasured, no boundary to count yet",
+"step": "",
+"census": {
+"module": [
+{
+"inst": "(top)",
+"master": "aes_cipher_top",
+"cells": 14241,
+"area": 1540.01
+},
+{
+"inst": "u0.u0",
+"master": "aes_sbox",
+"cells": 562,
+"area": 57.26
+},
+{
+"inst": "u0.u1",
+"master": "aes_sbox_u0.u1",
+"cells": 562,
+"area": 57.26
+},
+{
+"inst": "u0.u2",
+"master": "aes_sbox_u0.u2",
+"cells": 562,
+"area": 57.26
+},
+{
+"inst": "u0.u3",
+"master": "aes_sbox_u0.u3",
+"cells": 562,
+"area": 57.26
+},
+{
+"inst": "us00",
+"master": "aes_sbox_us00",
+"cells": 562,
+"area": 57.26
+},
+{
+"inst": "us01",
+"master": "aes_sbox_us01",
+"cells": 562,
+"area": 57.26
+},
+{
+"inst": "us02",
+"master": "aes_sbox_us02",
+"cells": 562,
+"area": 57.26
+},
+{
+"inst": "us03",
+"master": "aes_sbox_us03",
+"cells": 562,
+"area": 57.26
+},
+{
+"inst": "us10",
+"master": "aes_sbox_us10",
+"cells": 562,
+"area": 57.26
+},
+{
+"inst": "us11",
+"master": "aes_sbox_us11",
+"cells": 562,
+"area": 57.26
+},
+{
+"inst": "us12",
+"master": "aes_sbox_us12",
+"cells": 562,
+"area": 57.26
+},
+{
+"inst": "us13",
+"master": "aes_sbox_us13",
+"cells": 562,
+"area": 57.26
+},
+{
+"inst": "us20",
+"master": "aes_sbox_us20",
+"cells": 562,
+"area": 57.26
+},
+{
+"inst": "us21",
+"master": "aes_sbox_us21",
+"cells": 562,
+"area": 57.26
+},
+{
+"inst": "us22",
+"master": "aes_sbox_us22",
+"cells": 562,
+"area": 57.26
+},
+{
+"inst": "us23",
+"master": "aes_sbox_us23",
+"cells": 562,
+"area": 57.26
+},
+{
+"inst": "us30",
+"master": "aes_sbox_us30",
+"cells": 562,
+"area": 57.26
+},
+{
+"inst": "us31",
+"master": "aes_sbox_us31",
+"cells": 562,
+"area": 57.26
+},
+{
+"inst": "us32",
+"master": "aes_sbox_us32",
+"cells": 562,
+"area": 57.26
+},
+{
+"inst": "us33",
+"master": "aes_sbox_us33",
+"cells": 562,
+"area": 57.26
+}
+],
+"cross": [
+{
+"inst": "u0.u0",
+"master": "aes_sbox",
+"paths": 18,
+"sum": 271.9,
+"worst": 38.7
+},
+{
+"inst": "u0.u1",
+"master": "aes_sbox_u0.u1",
+"paths": 16,
+"sum": 434.1,
+"worst": 38.1
+},
+{
+"inst": "u0.u2",
+"master": "aes_sbox_u0.u2",
+"paths": 16,
+"sum": 427.1,
+"worst": 37.5
+},
+{
+"inst": "u0.u3",
+"master": "aes_sbox_u0.u3",
+"paths": 16,
+"sum": 393.3,
+"worst": 36.2
+},
+{
+"inst": "us31",
+"master": "aes_sbox_us31",
+"paths": 12,
+"sum": 263.0,
+"worst": 31.7
+},
+{
+"inst": "us33",
+"master": "aes_sbox_us33",
+"paths": 9,
+"sum": 198.6,
+"worst": 31.3
+},
+{
+"inst": "us21",
+"master": "aes_sbox_us21",
+"paths": 7,
+"sum": 146.4,
+"worst": 30.8
+},
+{
+"inst": "us22",
+"master": "aes_sbox_us22",
+"paths": 10,
+"sum": 218.8,
+"worst": 27.9
+},
+{
+"inst": "us23",
+"master": "aes_sbox_us23",
+"paths": 7,
+"sum": 158.0,
+"worst": 27.9
+},
+{
+"inst": "us02",
+"master": "aes_sbox_us02",
+"paths": 10,
+"sum": 226.6,
+"worst": 27.5
+},
+{
+"inst": "us32",
+"master": "aes_sbox_us32",
+"paths": 7,
+"sum": 149.9,
+"worst": 27.5
+},
+{
+"inst": "us30",
+"master": "aes_sbox_us30",
+"paths": 10,
+"sum": 213.0,
+"worst": 27.4
+},
+{
+"inst": "us13",
+"master": "aes_sbox_us13",
+"paths": 9,
+"sum": 195.6,
+"worst": 26.8
+},
+{
+"inst": "us01",
+"master": "aes_sbox_us01",
+"paths": 7,
+"sum": 145.4,
+"worst": 26.6
+},
+{
+"inst": "us00",
+"master": "aes_sbox_us00",
+"paths": 7,
+"sum": 154.3,
+"worst": 26.3
+},
+{
+"inst": "us10",
+"master": "aes_sbox_us10",
+"paths": 10,
+"sum": 212.6,
+"worst": 24.6
+},
+{
+"inst": "us20",
+"master": "aes_sbox_us20",
+"paths": 1,
+"sum": 24.2,
+"worst": 24.2
+},
+{
+"inst": "us03",
+"master": "aes_sbox_us03",
+"paths": 8,
+"sum": 155.4,
+"worst": 24.2
+},
+{
+"inst": "us11",
+"master": "aes_sbox_us11",
+"paths": 6,
+"sum": 126.5,
+"worst": 23.8
+},
+{
+"inst": "us12",
+"master": "aes_sbox_us12",
+"paths": 8,
+"sum": 165.8,
+"worst": 23.7
+}
+],
+"inside": [
+{
+"inst": "(top)",
+"master": "aes_cipher_top",
+"paths": 194,
+"sum": 23493.0
+},
+{
+"inst": "u0.u0",
+"master": "aes_sbox",
+"paths": 18,
+"sum": 1777.8
+},
+{
+"inst": "u0.u1",
+"master": "aes_sbox_u0.u1",
+"paths": 16,
+"sum": 1495.7
+},
+{
+"inst": "u0.u2",
+"master": "aes_sbox_u0.u2",
+"paths": 16,
+"sum": 1624.0
+},
+{
+"inst": "u0.u3",
+"master": "aes_sbox_u0.u3",
+"paths": 16,
+"sum": 1646.7
+},
+{
+"inst": "us31",
+"master": "aes_sbox_us31",
+"paths": 12,
+"sum": 1277.6
+},
+{
+"inst": "us33",
+"master": "aes_sbox_us33",
+"paths": 9,
+"sum": 912.6
+},
+{
+"inst": "us21",
+"master": "aes_sbox_us21",
+"paths": 7,
+"sum": 742.6
+},
+{
+"inst": "us22",
+"master": "aes_sbox_us22",
+"paths": 10,
+"sum": 1094.8
+},
+{
+"inst": "us23",
+"master": "aes_sbox_us23",
+"paths": 7,
+"sum": 781.1
+},
+{
+"inst": "us02",
+"master": "aes_sbox_us02",
+"paths": 10,
+"sum": 1067.4
+},
+{
+"inst": "us32",
+"master": "aes_sbox_us32",
+"paths": 7,
+"sum": 683.7
+},
+{
+"inst": "us30",
+"master": "aes_sbox_us30",
+"paths": 10,
+"sum": 1010.5
+},
+{
+"inst": "us13",
+"master": "aes_sbox_us13",
+"paths": 9,
+"sum": 990.3
+},
+{
+"inst": "us01",
+"master": "aes_sbox_us01",
+"paths": 7,
+"sum": 798.2
+},
+{
+"inst": "us00",
+"master": "aes_sbox_us00",
+"paths": 7,
+"sum": 774.6
+},
+{
+"inst": "us10",
+"master": "aes_sbox_us10",
+"paths": 10,
+"sum": 1107.8
+},
+{
+"inst": "us20",
+"master": "aes_sbox_us20",
+"paths": 1,
+"sum": 107.1
+},
+{
+"inst": "us03",
+"master": "aes_sbox_us03",
+"paths": 8,
+"sum": 943.5
+},
+{
+"inst": "us11",
+"master": "aes_sbox_us11",
+"paths": 6,
+"sum": 656.0
+},
+{
+"inst": "us12",
+"master": "aes_sbox_us12",
+"paths": 8,
+"sum": 865.4
+}
+],
+"edge": [
+{
+"a": "(top)",
+"b": "u0.u0",
+"paths": 18,
+"excess": 271.9,
+"worst": 38.7
+},
+{
+"a": "u0.u0",
+"b": "(top)",
+"paths": 18,
+"excess": 271.9,
+"worst": 38.7
+},
+{
+"a": "(top)",
+"b": "u0.u1",
+"paths": 16,
+"excess": 434.1,
+"worst": 38.1
+},
+{
+"a": "u0.u1",
+"b": "(top)",
+"paths": 16,
+"excess": 434.1,
+"worst": 38.1
+},
+{
+"a": "(top)",
+"b": "u0.u2",
+"paths": 16,
+"excess": 427.1,
+"worst": 37.5
+},
+{
+"a": "u0.u2",
+"b": "(top)",
+"paths": 16,
+"excess": 427.1,
+"worst": 37.5
+},
+{
+"a": "(top)",
+"b": "u0.u3",
+"paths": 16,
+"excess": 393.3,
+"worst": 36.2
+},
+{
+"a": "u0.u3",
+"b": "(top)",
+"paths": 16,
+"excess": 393.3,
+"worst": 36.2
+},
+{
+"a": "(top)",
+"b": "us31",
+"paths": 12,
+"excess": 263.0,
+"worst": 31.7
+},
+{
+"a": "us31",
+"b": "(top)",
+"paths": 12,
+"excess": 263.0,
+"worst": 31.7
+},
+{
+"a": "(top)",
+"b": "us33",
+"paths": 9,
+"excess": 198.6,
+"worst": 31.3
+},
+{
+"a": "us33",
+"b": "(top)",
+"paths": 9,
+"excess": 198.6,
+"worst": 31.3
+},
+{
+"a": "(top)",
+"b": "us21",
+"paths": 7,
+"excess": 146.4,
+"worst": 30.8
+},
+{
+"a": "us21",
+"b": "(top)",
+"paths": 7,
+"excess": 146.4,
+"worst": 30.8
+},
+{
+"a": "(top)",
+"b": "us22",
+"paths": 10,
+"excess": 218.8,
+"worst": 27.9
+},
+{
+"a": "us22",
+"b": "(top)",
+"paths": 10,
+"excess": 218.8,
+"worst": 27.9
+},
+{
+"a": "(top)",
+"b": "us23",
+"paths": 7,
+"excess": 158.0,
+"worst": 27.9
+},
+{
+"a": "us23",
+"b": "(top)",
+"paths": 7,
+"excess": 158.0,
+"worst": 27.9
+},
+{
+"a": "(top)",
+"b": "us02",
+"paths": 10,
+"excess": 226.6,
+"worst": 27.5
+},
+{
+"a": "us02",
+"b": "(top)",
+"paths": 10,
+"excess": 226.6,
+"worst": 27.5
+},
+{
+"a": "(top)",
+"b": "us32",
+"paths": 7,
+"excess": 149.9,
+"worst": 27.5
+},
+{
+"a": "us32",
+"b": "(top)",
+"paths": 7,
+"excess": 149.9,
+"worst": 27.5
+},
+{
+"a": "(top)",
+"b": "us30",
+"paths": 10,
+"excess": 213.0,
+"worst": 27.4
+},
+{
+"a": "us30",
+"b": "(top)",
+"paths": 10,
+"excess": 213.0,
+"worst": 27.4
+},
+{
+"a": "(top)",
+"b": "us13",
+"paths": 9,
+"excess": 195.6,
+"worst": 26.8
+},
+{
+"a": "us13",
+"b": "(top)",
+"paths": 9,
+"excess": 195.6,
+"worst": 26.8
+},
+{
+"a": "(top)",
+"b": "us01",
+"paths": 7,
+"excess": 145.4,
+"worst": 26.6
+},
+{
+"a": "us01",
+"b": "(top)",
+"paths": 7,
+"excess": 145.4,
+"worst": 26.6
+},
+{
+"a": "(top)",
+"b": "us00",
+"paths": 7,
+"excess": 154.3,
+"worst": 26.3
+},
+{
+"a": "us00",
+"b": "(top)",
+"paths": 7,
+"excess": 154.3,
+"worst": 26.3
+},
+{
+"a": "(top)",
+"b": "us10",
+"paths": 10,
+"excess": 212.6,
+"worst": 24.6
+},
+{
+"a": "us10",
+"b": "(top)",
+"paths": 10,
+"excess": 212.6,
+"worst": 24.6
+},
+{
+"a": "(top)",
+"b": "us20",
+"paths": 1,
+"excess": 24.2,
+"worst": 24.2
+},
+{
+"a": "us20",
+"b": "(top)",
+"paths": 1,
+"excess": 24.2,
+"worst": 24.2
+},
+{
+"a": "(top)",
+"b": "us03",
+"paths": 8,
+"excess": 155.4,
+"worst": 24.2
+},
+{
+"a": "us03",
+"b": "(top)",
+"paths": 8,
+"excess": 155.4,
+"worst": 24.2
+},
+{
+"a": "(top)",
+"b": "us11",
+"paths": 6,
+"excess": 126.5,
+"worst": 23.8
+},
+{
+"a": "us11",
+"b": "(top)",
+"paths": 6,
+"excess": 126.5,
+"worst": 23.8
+},
+{
+"a": "(top)",
+"b": "us12",
+"paths": 8,
+"excess": 165.8,
+"worst": 23.7
+},
+{
+"a": "us12",
+"b": "(top)",
+"paths": 8,
+"excess": 165.8,
+"worst": 23.7
+}
+],
+"macro": [],
+"period": {
+"worst": 342.7,
+"clock": 380.0
+},
+"paths": {
+"count": 194,
+"target": 304.0,
+"worst": 342.7,
+"seconds": 1.6
+}
+},
+"done_seq": 6
+},
+{
+"id": 6,
+"control": false,
+"keep": [
+"aes_key_expand_128",
+"aes_rcon"
+],
+"status": "done",
+"P": 337.8,
+"area": 1528.74,
+"t_syn": 36.7,
+"t_fp": 5.1,
+"pred": 0.0,
+"pred_sum": 0.0,
+"why": "exhaustive, 8 arms; keep aes_rcon: unmeasured, no boundary to count yet",
+"step": "",
+"census": {
+"module": [
+{
+"inst": "(top)",
+"master": "aes_cipher_top",
+"cells": 14339,
+"area": 1528.74
+},
+{
+"inst": "u0",
+"master": "aes_key_expand_128",
+"cells": 3138,
+"area": 341.33
+},
+{
+"inst": "u0/r0",
+"master": "aes_rcon",
+"cells": 101,
+"area": 9.75
+}
+],
+"cross": [],
+"inside": [
+{
+"inst": "(top)",
+"master": "aes_cipher_top",
+"paths": 128,
+"sum": 28079.5
+}
+],
+"edge": [],
+"macro": [],
+"period": {
+"worst": 337.8,
+"clock": 380.0
+},
+"paths": {
+"count": 128,
+"target": 304.0,
+"worst": 337.8,
+"seconds": 1.5
+}
+},
+"done_seq": 7
+},
+{
+"id": 7,
+"control": false,
+"keep": [
+"aes_key_expand_128",
+"aes_sbox"
+],
+"status": "done",
+"P": 338.9,
+"area": 1580.76,
+"t_syn": 5.9,
+"t_fp": 5.4,
+"pred": 0.0,
+"pred_sum": 0.0,
+"why": "exhaustive, 8 arms; keep aes_sbox: unmeasured, no boundary to count yet",
+"step": "",
+"census": {
+"module": [
+{
+"inst": "(top)",
+"master": "aes_cipher_top",
+"cells": 14675,
+"area": 1580.76
+},
+{
+"inst": "u0",
+"master": "aes_key_expand_128",
+"cells": 3056,
+"area": 336.2
+},
+{
+"inst": "u0/u0",
+"master": "aes_sbox",
+"cells": 578,
+"area": 58.87
+},
+{
+"inst": "u0/u1",
+"master": "aes_sbox_u1",
+"cells": 578,
+"area": 58.87
+},
+{
+"inst": "u0/u2",
+"master": "aes_sbox_u2",
+"cells": 578,
+"area": 58.87
+},
+{
+"inst": "u0/u3",
+"master": "aes_sbox_u3",
+"cells": 578,
+"area": 58.87
+},
+{
+"inst": "us00",
+"master": "aes_sbox_us00",
+"cells": 578,
+"area": 58.87
+},
+{
+"inst": "us01",
+"master": "aes_sbox_us01",
+"cells": 578,
+"area": 58.87
+},
+{
+"inst": "us02",
+"master": "aes_sbox_us02",
+"cells": 578,
+"area": 58.87
+},
+{
+"inst": "us03",
+"master": "aes_sbox_us03",
+"cells": 578,
+"area": 58.87
+},
+{
+"inst": "us10",
+"master": "aes_sbox_us10",
+"cells": 578,
+"area": 58.87
+},
+{
+"inst": "us11",
+"master": "aes_sbox_us11",
+"cells": 578,
+"area": 58.87
+},
+{
+"inst": "us12",
+"master": "aes_sbox_us12",
+"cells": 578,
+"area": 58.87
+},
+{
+"inst": "us13",
+"master": "aes_sbox_us13",
+"cells": 578,
+"area": 58.87
+},
+{
+"inst": "us20",
+"master": "aes_sbox_us20",
+"cells": 578,
+"area": 58.87
+},
+{
+"inst": "us21",
+"master": "aes_sbox_us21",
+"cells": 578,
+"area": 58.87
+},
+{
+"inst": "us22",
+"master": "aes_sbox_us22",
+"cells": 578,
+"area": 58.87
+},
+{
+"inst": "us23",
+"master": "aes_sbox_us23",
+"cells": 578,
+"area": 58.87
+},
+{
+"inst": "us30",
+"master": "aes_sbox_us30",
+"cells": 578,
+"area": 58.87
+},
+{
+"inst": "us31",
+"master": "aes_sbox_us31",
+"cells": 578,
+"area": 58.87
+},
+{
+"inst": "us32",
+"master": "aes_sbox_us32",
+"cells": 578,
+"area": 58.87
+},
+{
+"inst": "us33",
+"master": "aes_sbox_us33",
+"cells": 578,
+"area": 58.87
+}
+],
+"cross": [
+{
+"inst": "us10",
+"master": "aes_sbox_us10",
+"paths": 6,
+"sum": 173.7,
+"worst": 34.9
+},
+{
+"inst": "us33",
+"master": "aes_sbox_us33",
+"paths": 11,
+"sum": 261.5,
+"worst": 33.4
+},
+{
+"inst": "us03",
+"master": "aes_sbox_us03",
+"paths": 8,
+"sum": 215.2,
+"worst": 32.9
+},
+{
+"inst": "us01",
+"master": "aes_sbox_us01",
+"paths": 12,
+"sum": 300.2,
+"worst": 31.7
+},
+{
+"inst": "us21",
+"master": "aes_sbox_us21",
+"paths": 9,
+"sum": 212.0,
+"worst": 31.6
+},
+{
+"inst": "us13",
+"master": "aes_sbox_us13",
+"paths": 5,
+"sum": 140.8,
+"worst": 31.2
+},
+{
+"inst": "us00",
+"master": "aes_sbox_us00",
+"paths": 12,
+"sum": 281.7,
+"worst": 30.7
+},
+{
+"inst": "us12",
+"master": "aes_sbox_us12",
+"paths": 10,
+"sum": 253.6,
+"worst": 29.9
+},
+{
+"inst": "us02",
+"master": "aes_sbox_us02",
+"paths": 11,
+"sum": 262.5,
+"worst": 29.4
+},
+{
+"inst": "us31",
+"master": "aes_sbox_us31",
+"paths": 7,
+"sum": 160.4,
+"worst": 29.2
+},
+{
+"inst": "us20",
+"master": "aes_sbox_us20",
+"paths": 9,
+"sum": 201.3,
+"worst": 28.7
+},
+{
+"inst": "us30",
+"master": "aes_sbox_us30",
+"paths": 4,
+"sum": 93.5,
+"worst": 27.6
+},
+{
+"inst": "us23",
+"master": "aes_sbox_us23",
+"paths": 6,
+"sum": 143.1,
+"worst": 27.2
+},
+{
+"inst": "us11",
+"master": "aes_sbox_us11",
+"paths": 8,
+"sum": 172.6,
+"worst": 27.1
+},
+{
+"inst": "us32",
+"master": "aes_sbox_us32",
+"paths": 9,
+"sum": 226.7,
+"worst": 26.3
+},
+{
+"inst": "us22",
+"master": "aes_sbox_us22",
+"paths": 1,
+"sum": 25.6,
+"worst": 25.6
+},
+{
+"inst": "u0/u0",
+"master": "aes_sbox",
+"paths": 12,
+"sum": 158.9,
+"worst": 22.0
+},
+{
+"inst": "u0/u2",
+"master": "aes_sbox_u2",
+"paths": 15,
+"sum": 145.1,
+"worst": 18.4
+},
+{
+"inst": "u0/u3",
+"master": "aes_sbox_u3",
+"paths": 16,
+"sum": 140.3,
+"worst": 17.5
+},
+{
+"inst": "u0/u1",
+"master": "aes_sbox_u1",
+"paths": 15,
+"sum": 119.1,
+"worst": 15.9
+}
+],
+"inside": [
+{
+"inst": "(top)",
+"master": "aes_cipher_top",
+"paths": 128,
+"sum": 15115.8
+},
+{
+"inst": "us10",
+"master": "aes_sbox_us10",
+"paths": 6,
+"sum": 668.7
+},
+{
+"inst": "us33",
+"master": "aes_sbox_us33",
+"paths": 11,
+"sum": 1084.8
+},
+{
+"inst": "us03",
+"master": "aes_sbox_us03",
+"paths": 8,
+"sum": 748.5
+},
+{
+"inst": "us01",
+"master": "aes_sbox_us01",
+"paths": 12,
+"sum": 1272.5
+},
+{
+"inst": "us21",
+"master": "aes_sbox_us21",
+"paths": 9,
+"sum": 812.9
+},
+{
+"inst": "us13",
+"master": "aes_sbox_us13",
+"paths": 5,
+"sum": 496.0
+},
+{
+"inst": "us00",
+"master": "aes_sbox_us00",
+"paths": 12,
+"sum": 1118.5
+},
+{
+"inst": "us12",
+"master": "aes_sbox_us12",
+"paths": 10,
+"sum": 1126.9
+},
+{
+"inst": "us02",
+"master": "aes_sbox_us02",
+"paths": 11,
+"sum": 1100.8
+},
+{
+"inst": "us31",
+"master": "aes_sbox_us31",
+"paths": 7,
+"sum": 694.6
+},
+{
+"inst": "us20",
+"master": "aes_sbox_us20",
+"paths": 9,
+"sum": 909.3
+},
+{
+"inst": "us30",
+"master": "aes_sbox_us30",
+"paths": 4,
+"sum": 328.7
+},
+{
+"inst": "us23",
+"master": "aes_sbox_us23",
+"paths": 6,
+"sum": 547.9
+},
+{
+"inst": "us11",
+"master": "aes_sbox_us11",
+"paths": 8,
+"sum": 754.5
+},
+{
+"inst": "us32",
+"master": "aes_sbox_us32",
+"paths": 9,
+"sum": 859.3
+},
+{
+"inst": "us22",
+"master": "aes_sbox_us22",
+"paths": 1,
+"sum": 99.8
+},
+{
+"inst": "u0",
+"master": "aes_key_expand_128",
+"paths": 58,
+"sum": 6302.8
+},
+{
+"inst": "u0/u0",
+"master": "aes_sbox",
+"paths": 12,
+"sum": 1305.5
+},
+{
+"inst": "u0/u2",
+"master": "aes_sbox_u2",
+"paths": 15,
+"sum": 1749.4
+},
+{
+"inst": "u0/u3",
+"master": "aes_sbox_u3",
+"paths": 16,
+"sum": 1782.0
+},
+{
+"inst": "u0/u1",
+"master": "aes_sbox_u1",
+"paths": 15,
+"sum": 1630.3
+}
+],
+"edge": [
+{
+"a": "(top)",
+"b": "us10",
+"paths": 6,
+"excess": 173.7,
+"worst": 34.9
+},
+{
+"a": "us10",
+"b": "(top)",
+"paths": 6,
+"excess": 173.7,
+"worst": 34.9
+},
+{
+"a": "(top)",
+"b": "us33",
+"paths": 11,
+"excess": 261.5,
+"worst": 33.4
+},
+{
+"a": "us33",
+"b": "(top)",
+"paths": 11,
+"excess": 261.5,
+"worst": 33.4
+},
+{
+"a": "(top)",
+"b": "us03",
+"paths": 8,
+"excess": 215.2,
+"worst": 32.9
+},
+{
+"a": "us03",
+"b": "(top)",
+"paths": 8,
+"excess": 215.2,
+"worst": 32.9
+},
+{
+"a": "(top)",
+"b": "us01",
+"paths": 12,
+"excess": 300.2,
+"worst": 31.7
+},
+{
+"a": "us01",
+"b": "(top)",
+"paths": 12,
+"excess": 300.2,
+"worst": 31.7
+},
+{
+"a": "(top)",
+"b": "us21",
+"paths": 9,
+"excess": 212.0,
+"worst": 31.6
+},
+{
+"a": "us21",
+"b": "(top)",
+"paths": 9,
+"excess": 212.0,
+"worst": 31.6
+},
+{
+"a": "(top)",
+"b": "us13",
+"paths": 5,
+"excess": 140.8,
+"worst": 31.2
+},
+{
+"a": "us13",
+"b": "(top)",
+"paths": 5,
+"excess": 140.8,
+"worst": 31.2
+},
+{
+"a": "(top)",
+"b": "us00",
+"paths": 12,
+"excess": 281.7,
+"worst": 30.7
+},
+{
+"a": "us00",
+"b": "(top)",
+"paths": 12,
+"excess": 281.7,
+"worst": 30.7
+},
+{
+"a": "(top)",
+"b": "us12",
+"paths": 10,
+"excess": 253.6,
+"worst": 29.9
+},
+{
+"a": "us12",
+"b": "(top)",
+"paths": 10,
+"excess": 253.6,
+"worst": 29.9
+},
+{
+"a": "(top)",
+"b": "us02",
+"paths": 11,
+"excess": 262.5,
+"worst": 29.4
+},
+{
+"a": "us02",
+"b": "(top)",
+"paths": 11,
+"excess": 262.5,
+"worst": 29.4
+},
+{
+"a": "(top)",
+"b": "us31",
+"paths": 7,
+"excess": 160.4,
+"worst": 29.2
+},
+{
+"a": "us31",
+"b": "(top)",
+"paths": 7,
+"excess": 160.4,
+"worst": 29.2
+},
+{
+"a": "(top)",
+"b": "us20",
+"paths": 9,
+"excess": 201.3,
+"worst": 28.7
+},
+{
+"a": "us20",
+"b": "(top)",
+"paths": 9,
+"excess": 201.3,
+"worst": 28.7
+},
+{
+"a": "(top)",
+"b": "us30",
+"paths": 4,
+"excess": 93.5,
+"worst": 27.6
+},
+{
+"a": "us30",
+"b": "(top)",
+"paths": 4,
+"excess": 93.5,
+"worst": 27.6
+},
+{
+"a": "(top)",
+"b": "us23",
+"paths": 6,
+"excess": 143.1,
+"worst": 27.2
+},
+{
+"a": "us23",
+"b": "(top)",
+"paths": 6,
+"excess": 143.1,
+"worst": 27.2
+},
+{
+"a": "(top)",
+"b": "us11",
+"paths": 8,
+"excess": 172.6,
+"worst": 27.1
+},
+{
+"a": "us11",
+"b": "(top)",
+"paths": 8,
+"excess": 172.6,
+"worst": 27.1
+},
+{
+"a": "(top)",
+"b": "us32",
+"paths": 9,
+"excess": 226.7,
+"worst": 26.3
+},
+{
+"a": "us32",
+"b": "(top)",
+"paths": 9,
+"excess": 226.7,
+"worst": 26.3
+},
+{
+"a": "(top)",
+"b": "us22",
+"paths": 1,
+"excess": 25.6,
+"worst": 25.6
+},
+{
+"a": "us22",
+"b": "(top)",
+"paths": 1,
+"excess": 25.6,
+"worst": 25.6
+},
+{
+"a": "u0",
+"b": "u0/u0",
+"paths": 12,
+"excess": 158.9,
+"worst": 22.0
+},
+{
+"a": "u0/u0",
+"b": "u0",
+"paths": 12,
+"excess": 158.9,
+"worst": 22.0
+},
+{
+"a": "u0",
+"b": "u0/u2",
+"paths": 15,
+"excess": 145.1,
+"worst": 18.4
+},
+{
+"a": "u0/u2",
+"b": "u0",
+"paths": 15,
+"excess": 145.1,
+"worst": 18.4
+},
+{
+"a": "u0",
+"b": "u0/u3",
+"paths": 16,
+"excess": 140.3,
+"worst": 17.5
+},
+{
+"a": "u0/u3",
+"b": "u0",
+"paths": 16,
+"excess": 140.3,
+"worst": 17.5
+},
+{
+"a": "u0",
+"b": "u0/u1",
+"paths": 15,
+"excess": 119.1,
+"worst": 15.9
+},
+{
+"a": "u0/u1",
+"b": "u0",
+"paths": 15,
+"excess": 119.1,
+"worst": 15.9
+}
+],
+"macro": [],
+"period": {
+"worst": 338.9,
+"clock": 380.0
+},
+"paths": {
+"count": 186,
+"target": 304.0,
+"worst": 338.9,
+"seconds": 1.6
+}
+},
+"done_seq": 8
+},
+{
+"id": 8,
+"control": false,
+"keep": [
+"aes_rcon",
+"aes_sbox"
+],
+"status": "running",
+"P": null,
+"area": null,
+"t_syn": 5.9,
+"t_fp": 5.2,
+"pred": 0.0,
+"pred_sum": 0.0,
+"why": "exhaustive, 8 arms; drop aes_key_expand_128: cuts 0 paths, the worst 0 ps over target; keep aes_rcon: unmeasured, no boundary to count yet; keep aes_sbox: unmeasured, no boundary to count yet",
+"step": "floorplan",
+"census": null,
+"done_seq": null
+}
+],
+"queue": [
+{
+"keep": [
+"aes_rcon",
+"aes_sbox"
+],
+"pred": 0.0,
+"pred_sum": 0.0,
+"why": "exhaustive, 8 arms; drop aes_key_expand_128: cuts 0 paths, the worst 0 ps over target"
+}
+],
+"viewers": 1
+}

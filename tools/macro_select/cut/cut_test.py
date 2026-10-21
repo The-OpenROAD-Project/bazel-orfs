@@ -36,6 +36,11 @@ end
 module \\sbox
 end
 module \\rcon
+  cell \\fakeram \\mem
+  end
+end
+attribute \\blackbox 1
+module \\fakeram
 end
 module \\unused
 end
@@ -64,6 +69,22 @@ class HierarchyTest(unittest.TestCase):
     def test_types_under_the_top(self):
         hier = cut.rtlil_hierarchy(RTLIL.splitlines(True))
         self.assertEqual(cut.types_under(hier, "top"), ["kx", "rcon", "sbox"])
+
+    def test_a_blackbox_is_no_type(self):
+        hier = cut.rtlil_hierarchy(RTLIL.splitlines(True))
+        self.assertNotIn("fakeram", hier)
+        self.assertEqual(hier["rcon"], [])
+
+    def test_slang_instances_group_by_type(self):
+        g = cut.module_groups(["mux2$t.a", "mux2$t.b", "alu$t.alu", "plain"])
+        self.assertEqual(
+            g,
+            {
+                "mux2": ["mux2$t.a", "mux2$t.b"],
+                "alu": ["alu$t.alu"],
+                "plain": ["plain"],
+            },
+        )
 
     def test_an_unknown_top_is_refused(self):
         with self.assertRaises(ValueError):

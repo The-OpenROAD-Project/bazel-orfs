@@ -790,6 +790,19 @@ http_archive(
 # architectural trick -- and the reason AUTO_MEMORIES matters most here:
 # hardened as flops that register file would dominate the area and power
 # of a ~2k-cell core, and the measurement would be of the wrong thing.
+# Chrome for Testing's headless shell, at the version angular/dev-infra's
+# rules_browsers pins (its Node and rules_js 2.x dependencies are not
+# wanted here). test/cut_page records the module-cut search's page with
+# it: a PNG every 10 s, and the page's console errors as test failures.
+http_archive(
+    name = "chrome_headless_shell",
+    build_file_content = 'exports_files(glob(["**"]), visibility = ["//visibility:public"])',
+    dev_dependency = True,
+    sha256 = "191f2a4f36421ae40f49913e3937dbee923071c985b96831f89dd2b51e14624d",
+    strip_prefix = "chrome-headless-shell-linux64",
+    urls = ["https://storage.googleapis.com/chrome-for-testing-public/157.0.8103.6/linux64/chrome-headless-shell-linux64.zip"],
+)
+
 http_archive(
     name = "serv",
     build_file = "//test/coremark_joule/rtl:serv.BUILD.bazel",
