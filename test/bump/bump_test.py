@@ -1952,6 +1952,31 @@ class TestUpdateOpenroadArchiveOverride(unittest.TestCase):
         self.assertIn("patch_strip = 1", result)
 
 
+class TestExtractPatchCmds(unittest.TestCase):
+    def test_comment_between_commands_is_not_a_command(self):
+        block = (
+            "archive_override(\n"
+            "    patch_cmds = [\n"
+            '        "echo one",\n'
+            '        # a phrase, "N unconstrained input ports", in a comment\n'
+            '        "echo two",\n'
+            "    ],\n"
+            ")\n"
+        )
+        self.assertEqual(bump._extract_patch_cmds(block), ["echo one", "echo two"])
+
+    def test_bracket_inside_a_command_does_not_end_the_list(self):
+        block = (
+            "archive_override(\n"
+            "    patch_cmds = [\n"
+            '        "sed -i \'s|copts = [\\"x\\"], |b|\' f",\n'
+            '        "echo two",\n'
+            "    ],\n"
+            ")\n"
+        )
+        self.assertEqual(len(bump._extract_patch_cmds(block)), 2)
+
+
 if __name__ == "__main__":
     unittest.main()
 
