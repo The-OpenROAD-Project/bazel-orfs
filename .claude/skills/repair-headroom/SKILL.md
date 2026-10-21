@@ -243,6 +243,11 @@ the violating cones to SLVT met timing.
 
 ## Traps
 
+- **"Hold kept" means no worse than the design started with.** A design
+  that already misses hold (a grt without hold repair, a run on another
+  machine) keeps its violation: skew pulls back only the moves that break
+  hold, and reports `hold_start` beside `hold_slack` to compare against.
+
 - **A swapped cell's nets lose their parasitics.** OpenSTA deletes the
   reduced parasitics of every net driving a replaced cell
   (`ConcreteParasitics::loadPinCapacitanceChanged`); such a net times as

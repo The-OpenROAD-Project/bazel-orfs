@@ -190,6 +190,14 @@ proc hr_floor_cycles { {ends 0} } {
 # each flop whose own move broke hold, by what it broke. The latencies are
 # removed before returning. The answer is what a clock tree that delivered
 # those arrivals would give, not a tree anyone has built.
+# The worst register-to-register hold slack, or "" without one.
+proc hr_hold_slack {} {
+  set hp [lindex [find_timing_paths {*}[hr_r2r] -path_delay min -sort_by_slack \
+    -group_path_count 1] 0]
+  if { $hp eq "" } { return "" }
+  return [get_property $hp slack]
+}
+
 proc hr_skew { {ends 0} {hold 1} {iters 60} {blocks {}} } {
   set p [hr_clock_period]
   set flops {}
@@ -201,6 +209,9 @@ proc hr_skew { {ends 0} {hold 1} {iters 60} {blocks {}} } {
     if { $amax eq "" || $amin eq "" } { continue }
     lappend flops [list $ck $d $q $amin $amax]
   }
+  # the hold the design starts with: skew promises not to make it worse,
+  # not to repair a violation the design already has
+  set holdstart [hr_hold_slack]
   set n [llength $flops]
   set delta [lrepeat $n 0.0]
   set pd [hr_period]
@@ -248,10 +259,7 @@ proc hr_skew { {ends 0} {hold 1} {iters 60} {blocks {}} } {
     }
     if { $stall >= 5 } { break }
   }
-  set holdslack ""
-  set hp [lindex [find_timing_paths {*}[hr_r2r] -path_delay min -sort_by_slack \
-    -group_path_count 1] 0]
-  if { $hp ne "" } { set holdslack [get_property $hp slack] }
+  set holdslack [hr_hold_slack]
   # where the arrivals moved: in the parent's clock tree, or inside a
   # block, whose own CTS would have to deliver them
   set dmin 0.0
@@ -295,7 +303,8 @@ proc hr_skew { {ends 0} {hold 1} {iters 60} {blocks {}} } {
   set after [dict get [hr_period] period]
   return [dict merge [dict create start $start skew $best flops $n rounds $rounds \
     moved_parent $moved_parent moved_block $moved_block \
-    delta_min $dmin delta_max $dmax hold_slack $holdslack restored $after \
+    delta_min $dmin delta_max $dmax hold_slack $holdslack hold_start $holdstart \
+    restored $after \
     top_moved $top_moved] [hr_mass $best_pd]]
 }
 
@@ -316,6 +325,7 @@ proc hr_floor_retime { {ends 0} {iters 60} {blocks {}} } {
   dict set d floor [dict get $d skew]
   dict unset d skew
   dict unset d hold_slack
+  dict unset d hold_start
   return $d
 }
 
