@@ -331,10 +331,10 @@ none of it.
 
 Nothing about this is fixable inside the bumper. The fix would be serving
 openroad's module file from a registry instead of an override, and
-`source.json` has no `patch_cmds`, so the submodule vendoring and the
-`sv-lang` BUILD rewrites would have to become patches regenerated on every
-bump. That is a bigger, churn-prone change than the cost it saves, and it
-would only help this root — a downstream root writes its own
+`source.json` has no `patch_cmds`, so the submodule vendoring would have
+to become patches regenerated on every bump. That is a bigger,
+churn-prone change than the cost it saves, and it would only help this
+root — a downstream root writes its own
 `archive_override` from the template in the README.
 
 ### Shapes the bumper recognizes

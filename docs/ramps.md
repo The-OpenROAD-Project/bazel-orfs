@@ -332,7 +332,7 @@ parent as a flat ORFS design. Made with stock ORFS and OpenROAD, it
 needs these first:
 
 - OpenROAD #11718, `hierarchicalConnect` leaves no stray load
-  (`OPENROAD_HIERARCHICAL`), carried as patch 0111.
+  (`OPENROAD_HIERARCHICAL`), merged.
 - OpenROAD #11719, a CTS dummy load joins its leaf net in the
   hierarchy, carried as patch 0112.
 - ORFS #4662, a FakeRAM asap7 macro at least one power-strap pitch wide,
