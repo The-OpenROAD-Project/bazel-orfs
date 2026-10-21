@@ -1,11 +1,15 @@
 """The fanout-loop reproducer against the result worked out by hand.
 
 v loops back to itself through one gate on a net that also drives 64 other
-sinks. The correct loop is the flop and that gate, with no buffer on it,
-whatever the 64 other sinks need: a buffer on the loop only adds delay. The
-flow without a fanout cap builds exactly that. Under set_max_fanout 32 the
-fanout tree puts a buffer on the loop's own sink, the loop's period grows,
-and this test records it, as on XiangShan's decode buffer (ideas entry 55).
+sinks. Relaxed and without a fanout cap, the flow builds the loop by hand:
+the flop and that gate, no buffer. Under set_max_fanout 32, or at a clock
+every endpoint misses, a buffer lands on the loop's sink and the loop gets
+slower. That is a trade, not a mistake, and the floor report says so: the
+buffer also carries a data path worse than the loop, the floor does not set
+the period, and moving the loop's sink ahead of the buffer lowers the floor
+and raises the period. A buffered loop is worth chasing only when the floor
+binds and the loop is the worst path through its buffers
+(.claude/skills/repair-headroom).
 """
 
 import re
@@ -17,11 +21,30 @@ FLOOR = re.compile(
 )
 
 
+VERDICT = re.compile(
+    r"One-flop-loop floor (binds|does not bind): design period ([0-9.]+)"
+    r"(?:; the loop's buffers carry a ([0-9.]+) path)?"
+)
+
+
 def floor(path):
+    """(floor, register, stages, buffers, binds, design period, the worst
+    path through the loop's buffers when worse than the loop, else None)"""
     with open(path) as f:
-        m = FLOOR.search(f.read())
+        log = f.read()
+    m = FLOOR.search(log)
     assert m, "no floor line in " + path
-    return float(m.group(1)), m.group(2), int(m.group(3)), int(m.group(4))
+    v = VERDICT.search(log)
+    assert v, "no verdict line in " + path
+    return (
+        float(m.group(1)),
+        m.group(2),
+        int(m.group(3)),
+        int(m.group(4)),
+        v.group(1) == "binds",
+        float(v.group(2)),
+        float(v.group(3)) if v.group(3) else None,
+    )
 
 
 def find(paths, variant):
@@ -45,7 +68,7 @@ class FanoutLoopTest(unittest.TestCase):
 
     def test_without_a_cap_the_loop_is_the_hand_result(self):
         # the flop and one gate, no buffer on the loop
-        _, _, stages, buffers = self.base
+        _, _, stages, buffers = self.base[:4]
         self.assertEqual(buffers, 0, self.base)
         self.assertLessEqual(stages, 3, self.base)
 
@@ -55,20 +78,24 @@ class FanoutLoopTest(unittest.TestCase):
         self.assertGreater(self.capped[3], 0, self.capped)
         self.assertGreater(self.capped[0], self.base[0] * 1.2, (self.capped, self.base))
 
-    def test_timing_repair_still_buffers_the_loop(self):
-        # at a 100 ps clock, with no cap, repair leaves a buffer on the loop
-        # and the loop slower than the relaxed run's netlist, which has none:
-        # the critical sink is not taken off the buffering. When OpenROAD
-        # does, this fails, and the assertion flips to the hand result.
-        self.assertGreater(self.tight[3], 0, self.tight)
-        self.assertGreater(self.tight[0], self.base[0], (self.tight, self.base))
+    def test_the_cap_buffer_is_a_trade(self):
+        # the buffer carries a path at least as bad as the loop
+        self.assertIsNotNone(self.capped[6], self.capped)
 
-    def test_isolating_the_loop_sink_gives_the_hand_result(self):
+    def test_timing_repair_buffers_the_loop_as_a_trade(self):
+        # at a 70 ps clock, every endpoint violating, repair leaves a buffer
+        # on the loop because a data path worse than the loop rides on it,
+        # and the floor does not set the period
+        self.assertGreater(self.tight[3], 0, self.tight)
+        self.assertIsNotNone(self.tight[6], self.tight)
+        self.assertGreater(self.tight[6], self.tight[0], self.tight)
+        self.assertFalse(self.tight[4], self.tight)
+
+    def test_isolating_the_loop_sink_does_not_buy_period(self):
         # tools/headroom/isolate_loop_sinks.tcl before CTS moves the loop's
-        # sink ahead of the buffer: no buffer on the loop, and the loop
-        # faster than the flow left it
-        self.assertEqual(self.iso[3], 0, self.iso)
+        # sink ahead of the buffer: the floor drops, the period does not
         self.assertLess(self.iso[0], self.tight[0], (self.iso, self.tight))
+        self.assertGreaterEqual(self.iso[5], self.tight[5], (self.iso, self.tight))
 
 
 if __name__ == "__main__":

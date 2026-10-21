@@ -2,6 +2,16 @@
 # on the worst loops, reconnect the loop's own sink from the buffer's output
 # to the net the buffer chain starts from. The buffer keeps serving every
 # other sink; only the critical one moves ahead of it.
+#
+# A buffer that also carries a path worse than the loop is left alone: it is
+# a trade repair made for that path, and moving the loop's sink ahead of it
+# loads the shared net and slows the worse path. Before CTS that is not
+# always visible: on test/fanout_loop at a 70 ps clock the buffer carried
+# only the loop at placement, the sink moved, CTS's repair put a buffer
+# back, and the floor fell from 98.4 to 89.0 ps while the period rose from
+# 104.8 to 105.4 ps. Judge an isolation by the floor report's verdict at
+# grt (report_floor_cycles.tcl), not by this count. Returns {moved left},
+# the sinks moved and the sinks left behind such a buffer.
 proc isolate_loop_sinks { {loops 100} } {
   set r2r [list -from [all_registers -clock_pins] -to [all_registers -data_pins]]
   set regs {}
@@ -10,6 +20,7 @@ proc isolate_loop_sinks { {loops 100} } {
     lappend regs [get_full_name [get_cells -of_objects [get_property $pe endpoint]]]
   }
   set moved 0
+  set left 0
   foreach reg [lsort -unique $regs] {
     set cell [get_cells $reg]
     set ck [get_pins -quiet -of_objects $cell -filter "is_register_clock == 1"]
@@ -17,6 +28,7 @@ proc isolate_loop_sinks { {loops 100} } {
     if { [llength $ck] != 1 || ![llength $d] } { continue }
     set loop [lindex [find_timing_paths -from $ck -to $d -group_path_count 1] 0]
     if { $loop eq "" } { continue }
+    set lslack [get_property $loop slack]
     # the loop's input pins that sit right after a buffer output
     set prev ""
     set pins {}
@@ -27,6 +39,11 @@ proc isolate_loop_sinks { {loops 100} } {
       set drv [get_pins [lindex $pins [expr { $i - 1 }]]]
       set lib [get_property [get_cells -of_objects $drv] liberty_cell]
       if { ![get_property $lib is_buffer] } { continue }
+      # a slack query searches and frees the loop's points: names only here
+      if { [get_property $drv slack_max] < $lslack - 0.05 } {
+        incr left
+        continue
+      }
       # walk back through the chain of buffers to the net that feeds it
       set root_in ""
       set c [get_cells -of_objects $drv]
@@ -46,13 +63,14 @@ proc isolate_loop_sinks { {loops 100} } {
       incr moved
     }
   }
-  return $moved
+  return [list $moved $left]
 }
 
 # As a flow hook (PRE_CTS_TCL, or POST_GLOBAL_ROUTE_TCL after grt's repair):
 # isolate, then re-estimate the way the stage does.
 if { [info exists ::env(ISOLATE_LOOP_SINKS)] && $::env(ISOLATE_LOOP_SINKS) } {
-  puts "Isolated [isolate_loop_sinks $::env(ISOLATE_LOOP_SINKS)] loop sinks"
+  lassign [isolate_loop_sinks $::env(ISOLATE_LOOP_SINKS)] moved left
+  puts "Isolated $moved loop sinks; $left left behind buffers that carry a worse path"
   if { [catch { grt::have_routes } routed] || !$routed } {
     estimate_parasitics -placement
   } else {
