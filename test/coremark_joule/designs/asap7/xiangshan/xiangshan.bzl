@@ -1289,17 +1289,18 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
 def _kpi(part, stage, arguments, sources, tags, variant = None):
     """<part>_kpi: the part's reg2reg period and each group's worst path, read
     in the build from its own stage (kpi_run.tcl), so the number is the
-    build's and needs no session."""
+    build's and needs no session. Of a variant, <part>_<variant>_kpi."""
+    flow = "%s_%s" % (part, variant) if variant else part
     orfs_run(
-        name = "%s_kpi" % part,
-        src = ":%s_%s" % (part, stage),
-        outs = ["%s_kpi.txt" % part],
+        name = "%s_kpi" % flow,
+        src = ":%s_%s" % (flow, stage),
+        outs = ["%s_kpi.txt" % flow],
         arguments = arguments,
         script = "//test/coremark_joule/designs/asap7/xiangshan:kpi_run.tcl",
         sources = sources,
         tags = tags,
         user_arguments = {
-            "KPI_OUT": "$(location %s_kpi.txt)" % part,
+            "KPI_OUT": "$(location %s_kpi.txt)" % flow,
             "KPI_STAGE": stage,
         },
         variant = variant,
@@ -1358,6 +1359,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     # each register file's pins from the plan of the part it is a macro of
     pins = {}
     places = {}
+    planned = []
     if variant:
         outdir = _PIN_PLAN_STAGES[variant][0]
         for block in macros:
@@ -1374,6 +1376,11 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         entry = plan["macros"][block]
         arguments, sources = _planned_block(cfg, entry, plan_dir, block, blocks)
         modules = _regfiles(cfg["sources"], entry.get("SYNTH_KEEP_MODULES", ""), blocks)
+        if variant and not modules:
+            # nothing planned: its macros would be fixed where the base
+            # flow put them, so the variant's parent reads the base flow's
+            continue
+        planned.append(block)
         regfiles = [_regfile_macro(m, made, tags, variant = variant, pins = pins) for m in modules]
         if block in places:
             # the macros where the pin plan's placement put them, so the
@@ -1408,6 +1415,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             **mock
         )
         if variant:
+            _kpi(block, "grt", arguments, sources, tags, variant)
             _pins_after(block, variant, tags)
             continue
         _kpi(block, "grt", arguments, sources, tags)
@@ -1503,7 +1511,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     orfs_flow(
         name = name,
         arguments = arguments,
-        macros = [_abstract(b, variant) for b in macros] + parent_regfiles,
+        macros = [_abstract(b, variant if b in planned else None) for b in macros] + parent_regfiles,
         # The parent repairs setup at global route, with the route's
         # parasitics: 3,276 to 2,406 ps on #1187's tip (KPI row 15), its
         # worst paths a mass of CtrlBlock control that the repairs before
@@ -1523,6 +1531,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         visibility = ["//visibility:public"],
     )
     if variant:
+        _kpi(name, "grt", arguments, sources, tags, variant)
         _pins_after(name, variant, tags)
         return
     _pin_plans(name, [m.split(":")[-1].removesuffix(".regfile") for m in parent_modules], tags)
@@ -1628,4 +1637,4 @@ def xiangshan_flat_flow(name, variant, parent = XS_PARENT, blocks = XS_BLOCKS, t
         variant = variant,
         verilog_files = XS_VERILOG,
     )
-    _kpi("%s_%s" % (name, variant), "grt", arguments, sources, tags, variant = variant)
+    _kpi(name, "grt", arguments, sources, tags, variant = variant)

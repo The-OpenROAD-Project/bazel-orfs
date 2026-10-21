@@ -6,11 +6,11 @@
       "source": "measured",
       "stages": {
         "cts": {
-          "minutes": 16.6,
+          "minutes": 40.3,
           "peak_gb": 8.1
         },
         "floorplan": {
-          "minutes": 10.3,
+          "minutes": 13.4,
           "peak_gb": 2.6
         },
         "grt": {
@@ -18,7 +18,7 @@
           "peak_gb": 14.2
         },
         "place": {
-          "minutes": 22.2,
+          "minutes": 33.2,
           "peak_gb": 9.7
         },
         "synth": {
@@ -39,15 +39,15 @@
           "peak_gb": 1.6
         },
         "grt": {
-          "minutes": 4.4,
-          "peak_gb": 9.0
+          "minutes": 15.7,
+          "peak_gb": 8.9
         },
         "place": {
           "minutes": 17.6,
           "peak_gb": 6.2
         },
         "synth": {
-          "minutes": 0.1,
+          "minutes": 0.2,
           "peak_gb": 1.4
         }
       }
@@ -56,20 +56,20 @@
       "source": "measured",
       "stages": {
         "cts": {
-          "minutes": 30.1,
-          "peak_gb": 21.2
+          "minutes": 40.5,
+          "peak_gb": 19.5
         },
         "floorplan": {
-          "minutes": 12.0,
-          "peak_gb": 5.5
+          "minutes": 24.1,
+          "peak_gb": 5.4
         },
         "grt": {
           "minutes": 42.6,
           "peak_gb": 31.2
         },
         "place": {
-          "minutes": 43.2,
-          "peak_gb": 17.3
+          "minutes": 62.1,
+          "peak_gb": 17.2
         },
         "synth": {
           "minutes": 1.1,
@@ -81,20 +81,20 @@
       "source": "measured",
       "stages": {
         "cts": {
-          "minutes": 30.8,
-          "peak_gb": 26.3
+          "minutes": 47.2,
+          "peak_gb": 25.6
         },
         "floorplan": {
-          "minutes": 28.8,
-          "peak_gb": 10.1
+          "minutes": 49.2,
+          "peak_gb": 10.0
         },
         "grt": {
-          "minutes": 40.2,
-          "peak_gb": 46.5
+          "minutes": 92.7,
+          "peak_gb": 42.2
         },
         "place": {
-          "minutes": 99.0,
-          "peak_gb": 29.6
+          "minutes": 146.8,
+          "peak_gb": 28.6
         },
         "synth": {
           "minutes": 0.5,
@@ -106,20 +106,20 @@
       "source": "measured",
       "stages": {
         "cts": {
-          "minutes": 5.1,
-          "peak_gb": 11.0
+          "minutes": 19.3,
+          "peak_gb": 10.9
         },
         "floorplan": {
-          "minutes": 6.0,
-          "peak_gb": 4.0
+          "minutes": 10.5,
+          "peak_gb": 3.9
         },
         "grt": {
-          "minutes": 35.3,
-          "peak_gb": 20.4
+          "minutes": 24.2,
+          "peak_gb": 19.2
         },
         "place": {
-          "minutes": 38.3,
-          "peak_gb": 13.3
+          "minutes": 55.8,
+          "peak_gb": 13.1
         },
         "synth": {
           "minutes": 0.3,
