@@ -491,7 +491,7 @@ register_toolchains(
 # Adding kepler-formal must not move a version bazel-orfs already
 # resolves: its graph asks for newer ones of these, and a rules_cc or zlib
 # change rebuilds everything, OpenROAD included (fmt 12.2.0 does not even
-# compile sv-lang 10.0.1, which sv-elab, the slang frontend, uses). Held
+# compile sv-lang 10.0.1, which kepler-formal's own naja uses). Held
 # where bazel-orfs resolves them without it; drop a pin when bazel-orfs
 # moves past it on its own.
 single_version_override(
