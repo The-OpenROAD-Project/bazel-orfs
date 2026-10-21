@@ -81,12 +81,29 @@ proc report_floor_cycles {} {
     }
   }
   set secs [expr { ([clock milliseconds] - $t0) / 1000.0 }]
+  # the worst loop's shape: its stages and how many are buffers
+  set stages 0
+  set buffers 0
+  if { $worst ne "" } {
+    set cell [get_cells $worst_reg]
+    set ck [get_pins -of_objects $cell -filter "is_register_clock == 1"]
+    set d [get_pins -of_objects $cell \
+             -filter "direction == input && is_register_clock == 0"]
+    set loop [lindex [find_timing_paths -from $ck -to $d -group_path_count 1] 0]
+    foreach p [lrange [get_property $loop points] 1 end] {
+      set pin [get_property $p pin]
+      if { [get_property $pin direction] ne "output" } { continue }
+      incr stages
+      set lib [get_property [get_cells -of_objects $pin] liberty_cell]
+      if { [get_property $lib is_buffer] } { incr buffers }
+    }
+  }
   if { $worst eq "" } {
     puts "One-flop-loop floor: no register loops back to itself ($visited endpoints, $secs s)"
     return
   }
-  puts [format "One-flop-loop floor: %.1f at %s (%d loops, %d endpoints visited, %s; %.1f s)" \
-    $worst $worst_reg $loops $visited $stop $secs]
+  puts [format "One-flop-loop floor: %.1f at %s (%d stages, %d buffers; %d loops, %d endpoints visited, %s; %.1f s)" \
+    $worst $worst_reg $stages $buffers $loops $visited $stop $secs]
   utl::metric_float "timing__floor_cycles" $worst
 }
 
