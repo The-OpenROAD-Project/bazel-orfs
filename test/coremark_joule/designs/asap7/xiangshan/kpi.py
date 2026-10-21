@@ -17,6 +17,12 @@ tree (rows up to 2026-10-14 read the blocks at their place stage,
 against an ideal clock). A run that
 did not measure the blocks gives only a lower bound, drawn hollow.
 
+The table's floor column is the parent's one-flop-loop floor at global
+route (tools/headroom/report_floor_cycles.tcl), where a run measured it:
+the worst path from a register back to itself, which no clock skew or
+retiming passes. A floor above the target says no clocking reaches it;
+`floor_register` in the json names the register.
+
 The image carries no text beyond its axes and legend: the numbers and
 what changed are the README's table, where they can be read and copied.
 The runs are numbered on the horizontal axis and in the table, because a
@@ -403,7 +409,7 @@ def table(runs):
     """The runs as a markdown table, the numbers the chart draws."""
     start = first_drawn(runs)
     names = block_names(runs)
-    head = ["#", "date", "design", "parent"] + names + ["change"]
+    head = ["#", "date", "design", "parent", "floor"] + names + ["change"]
     lines = ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
     for i, r in enumerate(runs):
         blocks = r.get("blocks", {})
@@ -413,6 +419,7 @@ def table(runs):
             r["date"],
             ("%s" if blocks else "≥ %s") % design,
             f"{r['parent_ps']:,}",
+            f"{r['floor_ps']:,}" if "floor_ps" in r else "",
         ]
         cells += [f"{blocks[n]:,}" if n in blocks else "" for n in names]
         cells.append(r["note"].replace("|", "\\|"))
