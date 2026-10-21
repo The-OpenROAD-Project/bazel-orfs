@@ -4,6 +4,9 @@
 # before.v and after.v differ only in `other`, declared ahead of `unit`,
 # so `other`'s extra cells advance Yosys's whole-design counter before
 # `unit`'s cells are numbered.
+#
+# collide.rtlil holds the private names slang gives a counter, one of
+# them already the $<n> that renumbering assigns another object.
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 package(default_visibility = ["//visibility:private"])
@@ -27,7 +30,7 @@ package(default_visibility = ["//visibility:private"])
 
 [genrule(
     name = "slice_" + design,
-    srcs = [":checkpoint_" + design],
+    srcs = [checkpoint],
     outs = ["slice_%s.rtlil" % design],
     cmd = " ".join([
         "SYNTH_CHECKPOINT=$<",
@@ -42,10 +45,11 @@ package(default_visibility = ["//visibility:private"])
         "//:synth_canonicalize_module.tcl",
         "@yosys",
     ],
-) for design in [
-    "before",
-    "after",
-]]
+) for design, checkpoint in {
+    "after": ":checkpoint_after",
+    "before": ":checkpoint_before",
+    "collide": "collide.rtlil",
+}.items()]
 
 sh_test(
     name = "canonical_slice_test",
@@ -56,11 +60,13 @@ sh_test(
         "$(location :checkpoint_after)",
         "$(location :slice_before)",
         "$(location :slice_after)",
+        "$(location :slice_collide)",
     ],
     data = [
         ":checkpoint_after",
         ":checkpoint_before",
         ":slice_after",
         ":slice_before",
+        ":slice_collide",
     ],
 )
