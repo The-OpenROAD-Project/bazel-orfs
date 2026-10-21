@@ -133,8 +133,8 @@ opt_clean -purge
 #    LIB_FILES, so dropping the embedded values from the .rtlil is safe.
 #
 # SYNTH_REPEATABLE_BUILD is forced to "1" by the parallel-synth Bazel
-# action regardless of the user's variables.yaml default (which is 0),
-# because byte-stability IS this action's reason for existing.
+# action, even for a design that sets 0, because byte-stability IS this
+# action's reason for existing.
 if { [env_var_set_nonempty SYNTH_REPEATABLE_BUILD] && $::env(SYNTH_REPEATABLE_BUILD) != "0" } {
     # The `=*` selection includes blackbox modules; default `*` skips
     # them, which is wrong here because the SHARED_LOGIC_MACRO .lib

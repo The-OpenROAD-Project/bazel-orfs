@@ -16,6 +16,7 @@ load(":mock_pin_knobs_test.bzl", "mock_pin_knobs_test")
 load(":partition_key_test.bzl", "partition_key_test")
 load(":provider_test_rule.bzl", "lib_pre_layout_test")
 load(":quick_pins_test_rule.bzl", "quick_pins_data_dep_test")
+load(":repeatable_default_test.bzl", "repeatable_default_test_suite")
 load(":retired_arguments_test.bzl", "retired_argument_test")
 load(":sdc_clock_period_test.bzl", "runfiles_contents_test", "synth_action_inputs_test")
 load(":slang_frontend_test.bzl", "slang_frontend_test_suite")
@@ -2099,6 +2100,8 @@ sh_test(
 slang_frontend_test_suite(name = "slang_frontend_test")
 
 hierarchical_default_test_suite(name = "hierarchical_default_test")
+
+repeatable_default_test_suite(name = "repeatable_default_test")
 
 # The frontend policy reaches a standalone orfs_synth, not just a flow,
 # and yosys_frontend_reason is consumed by the macro: orfs_synth_rule

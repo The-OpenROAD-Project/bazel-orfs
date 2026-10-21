@@ -204,6 +204,9 @@ export OPENROAD_HIERARCHICAL = 1
 
 `GENERATE_ARTIFACTS_ON_FAILURE=1` is left out: Bazel needs a failed
 action's outputs to look at, make fails the step, as ORFS's default does.
+`SYNTH_REPEATABLE_BUILD=1` is left out too: it gives up the netlist's
+debug information, source paths and line numbers, for Bazel's cache
+hits, and make has no cache.
 
 ### Mocked macros
 

@@ -456,6 +456,12 @@ class BazelOrfsDefaultsTest(unittest.TestCase):
             {"X": "1"},
         )
 
+    def test_bazels_repeatable_synthesis_stays_in_bazel(self):
+        self.assertEqual(
+            merge([("synth", {"SYNTH_REPEATABLE_BUILD": "1", "X": "1"})]),
+            {"X": "1"},
+        )
+
 
 class MockTest(unittest.TestCase):
     MOCKS = [

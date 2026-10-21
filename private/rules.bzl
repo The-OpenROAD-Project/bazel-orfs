@@ -1558,8 +1558,8 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 "MODULE_NAME_OUT": per_module_name_out.path,
                 # Byte-stable per-module RTLIL is the whole point of this
                 # action — partition synth caches on its hash. Force
-                # SYNTH_REPEATABLE_BUILD=1 here regardless of the user's
-                # variables.yaml default (0): src/area/capacitance attrs
+                # SYNTH_REPEATABLE_BUILD=1 here, even for a design that
+                # sets 0 (repeatable_arguments): src/area/capacitance attrs
                 # MUST be stripped for the slice to be stable across
                 # upstream PnR runs that re-characterise SHARED_LOGIC
                 # macro .libs.

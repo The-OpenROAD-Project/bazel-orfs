@@ -108,6 +108,27 @@ def hierarchical_arguments(arguments):
     """
     return {"OPENROAD_HIERARCHICAL": "1"} | arguments
 
+def repeatable_arguments(arguments):
+    """Synthesis is repeatable unless the design says otherwise.
+
+    ORFS's SYNTH_REPEATABLE_BUILD defaults to 0: ORFS keeps the debug
+    information, source paths and line numbers among it, that a person
+    reading a netlist wants. bazel-orfs wants the cache hit instead, and
+    that information changes when a line moves anywhere in the RTL, so
+    every synthesis behind it misses the cache. A design debugging its
+    synthesis sets 0 and gets ORFS's netlist back.
+
+    Applied by orfs_flow() and by every standalone stage macro, like
+    hierarchical_arguments().
+
+    Args:
+        arguments: the flow's or stage's arguments dict.
+
+    Returns:
+        arguments, with SYNTH_REPEATABLE_BUILD set.
+    """
+    return {"SYNTH_REPEATABLE_BUILD": "1"} | arguments
+
 def _merge_extra_arguments(a, b):
     """Merge two {stage: [label, ...]} dicts, concatenating per-stage lists."""
     merged = dict(a)
@@ -278,7 +299,9 @@ def _orfs_stage(stage, impl, **kwargs):
         impl: the underlying *_rule for that stage.
         **kwargs: forwarded to _filter_stage_args and the rule.
     """
-    kwargs["arguments"] = hierarchical_arguments(kwargs.get("arguments", {}))
+    kwargs["arguments"] = repeatable_arguments(
+        hierarchical_arguments(kwargs.get("arguments", {})),
+    )
     impl(**_filter_stage_args(stage, **kwargs))
 
 def orfs_synth(**kwargs):
@@ -469,9 +492,9 @@ def orfs_flow(
       **kwargs: forward named args
     """
 
-    arguments = hierarchical_arguments(
+    arguments = repeatable_arguments(hierarchical_arguments(
         slang_arguments("orfs_flow", name, arguments, yosys_frontend_reason),
-    )
+    ))
 
     if quick_pins:
         sources = sources | {
