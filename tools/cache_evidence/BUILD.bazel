@@ -7,7 +7,7 @@ py_binary(
     srcs = ["cache_evidence.py"],
     deps = [
         ":killer",
-        "@bazel-orfs-dev-pip//zstandard",
+        "@bazel-orfs-pip//zstandard",
     ],
 )
 
@@ -28,6 +28,6 @@ py_test(
     main = "cache_evidence_test.py",
     deps = [
         ":killer",
-        "@bazel-orfs-dev-pip//zstandard",
+        "@bazel-orfs-pip//zstandard",
     ],
 )
