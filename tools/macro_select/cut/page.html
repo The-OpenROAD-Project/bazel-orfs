@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Module Cut Search</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface-1: #fcfcfb;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --seq-lo: #cde2fb;
+  --seq-hi: #104281;
+  --fly-lo: #f7c9b4;
+  --fly-hi: #b9441a;
+  --mark: #2a78d6;
+  --good: #006300;
+  --critical: #d03b3b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface-1: #1a1a19;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255,255,255,0.10);
+    --seq-lo: #184f95;
+    --seq-hi: #cde2fb;
+    --fly-lo: #6b2a10;
+    --fly-hi: #f29a73;
+    --mark: #3987e5;
+    --good: #0ca30c;
+    --critical: #d03b3b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface-1: #1a1a19;
+  --text-primary: #f0efec;
+  --text-secondary: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255,255,255,0.10);
+  --seq-lo: #184f95;
+  --seq-hi: #cde2fb;
+  --fly-lo: #6b2a10;
+  --fly-hi: #f29a73;
+  --mark: #3987e5;
+  --good: #0ca30c;
+  --critical: #d03b3b;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--page); color: var(--text-primary);
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+header { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 4px 24px; align-items: baseline; }
+header h1 { font-size: 18px; margin: 0; }
+header .meta { color: var(--text-secondary); }
+main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 0.9fr); gap: 12px; padding: 0 16px 16px; }
+@media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+section { background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 12px; min-width: 0; }
+h2 { font-size: 14px; margin: 0 0 8px; }
+.sub { color: var(--text-secondary); font-size: 12px; margin: 0 0 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { color: var(--text-secondary); font-weight: 600; }
+td.num, th.num { text-align: right; }
+tr.sel td { background: color-mix(in srgb, var(--mark) 12%, transparent); }
+tbody tr { cursor: pointer; }
+.status-run { color: var(--text-secondary); }
+.status-fail { color: var(--critical); }
+.best { color: var(--good); font-weight: 600; }
+svg text { fill: var(--text-secondary); font-size: 11px; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
+.ramp { display: inline-block; width: 64px; height: 8px; border-radius: 4px; vertical-align: middle; margin: 0 4px; }
+ol.queue { margin: 0; padding-left: 20px; font-size: 12px; }
+ol.queue li { margin-bottom: 8px; }
+ol.queue .why { color: var(--text-secondary); }
+#tip { position: fixed; pointer-events: none; background: var(--surface-1); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15); display: none; max-width: 320px; }
+.note { color: var(--text-secondary); font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Module cut search</h1>
+  <span class="meta" id="meta">connecting…</span>
+</header>
+<main>
+  <section>
+    <h2>Arms</h2>
+    <p class="sub">Worst reg2reg period at floorplan, no wire. Smaller is better; the dashed line is the best arm.</p>
+    <svg id="ladder" width="100%" height="40" role="img" aria-label="Worst period per arm"></svg>
+    <table>
+      <thead><tr><th>#</th><th>kept</th><th class="num">period ps</th><th class="num">area µm²</th><th class="num">synth s</th><th class="num" title="the worst path the dropped keeps cut, ps over the census target">pred ps</th><th>state</th></tr></thead>
+      <tbody id="arms"></tbody>
+    </table>
+  </section>
+  <section>
+    <h2 id="graph-title">Census</h2>
+    <p class="sub" id="graph-sub">Kept module instances. Disc area: cell area the instance holds itself. Fill: logic delay on paths over the target. Flylines: cones a kept boundary cut, width and colour by the worst cut path's ps over the target; the widest reach the worst path and are the only cuts that can move the period.</p>
+    <svg id="graph" width="100%" viewBox="0 0 640 520" role="img" aria-label="Kept module instances and the paths cut between them"></svg>
+    <div class="legend">
+      <span>logic delay<span class="ramp" style="background:linear-gradient(90deg,var(--seq-lo),var(--seq-hi))"></span>more</span>
+      <span>worst cut path over target<span class="ramp" style="background:linear-gradient(90deg,var(--fly-lo),var(--fly-hi))"></span>on the worst path</span>
+    </div>
+  </section>
+  <section>
+    <h2>Next</h2>
+    <p class="sub">What the search tries next, best first, and why.</p>
+    <ol class="queue" id="queue"></ol>
+    <p class="note" id="note"></p>
+  </section>
+</main>
+<div id="tip"></div>
+<script>
+"use strict";
+let state = null;
+let selected = null;   // arm id the census panel shows; null follows the best
+const tip = document.getElementById("tip");
+const NS = "http://www.w3.org/2000/svg";
+
+function el(name, attrs, parent) {
+  const e = document.createElementNS(NS, name);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function hex2rgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+function mix(a, b, t) {
+  const x = hex2rgb(css(a)), y = hex2rgb(css(b));
+  t = Math.max(0, Math.min(1, t));
+  return "rgb(" + x.map((v, i) => Math.round(v + (y[i] - v) * t)).join(",") + ")";
+}
+function hover(target, html) {
+  target.addEventListener("mousemove", ev => {
+    tip.innerHTML = html; tip.style.display = "block";
+    tip.style.left = Math.min(ev.clientX + 12, innerWidth - 330) + "px";
+    tip.style.top = (ev.clientY + 12) + "px";
+  });
+  target.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+function keepText(k) { return k.length ? k.join(", ") : "nothing (flat)"; }
+function same(a, b) { return a && b && a.length === b.length && a.every((x, i) => x === b[i]); }
+function fmt(v, d) { return v === null || v === undefined ? "–" : Number(v).toFixed(d); }
+
+function render() {
+  if (!state) return;
+  document.getElementById("title").textContent = "Module cut search: " + (state.design || state.flow);
+  document.getElementById("meta").textContent =
+    state.phase + (state.clock ? " · clock " + state.clock + " ps · census target " + state.target + " ps" : "") +
+    (state.types.length ? " · " + state.types.length + " module types: " + state.types.join(", ") : "");
+  document.getElementById("note").textContent = state.note || "";
+  renderArms(); renderLadder(); renderGraph(); renderQueue();
+}
+
+function renderArms() {
+  const tb = document.getElementById("arms");
+  tb.innerHTML = "";
+  for (const a of state.arms) {
+    const tr = document.createElement("tr");
+    const isBest = same(a.keep, state.best);
+    if (a.id === shownArm()?.id) tr.className = "sel";
+    let st = a.status === "running" ? '<span class="status-run">' + esc(a.step) + "…</span>"
+           : a.status === "failed" ? '<span class="status-fail">✕ failed</span>'
+           : isBest ? '<span class="best">★ best</span>' : "done";
+    tr.innerHTML = "<td>" + a.id + "</td><td>" + esc(keepText(a.keep)) + "</td><td class=num>" + fmt(a.P, 1) +
+      "</td><td class=num>" + fmt(a.area, 1) + "</td><td class=num>" + fmt(a.t_syn, 1) +
+      "</td><td class=num>" + fmt(a.pred, 0) + "</td><td>" + st + "</td>";
+    tr.onclick = () => { selected = a.id; render(); };
+    if (a.status === "failed") hover(tr, esc(a.step));
+    tb.appendChild(tr);
+  }
+}
+
+function renderLadder() {
+  const svg = document.getElementById("ladder");
+  svg.innerHTML = "";
+  const done = state.arms.filter(a => a.P !== null && a.P !== undefined);
+  const W = svg.clientWidth || 400, row = 18, padL = 28, padR = 12, top = 18;
+  const H = top + Math.max(1, state.arms.length) * row + 8;
+  svg.setAttribute("height", H);
+  if (!done.length) { el("text", {x: padL, y: 14}, svg).textContent = "no arm measured yet"; return; }
+  let lo = Math.min(...done.map(a => a.P)), hi = Math.max(...done.map(a => a.P));
+  const span = Math.max(hi - lo, 1); lo -= span * 0.1; hi += span * 0.1;
+  const x = v => padL + (v - lo) / (hi - lo) * (W - padL - padR);
+  for (const t of [lo + (hi - lo) * 0.1, (lo + hi) / 2, hi - (hi - lo) * 0.1]) {
+    el("line", {x1: x(t), x2: x(t), y1: top - 4, y2: H - 4, stroke: css("--grid"), "stroke-width": 1}, svg);
+    el("text", {x: x(t), y: 11, "text-anchor": "middle"}, svg).textContent = t.toFixed(0);
+  }
+  const best = Math.min(...done.map(a => a.P));
+  el("line", {x1: x(best), x2: x(best), y1: top - 4, y2: H - 4, stroke: css("--good"), "stroke-width": 1, "stroke-dasharray": "3 3"}, svg);
+  state.arms.forEach((a, i) => {
+    const y = top + i * row + row / 2;
+    el("text", {x: padL - 6, y: y + 4, "text-anchor": "end"}, svg).textContent = a.id;
+    if (a.P === null || a.P === undefined) return;
+    const c = el("circle", {cx: x(a.P), cy: y, r: 5, fill: css("--mark"), stroke: css("--surface-1"), "stroke-width": 2}, svg);
+    const hit = el("rect", {x: 0, y: y - row / 2, width: W, height: row, fill: "transparent"}, svg);
+    hover(hit, "<b>arm " + a.id + "</b>: " + esc(keepText(a.keep)) + "<br>period " + fmt(a.P, 1) + " ps · area " +
+      fmt(a.area, 1) + " µm² · synth " + fmt(a.t_syn, 1) + " s" +
+      (a.pred !== null && a.pred !== undefined ? "<br>predicted: drops a cut whose worst path is " + fmt(a.pred, 0) + " ps over target" : ""));
+    hit.onclick = () => { selected = a.id; render(); };
+  });
+}
+
+function shownArm() {
+  if (!state) return null;
+  if (selected !== null) return state.arms.find(a => a.id === selected) || null;
+  const best = state.arms.find(a => same(a.keep, state.best));
+  if (best) return best;
+  return state.arms.filter(a => a.census).slice(-1)[0] || null;
+}
+
+function renderGraph() {
+  const svg = document.getElementById("graph");
+  svg.innerHTML = "";
+  const arm = shownArm();
+  const title = document.getElementById("graph-title");
+  if (!arm || !arm.census) {
+    title.textContent = "Census";
+    el("text", {x: 320, y: 260, "text-anchor": "middle"}, svg).textContent =
+      arm ? "arm " + arm.id + ": " + (arm.step || arm.status) : "waiting for the first census";
+    return;
+  }
+  const c = arm.census;
+  title.textContent = "Census of arm " + arm.id + ": " + keepText(arm.keep);
+  // own area: an instance's cells minus its kept children's
+  const mods = {};
+  for (const m of c.module) mods[m.inst] = {inst: m.inst, master: m.master, area: m.area, cells: m.cells, kids: []};
+  const parentOf = p => p === "(top)" ? null : (p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "(top)");
+  for (const p in mods) { const q = parentOf(p); if (q && mods[q]) mods[q].kids.push(p); }
+  for (const p in mods) mods[p].own = mods[p].area - mods[p].kids.reduce((s, k) => s + mods[k].area, 0);
+  const inside = {}; for (const r of c.inside) inside[r.inst] = r.sum;
+  const maxIn = Math.max(1, ...Object.values(inside));
+  const maxOwn = Math.max(...Object.values(mods).map(m => m.own));
+  const rad = m => 4 + 34 * Math.sqrt(Math.max(m.own, 0) / maxOwn);
+  // layout: the top in the middle, its kept children on a ring, theirs around them
+  const pos = {"(top)": [320, 260]};
+  const ring1 = mods["(top)"] ? mods["(top)"].kids.sort() : [];
+  ring1.forEach((p, i) => {
+    const t = 2 * Math.PI * i / ring1.length - Math.PI / 2;
+    pos[p] = [320 + 190 * Math.cos(t), 260 + 190 * Math.sin(t)];
+    const sub = mods[p].kids.sort();
+    sub.forEach((q, j) => {
+      const u = t + (j - (sub.length - 1) / 2) * 0.32;
+      pos[q] = [320 + 245 * Math.cos(u), 260 + 245 * Math.sin(u)];
+    });
+  });
+  // flylines, both directions folded into one
+  const pairs = {};
+  for (const e of c.edge) {
+    const k = [e.a, e.b].sort().join("\u0000");
+    pairs[k] = pairs[k] || {a: e.a, b: e.b, paths: 0, excess: 0, worst: 0};
+    pairs[k].paths = Math.max(pairs[k].paths, e.paths); pairs[k].excess = Math.max(pairs[k].excess, e.excess);
+    pairs[k].worst = Math.max(pairs[k].worst, e.worst);
+  }
+  const P = Object.values(pairs);
+  // time, not count: a cut is scaled against the worst period over the
+  // target, the most any cut can carry
+  const span = Math.max(1, c.period.worst - c.paths.target);
+  const g1 = el("g", {}, svg), g2 = el("g", {}, svg);
+  for (const p of P) {
+    if (!pos[p.a] || !pos[p.b]) continue;
+    const [x1, y1] = pos[p.a], [x2, y2] = pos[p.b];
+    const mx = (x1 + x2) / 2 + (y2 - y1) * 0.12, my = (y1 + y2) / 2 - (x2 - x1) * 0.12;
+    const path = el("path", {d: `M${x1},${y1} Q${mx},${my} ${x2},${y2}`, fill: "none",
+      stroke: mix("--fly-lo", "--fly-hi", p.worst / span), "stroke-width": 1 + 7 * p.worst / span,
+      "stroke-linecap": "round", opacity: 0.9}, g1);
+    hover(path, "<b>" + esc(p.a) + " ↔ " + esc(p.b) + "</b><br>worst cut path " + p.worst.toFixed(1) +
+      " ps over the " + c.paths.target + " ps target (the worst path is " + span.toFixed(1) + " over)<br>" +
+      p.paths + " paths cut here, " + p.excess.toFixed(0) + " ps over target summed");
+  }
+  for (const p in mods) {
+    if (!pos[p]) continue;
+    const m = mods[p];
+    const circ = el("circle", {cx: pos[p][0], cy: pos[p][1], r: rad(m),
+      fill: mix("--seq-lo", "--seq-hi", (inside[p] || 0) / maxIn),
+      stroke: css("--surface-1"), "stroke-width": 2}, g2);
+    hover(circ, "<b>" + esc(p) + "</b> (" + esc(m.master) + ")<br>" + m.cells + " cells, " + m.area.toFixed(1) +
+      " µm² with its children, " + m.own.toFixed(1) + " µm² itself<br>logic delay on paths over the target: " +
+      (inside[p] || 0).toFixed(0) + " ps summed");
+    if (p === "(top)" || ring1.length <= 24) {
+      el("text", {x: pos[p][0], y: pos[p][1] + rad(m) + 12, "text-anchor": "middle"}, g2).textContent = p;
+    }
+  }
+}
+
+function renderQueue() {
+  const ol = document.getElementById("queue");
+  ol.innerHTML = "";
+  const running = state.arms.filter(a => a.status === "running");
+  for (const a of running) {
+    const li = document.createElement("li");
+    li.innerHTML = "<b>running</b> arm " + a.id + ": " + esc(keepText(a.keep)) + ' <span class="why">— ' + esc(a.step) + "</span>";
+    ol.appendChild(li);
+  }
+  for (const q of state.queue.slice(0, 12)) {
+    const li = document.createElement("li");
+    li.innerHTML = "keep " + esc(keepText(q.keep)) +
+      (q.pred !== null && q.pred !== undefined ? " · worst cut " + fmt(q.pred, 0) + " ps over target" : "") +
+      '<br><span class="why">' + esc(q.why) + "</span>";
+    ol.appendChild(li);
+  }
+  if (!running.length && !state.queue.length) {
+    const li = document.createElement("li");
+    li.textContent = state.phase === "done" ? "nothing left: the search is done" : "nothing queued yet";
+    ol.appendChild(li);
+  }
+}
+
+// The OpenROAD web viewer's framing: uint32 id (big-endian), type byte, 3
+// reserved bytes, payload; pushes come with id 0.
+function frame(id, obj) {
+  const body = new TextEncoder().encode(JSON.stringify(obj));
+  const buf = new Uint8Array(8 + body.length);
+  new DataView(buf.buffer).setUint32(0, id);
+  buf.set(body, 8);
+  return buf;
+}
+function connect() {
+  const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/");
+  ws.binaryType = "arraybuffer";
+  ws.onopen = () => ws.send(frame(1, {type: "state"}));
+  ws.onmessage = ev => {
+    const kind = new DataView(ev.data).getUint8(4);
+    const text = new TextDecoder().decode(new Uint8Array(ev.data, 8));
+    if (kind !== 0) { document.getElementById("meta").textContent = "error: " + text; return; }
+    state = JSON.parse(text);
+    render();
+  };
+  ws.onclose = () => {
+    document.getElementById("meta").textContent = "disconnected; retrying…";
+    setTimeout(connect, 2000);
+  };
+}
+addEventListener("resize", render);
+connect();
+</script>
+</body>
+</html>

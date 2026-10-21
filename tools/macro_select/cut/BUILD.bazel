@@ -1,0 +1,56 @@
+# The module-cut search: `bazelisk run //tools/macro_select/cut:generate_cut
+# -- <flow> out.json` (generate_cut.py). Bazel lays out the dirty-lane trees
+# and builds the census worker on OpenROAD's Python bindings; the search
+# runs outside it.
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+load(":exec_tool.bzl", "exec_tool")
+
+py_library(
+    name = "cut_lib",
+    srcs = [
+        "cut.py",
+        "serve.py",
+    ],
+    imports = ["."],
+    deps = ["//tools/odb_debug:odbdebug_lib"],
+)
+
+py_binary(
+    name = "worker",
+    srcs = ["worker.py"],
+    deps = ["@openroad//:openroad_py"],
+)
+
+# Optimised, as a flow's openroad is: the target configuration's
+# _openroad.so is a fastbuild one, ten times slower on the census.
+exec_tool(
+    name = "worker_exec",
+    tool = ":worker",
+)
+
+py_binary(
+    name = "generate_cut",
+    srcs = ["generate_cut.py"],
+    data = [
+        "dump_env.tcl",
+        "page.html",
+        ":worker_exec",
+        "//tools/macro_select:keep_census.tcl",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [":cut_lib"],
+)
+
+py_test(
+    name = "cut_test",
+    size = "small",
+    srcs = ["cut_test.py"],
+    deps = [":cut_lib"],
+)
+
+py_test(
+    name = "serve_test",
+    size = "small",
+    srcs = ["serve_test.py"],
+    deps = [":cut_lib"],
+)
