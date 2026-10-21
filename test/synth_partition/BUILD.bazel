@@ -3,4 +3,6 @@ load("@rules_python//python:defs.bzl", "py_test")
 py_test(
     name = "synth_partition_test",
     srcs = ["synth_partition_test.py"],
+    data = ["//:synth_partition.sh"],
+    env = {"SYNTH_PARTITION_SH": "$(rootpath //:synth_partition.sh)"},
 )
