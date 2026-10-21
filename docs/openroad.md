@@ -155,12 +155,13 @@ build --@rules_python//python/config_settings:bootstrap_impl=script
 
 ### GUI Builds
 
-bazel-orfs enables OpenROAD's GUI by default via `--@openroad//:platform=gui`
-in `.bazelrc`. To disable it (CLI-only mode), override in `user.bazelrc`:
-
-```
-build --@openroad//:platform=cli
-```
+The GUI, `bazelisk run <target>_<stage> gui_<stage>`, is OpenROAD's web
+viewer, which every OpenROAD build has; it is served by the odb-debug
+daemon (`tools/odb_debug/README.md`), and
+`bazelisk run @bazel-orfs//:odb_debug -- <target>_<stage>` starts it in the
+background and prints its link. The Qt GUI, `qt_<stage>`, needs the
+Qt-linked build, which `--@openroad//:platform=gui` selects and only a
+`//:dirty` tree started with `--qt` installs.
 
 ## Per-Target Override
 
@@ -242,9 +243,9 @@ Things that can surprise you when building OpenROAD from source:
   cache at `bazel.precisioninno.com` is configured in OpenROAD's `.bazelrc` but
   is not accessible from other projects.
 
-- **GUI requires `--@openroad//:platform=gui`**. Without this flag in your
-  `.bazelrc` or on the command line, OpenROAD builds in CLI-only mode and
-  `bazel run` targets that open the GUI will not work.
+- **The Qt GUI requires `--@openroad//:platform=gui`**. Without this flag
+  in your `.bazelrc` or on the command line, OpenROAD builds without Qt and
+  `qt_<stage>` will not work; `gui_<stage>`, the web viewer, does.
 
 ## Future Upstream Improvements
 

@@ -215,7 +215,7 @@ bazelisk run @orfs//flow/designs/asap7/gcd:gcd_final gui_final
 This builds `gcd`, the smallest design shipped with ORFS, from RTL through
 synthesis, floorplan, placement, clock tree synthesis, routing and final
 reporting on the asap7 PDK, then opens the result in the OpenROAD GUI.
-The first run also builds OpenROAD, Yosys and the Qt GUI from source,
+The first run also builds OpenROAD and Yosys from source,
 which takes 30 to 60 minutes. Every later run is incremental and cached.
 
 What you are looking at is ORFS's own `flow/designs/asap7/gcd/config.mk`,
@@ -269,6 +269,7 @@ also a `bazelisk run` entry point:
 ```bash
 bazelisk run <target>_<stage> gui_<stage>    # OpenROAD's web viewer: prints a link
 bazelisk run <target>_<stage> open_<stage>   # OpenROAD Tcl shell
+bazelisk run @bazel-orfs//:odb_debug -- <target>_<stage>  # the viewer in the background, then its link
 ```
 
 GUI and shell are available for `floorplan`, `place`, `cts`, `grt`,

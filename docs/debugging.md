@@ -86,8 +86,8 @@ Two things to know:
 ### Ask the ODB instead of re-running the stage
 
 Where the flow left the design is in the stage's ODB, not in its log.
-`odb_debug(name, src = ":cpu_place")` (`openroad.bzl`) is a runnable
-target that opens that ODB in the flow's own OpenROAD and serves it
+`bazelisk run @bazel-orfs//:odb_debug -- //my:cpu_place` (or an
+`odb_debug(name, src = ":cpu_place")` target, `openroad.bzl`) opens that ODB in the flow's own OpenROAD and serves it
 through OpenROAD's web viewer on localhost (a browser on its URL is the
 GUI); `tools/odb_debug/odbdebug.py` asks it from a
 shell, `tools/odb_debug/mcp_server.py` from an agent, and

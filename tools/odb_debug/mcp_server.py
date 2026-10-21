@@ -49,25 +49,13 @@ def tool(name, description, params=None, required=()):
     return wrap
 
 
-GUI_HOW = (
-    "Open gui_url in a browser on your own machine. It works over the VPN"
-    " when the machine is reachable at that address; if the browser cannot"
-    " connect, check that the VPN is up and nothing blocks the port, and"
-    " that the link listens on the address your machine reaches (else"
-    " restart with ODB_DEBUG_GUI_BIND=<that address>). Do not tunnel with"
-    " ssh -L while the link can reach you: a tunnel to the viewer's own port"
-    " skips the token and the idle accounting. The token in the link is the"
-    " only key to the session; do not paste it anywhere public."
-)
-
-
 @tool(
     "open",
-    "Start the daemon on a flow stage in the background and return at once: `bazelisk run <target>` of an odb_debug() target, in a session of its own that outlives this one. The design loads while the human is away; it waits, without an idle exit, for the first question or browser visit. Poll `gui` for the link.",
+    "Start the daemon on a flow stage in the background and return at once: `bazelisk run <target> -- gui_<stage>` of a flow stage target (or `bazelisk run` of an odb_debug() target), in a session of its own that outlives this one. The design loads while the human is away; it waits, without an idle exit, for the first question or browser visit. Poll `gui` for the link.",
     {
         "target": (
             "string",
-            "Bazel label of an odb_debug() target, e.g. //my:cpu_final_odb_debug",
+            "Bazel label of a flow stage, e.g. //my:cpu_final, or of an odb_debug() target",
         ),
         "arguments": (
             "array",
@@ -89,7 +77,7 @@ def _open(d, a):
 def _gui(d, a):
     state = odbdebug.gui_state(os.path.dirname(d.path))
     if state["state"] == "ready":
-        state["how"] = GUI_HOW
+        state["how"] = odbdebug.GUI_HOW
     return state
 
 

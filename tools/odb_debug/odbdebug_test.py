@@ -451,6 +451,43 @@ class LaunchTest(unittest.TestCase):
         )
         self.assertIn("the stage failed", odbdebug.gui_state(self.dir)["log_tail"])
 
+    def test_a_stage_target_runs_its_gui_make_target(self):
+        saved = dict(os.environ)
+        os.environ.pop("SSH_CONNECTION", None)
+        os.environ.pop("ODB_DEBUG_GUI_BIND", None)
+        try:
+            odbdebug.launch(
+                "//x:cpu_cts",
+                self.dir,
+                ["GUI_TIMING=0"],
+                workspace=self.tmp,
+                bazelisk=self.bazelisk,
+            )
+        finally:
+            os.environ.clear()
+            os.environ.update(saved)
+        self.wait_for("the arguments", lambda: os.path.exists(self.args))
+        with open(self.args) as f:
+            self.assertEqual(
+                f.read().split("\n")[:-1],
+                [
+                    "run",
+                    "//x:cpu_cts",
+                    "--",
+                    "ODB_DEBUG_DIR=" + os.path.abspath(self.dir),
+                    "GUI_TIMING=0",
+                    "gui_cts",
+                ],
+            )
+        open(self.release, "w").close()
+
+    def test_gui_make_target(self):
+        self.assertEqual(odbdebug.gui_make_target("//x:cpu_final"), "gui_final")
+        self.assertEqual(odbdebug.gui_make_target("//x/y:cpu_grt_td_cts"), "gui_cts")
+        self.assertEqual(odbdebug.gui_make_target("@w//x:synth"), "gui_synth")
+        self.assertIsNone(odbdebug.gui_make_target("//x:cpu_final_odb_debug"))
+        self.assertIsNone(odbdebug.gui_make_target("//x:cpu"))
+
     def test_nothing_launched_is_stopped(self):
         self.assertEqual(odbdebug.gui_state(self.dir), {"state": "stopped"})
 

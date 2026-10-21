@@ -107,7 +107,15 @@ previous stage's picture attached.
 
 ## 2. Launch the daemon
 
-From a target, on the stage's finished ODB:
+From a stage target, on the stage's finished ODB, with nothing added to a
+BUILD file (the MCP `open` tool does the same without waiting):
+
+```bash
+bazelisk run @bazel-orfs//:odb_debug -- //<project>:cpu_place GUI_TIMING=0
+```
+
+Or from an `odb_debug()` target, which fixes the make variables in a BUILD
+file:
 
 ```starlark
 load("@bazel-orfs//:openroad.bzl", "odb_debug")
