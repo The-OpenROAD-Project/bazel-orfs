@@ -325,6 +325,18 @@ def pid_alive(pid):
         return False
 
 
+GUI_HOW = (
+    "Open gui_url in a browser on your own machine. It works over the VPN"
+    " when the machine is reachable at that address; if the browser cannot"
+    " connect, check that the VPN is up and nothing blocks the port, and"
+    " that the link listens on the address your machine reaches (else"
+    " restart with ODB_DEBUG_GUI_BIND=<that address>). Do not tunnel with"
+    " ssh -L while the link can reach you: a tunnel to the viewer's own port"
+    " skips the token and the idle accounting. The token in the link is the"
+    " only key to the session; do not paste it anywhere public."
+)
+
+
 def gui_bind(environ=None):
     """The address a browser on the human's machine reaches: the one
     their ssh session came in on, else None (the daemon's default)."""
@@ -335,11 +347,24 @@ def gui_bind(environ=None):
     return fields[2] if len(fields) == 4 else None
 
 
+# The stages ORFS's Makefile opens with gui_<stage>.
+GUI_STAGES = ("synth", "floorplan", "place", "cts", "grt", "route", "final")
+
+
+def gui_make_target(target):
+    """gui_<stage> for a flow stage target such as //pkg:cpu_cts, whose
+    `bazelisk run ... gui_<stage>` serves the stage through the daemon
+    (gui.sh); None for an odb_debug() target, which is the daemon."""
+    name = target.rsplit(":", 1)[-1].rsplit("/", 1)[-1]
+    stage = name.rsplit("_", 1)[-1]
+    return "gui_" + stage if stage in GUI_STAGES else None
+
+
 def launch(target, odb_debug_dir, arguments=(), workspace=None, bazelisk="bazelisk"):
-    """Start `bazelisk run <target>`, an odb_debug() daemon target, detached
-    in a session of its own, so it outlives the agent session that asked
-    for it; return at once. The design loads in the background:
-    gui_state() says when the GUI is ready."""
+    """Start `bazelisk run <target>`, a flow stage or an odb_debug()
+    target, detached in a session of its own, so it outlives the agent
+    session that asked for it; return at once. The design loads in the
+    background: gui_state() says when the GUI is ready."""
     directory = os.path.abspath(odb_debug_dir)
     running = gui_state(directory)
     if running["state"] in ("loading", "ready"):
@@ -364,6 +389,9 @@ def launch(target, odb_debug_dir, arguments=(), workspace=None, bazelisk="bazeli
     if bind:
         make_args.append("ODB_DEBUG_GUI_BIND=" + bind)
     make_args += list(arguments)
+    gui = gui_make_target(target)
+    if gui:
+        make_args.append(gui)
     log_path = os.path.join(directory, LAUNCH_LOG)
     with open(log_path, "wb") as log:
         proc = subprocess.Popen(

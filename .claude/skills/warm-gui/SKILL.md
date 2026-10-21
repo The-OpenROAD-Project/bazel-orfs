@@ -18,9 +18,8 @@ ARGUMENTS: $ARGUMENTS
 
 Do this after every flow build or stage, finished or failed, without
 asking: report the build's result and the GUI's state together. Asking
-first spends the very minutes the load was meant to hide. Adding the
-`odb_debug()` target a flow lacks is part of the job, not a change to
-ask about; leave it uncommitted unless the human wants it kept.
+first spends the very minutes the load was meant to hide. Nothing is
+added to a BUILD file: the daemon runs on the stage target itself.
 
 The web viewer is the GUI. On a large design, loading the ODB, the
 liberty set and parasitics and warming up timing takes tens of minutes,
@@ -40,22 +39,11 @@ The one the human will want to look at next:
   has no ODB to open; its checkpoint is a `//:dirty` lane's job
   (`odb-debug` skill, "a stage that failed").
 
-The daemon runs an `odb_debug()` target. When the stage has none, add one
-beside the flow:
-
-```starlark
-load("@bazel-orfs//:openroad.bzl", "odb_debug")
-
-odb_debug(
-    name = "<module>_final_odb_debug",
-    src = ":<module>_final",
-    tags = ["manual"],
-)
-```
-
 ## 2. Start it
 
-MCP tool `open` with the target, and `arguments` for make variables
+MCP tool `open` with the stage target (`//<project>:<module>_final`; it
+runs the stage's `gui_<stage>`, which is the daemon), and `arguments` for
+make variables
 (`GUI_TIMING=0` when geometry is all the human needs: seconds instead of
 minutes on a large design). It returns at once. `bazelisk run` builds
 the stage first if it is out of date, so a target that is not built yet
@@ -84,8 +72,9 @@ log that says why. Give the human the link as it is, with:
 - **Over a VPN** it works as is: the daemon listens on the address the
   human's ssh session came in on (`SSH_CONNECTION`), the one their
   machine reaches. Started from a session that is not ssh, it listens on
-  127.0.0.1; set `ODB_DEBUG_GUI_BIND=<the VPN address>` in `arguments`
-  to reach it from elsewhere.
+  `ODB_DEBUG_GUI_BIND` from the environment, else 127.0.0.1; then pass
+  `ODB_DEBUG_GUI_BIND=<the VPN address>` in `arguments`, and tell the
+  human that exporting it once in the shell profile makes it the default.
 - **If the browser cannot connect,** fix the link, not the route: is the
   VPN up, does the address answer, does a firewall block the port, does
   the link listen on the address the human's machine reaches? If not,

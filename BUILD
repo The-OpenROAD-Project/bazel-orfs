@@ -214,6 +214,15 @@ alias(
     visibility = ["//visibility:public"],
 )
 
+# `bazelisk run @bazel-orfs//:odb_debug -- //<project>:<module>_<stage>`:
+# start the odb-debug daemon on a flow stage in the background and print
+# the web viewer's link once it is ready. tools/odb_debug/README.md.
+alias(
+    name = "odb_debug",
+    actual = "//tools/odb_debug:open_gui",
+    visibility = ["//visibility:public"],
+)
+
 filegroup(
     name = "skills",
     srcs = glob([".claude/skills/*/SKILL.md"]),

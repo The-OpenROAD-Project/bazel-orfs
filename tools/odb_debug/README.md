@@ -16,7 +16,7 @@ plain session lacks: debug renderers that can be stepped from a script and
 headless pictures.
 
 ```
-                 bazelisk run //my:cpu_place_odb_debug  (or ./make run in a //:dirty tree)
+     bazelisk run @bazel-orfs//:odb_debug -- //my:cpu_place  (or ./make run in a //:dirty tree)
                                      |
    agent --MCP stdio--> mcp_server.py --websocket--> daemon.tcl in openroad (web_server)
    shell -------------> odbdebug.py  --websocket-->     |
@@ -38,7 +38,21 @@ These files do the work, and none needs anything beyond a stock `python3`:
 
 ## Launch
 
-### From a target
+### From a stage target
+
+```sh
+bazelisk run @bazel-orfs//:odb_debug -- //my:cpu_place GUI_TIMING=0
+```
+
+starts the daemon on any flow stage target (`<module>_<stage>`, through
+the stage's `gui_<stage>`, below) in a session of its own, waits until it
+is ready and prints the GUI link. Nothing is added to a BUILD file. The
+daemon directory is `$ODB_DEBUG_DIR`, by default the workspace's
+`tmp/odb-debug`, where the MCP server looks; the MCP `open` tool does the
+same without waiting.
+
+An `odb_debug()` target is the same daemon with its make variables fixed
+in a BUILD file, for a stage opened often with the same ones:
 
 ```starlark
 load("@bazel-orfs//:openroad.bzl", "odb_debug")
@@ -64,7 +78,7 @@ matter here:
 | `GUI_TIMING=0` | Skip the liberty files. Geometry queries work, timing queries report that no timing is loaded. A 1.35 M-instance ODB loads in seconds instead of minutes. |
 | `ODB_DEBUG_IDLE_SECS` | Idle time before the daemon exits, counted from the first interaction (a loaded daemon waits for that without a limit); default twice its load time and at least 120 s; `0` disables. |
 | `ODB_DEBUG_PORT` | Fixed port instead of an ephemeral one. |
-| `ODB_DEBUG_GUI_BIND` | Address the GUI link listens on; default the one the ssh session came in on (`SSH_CONNECTION`), else 127.0.0.1. |
+| `ODB_DEBUG_GUI_BIND` | Address the GUI link listens on; default the one the ssh session came in on (`SSH_CONNECTION`), else 127.0.0.1. Read from the environment too: on a machine reached over a VPN from sessions that are not ssh, export it once in the shell profile. |
 | `ODB_DEBUG_GUI_PORT` | Fixed GUI port instead of an ephemeral one. |
 | `LOG_DIR` | Where make writes `run.log`; defaults inside the runfiles tree, pass an absolute path to keep it pristine. |
 
@@ -201,7 +215,7 @@ another ODB without restarting the agent. Tools:
 | `floor_cycles`, `floor_cycles_nowire` | the one-flop-loop floor, with wires as built and at zero wire |
 | `skew_headroom`, `vt_headroom` | the period with useful skew (timing only, hold kept) or the cones at the fastest VT loaded, with the leakage it costs; undone after |
 | `headroom` | all of the above in one table, and how each stage ended (`.claude/skills/repair-headroom/SKILL.md`) |
-| `open target` | start `bazelisk run <target>`, an `odb_debug()` target, detached; returns at once |
+| `open target` | start the daemon on a flow stage target (`gui_<stage>`) or an `odb_debug()` target, detached; returns at once |
 | `gui` | `loading` (end of the launch log), `ready` (the GUI link and how to open it) or `stopped` |
 
 A reply longer than 16000 characters (`MAX_TEXT` in `mcp_server.py`)

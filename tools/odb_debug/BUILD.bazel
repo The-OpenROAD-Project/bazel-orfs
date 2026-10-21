@@ -45,6 +45,7 @@ py_library(
         "gui_proxy.py",
         "mcp_server.py",
         "odbdebug.py",
+        "open_gui.py",
         "webclient.py",
     ],
     imports = ["."],
@@ -61,6 +62,15 @@ py_binary(
 py_binary(
     name = "mcp_server",
     srcs = ["mcp_server.py"],
+    visibility = ["//visibility:public"],
+    deps = [":odbdebug_lib"],
+)
+
+# `bazelisk run @bazel-orfs//:odb_debug -- //<project>:<module>_<stage>`:
+# the daemon on a flow stage, detached, and its GUI link once it is ready.
+py_binary(
+    name = "open_gui",
+    srcs = ["open_gui.py"],
     visibility = ["//visibility:public"],
     deps = [":odbdebug_lib"],
 )
@@ -107,5 +117,11 @@ py_test(
 py_test(
     name = "gui_proxy_test",
     srcs = ["gui_proxy_test.py"],
+    deps = [":odbdebug_lib"],
+)
+
+py_test(
+    name = "open_gui_test",
+    srcs = ["open_gui_test.py"],
     deps = [":odbdebug_lib"],
 )
