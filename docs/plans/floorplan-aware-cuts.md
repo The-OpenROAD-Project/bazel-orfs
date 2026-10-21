@@ -16,7 +16,7 @@ The loop moves boundaries to where timing wants them, without editing
 the RTL:
 
 - **Analysis.** On a timed result, the keep census
-  (`tools/macro_select/keep_census.tcl`, in its own pull request) lists the macro pins and kept
+  (`tools/macro_select/keep_census.tcl`, #1371) lists the macro pins and kept
   modules that the paths over the target cross in the middle of a cone.
   In yosys, measure the logic between each such port and the first
   register behind it.
