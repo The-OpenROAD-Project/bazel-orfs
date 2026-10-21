@@ -176,7 +176,14 @@ repair stalled:
   register in the decode buffer loops back to itself in 2,151 ps, so no
   clocking reaches 2,000 ps and the work moves to that loop's wire,
   cells or logic (ideas/xiangshan-timing.md entry 55). Measure it first:
-  it is cheap, where skew on a whole core takes hours.
+  on the tile, loading, the full period and the floor took under an hour
+  together, where skew had not finished after 18. Read it at grt, after
+  the last repair that changes cells: the loop's clock cancels, but its
+  wire and cells do not. With zero wire and the cells as built it bounds
+  placement, skew and retiming together; with the loop's cells at their
+  fastest VT and size it bounds resizing too, and what is left above the
+  target is logic. CTS gives an early estimate, placement's wire and
+  CTS's repair, that the grt reading calibrates.
 - **Retiming** has something to work with only where `floor_retime` is
   below the period. Moving a register through its logic shifts the same
   path delays a clock arrival does, in whole gates, and the hold it breaks
