@@ -48,6 +48,18 @@ CASES = [
     ("command", "sed -i 's/foo/bar/' src/CMakeLists.txt", None),
     ("command", "git log --oneline -- CMakeLists.txt", None),
     ("command", "bazelisk build @openroad//:openroad", None),
+    # --- yosys equiv: kepler-formal LEC instead --------------------------
+    (
+        "command",
+        "yosys -p 'read_verilog a.v; equiv_make gold gate eq; equiv_simple'",
+        "kepler-formal",
+    ),
+    ("command", "timeout 600 yosys -p 'equiv_induct -seq 5'", "kepler-formal"),
+    ("command", "/usr/bin/yosys -q <<EOF\nequiv_struct\nEOF", "kepler-formal"),
+    # yosys without equiv, and writing about equiv, stay allowed
+    ("command", "yosys -p 'read_verilog a.v; synth; stat'", None),
+    ("command", "git commit -m 'surgery: kepler-formal, not equiv_simple'", None),
+    ("command", "grep -n equiv_simple docs/notes.md", None),
     # --- the OpenROAD GUI -----------------------------------------------
     ("command", "./openroad-qt -gui debug.tcl", "odb-debug"),
     ("command", "openroad -gui -no_init debug.tcl", "odb-debug"),
@@ -306,6 +318,36 @@ class PolicyTest(unittest.TestCase):
                     value,
                     expected,
                 )
+
+
+class YosysScriptTest(unittest.TestCase):
+    """A yosys run is checked against the script files it is given."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(dir=os.environ.get("TEST_TMPDIR"))
+
+    def script(self, name, text):
+        path = os.path.join(self.dir, name)
+        with open(path, "w") as f:
+            f.write(text)
+        return path
+
+    def reason(self, command):
+        return claude_reason(
+            run_guard(CLAUDE_PAYLOAD["command"](command), cwd=self.dir)
+        )
+
+    def test_equiv_in_a_script_is_denied(self):
+        p = self.script("proof.ys", "read_verilog a.v\nequiv_make gold gate eq\n")
+        self.assertIn("kepler-formal", self.reason(f"yosys -s {p}") or "")
+
+    def test_equiv_in_a_tcl_script_is_denied(self):
+        p = self.script("proof.tcl", "yosys equiv_induct -seq 3\n")
+        self.assertIn("kepler-formal", self.reason(f"yosys -c {p}") or "")
+
+    def test_a_script_without_equiv_is_allowed(self):
+        p = self.script("synth.ys", "read_verilog a.v\nsynth\n")
+        self.assertIsNone(self.reason(f"yosys -s {p}"))
 
 
 class TmpExemptionTest(unittest.TestCase):
