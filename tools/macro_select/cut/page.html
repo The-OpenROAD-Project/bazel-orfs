@@ -161,7 +161,24 @@ function hover(target, html) {
   target.addEventListener("mouseleave", () => { tip.style.display = "none"; });
 }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
-function keepText(k) { return !k ? "…" : k.length ? k.join(", ") : "nothing (flat)"; }
+// A keep list, short: past half the types, by what it flattens.
+// An instance's label: its last path component, at most 14 characters.
+function shortName(p) {
+  const last = p.split(/[\/.\\]/).pop();
+  return last.length > 14 ? last.slice(0, 13) + "…" : last;
+}
+
+function keepText(k) {
+  if (!k) return "…";
+  if (!k.length) return "nothing (flat)";
+  const n = state ? state.types.length : 0;
+  if (n && k.length === n) return "all " + n + " types";
+  if (n && k.length > n / 2) {
+    const off = state.types.filter(t => !k.includes(t));
+    return "all but " + off.join(", ");
+  }
+  return k.join(", ");
+}
 function same(a, b) { return a && b && a.length === b.length && a.every((x, i) => x === b[i]); }
 function fmt(v, d) { return v === null || v === undefined ? "–" : Number(v).toFixed(d); }
 
@@ -170,8 +187,9 @@ function render() {
   document.getElementById("title").textContent = "Module cut search: " + (state.design || state.flow);
   document.getElementById("meta").textContent =
     state.phase + (state.clock ? " · clock " + state.clock + " ps · census target " + state.target + " ps" : "") +
-    (state.types.length ? " · " + state.types.length + " module types: " + state.types.join(", ") : "") +
+    (state.types.length ? " · " + state.types.length + " module types" : "") +
     " · " + state.viewers + (state.viewers === 1 ? " viewer" : " viewers");
+  document.getElementById("meta").title = state.types.join(", ");
   document.getElementById("note").textContent = state.note || "";
   renderArms(); renderLadder(); renderGraph(); renderQueue();
 }
@@ -264,7 +282,8 @@ function renderLadder() {
       clearTimeout(renderLadder.fade);
       renderLadder.fade = setTimeout(renderLadder, 10000 - (now - landed[a.id]) + 50);
       el("circle", {cx, cy, r: 9, fill: "none", stroke: css("--mark"), "stroke-width": 2, class: "pulse"}, svg);
-      const lbl = el("text", {x: Math.min(cx + 12, W - 150), y: cy - 10, class: "lbl"}, svg);
+      // below the dot near the top, where the best and control lines sit
+      const lbl = el("text", {x: Math.min(cx + 12, W - 150), y: cy < top + 24 ? cy + 20 : cy - 10, class: "lbl"}, svg);
       lbl.textContent = "new: arm " + a.id + ", " + a.P.toFixed(1) + " ps";
     }
     hover(mark, "<b>arm " + a.id + (a.control ? " (control: the flow's own settings)" : "") + "</b>: " +
@@ -321,6 +340,7 @@ function renderGraph() {
   // each child of the top gets an angle in proportion to its own kept
   // children, which sit in a fan just outside it
   const pos = {"(top)": [320, 260]};
+  const angle = {};  // each instance's direction from the top: its label goes outward
   const ring1 = mods["(top)"] ? mods["(top)"].kids.sort() : [];
   const weight = p => 1 + mods[p].kids.length * 0.8;
   const total = ring1.reduce((s, p) => s + weight(p), 0);
@@ -332,10 +352,12 @@ function renderGraph() {
     const sub = mods[p].kids.sort();
     const r1 = sub.length ? 150 : 185;
     pos[p] = [320 + r1 * Math.cos(t), 260 + r1 * Math.sin(t)];
+    angle[p] = t;
     const fan = Math.min(2 * Math.PI * w / total * 0.9, 0.22 * sub.length);
     sub.forEach((q, j) => {
       const u = t + (sub.length > 1 ? (j / (sub.length - 1) - 0.5) * fan : 0);
       pos[q] = [320 + 225 * Math.cos(u), 260 + 225 * Math.sin(u)];
+      angle[q] = u;
     });
   }
   // flylines, both directions folded into one
@@ -375,7 +397,10 @@ function renderGraph() {
       // inside its disc: the flylines all end there
       el("text", {x: pos[p][0], y: pos[p][1] + 4, "text-anchor": "middle", class: "on-dark"}, g2).textContent = "top";
     } else if (ring1.length <= 24) {
-      el("text", {x: pos[p][0], y: pos[p][1] + rad(m) + 12, "text-anchor": "middle"}, g2).textContent = p;
+      // outward from the top, anchored on its side: neighbours fan apart
+      const a = angle[p] || 0, c = Math.cos(a), d = rad(m) + 6;
+      el("text", {x: pos[p][0] + c * d, y: pos[p][1] + Math.sin(a) * d + 4,
+        "text-anchor": c > 0.3 ? "start" : c < -0.3 ? "end" : "middle"}, g2).textContent = shortName(p);
     }
   }
 }
@@ -429,6 +454,9 @@ function connect() {
   };
 }
 addEventListener("resize", render);
+// the state the server inlined, rendered before the WebSocket connects
+const inlined = document.getElementById("initial-state");
+if (inlined) { state = JSON.parse(inlined.textContent); render(); }
 connect();
 </script>
 </body>

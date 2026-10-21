@@ -54,7 +54,11 @@ class FrameTest(unittest.TestCase):
 class ServerTest(unittest.TestCase):
     def setUp(self):
         self.srv = serve.Server(
-            "127.0.0.1", 0, "sesame", "<html>page</html>", lambda: {"phase": "x"}
+            "127.0.0.1",
+            0,
+            "sesame",
+            "<html><head></head>page</html>",
+            lambda: {"phase": "x"},
         )
         self.srv.start()
         self.cookie = "odbdebug%d=sesame" % self.srv.port
@@ -72,13 +76,18 @@ class ServerTest(unittest.TestCase):
         self.assertTrue(r.startswith(b"HTTP/1.1 302"), r[:40])
         self.assertIn(self.cookie.encode(), r)
 
-    def test_the_cookie_gets_the_page(self):
+    def test_the_cookie_gets_the_page_with_the_state_inlined(self):
         r = http(
             self.srv.port,
             "GET / HTTP/1.1\r\nHost: x\r\nCookie: %s\r\n\r\n" % self.cookie,
         )
         self.assertTrue(r.startswith(b"HTTP/1.1 200"), r[:40])
-        self.assertTrue(r.endswith(b"<html>page</html>"))
+        self.assertIn(b'<script id="initial-state" type="application/json">', r)
+        self.assertIn(b'"phase": "x"', r)
+
+    def test_a_closing_tag_in_the_state_cannot_end_the_script(self):
+        page = serve.with_state("<head></head>", b'{"note": "</script><b>"}')
+        self.assertEqual(page.count("</script>"), 1)
 
     def test_a_state_request_and_a_push(self):
         s = socket.create_connection(("127.0.0.1", self.srv.port))

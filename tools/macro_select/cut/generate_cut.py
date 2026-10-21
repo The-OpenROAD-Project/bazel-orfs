@@ -85,6 +85,14 @@ def clock_period(sdc):
     raise ValueError("%s has no create_clock -period" % sdc)
 
 
+def scrub(text, ws, home):
+    """text with no local path: the page may be watched, recorded or
+    published, so the workspace's paths are relative and the home
+    directory is ~."""
+    text = text.replace(ws + os.sep, "").replace(ws, ".")
+    return text.replace(home, "~") if home not in ("", "/") else text
+
+
 class Search(object):
     def __init__(self, args, ws):
         self.args = args
@@ -129,7 +137,12 @@ class Search(object):
                 "viewers": self.server.viewers() if self.server else 0,
             }
 
+    def local(self, text):
+        return scrub(text, self.ws, os.path.expanduser("~"))
+
     def changed(self, **kw):
+        if "note" in kw:
+            kw["note"] = self.local(kw["note"])
         with self.lock:
             for k, v in kw.items():
                 setattr(self, k, v)
@@ -333,9 +346,9 @@ class Search(object):
                 arm["done_seq"] = self.done
         except ArmFailed as e:
             with self.lock:
-                self.results[key] = {"P": None, "failed": str(e)}
+                self.results[key] = {"P": None, "failed": self.local(str(e))}
                 arm["status"] = "failed"
-                arm["step"] = str(e)
+                arm["step"] = self.local(str(e))
         self.replan()
 
     def step(self, arm, what, **kw):
@@ -419,8 +432,10 @@ class Search(object):
                     and cut.arm_key(a["keep"]) == cut.arm_key(self.types)
                     for a in running
                 )
-            if not q and not running:
+            if not running and (not q or len(self.arms) >= self.args.max_arms):
                 break
+            if len(self.arms) >= self.args.max_arms:
+                q = []
             if q and len(running) < self.args.jobs and not waiting_for_base:
                 threads.append(self.launch(q[0]))
                 continue
@@ -485,6 +500,9 @@ def main(argv):
     )
     ap.add_argument("--fresh", action="store_true", help="lay the trees out again")
     ap.add_argument(
+        "--max-arms", type=int, default=40, help="stop after this many arms"
+    )
+    ap.add_argument(
         "--idle",
         type=float,
         default=300,
@@ -501,8 +519,13 @@ def main(argv):
     out = os.path.join(cwd, args.out)
 
     s = Search(args, ws)
-    with open(runfile("tools/macro_select/cut/page.html")[0]) as f:
-        page = f.read()
+    page_path = runfile("tools/macro_select/cut/page.html")[0]
+
+    def page():
+        # read per request: an edit to the page shows on the next load
+        with open(page_path) as f:
+            return f.read()
+
     bind = odbdebug.gui_bind() or "127.0.0.1"
     token = secrets.token_urlsafe(24)
     s.server = serve.Server(bind, args.port, token, page, s.state, log=say)

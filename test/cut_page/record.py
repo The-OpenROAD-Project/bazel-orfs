@@ -3,9 +3,10 @@
     bazelisk run //test/cut_page:record -- <flow> out.json frames/
         [--every 10] [--size 1600x760] [-- generate_cut options...]
 
-Runs generate_cut with its page on 127.0.0.1, so no address or token
-reaches a frame, and Chrome for Testing's headless shell (a dev-only
-download, MODULE.bazel) takes a screenshot of it every --every seconds,
+Runs generate_cut, whose page a human can watch as usual from its link,
+and Chrome for Testing's headless shell (a dev-only download,
+MODULE.bazel) takes a screenshot of it every --every seconds (a headless
+screenshot has no address bar: no address or token reaches a frame),
 and the page's DOM beside it, until the search is done; then a last
 frame, and the search is stopped.
 
@@ -102,7 +103,7 @@ def main(argv):
     os.makedirs(frames)
     profile = tempfile.mkdtemp(prefix="cut_page_profile.", dir=frames)
 
-    env = dict(os.environ, ODB_DEBUG_GUI_BIND="127.0.0.1")
+    env = dict(os.environ)
     env.update(r.EnvVars())
     proc = subprocess.Popen(
         [gen, args.flow, args.out, "--idle", "0"] + extra,
@@ -139,6 +140,7 @@ def main(argv):
         time.sleep(0.2)
     if url is None:
         sys.exit("record: generate_cut printed no link; see %s" % log.name)
+    print("record: the page, live: %s" % url, flush=True)
 
     seen = {}  # arm id -> set of states the page showed
     console = []

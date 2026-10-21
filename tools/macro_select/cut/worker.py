@@ -6,7 +6,11 @@
 env.json is what the floorplan tree's make gives openroad (dump_env.tcl),
 taken once from the template tree: every arm is a copy of it, so its
 relative paths hold in any arm. The design is loaded as the flow's own
-open does (load.tcl), so the timing is the flow's. With --serve the
+open does (load.tcl), so the timing is the flow's, and buffered by
+repair_design -pre_placement before the census: a floorplan has not been
+buffered yet, and on riscv32i an unbuffered net of 535 loads made the
+worst period 3,981 ps against a 950 ps clock, 854 ps once buffered. The
+census measures what the keep set did to the logic, not missing buffers. With --serve the
 process stays, the OpenROAD web viewer on 127.0.0.1:PORT on the arm's
 floorplan, until the viewer is told to exit.
 """
@@ -51,6 +55,7 @@ def main(argv):
         "if { [catch {"
         " source $::env(SCRIPTS_DIR)/load.tcl;"
         " load_design 2_floorplan.odb 2_floorplan.sdc;"
+        " repair_design -pre_placement;"
         " source %s;"
         " keep_census"
         ' } msg] } { return "ERROR: $msg" }; return ok'

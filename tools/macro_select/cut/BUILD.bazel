@@ -61,3 +61,14 @@ py_test(
     srcs = ["serve_test.py"],
     deps = [":cut_lib"],
 )
+
+py_test(
+    name = "generate_cut_test",
+    size = "small",
+    srcs = [
+        "generate_cut.py",
+        "generate_cut_test.py",
+    ],
+    main = "generate_cut_test.py",
+    deps = [":cut_lib"],
+)

@@ -97,6 +97,21 @@ def page_response(body):
     return head.encode("latin-1") + data
 
 
+def with_state(page, state_json):
+    """The page with the current state inlined before </head>: it renders
+    before its load event, without waiting for the WebSocket (a first
+    paint over a slow link, and a headless capture at load that shows
+    the state)."""
+    tag = (
+        '<script id="initial-state" type="application/json">%s</script>\n'
+        % state_json.decode("utf-8").replace("</", "<\\/")
+    )
+    i = page.find("</head>")
+    if i < 0:
+        return page
+    return page[:i] + tag + page[i:]
+
+
 class Browser(object):
     """A connected page: where from, since when, last heard from, and what
     is waiting to go to it. Its own writer thread sends, so a page that
@@ -139,7 +154,8 @@ class Browser(object):
 
 
 class Server(object):
-    """Serves page_html and pushes state() to every WebSocket client.
+    """Serves page_html (a string, or a function returning it per request)
+    and pushes state() to every WebSocket client.
 
     The browser may be on another machine, behind a VPN that drops, on a
     laptop whose lid closes: a page that goes away may never send a close
@@ -246,7 +262,8 @@ class Server(object):
             if target.split("?")[0] != "/":
                 conn.sendall(gui_proxy.response(404, "Not Found", "not found\n"))
                 return
-            conn.sendall(page_response(self.page))
+            page = self.page() if callable(self.page) else self.page
+            conn.sendall(page_response(with_state(page, self._state_json())))
         except (OSError, EOFError, ValueError):
             pass
         finally:
