@@ -14,7 +14,7 @@ import argparse
 import sys
 
 BAND = 0.10
-EPS = 1.0
+EPS = 1.0  # --eps: an endpoint faster or slower by more than this counts
 
 
 def read(path):
@@ -30,7 +30,7 @@ def read(path):
     return ends
 
 
-def compare(control, other):
+def compare(control, other, eps=EPS):
     """(faster, slower, ps faster summed, ps slower summed, unmatched)
     of the band's endpoints, other against control."""
     floor = max(control.values()) * (1 - BAND)
@@ -46,10 +46,10 @@ def compare(control, other):
         if max(a, b) < floor:
             continue
         d = b - a
-        if d < -EPS:
+        if d < -eps:
             faster += 1
             gain -= d
-        elif d > EPS:
+        elif d > eps:
             slower += 1
             loss += d
     return faster, slower, gain, loss, unmatched
@@ -58,6 +58,8 @@ def compare(control, other):
 def main(argv):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--clock", type=float, required=True)
+    ap.add_argument("--eps", type=float, default=EPS)
+    ap.add_argument("--unit", default="ps")
     ap.add_argument("runs", nargs="+", metavar="name=endpoints.tsv")
     args = ap.parse_args(argv)
     runs = []
@@ -66,31 +68,35 @@ def main(argv):
         runs.append((name, read(path)))
     cname, control = runs[0]
     cmin = max(control.values())
+    u = args.unit
+    # ps to a tenth, ns to a picosecond
+    p = "%.1f" if u == "ps" else "%.3f"
     print(
         "| keep list | min reg2reg period | vs %s | band: faster | band: slower "
-        "| ps faster | ps slower |" % cname
+        "| %s faster | %s slower |" % (cname, u, u)
     )
     print("|---|---:|---:|---:|---:|---:|---:|")
     for name, ends in runs:
         pmin = max(ends.values())
         if name == cname:
             print(
-                "| %s | %.1f ps (%.1f %% of %g) | – | – | – | – | – |"
-                % (name, pmin, 100 * pmin / args.clock, args.clock)
+                ("| %s | " + p + " %s (%.1f %% of %g) | – | – | – | – | – |")
+                % (name, pmin, u, 100 * pmin / args.clock, args.clock)
             )
             continue
-        f, s, g, l, u = compare(control, ends)
+        f, s, g, l, n = compare(control, ends, args.eps)
         print(
-            "| %s | %.1f ps | %+.1f %% | %d | %d | %.0f | %.0f |%s"
+            ("| %s | " + p + " %s | %+.1f %% | %d | %d | " + p + " | " + p + " |%s")
             % (
                 name,
                 pmin,
+                u,
                 100 * (pmin - cmin) / cmin,
                 f,
                 s,
                 g,
                 l,
-                " (%d endpoints unmatched)" % u if u else "",
+                " (%d endpoints unmatched)" % n if n else "",
             )
         )
     return 0

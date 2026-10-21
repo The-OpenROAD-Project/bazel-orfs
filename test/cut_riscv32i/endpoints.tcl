@@ -14,7 +14,7 @@ set ends [find_timing_paths -from [all_registers -clock_pins] \
   -group_path_count [sta::endpoint_count] -unique_paths_to_endpoint]
 set f [open $::env(ENDPOINTS_OUT) w]
 foreach t $ends {
-  puts $f [format "%s\t%.1f" [get_full_name [get_property $t endpoint]] \
+  puts $f [format "%s\t%.6g" [get_full_name [get_property $t endpoint]] \
     [expr { $p - [get_property $t slack] }]]
 }
 close $f

@@ -16,6 +16,15 @@ load("//test/lec:lec.bzl", "lec_test")
 
 package(default_visibility = ["//visibility:private"])
 
+# test/cut_keep_size measures other designs the same way
+exports_files(
+    [
+        "endpoints.tcl",
+        "groups.tcl",
+    ],
+    visibility = ["//test/cut_keep_size:__pkg__"],
+)
+
 # The keep lists name slang's per-instance modules, <module>$<instance>.
 MAGCOMPARE2C = [
     "magcompare2c$riscv_top.riscv.dp.compare.mag21",
@@ -119,6 +128,7 @@ VARIANT = {
 py_binary(
     name = "compare",
     srcs = ["compare.py"],
+    visibility = ["//test/cut_keep_size:__pkg__"],
 )
 
 # As ORFS master runs riscv32i, for the ORFS pull request: yosys's own
