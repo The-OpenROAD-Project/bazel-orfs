@@ -89,8 +89,15 @@ STAGES = ["synth", "floorplan", "place", "cts", "grt", "route", "final"]
 # The ORFS checkout supplies these: where its platform lives, and where a
 # run writes. GENERATE_ARTIFACTS_ON_FAILURE is Bazel's: a failed action
 # must still leave its outputs to look at; make fails the step, as ORFS's
-# default does.
-DROPPED = {"WORK_HOME", "PLATFORM_DIR", "FLOW_VARIANT", "GENERATE_ARTIFACTS_ON_FAILURE"}
+# default does. So is SYNTH_REPEATABLE_BUILD: it trades the netlist's
+# debug information for cache hits, and make has no cache.
+DROPPED = {
+    "WORK_HOME",
+    "PLATFORM_DIR",
+    "FLOW_VARIANT",
+    "GENERATE_ARTIFACTS_ON_FAILURE",
+    "SYNTH_REPEATABLE_BUILD",
+}
 
 # What bazel-orfs defaults differently from ORFS: {variable: (bazel-orfs's
 # value, what ORFS does instead, and why)}. A flow's config.mk says so
