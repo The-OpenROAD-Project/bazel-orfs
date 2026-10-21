@@ -2044,9 +2044,9 @@ to its own data pin takes 2,151 ps. No clock arrival shortens a loop
 through one register, so neither useful skew nor retiming can take the
 tile below 2,151 ps, whatever they do elsewhere. 2,000 ps needs that
 loop itself to be faster: its wire (placement), its cells (VT, sizing),
-or its logic (a surgery or Chisel candidate). The floor is a lower bound:
-it covers the loops of the 1,000 worst endpoints' flops, and a loop
-outside that scope can only raise it.
+or its logic (a surgery or Chisel candidate). Scoped to the flops of the
+1,000 worst endpoints, the floor is a lower bound, and above the target
+that is conclusive: a loop outside the scope can only raise it.
 
 The stitched mass counts each block's own reg2reg paths, which the
 parent's KPI does not see; 13,744 against the parent's 5,259 is not yet
@@ -2062,8 +2062,8 @@ cells (the loop's clock cancels, its wire and cells do not):
 
 | Reading of the `decodeBufValid_3` loop | Bounds |
 |---|---|
-| with the route's wire: 2,151 ps | what the tile has |
-| zero wire, cells as built | placement, skew and retiming together |
+| `floor_cycles`, the route's wire: 2,151 ps | what skew and retiming never pass |
+| `floor_cycles_nowire`, zero wire, cells as built | skew, retiming and wire together |
 | zero wire, the loop's cells at fastest VT and size | resizing too; above 2,000 ps only logic is left (surgery, Chisel) |
 
 A flow could report the floor after grt and at the end, beside the worst
