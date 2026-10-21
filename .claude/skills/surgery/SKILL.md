@@ -139,13 +139,18 @@ synthesis knob renames the module (ORFS asap7 mock-cpu,
 
 ## The rules
 
-- **Function is kept.** Every surgery here is checked: LEC (kepler-formal,
-  or yosys `equiv_*`, as #1294's proofs do) or simulation against the
-  original, and each check has a negative control, a broken surgery that
-  must fail. A check that cannot fail proves nothing, and neither does
-  one that fails for another reason: the control checks that the proof
-  refused it (yosys's "unproven $equiv cells"), not that yosys stopped,
-  which a missing `memory` pass also does.
+- **Function is kept.** Every surgery here is checked: kepler-formal LEC
+  (`test/lec/lec.bzl`'s `lec_test`) or simulation against the original,
+  and each check has a negative control, a broken surgery that must fail.
+  A check that cannot fail proves nothing, and neither does one that
+  fails for another reason: the control checks that kepler-formal
+  reported the outputs nonequivalent, not that it stopped on an input it
+  could not read. kepler-formal is combinational: a surgery keeps the
+  registers and their names, which is the rule anyway (no register
+  added), and proofs stay at module size until its scaling fixes
+  (kepler-formal #267-#272) are in. yosys's `equiv_*` passes are too slow
+  on real designs, and the guard refuses them; #1294's yosys proofs
+  predate the rule.
 - **The hazard is an unfaithful replacement.** A generator that read
   FltRegionModule's register file combinationally from its address port,
   where the RTL registers it, made a 1,161 ps in2out path that does not

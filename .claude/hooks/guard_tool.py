@@ -76,6 +76,20 @@ CMAKE_BUILD = re.compile(
     r"(?:\S*/)?(?:cmake|ccmake|cmake-gui|cmake3|Build\.sh)(?![\w-])"
 )
 
+# yosys in command position, as cmake above. Its `equiv_*` passes may sit in
+# a `-p '...'` span or a heredoc, which the prose filter removes, so a yosys
+# run is checked against the raw command line and the script files it names.
+YOSYS_RUN = re.compile(
+    r"^(?:\w+=\S*\s+)*(?:(?:sudo|time|nohup)\s+|timeout\s+\S+\s+)*"
+    r"(?:\S*/)?yosys(?![\w-])"
+)
+EQUIV_PASS = re.compile(
+    r"(?<![\w-])equiv_(?:make|simple|induct|struct|status|miter|opt|purge|"
+    r"mark|remove|add)(?![\w-])"
+)
+# Scripts yosys reads: by extension, or the argument of -s / -c.
+YOSYS_SCRIPT = re.compile(r"\.(?:ys|tcl|script)$")
+
 # The OpenROAD Qt GUI, run rather than built: `openroad-qt` or `openroad ...
 # -gui` in command position (behind env assignments, sudo/time/nohup or a
 # timeout), or `bazel run` of either. Building `@openroad//:openroad-qt` is
@@ -411,6 +425,42 @@ def check_cmake(request):
     return None
 
 
+YOSYS_EQUIV_MESSAGE = (
+    "yosys `equiv_*` is verboten: it is too slow on real designs. Check "
+    "equivalence with kepler-formal LEC (`test/lec/lec.bzl`'s `lec_test`, the "
+    "`surgery` skill), keeping registers and their names, at module size, "
+    "with a negative control that must fail."
+)
+
+
+def yosys_scripts(segment, cwd):
+    """The script files a yosys segment reads that exist on disk."""
+    tokens = segment.split()
+    found = []
+    for i, token in enumerate(tokens):
+        if YOSYS_SCRIPT.search(token) or (i > 0 and tokens[i - 1] in ("-s", "-c")):
+            path = token if os.path.isabs(token) else os.path.join(cwd, token)
+            if os.path.isfile(path):
+                found.append(path)
+    return found
+
+
+def check_yosys_equiv(request):
+    for segment in segments(request.code):
+        if not YOSYS_RUN.match(segment):
+            continue
+        if EQUIV_PASS.search(request.command):
+            return YOSYS_EQUIV_MESSAGE
+        for path in yosys_scripts(segment, request.cwd):
+            try:
+                with open(path, errors="replace") as f:
+                    if EQUIV_PASS.search(f.read(1 << 20)):
+                        return YOSYS_EQUIV_MESSAGE
+            except OSError:
+                continue
+    return None
+
+
 OPENROAD_GUI_MESSAGE = (
     "Running the OpenROAD GUI is verboten: the agent cannot see a window, and "
     "what a GUI run reports (pin access markers, *_debug renderers, a picture) "
@@ -492,6 +542,13 @@ RULES = (
         "Building with CMake (`cmake`, `ccmake`, OpenROAD's `etc/Build.sh`) is "
         "blocked; bazel is the only build path.",
         check_cmake,
+    ),
+    (
+        "yosys-equiv",
+        "Running yosys's `equiv_*` passes is blocked, in a command line or a "
+        "script yosys is given; it is too slow. Check equivalence with "
+        "kepler-formal LEC (`test/lec`, the `surgery` skill).",
+        check_yosys_equiv,
     ),
     (
         "openroad-gui",
