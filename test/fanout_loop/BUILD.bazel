@@ -17,9 +17,10 @@ load("@rules_python//python:defs.bzl", "py_test")
     sources = {
         "POST_GLOBAL_ROUTE_TCL": ["//tools/headroom:report_floor_cycles.tcl"],
         "SDC_FILE": [sdc],
-    },
+    } | ({"PRE_CTS_TCL": ["//tools/headroom:isolate_loop_sinks.tcl"]} if variant.endswith("_iso") else {}),
     tags = ["manual"],
     top = "fanout_loop",
+    user_arguments = {"ISOLATE_LOOP_SINKS": "100"} if variant.endswith("_iso") else {},
     variant = variant,
     verilog_files = ["fanout_loop.sv"],
 ) for variant, sdc in [
@@ -29,6 +30,9 @@ load("@rules_python//python:defs.bzl", "py_test")
     # buffer back off the loop?
     ("capped_tight", ":constraints_max_fanout_tight.sdc"),
     ("base_tight", ":constraints_tight.sdc"),
+    # the same with the loops' critical sinks moved ahead of their buffers
+    # before CTS (tools/headroom/isolate_loop_sinks.tcl)
+    ("base_tight_iso", ":constraints_tight.sdc"),
 ]]
 
 [filegroup(
@@ -39,6 +43,7 @@ load("@rules_python//python:defs.bzl", "py_test")
 ) for variant in [
     "base",
     "base_tight",
+    "base_tight_iso",
     "capped",
 ]]
 
@@ -50,10 +55,12 @@ py_test(
         "$(rootpaths :fanout_loop_base_grt_logs)",
         "$(rootpaths :fanout_loop_capped_grt_logs)",
         "$(rootpaths :fanout_loop_base_tight_grt_logs)",
+        "$(rootpaths :fanout_loop_base_tight_iso_grt_logs)",
     ],
     data = [
         ":fanout_loop_base_grt_logs",
         ":fanout_loop_base_tight_grt_logs",
+        ":fanout_loop_base_tight_iso_grt_logs",
         ":fanout_loop_capped_grt_logs",
     ],
 )

@@ -10,6 +10,7 @@ exports_files(
     [
         "classify.tcl",
         "headroom_flat.tcl",
+        "isolate_loop_sinks.tcl",
         "report_floor_cycles.tcl",
         "sta_part.tcl",
     ],

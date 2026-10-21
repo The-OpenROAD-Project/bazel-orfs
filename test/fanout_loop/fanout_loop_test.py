@@ -37,6 +37,7 @@ class FanoutLoopTest(unittest.TestCase):
         cls.base = floor(find(sys.argv[1:], "base"))
         cls.capped = floor(find(sys.argv[1:], "capped"))
         cls.tight = floor(find(sys.argv[1:], "base_tight"))
+        cls.iso = floor(find(sys.argv[1:], "base_tight_iso"))
 
     def test_the_loop_is_v(self):
         self.assertTrue(self.base[1].startswith("v_out"), self.base)
@@ -61,6 +62,13 @@ class FanoutLoopTest(unittest.TestCase):
         # does, this fails, and the assertion flips to the hand result.
         self.assertGreater(self.tight[3], 0, self.tight)
         self.assertGreater(self.tight[0], self.base[0], (self.tight, self.base))
+
+    def test_isolating_the_loop_sink_gives_the_hand_result(self):
+        # tools/headroom/isolate_loop_sinks.tcl before CTS moves the loop's
+        # sink ahead of the buffer: no buffer on the loop, and the loop
+        # faster than the flow left it
+        self.assertEqual(self.iso[3], 0, self.iso)
+        self.assertLess(self.iso[0], self.tight[0], (self.iso, self.tight))
 
 
 if __name__ == "__main__":
