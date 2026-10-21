@@ -171,7 +171,12 @@ repair stalled:
 - **The one-flop-loop floor** is the hard limit for skew and retiming:
   aes-block has 296 flops on one-flop loops (its round state), so neither
   can pass 347.5 ps there. Yosys retiming (`SYNTH_RETIME_MODULES`, `abc
-  -dff`, unverified) made aes-block worse: 406 against 386 ps.
+  -dff`, unverified) made aes-block worse: 406 against 386 ps. It is
+  the first number to read against a target: on XiangShan's tile one
+  register in the decode buffer loops back to itself in 2,151 ps, so no
+  clocking reaches 2,000 ps and the work moves to that loop's wire,
+  cells or logic (ideas/xiangshan-timing.md entry 55). Measure it first:
+  it is cheap, where skew on a whole core takes hours.
 - **Retiming** has something to work with only where `floor_retime` is
   below the period. Moving a register through its logic shifts the same
   path delays a clock arrival does, in whole gates, and the hold it breaks

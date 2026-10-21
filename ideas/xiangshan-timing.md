@@ -2029,6 +2029,36 @@ Order: a scoped run (`ends = 1000`) to learn the time and memory of a
 whole tile in one OpenSTA session, then every endpoint, then the
 cohesion build with its own headroom run, one heavy job at a time.
 
+**First answer: a one-flop loop sets a floor above 2,000 ps.** The
+scoped run (`ends = 1000`, `target = 2000`) on the tile as main builds
+it (row 17), stitched in one OpenSTA session at 106 GB:
+
+| Measurement | Result |
+|---|---|
+| reg2reg period, stitched | 2,474 ps (2,504 with the blocks as abstracts) |
+| endpoints >= 2,000 ps, excess | 13,744, 1,447 ns, of 761,301 endpoints |
+| one-flop-loop floor, over the 1,642 loops in scope | **2,151 ps**, `core/backend/inner_ctrlBlock/decodeBufValid_3` |
+
+`decodeBufValid_3` is a register whose path from its own clock pin back
+to its own data pin takes 2,151 ps. No clock arrival shortens a loop
+through one register, so neither useful skew nor retiming can take the
+tile below 2,151 ps, whatever they do elsewhere. 2,000 ps needs that
+loop itself to be faster: its wire (placement), its cells (VT, sizing),
+or its logic (a surgery or Chisel candidate). The floor is a lower bound:
+it covers the loops of the 1,000 worst endpoints' flops, and a loop
+outside that scope can only raise it.
+
+The stitched mass counts each block's own reg2reg paths, which the
+parent's KPI does not see; 13,744 against the parent's 5,259 is not yet
+split into the parent's and the blocks' share.
+
+The skew measurement re-times every endpoint each round; on 761k
+endpoints it had not finished after 18 hours.
+Judging each round by the paths through the flops it moves, measuring in
+full only once, is the next change to the tool. Next on the tile: the
+`decodeBufValid_3` loop itself, wire against cells against logic, then
+the zero-wire floor (`XSTile_headroom_nowire`).
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
