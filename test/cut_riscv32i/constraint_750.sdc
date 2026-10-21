@@ -1,0 +1,21 @@
+# @orfs//flow/designs/asap7/riscv32i:constraint.sdc at 750 ps instead of 950:
+# a clock repair_timing cannot meet, so the keep lists' periods differ (at
+# 950 ps every keep list closed at the clock, BUILD.bazel).
+current_design riscv_top
+
+set clk_name clk
+set clk_port_name clk
+set clk_period 750
+set clk_io_pct 0.125
+
+set clk_port [get_ports $clk_port_name]
+
+create_clock -name $clk_name -period $clk_period $clk_port
+set clk_io_name vclk_$clk_name
+create_clock -name $clk_io_name -period $clk_period
+set_clock_latency 142.965 [get_clocks $clk_name]
+set_clock_latency 142.965 [get_clocks $clk_io_name]
+
+set non_clock_inputs [all_inputs -no_clocks]
+set_input_delay [expr $clk_period * $clk_io_pct] -clock $clk_io_name $non_clock_inputs
+set_output_delay [expr $clk_period * $clk_io_pct] -clock $clk_io_name [all_outputs]

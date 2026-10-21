@@ -1,0 +1,625 @@
+# The module-cut search's riscv32i result, confirmed in a clean build:
+# tools/macro_select/cut found keep lists at floorplan, in dirty-lane trees
+# with no wire; here each is built through global route by Bazel, as ORFS
+# builds riscv32i (@orfs//flow/designs/asap7/riscv32i, its arguments copied
+# below), and read as ORFS #4583 proposes:
+#
+#   bazelisk build //test/cut_riscv32i:table       # riscv32i's 950 ps
+#   bazelisk build //test/cut_riscv32i:table_750   # one repair cannot meet
+#
+# table.md: each keep list's minimum reg2reg period, and against the
+# control the reg2reg endpoints within 10 % of its period, faster and
+# slower. Manual: eight riscv32i flows to global route.
+load("@rules_python//python:defs.bzl", "py_binary")
+load("//:openroad.bzl", "orfs_flow", "orfs_run")
+load("//test/lec:lec.bzl", "lec_test")
+
+package(default_visibility = ["//visibility:private"])
+
+# The keep lists name slang's per-instance modules, <module>$<instance>.
+MAGCOMPARE2C = [
+    "magcompare2c$riscv_top.riscv.dp.compare.mag21",
+    "magcompare2c$riscv_top.riscv.dp.compare.mag22",
+    "magcompare2c$riscv_top.riscv.dp.compare.mag23",
+    "magcompare2c$riscv_top.riscv.dp.compare.mag24",
+    "magcompare2c$riscv_top.riscv.dp.compare.mag25",
+    "magcompare2c$riscv_top.riscv.dp.compare.mag26",
+    "magcompare2c$riscv_top.riscv.dp.compare.mag27",
+    "magcompare2c$riscv_top.riscv.dp.compare.mag28",
+    "magcompare2c$riscv_top.riscv.dp.compare.mag31",
+    "magcompare2c$riscv_top.riscv.dp.compare.mag32",
+    "magcompare2c$riscv_top.riscv.dp.compare.mag33",
+    "magcompare2c$riscv_top.riscv.dp.compare.mag34",
+    "magcompare2c$riscv_top.riscv.dp.compare.mag39",
+    "magcompare2c$riscv_top.riscv.dp.compare.mag3A",
+    "magcompare2c$riscv_top.riscv.dp.compare.mag3F",
+]
+
+MAGCOMPARE32 = ["magcompare32$riscv_top.riscv.dp.compare"]
+
+# Every keep list replaces the size rule: only the named modules are kept.
+ONLY = {"SYNTH_MINIMUM_KEEP_SIZE": "1000000000"}
+
+KEEPS = {
+    # riscv32i's own config.mk: SYNTH_MINIMUM_KEEP_SIZE=10000 kept dmem
+    "control": {},
+    "flat": ONLY | {"SYNTH_KEEP_MODULES": ""},
+    "best": ONLY | {"SYNTH_KEEP_MODULES": " ".join(MAGCOMPARE2C)},
+    "runner_up": ONLY | {"SYNTH_KEEP_MODULES": " ".join(MAGCOMPARE2C + MAGCOMPARE32)},
+}
+
+ARGUMENTS = {
+    "CORE_MARGIN": "5",
+    "CORE_UTILIZATION": "62",
+    "CTS_CLUSTER_DIAMETER": "50",
+    "CTS_CLUSTER_SIZE": "10",
+    "OPENROAD_HIERARCHICAL": "1",
+    "PLACE_DENSITY_LB_ADDON": "0.10",
+    "RTLMP_MIN_CHANNEL_SIZE": "8 8",
+    "SWAP_ARITH_OPERATORS": "1",
+    "SYNTH_HDL_FRONTEND": "slang",
+    "SYNTH_HIERARCHICAL": "1",
+    "SYNTH_MINIMUM_KEEP_SIZE": "10000",
+    "SYNTH_NUM_PARTITIONS": "32",
+    "SYNTH_REPEATABLE_BUILD": "1",
+    "TNS_END_PERCENT": "100",
+}
+
+SOURCES = {
+    "ADDITIONAL_LEFS": ["@orfs//flow:platforms/asap7/lef/fakeram7_256x32.lef"],
+    "ADDITIONAL_LIBS": ["@orfs//flow:platforms/asap7/lib/NLDM/fakeram7_256x32.lib"],
+    "IO_CONSTRAINTS": ["@orfs//flow/designs/asap7/riscv32i:io.tcl"],
+}
+
+# riscv32i's own clock, and one repair_timing cannot meet: at 950 ps every
+# keep list closed at the clock and the comparison said nothing.
+CLOCKS = {
+    "950": "@orfs//flow/designs/asap7/riscv32i:constraint.sdc",
+    "750": ":constraint_750.sdc",
+}
+
+# keep list and clock -> flow variant: riscv32i's own clock keeps the name
+VARIANT = {
+    (keep, clock): keep if clock == "950" else "%s_%s" % (keep, clock)
+    for keep in KEEPS
+    for clock in CLOCKS
+}
+
+[
+    orfs_flow(
+        name = "riscv_top",
+        arguments = ARGUMENTS | extra,
+        last_stage = "grt",
+        sources = SOURCES | {"SDC_FILE": [sdc]},
+        tags = ["manual"],
+        top = "riscv_top",
+        variant = VARIANT[(keep, clock)],
+        verilog_files = ["@orfs//flow/designs/src/riscv32i:verilog"],
+    )
+    for keep, extra in KEEPS.items()
+    for clock, sdc in CLOCKS.items()
+]
+
+[
+    orfs_run(
+        name = "riscv_top_%s_endpoints" % VARIANT[(keep, clock)],
+        src = ":riscv_top_%s_grt" % VARIANT[(keep, clock)],
+        outs = ["%s_endpoints.tsv" % VARIANT[(keep, clock)]],
+        script = "endpoints.tcl",
+        tags = ["manual"],
+        user_arguments = {
+            "ENDPOINTS_OUT": "$(location %s_endpoints.tsv)" % VARIANT[(keep, clock)],
+        },
+        variant = VARIANT[(keep, clock)],
+    )
+    for keep in KEEPS
+    for clock in CLOCKS
+]
+
+py_binary(
+    name = "compare",
+    srcs = ["compare.py"],
+)
+
+# As ORFS master runs riscv32i, for the ORFS pull request: yosys's own
+# frontend (its config.mk names none) and no partitioned synthesis, with
+# OpenROAD hierarchical as its config.mk sets (SWAP_ARITH_OPERATORS needs it); the keep is the plain module name, since yosys
+# does not give every instance a module of its own as slang does.
+ORFS_ARGUMENTS = {
+    k: v
+    for k, v in ARGUMENTS.items()
+    if k != "SYNTH_NUM_PARTITIONS"
+} | {
+    "SYNTH_HDL_FRONTEND": "",
+}
+
+ORFS_KEEPS = {
+    "orfs_control": {},
+    "orfs_best": ONLY | {"SYNTH_KEEP_MODULES": "magcompare2c"},
+    # what the ORFS pull request proposes: riscv32i's config.mk without
+    # SYNTH_HIERARCHICAL=1, whose SYNTH_MINIMUM_KEEP_SIZE kept dmem
+    "orfs_flat": {"SYNTH_HIERARCHICAL": "0"},
+}
+
+[
+    orfs_flow(
+        name = "riscv_top",
+        arguments = ORFS_ARGUMENTS | extra,
+        last_stage = "grt",
+        sources = SOURCES | {"SDC_FILE": [":constraint_750.sdc"]},
+        tags = ["manual"],
+        top = "riscv_top",
+        variant = keep + "_750",
+        verilog_files = ["@orfs//flow/designs/src/riscv32i:verilog"],
+        yosys_frontend_reason = "ORFS master reads riscv32i with read_verilog; the ORFS pull request is measured as ORFS runs it",
+    )
+    for keep, extra in ORFS_KEEPS.items()
+]
+
+[
+    orfs_run(
+        name = "riscv_top_%s_750_endpoints" % keep,
+        src = ":riscv_top_%s_750_grt" % keep,
+        outs = ["%s_750_endpoints.tsv" % keep],
+        script = "endpoints.tcl",
+        tags = ["manual"],
+        user_arguments = {"ENDPOINTS_OUT": "$(location %s_750_endpoints.tsv)" % keep},
+        variant = keep + "_750",
+    )
+    for keep in ORFS_KEEPS
+]
+
+[
+    genrule(
+        name = "table" if clock == "950" else "table_" + clock,
+        srcs = ["%s_endpoints.tsv" % VARIANT[(keep, clock)] for keep in KEEPS],
+        outs = ["table_%s.md" % clock],
+        cmd = "$(execpath :compare) --clock %s " % clock + " ".join([
+            "%s=$(location %s_endpoints.tsv)" % (
+                keep,
+                VARIANT[(keep, clock)],
+            )
+            for keep in KEEPS
+        ]) + " > $@",
+        tags = ["manual"],
+        tools = [":compare"],
+    )
+    for clock in CLOCKS
+]
+
+# The clock for the ORFS pull request: flat synthesis under ORFS's own
+# settings at a sweep of periods, built side by side; the one whose global
+# route ends just negative on a reg2reg path is the SDC the pull request
+# proposes. Each SDC is riscv32i's own with only the period changed.
+SWEEP = [
+    "780",
+    "800",
+    "820",
+    "840",
+    "860",
+]
+
+[
+    genrule(
+        name = "constraint_%s" % clock,
+        srcs = ["@orfs//flow/designs/asap7/riscv32i:constraint.sdc"],
+        outs = ["constraint_%s.sdc" % clock],
+        cmd = "sed 's/^set clk_period 950$$/set clk_period %s/' $< > $@ && grep -q 'clk_period %s$$' $@" % (clock, clock),
+    )
+    for clock in SWEEP
+]
+
+[
+    orfs_flow(
+        name = "riscv_top",
+        arguments = ORFS_ARGUMENTS | ORFS_KEEPS["orfs_flat"],
+        last_stage = "grt",
+        sources = SOURCES | {"SDC_FILE": [":constraint_%s" % clock]},
+        tags = ["manual"],
+        top = "riscv_top",
+        variant = "orfs_flat_" + clock,
+        verilog_files = ["@orfs//flow/designs/src/riscv32i:verilog"],
+        yosys_frontend_reason = "ORFS master reads riscv32i with read_verilog; the ORFS pull request is measured as ORFS runs it",
+    )
+    for clock in SWEEP
+]
+
+[
+    orfs_run(
+        name = "riscv_top_orfs_flat_%s_report" % clock,
+        src = ":riscv_top_orfs_flat_%s_grt" % clock,
+        outs = ["orfs_flat_%s_report.txt" % clock],
+        script = "groups.tcl",
+        tags = ["manual"],
+        user_arguments = {"REPORT_OUT": "$(location orfs_flat_%s_report.txt)" % clock},
+        variant = "orfs_flat_" + clock,
+    )
+    for clock in SWEEP
+]
+
+[
+    orfs_run(
+        name = "riscv_top_%s_750_report" % keep,
+        src = ":riscv_top_%s_750_grt" % keep,
+        outs = ["%s_750_report.txt" % keep],
+        script = "groups.tcl",
+        tags = ["manual"],
+        user_arguments = {"REPORT_OUT": "$(location %s_750_report.txt)" % keep},
+        variant = keep + "_750",
+    )
+    for keep in ORFS_KEEPS
+]
+
+# SWAP_ARITH_OPERATORS off, at 750 ps: does swapping adders help, and do
+# the kept adder-architecture modules it adds cut the cones it means to
+# speed up? The control and the best, against their swap-on builds above.
+[
+    orfs_flow(
+        name = "riscv_top",
+        arguments = ARGUMENTS | KEEPS[keep] | {"SWAP_ARITH_OPERATORS": "0"},
+        last_stage = "grt",
+        sources = SOURCES | {"SDC_FILE": [":constraint_750.sdc"]},
+        tags = ["manual"],
+        top = "riscv_top",
+        variant = keep + "_750_swap0",
+        verilog_files = ["@orfs//flow/designs/src/riscv32i:verilog"],
+    )
+    for keep in [
+        "control",
+        "best",
+    ]
+]
+
+[
+    orfs_run(
+        name = "riscv_top_%s_750_swap0_endpoints" % keep,
+        src = ":riscv_top_%s_750_swap0_grt" % keep,
+        outs = ["%s_750_swap0_endpoints.tsv" % keep],
+        script = "endpoints.tcl",
+        tags = ["manual"],
+        user_arguments = {"ENDPOINTS_OUT": "$(location %s_750_swap0_endpoints.tsv)" % keep},
+        variant = keep + "_750_swap0",
+    )
+    for keep in [
+        "control",
+        "best",
+    ]
+]
+
+# Surgery, for the ORFS pull request's "how much more": magcompare32 as
+# operators (surgery.py), which SYNTH_VERILOG_SURGERY (ORFS patch 0094,
+# not in ORFS master) applies before synthesis. Checked by kepler-formal
+# on the whole design, with a negative control that must differ.
+RISCV32I_SOURCES = [
+    "adder.v",
+    "alu.v",
+    "aludec.v",
+    "controller.v",
+    "datapath.v",
+    "dmem.v",
+    "flopenr.v",
+    "flopens.v",
+    "flopr.v",
+    "magcompare2b.v",
+    "magcompare2c.v",
+    "magcompare32.v",
+    "maindec.v",
+    "mux2.v",
+    "mux3.v",
+    "mux4.v",
+    "mux5.v",
+    "mux8.v",
+    "regfile.v",
+    "riscv.v",
+    "rom.v",
+    "shifter.v",
+    "signext.v",
+    "top.v",
+]
+
+[
+    genrule(
+        name = "surgery_" + kind,
+        srcs = ["@orfs//flow/designs/src/riscv32i:verilog"],
+        outs = ["surgery_%s/%s" % (kind, f) for f in RISCV32I_SOURCES],
+        cmd = "python3 -I $(location surgery.py) %s--out-dir $(RULEDIR)/surgery_%s -- $(locations @orfs//flow/designs/src/riscv32i:verilog)" % (
+            "--wrong " if kind == "wrong" else "",
+            kind,
+        ),
+        tools = ["surgery.py"],
+    )
+    for kind in [
+        "right",
+        "wrong",
+    ]
+]
+
+# The check is the comparator alone, the only module the surgery changes:
+# slang, kepler-formal's reader, refuses the whole design because three of
+# its files set a timescale and the rest do not (ORFS's synthesis passes
+# --ignore-timing for it), and the comparator's files set none.
+COMPARE = [
+    "magcompare2b.v",
+    "magcompare2c.v",
+    "magcompare32.v",
+]
+
+genrule(
+    name = "compare_gold",
+    srcs = ["@orfs//flow/designs/src/riscv32i:verilog"],
+    outs = ["compare_gold/" + f for f in COMPARE],
+    cmd = " && ".join([
+        "cp $$(echo $(locations @orfs//flow/designs/src/riscv32i:verilog) | tr ' ' '\\n' | grep '/%s$$') $(RULEDIR)/compare_gold/%s" % (f, f)
+        for f in COMPARE
+    ]),
+)
+
+[
+    lec_test(
+        name = "surgery_lec_test" if kind == "right" else "surgery_wrong_lec_test",
+        expect_equivalent = kind == "right",
+        frontend = "sv",
+        gate_verilog_files = [":surgery_%s/magcompare32.v" % kind],
+        gold_verilog_files = [":compare_gold"],
+    )
+    for kind in [
+        "right",
+        "wrong",
+    ]
+]
+
+orfs_flow(
+    name = "riscv_top",
+    arguments = ORFS_ARGUMENTS | ORFS_KEEPS["orfs_flat"] | {
+        "SYNTH_VERILOG_SURGERY": "$(location :surgery.py)",
+    },
+    last_stage = "grt",
+    sources = SOURCES | {"SDC_FILE": [":constraint_750.sdc"]},
+    stage_data = {"synth": [":surgery.py"]},
+    tags = ["manual"],
+    top = "riscv_top",
+    variant = "orfs_flat_surgery_750",
+    verilog_files = ["@orfs//flow/designs/src/riscv32i:verilog"],
+    yosys_frontend_reason = "ORFS master reads riscv32i with read_verilog; the ORFS pull request is measured as ORFS runs it",
+)
+
+orfs_run(
+    name = "riscv_top_orfs_flat_surgery_750_endpoints",
+    src = ":riscv_top_orfs_flat_surgery_750_grt",
+    outs = ["orfs_flat_surgery_750_endpoints.tsv"],
+    script = "endpoints.tcl",
+    tags = ["manual"],
+    user_arguments = {"ENDPOINTS_OUT": "$(location orfs_flat_surgery_750_endpoints.tsv)"},
+    variant = "orfs_flat_surgery_750",
+)
+
+# What riscv32i's size rule keeps once a macro's area does not count
+# towards its parent's size: dmem's own logic is 56 um^2 beside its four
+# SRAMs' 1,376, so nothing is kept (checked with the rule changed in a
+# dirty-lane copy of synth_preamble.tcl's convert_liberty_areas). Built
+# here as that outcome, under ORFS's own settings: no ORFS patch is needed.
+orfs_flow(
+    name = "riscv_top",
+    arguments = ORFS_ARGUMENTS | ONLY | {"SYNTH_KEEP_MODULES": ""},
+    last_stage = "grt",
+    sources = SOURCES | {"SDC_FILE": [":constraint_750.sdc"]},
+    tags = ["manual"],
+    top = "riscv_top",
+    variant = "orfs_rule_750",
+    verilog_files = ["@orfs//flow/designs/src/riscv32i:verilog"],
+    yosys_frontend_reason = "ORFS master reads riscv32i with read_verilog; the ORFS pull request is measured as ORFS runs it",
+)
+
+orfs_run(
+    name = "riscv_top_orfs_rule_750_endpoints",
+    src = ":riscv_top_orfs_rule_750_grt",
+    outs = ["orfs_rule_750_endpoints.tsv"],
+    script = "endpoints.tcl",
+    tags = ["manual"],
+    user_arguments = {"ENDPOINTS_OUT": "$(location orfs_rule_750_endpoints.tsv)"},
+    variant = "orfs_rule_750",
+)
+
+# The SDC the ORFS pull request proposes: 820 ps, where flat synthesis
+# ends just negative on reg2reg, with the inputs' budget lowered from
+# 12.5 % of the period: at 12.5 % an input-to-register path (instr into the
+# register file) set WNS at every clock swept. Each with ORFS today and
+# with flat synthesis; groups.tcl reports the WNS group and hold buffers.
+IO_PCT = [
+    "0.05",
+    "0.08",
+]
+
+[
+    genrule(
+        name = "constraint_820_io%s" % pct[2:],
+        srcs = ["@orfs//flow/designs/asap7/riscv32i:constraint.sdc"],
+        outs = ["constraint_820_io%s.sdc" % pct[2:]],
+        cmd = "sed -e 's/^set clk_period 950$$/set clk_period 820/' -e 's/^set clk_io_pct 0.125$$/set clk_io_pct %s/' $< > $@ && grep -q 'clk_period 820$$' $@ && grep -q 'clk_io_pct %s$$' $@" % (pct, pct),
+    )
+    for pct in IO_PCT
+]
+
+[
+    orfs_flow(
+        name = "riscv_top",
+        arguments = ORFS_ARGUMENTS | ORFS_KEEPS[keep],
+        last_stage = "grt",
+        sources = SOURCES | {"SDC_FILE": [":constraint_820_io%s" % pct[2:]]},
+        tags = ["manual"],
+        top = "riscv_top",
+        variant = "%s_820_io%s" % (
+            keep,
+            pct[2:],
+        ),
+        verilog_files = ["@orfs//flow/designs/src/riscv32i:verilog"],
+        yosys_frontend_reason = "ORFS master reads riscv32i with read_verilog; the ORFS pull request is measured as ORFS runs it",
+    )
+    for keep in [
+        "orfs_control",
+        "orfs_flat",
+    ]
+    for pct in IO_PCT
+]
+
+[
+    [
+        orfs_run(
+            name = "riscv_top_%s_820_io%s_%s" % (
+                keep,
+                pct[2:],
+                what,
+            ),
+            src = ":riscv_top_%s_820_io%s_grt" % (
+                keep,
+                pct[2:],
+            ),
+            outs = ["%s_820_io%s_%s.%s" % (
+                keep,
+                pct[2:],
+                what,
+                "tsv" if what == "endpoints" else "txt",
+            )],
+            script = "endpoints.tcl" if what == "endpoints" else "groups.tcl",
+            tags = ["manual"],
+            user_arguments = {
+                ("ENDPOINTS_OUT" if what == "endpoints" else "REPORT_OUT"): "$(location %s_820_io%s_%s.%s)" % (
+                    keep,
+                    pct[2:],
+                    what,
+                    "tsv" if what == "endpoints" else "txt",
+                ),
+            },
+            variant = "%s_820_io%s" % (
+                keep,
+                pct[2:],
+            ),
+        )
+        for what in [
+            "endpoints",
+            "report",
+        ]
+    ]
+    for keep in [
+        "orfs_control",
+        "orfs_flat",
+    ]
+    for pct in IO_PCT
+]
+
+# Wave C, the SDC the ORFS pull request proposes: 800 ps, with the input
+# and output budgets lowered from 12.5 % of the period until WNS is a
+# reg2reg path; today's keep and flat synthesis, each with
+# SWAP_ARITH_OPERATORS on (riscv32i's config.mk) and off.
+# clock and IO budget pairs: 800 ps first, then 780 ps, where flat ends
+# just negative
+CLOCK_IO = [
+    ("800", "0.02"),
+    ("800", "0.05"),
+    ("780", "0.02"),
+]
+
+SWAP = {
+    "": {},
+    "_swap0": {"SWAP_ARITH_OPERATORS": "0"},
+}
+
+[
+    genrule(
+        name = "constraint_%s_io%s" % (
+            clock,
+            pct[2:],
+        ),
+        srcs = ["@orfs//flow/designs/asap7/riscv32i:constraint.sdc"],
+        outs = ["constraint_%s_io%s.sdc" % (
+            clock,
+            pct[2:],
+        )],
+        cmd = "sed -e 's/^set clk_period 950$$/set clk_period %s/' -e 's/^set clk_io_pct 0.125$$/set clk_io_pct %s/' $< > $@ && grep -q 'clk_period %s$$' $@ && grep -q 'clk_io_pct %s$$' $@" % (clock, pct, clock, pct),
+    )
+    for clock, pct in CLOCK_IO
+]
+
+[
+    orfs_flow(
+        name = "riscv_top",
+        arguments = ORFS_ARGUMENTS | ORFS_KEEPS[keep] | extra,
+        last_stage = "grt",
+        sources = SOURCES | {"SDC_FILE": [":constraint_%s_io%s" % (
+            clock,
+            pct[2:],
+        )]},
+        tags = ["manual"],
+        top = "riscv_top",
+        variant = "%s_%s_io%s%s" % (
+            keep,
+            clock,
+            pct[2:],
+            swap,
+        ),
+        verilog_files = ["@orfs//flow/designs/src/riscv32i:verilog"],
+        yosys_frontend_reason = "ORFS master reads riscv32i with read_verilog; the ORFS pull request is measured as ORFS runs it",
+    )
+    for keep in [
+        "orfs_control",
+        "orfs_flat",
+    ]
+    for clock, pct in CLOCK_IO
+    for swap, extra in SWAP.items()
+]
+
+[
+    [
+        orfs_run(
+            name = "riscv_top_%s_%s_io%s%s_%s" % (
+                keep,
+                clock,
+                pct[2:],
+                swap,
+                what,
+            ),
+            src = ":riscv_top_%s_%s_io%s%s_grt" % (
+                keep,
+                clock,
+                pct[2:],
+                swap,
+            ),
+            outs = ["%s_%s_io%s%s_%s.%s" % (
+                keep,
+                clock,
+                pct[2:],
+                swap,
+                what,
+                "tsv" if what == "endpoints" else "txt",
+            )],
+            script = "endpoints.tcl" if what == "endpoints" else "groups.tcl",
+            tags = ["manual"],
+            user_arguments = {
+                ("ENDPOINTS_OUT" if what == "endpoints" else "REPORT_OUT"): "$(location %s_%s_io%s%s_%s.%s)" % (
+                    keep,
+                    clock,
+                    pct[2:],
+                    swap,
+                    what,
+                    "tsv" if what == "endpoints" else "txt",
+                ),
+            },
+            variant = "%s_%s_io%s%s" % (
+                keep,
+                clock,
+                pct[2:],
+                swap,
+            ),
+        )
+        for what in [
+            "endpoints",
+            "report",
+        ]
+    ]
+    for keep in [
+        "orfs_control",
+        "orfs_flat",
+    ]
+    for clock, pct in CLOCK_IO
+    for swap in SWAP
+]
