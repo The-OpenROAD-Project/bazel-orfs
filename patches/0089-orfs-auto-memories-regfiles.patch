@@ -187,7 +187,7 @@ index d6c9b7aa4..3fe7a9c50 100644
 +- [AUTO_MEMORIES_MACRO_PLACE](FlowVariables.md#AUTO_MEMORIES_MACRO_PLACE)
 +- [AUTO_MEMORIES_REGFILES](FlowVariables.md#AUTO_MEMORIES_REGFILES)
 diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
-index c503aa30f..b5290419a 100644
+index 8d32a9d6a..1ae8bae2a 100644
 --- a/docs/user/FlowVariables.md
 +++ b/docs/user/FlowVariables.md
 @@ -104,6 +104,8 @@ configuration file.
@@ -199,7 +199,7 @@ index c503aa30f..b5290419a 100644
  | <a name="BALANCE_ROWS"></a>BALANCE_ROWS| Balance rows during placement.| 0|
  | <a name="BLOCKS"></a>BLOCKS| Blocks used as hard macros in a hierarchical flow. Do note that you have to specify block-specific inputs file in the directory mentioned by Makefile.| |
  | <a name="BUFFER_PORTS_ARGS"></a>BUFFER_PORTS_ARGS| Specify arguments to the buffer_ports call during placement. Only used if DONT_BUFFER_PORTS=0.| |
-@@ -346,6 +348,8 @@ configuration file.
+@@ -347,6 +349,8 @@ configuration file.
  - [ABC_SCRIPT](#ABC_SCRIPT)
  - [ADDER_MAP_FILE](#ADDER_MAP_FILE)
  - [ADDITIONAL_MEMORIES](#ADDITIONAL_MEMORIES)
@@ -1827,10 +1827,10 @@ index 000000000..a797461fb
 +  }
 +}
 diff --git a/flow/scripts/synth_preamble.tcl b/flow/scripts/synth_preamble.tcl
-index 0d5d45873..7d3fd037e 100644
+index 2ed680656..699e57ebf 100644
 --- a/flow/scripts/synth_preamble.tcl
 +++ b/flow/scripts/synth_preamble.tcl
-@@ -81,6 +81,38 @@ proc auto_memories_blackboxes { } {
+@@ -83,6 +83,38 @@ proc auto_memories_blackboxes { } {
    return [dict keys [auto_memories_areas]]
  }
  
@@ -1869,7 +1869,7 @@ index 0d5d45873..7d3fd037e 100644
  proc read_design_sources { } {
    # We are reading Verilog sources
    source $::env(SCRIPTS_DIR)/synth_stdcells.tcl
-@@ -141,7 +173,7 @@ proc read_design_sources { } {
+@@ -143,7 +175,7 @@ proc read_design_sources { } {
  
      # Blackbox AUTO_MEMORIES-detected memory modules so their generated
      # liberty view wins over their behavioral bodies.
@@ -1878,15 +1878,15 @@ index 0d5d45873..7d3fd037e 100644
        lappend slang_args --blackboxed-module "$m"
      }
  
-@@ -149,6 +181,7 @@ proc read_design_sources { } {
-     lappend slang_args {*}$::env(SYNTH_SLANG_ARGS)
+@@ -152,6 +184,7 @@ proc read_design_sources { } {
  
      yosys read_slang {*}$slang_args
+     auto_memories_check_blackboxed [auto_memories_blackboxes]
 +    read_auto_memories_inline
  
      # Workaround for yosys-slang#119
      setattr -unset init
-@@ -170,7 +203,7 @@ proc read_design_sources { } {
+@@ -173,7 +206,7 @@ proc read_design_sources { } {
      if { [env_var_exists_and_non_empty SYNTH_BLACKBOXES] } {
        error "Non-empty SYNTH_BLACKBOXES unsupported with HDL frontend \"verific\""
      }
@@ -1895,7 +1895,7 @@ index 0d5d45873..7d3fd037e 100644
        error "AUTO_MEMORIES unsupported with HDL frontend \"$::env(SYNTH_HDL_FRONTEND)\""
      }
    } elseif { ![env_var_exists_and_non_empty SYNTH_HDL_FRONTEND] } {
-@@ -204,6 +237,10 @@ proc read_design_sources { } {
+@@ -209,6 +242,10 @@ proc read_design_sources { } {
        }
        hierarchy -check -top $::env(DESIGN_NAME)
      }
@@ -1907,7 +1907,7 @@ index 0d5d45873..7d3fd037e 100644
        hierarchy -check -top $::env(DESIGN_NAME)
        foreach m $::env(SYNTH_BLACKBOXES) {
 diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
-index c094bdc47..1d2a98523 100644
+index 2810d1ec8..dbc839a39 100644
 --- a/flow/scripts/variables.json
 +++ b/flow/scripts/variables.json
 @@ -74,6 +74,18 @@
@@ -1930,7 +1930,7 @@ index c094bdc47..1d2a98523 100644
      "default": 0,
      "description": "Balance rows during placement.\n",
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
-index a994f7ec9..9d460de70 100644
+index f8e324b28..1f99079a5 100644
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
 @@ -256,6 +256,37 @@ SYNTH_VERILOG_SURGERY_ARGS:

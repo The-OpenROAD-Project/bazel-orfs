@@ -98,7 +98,7 @@ bazel_dep(name = "aspect_rules_js", version = "3.5.1")
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
-    integrity = "sha256-i7dgOt4Jfu1T4BUReQRCy82o1yP7XN3DDZrFtwC6TiY=",
+    integrity = "sha256-G+ZJuzv0hzWpc2ls6VBrGSmc7kRY+YJuqxGyObJISSk=",
     # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
     # so vendor src/sta (OpenSTA) and third-party/abc from their own
     # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
@@ -106,7 +106,7 @@ archive_override(
     # aren't covered by archive_override's integrity.  Regenerated
     # by bump.py on every commit bump; do not edit by hand.
     patch_cmds = [
-        "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-src-sta-3ebab02e2e6572925962bb157f9a406e30a38c3a.tar.gz https://github.com/The-OpenROAD-Project/OpenSTA/archive/3ebab02e2e6572925962bb157f9a406e30a38c3a.tar.gz && echo '24a81d9e385ff90666815d4e297f57441eef23abde9e41b497592ed788afdcad  .openroad-submodule-src-sta-3ebab02e2e6572925962bb157f9a406e30a38c3a.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-src-sta-3ebab02e2e6572925962bb157f9a406e30a38c3a.tar.gz --strip-components=1 -C src/sta && rm .openroad-submodule-src-sta-3ebab02e2e6572925962bb157f9a406e30a38c3a.tar.gz",
+        "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-src-sta-84c4d7e133d3b1a54352c97c6a5df3140c71c78c.tar.gz https://github.com/The-OpenROAD-Project/OpenSTA/archive/84c4d7e133d3b1a54352c97c6a5df3140c71c78c.tar.gz && echo 'd5399cfb798b304b70c6ea60631369b5d19e2210c1d673c8b3e9b44a2168a126  .openroad-submodule-src-sta-84c4d7e133d3b1a54352c97c6a5df3140c71c78c.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-src-sta-84c4d7e133d3b1a54352c97c6a5df3140c71c78c.tar.gz --strip-components=1 -C src/sta && rm .openroad-submodule-src-sta-84c4d7e133d3b1a54352c97c6a5df3140c71c78c.tar.gz",
         "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz https://github.com/The-OpenROAD-Project/abc/archive/d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz && echo '0cbf538e60d0303d0e00360d8973aaad7dae198954bed6e34cc31c9a13b3f802  .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz --strip-components=1 -C third-party/abc && rm .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz",
         # write_timing_model gave an output a constant drives no arc and
         # no function, so a parent found nothing arriving there and
@@ -130,11 +130,6 @@ archive_override(
     ],
     patch_strip = 1,
     patches = [
-        # CTS connected its dummy loads to the flat net only, so read back
-        # they were off the leaf net and their capacitance unseen. Upstream
-        # as OpenROAD#11719, which creates the dummy in the loaded buffer's
-        # module; retires at a bump onto an OpenROAD that has it.
-        "//patches:0112-openroad-cts-dummy-load-hier.patch",
         # detailed_placement checks, before its search, that the cells can be
         # legalized at all within the displacement window: Hall's condition on
         # windows, demand of cells against the free sites they can reach. A
@@ -248,8 +243,8 @@ archive_override(
         # opened cramped). Not upstreamed; retires with 0142.
         "//patches:0144-openroad-web-columns-measured-from-rows.patch",
     ],
-    strip_prefix = "OpenROAD-72228b6e2a2c82c9223b2ddecfc4e62b17c14c77",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/72228b6e2a2c82c9223b2ddecfc4e62b17c14c77.tar.gz"],
+    strip_prefix = "OpenROAD-bcc4a9be682df955669e6ecbcb78f29bf6546af1",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bcc4a9be682df955669e6ecbcb78f29bf6546af1.tar.gz"],
 )
 
 # sed (transitive: abc -> ncurses -> sed): its vendored gnulib headers shadow
@@ -269,19 +264,6 @@ single_version_override(
 # build-time deps ship. OpenROAD applies these fixes as the root module, so
 # they don't propagate when we build @openroad as a dependency — every root
 # that builds OpenROAD from source must repeat them. Keep in sync on each bump.
-
-# bison (transitive: rules_bison -> bison): gnulib wrapper headers must precede
-# libc via -I, not -isystem (BCR #7642). Still unfixed upstream: 3.8.2.bcr.8
-# is published but is an unrelated change (its BUILD.bazel overlay is
-# byte-identical to bcr.7's), so the patch stays and the pin stays here.
-single_version_override(
-    module_name = "bison",
-    patch_strip = 1,
-    patches = [
-        "//patches:0001-gnulib-wrapper-headers-use-I-not-isystem.patch",
-    ],
-    version = "3.8.2.bcr.7",
-)
 
 # boost.icl: exclusive_less_than violates strict weak ordering (boostorg/icl#51);
 # under libc++ this leaves phantom intervals after interval_set subtraction
@@ -319,17 +301,6 @@ single_version_override(
     version = "9.2.3.bcr.1",
 )
 
-# rules_bison (transitive: openroad -> rules_bison): the BUILD its
-# bison_repository generates calls cc_binary/cc_library with no load(),
-# which Bazel 9 rejects. 0.4.bcr.1 emits the loads; its toolchain_info.bzl is
-# unchanged from 0.3.1, so @openroad's bazel/bison.bzl genyacc -- which reads
-# `bison_env["M4"]` and `["BISON_PKGDATADIR"]` straight off the toolchain --
-# keeps working.
-single_version_override(
-    module_name = "rules_bison",
-    version = "0.4.bcr.1",
-)
-
 # gawk (transitive: abc -> ncurses -> gawk; yosys -> gawk): same gnulib
 # libc-header shadowing as sed (BCR #7642); 5.3.2.bcr.7 has the fix (BCR #7989).
 single_version_override(
@@ -337,7 +308,7 @@ single_version_override(
     version = "5.3.2.bcr.7",
 )
 
-# m4 (transitive: rules_bison/rules_flex -> m4): same gnulib libc-header
+# m4 (transitive: bison/rules_flex -> m4): same gnulib libc-header
 # shadowing under hermetic-llvm (BCR #7642).
 single_version_override(
     module_name = "m4",
@@ -663,8 +634,8 @@ orfs = use_extension("//:extension.bzl", "orfs_repositories")
 # `patches` on an override is honoured only from the root module and
 # would therefore land on whoever is root. Rewritten by //:bump.
 orfs.source(
-    commit = "f52850725e4ffe4030175328aa976cd8fb4943b9",
-    integrity = "sha256-z0+lYKA4Eq3Oxp0bnXSBA+vfw/rbktER4/nw4OVaIVI=",
+    commit = "0b56643596e8ffd41b929858107c36602e0644f5",
+    integrity = "sha256-Xmv5HAgpZenTNG1iSsemvGItJruue5R+bmqyp6jHgds=",
 )
 orfs.default(
     # Expose the slang yosys plugin (from @sv-elab, above) via
