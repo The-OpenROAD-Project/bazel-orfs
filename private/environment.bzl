@@ -172,8 +172,6 @@ def log_timestamps_inputs(ctx):
     return [ctx.file._log_timestamps_script]
 
 def flow_inputs(ctx):
-    if ctx.attr.lint:
-        return flow_inputs_lite(ctx)
     return depset(
         log_timestamps_inputs(ctx),
         transitive = [
@@ -187,26 +185,6 @@ def flow_inputs(ctx):
                     ctx.attr._makefile,
                 ] +
                 ctx.attr.tools,
-            ),
-        ],
-    )
-
-def flow_inputs_lite(ctx):
-    """Minimal tool inputs for lightweight flows (lint/mock).
-
-    Excludes klayout and opensta — only includes make, openroad, python,
-    makefile, and user tools.
-    """
-    return depset(
-        log_timestamps_inputs(ctx),
-        transitive = [
-            _runfiles(
-                [
-                    ctx.attr._make,
-                    ctx.attr.openroad,
-                    ctx.attr._python,
-                    ctx.attr._makefile,
-                ] + ctx.attr.tools,
             ),
         ],
     )
@@ -454,9 +432,7 @@ def platform_config(ctx):
     as yosys must. The OpenROAD stages read orfs_pdk's mirror of it, whose
     liberty files are binary (.blib): read_liberty parses asap7's 3.7x
     faster, and recognizes them by their contents, so ORFS reads them
-    through the platform's own LIB_FILES unchanged. A lint flow keeps the
-    text platform: its mock OpenROAD reads no binary liberty, and the
-    conversion would build the real OpenROAD the lint flow exists to skip.
+    through the platform's own LIB_FILES unchanged.
     """
     if hasattr(ctx.attr, "pdk"):
         return ctx.attr.pdk[PdkInfo].config.files.to_list()[0]
@@ -466,7 +442,7 @@ def platform_config(ctx):
 
 def binary_liberty(ctx):
     """Whether a stage reads orfs_pdk's binary liberty platform."""
-    return not hasattr(ctx.attr, "pdk") and not getattr(ctx.attr, "lint", False)
+    return not hasattr(ctx.attr, "pdk")
 
 def platform_openroad_files(ctx):
     """The binary liberty platform's files, for a stage that reads it."""

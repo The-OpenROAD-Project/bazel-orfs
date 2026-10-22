@@ -1,7 +1,10 @@
 # flush_pipe: a default, not a variant
 
 Status: **proposed, not built.** The ORFS-side change is about six
-sites plus a reader; the bazel-orfs side is a default and a flag.
+sites plus a reader; the bazel-orfs side is a default and a flag. The
+lint variant this entry takes as evidence has since been removed (the
+gallery purge): its `orfs_design.bzl` and `flow.bzl` line references
+below point at code that is gone.
 
 The document's own first draft got the shape wrong in an instructive
 way, and the correction is the most useful thing in it. That draft

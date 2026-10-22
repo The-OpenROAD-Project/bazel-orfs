@@ -20,8 +20,6 @@ timing tables.
 | `//test:lb_32x128_sky130hd_macro_test` | `orfs_macro` + `orfs_gds`, full flow through GDS | — | yes | sky130hd | yes |
 | `//test:mock_hierarchy_build_test` | Hierarchical design with macro: submacro abstract + parent flow | yes | — | asap7 | synth only |
 | `//test:mock_sweep_build_test` | `orfs_sweep` with macros, openroad override, previous_stage | yes | — | asap7 | synth only |
-| `//test:lint_build_test` | `lint=True` builds successfully | yes | — | asap7 | synth only |
-| `//test:lint_no_heavy_deps_test` | Lint flow runfiles exclude klayout and opensta | yes | — | asap7 | synth only |
 | `//test/smoketest:lb_32x128_asap7_build_test` | Full flow, all stages, all PDK-specific config | — | — | asap7 | yes |
 | `//test/smoketest:lb_32x128_gf180_build_test` | Full flow, all stages | — | — | gf180 | yes |
 | `//test/smoketest:lb_32x128_nangate45_build_test` | Full flow, all stages | — | — | nangate45 | yes |
@@ -84,7 +82,6 @@ comm -23 \
 | `previous_stage` | Sweep with floorplan/place/cts entry points |
 | `squash` | squashed (cts), squashed_final (final) |
 | `substeps` | squashed_final with substeps=True |
-| `lint=True` | lint variant (heavy deps excluded from runfiles, synth skips do-yosys) |
 | `openroad` override | mock-openroad variants |
 | `yosys` override | (via sweep kwargs) |
 | `stage_arguments` | tag_array (explicit regression test) |
@@ -123,7 +120,6 @@ taking ~90-100s. These dominate the critical path.
 | 1 (sweep) | shared | own | own | cts | Sweep: previous_stage=synth |
 | 2 (sweep) | shared | shared | own | cts | Sweep: previous_stage=floorplan |
 | mocked | shared | own | own | place | Mock area scaling |
-| lite | shared | own | stops | — | Lite flow test |
 | mock_openroad | shared | own | stops | — | Tool override |
 | squashed | shared | own | squashed | cts | Squash mode |
 | squashed_final | shared | own | squashed | final | Squash + substeps |

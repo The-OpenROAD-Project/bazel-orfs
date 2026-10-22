@@ -242,11 +242,9 @@ def _expand_deploy_template(ctx, exe, config, make, genfiles, name = "", renames
     )
 
 def _make_cmd(ctx):
-    """Returns the make command prefix, with --silent in lint mode."""
-    silent = "--silent " if getattr(ctx.attr, "lint", False) else ""
-    return "{make} {silent}{stamp}$@".format(
+    """Returns the make command prefix."""
+    return "{make} {stamp}$@".format(
         make = ctx.executable._make.path,
-        silent = silent,
         stamp = log_timestamps_make_arg(ctx),
     )
 
@@ -275,7 +273,6 @@ def _create_make_script(ctx, name, extra_substitutions = {}, deploy_stage = ""):
       The declared make File.
     """
     make = ctx.actions.declare_file(name)
-    silent = "--silent " if getattr(ctx.attr, "lint", False) else ""
 
     # What the build would give a later stage, for the ORFS_DEPLOY_ANY_STAGE
     # hatch. Shell-quoted KEY='VALUE' pairs, sorted for a deterministic
@@ -292,7 +289,7 @@ def _create_make_script(ctx, name, extra_substitutions = {}, deploy_stage = ""):
         output = make,
         substitutions = flow_substitutions(ctx) |
                         {
-                            '"$@"': '{}DESIGN_CONFIG="config.mk" "$@"'.format(silent),
+                            '"$@"': 'DESIGN_CONFIG="config.mk" "$@"',
                             "${DEPLOY_STAGE}": deploy_stage,
                             "${DEPLOY_LABEL}": "//{}:{}".format(ctx.label.package, ctx.label.name),
                             "${LATER_STAGE_ENV}": later_env,
@@ -914,40 +911,32 @@ def _test_impl(ctx):
 
     script_inputs = []
 
-    if ctx.attr.lint:
-        # Lint mode: test just verifies the dependency chain builds.
-        ctx.actions.write(
-            output = test,
-            is_executable = True,
-            content = "#!/bin/sh\nexit 0\n",
-        )
+    # For external repo targets, WORK_HOME must include the external/<repo>/
+    # prefix so Make finds results/reports at the correct runfiles path.
+    work_home = work_home_relative(ctx) if ctx.label.workspace_name else None
+
+    if hasattr(ctx.attr, "script") and ctx.file.script:
+        script_inputs = [ctx.file.script]
+        script_arg = {"RUN_SCRIPT": ctx.file.script.path}
     else:
-        # For external repo targets, WORK_HOME must include the external/<repo>/
-        # prefix so Make finds results/reports at the correct runfiles path.
-        work_home = work_home_relative(ctx) if ctx.label.workspace_name else None
+        script_inputs = []
+        script_arg = {}
 
-        if hasattr(ctx.attr, "script") and ctx.file.script:
-            script_inputs = [ctx.file.script]
-            script_arg = {"RUN_SCRIPT": ctx.file.script.path}
-        else:
-            script_inputs = []
-            script_arg = {}
+    tool_env = {
+        "OPENROAD_EXE": ctx.executable.openroad.short_path,
+        "OPENSTA_EXE": ctx.executable.opensta.short_path,
+        "YOSYS_EXE": ctx.executable.yosys.short_path,
+        "KLAYOUT_CMD": ctx.executable._klayout.short_path if hasattr(ctx.executable, "_klayout") and ctx.executable._klayout else "",
+        "PYTHON_EXE": ctx.executable._python.short_path,
+        "ABC": ctx.executable._abc.short_path,
+        "FLOW_HOME": ctx.file._makefile.dirname,
+        "STDBUF_CMD": "",
+    }
 
-        tool_env = {
-            "OPENROAD_EXE": ctx.executable.openroad.short_path,
-            "OPENSTA_EXE": ctx.executable.opensta.short_path,
-            "YOSYS_EXE": ctx.executable.yosys.short_path,
-            "KLAYOUT_CMD": ctx.executable._klayout.short_path if hasattr(ctx.executable, "_klayout") and ctx.executable._klayout else "",
-            "PYTHON_EXE": ctx.executable._python.short_path,
-            "ABC": ctx.executable._abc.short_path,
-            "FLOW_HOME": ctx.file._makefile.dirname,
-            "STDBUF_CMD": "",
-        }
-
-        ctx.actions.write(
-            output = test,
-            is_executable = True,
-            content = """
+    ctx.actions.write(
+        output = test,
+        is_executable = True,
+        content = """
 #!/bin/sh
 set -e
 if [ ! -e external ]; then
@@ -958,20 +947,20 @@ mkdir -p $(dirname {bin_dir})
 ln -sfn $(pwd) {bin_dir}
 {make} --file {makefile} {moreargs} {cmd}
 """.format(
-                cmd = ctx.attr.cmd,
-                make = ctx.executable._make.short_path,
-                makefile = ctx.file._makefile.path,
-                bin_dir = ctx.bin_dir.path,
-                moreargs = environment_string(
-                    hack_away_prefix(
-                        arguments = odb_arguments(ctx) | sdc_arguments(ctx) | data_arguments(ctx) | script_arg | tool_env,
-                        prefix = config.root.path,
-                    ) |
-                    {"DESIGN_CONFIG": config.short_path} |
-                    ({"WORK_HOME": work_home} if work_home else {}),
-                ),
+            cmd = ctx.attr.cmd,
+            make = ctx.executable._make.short_path,
+            makefile = ctx.file._makefile.path,
+            bin_dir = ctx.bin_dir.path,
+            moreargs = environment_string(
+                hack_away_prefix(
+                    arguments = odb_arguments(ctx) | sdc_arguments(ctx) | data_arguments(ctx) | script_arg | tool_env,
+                    prefix = config.root.path,
+                ) |
+                {"DESIGN_CONFIG": config.short_path} |
+                ({"WORK_HOME": work_home} if work_home else {}),
             ),
-        )
+        ),
+    )
 
     return [
         ctx.attr.src[PdkInfo],
@@ -2254,7 +2243,7 @@ def _yosys_impl(ctx):
 
     if use_syn:
         # OpenROAD-SYN has no yosys canonicalization; stub its outputs
-        # (lint-mode precedent) so the provider/deploy tail below is
+        # so the provider/deploy tail below is
         # identical in both engine modes. genMetrics.py treats the empty
         # RTLIL like a missing file when hashing.
         for f in canon_logs + [canon_output]:
@@ -2342,13 +2331,7 @@ def _yosys_impl(ctx):
         for f in synth_jsons
     ]
 
-    if ctx.attr.lint:
-        # Lint mode: only canonicalization runs; stub remaining synth outputs.
-        for f in synth_outputs.values() + synth_logs + synth_reports + [variables]:
-            ctx.actions.write(output = f, content = "")
-        for f in synth_jsons:
-            ctx.actions.write(output = f, content = "{}")
-    elif use_syn:
+    if use_syn:
         # OpenROAD-SYN synthesis: one openroad invocation (synth_syn.tcl via
         # do-1_synth) consumes the staged Verilog sources directly, so
         # VERILOG_FILES is set from ctx.files.verilog_files exactly like the
@@ -2493,36 +2476,35 @@ def _yosys_impl(ctx):
                 progress_message = "Building synth ODB for %s" % module_top(ctx),
             )
 
-    if not ctx.attr.lint:
-        ctx.actions.run_shell(
-            arguments = [
-                "--file",
-                ctx.file._makefile_yosys.path,
-                "print-LIB_FILES",
-                # A make-parse-only action: LIB_FILES never involves the
-                # SDC, so don't let raw-SDC edits re-run it (the input set
-                # below excludes the SDC accordingly).
-                "SDC_FILE=",
+    ctx.actions.run_shell(
+        arguments = [
+            "--file",
+            ctx.file._makefile_yosys.path,
+            "print-LIB_FILES",
+            # A make-parse-only action: LIB_FILES never involves the
+            # SDC, so don't let raw-SDC edits re-run it (the input set
+            # below excludes the SDC accordingly).
+            "SDC_FILE=",
+        ],
+        command = """
+        {make} $@ > {out}
+        """.format(make = ctx.executable._make.path, out = variables.path),
+        env = verilog_arguments([]) |
+              flow_environment(ctx) |
+              yosys_environment(ctx) |
+              config_environment(config),
+        # A pure make-variable expansion: parses the config and the
+        # platform includes, opens no design file — neither the
+        # canonicalized RTLIL nor the data/macro collateral.
+        inputs = depset(
+            [config] + ctx.files.extra_configs,
+            transitive = [
+                pdk_inputs(ctx),
             ],
-            command = """
-            {make} $@ > {out}
-            """.format(make = ctx.executable._make.path, out = variables.path),
-            env = verilog_arguments([]) |
-                  flow_environment(ctx) |
-                  yosys_environment(ctx) |
-                  config_environment(config),
-            # A pure make-variable expansion: parses the config and the
-            # platform includes, opens no design file — neither the
-            # canonicalized RTLIL nor the data/macro collateral.
-            inputs = depset(
-                [config] + ctx.files.extra_configs,
-                transitive = [
-                    pdk_inputs(ctx),
-                ],
-            ),
-            outputs = [variables],
-            tools = depset(transitive = [flow_inputs(ctx)]),
-        )
+        ),
+        outputs = [variables],
+        tools = depset(transitive = [flow_inputs(ctx)]),
+    )
 
     # 1_2_yosys.sdc is a verbatim copy of the raw SDC feeding do-1_synth —
     # an intermediate, not a deliverable (nothing in the repo consumes it,
@@ -2976,75 +2958,69 @@ def _make_impl(
         info[file.extension] = file
 
     all_outputs = results + objects + logs + reports + jsons + drcs + substep_odbs
-    if ctx.attr.lint and stage == "generate_metadata":
-        # Lint mode: metadata parses real stage outputs that are stubs in
-        # lint mode, so stub its outputs instead of running Make.
-        json_set = {f: True for f in jsons + reports}
-        for f in all_outputs:
-            ctx.actions.write(output = f, content = "{}" if f in json_set else "")
-    else:
-        # The flow globs the AUTO_MEMORIES views out of its own
-        # $(RESULTS_DIR)/memories, so a stage of another variant than
-        # its src (the pre-layout abstract) moves them along with the
-        # .odb. Left behind, the glob found nothing and the abstract was
-        # written with each memory a black box: its outputs untimed.
-        # A depset: src's files already carry the memories when src is
-        # the synthesis, and a view moved twice fails the second mv.
+
+    # The flow globs the AUTO_MEMORIES views out of its own
+    # $(RESULTS_DIR)/memories, so a stage of another variant than
+    # its src (the pre-layout abstract) moves them along with the
+    # .odb. Left behind, the glob found nothing and the abstract was
+    # written with each memory a black box: its outputs untimed.
+    # A depset: src's files already carry the memories when src is
+    # the synthesis, and a view moved twice fails the second mv.
+    rename_candidates = depset(
+        ctx.files.src,
+        transitive = [ctx.attr.src[OrfsInfo].memories],
+    ).to_list()
+    if rename_data:
         rename_candidates = depset(
             ctx.files.src,
-            transitive = [ctx.attr.src[OrfsInfo].memories],
+            transitive = [data_inputs(ctx), source_inputs(ctx)],
         ).to_list()
-        if rename_data:
-            rename_candidates = depset(
-                ctx.files.src,
-                transitive = [data_inputs(ctx), source_inputs(ctx)],
-            ).to_list()
-        commands = (
-            generation_commands(reports + logs + jsons + drcs + substep_odbs) +
-            input_commands(renames(ctx, rename_candidates)) +
-            [_make_cmd(ctx)]
-        )
+    commands = (
+        generation_commands(reports + logs + jsons + drcs + substep_odbs) +
+        input_commands(renames(ctx, rename_candidates)) +
+        [_make_cmd(ctx)]
+    )
 
-        # Stage only the macro .lib variant this stage's args.mk references
-        # (mirrors the orfs_additional_arguments(use_pre_layout) selection
-        # above). Squashed multi-stage actions span both timing domains,
-        # so they keep both variants.
-        lib_selection = use_pre_layout
-        if getattr(ctx.attr, "stages", None) and len(ctx.attr.stages) > 1:
-            lib_selection = None
+    # Stage only the macro .lib variant this stage's args.mk references
+    # (mirrors the orfs_additional_arguments(use_pre_layout) selection
+    # above). Squashed multi-stage actions span both timing domains,
+    # so they keep both variants.
+    lib_selection = use_pre_layout
+    if getattr(ctx.attr, "stages", None) and len(ctx.attr.stages) > 1:
+        lib_selection = None
 
-        # Macro .gds is read only by the GDS-emitting make steps (the
-        # klayout wrap under do-gds / do-final); a squashed action ending
-        # at final carries stage == "6_final" and keeps it.
-        include_gds = stage in ("6_final", "6_gds")
+    # Macro .gds is read only by the GDS-emitting make steps (the
+    # klayout wrap under do-gds / do-final); a squashed action ending
+    # at final carries stage == "6_final" and keeps it.
+    include_gds = stage in ("6_final", "6_gds")
 
-        # The src chain's metrics .json / report files are read only by
-        # genMetrics.py — the metadata stages declare them; the PnR make
-        # steps never open an upstream stage's .json or .rpt, and while
-        # the jsons are supposed to be byte-stable, OpenROAD is not
-        # trusted on that: consumers state the dependency, nobody gets
-        # fed it for convenience.
-        include_logging = stage == "generate_metadata"
-        ctx.actions.run_shell(
-            arguments = ["--file", ctx.file._makefile.path] + steps,
-            command = " && ".join(commands),
-            env = flow_environment(ctx) | config_environment(config),
-            inputs = depset(
-                [config] + ctx.files.extra_configs + all_jsons,
-                transitive = [
-                    data_inputs(ctx),
-                    source_inputs(
-                        ctx,
-                        use_pre_layout = lib_selection,
-                        gds = include_gds,
-                        logging = include_logging,
-                    ),
-                    rename_inputs(ctx),
-                ],
-            ),
-            outputs = all_outputs,
-            tools = flow_inputs(ctx),
-        )
+    # The src chain's metrics .json / report files are read only by
+    # genMetrics.py — the metadata stages declare them; the PnR make
+    # steps never open an upstream stage's .json or .rpt, and while
+    # the jsons are supposed to be byte-stable, OpenROAD is not
+    # trusted on that: consumers state the dependency, nobody gets
+    # fed it for convenience.
+    include_logging = stage == "generate_metadata"
+    ctx.actions.run_shell(
+        arguments = ["--file", ctx.file._makefile.path] + steps,
+        command = " && ".join(commands),
+        env = flow_environment(ctx) | config_environment(config),
+        inputs = depset(
+            [config] + ctx.files.extra_configs + all_jsons,
+            transitive = [
+                data_inputs(ctx),
+                source_inputs(
+                    ctx,
+                    use_pre_layout = lib_selection,
+                    gds = include_gds,
+                    logging = include_logging,
+                ),
+                rename_inputs(ctx),
+            ],
+        ),
+        outputs = all_outputs,
+        tools = flow_inputs(ctx),
+    )
 
     config_short = declare_artifact(ctx, "results", stage + ".short.mk")
     short_analysis_args = config_arguments(ctx, hack_away_prefix(all_arguments, config_short.root.path))

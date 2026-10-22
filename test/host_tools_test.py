@@ -96,7 +96,6 @@ class HostPythonCallSiteTest(unittest.TestCase):
             **{
                 "test/helper.sh": 'python3 "$X"\n',
                 "docs/example.sh": "jq . foo.json\n",
-                "gallery/tmp/run/test.sh": "docker run x\n",
             },
         )
         self.assertEqual(check(root), [])

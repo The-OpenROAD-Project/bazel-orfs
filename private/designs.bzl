@@ -216,7 +216,7 @@ def orfs_design(config = "config.mk", **kwargs):
         config: The config.mk file that drives this design.
             Makes the BUILD file self-documenting.
         **kwargs: Forwarded to the underlying orfs_design implementation
-            (platform, design, mock_openroad, mock_yosys, user_arguments).
+            (platform, design, user_arguments, ...).
     """
     _orfs_design(config = config, designs = DESIGNS, **kwargs)
 

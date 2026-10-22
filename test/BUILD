@@ -2062,32 +2062,6 @@ build_test(
 # is broken, the lb_32x128 sweep targets would fail at analysis time
 # (duplicate actions or missing deps). No explicit query tests needed.
 
-# --- Lint flow tests: verify that heavy dependencies are excluded ---
-
-# buildifier: disable=duplicated-name
-orfs_flow(
-    name = "lb_32x128",
-    arguments = LB_ARGS,
-    last_stage = "floorplan",
-    lint = True,
-    openroad = "//mock/openroad/src/bin:openroad",
-    previous_stage = {"floorplan": ":lb_32x128_synth"},
-    sources = LB_SOURCES,
-    variant = "lite",
-    verilog_files = LB_VERILOG_FILES,
-)
-
-build_test(
-    name = "lint_build_test",
-    targets = [":lb_32x128_lite_floorplan"],
-)
-
-sh_test(
-    name = "lint_no_heavy_deps_test",
-    srcs = ["lint_test.sh"],
-    data = [":lb_32x128_lite_floorplan"],
-)
-
 # --- User-facing binary tests: verify binaries work with mock environments ---
 
 py_test(

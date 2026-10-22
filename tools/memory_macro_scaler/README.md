@@ -227,7 +227,7 @@ behavioral_macros(
 ```
 
 One `orfs_macro()` target per module; `target_suffix` available to
-avoid collisions with existing demo_sram-style targets.
+avoid collisions with existing targets that share the module name.
 
 ### `scale_macro()` — from a reference abstract
 
