@@ -1,0 +1,95 @@
+# What SYNTH_MINIMUM_KEEP_SIZE costs where it counts macros, which yosys
+# does no work on (ORFS #4714; ideas/xiangshan-timing.md, entry 57).
+# keep_probe.py found, in the eleven ORFS designs that synthesise
+# hierarchically with a keep threshold and macros, which modules the rule
+# keeps today and with macros at cost 0 (keeps.json). Here, for the designs
+# whose flows fit a workstation, both keep lists through global route at a
+# clock repair cannot meet:
+#
+#   bazelisk build //test/cut_keep_size:table
+load("@rules_python//python:defs.bzl", "py_binary")
+load(":keep_size.bzl", "keep_size_arms")
+
+package(default_visibility = ["//visibility:private"])
+
+py_binary(
+    name = "keep_probe",
+    srcs = ["keep_probe.py"],
+)
+
+# asap7/riscv32i, 950 ps: 780 ps, inputs and outputs at 2 % of the period
+# (at 12.5 % an input-to-register path set WNS at every clock tried)
+keep_size_arms(
+    name = "riscv32i",
+    key = "asap7/riscv32i",
+    sdc_edits = [
+        "s/^set clk_period 950$/set clk_period 780/",
+        "s/^set clk_io_pct 0.125$/set clk_io_pct 0.02/",
+    ],
+    top = "riscv_top",
+    zero = [],
+)
+
+# nangate45/bp_fe_top, 1.62 ns: 1.38 ns
+keep_size_arms(
+    name = "bp_fe_top",
+    key = "nangate45/bp_fe_top",
+    sdc_edits = ["s/^set clk_period 1.62$/set clk_period 1.38/"],
+    top = "bp_fe_top",
+    zero = [
+        "icache_eaddr_width_p64_data_width_p64_inst_width_p32_tag_width_p10_num_cce_p1_num_lce_p2_ways_p8_lce_sets_p64_block_size_in_bytes_p8",
+    ],
+)
+
+BP_BE_TOP_ZERO = [
+    "bp_be_calculator_top_vaddr_width_p56_paddr_width_p22_asid_width_p10_branch_metadata_fwd_width_p36_core_els_p1_num_lce_p2_lce_sets_p64_cce_block_size_in_bytes_p64",
+    "bp_be_dcache_data_width_p64_paddr_width_p22_sets_p64_ways_p8_num_cce_p1_num_lce_p2",
+    "bp_be_dcache_lce_cmd_num_cce_p1_num_lce_p2_paddr_width_p22_lce_data_width_p512_sets_p64_ways_p8_data_width_p64",
+    "bp_be_dcache_lce_data_width_p64_paddr_width_p22_lce_data_width_p512_sets_p64_ways_p8_num_cce_p1_num_lce_p2",
+    "bp_be_int_alu",
+    "bsg_mem_2r1w_sync_synth_width_p64_els_p32_read_write_same_addr_p1_harden_p0",
+]
+
+# nangate45/bp_be_top, 2.6 ns: 2.21 ns, where its reg2reg closed in both
+# arms (WNS a reg2out path) and the comparison read the wrong way, kept
+# as the example; and 1.90 ns, which it cannot meet
+keep_size_arms(
+    name = "bp_be_top",
+    key = "nangate45/bp_be_top",
+    sdc_edits = [
+        "s/-period 2.6 -waveform {0 1.3}/-period 2.21 -waveform {0 1.105}/",
+        "s/-name vclk -period 2.6$/-name vclk -period 2.21/",
+    ],
+    top = "bp_be_top",
+    zero = BP_BE_TOP_ZERO,
+)
+
+keep_size_arms(
+    name = "bp_be_top_190",
+    key = "nangate45/bp_be_top",
+    sdc_edits = [
+        "s/-period 2.6 -waveform {0 1.3}/-period 1.90 -waveform {0 0.95}/",
+        "s/-name vclk -period 2.6$/-name vclk -period 1.90/",
+    ],
+    top = "bp_be_top",
+    zero = BP_BE_TOP_ZERO,
+)
+
+TABLE = [
+    ("riscv32i", "780", "ps", "1"),
+    ("bp_fe_top", "1.38", "ns", "0.001"),
+    ("bp_be_top", "2.21", "ns", "0.001"),
+    ("bp_be_top_190", "1.90", "ns", "0.001"),
+]
+
+genrule(
+    name = "table",
+    srcs = ["%s_%s_endpoints.tsv" % (d, arm) for d, _, _, _ in TABLE for arm in ("today", "zero")],
+    outs = ["table.md"],
+    cmd = " && ".join([
+        "echo '### %s at %s %s' >> $@ && $(execpath //tools/endpoint_band:compare) --clock %s --unit %s --eps %s today=$(location %s_today_endpoints.tsv) zero=$(location %s_zero_endpoints.tsv) >> $@" % (d, c, u, c, u, e, d, d)
+        for d, c, u, e in TABLE
+    ]),
+    tags = ["manual"],
+    tools = ["//tools/endpoint_band:compare"],
+)
