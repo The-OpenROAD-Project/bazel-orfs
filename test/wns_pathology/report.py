@@ -505,6 +505,156 @@ def ridgeline_svg(designs, endpoints):
     return _frame(W, H, body)
 
 
+# overlay_svg's groups: GROUPS folded to the three stories the endpoints
+# tell, in the palette's first three slots
+OVERLAY = [
+    ("WNS measures the reg2reg logic", "#2a78d6", (0, 1)),
+    ("an input/output budget in the .sdc sets WNS", "#eb6834", (2,)),
+    ("the clock is out of reach: WNS is where repair stopped", "#1baf7a", (3,)),
+]
+
+
+def overlay_svg(designs, endpoints):
+    """Every design's endpoints on shared axes as one line each: the share
+    of its reg2reg endpoints at or beyond each period (over its own clock),
+    log scale, coloured by what sets its WNS; a bold line per group is the
+    median across its designs. Where a line reaches the bottom is the
+    design's worst endpoint; how steeply it gets there tells a wall of
+    endpoints from a lone path. Below, where WNS puts each design."""
+    W, L, R, T, PH, XMAX, STEP, YMIN = 960, 64, 24, 52, 330, 3.0, 0.005, 1e-4
+    STRIP = 22
+    H = T + PH + 40 + STRIP * len(OVERLAY) + 40
+    X = lambda v: L + min(max(v, 0), XMAX) / XMAX * (W - L - R)
+    Y = (
+        lambda f: T
+        + (math.log10(1) - math.log10(max(f, YMIN))) / -math.log10(YMIN) * PH
+    )
+    xs = [i * STEP for i in range(int(XMAX / STEP) + 1)]
+    groups = grouped(designs)
+    body = []
+    for e in range(0, int(-math.log10(YMIN)) + 1):
+        f = 10**-e
+        body.append(
+            '<line x1="%d" x2="%d" y1="%.1f" y2="%.1f" stroke="#e1e0d9"/>'
+            '<text x="%d" y="%.1f" text-anchor="end">%s</text>'
+            % (
+                L,
+                W - R,
+                Y(f),
+                Y(f),
+                L - 6,
+                Y(f) + 4,
+                "100 %" if e == 0 else "%g %%" % (100 * f),
+            )
+        )
+    for v in (0, 0.5, 1, 1.5, 2, 2.5, 3):
+        body.append(
+            '<line x1="%.1f" x2="%.1f" y1="%d" y2="%d" stroke="%s"%s/>'
+            '<text x="%.1f" y="%d" text-anchor="middle">%g</text>'
+            % (
+                X(v),
+                X(v),
+                T,
+                T + PH,
+                "#52514e" if v == 1 else "#e1e0d9",
+                ' stroke-width="1.5"' if v == 1 else "",
+                X(v),
+                T + PH + 14,
+                v,
+            )
+        )
+    body.append(
+        '<text x="%.1f" y="%d" text-anchor="middle" fill="#0b0b0b">endpoint period ÷ the clock the .sdc asks for (1 = the clock)</text>'
+        % ((L + W - R) / 2, T + PH + 30)
+    )
+    body.append(
+        '<text transform="translate(14 %d) rotate(-90)" text-anchor="middle" fill="#0b0b0b">share of a design\'s endpoints at or beyond</text>'
+        % (T + PH / 2)
+    )
+    medians = []
+    for label, colour, members_of in OVERLAY:
+        rows = []
+        for gi in members_of:
+            for stem, r in groups[gi][1]:
+                periods = sorted(endpoints.get(stem) or [])
+                if not periods:
+                    continue
+                n, j, row = len(periods), 0, []
+                for x in xs:
+                    while j < n and periods[j] < x:
+                        j += 1
+                    row.append((n - j) / n)
+                rows.append(row)
+        for row in rows:
+            pts = " ".join("%.1f,%.1f" % (X(x), Y(f)) for x, f in zip(xs, row) if f > 0)
+            body.append(
+                '<polyline points="%s" fill="none" stroke="%s" stroke-width="1" stroke-opacity=".35"/>'
+                % (pts, colour)
+            )
+        if rows:
+            medians.append(
+                (
+                    colour,
+                    [
+                        sorted(r[i] for r in rows)[len(rows) // 2]
+                        for i in range(len(xs))
+                    ],
+                )
+            )
+    for colour, med in medians:
+        pts = " ".join("%.1f,%.1f" % (X(x), Y(f)) for x, f in zip(xs, med) if f > 0)
+        body.append(
+            '<polyline points="%s" fill="none" stroke="#fcfcfb" stroke-width="5"/>'
+            % pts
+        )
+        body.append(
+            '<polyline points="%s" fill="none" stroke="%s" stroke-width="2.5"/>'
+            % (pts, colour)
+        )
+    y = T + PH + 52
+    body.append(
+        '<text x="%d" y="%d" font-weight="600" fill="#0b0b0b">where WNS puts each design</text>'
+        % (L, y - 6)
+    )
+    for label, colour, members_of in OVERLAY:
+        y += STRIP
+        body.append(
+            '<line x1="%d" x2="%d" y1="%d" y2="%d" stroke="#e1e0d9"/>'
+            % (L, W - R, y, y)
+        )
+        for gi in members_of:
+            for stem, r in groups[gi][1]:
+                w = (r["clock"] - r["wns"]) / r["clock"]
+                body.append(
+                    '<path d="M%.1f %d l4 4 l-4 4 l-4 -4 z" fill="%s" fill-opacity=".8"/>'
+                    % (X(w), y - 4, colour)
+                )
+        n = sum(len(groups[gi][1]) for gi in members_of)
+        body.append(
+            '<rect x="%.1f" y="%d" width="10" height="3" fill="%s"/>'
+            % (X(1.55) - 14, y - 10, colour)
+        )
+        body.append(
+            '<text x="%.1f" y="%d" fill="#0b0b0b">%s (%d)</text>'
+            % (X(1.55), y - 6, label, n)
+        )
+    for i, (label, colour, _) in enumerate(OVERLAY):
+        x = L + 300 * i
+        body.append(
+            '<line x1="%d" x2="%d" y1="18" y2="18" stroke="%s" stroke-width="2.5"/>'
+            % (x, x + 18, colour)
+        )
+        body.append(
+            '<text x="%d" y="22" fill="#0b0b0b">%s</text>'
+            % (x + 24, label.split(":")[0])
+        )
+    body.append(
+        '<text x="%d" y="38">thin: one design each; bold: the median of the group</text>'
+        % L
+    )
+    return _frame(W, H, body)
+
+
 def load_endpoints(results):
     d = os.path.join(results, "endpoints")
     out = {}
@@ -522,6 +672,7 @@ def main(argv):
     ap.add_argument("--svg", help="the scatter")
     ap.add_argument("--dumbbell", help="per design: reg2reg, WNS, floor")
     ap.add_argument("--ridgeline", help="per design: every endpoint")
+    ap.add_argument("--overlay", help="every design's endpoints on one graph")
     a = ap.parse_args(argv)
     text, designs = report(a.results)
     sys.stdout.write(text)
@@ -529,6 +680,7 @@ def main(argv):
         (a.svg, lambda: svg(designs)),
         (a.dumbbell, lambda: dumbbell_svg(designs)),
         (a.ridgeline, lambda: ridgeline_svg(designs, load_endpoints(a.results))),
+        (a.overlay, lambda: overlay_svg(designs, load_endpoints(a.results))),
     ):
         if path:
             with open(path, "w") as f:

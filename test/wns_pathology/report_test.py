@@ -36,6 +36,7 @@ class ReportTest(unittest.TestCase):
             reported = (r["clock"] - r["wns"]) / r["clock"]
             self.assertLessEqual(max(endpoints[stem]), reported + 1e-3, stem)
         self.assertIn("<polygon", report.ridgeline_svg(designs, endpoints))
+        self.assertIn("<polyline", report.overlay_svg(designs, endpoints))
 
     def test_controls_reproduce_the_sweep(self):
         text, designs = report.report(RESULTS)
