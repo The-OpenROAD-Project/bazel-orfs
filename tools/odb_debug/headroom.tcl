@@ -402,13 +402,15 @@ proc hr_scope_period { flops } {
   }
   set worst ""
   if { [llength $flops] } {
-    foreach pe [concat \
-      [find_timing_paths -from [all_registers -clock_pins] -to $ds \
-        -group_path_count 1] \
-      [find_timing_paths -from $cks -to [all_registers -data_pins] \
-        -group_path_count 1]] {
-      set s [get_property $pe slack]
-      if { $worst eq "" || $s < $worst } { set worst $s }
+    # each search frees the path ends of the one before it: read a
+    # search's slacks before running the next
+    foreach range [list \
+      [list -from [all_registers -clock_pins] -to $ds] \
+      [list -from $cks -to [all_registers -data_pins]]] {
+      foreach pe [find_timing_paths {*}$range -group_path_count 1] {
+        set s [get_property $pe slack]
+        if { $worst eq "" || $s < $worst } { set worst $s }
+      }
     }
   }
   if { $worst eq "" } { return [hr_clock_period] }
