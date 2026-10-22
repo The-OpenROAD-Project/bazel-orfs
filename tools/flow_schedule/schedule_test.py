@@ -13,6 +13,20 @@ LOG_TAIL = (
 )
 
 
+class Jobs(unittest.TestCase):
+    def test_default_added(self):
+        self.assertEqual(
+            schedule.with_jobs(["--config=x"], 12), ["--config=x", "--jobs=12"]
+        )
+
+    def test_users_jobs_win(self):
+        self.assertEqual(schedule.with_jobs(["--jobs=4"], 12), ["--jobs=4"])
+        self.assertEqual(schedule.with_jobs(["-j", "4"], 12), ["-j", "4"])
+
+    def test_zero_is_bazels_default(self):
+        self.assertEqual(schedule.with_jobs([], 0), [])
+
+
 class Pack(unittest.TestCase):
     def test_fits_in_one_wave(self):
         self.assertEqual(schedule.pack({"a": 10, "b": 20}, 40), [["b", "a"]])
