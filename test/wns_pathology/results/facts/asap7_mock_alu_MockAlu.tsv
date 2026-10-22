@@ -1,0 +1,38 @@
+clock.clock	300.000000
+reg2reg.slack	-294.980377
+reg2reg.from	op[2]$_DFF_P_/QN
+reg2reg.to	io_out_REG[0]$_DFF_P_/D
+reg2reg.launch	clock
+reg2reg.capture	clock
+reg2reg.macro	0
+reg2reg.delay	545.299156
+in2reg.slack	-230.810654
+in2reg.from	io_op[0]
+in2reg.to	io_out_REG[20]$_DFF_P_/D
+in2reg.launch	
+in2reg.capture	clock
+in2reg.macro	0
+in2reg.delay	320.942322
+in2reg.pin_wire	9.960893
+reg2out.slack	159.198685
+reg2out.from	io_out_REG[44]$_DFF_P_/QN
+reg2out.to	io_out[44]
+reg2out.launch	clock
+reg2out.capture	
+reg2out.macro	0
+reg2out.delay	29.830124000000012
+reg2out.pin_wire	16.705506000000014
+worst.slack	-294.980377
+worst.from	op[2]$_DFF_P_/QN
+worst.to	io_out_REG[0]$_DFF_P_/D
+worst.launch	clock
+worst.capture	clock
+worst.macro	0
+worst.delay	545.299156
+wns	-294.980374639557
+reg2reg.top10	594.980377 504.35839799999997 503.481323 503.012222 502.21327199999996 500.12136799999996 498.447983 498.385315 497.578781 497.26379399999996
+check_setup.ran	1
+instances	13420
+hold.buffers	0
+hold.sampled	0
+hold.from_input	0

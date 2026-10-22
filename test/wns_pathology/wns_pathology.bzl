@@ -118,3 +118,8 @@ def wns_pathology_reads(name):
         srcs = ["@orfs//flow/designs/%s_grt" % flow for flow in FLOWS],
         tags = ["manual"],
     )
+    native.filegroup(
+        name = "reads",
+        srcs = [":" + target_name(flow) for flow in FLOWS],
+        tags = ["manual"],
+    )

@@ -1,0 +1,80 @@
+{
+ "excluded": [
+  "asap7/coralnpu:CoreMiniAxi",
+  "asap7/coralnpu-exmem:CoreMiniAxi",
+  "asap7/coralnpu-regfile:CoreMiniAxi",
+  "asap7/coralnpu-regfile-exmem:CoreMiniAxi",
+  "asap7/coralnpu-regfiles-exmem:CoreMiniAxi",
+  "asap7/cva6:cva6",
+  "asap7/cva6-regfile:cva6",
+  "asap7/swerv_wrapper:swerv_wrapper",
+  "asap7/swerv_wrapper-regfile:swerv_wrapper",
+  "asap7/swerv_wrapper-yosys:swerv_wrapper",
+  "nangate45/ariane133:ariane",
+  "nangate45/ariane136:ariane",
+  "nangate45/black_parrot:black_parrot",
+  "nangate45/bp_multi_top:bp_multi_top",
+  "nangate45/bp_quad:bsg_chip",
+  "nangate45/cva6:cva6",
+  "nangate45/mempool_group:mempool_group",
+  "nangate45/swerv_wrapper:swerv_wrapper",
+  "sky130hd/microwatt:microwatt"
+ ],
+ "failed": [
+  {
+   "flow": "nangate45/aes:aes_cipher_top",
+   "reason": "slang: Design elaboration failed",
+   "stage": "synth (synth_canonicalize)"
+  },
+  {
+   "flow": "sky130hs/aes:aes_cipher_top",
+   "reason": "slang: Design elaboration failed",
+   "stage": "synth (synth_canonicalize)"
+  },
+  {
+   "flow": "sky130hd/aes:aes_cipher_top",
+   "reason": "slang: Design elaboration failed",
+   "stage": "synth (synth_canonicalize)"
+  },
+  {
+   "flow": "gf180/aes-hybrid:aes_cipher_top",
+   "reason": "slang: Design elaboration failed",
+   "stage": "synth (synth_canonicalize)"
+  },
+  {
+   "flow": "gf180/aes:aes_cipher_top",
+   "reason": "slang: Design elaboration failed",
+   "stage": "synth (synth_canonicalize)"
+  },
+  {
+   "flow": "gf180/jpeg:jpeg_encoder",
+   "reason": "slang: Design elaboration failed",
+   "stage": "synth (synth_canonicalize)"
+  },
+  {
+   "flow": "sky130hd/jpeg:jpeg_encoder",
+   "reason": "slang: Design elaboration failed",
+   "stage": "synth (synth_canonicalize)"
+  },
+  {
+   "flow": "sky130hs/jpeg:jpeg_encoder",
+   "reason": "slang: Design elaboration failed",
+   "stage": "synth (synth_canonicalize)"
+  },
+  {
+   "flow": "sky130hd/chameleon:soc_core",
+   "reason": "synth_canonicalize failed; not looked into",
+   "stage": "synth (synth_canonicalize)"
+  },
+  {
+   "flow": "nangate45/jpeg:jpeg_encoder",
+   "reason": "slang: Design elaboration failed",
+   "stage": "synth (synth_canonicalize)"
+  },
+  {
+   "flow": "ihp-sg13g2/jpeg:jpeg_encoder",
+   "reason": "slang: Design elaboration failed",
+   "stage": "synth (synth_canonicalize)"
+  }
+ ]
+}

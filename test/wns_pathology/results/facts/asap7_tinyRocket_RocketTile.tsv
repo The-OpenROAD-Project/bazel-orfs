@@ -1,0 +1,27 @@
+clock.core_clock	600.000000
+reg2reg.slack	-88.602684
+reg2reg.from	dcache.io_cpu_resp_bits_cmd[3]$_DFF_P_/QN
+reg2reg.to	core.csr._T_85[57]$_SDFFE_PP0P_/D
+reg2reg.launch	core_clock
+reg2reg.capture	core_clock
+reg2reg.macro	0
+reg2reg.delay	634.142212
+worst.slack	-88.602684
+worst.from	dcache.io_cpu_resp_bits_cmd[3]$_DFF_P_/QN
+worst.to	core.csr._T_85[57]$_SDFFE_PP0P_/D
+worst.launch	core_clock
+worst.capture	core_clock
+worst.macro	0
+worst.delay	634.142212
+wns	-88.60268110187901
+reg2reg.top10	688.602684 688.408333 680.013222 678.189568 663.880844 663.250683 656.998405 655.89529 654.197369 654.036221
+check_setup.ran	1
+check_setup.Warning:_unconstrained_input_ports	136
+check_setup.Warning:_unconstrained_output_ports	123
+check_setup.Warning:_unconstrained_endpoints	124
+check_setup.unconstrained_register_pins	1
+instances	32559
+hold.buffers	0
+hold.sampled	0
+hold.from_input	0
+floor	632.081837

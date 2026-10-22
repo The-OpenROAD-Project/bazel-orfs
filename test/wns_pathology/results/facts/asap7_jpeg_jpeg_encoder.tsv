@@ -1,0 +1,39 @@
+clock.clk	545.000000
+reg2reg.slack	-85.014496
+reg2reg.from	u3448/QN
+reg2reg.to	u14722/D
+reg2reg.launch	clk
+reg2reg.capture	clk
+reg2reg.macro	0
+reg2reg.delay	575.4009249999999
+in2reg.slack	81.006844
+in2reg.from	ena
+in2reg.to	u32403/D
+in2reg.launch	
+in2reg.capture	clk
+in2reg.macro	0
+in2reg.delay	348.039185
+in2reg.pin_wire	106.893837
+reg2out.slack	360.534058
+reg2out.from	u3/QN
+reg2out.to	qnt_cnt[3]
+reg2out.launch	clk
+reg2out.capture	
+reg2out.macro	0
+reg2out.delay	21.055892999999998
+reg2out.pin_wire	21.055892999999998
+worst.slack	-85.014496
+worst.from	u3448/QN
+worst.to	u14722/D
+worst.launch	clk
+worst.capture	clk
+worst.macro	0
+worst.delay	575.4009249999999
+wns	-85.01449578310405
+reg2reg.top10	630.014496 629.848518 628.953789 628.623833 628.602737 628.06694 627.471031 627.3787159999999 627.374992 626.329552
+check_setup.ran	1
+instances	58734
+hold.buffers	0
+hold.sampled	0
+hold.from_input	0
+floor	232.767334

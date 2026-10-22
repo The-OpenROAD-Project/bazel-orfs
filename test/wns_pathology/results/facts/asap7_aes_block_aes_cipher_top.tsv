@@ -1,0 +1,39 @@
+clock.clk	450.000000
+reg2reg.slack	-0.127953
+reg2reg.from	sa20[0]$_DFF_P_/QN
+reg2reg.to	sa22[4]$_DFF_P_/D
+reg2reg.launch	clk
+reg2reg.capture	clk
+reg2reg.macro	0
+reg2reg.delay	377.28216599999996
+in2reg.slack	122.084373
+in2reg.from	ld
+in2reg.to	u0/w[1][27]$_DFF_P_/D
+in2reg.launch	
+in2reg.capture	clk
+in2reg.macro	0
+in2reg.delay	238.231903
+in2reg.pin_wire	186.278152
+reg2out.slack	252.988632
+reg2out.from	text_out[62]$_DFF_P_/QN
+reg2out.to	text_out[62]
+reg2out.launch	clk
+reg2out.capture	
+reg2out.macro	0
+reg2out.delay	45.434021
+reg2out.pin_wire	20.153121999999996
+worst.slack	-0.127953
+worst.from	sa20[0]$_DFF_P_/QN
+worst.to	sa22[4]$_DFF_P_/D
+worst.launch	clk
+worst.capture	clk
+worst.macro	0
+worst.delay	377.28216599999996
+wns	-0.12795320409932506
+reg2reg.top10	450.127953 449.975075 449.670985 449.149625 448.470279 448.464617 448.035793 447.92305 447.495226 447.289168
+check_setup.ran	1
+instances	8094
+hold.buffers	0
+hold.sampled	0
+hold.from_input	0
+floor	423.467169

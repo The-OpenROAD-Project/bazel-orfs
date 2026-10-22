@@ -27,6 +27,20 @@ HOLD = 0.05
 
 IO_GROUPS = ("in2reg", "reg2out", "in2out")
 
+FLAGS_DOC = {
+    "P0": "no register-to-register path",
+    "P1": "an IO path sets WNS",
+    "P2": "a pin's wire sets WNS",
+    "P3": "registers the timer never sees",
+    "P4": "one outlier endpoint",
+    "P5": "the period is at its one-flop-loop floor",
+    "P6": "a macro's timing sets WNS",
+    "P7": "slack-rich, WNS clamped at 0",
+    "P8": "out of reach, repair gave up",
+    "P9": "a cross-clock path sets WNS",
+    "P10": "hold buffer infestation",
+}
+
 # check_setup warnings that leave registers untimed: unclocked registers,
 # and unconstrained endpoints that are register data pins (read.tcl counts
 # those; an output port the SDC gives no delay is left out by design)

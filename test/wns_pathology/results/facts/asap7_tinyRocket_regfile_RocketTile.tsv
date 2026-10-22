@@ -1,0 +1,27 @@
+clock.core_clock	600.000000
+reg2reg.slack	-82.251427
+reg2reg.from	core.div.remainder[2]$_DFFE_PP_/QN
+reg2reg.to	core.div.remainder[62]$_SDFFE_PP0P_/D
+reg2reg.launch	core_clock
+reg2reg.capture	core_clock
+reg2reg.macro	0
+reg2reg.delay	625.1935880000001
+worst.slack	-82.251427
+worst.from	core.div.remainder[2]$_DFFE_PP_/QN
+worst.to	core.div.remainder[62]$_SDFFE_PP0P_/D
+worst.launch	core_clock
+worst.capture	core_clock
+worst.macro	0
+worst.delay	625.1935880000001
+wns	-82.25142821952753
+reg2reg.top10	682.251427 682.235939 678.955124 675.856544 664.694138 662.8520579999999 654.047157 650.264126 646.349537 644.375336
+check_setup.ran	1
+check_setup.Warning:_unconstrained_input_ports	136
+check_setup.Warning:_unconstrained_output_ports	123
+check_setup.Warning:_unconstrained_endpoints	155
+check_setup.unconstrained_register_pins	1
+instances	30161
+hold.buffers	0
+hold.sampled	0
+hold.from_input	0
+floor	594.637234

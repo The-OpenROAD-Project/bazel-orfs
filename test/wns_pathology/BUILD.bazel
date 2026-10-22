@@ -15,6 +15,28 @@ py_binary(
     srcs = ["classify.py"],
 )
 
+py_binary(
+    name = "report",
+    srcs = [
+        "classify.py",
+        "report.py",
+    ],
+    imports = ["."],
+)
+
+py_test(
+    name = "report_test",
+    size = "small",
+    srcs = [
+        "classify.py",
+        "report.py",
+        "report_test.py",
+    ],
+    data = glob(["results/**"]),
+    imports = ["."],
+    main = "report_test.py",
+)
+
 py_test(
     name = "classify_test",
     size = "small",

@@ -1,0 +1,49 @@
+clock.clk	290.000000
+clock.noc_clk	1020.999939
+reg2reg.slack	0.062172
+reg2reg.from	source/shadowBuffer_dat_flit.deq_ptr[1]$_DFFE_PP0P_/QN
+reg2reg.to	source/asyncQSource_dat_flit.enq_ready$_DFF_PP0_/D
+reg2reg.launch	clk
+reg2reg.capture	clk
+reg2reg.macro	0
+reg2reg.delay	237.97409100000004
+in2reg.slack	3.354816
+in2reg.from	tx_dat_flitv
+in2reg.to	source/asyncQSource_dat_flit.enq_ready$_DFF_PP0_/D
+in2reg.launch	
+in2reg.capture	clk
+in2reg.macro	0
+in2reg.delay	225.362625
+in2reg.pin_wire	19.885813
+reg2out.slack	76.013893
+reg2out.from	source/asyncQSink_dat_flit.deq_bits[250]$_DFFE_PP_/QN
+reg2out.to	rx_dat_flit[250]
+reg2out.launch	clk
+reg2out.capture	
+reg2out.macro	0
+reg2out.delay	103.70602400000001
+reg2out.pin_wire	35.662627999999984
+in2out.slack	766.349670
+in2out.from	noc_tx_req_ready
+in2out.to	noc_tx_req_flitv
+in2out.launch	
+in2out.capture	
+in2out.macro	0
+in2out.delay	50.450367
+in2out.pin_wire	8.953129
+worst.slack	0.062172
+worst.from	source/shadowBuffer_dat_flit.deq_ptr[1]$_DFFE_PP0P_/QN
+worst.to	source/asyncQSource_dat_flit.enq_ready$_DFF_PP0_/D
+worst.launch	clk
+worst.capture	clk
+worst.macro	0
+worst.delay	237.97409100000004
+wns	0.06217248962743777
+reg2reg.top10	289.937828 289.895639 289.85606 289.813538 289.806599 289.803935 289.791833 289.791278 289.757583 289.620526
+check_setup.ran	1
+check_setup.Warning:_unconstrained_input_port	1
+instances	207754
+hold.buffers	0
+hold.sampled	0
+hold.from_input	0
+floor	258.601227

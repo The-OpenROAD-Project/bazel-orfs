@@ -1,0 +1,27 @@
+clock.clk	380.000000
+virtual.clk	1
+clock.vclk_clk	380.000000
+virtual.vclk_clk	1
+in2out.slack	13.577556
+in2out.from	a[2]
+in2out.to	d[4]
+in2out.launch	vclk_clk
+in2out.capture	vclk_clk
+in2out.macro	0
+in2out.delay	214.42244
+in2out.pin_wire	30.44601400000002
+worst.slack	13.577556
+worst.from	a[2]
+worst.to	d[4]
+worst.launch	vclk_clk
+worst.capture	vclk_clk
+worst.macro	0
+worst.delay	214.42244
+worst.pin_wire	30.44601400000002
+wns	13.577555800633434
+reg2reg.top10	
+check_setup.ran	1
+instances	651
+hold.buffers	0
+hold.sampled	0
+hold.from_input	0
