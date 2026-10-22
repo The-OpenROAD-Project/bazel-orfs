@@ -222,6 +222,11 @@ repair stalled:
   the floor under both.
 - **Block abstracts at grt** timed riscv32i's parent 5 % pessimistic
   against the stitched view (668 against 634.9 ps).
+- **Skew cannot finish on a stitched tile of XSTile's size**: each move
+  sets a clock latency, and OpenSTA re-times all 761,301 endpoints for
+  it (`Search::deleteTags` in a profile); 8 hours in, it had not. The
+  period and the floors come out within about an hour. Skew there needs
+  one re-time per round first.
 
 ## Why repair stopped: grt-stage repair arms
 

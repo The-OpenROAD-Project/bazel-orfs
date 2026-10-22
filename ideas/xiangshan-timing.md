@@ -2172,6 +2172,57 @@ or not at all. Not measured: ariane133/136, mempool_group, black_parrot,
 bp_multi_top and bp_quad (too big for a workstation), and the gf12
 designs (private PDK).
 
+## 58. Where XSTile stands: the campaign parked
+
+The parent at global route, judged by the mass over 2,000 ps (entry 55):
+main's 2,504 ps, 5,259 endpoints over 2,000 ps, 733 ns of excess. Timed
+flat with every block's real cells (`orfs_headroom`, stitched in
+OpenSTA) the period is 2,473.5 ps. Every arm since main lost on the mass:
+
+| Arm | Worst | Endpoints >= 2,000 ps | Excess | Entry |
+|---|---:|---:|---:|---|
+| main | 2,504 | 5,259 | 733 ns | |
+| global placement with cluster cohesion | 2,484 | 4,499 | 466 ns | 54, stopped |
+| the same + Flt's `canAccept` cone cut into the parent | 2,419 | 5,741 | 763 ns | 55 |
+| no `set_max_fanout` | 2,522 | 6,205 | 901 ns | 56 |
+| `Dispatch`, `DecodeStage`, `Rename` not kept | 2,510 | 6,949 | 1,246 ns | 56 |
+
+Cohesion is the one with less mass; it was stopped on the ORFS designs
+where it was mixed (entry 54).
+
+What is known:
+
+- **The one-flop-loop floor is not the limit.** 2,151 ps at
+  `decodeBufValid_3`, exact, below the period. Its 31 buffers carry a
+  2,447.6 ps path, 26 ps under the worst: the decode buffer's loops sit
+  on the critical corridor, and repair is right to buffer them for it.
+  `test/fanout_loop` reproduces the trade; stock repair takes the buffer
+  off a loop that is the worst path through it.
+- **The worst path's cost is in the parent.** It launches inside
+  `Frontend`, 876 ps to its pin, of which about 694 ps are the block's
+  clock insertion and about 190 ps a registered output, an inverter and
+  three wire buffers: no logic, and the clock latency largely cancels at
+  the capture. Then 2,284 ps in the parent, decode through
+  `uopBufferCtrlDecoder` to `SSIT`: 1,332 ps of logic and 952 ps of
+  buffers (444 long-wire, 356 fanout, 152 slew), 2,526 um of wire for
+  1,151 um from end to end.
+- **The mass sits in one corridor**, the floating-point region's pins
+  and `CtrlBlock`'s decode, dispatch and rename: 3,545 of 6,204 paths
+  over 2,000 ps start or end at the floating-point region's pins, and
+  nearly the same paths cross `Dispatch`. Keeping `Dispatch`,
+  `DecodeStage` and `Rename` helps; flattening them made the corridor
+  worse. Why is not known.
+
+Open, and parked: each is a global-route arm of about six hours, run only
+with a named reason why it is new (`.claude/skills/dogfooding`, rule 14).
+
+- why keeping those modules helps;
+- buffering and placement aimed at the decode to `SSIT` chain's buffers;
+- the pins between the floating-point region and `CtrlBlock`;
+- the skew headroom: `orfs_headroom`'s skew cannot finish on the
+  stitched tile, since each move re-times all 761,301 endpoints; it
+  needs one re-time per round first.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
