@@ -1,0 +1,46 @@
+# The keep census (tools/macro_select/keep_census.tcl) on a cone that runs
+# through a kept module, and on a kept module registered at its input.
+load("@rules_python//python:defs.bzl", "py_test")
+load("//:openroad.bzl", "orfs_flow", "orfs_run")
+
+package(default_visibility = ["//visibility:private"])
+
+orfs_flow(
+    name = "keep_census",
+    arguments = {
+        "CORE_UTILIZATION": "40",
+        "OPENROAD_HIERARCHICAL": "1",
+        "PLACE_DENSITY": "0.65",
+        "SKIP_REPORT_METRICS": "1",
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_KEEP_MODULES": "kc_mid kc_reg",
+    },
+    last_stage = "place",
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    tags = ["manual"],
+    verilog_files = ["keep_census.v"],
+)
+
+orfs_run(
+    name = "keep_census_rows",
+    src = ":keep_census_place",
+    outs = ["keep_census.tsv"],
+    cmd = "run",
+    script = "census.tcl",
+    tags = ["manual"],
+    user_arguments = {
+        "CENSUS_OUT": "$(location keep_census.tsv)",
+        "CENSUS_TARGET": "0",
+    },
+    user_sources = {"CENSUS_TCL": ["//tools/macro_select:keep_census.tcl"]},
+)
+
+py_test(
+    name = "keep_census_test",
+    size = "small",
+    srcs = ["keep_census_test.py"],
+    args = ["$(rootpath :keep_census.tsv)"],
+    data = [":keep_census.tsv"],
+)

@@ -2095,6 +2095,40 @@ check would belong in OpenROAD or OpenSTA, scoped to the registers of
 the worst endpoints so that it is cheap enough to run always; that is to
 be measured on ORFS-sized designs first.
 
+## 56. The keep list, re-decided on timing: a first A/B, and a fanout cap kept
+
+**No `set_max_fanout`** (the parent re-placed without the SDC's cap of
+32): worse, 2,522 ps, 6,205 endpoints over 2,000 ps, 901 ns excess
+against main's 2,504 / 5,259 / 733 ns. The cap stays. The one-flop-loop
+floor moved to 2,399.8 ps at `decodeBufValid_2`, and its new second line (#1368)
+says it does not bind: the loop's buffers carry a 2,519.0 ps path, the
+design's worst, so the buffering is a trade for that path, not a repair
+mistake. That path launches 876 ps inside `Frontend`, runs through
+`DecodeStage` and `UopBufferCtrlDecoder` to `SSIT`; of its 2,284 ps in
+the parent, 952 ps are buffers (444 long-wire, 356 fanout, 152 slew).
+
+**The keep census** (`tools/macro_select/keep_census.tcl`) on that run:
+of 6,204 endpoints over 2,000 ps, 3,569 cut `Dispatch` mid-cone (545
+ns), 1,991 `DecodeStage` (501 ns), 1,921 `Rename` (421 ns); 3,545 start
+or end at the floating-point region's pins (542 ns). Shares overlap.
+
+**The A/B: `Dispatch`, `DecodeStage` and `Rename` not kept.** Worse at
+global route, 2,510 ps, 6,949 endpoints, 1,246 ns (main: 2,504 / 5,259 /
+733 ns). The mass at the floating-point region's pins grew to 5,166
+paths, 1,132 ns: flattening the three into `CtrlBlock` made the corridor
+worse, not better. Not explained yet. A candidate: synthesis splits a
+module into partitions for its parallel runs (`SYNTH_NUM_PARTITIONS`), by
+size, so a flattened `Dispatch` may be cut where no RTL author would,
+where a keep cuts it at its interface.
+
+**At synthesis the same A/B pointed both ways.** Timed at zero wire,
+unbuffered with the blocks' pre-layout abstracts (where `MemBlock`'s
+feedthrough arc is 7,071 ps), dropping the keeps looked better, 27,929
+endpoints over 2,000 ps and 40,514 ns against 28,031 and 41,766 ns;
+buffered with the post-layout abstracts it looked worse, 6,774 / 3,748 ns
+against 5,334 / 3,366 ns. Only global route said which: dogfooding
+rule 14, no ranking before grt.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
