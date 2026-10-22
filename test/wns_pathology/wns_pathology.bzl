@@ -118,6 +118,21 @@ def wns_pathology_reads(name):
         srcs = ["@orfs//flow/designs/%s_grt" % flow for flow in FLOWS],
         tags = ["manual"],
     )
+    for flow in FLOWS:
+        read = target_name(flow) + "_endpoints"
+        orfs_run(
+            name = read,
+            src = "@orfs//flow/designs/%s_grt" % flow,
+            outs = [read + ".tsv"],
+            script = ":endpoints.tcl",
+            tags = ["manual"],
+            user_arguments = {"OUT": "$(location %s.tsv)" % read},
+        )
+    native.filegroup(
+        name = "endpoints",
+        srcs = [":" + target_name(flow) + "_endpoints" for flow in FLOWS],
+        tags = ["manual"],
+    )
     native.filegroup(
         name = "reads",
         srcs = [":" + target_name(flow) for flow in FLOWS],

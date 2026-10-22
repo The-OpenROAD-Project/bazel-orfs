@@ -4,12 +4,14 @@
 
 results/facts/<flow>.tsv is read.tcl's read of a flow's global route;
 results/arms/<arm>_{fix,control}.tsv the fix arms' reads;
-results/not_measured.json the flows that failed before timing or were left
-out. A section with no data says "Not yet measured".
+results/endpoints/<flow>.txt every reg2reg endpoint's period over its
+own clock's period, one per line; results/not_measured.json the flows that failed before timing or
+were left out. A section with no data says "Not yet measured".
 """
 
 import argparse
 import json
+import math
 import os
 import sys
 
@@ -37,10 +39,23 @@ def fmt(v):
     return "–" if v is None else "%.4g" % v
 
 
+NAMES = {}
+
+
+def display(stem):
+    """An ORFS design as ORFS names it: its directory, and its top where
+    the directory holds more than one flow."""
+    return NAMES.get(stem, stem)
+
+
 def load(results):
     facts = os.path.join(results, "facts")
     if not os.path.isdir(facts) or not os.listdir(facts):
         raise SystemExit("no results in %s: run the campaign first" % results)
+    names = os.path.join(results, "names.json")
+    NAMES.clear()
+    if os.path.exists(names):
+        NAMES.update(json.load(open(names)))
     designs = {}
     for f in sorted(os.listdir(facts)):
         text = open(os.path.join(facts, f)).read()
@@ -63,7 +78,9 @@ def report(results):
         for f in r["flags"]:
             counts[f] = counts.get(f, 0) + 1
     flagged = sum(1 for _, r in done if r["flags"])
-    out.append("## Flags\n")
+    out.append("## What sets WNS\n")
+    out.append(groups_table(designs))
+    out.append("\n## Flags\n")
     out.append("%d flows measured, %d flagged.\n" % (len(done), flagged))
     out.append(
         table(
@@ -79,7 +96,7 @@ def report(results):
     for stem, (_, r) in sorted(designs.items()):
         rows.append(
             [
-                "`%s`" % stem,
+                "`%s`" % display(stem),
                 fmt(r["clock"]),
                 fmt(r["reg2reg_min_period"]),
                 fmt(r["wns"]),
@@ -246,16 +263,276 @@ def svg(designs):
     )
 
 
+# What sets a design's WNS, one group each, in the order the figures
+# and the list show them
+GROUPS = [
+    ("reg2reg logic", lambda f: not f & {"P0", "P1", "P5", "P7", "P8"}),
+    (
+        "reg2reg logic at its one-flop-loop floor",
+        lambda f: "P5" in f and not f & {"P0", "P1", "P7", "P8"},
+    ),
+    ("an input/output budget in the .sdc", lambda f: "P1" in f and "P8" not in f),
+    ("where repair stopped: the clock is out of reach", lambda f: "P8" in f),
+    ("nothing: met with room to spare", lambda f: "P7" in f and not f & {"P1", "P8"}),
+]
+
+
+def grouped(designs):
+    """[(group, [(stem, result), ...])], each group in WNS order."""
+    out = []
+    for name, test in GROUPS:
+        members = [
+            (stem, r)
+            for stem, (_, r) in designs.items()
+            if r["reg2reg_min_period"] is not None and test(set(r["flags"]))
+        ]
+        members.sort(key=lambda m: (m[1]["clock"] - m[1]["wns"]) / m[1]["clock"])
+        out.append((name, members))
+    return out
+
+
+def groups_table(designs):
+    rows = []
+    for name, members in grouped(designs):
+        rows.append(
+            [
+                name,
+                len(members),
+                ", ".join(
+                    "`%s`%s" % (display(s), "\\*" if "P3" in r["flags"] else "")
+                    for s, r in members
+                ),
+            ]
+        )
+    return table(["WNS is set by", "designs", "which"], rows) + (
+        "\n\n\\* has registers the timer never sees (check_setup)."
+    )
+
+
+def _frame(W, H, body):
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" '
+        'font-family="system-ui, sans-serif" font-size="11" fill="#52514e">'
+        '<rect width="%d" height="%d" fill="#fcfcfb"/>' % (W, H, W, H)
+        + "".join(body)
+        + "</svg>\n"
+    )
+
+
+def _x_axis(X, top, bottom, label, ticks):
+    out = []
+    for v in ticks:
+        out.append(
+            '<line x1="%.1f" x2="%.1f" y1="%d" y2="%d" stroke="%s"%s/>'
+            '<text x="%.1f" y="%d" text-anchor="middle">%g</text>'
+            % (
+                X(v),
+                X(v),
+                top,
+                bottom,
+                "#52514e" if v == 1 else "#e1e0d9",
+                ' stroke-width="1.5"' if v == 1 else "",
+                X(v),
+                bottom + 14,
+                v,
+            )
+        )
+    out.append(
+        '<text x="%.1f" y="%d" text-anchor="middle" fill="#0b0b0b">%s</text>'
+        % ((X(ticks[0]) + X(ticks[-1])) / 2, bottom + 30, label)
+    )
+    return out
+
+
+def _diamond(x, y):
+    return (
+        '<path d="M%.1f %.1f l5 5 l-5 5 l-5 -5 z" fill="#eb6834" stroke="#fcfcfb" stroke-width="1"/>'
+        % (x, y - 5)
+    )
+
+
+def _legend(x, y, items):
+    out = []
+    for i, (kind, text) in enumerate(items):
+        cx = x + 250 * i
+        if kind == "dot":
+            out.append('<circle cx="%d" cy="%d" r="4.5" fill="#2a78d6"/>' % (cx, y))
+        elif kind == "diamond":
+            out.append(_diamond(cx, y))
+        elif kind == "hist":
+            out.append(
+                '<rect x="%d" y="%d" width="10" height="9" fill="#2a78d6" fill-opacity=".35" stroke="#2a78d6"/>'
+                % (cx - 5, y - 5)
+            )
+        else:
+            out.append(
+                '<line x1="%d" x2="%d" y1="%d" y2="%d" stroke="#52514e" stroke-width="2"/>'
+                % (cx, cx, y - 6, y + 6)
+            )
+        out.append(
+            '<text x="%d" y="%d" fill="#0b0b0b">%s</text>' % (cx + 10, y + 4, text)
+        )
+    return out
+
+
+def dumbbell_svg(designs):
+    """One row per design, grouped by what sets its WNS: the reg2reg period,
+    the period WNS reports and the loop floor, all over the clock."""
+    RH, L, R, T, W, XMAX = 15, 330, 24, 44, 960, 3.0
+    groups = grouped(designs)
+    n = sum(len(m) for _, m in groups) + 2 * len(groups)
+    H = T + n * RH + 44
+    X = lambda v: L + min(max(v, 0), XMAX) / XMAX * (W - L - R)
+    body = _x_axis(
+        X,
+        T - 6,
+        H - 40,
+        "period ÷ the clock the .sdc asks for (1 = the clock)",
+        [0, 0.5, 1, 1.5, 2, 2.5, 3],
+    )
+    body += _legend(
+        L - 200,
+        16,
+        [
+            ("dot", "reg2reg period: what the logic reaches"),
+            ("diamond", "clock − WNS: what WNS reports"),
+            ("tick", "one-flop-loop floor"),
+        ],
+    )
+    y = T
+    for name, members in groups:
+        y += RH
+        body.append(
+            '<text x="8" y="%d" font-weight="600" fill="#0b0b0b">%s (%d)</text>'
+            % (y + 4, name, len(members))
+        )
+        for stem, r in members:
+            y += RH
+            clk = r["clock"]
+            r2r, wns = r["reg2reg_min_period"] / clk, (clk - r["wns"]) / clk
+            body.append(
+                '<text x="%d" y="%d" text-anchor="end">%s%s</text>'
+                % (L - 10, y + 4, display(stem), " *" if "P3" in r["flags"] else "")
+            )
+            body.append(
+                '<line x1="%.1f" x2="%.1f" y1="%d" y2="%d" stroke="#c3c2b7" stroke-width="2"/>'
+                % (X(r2r), X(wns), y, y)
+            )
+            if r["floor"]:
+                f = r["floor"] / clk
+                body.append(
+                    '<line x1="%.1f" x2="%.1f" y1="%d" y2="%d" stroke="#52514e" stroke-width="2"/>'
+                    % (X(f), X(f), y - 5, y + 5)
+                )
+            body.append(
+                '<circle cx="%.1f" cy="%d" r="4.5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="1.5"/>'
+                % (X(r2r), y)
+            )
+            body.append(_diamond(X(wns), y))
+        y += RH
+    return _frame(W, H, body)
+
+
+def ridgeline_svg(designs, endpoints):
+    """Per design, the histogram of every reg2reg endpoint's period over its
+    own clock (a design may have several), bins of 2 % of the clock, heights log(1 + count) scaled to each
+    row's own peak, in the groups and order of dumbbell_svg."""
+    RH, L, R, T, W, XMAX, BIN = 30, 330, 24, 44, 960, 3.0, 0.02
+    groups = grouped(designs)
+    n = sum(len(m) for _, m in groups) + 2 * len(groups)
+    H = T + n * RH + 44
+    X = lambda v: L + min(max(v, 0), XMAX) / XMAX * (W - L - R)
+    body = _x_axis(
+        X,
+        T - 6,
+        H - 40,
+        "endpoint period ÷ the clock the .sdc asks for (1 = the clock)",
+        [0, 0.5, 1, 1.5, 2, 2.5, 3],
+    )
+    body += _legend(
+        L - 200,
+        16,
+        [
+            ("hist", "reg2reg endpoints, log count per row"),
+            ("diamond", "clock − WNS: what WNS reports"),
+            ("tick", "one-flop-loop floor"),
+        ],
+    )
+    y = T
+    for name, members in groups:
+        y += RH
+        body.append(
+            '<text x="8" y="%d" font-weight="600" fill="#0b0b0b">%s (%d)</text>'
+            % (y - 6, name, len(members))
+        )
+        for stem, r in members:
+            y += RH
+            clk = r["clock"]
+            periods = endpoints.get(stem)
+            body.append(
+                '<text x="%d" y="%d" text-anchor="end">%s (%s)</text>'
+                % (L - 10, y - 4, display(stem), len(periods) if periods else "–")
+            )
+            body.append(
+                '<line x1="%d" x2="%d" y1="%d" y2="%d" stroke="#c3c2b7"/>'
+                % (L, W - R, y, y)
+            )
+            if periods:
+                bins = {}
+                for p in periods:
+                    b = int(min(p, XMAX) // BIN)
+                    bins[b] = bins.get(b, 0) + 1
+                top = max(math.log1p(c) for c in bins.values())
+                pts = []
+                for b in range(int(XMAX / BIN) + 1):
+                    h = math.log1p(bins.get(b, 0)) / top * (RH - 6)
+                    pts += [
+                        "%.1f,%.1f" % (X(b * BIN), y - h),
+                        "%.1f,%.1f" % (X((b + 1) * BIN), y - h),
+                    ]
+                body.append(
+                    '<polygon points="%.1f,%d %s %.1f,%d" fill="#2a78d6" fill-opacity=".35" stroke="#2a78d6" stroke-width="1"/>'
+                    % (X(0), y, " ".join(pts), X(XMAX), y)
+                )
+            if r["floor"]:
+                f = r["floor"] / clk
+                body.append(
+                    '<line x1="%.1f" x2="%.1f" y1="%d" y2="%d" stroke="#52514e" stroke-width="2"/>'
+                    % (X(f), X(f), y - 10, y + 2)
+                )
+            body.append(_diamond(X((clk - r["wns"]) / clk), y - 1))
+        y += RH // 2
+    return _frame(W, H, body)
+
+
+def load_endpoints(results):
+    d = os.path.join(results, "endpoints")
+    out = {}
+    if os.path.isdir(d):
+        for f in os.listdir(d):
+            out[f[: -len(".txt")]] = [
+                float(l) for l in open(os.path.join(d, f)) if l.strip()
+            ]
+    return out
+
+
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument("results")
-    ap.add_argument("--svg")
+    ap.add_argument("--svg", help="the scatter")
+    ap.add_argument("--dumbbell", help="per design: reg2reg, WNS, floor")
+    ap.add_argument("--ridgeline", help="per design: every endpoint")
     a = ap.parse_args(argv)
     text, designs = report(a.results)
     sys.stdout.write(text)
-    if a.svg:
-        with open(a.svg, "w") as f:
-            f.write(svg(designs))
+    for path, draw in (
+        (a.svg, lambda: svg(designs)),
+        (a.dumbbell, lambda: dumbbell_svg(designs)),
+        (a.ridgeline, lambda: ridgeline_svg(designs, load_endpoints(a.results))),
+    ):
+        if path:
+            with open(path, "w") as f:
+                f.write(draw())
 
 
 if __name__ == "__main__":

@@ -25,6 +25,18 @@ class ReportTest(unittest.TestCase):
             self.assertIn("1 flows measured, 1 flagged", text)
             self.assertIn("Not yet measured", text)
 
+    def test_no_endpoint_beyond_what_wns_reports(self):
+        # each endpoint is read against its own clock: against the design's
+        # main one, an ethmac's 1 ns endpoints sat at 3x a 300 ps clock
+        _, designs = report.report(RESULTS)
+        endpoints = report.load_endpoints(RESULTS)
+        for stem, (_, r) in designs.items():
+            if r["reg2reg_min_period"] is None:
+                continue
+            reported = (r["clock"] - r["wns"]) / r["clock"]
+            self.assertLessEqual(max(endpoints[stem]), reported + 1e-3, stem)
+        self.assertIn("<polygon", report.ridgeline_svg(designs, endpoints))
+
     def test_controls_reproduce_the_sweep(self):
         text, designs = report.report(RESULTS)
         self.assertNotIn("**differs**", text)
