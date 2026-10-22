@@ -1,3 +1,16 @@
+---
+name: review
+description: >-
+  Review the changes since main for style, policy and consistency in bazel-orfs: lint, a local
+  replica of CI's fast checks (analysis, targeted tests, .gitignore traps), Bazel conventions,
+  consistency with neighbouring files, hacks and workarounds, the cruft test (does everybody
+  benefit, or does everybody pay?), security, documentation, then numbered findings and an
+  offer to fix them one clean commit each. Use when asked to review a branch or before opening
+  a pull request.
+---
+
+> **Repo**: bazel-orfs, on a feature branch.
+
 Review changes since main for style, policy, and consistency in bazel-orfs.
 
 ## 1. Gather context
@@ -20,12 +33,12 @@ Run these checks locally before reviewing style. They catch the most common CI f
 bazelisk build //... --nobuild
 ```
 
-This runs full target analysis without building. Catches: conflicting actions (duplicate output paths from `orfs_flow` targets with same name+variant), missing deps, label errors, broken `select()` expressions.
+This runs full target analysis without building (the `analyze-before-push` skill). Catches: conflicting actions (duplicate output paths from `orfs_flow` targets with same name+variant), missing deps, label errors, broken `select()` expressions.
 
 ### 3b. Fast targeted tests (~5s)
 
 ```sh
-bazelisk test //test/bump:bump_test //test:lb_32x128_sky130hd_test //test/klayout:mock_klayout_test --test_output=errors
+bazelisk test //test/bump:bump_test //test/klayout:mock_klayout_test --test_output=errors
 bazelisk build //test:lb_32x128_mock_openroad_floorplan
 ```
 
@@ -39,7 +52,7 @@ git check-ignore $(git ls-files --others --exclude-standard)
 
 The repo has `bazel-*` in `.gitignore` which can silently ignore files with names starting with "bazel-" (e.g. fixture files). If any new files are ignored, either rename them or use `git add -f`.
 
-Report any issues found. Do NOT proceed to style review if any of 3a-3d fail — fix them first.
+Report any issues found. Do NOT proceed to style review if any of 3a-3c fail — fix them first.
 
 ## 4. Check Bazel conventions
 

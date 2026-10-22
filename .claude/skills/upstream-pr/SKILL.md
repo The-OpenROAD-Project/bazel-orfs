@@ -1,3 +1,13 @@
+---
+name: upstream-pr
+description: >-
+  Turn fixes carried in bazel-orfs as patches into an upstream pull request (OpenROAD, ORFS,
+  ...) that a maintainer can review: one commit per concern written for the upstream reader,
+  linted at upstream's versions, a draft force-pushed only until it is ready, every review-bot
+  comment verified, answered and resolved, the carried patch left as it is while the pull
+  request settles. Only once the human has ordered that upstream pull request.
+---
+
 > **Repo**: Run from the bazel-orfs root, with a clone of the upstream repository (OpenROAD, ORFS, ...) in `tmp/`. Applies only once the human has ordered the upstream pull request; until then the change is a carried patch (CLAUDE.md, "Upstream repositories").
 
 How a fix carried here as patches becomes an upstream pull request a maintainer can review. The carried patches churned where churn was cheap; the pull request is the settled change, told to someone who has never seen bazel-orfs.

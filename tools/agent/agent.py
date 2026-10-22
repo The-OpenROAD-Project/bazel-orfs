@@ -62,8 +62,10 @@ INTERNAL_SKILLS = (
     "idea",
     "odb-to-cpp",
     "openroad-issue",
+    "review",
     "study-pr",
     "untar-and-run-report",
+    "upstream-pr",
 )
 
 LINK = os.path.join(".claude", "bazel-orfs")
