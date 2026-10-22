@@ -347,32 +347,22 @@ the build carries on, so a laptop can ask in minutes.
 
 ## Where the period is
 
-The parent's worst paths at global route, by group:
+Parked at 2,504 ps at global route: 5,259 reg2reg endpoints over 2,000
+ps, 733 ns of excess over it (2,473.5 ps timed flat with the blocks'
+own cells). The one-flop-loop floor, 2,151 ps at `decodeBufValid_3`,
+does not set it.
 
-| group | worst slack at 473 ps | path |
-|---|---|---|
-| reg2reg | -3,387 ps | Frontend's `io_backend_cfVec_0_bits_instr` output into CtrlBlock's store set table, `memCtrl/ssit` |
-| in2reg | -1,238 ps | `io_hartId` into the FP region's `in_fromTop_hartId` |
-| reg2out | -1,384 ps | the L2's `io_lcreditCHI_tx_dat_flit` out to the tile's port |
+The worst path launches in `Frontend` (its 876 ps there are mostly the
+block's clock insertion, which the capture side cancels) and spends
+2,284 ps in the parent, through decode and `uopBufferCtrlDecoder` to
+`SSIT`: 1,332 ps of logic, 952 ps of buffers. The mass sits in one
+corridor, the floating-point region's pins and `CtrlBlock`'s decode,
+dispatch and rename.
 
-Only the first is a period (`.claude/skills/macro-constraints`); the
-other two are optimisation targets.
-
-Route-0 at global route: total congestion 84,006, 17.2
-percent of the routing resources used, 109 m of wire. The floorplan is the planner's at
-parent density 0.3, each block placed at a footprint mocked to density 0.6 (its own
-outline and pins unchanged), and layer adjustment 0.1; `plan/plan.json` is its input.
-
-## The next two
-
-1. **Frontend's fetched instructions into CtrlBlock**, 3,387 ps over
-   the period. The path starts inside Frontend: on #1143's checkpoint
-   the 200 worst paths all began at Frontend's `cfVec` instruction
-   outputs, 1,414 ps of each in Frontend's clock-to-output arc.
-2. **Block clock trees are a period deep**: 20 to 27 levels, 477 to
-   944 ps of insertion delay against a 591 ps target, so every block
-   boundary path is skewed by that much, or padded to match with
-   balancing on (`ideas/xiangshan-timing.md`, entry 24).
+What was tried, what is known and what is open:
+`ideas/xiangshan-timing.md`, entry 58. Each open question is a
+global-route arm of about six hours, run only with a reason why it is
+new (`.claude/skills/dogfooding`, rule 14).
 
 ## What is deliberately broken
 
@@ -383,7 +373,7 @@ because yosys does not finish them at this size; the configuration is
 integer-only with a small last-level cache. The carried patches in
 `patches/` make it run at all.
 
-`ideas/xiangshan-timing.md` has the inventory: 25 entries, each a
+`ideas/xiangshan-timing.md` has the inventory: each entry a
 measurement and what it implies. That is where a question about this
 design is usually already answered.
 
