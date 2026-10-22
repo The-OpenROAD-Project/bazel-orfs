@@ -5,6 +5,7 @@
 #   bazelisk build //test/wns_pathology:asap7_gcd_gcd
 #   bazelisk test //test/wns_pathology:classify_test
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load(":fixes.bzl", "fix_arm")
 load(":wns_pathology.bzl", "wns_pathology_reads")
 
 package(default_visibility = ["//visibility:private"])
@@ -26,3 +27,69 @@ py_test(
 )
 
 wns_pathology_reads(name = "all_grt")
+
+# The fixes proposed for the designs the sweep flagged, one rule per
+# pathology fixed before any arm ran: an IO budget that sets WNS (P1) goes
+# to 2 % of the period, as test/cut_keep_size found for asap7/riscv32i; a
+# clock so tight that repair gave up (P8) goes to the reg2reg period the
+# sweep measured, rounded up to three digits. Each design also gets its
+# control, the SDC as it is, which must reproduce the sweep's read.
+#
+#   bazelisk build --keep_going //test/wns_pathology:fixes
+FIXES = {
+    "asap7/gcd": ["s/^set clk_io_pct 0.2$/set clk_io_pct 0.02/"],
+    "asap7/riscv32i": ["s/^set clk_io_pct 0.125$/set clk_io_pct 0.02/"],
+    "gf180/riscv32i": ["s/^set clk_io_pct 0.2$/set clk_io_pct 0.02/"],
+    "nangate45/picorv32": ["s/^set io_delay \\[expr 0.20 \\* /set io_delay [expr 0.02 * /"],
+    "ihp-sg13g2/i2c-gpio-expander": [
+        "s/^set input_delay_value_clk_core 4.0$/set input_delay_value_clk_core 0.2/",
+        "s/^set output_delay_value_clk_core 4.0$/set output_delay_value_clk_core 0.2/",
+    ],
+    "nangate45/gcd": ["s/^set clk_period 0.25$/set clk_period 0.433/"],
+    "sky130hd/gcd": ["s/^set clk_period 1.1$/set clk_period 2.61/"],
+    "ihp-sg13g2/riscv32i": ["s/^set clk_period 2.0$/set clk_period 3.87/"],
+    "asap7/tpu": ["s/^set clk_period 200$/set clk_period 570/"],
+    "nangate45/tpu": ["s/^set clk_period 1.0$/set clk_period 1.42/"],
+    "asap7/picorv32": [
+        "s/^set clk_period 300$/set clk_period 437/",
+        "s/^set io_delay \\[expr 0.20 \\* /set io_delay [expr 0.02 * /",
+    ],
+}
+
+# as the design's own BUILD routes them (orfs_design_builds.bzl)
+FIX_USER = {
+    "ihp-sg13g2/i2c-gpio-expander": {
+        "user_arguments": [
+            "IO_EAST_PINS",
+            "IO_NORTH_PINS",
+            "IO_SOUTH_PINS",
+            "IO_WEST_PINS",
+        ],
+        "user_sources": [
+            "ADDITIONAL_FAST_LIBS",
+            "ADDITIONAL_SLOW_LIBS",
+        ],
+    },
+}
+
+[
+    fix_arm(
+        name = key.replace("/", "_").replace("-", "_") + "_" + arm,
+        key = key,
+        sdc_edits = edits if arm == "fix" else [],
+        user_arguments = FIX_USER.get(key, {}).get("user_arguments", []),
+        user_sources = FIX_USER.get(key, {}).get("user_sources", []),
+    )
+    for key, edits in FIXES.items()
+    for arm in ("fix", "control")
+]
+
+filegroup(
+    name = "fixes",
+    srcs = [
+        ":" + key.replace("/", "_").replace("-", "_") + "_" + arm
+        for key in FIXES
+        for arm in ("fix", "control")
+    ],
+    tags = ["manual"],
+)
