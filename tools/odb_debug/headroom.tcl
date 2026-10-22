@@ -303,6 +303,7 @@ proc hr_skew { {ends 0} {hold 1} {iters 60} {blocks {}} } {
     }
   }
   set delta $best_delta
+  set reverted 0
   set best_pd [hr_period]
   set best [dict get $best_pd period]
   if { $best > $start } {
@@ -314,6 +315,7 @@ proc hr_skew { {ends 0} {hold 1} {iters 60} {blocks {}} } {
     set best $start
     set best_pd $pd
     set delta [lrepeat $n 0.0]
+    set reverted 1
   }
   set holdslack [hr_hold_slack]
   # where the arrivals moved: in the parent's clock tree, or inside a
@@ -360,7 +362,7 @@ proc hr_skew { {ends 0} {hold 1} {iters 60} {blocks {}} } {
   return [dict merge [dict create start $start skew $best flops $n rounds $rounds \
     moved_parent $moved_parent moved_block $moved_block \
     delta_min $dmin delta_max $dmax hold_slack $holdslack hold_start $holdstart \
-    restored $after \
+    reverted $reverted restored $after \
     top_moved $top_moved] [hr_mass $best_pd]]
 }
 
@@ -386,13 +388,27 @@ proc hr_floor_retime { {ends 0} {iters 60} {blocks {}} } {
 }
 
 # The period as the paths through `flops` see it: the clock period minus
-# the worst setup slack at their data and output pins.
+# the worst setup slack of the register-to-register paths into their data
+# pins or out of their clock pins. The same paths hr_period counts: a pin's
+# own slack also sees the IO paths, and a round judged by those can be the
+# best while its reg2reg period is worse than moving nothing.
 proc hr_scope_period { flops } {
-  set worst ""
+  set cks {}
+  set ds {}
   foreach f $flops {
-    lassign $f ck d q
-    foreach s [list [hr_min_slack $d slack_max] [hr_min_slack $q slack_max]] {
-      if { $s ne "" && ($worst eq "" || $s < $worst) } { set worst $s }
+    lassign $f ck d
+    lappend cks {*}$ck
+    lappend ds {*}$d
+  }
+  set worst ""
+  if { [llength $flops] } {
+    foreach pe [concat \
+      [find_timing_paths -from [all_registers -clock_pins] -to $ds \
+        -group_path_count 1] \
+      [find_timing_paths -from $cks -to [all_registers -data_pins] \
+        -group_path_count 1]] {
+      set s [get_property $pe slack]
+      if { $worst eq "" || $s < $worst } { set worst $s }
     }
   }
   if { $worst eq "" } { return [hr_clock_period] }

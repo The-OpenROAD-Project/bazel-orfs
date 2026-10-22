@@ -120,7 +120,10 @@ class HeadroomTest(unittest.TestCase):
         # view moves their clock arrivals and counts them as the block's,
         # what the parent's abstract alone could never do
         s = self.r["skew"]
-        self.assertGreater(s["moved_block"], 0)
+        why = "start {} skew {} reverted {}".format(
+            s["start"], s["skew"], s.get("reverted")
+        )
+        self.assertGreater(s["moved_block"], 0, why)
         self.assertLessEqual(s["moved_parent"] + s["moved_block"], s["flops"])
         self.assertEqual(self.r["vt_parent_only"]["swapped_block"], 0)
 
