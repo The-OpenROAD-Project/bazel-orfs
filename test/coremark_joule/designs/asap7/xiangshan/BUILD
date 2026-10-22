@@ -100,6 +100,14 @@ xiangshan_flow(
     variant = "pinplan_place",
 )
 
+# A second round: each part planned again from the pinplan variant's
+# global route (<part>_pin_plan2), whether the plan converges.
+xiangshan_flow(
+    name = "XSTile",
+    plan = PLAN,
+    variant = "pinplan2",
+)
+
 # The tile as one flow, no hardened blocks: ORFS's hierarchical synthesis
 # of the whole tile, then macro and global placement over all of it,
 # through global route, with the hierarchy kept in the ODB. The planned
