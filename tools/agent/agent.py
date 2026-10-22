@@ -42,6 +42,7 @@ EXPORTED_SKILLS = (
     "dogfooding",
     "macro-constraints",
     "macro-selection",
+    "new-project",
     "no-paint-drying",
     "odb-debug",
     "openroad-debug",
@@ -55,9 +56,10 @@ EXPORTED_SKILLS = (
 )
 
 # bazel-orfs's own: its pull requests and studies, GitHub housekeeping,
-# and workflows written for the openroad-demo checkout layout.
+# its ideas/ directory, and reporting OpenROAD bugs upstream.
 INTERNAL_SKILLS = (
     "github-deprecations",
+    "idea",
     "odb-to-cpp",
     "openroad-issue",
     "study-pr",

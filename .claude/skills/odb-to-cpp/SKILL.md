@@ -4,7 +4,7 @@ description: >-
   Convert an .odb file into a C++ header that reconstructs the design using odb API calls. Turn a whittled .odb into a self-contained C++ unit test.
 ---
 
-> **Repo**: Paths like `upstream/...` and `scripts/...` are relative to the openroad-demo root.
+> **Repo**: Run from the bazel-orfs root. `tools/odb_to_cpp/gen_cpp_from_odb.tcl` is here; `whittle.py` and the unit test live in an OpenROAD clone in `tmp/OpenROAD`. `bazelisk run` changes directory, so give it absolute paths.
 
 Convert an .odb file into a C++ header that reconstructs the design using odb API calls.
 
@@ -13,7 +13,8 @@ ARGUMENTS: $ARGUMENTS
 ## Usage
 
 ```bash
-openroad -no_init -threads 1 -exit scripts/gen_cpp_from_odb.tcl <input.odb> [output.h]
+bazelisk run @openroad//:openroad -- -no_init -threads 1 -exit \
+  $(pwd)/tools/odb_to_cpp/gen_cpp_from_odb.tcl $(realpath <input.odb>) $(pwd)/<output.h>
 ```
 
 Generates a C++ header file containing an inline function `gen::buildDesign(odb::dbDatabase* db)`
@@ -42,7 +43,7 @@ and `//src/utl` deps — no LEF, DEF, LIB, or binary files needed.
 
 1. Whittle the .odb to minimize the design:
    ```bash
-   python3 upstream/OpenROAD-flow-scripts/tools/OpenROAD/etc/whittle.py \
+   python3 tmp/OpenROAD/etc/whittle.py \
      --base_db_path input.odb --error_string "ERROR_STRING" \
      --step "openroad -no_init -threads 1 -exit bug.tcl" \
      --persistence 3 --use_stdout --dump_def
@@ -50,7 +51,8 @@ and `//src/utl` deps — no LEF, DEF, LIB, or binary files needed.
 
 2. Generate C++ from the whittled .odb:
    ```bash
-   openroad -no_init -threads 1 -exit scripts/gen_cpp_from_odb.tcl whittled.odb generated_design.h
+   bazelisk run @openroad//:openroad -- -no_init -threads 1 -exit \
+     $(pwd)/tools/odb_to_cpp/gen_cpp_from_odb.tcl $(realpath whittled.odb) $(pwd)/generated_design.h
    ```
 
 3. Write a C++ test that includes the generated header:
