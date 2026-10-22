@@ -49,7 +49,7 @@ bazelisk run @bazel-orfs//:dirty -- status
 
 ## What the lane gives up
 
-- **Dependencies are not respected.** An edit to floorplan's settings does not invalidate the place you already ran; re-running it is your job. A script edited in the tree is a copy; `next` refreshes the stage's scripts from the workspace.
+- **Dependencies are not respected.** An edit to floorplan's settings does not invalidate the place you already ran; re-running it is your job. A workspace script edited in the tree is a copy; `next` refreshes the stage's scripts from the workspace. Another repository's files, ORFS's `flow/scripts` among them, are symlinks into Bazel's shared repository cache: an edit in place changes them for every tree and every later build. Replace the link with a copy first (`cp --remove-destination "$(readlink -f f)" f`).
 - **A later stage's inputs come from Bazel's view of the flow.** When `next <stage>` needs something generated from an earlier stage (a planner's `MACRO_PLACEMENT_TCL`, an `orfs_arguments` file), Bazel builds it from its own earlier stages, not from the ones you ran by hand.
 - **Nothing in the tree reaches the Bazel cache.** There is no way to inject a lane result into it; a clean build recomputes every stage.
 
