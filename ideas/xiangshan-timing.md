@@ -2136,6 +2136,42 @@ buffered with the post-layout abstracts it looked worse, 6,774 / 3,748 ns
 against 5,334 / 3,366 ns. Only global route said which: dogfooding
 rule 14, no ranking before grt.
 
+## 57. The size rule keeps memory wrappers by accident
+
+`SYNTH_MINIMUM_KEEP_SIZE` is meant to measure the logic yosys works on,
+but `convert_liberty_areas` gives a macro the gate equivalent of its area,
+and yosys does no work on a macro: a thin wrapper around SRAMs looks like a
+large module and is kept (ORFS #4714). `test/cut_keep_size/keep_probe.py`
+runs yosys to the keep decision, today and with macros at cost 0: of the
+eleven ORFS designs that synthesise hierarchically with a keep threshold
+and macros, nine keep fewer modules, and every module dropped is a memory
+wrapper or a module holding one (`keeps.json`).
+
+The accident is common; what it costs depends on where the wrapper sits.
+Through global route at a clock repair cannot meet
+(`//test/cut_keep_size:table`, read with `tools/endpoint_band`):
+
+| design | clock | today | macros at cost 0 | | endpoints within 10 %: faster / slower |
+|---|---|---:|---:|---:|---:|
+| asap7/riscv32i | 780 ps | 835.6 ps | 797.4 ps | −4.6 % | 995 / 0 |
+| nangate45/bp_be_top | 1.90 ns | 1.993 ns | 1.975 ns | −0.9 % | 225 / 7 |
+| nangate45/bp_fe_top | 1.38 ns | 1.680 ns | 1.671 ns | −0.5 % | 21 / 33 |
+
+riscv32i is the pathological case: its only keep, `dmem`, is four SRAMs
+(1,376 µm²) and 56 µm² of address decode, and that accidental boundary sits
+on the worst path, between the ALU's address adder and the SRAMs' enable
+decode, which synthesis then optimises apart. Elsewhere the wrappers are
+mostly off the worst path: bp_be_top gains a little, bp_fe_top is neutral.
+No hold buffers in any arm.
+
+The clock matters as much as the arms. At 2.21 ns, which bp_be_top's
+reg2reg meets in both arms (WNS a reg2out path), the same comparison read
++1.9 % with 457 endpoints slower; at riscv32i's own 950 ps every keep list
+closed at the clock. An A/B at a clock repair can meet ranks the wrong way
+or not at all. Not measured: ariane133/136, mempool_group, black_parrot,
+bp_multi_top and bp_quad (too big for a workstation), and the gf12
+designs (private PDK).
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance

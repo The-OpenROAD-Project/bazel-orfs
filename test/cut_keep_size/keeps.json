@@ -1,0 +1,291 @@
+{
+ "asap7/coralnpu": {
+  "today": [
+   "AxiSlave$CoreMiniAxi.axiSlave",
+   "Csr$CoreMiniAxi.core.score.csr",
+   "DBus2AxiV1$CoreMiniAxi.ebus2axi",
+   "DispatchV1$CoreMiniAxi.core.score.dispatch",
+   "FRegfile$CoreMiniAxi.core.score.fRegfile",
+   "FloatCore$CoreMiniAxi.core.score.floatCore",
+   "LsuV1$CoreMiniAxi.core.score.lsu",
+   "Regfile$CoreMiniAxi.core.score.regfile",
+   "SCore$CoreMiniAxi.core.score",
+   "UncachedFetch$CoreMiniAxi.core.score.fetch"
+  ],
+  "zero": [
+   "AxiSlave$CoreMiniAxi.axiSlave",
+   "Csr$CoreMiniAxi.core.score.csr",
+   "DBus2AxiV1$CoreMiniAxi.ebus2axi",
+   "DispatchV1$CoreMiniAxi.core.score.dispatch",
+   "FRegfile$CoreMiniAxi.core.score.fRegfile",
+   "FloatCore$CoreMiniAxi.core.score.floatCore",
+   "LsuV1$CoreMiniAxi.core.score.lsu",
+   "Regfile$CoreMiniAxi.core.score.regfile",
+   "SCore$CoreMiniAxi.core.score",
+   "UncachedFetch$CoreMiniAxi.core.score.fetch"
+  ]
+ },
+ "asap7/riscv32i": {
+  "today": [
+   "dmem"
+  ],
+  "zero": []
+ },
+ "nangate45/ariane133": {
+  "today": [
+   "SyncSpRamBeNx64_00000008_00000100_0_2",
+   "SyncSpRamBeNx64_00000008_00000100_0_2_d44",
+   "SyncSpRamBeNx64_00000008_00000100_0_2_d45",
+   "ariane",
+   "csr_regfile_0000000000000000_1",
+   "ex_stage",
+   "frontend_0000000000000000",
+   "issue_read_operands",
+   "miss_handler_NR_PORTS3",
+   "mmu_16_16_00000001",
+   "multiplier",
+   "perf_counters",
+   "scoreboard_00000008_00000004",
+   "std_nbdcache_0000000080000000"
+  ],
+  "zero": [
+   "ariane",
+   "csr_regfile_0000000000000000_1",
+   "ex_stage",
+   "frontend_0000000000000000",
+   "issue_read_operands",
+   "miss_handler_NR_PORTS3",
+   "mmu_16_16_00000001",
+   "multiplier",
+   "perf_counters",
+   "scoreboard_00000008_00000004",
+   "std_nbdcache_0000000080000000"
+  ]
+ },
+ "nangate45/ariane136": {
+  "today": [
+   "SyncSpRamBeNx64_00000008_00000100_0_2",
+   "SyncSpRamBeNx64_00000008_00000100_0_2_d44",
+   "SyncSpRamBeNx64_00000008_00000100_0_2_d45",
+   "ariane",
+   "csr_regfile_0000000000000000_1",
+   "ex_stage",
+   "frontend_0000000000000000",
+   "issue_read_operands",
+   "limping_SyncSpRamBeNx64_00000008_00000100_0_2",
+   "miss_handler_NR_PORTS3",
+   "mmu_16_16_00000001",
+   "multiplier",
+   "perf_counters",
+   "scoreboard_00000008_00000004",
+   "std_nbdcache_0000000080000000"
+  ],
+  "zero": [
+   "ariane",
+   "csr_regfile_0000000000000000_1",
+   "ex_stage",
+   "frontend_0000000000000000",
+   "issue_read_operands",
+   "miss_handler_NR_PORTS3",
+   "mmu_16_16_00000001",
+   "multiplier",
+   "perf_counters",
+   "scoreboard_00000008_00000004",
+   "std_nbdcache_0000000080000000"
+  ]
+ },
+ "nangate45/black_parrot": {
+  "today": [
+   "black_parrot",
+   "bp_be_calculator_top_vaddr_width_p56_paddr_width_p22_asid_width_p10_branch_metadata_fwd_width_p36_core_els_p1_num_lce_p2_lce_sets_p64_cce_block_size_in_bytes_p64",
+   "bp_be_dcache_data_width_p64_paddr_width_p22_sets_p64_ways_p8_num_cce_p1_num_lce_p2",
+   "bp_be_dcache_lce_data_width_p64_paddr_width_p22_lce_data_width_p512_sets_p64_ways_p8_num_cce_p1_num_lce_p2",
+   "bp_cce_num_lce_p2_num_cce_p1_paddr_width_p22_lce_assoc_p8_lce_sets_p64_block_size_in_bytes_p64_num_cce_inst_ram_els_p256",
+   "bp_coherence_network_num_lce_p2_num_cce_p1_paddr_width_p22_lce_assoc_p8_block_size_in_bytes_p64",
+   "bp_core_core_els_p1_num_lce_p2_num_cce_p1_lce_assoc_p8_lce_sets_p64_cce_block_size_in_bytes_p64_vaddr_width_p56_paddr_width_p22_branch_metadata_fwd_width_p36_asid_width_p10_btb_indx_width_p9_bht_indx_width_p5_ras_addr_width_p22",
+   "bsg_mem_1rw_sync_mask_write_bit_width_p192_els_p64",
+   "bsg_mesh_router_539_1_1_0_0a_0",
+   "bsg_mesh_router_539_1_1_0_0d_0",
+   "bsg_mesh_router_541_1_1_0_0a_0",
+   "bsg_mesh_router_541_1_1_0_0c_0",
+   "bsg_mesh_router_542_1_1_0_0a_0",
+   "bsg_mesh_router_542_1_1_0_1c_0",
+   "hard_mem_1rw_byte_mask_d512_w64_wrapper",
+   "hard_mem_1rw_d256_w95_wrapper",
+   "hard_mem_1rw_d512_w64_wrapper",
+   "icache_eaddr_width_p64_data_width_p64_inst_width_p32_tag_width_p10_num_cce_p1_num_lce_p2_ways_p8_lce_sets_p64_block_size_in_bytes_p8"
+  ],
+  "zero": [
+   "black_parrot",
+   "bp_be_calculator_top_vaddr_width_p56_paddr_width_p22_asid_width_p10_branch_metadata_fwd_width_p36_core_els_p1_num_lce_p2_lce_sets_p64_cce_block_size_in_bytes_p64",
+   "bp_be_dcache_data_width_p64_paddr_width_p22_sets_p64_ways_p8_num_cce_p1_num_lce_p2",
+   "bp_be_dcache_lce_data_width_p64_paddr_width_p22_lce_data_width_p512_sets_p64_ways_p8_num_cce_p1_num_lce_p2",
+   "bp_cce_num_lce_p2_num_cce_p1_paddr_width_p22_lce_assoc_p8_lce_sets_p64_block_size_in_bytes_p64_num_cce_inst_ram_els_p256",
+   "bp_coherence_network_num_lce_p2_num_cce_p1_paddr_width_p22_lce_assoc_p8_block_size_in_bytes_p64",
+   "bp_core_core_els_p1_num_lce_p2_num_cce_p1_lce_assoc_p8_lce_sets_p64_cce_block_size_in_bytes_p64_vaddr_width_p56_paddr_width_p22_branch_metadata_fwd_width_p36_asid_width_p10_btb_indx_width_p9_bht_indx_width_p5_ras_addr_width_p22",
+   "bsg_mesh_router_539_1_1_0_0a_0",
+   "bsg_mesh_router_539_1_1_0_0d_0",
+   "bsg_mesh_router_541_1_1_0_0a_0",
+   "bsg_mesh_router_541_1_1_0_0c_0",
+   "bsg_mesh_router_542_1_1_0_0a_0",
+   "bsg_mesh_router_542_1_1_0_1c_0",
+   "icache_eaddr_width_p64_data_width_p64_inst_width_p32_tag_width_p10_num_cce_p1_num_lce_p2_ways_p8_lce_sets_p64_block_size_in_bytes_p8"
+  ]
+ },
+ "nangate45/bp_be_top": {
+  "today": [
+   "bp_be_calculator_top_vaddr_width_p56_paddr_width_p22_asid_width_p10_branch_metadata_fwd_width_p36_core_els_p1_num_lce_p2_lce_sets_p64_cce_block_size_in_bytes_p64",
+   "bp_be_dcache_data_width_p64_paddr_width_p22_sets_p64_ways_p8_num_cce_p1_num_lce_p2",
+   "bp_be_dcache_lce_cmd_num_cce_p1_num_lce_p2_paddr_width_p22_lce_data_width_p512_sets_p64_ways_p8_data_width_p64",
+   "bp_be_dcache_lce_data_width_p64_paddr_width_p22_lce_data_width_p512_sets_p64_ways_p8_num_cce_p1_num_lce_p2",
+   "bp_be_int_alu",
+   "bsg_mem_2r1w_sync_synth_width_p64_els_p32_read_write_same_addr_p1_harden_p0",
+   "hard_mem_1rw_bit_mask_d64_w96_wrapper",
+   "hard_mem_1rw_byte_mask_d512_w64_wrapper"
+  ],
+  "zero": [
+   "bp_be_calculator_top_vaddr_width_p56_paddr_width_p22_asid_width_p10_branch_metadata_fwd_width_p36_core_els_p1_num_lce_p2_lce_sets_p64_cce_block_size_in_bytes_p64",
+   "bp_be_dcache_data_width_p64_paddr_width_p22_sets_p64_ways_p8_num_cce_p1_num_lce_p2",
+   "bp_be_dcache_lce_cmd_num_cce_p1_num_lce_p2_paddr_width_p22_lce_data_width_p512_sets_p64_ways_p8_data_width_p64",
+   "bp_be_dcache_lce_data_width_p64_paddr_width_p22_lce_data_width_p512_sets_p64_ways_p8_num_cce_p1_num_lce_p2",
+   "bp_be_int_alu",
+   "bsg_mem_2r1w_sync_synth_width_p64_els_p32_read_write_same_addr_p1_harden_p0"
+  ]
+ },
+ "nangate45/bp_fe_top": {
+  "today": [
+   "hard_mem_1rw_byte_mask_d512_w64_wrapper",
+   "hard_mem_1rw_d512_w64_wrapper",
+   "icache_eaddr_width_p64_data_width_p64_inst_width_p32_tag_width_p10_num_cce_p1_num_lce_p2_ways_p8_lce_sets_p64_block_size_in_bytes_p8"
+  ],
+  "zero": [
+   "icache_eaddr_width_p64_data_width_p64_inst_width_p32_tag_width_p10_num_cce_p1_num_lce_p2_ways_p8_lce_sets_p64_block_size_in_bytes_p8"
+  ]
+ },
+ "nangate45/bp_multi_top": {
+  "today": [
+   "bp_be_calculator_top_vaddr_width_p39_paddr_width_p22_asid_width_p10_core_els_p1_num_lce_p2_lce_sets_p64_trace_p0_debug_p0_debug_file_pinv",
+   "bp_be_dcache_data_width_p64_paddr_width_p22_sets_p64_ways_p8_num_cce_p1_num_lce_p2",
+   "bp_cce_num_lce_p2_num_cce_p1_paddr_width_p22_lce_assoc_p8_lce_sets_p64_block_size_in_bytes_p64_num_cce_inst_ram_els_p256_lce_req_data_width_p64",
+   "bp_core_core_els_p1_num_lce_p2_num_cce_p1_lce_assoc_p8_lce_sets_p64_cce_block_size_in_bytes_p64_data_width_p64_vaddr_width_p39_paddr_width_p22_branch_metadata_fwd_width_p36_asid_width_p10_btb_indx_width_p9_bht_indx_width_p5_ras_addr_width_p22_trace_p0",
+   "bp_me_network_channel_data_cmd_num_lce_p2_num_cce_p1_lce_assoc_p8_block_size_in_bits_p512_max_num_flit_p4",
+   "bp_me_network_channel_data_resp_num_lce_p2_num_cce_p1_paddr_width_p22_block_size_in_bits_p512_max_num_flit_p4",
+   "bp_me_network_num_lce_p2_num_cce_p1_paddr_width_p22_lce_assoc_p8_block_size_in_bytes_p64_data_width_p64",
+   "bsg_counter_clear_up_init_val_p0_ptr_width_lp64",
+   "bsg_mem_1rw_sync_mask_write_bit_width_p192_els_p64",
+   "hard_mem_1rw_byte_mask_d512_w64_wrapper",
+   "hard_mem_1rw_d256_w96_wrapper",
+   "hard_mem_1rw_d512_w64_wrapper",
+   "icache_eaddr_width_p64_paddr_width_p22_data_width_p64_instr_width_p32_num_cce_p1_num_lce_p2_ways_p8_sets_p64"
+  ],
+  "zero": [
+   "bp_be_calculator_top_vaddr_width_p39_paddr_width_p22_asid_width_p10_core_els_p1_num_lce_p2_lce_sets_p64_trace_p0_debug_p0_debug_file_pinv",
+   "bp_be_dcache_data_width_p64_paddr_width_p22_sets_p64_ways_p8_num_cce_p1_num_lce_p2",
+   "bp_cce_num_lce_p2_num_cce_p1_paddr_width_p22_lce_assoc_p8_lce_sets_p64_block_size_in_bytes_p64_num_cce_inst_ram_els_p256_lce_req_data_width_p64",
+   "bp_fe_top_39_22_1_2_8_64_64_9_5_22_10_80000124",
+   "bp_me_network_channel_data_cmd_num_lce_p2_num_cce_p1_lce_assoc_p8_block_size_in_bits_p512_max_num_flit_p4",
+   "bp_me_network_channel_data_resp_num_lce_p2_num_cce_p1_paddr_width_p22_block_size_in_bits_p512_max_num_flit_p4",
+   "bp_me_network_num_lce_p2_num_cce_p1_paddr_width_p22_lce_assoc_p8_block_size_in_bytes_p64_data_width_p64",
+   "bp_multi_top",
+   "bsg_counter_clear_up_init_val_p0_ptr_width_lp64"
+  ]
+ },
+ "nangate45/bp_quad": {
+  "today": [
+   "bp_be_csr_05",
+   "bp_be_dcache_05",
+   "bp_be_dcache_lce_cmd_05",
+   "bp_be_scheduler_05",
+   "bp_be_top_05",
+   "bp_cce_05",
+   "bp_cce_dir_sets_p16_lce_assoc_p8_num_lce_p8_tag_width_p28",
+   "bp_cce_msg_cached_05",
+   "bp_cce_pc_05",
+   "bp_fe_bht_bht_idx_width_p9",
+   "bp_fe_icache_05",
+   "bp_fe_lce_cmd_05",
+   "bp_fe_top_05",
+   "bp_io_tile_node_05",
+   "bp_me_cache_slice_05",
+   "bp_me_cce_to_mem_link_bidir_05_16_62_3_2_4",
+   "bp_tile_05",
+   "bp_tile_node_05",
+   "bsg_1_to_n_tagged_fifo_width_p62_num_out_p4_els_p64_unbuffered_mask_p8_use_pseudo_large_fifo_p1",
+   "bsg_cache_addr_width_p40_data_width_p64_block_size_in_words_p8_sets_p128_ways_p8",
+   "bsg_chip",
+   "bsg_mem_1rw_sync_mask_write_bit_banked_width_p496_els_p64_latch_last_read_p1_num_width_bank_p8_num_depth_bank_p1",
+   "bsg_mem_1rw_sync_mask_write_bit_width_p116_els_p128_latch_last_read_p1",
+   "bsg_mem_1rw_sync_mask_write_bit_width_p124_els_p64_latch_last_read_p1",
+   "bsg_mem_1rw_sync_mask_write_byte_els_p512_data_width_p64",
+   "bsg_mem_1rw_sync_mask_write_byte_els_p512_data_width_p64_latch_last_read_p1"
+  ],
+  "zero": [
+   "bp_be_csr_05",
+   "bp_be_dcache_05",
+   "bp_be_dcache_lce_cmd_05",
+   "bp_be_top_05",
+   "bp_cce_05",
+   "bp_cce_dir_sets_p16_lce_assoc_p8_num_lce_p8_tag_width_p28",
+   "bp_cce_msg_cached_05",
+   "bp_fe_bht_bht_idx_width_p9",
+   "bp_fe_icache_05",
+   "bp_fe_lce_cmd_05",
+   "bp_fe_top_05",
+   "bp_io_tile_node_05",
+   "bp_me_cache_slice_05",
+   "bp_me_cce_to_mem_link_bidir_05_16_62_3_2_4",
+   "bp_tile_05",
+   "bp_tile_node_05",
+   "bsg_1_to_n_tagged_fifo_width_p62_num_out_p4_els_p64_unbuffered_mask_p8_use_pseudo_large_fifo_p1",
+   "bsg_cache_addr_width_p40_data_width_p64_block_size_in_words_p8_sets_p128_ways_p8",
+   "bsg_chip"
+  ]
+ },
+ "nangate45/mempool_group": {
+  "today": [
+   "mempool_tile$mempool_group.gen_tiles[0].i_tile.i_tile",
+   "multiplier$mempool_group.gen_tiles[0].i_tile.i_tile.gen_cores[0].gen_mempool_cc.riscv_core.i_snitch_ipu.gen_vanilla.i_multiplier",
+   "multiplier$mempool_group.gen_tiles[0].i_tile.i_tile.gen_cores[1].gen_mempool_cc.riscv_core.i_snitch_ipu.gen_vanilla.i_multiplier",
+   "multiplier$mempool_group.gen_tiles[0].i_tile.i_tile.gen_cores[2].gen_mempool_cc.riscv_core.i_snitch_ipu.gen_vanilla.i_multiplier",
+   "multiplier$mempool_group.gen_tiles[0].i_tile.i_tile.gen_cores[3].gen_mempool_cc.riscv_core.i_snitch_ipu.gen_vanilla.i_multiplier",
+   "snitch$mempool_group.gen_tiles[0].i_tile.i_tile.gen_cores[0].gen_mempool_cc.riscv_core.i_snitch",
+   "snitch$mempool_group.gen_tiles[0].i_tile.i_tile.gen_cores[1].gen_mempool_cc.riscv_core.i_snitch",
+   "snitch$mempool_group.gen_tiles[0].i_tile.i_tile.gen_cores[2].gen_mempool_cc.riscv_core.i_snitch",
+   "snitch$mempool_group.gen_tiles[0].i_tile.i_tile.gen_cores[3].gen_mempool_cc.riscv_core.i_snitch",
+   "snitch_icache$mempool_group.gen_tiles[0].i_tile.i_tile.gen_caches[0].i_snitch_icache",
+   "stream_xbar$mempool_group.gen_tiles[0].i_tile.i_tile.i_local_req_interco",
+   "stream_xbar$mempool_group.gen_tiles[0].i_tile.i_tile.i_local_resp_interco",
+   "tc_sram$mempool_group.gen_tiles[0].i_tile.i_tile.gen_caches[0].i_snitch_icache.i_lookup.i_data"
+  ],
+  "zero": [
+   "mempool_tile$mempool_group.gen_tiles[0].i_tile.i_tile",
+   "multiplier$mempool_group.gen_tiles[0].i_tile.i_tile.gen_cores[0].gen_mempool_cc.riscv_core.i_snitch_ipu.gen_vanilla.i_multiplier",
+   "multiplier$mempool_group.gen_tiles[0].i_tile.i_tile.gen_cores[1].gen_mempool_cc.riscv_core.i_snitch_ipu.gen_vanilla.i_multiplier",
+   "multiplier$mempool_group.gen_tiles[0].i_tile.i_tile.gen_cores[2].gen_mempool_cc.riscv_core.i_snitch_ipu.gen_vanilla.i_multiplier",
+   "multiplier$mempool_group.gen_tiles[0].i_tile.i_tile.gen_cores[3].gen_mempool_cc.riscv_core.i_snitch_ipu.gen_vanilla.i_multiplier",
+   "snitch$mempool_group.gen_tiles[0].i_tile.i_tile.gen_cores[0].gen_mempool_cc.riscv_core.i_snitch",
+   "snitch$mempool_group.gen_tiles[0].i_tile.i_tile.gen_cores[1].gen_mempool_cc.riscv_core.i_snitch",
+   "snitch$mempool_group.gen_tiles[0].i_tile.i_tile.gen_cores[2].gen_mempool_cc.riscv_core.i_snitch",
+   "snitch$mempool_group.gen_tiles[0].i_tile.i_tile.gen_cores[3].gen_mempool_cc.riscv_core.i_snitch",
+   "snitch_icache$mempool_group.gen_tiles[0].i_tile.i_tile.gen_caches[0].i_snitch_icache",
+   "stream_xbar$mempool_group.gen_tiles[0].i_tile.i_tile.i_local_req_interco",
+   "stream_xbar$mempool_group.gen_tiles[0].i_tile.i_tile.i_local_resp_interco"
+  ]
+ },
+ "nangate45/tinyRocket": {
+  "today": [
+   "CSRFile",
+   "DCache",
+   "Frontend",
+   "MulDiv",
+   "Rocket"
+  ],
+  "zero": [
+   "CSRFile",
+   "DCache",
+   "Frontend",
+   "MulDiv",
+   "Rocket"
+  ]
+ }
+}
