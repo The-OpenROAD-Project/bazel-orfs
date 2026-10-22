@@ -123,6 +123,29 @@ Does zero-wire synthesis predict global route at all? Two points:
 If the two disagree in direction, the loop is not usable as is and the
 distance term comes first.
 
+First point (2026-10-22, `ideas/xiangshan-timing.md` entry 56): the three
+keeps dropped, synthesis against global route.
+
+| Timed | Main's keep list | Three keeps dropped |
+|---|---|---|
+| synthesis, unbuffered, pre-layout block abstracts | 28,031 / 41,766 ns | 27,929 / 40,514 ns |
+| synthesis, buffered, post-layout block abstracts | 5,334 / 3,366 ns | 6,774 / 3,748 ns |
+| global route | 5,259 / 733 ns | 6,949 / 1,246 ns |
+
+Endpoints over 2,000 ps / excess. So:
+
+- **The block abstracts:** synthesis reads the pre-layout ones, where
+  `MemBlock`'s feedthrough arc is 7,071 ps. The loop must time with the
+  post-layout ones global route reads.
+- **Buffering:** an unbuffered netlist times as its high-fanout nets.
+  Buffered, the direction matched global route; unbuffered, it did not.
+- **Buffering without placement does too little:** even buffered, every
+  synthesis-time path over 2,000 ps runs into the ROB's register file
+  through unbuffered fanout, because `repair_design` on the unplaced
+  netlist found 1,140 nets over the cap and inserted 22 buffers. The mass
+  it sees is not global route's. A buffering step that works unplaced
+  comes before the distance term.
+
 ## Where to start: XSTile's numbers
 
 The keep census on XSTile at global route (the parent placed without
