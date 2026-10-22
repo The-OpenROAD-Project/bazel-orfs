@@ -10,7 +10,8 @@ description: >-
   what our flow skipped before blaming a tool; watch a run that grinds past its expected
   time; test script changes for the parent in a dirty lane on cached blocks, the full
   build is the final dress rehearsal; trust the Bazel cache and never clean it, re-key
-  an artifact by a code change that reaches its key. Use before proposing a fix for a timing or flow problem found
+  an artifact by a code change that reaches its key; a moratorium on ranking alternatives
+  before grt unless what is new this time is named. Use before proposing a fix for a timing or flow problem found
   on a big design, before writing a design README or status, before opening a PR that
   depends on another, and before writing a test for a public PR.
 ---
@@ -91,6 +92,26 @@ The worked example: dissolving hardened blocks into XSTile after macro placement
 ## 13. Trust the Bazel cache
 
 Never clean the Bazel cache, partly or wholly; a surprising rebuild is investigated through its keys (`cache-miss`). An artifact that must be rebuilt is re-keyed by poisoning the cache: a code change that reaches the building action's key. A comment may be canonicalized away before it reaches it, so check that the target now misses.
+
+## 14. Moratorium on early ranking: alternatives are ranked at grt
+
+Ranking alternatives before global route, by a synthesis, floorplan or
+placement number or by an estimate model, is the hill every flow project
+dies on: you only know at grt. Do not propose it, or one more experiment
+to calibrate it, unless you can name its Chesterton's fence (rule 10),
+why the earlier attempts failed, and say what is genuinely new this
+time. "A better estimate" is not new. Otherwise spend the machine on
+fewer, better global-route arms, chosen from global-route data (the worst
+paths, the boundaries they cross, the floor report).
+
+The worked examples, each pointing a different way: rule 10's ABC buffer
+trees looked real at synthesis and at place and were worth nothing at
+grt (#1125, #1128). A search over keep lists ranked keeping riscv32i's
+comparator first at floorplan; through grt it was no better than flat.
+XiangShan's keep A/B timed at synthesis pointed one way unbuffered and
+the other way buffered, and only grt said which. What earlier stages
+miss is the flow's own work: buffering, repair, wire, clock skew, the
+blocks' post-layout abstracts.
 
 ## Scale builds to memory, at home
 
