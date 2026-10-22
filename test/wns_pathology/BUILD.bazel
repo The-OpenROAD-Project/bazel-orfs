@@ -1,0 +1,28 @@
+# Where an ORFS design's worst slack is stuck on something the flow cannot
+# improve (ORFS #4583): read.tcl reads each design's own global route as
+# ORFS configures it, classify.py flags the pathologies.
+#
+#   bazelisk build //test/wns_pathology:asap7_gcd_gcd
+#   bazelisk test //test/wns_pathology:classify_test
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load(":wns_pathology.bzl", "wns_pathology_reads")
+
+package(default_visibility = ["//visibility:private"])
+
+py_binary(
+    name = "classify",
+    srcs = ["classify.py"],
+)
+
+py_test(
+    name = "classify_test",
+    size = "small",
+    srcs = [
+        "classify.py",
+        "classify_test.py",
+    ],
+    imports = ["."],
+    main = "classify_test.py",
+)
+
+wns_pathology_reads(name = "all_grt")
