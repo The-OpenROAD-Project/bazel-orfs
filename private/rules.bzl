@@ -2815,6 +2815,38 @@ orfs_synth_rule = rule(
 
 _PRE_LAYOUT_STAGES = ("2_floorplan", "3_place")
 
+def _check_macros(ctx):
+    """Fail when a stage's src carries other macros than its flow's.
+
+    A stage after synthesis takes its macros' LEF and liberty files from
+    src, so a flow whose previous_stage was synthesised with other macros
+    would place those, silently. orfs_flow sets macros_check on the stage
+    a previous_stage hands over."""
+    if not ctx.attr.macros_check:
+        return
+    src = ctx.attr.src[OrfsInfo]
+    for what, mine, theirs in [
+        ("LEF", [m[OrfsInfo].lef for m in ctx.attr.macros_check if m[OrfsInfo].lef], src.additional_lefs),
+        ("liberty", [m[OrfsInfo].lib for m in ctx.attr.macros_check if m[OrfsInfo].lib], src.additional_libs),
+    ]:
+        mine = sorted([f.short_path for f in mine])
+        theirs = sorted([f.short_path for f in theirs.to_list()])
+        if mine != theirs:
+            fail(
+                ("{label}: its flow's macros are not the macros its src, {src}, " +
+                 "was built with, and a stage takes its macros from src. " +
+                 "{what} files only in the flow's macros: {only_mine}; " +
+                 "only in src: {only_theirs}. Do not share a stage across " +
+                 "different macros; drop previous_stage, or share an earlier " +
+                 "stage that has no macros.").format(
+                    label = ctx.label,
+                    src = ctx.attr.src.label,
+                    what = what,
+                    only_mine = [f for f in mine if f not in theirs] or "none",
+                    only_theirs = [f for f in theirs if f not in mine] or "none",
+                ),
+            )
+
 def _make_impl(
         ctx,
         stage,
@@ -2861,6 +2893,7 @@ def _make_impl(
         A list of providers. The returned PdkInfo and TopInfo providers are taken from the first
         target of a ctx.attr.srcs list.
     """
+    _check_macros(ctx)
     use_pre_layout = stage in _PRE_LAYOUT_STAGES
     all_arguments = merge_arguments(
         extra_arguments |

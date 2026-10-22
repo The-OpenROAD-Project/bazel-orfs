@@ -473,6 +473,9 @@ def orfs_flow(
         file that places the pins on the mocked die, for a block whose own
         pin file names coordinates on its real die.
       previous_stage: a dictionary with the input for a stage, default is previous stage. Useful when running experiments that share preceeding stages, like share synthesis for floorplan variants.
+        The stages after it take their macros from that input, not from
+        `macros`, so `macros` must be the macros it was built with; the
+        first stage refuses it at analysis otherwise.
       pdk: name of the PDK to use, default is asap7
       stage_data: dictionary keyed by ORFS stages with lists of stage-specific data files
       squash: if True, combine all stages after synthesis into a single Bazel action.
@@ -823,6 +826,7 @@ def _orfs_pass(
                 report_names = all_report_names,
                 result_names = last_meta.result_names,
                 drc_names = all_drc_names,
+                macros_check = macros if squash_steps[0].stage in previous_stage else [],
                 src = src,
                 variant = variant,
                 arguments = all_arguments,
@@ -946,6 +950,11 @@ def _orfs_pass(
 
     for step, prev in zip(steps[start_stage:], steps[start_stage - 1:]):
         more_kwargs = {}
+
+        # A stage takes its macros from src: the stage a previous_stage
+        # hands over checks they are this flow's (_make_impl).
+        if step.stage in previous_stage:
+            more_kwargs["macros_check"] = macros
 
         # When the abstract runs past place, also emit a sibling abstract at
         # post-place so parent flows can feed ideal-clock .lib to their
