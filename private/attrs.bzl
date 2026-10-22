@@ -298,6 +298,13 @@ def openroad_only_attrs():
         "src": attr.label(
             providers = [DefaultInfo],
         ),
+        "macros_check": attr.label_list(
+            providers = [OrfsInfo],
+            doc = "The flow's macros, set by orfs_flow on the first stage " +
+                  "after a previous_stage. A stage takes its macros from " +
+                  "src, so they must be the ones src carries; the stage " +
+                  "fails when they are not.",
+        ),
     }
 
 def yosys_attrs():

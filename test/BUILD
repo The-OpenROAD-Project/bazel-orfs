@@ -12,6 +12,7 @@ load(":deps_output_group_rule.bzl", "deps_groups_test", "deps_output_group_test"
 load(":exec_tool.bzl", "exec_tool")
 load(":hierarchical_default_test.bzl", "hierarchical_default_test_suite")
 load(":keep_modules_test.bzl", "keep_modules_test_suite")
+load(":macros_check_test.bzl", "macros_check_test")
 load(":mock_pin_knobs_test.bzl", "mock_pin_knobs_test")
 load(":partition_key_test.bzl", "partition_key_test")
 load(":provider_test_rule.bzl", "lib_pre_layout_test")
@@ -313,6 +314,35 @@ orfs_flow(
     tags = ["manual"],
     variant = "pin_placement",
     verilog_files = ["rtl/lb_32x128_top.v"],
+)
+
+# The top with the mock abstract as its macro, sharing the synthesis made
+# with the real one: its floorplan would place the real one's LEF. The
+# stage previous_stage hands over refuses it (macros_check_test.bzl).
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128_top",
+    arguments = SRAM_ARGUMENTS | {
+        "CORE_AREA": "2 2 23 23",
+        "CORE_MARGIN": "2",
+        "DIE_AREA": "0 0 25 25",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
+        "PLACE_DENSITY": "0.65",
+        "RTLMP_MIN_CHANNEL_SIZE": "10 10",
+    },
+    last_stage = "floorplan",
+    macros = ["lb_32x128_mock_abstract_generate_abstract"],
+    previous_stage = {"floorplan": ":lb_32x128_top_synth"},
+    sources = LB_SOURCES,
+    tags = ["manual"],
+    variant = "other_macros",
+    verilog_files = ["rtl/lb_32x128_top.v"],
+)
+
+macros_check_test(
+    name = "lb_32x128_top_other_macros_refused_test",
+    message = "its flow's macros are not the macros its src",
+    target_under_test = ":lb_32x128_top_other_macros_floorplan",
 )
 
 orfs_run(
@@ -1796,9 +1826,10 @@ build_test(
     targets = [":lb_32x128_squashed_cts"],
 )
 
-# Mock hierarchical flow: tests macros attribute with mock-openroad.
-# lb_32x128_mock_openroad generates abstract (submacro), then
-# lb_32x128_mock_hierarchy uses it as a macro (parent with macro).
+# Mock hierarchical flow: lb_32x128's abstract made by mock-openroad
+# (mock_abstract), and a parent run through mock-openroad with lb_32x128
+# as a macro (mock_hierarchy). The parent's macro is the real abstract its
+# shared synthesis was made with; see its macros.
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "lb_32x128",
@@ -1825,7 +1856,10 @@ orfs_flow(
         "PLACE_DENSITY": "0.65",
         "PWR_NETS_VOLTAGES": "",
     },
-    macros = ["lb_32x128_mock_abstract_generate_abstract"],
+    # the abstract lb_32x128_top_synth was made with: a stage takes its
+    # macros from synthesis, and the mock abstract cannot be synthesised
+    # against (mock-openroad writes its liberty cell without pins)
+    macros = ["lb_32x128_generate_abstract"],
     openroad = "//mock/openroad/src/bin:openroad",
     previous_stage = {"floorplan": ":lb_32x128_top_synth"},
     sources = LB_SOURCES,
@@ -1855,7 +1889,9 @@ orfs_flow(
         "PLACE_DENSITY": "0.65",
         "PWR_NETS_VOLTAGES": "",
     },
-    macros = ["lb_32x128_mock_abstract_generate_abstract"],
+    # the abstract lb_32x128_top_synth was made with, whose LEF is the dep
+    # LEF merged; see the flow above for why not the mock abstract
+    macros = ["lb_32x128_generate_abstract"],
     openroad = "//mock/openroad/src/bin:openroad",
     previous_stage = {"floorplan": ":lb_32x128_top_synth"},
     sources = LB_SOURCES | {
@@ -1997,9 +2033,8 @@ synth_action_inputs_test(
     target_under_test = ":lb_32x128_top_gds_scope_generate_metadata",
 )
 
-# Mock sweep test: tests orfs_sweep with macros + openroad override.
-# Uses mock-openroad for all stages. The sweep's "base" variant uses
-# lb_32x128_mock_abstract as a macro (hierarchical design).
+# Mock sweep test: tests orfs_sweep with an openroad override and a
+# variant sharing synthesis. Uses mock-openroad for all stages.
 orfs_sweep(
     name = "mock_sweep_lb",
     abstract_stage = "cts",
@@ -2008,7 +2043,8 @@ orfs_sweep(
     sources = LB_SOURCES,
     sweep = {
         "sweep": {
-            "macros": ["lb_32x128_mock_abstract_generate_abstract"],
+            # no macros: lb_32x128 instantiates none, and the synthesis it
+            # shares has none, so a stage would take none
             "previous_stage": {"floorplan": "lb_32x128_synth"},
             "sources": {
                 "SDC_FILE": [":constraints-sram"],
