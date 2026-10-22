@@ -44,3 +44,37 @@ py_test(
     args = ["$(rootpath :keep_census.tsv)"],
     data = [":keep_census.tsv"],
 )
+
+# tools/endpoint_band's read.tcl on the same design at placement: each path
+# group is selected by its own ends (the flow defines no path groups, and
+# -path_group alone gave every group the worst path overall).
+orfs_run(
+    name = "keep_census_read",
+    src = ":keep_census_place",
+    outs = [
+        "read_endpoints.tsv",
+        "read_report.txt",
+    ],
+    cmd = "run",
+    script = "//tools/endpoint_band:read.tcl",
+    tags = ["manual"],
+    user_arguments = {
+        "ENDPOINTS_OUT": "$(location read_endpoints.tsv)",
+        "READ_STAGE": "place",
+        "REPORT_OUT": "$(location read_report.txt)",
+    },
+)
+
+py_test(
+    name = "read_test",
+    size = "small",
+    srcs = ["read_test.py"],
+    args = [
+        "$(rootpath :read_endpoints.tsv)",
+        "$(rootpath :read_report.txt)",
+    ],
+    data = [
+        ":read_endpoints.tsv",
+        ":read_report.txt",
+    ],
+)
