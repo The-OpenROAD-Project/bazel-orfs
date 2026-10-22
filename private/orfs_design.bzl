@@ -51,7 +51,7 @@ def _convert_sources(sources, pkg):
             result[var] = converted
     return result
 
-def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], extra = None, visibility = None, block_abstract_stage = None, quick_pins = False, canon_blackbox_macros = [], block_mock_area = None):  # buildifier: disable=unused-variable
+def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], extra = None, visibility = None, block_abstract_stage = None, quick_pins = False, canon_blackbox_macros = [], block_mock_area = None):  # buildifier: disable=unused-variable
     """Create orfs_flow() targets for a design based on its parsed config.mk.
 
     Usage:
@@ -71,12 +71,6 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
         designs: The DESIGNS dict from the orfs_designs repository rule.
             Supplied automatically by the generated wrapper in
             @orfs_designs//:designs.bzl.
-        mock_openroad: Label for mock-openroad binary. When set, generates
-            lint flow targets (variant="lint") alongside real flow targets.
-            Example: "//mock/openroad/src/bin:openroad".
-        mock_yosys: Label for mock-yosys binary. When set, lint flow uses
-            this instead of real Yosys for synthesis.
-            Example: "//mock/yosys/src/bin:yosys".
         user_arguments: List of variable names from config.mk that are
             project-specific (read by user-supplied .tcl/.mk, not by
             ORFS itself, e.g. FP_PDN_RAIL_OFFSET in a custom pdn.cfg).
@@ -222,15 +216,13 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
     extra_data = _collect_include_dirs(config["arguments"])
 
     # Handle BLOCKS: create sub-macro orfs_flow() targets
-    macros, lint_macros = _create_block_targets(
+    macros = _create_block_targets(
         config,
         designs,
         platform,
         design,
         pkg,
         tags,
-        mock_openroad,
-        mock_yosys,
         abstract_stage = block_abstract_stage or _BLOCK_ABSTRACT_STAGE,
         user_arguments = user_arguments,
         user_sources = user_sources,
@@ -309,25 +301,6 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
             stage_data = {"synth": extra_data} if extra_data else {},
             tags = tags,
         )
-
-    # Lint flow — fast validation with mock-openroad (only if configured)
-    if mock_openroad:
-        lint_kwargs = dict(
-            name = name,
-            verilog_files = verilog_files,
-            pdk = "//flow:" + platform,
-            arguments = config["arguments"],
-            sources = sources,
-            macros = lint_macros if lint_macros else [],
-            stage_data = {"synth": extra_data} if extra_data else {},
-            variant = "lint",
-            lint = True,
-            openroad = mock_openroad,
-            tags = tags,
-        )
-        if mock_yosys:
-            lint_kwargs["yosys"] = mock_yosys
-        orfs_flow(**lint_kwargs)
 
 def _filter_verilog_files(raw_verilog_files, design = None):
     """Filter verilog_files: skip unresolved Make variables and invalid labels.
@@ -472,7 +445,7 @@ def _block_mock_area(block_mock_area, block_name):
         return block_mock_area.get(block_name, None)
     return block_mock_area
 
-def _create_block_targets(config, designs, platform, design, pkg, tags, mock_openroad, mock_yosys = None, abstract_stage = _BLOCK_ABSTRACT_STAGE, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], quick_pins = False, block_mock_area = None, visibility = None):
+def _create_block_targets(config, designs, platform, design, pkg, tags, abstract_stage = _BLOCK_ABSTRACT_STAGE, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], quick_pins = False, block_mock_area = None, visibility = None):
     """Create sub-macro orfs_flow() targets for BLOCKS.
 
     The blocks' flows get the design's visibility: a consumer that
@@ -480,11 +453,9 @@ def _create_block_targets(config, designs, platform, design, pkg, tags, mock_ope
     abstracts as macros.
 
     Returns:
-        Tuple of (macros, lint_macros) where macros references real flow
-        abstracts and lint_macros references lint flow abstracts.
+        The blocks' abstracts, as macros for the parent.
     """
     macros = []
-    lint_macros = []
     for block_name in config.get("blocks", []):
         block_key = "%s/%s" % (platform, "%s_%s" % (design, block_name))
 
@@ -517,7 +488,6 @@ def _create_block_targets(config, designs, platform, design, pkg, tags, mock_ope
             if var in block_user_args or var in block_user_srcs
         }
 
-        # Real flow
         orfs_flow(
             mock_area = _block_mock_area(block_mock_area, block_config["name"]),
             name = block_config["name"],
@@ -535,27 +505,4 @@ def _create_block_targets(config, designs, platform, design, pkg, tags, mock_ope
         )
         macros.append(":%s_generate_abstract" % block_config["name"])
 
-        # Lint flow (only if mock_openroad is configured)
-        if mock_openroad:
-            lint_kwargs = dict(
-                name = block_config["name"],
-                abstract_stage = abstract_stage,
-                verilog_files = block_verilog,
-                pdk = "//flow:" + platform,
-                arguments = block_arguments,
-                user_arguments = block_user_args,
-                sources = block_sources,
-                user_sources = block_user_srcs,
-                user_stages = block_user_stages,
-                quick_pins = quick_pins,
-                variant = "lint",
-                lint = True,
-                openroad = mock_openroad,
-                tags = tags,
-            )
-            if mock_yosys:
-                lint_kwargs["yosys"] = mock_yosys
-            orfs_flow(**lint_kwargs)
-            lint_macros.append(":%s_lint_generate_abstract" % block_config["name"])
-
-    return macros, lint_macros
+    return macros

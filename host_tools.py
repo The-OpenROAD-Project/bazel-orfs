@@ -95,7 +95,6 @@ EXCLUDED = (
     ".claude/",
     ".github/",
     "docs/",
-    "gallery/",
     "test/",
     "tmp/",
 )

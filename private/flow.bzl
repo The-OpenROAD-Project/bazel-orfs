@@ -748,7 +748,7 @@ def _orfs_pass(
                 **kwargs
             )
         )
-        if save_odb and not kwargs.get("lint"):
+        if save_odb:
             _orfs_estimate_report(
                 name = _step_name(name, variant, "estimate"),
                 src = step_name,

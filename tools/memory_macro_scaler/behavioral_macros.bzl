@@ -35,7 +35,7 @@ def behavioral_macros(
         tech_nm: Target technology node in nm (default 7 = ASAP7).
         target_suffix: Appended to each emitted Bazel target name so they
                        don't collide with any existing targets that share
-                       the module name (e.g. existing demo_sram() loops).
+                       the module name.
                        The generated FILES keep the bare module name —
                        only the Bazel labels get suffixed.
         **kwargs: Forwarded to the underlying genrule (tags, visibility).

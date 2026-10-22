@@ -123,10 +123,6 @@ def flow_attrs():
             default = Label("@bazel-orfs//:deploy.tpl"),
             allow_single_file = True,
         ),
-        "lint": attr.bool(
-            doc = "Lint mode: minimal tool dependencies, skip full synthesis, silent make.",
-            default = False,
-        ),
         "_klayout": attr.label(
             doc = "Klayout binary.",
             executable = True,

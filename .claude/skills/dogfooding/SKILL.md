@@ -3,7 +3,8 @@ name: dogfooding
 description: >-
   The standing rules learned building XiangShan with bazel-orfs, for any large design: fix
   the tools and never the design (no multicycle or false-path exceptions, no added RTL
-  registers); hard stops where a problem is made; finish the macros before the parent; a
+  registers); hard stops where a problem is made, and no linters or side flows: a guaranteed
+  failure is moved earlier in the real flow, one source of truth; finish the macros before the parent; a
   design README says what is; public PR tests check intended behaviour, not golden .ok
   output; a PR on an unmerged upstream PR is a draft; choices in the flow script, facts in
   the .odb; relative paths; unattended means continue; Chesterton's fence, check
@@ -40,6 +41,8 @@ A stage that produces a broken result refuses, and names the cause, instead of p
 - cells left with no row under them after global placement (the legaliser's `initialSnap` then walks for hours);
 - gross slew left by `repair_design`: a net whose loads span a millimetre under one driver;
 - a block abstracted before its own clock tree, whose clock pin then carries the whole unbuffered clock net into the parent.
+
+No linters and no side flows. Everybody runs the real flow, so a check that is not in it is never run, however good it is: bazel-orfs's own lint flow (mock OpenROAD, `variant = "lint"`) was adopted by none of ORFS's 173 designs and was removed. The only move is to make a guaranteed hard failure happen earlier, keeping one source of truth: the early check uses the definition the later failure comes from rather than a copy of it. Today such checks run at analysis (`orfs_flow` refuses an unknown ORFS variable) and at the top of ORFS's `floorplan.tcl` (`check_setup`, and mutually exclusive floorplan methods refused before any work is done).
 
 ## 3. Finish the macros before grinding on the parent
 
