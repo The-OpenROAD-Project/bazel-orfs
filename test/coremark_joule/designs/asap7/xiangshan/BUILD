@@ -178,6 +178,21 @@ odb_debug(
     for block in PLAN["macros"].keys()
 ]
 
+# Each block at global route, where its KPI is read, and the pin plan
+# variant of the blocks it plans (those with a register file), to draw
+# the worst paths base against planned.
+[
+    odb_debug(
+        name = flow + "_grt_odb_debug",
+        src = ":" + flow + "_grt",
+    )
+    for flow in list(PLAN["macros"].keys()) + [
+        "FltRegionModule_pinplan",
+        "Frontend_pinplan",
+        "VecRegionModule_pinplan",
+    ]
+]
+
 grt_netlist(
     name = "cmj_xiangshan_grt_netlist",
     src = ":XSTile_grt",
