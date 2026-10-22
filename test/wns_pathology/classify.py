@@ -27,8 +27,10 @@ HOLD = 0.05
 
 IO_GROUPS = ("in2reg", "reg2out", "in2out")
 
-# check_setup warnings that leave registers or endpoints untimed
-UNSEEN = ("unclocked", "unconstrained", "no_clock")
+# check_setup warnings that leave registers untimed: unclocked registers,
+# and unconstrained endpoints that are register data pins (read.tcl counts
+# those; an output port the SDC gives no delay is left out by design)
+UNSEEN = ("unclocked", "unconstrained_register_pins", "no_clock")
 
 
 def parse(text):

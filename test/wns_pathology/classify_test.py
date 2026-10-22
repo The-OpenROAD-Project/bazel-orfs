@@ -68,8 +68,18 @@ class ClassifyTest(unittest.TestCase):
         self.assertIn("P3", out["flags"])
         self.assertIn("12", out["evidence"]["P3"])
 
+    def test_ports_without_delays_are_not_unseen(self):
+        text = GCD + "check_setup.Warning:_unconstrained_input_ports\t65\n"
+        self.assertNotIn("P3", flags(text))
+        text += "check_setup.Warning:_unconstrained_endpoints\t995\n"
+        self.assertNotIn("P3", flags(text))
+        text += "check_setup.unconstrained_register_pins\t990\n"
+        self.assertIn("P3", flags(text))
+
     def test_counted_zero_is_no_flag(self):
-        self.assertNotIn("P3", flags(GCD + "check_setup.unconstrained_endpoints\t0\n"))
+        self.assertNotIn(
+            "P3", flags(GCD + "check_setup.unconstrained_register_pins\t0\n")
+        )
 
     def test_macro_and_cross_clock(self):
         text = GCD.replace("worst.macro\t0", "worst.macro\t1").replace(

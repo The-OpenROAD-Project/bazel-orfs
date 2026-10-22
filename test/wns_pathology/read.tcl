@@ -19,7 +19,8 @@ proc wp_put { key value } {
 }
 
 proc wp_name { obj } {
-  if { $obj eq "" } { return "" }
+  # an unclocked startpoint's clock is NULL
+  if { $obj eq "" || $obj eq "NULL" } { return "" }
   return [get_full_name $obj]
 }
 
@@ -99,6 +100,9 @@ foreach c [all_clocks] {
   }
 }
 dict for { g sel } $groups {
+  # a group whose ends do not exist, such as reg2reg in a block with no
+  # registers, has no paths; find_timing_paths errors on it
+  if { [lsearch -exact [lmap x $sel { llength $x }] 0] >= 0 } { continue }
   set ps [find_timing_paths {*}$sel -sort_by_slack -group_path_count 1]
   if { [llength $ps] } { wp_path $g [lindex $ps 0] }
 }
@@ -108,8 +112,12 @@ wp_put wns [sta::worst_slack -max]
 
 # the ten worst reg2reg endpoints, worst first, as periods
 set ends {}
-foreach t [find_timing_paths {*}[dict get $groups reg2reg] -sort_by_slack \
-             -endpoint_path_count 1 -group_path_count 10 -unique_paths_to_endpoint] {
+set r2r_ends {}
+if { [llength [all_registers]] } {
+  set r2r_ends [find_timing_paths {*}[dict get $groups reg2reg] -sort_by_slack \
+                  -endpoint_path_count 1 -group_path_count 10 -unique_paths_to_endpoint]
+}
+foreach t $r2r_ends {
   set clk [get_property $t endpoint_clock]
   if { $clk eq "" } { continue }
   lappend ends [expr { [get_property $clk period] - [get_property $t slack] }]
@@ -129,6 +137,17 @@ foreach error [sta::check_timing_cmd 1 1 1 1 1 1 1] {
   regexp {There (?:is|are) (\d+) } $msg -> count
   regsub {There (?:is|are) \d+ } $msg {} key
   wp_put check_setup.[string map {" " _ . ""} [string trim $key]] $count
+  # an unconstrained endpoint is often an output the SDC gives no output
+  # delay, by design; a register's data pin is one the timer never sees
+  if { [string match "*unconstrained endpoint*" $msg] } {
+    set reg_d [dict create]
+    foreach p [all_registers -data_pins] { dict set reg_d [get_full_name $p] 1 }
+    set n 0
+    foreach obj [lrange $error 1 end] {
+      if { [dict exists $reg_d $obj] } { incr n }
+    }
+    wp_put check_setup.unconstrained_register_pins $n
+  }
 }
 
 # repair_timing -hold names the buffers it inserts hold<n>; of a sample,
@@ -158,7 +177,7 @@ rename utl::metric_float wp_metric_float
 proc utl::metric_float { name value } {
   if { $name eq "timing__floor_cycles" } { wp_put floor $value }
 }
-source $::env(FLOOR_TCL)
+if { [llength [all_registers]] } { source $::env(FLOOR_TCL) }
 rename utl::metric_float ""
 rename wp_metric_float utl::metric_float
 
