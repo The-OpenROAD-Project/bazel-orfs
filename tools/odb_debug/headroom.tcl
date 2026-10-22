@@ -138,6 +138,12 @@ proc hr_min_slack { pins prop } {
 # without the bound: the result is then a lower bound of the floor, conclusive
 # only above a target (`scope` says so). XiangShan's FltRegionModule gave 213
 # ps scoped to 1,000 endpoints and 762.2 ps exact.
+#
+# `binds` says whether the floor sets the period now (`period`, the worst
+# endpoint's), and `buffers` / `through` how many buffers the worst loop has
+# and the worst path through any of them. A buffer whose worst path is worse
+# than the loop is a trade repair made for that path, not a mistake: moving
+# the loop's sink ahead of it slows that path (.claude/skills/repair-headroom).
 proc hr_floor_cycles { {ends 0} } {
   set p [hr_clock_period]
   set worst ""
@@ -178,8 +184,35 @@ proc hr_floor_cycles { {ends 0} } {
   } else {
     set scope exact
   }
+  set period [expr { [llength $order] ? [lindex $order 0] : "" }]
+  set binds [expr { $worst ne "" && $period ne "" && $worst >= $period - 0.05 }]
+  lassign [hr_loop_buffers $at $p] buffers through
   return [dict create floor $worst flop $at loops $loops visited $visited \
-    stop $stop scope $scope]
+    stop $stop scope $scope period $period binds $binds buffers $buffers \
+    through $through]
+}
+
+# The buffers on flop n's own loop and the worst period through any of them,
+# "" without a buffer.
+proc hr_loop_buffers { n p } {
+  if { $n eq "" } { return [list 0 ""] }
+  lassign [hr_flop_pins [get_cells $n]] ck d q
+  set loop [lindex [find_timing_paths -from $ck -to $d -group_path_count 1] 0]
+  set names {}
+  foreach pt [lrange [get_property $loop points] 1 end] {
+    set pin [get_property $pt pin]
+    if { [get_property $pin direction] ne "output" } { continue }
+    if { [get_property [get_property [get_cells -of_objects $pin] liberty_cell] is_buffer] } {
+      lappend names [get_full_name $pin]
+    }
+  }
+  # slack queries after the walk: each searches, and frees the loop's points
+  set through ""
+  foreach name $names {
+    set per [expr { $p - [get_property [get_pins $name] slack_max] }]
+    if { $through eq "" || $per > $through } { set through $per }
+  }
+  return [list [llength $names] $through]
 }
 
 # Useful skew, in timing only: each flop of the `ends` worst paths gets its

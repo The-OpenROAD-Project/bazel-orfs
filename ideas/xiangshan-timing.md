@@ -2087,6 +2087,13 @@ arm re-places the parent without `set_max_fanout`; timing-driven
 buffering of the critical sink (repair_timing's rebuffer moves at grt) is
 the next.
 
+Since then (entry 56): both arms failed. Without `set_max_fanout` the
+mass grew, and the floor's verdict line says the decode buffer's loop
+buffers are a trade, not a mistake: they also carry the design's worst
+path, and the floor does not set the period. `test/fanout_loop` shows
+the same trade in miniature; stock repair takes the buffer off a loop
+that is the worst path through it.
+
 A flow could report the floor after grt and at the end, beside the worst
 slack. A period at the floor says only that loop's wire, cells or logic
 help; a floor above the target says no flow setting reaches it, and
