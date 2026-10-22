@@ -142,7 +142,8 @@ are a skill of their own:
   says what is; public PR tests check intended behaviour, not `.ok`
   output; a PR on an unmerged upstream PR is a draft; relative paths;
   unattended means continue; check what our flow skipped before blaming
-  a tool; trust the Bazel cache, never clean it.
+  a tool; trust the Bazel cache, never clean it; no ranking of
+  alternatives before grt unless what is new this time is named.
 
 A target that another machine built but that is not a remote cache hit
 here, or that rebuilds when nothing seemed to change, has its own skill:
