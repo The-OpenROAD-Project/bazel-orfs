@@ -159,6 +159,17 @@ and a loss shrunk until it explains itself. Anything learned about why a
 boundary helps is a thread to pull on: a rule for choosing boundaries, a
 tool bug, or a reason to change the flow.
 
+First data, XSTile (`ideas/xiangshan-timing.md` entry 56): the census
+put `Dispatch`, `DecodeStage` and `Rename` on more than half of the mass,
+and not keeping them made the parent worse at global route, 6,949
+endpoints over 2,000 ps and 1,246 ns against 5,259 and 733 ns. Keeping
+them helped; why is the open question.
+
+A keep A/B judged at synthesis must be timed buffered and with the
+blocks' post-layout abstracts. Unbuffered, with the pre-layout abstracts
+synthesis reads, it pointed the wrong way; buffered with the post-layout
+ones, the right way, on one point. Global route decides.
+
 ## 4. Build, with the gates on
 
 Blocks as real flows with the planned outline and pins on the planned
