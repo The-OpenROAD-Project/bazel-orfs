@@ -4,7 +4,7 @@ description: >-
   Create a copy-paste-ready GitHub issue for an OpenROAD bug. File it upstream as a git am patch + failing bazel test.
 ---
 
-> **Repo**: Spans TWO repos. Bazel builds, `bin/git-read`, and issue file creation happen in the openroad-demo root. Source reading, `git format-patch`, and `git am` happen in the upstream OpenROAD repo (`upstream/OpenROAD-flow-scripts/tools/OpenROAD`).
+> **Repo**: Spans two repos. Bazel builds of the flow and the issue file happen in the bazel-orfs root. Source reading, `git format-patch` and `git am` happen in an OpenROAD clone in `tmp/OpenROAD` (`git clone --recurse-submodules https://github.com/The-OpenROAD-Project/OpenROAD tmp/OpenROAD`).
 
 Create a copy-paste-ready GitHub issue for an OpenROAD bug.
 
@@ -108,7 +108,7 @@ Title format: `[module] symptom in plain language` — matches OpenROAD conventi
 ### 1. Understand the bug
 
 Read the error message, logs, and context. Use the Grep tool to search
-`upstream/OpenROAD-flow-scripts/tools/OpenROAD/src/` for the error string
+`tmp/OpenROAD/src/` for the error string
 to understand:
 - What code path produces it
 - What conditions trigger it
@@ -126,74 +126,39 @@ If a reproduction already exists (e.g. bug.tar.gz, failing bazel build):
 - Download/extract it
 - Verify it reproduces on latest OpenROAD
 
-If not, use substep targets to isolate and run the failing substep.
-
-#### Substep targets (preferred)
-
-Enable substep targets in the BUILD by passing `substeps = True` to
-`orfs_flow()` (or the demo wrapper that calls it — `demo_flow()`,
-`demo_sram()`, `demo_hierarchical()` all accept `substeps`):
-
-```starlark
-demo_hierarchical(
-    name = "MeshWithDelays",
-    substeps = True,
-    ...
-)
-```
-
-This generates run targets for individual substeps within each stage.
-The naming convention is `<module>_<stage>_<substep>`:
-
-| Stage | Substeps |
-|-------|----------|
-| floorplan | `2_1_floorplan`, `2_2_floorplan_macro`, `2_3_floorplan_tapcell`, `2_4_floorplan_pdn` |
-| place | `3_1_place_gp_skip_io`, `3_2_place_iop`, `3_3_place_gp`, `3_4_place_resized`, `3_5_place_dp` |
-| cts | `4_1_cts` |
-| route | `5_1_grt`, `5_2_route`, `5_3_fillcell` |
-
-Each substep target depends on its parent stage via `src`. `bazelisk build`
-caches the parent stage's artifacts; `bazelisk run` deploys them and runs
-a single `make do-<substep>` target.
-
-Within a stage, substeps share a mutable ODB in the deploy directory.
-Each substep reads the ODB left by the previous one. So to run substep N,
-you must first run substeps 1 through N-1 in order:
-
-- For the first substep (e.g. `2_1_floorplan`): use
-  `bazelisk run @bazel-orfs//:dirty -- start <flow> <stage>` to deploy the previous
-  stage's artifacts, since variables are stage-specific.
-- For subsequent substeps (e.g. `2_2_floorplan_macro`): just run the
-  previous substep first — bazel caches the build, so only the deploy
-  + make execution happens.
+If not, deploy the failing stage into a dirty-lane tree and run the
+failing substep there (`dirty-lane`):
 
 ```bash
-# Example: reproduce a macro placement failure (substep 2_2)
-# Step 1: run substep 2_1 first (deploys synth artifacts + runs initial floorplan)
-bazelisk run //gemmini_8x8_abutted:MeshWithDelays_floorplan_2_1_floorplan
-# Step 2: now run substep 2_2 (reads the ODB written by 2_1)
-bazelisk run //gemmini_8x8_abutted:MeshWithDelays_floorplan_2_2_floorplan_macro
+bazelisk run //:dirty -- start //<package>:<module> <stage>
+tmp/<package>/<module>/make do-<substep>
 ```
+
+Within a stage, substeps share a mutable ODB in the tree: each reads the
+ODB the previous one left, so to run substep N, run substeps 1 to N-1
+first (`make do-2_1_floorplan` before `make do-2_2_floorplan_macro`).
+With `substeps = True` on the `orfs_flow`, the cache holds each
+substep's `.odb`, and a tree can start inside the stage.
 
 #### Generating the reproducer archive (fallback)
 
-When substep targets aren't available or you need a self-contained archive,
-deploy the stage with `@bazel-orfs//:dirty` and use `make <script>_issue`:
+When you need a self-contained archive, deploy the stage with `//:dirty`
+and use `make <script>_issue`:
 ```bash
-bazelisk run @bazel-orfs//:dirty -- start //<project>:<module> <stage>
-tmp/<project>/<module>/make <script>_issue
+bazelisk run //:dirty -- start //<package>:<module> <stage>
+tmp/<package>/<module>/make <script>_issue
 # e.g. make macro_place_issue, cts_issue, detail_route_issue, etc.
 ```
 
 Manual approach (when `make <script>_issue` doesn't cover the case):
-- Start from the failing stage's .odb (from a `@bazel-orfs//:dirty` tree or `bazel-bin/`)
+- Start from the failing stage's .odb (from a `//:dirty` tree or `bazel-bin/`)
 - Write a `bug.tcl` that loads the ODB and runs the failing command
 - Note which earlier step created the bad state (chain of evidence)
 
 ### 3. Build OpenROAD from source and test on origin/master
 
 ```bash
-cd upstream/OpenROAD-flow-scripts/tools/OpenROAD
+cd tmp/OpenROAD
 git fetch origin && git checkout origin/master
 git submodule update --init --recursive
 bazelisk build //:openroad
@@ -204,7 +169,7 @@ Binary at `bazel-bin/openroad`. Incremental rebuilds of a single module
 
 Record the full 40-char SHA:
 ```bash
-bin/git-read upstream/OpenROAD-flow-scripts/tools/OpenROAD rev-parse HEAD
+git -C tmp/OpenROAD rev-parse HEAD
 ```
 
 Verify the bug reproduces at this exact commit before proceeding.
@@ -217,7 +182,7 @@ Use `whittle.py` to minimize the design while preserving the error:
 # Use pipefail + tee so you can monitor progress with: tail -f whittle.log
 # The --step command also benefits from tee for monitoring each iteration:
 set -o pipefail
-python3 upstream/OpenROAD-flow-scripts/tools/OpenROAD/etc/whittle.py \
+python3 tmp/OpenROAD/etc/whittle.py \
   --base_db_path input.odb \
   --error_string "<ERROR_STRING>" \
   --step "bash -o pipefail -c '<OPENROAD_PATH> -no_init -threads 1 -exit bug.tcl 2>&1 | tee step.log'" \
@@ -239,7 +204,7 @@ Whittling tips:
 
 Critical whittle.py notes:
 - `openroad` must be on PATH (whittle uses it internally to read ODB counts).
-  Use `PATH="$(pwd)/bazel-bin:$PATH"` — never install to `~/.local/bin/`.
+  Use `PATH="$(realpath tmp/OpenROAD/bazel-bin):$PATH"` — never install to `~/.local/bin/`.
 - Use absolute paths for `--base_db_path` and in `--step` (whittle changes cwd)
 - Don't pipe whittle output through `tail` — use `tee` with `pipefail`
 - Use `--use_stdout` when errors go to stdout (not just stderr)
@@ -384,12 +349,11 @@ dig through the bazel cache/sandbox for test logs.
 
 Use the SHA recorded in step 3 (bare, not backticked — GitHub auto-links it).
 
-Use `bin/git-read <dir> <subcmd>` for git operations in upstream repos.
-This matches the `Bash(bin/git-read:*)` permission and only allows
-read-only git subcommands.
+Use `git -C tmp/OpenROAD <subcmd>` for read-only git operations in the
+OpenROAD clone.
 
 Research the affected code area:
-- Use `bin/git-read <upstream-repo> log --oneline -- <src-dir>` to find recent activity
+- Use `git -C tmp/OpenROAD log --oneline -- <src-dir>` to find recent activity
 - Search for related open issues/PRs
 - Build permalinks to the relevant source lines using the SHA
 
@@ -413,7 +377,7 @@ Follow the template from "Issue template" above. Remember:
 Only if recompilation of the affected module takes < 5 minutes:
 
 ```bash
-cd upstream/OpenROAD-flow-scripts/tools/OpenROAD
+cd tmp/OpenROAD
 # Edit source
 bazelisk build //:openroad  # incremental rebuild
 # Run under gdb

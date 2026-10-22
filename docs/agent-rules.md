@@ -72,6 +72,15 @@ prefer a registry module to a hand-written rule. Keep the copied Verilog
 until the generated Verilog is identical to it, or shown equivalent, and
 delete the copy in the same commit as the rule that replaces it.
 
+## A new project
+
+A new design is brought in for early results and fast iterations: the
+top module a hard macro would be, the RTL pinned and fetched, a
+hierarchical synthesis survey before any macro is chosen, a first flow
+with every optimisation off, then stage by stage with a prediction and a
+check at each one. The `new-project` skill, which names the skills that
+own each step.
+
 ## Warm the GUI after every build
 
 After every flow build or stage, finished or failed, start an odb-debug

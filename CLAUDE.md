@@ -101,6 +101,7 @@ found:
 - `/untar-and-run-report` — ship it as an untar-and-run `.tar.gz` archive.
 - `/odb-to-cpp` — turn a whittled `.odb` into a self-contained C++ unit test.
 - `/study-pr` — publish a measurement study as a closed bazel-orfs pull request.
+- `/idea` — write an idea down in `ideas/`.
 
 ## Upstream repositories: moratorium on pull requests
 
