@@ -161,6 +161,12 @@ from Bazel's build, not from the blocks' trees.
   allowed, so an underestimate pages instead of being killed; check for
   kernel OOM kills after a run.
 - One parent at a time, ever.
+- Every wave's Bazel build runs at most `--jobs` actions (default 12).
+  The record is a peak per unit, not per action, and one unit can have
+  hundreds of actions: XSTile's synthesis ran 48 partition
+  canonicalisations at once, one per core, and ran out of memory alone in
+  its wave. `--jobs 0` gives Bazel's default; a `--jobs` in `--bazel-arg`
+  wins.
 - Stop a runaway job by its recorded PID, never by a pattern.
 - A run that pages says the record is wrong: rerun with a lower
   `--budget` and let it refresh.

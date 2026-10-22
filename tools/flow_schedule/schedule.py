@@ -24,6 +24,13 @@ NO_RECORD = (
     "(.claude/skills/scale-to-memory), or docs/schedule.md, 'Managed by AI skills'."
 )
 
+# Bazel actions per wave. The record is a peak per unit, not per action,
+# and one unit can have hundreds of actions: XSTile's synthesis ran 48
+# partition canonicalisations at once, Bazel's default of one per core,
+# and ran a 62 GB machine out of memory with the parent alone in its
+# wave; at 12 it went through.
+DEFAULT_JOBS = 12
+
 # an estimate is padded; a measurement is not
 ESTIMATE_PAD = 1.2
 # a measured peak or time this far off the record is rewritten
@@ -265,6 +272,14 @@ def dirty_tree(dirty_dir, unit):
     return os.path.join(dirty_dir, unit)
 
 
+def with_jobs(bazel_args, jobs):
+    """bazel_args with --jobs=jobs added, unless they set it already or
+    jobs is 0 (Bazel's default, one action per core)."""
+    if not jobs or any(a.startswith(("--jobs", "-j")) for a in bazel_args):
+        return list(bazel_args)
+    return list(bazel_args) + [f"--jobs={jobs}"]
+
+
 def dirty_start(dirty, package, unit, stage, tree, bazel_args):
     """The command that installs `unit`'s `stage` in its own dirty-lane tree:
     Bazel builds what the stage needs and copies it in (dirty-lane skill)."""
@@ -307,6 +322,13 @@ def main(argv=None):
         "--bazel-arg", action="append", default=[], help="passed to every build"
     )
     ap.add_argument(
+        "--jobs",
+        type=int,
+        default=DEFAULT_JOBS,
+        help="Bazel actions per wave; the memory record is per unit, not per "
+        "action. 0 for Bazel's default; a --jobs in --bazel-arg wins",
+    )
+    ap.add_argument(
         "--dirty",
         metavar="STAGE",
         help="run STAGE of each unit in its own dirty-lane tree instead of a "
@@ -321,6 +343,7 @@ def main(argv=None):
         help="bazel-orfs's dirty-lane target",
     )
     args = ap.parse_args(argv)
+    args.bazel_arg = with_jobs(args.bazel_arg, args.jobs)
 
     workspace = os.environ.get("BUILD_WORKSPACE_DIRECTORY")
     if not workspace:
@@ -364,7 +387,8 @@ def main(argv=None):
     )
     print(
         f"budget {budget:.0f} GB ({free:.0f} free, {swap:.0f} swap free, "
-        f"{args.margin:.0f} margin)"
+        f"{args.margin:.0f} margin; "
+        f"{' '.join(a for a in args.bazel_arg if a.startswith(('--jobs', '-j'))) or 'Bazel default jobs'})"
         + (f"; dirty lane, stage {stage}, trees in {args.dirty_dir}" if stage else "")
     )
     for i, (kind, wave) in enumerate(waves, 1):
