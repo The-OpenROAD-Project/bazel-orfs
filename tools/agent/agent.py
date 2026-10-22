@@ -33,6 +33,7 @@ import sys
 # .claude/skills is either here or in INTERNAL_SKILLS, which agent_test
 # asserts, so a new skill is a decision, not a default.
 EXPORTED_SKILLS = (
+    "analyze-before-push",
     "byo-openroad",
     "cache-miss",
     "check-setup",

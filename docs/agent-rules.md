@@ -5,6 +5,15 @@ bazel-orfs's own `CLAUDE.md` imports this file; a consumer gets it, with
 the skills named below, from `bazelisk run @bazel-orfs//:agent -- setup`
 (`tools/agent/README.md`), at the version `MODULE.bazel` pins.
 
+## Analyse before every push
+
+Before every push to a pull request branch, `bazelisk build --nobuild
+--keep_going //...` passes: loading and analysis of every target, no
+actions, minutes. An analysis error stops every target in CI at once, and
+a pull request can be merged before a slower check finishes; a bump onto
+an ORFS that removed a variable a flow sets is the usual one. The
+`analyze-before-push` skill.
+
 ## Synthesis frontend
 
 `orfs_flow` synthesises with slang: `SYNTH_HDL_FRONTEND` defaults to
