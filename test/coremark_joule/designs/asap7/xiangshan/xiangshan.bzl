@@ -1159,22 +1159,30 @@ def _abstract(flow, variant):
 _PIN_PLAN_STAGES = {
     "pinplan": ("pin_plan", "grt"),
     "pinplan_place": ("pin_plan_place", "place"),
+    "pinplan2": ("pin_plan2", "grt"),
 }
+
+# A second round: the pinplan variant's flows are planned again from
+# their own global route, and the pinplan2 variant reads that plan. A
+# plan moves logic as well as pins; whether a second round converges is
+# what it answers.
+_PIN_PLAN_NEXT = {"pinplan": "pinplan2"}
 
 _STAGE_ODB = {"place": "3_place", "cts": "4_cts", "grt": "5_1_grt"}
 
-def _pin_plan(name, stage, modules, tags, outdir = "pin_plan"):
-    """<name>_<outdir>: //tools/pin_plan on a flow's stage, its macros'
-    pins (modules) planned from where their logic sits, the macros' places,
-    and a report of the pins facing away from their logic: a pin plan
-    variant's input, built forward from this pass, never checked in."""
+def _pin_plan(name, stage, modules, tags, outdir = "pin_plan", variant = None):
+    """<name>_<outdir>: //tools/pin_plan on a flow's stage (of a variant),
+    its macros' pins (modules) planned from where their logic sits, the
+    macros' places, and a report of the pins facing away from their logic:
+    a pin plan variant's input, built forward from this pass, never
+    checked in."""
     outs = ["%s/%s/%s_pins.tcl" % (outdir, name, m) for m in modules] + [
         "%s/%s/%s_macros.tcl" % (outdir, name, name),
         "%s/%s/%s_pins_report.txt" % (outdir, name, name),
     ]
     orfs_run(
         name = "%s_%s" % (name, outdir),
-        src = ":%s_%s" % (name, stage),
+        src = ":%s_%s_%s" % (name, variant, stage) if variant else ":%s_%s" % (name, stage),
         outs = outs,
         script = "//tools/pin_plan:pin_plan.tcl",
         tags = tags,
@@ -1189,7 +1197,8 @@ def _pin_plan(name, stage, modules, tags, outdir = "pin_plan"):
 def _pin_plans(name, modules, tags):
     """A part's pin plans, from its placement and from its global route,
     and <name>_pin_plan_diff, the two side by side (pin_plan_diff.py)."""
-    for outdir, stage in _PIN_PLAN_STAGES.values():
+    for variant in ["pinplan", "pinplan_place"]:
+        outdir, stage = _PIN_PLAN_STAGES[variant]
         _pin_plan(name, stage, modules, tags, outdir)
     a, b = "pin_plan_place", "pin_plan"
     files = ["%s/%s/%s_pins_report.txt", "%s/%s/%s_macros.tcl"]
@@ -1417,6 +1426,8 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         if variant:
             _kpi(block, "grt", arguments, sources, tags, variant)
             _pins_after(block, variant, tags)
+            if variant in _PIN_PLAN_NEXT:
+                _pin_plan(block, "grt", [m.split(":")[-1].removesuffix(".regfile") for m in modules], tags, _PIN_PLAN_STAGES[_PIN_PLAN_NEXT[variant]][0], variant)
             continue
         _kpi(block, "grt", arguments, sources, tags)
         _sta_part(block, arguments, sources, tags, ilm = True)
@@ -1533,6 +1544,8 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     if variant:
         _kpi(name, "grt", arguments, sources, tags, variant)
         _pins_after(name, variant, tags)
+        if variant in _PIN_PLAN_NEXT:
+            _pin_plan(name, "grt", [m.split(":")[-1].removesuffix(".regfile") for m in parent_modules], tags, _PIN_PLAN_STAGES[_PIN_PLAN_NEXT[variant]][0], variant)
         return
     _pin_plans(name, [m.split(":")[-1].removesuffix(".regfile") for m in parent_modules], tags)
     _kpi(name, "grt", arguments, sources, tags)
