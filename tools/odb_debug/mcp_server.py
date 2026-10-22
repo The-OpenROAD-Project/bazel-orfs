@@ -211,7 +211,7 @@ def _floor_wire(d, a):
 
 @tool(
     "floor_cycles",
-    "One-flop-loop floor, wires as built: the worst path from a flop back to itself. Launch and capture are the same flop, so neither useful skew nor retiming can go below it; only the loop's own cells, wires or logic can. Exact by default, cheap by a bound: endpoints worst first, stopping below the worst loop found (visited, stop). ends>0 searches only the flops of the worst ends, a lower bound labelled in `scope`. Needs timing loaded.",
+    "One-flop-loop floor, wires as built: the worst path from a flop back to itself. Launch and capture are the same flop, so neither useful skew nor retiming can go below it; only the loop's own cells, wires or logic can. Exact by default, cheap by a bound: endpoints worst first, stopping below the worst loop found (visited, stop). ends>0 searches only the flops of the worst ends, a lower bound labelled in `scope`. `binds` says whether the floor sets the period (`period`); `buffers` and `through` give the worst loop's buffers and the worst path through them: a buffer carrying a path worse than the loop is a trade repair made, not a mistake. Needs timing loaded.",
     {"ends": ENDS},
 )
 def _floor_cycles(d, a):

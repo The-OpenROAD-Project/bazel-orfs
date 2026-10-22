@@ -52,6 +52,20 @@ between the two floors), or a change to its logic, in the RTL or by
 surgery. A floor far above the target says the loop has to change, not
 the clock tree.
 
+**A buffer on a loop is not by itself a mistake.** When the loop's net
+also drives other paths, repair may buffer the loop to speed up a path
+worse than the loop: taking the loop's sink ahead of the buffer then
+loads the shared net and slows that path, and the period goes up. The
+floor report says which: its second line gives the design period, whether
+the floor binds, and the worst path through the loop's buffers. A buffer
+that carries a path worse than the loop is a trade; only a buffer whose
+worst path is the loop itself is one repair should take back, and only a
+floor that binds is worth chasing. Dogfooded on `test/fanout_loop`: the
+loop kept its buffer at 98.3 ps because the buffer carried a 101.9 ps
+data path in a 104.6 ps design, and an isolation of the loop's sink
+lowered the floor and raised the period. With the data paths given room,
+stock repair took the buffer off by itself.
+
 **Why zero wire is not a floor.** `floor_wire` times every path at the
 clock arrivals as built, so it bounds a path's delay at today's skew
 only. Useful skew lends a path time from its neighbours on the same flops

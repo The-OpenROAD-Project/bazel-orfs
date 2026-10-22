@@ -24,6 +24,12 @@
 # per visited register; a C++ pass over the timing graph could find the
 # worst loop faster, but on the designs measured so far the visit stops
 # within a few thousand endpoints, noise on top of a global route.
+#
+# A second line says whether the floor binds and what the loop's buffers
+# carry besides the loop: the design's period, and the worst path through
+# any of the loop's buffers. A buffer on a loop that also drives a path
+# worse than the loop is a trade repair made for that path, not a mistake:
+# taking the loop off it loads the shared net and slows the worse path.
 
 proc report_floor_cycles {} {
   set t0 [clock milliseconds]
@@ -36,6 +42,7 @@ proc report_floor_cycles {} {
   set stop ""
   set batch 1000
   set fetched 0
+  set design_period ""
   while { $stop eq "" } {
     # each endpoint's period and register as values first: the next
     # find_timing_paths frees the path ends this one returned
@@ -48,6 +55,7 @@ proc report_floor_cycles {} {
         [get_full_name [get_cells -of_objects [get_property $pe endpoint]]]
     }
     set n [expr { [llength $order] / 2 }]
+    if { $design_period eq "" && $n } { set design_period [lindex $order 0] }
     foreach { period reg } [lrange $order [expr { 2 * $fetched }] end] {
       if { $worst ne "" && $period < $worst } {
         set stop [format "endpoint period %.1f below the worst loop" $period]
@@ -84,18 +92,30 @@ proc report_floor_cycles {} {
   # the worst loop's shape: its stages and how many are buffers
   set stages 0
   set buffers 0
+  set through ""
+  set buffer_pins {}
   if { $worst ne "" } {
     set cell [get_cells $worst_reg]
     set ck [get_pins -of_objects $cell -filter "is_register_clock == 1"]
     set d [get_pins -of_objects $cell \
              -filter "direction == input && is_register_clock == 0"]
     set loop [lindex [find_timing_paths -from $ck -to $d -group_path_count 1] 0]
+    set lperiod [get_property [get_property $loop endpoint_clock] period]
     foreach p [lrange [get_property $loop points] 1 end] {
       set pin [get_property $p pin]
       if { [get_property $pin direction] ne "output" } { continue }
       incr stages
       set lib [get_property [get_cells -of_objects $pin] liberty_cell]
-      if { [get_property $lib is_buffer] } { incr buffers }
+      if { [get_property $lib is_buffer] } {
+        incr buffers
+        lappend buffer_pins [get_full_name $pin]
+      }
+    }
+    # the worst path through each buffer, the loop's or another's, once the
+    # walk is done: a slack query searches, and frees the loop's points
+    foreach name $buffer_pins {
+      set per [expr { $lperiod - [get_property [get_pins $name] slack_max] }]
+      if { $through eq "" || $per > $through } { set through $per }
     }
   }
   if { $worst eq "" } {
@@ -105,6 +125,16 @@ proc report_floor_cycles {} {
   puts [format "One-flop-loop floor: %.1f at %s (%d stages, %d buffers; %d loops, %d endpoints visited, %s; %.1f s)" \
     $worst $worst_reg $stages $buffers $loops $visited $stop $secs]
   utl::metric_float "timing__floor_cycles" $worst
+  set binds [expr { $worst >= $design_period - 0.05 ? "binds" : "does not bind" }]
+  if { $buffers == 0 } {
+    puts [format "One-flop-loop floor %s: design period %.1f" $binds $design_period]
+  } elseif { $through > $worst + 0.05 } {
+    puts [format "One-flop-loop floor %s: design period %.1f; the loop's buffers carry a %.1f path, a trade for it, not a mistake" \
+      $binds $design_period $through]
+  } else {
+    puts [format "One-flop-loop floor %s: design period %.1f; the loop is the worst path through its buffers" \
+      $binds $design_period]
+  }
 }
 
 report_floor_cycles
