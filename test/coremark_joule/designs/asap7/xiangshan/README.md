@@ -72,8 +72,8 @@ OPENROAD_EXE=~/OpenROAD/build/bin/openroad \
 (`xiangshan.bzl`):
 
 - Floorplan (`2_1_floorplan`): `repair_timing -setup` with the moves
-  `unbuffer,sizeup,swap,vt_swap`, since this flow keeps yosys's buffers
-  (no `REMOVE_ABC_BUFFERS`).
+  `unbuffer,sizeup,swap,vt_swap` on yosys's buffers (no
+  `SKIP_FLOORPLAN_REPAIR_TIMING`).
 - Placement (`3_4_place_resized`): `repair_design`; `repair_timing` only
   with `ENABLE_PLACE_REPAIR_TIMING`, which this flow does not set.
 - CTS (`4_1_cts`): `repair_timing`, setup and hold.

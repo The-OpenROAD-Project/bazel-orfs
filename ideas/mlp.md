@@ -148,7 +148,7 @@ high**, all three exist to switch off an STA-driven repair loop:
 
 | knob | stage | what it disables | impact |
 | --- | --- | --- | --- |
-| `REMOVE_ABC_BUFFERS` | floorplan | `repair_timing_helper` — "can run for hours" | Very high |
+| `SKIP_FLOORPLAN_REPAIR_TIMING` | floorplan | `repair_timing_helper` — "can run for hours" | Very high |
 | `SKIP_CTS_REPAIR_TIMING` | cts | iterative buffer insertion, sizing, cloning, VT swap | Very high |
 | `SKIP_INCREMENTAL_REPAIR` | grt | two rounds of `repair_design` + `repair_timing` | Very high |
 | `GPL_TIMING_DRIVEN` | place | timing path analysis inside placement iterations | High |

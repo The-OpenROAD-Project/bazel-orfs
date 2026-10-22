@@ -545,7 +545,7 @@ the netlist**:
 | `GPL_TIMING_DRIVEN=0`, `GPL_ROUTABILITY_DRIVEN=0` | placement stops optimising timing and congestion | no |
 | `SKIP_CTS_REPAIR_TIMING=1` | no buffer insertion, sizing or VT swap after CTS | no |
 | `SKIP_INCREMENTAL_REPAIR=1` | no repair at global route | no |
-| `REMOVE_ABC_BUFFERS=1` | strips synthesis buffers instead of repairing | no |
+| `SKIP_FLOORPLAN_REPAIR_TIMING=1` | no repair at floorplan | no |
 | `FILL_CELLS=""`, `TAPCELL_TCL=""` | no fillers or taps — area, density and leakage | no |
 | `PWR_NETS_VOLTAGES=""`, `GND_NETS_VOLTAGES=""` | skips IR-drop at `final` | moot, this study stops at global route |
 | **`SKIP_REPORT_METRICS=1`** | **reporting only** | **yes** |
