@@ -110,7 +110,6 @@ single_version_override(module_name = "gawk", version = "5.3.2.bcr.7")
 single_version_override(module_name = "m4", version = "1.4.21.bcr.4")
 single_version_override(module_name = "flex", version = "2.6.4.bcr.5")
 single_version_override(module_name = "rules_flex", version = "0.4")
-single_version_override(module_name = "rules_bison", version = "0.4.bcr.1")
 single_version_override(module_name = "scip", version = "9.2.3.bcr.1")
 single_version_override(module_name = "fmt", version = "12.1.0")
 single_version_override(module_name = "rules_cc", version = "0.2.22")
@@ -137,12 +136,6 @@ single_version_override(
         "//patches:yosys-0001-aiger2-holes-output-order.patch",
         "//patches:yosys-0002-abc-new-script-option.patch",
     ],
-)
-single_version_override(
-    module_name = "bison",
-    patch_strip = 1,
-    patches = ["//patches:0001-gnulib-wrapper-headers-use-I-not-isystem.patch"],
-    version = "3.8.2.bcr.7",
 )
 single_version_override(
     module_name = "boost.icl",

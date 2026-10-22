@@ -1,6 +1,6 @@
 # CTS on a hierarchical netlist: a leaf buffer drives registers in the
 # top module and in a kept submodule. Read back from 4_cts.odb, as every
-# later stage reads it, each register is clocked: OpenROAD#11718 and patches/0112.
+# later stage reads it, each register is clocked: OpenROAD#11718 and #11719.
 # The CTS stage stops when a clock pin is off its hierarchical net:
 # patches/0114.
 load("@rules_shell//shell:sh_test.bzl", "sh_test")

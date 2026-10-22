@@ -101,4 +101,4 @@ On XSTile's floorplan, all 280 traced:
 | 151 | a constant: `TIELO`/`TIEHI` through a buffer, or an `AND2` of a register with a `TIELO` | patch 0113 writes it into the model as that constant |
 | 1 | the `reset` port, passed straight through Frontend and false-pathed by design | none needed |
 
-After CTS a block's model loses arcs for another reason: a register CTS left off the clock in the hierarchical netlist (OpenROAD #11718, merged, and patch 0112). `check_setup` on a block's `4_cts.odb` read back shows it as unclocked register pins.
+After CTS a block's model loses arcs for another reason: a register CTS left off the clock in the hierarchical netlist (OpenROAD #11718 and #11719, merged). `check_setup` on a block's `4_cts.odb` read back shows it as unclocked register pins.
