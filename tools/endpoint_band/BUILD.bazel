@@ -1,0 +1,27 @@
+# Reading a flow stage to compare alternatives, at global route, where
+# they are ranked (dogfooding rule 14): read.tcl in an orfs_run writes every
+# reg2reg endpoint's period and each path group's worst path with the hold
+# buffers; compare.py compares alternatives' endpoint files (ORFS #4583).
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+exports_files(
+    ["read.tcl"],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "compare",
+    srcs = ["compare.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "compare_test",
+    size = "small",
+    srcs = [
+        "compare.py",
+        "compare_test.py",
+    ],
+    imports = ["."],
+    main = "compare_test.py",
+)
