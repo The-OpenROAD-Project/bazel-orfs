@@ -91,9 +91,9 @@ filegroup(
 # SKIP_INCREMENTAL_REPAIR=1  grt        Incremental repair during global routing. Skips two
 #                                        rounds of repair_design + repair_timing with
 #                                        incremental re-routing between them. (global_route.tcl)
-# REMOVE_ABC_BUFFERS=1       floorplan  Removes synthesis buffers instead of running
-#                                        repair_timing_helper in floorplan. The alternative
-#                                        (=0) runs hours of gate sizing/VT swapping.
+# SKIP_FLOORPLAN_REPAIR_TIMING=1
+#                            floorplan  Skips repair_timing_helper in floorplan, which
+#                                        can run hours of gate sizing/VT swapping.
 #                                        (floorplan.tcl)
 # SKIP_REPORT_METRICS=1      all        Metrics reporting. Skips report_checks, report_wns,
 #                                        report_tns, report_power, report_clock_skew at every
@@ -113,7 +113,7 @@ FAST_SETTINGS = {
     "GPL_ROUTABILITY_DRIVEN": "0",
     "GPL_TIMING_DRIVEN": "0",
     "PWR_NETS_VOLTAGES": "",
-    "REMOVE_ABC_BUFFERS": "1",
+    "SKIP_FLOORPLAN_REPAIR_TIMING": "1",
     "SKIP_CTS_REPAIR_TIMING": "1",
     "SKIP_INCREMENTAL_REPAIR": "1",
     "SKIP_REPORT_METRICS": "1",
@@ -128,7 +128,7 @@ SRAM_ARGUMENTS = FAST_SETTINGS | {
 BLOCK_FLOORPLAN = {
     "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
     # repair_timing runs for hours in floorplan
-    "REMOVE_ABC_BUFFERS": "1",
+    "SKIP_FLOORPLAN_REPAIR_TIMING": "1",
 }
 
 TAG_ARRAY_ARGUMENTS = SRAM_ARGUMENTS | BLOCK_FLOORPLAN | {

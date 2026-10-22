@@ -49,7 +49,7 @@ POLICY_VARS = [
     "OPT_POST_GRT_WNS",
     "RECOVER_POWER",
     "MATCH_CELL_FOOTPRINT",
-    "REMOVE_ABC_BUFFERS",
+    "SKIP_FLOORPLAN_REPAIR_TIMING",
 ]
 
 # Variables that decide whether a design can reach the top of the stack
@@ -137,18 +137,22 @@ def parse_set_layer_rc(path):
         if stripped.startswith("#"):
             continue
         if stripped.startswith("set_layer_rc"):
-            flags = _tcl_flags(stripped[len("set_layer_rc"):])
+            flags = _tcl_flags(stripped[len("set_layer_rc") :])
             # Via rows carry -via, not -layer, and are not routing layers.
             if "layer" in flags and "via" not in flags:
                 layers.append(
                     {
                         "layer": flags["layer"],
-                        "resistance": float(flags["resistance"])
-                        if "resistance" in flags
-                        else None,
-                        "capacitance": float(flags["capacitance"])
-                        if "capacitance" in flags
-                        else None,
+                        "resistance": (
+                            float(flags["resistance"])
+                            if "resistance" in flags
+                            else None
+                        ),
+                        "capacitance": (
+                            float(flags["capacitance"])
+                            if "capacitance" in flags
+                            else None
+                        ),
                     }
                 )
             continue
@@ -211,7 +215,7 @@ def routable_window(layers, min_layer, max_layer):
     hi = names.index(max_layer) if max_layer in names else len(names) - 1
     if hi < lo:
         return []
-    return layers[lo:hi + 1]
+    return layers[lo : hi + 1]
 
 
 def wire_rc_mispricing(layers, wire_rc, window):
@@ -351,13 +355,10 @@ def build_inventory(args):
         # looks exactly like a platform with no RC data. Neither exists.
         if not layers:
             raise SystemExit(
-                "%s: parsed no set_layer_rc routing layers out of %s"
-                % (name, path)
+                "%s: parsed no set_layer_rc routing layers out of %s" % (name, path)
             )
         if not wire_rc:
-            raise SystemExit(
-                "%s: parsed no set_wire_rc line out of %s" % (name, path)
-            )
+            raise SystemExit("%s: parsed no set_wire_rc line out of %s" % (name, path))
         cfg = platform_cfg.get(name, {})
         window = routable_window(
             layers,
@@ -443,9 +444,7 @@ def build_inventory(args):
                 "routing": {
                     var: cfg[var]["value"] for var in ROUTING_VARS if var in cfg
                 },
-                "policy": {
-                    var: cfg[var]["value"] for var in POLICY_VARS if var in cfg
-                },
+                "policy": {var: cfg[var]["value"] for var in POLICY_VARS if var in cfg},
                 "place_density": cfg.get("PLACE_DENSITY", {}).get("value"),
                 "rc": setrc.get(name),
             }

@@ -10,7 +10,7 @@ shows the recommended settings:
 
 | Setting | Stage | What it disables | Speed impact |
 |---------|-------|------------------|-------------|
-| `REMOVE_ABC_BUFFERS` = `"1"` | floorplan | Removes synthesis buffers instead of running `repair_timing_helper` (gate sizing, VT swapping). Without this, floorplan timing repair can run for hours. | Very high |
+| `SKIP_FLOORPLAN_REPAIR_TIMING` = `"1"` | floorplan | `repair_timing_helper` (gate sizing, VT swapping). Without this, floorplan timing repair can run for hours. | Very high |
 | `GPL_TIMING_DRIVEN` = `"0"` | place | Timing-driven global placement. Skips timing path analysis and buffer removal during placement iterations. | High |
 | `GPL_ROUTABILITY_DRIVEN` = `"0"` | place | Routability-driven global placement. Skips routing congestion estimation during placement. | Moderate |
 | `SKIP_CTS_REPAIR_TIMING` = `"1"` | cts | Timing repair after clock tree synthesis. Skips iterative buffer insertion, gate sizing, gate cloning, and VT swapping. Can reduce CTS from hours to minutes. | Very high |
@@ -30,8 +30,8 @@ FAST_SETTINGS = {
     "GPL_ROUTABILITY_DRIVEN": "0",
     "GPL_TIMING_DRIVEN": "0",
     "PWR_NETS_VOLTAGES": "",
-    "REMOVE_ABC_BUFFERS": "1",
     "SKIP_CTS_REPAIR_TIMING": "1",
+    "SKIP_FLOORPLAN_REPAIR_TIMING": "1",
     "SKIP_INCREMENTAL_REPAIR": "1",
     "SKIP_REPORT_METRICS": "1",
     "TAPCELL_TCL": "",
@@ -187,7 +187,7 @@ tail -f tmp/test/L1MetadataArray/logs/4_1_cts.log
 | `Iteration \| Overflow` decreasing slowly | Global placement convergence. Overflow should drop toward 0. | Set `GPL_TIMING_DRIVEN=0` and `GPL_ROUTABILITY_DRIVEN=0` to skip timing/congestion analysis per iteration. |
 | `repair_timing` running for many iterations | Timing repair loop — can run for hours. | Set `SKIP_CTS_REPAIR_TIMING=1` (CTS) or `SKIP_INCREMENTAL_REPAIR=1` (GRT). Or set `SETUP_SLACK_MARGIN`/`HOLD_SLACK_MARGIN` to terminate early. |
 | `[WARNING STA-1554]` "not a valid start point" (thousands) | SDC constraints reference pins that don't exist. Harmless but floods the log and slows STA. | Fix SDC constraints or filter with `suppress_message`. |
-| `remove_buffers` / `repair_timing_helper` in floorplan | Buffer optimization after synthesis. | Set `REMOVE_ABC_BUFFERS=1` to skip this entirely. |
+| `repair_timing_helper` in floorplan | Timing repair after synthesis. | Set `SKIP_FLOORPLAN_REPAIR_TIMING=1` to skip it. |
 | `report_checks` / `report_wns` / `report_clock_skew` | Metrics reporting at stage end. | Set `SKIP_REPORT_METRICS=1` to skip. |
 | `estimate_parasitics` | Parasitic estimation — usually fast. Indicates transition between sub-steps. | Normal, no action needed. |
 | `filler_placement` | Fill cell insertion. | Set `FILL_CELLS=""` to skip (not needed for CI/DSE). |
