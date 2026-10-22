@@ -39,6 +39,11 @@ build: generate_ram's storage has none, and the value would be lost
 without a word. The spec's read_latency, a key shared with
 structured_gen's specs, is generate_ram's -register_read_address.
 
+The RAMs the wrappers instantiate as macros are listed in
+regfile_cores.txt: they are in blackboxes.txt but no module of the
+sources, so ORFS's check that every AUTO_MEMORIES module is a black box
+after read_slang skips them.
+
 Needs generate_ram's register-file options, OpenROAD #11723, carried in
 bazel-orfs as patches 0011 to 0026 and 0115 to 0121. Not upstreamed;
 retires at a //:bump onto an ORFS that carries it.
@@ -330,10 +335,10 @@ index c1f70e0ef..dd5940b21 100644
  if __name__ == "__main__":
      unittest.main()
 diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_memories.py
-index 98e3febea..f51a356db 100644
+index 98e3febea..67f7bfc38 100644
 --- a/flow/scripts/memories/gen_memories.py
 +++ b/flow/scripts/memories/gen_memories.py
-@@ -10,6 +10,11 @@ collects its $mem_v2 cells, merges user-supplied `.memories` files
+@@ -10,6 +10,14 @@ collects its $mem_v2 cells, merges user-supplied `.memories` files
    <out-dir>/<m>.lib             Liberty view per converted memory
    <out-dir>/<m>_pre_layout.lib  ideal-clock variant for pre-CTS consumers
    <out-dir>/<m>.lef             abstract LEF per converted memory
@@ -342,10 +347,13 @@ index 98e3febea..f51a356db 100644
 +  <out-dir>/inline.txt          register files whose generated netlist
 +                                replaces their module in synthesis (those
 +                                not in AUTO_MEMORIES_MACRO_PLACE)
++  <out-dir>/regfile_cores.txt   the RAMs those wrappers instantiate as
++                                macros: in blackboxes.txt, but no module of
++                                the sources, so not there after read_slang
    <out-dir>/blackboxes.txt      `<module> <area>` per line, area in um^2 as
                                  the .lib states it — what synthesis
                                  blackboxes and the cost it gives each
-@@ -21,6 +26,8 @@ between the generator and the flow.
+@@ -21,6 +29,8 @@ between the generator and the flow.
  from __future__ import annotations
  
  import argparse
@@ -354,7 +362,7 @@ index 98e3febea..f51a356db 100644
  import sys
  from pathlib import Path
  
-@@ -30,11 +37,158 @@ import subprocess
+@@ -30,11 +40,160 @@ import subprocess
  
  import detect  # noqa: E402
  import idiomatic  # noqa: E402
@@ -452,6 +460,7 @@ index 98e3febea..f51a356db 100644
 +    if not specs:
 +        (out_dir / "regfiles.txt").write_text("")
 +        (out_dir / "inline.txt").write_text("")
++        (out_dir / "regfile_cores.txt").write_text("")
 +        if macro_place:
 +            raise SystemExit(
 +                "gen_memories: AUTO_MEMORIES_MACRO_PLACE names "
@@ -507,13 +516,14 @@ index 98e3febea..f51a356db 100644
 +        )
 +    (out_dir / "regfiles.txt").write_text("".join(f"{m}\n" for m in dissolve))
 +    (out_dir / "inline.txt").write_text("".join(f"{m}\n" for m in inline))
++    (out_dir / "regfile_cores.txt").write_text("".join(f"{m}\n" for m in cores))
 +    return memories
 +
 +
  def run(
      yosys_json: Path,
      memories_files: list[Path],
-@@ -42,6 +196,10 @@ def run(
+@@ -42,6 +201,10 @@ def run(
      out_dir: Path,
      json_path: Path,
      top: str | None = None,
@@ -524,7 +534,7 @@ index 98e3febea..f51a356db 100644
  ) -> int:
      if platform != "asap7":
          sys.stderr.write(f"gen_memories: unsupported platform {platform}\n")
-@@ -49,12 +207,29 @@ def run(
+@@ -49,12 +212,29 @@ def run(
  
      found = detect.scan_yosys_json(yosys_json, top)
  
@@ -554,7 +564,7 @@ index 98e3febea..f51a356db 100644
  
      out_dir.mkdir(parents=True, exist_ok=True)
      json_path.parent.mkdir(parents=True, exist_ok=True)
-@@ -75,8 +250,18 @@ def run(
+@@ -75,8 +255,18 @@ def run(
          ]
      )
  
@@ -574,7 +584,7 @@ index 98e3febea..f51a356db 100644
          sys.stderr.write(
              f"gen_memories: {mem.name} {mem.rows}x{mem.bits} "
              f"R={mem.read_ports} W={mem.write_ports} RW={mem.rw_ports} "
-@@ -103,6 +288,32 @@ def main(argv: list[str] | None = None) -> int:
+@@ -103,6 +293,32 @@ def main(argv: list[str] | None = None) -> int:
          help="User-supplied .memories file merged onto the "
          "detected set (repeatable).",
      )
@@ -607,7 +617,7 @@ index 98e3febea..f51a356db 100644
      p.add_argument("--platform", required=True)
      p.add_argument(
          "--out-dir",
-@@ -129,6 +340,10 @@ def main(argv: list[str] | None = None) -> int:
+@@ -129,6 +345,10 @@ def main(argv: list[str] | None = None) -> int:
          args.out_dir,
          args.json,
          args.top,
@@ -619,10 +629,10 @@ index 98e3febea..f51a356db 100644
  
  
 diff --git a/flow/scripts/memories/gen_memories_test.py b/flow/scripts/memories/gen_memories_test.py
-index e71aed784..4b5d0402e 100644
+index e71aed784..1596ae5e1 100644
 --- a/flow/scripts/memories/gen_memories_test.py
 +++ b/flow/scripts/memories/gen_memories_test.py
-@@ -114,9 +114,11 @@ class GenMemoriesTest(unittest.TestCase):
+@@ -114,9 +114,12 @@ class GenMemoriesTest(unittest.TestCase):
              sorted(p.name for p in mems_dir.iterdir()),
              [
                  "blackboxes.txt",
@@ -630,16 +640,18 @@ index e71aed784..4b5d0402e 100644
                  "mem_128x32.lef",
                  "mem_128x32.lib",
                  "mem_128x32_pre_layout.lib",
++                "regfile_cores.txt",
 +                "regfiles.txt",
              ],
          )
          # one `<module> <area>` line; the area is the one the .lib states,
-@@ -224,6 +226,49 @@ class GenMemoriesTest(unittest.TestCase):
+@@ -224,6 +227,50 @@ class GenMemoriesTest(unittest.TestCase):
          self.assertEqual(code, 0)
          self.assertEqual(json.loads((d / "memories.json").read_text())["memories"], [])
          self.assertEqual((d / "memories" / "blackboxes.txt").read_text(), "")
 +        self.assertEqual((d / "memories" / "regfiles.txt").read_text(), "")
 +        self.assertEqual((d / "memories" / "inline.txt").read_text(), "")
++        self.assertEqual((d / "memories" / "regfile_cores.txt").read_text(), "")
 +
 +    def test_regfile_area_is_the_lib_cell_area(self):
 +        # a register file's blackboxes.txt line carries the area its
@@ -1827,10 +1839,10 @@ index 000000000..a797461fb
 +  }
 +}
 diff --git a/flow/scripts/synth_preamble.tcl b/flow/scripts/synth_preamble.tcl
-index 2ed680656..699e57ebf 100644
+index 2ed680656..c7f1b368e 100644
 --- a/flow/scripts/synth_preamble.tcl
 +++ b/flow/scripts/synth_preamble.tcl
-@@ -83,6 +83,38 @@ proc auto_memories_blackboxes { } {
+@@ -83,6 +83,55 @@ proc auto_memories_blackboxes { } {
    return [dict keys [auto_memories_areas]]
  }
  
@@ -1842,6 +1854,23 @@ index 2ed680656..699e57ebf 100644
 +    return {}
 +  }
 +  set f "$::env(RESULTS_DIR)/memories/inline.txt"
++  if { ![file exists $f] } {
++    return {}
++  }
++  set fh [open $f r]
++  set content [read $fh]
++  close $fh
++  return [regexp -all -inline {\S+} $content]
++}
++
++# AUTO_MEMORIES: the RAMs the register file wrappers instantiate as
++# macros. They are in blackboxes.txt but are no module of the sources:
++# they arrive with the wrappers' netlists, after read_slang.
++proc auto_memories_regfile_cores { } {
++  if { ![env_var_equals AUTO_MEMORIES 1] } {
++    return {}
++  }
++  set f "$::env(RESULTS_DIR)/memories/regfile_cores.txt"
 +  if { ![file exists $f] } {
 +    return {}
 +  }
@@ -1869,7 +1898,7 @@ index 2ed680656..699e57ebf 100644
  proc read_design_sources { } {
    # We are reading Verilog sources
    source $::env(SCRIPTS_DIR)/synth_stdcells.tcl
-@@ -143,7 +175,7 @@ proc read_design_sources { } {
+@@ -143,7 +192,7 @@ proc read_design_sources { } {
  
      # Blackbox AUTO_MEMORIES-detected memory modules so their generated
      # liberty view wins over their behavioral bodies.
@@ -1878,15 +1907,24 @@ index 2ed680656..699e57ebf 100644
        lappend slang_args --blackboxed-module "$m"
      }
  
-@@ -152,6 +184,7 @@ proc read_design_sources { } {
+@@ -151,7 +200,15 @@ proc read_design_sources { } {
+     lappend slang_args {*}$::env(SYNTH_SLANG_ARGS)
  
      yosys read_slang {*}$slang_args
-     auto_memories_check_blackboxed [auto_memories_blackboxes]
+-    auto_memories_check_blackboxed [auto_memories_blackboxes]
++    set cores [auto_memories_regfile_cores]
++    set sourced {}
++    foreach m [auto_memories_blackboxes] {
++      if { [lsearch -exact $cores $m] < 0 } {
++        lappend sourced $m
++      }
++    }
++    auto_memories_check_blackboxed $sourced
 +    read_auto_memories_inline
  
      # Workaround for yosys-slang#119
      setattr -unset init
-@@ -173,7 +206,7 @@ proc read_design_sources { } {
+@@ -173,7 +230,7 @@ proc read_design_sources { } {
      if { [env_var_exists_and_non_empty SYNTH_BLACKBOXES] } {
        error "Non-empty SYNTH_BLACKBOXES unsupported with HDL frontend \"verific\""
      }
@@ -1895,7 +1933,7 @@ index 2ed680656..699e57ebf 100644
        error "AUTO_MEMORIES unsupported with HDL frontend \"$::env(SYNTH_HDL_FRONTEND)\""
      }
    } elseif { ![env_var_exists_and_non_empty SYNTH_HDL_FRONTEND] } {
-@@ -209,6 +242,10 @@ proc read_design_sources { } {
+@@ -209,6 +266,10 @@ proc read_design_sources { } {
        }
        hierarchy -check -top $::env(DESIGN_NAME)
      }
