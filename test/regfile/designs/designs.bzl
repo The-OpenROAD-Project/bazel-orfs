@@ -84,7 +84,7 @@ def _measure(top, arm):
     )
     return [arm]
 
-def design_arms(name, top, flops, regfile, module, periods, spec = None, shapes = SHAPES, extra = {}):
+def design_arms(name, top, flops, regfile, module, periods, spec = None, shapes = SHAPES, extra = {}, base_specs = {}, modules = {}, verilog = {}):
     """`name`'s arms: flip-flops and each register-file shape, at each period.
 
     Args:
@@ -101,6 +101,10 @@ def design_arms(name, top, flops, regfile, module, periods, spec = None, shapes 
       spec: the register-file spec every shape's starts from; the
         variant's own AUTO_MEMORIES_REGFILES when None.
       extra: {shape: arguments added to that shape's flow}.
+      base_specs: {shape: the spec that shape starts from instead of `spec`}.
+      modules: {shape: its spec's module instead of `module`}.
+      verilog: {shape: the Verilog files that shape builds instead of
+        the design's}.
 
     Returns:
       The arms' names, <name>_<shape or flops>_<period>.
@@ -159,7 +163,7 @@ def design_arms(name, top, flops, regfile, module, periods, spec = None, shapes 
             continue
         native.genrule(
             name = "%s_%s_spec" % (name, shape),
-            srcs = [spec],
+            srcs = [base_specs.get(shape, spec)],
             outs = ["%s_%s.regfile" % (name, shape)],
             cmd = "cat $< > $@ && printf '%s' >> $@" % lines.replace("\n", "\\n"),
             tags = ["manual"],
@@ -169,7 +173,7 @@ def design_arms(name, top, flops, regfile, module, periods, spec = None, shapes 
             # a small core around a register-file macro: ORFS's 20 um
             # default channel leaves no room to place it
             args = {"RTLMP_MIN_CHANNEL_SIZE": "2 2"} | args | {
-                "AUTO_MEMORIES_MACRO_PLACE": module,
+                "AUTO_MEMORIES_MACRO_PLACE": modules.get(shape, module),
             } | extra.get(shape, {})
         for period in periods[shape]:
             arm = "%s_%s_%d" % (name, shape, period)
@@ -183,7 +187,7 @@ def design_arms(name, top, flops, regfile, module, periods, spec = None, shapes 
                 },
                 tags = ["manual"],
                 variant = arm,
-                verilog_files = r_verilog,
+                verilog_files = verilog.get(shape, r_verilog),
                 **pdk
             )
             arms += _measure(top, arm)

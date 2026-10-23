@@ -105,6 +105,55 @@ regfile_sim_test(
     ]
 ]
 
+# test/regfile/designs' rtl_zero arms: riscv32i's regfile as a 31-word
+# array with x0 in RTL (riscv32i_rtl_zero.v), against the zero-word
+# netlist, itself checked against riscv32i's regfile.v above.
+#
+# The 31-word array on its own reads a stored word at address 31, where
+# its behavioural model reads 0: an address outside the array is not
+# defined, so this test passes only while they differ.
+regfile_sim_test(
+    name = "riscv32i_regfile31_sim_test",
+    expect_mismatch = True,
+    module = "regfile31",
+    spec = "//test/regfile/designs:regfile31.regfile",
+)
+
+# riscv32i_rtl_zero.v's wrapper alone, the behavioural regfile31 cut off
+# and the generated one, regfile31_gen, in its place; and the same with
+# x0's reads not forced to 0 (the negative control)
+[
+    genrule(
+        name = "riscv32i_rtl_zero_%s_v" % name,
+        srcs = ["//test/regfile/designs:riscv32i_rtl_zero.v"],
+        outs = ["riscv32i_rtl_zero_%s.v" % name],
+        cmd = "sed -e '/^\\/\\/ the array generate_ram builds/,$$d' -e 's/^   regfile31 rf /   regfile31_gen rf /' %s $< > $@ && grep -q 'regfile31_gen rf' $@ && ! grep -q 'module regfile31' $@" % sed,
+    )
+    for name, sed in [
+        ("wrapper", ""),
+        ("unmasked", "-e 's/(ra\\([12]\\) != 0) ? q\\([12]\\) : 0/q\\2/'"),
+    ]
+]
+
+# the generated 31-word netlist in the wrapper, against the zero-word netlist
+[
+    regfile_sim_test(
+        name = "riscv32i_rtl_zero_%s_sim_test" % name,
+        expect_mismatch = name == "unmasked",
+        module = "regfile",
+        rtl = [
+            ":riscv32i_rtl_zero_%s.v" % name,
+            ":riscv32i_regfile31_sim_test_gen.v",
+        ],
+        rtl_module = "regfile",
+        spec = "//test/regfile/riscv32i:inlined.regfile",
+    )
+    for name in [
+        "wrapper",
+        "unmasked",
+    ]
+]
+
 genrule(
     name = "riscv32i_mux_regfile",
     srcs = ["//test/regfile/riscv32i:inlined.regfile"],

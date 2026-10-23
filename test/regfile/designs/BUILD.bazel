@@ -11,6 +11,14 @@ load(":designs.bzl", "SHAPES", "design_arms")
 # not a gate: every target is manual.
 package(default_visibility = ["//visibility:private"])
 
+exports_files(
+    [
+        "regfile31.regfile",
+        "riscv32i_rtl_zero.v",
+    ],
+    visibility = ["//test/regfile/cores:__pkg__"],
+)
+
 py_binary(
     name = "sdc_period",
     srcs = ["sdc_period.py"],
@@ -53,7 +61,45 @@ COVERAGE = SHAPES | {
     "banks": "banks 4\nbank_columns 2\nbank_order interleaved\n",
     "folds": "bit_folds 2\n",
     "service": "tap_columns 8\nservice_sites 20\n",
+    # the alternative to `zero_word 0` (OpenROAD #11723 review): a 31-word
+    # array, x0 handled in riscv32i_rtl_zero.v, inlined and as a macro
+    "rtl_zero": "",
+    "rtl_zero_netlist": "mode netlist\n",
 }
+
+# the rtl_zero shapes' spec, module and RTL
+RTL_ZERO = [
+    "rtl_zero",
+    "rtl_zero_netlist",
+]
+
+# riscv32i's Verilog with riscv32i_rtl_zero.v in regfile.v's place
+RISCV32I_RTL_ZERO = [
+    "@orfs//flow/designs/src/riscv32i:adder.v",
+    "@orfs//flow/designs/src/riscv32i:alu.v",
+    "@orfs//flow/designs/src/riscv32i:aludec.v",
+    "@orfs//flow/designs/src/riscv32i:controller.v",
+    "@orfs//flow/designs/src/riscv32i:datapath.v",
+    "@orfs//flow/designs/src/riscv32i:dmem.v",
+    "@orfs//flow/designs/src/riscv32i:flopenr.v",
+    "@orfs//flow/designs/src/riscv32i:flopens.v",
+    "@orfs//flow/designs/src/riscv32i:flopr.v",
+    "@orfs//flow/designs/src/riscv32i:magcompare2b.v",
+    "@orfs//flow/designs/src/riscv32i:magcompare2c.v",
+    "@orfs//flow/designs/src/riscv32i:magcompare32.v",
+    "@orfs//flow/designs/src/riscv32i:maindec.v",
+    "@orfs//flow/designs/src/riscv32i:mux2.v",
+    "@orfs//flow/designs/src/riscv32i:mux3.v",
+    "@orfs//flow/designs/src/riscv32i:mux4.v",
+    "@orfs//flow/designs/src/riscv32i:mux5.v",
+    "@orfs//flow/designs/src/riscv32i:mux8.v",
+    "@orfs//flow/designs/src/riscv32i:riscv.v",
+    "@orfs//flow/designs/src/riscv32i:rom.v",
+    "@orfs//flow/designs/src/riscv32i:shifter.v",
+    "@orfs//flow/designs/src/riscv32i:signext.v",
+    "@orfs//flow/designs/src/riscv32i:top.v",
+    ":riscv32i_rtl_zero.v",
+]
 
 ALL = ["flops"] + list(SHAPES)
 
@@ -65,22 +111,34 @@ LARGE = [
 
 ARMS_1 = design_arms(
     name = "riscv32i",
+    base_specs = {shape: ":regfile31.regfile" for shape in RTL_ZERO},
     # the macro beside riscv32i's four FakeRAMs, as test/regfile/riscv32i
     # measured it: at 62 % they do not tile with its halo
-    extra = {"netlist": {
+    extra = {shape: {
         "CORE_UTILIZATION": "55",
         "RTLMP_MIN_CHANNEL_SIZE": "2 2",
-    }},
+    } for shape in [
+        "netlist",
+        "rtl_zero_netlist",
+    ]},
     flops = "asap7/riscv32i",
     module = "regfile",
+    modules = {shape: "regfile31" for shape in RTL_ZERO},
+    # 830: about 10 % under the calibrated clock, where a clock gate's
+    # insertion delay and enable setup cost most (the write-style retrial)
     periods = {arm: [
         950,
         920,
-    ] for arm in ["flops"] + list(COVERAGE)},
+    ] + ([830] if arm in [
+        "flops",
+        "inline",
+        "mux",
+    ] else []) for arm in ["flops"] + list(COVERAGE)},
     regfile = None,
     shapes = COVERAGE,
     spec = "//test/regfile/riscv32i:inlined.regfile",
     top = "riscv_top",
+    verilog = {shape: RISCV32I_RTL_ZERO for shape in RTL_ZERO},
 )
 
 ARMS_2 = design_arms(
@@ -107,15 +165,24 @@ ARMS_3 = design_arms(
     top = "ibex_core",
 )
 
+# tinyRocket's array the other way round from riscv32i's rtl_zero arms:
+# 32 words with the zero word, against its own 31
+ZERO32 = {
+    "zero32": "",
+    "zero32_netlist": SHAPES["netlist"],
+}
+
 ARMS_4 = design_arms(
     name = "tinyRocket",
+    base_specs = {shape: ":Rocket_rf32.regfile" for shape in ZERO32},
     flops = "asap7/tinyRocket",
     module = "Rocket_rf",
     periods = {arm: [
         600,
         620,
-    ] for arm in ALL},
+    ] for arm in ALL + list(ZERO32)},
     regfile = "asap7/tinyRocket-regfile",
+    shapes = SHAPES | ZERO32,
     top = "RocketTile",
 )
 

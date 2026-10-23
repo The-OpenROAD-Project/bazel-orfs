@@ -95,6 +95,57 @@ and routed wirelength by more than 10 % (Chan, Kahng and Woo, SLIP
   14.5 ps gap on the worst of them is the launching flop's clock
   arriving later.
 
+### The zero word against N−1 words (OpenROAD #11723 review)
+
+Is `zero_word` better than an array of N−1 words with x0 handled outside
+it? Each design both ways, on asap7, at its calibrated clock:
+
+| design | shape | x0 | min period (ps) | reg→reg (ps) | std-cell µm² | power (mW) |
+|---|---|---|---|---|---|---|
+| riscv32i (920 ps) | inline | `zero_word 0` | 947.4 | 920.2 | 981 | 15.1 |
+| | | 31 words, x0 in RTL | 966.0 (+2.0 %) | 956.5 (+3.9 %) | 998 (+1.7 %) | 15.2 |
+| | netlist | `zero_word 0` | 934.2 | 894.3 | 969 | 15.1 |
+| | | 31 words, x0 in RTL | 932.9 (−0.1 %) | 901.5 (+0.8 %) | 948 (−2.1 %) | 15.1 |
+| tinyRocket (620 ps) | inline | 31 words, x0 in Rocket's bypass | 654.3 | 654.3 | 3689 | 35.7 |
+| | | 32 words, `zero_word 31` | 677.7 (+3.6 %) | 677.7 (+3.6 %) | 3715 (+0.7 %) | 36.4 |
+| | netlist | 31 words, x0 in Rocket's bypass | 645.8 | 645.8 | 3724 | 36.4 |
+| | | 32 words, `zero_word 31` | 650.5 (+0.7 %) | 650.5 (+0.7 %) | 3712 (−0.3 %) | 36.4 |
+
+- riscv32i's RTL has the zero word. `riscv32i_rtl_zero.v` is the N−1
+  alternative: a 31-word array indexed by the inverted register number,
+  as Rocket indexes its own, with x0's reads forced to 0 and its writes
+  dropped outside the array.
+- tinyRocket's RTL is N−1: Rocket gives 0 for x0 in its bypass, not at
+  the array. `Rocket_rf32.regfile` grows the array to 32 words with the
+  zero word at x0's inverted address. Rocket's own x0 logic stays.
+- Neither way wins beyond noise. Where there is a cost, it is from x0
+  handled twice: a mask in RTL around the array, or a zero word under a
+  bypass that already gives 0.
+- An N−1 array needs the masking. generate_ram's 31-word array reads a
+  stored word at address 31, not 0
+  (`//test/regfile/cores:riscv32i_regfile31_sim_test`).
+- Checked by simulation: the generated 31-word array in the RTL wrapper
+  against the zero-word netlist, and, as the negative control, the same
+  without the wrapper's masking (`//test/regfile/cores:riscv32i_rtl_zero_*`).
+- The runs at 950 ps (riscv32i) and 600 ps (tinyRocket) point the same
+  way. These arms ran on a later ORFS than the table above, whose power
+  is about half; compare power within this table only.
+
+### The write mux at a tight clock (OpenROAD #11723 review)
+
+riscv32i at 830 ps, about 10 % under its calibrated clock, where a clock
+gate's insertion delay and enable setup should cost most:
+
+| shape | min period (ps) | reg→reg (ps) | std-cell µm² | power (mW) |
+|---|---|---|---|---|
+| flops | 954.1 | 915.6 | 1341 | 18.8 |
+| clock gate (inline) | 900.1 | 888.0 | 1022 | 16.8 |
+| mux | 949.7 (+5.5 %) | 925.6 (+4.2 %) | 1156 (+13 %) | 20.8 (+24 %) |
+
+The mux loses to the clock gate here too. Not run: another PDK
+(AUTO_MEMORIES supports asap7 only) and coralnpu's six write ports (too
+big for the machine this ran on).
+
 ### Stage times
 
 `bazelisk build //test/regfile/designs:report_small_tables` writes
