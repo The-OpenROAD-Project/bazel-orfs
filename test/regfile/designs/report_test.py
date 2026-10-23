@@ -11,6 +11,12 @@ class ReportTest(unittest.TestCase):
         self.assertEqual(report.seconds("Elapsed time: 1:02:03.5[h:]min:sec"), 3723.5)
         self.assertEqual(report.seconds("Elapsed time: 0:05.25[h:]min:sec"), 5.25)
 
+    def test_load_power(self):
+        text = "[WARNING STA-2402] power activity ...\n" + '{"Total": {"total": 1e-3}}'
+        self.assertEqual(report.total_power(report.load_power(text)), 1e-3)
+        with self.assertRaises(ValueError):
+            report.load_power("Error: no design\n{}")
+
     def test_split_arm(self):
         self.assertEqual(
             report.split_arm("coralnpu_exmem_inline_1700"),

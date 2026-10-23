@@ -41,6 +41,15 @@ def total_power(power):
     raise ValueError("no total in report_power's JSON: %s" % sorted(power))
 
 
+def load_power(text):
+    """report_power's JSON as measure.tcl redirects it: OpenSTA's warnings
+    (STA-2402, activity that did not converge) land in front of it."""
+    lines = text.splitlines(True)
+    while lines and lines[0].startswith("[WARNING "):
+        lines.pop(0)
+    return json.loads("".join(lines))
+
+
 def split_arm(arm):
     m = re.match(r"(.+)_([a-z_]+?)_(\d+)$", arm)
     if not m:
@@ -56,7 +65,9 @@ def collect(paths, arms):
         if base.endswith("_power.json"):
             arm = base[: -len("_power.json")]
             with open(path) as f:
-                measured.setdefault(arm, {})["power_w"] = total_power(json.load(f))
+                measured.setdefault(arm, {})["power_w"] = total_power(
+                    load_power(f.read())
+                )
         elif base.endswith(".json") and base[:-5] in arms:
             with open(path) as f:
                 measured.setdefault(base[:-5], {}).update(json.load(f))
