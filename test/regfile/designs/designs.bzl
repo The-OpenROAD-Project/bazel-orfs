@@ -106,6 +106,11 @@ def design_arms(name, top, flops, regfile, module, periods, spec = None, shapes 
       The arms' names, <name>_<shape or flops>_<period>.
     """
     f_args, f_sources, f_verilog = _design(flops)
+
+    # orfs_flow's default is asap7; another platform is named, and asap7
+    # left to the default so its arms keep their cache keys
+    platform = DESIGNS[flops]["platform"]
+    pdk = {} if platform == "asap7" else {"pdk": "@orfs//flow:" + platform}
     r_args, r_sources, r_verilog = _design(regfile) if regfile else (
         f_args | {"AUTO_MEMORIES": "1"},
         f_sources,
@@ -129,6 +134,7 @@ def design_arms(name, top, flops, regfile, module, periods, spec = None, shapes 
             tags = ["manual"],
             variant = arm,
             verilog_files = f_verilog,
+            **pdk
         )
         arms += _measure(top, arm)
     for shape, lines in shapes.items():
@@ -147,6 +153,7 @@ def design_arms(name, top, flops, regfile, module, periods, spec = None, shapes 
                     tags = ["manual"],
                     variant = arm,
                     verilog_files = r_verilog,
+                    **pdk
                 )
                 arms += _measure(top, arm)
             continue
@@ -177,6 +184,7 @@ def design_arms(name, top, flops, regfile, module, periods, spec = None, shapes 
                 tags = ["manual"],
                 variant = arm,
                 verilog_files = r_verilog,
+                **pdk
             )
             arms += _measure(top, arm)
     return arms
