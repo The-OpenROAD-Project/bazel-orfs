@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The parent as a macro: a carved top's own cells moved into a module.
 
-  wrap_parent.py IN.json OUT.json TOP PARENT
+  wrap_parent.py IN.json OUT.json TOP PARENT [--at-top PORT ...]
 
 Reads yosys JSON of a carved design (carve.py's output, read back with
 `proc`) whose top TOP instantiates the tiles. Writes TOP as instances
@@ -11,9 +11,11 @@ parent touches (a parent cell, a port of TOP, a constant) gets a port of
 PARENT of its own, `<instance>__<pin>`, so each sits where its one tile
 pin is and the two abut pin on pin; a constant a tile reads is driven
 from inside PARENT, since TOP has no cell to tie it. Nets between tiles
-alone stay in TOP.
+alone stay in TOP, and so do TOP's ports named --at-top: a clock the top
+level distributes reaches each tile there, not through PARENT.
 """
 
+import argparse
 import json
 import sys
 
@@ -22,9 +24,11 @@ def is_const(b):
     return isinstance(b, str)
 
 
-def wrap(design, top, parent):
+def wrap(design, top, parent, at_top=()):
     mods = design["modules"]
     t = mods[top]
+    # bits of TOP's ports that reach the tiles at the top level
+    direct = {b for p in at_top for b in t["ports"][p]["bits"] if not is_const(b)}
     tiles = {n: c for n, c in t["cells"].items() if c["type"] in mods}
     own = {n: c for n, c in t["cells"].items() if n not in tiles}
 
@@ -57,7 +61,7 @@ def wrap(design, top, parent):
         cell = tiles[name]
         conn = {}
         for pin, bits in cell["connections"].items():
-            if not any(is_const(b) or b in touched for b in bits):
+            if not any((is_const(b) or b in touched) and b not in direct for b in bits):
                 conn[pin] = bits
                 continue
             d = direction(cell, pin)
@@ -65,8 +69,9 @@ def wrap(design, top, parent):
             inner = []
             joined = list(bits)
             for k, b in enumerate(bits):
-                if not is_const(b) and b not in touched:
-                    # a bit only tiles share stays in TOP
+                if not is_const(b) and (b not in touched or b in direct):
+                    # a bit only tiles share stays in TOP, and a port's
+                    # the top level distributes
                     continue
                 o = new_bit()
                 outer.append(o)
@@ -126,11 +131,17 @@ def wrap(design, top, parent):
 
 
 def main(argv):
-    src, out, top, parent = argv
-    with open(src) as f:
+    p = argparse.ArgumentParser()
+    p.add_argument("src")
+    p.add_argument("out")
+    p.add_argument("top")
+    p.add_argument("parent")
+    p.add_argument("--at-top", action="append", default=[])
+    a = p.parse_args(argv)
+    with open(a.src) as f:
         design = json.load(f)
-    with open(out, "w") as f:
-        json.dump(wrap(design, top, parent), f, indent=1)
+    with open(a.out, "w") as f:
+        json.dump(wrap(design, a.top, a.parent, a.at_top), f, indent=1)
     return 0
 
 

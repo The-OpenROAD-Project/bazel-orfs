@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Carve specs for tpu's N x N array cut into blocks of R x C processing elements.
 
-  make_spec.py N R C OUT.json
+  make_spec.py N R C OUT.json [--clock-at-top]
 
 Block (bi, bj) holds rows bi*R..bi*R+R-1 and columns bj*C..bj*C+C-1. Its
 ports face its neighbours: activations in on the west and out on the
@@ -17,7 +17,9 @@ with the activations; the bottom row's tiles also clock the deskew
 registers below them. A macro inside the array reaches no parent net, and
 the data flowing only east and south needs only its neighbours' clocks
 close (Fisher and Kung). FIFOs outside the tpu are assumed, so nothing at
-its ports has to meet an outside clock.
+its ports has to meet an outside clock. With --clock-at-top only reset and
+the load enable run through the tiles: the top level reaches every tile's
+clock pin from above, and the deskew registers keep tpu's clock.
 """
 
 import json
@@ -45,7 +47,7 @@ def w(n, i, j):
     return [pe(i, j, "w"), pe(i, j, "w_south")]
 
 
-def spec(n, r, c):
+def spec(n, r, c, clock_at_top=False):
     def psum(i, j):
         # the last row's partial sums carry the deskew's names
         if i == n - 1:
@@ -149,7 +151,7 @@ def spec(n, r, c):
                 t["chain_from"] = "u_b%d_%d" % (bi, bj - 1)
             # the bottom row's clock runs on into the deskew registers
             # its results go to
-            if bi == n // r - 1:
+            if bi == n // r - 1 and not clock_at_top:
                 t["south_registers"] = [{"net": psum(n - 1, j)} for j in cols]
             tiles.append(t)
 
@@ -164,11 +166,15 @@ def spec(n, r, c):
         "module": "tpu_block",
         "stops": [{"net": "g_skew[0].din"}],
         "tiles": tiles,
-        "chain": [["clk", "clk_out"], ["rst", "rst_out"], ["w_valid", "w_valid_out"]],
-        "south": [["clk", "clk_south"]],
+        # with the clock at the top, each tile's clock pin is reached from
+        # above and only reset and the load enable run with the data
+        "chain": ([] if clock_at_top else [["clk", "clk_out"]])
+        + [["rst", "rst_out"], ["w_valid", "w_valid_out"]],
+        "south": [] if clock_at_top else [["clk", "clk_south"]],
     }
 
 
 if __name__ == "__main__":
     n, r, c = (int(x) for x in sys.argv[1:4])
-    json.dump(spec(n, r, c), open(sys.argv[4], "w"), indent=1)
+    clock_at_top = "--clock-at-top" in sys.argv[5:]
+    json.dump(spec(n, r, c, clock_at_top), open(sys.argv[4], "w"), indent=1)

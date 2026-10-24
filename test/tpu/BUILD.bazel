@@ -241,3 +241,46 @@ orfs_headroom(
     parent_stage = ":tpu_flat_grt",
     period_only = True,
 )
+
+# The balanced clock: the same carve with the clock left out of the
+# tiles' chain (carve_2x2_balanced.json, make_spec.py --clock-at-top),
+# and wrap_parent.py --at-top clk, so every macro's clock pin, the
+# parent's too, is on tpu's clock net at the top level, where a clock
+# tree built in a sliver of rows balances them.
+carve_verilog(
+    name = "tpu_2x2_balanced",
+    srcs = TPU_RTL,
+    lec_timeout = "eternal",
+    negative_control = "u_b3_0.a_in",
+    spec = "carve_2x2_balanced.json",
+    tags = ["manual"],
+    top = "tpu",
+)
+
+genrule(
+    name = "tpu_modules_balanced",
+    srcs = [":tpu_2x2_balanced.v"],
+    outs = [
+        "balanced/tpu_2x2.json",
+        "balanced/tpu_2x2_c.json",
+        "balanced/tpu_block.v",
+        "balanced/tpu_rest.v",
+        "balanced/tpu_top.v",
+    ],
+    cmd = " && ".join([
+        "$(execpath @yosys) -q -p 'read_verilog $<; hierarchy -top tpu; proc; write_json $(location balanced/tpu_2x2.json)'",
+        "$(execpath //tools/carve:wrap_parent) $(location balanced/tpu_2x2.json) $(location balanced/tpu_2x2_c.json) tpu tpu_rest --at-top clk",
+    ] + [
+        "$(execpath @yosys) -q -p 'read_json $(location balanced/tpu_2x2_c.json); hierarchy -top tpu; select -module %s; write_verilog -noattr -selected $(location balanced/%s.v)'" % (m, f)
+        for m, f in [
+            ("tpu_block", "tpu_block"),
+            ("tpu_rest", "tpu_rest"),
+            ("tpu", "tpu_top"),
+        ]
+    ]),
+    tags = ["manual"],
+    tools = [
+        "//tools/carve:wrap_parent",
+        "@yosys",
+    ],
+)
