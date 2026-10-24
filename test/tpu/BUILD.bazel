@@ -284,3 +284,181 @@ genrule(
         "@yosys",
     ],
 )
+
+# The tile's pins as before, its clock an M8 pin over its centre that
+# the top level reaches from M9.
+genrule(
+    name = "pin_plan_balanced",
+    srcs = [":balanced/tpu_2x2_c.json"],
+    outs = ["balanced/pin_plan.txt"],
+    cmd = "$(execpath //tools/carve:pin_plan) --json $< --module tpu_block --sides '%s' --w %s --h %s --out $@" % (
+        " ".join([
+            "west:a_in,rst,w_valid",
+            "east:a_out,rst_out,w_valid_out",
+            "north:w_in,psum_in",
+            "south:w_out,psum_out",
+            "over:clk",
+        ]),
+        TILE_W,
+        TILE_H,
+    ),
+    tags = ["manual"],
+    tools = ["//tools/carve:pin_plan"],
+)
+
+orfs_flow(
+    name = "tpu_block",
+    abstract_stage = "grt",
+    arguments = ARGS | {
+        "CELL_PAD_IN_SITES_DETAIL_PLACEMENT": "0",
+        "CELL_PAD_IN_SITES_GLOBAL_PLACEMENT": "1",
+        "CORE_AREA": "1.008 1.08 23.328 24.84",
+        "CTS_CLUSTER_DIAMETER": "353",
+        "CTS_CLUSTER_SIZE": "184",
+        "DIE_AREA": "0 0 {} {}".format(TILE_W, TILE_H),
+        # signals on M2-M7: M8 is the tile's power straps and its clock
+        # pin, and the top level's clock crosses the tiles on it
+        "MAX_ROUTING_LAYER": "M7",
+        "PLACE_DENSITY": "0.634",
+        "ROUTING_LAYER_ADJUSTMENT": "0.137",
+    },
+    sources = {
+        "IO_CONSTRAINTS": ["//test/abutment:pins_plan.tcl"],
+        "PDN_TCL": ["//test/abutment:pdn_macro.tcl"],
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    tags = ["manual"],
+    user_arguments = {"CLK_PERIOD": "337"},
+    user_sources = {"PIN_PLAN": [":balanced/pin_plan.txt"]},
+    variant = "balanced",
+    verilog_files = [":balanced/tpu_block.v"],
+)
+
+orfs_flow(
+    name = "tpu_rest",
+    arguments = ARGS | {
+        "CORE_AREA": "1.008 1.08 102.672 119.88",
+        "DIE_AREA": DIE,
+        "PLACE_DENSITY": "0.6",
+    },
+    last_stage = "grt",
+    sources = {
+        "IO_CONSTRAINTS": ["//test/abutment:io_notch.tcl"],
+        "PDN_TCL": ["//test/abutment:pdn_macro.tcl"],
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    tags = ["manual"],
+    user_arguments = NOTCH | {
+        "PINS_WEST": "^w_data",
+        "TILE_H": TILE_H,
+        "TILE_W": TILE_W,
+    },
+    user_sources = {"PIN_PLAN": [":balanced/pin_plan.txt"]},
+    variant = "balanced",
+    verilog_files = [":balanced/tpu_rest.v"],
+)
+
+# The tile's abstract with exact shapes too: M8 over it holds only its
+# straps and its clock pin, so the top level's clock crosses it there.
+orfs_run(
+    name = "tpu_block_balanced_abstract",
+    src = ":tpu_block_balanced_grt",
+    outs = [
+        "balanced/tpu_block.lef",
+        "balanced/tpu_block_typ.lib",
+    ],
+    cmd = "run",
+    script = "//test/abutment:abstract_exact.tcl",
+    tags = ["manual"],
+    user_arguments = {
+        "LEF_OUT": "$(location balanced/tpu_block.lef)",
+        "LIB_OUT": "$(location balanced/tpu_block_typ.lib)",
+    },
+)
+
+orfs_run(
+    name = "tpu_rest_balanced_abstract",
+    src = ":tpu_rest_balanced_grt",
+    outs = [
+        "balanced/tpu_rest.lef",
+        "balanced/tpu_rest_typ.lib",
+    ],
+    cmd = "run",
+    script = "//test/abutment:abstract_exact.tcl",
+    tags = ["manual"],
+    user_arguments = {
+        "LEF_OUT": "$(location balanced/tpu_rest.lef)",
+        "LIB_OUT": "$(location balanced/tpu_rest_typ.lib)",
+    },
+)
+
+# The strip under the macros: the top level's own rows, four of them,
+# where its clock tree's buffers go; the macros sit on it.
+STRIP_H = "1.08"
+
+# The top level: the macros on the strip, tpu's ports at the die's
+# bottom edge, the clock tree in the strip and up to each macro's clock
+# pin on M9.
+orfs_flow(
+    name = "tpu",
+    arguments = ARGS | {
+        # the strip, from detailed placement on (core_rows.tcl)
+        "CORE_AREA": "0 0 103.68 122.04",
+        "DIE_AREA": "0 0 103.68 122.04",
+        "DONT_BUFFER_PORTS": "1",
+        # grt takes every macro pin as reached from the macro's nearest
+        # edge: a tile's clock pin over its centre leaves a few gcell
+        # edges beside the east column's pins one track over
+        "GLOBAL_ROUTE_ARGS": "-allow_congestion -congestion_report_iter_step 5 -verbose",
+        # the strip's rows run right up to the macros
+        "MACRO_ROWS_HALO_X": "0",
+        "MACRO_ROWS_HALO_Y": "0",
+        # the clock on M8-M9, over the tiles to their clock pins: M2-M7
+        # over them are the tiles' own (grt_notch.tcl)
+        "MAX_ROUTING_LAYER": "M9",
+        "MIN_CLK_ROUTING_LAYER": "M8",
+        # the clock is all it routes: every track, between the M8 and M9
+        # straps' pairs, which take most of a gcell
+        "ROUTING_LAYER_ADJUSTMENT": "0",
+    },
+    last_stage = "grt",
+    sources = {
+        "ADDITIONAL_LEFS": [
+            ":balanced/tpu_block.lef",
+            ":balanced/tpu_rest.lef",
+        ],
+        "ADDITIONAL_LIBS": [
+            ":balanced/tpu_block_typ.lib",
+            ":balanced/tpu_rest_typ.lib",
+        ],
+        "IO_CONSTRAINTS": ["//test/abutment:io_top.tcl"],
+        "MACRO_PLACEMENT_TCL": ["//test/abutment:place_notch.tcl"],
+        "PDN_TCL": ["//test/abutment:pdn_top.tcl"],
+        "PRE_DETAIL_PLACE_TCL": ["//test/abutment:core_rows.tcl"],
+        "PRE_GLOBAL_ROUTE_TCL": ["//test/abutment:grt_notch.tcl"],
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    tags = ["manual"],
+    user_arguments = NOTCH | {
+        "PARENT_INST": "u_rest",
+        "PARENT_Y": STRIP_H,
+        "TOP_ROWS": "1",
+    },
+    variant = "balanced",
+    verilog_files = [":balanced/tpu_top.v"],
+)
+
+orfs_headroom(
+    name = "tpu_balanced_stitched",
+    blocks = {
+        "tpu_block": ":tpu_block_balanced_grt",
+        "tpu_rest": ":tpu_rest_balanced_grt",
+    },
+    parent = "tpu",
+    parent_stage = ":tpu_balanced_grt",
+    period_only = True,
+    reports = {
+        "_clock": ":clock_arrival.tcl",
+        "_clock_check": ":clock_check.tcl",
+    },
+)
