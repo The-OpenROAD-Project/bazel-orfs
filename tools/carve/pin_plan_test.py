@@ -70,5 +70,21 @@ class PinPlan(unittest.TestCase):
             pin_plan.plan(many, {"west": ["x"], "east": ["y"]}, 5.0, 4.32)
 
 
+class Over(unittest.TestCase):
+    def test_over_the_centre_on_m8(self):
+        ports = {"clk": {"bits": [2]}, "a": {"bits": [3]}}
+        w, h = 24.336, 25.92
+        p = parse(pin_plan.plan(ports, {"west": ["a"], "over": ["clk"]}, w, h))
+        side, layer, r = p["clk"]
+        self.assertEqual((side, layer), ("over", "M8"))
+        # inside the tile, at its centre, on an M8 track
+        self.assertAlmostEqual((r[0] + r[2]) / 2, w / 2, places=3)
+        self.assertLess(abs((r[1] + r[3]) / 2 - h / 2), 0.08)
+        off, pitch, width = pin_plan.TRACKS["M8"]
+        k = ((r[1] + r[3]) / 2 - off) / pitch
+        self.assertAlmostEqual(k, round(k), places=6)
+        self.assertAlmostEqual(r[3] - r[1], width)
+
+
 if __name__ == "__main__":
     unittest.main()

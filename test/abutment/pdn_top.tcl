@@ -24,3 +24,11 @@ foreach {name cells} [list ParentGrid [dict keys $others]] {
   add_pdn_stripe -grid $name -layer {M9} -width {0.16} -spacing {0.16} -pitch {2.88} -offset {0.5}
   add_pdn_connect -grid $name -layers {M8 M9}
 }
+# TOP_ROWS, when set: the top level has rows of its own, outside every
+# macro (the strip under them, for the clock tree), and they get rails.
+if { [info exists ::env(TOP_ROWS)] } {
+  define_pdn_grid -name {Rows} -voltage_domains {CORE}
+  add_pdn_stripe -grid {Rows} -layer {M1} -width {0.018} -pitch {0.54} -offset {0} -followpins
+  add_pdn_stripe -grid {Rows} -layer {M2} -width {0.018} -pitch {0.54} -offset {0} -followpins
+  add_pdn_connect -grid {Rows} -layers {M1 M2}
+}

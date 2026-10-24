@@ -4,10 +4,14 @@
 # with M8 straps for power (pdn_macro.tcl), a top level of macros only
 # (io_top.tcl, pdn_top.tcl, tapcell_none.tcl, dpl_none.tcl), and
 # abstracts with exact shapes (abstract_exact.tcl), so a macro's notch
-# stays free for the macros that abut it.
+# stays free for the macros that abut it; or a top level with a strip of
+# rows of its own under the macros, for its clock tree (core_rows.tcl),
+# whose wires cross the tiles above the tiles' own layers (grt_notch.tcl).
 exports_files([
     "abstract_exact.tcl",
+    "core_rows.tcl",
     "dpl_none.tcl",
+    "grt_notch.tcl",
     "io_notch.tcl",
     "io_top.tcl",
     "pdn_macro.tcl",

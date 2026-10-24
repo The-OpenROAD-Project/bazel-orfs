@@ -14,6 +14,12 @@ tracks repeat every 0.144 um, the tiles' horizontal lattice; west and
 east on M4, whose tracks repeat every 2.16 um, the vertical one. So a
 tile placed on the lattice has its pins on the parent's tracks too.
 
+The side "over" is the tile's top face: those pins are M8 rectangles
+over its centre, one M8 track apart going up, for a net the level above
+brings down from M9, a clock balanced at the top, say. A tile's M8 power
+straps (test/abutment/pdn_macro.tcl) repeat every 2.16 um; the centre
+of a tile whose height is a multiple of that lies between two pairs.
+
 PLAN has one line per pin bit: name, side, layer, and the pin's
 rectangle in the tile, x0 y0 x1 y1 in um. The tile places its pins from
 it (test/abutment/pins_plan.tcl); a parent hardened as a macro places
@@ -30,9 +36,12 @@ TRACKS = {
     "M3": (0.009, 0.036, 0.018),
     "M4": (0.012, 0.048, 0.024),
     "M5": (0.012, 0.048, 0.024),
+    "M8": (0.116, 0.080, 0.040),
 }
 LENGTH = 0.12
 CORNER = 1.0
+# an "over" pin's length along M8, room for vias from M9
+OVER = 0.4
 
 
 def snap(layer, v):
@@ -81,11 +90,17 @@ def plan(ports, sides, w, h):
                 else:
                     x0, x1 = (0, LENGTH) if side == "west" else (w - LENGTH, w)
                     rect = (x0, at - half, x1, at + half)
-                lines.append(
-                    "%s %s %s %s"
-                    % (pins[i], side, layer, " ".join("%.3f" % v for v in rect))
-                )
+                lines.append(line(pins[i], side, layer, rect))
+    for i, pin in enumerate(bits(ports, sides.get("over", []))):
+        at = snap("M8", h / 2) + 2 * TRACKS["M8"][1] * i
+        half = TRACKS["M8"][2] / 2
+        rect = (w / 2 - OVER / 2, at - half, w / 2 + OVER / 2, at + half)
+        lines.append(line(pin, "over", "M8", rect))
     return lines
+
+
+def line(pin, side, layer, rect):
+    return "%s %s %s %s" % (pin, side, layer, " ".join("%.3f" % v for v in rect))
 
 
 def main(argv):
