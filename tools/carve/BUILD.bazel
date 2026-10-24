@@ -10,6 +10,7 @@ exports_files(["lec_cells.lib"])
     "carve",
     "lec_names",
     "break_port",
+    "wrap_parent",
 ]]
 
 py_library(
@@ -23,4 +24,17 @@ py_test(
     size = "small",
     srcs = ["carve_test.py"],
     deps = [":carve_lib"],
+)
+
+py_library(
+    name = "wrap_parent_lib",
+    srcs = ["wrap_parent.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "wrap_parent_test",
+    size = "small",
+    srcs = ["wrap_parent_test.py"],
+    deps = [":wrap_parent_lib"],
 )
