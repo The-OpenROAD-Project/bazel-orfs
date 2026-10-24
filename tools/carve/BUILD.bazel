@@ -11,6 +11,7 @@ exports_files(["lec_cells.lib"])
     "lec_names",
     "break_port",
     "wrap_parent",
+    "pin_plan",
 ]]
 
 py_library(
@@ -37,4 +38,17 @@ py_test(
     size = "small",
     srcs = ["wrap_parent_test.py"],
     deps = [":wrap_parent_lib"],
+)
+
+py_library(
+    name = "pin_plan_lib",
+    srcs = ["pin_plan.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "pin_plan_test",
+    size = "small",
+    srcs = ["pin_plan_test.py"],
+    deps = [":pin_plan_lib"],
 )

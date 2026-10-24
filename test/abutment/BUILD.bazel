@@ -9,5 +9,6 @@ exports_files([
     "io_top.tcl",
     "pdn_macro.tcl",
     "pdn_top.tcl",
+    "pins_plan.tcl",
     "tapcell_none.tcl",
 ])
