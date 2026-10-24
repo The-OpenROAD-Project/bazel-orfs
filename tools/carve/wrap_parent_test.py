@@ -109,5 +109,20 @@ class WrapParent(unittest.TestCase):
         self.assertNotEqual(t0["clk"], [2])
 
 
+class AtTop(unittest.TestCase):
+    def test_clock_reaches_tiles_at_the_top(self):
+        d = wrap_parent.wrap(design(), "top", "rest", at_top=["clk"])
+        top, rest = d["modules"]["top"], d["modules"]["rest"]
+        # the tiles' clocks are TOP's clk net itself
+        for t in ["u_b0_0", "u_b0_1"]:
+            self.assertEqual(top["cells"][t]["connections"]["clk"], [2])
+        self.assertNotIn("u_b0_0__clk", rest["ports"])
+        self.assertNotIn("u_b0_1__clk", rest["ports"])
+        # the parent keeps its own clk port
+        self.assertIn("clk", rest["ports"])
+        # other pins as without it
+        self.assertIn("u_b0_0__a", rest["ports"])
+
+
 if __name__ == "__main__":
     unittest.main()
