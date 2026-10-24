@@ -1348,26 +1348,76 @@ def _kpi(part, stage, arguments, sources, tags, variant = None):
         variant = variant,
     )
 
-def _sta_part(part, arguments, sources, tags, ilm = False):
+def _sta_part(part, arguments, sources, tags, ilm = False, variant = None):
     """<part>_sta_part: the part at global route as sta_flat.tcl reads it: its
-    netlist read flat, the route's parasitics, its SDC and its liberty files."""
-    outs = ["%s.v" % part, "%s.spef" % part, "%s.sdc" % part, "%s_libs.tar" % part]
+    netlist read flat, the route's parasitics, its SDC and its liberty files.
+    Of a variant, <part>_<variant>_sta_part and sta/<part>_<variant>.*"""
+    flow = "%s_%s" % (part, variant) if variant else part
+    outs = ["%s.v" % flow, "%s.spef" % flow, "%s.sdc" % flow, "%s_libs.tar" % flow]
     orfs_run(
-        name = "%s_sta_part" % part,
-        src = ":%s_grt" % part,
+        name = "%s_sta_part" % flow,
+        src = ":%s_grt" % flow,
         outs = ["sta/%s" % o for o in outs],
         arguments = arguments,
         script = "//test/coremark_joule/designs/asap7/xiangshan:sta_part.tcl",
         sources = sources,
         tags = tags,
         user_arguments = {
-            "PART_LIBS": "$(location sta/%s_libs.tar)" % part,
-            "PART_SDC": "$(location sta/%s.sdc)" % part,
-            "PART_SPEF": "$(location sta/%s.spef)" % part,
-            "PART_V": "$(location sta/%s.v)" % part,
+            "PART_LIBS": "$(location sta/%s_libs.tar)" % flow,
+            "PART_SDC": "$(location sta/%s.sdc)" % flow,
+            "PART_SPEF": "$(location sta/%s.spef)" % flow,
+            "PART_V": "$(location sta/%s.v)" % flow,
             "STA_ILM": "1" if ilm else "0",
         },
+        variant = variant,
     )
+
+def _kpi_flat(name, flows, tags, prefix = None):
+    """<prefix>_kpi_flat{,_nowire,_crossings}: the whole design timed flat
+    (sta_flat.tcl), the parent name and its blocks, flows mapping each part
+    to the flow whose sta/<flow>.* files stand in for it; prefix, the
+    targets' and outputs' name, defaults to the parent's."""
+    prefix = prefix or name
+    parts = [name] + [p for p in flows if p != name]
+    macros = parts[1:]
+
+    # with wires (the KPI) and without (each path's logic alone); _crossings
+    # is the KPI with every endpoint above 2,000 ps, the stretch of its
+    # worst path in each part (the surgery study) and the cone each hop of
+    # the small carve would push (the carve study)
+    for suffix, wires in [("", "1"), ("_nowire", "0"), ("_crossings", "1")]:
+        crossings = suffix == "_crossings"
+        native.genrule(
+            name = "%s_kpi_flat%s" % (prefix, suffix),
+            srcs = [":%s_sta_part" % flows[p] for p in parts] + [":sta_flat.tcl", "//tools/headroom:classify.tcl"] +
+                   [":sta/%s.%s" % (flows[p], ext) for p in parts for ext in ["v", "spef", "sdc"]] +
+                   [":sta/%s_libs.tar" % flows[p] for p in parts],
+            outs = ["%s_kpi_flat%s.txt" % (prefix, suffix), "%s_kpi_flat%s_paths.txt" % (prefix, suffix)] +
+                   (["%s_crossings.tsv" % prefix, "%s_module_area.tsv" % prefix, "%s_ports.tsv" % prefix, "%s_cones.tsv" % prefix] if crossings else []),
+            # each part's files under its own name, each block's modules
+            # renamed <block>__<module> (sta_prefix.py), in one directory
+            # sta_flat.tcl reads
+            cmd = " && ".join([
+                "w=$$(mktemp -d)",
+                "ln -s $$PWD/$(execpath :sta/%s.v) $$w/%s.v" % (flows[name], name),
+            ] + [
+                "ln -s $$PWD/$(execpath :sta/%s.%s) $$w/%s.%s" % (flows[p], ext, p, ext)
+                for p in parts
+                for ext in ["spef", "sdc"]
+            ] + [
+                "ln -s $$PWD/$(execpath :sta/%s_libs.tar) $$w/%s_libs.tar" % (flows[p], p)
+                for p in parts
+            ] + [
+                "$(execpath :sta_prefix) %s $(execpath :sta/%s.v) $$w/%s.v" % (b, flows[b], b)
+                for b in macros
+            ] + [
+                "ulimit -s unlimited",
+                ("STA_CROSSINGS=$(location %s_crossings.tsv) STA_CROSSINGS_PS=2000 STA_MODULE_AREA=$(location %s_module_area.tsv) STA_PORTS=$(location %s_ports.tsv) STA_PORTS_OF='%s' STA_CARVE='%s' STA_CONES=$(location %s_cones.tsv) " % (prefix, prefix, prefix, " ".join(_CARVE_PORTS_OF), " ".join(_CARVE_SMALL), prefix) if crossings else "") +
+                "STA_CLASSIFY=$(execpath //tools/headroom:classify.tcl) STA_DIR=$$w STA_PARENT=%s STA_PARTS='%s' STA_WIRES=%s STA_OUT=$(location %s_kpi_flat%s.txt) STA_PATHS=$(location %s_kpi_flat%s_paths.txt) $(execpath @openroad//src/sta:opensta) -no_splash -threads max -exit $(execpath :sta_flat.tcl)" % (name, " ".join(parts), wires, prefix, suffix, prefix, suffix),
+            ]),
+            tools = [":sta_prefix", "@openroad//src/sta:opensta"],
+            tags = tags,
+        )
 
 def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan_dir = "plan", variant = None):
     """The plan's blocks, each implemented through global route, then the parent.
@@ -1458,6 +1508,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         )
         if variant:
             _kpi(block, "grt", arguments, sources, tags, variant)
+            _sta_part(block, arguments, sources, tags, ilm = True, variant = variant)
             _pins_after(block, variant, tags)
             if variant in _PIN_PLAN_NEXT:
                 _pin_plan(block, "grt", [m.split(":")[-1].removesuffix(".regfile") for m in modules], tags, _PIN_PLAN_STAGES[_PIN_PLAN_NEXT[variant]][0], variant)
@@ -1576,6 +1627,11 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     )
     if variant:
         _kpi(name, "grt", arguments, sources, tags, variant)
+        _sta_part(name, arguments, sources, tags, variant = variant)
+
+        # the blocks the variant planned are its own; the others the base's
+        flows = {p: p for p in macros} | {p: "%s_%s" % (p, variant) for p in [name] + planned}
+        _kpi_flat(name, flows, tags, "%s_%s" % (name, variant))
         _pins_after(name, variant, tags)
         if variant in _PIN_PLAN_NEXT:
             _pin_plan(name, "grt", [m.split(":")[-1].removesuffix(".regfile") for m in parent_modules], tags, _PIN_PLAN_STAGES[_PIN_PLAN_NEXT[variant]][0], variant)
@@ -1585,38 +1641,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     _sta_part(name, arguments, sources, tags)
     parts = [name] + list(macros)
 
-    # with wires (the KPI) and without (each path's logic alone); _crossings
-    # is the KPI with every endpoint above 2,000 ps and the stretch of its
-    # worst path in each part (the surgery study)
-    for suffix, wires in [("", "1"), ("_nowire", "0"), ("_crossings", "1")]:
-        crossings = suffix == "_crossings"
-        native.genrule(
-            name = "%s_kpi_flat%s" % (name, suffix),
-            srcs = [":%s_sta_part" % p for p in parts] + [":sta_flat.tcl", "//tools/headroom:classify.tcl"] +
-                   [":sta/%s.%s" % (p, ext) for p in parts for ext in ["v", "spef", "sdc"]] +
-                   [":sta/%s_libs.tar" % p for p in parts],
-            outs = ["%s_kpi_flat%s.txt" % (name, suffix), "%s_kpi_flat%s_paths.txt" % (name, suffix)] +
-                   (["%s_crossings.tsv" % name, "%s_module_area.tsv" % name, "%s_ports.tsv" % name, "%s_cones.tsv" % name] if crossings else []),
-            # each block's modules renamed <block>__<module> (sta_prefix.py), the
-            # rest beside them in one directory sta_flat.tcl reads
-            cmd = " && ".join([
-                "w=$$(mktemp -d)",
-                "for f in $(execpath :sta/%s.v) %s; do ln -s $$PWD/$$f $$w/; done" % (
-                    name,
-                    " ".join(["$(execpath :sta/%s.%s)" % (p, ext) for p in parts for ext in ["spef", "sdc"]] +
-                             ["$(execpath :sta/%s_libs.tar)" % p for p in parts]),
-                ),
-            ] + [
-                "$(execpath :sta_prefix) %s $(execpath :sta/%s.v) $$w/%s.v" % (b, b, b)
-                for b in macros
-            ] + [
-                "ulimit -s unlimited",
-                ("STA_CROSSINGS=$(location %s_crossings.tsv) STA_CROSSINGS_PS=2000 STA_MODULE_AREA=$(location %s_module_area.tsv) STA_PORTS=$(location %s_ports.tsv) STA_PORTS_OF='%s' STA_CARVE='%s' STA_CONES=$(location %s_cones.tsv) " % (name, name, name, " ".join(_CARVE_PORTS_OF), " ".join(_CARVE_SMALL), name) if crossings else "") +
-                "STA_CLASSIFY=$(execpath //tools/headroom:classify.tcl) STA_DIR=$$w STA_PARENT=%s STA_PARTS='%s' STA_WIRES=%s STA_OUT=$(location %s_kpi_flat%s.txt) STA_PATHS=$(location %s_kpi_flat%s_paths.txt) $(execpath @openroad//src/sta:opensta) -no_splash -threads max -exit $(execpath :sta_flat.tcl)" % (name, " ".join(parts), wires, name, suffix, name, suffix),
-            ]),
-            tools = [":sta_prefix", "@openroad//src/sta:opensta"],
-            tags = tags,
-        )
+    _kpi_flat(name, {p: p for p in parts}, tags)
 
     # how much of the period repair left, and in which move: wire, VT,
     # skew, retiming; the floors no repair beats (repair-headroom skill)
