@@ -381,6 +381,24 @@ py_test(
     main = "crossings_test.py",
 )
 
+# the carve study's minimum macros over <parent>_kpi_flat_crossings
+py_binary(
+    name = "critical_cut",
+    srcs = ["critical_cut.py"],
+    main = "critical_cut.py",
+)
+
+py_test(
+    name = "critical_cut_test",
+    size = "small",
+    srcs = [
+        "critical_cut.py",
+        "critical_cut_test.py",
+    ],
+    imports = ["."],
+    main = "critical_cut_test.py",
+)
+
 py_test(
     name = "sta_prefix_test",
     srcs = [

@@ -101,11 +101,29 @@ proc sta_local_net { pin part where } {
   }
   return $name
 }
+# The macro a carve puts a cell in (STA_CARVE, "prefix=MACRO ..."): the
+# longest prefix of its path; a cell no prefix names is TOP.
+proc sta_macro { name } {
+  foreach { prefix m } $::sta_carve {
+    if { $name eq $prefix || [string first "$prefix/" $name] == 0 } { return $m }
+  }
+  return TOP
+}
+set sta_carve {}
+if { [info exists ::env(STA_CARVE)] } {
+  foreach pm [lsort -command { apply { { a b } {
+    expr { [string length $b] - [string length $a] } } } } $::env(STA_CARVE)] {
+    lappend sta_carve {*}[split $pm =]
+  }
+}
 if { [info exists ::env(STA_CROSSINGS)] } {
   set above $::env(STA_CROSSINGS_PS)
   set f [open $::env(STA_CROSSINGS) w]
   set lines {}
   set ends {}
+  # STA_CONES: each hop of a path from one macro of the carve to another,
+  # by the output pin of the last logic cell before it
+  array unset hops
   foreach t [find_timing_paths {*}$r2r -endpoint_path_count 1 \
                -group_path_count [sta::endpoint_count] -slack_max [expr { $p - $above }]] {
     set stretches {}
@@ -123,6 +141,8 @@ if { [info exists ::env(STA_CROSSINGS)] } {
     set ufirst 0.0
     set ulast 0.0
     set ulogic 0
+    set mcur ""
+    set mdriver ""
     foreach point [get_property $t points] {
       set pin [get_property $point pin]
       set at [get_property $point arrival]
@@ -150,7 +170,13 @@ if { [info exists ::env(STA_CROSSINGS)] } {
         set ulogic 0
       }
       set ulast $at
-      if { !$is_rep($ref) && [get_property $pin direction] eq "output" } { incr ulogic }
+      if { !$is_rep($ref) && [get_property $pin direction] eq "output" } {
+        incr ulogic
+        set m [sta_macro [get_full_name $pin]]
+        if { $mcur ne "" && $m ne $mcur } { lappend hops($mcur>$m) $mdriver }
+        set mcur $m
+        set mdriver [get_full_name $pin]
+      }
       set part [hr_part_of [get_full_name $pin] $where $parent]
       if { $part ne $cur } {
         if { $cur ne "" } { lappend stretches [list $cur $entry $last $entry_at $last_at] }
@@ -187,6 +213,52 @@ if { [info exists ::env(STA_CROSSINGS)] } {
     puts $f [format "%s\tH=%.0f" $line [expr { $h eq "" ? 0 : [get_property $h slack] }]]
   }
   close $f
+  # The cone a push would move or replicate across each hop: the fan-in of
+  # its drivers back to the flops (get_fanin stops at registers), its logic
+  # cells and their area in the source macro, the source macro's flops it
+  # starts at (the ports a push needs) and the startpoints elsewhere.
+  # STA_CONES, one line per hop: src>dst, paths, drivers, cone cells, um2,
+  # flops in src, startpoints elsewhere.
+  if { [info exists ::env(STA_CONES)] } {
+    set f [open $::env(STA_CONES) w]
+    array unset is_reg
+    foreach c [all_registers -cells] { set is_reg([get_full_name $c]) 1 }
+    foreach hop [lsort [array names hops]] {
+      set src [lindex [split $hop >] 0]
+      set drivers [lsort -unique $hops($hop)]
+      array unset cone
+      array unset starts
+      foreach d $drivers {
+        foreach c [get_fanin -to [get_pins $d] -flat -only_cells] {
+          set cone([get_full_name $c]) $c
+        }
+        foreach s [get_fanin -to [get_pins $d] -flat -startpoints_only] {
+          set starts([get_full_name $s]) 1
+        }
+      }
+      set cells 0
+      set um2 0.0
+      foreach { name c } [array get cone] {
+        if { [sta_macro $name] ne $src } { continue }
+        if { [info exists is_reg($name)] } { continue }
+        incr cells
+        set ref [get_property $c ref_name]
+        if { ![info exists cell_um2($ref)] } {
+          set lc [get_property $c liberty_cell]
+          set cell_um2($ref) [expr { $lc eq "" ? 0.0 : [get_property $lc area] }]
+        }
+        set um2 [expr { $um2 + $cell_um2($ref) }]
+      }
+      set flops 0
+      set other 0
+      foreach s [array names starts] {
+        if { [sta_macro $s] eq $src } { incr flops } else { incr other }
+      }
+      puts $f [format "%s\t%d\t%d\t%d\t%.1f\t%d\t%d" $hop [llength $hops($hop)] \
+        [llength $drivers] $cells $um2 $flops $other]
+    }
+    close $f
+  }
 }
 
 # Every module's cell area, at each of six levels (STA_MODULE_AREA, one line

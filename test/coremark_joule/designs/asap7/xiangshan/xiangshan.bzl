@@ -1189,6 +1189,20 @@ _CARVE_PORTS_OF = [
     "l2top",
 ]
 
+# The small carve (sta_flat.tcl's STA_CARVE, longest prefix wins): the macro
+# each module would sit in, whose hops STA_CONES measures.
+_CARVE_SMALL = [
+    "core/backend/inner_ctrlBlock/rob=ROB",
+    "core/backend/inner_ctrlBlock=DISP",
+    "core/backend/inner_intRegion=INT",
+    "core/backend/inner_vecRegion=VEC",
+    "core/backend/inner_fpRegion=FP",
+    "core/memBlock=MEM",
+    "core/frontend=FRONT",
+    "core=GLUE",
+    "l2top=L2",
+]
+
 def _pin_plan(name, stage, modules, tags, outdir = "pin_plan", variant = None):
     """<name>_<outdir>: //tools/pin_plan on a flow's stage (of a variant),
     its macros' pins (modules) planned from where their logic sits, the
@@ -1582,7 +1596,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
                    [":sta/%s.%s" % (p, ext) for p in parts for ext in ["v", "spef", "sdc"]] +
                    [":sta/%s_libs.tar" % p for p in parts],
             outs = ["%s_kpi_flat%s.txt" % (name, suffix), "%s_kpi_flat%s_paths.txt" % (name, suffix)] +
-                   (["%s_crossings.tsv" % name, "%s_module_area.tsv" % name, "%s_ports.tsv" % name] if crossings else []),
+                   (["%s_crossings.tsv" % name, "%s_module_area.tsv" % name, "%s_ports.tsv" % name, "%s_cones.tsv" % name] if crossings else []),
             # each block's modules renamed <block>__<module> (sta_prefix.py), the
             # rest beside them in one directory sta_flat.tcl reads
             cmd = " && ".join([
@@ -1597,7 +1611,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
                 for b in macros
             ] + [
                 "ulimit -s unlimited",
-                ("STA_CROSSINGS=$(location %s_crossings.tsv) STA_CROSSINGS_PS=2000 STA_MODULE_AREA=$(location %s_module_area.tsv) STA_PORTS=$(location %s_ports.tsv) STA_PORTS_OF='%s' " % (name, name, name, " ".join(_CARVE_PORTS_OF)) if crossings else "") +
+                ("STA_CROSSINGS=$(location %s_crossings.tsv) STA_CROSSINGS_PS=2000 STA_MODULE_AREA=$(location %s_module_area.tsv) STA_PORTS=$(location %s_ports.tsv) STA_PORTS_OF='%s' STA_CARVE='%s' STA_CONES=$(location %s_cones.tsv) " % (name, name, name, " ".join(_CARVE_PORTS_OF), " ".join(_CARVE_SMALL), name) if crossings else "") +
                 "STA_CLASSIFY=$(execpath //tools/headroom:classify.tcl) STA_DIR=$$w STA_PARENT=%s STA_PARTS='%s' STA_WIRES=%s STA_OUT=$(location %s_kpi_flat%s.txt) STA_PATHS=$(location %s_kpi_flat%s_paths.txt) $(execpath @openroad//src/sta:opensta) -no_splash -threads max -exit $(execpath :sta_flat.tcl)" % (name, " ".join(parts), wires, name, suffix, name, suffix),
             ]),
             tools = [":sta_prefix", "@openroad//src/sta:opensta"],
