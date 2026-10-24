@@ -1,0 +1,35 @@
+# tpu in its rig (../tpu_meso.sv) against tpu alone: the same results,
+# row for row, with bubbles anywhere in the stream, and no FIFO ever
+# written full.
+load("@rules_cc//cc:defs.bzl", "cc_test")
+load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
+load("@rules_verilog//verilog:defs.bzl", "verilog_library")
+
+package(default_visibility = ["//visibility:private"])
+
+verilog_library(
+    name = "tb",
+    srcs = [
+        "tpu_meso_tb.sv",
+        "//test/tpu:meso_fifo.sv",
+        "//test/tpu:tpu_meso.sv",
+        "@orfs//flow/designs/src/tpu:tpu.sv",
+        "@orfs//flow/designs/src/tpu:tpu_array.sv",
+        "@orfs//flow/designs/src/tpu:tpu_pe.sv",
+    ],
+)
+
+verilator_cc_library(
+    name = "tb_lib",
+    module = ":tb",
+    module_top = "tpu_meso_tb",
+    trace_mode = "none",
+    vopts = ["-Wno-fatal"],
+)
+
+cc_test(
+    name = "tpu_meso_test",
+    size = "small",
+    srcs = ["main.cc"],
+    deps = [":tb_lib"],
+)

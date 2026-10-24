@@ -1,0 +1,54 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+exports_files(["lec_cells.lib"])
+
+[py_binary(
+    name = name,
+    srcs = [name + ".py"],
+    visibility = ["//visibility:public"],
+) for name in [
+    "carve",
+    "lec_names",
+    "break_port",
+    "wrap_parent",
+    "pin_plan",
+]]
+
+py_library(
+    name = "carve_lib",
+    srcs = ["carve.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "carve_test",
+    size = "small",
+    srcs = ["carve_test.py"],
+    deps = [":carve_lib"],
+)
+
+py_library(
+    name = "wrap_parent_lib",
+    srcs = ["wrap_parent.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "wrap_parent_test",
+    size = "small",
+    srcs = ["wrap_parent_test.py"],
+    deps = [":wrap_parent_lib"],
+)
+
+py_library(
+    name = "pin_plan_lib",
+    srcs = ["pin_plan.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "pin_plan_test",
+    size = "small",
+    srcs = ["pin_plan_test.py"],
+    deps = [":pin_plan_lib"],
+)

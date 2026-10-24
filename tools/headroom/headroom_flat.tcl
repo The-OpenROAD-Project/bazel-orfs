@@ -7,6 +7,7 @@
 #   STA_DIR=<dir with each part's .v (blocks prefixed by sta_prefix.py),
 #   .spef, .sdc, _libs.tar> STA_PARENT=<module> STA_PARTS="<parent> <block>..."
 #   STA_WIRES=1|0 HR_TCL=<headroom.tcl> HR_ENDS=0 HR_TARGET=0 HR_OUT=<file>
+#   [HR_PERIOD_ONLY=1, the period alone]
 #   [HR_CLASSES=<classify.tcl>] sta -exit headroom_flat.tcl
 #
 # STA_WIRES=0 reads no SPEF: the period then is the zero-wire floor, and
@@ -77,6 +78,23 @@ if { [info exists ::env(HR_CLASSES)] && $::env(HR_CLASSES) ne "" } {
   exit
 }
 
+# HR_REPORT names a design's own script (orfs_headroom's reports): it
+# defines hr_report, called with every block instance and its block and
+# the parent's name on the stitched design, whose lines it returns
+if { [info exists ::env(HR_REPORT)] && $::env(HR_REPORT) ne "" } {
+  source $::env(HR_REPORT)
+  set where {}
+  foreach b $blocks {
+    foreach inst [get_cells -hierarchical -filter "ref_name == $b"] {
+      lappend where [get_full_name $inst] $b
+    }
+  }
+  set f [open $::env(HR_OUT) w]
+  puts $f [join [hr_report $where $parent] "\n"]
+  close $f
+  exit
+}
+
 proc jstr { x } {
   return "\"[string map {\\ \\\\ \" \\\"} $x]\""
 }
@@ -104,6 +122,12 @@ proc emit { out } {
   close $f
 }
 emit $out
+# HR_PERIOD_ONLY=1: the stitched period is all that is asked
+if { [info exists ::env(HR_PERIOD_ONLY)] && $::env(HR_PERIOD_ONLY) } {
+  lappend out "\"seconds\":[expr { [clock seconds] - $t0 }]"
+  emit $out
+  exit
+}
 if { $wires } {
   lappend out "\"floor_cycles\":[json [hr_floor_cycles]]"
   emit $out

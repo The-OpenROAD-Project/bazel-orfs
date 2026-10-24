@@ -8,7 +8,14 @@
 # holding the divider is escaped in one and not the other, and every SPEF
 # net becomes a slow, sometimes failing, lookup.
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design 5_1_grt.odb 5_1_grt.sdc
+# PART_STAGE reads a stage before global route: placement parasitics at
+# place and cts; at floorplan, nothing is placed and the SPEF is empty,
+# for a zero-wire read of the logic alone.
+set part_stage [expr { [info exists ::env(PART_STAGE)] ? $::env(PART_STAGE) : "grt" }]
+set part_files [dict create grt 5_1_grt cts 4_cts place 3_place floorplan 2_floorplan]
+if { ![dict exists $part_files $part_stage] } { error "PART_STAGE is grt, cts, place or floorplan, not $part_stage" }
+set part_base [dict get $part_files $part_stage]
+load_design $part_base.odb $part_base.sdc
 # A block keeps its interface logic only (STA_ILM=1): the cells from its data
 # inputs to the first flops and from the last flops to its outputs, every load
 # of a net those cells drive (the wire's load stays whole), and the clock tree
@@ -70,9 +77,15 @@ if { [env_var_equals STA_ILM 1] } {
   }
   puts "sta_part: interface logic model keeps [dict size $keep] cells, removes $gone and $nets nets"
 }
-estimate_parasitics -global_routing -spef_file $::env(PART_SPEF)
+if { $part_stage eq "grt" } {
+  estimate_parasitics -global_routing -spef_file $::env(PART_SPEF)
+} elseif { $part_stage eq "floorplan" } {
+  close [open $::env(PART_SPEF) w]
+} else {
+  estimate_parasitics -placement -spef_file $::env(PART_SPEF)
+}
 write_verilog $::env(PART_V)
-file copy -force $::env(RESULTS_DIR)/5_1_grt.sdc $::env(PART_SDC)
+file copy -force $::env(RESULTS_DIR)/$part_base.sdc $::env(PART_SDC)
 set libs $::env(LIB_FILES)
 if { [env_var_equals AUTO_MEMORIES 1] } {
   foreach f [glob -nocomplain $::env(RESULTS_DIR)/memories/*.lib] {

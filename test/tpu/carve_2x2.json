@@ -1,0 +1,2980 @@
+{
+ "module": "tpu_block",
+ "stops": [
+  {
+   "net": "g_skew[0].din"
+  }
+ ],
+ "tiles": [
+  {
+   "instance": "u_b1_0",
+   "seeds": [
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[0].u_pe.w",
+      "u_array.g_pe_row[2].g_pe_col[0].u_pe.w_south",
+      "u_array.g_pe_row[3].g_pe_col[0].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[0].u_pe.psum_south",
+      "u_array.g_pe_row[3].g_pe_col[0].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[1].u_pe.w",
+      "u_array.g_pe_row[2].g_pe_col[1].u_pe.w_south",
+      "u_array.g_pe_row[3].g_pe_col[1].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[1].u_pe.psum_south",
+      "u_array.g_pe_row[3].g_pe_col[1].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[0].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[0].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[0].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[0].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[0].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[1].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[1].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[1].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[1].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[1].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[0].u_pe.a_east",
+      "u_array.g_pe_row[2].g_pe_col[1].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[0].u_pe.a_east",
+      "u_array.g_pe_row[3].g_pe_col[1].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[2].g_pe_col[2].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[3].g_pe_col[2].u_pe.a_west"
+     ]
+    }
+   ],
+   "ports": [
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[0].u_pe.a_east",
+      "u_array.g_pe_row[2].g_pe_col[1].u_pe.a_west"
+     ],
+     "via": "D",
+     "port": "a_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[2].g_pe_col[2].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[0].u_pe.a_east",
+      "u_array.g_pe_row[3].g_pe_col[1].u_pe.a_west"
+     ],
+     "via": "D",
+     "port": "a_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[3].g_pe_col[2].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[0].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[0].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[0].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[0].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[0].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[0].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[0].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[0].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[0].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[0].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[1].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[1].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[1].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[1].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[1].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 32
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[1].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[1].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[1].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[1].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[1].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 32
+    },
+    {
+     "net": "clk",
+     "port": "clk"
+    },
+    {
+     "net": "rst",
+     "port": "rst"
+    },
+    {
+     "net": "w_valid",
+     "port": "w_valid"
+    }
+   ]
+  },
+  {
+   "instance": "u_b1_1",
+   "seeds": [
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[2].u_pe.w",
+      "u_array.g_pe_row[2].g_pe_col[2].u_pe.w_south",
+      "u_array.g_pe_row[3].g_pe_col[2].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[2].u_pe.psum_south",
+      "u_array.g_pe_row[3].g_pe_col[2].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[3].u_pe.w",
+      "u_array.g_pe_row[2].g_pe_col[3].u_pe.w_south",
+      "u_array.g_pe_row[3].g_pe_col[3].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[3].u_pe.psum_south",
+      "u_array.g_pe_row[3].g_pe_col[3].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[2].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[2].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[2].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[2].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[2].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[3].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[3].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[3].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[3].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[3].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[2].u_pe.a_east",
+      "u_array.g_pe_row[2].g_pe_col[3].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[2].u_pe.a_east",
+      "u_array.g_pe_row[3].g_pe_col[3].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[2].g_pe_col[4].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[3].g_pe_col[4].u_pe.a_west"
+     ]
+    }
+   ],
+   "ports": [
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[2].g_pe_col[2].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[2].g_pe_col[4].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[3].g_pe_col[2].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[3].g_pe_col[4].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[2].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[2].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[2].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[2].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[2].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[2].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[2].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[2].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[2].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[2].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[3].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[3].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[3].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[3].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[3].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 32
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[3].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[3].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[3].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[3].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[3].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 32
+    },
+    {
+     "net": "clk",
+     "port": "clk"
+    },
+    {
+     "net": "rst",
+     "port": "rst"
+    },
+    {
+     "net": "w_valid",
+     "port": "w_valid"
+    }
+   ],
+   "chain_from": "u_b1_0"
+  },
+  {
+   "instance": "u_b1_2",
+   "seeds": [
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[4].u_pe.w",
+      "u_array.g_pe_row[2].g_pe_col[4].u_pe.w_south",
+      "u_array.g_pe_row[3].g_pe_col[4].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[4].u_pe.psum_south",
+      "u_array.g_pe_row[3].g_pe_col[4].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[5].u_pe.w",
+      "u_array.g_pe_row[2].g_pe_col[5].u_pe.w_south",
+      "u_array.g_pe_row[3].g_pe_col[5].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[5].u_pe.psum_south",
+      "u_array.g_pe_row[3].g_pe_col[5].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[4].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[4].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[4].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[4].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[4].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[5].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[5].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[5].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[5].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[5].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[4].u_pe.a_east",
+      "u_array.g_pe_row[2].g_pe_col[5].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[4].u_pe.a_east",
+      "u_array.g_pe_row[3].g_pe_col[5].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[2].g_pe_col[6].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[3].g_pe_col[6].u_pe.a_west"
+     ]
+    }
+   ],
+   "ports": [
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[2].g_pe_col[4].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[2].g_pe_col[6].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[3].g_pe_col[4].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[3].g_pe_col[6].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[4].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[4].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[4].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[4].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[4].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[4].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[4].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[4].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[4].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[4].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[5].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[5].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[5].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[5].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[5].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 32
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[5].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[5].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[5].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[5].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[5].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 32
+    },
+    {
+     "net": "clk",
+     "port": "clk"
+    },
+    {
+     "net": "rst",
+     "port": "rst"
+    },
+    {
+     "net": "w_valid",
+     "port": "w_valid"
+    }
+   ],
+   "chain_from": "u_b1_1"
+  },
+  {
+   "instance": "u_b2_0",
+   "seeds": [
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[0].u_pe.w",
+      "u_array.g_pe_row[4].g_pe_col[0].u_pe.w_south",
+      "u_array.g_pe_row[5].g_pe_col[0].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[0].u_pe.psum_south",
+      "u_array.g_pe_row[5].g_pe_col[0].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[1].u_pe.w",
+      "u_array.g_pe_row[4].g_pe_col[1].u_pe.w_south",
+      "u_array.g_pe_row[5].g_pe_col[1].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[1].u_pe.psum_south",
+      "u_array.g_pe_row[5].g_pe_col[1].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[0].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[0].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[0].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[0].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[0].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[1].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[1].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[1].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[1].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[1].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[0].u_pe.a_east",
+      "u_array.g_pe_row[4].g_pe_col[1].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[0].u_pe.a_east",
+      "u_array.g_pe_row[5].g_pe_col[1].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[4].g_pe_col[2].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[5].g_pe_col[2].u_pe.a_west"
+     ]
+    }
+   ],
+   "ports": [
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[0].u_pe.a_east",
+      "u_array.g_pe_row[4].g_pe_col[1].u_pe.a_west"
+     ],
+     "via": "D",
+     "port": "a_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[4].g_pe_col[2].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[0].u_pe.a_east",
+      "u_array.g_pe_row[5].g_pe_col[1].u_pe.a_west"
+     ],
+     "via": "D",
+     "port": "a_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[5].g_pe_col[2].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[0].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[0].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[0].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[0].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[0].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[0].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[0].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[0].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[0].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[0].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[1].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[1].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[1].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[1].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[1].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 32
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[1].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[1].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[1].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[1].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[1].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 32
+    },
+    {
+     "net": "clk",
+     "port": "clk"
+    },
+    {
+     "net": "rst",
+     "port": "rst"
+    },
+    {
+     "net": "w_valid",
+     "port": "w_valid"
+    }
+   ]
+  },
+  {
+   "instance": "u_b2_1",
+   "seeds": [
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[2].u_pe.w",
+      "u_array.g_pe_row[4].g_pe_col[2].u_pe.w_south",
+      "u_array.g_pe_row[5].g_pe_col[2].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[2].u_pe.psum_south",
+      "u_array.g_pe_row[5].g_pe_col[2].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[3].u_pe.w",
+      "u_array.g_pe_row[4].g_pe_col[3].u_pe.w_south",
+      "u_array.g_pe_row[5].g_pe_col[3].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[3].u_pe.psum_south",
+      "u_array.g_pe_row[5].g_pe_col[3].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[2].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[2].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[2].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[2].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[2].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[3].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[3].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[3].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[3].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[3].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[2].u_pe.a_east",
+      "u_array.g_pe_row[4].g_pe_col[3].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[2].u_pe.a_east",
+      "u_array.g_pe_row[5].g_pe_col[3].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[4].g_pe_col[4].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[5].g_pe_col[4].u_pe.a_west"
+     ]
+    }
+   ],
+   "ports": [
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[4].g_pe_col[2].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[4].g_pe_col[4].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[5].g_pe_col[2].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[5].g_pe_col[4].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[2].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[2].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[2].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[2].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[2].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[2].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[2].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[2].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[2].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[2].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[3].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[3].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[3].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[3].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[3].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 32
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[3].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[3].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[3].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[3].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[3].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 32
+    },
+    {
+     "net": "clk",
+     "port": "clk"
+    },
+    {
+     "net": "rst",
+     "port": "rst"
+    },
+    {
+     "net": "w_valid",
+     "port": "w_valid"
+    }
+   ],
+   "chain_from": "u_b2_0"
+  },
+  {
+   "instance": "u_b2_2",
+   "seeds": [
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[4].u_pe.w",
+      "u_array.g_pe_row[4].g_pe_col[4].u_pe.w_south",
+      "u_array.g_pe_row[5].g_pe_col[4].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[4].u_pe.psum_south",
+      "u_array.g_pe_row[5].g_pe_col[4].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[5].u_pe.w",
+      "u_array.g_pe_row[4].g_pe_col[5].u_pe.w_south",
+      "u_array.g_pe_row[5].g_pe_col[5].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[5].u_pe.psum_south",
+      "u_array.g_pe_row[5].g_pe_col[5].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[4].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[4].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[4].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[4].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[4].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[5].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[5].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[5].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[5].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[5].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[4].u_pe.a_east",
+      "u_array.g_pe_row[4].g_pe_col[5].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[4].u_pe.a_east",
+      "u_array.g_pe_row[5].g_pe_col[5].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[4].g_pe_col[6].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[5].g_pe_col[6].u_pe.a_west"
+     ]
+    }
+   ],
+   "ports": [
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[4].g_pe_col[4].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[4].g_pe_col[6].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[5].g_pe_col[4].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[5].g_pe_col[6].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[4].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[4].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[4].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[4].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[4].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[4].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[4].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[4].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[4].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[4].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[5].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[5].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[5].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[5].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[5].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 32
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[5].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[5].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[5].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[5].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[5].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 32
+    },
+    {
+     "net": "clk",
+     "port": "clk"
+    },
+    {
+     "net": "rst",
+     "port": "rst"
+    },
+    {
+     "net": "w_valid",
+     "port": "w_valid"
+    }
+   ],
+   "chain_from": "u_b2_1"
+  },
+  {
+   "instance": "u_b3_0",
+   "seeds": [
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[0].u_pe.w",
+      "u_array.g_pe_row[6].g_pe_col[0].u_pe.w_south",
+      "u_array.g_pe_row[7].g_pe_col[0].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[0].u_pe.psum_south",
+      "u_array.g_pe_row[7].g_pe_col[0].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[1].u_pe.w",
+      "u_array.g_pe_row[6].g_pe_col[1].u_pe.w_south",
+      "u_array.g_pe_row[7].g_pe_col[1].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[1].u_pe.psum_south",
+      "u_array.g_pe_row[7].g_pe_col[1].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[0].u_pe.w",
+      "u_array.g_pe_row[7].g_pe_col[0].u_pe.w_south"
+     ]
+    },
+    {
+     "net": "g_deskew[0].cin"
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[1].u_pe.w",
+      "u_array.g_pe_row[7].g_pe_col[1].u_pe.w_south"
+     ]
+    },
+    {
+     "net": "g_deskew[1].cin"
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[0].u_pe.a_east",
+      "u_array.g_pe_row[6].g_pe_col[1].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[0].u_pe.a_east",
+      "u_array.g_pe_row[7].g_pe_col[1].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[6].g_pe_col[2].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[7].g_pe_col[2].u_pe.a_west"
+     ]
+    }
+   ],
+   "ports": [
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[0].u_pe.a_east",
+      "u_array.g_pe_row[6].g_pe_col[1].u_pe.a_west"
+     ],
+     "via": "D",
+     "port": "a_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[6].g_pe_col[2].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[0].u_pe.a_east",
+      "u_array.g_pe_row[7].g_pe_col[1].u_pe.a_west"
+     ],
+     "via": "D",
+     "port": "a_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[7].g_pe_col[2].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[0].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[0].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[0].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[0].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[0].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[0].u_pe.w",
+      "u_array.g_pe_row[7].g_pe_col[0].u_pe.w_south"
+     ],
+     "port": "w_out",
+     "port_lsb": 0
+    },
+    {
+     "net": "g_deskew[0].cin",
+     "port": "psum_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[1].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[1].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[1].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[1].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[1].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 32
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[1].u_pe.w",
+      "u_array.g_pe_row[7].g_pe_col[1].u_pe.w_south"
+     ],
+     "port": "w_out",
+     "port_lsb": 8
+    },
+    {
+     "net": "g_deskew[1].cin",
+     "port": "psum_out",
+     "port_lsb": 32
+    },
+    {
+     "net": "clk",
+     "port": "clk"
+    },
+    {
+     "net": "rst",
+     "port": "rst"
+    },
+    {
+     "net": "w_valid",
+     "port": "w_valid"
+    }
+   ],
+   "unread": [
+    "w_out"
+   ],
+   "south_registers": [
+    {
+     "net": "g_deskew[0].cin"
+    },
+    {
+     "net": "g_deskew[1].cin"
+    }
+   ]
+  },
+  {
+   "instance": "u_b3_1",
+   "seeds": [
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[2].u_pe.w",
+      "u_array.g_pe_row[6].g_pe_col[2].u_pe.w_south",
+      "u_array.g_pe_row[7].g_pe_col[2].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[2].u_pe.psum_south",
+      "u_array.g_pe_row[7].g_pe_col[2].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[3].u_pe.w",
+      "u_array.g_pe_row[6].g_pe_col[3].u_pe.w_south",
+      "u_array.g_pe_row[7].g_pe_col[3].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[3].u_pe.psum_south",
+      "u_array.g_pe_row[7].g_pe_col[3].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[2].u_pe.w",
+      "u_array.g_pe_row[7].g_pe_col[2].u_pe.w_south"
+     ]
+    },
+    {
+     "net": "g_deskew[2].cin"
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[3].u_pe.w",
+      "u_array.g_pe_row[7].g_pe_col[3].u_pe.w_south"
+     ]
+    },
+    {
+     "net": "g_deskew[3].cin"
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[2].u_pe.a_east",
+      "u_array.g_pe_row[6].g_pe_col[3].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[2].u_pe.a_east",
+      "u_array.g_pe_row[7].g_pe_col[3].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[6].g_pe_col[4].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[7].g_pe_col[4].u_pe.a_west"
+     ]
+    }
+   ],
+   "ports": [
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[6].g_pe_col[2].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[6].g_pe_col[4].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[7].g_pe_col[2].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[7].g_pe_col[4].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[2].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[2].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[2].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[2].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[2].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[2].u_pe.w",
+      "u_array.g_pe_row[7].g_pe_col[2].u_pe.w_south"
+     ],
+     "port": "w_out",
+     "port_lsb": 0
+    },
+    {
+     "net": "g_deskew[2].cin",
+     "port": "psum_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[3].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[3].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[3].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[3].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[3].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 32
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[3].u_pe.w",
+      "u_array.g_pe_row[7].g_pe_col[3].u_pe.w_south"
+     ],
+     "port": "w_out",
+     "port_lsb": 8
+    },
+    {
+     "net": "g_deskew[3].cin",
+     "port": "psum_out",
+     "port_lsb": 32
+    },
+    {
+     "net": "clk",
+     "port": "clk"
+    },
+    {
+     "net": "rst",
+     "port": "rst"
+    },
+    {
+     "net": "w_valid",
+     "port": "w_valid"
+    }
+   ],
+   "unread": [
+    "w_out"
+   ],
+   "chain_from": "u_b3_0",
+   "south_registers": [
+    {
+     "net": "g_deskew[2].cin"
+    },
+    {
+     "net": "g_deskew[3].cin"
+    }
+   ]
+  },
+  {
+   "instance": "u_b3_2",
+   "seeds": [
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[4].u_pe.w",
+      "u_array.g_pe_row[6].g_pe_col[4].u_pe.w_south",
+      "u_array.g_pe_row[7].g_pe_col[4].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[4].u_pe.psum_south",
+      "u_array.g_pe_row[7].g_pe_col[4].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[5].u_pe.w",
+      "u_array.g_pe_row[6].g_pe_col[5].u_pe.w_south",
+      "u_array.g_pe_row[7].g_pe_col[5].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[5].u_pe.psum_south",
+      "u_array.g_pe_row[7].g_pe_col[5].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[4].u_pe.w",
+      "u_array.g_pe_row[7].g_pe_col[4].u_pe.w_south"
+     ]
+    },
+    {
+     "net": "g_deskew[4].cin"
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[5].u_pe.w",
+      "u_array.g_pe_row[7].g_pe_col[5].u_pe.w_south"
+     ]
+    },
+    {
+     "net": "g_deskew[5].cin"
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[4].u_pe.a_east",
+      "u_array.g_pe_row[6].g_pe_col[5].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[4].u_pe.a_east",
+      "u_array.g_pe_row[7].g_pe_col[5].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[6].g_pe_col[6].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[7].g_pe_col[6].u_pe.a_west"
+     ]
+    }
+   ],
+   "ports": [
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[6].g_pe_col[4].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[6].g_pe_col[6].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[7].g_pe_col[4].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[7].g_pe_col[6].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[4].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[4].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[4].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[4].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[4].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[4].u_pe.w",
+      "u_array.g_pe_row[7].g_pe_col[4].u_pe.w_south"
+     ],
+     "port": "w_out",
+     "port_lsb": 0
+    },
+    {
+     "net": "g_deskew[4].cin",
+     "port": "psum_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[5].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[5].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[5].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[5].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[5].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 32
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[5].u_pe.w",
+      "u_array.g_pe_row[7].g_pe_col[5].u_pe.w_south"
+     ],
+     "port": "w_out",
+     "port_lsb": 8
+    },
+    {
+     "net": "g_deskew[5].cin",
+     "port": "psum_out",
+     "port_lsb": 32
+    },
+    {
+     "net": "clk",
+     "port": "clk"
+    },
+    {
+     "net": "rst",
+     "port": "rst"
+    },
+    {
+     "net": "w_valid",
+     "port": "w_valid"
+    }
+   ],
+   "unread": [
+    "w_out"
+   ],
+   "chain_from": "u_b3_1",
+   "south_registers": [
+    {
+     "net": "g_deskew[4].cin"
+    },
+    {
+     "net": "g_deskew[5].cin"
+    }
+   ]
+  },
+  {
+   "instance": "u_b1_3",
+   "seeds": [
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[6].u_pe.w",
+      "u_array.g_pe_row[2].g_pe_col[6].u_pe.w_south",
+      "u_array.g_pe_row[3].g_pe_col[6].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[6].u_pe.psum_south",
+      "u_array.g_pe_row[3].g_pe_col[6].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[7].u_pe.w",
+      "u_array.g_pe_row[2].g_pe_col[7].u_pe.w_south",
+      "u_array.g_pe_row[3].g_pe_col[7].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[7].u_pe.psum_south",
+      "u_array.g_pe_row[3].g_pe_col[7].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[6].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[6].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[6].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[6].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[6].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[7].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[7].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[7].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[7].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[7].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[6].u_pe.a_east",
+      "u_array.g_pe_row[2].g_pe_col[7].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[6].u_pe.a_east",
+      "u_array.g_pe_row[3].g_pe_col[7].u_pe.a_west"
+     ]
+    }
+   ],
+   "ports": [
+    {
+     "net": [
+      "u_array.g_pe_row[2].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[2].g_pe_col[6].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[3].g_pe_col[6].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[6].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[6].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[6].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[6].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[6].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[6].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[6].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[6].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[6].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[6].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[7].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[7].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[7].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[7].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[7].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 32
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[7].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[7].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[7].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[7].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[7].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 32
+    },
+    {
+     "net": "clk",
+     "port": "clk"
+    },
+    {
+     "net": "rst",
+     "port": "rst"
+    },
+    {
+     "net": "w_valid",
+     "port": "w_valid"
+    }
+   ],
+   "unread": [
+    "a_out"
+   ],
+   "chain_from": "u_b1_2"
+  },
+  {
+   "instance": "u_b2_3",
+   "seeds": [
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[6].u_pe.w",
+      "u_array.g_pe_row[4].g_pe_col[6].u_pe.w_south",
+      "u_array.g_pe_row[5].g_pe_col[6].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[6].u_pe.psum_south",
+      "u_array.g_pe_row[5].g_pe_col[6].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[7].u_pe.w",
+      "u_array.g_pe_row[4].g_pe_col[7].u_pe.w_south",
+      "u_array.g_pe_row[5].g_pe_col[7].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[7].u_pe.psum_south",
+      "u_array.g_pe_row[5].g_pe_col[7].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[6].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[6].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[6].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[6].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[6].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[7].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[7].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[7].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[7].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[7].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[6].u_pe.a_east",
+      "u_array.g_pe_row[4].g_pe_col[7].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[6].u_pe.a_east",
+      "u_array.g_pe_row[5].g_pe_col[7].u_pe.a_west"
+     ]
+    }
+   ],
+   "ports": [
+    {
+     "net": [
+      "u_array.g_pe_row[4].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[4].g_pe_col[6].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[5].g_pe_col[6].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[6].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[6].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[6].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[6].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[6].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[6].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[6].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[6].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[6].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[6].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[7].u_pe.w",
+      "u_array.g_pe_row[3].g_pe_col[7].u_pe.w_south",
+      "u_array.g_pe_row[4].g_pe_col[7].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[3].g_pe_col[7].u_pe.psum_south",
+      "u_array.g_pe_row[4].g_pe_col[7].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 32
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[7].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[7].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[7].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[7].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[7].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 32
+    },
+    {
+     "net": "clk",
+     "port": "clk"
+    },
+    {
+     "net": "rst",
+     "port": "rst"
+    },
+    {
+     "net": "w_valid",
+     "port": "w_valid"
+    }
+   ],
+   "unread": [
+    "a_out"
+   ],
+   "chain_from": "u_b2_2"
+  },
+  {
+   "instance": "u_b3_3",
+   "seeds": [
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[6].u_pe.w",
+      "u_array.g_pe_row[6].g_pe_col[6].u_pe.w_south",
+      "u_array.g_pe_row[7].g_pe_col[6].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[6].u_pe.psum_south",
+      "u_array.g_pe_row[7].g_pe_col[6].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[7].u_pe.w",
+      "u_array.g_pe_row[6].g_pe_col[7].u_pe.w_south",
+      "u_array.g_pe_row[7].g_pe_col[7].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[7].u_pe.psum_south",
+      "u_array.g_pe_row[7].g_pe_col[7].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[6].u_pe.w",
+      "u_array.g_pe_row[7].g_pe_col[6].u_pe.w_south"
+     ]
+    },
+    {
+     "net": "g_deskew[6].cin"
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[7].u_pe.w",
+      "u_array.g_pe_row[7].g_pe_col[7].u_pe.w_south"
+     ]
+    },
+    {
+     "net": "g_deskew[7].cin"
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[6].u_pe.a_east",
+      "u_array.g_pe_row[6].g_pe_col[7].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[6].u_pe.a_east",
+      "u_array.g_pe_row[7].g_pe_col[7].u_pe.a_west"
+     ]
+    }
+   ],
+   "ports": [
+    {
+     "net": [
+      "u_array.g_pe_row[6].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[6].g_pe_col[6].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[7].g_pe_col[6].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[6].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[6].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[6].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[6].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[6].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[6].u_pe.w",
+      "u_array.g_pe_row[7].g_pe_col[6].u_pe.w_south"
+     ],
+     "port": "w_out",
+     "port_lsb": 0
+    },
+    {
+     "net": "g_deskew[6].cin",
+     "port": "psum_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[7].u_pe.w",
+      "u_array.g_pe_row[5].g_pe_col[7].u_pe.w_south",
+      "u_array.g_pe_row[6].g_pe_col[7].u_pe.w_north"
+     ],
+     "port": "w_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[5].g_pe_col[7].u_pe.psum_south",
+      "u_array.g_pe_row[6].g_pe_col[7].u_pe.psum_north"
+     ],
+     "port": "psum_in",
+     "port_lsb": 32
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[7].g_pe_col[7].u_pe.w",
+      "u_array.g_pe_row[7].g_pe_col[7].u_pe.w_south"
+     ],
+     "port": "w_out",
+     "port_lsb": 8
+    },
+    {
+     "net": "g_deskew[7].cin",
+     "port": "psum_out",
+     "port_lsb": 32
+    },
+    {
+     "net": "clk",
+     "port": "clk"
+    },
+    {
+     "net": "rst",
+     "port": "rst"
+    },
+    {
+     "net": "w_valid",
+     "port": "w_valid"
+    }
+   ],
+   "unread": [
+    "a_out",
+    "w_out"
+   ],
+   "chain_from": "u_b3_2",
+   "south_registers": [
+    {
+     "net": "g_deskew[6].cin"
+    },
+    {
+     "net": "g_deskew[7].cin"
+    }
+   ]
+  },
+  {
+   "instance": "u_b0_0",
+   "seeds": [
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[0].u_pe.w",
+      "u_array.g_pe_row[0].g_pe_col[0].u_pe.w_south",
+      "u_array.g_pe_row[1].g_pe_col[0].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[0].u_pe.psum_south",
+      "u_array.g_pe_row[1].g_pe_col[0].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[1].u_pe.w",
+      "u_array.g_pe_row[0].g_pe_col[1].u_pe.w_south",
+      "u_array.g_pe_row[1].g_pe_col[1].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[1].u_pe.psum_south",
+      "u_array.g_pe_row[1].g_pe_col[1].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[0].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[0].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[0].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[0].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[0].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[1].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[1].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[1].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[1].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[1].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[0].u_pe.a_east",
+      "u_array.g_pe_row[0].g_pe_col[1].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[0].u_pe.a_east",
+      "u_array.g_pe_row[1].g_pe_col[1].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[0].g_pe_col[2].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[1].g_pe_col[2].u_pe.a_west"
+     ]
+    }
+   ],
+   "ports": [
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[0].u_pe.a_east",
+      "u_array.g_pe_row[0].g_pe_col[1].u_pe.a_west"
+     ],
+     "via": "D",
+     "port": "a_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[0].g_pe_col[2].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[0].u_pe.a_east",
+      "u_array.g_pe_row[1].g_pe_col[1].u_pe.a_west"
+     ],
+     "via": "D",
+     "port": "a_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[1].g_pe_col[2].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 8
+    },
+    {
+     "net": "w_data",
+     "lsb": 0,
+     "width": 8,
+     "port": "w_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[0].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[0].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[0].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[0].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[0].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 0
+    },
+    {
+     "net": "w_data",
+     "lsb": 8,
+     "width": 8,
+     "port": "w_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[1].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[1].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[1].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[1].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[1].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 32
+    },
+    {
+     "net": "clk",
+     "port": "clk"
+    },
+    {
+     "net": "rst",
+     "port": "rst"
+    },
+    {
+     "net": "w_valid",
+     "port": "w_valid"
+    }
+   ],
+   "tie": [
+    "psum_in"
+   ]
+  },
+  {
+   "instance": "u_b0_1",
+   "seeds": [
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[2].u_pe.w",
+      "u_array.g_pe_row[0].g_pe_col[2].u_pe.w_south",
+      "u_array.g_pe_row[1].g_pe_col[2].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[2].u_pe.psum_south",
+      "u_array.g_pe_row[1].g_pe_col[2].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[3].u_pe.w",
+      "u_array.g_pe_row[0].g_pe_col[3].u_pe.w_south",
+      "u_array.g_pe_row[1].g_pe_col[3].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[3].u_pe.psum_south",
+      "u_array.g_pe_row[1].g_pe_col[3].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[2].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[2].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[2].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[2].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[2].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[3].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[3].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[3].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[3].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[3].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[2].u_pe.a_east",
+      "u_array.g_pe_row[0].g_pe_col[3].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[2].u_pe.a_east",
+      "u_array.g_pe_row[1].g_pe_col[3].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[0].g_pe_col[4].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[1].g_pe_col[4].u_pe.a_west"
+     ]
+    }
+   ],
+   "ports": [
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[0].g_pe_col[2].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[0].g_pe_col[4].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[1].u_pe.a_east",
+      "u_array.g_pe_row[1].g_pe_col[2].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[1].g_pe_col[4].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 8
+    },
+    {
+     "net": "w_data",
+     "lsb": 16,
+     "width": 8,
+     "port": "w_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[2].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[2].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[2].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[2].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[2].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 0
+    },
+    {
+     "net": "w_data",
+     "lsb": 24,
+     "width": 8,
+     "port": "w_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[3].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[3].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[3].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[3].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[3].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 32
+    },
+    {
+     "net": "clk",
+     "port": "clk"
+    },
+    {
+     "net": "rst",
+     "port": "rst"
+    },
+    {
+     "net": "w_valid",
+     "port": "w_valid"
+    }
+   ],
+   "tie": [
+    "psum_in"
+   ],
+   "chain_from": "u_b0_0"
+  },
+  {
+   "instance": "u_b0_2",
+   "seeds": [
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[4].u_pe.w",
+      "u_array.g_pe_row[0].g_pe_col[4].u_pe.w_south",
+      "u_array.g_pe_row[1].g_pe_col[4].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[4].u_pe.psum_south",
+      "u_array.g_pe_row[1].g_pe_col[4].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[5].u_pe.w",
+      "u_array.g_pe_row[0].g_pe_col[5].u_pe.w_south",
+      "u_array.g_pe_row[1].g_pe_col[5].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[5].u_pe.psum_south",
+      "u_array.g_pe_row[1].g_pe_col[5].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[4].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[4].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[4].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[4].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[4].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[5].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[5].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[5].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[5].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[5].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[4].u_pe.a_east",
+      "u_array.g_pe_row[0].g_pe_col[5].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[4].u_pe.a_east",
+      "u_array.g_pe_row[1].g_pe_col[5].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[0].g_pe_col[6].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[1].g_pe_col[6].u_pe.a_west"
+     ]
+    }
+   ],
+   "ports": [
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[0].g_pe_col[4].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[0].g_pe_col[6].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[3].u_pe.a_east",
+      "u_array.g_pe_row[1].g_pe_col[4].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[1].g_pe_col[6].u_pe.a_west"
+     ],
+     "port": "a_out",
+     "port_lsb": 8
+    },
+    {
+     "net": "w_data",
+     "lsb": 32,
+     "width": 8,
+     "port": "w_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[4].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[4].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[4].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[4].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[4].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 0
+    },
+    {
+     "net": "w_data",
+     "lsb": 40,
+     "width": 8,
+     "port": "w_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[5].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[5].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[5].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[5].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[5].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 32
+    },
+    {
+     "net": "clk",
+     "port": "clk"
+    },
+    {
+     "net": "rst",
+     "port": "rst"
+    },
+    {
+     "net": "w_valid",
+     "port": "w_valid"
+    }
+   ],
+   "tie": [
+    "psum_in"
+   ],
+   "chain_from": "u_b0_1"
+  },
+  {
+   "instance": "u_b0_3",
+   "seeds": [
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[6].u_pe.w",
+      "u_array.g_pe_row[0].g_pe_col[6].u_pe.w_south",
+      "u_array.g_pe_row[1].g_pe_col[6].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[6].u_pe.psum_south",
+      "u_array.g_pe_row[1].g_pe_col[6].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[7].u_pe.w",
+      "u_array.g_pe_row[0].g_pe_col[7].u_pe.w_south",
+      "u_array.g_pe_row[1].g_pe_col[7].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[7].u_pe.psum_south",
+      "u_array.g_pe_row[1].g_pe_col[7].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[6].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[6].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[6].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[6].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[6].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[7].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[7].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[7].u_pe.w_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[7].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[7].u_pe.psum_north"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[6].u_pe.a_east",
+      "u_array.g_pe_row[0].g_pe_col[7].u_pe.a_west"
+     ]
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[6].u_pe.a_east",
+      "u_array.g_pe_row[1].g_pe_col[7].u_pe.a_west"
+     ]
+    }
+   ],
+   "ports": [
+    {
+     "net": [
+      "u_array.g_pe_row[0].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[0].g_pe_col[6].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[5].u_pe.a_east",
+      "u_array.g_pe_row[1].g_pe_col[6].u_pe.a_west"
+     ],
+     "port": "a_in",
+     "port_lsb": 8
+    },
+    {
+     "net": "w_data",
+     "lsb": 48,
+     "width": 8,
+     "port": "w_in",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[6].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[6].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[6].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 0
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[6].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[6].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 0
+    },
+    {
+     "net": "w_data",
+     "lsb": 56,
+     "width": 8,
+     "port": "w_in",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[7].u_pe.w",
+      "u_array.g_pe_row[1].g_pe_col[7].u_pe.w_south",
+      "u_array.g_pe_row[2].g_pe_col[7].u_pe.w_north"
+     ],
+     "port": "w_out",
+     "port_lsb": 8
+    },
+    {
+     "net": [
+      "u_array.g_pe_row[1].g_pe_col[7].u_pe.psum_south",
+      "u_array.g_pe_row[2].g_pe_col[7].u_pe.psum_north"
+     ],
+     "port": "psum_out",
+     "port_lsb": 32
+    },
+    {
+     "net": "clk",
+     "port": "clk"
+    },
+    {
+     "net": "rst",
+     "port": "rst"
+    },
+    {
+     "net": "w_valid",
+     "port": "w_valid"
+    }
+   ],
+   "unread": [
+    "a_out"
+   ],
+   "tie": [
+    "psum_in"
+   ],
+   "chain_from": "u_b0_2"
+  }
+ ],
+ "chain": [
+  [
+   "clk",
+   "clk_out"
+  ],
+  [
+   "rst",
+   "rst_out"
+  ],
+  [
+   "w_valid",
+   "w_valid_out"
+  ]
+ ],
+ "south": [
+  [
+   "clk",
+   "clk_south"
+  ]
+ ]
+}
