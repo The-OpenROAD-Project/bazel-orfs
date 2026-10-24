@@ -177,6 +177,23 @@ The test's invariant for `src/` is stated exactly: every canonical
 the rule. Run it against a real tree with `ORFS_DESIGNS_DIR` as described
 in the test file.
 
+## Variants: `ifeq ($(FLOW_VARIANT),...)`
+
+ORFS designs keep their variants in one `config.mk`, selected on
+make's command line: `make DESIGN_CONFIG=... FLOW_VARIANT=flat`. The
+parser finds every value a `config.mk` compares `FLOW_VARIANT` with and
+parses the file again for each, as make reads it with that value set;
+`orfs_design()` declares each variant's flow next to the base one,
+`<name>_<variant>_<stage>`, with its own top module when the variant
+sets `DESIGN_NAME`. `asap7/aes`, for one, gets `aes_cipher_top_top_*`
+and `aes_cipher_top_blackbox_*`.
+
+A variant is left out when it is not a flow of its own in bazel: one
+that reads as base does (`asap7/tage_update`'s `medium`, its `else`
+branch), one that reads another variant's results through
+`$(WORK_HOME)` (`asap7/aes`'s `combine`), or one that sets `BLOCKS`,
+whose sub-macro targets would meet the base flow's.
+
 ## Hierarchical designs: what `BLOCKS=` means under bazel
 
 Four ORFS designs set `BLOCKS=` — `asap7/aes-block`,
