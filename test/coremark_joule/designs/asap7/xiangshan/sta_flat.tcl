@@ -104,6 +104,8 @@ proc sta_local_net { pin part where } {
 if { [info exists ::env(STA_CROSSINGS)] } {
   set above $::env(STA_CROSSINGS_PS)
   set f [open $::env(STA_CROSSINGS) w]
+  set lines {}
+  set ends {}
   foreach t [find_timing_paths {*}$r2r -endpoint_path_count 1 \
                -group_path_count [sta::endpoint_count] -slack_max [expr { $p - $above }]] {
     set stretches {}
@@ -114,6 +116,13 @@ if { [info exists ::env(STA_CROSSINGS)] } {
     # to the next cell's input, summed (the rest is the cells' own delay)
     set wire 0.0
     set prev_out ""
+    # U= the path as a sequence of units (its cells' modules, five levels
+    # deep), each unit:delay:logic cells; a carve cuts between units
+    set units {}
+    set ucur ""
+    set ufirst 0.0
+    set ulast 0.0
+    set ulogic 0
     foreach point [get_property $t points] {
       set pin [get_property $point pin]
       set at [get_property $point arrival]
@@ -133,6 +142,15 @@ if { [info exists ::env(STA_CROSSINGS)] } {
         set is_rep($ref) [expr { $lc ne "" && ([get_property $lc is_buffer] || [get_property $lc is_inverter]) }]
       }
       if { !$is_rep($ref) } { set logic([join [lrange $comps 0 5] /]) 1 }
+      set u [join [lrange $comps 0 4] /]
+      if { $u ne $ucur } {
+        if { $ucur ne "" } { lappend units [format "%s:%.0f:%d" $ucur [expr { $ulast - $ufirst }] $ulogic] }
+        set ucur $u
+        set ufirst $at
+        set ulogic 0
+      }
+      set ulast $at
+      if { !$is_rep($ref) && [get_property $pin direction] eq "output" } { incr ulogic }
       set part [hr_part_of [get_full_name $pin] $where $parent]
       if { $part ne $cur } {
         if { $cur ne "" } { lappend stretches [list $cur $entry $last $entry_at $last_at] }
@@ -154,8 +172,19 @@ if { [info exists ::env(STA_CROSSINGS)] } {
     lappend fields "M=[join [lsort [array names mods]] ,]"
     lappend fields "L=[join [lsort [array names logic]] ,]"
     lappend fields [format "W=%.0f" $wire]
+    lappend units [format "%s:%.0f:%d" $ucur [expr { $ulast - $ufirst }] $ulogic]
+    lappend fields "U=[join $units ,]"
+
     lappend fields "E=[get_full_name [get_property $t endpoint]]"
-    puts $f [join $fields "\t"]
+    lappend lines [join $fields "\t"]
+    lappend ends [get_full_name [get_property $t endpoint]]
+  }
+  # H= the hold slack at each endpoint: a cone pushed across a macro must not
+  # leave it short. Asked after the loop: find_timing_paths frees the path
+  # ends of the one before it.
+  foreach line $lines e $ends {
+    set h [lindex [find_timing_paths -to [get_pins $e] -path_delay min] 0]
+    puts $f [format "%s\tH=%.0f" $line [expr { $h eq "" ? 0 : [get_property $h slack] }]]
   }
   close $f
 }
