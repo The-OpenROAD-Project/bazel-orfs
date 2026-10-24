@@ -1,0 +1,240 @@
+load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_headroom", "orfs_run")
+load("//test/carve:carve.bzl", "carve_verilog")
+
+# ORFS's tpu, 8 x 8 processing elements, carved into 16 identical
+# macros of 2 x 2 elements that abut each other, and the rest of tpu
+# hardened as one C-shaped macro around them: every macro, the parent
+# included, builds side by side, and the top level is macros and wires
+# only. README.md has the story, the numbers and the pictures.
+TPU_RTL = [
+    "@orfs//flow/designs/src/tpu:tpu_pe.sv",
+    "@orfs//flow/designs/src/tpu:tpu_array.sv",
+    "@orfs//flow/designs/src/tpu:tpu.sv",
+]
+
+# every macro routes on M2-M8; M9 is the top level's power
+ARGS = {
+    "IO_PLACER_H": "M2 M4",
+    "IO_PLACER_V": "M3 M5",
+    "MAX_ROUTING_LAYER": "M8",
+    "MIN_ROUTING_LAYER": "M2",
+    "SYNTH_HDL_FRONTEND": "slang",
+}
+
+# The carve: the 16 tiles' registers and their input cones out of the
+# flat design (carve_2x2.json, make_spec.py), proven equivalent
+# (tpu_2x2_lec_test, tpu_2x2_negative_control_test).
+carve_verilog(
+    name = "tpu_2x2",
+    srcs = TPU_RTL,
+    lec_timeout = "eternal",
+    negative_control = "u_b3_0.a_in",
+    spec = "carve_2x2.json",
+    tags = ["manual"],
+    top = "tpu",
+)
+
+# The rest of tpu as a module of its own, one file per module.
+genrule(
+    name = "tpu_modules",
+    srcs = [":tpu_2x2.v"],
+    outs = [
+        "tpu_2x2.json",
+        "tpu_2x2_c.json",
+        "tpu_block.v",
+        "tpu_rest.v",
+        "tpu_top.v",
+    ],
+    cmd = " && ".join([
+        "$(execpath @yosys) -q -p 'read_verilog $<; hierarchy -top tpu; proc; write_json $(location tpu_2x2.json)'",
+        "$(execpath //tools/carve:wrap_parent) $(location tpu_2x2.json) $(location tpu_2x2_c.json) tpu tpu_rest",
+    ] + [
+        "$(execpath @yosys) -q -p 'read_json $(location tpu_2x2_c.json); hierarchy -top tpu; select -module %s; write_verilog -noattr -selected $(location %s.v)'" % (m, f)
+        for m, f in [
+            ("tpu_block", "tpu_block"),
+            ("tpu_rest", "tpu_rest"),
+            ("tpu", "tpu_top"),
+        ]
+    ]),
+    tags = ["manual"],
+    tools = [
+        "//tools/carve:wrap_parent",
+        "@yosys",
+    ],
+)
+
+# The floorplan, locked: a tile is 24.336 x 25.92 um, the C's notch holds
+# 4 x 4 of them; its arms are 6.336 um west (the skew registers and the
+# clock root), 10.8 um below (the deskew registers) and 6.48 um above
+# (the top row's weights and zero partial sums).
+TILE_W = "24.336"
+
+TILE_H = "25.92"
+
+NOTCH = {
+    "NOTCH_X0": "6.336",
+    "NOTCH_X1": "103.68",
+    "NOTCH_Y0": "10.8",
+    "NOTCH_Y1": "114.48",
+}
+
+DIE = "0 0 103.68 120.96"
+
+# Every pin of the tile, by rule, before anything is built.
+genrule(
+    name = "pin_plan",
+    srcs = [":tpu_2x2_c.json"],
+    outs = ["pin_plan.txt"],
+    cmd = "$(execpath //tools/carve:pin_plan) --json $< --module tpu_block --sides '%s' --w %s --h %s --out $@" % (
+        " ".join([
+            "west:a_in,clk,rst,w_valid",
+            "east:a_out,clk_out,rst_out,w_valid_out",
+            "north:w_in,psum_in",
+            "south:w_out,psum_out,clk_south",
+        ]),
+        TILE_W,
+        TILE_H,
+    ),
+    tags = ["manual"],
+    tools = ["//tools/carve:pin_plan"],
+)
+
+# The tile: the clock target, placement density, padding, clock tree
+# clustering and global route layer adjustment from the tuning search.
+orfs_flow(
+    name = "tpu_block",
+    abstract_stage = "grt",
+    arguments = ARGS | {
+        "CELL_PAD_IN_SITES_DETAIL_PLACEMENT": "0",
+        "CELL_PAD_IN_SITES_GLOBAL_PLACEMENT": "1",
+        "CORE_AREA": "1.008 1.08 23.328 24.84",
+        "CTS_CLUSTER_DIAMETER": "353",
+        "CTS_CLUSTER_SIZE": "184",
+        "DIE_AREA": "0 0 {} {}".format(TILE_W, TILE_H),
+        "PLACE_DENSITY": "0.634",
+        "ROUTING_LAYER_ADJUSTMENT": "0.137",
+    },
+    sources = {
+        "IO_CONSTRAINTS": ["//test/abutment:pins_plan.tcl"],
+        "PDN_TCL": ["//test/abutment:pdn_macro.tcl"],
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    tags = ["manual"],
+    user_arguments = {"CLK_PERIOD": "337"},
+    user_sources = {"PIN_PLAN": [":pin_plan.txt"]},
+    verilog_files = [":tpu_block.v"],
+)
+
+# The parent as a macro: the whole die, the notch kept for the tiles.
+orfs_flow(
+    name = "tpu_rest",
+    arguments = ARGS | {
+        "CORE_AREA": "1.008 1.08 102.672 119.88",
+        "DIE_AREA": DIE,
+        "PLACE_DENSITY": "0.6",
+    },
+    last_stage = "grt",
+    sources = {
+        "IO_CONSTRAINTS": ["//test/abutment:io_notch.tcl"],
+        "PDN_TCL": ["//test/abutment:pdn_macro.tcl"],
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    tags = ["manual"],
+    user_arguments = NOTCH | {
+        # the weights go up the west arm to the top one
+        "PINS_WEST": "^w_data",
+        "TILE_H": TILE_H,
+        "TILE_W": TILE_W,
+    },
+    user_sources = {"PIN_PLAN": [":pin_plan.txt"]},
+    verilog_files = [":tpu_rest.v"],
+)
+
+orfs_run(
+    name = "tpu_rest_abstract",
+    src = ":tpu_rest_grt",
+    outs = [
+        "tpu_rest.lef",
+        # named as orfs_headroom drops a block's own model
+        "tpu_rest_typ.lib",
+    ],
+    cmd = "run",
+    script = "//test/abutment:abstract_exact.tcl",
+    tags = ["manual"],
+    user_arguments = {
+        "LEF_OUT": "$(location tpu_rest.lef)",
+        "LIB_OUT": "$(location tpu_rest_typ.lib)",
+    },
+)
+
+# The top level: the C and its 16 tiles, macros and wires only.
+orfs_flow(
+    name = "tpu",
+    arguments = ARGS | {
+        "CORE_AREA": DIE,
+        "DIE_AREA": DIE,
+        # no standard cell at the top: its ports are the C's pins
+        "DONT_BUFFER_PORTS": "1",
+    },
+    last_stage = "grt",
+    macros = [":tpu_block_generate_abstract"],
+    sources = {
+        "ADDITIONAL_LEFS": [":tpu_rest.lef"],
+        "ADDITIONAL_LIBS": [":tpu_rest_typ.lib"],
+        "IO_CONSTRAINTS": ["//test/abutment:io_top.tcl"],
+        "MACRO_PLACEMENT_TCL": ["//test/abutment:place_notch.tcl"],
+        "PDN_TCL": ["//test/abutment:pdn_top.tcl"],
+        # detail_place, cts and grt each legalize; nothing is movable
+        "PRE_CTS_TCL": ["//test/abutment:dpl_none.tcl"],
+        "PRE_DETAIL_PLACE_TCL": ["//test/abutment:dpl_none.tcl"],
+        "PRE_GLOBAL_ROUTE_TCL": ["//test/abutment:dpl_none.tcl"],
+        "SDC_FILE": [":constraints.sdc"],
+        "TAPCELL_TCL": ["//test/abutment:tapcell_none.tcl"],
+    },
+    tags = ["manual"],
+    user_arguments = NOTCH | {"PARENT_INST": "u_rest"},
+    verilog_files = [":tpu_top.v"],
+)
+
+# The reg2reg minimum period across the C and its 16 tiles, each with
+# its own cells and wires.
+orfs_headroom(
+    name = "tpu_stitched",
+    blocks = {
+        "tpu_block": ":tpu_block_grt",
+        "tpu_rest": ":tpu_rest_grt",
+    },
+    parent = "tpu",
+    parent_stage = ":tpu_grt",
+    period_only = True,
+    # the clock's arrival at every macro's registers: tpu_stitched_clock.txt
+    reports = {"_clock": ":clock_arrival.tcl"},
+)
+
+# Flat, from ORFS's RTL, with every pin on its bottom edge like each
+# macro above and the settings its own search found best.
+orfs_flow(
+    name = "tpu",
+    arguments = ARGS | {
+        "CORE_UTILIZATION": "60",
+        "PLACE_DENSITY": "0.65",
+    },
+    last_stage = "grt",
+    sources = {
+        "IO_CONSTRAINTS": [":pins_bottom.tcl"],
+        "PDN_TCL": ["//test/abutment:pdn_macro.tcl"],
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    tags = ["manual"],
+    # tpu_flat_*: its results apart from the top level's, the same module
+    variant = "flat",
+    verilog_files = TPU_RTL,
+)
+
+orfs_headroom(
+    name = "tpu_flat_stitched",
+    blocks = {},
+    parent = "tpu",
+    parent_stage = ":tpu_flat_grt",
+    period_only = True,
+)
