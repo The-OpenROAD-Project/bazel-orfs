@@ -1,0 +1,2 @@
+# carve_verilog (carve.bzl): identical tiles carved out of a flat
+# module, the rest left as the parent, proven equivalent.
