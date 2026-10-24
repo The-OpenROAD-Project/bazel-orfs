@@ -1,0 +1,106 @@
+/* yosys's simple cells as liberty cells, for kepler-formal (tools/carve/lec_names.py). */
+library (lec_cells) {
+  delay_model : table_lookup;
+  cell (LEC_AND) {
+    area : 1;
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (Y) { direction : output; function : "(A&B)"; }
+  }
+  cell (LEC_OR) {
+    area : 1;
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (Y) { direction : output; function : "(A|B)"; }
+  }
+  cell (LEC_XOR) {
+    area : 1;
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (Y) { direction : output; function : "(A^B)"; }
+  }
+  cell (LEC_XNOR) {
+    area : 1;
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (Y) { direction : output; function : "!(A^B)"; }
+  }
+  cell (LEC_NAND) {
+    area : 1;
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (Y) { direction : output; function : "!(A&B)"; }
+  }
+  cell (LEC_NOR) {
+    area : 1;
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (Y) { direction : output; function : "!(A|B)"; }
+  }
+  cell (LEC_ANDNOT) {
+    area : 1;
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (Y) { direction : output; function : "(A&!B)"; }
+  }
+  cell (LEC_ORNOT) {
+    area : 1;
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (Y) { direction : output; function : "(A|!B)"; }
+  }
+  cell (LEC_NOT) {
+    area : 1;
+    pin (A) { direction : input; }
+    pin (Y) { direction : output; function : "!A"; }
+  }
+  cell (LEC_BUF) {
+    area : 1;
+    pin (A) { direction : input; }
+    pin (Y) { direction : output; function : "A"; }
+  }
+  cell (LEC_MUX) {
+    area : 1;
+    pin (A) { direction : input; }
+    pin (B) { direction : input; }
+    pin (S) { direction : input; }
+    pin (Y) { direction : output; function : "((A&!S)|(B&S))"; }
+  }
+  cell (LEC_DFF) {
+    area : 1;
+    ff (IQ, IQN) { clocked_on : "C"; next_state : "D"; }
+    pin (C) { direction : input; clock : true; }
+    pin (D) { direction : input; }
+    pin (Q) { direction : output; function : "IQ"; }
+  }
+  cell (LEC_DFF_PN0) {
+    area : 1;
+    ff (IQ, IQN) { clocked_on : "C"; next_state : "D"; clear : "!R"; }
+    pin (C) { direction : input; clock : true; }
+    pin (D) { direction : input; }
+    pin (R) { direction : input; }
+    pin (Q) { direction : output; function : "IQ"; }
+  }
+  cell (LEC_DFF_PN1) {
+    area : 1;
+    ff (IQ, IQN) { clocked_on : "C"; next_state : "D"; preset : "!R"; }
+    pin (C) { direction : input; clock : true; }
+    pin (D) { direction : input; }
+    pin (R) { direction : input; }
+    pin (Q) { direction : output; function : "IQ"; }
+  }
+  cell (LEC_DLATCH_P) {
+    area : 1;
+    latch (IQ, IQN) { enable : "E"; data_in : "D"; }
+    pin (E) { direction : input; }
+    pin (D) { direction : input; }
+    pin (Q) { direction : output; function : "IQ"; }
+  }
+  cell (LEC_DLATCH_N) {
+    area : 1;
+    latch (IQ, IQN) { enable : "!E"; data_in : "D"; }
+    pin (E) { direction : input; }
+    pin (D) { direction : input; }
+    pin (Q) { direction : output; function : "IQ"; }
+  }
+}
