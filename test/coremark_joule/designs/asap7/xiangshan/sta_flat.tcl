@@ -87,8 +87,9 @@ if { [info exists ::env(STA_PATHS)] } {
 # runs through: the net it enters the part by, the net it leaves by and the
 # time spent inside, the stretch a surgery would move (STA_CROSSINGS, one
 # line per endpoint: period, class, then part:entry_net:exit_net:ps per
-# stretch). A block's nets are named inside the block: the first and last
-# leaf pin of its stretch sit on the nets of the ports the path crosses.
+# stretch, then M= the modules its cells sit in, six levels deep). A
+# block's nets are named inside the block: the first and last leaf pin of
+# its stretch sit on the nets of the ports the path crosses.
 proc sta_local_net { pin part where } {
   set nets [get_nets -quiet -of_objects $pin]
   if { [llength $nets] == 0 } { return "-" }
@@ -107,9 +108,14 @@ if { [info exists ::env(STA_CROSSINGS)] } {
                -group_path_count [sta::endpoint_count] -slack_max [expr { $p - $above }]] {
     set stretches {}
     set cur ""
+    array unset mods
     foreach point [get_property $t points] {
       set pin [get_property $point pin]
       set at [get_property $point arrival]
+      # the module the pin's cell sits in, to six levels: the carve study's
+      # unit (crossings.py folds it further)
+      set comps [lrange [split [get_full_name $pin] /] 0 end-2]
+      set mods([join [lrange $comps 0 5] /]) 1
       set part [hr_part_of [get_full_name $pin] $where $parent]
       if { $part ne $cur } {
         if { $cur ne "" } { lappend stretches [list $cur $entry $last $entry_at $last_at] }
@@ -128,7 +134,40 @@ if { [info exists ::env(STA_CROSSINGS)] } {
       lappend fields [format "%s:%s:%s:%.0f" $part [sta_local_net $entry $part $where] \
         [sta_local_net $last $part $where] [expr { $last_at - $entry_at }]]
     }
+    lappend fields "M=[join [lsort [array names mods]] ,]"
     puts $f [join $fields "\t"]
+  }
+  close $f
+}
+
+# Every module's cell area, at each of six levels (STA_MODULE_AREA, one line
+# per module: path, cells, um2): what a carve puts in each macro.
+if { [info exists ::env(STA_MODULE_AREA)] } {
+  array unset area
+  array unset count
+  array unset cell_area
+  foreach c [get_cells -hierarchical *] {
+    if { [get_property $c is_hierarchical] } { continue }
+    set ref [get_property $c ref_name]
+    if { ![info exists cell_area($ref)] } {
+      set lc [lindex [get_lib_cells -quiet */$ref] 0]
+      set cell_area($ref) [expr { $lc eq "" ? 0.0 : [get_property $lc area] }]
+    }
+    set comps [lrange [split [get_full_name $c] /] 0 end-1]
+    for { set d 1 } { $d <= [expr { min(6, [llength $comps]) }] } { incr d } {
+      set m [join [lrange $comps 0 [expr { $d - 1 }]] /]
+      if { [info exists area($m)] } {
+        set area($m) [expr { $area($m) + $cell_area($ref) }]
+        incr count($m)
+      } else {
+        set area($m) $cell_area($ref)
+        set count($m) 1
+      }
+    }
+  }
+  set f [open $::env(STA_MODULE_AREA) w]
+  foreach m [lsort [array names area]] {
+    puts $f [format "%s\t%d\t%.1f" $m $count($m) $area($m)]
   }
   close $f
 }
