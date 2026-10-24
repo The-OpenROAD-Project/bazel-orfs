@@ -13,20 +13,31 @@
 #                  wns <slack>
 #                  worst hold slack <slack>
 #                  hold buffers <count>
+#                  die <w> x <h> um
+#                  cell area <um2>, standard cells
+#                  macro area <um2>, macro footprints
 #
 # READ_STAGE=place reads placement with its parasitics and an ideal
-# clock, for a small test flow that stops there.
+# clock, for a small test flow that stops there; READ_STAGE=cts reads the
+# clock tree with placement parasitics; READ_STAGE=floorplan reads the
+# netlist with ideal wires and clock, the logic alone.
 source $::env(SCRIPTS_DIR)/load.tcl
 set read_stage [expr { [info exists ::env(READ_STAGE)] ? $::env(READ_STAGE) : "grt" }]
 if { $read_stage eq "grt" } {
   load_design 5_1_grt.odb 5_1_grt.sdc
   set_propagated_clock [all_clocks]
   estimate_parasitics -global_routing
+} elseif { $read_stage eq "cts" } {
+  load_design 4_cts.odb 4_cts.sdc
+  set_propagated_clock [all_clocks]
+  estimate_parasitics -placement
 } elseif { $read_stage eq "place" } {
   load_design 3_place.odb 3_place.sdc
   estimate_parasitics -placement
+} elseif { $read_stage eq "floorplan" } {
+  load_design 2_floorplan.odb 2_floorplan.sdc
 } else {
-  error "READ_STAGE is grt or place, not $read_stage"
+  error "READ_STAGE is grt, cts, place or floorplan, not $read_stage"
 }
 
 # The flow defines no path groups, and find_timing_paths -path_group then
@@ -65,16 +76,42 @@ if { [info exists ::env(REPORT_OUT)] } {
     }
   }
   set ps [find_timing_paths {*}[dict get $endpoint_band_groups reg2reg] -sort_by_slack -group_path_count 1]
-  lappend out [format "reg2reg min period %.6g" [expr { $p - [get_property [lindex $ps 0] slack] }]]
+  # a block whose registers only feed its outputs, a register file's
+  # slice, has no reg2reg path of its own: its period is its parent's
+  if { [llength $ps] } {
+    lappend out [format "reg2reg min period %.6g" [expr { $p - [get_property [lindex $ps 0] slack] }]]
+  } else {
+    lappend out "reg2reg min period none"
+  }
   lappend out [format "wns %.4g" [sta::worst_slack -max]]
   set hold [find_timing_paths -path_delay min -sort_by_slack -group_path_count 1]
-  lappend out [format "worst hold slack %.4g" [get_property [lindex $hold 0] slack]]
+  if { [llength $hold] } {
+    lappend out [format "worst hold slack %.4g" [get_property [lindex $hold 0] slack]]
+  } else {
+    lappend out "worst hold slack none"
+  }
   # repair_timing -hold names the buffers it inserts hold<n>
   set n 0
   foreach inst [[ord::get_db_block] getInsts] {
     if { [string match "hold*" [$inst getName]] } { incr n }
   }
   lappend out "hold buffers $n"
+  # the price side: the die, the standard cells on it (fill, taps and
+  # decaps left out) and the macros' footprints
+  set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
+  set d [[ord::get_db_block] getDieArea]
+  set cells 0.0
+  set macros 0.0
+  foreach inst [[ord::get_db_block] getInsts] {
+    set m [$inst getMaster]
+    set a [expr { [$m getWidth] / double($dbu) * [$m getHeight] / double($dbu) }]
+    if { [$m isBlock] } { set macros [expr { $macros + $a }]; continue }
+    if { [$m getType] eq "CORE_SPACER" || [string match -nocase *TAP* [$m getName]] || [string match -nocase *FILL* [$m getName]] || [string match -nocase *DECAP* [$m getName]] } { continue }
+    set cells [expr { $cells + $a }]
+  }
+  lappend out [format "die %.3f x %.3f um" [expr { [$d dx] / double($dbu) }] [expr { [$d dy] / double($dbu) }]]
+  lappend out [format "cell area %.1f um2" $cells]
+  lappend out [format "macro area %.1f um2" $macros]
   set f [open $::env(REPORT_OUT) w]
   puts $f [join $out "\n"]
   close $f

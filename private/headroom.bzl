@@ -35,7 +35,7 @@ stage's peak and more.
 
 load("//private:rules.bzl", "orfs_run")
 
-def orfs_headroom(name, parent, parent_stage, blocks, ends = 0, target = 0, tags = ["manual"], **kwargs):
+def orfs_headroom(name, parent, parent_stage, blocks, ends = 0, target = 0, period_only = False, stage = "grt", tags = ["manual"], **kwargs):
     """Repair headroom of `parent` and its `blocks`, stitched at their stages.
 
     Args:
@@ -53,10 +53,18 @@ def orfs_headroom(name, parent, parent_stage, blocks, ends = 0, target = 0, tags
             it and their total excess. 0, the default, counts none. For a
             design whose SDC asks far less than the goal, where nearly
             every endpoint violates and TNS says nothing.
+        stage: Which stage the parts are read at, "grt" by default;
+            "place" and "cts" with placement parasitics, "floorplan" with
+            none, for `<name>_nowire.json` alone. `parent_stage` and the
+            blocks' stages name that stage's targets.
+        period_only: Measure the stitched reg2reg period only, none of
+            the floors and moves after it: a design's period across its
+            parent and blocks, cheaply.
         tags: Tags of every target; manual by default, as the stitched
             view of a large design is no CI job.
         **kwargs: Passed to every target, e.g. `visibility`.
     """
+    read_stage = stage
     parts = {parent: parent_stage} | blocks
     for part, stage in parts.items():
         orfs_run(
@@ -70,6 +78,7 @@ def orfs_headroom(name, parent, parent_stage, blocks, ends = 0, target = 0, tags
                 "PART_LIBS": "$(location %s/%s_libs.tar)" % (name, part),
                 "PART_SDC": "$(location %s/%s.sdc)" % (name, part),
                 "PART_SPEF": "$(location %s/%s.spef)" % (name, part),
+                "PART_STAGE": read_stage,
                 "PART_V": "$(location %s/%s.v)" % (name, part),
                 "STA_ILM": "0",
             },
@@ -110,7 +119,7 @@ def orfs_headroom(name, parent, parent_stage, blocks, ends = 0, target = 0, tags
                 for b in blocks
             ] + [
                 "ulimit -s unlimited",
-                ("STA_DIR=$$w STA_PARENT=%s STA_PARTS='%s' STA_WIRES=%s HR_ENDS=%d HR_TARGET=%s " +
+                ("STA_DIR=$$w STA_PARENT=%s STA_PARTS='%s' STA_WIRES=%s HR_ENDS=%d HR_TARGET=%s HR_PERIOD_ONLY=%d " +
                  "HR_CLASSES='%s' HR_TCL=$(execpath %s) HR_OUT=$@ $(execpath %s) -no_splash " +
                  "-threads max -exit $(execpath %s)") % (
                     parent,
@@ -118,6 +127,7 @@ def orfs_headroom(name, parent, parent_stage, blocks, ends = 0, target = 0, tags
                     wires,
                     ends,
                     target,
+                    1 if period_only else 0,
                     classes,
                     Label("//tools/odb_debug:headroom.tcl"),
                     Label("@openroad//src/sta:opensta"),
