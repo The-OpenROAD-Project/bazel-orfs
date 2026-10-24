@@ -208,7 +208,10 @@ orfs_headroom(
     parent_stage = ":tpu_grt",
     period_only = True,
     # the clock's arrival at every macro's registers: tpu_stitched_clock.txt
-    reports = {"_clock": ":clock_arrival.tcl"},
+    reports = {
+        "_clock": ":clock_arrival.tcl",
+        "_clock_check": ":clock_check.tcl",
+    },
 )
 
 # Flat, from ORFS's RTL, with every pin on its bottom edge like each

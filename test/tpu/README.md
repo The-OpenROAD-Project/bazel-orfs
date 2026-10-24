@@ -118,6 +118,16 @@ a tile with one port broken (it takes the better part of an hour).
 
 ## Limits
 
+- **Hold fails across macros.** Timed stitched (`tpu_stitched_clock_check`),
+  143 endpoints from a tile into the parent fail hold, worst -417.4 ps,
+  and 75 inside the parent, worst -130.0 ps. The parent's deskew
+  registers take their clock from the bottom row's `clk_south` through the
+  parent's own tree, about 250 ps after the tile registers that feed
+  them, and the parent mixes those clocks with its own; no flow repairs
+  hold across macros, each sees only its side. The period above is setup
+  only. With the clock paths derated 5 % either way and common path
+  pessimism removed it is 668.3 ps.
+
 - **Area**: 1.39 x flat's die; small macros keep margins and will not
   place as densely as flat.
 - **The parent's repair does not see inside the tiles**: it times the
