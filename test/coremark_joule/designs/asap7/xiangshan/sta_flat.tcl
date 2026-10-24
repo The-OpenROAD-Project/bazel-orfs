@@ -110,9 +110,17 @@ if { [info exists ::env(STA_CROSSINGS)] } {
     set cur ""
     array unset mods
     array unset logic
+    # W= the path's wire delay: the arrival gained from a cell's output pin
+    # to the next cell's input, summed (the rest is the cells' own delay)
+    set wire 0.0
+    set prev_out ""
     foreach point [get_property $t points] {
       set pin [get_property $point pin]
       set at [get_property $point arrival]
+      if { $prev_out ne "" && [get_property $pin direction] eq "input" } {
+        set wire [expr { $wire + $at - $prev_out }]
+      }
+      set prev_out [expr { [get_property $pin direction] eq "output" ? $at : "" }]
       # the module the pin's cell sits in, to six levels: the carve study's
       # unit (crossings.py folds it further)
       set comps [lrange [split [get_full_name $pin] /] 0 end-2]
@@ -145,6 +153,8 @@ if { [info exists ::env(STA_CROSSINGS)] } {
     }
     lappend fields "M=[join [lsort [array names mods]] ,]"
     lappend fields "L=[join [lsort [array names logic]] ,]"
+    lappend fields [format "W=%.0f" $wire]
+    lappend fields "E=[get_full_name [get_property $t endpoint]]"
     puts $f [join $fields "\t"]
   }
   close $f
@@ -178,6 +188,18 @@ if { [info exists ::env(STA_MODULE_AREA)] } {
   set f [open $::env(STA_MODULE_AREA) w]
   foreach m [lsort [array names area]] {
     puts $f [format "%s\t%d\t%.1f" $m $count($m) $area($m)]
+  }
+  close $f
+}
+
+# Each listed hierarchical instance's port bits (STA_PORTS_OF, a list of
+# instance paths; STA_PORTS, one line per instance: path, bits): the pins a
+# macro carved at that boundary would have.
+if { [info exists ::env(STA_PORTS)] } {
+  set f [open $::env(STA_PORTS) w]
+  foreach inst $::env(STA_PORTS_OF) {
+    set pins [get_pins -quiet $inst/*]
+    puts $f [format "%s\t%d" $inst [llength $pins]]
   }
   close $f
 }
