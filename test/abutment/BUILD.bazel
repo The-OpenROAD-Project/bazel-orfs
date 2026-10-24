@@ -1,14 +1,18 @@
-# The pieces a design built from abutted macros uses: macros that route
-# on M2-M8 with M8 straps for power (pdn_macro.tcl), a top level of macros
-# only (io_top.tcl, pdn_top.tcl, tapcell_none.tcl, dpl_none.tcl), and
+# The pieces a design built from abutted macros uses: a parent hardened
+# as a macro with a notch for its tiles (io_notch.tcl, place_notch.tcl),
+# pins placed from a plan (pins_plan.tcl), macros that route on M2-M8
+# with M8 straps for power (pdn_macro.tcl), a top level of macros only
+# (io_top.tcl, pdn_top.tcl, tapcell_none.tcl, dpl_none.tcl), and
 # abstracts with exact shapes (abstract_exact.tcl), so a macro's notch
 # stays free for the macros that abut it.
 exports_files([
     "abstract_exact.tcl",
     "dpl_none.tcl",
+    "io_notch.tcl",
     "io_top.tcl",
     "pdn_macro.tcl",
     "pdn_top.tcl",
     "pins_plan.tcl",
+    "place_notch.tcl",
     "tapcell_none.tcl",
 ])
