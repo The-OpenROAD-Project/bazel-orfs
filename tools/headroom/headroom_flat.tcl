@@ -7,6 +7,7 @@
 #   STA_DIR=<dir with each part's .v (blocks prefixed by sta_prefix.py),
 #   .spef, .sdc, _libs.tar> STA_PARENT=<module> STA_PARTS="<parent> <block>..."
 #   STA_WIRES=1|0 HR_TCL=<headroom.tcl> HR_ENDS=0 HR_TARGET=0 HR_OUT=<file>
+#   [HR_PERIOD_ONLY=1, the period alone]
 #   [HR_CLASSES=<classify.tcl>] sta -exit headroom_flat.tcl
 #
 # STA_WIRES=0 reads no SPEF: the period then is the zero-wire floor, and
@@ -104,6 +105,12 @@ proc emit { out } {
   close $f
 }
 emit $out
+# HR_PERIOD_ONLY=1: the stitched period is all that is asked
+if { [info exists ::env(HR_PERIOD_ONLY)] && $::env(HR_PERIOD_ONLY) } {
+  lappend out "\"seconds\":[expr { [clock seconds] - $t0 }]"
+  emit $out
+  exit
+}
 if { $wires } {
   lappend out "\"floor_cycles\":[json [hr_floor_cycles]]"
   emit $out
