@@ -399,6 +399,24 @@ py_test(
     main = "critical_cut_test.py",
 )
 
+# the carve study's crossing bundles and floors over <parent>_kpi_flat_crossings
+py_binary(
+    name = "carve_hops",
+    srcs = ["carve_hops.py"],
+    main = "carve_hops.py",
+)
+
+py_test(
+    name = "carve_hops_test",
+    size = "small",
+    srcs = [
+        "carve_hops.py",
+        "carve_hops_test.py",
+    ],
+    imports = ["."],
+    main = "carve_hops_test.py",
+)
+
 py_test(
     name = "sta_prefix_test",
     srcs = [
