@@ -483,6 +483,19 @@ class TestVariableClassification(unittest.TestCase):
             self.assertIn(var, result.sources, f"{var} should be in sources")
             self.assertNotIn(var, result.arguments, f"{var} should not be in arguments")
 
+    def test_hook_scripts_are_sources(self):
+        """A step sources its PRE_ and POST_ hook scripts by path: staged."""
+        config, _ = _write_config("""\
+            export PLATFORM = asap7
+            export DESIGN_NAME = gcd
+            export PRE_GLOBAL_ROUTE_TCL = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/pre.tcl
+            export POST_CTS_TCL = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/post.tcl
+        """)
+        result = self.parser.parse(config)
+        for var in ("PRE_GLOBAL_ROUTE_TCL", "POST_CTS_TCL"):
+            self.assertIn(var, result.sources, f"{var} should be in sources")
+            self.assertNotIn(var, result.arguments)
+
     def test_additional_memories_is_source(self):
         """AUTO_MEMORIES: the .memories file is read by path, so it must
         be staged rather than passed through as an argument string.
