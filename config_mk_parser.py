@@ -111,6 +111,9 @@ class ParsedDesign:
     arguments: dict = field(default_factory=dict)  # var -> value
     blocks: list = field(default_factory=list)  # BLOCKS list
     block_configs: list = field(default_factory=list)  # Parsed sub-macros
+    # FLOW_VARIANT -> ParsedDesign: the variants an `ifeq ($(FLOW_VARIANT),x)`
+    # selects, each parsed as make reads it with FLOW_VARIANT=x
+    variants: dict = field(default_factory=dict)
     has_conditionals: bool = False
     warnings: list = field(default_factory=list)
 
@@ -123,6 +126,10 @@ class ParsedDesign:
             bc.to_dict() if isinstance(bc, ParsedDesign) else bc
             for bc in self.block_configs
         ]
+        d["variants"] = {
+            v: pd.to_dict() if isinstance(pd, ParsedDesign) else pd
+            for v, pd in self.variants.items()
+        }
         return d
 
 
@@ -356,7 +363,59 @@ class ConfigMkParser:
                     )
                     result.block_configs.append(block_parsed)
 
+        # FLOW_VARIANT: each value the file tests it against is a variant,
+        # parsed again as make reads it on `make FLOW_VARIANT=<value>`.
+        if not overrides or "FLOW_VARIANT" not in overrides:
+            for variant in self._flow_variants(config_path):
+                parsed = self.parse(
+                    config_path,
+                    base_dir=base_dir,
+                    overrides=dict(overrides or {}, FLOW_VARIANT=variant),
+                )
+                parsed.arguments.pop("FLOW_VARIANT", None)
+                # a variant that reads as base is base: no second copy
+                if self._variant_buildable(parsed) and not self._same_flow(
+                    parsed, result
+                ):
+                    result.variants[variant] = parsed
+
         return result
+
+    @staticmethod
+    def _flow_variants(config_path):
+        """The values a config.mk compares FLOW_VARIANT with, in order."""
+        with open(config_path) as f:
+            text = f.read()
+        found = []
+        for m in re.finditer(
+            r"\bif(?:n)?eq\s*\(\s*\$[({]FLOW_VARIANT[)}]\s*,\s*([A-Za-z0-9_.-]+)\s*\)",
+            text,
+        ):
+            if m.group(1) not in found and m.group(1) != "base":
+                found.append(m.group(1))
+        return found
+
+    @staticmethod
+    def _same_flow(a, b):
+        return (
+            a.design_name == b.design_name
+            and a.verilog_files == b.verilog_files
+            and a.sources == b.sources
+            and a.arguments == b.arguments
+        )
+
+    @staticmethod
+    def _variant_buildable(parsed):
+        """Whether a variant can be a flow of its own: every source a label
+        (a path into another variant's results, $(WORK_HOME)/..., exists
+        only in make), and no BLOCKS of its own, whose targets would meet
+        the base flow's."""
+        if parsed.blocks:
+            return False
+        refs = list(parsed.verilog_files) + [
+            v for vs in parsed.sources.values() for v in vs
+        ]
+        return not any("$(" in r or "${" in r for r in refs)
 
     def _apply_platform_blocks_vars(self, result, config_path, raw_vars, ctx):
         """Adopt platform config.mk variables that branch on BLOCKS.
@@ -1250,13 +1309,8 @@ class ConfigMkParser:
     def _warn_conditional(self, line, line_num, result):
         """Add a warning for conditional blocks."""
         if "FLOW_VARIANT" in line:
-            result.warnings.append(
-                Warning(
-                    line_number=line_num,
-                    message="ifeq FLOW_VARIANT: split into separate config.mk per variant",
-                    category="deprecated",
-                )
-            )
+            # a variant of the design: parsed on its own (parse)
+            pass
         elif "USE_FILL" in line:
             result.warnings.append(
                 Warning(

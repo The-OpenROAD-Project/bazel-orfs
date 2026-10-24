@@ -154,6 +154,18 @@ def _orfs_designs_impl(repository_ctx):
             "sources": config.get("sources", {}),
             "arguments": config.get("arguments", {}),
             "blocks": config.get("blocks", []),
+            # FLOW_VARIANT -> the same fields, as make reads the
+            # config.mk with FLOW_VARIANT set (orfs_design() declares
+            # each as variant flows of the design)
+            "variants": {
+                v: {
+                    "name": vc.get("design_name", "") or name,
+                    "verilog_files": vc.get("verilog_files", []),
+                    "sources": vc.get("sources", {}),
+                    "arguments": vc.get("arguments", {}),
+                }
+                for v, vc in config.get("variants", {}).items()
+            },
         }
 
         # Index by directory, which names a design uniquely, and by

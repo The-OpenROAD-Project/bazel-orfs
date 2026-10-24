@@ -584,18 +584,72 @@ class TestConditionalParsing(unittest.TestCase):
         result = self.parser.parse(config)
         self.assertTrue(result.has_conditionals)
 
-    def test_ifeq_flow_variant_warning(self):
+    def test_flow_variant_parsed(self):
         config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
-            ifeq ($(FLOW_VARIANT),top)
+            export CORE_UTILIZATION = 40
+            ifeq ($(FLOW_VARIANT),flat)
+                export CORE_UTILIZATION = 60
                 export ABC_AREA = 1
             endif
         """)
         result = self.parser.parse(config)
-        warnings = [w for w in result.warnings if isinstance(w, Warning)]
-        fv_warnings = [w for w in warnings if "FLOW_VARIANT" in w.message]
-        self.assertTrue(len(fv_warnings) > 0)
+        # base as make reads it without FLOW_VARIANT
+        self.assertEqual(result.arguments["CORE_UTILIZATION"], "40")
+        self.assertNotIn("ABC_AREA", result.arguments)
+        self.assertEqual(list(result.variants), ["flat"])
+        flat = result.variants["flat"]
+        self.assertEqual(flat.arguments["CORE_UTILIZATION"], "60")
+        self.assertEqual(flat.arguments["ABC_AREA"], "1")
+        # the flow's variant sets FLOW_VARIANT, not an argument
+        self.assertNotIn("FLOW_VARIANT", flat.arguments)
+        warnings = [w for w in result.warnings if "FLOW_VARIANT" in w.message]
+        self.assertEqual(warnings, [])
+
+    def test_flow_variant_other_top(self):
+        config, _ = _write_config("""\
+            export PLATFORM = asap7
+            export DESIGN_NAME = aes
+            ifeq ($(FLOW_VARIANT),top)
+                export SYNTH_BLACKBOXES = key
+            else ifeq ($(FLOW_VARIANT),blackbox)
+                export DESIGN_NAME = key
+            endif
+        """)
+        result = self.parser.parse(config)
+        self.assertEqual(sorted(result.variants), ["blackbox", "top"])
+        self.assertEqual(result.variants["blackbox"].design_name, "key")
+        self.assertEqual(result.variants["top"].arguments["SYNTH_BLACKBOXES"], "key")
+
+    def test_flow_variant_same_as_base_dropped(self):
+        # the else branch names base's value: that variant is base
+        config, _ = _write_config("""\
+            export PLATFORM = asap7
+            export DESIGN_NAME = gcd
+            ifeq ($(FLOW_VARIANT),small)
+                export CORE_UTILIZATION = 20
+            else ifeq ($(FLOW_VARIANT),medium)
+                export CORE_UTILIZATION = 40
+            else
+                export CORE_UTILIZATION = 40
+            endif
+        """)
+        result = self.parser.parse(config)
+        self.assertEqual(list(result.variants), ["small"])
+
+    def test_flow_variant_make_only_dropped(self):
+        # a variant reading another variant's results through
+        # $(WORK_HOME) exists only in make
+        config, _ = _write_config("""\
+            export PLATFORM = asap7
+            export DESIGN_NAME = aes
+            ifeq ($(FLOW_VARIANT),combine)
+                export SYNTH_NETLIST_FILES = $(WORK_HOME)/results/asap7/aes/top/1_synth.v
+            endif
+        """)
+        result = self.parser.parse(config)
+        self.assertEqual(result.variants, {})
 
     def test_ifeq_use_fill_warning(self):
         config, _ = _write_config("""\
@@ -1300,16 +1354,16 @@ class TestLintReport(unittest.TestCase):
 
     def test_deprecated_features_reported(self):
         config, _ = _write_config("""\
-            export PLATFORM = asap7
+            export PLATFORM = gf12
             export DESIGN_NAME = gcd
-            ifeq ($(FLOW_VARIANT),top)
-                export ABC = 1
+            ifeq ($(USE_FILL),1)
+                export DESIGN_TYPE = CELL
             endif
         """)
         result = self.parser.parse(config)
         report = lint_report(result)
         self.assertIn("WARNING", report)
-        self.assertIn("FLOW_VARIANT", report)
+        self.assertIn("USE_FILL", report)
 
 
 # ========================================================================

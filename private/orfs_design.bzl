@@ -302,6 +302,57 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
             tags = tags,
         )
 
+    # FLOW_VARIANT: each variant the config.mk selects with
+    # `ifeq ($(FLOW_VARIANT),<variant>)` is the design's flow under that
+    # variant, <name>_<variant>_<stage>, as make builds it on
+    # `make FLOW_VARIANT=<variant>`.
+    for variant, variant_config in config.get("variants", {}).items():
+        _variant_flow(
+            name,
+            platform,
+            pkg,
+            variant,
+            variant_config,
+            tags = tags,
+            user_arguments = user_arguments,
+            user_sources = user_sources,
+            user_stages = user_stages,
+            local_arguments = local_arguments,
+            visibility = visibility,
+        )
+
+def _variant_flow(name, platform, pkg, variant, config, tags, user_arguments, user_sources, user_stages, local_arguments, visibility):
+    """One FLOW_VARIANT of a design: its config.mk as make reads it with
+    FLOW_VARIANT set, which may name another top module."""
+    sources = _convert_sources(config["sources"], pkg)
+    arguments = dict(config["arguments"])
+    extra_data = _collect_include_dirs(arguments)
+    user_args, user_srcs = _split_user_vars(
+        arguments,
+        sources,
+        user_arguments,
+        user_sources,
+        local_arguments,
+    )
+    if arguments.get("SYNTH_HIERARCHICAL") == "1" and "SYNTH_NUM_PARTITIONS" not in arguments:
+        kept = keep_modules(arguments)
+        arguments["SYNTH_NUM_PARTITIONS"] = str(len(kept)) if kept else "32"
+    orfs_flow(
+        name = name,
+        top = config["name"],
+        variant = variant,
+        verilog_files = _filter_verilog_files(config["verilog_files"], design = name),
+        pdk = "//flow:" + platform,
+        arguments = arguments,
+        user_arguments = user_args,
+        sources = sources,
+        user_sources = user_srcs,
+        user_stages = user_stages,
+        stage_data = {"synth": extra_data} if extra_data else {},
+        tags = tags,
+        visibility = visibility,
+    )
+
 def _filter_verilog_files(raw_verilog_files, design = None):
     """Filter verilog_files: skip unresolved Make variables and invalid labels.
 
