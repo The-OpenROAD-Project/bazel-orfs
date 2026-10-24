@@ -20,6 +20,13 @@ foreach row $rows {
   set y1 [expr { max($y1, [$b yMax]) }]
 }
 $block setCoreArea [odb::new_Rect $x0 $y0 $x1 $y1]
+# The region global placement kept the top level's cells in, the strip
+# (place_notch.tcl), is the core now: detailed placement, which blocks a
+# region's sites for every cell outside it and counts them so, needs it
+# no longer.
+foreach region [$block getRegions] {
+  if { [$region getName] eq "strip" } { odb::dbRegion_destroy $region }
+}
 set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
 puts [format "core_rows.tcl: the core is %d rows, %.3f %.3f %.3f %.3f um" [llength $rows] \
   [expr { $x0 / double($dbu) }] [expr { $y0 / double($dbu) }] \

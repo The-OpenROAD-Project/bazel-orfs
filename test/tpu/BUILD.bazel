@@ -471,3 +471,101 @@ orfs_headroom(
         "_clock_check": ":clock_check.tcl",
     },
 )
+
+# tpu in its rig (tpu_meso.sv, meso_fifo.sv; sim/tpu_meso_test): the
+# balanced top level with a mesochronous FIFO on each side of tpu, on its
+# one clock, in a strip of the top level's rows deep enough for them.
+# The wrapper instantiates the carved tpu (balanced/tpu_top.v), so the
+# tile and the C are the balanced ones, unchanged.
+RIG_STRIP_H = "12.15"
+
+orfs_flow(
+    name = "tpu_meso",
+    arguments = ARGS | {
+        # the strip, from detailed placement on (core_rows.tcl)
+        "CORE_AREA": "0 0 103.68 133.11",
+        "DIE_AREA": "0 0 103.68 133.11",
+        # tpu's pins are the FIFOs', a flop behind each; a buffer added
+        # at placement would be in no region, among the macros
+        "DONT_BUFFER_PORTS": "1",
+        "GLOBAL_ROUTE_ARGS": "-allow_congestion -congestion_report_iter_step 5 -verbose",
+        "MACRO_ROWS_HALO_X": "0",
+        "MACRO_ROWS_HALO_Y": "0",
+        "MAX_ROUTING_LAYER": "M9",
+        "MIN_CLK_ROUTING_LAYER": "M8",
+        "ROUTING_LAYER_ADJUSTMENT": "0",
+    },
+    last_stage = "grt",
+    sources = {
+        "ADDITIONAL_LEFS": [
+            ":balanced/tpu_block.lef",
+            ":balanced/tpu_rest.lef",
+        ],
+        "ADDITIONAL_LIBS": [
+            ":balanced/tpu_block_typ.lib",
+            ":balanced/tpu_rest_typ.lib",
+        ],
+        "IO_CONSTRAINTS": [":pins_bottom.tcl"],
+        "MACRO_PLACEMENT_TCL": ["//test/abutment:place_notch.tcl"],
+        "PDN_TCL": ["//test/abutment:pdn_top.tcl"],
+        "PRE_DETAIL_PLACE_TCL": ["//test/abutment:core_rows.tcl"],
+        "PRE_GLOBAL_ROUTE_TCL": ["//test/abutment:grt_notch.tcl"],
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    tags = ["manual"],
+    user_arguments = NOTCH | {
+        "PARENT_INST": "u_tpu.u_rest",
+        "PARENT_Y": RIG_STRIP_H,
+        "TOP_ROWS": "1",
+    },
+    variant = "balanced",
+    verilog_files = [
+        ":balanced/tpu_top.v",
+        ":meso_fifo.sv",
+        ":tpu_meso.sv",
+    ],
+)
+
+orfs_headroom(
+    name = "tpu_meso_balanced_stitched",
+    blocks = {
+        "tpu_block": ":tpu_block_balanced_grt",
+        "tpu_rest": ":tpu_rest_balanced_grt",
+    },
+    parent = "tpu_meso",
+    parent_stage = ":tpu_meso_balanced_grt",
+    period_only = True,
+    reports = {
+        "_clock": ":clock_arrival.tcl",
+        "_clock_check": ":clock_check.tcl",
+    },
+)
+
+# Flat, in the same rig.
+orfs_flow(
+    name = "tpu_meso",
+    arguments = ARGS | {
+        "CORE_UTILIZATION": "60",
+        "PLACE_DENSITY": "0.65",
+    },
+    last_stage = "grt",
+    sources = {
+        "IO_CONSTRAINTS": [":pins_bottom.tcl"],
+        "PDN_TCL": ["//test/abutment:pdn_macro.tcl"],
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    tags = ["manual"],
+    variant = "flat",
+    verilog_files = TPU_RTL + [
+        ":meso_fifo.sv",
+        ":tpu_meso.sv",
+    ],
+)
+
+orfs_headroom(
+    name = "tpu_meso_flat_stitched",
+    blocks = {},
+    parent = "tpu_meso",
+    parent_stage = ":tpu_meso_flat_grt",
+    period_only = True,
+)
