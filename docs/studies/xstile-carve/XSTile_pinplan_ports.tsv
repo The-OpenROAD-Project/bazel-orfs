@@ -1,0 +1,14 @@
+core/backend/inner_ctrlBlock	22534
+core/backend/inner_ctrlBlock/rob	9194
+core/backend/inner_ctrlBlock/decode	3557
+core/backend/inner_ctrlBlock/rename	6530
+core/backend/inner_ctrlBlock/dispatch	14233
+core/backend/inner_ctrlBlock/memCtrl	1222
+core/backend/inner_intRegion	22266
+core/backend/inner_intRegion/intExuBlock	9318
+core/backend/inner_intRegion/intDataPath	11950
+core/backend/inner_vecRegion	5095
+core/backend/inner_fpRegion	4825
+core/memBlock	10439
+core/frontend	3291
+l2top	7118
