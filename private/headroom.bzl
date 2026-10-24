@@ -35,7 +35,7 @@ stage's peak and more.
 
 load("//private:rules.bzl", "orfs_run")
 
-def orfs_headroom(name, parent, parent_stage, blocks, ends = 0, target = 0, period_only = False, stage = "grt", tags = ["manual"], **kwargs):
+def orfs_headroom(name, parent, parent_stage, blocks, ends = 0, target = 0, period_only = False, stage = "grt", reports = {}, tags = ["manual"], **kwargs):
     """Repair headroom of `parent` and its `blocks`, stitched at their stages.
 
     Args:
@@ -60,6 +60,10 @@ def orfs_headroom(name, parent, parent_stage, blocks, ends = 0, target = 0, peri
         period_only: Measure the stitched reg2reg period only, none of
             the floors and moves after it: a design's period across its
             parent and blocks, cheaply.
+        reports: {suffix: a Tcl script}, a design's own reports on the
+            stitched design: each script defines `hr_report where parent`,
+            `where` every block instance and its block, and returns lines
+            for `<name><suffix>.txt`.
         tags: Tags of every target; manual by default, as the stitched
             view of a large design is no CI job.
         **kwargs: Passed to every target, e.g. `visibility`.
@@ -86,11 +90,11 @@ def orfs_headroom(name, parent, parent_stage, blocks, ends = 0, target = 0, peri
         )
     files = ["%s/%s.%s" % (name, p, e) for p in parts for e in ["v", "spef", "sdc"]] + \
             ["%s/%s_libs.tar" % (name, p) for p in parts]
-    for suffix, wires, ext, classes in [
-        ("", "1", "json", ""),
-        ("_nowire", "0", "json", ""),
-        ("_classes", "1", "txt", "$(execpath %s)" % Label("//tools/headroom:classify.tcl")),
-    ]:
+    for suffix, wires, ext, classes, report in [
+        ("", "1", "json", "", None),
+        ("_nowire", "0", "json", "", None),
+        ("_classes", "1", "txt", "$(execpath %s)" % Label("//tools/headroom:classify.tcl"), None),
+    ] + [(suffix, "1", "txt", "", script) for suffix, script in reports.items()]:
         native.genrule(
             name = name + suffix,
             srcs = [":" + f for f in files],
@@ -120,7 +124,7 @@ def orfs_headroom(name, parent, parent_stage, blocks, ends = 0, target = 0, peri
             ] + [
                 "ulimit -s unlimited",
                 ("STA_DIR=$$w STA_PARENT=%s STA_PARTS='%s' STA_WIRES=%s HR_ENDS=%d HR_TARGET=%s HR_PERIOD_ONLY=%d " +
-                 "HR_CLASSES='%s' HR_TCL=$(execpath %s) HR_OUT=$@ $(execpath %s) -no_splash " +
+                 "HR_CLASSES='%s' HR_REPORT='%s' HR_TCL=$(execpath %s) HR_OUT=$@ $(execpath %s) -no_splash " +
                  "-threads max -exit $(execpath %s)") % (
                     parent,
                     " ".join(parts.keys()),
@@ -129,6 +133,7 @@ def orfs_headroom(name, parent, parent_stage, blocks, ends = 0, target = 0, peri
                     target,
                     1 if period_only else 0,
                     classes,
+                    "$(execpath %s)" % report if report else "",
                     Label("//tools/odb_debug:headroom.tcl"),
                     Label("@openroad//src/sta:opensta"),
                     Label("//tools/headroom:headroom_flat.tcl"),
@@ -141,6 +146,6 @@ def orfs_headroom(name, parent, parent_stage, blocks, ends = 0, target = 0, peri
                 Label("//tools/headroom:sta_prefix"),
                 Label("//tools/odb_debug:headroom.tcl"),
                 Label("@openroad//src/sta:opensta"),
-            ],
+            ] + ([report] if report else []),
             **kwargs
         )
