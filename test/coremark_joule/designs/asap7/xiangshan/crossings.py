@@ -39,7 +39,7 @@ def parse(line):
     fields = line.rstrip("\n").split("\t")
     stretches = []
     for f in fields[2:]:
-        if f.startswith("M="):
+        if f.startswith(("M=", "L=")):
             continue
         part, entry, exit_, ps = f.split(":")
         stretches.append((part, entry, exit_, int(ps)))

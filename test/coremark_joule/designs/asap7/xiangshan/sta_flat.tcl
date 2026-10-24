@@ -109,6 +109,7 @@ if { [info exists ::env(STA_CROSSINGS)] } {
     set stretches {}
     set cur ""
     array unset mods
+    array unset logic
     foreach point [get_property $t points] {
       set pin [get_property $point pin]
       set at [get_property $point arrival]
@@ -116,6 +117,14 @@ if { [info exists ::env(STA_CROSSINGS)] } {
       # unit (crossings.py folds it further)
       set comps [lrange [split [get_full_name $pin] /] 0 end-2]
       set mods([join [lrange $comps 0 5] /]) 1
+      # L= the modules a logic cell of the path sits in: a repeater (a
+      # buffer or an inverter) is wire, and may sit anywhere
+      set ref [get_property [get_property $pin instance] ref_name]
+      if { ![info exists is_rep($ref)] } {
+        set lc [lindex [get_lib_cells -quiet */$ref] 0]
+        set is_rep($ref) [expr { $lc ne "" && ([get_property $lc is_buffer] || [get_property $lc is_inverter]) }]
+      }
+      if { !$is_rep($ref) } { set logic([join [lrange $comps 0 5] /]) 1 }
       set part [hr_part_of [get_full_name $pin] $where $parent]
       if { $part ne $cur } {
         if { $cur ne "" } { lappend stretches [list $cur $entry $last $entry_at $last_at] }
@@ -135,6 +144,7 @@ if { [info exists ::env(STA_CROSSINGS)] } {
         [sta_local_net $last $part $where] [expr { $last_at - $entry_at }]]
     }
     lappend fields "M=[join [lsort [array names mods]] ,]"
+    lappend fields "L=[join [lsort [array names logic]] ,]"
     puts $f [join $fields "\t"]
   }
   close $f
