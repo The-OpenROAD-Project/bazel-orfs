@@ -609,6 +609,172 @@
           }
         }
       }
+    },
+    {
+      "date": "2026-10-23",
+      "measured": "every block, register-file macro and the parent built from source at 2552a4b8 (#1351's base, before main's OpenROAD bump to bcc4a9be), with orfs_schedule and --jobs=12 on a 62 GB machine with swap; each part's KPI at its own global route",
+      "parent_ps": 2383,
+      "blocks": {
+        "CoupledL2": 906,
+        "Frontend": 1193,
+        "MemBlock": 1410,
+        "FltRegionModule": 1023,
+        "VecRegionModule": 1075
+      },
+      "note": "the base flow of #1351's pin plan A/B. The parent's worst path, intRegion's flushCopyRegVec robIdx into vecRegion's gpWbWakeUp; no floor or flat run measured for this row",
+      "histograms": {
+        "parent": {
+          "bin_ps": 10,
+          "from_ps": -60,
+          "counts": [3, 0, 1, 0, 0, 0, 0, 0, 2, 5, 429, 2670, 2369, 843, 318, 280, 481, 401, 257, 208, 146, 186, 162, 193, 221, 180, 164, 151, 160, 153, 156, 145, 142, 157, 151, 156, 181, 188, 221, 233, 215, 233, 251, 317, 355, 364, 392, 439, 527, 543, 476, 536, 594, 640, 767, 708, 724, 821, 945, 1055, 1244, 1317, 1385, 1449, 1363, 1274, 1233, 1184, 1106, 1230, 1196, 1207, 980, 1033, 1145, 1157, 972, 868, 754, 653, 612, 697, 640, 622, 644, 859, 751, 770, 795, 920, 749, 722, 669, 784, 857, 929, 955, 960, 985, 960, 1039, 1081, 1230, 1258, 1343, 1692, 1807, 1778, 2032, 1818, 1872, 1847, 1667, 1708, 1771, 1814, 1771, 1729, 1588, 1657, 1545, 1308, 1273, 1274, 1242, 1095, 977, 1011, 941, 839, 722, 749, 706, 728, 567, 561, 668, 683, 741, 668, 671, 691, 672, 787, 862, 892, 1000, 1029, 1057, 977, 1183, 1047, 937, 955, 947, 972, 906, 854, 801, 821, 728, 722, 744, 785, 789, 826, 794, 661, 696, 649, 654, 569, 552, 568, 585, 549, 473, 537, 643, 635, 601, 668, 575, 632, 613, 649, 668, 643, 570, 561, 521, 441, 430, 373, 371, 329, 260, 240, 234, 226, 241, 208, 218, 184, 200, 134, 115, 117, 137, 129, 97, 103, 84, 70, 58, 45, 42, 38, 29, 55, 73, 102, 125, 95, 81, 137, 171, 162, 133, 153, 104, 75, 49, 22, 1, 14, 6, 7, 3, 0, 2, 0, 0, 0, 1]
+        },
+        "CoupledL2": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [331, 460, 254, 181, 266, 581, 100, 66, 55, 67, 41, 61, 74, 69, 34, 56, 99, 167, 138, 291, 539, 698, 999, 1008, 1347, 1114, 1081, 955, 1117, 1022, 1088, 1381, 1090, 958, 944, 1031, 839, 750, 732, 900, 1122, 904, 772, 1153, 1539, 2236, 2875, 2456, 1104, 680, 431, 599, 1644, 3654, 3827, 1735, 482, 235, 212, 384, 259, 82, 197, 555, 1809, 2378, 2046, 2702, 2056, 1313, 733, 655, 602, 1162, 2204, 3650, 3965, 2866, 2385, 1412, 973, 479, 177, 514, 1557, 1354, 187, 4]
+        },
+        "Frontend": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [145, 408, 173, 171, 106, 95, 271, 220, 231, 258, 292, 341, 371, 514, 533, 419, 451, 408, 417, 528, 692, 829, 792, 1016, 1193, 1301, 1279, 1224, 1284, 1298, 1450, 1545, 1617, 1666, 1496, 1279, 1376, 1321, 1720, 2133, 2273, 2203, 2078, 1372, 1383, 1025, 951, 1157, 1933, 1621, 1474, 1237, 1152, 1137, 1483, 1773, 2642, 3019, 2268, 2105, 1702, 1216, 1142, 894, 841, 776, 797, 880, 1145, 1231, 1242, 2551, 2641, 2956, 1717, 776, 648, 779, 880, 862, 817, 921, 1253, 1893, 3241, 3903, 1928, 1106, 1189, 1892, 1934, 2370, 1971, 1661, 1349, 1221, 1350, 1459, 1364, 1123, 924, 338, 204, 283, 536, 839, 606, 317, 157, 122, 132, 218, 322, 290, 243, 135, 5]
+        },
+        "MemBlock": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [49, 794, 783, 480, 347, 402, 358, 302, 252, 225, 197, 254, 368, 482, 691, 884, 1025, 1472, 1535, 1833, 2282, 2958, 3369, 3524, 3532, 3772, 3764, 4057, 3933, 3876, 3756, 4149, 4053, 3844, 3913, 3841, 3496, 3219, 3066, 2742, 2441, 2470, 2502, 2729, 2636, 2591, 2968, 2790, 2986, 3272, 3187, 2897, 2492, 2819, 2461, 2447, 2638, 3458, 3061, 2399, 2242, 2046, 1938, 2083, 2398, 3017, 4084, 4171, 5398, 5672, 5376, 5773, 5748, 5702, 4768, 4698, 4101, 3770, 3588, 3252, 2207, 2284, 3255, 4706, 4650, 3809, 3128, 2459, 1799, 1248, 925, 494, 508, 610, 773, 981, 1644, 2237, 2974, 3648, 4364, 4841, 4455, 2988, 2222, 1629, 883, 436, 188, 84, 24, 37, 43, 55, 106, 118, 126, 107, 89, 87, 128, 52, 175, 227, 135, 107, 84, 131, 156, 217, 335, 516, 786, 224, 7, 0, 4, 5]
+        },
+        "FltRegionModule": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [19, 7, 6, 66, 86, 24, 41, 26, 53, 41, 23, 54, 87, 58, 59, 26, 57, 62, 42, 64, 17, 31, 29, 46, 32, 23, 34, 45, 60, 70, 144, 178, 323, 329, 396, 738, 1135, 1292, 1656, 1265, 989, 659, 351, 244, 202, 188, 210, 295, 299, 246, 257, 287, 372, 303, 348, 298, 301, 286, 283, 250, 193, 208, 166, 118, 110, 96, 101, 102, 61, 57, 49, 54, 53, 64, 57, 73, 69, 113, 129, 99, 106, 95, 65, 45, 37, 27, 27, 45, 51, 64, 56, 56, 39, 42, 24, 17, 12, 6, 8, 1]
+        },
+        "VecRegionModule": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [344, 461, 77, 173, 475, 396, 67, 55, 28, 65, 38, 71, 138, 159, 122, 177, 210, 227, 225, 333, 422, 353, 354, 367, 401, 399, 357, 354, 287, 383, 402, 367, 466, 557, 592, 889, 1057, 1028, 1074, 1008, 1140, 1263, 1480, 1188, 879, 789, 668, 557, 673, 792, 1237, 2286, 2824, 2062, 849, 587, 538, 583, 528, 535, 671, 722, 671, 640, 586, 507, 477, 439, 464, 435, 469, 454, 512, 525, 536, 518, 437, 392, 374, 321, 325, 265, 236, 175, 162, 140, 131, 128, 153, 146, 156, 184, 194, 182, 220, 238, 299, 276, 295, 251, 221, 95, 16, 6, 2]
+        }
+      },
+      "worst_paths": {
+        "parent": {
+          "period_ps": 2383,
+          "from": "core/backend/inner_intRegion/flushCopyRegVec_next_bits_r_14_robIdx_value[0]$_DFFE_PP_/QN",
+          "to": "core/backend/inner_vecRegion/in_fromIntRegion_gpWbWakeUp_0_wen",
+          "what": "From the integer region's flush register (its ROB index) to the write enable of the vector region's wakeup input: an integer-region register to a vector-region pin."
+        },
+        "CoupledL2": {
+          "period_ps": 906,
+          "from": "slices_0/rxsnp.queue.deq_ptr_value$_DFFE_PP0P_/QN",
+          "to": "slices_0/directory/metaArray.array.array_ext/RW0_addr[5]",
+          "what": "The snoop request queue's dequeue pointer to the address pin of the L2 directory's metadata SRAM: a queue index travelling to a memory."
+        },
+        "Frontend": {
+          "period_ps": 1193,
+          "from": "inner_ftq/io_toBpu_train_bits_meta_mbtb_entries_0_0_position[3]$_DFFE_PP0N_/QN",
+          "to": "inner_bpu/tage/tables_5.tage_useful_sram_bank2_way1.array.array_0_0_0.array.array_ext/RW0_wmask[2]",
+          "what": "A main-BTB entry's position bit in the FTQ's training metadata to the write mask of a TAGE useful-bit SRAM macro in the branch predictor."
+        },
+        "MemBlock": {
+          "period_ps": 1410,
+          "from": "inner_dcache/dcache.mainPipe/s1_req_vaddr[16]$_DFFE_PP_/QN",
+          "to": "inner_dcache/dcache.bankedDataArray/data_banks_0_18.data_bank.array.array_ext/RW0_addr[6]",
+          "what": "DCache main pipeline, stage 1: the request's virtual address to the address pin of a data-bank SRAM macro; index bits travelling to a memory."
+        },
+        "FltRegionModule": {
+          "period_ps": 1023,
+          "from": "fpRegFile/io_readPorts_7_data[10]",
+          "to": "issuePipes_2/exu.exFadd_0_bits_data_src_1[10]$_DFFE_PP_/D",
+          "what": "The floating-point register file macro's read port to the FP adder's source-operand register: read data out of the register-file macro."
+        },
+        "VecRegionModule": {
+          "period_ps": 1075,
+          "from": "issuePipes_1/exu.ex_0_bits_ctrl_uopIdx[0]$_DFFE_PP_/QN",
+          "to": "issuePipes_1/exu.Vfmac.a0_1_fpA[63]$_DFFE_PP_/D",
+          "what": "The vector issue pipe's micro-op index register to the vector multiply-add's operand register."
+        }
+      }
+    },
+    {
+      "date": "2026-10-23",
+      "measured": "#1351's pin plan variant (XSTile_pinplan), built from source at 2552a4b8 beside the row before: the register files' pins and the blocks' macro places from each part's pin plan at global route (tools/pin_plan), MemBlock and CoupledL2 (no register file) the base flow's; each part's KPI at its own global route",
+      "parent_ps": 2250,
+      "blocks": {
+        "CoupledL2": 906,
+        "Frontend": 1296,
+        "MemBlock": 1410,
+        "FltRegionModule": 922,
+        "VecRegionModule": 1083
+      },
+      "note": "pins facing away from their logic over the parent's macros 3,407 to 2,959; one run per arm. Frontend rose (1,193 to 1,296 ps): the plan takes a pin net's centre, which after repair is the repeater at the pin, so its worst register-file pin stayed while its flop moved. The parent's worst path, Frontend's cfVec instruction into ctrlBlock's decode buffer",
+      "histograms": {
+        "parent": {
+          "bin_ps": 10,
+          "from_ps": -60,
+          "counts": [1, 1, 2, 2, 0, 0, 0, 0, 0, 8, 344, 2444, 2473, 913, 407, 260, 462, 422, 273, 212, 189, 228, 198, 183, 179, 198, 177, 174, 136, 130, 132, 102, 142, 166, 146, 181, 252, 260, 225, 296, 289, 263, 260, 264, 243, 312, 325, 379, 422, 516, 550, 610, 631, 698, 861, 930, 964, 1017, 1037, 1060, 1061, 1039, 998, 1035, 1075, 1059, 1174, 960, 953, 1079, 1010, 1079, 993, 941, 883, 930, 976, 1033, 881, 800, 828, 720, 787, 766, 880, 902, 962, 959, 884, 955, 922, 828, 777, 823, 810, 897, 948, 1077, 1233, 1104, 1155, 1207, 1186, 1183, 1299, 1500, 1638, 1688, 1540, 1701, 1812, 1896, 1902, 1922, 1932, 1765, 1777, 1755, 1512, 1650, 1609, 1436, 1351, 1233, 1199, 1387, 1359, 1401, 1156, 1176, 1256, 1143, 902, 948, 1073, 839, 828, 817, 825, 884, 871, 972, 999, 938, 879, 983, 1011, 892, 835, 824, 843, 841, 794, 745, 763, 819, 810, 783, 733, 771, 824, 705, 633, 602, 740, 742, 733, 667, 629, 534, 525, 540, 604, 577, 550, 506, 494, 587, 573, 575, 524, 499, 517, 480, 427, 428, 410, 388, 354, 361, 369, 350, 372, 355, 379, 309, 302, 298, 216, 216, 189, 149, 138, 159, 115, 105, 116, 134, 131, 102, 81, 73, 65, 69, 45, 40, 42, 47, 47, 47, 81, 97, 139, 134, 182, 195, 181, 163, 123, 59, 29, 1]
+        },
+        "CoupledL2": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [331, 460, 254, 181, 266, 581, 100, 66, 55, 67, 41, 61, 74, 69, 34, 56, 99, 167, 138, 291, 539, 698, 999, 1008, 1347, 1114, 1081, 955, 1117, 1022, 1088, 1381, 1090, 958, 944, 1031, 839, 750, 732, 900, 1122, 904, 772, 1153, 1539, 2236, 2875, 2456, 1104, 680, 431, 599, 1644, 3654, 3827, 1735, 482, 235, 212, 384, 259, 82, 197, 555, 1809, 2378, 2046, 2702, 2056, 1313, 733, 655, 602, 1162, 2204, 3650, 3965, 2866, 2385, 1412, 973, 479, 177, 514, 1557, 1354, 187, 4]
+        },
+        "Frontend": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [231, 489, 119, 140, 61, 102, 236, 148, 209, 210, 275, 396, 390, 415, 344, 480, 606, 510, 764, 1086, 1162, 1040, 1006, 983, 890, 848, 788, 908, 1131, 1203, 1262, 1423, 1500, 1414, 1524, 1580, 1677, 1892, 1782, 1699, 1725, 1519, 1284, 1102, 1039, 698, 887, 1195, 917, 1325, 1410, 2022, 1687, 1053, 1370, 2324, 2717, 2324, 1525, 989, 1311, 1813, 1742, 1524, 1235, 1556, 1747, 1826, 1774, 956, 500, 1129, 1414, 1749, 1858, 864, 748, 756, 726, 844, 882, 1138, 1262, 1163, 2116, 3952, 4400, 1742, 1049, 698, 538, 744, 808, 897, 1593, 1486, 830, 726, 978, 1817, 1932, 1346, 1302, 1247, 966, 855, 1223, 1181, 968, 941, 992, 537, 261, 174, 151, 111, 77, 93, 120, 232, 384, 277, 137, 5, 1, 1, 1]
+        },
+        "MemBlock": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [49, 794, 783, 480, 347, 402, 358, 302, 252, 225, 197, 254, 368, 482, 691, 884, 1025, 1472, 1535, 1833, 2282, 2958, 3369, 3524, 3532, 3772, 3764, 4057, 3933, 3876, 3756, 4149, 4053, 3844, 3913, 3841, 3496, 3219, 3066, 2742, 2441, 2470, 2502, 2729, 2636, 2591, 2968, 2790, 2986, 3272, 3187, 2897, 2492, 2819, 2461, 2447, 2638, 3458, 3061, 2399, 2242, 2046, 1938, 2083, 2398, 3017, 4084, 4171, 5398, 5672, 5376, 5773, 5748, 5702, 4768, 4698, 4101, 3770, 3588, 3252, 2207, 2284, 3255, 4706, 4650, 3809, 3128, 2459, 1799, 1248, 925, 494, 508, 610, 773, 981, 1644, 2237, 2974, 3648, 4364, 4841, 4455, 2988, 2222, 1629, 883, 436, 188, 84, 24, 37, 43, 55, 106, 118, 126, 107, 89, 87, 128, 52, 175, 227, 135, 107, 84, 131, 156, 217, 335, 516, 786, 224, 7, 0, 4, 5]
+        },
+        "FltRegionModule": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [19, 11, 3, 110, 40, 27, 34, 26, 44, 38, 45, 44, 56, 41, 52, 83, 40, 60, 29, 31, 42, 45, 48, 21, 61, 41, 41, 23, 53, 73, 120, 174, 204, 206, 272, 440, 536, 730, 920, 1302, 1308, 1400, 978, 565, 317, 308, 175, 193, 182, 267, 324, 300, 273, 274, 290, 286, 255, 310, 311, 295, 277, 303, 314, 186, 134, 102, 116, 58, 80, 66, 79, 99, 107, 102, 73, 39, 47, 51, 72, 122, 182, 211, 196, 161, 108, 68, 40, 12, 5, 1]
+        },
+        "VecRegionModule": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [201, 409, 168, 275, 540, 339, 52, 55, 29, 32, 56, 77, 94, 83, 99, 162, 197, 227, 228, 296, 389, 379, 357, 367, 329, 356, 401, 337, 275, 337, 459, 382, 376, 398, 487, 580, 737, 894, 1329, 1195, 1222, 1299, 1691, 1395, 1118, 888, 799, 565, 544, 522, 609, 792, 992, 1270, 1960, 2028, 973, 508, 485, 493, 761, 1107, 1343, 902, 628, 646, 616, 707, 730, 731, 672, 590, 568, 609, 616, 461, 324, 247, 187, 241, 213, 180, 158, 196, 225, 190, 162, 138, 133, 153, 222, 191, 208, 182, 189, 212, 193, 214, 239, 211, 162, 143, 85, 24, 12, 5]
+        }
+      },
+      "worst_paths": {
+        "parent": {
+          "period_ps": 2250,
+          "from": "core/frontend/io_backend_cfVec_2_bits_instr[28]",
+          "to": "core/backend/inner_ctrlBlock/decodeBufBits_3_foldpc[0]$_DFFE_PP_/D",
+          "what": "From Frontend's instruction output (the cfVec bundle) into the decode stage's buffer in the control block: a block's output to a parent register."
+        },
+        "CoupledL2": {
+          "period_ps": 906,
+          "from": "slices_0/rxsnp.queue.deq_ptr_value$_DFFE_PP0P_/QN",
+          "to": "slices_0/directory/metaArray.array.array_ext/RW0_addr[5]",
+          "what": "The snoop request queue's dequeue pointer to the address pin of the L2 directory's metadata SRAM: a queue index travelling to a memory."
+        },
+        "Frontend": {
+          "period_ps": 1296,
+          "from": "inner_ftq/io_toBpu_train_bits_meta_mbtb_entries_1_1_position[4]$_DFFE_PP0N_/QN",
+          "to": "inner_ftq/io_toBpu_train_bits_meta_ittage_altProviderTarget_addr[1]$_DFFE_PP0N_/D",
+          "what": "Inside the FTQ: a main-BTB entry's position bit to an ITTAGE target bit, both in the training metadata, through a read of the metaQueueResolve register-file macro (read address in at its bottom edge, read data out at its top, to a flop the planned placement put below it)."
+        },
+        "MemBlock": {
+          "period_ps": 1410,
+          "from": "inner_dcache/dcache.mainPipe/s1_req_vaddr[16]$_DFFE_PP_/QN",
+          "to": "inner_dcache/dcache.bankedDataArray/data_banks_0_18.data_bank.array.array_ext/RW0_addr[6]",
+          "what": "DCache main pipeline, stage 1: the request's virtual address to the address pin of a data-bank SRAM macro; index bits travelling to a memory."
+        },
+        "FltRegionModule": {
+          "period_ps": 922,
+          "from": "fpRegFile/io_readPorts_0_data[36]",
+          "to": "issuePipes/exu.exFadd_0_bits_data_src_0[36]$_DFFE_PP_/D",
+          "what": "The floating-point register file macro's read port to the FP adder's source-operand register: read data out of the register-file macro."
+        },
+        "VecRegionModule": {
+          "period_ps": 1083,
+          "from": "issuePipes_1/exu.ex_0_bits_ctrl_uopIdx[0]$_DFFE_PP_/QN",
+          "to": "issuePipes/exu.Vfmac/a0_1_fpB[59]$_DFFE_PP_/D",
+          "what": "The vector issue pipe's micro-op index register to the vector multiply-add's operand register."
+        }
+      }
     }
   ]
 }
