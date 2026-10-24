@@ -172,6 +172,19 @@ py_test(
     main = ".claude/hooks/guard_tool_test.py",
 )
 
+# The SessionStart hook that adds this checkout's own Bazel output base to
+# its local settings (.claude/settings.local.json), so the bazel-* symlinks
+# count as inside the project on every machine and in every worktree.
+py_test(
+    name = "bazel_output_dirs_test",
+    srcs = [
+        ".claude/hooks/bazel_output_dirs.py",
+        ".claude/hooks/bazel_output_dirs_test.py",
+    ],
+    imports = [".claude/hooks"],
+    main = ".claude/hooks/bazel_output_dirs_test.py",
+)
+
 # A deployed tree holds copies of the design's build outputs, not links
 # into bazel-out that an edit in the tree would write through.
 py_test(
