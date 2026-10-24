@@ -3,12 +3,21 @@
 # latest arrival at its registers' clock pins, in ps. The clock runs
 # east through each row of tiles, so a tile's registers see it later
 # than its west neighbour's: the skew data flowing east gets for free.
+# A register of the top level itself: in the rig (tpu_meso.sv), the
+# FIFOs' side facing the pins or the side facing tpu's logic; else the
+# parent's.
+proc rig_side { name parent } {
+  if { [regexp {^(rst_q|u_in\.(mem|widx)|u_out\.(ridx|deq_))} $name] } { return "rig:pins" }
+  if { [regexp {^(u_in\.(ridx|deq_)|u_out\.(mem|widx))} $name] } { return "rig:logic" }
+  return $parent
+}
+
 proc hr_report { where parent } {
   set at {}
   foreach pin [all_registers -clock_pins] {
     set name [get_full_name $pin]
     set inst [lindex [split $name /] 0]
-    if { ![dict exists $where $inst] } { set inst $parent }
+    if { ![dict exists $where $inst] } { set inst [rig_side $name $parent] }
     dict lappend at $inst [get_property $pin arrival_max_rise]
   }
   set lines {}

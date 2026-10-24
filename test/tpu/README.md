@@ -227,6 +227,48 @@ Back-pressure toward the host, if a system needs it, is the wrapper's:
 an output FIFO at least as deep as the 2N-1 rows in flight and a credit
 counter that drops a ready to the host when it has none.
 
+### tpu in its rig
+
+The rules of the game build enough of tpu's surroundings to solve it
+realistically without cheating, so the FIFO is part of the rig, and
+tpu's interface is its flow control: `tpu_meso.sv` puts a mesochronous
+FIFO (`meso_fifo.sv`, the shape of `chi_async_bridge`'s async queue
+without its synchronisers) on each side of tpu, on its one clock, and
+leaves tpu's module as it is. No back-pressure: the FIFOs pass a word
+whenever they hold one, and `sim/tpu_meso_test` shows that tpu takes the
+bubbles that makes, 96 result rows equal to tpu alone's with bubbles in
+weight loads and activations, and that no FIFO holds more than one word
+waiting: a depth of 2 is the maximum case. The test's first run caught
+the input FIFO reset by the registered reset, which drops a word that
+comes the cycle reset falls.
+
+The rig's top level (`tpu_meso_balanced_*`) is the balanced one with
+the FIFOs in its strip, 45 rows (12.15 um, 1,260 um2) for 1,169 flops
+and their muxes (652 um2). The strip is a placement region during
+global placement (`place_notch.tcl`), whose count of the macros' area
+otherwise takes the C's box over its tiles twice and diverges, and is
+dropped for detailed placement, which has the strip as its core.
+Flat gets the same rig (`tpu_meso_flat_*`). Stitched, one seed:
+
+| | balanced | balanced, in the rig | flat | flat, in the rig |
+|---|---|---|---|---|
+| reg2reg minimum period | 754.0 ps | **771.3 ps** | 724.0 ps | **753.8 ps** |
+| derated 5 %, CPPR on | 763.2 ps | 787.9 ps | | |
+| hold failing, as timed | 0 | **0** | | |
+| hold failing, derated | 0 | 69, worst -7.3 ps, C to rig | | |
+
+Every path of tpu is now reg2reg and judged, the one from tpu's inputs
+to the first multiply-add included: in the rig it is the worst, FIFO
+register, up the C's west side, multiply-add, worst -321.3 ps. Flat
+pays for it too, 754 ps where 724 ps left it out.
+
+The clock at the registers, stitched: the tiles' 144-168 ps, the C's
+174-231 ps, the rig's 219-227 ps, both its sides alike. The top level's
+clock tree synthesis builds one tree for the macros' clock pins and one
+for the rig's flops, and does not balance one against the other with
+the macros' own trees inside: the rig launches about 60 ps after the
+tiles capture. Neither side of the FIFOs got a short branch.
+
 ### Mysteries
 
 Explained:
@@ -239,10 +281,13 @@ Explained:
 
 Not explained yet:
 
-- **The C's registers see the clock late** at the balanced top level,
-  123-180 ps against 105-122 ps at every tile's: whether the top
-  level's clock tree synthesis sees the C's own tree, deeper than a
-  tile's, in its timing model is not checked.
+- **The macros' own trees and the top level's clock tree.** At the
+  balanced top level the C's registers see the clock at 123-180 ps
+  against the tiles' 105-122 ps, and in the rig the rig's flops at
+  219-227 ps against the tiles' 144-168 ps: whether the clock tree
+  synthesis sees a macro's insertion delay in its timing model, and
+  why it balances the macros' clock pins and the flops as two trees,
+  is not checked.
 - **Only the east column's clock pins** leave global route over
   capacity, four gcell edges one track over; the edge-pin model
   explains an over-capacity edge beside a pin over a tile's centre, not
@@ -257,6 +302,9 @@ bazelisk build //test/tpu:tpu_stitched       # the period across every macro
 bazelisk build //test/tpu:tpu_flat_stitched  # flat, read the same way
 bazelisk test //test/tpu:tpu_2x2_lec_test    # the carve, proven equivalent
 bazelisk build //test/tpu:tpu_balanced_stitched_clock_check  # balanced
+bazelisk build //test/tpu:tpu_meso_balanced_stitched_clock_check  # in the rig
+bazelisk build //test/tpu:tpu_meso_flat_stitched  # flat, in the rig
+bazelisk test //test/tpu/sim:tpu_meso_test  # the rig against tpu alone
 ```
 
 `tpu_block_grt`, `tpu_rest_grt` and `tpu_grt` are the tile, the C and the

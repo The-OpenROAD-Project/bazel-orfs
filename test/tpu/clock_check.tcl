@@ -6,21 +6,28 @@
 # removed. Per class: endpoints, worst setup and hold slack, and how many
 # fail each, in ps.
 
-# the macro instance a pin is in; the parent macro is tpu_rest
+# the macro instance a pin is in, the parent macro being tpu_rest, or
+# "rig" for a register of the top level itself (tpu_meso.sv)
 proc cc_where { pin where } {
   set inst [lindex [split [get_full_name $pin] /] 0]
-  if { ![dict exists $where $inst] } { error "clock_check.tcl: $inst is no macro" }
+  if { ![dict exists $where $inst] } { return rig }
   return $inst
 }
 
+proc cc_part { inst where } {
+  if { $inst eq "rig" } { return rig }
+  return [expr { [dict get $where $inst] eq "tpu_rest" ? "parent" : "tile" }]
+}
+
 proc cc_class { from to where } {
+  set pf [cc_part $from $where]
+  set pt [cc_part $to $where]
   if { $from eq $to } {
-    return [expr { [dict get $where $from] eq "tpu_rest" ? "inside the parent" : "inside a tile" }]
+    return [dict get {rig "inside the rig" parent "inside the parent" tile "inside a tile"} $pf]
   }
-  if { [dict get $where $from] eq "tpu_rest" } { return "parent to tile" }
-  if { [dict get $where $to] eq "tpu_rest" } { return "tile to parent" }
-  regexp {^u_b(\d+)_(\d+)$} $from -> r1 c1
-  regexp {^u_b(\d+)_(\d+)$} $to -> r2 c2
+  if { $pf ne "tile" || $pt ne "tile" } { return "$pf to $pt" }
+  regexp {u_b(\d+)_(\d+)$} $from -> r1 c1
+  regexp {u_b(\d+)_(\d+)$} $to -> r2 c2
   if { $r2 == $r1 && $c2 == $c1 + 1 } { return "tile to its east" }
   if { $r2 == $r1 + 1 && $c2 == $c1 } { return "tile to its south" }
   return "tile to another tile"

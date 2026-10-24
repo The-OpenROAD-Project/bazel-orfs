@@ -7,7 +7,8 @@
 # PARENT_Y, when set, lifts them all that far off the die's bottom edge,
 # over a strip of the top level's own rows (core_rows.tcl), and the
 # routing tracks with them, so the macros' pins stay on the top level's
-# grid.
+# grid; the top level's own cells, if any, are placed in a region that is
+# the strip.
 set block [ord::get_db_block]
 set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
 proc at { inst x y } {
@@ -21,7 +22,8 @@ set x0 [expr { int(round($::env(NOTCH_X0) * $dbu)) }]
 set y1 [expr { $py + int(round($::env(NOTCH_Y1) * $dbu)) }]
 set n 0
 foreach i [$block getInsts] {
-  if { ![regexp {^u_b(\d+)_(\d+)$} [$i getName] -> r c] } { continue }
+  # under the wrapper's instance, if any (u_tpu.u_b0_0)
+  if { ![regexp {(?:^|\.)u_b(\d+)_(\d+)$} [$i getName] -> r c] } { continue }
   set m [$i getMaster]
   at $i [expr { $x0 + $c * [$m getWidth] }] [expr { $y1 - ($r + 1) * [$m getHeight] }]
   incr n
@@ -52,4 +54,21 @@ if { $py > 0 } {
   rename make_tracks {}
   rename make_tracks_platform make_tracks
   puts "place_notch.tcl: macros and tracks lifted $::env(PARENT_Y) um"
+}
+if { $py > 0 } {
+  # Global placement counts the area of every fixed instance in the
+  # region it places, the parent's box over its tiles twice, more than
+  # the die: placing the top level's cells there diverges (GPL-0305).
+  # The strip holds no macro.
+  set die [$block getDieArea]
+  set region [odb::dbRegion_create $block strip]
+  odb::dbBox_create $region [$die xMin] [$die yMin] [$die xMax] [expr { [$die yMin] + $py }]
+  set group [odb::dbGroup_create $region strip]
+  set cells 0
+  foreach inst [$block getInsts] {
+    if { [[$inst getMaster] isBlock] || [$inst isFixed] } { continue }
+    $group addInst $inst
+    incr cells
+  }
+  puts "place_notch.tcl: $cells cells of the top level's own placed in the strip"
 }
