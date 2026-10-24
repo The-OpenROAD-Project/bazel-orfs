@@ -70,6 +70,15 @@ SOURCE_VARS = {
     "AUTO_MEMORIES_REGFILES",
 }
 
+# A step's hook scripts, PRE_<STEP>_TCL and POST_<STEP>_TCL
+# (variables.yaml), are files the step sources: staged like SOURCE_VARS.
+HOOK_SCRIPT = re.compile(r"^(PRE|POST)_[A-Z0-9_]+_TCL$")
+
+
+def is_source_var(var_name):
+    return var_name in SOURCE_VARS or bool(HOOK_SCRIPT.match(var_name))
+
+
 # Variables that are purely for path resolution, not passed to orfs_flow()
 PATH_ONLY_VARS = {
     "DESIGN_NICKNAME",
@@ -313,7 +322,7 @@ class ConfigMkParser:
                 )
             elif var_name == "BLOCKS":
                 result.blocks = resolved.split()
-            elif var_name in SOURCE_VARS:
+            elif is_source_var(var_name):
                 labels = self._map_source_file(
                     var_name, resolved, ctx, result, line_num
                 )
@@ -420,7 +429,7 @@ class ConfigMkParser:
                 continue
 
             resolved = self._resolve_refs(new_value.strip(), ctx, result, 0)
-            if var_name in SOURCE_VARS:
+            if is_source_var(var_name):
                 labels = self._map_source_file(var_name, resolved, ctx, result, 0)
                 if labels:
                     result.sources[var_name] = labels
