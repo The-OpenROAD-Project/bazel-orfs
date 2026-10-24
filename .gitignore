@@ -30,3 +30,7 @@ test/coremark_joule/designs/asap7/xiangshan/plan/pin_partners.txt
 # //:import writes ORFS designs here: a try-out in a clone, never
 # committed to bazel-orfs.
 /imported/
+
+# per-checkout Claude Code settings; the SessionStart hook writes this
+# checkout's Bazel output base into it
+.claude/settings.local.json
