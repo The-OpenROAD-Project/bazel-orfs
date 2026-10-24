@@ -12,6 +12,15 @@ TPU_RTL = [
     "@orfs//flow/designs/src/tpu:tpu.sv",
 ]
 
+# tpu in its rig, for its simulation (sim/)
+exports_files(
+    [
+        "meso_fifo.sv",
+        "tpu_meso.sv",
+    ],
+    visibility = ["//test/tpu/sim:__pkg__"],
+)
+
 # every macro routes on M2-M8; M9 is the top level's power
 ARGS = {
     "IO_PLACER_H": "M2 M4",
