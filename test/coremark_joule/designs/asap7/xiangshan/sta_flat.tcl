@@ -119,7 +119,7 @@ if { [info exists ::env(STA_CROSSINGS)] } {
       set mods([join [lrange $comps 0 5] /]) 1
       # L= the modules a logic cell of the path sits in: a repeater (a
       # buffer or an inverter) is wire, and may sit anywhere
-      set ref [get_property [get_property $pin instance] ref_name]
+      set ref [get_property [get_cells -of_objects $pin] ref_name]
       if { ![info exists is_rep($ref)] } {
         set lc [lindex [get_lib_cells -quiet */$ref] 0]
         set is_rep($ref) [expr { $lc ne "" && ([get_property $lc is_buffer] || [get_property $lc is_inverter]) }]
