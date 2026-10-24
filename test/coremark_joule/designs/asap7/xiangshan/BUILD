@@ -363,6 +363,24 @@ py_binary(
     main = "sta_prefix.py",
 )
 
+# the surgery study's ranking of <parent>_kpi_flat_crossings
+py_binary(
+    name = "crossings",
+    srcs = ["crossings.py"],
+    main = "crossings.py",
+)
+
+py_test(
+    name = "crossings_test",
+    size = "small",
+    srcs = [
+        "crossings.py",
+        "crossings_test.py",
+    ],
+    imports = ["."],
+    main = "crossings_test.py",
+)
+
 py_test(
     name = "sta_prefix_test",
     srcs = [

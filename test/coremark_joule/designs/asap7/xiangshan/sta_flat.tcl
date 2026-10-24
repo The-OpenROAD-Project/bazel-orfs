@@ -82,3 +82,53 @@ if { [info exists ::env(STA_PATHS)] } {
       -fields {fanout cap slew} -digits 0 >> $::env(STA_PATHS)
   }
 }
+
+# Every endpoint above STA_CROSSINGS_PS, with each part its worst path
+# runs through: the net it enters the part by, the net it leaves by and the
+# time spent inside, the stretch a surgery would move (STA_CROSSINGS, one
+# line per endpoint: period, class, then part:entry_net:exit_net:ps per
+# stretch). A block's nets are named inside the block: the first and last
+# leaf pin of its stretch sit on the nets of the ports the path crosses.
+proc sta_local_net { pin part where } {
+  set nets [get_nets -quiet -of_objects $pin]
+  if { [llength $nets] == 0 } { return "-" }
+  set name [get_full_name [lindex $nets 0]]
+  foreach { path b } $where {
+    if { $b eq $part && [string first "$path/" $name] == 0 } {
+      return [string range $name [string length "$path/"] end]
+    }
+  }
+  return $name
+}
+if { [info exists ::env(STA_CROSSINGS)] } {
+  set above $::env(STA_CROSSINGS_PS)
+  set f [open $::env(STA_CROSSINGS) w]
+  foreach t [find_timing_paths {*}$r2r -endpoint_path_count 1 \
+               -group_path_count [sta::endpoint_count] -slack_max [expr { $p - $above }]] {
+    set stretches {}
+    set cur ""
+    foreach point [get_property $t points] {
+      set pin [get_property $point pin]
+      set at [get_property $point arrival]
+      set part [hr_part_of [get_full_name $pin] $where $parent]
+      if { $part ne $cur } {
+        if { $cur ne "" } { lappend stretches [list $cur $entry $last $entry_at $last_at] }
+        set cur $part
+        set entry $pin
+        set entry_at $at
+      }
+      set last $pin
+      set last_at $at
+    }
+    lappend stretches [list $cur $entry $last $entry_at $last_at]
+    set fields [list [format %.0f [expr { $p - [get_property $t slack] }]] \
+      [hr_class [lmap s $stretches { lindex $s 0 }] $parent]]
+    foreach s $stretches {
+      lassign $s part entry last entry_at last_at
+      lappend fields [format "%s:%s:%s:%.0f" $part [sta_local_net $entry $part $where] \
+        [sta_local_net $last $part $where] [expr { $last_at - $entry_at }]]
+    }
+    puts $f [join $fields "\t"]
+  }
+  close $f
+}
