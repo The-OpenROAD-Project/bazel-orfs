@@ -45,6 +45,15 @@ build --@rules_python//python/config_settings:bootstrap_impl=script
 # them imports a package that lacks its own __init__.py.
 common --incompatible_default_to_explicit_init_py
 
+# @ncurses (abc and yosys -> readline -> ncurses) compiles no terminfo
+# entries into the library, so MKfallback.sh never opens the terminfo
+# directory it is handed. Its default hands it the host's
+# /usr/share/terminfo through a repository rule, which fails the build
+# where the host has none (a NixOS FHS, a minimal container). false passes
+# the bare path instead: nothing is read, fallback.c is byte-identical and
+# no runfiles change, so nothing downstream rebuilds.
+common --@ncurses//:use_terminfo_data_target=false
+
 try-import %workspace%/user.bazelrc
 
 # kepler-formal (a dev_dependency, MODULE.bazel): its dependencies not yet

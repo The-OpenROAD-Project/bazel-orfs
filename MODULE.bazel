@@ -29,6 +29,11 @@ local_path_override(
 )
 
 bazel_dep(name = "abc", version = "0.68-yosyshq.bcr.1")
+
+# Visible to .bazelrc's --@ncurses//:use_terminfo_data_target (abc and yosys ->
+# readline -> ncurses), at the version the graph resolves anyway.
+bazel_dep(name = "ncurses", version = "6.4.20221231.bcr.11", dev_dependency = True)
+
 bazel_dep(name = "yosys", version = "0.68.bcr.1")
 
 # Root-only, as every override. Each patch retires at the bump onto a BCR
