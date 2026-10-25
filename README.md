@@ -197,6 +197,35 @@ resolution with an explicit version error rather than failing later in a
 way that looks like a build bug. The floor applies to projects that depend
 on bazel-orfs too, whatever their own `.bazelversion` says.
 
+### Optional: nix and direnv
+
+With [nix](https://nixos.org/download/) and
+[direnv](https://direnv.net/docs/installation.html) (hooked into your
+shell), a clone needs one command and no Bazelisk install:
+
+```sh
+git clone https://github.com/The-OpenROAD-Project/bazel-orfs.git
+cd bazel-orfs
+direnv allow
+```
+
+[.envrc](./.envrc) loads [shell.nix](./shell.nix), which puts a pinned
+`bazelisk` on PATH. Where the host has a standard Linux layout (Ubuntu,
+Debian, Fedora, RHEL, WSL, a container) it runs against the host directly:
+no root, no setup. Where the layout is missing (NixOS), it runs in a
+bubblewrap FHS that supplies it. The choice is made on every call;
+`BAZEL_ORFS_FHS=1` or `0` forces it. The nixpkgs pin lives in
+[npins/sources.json](./npins/sources.json); `npins update` moves it.
+
+| Host | Works |
+|---|---|
+| Ubuntu, Debian, Fedora, RHEL 8+, SLES 15, WSL2, containers | yes, directly on the host |
+| NixOS | yes, in the FHS |
+| macOS | no: bazel-orfs builds on Linux only, and the shell says so |
+
+Both paths have been tried on Ubuntu (the FHS one forced with
+`BAZEL_ORFS_FHS=1`); the other rows are by design, not yet by test.
+
 ## Quick start
 
 Run these from a clone of this repository:

@@ -34,3 +34,6 @@ test/coremark_joule/designs/asap7/xiangshan/plan/pin_partners.txt
 # per-checkout Claude Code settings; the SessionStart hook writes this
 # checkout's Bazel output base into it
 .claude/settings.local.json
+
+# direnv: nix-direnv cache and gcroots (.envrc, shell.nix)
+.direnv/
