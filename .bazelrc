@@ -54,6 +54,12 @@ common --incompatible_default_to_explicit_init_py
 # no runfiles change, so nothing downstream rebuilds.
 common --@ncurses//:use_terminfo_data_target=false
 
+# Tests tagged "study" check a study kept in this repository (CoreMark/Joule,
+# XiangShan, the estimation ladder, generate_ram's simulations), not a
+# feature a user of bazel-orfs gets. `bazelisk test ...`, here and in CI,
+# runs only the features; run a study's tests with --test_tag_filters=study.
+test --test_tag_filters=-study
+
 try-import %workspace%/user.bazelrc
 
 # kepler-formal (a dev_dependency, MODULE.bazel): its dependencies not yet

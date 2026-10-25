@@ -374,4 +374,5 @@ py_test(
     ],
     imports = ["."],
     main = "sta_prefix_test.py",
+    tags = ["study"],
 )

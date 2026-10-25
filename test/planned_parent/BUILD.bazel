@@ -181,6 +181,7 @@ py_test(
         "//tools/macro_select:plan_floorplan",
     ] + glob(["plan/*"]),
     main = "plan_drift_test.py",
+    tags = ["study"],
 )
 
 # A generated macro the plan does not name is placed beside the plan's

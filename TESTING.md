@@ -69,6 +69,23 @@ comm -23 \
 |--------|--------------|
 | `//test:lb_32x128_openroad_gui_*` | Source-built OpenROAD with GUI |
 
+### Study tests (tagged `study`, not run by `bazelisk test ...`)
+
+`.bazelrc` sets `--test_tag_filters=-study`. These tests check studies kept
+in this repository, not features a user of bazel-orfs gets, and the
+generate_ram ones are to move to OpenROAD/ORFS. Run them with
+`bazelisk test --test_tag_filters=study //test/...`.
+
+| Package | What it tests |
+|---------|--------------|
+| `//test/coremark_joule/...` | CoreMark/MHz and CoreMark/Joule study, XiangShan |
+| `//test/estimation_ladder` | Clock period estimated without the flow |
+| `//test/regfile/sim`, `//test/regfile/cores` | generate_ram's RAMs simulated against their models and RTL |
+| `//test/regfile/designs` | ORFS's designs with generated register files |
+| `//test/macro_select`, `//test/keep_census` | Floorplan planner calibration, keep census |
+| `//test/fanout_loop`, `//test/xs_clockgate`, `//test/grt_scaling`, `//test/planned_parent` | XiangShan reproducers |
+| `//test/tpu/sim`, `//test/coralnpu_exmem` | Design simulations |
+
 ## Feature coverage
 
 ### Covered

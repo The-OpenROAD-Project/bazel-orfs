@@ -120,6 +120,7 @@ py_test(
         ":coremark_rv64gc_3",
     ],
     main = "//test/coremark_joule/scripts:iteration_delta_test.py",
+    tags = ["study"],
 )
 
 # The boot gate, one per ISA in the study.
