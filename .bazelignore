@@ -12,3 +12,6 @@ tmp
 # left that target declaring srcs bazel would not stage, so it built and
 # then died on exec with "file not found" for its own main file.
 .claude/worktrees
+
+# direnv keeps gcroot symlinks into /nix/store here (.envrc)
+.direnv
