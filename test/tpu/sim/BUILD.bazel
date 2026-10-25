@@ -31,5 +31,6 @@ cc_test(
     name = "tpu_meso_test",
     size = "small",
     srcs = ["main.cc"],
+    tags = ["study"],
     deps = [":tb_lib"],
 )

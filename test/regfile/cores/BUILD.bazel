@@ -51,6 +51,7 @@ regfile_sim_test(
     rtl = ["@orfs//flow/designs/src/ibex_sv:ibex_register_file_ff.sv"],
     rtl_module = "ibex_register_file_ff",
     spec = ":ibex_register_file_ff.regfile",
+    tags = ["study"],
 )
 
 # The negative control: ibex's spec with the reset dropped (`reset`, a
@@ -69,6 +70,7 @@ regfile_sim_test(
     rtl = ["@orfs//flow/designs/src/ibex_sv:ibex_register_file_ff.sv"],
     rtl_module = "ibex_register_file_ff",
     spec = ":ibex_no_reset.regfile",
+    tags = ["study"],
 )
 
 regfile_sim_test(
@@ -77,6 +79,7 @@ regfile_sim_test(
     rtl = [":write_last.v"],
     rtl_module = "rf_wp",
     spec = ":rf_wp.regfile",
+    tags = ["study"],
 )
 
 regfile_sim_test(
@@ -86,6 +89,7 @@ regfile_sim_test(
     rtl = [":write_first.v"],
     rtl_module = "rf_wp",
     spec = ":rf_wp.regfile",
+    tags = ["study"],
 )
 
 # riscv32i's register file (test/regfile/riscv32i's specs): a hold mux
@@ -97,6 +101,7 @@ regfile_sim_test(
         rtl = ["@orfs//flow/designs/src/riscv32i:regfile.v"],
         rtl_module = "regfile",
         spec = spec,
+        tags = ["study"],
     )
     for shape, spec in [
         ("mux", ":riscv32i_mux.regfile"),

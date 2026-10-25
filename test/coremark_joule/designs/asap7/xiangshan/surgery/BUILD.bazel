@@ -19,6 +19,7 @@ py_test(
         "xs_surgery_test.py",
     ],
     main = "xs_surgery_test.py",
+    tags = ["study"],
 )
 
 # XiangShan's flat Verilog after the surgery: what every XiangShan flow

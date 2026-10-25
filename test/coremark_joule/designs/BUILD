@@ -38,4 +38,5 @@ sh_test(
     data = SDC_FILES + [
         "//test/coremark_joule/scripts:check_sdc",
     ],
+    tags = ["study"],
 )

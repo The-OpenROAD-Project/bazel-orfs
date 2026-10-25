@@ -68,4 +68,5 @@ py_test(
         ":cg_top_synth_netlist",
     ],
     main = "clockgate_test.py",
+    tags = ["study"],
 )

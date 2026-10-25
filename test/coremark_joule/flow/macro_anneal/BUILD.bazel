@@ -30,4 +30,5 @@ py_test(
         "macro_anneal_test.py",
     ],
     main = "macro_anneal_test.py",
+    tags = ["study"],
 )

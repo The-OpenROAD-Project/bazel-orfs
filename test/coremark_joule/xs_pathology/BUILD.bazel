@@ -174,4 +174,5 @@ py_test(
         "report_test.py",
     ],
     main = "report_test.py",
+    tags = ["study"],
 )

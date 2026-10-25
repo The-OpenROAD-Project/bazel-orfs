@@ -32,6 +32,7 @@ py_test(
     ],
     imports = ["."],
     main = "report_test.py",
+    tags = ["study"],
 )
 
 py_test(
@@ -43,6 +44,7 @@ py_test(
     ],
     imports = ["."],
     main = "sdc_period_test.py",
+    tags = ["study"],
 )
 
 # riscv32i also runs shapes that exercise options on a real design whose

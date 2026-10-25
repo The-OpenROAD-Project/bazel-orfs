@@ -56,4 +56,5 @@ py_test(
         ":fanout_loop_base_tight_grt_logs",
         ":fanout_loop_capped_grt_logs",
     ],
+    tags = ["study"],
 )

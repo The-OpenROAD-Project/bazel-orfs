@@ -270,6 +270,7 @@ py_library(
 py_test(
     name = "study_machinery_test",
     srcs = ["study_machinery_test.py"],
+    tags = ["study"],
     deps = [":optuna_study_lib"],
 )
 
@@ -1594,6 +1595,7 @@ py_test(
     name = "stage_variance_test",
     srcs = ["stage_variance_test.py"],
     main = "stage_variance_test.py",
+    tags = ["study"],
     deps = [":stage_variance_lib"],
 )
 
@@ -1704,5 +1706,6 @@ py_test(
     name = "macro_score_test",
     srcs = ["macro_score_test.py"],
     main = "macro_score_test.py",
+    tags = ["study"],
     deps = [":macro_score_lib"],
 )

@@ -113,5 +113,6 @@ py_binary(
 py_test(
     name = "grt_bench_test",
     srcs = ["grt_bench_test.py"],
+    tags = ["study"],
     deps = [":grt_bench_lib"],
 )

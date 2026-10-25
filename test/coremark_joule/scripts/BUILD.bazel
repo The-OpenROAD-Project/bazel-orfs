@@ -62,6 +62,7 @@ py_test(
         "parsers_test.py",
     ],
     main = "parsers_test.py",
+    tags = ["study"],
 )
 
 # The silicon reference measurements (Appendix A). The extractor needs
@@ -83,6 +84,7 @@ py_test(
         "extract_silicon_test.py",
     ],
     main = "extract_silicon_test.py",
+    tags = ["study"],
 )
 
 py_binary(
@@ -121,6 +123,7 @@ py_test(
         "check_memories_applied_test.py",
     ],
     main = "check_memories_applied_test.py",
+    tags = ["study"],
 )
 
 py_binary(
@@ -137,6 +140,7 @@ py_test(
         "saif_window_test.py",
     ],
     main = "saif_window_test.py",
+    tags = ["study"],
 )
 
 py_binary(
@@ -153,6 +157,7 @@ py_test(
         "cm_per_joule_test.py",
     ],
     main = "cm_per_joule_test.py",
+    tags = ["study"],
 )
 
 py_binary(
@@ -175,6 +180,7 @@ py_test(
         "silicon_band_test.py",
     ],
     main = "silicon_band_test.py",
+    tags = ["study"],
 )
 
 # The pin activity audit: which pins OpenSTA measured, and which it
@@ -194,6 +200,7 @@ py_test(
         "classify_pins_test.py",
     ],
     main = "classify_pins_test.py",
+    tags = ["study"],
 )
 
 py_binary(
@@ -210,6 +217,7 @@ py_test(
         "check_activity_sweep_test.py",
     ],
     main = "check_activity_sweep_test.py",
+    tags = ["study"],
 )
 
 # What one CoreMark iteration costs on the external bus. The boundary is
@@ -234,6 +242,7 @@ py_test(
         "fetch_commodity_test.py",
     ],
     main = "fetch_commodity_test.py",
+    tags = ["study"],
 )
 
 py_binary(
@@ -250,6 +259,7 @@ py_test(
         "bus_probe_test.py",
     ],
     main = "bus_probe_test.py",
+    tags = ["study"],
 )
 
 # The constraint model of §3.8, checked rather than commented. Not
@@ -264,6 +274,7 @@ py_test(
         "check_sdc_test.py",
     ],
     main = "check_sdc_test.py",
+    tags = ["study"],
 )
 
 py_binary(
@@ -290,6 +301,7 @@ py_test(
         "//test/coremark_joule/results:model_switch.json",
     ],
     main = "readme_numbers_test.py",
+    tags = ["study"],
 )
 
 py_binary(
@@ -316,6 +328,7 @@ py_test(
         "synth_crosscheck_test.py",
     ],
     main = "synth_crosscheck_test.py",
+    tags = ["study"],
 )
 
 py_binary(
@@ -338,6 +351,7 @@ py_test(
     ],
     data = ["//test/coremark_joule:README.md"],
     main = "section_links_test.py",
+    tags = ["study"],
 )
 
 py_binary(
@@ -356,6 +370,7 @@ py_test(
         "pin_results_test.py",
     ],
     main = "pin_results_test.py",
+    tags = ["study"],
 )
 
 # write_verilog can emit two instances under one name. Zero renames is
@@ -374,6 +389,7 @@ py_test(
         "uniquify_netlist_test.py",
     ],
     main = "uniquify_netlist_test.py",
+    tags = ["study"],
 )
 
 # A SAIF cannot carry a net name containing the hierarchy separator.
@@ -394,6 +410,7 @@ py_test(
         "filter_saif_test.py",
     ],
     main = "filter_saif_test.py",
+    tags = ["study"],
 )
 
 # The period a core actually closes at, derived rather than guessed.
@@ -415,6 +432,7 @@ py_test(
         "auto_period_test.py",
     ],
     main = "auto_period_test.py",
+    tags = ["study"],
 )
 
 # auto_period over several designs, one bazel invocation per round, so
@@ -439,6 +457,7 @@ py_test(
         "auto_period_all_test.py",
     ],
     main = "auto_period_all_test.py",
+    tags = ["study"],
 )
 
 # The paper's fitted figures, from the pinned results. 4.6's slope, R^2
@@ -458,6 +477,7 @@ py_test(
         "fit_results_test.py",
     ],
     main = "fit_results_test.py",
+    tags = ["study"],
 )
 
 # Glitch power (5.2): the tools that make an event-driven, timing
@@ -476,6 +496,7 @@ py_test(
         "iverilog_inputs_test.py",
     ],
     main = "iverilog_inputs_test.py",
+    tags = ["study"],
 )
 
 py_binary(
@@ -492,6 +513,7 @@ py_test(
         "glitch_count_test.py",
     ],
     main = "glitch_count_test.py",
+    tags = ["study"],
 )
 
 py_binary(
@@ -508,6 +530,7 @@ py_test(
         "glitch_project_test.py",
     ],
     main = "glitch_project_test.py",
+    tags = ["study"],
 )
 
 py_binary(
@@ -524,6 +547,7 @@ py_test(
         "mult_replay_test.py",
     ],
     main = "mult_replay_test.py",
+    tags = ["study"],
 )
 
 py_binary(
@@ -540,6 +564,7 @@ py_test(
         "mult_extract_test.py",
     ],
     main = "mult_extract_test.py",
+    tags = ["study"],
 )
 
 py_binary(
@@ -559,6 +584,7 @@ py_test(
         "gate_stitch_test.py",
     ],
     main = "gate_stitch_test.py",
+    tags = ["study"],
 )
 
 py_binary(
@@ -581,6 +607,7 @@ py_test(
         "clock_gate_census_test.py",
     ],
     main = "clock_gate_census_test.py",
+    tags = ["study"],
 )
 
 py_binary(
@@ -597,4 +624,5 @@ py_test(
         "boundary_constants_test.py",
     ],
     main = "boundary_constants_test.py",
+    tags = ["study"],
 )

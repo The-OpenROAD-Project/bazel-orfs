@@ -139,6 +139,7 @@ sed -i 's/^module RAM{words}x8 /module RAM8x8 /' $(location {name}_model.v)
             size = "small",
             srcs = ["%s.cc" % tb],
             defines = ["WORDS=%d" % words],
+            tags = ["study"],
             deps = [":tb_%s" % name],
         ),
     ]

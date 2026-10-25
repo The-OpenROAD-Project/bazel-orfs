@@ -43,6 +43,7 @@ py_test(
     srcs = ["keep_census_test.py"],
     args = ["$(rootpath :keep_census.tsv)"],
     data = [":keep_census.tsv"],
+    tags = ["study"],
 )
 
 # tools/endpoint_band's read.tcl on the same design at placement: each path
@@ -77,4 +78,5 @@ py_test(
         ":read_endpoints.tsv",
         ":read_report.txt",
     ],
+    tags = ["study"],
 )

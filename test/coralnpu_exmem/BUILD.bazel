@@ -60,5 +60,6 @@ cc_test(
     name = "exmem_sim_test",
     size = "medium",
     srcs = ["tb_main.cc"],
+    tags = ["study"],
     deps = [":lsu_%s" % v for v in VARIANTS],
 )
