@@ -156,6 +156,11 @@ build --cxxopt=-std=c++20 --host_cxxopt=-std=c++20
 build --@rules_python//python/config_settings:bootstrap_impl=script
 ```
 
+On a host without `/usr/share/terminfo` (a NixOS FHS, a minimal
+container), also `common --@ncurses//:use_terminfo_data_target=false`,
+with a `bazel_dep` on `ncurses` to make it visible: the default reads that
+directory, though nothing uses it (bazel-orfs's `.bazelrc` says why).
+
 ### GUI Builds
 
 The GUI, `bazelisk run <target>_<stage> gui_<stage>`, is OpenROAD's web
