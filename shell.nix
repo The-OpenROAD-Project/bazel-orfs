@@ -41,8 +41,6 @@
         gzip
         hostname
         curl
-        # @ncurses's local_terminfo reads /usr/share/terminfo.
-        ncurses
         procps
         python3
         which
