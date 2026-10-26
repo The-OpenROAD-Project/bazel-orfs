@@ -1,0 +1,34 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load(":profiler.bzl", "profiler_so")
+
+# gperftools' CPU profiler as a shared object, preloaded into the command
+# wall_profile runs.
+cc_binary(
+    name = "libprofiler_no_aw_backtrace.so",
+    linkshared = True,
+    linkstatic = True,
+    deps = ["@gperftools//:cpu_profiler"],
+)
+
+profiler_so(
+    name = "libprofiler.so",
+    src = ":libprofiler_no_aw_backtrace.so",
+)
+
+# Where a program's main thread spends its wall-clock time, waiting
+# included: wall_profile.py.
+py_binary(
+    name = "wall_profile",
+    srcs = ["wall_profile.py"],
+    data = [":libprofiler.so"],
+)
+
+py_test(
+    name = "wall_profile_test",
+    srcs = [
+        "wall_profile.py",
+        "wall_profile_test.py",
+    ],
+    main = "wall_profile_test.py",
+)

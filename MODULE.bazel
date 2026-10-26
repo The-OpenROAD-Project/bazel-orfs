@@ -19,6 +19,10 @@ bazel_dep(name = "platforms", version = "1.1.0")
 
 bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.4", dev_dependency = True)
 
+# gperftools' CPU profiler for //tools/wall_profile, a wall-clock profile
+# of a command's main thread.
+bazel_dep(name = "gperftools", version = "2.19.1", dev_dependency = True)
+
 bazel_dep(name = "rules_cc", version = "0.2.22")
 bazel_dep(name = "rules_shell", version = "0.8.0")
 

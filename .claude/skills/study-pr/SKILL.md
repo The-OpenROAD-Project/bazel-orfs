@@ -76,6 +76,14 @@ measuring XiangShan on asap7.
   other threads saves CPU, not wall time. Splitting OpenSTA's parasitics lock
   cut cts's futex share from 42 % to 5 % and its CPU by about 40 %, but cts's
   wall time moved 2 %.
+- **Profile the main thread by wall clock, waiting included.** perf
+  samples a thread only while it runs, so the time the main thread waits
+  in a barrier for its workers does not show. `bazelisk run
+  //tools/wall_profile -- -- <cmd>` preloads gperftools' profiler in
+  real-time mode and reports the main thread's elapsed time by function.
+  On write_timing_model at 32 threads it split 8.1 s into 3.9 s waiting
+  in `finishTasks` and 3.6 s of serial work repeated for each of 539
+  filtered searches, which no thread count would shorten.
 - **Name the kernel time.** With `kernel.kptr_restrict=1`, the default, a
   hot kernel address shows up unnamed while every core looks busy. A human
   sets `sysctl kernel.kptr_restrict=0`. Then classify the spinlock samples by
