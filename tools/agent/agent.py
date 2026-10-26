@@ -36,6 +36,7 @@ EXPORTED_SKILLS = (
     "analyze-before-push",
     "byo-openroad",
     "cache-miss",
+    "carried-patches",
     "check-setup",
     "debug-rtl-sim",
     "dirty-lane",
