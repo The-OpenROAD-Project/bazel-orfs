@@ -33,10 +33,11 @@ ARGUMENTS: $ARGUMENTS
 - Polling a running job every few minutes and telling the human each time that nothing changed.
 - Answering a question the human asked with "let me start a run and come back in an hour" when a smaller run, a log already on disk or a grep of the source would answer it now.
 - A sweep whose arms each need a human decision between them.
+- Rebuilding every macro after each fix to a script that only the top level runs, when a dirty lane on the macros' cached results runs it in seconds.
 
 ## Where the mechanics live
 
-`/openroad-debug` for the `@bazel-orfs//:dirty` tree and bring-your-own-binary loop that makes a stage a seconds-scale experiment; `/odb-debug` for questions the ODB answers without re-running anything; `debug-rtl-sim` for the simulation ladder. This skill decides the order and the moment to stop asking; those decide how.
+A small-scale loop is only fast if it was made fast: `fixed-turnaround` fixes its turnaround before the first run (measure the vehicle, shrink it until an iteration takes minutes, stop a step that runs suspiciously long), and `dirty-lane` iterates a flow script on the cached outputs it reads instead of rebuilding them. `/openroad-debug` for the `@bazel-orfs//:dirty` tree and bring-your-own-binary loop that makes a stage a seconds-scale experiment; `/odb-debug` for questions the ODB answers without re-running anything; `debug-rtl-sim` for the simulation ladder. This skill decides the order and the moment to stop asking; those decide how.
 
 ## Scaling the long run
 
