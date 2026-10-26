@@ -9,8 +9,18 @@
 # the macro instance a pin is in, the parent macro being tpu_rest, or
 # "rig" for a register of the top level itself (tpu_meso.sv)
 proc cc_where { pin where } {
-  set inst [lindex [split [get_full_name $pin] /] 0]
-  if { ![dict exists $where $inst] } { return rig }
+  set name [get_full_name $pin]
+  set inst [lindex [split $name /] 0]
+  # a dissolved tile's cell: u_b<r>_<c>.<cell> (dissolve.tcl)
+  regexp {^(u_b\d+_\d+)\.} $name -> inst
+  if { ![dict exists $where $inst] } {
+    # dissolved (dissolve.tcl): a tile's cells are u_b<r>_<c>.<cell>, the
+    # parent's u_rest.<cell>
+    if { [dict exists $where dissolved] } {
+      return [expr { [string match u_rest.* $inst] ? "u_rest" : "rig" }]
+    }
+    return rig
+  }
   return $inst
 }
 
@@ -67,6 +77,16 @@ proc cc_table { title where parent } {
 }
 
 proc hr_report { where parent } {
+  if { [dict size $where] == 0 } {
+    # dissolved: no macro left, the tiles and the parent known by name
+    dict set where dissolved tpu_rest
+    dict set where u_rest tpu_rest
+    foreach cell [all_registers -cells] {
+      if { [regexp {^(u_b\d+_\d+)\.} [get_full_name $cell] -> tile] } {
+        dict set where $tile tpu_block
+      }
+    }
+  }
   set lines [cc_table "as timed" $where $parent]
   set_timing_derate -early -clock 0.95
   set_timing_derate -late -clock 1.05

@@ -17,7 +17,11 @@ proc hr_report { where parent } {
   foreach pin [all_registers -clock_pins] {
     set name [get_full_name $pin]
     set inst [lindex [split $name /] 0]
-    if { ![dict exists $where $inst] } { set inst [rig_side $name $parent] }
+    # a dissolved tile's registers are u_b<r>_<c>.<cell> (dissolve.tcl)
+    regexp {^(u_b\d+_\d+)\.} $name -> inst
+    if { ![dict exists $where $inst] && ![regexp {^u_b\d+_\d+$} $inst] } {
+      set inst [rig_side $name $parent]
+    }
     dict lappend at $inst [get_property $pin arrival_max_rise]
   }
   set lines {}
