@@ -10,7 +10,7 @@ description: >-
 
 > **Repo**: Run from the bazel-orfs root, with a clone of the upstream repository (OpenROAD, ORFS, ...) in `tmp/`. Applies only once the human has ordered the upstream pull request; until then the change is a carried patch (CLAUDE.md, "Upstream repositories").
 
-How a fix carried here as patches becomes an upstream pull request a maintainer can review. The carried patches churned where churn was cheap; the pull request is the settled change, told to someone who has never seen bazel-orfs.
+How a fix carried here as patches becomes an upstream pull request a maintainer can review. Which carried patches are candidates at all, and whether a bump or a deletion sheds one first, is the `carried-patches` skill. The carried patches churned where churn was cheap; the pull request is the settled change, told to someone who has never seen bazel-orfs.
 
 ARGUMENTS: $ARGUMENTS
 

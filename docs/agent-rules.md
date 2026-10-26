@@ -53,6 +53,13 @@ blocks change shape with every upstream, and a generator is out of date
 the day the next one does. Details: bazel-orfs's `docs/openroad.md`,
 "Root MODULE.bazel requirements".
 
+A carried patch is shed cheapest way first, and every one ends in a
+recorded state: `carried-patches` — drop a patch nothing uses, retire one
+a bump carries (`@bazel-orfs//tools/carried_patches:check_carried_patches`
+says `ABSORBED`, run over the copied patches after each bump too), and
+report the rest as upstream candidates, sorted into bugfixes and new
+topics.
+
 ## Import and export
 
 `bazelisk run //:import` brings an ORFS design into a bazel-orfs clone,
