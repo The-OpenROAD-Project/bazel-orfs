@@ -1,6 +1,6 @@
-# generate_ram's RAMs (OpenROAD patches 0011 to 0023) simulated beside
-# their own behavioral models under random reads and writes, every read
-# compared, in the shapes the patches add. The register files of real
+# generate_ram's RAMs (OpenROAD #11723) simulated beside their own
+# behavioral models under random reads and writes, every read compared,
+# in the shapes its options add. The register files of real
 # designs are simulated against their RTL in test/regfile/cores.
 load("@rules_cc//cc:defs.bzl", "cc_test")
 load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
@@ -21,7 +21,7 @@ stdcell_verilog(
     ],
 )
 
-# generate_ram with two write ports (OpenROAD patch 0011): its netlist
+# generate_ram with two write ports: its netlist
 # beside its own behavioral model on Nangate45, whose tristate buffers
 # make the read bitlines, under random writes on both ports, a quarter
 # of them to the same word, the last port winning.
@@ -62,20 +62,19 @@ ASAP7 = {
 }
 
 # Each shape of generate_ram's 8 x 8, two write ports and one read:
-# Nangate45's tristate bitlines (patch 0011), its AND-OR trees asked for
-# (patch 0012), and asap7's, which has no tristate cell, with its QN-only
-# flop (the storage cell named: the smallest flop is negative-edge), and
-# with a word reading 0 (patch 0013), on either polarity of flop; and
-# with an asynchronous reset to a value of both 0s and 1s (patch 0014),
-# on Nangate45's set/reset flop and asap7's, which stores !D; and in
-# banks (patch 0015), contiguous and interleaved, side by side and
-# stacked, tristate and AND-OR, and 12 words in banks of 3; and with a
-# banked read port beside a plain one (patch 0016); and with registered
-# read addresses (patch 0017), on Q and QN flops; and holding words by a
-# mux per bit instead of a clock gate (patch 0018), and with its periphery
-# left unplaced (patch 0019); with cells given by role (patch 0020); and a
-# word's bits folded into rows (patch 0022); and the periphery as Verilog
-# around the core (patch 0023), clock gates and tristates included.
+# Nangate45's tristate bitlines, its AND-OR trees asked for, and
+# asap7's, which has no tristate cell, with its QN-only flop (the
+# storage cell named: the smallest flop is negative-edge), and with a
+# word reading 0, on either polarity of flop; and with an asynchronous
+# reset to a value of both 0s and 1s, on Nangate45's set/reset flop and
+# asap7's, which stores !D; and in banks, contiguous and interleaved,
+# side by side and stacked, tristate and AND-OR, and 12 words in banks
+# of 3; and with a banked read port beside a plain one; and with
+# registered read addresses, on Q and QN flops; and holding words by a
+# mux per bit instead of a clock gate, and with its periphery left
+# unplaced; with cells given by role; and a word's bits folded into
+# rows; and the periphery as Verilog around the core, clock gates and
+# tristates included.
 [
     [
         genrule(

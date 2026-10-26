@@ -44,8 +44,8 @@ regfile_cores.txt: they are in blackboxes.txt but no module of the
 sources, so ORFS's check that every AUTO_MEMORIES module is a black box
 after read_slang skips them.
 
-Needs generate_ram's register-file options, OpenROAD #11723, carried in
-bazel-orfs as patches 0011 to 0026 and 0115 to 0121. Not upstreamed;
+Needs generate_ram's register-file options, OpenROAD #11723 (merged).
+Not upstreamed;
 retires at a //:bump onto an ORFS that carries it.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
