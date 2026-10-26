@@ -118,7 +118,26 @@ vendors those in the `@openroad` `archive_override`'s `patch_cmds`, which is
 the other reason to build through this repository rather than beside it.
 
 The ODB is compatible across the two binaries as long as your checkout and the
-flow's pinned OpenROAD share a base revision.
+flow's pinned OpenROAD share a base revision. A newer binary reads an older
+ODB, so upstream's tip can run on the pinned flow's checkpoint; an older one
+stops with "incompatible database schema revision".
+
+## Where the time goes: `perf` on one stage
+
+The same loop answers "where does this stage spend its time", on the flow's
+exact inputs:
+
+```bash
+cd tmp/<package>/<module>            # the @bazel-orfs//:dirty tree
+perf record -F 99 --call-graph dwarf -o perf.data -- ./make do-<substep>
+perf report -i perf.data --stdio --no-children | head -60
+```
+
+`perf record` follows the child processes, so it profiles the openroad that
+`make` starts. A `-c opt` binary keeps its symbols; `--call-graph dwarf`
+unwinds it without frame pointers, at the cost of a large `perf.data`, so
+profile one substep, not a whole stage chain. Profile the flow's own binary
+the same way before reading a hot spot as the cost of a change.
 
 ## Three-tier test loop — climb only as far as you must
 
