@@ -206,6 +206,12 @@ A long run is settled small first: `no-paint-drying` (settle questions at
 seconds-to-minutes scale, then run unattended); `repair-timing-grt` for a
 global-route repair that grinds.
 
+An edit-run loop gets a fixed turnaround before its first run:
+`fixed-turnaround` (name what the loop tests, measure the vehicle step by
+step, shrink it until an iteration takes minutes, keep the expensive
+upstream frozen: a patch's C++ in its unit test, a script in a dirty lane
+on cached inputs).
+
 How much of a period `repair_timing` leaves on the table, and in which
 move, has its own skill and tools:
 
