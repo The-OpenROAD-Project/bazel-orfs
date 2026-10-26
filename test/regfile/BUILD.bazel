@@ -171,10 +171,10 @@ build_test(
 )
 
 # OpenROAD's own ram tests, generate_ram's and those OpenROAD #11723
-# adds (patches 0011 to 0026 and 0115 to 0120), each routing its block
-# through generate_ram: seconds to minutes each in an optimized build,
-# ten times that without one. Manual, to keep them out of this
-# repository's CI time; run them after a change to the patches:
+# added, each routing its block through generate_ram: seconds to
+# minutes each in an optimized build, ten times that without one.
+# Manual, to keep them out of this repository's CI time; run them after
+# a bump that changes src/ram:
 #
 #   bazelisk test -c opt //test/regfile:openroad_ram_tests
 test_suite(

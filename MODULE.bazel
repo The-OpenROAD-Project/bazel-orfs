@@ -107,7 +107,7 @@ bazel_dep(name = "aspect_rules_js", version = "3.5.1")
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
-    integrity = "sha256-TRKcrSDXNUtr7Gr09u5g6UqIZEC7t6xVEO1oOMmsPxE=",
+    integrity = "sha256-fLKl6KfWx0s7hxc4q5JPBIDaez8P4Klbz6eXLNHokJc=",
     # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
     # so vendor src/sta (OpenSTA) and third-party/abc from their own
     # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
@@ -198,79 +198,6 @@ archive_override(
         # pull request carries a gtest. Retires at a bump onto an OpenROAD
         # that has it.
         "//patches:0004-openroad-dpl-window-supply.patch",
-        # 0011 to 0026 and 0115 to 0121: OpenROAD #11723's 23 commits,
-        # generate_ram's register-file options, one patch a commit, in its
-        # order; regenerated from it. Not upstreamed; each retires at a
-        # //:bump onto an OpenROAD that has #11723.
-        # 0011: generate_ram with more than one write port, each with its
-        # own decoder and data, the last port winning a word both write.
-        "//patches:0011-openroad-ram-multiple-write-ports.patch",
-        # 0012: generate_ram reads through AND-OR trees where the library
-        # has no tristate cell (asap7), or when asked; a QN-only storage
-        # flop taken there. On 0011 (OpenROAD #11669); not upstreamed.
-        "//patches:0012-openroad-ram-and-or-read.patch",
-        # 0013: generate_ram -zero_word, a word that reads 0 and drops its
-        # writes (a RISC-V x0). On 0012 (OpenROAD #11669); not upstreamed.
-        "//patches:0013-openroad-ram-zero-word.patch",
-        # 0014: generate_ram -reset_value, an asynchronous reset of every
-        # word, per bit cleared or preset. On 0013 (OpenROAD #11669); not
-        # upstreamed.
-        "//patches:0014-openroad-ram-reset.patch",
-        # 0015: generate_ram -banks, -bank_columns, -bank_order: words in
-        # banks, each word decoded whole. On 0014 (OpenROAD #11669); not
-        # upstreamed.
-        "//patches:0015-openroad-ram-banks.patch",
-        # 0016: generate_ram -rb_ports, read ports with an address and data
-        # per bank. On 0015 (OpenROAD #11669); not upstreamed.
-        "//patches:0016-openroad-ram-banked-read-ports.patch",
-        # 0017: generate_ram -read_latency 1, registered read addresses. On
-        # 0016 (OpenROAD #11669); not upstreamed.
-        "//patches:0017-openroad-ram-read-latency.patch",
-        # 0018: generate_ram -write_style mux, a hold mux per bit for the
-        # clock gate per word. On 0017 (OpenROAD #11669); not upstreamed.
-        "//patches:0018-openroad-ram-write-mux.patch",
-        # 0019: generate_ram_netlist -periphery unplaced, the core alone
-        # placed and outlined, for a parent to dissolve. On 0018 (OpenROAD
-        # #11669); not upstreamed.
-        "//patches:0019-openroad-ram-periphery-unplaced.patch",
-        # 0020: generate_ram -cells {role master ...} and -name. On 0019
-        # (OpenROAD #11669); not upstreamed.
-        "//patches:0020-openroad-ram-cells-name.patch",
-        # 0021: generate_ram -decoder word, a balanced AND2 tree per word.
-        # On 0020 (OpenROAD #11669); not upstreamed.
-        "//patches:0021-openroad-ram-word-decoder.patch",
-        # 0022: generate_ram -bit_folds, a word's slices in rows. On 0021
-        # (OpenROAD #11669); not upstreamed.
-        "//patches:0022-openroad-ram-bit-folds.patch",
-        # 0023: generate_ram_netlist -periphery verilog, the core a block of
-        # its own and its periphery a Verilog wrapper. On 0022 (OpenROAD
-        # #11669); not upstreamed.
-        "//patches:0023-openroad-ram-periphery-verilog.patch",
-        # 0024: generate_ram -write_priority or, ports writing one word in
-        # a cycle write the OR of their data. On 0023 (OpenROAD #11669);
-        # not upstreamed.
-        "//patches:0024-openroad-ram-write-priority-or.patch",
-        # 0025: generate_ram -service_columns, empty columns in the array
-        # for a parent's buffers. On 0024 (OpenROAD #11669); not upstreamed.
-        "//patches:0025-openroad-ram-service-columns.patch",
-        # 0026: generate_ram -bank_column_layout contiguous, a word's bits
-        # side by side in its row. On 0025 (OpenROAD #11669); not
-        # upstreamed.
-        "//patches:0026-openroad-ram-bank-column-layout.patch",
-        # 0115: out-of-range option values stop, each with its message.
-        "//patches:0115-openroad-ram-option-errors.patch",
-        # 0116: the ram test BUILD's per-test data in sorted order.
-        "//patches:0116-openroad-ram-test-build-sorted.patch",
-        # 0117: -read_latency is -register_read_address.
-        "//patches:0117-openroad-ram-register-read-address.patch",
-        # 0118: generate_ram routes on asap7: -tracks, pins off its straps.
-        "//patches:0118-openroad-ram-routes-on-asap7.patch",
-        # 0119: generate_ram -periphery verilog, the core routed.
-        "//patches:0119-openroad-ram-periphery-verilog-routed.patch",
-        # 0120: the ram option tests route through generate_ram.
-        "//patches:0120-openroad-ram-routed-tests.patch",
-        # 0121: generate_ram's help lists its options.
-        "//patches:0121-openroad-ram-help.patch",
         # 0140: the web viewer shows a busy cursor while a timing report it
         # was asked for is built (a slack-histogram bucket click, a bin
         # double-click, the timing widget's Update), as the Qt GUI does.
@@ -297,8 +224,8 @@ archive_override(
         # opened cramped). Not upstreamed; retires with 0142.
         "//patches:0144-openroad-web-columns-measured-from-rows.patch",
     ],
-    strip_prefix = "OpenROAD-79eaac151c5b65925cc24226a8a116cfd2651f4a",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/79eaac151c5b65925cc24226a8a116cfd2651f4a.tar.gz"],
+    strip_prefix = "OpenROAD-89e24308eb8f6a5662aab79ec77bd6eb1eb510b5",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/89e24308eb8f6a5662aab79ec77bd6eb1eb510b5.tar.gz"],
 )
 
 # sed (transitive: abc -> ncurses -> sed): its vendored gnulib headers shadow

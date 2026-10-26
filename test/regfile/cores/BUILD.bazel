@@ -1,5 +1,5 @@
-# Register files of real designs through generate_ram (OpenROAD patches
-# 0011 to 0023), by ORFS's own translation of their specs (regfile_ram.py,
+# Register files of real designs through generate_ram (OpenROAD
+# #11723), by ORFS's own translation of their specs (regfile_ram.py,
 # ORFS patch 0089), each simulated against the RTL it replaces (sim.bzl),
 # every read compared under random reads, writes and resets. Seconds
 # each.
