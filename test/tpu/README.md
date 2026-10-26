@@ -388,9 +388,52 @@ What was learned on the way:
   among 61,088 FIRM ones, 39 still illegal from its 20th iteration to
   its 400th; the diamond
   search (`DETAIL_PLACEMENT_ARGS=-use_diamond_legalizer`) places them.
-- **Global route is the whole design's again**: 205 s of the 471 s,
-  1,965 CPU seconds. An RTL edit in a processing element rebuilds the
-  tile and then the parent from synthesis, about the fresh build.
+- **The build is flat's again.** With the tiles and the C as macros,
+  the top level never touched a tile's cells: the tile and the C built
+  side by side in about a minute, the top level in 10 s. Dissolved, the
+  parent places, repairs and routes all of them, about 400 s of the
+  471 s behind the tile's 70 s; an RTL edit in a processing element
+  rebuilds the tile and then the parent from synthesis, about the fresh
+  build. Its stages, from the fresh build's log:
+
+  | stage | wall | the most of it |
+  |---|---|---|
+  | place | 73 s | global placement, 36 s |
+  | CTS | 82 s | repair_timing 40 s; clock_chain.tcl 13 s; CTS 9 s |
+  | global route | 215 s | pin_access 107 s; repair_timing 57 s; routing 14 s |
+
+  Three reasons:
+  - **Repair works on paths it cannot fix**, about 100 s: the parent's
+    clock target is 450 ps, the tiles' own paths are 667 ps, so repair
+    at CTS and at global route takes on some 1,600 failing endpoints
+    inside the tiles, whose cells are FIRM, and gives up on each
+    (RSZ-0062). As macros, each tile closed its own paths in its own
+    flow.
+  - **Pin access covers every cell**, 107 s, half of global route; as
+    macros, each tile did its own, side by side. Why it costs this much
+    is not checked, for one whether the 16 copies sit alike against the
+    routing tracks.
+  - **The flows are in series again**: the parent's synthesis waits for
+    the tile's CTS, where its abstract is taken. As macros, the pin
+    plan let the C and the tiles build side by side.
+
+More experiments, not run:
+
+- The parent's clock target at the tiles' floor, about 680 ps: repair
+  leaves the tiles' paths alone; the period read is the design's either
+  way.
+- The tile's abstract taken at floorplan, its footprint and pins being
+  the plan's: the parent's synthesis and floorplan beside the tile's
+  placement and CTS, and only the dissolve waiting for the tile's
+  database.
+- Pin access: how many unique instance contexts the 16 copies make, and
+  whether a tile pitch on the routing tracks' pitch makes them one.
+- The column-0 offset (`CHAIN_COL0_PS`) and the step swept, and three
+  placement seeds, as the headline table had.
+- A carried CTS patch that takes a latency per sink, the chain built by
+  the tree instead of by hand.
+- LEC of the dissolve: gold flattened by yosys (`u_b0_0.<cell>`, the
+  dissolve's own names), asap7's liberty for kepler-formal.
 
 Not done: a proof that the dissolve keeps the function. The carve is
 proven equivalent; the dissolve is checked by STA seeing all 4,207
