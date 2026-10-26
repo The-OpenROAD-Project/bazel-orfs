@@ -69,7 +69,6 @@ ORFS_PATCHES = [
     # cells of their own type.
     # Not upstreamed -- retire at a bump onto an ORFS with such a hook.
     Label("//patches:0068-orfs-synth-techmap-hook.patch"),
-    Label("//patches:0073-orfs-fakeram-declared-pins-write-mask.patch"),
     Label("//patches:0074-orfs-skip-extract-fa.patch"),
     # 0083: the macro step skips rtl_macro_placer when MACRO_PLACEMENT_TCL
     # fixed every macro (a planned parent: its blocks and register files
@@ -99,16 +98,10 @@ ORFS_PATCHES = [
     # 0088: a generated asap7 macro is at least one M5 power-strap pitch
     # wide. A 64x16 array folded to 4.18 um, narrower than the 5.4 um
     # pitch, could land between two straps of a net; its macro grid then
-    # had no shapes and pdngen failed the design (PDN-0233). Applies
-    # after 0073; retires at a bump onto an ORFS whose FakeRAM asap7
-    # backend has a width floor.
+    # had no shapes and pdngen failed the design (PDN-0233). Retires at
+    # a bump onto an ORFS whose FakeRAM asap7 backend has a width
+    # floor.
     Label("//patches:0088-orfs-fakeram-min-width.patch"),
-    # 0094: SYNTH_VERILOG_SURGERY, a script that edits copies of
-    # VERILOG_FILES before synthesis reads them, so vendored RTL stays as
-    # upstream has it. Upstream as
-    # The-OpenROAD-Project/OpenROAD-flow-scripts#4649; retires at a
-    # //:bump onto an ORFS that carries it.
-    Label("//patches:0094-orfs-synth-verilog-surgery.patch"),
     # 0089: AUTO_MEMORIES_REGFILES: register files listed by spec are
     # built by OpenROAD's generate_ram (OpenROAD #11723, patches 0011 to
     # 0026 and 0115 to 0121) through memories/regfile_ram.py, a wrapper in
@@ -123,8 +116,8 @@ ORFS_PATCHES = [
     # 0102: asap7/coralnpu as a synthesis build of its snapshot: SRAMs
     # through AUTO_MEMORIES with their write masks, not USE_ASAP7's
     # maskless fakerams; firtool's verification layers removed by
-    # surgery; a picosecond clock; coralnpu's units kept by name. Needs
-    # 0094. Upstream as ORFS #4653 (draft), with 0103 and 0106.
+    # surgery; a picosecond clock; coralnpu's units kept by name.
+    # Upstream as ORFS #4653 (draft), with 0103 and 0106.
     Label("//patches:0102-orfs-coralnpu-idiomatic.patch"),
     # 0103: asap7/coralnpu-regfile: Regfile's 31 words moved by surgery
     # into Regfile_rf and generated. Needs 0089 and 0102.
@@ -143,7 +136,7 @@ ORFS_PATCHES = [
     # design: asap7/picorv32-regfile (picorv32's own PICORV32_REGS seam
     # and a spec),
     # asap7/ibex-regfile (a spec), asap7/swerv_wrapper-regfile and
-    # asap7/cva6-regfile (SYNTH_VERILOG_SURGERY, 0094, moves the storage
+    # asap7/cva6-regfile (SYNTH_VERILOG_SURGERY moves the storage
     # into a module the spec names). Not upstreamed; carried to
     # measure the register-file options on ORFS's designs (OpenROAD
     # #11723); each retires at a bump onto an ORFS that carries it.
@@ -177,7 +170,7 @@ ORFS_PATCHES = [
     # 0131: OpenROAD's own synthesis (SYNTH_USE_SYN) reads the platform's
     # clock gate (CLKGATE_MAP_FILE) as the Yosys flow does, and
     # asap7/swerv_wrapper no longer names $(CLKGATE_MAP_FILE), a platform
-    # variable config_mk_parser cannot resolve, in VERILOG_FILES. On 0094.
+    # variable config_mk_parser cannot resolve, in VERILOG_FILES.
     # Not upstreamed; retires at a bump onto an ORFS that carries it.
     Label("//patches:0131-orfs-syn-clkgate-map.patch"),
     # 0139: gui_<stage> opens the web viewer, qt_<stage> the Qt GUI

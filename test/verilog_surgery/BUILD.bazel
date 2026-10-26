@@ -1,5 +1,5 @@
 # SYNTH_VERILOG_SURGERY: synthesis reads copies of VERILOG_FILES that a
-# script edited, not the files themselves (ORFS patch 0094). The fixture's
+# script edited, not the files themselves (ORFS #4649). The fixture's
 # script inverts an assignment the vendored RTL leaves plain, so the
 # netlist shows which of the two synthesis read.
 load("@rules_shell//shell:sh_test.bzl", "sh_test")

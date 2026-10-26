@@ -237,7 +237,7 @@ The rough edges are OpenROAD's; the daemon works around them or says so:
   that could deliver the Continue; the daemon raises the count to two.
 - `web_server` would open a browser wherever it runs; on a desktop
   `xdg-open` ignores `$BROWSER`. The daemon passes `-no_browser`
-  (carried patch 0126, the flag of OpenROAD#11658), so nothing opens.
+  (OpenROAD#11658), so nothing opens.
 - `web_server` listens, runs the browser launcher (skipped here), and
   only then lets requests in; a request in between crashes OpenROAD
   (signal 11). `daemon.json` therefore

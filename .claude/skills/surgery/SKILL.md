@@ -24,7 +24,7 @@ boundary hides what the tools would otherwise do, no placement removes
 it: the fix is surgery, a change to the RTL's structure that keeps its
 function.
 
-Surgery in this flow is `SYNTH_VERILOG_SURGERY` (ORFS patch 0094): a
+Surgery in this flow is `SYNTH_VERILOG_SURGERY` (ORFS #4649): a
 script that edits copies of the sources before synthesis, so vendored RTL
 stays as upstream has it and the change is on the books next to the
 design's config. A surgery is either a change the RTL might make for a

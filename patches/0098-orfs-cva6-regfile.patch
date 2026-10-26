@@ -18,7 +18,7 @@ names its source directory rather than DESIGN_NICKNAME's, so the
 variant can include it.
 
 Not upstreamed: carried in bazel-orfs for the register-file campaign;
-needs ORFS 0094 and OpenROAD 0011 and 0013.
+needs OpenROAD 0011 and 0013.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
