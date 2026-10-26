@@ -1,8 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 26 Oct 2026 17:54:56 +0100
-Subject: [PATCH 2/5] search: a thread caches a tag it finds, not only one it
- makes
+Subject: [PATCH] search: a thread caches a tag it finds, not only one it makes
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
