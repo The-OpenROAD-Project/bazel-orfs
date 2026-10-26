@@ -41,6 +41,7 @@ EXPORTED_SKILLS = (
     "debug-rtl-sim",
     "dirty-lane",
     "dogfooding",
+    "fixed-turnaround",
     "macro-constraints",
     "macro-selection",
     "new-project",
