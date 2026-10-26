@@ -112,8 +112,7 @@ works:
   patches of its own (`patches/kepler-formal-*.patch`), and it pays
   for them: a passing LEC is a strong signal that a hand change kept
   the logic, which is what lets you, or an AI, do Verilog surgery
-  (`SYNTH_VERILOG_SURGERY`, carried as
-  [patches/0094](patches/0094-orfs-synth-verilog-surgery.patch)) or
+  (ORFS's `SYNTH_VERILOG_SURGERY`) or
   hand-code a netlist to close timing, and trust the result.
 - **Throwaway work.** While you're exploring, nobody needs to
   reproduce the dead ends. They need to reproduce the answer, so

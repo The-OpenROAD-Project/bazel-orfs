@@ -344,9 +344,9 @@ needs these first:
   every macro; not upstream.
 - ORFS patch 0124, the supplies of `dont_touch` instances connected by
   PDN; not upstream.
-- ORFS patch 0073, FakeRAM from the declared pins and write mask, if the
-  parent's memories have a write mask; not upstream.
-- ORFS #4649, `SYNTH_VERILOG_SURGERY`, and ORFS patch 0068,
+- ORFS #4711, FakeRAM from the declared pins and write mask, if the
+  parent's memories have a write mask, merged.
+- ORFS #4649, `SYNTH_VERILOG_SURGERY` (merged), and ORFS patch 0068,
   `SYNTH_POST_HIERARCHY_SCRIPTS` (XiangShan's clock gate onto ASAP7's
   ICG; not upstream): the parent sets `AUTO_MEMORIES`, so make
   synthesises it from the RTL (above).

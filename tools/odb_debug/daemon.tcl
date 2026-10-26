@@ -775,7 +775,7 @@ if { [thread_count] < 2 } {
   set_thread_count 2
 }
 # web_server listens, then runs the browser launcher (skipped here with
-# -no_browser, patch 0126), then lets requests in; a request
+# -no_browser), then lets requests in; a request
 # that arrives in between crashes OpenROAD (signal 11). It blocks, so the
 # rename that tells clients to connect happens beside it, after a grace.
 exec sh -c {sleep 2; [ -f "$1" ] && mv -f "$1" "$2"} odb-debug-ready \

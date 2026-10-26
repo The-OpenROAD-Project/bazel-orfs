@@ -23,7 +23,7 @@ and the asap7 backend sets it to one pitch plus one strap plus the
 rails' inset at both edges, 5.616 um: a strap of each net then crosses
 the rails wherever the macro is placed. Wider macros are unchanged.
 
-Not upstreamed (applies after carried patch 0073).
+Not upstreamed.
 Retires at a //:bump onto an ORFS whose FakeRAM asap7 backend has a
 width floor.
 

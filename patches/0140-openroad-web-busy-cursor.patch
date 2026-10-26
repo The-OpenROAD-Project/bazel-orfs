@@ -16,7 +16,7 @@ fails. Used by the bucket click, the fanout/net-length bin double-click
 and the timing widget's Update.
 ---
 diff --git a/src/web/src/charts-widget.js b/src/web/src/charts-widget.js
-index 53d3b24..d3fbce5 100644
+index 53d3b24eb..d3fbce538 100644
 --- a/src/web/src/charts-widget.js
 +++ b/src/web/src/charts-widget.js
 @@ -7,7 +7,7 @@
@@ -71,7 +71,7 @@ index 53d3b24..d3fbce5 100644
              if (resp && resp.truncated) {
                  console.warn(
 diff --git a/src/web/src/style.css b/src/web/src/style.css
-index 99becbb..e4cca3e 100644
+index 84039ce2d..0227e730a 100644
 --- a/src/web/src/style.css
 +++ b/src/web/src/style.css
 @@ -295,6 +295,15 @@ html[data-theme="light"] {
@@ -91,7 +91,7 @@ index 99becbb..e4cca3e 100644
      background: var(--bg-hud);
      color: var(--fg-hud);
 diff --git a/src/web/src/timing-widget.js b/src/web/src/timing-widget.js
-index 6005142..34aaffe 100644
+index 60051428d..34aaffecd 100644
 --- a/src/web/src/timing-widget.js
 +++ b/src/web/src/timing-widget.js
 @@ -3,7 +3,8 @@
@@ -121,10 +121,10 @@ index 6005142..34aaffe 100644
              // cached object whose path order must keep matching the
              // server-side overlay indices, so it must not be sorted.
 diff --git a/src/web/src/ui-utils.js b/src/web/src/ui-utils.js
-index 8c4c220..31afff1 100644
+index a4f98cbb6..b71b1f386 100644
 --- a/src/web/src/ui-utils.js
 +++ b/src/web/src/ui-utils.js
-@@ -197,6 +197,24 @@ export function onSelectionReset(app, fn) {
+@@ -204,6 +204,24 @@ export function onSelectionReset(app, fn) {
      app.selectionResetters.push(fn);
  }
  
@@ -150,20 +150,20 @@ index 8c4c220..31afff1 100644
  //
  // zoomSnap:1 + zoomDelta:1 force the map to rest only at INTEGER zoom levels,
 diff --git a/src/web/test/js/test-ui-utils.js b/src/web/test/js/test-ui-utils.js
-index 70f50a7..4744132 100644
+index 16ed17ccb..d4ceecd63 100644
 --- a/src/web/test/js/test-ui-utils.js
 +++ b/src/web/test/js/test-ui-utils.js
 @@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
  import { applyArrowStep, boundsEqual, computeBoundsTransforms, computeScaleBar,
           cssColorToHex, fittedTileSizeCss, installWheelPanning, isValidHexColor,
           kArrowStepDefault, kZoomMargin, maxUsefulZoom, MAX_TILE_ZOOM,
--         niceRoundParts }
-+         niceRoundParts, withBusyCursor }
+-         niceRoundParts, websocketUrlFrom }
++         niceRoundParts, websocketUrlFrom, withBusyCursor }
      from '../../src/ui-utils.js';
  import { isDeviceExactTileSize, TILE_SIZE_CSS, TILE_SIZE_QUANTUM }
      from '../../src/tile-request.js';
-@@ -539,3 +539,45 @@ describe('applyArrowStep', () => {
-         assert.doesNotThrow(() => applyArrowStep({ keyboard: {} }, 100));
+@@ -553,3 +553,45 @@ describe('websocketUrlFrom', () => {
+         assert.equal(websocketUrlFrom({ host: '' }), 'ws://localhost:8080/ws');
      });
  });
 +
