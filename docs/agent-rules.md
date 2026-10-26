@@ -170,7 +170,8 @@ are a skill of their own:
   upstream PR is a draft; relative paths; unattended means continue;
   check what our flow skipped before blaming a tool; trust the Bazel
   cache, never clean it; no ranking of alternatives before grt unless
-  what is new this time is named.
+  what is new this time is named; a green exit status is not a result:
+  the silent failures to check, and a silent one made loud when found.
 
 A target that another machine built but that is not a remote cache hit
 here, or that rebuilds when nothing seemed to change, has its own skill:

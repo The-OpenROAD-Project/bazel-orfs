@@ -12,9 +12,11 @@ description: >-
   time; test script changes for the parent in a dirty lane on cached blocks, the full
   build is the final dress rehearsal; trust the Bazel cache and never clean it, re-key
   an artifact by a code change that reaches its key; a moratorium on ranking alternatives
-  before grt unless what is new this time is named. Use before proposing a fix for a timing or flow problem found
+  before grt unless what is new this time is named; a green exit status is not a result,
+  check the silent failures and make one loud when it is found. Use before proposing a fix for a timing or flow problem found
   on a big design, before writing a design README or status, before opening a PR that
-  depends on another, and before writing a test for a public PR.
+  depends on another, before writing a test for a public PR, and when a result
+  contradicts a green build or run.
 ---
 
 > **Repo**: Run from bazel-orfs or any workspace that depends on it. Rules learned building XiangShan with bazel-orfs; they apply to any large design.
@@ -115,6 +117,21 @@ XiangShan's keep A/B timed at synthesis pointed one way unbuffered and
 the other way buffered, and only grt said which. What earlier stages
 miss is the flow's own work: buffering, repair, wire, clock skew, the
 blocks' post-layout abstracts.
+
+## 15. A green exit status is not a result
+
+The most expensive diagnoses are of failures that say nothing: the build is green, the run finished, and the output is wrong, missing or stale. There is no error to chase, so check these before inventing a theory:
+
+- **A file that never made it into the commit.** `.gitignore`'s `bazel-*` matches at any depth, so a new `bazel-something/` directory or file is silently left out of `git add`. After adding files, `git status --short` must list them; `git check-ignore -v <path>` names the rule that swallowed one.
+- **An edit to content that no longer exists.** A formatter (`fix_lint`) rewrites a file between an edit and the commit, and an exact-text edit made after it "succeeds" on the old text in the editor's memory. Check the committed file, not the edit tool's report.
+- **A guard that skips instead of failing.** A flow script that tests `[file exists ...]` and moves on (ORFS's `open.tcl` sources the platform's `derate.tcl` only if it is there) runs without the input and says nothing. When a stage behaves as if an input were not there, prove the file is present in the action's sandbox or the deployed tree, not just in the checkout.
+- **A guard that matches the wrong thing.** A grep for "source" in a log matched a line about "resource sharing". When a check passes suspiciously, print what it matched.
+- **Output from an earlier run.** `bazel-bin` keeps every output any earlier invocation left, and a stale one looks the same as a fresh one. Read results only from the targets the current invocation built.
+- **A monitor that never fires.** `pgrep -f` with a pattern that also appears in the monitor's own command line always finds a match, so "wait until it is gone" waits forever. Before trusting a detector overnight, try it against a running and a finished run.
+- **An edited tree under a running build.** Bazel reads sources from the checkout while actions run, and a checkout, stash or edit there fails actions hours in. Keep other work in a separate `git worktree` while a long build runs.
+- **An answer about another tree.** A daemon, report server or deployed tree answers about the tree it was started from (`odb-debug`'s `status`). Check the commit or file time it reports against the one being asked about.
+
+When an investigation finds a silent guard or a swallowed error, make it loud in the same pull request as the diagnosis: turn the skip into an error, pass the exit status on, add the missing log line. A silent failure that is diagnosed and left silent will be paid for again.
 
 ## Scale builds to memory, at home
 
