@@ -1,8 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 26 Oct 2026 18:19:42 +0100
-Subject: [PATCH 4/5] search: a thread collects its filtered arrivals, Search
- adds them after the visit
+Subject: [PATCH] search: a thread collects its filtered arrivals, Search adds
+ them after the visit
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

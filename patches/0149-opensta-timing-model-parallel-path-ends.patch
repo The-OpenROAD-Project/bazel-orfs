@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 26 Oct 2026 18:28:02 +0100
-Subject: [PATCH 5/5] write_timing_model: visit an input's path ends on every
+Subject: [PATCH] write_timing_model: visit an input's path ends on every
  thread
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

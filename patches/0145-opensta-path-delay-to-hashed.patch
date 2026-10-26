@@ -1,8 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Wed, 21 Oct 2026 19:51:12 +0200
-Subject: [PATCH 1/5] sdc: path delay -to tested by hash before the -to's
- ordered sets
+Subject: [PATCH] sdc: path delay -to tested by hash before the -to's ordered
+ sets
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
