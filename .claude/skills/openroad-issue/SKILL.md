@@ -174,6 +174,23 @@ git -C tmp/OpenROAD rev-parse HEAD
 
 Verify the bug reproduces at this exact commit before proceeding.
 
+When it does not, upstream has probably fixed it since the pin, and the
+deliverable changes: a `//:bump` onto that fix, not an issue the
+maintainer already closed, and not a flow knob that would outlive its
+reason. Find the change in the subsystem the error names (DPL to
+`src/dpl`, RSZ to `src/rsz`, GRT to `src/grt`, STA to `src/sta`, ...),
+from the pinned commit in `MODULE.bazel`'s `@openroad` `archive_override`:
+
+```bash
+git -C tmp/OpenROAD log --oneline <pinned-sha>..origin/master -- src/<tool>
+```
+
+Look for a default that flipped, an engine that was replaced, a fatal
+error that became a warning, or the message text itself reworked. Run the
+failing step on upstream's binary to confirm (`byo-openroad`: a newer
+binary reads the pinned flow's ODB). Do the same check before reaching
+for a flow-knob workaround, not only before filing.
+
 ### 4. Whittle the .odb
 
 Use `whittle.py` to minimize the design while preserving the error:
