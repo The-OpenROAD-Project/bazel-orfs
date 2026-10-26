@@ -1,0 +1,20 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+# Whether each carried patch still applies where it was meant to, against
+# a pristine tree: CLEAN, ABSORBED, AMBIGUOUS or NEEDS_REBASE.
+py_binary(
+    name = "check_carried_patches",
+    srcs = ["check_carried_patches.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "check_carried_patches_test",
+    size = "small",
+    srcs = [
+        "check_carried_patches.py",
+        "check_carried_patches_test.py",
+    ],
+    imports = ["."],
+    main = "check_carried_patches_test.py",
+)
