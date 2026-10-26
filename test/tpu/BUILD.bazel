@@ -569,3 +569,136 @@ orfs_headroom(
     parent_stage = ":tpu_meso_flat_grt",
     period_only = True,
 )
+
+# Dissolved: the balanced carve's tile built through CTS only to be
+# placed, then dissolved into the parent's own cells, FIXED where the
+# tile put them (//test/abutment:dissolve.tcl): one flow, tpu's whole
+# netlist timed and repaired at once, its clock tree an ordinary one. No
+# notch, no core ring: the tile's core is its die, the tiles abut with
+# no halo and the parent's cells fill the die around them. The skew the
+# clock had running through the tiles is a chain of buffers along the
+# array, CHAIN_STEP_PS a column (clock_chain.tcl): useful skew at home,
+# until OpenROAD's clock tree synthesis has its own.
+DISSOLVE_TILE_W = "22.356"
+
+DISSOLVE_TILE_H = "23.76"
+
+genrule(
+    name = "pin_plan_dissolve",
+    srcs = [":balanced/tpu_2x2_c.json"],
+    outs = ["dissolve/pin_plan.txt"],
+    cmd = "$(execpath //tools/carve:pin_plan) --json $< --module tpu_block --sides '%s' --w %s --h %s --out $@" % (
+        " ".join([
+            "west:a_in,rst,w_valid",
+            "east:a_out,rst_out,w_valid_out",
+            "north:w_in,psum_in",
+            "south:w_out,psum_out",
+            "over:clk",
+        ]),
+        DISSOLVE_TILE_W,
+        DISSOLVE_TILE_H,
+    ),
+    tags = ["manual"],
+    tools = ["//tools/carve:pin_plan"],
+)
+
+orfs_flow(
+    name = "tpu_block",
+    abstract_stage = "cts",
+    arguments = ARGS | {
+        "CELL_PAD_IN_SITES_DETAIL_PLACEMENT": "0",
+        "CELL_PAD_IN_SITES_GLOBAL_PLACEMENT": "1",
+        "CORE_AREA": "0 0 {} {}".format(DISSOLVE_TILE_W, DISSOLVE_TILE_H),
+        "CTS_CLUSTER_DIAMETER": "353",
+        "CTS_CLUSTER_SIZE": "184",
+        "DIE_AREA": "0 0 {} {}".format(DISSOLVE_TILE_W, DISSOLVE_TILE_H),
+        # a port is a net of the parent's once dissolved: no buffer at
+        # each side of every seam
+        "DONT_BUFFER_PORTS": "1",
+        "PLACE_DENSITY": "0.634",
+        "ROUTING_LAYER_ADJUSTMENT": "0.137",
+    },
+    sources = {
+        "IO_CONSTRAINTS": ["//test/abutment:pins_plan.tcl"],
+        "PDN_TCL": ["//test/abutment:pdn_macro.tcl"],
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    tags = ["manual"],
+    user_arguments = {"CLK_PERIOD": "337"},
+    user_sources = {"PIN_PLAN": [":dissolve/pin_plan.txt"]},
+    variant = "dissolve",
+    verilog_files = [":balanced/tpu_block.v"],
+)
+
+filegroup(
+    name = "tpu_block_dissolve_odb",
+    srcs = [":tpu_block_dissolve_cts"],
+    output_group = "4_cts.odb",
+    tags = ["manual"],
+)
+
+# The die: the 4 x 4 tiles, 89.424 x 95.04 um, with the parent's cells in
+# a band west (the skew registers), south (the deskew registers and tpu's
+# pins) and north (the weights in): the tiles are 78 % full, too full for
+# the parent's cells, which fill the bands to 66 %. 1.09 x flat's die.
+# The corner is on the site grid, an even number of rows up.
+DISSOLVE_DIE = "0 0 94.824 103.68"
+
+DISSOLVE_ARRAY = {
+    "ARRAY_X0": "4.32",
+    "ARRAY_Y0": "6.48",
+}
+
+orfs_flow(
+    name = "tpu",
+    arguments = ARGS | {
+        "CORE_AREA": DISSOLVE_DIE,
+        "DIE_AREA": DISSOLVE_DIE,
+        # the negotiation legaliser stalls with a few dozen cells left
+        # among the tiles' FIRM cells; the diamond search places them
+        "DETAIL_PLACEMENT_ARGS": "-use_diamond_legalizer",
+        # the parent's rows end at the tiles, whose own rows fill in
+        "MACRO_ROWS_HALO_X": "0",
+        "MACRO_ROWS_HALO_Y": "0",
+        "PLACE_DENSITY": "0.65",
+    },
+    last_stage = "grt",
+    macros = [":tpu_block_dissolve_generate_abstract"],
+    sources = {
+        "IO_CONSTRAINTS": [":pins_bottom.tcl"],
+        "MACRO_PLACEMENT_TCL": [":place_grid.tcl"],
+        "PDN_TCL": ["//test/abutment:pdn_macro.tcl"],
+        "POST_TAPCELL_TCL": ["//test/abutment:dissolve.tcl"],
+        "PRE_CTS_TCL": [":clock_chain.tcl"],
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    tags = ["manual"],
+    user_arguments = DISSOLVE_ARRAY | {
+        "CHAIN_BUFFER": "BUFx4_ASAP7_75t_R",
+        # column 0's registers this far after the parent's, which launch
+        # into it (with the head alone, CTS put them 89 ps before)
+        "CHAIN_COL0_PS": "30",
+        "CHAIN_STEP_PS": "77",
+        "DISSOLVE_MASTER": "tpu_block",
+        "TILE_H": DISSOLVE_TILE_H,
+        "TILE_W": DISSOLVE_TILE_W,
+    },
+    user_sources = {"DISSOLVE_ODB": [":tpu_block_dissolve_odb"]},
+    variant = "dissolve",
+    verilog_files = [
+        ":balanced/tpu_rest.v",
+        ":balanced/tpu_top.v",
+    ],
+)
+
+orfs_headroom(
+    name = "tpu_dissolve_stitched",
+    blocks = {},
+    parent = "tpu",
+    parent_stage = ":tpu_dissolve_grt",
+    period_only = True,
+    reports = {
+        "_clock": ":clock_arrival.tcl",
+        "_clock_check": ":clock_check.tcl",
+    },
+)

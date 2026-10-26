@@ -14,6 +14,11 @@ as 17 macros and no standard cell at the top:
   every pin is placed by rule before anything is built
   (`//tools/carve:pin_plan`), so no macro waits for another.
 
+Or the tiles **dissolved**: built through CTS only to be placed, then
+FIRM cells of one flat flow, the clock skewed along the array by a chain
+of buffers. The same period, a die 1.09 x flat's instead of 1.39 x, and
+the round trip of a flat build ("Dissolved", below).
+
 ![placement density across the C and its 16 tiles](floorplan.svg)
 
 Placement density at global route, each tile's own cells drawn in place:
@@ -295,6 +300,103 @@ Not explained yet:
 - **ORFS's top-level report** reads setup slack -368 ps through the
   macros' liberty models, against a stitched period of 665 ps.
 
+## Dissolved: the tiles built only to be placed
+
+The tile is built through CTS and then dissolved into the parent: its
+cells, its rows and its own clock tree become the parent's, FIRM where
+the tile put them, and tpu is one flow again, its whole netlist timed
+and repaired together, its clock tree an ordinary one. Nothing moves or
+resizes a tile's cells; the tile is a placement, not a macro.
+
+```
+ +--------------------------------------+
+ | the parent's cells: weights in       |
+ +----+---------------------------------+
+ |skew|  4 x 4 tiles, dissolved: FIRM   |
+ |regs|  cells on the tiles' own rows   |
+ +----+---------------------------------+
+ | the parent's cells: deskew, pins     |
+ +--------------------------------------+  94.82 x 103.68 um
+```
+
+- **The tile** (`tpu_block_dissolve_*`): the balanced carve's tile, its
+  core its die (no ring), its ports unbuffered (`DONT_BUFFER_PORTS`):
+  once dissolved a port is a net of the parent's, and a buffer each side
+  of every seam would be in every path across it.
+- **The dissolve** (`//test/abutment:dissolve.tcl`, `POST_TAPCELL_TCL`):
+  the tiles are placed abutted on the parent's site and row grid
+  (`place_grid.tcl`), tapcell cuts the parent's rows around them with no
+  halo, and each tile becomes the cells, nets and rows of its CTS
+  database at its location; the two feedthroughs (`rst_out = rst`,
+  `w_valid_out = w_valid`) merge the parent's nets on both sides.
+- **The parent** (`tpu_dissolve_*`): the rest of tpu, synthesised as it
+  is, in bands around the array; ORFS's flow from there on, CTS
+  included.
+- **Useful skew at home** (`clock_chain.tcl`, `PRE_CTS_TCL`): OpenROAD's
+  CTS has no useful skew, and a balanced clock fails the paths flowing
+  east (above). So each tile keeps the tree it was built with, and the
+  tiles' clock entries leave tpu's clock net for a chain of buffers
+  along the array, one tap a column, tuned at placement to the buffer
+  count closest to 77 ps a column, the chain's skew of the clock through
+  the tiles. CTS builds the parent's tree with the chain's head as one
+  sink, and skips the chain and the tiles' trees. After CTS, and before
+  repair, column 0 is put 30 ps behind the parent's registers
+  (`CHAIN_COL0_PS`), which launch into it.
+
+One placement seed (`tpu_dissolve_stitched`, `_clock`, `_clock_check`):
+
+| | clock through the tiles | balanced at the top | **dissolved** | flat |
+|---|---|---|---|---|
+| reg2reg minimum period | 665.2 ps | 754.0 ps | **665.7 ps** | 724.0 ps |
+| derated 5 %, CPPR on | 668.3 ps | 763.2 ps | **679.5 ps** | |
+| hold failing, as timed and derated | 218 | 0 | **0**, no hold buffer | |
+| die | 1.39 x | 1.39 x | **1.09 x** | 1 x (9,045 um2) |
+| a fresh build, critical path | 76 s | | **471 s** | 436 s |
+
+The dissolved tiles keep the period of the clock through the tiles, hold
+closes without a hold buffer, and the die is 22 % smaller than the C's;
+the fast round trip goes. tpu's worst path is inside a tile, as it was:
+the tile's own 667 ps, timed in the parent.
+
+The clock at the registers: the parent's 227-262 ps, column 0's
+278-283 ps, then 73, 73 and 70 ps more a column east; the four rows of
+a column within 2 ps of each other on average.
+
+What was learned on the way:
+
+- **Area was never halos.** The tiles abutted with no halo already; the
+  C's arms around them were 5.6 % full. Dissolved, the parent's cells
+  fill bands 66 % full, and the die is 1.09 x flat's. The bands cannot
+  shrink into the tiles: the tiles are 78 % full of FIRM cells.
+- **CTS runs as normal**, and does not know the chain's head is a whole
+  array: it hangs the head on a shallow branch, its input at 42 ps
+  against the parent's registers' 253 ps, so with the head alone
+  column 0 took the clock 89 ps before the parent's skew registers that
+  launch into it. That path, one multiply-add from a register in the
+  parent, set 773.7 ps; aligning column 0 after CTS
+  (`clock_chain.tcl`'s wrapper of `clock_tree_synthesis`) brought it to
+  665.7 ps, and the 262 hold buffers repair had needed went with it.
+  Whether this is the same behaviour as the macros' clock pins balanced
+  as a tree of their own (Mysteries) is not checked.
+- **A dissolved cell is `u_b0_0.<cell>`, not `u_b0_0/<cell>`.** The
+  parent is read hierarchically (`read_db -hier`), where STA takes a `/`
+  in a flat name for a hierarchy divider and keeps only what follows:
+  the 16 tiles' copies of a cell had one name in reports, written
+  netlists and parasitics, and a first stitched read gave 754 ps where
+  the design had 773.7 ps.
+- **The negotiation legaliser stalls** with a few dozen cells left
+  among 61,088 FIRM ones, 39 still illegal from its 20th iteration to
+  its 400th; the diamond
+  search (`DETAIL_PLACEMENT_ARGS=-use_diamond_legalizer`) places them.
+- **Global route is the whole design's again**: 205 s of the 471 s,
+  1,965 CPU seconds. An RTL edit in a processing element rebuilds the
+  tile and then the parent from synthesis, about the fresh build.
+
+Not done: a proof that the dissolve keeps the function. The carve is
+proven equivalent; the dissolve is checked by STA seeing all 4,207
+registers clocked, the tiles' paths timing at the tile's own 667 ps, and
+a fresh build reproducing the period to the femtosecond, not by LEC.
+
 ## Build
 
 ```sh
@@ -305,6 +407,7 @@ bazelisk build //test/tpu:tpu_balanced_stitched_clock_check  # balanced
 bazelisk build //test/tpu:tpu_meso_balanced_stitched_clock_check  # in the rig
 bazelisk build //test/tpu:tpu_meso_flat_stitched  # flat, in the rig
 bazelisk test //test/tpu/sim:tpu_meso_test  # the rig against tpu alone
+bazelisk build //test/tpu:tpu_dissolve_stitched_clock_check  # dissolved
 ```
 
 `tpu_block_grt`, `tpu_rest_grt` and `tpu_grt` are the tile, the C and the
@@ -330,7 +433,7 @@ a tile with one port broken (it takes the better part of an hour).
   edge, and a tile's clock pin is over its centre; four gcell edges
   beside the east column's pins end one track over.
 - **Area**: 1.39 x flat's die; small macros keep margins and will not
-  place as densely as flat.
+  place as densely as flat. Dissolved, 1.09 x.
 - **The parent's repair does not see inside the tiles**: it times the
   tile pins as ports with budgets. On tpu that costs nothing, its worst
   path is inside a tile; where critical paths cross the parent, it is
