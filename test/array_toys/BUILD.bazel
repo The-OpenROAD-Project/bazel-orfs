@@ -1,0 +1,41 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+load(":toys.bzl", "array_toy")
+
+# Array structures as toys, swept over depth and width, so the scope of
+# what a generator should build, and where it starts to pay, is known
+# before any real design is touched. Each toy is synthesised by yosys
+# and, for the kinds generate_ram builds today, generated; the probe
+# reads the period and area at floorplan. Every flow target is manual.
+
+py_binary(
+    name = "toys",
+    srcs = ["toys.py"],
+)
+
+DEPTHS = [8, 32, 128, 512]
+
+WIDTHS = [8, 32, 128]
+
+KINDS = [
+    "rf1r1w",
+    "rf4r2w",
+    "masked",
+    "fifo",
+    "flags",
+    "counter",
+    "window",
+    "cam",
+]
+
+[
+    array_toy(kind, depth, width)
+    for kind in KINDS
+    for depth in DEPTHS
+    for width in WIDTHS
+]
+
+# the age matrix is depth x depth: its width is not a parameter
+[
+    array_toy("agematrix", depth, 8)
+    for depth in DEPTHS
+]
