@@ -12,9 +12,18 @@ py_binary(
     srcs = ["toys.py"],
 )
 
-DEPTHS = [8, 32, 128, 512]
+DEPTHS = [
+    8,
+    32,
+    128,
+    512,
+]
 
-WIDTHS = [8, 32, 128]
+WIDTHS = [
+    8,
+    32,
+    128,
+]
 
 KINDS = [
     "rf1r1w",
