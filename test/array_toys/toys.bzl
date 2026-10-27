@@ -63,6 +63,10 @@ def array_toy(kind, depth, width):
                 "CORE_UTILIZATION": "30",
                 "PLACE_DENSITY": "0.5",
                 "SYNTH_HDL_FRONTEND": "slang",
+                # the yosys arm synthesises every array to flops, which
+                # is the baseline: ORFS's stop on big flop memories (4 kbit)
+                # would stop the larger toys
+                "SYNTH_MEMORY_MAX_BITS": "1048576",
             },
             last_stage = "floorplan",
             sources = {"SDC_FILE": [":constraint.sdc"]} | sources,

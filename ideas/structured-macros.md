@@ -191,3 +191,16 @@ bit by bit, and the check runs per module against the RTL side mapped
 to the same liberty cells. Wire it up here in bazel, as a dev dependency
 on the latest upstream (the tool is being fixed rapidly; never pin an old
 release or a local checkout). Not started.
+
+## yosys's memory passes on per-entry-updated arrays (2026-10-27)
+
+An array whose every entry is updated in place (a counter, a flag, a
+ROB entry), written as an unpacked array, becomes a `$mem_v2` with one
+write port per entry, and `opt_mem_priority` orders every pair of them:
+on `test/array_toys`'s counter, `memory -nomap` took 1.0 s at 64 x 8,
+7.5 s at 128 x 8 and 74 s at 256 x 8, 96 % of it in that pass. Written
+as a packed vector the same counter is one `$dff` per word and no
+memory. So structures are recognised on the packed form, and a rewrite
+of packed register vectors to unpacked arrays ahead of yosys is not
+used. Ports at distinct constant addresses never collide; a yosys fix
+that skips them is a carried-patch candidate.
