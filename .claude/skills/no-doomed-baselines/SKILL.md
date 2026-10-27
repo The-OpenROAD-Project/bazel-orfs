@@ -48,9 +48,9 @@ negative result, to be written down rather than waited on.
 
 ## Seen
 
-On `test/array_toys`, the yosys arm of a depth x width scan of array
-structures: the 512-deep counter and flag toys sat in canonicalization
-for more than 12 minutes, and the 512-deep age matrix for 19, while the
+In the yosys arm of a depth x width toy scan of array structures, the
+512-deep counter and flag toys sat in canonicalization for more than 12
+minutes, and the 512-deep age matrix for 19, while the
 rest of the scan was done. Small probes had already named the causes:
 `opt_mem_priority` solving every pair of a memory's write ports with SAT
 (1 s, 7.5 s, 74 s at 64, 128, 256 entries), and `opt_clean` on a memory
