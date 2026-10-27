@@ -38,9 +38,7 @@ class Netlist:
         out = self.wire()
         outpin = "QN" if master.startswith("DFF") else "Y"
         conns = ", ".join(f".{p}({v})" for p, v in pins.items())
-        self.lines.append(
-            f"  {master}{_V} c{self.n} ({conns}, .{outpin}({out}));"
-        )
+        self.lines.append(f"  {master}{_V} c{self.n} ({conns}, .{outpin}({out}));")
         return out
 
     # constants fold, so a decode of a tied-off index stays small
@@ -117,7 +115,10 @@ class Netlist:
             groups.append(lines)
         out = []
         for i in range(n):
-            terms = [groups[g][(i >> (2 * g)) & ((1 << len(bits[2 * g : 2 * g + 2])) - 1)] for g in range(len(groups))]
+            terms = [
+                groups[g][(i >> (2 * g)) & ((1 << len(bits[2 * g : 2 * g + 2])) - 1)]
+                for g in range(len(groups))
+            ]
             if en is not None:
                 terms.append(en)
             out.append(self.tree(self.and2, terms))
@@ -132,7 +133,9 @@ class Netlist:
         """words[i][b] selected by one-hot dec: per bit an AND-OR tree."""
         width = len(words[0])
         return [
-            self.tree(self.or2, [self.and2(dec[i], words[i][b]) for i in range(len(words))])
+            self.tree(
+                self.or2, [self.and2(dec[i], words[i][b]) for i in range(len(words))]
+            )
             for b in range(width)
         ]
 
@@ -155,10 +158,17 @@ def _registers(net, depth, width):
 def counter(net, depth, width):
     a = _abits(depth)
     ports = [
-        ("input", 1, "clock"), ("input", 1, "w_en"), ("input", a, "w_addr"),
-        ("input", width, "w_data"), ("input", 1, "d0_en"), ("input", a, "d0_idx"),
-        ("input", 1, "d1_en"), ("input", a, "d1_idx"), ("input", a, "r_addr"),
-        ("output", width, "r_data"), ("output", depth, "zero"),
+        ("input", 1, "clock"),
+        ("input", 1, "w_en"),
+        ("input", a, "w_addr"),
+        ("input", width, "w_data"),
+        ("input", 1, "d0_en"),
+        ("input", a, "d0_idx"),
+        ("input", 1, "d1_en"),
+        ("input", a, "d1_idx"),
+        ("input", a, "r_addr"),
+        ("output", width, "r_data"),
+        ("output", depth, "zero"),
     ]
     q, d = _registers(net, depth, width)
     dw = net.decode(_bus("w_addr", a), depth, "w_en")
@@ -175,14 +185,18 @@ def counter(net, depth, width):
             t = net.xor2(s1, borrow)
             diff.append(net.xor2(x[1], t))
             # borrow out of bit 1: ~x1 & (s1 | borrow0) | (s1 & borrow0)
-            borrow = net.or2(net.and2(net.inv(x[1]), net.or2(s1, borrow)), net.and2(s1, borrow))
+            borrow = net.or2(
+                net.and2(net.inv(x[1]), net.or2(s1, borrow)), net.and2(s1, borrow)
+            )
             # above bit 1 a borrow ripples through zeros: a prefix AND
             zeros = net.prefix(net.and2, [net.inv(b) for b in x[2:]])
             for k in range(2, width):
                 into = borrow if k == 2 else net.and2(borrow, zeros[k - 3])
                 diff.append(net.xor2(x[k], into))
         for b in range(width):
-            net.lines.append(f"  assign {d[i][b]} = {net.mux(dw[i], diff[b], data[b])};")
+            net.lines.append(
+                f"  assign {d[i][b]} = {net.mux(dw[i], diff[b], data[b])};"
+            )
     for b, v in enumerate(net.read_mux(q, net.decode(_bus("r_addr", a), depth))):
         net.lines.append(f"  assign r_data[{b}] = {v};")
     for i in range(depth):
@@ -195,10 +209,23 @@ def flags(net, depth, width):
     b = _abits(width)
     ports = [("input", 1, "clock"), ("input", 1, "reset")]
     for p in range(2):
-        ports += [("input", 1, f"s{p}_en"), ("input", a, f"s{p}_idx"), ("input", b, f"s{p}_bit")]
-        ports += [("input", 1, f"c{p}_en"), ("input", a, f"c{p}_idx"), ("input", b, f"c{p}_bit")]
-    ports += [("input", 1, "flush"), ("input", a, "flush_idx"), ("input", a, "head"),
-              ("input", a, "r_addr"), ("output", width, "r_data")]
+        ports += [
+            ("input", 1, f"s{p}_en"),
+            ("input", a, f"s{p}_idx"),
+            ("input", b, f"s{p}_bit"),
+        ]
+        ports += [
+            ("input", 1, f"c{p}_en"),
+            ("input", a, f"c{p}_idx"),
+            ("input", b, f"c{p}_bit"),
+        ]
+    ports += [
+        ("input", 1, "flush"),
+        ("input", a, "flush_idx"),
+        ("input", a, "head"),
+        ("input", a, "r_addr"),
+        ("output", width, "r_data"),
+    ]
     q, d = _registers(net, depth, width)
 
     def plane(prefix):
@@ -214,7 +241,9 @@ def flags(net, depth, width):
     one_h = net.decode(_bus("head", a), depth)
     t_f = net.prefix(net.or2, one_f)
     t_h = net.prefix(net.or2, one_h)
-    f_below_h = net.tree(net.or2, [net.and2(one_f[i], net.inv(t_h[i])) for i in range(depth)])
+    f_below_h = net.tree(
+        net.or2, [net.and2(one_f[i], net.inv(t_h[i])) for i in range(depth)]
+    )
     keep_reset = net.inv("reset")
     for i in range(depth):
         inside = net.and2(t_f[i], net.inv(t_h[i]))
@@ -222,8 +251,14 @@ def flags(net, depth, width):
         cleared = net.and2("flush", net.mux(f_below_h, outside, inside))
         live = net.and2(keep_reset, net.inv(cleared))
         for k in range(width):
-            s = net.or2(net.and2(sets[0][0][i], sets[0][1][k]), net.and2(sets[1][0][i], sets[1][1][k]))
-            c = net.or2(net.and2(clears[0][0][i], clears[0][1][k]), net.and2(clears[1][0][i], clears[1][1][k]))
+            s = net.or2(
+                net.and2(sets[0][0][i], sets[0][1][k]),
+                net.and2(sets[1][0][i], sets[1][1][k]),
+            )
+            c = net.or2(
+                net.and2(clears[0][0][i], clears[0][1][k]),
+                net.and2(clears[1][0][i], clears[1][1][k]),
+            )
             nxt = net.and2(live, net.and2(net.inv(c), net.or2(s, q[i][k])))
             net.lines.append(f"  assign {d[i][k]} = {nxt};")
     for k, v in enumerate(net.read_mux(q, net.decode(_bus("r_addr", a), depth))):
@@ -233,16 +268,27 @@ def flags(net, depth, width):
 
 def cam(net, depth, width):
     a = _abits(depth)
-    ports = [("input", 1, "clock"), ("input", 1, "w_en"), ("input", a, "w_addr"),
-             ("input", width, "w_key"), ("input", width, "key"),
-             ("output", 1, "hit"), ("output", a, "idx")]
+    ports = [
+        ("input", 1, "clock"),
+        ("input", 1, "w_en"),
+        ("input", a, "w_addr"),
+        ("input", width, "w_key"),
+        ("input", width, "key"),
+        ("output", 1, "hit"),
+        ("output", a, "idx"),
+    ]
     q, d = _registers(net, depth, width)
     dw = net.decode(_bus("w_addr", a), depth, "w_en")
     wkey, key = _bus("w_key", width), _bus("key", width)
     for i in range(depth):
         for k in range(width):
-            net.lines.append(f"  assign {d[i][k]} = {net.mux(dw[i], q[i][k], wkey[k])};")
-    m = [net.tree(net.and2, [net.xnor2(q[i][k], key[k]) for k in range(width)]) for i in range(depth)]
+            net.lines.append(
+                f"  assign {d[i][k]} = {net.mux(dw[i], q[i][k], wkey[k])};"
+            )
+    m = [
+        net.tree(net.and2, [net.xnor2(q[i][k], key[k]) for k in range(width)])
+        for i in range(depth)
+    ]
     net.lines.append(f"  assign hit = {net.tree(net.or2, m)};")
     # the lowest matching entry: a match with no match below it
     below = net.prefix(net.or2, m)
@@ -256,9 +302,16 @@ def cam(net, depth, width):
 
 def agematrix(net, depth, width):
     a = _abits(depth)
-    ports = [("input", 1, "clock"), ("input", 1, "reset"), ("input", 1, "alloc"),
-             ("input", a, "alloc_idx"), ("input", 1, "free"), ("input", a, "free_idx"),
-             ("input", depth, "req"), ("output", depth, "oldest")]
+    ports = [
+        ("input", 1, "clock"),
+        ("input", 1, "reset"),
+        ("input", 1, "alloc"),
+        ("input", a, "alloc_idx"),
+        ("input", 1, "free"),
+        ("input", a, "free_idx"),
+        ("input", depth, "req"),
+        ("output", depth, "oldest"),
+    ]
     older, d = _registers(net, depth, depth)
     vd = [net.wire() for _ in range(depth)]
     valid = [net.ff(vd[i]) for i in range(depth)]
@@ -269,12 +322,18 @@ def agematrix(net, depth, width):
         nxt = net.and2(keep_reset, net.and2(net.inv(df[i]), net.or2(da[i], valid[i])))
         net.lines.append(f"  assign {vd[i]} = {nxt};")
         for j in range(depth):
-            net.lines.append(f"  assign {d[i][j]} = {net.mux(da[i], older[i][j], valid[j])};")
+            net.lines.append(
+                f"  assign {d[i][j]} = {net.mux(da[i], older[i][j], valid[j])};"
+            )
     req = _bus("req", depth)
     rv = [net.and2(req[j], valid[j]) for j in range(depth)]
     for g in range(depth):
-        blocked = net.tree(net.or2, [net.and2(older[g][j], rv[j]) for j in range(depth)])
-        net.lines.append(f"  assign oldest[{g}] = {net.and2(req[g], net.inv(blocked))};")
+        blocked = net.tree(
+            net.or2, [net.and2(older[g][j], rv[j]) for j in range(depth)]
+        )
+        net.lines.append(
+            f"  assign oldest[{g}] = {net.and2(req[g], net.inv(blocked))};"
+        )
     return ports
 
 
@@ -285,14 +344,20 @@ def module(kind, depth, width):
     net = Netlist()
     ports = KINDS[kind](net, depth, width)
     decl = ",\n".join(
-        f"  {direction} {'[%d:0] ' % (w - 1) if w > 1 else ''}{name}" for direction, w, name in ports
+        f"  {direction} {'[%d:0] ' % (w - 1) if w > 1 else ''}{name}"
+        for direction, w, name in ports
     )
     body = [f"  wire {w};" for w in net.wires] + net.lines
     return "\n".join([f"module Arr(\n{decl}\n);"] + body + ["endmodule", ""])
 
 
 def main():
-    kind, depth, width, out = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), sys.argv[4]
+    kind, depth, width, out = (
+        sys.argv[1],
+        int(sys.argv[2]),
+        int(sys.argv[3]),
+        sys.argv[4],
+    )
     with open(out, "w") as f:
         f.write(module(kind, depth, width))
 
