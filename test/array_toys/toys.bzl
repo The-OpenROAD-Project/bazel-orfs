@@ -79,14 +79,24 @@ def array_toy(kind, depth, width):
             arguments = {
                 "AUTO_MEMORIES": "1",
                 "CORE_UTILIZATION": "30",
+                # turnaround: the timing- and routability-driven global
+                # placement is most of a big toy's placement, as in the
+                # XSTile carve's development builds
+                # and the rest of the XSTile carve's development settings:
+                # floorplan's repair_timing (unbuffer) took 271-332 s of a
+                # generated 128-deep toy, improve_placement 158 s
+                "ENABLE_DPO": "0",
+                "GPL_ROUTABILITY_DRIVEN": "0",
+                "GPL_TIMING_DRIVEN": "0",
                 "PLACE_DENSITY": "0.5",
+                "SKIP_FLOORPLAN_REPAIR_TIMING": "1",
                 "SYNTH_HDL_FRONTEND": "slang",
                 # the yosys arm synthesises every array to flops, which
                 # is the baseline: ORFS's stop on big flop memories (4 kbit)
                 # would stop the larger toys
                 "SYNTH_MEMORY_MAX_BITS": "1048576",
             },
-            last_stage = "floorplan",
+            last_stage = "grt",
             sources = {"SDC_FILE": [":constraint.sdc"]} | sources,
             tags = ["manual"],
             verilog_files = [":" + flow + ".sv"] + (
