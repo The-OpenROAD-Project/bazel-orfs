@@ -7,6 +7,14 @@
 0089 on OpenROAD patch 0010): a register file is a macro through
 synthesis and macro placement and dissolves into its cells after it.*
 
+*2026-10-27: `tools/structured_gen` was retired on 2026-10-15 (278cb810);
+`generate_ram` with the carried ram patches builds the register files,
+and the sections below that name structured_gen describe what it did.
+Next is `generate_array`: one spec of row select, cell op and reduction,
+`generate_ram` its simplest front end, every structure LEC-checked. It
+is taken breadth first, every rung through synthesis, then placement,
+then global route.*
+
 ![The parent with its generated macros, and the tile structure of one generated array](structured-macros.png)
 
 ## Why
