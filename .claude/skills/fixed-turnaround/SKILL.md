@@ -29,7 +29,7 @@ ARGUMENTS: $ARGUMENTS
    - a C++ change in a carried patch is tested in its unit test (seconds), and the patch is batched into the flow once it passes, because every patch to the tool re-keys every stage of every flow;
    - a flow script is iterated in a dirty lane on the cached outputs it reads (`dirty-lane`), and goes back into the build when it works;
    - a bring-your-own binary (`byo-openroad`) tests a tool change in a lane before it becomes a patch.
-6. **Stop a run that blows the budget.** Do not wait for it: stop it, find the step that took the time, fix the vehicle, then run again.
+6. **Stop a run that blows the budget.** Do not wait for it: stop it, find the step that took the time, fix the vehicle, then run again. A baseline arm is no exception: probe its scaling small and stop the points that grind (`no-doomed-baselines`).
 7. **Know how long each step should take, and do not wait forever for one that should have been fast.** Before launching, write down what each step ought to cost from what it does (a synthesis of a few thousand cells is seconds, a partition of a core minutes). When a step runs suspiciously long, start debugging it while it runs: what is it doing (`perf`, the log's last lines, the process's inputs), and is that what it should be doing. Occasionally there is nothing for it and the step is that long; mostly, unexpectedly long means something upstream is wrong, and stop, fix and restart beats waiting.
 
 ## What it looks like

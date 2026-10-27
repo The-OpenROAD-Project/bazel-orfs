@@ -206,6 +206,11 @@ A long run is settled small first: `no-paint-drying` (settle questions at
 seconds-to-minutes scale, then run unattended); `repair-timing-grt` for a
 global-route repair that grinds.
 
+A baseline that is doomed or pointless is not waited for:
+`no-doomed-baselines` (probe the scaling at three small sizes, cap every
+point with a timeout, record a capped point with its cause, stop the
+grinding actions and spend the machine on the thing being built).
+
 An edit-run loop gets a fixed turnaround before its first run:
 `fixed-turnaround` (name what the loop tests, measure the vehicle step by
 step, shrink it until an iteration takes minutes, keep the expensive

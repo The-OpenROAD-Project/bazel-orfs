@@ -34,6 +34,7 @@ ARGUMENTS: $ARGUMENTS
 - Answering a question the human asked with "let me start a run and come back in an hour" when a smaller run, a log already on disk or a grep of the source would answer it now.
 - A sweep whose arms each need a human decision between them.
 - Rebuilding every macro after each fix to a script that only the top level runs, when a dirty lane on the macros' cached results runs it in seconds.
+- Waiting for the large sizes of a baseline whose small sizes already answered the question, or that grinds in a known pathology: `no-doomed-baselines`.
 
 ## Where the mechanics live
 
