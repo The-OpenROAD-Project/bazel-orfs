@@ -10,6 +10,9 @@ _REGFILE_PORTS = {
     "rf4r2w": (["r0", "r1", "r2", "r3"], ["w0", "w1"]),
 }
 
+# the kinds tools/yosys_arrays/structgen.py builds as netlists
+_STRUCTGEN = ["flags", "counter", "cam", "agematrix"]
+
 _CELLS = """\
 cell flop DFFHQNx1_ASAP7_75t_R
 cell and2 AND2x2_ASAP7_75t_R
@@ -45,6 +48,15 @@ def array_toy(kind, depth, width):
             tags = ["manual"],
         )
         arms.append(("generate_ram", {"AUTO_MEMORIES_REGFILES": [":" + name + ".regfile"]}))
+    if kind in _STRUCTGEN:
+        native.genrule(
+            name = name + "_structgen_netlist",
+            outs = [name + "_structgen_arr.v"],
+            cmd = "$(execpath //tools/yosys_arrays:structgen) %s %d %d $@" % (kind, depth, width),
+            tools = ["//tools/yosys_arrays:structgen"],
+            tags = ["manual"],
+        )
+        arms.append(("structgen", {}))
     for arm, sources in arms:
         flow = "%s_%s" % (name, arm)
 
@@ -52,7 +64,13 @@ def array_toy(kind, depth, width):
         native.genrule(
             name = flow + "_rtl",
             outs = [flow + ".sv"],
-            cmd = "$(execpath :toys) %s %d %d $@ %s" % (kind, depth, width, flow),
+            cmd = "$(execpath :toys) %s %d %d $@ %s%s" % (
+                kind,
+                depth,
+                width,
+                flow,
+                " top-only" if arm == "structgen" else "",
+            ),
             tools = [":toys"],
             tags = ["manual"],
         )
@@ -71,7 +89,9 @@ def array_toy(kind, depth, width):
             last_stage = "floorplan",
             sources = {"SDC_FILE": [":constraint.sdc"]} | sources,
             tags = ["manual"],
-            verilog_files = [":" + flow + ".sv"],
+            verilog_files = [":" + flow + ".sv"] + (
+                [":" + name + "_structgen_arr.v"] if arm == "structgen" else []
+            ),
         )
         orfs_run(
             name = flow + "_period",

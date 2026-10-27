@@ -11,7 +11,7 @@ import sys
 
 _ELAPSED = re.compile(r"Elapsed time: (?:(\d+):)?(\d+):([\d.]+)")
 _FLOW = re.compile(
-    r"^(?P<kind>\w+?)_(?P<depth>\d+)x(?P<width>\d+)_(?P<arm>yosys|generate_ram)$"
+    r"^(?P<kind>\w+?)_(?P<depth>\d+)x(?P<width>\d+)_(?P<arm>yosys|generate_ram|structgen)$"
 )
 
 
@@ -62,9 +62,10 @@ def main():
         "| kind | depth x width | yosys synth s | yosys ps | yosys um2 | gen synth s | gen ps | gen um2 |"
     )
     print("|---|---|--:|--:|--:|--:|--:|--:|")
+    # gen: generate_ram's register file, or structgen's netlist
     for (kind, depth, width), arms in sorted(rows.items()):
         y = arms.get("yosys", {})
-        g = arms.get("generate_ram", {})
+        g = arms.get("generate_ram", arms.get("structgen", {}))
 
         def cell(arm, key, fmt):
             return fmt % arm[key] if key in arm else ""

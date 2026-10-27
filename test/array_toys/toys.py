@@ -3,14 +3,17 @@
 Each toy is a module Arr holding the structure and a top, toy, that
 registers every input and output of Arr: every path through the
 structure is register to register, so the period measures the structure
-and not the I/O constraints. The structures are written the way RTL
-writes them, as unpacked arrays where the structure is an array, so
-yosys's memory inference sees what it can.
+and not the I/O constraints. The structures are written as packed
+vectors, `reg [N-1:0][W-1:0] r`, the way firtool emits Chisel's vectors:
+written as unpacked arrays, yosys's memory passes grind on the
+per-entry-updated ones (opt_mem_priority, 74 s for a 256-entry counter),
+and the arrays are found by tools/yosys_arrays's passes instead.
 
-    toys.py <kind> <depth> <width> <out.sv> [top]
+    toys.py <kind> <depth> <width> <out.sv> [top [top-only]]
 """
 
 import math
+import re
 import sys
 
 
@@ -273,8 +276,17 @@ def _parse_port(p):
     return direction, rng, words[-1]
 
 
-def toy(kind, depth, width, top_name="toy"):
+_UNPACKED = re.compile(r"^(\s*)reg \[(\d+):0\] (\w+) \[0:(\d+)\];$")
+
+
+def _packed(line):
+    """`reg [W-1:0] r [0:N-1];` as `reg [N-1:0][W-1:0] r;`."""
+    return _UNPACKED.sub(r"\1reg [\4:0][\2:0] \3;", line)
+
+
+def toy(kind, depth, width, top_name="toy", top_only=False):
     ports, body = KINDS[kind](depth, width)
+    body = [_packed(line) for line in body]
     lines = ["module Arr("]
     lines.append(",\n".join("  " + p for p in ports))
     lines += [");"] + body + ["endmodule", ""]
@@ -303,7 +315,8 @@ def toy(kind, depth, width, top_name="toy"):
             conns.append(f".{name}({name}_d)")
     top.append("  Arr arr(" + ", ".join(conns) + ");")
     top += ["endmodule", ""]
-    return "\n".join(lines + top)
+    # top-only: Arr comes from elsewhere, a generated netlist
+    return "\n".join(([] if top_only else lines) + top)
 
 
 def main():
@@ -314,8 +327,9 @@ def main():
         sys.argv[4],
     )
     top_name = sys.argv[5] if len(sys.argv) > 5 else "toy"
+    top_only = len(sys.argv) > 6 and sys.argv[6] == "top-only"
     with open(out, "w") as f:
-        f.write(toy(kind, depth, width, top_name))
+        f.write(toy(kind, depth, width, top_name, top_only))
 
 
 if __name__ == "__main__":
