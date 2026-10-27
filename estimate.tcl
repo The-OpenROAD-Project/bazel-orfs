@@ -19,7 +19,7 @@
 # (measured -- docs/estimate.md).
 
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design 1_synth.odb 1_synth.sdc
+load_design 1_synth.odb
 
 # Floorplan initialization: the production stage's two modes, from the
 # same variables. Anything config-guaranteed is read directly --

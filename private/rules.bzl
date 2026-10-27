@@ -3436,7 +3436,6 @@ orfs_route_rule = rule(
             "do-5_2_route",
             "do-5_3_fillcell",
             "do-5_route",
-            "do-5_route.sdc",
         ],
         log_names = [s + ".log" for s in STAGE_SUBSTEPS["route"]],
         json_names = [s + ".json" for s in STAGE_SUBSTEPS["route"]],

@@ -179,6 +179,10 @@ ORFS_PATCHES = [
     # bump onto an ORFS that carries it, with a patch_cmds line deleting
     # that directory.
     Label("//patches:0155-orfs-coralnpu-generated.patch"),
+    # Every .odb has its .sdc: find_sdc_file deleted, load_design takes
+    # one argument, the Makefile depends on .odb files only. ORFS #4751
+    # (draft); retires at a bump onto an ORFS that carries it.
+    Label("//patches:0156-orfs-sdc-pair.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

@@ -71,7 +71,7 @@ The script must write a JSON dictionary to `$::env(OUTPUT)`:
 
 ```tcl
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design 1_synth.odb 1_synth.sdc
+load_design 1_synth.odb
 
 # ... compute values from the design ...
 

@@ -1,5 +1,5 @@
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design 2_floorplan.odb 2_floorplan.sdc
+load_design 2_floorplan.odb
 
 set db [::ord::get_db]
 set dbu_per_uu [expr double([[$db getTech] getDbUnitsPerMicron])]

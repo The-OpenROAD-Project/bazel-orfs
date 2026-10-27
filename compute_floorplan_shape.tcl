@@ -10,7 +10,7 @@ source $::env(SCRIPTS_DIR)/load.tcl
 # the values below as defaults; override per-design via the `arguments`
 # attr on orfs_arguments.
 
-load_design 1_synth.odb 1_synth.sdc
+load_design 1_synth.odb
 
 proc env_or_default { name default } {
     if { [info exists ::env($name)] && $::env($name) ne "" } {

@@ -117,7 +117,7 @@ STAGE_METADATA = {
     ),
     "route": struct(
         stage_name = "5_2_route",
-        make_targets = ["do-5_2_route", "do-5_3_fillcell", "do-5_route", "do-5_route.sdc"],
+        make_targets = ["do-5_2_route", "do-5_3_fillcell", "do-5_route"],
         log_names = [s + ".log" for s in STAGE_SUBSTEPS["route"]],
         json_names = [s + ".json" for s in STAGE_SUBSTEPS["route"]],
         result_names = ["5_route.odb", "5_route.sdc"],
