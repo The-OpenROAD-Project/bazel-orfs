@@ -1,0 +1,26 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_shared_library")
+
+# yosys passes for array structures, loaded as a plugin
+# (yosys -m arrays.so): array_reroll turns a packed register vector read
+# and written by index back into a memory.
+cc_library(
+    name = "arrays_lib",
+    srcs = [
+        "array_reroll.cc",
+        "mem_const_priority.cc",
+    ],
+    copts = [
+        "-fPIC",
+        "-std=c++20",
+        "-Wno-unused-parameter",
+    ],
+    deps = ["@yosys//:hdrs"],
+    alwayslink = True,
+)
+
+cc_shared_library(
+    name = "arrays.so",
+    shared_lib_name = "arrays.so",
+    visibility = ["//visibility:public"],
+    deps = [":arrays_lib"],
+)
