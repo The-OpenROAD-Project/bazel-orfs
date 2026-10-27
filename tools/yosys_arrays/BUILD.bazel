@@ -1,3 +1,4 @@
+load("@rules_python//python:defs.bzl", "py_binary")
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_shared_library")
 
 # yosys passes for array structures, loaded as a plugin
@@ -23,4 +24,10 @@ cc_shared_library(
     shared_lib_name = "arrays.so",
     visibility = ["//visibility:public"],
     deps = [":arrays_lib"],
+)
+
+py_binary(
+    name = "structgen",
+    srcs = ["structgen.py"],
+    visibility = ["//test/array_toys:__pkg__"],
 )
