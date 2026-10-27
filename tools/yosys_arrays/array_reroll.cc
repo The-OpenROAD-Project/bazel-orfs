@@ -22,9 +22,15 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct WritePort
 {
+  // the write's own enable, and the bits of the word it writes (a byte
+  // lane's, or all of them)
   SigBit en;
+  std::vector<bool> lanes;
   SigSpec addr;
   SigSpec data;
+  // conditions around the write that hold the vector instead: a reset
+  // branch, for one; (signal, true) when the write needs it low
+  std::vector<std::pair<SigBit, bool>> holds;
   std::vector<Cell*> cells;
 };
 
@@ -114,13 +120,46 @@ struct Reroller
       q.append(sigmap(dff->getPort(ID::Q)));
       cur.append(sigmap(dff->getPort(ID::D)));
     }
+    // conditions found so far, outermost first, that hold the vector
+    std::vector<std::pair<SigBit, bool>> holds;
+    std::vector<Cell*> hold_cells;
     while (cur != q) {
       Cell* top = whole_driver(cur);
       if (!top) {
         why = "a word's next value is not one cell over the whole vector";
         return false;
       }
+      // a branch that keeps the vector as it is (the reset branch of a
+      // FIFO that writes in its else): a condition on every write inside
+      // (the innermost write's own enable mux also has Q on A, its B a
+      // $bwmux over Q: that is a write, not a hold)
+      auto is_write_of = [&](const SigSpec& sig, const SigSpec& base) {
+        Cell* c = whole_driver(sig);
+        return c && c->type == ID($bwmux) && sigmap(c->getPort(ID::A)) == base;
+      };
+      bool b_holds = top->type == ID($mux) && sigmap(top->getPort(ID::B)) == q;
+      bool a_holds = top->type == ID($mux) && sigmap(top->getPort(ID::A)) == q
+                     && !is_write_of(sigmap(top->getPort(ID::B)), q);
+      if (GetSize(top->getPort(ID::S)) == 1 && (a_holds || b_holds)) {
+        bool hold_when_high = b_holds;
+        holds.push_back({sigmap(top->getPort(ID::S))[0], hold_when_high});
+        hold_cells.push_back(top);
+        cur = sigmap(top->getPort(hold_when_high ? ID::A : ID::B));
+        continue;
+      }
+      // a branch that assigns x (proc's "not assigned here") may as well
+      // keep the other input
+      if (top->type == ID($mux)
+          && (sigmap(top->getPort(ID::A)).is_fully_undef()
+              || sigmap(top->getPort(ID::B)).is_fully_undef())) {
+        hold_cells.push_back(top);
+        cur = sigmap(top->getPort(ID::A)).is_fully_undef()
+                  ? sigmap(top->getPort(ID::B))
+                  : sigmap(top->getPort(ID::A));
+        continue;
+      }
       WritePort port;
+      port.holds = holds;
       SigSpec merged;
       if (top->type == ID($mux) && GetSize(top->getPort(ID::S)) == 1) {
         port.en = sigmap(top->getPort(ID::S))[0];
@@ -140,19 +179,33 @@ struct Reroller
         why = "a write's merge is not a $bwmux over the vector";
         return false;
       }
+      // the word mask: a $demux of a constant by the address, ones in the
+      // bits the write covers (all of them, or a byte lane's)
       Cell* mask = whole_driver(sigmap(bw->getPort(ID::S)));
-      SigSpec ones = sigmap(mask ? mask->getPort(ID::A) : SigSpec());
-      if (!mask || mask->type != ID($demux) || !ones.is_fully_ones()
-          || GetSize(ones) != width) {
+      SigSpec pattern = sigmap(mask ? mask->getPort(ID::A) : SigSpec());
+      if (!mask || mask->type != ID($demux) || !pattern.is_fully_const()
+          || GetSize(pattern) != width || pattern.is_fully_zero()) {
         why = "a write's word mask is not a $demux of the address";
         return false;
+      }
+      port.lanes.resize(width);
+      for (int k = 0; k < width; k++) {
+        port.lanes[k] = pattern[k] == State::S1;
       }
       SigSpec data = sigmap(bw->getPort(ID::B));
       SigSpec word = data.extract(0, width);
       for (int i = 1; i < n; i++) {
-        if (data.extract(i * width, width) != word) {
-          why = "a write's data is not one word repeated";
-          return false;
+        SigSpec other = data.extract(i * width, width);
+        for (int k = 0; k < width; k++) {
+          if (port.lanes[k] && other[k] != word[k]) {
+            why = "a write's data is not one word repeated";
+            return false;
+          }
+        }
+      }
+      for (int k = 0; k < width; k++) {
+        if (!port.lanes[k]) {
+          word[k] = State::Sx;
         }
       }
       port.addr = sigmap(mask->getPort(ID::S));
@@ -161,7 +214,27 @@ struct Reroller
       port.cells.push_back(mask);
       ports.push_back(port);
     }
+    for (auto cell : hold_cells) {
+      if (!ports.empty()) {
+        ports.back().cells.push_back(cell);
+      }
+    }
     return true;
+  }
+
+  // a write's enable per bit: its own, its lanes, and no hold around it
+  SigSpec enable(const WritePort& port)
+  {
+    SigBit en = port.en;
+    for (auto& [sig, hold_when_high] : port.holds) {
+      SigBit open = hold_when_high ? module->Not(NEW_ID, sig)[0] : sig;
+      en = en == State::S1 ? open : module->And(NEW_ID, en, open)[0];
+    }
+    SigSpec bits;
+    for (bool lane : port.lanes) {
+      bits.append(lane ? en : SigBit(State::S0));
+    }
+    return bits;
   }
 
   void run()
@@ -197,7 +270,7 @@ struct Reroller
         wr.clk_enable = true;
         wr.clk_polarity = polarity;
         wr.clk = clk;
-        wr.en = SigSpec(ports[i].en, width);
+        wr.en = enable(ports[i]);
         wr.addr = ports[i].addr;
         wr.data = ports[i].data;
         // a later port overrides every earlier one
