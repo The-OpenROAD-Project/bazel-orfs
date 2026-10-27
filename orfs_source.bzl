@@ -178,6 +178,10 @@ ORFS_PATCHES = [
     # gui_ through the odb-debug daemon. Not upstreamed; retires at a
     # bump onto an ORFS that names the GUI targets this way.
     Label("//patches:0139-orfs-gui-is-web.patch"),
+    # 0153: a ROM (an inferred memory with no write port) is not counted
+    # against SYNTH_MEMORY_MAX_BITS; synthesis maps it to logic.
+    # Not upstreamed; retires at a bump onto an ORFS that carries it.
+    Label("//patches:0153-orfs-memory-max-bits-roms.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
