@@ -29,7 +29,10 @@ def rf(depth, width, reads, writes):
         ]
     for r in range(reads):
         ports += [f"input [{a-1}:0] r{r}_addr", f"output [{width-1}:0] r{r}_data"]
-    body = [f"  reg [{width-1}:0] mem [0:{depth-1}];", "  always @(posedge clock) begin"]
+    body = [
+        f"  reg [{width-1}:0] mem [0:{depth-1}];",
+        "  always @(posedge clock) begin",
+    ]
     body += [f"    if (w{w}_en) mem[w{w}_addr] <= w{w}_data;" for w in range(writes)]
     body += ["  end"]
     body += [f"  assign r{r}_data = mem[r{r}_addr];" for r in range(reads)]
@@ -49,7 +52,10 @@ def masked(depth, width):
         f"input [{a-1}:0] r_addr",
         f"output [{width-1}:0] r_data",
     ]
-    body = [f"  reg [{width-1}:0] mem [0:{depth-1}];", "  always @(posedge clock) begin"]
+    body = [
+        f"  reg [{width-1}:0] mem [0:{depth-1}];",
+        "  always @(posedge clock) begin",
+    ]
     for l in range(lanes):
         hi, lo = (l + 1) * lw - 1, l * lw
         body.append(
@@ -95,8 +101,16 @@ def flags(depth, width):
     b = _abits(width)
     ports = ["input clock", "input reset"]
     for p in range(2):
-        ports += [f"input s{p}_en", f"input [{a-1}:0] s{p}_idx", f"input [{b-1}:0] s{p}_bit"]
-        ports += [f"input c{p}_en", f"input [{a-1}:0] c{p}_idx", f"input [{b-1}:0] c{p}_bit"]
+        ports += [
+            f"input s{p}_en",
+            f"input [{a-1}:0] s{p}_idx",
+            f"input [{b-1}:0] s{p}_bit",
+        ]
+        ports += [
+            f"input c{p}_en",
+            f"input [{a-1}:0] c{p}_idx",
+            f"input [{b-1}:0] c{p}_bit",
+        ]
     ports += [
         "input flush",
         f"input [{a-1}:0] flush_idx",
@@ -293,7 +307,12 @@ def toy(kind, depth, width, top_name="toy"):
 
 
 def main():
-    kind, depth, width, out = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), sys.argv[4]
+    kind, depth, width, out = (
+        sys.argv[1],
+        int(sys.argv[2]),
+        int(sys.argv[3]),
+        sys.argv[4],
+    )
     top_name = sys.argv[5] if len(sys.argv) > 5 else "toy"
     with open(out, "w") as f:
         f.write(toy(kind, depth, width, top_name))

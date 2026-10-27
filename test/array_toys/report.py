@@ -10,7 +10,9 @@ import re
 import sys
 
 _ELAPSED = re.compile(r"Elapsed time: (?:(\d+):)?(\d+):([\d.]+)")
-_FLOW = re.compile(r"^(?P<kind>\w+?)_(?P<depth>\d+)x(?P<width>\d+)_(?P<arm>yosys|generate_ram)$")
+_FLOW = re.compile(
+    r"^(?P<kind>\w+?)_(?P<depth>\d+)x(?P<width>\d+)_(?P<arm>yosys|generate_ram)$"
+)
 
 
 def seconds(log):
@@ -56,7 +58,9 @@ def main():
     rows = harvest(sys.argv[1])
     if not rows:
         sys.exit("no toy has been built: run the scan first")
-    print("| kind | depth x width | yosys synth s | yosys ps | yosys um2 | gen synth s | gen ps | gen um2 |")
+    print(
+        "| kind | depth x width | yosys synth s | yosys ps | yosys um2 | gen synth s | gen ps | gen um2 |"
+    )
     print("|---|---|--:|--:|--:|--:|--:|--:|")
     for (kind, depth, width), arms in sorted(rows.items()):
         y = arms.get("yosys", {})
