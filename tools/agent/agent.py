@@ -45,6 +45,7 @@ EXPORTED_SKILLS = (
     "macro-constraints",
     "macro-selection",
     "new-project",
+    "no-doomed-baselines",
     "no-paint-drying",
     "odb-debug",
     "openroad-debug",
