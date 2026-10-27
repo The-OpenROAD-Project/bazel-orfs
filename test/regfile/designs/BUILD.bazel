@@ -139,36 +139,7 @@ ARMS_6 = design_arms(
     top = "cva6",
 )
 
-ARMS_7 = design_arms(
-    name = "coralnpu",
-    flops = "asap7/coralnpu",
-    module = "Regfile_rf",
-    periods = {arm: [1900] for arm in LARGE},
-    regfile = "asap7/coralnpu-regfile",
-    top = "CoreMiniAxi",
-)
-
-ARMS_8 = design_arms(
-    name = "coralnpu_exmem",
-    flops = "asap7/coralnpu-exmem",
-    module = "Regfile_rf",
-    periods = {arm: [1700] for arm in LARGE},
-    regfile = "asap7/coralnpu-regfile-exmem",
-    top = "CoreMiniAxi",
-)
-
-# both register files: the variant as ORFS has it, two specs
-ARMS_9 = design_arms(
-    name = "coralnpu_exmem_both",
-    flops = "asap7/coralnpu-exmem",
-    module = "Regfile_rf",
-    periods = {"as_is": [1700]},
-    regfile = "asap7/coralnpu-regfiles-exmem",
-    shapes = {"as_is": None},
-    top = "CoreMiniAxi",
-)
-
-ARMS = ARMS_1 + ARMS_2 + ARMS_3 + ARMS_4 + ARMS_5 + ARMS_6 + ARMS_7 + ARMS_8 + ARMS_9
+ARMS = ARMS_1 + ARMS_2 + ARMS_3 + ARMS_4 + ARMS_5 + ARMS_6
 
 SMALL = ARMS_1 + ARMS_2 + ARMS_3 + ARMS_4
 

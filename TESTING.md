@@ -84,7 +84,7 @@ generate_ram ones are to move to OpenROAD/ORFS. Run them with
 | `//test/regfile/designs` | ORFS's designs with generated register files |
 | `//test/macro_select`, `//test/keep_census` | Floorplan planner calibration, keep census |
 | `//test/fanout_loop`, `//test/xs_clockgate`, `//test/grt_scaling`, `//test/planned_parent` | XiangShan reproducers |
-| `//test/tpu/sim`, `//test/coralnpu_exmem` | Design simulations |
+| `//test/tpu/sim` | Design simulations |
 
 ## Feature coverage
 
