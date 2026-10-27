@@ -19,12 +19,12 @@ They are reported as negative results.
 The register file reaches the flow by one of these routes:
 - picorv32: the RTL's own seam, `PICORV32_REGS`.
 - ibex: a spec naming its module.
-- tinyRocket, swerv, cva6 and coralnpu's FRegfile: Verilog surgery
+- tinyRocket, swerv and cva6: Verilog surgery
   (`SYNTH_VERILOG_SURGERY`) moves the storage into a module of its own.
 
 Surgery is either a change the RTL might make for a tapeout, or a
 stand-in for a feature yosys does not have. It is checked, and it never
-changes function. The patches are carried here: ORFS 0095–0099 and 0123.
+changes function. The patches are carried here: ORFS 0095–0099.
 
 ## Method
 
@@ -119,16 +119,14 @@ OpenROAD's web viewer.
 
 ![ibex-regfile, routed, in the web viewer](ibex_regfile_web_route.png)
 
-## Not run yet: swerv, cva6, coralnpu
+## Not run yet: swerv, cva6
 
-swerv_wrapper, cva6, coralnpu-regfile, coralnpu-regfile-exmem and
-coralnpu-regfiles-exmem (both register files) are prepared but not
-measured:
-- their carried patches (0097, 0098, 0123, and the coralnpu patches
-  already here);
-- their surgery, checked on coralnpu's FRegfile by simulation against
-  the original: 20,000 cycles, no mismatch;
-- their arms, listed in `ARMS_5` to `ARMS_9`.
+swerv_wrapper and cva6 are prepared but not measured:
+- their carried patches (0097, 0098);
+- their arms, listed in `ARMS_5` and `ARMS_6`.
+
+coralnpu generates both its register files in ORFS's own asap7/coralnpu
+(0155), so it has no flip-flop arm here.
 
 Each flow needs about 10 GB at detailed route. To finish them:
 
