@@ -182,6 +182,12 @@ ORFS_PATCHES = [
     # against SYNTH_MEMORY_MAX_BITS; synthesis maps it to logic.
     # Not upstreamed; retires at a bump onto an ORFS that carries it.
     Label("//patches:0153-orfs-memory-max-bits-roms.patch"),
+    # 0154: AUTO_MEMORIES drops the parameters from the instances of a
+    # parameterized memory module it makes a macro (coralnpu's Sram), as
+    # it already did for inlined register files: OpenROAD's Verilog
+    # reader stops on a parameterized macro instance (STA-0171). On 0089.
+    # ORFS #4653 (draft); retires at a bump onto an ORFS that carries it.
+    Label("//patches:0154-orfs-auto-memories-parameters.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
