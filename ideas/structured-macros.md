@@ -224,7 +224,7 @@ that must differ, and the decode-once lemma `(1 << x)[i] == (x == i)`.
 
 | Block | Entries | Coverage | Proof (direct, decoded) | To global route | Period (ps) |
 |---|---|---|---|---|---|
-| Rob (surgered core) | 352 | 81% | index kept 130 s; decoded: running | 23.5 min (surgered + hand generator: ~33) | 1,913.9 (1,712.8) |
+| Rob (surgered core) | 352 | 81% | 130 s index kept; 6,655 s decoded | 23.5 min (surgered + hand generator: ~33) | 1,913.9 (1,712.8) |
 | LoadQueueReplay | 120 | 72% | 130 s | ~15 min ¹ (PR: 28.9) | 1,670.7 |
 | PhysicalStoreQueue | 64 | 85% | 27 s | ~26 min ¹ (decode_once: 27.2) | 1,519.5 |
 | VirtualStoreQueue | 128 | 93% | 41 s | ≤ 3 min ² (PR: 6.6) | 1,298.6 |

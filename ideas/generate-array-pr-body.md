@@ -49,7 +49,9 @@ route-0. The surgered Rob with the hand-written generator
 - `check.py`: registers and blackboxes as cut points, a yosys miter, ABC
   `iprove`, and a negative control (one register's D-mux swapped) that
   must come out different. `<top>_check_test` and `<top>_control_test`
-  run both for each block.
+  run both for each block. The Rob's decoded form, 80 comparisons in
+  eight per-bank decoders, proves in 111 min; the others in seconds to
+  minutes.
 
 ### Not covered yet
 
