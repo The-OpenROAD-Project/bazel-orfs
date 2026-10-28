@@ -182,6 +182,11 @@ class Entries:
         d, n = self.d, self.n
         memo, order, consts, refs = {}, [], [], []
         tokens, bodies = {}, {}
+        # a cell the same as one already met (its type, parameters and input
+        # bits; a comparison by its form) is that cell, as opt_merge would
+        # have it: yosys leaves one entry's x == 0 in two cells and another
+        # entry's x == 1 in one, and the walks would no longer line up
+        seen, merged, folded = {}, {}, set()
 
         def bit(b):
             if isinstance(b, str):
@@ -202,8 +207,9 @@ class Entries:
                 or self.reach[d.driver[b][0]] > 1
             ):
                 net, k, width = d.bitname.get(b, (str(b), 0, 1))
-                refs.append((b, net, k, width))
-                return f"R:{net}"
+                pattern, numbers = _net_pattern(net)
+                refs.append((b, net, k, width, numbers))
+                return f"R:{pattern}"
             c, p, k = d.driver[b]
             return f"{cell(c)}.{p}{k}"
 
@@ -220,12 +226,26 @@ class Entries:
             memo[c] = "?"  # a loop through private logic
             eq = self._eq_form(c)
             if eq:
+                key = ("EQ", eq[0], tuple(eq[1]), eq[2])
+            else:
+                typ, params, ins = self.normal(c)
+                key = (
+                    typ,
+                    str(sorted(params.items())),
+                    tuple((p, tuple(bs)) for p, bs in sorted(ins.items())),
+                )
+            if key in seen and memo.get(seen[key], "?") != "?":
+                memo[c] = memo[seen[key]]
+                merged[c] = seen[key]
+                return memo[c]
+            seen.setdefault(key, c)
+            if eq:
+                folded.update(self.folded)
                 # x == K however yosys wrote it, x up to 12 bits of one net
                 sense, leaves, value = eq
                 consts.append(((c, "EQ", tuple(leaves)), value, len(leaves)))
                 body = f"{sense}{len(leaves)}|" + ",".join(bit(x) for x in leaves)
             else:
-                typ, params, ins = self.normal(c)
                 body = (
                     typ
                     + str(sorted(params.items()))
@@ -251,6 +271,9 @@ class Entries:
         return {
             "parts": parts,
             "order": order,
+            "merged": merged,
+            # the cells inside a comparison form, read through it
+            "folded": folded,
             "tokens": tokens,
             "consts": consts,
             "refs": refs,
@@ -283,7 +306,7 @@ class Entries:
         one shared net, else None."""
         d = self.d
         cl = d.cells[c]
-        if cl["type"] not in self._EVAL or cl["type"] in ("$buf", "$pos"):
+        if cl["type"] not in self._EVAL:
             return None
         outs = outputs(cl)
         if len(outs) != 1 or len(cl["connections"][outs[0]]) != 1:
@@ -334,18 +357,19 @@ class Entries:
         ):
             return None
         leaves = sorted(leaves, key=lambda b: d.bitname[b][1])
-        ones = []
+        self.folded = cone - {c}
+        ones, zeros = [], []
         for m in range(1 << len(leaves)):
             val = {b: (m >> k) & 1 for k, b in enumerate(leaves)}
-            if self._eval(cl["connections"][outs[0]][0], val, {}):
-                ones.append(m)
-                if len(ones) > 1 and len(ones) < (1 << len(leaves)) - 1:
-                    break
+            (
+                ones if self._eval(cl["connections"][outs[0]][0], val, {}) else zeros
+            ).append(m)
+            if len(ones) > 1 and len(zeros) > 1:
+                return None  # neither x == K nor x != K
         if len(ones) == 1:
             return ("EQ", leaves, ones[0])
-        if len(ones) == (1 << len(leaves)) - 1:
-            zero = next(m for m in range(1 << len(leaves)) if m not in ones)
-            return ("NE", leaves, zero)
+        if len(zeros) == 1:
+            return ("NE", leaves, zeros[0])
         return None
 
     def _eval(self, b, val, memo):
@@ -464,34 +488,28 @@ class Entries:
                 self.index_sites[k] = fit
             else:
                 self.bad_sites.append(k)
-        # a shared bit's index: the same in every entry, or s*i+o, or
-        # i mod w (a banked decode)
-        rcols = list(
-            zip(*([(net, k, w) for _, net, k, w in self.walks[i]["refs"]] for i in m))
-        )
+        # a shared bit's net and index: its net's numbers (by position in
+        # its pattern, a missing one 0) and its bit index each the same in
+        # every entry, s*i+o, i // B or i % B (a bank's entries)
+        rcols = list(zip(*([r[1:] for r in self.walks[i]["refs"]] for i in m)))
         self.ref_rule = []
         for col in rcols:
-            nets = {net for net, _, _ in col}
-            ks = [k for _, k, _ in col]
-            width = col[0][2]
-            if len(nets) != 1:
-                self.ref_rule.append(None)
-            elif len(set(ks)) == 1:
-                self.ref_rule.append(("abs", ks[0]))
-            elif _affine(ks, m):
-                self.ref_rule.append(("rel",) + _affine(ks, m))
-            elif all(k == i % width for k, i in zip(ks, m)):
-                self.ref_rule.append(("mod", width))
-            else:
-                self.ref_rule.append(None)
+            ks = [k for _, k, _, _ in col]
+            positions = sorted({p for _, _, _, nums in col for p in nums})
+            rules = [
+                _index_rule([nums.get(p, 0) for _, _, _, nums in col], m, None)
+                for p in positions
+            ]
+            rules.append(_index_rule(ks, m, col[0][2]))
+            self.ref_rule.append(None if None in rules else tuple(rules))
         self.bad_refs = [k for k, r in enumerate(self.ref_rule) if r is None]
         self.uniform = len(m) == n and not self.bad_sites and not self.bad_refs
         # each entry's boundary bits by a token that names them alike in
         # every entry
         for i in m:
             w = self.walks[i]
-            for (b, net, _, _), r in zip(w["refs"], self.ref_rule):
-                w["tokens"][f"{net}{r}"] = b
+            for (b, net, _, _, _), r in zip(w["refs"], self.ref_rule):
+                w["tokens"][f"{_net_pattern(net)[0]}{r}"] = b
 
     def report(self):
         d, n = self.d, self.n
@@ -531,11 +549,48 @@ class Entries:
         return "\n".join(lines)
 
 
+def _net_pattern(net):
+    """A net's name without its numbered segments (_<n>), and those numbers
+    by where they stood: firtool names one per bank or per entry
+    (pipMod, pipMod_3; _T_1, _T_2)."""
+    numbers, out, last = {}, [], 0
+    for m in re.finditer(r"_(\d+)(?=_|\.|$)", net):
+        out.append(net[last : m.start()])
+        numbers[len("".join(out))] = int(m.group(1))
+        last = m.end()
+    out.append(net[last:])
+    return "".join(out), numbers
+
+
+def _index_rule(vals, idx, width):
+    """How values (one per entry) follow the entry: the same in every one,
+    s*i+o, i // B or i % B (a bank's entries), else None."""
+    if len(set(vals)) == 1:
+        return ("abs", vals[0])
+    fit = _affine(vals, idx)
+    if fit:
+        return ("rel",) + fit
+    # affine in a bank's number (i // B) or in the entry's place in its
+    # bank (i % B): firtool numbers a bank's modules in steps (pipMod_3, _6)
+    for b in range(2, max(idx) + 2):
+        fit = _affine(vals, [i % b for i in idx])
+        if fit and all(v == fit[0] * (i % b) + fit[1] for v, i in zip(vals, idx)):
+            return ("mod", b) + fit
+        fit = _affine(vals, [i // b for i in idx])
+        if fit and all(v == fit[0] * (i // b) + fit[1] for v, i in zip(vals, idx)):
+            return ("div", b) + fit
+    return None
+
+
 def _affine(vals, idx):
     """(s, o) with vals[k] == s * idx[k] + o for every k, s != 0, else None."""
     if len(vals) < 2:
         return None
-    s = (vals[1] - vals[0]) // max(1, idx[1] - idx[0])
+    # two entries whose idx differ fix s and o
+    k = next((k for k in range(1, len(idx)) if idx[k] != idx[0]), None)
+    if k is None:
+        return None
+    s = (vals[k] - vals[0]) // (idx[k] - idx[0])
     o = vals[0] - s * idx[0]
     if s and all(v == s * i + o for v, i in zip(vals, idx)):
         return (s, o)
