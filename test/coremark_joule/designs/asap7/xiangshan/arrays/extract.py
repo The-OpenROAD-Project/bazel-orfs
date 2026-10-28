@@ -123,6 +123,7 @@ def extract(mod, name, decode=True):
 
     # the cell's outputs: (position, port, bit) read outside, in any entry
     outs = set()
+    in_parent = set()
     for i in range(n):
         priv = private(i)
         for pos, c in enumerate(cells_of(i)):
@@ -137,6 +138,11 @@ def extract(mod, name, decode=True):
             for p in outputs(cl):
                 for b in cl["connections"][p]:
                     if b in out_bits or readers[b] - private(i):
+                        if cl["type"] in ("$buf", "$pos"):
+                            # a port buffer the walk saw through, read
+                            # outside too: it stays in the module as well
+                            in_parent.add(c)
+                            continue
                         fail(
                             f"entry {i}: {c}, folded into a comparison, is read outside"
                         )
@@ -153,6 +159,8 @@ def extract(mod, name, decode=True):
         + [0]
     )
     idx = list(range(ids + 1, ids + 1 + iw))
+    # new bits inside the cell, after the index's
+    fresh = [ids + 1 + iw + 1024]
     cell_cells = {}
     for c in sorted(private(t)):
         cell_cells[c] = copy.deepcopy(d.cells[c])
@@ -179,10 +187,17 @@ def extract(mod, name, decode=True):
         for p, bs in cl["connections"].items():
             cl["connections"][p] = [same.get(x, x) for x in bs]
     sites = [tw["consts"][k] for k in e.index_sites]
-    # decode once: a comparison of the index with an operand every entry
-    # shares becomes an input of the cell, the comparison made once in the
-    # module for all entries (a one-hot shift) and bit i handed to entry i
+    # decode once: a comparison of the index with an operand from outside
+    # the entries becomes an input of the cell, the comparison made once in
+    # the module per distinct operand (a one-hot shift) and bit i handed to
+    # entry i: one decoder for an operand every entry shares, one per bank
+    # for a bank's pointer (i % B, i // B: the Rob's eight)
     token_of = {b: tok for tok, b in tw["tokens"].items()}
+
+    def outside(b):
+        tok = token_of.get(b)
+        return tok is not None and "rel" not in tok and "@" not in tok
+
     decoded = []  # (hit port, the operand's template bits)
     rest = []
     for where, v, w in sites:
@@ -192,30 +207,37 @@ def extract(mod, name, decode=True):
             # x == K, however yosys wrote it: x is the form's own bits
             operand = list(where[2])
             hit = cl["connections"][outputs(cl)[0]][0]
-            absolute = all(
-                b in token_of and "rel" not in token_of[b] and "mod" not in token_of[b]
-                for b in operand
-            )
-            if absolute and decode:
-                del cell_cells[c]
+            if all(outside(b) for b in operand) and decode:
+                if v_sense(e, where) == "NE":
+                    # x != K: the cell inverts the decoder's x == K
+                    hit_in = fresh[0]
+                    fresh[0] += 1
+                    cell_cells[c] = {
+                        "hide_name": 1,
+                        "type": "$not",
+                        "attributes": {},
+                        "parameters": {
+                            "A_SIGNED": "0",
+                            "A_WIDTH": format(1, "032b"),
+                            "Y_WIDTH": format(1, "032b"),
+                        },
+                        "port_directions": {"A": "input", "Y": "output"},
+                        "connections": {"A": [hit_in], "Y": [hit]},
+                    }
+                    hit = hit_in
+                else:
+                    del cell_cells[c]
                 decoded.append((f"hit{len(decoded)}", hit, operand))
             else:
                 rest.append((where, v, w))
             continue
         other = "A" if p == "B" else "B"
-        operand = cl["connections"].get(other, [])
-        absolute = operand and all(
-            not isinstance(b, str)
-            and b in token_of
-            and "rel" not in token_of[b]
-            and "mod" not in token_of[b]
-            and "@" not in token_of[b]
-            for b in operand
-        )
+        operand = [e.root(b)[0] for b in cl["connections"].get(other, [])]
         if (
             decode
             and cl["type"] == "$eq"
-            and absolute
+            and operand
+            and all(not isinstance(b, str) and outside(b) for b in operand)
             and len(cl["connections"]["Y"]) == 1
         ):
             hit = cl["connections"]["Y"][0]
@@ -286,15 +308,12 @@ def extract(mod, name, decode=True):
     cell_name = name + "Entry"
     parent = copy.deepcopy(mod)
     for i in range(n):
-        for c in private(i):
+        for c in private(i) - in_parent:
             del parent["cells"][c]
-    next_id = [max(idx) + 1]
-    one_hot = {}
-    for hp, _, operand in decoded:
-        y = list(range(next_id[0], next_id[0] + n))
-        next_id[0] += n
-        # the operand's bits are shared, the same for every entry
-        parent["cells"][f"$decode_once${hp}"] = {
+    next_id = [max(idx + [fresh[0]]) + 1]
+
+    def decoder(hp, g, operand, y):
+        parent["cells"][f"$decode_once${hp}_{g}"] = {
             "hide_name": 1,
             "type": "$shl",
             "parameters": {
@@ -308,12 +327,24 @@ def extract(mod, name, decode=True):
             "port_directions": {"A": "input", "B": "input", "Y": "output"},
             "connections": {"A": ["1"] + ["0"] * (n - 1), "B": operand, "Y": y},
         }
-        parent["netnames"][f"decode_once_{hp}"] = {
+        parent["netnames"][f"decode_once_{hp}_{g}"] = {
             "hide_name": 0,
             "bits": y,
             "attributes": {},
         }
-        one_hot[hp] = y
+
+    one_hot = {}  # (hit port, entry) -> the entry's bit of its decoder
+    for hp, _, template_operand in decoded:
+        toks = [token_of[b] for b in template_operand]
+        by_operand = collections.defaultdict(list)
+        for i in range(n):
+            by_operand[tuple(e.walks[i]["tokens"][t] for t in toks)].append(i)
+        for g, (operand, members) in enumerate(by_operand.items()):
+            y = list(range(next_id[0], next_id[0] + n))
+            next_id[0] += n
+            for i in members:
+                one_hot[hp, i] = y[i]
+            decoder(hp, g, list(operand), y)
     for i in range(n):
         w = e.walks[i]
         conns, dirs = {}, {}
@@ -324,7 +355,7 @@ def extract(mod, name, decode=True):
             conns["idx"] = ["1" if i >> k & 1 else "0" for k in range(iw)]
             dirs["idx"] = "input"
         for hp, _, _ in decoded:
-            conns[hp] = [one_hot[hp][i]]
+            conns[hp] = [one_hot[hp, i]]
             dirs[hp] = "input"
         mine = cells_of(i)
         for k, (pos, p, kb) in enumerate(outs):

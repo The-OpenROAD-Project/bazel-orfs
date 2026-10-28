@@ -156,6 +156,33 @@ class Entries:
         self.walks = [self._walk(i) for i in range(n)]
         self._rule()
 
+    def root(self, b):
+        """The bit b buffers through private $buf/$pos cells, and those
+        cells: a flattened cell copies its inputs through its own port
+        buffers, the Rob's 352 RobEntryCells their shared bus. Only to a bit
+        from outside the entry: a buffer of the entry's own logic or
+        register is that logic's, and moves with it into the cell."""
+        d, bufs, r = self.d, [], b
+        while not isinstance(r, str) and r in d.driver and r not in self.owner:
+            c, _, k = d.driver[r]
+            cl = d.cells[c]
+            if (
+                cl["type"] not in ("$buf", "$pos")
+                or self.reach.get(c) != 1
+                or len(cl["connections"]["A"]) != len(cl["connections"]["Y"])
+            ):
+                break
+            bufs.append(c)
+            r = cl["connections"]["A"][k]
+        shared = (
+            isinstance(r, str)
+            or r not in d.driver
+            or r in d.inputs
+            or (r in d.flop_bits and r not in self.owner)
+            or self.reach.get(d.driver[r][0], 0) > 1
+        )
+        return (r, bufs) if bufs and shared else (b, [])
+
     def narrowed(self):
         """The group without the arrays whose structure differs between
         entries, when the rest follows one rule (IBuffer: the last entry of
@@ -219,6 +246,11 @@ class Entries:
                 t = f"{arr}@{(j - i) % n}[{k}]"
                 tokens[t] = b
                 return t
+            r, bufs = self.root(b)
+            if r != b:
+                # a private buffer (a flattened cell's port) is what it buffers
+                folded.update(bufs)
+                return bit(r)
             if (
                 b in d.inputs
                 or b in d.flop_bits
