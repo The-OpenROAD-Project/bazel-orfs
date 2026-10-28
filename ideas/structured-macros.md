@@ -222,23 +222,28 @@ each extraction: registers and blackboxes as cut points, a yosys
 miter, ABC `iprove`, a negative control (one register's D-mux swapped)
 that must differ, and the decode-once lemma `(1 << x)[i] == (x == i)`.
 
-| Block | Entries | Coverage | Proof | To global route | Period (ps) |
+| Block | Entries | Coverage | Proof (direct, decoded) | To global route | Period (ps) |
 |---|---|---|---|---|---|
-| LoadQueueReplay | 120 | 72% | 74 s | 13.4 min (PR: 28.9) | 1,590 |
-| VirtualStoreQueue | 128 | 89% | 11 s | ~1.5 min (PR: 6.6) | 1,436.8 |
-| LoadQueueRAR | 96 | 76% | 8 s | ≤ 2.3 min (PR: 4.5) | 1,172.6 |
-| TLBFA / TLBFA_1 | 48 | 98% / 95% | 4 / 9 s | ≤ 2.3 min | 435.1 / 507.2 |
-| PhysicalStoreQueue | 64 | 85% | 27 s | 21.2 min (decode_once: 27.2) | 1,534.1 |
-| Rob (surgered core) | 352 | 81% | 110 s | building | |
-| IBuffer | 48 | 67% | 13 s | below the 70% gate | |
+| Rob (surgered core) | 352 | 81% | index kept 130 s; decoded: running | 23.5 min (surgered + hand generator: ~33) | 1,913.9 (1,712.8) |
+| LoadQueueReplay | 120 | 72% | 130 s | ~15 min ¹ (PR: 28.9) | 1,670.7 |
+| PhysicalStoreQueue | 64 | 85% | 27 s | ~26 min ¹ (decode_once: 27.2) | 1,519.5 |
+| VirtualStoreQueue | 128 | 93% | 41 s | ≤ 3 min ² (PR: 6.6) | 1,298.6 |
+| LoadQueueRAR | 96 | 76% | 10 s | ≤ 3 min ² (PR: 4.5) | 1,172.6 |
+| TLBFA / TLBFA_1 | 48 | 98% / 95% | 7 / 10 s | ≤ 3 min ² | 435.1 / 507.2 |
+| IBuffer | 48 | 67% | 18 s (four decoders per comparison) | below the 70% gate | |
+| Uncache | 16 | 41% | 5 s | below the gate | |
 | LoadQueueRAW | 56 | 67% | | below the gate | |
-| Uncache | 16 | 41% | 4 s | below the gate | |
 | VirtualLoadQueue | 120 | 0% | | entries 2^k - 1 differ | |
 | StdFreeList | 223 | (all free list) | | nothing to extract | |
 | BusyTable | | no groups | | | |
 
-The three small blocks built side by side in 139 s; LoadQueueRAR's time
-includes what an interrupted run had cached. Every flow is the block's
+¹ LoadQueueReplay and PhysicalStoreQueue side by side, 26.4 min; alone,
+PhysicalStoreQueue took 21.2 min, its top's synthesis 978 s against
+1,264 s beside the other. ² The four side by side in 172 s.
+
+Every extraction is proven twice, with the index kept and decoded, each
+with its negative control (`<top>_check_test`, `<top>_control_test`).
+Every flow is the block's
 with setup repair off (XSTile's ~2,000 ps), no pin access, and
 floorplan's repair_timing skipped.
 
@@ -254,3 +259,16 @@ What is not covered yet:
   which yosys folds differently for each K (a buffer at 2^k - 1, an
   OR reduction elsewhere); a GE/LT form, like the EQ/NE one, would cover
   it, for 1,734 bits.
+
+### What the flow alone buys (2026-10-28)
+
+`flow_only/` builds Bpu and VecRegionModule from their RTL as it is,
+with the knobs above (setup repair at and after CTS off, floorplan's
+repair off, no pin access, route-0 global route) and the die from
+utilization rather than the carve's plan. Side by side, 39.1 min to
+global route; floorplan through global route took 15.2 min (Bpu) and
+27.2 min (VecRegionModule), CTS 2.3 and 3.0 min against the carve's 15.0
+and 21.2. But the periods are 3,495.9 ps (Bpu) and 2,355.3 ps
+(VecRegionModule), over XSTile's ~2,000 ps: for these two, CTS's setup
+repair is needed. It chases the SDC's 473 ps; repairing towards the
+period the tile needs instead is a change of target, left to the human.

@@ -1,0 +1,59 @@
+load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run")
+load("//test/coremark_joule/designs/asap7/xiangshan:xiangshan.bzl", "XS_BLOCKS", "XS_ICG_USER_ARGUMENTS", "XS_ICG_USER_SOURCES", "XS_USER_STAGES", "XS_VERILOG")
+
+# What the flow alone buys a block, its RTL as it is: the block's settings
+# with the knobs the Rob's turnaround work settled on. Setup repair at CTS
+# and after it off (XSTile's ~2,000 ps; in the carve CTS's repair_timing
+# was most of the long blocks' CTS), floorplan's repair_timing off, no pin
+# access (detailed route waits for the final check), route-0 global route.
+# Global placement as the carve's, timing- and routability-driven off. The
+# die from the block's utilization, not the carve's plan.
+KNOBS = {
+    "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
+    "GPL_ROUTABILITY_DRIVEN": "0",
+    "GPL_TIMING_DRIVEN": "0",
+    "SKIP_CTS_REPAIR_TIMING": "1",
+    "SKIP_FLOORPLAN_REPAIR_TIMING": "1",
+    "SKIP_INCREMENTAL_REPAIR": "1",
+    "SKIP_PIN_ACCESS": "1",
+}
+
+BLOCKS = [
+    "Bpu",
+    "VecRegionModule",
+]
+
+[
+    orfs_flow(
+        name = block,
+        arguments = XS_BLOCKS[block]["arguments"] | KNOBS,
+        last_stage = "grt",
+        pdk = "//flow:asap7",
+        sources = XS_BLOCKS[block]["sources"],
+        stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
+        tags = ["manual"],
+        user_arguments = XS_BLOCKS[block]["user_arguments"] | XS_ICG_USER_ARGUMENTS,
+        user_sources = XS_BLOCKS[block]["user_sources"] | XS_ICG_USER_SOURCES,
+        user_stages = {
+            v: s
+            for v, s in XS_USER_STAGES.items()
+            if v in XS_BLOCKS[block]["user_arguments"] | XS_ICG_USER_ARGUMENTS or v in XS_BLOCKS[block]["user_sources"] | XS_ICG_USER_SOURCES
+        },
+        verilog_files = XS_VERILOG,
+    )
+    for block in BLOCKS
+]
+
+[
+    orfs_run(
+        name = block + "_grt_qor",
+        src = ":%s_grt" % block,
+        outs = [block + "_grt_qor.json"],
+        script = "//test/coremark_joule/designs/asap7/xiangshan/rob_array:qor_probe.tcl",
+        tags = ["manual"],
+        user_arguments = {
+            "OUTPUT_JSON": "$(location %s_grt_qor.json)" % block,
+        },
+    )
+    for block in BLOCKS
+]

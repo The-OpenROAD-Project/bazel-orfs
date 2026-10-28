@@ -68,9 +68,16 @@ exports_files(
 exports_files(
     glob(["*.regfile"]),
     visibility = [
+        "//test/coremark_joule/designs/asap7/xiangshan/flow_only:__pkg__",
         "//test/coremark_joule/designs/asap7/xiangshan/rob_array:__pkg__",
         "//test/structured_netlist:__pkg__",
     ],
+)
+
+# The Bpu's macro placement in its flow, for the flow-only measurement.
+exports_files(
+    ["anneal_in_flow.tcl"],
+    visibility = ["//test/coremark_joule/designs/asap7/xiangshan/flow_only:__pkg__"],
 )
 
 # The planned parent: the blocks the macro selection tables named, each a
