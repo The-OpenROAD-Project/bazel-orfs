@@ -1,0 +1,83 @@
+load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run")
+load("@rules_python//python:defs.bzl", "py_binary")
+load("//test/coremark_joule/designs/asap7/xiangshan:xiangshan.bzl", "XS_BLOCKS", "XS_ICG_USER_ARGUMENTS", "XS_ICG_USER_SOURCES", "XS_USER_STAGES")
+
+# Decode once (decode_once.py): a cell array whose instances compare their
+# constant index against shared buses becomes one index-free cell and
+# decoders in the parent, so ABC maps the cell once and every decoder is
+# built once. XiangShan's two: the Rob's 352 RobEntryCells (82
+# comparisons) and the store queue's 64 SqEntryCells (13). Manual: the
+# whole core's Verilog is read.
+
+py_binary(
+    name = "decode_once",
+    srcs = ["decode_once.py"],
+)
+
+CELLS = [
+    ("RobEntryCell", "io_idx", "Rob"),
+    ("SqEntryCell", "io_idx", "PhysicalStoreQueue"),
+]
+
+genrule(
+    name = "xiangshan_decode_once",
+    srcs = ["//test/coremark_joule/designs/asap7/xiangshan/surgery:xiangshan_surgered"],
+    outs = ["xiangshan_decode_once.sv"],
+    cmd = "cp $< $(RULEDIR)/step0.sv && " + " && ".join([
+        "$(execpath :decode_once) $(RULEDIR)/step%d.sv $(RULEDIR)/step%d.sv %s %s %s" % (
+            k,
+            k + 1,
+            cell,
+            idx,
+            parent,
+        )
+        for k, (cell, idx, parent) in enumerate(CELLS)
+    ]) + " && mv $(RULEDIR)/step%d.sv $@ && rm -f $(RULEDIR)/step*.sv" % len(CELLS),
+    tags = ["manual"],
+    tools = [":decode_once"],
+)
+
+# The store queue as a block of its own, its cell kept so synthesis maps
+# it once, with the flow test/rob_toy and the Rob found: timing-driven
+# global placement, setup repair off (XSTile's ~2,000 ps), no pin access.
+# The Rob's block settings without its register files: the default
+# block's (Bpu's) anneal its memory banks, which the queue has none of.
+BLOCK = XS_BLOCKS["Rob"]
+
+orfs_flow(
+    name = "PhysicalStoreQueue",
+    arguments = {k: v for k, v in BLOCK["arguments"].items() if k != "SYNTH_KEEP_MODULES"} | {
+        "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
+        "GPL_TIMING_DRIVEN": "1",
+        "SKIP_CTS_REPAIR_TIMING": "1",
+        "SKIP_INCREMENTAL_REPAIR": "1",
+        "SKIP_PIN_ACCESS": "1",
+        "SKIP_REPORT_METRICS": "1",
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_KEEP_MODULES": "SqEntryCell",
+    },
+    last_stage = "grt",
+    pdk = "//flow:asap7",
+    sources = {k: v for k, v in BLOCK["sources"].items() if k != "AUTO_MEMORIES_REGFILES"},
+    stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
+    tags = ["manual"],
+    user_arguments = BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS,
+    user_sources = BLOCK["user_sources"] | XS_ICG_USER_SOURCES,
+    user_stages = {
+        v: s
+        for v, s in XS_USER_STAGES.items()
+        if v in BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS or v in BLOCK["user_sources"] | XS_ICG_USER_SOURCES
+    },
+    verilog_files = [":xiangshan_decode_once.sv"],
+)
+
+orfs_run(
+    name = "PhysicalStoreQueue_grt_qor",
+    src = ":PhysicalStoreQueue_grt",
+    outs = ["PhysicalStoreQueue_grt_qor.json"],
+    script = "//test/coremark_joule/designs/asap7/xiangshan/rob_array:qor_probe.tcl",
+    tags = ["manual"],
+    user_arguments = {
+        "OUTPUT_JSON": "$(location PhysicalStoreQueue_grt_qor.json)",
+    },
+)

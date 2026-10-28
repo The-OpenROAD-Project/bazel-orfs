@@ -140,3 +140,5 @@ orfs_flow(
         "grt",
     ]
 ]
+
+exports_files(["qor_probe.tcl"])
