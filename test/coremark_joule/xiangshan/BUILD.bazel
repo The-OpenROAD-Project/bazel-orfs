@@ -175,6 +175,46 @@ exports_files(glob([
     ]
 ]
 
+# XiangShan elaborated with Chisel's vectors kept as packed arrays
+# (--preserve-aggregate=vec, which the generator's firtool pipeline takes,
+# and packed arrays allowed in the output), so a per-entry array is one
+# register vector that tools/yosys_arrays's array_reroll turns back into
+# a memory, where the default lowering scalarises it into name_<i>
+# registers nothing finds again. Only for finding arrays, one macro at a
+# time (test/coremark_joule/designs/asap7/xiangshan/arrays); no flow
+# reads it.
+genrule(
+    name = "xiangshan_fir_vec",
+    outs = ["xiangshan_fir_vec.fir"],
+    cmd = " ".join([
+        "FIRTOOL_DIR=$$(dirname $$(realpath $(execpath @chisel_firtool//:bin/firtool)));",
+        "ESPRESSO_DIR=$$(dirname $$(realpath $(execpath @espresso//:bin/espresso)));",
+        "PATH=$$ESPRESSO_DIR:$$FIRTOOL_DIR:$$PATH",
+        "CHISEL_FIRTOOL_PATH=$$FIRTOOL_DIR",
+        "$(execpath :generator)",
+        "--default-layer-specialization=disable",
+        "--preserve-aggregate=vec",
+        "-o $@",
+    ]),
+    tags = ["manual"],
+    tools = [
+        ":generator",
+        "@chisel_firtool//:bin/firtool",
+        "@espresso//:bin/espresso",
+    ],
+)
+
+verilog_directory(
+    name = "xiangshan_sv_vec",
+    srcs = [":xiangshan_fir_vec"],
+    opts = [
+        "--disable-all-randomization",
+        "--lowering-options=disallowLocalVariables,noAlwaysComb",
+    ] + CLOCK_GATE_OPTS,
+    tags = ["manual"],
+    visibility = ["//test/coremark_joule/designs/asap7/xiangshan:__subpackages__"],
+)
+
 # How big is the thing we are actually hardening? firtool emits one file
 # per module, so the answer is available before synthesis: walk the
 # instantiations from XSTile and add up what is reachable. Most of what

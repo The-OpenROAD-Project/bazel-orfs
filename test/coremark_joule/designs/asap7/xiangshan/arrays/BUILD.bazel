@@ -1,0 +1,35 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+
+# Finding XiangShan's arrays for generate_array, one macro at a time:
+# array_reroll and the classifier on the packed-vector elaboration
+# (//test/coremark_joule/xiangshan:xiangshan_sv_vec). A dry run: a
+# report, nothing changed. Manual: it needs XiangShan elaborated.
+
+py_binary(
+    name = "dryrun",
+    srcs = ["dryrun.py"],
+)
+
+[
+    genrule(
+        name = top + "_dryrun",
+        srcs = [
+            "//test/coremark_joule/xiangshan:xiangshan_sv_vec",
+            "//tools/yosys_arrays:classify.py",
+        ],
+        outs = [top + "_dryrun.txt"],
+        cmd = "$(execpath :dryrun) $(execpath @yosys) $(execpath @sv-elab//src/yosys_plugin:slang.so) " +
+              "$(execpath //tools/yosys_arrays:arrays.so) $(execpath //tools/yosys_arrays:classify.py) " +
+              "$(location //test/coremark_joule/xiangshan:xiangshan_sv_vec) %s $@" % top,
+        tags = ["manual"],
+        tools = [
+            ":dryrun",
+            "//tools/yosys_arrays:arrays.so",
+            "@sv-elab//src/yosys_plugin:slang.so",
+            "@yosys",
+        ],
+    )
+    for top in [
+        "LoadQueueReplay",
+    ]
+]
