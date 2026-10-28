@@ -44,7 +44,7 @@ def v_sense(e, where):
 
 def extract(mod, name, decode=True):
     d = Design(mod)
-    groups = [Entries(d, n, a) for n, a in d.groups().items()]
+    groups = [Entries(d, n, a).narrowed() for n, a in d.groups().items()]
     groups = [e for e in groups if e.uniform]
     if not groups:
         fail("no group of entries follows one rule")
@@ -66,6 +66,8 @@ def extract(mod, name, decode=True):
             for a in e.arrs
             if a not in keep_out
         }
+        if not arrays:
+            fail(f"every array is kept out ({sorted(keep_out)}): nothing to extract")
         e = Entries(d, e.n, arrays)
         if not e.uniform:
             fail(f"without {sorted(keep_out)} the entries no longer follow one rule")
@@ -80,9 +82,16 @@ def extract(mod, name, decode=True):
         return e.walks[i]["order"] + e.flops[i]
 
     tw = e.walks[t]
-    if set(tw["order"]) | set(tw["merged"]) | tw["folded"] != {
-        c for c in e.cones[t] if e.reach[c] == 1
-    }:
+    # a cell that drives only constants (a $buf of a literal) is read as
+    # its constant and never walked
+    walked = set(tw["order"]) | set(tw["merged"]) | tw["folded"]
+    unwalked = {c for c in e.cones[t] if e.reach[c] == 1} - walked
+    if any(
+        d.const.get(b) is None
+        for c in unwalked
+        for p in outputs(d.cells[c])
+        for b in d.cells[c]["connections"][p]
+    ):
         fail("the template's walk does not cover its private cells")
     for k, (s, o) in e.index_sites.items():
         if (s, o) != (1, 0):
