@@ -212,6 +212,7 @@ BLOCK = XS_BLOCKS["Rob"]
 [
     py_test(
         name = "%s_%s_test" % (top, kind),
+        timeout = "eternal" if top == "Rob" else "long",
         srcs = ["check.py"],
         args = [
             "$(rootpath @yosys)",

@@ -204,3 +204,53 @@ memory. So structures are recognised on the packed form, and a rewrite
 of packed register vectors to unpacked arrays ahead of yosys is not
 used. Ports at distinct constant addresses never collide; a yosys fix
 that skips them is a carried-patch candidate.
+
+## The front end: entries found and extracted (2026-10-28)
+
+`test/coremark_joule/designs/asap7/xiangshan/arrays` finds a module's
+entries and makes them one cell, instanced per entry, with no
+per-design code: yosys JSON after `proc` (`proc_json.py`); entries are
+word i of arrays of equal length (`entries.py`); each entry's private
+cone is walked to a structural signature, with constants, shared-bit
+references and comparison forms (x == K, x != K over up to 12 bits of
+one net) decided across entries (the same, affine in the entry, or
+affine in a bank's number or the entry's place in its bank); duplicate
+cells are merged; arrays whose structure differs between entries stay
+inline. `extract.py` writes the template entry as `<Module>Entry`
+and decodes index comparisons once in the parent. `check.py` proves
+each extraction: registers and blackboxes as cut points, a yosys
+miter, ABC `iprove`, a negative control (one register's D-mux swapped)
+that must differ, and the decode-once lemma `(1 << x)[i] == (x == i)`.
+
+| Block | Entries | Coverage | Proof | To global route | Period (ps) |
+|---|---|---|---|---|---|
+| LoadQueueReplay | 120 | 72% | 74 s | 13.4 min (PR: 28.9) | 1,590 |
+| VirtualStoreQueue | 128 | 89% | 11 s | ~1.5 min (PR: 6.6) | 1,436.8 |
+| LoadQueueRAR | 96 | 76% | 8 s | ≤ 2.3 min (PR: 4.5) | 1,172.6 |
+| TLBFA / TLBFA_1 | 48 | 98% / 95% | 4 / 9 s | ≤ 2.3 min | 435.1 / 507.2 |
+| PhysicalStoreQueue | 64 | 85% | 27 s | 21.2 min (decode_once: 27.2) | 1,534.1 |
+| Rob (surgered core) | 352 | 81% | 110 s | building | |
+| IBuffer | 48 | 67% | 13 s | below the 70% gate | |
+| LoadQueueRAW | 56 | 67% | | below the gate | |
+| Uncache | 16 | 41% | 4 s | below the gate | |
+| VirtualLoadQueue | 120 | 0% | | entries 2^k - 1 differ | |
+| StdFreeList | 223 | (all free list) | | nothing to extract | |
+| BusyTable | | no groups | | | |
+
+The three small blocks built side by side in 139 s; LoadQueueRAR's time
+includes what an interrupted run had cached. Every flow is the block's
+with setup repair off (XSTile's ~2,000 ps), no pin access, and
+floorplan's repair_timing skipped.
+
+What is not covered yet:
+
+- **The read side.** Only the cones in front of an entry's registers are
+  extracted. PhysicalStoreQueue's top still synthesises for 978 s: its
+  store-to-load forwarding compares every entry with each load pipeline
+  and reduces across the entries, logic that reads one entry's registers
+  and ends in a reduction. Extracting the per-entry part of such cones
+  is the next generalisation.
+- **Threshold compares.** VirtualLoadQueue's `entryHitBound` is x >= K,
+  which yosys folds differently for each K (a buffer at 2^k - 1, an
+  OR reduction elsewhere); a GE/LT form, like the EQ/NE one, would cover
+  it, for 1,734 bits.
