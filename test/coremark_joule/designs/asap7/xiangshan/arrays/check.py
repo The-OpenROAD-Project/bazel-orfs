@@ -87,7 +87,8 @@ def main(argv):
         lemma(argv[1], int(argv[3]), int(argv[4]), os.getcwd())
     yosys, orig, extracted, module = argv[1:5]
     mutate = len(argv) > 5
-    work = os.path.dirname(os.path.abspath(extracted))
+    # a Bazel test's runfiles are read-only: its scratch is TEST_TMPDIR
+    work = os.environ.get("TEST_TMPDIR") or os.path.dirname(os.path.abspath(extracted))
     flat = os.path.join(work, "check_flat.json")
     src = extracted
     if mutate:

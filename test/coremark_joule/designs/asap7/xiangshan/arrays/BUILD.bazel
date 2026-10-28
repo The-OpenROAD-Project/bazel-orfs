@@ -1,5 +1,5 @@
 load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run")
-load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("//test/coremark_joule/designs/asap7/xiangshan:xiangshan.bzl", "XS_BLOCKS", "XS_ICG_USER_ARGUMENTS", "XS_ICG_USER_SOURCES", "XS_USER_STAGES")
 
 # The blocks whose entries the front end extracts (entries.py says how
@@ -202,4 +202,37 @@ BLOCK = XS_BLOCKS["Rob"]
         },
     )
     for top in TOPS
+]
+
+# The extraction's proof as a test: the extracted module, its comparisons
+# decoded once, against the module it came from (check.py: registers and
+# blackboxes cut, a miter, ABC's iprove), and the negative control, one
+# register's D-mux swapped, which must come out different. Manual: it
+# needs XiangShan elaborated; the Rob's takes over half an hour.
+[
+    py_test(
+        name = "%s_%s_test" % (top, kind),
+        srcs = ["check.py"],
+        args = [
+            "$(rootpath @yosys)",
+            "$(rootpath :%s_proc.json)" % top,
+            "$(rootpath :%s_extracted.json)" % top,
+            top,
+        ] + (["mutate"] if kind == "control" else []),
+        data = [
+            ":%s_extracted.json" % top,
+            ":%s_extracted.json.renames" % top,
+            ":%s_proc.json" % top,
+            # yosys-abc, which check.py runs, comes in yosys's runfiles
+            "@yosys",
+        ],
+        main = "check.py",
+        tags = ["manual"],
+        deps = [":entries_lib"],
+    )
+    for top in EXTRACTED
+    for kind in [
+        "check",
+        "control",
+    ]
 ]
