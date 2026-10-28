@@ -659,11 +659,14 @@ class Entries:
         self.bad_refs = [k for k, r in enumerate(self.ref_rule) if r is None]
         self.uniform = len(m) == n and not self.bad_sites and not self.bad_refs
         # each entry's boundary bits by a token that names them alike in
-        # every entry
+        # every entry, the reference's column in it: a net's pattern and
+        # rule alone are not unique (LoadQueueRAR's matchMaskReg_1,
+        # matchMaskReg_1_1 and matchMaskReg_2_1 shared one, and its
+        # extraction wired one bit to all three)
         for i in m:
             w = self.walks[i]
-            for (b, net, _, _, _), r in zip(w["refs"], self.ref_rule):
-                w["tokens"][f"{_net_pattern(net)[0]}{r}"] = b
+            for k, ((b, net, _, _, _), r) in enumerate(zip(w["refs"], self.ref_rule)):
+                w["tokens"][f"{k}:{_net_pattern(net)[0]}{r}"] = b
 
     def report(self):
         d, n = self.d, self.n
