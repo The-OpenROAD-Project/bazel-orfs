@@ -137,9 +137,10 @@ class Design:
 class Entries:
     """One group of n entries: cones, signatures and the common rule."""
 
-    def __init__(self, design, n, arrays):
+    def __init__(self, design, n, arrays, read=False):
         self.d = design
         self.n = n
+        self.read = read
         self.arrays = arrays
         self.inline = []  # arrays left out by narrowed()
         self.arrs = sorted(arrays)
@@ -152,9 +153,97 @@ class Entries:
                     self.owner[b] = (a, i, k)
         self.owner_cells = set(self.array_of)
         self.cones = [self._cone(i) for i in range(n)]
+        self.read_roots = [[] for _ in range(n)]
+        if read:
+            self._read_side()
         self.reach = collections.Counter(c for cs in self.cones for c in cs)
         self.walks = [self._walk(i) for i in range(n)]
+        if read:
+            # the read roots by signature: their readers are per-entry nodes
+            # of the reductions, so no name orders them alike in every entry
+            for i in range(n):
+                sigs = self.walks[i]["read_sigs"]
+                self.read_roots[i] = [
+                    r for _, r in sorted(zip(sigs, self.read_roots[i]))
+                ]
+            self.walks = [self._walk(i) for i in range(n)]
         self._rule()
+
+    def _read_side(self):
+        """Each entry's read cone joins its cone: the cells its registers
+        feed and no other entry's do, outside every entry's write cone
+        (PhysicalStoreQueue's forwarding compares, 33 per entry). The bits
+        that leave it, into the reductions across entries, are the walk's
+        further roots, ordered alike in every entry: by their readers
+        (cell, port, then bit position) and their net's name pattern."""
+        d, n = self.d, self.n
+        written = set().union(*self.cones)
+        readers = collections.defaultdict(list)
+        for c, cl in d.cells.items():
+            if cl["type"] in FLOPS:
+                continue
+            for p, bs in cl["connections"].items():
+                if p not in outputs(cl):
+                    for k, b in enumerate(bs):
+                        if not isinstance(b, str):
+                            readers[b].append((c, p, k))
+        fed = collections.defaultdict(set)
+        for b, (_, i, _) in self.owner.items():
+            todo, seen = [b], set()
+            while todo:
+                x = todo.pop()
+                for c, _, _ in readers.get(x, ()):
+                    if c in seen or c in written:
+                        continue
+                    seen.add(c)
+                    fed[c].add(i)
+                    cl = d.cells[c]
+                    for p in outputs(cl):
+                        todo += cl["connections"][p]
+        cones = [set() for _ in range(n)]
+        for c, es in fed.items():
+            if len(es) == 1:
+                cones[next(iter(es))].add(c)
+        out_bits = {
+            b
+            for v in d.mod["ports"].values()
+            if v["direction"] == "output"
+            for b in v["bits"]
+        }
+        for i in range(n):
+            roots = []
+            for c in cones[i]:
+                cl = d.cells[c]
+                for p in outputs(cl):
+                    for b in cl["connections"][p]:
+                        outside = [
+                            r for r in readers.get(b, ()) if r[0] not in cones[i]
+                        ]
+                        if outside or b in out_bits:
+                            net = d.bitname.get(b, ("", 0, 1))[0]
+                            pattern = (
+                                _net_pattern(net)[0] if not net.startswith("$") else ""
+                            )
+                            first = min((r[2] for r in outside), default=0)
+                            roots.append((pattern, first, b))
+            # ordered for now by name; __init__ orders them again by their
+            # signatures once a first walk has computed them
+            roots.sort()
+            self.read_roots[i] = roots
+            # only what the roots read: a cell whose output nothing outside
+            # reads is not the entry's to carry
+            keep, todo = set(), [b for _, _, b in roots]
+            while todo:
+                b = todo.pop()
+                drv = d.driver.get(b)
+                if not drv or drv[0] not in cones[i] or drv[0] in keep:
+                    continue
+                keep.add(drv[0])
+                cl = d.cells[drv[0]]
+                for p, bs in cl["connections"].items():
+                    if p not in outputs(cl):
+                        todo += [x for x in bs if not isinstance(x, str)]
+            self.cones[i] |= keep
 
     def root(self, b):
         """The bit b buffers through private $buf/$pos cells, and those
@@ -194,7 +283,7 @@ class Entries:
         rest = {a: v for a, v in self.arrays.items() if a not in varying}
         if not varying or not rest:
             return self
-        e = Entries(self.d, self.n, rest)
+        e = Entries(self.d, self.n, rest, self.read)
         if not e.uniform:
             return self
         e.inline = varying
@@ -255,7 +344,7 @@ class Entries:
                 b in d.inputs
                 or b in d.flop_bits
                 or b not in d.driver
-                or self.reach[d.driver[b][0]] > 1
+                or self.reach[d.driver[b][0]] != 1
             ):
                 net, k, width = d.bitname.get(b, (str(b), 0, 1))
                 pattern, numbers = _net_pattern(net)
@@ -322,7 +411,14 @@ class Entries:
             )
             parts[self.array_of[f]] = hashlib.sha1(body.encode()).hexdigest()[:16]
             bodies[self.array_of[f]] = body
+        # the read side: each bit that leaves the entry's read cone
+        reads = [bit(b) for _, _, b in self.read_roots[i]]
+        if reads:
+            body = "|".join(reads)
+            parts["read"] = hashlib.sha1(body.encode()).hexdigest()[:16]
+            bodies["read"] = body
         return {
+            "read_sigs": reads,
             "parts": parts,
             "order": order,
             "merged": merged,
@@ -530,7 +626,9 @@ class Entries:
 
     def _rule(self):
         n = self.n
-        self.sigs = ["".join(w["parts"][a] for a in self.arrs) for w in self.walks]
+        self.sigs = [
+            "".join(w["parts"][a] for a in sorted(w["parts"])) for w in self.walks
+        ]
         self.top = collections.Counter(self.sigs).most_common(1)[0][0]
         self.members = [i for i in range(n) if self.sigs[i] == self.top]
         m = self.members
@@ -653,17 +751,29 @@ def _affine(vals, idx):
     return None
 
 
+def best(d, n, arrays):
+    """The group with its read side when that follows one rule, else
+    without it; arrays that differ between entries left inline."""
+    e = Entries(d, n, arrays, read=True).narrowed()
+    if e.uniform:
+        return e
+    return Entries(d, n, arrays).narrowed()
+
+
 def main(argv):
     d = Design(load(argv[1], argv[2]))
     min_n = int(argv[3]) if len(argv) > 3 else 8
     total = len(d.flop_bits)
     covered = 0
     for n, arrays in sorted(d.groups(min_n).items(), key=lambda kv: -kv[0]):
-        e = Entries(d, n, arrays)
+        e = best(d, n, arrays)
         print(e.report())
-        if not e.uniform and e.narrowed() is not e:
-            e = e.narrowed()
+        if e.inline:
             print(f"  without {e.inline} (left inline): uniform")
+        if e.read and any(e.read_roots):
+            print(
+                f"  read side: {len(e.read_roots[0])} bits leave each entry's read cone"
+            )
         if os.environ.get("ENTRIES_DIFF") and not e.uniform:
             a, b = (int(x) for x in os.environ["ENTRIES_DIFF"].split(","))
             if max(a, b) < n:

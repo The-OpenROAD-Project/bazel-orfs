@@ -28,7 +28,7 @@ import copy
 import json
 import sys
 
-from entries import FLOPS, OUT, Design, Entries, outputs
+from entries import FLOPS, OUT, Design, Entries, best, outputs
 
 TEMPLATE = 1
 
@@ -44,7 +44,7 @@ def v_sense(e, where):
 
 def extract(mod, name, decode=True):
     d = Design(mod)
-    groups = [Entries(d, n, a).narrowed() for n, a in d.groups().items()]
+    groups = [best(d, n, a) for n, a in d.groups().items()]
     groups = [e for e in groups if e.uniform]
     if not groups:
         fail("no group of entries follows one rule")
@@ -68,7 +68,7 @@ def extract(mod, name, decode=True):
         }
         if not arrays:
             fail(f"every array is kept out ({sorted(keep_out)}): nothing to extract")
-        e = Entries(d, e.n, arrays)
+        e = Entries(d, e.n, arrays, e.read)
         if not e.uniform:
             fail(f"without {sorted(keep_out)} the entries no longer follow one rule")
     n, t = e.n, TEMPLATE
@@ -104,6 +104,28 @@ def extract(mod, name, decode=True):
             fail(
                 f"entry {i} has {len(cells_of(i))} cells, the template {len(cells_of(t))}"
             )
+
+    # a duplicate the walk merged, read outside its entry (the read side's
+    # reductions), is read as the cell it duplicates: the same type,
+    # parameters and inputs
+    for i in range(n):
+        inside = private(i)
+        same = {}
+        for dup, kept in e.walks[i]["merged"].items():
+            a, b = d.cells[dup]["connections"], d.cells[kept]["connections"]
+            for p in outputs(d.cells[dup]):
+                same.update(zip(a[p], b[p]))
+        if not same:
+            continue
+        for c, cl in d.cells.items():
+            if c in inside:
+                continue
+            for p, bs in cl["connections"].items():
+                if p not in outputs(cl):
+                    cl["connections"][p] = [same.get(x, x) for x in bs]
+        for v in mod["ports"].values():
+            if v["direction"] == "output" and set(v["bits"]) & set(same):
+                fail(f"entry {i}: a merged duplicate drives a module output")
 
     # who reads each bit, and the module's output bits
     readers = collections.defaultdict(set)
