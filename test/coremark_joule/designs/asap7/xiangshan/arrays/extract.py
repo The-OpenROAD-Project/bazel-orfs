@@ -80,7 +80,9 @@ def extract(mod, name, decode=True):
         return e.walks[i]["order"] + e.flops[i]
 
     tw = e.walks[t]
-    if set(tw["order"]) != {c for c in e.cones[t] if e.reach[c] == 1}:
+    if set(tw["order"]) | set(tw["merged"]) | tw["folded"] != {
+        c for c in e.cones[t] if e.reach[c] == 1
+    }:
         fail("the template's walk does not cover its private cells")
     for k, (s, o) in e.index_sites.items():
         if (s, o) != (1, 0):
@@ -155,6 +157,18 @@ def extract(mod, name, decode=True):
                 )
                 for b in cl["connections"][p]
             ]
+    # a duplicate the walk merged (Entries._walk) reads as the cell it
+    # duplicates: a merged comparison of the index would otherwise keep the
+    # template's literal
+    same = {}
+    for dup, kept in tw["merged"].items():
+        a, b = d.cells[dup]["connections"], d.cells[kept]["connections"]
+        for p in outputs(d.cells[dup]):
+            same.update(zip(a[p], b[p]))
+        del cell_cells[dup]
+    for cl in cell_cells.values():
+        for p, bs in cl["connections"].items():
+            cl["connections"][p] = [same.get(x, x) for x in bs]
     sites = [tw["consts"][k] for k in e.index_sites]
     # decode once: a comparison of the index with an operand every entry
     # shares becomes an input of the cell, the comparison made once in the

@@ -2,6 +2,14 @@ load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("//test/coremark_joule/designs/asap7/xiangshan:xiangshan.bzl", "XS_BLOCKS", "XS_ICG_USER_ARGUMENTS", "XS_ICG_USER_SOURCES", "XS_USER_STAGES")
 
+# The blocks whose entries the front end extracts (entries.py says how
+# much of each follows one rule).
+TOPS = [
+    "LoadQueueRAR",
+    "LoadQueueReplay",
+    "VirtualStoreQueue",
+]
+
 # Finding XiangShan's arrays for generate_array, one macro at a time:
 # array_reroll and the classifier on the packed-vector elaboration
 # (//test/coremark_joule/xiangshan:xiangshan_sv_vec). A dry run: a
@@ -31,9 +39,7 @@ py_binary(
             "@yosys",
         ],
     )
-    for top in [
-        "LoadQueueReplay",
-    ]
+    for top in TOPS
 ]
 
 # One module after proc and nothing else, as yosys JSON: what entries.py
@@ -65,9 +71,7 @@ py_binary(
             "@yosys",
         ],
     )
-    for top in [
-        "LoadQueueReplay",
-    ]
+    for top in TOPS
 ]
 
 # The front end, end to end: a module's entries found (entries.py) and
@@ -111,9 +115,7 @@ py_binary(
             "@yosys",
         ],
     )
-    for top in [
-        "LoadQueueReplay",
-    ]
+    for top in TOPS
 ]
 
 # The block on the extracted Verilog, its entry cell kept so synthesis
@@ -123,43 +125,52 @@ py_binary(
 # numbers. The Rob's block settings without its register files.
 BLOCK = XS_BLOCKS["Rob"]
 
-orfs_flow(
-    name = "LoadQueueReplay",
-    arguments = {k: v for k, v in BLOCK["arguments"].items() if k != "SYNTH_KEEP_MODULES"} | {
-        "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
-        "GPL_ROUTABILITY_DRIVEN": "0",
-        "GPL_TIMING_DRIVEN": "0",
-        "SKIP_CTS_REPAIR_TIMING": "1",
-        "SKIP_INCREMENTAL_REPAIR": "1",
-        "SKIP_PIN_ACCESS": "1",
-        "SKIP_REPORT_METRICS": "1",
-        "SYNTH_HDL_FRONTEND": "",
-        "SYNTH_HIERARCHICAL": "1",
-        "SYNTH_KEEP_MODULES": "LoadQueueReplayEntry",
-    },
-    last_stage = "grt",
-    pdk = "//flow:asap7",
-    sources = {k: v for k, v in BLOCK["sources"].items() if k != "AUTO_MEMORIES_REGFILES"},
-    stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
-    tags = ["manual"],
-    user_arguments = BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS,
-    user_sources = BLOCK["user_sources"] | XS_ICG_USER_SOURCES,
-    user_stages = {
-        v: s
-        for v, s in XS_USER_STAGES.items()
-        if v in BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS or v in BLOCK["user_sources"] | XS_ICG_USER_SOURCES
-    },
-    verilog_files = [":LoadQueueReplay_extracted.v"],
-    yosys_frontend_reason = "the input is a netlist yosys wrote (extract.py); slang elaborates every instance of the kept entry cell as a module of its own, so ABC mapped it 120 times (509 s against 361 s)",
-)
+[
+    orfs_flow(
+        name = top,
+        arguments = {k: v for k, v in BLOCK["arguments"].items() if k != "SYNTH_KEEP_MODULES"} | {
+            "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
+            "GPL_ROUTABILITY_DRIVEN": "0",
+            "GPL_TIMING_DRIVEN": "0",
+            "SKIP_CTS_REPAIR_TIMING": "1",
+            # as the carve: floorplan's repair_timing (unbuffer, size-up) was
+            # 335 of the 349 s of floorplan
+            "SKIP_FLOORPLAN_REPAIR_TIMING": "1",
+            "SKIP_INCREMENTAL_REPAIR": "1",
+            "SKIP_PIN_ACCESS": "1",
+            "SKIP_REPORT_METRICS": "1",
+            "SYNTH_HDL_FRONTEND": "",
+            "SYNTH_HIERARCHICAL": "1",
+            "SYNTH_KEEP_MODULES": top + "Entry",
+        },
+        last_stage = "grt",
+        pdk = "//flow:asap7",
+        sources = {k: v for k, v in BLOCK["sources"].items() if k != "AUTO_MEMORIES_REGFILES"},
+        stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
+        tags = ["manual"],
+        user_arguments = BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS,
+        user_sources = BLOCK["user_sources"] | XS_ICG_USER_SOURCES,
+        user_stages = {
+            v: s
+            for v, s in XS_USER_STAGES.items()
+            if v in BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS or v in BLOCK["user_sources"] | XS_ICG_USER_SOURCES
+        },
+        verilog_files = [":%s_extracted.v" % top],
+        yosys_frontend_reason = "the input is a netlist yosys wrote (extract.py); slang elaborates every instance of the kept entry cell as a module of its own, so ABC mapped it 120 times (509 s against 361 s)",
+    )
+    for top in TOPS
+]
 
-orfs_run(
-    name = "LoadQueueReplay_grt_qor",
-    src = ":LoadQueueReplay_grt",
-    outs = ["LoadQueueReplay_grt_qor.json"],
-    script = "//test/coremark_joule/designs/asap7/xiangshan/rob_array:qor_probe.tcl",
-    tags = ["manual"],
-    user_arguments = {
-        "OUTPUT_JSON": "$(location LoadQueueReplay_grt_qor.json)",
-    },
-)
+[
+    orfs_run(
+        name = top + "_grt_qor",
+        src = ":%s_grt" % top,
+        outs = [top + "_grt_qor.json"],
+        script = "//test/coremark_joule/designs/asap7/xiangshan/rob_array:qor_probe.tcl",
+        tags = ["manual"],
+        user_arguments = {
+            "OUTPUT_JSON": "$(location %s_grt_qor.json)" % top,
+        },
+    )
+    for top in TOPS
+]
