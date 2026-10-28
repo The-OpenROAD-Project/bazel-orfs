@@ -1,0 +1,96 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Wed, 28 Oct 2026 11:53:05 +0100
+Subject: [PATCH] prima: table models when the simulation crosses no threshold
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Since e419f88d ("prima init threshold_times") a threshold the
+simulation never crosses is NaN, and dcalcResults reports
+min_max_->initValue() for the delay or slew it was to measure: -INF
+for max. A -INF driver slew becomes inf slews and arrivals downstream
+and slack -inf at every endpoint behind it.
+
+ORFS selects prima when LIB_MODEL=CCS. asap7 swerv_wrapper now stops
+in CTS: a DFFASRHQNx1 QN fall slew is -INF, repair_timing starts at
+WNS -inf on 3721 endpoints and aborts with RSZ-1008 "FixedDelay
+conversion out of range: -inf".
+
+When a threshold the results read was not crossed, use the table
+models, as gateDelays already does when checkArgs fails. With this,
+swerv_wrapper's CTS repair starts at WNS -144.9 ps and completes.
+
+Not upstreamed. Carried in bazel-orfs; retires on the //:bump onto an
+OpenROAD whose OpenSTA carries the fix.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ dcalc/PrimaDelayCalc.cc | 30 +++++++++++++++++++++++++++++-
+ dcalc/PrimaDelayCalc.hh |  1 +
+ 2 files changed, 30 insertions(+), 1 deletion(-)
+
+diff --git a/src/sta/dcalc/PrimaDelayCalc.cc b/src/sta/dcalc/PrimaDelayCalc.cc
+index 52cea8ff..f40a5cba 100644
+--- a/src/sta/dcalc/PrimaDelayCalc.cc
++++ b/src/sta/dcalc/PrimaDelayCalc.cc
+@@ -214,7 +214,10 @@ PrimaDelayCalc::gateDelays(ArcDcalcArgSeq &dcalc_args,
+     return tableDcalcResults();
+   else {
+     simulate();
+-    return dcalcResults();
++    if (thresholdsMeasured())
++      return dcalcResults();
++    debugPrint(debug_, "prima", 1, "threshold not crossed, using table models.");
++    return tableDcalcResults();
+   }
+ }
+ 
+@@ -1053,6 +1056,31 @@ measuredSlew(double time1,
+   return slew;
+ }
+ 
++// True when the simulation crossed every threshold dcalcResults reads.
++bool
++PrimaDelayCalc::thresholdsMeasured()
++{
++  auto measured = [this](const Pin *pin) {
++    const ThresholdTimes &times = threshold_times_[pin_node_map_[pin]];
++    return !isUnset(times[threshold_vl])
++      && !isUnset(times[threshold_vth])
++      && !isUnset(times[threshold_vh]);
++  };
++  const Net *drvr_net = drvr_arg_->drvrNet(network_);
++  for (size_t drvr_idx = 0; drvr_idx < drvr_count_; drvr_idx++) {
++    ArcDcalcArg &dcalc_arg = (*dcalc_args_)[drvr_idx];
++    if (dcalc_arg.drvrNet(network_) == drvr_net) {
++      if (!measured(dcalc_arg.drvrPin()))
++        return false;
++      for (const auto [load_pin, load_idx] : *load_pin_index_map_) {
++        if (!measured(load_pin))
++          return false;
++      }
++    }
++  }
++  return true;
++}
++
+ ArcDcalcResultSeq
+ PrimaDelayCalc::dcalcResults()
+ {
+diff --git a/src/sta/dcalc/PrimaDelayCalc.hh b/src/sta/dcalc/PrimaDelayCalc.hh
+index 3af74a3f..df53b893 100644
+--- a/src/sta/dcalc/PrimaDelayCalc.hh
++++ b/src/sta/dcalc/PrimaDelayCalc.hh
+@@ -173,6 +173,7 @@ protected:
+   double voltagePrev1(size_t node_idx);
+   double voltagePrev2(size_t node_idx);
+   bool loadWaveformsFinished();
++  bool thresholdsMeasured();
+   ArcDcalcResultSeq dcalcResults();
+ 
+   void recordWaveformStep(double time);
+-- 
+2.53.0
+
