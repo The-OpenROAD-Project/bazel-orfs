@@ -223,6 +223,10 @@ archive_override(
         # until the user drags one (the timing table, first drawn empty,
         # opened cramped). Not upstreamed; retires with 0142.
         "//patches:0144-openroad-web-columns-measured-from-rows.patch",
+        # 0156: generate_array -spec builds a register-file spec through
+        # generate_ram_netlist and stops, naming the part, on any other
+        # structure (ideas/structured-macros.md). Not upstreamed.
+        "//patches:0156-openroad-ram-generate-array.patch",
     ],
     strip_prefix = "OpenROAD-89e24308eb8f6a5662aab79ec77bd6eb1eb510b5",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/89e24308eb8f6a5662aab79ec77bd6eb1eb510b5.tar.gz"],
