@@ -15,6 +15,14 @@ now generates them, so ORFS can stop carrying them.
 
 ## What it is for
 
+Not for building a design. To build an ORFS design, yours or ORFS's own,
+bring it in with `bazelisk run //:import` ([ramps.md](ramps.md)) and build
+the `orfs_flow()` that writes. The `config.mk` DSL is for AI-run sweeps of
+a new bazel-orfs feature across ORFS's designs, for A/B reports, and for
+wiring up and testing combinations of ORFS and OpenROAD patches. Its
+output paths are awkward, and an ORFS bump may break a design here
+without notice.
+
 The normal use case of bazel-orfs is idiomatic Bazel: a project writes
 `orfs_flow()` in its own BUILD file, next to its RTL and constraints, as
 [examples/BUILD](../examples/BUILD) does. That is the product. The
