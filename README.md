@@ -249,11 +249,11 @@ run is incremental and cached.
 
 ### Bring in your ORFS design
 
-A design of your own that you build with ORFS comes in with import, as at the top of
-this page: `bazelisk run //:import -- <ORFS design dir>` writes an
-`orfs_flow()` for it under `imported/<pdk>/<design>/`, from the values
-ORFS's own make gives its `config.mk`. From there it is a flow like the
-example. [docs/ramps.md](docs/ramps.md) walks through it.
+A design of your own that you build with ORFS comes in with import, as
+at the top of this page: `bazelisk run //:import -- <ORFS design dir>`
+writes an `orfs_flow()` for it under `imported/<pdk>/<design>/`, from the
+values ORFS's own make gives its `config.mk`. From there it is a flow like
+the example. [docs/ramps.md](docs/ramps.md) walks through it.
 
 ### Results and the GUI
 
