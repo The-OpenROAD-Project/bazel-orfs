@@ -37,3 +37,45 @@ py_binary(
         352,
     ]
 ]
+
+# build time first, QoR after: the entry logic is ~550 ps deep against
+# 473 ps, and at 64 entries the RTL's setup repair ground 74 s of CTS
+# over 3,874 violating endpoints; the flows above skip setup repair, the
+# ones below compare the generated Rob with the RTL through yosys and
+# ABC, the baseline, with it on
+[
+    rob_toy(
+        entries,
+        repair = True,
+        rtl = rtl,
+    )
+    for entries in [
+        16,
+        32,
+        64,
+        128,
+        256,
+        352,
+    ]
+    for rtl in [
+        False,
+        True,
+    ]
+]
+
+# the generated structure around one RobEntry of RTL that ABC maps once
+[
+    rob_toy(
+        entries,
+        entry_rtl = True,
+        repair = True,
+    )
+    for entries in [
+        16,
+        32,
+        64,
+        128,
+        256,
+        352,
+    ]
+]
