@@ -275,19 +275,22 @@ def main(argv):
     lines.append("  RobState s(.clock(clock),")
     conns = [f"    .{n}({'w_' if d == 'output' else 'r_'}{n})" for d, _, n in parsed]
     lines.append(",\n".join(conns) + ");")
-    # an LFSR feeds the inputs, the outputs fold back into it, so the
-    # structure's inputs are neither constant nor shared
+    # the input registers are one shift chain from seed, so no two have
+    # the same D and synthesis can merge none of them, nor what they
+    # feed; the outputs fold into sig, so every one is observed
     ins = [(rng, n) for d, rng, n in parsed if d == "input"]
     outs = [(rng, n) for d, rng, n in parsed if d == "output"]
-    lines.append("  reg [63:0] lfsr;")
     fold = " ^ ".join(f"^r_{n}" for _, n in outs) or "1'b0"
-    lines += [
-        "  always @(posedge clock) begin",
-        "    lfsr <= {lfsr[62:0], lfsr[63] ^ lfsr[62] ^ lfsr[60] ^ lfsr[59] ^ seed};",
-        f"    sig <= {fold};",
-    ]
-    for k, (rng, n) in enumerate(ins):
-        lines.append(f"    r_{n} <= (lfsr >> {k % 61}) ^ (lfsr << {(k * 7) % 61});")
+    lines += ["  always @(posedge clock) begin", f"    sig <= {fold};"]
+    prev = "seed"
+    for rng, n in ins:
+        w = int(rng[1:].split(":")[0]) + 1 if rng else 1
+        if w == 1:
+            lines.append(f"    r_{n} <= {prev};")
+            prev = f"r_{n}"
+        else:
+            lines.append(f"    r_{n} <= {{r_{n}[{w-2}:0], {prev}}};")
+            prev = f"r_{n}[{w-1}]"
     for _, n in outs:
         lines.append(f"    r_{n} <= w_{n};")
     lines += ["  end", "endmodule", ""]
