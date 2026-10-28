@@ -1,3 +1,5 @@
+load("@config//:global_config.bzl", "CONFIG_KLAYOUT")
+
 # Unused in CI
 #
 # load("@bazel-orfs//tools/pin:pin.bzl", "pin_data")
@@ -67,6 +69,16 @@ orfs_bool_flag(
 sh_binary(
     name = "klayout",
     srcs = ["klayout.sh"],
+    visibility = ["//visibility:public"],
+)
+
+# The klayout every GDS step runs, unless a target names its own:
+# orfs.default(klayout = ...) by default, or from the command line
+# without touching MODULE.bazel:
+#   --@bazel-orfs//:klayout_tool=@bazel-orfs//:klayout
+label_flag(
+    name = "klayout_tool",
+    build_setting_default = CONFIG_KLAYOUT,
     visibility = ["//visibility:public"],
 )
 
