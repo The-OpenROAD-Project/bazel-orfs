@@ -95,6 +95,11 @@ orfs_flow(
         # pin access (detailed route waits for the final check)
         "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
         "SKIP_PIN_ACCESS": "1",
+        # QoR as it comes: setup repair at CTS and global route ground
+        # past 45 minutes chasing 473 ps, which XSTile's ~2,000 ps does
+        # not need from the Rob
+        "SKIP_CTS_REPAIR_TIMING": "1",
+        "SKIP_INCREMENTAL_REPAIR": "1",
     },
     last_stage = "grt",
     macros = [":%s_generate_abstract" % m for m in REGFILES],

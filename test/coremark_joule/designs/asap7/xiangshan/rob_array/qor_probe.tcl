@@ -1,7 +1,8 @@
 # The Rob's QoR at a stage, as JSON: the register-to-register minimum
 # period (port paths are set_max_delay budgets, which a macro's
 # closure does not rest on), the reg2reg endpoints over the clock period
-# with their total excess, cell area, cells and flops.
+# with their total excess (slack is in the liberty unit, ps), cell
+# area, cells and flops.
 source $::env(SCRIPTS_DIR)/util.tcl
 source $::env(SCRIPTS_DIR)/read_liberty.tcl
 read_db $::env(ODB_FILE)
@@ -34,7 +35,7 @@ set out [open $::env(OUTPUT_JSON) w]
 puts $out "{"
 puts $out "  \"period_ps\": [format %.1f [expr { $period * 1e12 }]],"
 puts $out "  \"reg2reg_over_target\": $over,"
-puts $out "  \"reg2reg_excess_ps\": [format %.0f [expr { $excess * 1e12 }]],"
+puts $out "  \"reg2reg_excess_ps\": [format %.0f $excess],"
 puts $out "  \"area_um2\": [format %.2f [expr { double($area) / $dbu / $dbu }]],"
 puts $out "  \"cells\": $cells,"
 puts $out "  \"flops\": $flops"
