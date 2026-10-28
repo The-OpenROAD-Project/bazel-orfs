@@ -13,6 +13,18 @@ TOPS = [
     "VirtualStoreQueue",
 ]
 
+# The modules extracted, the blocks above and the Rob, whose flow is
+# rob_array's next to the surgered Rob's; and the modules that stay
+# blackboxes in each, macros of their own.
+EXTRACTED = TOPS + ["Rob"]
+
+BLACKBOXES = {
+    "Rob": [
+        "RenameBufferFile",
+        "RobEntryFile",
+    ],
+}
+
 # Finding XiangShan's arrays for generate_array, one macro at a time:
 # array_reroll and the classifier on the packed-vector elaboration
 # (//test/coremark_joule/xiangshan:xiangshan_sv_vec). A dry run: a
@@ -66,7 +78,10 @@ py_binary(
         srcs = ["//test/coremark_joule/xiangshan:xiangshan_sv_vec"],
         outs = [top + "_proc.json"],
         cmd = "$(execpath :proc_json) $(execpath @yosys) $(execpath @sv-elab//src/yosys_plugin:slang.so) " +
-              "$(location //test/coremark_joule/xiangshan:xiangshan_sv_vec) %s $@" % top,
+              "$(location //test/coremark_joule/xiangshan:xiangshan_sv_vec) %s $@ %s" % (
+                  top,
+                  ",".join(BLACKBOXES.get(top, [])),
+              ),
         tags = ["manual"],
         tools = [
             ":proc_json",
@@ -74,7 +89,7 @@ py_binary(
             "@yosys",
         ],
     )
-    for top in TOPS
+    for top in EXTRACTED
 ]
 
 # The front end, end to end: a module's entries found (entries.py) and
@@ -117,8 +132,9 @@ py_binary(
             ":extract",
             "@yosys",
         ],
+        visibility = ["//test/coremark_joule/designs/asap7/xiangshan/rob_array:__pkg__"],
     )
-    for top in TOPS
+    for top in EXTRACTED
 ]
 
 # The block on the extracted Verilog, its entry cell kept so synthesis

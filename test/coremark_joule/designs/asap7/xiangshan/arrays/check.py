@@ -38,6 +38,17 @@ def cut(mod, renames, tag):
     ports = {k: v for k, v in mod["ports"].items()}
     cells = {}
     for name, c in mod["cells"].items():
+        if not c["type"].startswith("$"):
+            # a blackbox (a register file, a macro of its own): cut like a
+            # register, its outputs inputs and its inputs outputs
+            safe = "".join(ch if ch.isalnum() else "_" for ch in name)
+            for p, bs in c["connections"].items():
+                out = c["port_directions"][p] == "output"
+                ports[f"{'q' if out else 'd'}_box_{safe}_{p}"] = {
+                    "direction": "input" if out else "output",
+                    "bits": bs,
+                }
+            continue
         if c["type"] not in FLOPS:
             cells[name] = c
             continue
