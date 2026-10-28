@@ -1,0 +1,77 @@
+load("@bazel-orfs//:openroad.bzl", "orfs_flow")
+load("@rules_python//python:defs.bzl", "py_binary")
+load("//test/coremark_joule/designs/asap7/xiangshan:xiangshan.bzl", "XS_BLOCKS", "XS_ICG_USER_ARGUMENTS", "XS_ICG_USER_SOURCES", "XS_USER_STAGES")
+
+# XiangShan's Rob with its 352 RobEntryCells swapped, by surgery, for one
+# generated RobEntryArray (rob_surgery.py, rob_array_gen.py): every
+# channel decoded once and shared by all entries, the netlist in asap7
+# cells so synthesis maps none of it. The flow is the Rob macro's
+# (XS_BLOCKS) with the settings test/rob_toy found at the Rob's size:
+# timing-driven global placement, the flow buffering and sizing the
+# array. Manual: the whole core's Verilog is read.
+
+py_binary(
+    name = "rob_array_gen",
+    srcs = ["rob_array_gen.py"],
+    deps = ["//test/rob_toy:rob_gen_lib"],
+)
+
+py_binary(
+    name = "rob_surgery",
+    srcs = ["rob_surgery.py"],
+)
+
+genrule(
+    name = "rob_array",
+    outs = ["RobEntryArray.v"],
+    cmd = "$(execpath :rob_array_gen) $@",
+    tags = ["manual"],
+    tools = [":rob_array_gen"],
+)
+
+genrule(
+    name = "rob_surgered",
+    srcs = [
+        "//test/coremark_joule/designs/asap7/xiangshan/surgery:xiangshan_surgered",
+        "RobEntryCell.expected.sv",
+    ],
+    outs = ["rob_surgered.sv"],
+    cmd = "$(execpath :rob_surgery) $(location //test/coremark_joule/designs/asap7/xiangshan/surgery:xiangshan_surgered) $(location RobEntryCell.expected.sv) $@",
+    tags = ["manual"],
+    tools = [":rob_surgery"],
+)
+
+ROB = XS_BLOCKS["Rob"]
+
+orfs_flow(
+    name = "Rob",
+    arguments = {
+        k: v
+        for k, v in ROB["arguments"].items()
+        if k != "SYNTH_KEEP_MODULES"
+    } | {
+        # the cells are gone; what else the Rob macro keeps stays kept
+        "SYNTH_KEEP_MODULES": "RenameBuffer VTypeBuffer",
+        "GPL_TIMING_DRIVEN": "1",
+        # as the planned blocks route: route-0, congestion allowed, no
+        # pin access (detailed route waits for the final check)
+        "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
+        "SKIP_PIN_ACCESS": "1",
+    },
+    last_stage = "grt",
+    pdk = "//flow:asap7",
+    sources = ROB["sources"],
+    stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
+    tags = ["manual"],
+    user_arguments = ROB["user_arguments"] | XS_ICG_USER_ARGUMENTS,
+    user_sources = ROB["user_sources"] | XS_ICG_USER_SOURCES,
+    user_stages = {
+        v: s
+        for v, s in XS_USER_STAGES.items()
+        if v in ROB["user_arguments"] | XS_ICG_USER_ARGUMENTS or v in ROB["user_sources"] | XS_ICG_USER_SOURCES
+    },
+    verilog_files = [
+        ":rob_surgered.sv",
+        ":RobEntryArray.v",
+    ],
+)
