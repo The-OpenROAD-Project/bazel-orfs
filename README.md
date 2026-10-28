@@ -234,49 +234,6 @@ git clone https://github.com/The-OpenROAD-Project/bazel-orfs.git
 cd bazel-orfs
 ```
 
-### Build an ORFS design and open it in the GUI
-
-```bash
-bazelisk run @orfs//flow/designs/asap7/gcd:gcd_final gui_final
-```
-
-This builds `gcd`, the smallest design shipped with ORFS, from RTL through
-synthesis, floorplan, placement, clock tree synthesis, routing and final
-reporting on the asap7 PDK, then opens the result in the OpenROAD GUI.
-The first run also builds OpenROAD and Yosys from source,
-which takes 30 to 60 minutes. Every later run is incremental and cached.
-
-What you are looking at is ORFS's own `flow/designs/asap7/gcd/config.mk`,
-read by bazel-orfs and turned into Bazel targets. You can try any other
-design under `@orfs//flow/designs/<pdk>/<design>`. The target prefix is
-the design's `DESIGN_NAME` from its `config.mk`, which is not always the
-directory name, so list before guessing:
-
-```bash
-bazelisk run @orfs//flow/designs/asap7/uart:uart_final gui_final
-bazelisk query '@orfs//flow/designs/nangate45/aes:*' | grep '_final$'
-bazelisk run @orfs//flow/designs/nangate45/aes:aes_cipher_top_grt gui_grt
-```
-
-This is not how you describe your own project. The expectation is
-idiomatic Bazel: an `orfs_flow()` in your own BUILD file, as in the next
-section and in [examples/](examples/). Consuming `config.mk` as a
-domain-specific language is a facility for experiments inside bazel-orfs:
-try a theory across many real designs, carrying the OpenROAD, ORFS and
-bazel-orfs patches it needs in a single pull request, before anything is
-upstreamed. The canonical experiment is parameter tuning, such as racing
-and pinning floorplan parameters across every ORFS design with the
-auto-floorplan targets ([docs/auto_floorplan.md](docs/auto_floorplan.md)).
-The ORFS designs are the right test bed for that because the OpenROAD
-maintainers know every pebble on that beach: a shift in any of them is
-recognised for what it is.
-
-Mileage varies. It is a testing facility, not a supported way to build
-every ORFS design: not all designs are hooked up, and an ORFS bump that
-upsets one is a fix here, not an incident. See
-[docs/orfs-design-builds.md](docs/orfs-design-builds.md) for what the
-facility is for and how the `config.mk` files are consumed.
-
 ### Build the example flow
 
 ```bash
@@ -286,13 +243,36 @@ bazelisk run //examples:mac_final gui_final
 [examples/](examples/) is the clean, fast, idiomatic version: a 20-line
 multiply-accumulate in Verilog, a two-constraint SDC, and a BUILD file with one
 `orfs_flow()`. It runs the full flow on asap7 in a couple of minutes and is
-the template to copy for your own project.
+the template to copy for your own project. The first run also builds
+OpenROAD and Yosys from source, which takes 30 to 60 minutes. Every later
+run is incremental and cached.
+
+### Bring in your ORFS design
+
+An ORFS design you already have comes in with import, as at the top of
+this page: `bazelisk run //:import -- <ORFS design dir>` writes an
+`orfs_flow()` for it under `imported/<pdk>/<design>/`, from the values
+ORFS's own make gives its `config.mk`. From there it is a flow like the
+example. [docs/ramps.md](docs/ramps.md) walks through it.
 
 ### Results and the GUI
 
-Stage results land under `bazel-bin/<package>/results/<pdk>/<design>/base/`
-and reports under `bazel-bin/<package>/reports/...`. Every stage target is
-also a `bazelisk run` entry point:
+`bazelisk build` puts every output under `bazel-bin`, next to the
+package that declares the flow:
+
+| ORFS `flow/` | bazel-orfs |
+|---|---|
+| `results/<pdk>/<design>/base/` | `bazel-bin/<package>/results/<pdk>/<design>/<variant>/` |
+| `logs/<pdk>/<design>/base/` | `bazel-bin/<package>/logs/<pdk>/<design>/<variant>/` |
+| `reports/<pdk>/<design>/base/` | `bazel-bin/<package>/reports/<pdk>/<design>/<variant>/` |
+| `Makefile`, `scripts/`, `platforms/` | ORFS as bazel-orfs pins it, fetched by Bazel; not edited in place |
+
+`<variant>` is `base` unless the flow sets `variant`. To have a plain ORFS
+`flow/` tree instead, take the design out with
+`bazelisk run //:export -- <dir> <flow>` and run make there
+([docs/ramps.md](docs/ramps.md)).
+
+Every stage target is also a `bazelisk run` entry point:
 
 ```bash
 bazelisk run <target>_<stage> gui_<stage>    # OpenROAD's web viewer: prints a link
@@ -301,7 +281,11 @@ bazelisk run @bazel-orfs//:odb_debug -- <target>_<stage>  # the viewer in the ba
 ```
 
 GUI and shell are available for `floorplan`, `place`, `cts`, `grt`,
-`route` and `final`.
+`route` and `final`. `bazelisk run` deploys the stage to a make tree under
+`tmp/` and runs the make target you name there, so whatever that writes
+stays in `tmp/`, not in `bazel-bin`. Outputs you keep are built with
+`bazelisk build`; the run tree is for looking and for hacking in the dirty
+lane ([docs/dirty-lane.md](docs/dirty-lane.md)).
 
 Not every flow in this repository runs to `final`. The regression flows
 under `//test` stop as early as they can to keep CI fast, so a target such
@@ -311,6 +295,41 @@ provides before guessing:
 ```bash
 bazelisk query 'filter("^//test:L1MetadataArray_(synth|floorplan|place|cts|grt|route|final)$", //test:*)'
 ```
+
+### Lab bench: ORFS's own designs
+
+ORFS's own designs are also Bazel targets, read from their `config.mk`
+files:
+
+```bash
+bazelisk run @orfs//flow/designs/asap7/gcd:gcd_final gui_final
+```
+
+This is not a way to build a design, yours or ORFS's. The `config.mk`
+DSL exists for development of bazel-orfs itself: AI-run sweeps of a new
+feature across many real designs for A/B reports, and wiring up and
+testing combinations of ORFS and OpenROAD patches in a single pull
+request before anything is upstreamed. Its output paths are awkward
+(`bazel-bin/external/+orfs_repositories+orfs/flow/designs/...`), not all
+designs are hooked up, and an ORFS bump that upsets one is a fix here, not
+an incident. To build an ORFS design, import it (above).
+
+The ORFS designs are the right test bed for those experiments because the
+OpenROAD maintainers know every pebble on that beach: a shift in any of
+them is recognised for what it is. The canonical experiment is parameter
+tuning, such as racing and pinning floorplan parameters across every ORFS
+design with the auto-floorplan targets
+([docs/auto_floorplan.md](docs/auto_floorplan.md)). The target prefix is
+the design's `DESIGN_NAME` from its `config.mk`, which is not always the
+directory name, so list before guessing:
+
+```bash
+bazelisk query '@orfs//flow/designs/nangate45/aes:*' | grep '_final$'
+bazelisk run @orfs//flow/designs/nangate45/aes:aes_cipher_top_grt gui_grt
+```
+
+[docs/orfs-design-builds.md](docs/orfs-design-builds.md) has what the
+facility is for and how the `config.mk` files are consumed.
 
 ## Write your own flow
 
@@ -471,6 +490,8 @@ once and commit what it lists: [tools/agent](tools/agent/README.md).
 | I want to... | Go to |
 |---|---|
 | Run my first build | [Quick start](#quick-start) |
+| Bring in an ORFS design, or take one back out to make | [docs/ramps.md](docs/ramps.md) |
+| Find results, logs and reports | [Results and the GUI](#results-and-the-gui) |
 | Write a flow for my own design | [Write your own flow](#write-your-own-flow), [examples/](examples/) |
 | Add bazel-orfs to my project | [Use bazel-orfs from your own project](#use-bazel-orfs-from-your-own-project) |
 | Use a system OpenROAD or KLayout | [docs/tools.md](docs/tools.md) |
@@ -483,7 +504,7 @@ once and commit what it lists: [tools/agent](tools/agent/README.md).
 | Monitor a long-running build | [docs/performance.md](docs/performance.md#monitor-long-running-builds) |
 | Understand where CI time goes | [docs/performance.md](docs/performance.md#where-ci-time-goes) |
 | Query timing interactively | [docs/performance.md](docs/performance.md#query-timing-interactively) |
-| Experiment across ORFS designs (the `config.mk` DSL) | [docs/orfs-design-builds.md](docs/orfs-design-builds.md) |
+| Sweep a bazel-orfs feature or patch across ORFS's own designs (lab bench, not for building a design) | [docs/orfs-design-builds.md](docs/orfs-design-builds.md) |
 | Debug or create a `make issue` archive | [docs/reference.md](docs/reference.md#create-a-make-issue-archive), [docs/debugging.md](docs/debugging.md) |
 | Diagnose a build failure on my host | [docs/debugging.md](docs/debugging.md#host-platform--older-distributions) |
 | Fast PPA estimate, gate a PR against merge-base | [docs/estimate.md](docs/estimate.md) |
