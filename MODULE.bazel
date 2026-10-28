@@ -107,7 +107,7 @@ bazel_dep(name = "aspect_rules_js", version = "3.5.1")
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
-    integrity = "sha256-fLKl6KfWx0s7hxc4q5JPBIDaez8P4Klbz6eXLNHokJc=",
+    integrity = "sha256-or3ua71N6xaUTmvXmvAx+RNAYDyqW0Xc66wZmiGdpn8=",
     # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
     # so vendor src/sta (OpenSTA) and third-party/abc from their own
     # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
@@ -115,7 +115,7 @@ archive_override(
     # aren't covered by archive_override's integrity.  Regenerated
     # by bump.py on every commit bump; do not edit by hand.
     patch_cmds = [
-        "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-src-sta-bc7af6f02679074eaf43657488ca117c05f98eed.tar.gz https://github.com/The-OpenROAD-Project/OpenSTA/archive/bc7af6f02679074eaf43657488ca117c05f98eed.tar.gz && echo '03c801a4a91e5c96cde328fe1a321a02e984814d77fd5f00fc5b7e8b919a91e3  .openroad-submodule-src-sta-bc7af6f02679074eaf43657488ca117c05f98eed.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-src-sta-bc7af6f02679074eaf43657488ca117c05f98eed.tar.gz --strip-components=1 -C src/sta && rm .openroad-submodule-src-sta-bc7af6f02679074eaf43657488ca117c05f98eed.tar.gz",
+        "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-src-sta-384b539085c54eef46cbaa02e2e17d2b983247e5.tar.gz https://github.com/The-OpenROAD-Project/OpenSTA/archive/384b539085c54eef46cbaa02e2e17d2b983247e5.tar.gz && echo 'a777c46f2ba828f247628ae47ac6ea508458e9551bf0493f09b8adaaccf47296  .openroad-submodule-src-sta-384b539085c54eef46cbaa02e2e17d2b983247e5.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-src-sta-384b539085c54eef46cbaa02e2e17d2b983247e5.tar.gz --strip-components=1 -C src/sta && rm .openroad-submodule-src-sta-384b539085c54eef46cbaa02e2e17d2b983247e5.tar.gz",
         "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz https://github.com/The-OpenROAD-Project/abc/archive/d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz && echo '0cbf538e60d0303d0e00360d8973aaad7dae198954bed6e34cc31c9a13b3f802  .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz --strip-components=1 -C third-party/abc && rm .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz",
         # write_timing_model gave an output a constant drives no arc and
         # no function, so a parent found nothing arriving there and
@@ -224,8 +224,8 @@ archive_override(
         # opened cramped). Not upstreamed; retires with 0142.
         "//patches:0144-openroad-web-columns-measured-from-rows.patch",
     ],
-    strip_prefix = "OpenROAD-89e24308eb8f6a5662aab79ec77bd6eb1eb510b5",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/89e24308eb8f6a5662aab79ec77bd6eb1eb510b5.tar.gz"],
+    strip_prefix = "OpenROAD-9ddb60d98ca61a98c4580a1b4b732a4b7d4e1ef8",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/9ddb60d98ca61a98c4580a1b4b732a4b7d4e1ef8.tar.gz"],
 )
 
 # sed (transitive: abc -> ncurses -> sed): its vendored gnulib headers shadow
@@ -615,8 +615,8 @@ orfs = use_extension("//:extension.bzl", "orfs_repositories")
 # `patches` on an override is honoured only from the root module and
 # would therefore land on whoever is root. Rewritten by //:bump.
 orfs.source(
-    commit = "64939f3717ad7c694199ba04cb98924b98022868",
-    integrity = "sha256-7S+VDV2b+TsQBcW7RxjyxvmswRnQtP9b1EsaWKUPtkk=",
+    commit = "0fcc4186e344f85167d97c1d67994bef01e89036",
+    integrity = "sha256-JWi7pPCc6DrA3smHT0HvxtLSet+gveI0AQ5LDlqXPSk=",
 )
 orfs.default(
     # Expose the slang yosys plugin (from @sv-elab, above) via
