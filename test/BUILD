@@ -10,6 +10,7 @@ load("//:sweep.bzl", "orfs_sweep")
 load(":auto_memories_outputs_test.bzl", "auto_memories_outputs_test")
 load(":deps_output_group_rule.bzl", "deps_groups_test", "deps_output_group_test", "output_group_test")
 load(":exec_tool.bzl", "exec_tool")
+load(":gds_target_test.bzl", "gds_klayout_flag_test", "gds_klayout_test")
 load(":hierarchical_default_test.bzl", "hierarchical_default_test_suite")
 load(":keep_modules_test.bzl", "keep_modules_test_suite")
 load(":macros_check_test.bzl", "macros_check_test")
@@ -1508,6 +1509,48 @@ build_test(
     name = "sta_test",
     tags = ["manual"],
     targets = [":sta"],
+)
+
+# orfs_flow() creates <name>_gds; gds_klayout_* assert which klayout it
+# runs: orfs.default()'s (the mock here), --@bazel-orfs//:klayout_tool,
+# and the flow's own klayout = ..., which wins over the flag.
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    arguments = LB_ARGS | {
+        "CORE_AREA": "1.026 1.080 6.372 3.510",
+        "CORE_ASPECT_RATIO": "",
+        "CORE_UTILIZATION": "",
+        "DIE_AREA": "0 0 7.400 4.700",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
+    },
+    klayout = "@mock-klayout//src/bin:klayout",
+    previous_stage = {"floorplan": ":lb_32x128_synth"},
+    sources = {
+        "IO_CONSTRAINTS": [":lb_32x128_io-placement.tcl"],
+        "SDC_FILE": [":constraints-sram"],
+    },
+    tags = ["manual"],
+    variant = "own_klayout",
+    verilog_files = LB_VERILOG_FILES,
+)
+
+gds_klayout_test(
+    name = "gds_klayout_default_test",
+    klayout = "mock_klayout/klayout",
+    target_under_test = "//test/smoketest:lb_32x128_sky130hd_gds",
+)
+
+gds_klayout_flag_test(
+    name = "gds_klayout_flag_test",
+    klayout = "bin/klayout",
+    target_under_test = "//test/smoketest:lb_32x128_sky130hd_gds",
+)
+
+gds_klayout_flag_test(
+    name = "gds_klayout_own_test",
+    klayout = "mock-klayout",
+    target_under_test = ":lb_32x128_own_klayout_gds",
 )
 
 orfs_gds(

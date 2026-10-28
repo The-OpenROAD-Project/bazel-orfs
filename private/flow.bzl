@@ -405,6 +405,8 @@ def orfs_flow(
         substeps = False,
         save_odb = True,
         quick_pins = False,
+        gds = True,
+        klayout = None,
         **kwargs):
     # buildifier: disable=function-docstring-args
     #
@@ -492,6 +494,11 @@ def orfs_flow(
         placement for a large wall-time saving on the GP-skip-io step on
         big designs. Suitable for RTL exploration; not for tape-out.
         Default False.
+      gds: if True, also create <name>_gds (<name>_<variant>_gds with a
+        variant), an orfs_gds of the final stage, when the flow runs to
+        final. KLayout runs only when that target is built. Default True.
+      klayout: KLayout binary for <name>_gds, over the one orfs.default()
+        configures; that default is a mock that writes an empty GDS.
       **kwargs: forward named args
     """
 
@@ -572,6 +579,16 @@ def orfs_flow(
             [v for vs in sources.values() for v in vs],
         ).to_list(),
     )
+
+    if gds and (abstract_stage or last_stage or "final") == "final":
+        orfs_gds(
+            name = _step_name(name, variant, "gds"),
+            src = _step_name(name, variant, "final"),
+            variant = variant or "base",
+            klayout = klayout,
+            tags = kwargs.get("tags", []),
+            visibility = kwargs.get("visibility"),
+        )
 
     if not mock_area:
         return

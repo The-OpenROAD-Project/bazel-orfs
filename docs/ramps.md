@@ -94,6 +94,24 @@ One difference from ORFS's make: `orfs_flow()` synthesises with slang
 where ORFS's make reads the Verilog with yosys's own frontend. The
 generated `BUILD.bazel` says so when that applies.
 
+## Get the GDS
+
+The flow comes with a GDS target, `gcd_gds`. In ORFS, make runs the
+klayout on your machine; in bazel-orfs that is one line in
+`MODULE.bazel`, otherwise a mock writes an empty GDS and says so:
+
+```starlark
+orfs.default(klayout = "@bazel-orfs//:klayout")  # the klayout on PATH
+```
+
+```sh
+bazelisk build //imported/asap7/gcd:gcd_gds
+```
+
+The GDS lands beside the flow's other results, under
+`bazel-bin/imported/asap7/gcd/results/`. [klayout.md](klayout.md) has
+the rest.
+
 ## Export: make as usual in ORFS
 
 ```sh
