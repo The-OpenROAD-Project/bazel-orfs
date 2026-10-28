@@ -1,5 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_shared_library")
-load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 
 # yosys passes for array structures, loaded as a plugin
 # (yosys -m arrays.so): array_reroll turns a packed register vector read
@@ -30,4 +30,12 @@ py_binary(
     name = "structgen",
     srcs = ["structgen.py"],
     visibility = ["//test/array_toys:__pkg__"],
+)
+
+# structgen's Netlist, for generators of other structures
+py_library(
+    name = "structgen_lib",
+    srcs = ["structgen.py"],
+    imports = ["."],
+    visibility = ["//test/rob_toy:__pkg__"],
 )

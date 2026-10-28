@@ -1,0 +1,39 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+load(":rob_toy.bzl", "rob_toy")
+
+# A toy of XiangShan's Rob entry state, scaled by entries with the Rob's
+# ports, built through global route against a five-minute roof: grow it
+# until a build passes five minutes, fix what took the time, grow again,
+# until the Rob's 352 entries are under the roof. Every flow is manual.
+
+py_binary(
+    name = "rob_toy",
+    srcs = ["rob_toy.py"],
+)
+
+py_library(
+    name = "rob_toy_lib",
+    srcs = ["rob_toy.py"],
+    imports = ["."],
+)
+
+py_binary(
+    name = "rob_gen",
+    srcs = ["rob_gen.py"],
+    deps = [
+        ":rob_toy_lib",
+        "//tools/yosys_arrays:structgen_lib",
+    ],
+)
+
+[
+    rob_toy(entries)
+    for entries in [
+        16,
+        32,
+        64,
+        128,
+        256,
+        352,
+    ]
+]
