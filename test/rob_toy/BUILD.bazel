@@ -79,3 +79,20 @@ py_binary(
         352,
     ]
 ]
+
+# the generated netlist alone: the flow buffers, sizes and places it
+[
+    rob_toy(
+        entries,
+        plain = True,
+        repair = True,
+    )
+    for entries in [
+        16,
+        32,
+        64,
+        128,
+        256,
+        352,
+    ]
+]

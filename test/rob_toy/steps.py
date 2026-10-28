@@ -8,7 +8,7 @@ import re
 import sys
 
 _ELAPSED = re.compile(r"Elapsed time: (?:(\d+):)?(\d+):([\d.]+)")
-_FLOW = re.compile(r"^rob_\d+(_rtl)?(_repair)?$")
+_FLOW = re.compile(r"^rob_\d+(_rtl|_abc|_plain)?(_repair)?(_\w+)?$")
 
 
 def seconds(log):

@@ -49,19 +49,29 @@ set placed 0
 for { set b 0 } { $b < $banks } { incr b } {
   set x0 [expr { $cx0 + $b * $col_w }]
   set x1 [expr { $x0 + $col_w }]
+  # each line's band of rows in proportion to its cells' width
+  set total 0
   for { set l 0 } { $l < $lines } { incr l } {
-    if { ![info exists cells($b,$l)] } { continue }
-    set r0 [expr { $l * $nrows / $lines }]
-    set r1 [expr { ($l + 1) * $nrows / $lines }]
-    set list [lsort -integer -index 0 $cells($b,$l)]
-    set width 0
-    foreach e $list {
-      incr width [[[lindex $e 1] getMaster] getWidth]
+    set lw($l) 0
+    if { [info exists cells($b,$l)] } {
+      foreach e $cells($b,$l) {
+        incr lw($l) [[[lindex $e 1] getMaster] getWidth]
+      }
     }
+    incr total $lw($l)
+  }
+  set before 0
+  for { set l 0 } { $l < $lines } { incr l } {
+    set r0 [expr { int(double($before) * $nrows / max(1, $total)) }]
+    incr before $lw($l)
+    set r1 [expr { int(double($before) * $nrows / max(1, $total)) }]
+    if { ![info exists cells($b,$l)] } { continue }
+    set list [lsort -integer -index 0 $cells($b,$l)]
+    set width $lw($l)
     # the cells spread evenly: a gap after each in proportion to the
-    # band's room
+    # band's room, a quarter of it left for the taps and what repair adds
     set room [expr { double($x1 - $x0) * ($r1 - $r0) }]
-    set stretch [expr { max(1.0, 0.9 * $room / max(1, $width)) }]
+    set stretch [expr { max(1.0, 0.75 * $room / max(1, $width)) }]
     set r $r0
     set x $x0
     foreach e $list {

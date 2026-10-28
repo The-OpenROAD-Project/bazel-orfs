@@ -11,8 +11,9 @@ a generator would:
   of the pointers' halves;
 - trees of inverting cells (AOI222, NAND, NOR in alternation), each
   cell's drive strength chosen from its fanout, as a mapper would;
-- every net with more than FANOUT sinks driven through a buffer tree,
-  the sinks grouped in the order they were made, which is entry order;
+- every net within the flow's set_max_fanout (FANOUT, 32): more sinks
+  are driven through a buffer tree, grouped in the order they were
+  made, which is entry order, each buffer sized for its load;
 - every cell named after the entry it belongs to, b<bank>_l<line>_c<n>,
   or g_c<n> for the shared logic, so place.tcl can place the entries by
   construction: a column per bank, the lines in order up the column.
@@ -27,9 +28,9 @@ import sys
 from rob_toy import DEFAULTS, DEST, ITYPE, NONTAKEN, TAKEN, UOPNUM, WBCNT
 
 _V = "_ASAP7_75t_R"
-FANOUT = 16
-# a port's broadcast crosses the array: buffered at a smaller fanout
-PORT_FANOUT = 8
+# the flow's set_max_fanout (constraint.sdc, as XiangShan's): every net
+# the generator makes stays within it, so repair_design has nothing to add
+FANOUT = 32
 
 # the inverting form of a cell whose only reader is a flop's D, which
 # takes the complement (see Net.negate)
@@ -224,18 +225,25 @@ class Net:
             return self.nand(ns)
         return self._or_pos([self.nand(ns[k : k + 4]) for k in range(0, len(ns), 4)])
 
-    def and_or(self, sels, words):
-        """Mux1H: per bit the OR of sel & word, AOI222 then NAND/NOR."""
+    def and_or(self, sels, words, tags=None):
+        """Mux1H: per bit the OR of sel & word, AOI222 then NAND/NOR; with
+        tags, each AOI is made under the tag of its first word, so it is
+        placed with that word, and each bit's OR tree under one of them in
+        turn."""
         out = []
         for b in range(len(words[0])):
             pairs = [(s, w[b]) for s, w in zip(sels, words)]
+            ptags = tags or [self.tag] * len(pairs)
+            ptags = [t for (s, d), t in zip(pairs, ptags) if self.zero not in (s, d)]
             pairs = [(s, d) for s, d in pairs if self.zero not in (s, d)]
+            saved = self.tag
             if not pairs:
                 out.append(self.zero)
                 continue
             ns = []
             for k in range(0, len(pairs), 3):
                 g = pairs[k : k + 3]
+                self.tag = ptags[k]
                 pins = {}
                 for (s, d), p in zip(g, "ABC"):
                     pins[p + "1"], pins[p + "2"] = s, d
@@ -245,7 +253,10 @@ class Net:
                         **(pins if len(g) > 1 else {"A": g[0][0], "B": g[0][1]}),
                     )
                 )
+            # the OR tree that joins a bit's AOIs, with one of its lines
+            self.tag = ptags[b % len(ptags)] if tags and ptags else saved
             out.append(self._or_neg(ns))
+            self.tag = saved
         return out
 
     def add_c(self, xs, ys, cin):
@@ -377,16 +388,15 @@ class Net:
         ]
 
     def buffer(self):
-        """Every net with more than FANOUT cell sinks (PORT_FANOUT for a
-        port) drives them through buffers, in groups of that many, in the
-        order the sinks were made."""
+        """Every net with more than FANOUT cell sinks drives them through
+        buffers, FANOUT sinks each, in the order the sinks were made."""
         sinks = {}
         for k, (_, _, pins, _) in enumerate(self.cells):
             for p, v in pins.items():
                 if v not in (self.zero, self.one, "clock"):
                     sinks.setdefault(v, []).append((k, p))
         for net, ss in list(sinks.items()):
-            limit = FANOUT if net in self.driver else PORT_FANOUT
+            limit = FANOUT
             while len(ss) > limit:
                 groups = [ss[k : k + limit] for k in range(0, len(ss), limit)]
                 ss = []
@@ -412,7 +422,11 @@ class Net:
             if not sizes:
                 continue
             fo = max(fanout.get(w, 0) for w in c[3].values())
-            c[0] = sizes[0 if fo <= 1 else 1 if fo <= 3 else 2]
+            if c[0] == "BUFx4f":
+                # a buffer drives up to FANOUT sinks
+                c[0] = "BUFx4f" if fo <= 8 else "BUFx6f" if fo <= 16 else "BUFx12f"
+            else:
+                c[0] = sizes[0 if fo <= 1 else 1 if fo <= 3 else 2]
 
     def verilog(self):
         lines = [f"  wire {w};" for w in self.wires]
@@ -700,18 +714,21 @@ def generate(p):
     else:
         rec = _entries_gates()
 
-    # robBanks: per bank, this line and the next at the one-hot line; the
-    # read tree is made with the bank's last line, at the column's top
+    # robBanks: per bank, this line and the next at the one-hot line; each
+    # AOI of the read tree is made with the lines it reads, the OR tree
+    # that joins them with the column's middle line
     oh = _bus("rd_line_oh", lines_)
     for side, shift in (("this", 0), ("next", 1)):
         for bk in range(nb):
-            net.tag = f"b{bk}_l{lines_ - 1}"
+            net.tag = f"b{bk}_l{lines_ // 2}"
             words = [rec[((l + shift) % lines_) * nb + bk] for l in range(lines_)]
-            for k, v in enumerate(net.and_or(oh, words)):
+            tags = [f"b{bk}_l{(l + shift) % lines_}" for l in range(lines_)]
+            for k, v in enumerate(net.and_or(oh, words, tags)):
                 net.assign(f"{side}{bk}_entry[{k}]", v)
     net.tag = "g"
-    net.buffer()
-    net.size()
+    if not p.get("plain"):
+        net.buffer()
+        net.size()
     return net
 
 
