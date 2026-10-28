@@ -249,7 +249,7 @@ run is incremental and cached.
 
 ### Bring in your ORFS design
 
-An ORFS design you already have comes in with import, as at the top of
+A design of your own that you build with ORFS comes in with import, as at the top of
 this page: `bazelisk run //:import -- <ORFS design dir>` writes an
 `orfs_flow()` for it under `imported/<pdk>/<design>/`, from the values
 ORFS's own make gives its `config.mk`. From there it is a flow like the
@@ -296,7 +296,7 @@ provides before guessing:
 bazelisk query 'filter("^//test:L1MetadataArray_(synth|floorplan|place|cts|grt|route|final)$", //test:*)'
 ```
 
-### Lab bench: ORFS's own designs
+### ORFS's own designs
 
 ORFS's own designs are also Bazel targets, read from their `config.mk`
 files:
@@ -305,14 +305,15 @@ files:
 bazelisk run @orfs//flow/designs/asap7/gcd:gcd_final gui_final
 ```
 
-This is not a way to build a design, yours or ORFS's. The `config.mk`
-DSL exists for development of bazel-orfs itself: AI-run sweeps of a new
-feature across many real designs for A/B reports, and wiring up and
-testing combinations of ORFS and OpenROAD patches in a single pull
-request before anything is upstreamed. Its output paths are awkward
-(`bazel-bin/external/+orfs_repositories+orfs/flow/designs/...`), not all
-designs are hooked up, and an ORFS bump that upsets one is a fix here, not
-an incident. To build an ORFS design, import it (above).
+This is how to view and build ORFS's designs with nothing installed but
+Bazelisk. The same `config.mk` DSL carries sweeps of a new feature across
+many real designs for A/B reports, and tests combinations of ORFS,
+OpenROAD and bazel-orfs patches in a single pull request before anything
+is upstreamed. It is not for making your own design: its output paths are
+awkward (`bazel-bin/external/+orfs_repositories+orfs/flow/designs/...`),
+not all designs are hooked up, and an ORFS bump that upsets one is a fix
+here, not an incident. For your own design, write an `orfs_flow()` or
+import your `config.mk` (above).
 
 The ORFS designs are the right test bed for those experiments because the
 OpenROAD maintainers know every pebble on that beach: a shift in any of
@@ -504,7 +505,7 @@ once and commit what it lists: [tools/agent](tools/agent/README.md).
 | Monitor a long-running build | [docs/performance.md](docs/performance.md#monitor-long-running-builds) |
 | Understand where CI time goes | [docs/performance.md](docs/performance.md#where-ci-time-goes) |
 | Query timing interactively | [docs/performance.md](docs/performance.md#query-timing-interactively) |
-| Sweep a bazel-orfs feature or patch across ORFS's own designs (lab bench, not for building a design) | [docs/orfs-design-builds.md](docs/orfs-design-builds.md) |
+| View and build ORFS's own designs, sweep a feature or patch across them (not for your own design) | [docs/orfs-design-builds.md](docs/orfs-design-builds.md) |
 | Debug or create a `make issue` archive | [docs/reference.md](docs/reference.md#create-a-make-issue-archive), [docs/debugging.md](docs/debugging.md) |
 | Diagnose a build failure on my host | [docs/debugging.md](docs/debugging.md#host-platform--older-distributions) |
 | Fast PPA estimate, gate a PR against merge-base | [docs/estimate.md](docs/estimate.md) |
