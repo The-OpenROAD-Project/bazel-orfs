@@ -15,7 +15,10 @@ _INST = re.compile(r"^\s*(\w+)\s+(?:#\(.*?\)\s*)?\w+\s*\(", re.M)
 
 
 def closure(sv_dir, top):
-    """The files of top and every module it instances, from the directory."""
+    """The files of top and every module it instances, from the directory;
+    a single file (the surgered core) as it is."""
+    if os.path.isfile(sv_dir):
+        return [sv_dir]
     have = {f[: -len(".sv")] for f in os.listdir(sv_dir) if f.endswith(".sv")}
     seen, todo = [], [top]
     while todo:

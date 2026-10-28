@@ -18,6 +18,15 @@ TOPS = [
 # blackboxes in each, macros of their own.
 EXTRACTED = TOPS + ["Rob"]
 
+# The RTL each is extracted from: the packed-vector elaboration, or for
+# the Rob the surgered core its other flow reads (the constants surgery
+# drops register-file ports the macros do not have).
+SV_VEC = "//test/coremark_joule/xiangshan:xiangshan_sv_vec"
+
+SOURCES = {
+    "Rob": "//test/coremark_joule/designs/asap7/xiangshan/surgery:xiangshan_surgered",
+}
+
 BLACKBOXES = {
     "Rob": [
         "RenameBufferFile",
@@ -75,10 +84,11 @@ py_binary(
 [
     genrule(
         name = top + "_proc_json",
-        srcs = ["//test/coremark_joule/xiangshan:xiangshan_sv_vec"],
+        srcs = [SOURCES.get(top, SV_VEC)],
         outs = [top + "_proc.json"],
         cmd = "$(execpath :proc_json) $(execpath @yosys) $(execpath @sv-elab//src/yosys_plugin:slang.so) " +
-              "$(location //test/coremark_joule/xiangshan:xiangshan_sv_vec) %s $@ %s" % (
+              "$(location %s) %s $@ %s" % (
+                  SOURCES.get(top, SV_VEC),
                   top,
                   ",".join(BLACKBOXES.get(top, [])),
               ),
