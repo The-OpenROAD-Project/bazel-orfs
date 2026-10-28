@@ -4,7 +4,8 @@ Status: **run, and answered: negative.** Stored stage `.odb` files get
 about 2x smaller under Bazel's remote-cache `zstd -3`, with no change to
 OpenROAD, but encoding runs at 2-4 MB/s on 16 cores. The bar was
 hundreds of MB/s (XiangShan's stage files are gigabytes) together with
-2x; the speed misses it by 50-100x, and the reasons are structural.
+2x; the speed misses it by 50-100x, and by an estimated 2-5x even on
+128 cores, because each large table is parsed on one core.
 
 ## Problem
 
@@ -78,6 +79,30 @@ without a check.
 one pass; odb_swap's own walk of known regions runs at a similar ~90
 MB/s. The 80x between them is the search for the layout. #11352, inside
 OpenROAD's own write and read, left both times unchanged.
+
+With wall time the only cost, more cores help, but not enough. On a
+22 MB route file and 16 cores, encode went from 6.05 s to 1.91 s:
+
+| configuration | wall | work | stored |
+|---|---|---|---|
+| 1 MB scan chunks, full genome | 6.05 s | 19.8 CPU-s | 2.60 MB |
+| 64 KB chunks, every (chunk, region) its own job | 4.74 s | 34.3 CPU-s | 2.64 MB |
+| same, without the two searched regions that have no check | 1.91 s | 15.9 CPU-s | 2.73 MB |
+| hand-written, checked regions only | 1.55 s | 11.6 CPU-s | 2.95 MB |
+
+The anchor scan splits into independent jobs and scales with cores; its
+waste comes from regions with no check, whose near-miss parses run deep
+before failing, so a search would have to require a check on every
+region, for a few percent of compression. What does not scale: each
+large table is walked start to finish on one core, three times (to
+value it, to encode it, to verify the round trip), because records with
+names or vectors have no fixed length to split on. That is about 0.6 s
+per 22 MB, 35-45 MB/s, whatever the core count. Estimated, not
+measured (no gigabyte `.odb` and no more than 16 cores here): a 1 GB
+XiangShan file on 128 cores with the walks parallel per table and only
+overlapping claims valued would take 10-15 s, 70-100 MB/s, nearer 150
+MB/s with the three walks merged into one. Still short of hundreds; the
+size of the largest table decides it, so measure that first.
 
 ## To rehydrate
 
