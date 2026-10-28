@@ -36,18 +36,32 @@ Note: the `@bazel-orfs//:klayout` wrapper executes whichever `klayout`
 binary is found on the system `PATH`. For hermetic builds, pin a real
 klayout via `http_archive`.
 
-## GDS Generation with `orfs_gds`
+## GDS Generation
 
-The `orfs_gds` rule generates GDS files using klayout via the ORFS `do-gds`
-make target. It takes a completed design (from `orfs_final`) as input and
-produces the final GDS:
+Every `orfs_flow()` that runs to `final` also creates `<name>_gds`
+(`<name>_<variant>_gds` with a variant), which runs klayout via the ORFS
+`do-gds` make target over the final stage:
+
+```sh
+bazelisk build //my/pkg:my_design_gds
+# bazel-bin/my/pkg/results/<pdk>/my_design/base/6_final.gds
+```
+
+Unless `orfs.default()` or `--@bazel-orfs//:klayout_tool` names a real
+klayout ([tools.md](tools.md#configure-klayout)), that GDS comes from the
+mock and is empty; the mock says so in the build output. KLayout only runs when
+the target is built. `orfs_flow(gds = False)` leaves the target out, and
+`orfs_flow(klayout = ...)` overrides the klayout for this flow's GDS.
+
+For a final stage declared elsewhere, such as a design in another package,
+instantiate the `orfs_gds` rule yourself:
 
 ```starlark
 load("@bazel-orfs//:openroad.bzl", "orfs_gds")
 
 orfs_gds(
     name = "my_design_gds",
-    src = ":my_design_final",
+    src = "//other/pkg:my_design_final",
 )
 ```
 
