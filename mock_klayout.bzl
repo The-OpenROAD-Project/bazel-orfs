@@ -45,6 +45,14 @@ def main(argv=None):
                 f.write(GDS_HEADER)
 
     print("mock klayout (CI stub)")
+    if rd_args.get("out") or rd_args.get("out_file"):
+        print(
+            "WARNING: mock klayout wrote an empty GDS. For a real one, pass "
+            "--@bazel-orfs//:klayout_tool=@bazel-orfs//:klayout or set "
+            'orfs.default(klayout = "@bazel-orfs//:klayout") in MODULE.bazel '
+            "(docs/tools.md).",
+            file=sys.stderr,
+        )
     return 0
 
 if __name__ == "__main__":
@@ -56,7 +64,7 @@ _KLAYOUT_SH = '''\
 dir="$(cd "$(dirname "$0")" && pwd)"
 for py in \\
     "$dir/klayout.py" \\
-    "$dir/klayout.runfiles/_main/klayout.py" \\
+    "$dir"/klayout.runfiles/*/klayout.py \\
 ; do
     [ -f "$py" ] && exec python3 "$py" "$@"
 done
