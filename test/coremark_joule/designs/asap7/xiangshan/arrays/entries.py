@@ -140,6 +140,8 @@ class Entries:
     def __init__(self, design, n, arrays):
         self.d = design
         self.n = n
+        self.arrays = arrays
+        self.inline = []  # arrays left out by narrowed()
         self.arrs = sorted(arrays)
         self.flops = {i: [arrays[a][i] for a in self.arrs] for i in range(n)}
         self.array_of = {arrays[a][i]: a for a in self.arrs for i in range(n)}
@@ -153,6 +155,23 @@ class Entries:
         self.reach = collections.Counter(c for cs in self.cones for c in cs)
         self.walks = [self._walk(i) for i in range(n)]
         self._rule()
+
+    def narrowed(self):
+        """The group without the arrays whose structure differs between
+        entries, when the rest follows one rule (IBuffer: the last entry of
+        each bank of four reads predTaken differently, one bit of 61);
+        those arrays stay inline in the module. Else the group as it is."""
+        if self.uniform:
+            return self
+        varying = [a for a in self.arrs if len({w["parts"][a] for w in self.walks}) > 1]
+        rest = {a: v for a, v in self.arrays.items() if a not in varying}
+        if not varying or not rest:
+            return self
+        e = Entries(self.d, self.n, rest)
+        if not e.uniform:
+            return self
+        e.inline = varying
+        return e
 
     def _cone(self, i):
         d = self.d
@@ -234,9 +253,12 @@ class Entries:
                     str(sorted(params.items())),
                     tuple((p, tuple(bs)) for p, bs in sorted(ins.items())),
                 )
+                folded.update(self.folded)
             if key in seen and memo.get(seen[key], "?") != "?":
                 memo[c] = memo[seen[key]]
                 merged[c] = seen[key]
+                if eq:
+                    folded.update(self.folded)
                 return memo[c]
             seen.setdefault(key, c)
             if eq:
@@ -449,9 +471,11 @@ class Entries:
         cl = d.cells[c]
         typ, params, conns = cl["type"], cl.get("parameters", {}), cl["connections"]
         ins = {p: bs for p, bs in conns.items() if p not in outputs(cl)}
+        self.folded = set()
         if typ == "$not" and len(ins["A"]) == 1 and ins["A"][0] in d.driver:
             c2 = d.driver[ins["A"][0]][0]
             if d.cells[c2]["type"] == "$reduce_or" and self.reach[c2] == 1:
+                self.folded = {c2}
                 p2 = d.cells[c2]["parameters"]
                 typ, ins = "$logic_not", {"A": d.cells[c2]["connections"]["A"]}
                 params = {
@@ -605,6 +629,9 @@ def main(argv):
     for n, arrays in sorted(d.groups(min_n).items(), key=lambda kv: -kv[0]):
         e = Entries(d, n, arrays)
         print(e.report())
+        if not e.uniform and e.narrowed() is not e:
+            e = e.narrowed()
+            print(f"  without {e.inline} (left inline): uniform")
         if os.environ.get("ENTRIES_DIFF") and not e.uniform:
             a, b = (int(x) for x in os.environ["ENTRIES_DIFF"].split(","))
             if max(a, b) < n:

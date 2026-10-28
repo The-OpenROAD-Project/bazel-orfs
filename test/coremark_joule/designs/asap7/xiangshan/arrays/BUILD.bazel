@@ -7,6 +7,9 @@ load("//test/coremark_joule/designs/asap7/xiangshan:xiangshan.bzl", "XS_BLOCKS",
 TOPS = [
     "LoadQueueRAR",
     "LoadQueueReplay",
+    "PhysicalStoreQueue",
+    "TLBFA",
+    "TLBFA_1",
     "VirtualStoreQueue",
 ]
 
