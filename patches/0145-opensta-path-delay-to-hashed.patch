@@ -195,7 +195,7 @@ index 3d4890a1..9a437e1c 100644
  ////////////////////////////////////////////////////////////////
  
  void
-@@ -5820,6 +5868,9 @@ Sdc::deletePinBefore(const Pin *pin)
+@@ -5821,6 +5869,9 @@ Sdc::deletePinBefore(const Pin *pin)
      first_to_pin_exceptions_.erase(pin);
      pin_exceptions_.erase(pin);
    }
@@ -203,8 +203,8 @@ index 3d4890a1..9a437e1c 100644
 +  // exception gains in a merge.
 +  to_pin_exceptions_.erase(pin);
    deletePortDelayReferences(pin);
-   drvr_pin_wire_cap_map_.erase(pin);
- }
+   ClockSet *leaf_pin_clks = findKey(clock_leaf_pin_map_, pin);
+   if (leaf_pin_clks) {
 diff --git a/src/sta/test/path_delay_to_sets.tcl b/src/sta/test/path_delay_to_sets.tcl
 new file mode 100644
 index 00000000..cac4dee6
