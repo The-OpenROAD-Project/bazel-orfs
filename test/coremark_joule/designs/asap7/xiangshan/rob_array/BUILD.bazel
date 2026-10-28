@@ -1,6 +1,6 @@
-load("@bazel-orfs//:openroad.bzl", "orfs_flow")
+load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run")
 load("@rules_python//python:defs.bzl", "py_binary")
-load("//test/coremark_joule/designs/asap7/xiangshan:xiangshan.bzl", "XS_BLOCKS", "XS_ICG_USER_ARGUMENTS", "XS_ICG_USER_SOURCES", "XS_USER_STAGES")
+load("//test/coremark_joule/designs/asap7/xiangshan:xiangshan.bzl", "XS_BLOCKS", "XS_ICG_USER_ARGUMENTS", "XS_ICG_USER_SOURCES", "XS_USER_STAGES", "XS_VT")
 
 # XiangShan's Rob with its 352 RobEntryCells swapped, by surgery, for one
 # generated RobEntryArray (rob_surgery.py, rob_array_gen.py): every
@@ -43,6 +43,44 @@ genrule(
 
 ROB = XS_BLOCKS["Rob"]
 
+# The Rob's two register files, each a macro of its own as the planned
+# flow builds them (xiangshan.bzl, _regfile_macro): generate_ram's
+# netlist, through global route, its abstract for the Rob. Built in
+# parallel with the Rob's synthesis. Inlined, they were two thirds of
+# the Rob's 759k instances, and timing-driven global placement on all of
+# it took 1,022 s.
+REGFILES = [
+    "RobEntryFile",
+    "RenameBufferFile",
+]
+
+[
+    orfs_flow(
+        name = module,
+        abstract_stage = "grt",
+        arguments = {
+            "ASAP7_USE_VT": XS_VT,
+            "AUTO_MEMORIES": "1",
+            "CORE_UTILIZATION": "40",
+            "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
+            "PLACE_DENSITY": "0.6",
+            "SKIP_PIN_ACCESS": "1",
+            "SKIP_REPORT_METRICS": "1",
+            "SYNTH_HDL_FRONTEND": "slang",
+        },
+        pdk = "//flow:asap7",
+        sources = {
+            "AUTO_MEMORIES_REGFILES": ["//test/coremark_joule/designs/asap7/xiangshan:%s.regfile" % module],
+            "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
+            "SDC_FILE": ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"],
+        },
+        stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
+        tags = ["manual"],
+        verilog_files = [":rob_surgered.sv"],
+    )
+    for module in REGFILES
+]
+
 orfs_flow(
     name = "Rob",
     arguments = {
@@ -59,8 +97,13 @@ orfs_flow(
         "SKIP_PIN_ACCESS": "1",
     },
     last_stage = "grt",
+    macros = [":%s_generate_abstract" % m for m in REGFILES],
     pdk = "//flow:asap7",
-    sources = ROB["sources"],
+    sources = {
+        k: v
+        for k, v in ROB["sources"].items()
+        if k != "AUTO_MEMORIES_REGFILES"
+    },
     stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
     tags = ["manual"],
     user_arguments = ROB["user_arguments"] | XS_ICG_USER_ARGUMENTS,
@@ -75,3 +118,20 @@ orfs_flow(
         ":RobEntryArray.v",
     ],
 )
+
+[
+    orfs_run(
+        name = "Rob_%s_qor" % stage,
+        src = ":Rob_%s" % stage,
+        outs = ["Rob_%s_qor.json" % stage],
+        script = ":qor_probe.tcl",
+        tags = ["manual"],
+        user_arguments = {
+            "OUTPUT_JSON": "$(location Rob_%s_qor.json)" % stage,
+        },
+    )
+    for stage in [
+        "cts",
+        "grt",
+    ]
+]
