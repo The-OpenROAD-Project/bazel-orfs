@@ -67,7 +67,10 @@ exports_files(
 # scaffold.bzl).
 exports_files(
     glob(["*.regfile"]),
-    visibility = ["//test/structured_netlist:__pkg__"],
+    visibility = [
+        "//test/coremark_joule/designs/asap7/xiangshan/rob_array:__pkg__",
+        "//test/structured_netlist:__pkg__",
+    ],
 )
 
 # The planned parent: the blocks the macro selection tables named, each a

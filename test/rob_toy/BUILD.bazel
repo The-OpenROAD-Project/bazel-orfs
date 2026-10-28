@@ -17,6 +17,16 @@ py_library(
     imports = ["."],
 )
 
+# the netlist builder, for the real Rob's array
+# (test/coremark_joule/designs/asap7/xiangshan/rob_array)
+py_library(
+    name = "rob_gen_lib",
+    srcs = ["rob_gen.py"],
+    imports = ["."],
+    visibility = ["//test/coremark_joule/designs/asap7/xiangshan/rob_array:__pkg__"],
+    deps = [":rob_toy_lib"],
+)
+
 py_binary(
     name = "rob_gen",
     srcs = ["rob_gen.py"],
