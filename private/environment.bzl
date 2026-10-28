@@ -71,7 +71,7 @@ def _klayout_attr(ctx):
     """Resolve which klayout binary the action should invoke.
 
     Honors a rule's public `klayout` attr (orfs_gds defines one) when set,
-    otherwise falls back to the private CONFIG_KLAYOUT-defaulted `_klayout`.
+    otherwise falls back to the private `_klayout`, which is //:klayout_tool.
     """
     pub = getattr(ctx.attr, "klayout", None)
     return pub if pub else ctx.attr._klayout

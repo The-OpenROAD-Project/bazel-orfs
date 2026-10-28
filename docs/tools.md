@@ -38,13 +38,21 @@ wrappers that `exec` the corresponding binary from PATH.
 
 #### Configure klayout
 
-KLayout defaults to mock-klayout. To use a real klayout, add to `user.bazelrc`:
+KLayout defaults to mock-klayout, which writes an empty GDS. To use a
+real klayout for one build, without touching `MODULE.bazel` (handy when
+hacking on bazel-orfs itself), pass the flag on the command line or put
+it in `user.bazelrc`:
 
 ```
-build --@bazel-orfs//:klayout=@bazel-orfs//:klayout
+build --@bazel-orfs//:klayout_tool=@bazel-orfs//:klayout
 ```
 
-Or override globally in `MODULE.bazel`:
+`@bazel-orfs//:klayout` runs `klayout` from the action's `PATH`, which
+`--incompatible_strict_action_env` sets to `/bin:/usr/bin:/usr/local/bin`;
+for an install elsewhere, point the flag at a label of your own that
+runs it.
+
+To make it the default, override it globally in `MODULE.bazel`:
 
 ```starlark
 orfs.default(

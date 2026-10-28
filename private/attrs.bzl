@@ -3,7 +3,6 @@
 load(
     "@config//:global_config.bzl",
     "CONFIG_FAKERAM",
-    "CONFIG_KLAYOUT",
     "CONFIG_MAKE",
     "CONFIG_MAKEFILE",
     "CONFIG_MAKEFILE_YOSYS",
@@ -128,7 +127,7 @@ def flow_attrs():
             executable = True,
             allow_files = True,
             cfg = "exec",
-            default = CONFIG_KLAYOUT,
+            default = Label("@bazel-orfs//:klayout_tool"),
         ),
         "_make_template": attr.label(
             default = Label("@bazel-orfs//:make.tpl"),
