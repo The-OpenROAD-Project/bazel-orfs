@@ -39,3 +39,10 @@ py_library(
     imports = ["."],
     visibility = ["//test/rob_toy:__pkg__"],
 )
+
+# the classifier, for the XiangShan dry runs
+# (test/coremark_joule/designs/asap7/xiangshan/arrays)
+exports_files(
+    ["classify.py"],
+    visibility = ["//test/coremark_joule/designs/asap7/xiangshan/arrays:__pkg__"],
+)
