@@ -11,7 +11,7 @@ decodes each index comparison once in the block.
 | Step | File | What it does |
 | --- | --- | --- |
 | proc | `proc_json.py` | the block after yosys's `proc`, as JSON; named modules stay blackboxes |
-| find | `entries.py` | entries are word *i* of arrays of equal length; each entry's cone is a structural signature, and constants, shared bits and `x == K` / `x != K` comparisons are decided across entries (the same, the entry's number, or its bank's); where that leaves entries off the rule, thresholds `x >= K` / `x < K` too |
+| find | `entries.py` | entries are word *i* of arrays of equal length (`x`, `x_1`, ... too: firtool's vectors), an array of k·N words k arrays of the group of N where that follows one rule; each entry's cone is a structural signature, and constants, shared bits and `x == K` / `x != K` comparisons are decided across entries (the same, the entry's number, or its bank's); where that leaves entries off the rule, thresholds `x >= K` / `x < K` too |
 | extract | `extract.py` | the template entry as `<Block>Entry`, instanced per entry; each index comparison decoded once per distinct operand, a threshold `x >= i + o` as bit `i + o - 1` of `(1 << x) - 1` |
 | prove | `check.py` | registers and blackboxes as cut points, a yosys miter, ABC's `iprove`; a negative control (one register's D-mux swapped) must come out different |
 | swap | `substitute.py` | the core with each extraction in place of its block, for the XSTile flows (`../README.md`, "The arrays") |
@@ -22,8 +22,10 @@ contribution to a reduction across entries) kept in the cell, arrays
 that differ between entries left inline, a bank's pointer decoded once
 per bank, blackboxes kept as instances, thresholds against the entry's
 number however firtool folded them for each one (VirtualLoadQueue's
-`x >= i + 1` as `x > 2`, `|x[6:2]` or `x[6]` alone). What it does not
-yet: read cones that differ between entries (LoadQueueRAW).
+`x >= i + 1` as `x > 2`, `|x[6:2]` or `x[6]` alone), and where the
+read cones differ between entries the part of them every entry has
+(LoadQueueRAW's select bits, without the per-bank priority inverters,
+a different number in every entry, which stay in the block).
 
 ## Targets
 
@@ -34,8 +36,10 @@ bazelisk build //test/coremark_joule/designs/asap7/xiangshan/arrays:<Block>_grt_
 bazelisk test //test/coremark_joule/designs/asap7/xiangshan/arrays:<Block>_check_test
 ```
 
-`features_test` runs every step on an 8-entry CAM, and on an 8-entry
-queue freed below a bound (thresholds), in seconds.
+`features_test` runs every step on an 8-entry CAM, on an 8-entry
+queue freed below a bound (thresholds) and on a CAM with a per-bank
+priority select and per-port match registers (read cones that differ,
+firtool's vector names), in seconds.
 `<Block>_grt_qor` is the extracted block through global route with
 setup repair at CTS and global route off (XSTile's ~2,000 ps), its
 period in the JSON.
