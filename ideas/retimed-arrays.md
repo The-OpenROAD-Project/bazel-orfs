@@ -50,6 +50,24 @@ The FPGA vendors expose the same choice as read-during-write modes. A version th
 
 Not measured. On ohsched `lanes` the read side sets the period, and version B would move the about 95 ps of decode into the pick cycle. Whether that cycle has the slack is the first measurement. On `fill` the worst path is the write side (the OR of 8 port enables, then the hold mux), so B alone would not help there; the write-side version or the bank write (G4) would.
 
+### Does useful skew make it moot? Measured: no
+
+Useful skew in timing only, measured with odb-debug's `skew_headroom` and `floor_wire_skew` on the global-route ODBs of the ohsched toy. Hold is kept. Period is reg2reg, in ps.
+
+| kind | arm | period | with useful skew | zero wire + skew |
+|---|---|--:|--:|--:|
+| lanes | generate_ram | 335.0 | 287.7 | 225.4 |
+| lanes | yosys | 298.6 | 277.4 | 201.9 |
+| fill | generate_ram | 393.4 | 345.4 | 247.9 |
+| fill | yosys | 298.7 | 249.6 | 188.1 |
+
+- On `lanes`, skew narrows the gap from 36 to 10 ps.
+- On `fill`, skew helps both arms alike: about 48 ps each, so the gap stays at about 95 ps.
+- At zero wire, yosys still leads by 23 and 60 ps, so the rest of the loss is in the generated logic itself.
+- The gaps are lower bounds. Both yosys arms meet their 300 ps target, so repair stopped there and their numbers are not their limits.
+
+OpenROAD master's `clock_tree_synthesis -useful_skew` builds such a schedule. In ORFS it is reached through `CTS_ARGS`, which replaces the default argument list.
+
 ## Effort
 
 Medium.
