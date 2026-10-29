@@ -88,3 +88,4 @@ and area):
 | TLBFA | 2.69 | 2.19 | 439.0 | 272.0 | dominates |
 | TLBFA_1 | 5.95 | 3.06 | 460.8 | 349.5 | dominates |
 | VirtualLoadQueue | 5.19 | 3.41 | 962.5 | 963.9 | dominates |
+| Rob (`rob_array:RobEntries`) | 43.30 | 57.45 | 2,038.9 | 1,759.3 | trades |
