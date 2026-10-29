@@ -1787,8 +1787,7 @@ class TestOpenroadSubmoduleVendoring(unittest.TestCase):
         self.assertIn("-C third-party/abc", self.block)
 
     def test_curl_has_retry(self):
-        # --retry guards against transient network blips during fetch
-        # (mirrors the xcb-util-cursor pattern in //MODULE.bazel).
+        # --retry guards against transient network blips during fetch.
         self.assertIn("--retry 5", self.block)
         # --retry-connrefused is curl 7.52 (2016).
         self.assertIn("--retry-connrefused", self.block)

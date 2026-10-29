@@ -225,17 +225,26 @@ that must differ, and the decode-once lemma `(1 << x)[i] == (x == i)`.
 | Block | Entries | Coverage | Read side | To global route | Period (ps) |
 |---|---|---|---|---|---|
 | Rob | 352 | 81% | no | 23.5 min (surgered + hand generator: ~33) | 1,913.9 (1,712.8) |
-| LoadQueueReplay | 120 | 87% | yes | ~9.5 min (PR: 28.9) | 1,469.7 |
+| LoadQueueReplay | 120 | 87% | yes | ~9.5 min (PR: 28.9) | 1,469.7 ³ |
 | PhysicalStoreQueue | 64 | 85% | yes | 8.6 min (decode_once: 27.2), top 137 s | 1,905.1 |
 | VirtualStoreQueue | 128 | 96% | no | ≤ 6 min ¹ (PR: 6.6) | 1,485.0 |
-| LoadQueueRAR | 96 | 86% | no | ≤ 6 min ¹ (PR: 4.5) | 997.7 |
+| LoadQueueRAR | 96 | 87% | no | ≤ 6 min ¹ (PR: 4.5) | 997.7 ³ |
 | TLBFA / TLBFA_1 | 48 | 99% / 98% | yes | ≤ 6 min ¹ | 285.9 / 349.5 |
-| LoadQueueRAW | 56 | 69% | | below the 70% gate | |
-| Uncache | 16 | 42% | | below the gate | |
-| VirtualLoadQueue | 120 | 7% | | x >= K compares | |
+| LoadQueueRAW | 56 | 69% | yes, the common part | below the 70% gate | |
+| Uncache | 16 | 92% | yes | 4.0 min ² (PR: 3.4) | 1,255.7 |
+| VirtualLoadQueue | 120 | 96% (7% without thresholds) | no | 3.2 min ² (PR: 3.2) | 963.9 |
 
 All extracted from the surgered core XSTile's flows read. ¹ The four
-side by side in under 6 min.
+side by side in under 6 min. ² Alone, from the Bazel profile: synthesis
+76 s (the top 61 s), floorplan through global route 114 s (grt 63 s);
+the extraction itself 22 s more. Single run. Uncache: synthesis 90 s
+(the top 77 s), floorplan through global route 149 s (place 55 s, grt
+78 s); slower than the carve. ³ Each gained one array with firtool's
+vector names (LoadQueueRAR's REG, LoadQueueReplay's
+l2HintLastBeatUnblock); on slang and the fold, side by side, single
+runs: LoadQueueRAR 969.8 ps (was 961.1), synthesis 75 s, floorplan
+through global route 152 s; LoadQueueReplay 1,435.1 ps (was 1,289.9),
+synthesis 313 s, floorplan through global route 521 s.
 
 Every extraction is proven twice, with the index kept and decoded, each
 with its negative control (`<top>_check_test`, `<top>_control_test`). The Rob's decoded
@@ -250,12 +259,32 @@ What is not covered yet:
 - **The read side** is in the cell where entries agree on it: each
   entry's cone from its registers to the reductions across entries
   (PhysicalStoreQueue's forwarding compares: its top's synthesis 978 s
-  to 137 s). LoadQueueRAW's and LoadQueueRAR's read cones still differ
-  between entries, and stay in the parent.
-- **Threshold compares.** VirtualLoadQueue's `entryHitBound` is x >= K,
-  which yosys folds differently for each K (a buffer at 2^k - 1, an
-  OR reduction elsewhere); a GE/LT form, like the EQ/NE one, would cover
-  it, for 1,734 bits.
+  to 137 s). Where the read cones differ between entries, the part of
+  them every entry has, by signature, goes in the cell
+  (`Entries._common_read`): LoadQueueRAW's priority select within each
+  bank of eight reads entry j's select bit through j inverters of its
+  own, and the two select bits are common. LoadQueueRAR's and the Rob's
+  read cones have no common part that follows one rule; they stay in the
+  parent.
+- **Firtool's vector names and per-port arrays** (2026-10-29): a vector
+  of registers is `x`, `x_1`, `x_2`, ..., word 0 without a number, and an
+  array of k·N words may be k arrays of the group of N
+  (`entries.plan`, word p·N + i or i·k + p). Uncache's 42 % was not its
+  read side, which every entry agreed on, but its per-entry pipeline
+  registers: `f1_fwdDataCandidates_r` (16 words, word 0 unnumbered) and
+  `f1_ptagMatches_r` (48 words: 16 entries by three load ports); with
+  them, 92 %.
+- **Threshold compares** are covered (2026-10-29): VirtualLoadQueue's
+  `entryHitBound` is `x >= i + 1` and `x < i + 1`, which firtool folds
+  differently for each i (`x > 2`, `|x[6:2]`, `x[6]` alone, `x == 0`).
+  `entries.py` reads them as GE/LT forms on a net where some entry has a
+  threshold that is no `x == K`, a lone top bit through a buffer it puts
+  in front of it; `extract.py` decodes `x >= i + o` once as bit
+  `i + o - 1` of `(1 << x) - 1`. Tried only where the plain reading
+  leaves entries off the rule: PhysicalStoreQueue's dequeue pointer is
+  compared both with the entry's number and against a threshold, and
+  read as thresholds its entries 0 and 63 (`x == 0` is `x < 1`) fell
+  off; the six blocks above extract byte-identically.
 
 ### What the flow alone buys (2026-10-28)
 
@@ -270,6 +299,107 @@ and 21.2. With setup repair off the periods were 3,495.9 ps (Bpu) and
 and global route aimed at 2,000 ps instead of the SDC's 473
 (`SETUP_SLACK_MARGIN` 473 - 2,000), side by side in 38 min:
 VecRegionModule 2,012.4 ps, Bpu 3,175.5 ps. Repair does not close Bpu.
+
+## QoR inventory (2026-10-29)
+
+Every extraction against the module as it is: arrays
+`<Block>_grt_qor` (B, the extraction) and `<Block>_rtl_grt_qor` (A,
+the same proc JSON written back as Verilog: no entry cell, nothing
+folded), every other flow setting shared by construction. Single runs
+on one machine, each pair side by side; PhysicalStoreQueue and
+LoadQueueReplay alone with their pair in a 10 GB memory scope (swap in
+use), so compare seconds within a row, not across rows. Synthesis is
+canonicalisation, synthesis and the synth ODB from the Bazel profile
+(the entry cell's partition runs beside the top); floorplan through
+global route is the tool time in the stages' logs. Cells and area are
+the standard cells at global route (CORE masters, no tap or fill), what
+setup repair would have added included (it is off here; CTS buffers and
+place's repair_design are in).
+
+| Block | Arm | synth s | floorplan s | place s | CTS s | grt s | total min | period at grt ps | stdcells | stdcell area µm² |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| PhysicalStoreQueue ⁴ | A: RTL | 1,909.2 | 26.1 | 327.9 | 30.9 | 156.9 | 40.85 | 1,582.9 | 252,148 | 32,126.6 |
+| | B: extracted | 327.2 | 23.7 | 324.3 | 40.8 | 156.4 | 14.54 | 1,905.1 | 256,511 | 31,409.7 |
+| LoadQueueReplay | A: RTL | 1,504.8 | 49.5 | 496.1 | 33.4 | 160.0 | 37.40 | 1,664.5 | 368,658 | 45,109.3 |
+| | B: extracted | 432.4 | 35.8 | 549.4 | 49.5 | 274.7 | 22.36 | 1,289.9 | 388,365 | 45,860.8 |
+| VirtualStoreQueue ⁴ | A: RTL | 260.4 | 5.5 | 58.7 | 7.5 | 30.3 | 6.04 | 1,014.1 | 62,041 | 7,605.0 |
+| | B: extracted | 78.3 | 5.7 | 68.0 | 7.6 | 38.9 | 3.31 | 1,485.0 | 64,645 | 7,813.4 |
+| LoadQueueRAR | A: RTL | 266.8 | 6.0 | 58.7 | 5.0 | 58.8 | 6.59 | 902.0 | 53,430 | 7,024.2 |
+| | B: extracted | 85.8 | 11.5 | 70.0 | 6.3 | 106.4 | 4.67 | 961.1 | 64,639 | 8,169.5 |
+| TLBFA | A: RTL | 75.6 | 6.4 | 46.9 | 4.6 | 28.0 | 2.69 | 439.0 | 47,411 | 6,578.3 |
+| | B: extracted | 34.3 | 6.6 | 49.0 | 4.8 | 36.9 | 2.19 | 272.0 | 49,982 | 6,648.4 |
+| TLBFA_1 ⁴ | A: RTL | 166.0 | 16.6 | 136.2 | 7.0 | 31.4 | 5.95 | 460.8 | 83,636 | 10,707.2 |
+| | B: extracted | 44.2 | 10.5 | 81.6 | 11.4 | 36.0 | 3.06 | 349.5 | 97,630 | 11,759.7 |
+| VirtualLoadQueue | A: RTL | 173.5 | 5.1 | 34.9 | 3.2 | 94.9 | 5.19 | 962.5 | 38,203 | 4,267.1 |
+| | B: extracted | 83.9 | 5.0 | 41.4 | 4.2 | 70.4 | 3.41 | 963.9 | 42,521 | 4,945.0 |
+| Uncache ⁵ | A: RTL | 115.1 | 13.3 | 49.0 | 5.4 | 17.2 | 3.33 | 1,020.3 | 56,458 | 7,449.8 |
+| | B: extracted | 81.8 | 6.6 | 68.4 | 5.4 | 84.0 | 4.10 | 1,255.7 | 71,343 | 8,545.2 |
+| Rob ⁶ | A: RTL | 969.3 | 365.3 | 1,078.6 | 37.2 | 147.9 | 43.30 | 2,038.9 | 341,506 | 40,836.6 |
+| | B: extracted | 408.7 | 143.9 | 1,925.8 | 43.3 | 925.1 | 57.45 | 1,759.3 | 432,737 | 48,740.8 |
+
+⁴ On yosys's frontend in both arms (`YOSYS_FRONTEND`). ⁵ The study
+extraction (`--firtool-vectors`, off by default; #1430), its RTL arm
+built with the same settings. ⁶ `rob_array:RobEntries_rtl_grt_qor`
+against `rob_array:RobEntries_grt_qor`: the Rob's own flow (timing- and
+routability-driven global placement, its register files macros), the
+arms one after the other, alone on the machine.
+
+| Block | A total min | B total min | A period ps | B period ps | verdict | reason for a loss, measured |
+|---|---:|---:|---:|---:|---|---|
+| PhysicalStoreQueue | 40.85 | 14.54 | 1,582.9 | 1,905.1 | trades | the forwarding query reaches the 64 entry cells through fanout-32 buffers (slew 287 ps), compares inside, and the select comes back out: arrival 2,164 ps against 1,833 |
+| LoadQueueReplay | 37.40 | 22.36 | 1,664.5 | 1,289.9 | dominates | |
+| VirtualStoreQueue | 6.04 | 3.31 | 1,014.1 | 1,485.0 | trades | the dequeue pointer reaches the 128 entry cells through ten levels of fanout buffers before the entry's logic: arrival 1,624 ps against 1,142 |
+| LoadQueueRAR | 6.59 | 4.67 | 902.0 | 961.1 | dominates | period +6.5 %, within the resolution |
+| TLBFA | 2.69 | 2.19 | 439.0 | 272.0 | dominates | |
+| TLBFA_1 | 5.95 | 3.06 | 460.8 | 349.5 | dominates | |
+| VirtualLoadQueue | 5.19 | 3.41 | 962.5 | 963.9 | dominates | |
+| Rob | 43.30 | 57.45 | 2,038.9 | 1,759.3 | trades | 27 % more cells (432,737 against 341,506): routability-driven global placement needs 21 passes against 7 (1,591 against 757 s), and global route takes 835 s where the RTL arm stops at congestion after 79 s |
+| Uncache | 3.33 | 4.10 | 1,020.3 | 1,255.7 | study only | 27 % more cells: the 435-bit read side mapped inside the kept entry cell, nothing optimised across its boundary; global route 84 against 17 s |
+
+The verdict: B dominates when it is no worse on both, a time within
+15 % or a period within 10 % counting as no worse (the flow is
+deterministic, but one register per entry moved into LoadQueueReplay's
+cell moved its period 11 %: placement, the same gates on the worst
+path); it trades when it is better on one and worse on the other;
+otherwise it loses and stays a study. Every extraction cuts synthesis
+(PhysicalStoreQueue 1,909 to 327 s). The Rob trades the other way:
+14 % better period, but its 352 kept cells add 27 % cells and its
+placement and route take longer than synthesis saves.
+PhysicalStoreQueue and VirtualStoreQueue lose period where a shared
+operand is broadcast into every entry cell. To win
+there, the broadcast has to stop being one net into N kept cells: the
+comparison against it decoded once in the block where it can be
+(VirtualStoreQueue's dequeue pointer), or the cell's boundary placed so
+the buffer tree is the compare's own.
+
+### The toys (2026-10-29)
+
+`test/array_toys`, the generated arm against yosys's, depth 32. Dirty
+lanes from synthesis through global route on one machine, each kind's
+two arms side by side stage by stage; seconds are the step logs summed,
+period is 300 ps minus the worst slack at global route, cells and area
+the standard cells without taps. Single runs; agematrix is 32 entries
+(a 32 x 32 age matrix and 32 valid bits). Verdict as above.
+
+| Kind | Size | Generator | gen total s | yosys total s | gen period ps | yosys period ps | gen stdcells | yosys stdcells | verdict | reason for a loss, measured |
+|---|---|---|---:|---:|---:|---:|---:|---:|---|---|
+| counter | 32x8 | structgen | 25 | 60 | 295 | 344 | 2,847 | 2,600 | dominates | |
+| counter | 32x128 | structgen | 492 | 599 | 347 | 481 | 46,054 | 39,474 | dominates | arms in different pairs |
+| agematrix | 32 | structgen | 59 | 64 | 266 | 299 | 5,678 | 4,934 | dominates | |
+| flags | 32x128 | structgen | 505 | 656 | 496 | 394 | 60,435 | 30,769 | trades | `head_q` to array flop: a 5-level OR2 thermometer prefix and the flush-window select fanned out to 128 bits through a buffer chain, 28 cells and 481 ps against 20 and 390; 2.0x the cells |
+| flags | 32x8 | structgen | 92 | 66 | 425 | 335 | 4,887 | 2,572 | loses | the same path, 23 cells and 414 ps against yosys's adder compare, 14 and 328; repair at CTS 20 s and grt 41 s against 0 and 21 |
+| cam | 32x8 | structgen | 24 | 20 | 334 | 271 | 1,689 | 1,458 | loses | priority encoder: 5 OR2 prefix levels, an inverter, a NOR3/NAND3/NOR2 tree, 19 cells and 323 ps against OR4/OR5, 10 and 268 |
+| cam | 32x128 | structgen | 252 | 276 | 448 | 431 | 20,770 | 21,438 | loses (period; time a tie) | the match tree's single-fanout NAND3/NOR3 at xp33 drive 4-5 fF of wire: 20 of the 26 ps |
+| rf1r1w | 32x8 | generate_ram | 19 | 18 | 288 | 231 | 1,527 | 1,501 | loses | the decoder's INVx1 drives 16 loads (47 ps), three AND2 levels, then a 5-level read tree: 11 cells and 275 ps against 6 and 225 |
+| rf1r1w | 32x128 | generate_ram | 476 | 264 | 344 | 310 | 18,874 | 22,149 | loses | word-wide select nets left unbuffered; repair_design chains BUFx2 at fanout 30-50 (all 4,096 flops at -411 ps after place); repair at CTS 67 s against 26, grt 232 against 50 |
+| rf4r2w | 32x8 | generate_ram | 37 | 39 | 299 | 253 | 3,427 | 3,363 | loses (period) | as rf1r1w 32x8, on the write address: 12 cells and 288 ps against 8 and 249 |
+| rf4r2w | 32x128 | generate_ram | 1,103 | 978 | 453 | 357 | 38,795 | 53,096 | loses (period) | the read select reaches the word through a repair_design fanout chain (141 ps), CTS repair 266 s against 96 |
+
+generate_ram leaves its word selects unbuffered and its decoder
+inverters at the smallest size, which structgen did before #1428;
+generate_ram is OpenROAD's, so its fix is a carried-patch candidate.
+structgen's remaining losses are depth and sizing in the CAM's priority
+encoder and the flags' flush-window select.
 
 ## XSTile uses the arrays (2026-10-29)
 
@@ -328,17 +458,17 @@ baseline numbers do not matter, the arrays' own speed-up does; test small
 (`features_test`, a block's `_grt_qor`, at most three small flows side by
 side); proofs (the miter) are polish for now, the long ones wait.
 
-1. **Threshold compares.** VirtualLoadQueue's `entryHitBound` is
-   `x >= K`, folded differently by yosys for each K (a buffer at 2^k - 1,
-   an OR reduction elsewhere). Add a GE/LT form beside EQ/NE in
-   `entries.py` (`_eq_form`) and its decode in `extract.py`; then
-   VirtualLoadQueue's coverage (7 % today) and a `_grt_qor`. Test: a
-   threshold case in `features_test`.
-2. **Read cones that differ between entries.** LoadQueueRAW (69 %) and
-   Uncache (42 %) fall back to the write side alone because their read
-   cones differ (`best()` in `entries.py`). Find what differs (entries.py
-   prints the off-rule entries) and whether a narrower read side is
-   uniform. Test: a CAM variant in `features_test`.
+1. **Threshold compares.** Done: VirtualLoadQueue 7 % to 96 %, in
+   `TOPS` with its `_grt_qor` (963.9 ps, 3.2 min synthesis to global
+   route, as in the carve). Its extraction proven with the index kept,
+   its control, and decoded directly (118 s).
+2. **Read cones that differ between entries.** Done: the common part of
+   the read side goes in the cell (LoadQueueRAW: its two select bits, the
+   per-bank priority inverters left in the block), and Uncache's
+   uncovered registers turned out to be firtool's vector names and
+   per-port arrays, now read (42 % to 92 %, in `TOPS`, 1,255.7 ps).
+   LoadQueueRAW stays at 69 % (8,134 of 11,687 bits): the rest is
+   pipeline and select-tree registers, no entries; it is not in `TOPS`.
 3. **Why slang and the fold cost PhysicalStoreQueue and
    VirtualStoreQueue period** (above). Compare the two synthesised
    netlists' entry cells and the worst paths at global route (odb-debug's
@@ -351,6 +481,40 @@ side); proofs (the miter) are polish for now, the long ones wait.
    Not an array: find whether it is logic or placement first
    (`repair-headroom` skill), on the flow_only flow.
 6. **Generated arrays slower than yosys in CTS and global route** on the
-   toys (`test/array_toys`; the CAM at 32 x 128: CTS 409 against 101 s).
-   Settle it on one toy in a dirty lane before any scan.
+   toys (`test/array_toys`). Settled on the CAM at 32 x 128 (2026-10-29);
+   both arms run with the same settings. The clock trees were alike
+   (4,364 sinks, 271 against 235 buffers); CTS's time was its
+   `repair_timing`. Two causes, both in structgen's netlist:
+   - *No buffering.* A word's decoded write enable drove 256 pins (128
+     muxes and 128 copies of its complement) from one AND2;
+     repair_design chained BUFx2s at fanout 25-50, and 3,055 of 4,096
+     array flops missed 300 ps by up to 168 ps (yosys's ABC netlist: buffer
+     trees at fanout 10, 1,072 flops, 28 ps). structgen now buffers every
+     net above 32 sinks, shares each net's complement and sizes cells by
+     fanout, as `test/rob_toy/rob_gen.py` already did.
+   - *Depth of the cone that cannot close.* With the array paths closed,
+     repair ground on the match into the priority encoder (`idx`, `hit`,
+     about 430 ps in both arms): 1,161 iterations at 107 ms each, each
+     move retimed over a 16.7k-cell cone of 2-input gates. With those
+     endpoints set false as a diagnostic, CTS took 15-17 s in either arm:
+     the whole gap was that cone. The trees are now 3-input NAND/NOR by
+     turns, and a compare reads the flop's QN directly (an XOR in place of
+     inverter and XNOR).
+   Lanes side by side, single runs on a shared machine, seconds
+   (before → after; yosys): CTS 126 → 65; 40-43. grt 149 → 106; 116-121.
+   Period at grt 422 → 448 ps; yosys 431. The worst path at grt is
+   `idx[1]` in both netlists; of its 25.7 ps, 20.2 are in the word's
+   128-bit match tree (148.2 → 168.4 ps), the encoder within 2.3 ps.
+   structgen sizes by fanout alone, so the tree's single-fanout NAND3 and
+   NOR3 are xp33 driving 4-5 fF of wire; repair put a BUFx3 after three
+   of them, 32-38 ps a level against 15-21 ps for the old AND2x2. Repair
+   did more on the new path, not less: 4 buffers inserted and 6 cells
+   resized, against 2 and 2.
+   Counter 32 x 128: CTS 121 → 70, grt 288 → 244, period 388 → 347 ps.
+   The hermetic build reproduces the grt WNS of each lane exactly. Tried
+   and dropped: 3-input gates one size up (CTS 104 s, period worse).
+   Open: sizing the tree's gates for their wire load, not their fanout,
+   is the lever for the 26 ps; the priority encoder's depth (prefix OR2s,
+   a polarity inverter at each tree's end) is where the rest of CTS's
+   time is; flags, agematrix and the larger sizes are not re-measured.
 

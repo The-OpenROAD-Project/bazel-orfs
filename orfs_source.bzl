@@ -158,7 +158,7 @@ ORFS_PATCHES = [
     Label("//patches:0131-orfs-syn-clkgate-map.patch"),
     # 0139: gui_<stage> opens the web viewer, qt_<stage> the Qt GUI
     # (web_<stage> goes), so a GUI needs no Qt build; bazel-orfs runs
-    # gui_ through the odb-debug daemon. Not upstreamed; retires at a
+    # gui_ through the odb-debug daemon and refuses qt_ (make.tpl). Not upstreamed; retires at a
     # bump onto an ORFS that names the GUI targets this way.
     Label("//patches:0139-orfs-gui-is-web.patch"),
     # 0153: a ROM (an inferred memory with no write port) is not counted
@@ -179,6 +179,21 @@ ORFS_PATCHES = [
     # bump onto an ORFS that carries it, with a patch_cmds line deleting
     # that directory.
     Label("//patches:0155-orfs-coralnpu-generated.patch"),
+    # 0157: SKIP_REPORT_METRICS=1 still writes the metrics that cost
+    # nothing (design area, instance counts, utilization); it skips only
+    # the timing update, power analysis and text reports. Not
+    # upstreamed; retires at a bump onto an ORFS that carries it.
+    Label("//patches:0157-orfs-metrics-free-always.patch"),
+    # 0158: SKIP_REPORT_METRICS defaults to 1 here; a flow that wants
+    # timing and power in its stage .json sets it to 0. bazel-orfs
+    # policy, not for upstream; retires with 0157.
+    Label("//patches:0158-orfs-skip-report-metrics-default.patch"),
+    # 0160: a regfile spec's `write_words <address port> <word>...`, the
+    # words a write port writes, as generate_ram's -w_port_words (OpenROAD
+    # patch 0159): a word one port writes takes its data with no data mux.
+    # Not upstreamed; retires at a bump onto an ORFS and OpenROAD that
+    # have it.
+    Label("//patches:0160-orfs-regfile-write-words.patch"),
     # 0162: a register file's own flow (its top an inlined
     # AUTO_MEMORIES_REGFILES module) keeps generate_ram's layout: the
     # floorplan the shape of its outline, every generated cell FIRM where

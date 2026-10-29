@@ -100,6 +100,8 @@ filegroup(
 # SKIP_REPORT_METRICS=1      all        Metrics reporting. Skips report_checks, report_wns,
 #                                        report_tns, report_power, report_clock_skew at every
 #                                        stage. Saves minutes per stage. (report_metrics.tcl)
+#                                        The bazel-orfs default (patch 0158); kept here
+#                                        so the list stays whole.
 # FILL_CELLS=""               route      Fill cell insertion. Skips filler_placement for
 #                                        manufacturing density requirements. (fillcell.tcl)
 # TAPCELL_TCL=""              floorplan  Custom tap/endcap cell placement. Falls back to
@@ -1685,10 +1687,10 @@ build_test(
     targets = [":fork_smoke"],
 )
 
-# Manual target for testing the source-built OpenROAD GUI locally.
+# Manual target for testing the source-built OpenROAD locally.
 # Run: bazelisk run //test:lb_32x128_openroad_gui_synth
-# This builds OpenROAD from source with GUI and opens the synthesis
-# results in the OpenROAD GUI. Use after `bazelisk run //:bump` to
+# This builds OpenROAD from source and opens the synthesis results in
+# the web viewer. Use after `bazelisk run //:bump` to
 # verify the latest OpenROAD works with the flow.
 # buildifier: disable=duplicated-name
 orfs_flow(

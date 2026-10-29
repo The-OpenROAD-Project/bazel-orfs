@@ -128,48 +128,58 @@ orfs_flow(
 # the hand-written generator: its 352 entries found and extracted as one
 # cell, RobEntry, instanced per entry (../arrays: entries.py, extract.py,
 # proven equal by check.py), the register files the same macros. Only the
-# netlist differs from the flow above.
-orfs_flow(
-    name = "RobEntries",
-    arguments = {
-        k: v
-        for k, v in ROB["arguments"].items()
-        if k != "SYNTH_KEEP_MODULES"
-    } | {
-        "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
-        "GPL_TIMING_DRIVEN": "1",
-        "SKIP_CTS_REPAIR_TIMING": "1",
-        "SKIP_INCREMENTAL_REPAIR": "1",
-        "SKIP_PIN_ACCESS": "1",
-        "SYNTH_HIERARCHICAL": "1",
-        # the entry cell, mapped once (fold_entries.tcl), beside the
-        # modules the surgered Rob's flow keeps
-        "SYNTH_KEEP_MODULES": "RenameBuffer RobEntry VTypeBuffer",
-    },
-    last_stage = "grt",
-    macros = [":%s_generate_abstract" % m for m in REGFILES],
-    pdk = "//flow:asap7",
-    sources = {
-        k: v
-        for k, v in ROB["sources"].items()
-        if k != "AUTO_MEMORIES_REGFILES"
-    } | {
-        "SYNTH_CANONICALIZE_TCL": ["//test/coremark_joule/designs/asap7/xiangshan:fold_entries.tcl"],
-    },
-    stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
-    tags = ["manual"],
-    top = "Rob",
-    user_arguments = ROB["user_arguments"] | XS_ICG_USER_ARGUMENTS | {"XS_FOLD_MODULES": "RobEntry"},
-    user_sources = ROB["user_sources"] | XS_ICG_USER_SOURCES,
-    user_stages = {
-        v: s
-        for v, s in XS_USER_STAGES.items()
-        if v in ROB["user_arguments"] | XS_ICG_USER_ARGUMENTS | {"XS_FOLD_MODULES": ""} or v in ROB["user_sources"] | XS_ICG_USER_SOURCES
-    },
-    # the surgered core with the extractions in place: RenameBuffer and
-    # VTypeBuffer stay modules of the core (arrays/BUILD.bazel, BLACKBOXES)
-    verilog_files = ["//test/coremark_joule/designs/asap7/xiangshan/arrays:xiangshan_extracted.sv"],
-)
+# netlist differs from the flow above. RobEntries_rtl is its A/B arm: the
+# surgered core's Rob as it is (no entry cell, nothing folded), every
+# other setting shared by construction.
+[
+    orfs_flow(
+        name = "RobEntries",
+        arguments = {
+            k: v
+            for k, v in ROB["arguments"].items()
+            if k != "SYNTH_KEEP_MODULES"
+        } | {
+            "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
+            "GPL_TIMING_DRIVEN": "1",
+            "SKIP_CTS_REPAIR_TIMING": "1",
+            "SKIP_INCREMENTAL_REPAIR": "1",
+            "SKIP_PIN_ACCESS": "1",
+            "SYNTH_HIERARCHICAL": "1",
+            # the entry cell, mapped once (fold_entries.tcl), beside the
+            # modules the surgered Rob's flow keeps
+            "SYNTH_KEEP_MODULES": "RenameBuffer VTypeBuffer" if rtl else "RenameBuffer RobEntry VTypeBuffer",
+        },
+        last_stage = "grt",
+        macros = [":%s_generate_abstract" % m for m in REGFILES],
+        pdk = "//flow:asap7",
+        sources = {
+            k: v
+            for k, v in ROB["sources"].items()
+            if k != "AUTO_MEMORIES_REGFILES"
+        } | ({} if rtl else {
+            "SYNTH_CANONICALIZE_TCL": ["//test/coremark_joule/designs/asap7/xiangshan:fold_entries.tcl"],
+        }),
+        stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
+        tags = ["manual"],
+        top = "Rob",
+        user_arguments = ROB["user_arguments"] | XS_ICG_USER_ARGUMENTS | ({} if rtl else {"XS_FOLD_MODULES": "RobEntry"}),
+        user_sources = ROB["user_sources"] | XS_ICG_USER_SOURCES,
+        user_stages = {
+            v: s
+            for v, s in XS_USER_STAGES.items()
+            if v in ROB["user_arguments"] | XS_ICG_USER_ARGUMENTS | ({} if rtl else {"XS_FOLD_MODULES": ""}) or v in ROB["user_sources"] | XS_ICG_USER_SOURCES
+        },
+        variant = "rtl" if rtl else None,
+        # the surgered core with the extractions in place: RenameBuffer and
+        # VTypeBuffer stay modules of the core (arrays/BUILD.bazel,
+        # BLACKBOXES); the RTL arm, the surgered core itself
+        verilog_files = ["//test/coremark_joule/designs/asap7/xiangshan/surgery:xiangshan_surgered" if rtl else "//test/coremark_joule/designs/asap7/xiangshan/arrays:xiangshan_extracted.sv"],
+    )
+    for rtl in [
+        False,
+        True,
+    ]
+]
 
 [
     orfs_run(
@@ -188,15 +198,21 @@ orfs_flow(
     ]
 ]
 
-orfs_run(
-    name = "RobEntries_grt_qor",
-    src = ":RobEntries_grt",
-    outs = ["RobEntries_grt_qor.json"],
-    script = ":qor_probe.tcl",
-    tags = ["manual"],
-    user_arguments = {
-        "OUTPUT_JSON": "$(location RobEntries_grt_qor.json)",
-    },
-)
+[
+    orfs_run(
+        name = flow + "_grt_qor",
+        src = ":%s_grt" % flow,
+        outs = [flow + "_grt_qor.json"],
+        script = ":qor_probe.tcl",
+        tags = ["manual"],
+        user_arguments = {
+            "OUTPUT_JSON": "$(location %s_grt_qor.json)" % flow,
+        },
+    )
+    for flow in [
+        "RobEntries",
+        "RobEntries_rtl",
+    ]
+]
 
 exports_files(["qor_probe.tcl"])

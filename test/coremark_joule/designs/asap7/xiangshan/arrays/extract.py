@@ -28,7 +28,7 @@ import copy
 import json
 import sys
 
-from entries import FLOPS, OUT, Design, Entries, best, outputs
+from entries import FLOPS, OUT, Design, Entries, outputs, plan
 
 TEMPLATE = 1
 
@@ -38,14 +38,13 @@ def fail(msg):
 
 
 def v_sense(e, where):
-    """EQ or NE: how the walk read the x == K form at where."""
+    """EQ, NE, GE or LT: how the walk read the form at where."""
     return e._eq_form(where[0])[0]
 
 
 def extract(mod, name, decode=True):
     d = Design(mod)
-    groups = [best(d, n, a) for n, a in d.groups().items()]
-    groups = [e for e in groups if e.uniform]
+    groups = [e for e in plan(d) if e.uniform]
     if not groups:
         fail("no group of entries follows one rule")
     e = max(
@@ -68,7 +67,7 @@ def extract(mod, name, decode=True):
         }
         if not arrays:
             fail(f"every array is kept out ({sorted(keep_out)}): nothing to extract")
-        e = Entries(d, e.n, arrays, e.read)
+        e = Entries(d, e.n, arrays, e.read, e.thresholds, e.common_read)
         if not e.uniform:
             fail(f"without {sorted(keep_out)} the entries no longer follow one rule")
     n, t = e.n, TEMPLATE
@@ -94,7 +93,11 @@ def extract(mod, name, decode=True):
     ):
         fail("the template's walk does not cover its private cells")
     for k, (s, o) in e.index_sites.items():
-        if (s, o) != (1, 0):
+        # a threshold's K may be the index plus a constant (x >= i + 1)
+        if tw["consts"][k][0][1] == "GE":
+            if s != 1 or o < 1:
+                fail(f"threshold site {k} is {s} * i + {o}, not i + o with o >= 1")
+        elif (s, o) != (1, 0):
             fail(f"constant site {k} is {s} * i + {o}, not the index itself")
     tokens = sorted(tw["tokens"])
     for i in range(n):
@@ -223,30 +226,33 @@ def extract(mod, name, decode=True):
     for cl in cell_cells.values():
         for p, bs in cl["connections"].items():
             cl["connections"][p] = [same.get(x, x) for x in bs]
-    sites = [tw["consts"][k] for k in e.index_sites]
+    sites = [tw["consts"][k] + (e.index_sites[k][1],) for k in e.index_sites]
     # decode once: a comparison of the index with an operand from outside
     # the entries becomes an input of the cell, the comparison made once in
     # the module per distinct operand (a one-hot shift) and bit i handed to
     # entry i: one decoder for an operand every entry shares, one per bank
-    # for a bank's pointer (i % B, i // B: the Rob's eight)
+    # for a bank's pointer (i % B, i // B: the Rob's eight). A threshold,
+    # x >= i + o, is bit i + o - 1 of the thermometer (1 << x) - 1, whose
+    # bit j is x > j
     token_of = {b: tok for tok, b in tw["tokens"].items()}
 
     def outside(b):
         tok = token_of.get(b)
         return tok is not None and "rel" not in tok and "@" not in tok
 
-    decoded = []  # (hit port, the operand's template bits)
+    decoded = []  # (hit port, the operand's template bits, offset or None)
     rest = []
-    for where, v, w in sites:
+    for where, v, w, o in sites:
         c, p = where[0], where[1]
         cl = d.cells[c]
-        if p == "EQ":
-            # x == K, however yosys wrote it: x is the form's own bits
+        if p in ("EQ", "GE"):
+            # x == K (x >= K), however yosys wrote it: x is the form's bits
             operand = list(where[2])
             hit = cl["connections"][outputs(cl)[0]][0]
             if all(outside(b) for b in operand) and decode:
-                if v_sense(e, where) == "NE":
-                    # x != K: the cell inverts the decoder's x == K
+                if v_sense(e, where) in ("NE", "LT"):
+                    # x != K, x < K: the cell inverts the decoder's x == K,
+                    # x >= K
                     hit_in = fresh[0]
                     fresh[0] += 1
                     cell_cells[c] = {
@@ -264,9 +270,11 @@ def extract(mod, name, decode=True):
                     hit = hit_in
                 else:
                     del cell_cells[c]
-                decoded.append((f"hit{len(decoded)}", hit, operand))
+                decoded.append(
+                    (f"hit{len(decoded)}", hit, operand, o if p == "GE" else None)
+                )
             else:
-                rest.append((where, v, w))
+                rest.append((where, v, w, o))
             continue
         other = "A" if p == "B" else "B"
         operand = [e.root(b)[0] for b in cl["connections"].get(other, [])]
@@ -279,19 +287,43 @@ def extract(mod, name, decode=True):
         ):
             hit = cl["connections"]["Y"][0]
             del cell_cells[c]
-            decoded.append((f"hit{len(decoded)}", hit, operand))
+            decoded.append((f"hit{len(decoded)}", hit, operand, None))
         else:
-            rest.append(((c, p), v, w))
-    for where, _, w in rest:
+            rest.append(((c, p), v, w, o))
+    for where, _, w, o in rest:
         c, p = where[0], where[1]
-        if p == "EQ":
+        if p in ("EQ", "GE"):
             if decode:
                 fail(f"an index comparison in {c} reads bits that differ per entry")
-            # keep-idx: the form's root reads x == idx; its inner cells
-            # stay and their output is unused
+            # keep-idx: the form's root reads x == idx (x >= idx + o); its
+            # inner cells stay and their output is unused
             cl = cell_cells[c]
             y = cl["connections"][outputs(cl)[0]]
             operand = list(where[2])
+            bound, bw = idx, iw
+            if p == "GE":
+                # idx + o, wide enough not to wrap
+                bw = max(iw, o.bit_length()) + 1
+                bound = list(range(fresh[0], fresh[0] + bw))
+                fresh[0] += bw
+                cell_cells[f"$threshold_bound${c}"] = {
+                    "hide_name": 1,
+                    "type": "$add",
+                    "attributes": {},
+                    "parameters": {
+                        "A_SIGNED": "0",
+                        "A_WIDTH": format(iw, "032b"),
+                        "B_SIGNED": "0",
+                        "B_WIDTH": format(bw, "032b"),
+                        "Y_WIDTH": format(bw, "032b"),
+                    },
+                    "port_directions": {"A": "input", "B": "input", "Y": "output"},
+                    "connections": {
+                        "A": idx,
+                        "B": [str(o >> k & 1) for k in range(bw)],
+                        "Y": bound,
+                    },
+                }
             cell_cells[c] = {
                 "hide_name": 1,
                 "type": "$eq",
@@ -300,14 +332,15 @@ def extract(mod, name, decode=True):
                     "A_SIGNED": "0",
                     "A_WIDTH": format(len(operand), "032b"),
                     "B_SIGNED": "0",
-                    "B_WIDTH": format(iw, "032b"),
+                    "B_WIDTH": format(bw, "032b"),
                     "Y_WIDTH": format(1, "032b"),
                 },
                 "port_directions": {"A": "input", "B": "input", "Y": "output"},
-                "connections": {"A": operand, "B": idx, "Y": y},
+                "connections": {"A": operand, "B": bound, "Y": y},
             }
-            if v_sense(e, where) == "NE":
-                cell_cells[c]["type"] = "$ne"
+            sense = v_sense(e, where)
+            if sense != "EQ":
+                cell_cells[c]["type"] = {"NE": "$ne", "GE": "$ge", "LT": "$lt"}[sense]
             continue
         cell_cells[c]["connections"][p] = [idx[k] if k < iw else "0" for k in range(w)]
     sites = rest
@@ -317,7 +350,7 @@ def extract(mod, name, decode=True):
         ports[f"in{k}"] = {"direction": "input", "bits": [tw["tokens"][tok]]}
     if sites:
         ports["idx"] = {"direction": "input", "bits": idx}
-    for hp, hit, _ in decoded:
+    for hp, hit, _, _ in decoded:
         ports[hp] = {"direction": "input", "bits": [hit]}
     template_cells = cells_of(t)
     for k, (pos, p, kb) in enumerate(outs):
@@ -349,20 +382,41 @@ def extract(mod, name, decode=True):
             del parent["cells"][c]
     next_id = [max(idx + [fresh[0]]) + 1]
 
-    def decoder(hp, g, operand, y):
+    def decoder(hp, g, operand, y, o):
+        m = len(y)
+        shifted = y
+        if o is not None:
+            # the thermometer (1 << x) - 1: 1 << x wider than x is 0, and
+            # 0 - 1 every bit set, x > j for every j as it should be
+            shifted = list(range(next_id[0], next_id[0] + m))
+            next_id[0] += m
+            parent["cells"][f"$decode_once${hp}_{g}_minus_1"] = {
+                "hide_name": 1,
+                "type": "$sub",
+                "parameters": {
+                    "A_SIGNED": "0",
+                    "A_WIDTH": format(m, "032b"),
+                    "B_SIGNED": "0",
+                    "B_WIDTH": format(1, "032b"),
+                    "Y_WIDTH": format(m, "032b"),
+                },
+                "attributes": {},
+                "port_directions": {"A": "input", "B": "input", "Y": "output"},
+                "connections": {"A": shifted, "B": ["1"], "Y": y},
+            }
         parent["cells"][f"$decode_once${hp}_{g}"] = {
             "hide_name": 1,
             "type": "$shl",
             "parameters": {
                 "A_SIGNED": "0",
-                "A_WIDTH": format(n, "032b"),
+                "A_WIDTH": format(m, "032b"),
                 "B_SIGNED": "0",
                 "B_WIDTH": format(len(operand), "032b"),
-                "Y_WIDTH": format(n, "032b"),
+                "Y_WIDTH": format(m, "032b"),
             },
             "attributes": {},
             "port_directions": {"A": "input", "B": "input", "Y": "output"},
-            "connections": {"A": ["1"] + ["0"] * (n - 1), "B": operand, "Y": y},
+            "connections": {"A": ["1"] + ["0"] * (m - 1), "B": operand, "Y": shifted},
         }
         parent["netnames"][f"decode_once_{hp}_{g}"] = {
             "hide_name": 0,
@@ -371,17 +425,19 @@ def extract(mod, name, decode=True):
         }
 
     one_hot = {}  # (hit port, entry) -> the entry's bit of its decoder
-    for hp, _, template_operand in decoded:
+    for hp, _, template_operand, o in decoded:
         toks = [token_of[b] for b in template_operand]
         by_operand = collections.defaultdict(list)
         for i in range(n):
             by_operand[tuple(e.walks[i]["tokens"][t] for t in toks)].append(i)
+        # entry i's bit: i of the one-hot, i + o - 1 of the thermometer
+        shift = 0 if o is None else o - 1
         for g, (operand, members) in enumerate(by_operand.items()):
-            y = list(range(next_id[0], next_id[0] + n))
-            next_id[0] += n
+            y = list(range(next_id[0], next_id[0] + n + shift))
+            next_id[0] += n + shift
             for i in members:
-                one_hot[hp, i] = y[i]
-            decoder(hp, g, list(operand), y)
+                one_hot[hp, i] = y[i + shift]
+            decoder(hp, g, list(operand), y, o)
     for i in range(n):
         w = e.walks[i]
         conns, dirs = {}, {}
@@ -391,7 +447,7 @@ def extract(mod, name, decode=True):
         if sites:
             conns["idx"] = ["1" if i >> k & 1 else "0" for k in range(iw)]
             dirs["idx"] = "input"
-        for hp, _, _ in decoded:
+        for hp, _, _, _ in decoded:
             conns[hp] = [one_hot[hp, i]]
             dirs[hp] = "input"
         mine = cells_of(i)

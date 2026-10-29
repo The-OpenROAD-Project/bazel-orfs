@@ -259,7 +259,6 @@ from shared caching.
 | Deploy a stage | `bazelisk run //:dirty -- start <flow> <stage>` |
 | Run a single substep | `tmp/<pkg>/<flow>/make do-<substep>` |
 | View result in the GUI (the web viewer, a token link over a VPN) | `tmp/<pkg>/<flow>/make gui_<stage>` |
-| View result in the Qt GUI | `start <flow> <stage> --qt` once (builds Qt), then `tmp/<pkg>/<flow>/make qt_<stage>` |
 | Run arbitrary make targets | `tmp/<pkg>/<flow>/make <make args...>` |
 | Edit Tcl scripts and re-run without Bazel | `tmp/<pkg>/<flow>/make do-<substep>` |
 | Carry a hand-run stage into the next | `bazelisk run //:dirty -- next <stage>` |

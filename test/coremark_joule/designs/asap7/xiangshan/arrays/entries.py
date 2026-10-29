@@ -18,7 +18,11 @@ entry or the entry's index (s*i+o). Such entries follow one rule: one
 cell, instanced per entry, its index an input (extract.py).
 
 yosys writes the comparison with index 0 differently (x == 0 as !x or
-~|x); those are read as the comparison they are.
+~|x); those are read as the comparison they are. So are thresholds,
+x >= K and x < K, which firtool folds differently for each K (x >= 4 as
+|x[6:2], x >= 64 as x[6] alone, x >= 3 as x > 2): on a net where some
+entry compares against a threshold that is no x == K, every comparison
+of the net reads as one (x != 0 as x >= 1).
 
     entries.py <design.json> <module> [min entries]
 """
@@ -43,6 +47,15 @@ FLOPS = {
     "$dffsr",
 }
 OUT = {"Y", "Q"}
+# the unsigned threshold comparisons, as a form evaluates them
+_CMP = {
+    "$lt": lambda x, y: x < y,
+    "$le": lambda x, y: x <= y,
+    "$gt": lambda x, y: x > y,
+    "$ge": lambda x, y: x >= y,
+}
+# the buffers Entries puts in front of a threshold net's top bit, read alone
+_TOP = "$threshold_top$"
 
 
 def load(path, module):
@@ -83,6 +96,60 @@ class Design:
             if c["type"] in FLOPS
             for b in c["connections"]["Q"]
         }
+        self.top_buffers = []  # (buffer, cell, port, bit, the bit it read)
+
+    def top_buffer(self, c, p, k):
+        """A $buf put between bit k of cell c's port p and the bit it reads:
+        an entry's threshold form when it reads a threshold net's top bit
+        alone (x >= 2^h is x[h]). Function kept; the cell is new."""
+        if not hasattr(self, "_next_bit"):
+            self._next_bit = 1 + max(
+                [
+                    b
+                    for v in list(self.mod["netnames"].values())
+                    + list(self.mod.get("ports", {}).values())
+                    for b in v["bits"]
+                    if not isinstance(b, str)
+                ]
+                + [
+                    b
+                    for cl in self.cells.values()
+                    for bs in cl["connections"].values()
+                    for b in bs
+                    if not isinstance(b, str)
+                ]
+            )
+        y = self._next_bit
+        self._next_bit += 1
+        name = f"{_TOP}{y}"
+        self.cells[name] = {
+            "hide_name": 1,
+            "type": "$buf",
+            "parameters": {"WIDTH": format(1, "032b")},
+            "attributes": {},
+            "port_directions": {"A": "input", "Y": "output"},
+            "connections": {"A": [self.cells[c]["connections"][p][k]], "Y": [y]},
+        }
+        self.top_buffers.append((name, c, p, k, self.cells[c]["connections"][p][k]))
+        self.cells[c]["connections"][p][k] = y
+        self.driver[y] = (name, "Y", 0)
+        self.mod["netnames"][name + "_y"] = {
+            "hide_name": 1,
+            "bits": [y],
+            "attributes": {},
+        }
+        self.bitname[y] = (name + "_y", 0, 1)
+        return name
+
+    def drop_top_buffers(self, keep):
+        """The design without the top buffers put in after the first keep."""
+        while len(self.top_buffers) > keep:
+            name, c, p, k, b = self.top_buffers.pop()
+            y = self.cells[name]["connections"]["Y"][0]
+            self.cells[c]["connections"][p][k] = b
+            del self.cells[name], self.driver[y], self.bitname[y]
+            del self.mod["netnames"][name + "_y"]
+            self._next_bit = y
 
     def _const_of(self, b, depth=0):
         if b in self.const:
@@ -121,6 +188,9 @@ class Design:
             for m in re.finditer(r"\d+", name):
                 key = name[: m.start()] + "#" + name[m.end() :]
                 candidates[key][int(m.group())] = name
+            # firtool names a vector of registers x, x_1, x_2, ...: word 0
+            # without a number (Uncache's f1_fwdDataCandidates_r)
+            candidates[name + "_#"][0] = name
         taken = set()
         for key, words in sorted(candidates.items(), key=lambda kv: -len(kv[1])):
             if len(words) >= min_n and sorted(words) == list(range(len(words))):
@@ -137,10 +207,16 @@ class Design:
 class Entries:
     """One group of n entries: cones, signatures and the common rule."""
 
-    def __init__(self, design, n, arrays, read=False):
+    def __init__(
+        self, design, n, arrays, read=False, thresholds=False, common_read=False
+    ):
         self.d = design
         self.n = n
         self.read = read
+        self.common_read = common_read
+        # thresholds read as forms (x >= K, x < K), else as the cells they are
+        self.thresholds = thresholds
+        self._evaluable = self._EVAL | (set(_CMP) if thresholds else set())
         self.arrays = arrays
         self.inline = []  # arrays left out by narrowed()
         self.arrs = sorted(arrays)
@@ -152,11 +228,13 @@ class Entries:
                 for k, b in enumerate(design.cells[f]["connections"]["Q"]):
                     self.owner[b] = (a, i, k)
         self.owner_cells = set(self.array_of)
+        self._forms = {}
         self.cones = [self._cone(i) for i in range(n)]
         self.read_roots = [[] for _ in range(n)]
         if read:
             self._read_side()
         self.reach = collections.Counter(c for cs in self.cones for c in cs)
+        self._thresholds()
         self.walks = [self._walk(i) for i in range(n)]
         if read:
             # the read roots by signature: their readers are per-entry nodes
@@ -167,6 +245,8 @@ class Entries:
                     r for _, r in sorted(zip(sigs, self.read_roots[i]))
                 ]
             self.walks = [self._walk(i) for i in range(n)]
+            if common_read:
+                self._common_read()
         self._rule()
 
     def _read_side(self):
@@ -245,6 +325,56 @@ class Entries:
                         todo += [x for x in bs if not isinstance(x, str)]
             self.cones[i] |= keep
 
+    def _common_read(self):
+        """The read side narrowed to the roots every entry has, by their
+        signatures: LoadQueueRAW's priority select within each bank of
+        eight reads entry j's select bit through j inverters of its own, a
+        different number in every entry; the select bits themselves are
+        common. What only the dropped roots read stays in the module."""
+        d, n = self.d, self.n
+        common = collections.Counter(self.walks[0]["read_sigs"])
+        for w in self.walks[1:]:
+            common &= collections.Counter(w["read_sigs"])
+        for i in range(n):
+            left, roots = collections.Counter(common), []
+            for r, s in zip(self.read_roots[i], self.walks[i]["read_sigs"]):
+                if left[s] > 0:
+                    left[s] -= 1
+                    roots.append(r)
+            self.read_roots[i] = roots
+            # the cone again, from the registers' inputs and the roots kept,
+            # through the cells it had
+            full, cone = self.cones[i], set()
+            todo = [b for _, _, b in roots] + [
+                b
+                for f in self.flops[i]
+                for p, bs in d.cells[f]["connections"].items()
+                if p not in OUT
+                for b in bs
+                if not isinstance(b, str)
+            ]
+            while todo:
+                b = todo.pop()
+                drv = d.driver.get(b)
+                if (
+                    b in d.inputs
+                    or b in d.flop_bits
+                    or not drv
+                    or drv[0] not in full
+                    or drv[0] in cone
+                ):
+                    continue
+                cone.add(drv[0])
+                cl = d.cells[drv[0]]
+                for p, bs in cl["connections"].items():
+                    if p not in outputs(cl):
+                        todo += [x for x in bs if not isinstance(x, str)]
+            self.cones[i] = cone
+        self.reach = collections.Counter(c for cs in self.cones for c in cs)
+        self._forms = {}
+        self._thresholds()
+        self.walks = [self._walk(i) for i in range(n)]
+
     def root(self, b):
         """The bit b buffers through private $buf/$pos cells, and those
         cells: a flattened cell copies its inputs through its own port
@@ -257,6 +387,7 @@ class Entries:
             cl = d.cells[c]
             if (
                 cl["type"] not in ("$buf", "$pos")
+                or (c.startswith(_TOP) and self.thresholds)
                 or self.reach.get(c) != 1
                 or len(cl["connections"]["A"]) != len(cl["connections"]["Y"])
             ):
@@ -272,6 +403,48 @@ class Entries:
         )
         return (r, bufs) if bufs and shared else (b, [])
 
+    def _thresholds(self):
+        """The nets read as thresholds (thr_nets: net -> the compared width):
+        those where some entry's private cell is x >= K or x < K and no
+        x == K or x != K of the bits it reads (x > 2). A private cell that
+        reads such a net's top bit alone, and is no form of its own, reads
+        it through a buffer put in front of it (Design.top_buffer): that
+        entry's x >= 2^h, as the other entries' forms are."""
+        d = self.d
+        self.thr_nets = {}
+        if not self.thresholds:
+            return
+        widths = collections.defaultdict(set)
+        for cone in self.cones:
+            for c in cone:
+                if self.reach[c] != 1 or c in self.owner_cells:
+                    continue
+                eq, thr, _ = self._raw(c)
+                if thr and not eq:
+                    widths[d.bitname[thr[1][0]][0]].add(len(thr[1]))
+        self.thr_nets = {net: w.pop() for net, w in widths.items() if len(w) == 1}
+        tops = {
+            d.mod["netnames"][net]["bits"][w - 1] for net, w in self.thr_nets.items()
+        }
+        for cone in self.cones:
+            for c in sorted(cone):
+                if (
+                    self.reach[c] != 1
+                    or c in self.owner_cells
+                    or c.startswith(_TOP)
+                    or any(self._raw(c)[:2])
+                ):
+                    continue
+                cl = d.cells[c]
+                for p, bs in list(cl["connections"].items()):
+                    if p in outputs(cl):
+                        continue
+                    for k, b in enumerate(bs):
+                        if b in tops:
+                            buf = d.top_buffer(c, p, k)
+                            cone.add(buf)
+                            self.reach[buf] = 1
+
     def narrowed(self):
         """The group without the arrays whose structure differs between
         entries, when the rest follows one rule (IBuffer: the last entry of
@@ -283,7 +456,7 @@ class Entries:
         rest = {a: v for a, v in self.arrays.items() if a not in varying}
         if not varying or not rest:
             return self
-        e = Entries(self.d, self.n, rest, self.read)
+        e = Entries(self.d, self.n, rest, self.read, self.thresholds, self.common_read)
         if not e.uniform:
             return self
         e.inline = varying
@@ -384,9 +557,11 @@ class Entries:
             seen.setdefault(key, c)
             if eq:
                 folded.update(self.folded)
-                # x == K however yosys wrote it, x up to 12 bits of one net
+                # x == K (or x >= K) however yosys wrote it, x up to 12 bits
+                # of one net
                 sense, leaves, value = eq
-                consts.append(((c, "EQ", tuple(leaves)), value, len(leaves)))
+                tag = "EQ" if sense in ("EQ", "NE") else "GE"
+                consts.append(((c, tag, tuple(leaves)), value, len(leaves)))
                 body = f"{sense}{len(leaves)}|" + ",".join(bit(x) for x in leaves)
             else:
                 body = (
@@ -450,35 +625,52 @@ class Entries:
         "$mux",
     }
 
-    def _eq_form(self, c, limit=12):
-        """(EQ or NE, x's bits, K) when the one-bit cell c and the private
-        cells behind it compute x == K (or x != K) of up to limit bits of
-        one shared net, else None."""
+    def _eq_form(self, c):
+        """(sense, x's bits, K) when the one-bit cell c and the private
+        cells behind it compute x == K or x != K (EQ, NE) of up to 12 bits
+        of one shared net, or x >= K or x < K (GE, LT) of the net's bits up
+        to the highest one read, else None. A threshold net's comparisons
+        read as thresholds (x != 0 as x >= 1, x == 0 as x < 1), every other
+        net's as x == K where they are one."""
+        eq, thr, self.folded = self._raw(c)
+        if thr and (not eq or self.d.bitname[thr[1][0]][0] in self.thr_nets):
+            return thr
+        return eq
+
+    def _raw(self, c, limit=12):
+        """Both readings of cell c, (x == K or None, x >= K or None, the
+        private cells inside the form), once per cell."""
+        if c not in self._forms:
+            self._forms[c] = self._read_form(c, limit)
+        return self._forms[c]
+
+    def _read_form(self, c, limit):
+        none = (None, None, set())
         d = self.d
         cl = d.cells[c]
-        if cl["type"] not in self._EVAL:
-            return None
+        if cl["type"] not in self._evaluable:
+            return none
         outs = outputs(cl)
         if len(outs) != 1 or len(cl["connections"][outs[0]]) != 1:
-            return None
+            return none
         cone, leaves, todo = set(), set(), [c]
         while todo:
             x = todo.pop()
             if x in cone:
                 continue
             cx = d.cells[x]
-            if cx["type"] not in self._EVAL or any(
+            if cx["type"] not in self._evaluable or any(
                 v not in ("0", "1", 0, 1) and str(v).strip("0") not in ("", "1")
                 for k, v in cx.get("parameters", {}).items()
                 if k.endswith("_SIGNED")
             ):
-                return None
+                return none
             if any(
                 int(v, 2) if isinstance(v, str) else v
                 for k, v in cx.get("parameters", {}).items()
                 if k.endswith("_SIGNED")
             ):
-                return None
+                return none
             cone.add(x)
             for p, bs in cx["connections"].items():
                 if p in outputs(cx):
@@ -497,7 +689,7 @@ class Entries:
                     else:
                         leaves.add(b)
             if len(cone) > 64 or len(leaves) > limit:
-                return None
+                return none
         nets = {d.bitname.get(b, (None,))[0] for b in leaves}
         if (
             len(nets) != 1
@@ -505,22 +697,50 @@ class Entries:
             or not leaves
             or any(b in self.owner for b in leaves)
         ):
-            return None
+            return none
         leaves = sorted(leaves, key=lambda b: d.bitname[b][1])
-        self.folded = cone - {c}
-        ones, zeros = [], []
+        y = cl["connections"][outs[0]][0]
+        # a threshold reads the top bits x[h:j] and is a step in them; an
+        # x == K or x != K has one 1 or one 0: neither, and the walk stops
+        table, steps, ones = [], 0, 0
         for m in range(1 << len(leaves)):
             val = {b: (m >> k) & 1 for k, b in enumerate(leaves)}
-            (
-                ones if self._eval(cl["connections"][outs[0]][0], val, {}) else zeros
-            ).append(m)
-            if len(ones) > 1 and len(zeros) > 1:
-                return None  # neither x == K nor x != K
-        if len(ones) == 1:
-            return ("EQ", leaves, ones[0])
-        if len(zeros) == 1:
-            return ("NE", leaves, zeros[0])
-        return None
+            v = self._eval(y, val, {})
+            steps += bool(table) and v != table[-1]
+            ones += v
+            table.append(v)
+            if (steps > 1 or not self.thresholds) and 1 < ones < m:
+                return none
+        eq = None
+        if ones == 1:
+            eq = ("EQ", leaves, table.index(1))
+        elif ones == len(table) - 1:
+            eq = ("NE", leaves, table.index(0))
+        thr = None
+        if self.thresholds and steps == 1:
+            thr = self._threshold(nets.pop(), leaves, table, limit)
+        if not eq and not thr:
+            return none
+        return eq, thr, cone - {c}
+
+    def _threshold(self, net, leaves, table, limit):
+        """("GE" or "LT", x's bits, K) when the function table (over the
+        leaves, one step) is x >= K or x < K, x the net's bits up to the
+        highest leaf: the leaves its top bits x[h:j], K the step's place
+        times 2^j."""
+        bits = self.d.mod["netnames"][net]["bits"]
+        pos = [self.d.bitname[b][1] for b in leaves]
+        j, w = pos[0], pos[-1] + 1
+        x_bits = bits[:w]
+        if (
+            pos != list(range(j, w))
+            or w < 2
+            or w > limit
+            or any(isinstance(b, str) or b in self.owner for b in x_bits)
+        ):
+            return None
+        step = next(m for m in range(1, len(table)) if table[m] != table[m - 1])
+        return ("GE" if table[-1] else "LT", x_bits, step << j)
 
     def _eval(self, b, val, memo):
         """A bit's value given the leaves' values (val)."""
@@ -553,6 +773,11 @@ class Entries:
             a += [0] * (w - len(a))
             bb += [0] * (w - len(bb))
             r = int((a == bb) == (t == "$eq")) if k == 0 else 0
+        elif t in _CMP:
+            a, bb = vec("A"), vec("B")
+            x = sum(v << j for j, v in enumerate(a))
+            y = sum(v << j for j, v in enumerate(bb))
+            r = int(_CMP[t](x, y)) if k == 0 else 0
         elif t == "$logic_not":
             r = int(not any(vec("A"))) if k == 0 else 0
         elif t == "$logic_and":
@@ -757,13 +982,66 @@ def _affine(vals, idx):
     return None
 
 
+def covered_bits(e):
+    """The register bits of a group that follows one rule, else 0."""
+    if not e.uniform:
+        return 0
+    return sum(
+        len(e.d.cells[f]["connections"]["Q"]) for fs in e.flops.values() for f in fs
+    )
+
+
 def best(d, n, arrays):
-    """The group with its read side when that follows one rule, else
-    without it; arrays that differ between entries left inline."""
-    e = Entries(d, n, arrays, read=True).narrowed()
-    if e.uniform:
-        return e
-    return Entries(d, n, arrays).narrowed()
+    """The group with its read side when that follows one rule, else with
+    the part of it every entry has (Entries._common_read), else without
+    it; arrays that differ between entries left inline. Each first with
+    the comparisons read as x == K alone, then with thresholds too
+    (x >= K, VirtualLoadQueue), taken where they cover more: a block that
+    follows one rule without them is read as it always was."""
+    # a threshold try not taken leaves no buffer behind
+    keep = len(d.top_buffers)
+    for read, common in ((True, False), (True, True), (False, False)):
+        plain = Entries(d, n, arrays, read, common_read=common).narrowed()
+        if plain.uniform and not plain.inline:
+            return plain
+        e = Entries(d, n, arrays, read, True, common).narrowed()
+        if covered_bits(e) > covered_bits(plain):
+            return e
+        d.drop_top_buffers(keep)
+        if plain.uniform:
+            return plain
+    return plain
+
+
+def plan(d, min_n=8):
+    """Each group of entries as best() takes it, longest first. An array of
+    k * N words (k >= 2) whose own group does not follow one rule may be k
+    arrays of the group of N, word p * N + i (or i * k + p) entry i's:
+    Uncache's f1_ptagMatches_r, 48 words, is its 16 entries' match per
+    load port. Taken where the group of N then covers more."""
+    groups = d.groups(min_n)
+    found = {n: best(d, n, arrays) for n, arrays in groups.items()}
+    for big in sorted(groups, reverse=True):
+        if found[big] is None or found[big].uniform:
+            continue
+        for n in sorted(groups):
+            if n >= big or big % n or found.get(n) is None:
+                continue
+            k = big // n
+            for word in (lambda p, i: p * n + i, lambda p, i: i * k + p):
+                split = {
+                    f"{a}/{p}": {i: words[word(p, i)] for i in range(n)}
+                    for a, words in groups[big].items()
+                    for p in range(k)
+                }
+                e = best(d, n, {**groups[n], **split})
+                if covered_bits(e) > covered_bits(found[n]):
+                    found[n], found[big] = e, None
+                    groups[n] = {**groups[n], **split}
+                    break
+            if found[big] is None:
+                break
+    return [found[n] for n in sorted(found, reverse=True) if found[n] is not None]
 
 
 def main(argv):
@@ -771,8 +1049,8 @@ def main(argv):
     min_n = int(argv[3]) if len(argv) > 3 else 8
     total = len(d.flop_bits)
     covered = 0
-    for n, arrays in sorted(d.groups(min_n).items(), key=lambda kv: -kv[0]):
-        e = best(d, n, arrays)
+    for e in plan(d, min_n):
+        n = e.n
         print(e.report())
         if e.inline:
             print(f"  without {e.inline} (left inline): uniform")
@@ -784,12 +1062,7 @@ def main(argv):
             a, b = (int(x) for x in os.environ["ENTRIES_DIFF"].split(","))
             if max(a, b) < n:
                 print("\n".join(e.diff(a, b)[:4]))
-        if e.uniform:
-            covered += sum(
-                len(d.cells[f]["connections"]["Q"])
-                for fs in e.flops.values()
-                for f in fs
-            )
+        covered += covered_bits(e)
     print(
         f"# coverage: {covered} of {total} register bits in entries that follow one rule"
         f" ({100 * covered // max(1, total)}%)"

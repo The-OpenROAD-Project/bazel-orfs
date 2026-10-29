@@ -11,8 +11,8 @@ decodes each index comparison once in the block.
 | Step | File | What it does |
 | --- | --- | --- |
 | proc | `proc_json.py` | the block after yosys's `proc`, as JSON; named modules stay blackboxes |
-| find | `entries.py` | entries are word *i* of arrays of equal length; each entry's cone is a structural signature, and constants, shared bits and `x == K` / `x != K` comparisons are decided across entries (the same, the entry's number, or its bank's) |
-| extract | `extract.py` | the template entry as `<Block>Entry`, instanced per entry; each index comparison decoded once per distinct operand |
+| find | `entries.py` | entries are word *i* of arrays of equal length (`x`, `x_1`, ... too: firtool's vectors), an array of k·N words k arrays of the group of N where that follows one rule; each entry's cone is a structural signature, and constants, shared bits and `x == K` / `x != K` comparisons are decided across entries (the same, the entry's number, or its bank's); where that leaves entries off the rule, thresholds `x >= K` / `x < K` too |
+| extract | `extract.py` | the template entry as `<Block>Entry`, instanced per entry; each index comparison decoded once per distinct operand, a threshold `x >= i + o` as bit `i + o - 1` of `(1 << x) - 1` |
 | prove | `check.py` | registers and blackboxes as cut points, a yosys miter, ABC's `iprove`; a negative control (one register's D-mux swapped) must come out different |
 | swap | `substitute.py` | the core with each extraction in place of its block, for the XSTile flows (`../README.md`, "The arrays") |
 
@@ -20,9 +20,12 @@ What the front end handles: duplicate cells merged, private port buffers
 seen through, an entry's read side (its compare against a query, its
 contribution to a reduction across entries) kept in the cell, arrays
 that differ between entries left inline, a bank's pointer decoded once
-per bank, blackboxes kept as instances. What it does not yet: threshold
-comparisons (`x >= K`, VirtualLoadQueue) and read cones that differ
-between entries (LoadQueueRAW).
+per bank, blackboxes kept as instances, thresholds against the entry's
+number however firtool folded them for each one (VirtualLoadQueue's
+`x >= i + 1` as `x > 2`, `|x[6:2]` or `x[6]` alone), and where the
+read cones differ between entries the part of them every entry has
+(LoadQueueRAW's select bits, without the per-bank priority inverters,
+a different number in every entry, which stay in the block).
 
 ## Targets
 
@@ -30,10 +33,16 @@ between entries (LoadQueueRAW).
 bazelisk test //test/coremark_joule/designs/asap7/xiangshan/arrays:features_test
 bazelisk build //test/coremark_joule/designs/asap7/xiangshan/arrays:<Block>_extracted
 bazelisk build //test/coremark_joule/designs/asap7/xiangshan/arrays:<Block>_grt_qor
+bazelisk build //test/coremark_joule/designs/asap7/xiangshan/arrays:<Block>_rtl_grt_qor
 bazelisk test //test/coremark_joule/designs/asap7/xiangshan/arrays:<Block>_check_test
 ```
 
-`features_test` runs every step on an 8-entry CAM in seconds.
+`features_test` runs every step on an 8-entry CAM, on an 8-entry
+queue freed below a bound (thresholds) and on a CAM with a per-bank
+priority select and per-port match registers (read cones that differ,
+firtool's vector names), in seconds.
+`<Block>_rtl_grt_qor` is the same flow on the module as it is (no entry
+cell): the A arm of the block's A/B.
 `<Block>_grt_qor` is the extracted block through global route with
 setup repair at CTS and global route off (XSTile's ~2,000 ps), its
 period in the JSON.
@@ -63,3 +72,20 @@ The flows read the extraction through slang and fold the entry cell's
 copies (`../fold_entries.tcl`), as XSTile's flows do, except where the
 period at global route came out worse that way: those stay on yosys's
 frontend (`YOSYS_FRONTEND` in `BUILD.bazel` has the numbers).
+
+## What the extraction buys
+
+Against the module as it is, the same flow, single runs side by side
+(`ideas/structured-macros.md`, "QoR inventory", has the stages, cells
+and area):
+
+| Block | A total min | B total min | A period ps | B period ps | verdict |
+|---|---:|---:|---:|---:|---|
+| PhysicalStoreQueue | 40.85 | 14.54 | 1,582.9 | 1,905.1 | trades |
+| LoadQueueReplay | 37.40 | 22.36 | 1,664.5 | 1,289.9 | dominates |
+| VirtualStoreQueue | 6.04 | 3.31 | 1,014.1 | 1,485.0 | trades |
+| LoadQueueRAR | 6.59 | 4.67 | 902.0 | 961.1 | dominates |
+| TLBFA | 2.69 | 2.19 | 439.0 | 272.0 | dominates |
+| TLBFA_1 | 5.95 | 3.06 | 460.8 | 349.5 | dominates |
+| VirtualLoadQueue | 5.19 | 3.41 | 962.5 | 963.9 | dominates |
+| Rob (`rob_array:RobEntries`) | 43.30 | 57.45 | 2,038.9 | 1,759.3 | trades |
