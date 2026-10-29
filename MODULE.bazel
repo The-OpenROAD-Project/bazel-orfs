@@ -232,6 +232,12 @@ archive_override(
         # data mux, and a port decodes only its words. Not upstreamed;
         # retires at a //:bump onto an OpenROAD that has it.
         "//patches:0159-openroad-ram-write-port-words.patch",
+        # 0163: generate_ram -write_style mux buffers a word's write
+        # enable and makes its hold per eight bits, so no net in a word
+        # drives the whole word (a 32-bit word's hold inverter drove 32
+        # hold muxes). Not upstreamed; retires at a //:bump onto an
+        # OpenROAD that has it.
+        "//patches:0163-openroad-ram-write-enable-groups.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
