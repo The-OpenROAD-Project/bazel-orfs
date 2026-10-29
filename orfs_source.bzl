@@ -181,8 +181,8 @@ ORFS_PATCHES = [
     Label("//patches:0155-orfs-coralnpu-generated.patch"),
     # 0157: SKIP_REPORT_METRICS=1 still writes the metrics that cost
     # nothing (design area, instance counts, utilization); it skips only
-    # the timing update, power analysis and text reports. Not
-    # upstreamed; retires at a bump onto an ORFS that carries it.
+    # the timing update, power analysis and text reports. ORFS #4766
+    # (draft); retires at a bump onto an ORFS that carries it.
     Label("//patches:0157-orfs-metrics-free-always.patch"),
     # 0158: SKIP_REPORT_METRICS defaults to 1 here; a flow that wants
     # timing and power in its stage .json sets it to 0. bazel-orfs
