@@ -15,7 +15,7 @@ shows the recommended settings:
 | `GPL_ROUTABILITY_DRIVEN` = `"0"` | place | Routability-driven global placement. Skips routing congestion estimation during placement. | Moderate |
 | `SKIP_CTS_REPAIR_TIMING` = `"1"` | cts | Timing repair after clock tree synthesis. Skips iterative buffer insertion, gate sizing, gate cloning, and VT swapping. Can reduce CTS from hours to minutes. | Very high |
 | `SKIP_INCREMENTAL_REPAIR` = `"1"` | grt | Incremental repair during global routing. Skips two rounds of `repair_design` + `repair_timing` with incremental re-routing. | Very high |
-| `SKIP_REPORT_METRICS` = `"1"` | all | Metrics reporting (`report_checks`, `report_wns`, `report_tns`, `report_power`, `report_clock_skew`) at every stage. | Moderate |
+| `SKIP_REPORT_METRICS` = `"1"` | all | The default in bazel-orfs (carried patches 0157/0158). Skips the timing and power metrics and the `reports/<stage>_*.rpt` text reports (`report_checks`, `report_wns`, `report_tns`, `report_power`, `report_clock_skew`) at every stage; design area, instance counts and the tools' own counters are still written. Set `"0"` for timing and power in the stage `.json`. | Moderate |
 | `FILL_CELLS` = `""` | route | Fill cell insertion (`filler_placement`). Required for manufacturing but not for design exploration. | Low |
 | `TAPCELL_TCL` = `""` | floorplan | Custom tap/endcap cell placement script. Falls back to simple `cut_rows`. | Low |
 | `PWR_NETS_VOLTAGES` = `""` | final | IR drop analysis for power nets (`analyze_power_grid`). | Low |
@@ -188,7 +188,7 @@ tail -f tmp/test/L1MetadataArray/logs/4_1_cts.log
 | `repair_timing` running for many iterations | Timing repair loop — can run for hours. | Set `SKIP_CTS_REPAIR_TIMING=1` (CTS) or `SKIP_INCREMENTAL_REPAIR=1` (GRT). Or set `SETUP_SLACK_MARGIN`/`HOLD_SLACK_MARGIN` to terminate early. |
 | `[WARNING STA-1554]` "not a valid start point" (thousands) | SDC constraints reference pins that don't exist. Harmless but floods the log and slows STA. | Fix SDC constraints or filter with `suppress_message`. |
 | `repair_timing_helper` in floorplan | Timing repair after synthesis. | Set `SKIP_FLOORPLAN_REPAIR_TIMING=1` to skip it. |
-| `report_checks` / `report_wns` / `report_clock_skew` | Metrics reporting at stage end. | Set `SKIP_REPORT_METRICS=1` to skip. |
+| `report_checks` / `report_wns` / `report_clock_skew` | Metrics reporting at stage end; only with `SKIP_REPORT_METRICS=0`. | Leave `SKIP_REPORT_METRICS` at its default, 1. |
 | `estimate_parasitics` | Parasitic estimation — usually fast. Indicates transition between sub-steps. | Normal, no action needed. |
 | `filler_placement` | Fill cell insertion. | Set `FILL_CELLS=""` to skip (not needed for CI/DSE). |
 | `analyze_power_grid` | IR drop analysis. | Set `PWR_NETS_VOLTAGES=""` and `GND_NETS_VOLTAGES=""` to skip. |
@@ -325,5 +325,5 @@ Potential improvements to the bazel-orfs CI pipeline:
 - **OpenROAD startup overhead**: Each sub-step takes ~1.3s minimum for database/library
   loading. For small designs, this overhead is significant. ORFS sub-step consolidation
   would help.
-- **`SKIP_REPORT_METRICS=1` for all CI targets**: Already applied via FAST_SETTINGS.
+- **`SKIP_REPORT_METRICS=1` for all CI targets**: The bazel-orfs default.
   Metrics reporting adds minutes per stage on large designs.
