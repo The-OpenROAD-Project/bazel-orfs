@@ -15,6 +15,16 @@ TOPS = [
     "VirtualStoreQueue",
 ]
 
+# Recognition that is a study for now, off by default and on per block:
+# Uncache's per-entry pipeline registers are firtool's vectors (x, x_1,
+# ...) and per-port arrays (k * N words), and with them its entries cover
+# 92 % of its registers, but yosys builds the module as it is faster and
+# closes it better (ideas/structured-macros.md, "QoR inventory"). Uncache
+# stays out of INTEGRATED: XSTile reads its RTL.
+EXTRACT_OPTIONS = {
+    "Uncache": " --firtool-vectors",
+}
+
 # The modules extracted, the blocks above and the Rob, whose flow is
 # rob_array's next to the surgered Rob's; and the modules that stay
 # blackboxes in each, macros of their own.
@@ -135,7 +145,12 @@ py_binary(
             top + "_extracted.json",
             top + "_extracted.json.renames",
         ],
-        cmd = "$(execpath :extract) $(location :%s_proc.json) %s $(location %s_extracted.json) && " % (top, top, top) +
+        cmd = "$(execpath :extract) $(location :%s_proc.json) %s $(location %s_extracted.json)%s && " % (
+                  top,
+                  top,
+                  top,
+                  EXTRACT_OPTIONS.get(top, ""),
+              ) +
               "$(execpath @yosys) -q -p 'read_json $(location %s_extracted.json); hierarchy -top %s; " % (top, top) +
               # an async load of a constant is an async reset: the flow maps
               # the one and not the other

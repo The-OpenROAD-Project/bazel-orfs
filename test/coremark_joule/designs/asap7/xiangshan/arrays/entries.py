@@ -24,7 +24,7 @@ x >= K and x < K, which firtool folds differently for each K (x >= 4 as
 entry compares against a threshold that is no x == K, every comparison
 of the net reads as one (x != 0 as x >= 1).
 
-    entries.py <design.json> <module> [min entries]
+    entries.py <design.json> <module> [min entries] [--firtool-vectors]
 """
 
 import collections
@@ -168,8 +168,9 @@ class Design:
         self.const[b] = v
         return v
 
-    def groups(self, min_n=8):
-        """Arrays by length: {n: {array: {i: flop}}}."""
+    def groups(self, min_n=8, firtool_vectors=False):
+        """Arrays by length: {n: {array: {i: flop}}}. With firtool_vectors,
+        also firtool's vectors of registers named x, x_1, x_2, ..."""
         arrays = collections.defaultdict(dict)
         loose = []
         for name, c in self.cells.items():
@@ -190,7 +191,8 @@ class Design:
                 candidates[key][int(m.group())] = name
             # firtool names a vector of registers x, x_1, x_2, ...: word 0
             # without a number (Uncache's f1_fwdDataCandidates_r)
-            candidates[name + "_#"][0] = name
+            if firtool_vectors:
+                candidates[name + "_#"][0] = name
         taken = set()
         for key, words in sorted(candidates.items(), key=lambda kv: -len(kv[1])):
             if len(words) >= min_n and sorted(words) == list(range(len(words))):
@@ -1013,15 +1015,18 @@ def best(d, n, arrays):
     return plain
 
 
-def plan(d, min_n=8):
-    """Each group of entries as best() takes it, longest first. An array of
-    k * N words (k >= 2) whose own group does not follow one rule may be k
-    arrays of the group of N, word p * N + i (or i * k + p) entry i's:
-    Uncache's f1_ptagMatches_r, 48 words, is its 16 entries' match per
-    load port. Taken where the group of N then covers more."""
-    groups = d.groups(min_n)
+def plan(d, min_n=8, firtool_vectors=False):
+    """Each group of entries as best() takes it, longest first. With
+    firtool_vectors (off by default: a study, extract.py
+    --firtool-vectors), firtool's vectors named x, x_1, ... are arrays
+    too, and an array of k * N words (k >= 2) whose own group does not
+    follow one rule may be k arrays of the group of N, word p * N + i (or
+    i * k + p) entry i's: Uncache's f1_ptagMatches_r, 48 words, is its 16
+    entries' match per load port. Taken where the group of N then covers
+    more."""
+    groups = d.groups(min_n, firtool_vectors)
     found = {n: best(d, n, arrays) for n, arrays in groups.items()}
-    for big in sorted(groups, reverse=True):
+    for big in sorted(groups, reverse=True) if firtool_vectors else []:
         if found[big] is None or found[big].uniform:
             continue
         for n in sorted(groups):
@@ -1046,10 +1051,11 @@ def plan(d, min_n=8):
 
 def main(argv):
     d = Design(load(argv[1], argv[2]))
-    min_n = int(argv[3]) if len(argv) > 3 else 8
+    args = [a for a in argv if not a.startswith("--")]
+    min_n = int(args[3]) if len(args) > 3 else 8
     total = len(d.flop_bits)
     covered = 0
-    for e in plan(d, min_n):
+    for e in plan(d, min_n, "--firtool-vectors" in argv):
         n = e.n
         print(e.report())
         if e.inline:

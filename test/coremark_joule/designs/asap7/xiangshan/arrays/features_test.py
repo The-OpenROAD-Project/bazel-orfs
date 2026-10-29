@@ -308,9 +308,12 @@ class ReadSides(unittest.TestCase):
         cls.proc = os.path.join(cls.work, "pricam.json")
         rc, log = run("proc_json.py", cls.yosys, cls.slang, src, "PriCam", cls.proc)
         assert rc == 0, log
-        cls.found = run("entries.py", cls.proc, "PriCam")[1]
+        # its per-port registers are firtool's vectors: a study, on by flag
+        cls.found = run("entries.py", cls.proc, "PriCam", "--firtool-vectors")[1]
         cls.extracted = os.path.join(cls.work, "pricam_extracted.json")
-        rc, log = run("extract.py", cls.proc, "PriCam", cls.extracted)
+        rc, log = run(
+            "extract.py", cls.proc, "PriCam", cls.extracted, "--firtool-vectors"
+        )
         assert rc == 0, log
 
     def test_entries_follow_one_rule(self):

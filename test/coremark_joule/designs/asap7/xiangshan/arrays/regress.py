@@ -60,13 +60,15 @@ def blackboxes(design):
 def main(argv):
     yosys, proc, module, work = argv[1:5]
     direct = "--direct" in argv[5:]
+    # the extraction's own options (extract.py --firtool-vectors)
+    opts = [a for a in argv[5:] if a != "--direct"]
     os.makedirs(work, exist_ok=True)
     kept = os.path.join(work, "kept.json")
     decoded = os.path.join(work, "decoded.json")
-    step("extract, index kept", ["extract.py", proc, module, kept, "--keep-idx"])
+    step("extract, index kept", ["extract.py", proc, module, kept, "--keep-idx"] + opts)
     step("proof, index kept", ["check.py", yosys, proc, kept, module])
     step("control, must differ", ["check.py", yosys, proc, kept, module, "mutate"])
-    out = step("extract, decoded", ["extract.py", proc, module, decoded])
+    out = step("extract, decoded", ["extract.py", proc, module, decoded] + opts)
     print(out.strip().splitlines()[-1])
     verilog = os.path.join(work, "decoded.v")
     rc, log = check.run(

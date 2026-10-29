@@ -16,7 +16,7 @@ It stops on anything that does not line up: entries off the rule, an
 index that is not i itself, a token one entry has and another not, a bit
 read outside that a merged form of x == 0 hides.
 
-    extract.py <design.json> <module> <out.json> [--keep-idx]
+    extract.py <design.json> <module> <out.json> [--keep-idx] [--firtool-vectors]
 
 --keep-idx leaves the index as the cell's input, without decode-once:
 the form check.py proves equal to the original by a miter that
@@ -42,9 +42,9 @@ def v_sense(e, where):
     return e._eq_form(where[0])[0]
 
 
-def extract(mod, name, decode=True):
+def extract(mod, name, decode=True, firtool_vectors=False):
     d = Design(mod)
-    groups = [e for e in plan(d) if e.uniform]
+    groups = [e for e in plan(d, firtool_vectors=firtool_vectors) if e.uniform]
     if not groups:
         fail("no group of entries follows one rule")
     e = max(
@@ -486,7 +486,9 @@ def main(argv):
     src, name, out = argv[1:4]
     decode = "--keep-idx" not in argv
     design = json.load(open(src))
-    mods, stats, renames = extract(design["modules"][name], name, decode)
+    mods, stats, renames = extract(
+        design["modules"][name], name, decode, "--firtool-vectors" in argv
+    )
     design["modules"].update(mods)
     with open(out, "w") as f:
         json.dump(design, f)

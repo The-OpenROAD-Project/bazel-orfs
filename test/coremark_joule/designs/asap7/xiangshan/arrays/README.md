@@ -11,7 +11,7 @@ decodes each index comparison once in the block.
 | Step | File | What it does |
 | --- | --- | --- |
 | proc | `proc_json.py` | the block after yosys's `proc`, as JSON; named modules stay blackboxes |
-| find | `entries.py` | entries are word *i* of arrays of equal length (`x`, `x_1`, ... too: firtool's vectors), an array of k·N words k arrays of the group of N where that follows one rule; each entry's cone is a structural signature, and constants, shared bits and `x == K` / `x != K` comparisons are decided across entries (the same, the entry's number, or its bank's); where that leaves entries off the rule, thresholds `x >= K` / `x < K` too |
+| find | `entries.py` | entries are word *i* of arrays of equal length (with `--firtool-vectors`, a study: firtool's vectors `x`, `x_1`, ..., and an array of k·N words as k arrays of the group of N where that follows one rule); each entry's cone is a structural signature, and constants, shared bits and `x == K` / `x != K` comparisons are decided across entries (the same, the entry's number, or its bank's); where that leaves entries off the rule, thresholds `x >= K` / `x < K` too |
 | extract | `extract.py` | the template entry as `<Block>Entry`, instanced per entry; each index comparison decoded once per distinct operand, a threshold `x >= i + o` as bit `i + o - 1` of `(1 << x) - 1` |
 | prove | `check.py` | registers and blackboxes as cut points, a yosys miter, ABC's `iprove`; a negative control (one register's D-mux swapped) must come out different |
 | swap | `substitute.py` | the core with each extraction in place of its block, for the XSTile flows (`../README.md`, "The arrays") |
@@ -69,3 +69,10 @@ The flows read the extraction through slang and fold the entry cell's
 copies (`../fold_entries.tcl`), as XSTile's flows do, except where the
 period at global route came out worse that way: those stay on yosys's
 frontend (`YOSYS_FRONTEND` in `BUILD.bazel` has the numbers).
+
+Uncache is a study only (`EXTRACT_OPTIONS`, `--firtool-vectors`): its
+entries are recognised, 92 % of its registers, but yosys builds the
+module as it is faster (3.5 against 4.2 min) and closes it better
+(1,020 against 1,256 ps). The entry cell holds a 435-bit read side that
+synthesis cannot optimise across the cell's boundary: 27 % more cells.
+It stays out of `INTEGRATED`.

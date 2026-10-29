@@ -225,13 +225,13 @@ that must differ, and the decode-once lemma `(1 << x)[i] == (x == i)`.
 | Block | Entries | Coverage | Read side | To global route | Period (ps) |
 |---|---|---|---|---|---|
 | Rob | 352 | 81% | no | 23.5 min (surgered + hand generator: ~33) | 1,913.9 (1,712.8) |
-| LoadQueueReplay | 120 | 87% | yes | ~9.5 min (PR: 28.9) | 1,469.7 ³ |
+| LoadQueueReplay | 120 | 87% | yes | ~9.5 min (PR: 28.9) | 1,469.7 |
 | PhysicalStoreQueue | 64 | 85% | yes | 8.6 min (decode_once: 27.2), top 137 s | 1,905.1 |
 | VirtualStoreQueue | 128 | 96% | no | ≤ 6 min ¹ (PR: 6.6) | 1,485.0 |
-| LoadQueueRAR | 96 | 87% | no | ≤ 6 min ¹ (PR: 4.5) | 997.7 ³ |
+| LoadQueueRAR | 96 | 86% | no | ≤ 6 min ¹ (PR: 4.5) | 997.7 |
 | TLBFA / TLBFA_1 | 48 | 99% / 98% | yes | ≤ 6 min ¹ | 285.9 / 349.5 |
 | LoadQueueRAW | 56 | 69% | yes, the common part | below the 70% gate | |
-| Uncache | 16 | 92% | yes | 4.0 min ² (PR: 3.4) | 1,255.7 |
+| Uncache, study only ³ | 16 | 92% | yes | 4.23 min (RTL 3.48) | 1,255.7 (RTL 1,020.3) |
 | VirtualLoadQueue | 120 | 96% (7% without thresholds) | no | 3.2 min ² (PR: 3.2) | 963.9 |
 
 All extracted from the surgered core XSTile's flows read. ¹ The four
@@ -239,12 +239,17 @@ side by side in under 6 min. ² Alone, from the Bazel profile: synthesis
 76 s (the top 61 s), floorplan through global route 114 s (grt 63 s);
 the extraction itself 22 s more. Single run. Uncache: synthesis 90 s
 (the top 77 s), floorplan through global route 149 s (place 55 s, grt
-78 s); slower than the carve. ³ Each gained one array with firtool's
-vector names (LoadQueueRAR's REG, LoadQueueReplay's
-l2HintLastBeatUnblock); on slang and the fold, side by side, single
-runs: LoadQueueRAR 969.8 ps (was 961.1), synthesis 75 s, floorplan
-through global route 152 s; LoadQueueReplay 1,435.1 ps (was 1,289.9),
-synthesis 313 s, floorplan through global route 521 s.
+78 s); slower than the carve. ³ Extracted only with `--firtool-vectors`
+(below), against the module as it is with the same flow, side by side,
+single runs: synthesis 82 against 115 s, place 72 against 52 s, global
+route 85 against 18 s; 69,064 cells against 54,507 (+27 %). The
+recognition works, yosys wins: the 435-bit read side is mapped inside
+the kept entry cell, with nothing optimised across its boundary (NOR2
++6.6 k, INV +5.0 k, XOR2 +4.6 k cells; the worst path leaves the cell
+through two inverters back to back, one each side). To win, the
+generated form needs the read side outside the cell, flattened into the
+block, or optimised across the boundary. Uncache stays out of
+`INTEGRATED`: XSTile reads its RTL.
 
 Every extraction is proven twice, with the index kept and decoded, each
 with its negative control (`<top>_check_test`, `<top>_control_test`). The Rob's decoded
@@ -266,10 +271,12 @@ What is not covered yet:
   own, and the two select bits are common. LoadQueueRAR's and the Rob's
   read cones have no common part that follows one rule; they stay in the
   parent.
-- **Firtool's vector names and per-port arrays** (2026-10-29): a vector
-  of registers is `x`, `x_1`, `x_2`, ..., word 0 without a number, and an
-  array of k·N words may be k arrays of the group of N
-  (`entries.plan`, word p·N + i or i·k + p). Uncache's 42 % was not its
+- **Firtool's vector names and per-port arrays** (2026-10-29), a study,
+  off by default (`--firtool-vectors`, per block in `EXTRACT_OPTIONS`):
+  a vector of registers is `x`, `x_1`, `x_2`, ..., word 0 without a
+  number, and an array of k·N words may be k arrays of the group of N
+  (`entries.plan`, word p·N + i or i·k + p). Off, every other block
+  extracts as before. Uncache's 42 % was not its
   read side, which every entry agreed on, but its per-entry pipeline
   registers: `f1_fwdDataCandidates_r` (16 words, word 0 unnumbered) and
   `f1_ptagMatches_r` (48 words: 16 entries by three load ports); with
@@ -365,8 +372,9 @@ side); proofs (the miter) are polish for now, the long ones wait.
    the read side goes in the cell (LoadQueueRAW: its two select bits, the
    per-bank priority inverters left in the block), and Uncache's
    uncovered registers turned out to be firtool's vector names and
-   per-port arrays, now read (42 % to 92 %, in `TOPS`, 1,255.7 ps).
-   LoadQueueRAW stays at 69 % (8,134 of 11,687 bits): the rest is
+   per-port arrays, read with `--firtool-vectors` (42 % to 92 %); a
+   study only, yosys builds Uncache faster and better (³ above).
+   LoadQueueRAW stays at 69 % (8,120 of 11,687 bits): the rest is
    pipeline and select-tree registers, no entries; it is not in `TOPS`.
 3. **Why slang and the fold cost PhysicalStoreQueue and
    VirtualStoreQueue period** (above). Compare the two synthesised
