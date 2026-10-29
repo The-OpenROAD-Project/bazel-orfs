@@ -334,11 +334,15 @@ place's repair_design are in).
 | | B: extracted | 83.9 | 5.0 | 41.4 | 4.2 | 70.4 | 3.41 | 963.9 | 42,521 | 4,945.0 |
 | Uncache ⁵ | A: RTL | 115.1 | 13.3 | 49.0 | 5.4 | 17.2 | 3.33 | 1,020.3 | 56,458 | 7,449.8 |
 | | B: extracted | 81.8 | 6.6 | 68.4 | 5.4 | 84.0 | 4.10 | 1,255.7 | 71,343 | 8,545.2 |
-| Rob | | | | | | | | not yet run (its RTL arm ~13 GB, ~73 min) | | |
+| Rob ⁶ | A: RTL | 969.3 | 365.3 | 1,078.6 | 37.2 | 147.9 | 43.30 | 2,038.9 | 341,506 | 40,836.6 |
+| | B: extracted | 408.7 | 143.9 | 1,925.8 | 43.3 | 925.1 | 57.45 | 1,759.3 | 432,737 | 48,740.8 |
 
 ⁴ On yosys's frontend in both arms (`YOSYS_FRONTEND`). ⁵ The study
 extraction (`--firtool-vectors`, off by default; #1430), its RTL arm
-built with the same settings.
+built with the same settings. ⁶ `rob_array:RobEntries_rtl_grt_qor`
+against `rob_array:RobEntries_grt_qor`: the Rob's own flow (timing- and
+routability-driven global placement, its register files macros), the
+arms one after the other, alone on the machine.
 
 | Block | A total min | B total min | A period ps | B period ps | verdict | reason for a loss, measured |
 |---|---:|---:|---:|---:|---|---|
@@ -349,6 +353,7 @@ built with the same settings.
 | TLBFA | 2.69 | 2.19 | 439.0 | 272.0 | dominates | |
 | TLBFA_1 | 5.95 | 3.06 | 460.8 | 349.5 | dominates | |
 | VirtualLoadQueue | 5.19 | 3.41 | 962.5 | 963.9 | dominates | |
+| Rob | 43.30 | 57.45 | 2,038.9 | 1,759.3 | trades | 27 % more cells (432,737 against 341,506): routability-driven global placement needs 21 passes against 7 (1,591 against 757 s), and global route takes 835 s where the RTL arm stops at congestion after 79 s |
 | Uncache | 3.33 | 4.10 | 1,020.3 | 1,255.7 | study only | 27 % more cells: the 435-bit read side mapped inside the kept entry cell, nothing optimised across its boundary; global route 84 against 17 s |
 
 The verdict: B dominates when it is no worse on both, a time within
@@ -357,8 +362,11 @@ deterministic, but one register per entry moved into LoadQueueReplay's
 cell moved its period 11 %: placement, the same gates on the worst
 path); it trades when it is better on one and worse on the other;
 otherwise it loses and stays a study. Every extraction cuts synthesis
-(PhysicalStoreQueue 1,909 to 327 s); the two that trade lose period
-where a shared operand is broadcast into every entry cell. To win
+(PhysicalStoreQueue 1,909 to 327 s). The Rob trades the other way:
+14 % better period, but its 352 kept cells add 27 % cells and its
+placement and route take longer than synthesis saves.
+PhysicalStoreQueue and VirtualStoreQueue lose period where a shared
+operand is broadcast into every entry cell. To win
 there, the broadcast has to stop being one net into N kept cells: the
 comparison against it decoded once in the block where it can be
 (VirtualStoreQueue's dequeue pointer), or the cell's boundary placed so
