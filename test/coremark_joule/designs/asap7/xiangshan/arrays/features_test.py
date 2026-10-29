@@ -11,6 +11,11 @@ decoded once in the parent; the match left in the entry cell (the read
 side); the blackbox kept an instance of the block; the extraction proven
 equal to the design and the negative control proven different; and
 slang's per-instance copies of the entry cell folded onto one module.
+
+A second design, a queue whose entries are freed below a bound, checks
+thresholds: x >= i + 1 and x < i + 1, written as firtool folds them for
+each i (VirtualLoadQueue's entryHitBound), read as one form and decoded
+once.
 """
 
 import json
@@ -47,6 +52,50 @@ def cam():
     match = " | ".join(f"(valid_{i} && data_{i} == q)" for i in range(N))
     lines += [
         f"  assign hit = {match};",
+        "  assign mixed = " + " ^ ".join(f"data_{i}" for i in range(N)) + ";",
+        "endmodule",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def threshold_queue():
+    """Entry i frees when lo < i + 1 and bound >= i + 1, both written as
+    firtool writes them: a reduction of the top bits at a power of two,
+    x[3] alone at 8, a comparison elsewhere."""
+
+    def ge(x, k):  # x >= k, 4 bits
+        if k & (k - 1) == 0:
+            top = k.bit_length() - 1
+            return f"{x}[3]" if top == 3 else f"(|{x}[3:{top}])"
+        return f"({x} > 4'd{k - 1})"
+
+    def lt(x, k):  # x < k, 4 bits
+        if k == 1:
+            return f"({x} == 4'h0)"
+        if k & (k - 1) == 0:
+            top = k.bit_length() - 1
+            return f"(~{x}[3])" if top == 3 else f"(~|{x}[3:{top}])"
+        return f"({x} < 4'd{k})"
+
+    lines = [
+        "module Queue(input clock, input reset, input we, input [2:0] widx,",
+        "             input [7:0] wdata, input [3:0] lo, input [3:0] bound,",
+        "             output any, output [7:0] mixed);",
+    ]
+    for i in range(N):
+        lines += [
+            f"  reg [7:0] data_{i};",
+            f"  reg live_{i};",
+            f"  wire free_{i} = {lt('lo', i + 1)} & {ge('bound', i + 1)};",
+            "  always @(posedge clock) begin",
+            f"    if (reset) live_{i} <= 1'b0;",
+            f"    else if (we && widx == 3'd{i}) live_{i} <= 1'b1;",
+            f"    else if (free_{i}) live_{i} <= 1'b0;",
+            f"    if (we && widx == 3'd{i}) data_{i} <= wdata;",
+            "  end",
+        ]
+    lines += [
+        "  assign any = " + " | ".join(f"live_{i}" for i in range(N)) + ";",
         "  assign mixed = " + " ^ ".join(f"data_{i}" for i in range(N)) + ";",
         "endmodule",
     ]
@@ -150,6 +199,54 @@ class Features(unittest.TestCase):
         self.assertIn(f"CamEntry, {N} copies folded onto one", r.stdout)
         modules = sorted(m.strip().lstrip("\\") for m in open(listing) if m.strip())
         self.assertEqual(modules, ["Cam", "CamEntry", "Sub"])
+
+
+class Thresholds(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.yosys, cls.slang = map(os.path.abspath, sys.argv[1:3])
+        cls.work = os.environ.get("TEST_TMPDIR", HERE)
+        src = os.path.join(cls.work, "queue.sv")
+        with open(src, "w") as f:
+            f.write(threshold_queue())
+        cls.proc = os.path.join(cls.work, "queue.json")
+        rc, log = run("proc_json.py", cls.yosys, cls.slang, src, "Queue", cls.proc)
+        assert rc == 0, log
+        cls.found = run("entries.py", cls.proc, "Queue")[1]
+        cls.kept = os.path.join(cls.work, "queue_kept.json")
+        rc, log = run("extract.py", cls.proc, "Queue", cls.kept, "--keep-idx")
+        assert rc == 0, log
+        cls.extracted = os.path.join(cls.work, "queue_extracted.json")
+        rc, log = run("extract.py", cls.proc, "Queue", cls.extracted)
+        assert rc == 0, log
+        cls.stats = dict(re.findall(r"(\w+) (\d+)", log))
+
+    def test_entries_follow_one_rule(self):
+        self.assertIn("uniform: 8 of 8 entries follow one rule", self.found)
+        # live_<i>, freed below the bound, in the cell with data_<i>
+        self.assertNotIn("left inline", self.found)
+
+    def test_thresholds_decoded_once(self):
+        # widx == i, lo < i + 1 and bound >= i + 1: one decoder each
+        self.assertEqual(self.stats["decoded_once"], "3")
+        self.assertEqual(self.stats["index_sites_left"], "0")
+
+    def test_index_kept_equal(self):
+        rc, log = run("check.py", self.yosys, self.proc, self.kept, "Queue")
+        self.assertEqual(rc, 0, log)
+        self.assertIn("check: Queue: equivalent", log)
+
+    def test_decoded_equal(self):
+        rc, log = run("check.py", self.yosys, self.proc, self.extracted, "Queue")
+        self.assertEqual(rc, 0, log)
+        self.assertIn("check: Queue: equivalent", log)
+
+    def test_control_differs(self):
+        rc, log = run(
+            "check.py", self.yosys, self.proc, self.extracted, "Queue", "mutate"
+        )
+        self.assertEqual(rc, 0, log)
+        self.assertIn("check: Queue: NOT equivalent", log)
 
 
 if __name__ == "__main__":
