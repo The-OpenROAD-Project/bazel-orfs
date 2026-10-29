@@ -319,6 +319,23 @@ What would make the RTL incongruent is a path whose logic alone exceeds
 best-effort mapping of each cone, and the logic-only period of each
 block with the wires taken out, are the measurements that would show one.
 
+## The arrays
+
+The Rob, the load and store queues and the load TLB are arrays the RTL
+never wrote as arrays: one entry's registers and logic repeated, each
+entry selected by comparing a broadcast index with its own. `arrays/`
+finds them in the surgered core, writes each block as one entry cell
+instanced per entry with the index comparisons decoded once in the
+block, and proves the result equal to the block (`arrays/README.md`).
+
+MemBlock and the parent read `arrays:xiangshan_extracted`, the surgered
+core with those blocks swapped for their extractions (`XS_EXTRACTED` in
+`xiangshan.bzl`); every other part reads the surgered core. Slang
+elaborates one module per instance, so `fold_entries.tcl`, run before the
+canonical checkpoint, folds the copies of each entry cell back onto one
+module, which synthesis then maps once. TLBFA, the instruction TLB, is
+extracted too but is Frontend's, which reads the surgered core.
+
 ## Running it
 
 ```
