@@ -351,6 +351,33 @@ side); proofs (the miter) are polish for now, the long ones wait.
    Not an array: find whether it is logic or placement first
    (`repair-headroom` skill), on the flow_only flow.
 6. **Generated arrays slower than yosys in CTS and global route** on the
-   toys (`test/array_toys`; the CAM at 32 x 128: CTS 409 against 101 s).
-   Settle it on one toy in a dirty lane before any scan.
+   toys (`test/array_toys`). Settled on the CAM at 32 x 128 (2026-10-29);
+   both arms run with the same settings. The clock trees were alike
+   (4,364 sinks, 271 against 235 buffers); CTS's time was its
+   `repair_timing`. Two causes, both in structgen's netlist:
+   - *No buffering.* A word's decoded write enable drove 256 pins (128
+     muxes and 128 copies of its complement) from one AND2;
+     repair_design chained BUFx2s at fanout 25-50, and 3,055 of 4,096
+     array flops missed 300 ps by up to 168 ps (yosys's ABC netlist: buffer
+     trees at fanout 10, 1,072 flops, 28 ps). structgen now buffers every
+     net above 32 sinks, shares each net's complement and sizes cells by
+     fanout, as `test/rob_toy/rob_gen.py` already did.
+   - *Depth of the cone that cannot close.* With the array paths closed,
+     repair ground on the match into the priority encoder (`idx`, `hit`,
+     about 430 ps in both arms): 1,161 iterations at 107 ms each, each
+     move retimed over a 16.7k-cell cone of 2-input gates. With those
+     endpoints set false as a diagnostic, CTS took 15-17 s in either arm:
+     the whole gap was that cone. The trees are now 3-input NAND/NOR by
+     turns, and a compare reads the flop's QN directly (an XOR in place of
+     inverter and XNOR).
+   Lanes side by side, single runs on a shared machine, seconds
+   (before → after; yosys): CTS 126 → 65; 40-43. grt 149 → 106; 116-121.
+   Period at grt 422 → 448 ps; yosys 431: the fix gives up 26 ps on the
+   priority encoder, where the old netlist's longer repair bought it.
+   Counter 32 x 128: CTS 121 → 70, grt 288 → 244, period 388 → 347 ps.
+   The hermetic build reproduces the grt WNS of each lane exactly. Tried
+   and dropped: 3-input gates one size up (CTS 104 s, period worse).
+   Open: the priority encoder's depth (prefix OR2s, a polarity inverter
+   at each tree's end) is where the period and the rest of CTS's time
+   are; flags, agematrix and the larger sizes are not re-measured.
 
