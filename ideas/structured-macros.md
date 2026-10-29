@@ -265,7 +265,92 @@ repair off, no pin access, route-0 global route) and the die from
 utilization rather than the carve's plan. Side by side, 39.1 min to
 global route; floorplan through global route took 15.2 min (Bpu) and
 27.2 min (VecRegionModule), CTS 2.3 and 3.0 min against the carve's 15.0
-and 21.2. But the periods are 3,495.9 ps (Bpu) and 2,355.3 ps
-(VecRegionModule), over XSTile's ~2,000 ps: for these two, CTS's setup
-repair is needed. It chases the SDC's 473 ps; repairing towards the
-period the tile needs instead is a change of target, left to the human.
+and 21.2. With setup repair off the periods were 3,495.9 ps (Bpu) and
+2,355.3 ps (VecRegionModule), over XSTile's ~2,000 ps. With repair at CTS
+and global route aimed at 2,000 ps instead of the SDC's 473
+(`SETUP_SLACK_MARGIN` 473 - 2,000), side by side in 38 min:
+VecRegionModule 2,012.4 ps, Bpu 3,175.5 ps. Repair does not close Bpu.
+
+## XSTile uses the arrays (2026-10-29)
+
+MemBlock and the parent read `arrays:xiangshan_extracted`, the surgered
+core with the six blocks inside them swapped for their extractions
+(`XS_EXTRACTED`, `substitute.py`); the other parts read the surgered
+core. What it took, each a trap for the next such change:
+
+- **Slang makes one module per instance**, `RobEntry$<path>`. The fold
+  (`fold_entries.tcl`) renames one copy to the bare name and retypes
+  every instance onto it. It must run as `SYNTH_CANONICALIZE_TCL`, before
+  the canonical checkpoint: bazel-orfs's partitioned synthesis resolves a
+  kept module to its first copy in that checkpoint
+  (`synth_partition.sh`), and a fold after it (as
+  `SYNTH_POST_HIERARCHY_SCRIPTS`) disagrees with the partition about
+  which module is the cell. Folded, each entry cell is one partition:
+  MemBlock's 1,353 modules become 902, its synthesis 535 s.
+- **An extraction absorbs what it flattens.** A kept module inside an
+  extracted block (SqForwardPipe in PhysicalStoreQueue, RobEntryCell in
+  the Rob) no longer exists, and partitioned synthesis stops on a keep
+  list that names it; `XS_EXTRACTED`'s `absorbed` takes them off.
+- **Flattening renames instance paths.** The plan's macro placement names
+  the register file inside RenameBuffer `rob/rab/renameBuffer`; with
+  RenameBuffer flattened into the extracted Rob it became
+  `rab.renameBuffer` and would not be found. The Rob's extraction keeps
+  RenameBuffer and VTypeBuffer as blackboxes. Before extracting a block,
+  check `plan/place_macros.tcl` for paths through it.
+- **Slang and the fold are not free for every block.** On the array
+  flows, global-route periods (ps, yosys frontend against slang):
+  PhysicalStoreQueue 1,905.1 against 2,304.9, VirtualStoreQueue 1,485.0
+  against 1,849.1, TLBFA_1 349.5 against 364.7; better on slang:
+  LoadQueueRAR 997.7 to 961.1, LoadQueueReplay 1,469.7 to 1,289.9, TLBFA
+  285.9 to 272.0, the Rob 1,913.9 to 1,781.7 (its buffers also kept). Single runs; the worse three
+  stay on yosys's frontend (`YOSYS_FRONTEND`).
+- **A survey of the five macros' modules** (entries.py on each candidate
+  a text scan and the synthesis-time backlog named) found no other large
+  array the front end fits: RenameTable_1 and PrefetchReqBuffer pass the
+  70 % bar at ~2,000 register bits; SSIT 51 %, Sbuffer 49 %, MissQueue
+  36 %; the busy tables, PMP and SyncDataModuleTemplate 0 %; the age
+  detectors are triangular, one row length per array. BankedDataArray, Sc
+  and PtwCache were not read (the survey's input step, not the front end).
+- **Under Bazel, Python tests run with `PYTHONSAFEPATH`**: a script run as
+  a child does not see the modules beside it; `features_test` and
+  `regress.py` pass `PYTHONPATH`.
+
+The debugging loop for a front-end change is `arrays:regress` (index-kept
+proof and control, the decoded extraction's Verilog read back, the direct
+proof with `--direct`) and `arrays:localise` (which output groups differ
+when a proof says NOT equivalent); `arrays/README.md`.
+
+## Tasks, for agents (2026-10-29)
+
+Rules for all of them, from the human: no giant rebuilds (XSTile,
+MemBlock, the parent: other jobs own large-scale rebuilding and timing);
+baseline numbers do not matter, the arrays' own speed-up does; test small
+(`features_test`, a block's `_grt_qor`, at most three small flows side by
+side); proofs (the miter) are polish for now, the long ones wait.
+
+1. **Threshold compares.** VirtualLoadQueue's `entryHitBound` is
+   `x >= K`, folded differently by yosys for each K (a buffer at 2^k - 1,
+   an OR reduction elsewhere). Add a GE/LT form beside EQ/NE in
+   `entries.py` (`_eq_form`) and its decode in `extract.py`; then
+   VirtualLoadQueue's coverage (7 % today) and a `_grt_qor`. Test: a
+   threshold case in `features_test`.
+2. **Read cones that differ between entries.** LoadQueueRAW (69 %) and
+   Uncache (42 %) fall back to the write side alone because their read
+   cones differ (`best()` in `entries.py`). Find what differs (entries.py
+   prints the off-rule entries) and whether a narrower read side is
+   uniform. Test: a CAM variant in `features_test`.
+3. **Why slang and the fold cost PhysicalStoreQueue and
+   VirtualStoreQueue period** (above). Compare the two synthesised
+   netlists' entry cells and the worst paths at global route (odb-debug's
+   `worst_paths`) before changing anything; a block's flow is minutes.
+4. **The Rob's decoded extraction, proven directly** since it kept its
+   buffers (`arrays:regress -- ... Rob ... --direct`, about 100 min;
+   the index-kept proof and control passed). Polish: when the machine is
+   otherwise idle.
+5. **Bpu's 3,175.5 ps** with repair aimed at 2,000 ps (`flow_only`).
+   Not an array: find whether it is logic or placement first
+   (`repair-headroom` skill), on the flow_only flow.
+6. **Generated arrays slower than yosys in CTS and global route** on the
+   toys (`test/array_toys`; the CAM at 32 x 128: CTS 409 against 101 s).
+   Settle it on one toy in a dirty lane before any scan.
+

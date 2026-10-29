@@ -318,3 +318,29 @@ py_test(
     srcs = ["substitute_test.py"],
     data = ["substitute.py"],
 )
+
+# The debugging loop for a front-end change on a block (regress.py), and
+# where an extraction differs when a proof says it does (localise.py).
+py_library(
+    name = "check_lib",
+    srcs = ["check.py"],
+    imports = ["."],
+    deps = [":entries_lib"],
+)
+
+py_binary(
+    name = "regress",
+    srcs = ["regress.py"],
+    data = [
+        "check.py",
+        "entries.py",
+        "extract.py",
+    ],
+    deps = [":check_lib"],
+)
+
+py_binary(
+    name = "localise",
+    srcs = ["localise.py"],
+    deps = [":check_lib"],
+)
