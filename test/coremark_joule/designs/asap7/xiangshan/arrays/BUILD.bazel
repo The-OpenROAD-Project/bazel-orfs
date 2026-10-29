@@ -183,12 +183,26 @@ genrule(
     ],
 )
 
-# The block on the extracted Verilog, its entry cell kept so synthesis
-# maps it once: setup repair off (XSTile's ~2,000 ps), no pin access, and
+# The block on the extracted Verilog through slang, its entry cell kept
+# and slang's per-instance copies of it folded onto one module
+# (fold_entries.tcl), so synthesis maps it once, as XSTile's flows do: setup repair off (XSTile's ~2,000 ps), no pin access, and
 # the carve's placement (timing- and routability-driven global placement
 # off), so floorplan through global route compares with the carve's
 # numbers. The Rob's block settings without its register files.
 BLOCK = XS_BLOCKS["Rob"]
+
+# The blocks that stay on yosys's frontend, the extraction read as the
+# netlist it is, each entry cell kept and mapped once: on slang and the
+# fold their period at global route was worse, single runs (ps, yosys
+# against slang): PhysicalStoreQueue 1,905.1 against 2,304.9,
+# VirtualStoreQueue 1,485.0 against 1,849.1, TLBFA_1 349.5 against 364.7.
+# The other three were better on slang: LoadQueueRAR 997.7 to 961.1,
+# LoadQueueReplay 1,469.7 to 1,289.9, TLBFA 285.9 to 272.0.
+YOSYS_FRONTEND = [
+    "PhysicalStoreQueue",
+    "TLBFA_1",
+    "VirtualStoreQueue",
+]
 
 [
     orfs_flow(
@@ -204,24 +218,25 @@ BLOCK = XS_BLOCKS["Rob"]
             "SKIP_INCREMENTAL_REPAIR": "1",
             "SKIP_PIN_ACCESS": "1",
             "SKIP_REPORT_METRICS": "1",
-            "SYNTH_HDL_FRONTEND": "",
             "SYNTH_HIERARCHICAL": "1",
             "SYNTH_KEEP_MODULES": top + "Entry",
-        },
+        } | ({"SYNTH_HDL_FRONTEND": ""} if top in YOSYS_FRONTEND else {}),
         last_stage = "grt",
         pdk = "//flow:asap7",
-        sources = {k: v for k, v in BLOCK["sources"].items() if k != "AUTO_MEMORIES_REGFILES"},
+        sources = {k: v for k, v in BLOCK["sources"].items() if k != "AUTO_MEMORIES_REGFILES"} | ({} if top in YOSYS_FRONTEND else {
+            "SYNTH_CANONICALIZE_TCL": ["//test/coremark_joule/designs/asap7/xiangshan:fold_entries.tcl"],
+        }),
         stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
         tags = ["manual"],
-        user_arguments = BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS,
+        user_arguments = BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS | ({} if top in YOSYS_FRONTEND else {"XS_FOLD_MODULES": top + "Entry"}),
         user_sources = BLOCK["user_sources"] | XS_ICG_USER_SOURCES,
         user_stages = {
             v: s
             for v, s in XS_USER_STAGES.items()
-            if v in BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS or v in BLOCK["user_sources"] | XS_ICG_USER_SOURCES
+            if v in BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS | ({} if top in YOSYS_FRONTEND else {"XS_FOLD_MODULES": ""}) or v in BLOCK["user_sources"] | XS_ICG_USER_SOURCES
         },
         verilog_files = [":%s_extracted.v" % top],
-        yosys_frontend_reason = "the input is a netlist yosys wrote (extract.py); slang elaborates every instance of the kept entry cell as a module of its own, so ABC mapped it 120 times (509 s against 361 s)",
+        yosys_frontend_reason = "period worse on slang and the fold (YOSYS_FRONTEND)" if top in YOSYS_FRONTEND else None,
     )
     for top in TOPS
 ]
@@ -273,3 +288,33 @@ BLOCK = XS_BLOCKS["Rob"]
         "control",
     ]
 ]
+
+# The front end end to end on an 8-entry CAM small enough to read: its
+# entries found, the index decoded once, the match left in the cell, a
+# blackbox kept, the extraction proven equal and the control different,
+# and the entry cell's slang copies folded onto one module. Seconds.
+py_test(
+    name = "features_test",
+    srcs = ["features_test.py"],
+    args = [
+        "$(rootpath @yosys)",
+        "$(rootpath @sv-elab//src/yosys_plugin:slang.so)",
+        "$(rootpath //test/coremark_joule/designs/asap7/xiangshan:fold_entries.tcl)",
+    ],
+    data = [
+        "check.py",
+        "dryrun.py",
+        "entries.py",
+        "extract.py",
+        "proc_json.py",
+        "//test/coremark_joule/designs/asap7/xiangshan:fold_entries.tcl",
+        "@sv-elab//src/yosys_plugin:slang.so",
+        "@yosys",
+    ],
+)
+
+py_test(
+    name = "substitute_test",
+    srcs = ["substitute_test.py"],
+    data = ["substitute.py"],
+)
