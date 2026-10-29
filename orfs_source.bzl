@@ -179,6 +179,13 @@ ORFS_PATCHES = [
     # bump onto an ORFS that carries it, with a patch_cmds line deleting
     # that directory.
     Label("//patches:0155-orfs-coralnpu-generated.patch"),
+    # 0158: a register file's own flow (its top an inlined
+    # AUTO_MEMORIES_REGFILES module) keeps generate_ram's layout: the
+    # floorplan the shape of its outline, every generated cell FIRM where
+    # generate_ram placed it, global placement left only what synthesis
+    # added. On 0089. Not upstreamed; retires at a bump onto an ORFS that
+    # carries it.
+    Label("//patches:0158-orfs-regfile-top-keeps-generate-ram-layout.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

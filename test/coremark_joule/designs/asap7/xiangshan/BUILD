@@ -94,7 +94,8 @@ exports_files(
 # side, the parent at the planned die. plan/ is generated (see
 # .claude/skills/macro-selection/SKILL.md, step 3); regenerate it, never edit it:
 # plan/plan.json is its input, with pin_partners.txt beside it from
-# probe_pin_partners.tcl on XSTile_synth_odb_debug (GUI_TIMING=0).
+# XSTile_parent_pin_partners, the parent macro's synthesis: no block is
+# built for it.
 xiangshan_flow(
     name = "XSTile",
     plan = PLAN,
@@ -138,8 +139,10 @@ xiangshan_flat_flow(
     variant = "flat",
 )
 
-# The blocks and the parent, scheduled to the memory there is
-# (docs/schedule.md): bazelisk run //test/coremark_joule/designs/asap7/xiangshan:build
+# The carve, scheduled to the memory there is (docs/schedule.md): the
+# blocks and the parent macro, each through grt with the abstract the top
+# level reads, then the top level through CTS, alone:
+#   bazelisk run //test/coremark_joule/designs/asap7/xiangshan:build
 orfs_schedule(
     name = "build",
     macros = {
@@ -148,8 +151,21 @@ orfs_schedule(
             ":%s_generate_abstract" % block,
         ]
         for block in sorted(PLAN["macros"].keys())
+    } | {
+        # its abstract in the same wave: built only when the top level
+        # asked for it, it waited behind every block
+        "XSTile_parent": [
+            ":XSTile_parent_grt",
+            ":XSTile_parent_abstract",
+            ":XSTile_parent_kpi",
+        ],
     },
-    parent = {"XSTile": [":XSTile_kpi"]},
+    # the top level alone: its clock tree and route, then the paths
+    # between macros (the KPI's Top)
+    parent = {"XSTile_parent_pm": [
+        ":XSTile_parent_pm_top",
+        ":XSTile_parent_pm_crossings",
+    ]},
     tags = ["manual"],
 )
 
@@ -216,8 +232,10 @@ odb_debug(
     for flow in list(PLAN["macros"].keys()) + [
         "FltRegionModule_pinplan",
         "FltRegionModule_pinplan2",
-        "Frontend_pinplan",
-        "Frontend_pinplan2",
+        "Ftq_pinplan",
+        "Ftq_pinplan2",
+        "Rob_pinplan",
+        "Rob_pinplan2",
         "VecRegionModule_pinplan",
         "XSTile_pinplan",
     ]

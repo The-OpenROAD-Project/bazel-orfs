@@ -1,0 +1,36 @@
+load("@bazel-orfs//:openroad.bzl", "orfs_flow")
+load("//test/planned_parent:plan/plan.bzl", "PLAN")
+load("//test/planned_parent:planned.bzl", "BASE_ARGS")
+load(":toy.bzl", "toy_parent_macro")
+
+# The parent as a macro in miniature: test/planned_parent's design and
+# plan, through the method XSTile is built by
+# (tools/carve/parent_macro.bzl). The plan in git is all the parent and
+# its four blocks share, so they build side by side to global route; the
+# top level, every one of them dissolved at its global route with its
+# clock tree left behind, is the only target that waits for all of them.
+
+BLOCKS = sorted(PLAN["macros"].keys())
+
+[
+    orfs_flow(
+        name = block,
+        abstract_stage = "grt",
+        arguments = BASE_ARGS | {
+            "AUTO_MEMORIES": "0",
+            "CORE_AREA": PLAN["macros"][block]["CORE_AREA"],
+            "DIE_AREA": PLAN["macros"][block]["DIE_AREA"],
+        },
+        pdk = "//flow:asap7",
+        sources = {
+            "IO_CONSTRAINTS": ["//test/planned_parent:plan/%s_pins.tcl" % block],
+            "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
+            "SDC_FILE": [":constraints.sdc"],
+        },
+        tags = ["manual"],
+        verilog_files = ["//test/planned_parent:blocks.sv"],
+    )
+    for block in BLOCKS
+]
+
+toy_parent_macro(PLAN, BLOCKS)

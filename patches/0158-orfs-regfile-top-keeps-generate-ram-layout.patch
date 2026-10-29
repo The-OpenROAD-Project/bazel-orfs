@@ -1,0 +1,241 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] memories: a register file's own flow keeps generate_ram's layout
+
+A register file built as a macro of its own -- a flow whose top is an
+AUTO_MEMORIES_REGFILES module, inlined so synthesis sees its registers
+for the SDC -- threw generate_ram's layout away: global placement placed
+every cell of the generated netlist again, the array core included
+(XiangShan's RenameBufferFile: 12-15 min of global placement), and an
+improvement to generate_ram's layout never reached the flow.
+
+Such a flow now keeps it. With CORE_UTILIZATION, the floorplan is the
+shape of generate_ram's outline (memories/<m>_ram.odb), as large as the
+outline plus room for the cells synthesis added at CORE_UTILIZATION,
+rounded up to the rows' grid (regfile_top_core). After tap cells, every
+cell generate_ram placed is placed FIRM where it placed it, the array in
+the middle of the core, and the tap and end cells tapcell put over the
+array go (regfile_place_top). A cell synthesis removed, or one resized
+since that no longer fits its slot, is left to global placement. A flow
+with DIE_AREA and CORE_AREA (a planned outline) keeps its own floorplan
+and is placed the same way; an array that does not fit its core stops
+the flow (FLW-41).
+
+On a 64 x 256 register file (bazel-orfs test/regfile/macro), 66,320 of
+66,700 cells keep their place and global placement moves 380.
+
+Not upstreamed: on 0089, carried with it. Retires at a //:bump onto an
+ORFS that carries it.
+---
+  flow/scripts/floorplan.tcl     |  22 ++++--
+  flow/scripts/regfile_place.tcl | 154 +++++++++++++++++++++++++++++++++++++++++
+  flow/scripts/tapcell.tcl       |   4 ++
+  3 files changed, 175 insertions(+), 5 deletions(-)
+
+diff --git a/flow/scripts/floorplan.tcl b/flow/scripts/floorplan.tcl
+index 67b5b16..4603ee0 100644
+--- a/flow/scripts/floorplan.tcl
++++ b/flow/scripts/floorplan.tcl
+@@ -80,11 +80,23 @@ if { $use_floorplan_def } {
+     {*}$additional_args
+   # Method 4: Calculate core area from utilization, aspect ratio, and margins
+ } elseif { $use_core_utilization } {
+-  log_cmd initialize_floorplan -utilization $::env(CORE_UTILIZATION) \
+-    -aspect_ratio $::env(CORE_ASPECT_RATIO) \
+-    -core_space $::env(CORE_MARGIN) \
+-    -site $::env(PLACE_SITE) \
+-    {*}$additional_args
++  source $::env(SCRIPTS_DIR)/regfile_place.tcl
++  set regfile [regfile_top]
++  if { $regfile ne "" } {
++    # an inlined register file's own flow: the core the shape of
++    # generate_ram's layout, which tapcell.tcl places in it
++    lassign [regfile_top_core $regfile] die core
++    log_cmd initialize_floorplan -die_area $die \
++      -core_area $core \
++      -site $::env(PLACE_SITE) \
++      {*}$additional_args
++  } else {
++    log_cmd initialize_floorplan -utilization $::env(CORE_UTILIZATION) \
++      -aspect_ratio $::env(CORE_ASPECT_RATIO) \
++      -core_space $::env(CORE_MARGIN) \
++      -site $::env(PLACE_SITE) \
++      {*}$additional_args
++  }
+ } else {
+   puts "Error: No floorplan initialization method specified"
+   exit 1
+diff --git a/flow/scripts/regfile_place.tcl b/flow/scripts/regfile_place.tcl
+new file mode 100644
+index 0000000..b29ad8e
+--- /dev/null
++++ b/flow/scripts/regfile_place.tcl
+@@ -0,0 +1,154 @@
++# A register file inlined (AUTO_MEMORIES_REGFILES, not in
++# AUTO_MEMORIES_MACRO_PLACE) in a flow whose top is its own module -- a
++# register file built as a macro of its own -- keeps generate_ram's
++# layout. Synthesis read its netlist inlined, so every register is there
++# for the SDC; the floorplan is sized to generate_ram's outline
++# (regfile_top_core, from floorplan.tcl), and after tap cells every cell
++# of memories/<m>_ram.odb is placed FIRM where the generator laid it out
++# (regfile_place_top, from tapcell.tcl). Global placement places only
++# what synthesis added or resized since. An improvement to generate_ram's
++# layout is then the flow's, not undone by a global placement of its
++# netlist.
++
++# The flow's top module when it is an inlined register file, else "".
++proc regfile_top { } {
++  if { ![env_var_equals AUTO_MEMORIES 1] } {
++    return ""
++  }
++  set f $::env(RESULTS_DIR)/memories/inline.txt
++  if { ![file exists $f] } {
++    return ""
++  }
++  set fh [open $f r]
++  set inlined [regexp -all -inline {\S+} [read $fh]]
++  close $fh
++  if { [lsearch -exact $inlined $::env(DESIGN_NAME)] < 0 } {
++    return ""
++  }
++  return $::env(DESIGN_NAME)
++}
++
++# {die core} in um for an inlined register file's own flow: the core the
++# shape of generate_ram's outline, large enough for the outline plus the
++# cells synthesis added around it at CORE_UTILIZATION, rounded up to the
++# rows' grid with a site and two rows to spare, CORE_MARGIN around it.
++proc regfile_top_core { m } {
++  set results $::env(RESULTS_DIR)/memories
++  set db [odb::read_db NULL $results/${m}_ram.odb]
++  set gen [[$db getChip] getBlock]
++  set dbu [[[$db getChip] getBlock] getDbUnitsPerMicron]
++  set w [expr { double([[$gen getDieArea] dx]) / $dbu }]
++  set h [expr { double([[$gen getDieArea] dy]) / $dbu }]
++  # the core snaps to the rows' grid: whole sites, and an even number of
++  # rows so each keeps its orientation
++  set site [[lindex [$gen getRows] 0] getSite]
++  set sw [expr { double([$site getWidth]) / $dbu }]
++  set rh2 [expr { 2.0 * [$site getHeight] / $dbu }]
++  set gen_area 0.0
++  foreach inst [$gen getInsts] {
++    set master [$inst getMaster]
++    set gen_area [expr { $gen_area + double([$master getWidth]) * [$master getHeight] }]
++  }
++  odb::dbDatabase_destroy $db
++  set area 0.0
++  foreach inst [[ord::get_db_block] getInsts] {
++    set master [$inst getMaster]
++    set area [expr { $area + double([$master getWidth]) * [$master getHeight] }]
++  }
++  set extra [expr { max(0.0, $area - $gen_area) / $dbu / $dbu }]
++  set scale [expr { sqrt(1.0 + $extra / ($::env(CORE_UTILIZATION) / 100.0) / ($w * $h)) }]
++  set cw [expr { (ceil($w * $scale / $sw) + 1) * $sw }]
++  set ch [expr { (ceil($h * $scale / $rh2) + 1) * $rh2 }]
++  set m0 [lindex $::env(CORE_MARGIN) 0]
++  return [list \
++    [list 0 0 [expr { $cw + 2 * $m0 }] [expr { $ch + 2 * $m0 }]] \
++    [list $m0 $m0 [expr { $m0 + $cw }] [expr { $m0 + $ch }]]]
++}
++
++# Every cell generate_ram placed, FIRM where it placed it, the array in
++# the middle of the core on the rows' grid; the tap and end cells tapcell
++# put over it go, the array has its own. A cell synthesis removed, or one
++# resized since that no longer fits its slot, is left to placement.
++proc regfile_place_top { } {
++  set m [regfile_top]
++  if { $m eq "" } {
++    return
++  }
++  set block [ord::get_db_block]
++  set results $::env(RESULTS_DIR)/memories
++
++  # the wrapper's instance of the generated RAM: its cells' prefix
++  set fh [open $results/$m.v r]
++  set wrapper [read $fh]
++  close $fh
++  if { ![regexp "\\m${m}_ram\\s+(\\S+)\\s*\\(" $wrapper -> ram_inst] } {
++    utl::error FLW 40 "regfile_place: no ${m}_ram instance in $results/$m.v"
++  }
++  set prefix "${ram_inst}."
++
++  set db [odb::read_db NULL $results/${m}_ram.odb]
++  set gen [[$db getChip] getBlock]
++  set gdie [$gen getDieArea]
++
++  # a site wide, two rows high, so each row keeps its orientation
++  set row [lindex [$block getRows] 0]
++  set site [$row getSite]
++  set sw [$site getWidth]
++  set rh [$site getHeight]
++  lassign [$row getOrigin] rx ry
++  set core [$block getCoreArea]
++  set ox [expr { $rx + (([$core dx] - [$gdie dx]) / 2) / $sw * $sw }]
++  set oy [expr { $ry + (([$core dy] - [$gdie dy]) / 2) / (2 * $rh) * (2 * $rh) }]
++  if { $ox < [$core xMin] || $oy < [$core yMin]
++       || $ox + [$gdie dx] > [$core xMax] || $oy + [$gdie dy] > [$core yMax] } {
++    utl::error FLW 41 "regfile_place: $m's array, [$gdie dx] x [$gdie dy] dbu, does not fit the core, [$core dx] x [$core dy]"
++  }
++
++  set x1 [expr { $ox + [$gdie dx] }]
++  set y1 [expr { $oy + [$gdie dy] }]
++  set removed 0
++  foreach inst [$block getInsts] {
++    set type [[$inst getMaster] getType]
++    if { $type ne "CORE_WELLTAP" && ![string match ENDCAP* $type] } {
++      continue
++    }
++    set b [$inst getBBox]
++    if { [$b xMax] > $ox && [$b xMin] < $x1 && [$b yMax] > $oy && [$b yMin] < $y1 } {
++      odb::dbInst_destroy $inst
++      incr removed
++    }
++  }
++
++  set placed 0
++  set missing 0
++  set resized 0
++  foreach g [$gen getInsts] {
++    if { ![$g isPlaced] } {
++      continue
++    }
++    set inst [$block findInst $prefix[$g getName]]
++    if { $inst eq "NULL" } {
++      incr missing
++      continue
++    }
++    if { [[$inst getMaster] getName] ne [[$g getMaster] getName] } {
++      incr resized
++      continue
++    }
++    lassign [$g getLocation] x y
++    $inst setOrient [$g getOrient]
++    $inst setLocation [expr { $ox + $x - [$gdie xMin] }] [expr { $oy + $y - [$gdie yMin] }]
++    $inst setPlacementStatus FIRM
++    incr placed
++  }
++  odb::dbDatabase_destroy $db
++  set left 0
++  foreach inst [$block getInsts] {
++    if { ![$inst isPlaced] } {
++      incr left
++    }
++  }
++  puts "regfile_place: $m, $placed cells where generate_ram placed them,\
++    $removed tap and end cells under them removed, $missing gone in\
++    synthesis, $resized resized since, $left left to placement"
++}
+diff --git a/flow/scripts/tapcell.tcl b/flow/scripts/tapcell.tcl
+index 94620cb..aff6219 100644
+--- a/flow/scripts/tapcell.tcl
++++ b/flow/scripts/tapcell.tcl
+@@ -10,6 +10,10 @@ if { [env_var_exists_and_non_empty TAPCELL_TCL] } {
+   cut_rows
+ }
+ 
++# an inlined register file's own flow keeps generate_ram's layout
++source $::env(SCRIPTS_DIR)/regfile_place.tcl
++regfile_place_top
++
+ source_step_tcl POST TAPCELL
+ 
+ report_design_area

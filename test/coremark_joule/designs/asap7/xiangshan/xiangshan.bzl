@@ -10,6 +10,7 @@ name from their abstracts.
 """
 
 load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_headroom", "orfs_run")
+load("//tools/carve:parent_macro.bzl", "parent_macro_flow")
 
 # Read by anneal_in_flow.tcl, not by ORFS: bypass the variables.yaml
 # validator, and scoped to the floorplan so a knob edit re-runs the
@@ -1102,12 +1103,13 @@ def _user_stages(user_arguments, user_sources):
 XS_BLOCK_DEFAULT = dict(XS_BLOCKS["Bpu"], arguments = {k: v for k, v in XS_BLOCKS["Bpu"]["arguments"].items() if k != "SYNTH_KEEP_MODULES"})
 
 # Placement density per block where the default spreads it too thin.
-# MemBlock is ~37 % utilised with every pin on one edge: at 0.6 the
-# dcache's port-less flop arrays drift to the empty far side and its worst
-# path crosses the die twice; at 0.8 its period is 1,696 ps against 1,815,
-# at 0.9 2,217 (over-packed). Place stage, dirty lane.
+# The dcache's port-less flop arrays drift to the empty far side at 0.6,
+# and its worst path crosses the die twice. Measured inside MemBlock (~37 %
+# utilised, every pin on one edge): at 0.8 its period was 1,696 ps against
+# 1,815, at 0.9 2,217 (over-packed). Place stage, dirty lane; carried to
+# DCacheWrapper when MemBlock was carved into its children.
 XS_PLACE_DENSITY = {
-    "MemBlock": "0.8",
+    "DCacheWrapper": "0.8",
 }
 
 # The annealer's channel between facing macros, per block where the default
@@ -1158,9 +1160,25 @@ def _regfile_macro(spec, made, tags, outlines = {}, variant = None, pins = {}):
             arguments = size | {
                 "ASAP7_USE_VT": XS_VT,
                 "AUTO_MEMORIES": "1",
+                # repair's buffers go in the gaps of generate_ram's locked
+                # array: on RobEntryFile the negotiation legalizer left 83
+                # violations after 209 s, the diamond legalizer none in 7 s
+                "DETAIL_PLACEMENT_ARGS": XS_REGFILE_DPL_ARGS.get(module, "-use_diamond_legalizer"),
                 "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
+                # generate_ram's layout is kept (ORFS patch 0158): global
+                # placement places only what synthesis added around it
+                "GPL_ROUTABILITY_DRIVEN": "0",
+                "GPL_TIMING_DRIVEN": "0",
                 "PLACE_DENSITY": "0.6",
+                # the abstract is written at global route; nothing here
+                # is detail-routed
+                "SKIP_PIN_ACCESS": "1",
+                # the blocks' turnaround settings: the metrics report cost
+                # 43 of detailed placement's 51 s on a 66k-cell register file
+                "SKIP_LAST_GASP": "1",
+                "SKIP_REPORT_METRICS": "1",
                 "SYNTH_HDL_FRONTEND": "slang",
+                "TNS_END_PERCENT": "1",
             },
             pdk = "//flow:asap7",
             sources = {
@@ -1272,6 +1290,34 @@ def _pins_after(name, variant, tags):
 # macro's BLOCK grid, so only the row and pin clearance
 _REGFILE_MARGIN_UM = 2.0
 
+# A block's register file whose own core, sized by ORFS patch 0158 from
+# generate_ram's outline and the few cells synthesis adds, leaves no room
+# for repair: an outline of its own, the floorplan's core a tenth larger
+# in area. FtqMetaQueueRedirect's core was 148.1 x 70.5 um, 83 % fixed
+# array, and detailed placement at CTS failed on the 32 slew buffers
+# repair added (DPL-0036).
+XS_REGFILE_OUTLINE_UM = {
+    "FtqMetaQueueRedirect": {"w_um": 159.4, "h_um": 78.0},
+}
+
+# A register file whose legaliser needs to look further than its default
+# window. VfRegFile's array is FIRM over half of a 131 x 558 um core, and
+# repair_design's 22,052 buffers include 2,474 the diamond search could
+# not seat within +/- 100 rows (DPL-0036); searching the whole core (the
+# window is in um) seats them, in 742 s. Spare sites in the array
+# (generate_ram's -service_columns) are the fix that should replace it.
+XS_REGFILE_DPL_ARGS = {
+    "VfRegFile": "-use_diamond_legalizer -max_displacement {200 600}",
+}
+
+# The kept modules on the way from XSTile to a block, which the parent
+# macro's evert inlines: XSCore holds Frontend, MemBlock and Backend,
+# Frontend the Bpu, Ftq and ICache, MemBlock the dcache, the PTW, the load
+# and store queues, the store buffer, the prefetcher and Uncache, Backend
+# the float and vector regions and CtrlBlock, CtrlBlock the Rob and
+# MemCtrl, L2Top the CoupledL2.
+_ABOVE_BLOCKS = ["Backend", "CtrlBlock", "Frontend", "L2Top", "MemBlock", "XSCore"]
+
 def _regfiles(own_sources, keep, blocks):
     """The generated register files a planned flow hardens: its own, plus
     those of every block of the old table whose module it now keeps (the
@@ -1289,6 +1335,12 @@ def _regfiles(own_sources, keep, blocks):
 # this is a synthesis-onward setting: set on a later stage alone it reads the
 # extra liberty and adds no masters (.claude/skills/byo-openroad).
 XS_VT = "RVT LVT SLVT"
+
+# Global placement, timing- and routability-driven, is most of a big
+# block's floorplan-to-grt time (MemBlock: 74 of 160 min). Off while the
+# carve is being developed, for turnaround; "1" to take numbers: periods
+# and crossings quoted from a build with it off are not the flow's.
+XS_GPL_DRIVEN = "0"
 
 def _planned_block(cfg, entry, plan_dir, block, blocks):
     """A block flow's arguments and sources under the plan: planned outline,
@@ -1322,6 +1374,8 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
         arguments["PLACE_DENSITY"] = XS_PLACE_DENSITY[block]
     arguments["OPENROAD_HIERARCHICAL"] = "1"
     arguments["ASAP7_USE_VT"] = XS_VT
+    arguments["GPL_TIMING_DRIVEN"] = XS_GPL_DRIVEN
+    arguments["GPL_ROUTABILITY_DRIVEN"] = XS_GPL_DRIVEN
     sources = dict(cfg["sources"])
 
     # the block's register files are macros of their own (_regfile_macro)
@@ -1425,7 +1479,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             # flow put them, so the variant's parent reads the base flow's
             continue
         planned.append(block)
-        regfiles = [_regfile_macro(m, made, tags, variant = variant, pins = pins) for m in modules]
+        regfiles = [_regfile_macro(m, made, tags, XS_REGFILE_OUTLINE_UM, variant = variant, pins = pins) for m in modules]
         if block in places:
             # the macros where the pin plan's placement put them, so the
             # planned pins face their logic
@@ -1473,6 +1527,8 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     arguments["DIE_AREA"] = plan["parent"]["DIE_AREA"]
     arguments["CORE_AREA"] = plan["parent"]["CORE_AREA"]
     arguments["ASAP7_USE_VT"] = XS_VT
+    arguments["GPL_TIMING_DRIVEN"] = XS_GPL_DRIVEN
+    arguments["GPL_ROUTABILITY_DRIVEN"] = XS_GPL_DRIVEN
 
     # the diamond search: the negotiation legalizer ran past 5 h
     # after CTS on take 19 (ideas, entry 5). At its default 27 um
@@ -1529,6 +1585,19 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     # are the block's own
     parent_keep = " ".join([k for k in arguments.get("SYNTH_KEEP_MODULES", "").split(" ") if k and k not in macros])
 
+    # the parent macro cuts its blocks out of the top's synthesis partition,
+    # where a kept module is a blackbox: the modules above a block
+    # (//tools/carve:evert.tcl inlines them) are not kept there
+    # nor the modules a block keeps for itself: inside a block, they are
+    # inside a blackbox here, and no partition of the parent's finds them
+    inside_blocks = {}
+    for b in macros:
+        for k in (plan["macros"][b].get("SYNTH_KEEP_MODULES", "") + " " +
+                  blocks.get(b, XS_BLOCK_DEFAULT)["arguments"].get("SYNTH_KEEP_MODULES", "")).split(" "):
+            if k:
+                inside_blocks[k] = True
+    parent_macro_keep = " ".join([k for k in parent_keep.split(" ") if k and k not in _ABOVE_BLOCKS and k not in inside_blocks])
+
     # the parent's register files are macros of their own (_regfile_macro)
     outlines = {n["module"]: n for n in plan["parent"].get("netlists", [])}
     parent_modules = _regfiles(parent["sources"], parent_keep, blocks)
@@ -1584,8 +1653,66 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         if variant in _PIN_PLAN_NEXT:
             _pin_plan(name, "grt", [m.split(":")[-1].removesuffix(".regfile") for m in parent_modules], tags, _PIN_PLAN_STAGES[_PIN_PLAN_NEXT[variant]][0], variant)
         return
+
+    # the tile's kept modules, its blocks' left out: each its own
+    # partition, as in the tile's own synthesis
+    parent_arguments = {k: v for k, v in arguments.items() if k not in ["SYNTH_KEEP_MODULES", "SYNTH_NUM_PARTITIONS"]} | {
+        "MAX_ROUTING_LAYER": "M7",
+        "SYNTH_KEEP_MODULES": parent_macro_keep,
+    }
+    parent_sources = {k: v for k, v in sources.items() if k not in ["IO_CONSTRAINTS", "MACRO_PLACEMENT_TCL"]}
+
+    # the parent as a macro: built beside its blocks from the plan alone,
+    # checked flat with them by a top level that dissolves them all
+    # (//tools/carve:parent_macro.bzl). It routes to M7; M8 and M9 are
+    # the top level's, for the clock tree it builds over every register.
+    parent_macro_flow(
+        name = name,
+        arguments = parent_arguments,
+        blocks = {b: {"abstract": _abstract(b, None), "grt": ":%s_grt" % b} for b in macros},
+        macros = parent_regfiles,
+        place_macros = ":%s/place_macros.tcl" % plan_dir,
+        plan = plan,
+        plan_pins = {b: ":%s/%s_pins.tcl" % (plan_dir, b) for b in macros},
+        sources = parent_sources,
+        tags = tags,
+        top = name,
+        top_arguments = {
+            # the masters of every macro it dissolves (ODB-1221)
+            "ASAP7_USE_VT": XS_VT,
+            "MAX_ROUTING_LAYER": "M9",
+            "MIN_ROUTING_LAYER": "M2",
+        },
+        top_level_arguments = {
+            # as the blocks: no pin access (DRT-0073 on generated macro
+            # pins), so guides end at pin shape centres
+            "SKIP_PIN_ACCESS": "1",
+        },
+        top_level_user_arguments = {
+            # 49 clock buffers on XSTile's top level sat further than the
+            # default from a legal site (DPL-0036)
+            "TOP_DPL_ARGS": "-max_displacement {450 450}",
+        },
+        top_sources = {
+            # the parent's own: its macro grid's halo is the rows' (the
+            # platform default's 1.9 um met the blocks' register files'
+            # uncut rows, PDN-0008)
+            "PDN_TCL": sources["PDN_TCL"],
+            "SDC_FILE": ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"],
+        },
+        user_arguments = XS_ICG_USER_ARGUMENTS,
+        user_sources = XS_ICG_USER_SOURCES,
+        user_stages = _user_stages(XS_ICG_USER_ARGUMENTS, XS_ICG_USER_SOURCES),
+        variant = "parent",
+        verilog_files = XS_VERILOG,
+    )
     _pin_plans(name, [m.split(":")[-1].removesuffix(".regfile") for m in parent_modules], tags)
     _kpi(name, "grt", arguments, sources, tags)
+
+    # the parent macro's own reg2reg paths, a macro like any block
+    # (XSTile_parent_kpi); the paths between macros are the top level's
+    # crossing report
+    _kpi(name, "grt", parent_arguments, parent_sources, tags, variant = "parent")
     _sta_part(name, arguments, sources, tags)
     parts = [name] + list(macros)
 
@@ -1624,7 +1751,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         parent = name,
         parent_stage = ":%s_grt" % name,
         blocks = {b: ":%s_grt" % b for b in macros},
-        # the goal; the SDC's 473 ps makes nearly every endpoint violate
+        # the goal, and the SDC's period
         target = 2000,
         tags = tags,
     )

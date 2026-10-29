@@ -15,6 +15,15 @@ proc cells_out_of_blocks {} {
       lappend boxes [list [$b xMin] [$b yMin] [$b xMax] [$b yMax]]
     }
   }
+  # A parent macro's holes (tools/carve/parent_holes.tcl) are hard
+  # blockages with the rows cut, not instances: XSTile_parent's resizer
+  # left 7,105 cells in them, 3,967 deeper than 100 um.
+  foreach blockage [$block getBlockages] {
+    if { ![$blockage isSoft] } {
+      set b [$blockage getBBox]
+      lappend boxes [list [$b xMin] [$b yMin] [$b xMax] [$b yMax]]
+    }
+  }
   set moved 0
   foreach inst [$block getInsts] {
     if { [[$inst getMaster] isBlock] || [$inst getPlacementStatus] ne "PLACED" } { continue }

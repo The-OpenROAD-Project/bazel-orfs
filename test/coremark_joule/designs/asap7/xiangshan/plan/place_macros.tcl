@@ -2,13 +2,46 @@
 # by its master and placed R0 with -exact (mpl's snapper would move the
 # origin off the pin lattice the plan put it on).
 set block [ord::get_db_block]
-foreach {master x y} {
-  FltRegionModule 31.392 226.800
-  VecRegionModule 589.680 32.400
-  CoupledL2 1313.856 86.400
-  Frontend 194.832 1708.560
-  MemBlock 1033.056 1777.680
-} {
+# A macro built larger than the plan's outline is placed where the plan
+# made room for the planned one: it overlaps a neighbour, and place_macro
+# blames the neighbour (MPL-0041). Stop here, naming both. A smaller one
+# fits the room (a register file generate_ram sizes, for one).
+proc plan_check_size { what inst w h } {
+  set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
+  set master [$inst getMaster]
+  set bw [expr { double([$master getWidth]) / $dbu }]
+  set bh [expr { double([$master getHeight]) / $dbu }]
+  foreach {built planned} [list $bw $w $bh $h] {
+    if { $built - $planned > max(1.0, 0.005 * $planned) } {
+      utl::error FLW 3 [format "plan: %s is %.3f x %.3f um as built, larger than the %.3f x %.3f um the plan made room for; build it to the plan's outline or regenerate the plan" $what $bw $bh $w $h]
+    }
+  }
+}
+# A parent built as a macro (//tools/carve) has holes where the blocks
+# go, at the top level: PLAN_BLOCKS_ELSEWHERE skips them here.
+set plan_blocks {
+  CoupledL2 533.520 41.040 861.840 861.840
+  VecRegionModule 1436.400 82.080 820.800 820.800
+  FltRegionModule 2298.240 205.200 697.680 697.680
+  Rob 3036.960 328.320 615.600 574.560
+  MemCtrl 3693.600 656.640 246.240 246.240
+  Bpu 41.040 1436.400 615.600 615.600
+  Ftq 697.680 1436.400 574.560 574.560
+  DCacheWrapper 1313.280 1436.400 492.480 492.480
+  ICache 1846.800 1436.400 328.320 328.320
+  L2TLBWrapper 2216.160 1436.400 328.320 328.320
+  LoadQueueReplay 2585.520 1436.400 328.320 328.320
+  PhysicalStoreQueue 2954.880 1436.400 287.280 287.280
+  Sbuffer 3283.200 1436.400 246.240 246.240
+  PrefetcherWrapper 3570.480 1436.400 205.200 205.200
+  LoadQueueRAW 3816.720 1436.400 164.160 164.160
+  Uncache 4021.920 1436.400 164.160 164.160
+  LoadQueueRAR 4227.120 1436.400 164.160 164.160
+  VirtualStoreQueue 4432.320 1436.400 164.160 164.160
+  VirtualLoadQueue 4637.520 1436.400 123.120 123.120
+}
+if { [info exists ::env(PLAN_BLOCKS_ELSEWHERE)] } { set plan_blocks {} }
+foreach {master x y w h} $plan_blocks {
   set insts {}
   foreach inst [$block getInsts] {
     if { [[$inst getMaster] getName] eq $master } { lappend insts $inst }
@@ -16,6 +49,7 @@ foreach {master x y} {
   if { [llength $insts] != 1 } {
     utl::error FLW 1 "plan: $master has [llength $insts] instances, the plan places one"
   }
+  plan_check_size $master [lindex $insts 0] $w $h
   place_macro -macro_name [[lindex $insts 0] getName] -location [list $x $y] -orientation R0 -exact
   [lindex $insts 0] setPlacementStatus FIRM
   puts "place_macros.tcl: $master at $x $y um, R0"
@@ -38,8 +72,8 @@ set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
 set core [$block getCoreArea]
 set bands 0
 foreach {lo hi} {
-  32.400 745.804
-  1777.680 2617.729
+  41.040 902.880
+  1436.400 2052.000
 } {
   set bl [odb::dbBlockage_create $block [$core xMin] [expr { int($lo * $dbu) }] [$core xMax] [expr { int($hi * $dbu) }]]
   $bl setSoft
@@ -51,18 +85,30 @@ puts "place_macros.tcl: $bands soft placement blockage(s) over the blocks' bands
 # where the plan put it; they dissolve into their cells after it. The
 # macro is the instance itself, or generate_ram's RAM, ram, inside the
 # wrapper that takes the module's place.
-foreach {inst x y} {
-  core/backend/inner_ctrlBlock/rob/robEntryFile 1566.808 1038.745
-  core/backend/inner_intRegion/intDataPath/intRegFile 116.000 1147.500
-  core/backend/inner_ctrlBlock/rob/rab/renameBuffer 809.748 1465.268
+foreach {inst x y w h} {
+  core/backend/inner_intRegion/intDataPath/intRegFile 146.684 1104.055 344.632 248.620
 } {
-  foreach name [list $inst $inst/ram $inst.ram] {
+  set names [list $inst $inst/ram $inst.ram]
+  foreach name $names {
     set i [$block findInst $name]
     if { $i ne "NULL" } { break }
+  }
+  # A kept module's instance name can hold the divider escaped, as
+  # core\/backend\/inner_intRegion/intDataPath/intRegFile: the plan
+  # writes the path unescaped, so compare the macros' names without the
+  # escapes.
+  if { $i eq "NULL" } {
+    foreach m [$block getInsts] {
+      if { [[$m getMaster] isBlock] && [string map {\\ ""} [$m getName]] in $names } {
+        set i $m
+        break
+      }
+    }
   }
   if { $i eq "NULL" } {
     utl::error FLW 2 "plan: no register file instance $inst"
   }
+  plan_check_size "register file $inst" $i $w $h
   place_macro -macro_name [$i getName] -location [list $x $y] -orientation R0 -exact
   $i setPlacementStatus FIRM
   puts "place_macros.tcl: register file $inst at $x $y um, R0"

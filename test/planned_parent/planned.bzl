@@ -37,6 +37,13 @@ def mini_planned_flow(rtl, files, macro_files = []):
             arguments = BASE_ARGS | {
                 "AUTO_MEMORIES": "1",
                 "CORE_UTILIZATION": "40",
+                # generate_ram's array is fixed where it put it (ORFS patch
+                # 0158): global placement moves 8 of FileM's 692 cells, and
+                # diverges (GPL-0305) timing- or routability-driven, or at
+                # density 0.5; at 0.65 it does not
+                "GPL_ROUTABILITY_DRIVEN": "0",
+                "GPL_TIMING_DRIVEN": "0",
+                "PLACE_DENSITY": "0.65",
             },
             pdk = "//flow:asap7",
             sources = {

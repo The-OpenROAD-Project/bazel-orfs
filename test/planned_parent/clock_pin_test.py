@@ -56,8 +56,11 @@ class ClockPinTest(unittest.TestCase):
             with self.subTest(block=block):
                 self.assertEqual(pre_tree, 0.0, "no tree before the block's CTS")
                 self.assertGreater(cts_tree, 0.0, "the tree's insertion delay")
+                # a root buffer's input and the wire from the die edge to
+                # it: on the gcell-aligned plan's 82 um BlockD, 12.9 fF of
+                # a whole net's 83.5
                 self.assertLess(
-                    cts_cap * 10,
+                    cts_cap * 5,
                     pre_cap,
                     "one buffer input, not the whole clock net",
                 )

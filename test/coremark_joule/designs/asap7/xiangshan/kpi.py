@@ -17,6 +17,15 @@ tree (rows up to 2026-10-14 read the blocks at their place stage,
 against an ideal clock). A run that
 did not measure the blocks gives only a lower bound, drawn hollow.
 
+A carved run (the parent as a macro, README "The parent as a macro") has
+no parent_ps: the parent macro is a part in `blocks` like any block
+(`XSTile_parent_kpi`), and top_ps, the Top series, is the worst path of
+the top level's crossing report (`XSTile_parent_pm_crossings`), every
+register-to-register path not contained in one macro. The report lists
+only the paths over its budget, the goal: with none, top_ps is the goal
+and `top_below` says the Top is under it. `--top crossing.txt` records
+both, and the report's paths as the Top's histogram, in the last run.
+
 The table's floor column is the parent's one-flop-loop floor at global
 route (tools/headroom/report_floor_cycles.tcl), where a run measured it:
 the worst path from a register back to itself, which no clock skew or
@@ -95,8 +104,33 @@ WORST_END = "<!-- kpi-worst end -->"
 
 
 def design_ps(run):
-    """The design is as fast as its slowest part: the parent or a block."""
-    return max([run["parent_ps"]] + list(run.get("blocks", {}).values()))
+    """The design is as fast as its slowest part: the parent, the Top (the
+    paths between macros) or a block."""
+    tops = [run[k] for k in ("parent_ps", "top_ps") if k in run]
+    return max(tops + list(run.get("blocks", {}).values()))
+
+
+def read_top(text, bin_ps=10):
+    """crossing_report.py's crossing.txt: the worst path's need, rounded
+    up, and the paths in bin_ps bins as kpi_run.tcl writes a histogram.
+    None when no path is over the report's budget."""
+    needs = [
+        float(line.split()[0])
+        for line in text.splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+    if not needs:
+        return None
+    bins = [int(n // bin_ps) for n in needs]
+    lo = min(bins)
+    counts = [0] * (max(bins) - lo + 1)
+    for b in bins:
+        counts[b - lo] += 1
+    return -int(-max(needs) // 1), {
+        "bin_ps": bin_ps,
+        "from_ps": lo * bin_ps,
+        "counts": counts,
+    }
 
 
 def block_names(runs):
@@ -134,9 +168,24 @@ def draw(runs, target, out):
             zorder=2,
             label=name,
         )
+    # the Top: the worst path between macros of a carved run
+    pts = [(x, r["top_ps"]) for x, r in zip(xs, drawn) if "top_ps" in r]
+    if pts:
+        ax.plot(
+            [p[0] for p in pts],
+            [p[1] for p in pts],
+            "^--",
+            color="0.1",
+            lw=1.2,
+            ms=7,
+            # above the design's dot, which it usually is
+            zorder=6,
+            label="Top",
+        )
+    pts = [(x, r["parent_ps"]) for x, r in zip(xs, drawn) if "parent_ps" in r]
     ax.plot(
-        xs,
-        [r["parent_ps"] for r in drawn],
+        [p[0] for p in pts],
+        [p[1] for p in pts],
         "o--",
         color="0.3",
         lw=1.2,
@@ -176,6 +225,9 @@ def draw(runs, target, out):
             markerfacecolor="firebrick" if r.get("blocks") else "white",
         )
     ax.axhline(target, color="black", ls=":", lw=1.5, label="target")
+    ax.axhline(
+        GOAL_PS, color="firebrick", ls=":", lw=1.2, label=f"goal, {GOAL_PS:,} ps"
+    )
 
     ax.set_ylim(0, max(design) * 1.08)
     ax.set_xlim(0.5, len(drawn) + 0.5)
@@ -352,7 +404,7 @@ def draw_hist(runs, out, width=HIST_BIN_PS, log=False):
     else:
         hists = with_hist[-1]["histograms"]
         worst = with_hist[-1].get("worst_paths", {})
-        parts = [p for p in ["parent"] + block_names(runs) if p in hists]
+        parts = [p for p in ["Top", "parent"] + block_names(runs) if p in hists]
         parts += sorted(set(hists) - set(parts))
     rebinned = {p: rebin(hists[p], width) for p in parts}
     lo = min(min(r) for r in rebinned.values())
@@ -370,7 +422,8 @@ def draw_hist(runs, out, width=HIST_BIN_PS, log=False):
             bottom=bottom,
             align="edge",
             color=GROUP_COLORS.get(part)
-            or ("0.3" if part == "parent" else BLOCK_COLORS.get(part, OTHER_COLOR)),
+            or {"parent": "0.3", "Top": "0.1"}.get(part)
+            or BLOCK_COLORS.get(part, OTHER_COLOR),
             label=legend(part, hists[part], worst.get(part)),
         )
         bottom = [b + c for b, c in zip(bottom, counts)]
@@ -409,7 +462,7 @@ def table(runs):
     """The runs as a markdown table, the numbers the chart draws."""
     start = first_drawn(runs)
     names = block_names(runs)
-    head = ["#", "date", "design", "parent", "floor"] + names + ["change"]
+    head = ["#", "date", "design", "Top", "parent", "floor"] + names + ["change"]
     lines = ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
     for i, r in enumerate(runs):
         blocks = r.get("blocks", {})
@@ -418,7 +471,12 @@ def table(runs):
             str(i - start + 1) if i >= start else "not drawn",
             r["date"],
             ("%s" if blocks else "≥ %s") % design,
-            f"{r['parent_ps']:,}",
+            (
+                ("< %s" if r.get("top_below") else "%s") % f"{r['top_ps']:,}"
+                if "top_ps" in r
+                else ""
+            ),
+            f"{r['parent_ps']:,}" if "parent_ps" in r else "",
             f"{r['floor_ps']:,}" if "floor_ps" in r else "",
         ]
         cells += [f"{blocks[n]:,}" if n in blocks else "" for n in names]
@@ -518,6 +576,12 @@ def main():
         metavar=("KPI_FLAT_TXT", "KPI_FLAT_NOWIRE_TXT"),
         help="record <parent>_kpi_flat.txt and its _nowire twin in the last run, then draw",
     )
+    ap.add_argument(
+        "--top",
+        metavar="CROSSING_TXT",
+        help="record the top level's crossing report (crossing.txt) as the "
+        "last run's Top, then draw",
+    )
     args = ap.parse_args()
     path = os.path.join(HERE, "kpi.json")
     with open(path) as f:
@@ -526,7 +590,16 @@ def main():
         run = d["runs"][-1]
         with open(args.flat[0]) as f, open(args.flat[1]) as g:
             run["flat"] = read_flat(f.read(), g.read(), run.get("flat", {}))
-    if args.histograms or args.flat:
+    if args.top:
+        run = d["runs"][-1]
+        with open(args.top) as f:
+            top = read_top(f.read())
+        run.pop("top_below", None)
+        if top:
+            run["top_ps"], run.setdefault("histograms", {})["Top"] = top
+        else:
+            run["top_ps"], run["top_below"] = GOAL_PS, True
+    if args.histograms or args.flat or args.top:
         run = d["runs"][-1]
         hists = run.setdefault("histograms", {})
         worst = run.setdefault("worst_paths", {})

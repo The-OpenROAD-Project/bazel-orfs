@@ -277,8 +277,10 @@ a small last-level cache.
 In fanouts of four, 333 ps is 41.1 FO4 at the published ASAP7 RVT FO4 of
 8.1 ps, which the ASAP7 authors call realistic for industrial 7 nm. On
 the library this flow times with (RVT at the FF corner, FO4 14.37 ps)
-that is 591 ps at global route, and the SDC synthesises at 0.8 of it,
-473 ps (`period_fo4_test`). A cycle leaves about 38 FO4 of logic: the
+that is 591 ps at global route, and 0.8 of it, 473 ps, is the synthesis
+target (`period_fo4_test`). The SDC times at 2,000 ps, the carve
+campaign's target, so repair stops where the design is instead of chasing
+473 ps. A cycle leaves about 38 FO4 of logic: the
 flops on the paths below take 31 ps clock-to-output and 6 to 13 ps setup.
 
 Is the Chisel RTL congruent with that? Read at the source, the worst path
@@ -363,6 +365,71 @@ bazelisk run //test/coremark_joule/designs/asap7/xiangshan:XSTile_flat_grt gui_g
 `/cache-miss` asks whether a target is cached without building it: a
 capture never executes a flow action, a miss is killed as it appears and
 the build carries on, so a laptop can ask in minutes.
+
+## The parent as a macro
+
+The tile is carved so that no flow takes more than an hour or comes near
+the machine's memory: the 19 blocks the plan names (`plan/plan.json`),
+each through global route at its own outline, and the rest of the tile,
+`XSTile_parent`, a macro of the plan's die with a hole where each block
+sits (`tools/carve/parent_macro.bzl`). The top level, `XSTile_parent_pm`,
+checks them together: it places the parent and the blocks, dissolves
+every one into the cells and route guides of its own global route, and
+builds one clock tree over every register.
+
+```sh
+# the blocks and the parent, in waves that fit free memory, then the
+# top level through CTS, alone
+bazelisk run //test/coremark_joule/designs/asap7/xiangshan:build
+# the top level's global route, in the dirty lane
+bazelisk run //:dirty -- start --fresh //test/coremark_joule/designs/asap7/xiangshan:XSTile_parent_pm grt
+tmp/test/coremark_joule/designs/asap7/xiangshan/XSTile_parent_pm/make do-grt
+```
+
+Every block reaches global route in under an hour (`resources.json`);
+the slowest is Rob, about 50 minutes. The parent takes about two hours,
+most of it global placement.
+
+The top level reads the parent's LEF only (`XSTile_parent_abstract`):
+the parent's timing model, `XSTile_parent_timing_model`, is not on its
+path. The memories inside the dissolved macros reach it as one LEF and
+one library (`XSTile_parent_memories`, `tools/carve/merge_memories.py`).
+Every cell it has is fixed by its macro, so after its floorplan, which
+dissolves the macros, it is not ORFS's place, CTS and global route but
+one script, `XSTile_parent_pm_top` (`tools/carve/top_level.tcl`): one
+clock tree over every register, legalised by the diamond legaliser, and
+a global route that keeps every macro's routes and routes only the clock
+tree and the stitches (`-unguided_only`, patch 0159). The parent and the
+top level skip timing repair: the first flush through global route is
+for turnaround.
+
+`XSTile_parent_pm_crossings` lists every register-to-register path that
+is not contained in one macro and needs more than 2,000 ps, every cell
+on it by name: a macro's `.lib` gives one number at a pin, the dissolved
+top level the path. Timed whole the top level does not fit 62 GB, so it
+is timed in sets of macros (`tools/carve/crossing_*.tcl`, OpenROAD
+patch 0160): each set cut to the logic its paths can touch, written with
+its parasitics as SPEF and timed in a process of its own. On the toy
+(`test/parent_macro`) the sets report the paths the whole design does,
+slack for slack (`mini_top_parent_pm_crossing_test`).
+
+On XSTile, from a dirty lane with repair off and 4 of its 28 sets (the
+three largest and the smallest), 36,017 start and end pairs need more
+than 2,000 ps across 18 combinations of macros:
+
+| From | To | Through | Paths | Worst (ps) |
+| --- | --- | --- | ---: | ---: |
+| Rob | parent | - | 9,277 | 4,238 |
+| DCacheWrapper | parent | - | 8,186 | 2,943 |
+| parent | VecRegionModule | - | 7,997 | 3,619 |
+| parent | DCacheWrapper | - | 3,247 | 3,997 |
+| parent | FltRegionModule | - | 2,750 | 3,361 |
+| parent | parent | FltRegionModule | 1,543 | 2,957 |
+| parent | MemCtrl | - | 1,304 | 3,463 |
+| parent | parent | DCacheWrapper | 27 | 4,316 |
+
+`tools/carve/crossing_gui.tcl` serves one set in the web GUI, with a
+path group `crossing` that holds exactly these paths.
 
 ## Where the period is
 

@@ -17,12 +17,16 @@ proc plan_check_size { what inst w h } {
     }
   }
 }
-foreach {master x y w h} {
-  BlockA 20.304 41.040 54.000 54.000
-  BlockB 85.104 32.400 62.640 62.640
-  BlockC 26.784 190.080 51.840 51.840
-  BlockD 89.424 190.080 51.840 51.840
-} {
+# A parent built as a macro (//tools/carve) has holes where the blocks
+# go, at the top level: PLAN_BLOCKS_ELSEWHERE skips them here.
+set plan_blocks {
+  BlockB 41.040 41.040 82.080 82.080
+  BlockD 164.160 41.040 82.080 82.080
+  BlockA 41.040 246.240 82.080 82.080
+  BlockC 164.160 246.240 82.080 82.080
+}
+if { [info exists ::env(PLAN_BLOCKS_ELSEWHERE)] } { set plan_blocks {} }
+foreach {master x y w h} $plan_blocks {
   set insts {}
   foreach inst [$block getInsts] {
     if { [[$inst getMaster] getName] eq $master } { lappend insts $inst }
@@ -53,8 +57,8 @@ set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
 set core [$block getCoreArea]
 set bands 0
 foreach {lo hi} {
-  32.400 95.040
-  190.080 241.920
+  41.040 123.120
+  246.240 328.320
 } {
   set bl [odb::dbBlockage_create $block [$core xMin] [expr { int($lo * $dbu) }] [$core xMax] [expr { int($hi * $dbu) }]]
   $bl setSoft
@@ -67,13 +71,26 @@ puts "place_macros.tcl: $bands soft placement blockage(s) over the blocks' bands
 # macro is the instance itself, or generate_ram's RAM, ram, inside the
 # wrapper that takes the module's place.
 foreach {inst x y w h} {
-  u_filea 20.944 147.727 30.000 10.500
-  u_fileb 61.744 147.727 30.000 10.500
-  u_filec 102.544 147.727 30.000 10.500
+  u_filea 20.944 194.996 30.000 10.500
+  u_fileb 61.744 194.996 30.000 10.500
+  u_filec 102.544 194.996 30.000 10.500
 } {
-  foreach name [list $inst $inst/ram $inst.ram] {
+  set names [list $inst $inst/ram $inst.ram]
+  foreach name $names {
     set i [$block findInst $name]
     if { $i ne "NULL" } { break }
+  }
+  # A kept module's instance name can hold the divider escaped, as
+  # core\/backend\/inner_intRegion/intDataPath/intRegFile: the plan
+  # writes the path unescaped, so compare the macros' names without the
+  # escapes.
+  if { $i eq "NULL" } {
+    foreach m [$block getInsts] {
+      if { [[$m getMaster] isBlock] && [string map {\\ ""} [$m getName]] in $names } {
+        set i $m
+        break
+      }
+    }
   }
   if { $i eq "NULL" } {
     utl::error FLW 2 "plan: no register file instance $inst"
