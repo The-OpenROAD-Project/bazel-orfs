@@ -1,5 +1,5 @@
 load("@rules_python//python:defs.bzl", "py_binary")
-load(":toys.bzl", "array_toy")
+load(":toys.bzl", "array_toy", "ohsched_toy")
 
 # Array structures as toys, swept over depth and width, so the scope of
 # what a generator should build, and where it starts to pay, is known
@@ -47,4 +47,23 @@ KINDS = [
 [
     array_toy("agematrix", depth, 8)
     for depth in DEPTHS
+]
+
+# The ohsched toy (ohsched.py): a one-hot-addressed, broadcast-read,
+# bank-filled array, a scheduler's or issue queue's shape. Can
+# generate_ram's form beat yosys's flops on period, at no more area,
+# with faster synthesis? 32 entries of 32 bits, filled a bank at a time
+# or written by lanes. The two arms are co-simulated (seconds); the flows
+# are manual.
+py_binary(
+    name = "ohsched",
+    srcs = ["ohsched.py"],
+)
+
+[
+    ohsched_toy(kind, 32, 32)
+    for kind in [
+        "fill",
+        "lanes",
+    ]
 ]
