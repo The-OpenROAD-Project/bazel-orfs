@@ -283,6 +283,19 @@ class TestMain(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("AMBIGUOUS", out)
 
+    def test_a_group_whose_patches_are_all_clean_is_reported(self):
+        with tempfile.TemporaryDirectory() as root:
+            tree = self._workspace(root, PATCH)
+            with open(os.path.join(tree, "flow.bzl"), "w") as f:
+                f.write(DUPLICATED_CONTEXT.split("\n\n")[0])
+            code, out = self._run(root, "--tree", f"orfs={tree}")
+        self.assertEqual((code, out), (0, "CHECKED       orfs: 1 patches, 1 CLEAN\n"))
+
+    def test_a_patch_given_without_a_tree_names_the_flag(self):
+        with tempfile.TemporaryDirectory() as root:
+            code, out = self._run(root, "--tree", "orfs=tree", "--patch", "a.patch")
+        self.assertIn("SKIPPED       --patch: 1 patches, no --tree <path>", out)
+
     def test_a_patch_file_that_does_not_exist_fails(self):
         with tempfile.TemporaryDirectory() as root:
             tree = self._workspace(root, None)
@@ -317,7 +330,9 @@ class TestMain(unittest.TestCase):
             code, out = self._run(
                 root, "--tree", tree, "--patch", "1.patch", "--patch", "2.patch"
             )
-            self.assertEqual((code, out), (0, ""))
+            self.assertEqual(
+                (code, out), (0, "CHECKED       --patch: 2 patches, 2 CLEAN\n")
+            )
             code, out = self._run(root, "--tree", tree, "--patch", "2.patch")
         self.assertEqual(code, 1)
         self.assertIn("NEEDS_REBASE", out)
