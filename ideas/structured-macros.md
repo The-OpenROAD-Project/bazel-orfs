@@ -238,7 +238,9 @@ All extracted from the surgered core XSTile's flows read. ¹ The four
 side by side in under 6 min.
 
 Every extraction is proven twice, with the index kept and decoded, each
-with its negative control (`<top>_check_test`, `<top>_control_test`).
+with its negative control (`<top>_check_test`, `<top>_control_test`). The Rob's decoded
+form, 80 comparisons in eight per-bank decoders, proves directly in
+97 min (5,839 s) on the current extraction.
 Every flow is the block's
 with setup repair off (XSTile's ~2,000 ps), no pin access, and
 floorplan's repair_timing skipped.
