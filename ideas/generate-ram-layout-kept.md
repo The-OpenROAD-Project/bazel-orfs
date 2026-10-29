@@ -1,6 +1,6 @@
 # A register file's own flow keeps generate_ram's layout: what is left for generate_ram
 
-Status: **carried, follow-ups open.** ORFS patch 0158 keeps generate_ram's
+Status: **carried, follow-ups open.** ORFS patch 0162 keeps generate_ram's
 layout in a register file's own flow; the read path and pin access below
 are generate_ram's to improve, not a reason to place its netlist again.
 
@@ -16,7 +16,7 @@ reached the flow: tuning global placement on its netlist is a local optimum.
 
 ## Idea
 
-Keep the layout (patch 0158): the floorplan the shape of generate_ram's
+Keep the layout (patch 0162): the floorplan the shape of generate_ram's
 outline, every generated cell FIRM where generate_ram placed it, global
 placement left only what synthesis added or resized. Improve generate_ram
 where the kept layout is worse than global placement's.

@@ -38,7 +38,7 @@ def mini_planned_flow(rtl, files, macro_files = []):
                 "AUTO_MEMORIES": "1",
                 "CORE_UTILIZATION": "40",
                 # generate_ram's array is fixed where it put it (ORFS patch
-                # 0158): global placement moves 8 of FileM's 692 cells, and
+                # 0162): global placement moves 8 of FileM's 692 cells, and
                 # diverges (GPL-0305) timing- or routability-driven, or at
                 # density 0.5; at 0.65 it does not
                 "GPL_ROUTABILITY_DRIVEN": "0",

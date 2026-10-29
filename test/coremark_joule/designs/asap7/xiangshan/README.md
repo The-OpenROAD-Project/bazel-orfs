@@ -399,7 +399,7 @@ dissolves the macros, it is not ORFS's place, CTS and global route but
 one script, `XSTile_parent_pm_top` (`tools/carve/top_level.tcl`): one
 clock tree over every register, legalised by the diamond legaliser, and
 a global route that keeps every macro's routes and routes only the clock
-tree and the stitches (`-unguided_only`, patch 0159). The parent and the
+tree and the stitches (`-unguided_only`, patch 0163). The parent and the
 top level skip timing repair: the first flush through global route is
 for turnaround.
 
@@ -408,7 +408,7 @@ is not contained in one macro and needs more than 2,000 ps, every cell
 on it by name: a macro's `.lib` gives one number at a pin, the dissolved
 top level the path. Timed whole the top level does not fit 62 GB, so it
 is timed in sets of macros (`tools/carve/crossing_*.tcl`, OpenROAD
-patch 0160): each set cut to the logic its paths can touch, written with
+patch 0164): each set cut to the logic its paths can touch, written with
 its parasitics as SPEF and timed in a process of its own. On the toy
 (`test/parent_macro`) the sets report the paths the whole design does,
 slack for slack (`mini_top_parent_pm_crossing_test`).

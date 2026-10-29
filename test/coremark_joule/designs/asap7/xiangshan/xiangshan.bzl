@@ -1165,7 +1165,7 @@ def _regfile_macro(spec, made, tags, outlines = {}, variant = None, pins = {}):
                 # violations after 209 s, the diamond legalizer none in 7 s
                 "DETAIL_PLACEMENT_ARGS": XS_REGFILE_DPL_ARGS.get(module, "-use_diamond_legalizer"),
                 "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
-                # generate_ram's layout is kept (ORFS patch 0158): global
+                # generate_ram's layout is kept (ORFS patch 0162): global
                 # placement places only what synthesis added around it
                 "GPL_ROUTABILITY_DRIVEN": "0",
                 "GPL_TIMING_DRIVEN": "0",
@@ -1290,7 +1290,7 @@ def _pins_after(name, variant, tags):
 # macro's BLOCK grid, so only the row and pin clearance
 _REGFILE_MARGIN_UM = 2.0
 
-# A block's register file whose own core, sized by ORFS patch 0158 from
+# A block's register file whose own core, sized by ORFS patch 0162 from
 # generate_ram's outline and the few cells synthesis adds, leaves no room
 # for repair: an outline of its own, the floorplan's core a tenth larger
 # in area. FtqMetaQueueRedirect's core was 148.1 x 70.5 um, 83 % fixed

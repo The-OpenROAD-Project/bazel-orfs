@@ -58,7 +58,7 @@ orfs_flow(
     arguments = {
         "AUTO_MEMORIES": "1",
         "CORE_UTILIZATION": "40",
-        # generate_ram's layout is kept (ORFS patch 0158): global placement
+        # generate_ram's layout is kept (ORFS patch 0162): global placement
         # moves the few hundred cells synthesis added among 66k fixed ones,
         # where timing- and routability-driven placement diverge (GPL-0305)
         "GPL_ROUTABILITY_DRIVEN": "0",
