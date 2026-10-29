@@ -227,6 +227,32 @@ archive_override(
         # generate_ram_netlist and stops, naming the part, on any other
         # structure (ideas/structured-macros.md). Not upstreamed.
         "//patches:0156-openroad-ram-generate-array.patch",
+        # 0157: dissolve_macro, a placed block instance replaced by the
+        # block's own cells, nets and global route guides as a module
+        # instance (//tools/carve: the parent as a macro, its top level
+        # dissolving every macro after its global route). Not upstreamed;
+        # retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0157-openroad-odb-dissolve-macro.patch",
+        # 0159: global_route -unguided_only keeps every net's guides and
+        # routes only the nets without (the carve's top level: its blocks'
+        # routes kept, its clock tree routed). Not upstreamed; retires at a
+        # //:bump onto an OpenROAD that has it.
+        "//patches:0159-openroad-grt-route-unguided-only.patch",
+        # 0160: crossing_cones, crossing_signatures, crossing_strip: the
+        # carve's top level timed for the paths not contained in one
+        # macro, in sets that fit memory (//tools/carve). Not upstreamed;
+        # retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0160-openroad-dbsta-crossing-cones.patch",
+        # 0161: write_spef names pins and internal nodes by the database's
+        # names; with hierarchy it lost all but an instance name's last
+        # level and the nets came back unannotated. Reported as
+        # OpenROAD#12049 with this fix; retires when a //:bump carries it.
+        "//patches:0161-openroad-dbsta-spef-database-names.patch",
+        # 0162: the web viewer's slack histogram bar drills down with the
+        # histogram's path groups and clock, not every path in its slack
+        # range. Not upstreamed; retires at a //:bump onto an OpenROAD
+        # that has it.
+        "//patches:0162-openroad-web-histogram-drill-down-filters.patch",
     ],
     strip_prefix = "OpenROAD-9ddb60d98ca61a98c4580a1b4b732a4b7d4e1ef8",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/9ddb60d98ca61a98c4580a1b4b732a4b7d4e1ef8.tar.gz"],
