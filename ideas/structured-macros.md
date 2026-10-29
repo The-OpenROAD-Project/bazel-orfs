@@ -222,24 +222,20 @@ each extraction: registers and blackboxes as cut points, a yosys
 miter, ABC `iprove`, a negative control (one register's D-mux swapped)
 that must differ, and the decode-once lemma `(1 << x)[i] == (x == i)`.
 
-| Block | Entries | Coverage | Proof (direct, decoded) | To global route | Period (ps) |
+| Block | Entries | Coverage | Read side | To global route | Period (ps) |
 |---|---|---|---|---|---|
-| Rob (surgered core) | 352 | 81% | 130 s index kept; 6,655 s decoded | 23.5 min (surgered + hand generator: ~33) | 1,913.9 (1,712.8) |
-| LoadQueueReplay | 120 | 72% | 130 s | ~15 min ¹ (PR: 28.9) | 1,670.7 |
-| PhysicalStoreQueue | 64 | 85% | 27 s | ~26 min ¹ (decode_once: 27.2) | 1,519.5 |
-| VirtualStoreQueue | 128 | 93% | 41 s | ≤ 3 min ² (PR: 6.6) | 1,298.6 |
-| LoadQueueRAR | 96 | 76% | 10 s | ≤ 3 min ² (PR: 4.5) | 1,172.6 |
-| TLBFA / TLBFA_1 | 48 | 98% / 95% | 7 / 10 s | ≤ 3 min ² | 435.1 / 507.2 |
-| IBuffer | 48 | 67% | 18 s (four decoders per comparison) | below the 70% gate | |
-| Uncache | 16 | 41% | 5 s | below the gate | |
-| LoadQueueRAW | 56 | 67% | | below the gate | |
-| VirtualLoadQueue | 120 | 0% | | entries 2^k - 1 differ | |
-| StdFreeList | 223 | (all free list) | | nothing to extract | |
-| BusyTable | | no groups | | | |
+| Rob | 352 | 81% | no | 23.5 min (surgered + hand generator: ~33) | 1,913.9 (1,712.8) |
+| LoadQueueReplay | 120 | 87% | yes | ~9.5 min (PR: 28.9) | 1,469.7 |
+| PhysicalStoreQueue | 64 | 85% | yes | 8.6 min (decode_once: 27.2), top 137 s | 1,905.1 |
+| VirtualStoreQueue | 128 | 96% | no | ≤ 6 min ¹ (PR: 6.6) | 1,485.0 |
+| LoadQueueRAR | 96 | 86% | no | ≤ 6 min ¹ (PR: 4.5) | 997.7 |
+| TLBFA / TLBFA_1 | 48 | 99% / 98% | yes | ≤ 6 min ¹ | 285.9 / 349.5 |
+| LoadQueueRAW | 56 | 69% | | below the 70% gate | |
+| Uncache | 16 | 42% | | below the gate | |
+| VirtualLoadQueue | 120 | 7% | | x >= K compares | |
 
-¹ LoadQueueReplay and PhysicalStoreQueue side by side, 26.4 min; alone,
-PhysicalStoreQueue took 21.2 min, its top's synthesis 978 s against
-1,264 s beside the other. ² The four side by side in 172 s.
+All extracted from the surgered core XSTile's flows read. ¹ The four
+side by side in under 6 min.
 
 Every extraction is proven twice, with the index kept and decoded, each
 with its negative control (`<top>_check_test`, `<top>_control_test`).
@@ -249,12 +245,11 @@ floorplan's repair_timing skipped.
 
 What is not covered yet:
 
-- **The read side.** Only the cones in front of an entry's registers are
-  extracted. PhysicalStoreQueue's top still synthesises for 978 s: its
-  store-to-load forwarding compares every entry with each load pipeline
-  and reduces across the entries, logic that reads one entry's registers
-  and ends in a reduction. Extracting the per-entry part of such cones
-  is the next generalisation.
+- **The read side** is in the cell where entries agree on it: each
+  entry's cone from its registers to the reductions across entries
+  (PhysicalStoreQueue's forwarding compares: its top's synthesis 978 s
+  to 137 s). LoadQueueRAW's and LoadQueueRAR's read cones still differ
+  between entries, and stay in the parent.
 - **Threshold compares.** VirtualLoadQueue's `entryHitBound` is x >= K,
   which yosys folds differently for each K (a buffer at 2^k - 1, an
   OR reduction elsewhere); a GE/LT form, like the EQ/NE one, would cover
