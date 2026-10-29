@@ -372,12 +372,19 @@ side); proofs (the miter) are polish for now, the long ones wait.
      inverter and XNOR).
    Lanes side by side, single runs on a shared machine, seconds
    (before → after; yosys): CTS 126 → 65; 40-43. grt 149 → 106; 116-121.
-   Period at grt 422 → 448 ps; yosys 431: the fix gives up 26 ps on the
-   priority encoder, where the old netlist's longer repair bought it.
+   Period at grt 422 → 448 ps; yosys 431. The worst path at grt is
+   `idx[1]` in both netlists; of its 25.7 ps, 20.2 are in the word's
+   128-bit match tree (148.2 → 168.4 ps), the encoder within 2.3 ps.
+   structgen sizes by fanout alone, so the tree's single-fanout NAND3 and
+   NOR3 are xp33 driving 4-5 fF of wire; repair put a BUFx3 after three
+   of them, 32-38 ps a level against 15-21 ps for the old AND2x2. Repair
+   did more on the new path, not less: 4 buffers inserted and 6 cells
+   resized, against 2 and 2.
    Counter 32 x 128: CTS 121 → 70, grt 288 → 244, period 388 → 347 ps.
    The hermetic build reproduces the grt WNS of each lane exactly. Tried
    and dropped: 3-input gates one size up (CTS 104 s, period worse).
-   Open: the priority encoder's depth (prefix OR2s, a polarity inverter
-   at each tree's end) is where the period and the rest of CTS's time
-   are; flags, agematrix and the larger sizes are not re-measured.
+   Open: sizing the tree's gates for their wire load, not their fanout,
+   is the lever for the 26 ps; the priority encoder's depth (prefix OR2s,
+   a polarity inverter at each tree's end) is where the rest of CTS's
+   time is; flags, agematrix and the larger sizes are not re-measured.
 
