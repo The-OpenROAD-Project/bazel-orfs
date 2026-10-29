@@ -232,10 +232,12 @@ that must differ, and the decode-once lemma `(1 << x)[i] == (x == i)`.
 | TLBFA / TLBFA_1 | 48 | 99% / 98% | yes | ≤ 6 min ¹ | 285.9 / 349.5 |
 | LoadQueueRAW | 56 | 69% | | below the 70% gate | |
 | Uncache | 16 | 42% | | below the gate | |
-| VirtualLoadQueue | 120 | 7% | | x >= K compares | |
+| VirtualLoadQueue | 120 | 96% (7% without thresholds) | no | 3.2 min ² (PR: 3.2) | 963.9 |
 
 All extracted from the surgered core XSTile's flows read. ¹ The four
-side by side in under 6 min.
+side by side in under 6 min. ² Alone, from the Bazel profile: synthesis
+76 s (the top 61 s), floorplan through global route 114 s (grt 63 s);
+the extraction itself 22 s more. Single run.
 
 Every extraction is proven twice, with the index kept and decoded, each
 with its negative control (`<top>_check_test`, `<top>_control_test`). The Rob's decoded
@@ -252,10 +254,17 @@ What is not covered yet:
   (PhysicalStoreQueue's forwarding compares: its top's synthesis 978 s
   to 137 s). LoadQueueRAW's and LoadQueueRAR's read cones still differ
   between entries, and stay in the parent.
-- **Threshold compares.** VirtualLoadQueue's `entryHitBound` is x >= K,
-  which yosys folds differently for each K (a buffer at 2^k - 1, an
-  OR reduction elsewhere); a GE/LT form, like the EQ/NE one, would cover
-  it, for 1,734 bits.
+- **Threshold compares** are covered (2026-10-29): VirtualLoadQueue's
+  `entryHitBound` is `x >= i + 1` and `x < i + 1`, which firtool folds
+  differently for each i (`x > 2`, `|x[6:2]`, `x[6]` alone, `x == 0`).
+  `entries.py` reads them as GE/LT forms on a net where some entry has a
+  threshold that is no `x == K`, a lone top bit through a buffer it puts
+  in front of it; `extract.py` decodes `x >= i + o` once as bit
+  `i + o - 1` of `(1 << x) - 1`. Tried only where the plain reading
+  leaves entries off the rule: PhysicalStoreQueue's dequeue pointer is
+  compared both with the entry's number and against a threshold, and
+  read as thresholds its entries 0 and 63 (`x == 0` is `x < 1`) fell
+  off; the six blocks above extract byte-identically.
 
 ### What the flow alone buys (2026-10-28)
 
@@ -328,12 +337,10 @@ baseline numbers do not matter, the arrays' own speed-up does; test small
 (`features_test`, a block's `_grt_qor`, at most three small flows side by
 side); proofs (the miter) are polish for now, the long ones wait.
 
-1. **Threshold compares.** VirtualLoadQueue's `entryHitBound` is
-   `x >= K`, folded differently by yosys for each K (a buffer at 2^k - 1,
-   an OR reduction elsewhere). Add a GE/LT form beside EQ/NE in
-   `entries.py` (`_eq_form`) and its decode in `extract.py`; then
-   VirtualLoadQueue's coverage (7 % today) and a `_grt_qor`. Test: a
-   threshold case in `features_test`.
+1. **Threshold compares.** Done: VirtualLoadQueue 7 % to 96 %, in
+   `TOPS` with its `_grt_qor` (963.9 ps, 3.2 min synthesis to global
+   route, as in the carve). Its extraction proven with the index kept,
+   its control, and decoded directly (118 s).
 2. **Read cones that differ between entries.** LoadQueueRAW (69 %) and
    Uncache (42 %) fall back to the write side alone because their read
    cones differ (`best()` in `entries.py`). Find what differs (entries.py
