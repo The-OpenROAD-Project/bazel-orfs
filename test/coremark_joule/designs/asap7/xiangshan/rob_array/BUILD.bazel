@@ -141,11 +141,10 @@ orfs_flow(
         "SKIP_CTS_REPAIR_TIMING": "1",
         "SKIP_INCREMENTAL_REPAIR": "1",
         "SKIP_PIN_ACCESS": "1",
-        "SYNTH_HDL_FRONTEND": "",
         "SYNTH_HIERARCHICAL": "1",
-        # the entry cell, mapped once; the rest was flattened by the front
-        # end's elaboration
-        "SYNTH_KEEP_MODULES": "RobEntry",
+        # the entry cell, mapped once (fold_entries.tcl), beside the
+        # modules the surgered Rob's flow keeps
+        "SYNTH_KEEP_MODULES": "RenameBuffer RobEntry VTypeBuffer",
     },
     last_stage = "grt",
     macros = [":%s_generate_abstract" % m for m in REGFILES],
@@ -154,19 +153,22 @@ orfs_flow(
         k: v
         for k, v in ROB["sources"].items()
         if k != "AUTO_MEMORIES_REGFILES"
+    } | {
+        "SYNTH_CANONICALIZE_TCL": ["//test/coremark_joule/designs/asap7/xiangshan:fold_entries.tcl"],
     },
     stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
     tags = ["manual"],
     top = "Rob",
-    user_arguments = ROB["user_arguments"] | XS_ICG_USER_ARGUMENTS,
+    user_arguments = ROB["user_arguments"] | XS_ICG_USER_ARGUMENTS | {"XS_FOLD_MODULES": "RobEntry"},
     user_sources = ROB["user_sources"] | XS_ICG_USER_SOURCES,
     user_stages = {
         v: s
         for v, s in XS_USER_STAGES.items()
-        if v in ROB["user_arguments"] | XS_ICG_USER_ARGUMENTS or v in ROB["user_sources"] | XS_ICG_USER_SOURCES
+        if v in ROB["user_arguments"] | XS_ICG_USER_ARGUMENTS | {"XS_FOLD_MODULES": ""} or v in ROB["user_sources"] | XS_ICG_USER_SOURCES
     },
-    verilog_files = ["//test/coremark_joule/designs/asap7/xiangshan/arrays:Rob_extracted.v"],
-    yosys_frontend_reason = "the input is a netlist yosys wrote (extract.py); slang elaborates every instance of the kept entry cell as a module of its own",
+    # the surgered core with the extractions in place: RenameBuffer and
+    # VTypeBuffer stay modules of the core (arrays/BUILD.bazel, BLACKBOXES)
+    verilog_files = ["//test/coremark_joule/designs/asap7/xiangshan/arrays:xiangshan_extracted.sv"],
 )
 
 [

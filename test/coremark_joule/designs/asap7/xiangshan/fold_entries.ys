@@ -1,4 +1,0 @@
-# The arrays front end's entry cells, one module each (fold_entries.tcl).
-#
-# SPDX-License-Identifier: Apache-2.0
-tcl test/coremark_joule/designs/asap7/xiangshan/fold_entries.tcl

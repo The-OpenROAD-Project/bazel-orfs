@@ -24,10 +24,14 @@ EXTRACTED = TOPS + ["Rob"]
 # RenameBufferFile had 20 read ports, the surgered core's 16).
 SURGERED = "//test/coremark_joule/designs/asap7/xiangshan/surgery:xiangshan_surgered"
 
+# RenameBuffer and VTypeBuffer stay modules of their own, as the plan keeps
+# them: its macro placement names the register file inside RenameBuffer
+# by that path (rob/rab/renameBuffer), which flattening would rename.
 BLACKBOXES = {
     "Rob": [
-        "RenameBufferFile",
+        "RenameBuffer",
         "RobEntryFile",
+        "VTypeBuffer",
     ],
 }
 
@@ -173,7 +177,10 @@ genrule(
     ),
     tags = ["manual"],
     tools = [":substitute"],
-    visibility = ["//test/coremark_joule/designs/asap7/xiangshan:__pkg__"],
+    visibility = [
+        "//test/coremark_joule/designs/asap7/xiangshan:__pkg__",
+        "//test/coremark_joule/designs/asap7/xiangshan/rob_array:__pkg__",
+    ],
 )
 
 # The block on the extracted Verilog, its entry cell kept so synthesis
