@@ -35,7 +35,7 @@ compare, output register. The top is retimed in synthesis
 (SYNTH_RETIME_MODULES).
 
     ohsched.py rtl <kind> <arm> <top> <out.v> [--mutate]
-    ohsched.py spec <kind> <out.regfile>
+    ohsched.py spec <kind> <out.regfile> [spec line]...
     ohsched.py tb <kind> <yosys top> <generate_ram top> <out.v> [--cycles N]
 
 `--mutate` swaps two rows of the generate_ram arm's pick decode: the
@@ -275,7 +275,8 @@ def _arr(p):
     return lines
 
 
-def spec(kind):
+def spec(kind, options=()):
+    """The register file's spec; options are spec lines a variant adds."""
     p = KINDS[kind]
     lines = [
         "module Arr",
@@ -285,6 +286,7 @@ def spec(kind):
     ]
     lines += [f"read r{r}_addr r{r}_data" for r in range(p["picks"])]
     lines += [f"write w{j}_addr w{j}_data w{j}_en" for j in range(len(_writes(p)))]
+    lines += list(options)
     return "\n".join(lines) + "\n" + _CELLS
 
 
@@ -387,8 +389,8 @@ def main():
         arm, top, out = a.args
         text = rtl(a.kind, arm, top, a.mutate)
     elif a.what == "spec":
-        (out,) = a.args
-        text = spec(a.kind)
+        out, *options = a.args
+        text = spec(a.kind, options)
     else:
         top_a, top_b, out = a.args
         text = tb(a.kind, (top_a, top_b), a.cycles)
