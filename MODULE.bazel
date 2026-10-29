@@ -227,6 +227,11 @@ archive_override(
         # generate_ram_netlist and stops, naming the part, on any other
         # structure (ideas/structured-macros.md). Not upstreamed.
         "//patches:0156-openroad-ram-generate-array.patch",
+        # 0159: generate_ram -w_port_words, the words each write port
+        # writes: a word one port writes takes that port's data with no
+        # data mux, and a port decodes only its words. Not upstreamed;
+        # retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0159-openroad-ram-write-port-words.patch",
     ],
     strip_prefix = "OpenROAD-6b146a5c40ac2b7c8f0aa7f3d4b3af8c73a99cc8",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/6b146a5c40ac2b7c8f0aa7f3d4b3af8c73a99cc8.tar.gz"],

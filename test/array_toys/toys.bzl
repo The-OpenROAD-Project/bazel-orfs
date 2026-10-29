@@ -126,6 +126,10 @@ OHSCHED_VARIANTS = {
     # the boundary: the decoders and read muxes as Verilog, which
     # synthesis maps and retimes with the logic around them
     "periphery": ["periphery verilog"],
+    # a word written by one port takes its data straight: each write port
+    # names the words it writes (its row in every bank), so no word
+    # carries a data mux over every port
+    "reach": ["write_words"],
 }
 
 def ohsched_toy(kind, depth, width):
