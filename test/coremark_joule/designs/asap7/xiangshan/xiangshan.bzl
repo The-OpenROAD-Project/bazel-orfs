@@ -1660,7 +1660,10 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         "MAX_ROUTING_LAYER": "M7",
         "SYNTH_KEEP_MODULES": parent_macro_keep,
     }
-    parent_sources = {k: v for k, v in sources.items() if k not in ["IO_CONSTRAINTS", "MACRO_PLACEMENT_TCL"]}
+
+    # nothing to fold: the parent's one extraction is the Rob's, a block
+    # here, and the parent macro reads the surgered core (XS_VERILOG)
+    parent_sources = {k: v for k, v in sources.items() if k not in ["IO_CONSTRAINTS", "MACRO_PLACEMENT_TCL", "SYNTH_CANONICALIZE_TCL"]}
 
     # the parent as a macro: built beside its blocks from the plan alone,
     # checked flat with them by a top level that dissolves them all
