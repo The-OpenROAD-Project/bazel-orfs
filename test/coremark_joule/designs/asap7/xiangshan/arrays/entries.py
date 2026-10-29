@@ -188,6 +188,9 @@ class Design:
             for m in re.finditer(r"\d+", name):
                 key = name[: m.start()] + "#" + name[m.end() :]
                 candidates[key][int(m.group())] = name
+            # firtool names a vector of registers x, x_1, x_2, ...: word 0
+            # without a number (Uncache's f1_fwdDataCandidates_r)
+            candidates[name + "_#"][0] = name
         taken = set()
         for key, words in sorted(candidates.items(), key=lambda kv: -len(kv[1])):
             if len(words) >= min_n and sorted(words) == list(range(len(words))):
@@ -935,29 +938,54 @@ def covered_bits(e):
 
 def best(d, n, arrays):
     """The group with its read side when that follows one rule, else
-    without it; arrays that differ between entries left inline. Each
-    first with the comparisons read as x == K alone, then with thresholds
-    too (x >= K, VirtualLoadQueue), taken where they cover more: a block
-    that follows one rule without them is read as it always was."""
+    without it; arrays that differ between entries left inline. Each first with
+    the comparisons read as x == K alone, then with thresholds too
+    (x >= K, VirtualLoadQueue), taken where they cover more: a block that
+    follows one rule without them is read as it always was."""
     # a threshold try not taken leaves no buffer behind
     keep = len(d.top_buffers)
-    plain = Entries(d, n, arrays, read=True).narrowed()
-    if plain.uniform and not plain.inline:
-        return plain
-    e = Entries(d, n, arrays, read=True, thresholds=True).narrowed()
-    if covered_bits(e) > covered_bits(plain):
-        return e
-    d.drop_top_buffers(keep)
-    if plain.uniform:
-        return plain
-    plain = Entries(d, n, arrays).narrowed()
-    if plain.uniform and not plain.inline:
-        return plain
-    e = Entries(d, n, arrays, thresholds=True).narrowed()
-    if covered_bits(e) > covered_bits(plain):
-        return e
-    d.drop_top_buffers(keep)
+    for read in (True, False):
+        plain = Entries(d, n, arrays, read).narrowed()
+        if plain.uniform and not plain.inline:
+            return plain
+        e = Entries(d, n, arrays, read, True).narrowed()
+        if covered_bits(e) > covered_bits(plain):
+            return e
+        d.drop_top_buffers(keep)
+        if plain.uniform:
+            return plain
     return plain
+
+
+def plan(d, min_n=8):
+    """Each group of entries as best() takes it, longest first. An array of
+    k * N words (k >= 2) whose own group does not follow one rule may be k
+    arrays of the group of N, word p * N + i (or i * k + p) entry i's:
+    Uncache's f1_ptagMatches_r, 48 words, is its 16 entries' match per
+    load port. Taken where the group of N then covers more."""
+    groups = d.groups(min_n)
+    found = {n: best(d, n, arrays) for n, arrays in groups.items()}
+    for big in sorted(groups, reverse=True):
+        if found[big] is None or found[big].uniform:
+            continue
+        for n in sorted(groups):
+            if n >= big or big % n or found.get(n) is None:
+                continue
+            k = big // n
+            for word in (lambda p, i: p * n + i, lambda p, i: i * k + p):
+                split = {
+                    f"{a}/{p}": {i: words[word(p, i)] for i in range(n)}
+                    for a, words in groups[big].items()
+                    for p in range(k)
+                }
+                e = best(d, n, {**groups[n], **split})
+                if covered_bits(e) > covered_bits(found[n]):
+                    found[n], found[big] = e, None
+                    groups[n] = {**groups[n], **split}
+                    break
+            if found[big] is None:
+                break
+    return [found[n] for n in sorted(found, reverse=True) if found[n] is not None]
 
 
 def main(argv):
@@ -965,8 +993,8 @@ def main(argv):
     min_n = int(argv[3]) if len(argv) > 3 else 8
     total = len(d.flop_bits)
     covered = 0
-    for n, arrays in sorted(d.groups(min_n).items(), key=lambda kv: -kv[0]):
-        e = best(d, n, arrays)
+    for e in plan(d, min_n):
+        n = e.n
         print(e.report())
         if e.inline:
             print(f"  without {e.inline} (left inline): uniform")
