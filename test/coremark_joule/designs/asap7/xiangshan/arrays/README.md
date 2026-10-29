@@ -41,6 +41,24 @@ period in the JSON.
 its negative control; they are manual, the Rob's takes over an hour.
 The Rob's flow is `../rob_array:RobEntries`.
 
+When a change to the front end breaks a block, two tools find where:
+
+```
+bazelisk run //test/coremark_joule/designs/asap7/xiangshan/arrays:regress -- \
+    <yosys> <proc.json> <module> <workdir> [--direct]
+bazelisk run //test/coremark_joule/designs/asap7/xiangshan/arrays:localise -- \
+    <yosys> <proc.json> <extracted.json> <module>
+```
+
+`regress` proves the extraction with the index kept, runs its control,
+writes the decoded extraction as Verilog and reads it back through
+`check -assert` (two drivers on a wire fail there in seconds, not in
+the flow), and with `--direct` proves the decoded form. `localise` runs
+the proof per group of outputs and names the ones that differ. Paths
+absolute; `<proc.json>` copied from `<Block>_proc_json` somewhere
+writable. The open work is in `ideas/structured-macros.md`, "Tasks, for
+agents".
+
 The flows read the extraction through slang and fold the entry cell's
 copies (`../fold_entries.tcl`), as XSTile's flows do, except where the
 period at global route came out worse that way: those stay on yosys's
