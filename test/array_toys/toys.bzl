@@ -120,6 +120,14 @@ def array_toy(kind, depth, width):
             },
         )
 
+# the ohsched toy's generated-arm variants, each a hypothesis about what
+# keeps the generated array from beating flops: the spec lines that test it
+OHSCHED_VARIANTS = {
+    # the boundary: the decoders and read muxes as Verilog, which
+    # synthesis maps and retimes with the logic around them
+    "periphery": ["periphery verilog"],
+}
+
 def ohsched_toy(kind, depth, width):
     """The ohsched toy (ohsched.py) of a kind, in both arms, with a
     co-simulation of the two arms and its negative control.
@@ -130,23 +138,36 @@ def ohsched_toy(kind, depth, width):
       width: payload bits, as KINDS gives them: names the toy.
     """
     name = "ohsched_%s_%dx%d" % (kind, depth, width)
-    native.genrule(
-        name = name + "_spec",
-        outs = [name + ".regfile"],
-        cmd = "$(execpath :ohsched) spec %s $@" % kind,
-        tools = [":ohsched"],
-    )
-    for arm, sources in [
-        ("yosys", {}),
-        ("generate_ram", {"AUTO_MEMORIES_REGFILES": [":" + name + ".regfile"]}),
-    ]:
-        flow = "%s_%s" % (name, arm)
+    for arm in ["yosys", "generate_ram"]:
         native.genrule(
-            name = flow + "_rtl",
-            outs = [flow + ".v"],
-            cmd = "$(execpath :ohsched) rtl %s %s %s $@" % (kind, arm, flow),
+            name = "%s_%s_rtl" % (name, arm),
+            outs = ["%s_%s.v" % (name, arm)],
+            cmd = "$(execpath :ohsched) rtl %s %s %s_%s $@" % (kind, arm, name, arm),
             tools = [":ohsched"],
         )
+
+    # the generated arm's variants: each a set of spec lines, one lever
+    # each
+    for flow, variant, spec_lines in [
+        (name + "_yosys", None, None),
+        (name + "_generate_ram", None, []),
+    ] + [
+        (name + "_generate_ram", v, lines)
+        for v, lines in OHSCHED_VARIANTS.items()
+    ]:
+        sources = {}
+        if spec_lines != None:
+            spec = "%s%s" % (name, "_" + variant if variant else "")
+            native.genrule(
+                name = spec + "_spec",
+                outs = [spec + ".regfile"],
+                cmd = "$(execpath :ohsched) spec %s $@ %s" % (
+                    kind,
+                    " ".join(["'%s'" % line for line in spec_lines]),
+                ),
+                tools = [":ohsched"],
+            )
+            sources = {"AUTO_MEMORIES_REGFILES": [":" + spec + ".regfile"]}
         orfs_flow(
             name = flow,
             # the top around the array is retimed, as the logic around
@@ -155,6 +176,7 @@ def ohsched_toy(kind, depth, width):
             last_stage = "grt",
             sources = {"SDC_FILE": [":constraint.sdc"]} | sources,
             tags = ["manual"],
+            variant = variant,
             verilog_files = [":" + flow + ".v"],
         )
     native.genrule(
