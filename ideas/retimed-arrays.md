@@ -68,6 +68,28 @@ Useful skew in timing only, measured with odb-debug's `skew_headroom` and `floor
 
 OpenROAD master's `clock_tree_synthesis -useful_skew` builds such a schedule. In ORFS it is reached through `CTS_ARGS`, which replaces the default argument list.
 
+### What `-useful_skew` builds: nothing, on these toys
+
+The `skew` A/B arms (`OHSCHED_AB` in `test/array_toys/toys.bzl`) on OpenROAD 6b146a5, the yosys arm and the generated `reach` variant, all eight flows built side by side in one hermetic build. Global route, period = clock period - WNS, reg2reg from `FLW-0008`, cells and area are stdcells without taps.
+
+| kind | arm | skew | period ps | reg2reg ps | cells | area um² | CTS step s |
+|---|---|---|--:|--:|--:|--:|--:|
+| fill | yosys | off | 301.4 | 286.4 | 9518 | 1492.1 | 1.6 |
+| fill | yosys | on | 301.4 | 286.4 | 9518 | 1492.1 | 6.5 |
+| fill | reach | off | 312.2 | 296.6 | 9130 | 1248.0 | 2.9 |
+| fill | reach | on | 312.2 | 296.6 | 9130 | 1248.0 | 13.8 |
+| lanes | yosys | off | 309.8 | 294.3 | 9136 | 1426.3 | 1.3 |
+| lanes | yosys | on | 309.8 | 294.3 | 9136 | 1426.3 | 11.3 |
+| lanes | reach | off | 304.7 | 289.5 | 8674 | 1190.2 | 1.0 |
+| lanes | reach | on | 304.7 | 289.5 | 8674 | 1190.2 | 15.2 |
+
+- The global-route logs are identical with skew on and off, apart from run times, in all four pairs.
+- No delay buffer is inserted (`CTS-0231` in every arm). The schedule is computed, and 0 to 80 registers get a target, but the balancer that would build it never runs: no `CTS-0544` line. At 6b146a5 it runs only for a clock tree with a child tree, a macro's. These toys have no macros.
+- The LP finds no better worst slack either. Its achievable WNS equals the WNS it started from in all four arms (`RSZ-0603`: -36.3, -14.5, -204.7 and -184.9 ps). It runs on the CTS netlist before repair, not on the global-route ODB the bounds above were taken from.
+- The cost is the LP: `clock_tree_synthesis` takes 5 to 14 s longer.
+- Neither yosys arm meets 300 ps on this OpenROAD (slack -1.4 and -9.8 ps), so their periods are not capped by repair stopping at slack 0.
+- The timing-only bounds (fill yosys 249.6, lanes yosys 277.4 ps) are still not reached by any build.
+
 ## Effort
 
 Medium.
