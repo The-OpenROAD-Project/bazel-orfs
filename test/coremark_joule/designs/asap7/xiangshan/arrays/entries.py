@@ -711,7 +711,10 @@ def _net_pattern(net):
     by where they stood: firtool names one per bank or per entry
     (pipMod, pipMod_3; _T_1, _T_2)."""
     numbers, out, last = {}, [], 0
-    for m in re.finditer(r"_(\d+)(?=_|\.|$)", net):
+    # an unnamed net ($23708y) is numbered by yosys, one per entry's cell:
+    # every number in it is decided across entries like a name's
+    rx = r"(\d+)" if net.startswith("$") else r"_(\d+)(?=_|\.|$)"
+    for m in re.finditer(rx, net):
         out.append(net[last : m.start()])
         numbers[len("".join(out))] = int(m.group(1))
         last = m.end()
