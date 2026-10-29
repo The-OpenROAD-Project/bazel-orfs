@@ -207,10 +207,13 @@ class Design:
 class Entries:
     """One group of n entries: cones, signatures and the common rule."""
 
-    def __init__(self, design, n, arrays, read=False, thresholds=False):
+    def __init__(
+        self, design, n, arrays, read=False, thresholds=False, common_read=False
+    ):
         self.d = design
         self.n = n
         self.read = read
+        self.common_read = common_read
         # thresholds read as forms (x >= K, x < K), else as the cells they are
         self.thresholds = thresholds
         self._evaluable = self._EVAL | (set(_CMP) if thresholds else set())
@@ -242,6 +245,8 @@ class Entries:
                     r for _, r in sorted(zip(sigs, self.read_roots[i]))
                 ]
             self.walks = [self._walk(i) for i in range(n)]
+            if common_read:
+                self._common_read()
         self._rule()
 
     def _read_side(self):
@@ -319,6 +324,56 @@ class Entries:
                     if p not in outputs(cl):
                         todo += [x for x in bs if not isinstance(x, str)]
             self.cones[i] |= keep
+
+    def _common_read(self):
+        """The read side narrowed to the roots every entry has, by their
+        signatures: LoadQueueRAW's priority select within each bank of
+        eight reads entry j's select bit through j inverters of its own, a
+        different number in every entry; the select bits themselves are
+        common. What only the dropped roots read stays in the module."""
+        d, n = self.d, self.n
+        common = collections.Counter(self.walks[0]["read_sigs"])
+        for w in self.walks[1:]:
+            common &= collections.Counter(w["read_sigs"])
+        for i in range(n):
+            left, roots = collections.Counter(common), []
+            for r, s in zip(self.read_roots[i], self.walks[i]["read_sigs"]):
+                if left[s] > 0:
+                    left[s] -= 1
+                    roots.append(r)
+            self.read_roots[i] = roots
+            # the cone again, from the registers' inputs and the roots kept,
+            # through the cells it had
+            full, cone = self.cones[i], set()
+            todo = [b for _, _, b in roots] + [
+                b
+                for f in self.flops[i]
+                for p, bs in d.cells[f]["connections"].items()
+                if p not in OUT
+                for b in bs
+                if not isinstance(b, str)
+            ]
+            while todo:
+                b = todo.pop()
+                drv = d.driver.get(b)
+                if (
+                    b in d.inputs
+                    or b in d.flop_bits
+                    or not drv
+                    or drv[0] not in full
+                    or drv[0] in cone
+                ):
+                    continue
+                cone.add(drv[0])
+                cl = d.cells[drv[0]]
+                for p, bs in cl["connections"].items():
+                    if p not in outputs(cl):
+                        todo += [x for x in bs if not isinstance(x, str)]
+            self.cones[i] = cone
+        self.reach = collections.Counter(c for cs in self.cones for c in cs)
+        self._forms = {}
+        self._thresholds()
+        self.walks = [self._walk(i) for i in range(n)]
 
     def root(self, b):
         """The bit b buffers through private $buf/$pos cells, and those
@@ -401,7 +456,7 @@ class Entries:
         rest = {a: v for a, v in self.arrays.items() if a not in varying}
         if not varying or not rest:
             return self
-        e = Entries(self.d, self.n, rest, self.read, self.thresholds)
+        e = Entries(self.d, self.n, rest, self.read, self.thresholds, self.common_read)
         if not e.uniform:
             return self
         e.inline = varying
@@ -937,18 +992,19 @@ def covered_bits(e):
 
 
 def best(d, n, arrays):
-    """The group with its read side when that follows one rule, else
-    without it; arrays that differ between entries left inline. Each first with
+    """The group with its read side when that follows one rule, else with
+    the part of it every entry has (Entries._common_read), else without
+    it; arrays that differ between entries left inline. Each first with
     the comparisons read as x == K alone, then with thresholds too
     (x >= K, VirtualLoadQueue), taken where they cover more: a block that
     follows one rule without them is read as it always was."""
     # a threshold try not taken leaves no buffer behind
     keep = len(d.top_buffers)
-    for read in (True, False):
-        plain = Entries(d, n, arrays, read).narrowed()
+    for read, common in ((True, False), (True, True), (False, False)):
+        plain = Entries(d, n, arrays, read, common_read=common).narrowed()
         if plain.uniform and not plain.inline:
             return plain
-        e = Entries(d, n, arrays, read, True).narrowed()
+        e = Entries(d, n, arrays, read, True, common).narrowed()
         if covered_bits(e) > covered_bits(plain):
             return e
         d.drop_top_buffers(keep)

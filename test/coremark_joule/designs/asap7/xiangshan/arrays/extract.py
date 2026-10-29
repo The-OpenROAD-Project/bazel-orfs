@@ -67,7 +67,7 @@ def extract(mod, name, decode=True):
         }
         if not arrays:
             fail(f"every array is kept out ({sorted(keep_out)}): nothing to extract")
-        e = Entries(d, e.n, arrays, e.read, e.thresholds)
+        e = Entries(d, e.n, arrays, e.read, e.thresholds, e.common_read)
         if not e.uniform:
             fail(f"without {sorted(keep_out)} the entries no longer follow one rule")
     n, t = e.n, TEMPLATE
