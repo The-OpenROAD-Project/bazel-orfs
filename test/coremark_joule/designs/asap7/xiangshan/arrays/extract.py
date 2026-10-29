@@ -104,6 +104,21 @@ def extract(mod, name, decode=True):
             fail(
                 f"entry {i} has {len(cells_of(i))} cells, the template {len(cells_of(t))}"
             )
+    # one port per bit: a bit read in two columns has two tokens, which must
+    # name one bit in every entry (two ports on one wire are two drivers)
+    first = {}
+    for tok in tokens:
+        b = tw["tokens"][tok]
+        if b in first:
+            for i in range(n):
+                w = e.walks[i]["tokens"]
+                if w[tok] != w[first[b]]:
+                    fail(
+                        f"{first[b]} and {tok} are one bit in the template, two in entry {i}"
+                    )
+        else:
+            first[b] = tok
+    tokens = [tok for tok in tokens if first[tw["tokens"][tok]] == tok]
 
     # a duplicate the walk merged, read outside its entry (the read side's
     # reductions), is read as the cell it duplicates: the same type,
