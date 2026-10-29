@@ -195,6 +195,22 @@ class TieOutputTest(unittest.TestCase):
         with self.assertRaisesRegex(SurgeryError, "needs --proven"):
             apply(OUT, {"entries": [out_entry()]})
 
+    def test_module_the_plan_no_longer_keeps_is_skipped(self):
+        # a new carve flattens Child: no boundary, nothing to fold
+        manifest = {"entries": [entry("io_en", "1'h1"), out_entry()]}
+        out, n = _apply(OUT, manifest, kept={"Parent"})
+        self.assertEqual((out, n), (OUT, 0))
+
+    def test_kept_module_without_its_proof_stops(self):
+        found = {"modules_scanned": [], "constant": []}
+        with self.assertRaisesRegex(SurgeryError, "in 0 of 0 instances"):
+            _apply(
+                OUT,
+                {"entries": [out_entry()]},
+                proven=proven_outputs(found),
+                kept={"Child"},
+            )
+
     def test_rounds_select_entries(self):
         manifest = {"entries": [entry("io_en", "1'h1"), out_entry()]}
         out, n = _apply(OUT, manifest, rounds=(1, 1))

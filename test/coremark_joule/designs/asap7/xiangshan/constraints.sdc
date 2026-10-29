@@ -1,5 +1,10 @@
-# 473 ps: the synthesis target for a core that should route at 591 ps,
-# which is XiangShan's 333 ps on 7 nm in fanouts of four. The published
+# 2,000 ps: the target of the carve campaign (no global route path over
+# 2,000 ps across a macro boundary). At XiangShan's own target, below,
+# repair_timing chased endpoints no repair could reach and its time was
+# most of a stage's; at 2,000 ps it stops where the design is.
+#
+# XiangShan's own target is 473 ps: the synthesis period for a core that
+# should route at 591 ps, its 333 ps on 7 nm in fanouts of four. The published
 # ASAP7 RVT FO4 is 8.1 ps (Clark et al., "Design Flows and Collateral for
 # the ASAP7 7nm FinFET Predictive Process Design Kit", MSE 2017), which
 # its authors call realistic for industrial 7 nm: 333 ps is 41.1 FO4.
@@ -11,7 +16,7 @@
 # does not depend on the Vt mix. period_fo4_test checks the arithmetic.
 set clk_name clk
 set clk_port_name clock
-set clk_period 473
+set clk_period 2000
 
 # The IO budget, as optimization targets. set_input_delay and
 # set_output_delay are deliberately not used anywhere in this study:

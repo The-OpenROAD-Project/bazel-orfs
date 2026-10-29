@@ -2,24 +2,49 @@
   "commit": "25f75524",
   "date": "2026-10-16",
   "units": {
+    "Bpu": {
+      "source": "measured",
+      "stages": {
+        "cts": {
+          "minutes": 15.0,
+          "peak_gb": 7.6
+        },
+        "floorplan": {
+          "minutes": 2.4,
+          "peak_gb": 3.0
+        },
+        "grt": {
+          "minutes": 11.4,
+          "peak_gb": 12.7
+        },
+        "place": {
+          "minutes": 11.5,
+          "peak_gb": 5.1
+        },
+        "synth": {
+          "minutes": 0.9,
+          "peak_gb": 2.8
+        }
+      }
+    },
     "CoupledL2": {
       "source": "measured",
       "stages": {
         "cts": {
-          "minutes": 40.3,
-          "peak_gb": 8.1
+          "minutes": 6.4,
+          "peak_gb": 7.8
         },
         "floorplan": {
-          "minutes": 13.4,
-          "peak_gb": 2.6
+          "minutes": 2.6,
+          "peak_gb": 4.0
         },
         "grt": {
-          "minutes": 53.2,
-          "peak_gb": 14.2
+          "minutes": 9.1,
+          "peak_gb": 13.7
         },
         "place": {
-          "minutes": 33.2,
-          "peak_gb": 9.7
+          "minutes": 9.7,
+          "peak_gb": 5.7
         },
         "synth": {
           "minutes": 0.1,
@@ -27,24 +52,49 @@
         }
       }
     },
+    "DCacheWrapper": {
+      "source": "measured",
+      "stages": {
+        "cts": {
+          "minutes": 4.3,
+          "peak_gb": 4.6
+        },
+        "floorplan": {
+          "minutes": 2.4,
+          "peak_gb": 2.1
+        },
+        "grt": {
+          "minutes": 6.6,
+          "peak_gb": 8.2
+        },
+        "place": {
+          "minutes": 10.3,
+          "peak_gb": 3.5
+        },
+        "synth": {
+          "minutes": 0.3,
+          "peak_gb": 1.3
+        }
+      }
+    },
     "FltRegionModule": {
       "source": "measured",
       "stages": {
         "cts": {
-          "minutes": 2.1,
-          "peak_gb": 5.2
+          "minutes": 1.6,
+          "peak_gb": 4.9
         },
         "floorplan": {
-          "minutes": 1.2,
-          "peak_gb": 1.6
+          "minutes": 1.3,
+          "peak_gb": 2.4
         },
         "grt": {
-          "minutes": 15.7,
-          "peak_gb": 8.9
+          "minutes": 4.9,
+          "peak_gb": 8.5
         },
         "place": {
-          "minutes": 17.6,
-          "peak_gb": 6.2
+          "minutes": 8.3,
+          "peak_gb": 3.7
         },
         "synth": {
           "minutes": 0.2,
@@ -77,28 +127,303 @@
         }
       }
     },
-    "MemBlock": {
+    "Ftq": {
       "source": "measured",
       "stages": {
         "cts": {
-          "minutes": 47.2,
-          "peak_gb": 25.6
+          "minutes": 4.9,
+          "peak_gb": 3.3
         },
         "floorplan": {
-          "minutes": 49.2,
-          "peak_gb": 10.0
+          "minutes": 1.3,
+          "peak_gb": 1.8
         },
         "grt": {
-          "minutes": 92.7,
-          "peak_gb": 42.2
+          "minutes": 3.1,
+          "peak_gb": 5.1
         },
         "place": {
-          "minutes": 146.8,
-          "peak_gb": 28.6
+          "minutes": 5.9,
+          "peak_gb": 2.2
         },
         "synth": {
+          "minutes": 0.1,
+          "peak_gb": 1.0
+        }
+      }
+    },
+    "ICache": {
+      "source": "measured",
+      "stages": {
+        "cts": {
           "minutes": 0.5,
+          "peak_gb": 1.5
+        },
+        "floorplan": {
+          "minutes": 2.1,
+          "peak_gb": 0.9
+        },
+        "grt": {
+          "minutes": 1.4,
           "peak_gb": 2.6
+        },
+        "place": {
+          "minutes": 1.7,
+          "peak_gb": 1.3
+        },
+        "synth": {
+          "minutes": 0.1,
+          "peak_gb": 1.0
+        }
+      }
+    },
+    "L2TLBWrapper": {
+      "source": "measured",
+      "stages": {
+        "cts": {
+          "minutes": 1.3,
+          "peak_gb": 2.7
+        },
+        "floorplan": {
+          "minutes": 3.7,
+          "peak_gb": 1.4
+        },
+        "grt": {
+          "minutes": 3.8,
+          "peak_gb": 4.7
+        },
+        "place": {
+          "minutes": 6.4,
+          "peak_gb": 2.1
+        },
+        "synth": {
+          "minutes": 0.2,
+          "peak_gb": 1.1
+        }
+      }
+    },
+    "LoadQueueRAR": {
+      "source": "measured",
+      "stages": {
+        "cts": {
+          "minutes": 0.2,
+          "peak_gb": 0.9
+        },
+        "floorplan": {
+          "minutes": 0.2,
+          "peak_gb": 0.5
+        },
+        "grt": {
+          "minutes": 0.5,
+          "peak_gb": 1.2
+        },
+        "place": {
+          "minutes": 0.7,
+          "peak_gb": 0.7
+        },
+        "synth": {
+          "minutes": 2.9,
+          "peak_gb": 1.0
+        }
+      }
+    },
+    "LoadQueueRAW": {
+      "source": "measured",
+      "stages": {
+        "cts": {
+          "minutes": 0.3,
+          "peak_gb": 1.1
+        },
+        "floorplan": {
+          "minutes": 0.3,
+          "peak_gb": 0.7
+        },
+        "grt": {
+          "minutes": 1.1,
+          "peak_gb": 1.7
+        },
+        "place": {
+          "minutes": 1.0,
+          "peak_gb": 0.9
+        },
+        "synth": {
+          "minutes": 3.2,
+          "peak_gb": 1.0
+        }
+      }
+    },
+    "LoadQueueReplay": {
+      "source": "measured",
+      "stages": {
+        "cts": {
+          "minutes": 1.6,
+          "peak_gb": 3.3
+        },
+        "floorplan": {
+          "minutes": 0.9,
+          "peak_gb": 1.8
+        },
+        "grt": {
+          "minutes": 4.8,
+          "peak_gb": 6.1
+        },
+        "place": {
+          "minutes": 7.1,
+          "peak_gb": 2.4
+        },
+        "synth": {
+          "minutes": 17.2,
+          "peak_gb": 1.6
+        }
+      }
+    },
+    "MemCtrl": {
+      "source": "measured",
+      "stages": {
+        "cts": {
+          "minutes": 0.7,
+          "peak_gb": 1.8
+        },
+        "floorplan": {
+          "minutes": 0.4,
+          "peak_gb": 1.0
+        },
+        "grt": {
+          "minutes": 2.2,
+          "peak_gb": 3.2
+        },
+        "place": {
+          "minutes": 2.2,
+          "peak_gb": 1.4
+        },
+        "synth": {
+          "minutes": 0.1,
+          "peak_gb": 1.2
+        }
+      }
+    },
+    "PhysicalStoreQueue": {
+      "source": "measured",
+      "stages": {
+        "cts": {
+          "minutes": 0.9,
+          "peak_gb": 2.6
+        },
+        "floorplan": {
+          "minutes": 0.8,
+          "peak_gb": 1.4
+        },
+        "grt": {
+          "minutes": 4.0,
+          "peak_gb": 5.2
+        },
+        "place": {
+          "minutes": 4.1,
+          "peak_gb": 2.1
+        },
+        "synth": {
+          "minutes": 0.1,
+          "peak_gb": 1.0
+        }
+      }
+    },
+    "PrefetcherWrapper": {
+      "source": "measured",
+      "stages": {
+        "cts": {
+          "minutes": 0.4,
+          "peak_gb": 1.3
+        },
+        "floorplan": {
+          "minutes": 1.1,
+          "peak_gb": 0.7
+        },
+        "grt": {
+          "minutes": 1.0,
+          "peak_gb": 1.9
+        },
+        "place": {
+          "minutes": 1.2,
+          "peak_gb": 1.0
+        },
+        "synth": {
+          "minutes": 2.3,
+          "peak_gb": 1.0
+        }
+      }
+    },
+    "Rob": {
+      "source": "measured",
+      "stages": {
+        "cts": {
+          "minutes": 11.9,
+          "peak_gb": 6.6
+        },
+        "floorplan": {
+          "minutes": 3.7,
+          "peak_gb": 3.4
+        },
+        "grt": {
+          "minutes": 13.5,
+          "peak_gb": 13.3
+        },
+        "place": {
+          "minutes": 20.5,
+          "peak_gb": 5.4
+        },
+        "synth": {
+          "minutes": 0.2,
+          "peak_gb": 1.6
+        }
+      }
+    },
+    "Sbuffer": {
+      "source": "measured",
+      "stages": {
+        "cts": {
+          "minutes": 0.6,
+          "peak_gb": 1.9
+        },
+        "floorplan": {
+          "minutes": 0.7,
+          "peak_gb": 1.0
+        },
+        "grt": {
+          "minutes": 2.4,
+          "peak_gb": 3.3
+        },
+        "place": {
+          "minutes": 2.3,
+          "peak_gb": 1.5
+        },
+        "synth": {
+          "minutes": 0.2,
+          "peak_gb": 1.0
+        }
+      }
+    },
+    "Uncache": {
+      "source": "measured",
+      "stages": {
+        "cts": {
+          "minutes": 0.2,
+          "peak_gb": 0.9
+        },
+        "floorplan": {
+          "minutes": 0.2,
+          "peak_gb": 0.5
+        },
+        "grt": {
+          "minutes": 0.6,
+          "peak_gb": 1.3
+        },
+        "place": {
+          "minutes": 0.6,
+          "peak_gb": 0.7
+        },
+        "synth": {
+          "minutes": 1.8,
+          "peak_gb": 0.9
         }
       }
     },
@@ -106,24 +431,74 @@
       "source": "measured",
       "stages": {
         "cts": {
-          "minutes": 19.3,
-          "peak_gb": 10.9
+          "minutes": 9.2,
+          "peak_gb": 9.9
         },
         "floorplan": {
-          "minutes": 10.5,
-          "peak_gb": 3.9
+          "minutes": 2.8,
+          "peak_gb": 4.2
         },
         "grt": {
-          "minutes": 24.2,
-          "peak_gb": 19.2
+          "minutes": 10.9,
+          "peak_gb": 17.8
         },
         "place": {
-          "minutes": 55.8,
-          "peak_gb": 13.1
+          "minutes": 13.8,
+          "peak_gb": 7.3
         },
         "synth": {
           "minutes": 0.3,
           "peak_gb": 2.1
+        }
+      }
+    },
+    "VirtualLoadQueue": {
+      "source": "measured",
+      "stages": {
+        "cts": {
+          "minutes": 0.1,
+          "peak_gb": 0.7
+        },
+        "floorplan": {
+          "minutes": 0.1,
+          "peak_gb": 0.5
+        },
+        "grt": {
+          "minutes": 0.5,
+          "peak_gb": 1.0
+        },
+        "place": {
+          "minutes": 0.5,
+          "peak_gb": 0.6
+        },
+        "synth": {
+          "minutes": 2.0,
+          "peak_gb": 1.0
+        }
+      }
+    },
+    "VirtualStoreQueue": {
+      "source": "measured",
+      "stages": {
+        "cts": {
+          "minutes": 0.2,
+          "peak_gb": 1.0
+        },
+        "floorplan": {
+          "minutes": 0.2,
+          "peak_gb": 0.6
+        },
+        "grt": {
+          "minutes": 0.9,
+          "peak_gb": 1.6
+        },
+        "place": {
+          "minutes": 1.1,
+          "peak_gb": 0.8
+        },
+        "synth": {
+          "minutes": 4.1,
+          "peak_gb": 1.0
         }
       }
     },
@@ -145,6 +520,77 @@
         "place": {
           "minutes": 225.0,
           "peak_gb": 47.4
+        },
+        "synth": {
+          "minutes": 0.5,
+          "peak_gb": 5.4
+        }
+      }
+    },
+    "XSTile_parent": {
+      "source": "assessed",
+      "stages": {
+        "cts": {
+          "minutes": 32.8,
+          "peak_gb": 30.9
+        },
+        "floorplan": {
+          "minutes": 8.1,
+          "peak_gb": 7.7
+        },
+        "grt": {
+          "minutes": 30.9,
+          "peak_gb": 61.9
+        },
+        "place": {
+          "minutes": 164.7,
+          "peak_gb": 34.7
+        },
+        "synth": {
+          "minutes": 0.4,
+          "peak_gb": 4.0
+        }
+      }
+    },
+    "XSTile_parent_pm": {
+      "source": "assessed",
+      "stages": {
+        "cts": {
+          "minutes": 60.0,
+          "peak_gb": 70.0
+        },
+        "floorplan": {
+          "minutes": 30.0,
+          "peak_gb": 60.0
+        },
+        "place": {
+          "minutes": 10.0,
+          "peak_gb": 60.0
+        },
+        "synth": {
+          "minutes": 2.0,
+          "peak_gb": 20.0
+        }
+      }
+    },
+    "XSTile_pm": {
+      "source": "assessed",
+      "stages": {
+        "cts": {
+          "minutes": 90.0,
+          "peak_gb": 70.0
+        },
+        "floorplan": {
+          "minutes": 30.0,
+          "peak_gb": 60.0
+        },
+        "grt": {
+          "minutes": 240.0,
+          "peak_gb": 150.0
+        },
+        "place": {
+          "minutes": 30.0,
+          "peak_gb": 60.0
         },
         "synth": {
           "minutes": 0.5,
