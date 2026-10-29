@@ -157,9 +157,15 @@ orfs_schedule(
         "XSTile_parent": [
             ":XSTile_parent_grt",
             ":XSTile_parent_abstract",
+            ":XSTile_parent_kpi",
         ],
     },
-    parent = {"XSTile_parent_pm": [":XSTile_parent_pm_top"]},
+    # the top level alone: its clock tree and route, then the paths
+    # between macros (the KPI's Top)
+    parent = {"XSTile_parent_pm": [
+        ":XSTile_parent_pm_top",
+        ":XSTile_parent_pm_crossings",
+    ]},
     tags = ["manual"],
 )
 

@@ -1654,24 +1654,27 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             _pin_plan(name, "grt", [m.split(":")[-1].removesuffix(".regfile") for m in parent_modules], tags, _PIN_PLAN_STAGES[_PIN_PLAN_NEXT[variant]][0], variant)
         return
 
+    # the tile's kept modules, its blocks' left out: each its own
+    # partition, as in the tile's own synthesis
+    parent_arguments = {k: v for k, v in arguments.items() if k not in ["SYNTH_KEEP_MODULES", "SYNTH_NUM_PARTITIONS"]} | {
+        "MAX_ROUTING_LAYER": "M7",
+        "SYNTH_KEEP_MODULES": parent_macro_keep,
+    }
+    parent_sources = {k: v for k, v in sources.items() if k not in ["IO_CONSTRAINTS", "MACRO_PLACEMENT_TCL"]}
+
     # the parent as a macro: built beside its blocks from the plan alone,
     # checked flat with them by a top level that dissolves them all
     # (//tools/carve:parent_macro.bzl). It routes to M7; M8 and M9 are
     # the top level's, for the clock tree it builds over every register.
     parent_macro_flow(
         name = name,
-        # the tile's kept modules, its blocks' left out: each its own
-        # partition, as in the tile's own synthesis
-        arguments = {k: v for k, v in arguments.items() if k not in ["SYNTH_KEEP_MODULES", "SYNTH_NUM_PARTITIONS"]} | {
-            "MAX_ROUTING_LAYER": "M7",
-            "SYNTH_KEEP_MODULES": parent_macro_keep,
-        },
+        arguments = parent_arguments,
         blocks = {b: {"abstract": _abstract(b, None), "grt": ":%s_grt" % b} for b in macros},
         macros = parent_regfiles,
         place_macros = ":%s/place_macros.tcl" % plan_dir,
         plan = plan,
         plan_pins = {b: ":%s/%s_pins.tcl" % (plan_dir, b) for b in macros},
-        sources = {k: v for k, v in sources.items() if k not in ["IO_CONSTRAINTS", "MACRO_PLACEMENT_TCL"]},
+        sources = parent_sources,
         tags = tags,
         top = name,
         top_arguments = {
@@ -1705,6 +1708,11 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     )
     _pin_plans(name, [m.split(":")[-1].removesuffix(".regfile") for m in parent_modules], tags)
     _kpi(name, "grt", arguments, sources, tags)
+
+    # the parent macro's own reg2reg paths, a macro like any block
+    # (XSTile_parent_kpi); the paths between macros are the top level's
+    # crossing report
+    _kpi(name, "grt", parent_arguments, parent_sources, tags, variant = "parent")
     _sta_part(name, arguments, sources, tags)
     parts = [name] + list(macros)
 
