@@ -28,7 +28,7 @@ import copy
 import json
 import sys
 
-from entries import FLOPS, OUT, Design, Entries, best, outputs
+from entries import FLOPS, OUT, Design, Entries, outputs, plan
 
 TEMPLATE = 1
 
@@ -44,8 +44,7 @@ def v_sense(e, where):
 
 def extract(mod, name, decode=True):
     d = Design(mod)
-    groups = [best(d, n, a) for n, a in d.groups().items()]
-    groups = [e for e in groups if e.uniform]
+    groups = [e for e in plan(d) if e.uniform]
     if not groups:
         fail("no group of entries follows one rule")
     e = max(
