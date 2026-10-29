@@ -7,7 +7,6 @@ load(
     "CONFIG_MAKEFILE",
     "CONFIG_MAKEFILE_YOSYS",
     "CONFIG_OPENROAD",
-    "CONFIG_OPENROAD_QT",
     "CONFIG_OPENSTA",
     "CONFIG_PDK",
     "CONFIG_YOSYS",
@@ -139,16 +138,6 @@ def flow_attrs():
             allow_files = True,
             cfg = "exec",
             default = CONFIG_OPENROAD,
-        ),
-        "openroad_qt": attr.label(
-            doc = "OpenROAD binary with Qt GUI linked in, for " +
-                  "`qt_<stage>`. Built only when asked for: " +
-                  "`bazelisk run //:dirty -- start <flow> <stage> --qt` " +
-                  "installs it into the tree.",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = CONFIG_OPENROAD_QT,
         ),
         "_odb_debug_gui": attr.label(
             doc = "What `gui_<stage>` runs: the odb-debug daemon behind gui.sh.",

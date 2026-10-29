@@ -201,10 +201,6 @@ def flow_runfiles(ctx):
     Only stage rules (orfs_synth_rule, orfs_floorplan, orfs_place, ...)
     include this in their DefaultInfo.runfiles, so that
     `bazelisk run :foo_<stage> gui_<stage>` finds gui.sh.
-
-    No openroad_qt: a Qt-linked openroad is a long build, and the web
-    viewer needs none. `qt_<stage>` takes it from a tree that
-    `bazelisk run //:dirty -- start ... --qt` installed it into.
     """
     return depset(
         transitive = [
@@ -390,12 +386,7 @@ def flow_substitutions(ctx):
         "${KLAYOUT_PATH}": "./" + _klayout_attr(ctx)[DefaultInfo].files_to_run.executable.short_path,
         "${MAKEFILE_PATH}": ctx.file._makefile.path,
         "${MAKE_PATH}": "./" + ctx.executable._make.short_path,
-        # CLI openroad for every make target but qt_*. The Qt-linked
-        # binary is selected at runtime by make.tpl for a qt_* target and
-        # is in a tree only when //:dirty --qt put it there, so nothing
-        # builds it unasked.
         "${OPENROAD_PATH}": "./" + ctx.attr.openroad[DefaultInfo].files_to_run.executable.short_path,
-        "${OPENROAD_QT_PATH}": "./" + ctx.attr.openroad_qt[DefaultInfo].files_to_run.executable.short_path,
         "${OPENSTA_PATH}": "./" + ctx.attr.opensta[DefaultInfo].files_to_run.executable.short_path,
         "${ODB_DEBUG_GUI_PATH}": "./" + [f for f in ctx.files._odb_debug_gui if f.basename == "gui.sh"][0].short_path,
         "${STDBUF_PATH}": "",

@@ -1685,10 +1685,10 @@ build_test(
     targets = [":fork_smoke"],
 )
 
-# Manual target for testing the source-built OpenROAD GUI locally.
+# Manual target for testing the source-built OpenROAD locally.
 # Run: bazelisk run //test:lb_32x128_openroad_gui_synth
-# This builds OpenROAD from source with GUI and opens the synthesis
-# results in the OpenROAD GUI. Use after `bazelisk run //:bump` to
+# This builds OpenROAD from source and opens the synthesis results in
+# the web viewer. Use after `bazelisk run //:bump` to
 # verify the latest OpenROAD works with the flow.
 # buildifier: disable=duplicated-name
 orfs_flow(

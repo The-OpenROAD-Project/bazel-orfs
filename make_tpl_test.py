@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 
-def render(stage, label="//pkg:flow_" + "x", later="", qt="/bin/true"):
+def render(stage, label="//pkg:flow_" + "x", later=""):
     d = tempfile.mkdtemp(prefix="make_tpl.")
     os.makedirs(os.path.join(d, "odb_debug"))
     stub = os.path.join(d, "make_stub")
@@ -24,7 +24,6 @@ def render(stage, label="//pkg:flow_" + "x", later="", qt="/bin/true"):
         "${MAKE_PATH}": stub,
         "${YOSYS_PATH}": "",
         "${OPENROAD_PATH}": "/bin/true",
-        "${OPENROAD_QT_PATH}": qt,
         "${ODB_DEBUG_GUI_PATH}": os.path.join(d, "odb_debug", "gui.sh"),
         "${OPENSTA_PATH}": "/bin/true",
         "${KLAYOUT_PATH}": "/bin/true",
@@ -186,8 +185,8 @@ class LaterStageVariablesTest(unittest.TestCase):
 
 
 class GuiTest(unittest.TestCase):
-    """gui_ is the web viewer through the odb-debug daemon; qt_ the Qt GUI,
-    only where //:dirty --qt installed it."""
+    """gui_ is the web viewer through the odb-debug daemon; qt_, the Qt
+    GUI, is refused with the way to the web viewer."""
 
     def test_gui_runs_the_daemon_with_the_cli_openroad(self):
         make = render("final")
@@ -202,15 +201,14 @@ class GuiTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertNotIn("OPENROAD_WEB_CMD", r.stdout)
 
-    def test_qt_without_the_qt_openroad_says_how_to_get_it(self):
-        r = run(render("final", qt="/nonexistent/openroad-qt"), "qt_final")
+    def test_qt_is_refused_with_the_web_viewer_named(self):
+        r = run(render("final"), "qt_final")
         self.assertEqual(r.returncode, 2)
-        self.assertIn("--qt", r.stderr)
         self.assertIn("make gui_final", r.stderr)
         self.assertNotIn("STUB", r.stdout)
 
-    def test_qt_with_the_qt_openroad_uses_it(self):
-        r = run(render("final", qt="/bin/echo"), "qt_final")
+    def test_qt_runs_a_caller_supplied_openroad(self):
+        r = run(render("final"), "qt_final", env={"OPENROAD_EXE": "/bin/echo"})
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("OPENROAD_EXE=/bin/echo", r.stdout)
         self.assertNotIn("OPENROAD_WEB_CMD", r.stdout)
