@@ -32,6 +32,11 @@ parent's tracks (see macro_anneal.flip_legal for why flips are trouble).
 When the tech names the pin layers' origin lattice (asap7 with pins on M2
 to M5: 0.144 by 2.16 um), every outline is rounded up to it and every
 macro origin snapped to it, so the blocks' tracks are the parent's.
+When it also names the global router's gcell (gcell_um, asap7: 0.57 um),
+the lattice is the common multiple of both, so a block's gcells are the
+parent's: guides a block was routed with then fall on the top level's
+gcells and cover its pins (global_route -unguided_only, patch 0147),
+where an origin or edge between gcells would leave a pin a gcell away.
 
 --emit DIR writes what the flows consume: per block <name>_pins.tcl (an
 IO_CONSTRAINTS script putting every signal pin on the planned side; with
@@ -73,7 +78,7 @@ def load_plan(path):
       "tech": {"pin_pitch_um": 0.096, "pin_layers": 2,
                "track_density_per_um": 48.6, "wire_ps_per_um": 0.6,
                "site_um": 0.054, "row_um": 0.27,
-               "lattice_x_um": 0.144, "lattice_y_um": 2.16,
+               "lattice_x_um": 0.144, "lattice_y_um": 2.16, "gcell_um": 0.57,
                "pin_layers_v": [{"name": "M3", "pitch": 0.036, "offset": 0.009, "width": 0.018},
                                 {"name": "M5", "pitch": 0.048, "offset": 0.012, "width": 0.024}],
                "pin_layers_h": [{"name": "M4", "pitch": 0.048, "offset": 0.012, "width": 0.024}]},
@@ -116,9 +121,14 @@ def load_plan(path):
     alone) instead of handing the placer an interval. Without them the
     segments are emitted as interval constraints.
     Optional per macro: pin_side_margin and channel_min_um override the
-    plan's margins for that macro. Optional in margins: region_aspect_max
+    plan's margins for that macro; min_side_um is a floor on its pin side,
+    for a block that holds a macro wider than its square. Optional in margins: region_aspect_max
     caps the logic region's long side over its short one; the smallest die
     within the cap wins, and past it the least elongated.
+    Optional in parent: clock_pins, the blocks' clock port names; each
+    block's clock pin is placed on its side facing the parent's ports,
+    where the top level's clock tree is (a parent built as a macro,
+    //tools/carve).
     lattice_*_um and the keep lists are optional; the parent's keep list is
     the modules its own synthesis keeps after the blocks are hardened
     (keep_under.py --outside). core_margin_um is also the block flows'
@@ -162,9 +172,11 @@ def shape(macro, tech, margins, core_margin=0.0):
     if need > square * math.sqrt(margins["aspect_cap"]):
         need = need / 2.0
         two_sides = True
-    side = max(need, square)
+    # a macro may set a floor on its pin side, the one that holds a wide
+    # macro of its own (Rob's register file, 577 um wide)
+    side = max(need, square, macro.get("min_side_um", 0.0))
     depth = area / side
-    lx, ly = tech.get("lattice_x_um"), tech.get("lattice_y_um")
+    lx, ly = _lattice(tech)
     if lx and ly:
         # the outline's width and height in the block's own frame: the pin
         # side is a horizontal edge (top or bottom) when the block sits
@@ -489,7 +501,10 @@ def layout(plan):
             else:
                 x, y, wdt, hgt = x0 + region_w + w, y0 + start, d, s
             m = dict(sh)
-            x, y = _snap(x, y, tech)
+            # up along the side, after the macro before it, and outward
+            # from the region, so a coarse lattice neither overlaps two
+            # macros nor eats into a channel
+            x, y = _snap(x, y, tech, down_x=side == "left", down_y=side == "bottom")
             own_s, own_d = sh["own_side_um"], sh["own_depth_um"]
             own_w, own_h = (
                 (own_s, own_d) if side in ("bottom", "top") else (own_d, own_s)
@@ -517,7 +532,19 @@ def layout(plan):
                     m["slack_after_wire_ps"] = round(slack - m["wire_ps"], 1)
                     m["timing_ok"] = m["slack_after_wire_ps"] >= 0
             macros.append(m)
-            start += s + gap
+            start = (x - x0 if side in ("bottom", "top") else y - y0) + s + gap
+    # a macro snapped outward past the core margin moves everything in
+    lx, ly = _lattice(tech)
+    dx = max([0.0] + [cx - m["x_um"] for m in macros])
+    dy = max([0.0] + [cy - m["y_um"] for m in macros])
+    if lx and ly and (dx or dy):
+        dx = math.ceil(dx / lx - 1e-9) * lx
+        dy = math.ceil(dy / ly - 1e-9) * ly
+        for m in macros:
+            m["x_um"] = round(m["x_um"] + dx, 3)
+            m["y_um"] = round(m["y_um"] + dy, 3)
+        x0, y0 = x0 + dx, y0 + dy
+        region_box = (x0, y0, x0 + region_w, y0 + region_h)
     die_w = x0 + region_w + extent["right"] + cx
     die_h = y0 + region_h + extent["top"] + cy
     for m in macros:  # a snapped origin may have moved a macro outward
@@ -545,12 +572,42 @@ def layout(plan):
     }
 
 
-def _snap(x, y, tech):
-    """The origin up to the next lattice point, when the tech has one."""
+def _lattice(tech):
+    """The x and y periods a macro's origin and outline keep to: the pin
+    layers' origin lattice and, when the tech names the gcell, a multiple
+    of it and of the site and row too, since a block dissolved into the
+    top level must land its cells on the top level's rows (in nm, so
+    0.144, 0.054 and 0.57 make 41.04 exactly)."""
     lx, ly = tech.get("lattice_x_um"), tech.get("lattice_y_um")
+    g = tech.get("gcell_um")
+    if not g:
+        return lx, ly
+
+    def lcm(*vs):
+        n = 1
+        for v in vs:
+            if v:
+                v = round(v * 1000)
+                n = n * v // math.gcd(n, v)
+        return n / 1000.0
+
+    return (
+        lcm(lx, tech.get("site_um"), g),
+        lcm(ly, tech.get("row_um"), g),
+    )
+
+
+def _snap(x, y, tech, down_x=False, down_y=False):
+    """The origin onto the lattice, when the tech has one: up, or down
+    along an axis named."""
+    lx, ly = _lattice(tech)
     if not (lx and ly):
         return x, y
-    return math.ceil(x / lx - 1e-9) * lx, math.ceil(y / ly - 1e-9) * ly
+
+    def to(v, p, down):
+        return (math.floor(v / p + 1e-9) if down else math.ceil(v / p - 1e-9)) * p
+
+    return to(x, lx, down_x), to(y, ly, down_y)
 
 
 def plan_macro(plan, name):
@@ -874,28 +931,35 @@ def place_exact(m, segs, tech):
     return out
 
 
-EXACT_TCL = """# Generated by plan_floorplan.py: every partner pin of {name} at an exact
-# track coordinate on its {side} side, in one run per partner block ordered
-# by where the partner sits in the parent's plan (pin_partners:
-# probe_pin_partners.tcl), alternating {layers}; FIRM, so place_pins
-# leaves them and places only what the dump did not name, on the same side.
+EXACT_TCL = """# Generated by plan_floorplan.py: every pin of {name} at an exact track
+# coordinate, its partner pins on its {side} side in one run per partner
+# block ordered by where the partner sits in the parent's plan
+# (pin_partners: probe_pin_partners.tcl), alternating {layers}, and its
+# clock pins where the parent's clock comes from. The parent builds its
+# hole for {name} from this table (::plan_pins_only), so a pin the table
+# does not name stops the floorplan: placed by anyone else, it would not
+# meet the parent's.
+set ::plan_pins({name}) {{
+{rows}
+}}
+if {{ [info exists ::plan_pins_only] }} {{ return }}
 set names {{}}
 foreach bterm [[ord::get_db_block] getBTerms] {{
   if {{ [$bterm getSigType] ne "SIGNAL" && [$bterm getSigType] ne "CLOCK" }} {{ continue }}
   lappend names [$bterm getName]
 }}
 set placed {{}}
-foreach {{pin layer x y w h}} {{
-{rows}
-}} {{
+foreach {{pin layer x y w h}} $::plan_pins({name}) {{
   if {{ [lsearch -exact $names $pin] < 0 }} {{ continue }}
   place_pin -pin_name $pin -layer $layer -location [list $x $y] -pin_size [list $w $h] -force_to_die_boundary
   lappend placed $pin
 }}
 set rest {{}}
 foreach n $names {{ if {{ [lsearch -exact $placed $n] < 0 }} {{ lappend rest $n }} }}
-if {{ [llength $rest] > 0 }} {{ set_io_pin_constraint -region {side}:* -pin_names $rest }}
-puts "{name}_pins.tcl: [llength $placed] pins placed by the plan on {sides}, [llength $rest] left to place_pins on {side}"
+if {{ [llength $rest] > 0 }} {{
+  utl::error FLW 4 "{name}_pins.tcl: [llength $rest] pins the plan does not place, [lrange $rest 0 9]; regenerate the plan from a pin_partners dump that names them"
+}}
+puts "{name}_pins.tcl: [llength $placed] pins placed by the plan on {sides}"
 """
 
 PLACE_TCL = """# Generated by plan_floorplan.py: the planned floorplan, each block found
@@ -917,9 +981,13 @@ proc plan_check_size {{ what inst w h }} {{
     }}
   }}
 }}
-foreach {{master x y w h}} {{
+# A parent built as a macro (//tools/carve) has holes where the blocks
+# go, at the top level: PLAN_BLOCKS_ELSEWHERE skips them here.
+set plan_blocks {{
 {rows}
-}} {{
+}}
+if {{ [info exists ::env(PLAN_BLOCKS_ELSEWHERE)] }} {{ set plan_blocks {{}} }}
+foreach {{master x y w h}} $plan_blocks {{
   set insts {{}}
   foreach inst [$block getInsts] {{
     if {{ [[$inst getMaster] getName] eq $master }} {{ lappend insts $inst }}
@@ -965,9 +1033,22 @@ puts "place_macros.tcl: $bands soft placement blockage(s) over the blocks' bands
 foreach {{inst x y w h}} {{
 {netlists}
 }} {{
-  foreach name [list $inst $inst/ram $inst.ram] {{
+  set names [list $inst $inst/ram $inst.ram]
+  foreach name $names {{
     set i [$block findInst $name]
     if {{ $i ne "NULL" }} {{ break }}
+  }}
+  # A kept module's instance name can hold the divider escaped, as
+  # core\\/backend\\/inner_intRegion/intDataPath/intRegFile: the plan
+  # writes the path unescaped, so compare the macros' names without the
+  # escapes.
+  if {{ $i eq "NULL" }} {{
+    foreach m [$block getInsts] {{
+      if {{ [[$m getMaster] isBlock] && [string map {{\\\\ ""}} [$m getName]] in $names }} {{
+        set i $m
+        break
+      }}
+    }}
   }}
   if {{ $i eq "NULL" }} {{
     utl::error FLW 2 "plan: no register file instance $inst"
@@ -988,6 +1069,58 @@ if {{ [llength $rest] > 0 }} {{
   rtl_macro_placer -halo_width 2 -halo_height 2
 }}
 """
+
+
+def place_clock(m, side, rows, tech, clocks):
+    """[(pin, layer, x_um, y_um, w_um, h_um)] for m's clock pins on side,
+    the side that faces the parent's ports, where the top level's clock
+    tree is: on the edge's upper pin layer, on the track nearest the
+    side's centre that keeps two tracks from every pin already on that
+    layer of that side."""
+    horizontal_edge = side in ("top", "bottom")
+    lay = tech["pin_layers_v" if horizontal_edge else "pin_layers_h"][-1]
+    length = m["w_um"] if horizontal_edge else m["h_um"]
+    pin_len = 0.36
+    taken = []
+    for pin, layer, x, y, w, h in rows:
+        if layer != lay["name"]:
+            continue
+        on_side = {
+            "bottom": abs(y - pin_len / 2.0) < 1e-6,
+            "top": abs(y - (m["h_um"] - pin_len / 2.0)) < 1e-6,
+            "left": abs(x - pin_len / 2.0) < 1e-6,
+            "right": abs(x - (m["w_um"] - pin_len / 2.0)) < 1e-6,
+        }[side]
+        if on_side:
+            taken.append(x if horizontal_edge else y)
+    out = []
+    centre = math.floor((length / 2.0 - lay["offset"]) / lay["pitch"] + 0.5)
+    for clock in clocks:
+        for step in range(int(length / lay["pitch"])):
+            k = centre + (step + 1) // 2 * (1 if step % 2 else -1)
+            t = lay["offset"] + k * lay["pitch"]
+            if t < SEGMENT_EDGE_UM or t > length - SEGMENT_EDGE_UM:
+                continue
+            if all(abs(t - u) >= 2 * lay["pitch"] - 1e-9 for u in taken):
+                break
+        else:
+            raise SystemExit(
+                "plan_floorplan: %s: no free %s track on its %s side for clock %s"
+                % (m["name"], lay["name"], side, clock)
+            )
+        taken.append(t)
+        w = lay["width"]
+        if horizontal_edge:
+            y = m["h_um"] - pin_len / 2.0 if side == "top" else pin_len / 2.0
+            out.append(
+                (clock, lay["name"], round(t, 4), round(y, 4), round(w, 4), pin_len)
+            )
+        else:
+            x = m["w_um"] - pin_len / 2.0 if side == "right" else pin_len / 2.0
+            out.append(
+                (clock, lay["name"], round(x, 4), round(t, 4), pin_len, round(w, 4))
+            )
+    return out
 
 
 def netlist_row(plan):
@@ -1213,6 +1346,27 @@ def emit(out, plan, directory):
                                     pin, layer, x, y, w, h
                                 )
                             )
+                    clocks = plan["parent"].get("clock_pins", [])
+                    if clocks:
+                        clock_side = out.get("port_side") or "bottom"
+                        mm = dict(pm, pin_side=clock_side)
+                        rows_ = [
+                            tuple(
+                                [r.split()[0], r.split()[1]]
+                                + [float(v) for v in r.split()[2:]]
+                            )
+                            for r in pin_rows
+                        ]
+                        for pin, layer, x, y, w, h in place_clock(
+                            mm, clock_side, rows_, tech, clocks
+                        ):
+                            pin_rows.append(
+                                "  {} {} {:.4f} {:.4f} {:.4f} {:.4f}".format(
+                                    pin, layer, x, y, w, h
+                                )
+                            )
+                        if clock_side not in sides_used:
+                            sides_used.append(clock_side)
                     text = EXACT_TCL.format(
                         name=pm["name"],
                         side=side,
@@ -1298,8 +1452,9 @@ def emit(out, plan, directory):
         }
         if m["mock_area"] < 1.0:
             entry["MOCK_AREA"] = "{:.4f}".format(m["mock_area"])
+        # an empty list is stated too: the block flattens everything
         keep = plan_macro(plan, m["name"]).get("keep")
-        if keep:
+        if keep is not None:
             entry["SYNTH_KEEP_MODULES"] = " ".join(keep)
         bzl["macros"][m["name"]] = entry
         rows.append(
@@ -1325,6 +1480,8 @@ def emit(out, plan, directory):
             for m_, i_, x, y, w, h in netlists
         ]
         out["netlists"] = bzl["parent"]["netlists"]
+    if plan["parent"].get("clock_pins"):
+        bzl["parent"]["clock_pins"] = list(plan["parent"]["clock_pins"])
     # buildifier wants a trailing comma on the last element of a multi-line
     # dict or list (a lookahead, so a closer that ends one element and
     # precedes another closer gets its comma too), so the emitted file is the file the linter leaves alone

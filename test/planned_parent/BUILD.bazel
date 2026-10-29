@@ -14,6 +14,12 @@ load(":planned.bzl", "mini_planned_flow")
 # insertion delays, the legaliser and the router. The battery's widest
 # test; a night of the parent found each of these one at a time.
 
+# the same design and plan, the parent as a macro
+exports_files(
+    ["mini_gen.py"] + glob(["plan/*.tcl"]),
+    visibility = ["//test/parent_macro:__pkg__"],
+)
+
 py_binary(
     name = "mini_gen",
     srcs = ["mini_gen.py"],
@@ -35,6 +41,8 @@ genrule(
     ],
     cmd = "$(execpath :mini_gen) --out $(RULEDIR)",
     tools = [":mini_gen"],
+    # the same design, the parent as a macro
+    visibility = ["//test/parent_macro:__pkg__"],
 )
 
 mini_planned_flow(

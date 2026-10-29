@@ -59,6 +59,7 @@ TECH = {
     "row_um": 0.27,
     "lattice_x_um": 0.144,
     "lattice_y_um": 2.16,
+    "gcell_um": 0.57,
     "pin_layers_v": [
         {"name": "M3", "pitch": 0.036, "offset": 0.009, "width": 0.018},
         {"name": "M5", "pitch": 0.048, "offset": 0.012, "width": 0.024},
@@ -305,25 +306,29 @@ def plan(out_dir):
     for name, pins, ext in BLOCKS:
         area = max(2500.0, pins * 12.0)
         macros.append({"name": name, "pins": pins + ext, "area_um2": area, "keep": []})
+    margins = {
+        "pin_side": 1.5,
+        "channel_min_um": 20,
+        "lateral": 0.5,
+        "aspect_cap": 3.0,
+        "gap_um": 10.8,
+    }
+    parent = {
+        "cell_area_um2": 4000.0,
+        "density": 0.5,
+        "core_margin_um": 10,
+        "keep": [],
+        # every port on the bottom edge: clock, seed, sum and BlockB's
+        # ext pins, 161 signal ports, BlockB's 32 of them its own
+        "port_side": "bottom",
+        "ports": 161,
+        # every block pin is the plan's, the clock's too
+        "clock_pins": ["clock"],
+    }
     return {
         "tech": TECH,
-        "margins": {
-            "pin_side": 1.5,
-            "channel_min_um": 20,
-            "lateral": 0.5,
-            "aspect_cap": 3.0,
-            "gap_um": 10.8,
-        },
-        "parent": {
-            "cell_area_um2": 4000.0,
-            "density": 0.5,
-            "core_margin_um": 10,
-            "keep": [],
-            # every port on the bottom edge: clock, seed, sum and BlockB's
-            # ext pins, 161 signal ports, BlockB's 32 of them its own
-            "port_side": "bottom",
-            "ports": 161,
-        },
+        "margins": margins,
+        "parent": parent,
         "macros": macros,
         # the three files in the planner's row along the region's top
         "netlists": [
