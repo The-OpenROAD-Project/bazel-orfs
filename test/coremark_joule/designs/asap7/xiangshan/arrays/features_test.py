@@ -16,6 +16,14 @@ A second design, a queue whose entries are freed below a bound, checks
 thresholds: x >= i + 1 and x < i + 1, written as firtool folds them for
 each i (VirtualLoadQueue's entryHitBound), read as one form and decoded
 once.
+
+A third, a CAM with a priority select in banks of four, checks a read
+side that differs between entries (LoadQueueRAW): entry i's match is
+read through one inverter per entry above it in its bank, a different
+number in every entry, and the match itself is what every entry has.
+Its match registers against q1 and q2, named as firtool names a vector
+(m_r, m_r_1, ..., m_r_15; word p * 8 + i entry i's on port p, as
+Uncache's f1_ptagMatches_r), are two arrays of the eight entries.
 """
 
 import json
@@ -97,6 +105,46 @@ def threshold_queue():
     lines += [
         "  assign any = " + " | ".join(f"live_{i}" for i in range(N)) + ";",
         "  assign mixed = " + " ^ ".join(f"data_{i}" for i in range(N)) + ";",
+        "endmodule",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def priority_cam():
+    lines = [
+        "module PriCam(input clock, input reset, input we, input [2:0] widx,",
+        "              input [7:0] wdata, input [7:0] q0, input [7:0] q1, input [7:0] q2,",
+        "              output [7:0] first, output any, output [15:0] seen);",
+    ]
+    for i in range(N):
+        lines += [
+            f"  reg [7:0] data_{i};",
+            f"  reg valid_{i};",
+            "  always @(posedge clock) begin",
+            f"    if (reset) valid_{i} <= 1'b0;",
+            f"    else if (we && widx == 3'd{i}) valid_{i} <= 1'b1;",
+            f"    if (we && widx == 3'd{i}) data_{i} <= wdata;",
+            "  end",
+            f"  wire hit_{i} = valid_{i} && data_{i} == q0;",
+        ]
+    for i in range(N):
+        # the first hit in its bank of four, each lower entry inverted
+        # where it is used, as firtool writes it
+        lower = "".join(f" & ~hit_{j}" for j in range(i - i % 4, i))
+        lines.append(f"  assign first[{i}] = hit_{i}{lower};")
+    lines.append("  assign any = " + " | ".join(f"hit_{i}" for i in range(N)) + ";")
+    regs = []
+    for p in range(2):
+        for i in range(N):
+            k = p * N + i
+            name = "m_r" if k == 0 else f"m_r_{k}"
+            regs.append(name)
+            lines += [
+                f"  reg {name};",
+                f"  always @(posedge clock) {name} <= valid_{i} && data_{i} == q{p + 1};",
+            ]
+    lines += [
+        "  assign seen = {" + ", ".join(reversed(regs)) + "};",
         "endmodule",
     ]
     return "\n".join(lines) + "\n"
@@ -247,6 +295,47 @@ class Thresholds(unittest.TestCase):
         )
         self.assertEqual(rc, 0, log)
         self.assertIn("check: Queue: NOT equivalent", log)
+
+
+class ReadSides(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.yosys, cls.slang = map(os.path.abspath, sys.argv[1:3])
+        cls.work = os.environ.get("TEST_TMPDIR", HERE)
+        src = os.path.join(cls.work, "pricam.sv")
+        with open(src, "w") as f:
+            f.write(priority_cam())
+        cls.proc = os.path.join(cls.work, "pricam.json")
+        rc, log = run("proc_json.py", cls.yosys, cls.slang, src, "PriCam", cls.proc)
+        assert rc == 0, log
+        cls.found = run("entries.py", cls.proc, "PriCam")[1]
+        cls.extracted = os.path.join(cls.work, "pricam_extracted.json")
+        rc, log = run("extract.py", cls.proc, "PriCam", cls.extracted)
+        assert rc == 0, log
+
+    def test_entries_follow_one_rule(self):
+        self.assertIn("uniform: 8 of 8 entries follow one rule", self.found)
+        self.assertNotIn("left inline", self.found)
+
+    def test_common_read_side_in_the_cell(self):
+        # the match leaves each entry once; the inverters stay outside
+        self.assertIn("read side: 1 bits leave each entry's read cone", self.found)
+
+    def test_port_registers_are_entries(self):
+        # data, valid and both ports' m_r: every register in the entries
+        self.assertIn("(100%)", self.found)
+
+    def test_extraction_equal(self):
+        rc, log = run("check.py", self.yosys, self.proc, self.extracted, "PriCam")
+        self.assertEqual(rc, 0, log)
+        self.assertIn("check: PriCam: equivalent", log)
+
+    def test_control_differs(self):
+        rc, log = run(
+            "check.py", self.yosys, self.proc, self.extracted, "PriCam", "mutate"
+        )
+        self.assertEqual(rc, 0, log)
+        self.assertIn("check: PriCam: NOT equivalent", log)
 
 
 if __name__ == "__main__":
