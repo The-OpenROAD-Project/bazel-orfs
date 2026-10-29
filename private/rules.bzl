@@ -108,26 +108,6 @@ def _tar_paths(f):
         return [rel, "_main/external/" + rel]
     return ["_main/" + sp]
 
-def _qt_group(ctx):
-    """//:dirty --qt: the Qt-linked openroad, and a manifest that installs
-    it in a tree where the stage's make looks for it (OPENROAD_QT_PATH).
-    An output group of its own, so only `--qt` builds it."""
-    qt = ctx.attr.openroad_qt[DefaultInfo]
-    files = depset(
-        [qt.files_to_run.executable],
-        transitive = [qt.default_runfiles.files],
-    ).to_list()
-    manifest = declare_artifact(ctx, "results", ctx.attr.name + "_qt_manifest.txt")
-    ctx.actions.write(
-        output = manifest,
-        content = "".join([
-            "{}\t{}\tinput\n".format(f.path, dst)
-            for f in files
-            for dst in _tar_paths(f)
-        ]),
-    )
-    return depset([manifest] + files)
-
 def _package_stage(ctx, config, make, runfiles_depset, renames = [], results = []):
     """Create a portable .tar.gz from stage dependencies, and the output
     groups //:dirty installs a tree from.
@@ -145,8 +125,7 @@ def _package_stage(ctx, config, make, runfiles_depset, renames = [], results = [
     Returns:
       The OutputGroupInfo fields: deps (the tarball), deps_scripts (the
       manifest, config and make scripts: instant), deps_inputs (every file
-      but the results), deps_files (every file) and, where the rule has a
-      Qt-linked openroad, deps_qt (it and its manifest, for --qt).
+      but the results) and deps_files (every file).
     """
     tar = declare_artifact(ctx, "results", ctx.attr.name + "_deps.tar.gz")
     manifest = declare_artifact(ctx, "results", ctx.attr.name + "_deps_manifest.txt")
@@ -210,8 +189,6 @@ def _package_stage(ctx, config, make, runfiles_depset, renames = [], results = [
         "deps_inputs": depset(scripts + [f for f in all_files if f.path not in result_paths]),
         "deps_scripts": depset(scripts),
     }
-    if hasattr(ctx.attr, "openroad_qt"):
-        groups["deps_qt"] = _qt_group(ctx)
     return groups
 
 def _expand_deploy_template(ctx, exe, config, make, genfiles, name = "", renames = []):
@@ -2599,8 +2576,7 @@ def _yosys_impl(ctx):
 
     # Collect all files needed for deployment (tools, PDK, stage inputs).
     # flow_inputs (the CLI openroad) and gui_inputs (what gui_<stage>
-    # runs): the tarball and the //:dirty tree have the web viewer, and
-    # no Qt; //:dirty --qt adds the Qt-linked openroad on request.
+    # runs): the tarball and the //:dirty tree have the web viewer.
     deploy_files = depset(
         [config_short, make] +
         ctx.files.verilog_files +
@@ -3066,8 +3042,7 @@ def _make_impl(
 
     # Collect all files needed for deployment.
     # flow_inputs (the CLI openroad) and gui_inputs (what gui_<stage>
-    # runs): the tarball and the //:dirty tree have the web viewer, and
-    # no Qt; //:dirty --qt adds the Qt-linked openroad on request.
+    # runs): the tarball and the //:dirty tree have the web viewer.
     stage_renames = renames(ctx, ctx.files.src, short = True)
     deploy_files = depset(
         [config_short, make] + ctx.files.src + ctx.files.extra_configs + all_jsons,

@@ -158,7 +158,7 @@ ORFS_PATCHES = [
     Label("//patches:0131-orfs-syn-clkgate-map.patch"),
     # 0139: gui_<stage> opens the web viewer, qt_<stage> the Qt GUI
     # (web_<stage> goes), so a GUI needs no Qt build; bazel-orfs runs
-    # gui_ through the odb-debug daemon. Not upstreamed; retires at a
+    # gui_ through the odb-debug daemon and refuses qt_ (make.tpl). Not upstreamed; retires at a
     # bump onto an ORFS that names the GUI targets this way.
     Label("//patches:0139-orfs-gui-is-web.patch"),
     # 0153: a ROM (an inferred memory with no write port) is not counted

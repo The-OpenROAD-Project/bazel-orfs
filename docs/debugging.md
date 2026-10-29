@@ -143,9 +143,7 @@ Both are required by bazel-orfs, built with `-c opt` as the flow's own
 binaries are (`fastbuild`, the default, is unoptimized and several times
 slower). `//src/sta:opensta` is the OpenSTA binary
 bazel-orfs runs (it lives in the `src/sta` submodule, hence `--recursive`).
-`//:openroad-qt` is needed only for the Qt GUI, `qt_<stage>`, in a tree
-`bazelisk run //:dirty -- start ... --qt` installed it into; the GUI,
-`gui_<stage>`, is the web viewer and needs no Qt.
+The GUI, `gui_<stage>`, is the web viewer and needs no Qt.
 
 That one command tells you where you stand:
 
@@ -158,7 +156,7 @@ That one command tells you where you stand:
   the people who can fix it. Meanwhile, the bring-your-own-binary route below
   may get you running today.
 
-yosys, abc, GNU Make and Qt come from their own modules, so they are additional
+yosys, abc and GNU Make come from their own modules, so they are additional
 from-source surface beyond what this check covers.
 
 ### Bring your own OpenROAD when the from-source build won't go
@@ -168,15 +166,13 @@ handed you — point bazel-orfs at it and skip the from-source build entirely:
 
 ```starlark
 orfs.default(
-    openroad = "@bazel-orfs//:openroad",     # execs `openroad` from PATH
-    openroad_qt = "@bazel-orfs//:openroad",  # only if that binary has the GUI
+    openroad = "@bazel-orfs//:openroad",  # execs `openroad` from PATH
 )
 ```
 
 `@bazel-orfs//:openroad` is a two-line wrapper that `exec`s whichever
-`openroad` is on `PATH`. Reuse it for `openroad_qt` only when the PATH binary
-was built with Qt; a headless build works for the flow stages and for
-`gui_<stage>`, the web viewer, but not for `qt_<stage>`. This does not make the build hermetic and does not remove
+`openroad` is on `PATH`; a headless build works for the flow stages and for
+`gui_<stage>`, the web viewer. This does not make the build hermetic and does not remove
 the remaining from-source deps (yosys, abc, GNU Make), but it is often enough
 to get a flow running on a host the full source build can't handle. See
 [openroad.md](openroad.md), "Using a Locally Installed OpenROAD".

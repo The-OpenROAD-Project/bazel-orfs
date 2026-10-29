@@ -17,9 +17,6 @@ and builds nothing.
   A test that lists `@openroad` or `@yosys` in its data compiles either a
   second time, with everything it links: list //test:openroad_exec or
   //test:yosys_exec (test/exec_tool.bzl).
-- No openroad-qt in a test's runfiles. A stage's default runfiles carry
-  it for `bazelisk run <stage> gui_*`; a rule consuming a stage takes its
-  data_runfiles, which leave Qt out.
 - No iverilog. It is a dev dependency for local studies (//test:local).
 """
 
@@ -66,22 +63,6 @@ def main():
                 ),
             )
         )
-    checks.append(
-        (
-            "no openroad-qt in a test's runfiles",
-            "openroad-qt in the runfiles of",
-            bazel(
-                ws,
-                "cquery",
-                universe,
-                "--output=starlark",
-                "--starlark:expr="
-                "str(target.label) if [f for f in providers(target)"
-                '["DefaultInfo"].default_runfiles.files.to_list()'
-                ' if f.basename == "openroad-qt"] else ""',
-            ),
-        )
-    )
     checks.append(
         (
             "no iverilog",

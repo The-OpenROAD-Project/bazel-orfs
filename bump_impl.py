@@ -913,8 +913,7 @@ def _openroad_submodule_patch_cmd(
     submodule tarballs are large enough to matter), verify with sha256sum,
     untar with --strip-components=1 into the empty submodule directory the
     parent archive left behind, clean up.  --retry absorbs transient
-    network blips (mirrors the qt-bazel xcb-util-cursor pattern in
-    //MODULE.bazel).
+    network blips.
 
     The flags stay within reach of an old host curl: patch_cmds run in the
     host shell, so anything newer than the distro's curl turns a fetch into
@@ -1522,7 +1521,7 @@ def read_bazel_orfs_overrides(bazel_orfs_module_path):
 
 # Patches bazel-orfs applies to a shared dependency live here in the
 # consumer's tree.  A separate directory from the consumer's own patches is
-# not cosmetic: the two sets collide by name (both carry a
+# not cosmetic: the two sets can collide by name (both once carried a
 # qt-bazel-xcb-cursor-from-source.patch, with different contents), and this
 # directory is rewritten wholesale on every bump.
 BAZEL_ORFS_PATCHES_DIR = "bazel-orfs-patches"

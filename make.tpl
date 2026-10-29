@@ -31,20 +31,14 @@ if [ -z "$FLOW_HOME" ]; then
   if [ -n "${OPENROAD_EXE:-}" ]; then
     _openroad_exe="$OPENROAD_EXE"
   else
-    # The Qt-linked openroad only for a qt_* target, and only where
-    # //:dirty --qt installed it: nothing else builds it.
+    # bazel-orfs builds no Qt-linked openroad; the GUI is the web viewer.
     _openroad_exe="${OPENROAD_PATH}"
     for _arg in "$@"; do
       case "$_arg" in
         qt_*|qt-*)
-          _openroad_exe="${OPENROAD_QT_PATH}"
-          if [ ! -x "$_openroad_exe" ]; then
-            echo "make: '$_arg' needs the Qt-linked openroad, which is not in this tree." >&2
-            echo "      Install it: bazelisk run //:dirty -- start <flow> <stage> --qt" >&2
-            echo "      Or use the web viewer, which needs no Qt build: make gui_${_arg#qt_}" >&2
-            exit 2
-          fi
-          break ;;
+          echo "make: '$_arg' is the Qt GUI, which bazel-orfs does not build." >&2
+          echo "      Use the web viewer: make gui_${_arg#qt_}" >&2
+          exit 2 ;;
       esac
     done
   fi
@@ -77,11 +71,6 @@ fi
 
 # https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/issues/3907
 export LEC_CHECK=0
-
-# Default to offscreen Qt platform when no display server is available.
-if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
-  export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}"
-fi
 
 # A deployed tree holds one stage's inputs exactly as bazel built them. A
 # bare stage target lets ORFS's dependency chain decide that an upstream

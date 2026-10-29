@@ -167,9 +167,9 @@ The GUI, `bazelisk run <target>_<stage> gui_<stage>`, is OpenROAD's web
 viewer, which every OpenROAD build has; it is served by the odb-debug
 daemon (`tools/odb_debug/README.md`), and
 `bazelisk run @bazel-orfs//:odb_debug -- <target>_<stage>` starts it in the
-background and prints its link. The Qt GUI, `qt_<stage>`, needs the
-Qt-linked build, which `--@openroad//:platform=gui` selects and only a
-`//:dirty` tree started with `--qt` installs.
+background and prints its link. bazel-orfs builds no Qt-linked
+OpenROAD: `qt_<stage>`, the Qt GUI, is refused with the `gui_<stage>`
+that replaces it.
 
 ## Per-Target Override
 
@@ -229,10 +229,12 @@ Things that can surprise you when building OpenROAD from source:
 
 - **qt-bazel `git_override` must be in your root `MODULE.bazel`**. bzlmod
   silently ignores `git_override` from non-root modules. If you forget this,
-  you'll get a "module not found" error for qt-bazel.
+  you'll get a "module not found" error for qt-bazel. Nothing builds Qt;
+  OpenROAD's own `bazel_dep(qt-bazel)` has no BCR version, so it resolves
+  only through the root's override.
 
 - **First build is slow**. OpenROAD pulls in ~30 boost modules, or-tools,
-  tcmalloc, Qt, eigen, swig, and more. Expect 30-60+ minutes for a cold build.
+  tcmalloc, eigen, swig, and more. Expect 30-60+ minutes for a cold build.
   Subsequent builds are incremental.
 
 - **You must register the `llvm` (hermetic-llvm) toolchain yourself**. OpenROAD
@@ -250,10 +252,6 @@ Things that can surprise you when building OpenROAD from source:
 - **OpenROAD's remote build cache is not available to downstream users**. The
   cache at `bazel.precisioninno.com` is configured in OpenROAD's `.bazelrc` but
   is not accessible from other projects.
-
-- **The Qt GUI requires `--@openroad//:platform=gui`**. Without this flag
-  in your `.bazelrc` or on the command line, OpenROAD builds without Qt and
-  `qt_<stage>` will not work; `gui_<stage>`, the web viewer, does.
 
 ## Future Upstream Improvements
 
@@ -398,10 +396,9 @@ bazelisk run //:bump
 bazelisk run //test:lb_32x128_openroad_gui_synth
 ```
 
-This builds OpenROAD from git source with GUI enabled (via
-`--@openroad//:platform=gui` in `.bazelrc`), runs synthesis, and opens
-the results in the OpenROAD GUI. The target is tagged `manual` so it
-won't run in CI.
+This builds OpenROAD from git source, runs synthesis, and opens the
+results in the web viewer. The target is tagged `manual` so it won't run
+in CI.
 
 ### Other useful commands
 
