@@ -3,18 +3,20 @@ load("//test/coremark_joule/designs/asap7/xiangshan:xiangshan.bzl", "XS_BLOCKS",
 
 # What the flow alone buys a block, its RTL as it is: the block's settings
 # with the knobs the Rob's turnaround work settled on. Setup repair at CTS
-# and after it off (XSTile's ~2,000 ps; in the carve CTS's repair_timing
-# was most of the long blocks' CTS), floorplan's repair_timing off, no pin
-# access (detailed route waits for the final check), route-0 global route.
-# Global placement as the carve's, timing- and routability-driven off. The
-# die from the block's utilization, not the carve's plan.
+# and global route aims at XSTile's ~2,000 ps, not the SDC's 473: with a
+# margin of 473 - 2,000 ps it stops once every endpoint fits 2,000 ps (in
+# the carve, repair toward 473 ps was most of the long blocks' CTS; with
+# no repair at all Bpu ended at 3,495.9 ps and VecRegionModule at
+# 2,355.3). Floorplan's repair_timing off, no pin access (detailed route
+# waits for the final check), route-0 global route. Global placement as
+# the carve's, timing- and routability-driven off. The die from the
+# block's utilization, not the carve's plan.
 KNOBS = {
     "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
     "GPL_ROUTABILITY_DRIVEN": "0",
     "GPL_TIMING_DRIVEN": "0",
-    "SKIP_CTS_REPAIR_TIMING": "1",
+    "SETUP_SLACK_MARGIN": "-1527",
     "SKIP_FLOORPLAN_REPAIR_TIMING": "1",
-    "SKIP_INCREMENTAL_REPAIR": "1",
     "SKIP_PIN_ACCESS": "1",
 }
 
