@@ -1,0 +1,59 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] memories: write_words, the words a register file's write port
+ writes
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+`write_words <address port> <word>...` in a regfile spec: the words that
+write port writes, passed to generate_ram as -w_port_words. A word
+written by one port then takes its data with no data mux. A port
+without the line writes every word; a line naming no write port is
+refused.
+
+Carried in bazel-orfs, not upstreamed; needs OpenROAD's -w_port_words
+(bazel-orfs patch 0159) and retires with the //:bump onto an ORFS and
+OpenROAD that have them.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/memories/regfile_ram.py | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/flow/scripts/memories/regfile_ram.py b/flow/scripts/memories/regfile_ram.py
+index 1eac6d18c..44a1e8679 100644
+--- a/flow/scripts/memories/regfile_ram.py
++++ b/flow/scripts/memories/regfile_ram.py
+@@ -48,6 +48,7 @@ KEYS = {
+     "read",
+     "read_banked",
+     "write",
++    "write_words",
+     "write_priority",
+     "write_style",
+     "zero_word",
+@@ -163,6 +164,23 @@ def _args(lines: list[list[str]], block: str, shape: str) -> list[str]:
+         # two ports writing one word in a cycle: OR their data by
+         # default, as firtool's register files do
+         args += ["-write_priority", _one(lines, "write_priority", "or")]
++    # `write_words <address port> <word>...`: the words a write port
++    # writes, the others it never addresses; a port without the line
++    # writes every word
++    reach = {line[0]: line[1:] for line in _values(lines, "write_words")}
++    if reach:
++        ports = [w[0] for w in _values(lines, "write")]
++        unknown = sorted(set(reach) - set(ports))
++        if unknown:
++            raise SystemExit(
++                f"regfile_ram: write_words names {', '.join(unknown)}, "
++                f"not a write port's address ({', '.join(ports)})"
++            )
++        every = [str(word) for word in range(words)]
++        args += [
++            "-w_port_words",
++            "{" + " ".join("{" + " ".join(reach.get(p, every)) + "}" for p in ports) + "}",
++        ]
+     if int(_one(lines, "bank_columns", "1")) > 1 and not _values(
+         lines, "bank_column_layout"
+     ):

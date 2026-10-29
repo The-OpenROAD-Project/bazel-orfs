@@ -1,0 +1,574 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] ram: -w_port_words, the words each write port writes
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Per write port, a list of the words it writes. A word gets write logic
+only from the ports that list it: a word written by one port takes that
+port's data straight, with no data mux and no OR of the ports' write
+enables, and a port builds no decoder for a word it does not list. An
+array whose rows are written by fixed ports, a bank fill that writes
+row r through port r, otherwise carries a data mux over every port in
+every bit of every word.
+
+A port must not address a word outside its list. Every word must be
+listed by some port (RAM-0131); the lists are one per write port
+(RAM-0128), name words of the array (RAM-0130), need -decoder word or
+banks (RAM-0129), and no read-write port (RAM-0132).
+
+Carried in bazel-orfs, not upstreamed; retires with the //:bump onto an
+OpenROAD that has it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/ram/README.md                       |   2 +
+ src/ram/include/ram/ram.h               |   7 ++
+ src/ram/src/ram.cpp                     | 143 +++++++++++++++++++-----
+ src/ram/src/ram.i                       |   6 +
+ src/ram/src/ram.tcl                     |  22 +++-
+ src/ram/test/BUILD                      |   1 +
+ src/ram/test/CMakeLists.txt             |   1 +
+ src/ram/test/ram_sim.tcl                |  10 +-
+ src/ram/test/regression_tests.tcl       |   1 +
+ src/ram/test/write_port_words_asap7.tcl |  53 +++++++++
+ 10 files changed, 215 insertions(+), 31 deletions(-)
+ create mode 100644 src/ram/test/write_port_words_asap7.tcl
+
+diff --git a/src/ram/README.md b/src/ram/README.md
+index 8845be57b2..abefd082d6 100644
+--- a/src/ram/README.md
++++ b/src/ram/README.md
+@@ -60,6 +60,7 @@ generate_ram [-mask_size bits]
+              [-cells {role master ...}]
+              [-name name]
+              [-decoder row|word]
++             [-w_port_words {{word ...} ...}]
+              [-bit_folds count]
+              [-inv_cell name]
+              [-power_net_name name]
+@@ -103,6 +104,7 @@ generate_ram [-mask_size bits]
+ | `-cells` | **Experimental.** The cell for a role (`inv`, `and2`, `buffer`, `clock_gate`, `aoi22`, `ao22`, `or2`, `nand2`, `nor2`, `tie`, `addr_flop`), instead of the smallest the libraries have of its function. An AOI22 or AO22 given is checked by its truth table. Default: the smallest of each. |
+ | `-name` | **Experimental.** The block's and the behavioral model's name. Default: `RAM<words>x<bits>`. |
+ | `-decoder` | **Experimental.** `row`: a decoder per row, an AND2 chain over the row address, the column mux selecting within the row. `word`: a balanced AND2 tree over each word's whole address, as with banks; shallower for the read path. Default: `row`. |
++| `-w_port_words` | **Experimental.** Per write port, the words it writes: a list of word lists, one per write port, in port order. A word gets write logic only from the ports that list it: written by one port, the port's data goes straight to the word, with no data mux and no OR of the ports' enables, and a port builds no decoder for a word it does not list. A port must not address a word outside its list; such a write is lost. Every word must be listed by some port. With `-decoder word` or banks. Default: every port writes every word. |
+ | `-bit_folds` | **Experimental.** A word in `count` rows: its bits in slices of `-mask_size` (the word divided by `count`, rounded up; the last slice may be short), one slice a row, so a wide word with many ports is not a long thin strip. A folded word is written whole, one write enable a port, its write logic built once and shared by its rows. Not with `-use_latch` or the row decoder's `-column_mux_ratio` above 1. Default: 1. |
+ | `-inv_cell` | Name of the master to use for inverters. Default: auto-select from the loaded cell library. |
+ | `-routing_layer` | A list of the metal layer and metal width (in microns) for generating standard cell power tracks (followpins). Example: `{met1 0.48}`. |
+diff --git a/src/ram/include/ram/ram.h b/src/ram/include/ram/ram.h
+index 5c4fbeb220..e5b02571ce 100644
+--- a/src/ram/include/ram/ram.h
++++ b/src/ram/include/ram/ram.h
+@@ -146,6 +146,9 @@ class RamGen
+   void ramRouting(int thread_count);
+ 
+   void setBehavioralVerilogFilename(const std::string& filename);
++  // -w_port_words: per write port, the words it writes, as space-separated
++  // word indices with ';' between ports; empty: every port every word
++  void setWritePortWords(const std::string& text);
+   void writeBehavioralVerilog(const std::string& filename,
+                               int slices_per_word,
+                               int mask_size,
+@@ -354,6 +357,10 @@ class RamGen
+   std::vector<odb::dbBTerm*> data_inputs_;  // every write port's data
+   std::vector<std::vector<odb::dbBTerm*>> q_outputs_;
+   std::string behavioral_verilog_filename_;
++  // per write port, the words it writes; empty: every port every word
++  std::vector<std::set<int>> w_port_words_;
++  // the write ports that write a word: every port without -w_port_words
++  std::vector<int> writersOf(int word) const;
+   std::string aoi22_in_a1_, aoi22_in_a2_, aoi22_in_b1_, aoi22_in_b2_,
+       aoi22_out_;
+   std::array<std::string, 4> ao22_in_;
+diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
+index ef590bc6f7..4362984e34 100644
+--- a/src/ram/src/ram.cpp
++++ b/src/ram/src/ram.cpp
+@@ -334,6 +334,11 @@ void RamGen::makeSlice(const int slice_idx,
+ {
+   // selects: the write ports' row selects, then the read ports'
+   const int num_write = rw_ports + w_ports;
++  // the write ports that write this word: every port, or with
++  // -w_port_words those that list it; i indexes them, writers[i] is the
++  // port
++  const vector<int> writers = writersOf(wordAt(row_idx, word_idx));
++  const int n_writers = static_cast<int>(writers.size());
+   const int start_bit_idx = slice_idx * mask_size;
+   std::string prefix
+       = fmt::format("storage_{}_{}_{}", row_idx, word_idx, start_bit_idx);
+@@ -455,24 +460,25 @@ void RamGen::makeSlice(const int slice_idx,
+   // last port wins, as in the behavioral model. With -write_priority or
+   // every writing port's data is taken (take{w} is we{w}) and the word
+   // gets their OR. The clock gate opens for any of them.
+-  vector<dbNet*> take(num_write);
++  vector<dbNet*> take(n_writers);
+   if (shared) {
+     take = word_write.take;
+-  } else if (num_write > 1) {
+-    vector<dbNet*> we(num_write);
+-    for (int w = 0; w < num_write; ++w) {
+-      we[w] = makeNet(prefix, fmt::format("we{}", w));
++  } else if (n_writers > 1) {
++    vector<dbNet*> we(n_writers);
++    for (int i = 0; i < n_writers; ++i) {
++      const int w = writers[i];
++      we[i] = makeNet(prefix, fmt::format("we{}", w));
+       makeInst(sel_cell.get(),
+                prefix,
+                fmt::format("gcand{}", w),
+                and2_cell_,
+                {{and2_ports_[{PortRoleType::DataIn, 0}], selects[w]},
+                 {and2_ports_[{PortRoleType::DataIn, 1}], write_enable[w]},
+-                {and2_ports_[{PortRoleType::DataOut, 0}], we[w]}});
++                {and2_ports_[{PortRoleType::DataOut, 0}], we[i]}});
+     }
+-    take[num_write - 1] = we[num_write - 1];
+-    dbNet* later = we[num_write - 1];
+-    for (int w = num_write - 2; w >= 0; --w) {
++    take[n_writers - 1] = we[n_writers - 1];
++    dbNet* later = we[n_writers - 1];
++    for (int w = n_writers - 2; w >= 0; --w) {
+       if (write_or_) {
+         take[w] = we[w];
+       } else {
+@@ -525,8 +531,8 @@ void RamGen::makeSlice(const int slice_idx,
+ 
+     // the written data, and the flop's D: the written data, or with
+     // -write_style mux the hold mux's output
+-    dbNet* d_data = data_input[0][local_bit];
+-    if (num_write > 1) {
++    dbNet* d_data = data_input[writers[0]][local_bit];
++    if (n_writers > 1) {
+       d_data = makeNet(name, "d");
+     }
+     dbNet* d = write_mux_ ? makeNet(name, "dhold") : d_data;
+@@ -568,15 +574,15 @@ void RamGen::makeSlice(const int slice_idx,
+             bit_cell.get(), node.prefix, node.name, node.master, node.conns);
+       }
+     }
+-    if (num_write > 1) {
++    if (n_writers > 1) {
+       // the taken port's data: AO22 over pairs of ports, OR2 across pairs
+       dbNet* acc = nullptr;
+-      for (int w = 0; w < num_write; w += 2) {
+-        const bool last = w + 2 >= num_write;
++      for (int w = 0; w < n_writers; w += 2) {
++        const bool last = w + 2 >= n_writers;
+         dbNet* out = last && acc == nullptr
+                          ? d_data
+                          : makeNet(name, fmt::format("d_pair{}", w / 2));
+-        if (w + 1 < num_write && !ao22_cell_) {
++        if (w + 1 < n_writers && !ao22_cell_) {
+           // no AO22 in the library: the AOI22 and an inverter
+           auto out_b = makeNet(name, fmt::format("d_pair{}_b", w / 2));
+           makeInst(bit_cell.get(),
+@@ -584,9 +590,9 @@ void RamGen::makeSlice(const int slice_idx,
+                    fmt::format("dmux{}", w / 2),
+                    aoi22_cell_,
+                    {{aoi22_in_a1_, take[w]},
+-                    {aoi22_in_a2_, data_input[w][local_bit]},
++                    {aoi22_in_a2_, data_input[writers[w]][local_bit]},
+                     {aoi22_in_b1_, take[w + 1]},
+-                    {aoi22_in_b2_, data_input[w + 1][local_bit]},
++                    {aoi22_in_b2_, data_input[writers[w + 1]][local_bit]},
+                     {aoi22_out_, out_b}});
+           makeInst(bit_cell.get(),
+                    name,
+@@ -594,15 +600,15 @@ void RamGen::makeSlice(const int slice_idx,
+                    inv_cell_,
+                    {{inv_ports_[{PortRoleType::DataIn, 0}], out_b},
+                     {inv_ports_[{PortRoleType::DataOut, 0}], out}});
+-        } else if (w + 1 < num_write) {
++        } else if (w + 1 < n_writers) {
+           makeInst(bit_cell.get(),
+                    name,
+                    fmt::format("dmux{}", w / 2),
+                    ao22_cell_,
+                    {{ao22_in_[0], take[w]},
+-                    {ao22_in_[1], data_input[w][local_bit]},
++                    {ao22_in_[1], data_input[writers[w]][local_bit]},
+                     {ao22_in_[2], take[w + 1]},
+-                    {ao22_in_[3], data_input[w + 1][local_bit]},
++                    {ao22_in_[3], data_input[writers[w + 1]][local_bit]},
+                     {ao22_out_, out}});
+         } else {
+           makeInst(bit_cell.get(),
+@@ -611,7 +617,7 @@ void RamGen::makeSlice(const int slice_idx,
+                    and2_cell_,
+                    {{and2_ports_[{PortRoleType::DataIn, 0}], take[w]},
+                     {and2_ports_[{PortRoleType::DataIn, 1}],
+-                     data_input[w][local_bit]},
++                     data_input[writers[w]][local_bit]},
+                     {and2_ports_[{PortRoleType::DataOut, 0}], out}});
+         }
+         if (acc != nullptr) {
+@@ -657,14 +663,14 @@ void RamGen::makeSlice(const int slice_idx,
+   // Write path: this net is row_select AND with word_select so clock gate only
+   // fires for the addressed word within the row. Read path handled by AOI mux.
+   // word_select is nullptr when column_mux_ratio=1 (no mux needed).
+-  dbNet* write_sel = num_write > 1 ? nullptr : selects[0];
+-  if (word_select && num_write == 1) {
++  dbNet* write_sel = n_writers > 1 ? nullptr : selects[writers[0]];
++  if (word_select && n_writers == 1) {
+     write_sel = makeNet(prefix, "write_sel");
+     makeInst(sel_cell.get(),
+              prefix,
+              "word_and",
+              and2_cell_,
+-             {{and2_ports_[{PortRoleType::DataIn, 0}], selects[0]},
++             {{and2_ports_[{PortRoleType::DataIn, 0}], selects[writers[0]]},
+               {and2_ports_[{PortRoleType::DataIn, 1}], word_select},
+               {and2_ports_[{PortRoleType::DataOut, 0}], write_sel}});
+   }
+@@ -672,13 +678,13 @@ void RamGen::makeSlice(const int slice_idx,
+   // Make clock and
+   // this AND gate needs to be fed a net created by a decoder
+   // adding any net will automatically connect with any port
+-  if (num_write == 1 && !shared) {
++  if (n_writers == 1 && !shared) {
+     makeInst(sel_cell.get(),
+              prefix,
+              "gcand",
+              and2_cell_,
+              {{and2_ports_[{PortRoleType::DataIn, 0}], write_sel},
+-              {and2_ports_[{PortRoleType::DataIn, 1}], write_enable[0]},
++              {and2_ports_[{PortRoleType::DataIn, 1}], write_enable[writers[0]]},
+               {and2_ports_[{PortRoleType::DataOut, 0}], we_net}});
+   }
+ 
+@@ -2386,6 +2392,44 @@ void RamGen::generate(const int mask_size,
+   num_write_ = rw_ports + w_ports;
+   read_style_ = read_style;
+   zero_word_ = zero_word;
++  if (!w_port_words_.empty()) {
++    if (static_cast<int>(w_port_words_.size()) != num_write_) {
++      logger_->error(RAM,
++                     128,
++                     "-w_port_words lists {} ports; the array has {} write "
++                     "ports.",
++                     w_port_words_.size(),
++                     num_write_);
++    }
++    if (!banked_) {
++      logger_->error(RAM, 129, "-w_port_words needs -decoder word or -banks.");
++    }
++    if (rw_ports > 0) {
++      logger_->error(RAM,
++                     132,
++                     "-w_port_words is for write ports; a read-write port "
++                     "reads every word.");
++    }
++    for (const auto& words : w_port_words_) {
++      for (const int word : words) {
++        if (word < 0 || word >= num_words) {
++          logger_->error(RAM,
++                         130,
++                         "-w_port_words names word {}; the array has {}.",
++                         word,
++                         num_words);
++        }
++      }
++    }
++    for (int word = 0; word < num_words; ++word) {
++      if (word != zero_word && writersOf(word).empty()) {
++        logger_->error(RAM,
++                       131,
++                       "-w_port_words: no write port writes word {}.",
++                       word);
++      }
++    }
++  }
+   reset_value_ = reset_value;
+   reset_port_ = nullptr;
+   tie_off_cell_ = nullptr;
+@@ -2705,6 +2749,12 @@ void RamGen::generate(const int mask_size,
+             literals.clear();  // a word of another bank: no decoder
+             continue;
+           }
++          // -w_port_words: a write port decodes only the words it writes
++          if (!w_port_words_.empty() && p < rw_ports + w_ports
++              && w_port_words_[p].count(wordAt(row, w)) == 0) {
++            literals.clear();
++            continue;
++          }
+           // a banked read port decodes the word's index in its bank
+           const int word = port_bank >= 0 ? indexInBank(row) : wordAt(row, w);
+           literals.resize(port_inputs);
+@@ -2766,6 +2816,17 @@ void RamGen::generate(const int mask_size,
+         }
+       }
+     }
++    // -w_port_words: a write port selects only the words it writes
++    if (!w_port_words_.empty() && p < rw_ports + w_ports) {
++      for (int slot = 0; slot < num_selects; ++slot) {
++        if (decoder_input_nets[p][slot].empty()) {
++          dbNet::destroy(decoder_output_nets[p][slot]);
++          dbNet::destroy(write_select_nets[w_sel_idx - 1][slot]);
++          decoder_output_nets[p][slot] = nullptr;
++          write_select_nets[w_sel_idx - 1][slot] = nullptr;
++        }
++      }
++    }
+   }
+ 
+   // start of input/output net creation
+@@ -3877,6 +3938,36 @@ void RamGen::unplacePeriphery()
+                 block_->dbuToMicrons(height));
+ }
+ 
++void RamGen::setWritePortWords(const std::string& text)
++{
++  w_port_words_.clear();
++  if (text.empty()) {
++    return;
++  }
++  std::stringstream ports(text);
++  std::string port;
++  while (std::getline(ports, port, ';')) {
++    std::stringstream words(port);
++    std::set<int> set;
++    int word;
++    while (words >> word) {
++      set.insert(word);
++    }
++    w_port_words_.push_back(std::move(set));
++  }
++}
++
++std::vector<int> RamGen::writersOf(const int word) const
++{
++  std::vector<int> writers;
++  for (int w = 0; w < num_write_; ++w) {
++    if (w_port_words_.empty() || w_port_words_[w].count(word) > 0) {
++      writers.push_back(w);
++    }
++  }
++  return writers;
++}
++
+ void RamGen::setBehavioralVerilogFilename(const std::string& filename)
+ {
+   behavioral_verilog_filename_ = filename;
+diff --git a/src/ram/src/ram.i b/src/ram/src/ram.i
+index 10729eaa8e..9eb3feef74 100644
+--- a/src/ram/src/ram.i
++++ b/src/ram/src/ram.i
+@@ -157,6 +157,12 @@ void set_behavioral_verilog_filename(const char* filename)
+   ram_gen->setBehavioralVerilogFilename(filename);
+ }
+ 
++void set_write_port_words(const char* text)
++{
++  RamGen* ram_gen = ord::getRamGen();
++  ram_gen->setWritePortWords(text);
++}
++
+ } //namespace_ram
+ 
+ %} // inline
+\ No newline at end of file
+diff --git a/src/ram/src/ram.tcl b/src/ram/src/ram.tcl
+index fd7e24afe4..339e3558d4 100644
+--- a/src/ram/src/ram.tcl
++++ b/src/ram/src/ram.tcl
+@@ -20,6 +20,7 @@ sta::define_cmd_args "generate_ram_netlist" {[-mask_size bits]
+                                              [-cells {role master ...}]
+                                              [-name name]
+                                              [-decoder row|word]
++                                             [-w_port_words {{word ...} ...}]
+                                              [-bit_folds count]
+                                              [-periphery placed|unplaced|verilog]
+                                              [-wrapper_verilog file]
+@@ -41,7 +42,7 @@ proc generate_ram_netlist { args } {
+       -write_behavioral_verilog -read_style -zero_word -reset_value
+       -banks -bank_columns -bank_order -rb_ports -register_read_address -write_style -write_priority
+       -periphery -pin_layer -cells -name -decoder -bit_folds -wrapper_verilog -service_columns
+-      -bank_column_layout } flags {}
++      -bank_column_layout -w_port_words } flags {}
+ 
+   set column_mux_ratio 1
+   if { [info exists keys(-column_mux_ratio)] } {
+@@ -258,6 +259,18 @@ proc generate_ram_netlist { args } {
+     }
+   }
+ 
++  # -w_port_words: per write port, the words it writes. A word gets
++  # write logic from the ports that write it only: one port, and its data
++  # goes straight to the word, no data mux. A port must not address a
++  # word outside its list.
++  set w_port_words {}
++  if { [info exists keys(-w_port_words)] } {
++    foreach words $keys(-w_port_words) {
++      lappend w_port_words [join $words " "]
++    }
++  }
++  ram::set_write_port_words [join $w_port_words ";"]
++
+   # How a word holds its value between writes: a clock gate per word
+   # (clock_gate), or a mux per bit (mux).
+   set write_style clock_gate
+@@ -303,7 +316,7 @@ proc generate_ram_netlist { args } {
+   foreach key {-read_style -zero_word -reset_value -banks -bank_columns -bank_order
+     -rb_ports -register_read_address -write_style -write_priority -cells -name
+     -decoder -bit_folds -periphery -pin_layer -wrapper_verilog -service_columns
+-    -bank_column_layout} {
++    -bank_column_layout -w_port_words} {
+     if { [info exists keys($key)] } {
+       lappend experimental $key
+     }
+@@ -364,6 +377,7 @@ sta::define_cmd_args "generate_ram" {[-mask_size bits]
+                                      [-periphery placed|verilog]
+                                      [-wrapper_verilog file]
+                                      [-tracks file]
++                                     [-w_port_words {{word ...} ...}]
+                                      }
+ 
+ # user arguments for generate ram arguments
+@@ -378,7 +392,7 @@ proc generate_ram { args } {
+            -banks -bank_columns -bank_order -rb_ports -register_read_address
+            -write_style -write_priority
+            -cells -name -decoder -bit_folds -service_columns
+-           -bank_column_layout -periphery -wrapper_verilog -tracks } flags {}
++           -bank_column_layout -periphery -wrapper_verilog -tracks -w_port_words } flags {}
+ 
+   sta::check_argc_eq0 "generate_ram" $args
+ 
+@@ -439,7 +453,7 @@ proc generate_ram { args } {
+   foreach key {-banks -bank_columns -bank_order -rb_ports -register_read_address
+                -write_style -write_priority
+                -cells -name -decoder -bit_folds -service_columns
+-               -bank_column_layout -periphery -wrapper_verilog} {
++               -bank_column_layout -periphery -wrapper_verilog -w_port_words} {
+     if { [info exists keys($key)] } {
+       lappend ram_netlist_args $key $keys($key)
+     }
+diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
+index c13c524a5d..16cb4408e2 100644
+--- a/src/ram/test/BUILD
++++ b/src/ram/test/BUILD
+@@ -32,6 +32,7 @@ PASSFAIL_TESTS = [
+     "bank_column_layout_asap7",
+     "option_errors_asap7",
+     "generate_array_asap7",
++    "write_port_words_asap7",
+ ]
+ 
+ ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
+diff --git a/src/ram/test/CMakeLists.txt b/src/ram/test/CMakeLists.txt
+index cc87194102..8ff5e588f9 100644
+--- a/src/ram/test/CMakeLists.txt
++++ b/src/ram/test/CMakeLists.txt
+@@ -25,5 +25,6 @@ or_integration_tests(
+     bank_column_layout_asap7
+     option_errors_asap7
+     generate_array_asap7
++    write_port_words_asap7
+ )
+ 
+diff --git a/src/ram/test/ram_sim.tcl b/src/ram/test/ram_sim.tcl
+index ed15be9107..f785e98715 100644
+--- a/src/ram/test/ram_sim.tcl
++++ b/src/ram/test/ram_sim.tcl
+@@ -391,12 +391,14 @@ proc ram_sim::check { condition message } {
+ #   zero_word           a word that reads 0 and drops writes, or -1
+ #   latency             0, or 1 for a read one clock after its address
+ #   priority            last (the last port writing a word wins) or or
++#   write_words         per write port, the words it writes (empty: every
++#                       word); the port addresses no other
+ #   mem                 the words' contents to start from
+ #   cycles              how many
+ proc ram_sim::exercise { options } {
+   set o [dict merge {writes {} reads {} banked_reads {} bank_word {}
+                      zero_word -1 latency 0 priority last mem {}
+-                     cycles 200} $options]
++                     write_words {} cycles 200} $options]
+   set words [dict get $o words]
+   set bits [dict get $o bits]
+   set abits [expr { max(1, int(ceil(log($words) / log(2)))) }]
+@@ -410,9 +412,15 @@ proc ram_sim::exercise { options } {
+     # writes: a third of the time every port writes the same word
+     set same [expr { int(rand() * $words) }]
+     set written {}
++    set i 0
+     foreach port [dict get $o writes] {
+       lassign $port addr data we
+       set a [expr { rand() < 0.33 ? $same : int(rand() * $words) }]
++      set reach [lindex [dict get $o write_words] $i]
++      incr i
++      if { $reach ne "" && $a ni $reach } {
++        set a [lindex $reach [expr { int(rand() * [llength $reach]) }]]
++      }
+       set d [expr { int(rand() * (1 << $bits)) }]
+       set e [expr { rand() < 0.7 }]
+       set_bus $addr $abits $a
+diff --git a/src/ram/test/regression_tests.tcl b/src/ram/test/regression_tests.tcl
+index fe43f8af8b..ddabc99ecc 100644
+--- a/src/ram/test/regression_tests.tcl
++++ b/src/ram/test/regression_tests.tcl
+@@ -24,5 +24,6 @@ record_tests {
+   bank_column_layout_asap7
+   option_errors_asap7
+   generate_array_asap7
++  write_port_words_asap7
+   make_8x8_latch_sky130
+ }
+diff --git a/src/ram/test/write_port_words_asap7.tcl b/src/ram/test/write_port_words_asap7.tcl
+new file mode 100644
+index 0000000000..ffc8c1e200
+--- /dev/null
++++ b/src/ram/test/write_port_words_asap7.tcl
+@@ -0,0 +1,53 @@
++# -w_port_words: each write port writes only the words it lists. A word
++# written by one port takes that port's data straight, with no data mux
++# and no OR of the ports' enables; a port builds no decoder for a word it
++# does not write. The array still reads back what was written.
++source "helpers.tcl"
++source "ram_sim.tcl"
++source "routed.tcl"
++
++routed::read_asap7
++
++set base {-mask_size 8 -word_size 8 -num_words 8 -r_ports 2 -w_ports 4
++  -storage_cell DFFHQNx1_ASAP7_75t_R -write_style mux -write_priority or}
++
++# each refused, by its id, before any block is made
++foreach {options id} {
++  {-decoder word -w_port_words {{0 4} {1 5} {2 6}}} RAM-0128
++  {-w_port_words {{0 4} {1 5} {2 6} {3 7}}} RAM-0129
++  {-decoder word -w_port_words {{0 4} {1 5} {2 6} {3 9}}} RAM-0130
++  {-decoder word -w_port_words {{0 4} {1 5} {2 6} {3}}} RAM-0131
++} {
++  set rc [catch { generate_ram_netlist {*}$base {*}$options } msg]
++  ram_sim::check { $rc && [string match "*$id*" $msg] } \
++    "$options stopped with '$msg', not $id"
++}
++
++# 8 words in two banks of four rows, as a bank fill writes them: port r
++# writes row r of either bank, words r and r + 4
++set reach {{0 4} {1 5} {2 6} {3 7}}
++generate_ram_netlist {*}$base -decoder word -w_port_words $reach
++
++set names {}
++foreach inst [[ord::get_db_block] getInsts] {
++  lappend names [$inst getName]
++}
++ram_sim::check { [lsearch -glob $names *dmux*] < 0 } \
++  "a word written by one port has no data mux"
++ram_sim::check { [lsearch -glob $names *any_or*] < 0 } \
++  "a word written by one port has no OR of the ports' enables"
++ram_sim::check { [lsearch -glob $names *decoder_p0*word1] < 0 } \
++  "port 0 decodes no word it does not write"
++ram_sim::check { [lsearch -glob $names *decoder_p0*word4] >= 0 } \
++  "port 0 decodes word 4"
++
++ram_sim::load
++ram_sim::exercise {
++  words 8 bits 8 priority or cycles 300
++  writes {{addr_w0 D0 {we0[0]}} {addr_w1 D1 {we1[0]}}
++          {addr_w2 D2 {we2[0]}} {addr_w3 D3 {we3[0]}}}
++  write_words {{0 4} {1 5} {2 6} {3 7}}
++  reads {{addr_r0 Q0} {addr_r1 Q1}}
++}
++
++puts "pass"
