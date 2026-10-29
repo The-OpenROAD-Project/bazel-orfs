@@ -238,6 +238,11 @@ archive_override(
         # hold muxes). Not upstreamed; retires at a //:bump onto an
         # OpenROAD that has it.
         "//patches:0163-openroad-ram-write-enable-groups.patch",
+        # 0164: generate_ram's read side per group: a port decoding more
+        # than eight words takes its address literals per eight words, and
+        # an AND-OR read's word select reaches its bits per eight. Not
+        # upstreamed; retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0164-openroad-ram-read-drive-groups.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
