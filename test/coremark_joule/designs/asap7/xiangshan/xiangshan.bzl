@@ -33,7 +33,7 @@ XS_ICG_USER_SOURCES = {
 }
 XS_USER_STAGES = {v: ["floorplan"] for v in XS_USER_ARGUMENTS + XS_USER_SOURCES} | {
     v: ["synth"]
-    for v in list(XS_ICG_USER_ARGUMENTS) + list(XS_ICG_USER_SOURCES)
+    for v in list(XS_ICG_USER_ARGUMENTS) + list(XS_ICG_USER_SOURCES) + ["XS_FOLD_MODULES", "XS_FOLD_SCRIPT"]
 }
 
 # The flat core. Elaborated without Chisel's verification layer (see the
@@ -41,6 +41,38 @@ XS_USER_STAGES = {v: ["floorplan"] for v in XS_USER_ARGUMENTS + XS_USER_SOURCES}
 # After the surgery that folds the constants XiangShan ties into the
 # modules this flow keeps (surgery/xs_surgery.py, surgery/manifest.json).
 XS_VERILOG = ["//test/coremark_joule/designs/asap7/xiangshan/surgery:xiangshan_surgered.sv"]
+
+# The modules the arrays front end replaces (arrays/: each found, extracted
+# as one entry cell instanced per entry, and proven against the module it
+# came from), per part of the plan that holds them; "parent" is the tile's
+# own. Those parts read the surgered core with the extractions in place
+# (arrays:xiangshan_extracted), keep each entry cell, and fold slang's
+# per-instance copies of it onto one module (fold_entries.tcl), so
+# synthesis maps it once; every other part reads XS_VERILOG and stays
+# cached.
+XS_EXTRACTED = {
+    "MemBlock": ["LoadQueueRAR", "LoadQueueReplay", "PhysicalStoreQueue", "TLBFA_1", "VirtualStoreQueue"],
+    "parent": ["Rob"],
+}
+XS_EXTRACTED_VERILOG = ["//test/coremark_joule/designs/asap7/xiangshan/arrays:xiangshan_extracted.sv"]
+
+def _extracted(part, arguments, user_arguments, user_sources):
+    """A part's Verilog, arguments and user settings with its extracted
+    modules (XS_EXTRACTED) in place; unchanged for a part without any."""
+    if part not in XS_EXTRACTED:
+        return XS_VERILOG, arguments, user_arguments, user_sources
+    entries = " ".join(["%sEntry" % m for m in XS_EXTRACTED[part]])
+    arguments = dict(arguments, SYNTH_KEEP_MODULES = (arguments.get("SYNTH_KEEP_MODULES", "") + " " + entries).strip())
+    user_arguments = dict(
+        user_arguments,
+        SYNTH_POST_HIERARCHY_SCRIPTS = user_arguments["SYNTH_POST_HIERARCHY_SCRIPTS"] + " test/coremark_joule/designs/asap7/xiangshan/fold_entries.ys",
+        XS_FOLD_MODULES = entries,
+    )
+    user_sources = dict(user_sources, XS_FOLD_SCRIPT = [
+        "//test/coremark_joule/designs/asap7/xiangshan:fold_entries.tcl",
+        "//test/coremark_joule/designs/asap7/xiangshan:fold_entries.ys",
+    ])
+    return XS_EXTRACTED_VERILOG, arguments, user_arguments, user_sources
 
 XS_PARENT = {
     "arguments": {
@@ -1406,6 +1438,12 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
                 "mock_area": float(entry["MOCK_AREA"]),
                 "mock_sources": {"IO_CONSTRAINTS": [":%s/%s_mock_pins.tcl" % (plan_dir, block)]},
             }
+        verilog, arguments, user_arguments, user_sources = _extracted(
+            block,
+            arguments,
+            cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS,
+            cfg["user_sources"] | XS_ICG_USER_SOURCES,
+        )
         orfs_flow(
             name = block,
             abstract_stage = "grt",
@@ -1416,11 +1454,11 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             pdk = "//flow:asap7",
             sources = sources,
             tags = tags,
-            user_arguments = cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS,
-            user_sources = cfg["user_sources"] | XS_ICG_USER_SOURCES,
-            user_stages = _user_stages(cfg["user_arguments"] | XS_ICG_USER_ARGUMENTS, cfg["user_sources"] | XS_ICG_USER_SOURCES),
+            user_arguments = user_arguments,
+            user_sources = user_sources,
+            user_stages = _user_stages(user_arguments, user_sources),
             variant = variant,
-            verilog_files = XS_VERILOG,
+            verilog_files = verilog,
             **mock
         )
         if variant:
@@ -1517,8 +1555,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     for hook in ["PRE_DETAIL_PLACE_TCL", "PRE_CTS_TCL", "PRE_GLOBAL_ROUTE_TCL"]:
         sources[hook] = ["//test/coremark_joule/designs/asap7/xiangshan:legalize_out_of_blocks.tcl"]
     sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"]
-    user_arguments = {}
-    user_sources = {}
+    verilog, arguments, user_arguments, user_sources = _extracted("parent", arguments, XS_ICG_USER_ARGUMENTS, XS_ICG_USER_SOURCES)
     orfs_flow(
         name = name,
         arguments = arguments,
@@ -1534,11 +1571,11 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         pdk = "//flow:asap7",
         sources = sources,
         tags = tags,
-        user_arguments = user_arguments | XS_ICG_USER_ARGUMENTS,
-        user_sources = user_sources | XS_ICG_USER_SOURCES,
-        user_stages = _user_stages(user_arguments | XS_ICG_USER_ARGUMENTS, user_sources | XS_ICG_USER_SOURCES),
+        user_arguments = user_arguments,
+        user_sources = user_sources,
+        user_stages = _user_stages(user_arguments, user_sources),
         variant = variant,
-        verilog_files = XS_VERILOG,
+        verilog_files = verilog,
         visibility = ["//visibility:public"],
     )
     if variant:
