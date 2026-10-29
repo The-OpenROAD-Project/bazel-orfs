@@ -100,6 +100,8 @@ filegroup(
 # SKIP_REPORT_METRICS=1      all        Metrics reporting. Skips report_checks, report_wns,
 #                                        report_tns, report_power, report_clock_skew at every
 #                                        stage. Saves minutes per stage. (report_metrics.tcl)
+#                                        The bazel-orfs default (patch 0158); kept here
+#                                        so the list stays whole.
 # FILL_CELLS=""               route      Fill cell insertion. Skips filler_placement for
 #                                        manufacturing density requirements. (fillcell.tcl)
 # TAPCELL_TCL=""              floorplan  Custom tap/endcap cell placement. Falls back to

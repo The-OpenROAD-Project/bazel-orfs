@@ -179,6 +179,15 @@ ORFS_PATCHES = [
     # bump onto an ORFS that carries it, with a patch_cmds line deleting
     # that directory.
     Label("//patches:0155-orfs-coralnpu-generated.patch"),
+    # 0157: SKIP_REPORT_METRICS=1 still writes the metrics that cost
+    # nothing (design area, instance counts, utilization); it skips only
+    # the timing update, power analysis and text reports. Not
+    # upstreamed; retires at a bump onto an ORFS that carries it.
+    Label("//patches:0157-orfs-metrics-free-always.patch"),
+    # 0158: SKIP_REPORT_METRICS defaults to 1 here; a flow that wants
+    # timing and power in its stage .json sets it to 0. bazel-orfs
+    # policy, not for upstream; retires with 0157.
+    Label("//patches:0158-orfs-skip-report-metrics-default.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

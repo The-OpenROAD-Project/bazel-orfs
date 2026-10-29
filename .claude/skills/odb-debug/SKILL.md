@@ -213,9 +213,9 @@ window (`-max_displacement`, microns) is a mitigation, not a fix.
 
 ## 5. Timing: the minimum clock period of a stage
 
-A flow that runs with `SKIP_REPORT_METRICS` reports no slack at any
-stage, and a hierarchical flow usually does, because the metrics cost a
-timing graph per stage. The daemon is then the only way to a period, and
+A flow reports no slack at any stage unless it sets
+`SKIP_REPORT_METRICS=0`: bazel-orfs defaults it to 1, because the timing
+metrics cost a timing graph per stage. The daemon is then the only way to a period, and
 it is one question:
 
 MCP `tcl`, `code`:
