@@ -336,9 +336,9 @@ place's repair_design are in).
 | | B: extracted | 81.8 | 6.6 | 68.4 | 5.4 | 84.0 | 4.10 | 1,255.7 | 71,343 | 8,545.2 |
 | Rob | | | | | | | | not yet run (its RTL arm ~13 GB, ~73 min) | | |
 
-⁴ On yosys's frontend in both arms (`YOSYS_FRONTEND`). ⁵ Not on main:
-the study branch's extraction (`--firtool-vectors`), its RTL arm built
-with the same settings there.
+⁴ On yosys's frontend in both arms (`YOSYS_FRONTEND`). ⁵ The study
+extraction (`--firtool-vectors`, off by default; #1430), its RTL arm
+built with the same settings.
 
 | Block | A total min | B total min | A period ps | B period ps | verdict | reason for a loss, measured |
 |---|---:|---:|---:|---:|---|---|
@@ -363,6 +363,35 @@ there, the broadcast has to stop being one net into N kept cells: the
 comparison against it decoded once in the block where it can be
 (VirtualStoreQueue's dequeue pointer), or the cell's boundary placed so
 the buffer tree is the compare's own.
+
+### The toys (2026-10-29)
+
+`test/array_toys`, the generated arm against yosys's, depth 32. Dirty
+lanes from synthesis through global route on one machine, each kind's
+two arms side by side stage by stage; seconds are the step logs summed,
+period is 300 ps minus the worst slack at global route, cells and area
+the standard cells without taps. Single runs; agematrix is 32 entries
+(a 32 x 32 age matrix and 32 valid bits). Verdict as above.
+
+| Kind | Size | Generator | gen total s | yosys total s | gen period ps | yosys period ps | gen stdcells | yosys stdcells | verdict | reason for a loss, measured |
+|---|---|---|---:|---:|---:|---:|---:|---:|---|---|
+| counter | 32x8 | structgen | 25 | 60 | 295 | 344 | 2,847 | 2,600 | dominates | |
+| counter | 32x128 | structgen | 492 | 599 | 347 | 481 | 46,054 | 39,474 | dominates | arms in different pairs |
+| agematrix | 32 | structgen | 59 | 64 | 266 | 299 | 5,678 | 4,934 | dominates | |
+| flags | 32x128 | structgen | 505 | 656 | 496 | 394 | 60,435 | 30,769 | trades | `head_q` to array flop: a 5-level OR2 thermometer prefix and the flush-window select fanned out to 128 bits through a buffer chain, 28 cells and 481 ps against 20 and 390; 2.0x the cells |
+| flags | 32x8 | structgen | 92 | 66 | 425 | 335 | 4,887 | 2,572 | loses | the same path, 23 cells and 414 ps against yosys's adder compare, 14 and 328; repair at CTS 20 s and grt 41 s against 0 and 21 |
+| cam | 32x8 | structgen | 24 | 20 | 334 | 271 | 1,689 | 1,458 | loses | priority encoder: 5 OR2 prefix levels, an inverter, a NOR3/NAND3/NOR2 tree, 19 cells and 323 ps against OR4/OR5, 10 and 268 |
+| cam | 32x128 | structgen | 252 | 276 | 448 | 431 | 20,770 | 21,438 | loses (period; time a tie) | the match tree's single-fanout NAND3/NOR3 at xp33 drive 4-5 fF of wire: 20 of the 26 ps |
+| rf1r1w | 32x8 | generate_ram | 19 | 18 | 288 | 231 | 1,527 | 1,501 | loses | the decoder's INVx1 drives 16 loads (47 ps), three AND2 levels, then a 5-level read tree: 11 cells and 275 ps against 6 and 225 |
+| rf1r1w | 32x128 | generate_ram | 476 | 264 | 344 | 310 | 18,874 | 22,149 | loses | word-wide select nets left unbuffered; repair_design chains BUFx2 at fanout 30-50 (all 4,096 flops at -411 ps after place); repair at CTS 67 s against 26, grt 232 against 50 |
+| rf4r2w | 32x8 | generate_ram | 37 | 39 | 299 | 253 | 3,427 | 3,363 | loses (period) | as rf1r1w 32x8, on the write address: 12 cells and 288 ps against 8 and 249 |
+| rf4r2w | 32x128 | generate_ram | 1,103 | 978 | 453 | 357 | 38,795 | 53,096 | loses (period) | the read select reaches the word through a repair_design fanout chain (141 ps), CTS repair 266 s against 96 |
+
+generate_ram leaves its word selects unbuffered and its decoder
+inverters at the smallest size, which structgen did before #1428;
+generate_ram is OpenROAD's, so its fix is a carried-patch candidate.
+structgen's remaining losses are depth and sizing in the CAM's priority
+encoder and the flags' flush-window select.
 
 ## XSTile uses the arrays (2026-10-29)
 
