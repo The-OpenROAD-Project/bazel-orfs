@@ -19,14 +19,13 @@ the RTL.
 | Block | Carve (min) | Extracted (min) | Period (ps) |
 | --- | ---: | ---: | ---: |
 | Rob | 73.5 | 23.5 | 1,913.9 |
-| LoadQueueReplay | 28.9 | ~15 ¹ | 1,670.7 |
-| PhysicalStoreQueue | 27.2 ² | 21.2 | 1,519.5 |
-| VirtualStoreQueue | 6.6 | ≤ 3 ³ | 1,298.6 |
-| LoadQueueRAR | 4.5 | ≤ 3 ³ | 1,172.6 |
-| TLBFA / TLBFA_1 | | ≤ 3 ³ | 435.1 / 507.2 |
+| LoadQueueReplay | 28.9 | ~9.5 | 1,469.7 |
+| PhysicalStoreQueue | 27.2 ¹ | 8.6 | 1,905.1 |
+| VirtualStoreQueue | 6.6 | ≤ 6 ² | 1,485.0 |
+| LoadQueueRAR | 4.5 | ≤ 6 ² | 997.7 |
+| TLBFA / TLBFA_1 | | ≤ 6 ² | 285.9 / 349.5 |
 
-¹ Side by side with PhysicalStoreQueue. ² The decode_once flow, not the
-carve. ³ Four blocks side by side in 172 s.
+¹ The decode_once flow, not the carve. ² Four blocks side by side.
 
 Every period is inside XSTile's ~2,000 ps. The flows skip setup repair
 at and after CTS, floorplan's repair, and pin access; global route is
@@ -55,8 +54,9 @@ route-0. The surgered Rob with the hand-written generator
 
 ### Not covered yet
 
-- The read side: PhysicalStoreQueue's forwarding compares every entry
-  and reduces across them; its top still synthesises for 978 s.
+- The read side where entries' read cones differ (LoadQueueRAW,
+  LoadQueueRAR); where they agree it is in the cell (PhysicalStoreQueue's
+  top synthesis 978 s to 137 s).
 - Threshold compares (x >= K): VirtualLoadQueue.
 - Bpu and VecRegionModule gain from the flow knobs alone (39 min side by
   side against 41.2 and 49.0) but miss 2,000 ps with setup repair off.
