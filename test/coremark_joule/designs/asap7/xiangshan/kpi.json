@@ -787,7 +787,7 @@
         "FltRegionModule": 951,
         "VecRegionModule": 1048
       },
-      "note": "main since run 18: three OpenROAD/ORFS bumps, and MemBlock and the parent on the extracted modules (b33b28ea, da6e9aa5); one run, the causes not separated. The parent's worst path, intRegion's pipeToALU0 fuType into vecRegion's gpWbWakeUp; no floor or flat run measured for this row",
+      "note": "main since run 18: three OpenROAD/ORFS bumps, and MemBlock and the parent on the extracted modules (b33b28ea, da6e9aa5); one run, the causes not separated. The parent's worst path, intRegion's pipeToALU0 fuType into vecRegion's gpWbWakeUp; the one-flop-loop floor 1,984 ps (2,151 at run 17), on the same decode-buffer valid register, below the target; no flat run measured for this row",
       "histograms": {
         "parent": {
           "bin_ps": 10,
@@ -857,7 +857,9 @@
           "to": "fpRegFile/io_writePorts_1_addr[0]",
           "what": "The FP write-back path's destination register number to the FP register file's write address: a register index travelling to a macro."
         }
-      }
+      },
+      "floor_ps": 1984,
+      "floor_register": "core/backend/inner_ctrlBlock/decodeBufValid_3"
     }
   ]
 }
