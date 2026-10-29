@@ -44,6 +44,12 @@ exports_files([
     "xs_icg_map.v",
 ])
 
+# The entry cells' fold, for the Rob's flow on the generic front end too.
+exports_files(
+    ["fold_entries.tcl"],
+    visibility = ["//test/coremark_joule/designs/asap7/xiangshan/rob_array:__pkg__"],
+)
+
 # The plan names the modules the flow keeps, which the surgery folds
 # constants into (surgery/).
 exports_files(
