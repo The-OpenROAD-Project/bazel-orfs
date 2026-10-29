@@ -206,6 +206,23 @@ YOSYS_FRONTEND = [
     "VirtualStoreQueue",
 ]
 
+# Each block twice, the arms of its A/B: <top> on the extraction and
+# <top>_rtl on the module as it is (the same proc JSON written back as
+# Verilog, no entry cell, nothing folded), every other setting the same by
+# construction: what the extraction alone buys in build time and period.
+[
+    genrule(
+        name = top + "_rtl_verilog",
+        srcs = [":%s_proc.json" % top],
+        outs = [top + "_rtl.v"],
+        cmd = "$(execpath @yosys) -q -p 'read_json $<; hierarchy -top %s; " % top +
+              "opt_dff; write_verilog -noattr $@'",
+        tags = ["manual"],
+        tools = ["@yosys"],
+    )
+    for top in TOPS
+]
+
 [
     orfs_flow(
         name = top,
@@ -221,40 +238,52 @@ YOSYS_FRONTEND = [
             "SKIP_PIN_ACCESS": "1",
             "SKIP_REPORT_METRICS": "1",
             "SYNTH_HIERARCHICAL": "1",
-            "SYNTH_KEEP_MODULES": top + "Entry",
+            "SYNTH_KEEP_MODULES": "" if rtl else top + "Entry",
         } | ({"SYNTH_HDL_FRONTEND": ""} if top in YOSYS_FRONTEND else {}),
         last_stage = "grt",
         pdk = "//flow:asap7",
-        sources = {k: v for k, v in BLOCK["sources"].items() if k != "AUTO_MEMORIES_REGFILES"} | ({} if top in YOSYS_FRONTEND else {
+        sources = {k: v for k, v in BLOCK["sources"].items() if k != "AUTO_MEMORIES_REGFILES"} | ({} if rtl or top in YOSYS_FRONTEND else {
             "SYNTH_CANONICALIZE_TCL": ["//test/coremark_joule/designs/asap7/xiangshan:fold_entries.tcl"],
         }),
         stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
         tags = ["manual"],
-        user_arguments = BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS | ({} if top in YOSYS_FRONTEND else {"XS_FOLD_MODULES": top + "Entry"}),
+        user_arguments = BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS | ({} if rtl or top in YOSYS_FRONTEND else {"XS_FOLD_MODULES": top + "Entry"}),
         user_sources = BLOCK["user_sources"] | XS_ICG_USER_SOURCES,
         user_stages = {
             v: s
             for v, s in XS_USER_STAGES.items()
-            if v in BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS | ({} if top in YOSYS_FRONTEND else {"XS_FOLD_MODULES": ""}) or v in BLOCK["user_sources"] | XS_ICG_USER_SOURCES
+            if v in BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS | ({} if rtl or top in YOSYS_FRONTEND else {"XS_FOLD_MODULES": ""}) or v in BLOCK["user_sources"] | XS_ICG_USER_SOURCES
         },
-        verilog_files = [":%s_extracted.v" % top],
+        variant = "rtl" if rtl else None,
+        verilog_files = [":%s_%s.v" % (
+            top,
+            "rtl" if rtl else "extracted",
+        )],
         yosys_frontend_reason = "period worse on slang and the fold (YOSYS_FRONTEND)" if top in YOSYS_FRONTEND else None,
     )
     for top in TOPS
+    for rtl in [
+        False,
+        True,
+    ]
 ]
 
 [
     orfs_run(
-        name = top + "_grt_qor",
-        src = ":%s_grt" % top,
-        outs = [top + "_grt_qor.json"],
+        name = flow + "_grt_qor",
+        src = ":%s_grt" % flow,
+        outs = [flow + "_grt_qor.json"],
         script = "//test/coremark_joule/designs/asap7/xiangshan/rob_array:qor_probe.tcl",
         tags = ["manual"],
         user_arguments = {
-            "OUTPUT_JSON": "$(location %s_grt_qor.json)" % top,
+            "OUTPUT_JSON": "$(location %s_grt_qor.json)" % flow,
         },
     )
     for top in TOPS
+    for flow in [
+        top,
+        top + "_rtl",
+    ]
 ]
 
 # The extraction's proof as a test: the extracted module, its comparisons

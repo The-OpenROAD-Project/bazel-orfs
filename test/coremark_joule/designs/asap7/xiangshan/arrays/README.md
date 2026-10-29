@@ -33,6 +33,7 @@ a different number in every entry, which stay in the block).
 bazelisk test //test/coremark_joule/designs/asap7/xiangshan/arrays:features_test
 bazelisk build //test/coremark_joule/designs/asap7/xiangshan/arrays:<Block>_extracted
 bazelisk build //test/coremark_joule/designs/asap7/xiangshan/arrays:<Block>_grt_qor
+bazelisk build //test/coremark_joule/designs/asap7/xiangshan/arrays:<Block>_rtl_grt_qor
 bazelisk test //test/coremark_joule/designs/asap7/xiangshan/arrays:<Block>_check_test
 ```
 
@@ -40,6 +41,8 @@ bazelisk test //test/coremark_joule/designs/asap7/xiangshan/arrays:<Block>_check
 queue freed below a bound (thresholds) and on a CAM with a per-bank
 priority select and per-port match registers (read cones that differ,
 firtool's vector names), in seconds.
+`<Block>_rtl_grt_qor` is the same flow on the module as it is (no entry
+cell): the A arm of the block's A/B.
 `<Block>_grt_qor` is the extracted block through global route with
 setup repair at CTS and global route off (XSTile's ~2,000 ps), its
 period in the JSON.
@@ -69,3 +72,19 @@ The flows read the extraction through slang and fold the entry cell's
 copies (`../fold_entries.tcl`), as XSTile's flows do, except where the
 period at global route came out worse that way: those stay on yosys's
 frontend (`YOSYS_FRONTEND` in `BUILD.bazel` has the numbers).
+
+## What the extraction buys
+
+Against the module as it is, the same flow, single runs side by side
+(`ideas/structured-macros.md`, "QoR inventory", has the stages, cells
+and area):
+
+| Block | A total min | B total min | A period ps | B period ps | verdict |
+|---|---:|---:|---:|---:|---|
+| PhysicalStoreQueue | 40.85 | 14.54 | 1,582.9 | 1,905.1 | trades |
+| LoadQueueReplay | 37.40 | 22.36 | 1,664.5 | 1,289.9 | dominates |
+| VirtualStoreQueue | 6.04 | 3.31 | 1,014.1 | 1,485.0 | trades |
+| LoadQueueRAR | 6.59 | 4.67 | 902.0 | 961.1 | dominates |
+| TLBFA | 2.69 | 2.19 | 439.0 | 272.0 | dominates |
+| TLBFA_1 | 5.95 | 3.06 | 460.8 | 349.5 | dominates |
+| VirtualLoadQueue | 5.19 | 3.41 | 962.5 | 963.9 | dominates |

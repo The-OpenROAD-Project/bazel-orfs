@@ -300,6 +300,70 @@ and global route aimed at 2,000 ps instead of the SDC's 473
 (`SETUP_SLACK_MARGIN` 473 - 2,000), side by side in 38 min:
 VecRegionModule 2,012.4 ps, Bpu 3,175.5 ps. Repair does not close Bpu.
 
+## QoR inventory (2026-10-29)
+
+Every extraction against the module as it is: arrays
+`<Block>_grt_qor` (B, the extraction) and `<Block>_rtl_grt_qor` (A,
+the same proc JSON written back as Verilog: no entry cell, nothing
+folded), every other flow setting shared by construction. Single runs
+on one machine, each pair side by side; PhysicalStoreQueue and
+LoadQueueReplay alone with their pair in a 10 GB memory scope (swap in
+use), so compare seconds within a row, not across rows. Synthesis is
+canonicalisation, synthesis and the synth ODB from the Bazel profile
+(the entry cell's partition runs beside the top); floorplan through
+global route is the tool time in the stages' logs. Cells and area are
+the standard cells at global route (CORE masters, no tap or fill), what
+setup repair would have added included (it is off here; CTS buffers and
+place's repair_design are in).
+
+| Block | Arm | synth s | floorplan s | place s | CTS s | grt s | total min | period at grt ps | stdcells | stdcell area µm² |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| PhysicalStoreQueue ⁴ | A: RTL | 1,909.2 | 26.1 | 327.9 | 30.9 | 156.9 | 40.85 | 1,582.9 | 252,148 | 32,126.6 |
+| | B: extracted | 327.2 | 23.7 | 324.3 | 40.8 | 156.4 | 14.54 | 1,905.1 | 256,511 | 31,409.7 |
+| LoadQueueReplay | A: RTL | 1,504.8 | 49.5 | 496.1 | 33.4 | 160.0 | 37.40 | 1,664.5 | 368,658 | 45,109.3 |
+| | B: extracted | 432.4 | 35.8 | 549.4 | 49.5 | 274.7 | 22.36 | 1,289.9 | 388,365 | 45,860.8 |
+| VirtualStoreQueue ⁴ | A: RTL | 260.4 | 5.5 | 58.7 | 7.5 | 30.3 | 6.04 | 1,014.1 | 62,041 | 7,605.0 |
+| | B: extracted | 78.3 | 5.7 | 68.0 | 7.6 | 38.9 | 3.31 | 1,485.0 | 64,645 | 7,813.4 |
+| LoadQueueRAR | A: RTL | 266.8 | 6.0 | 58.7 | 5.0 | 58.8 | 6.59 | 902.0 | 53,430 | 7,024.2 |
+| | B: extracted | 85.8 | 11.5 | 70.0 | 6.3 | 106.4 | 4.67 | 961.1 | 64,639 | 8,169.5 |
+| TLBFA | A: RTL | 75.6 | 6.4 | 46.9 | 4.6 | 28.0 | 2.69 | 439.0 | 47,411 | 6,578.3 |
+| | B: extracted | 34.3 | 6.6 | 49.0 | 4.8 | 36.9 | 2.19 | 272.0 | 49,982 | 6,648.4 |
+| TLBFA_1 ⁴ | A: RTL | 166.0 | 16.6 | 136.2 | 7.0 | 31.4 | 5.95 | 460.8 | 83,636 | 10,707.2 |
+| | B: extracted | 44.2 | 10.5 | 81.6 | 11.4 | 36.0 | 3.06 | 349.5 | 97,630 | 11,759.7 |
+| VirtualLoadQueue | A: RTL | 173.5 | 5.1 | 34.9 | 3.2 | 94.9 | 5.19 | 962.5 | 38,203 | 4,267.1 |
+| | B: extracted | 83.9 | 5.0 | 41.4 | 4.2 | 70.4 | 3.41 | 963.9 | 42,521 | 4,945.0 |
+| Uncache ⁵ | A: RTL | 115.1 | 13.3 | 49.0 | 5.4 | 17.2 | 3.33 | 1,020.3 | 56,458 | 7,449.8 |
+| | B: extracted | 81.8 | 6.6 | 68.4 | 5.4 | 84.0 | 4.10 | 1,255.7 | 71,343 | 8,545.2 |
+| Rob | | | | | | | | not yet run (its RTL arm ~13 GB, ~73 min) | | |
+
+⁴ On yosys's frontend in both arms (`YOSYS_FRONTEND`). ⁵ Not on main:
+the study branch's extraction (`--firtool-vectors`), its RTL arm built
+with the same settings there.
+
+| Block | A total min | B total min | A period ps | B period ps | verdict | reason for a loss, measured |
+|---|---:|---:|---:|---:|---|---|
+| PhysicalStoreQueue | 40.85 | 14.54 | 1,582.9 | 1,905.1 | trades | the forwarding query reaches the 64 entry cells through fanout-32 buffers (slew 287 ps), compares inside, and the select comes back out: arrival 2,164 ps against 1,833 |
+| LoadQueueReplay | 37.40 | 22.36 | 1,664.5 | 1,289.9 | dominates | |
+| VirtualStoreQueue | 6.04 | 3.31 | 1,014.1 | 1,485.0 | trades | the dequeue pointer reaches the 128 entry cells through ten levels of fanout buffers before the entry's logic: arrival 1,624 ps against 1,142 |
+| LoadQueueRAR | 6.59 | 4.67 | 902.0 | 961.1 | dominates | period +6.5 %, within the resolution |
+| TLBFA | 2.69 | 2.19 | 439.0 | 272.0 | dominates | |
+| TLBFA_1 | 5.95 | 3.06 | 460.8 | 349.5 | dominates | |
+| VirtualLoadQueue | 5.19 | 3.41 | 962.5 | 963.9 | dominates | |
+| Uncache | 3.33 | 4.10 | 1,020.3 | 1,255.7 | study only | 27 % more cells: the 435-bit read side mapped inside the kept entry cell, nothing optimised across its boundary; global route 84 against 17 s |
+
+The verdict: B dominates when it is no worse on both, a time within
+15 % or a period within 10 % counting as no worse (the flow is
+deterministic, but one register per entry moved into LoadQueueReplay's
+cell moved its period 11 %: placement, the same gates on the worst
+path); it trades when it is better on one and worse on the other;
+otherwise it loses and stays a study. Every extraction cuts synthesis
+(PhysicalStoreQueue 1,909 to 327 s); the two that trade lose period
+where a shared operand is broadcast into every entry cell. To win
+there, the broadcast has to stop being one net into N kept cells: the
+comparison against it decoded once in the block where it can be
+(VirtualStoreQueue's dequeue pointer), or the cell's boundary placed so
+the buffer tree is the compare's own.
+
 ## XSTile uses the arrays (2026-10-29)
 
 MemBlock and the parent read `arrays:xiangshan_extracted`, the surgered
