@@ -452,6 +452,51 @@ tie. What is left is in the table. structgen's remaining losses are
 depth and sizing in the CAM's priority encoder (32x8) and the flags'
 flush-window select.
 
+### A wide word's read selects, a second level: no gain (2026-10-30)
+
+With the write side's second level in (0167), the worst path left on
+rf4r2w 32 x 128 is a read select: a word's decoder output drove its 16
+read-select group buffers (0164) and repair chained BUFx12f and BUFx6f
+on it. Tried: a buffer per eight groups between the decoder output and
+the group buffers, as 0167 does for the enable and takes (an OpenROAD
+change with a pass/fail test, `read_wide_word_asap7`, whose negative
+control failed for the right reason: `decoder_p1.word0 drives 16
+read-select buffers`). Not carried.
+
+Dirty lanes from synthesis through grt on main's OpenROAD (0156, 0159,
+0163-0167), each arm its own binary, before and after side by side on a
+loaded machine (load 12-18); period is 300 ps minus the grt WNS,
+reg2reg the clock's minimum period (FLW-0008); cells and area without
+taps.
+
+| toy | arm | synth | floorplan | place | CTS | grt | total s | period ps | reg2reg ps | stdcells | area um2 |
+|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| rf4r2w 32x128 | before | 12 | 7 | 50 | 163 | 305 | 536 | 320.9 | 304.8 | 41,613 | 4,921.3 |
+| rf4r2w 32x128 | after | 12 | 6 | 46 | 271 | 562 | 898 | 322.3 | 306.2 | 41,567 | 5,006.3 |
+| rf1r1w 32x128 | before | 7 | 4 | 21 | 11 | 47 | 91 | 299.9 | 284.9 | 19,597 | 2,691.1 |
+| rf1r1w 32x128 | after | 7 | 4 | 21 | 16 | 52 | 101 | 299.8 | 284.8 | 19,681 | 2,704.1 |
+
+The 8-bit toys and ohsched fill and lanes (reach) generate the same
+array netlist byte for byte (a word of eight groups or fewer takes no
+second level), so their flows are unchanged.
+
+Verdict against before: rf4r2w 32 x 128 loses (time +68 %, period
+within 0.5 %); rf1r1w 32 x 128 is a tie (time +11 %, period the same).
+
+Why, measured. The period: the worst path is still the read select, now
+22.7 ps in the new buffer (BUFx6f driving 37.5 fF) and 40.5 ps in the
+group buffer behind it (BUFx12f, input slew 40.8 ps): the placer spreads
+a word's eight group buffers over about 45 x 45 um, so the level splits
+a fanout but not the wire, and the wire was the cost. The time: the read
+side starts CTS's repair better (WNS -113 against -138 ps, TNS -344k
+against -376k), so repair has more endpoints it can close and works on
+them: CTS repair_timing 264 against 156 s (2,289 against 1,338
+resizes), grt repair_timing 393 against 140 s (2,295 against 1,043
+resizes), ending at TNS -24.7k against -55.3k and 2,939 against 4,434
+violating endpoints, the WNS no better. pin_access, which does the same
+work in both, took 106 and 104 s: the two lanes ran under the same load.
+The lever for this path is the select's wire, not its fanout.
+
 ### ohsched fill reach: where its grt repair goes, and a decoder lever (2026-10-30)
 
 The fill toy's generated arm (reach) trades against yosys only on time:
