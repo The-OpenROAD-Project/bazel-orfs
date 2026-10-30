@@ -465,7 +465,15 @@ core. What it took, each a trap for the next such change:
   against 1,849.1, TLBFA_1 349.5 against 364.7; better on slang:
   LoadQueueRAR 997.7 to 961.1, LoadQueueReplay 1,469.7 to 1,289.9, TLBFA
   285.9 to 272.0, the Rob 1,913.9 to 1,781.7 (its buffers also kept). Single runs; the worse three
-  stay on yosys's frontend (`YOSYS_FRONTEND`).
+  stay on yosys's frontend (`YOSYS_FRONTEND`). VirtualStoreQueue rechecked
+  with its decoders' enables decoded (2026-10-30), both arms on slang
+  side by side: B 1,320.7 ps in 9.3 min against 961.3 in 3.5 on yosys,
+  A 1,200.1 against 1,014.1. The worst path is the same on both
+  frontends (the read of the entry at the dequeue pointer, its compare,
+  the retire carry, the decoder, the cell), 1,251 ps arrival on slang
+  against 1,038: slang's netlist has 8,859 more cells (72,942 against
+  64,083), the read's select buffers take 55-63 ps a stage against
+  29-37 and its mux tree is a level deeper. It stays on yosys.
 - **A survey of the five macros' modules** (entries.py on each candidate
   a text scan and the synthesis-time backlog named) found no other large
   array the front end fits: RenameTable_1 and PrefetchReqBuffer pass the
