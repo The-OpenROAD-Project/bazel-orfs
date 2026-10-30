@@ -198,6 +198,9 @@ BLOCK = XS_BLOCKS["Rob"]
 # fold their period at global route was worse, single runs (ps, yosys
 # against slang): PhysicalStoreQueue 1,905.1 against 2,304.9,
 # VirtualStoreQueue 1,485.0 against 1,849.1, TLBFA_1 349.5 against 364.7.
+# VirtualStoreQueue again with its decoders' enables decoded (2026-10-30):
+# 961.3 against 1,320.7, its RTL arm 1,014.1 against 1,200.1; on slang
+# 8,859 more cells and the read at the dequeue pointer slower.
 # The other three were better on slang: LoadQueueRAR 997.7 to 961.1,
 # LoadQueueReplay 1,469.7 to 1,289.9, TLBFA 285.9 to 272.0.
 YOSYS_FRONTEND = [
