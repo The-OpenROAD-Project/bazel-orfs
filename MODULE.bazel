@@ -290,6 +290,8 @@ archive_override(
         # A backed grid written out and freed before the routes are converted,
         # where global route peaks (msync, then MADV_PAGEOUT).
         "//patches:0191-openroad-grt-backing-pageout.patch",
+        # The blocked intervals freed once applied as capacity adjustments.
+        "//patches:0192-openroad-grt-free-blocked-intervals.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
