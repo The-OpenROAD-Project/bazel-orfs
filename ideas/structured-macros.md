@@ -365,11 +365,24 @@ decoder, which is on none of the worst paths: TLBFA's (it meets the
 compare inside one cell, 7 levels and 305 ps against 6 and 270;
 Uncache's is the entry's write select, inside the cell OR4-OR3-OR4-AND2
 against OR4-NAND2, 247 ps against 187 from the shared fanout-32 net to
-the data register.
+the data register. ⁸ PhysicalStoreQueue's
+broadcast is inherent (the forwarding query compared in all 64 cells),
+and placement already sees one netlist (OPENROAD_HIERARCHICAL 0), so
+the study arm `PhysicalStoreQueue_flat` flattens before synthesis
+instead (SYNTH_HIERARCHICAL 0, the comparisons still decoded once):
+1,630.2 ps, 244,238 cells, 31,195.8 µm², 35.67 min (synthesis 1,529 s,
+floorplan 35, place 377, CTS 41, global route 158). Against A (40.85 min,
+1,582.9 ps) a tie within the resolution; against the kept cell
+(17.92 min this run, 1,905.1 ps) 14 % better period for twice the time.
+The query no longer reaches 64 cells through two BUFx2 levels of fanout
+32 (220 ps slew, 225 ps), and the compare's output is not an AND5x1
+mapped without its 22 fF load (149 ps slew): arrival 1,643 ps against
+1,778. To win, the cell would have to keep its single synthesis and
+still be mapped against what drives and loads it.
 
 | Block | A total min | B total min | A period ps | B period ps | verdict | reason for a loss, measured |
 |---|---:|---:|---:|---:|---|---|
-| PhysicalStoreQueue | 40.85 | 14.54 | 1,582.9 | 1,905.1 | trades | the forwarding query reaches the 64 entry cells through fanout-32 buffers (slew 287 ps), compares inside, and the select comes back out: arrival 2,164 ps against 1,833 |
+| PhysicalStoreQueue | 40.85 | 14.54 | 1,582.9 | 1,905.1 | trades ⁸ | the forwarding query reaches the 64 entry cells through fanout-32 buffers (slew 287 ps), compares inside, and the select comes back out: arrival 2,164 ps against 1,833 |
 | LoadQueueReplay | 37.40 | 22.36 | 1,664.5 | 1,289.9 | dominates | |
 | VirtualStoreQueue | 6.04 | 3.53 | 1,014.1 | 961.3 | dominates ⁷ | |
 | LoadQueueRAR | 6.59 | 4.67 | 902.0 | 1,052.0 | trades ⁷ | period +16.6 %, past the 10 %: ABC maps the entry cell differently since the enable is decoded (961.1 ps before); the decoder is not on the worst path |
