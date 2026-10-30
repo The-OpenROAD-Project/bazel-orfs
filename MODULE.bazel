@@ -258,6 +258,12 @@ archive_override(
         # groups (a 128-bit word's enable drove 16 group buffers). Not
         # upstreamed; retires at a //:bump onto an OpenROAD that has it.
         "//patches:0167-openroad-ram-wide-word-tree.patch",
+        # 0170: generate_ram: no pin within a pitch of a die corner (a via
+        # from the first track along an edge lands outside the die,
+        # DRT-0255), and the address pins the right edge cannot hold on
+        # the bottom edge (PPL-0111 on a short block). Not upstreamed;
+        # retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0170-openroad-ram-pin-corners.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
