@@ -280,6 +280,11 @@ archive_override(
         # The maze heaps grow to the search frontier instead of a pointer per
         # GCell and layer up front.
         "//patches:0187-openroad-grt-maze-heaps-frontier.patch",
+        # global_route -backing_file: the routing grid in a file reserved
+        # when the grid is set up (failing at once when the disk cannot hold
+        # it) and paged there instead of to swap. ORFS passes a file in
+        # OBJECTS_DIR (0189).
+        "//patches:0188-openroad-grt-backing-file.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
