@@ -271,6 +271,48 @@ YOSYS_FRONTEND = [
     ]
 ]
 
+# A study, off by default: the extraction with its entry cells flattened
+# before synthesis (SYNTH_HIERARCHICAL 0), its comparisons still
+# decoded once in the block, so ABC maps an entry's compare and the
+# block's select over it together. For a block whose broadcast into the
+# cells is inherent (PhysicalStoreQueue's forwarding query); placement
+# saw one netlist already (OPENROAD_HIERARCHICAL 0).
+FLAT_STUDY = ["PhysicalStoreQueue"]
+
+[
+    orfs_flow(
+        name = top,
+        arguments = {k: v for k, v in BLOCK["arguments"].items() if k != "SYNTH_KEEP_MODULES"} | {
+            "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
+            "GPL_ROUTABILITY_DRIVEN": "0",
+            "GPL_TIMING_DRIVEN": "0",
+            "SKIP_CTS_REPAIR_TIMING": "1",
+            "SKIP_FLOORPLAN_REPAIR_TIMING": "1",
+            "SKIP_INCREMENTAL_REPAIR": "1",
+            "SKIP_PIN_ACCESS": "1",
+            "SKIP_REPORT_METRICS": "1",
+            "SYNTH_HIERARCHICAL": "0",
+            "SYNTH_KEEP_MODULES": "",
+        } | ({"SYNTH_HDL_FRONTEND": ""} if top in YOSYS_FRONTEND else {}),
+        last_stage = "grt",
+        pdk = "//flow:asap7",
+        sources = {k: v for k, v in BLOCK["sources"].items() if k != "AUTO_MEMORIES_REGFILES"},
+        stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
+        tags = ["manual"],
+        user_arguments = BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS,
+        user_sources = BLOCK["user_sources"] | XS_ICG_USER_SOURCES,
+        user_stages = {
+            v: s
+            for v, s in XS_USER_STAGES.items()
+            if v in BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS or v in BLOCK["user_sources"] | XS_ICG_USER_SOURCES
+        },
+        variant = "flat",
+        verilog_files = [":%s_extracted.v" % top],
+        yosys_frontend_reason = "period worse on slang and the fold (YOSYS_FRONTEND)" if top in YOSYS_FRONTEND else None,
+    )
+    for top in FLAT_STUDY
+]
+
 [
     orfs_run(
         name = flow + "_grt_qor",
@@ -286,7 +328,7 @@ YOSYS_FRONTEND = [
     for flow in [
         top,
         top + "_rtl",
-    ]
+    ] + ([top + "_flat"] if top in FLAT_STUDY else [])
 ]
 
 # The extraction's proof as a test: the extracted module, its comparisons
