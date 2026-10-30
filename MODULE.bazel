@@ -277,6 +277,9 @@ archive_override(
         "//patches:0185-openroad-grt-maze-arrays-grid.patch",
         # A merged route gives back its unmerged per-GCell segments.
         "//patches:0186-openroad-grt-route-shrink.patch",
+        # The maze heaps grow to the search frontier instead of a pointer per
+        # GCell and layer up front.
+        "//patches:0187-openroad-grt-maze-heaps-frontier.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
