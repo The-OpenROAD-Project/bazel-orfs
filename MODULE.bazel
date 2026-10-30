@@ -248,6 +248,11 @@ archive_override(
         # (a 128-bit word's take drove 128 data muxes). Not upstreamed;
         # retires at a //:bump onto an OpenROAD that has it.
         "//patches:0165-openroad-ram-take-groups.patch",
+        # 0166: generate_ram: a word of no more than eight bits, one group,
+        # takes its write enable and each port's take without a group
+        # buffer, which only added a level. Not upstreamed; retires at a
+        # //:bump onto an OpenROAD that has it.
+        "//patches:0166-openroad-ram-one-group.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
