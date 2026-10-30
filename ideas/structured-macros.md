@@ -323,17 +323,17 @@ place's repair_design are in).
 | LoadQueueReplay | A: RTL | 1,504.8 | 49.5 | 496.1 | 33.4 | 160.0 | 37.40 | 1,664.5 | 368,658 | 45,109.3 |
 | | B: extracted | 432.4 | 35.8 | 549.4 | 49.5 | 274.7 | 22.36 | 1,289.9 | 388,365 | 45,860.8 |
 | VirtualStoreQueue ⁴ | A: RTL | 260.4 | 5.5 | 58.7 | 7.5 | 30.3 | 6.04 | 1,014.1 | 62,041 | 7,605.0 |
-| | B: extracted | 102.8 | 3 | 63 | 7 | 36 | 3.53 | 961.3 | 64,083 | 7,906.2 |
+| | B: extracted ⁹ | 102.8 | 3 | 63 | 7 | 36 | 3.53 | 926.0 | 63,871 | 7,884.8 |
 | LoadQueueRAR | A: RTL | 266.8 | 6.0 | 58.7 | 5.0 | 58.8 | 6.59 | 902.0 | 53,430 | 7,024.2 |
-| | B: extracted | 85.8 | 11.5 | 70.0 | 6.3 | 106.4 | 4.67 | 961.1 | 64,639 | 8,169.5 |
+| | B: extracted ⁹ | 85.8 | 11.5 | 70.0 | 6.3 | 106.4 | 4.67 | 949.9 | 67,093 | 8,222.8 |
 | TLBFA | A: RTL | 75.6 | 6.4 | 46.9 | 4.6 | 28.0 | 2.69 | 439.0 | 47,411 | 6,578.3 |
-| | B: extracted | 34.3 | 6.6 | 49.0 | 4.8 | 36.9 | 2.19 | 272.0 | 49,982 | 6,648.4 |
+| | B: extracted ⁹ | 34.3 | 6.6 | 49.0 | 4.8 | 36.9 | 2.19 | 311.8 | 49,653 | 6,592.5 |
 | TLBFA_1 ⁴ | A: RTL | 166.0 | 16.6 | 136.2 | 7.0 | 31.4 | 5.95 | 460.8 | 83,636 | 10,707.2 |
-| | B: extracted | 44.2 | 10.5 | 81.6 | 11.4 | 36.0 | 3.06 | 349.5 | 97,630 | 11,759.7 |
+| | B: extracted ⁹ | 44.2 | 10.5 | 81.6 | 11.4 | 36.0 | 3.06 | 292.2 | 98,120 | 11,689.7 |
 | VirtualLoadQueue | A: RTL | 173.5 | 5.1 | 34.9 | 3.2 | 94.9 | 5.19 | 962.5 | 38,203 | 4,267.1 |
-| | B: extracted | 83.9 | 5.0 | 41.4 | 4.2 | 70.4 | 3.41 | 963.9 | 42,521 | 4,945.0 |
+| | B: extracted ⁹ | 83.9 | 5.0 | 41.4 | 4.2 | 70.4 | 3.41 | 1,011.7 | 42,144 | 4,914.7 |
 | Uncache ⁵ | A: RTL | 115.1 | 13.3 | 49.0 | 5.4 | 17.2 | 3.33 | 1,020.3 | 56,458 | 7,449.8 |
-| | B: extracted | 81.8 | 6.6 | 68.4 | 5.4 | 84.0 | 4.10 | 1,255.7 | 71,343 | 8,545.2 |
+| | B: extracted ⁹ | 81.8 | 6.6 | 68.4 | 5.4 | 84.0 | 4.10 | 1,332.8 | 70,686 | 8,524.5 |
 | Rob ⁶ | A: RTL | 969.3 | 365.3 | 1,078.6 | 37.2 | 147.9 | 43.30 | 2,038.9 | 341,506 | 40,836.6 |
 | | B: extracted | 408.7 | 143.9 | 1,925.8 | 43.3 | 925.1 | 57.45 | 1,759.3 | 432,737 | 48,740.8 |
 
@@ -365,7 +365,26 @@ decoder, which is on none of the worst paths: TLBFA's (it meets the
 compare inside one cell, 7 levels and 305 ps against 6 and 270;
 Uncache's is the entry's write select, inside the cell OR4-OR3-OR4-AND2
 against OR4-NAND2, 247 ps against 187 from the shared fanout-32 net to
-the data register. ⁸ PhysicalStoreQueue's
+the data register. That reading was wrong for LoadQueueRAR (⁹).
+⁹ Re-measured 2026-10-30 with the enable after the decode,
+`(1 << x) & {en}`, in place of `en << x` (B alone, six blocks side by
+side; times are the earlier ones: the cell is byte-identical and a
+side-by-side Uncache pair, the one block whose global route moved,
+took 259 s against 248 s from synthesis to global route, a tie).
+LoadQueueRAR's worst path with `en << x` was the decoder: from the
+free list's head pointer through the read of the allocated slot, into
+the decoder, whose last level, an AO32x1 at fanout 12 driving 33.6 fF
+(slew 187 ps), reached the cell at 1,039.9 ps; yosys's shifter carries
+the enable through all seven stages. With the AND after the decode the
+same path reaches the cell at 911.9 ps through an AND3x1 (13.9 fF), and
+the period is 949.9 ps. Left in the cell, as before the enable was
+decoded, LoadQueueRAR comes out at 901.1 ps (61,948 cells, 7,806.0
+µm²) but VirtualStoreQueue's serial carry fans out to 128 cells again
+(1,485.0 ps, ⁷). Period at grt (ps, `en << x` → `(1 << x) & {en}`):
+LoadQueueRAR 1,052.0 → 949.9, VirtualStoreQueue 961.3 → 926.0,
+TLBFA_1 308.5 → 292.2, Uncache 1,418.5 → 1,332.8, VirtualLoadQueue
+1,036.0 → 1,011.7, TLBFA 306.7 → 311.8 (+1.7 %; it meets its 473 ps
+clock). ⁸ PhysicalStoreQueue's
 broadcast is inherent (the forwarding query compared in all 64 cells),
 and placement already sees one netlist (OPENROAD_HIERARCHICAL 0), so
 the study arm `PhysicalStoreQueue_flat` flattens before synthesis
@@ -384,13 +403,13 @@ still be mapped against what drives and loads it.
 |---|---:|---:|---:|---:|---|---|
 | PhysicalStoreQueue | 40.85 | 14.54 | 1,582.9 | 1,905.1 | trades ⁸ | the forwarding query reaches the 64 entry cells through fanout-32 buffers (slew 287 ps), compares inside, and the select comes back out: arrival 2,164 ps against 1,833 |
 | LoadQueueReplay | 37.40 | 22.36 | 1,664.5 | 1,289.9 | dominates | |
-| VirtualStoreQueue | 6.04 | 3.53 | 1,014.1 | 961.3 | dominates ⁷ | |
-| LoadQueueRAR | 6.59 | 4.67 | 902.0 | 1,052.0 | trades ⁷ | period +16.6 %, past the 10 %: ABC maps the entry cell differently since the enable is decoded (961.1 ps before); the decoder is not on the worst path |
-| TLBFA | 2.69 | 2.19 | 439.0 | 306.7 | dominates ⁷ | |
-| TLBFA_1 | 5.95 | 3.06 | 460.8 | 308.5 | dominates ⁷ | |
-| VirtualLoadQueue | 5.19 | 3.41 | 962.5 | 1,036.0 | dominates ⁷ | period +7.6 %, inside the 10 % |
+| VirtualStoreQueue | 6.04 | 3.53 | 1,014.1 | 926.0 | dominates ⁷ ⁹ | |
+| LoadQueueRAR | 6.59 | 4.67 | 902.0 | 949.9 | dominates ⁹ | period +5.3 %, inside the 10 % |
+| TLBFA | 2.69 | 2.19 | 439.0 | 311.8 | dominates ⁹ | |
+| TLBFA_1 | 5.95 | 3.06 | 460.8 | 292.2 | dominates ⁹ | |
+| VirtualLoadQueue | 5.19 | 3.41 | 962.5 | 1,011.7 | dominates ⁹ | period +5.1 %, inside the 10 % |
 | Rob | 43.30 | 57.45 | 2,038.9 | 1,759.3 | trades | 27 % more cells (432,737 against 341,506): routability-driven global placement needs 21 passes against 7 (1,591 against 757 s), and global route takes 835 s where the RTL arm stops at congestion after 79 s |
-| Uncache | 3.33 | 4.10 | 1,020.3 | 1,418.5 ⁷ | study only | 27 % more cells: the 435-bit read side mapped inside the kept entry cell, nothing optimised across its boundary; global route 84 against 17 s |
+| Uncache | 3.33 | 4.10 | 1,020.3 | 1,332.8 ⁹ | study only | 27 % more cells: the 435-bit read side mapped inside the kept entry cell, nothing optimised across its boundary; global route 84 against 17 s |
 
 The verdict: B dominates when it is no worse on both, a time within
 15 % or a period within 10 % counting as no worse (the flow is

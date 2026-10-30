@@ -345,7 +345,7 @@ def extract(mod, name, decode=True):
         cell_cells[c]["connections"][p] = [idx[k] if k < iw else "0" for k in range(w)]
     sites = rest
     # a decoder's enable: x == i read only by en && (x == i), en one bit from
-    # outside the entries, is decoded with it, en << x, and the cell gets
+    # outside the entries, is decoded with it, (1 << x) & {en}, and the cell gets
     # the one wire: en no longer reaches every cell (VirtualStoreQueue's
     # retireCarryVec_k, a serial carry, each link fanned out to 128 cells
     # before the next one). yosys may leave the conjunction in several
@@ -477,11 +477,33 @@ def extract(mod, name, decode=True):
             "attributes": {},
             "port_directions": {"A": "input", "B": "input", "Y": "output"},
             "connections": {
-                "A": [en or "1"] + ["0"] * (m - 1),
+                "A": ["1"] + ["0"] * (m - 1),
                 "B": operand,
                 "Y": shifted,
             },
         }
+        if en is not None:
+            # the enable after the decode, not shifted through it as en << x:
+            # yosys's shifter then carried it through every stage, and
+            # LoadQueueRAR's late write slot came out of the decoder through
+            # an AO32 driving 34 fF (1,052 ps against 950)
+            decoded = list(range(next_id[0], next_id[0] + m))
+            next_id[0] += m
+            parent["cells"][f"$decode_once${hp}_{g}"]["connections"]["Y"] = decoded
+            parent["cells"][f"$decode_once${hp}_{g}_en"] = {
+                "hide_name": 1,
+                "type": "$and",
+                "parameters": {
+                    "A_SIGNED": "0",
+                    "A_WIDTH": format(m, "032b"),
+                    "B_SIGNED": "0",
+                    "B_WIDTH": format(m, "032b"),
+                    "Y_WIDTH": format(m, "032b"),
+                },
+                "attributes": {},
+                "port_directions": {"A": "input", "B": "input", "Y": "output"},
+                "connections": {"A": decoded, "B": [en] * m, "Y": shifted},
+            }
         parent["netnames"][f"decode_once_{hp}_{g}"] = {
             "hide_name": 0,
             "bits": y,
@@ -490,7 +512,7 @@ def extract(mod, name, decode=True):
 
     one_hot = {}  # (hit port, entry) -> the entry's bit of its decoder
     for hp, _, template_operand, o, en in decoded:
-        # en << x where the cell's x == i had an enable: one decoder per
+        # (1 << x) & {en} where the cell's x == i had an enable: one decoder per
         # distinct operand and enable
         toks = [token_of[b] for b in template_operand + ([] if en is None else [en])]
         by_operand = collections.defaultdict(list)
