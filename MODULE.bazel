@@ -243,6 +243,11 @@ archive_override(
         # an AND-OR read's word select reaches its bits per eight. Not
         # upstreamed; retires at a //:bump onto an OpenROAD that has it.
         "//patches:0164-openroad-ram-read-drive-groups.patch",
+        # 0165: generate_ram with more than one write port: each port's
+        # take, its data's select in every bit's data mux, per eight bits
+        # (a 128-bit word's take drove 128 data muxes). Not upstreamed;
+        # retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0165-openroad-ram-take-groups.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
