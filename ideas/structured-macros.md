@@ -300,6 +300,47 @@ and global route aimed at 2,000 ps instead of the SDC's 473
 (`SETUP_SLACK_MARGIN` 473 - 2,000), side by side in 38 min:
 VecRegionModule 2,012.4 ps, Bpu 3,175.5 ps. Repair does not close Bpu.
 
+**Bpu closes; the 3,175.5 ps was the probe's parasitics (2026-10-30).**
+The qor probe times every stage on placement parasitics. On the routes'
+parasitics, which global route's own repair works on, Bpu's grt is
+1,953.8 ps, with every reg2reg endpoint inside 2,000 ps. The flow's own
+report at the end of global route (FLW-0008) says 1,856.1 ps, and
+odb-debug on the same ODB 1,883.2. Re-measured on main (efbb1085) in a
+14 GB scope (it ran out of 8 GB in CTS):
+
+| stage | synth s | floorplan s | place s | CTS s | grt s | total min | period, placement RC ps | period, grt RC ps | stdcells | area µm² |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| Bpu | 41.1 ¹ | 73.5 | 696.5 | 967.4 | 454.6 | 37.2 | 3,224.0 | 1,953.8 | 650,823 | 85,401.2 |
+
+¹ Only the top's last step: the partitions came from the remote cache.
+CTS's 967 s is repair_timing (854 s, ending at RSZ-0062 on the 473 ps
+clock with its margin aimed at 2,000).
+
+Logic or placement, the repair-headroom bounds, at grt on the routes'
+parasitics (odb-debug): period 1,883.2 ps, every wire at zero 1,184.3
+(`floor_wire`): a third of the period is wire. At place, before any
+repair, on placement parasitics: 3,338.1 ps, zero wire 1,357.1, the
+one-flop-loop floor at zero wire 610.8 (`abtb/io_meta_entries_1_hit`).
+The worst path at place runs from a CSR enable register through
+ittage, sc and tage into a tage table's write buffer. It crosses the
+block through 18 wire and load-slew buffers, 19 to 119 ps each and 1,145 ps in all. The
+logic alone (1,357 ps) fits 2,000 ps, and on the routes' parasitics
+repair already brings the block inside it. The full `headroom` table
+and `floor_cycles_nowire` did not answer within 30 minutes on 736 k
+instances at grt.
+
+What this does to the arrays' verdicts (period at grt, placement RC ->
+routes' RC, ps; B against A): LoadQueueRAR 949.9 -> 863.5 against
+902.0 -> 781.3 (+10.5 %, past the 10 %); VirtualLoadQueue 1,011.7 ->
+972.6 against 962.5 -> 857.6 (+13.4 %); Uncache 1,332.8 -> 1,171.3
+against 1,020.3 -> 916.0; VirtualStoreQueue 926.0 -> 910.4 against
+1,014.1 -> 944.7; TLBFA 311.8 -> 320.6 against 439.0 -> 397.0;
+TLBFA_1 292.2 -> 282.3 against 460.8 -> 456.2; PhysicalStoreQueue B
+1,905.1 -> 1,567.7 (A, and LoadQueueReplay's arms, not re-run: they
+were not in the remote cache, 40 minutes each). Wires cost the
+extraction more than the RTL arm on RAR and VirtualLoadQueue. Which
+parasitics the inventory's verdicts use is open.
+
 ## QoR inventory (2026-10-29)
 
 Every extraction against the module as it is: arrays
