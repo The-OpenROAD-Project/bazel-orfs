@@ -38,6 +38,7 @@ _SIZES = {
     "NOR3xp33": ["NOR3xp33", "NOR3x1", "NOR3x2"],
     "OR2x2": ["OR2x2", "OR2x4", "OR2x4"],
     "AO22x1": ["AO22x1", "AO22x2", "AO22x2"],
+    "AO21x1": ["AO21x1", "AO21x2", "AO21x2"],
     "XOR2xp5": ["XOR2xp5", "XOR2x1", "XOR2x2"],
     "XNOR2xp5": ["XNOR2xp5", "XNOR2x1", "XNOR2x2"],
 }
@@ -110,6 +111,34 @@ class Netlist:
         if a in self._inv_of:
             return self.cell("XOR2xp5", A=self._inv_of[a], B=b)
         return self.cell("XNOR2xp5", A=a, B=b)
+
+    def ao21(self, a1, a2, b):
+        """a1 & a2 | b"""
+        if self.zero in (a1, a2):
+            return b
+        if b == self.zero:
+            return self.and2(a1, a2)
+        return self.cell("AO21x1", A1=a1, A2=a2, B=b)
+
+    def priority(self, xs):
+        """The lowest set index of xs, a power of two long, as index bits
+        LSB-first, zero when none is set. Halves combine as a mapper's
+        encoder does: the low half's index where it has a set bit, else
+        the high half's, one AO21 a bit and level (low | ~any_low &
+        high), the new top bit ~any_low & any_high. Each half's any is
+        its own tree of 3-input inverting gates, not a chain of the
+        levels' ORs: a bit is one AO21 per level deep after the widest
+        such tree, where a prefix OR and an OR tree over the one-hot
+        lowest set bit are each log2(n) levels."""
+        if len(xs) == 1:
+            return []
+        half = len(xs) // 2
+        i_lo = self.priority(xs[:half])
+        i_hi = self.priority(xs[half:])
+        n_lo = self.inv(self.tree(self.or2, xs[:half]))
+        bits = [self.ao21(n_lo, h, lo) for lo, h in zip(i_lo, i_hi)]
+        bits.append(self.and2(n_lo, self.tree(self.or2, xs[half:])))
+        return bits
 
     def mux(self, s, a, b):
         """s ? b : a"""
@@ -402,13 +431,12 @@ def cam(net, depth, width):
         for i in range(depth)
     ]
     net.lines.append(f"  assign hit = {net.tree(net.or2, m)};")
-    # the lowest matching entry: a match with no match below it
-    below = net.prefix(net.or2, m)
-    lowest = [m[0]] + [net.and2(m[i], net.inv(below[i - 1])) for i in range(1, depth)]
+    # the lowest matching entry's index: a priority encoder over the
+    # matches, padded to a power of two with no match
+    padded = m + [net.zero] * ((1 << a) - depth)
+    idx = net.priority(padded)
     for k in range(a):
-        net.lines.append(
-            f"  assign idx[{k}] = {net.tree(net.or2, [lowest[i] for i in range(depth) if i >> k & 1])};"
-        )
+        net.lines.append(f"  assign idx[{k}] = {idx[k]};")
     return ports
 
 
