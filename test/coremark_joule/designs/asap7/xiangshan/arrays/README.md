@@ -12,7 +12,7 @@ decodes each index comparison once in the block.
 | --- | --- | --- |
 | proc | `proc_json.py` | the block after yosys's `proc`, as JSON; named modules stay blackboxes |
 | find | `entries.py` | entries are word *i* of arrays of equal length (`x`, `x_1`, ... too: firtool's vectors), an array of k·N words k arrays of the group of N where that follows one rule; each entry's cone is a structural signature, and constants, shared bits and `x == K` / `x != K` comparisons are decided across entries (the same, the entry's number, or its bank's); where that leaves entries off the rule, thresholds `x >= K` / `x < K` too |
-| extract | `extract.py` | the template entry as `<Block>Entry`, instanced per entry; each index comparison decoded once per distinct operand, a threshold `x >= i + o` as bit `i + o - 1` of `(1 << x) - 1`, an `en && x == i` as bit `i` of `(1 << x) & {en}` |
+| extract | `extract.py` | the template entry as `<Block>Entry`, instanced per entry; each index comparison decoded once per distinct operand, a threshold `x >= i + o` as bit `i + o - 1` of `(1 << x) - 1`, an ordered comparison with the index (`i > x`, `i <= x`, ...) as such a threshold, inverted in the cell where it is the complement, an `en && x == i` as bit `i` of `(1 << x) & {en}` |
 | prove | `check.py` | registers and blackboxes as cut points, a yosys miter, ABC's `iprove`; a negative control (one register's D-mux swapped) must come out different |
 | swap | `substitute.py` | the core with each extraction in place of its block, for the XSTile flows (`../README.md`, "The arrays") |
 
@@ -86,11 +86,11 @@ stages, cells, area and the placement-parasitics period):
 
 | Block | A total min | B total min | A period ps | B period ps | verdict |
 |---|---:|---:|---:|---:|---|
-| PhysicalStoreQueue | 40.85 | 14.54 | 1,453.0 | 1,567.7 | dominates |
+| PhysicalStoreQueue | 40.85 | 11.08 | 1,453.0 | 1,666.4 | trades |
 | LoadQueueReplay | 37.40 | 22.36 | 1,198.4 | 1,201.8 | dominates |
 | VirtualStoreQueue | 6.04 | 3.53 | 944.7 | 910.4 | dominates |
 | LoadQueueRAR | 6.59 | 4.67 | 781.3 | 863.5 | trades |
 | TLBFA | 2.69 | 2.19 | 397.0 | 320.6 | dominates |
 | TLBFA_1 | 5.95 | 3.06 | 456.2 | 282.3 | dominates |
 | VirtualLoadQueue | 5.19 | 3.41 | 857.6 | 972.6 | trades |
-| Rob (`rob_array:RobEntries`) | 58.07 | 60.07 | 1,379.9 | 1,251.6 | dominates |
+| Rob (`rob_array:RobEntries`) | 58.07 | 52.60 | 1,379.9 | 1,212.3 | dominates |
