@@ -452,6 +452,80 @@ tie. What is left is in the table. structgen's remaining losses are
 depth and sizing in the CAM's priority encoder (32x8) and the flags'
 flush-window select.
 
+### ohsched fill reach: where its grt repair goes, and a decoder lever (2026-10-30)
+
+The fill toy's generated arm (reach) trades against yosys only on time:
+global route's repair_timing works on about 140 endpoints a few ps over
+300 ps. Measured on the grt result: every one is a pick-to-match path,
+from a retimed read-address flop through the generated read side into
+the toy's match logic. On the worst, 341 ps of data path: the flop
+(53 ps), synthesis's inverter on its QN (19 ps, fanout 8), generate_ram's
+address literal buffer (18 ps), the word decoder's three AND2 levels
+(50 ps), the read-select group buffer (21 ps), the AOI22 and four-level
+NAND/NOR read tree (73 ps), then the toy's XOR2 and AND4 (54 ps). The
+generated part, literal to read tree, is 161 ps of it.
+
+Tried: a port decoding more than eight words took its word decoder as
+NAND2 and NOR2 by turns (its literals made in each level's polarity by
+the group's existing buffer or inverter) and its select buffers as
+inverters: a stage less in each AND2 and in the buffer. An OpenROAD
+change with a pass/fail test (decoder_levels_asap7, every read select
+an inverter fed by a NAND2 root three levels deep, the array read back;
+the binary without it fails on "decoder_p1.word0 is driven by
+AND2x2_ASAP7_75t_R, not a NAND2"); the ram tests that simulate decoded
+arrays pass. Not carried.
+
+Dirty lanes from synthesis through grt on main's OpenROAD (0156, 0159,
+0163-0167), each arm its own binary, the toy's arms side by side,
+single runs on a loaded machine; period is 300 ps minus the grt WNS,
+reg2reg the clock's minimum period (FLW-0008); cells and area without
+taps. rf1r1w 32x8 after and rf1r1w 32x8 base's and rf4r2w 32x8 after's
+CTS and grt were re-run alone after a lane race.
+
+| toy | arm | synth | floorplan | place | CTS | grt | total s | period ps | reg2reg ps | stdcells | area um2 |
+|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| ohsched fill reach | before | 6 | 4 | 16 | 12 | 52 | 89 | 304.0 | 288.8 | 9,431 | 1,242.7 |
+| ohsched fill reach | after | 5 | 3 | 17 | 11 | 44 | 81 | 299.7 | 284.8 | 9,589 | 1,243.4 |
+| ohsched fill | yosys | 7 | 4 | 17 | 4 | 39 | 71 | 339.0 | 322.0 | 9,517 | 1,481.1 |
+| ohsched lanes reach | before | 8 | 4 | 24 | 15 | 33 | 84 | 300.6 | 285.6 | 8,988 | 1,193.1 |
+| ohsched lanes reach | after | 8 | 5 | 24 | 16 | 41 | 93 | 306.3 | 291.0 | 9,128 | 1,188.7 |
+| rf1r1w 32x8 | before | 2 | 3 | 10 | 2 | 4 | 22 | 235.2 | 223.5 | 1,582 | 197.2 |
+| rf1r1w 32x8 | after | 3 | 3 | 7 | 2 | 4 | 18 | 228.4 | 217.0 | 1,585 | 193.1 |
+| rf4r2w 32x8 | before | 3 | 3 | 13 | 3 | 13 | 35 | 254.1 | 241.4 | 3,590 | 387.0 |
+| rf4r2w 32x8 | after | 3 | 3 | 13 | 3 | 7 | 29 | 251.0 | 238.4 | 3,589 | 371.0 |
+| rf1r1w 32x128 | before | 12 | 8 | 35 | 17 | 69 | 141 | 299.9 | 284.9 | 19,597 | 2,691.1 |
+| rf1r1w 32x128 | after | 12 | 8 | 36 | 12 | 69 | 138 | 300.0 | 285.0 | 19,767 | 2,691.1 |
+| rf4r2w 32x128 | before | 13 | 8 | 43 | 104 | 314 | 483 | 320.9 | 304.8 | 41,613 | 4,921.3 |
+| rf4r2w 32x128 | after | 13 | 8 | 43 | 158 | 514 | 736 | 316.4 | 300.6 | 41,736 | 4,834.3 |
+
+Against before: fill reach dominates (time -9 %, period -1.4 %), and
+against yosys it now dominates too (+14 % time, the tie is 15 %; the
+before arm was +25 % in this run, not the +16 % measured earlier: the
+time comparison is at the resolution). rf1r1w and rf4r2w 32x8 dominate.
+rf1r1w 32x128 ties. lanes reach ties by the rule (+11 % time, +1.9 %
+period). rf4r2w 32x128 loses: time +52 %, which would turn its win
+against yosys's 446 s into a loss.
+
+Why, measured. The decoder: on fill's worst path its three levels are
+34.9 ps against 50.4, but repair puts a BUFx6f (18.1 ps) between the
+NAND2xp5 root and the four select inverters it drives (17.5 ps), so
+decoder to select is 70.5 against 70.9 ps: the gain went into driving
+the selects. (A NOR2 root driving buffers, tried first, gave 4 ps.) rf4r2w 32x128's time: as with the read
+selects' second level (above), a faster read side gives repair more it
+can close: CTS starts at TNS -295k against -376k and ends at -58k
+against -105k (3,767 against 4,563 violating endpoints), grt's repair
+then takes 414 against 180 s (921 against 1,043 resizes, each move
+timed over more failing endpoints), ending at -16.4 against -20.9 ps.
+lanes reach: CTS starts 80 ps over (_4003_/D) against 29, the INVx1
+select inverters the spec's cells give weaker than the BUFx2 buffers
+they replace; repair closes it, inserting 137 buffers against none.
+
+The lever that would win everywhere is not in the decoder: fill's
+paths are 161 ps of generated logic between a retimed flop and the
+toy's own 54 ps, and repair at CTS and grt, not the netlist, sets the
+time on the 128-bit toys. No carried patch; the time a better netlist
+costs repair at grt is the open question for the toys' verdicts.
+
 ## XSTile uses the arrays (2026-10-29)
 
 MemBlock and the parent read `arrays:xiangshan_extracted`, the surgered
