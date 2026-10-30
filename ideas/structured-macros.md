@@ -389,17 +389,26 @@ the standard cells without taps. Single runs; agematrix is 32 entries
 | flags | 32x128 | structgen | 505 | 656 | 496 | 394 | 60,435 | 30,769 | trades | `head_q` to array flop: a 5-level OR2 thermometer prefix and the flush-window select fanned out to 128 bits through a buffer chain, 28 cells and 481 ps against 20 and 390; 2.0x the cells |
 | flags | 32x8 | structgen | 92 | 66 | 425 | 335 | 4,887 | 2,572 | loses | the same path, 23 cells and 414 ps against yosys's adder compare, 14 and 328; repair at CTS 20 s and grt 41 s against 0 and 21 |
 | cam | 32x8 | structgen | 24 | 20 | 334 | 271 | 1,689 | 1,458 | loses | priority encoder: 5 OR2 prefix levels, an inverter, a NOR3/NAND3/NOR2 tree, 19 cells and 323 ps against OR4/OR5, 10 and 268 |
-| cam | 32x128 | structgen | 252 | 276 | 448 | 431 | 20,770 | 21,438 | loses (period; time a tie) | the match tree's single-fanout NAND3/NOR3 at xp33 drive 4-5 fF of wire: 20 of the 26 ps |
-| rf1r1w | 32x8 | generate_ram | 19 | 18 | 288 | 231 | 1,527 | 1,501 | loses | the decoder's INVx1 drives 16 loads (47 ps), three AND2 levels, then a 5-level read tree: 11 cells and 275 ps against 6 and 225 |
-| rf1r1w | 32x128 | generate_ram | 476 | 264 | 344 | 310 | 18,874 | 22,149 | loses | word-wide select nets left unbuffered; repair_design chains BUFx2 at fanout 30-50 (all 4,096 flops at -411 ps after place); repair at CTS 67 s against 26, grt 232 against 50 |
-| rf4r2w | 32x8 | generate_ram | 37 | 39 | 299 | 253 | 3,427 | 3,363 | loses (period) | as rf1r1w 32x8, on the write address: 12 cells and 288 ps against 8 and 249 |
-| rf4r2w | 32x128 | generate_ram | 1,103 | 978 | 453 | 357 | 38,795 | 53,096 | loses (period) | the read select reaches the word through a repair_design fanout chain (141 ps), CTS repair 266 s against 96 |
+| cam | 32x128 | structgen | 252 | 276 | 448 | 431 | 20,770 | 21,438 | dominates (period +4 %, inside 10 %; time a tie) | 17 ps left: the match tree's single-fanout NAND3/NOR3 at xp33 drive 4-5 fF of wire: 20 of the 26 ps |
+| rf1r1w | 32x8 | generate_ram | 12 | 13 | 236 | 231 | 1,612 | 1,501 | dominates (period +2 %, inside 10 %; time a tie) | 5 ps left: the data paths are equal, 225 ps from the address register in both; the 5 ps are the capture flop's setup, a rising D against yosys's falling one. 7 % more cells, 1.4 % more area |
+| rf1r1w | 32x128 | generate_ram | 89 | 144 | 300 | 310 | 19,655 | 22,149 | dominates | |
+| rf4r2w | 32x8 | generate_ram | 17 | 18 | 270 | 253 | 3,622 | 3,363 | dominates (period +7 %, inside 10 %; time a tie) | 17 ps left: a write: the two ports' enable OR, then 0163's group buffer, which in an 8-bit word serves the whole word (21 ps), the hold inverter and the hold mux: 264 ps from the address register against 249 |
+| rf4r2w | 32x128 | generate_ram | 567 | 521 | 372 | 357 | 40,404 | 53,096 | dominates (period +4 %, time +9 %, both inside the tie; 24 % fewer cells) | 15 ps left: a write: a port's enable into every bit's data mux, which 0163 does not group, drives 128 pins; repair_design chains BUFx4f/BUFx6f at fanout 33 and 50 and the data mux takes 114 ps; repair at CTS 93 s against 60, grt 314 against 234 |
 
-generate_ram leaves its word selects unbuffered and its decoder
-inverters at the smallest size, which structgen did before #1428;
-generate_ram is OpenROAD's, so its fix is a carried-patch candidate.
-structgen's remaining losses are depth and sizing in the CAM's priority
-encoder and the flags' flush-window select.
+The generate_ram rows are re-measured (2026-10-30) with carried
+patches 0163 (a word's write enable and hold per eight bits) and 0164
+(address literals per eight words, read selects per eight bits) on
+main's OpenROAD (bf0feec with 0156 and 0159), the same method, each
+kind's two arms side by side again (load 1-13). Before them, at 2026-10-29,
+generate_ram left its word selects unbuffered and its decoder inverters
+at the smallest size: rf1r1w 32x8 was 288 ps against 231, rf1r1w 32x128
+476 s against 264 and 344 ps against 310, rf4r2w 32x8 299 ps against 253,
+rf4r2w 32x128 1,103 s against 978 and 453 ps against 357. With 0163 and
+0164 every register-file row dominates by the rule above; what is left of
+their period is measured in the table: a multi-port word's per-port write
+enable into the data mux, ungrouped, and 0163's group buffer where a word
+is one group. structgen's remaining losses are depth and sizing in the
+CAM's priority encoder (32x8) and the flags' flush-window select.
 
 ## XSTile uses the arrays (2026-10-29)
 
