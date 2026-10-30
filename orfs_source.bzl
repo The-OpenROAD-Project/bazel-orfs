@@ -188,6 +188,11 @@ ORFS_PATCHES = [
     # timing and power in its stage .json sets it to 0. bazel-orfs
     # policy, not for upstream; retires with 0157.
     Label("//patches:0158-orfs-skip-report-metrics-default.patch"),
+    # 0168: the SYNTH_KEEP_MODULES name check (ORFS #4745) skipped in a
+    # partition of a parallel synthesis, where the other kept modules
+    # are blackboxed. ORFS #4770 (draft); retires at a bump onto an ORFS
+    # that skips it there.
+    Label("//patches:0168-orfs-keep-modules-partition.patch"),
     # 0160: a regfile spec's `write_words <address port> <word>...`, the
     # words a write port writes, as generate_ram's -w_port_words (OpenROAD
     # patch 0159): a word one port writes takes its data with no data mux.
