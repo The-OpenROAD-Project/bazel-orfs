@@ -287,6 +287,9 @@ archive_override(
         "//patches:0188-openroad-grt-backing-file.patch",
         # The 3D maze's work arrays allocated only while it runs.
         "//patches:0190-openroad-grt-maze3d-scoped.patch",
+        # A backed grid written out and freed before the routes are converted,
+        # where global route peaks (msync, then MADV_PAGEOUT).
+        "//patches:0191-openroad-grt-backing-pageout.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
