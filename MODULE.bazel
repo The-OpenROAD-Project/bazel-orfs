@@ -285,6 +285,8 @@ archive_override(
         # it) and paged there instead of to swap. ORFS passes a file in
         # OBJECTS_DIR (0189).
         "//patches:0188-openroad-grt-backing-file.patch",
+        # The 3D maze's work arrays allocated only while it runs.
+        "//patches:0190-openroad-grt-maze3d-scoped.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
