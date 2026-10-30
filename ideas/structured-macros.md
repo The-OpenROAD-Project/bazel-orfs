@@ -426,25 +426,31 @@ the standard cells without taps. Single runs; agematrix is 32 entries
 | flags | 32x8 | structgen | 92 | 66 | 425 | 335 | 4,887 | 2,572 | loses | the same path, 23 cells and 414 ps against yosys's adder compare, 14 and 328; repair at CTS 20 s and grt 41 s against 0 and 21 |
 | cam | 32x8 | structgen | 24 | 20 | 334 | 271 | 1,689 | 1,458 | loses | priority encoder: 5 OR2 prefix levels, an inverter, a NOR3/NAND3/NOR2 tree, 19 cells and 323 ps against OR4/OR5, 10 and 268 |
 | cam | 32x128 | structgen | 252 | 276 | 448 | 431 | 20,770 | 21,438 | dominates (period +4 %, inside 10 %; time a tie) | 17 ps left: the match tree's single-fanout NAND3/NOR3 at xp33 drive 4-5 fF of wire: 20 of the 26 ps |
-| rf1r1w | 32x8 | generate_ram | 12 | 13 | 236 | 231 | 1,612 | 1,501 | dominates (period +2 %, inside 10 %; time a tie) | 5 ps left: the data paths are equal, 225 ps from the address register in both; the 5 ps are the capture flop's setup, a rising D against yosys's falling one. 7 % more cells, 1.4 % more area |
-| rf1r1w | 32x128 | generate_ram | 89 | 144 | 300 | 310 | 19,655 | 22,149 | dominates | |
-| rf4r2w | 32x8 | generate_ram | 17 | 18 | 270 | 253 | 3,622 | 3,363 | dominates (period +7 %, inside 10 %; time a tie) | 17 ps left: a write: the two ports' enable OR, then 0163's group buffer, which in an 8-bit word serves the whole word (21 ps), the hold inverter and the hold mux: 264 ps from the address register against 249 |
-| rf4r2w | 32x128 | generate_ram | 567 | 521 | 372 | 357 | 40,404 | 53,096 | dominates (period +4 %, time +9 %, both inside the tie; 24 % fewer cells) | 15 ps left: a write: a port's enable into every bit's data mux, which 0163 does not group, drives 128 pins; repair_design chains BUFx4f/BUFx6f at fanout 33 and 50 and the data mux takes 114 ps; repair at CTS 93 s against 60, grt 314 against 234 |
+| rf1r1w | 32x8 | generate_ram | 12 | 13 | 235 | 231 | 1,582 | 1,501 | dominates (period +2 %, inside 10 %; time a tie) | 4 ps left: the data paths are equal (225.0 against 225.4 ps); the 4 ps are the capture flop's setup on a rising D (6.7 ps) against yosys's falling one |
+| rf1r1w | 32x128 | generate_ram | 76 | 138 | 300 | 310 | 19,597 | 22,149 | dominates | |
+| rf4r2w | 32x8 | generate_ram | 16 | 18 | 254 | 253 | 3,590 | 3,363 | dominates (period +1 ps; time a tie) | the write path is 3.8 ps longer: three AND2 decode levels and the two-port enable OR, against yosys's NOR2/AND2 and AO221/OAI21 |
+| rf4r2w | 32x128 | generate_ram | 334 | 446 | 321 | 357 | 41,613 | 53,096 | dominates | |
+| ohsched fill (reach) | 32x32 | generate_ram | 44 | 38 | 304 | 339 | 9,491 | 9,517 | trades (time +16 %, one point past the tie; period better) | grt repair spends 6 s on 139 pick-to-match endpoints up to 8.7 ps over 300 ps under global-route parasitics; yosys's period is set at an output port (299 ps register to register) |
+| ohsched lanes (reach) | 32x32 | generate_ram | 42 | 37 | 301 | 310 | 9,024 | 9,126 | dominates (time +14 %, inside the tie) | yosys's period is set at an output port (299 ps register to register) |
 
-The generate_ram rows are re-measured (2026-10-30) with carried
-patches 0163 (a word's write enable and hold per eight bits) and 0164
-(address literals per eight words, read selects per eight bits) on
-main's OpenROAD (bf0feec with 0156 and 0159), the same method, each
-kind's two arms side by side again (load 1-13). Before them, at 2026-10-29,
-generate_ram left its word selects unbuffered and its decoder inverters
-at the smallest size: rf1r1w 32x8 was 288 ps against 231, rf1r1w 32x128
-476 s against 264 and 344 ps against 310, rf4r2w 32x8 299 ps against 253,
-rf4r2w 32x128 1,103 s against 978 and 453 ps against 357. With 0163 and
-0164 every register-file row dominates by the rule above; what is left of
-their period is measured in the table: a multi-port word's per-port write
-enable into the data mux, ungrouped, and 0163's group buffer where a word
-is one group. structgen's remaining losses are depth and sizing in the
-CAM's priority encoder (32x8) and the flags' flush-window select.
+The generate_ram rows are re-measured (2026-10-30) with the carried
+patches that buffer generate_ram's own nets: 0163 (a word's write enable
+and hold per eight bits), 0164 (address literals per eight words, read
+selects per eight bits), 0165 (each write port's take per eight bits),
+0166 (no group buffer in a word of one group) and 0167 (a second level
+above eight groups in a wide word), on main's OpenROAD (bf0feec with
+0156 and 0159), the same method, each kind's two arms side by side
+(single runs). The ohsched rows (`reach`: each write port names the
+words it writes, 0159) were measured through 0164; 0165-0167 leave them
+identical. Before these patches, at 2026-10-29, generate_ram left its
+word selects unbuffered and its decoder inverters at the smallest size:
+rf1r1w 32x8 was 288 ps against 231, rf1r1w 32x128 476 s against 264
+and 344 ps against 310, rf4r2w 32x8 299 ps against 253, rf4r2w 32x128
+1,103 s against 978 and 453 ps against 357. Now every register-file
+row dominates; ohsched fill trades only on time, one point past the
+tie. What is left is in the table. structgen's remaining losses are
+depth and sizing in the CAM's priority encoder (32x8) and the flags'
+flush-window select.
 
 ## XSTile uses the arrays (2026-10-29)
 
