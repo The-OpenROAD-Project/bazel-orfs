@@ -21,7 +21,7 @@ A fourth, a queue that retires two entries a cycle as XiangShan's
 store queue does (VirtualStoreQueue): entry i is freed where
 deq_k == i and the retire carry c_k holds, c_1 = c_0 && the entry at
 deq_1 is done, a serial carry. The enable is decoded with the index,
-c_k << deq_k, so each cell gets one wire and c_k reaches the decoder
+(1 << deq_k) & {c_k}, so each cell gets one wire and c_k reaches the decoder
 alone, not every entry (as the write enable of the CAM above).
 
 A third, a CAM with a priority select in banks of four, checks a read
@@ -231,7 +231,7 @@ class Features(unittest.TestCase):
         self.assertEqual(self.stats["index_sites_left"], "0")
 
     def test_write_enable_decoded_once(self):
-        # we && widx == i: we << widx in the parent, one wire per cell
+        # we && widx == i: (1 << widx) & {we} in the parent, one wire per cell
         self.assertEqual(self.stats["enables_decoded"], "1")
 
     def test_match_in_the_cell(self):
