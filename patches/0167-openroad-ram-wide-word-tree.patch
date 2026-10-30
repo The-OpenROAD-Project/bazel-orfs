@@ -1,0 +1,195 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] ram: a wide word's enable and takes, a second level of
+ buffers
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A word's write enable and each write port's take reach its bits through
+a buffer per group of eight bits. A word of more than eight groups had
+its enable, or a port's take, drive every group's buffer: a 128-bit
+word's 16, and in a flow repair_timing chained buffers on it, the worst
+path left on a two-write-port 128-bit register file.
+
+A word of more than eight groups now has a buffer per eight groups
+between the enable (or take) and the group buffers, shared by the
+word's folds; neither drives more than eight buffers.
+
+Carried in bazel-orfs, not upstreamed; retires with the //:bump onto an
+OpenROAD that has it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/ram/include/ram/ram.h         |  5 ++++
+ src/ram/src/ram.cpp               | 31 ++++++++++++++++++++--
+ src/ram/test/BUILD                |  1 +
+ src/ram/test/CMakeLists.txt       |  1 +
+ src/ram/test/regression_tests.tcl |  1 +
+ src/ram/test/wide_word_asap7.tcl  | 44 +++++++++++++++++++++++++++++++
+ 6 files changed, 81 insertions(+), 2 deletions(-)
+ create mode 100644 src/ram/test/wide_word_asap7.tcl
+
+diff --git a/src/ram/include/ram/ram.h b/src/ram/include/ram/ram.h
+index dcb3e9d4c1..15db2c1b16 100644
+--- a/src/ram/include/ram/ram.h
++++ b/src/ram/include/ram/ram.h
+@@ -449,6 +449,11 @@ class RamGen
+     std::vector<odb::dbNet*> select_b;
+   };
+   std::map<std::pair<int, int>, WordWrite> word_write_;
++  // A word of more than kDriveGroup groups: a buffer between its enable
++  // (or a port's take, -1 for the enable) and each kDriveGroup of its
++  // group buffers, shared by the word's folds. Keyed by row, word, the
++  // port or -1, and the group of groups.
++  std::map<std::tuple<int, int, int, int>, odb::dbNet*> super_nets_;
+   int sliceOffset(int slice) const
+   {
+     return bit_folds_ > 1 ? 0 : slice * slice_width_;
+diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
+index 5d19ffc8a6..dc0d758e19 100644
+--- a/src/ram/src/ram.cpp
++++ b/src/ram/src/ram.cpp
+@@ -561,6 +561,30 @@ void RamGen::makeSlice(const int slice_idx,
+     // a word of one group: its nets drive no more than a group's pins
+     // already, and a buffer would only add a level
+     const bool one_group = word_bits_ <= kDriveGroup;
++    // a word of more than kDriveGroup groups: its group buffers take the
++    // enable or take through a buffer per kDriveGroup groups, so the
++    // enable drives no more than kDriveGroup buffers either
++    const int word_groups = (word_bits_ + kDriveGroup - 1) / kDriveGroup;
++    const int word_group = (start_bit_idx + local_bit) / kDriveGroup;
++    auto group_source = [&](dbNet* root, const int port) {
++      if (word_groups <= kDriveGroup) {
++        return root;
++      }
++      const int super = word_group / kDriveGroup;
++      dbNet*& net = super_nets_[{row_idx, word_idx, port, super}];
++      if (net == nullptr) {
++        const std::string what
++            = port < 0 ? "we" : fmt::format("take{}", port);
++        net = makeNet(prefix, fmt::format("{}_s{}", what, super));
++        makeInst(bit_cell.get(),
++                 prefix,
++                 fmt::format("{}_sbuf{}", what, super),
++                 buffer_cell_,
++                 {{buffer_ports_[{PortRoleType::DataIn, 0}], root},
++                  {buffer_ports_[{PortRoleType::DataOut, 0}], net}});
++      }
++      return net;
++    };
+     if (n_writers > 1 && one_group && take_group.empty()) {
+       take_group = take;
+     } else if (n_writers > 1
+@@ -573,7 +597,8 @@ void RamGen::makeSlice(const int slice_idx,
+                  prefix,
+                  fmt::format("take_buf{}_g{}", i, group),
+                  buffer_cell_,
+-                 {{buffer_ports_[{PortRoleType::DataIn, 0}], take[i]},
++                 {{buffer_ports_[{PortRoleType::DataIn, 0}],
++                   group_source(take[i], i)},
+                   {buffer_ports_[{PortRoleType::DataOut, 0}],
+                    take_group[i]}});
+       }
+@@ -591,7 +616,8 @@ void RamGen::makeSlice(const int slice_idx,
+                  prefix,
+                  fmt::format("we_buf{}", group),
+                  buffer_cell_,
+-                 {{buffer_ports_[{PortRoleType::DataIn, 0}], we_net},
++                 {{buffer_ports_[{PortRoleType::DataIn, 0}],
++                   group_source(we_net, -1)},
+                   {buffer_ports_[{PortRoleType::DataOut, 0}], we_group}});
+       }
+       makeInst(bit_cell.get(),
+@@ -2525,6 +2551,7 @@ void RamGen::generate(const int mask_size,
+   storage_nets_.clear();
+   tree_nodes_.clear();
+   word_write_.clear();
++  super_nets_.clear();
+   select_groups_.clear();
+   literal_cells_.clear();
+   storage_cell_ = storage_cell;
+diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
+index 2989dd48f6..4e9b7587f1 100644
+--- a/src/ram/test/BUILD
++++ b/src/ram/test/BUILD
+@@ -37,6 +37,7 @@ PASSFAIL_TESTS = [
+     "read_drive_asap7",
+     "write_ports_fanout_asap7",
+     "one_group_asap7",
++    "wide_word_asap7",
+ ]
+ 
+ ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
+diff --git a/src/ram/test/CMakeLists.txt b/src/ram/test/CMakeLists.txt
+index 40da0c42b1..9ba043de6d 100644
+--- a/src/ram/test/CMakeLists.txt
++++ b/src/ram/test/CMakeLists.txt
+@@ -30,5 +30,6 @@ or_integration_tests(
+     read_drive_asap7
+     write_ports_fanout_asap7
+     one_group_asap7
++    wide_word_asap7
+ )
+ 
+diff --git a/src/ram/test/regression_tests.tcl b/src/ram/test/regression_tests.tcl
+index 43e750c3d0..a99c3456a0 100644
+--- a/src/ram/test/regression_tests.tcl
++++ b/src/ram/test/regression_tests.tcl
+@@ -29,5 +29,6 @@ record_tests {
+   read_drive_asap7
+   write_ports_fanout_asap7
+   one_group_asap7
++  wide_word_asap7
+   make_8x8_latch_sky130
+ }
+diff --git a/src/ram/test/wide_word_asap7.tcl b/src/ram/test/wide_word_asap7.tcl
+new file mode 100644
+index 0000000000..b5e8638811
+--- /dev/null
++++ b/src/ram/test/wide_word_asap7.tcl
+@@ -0,0 +1,44 @@
++# A word of more than eight groups of eight bits: its write enable and
++# each port's take reach the group buffers through a buffer per eight
++# groups, shared by the word's folds, so neither drives more than eight
++# group buffers. A 128-bit word's enable once drove 16. The array still
++# reads back what was written.
++source "helpers.tcl"
++source "ram_sim.tcl"
++source "routed.tcl"
++
++routed::read_asap7
++
++generate_ram_netlist -mask_size 16 -word_size 128 -num_words 4 -r_ports 2 \
++  -w_ports 2 -storage_cell DFFHQNx1_ASAP7_75t_R -write_style mux \
++  -write_priority or -decoder word -bit_folds 8
++
++# the most sinks a net driven inside a word has
++set worst 0
++set worst_net ""
++foreach net [[ord::get_db_block] getNets] {
++  set driver ""
++  set sinks 0
++  foreach iterm [$net getITerms] {
++    if { [$iterm isOutputSignal] } {
++      set driver [[$iterm getInst] getName]
++    } elseif { [$iterm isInputSignal] } {
++      incr sinks
++    }
++  }
++  if { [string match "storage_*" $driver] && $sinks > $worst } {
++    set worst $sinks
++    set worst_net [$net getName]
++  }
++}
++ram_sim::check { $worst <= 9 } \
++  "$worst_net, driven in a word, has $worst sinks; a group's is 9"
++
++ram_sim::load
++ram_sim::exercise {
++  words 4 bits 128 priority or cycles 100
++  writes {{addr_w0 D0 {we0[0]}} {addr_w1 D1 {we1[0]}}}
++  reads {{addr_r0 Q0} {addr_r1 Q1}}
++}
++
++puts "pass"
