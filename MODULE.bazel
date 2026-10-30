@@ -264,6 +264,10 @@ archive_override(
         # the bottom edge (PPL-0111 on a short block). Not upstreamed;
         # retires at a //:bump onto an OpenROAD that has it.
         "//patches:0170-openroad-ram-pin-corners.patch",
+        # Global route's memory (OpenROAD#12075), one concern per patch, the
+        # guides unchanged in every one: Cap3D's NDR capacity as an int32,
+        # 16 -> 8 bytes per GCell, layer and direction.
+        "//patches:0182-openroad-grt-cap3d-int.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
