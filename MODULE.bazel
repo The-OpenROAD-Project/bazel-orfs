@@ -272,6 +272,9 @@ archive_override(
         "//patches:0183-openroad-grt-direction-byte.patch",
         # The 3D maze's parents in int16 coordinates (12 -> 6 bytes).
         "//patches:0184-openroad-grt-parent3d-int16.patch",
+        # The maze arrays sized to the grid rather than a square of at
+        # least 1000 x 1000; cost_hvh_test_ sized along x as it is indexed.
+        "//patches:0185-openroad-grt-maze-arrays-grid.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
