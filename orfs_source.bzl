@@ -194,6 +194,11 @@ ORFS_PATCHES = [
     # for an ancestor in a pinned slice, absent. ORFS #4770 (draft);
     # retires at a bump onto an ORFS that skips it there.
     Label("//patches:0168-orfs-keep-modules-partition.patch"),
+    # 0189: every global_route call passes -backing_file in OBJECTS_DIR, so
+    # the routing grid pages to a file reserved up front instead of to swap
+    # (OpenROAD patch 0188, OpenROAD#12075). Not upstreamed; retires at a
+    # bump onto an ORFS that passes it.
+    Label("//patches:0189-orfs-grt-backing-file.patch"),
     # 0160: a regfile spec's `write_words <address port> <word>...`, the
     # words a write port writes, as generate_ram's -w_port_words (OpenROAD
     # patch 0159): a word one port writes takes its data with no data mux.
