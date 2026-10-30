@@ -17,6 +17,13 @@ thresholds: x >= i + 1 and x < i + 1, written as firtool folds them for
 each i (VirtualLoadQueue's entryHitBound), read as one form and decoded
 once.
 
+A fourth, a queue that retires two entries a cycle as XiangShan's
+store queue does (VirtualStoreQueue): entry i is freed where
+deq_k == i and the retire carry c_k holds, c_1 = c_0 && the entry at
+deq_1 is done, a serial carry. The enable is decoded with the index,
+c_k << deq_k, so each cell gets one wire and c_k reaches the decoder
+alone, not every entry (as the write enable of the CAM above).
+
 A third, a CAM with a priority select in banks of four, checks a read
 side that differs between entries (LoadQueueRAW): entry i's match is
 read through one inverter per entry above it in its bank, a different
@@ -150,6 +157,41 @@ def priority_cam():
     return "\n".join(lines) + "\n"
 
 
+def retire_queue():
+    lines = [
+        "module Retire(input clock, input reset, input we, input [2:0] widx,",
+        "              input [7:0] wdata, input go, input [2:0] deq0,",
+        "              input [2:0] deq1, output any, output [7:0] mixed);",
+    ]
+    for i in range(N):
+        lines += [
+            f"  reg [7:0] data_{i};",
+            f"  reg live_{i};",
+            f"  reg done_{i};",
+        ]
+    done = "{" + ", ".join(f"done_{i}" for i in reversed(range(N))) + "}"
+    lines += [
+        f"  wire [7:0] done = {done};",
+        "  wire c0 = go && done[deq0];",
+        "  wire c1 = c0 && done[deq1];",
+    ]
+    for i in range(N):
+        lines += [
+            "  always @(posedge clock) begin",
+            f"    if (reset) live_{i} <= 1'b0;",
+            f"    else if (we && widx == 3'd{i}) live_{i} <= 1'b1;",
+            f"    else if ((c0 && deq0 == 3'd{i}) || (c1 && deq1 == 3'd{i})) live_{i} <= 1'b0;",
+            f"    if (we && widx == 3'd{i}) begin data_{i} <= wdata; done_{i} <= wdata[0]; end",
+            "  end",
+        ]
+    lines += [
+        "  assign any = " + " | ".join(f"live_{i}" for i in range(N)) + ";",
+        "  assign mixed = " + " ^ ".join(f"data_{i}" for i in range(N)) + ";",
+        "endmodule",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def run(*args):
     # under Bazel the interpreter runs with PYTHONSAFEPATH, so a script
     # does not see the modules beside it unless told
@@ -187,6 +229,10 @@ class Features(unittest.TestCase):
     def test_index_decoded_once(self):
         self.assertEqual(self.stats["decoded_once"], "1")
         self.assertEqual(self.stats["index_sites_left"], "0")
+
+    def test_write_enable_decoded_once(self):
+        # we && widx == i: we << widx in the parent, one wire per cell
+        self.assertEqual(self.stats["enables_decoded"], "1")
 
     def test_match_in_the_cell(self):
         # each entry's compare against q stays in its cell; one bit leaves
@@ -295,6 +341,59 @@ class Thresholds(unittest.TestCase):
         )
         self.assertEqual(rc, 0, log)
         self.assertIn("check: Queue: NOT equivalent", log)
+
+
+class Enables(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.yosys, cls.slang = map(os.path.abspath, sys.argv[1:3])
+        cls.work = os.environ.get("TEST_TMPDIR", HERE)
+        src = os.path.join(cls.work, "retire.sv")
+        with open(src, "w") as f:
+            f.write(retire_queue())
+        cls.proc = os.path.join(cls.work, "retire.json")
+        rc, log = run("proc_json.py", cls.yosys, cls.slang, src, "Retire", cls.proc)
+        assert rc == 0, log
+        cls.found = run("entries.py", cls.proc, "Retire")[1]
+        cls.extracted = os.path.join(cls.work, "retire_extracted.json")
+        rc, log = run("extract.py", cls.proc, "Retire", cls.extracted)
+        assert rc == 0, log
+        cls.stats = dict(re.findall(r"(\w+) (\d+)", log))
+
+    def test_entries_follow_one_rule(self):
+        self.assertIn("uniform: 8 of 8 entries follow one rule", self.found)
+
+    def test_enables_decoded_once(self):
+        # widx == i, deq0 == i and deq1 == i, each with its enable
+        self.assertEqual(self.stats["decoded_once"], "3")
+        self.assertEqual(self.stats["enables_decoded"], "3")
+
+    def test_carry_reaches_no_cell(self):
+        # c0 and c1 drive the decoders; no entry cell reads them
+        top = json.load(open(self.extracted))["modules"]["Retire"]
+        bits = {
+            b
+            for name, v in top["netnames"].items()
+            if name in ("c0", "c1")
+            for b in v["bits"]
+        }
+        self.assertEqual(len(bits), 2)
+        for c in top["cells"].values():
+            if c["type"] == "RetireEntry":
+                read = {b for bs in c["connections"].values() for b in bs}
+                self.assertFalse(read & bits)
+
+    def test_extraction_equal(self):
+        rc, log = run("check.py", self.yosys, self.proc, self.extracted, "Retire")
+        self.assertEqual(rc, 0, log)
+        self.assertIn("check: Retire: equivalent", log)
+
+    def test_control_differs(self):
+        rc, log = run(
+            "check.py", self.yosys, self.proc, self.extracted, "Retire", "mutate"
+        )
+        self.assertEqual(rc, 0, log)
+        self.assertIn("check: Retire: NOT equivalent", log)
 
 
 class ReadSides(unittest.TestCase):

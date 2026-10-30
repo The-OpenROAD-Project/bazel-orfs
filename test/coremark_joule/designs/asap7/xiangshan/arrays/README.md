@@ -12,7 +12,7 @@ decodes each index comparison once in the block.
 | --- | --- | --- |
 | proc | `proc_json.py` | the block after yosys's `proc`, as JSON; named modules stay blackboxes |
 | find | `entries.py` | entries are word *i* of arrays of equal length (`x`, `x_1`, ... too: firtool's vectors), an array of k·N words k arrays of the group of N where that follows one rule; each entry's cone is a structural signature, and constants, shared bits and `x == K` / `x != K` comparisons are decided across entries (the same, the entry's number, or its bank's); where that leaves entries off the rule, thresholds `x >= K` / `x < K` too |
-| extract | `extract.py` | the template entry as `<Block>Entry`, instanced per entry; each index comparison decoded once per distinct operand, a threshold `x >= i + o` as bit `i + o - 1` of `(1 << x) - 1` |
+| extract | `extract.py` | the template entry as `<Block>Entry`, instanced per entry; each index comparison decoded once per distinct operand, a threshold `x >= i + o` as bit `i + o - 1` of `(1 << x) - 1`, an `en && x == i` as bit `i` of `en << x` |
 | prove | `check.py` | registers and blackboxes as cut points, a yosys miter, ABC's `iprove`; a negative control (one register's D-mux swapped) must come out different |
 | swap | `substitute.py` | the core with each extraction in place of its block, for the XSTile flows (`../README.md`, "The arrays") |
 
@@ -20,7 +20,11 @@ What the front end handles: duplicate cells merged, private port buffers
 seen through, an entry's read side (its compare against a query, its
 contribution to a reduction across entries) kept in the cell, arrays
 that differ between entries left inline, a bank's pointer decoded once
-per bank, blackboxes kept as instances, thresholds against the entry's
+per bank, a decoder's enable decoded with it (`en && x == i`: a write
+enable, VirtualStoreQueue's serial retire carry; one wire into each
+cell and the enable into the decoder alone, where it had reached all
+128 cells and each link of the carry waited for its buffer tree; a
+boundary bit no cell reads gets no port), blackboxes kept as instances, thresholds against the entry's
 number however firtool folded them for each one (VirtualLoadQueue's
 `x >= i + 1` as `x > 2`, `|x[6:2]` or `x[6]` alone), and where the
 read cones differ between entries the part of them every entry has

@@ -323,7 +323,7 @@ place's repair_design are in).
 | LoadQueueReplay | A: RTL | 1,504.8 | 49.5 | 496.1 | 33.4 | 160.0 | 37.40 | 1,664.5 | 368,658 | 45,109.3 |
 | | B: extracted | 432.4 | 35.8 | 549.4 | 49.5 | 274.7 | 22.36 | 1,289.9 | 388,365 | 45,860.8 |
 | VirtualStoreQueue ⁴ | A: RTL | 260.4 | 5.5 | 58.7 | 7.5 | 30.3 | 6.04 | 1,014.1 | 62,041 | 7,605.0 |
-| | B: extracted | 78.3 | 5.7 | 68.0 | 7.6 | 38.9 | 3.31 | 1,485.0 | 64,645 | 7,813.4 |
+| | B: extracted | 102.8 | 3 | 63 | 7 | 36 | 3.53 | 961.3 | 64,083 | 7,906.2 |
 | LoadQueueRAR | A: RTL | 266.8 | 6.0 | 58.7 | 5.0 | 58.8 | 6.59 | 902.0 | 53,430 | 7,024.2 |
 | | B: extracted | 85.8 | 11.5 | 70.0 | 6.3 | 106.4 | 4.67 | 961.1 | 64,639 | 8,169.5 |
 | TLBFA | A: RTL | 75.6 | 6.4 | 46.9 | 4.6 | 28.0 | 2.69 | 439.0 | 47,411 | 6,578.3 |
@@ -342,19 +342,42 @@ extraction (`--firtool-vectors`, off by default; #1430), its RTL arm
 built with the same settings. ⁶ `rob_array:RobEntries_rtl_grt_qor`
 against `rob_array:RobEntries_grt_qor`: the Rob's own flow (timing- and
 routability-driven global placement, its register files macros), the
-arms one after the other, alone on the machine.
+arms one after the other, alone on the machine. ⁷ Re-measured
+2026-10-30 with each decoder's enable decoded with it (B alone, A as
+above). Before, 3.31 min and 1,485.0 ps: entry i is freed where
+`deqPtrVec_k == i && retireCarryVec_k`, the carry a serial AND over the
+eight retire slots, and the front end decoded the comparison but left
+the `&&` in the cell, so each `retireCarryVec_k` reached 128 cells
+through its own buffer tree and the next link of the carry read it
+from inside that tree (rc2 to rc5 in 276 ps, then 221 ps of tree into
+the cell). Now `retireCarryVec_k << deqPtrVec_k` in the block, one wire
+into each cell; the worst path is the read of the entry at the dequeue
+pointer, as in A. The five other blocks with a decoder's enable
+(LoadQueueRAR 2, TLBFA 1, TLBFA_1 1, Uncache 1, VirtualLoadQueue 3)
+re-run, B alone, period at grt (ps, before → after), cells, area:
+LoadQueueRAR 961.1 → 1,052.0, 66,957, 8,201.6; TLBFA 272.0 → 306.7,
+49,723, 6,611.6; TLBFA_1 349.5 → 308.5, 98,172, 11,705.8; Uncache
+1,255.7 → 1,418.5, 70,604, 8,466.4; VirtualLoadQueue 963.9 → 1,036.0,
+42,576, 4,955.9. Against their RTL arms, VirtualLoadQueue stays inside the 10 % (+7.6 %) and LoadQueueRAR leaves it (+16.6 %, 961.1 before): it moves from dominates to trades. B's times for these five are the earlier ones, not re-measured;
+TLBFA_1's gain and the two losses are ABC's mapping of the cell, not the
+decoder, which is on none of the worst paths: TLBFA's (it meets the
+473 ps clock, nothing in the flow works on it) is the valid bit's flush
+compare inside one cell, 7 levels and 305 ps against 6 and 270;
+Uncache's is the entry's write select, inside the cell OR4-OR3-OR4-AND2
+against OR4-NAND2, 247 ps against 187 from the shared fanout-32 net to
+the data register.
 
 | Block | A total min | B total min | A period ps | B period ps | verdict | reason for a loss, measured |
 |---|---:|---:|---:|---:|---|---|
 | PhysicalStoreQueue | 40.85 | 14.54 | 1,582.9 | 1,905.1 | trades | the forwarding query reaches the 64 entry cells through fanout-32 buffers (slew 287 ps), compares inside, and the select comes back out: arrival 2,164 ps against 1,833 |
 | LoadQueueReplay | 37.40 | 22.36 | 1,664.5 | 1,289.9 | dominates | |
-| VirtualStoreQueue | 6.04 | 3.31 | 1,014.1 | 1,485.0 | trades | the dequeue pointer reaches the 128 entry cells through ten levels of fanout buffers before the entry's logic: arrival 1,624 ps against 1,142 |
-| LoadQueueRAR | 6.59 | 4.67 | 902.0 | 961.1 | dominates | period +6.5 %, within the resolution |
-| TLBFA | 2.69 | 2.19 | 439.0 | 272.0 | dominates | |
-| TLBFA_1 | 5.95 | 3.06 | 460.8 | 349.5 | dominates | |
-| VirtualLoadQueue | 5.19 | 3.41 | 962.5 | 963.9 | dominates | |
+| VirtualStoreQueue | 6.04 | 3.53 | 1,014.1 | 961.3 | dominates ⁷ | |
+| LoadQueueRAR | 6.59 | 4.67 | 902.0 | 1,052.0 | trades ⁷ | period +16.6 %, past the 10 %: ABC maps the entry cell differently since the enable is decoded (961.1 ps before); the decoder is not on the worst path |
+| TLBFA | 2.69 | 2.19 | 439.0 | 306.7 | dominates ⁷ | |
+| TLBFA_1 | 5.95 | 3.06 | 460.8 | 308.5 | dominates ⁷ | |
+| VirtualLoadQueue | 5.19 | 3.41 | 962.5 | 1,036.0 | dominates ⁷ | period +7.6 %, inside the 10 % |
 | Rob | 43.30 | 57.45 | 2,038.9 | 1,759.3 | trades | 27 % more cells (432,737 against 341,506): routability-driven global placement needs 21 passes against 7 (1,591 against 757 s), and global route takes 835 s where the RTL arm stops at congestion after 79 s |
-| Uncache | 3.33 | 4.10 | 1,020.3 | 1,255.7 | study only | 27 % more cells: the 435-bit read side mapped inside the kept entry cell, nothing optimised across its boundary; global route 84 against 17 s |
+| Uncache | 3.33 | 4.10 | 1,020.3 | 1,418.5 ⁷ | study only | 27 % more cells: the 435-bit read side mapped inside the kept entry cell, nothing optimised across its boundary; global route 84 against 17 s |
 
 The verdict: B dominates when it is no worse on both, a time within
 15 % or a period within 10 % counting as no worse (the flow is
@@ -365,12 +388,12 @@ otherwise it loses and stays a study. Every extraction cuts synthesis
 (PhysicalStoreQueue 1,909 to 327 s). The Rob trades the other way:
 14 % better period, but its 352 kept cells add 27 % cells and its
 placement and route take longer than synthesis saves.
-PhysicalStoreQueue and VirtualStoreQueue lose period where a shared
-operand is broadcast into every entry cell. To win
-there, the broadcast has to stop being one net into N kept cells: the
-comparison against it decoded once in the block where it can be
-(VirtualStoreQueue's dequeue pointer), or the cell's boundary placed so
-the buffer tree is the compare's own.
+PhysicalStoreQueue loses period where a shared operand is broadcast
+into every entry cell. VirtualStoreQueue did too until the decoder's
+enable was decoded with it (⁷). To win there, the broadcast has to stop
+being one net into N kept cells: the comparison against it decoded once
+in the block where it can be, or the cell's boundary placed so the
+buffer tree is the compare's own.
 
 ### The toys (2026-10-29)
 
