@@ -275,6 +275,8 @@ archive_override(
         # The maze arrays sized to the grid rather than a square of at
         # least 1000 x 1000; cost_hvh_test_ sized along x as it is indexed.
         "//patches:0185-openroad-grt-maze-arrays-grid.patch",
+        # A merged route gives back its unmerged per-GCell segments.
+        "//patches:0186-openroad-grt-route-shrink.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
