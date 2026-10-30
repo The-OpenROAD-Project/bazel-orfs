@@ -270,6 +270,8 @@ archive_override(
         "//patches:0182-openroad-grt-cap3d-int.patch",
         # The 3D maze's search directions in a byte (4 -> 1 per GCell-layer).
         "//patches:0183-openroad-grt-direction-byte.patch",
+        # The 3D maze's parents in int16 coordinates (12 -> 6 bytes).
+        "//patches:0184-openroad-grt-parent3d-int16.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
