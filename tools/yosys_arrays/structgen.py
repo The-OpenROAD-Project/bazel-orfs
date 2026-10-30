@@ -140,6 +140,37 @@ class Netlist:
         bits.append(self.and2(n_lo, self.tree(self.or2, xs[half:])))
         return bits
 
+    def thermo(self, bits, n):
+        """t[i] = (index <= i) for i < n, from the index's LSB-first bits
+        directly: per bit from the MSB down, below a set bit of i an OR
+        with the bit's complement, below a clear one an AND. Shared by
+        the i alike in their low bits; a bit is as many levels deep as
+        there are bits below it, where a decode and a prefix OR over it
+        are a decode and log2(n) more."""
+        memo = {}
+
+        def le(k, i):
+            # the low k bits of the index <= the low k bits of i
+            if k == 0:
+                return self.one
+            key = (k, i & ((1 << k) - 1))
+            if key not in memo:
+                nb, rest = self.inv(bits[k - 1]), le(k - 1, i)
+                memo[key] = (
+                    self.or2(nb, rest) if i >> (k - 1) & 1 else self.and2(nb, rest)
+                )
+            return memo[key]
+
+        return [le(len(bits), i) for i in range(n)]
+
+    def less(self, a, b):
+        """a < b, two LSB-first buses alike in width: per bit from the LSB,
+        where the bits differ b's bit decides, else the bits below."""
+        lt = self.and2(self.inv(a[0]), b[0])
+        for x, y in zip(a[1:], b[1:]):
+            lt = self.mux(self.xor2(x, y), lt, y)
+        return lt
+
     def mux(self, s, a, b):
         """s ? b : a"""
         return self.cell("AO22x1", A1=s, A2=b, B1=self.inv(s), B2=a)
@@ -378,13 +409,10 @@ def flags(net, depth, width):
     clears = [plane("c0"), plane("c1")]
     # the redirect clears entries i with (i - head) >= (flush_idx - head):
     # the circular interval from flush_idx to head, from two thermometers
-    one_f = net.decode(_bus("flush_idx", a), depth)
-    one_h = net.decode(_bus("head", a), depth)
-    t_f = net.prefix(net.or2, one_f)
-    t_h = net.prefix(net.or2, one_h)
-    f_below_h = net.tree(
-        net.or2, [net.and2(one_f[i], net.inv(t_h[i])) for i in range(depth)]
-    )
+    # t[i] = (index <= i), each compared with its bits directly
+    t_f = net.thermo(_bus("flush_idx", a), depth)
+    t_h = net.thermo(_bus("head", a), depth)
+    f_below_h = net.less(_bus("flush_idx", a), _bus("head", a))
     keep_reset = net.inv("reset")
     for i in range(depth):
         inside = net.and2(t_f[i], net.inv(t_h[i]))
