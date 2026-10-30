@@ -253,6 +253,11 @@ archive_override(
         # buffer, which only added a level. Not upstreamed; retires at a
         # //:bump onto an OpenROAD that has it.
         "//patches:0166-openroad-ram-one-group.patch",
+        # 0167: generate_ram: a word of more than eight groups takes its
+        # write enable and each port's take through a buffer per eight
+        # groups (a 128-bit word's enable drove 16 group buffers). Not
+        # upstreamed; retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0167-openroad-ram-wide-word-tree.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
