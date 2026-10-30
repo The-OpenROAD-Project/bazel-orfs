@@ -117,6 +117,36 @@ def threshold_queue():
     return "\n".join(lines) + "\n"
 
 
+def ordered_queue():
+    """Entries compared with a pointer by order, i < a, i > a, i >= b and
+    i <= b, as the Rob's entries are against its pointers: each a
+    threshold on the pointer, decoded once. The index through a wire, as
+    firtool writes it: a literal 0 > a would be folded to 0 in entry 0
+    alone, and the entries would not look alike."""
+    lines = [
+        "module Ordered(input clock, input reset, input we, input [2:0] widx,",
+        "               input [3:0] a, input [3:0] b, output any, output old);",
+    ]
+    for i in range(N):
+        lines += [
+            f"  reg live_{i};",
+            f"  reg old_{i};",
+            f"  wire [3:0] k_{i} = 4'd{i};",
+            "  always @(posedge clock) begin",
+            f"    if (reset) live_{i} <= 1'b0;",
+            f"    else if (we && widx == 3'd{i}) live_{i} <= 1'b1;",
+            f"    else if (k_{i} < a) live_{i} <= 1'b0;",
+            f"    old_{i} <= live_{i} & ((k_{i} > a) ^ (k_{i} >= b) ^ (k_{i} <= b));",
+            "  end",
+        ]
+    lines += [
+        "  assign any = " + " | ".join(f"live_{i}" for i in range(N)) + ";",
+        "  assign old = " + " ^ ".join(f"old_{i}" for i in range(N)) + ";",
+        "endmodule",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def priority_cam():
     lines = [
         "module PriCam(input clock, input reset, input we, input [2:0] widx,",
@@ -341,6 +371,41 @@ class Thresholds(unittest.TestCase):
         )
         self.assertEqual(rc, 0, log)
         self.assertIn("check: Queue: NOT equivalent", log)
+
+
+class Ordered(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.yosys, cls.slang = map(os.path.abspath, sys.argv[1:3])
+        cls.work = os.environ.get("TEST_TMPDIR", HERE)
+        src = os.path.join(cls.work, "ordered.sv")
+        with open(src, "w") as f:
+            f.write(ordered_queue())
+        cls.proc = os.path.join(cls.work, "ordered.json")
+        rc, log = run("proc_json.py", cls.yosys, cls.slang, src, "Ordered", cls.proc)
+        assert rc == 0, log
+        cls.extracted = os.path.join(cls.work, "ordered_extracted.json")
+        rc, log = run("extract.py", cls.proc, "Ordered", cls.extracted)
+        assert rc == 0, log
+        cls.stats = dict(re.findall(r"(\w+) (\d+)", log))
+
+    def test_ordered_decoded_once(self):
+        # widx == i, and i < a, i > a, i >= b, i <= b: no index left in the
+        # cell, every comparison a decoder in the module
+        self.assertEqual(self.stats["index_sites_left"], "0")
+        self.assertEqual(self.stats["decoded_once"], "5")
+
+    def test_decoded_equal(self):
+        rc, log = run("check.py", self.yosys, self.proc, self.extracted, "Ordered")
+        self.assertEqual(rc, 0, log)
+        self.assertIn("check: Ordered: equivalent", log)
+
+    def test_control_differs(self):
+        rc, log = run(
+            "check.py", self.yosys, self.proc, self.extracted, "Ordered", "mutate"
+        )
+        self.assertEqual(rc, 0, log)
+        self.assertIn("check: Ordered: NOT equivalent", log)
 
 
 class Enables(unittest.TestCase):

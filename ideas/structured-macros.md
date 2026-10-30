@@ -360,7 +360,7 @@ place's repair_design are in).
 | Block | Arm | synth s | floorplan s | place s | CTS s | grt s | total min | period at grt, routes' RC ps | period at grt, placement RC ps | stdcells | stdcell area µm² |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | PhysicalStoreQueue ⁴ | A: RTL | 1,909.2 | 26.1 | 327.9 | 30.9 | 156.9 | 40.85 | 1,453.0 | 1,582.9 | 252,148 | 32,126.6 |
-| | B: extracted | 327.2 | 23.7 | 324.3 | 40.8 | 156.4 | 14.54 | 1,567.7 | 1,905.1 | 256,511 | 31,409.7 |
+| | B: extracted ¹⁰ | 251.5 | 19.6 | 247.9 | 30.1 | 115.4 | 11.08 | 1,666.4 | 2,058.0 | 247,502 | 30,545.7 |
 | LoadQueueReplay | A: RTL | 1,504.8 | 49.5 | 496.1 | 33.4 | 160.0 | 37.40 | 1,198.4 | 1,664.5 | 368,658 | 45,109.3 |
 | | B: extracted | 432.4 | 35.8 | 549.4 | 49.5 | 274.7 | 22.36 | 1,201.8 | 1,435.1 | 389,527 | 45,759.1 |
 | VirtualStoreQueue ⁴ | A: RTL | 260.4 | 5.5 | 58.7 | 7.5 | 30.3 | 6.04 | 944.7 | 1,014.1 | 62,041 | 7,605.0 |
@@ -375,8 +375,8 @@ place's repair_design are in).
 | | B: extracted ⁹ | 83.9 | 5.0 | 41.4 | 4.2 | 70.4 | 3.41 | 972.6 | 1,011.7 | 42,144 | 4,914.7 |
 | Uncache ⁵ | A: RTL | 115.1 | 13.3 | 49.0 | 5.4 | 17.2 | 3.33 | 916.0 | 1,020.3 | 56,458 | 7,449.8 |
 | | B: extracted ⁹ | 81.8 | 6.6 | 68.4 | 5.4 | 84.0 | 4.10 | 1,171.3 | 1,332.8 | 70,686 | 8,524.5 |
-| Rob ⁶ | A: RTL | 1,641.8 | 474.3 | 1,150.7 | 44.6 | 173.0 | 58.07 | 1,379.9 | 2,197.3 | 340,217 | 40,759.2 |
-| | B: extracted | 493.7 | 161.0 | 2,045.1 | 48.9 | 855.4 | 60.07 | 1,251.6 | 2,029.8 | 430,964 | 48,247.0 |
+| Rob ⁶ ¹⁰ | A: RTL | 1,641.8 | 474.3 | 1,150.7 | 44.6 | 173.0 | 58.07 | 1,379.9 | 2,197.3 | 340,217 | 40,759.2 |
+| | B: extracted | 508.3 | 260.2 | 2,182.6 | 41.1 | 163.6 | 52.60 | 1,212.3 | 2,239.7 | 414,852 | 46,916.3 |
 
 ⁴ On yosys's frontend in both arms (`YOSYS_FRONTEND`). ⁵ The study
 extraction (`--firtool-vectors`, off by default; #1430), its RTL arm
@@ -440,7 +440,30 @@ their seconds are those runs'. The other seconds are the earlier ones.
 Moved: PhysicalStoreQueue trades -> dominates (B over A: 322 ps on the placement
 estimate, 115 on the routes); the Rob trades -> dominates (main's B, before the
 ordered comparisons were decoded); LoadQueueRAR and VirtualLoadQueue
-dominates -> trades (the reasons in the table).
+dominates -> trades (the reasons in the table). ¹⁰ Re-measured 2026-10-31 with the index's
+ordered comparisons decoded once (`i > x`, `i < x` and their `>=`, `<=`,
+each a threshold on the operand). The Rob kept two of them in its cell:
+its pointer against the entry's number, `$gt` and `$lt` with the index as
+an input of every cell. Each cell mapped them as 48 cells of comparator
+and the 9 index bits reached 33 pins tied per instance: 13,048 tie cells
+in the Rob against 1,434 in its RTL arm. Now the cell has no index port,
+the ties are 1,433, and the cells 414,852 against 430,964 (-3.7 %). On the
+Rob (side by side with nothing else; A's synthesis ran beside B's
+placement): before, 60.07 min and 2,029.8 ps (1,251.6 on the routes'
+parasitics); after, 52.60 min and 2,239.7 ps (1,212.3). Global route took
+164 s against 855 (grt wirelength 5.96 against 6.26 m, its runtime 79
+against 764 s): global placement ran 27 routability passes against 17
+and ended at a weighted congestion of 1.031 against 1.041. Floorplan's
+repair_timing took 221 s against 117 (132 resizes against 686; why it is
+slower per move was not examined). The period on placement parasitics
+went up 10.3 %, on the routes' parasitics down 3.1 %.
+PhysicalStoreQueue had two too (its dequeue pointer against the entry):
+2,058.0 ps against 1,905.1 (1,666.4 against 1,567.7 on the routes'
+parasitics, +6.3 %), 9,009 cells fewer, time a tie (11.1 against 10.4
+min). The cell ends 88 ps earlier on its worst path (835.5 against
+923.3 ps arrival), but the select in the block, which now reads the
+decoded threshold, takes 1,041 ps against 855: one more AND level and a
+fourth BUFx2 stage (37 to 48 fF each) on the select's fanout.
 ⁸ PhysicalStoreQueue's
 broadcast is inherent (the forwarding query compared in all 64 cells),
 and placement already sees one netlist (OPENROAD_HIERARCHICAL 0), so
@@ -458,14 +481,14 @@ still be mapped against what drives and loads it.
 
 | Block | A total min | B total min | A period ps | B period ps | verdict | placement RC A / B ps, verdict before ¹¹ | reason for a loss, measured |
 |---|---:|---:|---:|---:|---|---|---|
-| PhysicalStoreQueue | 40.85 | 14.54 | 1,453.0 | 1,567.7 | dominates ⁸ ¹¹ | 1,582.9 / 1,905.1, trades | period +7.9 %, inside the 10 % |
+| PhysicalStoreQueue | 40.85 | 11.08 | 1,453.0 | 1,666.4 | trades ⁸ ¹⁰ ¹¹ | 1,582.9 / 2,058.0, trades | period +14.7 %: the select in the block now reads the decoded threshold, 1,041 ps against 855: one more AND level and a fourth BUFx2 stage on its fanout; before the ordered comparisons were decoded (¹⁰) it dominated at +7.9 % |
 | LoadQueueReplay | 37.40 | 22.36 | 1,198.4 | 1,201.8 | dominates ¹¹ | 1,664.5 / 1,435.1, dominates | period +0.3 % |
 | VirtualStoreQueue | 6.04 | 3.53 | 944.7 | 910.4 | dominates ⁷ ⁹ | 1,014.1 / 926.0, dominates | |
 | LoadQueueRAR | 6.59 | 4.67 | 781.3 | 863.5 | trades ¹¹ | 902.0 / 949.9, dominates | period +10.5 %: on the same path (the free list's head pointer, the read of the allocated slot, the write decoder, the entry's registers), 992.6 ps arrival against 898.0: the slot read's buffers are five BUFx2 in B against BUFx6f, INVx3 and BUFx3 in A (+56 ps to the read's output), and inside the cell the decoded write select reaches its 20 loads through two BUFx2 stages (178.5 ps from the cell's pin to D, against 119.5 from A's last select gate) |
 | TLBFA | 2.69 | 2.19 | 397.0 | 320.6 | dominates ⁹ | 439.0 / 311.8, dominates | |
 | TLBFA_1 | 5.95 | 3.06 | 456.2 | 282.3 | dominates ⁹ | 460.8 / 292.2, dominates | |
 | VirtualLoadQueue | 5.19 | 3.41 | 857.6 | 972.6 | trades ¹¹ | 962.5 / 1,011.7, dominates | period +13.4 %: on the same path (the load write-back pointer, its reduction, each entry's allocated bit), 1,061.8 ps arrival against 954.5: B's top maps the reduction as 17 single-fanout levels after the pointer's decode (377 to 780 ps) against A's 9 (453 to 726), and its result reaches the 120 kept cells through repair_design's BUFx2 at fanout 26, 32 and 32 (180 ps) against two ABC buffers at fanout 10 (83 ps) |
-| Rob | 58.07 | 60.07 | 1,379.9 | 1,251.6 | dominates ¹¹ | 2,197.3 / 2,029.8, trades | time +3.4 % |
+| Rob | 58.07 | 52.60 | 1,379.9 | 1,212.3 | dominates ¹⁰ ¹¹ | 2,197.3 / 2,239.7, dominates | |
 | Uncache | 3.33 | 4.10 | 916.0 | 1,171.3 ⁹ | study only | 1,020.3 / 1,332.8, study only | period +27.9 %, time +23 %: 27 % more cells: the 435-bit read side mapped inside the kept entry cell, nothing optimised across its boundary; global route 84 against 17 s. With the read side in the block (`Uncache_noread`, below) 1,062.2 ps (1,198.0 on placement RC), 3.33 min: still a loss |
 
 The verdict: B dominates when it is no worse on both, a time within
