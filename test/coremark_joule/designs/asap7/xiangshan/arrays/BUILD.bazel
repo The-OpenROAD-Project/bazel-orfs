@@ -209,6 +209,18 @@ YOSYS_FRONTEND = [
     "VirtualStoreQueue",
 ]
 
+# A study, off by default: both arms with repair_design's slew target 40 %
+# under the library's limit (SLEW_MARGIN), <top>_slew and <top>_rtl_slew.
+# In PhysicalStoreQueue's extraction synthesis leaves the forwarding
+# query's broadcast into the 64 kept cells unbuffered (800 fanout
+# violations at place against 1 in the RTL arm), and repair_design's
+# BUFx2 trees at fanout 32 met the slew limit at 287 ps. Period at grt
+# (ps): extraction 1,905.1 -> 1,613.2, RTL arm 1,582.9 -> 1,424.3; the
+# extraction still trades (ideas/structured-macros.md).
+SLEW_STUDY = {
+    "PhysicalStoreQueue": {"SLEW_MARGIN": "40"},
+}
+
 # Each block twice, the arms of its A/B: <top> on the extraction and
 # <top>_rtl on the module as it is (the same proc JSON written back as
 # Verilog, no entry cell, nothing folded), every other setting the same by
@@ -242,7 +254,7 @@ YOSYS_FRONTEND = [
             "SKIP_REPORT_METRICS": "1",
             "SYNTH_HIERARCHICAL": "1",
             "SYNTH_KEEP_MODULES": "" if rtl else top + "Entry",
-        } | ({"SYNTH_HDL_FRONTEND": ""} if top in YOSYS_FRONTEND else {}),
+        } | ({"SYNTH_HDL_FRONTEND": ""} if top in YOSYS_FRONTEND else {}) | extra,
         last_stage = "grt",
         pdk = "//flow:asap7",
         sources = {k: v for k, v in BLOCK["sources"].items() if k != "AUTO_MEMORIES_REGFILES"} | ({} if rtl or top in YOSYS_FRONTEND else {
@@ -257,7 +269,7 @@ YOSYS_FRONTEND = [
             for v, s in XS_USER_STAGES.items()
             if v in BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS | ({} if rtl or top in YOSYS_FRONTEND else {"XS_FOLD_MODULES": ""}) or v in BLOCK["user_sources"] | XS_ICG_USER_SOURCES
         },
-        variant = "rtl" if rtl else None,
+        variant = variant,
         verilog_files = [":%s_%s.v" % (
             top,
             "rtl" if rtl else "extracted",
@@ -265,10 +277,21 @@ YOSYS_FRONTEND = [
         yosys_frontend_reason = "period worse on slang and the fold (YOSYS_FRONTEND)" if top in YOSYS_FRONTEND else None,
     )
     for top in TOPS
-    for rtl in [
-        False,
-        True,
-    ]
+    for rtl, variant, extra in [
+        (False, None, {}),
+        (True, "rtl", {}),
+    ] + ([
+        (
+            False,
+            "slew",
+            SLEW_STUDY[top],
+        ),
+        (
+            True,
+            "rtl_slew",
+            SLEW_STUDY[top],
+        ),
+    ] if top in SLEW_STUDY else [])
 ]
 
 # A study, off by default: the extraction with its entry cells flattened
@@ -328,7 +351,10 @@ FLAT_STUDY = ["PhysicalStoreQueue"]
     for flow in [
         top,
         top + "_rtl",
-    ] + ([top + "_flat"] if top in FLAT_STUDY else [])
+    ] + ([top + "_flat"] if top in FLAT_STUDY else []) + ([
+        top + "_slew",
+        top + "_rtl_slew",
+    ] if top in SLEW_STUDY else [])
 ]
 
 # The extraction's proof as a test: the extracted module, its comparisons

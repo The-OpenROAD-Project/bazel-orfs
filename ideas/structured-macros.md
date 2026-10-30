@@ -427,6 +427,56 @@ being one net into N kept cells: the comparison against it decoded once
 in the block where it can be, or the cell's boundary placed so the
 buffer tree is the compare's own.
 
+### PhysicalStoreQueue: the broadcast's buffers and repair_design's slew target (2026-10-30)
+
+Where the extraction loses period, measured on both arms at global route
+(odb-debug, the qor probe's parasitics). The worst path is the same in
+both: a load's query address register, its compare against every store
+entry, the select of the forwarded entry, the select's register.
+
+| part of the path | A: RTL | B: extracted |
+|---|--:|--:|
+| query register to the compare (the broadcast) | 220 ps, ABC's own tree, 5 levels at fanout 10 | 400 ps, repair_design's BUFx2 at fanout 32, 83 and 78 fF, slew 287 ps, the XOR behind it 120 ps |
+| the compare | 251 ps, one cone (XOR, OR5, AO21, AOI211, AO32) | 330 ps, an AND tree ending in an AND5x1 driving 28.5 fF |
+| the select in the block | 807 ps | 1,090 ps |
+
+The broadcast is the mechanism: synthesis leaves a net into 64 kept
+cells unbuffered (ABC sees one primary output), so placement's
+repair_design finds 800 fanout violations against 1 in A and fixes them
+with BUFx2 trees that meet the 320 ps slew limit and no more.
+
+Tried, off by default: SLEW_MARGIN 40 on both arms (`PhysicalStoreQueue_slew`,
+`PhysicalStoreQueue_rtl_slew`), repair_design aiming at 60 % of the slew
+limit. Single runs, B arms side by side with each other's conditions
+(the base built at the start of the session, alone), A slew alone; seconds
+from the Bazel profile (synthesis) and the stage logs:
+
+| arm | synth s | floorplan s | place s | CTS s | grt s | total min | period at grt ps | stdcells | stdcell area µm² |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| B | 222 | 18.6 | 234.3 | 34.3 | 117.0 | 10.4 | 1,905.1 | 256,511 | 31,409.7 |
+| B slew | 222 | 18.4 | 261.3 | 58.6 | 115.4 | 11.3 | 1,613.2 | 265,061 | 33,829.7 |
+| A (inventory) | 1,909.2 | 26.1 | 327.9 | 30.9 | 156.9 | 40.85 | 1,582.9 | 252,148 | 32,126.6 |
+| A slew | 1,263.9 | 17.8 | 413.3 | 131.4 | 126.6 | 32.6 | 1,424.3 | 261,988 | 34,796.2 |
+
+B slew against B dominates (period -15.3 %, time +8.8 %, a tie); A
+slew gains 10.0 % on A (its time is not comparable: A's row ran in a
+10 GB scope with swap, A slew alone in 8 GB). B slew against A slew
+still trades: period +13.3 % (it was +20.4 %), time -65 %. Why the
+slew arms cost what they cost, measured: repair_design inserted 14,195
+buffers in 5,486 nets against 5,631 in 2,101 (B; A slew 12,292), which
+are the cells and area; CTS's time is its detailed placement after the
+tree, 39 s against 16 (A slew 113 s), legalising around them. On B
+slew's worst path the broadcast takes 236 ps against 400, the compare
+355, and the select in the block 946 against A slew's 807: the select
+over the cells' outputs is what is left between B and A.
+
+Tried and dead: telling the entry cell's synthesis its output load
+(ABC_LOAD_IN_FF 22 fF, the select's load on the compare): the result was
+byte-identical, 1,905.1 ps and 256,511 cells. asap7's `config.mk`
+assigns `ABC_LOAD_IN_FF = 3.898` with `=`, not `?=`, so a flow cannot
+set it; that lever needs an ORFS change, and it would apply to every
+module's outputs, not the cell's alone.
+
 ### The toys (2026-10-29)
 
 `test/array_toys`, the generated arm against yosys's, depth 32. Dirty
