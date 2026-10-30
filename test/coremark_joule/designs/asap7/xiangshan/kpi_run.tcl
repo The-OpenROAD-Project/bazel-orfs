@@ -45,3 +45,121 @@ lappend out [format "reg2reg min period %.0f ps" [expr { $p - $r2r }]]
 set f [open $::env(KPI_OUT) w]
 puts $f [join $out "\n"]
 close $f
+
+# KPI_PATHS: what the worst reg2reg paths are made of. Each path's period
+# split into the launch and capture clock arrivals (their difference is the
+# skew the path gets), cell delay and wire delay; the buffers and inverters
+# on it, repair's or synthesis's; the distance between its two registers and
+# the length of its wires, pin to pin, in a straight line; and the scopes it
+# runs through with the arrival on entering each. Then the endpoints over the
+# target by the module of their register.
+proc kpi_xy { pin } {
+  set box [[[sta::sta_to_db_pin $pin] getInst] getBBox]
+  return [list [expr { ([$box xMin] + [$box xMax]) / 2 }] [expr { ([$box yMin] + [$box yMax]) / 2 }]]
+}
+proc kpi_um { dbu } {
+  return [expr { double($dbu) / [[ord::get_db_block] getDbUnitsPerMicron] }]
+}
+proc kpi_dist { a b } {
+  return [expr { abs([lindex $a 0] - [lindex $b 0]) + abs([lindex $a 1] - [lindex $b 1]) }]
+}
+if { [info exists ::env(KPI_PATHS)] } {
+  set n [expr { [info exists ::env(KPI_PATH_COUNT)] ? $::env(KPI_PATH_COUNT) : 20 }]
+  set target [expr { [info exists ::env(KPI_TARGET_PS)] ? $::env(KPI_TARGET_PS) : 2000 }]
+  set keyed {}
+  foreach t $ends { lappend keyed [list [get_property $t slack] $t] }
+  set sorted {}
+  foreach k [lsort -real -index 0 $keyed] { lappend sorted [lindex $k 1] }
+  # everything the paths say is read first: asking a pin for its clock
+  # arrival afterwards updates the search, and the paths found before it
+  # are not to be touched again
+  array set over {}
+  foreach t $sorted {
+    if { $p - [get_property $t slack] <= $target } { break }
+    set parts [split [get_full_name [get_property $t endpoint]] /]
+    set m [join [lrange $parts 0 end-2] /]
+    if { [info exists over($m)] } { incr over($m) } else { set over($m) 1 }
+  }
+  set rows {}
+  foreach t [lrange $sorted 0 [expr { $n - 1 }]] {
+    set pts {}
+    foreach pt [get_property $t points] {
+      set pin [get_property $pt pin]
+      set master [get_property [get_cells -of_objects $pin] ref_name]
+      lappend pts [list [get_full_name $pin] [get_property $pt arrival] \
+        [get_property $pin direction] $master [kpi_xy $pin]]
+    }
+    lappend rows [list [expr { $p - [get_property $t slack] }] $pts]
+  }
+  set registers [llength [all_registers -cells]]
+  set clocked [llength [all_registers -cells -clock [all_clocks]]]
+  set nends [llength $ends]
+  unset ends sorted keyed
+  set f [open $::env(KPI_PATHS) w]
+  # registers the clock does not reach have no reg2reg path, and no number
+  # here counts them: say how many there are
+  puts $f [format "registers %d, clocked %d, reg2reg endpoints %d" $registers $clocked $nends]
+  puts $f "path  period  launch capture   skew   cell   wire  bufs/cells  regs_um  wire_um  start -> end"
+  set i 0
+  foreach row $rows {
+    lassign $row period pts
+    set first [lindex $pts 0]
+    set last [lindex $pts end]
+    set arrivals {}
+    foreach end [list $first $last] {
+      set inst [join [lrange [split [lindex $end 0] /] 0 end-1] /]
+      set a 0
+      foreach c [get_pins -of_objects [get_cells $inst]] {
+        if { [get_property $c is_register_clock] } { set a [get_property $c arrival_max_rise] }
+      }
+      lappend arrivals $a
+    }
+    lassign $arrivals launch capture
+    # clk-to-Q is the first point's arrival after the launch clock's
+    set cell [expr { [lindex $first 1] - $launch }]
+    set wire 0.0
+    set bufs 0
+    set cells 0
+    set wire_dbu 0
+    for { set k 1 } { $k < [llength $pts] } { incr k } {
+      lassign [lindex $pts [expr { $k - 1 }]] - a0 - - xy0
+      lassign [lindex $pts $k] - a1 dir master xy1
+      if { $dir eq "input" } {
+        set wire [expr { $wire + $a1 - $a0 }]
+        incr wire_dbu [kpi_dist $xy0 $xy1]
+      } else {
+        set cell [expr { $cell + $a1 - $a0 }]
+        incr cells
+        if { [string match "BUF*" $master] || [string match "INV*" $master] } { incr bufs }
+      }
+    }
+    puts $f [format "%4d %7.0f %7.0f %7.0f %6.0f %6.0f %6.0f %5d/%-5d %8.0f %8.0f  %s -> %s" \
+      [incr i] $period $launch $capture [expr { $capture - $launch }] $cell $wire \
+      $bufs $cells [kpi_um [kpi_dist [lindex $first 4] [lindex $last 4]]] [kpi_um $wire_dbu] \
+      [lindex $first 0] [lindex $last 0]]
+  }
+  set i 0
+  foreach row $rows {
+    puts $f "path [incr i] scopes, arrival on entering:"
+    set scope {}
+    foreach pt [lindex $row 1] {
+      set s [join [lrange [split [lindex $pt 0] /] 0 end-2] /]
+      if { $s eq "" } { set s . }
+      if { $s ne $scope } {
+        puts $f [format "  %8.0f %s" [lindex $pt 1] $s]
+        set scope $s
+      }
+    }
+  }
+  set total 0
+  set mods {}
+  foreach m [array names over] {
+    incr total $over($m)
+    lappend mods [list $over($m) $m]
+  }
+  puts $f [format "endpoints over %d ps: %d" $target $total]
+  foreach r [lsort -integer -decreasing -index 0 $mods] {
+    puts $f [format "  %6d %s" {*}$r]
+  }
+  close $f
+}

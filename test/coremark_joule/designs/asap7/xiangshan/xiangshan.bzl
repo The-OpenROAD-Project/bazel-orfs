@@ -1387,18 +1387,20 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
 def _kpi(part, stage, arguments, sources, tags, variant = None):
     """<part>_kpi: the part's reg2reg period and each group's worst path, read
     in the build from its own stage (kpi_run.tcl), so the number is the
-    build's and needs no session. Of a variant, <part>_<variant>_kpi."""
+    build's and needs no session, and what its worst paths are made of
+    (<part>_kpi_paths.txt). Of a variant, <part>_<variant>_kpi."""
     flow = "%s_%s" % (part, variant) if variant else part
     orfs_run(
         name = "%s_kpi" % flow,
         src = ":%s_%s" % (flow, stage),
-        outs = ["%s_kpi.txt" % flow],
+        outs = ["%s_kpi.txt" % flow, "%s_kpi_paths.txt" % flow],
         arguments = arguments,
         script = "//test/coremark_joule/designs/asap7/xiangshan:kpi_run.tcl",
         sources = sources,
         tags = tags,
         user_arguments = {
             "KPI_OUT": "$(location %s_kpi.txt)" % flow,
+            "KPI_PATHS": "$(location %s_kpi_paths.txt)" % flow,
             "KPI_STAGE": stage,
         },
         variant = variant,
