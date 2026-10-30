@@ -292,6 +292,8 @@ archive_override(
         "//patches:0191-openroad-grt-backing-pageout.patch",
         # The blocked intervals freed once applied as capacity adjustments.
         "//patches:0192-openroad-grt-free-blocked-intervals.patch",
+        # The 2D maze's work arrays allocated only for the overflow iterations.
+        "//patches:0193-openroad-grt-maze2d-scoped.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
