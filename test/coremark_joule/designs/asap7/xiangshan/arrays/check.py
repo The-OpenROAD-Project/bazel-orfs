@@ -11,7 +11,8 @@ With mutate, one gate of the extracted cell is changed first: a negative
 control that must come out not equivalent. With mutate-tree, one leaf of
 a broadcast's inverter tree (extract.py --fanout-tree) reads the
 broadcast itself instead of the root inverter: its eight entries see the
-complement, which must come out not equivalent too.
+complement, which must come out not equivalent too. The leaf is one of
+the broadcast the cell reads at the most pins.
 
 Decode-once is proved in two steps, because a miter of the whole design
 no longer collapses once the comparisons are rewritten (everything
@@ -97,10 +98,31 @@ def main(argv):
     if mutate and argv[5] == "mutate-tree":
         design = json.load(open(extracted))
         top = design["modules"][module]["cells"]
+        # the leaves of the broadcast the cell reads most first: a bit
+        # the cell compares but nothing observes (one of Uncache's) is a
+        # mutant the miter rightly calls equivalent
+        cell = design["modules"][module + "Entry"]
+        reads = {}
+        for c in cell["cells"].values():
+            for p, bs in c["connections"].items():
+                if c["port_directions"].get(p) == "input":
+                    for b in bs:
+                        reads[b] = reads.get(b, 0) + 1
+        ent = next(c for c in top.values() if c["type"] == module + "Entry")
+        port = {bs[0]: p for p, bs in ent["connections"].items() if len(bs) == 1}
+
+        def uses(n):
+            y = top[n]["connections"]["Y"][0]
+            p = port.get(y)
+            return 0 if p is None else reads.get(cell["ports"][p]["bits"][0], 0)
+
         leaves = sorted(
-            n
-            for n, c in top.items()
-            if c["type"] == module + "FanoutInv" and not n.endswith("_root")
+            (
+                n
+                for n, c in top.items()
+                if c["type"] == module + "FanoutInv" and not n.endswith("_root")
+            ),
+            key=lambda n: (-uses(n), n),
         )
         if not leaves:
             sys.exit("check: mutate-tree, but the extraction has no inverter tree")
