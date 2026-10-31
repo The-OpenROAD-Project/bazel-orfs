@@ -860,6 +860,43 @@ canonicalisation and the synth ODB.)
   route as long: the read side is not what keeps Uncache's global
   route nine times A's.
 
+### Uncache's global route: the 3D pass resistance-aware routing runs (2026-10-31)
+
+Uncache treed (clock left alone) spends 87 s in global route against
+its RTL arm's 20 (the router 74 against 8). FastRoute's own phase
+timers (`set_debug_level GRT timer 1` through `PRE_GLOBAL_ROUTE_TCL`, a
+dirty lane on the cached CTS result) put it in one place: every phase
+up to the congestion iterations takes under 0.3 s, finalisation 58.8 of
+the 60.5 s. In finalisation, when the 2D route has no overflow,
+FastRoute runs `mazeRouteMSMDOrder3D` twice, and with resistance-aware
+routing on (`ENABLE_RESISTANCE_AWARE`, the blocks' setting) it lifts
+both edge-length thresholds to "every edge": every net is rerouted in
+3D. B's route has no 2D overflow, so it pays that pass; A ends with one
+overflowing gcell and skips it. The same lane with resistance-aware
+off: finalisation 6.9 s, the router 8.6 s.
+
+Both arms with it off (`<top>_nores`, `<top>_rtl_nores`, RES_STUDY, off
+by default), each alone in a 10 GB scope; synthesis is the default
+arms' (the netlist and synth ODB byte-identical), so its seconds are the
+recorded ones:
+
+| arm | synth s | floorplan s | place s | CTS s | grt s | total min | period ps | stdcells | area µm² |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| A (inventory) | 116.1 | 6.3 | 46.1 | 4.9 | 19.9 | 3.22 | 916.0 / 1,020.3 | 56,458 | 7,449.8 |
+| A, resistance-aware off | 116.1 | 6.5 | 43.5 | 4.8 | 16.2 | 3.12 | 1,038.4 / 1,020.3 | 56,458 | 7,449.8 |
+| B, treed | 92.3 | 10.2 | 64.0 | 6.0 | 87.2 | 4.33 | 992.1 / 1,136.8 | 73,794 | 8,656.5 |
+| B, treed, resistance-aware off | 92.3 | 6.4 | 47.4 | 5.8 | 49.2 | 3.35 | 1,151.1 / 1,136.8 | 73,794 | 8,656.5 |
+
+Resistance-aware routing is worth 13.4 % of A's period and 16.0 % of
+B's (placement's period is the same, the routes' parasitics are not),
+so it stays on; B without it against A without it is +10.9 %. Its grt
+stage still took 49.2 s for a 19 s router (the lane: 22.8 s and 11 s;
+this run's machine was shared, not examined). No lever in this flow:
+the cost is a FastRoute pass that a congestion-free route pays and a
+congested one does not; making it cheaper (rerouting only the nets
+resistance-aware cares about) is an OpenROAD change, a candidate to
+raise upstream, not carried.
+
 ### Two findings without a lever (2026-10-31)
 
 - **generate_ram's 16-word 2r4w block** (0170's tests): its detailed
@@ -1289,3 +1326,12 @@ side); proofs (the miter) are polish for now, the long ones wait.
    less than twice the work). Not the read side in the cell (the
    noread treed arm routes as long); ABC's upsize window narrows the
    period gap in both arms alike and leaves the time.
+
+   less than twice the work).
+   Answered (2026-10-31, "Uncache's global route: the 3D pass
+   resistance-aware routing runs"): B routes without 2D overflow, so
+   FastRoute's finalisation reroutes every net in 3D with
+   resistance-aware's edge-length thresholds lifted, 58.8 of 60.5 s;
+   A's one overflowing gcell skips that pass. Turning resistance-aware
+   off takes the time and costs both arms 13-16 % of period: no lever
+   here, only upstream (that pass on fewer nets).
