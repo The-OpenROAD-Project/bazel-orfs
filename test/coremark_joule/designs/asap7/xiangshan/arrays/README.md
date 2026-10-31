@@ -16,7 +16,7 @@ decodes each index comparison once in the block.
 | prove | `check.py` | registers and blackboxes as cut points, a yosys miter, ABC's `iprove`; a negative control (one register's D-mux swapped) must come out different |
 | swap | `substitute.py` | the core with each extraction in place of its block, for the XSTile flows (`../README.md`, "The arrays") |
 
-What the front end handles (and, where it wins, `--fanout-tree`: every input all entry cells share driven through two levels of a kept one-inverter module in the block, root and per eight entries, for PhysicalStoreQueue, Uncache and VirtualLoadQueue, `TREE` in `BUILD.bazel`): duplicate cells merged, private port buffers
+What the front end handles (and, where it wins, `--fanout-tree`: every input all entry cells share driven through two levels of a kept one-inverter module in the block, root and per eight entries, the clock left alone, for LoadQueueRAR, PhysicalStoreQueue, Uncache and VirtualLoadQueue, `TREE` in `BUILD.bazel`): duplicate cells merged, private port buffers
 seen through, an entry's read side (its compare against a query, its
 contribution to a reduction across entries) kept in the cell, arrays
 that differ between entries left inline, a bank's pointer decoded once
@@ -86,11 +86,11 @@ stages, cells, area and the placement-parasitics period):
 
 | Block | A total min | B total min | A period ps | B period ps | verdict |
 |---|---:|---:|---:|---:|---|
-| PhysicalStoreQueue | 30.53 | 11.33 | 1,453.0 | 1,469.5 | dominates |
+| PhysicalStoreQueue | 30.53 | 9.67 | 1,453.0 | 1,579.6 | dominates |
 | LoadQueueReplay | 37.40 | 22.36 | 1,198.4 | 1,201.8 | dominates |
 | VirtualStoreQueue | 6.04 | 3.53 | 944.7 | 910.4 | dominates |
-| LoadQueueRAR | 6.59 | 4.67 | 781.3 | 863.5 | trades |
+| LoadQueueRAR | 6.59 | 4.05 | 781.3 | 818.1 | dominates |
 | TLBFA | 2.69 | 2.19 | 397.0 | 320.6 | dominates |
 | TLBFA_1 | 5.95 | 3.06 | 456.2 | 282.3 | dominates |
-| VirtualLoadQueue | 4.48 | 3.03 | 857.6 | 865.2 | dominates |
+| VirtualLoadQueue | 4.48 | 3.91 | 857.6 | 847.0 | dominates |
 | Rob (`rob_array:RobEntries`) | 58.07 | 52.60 | 1,379.9 | 1,212.3 | dominates |

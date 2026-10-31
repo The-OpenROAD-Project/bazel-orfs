@@ -26,6 +26,7 @@ collapses; decode-once then rests on check.py --lemma.
 import collections
 import copy
 import json
+import re
 import sys
 
 from entries import FLOPS, OUT, Design, Entries, outputs, plan
@@ -623,7 +624,31 @@ def extract(mod, name, decode=True):
     return {cell_name: cell_mod, name: parent}, stats, renames
 
 
-def fanout_tree(parent, name, group):
+def clock_ports(cell):
+    """The cell's input ports that reach a register's or a blackbox's
+    clock pin directly: a clock, which CTS buffers. Treed, the second
+    level's inverter sits between the clock tree and every register of
+    its group, and CTS's repair_clock_inverters clones it once per
+    register: Uncache, 6,400 inverters and 6,402 clock nets against 394,
+    global route four times as long, the clock's insertion longer."""
+    pins = {
+        b
+        for c in cell["cells"].values()
+        for p, bs in c["connections"].items()
+        if (p == "CLK" if c["type"].startswith("$") else CLOCK_PIN.match(p))
+        for b in bs
+    }
+    return {
+        p
+        for p, v in cell["ports"].items()
+        if v["direction"] == "input" and pins & set(v["bits"])
+    }
+
+
+CLOCK_PIN = re.compile(r"(?i)^(clk|clock|ck|cp)(_i)?$")
+
+
+def fanout_tree(parent, name, group, cell):
     """Each input every entry cell shares, a broadcast, driven through two
     levels of inverters in the block, one at the root and one per group
     of entries (--fanout-tree=<group>), instead of one net into every
@@ -633,10 +658,12 @@ def fanout_tree(parent, name, group):
     take buffers out again. Each is an instance of <name>FanoutInv, a
     module of one $not that the flow keeps (SYNTH_KEEP_MODULES), so
     synthesis maps it to the platform's inverter and does not fold the
-    two levels away; a check flattens it. Returns the number of
-    broadcast bits treed and the module."""
+    two levels away; a check flattens it. A clock is left alone
+    (clock_ports). Returns the number of broadcast bits treed and the
+    module."""
     cell_name = name + "Entry"
     inv = name + "FanoutInv"
+    clocks = clock_ports(cell)
     ents = [c for c in parent["cells"].values() if c["type"] == cell_name]
     used = [
         b
@@ -650,7 +677,7 @@ def fanout_tree(parent, name, group):
     next_id = max(used + [0]) + 1
     count = 0
     for p, d in (ents[0]["port_directions"].items() if ents else []):
-        if d != "input" or len(ents[0]["connections"][p]) != 1:
+        if d != "input" or p in clocks or len(ents[0]["connections"][p]) != 1:
             continue
         b = ents[0]["connections"][p][0]
         if isinstance(b, str) or any(e["connections"][p] != [b] for e in ents):
@@ -716,7 +743,7 @@ def main(argv):
     for a in argv[4:]:
         if a.startswith("--fanout-tree="):
             stats["fanout_trees"], inv = fanout_tree(
-                mods[name], name, int(a.split("=", 1)[1])
+                mods[name], name, int(a.split("=", 1)[1]), mods[name + "Entry"]
             )
             mods[name + "FanoutInv"] = inv
     design["modules"].update(mods)

@@ -184,18 +184,19 @@ READ_STUDY = ["Uncache"]
 # one $not the flow keeps, so synthesis maps it to the platform's own
 # inverter; the proofs flatten it (<top>_tree_check_test). On in the
 # blocks' flows where it wins (TREE), a study elsewhere (TREE_STUDY).
-# Period at grt on the routes' parasitics (ps, untreed -> treed; A):
-# PhysicalStoreQueue 1,666.4 -> 1,469.5 (1,453.0), VirtualLoadQueue
-# 972.6 -> 865.2 (857.6), Uncache 1,171.3 -> 1,018.4 (916.0);
-# LoadQueueRAR, with asap7's INVx3 named, 863.5 -> 913.8 (781.3): its
-# worst path is not a broadcast.
+# The clock is left alone (extract.py clock_ports): treed, CTS cloned the
+# second level's inverter once per register. Period at grt on the
+# routes' parasitics (ps, untreed -> treed; A): PhysicalStoreQueue
+# 1,666.4 -> 1,579.6 (1,453.0), VirtualLoadQueue 972.6 -> 847.0 (857.6),
+# Uncache 1,171.3 -> 992.1 (916.0), LoadQueueRAR 863.5 -> 818.1 (781.3).
 TREE = [
+    "LoadQueueRAR",
     "PhysicalStoreQueue",
     "Uncache",
     "VirtualLoadQueue",
 ]
 
-TREE_STUDY = ["LoadQueueRAR"]
+TREE_STUDY = []
 
 [
     genrule(

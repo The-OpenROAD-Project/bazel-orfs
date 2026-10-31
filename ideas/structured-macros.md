@@ -359,22 +359,22 @@ place's repair_design are in).
 
 | Block | Arm | synth s | floorplan s | place s | CTS s | grt s | total min | period at grt, routes' RC ps | period at grt, placement RC ps | stdcells | stdcell area µm² |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| PhysicalStoreQueue ⁴ ¹² | A: RTL | 1,448.9 | 17.7 | 217.6 | 21.9 | 125.5 | 30.53 | 1,453.0 | 1,582.9 | 252,148 | 32,126.6 |
-| | B: extracted, treed | 280.3 | 23.9 | 232.9 | 29.3 | 113.6 | 11.33 | 1,469.5 | 1,802.7 | 268,722 | 32,193.0 |
+| PhysicalStoreQueue ⁴ ¹³ | A: RTL | 1,448.9 | 17.7 | 217.6 | 21.9 | 125.5 | 30.53 | 1,453.0 | 1,582.9 | 252,148 | 32,126.6 |
+| | B: extracted, treed | 213.9 | 18.2 | 219.5 | 22.4 | 106.2 | 9.67 | 1,579.6 | 2,007.3 | 251,065 | 30,440.0 |
 | LoadQueueReplay | A: RTL | 1,504.8 | 49.5 | 496.1 | 33.4 | 160.0 | 37.40 | 1,198.4 | 1,664.5 | 368,658 | 45,109.3 |
 | | B: extracted | 432.4 | 35.8 | 549.4 | 49.5 | 274.7 | 22.36 | 1,201.8 | 1,435.1 | 389,527 | 45,759.1 |
 | VirtualStoreQueue ⁴ | A: RTL | 260.4 | 5.5 | 58.7 | 7.5 | 30.3 | 6.04 | 944.7 | 1,014.1 | 62,041 | 7,605.0 |
 | | B: extracted ⁹ | 102.8 | 3 | 63 | 7 | 36 | 3.53 | 910.4 | 926.0 | 63,871 | 7,884.8 |
-| LoadQueueRAR | A: RTL | 266.8 | 6.0 | 58.7 | 5.0 | 58.8 | 6.59 | 781.3 | 902.0 | 53,430 | 7,024.2 |
-| | B: extracted ⁹ | 85.8 | 11.5 | 70.0 | 6.3 | 106.4 | 4.67 | 863.5 | 949.9 | 67,093 | 8,222.8 |
+| LoadQueueRAR ¹³ | A: RTL | 266.8 | 6.0 | 58.7 | 5.0 | 58.8 | 6.59 | 781.3 | 902.0 | 53,430 | 7,024.2 |
+| | B: extracted, treed | 73.9 | 6.1 | 79.1 | 5.8 | 78.3 | 4.05 | 818.1 | 963.5 | 66,699 | 8,151.9 |
 | TLBFA | A: RTL | 75.6 | 6.4 | 46.9 | 4.6 | 28.0 | 2.69 | 397.0 | 439.0 | 47,411 | 6,578.3 |
 | | B: extracted ⁹ | 34.3 | 6.6 | 49.0 | 4.8 | 36.9 | 2.19 | 320.6 | 311.8 | 49,653 | 6,592.5 |
 | TLBFA_1 ⁴ | A: RTL | 166.0 | 16.6 | 136.2 | 7.0 | 31.4 | 5.95 | 456.2 | 460.8 | 83,636 | 10,707.2 |
 | | B: extracted ⁹ | 44.2 | 10.5 | 81.6 | 11.4 | 36.0 | 3.06 | 282.3 | 292.2 | 98,120 | 11,689.7 |
-| VirtualLoadQueue ¹² | A: RTL | 159.2 | 7.6 | 33.9 | 4.6 | 63.4 | 4.48 | 857.6 | 962.5 | 38,203 | 4,267.1 |
-| | B: extracted, treed | 74.6 | 4.2 | 38.9 | 5.1 | 59.0 | 3.03 | 865.2 | 961.9 | 45,393 | 5,214.9 |
-| Uncache ⁵ ¹² | A: RTL | 116.1 | 6.3 | 46.1 | 4.9 | 19.9 | 3.22 | 916.0 | 1,020.3 | 56,458 | 7,449.8 |
-| | B: extracted, treed | 90.4 | 9.9 | 59.4 | 7.2 | 98.2 | 4.42 | 1,018.4 | 1,132.6 | 80,812 | 9,320.9 |
+| VirtualLoadQueue ¹³ | A: RTL | 159.2 | 7.6 | 33.9 | 4.6 | 63.4 | 4.48 | 857.6 | 962.5 | 38,203 | 4,267.1 |
+| | B: extracted, treed | 69.3 | 4.2 | 50.0 | 4.2 | 56.6 | 3.91 | 847.0 | 956.4 | 43,740 | 5,042.0 |
+| Uncache ⁵ ¹³ | A: RTL | 116.1 | 6.3 | 46.1 | 4.9 | 19.9 | 3.22 | 916.0 | 1,020.3 | 56,458 | 7,449.8 |
+| | B: extracted, treed | 92.3 | 10.2 | 64.0 | 6.0 | 87.2 | 4.33 | 992.1 | 1,136.8 | 73,794 | 8,656.5 |
 | Rob ⁶ ¹⁰ | A: RTL | 1,641.8 | 474.3 | 1,150.7 | 44.6 | 173.0 | 58.07 | 1,379.9 | 2,197.3 | 340,217 | 40,759.2 |
 | | B: extracted | 508.3 | 260.2 | 2,182.6 | 41.1 | 163.6 | 52.60 | 1,212.3 | 2,239.7 | 414,852 | 46,916.3 |
 
@@ -473,6 +473,12 @@ scope, nothing else running; synthesis from the Bazel profile
 (canonicalisation, top and synth ODB for B; A's whole synthesis), the
 rest from the stage logs. LoadQueueRAR stays untreed: treed it got
 worse (its worst path is not a broadcast).
+¹³ Re-measured 2026-10-31 with the clock left out of the broadcast tree
+("The broadcast tree and the clock"), LoadQueueRAR treed by default. B
+arms only, the A arms as above: LoadQueueRAR, Uncache and
+VirtualLoadQueue side by side in one 10 GB scope, PhysicalStoreQueue
+alone in it; synthesis from the Bazel profile (canonicalisation, the top
+and the synth ODB), the rest from the stage logs.
 ⁸ PhysicalStoreQueue's
 broadcast is inherent (the forwarding query compared in all 64 cells),
 and placement already sees one netlist (OPENROAD_HIERARCHICAL 0), so
@@ -490,15 +496,15 @@ still be mapped against what drives and loads it.
 
 | Block | A total min | B total min | A period ps | B period ps | verdict | placement RC A / B ps, verdict before ¹¹ | reason for a loss, measured |
 |---|---:|---:|---:|---:|---|---|---|
-| PhysicalStoreQueue | 30.53 | 11.33 | 1,453.0 | 1,469.5 | dominates ¹² | 1,582.9 / 1,802.7, trades | period +1.1 % with the broadcasts treed; untreed it traded at +14.7 % (the select reading the decoded threshold, and the query reaching the 64 cells through repair_design's BUFx2 at fanout 32) |
+| PhysicalStoreQueue | 30.53 | 9.67 | 1,453.0 | 1,579.6 | dominates ¹³ | 1,582.9 / 2,007.3, trades | period +8.7 % with the broadcasts treed and the clock left alone (+1.1 % with the clock treed, ¹³); untreed it traded at +14.7 % (the select reading the decoded threshold, and the query reaching the 64 cells through repair_design's BUFx2 at fanout 32) |
 | LoadQueueReplay | 37.40 | 22.36 | 1,198.4 | 1,201.8 | dominates ¹¹ | 1,664.5 / 1,435.1, dominates | period +0.3 % |
 | VirtualStoreQueue | 6.04 | 3.53 | 944.7 | 910.4 | dominates ⁷ ⁹ | 1,014.1 / 926.0, dominates | |
-| LoadQueueRAR | 6.59 | 4.67 | 781.3 | 863.5 | trades ¹¹ | 902.0 / 949.9, dominates | period +10.5 %: on the same path (the free list's head pointer, the read of the allocated slot, the write decoder, the entry's registers), 992.6 ps arrival against 898.0: the slot read's buffers are five BUFx2 in B against BUFx6f, INVx3 and BUFx3 in A (+56 ps to the read's output), and inside the cell the decoded write select reaches its 20 loads through two BUFx2 stages (178.5 ps from the cell's pin to D, against 119.5 from A's last select gate) |
+| LoadQueueRAR | 6.59 | 4.05 | 781.3 | 818.1 | dominates ¹³ | 902.0 / 963.5, dominates | period +4.7 % with the broadcasts treed and the clock left alone; untreed it traded at +10.5 % (the slot read's five BUFx2 and the write select buffered twice inside the cell, ¹¹), treed with the clock it lost (913.8, the clock's insertion grown) |
 | TLBFA | 2.69 | 2.19 | 397.0 | 320.6 | dominates ⁹ | 439.0 / 311.8, dominates | |
 | TLBFA_1 | 5.95 | 3.06 | 456.2 | 282.3 | dominates ⁹ | 460.8 / 292.2, dominates | |
-| VirtualLoadQueue | 4.48 | 3.03 | 857.6 | 865.2 | dominates ¹² | 962.5 / 961.9, trades | period +0.9 % with the broadcasts treed; untreed it traded at +13.4 % (the write-back reduction's result into the 120 cells through BUFx2 at fanout 26/32/32, 180 ps against 83) |
+| VirtualLoadQueue | 4.48 | 3.91 | 857.6 | 847.0 | dominates ¹³ | 962.5 / 956.4, dominates | period -1.2 % with the broadcasts treed and the clock left alone; untreed it traded at +13.4 % (the write-back reduction's result into the 120 cells through BUFx2 at fanout 26/32/32, 180 ps against 83) |
 | Rob | 58.07 | 52.60 | 1,379.9 | 1,212.3 | dominates ¹⁰ ¹¹ | 2,197.3 / 2,239.7, dominates | |
-| Uncache | 3.22 | 4.42 | 916.0 | 1,018.4 ¹² | study only | 1,020.3 / 1,132.6, study only | period +11.2 %, time +37 %, 43 % more cells: the 435-bit read side mapped inside the kept entry cell; treed it gains 13 % on the untreed 1,171.3 but still loses |
+| Uncache | 3.22 | 4.33 | 916.0 | 992.1 ¹³ | study only | 1,020.3 / 1,136.8, study only | period +8.3 %, inside the 10 %, but time +34 %: global route 87 against 20 s ("The broadcast tree and the clock"); 31 % more cells, the 435-bit read side mapped inside the kept entry cell |
 
 The verdict: B dominates when it is no worse on both, a time within
 15 % or a period within 10 % counting as no worse (the flow is
@@ -660,7 +666,81 @@ profile; the rest from the stage logs):
 
 Against A: PhysicalStoreQueue +1.1 % at half the time, VirtualLoadQueue
 +0.9 % at 74 %: both dominate. Uncache +11.2 %, 5.55 against 3.33 min:
-it loses.
+it loses. (These treed the clock too; "The broadcast tree and the
+clock" has them without it.)
+
+### The broadcast tree and the clock (2026-10-31)
+
+The tree treed every input all entry cells share, the clock with it. Its
+second level then sat between the clock tree and every register of its
+group, and CTS's `repair_clock_inverters` cloned that inverter once per
+register: Uncache treed had 6,400 cloned inverters, 6,402 clock nets
+against its RTL arm's 391, and the clock's insertion grew (PhysicalStoreQueue
+341 to 444 ps against 205 to 237 without; LoadQueueRAR's launch 203
+against 131, the "clock tree's insertion grew" of the study above). The
+tree now leaves an input alone that reaches a register's or a
+blackbox's clock pin (extract.py `clock_ports`; `features_test` checks
+the CAM's entries read the block's clock, and fails with the clock
+treed). LoadQueueRAR now wins with the tree, and is in `TREE`.
+
+Single runs, B arms only (the A arms are the inventory's): LoadQueueRAR,
+Uncache and VirtualLoadQueue side by side in one 10 GB scope,
+PhysicalStoreQueue alone in it; synthesis from the Bazel profile
+(canonicalisation, the top, the synth ODB), the rest from the stage
+logs; period at grt on the routes' parasitics, placement's after the
+slash:
+
+| Block | arm | synth s | floorplan s | place s | CTS s | grt s | total min | period ps | stdcells | area µm² |
+|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| LoadQueueRAR | A (inventory) | 266.8 | 6.0 | 58.7 | 5.0 | 58.8 | 6.59 | 781.3 / 902.0 | 53,430 | 7,024.2 |
+| | B, untreed | 85.8 | 11.5 | 70.0 | 6.3 | 106.4 | 4.67 | 863.5 / 949.9 | 67,093 | 8,222.8 |
+| | B, treed with the clock | 78.1 | 6.1 | 101.9 | 9.0 | 91.0 | 4.77 | 913.8 / 1,024.8 | 71,470 | 8,712.5 |
+| | B, treed | 73.9 | 6.1 | 79.1 | 5.8 | 78.3 | 4.05 | 818.1 / 963.5 | 66,699 | 8,151.9 |
+| VirtualLoadQueue | A (inventory) | 159.2 | 7.6 | 33.9 | 4.6 | 63.4 | 4.48 | 857.6 / 962.5 | 38,203 | 4,267.1 |
+| | B, treed with the clock | 74.6 | 4.2 | 38.9 | 5.1 | 59.0 | 3.03 | 865.2 / 961.9 | 45,393 | 5,214.9 |
+| | B, treed | 69.3 | 4.2 | 50.0 | 4.2 | 56.6 | 3.91 | 847.0 / 956.4 | 43,740 | 5,042.0 |
+| Uncache | A (inventory) | 116.1 | 6.3 | 46.1 | 4.9 | 19.9 | 3.22 | 916.0 / 1,020.3 | 56,458 | 7,449.8 |
+| | B, treed with the clock | 90.4 | 9.9 | 59.4 | 7.2 | 98.2 | 4.42 | 1,018.4 / 1,132.6 | 80,812 | 9,320.9 |
+| | B, treed | 92.3 | 10.2 | 64.0 | 6.0 | 87.2 | 4.33 | 992.1 / 1,136.8 | 73,794 | 8,656.5 |
+| PhysicalStoreQueue | A (inventory) | 1,448.9 | 17.7 | 217.6 | 21.9 | 125.5 | 30.53 | 1,453.0 / 1,582.9 | 252,148 | 32,126.6 |
+| | B, treed with the clock | 280.3 | 23.9 | 232.9 | 29.3 | 113.6 | 11.33 | 1,469.5 / 1,802.7 | 268,722 | 32,193.0 |
+| | B, treed | 213.9 | 18.2 | 219.5 | 22.4 | 106.2 | 9.67 | 1,579.6 / 2,007.3 | 251,065 | 30,440.0 |
+
+A second run of LoadQueueRAR treed (four flows side by side) came out
+at 818.1 ps and 66,699 cells again.
+
+- **LoadQueueRAR** +4.7 % on A at 61 % of the time: it dominates (it
+  traded at +10.5 %). Its worst path is the free list's head pointer
+  through the slot read and the write decoder into an entry, as before;
+  B's time against the untreed arm is a tie (the three flows ran side
+  by side).
+- **VirtualLoadQueue** -1.2 % on A, 87 % of the time: it dominates.
+- **Uncache** +8.3 % on A, inside the 10 %, but 4.33 against 3.22 min:
+  time +34 %, it loses. Global route takes 87 s against 20 (the router
+  74 s against 8): B routes 74,115 nets against 56,773, 750,107 pin
+  vias against 484,610, on a die 17 % larger (31 % more cells), and ends
+  without overflow where A ends with one overflowing gcell; why the
+  router takes nine times as long on that was not examined.
+- **PhysicalStoreQueue** +8.7 % on A at a third of the time: it still
+  dominates, but 7.5 % worse than treed with the clock. The same path
+  (`s1LoadEnd` through the forwarding query into entry 63, the select in
+  the block, `s2SelectDataEntry`); the clock's launch at 227.6 ps
+  against 436.6, the skew 13.7 against 5.6 ps, and the data path
+  1,560.1 ps against 1,457.5: the query reaches the cell's first gate
+  in 470 against 364 ps.
+  Without the clock in it, the query reaches the tree's root through
+  two of repair_design's BUFx2 at fanout 32 (159 ps) and then its two
+  inverters (143 ps); with it, the worst path entered the cell through
+  a second, untreed input the query also drives (three BUFx2 at fanout
+  24, 17 and 32, 239 ps). The select in the block is the same in both,
+  four BUFx2 at fanout 10 after an AO32x1 (370.7 against 360.2 ps).
+
+The proofs through the tree pass for all four (`<top>_tree_check_test`)
+and so do their controls, with one change: the control's leaf was the
+first by name, which with the clock out of the tree is, in Uncache, a
+leaf of a broadcast the cell compares but nothing observes (the miter
+rightly says equivalent). It is now a leaf of the broadcast the cell
+reads at the most pins.
 
 ### Two findings without a lever (2026-10-31)
 
@@ -1078,3 +1158,14 @@ side); proofs (the miter) are polish for now, the long ones wait.
    write-back pointer, 17 levels against 9), and a result broadcast into
    the kept cells by repair_design's BUFx2 trees at fanout 32. Find why
    B's top maps them differently before changing the front end. (2026-10-31: VirtualLoadQueue dominates with its broadcasts treed, ¹²; LoadQueueRAR's worst path is not a broadcast and stays open.)
+   Done (2026-10-31): both dominate with the broadcasts treed and the
+   clock left out of the tree, LoadQueueRAR +4.7 % at 61 % of the time
+   (¹³, "The broadcast tree and the clock"). The tree had made
+   LoadQueueRAR worse through its clock, not its data path.
+8. **Uncache's time** (2026-10-31, study only): treed with the clock
+   left alone its period is inside the 10 % (+8.3 %), its time is not
+   (4.33 against 3.22 min). Global route is the difference, 87 against
+   20 s, and the router ends without overflow where A ends with one
+   overflowing gcell. Open: why the router takes nine times as long
+   (B's 74,115 nets and 750,107 pin vias against 56,773 and 484,610 is
+   less than twice the work).

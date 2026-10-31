@@ -349,6 +349,17 @@ class Tree(unittest.TestCase):
     def test_broadcasts_treed(self):
         self.assertGreater(int(self.stats["fanout_trees"]), 0)
 
+    def test_clock_not_treed(self):
+        cam = json.load(open(self.extracted))["modules"]["Cam"]
+        clock = cam["ports"]["clock"]["bits"]
+        ents = [c for c in cam["cells"].values() if c["type"] == "CamEntry"]
+        self.assertTrue(ents)
+        for e in ents:
+            self.assertTrue(
+                any(bs == clock for bs in e["connections"].values()),
+                "an entry's clock is not the block's clock",
+            )
+
     def test_tree_equal(self):
         rc, log = run("check.py", self.yosys, self.proc, self.extracted, "Cam")
         self.assertEqual(rc, 0, log)
