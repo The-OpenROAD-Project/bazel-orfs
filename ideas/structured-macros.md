@@ -617,7 +617,7 @@ the standard cells without taps. Single runs; agematrix is 32 entries
 | counter | 32x8 | structgen | 25 | 60 | 295 | 344 | 2,847 | 2,600 | dominates | |
 | counter | 32x128 | structgen | 492 | 599 | 347 | 481 | 46,054 | 39,474 | dominates | arms in different pairs |
 | agematrix | 32 | structgen | 59 | 64 | 266 | 299 | 5,678 | 4,934 | dominates | |
-| flags | 32x128 | structgen | 505 | 656 | 496 | 394 | 60,435 | 30,769 | trades | `head_q` to array flop: a 5-level OR2 thermometer prefix and the flush-window select fanned out to 128 bits through a buffer chain, 28 cells and 481 ps against 20 and 390; 2.0x the cells |
+| flags | 32x128 | structgen | 547 | 465 | 373 | 394 | 60,435 | 30,769 | trades (re-measured 2026-10-31, cells not) | time +17.7 %: setup repair at CTS and global route, 191 and 134 s against 29 and 75, closing paths yosys's arm never starts on; with setup repair off in both arms it dominates (see "The toys' time losses are setup repair working") |
 | flags | 32x8 | structgen | 92 | 66 | 425 | 335 | 4,887 | 2,572 | loses | the same path, 23 cells and 414 ps against yosys's adder compare, 14 and 328; repair at CTS 20 s and grt 41 s against 0 and 21 |
 | cam | 32x8 | structgen | 24 | 20 | 334 | 271 | 1,689 | 1,458 | loses | priority encoder: 5 OR2 prefix levels, an inverter, a NOR3/NAND3/NOR2 tree, 19 cells and 323 ps against OR4/OR5, 10 and 268 |
 | cam | 32x128 | structgen | 252 | 276 | 448 | 431 | 20,770 | 21,438 | dominates (period +4 %, inside 10 %; time a tie) | 17 ps left: the match tree's single-fanout NAND3/NOR3 at xp33 drive 4-5 fF of wire: 20 of the 26 ps |
@@ -625,7 +625,7 @@ the standard cells without taps. Single runs; agematrix is 32 entries
 | rf1r1w | 32x128 | generate_ram | 76 | 138 | 300 | 310 | 19,597 | 22,149 | dominates | |
 | rf4r2w | 32x8 | generate_ram | 16 | 18 | 254 | 253 | 3,590 | 3,363 | dominates (period +1 ps; time a tie) | the write path is 3.8 ps longer: three AND2 decode levels and the two-port enable OR, against yosys's NOR2/AND2 and AO221/OAI21 |
 | rf4r2w | 32x128 | generate_ram | 334 | 446 | 321 | 357 | 41,613 | 53,096 | dominates | |
-| ohsched fill (reach) | 32x32 | generate_ram | 44 | 38 | 304 | 339 | 9,491 | 9,517 | trades (time +16 %, one point past the tie; period better) | grt repair spends 6 s on 139 pick-to-match endpoints up to 8.7 ps over 300 ps under global-route parasitics; yosys's period is set at an output port (299 ps register to register) |
+| ohsched fill (reach) | 32x32 | generate_ram | 52 | 43 | 304 | 339 | 9,491 | 9,517 | trades (time +20 % +-2.3 over three repeat pairs, 2026-10-31; period better) | repair_timing at CTS and global route, 7 s each, on paths a few ps over 300 ps that it closes; yosys's period is set at an output port (299 ps register to register); with setup repair off in both arms it dominates (see "The toys' time losses are setup repair working") |
 | ohsched lanes (reach) | 32x32 | generate_ram | 42 | 37 | 301 | 310 | 9,024 | 9,126 | dominates (time +14 %, inside the tie) | yosys's period is set at an output port (299 ps register to register) |
 
 The generate_ram rows are re-measured (2026-10-30) with the carried
@@ -765,6 +765,52 @@ paths are 161 ps of generated logic between a retimed flop and the
 toy's own 54 ps, and repair at CTS and grt, not the netlist, sets the
 time on the 128-bit toys. No carried patch; the time a better netlist
 costs repair at grt is the open question for the toys' verdicts.
+
+### The toys' time losses are setup repair working (2026-10-31)
+
+Both toys that still traded on time, re-measured on main: dirty lanes
+from synthesis through global route, each toy's two arms side by side,
+seconds the step logs summed. Period is the clock minus global route's
+worst slack, on the routes' parasitics; reg2reg is FLW-0008.
+
+ohsched fill (reach), three repeat pairs for a noise bound:
+
+| pair | gen total s | yosys total s | gen / yosys | gen period ps | yosys period ps |
+|---|--:|--:|--:|--:|--:|
+| 1 | 50.0 | 42.5 | +17.6 % | 304.0 | 339.0 |
+| 2 | 51.5 | 42.6 | +20.9 % | 304.0 | 339.0 |
+| 3 | 52.9 | 43.3 | +22.2 % | 304.0 | 339.0 |
+
+The gap, +20 % +-2.3, is real, past the 15 % tie. The periods are
+deterministic. The difference is CTS (8.2-9.2 s against 3.0) and global
+route (26.9-27.8 against 21.4-22.0). On the generated arm repair_timing
+takes 7 s at each, upsizing 87 and 214 cells and inserting 7 buffers,
+on paths a few ps over 300 ps that it can close. Yosys's arm, whose
+worst path is set at an output port, sizes 9 and 13 cells and is done.
+
+flags 32 x 128 (structgen), one pair: 546.9 s against 464.8 (+17.7 %),
+373.2 ps against 394.5. CTS takes 198 s against 37: repair_timing at
+CTS 191 s and at global route 134 s on the generated arm, against 29
+and 75.
+
+Two levers, each on both arms, single pairs:
+
+| toy | lever | gen total s | yosys total s | gen / yosys | gen period ps | yosys period ps | verdict |
+|---|---|--:|--:|--:|--:|--:|---|
+| ohsched fill | TNS_END_PERCENT 1 | 50.2 | 42.6 | +17.8 % | 303.0 | 339.0 | trades (no change) |
+| ohsched fill | setup repair off | 66.8 | 71.2 | -6.2 % | 344.7 | 358.8 | dominates |
+| flags 32x128 | TNS_END_PERCENT 1 | 650.8 | 618.0 | +5.3 % | 362.7 | 395.2 | dominates |
+| flags 32x128 | setup repair off | 363.3 | 478.0 | -24.0 % | 451.4 | 587.4 | dominates |
+
+Setup repair off is what the XiangShan arrays flows run
+(SKIP_CTS_REPAIR_TIMING, SKIP_INCREMENTAL_REPAIR). The lever pairs ran
+two at a time on the machine, so compare within a row, not across rows.
+With repair off, both generated arms win on time and period. With it
+on, the time they lose is repair closing paths that the yosys arms'
+port-bound worst paths never let repair start on. That is no loss in
+the netlist. Changing the toys' setting moves every toy row, so it is
+left to the next sweep. Which repair setting the toys' verdicts should
+use is the open question.
 
 ## XSTile uses the arrays (2026-10-29)
 
