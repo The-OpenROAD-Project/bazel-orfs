@@ -36,6 +36,8 @@ class DeployCopiesTest(unittest.TestCase):
         self.odb = os.path.join(bin_dir, "pkg/results/1_synth.odb")
         write(self.odb, "odb\n")
         write(os.path.join(bin_dir, "pkg/memories/mem.json"), "{}\n")
+        # an external repository's design: its outputs sit beside _main
+        write(os.path.join(bin_dir, "external/ext+/pkg/memories/mem.json"), "{}\n")
         write(os.path.join(bin_dir, "pkg/make_flow"), '#!/bin/sh\necho MAKE "$@"\n')
         write(os.path.join(exec_dir, "tool/tool.sh"), "#!/bin/sh\n")
         os.makedirs(os.path.join(bin_dir, "pkg/flow_deps.sh.runfiles/_main"))
@@ -50,6 +52,10 @@ class DeployCopiesTest(unittest.TestCase):
         ]:
             link(os.path.join(bin_dir, rel), os.path.join(main, rel))
         link(os.path.join(exec_dir, "tool/tool.sh"), os.path.join(main, "tool/tool.sh"))
+        link(
+            os.path.join(bin_dir, "external/ext+/pkg/memories"),
+            self.deploy + ".runfiles/ext+/pkg/memories",
+        )
         write(os.path.join(main, "pkg/config.mk"), "export DESIGN_NAME = flow\n", 0o644)
         self.main = main
 
@@ -59,7 +65,7 @@ class DeployCopiesTest(unittest.TestCase):
             "${CONFIG}": "pkg/config.mk",
             # a stage's outputs, as the rules list them: synthesis with
             # AUTO_MEMORIES has a memories directory among them
-            "${GENFILES}": "pkg/config.mk pkg/memories",
+            "${GENFILES}": "pkg/config.mk pkg/memories ../ext+/pkg/memories",
             "${MAKE}": "pkg/make_flow",
             "${NAME}": "flow_deps",
             "${PACKAGE}": "pkg",
@@ -116,6 +122,8 @@ class DeployCopiesTest(unittest.TestCase):
         odb = os.path.join(self.dst, "pkg/results/1_synth.odb")
         self.assertFalse(os.path.islink(odb))
         self.assertFalse(os.path.islink(os.path.join(self.dst, "pkg/memories")))
+        ext = os.path.join(self.out, "ext+/pkg/memories/mem.json")
+        self.assertTrue(os.path.isfile(ext))
 
     def test_a_relative_install_is_relative_to_where_bazel_run_was_invoked(self):
         # bazel run executes the deploy from its runfiles tree and says where
