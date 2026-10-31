@@ -98,15 +98,15 @@ main() {
   mkdir --parents "$dst"
   chmod --recursive u+w "$dst"
   # A directory that an earlier deploy turned from a link into a copy (see
-  # below) is in the way of the link cp is about to lay down again.
-  if [ -d "$dst/_main" ]; then
-    (cd "$0.runfiles/_main" && find . -path ./external -prune -o -type l -print) |
-      while IFS= read -r rel; do
-        if [ -d "$dst/_main/$rel" ] && [ ! -L "$dst/_main/$rel" ]; then
-          rm -rf "${dst:?}/_main/$rel"
-        fi
-      done
-  fi
+  # below, and a directory among the genfiles, which may sit in an
+  # external repository's tree) is in the way of the link cp is about to
+  # lay down again.
+  (cd "$0.runfiles" && find . -path ./_main/external -prune -o -type l -print) |
+    while IFS= read -r rel; do
+      if [ -d "$dst/$rel" ] && [ ! -L "$dst/$rel" ]; then
+        rm -rf "${dst:?}/$rel"
+      fi
+    done
   cp --recursive --target-directory "$dst" -- $0.runfiles/*
   # Needed as of Bazel >= 8: _main/external/<repo> must resolve.
   # Create a real directory with per-repo symlinks instead of
