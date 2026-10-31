@@ -57,7 +57,9 @@ class DeployCopiesTest(unittest.TestCase):
             text = f.read()
         for k, v in {
             "${CONFIG}": "pkg/config.mk",
-            "${GENFILES}": "pkg/config.mk",
+            # a stage's outputs, as the rules list them: synthesis with
+            # AUTO_MEMORIES has a memories directory among them
+            "${GENFILES}": "pkg/config.mk pkg/memories",
             "${MAKE}": "pkg/make_flow",
             "${NAME}": "flow_deps",
             "${PACKAGE}": "pkg",

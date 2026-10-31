@@ -140,7 +140,8 @@ main() {
     if [ "$(readlink -f "$file")" = "$(readlink -f "$dst_main/$file")" ] 2>/dev/null; then
       continue
     fi
-    cp --force --dereference --no-preserve=all --parents --target-directory "$dst_main" "$file"
+    # --recursive: AUTO_MEMORIES gives synthesis a memories directory.
+    cp --force --recursive --dereference --no-preserve=all --parents --target-directory "$dst_main" "$file"
   done
 
   # The runfiles copied above are symlinks, and the previous stage's
