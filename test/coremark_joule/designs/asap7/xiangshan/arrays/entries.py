@@ -991,6 +991,10 @@ def covered_bits(e):
     )
 
 
+# a study (extract.py --no-read): every read side left in the block
+NO_READ = False
+
+
 def best(d, n, arrays):
     """The group with its read side when that follows one rule, else with
     the part of it every entry has (Entries._common_read), else without
@@ -1000,7 +1004,9 @@ def best(d, n, arrays):
     follows one rule without them is read as it always was."""
     # a threshold try not taken leaves no buffer behind
     keep = len(d.top_buffers)
-    for read, common in ((True, False), (True, True), (False, False)):
+    for read, common in (
+        ((False, False),) if NO_READ else ((True, False), (True, True), (False, False))
+    ):
         plain = Entries(d, n, arrays, read, common_read=common).narrowed()
         if plain.uniform and not plain.inline:
             return plain

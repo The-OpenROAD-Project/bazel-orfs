@@ -577,6 +577,10 @@ def extract(mod, name, decode=True):
 def main(argv):
     src, name, out = argv[1:4]
     decode = "--keep-idx" not in argv
+    if "--no-read" in argv:
+        import entries
+
+        entries.NO_READ = True
     design = json.load(open(src))
     mods, stats, renames = extract(design["modules"][name], name, decode)
     design["modules"].update(mods)
