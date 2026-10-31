@@ -601,6 +601,61 @@ well.
   decoded Verilog read back, and the decoded form proven directly
   (about three hours for the last).
 
+### The toys, setup repair at TNS_END_PERCENT 1 (2026-10-31)
+
+The toys' flows now repair setup at the worst endpoint and 1 % of the
+rest (`TNS_END_PERCENT` 1 in toys.bzl's shared settings, both arms), as
+the XSTile flows do: at 100 the time a toy took was repair closing a
+generated arm's paths a few ps over the clock. Every row re-measured on
+main (2a4fc4c5), hermetic builds, each toy's two arms side by side in
+one Bazel invocation, one toy after the other, in an 8 GB scope.
+Seconds are the stage logs summed. Period is the clock minus global
+route's worst slack (the flow's report, on the routes' parasitics);
+reg2reg is its FLW-0008. Cells and area are the standard cells at
+global route without taps (the qor probe). Single runs.
+
+| Kind | Size | Generator | gen s | yosys s | gen period ps | yosys period ps | gen reg2reg ps | yosys reg2reg ps | gen stdcells | yosys stdcells | gen area µm² | yosys area µm² | verdict | before |
+|---|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|---|---|
+| counter | 32x8 | structgen | 15 | 34 | 294.6 | 343.7 | 279.9 | 326.5 | 2,847 | 2,511 | 338.2 | 318.4 | dominates | dominates |
+| counter | 32x128 | structgen | 224 | 362 | 346.8 | 486.5 | 329.4 | 462.2 | 46,005 | 39,083 | 5,459.1 | 4,873.6 | dominates | dominates |
+| agematrix | 32 | structgen | 20 | 25 | 266.3 | 299.4 | 253.0 | 284.5 | 5,678 | 4,934 | 762.1 | 746.1 | dominates | dominates |
+| flags | 32x128 | structgen | 499 | 500 | 362.7 | 395.2 | 344.6 | 375.4 | 61,564 | 30,705 | 6,239.3 | 4,222.4 | dominates | trades |
+| flags | 32x8 | structgen | 19 | 35 | 295.9 | 335.5 | 281.1 | 318.7 | 4,619 | 2,586 | 457.2 | 325.3 | dominates | loses |
+| cam | 32x8 | structgen | 25 | 26 | 282.7 | 271.3 | 268.6 | 257.7 | 1,586 | 1,458 | 213.1 | 219.7 | dominates (period +4.2 %) | loses |
+| cam | 32x128 | structgen | 175 | 167 | 357.3 | 431.7 | 339.4 | 410.1 | 20,778 | 21,467 | 3,012.6 | 3,340.7 | dominates (time +4.8 %) | dominates |
+| rf1r1w | 32x8 | generate_ram | 14 | 14 | 235.2 | 230.6 | 223.5 | 219.1 | 1,582 | 1,501 | 197.2 | 197.0 | dominates (period +2.0 %) | dominates |
+| rf1r1w | 32x128 | generate_ram | 90 | 154 | 299.9 | 309.8 | 284.9 | 294.3 | 19,597 | 22,134 | 2,691.1 | 3,084.9 | dominates | dominates |
+| rf4r2w | 32x8 | generate_ram | 23 | 24 | 254.1 | 253.4 | 241.4 | 240.7 | 3,590 | 3,363 | 387.0 | 387.8 | dominates (period +0.3 %) | dominates |
+| rf4r2w | 32x128 | generate_ram | 403 | 418 | 320.9 | 357.7 | 304.8 | 339.8 | 41,613 | 52,821 | 4,921.3 | 6,031.0 | dominates | dominates |
+| ohsched fill (reach) | 32x32 | generate_ram | 46 | 43 | 300.4 | 302.1 | 285.4 | 286.9 | 9,425 | 9,518 | 1,245.5 | 1,492.0 | dominates (time +7 %) | trades |
+| ohsched lanes (reach) | 32x32 | generate_ram | 47 | 44 | 309.2 | 309.8 | 293.8 | 294.3 | 9,000 | 9,137 | 1,190.1 | 1,425.3 | dominates (time +7 %) | dominates |
+
+Every row dominates. What moved, measured:
+- flags 32x128 and ohsched fill traded on time; both gaps were setup
+  repair at 100 % ("The toys' time losses are setup repair working").
+  - flags at 100 % on this main took 546.9 s against 464.8; now 499
+    against 500. Global route still takes 392 s against 186, but CTS
+    takes 53 against 43, where its repair alone was 191 s.
+  - ohsched fill at 100 % took 51.5 s against 42.8 over three pairs; now
+    46 against 43. CTS is 9 s against 3, global route 21 against 23.
+  - The yosys arm of ohsched fill now reaches 302.1 ps, not 339.0. Its
+    repair at CTS ends at -2.4 ps after 9 resizes, and global route
+    reports -2.05 ps of slack. The 339.0 row was measured in dirty lanes
+    on an earlier main. Why the yosys arm got its port path back is not
+    examined.
+- flags 32x8 and cam 32x8 lost on period: 425 against 335, and 334
+  against 271. Now 295.9 against 335.5, and 282.7 against 271.3 (+4.2 %,
+  inside the 10 %). Main's structgen changed in between: the CAM's index
+  from a priority encoder, and the flags' flush window compared from the
+  indices directly. These rows were not re-run at 100 % on this main, so
+  the TNS setting and the generator changes are not separated here.
+- Cells: structgen's flags still has twice yosys's cells (61,564 against
+  30,705 at 32x128), and so does flags 32x8 (4,619 against 2,586). They
+  are no longer on the period's path.
+
+The table below is the earlier one (setup repair at 100 %), kept for
+the record.
+
 ### The toys (2026-10-29)
 
 `test/array_toys`, the generated arm against yosys's, depth 32. Dirty
