@@ -176,6 +176,29 @@ READ_STUDY = ["Uncache"]
     for top in READ_STUDY
 ]
 
+# The same with the broadcasts into the cells treed (--fanout-tree, as
+# TREE below), <top>_noread_tree: 977.9 ps against the treed extraction's
+# 992.1 (A 916.0), global route as long.
+[
+    genrule(
+        name = top + "_noread_tree_extracted",
+        srcs = [":%s_proc.json" % top],
+        outs = [
+            top + "_noread_tree_extracted.v",
+            top + "_noread_tree_extracted.json",
+        ],
+        cmd = "$(execpath :extract) $(location :%s_proc.json) %s $(location %s_noread_tree_extracted.json) --no-read --fanout-tree=8 && " % (top, top, top) +
+              "$(execpath @yosys) -q -p 'read_json $(location %s_noread_tree_extracted.json); hierarchy -top %s; " % (top, top) +
+              "opt_dff; write_verilog -noattr $(location %s_noread_tree_extracted.v)'" % top,
+        tags = ["manual"],
+        tools = [
+            ":extract",
+            "@yosys",
+        ],
+    )
+    for top in READ_STUDY
+]
+
 # Every broadcast into the entry cells (an input all of them share)
 # driven through two levels of inverters, one at the root and one per
 # eight entries (extract.py --fanout-tree), instead of one net into
@@ -307,6 +330,29 @@ SLEW_STUDY = {
     "PhysicalStoreQueue": {"SLEW_MARGIN": "40"},
 }
 
+# A study, off by default: both arms with ABC's upsizing widened to the
+# paths within 20 % of each module's critical delay and no downsizing
+# (abc_speed_window.script: ORFS's abc_speed.script with `upsize -c -W
+# 20`, ABC's default window 1 %, and no `dnsize -c`), <top>_abcwin and
+# <top>_rtl_abcwin. ABC maps each kept module alone and upsizes only the
+# paths near that module's own critical delay, so a path that ends at an
+# entry cell's input or starts at its pin is left at BUFx2 chains. Period
+# at grt (ps, as is -> windowed): LoadQueueRAR A 781.3 -> 699.6, B
+# 818.1 -> 743.8; Uncache A 916.0 -> 872.8, B 992.1 -> 920.1. Both arms
+# gain alike: it is no lever for the extraction.
+ABC_WINDOW_STUDY = [
+    "LoadQueueRAR",
+    "Uncache",
+]
+
+STUDY_SOURCES = {
+    v: {"ABC_SCRIPT": [":abc_speed_window.script"]}
+    for v in [
+        "abcwin",
+        "rtl_abcwin",
+    ]
+}
+
 # Each block twice, the arms of its A/B: <top> on the extraction and
 # <top>_rtl on the module as it is (the same proc JSON written back as
 # Verilog, no entry cell, nothing folded), every other setting the same by
@@ -341,22 +387,16 @@ SLEW_STUDY = {
             "SYNTH_HIERARCHICAL": "1",
             # the tree's inverters (<top>FanoutInv) kept, so synthesis does
             # not fold the two levels away
-            "SYNTH_KEEP_MODULES": "" if rtl else " ".join([top + "Entry"] + ([top + "FanoutInv"] if variant == "tree" or (variant in [
-                None,
-                "slew",
-            ] and top in TREE) else [])),
+            "SYNTH_KEEP_MODULES": "" if rtl else " ".join([top + "Entry"] + ([top + "FanoutInv"] if variant in ("tree", "noread_tree") or (variant in (None, "slew", "abcwin") and top in TREE) else [])),
         } | ({"SYNTH_HDL_FRONTEND": ""} if top in YOSYS_FRONTEND else {}) | extra,
         last_stage = "grt",
         pdk = "//flow:asap7",
         sources = {k: v for k, v in BLOCK["sources"].items() if k != "AUTO_MEMORIES_REGFILES"} | ({} if rtl or top in YOSYS_FRONTEND else {
             "SYNTH_CANONICALIZE_TCL": ["//test/coremark_joule/designs/asap7/xiangshan:fold_entries.tcl"],
-        }),
+        }) | STUDY_SOURCES.get(variant, {}),
         stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
         tags = ["manual"],
-        user_arguments = BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS | ({} if rtl or top in YOSYS_FRONTEND else {"XS_FOLD_MODULES": " ".join([top + "Entry"] + ([top + "FanoutInv"] if variant == "tree" or (variant in [
-            None,
-            "slew",
-        ] and top in TREE) else []))}),
+        user_arguments = BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS | ({} if rtl or top in YOSYS_FRONTEND else {"XS_FOLD_MODULES": " ".join([top + "Entry"] + ([top + "FanoutInv"] if variant in ("tree", "noread_tree") or (variant in (None, "slew", "abcwin") and top in TREE) else []))}),
         user_sources = BLOCK["user_sources"] | XS_ICG_USER_SOURCES,
         user_stages = {
             v: s
@@ -369,6 +409,7 @@ SLEW_STUDY = {
             "rtl" if rtl else {
                 "noread": "noread_extracted",
                 "tree": "tree_extracted",
+                "noread_tree": "noread_tree_extracted",
             }.get(
                 variant,
                 "tree_extracted" if top in TREE else "extracted",
@@ -380,7 +421,10 @@ SLEW_STUDY = {
     for rtl, variant, extra in [
         (False, None, {}),
         (True, "rtl", {}),
-    ] + ([(False, "noread", {})] if top in READ_STUDY else []) + ([(False, "tree", {})] if top in TREE_STUDY else []) + ([
+    ] + ([
+        (False, "noread", {}),
+        (False, "noread_tree", {}),
+    ] if top in READ_STUDY else []) + ([(False, "tree", {})] if top in TREE_STUDY else []) + ([
         (
             False,
             "slew",
@@ -391,7 +435,10 @@ SLEW_STUDY = {
             "rtl_slew",
             SLEW_STUDY[top],
         ),
-    ] if top in SLEW_STUDY else [])
+    ] if top in SLEW_STUDY else []) + ([
+        (False, "abcwin", {}),
+        (True, "rtl_abcwin", {}),
+    ] if top in ABC_WINDOW_STUDY else [])
 ]
 
 # A study, off by default: the extraction with its entry cells flattened
@@ -399,8 +446,14 @@ SLEW_STUDY = {
 # decoded once in the block, so ABC maps an entry's compare and the
 # block's select over it together. For a block whose broadcast into the
 # cells is inherent (PhysicalStoreQueue's forwarding query); placement
-# saw one netlist already (OPENROAD_HIERARCHICAL 0).
-FLAT_STUDY = ["PhysicalStoreQueue"]
+# saw one netlist already (OPENROAD_HIERARCHICAL 0). LoadQueueRAR flat:
+# 800.8 ps at 5.4 min against its RTL arm's 781.3 at 6.59, synthesis
+# 209 s against 191-267: the decoding alone buys nothing, the kept cell's
+# synthesis is the extraction's time.
+FLAT_STUDY = [
+    "LoadQueueRAR",
+    "PhysicalStoreQueue",
+]
 
 [
     orfs_flow(
@@ -451,10 +504,16 @@ FLAT_STUDY = ["PhysicalStoreQueue"]
     for flow in [
         top,
         top + "_rtl",
-    ] + ([top + "_flat"] if top in FLAT_STUDY else []) + ([top + "_noread"] if top in READ_STUDY else []) + ([top + "_tree"] if top in TREE_STUDY else []) + ([
+    ] + ([top + "_flat"] if top in FLAT_STUDY else []) + ([
+        top + "_noread",
+        top + "_noread_tree",
+    ] if top in READ_STUDY else []) + ([top + "_tree"] if top in TREE_STUDY else []) + ([
         top + "_slew",
         top + "_rtl_slew",
-    ] if top in SLEW_STUDY else [])
+    ] if top in SLEW_STUDY else []) + ([
+        top + "_abcwin",
+        top + "_rtl_abcwin",
+    ] if top in ABC_WINDOW_STUDY else [])
 ]
 
 # The extraction's proof as a test: the extracted module, its comparisons
