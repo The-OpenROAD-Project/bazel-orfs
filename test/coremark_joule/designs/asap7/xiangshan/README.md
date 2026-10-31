@@ -130,6 +130,8 @@ clocking can reach it.
 | 17 | 2026-10-16 | 2,504 | 2,504 | 2,151 | 1,355 | 1,449 | 978 | 992 | 1,067 |  | the parent's worst path, intRegion's io_toMemExu_2_0 lqIdx through MemBlock into intRegion's load issue queue wakeup; 5,259 of the parent's 156,690 reg2reg endpoints are above 2,000 ps, none of any block's. Patch 0135 times a global-route abstract with the route's parasitics: MemBlock's lqIdx-to-pdest arc was 6.9 ns with placement parasitics and is 1.84 ns, as MemBlock times itself; the parent was 7,855 ps without it. The register files are macros with their own clock trees (#1257, #1265), and the parent's CTS takes 40 min where run 16's took about 10 h. Every earlier row's block abstracts carry placement parasitics. Parent place 3.9 h, global route 45 min at 98 GB |
 | 18 | 2026-10-23 | 2,383 | 2,383 |  | 1,193 | 1,410 | 906 | 1,075 | 1,023 |  | the base flow of #1351's pin plan A/B. The parent's worst path, intRegion's flushCopyRegVec robIdx into vecRegion's gpWbWakeUp; no floor or flat run measured for this row |
 | 19 | 2026-10-23 | 2,250 | 2,250 |  | 1,296 | 1,410 | 906 | 1,083 | 922 |  | pins facing away from their logic over the parent's macros 3,407 to 2,959; one run per arm. Frontend rose (1,193 to 1,296 ps): the plan takes a pin net's centre, which after repair is the repeater at the pin, so its worst register-file pin stayed while its flop moved. The parent's worst path, Frontend's cfVec instruction into ctrlBlock's decode buffer |
+| 20 | 2026-10-29 | 2,212 | 2,212 | 1,984 | 1,283 | 1,236 | 815 | 1,048 | 951 |  | main since run 18: three OpenROAD/ORFS bumps, and MemBlock and the parent on the extracted modules (b33b28ea, da6e9aa5); one run, the causes not separated. The parent's worst path, intRegion's pipeToALU0 fuType into vecRegion's gpWbWakeUp; the one-flop-loop floor 1,984 ps (2,151 at run 17), on the same decode-buffer valid register, below the target; no flat run measured for this row |
+| 21 | 2026-10-31 | 2,206 | 2,206 |  | 1,283 | 1,158 | 815 | 1,048 | 951 |  | main since run 20: OpenROAD 9ddb60d to bf0feec (two bumps) and ORFS 0fcc418 to 75cd896b; one run, the causes not separated, and 6 ps on the parent is within reach of noise. MemBlock 1,236 to 1,158 ps. The parent's worst path as in run 20, intRegion's pipeToALU0 fuType into vecRegion's gpWbWakeUp; no floor or flat run measured for this row |
 <!-- kpi-table end -->
 
 Periods are in picoseconds; `≥` marks a run that did not measure the
@@ -192,12 +194,12 @@ Each part alone, at its own global route with its abstracts (`<part>_kpi`):
 <!-- kpi-worst begin: written by kpi.py -->
 | part | period | worst reg2reg path | what it is |
 |---|---|---|---|
-| parent | 2,250 | `core/frontend/io_backend_cfVec_2_bits_instr[28]` → `core/backend/inner_ctrlBlock/decodeBufBits_3_foldpc[0]$_DFFE_PP_/D` | From Frontend's instruction output (the cfVec bundle) into the decode stage's buffer in the control block: a block's output to a parent register. |
-| Frontend | 1,296 | `inner_ftq/io_toBpu_train_bits_meta_mbtb_entries_1_1_position[4]$_DFFE_PP0N_/QN` → `inner_ftq/io_toBpu_train_bits_meta_ittage_altProviderTarget_addr[1]$_DFFE_PP0N_/D` | Inside the FTQ: a main-BTB entry's position bit to an ITTAGE target bit, both in the training metadata, through a read of the metaQueueResolve register-file macro (read address in at its bottom edge, read data out at its top, to a flop the planned placement put below it). |
-| MemBlock | 1,410 | `inner_dcache/dcache.mainPipe/s1_req_vaddr[16]$_DFFE_PP_/QN` → `inner_dcache/dcache.bankedDataArray/data_banks_0_18.data_bank.array.array_ext/RW0_addr[6]` | DCache main pipeline, stage 1: the request's virtual address to the address pin of a data-bank SRAM macro; index bits travelling to a memory. |
-| CoupledL2 | 906 | `slices_0/rxsnp.queue.deq_ptr_value$_DFFE_PP0P_/QN` → `slices_0/directory/metaArray.array.array_ext/RW0_addr[5]` | The snoop request queue's dequeue pointer to the address pin of the L2 directory's metadata SRAM: a queue index travelling to a memory. |
-| VecRegionModule | 1,083 | `issuePipes_1/exu.ex_0_bits_ctrl_uopIdx[0]$_DFFE_PP_/QN` → `issuePipes/exu.Vfmac/a0_1_fpB[59]$_DFFE_PP_/D` | The vector issue pipe's micro-op index register to the vector multiply-add's operand register. |
-| FltRegionModule | 922 | `fpRegFile/io_readPorts_0_data[36]` → `issuePipes/exu.exFadd_0_bits_data_src_0[36]$_DFFE_PP_/D` | The floating-point register file macro's read port to the FP adder's source-operand register: read data out of the register-file macro. |
+| parent | 2,206 | `core/backend/inner_intRegion/pipeToALU0.io_out_bits_ctrl_fuType[27]$_DFFE_PP_/QN` → `core/backend/inner_vecRegion/in_fromIntRegion_gpWbWakeUp_0_wen` | From the ALU0 issue pipe's function-unit type in intRegion into vecRegion's write-back wake-up enable: a parent register to a block's input pin. |
+| Frontend | 1,283 | `inner_bpu/csrCtrl_delay.io_out_abtbEnable$_DFF_P_/QN` → `inner_bpu/tage/tables_2.tage_useful_sram_bank0_way1.array.array_0_0_0.array.array_ext/RW0_addr[2]` | The BPU's delayed abtbEnable control register to the address pin of a TAGE table's useful-bit SRAM: a CSR setting gating a memory address. |
+| MemBlock | 1,158 | `inner_dcache/dcache.mainPipe/s1_req_vaddr[35]$_DFFE_PP_/QN` → `inner_dcache/dcache.mainPipe/io_miss_req_bits_amo_cmp[62]$_DFFE_PP_/D` | The DCache main pipe's stage-1 virtual address to the miss request's amo_cmp register, inside the main pipe. |
+| CoupledL2 | 815 | `slices_0/directory/req_s3_tag[6]$_DFFE_PP0P_/QN` → `slices_0/dataStorage.array.array_0_0_0.array.array_ext/RW0_addr[11]` | The directory's stage-3 request tag to the address pin of the L2 data SRAM: a tag travelling to a memory. |
+| VecRegionModule | 1,048 | `issuePipes_1/exu.ex_0_bits_ctrl_uopIdx[0]$_DFFE_PP_/QN` → `issuePipes_1/exu.Vfmac.a0_0_fpB[59]$_DFFE_PP_/D` | An issue pipe's micro-op index into the vector FMA's operand register: operand selection by uop index. |
+| FltRegionModule | 951 | `fpWbDataPath.out_wb0_1_pdest[0]$_DFFE_PP_/QN` → `fpRegFile/io_writePorts_1_addr[0]` | The FP write-back path's destination register number to the FP register file's write address: a register index travelling to a macro. |
 <!-- kpi-worst end -->
 
 `kpi_run.tcl` writes each part's histogram in 10 ps bins, and
@@ -399,7 +401,7 @@ dissolves the macros, it is not ORFS's place, CTS and global route but
 one script, `XSTile_parent_pm_top` (`tools/carve/top_level.tcl`): one
 clock tree over every register, legalised by the diamond legaliser, and
 a global route that keeps every macro's routes and routes only the clock
-tree and the stitches (`-unguided_only`, patch 0163). The parent and the
+tree and the stitches (`-unguided_only`, patch 0173). The parent and the
 top level skip timing repair: the first flush through global route is
 for turnaround.
 
@@ -408,7 +410,7 @@ is not contained in one macro and needs more than 2,000 ps, every cell
 on it by name: a macro's `.lib` gives one number at a pin, the dissolved
 top level the path. Timed whole the top level does not fit 62 GB, so it
 is timed in sets of macros (`tools/carve/crossing_*.tcl`, OpenROAD
-patch 0164): each set cut to the logic its paths can touch, written with
+patch 0174): each set cut to the logic its paths can touch, written with
 its parasitics as SPEF and timed in a process of its own. On the toy
 (`test/parent_macro`) the sets report the paths the whole design does,
 slack for slack (`mini_top_parent_pm_crossing_test`).

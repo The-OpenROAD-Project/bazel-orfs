@@ -150,6 +150,32 @@ py_binary(
     for top in EXTRACTED
 ]
 
+# A study, off by default: the extraction with every read side left in
+# the block (extract.py --no-read), the cell its entries' registers and
+# write logic alone: Uncache's 435-bit read side mapped inside the kept
+# cell, where nothing is optimised across its boundary.
+READ_STUDY = ["Uncache"]
+
+[
+    genrule(
+        name = top + "_noread_extracted",
+        srcs = [":%s_proc.json" % top],
+        outs = [
+            top + "_noread_extracted.v",
+            top + "_noread_extracted.json",
+        ],
+        cmd = "$(execpath :extract) $(location :%s_proc.json) %s $(location %s_noread_extracted.json) --no-read && " % (top, top, top) +
+              "$(execpath @yosys) -q -p 'read_json $(location %s_noread_extracted.json); hierarchy -top %s; " % (top, top) +
+              "opt_dff; write_verilog -noattr $(location %s_noread_extracted.v)'" % top,
+        tags = ["manual"],
+        tools = [
+            ":extract",
+            "@yosys",
+        ],
+    )
+    for top in READ_STUDY
+]
+
 # The core XSTile's MemBlock and parent read: the surgered core with the
 # extractions in place of the modules they came from (substitute.py), each
 # proven by its <top>_check_test. TLBFA, the instruction TLB, is
@@ -198,6 +224,9 @@ BLOCK = XS_BLOCKS["Rob"]
 # fold their period at global route was worse, single runs (ps, yosys
 # against slang): PhysicalStoreQueue 1,905.1 against 2,304.9,
 # VirtualStoreQueue 1,485.0 against 1,849.1, TLBFA_1 349.5 against 364.7.
+# VirtualStoreQueue again with its decoders' enables decoded (2026-10-30):
+# 961.3 against 1,320.7, its RTL arm 1,014.1 against 1,200.1; on slang
+# 8,859 more cells and the read at the dequeue pointer slower.
 # The other three were better on slang: LoadQueueRAR 997.7 to 961.1,
 # LoadQueueReplay 1,469.7 to 1,289.9, TLBFA 285.9 to 272.0.
 YOSYS_FRONTEND = [
@@ -205,6 +234,18 @@ YOSYS_FRONTEND = [
     "TLBFA_1",
     "VirtualStoreQueue",
 ]
+
+# A study, off by default: both arms with repair_design's slew target 40 %
+# under the library's limit (SLEW_MARGIN), <top>_slew and <top>_rtl_slew.
+# In PhysicalStoreQueue's extraction synthesis leaves the forwarding
+# query's broadcast into the 64 kept cells unbuffered (800 fanout
+# violations at place against 1 in the RTL arm), and repair_design's
+# BUFx2 trees at fanout 32 met the slew limit at 287 ps. Period at grt
+# (ps): extraction 1,905.1 -> 1,613.2, RTL arm 1,582.9 -> 1,424.3; the
+# extraction still trades (ideas/structured-macros.md).
+SLEW_STUDY = {
+    "PhysicalStoreQueue": {"SLEW_MARGIN": "40"},
+}
 
 # Each block twice, the arms of its A/B: <top> on the extraction and
 # <top>_rtl on the module as it is (the same proc JSON written back as
@@ -239,7 +280,7 @@ YOSYS_FRONTEND = [
             "SKIP_REPORT_METRICS": "1",
             "SYNTH_HIERARCHICAL": "1",
             "SYNTH_KEEP_MODULES": "" if rtl else top + "Entry",
-        } | ({"SYNTH_HDL_FRONTEND": ""} if top in YOSYS_FRONTEND else {}),
+        } | ({"SYNTH_HDL_FRONTEND": ""} if top in YOSYS_FRONTEND else {}) | extra,
         last_stage = "grt",
         pdk = "//flow:asap7",
         sources = {k: v for k, v in BLOCK["sources"].items() if k != "AUTO_MEMORIES_REGFILES"} | ({} if rtl or top in YOSYS_FRONTEND else {
@@ -254,18 +295,71 @@ YOSYS_FRONTEND = [
             for v, s in XS_USER_STAGES.items()
             if v in BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS | ({} if rtl or top in YOSYS_FRONTEND else {"XS_FOLD_MODULES": ""}) or v in BLOCK["user_sources"] | XS_ICG_USER_SOURCES
         },
-        variant = "rtl" if rtl else None,
+        variant = variant,
         verilog_files = [":%s_%s.v" % (
             top,
-            "rtl" if rtl else "extracted",
+            "rtl" if rtl else ("noread_extracted" if variant == "noread" else "extracted"),
         )],
         yosys_frontend_reason = "period worse on slang and the fold (YOSYS_FRONTEND)" if top in YOSYS_FRONTEND else None,
     )
     for top in TOPS
-    for rtl in [
-        False,
-        True,
-    ]
+    for rtl, variant, extra in [
+        (False, None, {}),
+        (True, "rtl", {}),
+    ] + ([(False, "noread", {})] if top in READ_STUDY else []) + ([
+        (
+            False,
+            "slew",
+            SLEW_STUDY[top],
+        ),
+        (
+            True,
+            "rtl_slew",
+            SLEW_STUDY[top],
+        ),
+    ] if top in SLEW_STUDY else [])
+]
+
+# A study, off by default: the extraction with its entry cells flattened
+# before synthesis (SYNTH_HIERARCHICAL 0), its comparisons still
+# decoded once in the block, so ABC maps an entry's compare and the
+# block's select over it together. For a block whose broadcast into the
+# cells is inherent (PhysicalStoreQueue's forwarding query); placement
+# saw one netlist already (OPENROAD_HIERARCHICAL 0).
+FLAT_STUDY = ["PhysicalStoreQueue"]
+
+[
+    orfs_flow(
+        name = top,
+        arguments = {k: v for k, v in BLOCK["arguments"].items() if k != "SYNTH_KEEP_MODULES"} | {
+            "GLOBAL_ROUTE_ARGS": "-congestion_iterations 0 -allow_congestion -verbose",
+            "GPL_ROUTABILITY_DRIVEN": "0",
+            "GPL_TIMING_DRIVEN": "0",
+            "SKIP_CTS_REPAIR_TIMING": "1",
+            "SKIP_FLOORPLAN_REPAIR_TIMING": "1",
+            "SKIP_INCREMENTAL_REPAIR": "1",
+            "SKIP_PIN_ACCESS": "1",
+            "SKIP_REPORT_METRICS": "1",
+            "SYNTH_HIERARCHICAL": "0",
+            "SYNTH_KEEP_MODULES": "",
+        } | ({"SYNTH_HDL_FRONTEND": ""} if top in YOSYS_FRONTEND else {}),
+        last_stage = "grt",
+        pdk = "//flow:asap7",
+        sources = {k: v for k, v in BLOCK["sources"].items() if k != "AUTO_MEMORIES_REGFILES"},
+        stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
+        tags = ["manual"],
+        user_arguments = BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS,
+        user_sources = BLOCK["user_sources"] | XS_ICG_USER_SOURCES,
+        user_stages = {
+            v: s
+            for v, s in XS_USER_STAGES.items()
+            if v in BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS or v in BLOCK["user_sources"] | XS_ICG_USER_SOURCES
+        },
+        variant = "flat",
+        verilog_files = [":%s_extracted.v" % top],
+        yosys_frontend_reason = "period worse on slang and the fold (YOSYS_FRONTEND)" if top in YOSYS_FRONTEND else None,
+    )
+    for top in FLAT_STUDY
 ]
 
 [
@@ -283,7 +377,10 @@ YOSYS_FRONTEND = [
     for flow in [
         top,
         top + "_rtl",
-    ]
+    ] + ([top + "_flat"] if top in FLAT_STUDY else []) + ([top + "_noread"] if top in READ_STUDY else []) + ([
+        top + "_slew",
+        top + "_rtl_slew",
+    ] if top in SLEW_STUDY else [])
 ]
 
 # The extraction's proof as a test: the extracted module, its comparisons

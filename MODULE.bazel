@@ -107,7 +107,7 @@ bazel_dep(name = "aspect_rules_js", version = "3.5.1")
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
-    integrity = "sha256-MaAfgcv+MKiO9LBi7dig+xGFNA7J9L6/vkskIrXICwk=",
+    integrity = "sha256-RvQwfs/2E0seaw5V5yNUOTGvpyU9Qo5t+6IZcEoa+ew=",
     # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
     # so vendor src/sta (OpenSTA) and third-party/abc from their own
     # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
@@ -115,7 +115,7 @@ archive_override(
     # aren't covered by archive_override's integrity.  Regenerated
     # by bump.py on every commit bump; do not edit by hand.
     patch_cmds = [
-        "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-src-sta-384b539085c54eef46cbaa02e2e17d2b983247e5.tar.gz https://github.com/The-OpenROAD-Project/OpenSTA/archive/384b539085c54eef46cbaa02e2e17d2b983247e5.tar.gz && echo 'a777c46f2ba828f247628ae47ac6ea508458e9551bf0493f09b8adaaccf47296  .openroad-submodule-src-sta-384b539085c54eef46cbaa02e2e17d2b983247e5.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-src-sta-384b539085c54eef46cbaa02e2e17d2b983247e5.tar.gz --strip-components=1 -C src/sta && rm .openroad-submodule-src-sta-384b539085c54eef46cbaa02e2e17d2b983247e5.tar.gz",
+        "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-src-sta-a50641666c6e2fd19ff0226f9b6300d876bf8613.tar.gz https://github.com/The-OpenROAD-Project/OpenSTA/archive/a50641666c6e2fd19ff0226f9b6300d876bf8613.tar.gz && echo '812bd9d2f5ff91717c0e3f7e75cbf6851f3077832b93b6bf2a017904c52c195f  .openroad-submodule-src-sta-a50641666c6e2fd19ff0226f9b6300d876bf8613.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-src-sta-a50641666c6e2fd19ff0226f9b6300d876bf8613.tar.gz --strip-components=1 -C src/sta && rm .openroad-submodule-src-sta-a50641666c6e2fd19ff0226f9b6300d876bf8613.tar.gz",
         "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz https://github.com/The-OpenROAD-Project/abc/archive/d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz && echo '0cbf538e60d0303d0e00360d8973aaad7dae198954bed6e34cc31c9a13b3f802  .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz --strip-components=1 -C third-party/abc && rm .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz",
         # write_timing_model gave an output a constant drives no arc and
         # no function, so a parent found nothing arriving there and
@@ -232,35 +232,79 @@ archive_override(
         # data mux, and a port decodes only its words. Not upstreamed;
         # retires at a //:bump onto an OpenROAD that has it.
         "//patches:0159-openroad-ram-write-port-words.patch",
-        # 0161: dissolve_macro, a placed block instance replaced by the
+        # 0163: generate_ram -write_style mux buffers a word's write
+        # enable and makes its hold per eight bits, so no net in a word
+        # drives the whole word (a 32-bit word's hold inverter drove 32
+        # hold muxes). Not upstreamed; retires at a //:bump onto an
+        # OpenROAD that has it.
+        "//patches:0163-openroad-ram-write-enable-groups.patch",
+        # 0164: generate_ram's read side per group: a port decoding more
+        # than eight words takes its address literals per eight words, and
+        # an AND-OR read's word select reaches its bits per eight. Not
+        # upstreamed; retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0164-openroad-ram-read-drive-groups.patch",
+        # 0165: generate_ram with more than one write port: each port's
+        # take, its data's select in every bit's data mux, per eight bits
+        # (a 128-bit word's take drove 128 data muxes). Not upstreamed;
+        # retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0165-openroad-ram-take-groups.patch",
+        # 0166: generate_ram: a word of no more than eight bits, one group,
+        # takes its write enable and each port's take without a group
+        # buffer, which only added a level. Not upstreamed; retires at a
+        # //:bump onto an OpenROAD that has it.
+        "//patches:0166-openroad-ram-one-group.patch",
+        # 0167: generate_ram: a word of more than eight groups takes its
+        # write enable and each port's take through a buffer per eight
+        # groups (a 128-bit word's enable drove 16 group buffers). Not
+        # upstreamed; retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0167-openroad-ram-wide-word-tree.patch",
+        # 0170: generate_ram: no pin within a pitch of a die corner (a via
+        # from the first track along an edge lands outside the die,
+        # DRT-0255), and the address pins the right edge cannot hold on
+        # the bottom edge (PPL-0111 on a short block). Not upstreamed;
+        # retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0170-openroad-ram-pin-corners.patch",
+        # 0171: dissolve_macro, a placed block instance replaced by the
         # block's own cells, nets and global route guides as a module
         # instance (//tools/carve: the parent as a macro, its top level
         # dissolving every macro after its global route). Not upstreamed;
         # retires at a //:bump onto an OpenROAD that has it.
-        "//patches:0161-openroad-odb-dissolve-macro.patch",
-        # 0163: global_route -unguided_only keeps every net's guides and
+        "//patches:0171-openroad-odb-dissolve-macro.patch",
+        # 0173: global_route -unguided_only keeps every net's guides and
         # routes only the nets without (the carve's top level: its blocks'
         # routes kept, its clock tree routed). Not upstreamed; retires at a
         # //:bump onto an OpenROAD that has it.
-        "//patches:0163-openroad-grt-route-unguided-only.patch",
-        # 0164: crossing_cones, crossing_signatures, crossing_strip: the
+        "//patches:0173-openroad-grt-route-unguided-only.patch",
+        # 0174: crossing_cones, crossing_signatures, crossing_strip: the
         # carve's top level timed for the paths not contained in one
         # macro, in sets that fit memory (//tools/carve). Not upstreamed;
         # retires at a //:bump onto an OpenROAD that has it.
-        "//patches:0164-openroad-dbsta-crossing-cones.patch",
-        # 0165: write_spef names pins and internal nodes by the database's
+        "//patches:0174-openroad-dbsta-crossing-cones.patch",
+        # 0175: write_spef names pins and internal nodes by the database's
         # names; with hierarchy it lost all but an instance name's last
         # level and the nets came back unannotated. Reported as
         # OpenROAD#12049 with this fix; retires when a //:bump carries it.
-        "//patches:0165-openroad-dbsta-spef-database-names.patch",
-        # 0166: the web viewer's slack histogram bar drills down with the
+        "//patches:0175-openroad-dbsta-spef-database-names.patch",
+        # 0176: the web viewer's slack histogram bar drills down with the
         # histogram's path groups and clock, not every path in its slack
         # range. Not upstreamed; retires at a //:bump onto an OpenROAD
         # that has it.
-        "//patches:0166-openroad-web-histogram-drill-down-filters.patch",
+        "//patches:0176-openroad-web-histogram-drill-down-filters.patch",
+        # 0177: rtl_macro_placer snaps a macro by its clock pins too, not
+        # only its signal pins (a register file whose clock was its only
+        # M2 pin was left 2 nm off the track: DRT-0073 in
+        # //test/planned_parent:mini_top_grt). Not upstreamed; retires at
+        # a //:bump onto an OpenROAD that has it.
+        "//patches:0177-openroad-mpl-snap-clock-pins.patch",
+        # 0178: generate_ram makes a read select's group buffer in its
+        # group's first bit cell, not every group's beside the decoder
+        # (test/regfile/macro's RegFile, its layout kept, routed 2.7 times
+        # the wire and overflowed). Not upstreamed; retires at a //:bump
+        # onto an OpenROAD that has it.
+        "//patches:0178-openroad-ram-read-select-group-in-place.patch",
     ],
-    strip_prefix = "OpenROAD-6b146a5c40ac2b7c8f0aa7f3d4b3af8c73a99cc8",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/6b146a5c40ac2b7c8f0aa7f3d4b3af8c73a99cc8.tar.gz"],
+    strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
 )
 
 # sed (transitive: abc -> ncurses -> sed): its vendored gnulib headers shadow
@@ -631,8 +675,8 @@ orfs = use_extension("//:extension.bzl", "orfs_repositories")
 # `patches` on an override is honoured only from the root module and
 # would therefore land on whoever is root. Rewritten by //:bump.
 orfs.source(
-    commit = "7bf5a814e47c54ec6c64692b464d398184d99891",
-    integrity = "sha256-ziDZOXpFK9BIMFlbZ7eK9DOHq1xeGAZqiJVwKPGly9E=",
+    commit = "75cd896b6d1ea33d2e8cdc3046b55cfd34ed963b",
+    integrity = "sha256-MXIJItlDULO/XHL9wT08BimFURBS0GPSHm7g8qcJghA=",
 )
 orfs.default(
     # Expose the slang yosys plugin (from @sv-elab, above) via

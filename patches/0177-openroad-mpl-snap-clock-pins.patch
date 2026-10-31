@@ -1,0 +1,107 @@
+From 2a010c93d5f0354ab352d7b5261152e5fe5ad0fa Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Sat, 31 Oct 2026 13:22:53 +0100
+Subject: [PATCH] mpl: snap a macro by its clock pins too, not only its signal
+ pins
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Snapper::computeLayerDataList took only the pins whose sig type is
+SIGNAL and so left out CLOCK, RESET, SCAN, ANALOG and TIEOFF pins. A
+macro whose only pin on a layer is its clock was never aligned on that
+layer's direction, and MPL-0002 did not warn, since the pin was not
+counted: on a register file macro whose clock is its only M2 pin,
+rtl_macro_placer left the pin 2 nm off the M2 track and detailed
+routing found no access point for it (DRT-0073).
+
+Only supply pins are left out now, which do not connect through the
+signal tracks.
+
+Not upstreamed. Carried in bazel-orfs; retires on the //:bump onto an
+OpenROAD that carries it.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/mpl/src/snapper.cpp          |  2 +-
+ src/mpl/test/cpp/TestSnapper.cpp | 51 ++++++++++++++++++++++++++++++++
+ 2 files changed, 52 insertions(+), 1 deletion(-)
+
+diff --git a/src/mpl/src/snapper.cpp b/src/mpl/src/snapper.cpp
+index c7e5837e14..c0127b6d45 100644
+--- a/src/mpl/src/snapper.cpp
++++ b/src/mpl/src/snapper.cpp
+@@ -87,7 +87,7 @@ Snapper::LayerDataList Snapper::computeLayerDataList(
+   odb::dbBlock* block = inst_->getBlock();
+ 
+   for (odb::dbITerm* iterm : inst_->getITerms()) {
+-    if (iterm->getSigType() != odb::dbSigType::SIGNAL) {
++    if (iterm->getSigType().isSupply()) {
+       continue;
+     }
+ 
+diff --git a/src/mpl/test/cpp/TestSnapper.cpp b/src/mpl/test/cpp/TestSnapper.cpp
+index 3c1d0b661c..8954e2f8ab 100644
+--- a/src/mpl/test/cpp/TestSnapper.cpp
++++ b/src/mpl/test/cpp/TestSnapper.cpp
+@@ -97,6 +97,57 @@ TEST_F(TestSnapper, SingleLayer)
+   EXPECT_EQ(macro->getOrigin().y(), 1523);
+ }
+ 
++// A clock pin is aligned like a signal pin; a supply pin is not aligned
++TEST_F(TestSnapper, ClockPin)
++{
++  db_->getTech()->setManufacturingGrid(1);
++
++  const int track_pitch = 36;
++  odb::dbTechLayer* horizontal_layer = odb::dbTechLayer::create(
++      db_->getTech(), "H1", odb::dbTechLayerType::DEFAULT);
++  horizontal_layer->setDirection(odb::dbTechLayerDir::HORIZONTAL);
++  odb::dbTrackGrid* track
++      = odb::dbTrackGrid::create(db_->getChip()->getBlock(), horizontal_layer);
++  track->addGridPatternY(0, die_height_ / track_pitch, track_pitch);
++
++  odb::dbMaster* macro_master
++      = odb::dbMaster::create(db_->findLib("lib"), "macro_master");
++  macro_master->setHeight(10000);
++  macro_master->setWidth(10000);
++  macro_master->setType(odb::dbMasterType::BLOCK);
++
++  const int pin_height = 20;
++  const int pin_width = 50;
++
++  odb::dbMTerm* clock = odb::dbMTerm::create(
++      macro_master, "clock", odb::dbIoType::INPUT, odb::dbSigType::CLOCK);
++  odb::dbBox::create(odb::dbMPin::create(clock),
++                     horizontal_layer,
++                     0,
++                     0,
++                     pin_height,
++                     pin_width);
++
++  // Lower than the clock pin, so it would be snapped first if it were
++  // taken, and off the clock pin's tracks: both cannot be aligned
++  odb::dbMTerm* power = odb::dbMTerm::create(
++      macro_master, "vdd", odb::dbIoType::INOUT, odb::dbSigType::POWER);
++  odb::dbBox::create(
++      odb::dbMPin::create(power), horizontal_layer, 0, -30, pin_height, -12);
++
++  macro_master->setFrozen();
++
++  odb::dbInst* macro
++      = odb::dbInst::create(db_->getChip()->getBlock(), macro_master, "macro");
++  macro->setOrigin(1500, 1500);
++
++  snapper_->setMacro(macro);
++  snapper_->snapMacro();
++
++  // 1523 (origin) + 25 (clock pin center) equals 1548, a multiple of 36
++  EXPECT_EQ(macro->getOrigin().y(), 1523);
++}
++
+ // Snaps a macro with two pins, with pins in different layers but same direction
+ TEST_F(TestSnapper, DoubleLayer)
+ {
+-- 
+2.53.0
+

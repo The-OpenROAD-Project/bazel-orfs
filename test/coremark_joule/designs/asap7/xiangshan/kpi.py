@@ -382,9 +382,10 @@ def draw_hist(runs, out, width=HIST_BIN_PS, log=False):
     bar says where the paths at that period are. The run before it that
     recorded histograms is outlined, its total. The mass right of the goal
     line is what remains to be done."""
-    flat = [r for r in runs if r.get("flat")]
     with_hist = [r for r in runs if r.get("histograms")]
-    if not with_hist and not flat:
+    # the flat groups only of the last run, never an older run's over it
+    flat = [r for r in with_hist[-1:] if r.get("flat")]
+    if not with_hist:
         return False
     if flat:
         # the flat timing's groups, the most accurate reading there is

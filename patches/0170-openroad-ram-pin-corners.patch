@@ -1,0 +1,420 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] ram: no pin on a corner track, address pins spill to the
+ bottom edge
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+generate_ram placed its pins with no corner avoidance, and put every
+address pin on the right edge. A pin on the first track along an edge
+is a track from the perpendicular edge, and a via from it to the layer
+below lands its enclosure outside the die (asap7: VIA34's M3 reaches
+68 nm below the first M4 track, which is 48 nm up): detailed routing
+found no path (DRT-0255) for a block of 16 words with two read and four
+write ports, whose read address pin took that track. A block of 8 such
+words has 18 address pins for a 2.43 um right edge, and pin placement
+stopped (PPL-0111).
+
+No pin centre is now placed within a pitch of a die corner, and the
+address pins take the right edge only for as many ports as a third of
+its free tracks hold (the pin placer gave 13 slots for the 8-word
+block's 32 free tracks); the other ports' take the bottom edge.
+
+pins_corner_asap7 places the 16-word block's pins as generate_ram does
+and checks no signal pin's centre lies within a pitch of a corner;
+without this change addr_r0[0] does. routed_short_edge_asap7 routes the
+8-word block with each write port writing its own words, checks some
+address pins went to the bottom edge, and reads back 300 random cycles;
+without this change it stops at PPL-0111. The 16-word block routes too,
+but its detailed route takes over 20 minutes on asap7, too slow for a
+test.
+
+Two Nangate45 golden blocks move a pin off a corner track (make_7x7
+and make_7x7_2r1w: one pin 0.56 um along its edge, the slot count and I/O HPWL
+in their logs); their .defok, .lefok and .ok follow.
+
+Carried in bazel-orfs, not upstreamed; retires with the //:bump onto an
+OpenROAD that has it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/ram/src/ram.cpp                        | 61 ++++++++++++++++++++--
+ src/ram/test/BUILD                         |  3 ++
+ src/ram/test/CMakeLists.txt                |  2 +
+ src/ram/test/make_7x7_2r1w_nangate45.defok |  8 +--
+ src/ram/test/make_7x7_2r1w_nangate45.lefok |  2 +-
+ src/ram/test/make_7x7_2r1w_nangate45.ok    |  4 +-
+ src/ram/test/make_7x7_nangate45.defok      |  8 +--
+ src/ram/test/make_7x7_nangate45.lefok      |  2 +-
+ src/ram/test/make_7x7_nangate45.ok         |  4 +-
+ src/ram/test/pins_corner_asap7.tcl         | 50 ++++++++++++++++++
+ src/ram/test/regression_tests.tcl          |  2 +
+ src/ram/test/routed_short_edge_asap7.tcl   | 45 ++++++++++++++++
+ 12 files changed, 174 insertions(+), 17 deletions(-)
+ create mode 100644 src/ram/test/pins_corner_asap7.tcl
+ create mode 100644 src/ram/test/routed_short_edge_asap7.tcl
+
+diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
+index dc0d758e19..36ceb76bd9 100644
+--- a/src/ram/src/ram.cpp
++++ b/src/ram/src/ram.cpp
+@@ -2192,9 +2192,6 @@ void RamGen::ramPinplacer(const char* ver_name, const char* hor_name)
+   // moving clock and we pins to the top
+   block_->addBTermsToConstraint(clk_pins, top_constraint);
+   block_->addBTermsToConstraint(we_pins, top_constraint);
+-  for (const auto& inputs : addr_inputs_) {
+-    block_->addBTermsToConstraint(inputs, right_constraint);
+-  }
+ 
+   auto pin_tech = block_->getDb()->getTech();
+   odb::dbTechLayer* hor_layer = pin_tech->findLayer(hor_name);
+@@ -2202,6 +2199,30 @@ void RamGen::ramPinplacer(const char* ver_name, const char* hor_name)
+   io_placer_->addHorLayer(hor_layer);
+   io_placer_->addVerLayer(ver_layer);
+ 
++  // no pin within a pitch of a corner: the first track along an edge is
++  // the last one before the perpendicular edge, and a via from a pin on
++  // it to the layer below lands its enclosure outside the die (asap7:
++  // VIA34's M3 reaches 68 nm below the first M4 track, 48 nm up), which
++  // the detailed router cannot route (DRT-0255)
++  const int hor_pitch = hor_layer->getPitch();
++  const int ver_pitch = ver_layer->getPitch();
++  // the right edge's excluded intervals of pin centres, for its capacity
++  std::vector<std::pair<int, int>> right_excluded{
++      {die_bounds.yMin(), die_bounds.yMin() + hor_pitch},
++      {die_bounds.yMax() - hor_pitch, die_bounds.yMax()}};
++  for (const ppl::Edge edge : {ppl::Edge::right, ppl::Edge::left}) {
++    io_placer_->excludeInterval(
++        edge, die_bounds.yMin(), die_bounds.yMin() + hor_pitch);
++    io_placer_->excludeInterval(
++        edge, die_bounds.yMax() - hor_pitch, die_bounds.yMax());
++  }
++  for (const ppl::Edge edge : {ppl::Edge::top, ppl::Edge::bottom}) {
++    io_placer_->excludeInterval(
++        edge, die_bounds.xMin(), die_bounds.xMin() + ver_pitch);
++    io_placer_->excludeInterval(
++        edge, die_bounds.xMax() - ver_pitch, die_bounds.xMax());
++  }
++
+   // no pin on a power strap of its own layer: where a strap reaches an
+   // edge, a pin on the tracks under it cannot be reached (asap7's M4
+   // straps start on the bottom edge, its first track 12 nm above it)
+@@ -2223,6 +2244,7 @@ void RamGen::ramPinplacer(const char* ver_name, const char* hor_name)
+               ppl::Edge::right, r.yMin() - s, r.yMax() + s);
+           io_placer_->excludeInterval(
+               ppl::Edge::left, r.yMin() - s, r.yMax() + s);
++          right_excluded.emplace_back(r.yMin() - s, r.yMax() + s);
+         } else if (box->getTechLayer() == ver_layer) {
+           const int s = ver_layer->getSpacing() + ver_layer->getWidth() / 2;
+           io_placer_->excludeInterval(
+@@ -2233,6 +2255,39 @@ void RamGen::ramPinplacer(const char* ver_name, const char* hor_name)
+       }
+     }
+   }
++
++  // the address pins on the right edge, beside the decoders, as many
++  // ports as a third of its free tracks hold; the other ports' on the
++  // bottom edge. The pin placer keeps a pin every other track and loses
++  // tracks beside each excluded interval: 8 words of 8 bits with six
++  // ports have 18 address pins for a 2.43 um edge whose 32 free tracks
++  // gave 13 slots.
++  int free_tracks = 0;
++  if (odb::dbTrackGrid* grid = block_->findTrackGrid(hor_layer)) {
++    std::vector<int> ys;
++    grid->getGridY(ys);
++    for (const int y : ys) {
++      const bool excluded = std::ranges::any_of(
++          right_excluded,
++          [y](const auto& e) { return y >= e.first && y <= e.second; });
++      if (y > die_bounds.yMin() && y < die_bounds.yMax() && !excluded) {
++        ++free_tracks;
++      }
++    }
++  }
++  const int right_capacity = free_tracks / 3;
++  odb::Rect bottom_constraint = block_->findConstraintRegion(
++      odb::Direction2D::South, die_bounds.xMin(), die_bounds.xMax());
++  int on_right = 0;
++  for (const auto& inputs : addr_inputs_) {
++    if (on_right + static_cast<int>(inputs.size()) <= right_capacity) {
++      block_->addBTermsToConstraint(inputs, right_constraint);
++      on_right += inputs.size();
++    } else {
++      block_->addBTermsToConstraint(inputs, bottom_constraint);
++    }
++  }
++
+   io_placer_->getParameters()->setCornerAvoidance(0);
+   io_placer_->runHungarianMatching();
+ }
+diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
+index 4e9b7587f1..4d116e39a9 100644
+--- a/src/ram/test/BUILD
++++ b/src/ram/test/BUILD
+@@ -38,6 +38,8 @@ PASSFAIL_TESTS = [
+     "write_ports_fanout_asap7",
+     "one_group_asap7",
+     "wide_word_asap7",
++    "pins_corner_asap7",
++    "routed_short_edge_asap7",
+ ]
+ 
+ ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
+@@ -47,6 +49,7 @@ MANUAL_TESTS = [
+     "banks_asap7",
+     "bank_column_layout_asap7",
+     "write_priority_or_asap7",
++    "routed_short_edge_asap7",
+ ]
+ 
+ filegroup(
+diff --git a/src/ram/test/CMakeLists.txt b/src/ram/test/CMakeLists.txt
+index 9ba043de6d..008211bb9e 100644
+--- a/src/ram/test/CMakeLists.txt
++++ b/src/ram/test/CMakeLists.txt
+@@ -31,5 +31,7 @@ or_integration_tests(
+     write_ports_fanout_asap7
+     one_group_asap7
+     wide_word_asap7
++    pins_corner_asap7
++    routed_short_edge_asap7
+ )
+ 
+diff --git a/src/ram/test/make_7x7_2r1w_nangate45.defok b/src/ram/test/make_7x7_2r1w_nangate45.defok
+index 8bc955d7d7..9762c91538 100644
+--- a/src/ram/test/make_7x7_2r1w_nangate45.defok
++++ b/src/ram/test/make_7x7_2r1w_nangate45.defok
+@@ -419,7 +419,7 @@ PINS 34 ;
+     - D[0] + NET D[0] + DIRECTION INPUT + USE SIGNAL
+       + PORT
+         + LAYER metal4 ( -7 -7 ) ( 7 7 )
+-        + PLACED ( 9 1113 ) N ;
++        + PLACED ( 65 1113 ) N ;
+     - D[1] + NET D[1] + DIRECTION INPUT + USE SIGNAL
+       + PORT
+         + LAYER metal4 ( -7 -7 ) ( 7 7 )
+@@ -862,9 +862,9 @@ SPECIALNETS 2 ;
+ END SPECIALNETS
+ NETS 188 ;
+     - D[0] ( PIN D[0] ) ( buffer.in[0] A ) + USE SIGNAL
+-      + ROUTED metal4 ( 9 1057 ) ( * 1113 0 )
+-      NEW metal3 ( 9 1057 ) ( 28 * )
+-      NEW metal3 ( 9 1057 ) via3_2
++      + ROUTED metal4 ( 65 1057 ) ( * 1113 0 )
++      NEW metal3 ( 28 1057 ) ( 65 * )
++      NEW metal3 ( 65 1057 ) via3_2
+       NEW metal1 ( 28 1057 ) via1_4
+       NEW metal2 ( 28 1057 ) via2_5 ;
+     - D[1] ( PIN D[1] ) ( buffer.in[1] A ) + USE SIGNAL
+diff --git a/src/ram/test/make_7x7_2r1w_nangate45.lefok b/src/ram/test/make_7x7_2r1w_nangate45.lefok
+index 720b8a596c..5b4531bf8c 100644
+--- a/src/ram/test/make_7x7_2r1w_nangate45.lefok
++++ b/src/ram/test/make_7x7_2r1w_nangate45.lefok
+@@ -102,7 +102,7 @@ MACRO RAM7x7
+     USE SIGNAL ;
+     PORT
+       LAYER metal4 ;
+-        RECT  0.025 11.06 0.165 11.2 ;
++        RECT  0.585 11.06 0.725 11.2 ;
+     END
+   END D[0]
+   PIN Q0[0]
+diff --git a/src/ram/test/make_7x7_2r1w_nangate45.ok b/src/ram/test/make_7x7_2r1w_nangate45.ok
+index e2b03632f0..fa14f12ac5 100644
+--- a/src/ram/test/make_7x7_2r1w_nangate45.ok
++++ b/src/ram/test/make_7x7_2r1w_nangate45.ok
+@@ -43,13 +43,13 @@
+ [WARNING PDN-0195] Removing 1 via(s) between metal3 and metal4 at (54.0000 um, 8.0000 um) for VSS
+ [INFO PPL-0067] Restrict pins [ clk we[0] D[0] Q0[0] Q1[0] ... ] to region 0.00u-56.62u at the TOP edge.
+ [INFO PPL-0067] Restrict pins [ addr_w[0] addr_w[1] addr_w[2] addr_r0[0] addr_r0[1] ... ] to region 0.00u-11.20u at the RIGHT edge.
+-[INFO PPL-0001] Number of available slots 258
++[INFO PPL-0001] Number of available slots 254
+ [INFO PPL-0002] Number of I/O             32
+ [INFO PPL-0003] Number of I/O w/sink      32
+ [INFO PPL-0004] Number of I/O w/o sink    0
+ [INFO PPL-0005] Slots per section         200
+ [INFO PPL-0008] Successfully assigned pins to sections.
+-[INFO PPL-0012] I/O nets HPWL: 267.74 um.
++[INFO PPL-0012] I/O nets HPWL: 267.86 um.
+ [INFO DPL-0001] Placed 48 filler instances.
+ [INFO DRT-0167] List of default vias:
+   Layer via2
+diff --git a/src/ram/test/make_7x7_nangate45.defok b/src/ram/test/make_7x7_nangate45.defok
+index ada1c7fe3a..0bcd822ffd 100644
+--- a/src/ram/test/make_7x7_nangate45.defok
++++ b/src/ram/test/make_7x7_nangate45.defok
+@@ -271,7 +271,7 @@ PINS 21 ;
+     - D[0] + NET D[0] + DIRECTION INPUT + USE SIGNAL
+       + PORT
+         + LAYER metal4 ( -7 -7 ) ( 7 7 )
+-        + PLACED ( 9 1113 ) N ;
++        + PLACED ( 65 1113 ) N ;
+     - D[1] + NET D[1] + DIRECTION INPUT + USE SIGNAL
+       + PORT
+         + LAYER metal4 ( -7 -7 ) ( 7 7 )
+@@ -562,9 +562,9 @@ SPECIALNETS 2 ;
+ END SPECIALNETS
+ NETS 120 ;
+     - D[0] ( PIN D[0] ) ( buffer.in[0] A ) + USE SIGNAL
+-      + ROUTED metal4 ( 9 1057 ) ( * 1113 0 )
+-      NEW metal3 ( 9 1057 ) ( 28 * )
+-      NEW metal3 ( 9 1057 ) via3_2
++      + ROUTED metal4 ( 65 1057 ) ( * 1113 0 )
++      NEW metal3 ( 28 1057 ) ( 65 * )
++      NEW metal3 ( 65 1057 ) via3_2
+       NEW metal1 ( 28 1057 ) via1_4
+       NEW metal2 ( 28 1057 ) via2_5 ;
+     - D[1] ( PIN D[1] ) ( buffer.in[1] A ) + USE SIGNAL
+diff --git a/src/ram/test/make_7x7_nangate45.lefok b/src/ram/test/make_7x7_nangate45.lefok
+index ecbd611af1..b722f16d36 100644
+--- a/src/ram/test/make_7x7_nangate45.lefok
++++ b/src/ram/test/make_7x7_nangate45.lefok
+@@ -54,7 +54,7 @@ MACRO RAM7x7
+     USE SIGNAL ;
+     PORT
+       LAYER metal4 ;
+-        RECT  0.025 11.06 0.165 11.2 ;
++        RECT  0.585 11.06 0.725 11.2 ;
+     END
+   END D[0]
+   PIN Q[0]
+diff --git a/src/ram/test/make_7x7_nangate45.ok b/src/ram/test/make_7x7_nangate45.ok
+index 7c45868bbd..167aa156a7 100644
+--- a/src/ram/test/make_7x7_nangate45.ok
++++ b/src/ram/test/make_7x7_nangate45.ok
+@@ -39,13 +39,13 @@
+ [WARNING PDN-0195] Removing 1 via(s) between metal3 and metal4 at (36.0000 um, 8.0000 um) for VSS
+ [INFO PPL-0067] Restrict pins [ clk we[0] D[0] Q[0] D[1] ... ] to region 0.00u-40.28u at the TOP edge.
+ [INFO PPL-0067] Restrict pins [ addr_rw[0] addr_rw[1] addr_rw[2] ] to region 0.00u-11.20u at the RIGHT edge.
+-[INFO PPL-0001] Number of available slots 208
++[INFO PPL-0001] Number of available slots 204
+ [INFO PPL-0002] Number of I/O             19
+ [INFO PPL-0003] Number of I/O w/sink      19
+ [INFO PPL-0004] Number of I/O w/o sink    0
+ [INFO PPL-0005] Slots per section         200
+ [INFO PPL-0008] Successfully assigned pins to sections.
+-[INFO PPL-0012] I/O nets HPWL: 125.20 um.
++[INFO PPL-0012] I/O nets HPWL: 125.32 um.
+ [INFO DPL-0001] Placed 36 filler instances.
+ [INFO DRT-0167] List of default vias:
+   Layer via2
+diff --git a/src/ram/test/pins_corner_asap7.tcl b/src/ram/test/pins_corner_asap7.tcl
+new file mode 100644
+index 0000000000..3d0b8ca54c
+--- /dev/null
++++ b/src/ram/test/pins_corner_asap7.tcl
+@@ -0,0 +1,50 @@
++# generate_ram's pin placement leaves the tracks within a pitch of a die
++# corner empty. A via from a pin on the first track along an edge to the
++# layer below lands its enclosure outside the die (asap7: VIA34's M3
++# reaches 68 nm below the first M4 track, 48 nm up), and detailed
++# routing found no path (DRT-0255): 16 words of 8 bits with two read and
++# four write ports put a read address pin there. The block is placed as
++# generate_ram places it, up to its pins; its routing takes minutes.
++source "helpers.tcl"
++source "routed.tcl"
++
++routed::read_asap7
++
++generate_ram_netlist -mask_size 8 -word_size 8 -num_words 16 -r_ports 2 \
++  -w_ports 4 -storage_cell DFFHQNx1_ASAP7_75t_R -write_style mux \
++  -write_priority or -decoder word -tapcell TAPCELL_ASAP7_75t_R \
++  -max_tap_dist 25
++ord::design_created
++ram::ram_pdngen VDD VSS M1 [ord::microns_to_dbu 0.018] \
++  M3 [ord::microns_to_dbu 0.090] [ord::microns_to_dbu 2.16] \
++  M4 [ord::microns_to_dbu 0.120] [ord::microns_to_dbu 1.08]
++source ../../../test/asap7/asap7.tracks.tcl
++ram::ram_pinplacer M3 M4
++
++set block [ord::get_db_block]
++set die [$block getDieArea]
++foreach bterm [$block getBTerms] {
++  if { [$bterm getSigType] in {POWER GROUND} } {
++    continue
++  }
++  foreach bpin [$bterm getBPins] {
++    foreach box [$bpin getBoxes] {
++      set layer [$box getTechLayer]
++      set pitch [$layer getPitch]
++      if { [$layer getDirection] == "HORIZONTAL" } {
++        set c [expr { ([$box yMin] + [$box yMax]) / 2 }]
++        set lo [$die yMin]
++        set hi [$die yMax]
++      } else {
++        set c [expr { ([$box xMin] + [$box xMax]) / 2 }]
++        set lo [$die xMin]
++        set hi [$die xMax]
++      }
++      if { $c <= $lo + $pitch || $c >= $hi - $pitch } {
++        error "[$bterm getName] sits within a pitch of a corner"
++      }
++    }
++  }
++}
++
++puts "pass"
+diff --git a/src/ram/test/regression_tests.tcl b/src/ram/test/regression_tests.tcl
+index a99c3456a0..ec4d851b2a 100644
+--- a/src/ram/test/regression_tests.tcl
++++ b/src/ram/test/regression_tests.tcl
+@@ -30,5 +30,7 @@ record_tests {
+   write_ports_fanout_asap7
+   one_group_asap7
+   wide_word_asap7
++  pins_corner_asap7
++  routed_short_edge_asap7
+   make_8x8_latch_sky130
+ }
+diff --git a/src/ram/test/routed_short_edge_asap7.tcl b/src/ram/test/routed_short_edge_asap7.tcl
+new file mode 100644
+index 0000000000..2de9ca7c15
+--- /dev/null
++++ b/src/ram/test/routed_short_edge_asap7.tcl
+@@ -0,0 +1,45 @@
++# A routed block too short for its address pins on the right edge: the
++# ports the edge does not hold take theirs on the bottom edge. 8 words of
++# 8 bits with two read and four write ports have 18 address pins for a
++# 2.43 um edge, and pin placement stopped (PPL-0111). Each write port
++# writes only its words, as a bank fill does.
++source "helpers.tcl"
++source "ram_sim.tcl"
++source "routed.tcl"
++
++routed::read_asap7
++
++set reach {{0 4} {1 5} {2 6} {3 7}}
++generate_ram {*}$routed::asap7 \
++  -mask_size 8 -word_size 8 -num_words 8 -r_ports 2 -w_ports 4 \
++  -storage_cell DFFHQNx1_ASAP7_75t_R -write_style mux -write_priority or \
++  -decoder word -w_port_words $reach
++routed::check
++
++# some address pins on the bottom edge, none on the left
++set block [ord::get_db_block]
++set die [$block getDieArea]
++set bottom 0
++foreach bterm [$block getBTerms] {
++  if { ![string match addr_* [$bterm getName]] } {
++    continue
++  }
++  set box [lindex [[lindex [$bterm getBPins] 0] getBoxes] 0]
++  if { [$box yMin] == [$die yMin] } {
++    incr bottom
++  }
++  ram_sim::check { [$box xMin] > [$die xMin] } \
++    "[$bterm getName] is on the left edge"
++}
++ram_sim::check { $bottom > 0 } "no address pin on the bottom edge"
++
++ram_sim::load
++ram_sim::exercise {
++  words 8 bits 8 priority or cycles 300
++  writes {{addr_w0 D0 {we0[0]}} {addr_w1 D1 {we1[0]}}
++          {addr_w2 D2 {we2[0]}} {addr_w3 D3 {we3[0]}}}
++  write_words {{0 4} {1 5} {2 6} {3 7}}
++  reads {{addr_r0 Q0} {addr_r1 Q1}}
++}
++
++puts "pass"

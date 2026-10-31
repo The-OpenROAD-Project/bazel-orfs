@@ -188,19 +188,25 @@ ORFS_PATCHES = [
     # timing and power in its stage .json sets it to 0. bazel-orfs
     # policy, not for upstream; retires with 0157.
     Label("//patches:0158-orfs-skip-report-metrics-default.patch"),
+    # 0168: the SYNTH_KEEP_MODULES name check (ORFS #4745) skipped in
+    # every partition of a parallel synthesis (a run that reads a
+    # SYNTH_CHECKPOINT), where the other kept modules are blackboxed or,
+    # for an ancestor in a pinned slice, absent. ORFS #4770 (draft);
+    # retires at a bump onto an ORFS that skips it there.
+    Label("//patches:0168-orfs-keep-modules-partition.patch"),
     # 0160: a regfile spec's `write_words <address port> <word>...`, the
     # words a write port writes, as generate_ram's -w_port_words (OpenROAD
     # patch 0159): a word one port writes takes its data with no data mux.
     # Not upstreamed; retires at a bump onto an ORFS and OpenROAD that
     # have it.
     Label("//patches:0160-orfs-regfile-write-words.patch"),
-    # 0162: a register file's own flow (its top an inlined
+    # 0172: a register file's own flow (its top an inlined
     # AUTO_MEMORIES_REGFILES module) keeps generate_ram's layout: the
     # floorplan the shape of its outline, every generated cell FIRM where
     # generate_ram placed it, global placement left only what synthesis
     # added. On 0089. Not upstreamed; retires at a bump onto an ORFS that
     # carries it.
-    Label("//patches:0162-orfs-regfile-top-keeps-generate-ram-layout.patch"),
+    Label("//patches:0172-orfs-regfile-top-keeps-generate-ram-layout.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

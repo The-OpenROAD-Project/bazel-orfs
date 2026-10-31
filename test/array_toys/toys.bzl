@@ -132,6 +132,19 @@ OHSCHED_VARIANTS = {
     "reach": ["write_words"],
 }
 
+# A/B arms on the ohsched toy: a lever, the arms it is tried on (the arm
+# and its generated variant, None for the plain arm) and its flow
+# settings. Named <variant>_<lever>, or <lever> on a plain arm.
+OHSCHED_AB = {
+    # OpenROAD's useful skew at CTS. CTS_ARGS replaces cts.tcl's
+    # default arguments, so they are repeated; the toys set no other
+    # CTS_* variable that CTS_ARGS would drop
+    "skew": (
+        [("yosys", None), ("generate_ram", "reach")],
+        {"CTS_ARGS": "-sink_clustering_enable -repair_clock_nets -useful_skew"},
+    ),
+}
+
 def ohsched_toy(kind, depth, width):
     """The ohsched toy (ohsched.py) of a kind, in both arms, with a
     co-simulation of the two arms and its negative control.
@@ -159,7 +172,6 @@ def ohsched_toy(kind, depth, width):
         (name + "_generate_ram", v, lines)
         for v, lines in OHSCHED_VARIANTS.items()
     ]:
-        sources = {}
         if spec_lines != None:
             spec = "%s%s" % (name, "_" + variant if variant else "")
             native.genrule(
@@ -171,12 +183,33 @@ def ohsched_toy(kind, depth, width):
                 ),
                 tools = [":ohsched"],
             )
+
+    # the flows: each arm and variant above, and the A/B arms on top of
+    # them (OHSCHED_AB): the same flow with one more lever
+    for flow, variant, spec, extra in [
+        (name + "_yosys", None, None, {}),
+        (name + "_generate_ram", None, name, {}),
+    ] + [
+        (name + "_generate_ram", v, name + "_" + v, {})
+        for v in OHSCHED_VARIANTS
+    ] + [
+        (
+            name + "_" + arm,
+            "_".join([x for x in [base, ab] if x]),
+            None if arm == "yosys" else "_".join([x for x in [name, base] if x]),
+            arguments,
+        )
+        for ab, (arms, arguments) in OHSCHED_AB.items()
+        for arm, base in arms
+    ]:
+        sources = {}
+        if spec != None:
             sources = {"AUTO_MEMORIES_REGFILES": [":" + spec + ".regfile"]}
         orfs_flow(
             name = flow,
             # the top around the array is retimed, as the logic around
             # such an array is
-            arguments = _ARGUMENTS | {"SYNTH_RETIME_MODULES": flow},
+            arguments = _ARGUMENTS | {"SYNTH_RETIME_MODULES": flow} | extra,
             last_stage = "grt",
             sources = {"SDC_FILE": [":constraint.sdc"]} | sources,
             tags = ["manual"],

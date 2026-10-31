@@ -14,7 +14,15 @@ printf 'tmp\n' >"$WS/.bazelignore"
 cat >"$STUB/bazelisk" <<'EOF'
 #!/usr/bin/env bash
 echo "$*" >>"$CALLS"
-exit 1
+# STUB_ROOT set: builds succeed, and cquery and info answer from a
+# hand-made execroot and output base under it
+[ -n "${STUB_ROOT:-}" ] || exit 1
+case "$*" in
+*"info execution_root"*) echo "$STUB_ROOT/execroot" ;;
+*"info output_base"*) echo "$STUB_ROOT/ob" ;;
+*cquery*) echo "bazel-out/bin/lb_deps_manifest.txt" ;;
+esac
+exit 0
 EOF
 chmod +x "$STUB/bazelisk"
 export PATH="$STUB:$PATH" CALLS BUILD_WORKSPACE_DIRECTORY="$WS" BUILD_WORKING_DIRECTORY="$WS"
@@ -110,6 +118,19 @@ check "a tree //:deps installed is named, with the move that carries it on" \
 run next place --dir "$T"
 check "next asks Bazel for the stage's inputs, not its results" \
     'grep -q -- "--output_groups=deps_inputs //test:lb_place" "$CALLS"'
+
+# an install whose execroot lacks another repository's link (a build for
+# another tree in between planted a different set): the file is in the
+# output base, which is where the tree's link goes
+R="$TEST_TMPDIR/stub"
+mkdir -p "$R/execroot/bazel-out/bin" "$R/ob/external/repo+/flow"
+echo script >"$R/ob/external/repo+/flow/s.tcl"
+printf '#!/bin/sh\n' >"$R/execroot/bazel-out/bin/make"
+printf 'external/repo+/flow/s.tcl\trepo+/flow/s.tcl\tscript\nbazel-out/bin/make\tmake\ttool\n' \
+    >"$R/execroot/bazel-out/bin/lb_deps_manifest.txt"
+STUB_ROOT="$R" run start //test:lb2 place
+check "another repository's file is installed from the output base" \
+    '! grep -q "is not built" <<<"$OUT" && [ "$(readlink "$WS/tmp/test/lb2/repo+/flow/s.tcl")" = "$R/ob/external/repo+/flow/s.tcl" ]'
 
 if [ "$FAILS" -gt 0 ]; then
     echo "$FAILS failed"

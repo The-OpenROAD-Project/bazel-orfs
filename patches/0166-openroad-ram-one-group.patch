@@ -1,0 +1,147 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] ram: a word of one group takes no group buffer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A word of no more than eight bits is one group: its write enable and
+each write port's take drive no more than a group's pins already. The
+group buffer made for it only added a level to the write path: in an
+8-bit, two-write-port register file it was 21 ps of the worst path.
+Such a word now takes the word's enable and each port's take
+themselves; wider words keep their buffers.
+
+Carried in bazel-orfs, not upstreamed; retires with the //:bump onto an
+OpenROAD that has it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/ram/src/ram.cpp               | 30 ++++++++++++++++++++----------
+ src/ram/test/BUILD                |  1 +
+ src/ram/test/CMakeLists.txt       |  1 +
+ src/ram/test/one_group_asap7.tcl  | 30 ++++++++++++++++++++++++++++++
+ src/ram/test/regression_tests.tcl |  1 +
+ 5 files changed, 53 insertions(+), 10 deletions(-)
+ create mode 100644 src/ram/test/one_group_asap7.tcl
+
+diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
+index 64d10234f4..5d19ffc8a6 100644
+--- a/src/ram/src/ram.cpp
++++ b/src/ram/src/ram.cpp
+@@ -558,8 +558,13 @@ void RamGen::makeSlice(const int slice_idx,
+                             storage,
+                             reset_bit,
+                             reset_off);
+-    if (n_writers > 1
+-        && (local_bit % kDriveGroup == 0 || take_group.empty())) {
++    // a word of one group: its nets drive no more than a group's pins
++    // already, and a buffer would only add a level
++    const bool one_group = word_bits_ <= kDriveGroup;
++    if (n_writers > 1 && one_group && take_group.empty()) {
++      take_group = take;
++    } else if (n_writers > 1
++               && (local_bit % kDriveGroup == 0 || take_group.empty())) {
+       const int group = local_bit / kDriveGroup;
+       take_group.assign(n_writers, nullptr);
+       for (int i = 0; i < n_writers; ++i) {
+@@ -574,16 +579,21 @@ void RamGen::makeSlice(const int slice_idx,
+       }
+     }
+     if (write_mux_ && (local_bit % kDriveGroup == 0 || we_group == nullptr)) {
+-      // a group's enable and hold, in its first bit's cell
++      // a group's enable and hold, in its first bit's cell; a word of one
++      // group takes the word's enable itself
+       const int group = local_bit / kDriveGroup;
+-      we_group = makeNet(prefix, fmt::format("we_g{}", group));
+       hold = makeNet(prefix, fmt::format("hold_g{}", group));
+-      makeInst(bit_cell.get(),
+-               prefix,
+-               fmt::format("we_buf{}", group),
+-               buffer_cell_,
+-               {{buffer_ports_[{PortRoleType::DataIn, 0}], we_net},
+-                {buffer_ports_[{PortRoleType::DataOut, 0}], we_group}});
++      if (one_group) {
++        we_group = we_net;
++      } else {
++        we_group = makeNet(prefix, fmt::format("we_g{}", group));
++        makeInst(bit_cell.get(),
++                 prefix,
++                 fmt::format("we_buf{}", group),
++                 buffer_cell_,
++                 {{buffer_ports_[{PortRoleType::DataIn, 0}], we_net},
++                  {buffer_ports_[{PortRoleType::DataOut, 0}], we_group}});
++      }
+       makeInst(bit_cell.get(),
+                prefix,
+                fmt::format("hold_inv{}", group),
+diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
+index db51dc901d..2989dd48f6 100644
+--- a/src/ram/test/BUILD
++++ b/src/ram/test/BUILD
+@@ -36,6 +36,7 @@ PASSFAIL_TESTS = [
+     "write_mux_fanout_asap7",
+     "read_drive_asap7",
+     "write_ports_fanout_asap7",
++    "one_group_asap7",
+ ]
+ 
+ ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
+diff --git a/src/ram/test/CMakeLists.txt b/src/ram/test/CMakeLists.txt
+index d3f976dd87..40da0c42b1 100644
+--- a/src/ram/test/CMakeLists.txt
++++ b/src/ram/test/CMakeLists.txt
+@@ -29,5 +29,6 @@ or_integration_tests(
+     write_mux_fanout_asap7
+     read_drive_asap7
+     write_ports_fanout_asap7
++    one_group_asap7
+ )
+ 
+diff --git a/src/ram/test/one_group_asap7.tcl b/src/ram/test/one_group_asap7.tcl
+new file mode 100644
+index 0000000000..05279e8206
+--- /dev/null
++++ b/src/ram/test/one_group_asap7.tcl
+@@ -0,0 +1,30 @@
++# A word of no more than eight bits is one group: its write enable and
++# each port's take reach its bits without a group buffer, which would
++# only add a level. Wider words keep theirs. The array still reads back
++# what was written.
++source "helpers.tcl"
++source "ram_sim.tcl"
++source "routed.tcl"
++
++routed::read_asap7
++
++generate_ram_netlist -mask_size 8 -word_size 8 -num_words 8 -r_ports 2 \
++  -w_ports 2 -storage_cell DFFHQNx1_ASAP7_75t_R -write_style mux
++
++set names {}
++foreach inst [[ord::get_db_block] getInsts] {
++  lappend names [$inst getName]
++}
++ram_sim::check { [lsearch -glob $names *we_buf*] < 0 } \
++  "an 8-bit word has a write-enable group buffer"
++ram_sim::check { [lsearch -glob $names *take_buf*] < 0 } \
++  "an 8-bit word has a take group buffer"
++
++ram_sim::load
++ram_sim::exercise {
++  words 8 bits 8 cycles 300
++  writes {{addr_w0 D0 {we0[0]}} {addr_w1 D1 {we1[0]}}}
++  reads {{addr_r0 Q0} {addr_r1 Q1}}
++}
++
++puts "pass"
+diff --git a/src/ram/test/regression_tests.tcl b/src/ram/test/regression_tests.tcl
+index 8efd0ceb0b..43e750c3d0 100644
+--- a/src/ram/test/regression_tests.tcl
++++ b/src/ram/test/regression_tests.tcl
+@@ -28,5 +28,6 @@ record_tests {
+   write_mux_fanout_asap7
+   read_drive_asap7
+   write_ports_fanout_asap7
++  one_group_asap7
+   make_8x8_latch_sky130
+ }
