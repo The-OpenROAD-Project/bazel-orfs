@@ -214,6 +214,10 @@ ORFS_PATCHES = [
     # for an equivalence check of the macro against that module. Not
     # upstreamed; retires at a bump onto an ORFS that writes it.
     Label("//patches:0201-orfs-fakeram-lec-model.patch"),
+    # 0205: a memory's write mask may have a ragged last lane
+    # (mask_lane_width): tc_sram's byte enables over cva6's 25-bit I-cache
+    # tag. Not upstreamed; retires at a bump onto an ORFS that has it.
+    Label("//patches:0205-orfs-memories-ragged-mask-lane.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
