@@ -450,7 +450,7 @@ still be mapped against what drives and loads it.
 | TLBFA_1 | 5.95 | 3.06 | 460.8 | 292.2 | dominates ⁹ | |
 | VirtualLoadQueue | 5.19 | 3.41 | 962.5 | 1,011.7 | dominates ⁹ | period +5.1 %, inside the 10 % |
 | Rob | 43.30 | 57.45 | 2,038.9 | 1,759.3 | trades | 27 % more cells (432,737 against 341,506): routability-driven global placement needs 21 passes against 7 (1,591 against 757 s), and global route takes 835 s where the RTL arm stops at congestion after 79 s |
-| Uncache | 3.33 | 4.10 | 1,020.3 | 1,332.8 ⁹ | study only | 27 % more cells: the 435-bit read side mapped inside the kept entry cell, nothing optimised across its boundary; global route 84 against 17 s |
+| Uncache | 3.33 | 4.10 | 1,020.3 | 1,332.8 ⁹ | study only | 27 % more cells: the 435-bit read side mapped inside the kept entry cell, nothing optimised across its boundary; global route 84 against 17 s. With the read side in the block (`Uncache_noread`, below) 1,198.0 ps, 3.33 min: still a loss |
 
 The verdict: B dominates when it is no worse on both, a time within
 15 % or a period within 10 % counting as no worse (the flow is
@@ -517,6 +517,50 @@ byte-identical, 1,905.1 ps and 256,511 cells. asap7's `config.mk`
 assigns `ABC_LOAD_IN_FF = 3.898` with `=`, not `?=`, so a flow cannot
 set it; that lever needs an ORFS change, and it would apply to every
 module's outputs, not the cell's alone.
+
+### Uncache: the read side left in the block, a study (2026-10-31)
+
+`Uncache_noread` (extract.py `--no-read`, off by default) extracts the
+same 16 entries and 6,592 register bits, but leaves every read side in
+the block: the cell is 169 cells against 193, 403 outputs against 619.
+Single runs on main (4ec930df), each in an 8 GB scope; seconds from the
+Bazel profile (synthesis: canonicalisation, the top and the synth ODB)
+and the stage logs; A and B are the inventory's rows:
+
+| arm | synth s | floorplan s | place s | CTS s | grt s | total min | period, routes' RC ps | period, placement RC ps | stdcells | area µm² |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| A: RTL | 115.1 | 13.3 | 49.0 | 5.4 | 17.2 | 3.33 | 916.0 | 1,020.3 | 56,458 | 7,449.8 |
+| B: read side in the cell | 81.8 | 6.6 | 68.4 | 5.4 | 84.0 | 4.10 | 1,171.3 | 1,332.8 | 70,686 | 8,524.5 |
+| B: read side in the block | 102.2 | 7.5 | 62.5 | 5.8 | 21.7 | 3.33 | 1,062.2 | 1,198.0 | 68,710 | 8,309.3 |
+
+Against B it dominates (period -9.3 %, global route 22 against 84 s).
+Against A it loses: period +16.0 % at the same 3.33 min, 21.7 % more
+cells. Why, measured on the worst path at grt (routes' RC): the same
+path in both (a control register, the address compare, the write
+select, an entry's register), 1,178.0 ps arrival against 1,038.4. The
+write select reaches the 16 kept cells as one net of fanout 32 from an
+AO21x1 (75 ps), then each cell buffers it again inside (BUFx2 at fanout
+10, 47 ps); A's ABC drives the same select through BUFx4f and BUFx6f
+stages. What is missing to win is the broadcast's buffering into kept
+cells, the mechanism PhysicalStoreQueue and VirtualLoadQueue lose to as
+well.
+
+### Two findings without a lever (2026-10-31)
+
+- **generate_ram's 16-word 2r4w block** (0170's tests): its detailed
+  route takes over 20 minutes only in a fastbuild binary. Measured with
+  the flows' optimized openroad, `-threads 1` as OpenROAD's
+  regression_test.sh runs: generate_ram 93 s (8 words: 56 s); detailed
+  route 85 s of it, pin access 7 s, five iterations at 624, 147, 109, 5
+  and 0 violations (123 of 147 on M2, where global route uses 62 % of
+  the capacity against 16 % on M3). The fastbuild binary took 1,017 s.
+  A global-route adjustment on M2 (0.3, 0.5) gave 122 and 81 s against
+  85: noise.
+- **The Rob's check after #1454 and #1463**: on the extraction with the
+  ordered comparisons decoded (arrays/rob-cells), `arrays:regress
+  --direct` passed every step: the index-kept proof, its control, the
+  decoded Verilog read back, and the decoded form proven directly
+  (about three hours for the last).
 
 ### The toys (2026-10-29)
 

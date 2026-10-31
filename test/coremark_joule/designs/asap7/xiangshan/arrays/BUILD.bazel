@@ -150,6 +150,32 @@ py_binary(
     for top in EXTRACTED
 ]
 
+# A study, off by default: the extraction with every read side left in
+# the block (extract.py --no-read), the cell its entries' registers and
+# write logic alone: Uncache's 435-bit read side mapped inside the kept
+# cell, where nothing is optimised across its boundary.
+READ_STUDY = ["Uncache"]
+
+[
+    genrule(
+        name = top + "_noread_extracted",
+        srcs = [":%s_proc.json" % top],
+        outs = [
+            top + "_noread_extracted.v",
+            top + "_noread_extracted.json",
+        ],
+        cmd = "$(execpath :extract) $(location :%s_proc.json) %s $(location %s_noread_extracted.json) --no-read && " % (top, top, top) +
+              "$(execpath @yosys) -q -p 'read_json $(location %s_noread_extracted.json); hierarchy -top %s; " % (top, top) +
+              "opt_dff; write_verilog -noattr $(location %s_noread_extracted.v)'" % top,
+        tags = ["manual"],
+        tools = [
+            ":extract",
+            "@yosys",
+        ],
+    )
+    for top in READ_STUDY
+]
+
 # The core XSTile's MemBlock and parent read: the surgered core with the
 # extractions in place of the modules they came from (substitute.py), each
 # proven by its <top>_check_test. TLBFA, the instruction TLB, is
@@ -272,7 +298,7 @@ SLEW_STUDY = {
         variant = variant,
         verilog_files = [":%s_%s.v" % (
             top,
-            "rtl" if rtl else "extracted",
+            "rtl" if rtl else ("noread_extracted" if variant == "noread" else "extracted"),
         )],
         yosys_frontend_reason = "period worse on slang and the fold (YOSYS_FRONTEND)" if top in YOSYS_FRONTEND else None,
     )
@@ -280,7 +306,7 @@ SLEW_STUDY = {
     for rtl, variant, extra in [
         (False, None, {}),
         (True, "rtl", {}),
-    ] + ([
+    ] + ([(False, "noread", {})] if top in READ_STUDY else []) + ([
         (
             False,
             "slew",
@@ -351,7 +377,7 @@ FLAT_STUDY = ["PhysicalStoreQueue"]
     for flow in [
         top,
         top + "_rtl",
-    ] + ([top + "_flat"] if top in FLAT_STUDY else []) + ([
+    ] + ([top + "_flat"] if top in FLAT_STUDY else []) + ([top + "_noread"] if top in READ_STUDY else []) + ([
         top + "_slew",
         top + "_rtl_slew",
     ] if top in SLEW_STUDY else [])
