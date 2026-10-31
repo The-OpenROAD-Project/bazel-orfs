@@ -324,6 +324,11 @@ archive_override(
         # path and XSTile's Top took 77 GB there; the tree is unchanged. Not
         # upstreamed; retires at a //:bump onto an OpenROAD that has it.
         "//patches:0202-openroad-cts-balance-without-crpr.patch",
+        # 0203: dpl frees its pixel grid, a pixel per site of the core, when
+        # detailed_placement and check_placement return: on XSTile's Top
+        # about 32 GB that global route started on. Not upstreamed; retires
+        # at a //:bump onto an OpenROAD that has it.
+        "//patches:0203-openroad-dpl-free-pixel-grid.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
