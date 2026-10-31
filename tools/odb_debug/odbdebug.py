@@ -93,7 +93,8 @@ class Daemon(object):
         except webclient.WebError as e:
             self._info = None
             raise DaemonError(
-                "%s (an idle daemon exits on its own, see ODB_DEBUG_IDLE_SECS)" % e
+                "%s (a daemon leaves on its own when memory runs low, or when idle with ODB_DEBUG_IDLE_SECS)"
+                % e
             )
         b64 = base64.b64encode(code.encode("utf-8")).decode("ascii")
         try:
@@ -332,7 +333,7 @@ GUI_HOW = (
     " that the link listens on the address your machine reaches (else"
     " restart with ODB_DEBUG_GUI_BIND=<that address>). Do not tunnel with"
     " ssh -L while the link can reach you: a tunnel to the viewer's own port"
-    " skips the token and the idle accounting. The token in the link is the"
+    " skips the token. The token in the link is the"
     " only key to the session; do not paste it anywhere public."
 )
 

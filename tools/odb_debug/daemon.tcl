@@ -35,11 +35,10 @@
 # Files, all under ODB_DEBUG_DIR (required): daemon.json, written before the
 # viewer starts -- port, pid, url, gui_url, design, odb, workspace, commit,
 # timing -- readable by its owner only, and removed when the daemon exits on
-# its own; heartbeat and activity, for the idle exit. ODB_DEBUG_IDLE_SECS is
-# the idle time before it exits (0 disables; default twice the load time, at
-# least 120 s), so a forgotten daemon gives its memory back. A loaded daemon
-# waits for its first interaction without a time limit: a build's result
-# loads while the human is away, and is there when they come to look.
+# its own; heartbeat and activity, for the watchdog. The daemon stays up
+# until the machine needs its memory (see "Eviction" below): a build's
+# result loads while the human is away, and is there when they come to
+# look, the next morning too. ODB_DEBUG_IDLE_SECS adds an idle exit.
 #
 # The GUI: gui_url is a link a browser on another machine can open, through
 # gui_proxy.py beside this script. It listens on ODB_DEBUG_GUI_BIND, by
@@ -700,73 +699,94 @@ if { [info exists ::env(ODB_DEBUG_PRINT_LINK)] && $::env(ODB_DEBUG_PRINT_LINK) }
 }
 puts "odb-debug: design [[ord::get_db_block] getName], [llength [[ord::get_db_block] getInsts]] insts, loaded in $::od_load_secs s, timing [expr { $::od_timing ? "on" : "off" }]"
 
-# Idle exit: give the memory back when nobody asks. Default twice the load
-# time, at least two minutes; ODB_DEBUG_IDLE_SECS overrides, 0 disables.
-# The clock starts at the first interaction: until a request or a browser
-# through the GUI link arrives, the daemon waits, and the watchdog looks
-# only once a minute. web_server blocks and Tcl's event loop does not run
-# under it, so a timer here would never fire: a shell beside the daemon
-# watches the heartbeat and the proxy's activity file and stops it. A
-# browser on the viewer's own 127.0.0.1 port bypasses both; browse through
-# gui_url, or with ODB_DEBUG_IDLE_SECS=0. It stops it as a browser's `exit` does,
-# through the viewer with the client beside this script: web_server
-# returns and the daemon exits 0 below. A kill would end it with
-# SIGTERM, which make reports as a failed run.
+# Eviction: a daemon stays up, overnight included, until the machine needs
+# its memory. A shell beside the daemon reads /proc/meminfo every 10 s and
+# stops it once MemAvailable falls below 10 % of MemTotal, where the kernel
+# is already reclaiming; and the daemon volunteers to the OOM killer first
+# (oom_score_adj 1000), for memory that runs out between two looks.
+# ODB_DEBUG_MEMINFO points the shell at a fake meminfo, for tests.
+#
+# Idle exit, off unless ODB_DEBUG_IDLE_SECS sets it: the clock starts at
+# the first interaction; until a request or a browser through the GUI
+# link arrives, the daemon waits. A browser on the viewer's own 127.0.0.1
+# port bypasses the proxy that counts it; browse through gui_url.
+#
+# web_server blocks and Tcl's event loop does not run under it, so a timer
+# here would never fire: the shell watches the heartbeat and the proxy's
+# activity file. It stops the daemon as a browser's `exit` does, through
+# the viewer with the client beside this script: web_server returns and
+# the daemon exits 0 below. A kill would end it with SIGTERM, which make
+# reports as a failed run.
 set od_client [file join [file dirname [file normalize [info script]]] odbdebug.py]
 if { ![file exists $od_client] } {
-  error "odb-debug: $od_client is missing beside daemon.tcl; the idle exit stops the daemon through it"
+  error "odb-debug: $od_client is missing beside daemon.tcl; eviction stops the daemon through it"
 }
-set ::od_idle [expr { [info exists ::env(ODB_DEBUG_IDLE_SECS)] ? int($::env(ODB_DEBUG_IDLE_SECS)) : max(120, int(2 * $::od_load_secs)) }]
-if { $::od_idle > 0 } {
-  set od_poll [expr { max(1, min(10, $::od_idle / 2)) }]
-  set od_wait_poll [expr { max($od_poll, min(60, $::od_idle)) }]
-  set od_watchdog {
-    pid=$1 heartbeat=$2 idle=$3 info=$4 poll=$5 python=$6 client=$7 dir=$8
-    activity=$9 wait_poll=${10}
-    # This shell holds openroad's stdout, the pipe its parent tees, so the
-    # parent reaps openroad only once this shell has exited too: an exited
-    # openroad is a zombie until then, and kill -0 still finds a zombie.
-    alive() {
-      state=$(ps -o stat= -p "$pid" 2>/dev/null) && [ "${state#Z}" = "$state" ]
-    }
-    nap=$wait_poll
-    while alive; do
-      sleep "$nap"
-      read state since < "$heartbeat" || continue
-      # The browser's last byte through the GUI link, when there was one.
-      act=0
-      [ -f "$activity" ] && { read _ act < "$activity" || act=0; }
-      if [ "$state" = waiting ] && [ "$act" -eq 0 ]; then
-        nap=$wait_poll
-        continue
-      fi
-      nap=$poll
-      [ "$state" = busy ] && continue
-      last=$since
-      [ "$act" -gt "$last" ] && last=$act
-      if [ $(( $(date +%s) - last )) -gt "$idle" ]; then
-        echo "odb-debug: idle for $idle s, exiting"
-        # openroad exits inside web_server and never reaches the delete
-        # below it, so the request deletes daemon.json first: the client
-        # has read the port from it by then. Its reply is the viewer
-        # closing, so its output only matters when that fails.
-        out=$("$python" "$client" "$dir" --tcl "file delete {$info}; exit" 2>&1)
-        for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
-          alive || exit 0
-          sleep 0.5
-        done
-        echo "odb-debug: the daemon did not exit through the viewer; killing it"
-        printf '%s\n' "$out" | tail -n 5
-        grep -q "\"pid\":$pid," "$info" && rm -f "$info"
-        kill "$pid"
-        exit 1
-      fi
-    done
+catch {
+  set f [open /proc/self/oom_score_adj w]
+  puts $f 1000
+  close $f
+}
+set ::od_idle [expr { [info exists ::env(ODB_DEBUG_IDLE_SECS)] ? int($::env(ODB_DEBUG_IDLE_SECS)) : 0 }]
+set od_meminfo [expr { [info exists ::env(ODB_DEBUG_MEMINFO)] ? $::env(ODB_DEBUG_MEMINFO) : "/proc/meminfo" }]
+set od_poll [expr { $::od_idle > 0 ? max(1, min(10, $::od_idle / 2)) : 10 }]
+set od_watchdog {
+  pid=$1 heartbeat=$2 idle=$3 info=$4 poll=$5 python=$6 client=$7 dir=$8
+  activity=$9 meminfo=${10}
+  # This shell holds openroad's stdout, the pipe its parent tees, so the
+  # parent reaps openroad only once this shell has exited too: an exited
+  # openroad is a zombie until then, and kill -0 still finds a zombie.
+  alive() {
+    state=$(ps -o stat= -p "$pid" 2>/dev/null) && [ "${state#Z}" = "$state" ]
   }
-  exec sh -c $od_watchdog odb-debug-watchdog [pid] $::od_heartbeat_path $::od_idle $::od_info_path $od_poll \
-    $::env(PYTHON_EXE) $od_client $::env(ODB_DEBUG_DIR) $::od_activity_path $od_wait_poll \
-    >@ stdout 2>@ stderr &
+  low_memory() {
+    total= avail=
+    while read -r key value _; do
+      case $key in
+        MemTotal:) total=$value ;;
+        MemAvailable:) avail=$value ;;
+      esac
+    done < "$meminfo"
+    [ -n "$total" ] && [ -n "$avail" ] && [ $((avail * 10)) -lt "$total" ]
+  }
+  stop() {
+    echo "$1"
+    # openroad exits inside web_server and never reaches the delete below
+    # it, so the request deletes daemon.json first: the client has read
+    # the port from it by then. Its reply is the viewer closing, so its
+    # output only matters when that fails.
+    out=$("$python" "$client" "$dir" --tcl "file delete {$info}; exit" 2>&1)
+    for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+      alive || exit 0
+      sleep 0.5
+    done
+    echo "odb-debug: the daemon did not exit through the viewer; killing it"
+    printf '%s\n' "$out" | tail -n 5
+    grep -q "\"pid\":$pid," "$info" && rm -f "$info"
+    kill "$pid"
+    exit 1
+  }
+  while alive; do
+    sleep "$poll"
+    if low_memory; then
+      stop "odb-debug: evicted, MemAvailable $((avail / 1024)) MB < 10 % of MemTotal $((total / 1024)) MB"
+    fi
+    [ "$idle" -gt 0 ] || continue
+    read state since < "$heartbeat" || continue
+    # The browser's last byte through the GUI link, when there was one.
+    act=0
+    [ -f "$activity" ] && { read _ act < "$activity" || act=0; }
+    [ "$state" = waiting ] && [ "$act" -eq 0 ] && continue
+    [ "$state" = busy ] && continue
+    last=$since
+    [ "$act" -gt "$last" ] && last=$act
+    if [ $(( $(date +%s) - last )) -gt "$idle" ]; then
+      stop "odb-debug: idle for $idle s, exiting"
+    fi
+  done
 }
+exec sh -c $od_watchdog odb-debug-watchdog [pid] $::od_heartbeat_path $::od_idle $::od_info_path $od_poll \
+  $::env(PYTHON_EXE) $od_client $::env(ODB_DEBUG_DIR) $::od_activity_path $od_meminfo \
+  >@ stdout 2>@ stderr &
 
 # A debug pause inside tcl_eval holds the thread serving it; with one
 # thread nothing is left to deliver the continue.

@@ -29,7 +29,7 @@ These files do the work, and none needs anything beyond a stock `python3`:
 
 | file | role |
 |---|---|
-| `daemon.tcl` | Runs inside openroad. Opens the stage through ORFS's `open.tcl`, defines the `od_*` procs, serves them through `web_server`, writes `daemon.json`, exits when idle. |
+| `daemon.tcl` | Runs inside openroad. Opens the stage through ORFS's `open.tcl`, defines the `od_*` procs, serves them through `web_server`, writes `daemon.json`, stays until the machine needs its memory. |
 | `webclient.py` | The web viewer's websocket protocol, from a script: `tcl_eval`, log pushes, and a Continue for every debug pause. |
 | `odbdebug.py` | Client. `Daemon(dir).status()`, `.tcl(code)`, `.call(proc, ...)`, `.pin_access(pin)`, `.image(path, ...)`; a CLI for one-off questions. |
 | `mcp_server.py` | MCP server over the client: JSON-RPC 2.0 on stdio, one tool per proc plus `tcl` and `report`, and `open`/`gui` to start a daemon and hand over its GUI. |
@@ -76,7 +76,7 @@ matter here:
 |---|---|
 | `ODB_DEBUG_DIR` | Required. Where `daemon.json` goes. Absolute, so the client finds it from any directory. |
 | `GUI_TIMING=0` | Skip the liberty files. Geometry queries work, timing queries report that no timing is loaded. A 1.35 M-instance ODB loads in seconds instead of minutes. |
-| `ODB_DEBUG_IDLE_SECS` | Idle time before the daemon exits, counted from the first interaction (a loaded daemon waits for that without a limit); default twice its load time and at least 120 s; `0` disables. |
+| `ODB_DEBUG_IDLE_SECS` | An idle exit: seconds without interaction before the daemon exits, counted from the first interaction (a loaded daemon waits for that without a limit). Default `0`, none: the daemon stays until memory runs low (below). |
 | `ODB_DEBUG_PORT` | Fixed port instead of an ephemeral one. |
 | `ODB_DEBUG_GUI_BIND` | Address the GUI link listens on; default the one the ssh session came in on (`SSH_CONNECTION`), else 127.0.0.1. Read from the environment too: on a machine reached over a VPN from sessions that are not ssh, export it once in the shell profile. |
 | `ODB_DEBUG_GUI_PORT` | Fixed GUI port instead of an ephemeral one. |
@@ -125,14 +125,20 @@ asks. It works from another machine, over a VPN for one:
   the proxy forwards only what carries the link's token. The link's
   token turns into a cookie for the rest of the visit. `daemon.json` is
   readable by its owner only.
-- Every byte the browser sends through it counts as interaction for the
-  idle exit. The viewer's own `url`, on 127.0.0.1, works on the machine
-  itself, but there the browser does not count, so browse through
-  `gui_url` or with `ODB_DEBUG_IDLE_SECS=0`.
+- Every byte the browser sends through it counts as interaction for an
+  idle exit, when `ODB_DEBUG_IDLE_SECS` sets one. The viewer's own
+  `url`, on 127.0.0.1, works on the machine itself, but there the
+  browser does not count.
 
-A loaded daemon waits for its first question or browser visit with no
-idle exit, so a design started after a build is still there when the
-human comes to look; the `warm-gui` skill does that. The MCP `open` tool
+A daemon stays up, overnight included, until the machine needs its
+memory, so a design started after a build is still there when the human
+comes to look; the `warm-gui` skill does that. Every 10 s a shell beside
+it reads `/proc/meminfo`, and once `MemAvailable` falls below 10 % of
+`MemTotal`, where the kernel is already reclaiming, it stops the daemon
+and logs `odb-debug: evicted, MemAvailable ... MB < 10 % of MemTotal
+... MB`. The daemon also sets its `oom_score_adj` to 1000, so the
+kernel's OOM killer takes it before a build action when memory runs out
+between two looks. Several daemons leave together, not oldest first. The MCP `open` tool
 starts a daemon detached, in a session of its own that outlives the
 agent's, and `gui` says when it is ready.
 
@@ -243,8 +249,9 @@ The rough edges are OpenROAD's; the daemon works around them or says so:
   (signal 11). `daemon.json` therefore
   appears two seconds after the viewer starts (`daemon.json.pending`
   until then).
-- `web_server` blocks, and Tcl's event loop does not run under it, so the
-  idle exit is a shell beside the daemon that watches `heartbeat`: busy
+- `web_server` blocks, and Tcl's event loop does not run under it, so
+  eviction and the idle exit are a shell beside the daemon that reads
+  `/proc/meminfo` and watches `heartbeat`: busy
   while a request runs, idle from when it ended, so a long request is
   neither cut short nor followed by an exit the moment it returns. It
   stops the daemon as a browser's `exit` does, through the viewer with
@@ -338,5 +345,7 @@ forensics on a hand-made dump. `//test/odb_debug:smoke_test` launches the
 real daemon on a placed multiplier and asks it everything once;
 `//test/odb_debug:block_test` launches it on a 10 µm block whose 36 nm M3
 pin has no access point, asks `pin_access` and `image`, and checks the
-idle exit and the GUI link (a loaded daemon waits for its first visitor,
-the token gates the viewer, the visit starts the idle clock), in seconds.
+idle exit, eviction (on a fake meminfo: it stays while memory is
+plentiful, leaves cleanly when it runs low) and the GUI link (a loaded
+daemon waits for its first visitor, the token gates the viewer, the
+visit starts the idle clock), in seconds.
