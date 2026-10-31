@@ -1,0 +1,1137 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] asap7/cva6: the RAMs as upstream has them, made macros by
+ AUTO_MEMORIES
+
+asap7/cva6 rewrote cva6's three RAM wrappers to instantiate fakeram
+macros: the D-cache data RAM lost its byte enables, so every refill and
+store hit overwrote the other way's word (ORFS #4769), the I-cache RAMs
+lost theirs, and the I-cache read behaviour became a fakeram's in place
+of tc_sram's, all without a check.
+
+sram_cache.sv, hpdcache_sram.sv and hpdcache_sram_wbyteenable.sv are
+upstream's again, unmodified, with upstream's behavioural
+hpdcache_sram_1rw and hpdcache_sram_wbyteenable_1rw. AUTO_MEMORIES
+makes each RAM a macro, cva6.memories naming its pins and byte enables:
+the D-cache data (128 x 64, 8 byte enables) and directory (64 x 28).
+The I-cache's RAMs sit behind sram_cache's techno cut, which upstream
+fills with pulp's generic tc_sram; SYNTH_VERILOG_SURGERY
+(asap7/cva6/surgery.py) puts a single-port SRAM with byte enables there
+in its place, the I-cache data (64 x 256, 32 byte enables) and tag
+(64 x 25, 4 byte enables, the last of them 1 bit). The fakeram views
+leave the config.
+
+asap7/cva6-regfile wants the RAMs too, and its own surgery moved
+ariane_regfile's array; one script carries both now, the register file
+behind --ariane-regfile, since the flow stages only the script
+SYNTH_VERILOG_SURGERY names.
+
+The README says what still differs from upstream: tie-offs for outputs
+cv32a65x leaves undriven, outside this change.
+
+Not upstreamed until tested; retires at a //:bump onto an ORFS that
+carries it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ flow/designs/asap7/cva6-regfile/config.mk     |  11 +-
+ flow/designs/asap7/cva6-regfile/surgery.py    | 131 ---------
+ flow/designs/asap7/cva6/config.mk             |  26 +-
+ flow/designs/asap7/cva6/cva6.memories         | 242 ++++++++++++++++
+ flow/designs/asap7/cva6/surgery.py            | 258 ++++++++++++++++++
+ flow/designs/src/cva6/README.md               |  14 +-
+ .../src/cva6/common/local/util/sram_cache.sv  |  94 +++----
+ .../hpdcache/rtl/src/common/hpdcache_sram.sv  |  32 +--
+ .../src/common/hpdcache_sram_wbyteenable.sv   |  35 +--
+ .../common/macros/behav/hpdcache_sram_1rw.sv  |  60 ++++
+ .../behav/hpdcache_sram_wbyteenable_1rw.sv    |  63 +++++
+ 11 files changed, 718 insertions(+), 248 deletions(-)
+ delete mode 100644 flow/designs/asap7/cva6-regfile/surgery.py
+ create mode 100644 flow/designs/asap7/cva6/cva6.memories
+ create mode 100644 flow/designs/asap7/cva6/surgery.py
+ create mode 100644 flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_1rw.sv
+ create mode 100644 flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wbyteenable_1rw.sv
+
+diff --git a/flow/designs/asap7/cva6-regfile/config.mk b/flow/designs/asap7/cva6-regfile/config.mk
+index 54749adbf3..4b8f25eeb5 100644
+--- a/flow/designs/asap7/cva6-regfile/config.mk
++++ b/flow/designs/asap7/cva6-regfile/config.mk
+@@ -1,11 +1,14 @@
+-# cva6 with its integer register file built by AUTO_MEMORIES_REGFILES: a
+-# SYNTH_VERILOG_SURGERY script (surgery.py, a hack) moves the array of
+-# ariane_regfile into ariane_regfile_rf, and the spec replaces that
++# cva6 with its integer register file built by AUTO_MEMORIES_REGFILES:
++# asap7/cva6's SYNTH_VERILOG_SURGERY script, with --ariane-regfile, moves
++# the array of ariane_regfile into ariane_regfile_rf, and the spec replaces that
+ # module, inlined. The same RTL otherwise, constraints and utilisation.
+ export DESIGN_NICKNAME = cva6-regfile
+ 
+ include designs/asap7/cva6/config.mk
+ 
+-export SYNTH_VERILOG_SURGERY  = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/surgery.py
++# asap7/cva6's surgery, the RAMs and, with --ariane-regfile, the register
++# file's array in a module of its own
++export SYNTH_VERILOG_SURGERY  = $(DESIGN_HOME)/$(PLATFORM)/cva6/surgery.py
++export SYNTH_VERILOG_SURGERY_ARGS = --ariane-regfile
+ export AUTO_MEMORIES          = 1
+ export AUTO_MEMORIES_REGFILES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/ariane_regfile_rf.regfile
+diff --git a/flow/designs/asap7/cva6-regfile/surgery.py b/flow/designs/asap7/cva6-regfile/surgery.py
+deleted file mode 100644
+index 06f02b6ebe..0000000000
+--- a/flow/designs/asap7/cva6-regfile/surgery.py
++++ /dev/null
+@@ -1,131 +0,0 @@
+-"""SYNTH_VERILOG_SURGERY for cva6: its integer register file into a module.
+-
+-A hack. cva6's ariane_regfile (core/ariane_regfile_ff.sv) keeps its
+-array behind packed bus ports and widths in a struct parameter
+-(CVA6Cfg), which an AUTO_MEMORIES_REGFILES spec cannot name. This keeps
+-ariane_regfile's parameters and ports and moves the array into
+-ariane_regfile_rf: 32 words of 32 bits, x0 reading zero, four
+-combinational reads, two writes of which the later port wins (two
+-commits writing one register), every word reset to zero by rst_ni. An
+-elaboration-time $error stops a configuration that is not that shape
+-(cv32a65x is). test_en_i is unused, as upstream.
+-
+-The module is recognised by its text, token for token, comments and
+-whitespace aside: anything else stops the build. Every other file is
+-copied unchanged.
+-"""
+-
+-import argparse
+-import os
+-import re
+-import sys
+-
+-MODULE = "ariane_regfile"
+-
+-EXPECTED = "module ariane_regfile #( parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty, parameter int unsigned DATA_WIDTH = 32, parameter int unsigned NR_READ_PORTS = 2, parameter bit ZERO_REG_ZERO = 0 ) ( input logic clk_i, input logic rst_ni, input logic test_en_i, input logic [ NR_READ_PORTS-1:0][ 4:0] raddr_i, output logic [ NR_READ_PORTS-1:0][DATA_WIDTH-1:0] rdata_o, input logic [CVA6Cfg.NrCommitPorts-1:0][ 4:0] waddr_i, input logic [CVA6Cfg.NrCommitPorts-1:0][DATA_WIDTH-1:0] wdata_i, input logic [CVA6Cfg.NrCommitPorts-1:0] we_i ); localparam ADDR_WIDTH = 5; localparam NUM_WORDS = 2 ** ADDR_WIDTH; logic [ NUM_WORDS-1:0][DATA_WIDTH-1:0] mem; logic [CVA6Cfg.NrCommitPorts-1:0][ NUM_WORDS-1:0] we_dec; always_comb begin : we_decoder for (int unsigned j = 0; j < CVA6Cfg.NrCommitPorts; j++) begin for (int unsigned i = 0; i < NUM_WORDS; i++) begin if (waddr_i[j] == i) we_dec[j][i] = we_i[j]; else we_dec[j][i] = 1'b0; end end end always_ff @(posedge clk_i, negedge rst_ni) begin : register_write_behavioral if (~rst_ni) begin mem <= '{default: '0}; end else begin for (int unsigned j = 0; j < CVA6Cfg.NrCommitPorts; j++) begin for (int unsigned i = 0; i < NUM_WORDS; i++) begin if (we_dec[j][i]) begin mem[i] <= wdata_i[j]; end end if (ZERO_REG_ZERO) begin mem[0] <= '0; end end end end for (genvar i = 0; i < NR_READ_PORTS; i++) begin assign rdata_o[i] = mem[raddr_i[i]]; end endmodule"
+-
+-REPLACEMENT = """module ariane_regfile #(
+-    parameter config_pkg::cva6_cfg_t CVA6Cfg       = config_pkg::cva6_cfg_empty,
+-    parameter int unsigned           DATA_WIDTH    = 32,
+-    parameter int unsigned           NR_READ_PORTS = 2,
+-    parameter bit                    ZERO_REG_ZERO = 0
+-) (
+-    input  logic                                             clk_i,
+-    input  logic                                             rst_ni,
+-    input  logic                                             test_en_i,
+-    input  logic [        NR_READ_PORTS-1:0][           4:0] raddr_i,
+-    output logic [        NR_READ_PORTS-1:0][DATA_WIDTH-1:0] rdata_o,
+-    input  logic [CVA6Cfg.NrCommitPorts-1:0][           4:0] waddr_i,
+-    input  logic [CVA6Cfg.NrCommitPorts-1:0][DATA_WIDTH-1:0] wdata_i,
+-    input  logic [CVA6Cfg.NrCommitPorts-1:0]                 we_i
+-);
+-  // SYNTH_VERILOG_SURGERY (asap7/cva6-regfile/surgery.py): the array in
+-  // ariane_regfile_rf, for the shape it was written for.
+-  if (DATA_WIDTH != 32 || NR_READ_PORTS != 4 || CVA6Cfg.NrCommitPorts != 2
+-      || ZERO_REG_ZERO != 1) begin : gen_surgery_shape
+-    $error("cva6 surgery: ariane_regfile rewritten for 32 bits, 4 reads, 2 writes, x0 zero");
+-  end
+-  ariane_regfile_rf rf (
+-      .clk_i (clk_i),
+-      .rst_ni(rst_ni),
+-      .raddr0(raddr_i[0]), .rdata0(rdata_o[0]),
+-      .raddr1(raddr_i[1]), .rdata1(rdata_o[1]),
+-      .raddr2(raddr_i[2]), .rdata2(rdata_o[2]),
+-      .raddr3(raddr_i[3]), .rdata3(rdata_o[3]),
+-      .waddr0(waddr_i[0]), .wdata0(wdata_i[0]), .we0(we_i[0]),
+-      .waddr1(waddr_i[1]), .wdata1(wdata_i[1]), .we1(we_i[1])
+-  );
+-endmodule
+-
+-// The register file, behavioural; AUTO_MEMORIES_REGFILES replaces it.
+-module ariane_regfile_rf (
+-    input clk_i,
+-    input rst_ni,
+-    input [4:0] raddr0,
+-    output [31:0] rdata0,
+-    input [4:0] raddr1,
+-    output [31:0] rdata1,
+-    input [4:0] raddr2,
+-    output [31:0] rdata2,
+-    input [4:0] raddr3,
+-    output [31:0] rdata3,
+-    input [4:0] waddr0,
+-    input [31:0] wdata0,
+-    input we0,
+-    input [4:0] waddr1,
+-    input [31:0] wdata1,
+-    input we1
+-);
+-  reg [31:0] mem [1:31];
+-  integer i;
+-  always @(posedge clk_i or negedge rst_ni) begin
+-    if (!rst_ni) begin
+-      for (i = 1; i < 32; i = i + 1) mem[i] <= 32'd0;
+-    end else begin
+-      if (we0 && waddr0 != 5'd0) mem[waddr0] <= wdata0;
+-      if (we1 && waddr1 != 5'd0) mem[waddr1] <= wdata1;
+-    end
+-  end
+-  assign rdata0 = raddr0 == 5'd0 ? 32'd0 : mem[raddr0];
+-  assign rdata1 = raddr1 == 5'd0 ? 32'd0 : mem[raddr1];
+-  assign rdata2 = raddr2 == 5'd0 ? 32'd0 : mem[raddr2];
+-  assign rdata3 = raddr3 == 5'd0 ? 32'd0 : mem[raddr3];
+-endmodule"""
+-
+-
+-def norm(text):
+-    text = re.sub(r"//[^\n]*", "", text)
+-    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+-    return " ".join(text.split())
+-
+-
+-def fail(msg):
+-    sys.exit("cva6 surgery: " + msg)
+-
+-
+-def main():
+-    p = argparse.ArgumentParser()
+-    p.add_argument("--out-dir", required=True)
+-    p.add_argument("files", nargs="+")
+-    a = p.parse_args()
+-    done = 0
+-    for path in a.files:
+-        with open(path) as f:
+-            text = f.read()
+-        found = list(re.finditer(r"^module\s+%s\b.*?^endmodule\b" % MODULE, text, re.M | re.S))
+-        if len(found) > 1:
+-            fail("%s defines %s %d times" % (path, MODULE, len(found)))
+-        if found:
+-            m = found[0]
+-            if norm(m.group(0)) != EXPECTED:
+-                fail("%s in %s is not the ariane_regfile this rewrite knows" % (MODULE, path))
+-            text = text[: m.start()] + REPLACEMENT + text[m.end() :]
+-            done += 1
+-        with open(os.path.join(a.out_dir, os.path.basename(path)), "w") as f:
+-            f.write(text)
+-    if done != 1:
+-        fail("%s found in %d files, not one" % (MODULE, done))
+-
+-
+-if __name__ == "__main__":
+-    main()
+diff --git a/flow/designs/asap7/cva6/config.mk b/flow/designs/asap7/cva6/config.mk
+index 1bc3f7ff3c..f14d8c9749 100644
+--- a/flow/designs/asap7/cva6/config.mk
++++ b/flow/designs/asap7/cva6/config.mk
+@@ -52,7 +52,8 @@ export VERILOG_FILES          = $(sort $(wildcard $(SRC_HOME)/common/local/util/
+ 	$(SRC_HOME)/core/cache_subsystem/hpdcache/rtl/src/hwpf_stride/hwpf_stride_wrapper.sv \
+ 	$(sort $(wildcard $(SRC_HOME)/core/cache_subsystem/*.sv)) \
+ 	$(sort $(wildcard $(SRC_HOME)/core/cache_subsystem/hpdcache/rtl/src/common/*.sv)) \
+-	$(sort $(wildcard $(SRC_HOME)/core/cache_subsystem/hpdcache/rtl/src/common/macros/blackbox/*.sv)) \
++	$(SRC_HOME)/core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_1rw.sv \
++	$(SRC_HOME)/core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wbyteenable_1rw.sv \
+ 	$(sort $(wildcard $(SRC_HOME)/core/cache_subsystem/hpdcache/rtl/src/utils/*.sv)) \
+ 	$(sort $(wildcard $(SRC_HOME)/core/cva6_mmu/*.sv)) \
+ 	$(SRC_HOME)/core/cvfpu/src/fpu_div_sqrt_mvp/hdl/defs_div_sqrt_mvp.sv \
+@@ -64,11 +65,7 @@ export VERILOG_FILES          = $(sort $(wildcard $(SRC_HOME)/common/local/util/
+ 	$(SRC_HOME)/core/cvfpu/src/fpu_div_sqrt_mvp/hdl/preprocess_mvp.sv \
+ 	$(SRC_HOME)/core/cvxif_example/include/cvxif_instr_pkg.sv \
+ 	$(sort $(wildcard $(SRC_HOME)/core/frontend/*.sv)) \
+-	$(SRC_HOME)/vendor/pulp-platform/tech_cells_generic/src/rtl/tc_sram.sv \
+-	$(PLATFORM_DIR)/verilog/fakeram7_64x256.sv \
+-	$(PLATFORM_DIR)/verilog/fakeram7_128x64.sv \
+-	$(PLATFORM_DIR)/verilog/fakeram7_64x28.sv \
+-	$(PLATFORM_DIR)/verilog/fakeram7_64x25.sv
++	$(SRC_HOME)/vendor/pulp-platform/tech_cells_generic/src/rtl/tc_sram.sv
+ 
+ export VERILOG_INCLUDE_DIRS = $(DESIGN_HOME)/src/cva6/core/include \
+ 	$(DESIGN_HOME)/src/cva6/core/cvfpu/src/common_cells/include \
+@@ -76,15 +73,14 @@ export VERILOG_INCLUDE_DIRS = $(DESIGN_HOME)/src/cva6/core/include \
+ 
+ export VERILOG_DEFINES += -D HPDCACHE_ASSERT_OFF
+ 
+-export ADDITIONAL_LEFS = $(PLATFORM_DIR)/lef/fakeram7_64x256.lef \
+-			 $(PLATFORM_DIR)/lef/fakeram7_128x64.lef \
+-			 $(PLATFORM_DIR)/lef/fakeram7_64x28.lef \
+-			 $(PLATFORM_DIR)/lef/fakeram7_64x25.lef
+-
+-export ADDITIONAL_LIBS = $(PLATFORM_DIR)/lib/NLDM/fakeram7_64x256.lib \
+-			 $(PLATFORM_DIR)/lib/NLDM/fakeram7_128x64.lib \
+-			 $(PLATFORM_DIR)/lib/NLDM/fakeram7_64x28.lib \
+-			 $(PLATFORM_DIR)/lib/NLDM/fakeram7_64x25.lib
++# The RAMs are upstream's, the RTL unmodified, and AUTO_MEMORIES makes
++# each a macro, cva6.memories naming its pins and byte enables: the
++# D-cache data (hpdcache_sram_wbyteenable_1rw) and directory
++# (hpdcache_sram_1rw), and the I-cache data and tag, which surgery.py
++# puts behind sram_cache's techno cut in place of pulp's tc_sram.
++export SYNTH_VERILOG_SURGERY  = $(DESIGN_HOME)/$(PLATFORM)/cva6/surgery.py
++export AUTO_MEMORIES          = 1
++export ADDITIONAL_MEMORIES    = $(DESIGN_HOME)/$(PLATFORM)/cva6/cva6.memories
+ 
+ export SDC_FILE               = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/constraint.sdc
+ 
+diff --git a/flow/designs/asap7/cva6/cva6.memories b/flow/designs/asap7/cva6/cva6.memories
+new file mode 100644
+index 0000000000..cc0fc0cfab
+--- /dev/null
++++ b/flow/designs/asap7/cva6/cva6.memories
+@@ -0,0 +1,242 @@
++{
++ "version": 1,
++ "memories": [
++  {
++   "name": "cva6_icache_data_sram",
++   "rows": 64,
++   "bits": 256,
++   "addr_w": 6,
++   "rw_ports": 1,
++   "mask_lanes": 32,
++   "idiomatic": true,
++   "reason": "the I-cache data RAM behind the techno cut (surgery.py): one read-write port, byte enables",
++   "pins": [
++    {
++     "name": "clk",
++     "direction": "input",
++     "width": 1,
++     "port_id": "RW0",
++     "function": "clk"
++    },
++    {
++     "name": "cs",
++     "direction": "input",
++     "width": 1,
++     "port_id": "RW0",
++     "function": "en"
++    },
++    {
++     "name": "we",
++     "direction": "input",
++     "width": 1,
++     "port_id": "RW0",
++     "function": "wmode"
++    },
++    {
++     "name": "addr",
++     "direction": "input",
++     "width": 6,
++     "port_id": "RW0",
++     "function": "addr"
++    },
++    {
++     "name": "wdata",
++     "direction": "input",
++     "width": 256,
++     "port_id": "RW0",
++     "function": "data_in"
++    },
++    {
++     "name": "be",
++     "direction": "input",
++     "width": 32,
++     "port_id": "RW0",
++     "function": "mask"
++    },
++    {
++     "name": "rdata",
++     "direction": "output",
++     "width": 256,
++     "port_id": "RW0",
++     "function": "data_out"
++    }
++   ]
++  },
++  {
++   "name": "cva6_icache_tag_sram",
++   "rows": 64,
++   "bits": 25,
++   "addr_w": 6,
++   "rw_ports": 1,
++   "mask_lanes": 4,
++   "mask_lane_width": 8,
++   "idiomatic": true,
++   "reason": "the I-cache tag RAM behind the techno cut (surgery.py): one read-write port, byte enables, the last 1 bit",
++   "pins": [
++    {
++     "name": "clk",
++     "direction": "input",
++     "width": 1,
++     "port_id": "RW0",
++     "function": "clk"
++    },
++    {
++     "name": "cs",
++     "direction": "input",
++     "width": 1,
++     "port_id": "RW0",
++     "function": "en"
++    },
++    {
++     "name": "we",
++     "direction": "input",
++     "width": 1,
++     "port_id": "RW0",
++     "function": "wmode"
++    },
++    {
++     "name": "addr",
++     "direction": "input",
++     "width": 6,
++     "port_id": "RW0",
++     "function": "addr"
++    },
++    {
++     "name": "wdata",
++     "direction": "input",
++     "width": 25,
++     "port_id": "RW0",
++     "function": "data_in"
++    },
++    {
++     "name": "be",
++     "direction": "input",
++     "width": 4,
++     "port_id": "RW0",
++     "function": "mask"
++    },
++    {
++     "name": "rdata",
++     "direction": "output",
++     "width": 25,
++     "port_id": "RW0",
++     "function": "data_out"
++    }
++   ]
++  },
++  {
++   "name": "hpdcache_sram_1rw",
++   "rows": 64,
++   "bits": 28,
++   "addr_w": 6,
++   "rw_ports": 1,
++   "idiomatic": true,
++   "reason": "the D-cache directory RAM: one read-write port",
++   "pins": [
++    {
++     "name": "clk",
++     "direction": "input",
++     "width": 1,
++     "port_id": "RW0",
++     "function": "clk"
++    },
++    {
++     "name": "cs",
++     "direction": "input",
++     "width": 1,
++     "port_id": "RW0",
++     "function": "en"
++    },
++    {
++     "name": "we",
++     "direction": "input",
++     "width": 1,
++     "port_id": "RW0",
++     "function": "wmode"
++    },
++    {
++     "name": "addr",
++     "direction": "input",
++     "width": 6,
++     "port_id": "RW0",
++     "function": "addr"
++    },
++    {
++     "name": "wdata",
++     "direction": "input",
++     "width": 28,
++     "port_id": "RW0",
++     "function": "data_in"
++    },
++    {
++     "name": "rdata",
++     "direction": "output",
++     "width": 28,
++     "port_id": "RW0",
++     "function": "data_out"
++    }
++   ]
++  },
++  {
++   "name": "hpdcache_sram_wbyteenable_1rw",
++   "rows": 128,
++   "bits": 64,
++   "addr_w": 7,
++   "rw_ports": 1,
++   "mask_lanes": 8,
++   "idiomatic": true,
++   "reason": "the D-cache data RAM, both ways of a set in a word: one read-write port, byte mask",
++   "pins": [
++    {
++     "name": "clk",
++     "direction": "input",
++     "width": 1,
++     "port_id": "RW0",
++     "function": "clk"
++    },
++    {
++     "name": "cs",
++     "direction": "input",
++     "width": 1,
++     "port_id": "RW0",
++     "function": "en"
++    },
++    {
++     "name": "we",
++     "direction": "input",
++     "width": 1,
++     "port_id": "RW0",
++     "function": "wmode"
++    },
++    {
++     "name": "addr",
++     "direction": "input",
++     "width": 7,
++     "port_id": "RW0",
++     "function": "addr"
++    },
++    {
++     "name": "wdata",
++     "direction": "input",
++     "width": 64,
++     "port_id": "RW0",
++     "function": "data_in"
++    },
++    {
++     "name": "wbyteenable",
++     "direction": "input",
++     "width": 8,
++     "port_id": "RW0",
++     "function": "mask"
++    },
++    {
++     "name": "rdata",
++     "direction": "output",
++     "width": 64,
++     "port_id": "RW0",
++     "function": "data_out"
++    }
++   ]
++  }
++ ]
++}
+diff --git a/flow/designs/asap7/cva6/surgery.py b/flow/designs/asap7/cva6/surgery.py
+new file mode 100644
+index 0000000000..b44278ec3f
+--- /dev/null
++++ b/flow/designs/asap7/cva6/surgery.py
+@@ -0,0 +1,258 @@
++"""SYNTH_VERILOG_SURGERY for cva6: the I-cache RAMs behind the techno cut.
++
++cva6's sram_cache puts its RAMs behind tc_sram_wrapper_cache_techno, the
++techno cut a technology's SRAM goes behind, and upstream fills it with
++pulp's generic tc_sram, a model with port arrays and a read latency that
++no SRAM macro has. This keeps the wrapper's parameters and ports and puts
++a single-port SRAM with byte enables behind it, one module per shape
++cv32a65x uses, for AUTO_MEMORIES to make a macro of: the I-cache data,
++64 x 256 (32 byte enables), and the tag, 64 x 25 (4 byte enables, the
++last of them 1 bit, as tc_sram's). An elaboration-time $error stops any
++other shape.
++
++An SRAM is not tc_sram: tc_sram's read data follows the last read
++address, through idle cycles and writes, and a single-port SRAM reads
++the address it is given and holds while idle. test/cva6_lec in
++bazel-orfs checks the SRAM against its macro, and cva6_icache with it
++against cva6_icache with tc_sram.
++
++The module is recognised by its text, token for token, comments and
++whitespace aside: anything else stops the build. Every other file is
++copied unchanged.
++
++--ariane-regfile also moves cva6's integer register file into a module
++(asap7/cva6-regfile, which also wants the RAMs): cva6's ariane_regfile
++(core/ariane_regfile_ff.sv) keeps its array behind packed bus ports and
++widths in a struct parameter (CVA6Cfg), which an AUTO_MEMORIES_REGFILES
++spec cannot name. This keeps ariane_regfile's parameters and ports and
++moves the array into ariane_regfile_rf: 32 words of 32 bits, x0 reading
++zero, four combinational reads, two writes of which the later port wins
++(two commits writing one register), every word reset to zero by rst_ni.
++An elaboration-time $error stops a configuration that is not that shape
++(cv32a65x is). test_en_i is unused, as upstream. Each rewrite's module
++must be found once.
++"""
++
++import argparse
++import os
++import re
++import sys
++
++TECHNO = "tc_sram_wrapper_cache_techno"
++
++TECHNO_EXPECTED = 'module tc_sram_wrapper_cache_techno #( parameter int unsigned NumWords = 32\'d1024, parameter int unsigned DataWidth = 32\'d128, parameter int unsigned ByteWidth = 32\'d8, parameter int unsigned NumPorts = 32\'d2, parameter int unsigned Latency = 32\'d1, parameter SimInit = "none", parameter BYTE_ACCESS = 1, parameter bit PrintSimCfg = 1\'b0, parameter int unsigned AddrWidth = (NumWords > 32\'d1) ? $clog2(NumWords) : 32\'d1, parameter int unsigned BeWidth = (DataWidth + ByteWidth - 32\'d1) / ByteWidth, parameter type addr_t = logic [AddrWidth-1:0], parameter type data_t = logic [DataWidth-1:0], parameter type be_t = logic [BeWidth-1:0] ) ( input logic clk_i, input logic rst_ni, input logic [NumPorts-1:0] req_i, input logic [NumPorts-1:0] we_i, input addr_t [NumPorts-1:0] addr_i, input data_t [NumPorts-1:0] wdata_i, input be_t [NumPorts-1:0] be_i, output data_t [NumPorts-1:0] rdata_o ); tc_sram #( .NumWords(NumWords), .DataWidth(DataWidth), .ByteWidth(ByteWidth), .NumPorts(NumPorts), .Latency(Latency), .SimInit(SimInit), .PrintSimCfg(PrintSimCfg) ) i_tc_sram ( .clk_i ( clk_i ), .rst_ni ( rst_ni ), .req_i ( req_i ), .we_i ( we_i ), .be_i ( be_i ), .wdata_i ( wdata_i ), .addr_i ( addr_i ), .rdata_o ( rdata_o ) ); endmodule'
++
++TECHNO_REPLACEMENT = """module tc_sram_wrapper_cache_techno #(
++  parameter int unsigned NumWords     = 32'd1024, // Number of Words in data array
++  parameter int unsigned DataWidth    = 32'd128,  // Data signal width
++  parameter int unsigned ByteWidth    = 32'd8,    // Width of a data byte
++  parameter int unsigned NumPorts     = 32'd2,    // Number of read and write ports
++  parameter int unsigned Latency      = 32'd1,    // Latency when the read data is available
++  parameter              SimInit      = "none",   // Simulation initialization
++  parameter              BYTE_ACCESS  = 1,
++  parameter bit          PrintSimCfg  = 1'b0,     // Print configuration
++  parameter int unsigned AddrWidth = (NumWords > 32'd1) ? $clog2(NumWords) : 32'd1,
++  parameter int unsigned BeWidth   = (DataWidth + ByteWidth - 32'd1) / ByteWidth, // ceil_div
++  parameter type         addr_t    = logic [AddrWidth-1:0],
++  parameter type         data_t    = logic [DataWidth-1:0],
++  parameter type         be_t      = logic [BeWidth-1:0]
++) (
++  input  logic                 clk_i,
++  input  logic                 rst_ni,
++  input  logic  [NumPorts-1:0] req_i,
++  input  logic  [NumPorts-1:0] we_i,
++  input  addr_t [NumPorts-1:0] addr_i,
++  input  data_t [NumPorts-1:0] wdata_i,
++  input  be_t   [NumPorts-1:0] be_i,
++  output data_t [NumPorts-1:0] rdata_o
++);
++  // SYNTH_VERILOG_SURGERY (asap7/cva6/surgery.py): a single-port SRAM with
++  // byte enables behind the techno cut, for the shapes cv32a65x uses.
++  if (NumPorts != 1 || Latency != 1 || ByteWidth != 8 || NumWords != 64
++      || !(DataWidth == 256 || DataWidth == 25)) begin : gen_surgery_shape
++    $error("cva6 surgery: tc_sram_wrapper_cache_techno rewritten for 1 port, latency 1, 64 words of 256 or 25 bits");
++  end
++  if (DataWidth == 256) begin : gen_data
++    cva6_icache_data_sram i_sram (
++        .clk(clk_i), .cs(req_i[0]), .we(we_i[0]), .addr(addr_i[0]),
++        .wdata(wdata_i[0]), .be(be_i[0]), .rdata(rdata_o[0]));
++  end else begin : gen_tag
++    cva6_icache_tag_sram i_sram (
++        .clk(clk_i), .cs(req_i[0]), .we(we_i[0]), .addr(addr_i[0]),
++        .wdata(wdata_i[0]), .be(be_i[0]), .rdata(rdata_o[0]));
++  end
++endmodule
++
++// The I-cache data RAM, behavioural; AUTO_MEMORIES makes it a macro.
++// WORDS is 64 where the techno cut instances it; a check may shrink it.
++module cva6_icache_data_sram #(
++    parameter WORDS = 64,
++    parameter AW    = $clog2(WORDS)
++) (
++    input               clk,
++    input               cs,
++    input               we,
++    input      [AW-1:0] addr,
++    input      [255:0]  wdata,
++    input      [31:0]   be,
++    output reg [255:0]  rdata
++);
++  reg [255:0] mem [0:WORDS-1];
++  integer j;
++  always @(posedge clk)
++    if (cs) begin
++      if (we)
++        for (j = 0; j < 32; j = j + 1)
++          if (be[j]) mem[addr][j*8 +: 8] <= wdata[j*8 +: 8];
++      rdata <= mem[addr];
++    end
++endmodule
++
++// The I-cache tag RAM, behavioural; AUTO_MEMORIES makes it a macro. Its
++// last byte enable covers the one bit left over, as tc_sram's does.
++module cva6_icache_tag_sram #(
++    parameter WORDS = 64,
++    parameter AW    = $clog2(WORDS)
++) (
++    input               clk,
++    input               cs,
++    input               we,
++    input      [AW-1:0] addr,
++    input      [24:0]   wdata,
++    input      [3:0]    be,
++    output reg [24:0]   rdata
++);
++  reg [24:0] mem [0:WORDS-1];
++  always @(posedge clk)
++    if (cs) begin
++      if (we) begin
++        if (be[0]) mem[addr][7:0]   <= wdata[7:0];
++        if (be[1]) mem[addr][15:8]  <= wdata[15:8];
++        if (be[2]) mem[addr][23:16] <= wdata[23:16];
++        if (be[3]) mem[addr][24]    <= wdata[24];
++      end
++      rdata <= mem[addr];
++    end
++endmodule"""
++
++
++REGFILE = "ariane_regfile"
++
++REGFILE_EXPECTED = "module ariane_regfile #( parameter config_pkg::cva6_cfg_t CVA6Cfg = config_pkg::cva6_cfg_empty, parameter int unsigned DATA_WIDTH = 32, parameter int unsigned NR_READ_PORTS = 2, parameter bit ZERO_REG_ZERO = 0 ) ( input logic clk_i, input logic rst_ni, input logic test_en_i, input logic [ NR_READ_PORTS-1:0][ 4:0] raddr_i, output logic [ NR_READ_PORTS-1:0][DATA_WIDTH-1:0] rdata_o, input logic [CVA6Cfg.NrCommitPorts-1:0][ 4:0] waddr_i, input logic [CVA6Cfg.NrCommitPorts-1:0][DATA_WIDTH-1:0] wdata_i, input logic [CVA6Cfg.NrCommitPorts-1:0] we_i ); localparam ADDR_WIDTH = 5; localparam NUM_WORDS = 2 ** ADDR_WIDTH; logic [ NUM_WORDS-1:0][DATA_WIDTH-1:0] mem; logic [CVA6Cfg.NrCommitPorts-1:0][ NUM_WORDS-1:0] we_dec; always_comb begin : we_decoder for (int unsigned j = 0; j < CVA6Cfg.NrCommitPorts; j++) begin for (int unsigned i = 0; i < NUM_WORDS; i++) begin if (waddr_i[j] == i) we_dec[j][i] = we_i[j]; else we_dec[j][i] = 1'b0; end end end always_ff @(posedge clk_i, negedge rst_ni) begin : register_write_behavioral if (~rst_ni) begin mem <= '{default: '0}; end else begin for (int unsigned j = 0; j < CVA6Cfg.NrCommitPorts; j++) begin for (int unsigned i = 0; i < NUM_WORDS; i++) begin if (we_dec[j][i]) begin mem[i] <= wdata_i[j]; end end if (ZERO_REG_ZERO) begin mem[0] <= '0; end end end end for (genvar i = 0; i < NR_READ_PORTS; i++) begin assign rdata_o[i] = mem[raddr_i[i]]; end endmodule"
++
++REGFILE_REPLACEMENT = r"""module ariane_regfile #(
++    parameter config_pkg::cva6_cfg_t CVA6Cfg       = config_pkg::cva6_cfg_empty,
++    parameter int unsigned           DATA_WIDTH    = 32,
++    parameter int unsigned           NR_READ_PORTS = 2,
++    parameter bit                    ZERO_REG_ZERO = 0
++) (
++    input  logic                                             clk_i,
++    input  logic                                             rst_ni,
++    input  logic                                             test_en_i,
++    input  logic [        NR_READ_PORTS-1:0][           4:0] raddr_i,
++    output logic [        NR_READ_PORTS-1:0][DATA_WIDTH-1:0] rdata_o,
++    input  logic [CVA6Cfg.NrCommitPorts-1:0][           4:0] waddr_i,
++    input  logic [CVA6Cfg.NrCommitPorts-1:0][DATA_WIDTH-1:0] wdata_i,
++    input  logic [CVA6Cfg.NrCommitPorts-1:0]                 we_i
++);
++  // SYNTH_VERILOG_SURGERY (asap7/cva6/surgery.py --ariane-regfile): the array in
++  // ariane_regfile_rf, for the shape it was written for.
++  if (DATA_WIDTH != 32 || NR_READ_PORTS != 4 || CVA6Cfg.NrCommitPorts != 2
++      || ZERO_REG_ZERO != 1) begin : gen_surgery_shape
++    $error("cva6 surgery: ariane_regfile rewritten for 32 bits, 4 reads, 2 writes, x0 zero");
++  end
++  ariane_regfile_rf rf (
++      .clk_i (clk_i),
++      .rst_ni(rst_ni),
++      .raddr0(raddr_i[0]), .rdata0(rdata_o[0]),
++      .raddr1(raddr_i[1]), .rdata1(rdata_o[1]),
++      .raddr2(raddr_i[2]), .rdata2(rdata_o[2]),
++      .raddr3(raddr_i[3]), .rdata3(rdata_o[3]),
++      .waddr0(waddr_i[0]), .wdata0(wdata_i[0]), .we0(we_i[0]),
++      .waddr1(waddr_i[1]), .wdata1(wdata_i[1]), .we1(we_i[1])
++  );
++endmodule
++
++// The register file, behavioural; AUTO_MEMORIES_REGFILES replaces it.
++module ariane_regfile_rf (
++    input clk_i,
++    input rst_ni,
++    input [4:0] raddr0,
++    output [31:0] rdata0,
++    input [4:0] raddr1,
++    output [31:0] rdata1,
++    input [4:0] raddr2,
++    output [31:0] rdata2,
++    input [4:0] raddr3,
++    output [31:0] rdata3,
++    input [4:0] waddr0,
++    input [31:0] wdata0,
++    input we0,
++    input [4:0] waddr1,
++    input [31:0] wdata1,
++    input we1
++);
++  reg [31:0] mem [1:31];
++  integer i;
++  always @(posedge clk_i or negedge rst_ni) begin
++    if (!rst_ni) begin
++      for (i = 1; i < 32; i = i + 1) mem[i] <= 32'd0;
++    end else begin
++      if (we0 && waddr0 != 5'd0) mem[waddr0] <= wdata0;
++      if (we1 && waddr1 != 5'd0) mem[waddr1] <= wdata1;
++    end
++  end
++  assign rdata0 = raddr0 == 5'd0 ? 32'd0 : mem[raddr0];
++  assign rdata1 = raddr1 == 5'd0 ? 32'd0 : mem[raddr1];
++  assign rdata2 = raddr2 == 5'd0 ? 32'd0 : mem[raddr2];
++  assign rdata3 = raddr3 == 5'd0 ? 32'd0 : mem[raddr3];
++endmodule"""
++
++
++def norm(text):
++    text = re.sub(r"//[^\n]*", "", text)
++    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
++    return " ".join(text.split())
++
++
++def fail(msg):
++    sys.exit("cva6 surgery: " + msg)
++
++
++def rewrite(path, text, module, expected, replacement):
++    """`text` with `module` rewritten, and the number of rewrites"""
++    found = list(re.finditer(r"^module\s+%s\b.*?^endmodule\b" % module, text, re.M | re.S))
++    if len(found) > 1:
++        fail("%s defines %s %d times" % (path, module, len(found)))
++    if not found:
++        return text, 0
++    m = found[0]
++    if norm(m.group(0)) != expected:
++        fail("%s in %s is not the %s this rewrite knows" % (module, path, module))
++    return text[: m.start()] + replacement + text[m.end() :], 1
++
++
++def main():
++    p = argparse.ArgumentParser()
++    p.add_argument("--out-dir", required=True)
++    p.add_argument("--ariane-regfile", action="store_true")
++    p.add_argument("files", nargs="+")
++    a = p.parse_args()
++    rewrites = [[TECHNO, TECHNO_EXPECTED, TECHNO_REPLACEMENT, 0]]
++    if a.ariane_regfile:
++        rewrites.append([REGFILE, REGFILE_EXPECTED, REGFILE_REPLACEMENT, 0])
++    for path in a.files:
++        with open(path) as f:
++            text = f.read()
++        for r in rewrites:
++            text, n = rewrite(path, text, r[0], r[1], r[2])
++            r[3] += n
++        with open(os.path.join(a.out_dir, os.path.basename(path)), "w") as f:
++            f.write(text)
++    for module, _, _, done in rewrites:
++        if done != 1:
++            fail("%s found in %d files, not one" % (module, done))
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/flow/designs/src/cva6/README.md b/flow/designs/src/cva6/README.md
+index cd27453e1c..57b66e5a53 100644
+--- a/flow/designs/src/cva6/README.md
++++ b/flow/designs/src/cva6/README.md
+@@ -1,3 +1,15 @@
+ Extracted from https://github.com/openhwgroup/cva6
+ 
+-Based on commit 3a389af with some changes for the RAMs
++Based on commit 3a389af (cv-hpdcache 04de808, cvfpu 3116391).
++
++The RAMs are upstream's, unmodified: `asap7/cva6` makes them macros with
++AUTO_MEMORIES, and puts the I-cache's behind `sram_cache`'s techno cut
++with SYNTH_VERILOG_SURGERY (`asap7/cva6/surgery.py`).
++
++Changed from upstream, tie-offs for outputs or struct fields cv32a65x
++leaves undriven: `core/cache_subsystem/cva6_hpdcache_if_adapter.sv`,
++`core/cache_subsystem/cva6_hpdcache_wrapper.sv`,
++`core/cache_subsystem/hpdcache/rtl/src/hwpf_stride/hwpf_stride.sv`,
++`core/csr_regfile.sv` (`debug_mode_o` gated by `DebugEn`),
++`core/cva6_mmu/cva6_mmu.sv`, `core/cvxif_fu.sv`, `core/id_stage.sv`,
++`core/load_store_unit.sv` and `core/load_unit.sv`.
+diff --git a/flow/designs/src/cva6/common/local/util/sram_cache.sv b/flow/designs/src/cva6/common/local/util/sram_cache.sv
+index 799c63afcd..7ca7559b7c 100644
+--- a/flow/designs/src/cva6/common/local/util/sram_cache.sv
++++ b/flow/designs/src/cva6/common/local/util/sram_cache.sv
+@@ -52,34 +52,25 @@ module sram_cache #(
+         rdata_o    = rdata_user[DATA_AND_USER_WIDTH-1:DATA_WIDTH];
+         ruser_o    = rdata_user[USER_WIDTH-1:0];
+       end
+-       fakeram7_64x256 i_tc_sram_wrapper(
+-        .clk    ( clk_i                     ),
+-        .ce_in    ( req_i                     ),
+-        .we_in     ( we_i                      ),
+-        .wd_in  ( wdata_user                ),
+-        .addr_in   ( addr_i                    ),
+-        .rd_out  ( rdata_user                )
+-                                         );
+-       
+-      // tc_sram_wrapper_cache_techno #(
+-      //   .NumWords(NUM_WORDS),           // Number of Words in data array
+-      //   .DataWidth(DATA_AND_USER_WIDTH),// Data signal width
+-      //   .ByteWidth(32'd8),              // Width of a data byte
+-      //   .NumPorts(32'd1),               // Number of read and write ports
+-      //   .Latency(32'd1),                // Latency when the read data is available
+-      //   .SimInit(SIM_INIT),             // Simulation initialization
+-      //   .BYTE_ACCESS(BYTE_ACCESS),      // ACCESS byte or full word
+-      //   .PrintSimCfg(1'b0)              // Print configuration
+-      // ) i_tc_sram_wrapper (
+-      //   .clk_i    ( clk_i                     ),
+-      //   .rst_ni   ( rst_ni                    ),
+-      //   .req_i    ( req_i                     ),
+-      //   .we_i     ( we_i                      ),
+-      //   .be_i     ( be                        ),
+-      //   .wdata_i  ( wdata_user                ),
+-      //   .addr_i   ( addr_i                    ),
+-      //   .rdata_o  ( rdata_user                )
+-      // );
++      tc_sram_wrapper_cache_techno #(
++        .NumWords(NUM_WORDS),           // Number of Words in data array
++        .DataWidth(DATA_AND_USER_WIDTH),// Data signal width
++        .ByteWidth(32'd8),              // Width of a data byte
++        .NumPorts(32'd1),               // Number of read and write ports
++        .Latency(32'd1),                // Latency when the read data is available
++        .SimInit(SIM_INIT),             // Simulation initialization
++        .BYTE_ACCESS(BYTE_ACCESS),      // ACCESS byte or full word
++        .PrintSimCfg(1'b0)              // Print configuration
++      ) i_tc_sram_wrapper (
++        .clk_i    ( clk_i                     ),
++        .rst_ni   ( rst_ni                    ),
++        .req_i    ( req_i                     ),
++        .we_i     ( we_i                      ),
++        .be_i     ( be                        ),
++        .wdata_i  ( wdata_user                ),
++        .addr_i   ( addr_i                    ),
++        .rdata_o  ( rdata_user                )
++      );
+     end else begin
+       logic [DATA_WIDTH-1:0] wdata_user;
+       logic [DATA_WIDTH-1:0] rdata_user;
+@@ -91,34 +82,25 @@ module sram_cache #(
+         rdata_o    = rdata_user;
+         ruser_o    = '0;
+       end
+-       fakeram7_64x25 i_tc_sram_wrapper(
+-        .clk    ( clk_i                     ),
+-        .ce_in    ( req_i                     ),
+-        .we_in     ( we_i                      ),
+-        .wd_in  ( wdata_user                ),
+-        .addr_in   ( addr_i                    ),
+-        .rd_out  ( rdata_user                )
+-                                         );
+-       
+-      // tc_sram_wrapper_cache_techno #(
+-      //   .NumWords(NUM_WORDS),           // Number of Words in data array
+-      //   .DataWidth(DATA_AND_USER_WIDTH),// Data signal width
+-      //   .ByteWidth(32'd8),              // Width of a data byte
+-      //   .NumPorts(32'd1),               // Number of read and write ports
+-      //   .Latency(32'd1),                // Latency when the read data is available
+-      //   .SimInit(SIM_INIT),             // Simulation initialization
+-      //   .BYTE_ACCESS(BYTE_ACCESS),      // ACCESS byte or full word
+-      //   .PrintSimCfg(1'b0)              // Print configuration
+-      // ) i_tc_sram_wrapper (
+-      //   .clk_i    ( clk_i                     ),
+-      //   .rst_ni   ( rst_ni                    ),
+-      //   .req_i    ( req_i                     ),
+-      //   .we_i     ( we_i                      ),
+-      //   .be_i     ( be                        ),
+-      //   .wdata_i  ( wdata_user                ),
+-      //   .addr_i   ( addr_i                    ),
+-      //   .rdata_o  ( rdata_user                )
+-      // );
++      tc_sram_wrapper_cache_techno #(
++        .NumWords(NUM_WORDS),           // Number of Words in data array
++        .DataWidth(DATA_AND_USER_WIDTH),// Data signal width
++        .ByteWidth(32'd8),              // Width of a data byte
++        .NumPorts(32'd1),               // Number of read and write ports
++        .Latency(32'd1),                // Latency when the read data is available
++        .SimInit(SIM_INIT),             // Simulation initialization
++        .BYTE_ACCESS(BYTE_ACCESS),      // ACCESS byte or full word
++        .PrintSimCfg(1'b0)              // Print configuration
++      ) i_tc_sram_wrapper (
++        .clk_i    ( clk_i                     ),
++        .rst_ni   ( rst_ni                    ),
++        .req_i    ( req_i                     ),
++        .we_i     ( we_i                      ),
++        .be_i     ( be                        ),
++        .wdata_i  ( wdata_user                ),
++        .addr_i   ( addr_i                    ),
++        .rdata_o  ( rdata_user                )
++      );
+     end
+   end else begin
+     sram #(
+diff --git a/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram.sv b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram.sv
+index d078555ac4..d4cab7de79 100644
+--- a/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram.sv
++++ b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram.sv
+@@ -39,26 +39,18 @@ module hpdcache_sram
+     output logic [DATA_SIZE-1:0]  rdata
+ );
+ 
+-    fakeram7_64x28 ram_i (
+-        .clk(clk),
+-        .ce_in(cs),
+-        .we_in(we),
+-        .addr_in(addr),
+-        .wd_in(wdata),
+-        .rd_out(rdata)
++    hpdcache_sram_1rw #(
++        .ADDR_SIZE(ADDR_SIZE),
++        .DATA_SIZE(DATA_SIZE),
++        .DEPTH(DEPTH)
++    ) ram_i (
++        .clk,
++        .rst_n,
++        .cs,
++        .we,
++        .addr,
++        .wdata,
++        .rdata
+     );
+-    // hpdcache_sram_1rw #(
+-    //     .ADDR_SIZE(ADDR_SIZE),
+-    //     .DATA_SIZE(DATA_SIZE),
+-    //     .DEPTH(DEPTH)
+-    // ) ram_i (
+-    //     .clk,
+-    //     .rst_n,
+-    //     .cs,
+-    //     .we,
+-    //     .addr,
+-    //     .wdata,
+-    //     .rdata
+-    // );
+ 
+ endmodule : hpdcache_sram
+diff --git a/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram_wbyteenable.sv b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram_wbyteenable.sv
+index d0cf76a389..43bdb4506f 100644
+--- a/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram_wbyteenable.sv
++++ b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/hpdcache_sram_wbyteenable.sv
+@@ -39,27 +39,20 @@ module hpdcache_sram_wbyteenable
+     input  logic [DATA_SIZE/8-1:0] wbyteenable,
+     output logic [DATA_SIZE-1:0]   rdata
+ );
+-   fakeram7_128x64 ram_i (
+-        .clk (clk),
+-        .ce_in(cs),
+-        .we_in(we),
+-        .addr_in(addr),
+-        .wd_in(wdata),
+-        .rd_out(rdata)
++
++    hpdcache_sram_wbyteenable_1rw #(
++        .ADDR_SIZE(ADDR_SIZE),
++        .DATA_SIZE(DATA_SIZE),
++        .DEPTH(DEPTH)
++    ) ram_i (
++        .clk,
++        .rst_n,
++        .cs,
++        .we,
++        .addr,
++        .wdata,
++        .wbyteenable,
++        .rdata
+     );
+-    // hpdcache_sram_wbyteenable_1rw #(
+-    //     .ADDR_SIZE(ADDR_SIZE),
+-    //     .DATA_SIZE(DATA_SIZE),
+-    //     .DEPTH(DEPTH)
+-    // ) ram_i (
+-    //     .clk,
+-    //     .rst_n,
+-    //     .cs,
+-    //     .we,
+-    //     .addr,
+-    //     .wdata,
+-    //     .wbyteenable,
+-    //     .rdata
+-    // );
+ 
+ endmodule : hpdcache_sram_wbyteenable
+diff --git a/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_1rw.sv b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_1rw.sv
+new file mode 100644
+index 0000000000..7288c731fd
+--- /dev/null
++++ b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_1rw.sv
+@@ -0,0 +1,60 @@
++/*
++ *  Copyright 2023 CEA*
++ *  *Commissariat a l'Energie Atomique et aux Energies Alternatives (CEA)
++ *
++ *  SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
++ *
++ *  Licensed under the Solderpad Hardware License v 2.1 (the “License”); you
++ *  may not use this file except in compliance with the License, or, at your
++ *  option, the Apache License version 2.0. You may obtain a copy of the
++ *  License at
++ *
++ *  https://solderpad.org/licenses/SHL-2.1/
++ *
++ *  Unless required by applicable law or agreed to in writing, any work
++ *  distributed under the License is distributed on an “AS IS” BASIS, WITHOUT
++ *  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
++ *  License for the specific language governing permissions and limitations
++ *  under the License.
++ */
++/*
++ *  Authors       : Cesar Fuguet
++ *  Creation Date : March, 2020
++ *  Description   : SRAM behavioral model
++ *  History       :
++ */
++module hpdcache_sram_1rw
++#(
++    parameter int unsigned ADDR_SIZE = 0,
++    parameter int unsigned DATA_SIZE = 0,
++    parameter int unsigned DEPTH = 2**ADDR_SIZE
++)
++(
++    input  logic                  clk,
++    input  logic                  rst_n,
++    input  logic                  cs,
++    input  logic                  we,
++    input  logic [ADDR_SIZE-1:0]  addr,
++    input  logic [DATA_SIZE-1:0]  wdata,
++    output logic [DATA_SIZE-1:0]  rdata
++);
++
++    /*
++     *  Internal memory array declaration
++     */
++    typedef logic [DATA_SIZE-1:0] mem_t [DEPTH];
++    mem_t mem;
++
++    /*
++     *  Process to update or read the memory array
++     */
++    always_ff @(posedge clk)
++    begin : mem_update_ff
++        if (cs == 1'b1) begin
++            if (we == 1'b1) begin
++                mem[addr] <= wdata;
++            end
++            rdata <= mem[addr];
++        end
++    end : mem_update_ff
++endmodule : hpdcache_sram_1rw
+diff --git a/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wbyteenable_1rw.sv b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wbyteenable_1rw.sv
+new file mode 100644
+index 0000000000..0e5e2256cc
+--- /dev/null
++++ b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/macros/behav/hpdcache_sram_wbyteenable_1rw.sv
+@@ -0,0 +1,63 @@
++/*
++ *  Copyright 2023 CEA*
++ *  *Commissariat a l'Energie Atomique et aux Energies Alternatives (CEA)
++ *
++ *  SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
++ *
++ *  Licensed under the Solderpad Hardware License v 2.1 (the “License”); you
++ *  may not use this file except in compliance with the License, or, at your
++ *  option, the Apache License version 2.0. You may obtain a copy of the
++ *  License at
++ *
++ *  https://solderpad.org/licenses/SHL-2.1/
++ *
++ *  Unless required by applicable law or agreed to in writing, any work
++ *  distributed under the License is distributed on an “AS IS” BASIS, WITHOUT
++ *  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
++ *  License for the specific language governing permissions and limitations
++ *  under the License.
++ */
++/*
++ *  Authors       : Cesar Fuguet
++ *  Creation Date : March, 2020
++ *  Description   : Behavioral model of a 1RW SRAM with write byte enable
++ *  History       :
++ */
++module hpdcache_sram_wbyteenable_1rw
++#(
++    parameter int unsigned ADDR_SIZE = 0,
++    parameter int unsigned DATA_SIZE = 0,
++    parameter int unsigned DEPTH = 2**ADDR_SIZE
++)
++(
++    input  logic                   clk,
++    input  logic                   rst_n,
++    input  logic                   cs,
++    input  logic                   we,
++    input  logic [ADDR_SIZE-1:0]   addr,
++    input  logic [DATA_SIZE-1:0]   wdata,
++    input  logic [DATA_SIZE/8-1:0] wbyteenable,
++    output logic [DATA_SIZE-1:0]   rdata
++);
++
++    /*
++     *  Internal memory array declaration
++     */
++    typedef logic [DATA_SIZE-1:0] mem_t [DEPTH];
++    mem_t mem;
++
++    /*
++     *  Process to update or read the memory array
++     */
++    always_ff @(posedge clk)
++    begin : mem_update_ff
++        if (cs == 1'b1) begin
++            if (we == 1'b1) begin
++                for (int i = 0; i < DATA_SIZE/8; i++) begin
++                    if (wbyteenable[i]) mem[addr][i*8 +: 8] <= wdata[i*8 +: 8];
++                end
++            end
++            rdata <= mem[addr];
++        end
++    end : mem_update_ff
++endmodule : hpdcache_sram_wbyteenable_1rw
+-- 
+2.53.0
+

@@ -214,6 +214,12 @@ ORFS_PATCHES = [
     # for an equivalence check of the macro against that module. Not
     # upstreamed; retires at a bump onto an ORFS that writes it.
     Label("//patches:0201-orfs-fakeram-lec-model.patch"),
+    # 0204: asap7/cva6's RAMs as upstream has them, unmodified, made macros
+    # by AUTO_MEMORIES (cva6.memories), the I-cache's behind sram_cache's
+    # techno cut by SYNTH_VERILOG_SURGERY; in place of fakeram rewrites
+    # that dropped the D-cache's byte enables (ORFS #4769). Not upstreamed
+    # until tested; retires at a bump onto an ORFS that carries it.
+    Label("//patches:0204-orfs-cva6-upstream-rams.patch"),
     # 0205: a memory's write mask may have a ragged last lane
     # (mask_lane_width): tc_sram's byte enables over cva6's 25-bit I-cache
     # tag. Not upstreamed; retires at a bump onto an ORFS that has it.
