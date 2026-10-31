@@ -126,6 +126,68 @@ tile actions would bring the stage close to gpl's own factor.
   full-netlist STA run at the coarse positions, a serial step not in the
   table.
 
+### The flow up to grt, repair included, against a GPU
+
+A GPU speeds up gpl alone, so it has to be compared over the whole flow up to
+grt, where repair is CPU-bound and serial.
+
+XSTile from floorplan to grt takes 323 min (11 + 225 + 45 + 42,
+`resources.json`). How that time splits between gpl, repair and the rest is
+**assumed, not measured**:
+
+| bucket | min | what is in it |
+| --- | --- | --- |
+| gpl | 158 | f = 0.7 of place |
+| repair | 102 | `repair_design` at place (40), `repair_timing` at floorplan (5), cts (30) and grt (27) |
+| rest | 63 | odb I/O, IO placement, detailed placement, building the clock tree, global route |
+
+How repair tiles:
+
+- **`repair_design`** (slew, capacitance, fanout) is per net. Each net goes to
+  the tile that holds its driver, so the pass tiles at close to K, plus action
+  start-up.
+- **Hold repair** is mostly local, because hold paths are short.
+- **Setup `repair_timing`** runs under budgets:
+  1. one full-design STA run (serial);
+  2. slack handed out to each tile as `set_max_delay` (zero-slack algorithm);
+  3. K parallel tile repairs;
+  4. a join.
+
+  R rounds, with the boundaries shifted between rounds. The serial steps in
+  every round, full STA + join + start-up at about 4 min, make the floor:
+  R = 3 rounds in each of cts and grt is about 24 min of serial work, against
+  57 min of flat repair. If repair's full update per pass
+  (`ideas/mlp.md`) scales with design size, the tile work itself could
+  shrink faster than K; that is not measured.
+
+Happy cases, K = 16:
+
+| configuration | gpl | split/join | repair | rest | total | speedup |
+| --- | --- | --- | --- | --- | --- | --- |
+| flat, CPU (today) | 158 | 0 | 102 | 63 | 323 | 1.0x |
+| flat, gpl on GPU (40x) | 4 | 0 | 102 | 63 | 169 | 1.9x |
+| flat, GPU + repair fixed on one machine (3x) | 4 | 0 | 34 | 63 | 101 | 3.2x |
+| tiled, CPU | 20 | 10 | 35 | 45 | 110 | 2.9x |
+| tiled, gpl on GPU per tile | 12 | 10 | 35 | 45 | 102 | 3.2x |
+
+Notes on the table:
+
+- A GPU alone is capped by Amdahl at about 2x, because repair and the rest
+  stay serial on the CPU.
+- Tiling's own limit is the full-design STA it runs in every round of every
+  repair stage.
+- In the tiled rows, the rest drops from 63 to 45 because detailed placement
+  tiles; global route and building the clock tree do not.
+- The "repair fixed on one machine" row is a guess at what a batched,
+  cone-local incremental update in `repair_timing` would give; it has not
+  been tried.
+- Both approaches top out near 3x, against the same floor: global route,
+  building the clock tree and full-design odb I/O. Going past that means
+  tiling global route too.
+- **What separates the two is memory.** The flat runs on a single machine,
+  GPU or not, keep their peak. Tiling cuts the peak of every action to one
+  tile's share, and grt's peak too once global route is tiled.
+
 The intended gains are:
 
 - a place stage's peak memory down to the size of one tile plus the join's
