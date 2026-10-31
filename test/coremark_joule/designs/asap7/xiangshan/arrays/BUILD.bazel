@@ -353,6 +353,16 @@ STUDY_SOURCES = {
     ]
 }
 
+# A study, off by default: both arms with global route's resistance-aware
+# mode off, <top>_nores and <top>_rtl_nores. Uncache's extraction routes
+# without 2D overflow, and FastRoute then reroutes every net in 3D with
+# resistance-aware's edge-length thresholds lifted (58.8 of its 60.5 s,
+# GRT timer); its RTL arm ends with one overflowing gcell and skips that
+# pass (8 s). Task 8 in ideas/structured-macros.md.
+RES_STUDY = {
+    "Uncache": {"ENABLE_RESISTANCE_AWARE": "0"},
+}
+
 # Each block twice, the arms of its A/B: <top> on the extraction and
 # <top>_rtl on the module as it is (the same proc JSON written back as
 # Verilog, no entry cell, nothing folded), every other setting the same by
@@ -387,7 +397,7 @@ STUDY_SOURCES = {
             "SYNTH_HIERARCHICAL": "1",
             # the tree's inverters (<top>FanoutInv) kept, so synthesis does
             # not fold the two levels away
-            "SYNTH_KEEP_MODULES": "" if rtl else " ".join([top + "Entry"] + ([top + "FanoutInv"] if variant in ("tree", "noread_tree") or (variant in (None, "slew", "abcwin") and top in TREE) else [])),
+            "SYNTH_KEEP_MODULES": "" if rtl else " ".join([top + "Entry"] + ([top + "FanoutInv"] if variant in ("tree", "noread_tree") or (variant in (None, "slew", "abcwin", "nores") and top in TREE) else [])),
         } | ({"SYNTH_HDL_FRONTEND": ""} if top in YOSYS_FRONTEND else {}) | extra,
         last_stage = "grt",
         pdk = "//flow:asap7",
@@ -396,7 +406,7 @@ STUDY_SOURCES = {
         }) | STUDY_SOURCES.get(variant, {}),
         stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
         tags = ["manual"],
-        user_arguments = BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS | ({} if rtl or top in YOSYS_FRONTEND else {"XS_FOLD_MODULES": " ".join([top + "Entry"] + ([top + "FanoutInv"] if variant in ("tree", "noread_tree") or (variant in (None, "slew", "abcwin") and top in TREE) else []))}),
+        user_arguments = BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS | ({} if rtl or top in YOSYS_FRONTEND else {"XS_FOLD_MODULES": " ".join([top + "Entry"] + ([top + "FanoutInv"] if variant in ("tree", "noread_tree") or (variant in (None, "slew", "abcwin", "nores") and top in TREE) else []))}),
         user_sources = BLOCK["user_sources"] | XS_ICG_USER_SOURCES,
         user_stages = {
             v: s
@@ -438,7 +448,18 @@ STUDY_SOURCES = {
     ] if top in SLEW_STUDY else []) + ([
         (False, "abcwin", {}),
         (True, "rtl_abcwin", {}),
-    ] if top in ABC_WINDOW_STUDY else [])
+    ] if top in ABC_WINDOW_STUDY else []) + ([
+        (
+            False,
+            "nores",
+            RES_STUDY[top],
+        ),
+        (
+            True,
+            "rtl_nores",
+            RES_STUDY[top],
+        ),
+    ] if top in RES_STUDY else [])
 ]
 
 # A study, off by default: the extraction with its entry cells flattened
@@ -513,7 +534,10 @@ FLAT_STUDY = [
     ] if top in SLEW_STUDY else []) + ([
         top + "_abcwin",
         top + "_rtl_abcwin",
-    ] if top in ABC_WINDOW_STUDY else [])
+    ] if top in ABC_WINDOW_STUDY else []) + ([
+        top + "_nores",
+        top + "_rtl_nores",
+    ] if top in RES_STUDY else [])
 ]
 
 # The extraction's proof as a test: the extracted module, its comparisons
