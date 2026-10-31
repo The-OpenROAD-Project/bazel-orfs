@@ -54,6 +54,9 @@ _EXPORTED_EXTS = [
     "py",
     # AUTO_MEMORIES_REGFILES specs, for tests that build one on its own
     "regfile",
+    # ADDITIONAL_MEMORIES entries, named from a variant's config.mk
+    # (asap7/cva6-regfile includes asap7/cva6's)
+    "memories",
 ]
 
 _EXPORTS_SENTINEL = "_orfs_design_exports_sentinel"
