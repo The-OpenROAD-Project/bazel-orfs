@@ -209,6 +209,11 @@ ORFS_PATCHES = [
     # Not upstreamed; retires at a bump onto an ORFS and OpenROAD that
     # have it.
     Label("//patches:0160-orfs-regfile-write-words.patch"),
+    # 0201: FakeRAM2.0's orfs_asap7 backend also writes <name>.v, each
+    # AUTO_MEMORIES macro's function by the replaced module's pin names,
+    # for an equivalence check of the macro against that module. Not
+    # upstreamed; retires at a bump onto an ORFS that writes it.
+    Label("//patches:0201-orfs-fakeram-lec-model.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

@@ -1,0 +1,170 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] FakeRAM2.0: write each AUTO_MEMORIES macro's function as
+ Verilog
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The orfs_asap7 backend wrote a macro's .lib and .lef and nothing that
+says what the macro does: AUTO_MEMORIES replaced a module with a
+macro, and no tool could check that the macro does what the module
+did. An equivalence checker reads neither .lib nor .lef, and FakeRAM's
+own Verilog model is a simulation model (X on unknown inputs, $display,
+timing checks, an X read with the enable low) that no checker reads
+and that differs from a module whose output holds.
+
+The backend now also writes <name>.v: the same ports, by the module's
+names, and what the macro does on a clock edge. With the enable high,
+a write when write mode is high (per mask lane when masked) and a
+registered read of the old word; with the enable low, the output
+holds. Checked with kepler-formal against cva6's
+hpdcache_sram_wbyteenable_1rw, with a reversed mask and an inverted
+enable as controls that must fail.
+
+Carried in bazel-orfs, not upstreamed; retires at a //:bump onto an
+ORFS that writes the model.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ tools/FakeRAM2.0/orfs_asap7/generate.py       |  6 ++++
+ tools/FakeRAM2.0/test/spsram_mask_test.py     | 34 +++++++++++++++++++
+ .../utils/single_port_ram_verilog_exporter.py | 34 +++++++++++++++++++
+ 3 files changed, 74 insertions(+)
+
+diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asap7/generate.py
+index 774684095a..cf8715d081 100644
+--- a/tools/FakeRAM2.0/orfs_asap7/generate.py
++++ b/tools/FakeRAM2.0/orfs_asap7/generate.py
+@@ -24,6 +24,7 @@ from utils.memory_factory import MemoryFactory
+ from utils.timing_data import TimingData
+ from utils.ram_liberty_exporter import RAMLibertyExporter
+ from utils.lef_exporter import LefExporter
++from utils.single_port_ram_verilog_exporter import SinglePortRAMVerilogExporter
+ 
+ ASAP7_PROCESS_CONFIG = {
+     "tech_nm": 7,
+@@ -173,6 +174,11 @@ def run_orfs_asap7(platform: str, out_dir: Path, json_path: Path):
+         with open(lef_path, "w") as f:
+             LefExporter(ram).export(f)
+ 
++        # The macro's function, for checking it against the module it
++        # replaces (an equivalence checker reads neither .lib nor .lef)
++        with open(out_dir / f"{name}.v", "w") as f:
++            SinglePortRAMVerilogExporter(ram).export_lec_model(f)
++
+         # the area the .lib states, beside the name: synthesis costs the
+         # blackbox by it
+         blackboxes.append(f"{name} {ram.physical.get_area(False):.6f}\n")
+diff --git a/tools/FakeRAM2.0/test/spsram_mask_test.py b/tools/FakeRAM2.0/test/spsram_mask_test.py
+index 2eea040f4c..b4675ff423 100755
+--- a/tools/FakeRAM2.0/test/spsram_mask_test.py
++++ b/tools/FakeRAM2.0/test/spsram_mask_test.py
+@@ -23,6 +23,7 @@ from memory_factory import MemoryFactory
+ from timing_data import TimingData
+ from ram_liberty_exporter import RAMLibertyExporter
+ from lef_exporter import LefExporter
++from single_port_ram_verilog_exporter import SinglePortRAMVerilogExporter
+ from test_utils import TestUtils
+ from orfs_asap7.generate import (
+     ASAP7_PROCESS_CONFIG,
+@@ -130,6 +131,34 @@ class MaskedSinglePortRAMTest(unittest.TestCase):
+         self.assertIn("input  [MASK_LANES-1:0]  RW0_wmask;", v)
+         self.assertIn("input [1:0] RW0_wmask", sv)
+ 
++    def test_lec_model_is_the_function_alone(self):
++        ram = self.make("array_64x114", 114, 64, RW0_NAMES, 2)
++        out = io.StringIO()
++        SinglePortRAMVerilogExporter(ram).export_lec_model(out)
++        v = out.getvalue()
++        # a write per lane under its mask bit, only with the enable high
++        self.assertIn("if (RW0_en) begin", v)
++        self.assertIn("if (RW0_wmode) begin", v)
++        self.assertIn("if (RW0_wmask[0])", v)
++        self.assertIn(
++            "mem[RW0_addr][1*LANE_WIDTH +: LANE_WIDTH] <= RW0_wdata[1*LANE_WIDTH +: LANE_WIDTH];",
++            v,
++        )
++        # the read is registered under the enable; without it the output holds
++        self.assertIn("RW0_rdata <= mem[RW0_addr];", v)
++        self.assertNotIn("else", v)
++        # nothing an equivalence checker cannot read
++        for construct in ("'x", "$display", "specify", "corrupt_mem_on_X_p &&"):
++            self.assertNotIn(construct, v)
++
++    def test_lec_model_unmasked_writes_the_word(self):
++        ram = self.make("array_64x32", 32, 64)
++        out = io.StringIO()
++        SinglePortRAMVerilogExporter(ram).export_lec_model(out)
++        v = out.getvalue()
++        self.assertNotIn("MASK_LANES", v)
++        self.assertRegex(v, r"mem\[\w+\] <= \w+;")
++
+     def test_mask_must_divide_the_word(self):
+         with self.assertRaises(Exception):
+             MemoryConfig("m", 114, 64, 1, 0, RW0_NAMES, 5)
+@@ -194,10 +223,15 @@ class BackendTest(unittest.TestCase):
+                 [
+                     "array_64x114.lef",
+                     "array_64x114.lib",
++                    "array_64x114.v",
+                     "array_64x114_pre_layout.lib",
+                     "blackboxes.txt",
+                 ],
+             )
++            # the function, by the module's own pin names
++            v = (out / "array_64x114.v").read_text()
++            self.assertIn("module array_64x114", v)
++            self.assertIn("if (RW0_wmask[1])", v)
+             lib = (out / "array_64x114.lib").read_text()
+             self.assertIn("cell(array_64x114)", lib)
+             self.assertIn("bus(RW0_wmask)", lib)
+diff --git a/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py b/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py
+index e5c1a84157..076494f37f 100644
+--- a/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py
++++ b/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py
+@@ -90,6 +90,40 @@ class SinglePortRAMVerilogExporter(VerilogExporter):
+         self.write_timing_check(out_fh)
+         out_fh.write("endmodule\n")
+ 
++    def export_lec_model(self, out_fh):
++        """Exports the macro's function, for logic equivalence checking.
++
++        The same ports as export_module and what the macro does on a clock
++        edge: with the enable high, a write (per mask lane when masked)
++        and a registered read of the old word; with the enable low, the
++        output holds. Nothing an equivalence checker cannot read: no X,
++        no corruption on unknown inputs, no $display, no timing checks.
++        """
++
++        mem = self.get_memory()
++        addr_bus, din_bus, dout_bus, we_pin, clk_pin, ce_pin = self._get_names()
++        mask_bus, lanes = self._get_mask()
++        out_fh.write(f"module {mem.get_name()}\n")
++        self.write_module_ports(out_fh)
++        out_fh.write("   reg    [BITS-1:0]        mem [0:WORD_DEPTH-1];\n")
++        out_fh.write("\n")
++        out_fh.write(f"   always @(posedge {clk_pin})\n")
++        out_fh.write(f"      if ({ce_pin}) begin\n")
++        out_fh.write(f"         if ({we_pin}) begin\n")
++        if mask_bus:
++            for j in range(lanes):
++                lane = f"[{j}*LANE_WIDTH +: LANE_WIDTH]"
++                out_fh.write(f"            if ({mask_bus}[{j}])\n")
++                out_fh.write(
++                    f"               mem[{addr_bus}]{lane} <= {din_bus}{lane};\n"
++                )
++        else:
++            out_fh.write(f"            mem[{addr_bus}] <= {din_bus};\n")
++        out_fh.write("         end\n")
++        out_fh.write(f"         {dout_bus} <= mem[{addr_bus}];\n")
++        out_fh.write("      end\n")
++        out_fh.write("endmodule\n")
++
+     def write_module_ports(self, out_fh):
+         """Writes the module port declarations"""
+ 
+-- 
+2.53.0
+
