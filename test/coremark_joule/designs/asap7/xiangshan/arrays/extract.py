@@ -648,7 +648,71 @@ def clock_ports(cell):
 CLOCK_PIN = re.compile(r"(?i)^(clk|clock|ck|cp)(_i)?$")
 
 
-def fanout_tree(parent, name, group, cell):
+STATEFUL = re.compile(r"(?i)dff|latch|mem|^\$_?(sr|ff)\b|^\$_(sr|ff)_|^\$(any|all)")
+
+
+def cone_key(parent):
+    """A key per bit of the block, equal for two bits that combinational
+    cells of the same type and parameters compute from the same bits:
+    the RTL's per-entry copy of a computation (PhysicalStoreQueue's 64
+    adders on the forwarding query's end, one per entry) is then one
+    broadcast to fanout_tree, as synthesis's opt_merge will make it, and
+    is treed. Registers are never keyed alike: no register is merged."""
+    drv = {}
+    for n, c in parent["cells"].items():
+        if not c["type"].startswith("$") or STATEFUL.search(c["type"]):
+            continue
+        for p, bs in c["connections"].items():
+            if c["port_directions"].get(p) == "output":
+                for i, b in enumerate(bs):
+                    drv[b] = (n, p, i)
+    memo = {}
+    ids = {}
+
+    def key(b):
+        if isinstance(b, str) or b not in drv:
+            return b
+        if b in memo:
+            return memo[b]
+        # iteratively, inputs first: cones are deeper than Python's stack
+        stack = [b]
+        while stack:
+            x = stack[-1]
+            if memo.get(x, ("",))[0] == "cone":
+                stack.pop()
+                continue
+            n, p, i = drv[x]
+            c = parent["cells"][n]
+            ins = [
+                (q, xs)
+                for q, xs in sorted(c["connections"].items())
+                if c["port_directions"].get(q) == "input"
+            ]
+            todo = [
+                y
+                for _, xs in ins
+                for y in xs
+                if not isinstance(y, str) and y in drv and y not in memo
+            ]
+            if todo and x not in memo:
+                memo[x] = ("loop", x)  # a combinational loop keys to itself
+                stack.extend(todo)
+                continue
+            stack.pop()
+            k = (
+                c["type"],
+                tuple(sorted(c["parameters"].items())),
+                p,
+                i,
+                tuple((q, tuple(memo.get(y, y) for y in xs)) for q, xs in ins),
+            )
+            memo[x] = ("cone", ids.setdefault(k, len(ids)))
+        return memo[b]
+
+    return key
+
+
+def fanout_tree(parent, name, group, cell, copies=False):
     """Each input every entry cell shares, a broadcast, driven through two
     levels of inverters in the block, one at the root and one per group
     of entries (--fanout-tree=<group>), instead of one net into every
@@ -659,8 +723,10 @@ def fanout_tree(parent, name, group, cell):
     module of one $not that the flow keeps (SYNTH_KEEP_MODULES), so
     synthesis maps it to the platform's inverter and does not fold the
     two levels away; a check flattens it. A clock is left alone
-    (clock_ports). Returns the number of broadcast bits treed and the
-    module."""
+    (clock_ports). With copies (--tree-copies), a per-entry copy of the
+    same computation in the block is a broadcast too (cone_key), treed
+    from the first entry's copy; the others are left unread. Returns the number of broadcast bits treed,
+    how many of them were such copies, and the module."""
     cell_name = name + "Entry"
     inv = name + "FanoutInv"
     clocks = clock_ports(cell)
@@ -676,12 +742,23 @@ def fanout_tree(parent, name, group, cell):
     ]
     next_id = max(used + [0]) + 1
     count = 0
+    shared = 0
+    cone = cone_key(parent) if copies else None
     for p, d in (ents[0]["port_directions"].items() if ents else []):
         if d != "input" or p in clocks or len(ents[0]["connections"][p]) != 1:
             continue
         b = ents[0]["connections"][p][0]
-        if isinstance(b, str) or any(e["connections"][p] != [b] for e in ents):
+        if isinstance(b, str) or any(
+            e["connections"][p] != [b]
+            and (
+                cone is None
+                or isinstance(e["connections"][p][0], str)
+                or cone(e["connections"][p][0]) != cone(b)
+            )
+            for e in ents
+        ):
             continue
+        shared += any(e["connections"][p] != [b] for e in ents)
         root = next_id
         next_id += 1
 
@@ -728,7 +805,7 @@ def fanout_tree(parent, name, group, cell):
             "Y": {"hide_name": 0, "bits": [3], "attributes": {}},
         },
     }
-    return count, module
+    return count, shared, module
 
 
 def main(argv):
@@ -742,8 +819,12 @@ def main(argv):
     mods, stats, renames = extract(design["modules"][name], name, decode)
     for a in argv[4:]:
         if a.startswith("--fanout-tree="):
-            stats["fanout_trees"], inv = fanout_tree(
-                mods[name], name, int(a.split("=", 1)[1]), mods[name + "Entry"]
+            stats["fanout_trees"], stats["fanout_trees_shared"], inv = fanout_tree(
+                mods[name],
+                name,
+                int(a.split("=", 1)[1]),
+                mods[name + "Entry"],
+                "--tree-copies" in argv,
             )
             mods[name + "FanoutInv"] = inv
     design["modules"].update(mods)
