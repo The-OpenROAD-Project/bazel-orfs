@@ -860,6 +860,89 @@
       },
       "floor_ps": 1984,
       "floor_register": "core/backend/inner_ctrlBlock/decodeBufValid_3"
+    },
+    {
+      "date": "2026-10-31",
+      "measured": "main's base flow built from source at 6aa77428 with #1466 (patch 0168 for pinned synthesis partitions), OpenROAD bf0feec and ORFS 75cd896b, with orfs_schedule on a 122 GB machine; each part's KPI at its own global route",
+      "parent_ps": 2206,
+      "blocks": {
+        "CoupledL2": 815,
+        "Frontend": 1283,
+        "MemBlock": 1158,
+        "FltRegionModule": 951,
+        "VecRegionModule": 1048
+      },
+      "note": "main since run 20: OpenROAD 9ddb60d to bf0feec (two bumps) and ORFS 0fcc418 to 75cd896b; one run, the causes not separated, and 6 ps on the parent is within reach of noise. MemBlock 1,236 to 1,158 ps. The parent's worst path as in run 20, intRegion's pipeToALU0 fuType into vecRegion's gpWbWakeUp; no floor or flat run measured for this row",
+      "histograms": {
+        "parent": {
+          "bin_ps": 10,
+          "from_ps": -50,
+          "counts": [2, 0, 1, 4, 11, 4, 1, 1, 5, 139, 1822, 2230, 1243, 580, 396, 417, 430, 329, 295, 194, 200, 171, 164, 220, 164, 156, 116, 146, 122, 112, 131, 104, 120, 133, 126, 139, 201, 166, 191, 164, 157, 204, 177, 220, 233, 259, 249, 289, 314, 386, 449, 521, 632, 755, 721, 672, 706, 731, 825, 820, 848, 811, 853, 931, 924, 814, 779, 818, 740, 728, 715, 783, 808, 793, 794, 709, 758, 767, 837, 861, 855, 812, 767, 806, 802, 692, 761, 869, 878, 922, 1128, 1243, 1330, 1344, 1415, 1565, 1618, 1457, 1823, 1772, 1856, 2032, 2204, 2300, 2502, 2368, 2331, 2284, 2238, 2196, 2041, 1861, 1820, 1854, 1703, 1643, 1458, 1478, 1285, 1272, 1119, 1157, 1202, 1112, 1067, 980, 913, 752, 734, 788, 651, 653, 630, 634, 569, 524, 567, 660, 730, 786, 886, 1053, 1078, 966, 1049, 1081, 1173, 1283, 1318, 1172, 1214, 1195, 1238, 1279, 1159, 1106, 1096, 1008, 934, 967, 907, 872, 788, 831, 834, 781, 808, 725, 686, 625, 663, 642, 773, 664, 644, 547, 519, 539, 575, 452, 417, 340, 359, 313, 258, 257, 256, 271, 237, 218, 186, 175, 182, 180, 168, 161, 128, 116, 147, 95, 83, 71, 72, 58, 73, 71, 50, 57, 40, 50, 72, 75, 85, 111, 134, 154, 133, 106, 105, 69, 46, 17, 0, 0, 1, 1]
+        },
+        "Frontend": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [389, 303, 55, 155, 70, 195, 258, 218, 232, 251, 303, 322, 339, 367, 391, 587, 569, 657, 501, 608, 683, 803, 1100, 1196, 1315, 1247, 1029, 1197, 1091, 1128, 1398, 1600, 1543, 1312, 1373, 1177, 1020, 1014, 1237, 1502, 1198, 848, 1022, 1508, 1677, 1669, 2192, 2117, 1665, 1751, 1583, 1709, 1739, 1942, 2390, 2542, 1765, 1222, 732, 595, 607, 625, 737, 659, 745, 1188, 1041, 1826, 3489, 3851, 2932, 2204, 1447, 1314, 1506, 1078, 1064, 1788, 2995, 3584, 2858, 1660, 805, 895, 964, 822, 1035, 1065, 870, 631, 738, 1125, 1766, 1800, 1576, 1289, 1223, 1503, 1795, 1325, 1212, 1338, 847, 424, 382, 273, 243, 606, 893, 632, 587, 374, 208, 422, 249, 51, 90, 150, 184, 76, 47, 53, 39, 17, 13, 5]
+        },
+        "MemBlock": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [2101, 656, 326, 361, 218, 216, 229, 298, 430, 650, 521, 639, 882, 1158, 1432, 1838, 2447, 2986, 3606, 3975, 4677, 4919, 4834, 4717, 4830, 5419, 4964, 4440, 4079, 4286, 3745, 3279, 2730, 2557, 2444, 2981, 3582, 3538, 3387, 3424, 2714, 2583, 2265, 2622, 3140, 3671, 4097, 4633, 4389, 4325, 4221, 4542, 2457, 2657, 2645, 2151, 1954, 1956, 3113, 4808, 3716, 2791, 3213, 3382, 4444, 5160, 3065, 2647, 3415, 4130, 3494, 2878, 2785, 2715, 2779, 2698, 3301, 3527, 4565, 5258, 4762, 3669, 2423, 2697, 2791, 1777, 1350, 1894, 2448, 3251, 3586, 3660, 3238, 3495, 2696, 1751, 1315, 793, 565, 315, 261, 376, 198, 322, 66, 71, 67, 86, 88, 116, 156, 270, 198]
+        },
+        "CoupledL2": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [687, 328, 176, 218, 310, 227, 173, 124, 110, 100, 78, 99, 69, 121, 46, 56, 65, 87, 150, 249, 298, 426, 618, 719, 1122, 1380, 1474, 1529, 1321, 1226, 1094, 1407, 1342, 1367, 1275, 1345, 1183, 1301, 1130, 1296, 1534, 2861, 4164, 2474, 1294, 1450, 1459, 1843, 1989, 2018, 2004, 1656, 2041, 2360, 2392, 2178, 1602, 987, 569, 614, 1066, 1723, 2272, 1892, 2757, 3616, 2775, 1720, 1486, 892, 606, 503, 320, 489, 1346, 1709, 302, 13, 2]
+        },
+        "VecRegionModule": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [552, 341, 21, 406, 413, 295, 25, 27, 52, 67, 58, 76, 93, 142, 174, 180, 216, 286, 291, 372, 417, 347, 276, 440, 493, 361, 366, 396, 413, 478, 517, 568, 687, 741, 992, 1028, 1125, 1306, 1321, 1241, 1575, 1754, 2106, 2180, 2130, 1224, 1076, 1214, 717, 598, 606, 697, 1108, 1533, 952, 671, 626, 623, 649, 613, 564, 609, 719, 790, 785, 738, 587, 464, 366, 263, 249, 258, 292, 265, 292, 247, 192, 146, 162, 141, 134, 139, 150, 145, 139, 153, 160, 186, 182, 213, 254, 176, 150, 134, 107, 76, 69, 43, 33, 23, 11, 4]
+        },
+        "FltRegionModule": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [16, 12, 32, 86, 36, 17, 34, 46, 55, 52, 38, 45, 51, 66, 41, 56, 41, 53, 58, 35, 33, 20, 50, 25, 40, 78, 108, 86, 90, 102, 135, 163, 297, 389, 465, 573, 586, 822, 915, 1086, 1240, 1005, 827, 774, 521, 287, 235, 250, 282, 237, 324, 257, 258, 191, 218, 282, 387, 294, 173, 173, 189, 167, 148, 116, 151, 182, 131, 123, 149, 175, 180, 154, 152, 164, 214, 195, 175, 107, 87, 49, 30, 10, 1, 0, 0, 1, 1, 3, 1, 1, 1, 1, 1]
+        }
+      },
+      "worst_paths": {
+        "parent": {
+          "period_ps": 2206,
+          "from": "core/backend/inner_intRegion/pipeToALU0.io_out_bits_ctrl_fuType[27]$_DFFE_PP_/QN",
+          "to": "core/backend/inner_vecRegion/in_fromIntRegion_gpWbWakeUp_0_wen",
+          "what": "From the ALU0 issue pipe's function-unit type in intRegion into vecRegion's write-back wake-up enable: a parent register to a block's input pin."
+        },
+        "Frontend": {
+          "period_ps": 1283,
+          "from": "inner_bpu/csrCtrl_delay.io_out_abtbEnable$_DFF_P_/QN",
+          "to": "inner_bpu/tage/tables_2.tage_useful_sram_bank0_way1.array.array_0_0_0.array.array_ext/RW0_addr[2]",
+          "what": "The BPU's delayed abtbEnable control register to the address pin of a TAGE table's useful-bit SRAM: a CSR setting gating a memory address."
+        },
+        "MemBlock": {
+          "period_ps": 1158,
+          "from": "inner_dcache/dcache.mainPipe/s1_req_vaddr[35]$_DFFE_PP_/QN",
+          "to": "inner_dcache/dcache.mainPipe/io_miss_req_bits_amo_cmp[62]$_DFFE_PP_/D",
+          "what": "The DCache main pipe's stage-1 virtual address to the miss request's amo_cmp register, inside the main pipe."
+        },
+        "CoupledL2": {
+          "period_ps": 815,
+          "from": "slices_0/directory/req_s3_tag[6]$_DFFE_PP0P_/QN",
+          "to": "slices_0/dataStorage.array.array_0_0_0.array.array_ext/RW0_addr[11]",
+          "what": "The directory's stage-3 request tag to the address pin of the L2 data SRAM: a tag travelling to a memory."
+        },
+        "VecRegionModule": {
+          "period_ps": 1048,
+          "from": "issuePipes_1/exu.ex_0_bits_ctrl_uopIdx[0]$_DFFE_PP_/QN",
+          "to": "issuePipes_1/exu.Vfmac.a0_0_fpB[59]$_DFFE_PP_/D",
+          "what": "An issue pipe's micro-op index into the vector FMA's operand register: operand selection by uop index."
+        },
+        "FltRegionModule": {
+          "period_ps": 951,
+          "from": "fpWbDataPath.out_wb0_1_pdest[0]$_DFFE_PP_/QN",
+          "to": "fpRegFile/io_writePorts_1_addr[0]",
+          "what": "The FP write-back path's destination register number to the FP register file's write address: a register index travelling to a macro."
+        }
+      }
     }
   ]
 }
