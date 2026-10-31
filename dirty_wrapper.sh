@@ -144,6 +144,11 @@ install_tree() {
             continue
         fi
         from="$execroot/$src"
+        # another repository's file is read from the output base, where
+        # it is linked from: the execroot's external/ links are the last
+        # build's, and a build for another tree in between may have
+        # planted a different set
+        case "$src" in external/*) from="$outbase/$src" ;; esac
         mkdir -p "$(dirname "$dst/$to")"
         rm -rf "${dst:?}/$to"
         if [ -L "$from" ] && [ "${src#external/}" = "$src" ]; then
