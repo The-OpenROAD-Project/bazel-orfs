@@ -180,11 +180,13 @@ READ_STUDY = ["Uncache"]
 # input all of them share) driven through two levels of inverters, one
 # at the root and one per eight entries (extract.py --fanout-tree),
 # instead of one net into every cell that placement's repair_design
-# buffers with BUFx2 trees at fanout 32. Not proven: check.py cuts at
-# the inverters' library cells. Period at grt on the routes' parasitics
-# (ps, B -> tree; A): PhysicalStoreQueue 1,666.4 -> 1,561.8 (1,453.0),
-# VirtualLoadQueue 972.6 -> 934.5 (857.6), Uncache 1,171.3 -> 1,057.2
-# (916.0), LoadQueueRAR 863.5 -> 913.8 (781.3).
+# buffers with BUFx2 trees at fanout 32. Each inverter is an instance
+# of <top>FanoutInv, a module of one $not the flow keeps, so synthesis
+# maps it to the platform's own inverter. Period at grt on the routes'
+# parasitics (ps, B -> tree; A): PhysicalStoreQueue 1,666.4 -> 1,469.5
+# (1,453.0), VirtualLoadQueue 972.6 -> 865.2 (857.6), Uncache 1,171.3
+# -> 1,018.4 (916.0); LoadQueueRAR, with asap7's INVx3 named, 863.5 ->
+# 913.8 (781.3).
 TREE_STUDY = [
     "LoadQueueRAR",
     "PhysicalStoreQueue",
@@ -199,8 +201,9 @@ TREE_STUDY = [
         outs = [
             top + "_tree_extracted.v",
             top + "_tree_extracted.json",
+            top + "_tree_extracted.json.renames",
         ],
-        cmd = "$(execpath :extract) $(location :%s_proc.json) %s $(location %s_tree_extracted.json) --fanout-tree=INVx3_ASAP7_75t_R,8 && " % (top, top, top) +
+        cmd = "$(execpath :extract) $(location :%s_proc.json) %s $(location %s_tree_extracted.json) --fanout-tree=8 && " % (top, top, top) +
               "$(execpath @yosys) -q -p 'read_json $(location %s_tree_extracted.json); hierarchy -top %s; " % (top, top) +
               "opt_dff; write_verilog -noattr $(location %s_tree_extracted.v)'" % top,
         tags = ["manual"],
@@ -315,7 +318,9 @@ SLEW_STUDY = {
             "SKIP_PIN_ACCESS": "1",
             "SKIP_REPORT_METRICS": "1",
             "SYNTH_HIERARCHICAL": "1",
-            "SYNTH_KEEP_MODULES": "" if rtl else top + "Entry",
+            # the tree's inverters (<top>FanoutInv) kept, so synthesis does
+            # not fold the two levels away
+            "SYNTH_KEEP_MODULES": "" if rtl else " ".join([top + "Entry"] + ([top + "FanoutInv"] if variant == "tree" else [])),
         } | ({"SYNTH_HDL_FRONTEND": ""} if top in YOSYS_FRONTEND else {}) | extra,
         last_stage = "grt",
         pdk = "//flow:asap7",
@@ -324,7 +329,7 @@ SLEW_STUDY = {
         }),
         stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
         tags = ["manual"],
-        user_arguments = BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS | ({} if rtl or top in YOSYS_FRONTEND else {"XS_FOLD_MODULES": top + "Entry"}),
+        user_arguments = BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS | ({} if rtl or top in YOSYS_FRONTEND else {"XS_FOLD_MODULES": " ".join([top + "Entry"] + ([top + "FanoutInv"] if variant == "tree" else []))}),
         user_sources = BLOCK["user_sources"] | XS_ICG_USER_SOURCES,
         user_stages = {
             v: s

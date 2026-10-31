@@ -635,6 +635,24 @@ default: the proofs (check.py treats the inverters as cut points), a
 platform's inverter in place of the asap7 name, and the per-block
 choice (not on LoadQueueRAR).
 
+**The inverter from the platform** (2026-10-31): the tree's inverters
+are now instances of `<top>FanoutInv`, a module of one `$not` that the
+tree flows keep (SYNTH_KEEP_MODULES; folded on slang like the entry
+cell), so synthesis maps it to the platform's own inverter, and a check
+flattens it. Re-measured, B arms beside each other in a 10 GB scope
+(synthesis: canonicalisation, top and synth ODB from the Bazel
+profile; the rest from the stage logs):
+
+| Block | synth s | floorplan s | place s | CTS s | grt s | total min | period ps | stdcells | area µm² |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| PhysicalStoreQueue treed | 315.5 | 19.3 | 281.1 | 47.3 | 178.3 | 14.03 | 1,469.5 / 1,802.7 | 268,722 | 32,193.1 |
+| VirtualLoadQueue treed | 101.2 | 4.5 | 53.7 | 8.1 | 62.2 | 3.83 | 865.2 / 961.9 | 45,393 | 5,214.9 |
+| Uncache treed | 119.0 | 8.7 | 75.3 | 9.6 | 120.4 | 5.55 | 1,018.4 / 1,132.6 | 80,812 | 9,320.9 |
+
+Against A: PhysicalStoreQueue +1.1 % at half the time, VirtualLoadQueue
++0.9 % at 74 %: both dominate. Uncache +11.2 %, 5.55 against 3.33 min:
+it loses.
+
 ### Two findings without a lever (2026-10-31)
 
 - **generate_ram's 16-word 2r4w block** (0170's tests): its detailed

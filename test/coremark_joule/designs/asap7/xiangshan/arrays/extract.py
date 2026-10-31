@@ -623,20 +623,33 @@ def extract(mod, name, decode=True):
     return {cell_name: cell_mod, name: parent}, stats, renames
 
 
-def fanout_tree(parent, cell_name, inv, group):
-    """A study (--fanout-tree=<inverter>,<group>): each input every entry
-    cell shares, a broadcast, driven through two levels of the named
-    inverter, one at the root and one per group of entries, instead of
-    left to placement's repair_design as one net into every cell.
-    Inverters, not buffers: floorplan's remove_buffers would take
-    buffers out again. The number of broadcast bits treed."""
+def fanout_tree(parent, name, group):
+    """Each input every entry cell shares, a broadcast, driven through two
+    levels of inverters in the block, one at the root and one per group
+    of entries (--fanout-tree=<group>), instead of one net into every
+    cell, which synthesis leaves unbuffered (one primary output to ABC)
+    and placement's repair_design meets the slew limit on with BUFx2 at
+    fanout 32. Inverters, not buffers: floorplan's remove_buffers would
+    take buffers out again. Each is an instance of <name>FanoutInv, a
+    module of one $not that the flow keeps (SYNTH_KEEP_MODULES), so
+    synthesis maps it to the platform's inverter and does not fold the
+    two levels away; a check flattens it. Returns the number of
+    broadcast bits treed and the module."""
+    cell_name = name + "Entry"
+    inv = name + "FanoutInv"
     ents = [c for c in parent["cells"].values() if c["type"] == cell_name]
-    if not ents:
-        return 0
-    bits = [b for v in parent["netnames"].values() for b in v["bits"]]
-    next_id = max([b for b in bits if not isinstance(b, str)] + [0]) + 1
+    used = [
+        b
+        for c in parent["cells"].values()
+        for bs in c["connections"].values()
+        for b in bs
+        if not isinstance(b, str)
+    ] + [
+        b for v in parent["ports"].values() for b in v["bits"] if not isinstance(b, str)
+    ]
+    next_id = max(used + [0]) + 1
     count = 0
-    for p, d in ents[0]["port_directions"].items():
+    for p, d in (ents[0]["port_directions"].items() if ents else []):
         if d != "input" or len(ents[0]["connections"][p]) != 1:
             continue
         b = ents[0]["connections"][p][0]
@@ -644,29 +657,51 @@ def fanout_tree(parent, cell_name, inv, group):
             continue
         root = next_id
         next_id += 1
-        parent["cells"][f"$fanout_tree${p}_root"] = {
-            "hide_name": 1,
-            "type": inv,
-            "parameters": {},
-            "attributes": {},
-            "port_directions": {"A": "input", "Y": "output"},
-            "connections": {"A": [b], "Y": [root]},
-        }
-        for g in range(0, len(ents), group):
-            y = next_id
-            next_id += 1
-            parent["cells"][f"$fanout_tree${p}_{g // group}"] = {
-                "hide_name": 1,
+
+        def instance(a, y):
+            return {
+                "hide_name": 0,
                 "type": inv,
                 "parameters": {},
                 "attributes": {},
                 "port_directions": {"A": "input", "Y": "output"},
-                "connections": {"A": [root], "Y": [y]},
+                "connections": {"A": [a], "Y": [y]},
             }
+
+        parent["cells"][f"fanout_tree_{p}_root"] = instance(b, root)
+        for g in range(0, len(ents), group):
+            y = next_id
+            next_id += 1
+            parent["cells"][f"fanout_tree_{p}_{g // group}"] = instance(root, y)
             for e in ents[g : g + group]:
                 e["connections"][p] = [y]
         count += 1
-    return count
+    module = {
+        "attributes": {},
+        "ports": {
+            "A": {"direction": "input", "bits": [2]},
+            "Y": {"direction": "output", "bits": [3]},
+        },
+        "cells": {
+            "$not": {
+                "hide_name": 1,
+                "type": "$not",
+                "parameters": {
+                    "A_SIGNED": "0",
+                    "A_WIDTH": format(1, "032b"),
+                    "Y_WIDTH": format(1, "032b"),
+                },
+                "attributes": {},
+                "port_directions": {"A": "input", "Y": "output"},
+                "connections": {"A": [2], "Y": [3]},
+            }
+        },
+        "netnames": {
+            "A": {"hide_name": 0, "bits": [2], "attributes": {}},
+            "Y": {"hide_name": 0, "bits": [3], "attributes": {}},
+        },
+    }
+    return count, module
 
 
 def main(argv):
@@ -680,10 +715,10 @@ def main(argv):
     mods, stats, renames = extract(design["modules"][name], name, decode)
     for a in argv[4:]:
         if a.startswith("--fanout-tree="):
-            inv, group = a.split("=", 1)[1].split(",")
-            stats["fanout_trees"] = fanout_tree(
-                mods[name], name + "Entry", inv, int(group)
+            stats["fanout_trees"], inv = fanout_tree(
+                mods[name], name, int(a.split("=", 1)[1])
             )
+            mods[name + "FanoutInv"] = inv
     design["modules"].update(mods)
     with open(out, "w") as f:
         json.dump(design, f)
