@@ -720,7 +720,9 @@ at 818.1 ps and 66,699 cells again.
   74 s against 8): B routes 74,115 nets against 56,773, 750,107 pin
   vias against 484,610, on a die 17 % larger (31 % more cells), and ends
   without overflow where A ends with one overflowing gcell; why the
-  router takes nine times as long on that was not examined.
+  router takes nine times as long on that was not examined. With the
+  read side in the block and treed (`Uncache_noread_tree`, "LoadQueueRAR
+  and Uncache: what else was tried") global route stays as long.
 - **PhysicalStoreQueue** +8.7 % on A at a third of the time: it still
   dominates, but 7.5 % worse than treed with the clock. The same path
   (`s1LoadEnd` through the forwarding query into entry 63, the select in
@@ -801,6 +803,62 @@ AO22, AO221, AO21, OA211, OA22), synthesis's answer for the top changing
 with the netlist around it. Its global route took 19.9 against 78.3 s
 (this run alone, B's three side by side), not examined. Uncache and
 VirtualLoadQueue have no such copies.
+
+### LoadQueueRAR and Uncache: what else was tried (2026-10-31)
+
+Before the clock was found, LoadQueueRAR's loss (+10.5 %, the free
+list's slot read through five BUFx2 in B's top and the write select
+through two BUFx2 stages inside the cell) read as ABC's: yosys runs ABC
+on each kept module alone, and ORFS's script upsizes only the paths
+within 1 % of that module's own critical delay (`upsize -c`, ABC's
+default `-W 1`) and then downsizes the rest. A path that ends at an
+entry cell's input, or starts at its pin, is far from either module's
+critical delay, and stays at BUFx2 chains of fanout 10. Three levers,
+each on both arms where it is a flow setting. Single runs; "alone"
+means nothing else ran, "4 x" four flows side by side in one 10 GB
+scope; synthesis from the Bazel profile, the rest from the stage logs:
+
+| Block | arm | synth s | floorplan s | place s | CTS s | grt s | total min | period ps | stdcells | area µm² |
+|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| LoadQueueRAR | A, floorplan repair_timing, alone | 191.2 | 41.1 | 40.7 | 4.5 | 54.5 | 5.53 | 765.6 / 884.2 | 53,423 | 7,032.4 |
+| | B untreed, floorplan repair_timing, alone | as B | 14.9 | 50.3 | 5.2 | 81.0 | | 849.9 / 939.5 | 67,097 | 8,232.1 |
+| | B flat (`LoadQueueRAR_flat`), alone | 209.5 | 5.1 | 40.4 | 4.6 | 64.7 | 5.41 | 800.8 / 900.3 | 54,711 | 7,168.3 |
+| | A, ABC window (`_rtl_abcwin`), alone | 200.3 | 5.1 | 39.8 | 4.5 | 54.6 | 5.07 | 699.6 / 788.0 | 53,437 | 7,638.1 |
+| | B untreed, ABC window, alone | 70.4 | 5.6 | 49.3 | 5.2 | 84.6 | 3.59 | 772.0 / 872.9 | 67,126 | 8,763.7 |
+| | B treed, ABC window (`_abcwin`), 4 x | 78.9 | 7.5 | 109.8 | 6.8 | 110.1 | 5.22 | 743.8 / 844.3 | 66,765 | 8,670.1 |
+| Uncache | A, ABC window, alone | 104.7 | 5.9 | 38.6 | 4.4 | 18.1 | 2.86 | 872.8 / 983.4 | 56,471 | 7,971.2 |
+| | B treed, ABC window, 4 x | 101 | 14.4 | 90.6 | 6.7 | 123.3 | 5.60 | 920.1 / 1,037.5 | 73,811 | 9,287.4 |
+| | B treed, read side in the block (`_noread_tree`), 4 x | 101 | 12.3 | 88.3 | 16.8 | 108.7 | 5.45 | 977.9 / 1,126.7 | 70,748 | 8,478.4 |
+
+(Uncache's two syntheses in the 4 x run took 82 and 96 s for the top,
+not told apart by the profile; 101 is their mean with
+canonicalisation and the synth ODB.)
+
+- **Floorplan's repair_timing** (`SKIP_FLOORPLAN_REPAIR_TIMING 0`, not
+  kept as a flow): at TNS_END_PERCENT 1 it worked on 37 of 3,765
+  violating endpoints, removed no buffer and resized 210 gates. Both
+  arms gain alike (A -15.7 ps, B -13.6): B +11.0 % on A.
+- **Flat** (`FLAT_STUDY`): the decoding without the kept cell is A
+  again, +2.5 % at A's time; synthesis 209.5 s against A's 191.2 in the
+  same session. The kept cell's single synthesis is the extraction's
+  time; giving it up gives up the gain.
+- **ABC's window** (`ABC_WINDOW_STUDY`, `abc_speed_window.script`:
+  `upsize -c -W 20`, no `dnsize -c`): it does what it was for, in B's
+  untreed top the slot read's buffers are BUFx12f and BUFx6f, the cell's
+  write select a BUFx8, and the worst path becomes a broadcast into all
+  96 cells (ABC leaves one BUFx6f at fanout 105 into the cells' inputs,
+  each an upsized BUFx12f; repair_design splits it with a BUFx2 at
+  fanout 26 into 75 fF, 110 ps, then an AND4x2 at 21 fF, 96 ps). But it
+  gains as much in A: -10.5 % (A) against -10.6 % (B untreed), -9.1 %
+  (B treed); Uncache -4.7 % against -7.3 %. With it on both arms,
+  LoadQueueRAR treed is +6.3 % on A and Uncache +5.4 %, about where they
+  are without it. Area +6.6 to +8.7 %. A flow-wide lever (any design
+  with setup repair off), not one for the extraction; untried on the
+  other blocks.
+- **Uncache's read side in the block, treed**: 977.9 ps against the
+  treed extraction's 992.1, 70,748 cells against 73,794, and global
+  route as long: the read side is not what keeps Uncache's global
+  route nine times A's.
 
 ### Two findings without a lever (2026-10-31)
 
@@ -1228,4 +1286,6 @@ side); proofs (the miter) are polish for now, the long ones wait.
    20 s, and the router ends without overflow where A ends with one
    overflowing gcell. Open: why the router takes nine times as long
    (B's 74,115 nets and 750,107 pin vias against 56,773 and 484,610 is
-   less than twice the work).
+   less than twice the work). Not the read side in the cell (the
+   noread treed arm routes as long); ABC's upsize window narrows the
+   period gap in both arms alike and leaves the time.
