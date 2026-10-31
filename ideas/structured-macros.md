@@ -897,6 +897,59 @@ congested one does not; making it cheaper (rerouting only the nets
 resistance-aware cares about) is an OpenROAD change, a candidate to
 raise upstream, not carried.
 
+Carried since as 0200 (2026-10-31): after a 2D route without overflow,
+the 3D pass runs once, on the nets resistance-aware routing selected.
+The two passes it replaces both rip up every edge of every net with
+negative slack; the second only widens the resistance-aware set from
+30 % of the critical nets to all of them, and the 31,030 of 37,198 nets
+in the first that are not resistance-aware are rerouted with the
+legacy cost, on a route with no overflow to relieve (a quarter of the
+194 M gcells searched). Measured in a dirty lane on the cached CTS
+result, one binary with the variants behind a switch (period at global
+route, FastRoute's finalisation):
+
+| 3D pass | period ps | finalisation s |
+|---|--:|--:|
+| both passes (before) | 992.1 | 62.1 |
+| first pass only | 993.4 | 35.4-54.5 ¹ |
+| first pass, resistance-aware nets only (0200) | 993.3 | 32.4-38.5 ¹ |
+| one pass at the widened set, resistance-aware nets only | 992.7 | 39.4 |
+| first pass, nets within half the worst slack | 994.9 | 32.4 |
+| no 3D pass | 1,004.2 | 4.7 |
+
+¹ The machine was shared (load 6-17); the period is deterministic.
+Selecting by slack does not cut the work: most of Uncache's nets are
+critical at its period, and the resistance-aware nets carry 75 % of the
+first pass's search and all of the second's.
+
+Hermetic, before (the cached builds) against after, each Uncache arm
+alone in a 10 GB scope, the other blocks side by side; synthesis is
+unchanged, its seconds the recorded ones:
+
+| arm | synth s | floorplan s | place s | CTS s | grt s | total min | period_grt_ps | period_ps | stdcells | area µm² |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| Uncache A, before | 116.1 | 6.3 | 46.1 | 4.9 | 19.9 | 3.22 | 916.0 | 1,020.3 | 56,458 | 7,449.8 |
+| Uncache A, 0200 | 116.1 | 5.9 | 38.3 | 4.4 | 18.1 | 3.05 | 916.0 | 1,020.3 | 56,458 | 7,449.8 |
+| Uncache B, before | 92.3 | 10.2 | 64.0 | 6.0 | 87.2 | 4.33 | 992.1 | 1,136.8 | 73,794 | 8,656.5 |
+| Uncache B, 0200 | 92.3 | 6.4 | 46.2 | 5.0 | 43.3 | 3.22 | 993.3 | 1,136.8 | 73,794 | 8,656.5 |
+
+| block (B) | grt s before / 0200 | finalisation s | vias | period_grt_ps |
+|---|--:|--:|--:|--:|
+| LoadQueueRAR | 87.7 / 40.4 | 66.5 / 24.7 | 1,103,413 / 920,641 | 818.1 / 819.3 |
+| VirtualLoadQueue | 56.6 / 29.4 | 43.7 / 17.4 | 748,638 / 609,221 | 847.0 / 847.7 |
+| TLBFA | 76.5 / 30.7 | 29.9 / 15.4 | 602,390 / 577,159 | 320.6 / 320.6 |
+| PhysicalStoreQueue | 106.5 / 121.1 | 28.4 / 28.5 | 3,472,128 / 3,472,128 | 1,483.9 / 1,483.9 |
+| ORFS gcd (asap7) | | 0.002 / 0.001 | 264 / 242 | |
+
+Uncache A and PhysicalStoreQueue end their 2D route with overflow and
+skip the pass: their routes are the same (vias and wirelength equal);
+PhysicalStoreQueue's 14.6 s more in grt is outside FastRoute (its
+finalisation is 28.4 against 28.5 s), the machine. The periods at
+global route move by +0.08 to +0.15 % where the pass runs: the widened
+second pass is gone, which on Uncache was worth 1.3 ps. Placement's
+period, cells and area are identical in every arm. With 0200 Uncache's
+B against its A is +8.4 % period at +5.6 % time: inside both bounds.
+
 ### Two findings without a lever (2026-10-31)
 
 - **generate_ram's 16-word 2r4w block** (0170's tests): its detailed
@@ -1335,3 +1388,6 @@ side); proofs (the miter) are polish for now, the long ones wait.
    A's one overflowing gcell skips that pass. Turning resistance-aware
    off takes the time and costs both arms 13-16 % of period: no lever
    here, only upstream (that pass on fewer nets).
+   Done (2026-10-31): carried as 0200, that pass once and on the
+   resistance-aware nets only; B against A is now +8.4 % period at
+   +5.6 % time, inside both bounds (the section above).

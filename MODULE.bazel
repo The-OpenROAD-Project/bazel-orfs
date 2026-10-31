@@ -313,6 +313,12 @@ archive_override(
         # an OpenROAD that has them.
         "//patches:0197-openroad-odb-backing-file.patch",
         "//patches:0198-openroad-grt-page-out-database.patch",
+        # 0200: after a 2D route without overflow, resistance-aware routing
+        # reroutes in 3D once, and only the nets it selected, instead of
+        # every critical net twice (Uncache's global route, 58.8 of its
+        # 60.5 s; ideas/structured-macros.md). Not upstreamed; retires at
+        # a //:bump onto an OpenROAD that has it.
+        "//patches:0200-openroad-grt-res-aware-3d-once.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
