@@ -126,6 +126,66 @@ tile actions would bring the stage close to gpl's own factor.
   full-netlist STA run at the coarse positions, a serial step not in the
   table.
 
+### Timing- and routability-driven placement, and the whole place stage
+
+Timing-driven and routability-driven placement are the spanner: both read the
+whole design. What gpl takes from them, though, is only a scalar per object:
+
+- **Timing-driven** placement runs STA and gives the worst-slack nets a
+  weight (`timingBase.cpp`, `resizeWorstSlackNets`).
+- **Routability-driven** placement estimates congestion (RUDY, or a full
+  global route at `routeBase.cpp:342`) and turns it into an inflation ratio
+  per cell.
+
+So the global analysis runs **between rounds**, in one serial action:
+
+1. a full-design STA at the current positions, giving net weights;
+2. a congestion map, giving cell inflation ratios.
+
+Its output ships to the tiles as data. A tile needs no STA or global route of
+its own, and is still a pure function of its inputs.
+
+The cost: gpl's timing and routability checkpoints, a handful of overflow
+levels, become synchronisation points. Fold them into the colour and shift
+rounds the tiling has anyway, so they add no extra rounds; then each round
+pays one full STA and one congestion map.
+
+Congestion is local, so a tile with a halo could run RUDY itself. The serial
+step then shrinks to the STA alone.
+
+The other steps of the place stage split the same way, **fused into one
+action per tile** so the stage pays for one split and one join, not one per
+step:
+
+| ORFS step | how it is split |
+| --- | --- |
+| 3_1 global place, IO skipped | becomes the coarse phase (serial, small) |
+| 3_2 IO placement | serial, but only the IO nets |
+| 3_3 global place | tile rounds, with weights and inflation from the analysis between rounds |
+| 3_4 `repair_design` | in the last round's tile action; each net owned by its driver's tile, plus a serial pass for the few nets spanning many tiles |
+| 3_5 detailed placement, mirroring | in the last round's tile action, with the halo rows fixed; a shifted pass for the cells at the boundaries |
+| `check_placement` | after the join, or per tile |
+
+Happy case on XSTile's place stage (225 min), K = 16, R = 4 rounds:
+
+| step | min |
+| --- | --- |
+| coarse place + IO placement | 8 |
+| split + join | 10 |
+| 4 x (STA + congestion map, about 3 min; action start-up, about 1.5 min) | 18 |
+| 4 x refine wave (`158 * 1.25 * 0.4 / 16`, about 5 min) | 20 |
+| `repair_design` + detailed placement in the tiles (60 / 16) | 4 |
+| check | 2 |
+| **total** | **about 62 min, 3.6x** |
+
+The floor is coarse place, the join and the four global analyses, about
+30 min, so about 7x at K -> infinity. To push past it, make the analysis
+between rounds cheaper:
+
+- per-tile RUDY instead of a central congestion map;
+- an incremental STA that re-times only the tiles that moved;
+- fewer rounds.
+
 ### The flow up to grt, repair included, against a GPU
 
 A GPU speeds up gpl alone, so it has to be compared over the whole flow up to
