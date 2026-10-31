@@ -461,6 +461,38 @@ FLAT_STUDY = ["PhysicalStoreQueue"]
     ]
 ]
 
+# The treed extraction's proof, through the tree (each inverter a module
+# of one $not, flattened), and its negative control: one leaf of one
+# broadcast's tree reads the broadcast instead of its root, so its eight
+# entries see the complement, which must come out different.
+[
+    py_test(
+        name = "%s_tree_%s_test" % (top, kind),
+        timeout = "long",
+        srcs = ["check.py"],
+        args = [
+            "$(rootpath @yosys)",
+            "$(rootpath :%s_proc.json)" % top,
+            "$(rootpath :%s_tree_extracted.json)" % top,
+            top,
+        ] + (["mutate-tree"] if kind == "control" else []),
+        data = [
+            ":%s_tree_extracted.json" % top,
+            ":%s_tree_extracted.json.renames" % top,
+            ":%s_proc.json" % top,
+            "@yosys",
+        ],
+        main = "check.py",
+        tags = ["manual"],
+        deps = [":entries_lib"],
+    )
+    for top in TREE_STUDY
+    for kind in [
+        "check",
+        "control",
+    ]
+]
+
 # The front end end to end on an 8-entry CAM small enough to read: its
 # entries found, the index decoded once, the match left in the cell, a
 # blackbox kept, the extraction proven equal and the control different,

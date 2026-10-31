@@ -325,6 +325,43 @@ class Features(unittest.TestCase):
         self.assertEqual(modules, ["Cam", "CamEntry", "Sub"])
 
 
+class Tree(unittest.TestCase):
+    """The CAM's broadcasts (the write data, the query) through two
+    levels of inverters, a module of one $not each: proven through the
+    tree, and one leaf reading the broadcast instead of its root comes
+    out different."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.yosys, cls.slang = map(os.path.abspath, sys.argv[1:3])
+        cls.work = os.environ.get("TEST_TMPDIR", HERE)
+        src = os.path.join(cls.work, "cam_tree.sv")
+        with open(src, "w") as f:
+            f.write(SUB + cam())
+        cls.proc = os.path.join(cls.work, "cam_tree.json")
+        rc, log = run("proc_json.py", cls.yosys, cls.slang, src, "Cam", cls.proc, "Sub")
+        assert rc == 0, log
+        cls.extracted = os.path.join(cls.work, "cam_tree_extracted.json")
+        rc, log = run("extract.py", cls.proc, "Cam", cls.extracted, "--fanout-tree=4")
+        assert rc == 0, log
+        cls.stats = dict(re.findall(r"(\w+) (\d+)", log))
+
+    def test_broadcasts_treed(self):
+        self.assertGreater(int(self.stats["fanout_trees"]), 0)
+
+    def test_tree_equal(self):
+        rc, log = run("check.py", self.yosys, self.proc, self.extracted, "Cam")
+        self.assertEqual(rc, 0, log)
+        self.assertIn("check: Cam: equivalent", log)
+
+    def test_leaf_control_differs(self):
+        rc, log = run(
+            "check.py", self.yosys, self.proc, self.extracted, "Cam", "mutate-tree"
+        )
+        self.assertEqual(rc, 0, log)
+        self.assertIn("check: Cam: NOT equivalent", log)
+
+
 class Thresholds(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

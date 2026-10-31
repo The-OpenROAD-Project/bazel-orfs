@@ -8,7 +8,10 @@ by SAT (yosys miter, sat; not the equiv_* passes, which are too slow).
     check.py <yosys> --lemma <entries> <index bits>
 
 With mutate, one gate of the extracted cell is changed first: a negative
-control that must come out not equivalent.
+control that must come out not equivalent. With mutate-tree, one leaf of
+a broadcast's inverter tree (extract.py --fanout-tree) reads the
+broadcast itself instead of the root inverter: its eight entries see the
+complement, which must come out not equivalent too.
 
 Decode-once is proved in two steps, because a miter of the whole design
 no longer collapses once the comparisons are rewritten (everything
@@ -91,7 +94,23 @@ def main(argv):
     work = os.environ.get("TEST_TMPDIR") or os.path.dirname(os.path.abspath(extracted))
     flat = os.path.join(work, "check_flat.json")
     src = extracted
-    if mutate:
+    if mutate and argv[5] == "mutate-tree":
+        design = json.load(open(extracted))
+        top = design["modules"][module]["cells"]
+        leaves = sorted(
+            n
+            for n, c in top.items()
+            if c["type"] == module + "FanoutInv" and not n.endswith("_root")
+        )
+        if not leaves:
+            sys.exit("check: mutate-tree, but the extraction has no inverter tree")
+        victim = leaves[int(os.environ.get("CHECK_MUTANT", "0")) % len(leaves)]
+        root = top[victim.rsplit("_", 1)[0] + "_root"]
+        top[victim]["connections"]["A"] = root["connections"]["A"]
+        src = os.path.join(work, "check_mutant.json")
+        json.dump(design, open(src, "w"))
+        print(f"check: mutant, {victim} reads the broadcast, not its root")
+    elif mutate:
         # change one thing that a register sees: swap the inputs of the
         # multiplexer in front of a register's D, from the nth such register
         design = json.load(open(extracted))
