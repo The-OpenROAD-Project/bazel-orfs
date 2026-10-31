@@ -64,38 +64,123 @@ Netlist coupling does not decay with distance the way charge does. Placement
    - the tile's own cells;
    - every outside cell they connect to, fixed at its current position (the
      terminal propagation of min-cut placement).
-3. **Rounds**, R of them: 2 colours (red/black, a checkerboard) times 2 passes,
-   with the grid shifted by half a tile so no cut line becomes permanent (the
-   Schwarz alternating method). Each round has two parts:
+3. **Rounds**, R = 4 of them: 2 colours (red/black, a checkerboard) on the
+   tile grid, then the same 2 colours on a grid shifted by half a tile, so no
+   cut line becomes permanent (the Schwarz alternating method). Each round has
+   two parts:
    - **Global analysis** (one serial action): a full-design STA at the
      current positions, giving net weights and timing budgets, and a
      congestion map, giving cell inflation ratios. This is everything
-     timing-driven and routability-driven placement need from the whole
-     design: one scalar per net or per cell, shipped to the tiles as data.
-   - **Tile actions** (K/2 per round, remote-executable): gpl refinement
-     with those weights and ratios.
-4. **Local repair and legalisation** in the last round's tile actions, in the
-   same action so the stage pays for one split and one join:
-   - **`repair_design`**: each net belongs to the tile that holds its driver.
-     The few nets that span many tiles, like resets and high-fanout enables,
-     get a serial pass first.
-   - **Timing repair**: against `set_max_delay` budgets at the tile boundary,
-     as for a hardened macro (`macro-constraints` skill). Hold paths are short
-     and mostly local.
-   - **Detailed placement and mirroring**: halo rows fixed, then one shifted
-     pass for the cells at the boundaries.
-5. **Join** (one action): write the cells and the inserted buffers back into
-   the full odb, then run `check_placement`.
+     timing-driven and routability-driven placement and timing repair need
+     from the whole design: one scalar per net or per cell, or one budget per
+     boundary pin, shipped to the tiles as data.
+   - **Tile actions** (K/2 per round, one colour, in parallel,
+     remote-executable).
+4. **Rounds 1 and 2** run gpl refinement in the tiles, with the weights and
+   ratios from the analysis.
+5. **Rounds 3 and 4**, on the shifted grid, run **every remaining step of the
+   place stage inside the tile action**, each scoped to the tile:
+   - **gpl refinement**: the tile's cells.
+   - **`repair_design`**: the nets whose driver sits in the tile. The few nets
+     that span many tiles, like resets and high-fanout enables, get a serial
+     pass in the analysis before round 3.
+   - **Timing repair**, where the flow enables it: paths inside the tile,
+     with `set_max_delay` budgets at the tile boundary, as for a hardened
+     macro (`macro-constraints` skill). Hold paths are short and mostly local.
+   - **Detailed placement and mirroring**: the tile's rows, with the halo
+     fixed. In round 4, the red neighbours from round 3 are already legal and
+     fixed, so the black tiles legalise around them and no extra boundary
+     pass is needed.
 
-| ORFS step | split as |
-| --- | --- |
-| 3_1 global place, IO skipped | coarse phase (serial, small) |
-| 3_2 IO placement | serial, only the IO nets |
-| 3_3 global place | tile rounds, with weights and inflation from the global analysis |
-| timing- and routability-driven placement | the global analysis between rounds |
-| 3_4 `repair_design`, timing repair | in the last round's tile actions; nets owned by their driver's tile; timing under budgets |
-| 3_5 detailed placement, mirroring | in the last round's tile actions, with a shifted pass for boundary cells |
-| `check_placement` | after the join, or per tile |
+   Every cell gets its repair and legalisation in exactly one tile action:
+   the red tiles' cells in round 3, the black tiles' in round 4.
+6. **Join** (one action): apply the tiles' outputs to the full odb, then run
+   `check_placement`.
+
+**Data between actions.**
+
+- **Tile inputs** are the tile odb from the split, plus the positions of the
+  cells in the halo from the neighbours' latest outputs.
+- **Tile outputs** are small: positions in rounds 1 and 2, positions plus a
+  netlist delta (inserted and resized buffers) in rounds 3 and 4.
+- **The global analysis** reads the base odb and every tile output so far.
+- **The join** applies them all.
+
+```mermaid
+flowchart TB
+  classDef global fill:#fde2c8,stroke:#b5651d,color:#000
+  classDef tile fill:#d6e8fa,stroke:#2b6cb0,color:#000
+
+  C["Coarse place + IO placement<br/>whole design as ~10^5 clusters"]:::global
+  S["Split into K tiles + halos"]:::global
+  C --> S
+
+  G1["Global analysis: full STA + congestion<br/>net weights, inflation ratios"]:::global
+  S --> G1
+  subgraph R1["Round 1: red tiles, in parallel"]
+    A1["tile A<br/>gpl"]:::tile
+    D1["tile D<br/>gpl"]:::tile
+  end
+  G1 --> A1 & D1
+
+  G2["Global analysis"]:::global
+  A1 & D1 --> G2
+  subgraph R2["Round 2: black tiles, in parallel"]
+    B2["tile B<br/>gpl"]:::tile
+    C2["tile C<br/>gpl"]:::tile
+  end
+  G2 --> B2 & C2
+
+  G3["Global analysis<br/>+ timing budgets per boundary pin<br/>+ serial pass for nets spanning many tiles"]:::global
+  B2 & C2 --> G3
+  subgraph R3["Round 3: grid shifted half a tile, red tiles, in parallel"]
+    direction LR
+    subgraph A3["tile A′: only its own cells, nets, paths and rows"]
+      direction TB
+      a1["gpl"]:::tile --> a2["repair_design<br/>nets driven in A′"]:::tile --> a3["timing repair<br/>paths in A′, budgets at edge"]:::tile --> a4["detailed placement<br/>A′ rows, halo fixed"]:::tile
+    end
+    subgraph D3["tile D′: only its own cells, nets, paths and rows"]
+      direction TB
+      d1["gpl"]:::tile --> d2["repair_design<br/>nets driven in D′"]:::tile --> d3["timing repair<br/>paths in D′, budgets at edge"]:::tile --> d4["detailed placement<br/>D′ rows, halo fixed"]:::tile
+    end
+  end
+  G3 --> a1 & d1
+
+  G4["Global analysis<br/>+ timing budgets"]:::global
+  a4 & d4 --> G4
+  subgraph R4["Round 4: shifted grid, black tiles, in parallel; A′ and D′ fixed"]
+    direction LR
+    subgraph B4["tile B′: only its own cells, nets, paths and rows"]
+      direction TB
+      b1["gpl"]:::tile --> b2["repair_design<br/>nets driven in B′"]:::tile --> b3["timing repair<br/>paths in B′, budgets at edge"]:::tile --> b4["detailed placement<br/>B′ rows, halo fixed"]:::tile
+    end
+    subgraph C4["tile C′: only its own cells, nets, paths and rows"]
+      direction TB
+      c1["gpl"]:::tile --> c2["repair_design<br/>nets driven in C′"]:::tile --> c3["timing repair<br/>paths in C′, budgets at edge"]:::tile --> c4["detailed placement<br/>C′ rows, halo fixed"]:::tile
+    end
+  end
+  G4 --> b1 & c1
+
+  J["Join into the full odb<br/>+ check_placement"]:::global
+  b4 & c4 --> J
+```
+
+In the diagram, orange marks a serial action on the whole design and blue a
+step inside a tile action. A blue box sees only its tile and the halo's fixed
+cells. The diagram draws K = 4 tiles; at K = 16, each round has 8 tile
+actions side by side. Everything blue in a round runs at once, on as many
+remote executors as there are tiles of that colour.
+
+| ORFS step | split as | scope in a tile action |
+| --- | --- | --- |
+| 3_1 global place, IO skipped | coarse phase (serial, small) | n/a |
+| 3_2 IO placement | serial, only the IO nets | n/a |
+| 3_3 global place | tile actions, all 4 rounds | the tile's cells |
+| timing- and routability-driven placement | global analysis between rounds | n/a; weights and ratios arrive as data |
+| 3_4 `repair_design` | tile actions, rounds 3 and 4 | nets whose driver is in the tile |
+| timing repair | tile actions, rounds 3 and 4 | paths inside the tile, budgets at the edge |
+| 3_5 detailed placement, mirroring | tile actions, rounds 3 and 4 | the tile's rows, halo fixed |
+| `check_placement` | after the join | n/a |
 
 **Determinism:** fix the tiling, the colour order and the number of rounds,
 and keep each tool's threading deterministic within a tile. Every action is
@@ -159,9 +244,9 @@ The rest of the stage stays serial:
 | split + join | 10 |
 | 4 x global analysis + action start-up | 18 |
 | 4 x refine wave (`158 * 1.25 * 0.4 / 16`) | 20 |
-| `repair_design`, timing repair and detailed placement in the tiles (67 / 16) | 4 |
+| `repair_design`, timing repair and detailed placement in the tiles (2 waves x 67 / 16) | 8 |
 | check | 2 |
-| **total** | **about 62 min, 3.6x** |
+| **total** | **about 66 min, 3.4x** |
 
 The total CPU time stays about what the flat run takes
 (`2 * (1 + h) * g = 1.0` for gpl), so the gain is wall time and memory, not
