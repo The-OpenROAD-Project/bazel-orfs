@@ -319,6 +319,11 @@ archive_override(
         # 60.5 s; ideas/structured-macros.md). Not upstreamed; retires at
         # a //:bump onto an OpenROAD that has it.
         "//patches:0200-openroad-grt-res-aware-3d-once.patch",
+        # 0202: CTS latency balancing times the clock network with CRPR off:
+        # with it on, every register clock pin's arrival keeps its own clock
+        # path and XSTile's Top took 77 GB there; the tree is unchanged. Not
+        # upstreamed; retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0202-openroad-cts-balance-without-crpr.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
