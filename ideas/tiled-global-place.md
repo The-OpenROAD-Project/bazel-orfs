@@ -78,7 +78,55 @@ actually narrow, and fixed for good.
 
 ## Impact
 
-Not measured. The intended gains are:
+Not measured. The estimate below is a model, with every input stated, so a
+measurement can replace one input at a time.
+
+**Model.** Write the place stage as `T_place = T_gpl + T_rest`, with
+`f = T_gpl / T_place`. The tiled wall time is
+`T_coarse + T_split + 4 * T_wave + T_join`:
+
+- **Coarse place**, at C clusters instead of N cells: about `(C/N) * T_gpl`,
+  plus the clustering. At C = 10^5 and N of a few 10^6, that is about 4 % of
+  `T_gpl`, plus a few minutes.
+- **Waves**: 2 colours times 2 shifted passes, so every tile is refined twice.
+  One wave takes about `T_gpl * (1 + h) * g / K`, where:
+  - K is the tile count;
+  - h is the halo overhead, about 0.25 at K = 16;
+  - g is the fraction of flat gpl's Nesterov iterations a tile still needs,
+    starting from the coarse placement's low overflow instead of from the
+    centre, about 0.4.
+- **Split and join**: one full odb read and write each, about 10 minutes
+  together on XSTile.
+
+At K = 16, the gpl part comes to about `0.17 * T_gpl` plus 10 minutes. The
+total CPU time stays about the same as flat gpl
+(`2 * (1 + h) * g = 1.0`), so the gain is wall time and memory, not compute.
+
+**XSTile** (`T_place` = 225 min; f is not measured):
+
+| f | flat gpl | tiled gpl | place stage | stage speedup |
+| --- | --- | --- | --- | --- |
+| 0.5 | 112 min | 29 min | 141 min | 1.6x |
+| 0.7 | 158 min | 37 min | 104 min | 2.2x |
+| 0.85 | 191 min | 42 min | 77 min | 2.9x |
+
+gpl itself gets about 4x faster at K = 16. As K grows the coarse phase, the
+split and the join become the floor, at about 10x on gpl.
+
+The rest of the place stage limits the stage speedup (Amdahl). Detailed
+placement and `repair_design` are local too, so running them inside the same
+tile actions would bring the stage close to gpl's own factor.
+
+**Assumptions most likely to be wrong:**
+
+- g: whether refinement from a coarse start really needs only about 40 % of
+  flat gpl's iterations;
+- f, the gpl share of the place stage;
+- timing: rsz cannot run on clusters, so timing-driven placement needs one
+  full-netlist STA run at the coarse positions, a serial step not in the
+  table.
+
+The intended gains are:
 
 - a place stage's peak memory down to the size of one tile plus the join's
   odb load;
