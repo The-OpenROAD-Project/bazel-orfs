@@ -285,7 +285,9 @@ YOSYS_FRONTEND = [
 # violations at place against 1 in the RTL arm), and repair_design's
 # BUFx2 trees at fanout 32 met the slew limit at 287 ps. Period at grt
 # (ps): extraction 1,905.1 -> 1,613.2, RTL arm 1,582.9 -> 1,424.3; the
-# extraction still trades (ideas/structured-macros.md).
+# extraction still trades (ideas/structured-macros.md). On the treed
+# extraction, its inverters kept as in the default arm (same netlist):
+# 1,579.6 -> 1,439.2, time +10.8 %.
 SLEW_STUDY = {
     "PhysicalStoreQueue": {"SLEW_MARGIN": "40"},
 }
@@ -324,7 +326,10 @@ SLEW_STUDY = {
             "SYNTH_HIERARCHICAL": "1",
             # the tree's inverters (<top>FanoutInv) kept, so synthesis does
             # not fold the two levels away
-            "SYNTH_KEEP_MODULES": "" if rtl else " ".join([top + "Entry"] + ([top + "FanoutInv"] if variant == "tree" or (variant == None and top in TREE) else [])),
+            "SYNTH_KEEP_MODULES": "" if rtl else " ".join([top + "Entry"] + ([top + "FanoutInv"] if variant == "tree" or (variant in [
+                None,
+                "slew",
+            ] and top in TREE) else [])),
         } | ({"SYNTH_HDL_FRONTEND": ""} if top in YOSYS_FRONTEND else {}) | extra,
         last_stage = "grt",
         pdk = "//flow:asap7",
@@ -333,7 +338,10 @@ SLEW_STUDY = {
         }),
         stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
         tags = ["manual"],
-        user_arguments = BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS | ({} if rtl or top in YOSYS_FRONTEND else {"XS_FOLD_MODULES": " ".join([top + "Entry"] + ([top + "FanoutInv"] if variant == "tree" or (variant == None and top in TREE) else []))}),
+        user_arguments = BLOCK["user_arguments"] | XS_ICG_USER_ARGUMENTS | ({} if rtl or top in YOSYS_FRONTEND else {"XS_FOLD_MODULES": " ".join([top + "Entry"] + ([top + "FanoutInv"] if variant == "tree" or (variant in [
+            None,
+            "slew",
+        ] and top in TREE) else []))}),
         user_sources = BLOCK["user_sources"] | XS_ICG_USER_SOURCES,
         user_stages = {
             v: s

@@ -742,6 +742,25 @@ leaf of a broadcast the cell compares but nothing observes (the miter
 rightly says equivalent). It is now a leaf of the broadcast the cell
 reads at the most pins.
 
+**PhysicalStoreQueue's slew study on the tree** (2026-10-31): the `slew`
+arm read the treed Verilog without keeping `<top>FanoutInv`; it now
+keeps it, and its synthesis is the default arm's, byte for byte (the
+netlist and the synth ODB). Single run, alone in a 10 GB scope; the
+synthesis seconds are the default arm's, since the netlist is the same
+(this run's 284.5 s was noise on an identical action):
+
+| arm | synth s | floorplan s | place s | CTS s | grt s | total min | period ps | stdcells | area µm² |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| A (inventory) | 1,448.9 | 17.7 | 217.6 | 21.9 | 125.5 | 30.53 | 1,453.0 / 1,582.9 | 252,148 | 32,126.6 |
+| B, treed | 213.9 | 18.2 | 219.5 | 22.4 | 106.2 | 9.67 | 1,579.6 / 2,007.3 | 251,065 | 30,440.0 |
+| B, treed, SLEW_MARGIN 40 | 213.9 | 18.0 | 255.7 | 41.7 | 113.4 | 10.71 | 1,439.2 / 1,713.1 | 257,781 | 32,272.4 |
+
+Against B: period -8.9 %, time +10.8 %, it dominates; against A it is
+-1.0 % at 35 % of the time. The time is placement's repair_design
+(3_4_place_resized 43 s) and CTS (42 against 22 s, its detailed
+placement around the added buffers), the cells and area are those
+buffers, as in the untreed slew study above.
+
 ### Two findings without a lever (2026-10-31)
 
 - **generate_ram's 16-word 2r4w block** (0170's tests): its detailed
