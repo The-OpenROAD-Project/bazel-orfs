@@ -357,26 +357,26 @@ the standard cells at global route (CORE masters, no tap or fill), what
 setup repair would have added included (it is off here; CTS buffers and
 place's repair_design are in).
 
-| Block | Arm | synth s | floorplan s | place s | CTS s | grt s | total min | period at grt ps | stdcells | stdcell area µm² |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| PhysicalStoreQueue ⁴ | A: RTL | 1,909.2 | 26.1 | 327.9 | 30.9 | 156.9 | 40.85 | 1,582.9 | 252,148 | 32,126.6 |
-| | B: extracted | 327.2 | 23.7 | 324.3 | 40.8 | 156.4 | 14.54 | 1,905.1 | 256,511 | 31,409.7 |
-| LoadQueueReplay | A: RTL | 1,504.8 | 49.5 | 496.1 | 33.4 | 160.0 | 37.40 | 1,664.5 | 368,658 | 45,109.3 |
-| | B: extracted | 432.4 | 35.8 | 549.4 | 49.5 | 274.7 | 22.36 | 1,289.9 | 388,365 | 45,860.8 |
-| VirtualStoreQueue ⁴ | A: RTL | 260.4 | 5.5 | 58.7 | 7.5 | 30.3 | 6.04 | 1,014.1 | 62,041 | 7,605.0 |
-| | B: extracted ⁹ | 102.8 | 3 | 63 | 7 | 36 | 3.53 | 926.0 | 63,871 | 7,884.8 |
-| LoadQueueRAR | A: RTL | 266.8 | 6.0 | 58.7 | 5.0 | 58.8 | 6.59 | 902.0 | 53,430 | 7,024.2 |
-| | B: extracted ⁹ | 85.8 | 11.5 | 70.0 | 6.3 | 106.4 | 4.67 | 949.9 | 67,093 | 8,222.8 |
-| TLBFA | A: RTL | 75.6 | 6.4 | 46.9 | 4.6 | 28.0 | 2.69 | 439.0 | 47,411 | 6,578.3 |
-| | B: extracted ⁹ | 34.3 | 6.6 | 49.0 | 4.8 | 36.9 | 2.19 | 311.8 | 49,653 | 6,592.5 |
-| TLBFA_1 ⁴ | A: RTL | 166.0 | 16.6 | 136.2 | 7.0 | 31.4 | 5.95 | 460.8 | 83,636 | 10,707.2 |
-| | B: extracted ⁹ | 44.2 | 10.5 | 81.6 | 11.4 | 36.0 | 3.06 | 292.2 | 98,120 | 11,689.7 |
-| VirtualLoadQueue | A: RTL | 173.5 | 5.1 | 34.9 | 3.2 | 94.9 | 5.19 | 962.5 | 38,203 | 4,267.1 |
-| | B: extracted ⁹ | 83.9 | 5.0 | 41.4 | 4.2 | 70.4 | 3.41 | 1,011.7 | 42,144 | 4,914.7 |
-| Uncache ⁵ | A: RTL | 115.1 | 13.3 | 49.0 | 5.4 | 17.2 | 3.33 | 1,020.3 | 56,458 | 7,449.8 |
-| | B: extracted ⁹ | 81.8 | 6.6 | 68.4 | 5.4 | 84.0 | 4.10 | 1,332.8 | 70,686 | 8,524.5 |
-| Rob ⁶ | A: RTL | 969.3 | 365.3 | 1,078.6 | 37.2 | 147.9 | 43.30 | 2,038.9 | 341,506 | 40,836.6 |
-| | B: extracted | 408.7 | 143.9 | 1,925.8 | 43.3 | 925.1 | 57.45 | 1,759.3 | 432,737 | 48,740.8 |
+| Block | Arm | synth s | floorplan s | place s | CTS s | grt s | total min | period at grt, routes' RC ps | period at grt, placement RC ps | stdcells | stdcell area µm² |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| PhysicalStoreQueue ⁴ | A: RTL | 1,909.2 | 26.1 | 327.9 | 30.9 | 156.9 | 40.85 | 1,453.0 | 1,582.9 | 252,148 | 32,126.6 |
+| | B: extracted | 327.2 | 23.7 | 324.3 | 40.8 | 156.4 | 14.54 | 1,567.7 | 1,905.1 | 256,511 | 31,409.7 |
+| LoadQueueReplay | A: RTL | 1,504.8 | 49.5 | 496.1 | 33.4 | 160.0 | 37.40 | 1,198.4 | 1,664.5 | 368,658 | 45,109.3 |
+| | B: extracted | 432.4 | 35.8 | 549.4 | 49.5 | 274.7 | 22.36 | 1,201.8 | 1,435.1 | 389,527 | 45,759.1 |
+| VirtualStoreQueue ⁴ | A: RTL | 260.4 | 5.5 | 58.7 | 7.5 | 30.3 | 6.04 | 944.7 | 1,014.1 | 62,041 | 7,605.0 |
+| | B: extracted ⁹ | 102.8 | 3 | 63 | 7 | 36 | 3.53 | 910.4 | 926.0 | 63,871 | 7,884.8 |
+| LoadQueueRAR | A: RTL | 266.8 | 6.0 | 58.7 | 5.0 | 58.8 | 6.59 | 781.3 | 902.0 | 53,430 | 7,024.2 |
+| | B: extracted ⁹ | 85.8 | 11.5 | 70.0 | 6.3 | 106.4 | 4.67 | 863.5 | 949.9 | 67,093 | 8,222.8 |
+| TLBFA | A: RTL | 75.6 | 6.4 | 46.9 | 4.6 | 28.0 | 2.69 | 397.0 | 439.0 | 47,411 | 6,578.3 |
+| | B: extracted ⁹ | 34.3 | 6.6 | 49.0 | 4.8 | 36.9 | 2.19 | 320.6 | 311.8 | 49,653 | 6,592.5 |
+| TLBFA_1 ⁴ | A: RTL | 166.0 | 16.6 | 136.2 | 7.0 | 31.4 | 5.95 | 456.2 | 460.8 | 83,636 | 10,707.2 |
+| | B: extracted ⁹ | 44.2 | 10.5 | 81.6 | 11.4 | 36.0 | 3.06 | 282.3 | 292.2 | 98,120 | 11,689.7 |
+| VirtualLoadQueue | A: RTL | 173.5 | 5.1 | 34.9 | 3.2 | 94.9 | 5.19 | 857.6 | 962.5 | 38,203 | 4,267.1 |
+| | B: extracted ⁹ | 83.9 | 5.0 | 41.4 | 4.2 | 70.4 | 3.41 | 972.6 | 1,011.7 | 42,144 | 4,914.7 |
+| Uncache ⁵ | A: RTL | 115.1 | 13.3 | 49.0 | 5.4 | 17.2 | 3.33 | 916.0 | 1,020.3 | 56,458 | 7,449.8 |
+| | B: extracted ⁹ | 81.8 | 6.6 | 68.4 | 5.4 | 84.0 | 4.10 | 1,171.3 | 1,332.8 | 70,686 | 8,524.5 |
+| Rob ⁶ | A: RTL | 1,641.8 | 474.3 | 1,150.7 | 44.6 | 173.0 | 58.07 | 1,379.9 | 2,197.3 | 340,217 | 40,759.2 |
+| | B: extracted | 493.7 | 161.0 | 2,045.1 | 48.9 | 855.4 | 60.07 | 1,251.6 | 2,029.8 | 430,964 | 48,247.0 |
 
 ⁴ On yosys's frontend in both arms (`YOSYS_FRONTEND`). ⁵ The study
 extraction (`--firtool-vectors`, off by default; #1430), its RTL arm
@@ -425,7 +425,23 @@ decoded, LoadQueueRAR comes out at 901.1 ps (61,948 cells, 7,806.0
 LoadQueueRAR 1,052.0 → 949.9, VirtualStoreQueue 961.3 → 926.0,
 TLBFA_1 308.5 → 292.2, Uncache 1,418.5 → 1,332.8, VirtualLoadQueue
 1,036.0 → 1,011.7, TLBFA 306.7 → 311.8 (+1.7 %; it meets its 473 ps
-clock). ⁸ PhysicalStoreQueue's
+clock). ¹¹ Re-scored 2026-10-31 on the
+period at global route on the routes' own parasitics (the probe's
+`period_grt_ps`, what global route's repair sees), as the verdicts now
+use; the placement-parasitics period stays beside it for the record.
+The B arms and the A arms whose ODBs were in the remote cache were
+re-probed; PhysicalStoreQueue's A (alone in a 10 GB scope, beside a
+one-core proof: 33.03 min, synthesis 1,536 s, the period on placement
+parasitics 1,582.9 as before) and both LoadQueueReplay arms were re-run.
+LoadQueueReplay's B on main is 1,435.1 ps on placement parasitics
+(389,527 cells), not the 1,289.9 above it, and the Rob's arms are this
+week's runs (A's synthesis beside B's placement in one 17 GB scope);
+their seconds are those runs'. The other seconds are the earlier ones.
+Moved: PhysicalStoreQueue trades -> dominates (B over A: 322 ps on the placement
+estimate, 115 on the routes); the Rob trades -> dominates (main's B, before the
+ordered comparisons were decoded); LoadQueueRAR and VirtualLoadQueue
+dominates -> trades (the reasons in the table).
+⁸ PhysicalStoreQueue's
 broadcast is inherent (the forwarding query compared in all 64 cells),
 and placement already sees one netlist (OPENROAD_HIERARCHICAL 0), so
 the study arm `PhysicalStoreQueue_flat` flattens before synthesis
@@ -440,17 +456,17 @@ mapped without its 22 fF load (149 ps slew): arrival 1,643 ps against
 1,778. To win, the cell would have to keep its single synthesis and
 still be mapped against what drives and loads it.
 
-| Block | A total min | B total min | A period ps | B period ps | verdict | reason for a loss, measured |
-|---|---:|---:|---:|---:|---|---|
-| PhysicalStoreQueue | 40.85 | 14.54 | 1,582.9 | 1,905.1 | trades ⁸ | the forwarding query reaches the 64 entry cells through fanout-32 buffers (slew 287 ps), compares inside, and the select comes back out: arrival 2,164 ps against 1,833 |
-| LoadQueueReplay | 37.40 | 22.36 | 1,664.5 | 1,289.9 | dominates | |
-| VirtualStoreQueue | 6.04 | 3.53 | 1,014.1 | 926.0 | dominates ⁷ ⁹ | |
-| LoadQueueRAR | 6.59 | 4.67 | 902.0 | 949.9 | dominates ⁹ | period +5.3 %, inside the 10 % |
-| TLBFA | 2.69 | 2.19 | 439.0 | 311.8 | dominates ⁹ | |
-| TLBFA_1 | 5.95 | 3.06 | 460.8 | 292.2 | dominates ⁹ | |
-| VirtualLoadQueue | 5.19 | 3.41 | 962.5 | 1,011.7 | dominates ⁹ | period +5.1 %, inside the 10 % |
-| Rob | 43.30 | 57.45 | 2,038.9 | 1,759.3 | trades | 27 % more cells (432,737 against 341,506): routability-driven global placement needs 21 passes against 7 (1,591 against 757 s), and global route takes 835 s where the RTL arm stops at congestion after 79 s |
-| Uncache | 3.33 | 4.10 | 1,020.3 | 1,332.8 ⁹ | study only | 27 % more cells: the 435-bit read side mapped inside the kept entry cell, nothing optimised across its boundary; global route 84 against 17 s. With the read side in the block (`Uncache_noread`, below) 1,198.0 ps, 3.33 min: still a loss |
+| Block | A total min | B total min | A period ps | B period ps | verdict | placement RC A / B ps, verdict before ¹¹ | reason for a loss, measured |
+|---|---:|---:|---:|---:|---|---|---|
+| PhysicalStoreQueue | 40.85 | 14.54 | 1,453.0 | 1,567.7 | dominates ⁸ ¹¹ | 1,582.9 / 1,905.1, trades | period +7.9 %, inside the 10 % |
+| LoadQueueReplay | 37.40 | 22.36 | 1,198.4 | 1,201.8 | dominates ¹¹ | 1,664.5 / 1,435.1, dominates | period +0.3 % |
+| VirtualStoreQueue | 6.04 | 3.53 | 944.7 | 910.4 | dominates ⁷ ⁹ | 1,014.1 / 926.0, dominates | |
+| LoadQueueRAR | 6.59 | 4.67 | 781.3 | 863.5 | trades ¹¹ | 902.0 / 949.9, dominates | period +10.5 %: on the same path (the free list's head pointer, the read of the allocated slot, the write decoder, the entry's registers), 992.6 ps arrival against 898.0: the slot read's buffers are five BUFx2 in B against BUFx6f, INVx3 and BUFx3 in A (+56 ps to the read's output), and inside the cell the decoded write select reaches its 20 loads through two BUFx2 stages (178.5 ps from the cell's pin to D, against 119.5 from A's last select gate) |
+| TLBFA | 2.69 | 2.19 | 397.0 | 320.6 | dominates ⁹ | 439.0 / 311.8, dominates | |
+| TLBFA_1 | 5.95 | 3.06 | 456.2 | 282.3 | dominates ⁹ | 460.8 / 292.2, dominates | |
+| VirtualLoadQueue | 5.19 | 3.41 | 857.6 | 972.6 | trades ¹¹ | 962.5 / 1,011.7, dominates | period +13.4 %: on the same path (the load write-back pointer, its reduction, each entry's allocated bit), 1,061.8 ps arrival against 954.5: B's top maps the reduction as 17 single-fanout levels after the pointer's decode (377 to 780 ps) against A's 9 (453 to 726), and its result reaches the 120 kept cells through repair_design's BUFx2 at fanout 26, 32 and 32 (180 ps) against two ABC buffers at fanout 10 (83 ps) |
+| Rob | 58.07 | 60.07 | 1,379.9 | 1,251.6 | dominates ¹¹ | 2,197.3 / 2,029.8, trades | time +3.4 % |
+| Uncache | 3.33 | 4.10 | 916.0 | 1,171.3 ⁹ | study only | 1,020.3 / 1,332.8, study only | period +27.9 %, time +23 %: 27 % more cells: the 435-bit read side mapped inside the kept entry cell, nothing optimised across its boundary; global route 84 against 17 s. With the read side in the block (`Uncache_noread`, below) 1,062.2 ps (1,198.0 on placement RC), 3.33 min: still a loss |
 
 The verdict: B dominates when it is no worse on both, a time within
 15 % or a period within 10 % counting as no worse (the flow is
@@ -567,7 +583,9 @@ well.
 `test/array_toys`, the generated arm against yosys's, depth 32. Dirty
 lanes from synthesis through global route on one machine, each kind's
 two arms side by side stage by stage; seconds are the step logs summed,
-period is 300 ps minus the worst slack at global route, cells and area
+period is 300 ps minus the worst slack at global route (the flow's own
+report at the end of global route, on the routes' parasitics: the
+measure the XiangShan verdicts now use too), cells and area
 the standard cells without taps. Single runs; agematrix is 32 entries
 (a 32 x 32 age matrix and 32 valid bits). Verdict as above.
 
@@ -810,8 +828,9 @@ side); proofs (the miter) are polish for now, the long ones wait.
    the index-kept proof and control passed). Polish: when the machine is
    otherwise idle.
 5. **Bpu's 3,175.5 ps** with repair aimed at 2,000 ps (`flow_only`).
-   Not an array: find whether it is logic or placement first
-   (`repair-headroom` skill), on the flow_only flow.
+   Done: on the routes' parasitics it is 1,953.8 ps and closes; the
+   3,175.5 was the probe's placement estimate ("What the flow alone
+   buys").
 6. **Generated arrays slower than yosys in CTS and global route** on the
    toys (`test/array_toys`). Settled on the CAM at 32 x 128 (2026-10-29);
    both arms run with the same settings. The clock trees were alike
@@ -849,4 +868,11 @@ side); proofs (the miter) are polish for now, the long ones wait.
    is the lever for the 26 ps; the priority encoder's depth (prefix OR2s,
    a polarity inverter at each tree's end) is where the rest of CTS's
    time is; flags, agematrix and the larger sizes are not re-measured.
-
+7. **The two verdicts the routes' parasitics moved** (2026-10-31,
+   ¹¹): LoadQueueRAR (+10.5 %) and VirtualLoadQueue (+13.4 %) trade.
+   Measured: buffers synthesis sized smaller in B's top (RAR's slot
+   read, five BUFx2), the decoded write select buffered twice inside
+   RAR's cell, a reduction mapped twice as deep (VirtualLoadQueue's
+   write-back pointer, 17 levels against 9), and a result broadcast into
+   the kept cells by repair_design's BUFx2 trees at fanout 32. Find why
+   B's top maps them differently before changing the front end.
