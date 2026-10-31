@@ -17,6 +17,7 @@ def parent_macro_flow(
         user_arguments = {},
         user_sources = {},
         user_stages = {},
+        stage_arguments = {},
         top_arguments = {},
         top_sources = {},
         macros = [],
@@ -80,6 +81,8 @@ def parent_macro_flow(
         SYNTH_POST_HIERARCHY_SCRIPTS among them runs before evert.ys.
       user_sources: the parent macro's user sources.
       user_stages: the parent macro's user stages.
+      stage_arguments: the parent macro's per-stage arguments, over
+        arguments (orfs_flow's stage_arguments).
       top_arguments: the top level's arguments, over the defaults.
       top_sources: the top level's sources, over the defaults
         (SDC_FILE at least).
@@ -156,21 +159,24 @@ def parent_macro_flow(
     orfs_flow(
         name = name,
         top = top,
-        arguments = arguments | {
+        arguments = {
+            # by default the first flush through grt, for turnaround:
+            # XSTile_parent's CTS setup repair ground for over an hour at
+            # WNS -437 ps without moving it, on the 4771 x 2064 um die. A
+            # design's arguments or stage_arguments turn repair back on.
+            "SKIP_CTS_REPAIR_TIMING": "1",
+            "SKIP_INCREMENTAL_REPAIR": "1",
+        } | arguments | {
             "CORE_AREA": plan["parent"]["CORE_AREA"],
             "DIE_AREA": plan["parent"]["DIE_AREA"],
             "OPENROAD_HIERARCHICAL": "0",
-            # the first flush through grt is for turnaround: XSTile_parent's
-            # CTS setup repair ground for over an hour at WNS -437 ps
-            # without moving it, on the 4771 x 2064 um die
-            "SKIP_CTS_REPAIR_TIMING": "1",
-            "SKIP_INCREMENTAL_REPAIR": "1",
             "SYNTH_BLACKBOXES": " ".join(names),
         },
         last_stage = "grt",
         macros = macros,
         pdk = pdk,
         sources = parent_sources,
+        stage_arguments = stage_arguments,
         variant = variant,
         tags = tags,
         user_arguments = parent_user_arguments,

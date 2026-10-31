@@ -207,6 +207,16 @@ ORFS_PATCHES = [
     # added. On 0089. Not upstreamed; retires at a bump onto an ORFS that
     # carries it.
     Label("//patches:0172-orfs-regfile-top-keeps-generate-ram-layout.patch"),
+    # 0179: REPAIR_TIMING_PATH_GROUP passes repair_timing -path_group, so a
+    # parent macro whose ports carry budgets no repair inside it can meet
+    # repairs its reg2reg paths instead. Not upstreamed; retires at a bump
+    # onto an ORFS that carries it.
+    Label("//patches:0179-orfs-repair-timing-path-group.patch"),
+    # 0180: REPAIR_TIMING_MAX_ITERATIONS passes repair_timing
+    # -max_iterations, for a repair that stops improving long before it has
+    # visited its endpoints. On 0179. Not upstreamed; retires at a bump onto
+    # an ORFS that carries it.
+    Label("//patches:0180-orfs-repair-timing-max-iterations.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

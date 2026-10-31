@@ -1660,6 +1660,13 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     # partition, as in the tile's own synthesis
     parent_arguments = {k: v for k, v in arguments.items() if k not in ["SYNTH_KEEP_MODULES", "SYNTH_NUM_PARTITIONS"]} | {
         "MAX_ROUTING_LAYER": "M7",
+        # The parent macro's logic lives in the 535 um strip between the
+        # two rows of blocks. At 0.3 its ~400k um2 of placed cells needs
+        # 1.3 mm2 and so runs 2.5 mm along the strip: CtrlBlock spread
+        # over 2.8 mm, dispatch to rename to decode a millimetre apart. At
+        # 0.6 the reg2reg period before timing repair at global route was
+        # 3,768 ps against 4,535 (ideas/xiangshan-timing.md, entry 59).
+        "PLACE_DENSITY": "0.6",
         "SYNTH_KEEP_MODULES": parent_macro_keep,
     }
 
@@ -1680,6 +1687,20 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         plan = plan,
         plan_pins = {b: ":%s/%s_pins.tcl" % (plan_dir, b) for b in macros},
         sources = parent_sources,
+        # Setup repair at global route, with the route's parasitics, on
+        # the reg2reg group only: the parent macro's ports are its blocks'
+        # pins, and their set_max_delay budgets run through a block the
+        # parent cannot repair. Repairing every group, the flow's 1 % of
+        # endpoints went to one block pin at -5.4 ns and the reg2reg
+        # period moved 2 ps. Hold stays off here, as in the tile's flow.
+        # Capped: on 274 endpoints the reg2reg WNS held at -835.6 ps from
+        # iteration 1,610 to 1,990, an hour per 1,200 iterations.
+        stage_arguments = {"grt": {
+            "HOLD_SLACK_MARGIN": "-1000",
+            "REPAIR_TIMING_MAX_ITERATIONS": "1600",
+            "REPAIR_TIMING_PATH_GROUP": "reg2reg",
+            "SKIP_INCREMENTAL_REPAIR": "0",
+        }},
         tags = tags,
         top = name,
         top_arguments = {

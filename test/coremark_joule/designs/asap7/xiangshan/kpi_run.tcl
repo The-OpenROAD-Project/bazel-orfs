@@ -74,8 +74,29 @@ if { [info exists ::env(KPI_PATHS)] } {
   # arrival afterwards updates the search, and the paths found before it
   # are not to be touched again
   array set over {}
+  # who talks to whom: the endpoints over the target by the scope of the
+  # register their worst path starts at and the one it ends at, cut to
+  # KPI_CENSUS_DEPTH levels, with the excess over the target summed
+  set depth [expr { [info exists ::env(KPI_CENSUS_DEPTH)] ? $::env(KPI_CENSUS_DEPTH) : 4 }]
+  array set pair {}
+  array set excess {}
   foreach t $sorted {
-    if { $p - [get_property $t slack] <= $target } { break }
+    set period [expr { $p - [get_property $t slack] }]
+    if { $period <= $target } { break }
+    set ends2 {}
+    foreach pin [list [get_property $t startpoint] [get_property $t endpoint]] {
+      set s [lrange [split [get_full_name $pin] /] 0 end-2]
+      set s [join [lrange $s 0 [expr { $depth - 1 }]] /]
+      lappend ends2 [expr { $s eq "" ? "." : $s }]
+    }
+    set key [join $ends2 " -> "]
+    if { [info exists pair($key)] } {
+      incr pair($key)
+      set excess($key) [expr { $excess($key) + $period - $target }]
+    } else {
+      set pair($key) 1
+      set excess($key) [expr { $period - $target }]
+    }
     set parts [split [get_full_name [get_property $t endpoint]] /]
     set m [join [lrange $parts 0 end-2] /]
     if { [info exists over($m)] } { incr over($m) } else { set over($m) 1 }
@@ -160,6 +181,15 @@ if { [info exists ::env(KPI_PATHS)] } {
   puts $f [format "endpoints over %d ps: %d" $target $total]
   foreach r [lsort -integer -decreasing -index 0 $mods] {
     puts $f [format "  %6d %s" {*}$r]
+  }
+  set pairs {}
+  foreach k [array names pair] {
+    lappend pairs [list $pair($k) [expr { $excess($k) / 1000.0 }] $k]
+  }
+  puts $f [format "endpoints over %d ps by launch -> capture scope, %d levels (endpoints, excess ns):" \
+    $target $depth]
+  foreach r [lsort -integer -decreasing -index 0 $pairs] {
+    puts $f [format "  %6d %9.1f  %s" {*}$r]
   }
   close $f
 }
