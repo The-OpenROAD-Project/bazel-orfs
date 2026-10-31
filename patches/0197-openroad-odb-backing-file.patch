@@ -14,10 +14,13 @@ read_db -backing_file <file> (dbDatabase::setBackingFile) gives every
 table its pages from chunks of its own. A chunk is ordinary memory until
 it is paged out, when it is copied to its room in the file, reserved
 (posix_fallocate) as the chunk was made so a full disk fails then, and
-mapped there. dbDatabase::pageOut and dbBlock::pageOut(dbObjectType)
-write the pages of every table, or of one, to the file and free them;
-they are read back as they are touched. write_db pages each table out
-once it is written, so it holds one table in memory at a time. Without
+mapped there. A table's chunks start at 64 KiB and double up to 64 MB,
+so the file reserves about what the tables hold: a database has hundreds
+of tables, every library master's among them, most of a few pages.
+dbDatabase::pageOut and dbBlock::pageOut(dbObjectType) write the pages
+of every table, or of one, to the file and free them; they are read
+back as they are touched. write_db pages each table out once it is
+written, so it holds one table in memory at a time. Without
 -backing_file nothing changes. The file is unlinked once open.
 
 Carried in bazel-orfs for OpenROAD#12075, not upstreamed; retires with
@@ -32,16 +35,16 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  src/OpenRoad.tcl                   |  10 +-
  src/odb/include/odb/db.h           |  20 +++
  src/odb/src/db/CMakeLists.txt      |   1 +
- src/odb/src/db/dbBacking.cpp       | 207 +++++++++++++++++++++++++++++
+ src/odb/src/db/dbBacking.cpp       | 214 +++++++++++++++++++++++++++++
  src/odb/src/db/dbBacking.h         |  71 ++++++++++
- src/odb/src/db/dbBlock.cpp         |  68 ++++++++++
+ src/odb/src/db/dbBlock.cpp         |  68 +++++++++
  src/odb/src/db/dbDatabase.cpp      |  24 ++++
  src/odb/src/db/dbDatabase.h        |   3 +
  src/odb/src/db/dbTable.inc         |  21 ++-
  src/odb/test/cpp/BUILD             |  12 ++
  src/odb/test/cpp/CMakeLists.txt    |   7 +
- src/odb/test/cpp/TestDbBacking.cpp |  96 +++++++++++++
- 15 files changed, 545 insertions(+), 10 deletions(-)
+ src/odb/test/cpp/TestDbBacking.cpp | 129 +++++++++++++++++
+ 15 files changed, 585 insertions(+), 10 deletions(-)
  create mode 100644 src/odb/src/db/dbBacking.cpp
  create mode 100644 src/odb/src/db/dbBacking.h
  create mode 100644 src/odb/test/cpp/TestDbBacking.cpp
@@ -182,10 +185,10 @@ index 40cabb3240..06b2f7587b 100644
      dbGCellGrid.cpp
 diff --git a/src/odb/src/db/dbBacking.cpp b/src/odb/src/db/dbBacking.cpp
 new file mode 100644
-index 0000000000..0ba9d0bc8b
+index 0000000000..aad3f49afe
 --- /dev/null
 +++ b/src/odb/src/db/dbBacking.cpp
-@@ -0,0 +1,207 @@
+@@ -0,0 +1,214 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
 +
@@ -213,6 +216,10 @@ index 0000000000..0ba9d0bc8b
 +namespace odb {
 +
 +namespace {
++// A table's chunks start small and double up to kChunkSize: each is
++// reserved in the file when it is made, and a database has hundreds of
++// tables (every library master has its own), most of them a few pages.
++constexpr size_t kFirstChunkSize = size_t{64} << 10;
 +constexpr size_t kChunkSize = size_t{64} << 20;
 +
 +size_t pageRound(size_t size)
@@ -252,7 +259,10 @@ index 0000000000..0ba9d0bc8b
 +{
 +  std::vector<Chunk>& chunks = tables_[table];
 +  if (chunks.empty() || chunks.back().size - chunks.back().used < size) {
-+    const size_t chunk_size = pageRound(std::max(kChunkSize, size));
++    const size_t grown = chunks.empty()
++                             ? kFirstChunkSize
++                             : std::min(kChunkSize, 2 * chunks.back().size);
++    const size_t chunk_size = pageRound(std::max(grown, size));
 +    const int err
 +        = posix_fallocate(fd_, static_cast<off_t>(file_size_), chunk_size);
 +    if (err != 0) {
@@ -750,15 +760,17 @@ index 3807d0c57f..3b72bfcad8 100644
  add_subdirectory(helper)
 diff --git a/src/odb/test/cpp/TestDbBacking.cpp b/src/odb/test/cpp/TestDbBacking.cpp
 new file mode 100644
-index 0000000000..c0654746f2
+index 0000000000..d1c05b0402
 --- /dev/null
 +++ b/src/odb/test/cpp/TestDbBacking.cpp
-@@ -0,0 +1,96 @@
+@@ -0,0 +1,129 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
 +
 +#include <gtest/gtest.h>
++#include <sys/stat.h>
 +
++#include <cstdint>
 +#include <filesystem>
 +#include <fstream>
 +#include <memory>
@@ -804,7 +816,38 @@ index 0000000000..c0654746f2
 +  {
 +    return (std::filesystem::path(testing::TempDir()) / name).string();
 +  }
++
++  // The disk the unlinked backing file holds, found through this process's
++  // open file descriptors.
++  static int64_t reservedBytes(const std::string& path)
++  {
++    for (const auto& fd :
++         std::filesystem::directory_iterator("/proc/self/fd")) {
++      std::error_code ec;
++      const std::string target
++          = std::filesystem::read_symlink(fd.path(), ec).string();
++      if (!ec && target.starts_with(path)) {
++        struct stat st;
++        if (stat(fd.path().c_str(), &st) == 0) {
++          return static_cast<int64_t>(st.st_blocks) * 512;
++        }
++      }
++    }
++    return -1;
++  }
 +};
++
++// The file reserves room for what the tables hold, not a large chunk for
++// every table: a design of a few hundred cells reserved tens of GB, and
++// four global routes side by side filled a CI runner's disk.
++TEST_F(DbBackingTest, ReservesWhatTheTablesHold)
++{
++  const std::string path = backingPath("reserved.db");
++  const DbPtr backed = read(path);
++  const int64_t reserved = reservedBytes(path);
++  ASSERT_GE(reserved, 0) << "no open backing file " << path;
++  EXPECT_LT(reserved, int64_t{256} << 20);
++}
 +
 +TEST_F(DbBackingTest, PagedOutDatabaseWritesTheSame)
 +{
