@@ -1,0 +1,127 @@
+# asap7/cva6's RAMs (patch 0204) against the macros AUTO_MEMORIES makes
+# of them: kepler-formal SEC of each RAM as the RTL has it against the
+# model FakeRAM writes for its macro (patches 0201, 0205), at depths 2
+# and 4 (ram_lec.bzl). The D-cache's RAMs are upstream's behavioural
+# models; the I-cache's are the SRAMs surgery.py puts behind sram_cache's
+# techno cut. Every control changes a model and must be caught. Manual,
+# as every lec_test is.
+load("@rules_python//python:defs.bzl", "py_binary")
+load(":ram_lec.bzl", "ENABLE_INVERTED", "ram_lec", "reverse_lanes")
+
+HPDCACHE = "@orfs//flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/macros/behav"
+
+# Canonicalization's views of the converted memories, not all of synthesis.
+filegroup(
+    name = "cva6_memories",
+    srcs = ["@orfs//flow/designs/asap7/cva6:cva6_synth"],
+    output_group = "memories",
+)
+
+[genrule(
+    name = "model_" + ram,
+    srcs = [":cva6_memories"],
+    outs = ["model_%s.v" % ram],
+    cmd = "cp $(location :cva6_memories)/%s.v $@" % ram,
+) for ram in [
+    "hpdcache_sram_wbyteenable_1rw",
+    "hpdcache_sram_1rw",
+    "cva6_icache_data_sram",
+    "cva6_icache_tag_sram",
+]]
+
+# The surgery, run on upstream's techno cut, and each SRAM it adds alone.
+py_binary(
+    name = "cva6_surgery",
+    srcs = ["@orfs//flow/designs/asap7/cva6:surgery.py"],
+    main = "@orfs//flow/designs/asap7/cva6:surgery.py",
+)
+
+genrule(
+    name = "surgered_techno_cut",
+    srcs = ["@orfs//flow/designs/src/cva6/common/local/util:tc_sram_wrapper_cache_techno.sv"],
+    outs = ["surgered/tc_sram_wrapper_cache_techno.sv"],
+    cmd = "$(execpath :cva6_surgery) --out-dir $(RULEDIR)/surgered $<",
+    tools = [":cva6_surgery"],
+)
+
+[genrule(
+    name = "rtl_" + ram,
+    srcs = [":surgered_techno_cut"],
+    outs = ["rtl_%s.sv" % ram],
+    cmd = "sed -n '/^module %s /,/^endmodule/p' $< > $@ && grep -q '^module %s ' $@" % (ram, ram),
+) for ram in [
+    "cva6_icache_data_sram",
+    "cva6_icache_tag_sram",
+]]
+
+ram_lec(
+    name = "dcache_data",
+    controls = {
+        "enable_inverted": ENABLE_INVERTED,
+        "lanes_reversed": reverse_lanes("wbyteenable", 8),
+    },
+    gate = ":model_hpdcache_sram_wbyteenable_1rw",
+    gold = HPDCACHE + ":hpdcache_sram_wbyteenable_1rw.sv",
+    gold_params = ".ADDR_SIZE({aw}), .DATA_SIZE(64), .DEPTH({depth})",
+    gold_rst = True,
+    module = "hpdcache_sram_wbyteenable_1rw",
+    ports = [
+        ("wdata", 64, "in"),
+        ("wbyteenable", 8, "in"),
+        ("rdata", 64, "out"),
+    ],
+)
+
+ram_lec(
+    name = "dcache_dir",
+    controls = {"enable_inverted": ENABLE_INVERTED},
+    gate = ":model_hpdcache_sram_1rw",
+    gold = HPDCACHE + ":hpdcache_sram_1rw.sv",
+    gold_params = ".ADDR_SIZE({aw}), .DATA_SIZE(28), .DEPTH({depth})",
+    gold_rst = True,
+    module = "hpdcache_sram_1rw",
+    ports = [
+        ("wdata", 28, "in"),
+        ("rdata", 28, "out"),
+    ],
+)
+
+# 256-bit words: depth 2 alone takes 704 s, depth 4 does not finish in
+# 900 s.
+ram_lec(
+    name = "icache_data",
+    timeout = "long",
+    controls = {
+        "enable_inverted": ENABLE_INVERTED,
+        "lanes_reversed": reverse_lanes("be", 32),
+    },
+    depths = [2],
+    gate = ":model_cva6_icache_data_sram",
+    gold = ":rtl_cva6_icache_data_sram",
+    gold_params = ".WORDS({depth})",
+    gold_rst = False,
+    module = "cva6_icache_data_sram",
+    ports = [
+        ("wdata", 256, "in"),
+        ("be", 32, "in"),
+        ("rdata", 256, "out"),
+    ],
+)
+
+ram_lec(
+    name = "icache_tag",
+    controls = {
+        "enable_inverted": ENABLE_INVERTED,
+        "lanes_reversed": reverse_lanes("be", 4),
+    },
+    gate = ":model_cva6_icache_tag_sram",
+    gold = ":rtl_cva6_icache_tag_sram",
+    gold_params = ".WORDS({depth})",
+    gold_rst = False,
+    module = "cva6_icache_tag_sram",
+    ports = [
+        ("wdata", 25, "in"),
+        ("be", 4, "in"),
+        ("rdata", 25, "out"),
+    ],
+)
