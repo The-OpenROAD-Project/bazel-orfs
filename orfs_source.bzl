@@ -199,6 +199,10 @@ ORFS_PATCHES = [
     # (OpenROAD patch 0188, OpenROAD#12075). Not upstreamed; retires at a
     # bump onto an ORFS that passes it.
     Label("//patches:0189-orfs-grt-backing-file.patch"),
+    # 0199: load_design -backing_file, optional, passed to read_db; global
+    # route reads its design with one in OBJECTS_DIR (OpenROAD patch 0197).
+    # Not upstreamed; retires at a bump onto an ORFS that has it.
+    Label("//patches:0199-orfs-load-design-backing-file.patch"),
     # 0160: a regfile spec's `write_words <address port> <word>...`, the
     # words a write port writes, as generate_ram's -w_port_words (OpenROAD
     # patch 0159): a word one port writes takes its data with no data mux.
