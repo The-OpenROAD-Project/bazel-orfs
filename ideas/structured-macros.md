@@ -496,7 +496,7 @@ still be mapped against what drives and loads it.
 
 | Block | A total min | B total min | A period ps | B period ps | verdict | placement RC A / B ps, verdict before ¹¹ | reason for a loss, measured |
 |---|---:|---:|---:|---:|---|---|---|
-| PhysicalStoreQueue | 30.53 | 9.67 | 1,453.0 | 1,579.6 | dominates ¹³ | 1,582.9 / 2,007.3, trades | period +8.7 % with the broadcasts treed and the clock left alone (+1.1 % with the clock treed, ¹³); untreed it traded at +14.7 % (the select reading the decoded threshold, and the query reaching the 64 cells through repair_design's BUFx2 at fanout 32) |
+| PhysicalStoreQueue | 30.53 | 9.71 | 1,453.0 | 1,483.9 | dominates ¹³ | 1,582.9 / 2,007.3, trades | period +8.7 % with the broadcasts treed and the clock left alone (+1.1 % with the clock treed, ¹³); untreed it traded at +14.7 % (the select reading the decoded threshold, and the query reaching the 64 cells through repair_design's BUFx2 at fanout 32) |
 | LoadQueueReplay | 37.40 | 22.36 | 1,198.4 | 1,201.8 | dominates ¹¹ | 1,664.5 / 1,435.1, dominates | period +0.3 % |
 | VirtualStoreQueue | 6.04 | 3.53 | 944.7 | 910.4 | dominates ⁷ ⁹ | 1,014.1 / 926.0, dominates | |
 | LoadQueueRAR | 6.59 | 4.05 | 781.3 | 818.1 | dominates ¹³ | 902.0 / 963.5, dominates | period +4.7 % with the broadcasts treed and the clock left alone; untreed it traded at +10.5 % (the slot read's five BUFx2 and the write select buffered twice inside the cell, ¹¹), treed with the clock it lost (913.8, the clock's insertion grown) |
@@ -1379,8 +1379,6 @@ side); proofs (the miter) are polish for now, the long ones wait.
    less than twice the work). Not the read side in the cell (the
    noread treed arm routes as long); ABC's upsize window narrows the
    period gap in both arms alike and leaves the time.
-
-   less than twice the work).
    Answered (2026-10-31, "Uncache's global route: the 3D pass
    resistance-aware routing runs"): B routes without 2D overflow, so
    FastRoute's finalisation reroutes every net in 3D with
@@ -1391,3 +1389,53 @@ side); proofs (the miter) are polish for now, the long ones wait.
    Done (2026-10-31): carried as 0200, that pass once and on the
    resistance-aware nets only; B against A is now +8.4 % period at
    +5.6 % time, inside both bounds (the section above).
+
+### On a bigger machine (2026-11-02)
+
+The arrays' own grind ends here: every block above dominates its RTL
+arm or ties it, every toy its yosys arm, and none of these blocks is on
+XiangShan's critical path (the KPI, run 21, 2,206 ps, is set in the
+parent, intRegion's `pipeToALU0` into vecRegion's `gpWbWakeUp`; the
+array blocks sit at 818 to 1,580 ps). What is left needs a machine that
+builds XSTile, and is not obvious from the tables above:
+
+9. **XSTile reads the arrays as they were, not as they are.**
+   `arrays:xiangshan_extracted` (MemBlock's and the parent's core) is
+   built from each block's untreed `<top>_extracted.v`, and only for
+   `INTEGRATED` (LoadQueueRAR, LoadQueueReplay, PhysicalStoreQueue, Rob,
+   TLBFA_1, VirtualStoreQueue). It picks up the front end's default
+   decodes (the decoder's enable, the ordered comparisons) when it next
+   builds, since those change `extract.py`'s default output, but not
+   the broadcast tree (`TREE`, `TREE_COPIES`), and not
+   VirtualLoadQueue, which now dominates. The per-block numbers are the
+   blocks alone; MemBlock has not been measured with any of them.
+   Next: point `xiangshan_extracted` at the treed extractions
+   (FanoutInv kept through MemBlock's `SYNTH_KEEP_MODULES` and
+   `XS_FOLD_MODULES`), add VirtualLoadQueue to `INTEGRATED`, and A/B
+   MemBlock (build time and period at grt) before and after. After
+   #1425.
+10. **Whether 0200 halves the parent's global route.** 0200 (#1490)
+    runs FastRoute's final 3D pass once, on the resistance-aware nets
+    only, when the 2D route ends without overflow: on the array blocks
+    that route clean, global route took 48 to 60 % less time at
+    +0.15 % period at most. Whether XSTile's parent ends its 2D route
+    without overflow, and so spent its hours in that pass, is not
+    known. The check costs nothing extra: the next parent run with
+    `set_debug_level GRT timer 1` (through `PRE_GLOBAL_ROUTE_TCL`)
+    shows finalisation's share; compare with a run before 0200 if one
+    has the log.
+11. **ABC's upsize window as a flow setting, on what sets the KPI.**
+    `abc_speed_window.script` (`upsize -c -W 20`, no `dnsize`; the
+    `_abcwin` study arms) gained about 10 % of period in both arms of
+    LoadQueueRAR and Uncache, at 7 to 9 % more area. That makes it no
+    lever for the extraction, but it is untried as a flow setting on
+    the blocks and the parent whose paths set the KPI (intRegion,
+    vecRegion, the parent). A/B one of those blocks first, both arms
+    alike.
+12. **PhysicalStoreQueue's two levers together** (the human's answer
+    on the agent board, 2026-10-31: "Yes, PhysicalStoreQueue only"):
+    `SLEW_MARGIN 40` (1,439.2 ps, `_slew`) and the query's per-entry
+    copies treed (1,483.9 ps, the default) were measured apart. Measure
+    them together and keep the better as PhysicalStoreQueue's default,
+    other blocks unchanged. PhysicalStoreQueue is not on the KPI path:
+    do this when a run of it is free, not before 9 to 11.
