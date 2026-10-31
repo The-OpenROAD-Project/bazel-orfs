@@ -198,6 +198,16 @@ TREE = [
 
 TREE_STUDY = []
 
+# The blocks whose broadcasts include a computation the RTL repeats once
+# per entry in the block (extract.py --tree-copies), treed as the one
+# broadcast synthesis merges it into. PhysicalStoreQueue's 36 such bits
+# (64 copies of an adder on the forwarding query's end) reached the cells
+# untreed, through repair_design's BUFx2 at fanout 32, ahead of the
+# query's own tree: period at grt 1,579.6 -> 1,483.9 ps, time a tie.
+# Not LoadQueueRAR: its 48 (write data, one buffer per entry) cost it
+# 818.1 -> 882.5 ps.
+TREE_COPIES = ["PhysicalStoreQueue"]
+
 [
     genrule(
         name = top + "_tree_extracted",
@@ -207,7 +217,12 @@ TREE_STUDY = []
             top + "_tree_extracted.json",
             top + "_tree_extracted.json.renames",
         ],
-        cmd = "$(execpath :extract) $(location :%s_proc.json) %s $(location %s_tree_extracted.json) --fanout-tree=8 && " % (top, top, top) +
+        cmd = "$(execpath :extract) $(location :%s_proc.json) %s $(location %s_tree_extracted.json) --fanout-tree=8%s && " % (
+                  top,
+                  top,
+                  top,
+                  " --tree-copies" if top in TREE_COPIES else "",
+              ) +
               "$(execpath @yosys) -q -p 'read_json $(location %s_tree_extracted.json); hierarchy -top %s; " % (top, top) +
               "opt_dff; write_verilog -noattr $(location %s_tree_extracted.v)'" % top,
         tags = ["manual"],

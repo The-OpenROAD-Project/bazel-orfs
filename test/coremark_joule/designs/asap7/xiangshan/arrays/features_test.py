@@ -47,7 +47,10 @@ N = 8
 SUB = "module Sub(input [7:0] a, output [7:0] y);\n  assign y = a ^ 8'h5a;\nendmodule\n"
 
 
-def cam():
+def cam(query_copy=False):
+    """query_copy: each entry compares against its own copy of q + 1, the
+    same adder written once per entry, as firtool writes a per-entry
+    computation of a shared input."""
     lines = [
         "module Cam(input clock, input reset, input we, input [2:0] widx,",
         "           input [7:0] wdata, input [7:0] q, output hit, output [7:0] mixed);",
@@ -58,13 +61,17 @@ def cam():
         lines += [
             f"  reg [7:0] data_{i};",
             f"  reg valid_{i};",
+            f"  wire [7:0] q_{i} = q + 8'd1;" if query_copy else "",
             "  always @(posedge clock) begin",
             f"    if (reset) valid_{i} <= 1'b0;",
             f"    else if (we && widx == 3'd{i}) valid_{i} <= 1'b1;",
             f"    if (we && widx == 3'd{i}) data_{i} <= wd;",
             "  end",
         ]
-    match = " | ".join(f"(valid_{i} && data_{i} == q)" for i in range(N))
+    match = " | ".join(
+        f"(valid_{i} && data_{i} == {f'q_{i}' if query_copy else 'q'})"
+        for i in range(N)
+    )
     lines += [
         f"  assign hit = {match};",
         "  assign mixed = " + " ^ ".join(f"data_{i}" for i in range(N)) + ";",
@@ -331,18 +338,28 @@ class Tree(unittest.TestCase):
     tree, and one leaf reading the broadcast instead of its root comes
     out different."""
 
+    QUERY_COPY = False
+
     @classmethod
     def setUpClass(cls):
         cls.yosys, cls.slang = map(os.path.abspath, sys.argv[1:3])
         cls.work = os.environ.get("TEST_TMPDIR", HERE)
-        src = os.path.join(cls.work, "cam_tree.sv")
+        tag = "cam_tree_copy" if cls.QUERY_COPY else "cam_tree"
+        src = os.path.join(cls.work, tag + ".sv")
         with open(src, "w") as f:
-            f.write(SUB + cam())
-        cls.proc = os.path.join(cls.work, "cam_tree.json")
+            f.write(SUB + cam(cls.QUERY_COPY))
+        cls.proc = os.path.join(cls.work, tag + ".json")
         rc, log = run("proc_json.py", cls.yosys, cls.slang, src, "Cam", cls.proc, "Sub")
         assert rc == 0, log
-        cls.extracted = os.path.join(cls.work, "cam_tree_extracted.json")
-        rc, log = run("extract.py", cls.proc, "Cam", cls.extracted, "--fanout-tree=4")
+        cls.extracted = os.path.join(cls.work, tag + "_extracted.json")
+        rc, log = run(
+            "extract.py",
+            cls.proc,
+            "Cam",
+            cls.extracted,
+            "--fanout-tree=4",
+            *(["--tree-copies"] if cls.QUERY_COPY else []),
+        )
         assert rc == 0, log
         cls.stats = dict(re.findall(r"(\w+) (\d+)", log))
 
@@ -371,6 +388,23 @@ class Tree(unittest.TestCase):
         )
         self.assertEqual(rc, 0, log)
         self.assertIn("check: Cam: NOT equivalent", log)
+
+
+class TreeCopy(Tree):
+    """The query reaches each entry through its own copy of q + 1, one
+    adder per entry in the block: treed as the one broadcast synthesis
+    would merge it into, proven, and the leaf control still differs."""
+
+    QUERY_COPY = True
+
+    def test_copies_treed(self):
+        self.assertEqual(int(self.stats["fanout_trees_shared"]), 8)
+
+    def test_copies_left_alone_by_default(self):
+        out = os.path.join(self.work, "cam_tree_copy_default.json")
+        rc, log = run("extract.py", self.proc, "Cam", out, "--fanout-tree=4")
+        self.assertEqual(rc, 0, log)
+        self.assertIn("fanout_trees_shared 0", log)
 
 
 class Thresholds(unittest.TestCase):

@@ -761,6 +761,47 @@ Against B: period -8.9 %, time +10.8 %, it dominates; against A it is
 placement around the added buffers), the cells and area are those
 buffers, as in the untreed slew study above.
 
+**Per-entry copies of a broadcast** (2026-10-31): on PhysicalStoreQueue's
+treed worst path the query bit `s1LoadEnd[3]` reached the tree's root
+behind two of repair_design's BUFx2 at fanout 32 because the same net
+also went straight into every entry cell at two pins (a MAJx2 and an
+INVx1 per entry): the RTL computes the query's end plus one once per
+entry, 64 identical `$add` cells in the block, each into its own cell's
+ports, so the extraction saw 64 different nets and left them untreed,
+and synthesis's opt_merge then made them one net into 64 cells. 36 of
+the cell's input bits are such copies. `extract.py --tree-copies` keys
+each bit by the combinational cone that computes it (`cone_key`, same
+types, parameters and inputs; registers never alike) and trees a port
+whose bits differ by name but not by cone, from the first entry's copy.
+On for PhysicalStoreQueue (`TREE_COPIES`); the proofs through the tree
+and their controls pass, and `features_test` has a CAM whose entries
+each compare against their own copy of `q + 1`. Single runs, alone in a
+10 GB scope:
+
+| Block | arm | synth s | floorplan s | place s | CTS s | grt s | total min | period ps | stdcells | area µm² |
+|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| PhysicalStoreQueue | A (inventory) | 1,448.9 | 17.7 | 217.6 | 21.9 | 125.5 | 30.53 | 1,453.0 / 1,582.9 | 252,148 | 32,126.6 |
+| | B, treed | 213.9 | 18.2 | 219.5 | 22.4 | 106.2 | 9.67 | 1,579.6 / 2,007.3 | 251,065 | 30,440.0 |
+| | B, treed with copies | 217.8 | 18.1 | 217.0 | 23.4 | 106.5 | 9.71 | 1,483.9 / 1,854.1 | 251,743 | 30,533.7 |
+| LoadQueueRAR | A (inventory) | 266.8 | 6.0 | 58.7 | 5.0 | 58.8 | 6.59 | 781.3 / 902.0 | 53,430 | 7,024.2 |
+| | B, treed | 73.9 | 6.1 | 79.1 | 5.8 | 78.3 | 4.05 | 818.1 / 963.5 | 66,699 | 8,151.9 |
+| | B, treed with copies | 69.5 | 5.5 | 49.7 | 5.4 | 19.9 | 2.50 | 882.5 / 961.8 | 68,040 | 8,293.7 |
+
+PhysicalStoreQueue with copies: period -6.1 % on B at the same time,
++2.1 % on A at a third of it; it dominates both. The 678 cells are the
+36 trees' 324 inverters and repair_design's buffers after them.
+LoadQueueRAR's 48 copies are its three write-data pipes, one `$buf`
+per entry; treed, its period is +7.9 % on B and +13.0 % on A, so it
+stays without copies. Measured on its worst path at grt: the same path
+as B's (the free list's head pointer, the slot read, the write decoder
+into an entry), the write data not on it; the launch at 201.2 against
+182.1 ps and the data path 815.9 against 755.1 ps, the slot read in the
+block mapped differently (a NOR3, two OR5 and four OA/AO stages against
+AO22, AO221, AO21, OA211, OA22), synthesis's answer for the top changing
+with the netlist around it. Its global route took 19.9 against 78.3 s
+(this run alone, B's three side by side), not examined. Uncache and
+VirtualLoadQueue have no such copies.
+
 ### Two findings without a lever (2026-10-31)
 
 - **generate_ram's 16-word 2r4w block** (0170's tests): its detailed
