@@ -299,6 +299,20 @@ archive_override(
         # upstreamed; each of 0182-0194 retires at a //:bump onto an
         # OpenROAD that has it.
         "//patches:0194-openroad-grt-finish-routes-per-net.patch",
+        # global_route -no_incremental: the router's nets, trees and grid
+        # freed once the routes and congestion are saved, for a flow that
+        # reroutes nothing afterwards.
+        "//patches:0195-openroad-grt-no-incremental.patch",
+        # The grid's backing file mapped only at its first page-out, and the
+        # grid paged out while the nets are built from the database.
+        "//patches:0196-openroad-grt-backing-lazy.patch",
+        # read_db -backing_file: the tables' pages in a file, paged out per
+        # table (dbBlock::pageOut) or whole (dbDatabase::pageOut); write_db
+        # holds one table at a time. Global route pages each part out once it
+        # stops reading it. Not upstreamed; 0195-0198 retire at a //:bump onto
+        # an OpenROAD that has them.
+        "//patches:0197-openroad-odb-backing-file.patch",
+        "//patches:0198-openroad-grt-page-out-database.patch",
     ],
     strip_prefix = "OpenROAD-bf0feec09188f758f2bbba7ee2fecb880e2afa76",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/bf0feec09188f758f2bbba7ee2fecb880e2afa76.tar.gz"],
