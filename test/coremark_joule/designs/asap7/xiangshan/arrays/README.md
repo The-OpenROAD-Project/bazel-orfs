@@ -79,17 +79,18 @@ frontend (`YOSYS_FRONTEND` in `BUILD.bazel` has the numbers).
 
 ## What the extraction buys
 
-Against the module as it is, the same flow, single runs side by side
-(`ideas/structured-macros.md`, "QoR inventory", has the stages, cells
-and area):
+Against the module as it is, the same flow, single runs side by side;
+the period at global route on the routes' parasitics (the probe's
+`period_grt_ps`; `ideas/structured-macros.md`, "QoR inventory", has the
+stages, cells, area and the placement-parasitics period):
 
 | Block | A total min | B total min | A period ps | B period ps | verdict |
 |---|---:|---:|---:|---:|---|
-| PhysicalStoreQueue | 40.85 | 14.54 | 1,582.9 | 1,905.1 | trades |
-| LoadQueueReplay | 37.40 | 22.36 | 1,664.5 | 1,289.9 | dominates |
-| VirtualStoreQueue | 6.04 | 3.53 | 1,014.1 | 926.0 | dominates |
-| LoadQueueRAR | 6.59 | 4.67 | 902.0 | 949.9 | dominates |
-| TLBFA | 2.69 | 2.19 | 439.0 | 311.8 | dominates |
-| TLBFA_1 | 5.95 | 3.06 | 460.8 | 292.2 | dominates |
-| VirtualLoadQueue | 5.19 | 3.41 | 962.5 | 1,011.7 | dominates |
-| Rob (`rob_array:RobEntries`) | 43.30 | 57.45 | 2,038.9 | 1,759.3 | trades |
+| PhysicalStoreQueue | 40.85 | 14.54 | 1,453.0 | 1,567.7 | dominates |
+| LoadQueueReplay | 37.40 | 22.36 | 1,198.4 | 1,201.8 | dominates |
+| VirtualStoreQueue | 6.04 | 3.53 | 944.7 | 910.4 | dominates |
+| LoadQueueRAR | 6.59 | 4.67 | 781.3 | 863.5 | trades |
+| TLBFA | 2.69 | 2.19 | 397.0 | 320.6 | dominates |
+| TLBFA_1 | 5.95 | 3.06 | 456.2 | 282.3 | dominates |
+| VirtualLoadQueue | 5.19 | 3.41 | 857.6 | 972.6 | trades |
+| Rob (`rob_array:RobEntries`) | 58.07 | 60.07 | 1,379.9 | 1,251.6 | dominates |
