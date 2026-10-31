@@ -2268,8 +2268,8 @@ Measured at global route, the same blocks and floorplan:
 The parent's ports are its blocks' pins, and their `set_max_delay`
 budgets run through a block the parent cannot repair; repairing every
 group spends the 1 % of endpoints on them. `REPAIR_TIMING_PATH_GROUP`
-(ORFS patch 0163) passes `repair_timing -path_group`;
-`REPAIR_TIMING_MAX_ITERATIONS` (0164) the cap.
+(ORFS patch 0179) passes `repair_timing -path_group`;
+`REPAIR_TIMING_MAX_ITERATIONS` (0180) the cap.
 
 Memory: every parent step that times it with the route's parasitics
 peaks at 56 to 59 GB (global route, its repair, the KPI's STA alone),

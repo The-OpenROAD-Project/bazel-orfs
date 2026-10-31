@@ -1,5 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_shared_library")
-load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 # yosys passes for array structures, loaded as a plugin
 # (yosys -m arrays.so): array_reroll turns a packed register vector read
@@ -38,6 +38,15 @@ py_library(
     srcs = ["structgen.py"],
     imports = ["."],
     visibility = ["//test/rob_toy:__pkg__"],
+)
+
+# structgen's CAM and flags simulated cell by cell against the toys'
+# RTL under random stimulus, each with a negative control
+py_test(
+    name = "structgen_test",
+    size = "small",
+    srcs = ["structgen_test.py"],
+    deps = [":structgen_lib"],
 )
 
 # the classifier, for the XiangShan dry runs

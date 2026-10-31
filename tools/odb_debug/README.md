@@ -85,7 +85,7 @@ matter here:
 ### As the GUI: `gui_<stage>`
 
 ORFS's `gui_<stage>` make target is the web viewer (carried patch 0139;
-`qt_<stage>` is the Qt GUI), and bazel-orfs runs it as this daemon,
+`qt_<stage>`, the Qt GUI, bazel-orfs refuses), and bazel-orfs runs it as this daemon,
 through `gui.sh`, with no `odb_debug()` target:
 
 ```sh

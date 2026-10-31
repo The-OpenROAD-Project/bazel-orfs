@@ -3,7 +3,9 @@ generate_array's parts.
 
 The structures the literature gives each part, built cell by cell so
 that synthesis maps nothing: one decoder per index signal shared by every
-word, log-depth trees and prefixes, no per-entry comparators. Each kind
+word, log-depth trees and prefixes, no per-entry comparators. What a
+mapper would add is added here: buffer trees on high-fanout nets, wide
+inverting gates in the trees, drive strengths by fanout. Each kind
 is written as module Arr with the ports test/array_toys's toy of that kind
 has, and the update order of its RTL, so LEC can check one against the
 other. Once the structures settle, they move into OpenROAD's
@@ -19,14 +21,39 @@ import sys
 
 _V = "_ASAP7_75t_R"
 
+# a net drives at most this many cell inputs; more go through a tree of
+# buffers, as a mapper builds one. A decoded write enable drives a whole
+# word: left to repair_design, it is a chain of buffers at fanout 25-50,
+# and at 32 x 128 every word of the CAM missed the period by up to
+# 170 ps, which repair_timing then worked through endpoint by endpoint
+FANOUT = 32
+
+# the drive strengths a cell takes by its fanout: 1, 2-3, more
+_SIZES = {
+    "INVx1": ["INVx1", "INVx2", "INVx3"],
+    "AND2x2": ["AND2x2", "AND2x4", "AND2x4"],
+    "NAND2xp5": ["NAND2xp5", "NAND2x1", "NAND2x1p5"],
+    "NAND3xp33": ["NAND3xp33", "NAND3x1", "NAND3x2"],
+    "NOR2xp33": ["NOR2xp33", "NOR2x1", "NOR2x1p5"],
+    "NOR3xp33": ["NOR3xp33", "NOR3x1", "NOR3x2"],
+    "OR2x2": ["OR2x2", "OR2x4", "OR2x4"],
+    "AO22x1": ["AO22x1", "AO22x2", "AO22x2"],
+    "AO21x1": ["AO21x1", "AO21x2", "AO21x2"],
+    "XOR2xp5": ["XOR2xp5", "XOR2x1", "XOR2x2"],
+    "XNOR2xp5": ["XNOR2xp5", "XNOR2x1", "XNOR2x2"],
+}
+
 
 class Netlist:
     def __init__(self):
         self.lines = []
+        self.cells = []  # [master, {pin: net}, output pin, output net]
         self.wires = []
         self.n = 0
         self.zero = "1'b0"
         self.one = "1'b1"
+        self._inv = {}
+        self._inv_of = {}
 
     def wire(self):
         self.n += 1
@@ -37,17 +64,23 @@ class Netlist:
     def cell(self, master, **pins):
         out = self.wire()
         outpin = "QN" if master.startswith("DFF") else "Y"
-        conns = ", ".join(f".{p}({v})" for p, v in pins.items())
-        self.lines.append(f"  {master}{_V} c{self.n} ({conns}, .{outpin}({out}));")
+        self.cells.append([master, dict(pins), outpin, out])
         return out
 
-    # constants fold, so a decode of a tied-off index stays small
+    # constants fold, so a decode of a tied-off index stays small; a
+    # net's complement is made once and shared
     def inv(self, a):
         if a == self.zero:
             return self.one
         if a == self.one:
             return self.zero
-        return self.cell("INVx1", A=a)
+        if a in self._inv_of:
+            return self._inv_of[a]
+        if a not in self._inv:
+            out = self.cell("INVx1", A=a)
+            self._inv[a] = out
+            self._inv_of[out] = a
+        return self._inv[a]
 
     def and2(self, a, b):
         if self.zero in (a, b):
@@ -67,26 +100,124 @@ class Netlist:
             return a
         return self.cell("OR2x2", A=a, B=b)
 
+    # a register's value is its flop's QN inverted: a compare reads QN
+    # and flips the gate, so the inverter is no level of the compare
     def xor2(self, a, b):
+        if a in self._inv_of:
+            return self.xnor2(self._inv_of[a], b)
         return self.cell("XOR2xp5", A=a, B=b)
 
     def xnor2(self, a, b):
+        if a in self._inv_of:
+            return self.cell("XOR2xp5", A=self._inv_of[a], B=b)
         return self.cell("XNOR2xp5", A=a, B=b)
+
+    def ao21(self, a1, a2, b):
+        """a1 & a2 | b"""
+        if self.zero in (a1, a2):
+            return b
+        if b == self.zero:
+            return self.and2(a1, a2)
+        return self.cell("AO21x1", A1=a1, A2=a2, B=b)
+
+    def priority(self, xs):
+        """The lowest set index of xs, a power of two long, as index bits
+        LSB-first, zero when none is set. Halves combine as a mapper's
+        encoder does: the low half's index where it has a set bit, else
+        the high half's, one AO21 a bit and level (low | ~any_low &
+        high), the new top bit ~any_low & any_high. Each half's any is
+        its own tree of 3-input inverting gates, not a chain of the
+        levels' ORs: a bit is one AO21 per level deep after the widest
+        such tree, where a prefix OR and an OR tree over the one-hot
+        lowest set bit are each log2(n) levels."""
+        if len(xs) == 1:
+            return []
+        half = len(xs) // 2
+        i_lo = self.priority(xs[:half])
+        i_hi = self.priority(xs[half:])
+        n_lo = self.inv(self.tree(self.or2, xs[:half]))
+        bits = [self.ao21(n_lo, h, lo) for lo, h in zip(i_lo, i_hi)]
+        bits.append(self.and2(n_lo, self.tree(self.or2, xs[half:])))
+        return bits
+
+    def thermo(self, bits, n):
+        """t[i] = (index <= i) for i < n, from the index's LSB-first bits
+        directly: per bit from the MSB down, below a set bit of i an OR
+        with the bit's complement, below a clear one an AND. Shared by
+        the i alike in their low bits; a bit is as many levels deep as
+        there are bits below it, where a decode and a prefix OR over it
+        are a decode and log2(n) more."""
+        memo = {}
+
+        def le(k, i):
+            # the low k bits of the index <= the low k bits of i
+            if k == 0:
+                return self.one
+            key = (k, i & ((1 << k) - 1))
+            if key not in memo:
+                nb, rest = self.inv(bits[k - 1]), le(k - 1, i)
+                memo[key] = (
+                    self.or2(nb, rest) if i >> (k - 1) & 1 else self.and2(nb, rest)
+                )
+            return memo[key]
+
+        return [le(len(bits), i) for i in range(n)]
+
+    def less(self, a, b):
+        """a < b, two LSB-first buses alike in width: per bit from the LSB,
+        where the bits differ b's bit decides, else the bits below."""
+        lt = self.and2(self.inv(a[0]), b[0])
+        for x, y in zip(a[1:], b[1:]):
+            lt = self.mux(self.xor2(x, y), lt, y)
+        return lt
 
     def mux(self, s, a, b):
         """s ? b : a"""
         return self.cell("AO22x1", A1=s, A2=b, B1=self.inv(s), B2=a)
 
     def tree(self, op, xs):
-        xs = list(xs)
+        """The AND or OR of xs. Beyond two inputs, a tree of 3-input
+        inverting gates, NAND and NOR by turns, as a mapper builds one:
+        a 128-bit compare is seven levels of AND2, here five levels and
+        an inverter. A path that cannot close, the CAM's match into its
+        priority encoder, is repaired level by level, each move timed
+        over the whole cone."""
+        is_and = op == self.and2
+        unit, dom = (self.one, self.zero) if is_and else (self.zero, self.one)
+        xs = [x for x in xs if x != unit]
+        if dom in xs:
+            return dom
         if not xs:
-            return self.one if op == self.and2 else self.zero
+            return unit
+        if len(xs) <= 2:
+            return xs[0] if len(xs) == 1 else op(xs[0], xs[1])
+        # inverted: the level's values are the complements of its terms;
+        # AND of terms is NAND of terms or NOR of complements, OR the dual
+        inverted = False
         while len(xs) > 1:
-            nxt = [op(xs[i], xs[i + 1]) for i in range(0, len(xs) - 1, 2)]
-            if len(xs) % 2:
-                nxt.append(xs[-1])
+            groups = -(-len(xs) // 3)
+            base, extra = divmod(len(xs), groups)
+            nxt, k = [], 0
+            for g in range(groups):
+                n = base + (g < extra)
+                nand = is_and != inverted
+                nxt.append(self.gate("NAND" if nand else "NOR", xs[k : k + n]))
+                k += n
             xs = nxt
-        return xs[0]
+            inverted = not inverted
+        return self.inv(xs[0]) if inverted else xs[0]
+
+    def gate(self, kind, xs):
+        """An n-input NAND or NOR, n 1-3; one input is an inverter."""
+        if len(xs) == 1:
+            return self.inv(xs[0])
+        master = {
+            ("NAND", 2): "NAND2xp5",
+            ("NAND", 3): "NAND3xp33",
+            ("NOR", 2): "NOR2xp33",
+            ("NOR", 3): "NOR3xp33",
+        }[(kind, len(xs))]
+        return self.cell(master, **dict(zip("ABC", xs)))
 
     def prefix(self, op, xs):
         """Sklansky prefix: out[i] = op(xs[0..i])."""
@@ -128,6 +259,47 @@ class Netlist:
         """A register: returns its value (the flop's QN inverted)."""
         qn = self.cell("DFFHQNx1", CLK="clock", D=d)
         return self.inv(qn)
+
+    def buffer(self, limit=FANOUT):
+        """Every net with more than limit cell sinks drives them through
+        buffers, limit sinks each, in the order the sinks were made, so
+        a buffer serves neighbouring bits of one word."""
+        sinks = {}
+        for k, (_, pins, _, _) in enumerate(self.cells):
+            for p, v in pins.items():
+                if v not in (self.zero, self.one, "clock"):
+                    sinks.setdefault(v, []).append((k, p))
+        for net, ss in sinks.items():
+            while len(ss) > limit:
+                groups = [ss[k : k + limit] for k in range(0, len(ss), limit)]
+                ss = []
+                for g in groups:
+                    out = self.wire()
+                    self.cells.append(["BUFx4f", {"A": net}, "Y", out])
+                    for k, p in g:
+                        self.cells[k][1][p] = out
+                    ss.append((len(self.cells) - 1, "A"))
+
+    def size(self):
+        """Each cell's drive strength from its fanout, as a mapper would
+        choose."""
+        fanout = {}
+        for _, pins, _, _ in self.cells:
+            for v in pins.values():
+                fanout[v] = fanout.get(v, 0) + 1
+        for c in self.cells:
+            fo = fanout.get(c[3], 0)
+            if c[0] == "BUFx4f":
+                c[0] = "BUFx4f" if fo <= 8 else "BUFx6f" if fo <= 16 else "BUFx12f"
+            elif c[0] in _SIZES:
+                c[0] = _SIZES[c[0]][0 if fo <= 1 else 1 if fo <= 3 else 2]
+
+    def verilog(self):
+        cells = []
+        for k, (master, pins, outpin, out) in enumerate(self.cells):
+            conns = ", ".join(f".{p}({v})" for p, v in pins.items())
+            cells.append(f"  {master}{_V} c{k} ({conns}, .{outpin}({out}));")
+        return [f"  wire {w};" for w in self.wires] + cells + self.lines
 
     def read_mux(self, words, dec):
         """words[i][b] selected by one-hot dec: per bit an AND-OR tree."""
@@ -237,13 +409,10 @@ def flags(net, depth, width):
     clears = [plane("c0"), plane("c1")]
     # the redirect clears entries i with (i - head) >= (flush_idx - head):
     # the circular interval from flush_idx to head, from two thermometers
-    one_f = net.decode(_bus("flush_idx", a), depth)
-    one_h = net.decode(_bus("head", a), depth)
-    t_f = net.prefix(net.or2, one_f)
-    t_h = net.prefix(net.or2, one_h)
-    f_below_h = net.tree(
-        net.or2, [net.and2(one_f[i], net.inv(t_h[i])) for i in range(depth)]
-    )
+    # t[i] = (index <= i), each compared with its bits directly
+    t_f = net.thermo(_bus("flush_idx", a), depth)
+    t_h = net.thermo(_bus("head", a), depth)
+    f_below_h = net.less(_bus("flush_idx", a), _bus("head", a))
     keep_reset = net.inv("reset")
     for i in range(depth):
         inside = net.and2(t_f[i], net.inv(t_h[i]))
@@ -290,13 +459,12 @@ def cam(net, depth, width):
         for i in range(depth)
     ]
     net.lines.append(f"  assign hit = {net.tree(net.or2, m)};")
-    # the lowest matching entry: a match with no match below it
-    below = net.prefix(net.or2, m)
-    lowest = [m[0]] + [net.and2(m[i], net.inv(below[i - 1])) for i in range(1, depth)]
+    # the lowest matching entry's index: a priority encoder over the
+    # matches, padded to a power of two with no match
+    padded = m + [net.zero] * ((1 << a) - depth)
+    idx = net.priority(padded)
     for k in range(a):
-        net.lines.append(
-            f"  assign idx[{k}] = {net.tree(net.or2, [lowest[i] for i in range(depth) if i >> k & 1])};"
-        )
+        net.lines.append(f"  assign idx[{k}] = {idx[k]};")
     return ports
 
 
@@ -347,7 +515,9 @@ def module(kind, depth, width):
         f"  {direction} {'[%d:0] ' % (w - 1) if w > 1 else ''}{name}"
         for direction, w, name in ports
     )
-    body = [f"  wire {w};" for w in net.wires] + net.lines
+    net.buffer()
+    net.size()
+    body = net.verilog()
     return "\n".join([f"module Arr(\n{decl}\n);"] + body + ["endmodule", ""])
 
 

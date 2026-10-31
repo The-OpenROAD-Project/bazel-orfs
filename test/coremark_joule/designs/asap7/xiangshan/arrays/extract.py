@@ -28,9 +28,14 @@ import copy
 import json
 import sys
 
-from entries import FLOPS, OUT, Design, Entries, best, outputs
+from entries import FLOPS, OUT, Design, Entries, outputs, plan
 
 TEMPLATE = 1
+
+# x OP i for a comparison cell with the index on its B port; FLIP is the
+# same comparison read with the index on A
+ORDERED = {"$gt": ">", "$ge": ">=", "$lt": "<", "$le": "<="}
+FLIP = {">": "<", ">=": "<=", "<": ">", "<=": ">="}
 
 
 def fail(msg):
@@ -38,14 +43,13 @@ def fail(msg):
 
 
 def v_sense(e, where):
-    """EQ or NE: how the walk read the x == K form at where."""
+    """EQ, NE, GE or LT: how the walk read the form at where."""
     return e._eq_form(where[0])[0]
 
 
 def extract(mod, name, decode=True):
     d = Design(mod)
-    groups = [best(d, n, a) for n, a in d.groups().items()]
-    groups = [e for e in groups if e.uniform]
+    groups = [e for e in plan(d) if e.uniform]
     if not groups:
         fail("no group of entries follows one rule")
     e = max(
@@ -68,7 +72,7 @@ def extract(mod, name, decode=True):
         }
         if not arrays:
             fail(f"every array is kept out ({sorted(keep_out)}): nothing to extract")
-        e = Entries(d, e.n, arrays, e.read)
+        e = Entries(d, e.n, arrays, e.read, e.thresholds, e.common_read)
         if not e.uniform:
             fail(f"without {sorted(keep_out)} the entries no longer follow one rule")
     n, t = e.n, TEMPLATE
@@ -94,7 +98,11 @@ def extract(mod, name, decode=True):
     ):
         fail("the template's walk does not cover its private cells")
     for k, (s, o) in e.index_sites.items():
-        if (s, o) != (1, 0):
+        # a threshold's K may be the index plus a constant (x >= i + 1)
+        if tw["consts"][k][0][1] == "GE":
+            if s != 1 or o < 1:
+                fail(f"threshold site {k} is {s} * i + {o}, not i + o with o >= 1")
+        elif (s, o) != (1, 0):
             fail(f"constant site {k} is {s} * i + {o}, not the index itself")
     tokens = sorted(tw["tokens"])
     for i in range(n):
@@ -223,30 +231,33 @@ def extract(mod, name, decode=True):
     for cl in cell_cells.values():
         for p, bs in cl["connections"].items():
             cl["connections"][p] = [same.get(x, x) for x in bs]
-    sites = [tw["consts"][k] for k in e.index_sites]
+    sites = [tw["consts"][k] + (e.index_sites[k][1],) for k in e.index_sites]
     # decode once: a comparison of the index with an operand from outside
     # the entries becomes an input of the cell, the comparison made once in
     # the module per distinct operand (a one-hot shift) and bit i handed to
     # entry i: one decoder for an operand every entry shares, one per bank
-    # for a bank's pointer (i % B, i // B: the Rob's eight)
+    # for a bank's pointer (i % B, i // B: the Rob's eight). A threshold,
+    # x >= i + o, is bit i + o - 1 of the thermometer (1 << x) - 1, whose
+    # bit j is x > j
     token_of = {b: tok for tok, b in tw["tokens"].items()}
 
     def outside(b):
         tok = token_of.get(b)
         return tok is not None and "rel" not in tok and "@" not in tok
 
-    decoded = []  # (hit port, the operand's template bits)
+    decoded = []  # (hit port, the operand's template bits, offset or None)
     rest = []
-    for where, v, w in sites:
+    for where, v, w, o in sites:
         c, p = where[0], where[1]
         cl = d.cells[c]
-        if p == "EQ":
-            # x == K, however yosys wrote it: x is the form's own bits
+        if p in ("EQ", "GE"):
+            # x == K (x >= K), however yosys wrote it: x is the form's bits
             operand = list(where[2])
             hit = cl["connections"][outputs(cl)[0]][0]
             if all(outside(b) for b in operand) and decode:
-                if v_sense(e, where) == "NE":
-                    # x != K: the cell inverts the decoder's x == K
+                if v_sense(e, where) in ("NE", "LT"):
+                    # x != K, x < K: the cell inverts the decoder's x == K,
+                    # x >= K
                     hit_in = fresh[0]
                     fresh[0] += 1
                     cell_cells[c] = {
@@ -264,9 +275,11 @@ def extract(mod, name, decode=True):
                     hit = hit_in
                 else:
                     del cell_cells[c]
-                decoded.append((f"hit{len(decoded)}", hit, operand))
+                decoded.append(
+                    (f"hit{len(decoded)}", hit, operand, o if p == "GE" else None)
+                )
             else:
-                rest.append((where, v, w))
+                rest.append((where, v, w, o))
             continue
         other = "A" if p == "B" else "B"
         operand = [e.root(b)[0] for b in cl["connections"].get(other, [])]
@@ -279,19 +292,82 @@ def extract(mod, name, decode=True):
         ):
             hit = cl["connections"]["Y"][0]
             del cell_cells[c]
-            decoded.append((f"hit{len(decoded)}", hit, operand))
+            decoded.append((f"hit{len(decoded)}", hit, operand, None))
+        elif (
+            decode
+            and cl["type"] in ORDERED
+            and operand
+            and all(not isinstance(b, str) and outside(b) for b in operand)
+            and len(cl["connections"]["Y"]) == 1
+            and cl["parameters"]["A_SIGNED"] == cl["parameters"]["B_SIGNED"] == "0" * 32
+        ):
+            # an ordered comparison of the index with an operand from
+            # outside (the Rob's i > x and i < x against a pointer): x
+            # against i read as x >= i + o, decoded once as a threshold,
+            # inverted in the cell where it is the complement
+            op = ORDERED[cl["type"]] if p == "B" else FLIP[ORDERED[cl["type"]]]
+            o, invert = {
+                ">": (1, False),
+                ">=": (0, False),
+                "<": (0, True),
+                "<=": (1, True),
+            }[op]
+            hit = cl["connections"]["Y"][0]
+            if invert:
+                hit_in = fresh[0]
+                fresh[0] += 1
+                cell_cells[c] = {
+                    "hide_name": 1,
+                    "type": "$not",
+                    "attributes": {},
+                    "parameters": {
+                        "A_SIGNED": "0",
+                        "A_WIDTH": format(1, "032b"),
+                        "Y_WIDTH": format(1, "032b"),
+                    },
+                    "port_directions": {"A": "input", "Y": "output"},
+                    "connections": {"A": [hit_in], "Y": [hit]},
+                }
+                hit = hit_in
+            else:
+                del cell_cells[c]
+            decoded.append((f"hit{len(decoded)}", hit, operand, o))
         else:
-            rest.append(((c, p), v, w))
-    for where, _, w in rest:
+            rest.append(((c, p), v, w, o))
+    for where, _, w, o in rest:
         c, p = where[0], where[1]
-        if p == "EQ":
+        if p in ("EQ", "GE"):
             if decode:
                 fail(f"an index comparison in {c} reads bits that differ per entry")
-            # keep-idx: the form's root reads x == idx; its inner cells
-            # stay and their output is unused
+            # keep-idx: the form's root reads x == idx (x >= idx + o); its
+            # inner cells stay and their output is unused
             cl = cell_cells[c]
             y = cl["connections"][outputs(cl)[0]]
             operand = list(where[2])
+            bound, bw = idx, iw
+            if p == "GE":
+                # idx + o, wide enough not to wrap
+                bw = max(iw, o.bit_length()) + 1
+                bound = list(range(fresh[0], fresh[0] + bw))
+                fresh[0] += bw
+                cell_cells[f"$threshold_bound${c}"] = {
+                    "hide_name": 1,
+                    "type": "$add",
+                    "attributes": {},
+                    "parameters": {
+                        "A_SIGNED": "0",
+                        "A_WIDTH": format(iw, "032b"),
+                        "B_SIGNED": "0",
+                        "B_WIDTH": format(bw, "032b"),
+                        "Y_WIDTH": format(bw, "032b"),
+                    },
+                    "port_directions": {"A": "input", "B": "input", "Y": "output"},
+                    "connections": {
+                        "A": idx,
+                        "B": [str(o >> k & 1) for k in range(bw)],
+                        "Y": bound,
+                    },
+                }
             cell_cells[c] = {
                 "hide_name": 1,
                 "type": "$eq",
@@ -300,24 +376,85 @@ def extract(mod, name, decode=True):
                     "A_SIGNED": "0",
                     "A_WIDTH": format(len(operand), "032b"),
                     "B_SIGNED": "0",
-                    "B_WIDTH": format(iw, "032b"),
+                    "B_WIDTH": format(bw, "032b"),
                     "Y_WIDTH": format(1, "032b"),
                 },
                 "port_directions": {"A": "input", "B": "input", "Y": "output"},
-                "connections": {"A": operand, "B": idx, "Y": y},
+                "connections": {"A": operand, "B": bound, "Y": y},
             }
-            if v_sense(e, where) == "NE":
-                cell_cells[c]["type"] = "$ne"
+            sense = v_sense(e, where)
+            if sense != "EQ":
+                cell_cells[c]["type"] = {"NE": "$ne", "GE": "$ge", "LT": "$lt"}[sense]
             continue
         cell_cells[c]["connections"][p] = [idx[k] if k < iw else "0" for k in range(w)]
     sites = rest
+    # a decoder's enable: x == i read only by en && (x == i), en one bit from
+    # outside the entries, is decoded with it, (1 << x) & {en}, and the cell gets
+    # the one wire: en no longer reaches every cell (VirtualStoreQueue's
+    # retireCarryVec_k, a serial carry, each link fanned out to 128 cells
+    # before the next one). yosys may leave the conjunction in several
+    # cells, one per process that reads it: each is the one wire
+    cell_out_bits = {
+        d.cells[cells_of(t)[pos]]["connections"][p][kb] for pos, p, kb in outs
+    }
+    cell_readers = collections.defaultdict(list)
+    for c, cl in cell_cells.items():
+        for p, bs in cl["connections"].items():
+            if cl["port_directions"][p] == "input":
+                for b in bs:
+                    if not isinstance(b, str):
+                        cell_readers[b].append((c, p))
+
+    def enable_of(c, p):
+        """en when cell c is a one-bit en && x read at its port p, else None."""
+        cl = cell_cells[c]
+        cn = cl["connections"]
+        if cl["type"] not in ("$and", "$logic_and") or p not in ("A", "B"):
+            return None
+        if len(cn["A"]) != 1 or len(cn["B"]) != 1 or len(cn["Y"]) != 1:
+            return None
+        other = cn["B" if p == "A" else "A"][0]
+        if isinstance(other, str) or not outside(other):
+            return None
+        if cn["Y"][0] in cell_out_bits:
+            return None
+        return other
+
+    enabled = []
+    for hp, hit, operand, o in decoded:
+        rd = cell_readers.get(hit, [])
+        ens = {enable_of(c, p) for c, p in rd}
+        if not decode or o is not None or not rd or hit in cell_out_bits:
+            ens = {None}
+        en = ens.pop() if len(ens) == 1 else None
+        if en is not None:
+            ys = [cell_cells[c]["connections"]["Y"][0] for c, _ in rd]
+            hit = ys[0]
+            for c, _ in rd:
+                del cell_cells[c]
+            alias = {y: hit for y in ys[1:]}
+            for cl in cell_cells.values():
+                for p, bs in cl["connections"].items():
+                    cl["connections"][p] = [alias.get(x, x) for x in bs]
+        enabled.append((hp, hit, operand, o, en))
+    decoded = enabled
+    # a boundary bit the cell no longer reads (a decoded operand, an enable)
+    # gets no port: the parent wires nothing into the cells for it
+    read_bits = {
+        b
+        for cl in cell_cells.values()
+        for p, bs in cl["connections"].items()
+        if cl["port_directions"][p] == "input"
+        for b in bs
+    }
+    tokens = [tok for tok in tokens if tw["tokens"][tok] in read_bits]
     ports = {}
     netnames = {}
     for k, tok in enumerate(tokens):
         ports[f"in{k}"] = {"direction": "input", "bits": [tw["tokens"][tok]]}
     if sites:
         ports["idx"] = {"direction": "input", "bits": idx}
-    for hp, hit, _ in decoded:
+    for hp, hit, _, _, _ in decoded:
         ports[hp] = {"direction": "input", "bits": [hit]}
     template_cells = cells_of(t)
     for k, (pos, p, kb) in enumerate(outs):
@@ -349,21 +486,73 @@ def extract(mod, name, decode=True):
             del parent["cells"][c]
     next_id = [max(idx + [fresh[0]]) + 1]
 
-    def decoder(hp, g, operand, y):
+    def decoder(hp, g, operand, y, o, en):
+        m = len(y)
+        shifted = y
+        if o is not None:
+            # the thermometer (1 << x) - 1: 1 << x wider than x is 0, and
+            # 0 - 1 every bit set, x > j for every j as it should be
+            shifted = list(range(next_id[0], next_id[0] + m))
+            next_id[0] += m
+            parent["cells"][f"$decode_once${hp}_{g}_minus_1"] = {
+                "hide_name": 1,
+                "type": "$sub",
+                "parameters": {
+                    "A_SIGNED": "0",
+                    "A_WIDTH": format(m, "032b"),
+                    "B_SIGNED": "0",
+                    "B_WIDTH": format(1, "032b"),
+                    "Y_WIDTH": format(m, "032b"),
+                },
+                "attributes": {},
+                "port_directions": {"A": "input", "B": "input", "Y": "output"},
+                "connections": {"A": shifted, "B": ["1"], "Y": y},
+            }
         parent["cells"][f"$decode_once${hp}_{g}"] = {
             "hide_name": 1,
             "type": "$shl",
             "parameters": {
                 "A_SIGNED": "0",
-                "A_WIDTH": format(n, "032b"),
+                "A_WIDTH": format(m, "032b"),
                 "B_SIGNED": "0",
                 "B_WIDTH": format(len(operand), "032b"),
-                "Y_WIDTH": format(n, "032b"),
+                "Y_WIDTH": format(m, "032b"),
             },
             "attributes": {},
             "port_directions": {"A": "input", "B": "input", "Y": "output"},
-            "connections": {"A": ["1"] + ["0"] * (n - 1), "B": operand, "Y": y},
+            "connections": {
+                # x >= i (o 0) is bit i of (2 << x) - 1, whose bit j is x >= j
+                "A": (
+                    (["0", "1"] + ["0"] * (m - 2))
+                    if o == 0
+                    else ["1"] + ["0"] * (m - 1)
+                ),
+                "B": operand,
+                "Y": shifted,
+            },
         }
+        if en is not None:
+            # the enable after the decode, not shifted through it as en << x:
+            # yosys's shifter then carried it through every stage, and
+            # LoadQueueRAR's late write slot came out of the decoder through
+            # an AO32 driving 34 fF (1,052 ps against 950)
+            decoded = list(range(next_id[0], next_id[0] + m))
+            next_id[0] += m
+            parent["cells"][f"$decode_once${hp}_{g}"]["connections"]["Y"] = decoded
+            parent["cells"][f"$decode_once${hp}_{g}_en"] = {
+                "hide_name": 1,
+                "type": "$and",
+                "parameters": {
+                    "A_SIGNED": "0",
+                    "A_WIDTH": format(m, "032b"),
+                    "B_SIGNED": "0",
+                    "B_WIDTH": format(m, "032b"),
+                    "Y_WIDTH": format(m, "032b"),
+                },
+                "attributes": {},
+                "port_directions": {"A": "input", "B": "input", "Y": "output"},
+                "connections": {"A": decoded, "B": [en] * m, "Y": shifted},
+            }
         parent["netnames"][f"decode_once_{hp}_{g}"] = {
             "hide_name": 0,
             "bits": y,
@@ -371,17 +560,24 @@ def extract(mod, name, decode=True):
         }
 
     one_hot = {}  # (hit port, entry) -> the entry's bit of its decoder
-    for hp, _, template_operand in decoded:
-        toks = [token_of[b] for b in template_operand]
+    for hp, _, template_operand, o, en in decoded:
+        # (1 << x) & {en} where the cell's x == i had an enable: one decoder per
+        # distinct operand and enable
+        toks = [token_of[b] for b in template_operand + ([] if en is None else [en])]
         by_operand = collections.defaultdict(list)
         for i in range(n):
             by_operand[tuple(e.walks[i]["tokens"][t] for t in toks)].append(i)
+        # entry i's bit: i of the one-hot, i + o - 1 of the thermometer
+        shift = 0 if not o else o - 1
         for g, (operand, members) in enumerate(by_operand.items()):
-            y = list(range(next_id[0], next_id[0] + n))
-            next_id[0] += n
+            y = list(range(next_id[0], next_id[0] + n + shift))
+            next_id[0] += n + shift
             for i in members:
-                one_hot[hp, i] = y[i]
-            decoder(hp, g, list(operand), y)
+                one_hot[hp, i] = y[i + shift]
+            if en is not None:
+                decoder(hp, g, list(operand[:-1]), y, o, operand[-1])
+            else:
+                decoder(hp, g, list(operand), y, o, None)
     for i in range(n):
         w = e.walks[i]
         conns, dirs = {}, {}
@@ -391,7 +587,7 @@ def extract(mod, name, decode=True):
         if sites:
             conns["idx"] = ["1" if i >> k & 1 else "0" for k in range(iw)]
             dirs["idx"] = "input"
-        for hp, _, _ in decoded:
+        for hp, _, _, _, _ in decoded:
             conns[hp] = [one_hot[hp, i]]
             dirs[hp] = "input"
         mine = cells_of(i)
@@ -419,6 +615,7 @@ def extract(mod, name, decode=True):
         "outputs": len(outs),
         "index_sites_left": len(sites),
         "decoded_once": len(decoded),
+        "enables_decoded": sum(1 for *_, en in decoded if en is not None),
         "kept_out": sorted(keep_out),
         "register_bits": sum(len(d.cells[f]["connections"]["Q"]) for f in e.flops[0])
         * n,
@@ -429,6 +626,10 @@ def extract(mod, name, decode=True):
 def main(argv):
     src, name, out = argv[1:4]
     decode = "--keep-idx" not in argv
+    if "--no-read" in argv:
+        import entries
+
+        entries.NO_READ = True
     design = json.load(open(src))
     mods, stats, renames = extract(design["modules"][name], name, decode)
     design["modules"].update(mods)

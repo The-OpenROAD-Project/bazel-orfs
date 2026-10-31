@@ -13,7 +13,7 @@ endpoints is spent on them while the register-to-register paths, the
 ones that set the macro's period, are not touched. On XiangShan's
 XSTile parent macro the grt repair's every iteration chased one block
 pin at -5.4 ns and moved the reg2reg period by 2 ps; restricted to
-reg2reg, capped at 1,600 iterations (patch 0164), it took the period
+reg2reg, capped at 1,600 iterations (patch 0180), it took the period
 from 3,768 to 2,826 ps.
 
 Empty, the default, repairs every group as before.

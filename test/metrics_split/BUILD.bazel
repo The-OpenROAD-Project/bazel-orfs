@@ -1,0 +1,69 @@
+load("//:openroad.bzl", "orfs_flow", "orfs_run")
+
+# Scratch harness for ideas/metrics-separate-action.md: report_metrics
+# on each stage's saved .odb/.sdc in a fresh process (sep_<stage>), to
+# compare with the in-stage metrics. Manual: two gcd flows.
+
+orfs_flow(
+    name = "gcd_metrics_on",
+    arguments = {
+        "CORE_ASPECT_RATIO": "1",
+        "CORE_MARGIN": "0.5",
+        "CORE_UTILIZATION": "65",
+        "GPL_PLACE_IOS": "1",
+        "PLACE_DENSITY": "0.35",
+        "DETAILED_METRICS": "1",
+        "SKIP_REPORT_METRICS": "0",
+    },
+    sources = {"SDC_FILE": ["@orfs//flow/designs/asap7/gcd:constraint.sdc"]},
+    tags = ["manual"],
+    top = "gcd",
+    variant = "on",
+    verilog_files = ["@orfs//flow/designs/src/gcd:gcd.v"],
+)
+
+[orfs_run(
+    name = "sep_" + s,
+    src = ":gcd_metrics_on_on_" + s,
+    outs = [
+        "sep_%s.json" % s,
+        "%s_%s.rpt" % (
+            num,
+            when.replace(" ", "_"),
+        ),
+    ],
+    script = ":report_stage.tcl",
+    tags = ["manual"],
+    user_arguments = {
+        "FLAGS": flags,
+        "IN_ODB": odb,
+        "IN_SDC": sdc,
+        "MSTAGE": mstage,
+        "NUM": num,
+        "OUT_JSON": "sep_%s.json" % s,
+        "PARA": para,
+        "WHEN": when,
+    },
+) for s, odb, sdc, mstage, num, when, flags, para in [
+    ("place", "3_place.odb", "3_place.sdc", "detailedplace", "3", "detailed place", "true false", "placement"),
+    ("cts", "4_cts.odb", "4_cts.sdc", "cts", "4", "cts final", "", "placement"),
+    ("grt", "5_1_grt.odb", "5_1_grt.sdc", "globalroute", "5", "global route", "", "global_routing"),
+    ("final", "6_final.odb", "6_final.sdc", "finish", "6", "finish", "", "rcx"),
+]]
+
+orfs_flow(
+    name = "gcd_metrics_nd",
+    arguments = {
+        "CORE_ASPECT_RATIO": "1",
+        "CORE_MARGIN": "0.5",
+        "CORE_UTILIZATION": "65",
+        "GPL_PLACE_IOS": "1",
+        "PLACE_DENSITY": "0.35",
+        "SKIP_REPORT_METRICS": "0",
+    },
+    sources = {"SDC_FILE": ["@orfs//flow/designs/asap7/gcd:constraint.sdc"]},
+    tags = ["manual"],
+    top = "gcd",
+    variant = "nd",
+    verilog_files = ["@orfs//flow/designs/src/gcd:gcd.v"],
+)

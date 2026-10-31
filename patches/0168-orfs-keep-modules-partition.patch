@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Fri, 30 Oct 2026 10:00:00 +0100
+Subject: [PATCH] synth: no SYNTH_KEEP_MODULES check in a partition
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A partition of a parallel synthesis reads a SYNTH_CHECKPOINT that holds
+only its own top and subhierarchy; the other kept modules are
+blackboxed or absent, so the check that every SYNTH_KEEP_MODULES name
+selects a module stopped every partition but the one holding them all.
+That covers a pinned partition too, synthesised from its own slice
+without SYNTH_BLACKBOXES: a kept module that is an ancestor of another
+is not in the child's slice at all. The check now runs only when the
+whole design is synthesised, where a name that matches nothing is a
+typo.
+
+ORFS #4770 (draft); retires at a bump onto an ORFS that skips the check in
+a partition.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/synth.tcl | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
+index 373c590..ef854c3 100644
+--- a/flow/scripts/synth.tcl
++++ b/flow/scripts/synth.tcl
+@@ -109,7 +109,10 @@ if { [env_var_exists_and_non_empty SYNTH_KEEP_MODULES] } {
+     # `-module <name>` would error if the module doesn't exist, which
+     # is why we use bare patterns instead.
+     select "$module" "$module\\\$*"
+-    if { [string trim [tee -q -s result.string select -list]] eq "" } {
++    if {
++      ![env_var_exists_and_non_empty SYNTH_CHECKPOINT]
++      && [string trim [tee -q -s result.string select -list]] eq ""
++    } {
+       error "SYNTH_KEEP_MODULES: no module $module in the design"
+     }
+     setattr -mod -set keep_hierarchy 1
+-- 
+2.43.0

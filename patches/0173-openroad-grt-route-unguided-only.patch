@@ -7,7 +7,7 @@ guides do not cover its pins is routed too (GRT-0304). The guides of the
 nets it routed are written; the others are left as they were read.
 
 A top level whose blocks were dissolved into it after their own global
-route (patch 0157) keeps every block's routes and routes only what it
+route (patch 0171) keeps every block's routes and routes only what it
 built itself, its clock tree, instead of routing the whole design again:
 stock grt restores guides only when every net has them (haveDbGuides)
 and otherwise reroutes everything.

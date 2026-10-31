@@ -276,6 +276,7 @@ def main(argv=None):
     worst_seen = CLEAN
     missing = False
     skipped = {}
+    checked = {}
     for group, path in work:
         root = trees.get(group, default_tree)
         if root is None:
@@ -290,6 +291,9 @@ def main(argv=None):
             patch_text = handle.read()
         read_file = _reader(root, overlays.setdefault(root, {}))
         verdict, per_file = classify_patch(patch_text, read_file)
+        counts = checked.setdefault(group, [0, 0])
+        counts[0] += 1
+        counts[1] += verdict == CLEAN
         if verdict == CLEAN:
             apply_patch(patch_text, read_file, overlays[root])
         if _SEVERITY.index(verdict) < _SEVERITY.index(worst_seen):
@@ -298,8 +302,13 @@ def main(argv=None):
             detail = ", ".join(f"{p}: {v}" for p, v in per_file if v != CLEAN)
             print(f"{verdict:13} {path}  ({detail})")
 
+    # Only a non-CLEAN patch gets a line of its own, so without these a
+    # series that is all CLEAN prints the same nothing as one never checked.
+    for group, (count, clean) in sorted(checked.items()):
+        print(f"{'CHECKED':13} {group or '--patch'}: {count} patches, {clean} CLEAN")
     for group, count in sorted(skipped.items()):
-        print(f"{'SKIPPED':13} {group}: {count} patches, no --tree {group}=<path>")
+        tree = f"--tree {group}=<path>" if group else "--tree <path>"
+        print(f"{'SKIPPED':13} {group or '--patch'}: {count} patches, no {tree}")
 
     return 0 if worst_seen == CLEAN and not missing else 1
 

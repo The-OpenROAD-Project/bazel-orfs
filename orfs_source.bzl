@@ -158,7 +158,7 @@ ORFS_PATCHES = [
     Label("//patches:0131-orfs-syn-clkgate-map.patch"),
     # 0139: gui_<stage> opens the web viewer, qt_<stage> the Qt GUI
     # (web_<stage> goes), so a GUI needs no Qt build; bazel-orfs runs
-    # gui_ through the odb-debug daemon. Not upstreamed; retires at a
+    # gui_ through the odb-debug daemon and refuses qt_ (make.tpl). Not upstreamed; retires at a
     # bump onto an ORFS that names the GUI targets this way.
     Label("//patches:0139-orfs-gui-is-web.patch"),
     # 0153: a ROM (an inferred memory with no write port) is not counted
@@ -179,23 +179,44 @@ ORFS_PATCHES = [
     # bump onto an ORFS that carries it, with a patch_cmds line deleting
     # that directory.
     Label("//patches:0155-orfs-coralnpu-generated.patch"),
-    # 0158: a register file's own flow (its top an inlined
+    # 0157: SKIP_REPORT_METRICS=1 still writes the metrics that cost
+    # nothing (design area, instance counts, utilization); it skips only
+    # the timing update, power analysis and text reports. Not
+    # upstreamed; retires at a bump onto an ORFS that carries it.
+    Label("//patches:0157-orfs-metrics-free-always.patch"),
+    # 0158: SKIP_REPORT_METRICS defaults to 1 here; a flow that wants
+    # timing and power in its stage .json sets it to 0. bazel-orfs
+    # policy, not for upstream; retires with 0157.
+    Label("//patches:0158-orfs-skip-report-metrics-default.patch"),
+    # 0168: the SYNTH_KEEP_MODULES name check (ORFS #4745) skipped in
+    # every partition of a parallel synthesis (a run that reads a
+    # SYNTH_CHECKPOINT), where the other kept modules are blackboxed or,
+    # for an ancestor in a pinned slice, absent. ORFS #4770 (draft);
+    # retires at a bump onto an ORFS that skips it there.
+    Label("//patches:0168-orfs-keep-modules-partition.patch"),
+    # 0160: a regfile spec's `write_words <address port> <word>...`, the
+    # words a write port writes, as generate_ram's -w_port_words (OpenROAD
+    # patch 0159): a word one port writes takes its data with no data mux.
+    # Not upstreamed; retires at a bump onto an ORFS and OpenROAD that
+    # have it.
+    Label("//patches:0160-orfs-regfile-write-words.patch"),
+    # 0172: a register file's own flow (its top an inlined
     # AUTO_MEMORIES_REGFILES module) keeps generate_ram's layout: the
     # floorplan the shape of its outline, every generated cell FIRM where
     # generate_ram placed it, global placement left only what synthesis
     # added. On 0089. Not upstreamed; retires at a bump onto an ORFS that
     # carries it.
-    Label("//patches:0158-orfs-regfile-top-keeps-generate-ram-layout.patch"),
-    # 0163: REPAIR_TIMING_PATH_GROUP passes repair_timing -path_group, so a
+    Label("//patches:0172-orfs-regfile-top-keeps-generate-ram-layout.patch"),
+    # 0179: REPAIR_TIMING_PATH_GROUP passes repair_timing -path_group, so a
     # parent macro whose ports carry budgets no repair inside it can meet
     # repairs its reg2reg paths instead. Not upstreamed; retires at a bump
     # onto an ORFS that carries it.
-    Label("//patches:0163-orfs-repair-timing-path-group.patch"),
-    # 0164: REPAIR_TIMING_MAX_ITERATIONS passes repair_timing
+    Label("//patches:0179-orfs-repair-timing-path-group.patch"),
+    # 0180: REPAIR_TIMING_MAX_ITERATIONS passes repair_timing
     # -max_iterations, for a repair that stops improving long before it has
-    # visited its endpoints. On 0163. Not upstreamed; retires at a bump onto
+    # visited its endpoints. On 0179. Not upstreamed; retires at a bump onto
     # an ORFS that carries it.
-    Label("//patches:0164-orfs-repair-timing-max-iterations.patch"),
+    Label("//patches:0180-orfs-repair-timing-max-iterations.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

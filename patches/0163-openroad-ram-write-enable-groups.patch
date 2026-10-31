@@ -1,0 +1,189 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] ram: a word's write enable and hold, buffered per eight bits
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+With -write_style mux every bit of a word has a hold mux selected by the
+word's write enable and by its complement, the hold. Both were one net
+across the whole word: a 32-bit word's enable, from an AND2, drove 33
+pins and its hold, from one inverter, the word's 32 hold muxes. In a
+flow every storage bit then missed the period at placement and
+repair_timing spent its time buffering them back.
+
+Each group of eight bits now takes a buffered copy of the word's enable
+and makes its own hold from it, in the group's first bit's cell: the
+word's enable drives a buffer a group, and no net in a word drives more
+than a group's pins.
+
+Carried in bazel-orfs, not upstreamed; retires with the //:bump onto an
+OpenROAD that has it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/ram/src/ram.cpp                     | 42 +++++++++++++++++-------
+ src/ram/test/BUILD                      |  1 +
+ src/ram/test/CMakeLists.txt             |  1 +
+ src/ram/test/regression_tests.tcl       |  1 +
+ src/ram/test/write_mux_fanout_asap7.tcl | 43 +++++++++++++++++++++++++
+ 5 files changed, 76 insertions(+), 12 deletions(-)
+ create mode 100644 src/ram/test/write_mux_fanout_asap7.tcl
+
+diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
+index 4362984e34..3b2539b58b 100644
+--- a/src/ram/src/ram.cpp
++++ b/src/ram/src/ram.cpp
+@@ -315,6 +315,10 @@ RamGen::TreeEnd RamGen::planReadTree(const std::string& prefix,
+ // read path is handled by the AOI mux in the buffer row, so all tristates in
+ // a row can share the same row-select enable signal.
+ 
++// -write_style mux: the bits a buffered copy of a word's write enable,
++// and an inverter making its hold, serve
++constexpr int kHoldGroup = 8;
++
+ void RamGen::makeSlice(const int slice_idx,
+                        const int mask_size,
+                        const int row_idx,
+@@ -392,17 +396,13 @@ void RamGen::makeSlice(const int slice_idx,
+   auto we_net = shared ? word_write.we : makeNet(prefix, "we");
+   auto sel_cell = std::make_unique<Cell>();
+   periphery_cell_ = sel_cell.get();  // each word's select cell
+-  // -write_style mux: the word's hold, where it is not written
+-  dbNet* hold = shared ? word_write.hold : nullptr;
+-  if (write_mux_ && !shared) {
+-    hold = makeNet(prefix, "hold");
+-    makeInst(sel_cell.get(),
+-             prefix,
+-             "hold_inv",
+-             inv_cell_,
+-             {{inv_ports_[{PortRoleType::DataIn, 0}], we_net},
+-              {inv_ports_[{PortRoleType::DataOut, 0}], hold}});
+-  }
++  // -write_style mux: the word's write enable and its complement, the
++  // hold, select every bit's hold mux. They are made per group of
++  // kHoldGroup bits in the bit loop, a buffer and an inverter a group, so
++  // no net drives a whole word: the word's enable drives a buffer a
++  // group.
++  dbNet* hold = nullptr;
++  dbNet* we_group = nullptr;
+   // (sel0 & a) | (sel1 & b): an AO22, or the AOI22 and an inverter where
+   // the library has no AO22
+   auto ao22 = [&](Cell* cell,
+@@ -553,6 +553,24 @@ void RamGen::makeSlice(const int slice_idx,
+                             storage,
+                             reset_bit,
+                             reset_off);
++    if (write_mux_ && (local_bit % kHoldGroup == 0 || we_group == nullptr)) {
++      // a group's enable and hold, in its first bit's cell
++      const int group = local_bit / kHoldGroup;
++      we_group = makeNet(prefix, fmt::format("we_g{}", group));
++      hold = makeNet(prefix, fmt::format("hold_g{}", group));
++      makeInst(bit_cell.get(),
++               prefix,
++               fmt::format("we_buf{}", group),
++               buffer_cell_,
++               {{buffer_ports_[{PortRoleType::DataIn, 0}], we_net},
++                {buffer_ports_[{PortRoleType::DataOut, 0}], we_group}});
++      makeInst(bit_cell.get(),
++               prefix,
++               fmt::format("hold_inv{}", group),
++               inv_cell_,
++               {{inv_ports_[{PortRoleType::DataIn, 0}], we_group},
++                {inv_ports_[{PortRoleType::DataOut, 0}], hold}});
++    }
+     if (write_mux_) {
+       // the word's own value back where it is not written: the flop's
+       // output, through an inverter where that output is inverted
+@@ -566,7 +584,7 @@ void RamGen::makeSlice(const int slice_idx,
+                  {{inv_ports_[{PortRoleType::DataIn, 0}], storage},
+                   {inv_ports_[{PortRoleType::DataOut, 0}], old}});
+       }
+-      ao22(bit_cell.get(), name, "hold_mux", we_net, d_data, hold, old, d);
++      ao22(bit_cell.get(), name, "hold_mux", we_group, d_data, hold, old, d);
+     }
+     if (and_or_read_) {
+       for (const auto& node : tree_nodes_[{row_idx, word_idx, bit}]) {
+diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
+index 16cb4408e2..dd9e6b7670 100644
+--- a/src/ram/test/BUILD
++++ b/src/ram/test/BUILD
+@@ -33,6 +33,7 @@ PASSFAIL_TESTS = [
+     "option_errors_asap7",
+     "generate_array_asap7",
+     "write_port_words_asap7",
++    "write_mux_fanout_asap7",
+ ]
+ 
+ ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
+diff --git a/src/ram/test/CMakeLists.txt b/src/ram/test/CMakeLists.txt
+index 8ff5e588f9..7ad9a02793 100644
+--- a/src/ram/test/CMakeLists.txt
++++ b/src/ram/test/CMakeLists.txt
+@@ -26,5 +26,6 @@ or_integration_tests(
+     option_errors_asap7
+     generate_array_asap7
+     write_port_words_asap7
++    write_mux_fanout_asap7
+ )
+ 
+diff --git a/src/ram/test/regression_tests.tcl b/src/ram/test/regression_tests.tcl
+index ddabc99ecc..9fe9d1ece2 100644
+--- a/src/ram/test/regression_tests.tcl
++++ b/src/ram/test/regression_tests.tcl
+@@ -25,5 +25,6 @@ record_tests {
+   option_errors_asap7
+   generate_array_asap7
+   write_port_words_asap7
++  write_mux_fanout_asap7
+   make_8x8_latch_sky130
+ }
+diff --git a/src/ram/test/write_mux_fanout_asap7.tcl b/src/ram/test/write_mux_fanout_asap7.tcl
+new file mode 100644
+index 0000000000..ab4cd3f6aa
+--- /dev/null
++++ b/src/ram/test/write_mux_fanout_asap7.tcl
+@@ -0,0 +1,43 @@
++# -write_style mux: a word's write enable and its hold reach the word's
++# bits through a buffer and an inverter per group of eight bits, so no
++# net in a word drives more than a group's pins. A 32-bit word's
++# enable once drove 33 pins and its hold 32. The array still reads back
++# what was written.
++source "helpers.tcl"
++source "ram_sim.tcl"
++source "routed.tcl"
++
++routed::read_asap7
++
++generate_ram_netlist -mask_size 32 -word_size 32 -num_words 8 -r_ports 2 \
++  -w_ports 1 -storage_cell DFFHQNx1_ASAP7_75t_R -write_style mux
++
++# the most sinks a net driven inside a word has
++set worst 0
++set worst_net ""
++foreach net [[ord::get_db_block] getNets] {
++  set driver ""
++  set sinks 0
++  foreach iterm [$net getITerms] {
++    if { [$iterm isOutputSignal] } {
++      set driver [[$iterm getInst] getName]
++    } elseif { [$iterm isInputSignal] } {
++      incr sinks
++    }
++  }
++  if { [string match "storage_*" $driver] && $sinks > $worst } {
++    set worst $sinks
++    set worst_net [$net getName]
++  }
++}
++ram_sim::check { $worst <= 9 } \
++  "$worst_net, driven in a word, has $worst sinks; a group's is 9"
++
++ram_sim::load
++ram_sim::exercise {
++  words 8 bits 32 cycles 300
++  writes {{addr_w D {we[0]}}}
++  reads {{addr_r0 Q0} {addr_r1 Q1}}
++}
++
++puts "pass"
