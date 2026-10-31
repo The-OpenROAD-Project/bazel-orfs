@@ -2223,6 +2223,71 @@ with a named reason why it is new (`.claude/skills/dogfooding`, rule 14).
   stitched tile, since each move re-times all 761,301 endpoints; it
   needs one re-time per round first.
 
+## 59. The parent macro: placed compact, repaired on reg2reg
+
+Status: measured in a dirty lane (`XSTile_parent`, stages from the
+cached build, settings edited by hand); the hermetic build of the same
+settings is to come.
+
+The carved tile's parent macro (`XSTile_parent`, #1425) flushed through
+global route at 4,537 ps with its repair skipped. Phase 1 of the
+partition campaign asked where that comes from before choosing a cut:
+
+- **The space table** (`select_table`, areas from the parent's own
+  synthesis): `Dispatch` 13.3 pins per micron, `Rename` 6.3,
+  `DecodeStage` 5.9, each integer issue queue 1,000 to 1,250 bits on
+  about 5,000 um2, `DataPath` 10,461 bits on 11,800 um2. Nothing timing
+  critical in the parent is a macro under 2 pins per micron; only the
+  memory block's leftovers come near (`TLBNonBlock_2` 1.95,
+  `TLBNonBlock_1` 2.36), and they are off the failing paths.
+- **Who talks to whom** (`kpi_run.tcl`'s census, `KPI_CENSUS_DEPTH`):
+  of 31,907 reg2reg endpoints over 2,000 ps, about 8,900 are CtrlBlock to
+  CtrlBlock (rename, decode, fusion), about 12,000 the integer region and
+  its issue queues, about 3,000 CtrlBlock to the integer region, 1,280
+  the memory block's leftovers into the integer region. None crosses
+  into a hardened block: the mass is the out-of-order core itself.
+- **Where it sits**: the plan holds every block above or below the
+  logic region, so the region is a 4,326 x 388 um strip between two rows
+  of blocks. At `PLACE_DENSITY` 0.3 the core's ~400k um2 of placed
+  cells needs 1.3 mm2, 2.5 mm along the strip: CtrlBlock spread over
+  x 1,590 to 4,420 um, dispatch to rename to decode a millimetre apart,
+  5.7 mm of wire on the worst path for registers 1,005 um apart.
+- **What the flow skipped** (dogfooding, rule 10): the parent macro
+  skips repair at CTS and global route and places without timing or
+  routability drive.
+
+Measured at global route, the same blocks and floorplan:
+
+| arm | reg2reg period | note |
+|---|---:|---|
+| as built (density 0.3, no repair) | 4,537 | |
+| grt repair on, every path group, `TNS_END_PERCENT` 1 | 4,535 | every iteration chased one block pin at -5.4 ns (in2out) |
+| density 0.6, after grt's `repair_design` | 3,768 | iteration 0 of the repair below |
+| density 0.6, grt repair on reg2reg only | 2,826 | capped at 1,600 iterations (94 min); uncapped it held -835.6 ps from 1,610 to 1,990 |
+
+The parent's ports are its blocks' pins, and their `set_max_delay`
+budgets run through a block the parent cannot repair; repairing every
+group spends the 1 % of endpoints on them. `REPAIR_TIMING_PATH_GROUP`
+(ORFS patch 0163) passes `repair_timing -path_group`;
+`REPAIR_TIMING_MAX_ITERATIONS` (0164) the cap.
+
+Memory: every parent step that times it with the route's parasitics
+peaks at 56 to 59 GB (global route, its repair, the KPI's STA alone),
+about 18 kB per placed instance, 3.3 M of them. Under 60 GB with room
+needs about 2.7 M; the parent's movable modules that are near 2 pins
+per micron hold 460k. Open.
+
+Endpoints over 2,000 ps: 31,907 as built, 18,153 at 2,826 ps. The worst
+path is now the integer register file's read port into the ALU pipeline
+register, 1,997 um apart: the plan put `IntRegFile` where its owner sat
+in an earlier placement (x 319 um), and at density 0.6 the integer
+region's cells sit at x 1,600 to 2,200 um. The register file is the next
+move, then timing-driven global placement.
+
+Global route at density 0.6: total overflow 23.8 M against 17.2 M, the
+worst edge 225 against 569, wirelength 105 against 97 m. The strip is
+the routing problem as well as the timing one.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance

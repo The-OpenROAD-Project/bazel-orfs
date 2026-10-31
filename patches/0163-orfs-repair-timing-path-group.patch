@@ -1,0 +1,119 @@
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] flow: REPAIR_TIMING_PATH_GROUP restricts repair_timing to one group
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+repair_timing takes -path_group (reg2reg, in2reg, reg2out, in2out), and
+the flow's repair_timing_helper had no way to pass it. A parent macro
+whose ports are its blocks' pins carries set_max_delay budgets on paths
+that run from one block, through the parent, into another; no repair
+inside the parent alone meets them, and TNS_END_PERCENT's 1 % of
+endpoints is spent on them while the register-to-register paths, the
+ones that set the macro's period, are not touched. On XiangShan's
+XSTile parent macro the grt repair's every iteration chased one block
+pin at -5.4 ns and moved the reg2reg period by 2 ps; restricted to
+reg2reg, capped at 1,600 iterations (patch 0164), it took the period
+from 3,768 to 2,826 ps.
+
+Empty, the default, repairs every group as before.
+
+Not upstreamed; retires at a bump onto an ORFS that carries it.
+
+---
+diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
+--- a/docs/user/FlowVariables.md
++++ b/docs/user/FlowVariables.md
+@@ -249,6 +249,7 @@
+ | <a name="RECOVER_POWER"></a>RECOVER_POWER| Specifies how many percent of paths with positive slacks can be slowed for power savings [0-100].| 0|
+ | <a name="REMOVE_CELLS_FOR_LEC"></a>REMOVE_CELLS_FOR_LEC| String patterns directly passed to write_verilog -remove_cells <> for lec checks.| |
+ | <a name="REPAIR_PDN_VIA_LAYER"></a>REPAIR_PDN_VIA_LAYER| Remove power grid vias which generate DRC violations after detailed routing.| |
++| <a name="REPAIR_TIMING_PATH_GROUP"></a>REPAIR_TIMING_PATH_GROUP| Restrict every repair_timing call of the flow's stages to one path group, reg2reg, in2reg, reg2out or in2out (repair_timing -path_group). Empty, the default, repairs every group. A block whose ports carry budgets no repair can meet (a parent macro whose ports are its blocks' pins) otherwise spends TNS_END_PERCENT's endpoints on its boundary paths and leaves its register-to-register paths, the ones that set its period, unrepaired.| |
+ | <a name="REPORT_CLOCK_SKEW"></a>REPORT_CLOCK_SKEW| Report clock skew as part of reporting metrics, starting at CTS, before which there is no clock skew. This metric can be quite time-consuming, so it can be useful to disable.| 1|
+ | <a name="REPORT_ENDPOINT_SLACK"></a>REPORT_ENDPOINT_SLACK| If set to 1, write the setup and hold slack of every timing endpoint at the end of every flow step (e.g. 3_3_place_gp) to $REPORTS_DIR/<step>_endpoint_slack.json. These snapshots can be compared across steps with flow/util/endpointSlack.py. See docs/contrib/EndpointSlackTracking.md.| 0|
+ | <a name="ROUTING_LAYER_ADJUSTMENT"></a>ROUTING_LAYER_ADJUSTMENT| Adjusts routing layer capacities to manage congestion and improve detailed routing. High values ease detailed routing but risk excessive detours and long global routing times, while low values reduce global routing failure but can complicate detailed routing. The global routing running time normally reduces dramatically (entirely design specific, but going from hours to minutes has been observed) when the value is low (such as 0.10). Sometimes, global routing will succeed with lower values and fail with higher values. Exploring results with different values can help shed light on the problem. Start with a too low value, such as 0.10, and bisect to value that works by doing multiple global routing runs. As a last resort, `make global_route_issue` and using the tools/OpenROAD/etc/whittle.py can be useful to debug global routing errors. If there is something specific that is impossible to route, such as a clock line over a macro, global routing will terminate with DRC errors routes that could have been routed were it not for the specific impossible routes. whittle.py should weed out the possible routes and leave a minimal failing case that pinpoints the problem.| 0.5|
+@@ -438,6 +439,7 @@
+ - [PRE_MACRO_PLACE_TCL](#PRE_MACRO_PLACE_TCL)
+ - [PRE_PDN_TCL](#PRE_PDN_TCL)
+ - [PRE_TAPCELL_TCL](#PRE_TAPCELL_TCL)
++- [REPAIR_TIMING_PATH_GROUP](#REPAIR_TIMING_PATH_GROUP)
+ - [REPORT_ENDPOINT_SLACK](#REPORT_ENDPOINT_SLACK)
+ - [ROUTING_LAYER_ADJUSTMENT](#ROUTING_LAYER_ADJUSTMENT)
+ - [RTLMP_AREA_WT](#RTLMP_AREA_WT)
+@@ -518,6 +520,7 @@
+ - [PRE_GLOBAL_PLACE_TCL](#PRE_GLOBAL_PLACE_TCL)
+ - [PRE_IO_PLACEMENT_TCL](#PRE_IO_PLACEMENT_TCL)
+ - [PRE_RESIZE_TCL](#PRE_RESIZE_TCL)
++- [REPAIR_TIMING_PATH_GROUP](#REPAIR_TIMING_PATH_GROUP)
+ - [REPORT_ENDPOINT_SLACK](#REPORT_ENDPOINT_SLACK)
+ - [ROUTING_LAYER_ADJUSTMENT](#ROUTING_LAYER_ADJUSTMENT)
+ - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
+@@ -541,6 +544,7 @@
+ - [MATCH_CELL_FOOTPRINT](#MATCH_CELL_FOOTPRINT)
+ - [POST_CTS_TCL](#POST_CTS_TCL)
+ - [PRE_CTS_TCL](#PRE_CTS_TCL)
++- [REPAIR_TIMING_PATH_GROUP](#REPAIR_TIMING_PATH_GROUP)
+ - [REPORT_CLOCK_SKEW](#REPORT_CLOCK_SKEW)
+ - [REPORT_ENDPOINT_SLACK](#REPORT_ENDPOINT_SLACK)
+ - [SETUP_MOVE_SEQUENCE](#SETUP_MOVE_SEQUENCE)
+@@ -571,6 +575,7 @@
+ - [OPT_POST_GRT_WNS](#OPT_POST_GRT_WNS)
+ - [POST_GLOBAL_ROUTE_TCL](#POST_GLOBAL_ROUTE_TCL)
+ - [PRE_GLOBAL_ROUTE_TCL](#PRE_GLOBAL_ROUTE_TCL)
++- [REPAIR_TIMING_PATH_GROUP](#REPAIR_TIMING_PATH_GROUP)
+ - [REPORT_CLOCK_SKEW](#REPORT_CLOCK_SKEW)
+ - [REPORT_ENDPOINT_SLACK](#REPORT_ENDPOINT_SLACK)
+ - [ROUTING_LAYER_ADJUSTMENT](#ROUTING_LAYER_ADJUSTMENT)
+diff --git a/flow/scripts/util.tcl b/flow/scripts/util.tcl
+--- a/flow/scripts/util.tcl
++++ b/flow/scripts/util.tcl
+@@ -40,6 +40,7 @@
+   append_env_var additional_args SKIP_VT_SWAP -skip_vt_swap 0
+   append_env_var additional_args SKIP_CRIT_VT_SWAP -skip_crit_vt_swap 0
+   append_env_var additional_args MATCH_CELL_FOOTPRINT -match_cell_footprint 0
++  append_env_var additional_args REPAIR_TIMING_PATH_GROUP -path_group 1
+   lappend additional_args {*}$args -verbose
+ 
+   log_cmd repair_timing {*}$additional_args
+diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
+--- a/flow/scripts/variables.json
++++ b/flow/scripts/variables.json
+@@ -962,6 +962,15 @@
+   "REPAIR_PDN_VIA_LAYER": {
+     "description": "Remove power grid vias which generate DRC violations after detailed routing.\n"
+   },
++  "REPAIR_TIMING_PATH_GROUP": {
++    "description": "Restrict every repair_timing call of the flow's stages to one path group, reg2reg, in2reg, reg2out or in2out (repair_timing -path_group). Empty, the default, repairs every group. A block whose ports carry budgets no repair can meet (a parent macro whose ports are its blocks' pins) otherwise spends TNS_END_PERCENT's endpoints on its boundary paths and leaves its register-to-register paths, the ones that set its period, unrepaired.\n",
++    "stages": [
++      "floorplan",
++      "place",
++      "cts",
++      "grt"
++    ]
++  },
+   "REPORT_CLOCK_SKEW": {
+     "default": 1,
+     "description": "Report clock skew as part of reporting metrics, starting at CTS, before which there is no clock skew. This metric can be quite time-consuming, so it can be useful to disable.\n",
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -904,6 +904,19 @@
+     - cts
+     - floorplan
+     - grt
++REPAIR_TIMING_PATH_GROUP:
++  description: >
++    Restrict every repair_timing call of the flow's stages to one path group,
++    reg2reg, in2reg, reg2out or in2out (repair_timing -path_group). Empty, the
++    default, repairs every group. A block whose ports carry budgets no repair
++    can meet (a parent macro whose ports are its blocks' pins) otherwise spends
++    TNS_END_PERCENT's endpoints on its boundary paths and leaves its
++    register-to-register paths, the ones that set its period, unrepaired.
++  stages:
++    - floorplan
++    - place
++    - cts
++    - grt
+ SKIP_LAST_GASP:
+   description: >
+     Do not use last gasp optimization to fix timing violations (default: use
