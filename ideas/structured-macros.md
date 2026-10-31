@@ -584,6 +584,57 @@ stages. What is missing to win is the broadcast's buffering into kept
 cells, the mechanism PhysicalStoreQueue and VirtualLoadQueue lose to as
 well.
 
+### The broadcast into kept cells, treed in the block: a study (2026-10-31)
+
+PhysicalStoreQueue, VirtualLoadQueue, Uncache and LoadQueueRAR lose
+period where an input every entry cell shares reaches the cells: synthesis
+sees one net into N kept cells and leaves it unbuffered, and
+placement's repair_design meets the slew limit with BUFx2 at fanout 32.
+`<top>_tree` (extract.py `--fanout-tree=INVx3_ASAP7_75t_R,8`, off by
+default) drives every such input through two levels of inverters in
+the block, one at the root and one per eight entries (inverters, since
+floorplan's remove_buffers would take buffers out). PhysicalStoreQueue
+has 889 such inputs. Single runs on main, 8-10 GB scopes, the B arms
+beside each other; seconds from the Bazel profile (synthesis) and the
+stage logs; period at grt on the routes' parasitics, placement's after
+the slash:
+
+| Block | arm | synth s | floorplan s | place s | CTS s | grt s | total min | period ps | stdcells | area µm² |
+|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| PhysicalStoreQueue | A: RTL | 1,292.3 | 18.6 | 227.6 | 22.5 | 128.6 | 28.16 | 1,453.0 / 1,582.9 | 252,148 | 32,126.6 |
+| | B | 251.5 | 19.6 | 247.9 | 30.1 | 115.4 | 11.08 | 1,666.4 / 2,058.0 | 247,502 | 30,545.7 |
+| | B, treed | 227.6 | 18.3 | 217.2 | 27.6 | 107.8 | 10.06 | 1,561.8 / 1,913.2 | 269,595 | 32,371.3 |
+| VirtualLoadQueue | A (inventory) | 173.5 | 5.1 | 34.9 | 3.2 | 94.9 | 5.19 | 857.6 / 962.5 | 38,203 | 4,267.1 |
+| | B | 76.5 | 4.0 | 55.6 | 8.8 | 20.7 | 2.76 | 972.6 / 1,011.7 | 42,144 | 4,914.7 |
+| | B, treed | 76.5 | 8.6 | 42.3 | 4.2 | 45.4 | 2.95 | 934.5 / 1,027.8 | 45,267 | 5,185.4 |
+| Uncache | A (inventory) | 115.1 | 13.3 | 49.0 | 5.4 | 17.2 | 3.33 | 916.0 / 1,020.3 | 56,458 | 7,449.8 |
+| | B | 96.5 | 11.4 | 88.9 | 6.8 | 107.8 | 5.19 | 1,171.3 / 1,332.8 | 70,686 | 8,524.5 |
+| | B, treed | 96.5 | 12.0 | 88.0 | 7.7 | 103.3 | 5.13 | 1,057.2 / 1,171.4 | 79,792 | 9,251.9 |
+| LoadQueueRAR | A (inventory) | 266.8 | 6.0 | 58.7 | 5.0 | 58.8 | 6.59 | 781.3 / 902.0 | 53,430 | 7,024.2 |
+| | B | 78.1 | 6.3 | 50.4 | 5.3 | 82.2 | 3.71 | 863.5 / 949.9 | 67,093 | 8,222.8 |
+| | B, treed | 78.1 | 6.1 | 101.9 | 9.0 | 91.0 | 4.77 | 913.8 / 1,024.8 | 71,470 | 8,712.5 |
+
+The three small blocks' B and treed arms ran side by side, six flows
+at once; their synthesis is the mean of the two runs of each top (the
+profile names both alike).
+PhysicalStoreQueue treed is +7.5 % on A (inside the 10 %) at a third of
+the time: it dominates. VirtualLoadQueue treed is +9.0 %, inside too,
+and dominates B (2.95 against 2.76 min, period -3.9 %) and A.
+Uncache improves 9.7 % and still loses (+15.4 %). LoadQueueRAR gets
+worse (+5.8 % on B, 4.77 against 3.71 min; every placement step about
+doubled, global placement 45 against 20 s, for 6.5 % more cells, not
+examined further): its worst path is not a broadcast (the free list's
+read and the write decoder, as before), the data path is 10 ps longer
+and the clock tree's insertion grew (launch 203 against 131 ps,
+capture 175 against 129): 26 ps of skew.
+On PhysicalStoreQueue's treed worst path the broadcast now passes the
+two inverter levels in 131 ps, and what is left against A is the
+block's select over the cells' outputs (1,096 to 2,006 ps), where a
+fourth BUFx2 stage still fans the select out. What is missing for a
+default: the proofs (check.py treats the inverters as cut points), a
+platform's inverter in place of the asap7 name, and the per-block
+choice (not on LoadQueueRAR).
+
 ### Two findings without a lever (2026-10-31)
 
 - **generate_ram's 16-word 2r4w block** (0170's tests): its detailed

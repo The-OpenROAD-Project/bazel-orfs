@@ -176,6 +176,42 @@ READ_STUDY = ["Uncache"]
     for top in READ_STUDY
 ]
 
+# A study, off by default: every broadcast into the entry cells (an
+# input all of them share) driven through two levels of inverters, one
+# at the root and one per eight entries (extract.py --fanout-tree),
+# instead of one net into every cell that placement's repair_design
+# buffers with BUFx2 trees at fanout 32. Not proven: check.py cuts at
+# the inverters' library cells. Period at grt on the routes' parasitics
+# (ps, B -> tree; A): PhysicalStoreQueue 1,666.4 -> 1,561.8 (1,453.0),
+# VirtualLoadQueue 972.6 -> 934.5 (857.6), Uncache 1,171.3 -> 1,057.2
+# (916.0), LoadQueueRAR 863.5 -> 913.8 (781.3).
+TREE_STUDY = [
+    "LoadQueueRAR",
+    "PhysicalStoreQueue",
+    "Uncache",
+    "VirtualLoadQueue",
+]
+
+[
+    genrule(
+        name = top + "_tree_extracted",
+        srcs = [":%s_proc.json" % top],
+        outs = [
+            top + "_tree_extracted.v",
+            top + "_tree_extracted.json",
+        ],
+        cmd = "$(execpath :extract) $(location :%s_proc.json) %s $(location %s_tree_extracted.json) --fanout-tree=INVx3_ASAP7_75t_R,8 && " % (top, top, top) +
+              "$(execpath @yosys) -q -p 'read_json $(location %s_tree_extracted.json); hierarchy -top %s; " % (top, top) +
+              "opt_dff; write_verilog -noattr $(location %s_tree_extracted.v)'" % top,
+        tags = ["manual"],
+        tools = [
+            ":extract",
+            "@yosys",
+        ],
+    )
+    for top in TREE_STUDY
+]
+
 # The core XSTile's MemBlock and parent read: the surgered core with the
 # extractions in place of the modules they came from (substitute.py), each
 # proven by its <top>_check_test. TLBFA, the instruction TLB, is
@@ -298,7 +334,10 @@ SLEW_STUDY = {
         variant = variant,
         verilog_files = [":%s_%s.v" % (
             top,
-            "rtl" if rtl else ("noread_extracted" if variant == "noread" else "extracted"),
+            "rtl" if rtl else {
+                "noread": "noread_extracted",
+                "tree": "tree_extracted",
+            }.get(variant, "extracted"),
         )],
         yosys_frontend_reason = "period worse on slang and the fold (YOSYS_FRONTEND)" if top in YOSYS_FRONTEND else None,
     )
@@ -306,7 +345,7 @@ SLEW_STUDY = {
     for rtl, variant, extra in [
         (False, None, {}),
         (True, "rtl", {}),
-    ] + ([(False, "noread", {})] if top in READ_STUDY else []) + ([
+    ] + ([(False, "noread", {})] if top in READ_STUDY else []) + ([(False, "tree", {})] if top in TREE_STUDY else []) + ([
         (
             False,
             "slew",
@@ -377,7 +416,7 @@ FLAT_STUDY = ["PhysicalStoreQueue"]
     for flow in [
         top,
         top + "_rtl",
-    ] + ([top + "_flat"] if top in FLAT_STUDY else []) + ([top + "_noread"] if top in READ_STUDY else []) + ([
+    ] + ([top + "_flat"] if top in FLAT_STUDY else []) + ([top + "_noread"] if top in READ_STUDY else []) + ([top + "_tree"] if top in TREE_STUDY else []) + ([
         top + "_slew",
         top + "_rtl_slew",
     ] if top in SLEW_STUDY else [])

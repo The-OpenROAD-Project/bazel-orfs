@@ -623,6 +623,52 @@ def extract(mod, name, decode=True):
     return {cell_name: cell_mod, name: parent}, stats, renames
 
 
+def fanout_tree(parent, cell_name, inv, group):
+    """A study (--fanout-tree=<inverter>,<group>): each input every entry
+    cell shares, a broadcast, driven through two levels of the named
+    inverter, one at the root and one per group of entries, instead of
+    left to placement's repair_design as one net into every cell.
+    Inverters, not buffers: floorplan's remove_buffers would take
+    buffers out again. The number of broadcast bits treed."""
+    ents = [c for c in parent["cells"].values() if c["type"] == cell_name]
+    if not ents:
+        return 0
+    bits = [b for v in parent["netnames"].values() for b in v["bits"]]
+    next_id = max([b for b in bits if not isinstance(b, str)] + [0]) + 1
+    count = 0
+    for p, d in ents[0]["port_directions"].items():
+        if d != "input" or len(ents[0]["connections"][p]) != 1:
+            continue
+        b = ents[0]["connections"][p][0]
+        if isinstance(b, str) or any(e["connections"][p] != [b] for e in ents):
+            continue
+        root = next_id
+        next_id += 1
+        parent["cells"][f"$fanout_tree${p}_root"] = {
+            "hide_name": 1,
+            "type": inv,
+            "parameters": {},
+            "attributes": {},
+            "port_directions": {"A": "input", "Y": "output"},
+            "connections": {"A": [b], "Y": [root]},
+        }
+        for g in range(0, len(ents), group):
+            y = next_id
+            next_id += 1
+            parent["cells"][f"$fanout_tree${p}_{g // group}"] = {
+                "hide_name": 1,
+                "type": inv,
+                "parameters": {},
+                "attributes": {},
+                "port_directions": {"A": "input", "Y": "output"},
+                "connections": {"A": [root], "Y": [y]},
+            }
+            for e in ents[g : g + group]:
+                e["connections"][p] = [y]
+        count += 1
+    return count
+
+
 def main(argv):
     src, name, out = argv[1:4]
     decode = "--keep-idx" not in argv
@@ -632,6 +678,12 @@ def main(argv):
         entries.NO_READ = True
     design = json.load(open(src))
     mods, stats, renames = extract(design["modules"][name], name, decode)
+    for a in argv[4:]:
+        if a.startswith("--fanout-tree="):
+            inv, group = a.split("=", 1)[1].split(",")
+            stats["fanout_trees"] = fanout_tree(
+                mods[name], name + "Entry", inv, int(group)
+            )
     design["modules"].update(mods)
     with open(out, "w") as f:
         json.dump(design, f)
