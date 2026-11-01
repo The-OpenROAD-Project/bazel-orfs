@@ -195,7 +195,11 @@
         "FltRegionModule": 900,
         "VecRegionModule": 1386
       },
-      "note": "the blocks repair timing after CTS, where their abstracts are cut: the parent 3,330 to 3,264 ps on an identical placement (its stages before CTS unchanged); the blocks' place-stage periods cannot move; Frontend's CTS 46 min"
+      "note": "the blocks repair timing after CTS, where their abstracts are cut: the parent 3,330 to 3,264 ps on an identical placement (its stages before CTS unchanged); the blocks' place-stage periods cannot move; Frontend's CTS 46 min",
+      "memory_gb": {
+        "grt": 93
+      },
+      "memory_peak": "the parent's grt, from the row's note"
     },
     {
       "date": "2026-10-05",
@@ -208,7 +212,11 @@
         "FltRegionModule": 900,
         "VecRegionModule": 1386
       },
-      "note": "the parent planned with each block mocked to density 0.6 (#1170): its die 2025 x 2666 um against 2377 x 3043, a quarter smaller, the period 3,256 against 3,264 ps; global route 81 GB against 93, congestion 21.2 % against 17.9 %"
+      "note": "the parent planned with each block mocked to density 0.6 (#1170): its die 2025 x 2666 um against 2377 x 3043, a quarter smaller, the period 3,256 against 3,264 ps; global route 81 GB against 93, congestion 21.2 % against 17.9 %",
+      "memory_gb": {
+        "grt": 81
+      },
+      "memory_peak": "the parent's grt, from the row's note"
     },
     {
       "date": "2026-10-06",
@@ -247,7 +255,11 @@
         "FltRegionModule": 951,
         "VecRegionModule": 1278
       },
-      "note": "in flight, #1187 a day on: generate_regfile's AOI22/NAND2/NOR2 read tree makes the blocks with register files faster, Frontend 2,170 to 1,792 ps and VecRegionModule 1,479 to 1,278, FltRegionModule 895 to 951 (its worst path ends at the register file's write port); the parent 3,276 ps, 110 below run 13 and 114 above run 12, its worst paths a mass of CtrlBlock control: the same CtrlBlock built alone closes at 1,200 ps, so the parent's gap is its placement and repair; global route 18.7 min, 83 GB, 21.5 %"
+      "note": "in flight, #1187 a day on: generate_regfile's AOI22/NAND2/NOR2 read tree makes the blocks with register files faster, Frontend 2,170 to 1,792 ps and VecRegionModule 1,479 to 1,278, FltRegionModule 895 to 951 (its worst path ends at the register file's write port); the parent 3,276 ps, 110 below run 13 and 114 above run 12, its worst paths a mass of CtrlBlock control: the same CtrlBlock built alone closes at 1,200 ps, so the parent's gap is its placement and repair; global route 18.7 min, 83 GB, 21.5 %",
+      "memory_gb": {
+        "grt": 83
+      },
+      "memory_peak": "the parent's grt, from the row's note"
     },
     {
       "date": "2026-10-09",
@@ -260,7 +272,11 @@
         "FltRegionModule": 951,
         "VecRegionModule": 1278
       },
-      "note": "the parent repairs setup at global route with the route's parasitics (SKIP_INCREMENTAL_REPAIR dropped, hold repair off there): 3,276 to 2,406 ps on row 14's build, its worst path now CtrlBlock's flush redirect into Frontend; 1,525 VT swaps, 74 buffers; global route 84 min against 19, 102 GB against 83; the blocks unchanged"
+      "note": "the parent repairs setup at global route with the route's parasitics (SKIP_INCREMENTAL_REPAIR dropped, hold repair off there): 3,276 to 2,406 ps on row 14's build, its worst path now CtrlBlock's flush redirect into Frontend; 1,525 VT swaps, 74 buffers; global route 84 min against 19, 102 GB against 83; the blocks unchanged",
+      "memory_gb": {
+        "grt": 102
+      },
+      "memory_peak": "the parent's grt, from the row's note"
     },
     {
       "date": "2026-10-14",
@@ -273,7 +289,11 @@
         "FltRegionModule": 1406,
         "VecRegionModule": 1351
       },
-      "note": "the parent's worst path, intRegion's pipeToBJU2 into Frontend's io_backend_toFtq_resolve_2_bits_mispredict; global route's setup repair 9,628 to 9,431 ps (197 ps, flat after iteration 869 of ~1,000), and 5,835 endpoints violate hold past the flow's -1,000 ps margin, the worst by 6,412 ps; CTS latency balancing inserts 2,502 delay buffers (518 at ffe02d5d) and 6,995 hold buffers. Frontend's worst path is the BPU's meta valid into the Ftq's generate_ram queue (metaQueueResolve.ram/addr_w); Flt's and Vec's end at their generate_ram register files' write address. Global route 209 min, 119.9 GB peak; the parent's placement 7 h. Earlier rows predate OpenSTA #532 and may leave gated-clock paths untimed"
+      "note": "the parent's worst path, intRegion's pipeToBJU2 into Frontend's io_backend_toFtq_resolve_2_bits_mispredict; global route's setup repair 9,628 to 9,431 ps (197 ps, flat after iteration 869 of ~1,000), and 5,835 endpoints violate hold past the flow's -1,000 ps margin, the worst by 6,412 ps; CTS latency balancing inserts 2,502 delay buffers (518 at ffe02d5d) and 6,995 hold buffers. Frontend's worst path is the BPU's meta valid into the Ftq's generate_ram queue (metaQueueResolve.ram/addr_w); Flt's and Vec's end at their generate_ram register files' write address. Global route 209 min, 119.9 GB peak; the parent's placement 7 h. Earlier rows predate OpenSTA #532 and may leave gated-clock paths untimed",
+      "memory_gb": {
+        "grt": 119.9
+      },
+      "memory_peak": "the parent's grt, from the row's note"
     },
     {
       "date": "2026-10-16",
@@ -608,7 +628,15 @@
             "what": "Decode into the memory dependence predictor: ctrlBlock's decode-buffer valid bit to a strict bit read from the store-set identifier table (memCtrl.ssit). 60 cell stages, 1,044 ps of them repeaters."
           }
         }
-      }
+      },
+      "memory_gb": {
+        "cts": 42.2,
+        "floorplan": 10.5,
+        "grt": 98,
+        "place": 47.4,
+        "synth": 5.4
+      },
+      "memory_peak": "the parent's grt, 98 GB in the row's note (resources.json measured 84.6); the other stages from resources.json"
     },
     {
       "date": "2026-10-23",
@@ -943,6 +971,56 @@
           "what": "The FP write-back path's destination register number to the FP register file's write address: a register index travelling to a macro."
         }
       }
+    }
+  ],
+  "memory_history": [
+    {
+      "date": "2026-10-30",
+      "part": "Top",
+      "complete": true,
+      "stages": {
+        "cts": 117,
+        "grt": 196.3
+      },
+      "note": "XSTile's Top in one process, floorplan through global route, RAM plus swap: the 'before' of #1474 and #1494"
+    },
+    {
+      "date": "2026-10-31",
+      "part": "Top",
+      "complete": false,
+      "stages": {
+        "grt": 57.4
+      },
+      "note": "global route alone, its grid in a backing file, the same routes (#1474)"
+    },
+    {
+      "date": "2026-10-31",
+      "part": "Top",
+      "complete": false,
+      "stages": {
+        "cts": 51.5
+      },
+      "note": "CTS alone: latency balancing times the clock network without CRPR (#1494)"
+    },
+    {
+      "date": "2026-10-31",
+      "part": "Top",
+      "complete": false,
+      "stages": {
+        "grt": 94.3
+      },
+      "note": "the legaliser through global route in one process: detailed placement frees its pixel grid (#1495)"
+    },
+    {
+      "date": "2026-11-01",
+      "part": "Top",
+      "complete": true,
+      "stages": {
+        "cts": 49.5,
+        "legaliser": 56.5,
+        "grt": 96.0
+      },
+      "note": "one process again, read with a backing file, CTS's timing data freed, global route -no_incremental (measured on #1425, open)"
     }
   ]
 }

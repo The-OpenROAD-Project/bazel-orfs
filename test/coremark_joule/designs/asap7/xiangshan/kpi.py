@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Draw the KPI: XiangShan's minimum clock period over time, against the target.
 
-    python3 test/coremark_joule/designs/asap7/xiangshan/kpi.py
+    bazelisk run //test/coremark_joule/designs/asap7/xiangshan:kpi
 
 Reads kpi.json beside it, writes kpi.png and rewrites the table between
 the kpi-table markers in README.md. Add a row to the json when a change
@@ -22,6 +22,14 @@ route (tools/headroom/report_floor_cycles.tcl), where a run measured it:
 the worst path from a register back to itself, which no clock skew or
 retiming passes. A floor above the target says no clocking reaches it;
 `floor_register` in the json names the register.
+
+Under the period, the memory: each stage's peak (GB) in the run's
+heaviest part, from orfs_schedule's resources.json as the build measured
+it (`--memory resources.json` records the last run's), and the peak over
+every stage, the black line, the memory a machine needs to build it.
+kpi_memory.png is the same for `memory_history`, one entry per change that
+moved it, the Top's steps as the patches that cut them landed; its
+table is between the kpi-memory markers. You become what you measure.
 
 The image carries no text beyond its axes and legend: the numbers and
 what changed are the README's table, where they can be read and copied.
@@ -51,7 +59,16 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+# beside this file, in the source tree: under `bazelisk run`, the
+# workspace Bazel names, not the runfiles
+HERE = (
+    os.path.join(
+        os.environ["BUILD_WORKSPACE_DIRECTORY"],
+        "test/coremark_joule/designs/asap7/xiangshan",
+    )
+    if os.environ.get("BUILD_WORKSPACE_DIRECTORY")
+    else os.path.dirname(os.path.abspath(__file__))
+)
 
 # the blocks, in the order they are drawn and tabulated, with a colour each
 BLOCK_COLORS = {
@@ -88,6 +105,19 @@ GROUP_COLORS = {
 FLAT_BEGIN = "<!-- kpi-flat begin: written by kpi.py -->"
 FLAT_END = "<!-- kpi-flat end -->"
 
+# the stages a part's memory is measured in, in flow order, with a colour each
+STAGE_COLORS = {
+    "synth": "#bdbdbd",
+    "floorplan": "#9e9ac8",
+    "place": "#41ab5d",
+    "cts": "#4292c6",
+    # the Top's own step: the clock tree's buffers seated, placement checked
+    "legaliser": "#9ecae1",
+    "grt": "#ef6548",
+}
+MEMORY_BEGIN = "<!-- kpi-memory begin: written by kpi.py -->"
+MEMORY_END = "<!-- kpi-memory end -->"
+
 TABLE_BEGIN = "<!-- kpi-table begin: written by kpi.py -->"
 TABLE_END = "<!-- kpi-table end -->"
 WORST_BEGIN = "<!-- kpi-worst begin: written by kpi.py -->"
@@ -114,7 +144,9 @@ def draw(runs, target, out):
     drawn = runs[start:]
     xs = list(range(1, len(drawn) + 1))
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, (ax, mem) = plt.subplots(
+        2, 1, figsize=(10, 7.5), sharex=True, gridspec_kw={"height_ratios": [2, 1]}
+    )
 
     for name in block_names(drawn):
         pts = [
@@ -180,7 +212,6 @@ def draw(runs, target, out):
     ax.set_ylim(0, max(design) * 1.08)
     ax.set_xlim(0.5, len(drawn) + 0.5)
     ax.set_xticks(xs)
-    ax.set_xlabel("run (see the table)")
     ax.set_ylabel("minimum clock period (ps)")
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:,.0f}"))
     ax.grid(axis="y", alpha=0.3)
@@ -188,7 +219,115 @@ def draw(runs, target, out):
         ax.spines[s].set_visible(False)
     ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1), fontsize=8, frameon=False)
 
+    draw_memory(mem, xs, [r.get("memory_gb", {}) for r in drawn])
+    mem.set_xlabel("run (see the table)")
+
     fig.savefig(out, dpi=120, bbox_inches="tight")
+
+
+def peak_gb(stages):
+    """The peak over a part's stages: the memory a machine needs for it."""
+    return max(stages.values()) if stages else None
+
+
+def draw_memory(ax, xs, memories, complete=None, parts=None):
+    """Each stage's peak memory over xs, and the peak over all of them, black;
+    complete, one flag per x, leaves the peak out where a stage was measured
+    alone (its own process, not the part's whole run); parts, one name per
+    x, draws one peak line per part, never joining two parts."""
+    complete = complete or [True] * len(xs)
+    parts = parts or [None] * len(xs)
+    for stage, color in STAGE_COLORS.items():
+        labelled = False
+        for part in dict.fromkeys(parts):
+            pts = [
+                (x, m[stage])
+                for x, m, p in zip(xs, memories, parts)
+                if stage in m and p == part
+            ]
+            if pts:
+                ax.plot(
+                    [p[0] for p in pts],
+                    [p[1] for p in pts],
+                    "o--",
+                    color=color,
+                    lw=1.2,
+                    ms=4,
+                    zorder=2,
+                    label=None if labelled else stage,
+                )
+                labelled = True
+    for k, part in enumerate(dict.fromkeys(parts)):
+        pts = [
+            (x, peak_gb(m))
+            for x, m, c, p in zip(xs, memories, complete, parts)
+            if m and c and p == part
+        ]
+        if pts:
+            ax.plot(
+                [p[0] for p in pts],
+                [p[1] for p in pts],
+                "-",
+                marker="osD^"[k % 4],
+                color="black",
+                lw=2.2,
+                ms=6,
+                zorder=3,
+                label="peak" if part is None else "peak, " + part,
+            )
+    ax.set_ylim(bottom=0)
+    ax.set_ylabel("peak memory (GB)")
+    ax.grid(axis="y", alpha=0.3)
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1), fontsize=8, frameon=False)
+
+
+def draw_memory_history(history, out):
+    """kpi_memory.png: memory_history's entries, each stage and the peak."""
+    if not history:
+        return False
+    fig, ax = plt.subplots(figsize=(10, 4))
+    xs = list(range(1, len(history) + 1))
+    draw_memory(
+        ax,
+        xs,
+        [h["stages"] for h in history],
+        [h.get("complete", True) for h in history],
+        [h["part"] for h in history],
+    )
+    ax.set_xlim(0.5, len(history) + 0.5)
+    ax.set_xticks(xs)
+    ax.set_xlabel("change (see the memory table)")
+    fig.savefig(out, dpi=120, bbox_inches="tight")
+    return True
+
+
+def memory_table(history):
+    """memory_history as a markdown table, the numbers kpi_memory.png draws."""
+    head = ["#", "date", "part"] + list(STAGE_COLORS) + ["peak", "change"]
+    lines = ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
+    for i, h in enumerate(history, 1):
+        st = h["stages"]
+        cells = [str(i), h["date"], h["part"]]
+        cells += [f"{st[k]:g}" if k in st else "" for k in STAGE_COLORS]
+        peak = f"{peak_gb(st):g}" if h.get("complete", True) else ""
+        cells += [peak, h["note"].replace("|", "\\|")]
+        lines.append("| " + " | ".join(cells) + " |")
+    return "\n".join(lines)
+
+
+def read_memory(resources):
+    """A run's memory from orfs_schedule's resources.json: each stage's peak
+    in the heaviest unit, and the unit whose stage set the peak."""
+    stages, by = {}, {}
+    for unit, u in resources["units"].items():
+        for stage, v in u.get("stages", {}).items():
+            gb = v.get("peak_gb")
+            if stage in STAGE_COLORS and gb is not None and gb > stages.get(stage, -1):
+                stages[stage], by[stage] = gb, unit
+    top = max(stages, key=stages.get)
+    return stages, "%s's %s" % (by[top], top)
 
 
 def rebin(h, width):
@@ -410,7 +549,8 @@ def table(runs):
     """The runs as a markdown table, the numbers the chart draws."""
     start = first_drawn(runs)
     names = block_names(runs)
-    head = ["#", "date", "design", "parent", "floor"] + names + ["change"]
+    head = ["#", "date", "design", "parent", "floor"] + names
+    head += ["peak GB", "change"]
     lines = ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
     for i, r in enumerate(runs):
         blocks = r.get("blocks", {})
@@ -423,6 +563,8 @@ def table(runs):
             f"{r['floor_ps']:,}" if "floor_ps" in r else "",
         ]
         cells += [f"{blocks[n]:,}" if n in blocks else "" for n in names]
+        m = r.get("memory_gb")
+        cells.append(f"{peak_gb(m):g}" if m else "")
         cells.append(r["note"].replace("|", "\\|"))
         lines.append("| " + " | ".join(cells) + " |")
     return "\n".join(lines)
@@ -519,6 +661,12 @@ def main():
         metavar=("KPI_FLAT_TXT", "KPI_FLAT_NOWIRE_TXT"),
         help="record <parent>_kpi_flat.txt and its _nowire twin in the last run, then draw",
     )
+    ap.add_argument(
+        "--memory",
+        metavar="RESOURCES_JSON",
+        help="record orfs_schedule's measured resources.json as the last "
+        "run's memory, then draw",
+    )
     args = ap.parse_args()
     path = os.path.join(HERE, "kpi.json")
     with open(path) as f:
@@ -527,7 +675,11 @@ def main():
         run = d["runs"][-1]
         with open(args.flat[0]) as f, open(args.flat[1]) as g:
             run["flat"] = read_flat(f.read(), g.read(), run.get("flat", {}))
-    if args.histograms or args.flat:
+    if args.memory:
+        run = d["runs"][-1]
+        with open(args.memory) as f:
+            run["memory_gb"], run["memory_peak"] = read_memory(json.load(f))
+    if args.histograms or args.flat or args.memory:
         run = d["runs"][-1]
         hists = run.setdefault("histograms", {})
         worst = run.setdefault("worst_paths", {})
@@ -568,6 +720,11 @@ def main():
     worst = worst_table(d["runs"])
     if worst:
         write_table(readme, worst, WORST_BEGIN, WORST_END)
+    history = d.get("memory_history", [])
+    mem = os.path.join(HERE, "kpi_memory.png")
+    if draw_memory_history(history, mem):
+        print(mem)
+        write_table(readme, memory_table(history), MEMORY_BEGIN, MEMORY_END)
     flat = flat_table(d["runs"])
     if flat:
         write_table(readme, flat, FLAT_BEGIN, FLAT_END)
