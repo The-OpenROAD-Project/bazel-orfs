@@ -357,7 +357,7 @@
   {
    "module": "IntRegFile",
    "instance": "core/backend/inner_intRegion/intDataPath/intRegFile",
-   "w_um": 344.632,
+   "w_um": 379.6,
    "h_um": 248.62,
    "owner_um": [
     319,
