@@ -6,6 +6,16 @@ load(":xiangshan.bzl", "xiangshan_flat_flow", "xiangshan_flow")
 
 exports_files(["constraints.sdc"])
 
+# kpi.py: the KPI chart, its memory, and the README's tables, written into
+# the source tree (see its docstring)
+py_binary(
+    name = "kpi",
+    srcs = ["kpi.py"],
+    main = "kpi.py",
+    tags = ["manual"],
+    deps = ["@bazel-orfs-dev-pip//matplotlib"],
+)
+
 # The SDC period is XiangShan's 333 ps on 7 nm in fanouts of four, on the
 # library the flow times with, ORFS's default asap7 corner FF, in each Vt
 # class; the flow's primary Vt first.
