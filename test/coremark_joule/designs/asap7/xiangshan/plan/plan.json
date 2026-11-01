@@ -33,6 +33,10 @@
   ]
  },
  "parent": {
+  "regions": [
+   {"name": "ctrlBlock", "instance": "core/backend/inner_ctrlBlock", "box_um": [2500, 950, 2900, 1330]},
+   {"name": "dtlbLd", "instance": "core/memBlock/inner_dtlb_ld_tlb_ld", "box_um": [2900, 1130, 3100, 1330]}
+  ],
   "clock_pins": [
    "clock"
   ],
@@ -360,9 +364,9 @@
    "w_um": 344.632,
    "h_um": 248.62,
    "owner_um": [
-    319,
-    1269
-   ]
+        2100,
+        1170
+      ]
   }
  ],
  "pin_partners": "pin_partners.txt"

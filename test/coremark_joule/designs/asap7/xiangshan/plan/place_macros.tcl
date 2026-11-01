@@ -86,7 +86,7 @@ puts "place_macros.tcl: $bands soft placement blockage(s) over the blocks' bands
 # macro is the instance itself, or generate_ram's RAM, ram, inside the
 # wrapper that takes the module's place.
 foreach {inst x y w h} {
-  core/backend/inner_intRegion/intDataPath/intRegFile 146.684 1104.055 344.632 248.620
+  core/backend/inner_intRegion/intDataPath/intRegFile 1927.684 1045.690 344.632 248.620
 } {
   set names [list $inst $inst/ram $inst.ram]
   foreach name $names {
@@ -122,4 +122,27 @@ foreach inst [$block getInsts] {
 if { [llength $rest] > 0 } {
   puts "place_macros.tcl: [llength $rest] macros not in the plan; rtl_macro_placer places them around the planned blocks"
   rtl_macro_placer -halo_width 2 -halo_height 2
+}
+# The plan's placement regions: global placement keeps each instance's
+# cells inside its box. Names compared without the escaped dividers.
+set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
+foreach {name prefix x0 y0 x1 y1} {
+  ctrlBlock core/backend/inner_ctrlBlock 2500.000 950.000 2900.000 1330.000
+  dtlbLd core/memBlock/inner_dtlb_ld_tlb_ld 2900.000 1130.000 3100.000 1330.000
+} {
+  set region [odb::dbRegion_create $block $name]
+  odb::dbBox_create $region [expr { round($x0 * $dbu) }] [expr { round($y0 * $dbu) }]     [expr { round($x1 * $dbu) }] [expr { round($y1 * $dbu) }]
+  set group [odb::dbGroup_create $region $name]
+  set n 0
+  foreach inst [$block getInsts] {
+    if { [[$inst getMaster] isBlock] } { continue }
+    if { [string first $prefix/ [string map {\ ""} [$inst getName]]] == 0 } {
+      $group addInst $inst
+      incr n
+    }
+  }
+  if { $n == 0 } {
+    utl::error FLW 5 "plan: region $name holds no cell of $prefix"
+  }
+  puts "place_macros.tcl: region $name at $x0 $y0 $x1 $y1 um: $n cells of $prefix"
 }
