@@ -125,6 +125,12 @@ def load_plan(path):
     for a block that holds a macro wider than its square. Optional in margins: region_aspect_max
     caps the logic region's long side over its short one; the smallest die
     within the cap wins, and past it the least elongated.
+    Optional in parent: regions, [{"name": "ctrlBlock", "instance":
+    "core/backend/inner_ctrlBlock", "box_um": [x0, y0, x1, y1]}, ...],
+    each a placement region global placement keeps the instance's cells
+    in, so a unit is not smeared along a long logic region; the flow
+    dissolves them before detailed placement (the legalizer inside a fence
+    is slow). A box must lie in the die and clear of the planned blocks.
     Optional in parent: clock_pins, the blocks' clock port names; each
     block's clock pin is placed on its side facing the parent's ports,
     where the top level's clock tree is (a parent built as a macro,
@@ -1068,6 +1074,29 @@ if {{ [llength $rest] > 0 }} {{
   puts "place_macros.tcl: [llength $rest] macros not in the plan; rtl_macro_placer places them around the planned blocks"
   rtl_macro_placer -halo_width 2 -halo_height 2
 }}
+# The plan's placement regions: global placement keeps each instance's
+# cells inside its box. Names compared without the escaped dividers.
+set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
+foreach {{name prefix x0 y0 x1 y1}} {{
+{regions}
+}} {{
+  set region [odb::dbRegion_create $block $name]
+  odb::dbBox_create $region [expr {{ round($x0 * $dbu) }}] [expr {{ round($y0 * $dbu) }}] \
+    [expr {{ round($x1 * $dbu) }}] [expr {{ round($y1 * $dbu) }}]
+  set group [odb::dbGroup_create $region $name]
+  set n 0
+  foreach inst [$block getInsts] {{
+    if {{ [[$inst getMaster] isBlock] }} {{ continue }}
+    if {{ [string first $prefix/ [string map {{\\ ""}} [$inst getName]]] == 0 }} {{
+      $group addInst $inst
+      incr n
+    }}
+  }}
+  if {{ $n == 0 }} {{
+    utl::error FLW 5 "plan: region $name holds no cell of $prefix"
+  }}
+  puts "place_macros.tcl: region $name at $x0 $y0 $x1 $y1 um: $n cells of $prefix"
+}}
 """
 
 
@@ -1237,6 +1266,33 @@ def at_owner(n, region, gap, taken):
             % n["module"]
         )
     return round(best[1], 3), round(best[2], 3)
+
+
+def plan_regions(out, plan):
+    """The parent's placement regions (plan["parent"]["regions"]), each box
+    checked to lie in the die and clear of every planned block."""
+    regions = plan["parent"].get("regions") or []
+    _, _, dx, dy = out["die_um"]
+    for r in regions:
+        x0, y0, x1, y1 = r["box_um"]
+        if not (0 <= x0 < x1 <= dx and 0 <= y0 < y1 <= dy):
+            raise SystemExit(
+                "plan_floorplan: region {} {} is not inside the die".format(
+                    r["name"], r["box_um"]
+                )
+            )
+        for m in out["macros"]:
+            if _overlaps(
+                (x0, y0, x1 - x0, y1 - y0),
+                (m["x_um"], m["y_um"], m["w_um"], m["h_um"]),
+                0.0,
+            ):
+                raise SystemExit(
+                    "plan_floorplan: region {} {} overlaps block {}".format(
+                        r["name"], r["box_um"], m["name"]
+                    )
+                )
+    return regions
 
 
 def block_bands(out):
@@ -1463,9 +1519,16 @@ def emit(out, plan, directory):
             )
         )
     netlists = place_netlists(out, plan)
+    regions = plan_regions(out, plan)
     write(
         "place_macros.tcl",
         PLACE_TCL.format(
+            regions="".join(
+                "  {} {} {:.3f} {:.3f} {:.3f} {:.3f}\n".format(
+                    r["name"], r["instance"], *r["box_um"]
+                )
+                for r in regions
+            ).rstrip("\n"),
             rows="\n".join(rows),
             bands="\n".join(block_bands(out)),
             netlists="".join(

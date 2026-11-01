@@ -209,6 +209,65 @@ class EmitTest(unittest.TestCase):
         self.assertGreaterEqual(lowest_bottom, plan_floorplan.PORT_STRIP_UM + 10.0)
 
 
+class RegionTest(unittest.TestCase):
+    def _out(self):
+        p = plan([dict(m) for m in LayoutTest.MACROS])
+        return p, plan_floorplan.layout(p)
+
+    def test_regions_in_place_macros_not_in_plan_bzl(self):
+        p, out = self._out()
+        x0, y0, x1, y1 = out["region_um"]
+        box = [x0 + 10.0, y0 + 10.0, x0 + 110.0, y0 + 60.0]
+        p["parent"]["regions"] = [
+            {"name": "ctrl", "instance": "core/backend/inner_ctrlBlock", "box_um": box}
+        ]
+        d = tempfile.mkdtemp(prefix="plan_regions.")
+        plan_floorplan.emit(out, p, d)
+        place = open(os.path.join(d, "place_macros.tcl")).read()
+        self.assertIn(
+            "\n  ctrl core/backend/inner_ctrlBlock %.3f %.3f %.3f %.3f\n" % tuple(box),
+            place,
+        )
+        self.assertIn("odb::dbGroup_create $region $name", place)
+        # plan.bzl feeds synthesis: a region must not re-key it
+        self.assertNotIn("inner_ctrlBlock", open(os.path.join(d, "plan.bzl")).read())
+
+    def test_no_regions_no_rows(self):
+        p, out = self._out()
+        d = tempfile.mkdtemp(prefix="plan_regions.")
+        plan_floorplan.emit(out, p, d)
+        place = open(os.path.join(d, "place_macros.tcl")).read()
+        self.assertIn("foreach {name prefix x0 y0 x1 y1} {\n\n}", place)
+
+    def test_a_region_over_a_block_stops_the_plan(self):
+        p, out = self._out()
+        m = out["macros"][0]
+        p["parent"]["regions"] = [
+            {
+                "name": "bad",
+                "instance": "core/x",
+                "box_um": [m["x_um"], m["y_um"], m["x_um"] + 5.0, m["y_um"] + 5.0],
+            }
+        ]
+        with self.assertRaises(SystemExit) as e:
+            plan_floorplan.emit(out, p, tempfile.mkdtemp(prefix="plan_regions."))
+        self.assertIn("overlaps block %s" % m["name"], str(e.exception))
+
+    def test_a_region_outside_the_die_stops_the_plan(self):
+        p, out = self._out()
+        dx = out["die_um"][2]
+        p["parent"]["regions"] = [
+            {
+                "name": "out",
+                "instance": "core/x",
+                "box_um": [dx - 5.0, 0.0, dx + 5.0, 5.0],
+            }
+        ]
+        with self.assertRaises(SystemExit) as e:
+            plan_floorplan.emit(out, p, tempfile.mkdtemp(prefix="plan_regions."))
+        self.assertIn("not inside the die", str(e.exception))
+
+
 class SegmentTest(unittest.TestCase):
     def test_segments_face_the_partner(self):
         macros = [dict(m) for m in LayoutTest.MACROS]

@@ -47,9 +47,31 @@ proc cells_out_of_blocks {} {
   }
   utl::info FLW 9001 "cells_out_of_blocks: $moved cell(s) moved out of hard blocks before legalization"
 }
+# The plan's placement regions (place_macros.tcl) guide global placement
+# only: before the first legalization they are dissolved, so the legalizer
+# works without the fence. Inside it, XSTile_parent's detailed placement
+# was still searching after 75 min; without it, it took 6
+# (ideas/xiangshan-timing.md, entry 60).
+proc regions_dissolved {} {
+  set block [ord::get_db_block]
+  set n 0
+  foreach group [$block getGroups] {
+    if { [$group getRegion] ne "NULL" } {
+      odb::dbGroup_destroy $group
+      incr n
+    }
+  }
+  foreach region [$block getRegions] {
+    odb::dbRegion_destroy $region
+  }
+  if { $n > 0 } {
+    utl::info FLW 9002 "regions_dissolved: $n placement region(s) dissolved before legalization"
+  }
+}
 if { [info procs detailed_placement_helper_inner] eq "" } {
   rename detailed_placement_helper detailed_placement_helper_inner
   proc detailed_placement_helper { args } {
+    regions_dissolved
     cells_out_of_blocks
     detailed_placement_helper_inner {*}$args
   }
