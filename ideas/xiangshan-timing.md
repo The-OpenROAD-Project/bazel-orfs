@@ -2336,6 +2336,28 @@ repair on the plan's old register file and no regions): 2,826 to
 The plan carries the regions (`plan.json`'s `parent.regions`), which the
 planner writes into `place_macros.tcl` and keeps out of `plan.bzl`.
 
+## 61. The campaign below 2,000 ps, from KPI run 22
+
+The baseline is the carve on origin/main (KPI run 22, #1499): the parent
+macro at 2,488 ps, 9,766 endpoints over 2,000 ps, 1,689 ns of excess;
+every block at or under 1,960 ps. Each arm is the parent macro built
+hermetically from floorplan through its capped reg2reg repair at global
+route and the KPI census, about 3 h, its synthesis reused (an arm changes
+place_macros.tcl only; plan.json would re-key the surgery).
+
+| arm | change | reg2reg | endpoints > 2,000 ps | excess | verdict |
+|---|---|---|---|---|---|
+| baseline | KPI run 22 | 2,488 ps | 9,766 | 1,689 ns | |
+| C1 | the three load units in regions beside the uncache buffer | 2,545 ps | 6,850 | 1,175 ns | mass -30 %, period +57 ps: not a winner alone |
+
+- C1 reproduces J10 (entry 60's tree with the same regions) to the
+  picosecond and the endpoint: the builds are deterministic.
+- C1's worst path is inside intRegion, pipeToALU5 to io_toMemExu_2_0:
+  registers 761 um apart, 1,585 of 2,545 ps cells, 33-40 of them
+  buffers. ALU5 is spread 1.7 mm: its execution unit at x 1,344 um, its
+  pipe registers 1,411-2,485, its issue queue 3,048, toMemExu 3,091;
+  ALU0-4 sit at 1,930-2,390.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
