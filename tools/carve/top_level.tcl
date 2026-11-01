@@ -48,7 +48,7 @@ if { [env_var_exists_and_non_empty TOP_DIR] } {
   set ::env(RESULTS_DIR) $::env(TOP_DIR)
   set sdc 5_top_grt.sdc
 }
-load_design [dict get $odbs $from] $sdc
+load_design [dict get $odbs $from] $sdc -backing_file $::env(OBJECTS_DIR)/top.db
 set todo [lrange $steps [expr { [lsearch -exact $steps $from] + 1 }] end]
 
 # each step's checkpoint, to resume from; under Bazel the routed design
@@ -68,6 +68,8 @@ if { "tree" in $todo } {
   repair_clock_inverters
   log_cmd clock_tree_synthesis -sink_clustering_enable -repair_clock_nets \
     -sink_clustering_size $::env(CTS_CLUSTER_SIZE)
+  # CTS leaves 24 GB of timing data that no step before global route reads
+  sta::network_changed_non_sdc
   top_checkpoint tree 4_top_cts_tree.odb
 }
 if { "cts" in $todo } {
@@ -95,7 +97,10 @@ if { "grt" in $todo } {
   if { $iterations eq "" } {
     set iterations 0
   }
-  log_cmd global_route -congestion_iterations $iterations {*}$::env(GLOBAL_ROUTE_ARGS)
+  # the Top never reroutes incrementally; GLOBAL_ROUTE_ARGS is not
+  # substituted here, so the backing file is named in the call itself
+  log_cmd global_route -congestion_iterations $iterations -no_incremental \
+    -backing_file $::env(OBJECTS_DIR)/grt.grid {*}$::env(GLOBAL_ROUTE_ARGS)
   top_checkpoint grt 5_top_grt.odb
 }
 
