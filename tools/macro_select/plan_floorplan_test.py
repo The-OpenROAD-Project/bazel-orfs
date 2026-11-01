@@ -229,6 +229,10 @@ class RegionTest(unittest.TestCase):
             place,
         )
         self.assertIn("odb::dbGroup_create $region $name", place)
+        # the Tcl around the rows, escapes and continuation as Tcl reads
+        # them: a kept module's name holds its divider escaped
+        self.assertIn('[string map {\\\\ ""} [$inst getName]]', place)
+        self.assertIn("round($y0 * $dbu) }] \\\n    [expr", place)
         # plan.bzl feeds synthesis: a region must not re-key it
         self.assertNotIn("inner_ctrlBlock", open(os.path.join(d, "plan.bzl")).read())
 

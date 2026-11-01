@@ -117,12 +117,13 @@ foreach {name prefix x0 y0 x1 y1} {
 
 } {
   set region [odb::dbRegion_create $block $name]
-  odb::dbBox_create $region [expr { round($x0 * $dbu) }] [expr { round($y0 * $dbu) }]     [expr { round($x1 * $dbu) }] [expr { round($y1 * $dbu) }]
+  odb::dbBox_create $region [expr { round($x0 * $dbu) }] [expr { round($y0 * $dbu) }] \
+    [expr { round($x1 * $dbu) }] [expr { round($y1 * $dbu) }]
   set group [odb::dbGroup_create $region $name]
   set n 0
   foreach inst [$block getInsts] {
     if { [[$inst getMaster] isBlock] } { continue }
-    if { [string first $prefix/ [string map {\ ""} [$inst getName]]] == 0 } {
+    if { [string first $prefix/ [string map {\\ ""} [$inst getName]]] == 0 } {
       $group addInst $inst
       incr n
     }
