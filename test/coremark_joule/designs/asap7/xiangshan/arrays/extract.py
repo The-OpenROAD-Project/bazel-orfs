@@ -26,6 +26,7 @@ collapses; decode-once then rests on check.py --lemma.
 import collections
 import copy
 import json
+import re
 import sys
 
 from entries import FLOPS, OUT, Design, Entries, outputs, plan
@@ -623,6 +624,190 @@ def extract(mod, name, decode=True):
     return {cell_name: cell_mod, name: parent}, stats, renames
 
 
+def clock_ports(cell):
+    """The cell's input ports that reach a register's or a blackbox's
+    clock pin directly: a clock, which CTS buffers. Treed, the second
+    level's inverter sits between the clock tree and every register of
+    its group, and CTS's repair_clock_inverters clones it once per
+    register: Uncache, 6,400 inverters and 6,402 clock nets against 394,
+    global route four times as long, the clock's insertion longer."""
+    pins = {
+        b
+        for c in cell["cells"].values()
+        for p, bs in c["connections"].items()
+        if (p == "CLK" if c["type"].startswith("$") else CLOCK_PIN.match(p))
+        for b in bs
+    }
+    return {
+        p
+        for p, v in cell["ports"].items()
+        if v["direction"] == "input" and pins & set(v["bits"])
+    }
+
+
+CLOCK_PIN = re.compile(r"(?i)^(clk|clock|ck|cp)(_i)?$")
+
+
+STATEFUL = re.compile(r"(?i)dff|latch|mem|^\$_?(sr|ff)\b|^\$_(sr|ff)_|^\$(any|all)")
+
+
+def cone_key(parent):
+    """A key per bit of the block, equal for two bits that combinational
+    cells of the same type and parameters compute from the same bits:
+    the RTL's per-entry copy of a computation (PhysicalStoreQueue's 64
+    adders on the forwarding query's end, one per entry) is then one
+    broadcast to fanout_tree, as synthesis's opt_merge will make it, and
+    is treed. Registers are never keyed alike: no register is merged."""
+    drv = {}
+    for n, c in parent["cells"].items():
+        if not c["type"].startswith("$") or STATEFUL.search(c["type"]):
+            continue
+        for p, bs in c["connections"].items():
+            if c["port_directions"].get(p) == "output":
+                for i, b in enumerate(bs):
+                    drv[b] = (n, p, i)
+    memo = {}
+    ids = {}
+
+    def key(b):
+        if isinstance(b, str) or b not in drv:
+            return b
+        if b in memo:
+            return memo[b]
+        # iteratively, inputs first: cones are deeper than Python's stack
+        stack = [b]
+        while stack:
+            x = stack[-1]
+            if memo.get(x, ("",))[0] == "cone":
+                stack.pop()
+                continue
+            n, p, i = drv[x]
+            c = parent["cells"][n]
+            ins = [
+                (q, xs)
+                for q, xs in sorted(c["connections"].items())
+                if c["port_directions"].get(q) == "input"
+            ]
+            todo = [
+                y
+                for _, xs in ins
+                for y in xs
+                if not isinstance(y, str) and y in drv and y not in memo
+            ]
+            if todo and x not in memo:
+                memo[x] = ("loop", x)  # a combinational loop keys to itself
+                stack.extend(todo)
+                continue
+            stack.pop()
+            k = (
+                c["type"],
+                tuple(sorted(c["parameters"].items())),
+                p,
+                i,
+                tuple((q, tuple(memo.get(y, y) for y in xs)) for q, xs in ins),
+            )
+            memo[x] = ("cone", ids.setdefault(k, len(ids)))
+        return memo[b]
+
+    return key
+
+
+def fanout_tree(parent, name, group, cell, copies=False):
+    """Each input every entry cell shares, a broadcast, driven through two
+    levels of inverters in the block, one at the root and one per group
+    of entries (--fanout-tree=<group>), instead of one net into every
+    cell, which synthesis leaves unbuffered (one primary output to ABC)
+    and placement's repair_design meets the slew limit on with BUFx2 at
+    fanout 32. Inverters, not buffers: floorplan's remove_buffers would
+    take buffers out again. Each is an instance of <name>FanoutInv, a
+    module of one $not that the flow keeps (SYNTH_KEEP_MODULES), so
+    synthesis maps it to the platform's inverter and does not fold the
+    two levels away; a check flattens it. A clock is left alone
+    (clock_ports). With copies (--tree-copies), a per-entry copy of the
+    same computation in the block is a broadcast too (cone_key), treed
+    from the first entry's copy; the others are left unread. Returns the number of broadcast bits treed,
+    how many of them were such copies, and the module."""
+    cell_name = name + "Entry"
+    inv = name + "FanoutInv"
+    clocks = clock_ports(cell)
+    ents = [c for c in parent["cells"].values() if c["type"] == cell_name]
+    used = [
+        b
+        for c in parent["cells"].values()
+        for bs in c["connections"].values()
+        for b in bs
+        if not isinstance(b, str)
+    ] + [
+        b for v in parent["ports"].values() for b in v["bits"] if not isinstance(b, str)
+    ]
+    next_id = max(used + [0]) + 1
+    count = 0
+    shared = 0
+    cone = cone_key(parent) if copies else None
+    for p, d in (ents[0]["port_directions"].items() if ents else []):
+        if d != "input" or p in clocks or len(ents[0]["connections"][p]) != 1:
+            continue
+        b = ents[0]["connections"][p][0]
+        if isinstance(b, str) or any(
+            e["connections"][p] != [b]
+            and (
+                cone is None
+                or isinstance(e["connections"][p][0], str)
+                or cone(e["connections"][p][0]) != cone(b)
+            )
+            for e in ents
+        ):
+            continue
+        shared += any(e["connections"][p] != [b] for e in ents)
+        root = next_id
+        next_id += 1
+
+        def instance(a, y):
+            return {
+                "hide_name": 0,
+                "type": inv,
+                "parameters": {},
+                "attributes": {},
+                "port_directions": {"A": "input", "Y": "output"},
+                "connections": {"A": [a], "Y": [y]},
+            }
+
+        parent["cells"][f"fanout_tree_{p}_root"] = instance(b, root)
+        for g in range(0, len(ents), group):
+            y = next_id
+            next_id += 1
+            parent["cells"][f"fanout_tree_{p}_{g // group}"] = instance(root, y)
+            for e in ents[g : g + group]:
+                e["connections"][p] = [y]
+        count += 1
+    module = {
+        "attributes": {},
+        "ports": {
+            "A": {"direction": "input", "bits": [2]},
+            "Y": {"direction": "output", "bits": [3]},
+        },
+        "cells": {
+            "$not": {
+                "hide_name": 1,
+                "type": "$not",
+                "parameters": {
+                    "A_SIGNED": "0",
+                    "A_WIDTH": format(1, "032b"),
+                    "Y_WIDTH": format(1, "032b"),
+                },
+                "attributes": {},
+                "port_directions": {"A": "input", "Y": "output"},
+                "connections": {"A": [2], "Y": [3]},
+            }
+        },
+        "netnames": {
+            "A": {"hide_name": 0, "bits": [2], "attributes": {}},
+            "Y": {"hide_name": 0, "bits": [3], "attributes": {}},
+        },
+    }
+    return count, shared, module
+
+
 def main(argv):
     src, name, out = argv[1:4]
     decode = "--keep-idx" not in argv
@@ -632,6 +817,16 @@ def main(argv):
         entries.NO_READ = True
     design = json.load(open(src))
     mods, stats, renames = extract(design["modules"][name], name, decode)
+    for a in argv[4:]:
+        if a.startswith("--fanout-tree="):
+            stats["fanout_trees"], stats["fanout_trees_shared"], inv = fanout_tree(
+                mods[name],
+                name,
+                int(a.split("=", 1)[1]),
+                mods[name + "Entry"],
+                "--tree-copies" in argv,
+            )
+            mods[name + "FanoutInv"] = inv
     design["modules"].update(mods)
     with open(out, "w") as f:
         json.dump(design, f)

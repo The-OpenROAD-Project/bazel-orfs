@@ -1,7 +1,7 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 # daemon.tcl is the script an odb_debug() target runs inside the flow's
-# OpenROAD; its idle exit stops it through odbdebug.py and webclient.py
+# OpenROAD; its eviction stops it through odbdebug.py and webclient.py
 # beside it, gui_proxy.py beside it is the GUI link, and headroom.tcl
 # beside it holds the repair-headroom measurements it shares with the
 # stitched view (private/headroom.bzl). Consumers reach all of them by

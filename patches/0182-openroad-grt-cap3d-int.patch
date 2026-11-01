@@ -1,0 +1,77 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] grt: keep the NDR capacity per layer as an integer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Cap3D held the NDR capacity of an edge on a layer as a double, padding
+the struct to 16 bytes, one per GCell, layer and direction. It only
+ever holds integers: it starts at the layer's capacity and moves by the
+int8 edge costs NDR nets reserve and by integer adjustments. As an
+int32 the struct is 8 bytes; on a 34 M GCell x 9 layer die that is
+about 4.9 GB less, and every value is the same.
+
+Carried in bazel-orfs for OpenROAD#12075, not upstreamed; retires with
+the //:bump onto an OpenROAD that has it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/grt/src/fastroute/include/Graph2D.h | 10 +++-------
+ src/grt/src/fastroute/src/graph2d.cpp   |  4 ++--
+ 2 files changed, 5 insertions(+), 9 deletions(-)
+
+diff --git a/src/grt/src/fastroute/include/Graph2D.h b/src/grt/src/fastroute/include/Graph2D.h
+index 4c7387587f..bb2e1ff2de 100644
+--- a/src/grt/src/fastroute/include/Graph2D.h
++++ b/src/grt/src/fastroute/include/Graph2D.h
+@@ -33,8 +33,8 @@ class Graph2D
+ 
+   struct Cap3D
+   {
+-    uint16_t cap;    // max layer capacity
+-    double cap_ndr;  // capacity available for NDR
++    uint16_t cap;     // max layer capacity
++    int32_t cap_ndr;  // capacity available for NDR
+   };
+ 
+   struct NDRCongestion
+@@ -124,11 +124,7 @@ class Graph2D
+   void updateUsageV(int x, const Interval& yi, FrNet* net, int usage);
+   void updateUsageV(int x, int y, FrNet* net, int usage);
+   void initCap3D();
+-  void updateCap3D(int x,
+-                   int y,
+-                   int layer,
+-                   EdgeDirection direction,
+-                   double cap);
++  void updateCap3D(int x, int y, int layer, EdgeDirection direction, int cap);
+   // Adds to a layer's capacity, keeping the NDR capacity reserved on it.
+   void addCap3D(int x, int y, int layer, EdgeDirection direction, int delta);
+ 
+diff --git a/src/grt/src/fastroute/src/graph2d.cpp b/src/grt/src/fastroute/src/graph2d.cpp
+index eaa9b9c0d8..0de3e2bb22 100644
+--- a/src/grt/src/fastroute/src/graph2d.cpp
++++ b/src/grt/src/fastroute/src/graph2d.cpp
+@@ -1014,7 +1014,7 @@ void Graph2D::updateCap3D(int x,
+                           int y,
+                           int layer,
+                           EdgeDirection direction,
+-                          const double cap)
++                          const int cap)
+ {
+   auto& cap3D = (EdgeDirection::Horizontal == direction)
+                     ? h_cap_3D_[layer][x][y]
+@@ -1068,7 +1068,7 @@ bool Graph2D::hasNDRCapacity(FrNet* net, int x, int y, EdgeDirection direction)
+   // For nets with high cost, we need at least one layer with sufficient
+   // capacity
+   for (int l = net->getMinLayer(); l <= net->getMaxLayer(); l++) {
+-    double layer_cap = 0;
++    int layer_cap = 0;
+     int8_t layer_edge_cost = net->getLayerEdgeCost(l);
+ 
+     layer_cap = (direction == EdgeDirection::Horizontal)
+-- 
+2.53.0
+

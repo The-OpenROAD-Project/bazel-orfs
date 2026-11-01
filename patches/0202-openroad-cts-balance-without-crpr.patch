@@ -1,0 +1,77 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] cts: latency balancing times the clock network without CRPR
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The latency balancers read clock arrivals at the sinks, which clock
+reconvergence pessimism removal does not change. With CRPR on, every
+register clock pin's arrival carries its own clock path, the clock
+network's tags do not merge, and the arrivals the balancers ask for grow
+with the design: on XiangShan's XSTile Top (700k registers) they took
+77 GB and most of CTS's runtime.
+
+Turn CRPR off while the balancers run and restore it after, before
+useful skew's budget reads slacks; restoring it invalidates the arrivals.
+The tree is unchanged: XSTile's Top writes a byte-identical checkpoint,
+CTS peaks at 51.5 GiB instead of 117-123 GiB, in 761 s instead of 1,325 s.
+
+Carried in bazel-orfs, not upstreamed; retires with the //:bump onto an
+OpenROAD that has it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/cts/src/TritonCTS.cpp | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
+diff --git a/src/cts/src/TritonCTS.cpp b/src/cts/src/TritonCTS.cpp
+index bf3f5d9a56..ade57b5ea4 100644
+--- a/src/cts/src/TritonCTS.cpp
++++ b/src/cts/src/TritonCTS.cpp
+@@ -64,6 +64,26 @@ namespace cts {
+ 
+ using utl::CTS;
+ 
++namespace {
++
++// Turns clock reconvergence pessimism removal off for its scope.
++class CrprDisabled
++{
++ public:
++  explicit CrprDisabled(sta::dbSta* sta)
++      : sta_(sta), was_enabled_(sta->crprEnabled())
++  {
++    sta_->setCrprEnabled(false);
++  }
++  ~CrprDisabled() { sta_->setCrprEnabled(was_enabled_); }
++
++ private:
++  sta::dbSta* sta_;
++  const bool was_enabled_;
++};
++
++}  // namespace
++
+ TritonCTS::TritonCTS(utl::Logger* logger,
+                      odb::dbDatabase* db,
+                      sta::dbNetwork* network,
+@@ -2788,6 +2808,14 @@ int TritonCTS::runLatencyBalancers(double capPerDBU,
+                                    double resPerDBU,
+                                    bool useful_skew)
+ {
++  // The balancers read clock arrivals only, which clock reconvergence
++  // pessimism removal does not change. With it on, every register clock
++  // pin's arrival carries its own clock path, so the clock network's
++  // arrivals do not merge: on a 700k-register design they took 77 GB.
++  // Turning it back on invalidates the arrivals, so the slacks read after
++  // balancing (useful skew's budget, repair) have it.
++  CrprDisabled crpr_disabled(openSta_);
++
+   int totalDelayBuff = 0;
+   for (auto& builder : std::ranges::reverse_view(builders_)) {
+     if (builder->getParent() == nullptr && !builder->getChildren().empty()) {
+-- 
+2.53.0
+

@@ -264,6 +264,71 @@ archive_override(
         # the bottom edge (PPL-0111 on a short block). Not upstreamed;
         # retires at a //:bump onto an OpenROAD that has it.
         "//patches:0170-openroad-ram-pin-corners.patch",
+        # Global route's memory (OpenROAD#12075), one concern per patch, the
+        # guides unchanged in every one: Cap3D's NDR capacity as an int32,
+        # 16 -> 8 bytes per GCell, layer and direction.
+        "//patches:0182-openroad-grt-cap3d-int.patch",
+        # The 3D maze's search directions in a byte (4 -> 1 per GCell-layer).
+        "//patches:0183-openroad-grt-direction-byte.patch",
+        # The 3D maze's parents in int16 coordinates (12 -> 6 bytes).
+        "//patches:0184-openroad-grt-parent3d-int16.patch",
+        # The maze arrays sized to the grid rather than a square of at
+        # least 1000 x 1000; cost_hvh_test_ sized along x as it is indexed.
+        "//patches:0185-openroad-grt-maze-arrays-grid.patch",
+        # A merged route gives back its unmerged per-GCell segments.
+        "//patches:0186-openroad-grt-route-shrink.patch",
+        # The maze heaps grow to the search frontier instead of a pointer per
+        # GCell and layer up front.
+        "//patches:0187-openroad-grt-maze-heaps-frontier.patch",
+        # global_route -backing_file: the routing grid in a file reserved
+        # when the grid is set up (failing at once when the disk cannot hold
+        # it) and paged there instead of to swap. ORFS passes a file in
+        # OBJECTS_DIR (0189).
+        "//patches:0188-openroad-grt-backing-file.patch",
+        # The 3D maze's work arrays allocated only while it runs.
+        "//patches:0190-openroad-grt-maze3d-scoped.patch",
+        # A backed grid written out and freed before the routes are converted,
+        # where global route peaks (msync, then MADV_PAGEOUT).
+        "//patches:0191-openroad-grt-backing-pageout.patch",
+        # The blocked intervals freed once applied as capacity adjustments.
+        "//patches:0192-openroad-grt-free-blocked-intervals.patch",
+        # The 2D maze's work arrays allocated only for the overflow iterations.
+        "//patches:0193-openroad-grt-maze2d-scoped.patch",
+        # Each route finished (remaining guides, pad pins, merge) as FastRoute
+        # hands it over, never every net's per-GCell segments at once. Not
+        # upstreamed; each of 0182-0194 retires at a //:bump onto an
+        # OpenROAD that has it.
+        "//patches:0194-openroad-grt-finish-routes-per-net.patch",
+        # global_route -no_incremental: the router's nets, trees and grid
+        # freed once the routes and congestion are saved, for a flow that
+        # reroutes nothing afterwards.
+        "//patches:0195-openroad-grt-no-incremental.patch",
+        # The grid's backing file mapped only at its first page-out, and the
+        # grid paged out while the nets are built from the database.
+        "//patches:0196-openroad-grt-backing-lazy.patch",
+        # read_db -backing_file: the tables' pages in a file, paged out per
+        # table (dbBlock::pageOut) or whole (dbDatabase::pageOut); write_db
+        # holds one table at a time. Global route pages each part out once it
+        # stops reading it. Not upstreamed; 0195-0198 retire at a //:bump onto
+        # an OpenROAD that has them.
+        "//patches:0197-openroad-odb-backing-file.patch",
+        "//patches:0198-openroad-grt-page-out-database.patch",
+        # 0200: after a 2D route without overflow, resistance-aware routing
+        # reroutes in 3D once, and only the nets it selected, instead of
+        # every critical net twice (Uncache's global route, 58.8 of its
+        # 60.5 s; ideas/structured-macros.md). Not upstreamed; retires at
+        # a //:bump onto an OpenROAD that has it.
+        "//patches:0200-openroad-grt-res-aware-3d-once.patch",
+        # 0202: CTS latency balancing times the clock network with CRPR off:
+        # with it on, every register clock pin's arrival keeps its own clock
+        # path and XSTile's Top took 77 GB there; the tree is unchanged. Not
+        # upstreamed; retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0202-openroad-cts-balance-without-crpr.patch",
+        # 0203: dpl frees its pixel grid, a pixel per site of the core, when
+        # detailed_placement and check_placement return: on XSTile's Top
+        # about 32 GB that global route started on. Not upstreamed; retires
+        # at a //:bump onto an OpenROAD that has it.
+        "//patches:0203-openroad-dpl-free-pixel-grid.patch",
         # 0171: dissolve_macro, a placed block instance replaced by the
         # block's own cells, nets and global route guides as a module
         # instance (//tools/carve: the parent as a macro, its top level

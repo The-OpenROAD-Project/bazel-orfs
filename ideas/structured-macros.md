@@ -359,22 +359,22 @@ place's repair_design are in).
 
 | Block | Arm | synth s | floorplan s | place s | CTS s | grt s | total min | period at grt, routes' RC ps | period at grt, placement RC ps | stdcells | stdcell area µm² |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| PhysicalStoreQueue ⁴ | A: RTL | 1,909.2 | 26.1 | 327.9 | 30.9 | 156.9 | 40.85 | 1,453.0 | 1,582.9 | 252,148 | 32,126.6 |
-| | B: extracted ¹⁰ | 251.5 | 19.6 | 247.9 | 30.1 | 115.4 | 11.08 | 1,666.4 | 2,058.0 | 247,502 | 30,545.7 |
+| PhysicalStoreQueue ⁴ ¹³ | A: RTL | 1,448.9 | 17.7 | 217.6 | 21.9 | 125.5 | 30.53 | 1,453.0 | 1,582.9 | 252,148 | 32,126.6 |
+| | B: extracted, treed | 213.9 | 18.2 | 219.5 | 22.4 | 106.2 | 9.67 | 1,579.6 | 2,007.3 | 251,065 | 30,440.0 |
 | LoadQueueReplay | A: RTL | 1,504.8 | 49.5 | 496.1 | 33.4 | 160.0 | 37.40 | 1,198.4 | 1,664.5 | 368,658 | 45,109.3 |
 | | B: extracted | 432.4 | 35.8 | 549.4 | 49.5 | 274.7 | 22.36 | 1,201.8 | 1,435.1 | 389,527 | 45,759.1 |
 | VirtualStoreQueue ⁴ | A: RTL | 260.4 | 5.5 | 58.7 | 7.5 | 30.3 | 6.04 | 944.7 | 1,014.1 | 62,041 | 7,605.0 |
 | | B: extracted ⁹ | 102.8 | 3 | 63 | 7 | 36 | 3.53 | 910.4 | 926.0 | 63,871 | 7,884.8 |
-| LoadQueueRAR | A: RTL | 266.8 | 6.0 | 58.7 | 5.0 | 58.8 | 6.59 | 781.3 | 902.0 | 53,430 | 7,024.2 |
-| | B: extracted ⁹ | 85.8 | 11.5 | 70.0 | 6.3 | 106.4 | 4.67 | 863.5 | 949.9 | 67,093 | 8,222.8 |
+| LoadQueueRAR ¹³ | A: RTL | 266.8 | 6.0 | 58.7 | 5.0 | 58.8 | 6.59 | 781.3 | 902.0 | 53,430 | 7,024.2 |
+| | B: extracted, treed | 73.9 | 6.1 | 79.1 | 5.8 | 78.3 | 4.05 | 818.1 | 963.5 | 66,699 | 8,151.9 |
 | TLBFA | A: RTL | 75.6 | 6.4 | 46.9 | 4.6 | 28.0 | 2.69 | 397.0 | 439.0 | 47,411 | 6,578.3 |
 | | B: extracted ⁹ | 34.3 | 6.6 | 49.0 | 4.8 | 36.9 | 2.19 | 320.6 | 311.8 | 49,653 | 6,592.5 |
 | TLBFA_1 ⁴ | A: RTL | 166.0 | 16.6 | 136.2 | 7.0 | 31.4 | 5.95 | 456.2 | 460.8 | 83,636 | 10,707.2 |
 | | B: extracted ⁹ | 44.2 | 10.5 | 81.6 | 11.4 | 36.0 | 3.06 | 282.3 | 292.2 | 98,120 | 11,689.7 |
-| VirtualLoadQueue | A: RTL | 173.5 | 5.1 | 34.9 | 3.2 | 94.9 | 5.19 | 857.6 | 962.5 | 38,203 | 4,267.1 |
-| | B: extracted ⁹ | 83.9 | 5.0 | 41.4 | 4.2 | 70.4 | 3.41 | 972.6 | 1,011.7 | 42,144 | 4,914.7 |
-| Uncache ⁵ | A: RTL | 115.1 | 13.3 | 49.0 | 5.4 | 17.2 | 3.33 | 916.0 | 1,020.3 | 56,458 | 7,449.8 |
-| | B: extracted ⁹ | 81.8 | 6.6 | 68.4 | 5.4 | 84.0 | 4.10 | 1,171.3 | 1,332.8 | 70,686 | 8,524.5 |
+| VirtualLoadQueue ¹³ | A: RTL | 159.2 | 7.6 | 33.9 | 4.6 | 63.4 | 4.48 | 857.6 | 962.5 | 38,203 | 4,267.1 |
+| | B: extracted, treed | 69.3 | 4.2 | 50.0 | 4.2 | 56.6 | 3.91 | 847.0 | 956.4 | 43,740 | 5,042.0 |
+| Uncache ⁵ ¹³ | A: RTL | 116.1 | 6.3 | 46.1 | 4.9 | 19.9 | 3.22 | 916.0 | 1,020.3 | 56,458 | 7,449.8 |
+| | B: extracted, treed | 92.3 | 10.2 | 64.0 | 6.0 | 87.2 | 4.33 | 992.1 | 1,136.8 | 73,794 | 8,656.5 |
 | Rob ⁶ ¹⁰ | A: RTL | 1,641.8 | 474.3 | 1,150.7 | 44.6 | 173.0 | 58.07 | 1,379.9 | 2,197.3 | 340,217 | 40,759.2 |
 | | B: extracted | 508.3 | 260.2 | 2,182.6 | 41.1 | 163.6 | 52.60 | 1,212.3 | 2,239.7 | 414,852 | 46,916.3 |
 
@@ -464,6 +464,21 @@ min). The cell ends 88 ps earlier on its worst path (835.5 against
 923.3 ps arrival), but the select in the block, which now reads the
 decoded threshold, takes 1,041 ps against 855: one more AND level and a
 fourth BUFx2 stage (37 to 48 fF each) on the select's fanout.
+¹² Re-measured 2026-10-31 with the broadcasts into the entry cells
+treed in the block by default (TREE: two levels of a kept one-`$not`
+module, mapped to the platform's inverter, proven through the tree with
+a leaf as negative control; "The broadcast into kept cells, treed in
+the block"). Both arms of the three blocks side by side in one 10 GB
+scope, nothing else running; synthesis from the Bazel profile
+(canonicalisation, top and synth ODB for B; A's whole synthesis), the
+rest from the stage logs. LoadQueueRAR stays untreed: treed it got
+worse (its worst path is not a broadcast).
+¹³ Re-measured 2026-10-31 with the clock left out of the broadcast tree
+("The broadcast tree and the clock"), LoadQueueRAR treed by default. B
+arms only, the A arms as above: LoadQueueRAR, Uncache and
+VirtualLoadQueue side by side in one 10 GB scope, PhysicalStoreQueue
+alone in it; synthesis from the Bazel profile (canonicalisation, the top
+and the synth ODB), the rest from the stage logs.
 ⁸ PhysicalStoreQueue's
 broadcast is inherent (the forwarding query compared in all 64 cells),
 and placement already sees one netlist (OPENROAD_HIERARCHICAL 0), so
@@ -481,15 +496,15 @@ still be mapped against what drives and loads it.
 
 | Block | A total min | B total min | A period ps | B period ps | verdict | placement RC A / B ps, verdict before ¹¹ | reason for a loss, measured |
 |---|---:|---:|---:|---:|---|---|---|
-| PhysicalStoreQueue | 40.85 | 11.08 | 1,453.0 | 1,666.4 | trades ⁸ ¹⁰ ¹¹ | 1,582.9 / 2,058.0, trades | period +14.7 %: the select in the block now reads the decoded threshold, 1,041 ps against 855: one more AND level and a fourth BUFx2 stage on its fanout; before the ordered comparisons were decoded (¹⁰) it dominated at +7.9 % |
+| PhysicalStoreQueue | 30.53 | 9.71 | 1,453.0 | 1,483.9 | dominates ¹³ | 1,582.9 / 2,007.3, trades | period +8.7 % with the broadcasts treed and the clock left alone (+1.1 % with the clock treed, ¹³); untreed it traded at +14.7 % (the select reading the decoded threshold, and the query reaching the 64 cells through repair_design's BUFx2 at fanout 32) |
 | LoadQueueReplay | 37.40 | 22.36 | 1,198.4 | 1,201.8 | dominates ¹¹ | 1,664.5 / 1,435.1, dominates | period +0.3 % |
 | VirtualStoreQueue | 6.04 | 3.53 | 944.7 | 910.4 | dominates ⁷ ⁹ | 1,014.1 / 926.0, dominates | |
-| LoadQueueRAR | 6.59 | 4.67 | 781.3 | 863.5 | trades ¹¹ | 902.0 / 949.9, dominates | period +10.5 %: on the same path (the free list's head pointer, the read of the allocated slot, the write decoder, the entry's registers), 992.6 ps arrival against 898.0: the slot read's buffers are five BUFx2 in B against BUFx6f, INVx3 and BUFx3 in A (+56 ps to the read's output), and inside the cell the decoded write select reaches its 20 loads through two BUFx2 stages (178.5 ps from the cell's pin to D, against 119.5 from A's last select gate) |
+| LoadQueueRAR | 6.59 | 4.05 | 781.3 | 818.1 | dominates ¹³ | 902.0 / 963.5, dominates | period +4.7 % with the broadcasts treed and the clock left alone; untreed it traded at +10.5 % (the slot read's five BUFx2 and the write select buffered twice inside the cell, ¹¹), treed with the clock it lost (913.8, the clock's insertion grown) |
 | TLBFA | 2.69 | 2.19 | 397.0 | 320.6 | dominates ⁹ | 439.0 / 311.8, dominates | |
 | TLBFA_1 | 5.95 | 3.06 | 456.2 | 282.3 | dominates ⁹ | 460.8 / 292.2, dominates | |
-| VirtualLoadQueue | 5.19 | 3.41 | 857.6 | 972.6 | trades ¹¹ | 962.5 / 1,011.7, dominates | period +13.4 %: on the same path (the load write-back pointer, its reduction, each entry's allocated bit), 1,061.8 ps arrival against 954.5: B's top maps the reduction as 17 single-fanout levels after the pointer's decode (377 to 780 ps) against A's 9 (453 to 726), and its result reaches the 120 kept cells through repair_design's BUFx2 at fanout 26, 32 and 32 (180 ps) against two ABC buffers at fanout 10 (83 ps) |
+| VirtualLoadQueue | 4.48 | 3.91 | 857.6 | 847.0 | dominates ¹³ | 962.5 / 956.4, dominates | period -1.2 % with the broadcasts treed and the clock left alone; untreed it traded at +13.4 % (the write-back reduction's result into the 120 cells through BUFx2 at fanout 26/32/32, 180 ps against 83) |
 | Rob | 58.07 | 52.60 | 1,379.9 | 1,212.3 | dominates ¹⁰ ¹¹ | 2,197.3 / 2,239.7, dominates | |
-| Uncache | 3.33 | 4.10 | 916.0 | 1,171.3 ⁹ | study only | 1,020.3 / 1,332.8, study only | period +27.9 %, time +23 %: 27 % more cells: the 435-bit read side mapped inside the kept entry cell, nothing optimised across its boundary; global route 84 against 17 s. With the read side in the block (`Uncache_noread`, below) 1,062.2 ps (1,198.0 on placement RC), 3.33 min: still a loss |
+| Uncache | 3.22 | 4.33 | 916.0 | 992.1 ¹³ | study only | 1,020.3 / 1,136.8, study only | period +8.3 %, inside the 10 %, but time +34 %: global route 87 against 20 s ("The broadcast tree and the clock"); 31 % more cells, the 435-bit read side mapped inside the kept entry cell |
 
 The verdict: B dominates when it is no worse on both, a time within
 15 % or a period within 10 % counting as no worse (the flow is
@@ -584,6 +599,357 @@ stages. What is missing to win is the broadcast's buffering into kept
 cells, the mechanism PhysicalStoreQueue and VirtualLoadQueue lose to as
 well.
 
+### The broadcast into kept cells, treed in the block: a study (2026-10-31)
+
+PhysicalStoreQueue, VirtualLoadQueue, Uncache and LoadQueueRAR lose
+period where an input every entry cell shares reaches the cells: synthesis
+sees one net into N kept cells and leaves it unbuffered, and
+placement's repair_design meets the slew limit with BUFx2 at fanout 32.
+`<top>_tree` (extract.py `--fanout-tree=INVx3_ASAP7_75t_R,8`, off by
+default) drives every such input through two levels of inverters in
+the block, one at the root and one per eight entries (inverters, since
+floorplan's remove_buffers would take buffers out). PhysicalStoreQueue
+has 889 such inputs. Single runs on main, 8-10 GB scopes, the B arms
+beside each other; seconds from the Bazel profile (synthesis) and the
+stage logs; period at grt on the routes' parasitics, placement's after
+the slash:
+
+| Block | arm | synth s | floorplan s | place s | CTS s | grt s | total min | period ps | stdcells | area µm² |
+|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| PhysicalStoreQueue | A: RTL | 1,292.3 | 18.6 | 227.6 | 22.5 | 128.6 | 28.16 | 1,453.0 / 1,582.9 | 252,148 | 32,126.6 |
+| | B | 251.5 | 19.6 | 247.9 | 30.1 | 115.4 | 11.08 | 1,666.4 / 2,058.0 | 247,502 | 30,545.7 |
+| | B, treed | 227.6 | 18.3 | 217.2 | 27.6 | 107.8 | 10.06 | 1,561.8 / 1,913.2 | 269,595 | 32,371.3 |
+| VirtualLoadQueue | A (inventory) | 173.5 | 5.1 | 34.9 | 3.2 | 94.9 | 5.19 | 857.6 / 962.5 | 38,203 | 4,267.1 |
+| | B | 76.5 | 4.0 | 55.6 | 8.8 | 20.7 | 2.76 | 972.6 / 1,011.7 | 42,144 | 4,914.7 |
+| | B, treed | 76.5 | 8.6 | 42.3 | 4.2 | 45.4 | 2.95 | 934.5 / 1,027.8 | 45,267 | 5,185.4 |
+| Uncache | A (inventory) | 115.1 | 13.3 | 49.0 | 5.4 | 17.2 | 3.33 | 916.0 / 1,020.3 | 56,458 | 7,449.8 |
+| | B | 96.5 | 11.4 | 88.9 | 6.8 | 107.8 | 5.19 | 1,171.3 / 1,332.8 | 70,686 | 8,524.5 |
+| | B, treed | 96.5 | 12.0 | 88.0 | 7.7 | 103.3 | 5.13 | 1,057.2 / 1,171.4 | 79,792 | 9,251.9 |
+| LoadQueueRAR | A (inventory) | 266.8 | 6.0 | 58.7 | 5.0 | 58.8 | 6.59 | 781.3 / 902.0 | 53,430 | 7,024.2 |
+| | B | 78.1 | 6.3 | 50.4 | 5.3 | 82.2 | 3.71 | 863.5 / 949.9 | 67,093 | 8,222.8 |
+| | B, treed | 78.1 | 6.1 | 101.9 | 9.0 | 91.0 | 4.77 | 913.8 / 1,024.8 | 71,470 | 8,712.5 |
+
+The three small blocks' B and treed arms ran side by side, six flows
+at once; their synthesis is the mean of the two runs of each top (the
+profile names both alike).
+PhysicalStoreQueue treed is +7.5 % on A (inside the 10 %) at a third of
+the time: it dominates. VirtualLoadQueue treed is +9.0 %, inside too,
+and dominates B (2.95 against 2.76 min, period -3.9 %) and A.
+Uncache improves 9.7 % and still loses (+15.4 %). LoadQueueRAR gets
+worse (+5.8 % on B, 4.77 against 3.71 min; every placement step about
+doubled, global placement 45 against 20 s, for 6.5 % more cells, not
+examined further): its worst path is not a broadcast (the free list's
+read and the write decoder, as before), the data path is 10 ps longer
+and the clock tree's insertion grew (launch 203 against 131 ps,
+capture 175 against 129): 26 ps of skew.
+On PhysicalStoreQueue's treed worst path the broadcast now passes the
+two inverter levels in 131 ps, and what is left against A is the
+block's select over the cells' outputs (1,096 to 2,006 ps), where a
+fourth BUFx2 stage still fans the select out. What is missing for a
+default: the proofs (check.py treats the inverters as cut points), a
+platform's inverter in place of the asap7 name, and the per-block
+choice (not on LoadQueueRAR).
+
+**The inverter from the platform** (2026-10-31): the tree's inverters
+are now instances of `<top>FanoutInv`, a module of one `$not` that the
+tree flows keep (SYNTH_KEEP_MODULES; folded on slang like the entry
+cell), so synthesis maps it to the platform's own inverter, and a check
+flattens it. Re-measured, B arms beside each other in a 10 GB scope
+(synthesis: canonicalisation, top and synth ODB from the Bazel
+profile; the rest from the stage logs):
+
+| Block | synth s | floorplan s | place s | CTS s | grt s | total min | period ps | stdcells | area µm² |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| PhysicalStoreQueue treed | 315.5 | 19.3 | 281.1 | 47.3 | 178.3 | 14.03 | 1,469.5 / 1,802.7 | 268,722 | 32,193.1 |
+| VirtualLoadQueue treed | 101.2 | 4.5 | 53.7 | 8.1 | 62.2 | 3.83 | 865.2 / 961.9 | 45,393 | 5,214.9 |
+| Uncache treed | 119.0 | 8.7 | 75.3 | 9.6 | 120.4 | 5.55 | 1,018.4 / 1,132.6 | 80,812 | 9,320.9 |
+
+Against A: PhysicalStoreQueue +1.1 % at half the time, VirtualLoadQueue
++0.9 % at 74 %: both dominate. Uncache +11.2 %, 5.55 against 3.33 min:
+it loses. (These treed the clock too; "The broadcast tree and the
+clock" has them without it.)
+
+### The broadcast tree and the clock (2026-10-31)
+
+The tree treed every input all entry cells share, the clock with it. Its
+second level then sat between the clock tree and every register of its
+group, and CTS's `repair_clock_inverters` cloned that inverter once per
+register: Uncache treed had 6,400 cloned inverters, 6,402 clock nets
+against its RTL arm's 391, and the clock's insertion grew (PhysicalStoreQueue
+341 to 444 ps against 205 to 237 without; LoadQueueRAR's launch 203
+against 131, the "clock tree's insertion grew" of the study above). The
+tree now leaves an input alone that reaches a register's or a
+blackbox's clock pin (extract.py `clock_ports`; `features_test` checks
+the CAM's entries read the block's clock, and fails with the clock
+treed). LoadQueueRAR now wins with the tree, and is in `TREE`.
+
+Single runs, B arms only (the A arms are the inventory's): LoadQueueRAR,
+Uncache and VirtualLoadQueue side by side in one 10 GB scope,
+PhysicalStoreQueue alone in it; synthesis from the Bazel profile
+(canonicalisation, the top, the synth ODB), the rest from the stage
+logs; period at grt on the routes' parasitics, placement's after the
+slash:
+
+| Block | arm | synth s | floorplan s | place s | CTS s | grt s | total min | period ps | stdcells | area µm² |
+|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| LoadQueueRAR | A (inventory) | 266.8 | 6.0 | 58.7 | 5.0 | 58.8 | 6.59 | 781.3 / 902.0 | 53,430 | 7,024.2 |
+| | B, untreed | 85.8 | 11.5 | 70.0 | 6.3 | 106.4 | 4.67 | 863.5 / 949.9 | 67,093 | 8,222.8 |
+| | B, treed with the clock | 78.1 | 6.1 | 101.9 | 9.0 | 91.0 | 4.77 | 913.8 / 1,024.8 | 71,470 | 8,712.5 |
+| | B, treed | 73.9 | 6.1 | 79.1 | 5.8 | 78.3 | 4.05 | 818.1 / 963.5 | 66,699 | 8,151.9 |
+| VirtualLoadQueue | A (inventory) | 159.2 | 7.6 | 33.9 | 4.6 | 63.4 | 4.48 | 857.6 / 962.5 | 38,203 | 4,267.1 |
+| | B, treed with the clock | 74.6 | 4.2 | 38.9 | 5.1 | 59.0 | 3.03 | 865.2 / 961.9 | 45,393 | 5,214.9 |
+| | B, treed | 69.3 | 4.2 | 50.0 | 4.2 | 56.6 | 3.91 | 847.0 / 956.4 | 43,740 | 5,042.0 |
+| Uncache | A (inventory) | 116.1 | 6.3 | 46.1 | 4.9 | 19.9 | 3.22 | 916.0 / 1,020.3 | 56,458 | 7,449.8 |
+| | B, treed with the clock | 90.4 | 9.9 | 59.4 | 7.2 | 98.2 | 4.42 | 1,018.4 / 1,132.6 | 80,812 | 9,320.9 |
+| | B, treed | 92.3 | 10.2 | 64.0 | 6.0 | 87.2 | 4.33 | 992.1 / 1,136.8 | 73,794 | 8,656.5 |
+| PhysicalStoreQueue | A (inventory) | 1,448.9 | 17.7 | 217.6 | 21.9 | 125.5 | 30.53 | 1,453.0 / 1,582.9 | 252,148 | 32,126.6 |
+| | B, treed with the clock | 280.3 | 23.9 | 232.9 | 29.3 | 113.6 | 11.33 | 1,469.5 / 1,802.7 | 268,722 | 32,193.0 |
+| | B, treed | 213.9 | 18.2 | 219.5 | 22.4 | 106.2 | 9.67 | 1,579.6 / 2,007.3 | 251,065 | 30,440.0 |
+
+A second run of LoadQueueRAR treed (four flows side by side) came out
+at 818.1 ps and 66,699 cells again.
+
+- **LoadQueueRAR** +4.7 % on A at 61 % of the time: it dominates (it
+  traded at +10.5 %). Its worst path is the free list's head pointer
+  through the slot read and the write decoder into an entry, as before;
+  B's time against the untreed arm is a tie (the three flows ran side
+  by side).
+- **VirtualLoadQueue** -1.2 % on A, 87 % of the time: it dominates.
+- **Uncache** +8.3 % on A, inside the 10 %, but 4.33 against 3.22 min:
+  time +34 %, it loses. Global route takes 87 s against 20 (the router
+  74 s against 8): B routes 74,115 nets against 56,773, 750,107 pin
+  vias against 484,610, on a die 17 % larger (31 % more cells), and ends
+  without overflow where A ends with one overflowing gcell; why the
+  router takes nine times as long on that was not examined. With the
+  read side in the block and treed (`Uncache_noread_tree`, "LoadQueueRAR
+  and Uncache: what else was tried") global route stays as long.
+- **PhysicalStoreQueue** +8.7 % on A at a third of the time: it still
+  dominates, but 7.5 % worse than treed with the clock. The same path
+  (`s1LoadEnd` through the forwarding query into entry 63, the select in
+  the block, `s2SelectDataEntry`); the clock's launch at 227.6 ps
+  against 436.6, the skew 13.7 against 5.6 ps, and the data path
+  1,560.1 ps against 1,457.5: the query reaches the cell's first gate
+  in 470 against 364 ps.
+  Without the clock in it, the query reaches the tree's root through
+  two of repair_design's BUFx2 at fanout 32 (159 ps) and then its two
+  inverters (143 ps); with it, the worst path entered the cell through
+  a second, untreed input the query also drives (three BUFx2 at fanout
+  24, 17 and 32, 239 ps). The select in the block is the same in both,
+  four BUFx2 at fanout 10 after an AO32x1 (370.7 against 360.2 ps).
+
+The proofs through the tree pass for all four (`<top>_tree_check_test`)
+and so do their controls, with one change: the control's leaf was the
+first by name, which with the clock out of the tree is, in Uncache, a
+leaf of a broadcast the cell compares but nothing observes (the miter
+rightly says equivalent). It is now a leaf of the broadcast the cell
+reads at the most pins.
+
+**PhysicalStoreQueue's slew study on the tree** (2026-10-31): the `slew`
+arm read the treed Verilog without keeping `<top>FanoutInv`; it now
+keeps it, and its synthesis is the default arm's, byte for byte (the
+netlist and the synth ODB). Single run, alone in a 10 GB scope; the
+synthesis seconds are the default arm's, since the netlist is the same
+(this run's 284.5 s was noise on an identical action):
+
+| arm | synth s | floorplan s | place s | CTS s | grt s | total min | period ps | stdcells | area µm² |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| A (inventory) | 1,448.9 | 17.7 | 217.6 | 21.9 | 125.5 | 30.53 | 1,453.0 / 1,582.9 | 252,148 | 32,126.6 |
+| B, treed | 213.9 | 18.2 | 219.5 | 22.4 | 106.2 | 9.67 | 1,579.6 / 2,007.3 | 251,065 | 30,440.0 |
+| B, treed, SLEW_MARGIN 40 | 213.9 | 18.0 | 255.7 | 41.7 | 113.4 | 10.71 | 1,439.2 / 1,713.1 | 257,781 | 32,272.4 |
+
+Against B: period -8.9 %, time +10.8 %, it dominates; against A it is
+-1.0 % at 35 % of the time. The time is placement's repair_design
+(3_4_place_resized 43 s) and CTS (42 against 22 s, its detailed
+placement around the added buffers), the cells and area are those
+buffers, as in the untreed slew study above.
+
+**Per-entry copies of a broadcast** (2026-10-31): on PhysicalStoreQueue's
+treed worst path the query bit `s1LoadEnd[3]` reached the tree's root
+behind two of repair_design's BUFx2 at fanout 32 because the same net
+also went straight into every entry cell at two pins (a MAJx2 and an
+INVx1 per entry): the RTL computes the query's end plus one once per
+entry, 64 identical `$add` cells in the block, each into its own cell's
+ports, so the extraction saw 64 different nets and left them untreed,
+and synthesis's opt_merge then made them one net into 64 cells. 36 of
+the cell's input bits are such copies. `extract.py --tree-copies` keys
+each bit by the combinational cone that computes it (`cone_key`, same
+types, parameters and inputs; registers never alike) and trees a port
+whose bits differ by name but not by cone, from the first entry's copy.
+On for PhysicalStoreQueue (`TREE_COPIES`); the proofs through the tree
+and their controls pass, and `features_test` has a CAM whose entries
+each compare against their own copy of `q + 1`. Single runs, alone in a
+10 GB scope:
+
+| Block | arm | synth s | floorplan s | place s | CTS s | grt s | total min | period ps | stdcells | area µm² |
+|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| PhysicalStoreQueue | A (inventory) | 1,448.9 | 17.7 | 217.6 | 21.9 | 125.5 | 30.53 | 1,453.0 / 1,582.9 | 252,148 | 32,126.6 |
+| | B, treed | 213.9 | 18.2 | 219.5 | 22.4 | 106.2 | 9.67 | 1,579.6 / 2,007.3 | 251,065 | 30,440.0 |
+| | B, treed with copies | 217.8 | 18.1 | 217.0 | 23.4 | 106.5 | 9.71 | 1,483.9 / 1,854.1 | 251,743 | 30,533.7 |
+| LoadQueueRAR | A (inventory) | 266.8 | 6.0 | 58.7 | 5.0 | 58.8 | 6.59 | 781.3 / 902.0 | 53,430 | 7,024.2 |
+| | B, treed | 73.9 | 6.1 | 79.1 | 5.8 | 78.3 | 4.05 | 818.1 / 963.5 | 66,699 | 8,151.9 |
+| | B, treed with copies | 69.5 | 5.5 | 49.7 | 5.4 | 19.9 | 2.50 | 882.5 / 961.8 | 68,040 | 8,293.7 |
+
+PhysicalStoreQueue with copies: period -6.1 % on B at the same time,
++2.1 % on A at a third of it; it dominates both. The 678 cells are the
+36 trees' 324 inverters and repair_design's buffers after them.
+LoadQueueRAR's 48 copies are its three write-data pipes, one `$buf`
+per entry; treed, its period is +7.9 % on B and +13.0 % on A, so it
+stays without copies. Measured on its worst path at grt: the same path
+as B's (the free list's head pointer, the slot read, the write decoder
+into an entry), the write data not on it; the launch at 201.2 against
+182.1 ps and the data path 815.9 against 755.1 ps, the slot read in the
+block mapped differently (a NOR3, two OR5 and four OA/AO stages against
+AO22, AO221, AO21, OA211, OA22), synthesis's answer for the top changing
+with the netlist around it. Its global route took 19.9 against 78.3 s
+(this run alone, B's three side by side), not examined. Uncache and
+VirtualLoadQueue have no such copies.
+
+### LoadQueueRAR and Uncache: what else was tried (2026-10-31)
+
+Before the clock was found, LoadQueueRAR's loss (+10.5 %, the free
+list's slot read through five BUFx2 in B's top and the write select
+through two BUFx2 stages inside the cell) read as ABC's: yosys runs ABC
+on each kept module alone, and ORFS's script upsizes only the paths
+within 1 % of that module's own critical delay (`upsize -c`, ABC's
+default `-W 1`) and then downsizes the rest. A path that ends at an
+entry cell's input, or starts at its pin, is far from either module's
+critical delay, and stays at BUFx2 chains of fanout 10. Three levers,
+each on both arms where it is a flow setting. Single runs; "alone"
+means nothing else ran, "4 x" four flows side by side in one 10 GB
+scope; synthesis from the Bazel profile, the rest from the stage logs:
+
+| Block | arm | synth s | floorplan s | place s | CTS s | grt s | total min | period ps | stdcells | area µm² |
+|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| LoadQueueRAR | A, floorplan repair_timing, alone | 191.2 | 41.1 | 40.7 | 4.5 | 54.5 | 5.53 | 765.6 / 884.2 | 53,423 | 7,032.4 |
+| | B untreed, floorplan repair_timing, alone | as B | 14.9 | 50.3 | 5.2 | 81.0 | | 849.9 / 939.5 | 67,097 | 8,232.1 |
+| | B flat (`LoadQueueRAR_flat`), alone | 209.5 | 5.1 | 40.4 | 4.6 | 64.7 | 5.41 | 800.8 / 900.3 | 54,711 | 7,168.3 |
+| | A, ABC window (`_rtl_abcwin`), alone | 200.3 | 5.1 | 39.8 | 4.5 | 54.6 | 5.07 | 699.6 / 788.0 | 53,437 | 7,638.1 |
+| | B untreed, ABC window, alone | 70.4 | 5.6 | 49.3 | 5.2 | 84.6 | 3.59 | 772.0 / 872.9 | 67,126 | 8,763.7 |
+| | B treed, ABC window (`_abcwin`), 4 x | 78.9 | 7.5 | 109.8 | 6.8 | 110.1 | 5.22 | 743.8 / 844.3 | 66,765 | 8,670.1 |
+| Uncache | A, ABC window, alone | 104.7 | 5.9 | 38.6 | 4.4 | 18.1 | 2.86 | 872.8 / 983.4 | 56,471 | 7,971.2 |
+| | B treed, ABC window, 4 x | 101 | 14.4 | 90.6 | 6.7 | 123.3 | 5.60 | 920.1 / 1,037.5 | 73,811 | 9,287.4 |
+| | B treed, read side in the block (`_noread_tree`), 4 x | 101 | 12.3 | 88.3 | 16.8 | 108.7 | 5.45 | 977.9 / 1,126.7 | 70,748 | 8,478.4 |
+
+(Uncache's two syntheses in the 4 x run took 82 and 96 s for the top,
+not told apart by the profile; 101 is their mean with
+canonicalisation and the synth ODB.)
+
+- **Floorplan's repair_timing** (`SKIP_FLOORPLAN_REPAIR_TIMING 0`, not
+  kept as a flow): at TNS_END_PERCENT 1 it worked on 37 of 3,765
+  violating endpoints, removed no buffer and resized 210 gates. Both
+  arms gain alike (A -15.7 ps, B -13.6): B +11.0 % on A.
+- **Flat** (`FLAT_STUDY`): the decoding without the kept cell is A
+  again, +2.5 % at A's time; synthesis 209.5 s against A's 191.2 in the
+  same session. The kept cell's single synthesis is the extraction's
+  time; giving it up gives up the gain.
+- **ABC's window** (`ABC_WINDOW_STUDY`, `abc_speed_window.script`:
+  `upsize -c -W 20`, no `dnsize -c`): it does what it was for, in B's
+  untreed top the slot read's buffers are BUFx12f and BUFx6f, the cell's
+  write select a BUFx8, and the worst path becomes a broadcast into all
+  96 cells (ABC leaves one BUFx6f at fanout 105 into the cells' inputs,
+  each an upsized BUFx12f; repair_design splits it with a BUFx2 at
+  fanout 26 into 75 fF, 110 ps, then an AND4x2 at 21 fF, 96 ps). But it
+  gains as much in A: -10.5 % (A) against -10.6 % (B untreed), -9.1 %
+  (B treed); Uncache -4.7 % against -7.3 %. With it on both arms,
+  LoadQueueRAR treed is +6.3 % on A and Uncache +5.4 %, about where they
+  are without it. Area +6.6 to +8.7 %. A flow-wide lever (any design
+  with setup repair off), not one for the extraction; untried on the
+  other blocks.
+- **Uncache's read side in the block, treed**: 977.9 ps against the
+  treed extraction's 992.1, 70,748 cells against 73,794, and global
+  route as long: the read side is not what keeps Uncache's global
+  route nine times A's.
+
+### Uncache's global route: the 3D pass resistance-aware routing runs (2026-10-31)
+
+Uncache treed (clock left alone) spends 87 s in global route against
+its RTL arm's 20 (the router 74 against 8). FastRoute's own phase
+timers (`set_debug_level GRT timer 1` through `PRE_GLOBAL_ROUTE_TCL`, a
+dirty lane on the cached CTS result) put it in one place: every phase
+up to the congestion iterations takes under 0.3 s, finalisation 58.8 of
+the 60.5 s. In finalisation, when the 2D route has no overflow,
+FastRoute runs `mazeRouteMSMDOrder3D` twice, and with resistance-aware
+routing on (`ENABLE_RESISTANCE_AWARE`, the blocks' setting) it lifts
+both edge-length thresholds to "every edge": every net is rerouted in
+3D. B's route has no 2D overflow, so it pays that pass; A ends with one
+overflowing gcell and skips it. The same lane with resistance-aware
+off: finalisation 6.9 s, the router 8.6 s.
+
+Both arms with it off (`<top>_nores`, `<top>_rtl_nores`, RES_STUDY, off
+by default), each alone in a 10 GB scope; synthesis is the default
+arms' (the netlist and synth ODB byte-identical), so its seconds are the
+recorded ones:
+
+| arm | synth s | floorplan s | place s | CTS s | grt s | total min | period ps | stdcells | area µm² |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| A (inventory) | 116.1 | 6.3 | 46.1 | 4.9 | 19.9 | 3.22 | 916.0 / 1,020.3 | 56,458 | 7,449.8 |
+| A, resistance-aware off | 116.1 | 6.5 | 43.5 | 4.8 | 16.2 | 3.12 | 1,038.4 / 1,020.3 | 56,458 | 7,449.8 |
+| B, treed | 92.3 | 10.2 | 64.0 | 6.0 | 87.2 | 4.33 | 992.1 / 1,136.8 | 73,794 | 8,656.5 |
+| B, treed, resistance-aware off | 92.3 | 6.4 | 47.4 | 5.8 | 49.2 | 3.35 | 1,151.1 / 1,136.8 | 73,794 | 8,656.5 |
+
+Resistance-aware routing is worth 13.4 % of A's period and 16.0 % of
+B's (placement's period is the same, the routes' parasitics are not),
+so it stays on; B without it against A without it is +10.9 %. Its grt
+stage still took 49.2 s for a 19 s router (the lane: 22.8 s and 11 s;
+this run's machine was shared, not examined). No lever in this flow:
+the cost is a FastRoute pass that a congestion-free route pays and a
+congested one does not; making it cheaper (rerouting only the nets
+resistance-aware cares about) is an OpenROAD change, a candidate to
+raise upstream, not carried.
+
+Carried since as 0200 (2026-10-31): after a 2D route without overflow,
+the 3D pass runs once, on the nets resistance-aware routing selected.
+The two passes it replaces both rip up every edge of every net with
+negative slack; the second only widens the resistance-aware set from
+30 % of the critical nets to all of them, and the 31,030 of 37,198 nets
+in the first that are not resistance-aware are rerouted with the
+legacy cost, on a route with no overflow to relieve (a quarter of the
+194 M gcells searched). Measured in a dirty lane on the cached CTS
+result, one binary with the variants behind a switch (period at global
+route, FastRoute's finalisation):
+
+| 3D pass | period ps | finalisation s |
+|---|--:|--:|
+| both passes (before) | 992.1 | 62.1 |
+| first pass only | 993.4 | 35.4-54.5 ¹ |
+| first pass, resistance-aware nets only (0200) | 993.3 | 32.4-38.5 ¹ |
+| one pass at the widened set, resistance-aware nets only | 992.7 | 39.4 |
+| first pass, nets within half the worst slack | 994.9 | 32.4 |
+| no 3D pass | 1,004.2 | 4.7 |
+
+¹ The machine was shared (load 6-17); the period is deterministic.
+Selecting by slack does not cut the work: most of Uncache's nets are
+critical at its period, and the resistance-aware nets carry 75 % of the
+first pass's search and all of the second's.
+
+Hermetic, before (the cached builds) against after, each Uncache arm
+alone in a 10 GB scope, the other blocks side by side; synthesis is
+unchanged, its seconds the recorded ones:
+
+| arm | synth s | floorplan s | place s | CTS s | grt s | total min | period_grt_ps | period_ps | stdcells | area µm² |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| Uncache A, before | 116.1 | 6.3 | 46.1 | 4.9 | 19.9 | 3.22 | 916.0 | 1,020.3 | 56,458 | 7,449.8 |
+| Uncache A, 0200 | 116.1 | 5.9 | 38.3 | 4.4 | 18.1 | 3.05 | 916.0 | 1,020.3 | 56,458 | 7,449.8 |
+| Uncache B, before | 92.3 | 10.2 | 64.0 | 6.0 | 87.2 | 4.33 | 992.1 | 1,136.8 | 73,794 | 8,656.5 |
+| Uncache B, 0200 | 92.3 | 6.4 | 46.2 | 5.0 | 43.3 | 3.22 | 993.3 | 1,136.8 | 73,794 | 8,656.5 |
+
+| block (B) | grt s before / 0200 | finalisation s | vias | period_grt_ps |
+|---|--:|--:|--:|--:|
+| LoadQueueRAR | 87.7 / 40.4 | 66.5 / 24.7 | 1,103,413 / 920,641 | 818.1 / 819.3 |
+| VirtualLoadQueue | 56.6 / 29.4 | 43.7 / 17.4 | 748,638 / 609,221 | 847.0 / 847.7 |
+| TLBFA | 76.5 / 30.7 | 29.9 / 15.4 | 602,390 / 577,159 | 320.6 / 320.6 |
+| PhysicalStoreQueue | 106.5 / 121.1 | 28.4 / 28.5 | 3,472,128 / 3,472,128 | 1,483.9 / 1,483.9 |
+| ORFS gcd (asap7) | | 0.002 / 0.001 | 264 / 242 | |
+
+Uncache A and PhysicalStoreQueue end their 2D route with overflow and
+skip the pass: their routes are the same (vias and wirelength equal);
+PhysicalStoreQueue's 14.6 s more in grt is outside FastRoute (its
+finalisation is 28.4 against 28.5 s), the machine. The periods at
+global route move by +0.08 to +0.15 % where the pass runs: the widened
+second pass is gone, which on Uncache was worth 1.3 ps. Placement's
+period, cells and area are identical in every arm. With 0200 Uncache's
+B against its A is +8.4 % period at +5.6 % time: inside both bounds.
+
 ### Two findings without a lever (2026-10-31)
 
 - **generate_ram's 16-word 2r4w block** (0170's tests): its detailed
@@ -601,6 +967,61 @@ well.
   decoded Verilog read back, and the decoded form proven directly
   (about three hours for the last).
 
+### The toys, setup repair at TNS_END_PERCENT 1 (2026-10-31)
+
+The toys' flows now repair setup at the worst endpoint and 1 % of the
+rest (`TNS_END_PERCENT` 1 in toys.bzl's shared settings, both arms), as
+the XSTile flows do: at 100 the time a toy took was repair closing a
+generated arm's paths a few ps over the clock. Every row re-measured on
+main (2a4fc4c5), hermetic builds, each toy's two arms side by side in
+one Bazel invocation, one toy after the other, in an 8 GB scope.
+Seconds are the stage logs summed. Period is the clock minus global
+route's worst slack (the flow's report, on the routes' parasitics);
+reg2reg is its FLW-0008. Cells and area are the standard cells at
+global route without taps (the qor probe). Single runs.
+
+| Kind | Size | Generator | gen s | yosys s | gen period ps | yosys period ps | gen reg2reg ps | yosys reg2reg ps | gen stdcells | yosys stdcells | gen area µm² | yosys area µm² | verdict | before |
+|---|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|---|---|
+| counter | 32x8 | structgen | 15 | 34 | 294.6 | 343.7 | 279.9 | 326.5 | 2,847 | 2,511 | 338.2 | 318.4 | dominates | dominates |
+| counter | 32x128 | structgen | 224 | 362 | 346.8 | 486.5 | 329.4 | 462.2 | 46,005 | 39,083 | 5,459.1 | 4,873.6 | dominates | dominates |
+| agematrix | 32 | structgen | 20 | 25 | 266.3 | 299.4 | 253.0 | 284.5 | 5,678 | 4,934 | 762.1 | 746.1 | dominates | dominates |
+| flags | 32x128 | structgen | 499 | 500 | 362.7 | 395.2 | 344.6 | 375.4 | 61,564 | 30,705 | 6,239.3 | 4,222.4 | dominates | trades |
+| flags | 32x8 | structgen | 19 | 35 | 295.9 | 335.5 | 281.1 | 318.7 | 4,619 | 2,586 | 457.2 | 325.3 | dominates | loses |
+| cam | 32x8 | structgen | 25 | 26 | 282.7 | 271.3 | 268.6 | 257.7 | 1,586 | 1,458 | 213.1 | 219.7 | dominates (period +4.2 %) | loses |
+| cam | 32x128 | structgen | 175 | 167 | 357.3 | 431.7 | 339.4 | 410.1 | 20,778 | 21,467 | 3,012.6 | 3,340.7 | dominates (time +4.8 %) | dominates |
+| rf1r1w | 32x8 | generate_ram | 14 | 14 | 235.2 | 230.6 | 223.5 | 219.1 | 1,582 | 1,501 | 197.2 | 197.0 | dominates (period +2.0 %) | dominates |
+| rf1r1w | 32x128 | generate_ram | 90 | 154 | 299.9 | 309.8 | 284.9 | 294.3 | 19,597 | 22,134 | 2,691.1 | 3,084.9 | dominates | dominates |
+| rf4r2w | 32x8 | generate_ram | 23 | 24 | 254.1 | 253.4 | 241.4 | 240.7 | 3,590 | 3,363 | 387.0 | 387.8 | dominates (period +0.3 %) | dominates |
+| rf4r2w | 32x128 | generate_ram | 403 | 418 | 320.9 | 357.7 | 304.8 | 339.8 | 41,613 | 52,821 | 4,921.3 | 6,031.0 | dominates | dominates |
+| ohsched fill (reach) | 32x32 | generate_ram | 46 | 43 | 300.4 | 302.1 | 285.4 | 286.9 | 9,425 | 9,518 | 1,245.5 | 1,492.0 | dominates (time +7 %) | trades |
+| ohsched lanes (reach) | 32x32 | generate_ram | 47 | 44 | 309.2 | 309.8 | 293.8 | 294.3 | 9,000 | 9,137 | 1,190.1 | 1,425.3 | dominates (time +7 %) | dominates |
+
+Every row dominates. What moved, measured:
+- flags 32x128 and ohsched fill traded on time; both gaps were setup
+  repair at 100 % ("The toys' time losses are setup repair working").
+  - flags at 100 % on this main took 546.9 s against 464.8; now 499
+    against 500. Global route still takes 392 s against 186, but CTS
+    takes 53 against 43, where its repair alone was 191 s.
+  - ohsched fill at 100 % took 51.5 s against 42.8 over three pairs; now
+    46 against 43. CTS is 9 s against 3, global route 21 against 23.
+  - The yosys arm of ohsched fill now reaches 302.1 ps, not 339.0. Its
+    repair at CTS ends at -2.4 ps after 9 resizes, and global route
+    reports -2.05 ps of slack. The 339.0 row was measured in dirty lanes
+    on an earlier main. Why the yosys arm got its port path back is not
+    examined.
+- flags 32x8 and cam 32x8 lost on period: 425 against 335, and 334
+  against 271. Now 295.9 against 335.5, and 282.7 against 271.3 (+4.2 %,
+  inside the 10 %). Main's structgen changed in between: the CAM's index
+  from a priority encoder, and the flags' flush window compared from the
+  indices directly. These rows were not re-run at 100 % on this main, so
+  the TNS setting and the generator changes are not separated here.
+- Cells: structgen's flags still has twice yosys's cells (61,564 against
+  30,705 at 32x128), and so does flags 32x8 (4,619 against 2,586). They
+  are no longer on the period's path.
+
+The table below is the earlier one (setup repair at 100 %), kept for
+the record.
+
 ### The toys (2026-10-29)
 
 `test/array_toys`, the generated arm against yosys's, depth 32. Dirty
@@ -617,7 +1038,7 @@ the standard cells without taps. Single runs; agematrix is 32 entries
 | counter | 32x8 | structgen | 25 | 60 | 295 | 344 | 2,847 | 2,600 | dominates | |
 | counter | 32x128 | structgen | 492 | 599 | 347 | 481 | 46,054 | 39,474 | dominates | arms in different pairs |
 | agematrix | 32 | structgen | 59 | 64 | 266 | 299 | 5,678 | 4,934 | dominates | |
-| flags | 32x128 | structgen | 505 | 656 | 496 | 394 | 60,435 | 30,769 | trades | `head_q` to array flop: a 5-level OR2 thermometer prefix and the flush-window select fanned out to 128 bits through a buffer chain, 28 cells and 481 ps against 20 and 390; 2.0x the cells |
+| flags | 32x128 | structgen | 547 | 465 | 373 | 394 | 60,435 | 30,769 | trades (re-measured 2026-10-31, cells not) | time +17.7 %: setup repair at CTS and global route, 191 and 134 s against 29 and 75, closing paths yosys's arm never starts on; with setup repair off in both arms it dominates (see "The toys' time losses are setup repair working") |
 | flags | 32x8 | structgen | 92 | 66 | 425 | 335 | 4,887 | 2,572 | loses | the same path, 23 cells and 414 ps against yosys's adder compare, 14 and 328; repair at CTS 20 s and grt 41 s against 0 and 21 |
 | cam | 32x8 | structgen | 24 | 20 | 334 | 271 | 1,689 | 1,458 | loses | priority encoder: 5 OR2 prefix levels, an inverter, a NOR3/NAND3/NOR2 tree, 19 cells and 323 ps against OR4/OR5, 10 and 268 |
 | cam | 32x128 | structgen | 252 | 276 | 448 | 431 | 20,770 | 21,438 | dominates (period +4 %, inside 10 %; time a tie) | 17 ps left: the match tree's single-fanout NAND3/NOR3 at xp33 drive 4-5 fF of wire: 20 of the 26 ps |
@@ -625,7 +1046,7 @@ the standard cells without taps. Single runs; agematrix is 32 entries
 | rf1r1w | 32x128 | generate_ram | 76 | 138 | 300 | 310 | 19,597 | 22,149 | dominates | |
 | rf4r2w | 32x8 | generate_ram | 16 | 18 | 254 | 253 | 3,590 | 3,363 | dominates (period +1 ps; time a tie) | the write path is 3.8 ps longer: three AND2 decode levels and the two-port enable OR, against yosys's NOR2/AND2 and AO221/OAI21 |
 | rf4r2w | 32x128 | generate_ram | 334 | 446 | 321 | 357 | 41,613 | 53,096 | dominates | |
-| ohsched fill (reach) | 32x32 | generate_ram | 44 | 38 | 304 | 339 | 9,491 | 9,517 | trades (time +16 %, one point past the tie; period better) | grt repair spends 6 s on 139 pick-to-match endpoints up to 8.7 ps over 300 ps under global-route parasitics; yosys's period is set at an output port (299 ps register to register) |
+| ohsched fill (reach) | 32x32 | generate_ram | 52 | 43 | 304 | 339 | 9,491 | 9,517 | trades (time +20 % +-2.3 over three repeat pairs, 2026-10-31; period better) | repair_timing at CTS and global route, 7 s each, on paths a few ps over 300 ps that it closes; yosys's period is set at an output port (299 ps register to register); with setup repair off in both arms it dominates (see "The toys' time losses are setup repair working") |
 | ohsched lanes (reach) | 32x32 | generate_ram | 42 | 37 | 301 | 310 | 9,024 | 9,126 | dominates (time +14 %, inside the tie) | yosys's period is set at an output port (299 ps register to register) |
 
 The generate_ram rows are re-measured (2026-10-30) with the carried
@@ -766,6 +1187,52 @@ toy's own 54 ps, and repair at CTS and grt, not the netlist, sets the
 time on the 128-bit toys. No carried patch; the time a better netlist
 costs repair at grt is the open question for the toys' verdicts.
 
+### The toys' time losses are setup repair working (2026-10-31)
+
+Both toys that still traded on time, re-measured on main: dirty lanes
+from synthesis through global route, each toy's two arms side by side,
+seconds the step logs summed. Period is the clock minus global route's
+worst slack, on the routes' parasitics; reg2reg is FLW-0008.
+
+ohsched fill (reach), three repeat pairs for a noise bound:
+
+| pair | gen total s | yosys total s | gen / yosys | gen period ps | yosys period ps |
+|---|--:|--:|--:|--:|--:|
+| 1 | 50.0 | 42.5 | +17.6 % | 304.0 | 339.0 |
+| 2 | 51.5 | 42.6 | +20.9 % | 304.0 | 339.0 |
+| 3 | 52.9 | 43.3 | +22.2 % | 304.0 | 339.0 |
+
+The gap, +20 % +-2.3, is real, past the 15 % tie. The periods are
+deterministic. The difference is CTS (8.2-9.2 s against 3.0) and global
+route (26.9-27.8 against 21.4-22.0). On the generated arm repair_timing
+takes 7 s at each, upsizing 87 and 214 cells and inserting 7 buffers,
+on paths a few ps over 300 ps that it can close. Yosys's arm, whose
+worst path is set at an output port, sizes 9 and 13 cells and is done.
+
+flags 32 x 128 (structgen), one pair: 546.9 s against 464.8 (+17.7 %),
+373.2 ps against 394.5. CTS takes 198 s against 37: repair_timing at
+CTS 191 s and at global route 134 s on the generated arm, against 29
+and 75.
+
+Two levers, each on both arms, single pairs:
+
+| toy | lever | gen total s | yosys total s | gen / yosys | gen period ps | yosys period ps | verdict |
+|---|---|--:|--:|--:|--:|--:|---|
+| ohsched fill | TNS_END_PERCENT 1 | 50.2 | 42.6 | +17.8 % | 303.0 | 339.0 | trades (no change) |
+| ohsched fill | setup repair off | 66.8 | 71.2 | -6.2 % | 344.7 | 358.8 | dominates |
+| flags 32x128 | TNS_END_PERCENT 1 | 650.8 | 618.0 | +5.3 % | 362.7 | 395.2 | dominates |
+| flags 32x128 | setup repair off | 363.3 | 478.0 | -24.0 % | 451.4 | 587.4 | dominates |
+
+Setup repair off is what the XiangShan arrays flows run
+(SKIP_CTS_REPAIR_TIMING, SKIP_INCREMENTAL_REPAIR). The lever pairs ran
+two at a time on the machine, so compare within a row, not across rows.
+With repair off, both generated arms win on time and period. With it
+on, the time they lose is repair closing paths that the yosys arms'
+port-bound worst paths never let repair start on. That is no loss in
+the netlist. Changing the toys' setting moves every toy row, so it is
+left to the next sweep. Which repair setting the toys' verdicts should
+use is the open question.
+
 ## XSTile uses the arrays (2026-10-29)
 
 MemBlock and the parent read `arrays:xiangshan_extracted`, the surgered
@@ -898,4 +1365,77 @@ side); proofs (the miter) are polish for now, the long ones wait.
    RAR's cell, a reduction mapped twice as deep (VirtualLoadQueue's
    write-back pointer, 17 levels against 9), and a result broadcast into
    the kept cells by repair_design's BUFx2 trees at fanout 32. Find why
-   B's top maps them differently before changing the front end.
+   B's top maps them differently before changing the front end. (2026-10-31: VirtualLoadQueue dominates with its broadcasts treed, ¹²; LoadQueueRAR's worst path is not a broadcast and stays open.)
+   Done (2026-10-31): both dominate with the broadcasts treed and the
+   clock left out of the tree, LoadQueueRAR +4.7 % at 61 % of the time
+   (¹³, "The broadcast tree and the clock"). The tree had made
+   LoadQueueRAR worse through its clock, not its data path.
+8. **Uncache's time** (2026-10-31, study only): treed with the clock
+   left alone its period is inside the 10 % (+8.3 %), its time is not
+   (4.33 against 3.22 min). Global route is the difference, 87 against
+   20 s, and the router ends without overflow where A ends with one
+   overflowing gcell. Open: why the router takes nine times as long
+   (B's 74,115 nets and 750,107 pin vias against 56,773 and 484,610 is
+   less than twice the work). Not the read side in the cell (the
+   noread treed arm routes as long); ABC's upsize window narrows the
+   period gap in both arms alike and leaves the time.
+   Answered (2026-10-31, "Uncache's global route: the 3D pass
+   resistance-aware routing runs"): B routes without 2D overflow, so
+   FastRoute's finalisation reroutes every net in 3D with
+   resistance-aware's edge-length thresholds lifted, 58.8 of 60.5 s;
+   A's one overflowing gcell skips that pass. Turning resistance-aware
+   off takes the time and costs both arms 13-16 % of period: no lever
+   here, only upstream (that pass on fewer nets).
+   Done (2026-10-31): carried as 0200, that pass once and on the
+   resistance-aware nets only; B against A is now +8.4 % period at
+   +5.6 % time, inside both bounds (the section above).
+
+### On a bigger machine (2026-11-02)
+
+The arrays' own grind ends here: every block above dominates its RTL
+arm or ties it, every toy its yosys arm, and none of these blocks is on
+XiangShan's critical path (the KPI, run 21, 2,206 ps, is set in the
+parent, intRegion's `pipeToALU0` into vecRegion's `gpWbWakeUp`; the
+array blocks sit at 818 to 1,580 ps). What is left needs a machine that
+builds XSTile, and is not obvious from the tables above:
+
+9. **XSTile reads the arrays as they were, not as they are.**
+   `arrays:xiangshan_extracted` (MemBlock's and the parent's core) is
+   built from each block's untreed `<top>_extracted.v`, and only for
+   `INTEGRATED` (LoadQueueRAR, LoadQueueReplay, PhysicalStoreQueue, Rob,
+   TLBFA_1, VirtualStoreQueue). It picks up the front end's default
+   decodes (the decoder's enable, the ordered comparisons) when it next
+   builds, since those change `extract.py`'s default output, but not
+   the broadcast tree (`TREE`, `TREE_COPIES`), and not
+   VirtualLoadQueue, which now dominates. The per-block numbers are the
+   blocks alone; MemBlock has not been measured with any of them.
+   Next: point `xiangshan_extracted` at the treed extractions
+   (FanoutInv kept through MemBlock's `SYNTH_KEEP_MODULES` and
+   `XS_FOLD_MODULES`), add VirtualLoadQueue to `INTEGRATED`, and A/B
+   MemBlock (build time and period at grt) before and after. After
+   #1425.
+10. **Whether 0200 halves the parent's global route.** 0200 (#1490)
+    runs FastRoute's final 3D pass once, on the resistance-aware nets
+    only, when the 2D route ends without overflow: on the array blocks
+    that route clean, global route took 48 to 60 % less time at
+    +0.15 % period at most. Whether XSTile's parent ends its 2D route
+    without overflow, and so spent its hours in that pass, is not
+    known. The check costs nothing extra: the next parent run with
+    `set_debug_level GRT timer 1` (through `PRE_GLOBAL_ROUTE_TCL`)
+    shows finalisation's share; compare with a run before 0200 if one
+    has the log.
+11. **ABC's upsize window as a flow setting, on what sets the KPI.**
+    `abc_speed_window.script` (`upsize -c -W 20`, no `dnsize`; the
+    `_abcwin` study arms) gained about 10 % of period in both arms of
+    LoadQueueRAR and Uncache, at 7 to 9 % more area. That makes it no
+    lever for the extraction, but it is untried as a flow setting on
+    the blocks and the parent whose paths set the KPI (intRegion,
+    vecRegion, the parent). A/B one of those blocks first, both arms
+    alike.
+12. **PhysicalStoreQueue's two levers together** (the human's answer
+    on the agent board, 2026-10-31: "Yes, PhysicalStoreQueue only"):
+    `SLEW_MARGIN 40` (1,439.2 ps, `_slew`) and the query's per-entry
+    copies treed (1,483.9 ps, the default) were measured apart. Measure
+    them together and keep the better as PhysicalStoreQueue's default,
+    other blocks unchanged. PhysicalStoreQueue is not on the KPI path:
+    do this when a run of it is free, not before 9 to 11.

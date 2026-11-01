@@ -55,10 +55,11 @@ memory: ask the human before replacing one (the `tcl` tool's `exit`
 stops it).
 
 The daemon runs in a session of its own and outlives the agent's. It
-waits, with no idle exit, for the first question or browser visit; from
-then on it exits after `ODB_DEBUG_IDLE_SECS` (default twice the load
-time, at least 120 s) without one. Nothing of it is in the Bazel cache:
-the next session loads it again.
+stays, overnight included, until the machine needs its memory: it
+leaves when `MemAvailable` falls below 10 % of `MemTotal`, and the OOM
+killer takes it before a build action. Asking it questions before the
+human looks costs nothing. Nothing of it is in the Bazel cache: the
+next session loads it again.
 
 ## 3. Hand over the link
 
@@ -82,13 +83,12 @@ log that says why. Give the human the link as it is, with:
 - **Never an ssh tunnel (`ssh -L`) while the link can do the job**, that
   is whenever the human's machine reaches any address of this one. A
   tunnel is one more thing for the human to type and keep open, and a
-  tunnel to the viewer's own port skips the proxy: no token, and the
-  browser's activity does not count, so the daemon idles out under it.
+  tunnel to the viewer's own port skips the proxy: no token.
   Only with no route to the machine at all is a tunnel the answer, and
   then to the link's port (`gui_url`'s), never the viewer's.
 - **A browser on the viewer's own 127.0.0.1 port** (daemon.json's `url`)
-  works on the machine itself, but its activity does not count: the
-  daemon idles out under it. Use the link.
+  works on the machine itself, with no token in front of it. Use the
+  link.
 
 ## What this is not
 

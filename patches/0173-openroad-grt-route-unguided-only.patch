@@ -21,10 +21,10 @@ every other net's guides unchanged; a second run reroutes nothing).
 Carried by bazel-orfs for //tools/carve; not upstreamed. Retires on a
 //:bump onto an OpenROAD that carries it.
 diff --git a/src/grt/README.md b/src/grt/README.md
-index 7001b1b..252b92a 100644
+index 3adc56dea1..59af01974f 100644
 --- a/src/grt/README.md
 +++ b/src/grt/README.md
-@@ -30,6 +30,7 @@ global_route
+@@ -32,6 +32,7 @@ global_route
      [-verbose]
      [-start_incremental]
      [-end_incremental]
@@ -32,7 +32,7 @@ index 7001b1b..252b92a 100644
      [-use_cugr]
      [-resistance_aware]
      [-res_aware_nets_percentage percent]
-@@ -51,6 +52,7 @@ global_route
+@@ -53,6 +54,7 @@ global_route
  | `-verbose` | This flag enables the full reporting of the global routing. |
  | `-start_incremental` | This flag initializes the GRT listener to get the net modified. The default is false. |
  | `-end_incremental` | This flag run incremental GRT with the nets modified. The default is false. |
@@ -41,10 +41,10 @@ index 7001b1b..252b92a 100644
  | `-resistance_aware` | This flag enables resistance-aware layer assignment and 3D routing. NOTE: this is not ready for production. |
  | `-res_aware_nets_percentage` | Set the percentage of resistance-aware nets (e.g. `-res_aware_nets_percentage 100` (for 100%)). The default value is `15` with resistance-aware enabled and `0` otherwise, and the allowed values are floats between `[0, 100]`. |
 diff --git a/src/grt/include/grt/GlobalRouter.h b/src/grt/include/grt/GlobalRouter.h
-index 78713f2..4aa893e 100644
+index b372e37e13..8e580014a4 100644
 --- a/src/grt/include/grt/GlobalRouter.h
 +++ b/src/grt/include/grt/GlobalRouter.h
-@@ -213,6 +213,7 @@ class GlobalRouter
+@@ -219,6 +219,7 @@ class GlobalRouter
    void endIncremental(bool save_guides = false);
    void reportIncrementalCongestion();
    void globalRoute(bool save_guides = false);
@@ -53,10 +53,10 @@ index 78713f2..4aa893e 100644
    NetRouteMap& getRoutes();
    NetRouteMap getPartialRoutes();
 diff --git a/src/grt/src/GlobalRouter.cpp b/src/grt/src/GlobalRouter.cpp
-index 942700d..97bfd3c 100644
+index 12bb714298..1ffb2ee04d 100644
 --- a/src/grt/src/GlobalRouter.cpp
 +++ b/src/grt/src/GlobalRouter.cpp
-@@ -867,6 +867,63 @@ int GlobalRouter::repairAntennas(odb::dbMTerm* diode_mterm,
+@@ -924,6 +924,63 @@ int GlobalRouter::repairAntennas(odb::dbMTerm* diode_mterm,
    return total_diodes_count_;
  }
  
@@ -121,10 +121,10 @@ index 942700d..97bfd3c 100644
                                        int min_routing_layer,
                                        int max_routing_layer)
 diff --git a/src/grt/src/GlobalRouter.i b/src/grt/src/GlobalRouter.i
-index 7ca2854..70b1baf 100644
+index 27fbe6f613..9abb4b1b15 100644
 --- a/src/grt/src/GlobalRouter.i
 +++ b/src/grt/src/GlobalRouter.i
-@@ -230,6 +230,14 @@ global_route()
+@@ -254,6 +254,14 @@ global_route()
    getGlobalRouter()->globalRoute(true);
  }
  
@@ -140,10 +140,10 @@ index 7ca2854..70b1baf 100644
  route_layer_lengths(odb::dbNet* db_net)
  {
 diff --git a/src/grt/src/GlobalRouter.tcl b/src/grt/src/GlobalRouter.tcl
-index 824b06c..7a9a846 100644
+index 88978d3caa..f8cb9a022a 100644
 --- a/src/grt/src/GlobalRouter.tcl
 +++ b/src/grt/src/GlobalRouter.tcl
-@@ -153,6 +153,7 @@ sta::define_cmd_args "global_route" {[-guide_file out_file] \
+@@ -155,6 +155,7 @@ sta::define_cmd_args "global_route" {[-guide_file out_file] \
                                    [-verbose] \
                                    [-start_incremental] \
                                    [-end_incremental] \
@@ -151,16 +151,16 @@ index 824b06c..7a9a846 100644
                                    [-use_cugr] \
                                    [-resistance_aware] \
                                    [-infinite_cap]
-@@ -166,7 +167,7 @@ proc global_route { args } {
-           -skip_large_fanout_nets -snapshot_batched_width
+@@ -168,7 +169,7 @@ proc global_route { args } {
+           -skip_large_fanout_nets -snapshot_batched_width -backing_file
           } \
      flags {-allow_congestion -resistance_aware -infinite_cap -verbose -start_incremental \
--          -end_incremental -use_cugr}
-+          -end_incremental -unguided_only -use_cugr}
+-          -end_incremental -use_cugr -no_incremental}
++          -end_incremental -unguided_only -use_cugr -no_incremental}
  
    sta::check_argc_eq0 "global_route" $args
  
-@@ -272,6 +273,8 @@ proc global_route { args } {
+@@ -282,6 +283,8 @@ proc global_route { args } {
      grt::start_incremental
    } elseif { $end_incremental } {
      grt::end_incremental
@@ -170,10 +170,10 @@ index 824b06c..7a9a846 100644
      grt::global_route
    }
 diff --git a/src/grt/test/BUILD b/src/grt/test/BUILD
-index 6a2e106..d872aaf 100644
+index 44073c99dc..a46bca5265 100644
 --- a/src/grt/test/BUILD
 +++ b/src/grt/test/BUILD
-@@ -244,6 +244,13 @@ regression_test(
+@@ -249,6 +249,13 @@ regression_test(
      data = [":test_resources"],
  )
  
@@ -188,10 +188,10 @@ index 6a2e106..d872aaf 100644
      name = "congested_routes_are_reported",
      check_log = False,
 diff --git a/src/grt/test/CMakeLists.txt b/src/grt/test/CMakeLists.txt
-index 53513bf..0816ab6 100644
+index 1bb5937e36..882d6cf72d 100644
 --- a/src/grt/test/CMakeLists.txt
 +++ b/src/grt/test/CMakeLists.txt
-@@ -159,6 +159,7 @@ or_integration_tests(
+@@ -161,6 +161,7 @@ or_integration_tests(
      snapshot_batched_single_thread_smoke
      snapshot_batched_smoke
      thread_count_reports
@@ -201,7 +201,7 @@ index 53513bf..0816ab6 100644
  if(ENABLE_TESTS)
 diff --git a/src/grt/test/unguided_only.tcl b/src/grt/test/unguided_only.tcl
 new file mode 100644
-index 0000000..194ef88
+index 0000000000..194ef88aee
 --- /dev/null
 +++ b/src/grt/test/unguided_only.tcl
 @@ -0,0 +1,60 @@

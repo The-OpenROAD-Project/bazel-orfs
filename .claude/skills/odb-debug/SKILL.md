@@ -141,11 +141,12 @@ From a tree deployed by `bazelisk run @bazel-orfs//:dirty -- start <flow> <stage
 Wait for `tmp/odb-debug/daemon.json`. It carries the port, the ODB path,
 the workspace and its git commit: **check the commit against the tree you
 are studying** before trusting a number — a daemon from an earlier session
-happily serves a stale ODB. The daemon exits on its own after an idle
-period (default twice its load time, at least two minutes;
-`ODB_DEBUG_IDLE_SECS` overrides, `0` disables). Its `url` is the GUI: the
-same loaded design in a browser, no Qt build needed (browse with
-`ODB_DEBUG_IDLE_SECS=0`; the browser's commands do not count as activity).
+happily serves a stale ODB. The daemon stays until the machine needs its
+memory: it leaves on its own when `MemAvailable` falls below 10 % of
+`MemTotal`, and is the OOM killer's first pick (`ODB_DEBUG_IDLE_SECS`
+adds an idle exit). Stop one you are done with (the `tcl` tool's
+`exit`). Its `url` is the GUI: the same loaded design in a browser, no
+Qt build needed.
 
 ## 3. Ask
 
@@ -276,9 +277,8 @@ foreach b {BlockA BlockB} {
 **What it costs.** Timing needs `GUI_TIMING=1` and the whole liberty
 set. On 4.1 M instances and 3.7 M nets that was 900 s to load and 52 GB
 resident, most of it in `sta::find_timing`; a smaller design is seconds.
-Budget the memory before launching, give the daemon a long
-`ODB_DEBUG_IDLE_SECS` so the load is paid once, and ask everything in
-one session. Geometry questions want `GUI_TIMING=0` instead and load in
+Budget the memory before launching and ask everything in one session:
+the daemon stays, so the load is paid once. Geometry questions want `GUI_TIMING=0` instead and load in
 seconds.
 
 ### Outliers or a mass: the histogram and the false-path peel
@@ -385,7 +385,6 @@ register and stayed at 3,276 ps, on one startpoint, for 40 rounds.
 - A human who wants to look gets the link, `gui_url` (the `gui` tool;
   `warm-gui` says how to hand it over), never the viewer's own `url` and
   never an ssh tunnel (`ssh -L`) while the link reaches them: a tunnel
-  to the viewer's port skips the token and the idle accounting, and the
-  daemon exits under the human.
+  to the viewer's port skips the token.
 - One daemon per `ODB_DEBUG_DIR`. Relaunching overwrites `daemon.json`;
   stop the old one first, or use another directory.

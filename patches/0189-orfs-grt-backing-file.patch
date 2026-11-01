@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] grt: back the routing grid with a file in OBJECTS_DIR
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+global_route needs more memory than many machines have on a large
+design, and without swap set up for it the stage fails hours in.
+global_route -backing_file reserves a file for the routing grid when the
+grid is set up, failing at once when the disk cannot hold it, and the
+kernel pages the grid to that file instead of to swap. The routes are
+the same; the file is removed as soon as it is created.
+
+Carried in bazel-orfs for OpenROAD#12075, not upstreamed; retires with
+the //:bump onto an ORFS that has it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/global_route.tcl | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
+index 0c42a9a98..8542e58fe 100644
+--- a/flow/scripts/global_route.tcl
++++ b/flow/scripts/global_route.tcl
+@@ -31,7 +31,9 @@ proc global_route_helper { } {
+   }
+ 
+   proc run_global_route_and_catch_failures { args } {
+-    set result [catch { log_cmd global_route {*}$args } errMsg]
++    set result [catch {
++      log_cmd global_route -backing_file $::env(OBJECTS_DIR)/grt.grid {*}$args
++    } errMsg]
+ 
+     if { $result != 0 } {
+       if { !$::env(GENERATE_ARTIFACTS_ON_FAILURE) } {
+@@ -104,7 +106,8 @@ proc global_route_helper { } {
+ 
+     # Running DPL to fix overlapped instances
+     # Run to get modified net by DPL
+-    log_cmd global_route -start_incremental {*}$allow_congestion
++    log_cmd global_route -start_incremental {*}$allow_congestion \
++      -backing_file $::env(OBJECTS_DIR)/grt.grid
+     detailed_placement_helper -quiet
+     # Route only the modified net by DPL
+     if {
+@@ -125,7 +128,8 @@ proc global_route_helper { } {
+       report_metrics 5 "global route post repair timing"
+     }
+ 
+-    log_cmd global_route -start_incremental {*}$allow_congestion
++    log_cmd global_route -start_incremental {*}$allow_congestion \
++      -backing_file $::env(OBJECTS_DIR)/grt.grid
+     detailed_placement_helper -quiet
+     log_cmd check_placement -placeable -verbose
+     # Route only the modified net by DPL
+@@ -157,7 +161,8 @@ proc global_route_helper { } {
+   }
+ 
+   if { !$::env(OPT_POST_GRT_WNS) } {
+-    log_cmd global_route -start_incremental {*}$allow_congestion
++    log_cmd global_route -start_incremental {*}$allow_congestion \
++      -backing_file $::env(OBJECTS_DIR)/grt.grid
+     recover_power_helper
+     # Route the modified nets by rsz journal restore
+     if {
+-- 
+2.53.0
+

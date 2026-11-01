@@ -46,6 +46,13 @@ _ARGUMENTS = {
     # is the baseline: ORFS's stop on big flop memories (4 kbit)
     # would stop the larger toys
     "SYNTH_MEMORY_MAX_BITS": "1048576",
+    # setup repair fixes the worst endpoint and 1 % of the rest, as the
+    # XSTile flows do: with every endpoint repaired (100, ORFS's
+    # default) the time a toy took was repair closing a generated arm's
+    # paths a few ps over the clock, which the yosys arm's port-bound
+    # worst paths never let it start on (ideas/structured-macros.md,
+    # "The toys' time losses are setup repair working")
+    "TNS_END_PERCENT": "1",
 }
 
 def _spec(depth, width, reads, writes):
@@ -108,6 +115,16 @@ def array_toy(kind, depth, width):
             verilog_files = [":" + flow + ".sv"] + (
                 [":" + name + "_structgen_arr.v"] if arm == "structgen" else []
             ),
+        )
+        orfs_run(
+            name = flow + "_grt_qor",
+            src = ":" + flow + "_grt",
+            outs = [flow + "_grt_qor.json"],
+            script = "//test/coremark_joule/designs/asap7/xiangshan/rob_array:qor_probe.tcl",
+            tags = ["manual"],
+            user_arguments = {
+                "OUTPUT_JSON": "$(location %s_grt_qor.json)" % flow,
+            },
         )
         orfs_run(
             name = flow + "_period",
@@ -215,6 +232,17 @@ def ohsched_toy(kind, depth, width):
             tags = ["manual"],
             variant = variant,
             verilog_files = [":" + flow + ".v"],
+        )
+        qor = flow + ("_" + variant if variant else "")
+        orfs_run(
+            name = qor + "_grt_qor",
+            src = ":%s_grt" % qor,
+            outs = [qor + "_grt_qor.json"],
+            script = "//test/coremark_joule/designs/asap7/xiangshan/rob_array:qor_probe.tcl",
+            tags = ["manual"],
+            user_arguments = {
+                "OUTPUT_JSON": "$(location %s_grt_qor.json)" % qor,
+            },
         )
     native.genrule(
         name = name + "_mutated_rtl",

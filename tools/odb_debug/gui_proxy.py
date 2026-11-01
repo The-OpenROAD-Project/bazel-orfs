@@ -10,7 +10,7 @@ redirect to the same page without it, or in that cookie on every later
 request, the viewer's websocket included. Anything else gets a 403.
 
 Every byte a browser sends counts as interaction: the proxy writes the
-time to the activity file, which the daemon's idle watchdog reads.
+time to the activity file, which the daemon's watchdog reads for an idle exit.
 
 daemon.tcl starts it beside the viewer; it exits when the daemon does.
 

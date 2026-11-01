@@ -194,12 +194,36 @@ ORFS_PATCHES = [
     # for an ancestor in a pinned slice, absent. ORFS #4770 (draft);
     # retires at a bump onto an ORFS that skips it there.
     Label("//patches:0168-orfs-keep-modules-partition.patch"),
+    # 0189: every global_route call passes -backing_file in OBJECTS_DIR, so
+    # the routing grid pages to a file reserved up front instead of to swap
+    # (OpenROAD patch 0188, OpenROAD#12075). Not upstreamed; retires at a
+    # bump onto an ORFS that passes it.
+    Label("//patches:0189-orfs-grt-backing-file.patch"),
+    # 0199: load_design -backing_file, optional, passed to read_db; global
+    # route reads its design with one in OBJECTS_DIR (OpenROAD patch 0197).
+    # Not upstreamed; retires at a bump onto an ORFS that has it.
+    Label("//patches:0199-orfs-load-design-backing-file.patch"),
     # 0160: a regfile spec's `write_words <address port> <word>...`, the
     # words a write port writes, as generate_ram's -w_port_words (OpenROAD
     # patch 0159): a word one port writes takes its data with no data mux.
     # Not upstreamed; retires at a bump onto an ORFS and OpenROAD that
     # have it.
     Label("//patches:0160-orfs-regfile-write-words.patch"),
+    # 0201: FakeRAM2.0's orfs_asap7 backend also writes <name>.v, each
+    # AUTO_MEMORIES macro's function by the replaced module's pin names,
+    # for an equivalence check of the macro against that module. Not
+    # upstreamed; retires at a bump onto an ORFS that writes it.
+    Label("//patches:0201-orfs-fakeram-lec-model.patch"),
+    # 0204: asap7/cva6's RAMs as upstream has them, unmodified, made macros
+    # by AUTO_MEMORIES (cva6.memories), the I-cache's behind sram_cache's
+    # techno cut by SYNTH_VERILOG_SURGERY; in place of fakeram rewrites
+    # that dropped the D-cache's byte enables (ORFS #4769). Not upstreamed
+    # until tested; retires at a bump onto an ORFS that carries it.
+    Label("//patches:0204-orfs-cva6-upstream-rams.patch"),
+    # 0205: a memory's write mask may have a ragged last lane
+    # (mask_lane_width): tc_sram's byte enables over cva6's 25-bit I-cache
+    # tag. Not upstreamed; retires at a bump onto an ORFS that has it.
+    Label("//patches:0205-orfs-memories-ragged-mask-lane.patch"),
     # 0172: a register file's own flow (its top an inlined
     # AUTO_MEMORIES_REGFILES module) keeps generate_ram's layout: the
     # floorplan the shape of its outline, every generated cell FIRM where

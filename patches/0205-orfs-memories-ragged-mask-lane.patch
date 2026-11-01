@@ -1,0 +1,343 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] memories: a write mask with a ragged last lane
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A memory's write mask lanes had to split its word evenly, so pulp's
+tc_sram, whose byte enables cover a word that is not whole bytes, could
+not become a macro: cva6's I-cache tag RAM is 25 bits with 4 byte
+enables, 8, 8, 8 and 1 bit wide.
+
+A memory may now declare mask_lane_width: every lane is that wide but
+the last, which holds the rest (lanes * width >= bits > (lanes - 1) *
+width). FakeRAM builds the mask bus as before, one pin per lane, and
+its Verilog writes each lane's own bit range. Without a width the lanes
+split the word evenly, as before, and an uneven split is refused as
+before.
+
+Carried in bazel-orfs, not upstreamed; retires at a //:bump onto an
+ORFS that has it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/memories/schema.py               | 33 +++++++++++++++++++
+ flow/scripts/memories/schema_test.py          | 24 ++++++++++++++
+ tools/FakeRAM2.0/orfs_asap7/generate.py       |  1 +
+ tools/FakeRAM2.0/test/spsram_mask_test.py     | 30 ++++++++++++++---
+ tools/FakeRAM2.0/utils/class_memory.py        |  5 +++
+ tools/FakeRAM2.0/utils/memory_config.py       | 23 +++++++++++--
+ .../utils/single_port_ram_verilog_exporter.py | 30 +++++++++++++----
+ 7 files changed, 132 insertions(+), 14 deletions(-)
+
+diff --git a/flow/scripts/memories/schema.py b/flow/scripts/memories/schema.py
+index 9141b9cc76..fc8026963b 100644
+--- a/flow/scripts/memories/schema.py
++++ b/flow/scripts/memories/schema.py
+@@ -49,6 +49,10 @@ class Memory:
+     # Total width of the per-port write mask, 0 if unmasked. Subword-split
+     # mask pins (`W0_mask_0..3`) contribute one lane each.
+     mask_lanes: int = 0
++    # Bits per mask lane, 0 for the even split (bits / mask_lanes). A
++    # ragged last lane needs it: tc_sram's byte enables over a 25-bit
++    # word are 8, 8, 8 and 1 bit wide (mask_lanes 4, mask_lane_width 8).
++    mask_lane_width: int = 0
+     # Read ports yosys inferred without a clock ($mem_v2 RD_CLK_ENABLE=0).
+     # An SRAM macro reads on a clock edge, so one of these rules the memory
+     # out of conversion; see idiomatic.py.
+@@ -124,6 +128,7 @@ def memory_from_dict(d: dict) -> Memory:
+         "write_ports",
+         "rw_ports",
+         "mask_lanes",
++        "mask_lane_width",
+         "comb_read_ports",
+     ):
+         if key in d:
+@@ -194,6 +199,7 @@ def merge(detected: list[Memory], overrides: list[Memory]) -> list[Memory]:
+             "write_ports",
+             "rw_ports",
+             "mask_lanes",
++            "mask_lane_width",
+             "comb_read_ports",
+         ):
+             value = getattr(o, key)
+@@ -210,6 +216,31 @@ def merge(detected: list[Memory], overrides: list[Memory]) -> list[Memory]:
+     return list(by_name.values())
+ 
+ 
++def lane_width_check(name: str, bits: int, lanes: int, width: int) -> None:
++    """Raise SchemaError unless `lanes` mask lanes cover `bits` bits.
++
++    Every lane is `width` bits wide but the last, which holds the rest:
++    lanes * width >= bits > (lanes - 1) * width. Without a width the lanes
++    split the word evenly.
++    """
++    if not lanes:
++        if width:
++            raise SchemaError(f"memory {name}: mask_lane_width without mask_lanes")
++        return
++    if not width:
++        if bits % lanes:
++            raise SchemaError(
++                f"memory {name}: {bits} bits are not {lanes} even mask lanes; "
++                f"give mask_lane_width for a ragged last lane"
++            )
++        return
++    if not lanes * width >= bits > (lanes - 1) * width:
++        raise SchemaError(
++            f"memory {name}: {lanes} mask lanes of {width} bits do not cover "
++            f"{bits} bits with a last lane of 1 to {width}"
++        )
++
++
+ def validate_emittable(mem: Memory) -> None:
+     """Raise SchemaError unless `mem` carries enough to emit .lib/.lef."""
+     if not mem.pins:
+@@ -219,6 +250,8 @@ def validate_emittable(mem: Memory) -> None:
+             f"memory {mem.name}: rows ({mem.rows}) and bits ({mem.bits}) "
+             f"must be >= 1"
+         )
++    if mem.mask_lane_width:
++        lane_width_check(mem.name, mem.bits, mem.mask_lanes, mem.mask_lane_width)
+     port_ids = {p.port_id for p in mem.pins}
+     for port_id in port_ids:
+         functions = {p.function for p in mem.pins if p.port_id == port_id}
+diff --git a/flow/scripts/memories/schema_test.py b/flow/scripts/memories/schema_test.py
+index 31775f1b01..d8303e4133 100644
+--- a/flow/scripts/memories/schema_test.py
++++ b/flow/scripts/memories/schema_test.py
+@@ -115,6 +115,30 @@ class SchemaTest(unittest.TestCase):
+         with self.assertRaises(schema.SchemaError):
+             schema.validate_emittable(dataless)
+ 
++    def test_mask_lanes_cover_the_word(self):
++        # even split, ragged last lane (tc_sram's bytes over 25 bits), none
++        schema.lane_width_check("m", 64, 8, 0)
++        schema.lane_width_check("m", 25, 4, 8)
++        schema.lane_width_check("m", 25, 0, 0)
++        for bits, lanes, width in (
++            (25, 4, 0),  # not even, and no width given
++            (25, 4, 6),  # 24 bits of lanes for 25
++            (25, 4, 9),  # the last lane would be empty
++            (25, 0, 8),  # a width with no lanes
++        ):
++            with self.assertRaises(schema.SchemaError):
++                schema.lane_width_check("m", bits, lanes, width)
++
++    def test_mask_lane_width_survives_merge_and_dump(self):
++        base = sample_memory()
++        override = schema.Memory(name=base.name, mask_lanes=4, mask_lane_width=8)
++        [merged] = schema.merge([base], [override])
++        self.assertEqual(merged.mask_lane_width, 8)
++        with tempfile.TemporaryDirectory() as d:
++            path = Path(d) / "memories.json"
++            schema.dump([merged], path, "asap7")
++            self.assertEqual(json.loads(path.read_text())["memories"][0]["mask_lane_width"], 8)
++
+ 
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asap7/generate.py
+index cf8715d081..a25d0ee401 100644
+--- a/tools/FakeRAM2.0/orfs_asap7/generate.py
++++ b/tools/FakeRAM2.0/orfs_asap7/generate.py
+@@ -156,6 +156,7 @@ def run_orfs_asap7(platform: str, out_dir: Path, json_path: Path):
+             "additional_height": additional_height_for_pins(process, bits, rows, lanes),
+             "pin_names": pin_names,
+             "mask_lanes": lanes,
++            "mask_lane_width": int(m.get("mask_lane_width", 0)),
+         }
+         mem_config = MemoryConfig.from_json(sram_dict)
+         ram = MemoryFactory.create(mem_config, "RAM", "SP", process, timing_data)
+diff --git a/tools/FakeRAM2.0/test/spsram_mask_test.py b/tools/FakeRAM2.0/test/spsram_mask_test.py
+index b4675ff423..a3b1ad0266 100755
+--- a/tools/FakeRAM2.0/test/spsram_mask_test.py
++++ b/tools/FakeRAM2.0/test/spsram_mask_test.py
+@@ -140,10 +140,7 @@ class MaskedSinglePortRAMTest(unittest.TestCase):
+         self.assertIn("if (RW0_en) begin", v)
+         self.assertIn("if (RW0_wmode) begin", v)
+         self.assertIn("if (RW0_wmask[0])", v)
+-        self.assertIn(
+-            "mem[RW0_addr][1*LANE_WIDTH +: LANE_WIDTH] <= RW0_wdata[1*LANE_WIDTH +: LANE_WIDTH];",
+-            v,
+-        )
++        self.assertIn("mem[RW0_addr][113:57] <= RW0_wdata[113:57];", v)
+         # the read is registered under the enable; without it the output holds
+         self.assertIn("RW0_rdata <= mem[RW0_addr];", v)
+         self.assertNotIn("else", v)
+@@ -163,6 +160,31 @@ class MaskedSinglePortRAMTest(unittest.TestCase):
+         with self.assertRaises(Exception):
+             MemoryConfig("m", 114, 64, 1, 0, RW0_NAMES, 5)
+ 
++    def test_ragged_last_lane(self):
++        # tc_sram's byte enables over a 25-bit word: 8, 8, 8 and 1 bits
++        cfg = MemoryConfig("tag_64x25", 25, 64, 1, 0, RW0_NAMES, 4, 8)
++        self.assertEqual(cfg.get_mask_lane_width(), 8)
++        ram = MemoryFactory.create(cfg, "RAM", "SP", self.process, self.timing)
++        out = io.StringIO()
++        SinglePortRAMVerilogExporter(ram).export_lec_model(out)
++        v = out.getvalue()
++        self.assertIn("mem[RW0_addr][23:16] <= RW0_wdata[23:16];", v)
++        self.assertIn("if (RW0_wmask[3])", v)
++        self.assertIn("mem[RW0_addr][24:24] <= RW0_wdata[24:24];", v)
++        sim = io.StringIO()
++        SinglePortRAMVerilogExporter(ram).export_module(sim)
++        self.assertIn("mem[RW0_addr][24:24] <= RW0_wdata[24:24];", sim.getvalue())
++
++    def test_lane_width_must_leave_a_last_lane(self):
++        for width in (6, 9):  # 4 x 6 < 25; 3 x 9 >= 25 leaves lane 4 empty
++            with self.assertRaises(Exception):
++                MemoryConfig("m", 25, 64, 1, 0, RW0_NAMES, 4, width)
++
++    def test_even_split_is_unchanged(self):
++        self.assertEqual(
++            MemoryConfig("m", 114, 64, 1, 0, RW0_NAMES, 2).get_mask_lane_width(), 57
++        )
++
+ 
+ class SinglePortPinsTest(unittest.TestCase):
+     def test_reads_names_and_lanes(self):
+diff --git a/tools/FakeRAM2.0/utils/class_memory.py b/tools/FakeRAM2.0/utils/class_memory.py
+index 1cb9046dbc..1ba7f85db7 100644
+--- a/tools/FakeRAM2.0/utils/class_memory.py
++++ b/tools/FakeRAM2.0/utils/class_memory.py
+@@ -37,6 +37,7 @@ class Memory(NamedObject):
+         self.total_size = self.width_in_bytes * self.depth
+         self.additional_height = mem_config.get_additional_height()
+         self.mask_lanes = mem_config.get_mask_lanes()
++        self.mask_lane_width = mem_config.get_mask_lane_width()
+         self.timing_data = timing_data
+         self.physical = PhysicalData()
+         if self.process.calc_dimensions():
+@@ -96,6 +97,10 @@ class Memory(NamedObject):
+         """Returns the width in bits"""
+         return self.width_in_bits
+ 
++    def get_mask_lane_width(self):
++        """Returns the bits per write mask lane; the last holds the rest"""
++        return self.mask_lane_width
++
+     def get_num_banks(self):
+         """Returns the number of banks"""
+         return self.num_banks
+diff --git a/tools/FakeRAM2.0/utils/memory_config.py b/tools/FakeRAM2.0/utils/memory_config.py
+index db202c76d7..411559a1dd 100644
+--- a/tools/FakeRAM2.0/utils/memory_config.py
++++ b/tools/FakeRAM2.0/utils/memory_config.py
+@@ -13,6 +13,7 @@ class MemoryConfig:
+         additional_height,
+         pin_names=None,
+         mask_lanes=0,
++        mask_lane_width=0,
+     ):
+         """Initializer"""
+ 
+@@ -27,10 +28,21 @@ class MemoryConfig:
+         # and writes whole words.
+         self._pin_names = dict(pin_names) if pin_names else {}
+         self._mask_lanes = int(mask_lanes or 0)
+-        if self._mask_lanes and width_in_bits % self._mask_lanes:
++        # Bits per lane; the last lane holds the rest (tc_sram's byte
++        # enables over a word that is not whole bytes). 0: an even split.
++        self._mask_lane_width = int(mask_lane_width or 0)
++        lanes, width = self._mask_lanes, self._mask_lane_width
++        if lanes and not width:
++            if width_in_bits % lanes:
++                raise Exception(
++                    "Width %d is not a whole number of %d mask lanes (%s)"
++                    % (width_in_bits, lanes, name)
++                )
++            self._mask_lane_width = width_in_bits // lanes
++        elif width and not (lanes * width >= width_in_bits > (lanes - 1) * width):
+             raise Exception(
+-                "Width %d is not a whole number of %d mask lanes (%s)"
+-                % (width_in_bits, self._mask_lanes, name)
++                "%d mask lanes of %d bits do not cover width %d (%s)"
++                % (lanes, width, width_in_bits, name)
+             )
+ 
+     def set_name(self, name):
+@@ -65,6 +77,10 @@ class MemoryConfig:
+         """Returns the number of write mask lanes, 0 when unmasked"""
+         return self._mask_lanes
+ 
++    def get_mask_lane_width(self):
++        """Returns the bits per mask lane; the last lane holds the rest"""
++        return self._mask_lane_width
++
+     @staticmethod
+     def from_json(json_data):
+         return MemoryConfig(
+@@ -75,4 +91,5 @@ class MemoryConfig:
+             json_data.get("additional_height", 0),
+             json_data.get("pin_names"),
+             json_data.get("mask_lanes", 0),
++            json_data.get("mask_lane_width", 0),
+         )
+diff --git a/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py b/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py
+index 076494f37f..347d9e6d31 100644
+--- a/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py
++++ b/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py
+@@ -32,6 +32,14 @@ class SinglePortRAMVerilogExporter(VerilogExporter):
+             rw_port_group.get_write_mask_lanes(),
+         )
+ 
++    def _lane_range(self, j):
++        """Bit range [msb:lsb] of mask lane j; the last lane holds the rest"""
++        mem = self.get_memory()
++        width = mem.get_mask_lane_width()
++        lsb = j * width
++        msb = min(lsb + width, mem.get_width()) - 1
++        return f"[{msb}:{lsb}]"
++
+     def export_module(self, out_fh):
+         """Exports the verilog module to the output stream"""
+ 
+@@ -69,11 +77,19 @@ class SinglePortRAMVerilogExporter(VerilogExporter):
+         out_fh.write("         begin\n")
+         mask_bus, lanes = self._get_mask()
+         if mask_bus:
+-            out_fh.write("            for (j = 0; j < MASK_LANES; j = j + 1)\n")
+-            out_fh.write(f"               if ({mask_bus}[j])\n")
+-            out_fh.write(
+-                f"                  mem[{addr_bus}][j*LANE_WIDTH +: LANE_WIDTH] <= {din_bus}[j*LANE_WIDTH +: LANE_WIDTH];\n"
+-            )
++            if lanes * mem.get_mask_lane_width() == mem.get_width():
++                out_fh.write("            for (j = 0; j < MASK_LANES; j = j + 1)\n")
++                out_fh.write(f"               if ({mask_bus}[j])\n")
++                out_fh.write(
++                    f"                  mem[{addr_bus}][j*LANE_WIDTH +: LANE_WIDTH] <= {din_bus}[j*LANE_WIDTH +: LANE_WIDTH];\n"
++                )
++            else:
++                for j in range(lanes):
++                    lane = self._lane_range(j)
++                    out_fh.write(f"            if ({mask_bus}[{j}])\n")
++                    out_fh.write(
++                        f"               mem[{addr_bus}]{lane} <= {din_bus}{lane};\n"
++                    )
+         else:
+             out_fh.write(f"            mem[{addr_bus}] <= {din_bus};\n")
+         out_fh.write("         end\n")
+@@ -112,7 +128,7 @@ class SinglePortRAMVerilogExporter(VerilogExporter):
+         out_fh.write(f"         if ({we_pin}) begin\n")
+         if mask_bus:
+             for j in range(lanes):
+-                lane = f"[{j}*LANE_WIDTH +: LANE_WIDTH]"
++                lane = self._lane_range(j)
+                 out_fh.write(f"            if ({mask_bus}[{j}])\n")
+                 out_fh.write(
+                     f"               mem[{addr_bus}]{lane} <= {din_bus}{lane};\n"
+@@ -148,7 +164,7 @@ class SinglePortRAMVerilogExporter(VerilogExporter):
+         out_fh.write(f"   parameter corrupt_mem_on_X_p = 1;\n")
+         if mask_bus:
+             out_fh.write(f"   parameter MASK_LANES = {lanes};\n")
+-            out_fh.write(f"   parameter LANE_WIDTH = {mem.get_width() // lanes};\n")
++            out_fh.write(f"   parameter LANE_WIDTH = {mem.get_mask_lane_width()};\n")
+         out_fh.write("\n")
+         out_fh.write(f"   output reg [BITS-1:0]    {dout_bus};\n")
+         out_fh.write(f"   input  [ADDR_WIDTH-1:0]  {addr_bus};\n")
+-- 
+2.53.0
+

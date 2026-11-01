@@ -11,7 +11,7 @@
 
 opens the stage's ODB in the flow's own OpenROAD, with the flow's SDC,
 liberty set, RC and derates, and serves it through OpenROAD's web viewer
-on localhost until it has been idle for a while. tools/odb_debug/odbdebug.py is the client,
+on localhost until the machine needs its memory. tools/odb_debug/odbdebug.py is the client,
 tools/odb_debug/mcp_server.py the MCP server an agent talks to, and
 tools/odb_debug/README.md the manual.
 
@@ -34,7 +34,7 @@ def odb_debug(name, src, **kwargs):
             variables such as `{"GUI_TIMING": "0"}`, `visibility`, `tags`.
     """
 
-    # The idle exit stops the daemon through its own client, the GUI link
+    # Eviction stops the daemon through its own client, the GUI link
     # is a proxy and the headroom measurements are a library it sources;
     # all of them have to sit beside daemon.tcl.
     kwargs["data"] = kwargs.get("data", []) + [

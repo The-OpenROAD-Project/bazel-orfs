@@ -1,0 +1,110 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] dpl: free the pixel grid when detailed and check placement
+ return
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The grid holds a pixel per placement site of the core, 48 bytes each,
+and lived as long as OpenROAD did: every command that reads pixels makes
+them again (initGrid), so once a command returned they were only stale
+memory. On XiangShan's XSTile Top (3.1 mm core, 666 M sites) that is
+about 32 GB, which global route and everything after it started on.
+
+Free the pixels when detailed_placement and check_placement return; keep
+the rows, which coordinate conversions (gridX, legalCellPos) read
+without making the grid. The debug graphics skip a grid without pixels.
+
+XSTile's Top in one process (legaliser, check_placement, global route):
+peak 94.3 GiB instead of 116.5 GiB, with byte-identical checkpoints
+after placement and after global route. dpl's and rsz's 450 tests pass.
+
+Carried in bazel-orfs, not upstreamed; retires with the //:bump onto an
+OpenROAD that has it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/dpl/src/CheckPlacement.cpp      | 2 ++
+ src/dpl/src/Opendp.cpp              | 4 ++++
+ src/dpl/src/graphics/Graphics.cpp   | 2 +-
+ src/dpl/src/infrastructure/Grid.cpp | 5 +++++
+ src/dpl/src/infrastructure/Grid.h   | 4 ++++
+ 5 files changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/src/dpl/src/CheckPlacement.cpp b/src/dpl/src/CheckPlacement.cpp
+index da02443eb8..e54094163c 100644
+--- a/src/dpl/src/CheckPlacement.cpp
++++ b/src/dpl/src/CheckPlacement.cpp
+@@ -150,6 +150,8 @@ void Opendp::checkPlacement(const bool verbose,
+     // Filler and decap placement reuse a populated network without
+     // re-importing, so do not leave one without the movable cells behind.
+     importClear();
++  } else {
++    grid_->releasePixels();
+   }
+ 
+   if (placed_failures.size() + in_rows_failures.size() + overlap_failures.size()
+diff --git a/src/dpl/src/Opendp.cpp b/src/dpl/src/Opendp.cpp
+index 74994177e6..267e3f5dca 100644
+--- a/src/dpl/src/Opendp.cpp
++++ b/src/dpl/src/Opendp.cpp
+@@ -311,6 +311,10 @@ void Opendp::detailedPlacement(const int max_displacement_x,
+     findDisplacementStats();
+     updateDbInstLocations();
+   }
++  // A pixel per site of the core: every command that reads them makes them
++  // again (initGrid), and on a large die they are tens of GB that the
++  // steps after placement would otherwise start on.
++  grid_->releasePixels();
+   const double runtime = timer.elapsed();
+   if (quiet_) {
+     reportLegalizationSummary(runtime);
+diff --git a/src/dpl/src/graphics/Graphics.cpp b/src/dpl/src/graphics/Graphics.cpp
+index e4079778f8..2f2e4913be 100644
+--- a/src/dpl/src/graphics/Graphics.cpp
++++ b/src/dpl/src/graphics/Graphics.cpp
+@@ -334,7 +334,7 @@ void Graphics::drawObjects(web::Painter& painter)
+ 
+   if (paint_pixels_) {
+     const Grid* grid = dp_->grid_.get();
+-    if (grid) {
++    if (grid && grid->hasPixels()) {
+       const odb::Rect core = grid->getCore();
+       const DbuX site_width = grid->getSiteWidth();
+ 
+diff --git a/src/dpl/src/infrastructure/Grid.cpp b/src/dpl/src/infrastructure/Grid.cpp
+index 1a6c79678b..4654130709 100644
+--- a/src/dpl/src/infrastructure/Grid.cpp
++++ b/src/dpl/src/infrastructure/Grid.cpp
+@@ -58,6 +58,11 @@ void Grid::clear()
+   row_index_to_y_dbu_.clear();
+ }
+ 
++void Grid::releasePixels()
++{
++  Pixels().swap(pixels_);
++}
++
+ void Grid::visitDbRows(odb::dbBlock* block,
+                        const std::function<void(dbRow*)>& func) const
+ {
+diff --git a/src/dpl/src/infrastructure/Grid.h b/src/dpl/src/infrastructure/Grid.h
+index 1e1e33ccf1..da7894c4dc 100644
+--- a/src/dpl/src/infrastructure/Grid.h
++++ b/src/dpl/src/infrastructure/Grid.h
+@@ -164,6 +164,10 @@ class Grid
+   void resize(GridY size) { pixels_.resize(size.v); }
+   void resize(GridY y, GridX size) { pixels_[y.v].resize(size.v); }
+   void clear();
++  // Frees the pixels and keeps the rows, which gridX() and the other
++  // coordinate conversions read; allocateGrid() makes them again.
++  void releasePixels();
++  bool hasPixels() const { return !pixels_.empty(); }
+ 
+   bool hasHybridRows() const { return has_hybrid_rows_; }
+ 
+-- 
+2.53.0
+

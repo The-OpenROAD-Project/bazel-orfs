@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] grt: let the maze heaps grow to the frontier
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+src_heap_2D_/dest_heap_2D_ and src_heap_3D_/dest_heap_3D_ were resized
+to a pointer per GCell (and per layer) when the grid was set up, but
+setupHeap()/setupHeap3D() clear them and push the search frontier only:
+the up-front size was capacity nothing used, 16 bytes per GCell and
+layer, about 5 GB on a 34 M GCell x 9 layer die. They now grow as the
+maze needs; the heaps' contents and order are the same.
+
+Carried in bazel-orfs for OpenROAD#12075, not upstreamed; retires with
+the //:bump onto an OpenROAD that has it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/grt/src/fastroute/src/FastRoute.cpp | 13 ++++++-------
+ 1 file changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/src/grt/src/fastroute/src/FastRoute.cpp b/src/grt/src/fastroute/src/FastRoute.cpp
+index 27f1625d36..08eb4b017d 100644
+--- a/src/grt/src/fastroute/src/FastRoute.cpp
++++ b/src/grt/src/fastroute/src/FastRoute.cpp
+@@ -354,9 +354,10 @@ void FastRouteCore::setGridsAndLayers(int x, int y, int nLayers)
+   int64 total_size = static_cast<int64>(y_grid_) * x_range_;
+   pop_heap2_2D_.resize(total_size, false);
+ 
+-  total_size = static_cast<int64>(y_grid_) * x_grid_;
+-  src_heap_2D_.resize(total_size);
+-  dest_heap_2D_.resize(total_size);
++  // The heaps hold the search frontier only: setupHeap() clears them and
++  // they grow as the maze needs, rather than to a GCell each up front.
++  src_heap_2D_.clear();
++  dest_heap_2D_.clear();
+ 
+   d1_2D_.resize(boost::extents[y_range_][x_range_]);
+   d2_2D_.resize(boost::extents[y_range_][x_range_]);
+@@ -369,10 +370,8 @@ void FastRouteCore::setGridsAndLayers(int x, int y, int nLayers)
+   total_size = static_cast<int64>(num_layers_) * y_range_ * x_range_;
+   pop_heap2_3D_.resize(total_size, false);
+ 
+-  // allocate memory for priority queue
+-  total_size = static_cast<int64>(y_grid_) * x_grid_ * num_layers_;
+-  src_heap_3D_.resize(total_size);
+-  dest_heap_3D_.resize(total_size);
++  src_heap_3D_.clear();
++  dest_heap_3D_.clear();
+ 
+   d1_3D_.resize(boost::extents[num_layers_][y_range_][x_range_]);
+   d2_3D_.resize(boost::extents[num_layers_][y_range_][x_range_]);
+-- 
+2.53.0
+

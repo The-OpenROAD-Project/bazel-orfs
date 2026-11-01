@@ -2,8 +2,9 @@
 point: the MCP pin_access tool must say why, from the markers DRT's own
 pin-access debug logs; image must draw it headless; no browser may be
 launched; an idle daemon must exit while a long request must not be
-cut short; and a loaded daemon must wait for its first visitor, let only
-the GUI link's token through, and count the browser as interaction.
+cut short; a loaded daemon must wait for its first visitor, let only
+the GUI link's token through, and count the browser as interaction; and
+with no idle exit it must stay until memory runs low, then leave cleanly.
 
 argv: openroad, the asap7 tech LEF, block.tcl, daemon.tcl.
 """
@@ -21,6 +22,9 @@ from urllib.parse import urlsplit
 
 import mcp_server
 import odbdebug
+
+PLENTY = "MemTotal: 32000000 kB\nMemFree: 1000000 kB\nMemAvailable: 16000000 kB\n"
+LOW = "MemTotal: 32000000 kB\nMemFree: 100000 kB\nMemAvailable: 3000000 kB\n"
 
 
 def call(name, arguments, directory):
@@ -52,6 +56,10 @@ class Launched(object):
         self.dir = os.path.join(tmp, name)
         self.log = os.path.join(tmp, name + ".log")
         self.log_file = open(self.log, "wb")
+        # The watchdog reads this, not /proc/meminfo: a busy test machine
+        # must not evict the daemon under test.
+        self.meminfo = os.path.join(tmp, name + ".meminfo")
+        self.set_meminfo(PLENTY)
         # A browser launcher first on PATH that records being run: the
         # daemon must not run one (web_server -no_browser).
         bin_dir = os.path.join(tmp, name + "-bin")
@@ -72,6 +80,7 @@ class Launched(object):
                 ODB_DEBUG_DAEMON=os.path.abspath(daemon),
                 ODB_DEBUG_DIR=self.dir,
                 ODB_DEBUG_IDLE_SECS=str(idle_secs),
+                ODB_DEBUG_MEMINFO=self.meminfo,
                 ODB_DEBUG_GUI_BIND="127.0.0.1",
                 PYTHON_EXE=sys.executable,
                 PATH=bin_dir + os.pathsep + os.environ.get("PATH", ""),
@@ -90,6 +99,12 @@ class Launched(object):
                 raise AssertionError("daemon did not start:\n" + self.output())
             time.sleep(0.2)
         self.d = odbdebug.Daemon(self.dir)
+
+    def set_meminfo(self, text):
+        tmp = self.meminfo + ".tmp"
+        with open(tmp, "w") as f:
+            f.write(text)
+        os.rename(tmp, self.meminfo)
 
     def _copy(self):
         for chunk in iter(lambda: self.proc.stdout.read1(65536), b""):
@@ -235,6 +250,31 @@ class IdleExitTest(unittest.TestCase):
             self.assertEqual(daemon.proc.wait(timeout=30), 0, daemon.output())
             self.assertFalse(os.path.exists(daemon.info))
             self.assertIn("idle for 2 s, exiting", daemon.output())
+            self.assertNotIn("killing it", daemon.output())
+        finally:
+            daemon.stop()
+
+
+class EvictionTest(unittest.TestCase):
+    def test_it_stays_until_memory_runs_low_then_leaves_cleanly(self):
+        daemon = Launched("evict", 0)
+        try:
+            # First in line for the OOM killer, ahead of any build action.
+            with open("/proc/%d/oom_score_adj" % daemon.proc.pid) as f:
+                self.assertEqual(f.read().strip(), "1000")
+            # Asked, so no longer waiting for its first visitor, and with
+            # memory to spare: still there to answer the next question.
+            self.assertEqual(daemon.d.tcl("expr 1 + 1"), "2")
+            self.assertEqual(daemon.d.tcl("expr 2 + 2"), "4")
+            self.assertNotIn("evicted", daemon.output())
+            # Memory runs low: it leaves on its own, cleanly, and says why.
+            daemon.set_meminfo(LOW)
+            self.assertEqual(daemon.proc.wait(timeout=60), 0, daemon.output())
+            self.assertFalse(os.path.exists(daemon.info))
+            self.assertIn(
+                "evicted, MemAvailable 2929 MB < 10 % of MemTotal 31250 MB",
+                daemon.output(),
+            )
             self.assertNotIn("killing it", daemon.output())
         finally:
             daemon.stop()

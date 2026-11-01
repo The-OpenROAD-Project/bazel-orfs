@@ -51,7 +51,7 @@ def tool(name, description, params=None, required=()):
 
 @tool(
     "open",
-    "Start the daemon on a flow stage in the background and return at once: `bazelisk run <target> -- gui_<stage>` of a flow stage target (or `bazelisk run` of an odb_debug() target), in a session of its own that outlives this one. The design loads while the human is away; it waits, without an idle exit, for the first question or browser visit. Poll `gui` for the link.",
+    "Start the daemon on a flow stage in the background and return at once: `bazelisk run <target> -- gui_<stage>` of a flow stage target (or `bazelisk run` of an odb_debug() target), in a session of its own that outlives this one. The design loads while the human is away; it stays, overnight included, until the machine needs its memory. Poll `gui` for the link.",
     {
         "target": (
             "string",
