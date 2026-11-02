@@ -984,7 +984,7 @@ def _format_openroad_archive_override(
         '    module_name = "openroad",',
         f'    integrity = "{parent_integrity}",',
         "    # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,",
-        "    # so vendor src/sta (OpenSTA) and third-party/abc from their own",
+        "    # so vendor src/sta (OpenSTA) and the other submodules from their own",
         "    # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins",
         "    # to.  sha256sum -c verifies each tarball since patch_cmds bytes",
         "    # aren't covered by archive_override's integrity.  Regenerated",
@@ -1335,6 +1335,7 @@ def update_openroad_archive_override(
     generated_comments = {
         "# GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,",
         "# so vendor src/sta (OpenSTA) and third-party/abc from their own",
+        "# so vendor src/sta (OpenSTA) and the other submodules from their own",
         "# GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins",
         "# to.  sha256sum -c verifies each tarball since patch_cmds bytes",
         "# aren't covered by archive_override's integrity.  Regenerated",
@@ -1866,7 +1867,11 @@ OPENROAD_SUBMODULES = [
 # ORFS's OpenROAD pin may still land before that change, so slang-elab is
 # vendored, with the sed lines it needs, only while the commit carries it.
 # Retire the entry once ORFS's tools/OpenROAD is past it.
-OPENROAD_TRANSITIONAL_SUBMODULES = {"third-party/slang-elab"}
+#
+# OpenROAD dropped the third-party/abc submodule with its CMake build; its
+# Bazel build uses the BCR abc module.  abc is vendored only while the
+# commit carries it, and retires the same way.
+OPENROAD_TRANSITIONAL_SUBMODULES = {"third-party/slang-elab", "third-party/abc"}
 
 # sv-elab is consumed as a Bazel module, not vendored: OpenROAD points
 # bazel_dep(sv-elab) at the submodule with a local_path_override, which
