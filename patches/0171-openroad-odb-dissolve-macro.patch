@@ -169,18 +169,6 @@ index c4a6a64..2c51c2a 100644
    static dbModInst* create(dbModule* parentModule,
                             dbModule* masterModule,
                             const char* name);
-diff --git a/src/odb/src/db/CMakeLists.txt b/src/odb/src/db/CMakeLists.txt
-index 2570223..afa859e 100644
---- a/src/odb/src/db/CMakeLists.txt
-+++ b/src/odb/src/db/CMakeLists.txt
-@@ -105,6 +105,7 @@ add_library(db
-     dbChipRegionInst.cpp
-     dbChipRSeg.cpp
-     dbDatabase.cpp
-+    dbDissolve.cpp
-     dbDft.cpp
-     dbGCellGrid.cpp
-     dbGDSARef.cpp
 diff --git a/src/odb/src/db/dbDissolve.cpp b/src/odb/src/db/dbDissolve.cpp
 new file mode 100644
 index 0000000..68d7702
@@ -806,38 +794,6 @@ index cdf4bd0..f35403a 100644
  cc_test(
      name = "TestSwapMasterLeaf",
      srcs = [
-diff --git a/src/odb/test/cpp/CMakeLists.txt b/src/odb/test/cpp/CMakeLists.txt
-index 8a4f56d..7698360 100644
---- a/src/odb/test/cpp/CMakeLists.txt
-+++ b/src/odb/test/cpp/CMakeLists.txt
-@@ -32,6 +32,7 @@ add_executable(Test3DBloxVerilogWriter Test3DBloxVerilogWriter.cpp)
- add_executable(TestSwapMaster TestSwapMaster.cpp)
- add_executable(TestSwapMasterUnusedPort TestSwapMasterUnusedPort.cpp)
- add_executable(TestSwapMasterLeaf TestSwapMasterLeaf.cpp)
-+add_executable(TestDissolve TestDissolve.cpp)
- add_executable(TestWriteReadDbHier TestWriteReadDbHier.cpp)
- add_executable(TestObjectType TestObjectType.cpp)
- add_executable(TestDbStream TestDbStream.cpp)
-@@ -180,6 +181,11 @@ target_link_libraries(TestSwapMasterLeaf
-         odb_test_helper
-         ${GTEST_LIBS}
- )
-+target_link_libraries(TestDissolve
-+        db
-+        tst
-+        ${GTEST_LIBS}
-+)
- target_link_libraries(TestWriteReadDbHier
-         db
-         tst_integrated_fixture
-@@ -228,6 +234,7 @@ add_dependencies(build_and_test
-         TestSwapMaster
-         TestSwapMasterUnusedPort
-         TestSwapMasterLeaf
-+        TestDissolve
-         TestWriteReadDbHier
-         OdbGTests
-         TestObjectType
 diff --git a/src/odb/test/cpp/TestDissolve.cpp b/src/odb/test/cpp/TestDissolve.cpp
 new file mode 100644
 index 0000000..c662154

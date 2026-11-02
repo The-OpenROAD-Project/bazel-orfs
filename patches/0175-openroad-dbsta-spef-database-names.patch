@@ -154,18 +154,6 @@ index aeb329ab5e..b569d28e79 100644
              "write_verilog_def_alias": [
                  "//src/grt/test:upper_layer_net.def",
              ],
-diff --git a/src/dbSta/test/CMakeLists.txt b/src/dbSta/test/CMakeLists.txt
-index a5af7df1bb..6693f9764d 100644
---- a/src/dbSta/test/CMakeLists.txt
-+++ b/src/dbSta/test/CMakeLists.txt
-@@ -83,6 +83,7 @@ or_integration_tests(
-     check_ip_liberty_pins
-     write_verilog_def_alias
-     write_verilog_def_shared_inputs
-+    write_spef_hier_inst_name
- )
- 
- if(ENABLE_TESTS)
 diff --git a/src/dbSta/test/write_spef_hier_inst_name.tcl b/src/dbSta/test/write_spef_hier_inst_name.tcl
 new file mode 100644
 index 0000000000..bd2b60c9bd

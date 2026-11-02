@@ -22,9 +22,10 @@ Not upstreamed; retires at a bump onto an ORFS that carries it.
 
 ---
 diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
+index 063ef3c..19d81a0 100644
 --- a/docs/user/FlowVariables.md
 +++ b/docs/user/FlowVariables.md
-@@ -249,6 +249,7 @@
+@@ -250,6 +250,7 @@ configuration file.
  | <a name="RECOVER_POWER"></a>RECOVER_POWER| Specifies how many percent of paths with positive slacks can be slowed for power savings [0-100].| 0|
  | <a name="REMOVE_CELLS_FOR_LEC"></a>REMOVE_CELLS_FOR_LEC| String patterns directly passed to write_verilog -remove_cells <> for lec checks.| |
  | <a name="REPAIR_PDN_VIA_LAYER"></a>REPAIR_PDN_VIA_LAYER| Remove power grid vias which generate DRC violations after detailed routing.| |
@@ -32,7 +33,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  | <a name="REPORT_CLOCK_SKEW"></a>REPORT_CLOCK_SKEW| Report clock skew as part of reporting metrics, starting at CTS, before which there is no clock skew. This metric can be quite time-consuming, so it can be useful to disable.| 1|
  | <a name="REPORT_ENDPOINT_SLACK"></a>REPORT_ENDPOINT_SLACK| If set to 1, write the setup and hold slack of every timing endpoint at the end of every flow step (e.g. 3_3_place_gp) to $REPORTS_DIR/<step>_endpoint_slack.json. These snapshots can be compared across steps with flow/util/endpointSlack.py. See docs/contrib/EndpointSlackTracking.md.| 0|
  | <a name="ROUTING_LAYER_ADJUSTMENT"></a>ROUTING_LAYER_ADJUSTMENT| Adjusts routing layer capacities to manage congestion and improve detailed routing. High values ease detailed routing but risk excessive detours and long global routing times, while low values reduce global routing failure but can complicate detailed routing. The global routing running time normally reduces dramatically (entirely design specific, but going from hours to minutes has been observed) when the value is low (such as 0.10). Sometimes, global routing will succeed with lower values and fail with higher values. Exploring results with different values can help shed light on the problem. Start with a too low value, such as 0.10, and bisect to value that works by doing multiple global routing runs. As a last resort, `make global_route_issue` and using the tools/OpenROAD/etc/whittle.py can be useful to debug global routing errors. If there is something specific that is impossible to route, such as a clock line over a macro, global routing will terminate with DRC errors routes that could have been routed were it not for the specific impossible routes. whittle.py should weed out the possible routes and leave a minimal failing case that pinpoints the problem.| 0.5|
-@@ -438,6 +439,7 @@
+@@ -442,6 +443,7 @@ configuration file.
  - [PRE_MACRO_PLACE_TCL](#PRE_MACRO_PLACE_TCL)
  - [PRE_PDN_TCL](#PRE_PDN_TCL)
  - [PRE_TAPCELL_TCL](#PRE_TAPCELL_TCL)
@@ -40,15 +41,15 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [REPORT_ENDPOINT_SLACK](#REPORT_ENDPOINT_SLACK)
  - [ROUTING_LAYER_ADJUSTMENT](#ROUTING_LAYER_ADJUSTMENT)
  - [RTLMP_AREA_WT](#RTLMP_AREA_WT)
-@@ -518,6 +520,7 @@
+@@ -523,6 +525,7 @@ configuration file.
  - [PRE_GLOBAL_PLACE_TCL](#PRE_GLOBAL_PLACE_TCL)
  - [PRE_IO_PLACEMENT_TCL](#PRE_IO_PLACEMENT_TCL)
  - [PRE_RESIZE_TCL](#PRE_RESIZE_TCL)
 +- [REPAIR_TIMING_PATH_GROUP](#REPAIR_TIMING_PATH_GROUP)
  - [REPORT_ENDPOINT_SLACK](#REPORT_ENDPOINT_SLACK)
  - [ROUTING_LAYER_ADJUSTMENT](#ROUTING_LAYER_ADJUSTMENT)
- - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
-@@ -541,6 +544,7 @@
+ - [SETUP_REPAIR_PHASES](#SETUP_REPAIR_PHASES)
+@@ -547,6 +550,7 @@ configuration file.
  - [MATCH_CELL_FOOTPRINT](#MATCH_CELL_FOOTPRINT)
  - [POST_CTS_TCL](#POST_CTS_TCL)
  - [PRE_CTS_TCL](#PRE_CTS_TCL)
@@ -56,7 +57,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [REPORT_CLOCK_SKEW](#REPORT_CLOCK_SKEW)
  - [REPORT_ENDPOINT_SLACK](#REPORT_ENDPOINT_SLACK)
  - [SETUP_MOVE_SEQUENCE](#SETUP_MOVE_SEQUENCE)
-@@ -571,6 +575,7 @@
+@@ -578,6 +582,7 @@ configuration file.
  - [OPT_POST_GRT_WNS](#OPT_POST_GRT_WNS)
  - [POST_GLOBAL_ROUTE_TCL](#POST_GLOBAL_ROUTE_TCL)
  - [PRE_GLOBAL_ROUTE_TCL](#PRE_GLOBAL_ROUTE_TCL)
@@ -65,9 +66,10 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [REPORT_ENDPOINT_SLACK](#REPORT_ENDPOINT_SLACK)
  - [ROUTING_LAYER_ADJUSTMENT](#ROUTING_LAYER_ADJUSTMENT)
 diff --git a/flow/scripts/util.tcl b/flow/scripts/util.tcl
+index e11aa31..4615780 100644
 --- a/flow/scripts/util.tcl
 +++ b/flow/scripts/util.tcl
-@@ -40,6 +40,7 @@
+@@ -41,6 +41,7 @@ proc repair_timing_helper { args } {
    append_env_var additional_args SKIP_VT_SWAP -skip_vt_swap 0
    append_env_var additional_args SKIP_CRIT_VT_SWAP -skip_crit_vt_swap 0
    append_env_var additional_args MATCH_CELL_FOOTPRINT -match_cell_footprint 0
@@ -76,9 +78,10 @@ diff --git a/flow/scripts/util.tcl b/flow/scripts/util.tcl
  
    log_cmd repair_timing {*}$additional_args
 diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
+index 510876d..1d4cad3 100644
 --- a/flow/scripts/variables.json
 +++ b/flow/scripts/variables.json
-@@ -962,6 +962,15 @@
+@@ -966,6 +966,15 @@
    "REPAIR_PDN_VIA_LAYER": {
      "description": "Remove power grid vias which generate DRC violations after detailed routing.\n"
    },
@@ -95,9 +98,10 @@ diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
      "default": 1,
      "description": "Report clock skew as part of reporting metrics, starting at CTS, before which there is no clock skew. This metric can be quite time-consuming, so it can be useful to disable.\n",
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+index 4a18fa5..7974e2c 100644
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -904,6 +904,19 @@
+@@ -920,6 +920,19 @@ SKIP_GATE_CLONING:
      - cts
      - floorplan
      - grt
