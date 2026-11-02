@@ -1,0 +1,212 @@
+dbSta: write_spef names pins and internal nodes by their database names
+
+With hierarchy the network's path names keep only an instance name's
+last level (dbNetwork::stripParentPrefix): a cell
+h1/core\/dispatch/ff0 in module instance h1 was written h1/ff0, which no
+instance is, and its pins were read back unconnected (over 1,000 nets of
+XiangShan's tile with OPENROAD_HIERARCHICAL=1). *D_NET already used the
+database's net name; *CONN, *CAP and *RES now do too.
+
+Test: write_spef_hier_inst_name.
+
+Carried by bazel-orfs; reported upstream as OpenROAD#12049 with this
+fix, not merged. Retires on a
+//:bump onto an OpenROAD that carries it.
+diff --git a/src/dbSta/include/db_sta/SpefWriter.hh b/src/dbSta/include/db_sta/SpefWriter.hh
+index 8e630ab50c..ee2ee8f838 100644
+--- a/src/dbSta/include/db_sta/SpefWriter.hh
++++ b/src/dbSta/include/db_sta/SpefWriter.hh
+@@ -31,7 +31,9 @@ class SpefWriter
+                 Parasitics* parasitics);
+ 
+  private:
+-  std::string nodeName(Parasitics* parasitics, const ParasiticNode* node) const;
++  std::string nodeName(Parasitics* parasitics,
++                       const ParasiticNode* node,
++                       const std::string& net_name) const;
+ 
+   utl::Logger* logger_;
+   dbSta* sta_;
+diff --git a/src/dbSta/src/SpefWriter.cc b/src/dbSta/src/SpefWriter.cc
+index b2b27bc72b..6b04fc3aa2 100644
+--- a/src/dbSta/src/SpefWriter.cc
++++ b/src/dbSta/src/SpefWriter.cc
+@@ -152,13 +152,38 @@ void SpefWriter::writePorts()
+   }
+ }
+ 
+-// SPEF name of a parasitic node: instance pins use ':' as pin delimiter.
++// SPEF name of a parasitic node, in the database's own names as *D_NET
++// names its net: an instance pin is <instance>:<terminal>, an internal
++// node <net>:<id>. The network's hierarchical path names are not used:
++// with hierarchy they keep only an instance name's last level, so a
++// cell named u_parent/core\/backend\/dispatch/_1_ in module instance
++// u_parent was written u_parent/_1_, which no instance is, and its pins
++// were read back unconnected.
+ std::string SpefWriter::nodeName(Parasitics* parasitics,
+-                                 const ParasiticNode* node) const
++                                 const ParasiticNode* node,
++                                 const std::string& net_name) const
+ {
+-  std::string name = parasitics->name(node);
+   const Pin* pin = parasitics->pin(node);
+-  if (pin != nullptr && network_->flatPin(pin) != nullptr) {
++  if (pin != nullptr) {
++    odb::dbITerm* iterm = nullptr;
++    odb::dbBTerm* bterm = nullptr;
++    odb::dbModITerm* moditerm = nullptr;
++    network_->staToDb(pin, iterm, bterm, moditerm);
++    if (iterm != nullptr) {
++      return escapeSpecial(iterm->getInst()->getName() + ":"
++                           + iterm->getMTerm()->getName());
++    }
++    if (bterm != nullptr) {
++      return escapeSpecial(bterm->getName());
++    }
++  }
++  std::string name = parasitics->name(node);
++  if (pin == nullptr) {
++    const size_t colon = name.find_last_of(':');
++    if (colon != std::string::npos) {
++      return escapeSpecial(net_name + name.substr(colon));
++    }
++  } else if (network_->flatPin(pin) != nullptr) {
+     name = fixPinDelimiter(name);
+   }
+   return escapeSpecial(name);
+@@ -180,8 +205,8 @@ void SpefWriter::writeNet(Scene* scene,
+   float cap_scale = units->capacitanceUnit()->scale();
+   float res_scale = units->resistanceUnit()->scale();
+ 
+-  stream << "*D_NET " << escapeSpecial(network_->staToDb(net)->getName())
+-         << " ";
++  const std::string net_name = network_->staToDb(net)->getName();
++  stream << "*D_NET " << escapeSpecial(net_name) << " ";
+   stream << parasitics->capacitance(parasitic) / cap_scale << '\n';
+ 
+   stream << "*CONN" << '\n';
+@@ -194,12 +219,12 @@ void SpefWriter::writeNet(Scene* scene,
+       network_->staToDb(pin, iterm, bterm, moditerm);
+ 
+       if (iterm != nullptr) {
+-        stream << "*I " << nodeName(parasitics, node) << " ";
++        stream << "*I " << nodeName(parasitics, node, net_name) << " ";
+         stream << getIoDirectionText(iterm->getIoType());
+         stream << " *D " << iterm->getInst()->getMaster()->getName();
+         stream << '\n';
+       } else if (bterm != nullptr) {
+-        stream << "*P " << nodeName(parasitics, node) << " ";
++        stream << "*P " << nodeName(parasitics, node, net_name) << " ";
+         stream << getIoDirectionText(bterm->getIoType());
+         stream << '\n';
+       } else {
+@@ -226,7 +251,7 @@ void SpefWriter::writeNet(Scene* scene,
+     }
+ 
+     stream << count++ << " ";
+-    stream << nodeName(parasitics, node) << " " << gnd_cap / cap_scale;
++    stream << nodeName(parasitics, node, net_name) << " " << gnd_cap / cap_scale;
+     stream << '\n';
+   }
+   for (auto cap : parasitics->capacitors(parasitic)) {
+@@ -239,8 +264,8 @@ void SpefWriter::writeNet(Scene* scene,
+     }
+     stream << count++ << " ";
+ 
+-    stream << nodeName(parasitics, parasitics->node1(cap)) << " ";
+-    stream << nodeName(parasitics, parasitics->node2(cap)) << " ";
++    stream << nodeName(parasitics, parasitics->node1(cap), net_name) << " ";
++    stream << nodeName(parasitics, parasitics->node2(cap), net_name) << " ";
+     stream << parasitics->value(cap) / cap_scale << '\n';
+   }
+ 
+@@ -253,8 +278,8 @@ void SpefWriter::writeNet(Scene* scene,
+     }
+     stream << count++ << " ";
+ 
+-    stream << nodeName(parasitics, parasitics->node1(res)) << " ";
+-    stream << nodeName(parasitics, parasitics->node2(res)) << " ";
++    stream << nodeName(parasitics, parasitics->node1(res), net_name) << " ";
++    stream << nodeName(parasitics, parasitics->node2(res), net_name) << " ";
+     stream << parasitics->value(res) / res_scale << '\n';
+   }
+ 
+diff --git a/src/dbSta/test/BUILD b/src/dbSta/test/BUILD
+index aeb329ab5e..b569d28e79 100644
+--- a/src/dbSta/test/BUILD
++++ b/src/dbSta/test/BUILD
+@@ -114,6 +114,7 @@ PASSFAIL_TESTS = [
+     "check_ip_liberty_pins",
+     "write_verilog_def_alias",
+     "write_verilog_def_shared_inputs",
++    "write_spef_hier_inst_name",
+ ]
+ 
+ filegroup(
+@@ -352,6 +353,10 @@ filegroup(
+             "write_verilog9_hier": [
+                 "write_verilog9.v",
+             ],
++            "write_spef_hier_inst_name": [
++                "escape_slash_hier.def",
++                "escape_slash_hier.v",
++            ],
+             "write_verilog_def_alias": [
+                 "//src/grt/test:upper_layer_net.def",
+             ],
+diff --git a/src/dbSta/test/CMakeLists.txt b/src/dbSta/test/CMakeLists.txt
+index a5af7df1bb..6693f9764d 100644
+--- a/src/dbSta/test/CMakeLists.txt
++++ b/src/dbSta/test/CMakeLists.txt
+@@ -83,6 +83,7 @@ or_integration_tests(
+     check_ip_liberty_pins
+     write_verilog_def_alias
+     write_verilog_def_shared_inputs
++    write_spef_hier_inst_name
+ )
+ 
+ if(ENABLE_TESTS)
+diff --git a/src/dbSta/test/write_spef_hier_inst_name.tcl b/src/dbSta/test/write_spef_hier_inst_name.tcl
+new file mode 100644
+index 0000000000..bd2b60c9bd
+--- /dev/null
++++ b/src/dbSta/test/write_spef_hier_inst_name.tcl
+@@ -0,0 +1,38 @@
++# write_spef names every instance pin by an instance that exists, also for
++# a cell whose name inside its module instance has a divider of its own:
++# h1/core\/dispatch/ff0 lives in module instance h1, as a cell of a
++# flattened child keeps its hierarchy in its name.
++source "helpers.tcl"
++
++source Nangate45/Nangate45.vars
++read_liberty Nangate45/Nangate45_typ.lib
++read_lef Nangate45/Nangate45.lef
++read_verilog escape_slash_hier.v
++link_design -hier multi_sink
++read_def -floorplan_initialize escape_slash_hier.def
++
++source Nangate45/Nangate45.rc
++source $layer_rc_file
++set_wire_rc -signal -layer $wire_rc_layer
++set_wire_rc -clock -layer $wire_rc_layer_clk
++
++set block [ord::get_db_block]
++set ff [$block findInst {h1/ff0\/name}]
++$ff rename {h1/core\/dispatch/ff0}
++
++set spef_file [make_result_file write_spef_hier_inst_name.spef]
++estimate_parasitics -placement -spef_file $spef_file
++
++set stream [open $spef_file r]
++set conns 0
++foreach line [split [read $stream] "\n"] {
++  if { [regexp {^\*I (\S+):\S+ } $line -> inst_name] } {
++    incr conns
++    check "*I $inst_name is an instance" {
++      expr { [$block findInst $inst_name] ne "NULL" }
++    } 1
++  }
++}
++close $stream
++check "*I lines" { set conns } 3
++exit_summary
