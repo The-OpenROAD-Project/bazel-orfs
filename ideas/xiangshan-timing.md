@@ -2223,6 +2223,119 @@ with a named reason why it is new (`.claude/skills/dogfooding`, rule 14).
   stitched tile, since each move re-times all 761,301 endpoints; it
   needs one re-time per round first.
 
+## 59. The parent macro: placed compact, repaired on reg2reg
+
+Status: measured in a dirty lane (`XSTile_parent`, stages from the
+cached build, settings edited by hand); the hermetic build of the same
+settings is to come.
+
+The carved tile's parent macro (`XSTile_parent`, #1425) flushed through
+global route at 4,537 ps with its repair skipped. Phase 1 of the
+partition campaign asked where that comes from before choosing a cut:
+
+- **The space table** (`select_table`, areas from the parent's own
+  synthesis): `Dispatch` 13.3 pins per micron, `Rename` 6.3,
+  `DecodeStage` 5.9, each integer issue queue 1,000 to 1,250 bits on
+  about 5,000 um2, `DataPath` 10,461 bits on 11,800 um2. Nothing timing
+  critical in the parent is a macro under 2 pins per micron; only the
+  memory block's leftovers come near (`TLBNonBlock_2` 1.95,
+  `TLBNonBlock_1` 2.36), and they are off the failing paths.
+- **Who talks to whom** (`kpi_run.tcl`'s census, `KPI_CENSUS_DEPTH`):
+  of 31,907 reg2reg endpoints over 2,000 ps, about 8,900 are CtrlBlock to
+  CtrlBlock (rename, decode, fusion), about 12,000 the integer region and
+  its issue queues, about 3,000 CtrlBlock to the integer region, 1,280
+  the memory block's leftovers into the integer region. None crosses
+  into a hardened block: the mass is the out-of-order core itself.
+- **Where it sits**: the plan holds every block above or below the
+  logic region, so the region is a 4,326 x 388 um strip between two rows
+  of blocks. At `PLACE_DENSITY` 0.3 the core's ~400k um2 of placed
+  cells needs 1.3 mm2, 2.5 mm along the strip: CtrlBlock spread over
+  x 1,590 to 4,420 um, dispatch to rename to decode a millimetre apart,
+  5.7 mm of wire on the worst path for registers 1,005 um apart.
+- **What the flow skipped** (dogfooding, rule 10): the parent macro
+  skips repair at CTS and global route and places without timing or
+  routability drive.
+
+Measured at global route, the same blocks and floorplan:
+
+| arm | reg2reg period | note |
+|---|---:|---|
+| as built (density 0.3, no repair) | 4,537 | |
+| grt repair on, every path group, `TNS_END_PERCENT` 1 | 4,535 | every iteration chased one block pin at -5.4 ns (in2out) |
+| density 0.6, after grt's `repair_design` | 3,768 | iteration 0 of the repair below |
+| density 0.6, grt repair on reg2reg only | 2,826 | capped at 1,600 iterations (94 min); uncapped it held -835.6 ps from 1,610 to 1,990 |
+
+The parent's ports are its blocks' pins, and their `set_max_delay`
+budgets run through a block the parent cannot repair; repairing every
+group spends the 1 % of endpoints on them. `REPAIR_TIMING_PATH_GROUP`
+(ORFS patch 0179) passes `repair_timing -path_group`;
+`REPAIR_TIMING_MAX_ITERATIONS` (0180) the cap.
+
+Memory: every parent step that times it with the route's parasitics
+peaks at 56 to 59 GB (global route, its repair, the KPI's STA alone),
+about 18 kB per placed instance, 3.3 M of them. Under 60 GB with room
+needs about 2.7 M; the parent's movable modules that are near 2 pins
+per micron hold 460k. Open.
+
+Endpoints over 2,000 ps: 31,907 as built, 18,153 at 2,826 ps. The worst
+path is now the integer register file's read port into the ALU pipeline
+register, 1,997 um apart: the plan put `IntRegFile` where its owner sat
+in an earlier placement (x 319 um), and at density 0.6 the integer
+region's cells sit at x 1,600 to 2,200 um. The register file is the next
+move, then timing-driven global placement.
+
+Global route at density 0.6: total overflow 23.8 M against 17.2 M, the
+worst edge 225 against 569, wirelength 105 against 97 m. The strip is
+the routing problem as well as the timing one.
+
+## 60. The parent macro: the register file moved, two units held in regions
+
+The parent at density 0.6 (entry 59), on a 122 GB machine. Each arm is
+#1425's flow through CTS, built hermetically, then global route in a
+dirty lane, read by the KPI census (`kpi_run.tcl`); every number is
+from a lane, not a clean build. "Before repair" means the flow's grt
+without `repair_timing`. Excess is the sum over endpoints of their
+period over 2,000 ps.
+
+| arm | change | reg2reg | endpoints > 2,000 ps | excess | grt overflow |
+|---|---|---|---|---|---|
+| J5 | `IntRegFile` at its readers, (1,927.7, 1,045.7) um | 3,253 ps | 16,955 | 7,312 ns | 44.9 M |
+| J6 | J5, global placement timing- and routability-driven | 5,302 ps | 41,702 | | 31.9 M |
+| J7 | J5, `inner_ctrlBlock` fenced through legalization | stopped: detailed placement over 75 min | | | |
+| J7b | J5, `inner_ctrlBlock` in a region for global placement only | 2,985 ps | 19,221 | 4,300 ns | 42.0 M |
+| J8 | J7b, the load TLB in a region beside it | 3,126 ps | 11,567 | 3,191 ns | 28.7 M |
+| J9b | J8, `inner_intRegion` in a region too | 3,062 ps | 12,221 | 4,597 ns | 37.4 M |
+| J8r | J8, grt repair on reg2reg capped at 1,600 iterations | **2,598 ps** | **9,402** | 1,830 ns | |
+
+All but J8r are before repair. J8r against entry 59's J3 (the same
+repair on the plan's old register file and no regions): 2,826 to
+2,598 ps, and 18,153 to 9,402 endpoints over 2,000 ps.
+
+- With `IntRegFile` at its readers the mass moved inside
+  `inner_ctrlBlock`: dispatch, rename and decode were smeared 850 um
+  along the strip, the worst path 3.9 mm of wire between registers
+  0.47 mm apart. A 400 x 380 um region for it took the excess from 7.3
+  to 4.3 us and moved the mass to the load TLB it now sat away from;
+  a region for the TLB beside it took that away (8,209 endpoints).
+- A region is a hard fence to both placers. Global placement converges
+  in it; the diamond legalizer inside it was still searching after 75
+  min. The regions are dissolved before the first legalization
+  (`legalize_out_of_blocks.tcl`), which then took 6 min, and the cells
+  stay near where global placement put them.
+- A region for `inner_intRegion` as well (J9b) fixed its own paths and
+  pushed the excess onto its neighbours: worse overall. At 0.56 of its
+  sites (J9) global placement diverged (GPL-0307).
+- Timing- and routability-driven global placement cut the wire and the
+  overflow and lost 2 ns: the worst path launches 870 ps later, and the
+  mass moves to `inner_ctrlBlock` into the load TLB.
+- Memory: grt without repair peaked at 100-110 GB; with repair 114 GB
+  plus 36 GB of swap, 84 min, the repair 45 of them. J5's repair ran out
+  at 105 GB plus 20 GB of swap in the incremental reroute after
+  `repair_design`.
+
+The plan carries the regions (`plan.json`'s `parent.regions`), which the
+planner writes into `place_macros.tcl` and keeps out of `plan.bzl`.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
