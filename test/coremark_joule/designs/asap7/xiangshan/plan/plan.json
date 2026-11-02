@@ -35,7 +35,10 @@
  "parent": {
   "regions": [
    {"name": "ctrlBlock", "instance": "core/backend/inner_ctrlBlock", "box_um": [2500, 950, 2900, 1330]},
-   {"name": "dtlbLd", "instance": "core/memBlock/inner_dtlb_ld_tlb_ld", "box_um": [2900, 1130, 3100, 1330]}
+   {"name": "dtlbLd", "instance": "core/memBlock/inner_dtlb_ld_tlb_ld", "box_um": [2900, 1130, 3100, 1330]},
+   {"name": "loadUnit0", "instance": "core/memBlock/inner_LoadUnit_0", "box_um": [3100, 1340, 3140, 1420]},
+   {"name": "loadUnit1", "instance": "core/memBlock/inner_LoadUnit_1", "box_um": [3140, 1340, 3180, 1420]},
+   {"name": "loadUnit2", "instance": "core/memBlock/inner_LoadUnit_2", "box_um": [3180, 1340, 3220, 1420]}
   ],
   "clock_pins": [
    "clock"
