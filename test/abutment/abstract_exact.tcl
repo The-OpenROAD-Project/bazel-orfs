@@ -30,7 +30,14 @@ foreach net [[ord::get_db_block] getNets] {
     }
   }
 }
-set_propagated_clock [all_clocks]
-estimate_parasitics -global_routing
-write_abstract_lef $::env(LEF_OUT)
-write_timing_model $::env(LIB_OUT)
+# LEF_OUT and LIB_OUT each optional: a parent macro's top level reads
+# only the LEF (it dissolves the parent at floorplan), and the timing
+# model, an hour serial on XSTile's parent, is left off its path.
+if { [info exists ::env(LEF_OUT)] } {
+  write_abstract_lef $::env(LEF_OUT)
+}
+if { [info exists ::env(LIB_OUT)] } {
+  set_propagated_clock [all_clocks]
+  estimate_parasitics -global_routing
+  write_timing_model $::env(LIB_OUT)
+}

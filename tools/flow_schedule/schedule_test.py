@@ -152,6 +152,39 @@ class Logs(unittest.TestCase):
         self.assertAlmostEqual(got["grt"]["minutes"], 124.1, delta=0.2)
 
 
+class LogDir(unittest.TestCase):
+    def _tree(self, d, *dirs):
+        for x in dirs:
+            os.makedirs(os.path.join(d, "pkg", "logs", "asap7", *x))
+
+    def test_unit_and_variant(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._tree(d, ("Rob", "base"))
+            self.assertEqual(
+                schedule.log_dir(d, "pkg", "Rob", "base"),
+                os.path.join(d, "pkg", "logs", "asap7", "Rob", "base"),
+            )
+
+    def test_flow_variant_unit(self):
+        # the carve's parent macro: flow XSTile, variant parent; it was
+        # never measured, its estimate half its peak
+        with tempfile.TemporaryDirectory() as d:
+            self._tree(d, ("XSTile", "parent"), ("XSTile_parent_pm", "base"))
+            self.assertEqual(
+                schedule.log_dir(d, "pkg", "XSTile_parent", "base"),
+                os.path.join(d, "pkg", "logs", "asap7", "XSTile", "parent"),
+            )
+            self.assertEqual(
+                schedule.log_dir(d, "pkg", "XSTile_parent_pm", "base"),
+                os.path.join(d, "pkg", "logs", "asap7", "XSTile_parent_pm", "base"),
+            )
+
+    def test_none(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._tree(d, ("Rob", "base"))
+            self.assertIsNone(schedule.log_dir(d, "pkg", "Ftq", "base"))
+
+
 class Refresh(unittest.TestCase):
     MEASURED = {"grt": {"peak_gb": 20.0, "minutes": 60.0}}
 

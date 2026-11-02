@@ -2,13 +2,41 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 exports_files(["lec_cells.lib"])
 
+# The parent as a macro, cut out of a synthesized parent: the split, the
+# parent's floorplan with a hole per block, and the flat top level that
+# dissolves them all to check the carve
+# (//test/coremark_joule/designs/asap7/xiangshan).
+exports_files(
+    [
+        "crossing_check.sh",
+        "crossing_cones.tcl",
+        "crossing_gui.tcl",
+        "crossing_paths.tcl",
+        "crossing_plan.tcl",
+        "crossing_time.tcl",
+        "crossing_time_sets.tcl",
+        "evert.tcl",
+        "evert.ys",
+        "no_tapcells.tcl",
+        "parent_holes.tcl",
+        "parent_pin_partners.tcl",
+        "top_clock_check.tcl",
+        "top_dissolve.tcl",
+        "top_level.tcl",
+        "top_netlist.tcl",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 [py_binary(
     name = name,
     srcs = [name + ".py"],
     visibility = ["//visibility:public"],
 ) for name in [
     "carve",
+    "crossing_report",
     "lec_names",
+    "merge_memories",
     "break_port",
     "wrap_parent",
     "pin_plan",
@@ -51,4 +79,17 @@ py_test(
     size = "small",
     srcs = ["pin_plan_test.py"],
     deps = [":pin_plan_lib"],
+)
+
+py_library(
+    name = "crossing_report_lib",
+    srcs = ["crossing_report.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "crossing_report_test",
+    size = "small",
+    srcs = ["crossing_report_test.py"],
+    deps = [":crossing_report_lib"],
 )

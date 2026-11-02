@@ -4,13 +4,16 @@
 # patch 0008 extracts them from the RobEntryCells into a utils.RegVecFile.
 # 352 words; RenameWidth (8) write ports at the allocate pointers; one read
 # port per bank and line (8 banks x this/next line = 16). In eight banks of
-# 44 words, four wide and two tall, for an outline the parent can place.
+# 44 words, one wide and eight tall: with main's grouped generate_ram
+# (patches 0163-0170) four wide was 710.5 um, past Rob's 595.6 um core
+# (IFP-0002), and two wide left RenameBufferFile no room beside it
+# (MPL-0003); one wide stands beside it.
 module RobEntryFile
 mode netlist
 words 352
 bits 21
 banks 8
-bank_columns 4
+bank_columns 1
 clock clock
 read io_readPorts_0_addr io_readPorts_0_data
 read io_readPorts_1_addr io_readPorts_1_data

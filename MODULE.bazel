@@ -328,6 +328,44 @@ archive_override(
         # about 32 GB that global route started on. Not upstreamed; retires
         # at a //:bump onto an OpenROAD that has it.
         "//patches:0203-openroad-dpl-free-pixel-grid.patch",
+        # 0171: dissolve_macro, a placed block instance replaced by the
+        # block's own cells, nets and global route guides as a module
+        # instance (//tools/carve: the parent as a macro, its top level
+        # dissolving every macro after its global route). Not upstreamed;
+        # retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0171-openroad-odb-dissolve-macro.patch",
+        # 0173: global_route -unguided_only keeps every net's guides and
+        # routes only the nets without (the carve's top level: its blocks'
+        # routes kept, its clock tree routed). Not upstreamed; retires at a
+        # //:bump onto an OpenROAD that has it.
+        "//patches:0173-openroad-grt-route-unguided-only.patch",
+        # 0174: crossing_cones, crossing_signatures, crossing_strip: the
+        # carve's top level timed for the paths not contained in one
+        # macro, in sets that fit memory (//tools/carve). Not upstreamed;
+        # retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0174-openroad-dbsta-crossing-cones.patch",
+        # 0175: write_spef names pins and internal nodes by the database's
+        # names; with hierarchy it lost all but an instance name's last
+        # level and the nets came back unannotated. Reported as
+        # OpenROAD#12049 with this fix; retires when a //:bump carries it.
+        "//patches:0175-openroad-dbsta-spef-database-names.patch",
+        # 0176: the web viewer's slack histogram bar drills down with the
+        # histogram's path groups and clock, not every path in its slack
+        # range. Not upstreamed; retires at a //:bump onto an OpenROAD
+        # that has it.
+        "//patches:0176-openroad-web-histogram-drill-down-filters.patch",
+        # 0177: rtl_macro_placer snaps a macro by its clock pins too, not
+        # only its signal pins (a register file whose clock was its only
+        # M2 pin was left 2 nm off the track: DRT-0073 in
+        # //test/planned_parent:mini_top_grt). Not upstreamed; retires at
+        # a //:bump onto an OpenROAD that has it.
+        "//patches:0177-openroad-mpl-snap-clock-pins.patch",
+        # 0178: generate_ram makes a read select's group buffer in its
+        # group's first bit cell, not every group's beside the decoder
+        # (test/regfile/macro's RegFile, its layout kept, routed 2.7 times
+        # the wire and overflowed). Not upstreamed; retires at a //:bump
+        # onto an OpenROAD that has it.
+        "//patches:0178-openroad-ram-read-select-group-in-place.patch",
     ],
     strip_prefix = "OpenROAD-f3d27840b65a9571a808a19b06dc0b93b9d4423d",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/f3d27840b65a9571a808a19b06dc0b93b9d4423d.tar.gz"],

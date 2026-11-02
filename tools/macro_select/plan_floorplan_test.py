@@ -68,6 +68,16 @@ class ShapeTest(unittest.TestCase):
         self.assertTrue(s["two_sides"])
         self.assertAlmostEqual(s["pin_side_um"], 13000 * 0.096 * 1.5 / 2 / 2, 0)
 
+    def test_min_side_holds_a_wide_macro_of_its_own(self):
+        # a 250000 um2 block is 500 square; one 577 um wide macro inside
+        s = plan_floorplan.shape(
+            {"name": "f", "pins": 100, "area_um2": 250000, "min_side_um": 600},
+            TECH,
+            MARGINS,
+        )
+        self.assertAlmostEqual(s["pin_side_um"], 600, 0)
+        self.assertAlmostEqual(s["pin_side_um"] * s["depth_um"], 250000, -1)
+
     def test_channel_floor_and_lateral(self):
         s = plan_floorplan.shape(
             {"name": "d", "pins": 100, "area_um2": 250000}, TECH, MARGINS
@@ -95,6 +105,20 @@ class LatticeTest(unittest.TestCase):
             self.assertAlmostEqual(m["y_um"] / 2.16, round(m["y_um"] / 2.16), 6)
             self.assertGreaterEqual(m["w_um"] * m["h_um"], m["area_um2"])
 
+    def test_gcell_on_the_lattice(self):
+        # a block's gcells are the parent's: origin and die on 0.57 um too
+        p = plan(LayoutTest.MACROS)
+        p["tech"] = dict(LATTICE, gcell_um=0.57)
+        out = plan_floorplan.layout(p)
+        self.assertEqual(plan_floorplan.check(out), [])
+        for m in out["macros"]:
+            for v in (m["x_um"], m["y_um"], m["own_w_um"], m["own_h_um"]):
+                self.assertAlmostEqual(v / 0.57, round(v / 0.57), 6)
+            # the cells it dissolves into the top level land on its sites
+            self.assertAlmostEqual(m["x_um"] / 0.054, round(m["x_um"] / 0.054), 6)
+            self.assertAlmostEqual(m["x_um"] / 0.144, round(m["x_um"] / 0.144), 6)
+            self.assertAlmostEqual(m["y_um"] / 2.16, round(m["y_um"] / 2.16), 6)
+
     def test_no_lattice_no_rounding(self):
         s = plan_floorplan.shape(
             {"name": "a", "pins": 100, "area_um2": 250000}, TECH, MARGINS
@@ -106,6 +130,7 @@ class EmitTest(unittest.TestCase):
     def test_files_for_the_flows(self):
         macros = [dict(m) for m in LayoutTest.MACROS]
         macros[0]["keep"] = ["Bpu", "Ftq"]
+        macros.append({"name": "Leaf", "pins": 300, "area_um2": 20000, "keep": []})
         macros.append({"name": "Wide", "pins": 13000, "area_um2": 140000})
         p = plan(macros)
         p["tech"] = LATTICE
@@ -126,6 +151,8 @@ class EmitTest(unittest.TestCase):
             plan_dict["macros"]["Frontend"]["SYNTH_KEEP_MODULES"], "Bpu Ftq"
         )
         self.assertNotIn("SYNTH_KEEP_MODULES", plan_dict["macros"]["MemBlock"])
+        # a block that keeps nothing says so: it flattens everything
+        self.assertEqual(plan_dict["macros"]["Leaf"]["SYNTH_KEEP_MODULES"], "")
         x0, y0, x1, y1 = [float(v) for v in plan_dict["parent"]["CORE_AREA"].split()]
         self.assertEqual((x0, y0), (10.0, 10.0))
         self.assertAlmostEqual(x1, out["die_um"][2] - 10, 3)
@@ -180,6 +207,71 @@ class EmitTest(unittest.TestCase):
         # parent's port buffers (take 24: without it the legaliser carried
         # 4 309 of them a millimetre each)
         self.assertGreaterEqual(lowest_bottom, plan_floorplan.PORT_STRIP_UM + 10.0)
+
+
+class RegionTest(unittest.TestCase):
+    def _out(self):
+        p = plan([dict(m) for m in LayoutTest.MACROS])
+        return p, plan_floorplan.layout(p)
+
+    def test_regions_in_place_macros_not_in_plan_bzl(self):
+        p, out = self._out()
+        x0, y0, x1, y1 = out["region_um"]
+        box = [x0 + 10.0, y0 + 10.0, x0 + 110.0, y0 + 60.0]
+        p["parent"]["regions"] = [
+            {"name": "ctrl", "instance": "core/backend/inner_ctrlBlock", "box_um": box}
+        ]
+        d = tempfile.mkdtemp(prefix="plan_regions.")
+        plan_floorplan.emit(out, p, d)
+        place = open(os.path.join(d, "place_macros.tcl")).read()
+        self.assertIn(
+            "\n  ctrl core/backend/inner_ctrlBlock %.3f %.3f %.3f %.3f\n" % tuple(box),
+            place,
+        )
+        self.assertIn("odb::dbGroup_create $region $name", place)
+        # the Tcl around the rows, escapes and continuation as Tcl reads
+        # them: a kept module's name holds its divider escaped
+        self.assertIn('set iname [string map {\\\\ ""} [$inst getName]]', place)
+        # and a flattened module's dotted names
+        self.assertIn("[string first $prefix. $iname] == 0", place)
+        self.assertIn("round($y0 * $dbu) }] \\\n    [expr", place)
+        # plan.bzl feeds synthesis: a region must not re-key it
+        self.assertNotIn("inner_ctrlBlock", open(os.path.join(d, "plan.bzl")).read())
+
+    def test_no_regions_no_rows(self):
+        p, out = self._out()
+        d = tempfile.mkdtemp(prefix="plan_regions.")
+        plan_floorplan.emit(out, p, d)
+        place = open(os.path.join(d, "place_macros.tcl")).read()
+        self.assertIn("foreach {name prefix x0 y0 x1 y1} {\n\n}", place)
+
+    def test_a_region_over_a_block_stops_the_plan(self):
+        p, out = self._out()
+        m = out["macros"][0]
+        p["parent"]["regions"] = [
+            {
+                "name": "bad",
+                "instance": "core/x",
+                "box_um": [m["x_um"], m["y_um"], m["x_um"] + 5.0, m["y_um"] + 5.0],
+            }
+        ]
+        with self.assertRaises(SystemExit) as e:
+            plan_floorplan.emit(out, p, tempfile.mkdtemp(prefix="plan_regions."))
+        self.assertIn("overlaps block %s" % m["name"], str(e.exception))
+
+    def test_a_region_outside_the_die_stops_the_plan(self):
+        p, out = self._out()
+        dx = out["die_um"][2]
+        p["parent"]["regions"] = [
+            {
+                "name": "out",
+                "instance": "core/x",
+                "box_um": [dx - 5.0, 0.0, dx + 5.0, 5.0],
+            }
+        ]
+        with self.assertRaises(SystemExit) as e:
+            plan_floorplan.emit(out, p, tempfile.mkdtemp(prefix="plan_regions."))
+        self.assertIn("not inside the die", str(e.exception))
 
 
 class SegmentTest(unittest.TestCase):
@@ -323,7 +415,11 @@ class ExactPinTest(unittest.TestCase):
         self.assertEqual(text.count("\n  d"), 6)
         self.assertIn("place_pin -pin_name $pin -layer $layer", text)
         self.assertIn("-force_to_die_boundary", text)
-        self.assertEqual(text.count("set_io_pin_constraint"), 1)  # the rest, whole side
+        # a pin the dump does not name stops the block: every pin is the plan's
+        self.assertEqual(text.count("set_io_pin_constraint"), 0)
+        self.assertIn("utl::error FLW 4", text)
+        # and the parent's holes read the table alone
+        self.assertIn("::plan_pins_only", text)
         self.assertEqual(target["pins_placed_exact"], 46)
         # a block whose pins the plan places is still a block of the plan:
         # one row in place_macros.tcl and one entry in plan.bzl, and none
