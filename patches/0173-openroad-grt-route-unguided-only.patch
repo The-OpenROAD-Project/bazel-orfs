@@ -187,18 +187,6 @@ index 44073c99dc..a46bca5265 100644
  regression_test(
      name = "congested_routes_are_reported",
      check_log = False,
-diff --git a/src/grt/test/CMakeLists.txt b/src/grt/test/CMakeLists.txt
-index 1bb5937e36..882d6cf72d 100644
---- a/src/grt/test/CMakeLists.txt
-+++ b/src/grt/test/CMakeLists.txt
-@@ -161,6 +161,7 @@ or_integration_tests(
-     snapshot_batched_single_thread_smoke
-     snapshot_batched_smoke
-     thread_count_reports
-+    unguided_only
- )
- 
- if(ENABLE_TESTS)
 diff --git a/src/grt/test/unguided_only.tcl b/src/grt/test/unguided_only.tcl
 new file mode 100644
 index 0000000000..194ef88aee
