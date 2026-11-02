@@ -60,11 +60,14 @@ def xs_surgery_chain(name, src, manifest, rounds, protect):
             proven = [":%s_proven_%d" % (name, r)]
         native.genrule(
             name = "%s_round%d" % (name, r) if r < rounds else name,
-            srcs = [manifest, prev] + proven,
+            srcs = [manifest, prev, _PLAN_JSON, _PLAN_BZL] + proven,
             outs = [out],
             cmd = "$(execpath :xs_surgery) apply --manifest $(location %s) --rounds %d-%d " % (manifest, r, r) +
                   "".join(["--protect %s " % p for p in protect]) +
                   ("--proven $(location %s) " % proven[0] if proven else "") +
+                  # the entries for modules this plan keeps: a carve that
+                  # flattens a module drops its boundary's constants
+                  "--plan $(location %s) --plan-bzl $(location %s) " % (_PLAN_JSON, _PLAN_BZL) +
                   "$(location %s) $@" % prev,
             tools = [":xs_surgery"],
             visibility = ["//test/coremark_joule:__subpackages__"],

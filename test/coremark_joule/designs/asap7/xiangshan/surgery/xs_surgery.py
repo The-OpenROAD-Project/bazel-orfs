@@ -29,6 +29,7 @@ from the whole file. Python 3.6.
 
 import argparse
 import json
+import os
 import re
 import sys
 
@@ -362,12 +363,25 @@ def apply_entry(net, e, proven=None):
     )
 
 
-def apply(text, manifest, protect=(), rounds=None, proven=None):
-    """Apply the manifest's entries of rounds lo..hi (all when None)."""
+def apply(text, manifest, protect=(), rounds=None, proven=None, kept=None):
+    """Apply the manifest's entries of rounds lo..hi (all when None).
+
+    kept, when given, is the set of modules the plan keeps: an entry for
+    any other module is skipped, since synthesis flattens that module and
+    folds the constant itself; a carve that changes the blocks changes
+    which entries apply, and never makes a kept module's entry pass."""
     net = Netlist(text)
     entries = manifest["entries"]
     if rounds is not None:
         entries = [e for e in entries if rounds[0] <= e["round"] <= rounds[1]]
+    if kept is not None:
+        skipped = [e for e in entries if e["module"] not in kept]
+        for e in skipped:
+            sys.stderr.write(
+                "xs_surgery: %s.%s: not kept by this plan, skipped\n"
+                % (e["module"], e["port"])
+            )
+        entries = [e for e in entries if e["module"] in kept]
     for e in sorted(entries, key=lambda e: e["round"]):
         if e["module"] in protect:
             raise SurgeryError(
@@ -462,6 +476,8 @@ def main(argv=None):
     a.add_argument(
         "--proven", help="constant_outputs.py's json, for tie_output entries"
     )
+    a.add_argument("--plan", help="the plan's json: only the modules it keeps")
+    a.add_argument("--plan-bzl", help="the plan's bzl, with --plan")
     a.add_argument("input")
     a.add_argument("output")
     q = sub.add_parser("propose")
@@ -488,8 +504,16 @@ def main(argv=None):
         if args.proven:
             with open(args.proven) as f:
                 proven = proven_outputs(json.load(f))
+        kept = None
+        if args.plan:
+            # beside this file; rules_python does not put its directory on the path
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            from constant_outputs import kept as plan_kept
+
+            with open(args.plan) as f, open(args.plan_bzl) as g:
+                kept = plan_kept(json.load(f), g.read())
         try:
-            text, n = apply(text, manifest, args.protect, rounds, proven)
+            text, n = apply(text, manifest, args.protect, rounds, proven, kept)
         except SurgeryError as e:
             sys.stderr.write("xs_surgery: %s\n" % e)
             return 1
