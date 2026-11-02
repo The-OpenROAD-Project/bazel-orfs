@@ -356,8 +356,8 @@ needs these first:
   (`OPENROAD_HIERARCHICAL`), merged.
 - OpenROAD #11719, a CTS dummy load joins its leaf net in the
   hierarchy, merged.
-- ORFS #4662, a FakeRAM asap7 macro at least one power-strap pitch wide,
-  carried as patch 0088: the parent's `AUTO_MEMORIES` macros.
+- ORFS #4662, a FakeRAM asap7 macro at least one power-strap pitch wide
+  (the parent's `AUTO_MEMORIES` macros), merged.
 - ORFS patch 0083, `rtl_macro_placer` skipped once a snapshot fixes
   every macro; not upstream.
 - ORFS patch 0124, the supplies of `dont_touch` instances connected by

@@ -553,7 +553,7 @@ index 505f9cb1d6..7181ef1b0a 100644
  {
    for (dbNet* db_net : getNets()) {
 diff --git a/src/odb/src/db/dbDatabase.cpp b/src/odb/src/db/dbDatabase.cpp
-index 32dd8d48fb..0219b712f9 100644
+index c03fceb2ed..e1942fc3fa 100644
 --- a/src/odb/src/db/dbDatabase.cpp
 +++ b/src/odb/src/db/dbDatabase.cpp
 @@ -43,6 +43,7 @@
@@ -573,8 +573,8 @@ index 32dd8d48fb..0219b712f9 100644
    // User Code End Destructor
  }
  
-@@ -940,6 +943,27 @@ void dbDatabase::write(std::ostream& file)
-   file.flush();
+@@ -953,6 +956,27 @@ static void resumeSuspendedEco(_dbBlock* block)
+   block->journal_stack_.pop();
  }
  
 +void dbDatabase::setBackingFile(const std::string& path)

@@ -48,7 +48,7 @@ index 1596ae5e11..6d1240dbf2 100644
                  "regfile_cores.txt",
                  "regfiles.txt",
 diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asap7/generate.py
-index 774684095a..cf8715d081 100644
+index a002f4ac9e..dd78e068fe 100644
 --- a/tools/FakeRAM2.0/orfs_asap7/generate.py
 +++ b/tools/FakeRAM2.0/orfs_asap7/generate.py
 @@ -24,6 +24,7 @@ from utils.memory_factory import MemoryFactory
@@ -72,18 +72,18 @@ index 774684095a..cf8715d081 100644
          # blackbox by it
          blackboxes.append(f"{name} {ram.physical.get_area(False):.6f}\n")
 diff --git a/tools/FakeRAM2.0/test/spsram_mask_test.py b/tools/FakeRAM2.0/test/spsram_mask_test.py
-index 2eea040f4c..b4675ff423 100755
+index 1aa7ea1fe6..9e8b6300e2 100755
 --- a/tools/FakeRAM2.0/test/spsram_mask_test.py
 +++ b/tools/FakeRAM2.0/test/spsram_mask_test.py
-@@ -23,6 +23,7 @@ from memory_factory import MemoryFactory
+@@ -22,6 +22,7 @@ from memory_factory import MemoryFactory
  from timing_data import TimingData
  from ram_liberty_exporter import RAMLibertyExporter
  from lef_exporter import LefExporter
 +from single_port_ram_verilog_exporter import SinglePortRAMVerilogExporter
  from test_utils import TestUtils
  from orfs_asap7.generate import (
-     ASAP7_PROCESS_CONFIG,
-@@ -130,6 +131,34 @@ class MaskedSinglePortRAMTest(unittest.TestCase):
+     ASAP7_TIMING_CONFIG,
+@@ -128,6 +129,34 @@ class MaskedSinglePortRAMTest(unittest.TestCase):
          self.assertIn("input  [MASK_LANES-1:0]  RW0_wmask;", v)
          self.assertIn("input [1:0] RW0_wmask", sv)
  
@@ -118,7 +118,7 @@ index 2eea040f4c..b4675ff423 100755
      def test_mask_must_divide_the_word(self):
          with self.assertRaises(Exception):
              MemoryConfig("m", 114, 64, 1, 0, RW0_NAMES, 5)
-@@ -194,10 +223,15 @@ class BackendTest(unittest.TestCase):
+@@ -192,10 +221,15 @@ class BackendTest(unittest.TestCase):
                  [
                      "array_64x114.lef",
                      "array_64x114.lib",

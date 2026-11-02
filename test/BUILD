@@ -815,8 +815,8 @@ build_test(
     targets = ["@orfs//flow/designs/nangate45/ariane133:ariane_synth"],
 )
 
-# aes-block synthesizes with slang, its parent and its blocks (ORFS patch
-# 0128): the aes sources' #1 delays stop canonicalization without
+# aes-block synthesizes with slang, its parent and its blocks (ORFS
+# #4681): the aes sources' #1 delays stop canonicalization without
 # --ignore-timing, and a block runs from block.mk alone.
 build_test(
     name = "aes_block_synth_build_test",
