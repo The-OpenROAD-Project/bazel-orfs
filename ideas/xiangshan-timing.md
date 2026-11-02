@@ -2350,6 +2350,7 @@ place_macros.tcl only; plan.json would re-key the surgery).
 | baseline | KPI run 22 | 2,488 ps | 9,766 | 1,689 ns | |
 | C1 | the three load units in regions beside the uncache buffer | 2,545 ps | 6,850 | 1,175 ns | mass -30 %, period +57 ps: not a winner alone |
 | C2 | C1, ALU5's issue queue, pipe and execution unit in regions together east, by toMemExu | 2,689 ps | 8,499 | 1,528 ns | worse: ALU5's loads now cross the strip (toMemExu_3 to memBlock's atomics unit 1,466 um; LoadUnit_0 to pipeToALU5) |
+| C3 | C1, ALU5's three pieces in regions together west by ALU0-4 | | | | global placement diverged (GPL-0307) at 55-110 um boxes and again at C2's sizes: regions of a few hundred to a few thousand cells are unstable here |
 
 - C1 reproduces J10 (entry 60's tree with the same regions) to the
   picosecond and the endpoint: the builds are deterministic.
