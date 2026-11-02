@@ -34,7 +34,6 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  src/grt/src/GlobalRouter.cpp                |   7 ++
  src/grt/src/GlobalRouter.i                  |   6 +
  src/grt/src/GlobalRouter.tcl                |   9 +-
- src/grt/src/fastroute/CMakeLists.txt        |   1 +
  src/grt/src/fastroute/include/FastRoute.h   |   5 +
  src/grt/src/fastroute/include/FileBacking.h |  54 +++++++++
  src/grt/src/fastroute/include/Graph2D.h     |   6 +
@@ -42,10 +41,9 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  src/grt/src/fastroute/src/FileBacking.cpp   | 123 ++++++++++++++++++++
  src/grt/src/fastroute/src/graph2d.cpp       |  32 +++++
  src/grt/test/BUILD                          |   1 +
- src/grt/test/CMakeLists.txt                 |   1 +
  src/grt/test/gcd_backing_file.ok            |  68 +++++++++++
  src/grt/test/gcd_backing_file.tcl           |  12 ++
- 17 files changed, 348 insertions(+), 1 deletion(-)
+ 15 files changed, 346 insertions(+), 2 deletions(-)
  create mode 100644 src/grt/src/fastroute/include/FileBacking.h
  create mode 100644 src/grt/src/fastroute/src/FileBacking.cpp
  create mode 100644 src/grt/test/gcd_backing_file.ok
@@ -187,18 +185,6 @@ index e5d82b817f..8581b7e7dd 100644
    set infinite_cap [info exists flags(-infinite_cap)]
    grt::set_infinite_cap $infinite_cap
  
-diff --git a/src/grt/src/fastroute/CMakeLists.txt b/src/grt/src/fastroute/CMakeLists.txt
-index 80af7c4154..cf7e5a0030 100644
---- a/src/grt/src/fastroute/CMakeLists.txt
-+++ b/src/grt/src/fastroute/CMakeLists.txt
-@@ -3,6 +3,7 @@
- 
- add_library(FastRoute4.1
-   src/FastRoute.cpp
-+  src/FileBacking.cpp
-   src/RSMT.cpp
-   src/RipUp.cpp
-   src/maze.cpp
 diff --git a/src/grt/src/fastroute/include/FastRoute.h b/src/grt/src/fastroute/include/FastRoute.h
 index b00ff743e5..f881b87845 100644
 --- a/src/grt/src/fastroute/include/FastRoute.h
@@ -545,18 +531,6 @@ index ffb304a458..3f99234af6 100644
      "gcd_cugr",
      "gcd_flute",
      "global_route_above_max_layer_cugr",
-diff --git a/src/grt/test/CMakeLists.txt b/src/grt/test/CMakeLists.txt
-index 53513bf2cf..a8f5abd79d 100644
---- a/src/grt/test/CMakeLists.txt
-+++ b/src/grt/test/CMakeLists.txt
-@@ -33,6 +33,7 @@ or_integration_tests(
-     est_rc_spef_pin_cap
-     estimate_path_resistance
-     gcd
-+    gcd_backing_file
-     gcd_cugr
-     gcd_flute
-     global_route_above_max_layer_cugr
 diff --git a/src/grt/test/gcd_backing_file.ok b/src/grt/test/gcd_backing_file.ok
 new file mode 100644
 index 0000000000..695b32cd98

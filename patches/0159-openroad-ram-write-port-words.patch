@@ -29,11 +29,9 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  src/ram/src/ram.i                       |   6 +
  src/ram/src/ram.tcl                     |  22 +++-
  src/ram/test/BUILD                      |   1 +
- src/ram/test/CMakeLists.txt             |   1 +
  src/ram/test/ram_sim.tcl                |  10 +-
- src/ram/test/regression_tests.tcl       |   1 +
  src/ram/test/write_port_words_asap7.tcl |  53 +++++++++
- 10 files changed, 215 insertions(+), 31 deletions(-)
+ 8 files changed, 213 insertions(+), 31 deletions(-)
  create mode 100644 src/ram/test/write_port_words_asap7.tcl
 
 diff --git a/src/ram/README.md b/src/ram/README.md
@@ -455,17 +453,6 @@ index c13c524a5d..16cb4408e2 100644
  ]
  
  ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
-diff --git a/src/ram/test/CMakeLists.txt b/src/ram/test/CMakeLists.txt
-index cc87194102..8ff5e588f9 100644
---- a/src/ram/test/CMakeLists.txt
-+++ b/src/ram/test/CMakeLists.txt
-@@ -25,5 +25,6 @@ or_integration_tests(
-     bank_column_layout_asap7
-     option_errors_asap7
-     generate_array_asap7
-+    write_port_words_asap7
- )
- 
 diff --git a/src/ram/test/ram_sim.tcl b/src/ram/test/ram_sim.tcl
 index ed15be9107..f785e98715 100644
 --- a/src/ram/test/ram_sim.tcl
@@ -502,17 +489,6 @@ index ed15be9107..f785e98715 100644
        set d [expr { int(rand() * (1 << $bits)) }]
        set e [expr { rand() < 0.7 }]
        set_bus $addr $abits $a
-diff --git a/src/ram/test/regression_tests.tcl b/src/ram/test/regression_tests.tcl
-index fe43f8af8b..ddabc99ecc 100644
---- a/src/ram/test/regression_tests.tcl
-+++ b/src/ram/test/regression_tests.tcl
-@@ -24,5 +24,6 @@ record_tests {
-   bank_column_layout_asap7
-   option_errors_asap7
-   generate_array_asap7
-+  write_port_words_asap7
-   make_8x8_latch_sky130
- }
 diff --git a/src/ram/test/write_port_words_asap7.tcl b/src/ram/test/write_port_words_asap7.tcl
 new file mode 100644
 index 0000000000..ffc8c1e200

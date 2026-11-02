@@ -41,7 +41,6 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  src/ram/src/ram.cpp                        | 61 ++++++++++++++++++++--
  src/ram/test/BUILD                         |  3 ++
- src/ram/test/CMakeLists.txt                |  2 +
  src/ram/test/make_7x7_2r1w_nangate45.defok |  8 +--
  src/ram/test/make_7x7_2r1w_nangate45.lefok |  2 +-
  src/ram/test/make_7x7_2r1w_nangate45.ok    |  4 +-
@@ -49,9 +48,8 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  src/ram/test/make_7x7_nangate45.lefok      |  2 +-
  src/ram/test/make_7x7_nangate45.ok         |  4 +-
  src/ram/test/pins_corner_asap7.tcl         | 50 ++++++++++++++++++
- src/ram/test/regression_tests.tcl          |  2 +
  src/ram/test/routed_short_edge_asap7.tcl   | 45 ++++++++++++++++
- 12 files changed, 174 insertions(+), 17 deletions(-)
+ 10 files changed, 170 insertions(+), 17 deletions(-)
  create mode 100644 src/ram/test/pins_corner_asap7.tcl
  create mode 100644 src/ram/test/routed_short_edge_asap7.tcl
 
@@ -169,18 +167,6 @@ index 4e9b7587f1..4d116e39a9 100644
  ]
  
  filegroup(
-diff --git a/src/ram/test/CMakeLists.txt b/src/ram/test/CMakeLists.txt
-index 9ba043de6d..008211bb9e 100644
---- a/src/ram/test/CMakeLists.txt
-+++ b/src/ram/test/CMakeLists.txt
-@@ -31,5 +31,7 @@ or_integration_tests(
-     write_ports_fanout_asap7
-     one_group_asap7
-     wide_word_asap7
-+    pins_corner_asap7
-+    routed_short_edge_asap7
- )
- 
 diff --git a/src/ram/test/make_7x7_2r1w_nangate45.defok b/src/ram/test/make_7x7_2r1w_nangate45.defok
 index 8bc955d7d7..9762c91538 100644
 --- a/src/ram/test/make_7x7_2r1w_nangate45.defok
@@ -355,18 +341,6 @@ index 0000000000..3d0b8ca54c
 +}
 +
 +puts "pass"
-diff --git a/src/ram/test/regression_tests.tcl b/src/ram/test/regression_tests.tcl
-index a99c3456a0..ec4d851b2a 100644
---- a/src/ram/test/regression_tests.tcl
-+++ b/src/ram/test/regression_tests.tcl
-@@ -30,5 +30,7 @@ record_tests {
-   write_ports_fanout_asap7
-   one_group_asap7
-   wide_word_asap7
-+  pins_corner_asap7
-+  routed_short_edge_asap7
-   make_8x8_latch_sky130
- }
 diff --git a/src/ram/test/routed_short_edge_asap7.tcl b/src/ram/test/routed_short_edge_asap7.tcl
 new file mode 100644
 index 0000000000..2de9ca7c15
