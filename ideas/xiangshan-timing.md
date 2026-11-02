@@ -2353,6 +2353,19 @@ place_macros.tcl only; plan.json would re-key the surgery).
 | C3 | C1, ALU5's three pieces in regions together west by ALU0-4 | | | | global placement diverged (GPL-0307) at 55-110 um boxes and again at C2's sizes: regions of a few hundred to a few thousand cells are unstable here |
 | C4 | C1, the parent at density 0.7 | 2,528 ps | 6,338 | 1,177 ns | the fewest endpoints; worst path now ALU5's issue-queue wakeup to dispatch's issue-queue count, 284 um apart but 60 cells deep (1,938 ps of cells): logic, not wire |
 
+- The surgery check on C4's worst path (the skill's test: would any
+  placement fix it?): yes, placement. ALU5's issue-queue wakeup leaves
+  intRegion, enters ALU1/BJU1's issue-queue entries (the destination
+  register compared in every entry), counts the ready entries and ends
+  in dispatch's issue-queue count register: XiangShan's wakeup, ready
+  count and dispatch back-pressure. Its 60 cells are 29 buffers and about
+  31 of logic; it detours from ALU5's queue (x 3,050 um) west through
+  ALU1's (2,070-2,155) and back to dispatch (2,650), 2.7 mm of wire for
+  registers 284 um apart. ALU5's issue queue placed among the other
+  integer queues would remove most of the buffering; a region for it
+  alone (3,552 cells) is under the size global placement converges at
+  here (C3).
+
 - C1 reproduces J10 (entry 60's tree with the same regions) to the
   picosecond and the endpoint: the builds are deterministic.
 - C1's worst path is inside intRegion, pipeToALU5 to io_toMemExu_2_0:
