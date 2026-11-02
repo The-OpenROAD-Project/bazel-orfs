@@ -256,14 +256,23 @@ def bazel_bin(workspace):
 
 
 def log_dir(bin_dir, package, unit, variant):
-    """logs/<platform>/<unit>/<variant> under the package; listdir, no glob."""
+    """logs/<platform>/<unit>/<variant> under the package; listdir, no glob.
+
+    A unit that is a flow's variant, as the carve's parent macro is
+    (XSTile_parent: flow XSTile, variant parent), logs under
+    <flow>/<variant> of its own: tried when the unit has none, so its
+    stages are measured like any block's."""
     logs = os.path.join(bin_dir, package, "logs")
     if not os.path.isdir(logs):
         return None
-    for platform in sorted(os.listdir(logs)):
-        d = os.path.join(logs, platform, unit, variant)
-        if os.path.isdir(d):
-            return d
+    tries = [(unit, variant)]
+    if variant == "base" and "_" in unit:
+        tries.append(tuple(unit.rsplit("_", 1)))
+    for flow, var in tries:
+        for platform in sorted(os.listdir(logs)):
+            d = os.path.join(logs, platform, flow, var)
+            if os.path.isdir(d):
+                return d
     return None
 
 
