@@ -2351,7 +2351,8 @@ place_macros.tcl only; plan.json would re-key the surgery).
 | C1 | the three load units in regions beside the uncache buffer | 2,545 ps | 6,850 | 1,175 ns | mass -30 %, period +57 ps: not a winner alone |
 | C2 | C1, ALU5's issue queue, pipe and execution unit in regions together east, by toMemExu | 2,689 ps | 8,499 | 1,528 ns | worse: ALU5's loads now cross the strip (toMemExu_3 to memBlock's atomics unit 1,466 um; LoadUnit_0 to pipeToALU5) |
 | C3 | C1, ALU5's three pieces in regions together west by ALU0-4 | | | | global placement diverged (GPL-0307) at 55-110 um boxes and again at C2's sizes: regions of a few hundred to a few thousand cells are unstable here |
-| C4 | C1, the parent at density 0.7 | 2,528 ps | 6,338 | 1,177 ns | the fewest endpoints; worst path now ALU5's issue-queue wakeup to dispatch's issue-queue count, 284 um apart but 60 cells deep (1,938 ps of cells): logic, not wire |
+| C4 | C1, the parent at density 0.7 | 2,528 ps | 6,338 | 1,177 ns | the fewest endpoints; worst path now ALU5's issue-queue wakeup to dispatch's issue-queue count, 284 um apart but 60 cells deep (1,938 ps of cells), 29 of them buffers: placement (below) |
+| C5 | C1, the parent at density 0.8 | 2,470 ps | 6,832 | 1,148 ns | **the first winner**: period -18 ps, endpoints -30 %, excess -32 % against the baseline; worst path now pipeToBJU2 to the oldest-redirect register in intRegion, registers 680 um apart, 4.2 mm of wire, 28 of 57 cells buffers, leaving intExuBlock for the top three times |
 
 - The surgery check on C4's worst path (the skill's test: would any
   placement fix it?): yes, placement. ALU5's issue-queue wakeup leaves
@@ -2365,6 +2366,17 @@ place_macros.tcl only; plan.json would re-key the surgery).
   integer queues would remove most of the buffering; a region for it
   alone (3,552 cells) is under the size global placement converges at
   here (C3).
+
+- C5 is what #1499's tree became in the pull request that followed it:
+  the load-unit regions recorded in plan.json (and its place_macros.tcl)
+  and the parent at density 0.8. Recording the regions in plan.json
+  re-keys the surgery once; the netlist does not change, the builds
+  are deterministic, so the numbers stand.
+- Density, 0.6 -> 0.7 -> 0.8 with the same regions, took the period
+  2,545 -> 2,528 -> 2,470 ps down every step; the endpoints over
+  2,000 ps went 6,850 -> 6,338 -> 6,832 and the excess stayed near
+  1,150-1,180 ns. The worst paths are wire inside
+  intRegion between pieces of one execution unit placed apart.
 
 - C1 reproduces J10 (entry 60's tree with the same regions) to the
   picosecond and the endpoint: the builds are deterministic.
