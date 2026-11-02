@@ -56,11 +56,13 @@ class DelayBuffersTest(unittest.TestCase):
             "the four blocks and FileM, the generated macro the plan does not"
             " name, are the macro clock's sinks",
         )
+        # 1 on the first plan; 2 on the gcell-aligned one, whose blocks'
+        # trees differ more (51 to 68 ps of insertion delay)
         self.assertLessEqual(
             base["delay_buffers"],
-            1,
-            "the blocks' insertion delay is a buffered tree's: at most one"
-            " buffer of residual to pad",
+            2,
+            "the blocks' insertion delay is a buffered tree's: a buffer or"
+            " two of residual to pad",
         )
         self.assertIn("-no_insertion_delay", nid["cts_args"])
         self.assertEqual(
