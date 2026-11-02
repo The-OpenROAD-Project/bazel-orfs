@@ -107,7 +107,7 @@ bazel_dep(name = "aspect_rules_js", version = "3.5.1")
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
-    integrity = "sha256-pxgm4gUEMLAuK1wxxb8pxTNBRLOWidPkNDIFGzuEwug=",
+    integrity = "sha256-Mr3M8lf7jh/85XH8GzpBbNu+nm0Zk1Ps7Nd1TkvXBvY=",
     # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
     # so vendor src/sta (OpenSTA) and the other submodules from their own
     # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
@@ -367,8 +367,8 @@ archive_override(
         # onto an OpenROAD that has it.
         "//patches:0178-openroad-ram-read-select-group-in-place.patch",
     ],
-    strip_prefix = "OpenROAD-f3d27840b65a9571a808a19b06dc0b93b9d4423d",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/f3d27840b65a9571a808a19b06dc0b93b9d4423d.tar.gz"],
+    strip_prefix = "OpenROAD-30e42953f9f507cc3fac0bfc9f397825cdf1bf22",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/30e42953f9f507cc3fac0bfc9f397825cdf1bf22.tar.gz"],
 )
 
 # sed (transitive: abc -> ncurses -> sed): its vendored gnulib headers shadow
@@ -739,8 +739,8 @@ orfs = use_extension("//:extension.bzl", "orfs_repositories")
 # `patches` on an override is honoured only from the root module and
 # would therefore land on whoever is root. Rewritten by //:bump.
 orfs.source(
-    commit = "202c7fccbce32e86db899c54b0a0f0484f869cc3",
-    integrity = "sha256-7Cn7MFNItnyfYdFBh6hqEOg1f+corFOcuOUNbwJvQzY=",
+    commit = "302dabb9533f8468cfa1fe8ed8726b466c47de5c",
+    integrity = "sha256-gZABV7i50QLwNtiIS25GNylXa2mitEahph2g/Wnw5lE=",
 )
 orfs.default(
     # Expose the slang yosys plugin (from @sv-elab, above) via
