@@ -2027,13 +2027,24 @@ class TestOpenroadOnSvElab(unittest.TestCase):
         self.assertIn("fmt/format.h", result)
 
     def test_missing_required_submodule_is_an_error(self):
+        def no_sta(parent_repo, parent_commit, path):
+            if path == "src/sta":
+                return None
+            return self._on_sv_elab(parent_repo, parent_commit, path)
+
+        with self.assertRaises(RuntimeError):
+            self._openroad(no_sta)
+
+    def test_openroad_without_abc_submodule_vendors_no_abc(self):
+        # OpenROAD dropped third-party/abc with its CMake build.
         def no_abc(parent_repo, parent_commit, path):
             if path == "third-party/abc":
                 return None
             return self._on_sv_elab(parent_repo, parent_commit, path)
 
-        with self.assertRaises(RuntimeError):
-            self._openroad(no_abc)
+        result = self._openroad(no_abc)
+        self.assertIn("OpenSTA/archive/stasha.tar.gz", result)
+        self.assertNotIn("third-party/abc", result)
 
     def test_sv_elab_follows_the_submodule(self):
         content, sha = bump.update_sv_elab_archive_override(
