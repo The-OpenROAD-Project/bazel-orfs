@@ -35,10 +35,9 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  src/grt/src/GlobalRouter.tcl          |  5 +-
  src/grt/src/fastroute/src/graph2d.cpp |  4 ++
  src/grt/test/BUILD                    |  1 +
- src/grt/test/CMakeLists.txt           |  1 +
  src/grt/test/gcd_no_incremental.ok    | 68 +++++++++++++++++++++++++++
  src/grt/test/gcd_no_incremental.tcl   | 15 ++++++
- 10 files changed, 114 insertions(+), 1 deletion(-)
+ 9 files changed, 113 insertions(+), 2 deletions(-)
  create mode 100644 src/grt/test/gcd_no_incremental.ok
  create mode 100644 src/grt/test/gcd_no_incremental.tcl
 
@@ -178,18 +177,6 @@ index 3f99234af6..44073c99dc 100644
      "gcd_cugr",
      "gcd_flute",
      "global_route_above_max_layer_cugr",
-diff --git a/src/grt/test/CMakeLists.txt b/src/grt/test/CMakeLists.txt
-index a8f5abd79d..1bb5937e36 100644
---- a/src/grt/test/CMakeLists.txt
-+++ b/src/grt/test/CMakeLists.txt
-@@ -34,6 +34,7 @@ or_integration_tests(
-     estimate_path_resistance
-     gcd
-     gcd_backing_file
-+    gcd_no_incremental
-     gcd_cugr
-     gcd_flute
-     global_route_above_max_layer_cugr
 diff --git a/src/grt/test/gcd_no_incremental.ok b/src/grt/test/gcd_no_incremental.ok
 new file mode 100644
 index 0000000000..fb367c5492

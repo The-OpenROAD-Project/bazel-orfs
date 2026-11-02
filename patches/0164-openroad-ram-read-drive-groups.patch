@@ -31,10 +31,8 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  src/ram/include/ram/ram.h         |  20 +++++
  src/ram/src/ram.cpp               | 136 ++++++++++++++++++++++++++++--
  src/ram/test/BUILD                |   1 +
- src/ram/test/CMakeLists.txt       |   1 +
  src/ram/test/read_drive_asap7.tcl |  59 +++++++++++++
- src/ram/test/regression_tests.tcl |   1 +
- 7 files changed, 210 insertions(+), 10 deletions(-)
+ 5 files changed, 208 insertions(+), 10 deletions(-)
  create mode 100644 src/ram/test/read_drive_asap7.tcl
 
 diff --git a/src/ram/README.md b/src/ram/README.md
@@ -324,17 +322,6 @@ index dd9e6b7670..18b72c25d5 100644
  ]
  
  ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
-diff --git a/src/ram/test/CMakeLists.txt b/src/ram/test/CMakeLists.txt
-index 7ad9a02793..64f326432a 100644
---- a/src/ram/test/CMakeLists.txt
-+++ b/src/ram/test/CMakeLists.txt
-@@ -27,5 +27,6 @@ or_integration_tests(
-     generate_array_asap7
-     write_port_words_asap7
-     write_mux_fanout_asap7
-+    read_drive_asap7
- )
- 
 diff --git a/src/ram/test/read_drive_asap7.tcl b/src/ram/test/read_drive_asap7.tcl
 new file mode 100644
 index 0000000000..6b079a85da
@@ -400,14 +387,3 @@ index 0000000000..6b079a85da
 +}
 +
 +puts "pass"
-diff --git a/src/ram/test/regression_tests.tcl b/src/ram/test/regression_tests.tcl
-index 9fe9d1ece2..8316a0ab73 100644
---- a/src/ram/test/regression_tests.tcl
-+++ b/src/ram/test/regression_tests.tcl
-@@ -26,5 +26,6 @@ record_tests {
-   generate_array_asap7
-   write_port_words_asap7
-   write_mux_fanout_asap7
-+  read_drive_asap7
-   make_8x8_latch_sky130
- }
