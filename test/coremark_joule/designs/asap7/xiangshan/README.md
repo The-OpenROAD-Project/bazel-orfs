@@ -105,33 +105,34 @@ target: that loop's wire, cells or logic must get faster before any
 clocking can reach it.
 
 <!-- kpi-table begin: written by kpi.py -->
-| # | date | design | parent | floor | Frontend | MemBlock | CoupledL2 | VecRegionModule | FltRegionModule | Region_1 | peak GB | change |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| not drawn | 2026-09-22 | ≥ 47,401 | 47,401 |  |  |  |  |  |  |  |  | first clock tree of the planned parent |
-| not drawn | 2026-09-23 | ≥ 45,607 | 45,607 |  |  |  |  |  |  |  |  | blocks' band soft-blocked, density 0.5, M9 at adjustment 0.18 |
-| not drawn | 2026-09-24 | 45,985 | 45,985 |  | 14,114 | 4,870 |  | 2,364 |  | 2,186 |  | the baseline; 43715 ps of it is the clock reaching MemBlock's pin, and each block alone is 3 to 20 times faster |
-| not drawn | 2026-09-24 | 14,114 | 13,527 |  | 14,114 | 4,870 |  | 2,364 |  | 2,186 |  | blocks abstracted at cts; the worst reg2reg path is Frontend's own 12534 ps setup to a falling-edge element, the clock no longer |
-| 1 | 2026-09-26 | 6,186 | 5,543 |  | 6,186 | 5,527 | 2,820 | 2,471 |  | 1,990 |  | XSTile, the tile with its L2, at density 0.2 and layer adjustment 0.1; global route at zero iterations with congestion allowed (total 37180, worst edge 31/42) |
-| 2 | 2026-09-26 | 6,186 | 5,543 |  | 6,186 | 5,527 | 2,820 | 2,471 |  | 1,990 |  | SDC at 473 ps, 333 ps on 7 nm in FO4; the period of the 800 ps run to the picosecond: with timing repair skipped and ABC mapping for area the netlist does not depend on the SDC |
-| 3 | 2026-09-27 | 6,186 | 5,143 |  | 6,186 | 5,527 | 2,820 | 2,471 |  | 1,990 |  | block abstracts carry their ports' max_transition and max_capacitance (OpenSTA patch 0008), so the parent's repair_design buffers the nets between blocks |
-| 4 | 2026-09-28 | 4,991 | 4,991 |  | 4,854 | 4,446 | 2,954 | 2,665 |  | 1,642 |  | synthesis maps with ABC's speed script in every flow instead of the area script |
-| 5 | 2026-09-28 | 5,681 | 5,188 |  | 5,681 | 3,741 | 3,464 | 2,301 | 1,826 |  |  | XiangShan kunminghu-v3 aa6b520, re-planned (Region_1 is now FltRegionModule); a different RTL, not comparable with the rows before |
-| 6 | 2026-09-29 | 5,118 | 4,325 |  | 5,118 | 2,725 | 2,698 | 2,375 | 1,831 |  |  | REMOVE_ABC_BUFFERS dropped (deprecated in ORFS) and the planned blocks' kept modules stated with OpenROAD hierarchical: one repair_design call no longer leaves about 46,000 slew violators on Frontend; measured in the same build by xs_pathology's probe |
-| 7 | 2026-10-01 | 5,402 | 5,402 |  | 2,259 | 2,057 | 2,222 | 1,247 | 814 |  |  | timing- and routability-driven global placement, ORFS's default, and RVT, LVT and SLVT from synthesis: every block faster, the parent slower and now the design's period |
-| 8 | 2026-10-02 | 3,860 | 3,860 |  | 1,541 | 2,057 | 2,222 | 1,247 | 814 |  |  | the parent keeps no global-placement repair (GPL_KEEP_OVERFLOW 0) and repairs timing after CTS; the ORFS bump to ecb3cfdeb1ca between the rows |
-| 9 | 2026-10-04 | 3,330 | 3,330 |  | 2,170 | 1,870 | 1,591 | 1,386 | 900 |  |  | AUTO_MEMORIES reaches every stage (#1157): from floorplan on, the flow times and optimizes against the generated memories' views, which earlier rows' later stages never loaded, so their paths through a memory went untimed; also the parent's CTS balancing the blocks' clock trees (#1150) and the bumps to ORFS d2b74aa79e98 |
-| 10 | 2026-10-05 | 3,264 | 3,264 |  | 2,170 | 1,870 | 1,591 | 1,386 | 900 |  | 93 | the blocks repair timing after CTS, where their abstracts are cut: the parent 3,330 to 3,264 ps on an identical placement (its stages before CTS unchanged); the blocks' place-stage periods cannot move; Frontend's CTS 46 min |
-| 11 | 2026-10-05 | 3,256 | 3,256 |  | 2,170 | 1,870 | 1,591 | 1,386 | 900 |  | 81 | the parent planned with each block mocked to density 0.6 (#1170): its die 2025 x 2666 um against 2377 x 3043, a quarter smaller, the period 3,256 against 3,264 ps; global route 81 GB against 93, congestion 21.2 % against 17.9 % |
-| 12 | 2026-10-06 | 3,162 | 3,162 |  | 2,170 | 1,870 | 1,572 | 1,479 | 895 |  |  | the generated register files read as the RTL does (#1181): the false 1,161 ps read path through FltRegionModule is gone; the parent's worst path is now its own CtrlBlock logic; VecRegionModule slower with its real read-address registers |
-| 13 | 2026-10-07 | 3,386 | 3,386 |  | 2,170 | 1,870 | 1,572 | 1,479 | 895 |  |  | in flight, to show where it stands: #1187 builds the register files with OpenROAD's generate_regfile through ORFS's AUTO_MEMORIES_REGFILES (OpenROAD#11669, OpenROAD-flow-scripts#4651) in place of bazel-orfs's structured_gen; the blocks unchanged, the parent 224 ps slower, its worst path CtrlBlock's own (rob/vtypeBuffer state to decodeBufBits ftqOffset), cause not diagnosed; measured at #1187's commit of that day, which has moved since |
-| 14 | 2026-10-08 | 3,276 | 3,276 |  | 1,792 | 1,870 | 1,572 | 1,278 | 951 |  | 83 | in flight, #1187 a day on: generate_regfile's AOI22/NAND2/NOR2 read tree makes the blocks with register files faster, Frontend 2,170 to 1,792 ps and VecRegionModule 1,479 to 1,278, FltRegionModule 895 to 951 (its worst path ends at the register file's write port); the parent 3,276 ps, 110 below run 13 and 114 above run 12, its worst paths a mass of CtrlBlock control: the same CtrlBlock built alone closes at 1,200 ps, so the parent's gap is its placement and repair; global route 18.7 min, 83 GB, 21.5 % |
-| 15 | 2026-10-09 | 2,406 | 2,406 |  | 1,792 | 1,870 | 1,572 | 1,278 | 951 |  | 102 | the parent repairs setup at global route with the route's parasitics (SKIP_INCREMENTAL_REPAIR dropped, hold repair off there): 3,276 to 2,406 ps on row 14's build, its worst path now CtrlBlock's flush redirect into Frontend; 1,525 VT swaps, 74 buffers; global route 84 min against 19, 102 GB against 83; the blocks unchanged |
-| 16 | 2026-10-14 | 9,431 | 9,431 |  | 6,998 | 1,815 | 1,982 | 1,351 | 1,406 |  | 119.9 | the parent's worst path, intRegion's pipeToBJU2 into Frontend's io_backend_toFtq_resolve_2_bits_mispredict; global route's setup repair 9,628 to 9,431 ps (197 ps, flat after iteration 869 of ~1,000), and 5,835 endpoints violate hold past the flow's -1,000 ps margin, the worst by 6,412 ps; CTS latency balancing inserts 2,502 delay buffers (518 at ffe02d5d) and 6,995 hold buffers. Frontend's worst path is the BPU's meta valid into the Ftq's generate_ram queue (metaQueueResolve.ram/addr_w); Flt's and Vec's end at their generate_ram register files' write address. Global route 209 min, 119.9 GB peak; the parent's placement 7 h. Earlier rows predate OpenSTA #532 and may leave gated-clock paths untimed |
-| 17 | 2026-10-16 | 2,504 | 2,504 | 2,151 | 1,355 | 1,449 | 978 | 992 | 1,067 |  | 98 | the parent's worst path, intRegion's io_toMemExu_2_0 lqIdx through MemBlock into intRegion's load issue queue wakeup; 5,259 of the parent's 156,690 reg2reg endpoints are above 2,000 ps, none of any block's. Patch 0135 times a global-route abstract with the route's parasitics: MemBlock's lqIdx-to-pdest arc was 6.9 ns with placement parasitics and is 1.84 ns, as MemBlock times itself; the parent was 7,855 ps without it. The register files are macros with their own clock trees (#1257, #1265), and the parent's CTS takes 40 min where run 16's took about 10 h. Every earlier row's block abstracts carry placement parasitics. Parent place 3.9 h, global route 45 min at 98 GB |
-| 18 | 2026-10-23 | 2,383 | 2,383 |  | 1,193 | 1,410 | 906 | 1,075 | 1,023 |  |  | the base flow of #1351's pin plan A/B. The parent's worst path, intRegion's flushCopyRegVec robIdx into vecRegion's gpWbWakeUp; no floor or flat run measured for this row |
-| 19 | 2026-10-23 | 2,250 | 2,250 |  | 1,296 | 1,410 | 906 | 1,083 | 922 |  |  | pins facing away from their logic over the parent's macros 3,407 to 2,959; one run per arm. Frontend rose (1,193 to 1,296 ps): the plan takes a pin net's centre, which after repair is the repeater at the pin, so its worst register-file pin stayed while its flop moved. The parent's worst path, Frontend's cfVec instruction into ctrlBlock's decode buffer |
-| 20 | 2026-10-29 | 2,212 | 2,212 | 1,984 | 1,283 | 1,236 | 815 | 1,048 | 951 |  |  | main since run 18: three OpenROAD/ORFS bumps, and MemBlock and the parent on the extracted modules (b33b28ea, da6e9aa5); one run, the causes not separated. The parent's worst path, intRegion's pipeToALU0 fuType into vecRegion's gpWbWakeUp; the one-flop-loop floor 1,984 ps (2,151 at run 17), on the same decode-buffer valid register, below the target; no flat run measured for this row |
-| 21 | 2026-10-31 | 2,206 | 2,206 |  | 1,283 | 1,158 | 815 | 1,048 | 951 |  |  | main since run 20: OpenROAD 9ddb60d to bf0feec (two bumps) and ORFS 0fcc418 to 75cd896b; one run, the causes not separated, and 6 ps on the parent is within reach of noise. MemBlock 1,236 to 1,158 ps. The parent's worst path as in run 20, intRegion's pipeToALU0 fuType into vecRegion's gpWbWakeUp; no floor or flat run measured for this row |
+| # | date | design | Top | parent | floor | Frontend | MemBlock | CoupledL2 | VecRegionModule | FltRegionModule | Region_1 | Bpu | DCacheWrapper | Ftq | ICache | L2TLBWrapper | LoadQueueRAR | LoadQueueRAW | LoadQueueReplay | MemCtrl | PhysicalStoreQueue | PrefetcherWrapper | Rob | Sbuffer | Uncache | VirtualLoadQueue | VirtualStoreQueue | XSTile_parent | peak GB | change |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| not drawn | 2026-09-22 | ≥ 47,401 |  | 47,401 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | first clock tree of the planned parent |
+| not drawn | 2026-09-23 | ≥ 45,607 |  | 45,607 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | blocks' band soft-blocked, density 0.5, M9 at adjustment 0.18 |
+| not drawn | 2026-09-24 | 45,985 |  | 45,985 |  | 14,114 | 4,870 |  | 2,364 |  | 2,186 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | the baseline; 43715 ps of it is the clock reaching MemBlock's pin, and each block alone is 3 to 20 times faster |
+| not drawn | 2026-09-24 | 14,114 |  | 13,527 |  | 14,114 | 4,870 |  | 2,364 |  | 2,186 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | blocks abstracted at cts; the worst reg2reg path is Frontend's own 12534 ps setup to a falling-edge element, the clock no longer |
+| 1 | 2026-09-26 | 6,186 |  | 5,543 |  | 6,186 | 5,527 | 2,820 | 2,471 |  | 1,990 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | XSTile, the tile with its L2, at density 0.2 and layer adjustment 0.1; global route at zero iterations with congestion allowed (total 37180, worst edge 31/42) |
+| 2 | 2026-09-26 | 6,186 |  | 5,543 |  | 6,186 | 5,527 | 2,820 | 2,471 |  | 1,990 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | SDC at 473 ps, 333 ps on 7 nm in FO4; the period of the 800 ps run to the picosecond: with timing repair skipped and ABC mapping for area the netlist does not depend on the SDC |
+| 3 | 2026-09-27 | 6,186 |  | 5,143 |  | 6,186 | 5,527 | 2,820 | 2,471 |  | 1,990 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | block abstracts carry their ports' max_transition and max_capacitance (OpenSTA patch 0008), so the parent's repair_design buffers the nets between blocks |
+| 4 | 2026-09-28 | 4,991 |  | 4,991 |  | 4,854 | 4,446 | 2,954 | 2,665 |  | 1,642 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | synthesis maps with ABC's speed script in every flow instead of the area script |
+| 5 | 2026-09-28 | 5,681 |  | 5,188 |  | 5,681 | 3,741 | 3,464 | 2,301 | 1,826 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | XiangShan kunminghu-v3 aa6b520, re-planned (Region_1 is now FltRegionModule); a different RTL, not comparable with the rows before |
+| 6 | 2026-09-29 | 5,118 |  | 4,325 |  | 5,118 | 2,725 | 2,698 | 2,375 | 1,831 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | REMOVE_ABC_BUFFERS dropped (deprecated in ORFS) and the planned blocks' kept modules stated with OpenROAD hierarchical: one repair_design call no longer leaves about 46,000 slew violators on Frontend; measured in the same build by xs_pathology's probe |
+| 7 | 2026-10-01 | 5,402 |  | 5,402 |  | 2,259 | 2,057 | 2,222 | 1,247 | 814 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | timing- and routability-driven global placement, ORFS's default, and RVT, LVT and SLVT from synthesis: every block faster, the parent slower and now the design's period |
+| 8 | 2026-10-02 | 3,860 |  | 3,860 |  | 1,541 | 2,057 | 2,222 | 1,247 | 814 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | the parent keeps no global-placement repair (GPL_KEEP_OVERFLOW 0) and repairs timing after CTS; the ORFS bump to ecb3cfdeb1ca between the rows |
+| 9 | 2026-10-04 | 3,330 |  | 3,330 |  | 2,170 | 1,870 | 1,591 | 1,386 | 900 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | AUTO_MEMORIES reaches every stage (#1157): from floorplan on, the flow times and optimizes against the generated memories' views, which earlier rows' later stages never loaded, so their paths through a memory went untimed; also the parent's CTS balancing the blocks' clock trees (#1150) and the bumps to ORFS d2b74aa79e98 |
+| 10 | 2026-10-05 | 3,264 |  | 3,264 |  | 2,170 | 1,870 | 1,591 | 1,386 | 900 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 93 | the blocks repair timing after CTS, where their abstracts are cut: the parent 3,330 to 3,264 ps on an identical placement (its stages before CTS unchanged); the blocks' place-stage periods cannot move; Frontend's CTS 46 min |
+| 11 | 2026-10-05 | 3,256 |  | 3,256 |  | 2,170 | 1,870 | 1,591 | 1,386 | 900 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 81 | the parent planned with each block mocked to density 0.6 (#1170): its die 2025 x 2666 um against 2377 x 3043, a quarter smaller, the period 3,256 against 3,264 ps; global route 81 GB against 93, congestion 21.2 % against 17.9 % |
+| 12 | 2026-10-06 | 3,162 |  | 3,162 |  | 2,170 | 1,870 | 1,572 | 1,479 | 895 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | the generated register files read as the RTL does (#1181): the false 1,161 ps read path through FltRegionModule is gone; the parent's worst path is now its own CtrlBlock logic; VecRegionModule slower with its real read-address registers |
+| 13 | 2026-10-07 | 3,386 |  | 3,386 |  | 2,170 | 1,870 | 1,572 | 1,479 | 895 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | in flight, to show where it stands: #1187 builds the register files with OpenROAD's generate_regfile through ORFS's AUTO_MEMORIES_REGFILES (OpenROAD#11669, OpenROAD-flow-scripts#4651) in place of bazel-orfs's structured_gen; the blocks unchanged, the parent 224 ps slower, its worst path CtrlBlock's own (rob/vtypeBuffer state to decodeBufBits ftqOffset), cause not diagnosed; measured at #1187's commit of that day, which has moved since |
+| 14 | 2026-10-08 | 3,276 |  | 3,276 |  | 1,792 | 1,870 | 1,572 | 1,278 | 951 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 83 | in flight, #1187 a day on: generate_regfile's AOI22/NAND2/NOR2 read tree makes the blocks with register files faster, Frontend 2,170 to 1,792 ps and VecRegionModule 1,479 to 1,278, FltRegionModule 895 to 951 (its worst path ends at the register file's write port); the parent 3,276 ps, 110 below run 13 and 114 above run 12, its worst paths a mass of CtrlBlock control: the same CtrlBlock built alone closes at 1,200 ps, so the parent's gap is its placement and repair; global route 18.7 min, 83 GB, 21.5 % |
+| 15 | 2026-10-09 | 2,406 |  | 2,406 |  | 1,792 | 1,870 | 1,572 | 1,278 | 951 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 102 | the parent repairs setup at global route with the route's parasitics (SKIP_INCREMENTAL_REPAIR dropped, hold repair off there): 3,276 to 2,406 ps on row 14's build, its worst path now CtrlBlock's flush redirect into Frontend; 1,525 VT swaps, 74 buffers; global route 84 min against 19, 102 GB against 83; the blocks unchanged |
+| 16 | 2026-10-14 | 9,431 |  | 9,431 |  | 6,998 | 1,815 | 1,982 | 1,351 | 1,406 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 119.9 | the parent's worst path, intRegion's pipeToBJU2 into Frontend's io_backend_toFtq_resolve_2_bits_mispredict; global route's setup repair 9,628 to 9,431 ps (197 ps, flat after iteration 869 of ~1,000), and 5,835 endpoints violate hold past the flow's -1,000 ps margin, the worst by 6,412 ps; CTS latency balancing inserts 2,502 delay buffers (518 at ffe02d5d) and 6,995 hold buffers. Frontend's worst path is the BPU's meta valid into the Ftq's generate_ram queue (metaQueueResolve.ram/addr_w); Flt's and Vec's end at their generate_ram register files' write address. Global route 209 min, 119.9 GB peak; the parent's placement 7 h. Earlier rows predate OpenSTA #532 and may leave gated-clock paths untimed |
+| 17 | 2026-10-16 | 2,504 |  | 2,504 | 2,151 | 1,355 | 1,449 | 978 | 992 | 1,067 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 98 | the parent's worst path, intRegion's io_toMemExu_2_0 lqIdx through MemBlock into intRegion's load issue queue wakeup; 5,259 of the parent's 156,690 reg2reg endpoints are above 2,000 ps, none of any block's. Patch 0135 times a global-route abstract with the route's parasitics: MemBlock's lqIdx-to-pdest arc was 6.9 ns with placement parasitics and is 1.84 ns, as MemBlock times itself; the parent was 7,855 ps without it. The register files are macros with their own clock trees (#1257, #1265), and the parent's CTS takes 40 min where run 16's took about 10 h. Every earlier row's block abstracts carry placement parasitics. Parent place 3.9 h, global route 45 min at 98 GB |
+| 18 | 2026-10-23 | 2,383 |  | 2,383 |  | 1,193 | 1,410 | 906 | 1,075 | 1,023 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | the base flow of #1351's pin plan A/B. The parent's worst path, intRegion's flushCopyRegVec robIdx into vecRegion's gpWbWakeUp; no floor or flat run measured for this row |
+| 19 | 2026-10-23 | 2,250 |  | 2,250 |  | 1,296 | 1,410 | 906 | 1,083 | 922 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | pins facing away from their logic over the parent's macros 3,407 to 2,959; one run per arm. Frontend rose (1,193 to 1,296 ps): the plan takes a pin net's centre, which after repair is the repeater at the pin, so its worst register-file pin stayed while its flop moved. The parent's worst path, Frontend's cfVec instruction into ctrlBlock's decode buffer |
+| 20 | 2026-10-29 | 2,212 |  | 2,212 | 1,984 | 1,283 | 1,236 | 815 | 1,048 | 951 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | main since run 18: three OpenROAD/ORFS bumps, and MemBlock and the parent on the extracted modules (b33b28ea, da6e9aa5); one run, the causes not separated. The parent's worst path, intRegion's pipeToALU0 fuType into vecRegion's gpWbWakeUp; the one-flop-loop floor 1,984 ps (2,151 at run 17), on the same decode-buffer valid register, below the target; no flat run measured for this row |
+| 21 | 2026-10-31 | 2,206 |  | 2,206 |  | 1,283 | 1,158 | 815 | 1,048 | 951 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | main since run 20: OpenROAD 9ddb60d to bf0feec (two bumps) and ORFS 0fcc418 to 75cd896b; one run, the causes not separated, and 6 ps on the parent is within reach of noise. MemBlock 1,236 to 1,158 ps. The parent's worst path as in run 20, intRegion's pipeToALU0 fuType into vecRegion's gpWbWakeUp; no floor or flat run measured for this row |
+| 22 | 2026-11-01 | 2,488 |  |  |  |  |  | 1,601 | 1,960 | 1,687 |  | 1,791 | 1,801 | 1,553 | 1,072 | 1,699 | 643 | 778 | 1,327 | 656 | 1,330 | 698 | 1,939 | 846 | 778 | 600 | 813 | 2,488 | 91.5 | the carve as a baseline: the parent macro (XSTile_parent, IntRegFile at its readers, ctrlBlock and the load TLB in placement regions) sets the period at 2,488 ps; every block at or under 1,960 ps. The Top's crossings were not measured (28 sets, about 22 h; stopped). A false minimum of this partitioning: the parent's logic is a 533 um strip between two rows of blocks. |
 <!-- kpi-table end -->
 
 Periods are in picoseconds; `≥` marks a run that did not measure the
@@ -160,6 +161,8 @@ peak.
 | 3 | 2026-10-31 | Top |  |  |  | 51.5 |  |  |  | CTS alone: latency balancing times the clock network without CRPR (#1494) |
 | 4 | 2026-10-31 | Top |  |  |  |  |  | 94.3 |  | the legaliser through global route in one process: detailed placement frees its pixel grid (#1495) |
 | 5 | 2026-11-01 | Top |  |  |  | 49.5 | 56.5 | 96 | 96 | one process again, read with a backing file, CTS's timing data freed, global route -no_incremental (measured on #1425, open) |
+| 6 | 2026-11-01 | parent macro |  | 42.3 | 48.7 | 55.8 |  | 113.4 | 113.4 | XSTile_parent through global route with the reg2reg repair (#1497's clean build): resident, global route about 34 GB more in swap |
+| 7 | 2026-11-01 | parent macro | 5.2 | 42.3 | 48.6 | 51.4 |  | 91.5 | 91.5 | the same on origin/main with #1425, #1469 and #1497: main's CTS, legaliser and global route memory patches, swap about 6 GB |
 <!-- kpi-memory end -->
 
 ### What remains
@@ -216,12 +219,26 @@ Each part alone, at its own global route with its abstracts (`<part>_kpi`):
 <!-- kpi-worst begin: written by kpi.py -->
 | part | period | worst reg2reg path | what it is |
 |---|---|---|---|
-| parent | 2,206 | `core/backend/inner_intRegion/pipeToALU0.io_out_bits_ctrl_fuType[27]$_DFFE_PP_/QN` → `core/backend/inner_vecRegion/in_fromIntRegion_gpWbWakeUp_0_wen` | From the ALU0 issue pipe's function-unit type in intRegion into vecRegion's write-back wake-up enable: a parent register to a block's input pin. |
-| Frontend | 1,283 | `inner_bpu/csrCtrl_delay.io_out_abtbEnable$_DFF_P_/QN` → `inner_bpu/tage/tables_2.tage_useful_sram_bank0_way1.array.array_0_0_0.array.array_ext/RW0_addr[2]` | The BPU's delayed abtbEnable control register to the address pin of a TAGE table's useful-bit SRAM: a CSR setting gating a memory address. |
-| MemBlock | 1,158 | `inner_dcache/dcache.mainPipe/s1_req_vaddr[35]$_DFFE_PP_/QN` → `inner_dcache/dcache.mainPipe/io_miss_req_bits_amo_cmp[62]$_DFFE_PP_/D` | The DCache main pipe's stage-1 virtual address to the miss request's amo_cmp register, inside the main pipe. |
-| CoupledL2 | 815 | `slices_0/directory/req_s3_tag[6]$_DFFE_PP0P_/QN` → `slices_0/dataStorage.array.array_0_0_0.array.array_ext/RW0_addr[11]` | The directory's stage-3 request tag to the address pin of the L2 data SRAM: a tag travelling to a memory. |
-| VecRegionModule | 1,048 | `issuePipes_1/exu.ex_0_bits_ctrl_uopIdx[0]$_DFFE_PP_/QN` → `issuePipes_1/exu.Vfmac.a0_0_fpB[59]$_DFFE_PP_/D` | An issue pipe's micro-op index into the vector FMA's operand register: operand selection by uop index. |
-| FltRegionModule | 951 | `fpWbDataPath.out_wb0_1_pdest[0]$_DFFE_PP_/QN` → `fpRegFile/io_writePorts_1_addr[0]` | The FP write-back path's destination register number to the FP register file's write address: a register index travelling to a macro. |
+| CoupledL2 | 1,601 | `slices_0/mainPipe/io_error_valid$_DFF_PP0_/QN` → `slices_0/mshrCtl/mshrs_2.io_msInfo_bits_meta_state[0]$_DFF_PP0_/D` |  |
+| VecRegionModule | 1,960 | `issuePipes_1/exu.Vfdiv/vfdivs_1.u_vector_float_divider_r64.fp_format_onehot_q[1]$_DFFE_PP_/QN` → `issuePipes_1/exu.Vfmac.a0_1_fpA[11]$_DFFE_PP_/D` |  |
+| FltRegionModule | 1,687 | `fpRegFile/io_readPorts_0_data[23]` → `issuePipes/exu.exFadd_0_bits_data_src_0[23]$_DFFE_PP_/D` |  |
+| Bpu | 1,791 | `csrCtrl_delay.io_out_mbtbEnable$_DFF_P_/QN` → `abtb/takenCounter_2_1_0_value[0]$_DFFE_PP0P_/D` |  |
+| DCacheWrapper | 1,801 | `dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN` → `dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[14]$_DFFE_PP_/D` |  |
+| Ftq | 1,553 | `resolveQueue/deqPtr_value[1]$_DFFE_PP0P_/QN` → `io_toBpu_train_bits_meta_phr_phrPtr_value[4]$_DFFE_PP0N_/D` |  |
+| ICache | 1,072 | `missUnit/allMshr_8.valid$_DFF_PP0_/QN` → `dataArray/banks_5.ways_0.array.array_ext/RW0_en` |  |
+| L2TLBWrapper | 1,699 | `ptw.cache_io_refill_bits_req_info_dup_0_r_vpn[7]$_DFFE_PP_/QN` → `ptw.cache/l0.array_0_1_0.array.array_ext/RW0_addr[2]` |  |
+| LoadQueueRAR | 643 | `freeList.headPtr_value[4]$_DFFE_PP0P_/QN` → `paddrModule.data_71[4]$_DFFE_PP_/D` |  |
+| LoadQueueRAW | 778 | `detectedRollback_paddrModule_io_violationMdata_0_r[12]$_DFFE_PP_/QN` → `detectedRollback_lqSelect_select_3_2_robIdx_value[2]$_DFFE_PP_/D` |  |
+| LoadQueueReplay | 1,327 | `allocated_19$_DFF_PP0_/QN` → `io_replay_1_bits_uop_exceptionVec_19$_DFFE_PP_/D` |  |
+| MemCtrl | 656 | `ssit/valid_array.raddr_dup_1[3]$_DFFE_PP_/QN` → `ssit/s2_storeOldSSID[0]$_DFFE_PP_/D` |  |
+| PhysicalStoreQueue | 1,330 | `sqEntryCells_18.io_data_vaddr[7]$_DFFE_PP_/QN` → `forwardModule.pipes_0/s2SelectDataEntry_data[84]$_DFFE_PP_/D` |  |
+| PrefetcherWrapper | 698 | `streamStrideOpt_strideEnable_next_r_1$_DFFE_PP0P_/QN` → `streamStrideOpt.pf_queue_filter.state_reg[8]$_DFFE_PP0P_/D` |  |
+| Rob | 1,939 | `rab/state[0]$_DFF_PP1_/QN` → `rab/renameBuffer/io_writePorts_7_addr[7]` |  |
+| Sbuffer | 846 | `stateVec_15_state_valid$_DFF_PP0_/QN` → `dataModule/line_write_buffer_data_1_1[45]$_DFFE_PP_/D` |  |
+| Uncache | 778 | `skidOccupied_UncacheSkidBuffer.io_occupied$_DFF_PP0_/QN` → `entries_3_data[47]$_DFFE_PP_/D` |  |
+| VirtualLoadQueue | 600 | `io_ldWbPtr_value[0]$_DFFE_PP0P_/QN` → `allocated_71$_DFF_PP0_/D` |  |
+| VirtualStoreQueue | 813 | `deqPtrVec_0_value[4]$_DFF_PP0_/QN` → `ctrlEntries_127_allocated$_DFF_PP0_/D` |  |
+| XSTile_parent | 2,488 | `core/memBlock/inner_lsq/loadQueue/uncacheBuffer/io_bypass_2_s2Resp_bits_data[114]$_DFFE_PP_/QN` → `core/memBlock/inner_LoadUnit_2.dataPath.s3Data[50]$_DFFE_PP_/D` |  |
 <!-- kpi-worst end -->
 
 `kpi_run.tcl` writes each part's histogram in 10 ps bins, and
@@ -301,8 +318,10 @@ a small last-level cache.
 In fanouts of four, 333 ps is 41.1 FO4 at the published ASAP7 RVT FO4 of
 8.1 ps, which the ASAP7 authors call realistic for industrial 7 nm. On
 the library this flow times with (RVT at the FF corner, FO4 14.37 ps)
-that is 591 ps at global route, and the SDC synthesises at 0.8 of it,
-473 ps (`period_fo4_test`). A cycle leaves about 38 FO4 of logic: the
+that is 591 ps at global route, and 0.8 of it, 473 ps, is the synthesis
+target (`period_fo4_test`). The SDC times at 2,000 ps, the carve
+campaign's target, so repair stops where the design is instead of chasing
+473 ps. A cycle leaves about 38 FO4 of logic: the
 flops on the paths below take 31 ps clock-to-output and 6 to 13 ps setup.
 
 Is the Chisel RTL congruent with that? Read at the source, the worst path
@@ -387,6 +406,71 @@ bazelisk run //test/coremark_joule/designs/asap7/xiangshan:XSTile_flat_grt gui_g
 `/cache-miss` asks whether a target is cached without building it: a
 capture never executes a flow action, a miss is killed as it appears and
 the build carries on, so a laptop can ask in minutes.
+
+## The parent as a macro
+
+The tile is carved so that no flow takes more than an hour or comes near
+the machine's memory: the 19 blocks the plan names (`plan/plan.json`),
+each through global route at its own outline, and the rest of the tile,
+`XSTile_parent`, a macro of the plan's die with a hole where each block
+sits (`tools/carve/parent_macro.bzl`). The top level, `XSTile_parent_pm`,
+checks them together: it places the parent and the blocks, dissolves
+every one into the cells and route guides of its own global route, and
+builds one clock tree over every register.
+
+```sh
+# the blocks and the parent, in waves that fit free memory, then the
+# top level through CTS, alone
+bazelisk run //test/coremark_joule/designs/asap7/xiangshan:build
+# the top level's global route, in the dirty lane
+bazelisk run //:dirty -- start --fresh //test/coremark_joule/designs/asap7/xiangshan:XSTile_parent_pm grt
+tmp/test/coremark_joule/designs/asap7/xiangshan/XSTile_parent_pm/make do-grt
+```
+
+Every block reaches global route in under an hour (`resources.json`);
+the slowest is Rob, about 50 minutes. The parent takes about two hours,
+most of it global placement.
+
+The top level reads the parent's LEF only (`XSTile_parent_abstract`):
+the parent's timing model, `XSTile_parent_timing_model`, is not on its
+path. The memories inside the dissolved macros reach it as one LEF and
+one library (`XSTile_parent_memories`, `tools/carve/merge_memories.py`).
+Every cell it has is fixed by its macro, so after its floorplan, which
+dissolves the macros, it is not ORFS's place, CTS and global route but
+one script, `XSTile_parent_pm_top` (`tools/carve/top_level.tcl`): one
+clock tree over every register, legalised by the diamond legaliser, and
+a global route that keeps every macro's routes and routes only the clock
+tree and the stitches (`-unguided_only`, patch 0173). The parent and the
+top level skip timing repair: the first flush through global route is
+for turnaround.
+
+`XSTile_parent_pm_crossings` lists every register-to-register path that
+is not contained in one macro and needs more than 2,000 ps, every cell
+on it by name: a macro's `.lib` gives one number at a pin, the dissolved
+top level the path. Timed whole the top level does not fit 62 GB, so it
+is timed in sets of macros (`tools/carve/crossing_*.tcl`, OpenROAD
+patch 0174): each set cut to the logic its paths can touch, written with
+its parasitics as SPEF and timed in a process of its own. On the toy
+(`test/parent_macro`) the sets report the paths the whole design does,
+slack for slack (`mini_top_parent_pm_crossing_test`).
+
+On XSTile, from a dirty lane with repair off and 4 of its 28 sets (the
+three largest and the smallest), 36,017 start and end pairs need more
+than 2,000 ps across 18 combinations of macros:
+
+| From | To | Through | Paths | Worst (ps) |
+| --- | --- | --- | ---: | ---: |
+| Rob | parent | - | 9,277 | 4,238 |
+| DCacheWrapper | parent | - | 8,186 | 2,943 |
+| parent | VecRegionModule | - | 7,997 | 3,619 |
+| parent | DCacheWrapper | - | 3,247 | 3,997 |
+| parent | FltRegionModule | - | 2,750 | 3,361 |
+| parent | parent | FltRegionModule | 1,543 | 2,957 |
+| parent | MemCtrl | - | 1,304 | 3,463 |
+| parent | parent | DCacheWrapper | 27 | 4,316 |
+
+`tools/carve/crossing_gui.tcl` serves one set in the web GUI, with a
+path group `crossing` that holds exactly these paths.
 
 ## Where the period is
 
