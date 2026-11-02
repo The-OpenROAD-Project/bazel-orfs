@@ -1673,7 +1673,10 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         # over 2.8 mm, dispatch to rename to decode a millimetre apart. At
         # 0.6 the reg2reg period before timing repair at global route was
         # 3,768 ps against 4,535 (ideas/xiangshan-timing.md, entry 59).
-        "PLACE_DENSITY": "0.6",
+        # At 0.8, with the load units in regions, the parent macro's
+        # period after repair at global route went 2,488 -> 2,470 ps and
+        # its endpoints over 2,000 ps 9,766 -> 6,832 (entry 61, arm C5).
+        "PLACE_DENSITY": "0.8",
         "SYNTH_KEEP_MODULES": parent_macro_keep,
     }
 

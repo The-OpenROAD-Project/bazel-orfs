@@ -129,6 +129,9 @@ set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
 foreach {name prefix x0 y0 x1 y1} {
   ctrlBlock core/backend/inner_ctrlBlock 2500.000 950.000 2900.000 1330.000
   dtlbLd core/memBlock/inner_dtlb_ld_tlb_ld 2900.000 1130.000 3100.000 1330.000
+  loadUnit0 core/memBlock/inner_LoadUnit_0 3100.000 1340.000 3140.000 1420.000
+  loadUnit1 core/memBlock/inner_LoadUnit_1 3140.000 1340.000 3180.000 1420.000
+  loadUnit2 core/memBlock/inner_LoadUnit_2 3180.000 1340.000 3220.000 1420.000
 } {
   set region [odb::dbRegion_create $block $name]
   odb::dbBox_create $region [expr { round($x0 * $dbu) }] [expr { round($y0 * $dbu) }] \
