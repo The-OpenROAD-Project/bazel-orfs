@@ -7,7 +7,10 @@ load(":surgery.bzl", "kept_cells", "xs_surgery_chain")
 
 py_binary(
     name = "xs_surgery",
-    srcs = ["xs_surgery.py"],
+    srcs = [
+        "constant_outputs.py",
+        "xs_surgery.py",
+    ],
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 
