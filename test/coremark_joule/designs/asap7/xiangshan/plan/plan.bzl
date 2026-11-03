@@ -29,7 +29,7 @@ PLAN = {
         "MemBlock": {
             "CORE_AREA": "10.000 10.000 933.920 933.920",
             "DIE_AREA": "0.000 0.000 943.920 943.920",
-            "SYNTH_KEEP_MODULES": "DCacheWrapper MissQueue L1PrefetchSourceArray BankedDataArray MainPipe L1ErrorMetaArray L1CohMetaArray L2TLBWrapper PtwCache LLPTW LoadQueueReplay PhysicalStoreQueue SqForwardPipe Sbuffer SbufferData PrefetcherWrapper LoadQueueRAW Uncache LoadQueueRAR VirtualStoreQueue VirtualLoadQueue",
+            "SYNTH_KEEP_MODULES": "DCacheWrapper MissQueue L1PrefetchSourceArray BankedDataArray MainPipe L1ErrorMetaArray L1CohMetaArray L2TLBWrapper PtwCache LLPTW LoadQueueReplay PhysicalStoreQueue SqForwardPipe Sbuffer SbufferData PrefetcherWrapper LoadQueueRAW Uncache LoadQueueRAR VirtualStoreQueue VirtualLoadQueue TLBNonBlock TLBNonBlock_1 TLBNonBlock_2 LoadQueueUncache PTWNewFilter HPerfMonitor_3",
             "pin_side": "bottom",
             "x_um": 1641.6,
             "y_um": 1518.48,
@@ -54,7 +54,7 @@ PLAN = {
     "parent": {
         "CORE_AREA": "10.000 10.000 2585.664 2464.560",
         "DIE_AREA": "0.000 0.000 2595.664 2474.560",
-        "SYNTH_KEEP_MODULES": "Backend CtrlBlock FusionDecoder Region DecodeStage SimpleDecodeChannel UopBufferCtrlDecoder Rob Dispatch Rename MemCtrl IssueQueueAluCsrFenceLinkBrhNjmp IssueQueueAluDivBrhNjmp IssueQueueAluI2fBrhNjmp IssueQueueAluBkuVset IssueQueueAluMul IssueQueueLdu IssueQueueStaMou IssueQueueStaMou_1 IssueQueueStdMoud IssueQueueStdMoud_1 DataPath ExuBlock VectorDecodeChannel RenameBuffer VTypeBuffer RobEntryCell BusyTable BusyTable_1 RenameTableWrapper CompressUnit SSIT LFST EntriesAluCsrFenceLinkBrhNjmp EntriesAluDivBrhNjmp EntriesAluI2fBrhNjmp EntriesAluBkuVset EntriesAluMul EntriesLdu EntriesStaMou EntriesStdMoud ExeUnitImp NewCSR Frontend MemBlock VecRegionModule FltRegionModule XSCore L2Top TLBNonBlock TLBNonBlock_1 TLBNonBlock_2 LoadQueueUncache HPerfMonitor_3 PTWNewFilter",
+        "SYNTH_KEEP_MODULES": "Backend CtrlBlock FusionDecoder Region DecodeStage SimpleDecodeChannel UopBufferCtrlDecoder Rob Dispatch Rename MemCtrl IssueQueueAluCsrFenceLinkBrhNjmp IssueQueueAluDivBrhNjmp IssueQueueAluI2fBrhNjmp IssueQueueAluBkuVset IssueQueueAluMul IssueQueueLdu IssueQueueStaMou IssueQueueStaMou_1 IssueQueueStdMoud IssueQueueStdMoud_1 DataPath ExuBlock VectorDecodeChannel RenameBuffer VTypeBuffer RobEntryCell BusyTable BusyTable_1 RenameTableWrapper CompressUnit SSIT LFST EntriesAluCsrFenceLinkBrhNjmp EntriesAluDivBrhNjmp EntriesAluI2fBrhNjmp EntriesAluBkuVset EntriesAluMul EntriesLdu EntriesStaMou EntriesStdMoud ExeUnitImp NewCSR Frontend MemBlock VecRegionModule FltRegionModule XSCore L2Top",
         "clock_pins": [
             "clock",
         ],

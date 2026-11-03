@@ -597,6 +597,31 @@
           "peak_gb": 5.4
         }
       }
+    },
+    "MemBlock": {
+      "source": "estimated",
+      "stages": {
+        "synth": {
+          "minutes": 0.5,
+          "peak_gb": 2.6
+        },
+        "floorplan": {
+          "minutes": 49.2,
+          "peak_gb": 10.0
+        },
+        "place": {
+          "minutes": 80.0,
+          "peak_gb": 28.6
+        },
+        "cts": {
+          "minutes": 47.2,
+          "peak_gb": 25.6
+        },
+        "grt": {
+          "minutes": 92.7,
+          "peak_gb": 42.2
+        }
+      }
     }
   }
 }

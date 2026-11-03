@@ -89,13 +89,7 @@
    "VecRegionModule",
    "FltRegionModule",
    "XSCore",
-   "L2Top",
-   "TLBNonBlock",
-   "TLBNonBlock_1",
-   "TLBNonBlock_2",
-   "LoadQueueUncache",
-   "HPerfMonitor_3",
-   "PTWNewFilter"
+   "L2Top"
   ],
   "port_side": "bottom",
   "ports": 1557,
@@ -247,7 +241,13 @@
     "Uncache",
     "LoadQueueRAR",
     "VirtualStoreQueue",
-    "VirtualLoadQueue"
+    "VirtualLoadQueue",
+    "TLBNonBlock",
+    "TLBNonBlock_1",
+    "TLBNonBlock_2",
+    "LoadQueueUncache",
+    "PTWNewFilter",
+    "HPerfMonitor_3"
    ],
    "content_um2": 349781
   }
