@@ -15,7 +15,8 @@ number is its reg2reg group with its clock tree, at global route; each
 block's is that block alone, likewise at its global route with its clock
 tree (rows up to 2026-10-14 read the blocks at their place stage,
 against an ideal clock). A run that
-did not measure the blocks gives only a lower bound, drawn hollow.
+did not measure the blocks, or a carved run that did not measure the Top,
+gives only a lower bound, drawn hollow and written "≥" in the table.
 
 A carved run (the parent as a macro, README "The parent as a macro") has
 no parent_ps: the parent macro is a part in `blocks` like any block
@@ -142,6 +143,17 @@ def design_ps(run):
     return max(tops + list(run.get("blocks", {}).values()))
 
 
+def measured_all(run):
+    """Whether the design's period is the run's, not a lower bound: the
+    blocks measured, and in a carved run (the parent macro a part in
+    `blocks`) the Top too, since a reg2reg path that crosses a macro
+    boundary is one only at the Top."""
+    blocks = run.get("blocks", {})
+    if not blocks:
+        return False
+    return not any(n.endswith("_parent") for n in blocks) or "top_ps" in run
+
+
 def read_top(text, bin_ps=10):
     """crossing_report.py's crossing.txt: the worst path's need, rounded
     up, and the paths in bin_ps bins as kpi_run.tcl writes a histogram.
@@ -266,7 +278,7 @@ def draw(runs, target, out):
             ms=8,
             zorder=4,
             color="firebrick",
-            markerfacecolor="firebrick" if r.get("blocks") else "white",
+            markerfacecolor="firebrick" if measured_all(r) else "white",
         )
     ax.axhline(target, color="black", ls=":", lw=1.5, label="target")
     ax.axhline(
@@ -623,7 +635,7 @@ def table(runs):
         cells = [
             str(i - start + 1) if i >= start else "not drawn",
             r["date"],
-            ("%s" if blocks else "≥ %s") % design,
+            ("%s" if measured_all(r) else "≥ %s") % design,
             (
                 ("< %s" if r.get("top_below") else "%s") % f"{r['top_ps']:,}"
                 if "top_ps" in r
