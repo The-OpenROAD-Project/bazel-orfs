@@ -1,8 +1,9 @@
 load("@bazel-orfs//:openroad.bzl", "odb_debug", "orfs_schedule")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("//test/coremark_joule/designs/asap7/xiangshan/kit:kit.bzl", "xs_kit")
 load("//test/coremark_joule/flow:power.bzl", "census_probe", "grt_netlist", "hier_probe", "physical_probe", "stage_power", "stage_power_units")
 load(":plan/plan.bzl", "PLAN")
-load(":xiangshan.bzl", "xiangshan_flat_flow", "xiangshan_flow")
+load(":xiangshan.bzl", "xiangshan_flat_flow", "xiangshan_flow", "xs_regfile_modules")
 
 exports_files(["constraints.sdc"])
 
@@ -147,6 +148,63 @@ xiangshan_flow(
 xiangshan_flat_flow(
     name = "XSTile",
     variant = "flat",
+)
+
+# The implementation kit's netlist: the whole tile in one synthesis,
+# partitioned as the carve is, the core with every arrays extraction in
+# place, the register files and the memories as macros (kit/EXPORT.md).
+xiangshan_flat_flow(
+    name = "XSTile",
+    plan = PLAN,
+    variant = "kit",
+)
+
+# The implementation kit for a place-and-route tool, its
+# README.pdf written from the files it is made of (kit/):
+#   bazelisk run //test/coremark_joule/designs/asap7/xiangshan:export -- <dir>
+filegroup(
+    name = "kit_doc_inputs",
+    srcs = [
+        "kpi.json",
+        "plan/plan.bzl",
+        "plan/plan.json",
+        "resources.json",
+        "//test/coremark_joule/designs/asap7/xiangshan/arrays:ab.json",
+    ] + glob(["*.regfile"]),
+    visibility = ["//test/coremark_joule/designs/asap7/xiangshan/kit:__pkg__"],
+)
+
+# XSTile's ports as the flow reads the RTL, after the surgery: what a
+# tool's floorplan has to place. A test-mode pin (scan, BIST, a DFT
+# control) stops the build here: the kit's top level is functional pins
+# only, and one that appears is tied off by surgery before a kit ships.
+# MBIST is off in the generator (CoreMarkJouleConfig) and XSTile has no
+# scan or DFT port of its own.
+XS_TEST_PORTS = "(^|_)(dft|scan|scanmode|mbist|bist|testmode|test_mode|sram_?ctl|cgen)(_|$$)"
+
+genrule(
+    name = "xstile_rtl_ports",
+    srcs = ["//test/coremark_joule/designs/asap7/xiangshan/surgery:xiangshan_surgered.sv"],
+    outs = ["xstile_rtl_ports.json"],
+    cmd = "$(execpath //test/coremark_joule/designs/asap7/xiangshan/kit:ports) --module XSTile --refuse '%s' --out $@ $<" % XS_TEST_PORTS,
+    tags = ["manual"],
+    tools = ["//test/coremark_joule/designs/asap7/xiangshan/kit:ports"],
+)
+
+xs_kit(
+    name = "kit",
+    doc_inputs = {
+        "ab": "//test/coremark_joule/designs/asap7/xiangshan/arrays:ab.json",
+        "kpi": "kpi.json",
+        "plan": "plan/plan.json",
+        "plan-bzl": "plan/plan.bzl",
+        "resources": "resources.json",
+    },
+    flow = "XSTile_kit",
+    regfile_specs = ["%s.regfile" % m for m in xs_regfile_modules()],
+    regfiles = xs_regfile_modules(),
+    rtl_ports = ":xstile_rtl_ports",
+    sdc = "constraints.sdc",
 )
 
 # The carve, scheduled to the memory there is (docs/schedule.md): the

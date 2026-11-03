@@ -25,6 +25,10 @@ common --@@protobuf+//bazel/toolchains:prefer_prebuilt_protoc
 # Garbage-collect disk cache to avoid exhausting CI runner disk.
 build --experimental_disk_cache_gc_max_size=2G
 
+# The commit a stamped target names (stamp = 1: the XSTile kit's
+# README.pdf). Unstamped actions do not see it.
+build --workspace_status_command=tools/workspace_status.sh
+
 # Don't make py_binary tools depend on the *host* python.  rules_python's
 # default `system_python` bootstrap emits the executable from
 # python_bootstrap_template.txt — a Python script the launcher runs with

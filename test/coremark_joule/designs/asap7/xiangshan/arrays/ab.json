@@ -1,0 +1,72 @@
+{
+  "_comment": [
+    "What generate_array's extraction buys, per block: the module as it is (a) against the extraction (b), the same flow through global route, single runs side by side; minutes for the whole flow and the period at global route on the routes' parasitics.",
+    "arrays/README.md's table is this file (ab_test); the implementation kit's README reads it."
+  ],
+  "rows": [
+    {
+      "block": "PhysicalStoreQueue",
+      "kind": "store queue, address CAM",
+      "a_min": 30.53,
+      "b_min": 9.67,
+      "a_ps": 1453.0,
+      "b_ps": 1579.6
+    },
+    {
+      "block": "LoadQueueReplay",
+      "kind": "load replay queue",
+      "a_min": 37.4,
+      "b_min": 22.36,
+      "a_ps": 1198.4,
+      "b_ps": 1201.8
+    },
+    {
+      "block": "VirtualStoreQueue",
+      "kind": "store queue control",
+      "a_min": 6.04,
+      "b_min": 3.53,
+      "a_ps": 944.7,
+      "b_ps": 910.4
+    },
+    {
+      "block": "LoadQueueRAR",
+      "kind": "read-after-read CAM",
+      "a_min": 6.59,
+      "b_min": 4.05,
+      "a_ps": 781.3,
+      "b_ps": 818.1
+    },
+    {
+      "block": "TLBFA",
+      "kind": "fully associative TLB (CAM)",
+      "a_min": 2.69,
+      "b_min": 2.19,
+      "a_ps": 397.0,
+      "b_ps": 320.6
+    },
+    {
+      "block": "TLBFA_1",
+      "kind": "fully associative TLB (CAM)",
+      "a_min": 5.95,
+      "b_min": 3.06,
+      "a_ps": 456.2,
+      "b_ps": 282.3
+    },
+    {
+      "block": "VirtualLoadQueue",
+      "kind": "load queue control",
+      "a_min": 4.48,
+      "b_min": 3.91,
+      "a_ps": 857.6,
+      "b_ps": 847.0
+    },
+    {
+      "block": "Rob",
+      "kind": "352-entry reorder buffer",
+      "a_min": 58.07,
+      "b_min": 52.6,
+      "a_ps": 1379.9,
+      "b_ps": 1212.3
+    }
+  ]
+}

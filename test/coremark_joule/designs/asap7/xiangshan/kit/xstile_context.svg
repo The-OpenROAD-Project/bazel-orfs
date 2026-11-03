@@ -1,0 +1,48 @@
+<svg width="860" height="520" viewBox="0 0 860 520" xmlns="http://www.w3.org/2000/svg">
+<rect x="10" y="10" width="840" height="500" rx="4" fill="none" stroke="#17202b" stroke-width="1.5"/>
+<text x="24" y="32" fill="#17202b" font-size="14" font-weight="bold">XSTop · SoC</text>
+<rect x="30" y="44" width="600" height="340" rx="3" fill="#dbe6f3" stroke="#1f5fa8" stroke-width="2"/>
+<text x="44" y="66" fill="#17202b" font-size="14" font-weight="bold">XSTile · this kit · one clock</text>
+<rect x="46" y="78" width="568" height="168" fill="#fbfcfd" stroke="#1f5fa8" stroke-width="1"/>
+<text x="58" y="98" fill="#17202b" font-size="14" font-weight="bold">XSCore</text>
+<rect x="58" y="110" width="176" height="120" rx="3" fill="#eef2f6" stroke="#5a6675" stroke-width="1.2"/>
+<text x="146" y="132" fill="#17202b" font-size="14" text-anchor="middle" font-weight="bold">Frontend</text>
+<text x="146" y="152" fill="#5a6675" font-size="12" text-anchor="middle">BPU · IFU · Ftq · IBuffer</text>
+<rect x="106" y="172" width="80" height="26" rx="3" fill="#f3dccb" stroke="#a4511d" stroke-width="1.5"/>
+<text x="146" y="190" fill="#17202b" font-size="13" text-anchor="middle">L1I</text>
+<rect x="246" y="110" width="176" height="120" rx="3" fill="#eef2f6" stroke="#5a6675" stroke-width="1.2"/>
+<text x="334" y="132" fill="#17202b" font-size="14" text-anchor="middle" font-weight="bold">Backend</text>
+<text x="334" y="152" fill="#5a6675" font-size="12" text-anchor="middle">decode · rename · ROB</text>
+<text x="334" y="170" fill="#5a6675" font-size="12" text-anchor="middle">issue queues · register files</text>
+<text x="334" y="188" fill="#5a6675" font-size="12" text-anchor="middle">execution units</text>
+<rect x="434" y="110" width="168" height="120" rx="3" fill="#eef2f6" stroke="#5a6675" stroke-width="1.2"/>
+<text x="518" y="132" fill="#17202b" font-size="14" text-anchor="middle" font-weight="bold">MemBlock</text>
+<text x="518" y="152" fill="#5a6675" font-size="12" text-anchor="middle">LSU · Sbuffer · uncache</text>
+<rect x="446" y="172" width="66" height="26" rx="3" fill="#f3dccb" stroke="#a4511d" stroke-width="1.5"/>
+<text x="479" y="190" fill="#17202b" font-size="13" text-anchor="middle">L1D</text>
+<rect x="520" y="172" width="70" height="26" rx="3" fill="#f3dccb" stroke="#a4511d" stroke-width="1.5"/>
+<text x="555" y="190" fill="#17202b" font-size="13" text-anchor="middle">L2TLB</text>
+<text x="518" y="220" fill="#5a6675" font-size="12" text-anchor="middle">L2TLB: page walker, not a cache</text>
+<line x1="146" y1="246" x2="146" y2="286" fill="none" stroke="#17202b" stroke-width="1.5"/>
+<line x1="479" y1="246" x2="479" y2="286" fill="none" stroke="#17202b" stroke-width="1.5"/>
+<line x1="555" y1="246" x2="555" y2="286" fill="none" stroke="#17202b" stroke-width="1.5"/>
+<text x="160" y="271" fill="#5a6675" font-size="12">TileLink: L1I, L1D, page walks and MMIO to L2Top</text>
+<rect x="46" y="286" width="568" height="84" fill="#fbfcfd" stroke="#1f5fa8" stroke-width="1"/>
+<text x="58" y="306" fill="#17202b" font-size="14" font-weight="bold">L2Top</text>
+<rect x="58" y="316" width="260" height="42" rx="3" fill="#eef2f6" stroke="#5a6675" stroke-width="1.2"/>
+<text x="188" y="342" fill="#17202b" font-size="13" text-anchor="middle">CoupledL2 · private L2</text>
+<rect x="330" y="316" width="272" height="42" rx="3" fill="#eef2f6" stroke="#5a6675" stroke-width="1.2"/>
+<text x="466" y="342" fill="#17202b" font-size="13" text-anchor="middle">MMIO ports · bus error unit</text>
+<rect x="650" y="44" width="180" height="340" rx="3" fill="#f3dccb" stroke="#a4511d" stroke-width="1.5"/>
+<text x="740" y="190" fill="#17202b" font-size="13" text-anchor="middle">clock-crossing</text>
+<text x="740" y="208" fill="#17202b" font-size="13" text-anchor="middle">bridge</text>
+<text x="740" y="236" fill="#5a6675" font-size="12" text-anchor="middle">XiangShan's wrapper</text>
+<text x="740" y="254" fill="#5a6675" font-size="12" text-anchor="middle">outside the kit</text>
+<line x1="630" y1="214" x2="650" y2="214" fill="none" stroke="#17202b" stroke-width="1.5"/>
+<line x1="740" y1="384" x2="740" y2="410" fill="none" stroke="#17202b" stroke-width="1.5"/>
+<rect x="30" y="410" width="800" height="60" rx="3" fill="#eef2f6" stroke="#5a6675" stroke-width="1.2"/>
+<text x="46" y="436" fill="#17202b" font-size="14" font-weight="bold">Uncore</text>
+<text x="46" y="456" fill="#17202b" font-size="13">L3 / last-level cache, interconnect, peripheral crossbar · uncore clock</text>
+<line x1="430" y1="470" x2="430" y2="490" fill="none" stroke="#17202b" stroke-width="1.5"/>
+<text x="430" y="503" fill="#5a6675" font-size="12" text-anchor="middle">memory and peripheral ports (AXI / CHI)</text>
+</svg>
