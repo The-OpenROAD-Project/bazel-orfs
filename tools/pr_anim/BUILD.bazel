@@ -1,0 +1,70 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+# Before/after animations of a change to OpenROAD's web viewer, for the
+# pull request's body: the web-pr-animation skill. Dev-only, never
+# shipped: the browser and Playwright are dev dependencies.
+#
+#   bazelisk run //tools/pr_anim:record -- --url U --scene S --out O
+
+py_library(
+    name = "frames",
+    srcs = ["frames.py"],
+    imports = ["."],
+    deps = ["@bazel-orfs-dev-pip//pillow"],
+)
+
+py_binary(
+    name = "record",
+    srcs = ["record.py"],
+    args = [
+        "--browser",
+        "$(rootpath @chrome_headless_shell//:chrome-headless-shell)",
+    ],
+    data = [
+        "@chrome_headless_shell//:chrome-headless-shell",
+        "@chrome_headless_shell//:files",
+    ],
+    deps = [
+        ":frames",
+        "@bazel-orfs-dev-pip//playwright",
+    ],
+)
+
+py_test(
+    name = "frames_test",
+    size = "small",
+    srcs = ["frames_test.py"],
+    deps = [":frames"],
+)
+
+py_test(
+    name = "smoke_test",
+    size = "medium",
+    srcs = [
+        "record.py",
+        "smoke_test.py",
+    ],
+    args = [
+        "$(rootpath @chrome_headless_shell//:chrome-headless-shell)",
+        "$(rootpath smoke.html)",
+        "$(rootpath smoke_scene.py)",
+    ],
+    data = [
+        "smoke.html",
+        "smoke_scene.py",
+        "@chrome_headless_shell//:chrome-headless-shell",
+        "@chrome_headless_shell//:files",
+    ],
+    tags = ["manual"],
+    deps = [
+        ":frames",
+        "@bazel-orfs-dev-pip//playwright",
+    ],
+)
+
+py_test(
+    name = "scenes_test",
+    size = "small",
+    srcs = ["scenes_test.py"],
+    data = glob(["scenes/*.py"]),
+)
