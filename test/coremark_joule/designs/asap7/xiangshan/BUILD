@@ -17,6 +17,17 @@ py_binary(
     deps = ["@bazel-orfs-dev-pip//matplotlib"],
 )
 
+py_test(
+    name = "kpi_test",
+    srcs = [
+        "kpi.py",
+        "kpi_test.py",
+    ],
+    imports = ["."],
+    main = "kpi_test.py",
+    deps = ["@bazel-orfs-dev-pip//matplotlib"],
+)
+
 # The SDC period is XiangShan's 333 ps on 7 nm in fanouts of four, on the
 # library the flow times with, ORFS's default asap7 corner FF, in each Vt
 # class; the flow's primary Vt first.
