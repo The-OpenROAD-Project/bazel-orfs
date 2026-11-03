@@ -335,7 +335,8 @@ def facts_values(a):
     periods = run["blocks"]
     parent = "XSTile_parent"
     v["kpi_date"] = run["date"]
-    v["best_period"] = num(max(periods.values()))
+    # XSTile's period: its slowest part, the Top's crossings included
+    v["best_period"] = num(max(list(periods.values()) + [run.get("top_ps", 0)]))
     v["parent_period"] = num(periods[parent])
     v["target_ps"] = num(kpi["target_ps"])
     pins = {m["name"]: m["pins"] for m in plan["macros"]}
