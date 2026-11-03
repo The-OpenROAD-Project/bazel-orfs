@@ -879,7 +879,10 @@ XS_BLOCKS = {
             "ENABLE_DPO": "0",
             "IO_PLACER_H": "M2 M4",
             "IO_PLACER_V": "M3 M5",
-            "RTLMP_MIN_CHANNEL_SIZE": "4 4",
+            # at 4 um the macro placer left 4.7 um between the two register
+            # files; CTS put the clock tree in that slit (445 ps skew, 11,271
+            # hold buffers, 2,117 ps) and the legaliser could not place there
+            "RTLMP_MIN_CHANNEL_SIZE": "20 20",
             "MAX_ROUTING_LAYER": "M9",
             "MIN_ROUTING_LAYER": "M2",
             "OPENROAD_HIERARCHICAL": "0",
