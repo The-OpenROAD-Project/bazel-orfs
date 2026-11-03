@@ -134,6 +134,7 @@ clocking can reach it.
 | 21 | 2026-10-31 | 2,206 |  | 2,206 |  | 1,283 | 1,158 | 815 | 1,048 | 951 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | main since run 20: OpenROAD 9ddb60d to bf0feec (two bumps) and ORFS 0fcc418 to 75cd896b; one run, the causes not separated, and 6 ps on the parent is within reach of noise. MemBlock 1,236 to 1,158 ps. The parent's worst path as in run 20, intRegion's pipeToALU0 fuType into vecRegion's gpWbWakeUp; no floor or flat run measured for this row |
 | 22 | 2026-11-01 | 2,488 |  |  |  |  |  | 1,601 | 1,960 | 1,687 |  | 1,791 | 1,801 | 1,553 | 1,072 | 1,699 | 643 | 778 | 1,327 | 656 | 1,330 | 698 | 1,939 | 846 | 778 | 600 | 813 | 2,488 | 91.5 | the carve as a baseline: the parent macro (XSTile_parent, IntRegFile at its readers, ctrlBlock and the load TLB in placement regions) sets the period at 2,488 ps; every block at or under 1,960 ps. The Top's crossings were not measured (28 sets, about 22 h; stopped). A false minimum of this partitioning: the parent's logic is a 533 um strip between two rows of blocks. |
 | 23 | 2026-11-02 | 2,470 |  |  |  |  |  | 1,601 | 1,960 | 1,687 |  | 1,791 | 1,801 | 1,553 | 1,072 | 1,699 | 643 | 778 | 1,327 | 656 | 1,330 | 698 | 1,939 | 846 | 778 | 600 | 813 | 2,470 |  | #1501: the three load units in placement regions beside the uncache buffer and the parent macro placed at density 0.8 instead of 0.6. The parent macro 2,488 to 2,470 ps, its endpoints over 2,000 ps 9,766 to 6,832 and their excess 1,689 to 1,148 ns; every block as in run 22. No memory per stage for this row: the build's logs were overwritten by later builds in the same tree before they were read |
+| 24 | 2026-11-03 | 2,117 |  |  |  | 1,997 | 1,861 | 1,559 | 1,978 | 1,760 |  |  |  |  |  |  |  |  |  |  |  |  | 2,117 |  |  |  |  | 2,111 | 61 | XSTile carved along XiangShan's hierarchy into six blocks, pins on the edge facing each neighbour. The parent macro 2,470 to 2,111 ps, its endpoints over 2,000 ps 6,832 to 117 and their excess 1,148 to 3 ns: MemBlock's and Frontend's logic left it with their blocks. Rob 1,939 to 2,117 ps, now the slowest part. Frontend 1,997 and MemBlock 1,861 ps as whole blocks. The Top's crossings are not measured yet |
 <!-- kpi-table end -->
 
 Periods are in picoseconds; `≥` marks a run that did not measure the
@@ -164,6 +165,7 @@ peak.
 | 5 | 2026-11-01 | Top |  |  |  | 49.5 | 56.5 | 96 | 96 | one process again, read with a backing file, CTS's timing data freed, global route -no_incremental (measured on #1425, open) |
 | 6 | 2026-11-01 | parent macro |  | 42.3 | 48.7 | 55.8 |  | 113.4 | 113.4 | XSTile_parent through global route with the reg2reg repair (#1497's clean build): resident, global route about 34 GB more in swap |
 | 7 | 2026-11-01 | parent macro | 5.2 | 42.3 | 48.6 | 51.4 |  | 91.5 | 91.5 | the same on origin/main with #1425, #1469 and #1497: main's CTS, legaliser and global route memory patches, swap about 6 GB |
+| 8 | 2026-11-03 | parent macro | 4.9 | 27.7 | 33 | 34.7 |  | 61 | 61 | the six-block carve: MemBlock's and Frontend's logic left the parent with their blocks |
 <!-- kpi-memory end -->
 
 ### What remains
@@ -220,26 +222,13 @@ Each part alone, at its own global route with its abstracts (`<part>_kpi`):
 <!-- kpi-worst begin: written by kpi.py -->
 | part | period | worst reg2reg path | what it is |
 |---|---|---|---|
-| CoupledL2 | 1,601 | `slices_0/mainPipe/io_error_valid$_DFF_PP0_/QN` → `slices_0/mshrCtl/mshrs_2.io_msInfo_bits_meta_state[0]$_DFF_PP0_/D` |  |
-| VecRegionModule | 1,960 | `issuePipes_1/exu.Vfdiv/vfdivs_1.u_vector_float_divider_r64.fp_format_onehot_q[1]$_DFFE_PP_/QN` → `issuePipes_1/exu.Vfmac.a0_1_fpA[11]$_DFFE_PP_/D` |  |
-| FltRegionModule | 1,687 | `fpRegFile/io_readPorts_0_data[23]` → `issuePipes/exu.exFadd_0_bits_data_src_0[23]$_DFFE_PP_/D` |  |
-| Bpu | 1,791 | `csrCtrl_delay.io_out_mbtbEnable$_DFF_P_/QN` → `abtb/takenCounter_2_1_0_value[0]$_DFFE_PP0P_/D` |  |
-| DCacheWrapper | 1,801 | `dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN` → `dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[14]$_DFFE_PP_/D` |  |
-| Ftq | 1,553 | `resolveQueue/deqPtr_value[1]$_DFFE_PP0P_/QN` → `io_toBpu_train_bits_meta_phr_phrPtr_value[4]$_DFFE_PP0N_/D` |  |
-| ICache | 1,072 | `missUnit/allMshr_8.valid$_DFF_PP0_/QN` → `dataArray/banks_5.ways_0.array.array_ext/RW0_en` |  |
-| L2TLBWrapper | 1,699 | `ptw.cache_io_refill_bits_req_info_dup_0_r_vpn[7]$_DFFE_PP_/QN` → `ptw.cache/l0.array_0_1_0.array.array_ext/RW0_addr[2]` |  |
-| LoadQueueRAR | 643 | `freeList.headPtr_value[4]$_DFFE_PP0P_/QN` → `paddrModule.data_71[4]$_DFFE_PP_/D` |  |
-| LoadQueueRAW | 778 | `detectedRollback_paddrModule_io_violationMdata_0_r[12]$_DFFE_PP_/QN` → `detectedRollback_lqSelect_select_3_2_robIdx_value[2]$_DFFE_PP_/D` |  |
-| LoadQueueReplay | 1,327 | `allocated_19$_DFF_PP0_/QN` → `io_replay_1_bits_uop_exceptionVec_19$_DFFE_PP_/D` |  |
-| MemCtrl | 656 | `ssit/valid_array.raddr_dup_1[3]$_DFFE_PP_/QN` → `ssit/s2_storeOldSSID[0]$_DFFE_PP_/D` |  |
-| PhysicalStoreQueue | 1,330 | `sqEntryCells_18.io_data_vaddr[7]$_DFFE_PP_/QN` → `forwardModule.pipes_0/s2SelectDataEntry_data[84]$_DFFE_PP_/D` |  |
-| PrefetcherWrapper | 698 | `streamStrideOpt_strideEnable_next_r_1$_DFFE_PP0P_/QN` → `streamStrideOpt.pf_queue_filter.state_reg[8]$_DFFE_PP0P_/D` |  |
-| Rob | 1,939 | `rab/state[0]$_DFF_PP1_/QN` → `rab/renameBuffer/io_writePorts_7_addr[7]` |  |
-| Sbuffer | 846 | `stateVec_15_state_valid$_DFF_PP0_/QN` → `dataModule/line_write_buffer_data_1_1[45]$_DFFE_PP_/D` |  |
-| Uncache | 778 | `skidOccupied_UncacheSkidBuffer.io_occupied$_DFF_PP0_/QN` → `entries_3_data[47]$_DFFE_PP_/D` |  |
-| VirtualLoadQueue | 600 | `io_ldWbPtr_value[0]$_DFFE_PP0P_/QN` → `allocated_71$_DFF_PP0_/D` |  |
-| VirtualStoreQueue | 813 | `deqPtrVec_0_value[4]$_DFF_PP0_/QN` → `ctrlEntries_127_allocated$_DFF_PP0_/D` |  |
-| XSTile_parent | 2,470 | `core/backend/inner_intRegion/pipeToBJU2.io_out_bits_data_src_1[6]$_DFFE_PP_/QN` → `core/backend/inner_intRegion/io_wbDataPathToCtrlBlock_delayedOldestExuRedirect_bits_robIdx_value[6]$_DFFE_PP_/D` | intRegion's BJU2 issue pipe operand into the oldest-redirect register written back to ctrlBlock: registers 680 um apart over 4.2 mm of wire, 28 of its 57 cells buffers |
+| Frontend | 1,997 | `inner_bpu/csrCtrl_delay.io_out_abtbEnable$_DFF_P_/QN` → `inner_ftq/io_toBpu_train_bits_meta_ittage_altProviderTarget_addr[39]$_DFFE_PP0N_/D` |  |
+| MemBlock | 1,861 | `inner_dtlb_ld_tlb_ld/entries.page_ldtlb_storage_fa.reqVpn_1[1]$_DFF_P_/QN` → `inner_dcache/dcache.missQueue/io_forward_1_s2Resp_bits_forwardData_0[1]$_DFFE_PP_/D` |  |
+| CoupledL2 | 1,559 | `slices_0/mainPipe/io_error_valid$_DFF_PP0_/QN` → `slices_0/sinkC/r_0[222]$_DFFE_PP_/D` |  |
+| VecRegionModule | 1,978 | `issuePipes_1/exu.Vfdiv/vfdivs_1.u_vector_float_divider_r64.fp_format_onehot_q[1]$_DFFE_PP_/QN` → `issuePipes_1/exu.Vfmac.a0_1_fpB[52]$_DFFE_PP_/D` |  |
+| FltRegionModule | 1,760 | `fpRegFile/io_readPorts_0_data[39]` → `issuePipes/exu.exFadd_0_bits_data_src_0[39]$_DFFE_PP_/D` |  |
+| Rob | 2,117 | `exceptionGen.io_state_bits_exceptionVec_20$_DFF_P_/QN` → `exceptionGen.io_state_bits_trigger[0]$_DFFE_PP_/D` | the exception generator's exception vector into its trigger register, inside the Rob |
+| XSTile_parent | 2,111 | `core/backend/inner_intRegion/issueQueueLDU1_Ldu.io_wakeupToIQ_0_bits_rfWen$_DFF_P_/QN` → `core/backend/inner_ctrlBlock/dispatch/issueQueueCountReg_REG_4[4]$_DFF_P_/D` | the issue queues' wake-up into dispatch's issue-queue count, registers about 150 um apart over 2.4 mm of wire (a broadcast net, its critical sink at the end of a long buffer tree) |
 <!-- kpi-worst end -->
 
 `kpi_run.tcl` writes each part's histogram in 10 ps bins, and
