@@ -1846,7 +1846,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     # global checkpoint directly (not a per-module slice), so include
     # checkpoint_output explicitly here.
     top_partition_inputs = depset(
-        [checkpoint_output],
+        [checkpoint_output, ctx.file._rtlil_names],
         transitive = [base_partition_inputs, all_macro_files],
     )
     top_output = declare_artifact(ctx, "results", "partition_top.v")
@@ -1861,6 +1861,8 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         ] + memories_old_file_args + sdc_overrides,
         command = " && ".join(top_commands),
         env = base_env | partition_env_extra | {
+            # resolves the kept names against the checkpoint (synth_partition.sh)
+            "RTLIL_NAMES_PY": ctx.file._rtlil_names.path,
             "SYNTH_PARTITION_ID": "top",
             "SYNTH_NUM_PARTITIONS": str(num_partitions),
             "SYNTH_TCL": ctx.file._synth_tcl.path,
@@ -2751,6 +2753,10 @@ orfs_synth_rule = rule(
                 "_rtlil_kept_macros": attr.label(
                     allow_single_file = True,
                     default = Label("//:rtlil_kept_macros.py"),
+                ),
+                "_rtlil_names": attr.label(
+                    allow_single_file = True,
+                    default = Label("//:rtlil_names.py"),
                 ),
                 "_synth_tcl": attr.label(
                     allow_single_file = True,

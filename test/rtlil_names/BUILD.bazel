@@ -1,32 +1,29 @@
-# The RTLIL module-name spellings synth_partition.sh has to resolve.
+# The RTLIL module-name spellings synth_partition.sh's top partition
+# resolves (rtlil_names.py).
 #
 # yosys names a module three ways -- \Foo, $paramod\Foo\W=1 and
 # $paramod$<hash>\Foo -- plus \Foo$Top.path.to.inst for a uniquified
 # instance, and a design can contain several at once. SYNTH_KEEP_MODULES
 # carries the design's names, so every one of them has to resolve.
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
-load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("@rules_python//python:defs.bzl", "py_test")
 load("//:openroad.bzl", "orfs_flow")
 
 package(default_visibility = ["//visibility:private"])
 
 exports_files(["constraints.sdc"])
 
-# The cheap half: pure string logic, no synthesis. Sources the helpers
-# out of synth_partition.sh directly, so the test and the flow cannot
+# The cheap half: pure string logic, no synthesis, the module the top
+# partition runs (//:rtlil_names.py), so the test and the flow cannot
 # drift apart the way a reimplementation would.
-sh_test(
+py_test(
     name = "rtlil_names_test",
     size = "small",
-    srcs = ["rtlil_names_test.sh"],
-    args = [
-        "$(location cases.tsv)",
-        "$(location //:synth_partition.sh)",
-    ],
-    data = [
-        "cases.tsv",
-        "//:synth_partition.sh",
-    ],
+    srcs = ["rtlil_names_test.py"],
+    args = ["$(location cases.tsv)"],
+    data = ["cases.tsv"],
+    main = "rtlil_names_test.py",
+    deps = ["//:rtlil_names_lib"],
 )
 
 # The end-to-end half, which is also the only coverage of the Tcl copy
