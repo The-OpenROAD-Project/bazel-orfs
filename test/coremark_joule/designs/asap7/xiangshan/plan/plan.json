@@ -33,18 +33,12 @@
   ]
  },
  "parent": {
-  "regions": [
-   {"name": "ctrlBlock", "instance": "core/backend/inner_ctrlBlock", "box_um": [2500, 950, 2900, 1330]},
-   {"name": "dtlbLd", "instance": "core/memBlock/inner_dtlb_ld_tlb_ld", "box_um": [2900, 1130, 3100, 1330]},
-   {"name": "loadUnit0", "instance": "core/memBlock/inner_LoadUnit_0", "box_um": [3100, 1340, 3140, 1420]},
-   {"name": "loadUnit1", "instance": "core/memBlock/inner_LoadUnit_1", "box_um": [3140, 1340, 3180, 1420]},
-   {"name": "loadUnit2", "instance": "core/memBlock/inner_LoadUnit_2", "box_um": [3180, 1340, 3220, 1420]}
-  ],
+  "regions": [],
   "clock_pins": [
    "clock"
   ],
   "cell_area_um2": 504167,
-  "density": 0.3,
+  "density": 0.5,
   "core_margin_um": 10,
   "keep": [
    "Backend",
@@ -112,7 +106,8 @@
   "channel_min_um": 40.0,
   "lateral": 0.5,
   "aspect_cap": 3.0,
-  "gap_um": 10.8
+  "gap_um": 10.8,
+  "pins_any_edge": true
  },
  "macros": [
   {
@@ -131,8 +126,7 @@
     "IssueQueueFaluFmulFdiv_1",
     "IssueQueueFaluFmul"
    ],
-   "content_um2": 166941,
-   "region_side": "bottom"
+   "content_um2": 166941
   },
   {
    "name": "VecRegionModule",
@@ -153,8 +147,7 @@
     "IssueQueueVialuVidivVfmacVfdiv",
     "VFMacWrapper"
    ],
-   "content_um2": 260182,
-   "region_side": "bottom"
+   "content_um2": 260182
   },
   {
    "name": "CoupledL2",
@@ -183,10 +176,23 @@
    "region_side": "bottom"
   },
   {
-   "name": "Bpu",
-   "pins": 2826,
-   "area_um2": 332501,
+   "name": "Rob",
+   "pins": 3181,
+   "area_um2": 349102,
    "keep": [
+    "RenameBuffer",
+    "VTypeBuffer",
+    "RobEntryCell"
+   ],
+   "content_um2": 145459,
+   "min_side_um": 610.0
+  },
+  {
+   "name": "Frontend",
+   "pins": 3304,
+   "area_um2": 754505,
+   "keep": [
+    "Bpu",
     "MainBtbAlignBank",
     "MainBtbInternalBank",
     "WriteBuffer_4",
@@ -205,159 +211,45 @@
     "AheadBtb",
     "Phr",
     "MicroTage",
-    "Ittage"
-   ],
-   "content_um2": 138542,
-   "region_side": "top"
-  },
-  {
-   "name": "Ftq",
-   "pins": 4108,
-   "area_um2": 318322,
-   "keep": [
-    "ResolveQueue"
-   ],
-   "content_um2": 132634,
-   "region_side": "top"
-  },
-  {
-   "name": "ICache",
-   "pins": 3081,
-   "area_um2": 93307,
-   "keep": [
+    "Ittage",
+    "Ftq",
+    "ResolveQueue",
+    "ICache",
     "ICacheDataArray",
     "ICacheMetaArray",
     "ICacheMainPipe",
     "ICacheMissUnit"
    ],
-   "content_um2": 38878,
-   "region_side": "top"
+   "content_um2": 316892
   },
   {
-   "name": "Rob",
-   "pins": 3181,
-   "area_um2": 349102,
+   "name": "MemBlock",
+   "pins": 11418,
+   "area_um2": 832812,
    "keep": [
-    "RenameBuffer",
-    "VTypeBuffer",
-    "RobEntryCell"
-   ],
-   "content_um2": 145459,
-   "region_side": "bottom",
-   "min_side_um": 610.0
-  },
-  {
-   "name": "MemCtrl",
-   "pins": 432,
-   "area_um2": 43430,
-   "keep": [
-    "SSIT",
-    "LFST"
-   ],
-   "content_um2": 18096,
-   "region_side": "bottom"
-  },
-  {
-   "name": "DCacheWrapper",
-   "pins": 5495,
-   "area_um2": 224647,
-   "keep": [
+    "DCacheWrapper",
     "MissQueue",
     "L1PrefetchSourceArray",
     "BankedDataArray",
     "MainPipe",
     "L1ErrorMetaArray",
-    "L1CohMetaArray"
-   ],
-   "content_um2": 93603,
-   "region_side": "top"
-  },
-  {
-   "name": "L2TLBWrapper",
-   "pins": 1424,
-   "area_um2": 99703,
-   "keep": [
+    "L1CohMetaArray",
+    "L2TLBWrapper",
     "PtwCache",
-    "LLPTW"
+    "LLPTW",
+    "LoadQueueReplay",
+    "PhysicalStoreQueue",
+    "SqForwardPipe",
+    "Sbuffer",
+    "SbufferData",
+    "PrefetcherWrapper",
+    "LoadQueueRAW",
+    "Uncache",
+    "LoadQueueRAR",
+    "VirtualStoreQueue",
+    "VirtualLoadQueue"
    ],
-   "content_um2": 41543,
-   "region_side": "top"
-  },
-  {
-   "name": "LoadQueueReplay",
-   "pins": 2080,
-   "area_um2": 99242,
-   "keep": [],
-   "content_um2": 41351,
-   "region_side": "top"
-  },
-  {
-   "name": "PhysicalStoreQueue",
-   "pins": 2664,
-   "area_um2": 74741,
-   "keep": [
-    "SqForwardPipe"
-   ],
-   "content_um2": 31142,
-   "region_side": "top"
-  },
-  {
-   "name": "Sbuffer",
-   "pins": 2052,
-   "area_um2": 56369,
-   "keep": [
-    "SbufferData"
-   ],
-   "content_um2": 23487,
-   "region_side": "top"
-  },
-  {
-   "name": "PrefetcherWrapper",
-   "pins": 1499,
-   "area_um2": 32122,
-   "keep": [],
-   "content_um2": 13384,
-   "region_side": "top"
-  },
-  {
-   "name": "LoadQueueRAW",
-   "pins": 934,
-   "area_um2": 26606,
-   "keep": [],
-   "content_um2": 11086,
-   "region_side": "top"
-  },
-  {
-   "name": "Uncache",
-   "pins": 1271,
-   "area_um2": 16478,
-   "keep": [],
-   "content_um2": 6866,
-   "region_side": "top"
-  },
-  {
-   "name": "LoadQueueRAR",
-   "pins": 306,
-   "area_um2": 15931,
-   "keep": [],
-   "content_um2": 6638,
-   "region_side": "top"
-  },
-  {
-   "name": "VirtualStoreQueue",
-   "pins": 279,
-   "area_um2": 18257,
-   "keep": [],
-   "content_um2": 7607,
-   "region_side": "top"
-  },
-  {
-   "name": "VirtualLoadQueue",
-   "pins": 260,
-   "area_um2": 9766,
-   "keep": [],
-   "content_um2": 4069,
-   "region_side": "top"
+   "content_um2": 349781
   }
  ],
  "netlists": [
@@ -367,10 +259,9 @@
    "w_um": 379.6,
    "h_um": 248.62,
    "owner_um": [
-        2100,
-        1170
-      ]
+    1250,
+    1178
+   ]
   }
- ],
- "pin_partners": "pin_partners.txt"
+ ]
 }

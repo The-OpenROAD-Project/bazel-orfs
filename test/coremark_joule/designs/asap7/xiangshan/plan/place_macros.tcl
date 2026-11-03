@@ -20,25 +20,12 @@ proc plan_check_size { what inst w h } {
 # A parent built as a macro (//tools/carve) has holes where the blocks
 # go, at the top level: PLAN_BLOCKS_ELSEWHERE skips them here.
 set plan_blocks {
-  CoupledL2 533.520 41.040 861.840 861.840
-  VecRegionModule 1436.400 82.080 820.800 820.800
-  FltRegionModule 2298.240 205.200 697.680 697.680
-  Rob 3036.960 328.320 615.600 574.560
-  MemCtrl 3693.600 656.640 246.240 246.240
-  Bpu 41.040 1436.400 615.600 615.600
-  Ftq 697.680 1436.400 574.560 574.560
-  DCacheWrapper 1313.280 1436.400 492.480 492.480
-  ICache 1846.800 1436.400 328.320 328.320
-  L2TLBWrapper 2216.160 1436.400 328.320 328.320
-  LoadQueueReplay 2585.520 1436.400 328.320 328.320
-  PhysicalStoreQueue 2954.880 1436.400 287.280 287.280
-  Sbuffer 3283.200 1436.400 246.240 246.240
-  PrefetcherWrapper 3570.480 1436.400 205.200 205.200
-  LoadQueueRAW 3816.720 1436.400 164.160 164.160
-  Uncache 4021.920 1436.400 164.160 164.160
-  LoadQueueRAR 4227.120 1436.400 164.160 164.160
-  VirtualStoreQueue 4432.320 1436.400 164.160 164.160
-  VirtualLoadQueue 4637.520 1436.400 123.120 123.120
+  FltRegionModule 82.080 205.200 697.680 697.680
+  VecRegionModule 820.800 82.080 820.800 820.800
+  CoupledL2 1682.640 41.040 861.840 861.840
+  Rob 41.040 1436.400 615.600 574.560
+  Frontend 697.680 1436.400 902.880 902.880
+  MemBlock 1641.600 1518.480 943.920 943.920
 }
 if { [info exists ::env(PLAN_BLOCKS_ELSEWHERE)] } { set plan_blocks {} }
 foreach {master x y w h} $plan_blocks {
@@ -73,7 +60,7 @@ set core [$block getCoreArea]
 set bands 0
 foreach {lo hi} {
   41.040 902.880
-  1436.400 2052.000
+  1518.480 2462.400
 } {
   set bl [odb::dbBlockage_create $block [$core xMin] [expr { int($lo * $dbu) }] [$core xMax] [expr { int($hi * $dbu) }]]
   $bl setSoft
@@ -86,7 +73,7 @@ puts "place_macros.tcl: $bands soft placement blockage(s) over the blocks' bands
 # macro is the instance itself, or generate_ram's RAM, ram, inside the
 # wrapper that takes the module's place.
 foreach {inst x y w h} {
-  core/backend/inner_intRegion/intDataPath/intRegFile 1910.200 1045.690 379.600 248.620
+  core/backend/inner_intRegion/intDataPath/intRegFile 1060.200 1053.690 379.600 248.620
 } {
   set names [list $inst $inst/ram $inst.ram]
   foreach name $names {
@@ -127,11 +114,7 @@ if { [llength $rest] > 0 } {
 # cells inside its box. Names compared without the escaped dividers.
 set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
 foreach {name prefix x0 y0 x1 y1} {
-  ctrlBlock core/backend/inner_ctrlBlock 2500.000 950.000 2900.000 1330.000
-  dtlbLd core/memBlock/inner_dtlb_ld_tlb_ld 2900.000 1130.000 3100.000 1330.000
-  loadUnit0 core/memBlock/inner_LoadUnit_0 3100.000 1340.000 3140.000 1420.000
-  loadUnit1 core/memBlock/inner_LoadUnit_1 3140.000 1340.000 3180.000 1420.000
-  loadUnit2 core/memBlock/inner_LoadUnit_2 3180.000 1340.000 3220.000 1420.000
+
 } {
   set region [odb::dbRegion_create $block $name]
   odb::dbBox_create $region [expr { round($x0 * $dbu) }] [expr { round($y0 * $dbu) }] \

@@ -342,6 +342,36 @@ class SegmentTest(unittest.TestCase):
         )
 
 
+class FacingSideTest(unittest.TestCase):
+    """pins_any_edge: a partner that is m's direct neighbour in its row gets
+    the edge facing it; anything else, the region side (None)."""
+
+    ROW = [
+        {"name": "A", "region_side": "bottom", "x_um": 0.0, "y_um": 0.0, "w_um": 100.0, "h_um": 100.0},
+        {"name": "B", "region_side": "bottom", "x_um": 110.0, "y_um": 0.0, "w_um": 100.0, "h_um": 100.0},
+        {"name": "C", "region_side": "bottom", "x_um": 220.0, "y_um": 0.0, "w_um": 100.0, "h_um": 100.0},
+        {"name": "T", "region_side": "top", "x_um": 0.0, "y_um": 300.0, "w_um": 100.0, "h_um": 100.0},
+    ]
+
+    def setUp(self):
+        self.by = {m["name"]: dict(m) for m in self.ROW}
+
+    def test_neighbours_face_each_other(self):
+        self.assertEqual(plan_floorplan.facing_side(self.by["A"], "B", self.by, 10.0), "right")
+        self.assertEqual(plan_floorplan.facing_side(self.by["B"], "A", self.by, 10.0), "left")
+
+    def test_a_block_between_keeps_the_region_side(self):
+        self.assertIsNone(plan_floorplan.facing_side(self.by["A"], "C", self.by, 10.0))
+
+    def test_across_the_region_and_logic_keep_the_region_side(self):
+        self.assertIsNone(plan_floorplan.facing_side(self.by["A"], "T", self.by, 10.0))
+        self.assertIsNone(plan_floorplan.facing_side(self.by["A"], "logic", self.by, 10.0))
+
+    def test_too_far_apart_keeps_the_region_side(self):
+        self.by["B"]["x_um"] = 150.0
+        self.assertIsNone(plan_floorplan.facing_side(self.by["A"], "B", self.by, 10.0))
+
+
 class ExactPinTest(unittest.TestCase):
     LAYERS = {
         "pin_layers_v": [
