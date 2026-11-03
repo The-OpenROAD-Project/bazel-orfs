@@ -791,6 +791,56 @@ def split_groups(groups, ports_outer=True):
     return inner, outer
 
 
+# how far apart two neighbours in a row may be for their pins to face
+# each other: the planner leaves its channel and lattice snap between them
+# (41 um on XSTile), which their wires cross directly
+FACING_GAP_UM = 100.0
+
+
+def facing_side(m, partner, by_name, gap_um=FACING_GAP_UM):
+    """The edge of m its pins to partner go on when plan["margins"]
+    ["pins_any_edge"] is set: the edge facing a block that is m's direct
+    neighbour in the same row (no block between them, the two outlines
+    within gap_um), so their wires cross the gap between them instead of
+    both running out into the region; None, the region side, otherwise."""
+    q = by_name.get(partner)
+    if q is None or q is m or q.get("region_side") != m.get("region_side"):
+        return None
+    horizontal_row = m["region_side"] in ("top", "bottom")
+    if horizontal_row:
+        lo, hi, qlo, qhi = (
+            m["x_um"],
+            m["x_um"] + m["w_um"],
+            q["x_um"],
+            q["x_um"] + q["w_um"],
+        )
+        before, after = "left", "right"
+    else:
+        lo, hi, qlo, qhi = (
+            m["y_um"],
+            m["y_um"] + m["h_um"],
+            q["y_um"],
+            q["y_um"] + q["h_um"],
+        )
+        before, after = "bottom", "top"
+    if qlo >= hi:
+        gap, side, between = qlo - hi, after, (hi, qlo)
+    elif qhi <= lo:
+        gap, side, between = lo - qhi, before, (qhi, lo)
+    else:
+        return None
+    if gap > gap_um + 1e-6:
+        return None
+    for o in by_name.values():
+        if o is m or o is q or o.get("region_side") != m["region_side"]:
+            continue
+        olo = o["x_um"] if horizontal_row else o["y_um"]
+        ohi = olo + (o["w_um"] if horizontal_row else o["h_um"])
+        if olo < between[1] and ohi > between[0]:
+            return None
+    return side
+
+
 # The pin placer keeps pins this far from a block's corners; a segment
 # that reaches into the corner has no slots there (PPL-0107 on Region_1,
 # whose 24 self-connected pins were given the last 3 um of the side).
@@ -1379,18 +1429,43 @@ def emit(out, plan, directory):
                     fold_partners(partners[pm["name"]], by_name_all, pm["name"]),
                     ports_outer,
                 )
-                segs = [(side,) + s_ for s_ in pin_segments(pm, inner, out)]
+                by_side = {side: {}}
+                if plan["margins"].get("pins_any_edge"):
+                    by_name_out = {q["name"]: q for q in out["macros"]}
+                    for partner, pins in inner.items():
+                        sd_ = (
+                            facing_side(by_name_out[pm["name"]], partner, by_name_out)
+                            or side
+                        )
+                        by_side.setdefault(sd_, {})[partner] = pins
+                else:
+                    by_side[side] = inner
+                segs = []
+                for sd_, groups_ in by_side.items():
+                    if groups_:
+                        segs += [
+                            (sd_,) + s_
+                            for s_ in pin_segments(dict(pm, pin_side=sd_), groups_, out)
+                        ]
                 if outer:
-                    # ports and unconnected pins on the outer side, whole side
+                    # ports and unconnected pins on the outer side, one
+                    # segment each sized by its pins: two groups over the
+                    # whole side put pins on the same tracks (GRT-0080)
                     segs += [
-                        (OUTER[side], partner, None, None, pins)
-                        for partner, pins in sorted(outer.items())
+                        (OUTER[side],) + s_
+                        for s_ in pin_segments(
+                            dict(pm, pin_side=OUTER[side]), outer, out
+                        )
                     ]
                 tech = plan["tech"]
                 if "pin_layers_v" in tech and "pin_layers_h" in tech:
                     pin_rows = []
                     sides_used = []
-                    for sd in (side, OUTER[side]):
+                    for sd in [side, OUTER[side]] + [
+                        x
+                        for x in ("left", "right", "top", "bottom")
+                        if x not in (side, OUTER[side])
+                    ]:
                         on_side = [
                             (p_, lo, hi, pins)
                             for sd_, p_, lo, hi, pins in segs
