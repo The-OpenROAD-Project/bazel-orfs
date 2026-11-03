@@ -11,3 +11,4 @@ imageio-ffmpeg
 piper-tts
 fpdf2
 markdown-it-py
+playwright==1.64.1

@@ -1242,3 +1242,23 @@ http_file(
     sha256 = "289f7421072d689a3d91f6c632f486af46f9b8b04417536104a4ea667b8a394b",
     urls = [PIPER_VOICE + "MODEL_CARD"],
 )
+
+# The browser tools/pr_anim drives to record a web viewer change: Chrome
+# for Testing's headless shell, the build Playwright's Python package
+# (requirements_dev) is made for, so the two are bumped together. Linux
+# x86-64 only; it needs the desktop libraries its deb.deps names.
+http_archive(
+    name = "chrome_headless_shell",
+    build_file_content = """exports_files(["chrome-headless-shell"])
+
+filegroup(
+    name = "files",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)
+""",
+    dev_dependency = True,
+    sha256 = "c3e50596aef52c58f8fda3c6b3411c33d34c88b177b3ed1c2243359fd3b8ba20",
+    strip_prefix = "chrome-headless-shell-linux64",
+    urls = ["https://storage.googleapis.com/chrome-for-testing-public/156.0.8078.4/linux64/chrome-headless-shell-linux64.zip"],
+)
