@@ -304,12 +304,14 @@ class SegmentTest(unittest.TestCase):
         segs = [s_ for s_ in all_segs if s_["side"] == target["pin_side"]]
         outer = [s_ for s_ in all_segs if s_["side"] != target["pin_side"]]
         self.assertEqual(len(segs), 3)
-        # ports and the unconnected pin on the outer side, whole side
+        # ports and the unconnected pin on the outer side, a segment each,
+        # the two not overlapping
         self.assertEqual(sorted(o["partner"] for o in outer), ["port", "unconnected"])
         self.assertEqual(
             {o["side"] for o in outer}, {plan_floorplan.OUTER[target["pin_side"]]}
         )
-        self.assertTrue(all(o["lo_um"] is None for o in outer))
+        a, b = sorted(outer, key=lambda o: o["lo_um"])
+        self.assertLessEqual(a["hi_um"], b["lo_um"] + 1e-6)
         if target["pin_side"] in ("top", "bottom"):
             # the left partner's segment comes first along x
             self.assertEqual(segs[0]["partner"], left["name"])
@@ -332,10 +334,12 @@ class SegmentTest(unittest.TestCase):
         self.assertEqual(text.count("set_io_pin_constraint -region"), 6)
         self.assertNotIn("VDD", text)
         self.assertIn("lsearch -exact $names $n", text)  # only the block's own pins
-        self.assertIn(
+        # the outer groups as intervals of the outer side, not the whole side
+        self.assertNotIn(
             "-region %s:* -pin_names $seg" % plan_floorplan.OUTER[target["pin_side"]],
             text,
         )
+        self.assertIn("-region %s:" % plan_floorplan.OUTER[target["pin_side"]], text)
         self.assertIn(
             "-region %s:%.3f-" % (target["pin_side"], plan_floorplan.SEGMENT_EDGE_UM),
             text,
@@ -425,6 +429,31 @@ class ExactPinTest(unittest.TestCase):
         segs = [("b", 5.0, 6.0, ["p%d" % i for i in range(200)])]
         with self.assertRaises(SystemExit):
             plan_floorplan.place_exact(m, segs, dict(TECH, **self.LAYERS))
+
+    def test_ports_and_unconnected_share_the_outer_side_without_overlap(self):
+        # each outer group used to take the whole side: MemBlock's 156 port
+        # and 925 unconnected pins landed on the same tracks (GRT-0080)
+        macros = [dict(m) for m in LayoutTest.MACROS]
+        p = plan(macros)
+        p["tech"] = dict(LATTICE, **self.LAYERS)
+        out = plan_floorplan.layout(p)
+        target = out["macros"][0]
+        d = tempfile.mkdtemp(prefix="plan_outer.")
+        dump = os.path.join(d, "partners.txt")
+        with open(dump, "w") as f:
+            for i in range(40):
+                f.write("pin %s a%d logic\n" % (target["name"], i))
+            for i in range(20):
+                f.write("pin %s d%d port\n" % (target["name"], i))
+            for i in range(20):
+                f.write("pin %s u%d unconnected\n" % (target["name"], i))
+        p["pin_partners"] = dump
+        plan_floorplan.emit(out, p, d)
+        text = open(os.path.join(d, target["name"] + "_pins.tcl")).read()
+        rows = [l.split() for l in text.splitlines() if len(l.split()) == 6 and l.split()[0][0] in "adu"]
+        self.assertEqual(len({r[0] for r in rows}), 80)
+        spots = [(r[1], r[2], r[3]) for r in rows]
+        self.assertEqual(len(spots), len(set(spots)))
 
     def test_emit_places_exactly_when_the_tech_has_layers(self):
         macros = [dict(m) for m in LayoutTest.MACROS]

@@ -1435,10 +1435,14 @@ def emit(out, plan, directory):
                             for s_ in pin_segments(dict(pm, pin_side=sd_), groups_, out)
                         ]
                 if outer:
-                    # ports and unconnected pins on the outer side, whole side
+                    # ports and unconnected pins on the outer side, one
+                    # segment each sized by its pins: two groups over the
+                    # whole side put pins on the same tracks (GRT-0080)
                     segs += [
-                        (OUTER[side], partner, None, None, pins)
-                        for partner, pins in sorted(outer.items())
+                        (OUTER[side],) + s_
+                        for s_ in pin_segments(
+                            dict(pm, pin_side=OUTER[side]), outer, out
+                        )
                     ]
                 tech = plan["tech"]
                 if "pin_layers_v" in tech and "pin_layers_h" in tech:
