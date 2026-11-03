@@ -1,0 +1,120 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+# The implementation kit's tools: what the kit is made of and how its
+# README.pdf is written from it. The kit itself is assembled in the
+# parent package (:kit, :export), next to the flows it takes files from.
+
+package(default_visibility = ["//test/coremark_joule/designs/asap7/xiangshan:__pkg__"])
+
+exports_files([
+    "EXPORT.md",
+    "blocks.json",
+    "clock_boundary.svg",
+    "export.py",
+    "kit_facts.tcl",
+    "kit_manifest.tcl",
+    "pinned/facts.json",
+    "pinned/pin.json",
+    "pinned/rtl_ports.json",
+    "repin.py",
+    "sta.tcl",
+    "xstile_context.svg",
+])
+
+py_library(
+    name = "kit_lib",
+    srcs = ["kit.py"],
+    imports = ["."],
+)
+
+py_binary(
+    name = "kit",
+    srcs = ["kit.py"],
+    main = "kit.py",
+)
+
+py_binary(
+    name = "export",
+    srcs = ["export.py"],
+    main = "export.py",
+    deps = [":kit_lib"],
+)
+
+py_binary(
+    name = "itf_gen",
+    srcs = ["itf_gen.py"],
+    main = "itf_gen.py",
+)
+
+py_binary(
+    name = "render_md",
+    srcs = ["render_md.py"],
+    main = "render_md.py",
+)
+
+py_binary(
+    name = "md_to_pdf",
+    srcs = ["md_to_pdf.py"],
+    main = "md_to_pdf.py",
+    deps = [
+        "@bazel-orfs-dev-pip//fpdf2",
+        "@bazel-orfs-dev-pip//markdown_it_py",
+        "@bazel-orfs-dev-pip//matplotlib",
+    ],
+)
+
+py_test(
+    name = "kit_test",
+    size = "small",
+    srcs = [
+        "itf_gen.py",
+        "kit.py",
+        "kit_test.py",
+        "render_md.py",
+    ],
+    data = [
+        "EXPORT.md",
+        "blocks.json",
+        "sta.tcl",
+        "//:MODULE.bazel",
+        "//test/coremark_joule/designs/asap7/xiangshan:kit_doc_inputs",
+    ],
+    imports = ["."],
+    main = "kit_test.py",
+)
+
+# check/sta.tcl, the test a tool's results go through, on two flip-flops
+py_test(
+    name = "sta_tcl_test",
+    size = "small",
+    srcs = ["sta_tcl_test.py"],
+    args = [
+        "$(rootpath @openroad//src/sta:opensta)",
+        "$(rootpath sta.tcl)",
+        "$(rootpath @orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib)",
+        "$(rootpath @orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz)",
+    ],
+    data = [
+        "sta.tcl",
+        "@openroad//src/sta:opensta",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib",
+    ],
+    main = "sta_tcl_test.py",
+)
+
+py_binary(
+    name = "ports",
+    srcs = ["ports.py"],
+    main = "ports.py",
+)
+
+py_test(
+    name = "pdf_test",
+    size = "small",
+    srcs = ["pdf_test.py"],
+    data = ["clock_boundary.svg"],
+    imports = ["."],
+    main = "pdf_test.py",
+    deps = [":md_to_pdf"],
+)

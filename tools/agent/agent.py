@@ -59,7 +59,8 @@ EXPORTED_SKILLS = (
 )
 
 # bazel-orfs's own: its pull requests and studies, GitHub housekeeping,
-# its ideas/ directory, and reporting OpenROAD bugs upstream.
+# its ideas/ directory, reporting OpenROAD bugs upstream, and recording
+# web viewer changes for OpenROAD pull requests.
 INTERNAL_SKILLS = (
     "github-deprecations",
     "idea",
@@ -69,6 +70,7 @@ INTERNAL_SKILLS = (
     "study-pr",
     "untar-and-run-report",
     "upstream-pr",
+    "web-pr-animation",
 )
 
 LINK = os.path.join(".claude", "bazel-orfs")

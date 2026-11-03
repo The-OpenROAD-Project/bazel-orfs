@@ -1,0 +1,23 @@
+{
+  "_comment": "What each part of the plan is, for the kit's README; render_md.py stops on a planned block without an entry.",
+  "Bpu": "branch predictor",
+  "CoupledL2": "L2 cache",
+  "DCacheWrapper": "L1 data cache",
+  "FltRegionModule": "floating-point issue and execute",
+  "Ftq": "fetch target queue",
+  "ICache": "L1 instruction cache",
+  "L2TLBWrapper": "L2 TLB and page walker",
+  "LoadQueueRAR": "read-after-read CAM",
+  "LoadQueueRAW": "read-after-write CAM",
+  "LoadQueueReplay": "load replay queue",
+  "MemCtrl": "memory dependence predictor",
+  "PhysicalStoreQueue": "store queue data",
+  "PrefetcherWrapper": "L1 prefetcher",
+  "Rob": "reorder buffer",
+  "Sbuffer": "store buffer",
+  "Uncache": "uncached access buffer",
+  "VecRegionModule": "vector issue and execute",
+  "VirtualLoadQueue": "load queue control",
+  "VirtualStoreQueue": "store queue control",
+  "XSTile_parent": "dispatch, rename, integer execute, the glue"
+}

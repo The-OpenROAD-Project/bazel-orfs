@@ -79,7 +79,8 @@ frontend (`YOSYS_FRONTEND` in `BUILD.bazel` has the numbers).
 
 ## What the extraction buys
 
-Against the module as it is, the same flow, single runs side by side;
+Against the module as it is, the same flow, single runs side by side
+(`ab.json` is this table, `ab_test` checks the two agree);
 the period at global route on the routes' parasitics (the probe's
 `period_grt_ps`; `ideas/structured-macros.md`, "QoR inventory", has the
 stages, cells, area and the placement-parasitics period):

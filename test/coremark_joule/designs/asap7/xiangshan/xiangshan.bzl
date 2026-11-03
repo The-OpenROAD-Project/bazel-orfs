@@ -1803,8 +1803,26 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         tags = tags,
     )
 
-def xiangshan_flat_flow(name, variant, parent = XS_PARENT, blocks = XS_BLOCKS, tags = ["manual"]):
+def xs_regfile_modules(parent = XS_PARENT, blocks = XS_BLOCKS):
+    """The module of every register file of the tile, sorted: each a macro
+    of its own (_regfile_macro), <module>_generate_abstract."""
+    specs = list(parent["sources"].get("AUTO_MEMORIES_REGFILES", []))
+    for cfg in blocks.values():
+        for m in cfg.get("sources", {}).get("AUTO_MEMORIES_REGFILES", []):
+            if m not in specs:
+                specs.append(m)
+    return sorted([m.split(":")[-1].removesuffix(".regfile") for m in specs])
+
+def xiangshan_flat_flow(name, variant, parent = XS_PARENT, blocks = XS_BLOCKS, plan = None, tags = ["manual"]):
     """The whole tile as one flow, <name>_<variant>_<stage>: no hardened blocks.
+
+    With a plan, the tile is synthesised as the carve's parts are, in one
+    netlist: the core with every arrays extraction in place (XS_EXTRACTED,
+    all parts at once), each entry cell kept and folded onto one module,
+    and the plan's blocks, its parent's kept modules and each block's kept
+    modules kept, so that each is a partition of its own. This is the
+    netlist the implementation kit ships (kit/). Without one, ORFS's
+    hierarchical synthesis finds what to keep.
 
     ORFS's own hierarchical synthesis (SYNTH_HIERARCHICAL with its keep
     rule, not a plan's SYNTH_KEEP_MODULES), then floorplan to global route
@@ -1838,14 +1856,28 @@ def xiangshan_flat_flow(name, variant, parent = XS_PARENT, blocks = XS_BLOCKS, t
         sources[hook] = ["//test/coremark_joule/designs/asap7/xiangshan:legalize_out_of_blocks.tcl"]
 
     # every register file of the tile, each the macro xiangshan_flow made
-    specs = list(parent["sources"].get("AUTO_MEMORIES_REGFILES", []))
-    for cfg in blocks.values():
-        for m in cfg.get("sources", {}).get("AUTO_MEMORIES_REGFILES", []):
-            if m not in specs:
-                specs.append(m)
-    regfiles = [":%s_generate_abstract" % m.split(":")[-1].removesuffix(".regfile") for m in sorted(specs)]
+    regfiles = [":%s_generate_abstract" % m for m in xs_regfile_modules(parent, blocks)]
     user_arguments = parent["user_arguments"] | XS_ICG_USER_ARGUMENTS
     user_sources = parent["user_sources"] | XS_ICG_USER_SOURCES
+    verilog = XS_VERILOG
+    if plan:
+        # SYNTH_KEEP_MODULES replaces ORFS's discovery of what to keep: name
+        # every partition the carve has, or the tile is one yosys run
+        modules = sorted({m: True for part in XS_EXTRACTED.values() for m in part["modules"]}.keys())
+        absorbed = {m: True for part in XS_EXTRACTED.values() for m in part["absorbed"]}
+        entries = ["%sEntry" % m for m in modules]
+        keep = {}
+        for block, cfg in sorted(plan["macros"].items()):
+            keep[block] = True
+            for m in cfg["SYNTH_KEEP_MODULES"].split(" "):
+                keep[m] = True
+        for m in plan["parent"]["SYNTH_KEEP_MODULES"].split(" "):
+            keep[m] = True
+        kept = [m for m in sorted(keep.keys()) if m and m not in absorbed and m not in entries]
+        verilog = XS_EXTRACTED_VERILOG
+        arguments["SYNTH_KEEP_MODULES"] = " ".join(kept + entries)
+        sources["SYNTH_CANONICALIZE_TCL"] = ["//test/coremark_joule/designs/asap7/xiangshan:fold_entries.tcl"]
+        user_arguments = user_arguments | {"XS_FOLD_MODULES": " ".join(entries)}
     orfs_flow(
         name = name,
         arguments = arguments,
@@ -1859,6 +1891,6 @@ def xiangshan_flat_flow(name, variant, parent = XS_PARENT, blocks = XS_BLOCKS, t
         user_sources = user_sources,
         user_stages = _user_stages(user_arguments, user_sources),
         variant = variant,
-        verilog_files = XS_VERILOG,
+        verilog_files = verilog,
     )
     _kpi(name, "grt", arguments, sources, tags, variant = variant)
