@@ -134,7 +134,7 @@ clocking can reach it.
 | 21 | 2026-10-31 | 2,206 |  | 2,206 |  | 1,283 | 1,158 | 815 | 1,048 | 951 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | main since run 20: OpenROAD 9ddb60d to bf0feec (two bumps) and ORFS 0fcc418 to 75cd896b; one run, the causes not separated, and 6 ps on the parent is within reach of noise. MemBlock 1,236 to 1,158 ps. The parent's worst path as in run 20, intRegion's pipeToALU0 fuType into vecRegion's gpWbWakeUp; no floor or flat run measured for this row |
 | 22 | 2026-11-01 | ≥ 2,488 |  |  |  |  |  | 1,601 | 1,960 | 1,687 |  | 1,791 | 1,801 | 1,553 | 1,072 | 1,699 | 643 | 778 | 1,327 | 656 | 1,330 | 698 | 1,939 | 846 | 778 | 600 | 813 | 2,488 | 91.5 | the carve as a baseline: the parent macro (XSTile_parent, IntRegFile at its readers, ctrlBlock and the load TLB in placement regions) sets the period at 2,488 ps; every block at or under 1,960 ps. The Top's crossings were not measured (28 sets, about 22 h; stopped). A false minimum of this partitioning: the parent's logic is a 533 um strip between two rows of blocks. |
 | 23 | 2026-11-02 | ≥ 2,470 |  |  |  |  |  | 1,601 | 1,960 | 1,687 |  | 1,791 | 1,801 | 1,553 | 1,072 | 1,699 | 643 | 778 | 1,327 | 656 | 1,330 | 698 | 1,939 | 846 | 778 | 600 | 813 | 2,470 |  | #1501: the three load units in placement regions beside the uncache buffer and the parent macro placed at density 0.8 instead of 0.6. The parent macro 2,488 to 2,470 ps, its endpoints over 2,000 ps 9,766 to 6,832 and their excess 1,689 to 1,148 ns; every block as in run 22. No memory per stage for this row: the build's logs were overwritten by later builds in the same tree before they were read |
-| 24 | 2026-11-03 | ≥ 2,117 |  |  |  | 1,997 | 1,861 | 1,559 | 1,978 | 1,760 |  |  |  |  |  |  |  |  |  |  |  |  | 2,117 |  |  |  |  | 2,111 | 61 | XSTile carved along XiangShan's hierarchy into six blocks, pins on the edge facing each neighbour. The parent macro 2,470 to 2,111 ps, its endpoints over 2,000 ps 6,832 to 117 and their excess 1,148 to 3 ns: MemBlock's and Frontend's logic left it with their blocks. Rob 1,939 to 2,117 ps, now the slowest part. Frontend 1,997 and MemBlock 1,861 ps as whole blocks. The Top's crossings are not measured yet |
+| 24 | 2026-11-03 | 3,108 | 3,108 |  |  | 1,997 | 1,861 | 1,559 | 1,978 | 1,760 |  |  |  |  |  |  |  |  |  |  |  |  | 2,117 |  |  |  |  | 2,111 | 61 | XSTile carved along XiangShan's hierarchy into six blocks, pins on the edge facing each neighbour; the first run with the Top measured. XSTile 3,108 ps, set by the Top: 42,962 crossing paths over 2,000 ps, nearly all from a handful of broadcast registers: ctrlBlock's flush redirect valid into all of VecRegion (3,108 ps), FltRegion and Rob, the redirect valid and BJU1's redirect data into all of Frontend (2,750 ps, 20,808 paths), Rob's state into the parent (2,542 ps). The Top skips timing repair. Inside the parts: Rob 2,117 and the parent macro 2,111 ps (its endpoints over 2,000 ps 6,832 to 117, excess 1,148 to 3 ns), both a broadcast net's critical sink at the end of a long buffer tree; Frontend 1,997, VecRegion 1,978, MemBlock 1,861, FltRegion 1,760, CoupledL2 1,559 ps |
 <!-- kpi-table end -->
 
 Periods are in picoseconds; `≥` marks a run that did not measure the
@@ -444,20 +444,19 @@ its parasitics as SPEF and timed in a process of its own. On the toy
 (`test/parent_macro`) the sets report the paths the whole design does,
 slack for slack (`mini_top_parent_pm_crossing_test`).
 
-On XSTile, from a dirty lane with repair off and 4 of its 28 sets (the
-three largest and the smallest), 36,017 start and end pairs need more
-than 2,000 ps across 18 combinations of macros:
+On the six-block carve (KPI run 24, all 9 sets, hermetic), 42,962
+start and end pairs need more than 2,000 ps, the worst 3,108 ps. Nearly
+all start at a handful of registers, each a broadcast into a whole
+block:
 
-| From | To | Through | Paths | Worst (ps) |
+| From | To | Start register | Paths | Worst (ps) |
 | --- | --- | --- | ---: | ---: |
-| Rob | parent | - | 9,277 | 4,238 |
-| DCacheWrapper | parent | - | 8,186 | 2,943 |
-| parent | VecRegionModule | - | 7,997 | 3,619 |
-| parent | DCacheWrapper | - | 3,247 | 3,997 |
-| parent | FltRegionModule | - | 2,750 | 3,361 |
-| parent | parent | FltRegionModule | 1,543 | 2,957 |
-| parent | MemCtrl | - | 1,304 | 3,463 |
-| parent | parent | DCacheWrapper | 27 | 4,316 |
+| parent | Frontend | ctrlBlock's `redirectGen.s1_redirect_valid_reg_last_REG` | 11,037 | 2,651 |
+| parent | Frontend | `pipeToBJU1.io_out_bits_data_src_0` | 9,766 | 2,750 |
+| parent | VecRegionModule | ctrlBlock's `s1_robFlushRedirect_valid_last_REG` | 7,992 | 3,108 |
+| Rob | parent | `state` | 7,905 | 2,542 |
+| parent | FltRegionModule | ctrlBlock's `s1_robFlushRedirect_valid_last_REG` | 2,568 | 2,460 |
+| MemBlock | parent, through FltRegionModule | load unit 2's `s1.io_pipeOut_valid` | 1,581 | 2,591 |
 
 `tools/carve/crossing_gui.tcl` serves one set in the web GUI, with a
 path group `crossing` that holds exactly these paths.

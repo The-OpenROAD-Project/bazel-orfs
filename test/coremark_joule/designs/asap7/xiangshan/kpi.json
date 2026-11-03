@@ -1528,6 +1528,11 @@
           "bin_ps": 10,
           "from_ps": 30,
           "counts": [1657, 931, 449, 353, 209, 224, 111, 258, 460, 520, 632, 823, 1003, 1515, 2221, 3036, 3539, 4828, 5310, 4795, 4226, 4026, 3532, 2818, 2283, 1975, 2216, 2005, 2386, 1629, 1392, 1325, 1316, 1970, 2250, 2674, 2584, 2630, 2223, 2308, 2075, 2257, 1567, 1580, 1700, 1809, 2502, 2417, 2543, 2536, 2504, 3093, 2948, 3138, 2728, 2408, 2085, 2461, 2029, 1908, 1577, 1608, 1595, 1477, 1510, 2104, 1733, 2014, 2787, 2880, 2881, 2398, 1868, 2416, 3078, 3809, 3673, 2813, 2112, 1872, 1479, 1204, 1014, 1035, 1187, 1369, 1270, 1118, 1102, 1127, 881, 1151, 1206, 1333, 1162, 1065, 1217, 1299, 1452, 2044, 2232, 2971, 3185, 3589, 3542, 3528, 2379, 2126, 1980, 1253, 1393, 881, 669, 436, 541, 442, 440, 342, 380, 528, 521, 525, 697, 1164, 1341, 1611, 1612, 1820, 1672, 1302, 1399, 1163, 925, 1111, 873, 1195, 1426, 1166, 903, 1269, 1430, 1235, 897, 1042, 879, 567, 454, 478, 567, 668, 643, 750, 1034, 1068, 1253, 1753, 2006, 1844, 1900, 2166, 1931, 1992, 1610, 1604, 1390, 1006, 837, 662, 449, 276, 247, 195, 71, 33, 22, 28, 25, 22, 14, 12, 10, 2, 3, 1]
+        },
+        "Top": {
+          "bin_ps": 10,
+          "from_ps": 2000,
+          "counts": [947, 636, 548, 577, 634, 746, 765, 690, 512, 490, 532, 688, 846, 903, 946, 642, 602, 598, 620, 698, 730, 657, 702, 699, 620, 563, 774, 781, 860, 1004, 1199, 965, 818, 664, 529, 557, 412, 443, 275, 263, 278, 210, 205, 154, 172, 149, 126, 139, 190, 245, 299, 328, 239, 250, 344, 402, 332, 240, 309, 489, 818, 688, 946, 933, 1080, 1222, 926, 585, 358, 154, 76, 39, 92, 95, 125, 205, 286, 363, 407, 255, 208, 143, 84, 78, 72, 81, 47, 28, 47, 37, 24, 27, 20, 16, 17, 11, 23, 36, 41, 37, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
         }
       },
       "worst_paths": {
@@ -1574,8 +1579,8 @@
           "what": ""
         }
       },
-      "measured": "the six-block carve built from source with orfs_schedule on main before the OpenROAD/ORFS bump (3353b055): CoupledL2, VecRegionModule, FltRegionModule, Rob, Frontend and MemBlock, and the parent macro, each at its own global route; the Top not measured",
-      "note": "XSTile carved along XiangShan's hierarchy into six blocks, pins on the edge facing each neighbour. The parent macro 2,470 to 2,111 ps, its endpoints over 2,000 ps 6,832 to 117 and their excess 1,148 to 3 ns: MemBlock's and Frontend's logic left it with their blocks. Rob 1,939 to 2,117 ps, now the slowest part. Frontend 1,997 and MemBlock 1,861 ps as whole blocks. The Top's crossings are not measured yet",
+      "measured": "the six-block carve built from source with orfs_schedule on main before the OpenROAD/ORFS bump (3353b055): CoupledL2, VecRegionModule, FltRegionModule, Rob, Frontend and MemBlock, and the parent macro, each at its own global route; the Top (XSTile_parent_pm_top, its clock tree and stitches routed, no timing repair) and its crossings (XSTile_parent_pm_crossings, 9 sets) built hermetically after them",
+      "note": "XSTile carved along XiangShan's hierarchy into six blocks, pins on the edge facing each neighbour; the first run with the Top measured. XSTile 3,108 ps, set by the Top: 42,962 crossing paths over 2,000 ps, nearly all from a handful of broadcast registers: ctrlBlock's flush redirect valid into all of VecRegion (3,108 ps), FltRegion and Rob, the redirect valid and BJU1's redirect data into all of Frontend (2,750 ps, 20,808 paths), Rob's state into the parent (2,542 ps). The Top skips timing repair. Inside the parts: Rob 2,117 and the parent macro 2,111 ps (its endpoints over 2,000 ps 6,832 to 117, excess 1,148 to 3 ns), both a broadcast net's critical sink at the end of a long buffer tree; Frontend 1,997, VecRegion 1,978, MemBlock 1,861, FltRegion 1,760, CoupledL2 1,559 ps",
       "memory_gb": {
         "synth": 4.9,
         "floorplan": 27.7,
@@ -1583,7 +1588,8 @@
         "cts": 34.7,
         "grt": 61.0
       },
-      "memory_peak": "XSTile_parent's grt (the Top not built)"
+      "memory_peak": "XSTile_parent's grt among the stages drawn; the Top's stitch (XSTile_parent_pm_top) peaked at 72.5 GB and timing a crossing set at about 55 GB",
+      "top_ps": 3108
     }
   ],
   "memory_history": [
