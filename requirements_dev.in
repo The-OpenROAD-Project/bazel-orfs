@@ -9,3 +9,5 @@ black
 pillow
 imageio-ffmpeg
 piper-tts
+fpdf2
+markdown-it-py

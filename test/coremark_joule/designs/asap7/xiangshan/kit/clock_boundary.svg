@@ -1,0 +1,38 @@
+<svg width="860" height="300" viewBox="0 0 860 300" xmlns="http://www.w3.org/2000/svg">
+<rect x="20" y="35" width="140" height="110" rx="3" fill="#f3dccb" stroke="#a4511d" stroke-width="1.5"/>
+<text x="90" y="78" fill="#17202b" font-size="13" text-anchor="middle">clock-crossing</text>
+<text x="90" y="95" fill="#17202b" font-size="13" text-anchor="middle">bridge</text>
+<text x="90" y="122" fill="#5a6675" font-size="12" text-anchor="middle">rolls up the tree</text>
+<rect x="220" y="20" width="620" height="260" rx="3" fill="none" stroke="#1f5fa8" stroke-width="2"/>
+<text x="828" y="42" text-anchor="end" fill="#17202b" font-size="14" font-weight="bold">XSTile</text>
+<line x1="160" y1="80" x2="280" y2="80" fill="none" stroke="#17202b" stroke-width="1.5"/>
+<rect x="214" y="74" width="12" height="12" fill="#fbfcfd" stroke="#1f5fa8" stroke-width="1"/>
+<text x="186" y="70" fill="#5a6675" font-size="12">in</text>
+<rect x="280" y="60" width="150" height="40" rx="3" fill="#fbfcfd" stroke="#1f5fa8" stroke-width="1"/>
+<text x="355" y="85" fill="#17202b" font-size="13" text-anchor="middle">input-side logic</text>
+<line x1="430" y1="80" x2="520" y2="80" fill="none" stroke="#17202b" stroke-width="1.5"/>
+<rect x="520" y="50" width="60" height="70" fill="#fbfcfd" stroke="#1f5fa8" stroke-width="1"/>
+<text x="550" y="90" fill="#17202b" font-size="13" text-anchor="middle">flop</text>
+<path d="M226 46 V38 H550 V48" fill="none" stroke="#1f5fa8" stroke-width="1.5" stroke-dasharray="5 4"/>
+<text x="236" y="29" fill="#1f5fa8" font-size="12" font-family="monospace">set_max_delay -ignore_clock_latency</text>
+<line x1="40" y1="230" x2="220" y2="230" fill="none" stroke="#8a5cc2" stroke-width="1.8"/>
+<text x="40" y="220" fill="#8a5cc2" font-size="12">core clock</text>
+<rect x="214" y="224" width="12" height="12" fill="#fbfcfd" stroke="#1f5fa8" stroke-width="1"/>
+<line x1="226" y1="230" x2="480" y2="230" fill="none" stroke="#8a5cc2" stroke-width="1.8"/>
+<path d="M250 218 L274 230 L250 242 Z" fill="#fbfcfd" stroke="#8a5cc2" stroke-width="1.5"/>
+<path d="M298 218 L322 230 L298 242 Z" fill="#fbfcfd" stroke="#8a5cc2" stroke-width="1.5"/>
+<path d="M346 218 L370 230 L346 242 Z" fill="#fbfcfd" stroke="#8a5cc2" stroke-width="1.5"/>
+<path d="M394 218 L418 230 L394 242 Z" fill="#fbfcfd" stroke="#8a5cc2" stroke-width="1.5"/>
+<path d="M442 218 L466 230 L442 242 Z" fill="#fbfcfd" stroke="#8a5cc2" stroke-width="1.5"/>
+<rect x="480" y="215" width="44" height="30" rx="2" fill="#fbfcfd" stroke="#8a5cc2" stroke-width="1.5"/>
+<text x="502" y="234" fill="#8a5cc2" font-size="12" text-anchor="middle">ICG</text>
+<polyline points="524,230 550,230 550,120" fill="none" stroke="#8a5cc2" stroke-width="1.8"/>
+<line x1="550" y1="230" x2="640" y2="200" fill="none" stroke="#8a5cc2" stroke-width="1.8"/>
+<line x1="550" y1="230" x2="640" y2="218" fill="none" stroke="#8a5cc2" stroke-width="1.8"/>
+<line x1="550" y1="230" x2="640" y2="242" fill="none" stroke="#8a5cc2" stroke-width="1.8"/>
+<line x1="550" y1="230" x2="640" y2="260" fill="none" stroke="#8a5cc2" stroke-width="1.8"/>
+<text x="650" y="226" fill="#8a5cc2" font-size="12">to every flop</text>
+<text x="650" y="242" fill="#8a5cc2" font-size="12">and memory macro</text>
+<path d="M236 252 V260 H524 V252" fill="none" stroke="#8a5cc2" stroke-width="1.5" stroke-dasharray="5 4"/>
+<text x="236" y="276" fill="#8a5cc2" font-size="12">insertion latency: many levels, known only after CTS</text>
+</svg>

@@ -1,0 +1,377 @@
+[
+{
+"name": "clock",
+"dir": "input",
+"width": 1
+},
+{
+"name": "reset",
+"dir": "input",
+"width": 1
+},
+{
+"name": "auto_l2top_inner_beu_int_out_0",
+"dir": "output",
+"width": 1
+},
+{
+"name": "auto_l2top_inner_nmi_int_in_0",
+"dir": "input",
+"width": 1
+},
+{
+"name": "auto_l2top_inner_nmi_int_in_1",
+"dir": "input",
+"width": 1
+},
+{
+"name": "auto_l2top_inner_plic_int_in_1_0",
+"dir": "input",
+"width": 1
+},
+{
+"name": "auto_l2top_inner_plic_int_in_0_0",
+"dir": "input",
+"width": 1
+},
+{
+"name": "auto_l2top_inner_debug_int_in_0",
+"dir": "input",
+"width": 1
+},
+{
+"name": "auto_l2top_inner_clint_int_in_0",
+"dir": "input",
+"width": 1
+},
+{
+"name": "auto_l2top_inner_clint_int_in_1",
+"dir": "input",
+"width": 1
+},
+{
+"name": "io_hartId",
+"dir": "input",
+"width": 6
+},
+{
+"name": "io_msiInfo_valid",
+"dir": "input",
+"width": 1
+},
+{
+"name": "io_msiInfo_bits",
+"dir": "input",
+"width": 12
+},
+{
+"name": "io_msiAck",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_reset_vector",
+"dir": "input",
+"width": 48
+},
+{
+"name": "io_cpu_wfi",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_cpu_crtical_error",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_hartIsInReset",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_traceCoreInterface_fromEncoder_enable",
+"dir": "input",
+"width": 1
+},
+{
+"name": "io_traceCoreInterface_fromEncoder_stall",
+"dir": "input",
+"width": 1
+},
+{
+"name": "io_traceCoreInterface_toEncoder_priv",
+"dir": "output",
+"width": 3
+},
+{
+"name": "io_traceCoreInterface_toEncoder_mstatus",
+"dir": "output",
+"width": 64
+},
+{
+"name": "io_traceCoreInterface_toEncoder_trap_cause",
+"dir": "output",
+"width": 64
+},
+{
+"name": "io_traceCoreInterface_toEncoder_trap_tval",
+"dir": "output",
+"width": 50
+},
+{
+"name": "io_traceCoreInterface_toEncoder_groups_0_valid",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_traceCoreInterface_toEncoder_groups_0_bits_iaddr",
+"dir": "output",
+"width": 50
+},
+{
+"name": "io_traceCoreInterface_toEncoder_groups_0_bits_itype",
+"dir": "output",
+"width": 4
+},
+{
+"name": "io_traceCoreInterface_toEncoder_groups_0_bits_iretire",
+"dir": "output",
+"width": 8
+},
+{
+"name": "io_traceCoreInterface_toEncoder_groups_0_bits_ilastsize",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_traceCoreInterface_toEncoder_groups_1_valid",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_traceCoreInterface_toEncoder_groups_1_bits_iaddr",
+"dir": "output",
+"width": 50
+},
+{
+"name": "io_traceCoreInterface_toEncoder_groups_1_bits_itype",
+"dir": "output",
+"width": 4
+},
+{
+"name": "io_traceCoreInterface_toEncoder_groups_1_bits_iretire",
+"dir": "output",
+"width": 8
+},
+{
+"name": "io_traceCoreInterface_toEncoder_groups_1_bits_ilastsize",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_traceCoreInterface_toEncoder_groups_2_valid",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_traceCoreInterface_toEncoder_groups_2_bits_iaddr",
+"dir": "output",
+"width": 50
+},
+{
+"name": "io_traceCoreInterface_toEncoder_groups_2_bits_itype",
+"dir": "output",
+"width": 4
+},
+{
+"name": "io_traceCoreInterface_toEncoder_groups_2_bits_iretire",
+"dir": "output",
+"width": 8
+},
+{
+"name": "io_traceCoreInterface_toEncoder_groups_2_bits_ilastsize",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_l3Miss",
+"dir": "input",
+"width": 1
+},
+{
+"name": "io_chi_txsactive",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_chi_rxsactive",
+"dir": "input",
+"width": 1
+},
+{
+"name": "io_chi_syscoreq",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_chi_syscoack",
+"dir": "input",
+"width": 1
+},
+{
+"name": "io_chi_tx_linkactivereq",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_chi_tx_linkactiveack",
+"dir": "input",
+"width": 1
+},
+{
+"name": "io_chi_tx_req_flitpend",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_chi_tx_req_flitv",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_chi_tx_req_flit",
+"dir": "output",
+"width": 125
+},
+{
+"name": "io_chi_tx_req_lcrdv",
+"dir": "input",
+"width": 1
+},
+{
+"name": "io_chi_tx_rsp_flitpend",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_chi_tx_rsp_flitv",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_chi_tx_rsp_flit",
+"dir": "output",
+"width": 51
+},
+{
+"name": "io_chi_tx_rsp_lcrdv",
+"dir": "input",
+"width": 1
+},
+{
+"name": "io_chi_tx_dat_flitpend",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_chi_tx_dat_flitv",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_chi_tx_dat_flit",
+"dir": "output",
+"width": 385
+},
+{
+"name": "io_chi_tx_dat_lcrdv",
+"dir": "input",
+"width": 1
+},
+{
+"name": "io_chi_rx_linkactivereq",
+"dir": "input",
+"width": 1
+},
+{
+"name": "io_chi_rx_linkactiveack",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_chi_rx_rsp_flitpend",
+"dir": "input",
+"width": 1
+},
+{
+"name": "io_chi_rx_rsp_flitv",
+"dir": "input",
+"width": 1
+},
+{
+"name": "io_chi_rx_rsp_flit",
+"dir": "input",
+"width": 51
+},
+{
+"name": "io_chi_rx_rsp_lcrdv",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_chi_rx_dat_flitpend",
+"dir": "input",
+"width": 1
+},
+{
+"name": "io_chi_rx_dat_flitv",
+"dir": "input",
+"width": 1
+},
+{
+"name": "io_chi_rx_dat_flit",
+"dir": "input",
+"width": 385
+},
+{
+"name": "io_chi_rx_dat_lcrdv",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_chi_rx_snp_flitpend",
+"dir": "input",
+"width": 1
+},
+{
+"name": "io_chi_rx_snp_flitv",
+"dir": "input",
+"width": 1
+},
+{
+"name": "io_chi_rx_snp_flit",
+"dir": "input",
+"width": 88
+},
+{
+"name": "io_chi_rx_snp_lcrdv",
+"dir": "output",
+"width": 1
+},
+{
+"name": "io_nodeID",
+"dir": "input",
+"width": 7
+},
+{
+"name": "io_clintTime_valid",
+"dir": "input",
+"width": 1
+},
+{
+"name": "io_clintTime_bits",
+"dir": "input",
+"width": 64
+}
+]

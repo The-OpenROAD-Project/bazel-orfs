@@ -661,3 +661,21 @@ py_binary(
     srcs = ["localise.py"],
     deps = [":check_lib"],
 )
+
+# What the extraction buys, block by block: the kit's README reads it,
+# README.md's table is it (ab_test).
+exports_files(
+    ["ab.json"],
+    visibility = ["//test/coremark_joule/designs/asap7/xiangshan:__pkg__"],
+)
+
+py_test(
+    name = "ab_test",
+    size = "small",
+    srcs = ["ab_test.py"],
+    data = [
+        "README.md",
+        "ab.json",
+    ],
+    main = "ab_test.py",
+)
