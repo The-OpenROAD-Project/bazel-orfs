@@ -791,11 +791,17 @@ def split_groups(groups, ports_outer=True):
     return inner, outer
 
 
-def facing_side(m, partner, by_name, gap_um):
+# how far apart two neighbours in a row may be for their pins to face
+# each other: the planner leaves its channel and lattice snap between them
+# (41 um on XSTile), which their wires cross directly
+FACING_GAP_UM = 100.0
+
+
+def facing_side(m, partner, by_name, gap_um=FACING_GAP_UM):
     """The edge of m its pins to partner go on when plan["margins"]
     ["pins_any_edge"] is set: the edge facing a block that is m's direct
     neighbour in the same row (no block between them, the two outlines
-    within two gaps), so their wires cross the gap between them instead of
+    within gap_um), so their wires cross the gap between them instead of
     both running out into the region; None, the region side, otherwise."""
     q = by_name.get(partner)
     if q is None or q is m or q.get("region_side") != m.get("region_side"):
@@ -813,7 +819,7 @@ def facing_side(m, partner, by_name, gap_um):
         gap, side, between = lo - qhi, before, (qhi, lo)
     else:
         return None
-    if gap > 2 * gap_um + 1e-6:
+    if gap > gap_um + 1e-6:
         return None
     for o in by_name.values():
         if o is m or o is q or o.get("region_side") != m["region_side"]:
@@ -1416,9 +1422,8 @@ def emit(out, plan, directory):
                 by_side = {side: {}}
                 if plan["margins"].get("pins_any_edge"):
                     by_name_out = {q["name"]: q for q in out["macros"]}
-                    gap_um = plan["margins"]["gap_um"]
                     for partner, pins in inner.items():
-                        sd_ = facing_side(by_name_out[pm["name"]], partner, by_name_out, gap_um) or side
+                        sd_ = facing_side(by_name_out[pm["name"]], partner, by_name_out) or side
                         by_side.setdefault(sd_, {})[partner] = pins
                 else:
                     by_side[side] = inner

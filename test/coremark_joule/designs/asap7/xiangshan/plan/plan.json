@@ -93,7 +93,7 @@
   ],
   "port_side": "bottom",
   "ports": 1557,
-  "partner_layout": false
+  "partner_layout": true
  },
  "margins": {
   "pin_side": 1.5,
@@ -106,7 +106,7 @@
  "macros": [
   {
    "name": "FltRegionModule",
-   "pins": 4825,
+   "pins": 4824,
    "area_um2": 442597,
    "keep": [
     "FMulFlt",
@@ -124,7 +124,7 @@
   },
   {
    "name": "VecRegionModule",
-   "pins": 5095,
+   "pins": 5094,
    "area_um2": 652605,
    "keep": [
     "VFDivWrapper",
@@ -145,7 +145,7 @@
   },
   {
    "name": "CoupledL2",
-   "pins": 2807,
+   "pins": 2806,
    "area_um2": 741000,
    "keep": [
     "MSHRCtl",
@@ -171,7 +171,7 @@
   },
   {
    "name": "Rob",
-   "pins": 3181,
+   "pins": 3180,
    "area_um2": 349102,
    "keep": [
     "RenameBuffer",
@@ -183,7 +183,7 @@
   },
   {
    "name": "Frontend",
-   "pins": 3304,
+   "pins": 3290,
    "area_um2": 754505,
    "keep": [
     "Bpu",
@@ -218,7 +218,7 @@
   },
   {
    "name": "MemBlock",
-   "pins": 11418,
+   "pins": 10438,
    "area_um2": 832812,
    "keep": [
     "DCacheWrapper",
@@ -263,5 +263,6 @@
     1178
    ]
   }
- ]
+ ],
+ "pin_partners": "pin_partners.txt"
 }

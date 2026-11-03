@@ -357,19 +357,20 @@ class FacingSideTest(unittest.TestCase):
         self.by = {m["name"]: dict(m) for m in self.ROW}
 
     def test_neighbours_face_each_other(self):
-        self.assertEqual(plan_floorplan.facing_side(self.by["A"], "B", self.by, 10.0), "right")
-        self.assertEqual(plan_floorplan.facing_side(self.by["B"], "A", self.by, 10.0), "left")
+        self.assertEqual(plan_floorplan.facing_side(self.by["A"], "B", self.by), "right")
+        self.assertEqual(plan_floorplan.facing_side(self.by["B"], "A", self.by), "left")
 
     def test_a_block_between_keeps_the_region_side(self):
-        self.assertIsNone(plan_floorplan.facing_side(self.by["A"], "C", self.by, 10.0))
+        self.assertIsNone(plan_floorplan.facing_side(self.by["A"], "C", self.by))
 
     def test_across_the_region_and_logic_keep_the_region_side(self):
-        self.assertIsNone(plan_floorplan.facing_side(self.by["A"], "T", self.by, 10.0))
-        self.assertIsNone(plan_floorplan.facing_side(self.by["A"], "logic", self.by, 10.0))
+        self.assertIsNone(plan_floorplan.facing_side(self.by["A"], "T", self.by))
+        self.assertIsNone(plan_floorplan.facing_side(self.by["A"], "logic", self.by))
 
     def test_too_far_apart_keeps_the_region_side(self):
-        self.by["B"]["x_um"] = 150.0
-        self.assertIsNone(plan_floorplan.facing_side(self.by["A"], "B", self.by, 10.0))
+        self.by["B"]["x_um"] = 290.0
+        self.by.pop("C")
+        self.assertIsNone(plan_floorplan.facing_side(self.by["A"], "B", self.by))
 
 
 class ExactPinTest(unittest.TestCase):
