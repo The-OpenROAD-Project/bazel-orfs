@@ -278,7 +278,7 @@
       }
     },
     "MemBlock": {
-      "source": "estimated",
+      "source": "measured",
       "stages": {
         "cts": {
           "minutes": 52.0,
@@ -289,8 +289,8 @@
           "peak_gb": 10.5
         },
         "grt": {
-          "minutes": 92.7,
-          "peak_gb": 42.2
+          "minutes": 38.2,
+          "peak_gb": 34.5
         },
         "place": {
           "minutes": 40.7,
@@ -381,19 +381,19 @@
       "source": "measured",
       "stages": {
         "cts": {
-          "minutes": 78.8,
-          "peak_gb": 6.4
+          "minutes": 17.2,
+          "peak_gb": 6.5
         },
         "floorplan": {
           "minutes": 1.7,
           "peak_gb": 3.4
         },
         "grt": {
-          "minutes": 19.5,
-          "peak_gb": 11.0
+          "minutes": 12.6,
+          "peak_gb": 11.3
         },
         "place": {
-          "minutes": 38.3,
+          "minutes": 9.0,
           "peak_gb": 4.6
         },
         "synth": {
