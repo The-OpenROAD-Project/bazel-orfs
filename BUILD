@@ -46,6 +46,7 @@ exports_files([
     "rc.bzl",
     "rtlil_kept_macros.py",
     "rtlil_kept_modules.py",
+    "rtlil_names.py",
     "synth.tcl",
     "synth_canonicalize_module.tcl",
     "synth_keep.tcl",
@@ -315,6 +316,13 @@ py_binary(
     name = "rtlil_kept_modules",
     srcs = ["rtlil_kept_modules.py"],
     visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "rtlil_names_lib",
+    srcs = ["rtlil_names.py"],
+    imports = ["."],
+    visibility = ["//test/rtlil_names:__pkg__"],
 )
 
 py_test(
