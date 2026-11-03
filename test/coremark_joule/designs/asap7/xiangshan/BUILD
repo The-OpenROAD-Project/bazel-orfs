@@ -300,8 +300,6 @@ odb_debug(
     for flow in list(PLAN["macros"].keys()) + [
         "FltRegionModule_pinplan",
         "FltRegionModule_pinplan2",
-        "Ftq_pinplan",
-        "Ftq_pinplan2",
         "Rob_pinplan",
         "Rob_pinplan2",
         "VecRegionModule_pinplan",
