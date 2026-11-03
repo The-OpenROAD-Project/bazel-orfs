@@ -102,6 +102,7 @@ found:
 - `/odb-to-cpp` — turn a whittled `.odb` into a self-contained C++ unit test.
 - `/study-pr` — publish a measurement study as a closed bazel-orfs pull request.
 - `/idea` — write an idea down in `ideas/`.
+- `/web-pr-animation` — show a web viewer change as before/after animations in its pull request.
 
 ## Upstream repositories: moratorium on pull requests
 
