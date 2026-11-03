@@ -1349,6 +1349,15 @@ XS_VT = "RVT LVT SLVT"
 # and crossings quoted from a build with it off are not the flow's.
 XS_GPL_DRIVEN = "0"
 
+# A planned block whose legaliser needs the diamond search and a wider
+# window than the negotiation legaliser's default. Rob, carved with its pins
+# facing the region from the top row, reached 87.8 % utilisation after CTS's
+# hold buffers; the negotiation legaliser stopped with 64 violations and
+# check_placement failed (DPL-0033).
+XS_BLOCK_DPL_ARGS = {
+    "Rob": "-use_diamond_legalizer -max_displacement {200 600}",
+}
+
 def _planned_block(cfg, entry, plan_dir, block, blocks):
     """A block flow's arguments and sources under the plan: planned outline,
     every pin on the planned side, the parent's target period."""
@@ -1379,6 +1388,8 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
     arguments["SYNTH_HIERARCHICAL"] = "0"
     if block in XS_PLACE_DENSITY:
         arguments["PLACE_DENSITY"] = XS_PLACE_DENSITY[block]
+    if block in XS_BLOCK_DPL_ARGS:
+        arguments["DETAIL_PLACEMENT_ARGS"] = XS_BLOCK_DPL_ARGS[block]
     arguments["OPENROAD_HIERARCHICAL"] = "1"
     arguments["ASAP7_USE_VT"] = XS_VT
     arguments["GPL_TIMING_DRIVEN"] = XS_GPL_DRIVEN
