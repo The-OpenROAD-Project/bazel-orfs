@@ -105,7 +105,7 @@ bazel_dep(name = "rules_python", version = "2.3.2")
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(is_default = True, python_version = "3.13")
 
-single_version_override(module_name = "gawk", version = "5.3.2.bcr.7")
+single_version_override(module_name = "gawk", version = "5.4.0.bcr.2")
 single_version_override(module_name = "m4", version = "1.4.21.bcr.8")
 single_version_override(module_name = "rules_flex", version = "0.4")
 single_version_override(module_name = "scip", version = "9.2.3.bcr.1")
