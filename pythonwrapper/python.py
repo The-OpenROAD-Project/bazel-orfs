@@ -26,6 +26,18 @@ def main():
     # has already started, and runpy.run_path below never put the script
     # directory on sys.path anyway.
     os.environ.pop("PYTHONSAFEPATH", None)
+    # A plain `python3` caches each module it imports as bytecode in a
+    # __pycache__ beside the source, which in a build is someone else's
+    # tree: an external repository, or the workspace. A .pyc embeds its
+    # source's mtime, so it differs per machine, and any glob that picks
+    # it up puts that difference into an action's cache key. FakeRAM's
+    # utils/ did, through the @orfs FakeRAM filegroup, and every
+    # synthesis missed the cache on every machine but the one that wrote
+    # it. No bytecode is written: by this interpreter, which imports the
+    # script's modules, nor by any child python, which inherits the
+    # variable (gen_memories.py runs FakeRAM with sys.executable).
+    sys.dont_write_bytecode = True
+    os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
     runpy.run_path(script, run_name="__main__")
 
 
