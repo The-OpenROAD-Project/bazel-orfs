@@ -21,31 +21,46 @@ BIN_PS = 50
 
 
 def read(paths):
-    """Each set's paths, (start, end) -> (need, from, to); the same path
-    from two sets must need the same time, or the sets disagree."""
-    merged = {}
+    """Each set's paths, (start, end) -> (need, from, to, through), its
+    worst slot; the same path in the same slot (launch and capture
+    transition) from two sets must need the same time, or the sets
+    disagree. The search keeps one path per endpoint and slot, so a set
+    holding a worse start into the endpoint lacks that slot of this path:
+    absent there, not different."""
+    slots = {}
     for path in paths:
-        # one set can list a start and end twice (a transition or a path
-        # group apart): its worst is the set's
+        # one set can list a start, end and slot twice (a path group
+        # apart): its worst is the set's
         mine = {}
         with open(path) as f:
             for line in f:
                 fields = line.split()
-                if len(fields) not in (6, 7) or fields[1] != "crossing":
+                if len(fields) not in (6, 7, 8) or fields[1] != "crossing":
                     continue
                 need, _, frm, to, start, end = fields[:6]
-                through = fields[6] if len(fields) == 7 else "-"
-                key = (start, end)
+                through = fields[6] if len(fields) >= 7 else "-"
+                slot = fields[7] if len(fields) == 8 else ""
+                key = (start, end, slot)
                 value = (float(need), frm, to, through)
                 if key not in mine or value[0] > mine[key][0]:
                     mine[key] = value
         for key, value in mine.items():
-            if key in merged and abs(merged[key][0] - value[0]) > 0.05:
+            if key in slots and abs(slots[key][0] - value[0]) > 0.05:
                 sys.exit(
-                    "crossing_report: %s -> %s needs %.1f in one set, %.1f in another"
-                    % (key[0], key[1], merged[key][0], value[0])
+                    "crossing_report: %s -> %s %sneeds %.1f in one set, %.1f in another"
+                    % (
+                        key[0],
+                        key[1],
+                        key[2] + " " if key[2] else "",
+                        slots[key][0],
+                        value[0],
+                    )
                 )
-            merged[key] = value
+            slots[key] = value
+    merged = {}
+    for (start, end, _), value in slots.items():
+        if (start, end) not in merged or value[0] > merged[(start, end)][0]:
+            merged[(start, end)] = value
     return merged
 
 
