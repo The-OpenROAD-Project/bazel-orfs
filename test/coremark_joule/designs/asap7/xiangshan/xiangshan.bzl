@@ -15,7 +15,7 @@ load("//tools/carve:parent_macro.bzl", "parent_macro_flow")
 # Read by anneal_in_flow.tcl, not by ORFS: bypass the variables.yaml
 # validator, and scoped to the floorplan so a knob edit re-runs the
 # floorplan and not the synthesis before it.
-XS_USER_ARGUMENTS = ["ANNEAL_SEED", "ANNEAL_DEPTH", "ANNEAL_MIN_CLUSTER", "ANNEAL_CHANNEL_UM", "ANNEAL_BLOCK_GAP_UM", "ANNEAL_FILL", "ANNEAL_STRAP_PITCH_UM", "ANNEAL_STRAP_OFFSET_UM", "ANNEAL_STRAP_PAIR_UM", "ANNEAL_CHANNEL_CHECK", "ANNEAL_CHANNEL_AUTO", "ANNEAL_CHANNEL_MIN_UM"]
+XS_USER_ARGUMENTS = ["ANNEAL_SEED", "ANNEAL_SEEDS", "ANNEAL_DEPTH", "ANNEAL_MIN_CLUSTER", "ANNEAL_CHANNEL_UM", "ANNEAL_BLOCK_GAP_UM", "ANNEAL_FILL", "ANNEAL_STRAP_PITCH_UM", "ANNEAL_STRAP_OFFSET_UM", "ANNEAL_STRAP_PAIR_UM", "ANNEAL_CHANNEL_CHECK", "ANNEAL_CHANNEL_AUTO", "ANNEAL_CHANNEL_MIN_UM"]
 XS_USER_SOURCES = ["ANNEAL_DUMP_TCL", "ANNEAL_PY"]
 
 # XiangShan's ClockGate onto ASAP7's ICG cell in every flow, the parent's
@@ -114,6 +114,10 @@ XS_PARENT = {
         "ANNEAL_FILL": "0.5",
         "ANNEAL_MIN_CLUSTER": "1",
         "ANNEAL_SEED": "1",
+        # the legal placement of least cost over 8 seeds: after the
+        # OpenROAD/ORFS bump MemBlock's banks were legal only for seeds
+        # 7 and 8 (macro_anneal_seeds_test)
+        "ANNEAL_SEEDS": "8",
         "ANNEAL_STRAP_OFFSET_UM": "1.5",
         "ANNEAL_STRAP_PAIR_UM": "0.312",
         "ANNEAL_STRAP_PITCH_UM": "2.16",
@@ -160,6 +164,10 @@ XS_BLOCKS = {
             "ANNEAL_FILL": "0.5",
             "ANNEAL_MIN_CLUSTER": "1",
             "ANNEAL_SEED": "1",
+            # the legal placement of least cost over 8 seeds: after the
+            # OpenROAD/ORFS bump MemBlock's banks were legal only for seeds
+            # 7 and 8 (macro_anneal_seeds_test)
+            "ANNEAL_SEEDS": "8",
             "ANNEAL_STRAP_OFFSET_UM": "0.3",
             "ANNEAL_STRAP_PAIR_UM": "0.312",
             "ANNEAL_STRAP_PITCH_UM": "5.4",

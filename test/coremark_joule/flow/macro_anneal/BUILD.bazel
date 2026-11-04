@@ -32,3 +32,15 @@ py_test(
     main = "macro_anneal_test.py",
     tags = ["study"],
 )
+
+py_test(
+    name = "macro_anneal_seeds_test",
+    size = "small",
+    srcs = [
+        "macro_anneal.py",
+        "macro_anneal_seeds_test.py",
+    ],
+    data = ["testdata/memblock_inventory.txt"],
+    main = "macro_anneal_seeds_test.py",
+    tags = ["study"],
+)
