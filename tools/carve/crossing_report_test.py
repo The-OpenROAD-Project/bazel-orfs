@@ -72,6 +72,41 @@ class CrossingReportTest(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 crossing_report.main(os.path.join(d, "out"), 150, [a, b])
 
+    def test_a_slot_hidden_in_one_set_is_not_a_disagreement(self):
+        # XSTile run 25: set 5 held u_Rob, whose start took three of the
+        # endpoint's four slots, so it listed only the flush register's
+        # 2,313.6 ps slot; sets 2 and 7 listed its 2,327.6 ps slot too
+        with tempfile.TemporaryDirectory() as d:
+            a = write(
+                d,
+                "c.0",
+                [
+                    "2327.6 crossing u_P u_F p/q f/d - ^v",
+                    "2313.6 crossing u_P u_F p/q f/d - v^",
+                ],
+            )
+            b = write(
+                d,
+                "c.1",
+                [
+                    "2337.2 crossing u_R u_F r/q f/d u_P ^v",
+                    "2313.6 crossing u_P u_F p/q f/d - v^",
+                ],
+            )
+            crossing_report.main(os.path.join(d, "out"), 2000, [a, b])
+            with open(os.path.join(d, "out", "crossing.txt")) as f:
+                rows = [l for l in f if not l.startswith("#")]
+            self.assertEqual(len(rows), 2)
+            self.assertTrue(rows[0].startswith("2337.2 u_R u_F"))
+            self.assertTrue(rows[1].startswith("2327.6 u_P u_F"))
+
+    def test_the_same_slot_disagreeing_stops(self):
+        with tempfile.TemporaryDirectory() as d:
+            a = write(d, "c.0", ["2327.6 crossing u_P u_F p/q f/d - ^v"])
+            b = write(d, "c.1", ["2313.6 crossing u_P u_F p/q f/d - ^v"])
+            with self.assertRaises(SystemExit):
+                crossing_report.main(os.path.join(d, "out"), 2000, [a, b])
+
     def test_matches_the_whole_design(self):
         with tempfile.TemporaryDirectory() as d:
             sets = os.path.join(d, "sets")
