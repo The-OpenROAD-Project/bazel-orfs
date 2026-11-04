@@ -1528,17 +1528,15 @@ def read_bazel_orfs_overrides(bazel_orfs_module_path):
 BAZEL_ORFS_PATCHES_DIR = "bazel-orfs-patches"
 
 
-def bazel_orfs_owned_patches(bazel_orfs_module_path):
+def bazel_orfs_owned_patches(text):
     """Map module name -> patch filenames bazel-orfs's own override applies.
 
-    Bazel refuses a patch label that crosses a module boundary ("only
-    patches in the main repository can be applied"), so every patch
-    bazel-orfs applies to a shared dependency must exist as a file in the
-    consumer's tree and be listed in the consumer's own override.
+    ``text`` is bazel-orfs's MODULE.bazel.  Bazel refuses a patch label that
+    crosses a module boundary ("only patches in the main repository can be
+    applied"), so every patch bazel-orfs applies to a shared dependency must
+    exist as a file in the consumer's tree and be listed in the consumer's
+    own override.
     """
-    with open(bazel_orfs_module_path) as f:
-        text = f.read()
-
     owned = {}
     for name in NON_BCR_DEPS:
         span = find_git_override_block(text, name) or find_archive_override_block(
@@ -1556,34 +1554,32 @@ def bazel_orfs_owned_patches(bazel_orfs_module_path):
     return owned
 
 
-def copy_patches(bazel_orfs_dir, workspace_dir, owned=None):
+def copy_patches(read_bazel_orfs_fn, workspace_dir, owned):
     """Sync the consumer's bazel-orfs-patches/ to exactly what bazel-orfs applies.
 
-    Copies the patches bazel-orfs's overrides reference and deletes every
-    other .patch in the directory.  The deletion is the point: when a patch
-    reaches its upstream home and bazel-orfs drops it, the consumer's copy
-    goes away on the next bump instead of being carried forever.
+    ``read_bazel_orfs_fn(path)`` reads a file of the bazel-orfs commit being
+    pinned, None if absent.  Copies the patches its overrides reference and
+    deletes every other .patch in the directory.  The deletion is the point:
+    when a patch reaches its upstream home and bazel-orfs drops it, the
+    consumer's copy goes away on the next bump instead of being carried
+    forever.
     """
-    import shutil
-
-    src_patches = os.path.join(bazel_orfs_dir, "patches")
     dst_dir = os.path.join(workspace_dir, BAZEL_ORFS_PATCHES_DIR)
-    if not os.path.isdir(src_patches):
-        return
-
-    if owned is None:
-        owned = bazel_orfs_owned_patches(os.path.join(bazel_orfs_dir, "MODULE.bazel"))
     needed = {name for names in owned.values() for name in names}
 
     os.makedirs(dst_dir, exist_ok=True)
     for filename in sorted(needed):
-        for candidate in (
-            os.path.join(src_patches, filename),
-            os.path.join(bazel_orfs_dir, filename),
-        ):
-            if os.path.isfile(candidate):
-                shutil.copy2(candidate, os.path.join(dst_dir, filename))
+        for candidate in (f"patches/{filename}", filename):
+            text = read_bazel_orfs_fn(candidate)
+            if text is not None:
+                with open(os.path.join(dst_dir, filename), "w") as fh:
+                    fh.write(text)
                 break
+        else:
+            raise BumpError(
+                f"bazel-orfs's MODULE.bazel applies {filename}, "
+                "which is neither in its patches/ nor at its root"
+            )
 
     for filename in sorted(os.listdir(dst_dir)):
         if filename.endswith(".patch") and filename not in needed:
@@ -2067,14 +2063,21 @@ def bump(
         # Inject non-BCR deps (orfs, openroad, qt-bazel) with commits
         # pinned to the same versions bazel-orfs uses
         content = inject_non_bcr_deps(content, bazel_orfs_dir)
-        bazel_orfs_module = os.path.join(bazel_orfs_dir, "MODULE.bazel")
-        if os.path.exists(bazel_orfs_module):
-            owned = bazel_orfs_owned_patches(bazel_orfs_module)
-            content, patched = reconcile_patch_labels(content, owned)
-            for name in patched:
-                updated_modules.append(f"{name} patches -> bazel-orfs' set")
-            if workspace_dir:
-                copy_patches(bazel_orfs_dir, workspace_dir, owned)
+        # The patches come from the commit being pinned, not from the
+        # bazel-orfs running this bump: that is the previous pin, and its
+        # runfiles hold neither MODULE.bazel nor patches/.
+        read_pinned = lambda path: fetch_raw_text_fn(
+            BAZEL_ORFS_REPO, bazel_orfs_commit, path
+        )
+        pinned_module = read_pinned("MODULE.bazel")
+        if pinned_module is None:
+            raise BumpError(f"bazel-orfs {bazel_orfs_commit[:12]} has no MODULE.bazel")
+        owned = bazel_orfs_owned_patches(pinned_module)
+        content, patched = reconcile_patch_labels(content, owned)
+        for name in patched:
+            updated_modules.append(f"{name} patches -> bazel-orfs' set")
+        if workspace_dir:
+            copy_patches(read_pinned, workspace_dir, owned)
 
     # --- Update ORFS commit (skip for projects without ORFS) ---
     # Every consumer follows ORFS master — including OpenROAD, whose orfs

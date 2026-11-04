@@ -147,6 +147,11 @@ CARRIED_ORFS_PATCHES = carried_orfs_patches()
 FAKE_ORFS_TREE = fake_orfs_tree(CARRIED_ORFS_PATCHES)
 
 
+# The pinned bazel-orfs's MODULE.bazel as the bump reads it: one that applies
+# no patch to a shared dependency, so a consumer's lists stay as they are.
+FAKE_BAZEL_ORFS_MODULE = 'module(name = "bazel-orfs")\n'
+
+
 def mock_fetch_raw_text(repo, _ref, path):
     """Raw file reads, served locally.
 
@@ -156,6 +161,8 @@ def mock_fetch_raw_text(repo, _ref, path):
     how a new one gets noticed before CI reaches for GitHub.
     """
     if repo == bump.BAZEL_ORFS_REPO:
+        if path == "MODULE.bazel":
+            return FAKE_BAZEL_ORFS_MODULE
         return bump.read_local_text(REPO_ROOT, path)
     if repo == bump.ORFS_REPO:
         return FAKE_ORFS_TREE.get(path)
@@ -2167,6 +2174,12 @@ git_override(
 )
 """
 
+    def _reader(self, d):
+        return lambda path: bump.read_local_text(d, path)
+
+    def _owned(self, d):
+        return bump.bazel_orfs_owned_patches(self._reader(d)("MODULE.bazel"))
+
     def _bazel_orfs_dir(self):
         d = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, d)
@@ -2185,7 +2198,7 @@ git_override(
 
     def test_owned_patches_span_both_override_shapes(self):
         d = self._bazel_orfs_dir()
-        owned = bump.bazel_orfs_owned_patches(os.path.join(d, "MODULE.bazel"))
+        owned = self._owned(d)
         self.assertEqual(
             owned,
             {
@@ -2201,7 +2214,7 @@ git_override(
         d = self._bazel_orfs_dir()
         ws = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, ws)
-        bump.copy_patches(d, ws)
+        bump.copy_patches(self._reader(d), ws, self._owned(d))
         dst = os.path.join(ws, bump.BAZEL_ORFS_PATCHES_DIR)
         self.assertEqual(
             sorted(f for f in os.listdir(dst) if f.endswith(".patch")),
@@ -2222,12 +2235,70 @@ git_override(
         stale = os.path.join(dst, "0050-orfs-set-rc-tcl-load.patch")
         with open(stale, "w") as fh:
             fh.write("carried by an older bump\n")
-        bump.copy_patches(d, ws)
+        bump.copy_patches(self._reader(d), ws, self._owned(d))
         self.assertFalse(os.path.exists(stale))
+
+    def test_copy_patches_refuses_an_applied_patch_it_cannot_find(self):
+        d = self._bazel_orfs_dir()
+        os.remove(os.path.join(d, "patches", "0001-openroad-example.patch"))
+        ws = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, ws)
+        with self.assertRaisesRegex(bump.BumpError, "0001-openroad-example.patch"):
+            bump.copy_patches(self._reader(d), ws, self._owned(d))
+
+    def test_bump_syncs_the_patches_of_the_commit_it_pins(self):
+        pinned = mock_fetch_commit(bump.BAZEL_ORFS_REPO, "main")
+        module = """
+bazel_dep(name = "openroad")
+archive_override(
+    module_name = "openroad",
+    patches = ["//patches:0182-openroad-new-at-the-pin.patch"],
+    urls = ["https://example.invalid/openroad.tar.gz"],
+)
+"""
+        reads = []
+
+        def raw_text(repo, ref, path):
+            if repo == bump.BAZEL_ORFS_REPO:
+                reads.append((ref, path))
+                if path == "MODULE.bazel":
+                    return module
+                if path == "patches/0182-openroad-new-at-the-pin.patch":
+                    return "--- a/new\n"
+            return mock_fetch_raw_text(repo, ref, path)
+
+        ws = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, ws)
+        shutil.copy2(
+            os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel"),
+            os.path.join(ws, "MODULE.bazel"),
+        )
+        bump.bump(
+            os.path.join(ws, "MODULE.bazel"),
+            fetch_commit_fn=mock_fetch_commit,
+            fetch_integrity_fn=mock_fetch_integrity,
+            fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+            fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+            fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+            fetch_sha256_hex_fn=mock_fetch_sha256_hex,
+            fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+            fetch_raw_text_fn=raw_text,
+            workspace_dir=ws,
+        )
+        with open(os.path.join(ws, "MODULE.bazel")) as fh:
+            out = fh.read()
+        self.assertIn('"//bazel-orfs-patches:0182-openroad-new-at-the-pin.patch"', out)
+        self.assertIn((pinned, "MODULE.bazel"), reads)
+        with open(
+            os.path.join(
+                ws, bump.BAZEL_ORFS_PATCHES_DIR, "0182-openroad-new-at-the-pin.patch"
+            )
+        ) as fh:
+            self.assertEqual(fh.read(), "--- a/new\n")
 
     def test_reconcile_relabels_and_leaves_consumer_patches_alone(self):
         d = self._bazel_orfs_dir()
-        owned = bump.bazel_orfs_owned_patches(os.path.join(d, "MODULE.bazel"))
+        owned = self._owned(d)
         consumer = """
 bazel_dep(name = "openroad")
 archive_override(
