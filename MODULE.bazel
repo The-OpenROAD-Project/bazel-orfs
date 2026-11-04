@@ -416,11 +416,12 @@ single_version_override(
 
 # gawk (transitive: abc -> ncurses -> gawk; yosys -> gawk): its vendored
 # gnulib headers shadow libc headers (stdio.h, error.h), which hermetic-llvm's
-# explicit libc -isystem entries outrank (BCR #7642); 5.3.2.bcr.7 has the fix
-# (BCR #7989). The graph asks for no more than 5.3.2.bcr.3.
+# explicit libc -isystem entries outrank (BCR #7642). The graph asks for no
+# more than 5.3.2.bcr.3. 5.4.0.bcr.2 is the version OpenROAD's root pins
+# for the same problem, and the floor OpenROAD #12112 and #12055 keep.
 single_version_override(
     module_name = "gawk",
-    version = "5.3.2.bcr.7",
+    version = "5.4.0.bcr.2",
 )
 
 # OpenROAD depends on rules_pycross, whose toolchain extension fails on Python
