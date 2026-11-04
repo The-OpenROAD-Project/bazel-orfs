@@ -371,17 +371,6 @@ archive_override(
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/30e42953f9f507cc3fac0bfc9f397825cdf1bf22.tar.gz"],
 )
 
-# sed (transitive: abc -> ncurses -> sed): its vendored gnulib headers shadow
-# libc headers (stdio.h, error.h), which hermetic-llvm's explicit libc -isystem
-# entries outrank, so 4.9.bcr.3 fails to compile (BCR #7642). 4.9.bcr.5 carries
-# the upstream fix (BCR #7915). (The old toolchains_llvm-era memchr patch_cmds
-# is gone: it dodged a host glibc 2.41+ _Generic collision that the zero-sysroot
-# hermetic-llvm toolchain no longer triggers.)
-single_version_override(
-    module_name = "sed",
-    version = "4.9.bcr.5",
-)
-
 # --- hermetic-llvm compatibility (mirrored from OpenROAD's root MODULE.bazel) ---
 # The BCR "llvm" toolchain is zero-sysroot: glibc headers arrive as explicit
 # -isystem dirs that outrank the vendored gnulib/minizip headers these
@@ -425,18 +414,13 @@ single_version_override(
     version = "9.2.3.bcr.1",
 )
 
-# gawk (transitive: abc -> ncurses -> gawk; yosys -> gawk): same gnulib
-# libc-header shadowing as sed (BCR #7642); 5.3.2.bcr.7 has the fix (BCR #7989).
+# gawk (transitive: abc -> ncurses -> gawk; yosys -> gawk): its vendored
+# gnulib headers shadow libc headers (stdio.h, error.h), which hermetic-llvm's
+# explicit libc -isystem entries outrank (BCR #7642); 5.3.2.bcr.7 has the fix
+# (BCR #7989). The graph asks for no more than 5.3.2.bcr.3.
 single_version_override(
     module_name = "gawk",
     version = "5.3.2.bcr.7",
-)
-
-# m4 (transitive: bison/rules_flex -> m4): same gnulib libc-header
-# shadowing under hermetic-llvm (BCR #7642).
-single_version_override(
-    module_name = "m4",
-    version = "1.4.21.bcr.8",
 )
 
 # OpenROAD depends on rules_pycross, whose toolchain extension fails on Python
@@ -571,11 +555,6 @@ single_version_override(
 )
 
 single_version_override(
-    module_name = "flex",
-    version = "2.6.4.bcr.10",
-)
-
-single_version_override(
     module_name = "fmt",
     version = "12.1.0",
 )
@@ -583,11 +562,6 @@ single_version_override(
 single_version_override(
     module_name = "rules_cc",
     version = "0.2.22",
-)
-
-single_version_override(
-    module_name = "rules_cc_autoconf",
-    version = "0.34.0",
 )
 
 single_version_override(
