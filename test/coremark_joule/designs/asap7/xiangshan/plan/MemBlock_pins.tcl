@@ -434,18 +434,18 @@ set ::plan_pins(MemBlock) {
   io_ooo_to_mem_wakeupToLRQ_3_bits_sqIdx_value[4] M3 60.1650 943.7400 0.0180 0.3600
   io_ooo_to_mem_wakeupToLRQ_3_bits_sqIdx_value[5] M5 60.3000 943.7400 0.0240 0.3600
   io_ooo_to_mem_wakeupToLRQ_3_valid M3 60.4170 943.7400 0.0180 0.3600
-  io_redirect_bits_level M5 60.5400 943.7400 0.0240 0.3600
-  io_redirect_bits_robIdx_flag M3 60.7050 943.7400 0.0180 0.3600
-  io_redirect_bits_robIdx_value[0] M5 60.8280 943.7400 0.0240 0.3600
-  io_redirect_bits_robIdx_value[1] M3 60.9570 943.7400 0.0180 0.3600
-  io_redirect_bits_robIdx_value[2] M5 61.0680 943.7400 0.0240 0.3600
-  io_redirect_bits_robIdx_value[3] M3 61.2090 943.7400 0.0180 0.3600
-  io_redirect_bits_robIdx_value[4] M5 61.3560 943.7400 0.0240 0.3600
-  io_redirect_bits_robIdx_value[5] M3 61.4610 943.7400 0.0180 0.3600
-  io_redirect_bits_robIdx_value[6] M5 61.5960 943.7400 0.0240 0.3600
-  io_redirect_bits_robIdx_value[7] M3 61.7130 943.7400 0.0180 0.3600
-  io_redirect_bits_robIdx_value[8] M5 61.8360 943.7400 0.0240 0.3600
-  io_redirect_valid M3 62.0010 943.7400 0.0180 0.3600
+  io_redirect_bits_level M5 938.7480 943.7400 0.0240 0.3600
+  io_redirect_bits_robIdx_flag M3 938.8530 943.7400 0.0180 0.3600
+  io_redirect_bits_robIdx_value[0] M5 938.2200 943.7400 0.0240 0.3600
+  io_redirect_bits_robIdx_value[1] M5 938.4600 943.7400 0.0240 0.3600
+  io_redirect_bits_robIdx_value[2] M3 938.6010 943.7400 0.0180 0.3600
+  io_redirect_bits_robIdx_value[3] M5 937.9320 943.7400 0.0240 0.3600
+  io_redirect_bits_robIdx_value[4] M3 937.8090 943.7400 0.0180 0.3600
+  io_redirect_bits_robIdx_value[5] M3 937.5570 943.7400 0.0180 0.3600
+  io_redirect_bits_robIdx_value[6] M3 938.3490 943.7400 0.0180 0.3600
+  io_redirect_bits_robIdx_value[7] M5 937.6920 943.7400 0.0240 0.3600
+  io_redirect_bits_robIdx_value[8] M3 938.0610 943.7400 0.0180 0.3600
+  io_redirect_valid M3 812.0250 943.7400 0.0180 0.3600
   auto_inner_beu_local_int_sink_in_0 M3 62.1090 943.7400 0.0180 0.3600
   auto_inner_buffers_out_a_bits_address[0] M5 62.2680 943.7400 0.0240 0.3600
   auto_inner_buffers_out_a_bits_address[10] M3 62.3610 943.7400 0.0180 0.3600
@@ -2870,28 +2870,28 @@ set ::plan_pins(MemBlock) {
   io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqDeq_bits[3] M5 376.7640 943.7400 0.0240 0.3600
   io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqDeq_valid M3 376.8930 943.7400 0.0180 0.3600
   io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqRecoverStall M5 377.0040 943.7400 0.0240 0.3600
-  io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqRedirectPtr_bits_flag M3 377.1450 943.7400 0.0180 0.3600
-  io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqRedirectPtr_bits_value[0] M5 377.2920 943.7400 0.0240 0.3600
-  io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqRedirectPtr_bits_value[1] M3 377.3970 943.7400 0.0180 0.3600
-  io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqRedirectPtr_bits_value[2] M5 377.5320 943.7400 0.0240 0.3600
-  io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqRedirectPtr_bits_value[3] M3 377.6850 943.7400 0.0180 0.3600
-  io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqRedirectPtr_bits_value[4] M5 377.8200 943.7400 0.0240 0.3600
-  io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqRedirectPtr_bits_value[5] M3 377.9370 943.7400 0.0180 0.3600
-  io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqRedirectPtr_bits_value[6] M5 378.0600 943.7400 0.0240 0.3600
-  io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqRedirectPtr_valid M3 378.1890 943.7400 0.0180 0.3600
+  io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqRedirectPtr_bits_flag M5 500.5080 943.7400 0.0240 0.3600
+  io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqRedirectPtr_bits_value[0] M3 473.8410 943.7400 0.0180 0.3600
+  io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqRedirectPtr_bits_value[1] M3 477.2250 943.7400 0.0180 0.3600
+  io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqRedirectPtr_bits_value[2] M5 476.3160 943.7400 0.0240 0.3600
+  io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqRedirectPtr_bits_value[3] M3 480.6090 943.7400 0.0180 0.3600
+  io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqRedirectPtr_bits_value[4] M3 482.1570 943.7400 0.0180 0.3600
+  io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqRedirectPtr_bits_value[5] M3 481.6530 943.7400 0.0180 0.3600
+  io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqRedirectPtr_bits_value[6] M5 467.7240 943.7400 0.0240 0.3600
+  io_mem_to_ooo_lsqio_toLsqEnqCtrl_lqRedirectPtr_valid M3 479.8170 943.7400 0.0180 0.3600
   io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqDeq_bits[0] M5 378.3000 943.7400 0.0240 0.3600
   io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqDeq_bits[1] M3 378.4410 943.7400 0.0180 0.3600
   io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqDeq_valid M5 378.5880 943.7400 0.0240 0.3600
   io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqRecoverStall M3 378.6930 943.7400 0.0180 0.3600
-  io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqRedirectPtr_bits_first_flag M5 378.8280 943.7400 0.0240 0.3600
-  io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqRedirectPtr_bits_second_flag M3 378.9810 943.7400 0.0180 0.3600
-  io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqRedirectPtr_bits_value[0] M5 379.1160 943.7400 0.0240 0.3600
-  io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqRedirectPtr_bits_value[1] M3 379.2330 943.7400 0.0180 0.3600
-  io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqRedirectPtr_bits_value[2] M5 379.3560 943.7400 0.0240 0.3600
-  io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqRedirectPtr_bits_value[3] M3 379.4850 943.7400 0.0180 0.3600
-  io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqRedirectPtr_bits_value[4] M5 379.6440 943.7400 0.0240 0.3600
-  io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqRedirectPtr_bits_value[5] M3 379.7370 943.7400 0.0180 0.3600
-  io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqRedirectPtr_valid M5 379.8840 943.7400 0.0240 0.3600
+  io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqRedirectPtr_bits_first_flag M3 611.3610 943.7400 0.0180 0.3600
+  io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqRedirectPtr_bits_second_flag M5 616.9560 943.7400 0.0240 0.3600
+  io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqRedirectPtr_bits_value[0] M3 629.0370 943.7400 0.0180 0.3600
+  io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqRedirectPtr_bits_value[1] M5 630.2040 943.7400 0.0240 0.3600
+  io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqRedirectPtr_bits_value[2] M5 628.6200 943.7400 0.0240 0.3600
+  io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqRedirectPtr_bits_value[3] M3 626.6970 943.7400 0.0180 0.3600
+  io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqRedirectPtr_bits_value[4] M3 624.6090 943.7400 0.0180 0.3600
+  io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqRedirectPtr_bits_value[5] M5 621.3720 943.7400 0.0240 0.3600
+  io_mem_to_ooo_lsqio_toLsqEnqCtrl_sqRedirectPtr_valid M5 584.7000 943.7400 0.0240 0.3600
   io_mem_to_ooo_lsqio_vaddr[0] M3 380.0250 943.7400 0.0180 0.3600
   io_mem_to_ooo_lsqio_vaddr[10] M5 380.1240 943.7400 0.0240 0.3600
   io_mem_to_ooo_lsqio_vaddr[11] M3 380.2770 943.7400 0.0180 0.3600
@@ -3219,7 +3219,7 @@ set ::plan_pins(MemBlock) {
   io_mem_to_ooo_wakeup_2_bits_rfWen M3 422.1090 943.7400 0.0180 0.3600
   io_mem_to_ooo_wakeup_2_valid M5 422.2680 943.7400 0.0240 0.3600
   io_ooo_to_mem_backendToTopBypass_msiAck M3 422.3610 943.7400 0.0180 0.3600
-  io_ooo_to_mem_csrCtrl_flush_l2_enable M5 422.5080 943.7400 0.0240 0.3600
+  io_ooo_to_mem_csrCtrl_flush_l2_enable M5 751.1640 943.7400 0.0240 0.3600
   io_ooo_to_mem_csrCtrl_pf_ctrl_l1D_pf_active_stride[0] M3 422.6490 943.7400 0.0180 0.3600
   io_ooo_to_mem_csrCtrl_pf_ctrl_l1D_pf_active_stride[1] M5 422.7480 943.7400 0.0240 0.3600
   io_ooo_to_mem_csrCtrl_pf_ctrl_l1D_pf_active_stride[2] M3 422.9010 943.7400 0.0180 0.3600
@@ -3486,7 +3486,7 @@ set ::plan_pins(MemBlock) {
   io_ooo_to_mem_enqLsq_req_7_bits_uop_robIdx_value[7] M5 456.8280 943.7400 0.0240 0.3600
   io_ooo_to_mem_enqLsq_req_7_bits_uop_robIdx_value[8] M3 456.9570 943.7400 0.0180 0.3600
   io_ooo_to_mem_enqLsq_req_7_valid M5 457.0680 943.7400 0.0240 0.3600
-  io_ooo_to_mem_flushSb M3 457.2090 943.7400 0.0180 0.3600
+  io_ooo_to_mem_flushSb M5 520.2360 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_fpWen M5 457.3560 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_ftqIdx_flag M3 457.4610 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_ftqIdx_value[0] M5 457.5960 943.7400 0.0240 0.3600
@@ -3567,7 +3567,7 @@ set ::plan_pins(MemBlock) {
   io_ooo_to_mem_intIssue_0_0_bits_pc[18] M3 467.3610 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_pc[19] M5 467.4840 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_pc[1] M3 467.6130 943.7400 0.0180 0.3600
-  io_ooo_to_mem_intIssue_0_0_bits_pc[20] M5 467.7240 943.7400 0.0240 0.3600
+  io_ooo_to_mem_intIssue_0_0_bits_pc[20] M5 378.0600 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_pc[21] M3 467.8650 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_pc[22] M5 468.0120 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_pc[23] M3 468.1170 943.7400 0.0180 0.3600
@@ -3614,7 +3614,7 @@ set ::plan_pins(MemBlock) {
   io_ooo_to_mem_intIssue_0_0_bits_pdest[6] M5 473.4360 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_pdest[7] M3 473.5890 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_rfWen M5 473.7240 943.7400 0.0240 0.3600
-  io_ooo_to_mem_intIssue_0_0_bits_robIdx_flag M3 473.8410 943.7400 0.0180 0.3600
+  io_ooo_to_mem_intIssue_0_0_bits_robIdx_flag M5 377.2920 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_robIdx_value[0] M5 473.9640 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_robIdx_value[1] M3 474.0930 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_robIdx_value[2] M5 474.2520 943.7400 0.0240 0.3600
@@ -3633,14 +3633,14 @@ set ::plan_pins(MemBlock) {
   io_ooo_to_mem_intIssue_0_0_bits_sqIdx_value[4] M3 475.9290 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_sqIdx_value[5] M5 476.0760 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[0] M3 476.1810 943.7400 0.0180 0.3600
-  io_ooo_to_mem_intIssue_0_0_bits_src_0[10] M5 476.3160 943.7400 0.0240 0.3600
+  io_ooo_to_mem_intIssue_0_0_bits_src_0[10] M5 377.5320 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[11] M3 476.4330 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[12] M5 476.5560 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[13] M3 476.7210 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[14] M5 476.8440 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[15] M3 476.9730 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[16] M5 477.0840 943.7400 0.0240 0.3600
-  io_ooo_to_mem_intIssue_0_0_bits_src_0[17] M3 477.2250 943.7400 0.0180 0.3600
+  io_ooo_to_mem_intIssue_0_0_bits_src_0[17] M3 377.3970 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[18] M5 477.3720 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[19] M3 477.4770 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[1] M5 477.6120 943.7400 0.0240 0.3600
@@ -3660,13 +3660,13 @@ set ::plan_pins(MemBlock) {
   io_ooo_to_mem_intIssue_0_0_bits_src_0[32] M5 479.4360 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[33] M3 479.5650 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[34] M5 479.6760 943.7400 0.0240 0.3600
-  io_ooo_to_mem_intIssue_0_0_bits_src_0[35] M3 479.8170 943.7400 0.0180 0.3600
+  io_ooo_to_mem_intIssue_0_0_bits_src_0[35] M3 378.1890 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[36] M5 479.9640 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[37] M3 480.0690 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[38] M5 480.2040 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[39] M3 480.3570 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[3] M5 480.4920 943.7400 0.0240 0.3600
-  io_ooo_to_mem_intIssue_0_0_bits_src_0[40] M3 480.6090 943.7400 0.0180 0.3600
+  io_ooo_to_mem_intIssue_0_0_bits_src_0[40] M3 377.6850 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[41] M5 480.7320 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[42] M3 480.8610 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[43] M5 480.9720 943.7400 0.0240 0.3600
@@ -3674,11 +3674,11 @@ set ::plan_pins(MemBlock) {
   io_ooo_to_mem_intIssue_0_0_bits_src_0[45] M5 481.2600 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[46] M3 481.3650 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[47] M5 481.5000 943.7400 0.0240 0.3600
-  io_ooo_to_mem_intIssue_0_0_bits_src_0[48] M3 481.6530 943.7400 0.0180 0.3600
+  io_ooo_to_mem_intIssue_0_0_bits_src_0[48] M3 377.9370 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[49] M5 481.7880 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[4] M3 481.9050 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[50] M5 482.0280 943.7400 0.0240 0.3600
-  io_ooo_to_mem_intIssue_0_0_bits_src_0[51] M3 482.1570 943.7400 0.0180 0.3600
+  io_ooo_to_mem_intIssue_0_0_bits_src_0[51] M5 377.8200 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[52] M5 482.3160 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[53] M3 482.4090 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_0_0_bits_src_0[54] M5 482.5560 943.7400 0.0240 0.3600
@@ -3819,7 +3819,7 @@ set ::plan_pins(MemBlock) {
   io_ooo_to_mem_intIssue_1_0_bits_pc[45] M3 500.0850 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_1_0_bits_pc[46] M5 500.2200 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_1_0_bits_pc[47] M3 500.3730 943.7400 0.0180 0.3600
-  io_ooo_to_mem_intIssue_1_0_bits_pc[48] M5 500.5080 943.7400 0.0240 0.3600
+  io_ooo_to_mem_intIssue_1_0_bits_pc[48] M3 377.1450 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_1_0_bits_pc[49] M3 500.6250 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_1_0_bits_pc[4] M5 500.7480 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_1_0_bits_pc[5] M3 500.8770 943.7400 0.0180 0.3600
@@ -3971,7 +3971,7 @@ set ::plan_pins(MemBlock) {
   io_ooo_to_mem_intIssue_2_0_bits_imm[20] M3 519.8490 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_2_0_bits_imm[21] M5 519.9960 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_2_0_bits_imm[22] M3 520.1010 943.7400 0.0180 0.3600
-  io_ooo_to_mem_intIssue_2_0_bits_imm[23] M5 520.2360 943.7400 0.0240 0.3600
+  io_ooo_to_mem_intIssue_2_0_bits_imm[23] M3 457.2090 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_2_0_bits_imm[24] M3 520.3890 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_2_0_bits_imm[25] M5 520.5240 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_2_0_bits_imm[26] M3 520.6410 943.7400 0.0180 0.3600
@@ -4467,7 +4467,7 @@ set ::plan_pins(MemBlock) {
   io_ooo_to_mem_intIssue_6_0_bits_src_0[50] M3 584.3250 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_6_0_bits_src_0[51] M5 584.4600 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_6_0_bits_src_0[52] M3 584.5770 943.7400 0.0180 0.3600
-  io_ooo_to_mem_intIssue_6_0_bits_src_0[53] M5 584.7000 943.7400 0.0240 0.3600
+  io_ooo_to_mem_intIssue_6_0_bits_src_0[53] M5 379.8840 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_6_0_bits_src_0[54] M3 584.8290 943.7400 0.0180 0.3600
   io_ooo_to_mem_intIssue_6_0_bits_src_0[55] M5 584.9400 943.7400 0.0240 0.3600
   io_ooo_to_mem_intIssue_6_0_bits_src_0[56] M3 585.0810 943.7400 0.0180 0.3600
@@ -4672,7 +4672,7 @@ set ::plan_pins(MemBlock) {
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_1_bits_iaddr[13] M5 610.9560 943.7400 0.0240 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_1_bits_iaddr[14] M3 611.0730 943.7400 0.0180 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_1_bits_iaddr[15] M5 611.1960 943.7400 0.0240 0.3600
-  io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_1_bits_iaddr[16] M3 611.3610 943.7400 0.0180 0.3600
+  io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_1_bits_iaddr[16] M5 378.8280 943.7400 0.0240 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_1_bits_iaddr[17] M5 611.4840 943.7400 0.0240 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_1_bits_iaddr[18] M3 611.6130 943.7400 0.0180 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_1_bits_iaddr[19] M5 611.7240 943.7400 0.0240 0.3600
@@ -4715,7 +4715,7 @@ set ::plan_pins(MemBlock) {
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_1_bits_iaddr[7] M3 616.5450 943.7400 0.0180 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_1_bits_iaddr[8] M5 616.6680 943.7400 0.0240 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_1_bits_iaddr[9] M3 616.7970 943.7400 0.0180 0.3600
-  io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_1_bits_ilastsize M5 616.9560 943.7400 0.0240 0.3600
+  io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_1_bits_ilastsize M3 378.9810 943.7400 0.0180 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_1_bits_iretire[0] M3 617.0490 943.7400 0.0180 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_1_bits_iretire[1] M5 617.1960 943.7400 0.0240 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_1_bits_iretire[2] M3 617.3370 943.7400 0.0180 0.3600
@@ -4749,7 +4749,7 @@ set ::plan_pins(MemBlock) {
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iaddr[21] M3 620.9730 943.7400 0.0180 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iaddr[22] M5 621.0840 943.7400 0.0240 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iaddr[23] M3 621.2250 943.7400 0.0180 0.3600
-  io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iaddr[24] M5 621.3720 943.7400 0.0240 0.3600
+  io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iaddr[24] M3 379.7370 943.7400 0.0180 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iaddr[25] M3 621.4770 943.7400 0.0180 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iaddr[26] M5 621.6120 943.7400 0.0240 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iaddr[27] M3 621.7290 943.7400 0.0180 0.3600
@@ -4774,7 +4774,7 @@ set ::plan_pins(MemBlock) {
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iaddr[44] M5 624.2040 943.7400 0.0240 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iaddr[45] M3 624.3570 943.7400 0.0180 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iaddr[46] M5 624.4920 943.7400 0.0240 0.3600
-  io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iaddr[47] M3 624.6090 943.7400 0.0180 0.3600
+  io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iaddr[47] M5 379.6440 943.7400 0.0240 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iaddr[48] M5 624.7320 943.7400 0.0240 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iaddr[49] M3 624.8610 943.7400 0.0180 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iaddr[4] M5 624.9720 943.7400 0.0240 0.3600
@@ -4790,7 +4790,7 @@ set ::plan_pins(MemBlock) {
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iretire[3] M5 626.3160 943.7400 0.0240 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iretire[4] M3 626.4090 943.7400 0.0180 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iretire[5] M5 626.5560 943.7400 0.0240 0.3600
-  io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iretire[6] M3 626.6970 943.7400 0.0180 0.3600
+  io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iretire[6] M3 379.4850 943.7400 0.0180 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_iretire[7] M5 626.7960 943.7400 0.0240 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_itype[0] M3 626.9490 943.7400 0.0180 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_groups_2_bits_itype[1] M5 627.0840 943.7400 0.0240 0.3600
@@ -4805,10 +4805,10 @@ set ::plan_pins(MemBlock) {
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_mstatus[17] M3 628.2450 943.7400 0.0180 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_mstatus[1] M5 628.3800 943.7400 0.0240 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_mstatus[20] M3 628.4970 943.7400 0.0180 0.3600
-  io_traceCoreInterfaceBypass_fromBackend_toEncoder_mstatus[21] M5 628.6200 943.7400 0.0240 0.3600
+  io_traceCoreInterfaceBypass_fromBackend_toEncoder_mstatus[21] M5 379.3560 943.7400 0.0240 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_mstatus[22] M3 628.7490 943.7400 0.0180 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_mstatus[24] M5 628.9080 943.7400 0.0240 0.3600
-  io_traceCoreInterfaceBypass_fromBackend_toEncoder_mstatus[38] M3 629.0370 943.7400 0.0180 0.3600
+  io_traceCoreInterfaceBypass_fromBackend_toEncoder_mstatus[38] M5 379.1160 943.7400 0.0240 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_mstatus[39] M5 629.1480 943.7400 0.0240 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_mstatus[3] M3 629.2890 943.7400 0.0180 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_mstatus[42] M5 629.3880 943.7400 0.0240 0.3600
@@ -4817,7 +4817,7 @@ set ::plan_pins(MemBlock) {
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_mstatus[8] M3 629.7930 943.7400 0.0180 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_mstatus[9] M5 629.9160 943.7400 0.0240 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_priv[0] M3 630.0450 943.7400 0.0180 0.3600
-  io_traceCoreInterfaceBypass_fromBackend_toEncoder_priv[1] M5 630.2040 943.7400 0.0240 0.3600
+  io_traceCoreInterfaceBypass_fromBackend_toEncoder_priv[1] M3 379.2330 943.7400 0.0180 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_priv[2] M3 630.3330 943.7400 0.0180 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_trap_cause[0] M5 630.4440 943.7400 0.0240 0.3600
   io_traceCoreInterfaceBypass_fromBackend_toEncoder_trap_cause[10] M3 630.5850 943.7400 0.0180 0.3600
@@ -5748,7 +5748,7 @@ set ::plan_pins(MemBlock) {
   auto_inner_frontendBridge_icache_out_d_bits_data[25] M3 750.7890 943.7400 0.0180 0.3600
   auto_inner_frontendBridge_icache_out_d_bits_data[26] M5 750.9240 943.7400 0.0240 0.3600
   auto_inner_frontendBridge_icache_out_d_bits_data[27] M3 751.0410 943.7400 0.0180 0.3600
-  auto_inner_frontendBridge_icache_out_d_bits_data[28] M5 751.1640 943.7400 0.0240 0.3600
+  auto_inner_frontendBridge_icache_out_d_bits_data[28] M5 422.5080 943.7400 0.0240 0.3600
   auto_inner_frontendBridge_icache_out_d_bits_data[29] M3 751.3290 943.7400 0.0180 0.3600
   auto_inner_frontendBridge_icache_out_d_bits_data[2] M5 751.4520 943.7400 0.0240 0.3600
   auto_inner_frontendBridge_icache_out_d_bits_data[30] M3 751.5810 943.7400 0.0180 0.3600
@@ -6216,7 +6216,7 @@ set ::plan_pins(MemBlock) {
   io_mem_to_ooo_vecWriteback_0_0_toV0Rf_bits[25] M5 811.6440 943.7400 0.0240 0.3600
   io_mem_to_ooo_vecWriteback_0_0_toV0Rf_bits[26] M3 811.7370 943.7400 0.0180 0.3600
   io_mem_to_ooo_vecWriteback_0_0_toV0Rf_bits[27] M5 811.8840 943.7400 0.0240 0.3600
-  io_mem_to_ooo_vecWriteback_0_0_toV0Rf_bits[28] M3 812.0250 943.7400 0.0180 0.3600
+  io_mem_to_ooo_vecWriteback_0_0_toV0Rf_bits[28] M3 62.0010 943.7400 0.0180 0.3600
   io_mem_to_ooo_vecWriteback_0_0_toV0Rf_bits[29] M5 812.1240 943.7400 0.0240 0.3600
   io_mem_to_ooo_vecWriteback_0_0_toV0Rf_bits[2] M3 812.2770 943.7400 0.0180 0.3600
   io_mem_to_ooo_vecWriteback_0_0_toV0Rf_bits[30] M5 812.4120 943.7400 0.0240 0.3600
@@ -7182,17 +7182,17 @@ set ::plan_pins(MemBlock) {
   io_ooo_to_mem_lsqio_pendingPtrNext_value[7] M5 937.1640 943.7400 0.0240 0.3600
   io_ooo_to_mem_lsqio_pendingPtrNext_value[8] M3 937.3050 943.7400 0.0180 0.3600
   io_ooo_to_mem_lsqio_pendingPtr_flag M5 937.4040 943.7400 0.0240 0.3600
-  io_ooo_to_mem_lsqio_pendingPtr_value[0] M3 937.5570 943.7400 0.0180 0.3600
-  io_ooo_to_mem_lsqio_pendingPtr_value[1] M5 937.6920 943.7400 0.0240 0.3600
-  io_ooo_to_mem_lsqio_pendingPtr_value[2] M3 937.8090 943.7400 0.0180 0.3600
-  io_ooo_to_mem_lsqio_pendingPtr_value[3] M5 937.9320 943.7400 0.0240 0.3600
-  io_ooo_to_mem_lsqio_pendingPtr_value[4] M3 938.0610 943.7400 0.0180 0.3600
-  io_ooo_to_mem_lsqio_pendingPtr_value[5] M5 938.2200 943.7400 0.0240 0.3600
-  io_ooo_to_mem_lsqio_pendingPtr_value[6] M3 938.3490 943.7400 0.0180 0.3600
-  io_ooo_to_mem_lsqio_pendingPtr_value[7] M5 938.4600 943.7400 0.0240 0.3600
-  io_ooo_to_mem_lsqio_pendingPtr_value[8] M3 938.6010 943.7400 0.0180 0.3600
-  io_wfi_wfiReq M5 938.7480 943.7400 0.0240 0.3600
-  io_wfi_wfiSafe M3 938.8530 943.7400 0.0180 0.3600
+  io_ooo_to_mem_lsqio_pendingPtr_value[0] M3 61.4610 943.7400 0.0180 0.3600
+  io_ooo_to_mem_lsqio_pendingPtr_value[1] M3 61.7130 943.7400 0.0180 0.3600
+  io_ooo_to_mem_lsqio_pendingPtr_value[2] M5 61.3560 943.7400 0.0240 0.3600
+  io_ooo_to_mem_lsqio_pendingPtr_value[3] M3 61.2090 943.7400 0.0180 0.3600
+  io_ooo_to_mem_lsqio_pendingPtr_value[4] M5 61.8360 943.7400 0.0240 0.3600
+  io_ooo_to_mem_lsqio_pendingPtr_value[5] M5 60.8280 943.7400 0.0240 0.3600
+  io_ooo_to_mem_lsqio_pendingPtr_value[6] M5 61.5960 943.7400 0.0240 0.3600
+  io_ooo_to_mem_lsqio_pendingPtr_value[7] M3 60.9570 943.7400 0.0180 0.3600
+  io_ooo_to_mem_lsqio_pendingPtr_value[8] M5 61.0680 943.7400 0.0240 0.3600
+  io_wfi_wfiReq M5 60.5400 943.7400 0.0240 0.3600
+  io_wfi_wfiSafe M3 60.7050 943.7400 0.0180 0.3600
   auto_inner_dcache_client_0_out_a_bits_data[0] M3 5.4450 0.1800 0.0180 0.3600
   auto_inner_dcache_client_0_out_a_bits_data[100] M5 6.3000 0.1800 0.0240 0.3600
   auto_inner_dcache_client_0_out_a_bits_data[101] M3 7.1730 0.1800 0.0180 0.3600

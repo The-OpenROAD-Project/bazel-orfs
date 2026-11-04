@@ -8,55 +8,55 @@
 # meet the parent's.
 set ::plan_pins(Rob) {
   io_redirect_bits_isMisPred M3 5.0850 0.1800 0.0180 0.3600
-  io_redirect_bits_level M5 5.2920 0.1800 0.0240 0.3600
-  io_redirect_bits_robIdx_flag M3 5.4810 0.1800 0.0180 0.3600
-  io_redirect_bits_robIdx_value[0] M5 5.6760 0.1800 0.0240 0.3600
-  io_redirect_bits_robIdx_value[1] M3 5.8770 0.1800 0.0180 0.3600
-  io_redirect_bits_robIdx_value[2] M5 6.0600 0.1800 0.0240 0.3600
-  io_redirect_bits_robIdx_value[3] M3 6.2730 0.1800 0.0180 0.3600
-  io_redirect_bits_robIdx_value[4] M5 6.4920 0.1800 0.0240 0.3600
-  io_redirect_bits_robIdx_value[5] M3 6.6690 0.1800 0.0180 0.3600
-  io_redirect_bits_robIdx_value[6] M5 6.8760 0.1800 0.0240 0.3600
-  io_redirect_bits_robIdx_value[7] M3 7.0650 0.1800 0.0180 0.3600
-  io_redirect_bits_robIdx_value[8] M5 7.2600 0.1800 0.0240 0.3600
+  io_redirect_bits_level M5 37.3560 0.1800 0.0240 0.3600
+  io_redirect_bits_robIdx_flag M3 31.6530 0.1800 0.0180 0.3600
+  io_redirect_bits_robIdx_value[0] M5 51.5160 0.1800 0.0240 0.3600
+  io_redirect_bits_robIdx_value[1] M5 47.1960 0.1800 0.0240 0.3600
+  io_redirect_bits_robIdx_value[2] M3 41.8770 0.1800 0.0180 0.3600
+  io_redirect_bits_robIdx_value[3] M3 53.2530 0.1800 0.0180 0.3600
+  io_redirect_bits_robIdx_value[4] M3 53.6490 0.1800 0.0180 0.3600
+  io_redirect_bits_robIdx_value[5] M3 56.0250 0.1800 0.0180 0.3600
+  io_redirect_bits_robIdx_value[6] M3 49.7250 0.1800 0.0180 0.3600
+  io_redirect_bits_robIdx_value[7] M3 54.8370 0.1800 0.0180 0.3600
+  io_redirect_bits_robIdx_value[8] M5 52.6680 0.1800 0.0240 0.3600
   io_redirect_valid M3 7.4610 0.1800 0.0180 0.3600
-  io_commits_commitValid_0 M3 7.6410 0.1800 0.0180 0.3600
-  io_commits_commitValid_1 M5 7.8360 0.1800 0.0240 0.3600
-  io_commits_commitValid_2 M3 8.0370 0.1800 0.0180 0.3600
-  io_commits_commitValid_3 M5 8.2680 0.1800 0.0240 0.3600
-  io_commits_commitValid_4 M3 8.4330 0.1800 0.0180 0.3600
-  io_commits_commitValid_5 M5 8.6520 0.1800 0.0240 0.3600
-  io_commits_commitValid_6 M3 8.8290 0.1800 0.0180 0.3600
-  io_commits_commitValid_7 M5 9.0360 0.1800 0.0240 0.3600
-  io_commits_info_0_ftqIdx_flag M3 9.2250 0.1800 0.0180 0.3600
-  io_commits_info_0_ftqIdx_value[0] M5 9.4200 0.1800 0.0240 0.3600
-  io_commits_info_0_ftqIdx_value[1] M3 9.6210 0.1800 0.0180 0.3600
-  io_commits_info_0_ftqIdx_value[2] M5 9.8040 0.1800 0.0240 0.3600
-  io_commits_info_0_ftqIdx_value[3] M3 10.0170 0.1800 0.0180 0.3600
-  io_commits_info_0_ftqIdx_value[4] M5 10.1880 0.1800 0.0240 0.3600
-  io_commits_info_0_ftqIdx_value[5] M3 10.4130 0.1800 0.0180 0.3600
-  io_commits_info_1_ftqIdx_flag M5 10.6200 0.1800 0.0240 0.3600
-  io_commits_info_1_ftqIdx_value[0] M3 10.8090 0.1800 0.0180 0.3600
-  io_commits_info_1_ftqIdx_value[1] M5 11.0040 0.1800 0.0240 0.3600
-  io_commits_info_1_ftqIdx_value[2] M3 11.2050 0.1800 0.0180 0.3600
-  io_commits_info_1_ftqIdx_value[3] M5 11.3880 0.1800 0.0240 0.3600
-  io_commits_info_1_ftqIdx_value[4] M3 11.6010 0.1800 0.0180 0.3600
-  io_commits_info_1_ftqIdx_value[5] M5 11.7720 0.1800 0.0240 0.3600
-  io_commits_info_2_ftqIdx_flag M3 11.9970 0.1800 0.0180 0.3600
-  io_commits_info_2_ftqIdx_value[0] M5 12.1560 0.1800 0.0240 0.3600
-  io_commits_info_2_ftqIdx_value[1] M3 12.3570 0.1800 0.0180 0.3600
-  io_commits_info_2_ftqIdx_value[2] M5 12.5880 0.1800 0.0240 0.3600
-  io_commits_info_2_ftqIdx_value[3] M3 12.7530 0.1800 0.0180 0.3600
-  io_commits_info_2_ftqIdx_value[4] M5 12.9720 0.1800 0.0240 0.3600
-  io_commits_info_2_ftqIdx_value[5] M3 13.1490 0.1800 0.0180 0.3600
-  io_commits_info_3_ftqIdx_flag M5 13.3560 0.1800 0.0240 0.3600
-  io_commits_info_3_ftqIdx_value[0] M3 13.5450 0.1800 0.0180 0.3600
-  io_commits_info_3_ftqIdx_value[1] M5 13.7400 0.1800 0.0240 0.3600
-  io_commits_info_3_ftqIdx_value[2] M3 13.9410 0.1800 0.0180 0.3600
-  io_commits_info_3_ftqIdx_value[3] M5 14.1240 0.1800 0.0240 0.3600
-  io_commits_info_3_ftqIdx_value[4] M3 14.3370 0.1800 0.0180 0.3600
-  io_commits_info_3_ftqIdx_value[5] M5 14.5560 0.1800 0.0240 0.3600
-  io_commits_info_4_ftqIdx_flag M3 14.7330 0.1800 0.0180 0.3600
+  io_commits_commitValid_0 M5 356.6520 0.1800 0.0240 0.3600
+  io_commits_commitValid_1 M5 351.9480 0.1800 0.0240 0.3600
+  io_commits_commitValid_2 M5 353.9160 0.1800 0.0240 0.3600
+  io_commits_commitValid_3 M5 352.3320 0.1800 0.0240 0.3600
+  io_commits_commitValid_4 M5 354.6840 0.1800 0.0240 0.3600
+  io_commits_commitValid_5 M3 352.9170 0.1800 0.0180 0.3600
+  io_commits_commitValid_6 M5 353.1000 0.1800 0.0240 0.3600
+  io_commits_commitValid_7 M5 354.3000 0.1800 0.0240 0.3600
+  io_commits_info_0_ftqIdx_flag M3 353.3130 0.1800 0.0180 0.3600
+  io_commits_info_0_ftqIdx_value[0] M5 353.5320 0.1800 0.0240 0.3600
+  io_commits_info_0_ftqIdx_value[1] M3 356.4810 0.1800 0.0180 0.3600
+  io_commits_info_0_ftqIdx_value[2] M5 355.5000 0.1800 0.0240 0.3600
+  io_commits_info_0_ftqIdx_value[3] M5 352.7160 0.1800 0.0240 0.3600
+  io_commits_info_0_ftqIdx_value[4] M3 356.0850 0.1800 0.0180 0.3600
+  io_commits_info_0_ftqIdx_value[5] M3 354.5010 0.1800 0.0180 0.3600
+  io_commits_info_1_ftqIdx_flag M3 353.7090 0.1800 0.0180 0.3600
+  io_commits_info_1_ftqIdx_value[0] M3 354.8970 0.1800 0.0180 0.3600
+  io_commits_info_1_ftqIdx_value[1] M3 356.8410 0.1800 0.0180 0.3600
+  io_commits_info_1_ftqIdx_value[2] M3 352.5210 0.1800 0.0180 0.3600
+  io_commits_info_1_ftqIdx_value[3] M5 355.0680 0.1800 0.0240 0.3600
+  io_commits_info_1_ftqIdx_value[4] M3 351.7290 0.1800 0.0180 0.3600
+  io_commits_info_1_ftqIdx_value[5] M3 352.1250 0.1800 0.0180 0.3600
+  io_commits_info_2_ftqIdx_flag M5 356.2680 0.1800 0.0240 0.3600
+  io_commits_info_2_ftqIdx_value[0] M3 354.1050 0.1800 0.0180 0.3600
+  io_commits_info_2_ftqIdx_value[1] M5 355.8840 0.1800 0.0240 0.3600
+  io_commits_info_2_ftqIdx_value[2] M5 306.7320 0.1800 0.0240 0.3600
+  io_commits_info_2_ftqIdx_value[3] M3 355.6890 0.1800 0.0180 0.3600
+  io_commits_info_2_ftqIdx_value[4] M3 355.2930 0.1800 0.0180 0.3600
+  io_commits_info_2_ftqIdx_value[5] M5 426.2520 0.1800 0.0240 0.3600
+  io_commits_info_3_ftqIdx_flag M5 426.6360 0.1800 0.0240 0.3600
+  io_commits_info_3_ftqIdx_value[0] M3 426.4650 0.1800 0.0180 0.3600
+  io_commits_info_3_ftqIdx_value[1] M3 426.0690 0.1800 0.0180 0.3600
+  io_commits_info_3_ftqIdx_value[2] M4 0.1800 150.3960 0.3600 0.0240
+  io_commits_info_3_ftqIdx_value[3] M3 45.0090 0.1800 0.0180 0.3600
+  io_commits_info_3_ftqIdx_value[4] M4 0.1800 201.7560 0.3600 0.0240
+  io_commits_info_3_ftqIdx_value[5] M4 0.1800 167.5320 0.3600 0.0240
+  io_commits_info_4_ftqIdx_flag M4 0.1800 184.6200 0.3600 0.0240
   io_commits_info_4_ftqIdx_value[0] M5 14.9400 0.1800 0.0240 0.3600
   io_commits_info_4_ftqIdx_value[1] M3 15.1290 0.1800 0.0180 0.3600
   io_commits_info_4_ftqIdx_value[2] M5 15.3240 0.1800 0.0240 0.3600
@@ -86,7 +86,7 @@ set ::plan_pins(Rob) {
   io_commits_info_7_ftqIdx_value[5] M5 20.0280 0.1800 0.0240 0.3600
   io_commits_isCommit M3 20.2410 0.1800 0.0180 0.3600
   io_commits_robIdx_0_flag M5 20.4120 0.1800 0.0240 0.3600
-  io_commits_robIdx_0_value[0] M3 20.6370 0.1800 0.0180 0.3600
+  io_commits_robIdx_0_value[0] M5 76.2840 0.1800 0.0240 0.3600
   io_commits_robIdx_0_value[1] M5 20.8440 0.1800 0.0240 0.3600
   io_commits_robIdx_0_value[2] M3 21.0330 0.1800 0.0180 0.3600
   io_commits_robIdx_0_value[3] M5 21.2280 0.1800 0.0240 0.3600
@@ -102,7 +102,7 @@ set ::plan_pins(Rob) {
   io_commits_robIdx_1_value[3] M5 23.1960 0.1800 0.0240 0.3600
   io_commits_robIdx_1_value[4] M3 23.3730 0.1800 0.0180 0.3600
   io_commits_robIdx_1_value[5] M5 23.5800 0.1800 0.0240 0.3600
-  io_commits_robIdx_1_value[6] M3 23.7690 0.1800 0.0180 0.3600
+  io_commits_robIdx_1_value[6] M3 67.0410 0.1800 0.0180 0.3600
   io_commits_robIdx_1_value[7] M5 23.9640 0.1800 0.0240 0.3600
   io_commits_robIdx_1_value[8] M3 24.1650 0.1800 0.0180 0.3600
   io_commits_robIdx_2_flag M5 24.3480 0.1800 0.0240 0.3600
@@ -142,7 +142,7 @@ set ::plan_pins(Rob) {
   io_commits_robIdx_5_value[3] M5 31.0680 0.1800 0.0240 0.3600
   io_commits_robIdx_5_value[4] M3 31.2570 0.1800 0.0180 0.3600
   io_commits_robIdx_5_value[5] M5 31.4520 0.1800 0.0240 0.3600
-  io_commits_robIdx_5_value[6] M3 31.6530 0.1800 0.0180 0.3600
+  io_commits_robIdx_5_value[6] M3 5.4810 0.1800 0.0180 0.3600
   io_commits_robIdx_5_value[7] M5 31.8360 0.1800 0.0240 0.3600
   io_commits_robIdx_5_value[8] M3 32.0490 0.1800 0.0180 0.3600
   io_commits_robIdx_6_flag M5 32.2200 0.1800 0.0240 0.3600
@@ -171,7 +171,7 @@ set ::plan_pins(Rob) {
   io_csr_fflags_bits[1] M3 36.7650 0.1800 0.0180 0.3600
   io_csr_fflags_bits[2] M5 36.9720 0.1800 0.0240 0.3600
   io_csr_fflags_bits[3] M3 37.1610 0.1800 0.0180 0.3600
-  io_csr_fflags_bits[4] M5 37.3560 0.1800 0.0240 0.3600
+  io_csr_fflags_bits[4] M5 5.2920 0.1800 0.0240 0.3600
   io_csr_fflags_valid M3 37.5570 0.1800 0.0180 0.3600
   io_csr_intrBitSet M5 37.7400 0.1800 0.0240 0.3600
   io_csr_perfinfo_retiredInstr[0] M3 37.9170 0.1800 0.0180 0.3600
@@ -194,7 +194,7 @@ set ::plan_pins(Rob) {
   io_csr_wfiEvent M5 41.2920 0.1800 0.0240 0.3600
   io_enq_canAccept M3 41.4810 0.1800 0.0180 0.3600
   io_enq_canAcceptForDispatch M5 41.6760 0.1800 0.0240 0.3600
-  io_enq_isEmpty M3 41.8770 0.1800 0.0180 0.3600
+  io_enq_isEmpty M5 6.0600 0.1800 0.0240 0.3600
   io_enq_req_0_bits_blockBackward M5 42.0600 0.1800 0.0240 0.3600
   io_enq_req_0_bits_commitType[0] M3 42.2730 0.1800 0.0180 0.3600
   io_enq_req_0_bits_commitType[1] M5 42.4440 0.1800 0.0240 0.3600
@@ -206,11 +206,11 @@ set ::plan_pins(Rob) {
   io_enq_req_0_bits_exceptionVec_19 M5 43.6440 0.1800 0.0240 0.3600
   io_enq_req_0_bits_exceptionVec_2 M3 43.8210 0.1800 0.0180 0.3600
   io_enq_req_0_bits_exceptionVec_20 M5 44.0280 0.1800 0.0240 0.3600
-  io_enq_req_0_bits_exceptionVec_22 M3 44.2170 0.1800 0.0180 0.3600
+  io_enq_req_0_bits_exceptionVec_22 M5 107.3400 0.1800 0.0240 0.3600
   io_enq_req_0_bits_exceptionVec_3 M5 44.4120 0.1800 0.0240 0.3600
   io_enq_req_0_bits_fflagsWen M3 44.6130 0.1800 0.0180 0.3600
   io_enq_req_0_bits_firstUop M5 44.7960 0.1800 0.0240 0.3600
-  io_enq_req_0_bits_flushPipe M3 45.0090 0.1800 0.0180 0.3600
+  io_enq_req_0_bits_flushPipe M5 14.1240 0.1800 0.0240 0.3600
   io_enq_req_0_bits_fpWen M5 45.2280 0.1800 0.0240 0.3600
   io_enq_req_0_bits_ftqOffset[0] M3 45.4050 0.1800 0.0180 0.3600
   io_enq_req_0_bits_ftqOffset[1] M5 45.6120 0.1800 0.0240 0.3600
@@ -221,7 +221,7 @@ set ::plan_pins(Rob) {
   io_enq_req_0_bits_ftqPtr_value[0] M3 46.5930 0.1800 0.0180 0.3600
   io_enq_req_0_bits_ftqPtr_value[1] M5 46.7640 0.1800 0.0240 0.3600
   io_enq_req_0_bits_ftqPtr_value[2] M3 46.9890 0.1800 0.0180 0.3600
-  io_enq_req_0_bits_ftqPtr_value[3] M5 47.1960 0.1800 0.0240 0.3600
+  io_enq_req_0_bits_ftqPtr_value[3] M3 5.8770 0.1800 0.0180 0.3600
   io_enq_req_0_bits_ftqPtr_value[4] M3 47.3850 0.1800 0.0180 0.3600
   io_enq_req_0_bits_ftqPtr_value[5] M5 47.5800 0.1800 0.0240 0.3600
   io_enq_req_0_bits_fuOpType[0] M3 47.7810 0.1800 0.0180 0.3600
@@ -229,12 +229,12 @@ set ::plan_pins(Rob) {
   io_enq_req_0_bits_fuOpType[11] M3 48.1410 0.1800 0.0180 0.3600
   io_enq_req_0_bits_fuOpType[1] M5 48.3480 0.1800 0.0240 0.3600
   io_enq_req_0_bits_fuOpType[2] M3 48.5370 0.1800 0.0180 0.3600
-  io_enq_req_0_bits_fuOpType[3] M5 48.7320 0.1800 0.0240 0.3600
+  io_enq_req_0_bits_fuOpType[3] M5 98.3160 0.1800 0.0240 0.3600
   io_enq_req_0_bits_fuOpType[4] M3 48.9330 0.1800 0.0180 0.3600
   io_enq_req_0_bits_fuOpType[5] M5 49.1640 0.1800 0.0240 0.3600
   io_enq_req_0_bits_fuOpType[6] M3 49.3290 0.1800 0.0180 0.3600
   io_enq_req_0_bits_fuOpType[7] M5 49.5480 0.1800 0.0240 0.3600
-  io_enq_req_0_bits_fuOpType[8] M3 49.7250 0.1800 0.0180 0.3600
+  io_enq_req_0_bits_fuOpType[8] M5 6.8760 0.1800 0.0240 0.3600
   io_enq_req_0_bits_fuOpType[9] M5 49.9320 0.1800 0.0240 0.3600
   io_enq_req_0_bits_fuType[0] M3 50.1210 0.1800 0.0180 0.3600
   io_enq_req_0_bits_fuType[10] M5 50.3160 0.1800 0.0240 0.3600
@@ -243,34 +243,34 @@ set ::plan_pins(Rob) {
   io_enq_req_0_bits_fuType[13] M3 50.9130 0.1800 0.0180 0.3600
   io_enq_req_0_bits_fuType[14] M5 51.1320 0.1800 0.0240 0.3600
   io_enq_req_0_bits_fuType[15] M3 51.3090 0.1800 0.0180 0.3600
-  io_enq_req_0_bits_fuType[16] M5 51.5160 0.1800 0.0240 0.3600
+  io_enq_req_0_bits_fuType[16] M5 5.6760 0.1800 0.0240 0.3600
   io_enq_req_0_bits_fuType[17] M3 51.7050 0.1800 0.0180 0.3600
   io_enq_req_0_bits_fuType[18] M5 51.9000 0.1800 0.0240 0.3600
   io_enq_req_0_bits_fuType[19] M3 52.1010 0.1800 0.0180 0.3600
   io_enq_req_0_bits_fuType[1] M5 52.2840 0.1800 0.0240 0.3600
   io_enq_req_0_bits_fuType[20] M3 52.4970 0.1800 0.0180 0.3600
-  io_enq_req_0_bits_fuType[21] M5 52.6680 0.1800 0.0240 0.3600
+  io_enq_req_0_bits_fuType[21] M5 7.2600 0.1800 0.0240 0.3600
   io_enq_req_0_bits_fuType[22] M3 52.8930 0.1800 0.0180 0.3600
   io_enq_req_0_bits_fuType[23] M5 53.0520 0.1800 0.0240 0.3600
-  io_enq_req_0_bits_fuType[24] M3 53.2530 0.1800 0.0180 0.3600
+  io_enq_req_0_bits_fuType[24] M3 6.2730 0.1800 0.0180 0.3600
   io_enq_req_0_bits_fuType[25] M5 53.4840 0.1800 0.0240 0.3600
-  io_enq_req_0_bits_fuType[26] M3 53.6490 0.1800 0.0180 0.3600
+  io_enq_req_0_bits_fuType[26] M5 6.4920 0.1800 0.0240 0.3600
   io_enq_req_0_bits_fuType[27] M5 53.8680 0.1800 0.0240 0.3600
   io_enq_req_0_bits_fuType[28] M3 54.0450 0.1800 0.0180 0.3600
   io_enq_req_0_bits_fuType[29] M5 54.2520 0.1800 0.0240 0.3600
   io_enq_req_0_bits_fuType[2] M3 54.4410 0.1800 0.0180 0.3600
   io_enq_req_0_bits_fuType[30] M5 54.6360 0.1800 0.0240 0.3600
-  io_enq_req_0_bits_fuType[31] M3 54.8370 0.1800 0.0180 0.3600
-  io_enq_req_0_bits_fuType[32] M5 55.0200 0.1800 0.0240 0.3600
+  io_enq_req_0_bits_fuType[31] M3 7.0650 0.1800 0.0180 0.3600
+  io_enq_req_0_bits_fuType[32] M5 138.3960 0.1800 0.0240 0.3600
   io_enq_req_0_bits_fuType[3] M3 55.2330 0.1800 0.0180 0.3600
   io_enq_req_0_bits_fuType[4] M5 55.4520 0.1800 0.0240 0.3600
   io_enq_req_0_bits_fuType[5] M3 55.6290 0.1800 0.0180 0.3600
   io_enq_req_0_bits_fuType[6] M5 55.8360 0.1800 0.0240 0.3600
-  io_enq_req_0_bits_fuType[7] M3 56.0250 0.1800 0.0180 0.3600
+  io_enq_req_0_bits_fuType[7] M3 6.6690 0.1800 0.0180 0.3600
   io_enq_req_0_bits_fuType[8] M5 56.2200 0.1800 0.0240 0.3600
   io_enq_req_0_bits_fuType[9] M3 56.4210 0.1800 0.0180 0.3600
   io_enq_req_0_bits_hasException M5 56.6040 0.1800 0.0240 0.3600
-  io_enq_req_0_bits_isFetchMalAddr M3 56.8170 0.1800 0.0180 0.3600
+  io_enq_req_0_bits_isFetchMalAddr M5 169.4520 0.1800 0.0240 0.3600
   io_enq_req_0_bits_isMove M5 56.9880 0.1800 0.0240 0.3600
   io_enq_req_0_bits_isRVC M3 57.2130 0.1800 0.0180 0.3600
   io_enq_req_0_bits_isVset M5 57.4200 0.1800 0.0240 0.3600
@@ -280,7 +280,7 @@ set ::plan_pins(Rob) {
   io_enq_req_0_bits_ldest[3] M5 58.1880 0.1800 0.0240 0.3600
   io_enq_req_0_bits_ldest[4] M3 58.4010 0.1800 0.0180 0.3600
   io_enq_req_0_bits_ldest[5] M5 58.5720 0.1800 0.0240 0.3600
-  io_enq_req_0_bits_numWB[0] M3 58.7610 0.1800 0.0180 0.3600
+  io_enq_req_0_bits_numWB[0] M5 129.3720 0.1800 0.0240 0.3600
   io_enq_req_0_bits_numWB[1] M5 58.9560 0.1800 0.0240 0.3600
   io_enq_req_0_bits_numWB[2] M3 59.1570 0.1800 0.0180 0.3600
   io_enq_req_0_bits_numWB[3] M5 59.3880 0.1800 0.0240 0.3600
@@ -310,10 +310,10 @@ set ::plan_pins(Rob) {
   io_enq_req_0_bits_pdest[4] M5 64.0920 0.1800 0.0240 0.3600
   io_enq_req_0_bits_pdest[5] M3 64.2690 0.1800 0.0180 0.3600
   io_enq_req_0_bits_pdest[6] M5 64.4760 0.1800 0.0240 0.3600
-  io_enq_req_0_bits_pdest[7] M3 64.6650 0.1800 0.0180 0.3600
+  io_enq_req_0_bits_pdest[7] M5 200.5560 0.1800 0.0240 0.3600
   io_enq_req_0_bits_rfWen M5 64.8600 0.1800 0.0240 0.3600
   io_enq_req_0_bits_robIdx_flag M3 65.0610 0.1800 0.0180 0.3600
-  io_enq_req_0_bits_robIdx_value[0] M5 65.2440 0.1800 0.0240 0.3600
+  io_enq_req_0_bits_robIdx_value[0] M5 191.4840 0.1800 0.0240 0.3600
   io_enq_req_0_bits_robIdx_value[1] M3 65.4570 0.1800 0.0180 0.3600
   io_enq_req_0_bits_robIdx_value[2] M5 65.6760 0.1800 0.0240 0.3600
   io_enq_req_0_bits_robIdx_value[3] M3 65.8530 0.1800 0.0180 0.3600
@@ -322,13 +322,13 @@ set ::plan_pins(Rob) {
   io_enq_req_0_bits_robIdx_value[6] M5 66.4440 0.1800 0.0240 0.3600
   io_enq_req_0_bits_robIdx_value[7] M3 66.6450 0.1800 0.0180 0.3600
   io_enq_req_0_bits_robIdx_value[8] M5 66.8280 0.1800 0.0240 0.3600
-  io_enq_req_0_bits_satpFlushFirstFetchFault M3 67.0410 0.1800 0.0180 0.3600
+  io_enq_req_0_bits_satpFlushFirstFetchFault M3 23.7690 0.1800 0.0180 0.3600
   io_enq_req_0_bits_singleStep M5 67.2120 0.1800 0.0240 0.3600
   io_enq_req_0_bits_snapshot M3 67.4370 0.1800 0.0180 0.3600
   io_enq_req_0_bits_traceBlockInPipe_ilastsize M5 67.6440 0.1800 0.0240 0.3600
   io_enq_req_0_bits_traceBlockInPipe_iretire[0] M3 67.8330 0.1800 0.0180 0.3600
   io_enq_req_0_bits_traceBlockInPipe_iretire[1] M5 68.0280 0.1800 0.0240 0.3600
-  io_enq_req_0_bits_traceBlockInPipe_iretire[2] M3 68.2290 0.1800 0.0180 0.3600
+  io_enq_req_0_bits_traceBlockInPipe_iretire[2] M5 231.6120 0.1800 0.0240 0.3600
   io_enq_req_0_bits_traceBlockInPipe_iretire[3] M5 68.4120 0.1800 0.0240 0.3600
   io_enq_req_0_bits_traceBlockInPipe_iretire[4] M3 68.6250 0.1800 0.0180 0.3600
   io_enq_req_0_bits_traceBlockInPipe_iretire[5] M5 68.7960 0.1800 0.0240 0.3600
@@ -340,7 +340,7 @@ set ::plan_pins(Rob) {
   io_enq_req_0_bits_trigger[1] M5 69.9960 0.1800 0.0240 0.3600
   io_enq_req_0_bits_trigger[2] M3 70.1730 0.1800 0.0180 0.3600
   io_enq_req_0_bits_trigger[3] M5 70.3800 0.1800 0.0240 0.3600
-  io_enq_req_0_bits_v0Wen M3 70.5690 0.1800 0.0180 0.3600
+  io_enq_req_0_bits_v0Wen M5 160.4280 0.1800 0.0240 0.3600
   io_enq_req_0_bits_vecWen M5 70.7640 0.1800 0.0240 0.3600
   io_enq_req_0_bits_vlWen M3 70.9650 0.1800 0.0180 0.3600
   io_enq_req_0_bits_vtype_illegal M5 71.1480 0.1800 0.0240 0.3600
@@ -361,7 +361,7 @@ set ::plan_pins(Rob) {
   io_enq_req_1_bits_dirtyFs M3 74.0970 0.1800 0.0180 0.3600
   io_enq_req_1_bits_dirtyVs M5 74.3160 0.1800 0.0240 0.3600
   io_enq_req_1_bits_exceptionVec_1 M3 74.4930 0.1800 0.0180 0.3600
-  io_enq_req_1_bits_exceptionVec_12 M5 74.7000 0.1800 0.0240 0.3600
+  io_enq_req_1_bits_exceptionVec_12 M5 222.5400 0.1800 0.0240 0.3600
   io_enq_req_1_bits_exceptionVec_19 M3 74.8890 0.1800 0.0180 0.3600
   io_enq_req_1_bits_exceptionVec_2 M5 75.0840 0.1800 0.0240 0.3600
   io_enq_req_1_bits_exceptionVec_20 M3 75.2850 0.1800 0.0180 0.3600
@@ -369,7 +369,7 @@ set ::plan_pins(Rob) {
   io_enq_req_1_bits_exceptionVec_3 M3 75.6810 0.1800 0.0180 0.3600
   io_enq_req_1_bits_fflagsWen M5 75.9000 0.1800 0.0240 0.3600
   io_enq_req_1_bits_firstUop M3 76.0770 0.1800 0.0180 0.3600
-  io_enq_req_1_bits_flushPipe M5 76.2840 0.1800 0.0240 0.3600
+  io_enq_req_1_bits_flushPipe M3 20.6370 0.1800 0.0180 0.3600
   io_enq_req_1_bits_fpWen M3 76.4730 0.1800 0.0180 0.3600
   io_enq_req_1_bits_ftqOffset[0] M5 76.6680 0.1800 0.0240 0.3600
   io_enq_req_1_bits_ftqOffset[1] M3 76.8690 0.1800 0.0180 0.3600
@@ -415,7 +415,7 @@ set ::plan_pins(Rob) {
   io_enq_req_1_bits_fuType[25] M3 84.7170 0.1800 0.0180 0.3600
   io_enq_req_1_bits_fuType[26] M5 84.9240 0.1800 0.0240 0.3600
   io_enq_req_1_bits_fuType[27] M3 85.1130 0.1800 0.0180 0.3600
-  io_enq_req_1_bits_fuType[28] M5 85.3080 0.1800 0.0240 0.3600
+  io_enq_req_1_bits_fuType[28] M5 262.6680 0.1800 0.0240 0.3600
   io_enq_req_1_bits_fuType[29] M3 85.5090 0.1800 0.0180 0.3600
   io_enq_req_1_bits_fuType[2] M5 85.6920 0.1800 0.0240 0.3600
   io_enq_req_1_bits_fuType[30] M3 85.9050 0.1800 0.0180 0.3600
@@ -452,7 +452,7 @@ set ::plan_pins(Rob) {
   io_enq_req_1_bits_oldVType_vlmul[0] M5 92.0280 0.1800 0.0240 0.3600
   io_enq_req_1_bits_oldVType_vlmul[1] M3 92.2050 0.1800 0.0180 0.3600
   io_enq_req_1_bits_oldVType_vlmul[2] M5 92.4120 0.1800 0.0240 0.3600
-  io_enq_req_1_bits_oldVType_vma M3 92.6010 0.1800 0.0180 0.3600
+  io_enq_req_1_bits_oldVType_vma M5 253.6440 0.1800 0.0240 0.3600
   io_enq_req_1_bits_oldVType_vsew[0] M5 92.7960 0.1800 0.0240 0.3600
   io_enq_req_1_bits_oldVType_vsew[1] M3 92.9970 0.1800 0.0180 0.3600
   io_enq_req_1_bits_oldVType_vsew[2] M5 93.1800 0.1800 0.0240 0.3600
@@ -472,7 +472,7 @@ set ::plan_pins(Rob) {
   io_enq_req_1_bits_pdest[7] M5 95.9160 0.1800 0.0240 0.3600
   io_enq_req_1_bits_rfWen M3 96.1290 0.1800 0.0180 0.3600
   io_enq_req_1_bits_robIdx_flag M5 96.3480 0.1800 0.0240 0.3600
-  io_enq_req_1_bits_robIdx_value[0] M3 96.5250 0.1800 0.0180 0.3600
+  io_enq_req_1_bits_robIdx_value[0] M5 284.7000 0.1800 0.0240 0.3600
   io_enq_req_1_bits_robIdx_value[1] M5 96.7320 0.1800 0.0240 0.3600
   io_enq_req_1_bits_robIdx_value[2] M3 96.9210 0.1800 0.0180 0.3600
   io_enq_req_1_bits_robIdx_value[3] M5 97.1160 0.1800 0.0240 0.3600
@@ -481,7 +481,7 @@ set ::plan_pins(Rob) {
   io_enq_req_1_bits_robIdx_value[6] M3 97.7130 0.1800 0.0180 0.3600
   io_enq_req_1_bits_robIdx_value[7] M5 97.8840 0.1800 0.0240 0.3600
   io_enq_req_1_bits_robIdx_value[8] M3 98.1090 0.1800 0.0180 0.3600
-  io_enq_req_1_bits_satpFlushFirstFetchFault M5 98.3160 0.1800 0.0240 0.3600
+  io_enq_req_1_bits_satpFlushFirstFetchFault M5 48.7320 0.1800 0.0240 0.3600
   io_enq_req_1_bits_singleStep M3 98.5050 0.1800 0.0180 0.3600
   io_enq_req_1_bits_traceBlockInPipe_ilastsize M5 98.7000 0.1800 0.0240 0.3600
   io_enq_req_1_bits_traceBlockInPipe_iretire[0] M3 98.9010 0.1800 0.0180 0.3600
@@ -527,7 +527,7 @@ set ::plan_pins(Rob) {
   io_enq_req_2_bits_exceptionVec_3 M3 106.7490 0.1800 0.0180 0.3600
   io_enq_req_2_bits_fflagsWen M5 106.9560 0.1800 0.0240 0.3600
   io_enq_req_2_bits_firstUop M3 107.1450 0.1800 0.0180 0.3600
-  io_enq_req_2_bits_flushPipe M5 107.3400 0.1800 0.0240 0.3600
+  io_enq_req_2_bits_flushPipe M3 44.2170 0.1800 0.0180 0.3600
   io_enq_req_2_bits_fpWen M3 107.5410 0.1800 0.0180 0.3600
   io_enq_req_2_bits_ftqOffset[0] M5 107.7240 0.1800 0.0240 0.3600
   io_enq_req_2_bits_ftqOffset[1] M3 107.9370 0.1800 0.0180 0.3600
@@ -639,7 +639,7 @@ set ::plan_pins(Rob) {
   io_enq_req_2_bits_robIdx_value[6] M3 128.7810 0.1800 0.0180 0.3600
   io_enq_req_2_bits_robIdx_value[7] M5 128.9880 0.1800 0.0240 0.3600
   io_enq_req_2_bits_robIdx_value[8] M3 129.1770 0.1800 0.0180 0.3600
-  io_enq_req_2_bits_satpFlushFirstFetchFault M5 129.3720 0.1800 0.0240 0.3600
+  io_enq_req_2_bits_satpFlushFirstFetchFault M3 58.7610 0.1800 0.0180 0.3600
   io_enq_req_2_bits_singleStep M3 129.5730 0.1800 0.0180 0.3600
   io_enq_req_2_bits_traceBlockInPipe_ilastsize M5 129.7560 0.1800 0.0240 0.3600
   io_enq_req_2_bits_traceBlockInPipe_iretire[0] M3 129.9690 0.1800 0.0180 0.3600
@@ -685,7 +685,7 @@ set ::plan_pins(Rob) {
   io_enq_req_3_bits_exceptionVec_3 M3 137.8170 0.1800 0.0180 0.3600
   io_enq_req_3_bits_fflagsWen M5 138.0120 0.1800 0.0240 0.3600
   io_enq_req_3_bits_firstUop M3 138.2130 0.1800 0.0180 0.3600
-  io_enq_req_3_bits_flushPipe M5 138.3960 0.1800 0.0240 0.3600
+  io_enq_req_3_bits_flushPipe M5 55.0200 0.1800 0.0240 0.3600
   io_enq_req_3_bits_fpWen M3 138.6090 0.1800 0.0180 0.3600
   io_enq_req_3_bits_ftqOffset[0] M5 138.7800 0.1800 0.0240 0.3600
   io_enq_req_3_bits_ftqOffset[1] M3 139.0050 0.1800 0.0180 0.3600
@@ -797,7 +797,7 @@ set ::plan_pins(Rob) {
   io_enq_req_3_bits_robIdx_value[6] M3 159.8490 0.1800 0.0180 0.3600
   io_enq_req_3_bits_robIdx_value[7] M5 160.0440 0.1800 0.0240 0.3600
   io_enq_req_3_bits_robIdx_value[8] M3 160.2450 0.1800 0.0180 0.3600
-  io_enq_req_3_bits_satpFlushFirstFetchFault M5 160.4280 0.1800 0.0240 0.3600
+  io_enq_req_3_bits_satpFlushFirstFetchFault M3 70.5690 0.1800 0.0180 0.3600
   io_enq_req_3_bits_singleStep M3 160.6410 0.1800 0.0180 0.3600
   io_enq_req_3_bits_traceBlockInPipe_ilastsize M5 160.8120 0.1800 0.0240 0.3600
   io_enq_req_3_bits_traceBlockInPipe_iretire[0] M3 161.0370 0.1800 0.0180 0.3600
@@ -843,7 +843,7 @@ set ::plan_pins(Rob) {
   io_enq_req_4_bits_exceptionVec_3 M3 168.8850 0.1800 0.0180 0.3600
   io_enq_req_4_bits_fflagsWen M5 169.0680 0.1800 0.0240 0.3600
   io_enq_req_4_bits_firstUop M3 169.2810 0.1800 0.0180 0.3600
-  io_enq_req_4_bits_flushPipe M5 169.4520 0.1800 0.0240 0.3600
+  io_enq_req_4_bits_flushPipe M3 56.8170 0.1800 0.0180 0.3600
   io_enq_req_4_bits_fpWen M3 169.6770 0.1800 0.0180 0.3600
   io_enq_req_4_bits_ftqOffset[0] M5 169.8840 0.1800 0.0240 0.3600
   io_enq_req_4_bits_ftqOffset[1] M3 170.0730 0.1800 0.0180 0.3600
@@ -955,7 +955,7 @@ set ::plan_pins(Rob) {
   io_enq_req_4_bits_robIdx_value[6] M3 190.9170 0.1800 0.0180 0.3600
   io_enq_req_4_bits_robIdx_value[7] M5 191.1000 0.1800 0.0240 0.3600
   io_enq_req_4_bits_robIdx_value[8] M3 191.3130 0.1800 0.0180 0.3600
-  io_enq_req_4_bits_satpFlushFirstFetchFault M5 191.4840 0.1800 0.0240 0.3600
+  io_enq_req_4_bits_satpFlushFirstFetchFault M5 65.2440 0.1800 0.0240 0.3600
   io_enq_req_4_bits_singleStep M3 191.7090 0.1800 0.0180 0.3600
   io_enq_req_4_bits_traceBlockInPipe_ilastsize M5 191.8680 0.1800 0.0240 0.3600
   io_enq_req_4_bits_traceBlockInPipe_iretire[0] M3 192.1050 0.1800 0.0180 0.3600
@@ -1001,7 +1001,7 @@ set ::plan_pins(Rob) {
   io_enq_req_5_bits_exceptionVec_3 M3 199.9530 0.1800 0.0180 0.3600
   io_enq_req_5_bits_fflagsWen M5 200.1720 0.1800 0.0240 0.3600
   io_enq_req_5_bits_firstUop M3 200.3490 0.1800 0.0180 0.3600
-  io_enq_req_5_bits_flushPipe M5 200.5560 0.1800 0.0240 0.3600
+  io_enq_req_5_bits_flushPipe M3 64.6650 0.1800 0.0180 0.3600
   io_enq_req_5_bits_fpWen M3 200.7450 0.1800 0.0180 0.3600
   io_enq_req_5_bits_ftqOffset[0] M5 200.9400 0.1800 0.0240 0.3600
   io_enq_req_5_bits_ftqOffset[1] M3 201.1410 0.1800 0.0180 0.3600
@@ -1113,7 +1113,7 @@ set ::plan_pins(Rob) {
   io_enq_req_5_bits_robIdx_value[6] M3 221.9850 0.1800 0.0180 0.3600
   io_enq_req_5_bits_robIdx_value[7] M5 222.1560 0.1800 0.0240 0.3600
   io_enq_req_5_bits_robIdx_value[8] M3 222.3810 0.1800 0.0180 0.3600
-  io_enq_req_5_bits_satpFlushFirstFetchFault M5 222.5400 0.1800 0.0240 0.3600
+  io_enq_req_5_bits_satpFlushFirstFetchFault M5 74.7000 0.1800 0.0240 0.3600
   io_enq_req_5_bits_singleStep M3 222.7770 0.1800 0.0180 0.3600
   io_enq_req_5_bits_traceBlockInPipe_ilastsize M5 222.9720 0.1800 0.0240 0.3600
   io_enq_req_5_bits_traceBlockInPipe_iretire[0] M3 223.1370 0.1800 0.0180 0.3600
@@ -1159,7 +1159,7 @@ set ::plan_pins(Rob) {
   io_enq_req_6_bits_exceptionVec_3 M3 231.0210 0.1800 0.0180 0.3600
   io_enq_req_6_bits_fflagsWen M5 231.2280 0.1800 0.0240 0.3600
   io_enq_req_6_bits_firstUop M3 231.4170 0.1800 0.0180 0.3600
-  io_enq_req_6_bits_flushPipe M5 231.6120 0.1800 0.0240 0.3600
+  io_enq_req_6_bits_flushPipe M3 68.2290 0.1800 0.0180 0.3600
   io_enq_req_6_bits_fpWen M3 231.8130 0.1800 0.0180 0.3600
   io_enq_req_6_bits_ftqOffset[0] M5 231.9960 0.1800 0.0240 0.3600
   io_enq_req_6_bits_ftqOffset[1] M3 232.2090 0.1800 0.0180 0.3600
@@ -1271,7 +1271,7 @@ set ::plan_pins(Rob) {
   io_enq_req_6_bits_robIdx_value[6] M3 253.0530 0.1800 0.0180 0.3600
   io_enq_req_6_bits_robIdx_value[7] M5 253.2600 0.1800 0.0240 0.3600
   io_enq_req_6_bits_robIdx_value[8] M3 253.4490 0.1800 0.0180 0.3600
-  io_enq_req_6_bits_satpFlushFirstFetchFault M5 253.6440 0.1800 0.0240 0.3600
+  io_enq_req_6_bits_satpFlushFirstFetchFault M3 92.6010 0.1800 0.0180 0.3600
   io_enq_req_6_bits_singleStep M3 253.8450 0.1800 0.0180 0.3600
   io_enq_req_6_bits_traceBlockInPipe_ilastsize M5 254.0280 0.1800 0.0240 0.3600
   io_enq_req_6_bits_traceBlockInPipe_iretire[0] M3 254.2050 0.1800 0.0180 0.3600
@@ -1317,13 +1317,13 @@ set ::plan_pins(Rob) {
   io_enq_req_7_bits_exceptionVec_3 M3 262.0890 0.1800 0.0180 0.3600
   io_enq_req_7_bits_fflagsWen M5 262.2840 0.1800 0.0240 0.3600
   io_enq_req_7_bits_firstUop M3 262.4850 0.1800 0.0180 0.3600
-  io_enq_req_7_bits_flushPipe M5 262.6680 0.1800 0.0240 0.3600
+  io_enq_req_7_bits_flushPipe M5 85.3080 0.1800 0.0240 0.3600
   io_enq_req_7_bits_fpWen M3 262.8810 0.1800 0.0180 0.3600
   io_enq_req_7_bits_ftqOffset[0] M5 263.0520 0.1800 0.0240 0.3600
   io_enq_req_7_bits_ftqOffset[1] M3 263.2770 0.1800 0.0180 0.3600
   io_enq_req_7_bits_ftqOffset[2] M5 263.4840 0.1800 0.0240 0.3600
   io_enq_req_7_bits_ftqOffset[3] M3 263.6730 0.1800 0.0180 0.3600
-  io_enq_req_7_bits_ftqOffset[4] M5 263.8680 0.1800 0.0240 0.3600
+  io_enq_req_7_bits_ftqOffset[4] M3 548.7570 0.1800 0.0180 0.3600
   io_enq_req_7_bits_ftqPtr_flag M3 264.0690 0.1800 0.0180 0.3600
   io_enq_req_7_bits_ftqPtr_value[0] M5 264.2520 0.1800 0.0240 0.3600
   io_enq_req_7_bits_ftqPtr_value[1] M3 264.4290 0.1800 0.0180 0.3600
@@ -1355,7 +1355,7 @@ set ::plan_pins(Rob) {
   io_enq_req_7_bits_fuType[18] M3 269.5410 0.1800 0.0180 0.3600
   io_enq_req_7_bits_fuType[19] M5 269.7720 0.1800 0.0240 0.3600
   io_enq_req_7_bits_fuType[1] M3 269.9370 0.1800 0.0180 0.3600
-  io_enq_req_7_bits_fuType[20] M5 270.1560 0.1800 0.0240 0.3600
+  io_enq_req_7_bits_fuType[20] M3 551.5290 0.1800 0.0180 0.3600
   io_enq_req_7_bits_fuType[21] M3 270.3330 0.1800 0.0180 0.3600
   io_enq_req_7_bits_fuType[22] M5 270.5400 0.1800 0.0240 0.3600
   io_enq_req_7_bits_fuType[23] M3 270.7290 0.1800 0.0180 0.3600
@@ -1375,7 +1375,7 @@ set ::plan_pins(Rob) {
   io_enq_req_7_bits_fuType[6] M3 273.5010 0.1800 0.0180 0.3600
   io_enq_req_7_bits_fuType[7] M5 273.7080 0.1800 0.0240 0.3600
   io_enq_req_7_bits_fuType[8] M3 273.8970 0.1800 0.0180 0.3600
-  io_enq_req_7_bits_fuType[9] M5 274.0920 0.1800 0.0240 0.3600
+  io_enq_req_7_bits_fuType[9] M5 501.7560 0.1800 0.0240 0.3600
   io_enq_req_7_bits_hasException M3 274.2930 0.1800 0.0180 0.3600
   io_enq_req_7_bits_isFetchMalAddr M5 274.4760 0.1800 0.0240 0.3600
   io_enq_req_7_bits_isMove M3 274.6530 0.1800 0.0180 0.3600
@@ -1385,7 +1385,7 @@ set ::plan_pins(Rob) {
   io_enq_req_7_bits_ldest[1] M3 275.4450 0.1800 0.0180 0.3600
   io_enq_req_7_bits_ldest[2] M5 275.6760 0.1800 0.0240 0.3600
   io_enq_req_7_bits_ldest[3] M3 275.8410 0.1800 0.0180 0.3600
-  io_enq_req_7_bits_ldest[4] M5 276.0600 0.1800 0.0240 0.3600
+  io_enq_req_7_bits_ldest[4] M5 500.9880 0.1800 0.0240 0.3600
   io_enq_req_7_bits_ldest[5] M3 276.2370 0.1800 0.0180 0.3600
   io_enq_req_7_bits_numWB[0] M5 276.4440 0.1800 0.0240 0.3600
   io_enq_req_7_bits_numWB[1] M3 276.6330 0.1800 0.0180 0.3600
@@ -1393,7 +1393,7 @@ set ::plan_pins(Rob) {
   io_enq_req_7_bits_numWB[3] M3 277.0290 0.1800 0.0180 0.3600
   io_enq_req_7_bits_numWB[4] M5 277.2120 0.1800 0.0240 0.3600
   io_enq_req_7_bits_numWB[5] M3 277.4250 0.1800 0.0180 0.3600
-  io_enq_req_7_bits_numWB[6] M5 277.5960 0.1800 0.0240 0.3600
+  io_enq_req_7_bits_numWB[6] M3 316.7370 0.1800 0.0180 0.3600
   io_enq_req_7_bits_numWB[7] M3 277.8210 0.1800 0.0180 0.3600
   io_enq_req_7_bits_numWB[8] M5 278.0280 0.1800 0.0240 0.3600
   io_enq_req_7_bits_oldVType_illegal M3 278.2170 0.1800 0.0180 0.3600
@@ -1408,12 +1408,12 @@ set ::plan_pins(Rob) {
   io_enq_req_7_bits_pdestVl[0] M5 279.9960 0.1800 0.0240 0.3600
   io_enq_req_7_bits_pdestVl[1] M3 280.1610 0.1800 0.0180 0.3600
   io_enq_req_7_bits_pdestVl[2] M5 280.3800 0.1800 0.0240 0.3600
-  io_enq_req_7_bits_pdestVl[3] M3 280.5570 0.1800 0.0180 0.3600
+  io_enq_req_7_bits_pdestVl[3] M3 343.4850 0.1800 0.0180 0.3600
   io_enq_req_7_bits_pdestVl[4] M5 280.7640 0.1800 0.0240 0.3600
   io_enq_req_7_bits_pdest[0] M3 280.9530 0.1800 0.0180 0.3600
   io_enq_req_7_bits_pdest[1] M5 281.1480 0.1800 0.0240 0.3600
   io_enq_req_7_bits_pdest[2] M3 281.3490 0.1800 0.0180 0.3600
-  io_enq_req_7_bits_pdest[3] M5 281.5320 0.1800 0.0240 0.3600
+  io_enq_req_7_bits_pdest[3] M5 551.3400 0.1800 0.0240 0.3600
   io_enq_req_7_bits_pdest[4] M3 281.7450 0.1800 0.0180 0.3600
   io_enq_req_7_bits_pdest[5] M5 281.9640 0.1800 0.0240 0.3600
   io_enq_req_7_bits_pdest[6] M3 282.1410 0.1800 0.0180 0.3600
@@ -1421,7 +1421,7 @@ set ::plan_pins(Rob) {
   io_enq_req_7_bits_rfWen M3 282.5370 0.1800 0.0180 0.3600
   io_enq_req_7_bits_robIdx_flag M5 282.7320 0.1800 0.0240 0.3600
   io_enq_req_7_bits_robIdx_value[0] M3 282.9330 0.1800 0.0180 0.3600
-  io_enq_req_7_bits_robIdx_value[1] M5 283.1160 0.1800 0.0240 0.3600
+  io_enq_req_7_bits_robIdx_value[1] M5 548.5560 0.1800 0.0240 0.3600
   io_enq_req_7_bits_robIdx_value[2] M3 283.3290 0.1800 0.0180 0.3600
   io_enq_req_7_bits_robIdx_value[3] M5 283.5000 0.1800 0.0240 0.3600
   io_enq_req_7_bits_robIdx_value[4] M3 283.7250 0.1800 0.0180 0.3600
@@ -1429,7 +1429,7 @@ set ::plan_pins(Rob) {
   io_enq_req_7_bits_robIdx_value[6] M3 284.1210 0.1800 0.0180 0.3600
   io_enq_req_7_bits_robIdx_value[7] M5 284.3160 0.1800 0.0240 0.3600
   io_enq_req_7_bits_robIdx_value[8] M3 284.5170 0.1800 0.0180 0.3600
-  io_enq_req_7_bits_satpFlushFirstFetchFault M5 284.7000 0.1800 0.0240 0.3600
+  io_enq_req_7_bits_satpFlushFirstFetchFault M3 96.5250 0.1800 0.0180 0.3600
   io_enq_req_7_bits_singleStep M3 284.8770 0.1800 0.0180 0.3600
   io_enq_req_7_bits_traceBlockInPipe_ilastsize M5 285.0840 0.1800 0.0240 0.3600
   io_enq_req_7_bits_traceBlockInPipe_iretire[0] M3 285.2730 0.1800 0.0180 0.3600
@@ -1466,7 +1466,7 @@ set ::plan_pins(Rob) {
   io_exception_bits_exceptionVec_10 M5 291.3720 0.1800 0.0240 0.3600
   io_exception_bits_exceptionVec_11 M3 291.5730 0.1800 0.0180 0.3600
   io_exception_bits_exceptionVec_12 M5 291.7560 0.1800 0.0240 0.3600
-  io_exception_bits_exceptionVec_13 M3 291.9690 0.1800 0.0180 0.3600
+  io_exception_bits_exceptionVec_13 M5 529.6920 0.1800 0.0240 0.3600
   io_exception_bits_exceptionVec_15 M5 292.1880 0.1800 0.0240 0.3600
   io_exception_bits_exceptionVec_19 M3 292.3650 0.1800 0.0180 0.3600
   io_exception_bits_exceptionVec_2 M5 292.5720 0.1800 0.0240 0.3600
@@ -1484,10 +1484,10 @@ set ::plan_pins(Rob) {
   io_exception_bits_gpaddr[10] M5 294.9240 0.1800 0.0240 0.3600
   io_exception_bits_gpaddr[11] M3 295.1010 0.1800 0.0180 0.3600
   io_exception_bits_gpaddr[12] M5 295.3080 0.1800 0.0240 0.3600
-  io_exception_bits_gpaddr[13] M3 295.4970 0.1800 0.0180 0.3600
+  io_exception_bits_gpaddr[13] M5 530.0760 0.1800 0.0240 0.3600
   io_exception_bits_gpaddr[14] M5 295.6920 0.1800 0.0240 0.3600
   io_exception_bits_gpaddr[15] M3 295.8930 0.1800 0.0180 0.3600
-  io_exception_bits_gpaddr[16] M5 296.1240 0.1800 0.0240 0.3600
+  io_exception_bits_gpaddr[16] M3 529.4970 0.1800 0.0180 0.3600
   io_exception_bits_gpaddr[17] M3 296.2890 0.1800 0.0180 0.3600
   io_exception_bits_gpaddr[18] M5 296.5080 0.1800 0.0240 0.3600
   io_exception_bits_gpaddr[19] M3 296.6850 0.1800 0.0180 0.3600
@@ -1495,7 +1495,7 @@ set ::plan_pins(Rob) {
   io_exception_bits_gpaddr[20] M3 297.0810 0.1800 0.0180 0.3600
   io_exception_bits_gpaddr[21] M5 297.2760 0.1800 0.0240 0.3600
   io_exception_bits_gpaddr[22] M3 297.4770 0.1800 0.0180 0.3600
-  io_exception_bits_gpaddr[23] M5 297.6600 0.1800 0.0240 0.3600
+  io_exception_bits_gpaddr[23] M3 501.5610 0.1800 0.0180 0.3600
   io_exception_bits_gpaddr[24] M3 297.8730 0.1800 0.0180 0.3600
   io_exception_bits_gpaddr[25] M5 298.0440 0.1800 0.0240 0.3600
   io_exception_bits_gpaddr[26] M3 298.2690 0.1800 0.0180 0.3600
@@ -1509,7 +1509,7 @@ set ::plan_pins(Rob) {
   io_exception_bits_gpaddr[33] M3 299.8530 0.1800 0.0180 0.3600
   io_exception_bits_gpaddr[34] M5 300.0120 0.1800 0.0240 0.3600
   io_exception_bits_gpaddr[35] M3 300.2130 0.1800 0.0180 0.3600
-  io_exception_bits_gpaddr[36] M5 300.4440 0.1800 0.0240 0.3600
+  io_exception_bits_gpaddr[36] M5 501.3720 0.1800 0.0240 0.3600
   io_exception_bits_gpaddr[37] M3 300.6090 0.1800 0.0180 0.3600
   io_exception_bits_gpaddr[38] M5 300.8280 0.1800 0.0240 0.3600
   io_exception_bits_gpaddr[39] M3 301.0050 0.1800 0.0180 0.3600
@@ -1531,7 +1531,7 @@ set ::plan_pins(Rob) {
   io_exception_bits_gpaddr[53] M3 304.1730 0.1800 0.0180 0.3600
   io_exception_bits_gpaddr[54] M5 304.3800 0.1800 0.0240 0.3600
   io_exception_bits_gpaddr[55] M3 304.5690 0.1800 0.0180 0.3600
-  io_exception_bits_gpaddr[5] M5 304.7640 0.1800 0.0240 0.3600
+  io_exception_bits_gpaddr[5] M5 550.9080 0.1800 0.0240 0.3600
   io_exception_bits_gpaddr[6] M3 304.9650 0.1800 0.0180 0.3600
   io_exception_bits_gpaddr[7] M5 305.1480 0.1800 0.0240 0.3600
   io_exception_bits_gpaddr[8] M3 305.3250 0.1800 0.0180 0.3600
@@ -1541,7 +1541,7 @@ set ::plan_pins(Rob) {
   io_exception_bits_isHls M3 306.1170 0.1800 0.0180 0.3600
   io_exception_bits_isInterrupt M5 306.3480 0.1800 0.0240 0.3600
   io_exception_bits_isPcBkpt M3 306.5130 0.1800 0.0180 0.3600
-  io_exception_bits_satpFlushFirstFetchFault M5 306.7320 0.1800 0.0240 0.3600
+  io_exception_bits_satpFlushFirstFetchFault M5 12.5880 0.1800 0.0240 0.3600
   io_exception_bits_singleStep M3 306.9090 0.1800 0.0180 0.3600
   io_exception_bits_trigger[0] M5 307.1160 0.1800 0.0240 0.3600
   io_exception_bits_trigger[1] M3 307.3050 0.1800 0.0180 0.3600
@@ -1562,7 +1562,7 @@ set ::plan_pins(Rob) {
   io_exuWriteback_17_bits_robIdx_value[3] M5 310.2360 0.1800 0.0240 0.3600
   io_exuWriteback_17_bits_robIdx_value[4] M3 310.4370 0.1800 0.0180 0.3600
   io_exuWriteback_17_bits_robIdx_value[5] M5 310.6680 0.1800 0.0240 0.3600
-  io_exuWriteback_17_bits_robIdx_value[6] M3 310.8330 0.1800 0.0180 0.3600
+  io_exuWriteback_17_bits_robIdx_value[6] M5 529.3080 0.1800 0.0240 0.3600
   io_exuWriteback_17_bits_robIdx_value[7] M5 311.0520 0.1800 0.0240 0.3600
   io_exuWriteback_17_bits_robIdx_value[8] M3 311.2290 0.1800 0.0180 0.3600
   io_exuWriteback_17_valid M5 311.4360 0.1800 0.0240 0.3600
@@ -1579,8 +1579,8 @@ set ::plan_pins(Rob) {
   io_exuWriteback_19_bits_fflagsWen M3 313.6050 0.1800 0.0180 0.3600
   io_exuWriteback_19_bits_fflags[0] M5 313.7880 0.1800 0.0240 0.3600
   io_exuWriteback_19_bits_fflags[1] M3 314.0010 0.1800 0.0180 0.3600
-  io_exuWriteback_19_bits_fflags[2] M5 314.1720 0.1800 0.0240 0.3600
-  io_exuWriteback_19_bits_fflags[3] M3 314.3970 0.1800 0.0180 0.3600
+  io_exuWriteback_19_bits_fflags[2] M3 550.7370 0.1800 0.0180 0.3600
+  io_exuWriteback_19_bits_fflags[3] M5 338.1720 0.1800 0.0240 0.3600
   io_exuWriteback_19_bits_fflags[4] M5 314.6040 0.1800 0.0240 0.3600
   io_exuWriteback_19_bits_robIdx_value[0] M3 314.7930 0.1800 0.0180 0.3600
   io_exuWriteback_19_bits_robIdx_value[1] M5 314.9880 0.1800 0.0240 0.3600
@@ -1592,7 +1592,7 @@ set ::plan_pins(Rob) {
   io_exuWriteback_19_bits_robIdx_value[7] M5 316.1400 0.1800 0.0240 0.3600
   io_exuWriteback_19_bits_robIdx_value[8] M3 316.3410 0.1800 0.0180 0.3600
   io_exuWriteback_19_valid M5 316.5720 0.1800 0.0240 0.3600
-  io_exuWriteback_1_bits_redirect_bits_taken M3 316.7370 0.1800 0.0180 0.3600
+  io_exuWriteback_1_bits_redirect_bits_taken M5 277.5960 0.1800 0.0240 0.3600
   io_exuWriteback_1_bits_robIdx_value[0] M5 316.9560 0.1800 0.0240 0.3600
   io_exuWriteback_1_bits_robIdx_value[1] M3 317.1330 0.1800 0.0180 0.3600
   io_exuWriteback_1_bits_robIdx_value[2] M5 317.3400 0.1800 0.0240 0.3600
@@ -1600,7 +1600,7 @@ set ::plan_pins(Rob) {
   io_exuWriteback_1_bits_robIdx_value[4] M5 317.7240 0.1800 0.0240 0.3600
   io_exuWriteback_1_bits_robIdx_value[5] M3 317.9250 0.1800 0.0180 0.3600
   io_exuWriteback_1_bits_robIdx_value[6] M5 318.1080 0.1800 0.0240 0.3600
-  io_exuWriteback_1_bits_robIdx_value[7] M3 318.3210 0.1800 0.0180 0.3600
+  io_exuWriteback_1_bits_robIdx_value[7] M3 500.7690 0.1800 0.0180 0.3600
   io_exuWriteback_1_bits_robIdx_value[8] M5 318.5400 0.1800 0.0240 0.3600
   io_exuWriteback_1_valid M3 318.7170 0.1800 0.0180 0.3600
   io_exuWriteback_20_bits_fflagsWen M5 318.9240 0.1800 0.0240 0.3600
@@ -1701,7 +1701,7 @@ set ::plan_pins(Rob) {
   io_exuWriteback_2_bits_robIdx_value[7] M3 337.5810 0.1800 0.0180 0.3600
   io_exuWriteback_2_bits_robIdx_value[8] M5 337.7880 0.1800 0.0240 0.3600
   io_exuWriteback_2_valid M3 337.9770 0.1800 0.0180 0.3600
-  io_exuWriteback_3_bits_redirect_bits_taken M5 338.1720 0.1800 0.0240 0.3600
+  io_exuWriteback_3_bits_redirect_bits_taken M3 314.3970 0.1800 0.0180 0.3600
   io_exuWriteback_3_bits_robIdx_value[0] M3 338.3730 0.1800 0.0180 0.3600
   io_exuWriteback_3_bits_robIdx_value[1] M5 338.5560 0.1800 0.0240 0.3600
   io_exuWriteback_3_bits_robIdx_value[2] M3 338.7690 0.1800 0.0180 0.3600
@@ -1728,7 +1728,7 @@ set ::plan_pins(Rob) {
   io_exuWriteback_4_bits_robIdx_value[7] M5 342.8760 0.1800 0.0240 0.3600
   io_exuWriteback_4_bits_robIdx_value[8] M3 343.0890 0.1800 0.0180 0.3600
   io_exuWriteback_4_valid M5 343.3080 0.1800 0.0240 0.3600
-  io_exuWriteback_5_bits_redirect_bits_taken M3 343.4850 0.1800 0.0180 0.3600
+  io_exuWriteback_5_bits_redirect_bits_taken M3 280.5570 0.1800 0.0180 0.3600
   io_exuWriteback_5_bits_robIdx_value[0] M5 343.6920 0.1800 0.0240 0.3600
   io_exuWriteback_5_bits_robIdx_value[1] M3 343.8810 0.1800 0.0180 0.3600
   io_exuWriteback_5_bits_robIdx_value[2] M5 344.0760 0.1800 0.0240 0.3600
@@ -1770,33 +1770,33 @@ set ::plan_pins(Rob) {
   io_exuWriteback_8_bits_robIdx_value[8] M5 351.1320 0.1800 0.0240 0.3600
   io_exuWriteback_8_valid M3 351.3690 0.1800 0.0180 0.3600
   io_exuWriteback_9_valid M5 351.5640 0.1800 0.0240 0.3600
-  io_flushOut_bits_ftqIdx_flag M3 351.7290 0.1800 0.0180 0.3600
-  io_flushOut_bits_ftqIdx_value[0] M5 351.9480 0.1800 0.0240 0.3600
-  io_flushOut_bits_ftqIdx_value[1] M3 352.1250 0.1800 0.0180 0.3600
-  io_flushOut_bits_ftqIdx_value[2] M5 352.3320 0.1800 0.0240 0.3600
-  io_flushOut_bits_ftqIdx_value[3] M3 352.5210 0.1800 0.0180 0.3600
-  io_flushOut_bits_ftqIdx_value[4] M5 352.7160 0.1800 0.0240 0.3600
-  io_flushOut_bits_ftqIdx_value[5] M3 352.9170 0.1800 0.0180 0.3600
-  io_flushOut_bits_ftqOffset[0] M5 353.1000 0.1800 0.0240 0.3600
-  io_flushOut_bits_ftqOffset[1] M3 353.3130 0.1800 0.0180 0.3600
-  io_flushOut_bits_ftqOffset[2] M5 353.5320 0.1800 0.0240 0.3600
-  io_flushOut_bits_ftqOffset[3] M3 353.7090 0.1800 0.0180 0.3600
-  io_flushOut_bits_ftqOffset[4] M5 353.9160 0.1800 0.0240 0.3600
-  io_flushOut_bits_interrupt M3 354.1050 0.1800 0.0180 0.3600
-  io_flushOut_bits_isRVC M5 354.3000 0.1800 0.0240 0.3600
-  io_flushOut_bits_level M3 354.5010 0.1800 0.0180 0.3600
-  io_flushOut_bits_robIdx_flag M5 354.6840 0.1800 0.0240 0.3600
-  io_flushOut_bits_robIdx_value[0] M3 354.8970 0.1800 0.0180 0.3600
-  io_flushOut_bits_robIdx_value[1] M5 355.0680 0.1800 0.0240 0.3600
-  io_flushOut_bits_robIdx_value[2] M3 355.2930 0.1800 0.0180 0.3600
-  io_flushOut_bits_robIdx_value[3] M5 355.5000 0.1800 0.0240 0.3600
-  io_flushOut_bits_robIdx_value[4] M3 355.6890 0.1800 0.0180 0.3600
-  io_flushOut_bits_robIdx_value[5] M5 355.8840 0.1800 0.0240 0.3600
-  io_flushOut_bits_robIdx_value[6] M3 356.0850 0.1800 0.0180 0.3600
-  io_flushOut_bits_robIdx_value[7] M5 356.2680 0.1800 0.0240 0.3600
-  io_flushOut_bits_robIdx_value[8] M3 356.4810 0.1800 0.0180 0.3600
-  io_flushOut_bits_satpFlush M5 356.6520 0.1800 0.0240 0.3600
-  io_flushOut_valid M3 356.8410 0.1800 0.0180 0.3600
+  io_flushOut_bits_ftqIdx_flag M3 11.6010 0.1800 0.0180 0.3600
+  io_flushOut_bits_ftqIdx_value[0] M5 7.8360 0.1800 0.0240 0.3600
+  io_flushOut_bits_ftqIdx_value[1] M5 11.7720 0.1800 0.0240 0.3600
+  io_flushOut_bits_ftqIdx_value[2] M5 8.2680 0.1800 0.0240 0.3600
+  io_flushOut_bits_ftqIdx_value[3] M3 11.2050 0.1800 0.0180 0.3600
+  io_flushOut_bits_ftqIdx_value[4] M3 10.0170 0.1800 0.0180 0.3600
+  io_flushOut_bits_ftqIdx_value[5] M5 8.6520 0.1800 0.0240 0.3600
+  io_flushOut_bits_ftqOffset[0] M3 8.8290 0.1800 0.0180 0.3600
+  io_flushOut_bits_ftqOffset[1] M3 9.2250 0.1800 0.0180 0.3600
+  io_flushOut_bits_ftqOffset[2] M5 9.4200 0.1800 0.0240 0.3600
+  io_flushOut_bits_ftqOffset[3] M5 10.6200 0.1800 0.0240 0.3600
+  io_flushOut_bits_ftqOffset[4] M3 8.0370 0.1800 0.0180 0.3600
+  io_flushOut_bits_interrupt M5 12.1560 0.1800 0.0240 0.3600
+  io_flushOut_bits_isRVC M5 9.0360 0.1800 0.0240 0.3600
+  io_flushOut_bits_level M3 10.4130 0.1800 0.0180 0.3600
+  io_flushOut_bits_robIdx_flag M3 8.4330 0.1800 0.0180 0.3600
+  io_flushOut_bits_robIdx_value[0] M3 10.8090 0.1800 0.0180 0.3600
+  io_flushOut_bits_robIdx_value[1] M5 11.3880 0.1800 0.0240 0.3600
+  io_flushOut_bits_robIdx_value[2] M5 12.9720 0.1800 0.0240 0.3600
+  io_flushOut_bits_robIdx_value[3] M5 9.8040 0.1800 0.0240 0.3600
+  io_flushOut_bits_robIdx_value[4] M3 12.7530 0.1800 0.0180 0.3600
+  io_flushOut_bits_robIdx_value[5] M3 12.3570 0.1800 0.0180 0.3600
+  io_flushOut_bits_robIdx_value[6] M5 10.1880 0.1800 0.0240 0.3600
+  io_flushOut_bits_robIdx_value[7] M3 11.9970 0.1800 0.0180 0.3600
+  io_flushOut_bits_robIdx_value[8] M3 9.6210 0.1800 0.0180 0.3600
+  io_flushOut_bits_satpFlush M3 7.6410 0.1800 0.0180 0.3600
+  io_flushOut_valid M5 11.0040 0.1800 0.0240 0.3600
   io_fromVecExcpMod_busy M5 357.0360 0.1800 0.0240 0.3600
   io_perf_0_value[0] M3 357.2370 0.1800 0.0180 0.3600
   io_perf_0_value[1] M5 357.4680 0.1800 0.0240 0.3600
@@ -1926,7 +1926,7 @@ set ::plan_pins(Rob) {
   io_rabCommits_info_0_pdest[1] M5 381.8520 0.1800 0.0240 0.3600
   io_rabCommits_info_0_pdest[2] M3 382.0410 0.1800 0.0180 0.3600
   io_rabCommits_info_0_pdest[3] M5 382.2360 0.1800 0.0240 0.3600
-  io_rabCommits_info_0_pdest[4] M3 382.4010 0.1800 0.0180 0.3600
+  io_rabCommits_info_0_pdest[4] M3 501.1650 0.1800 0.0180 0.3600
   io_rabCommits_info_0_pdest[5] M5 382.6200 0.1800 0.0240 0.3600
   io_rabCommits_info_0_pdest[6] M3 382.7970 0.1800 0.0180 0.3600
   io_rabCommits_info_0_pdest[7] M5 383.0040 0.1800 0.0240 0.3600
@@ -2006,7 +2006,7 @@ set ::plan_pins(Rob) {
   io_rabCommits_info_4_vecWen M5 397.5480 0.1800 0.0240 0.3600
   io_rabCommits_info_5_fpWen M3 397.7730 0.1800 0.0180 0.3600
   io_rabCommits_info_5_isMove M5 397.9320 0.1800 0.0240 0.3600
-  io_rabCommits_info_5_ldest[0] M3 398.1330 0.1800 0.0180 0.3600
+  io_rabCommits_info_5_ldest[0] M3 501.9570 0.1800 0.0180 0.3600
   io_rabCommits_info_5_ldest[1] M5 398.3640 0.1800 0.0240 0.3600
   io_rabCommits_info_5_ldest[2] M3 398.5290 0.1800 0.0180 0.3600
   io_rabCommits_info_5_ldest[3] M5 398.7480 0.1800 0.0240 0.3600
@@ -2060,7 +2060,7 @@ set ::plan_pins(Rob) {
   io_rabCommits_info_7_vecWen M5 408.1560 0.1800 0.0240 0.3600
   io_rabCommits_isCommit M3 408.3570 0.1800 0.0180 0.3600
   io_rabCommits_isWalk M5 408.5880 0.1800 0.0240 0.3600
-  io_rabCommits_walkValid_0 M3 408.7530 0.1800 0.0180 0.3600
+  io_rabCommits_walkValid_0 M3 502.3530 0.1800 0.0180 0.3600
   io_rabCommits_walkValid_1 M5 408.9720 0.1800 0.0240 0.3600
   io_rabCommits_walkValid_2 M3 409.1490 0.1800 0.0180 0.3600
   io_rabCommits_walkValid_3 M5 409.3560 0.1800 0.0240 0.3600
@@ -2148,10 +2148,10 @@ set ::plan_pins(Rob) {
   io_robDeqPtr_value[6] M5 425.4840 0.1800 0.0240 0.3600
   io_robDeqPtr_value[7] M3 425.6730 0.1800 0.0180 0.3600
   io_robDeqPtr_value[8] M5 425.8680 0.1800 0.0240 0.3600
-  io_snpt_flushVec_0 M3 426.0690 0.1800 0.0180 0.3600
-  io_snpt_flushVec_1 M5 426.2520 0.1800 0.0240 0.3600
-  io_snpt_flushVec_2 M3 426.4650 0.1800 0.0180 0.3600
-  io_snpt_flushVec_3 M5 426.6360 0.1800 0.0240 0.3600
+  io_snpt_flushVec_0 M5 13.7400 0.1800 0.0240 0.3600
+  io_snpt_flushVec_1 M3 13.1490 0.1800 0.0180 0.3600
+  io_snpt_flushVec_2 M3 13.5450 0.1800 0.0180 0.3600
+  io_snpt_flushVec_3 M5 13.3560 0.1800 0.0240 0.3600
   io_snpt_snptDeq M3 426.8610 0.1800 0.0180 0.3600
   io_snpt_snptSelect[0] M5 427.0680 0.1800 0.0240 0.3600
   io_snpt_snptSelect[1] M3 427.2570 0.1800 0.0180 0.3600
@@ -2232,7 +2232,7 @@ set ::plan_pins(Rob) {
   io_toVecExcpMod_logicPhyRegMap_3_bits_preg[2] M5 441.9960 0.1800 0.0240 0.3600
   io_toVecExcpMod_logicPhyRegMap_3_bits_preg[3] M3 442.1970 0.1800 0.0180 0.3600
   io_toVecExcpMod_logicPhyRegMap_3_bits_preg[4] M5 442.3800 0.1800 0.0240 0.3600
-  io_toVecExcpMod_logicPhyRegMap_3_bits_preg[5] M3 442.5930 0.1800 0.0180 0.3600
+  io_toVecExcpMod_logicPhyRegMap_3_bits_preg[5] M5 502.1400 0.1800 0.0240 0.3600
   io_toVecExcpMod_logicPhyRegMap_3_bits_preg[6] M5 442.7640 0.1800 0.0240 0.3600
   io_toVecExcpMod_logicPhyRegMap_3_valid M3 442.9890 0.1800 0.0180 0.3600
   io_toVecExcpMod_logicPhyRegMap_4_bits_lreg[0] M5 443.1960 0.1800 0.0240 0.3600
@@ -2528,15 +2528,15 @@ set ::plan_pins(Rob) {
   io_vlCommits_walkValid_7 M5 500.2200 0.1800 0.0240 0.3600
   io_vstartIsZero M3 500.4090 0.1800 0.0180 0.3600
   io_wfi_enable M5 500.6040 0.1800 0.0240 0.3600
-  io_writebackNeedFlush_0 M3 500.7690 0.1800 0.0180 0.3600
-  io_writebackNeedFlush_1 M5 500.9880 0.1800 0.0240 0.3600
-  io_writebackNeedFlush_2 M3 501.1650 0.1800 0.0180 0.3600
-  io_writebackNeedFlush_3 M5 501.3720 0.1800 0.0240 0.3600
-  io_writebackNeedFlush_4 M3 501.5610 0.1800 0.0180 0.3600
-  io_writebackNeedFlush_5 M5 501.7560 0.1800 0.0240 0.3600
-  io_writebackNeedFlush_6 M3 501.9570 0.1800 0.0180 0.3600
-  io_writebackNeedFlush_7 M5 502.1400 0.1800 0.0240 0.3600
-  io_writebackNeedFlush_8 M3 502.3530 0.1800 0.0180 0.3600
+  io_writebackNeedFlush_0 M3 318.3210 0.1800 0.0180 0.3600
+  io_writebackNeedFlush_1 M5 276.0600 0.1800 0.0240 0.3600
+  io_writebackNeedFlush_2 M3 382.4010 0.1800 0.0180 0.3600
+  io_writebackNeedFlush_3 M5 300.4440 0.1800 0.0240 0.3600
+  io_writebackNeedFlush_4 M5 297.6600 0.1800 0.0240 0.3600
+  io_writebackNeedFlush_5 M5 274.0920 0.1800 0.0240 0.3600
+  io_writebackNeedFlush_6 M3 398.1330 0.1800 0.0180 0.3600
+  io_writebackNeedFlush_7 M3 442.5930 0.1800 0.0180 0.3600
+  io_writebackNeedFlush_8 M3 408.7530 0.1800 0.0180 0.3600
   io_writebackNums_0_bits[0] M5 502.5720 0.1800 0.0240 0.3600
   io_writebackNums_0_bits[1] M3 502.7490 0.1800 0.0180 0.3600
   io_writebackNums_0_bits[2] M5 502.9560 0.1800 0.0240 0.3600
@@ -2673,11 +2673,11 @@ set ::plan_pins(Rob) {
   io_writeback_0_bits_exceptionVec_3 M3 528.7050 0.1800 0.0180 0.3600
   io_writeback_0_bits_exceptionVec_8 M5 528.9240 0.1800 0.0240 0.3600
   io_writeback_0_bits_exceptionVec_9 M3 529.1010 0.1800 0.0180 0.3600
-  io_writeback_0_bits_flushPipe M5 529.3080 0.1800 0.0240 0.3600
-  io_writeback_0_bits_redirect_bits_isMisPred M3 529.4970 0.1800 0.0180 0.3600
-  io_writeback_0_bits_redirect_valid M5 529.6920 0.1800 0.0240 0.3600
+  io_writeback_0_bits_flushPipe M3 310.8330 0.1800 0.0180 0.3600
+  io_writeback_0_bits_redirect_bits_isMisPred M5 296.1240 0.1800 0.0240 0.3600
+  io_writeback_0_bits_redirect_valid M3 291.9690 0.1800 0.0180 0.3600
   io_writeback_0_bits_robIdx_flag M3 529.8930 0.1800 0.0180 0.3600
-  io_writeback_0_bits_satpFlush M5 530.0760 0.1800 0.0240 0.3600
+  io_writeback_0_bits_satpFlush M3 295.4970 0.1800 0.0180 0.3600
   io_writeback_0_valid M3 530.2890 0.1800 0.0180 0.3600
   io_writeback_10_bits_exceptionVec_13 M5 530.4600 0.1800 0.0240 0.3600
   io_writeback_10_bits_exceptionVec_15 M3 530.6850 0.1800 0.0180 0.3600
@@ -2771,8 +2771,8 @@ set ::plan_pins(Rob) {
   io_writeback_16_bits_trigger[2] M3 547.9650 0.1800 0.0180 0.3600
   io_writeback_16_bits_trigger[3] M5 548.1720 0.1800 0.0240 0.3600
   io_writeback_16_valid M3 548.3610 0.1800 0.0180 0.3600
-  io_writeback_1_bits_redirect_bits_isMisPred M5 548.5560 0.1800 0.0240 0.3600
-  io_writeback_1_bits_redirect_valid M3 548.7570 0.1800 0.0180 0.3600
+  io_writeback_1_bits_redirect_bits_isMisPred M5 283.1160 0.1800 0.0240 0.3600
+  io_writeback_1_bits_redirect_valid M5 263.8680 0.1800 0.0240 0.3600
   io_writeback_1_valid M5 548.9400 0.1800 0.0240 0.3600
   io_writeback_23_bits_robIdx_flag M3 549.1530 0.1800 0.0180 0.3600
   io_writeback_23_valid M5 549.3720 0.1800 0.0240 0.3600
@@ -2782,11 +2782,11 @@ set ::plan_pins(Rob) {
   io_writeback_25_valid M5 550.1400 0.1800 0.0240 0.3600
   io_writeback_26_bits_robIdx_flag M3 550.3410 0.1800 0.0180 0.3600
   io_writeback_26_valid M5 550.5240 0.1800 0.0240 0.3600
-  io_writeback_3_bits_redirect_bits_isMisPred M3 550.7370 0.1800 0.0180 0.3600
-  io_writeback_3_bits_redirect_valid M5 550.9080 0.1800 0.0240 0.3600
+  io_writeback_3_bits_redirect_bits_isMisPred M5 314.1720 0.1800 0.0240 0.3600
+  io_writeback_3_bits_redirect_valid M5 304.7640 0.1800 0.0240 0.3600
   io_writeback_3_valid M3 551.1330 0.1800 0.0180 0.3600
-  io_writeback_5_bits_redirect_bits_isMisPred M5 551.3400 0.1800 0.0240 0.3600
-  io_writeback_5_bits_redirect_valid M3 551.5290 0.1800 0.0180 0.3600
+  io_writeback_5_bits_redirect_bits_isMisPred M5 281.5320 0.1800 0.0240 0.3600
+  io_writeback_5_bits_redirect_valid M5 270.1560 0.1800 0.0240 0.3600
   io_writeback_5_valid M5 551.7240 0.1800 0.0240 0.3600
   io_writeback_9_bits_exceptionVec_13 M3 551.9250 0.1800 0.0180 0.3600
   io_writeback_9_bits_exceptionVec_15 M5 552.1080 0.1800 0.0240 0.3600
@@ -3162,10 +3162,10 @@ set ::plan_pins(Rob) {
   io_enq_req_5_bits_vlsInstr M4 0.1800 99.0840 0.3600 0.0240
   io_enq_req_6_bits_vlsInstr M4 0.1800 116.2200 0.3600 0.0240
   io_enq_req_7_bits_vlsInstr M4 0.1800 133.3080 0.3600 0.0240
-  io_writebackNeedFlush_10 M4 0.1800 150.3960 0.3600 0.0240
-  io_writebackNeedFlush_11 M4 0.1800 167.5320 0.3600 0.0240
-  io_writebackNeedFlush_12 M4 0.1800 184.6200 0.3600 0.0240
-  io_writebackNeedFlush_9 M4 0.1800 201.7560 0.3600 0.0240
+  io_writebackNeedFlush_10 M3 13.9410 0.1800 0.0180 0.3600
+  io_writebackNeedFlush_11 M5 14.5560 0.1800 0.0240 0.3600
+  io_writebackNeedFlush_12 M3 14.7330 0.1800 0.0180 0.3600
+  io_writebackNeedFlush_9 M3 14.3370 0.1800 0.0180 0.3600
   io_writebackNums_15_bits[3] M4 0.1800 218.8440 0.3600 0.0240
   io_writebackNums_15_bits[4] M4 0.1800 235.9800 0.3600 0.0240
   io_writebackNums_16_bits[3] M4 0.1800 253.0680 0.3600 0.0240
