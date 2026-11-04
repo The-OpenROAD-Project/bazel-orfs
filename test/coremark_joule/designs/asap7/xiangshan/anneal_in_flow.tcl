@@ -27,6 +27,7 @@ set anneal_cmd [list $::env(PYTHON_EXE) $::env(ANNEAL_PY) \
     --out $anneal_out \
     --metrics $anneal_metrics \
     --seed $::env(ANNEAL_SEED) \
+    --seeds [expr { [info exists ::env(ANNEAL_SEEDS)] && $::env(ANNEAL_SEEDS) ne "" ? $::env(ANNEAL_SEEDS) : 1 }] \
     --depth $::env(ANNEAL_DEPTH) \
     --min-cluster $::env(ANNEAL_MIN_CLUSTER) \
     --channel-um $::env(ANNEAL_CHANNEL_UM) \

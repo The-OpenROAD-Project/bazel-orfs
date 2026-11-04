@@ -831,6 +831,14 @@ def main(argv):
     p.add_argument("--out", required=True)
     p.add_argument("--metrics", help="JSON summary of the run")
     p.add_argument("--seed", type=int, default=1)
+    p.add_argument(
+        "--seeds",
+        type=int,
+        default=1,
+        help="try seeds --seed .. --seed+N-1 and keep the legal placement of "
+        "least cost: a packing near the core's size is legal for some seeds "
+        "and not others, and a hair's change in the netlist moves which",
+    )
     p.add_argument("--depth", type=int, default=3, help="cluster prefix depth")
     p.add_argument("--min-cluster", type=int, default=4)
     p.add_argument(
@@ -910,22 +918,44 @@ def main(argv):
         int(round(args.strap_pair_um * inv.dbu)),
         int(round(args.strap_inset_um * inv.dbu)),
     )
-    blocks, residual = build_blocks(
-        inv,
-        args.depth,
-        args.min_cluster,
-        chan,
-        args.fill,
-        straps,
-        channel_auto=args.channel_auto,
-        gap=gap,
-        channel_min=int(round(args.channel_min_um * inv.dbu)),
-    )
-    weights = build_weights(inv, blocks, args.depth, args.same_prefix_bonus)
-    anneal = Anneal(inv, blocks, weights, gap, args.seed, args.iterations)
-    order, cost = anneal.run()
-    placed = placements(inv, blocks, chan, straps)
-    problems = check_legal(inv, blocks, placed)
+
+    def attempt(seed):
+        blocks, residual = build_blocks(
+            inv,
+            args.depth,
+            args.min_cluster,
+            chan,
+            args.fill,
+            straps,
+            channel_auto=args.channel_auto,
+            gap=gap,
+            channel_min=int(round(args.channel_min_um * inv.dbu)),
+        )
+        weights = build_weights(inv, blocks, args.depth, args.same_prefix_bonus)
+        anneal = Anneal(inv, blocks, weights, gap, seed, args.iterations)
+        order, cost = anneal.run()
+        placed = placements(inv, blocks, chan, straps)
+        return blocks, residual, cost, placed, check_legal(inv, blocks, placed)
+
+    # the legal placement of least cost over the seeds; with none legal,
+    # the first seed's, whose problems are the ones reported
+    best = None
+    for seed in range(args.seed, args.seed + max(1, args.seeds)):
+        trial = attempt(seed)
+        if args.seeds > 1:
+            print(
+                "macro_anneal: seed {} {}".format(
+                    seed,
+                    (
+                        "cost {:.0f}".format(trial[2])
+                        if not trial[4]
+                        else "illegal, {} problems".format(len(trial[4]))
+                    ),
+                )
+            )
+        if best is None or (not trial[4] and (best[4] or trial[2] < best[2])):
+            best = trial
+    blocks, residual, cost, placed, problems = best
     shortfalls = channel_shortfalls(inv, placed)
     for a, ea, b, eb, width, need in shortfalls[:40]:
         print(
