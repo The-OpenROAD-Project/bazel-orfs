@@ -39,8 +39,8 @@ with `YOSYS_FLAGS=` to see the underlying error.
 2. **The yosys plugin `slang.so`** — `@sv-elab//src/yosys_plugin`, exposed
    via `orfs.default(yosys_plugins=[…])` → `YOSYS_PLUGIN_PATH`.
 
-Both are the one `@sv-elab`, at the commit OpenROAD's `third-party/sv-elab`
-pins, with bazel-orfs's patches: a frontend fix carried there reaches both.
+Both are the one `@sv-elab`, the BCR release bazel-orfs's `MODULE.bazel`
+names, with bazel-orfs's patches: a frontend fix carried there reaches both.
 
 RTL canonicalization uses the plugin (2). `Can't load module './slang': …
 cannot open slang.so` means the plugin isn't wired (yosys fell back to its
