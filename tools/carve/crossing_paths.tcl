@@ -50,16 +50,21 @@ foreach path $paths {
       lappend through $m
     }
   }
+  # its slot at the endpoint, launch and capture transition: the search
+  # keeps one path per endpoint and slot, so a set holding a worse start
+  # into the same slot hides this one; the report compares sets per slot
+  set launch [string index [lindex [[[$path path] start_path] tag] 2] 0]
+  set slot "$launch[$path end_transition]"
   lappend rows [list $need $from $to [get_full_name $start] [get_full_name $end] \
-    [expr { [llength $through] ? [join [lsort $through] ,] : "-" }]]
+    [expr { [llength $through] ? [join [lsort $through] ,] : "-" }] $slot]
 }
 set crossing 0
 set inside 0
 set f [open $::env(CROSSING_TXT) w]
 puts $f "# reg2reg paths over $budget ps at global route; period $period ps"
-puts $f "# need_ps kind from_macro to_macro startpoint endpoint through_macros"
+puts $f "# need_ps kind from_macro to_macro startpoint endpoint through_macros slot"
 foreach row [lsort -real -decreasing -index 0 $rows] {
-  lassign $row need from to start end through
+  lassign $row need from to start end through slot
   # crossing: it starts and ends in different macros, or passes through
   # another macro's logic on the way
   if { $from ne $to || $through ne "-" } {
@@ -69,7 +74,7 @@ foreach row [lsort -real -decreasing -index 0 $rows] {
     set kind inside
     incr inside
   }
-  puts $f [format "%.1f %s %s %s %s %s %s" $need $kind $from $to $start $end $through]
+  puts $f [format "%.1f %s %s %s %s %s %s %s" $need $kind $from $to $start $end $through $slot]
 }
 puts $f "crossing $crossing"
 puts $f "inside $inside"
