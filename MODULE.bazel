@@ -72,16 +72,14 @@ bazel_dep(name = "tcl_lang", version = "9.0.2.bcr.2")
 # dropped for non-root modules). It also lets downstream roots reference
 # the plugin label.
 #
-# OpenROAD pins sv-elab as its third-party/sv-elab submodule through a
-# local_path_override, which Bazel honours only in the root module, and
-# BCR has no release that recent. This override follows that submodule's
-# sha instead: //:bump regenerates it with the openroad block, so the
-# plugin and OpenROAD's syn always share one frontend. Retires when BCR
-# carries the version OpenROAD asks for.
-bazel_dep(name = "sv-elab", version = "2026-10-13")
-archive_override(
+# From the BCR, at the release OpenROAD #12112 and #12055 move OpenROAD
+# to. Until then OpenROAD asks for 2026-10-13, its third-party/sv-elab
+# submodule behind a local_path_override that only its own root honours,
+# and no such release exists; the version below answers every request.
+# The plugin and OpenROAD's syn share this one frontend.
+bazel_dep(name = "sv-elab", version = "2026-10-29")
+single_version_override(
     module_name = "sv-elab",
-    integrity = "sha256-J6NDnArq4W0MSgpUlSGwV4TefkjZPvDc8/xEbkOK9LE=",
     patch_strip = 1,
     patches = [
         # A redefined net (`output q; wire q, q;`, which slang accepts with
@@ -89,12 +87,11 @@ archive_override(
         # name; with --keep-hierarchy the module loses the port, and
         # nangate45/ariane133 failed canonicalization ("does not have a port
         # named 'flush_ex_o'"). The redefinition now shares the wire name
-        # lookup finds. Not upstreamed; retires at a bump onto an sv-elab
-        # that carries it.
+        # lookup finds. Not upstreamed; retires at an sv-elab release that
+        # carries it.
         "//patches:sv-elab-0001-redefinition-shares-wire.patch",
     ],
-    strip_prefix = "sv-elab-3e152133b9c22b7883a6a03d483ed35e8c74aba5",
-    urls = ["https://github.com/povik/sv-elab/archive/3e152133b9c22b7883a6a03d483ed35e8c74aba5.tar.gz"],
+    version = "2026-10-29",
 )
 
 # OpenROAD's web viewer bundles npm packages with rules_js, which below

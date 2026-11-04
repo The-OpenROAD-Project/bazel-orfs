@@ -1963,7 +1963,7 @@ class TestOpenroadOnSvElab(unittest.TestCase):
 
     A bump onto ORFS's OpenROAD pin may land on either side of that change:
     slang-elab is vendored, with its sed lines, only while the commit has
-    it, and archive_override(sv-elab) follows the sv-elab submodule.
+    it.  sv-elab itself comes from the BCR, and the bump leaves it alone.
     """
 
     OPENROAD_BLOCK = (
@@ -1978,14 +1978,12 @@ class TestOpenroadOnSvElab(unittest.TestCase):
         ")\n"
     )
     SV_ELAB_BLOCK = (
-        'bazel_dep(name = "sv-elab", version = "2026-10-13")\n'
-        "archive_override(\n"
+        'bazel_dep(name = "sv-elab", version = "2026-10-29")\n'
+        "single_version_override(\n"
         '    module_name = "sv-elab",\n'
-        '    integrity = "sha256-OLDELAB=",\n'
         "    patch_strip = 1,\n"
         '    patches = ["//patches:sv-elab-0001-redefinition-shares-wire.patch"],\n'
-        '    strip_prefix = "sv-elab-oldelab",\n'
-        '    urls = ["https://github.com/povik/sv-elab/archive/oldelab.tar.gz"],\n'
+        '    version = "2026-10-29",\n'
         ")\n"
     )
 
@@ -2053,47 +2051,7 @@ class TestOpenroadOnSvElab(unittest.TestCase):
         self.assertIn("OpenSTA/archive/stasha.tar.gz", result)
         self.assertNotIn("third-party/abc", result)
 
-    def test_sv_elab_follows_the_submodule(self):
-        content, sha = bump.update_sv_elab_archive_override(
-            self.SV_ELAB_BLOCK,
-            "newsha",
-            fetch_integrity_fn=self._integrity,
-            fetch_submodule_sha_fn=self._on_sv_elab,
-        )
-        self.assertEqual(sha, "elabsha")
-        self.assertIn("povik/sv-elab/archive/elabsha.tar.gz", content)
-        self.assertIn('strip_prefix = "sv-elab-elabsha"', content)
-        self.assertIn('integrity = "sha256-ELAB="', content)
-        self.assertIn("sv-elab-0001-redefinition-shares-wire.patch", content)
-        self.assertNotIn("oldelab", content)
-
-    def test_sv_elab_at_the_sha_keeps_its_integrity(self):
-        def fail(_url):
-            raise AssertionError("re-hashed an archive already pinned")
-
-        def at_old(_parent_repo, _parent_commit, _path):
-            return "oldelab"
-
-        content, sha = bump.update_sv_elab_archive_override(
-            self.SV_ELAB_BLOCK,
-            "newsha",
-            fetch_integrity_fn=fail,
-            fetch_submodule_sha_fn=at_old,
-        )
-        self.assertEqual(sha, "oldelab")
-        self.assertEqual(content, self.SV_ELAB_BLOCK)
-
-    def test_sv_elab_left_alone_before_openroad_has_it(self):
-        content, sha = bump.update_sv_elab_archive_override(
-            self.SV_ELAB_BLOCK,
-            "newsha",
-            fetch_integrity_fn=self._integrity,
-            fetch_submodule_sha_fn=self._on_slang_elab,
-        )
-        self.assertIsNone(sha)
-        self.assertEqual(content, self.SV_ELAB_BLOCK)
-
-    def test_bump_moves_sv_elab_with_openroad(self):
+    def test_bump_leaves_a_bcr_sv_elab_alone(self):
         with tempfile.TemporaryDirectory() as tmp:
             module = os.path.join(tmp, "MODULE.bazel")
             with open(module, "w") as f:
@@ -2118,7 +2076,7 @@ class TestOpenroadOnSvElab(unittest.TestCase):
             with open(module) as f:
                 content = f.read()
         self.assertIn(f"OpenROAD/archive/{OPENROAD_COMMIT}.tar.gz", content)
-        self.assertIn("povik/sv-elab/archive/elabsha.tar.gz", content)
+        self.assertIn(self.SV_ELAB_BLOCK, content)
 
 
 class TestExtractPatchCmds(unittest.TestCase):
@@ -2172,6 +2130,13 @@ git_override(
     patches = ["//patches:qt-bazel-xcb-cursor-from-source.patch"],
     remote = "https://example.invalid/qt",
 )
+
+bazel_dep(name = "sv-elab", version = "2026-10-29")
+single_version_override(
+    module_name = "sv-elab",
+    patch_strip = 1,
+    patches = ["//patches:sv-elab-0001-redefinition-shares-wire.patch"],
+)
 """
 
     def _reader(self, d):
@@ -2190,13 +2155,14 @@ git_override(
             "0001-openroad-example.patch",
             "0002-openroad-openroad-lib-public.patch",
             "qt-bazel-xcb-cursor-from-source.patch",
+            "sv-elab-0001-redefinition-shares-wire.patch",
             "0099-unreferenced.patch",
         ):
             with open(os.path.join(d, "patches", name), "w") as fh:
                 fh.write(f"--- a/{name}\n")
         return d
 
-    def test_owned_patches_span_both_override_shapes(self):
+    def test_owned_patches_span_every_override_shape(self):
         d = self._bazel_orfs_dir()
         owned = self._owned(d)
         self.assertEqual(
@@ -2207,6 +2173,7 @@ git_override(
                     "0002-openroad-openroad-lib-public.patch",
                 ],
                 "qt-bazel": ["qt-bazel-xcb-cursor-from-source.patch"],
+                "sv-elab": ["sv-elab-0001-redefinition-shares-wire.patch"],
             },
         )
 
@@ -2222,6 +2189,7 @@ git_override(
                 "0001-openroad-example.patch",
                 "0002-openroad-openroad-lib-public.patch",
                 "qt-bazel-xcb-cursor-from-source.patch",
+                "sv-elab-0001-redefinition-shares-wire.patch",
             ],
         )
         self.assertTrue(os.path.exists(os.path.join(dst, "BUILD.bazel")))
@@ -2317,6 +2285,22 @@ archive_override(
         self.assertIn('"//bazel-orfs-patches:0001-openroad-example.patch"', out)
         self.assertIn('"//orfs-patches:site-specific.patch"', out)
         self.assertNotIn('"//orfs-patches:0001-openroad-example.patch"', out)
+
+    def test_reconcile_relabels_a_bcr_module_patch(self):
+        owned = self._owned(self._bazel_orfs_dir())
+        consumer = """
+bazel_dep(name = "sv-elab", version = "2026-10-29")
+single_version_override(
+    module_name = "sv-elab",
+    patch_strip = 1,
+    patches = ["//patches:sv-elab-0001-redefinition-shares-wire.patch"],
+)
+"""
+        out, changed = bump.reconcile_patch_labels(consumer, owned)
+        self.assertEqual(changed, ["sv-elab"])
+        self.assertIn(
+            '"//bazel-orfs-patches:sv-elab-0001-redefinition-shares-wire.patch"', out
+        )
 
     def test_reconcile_adds_a_newly_carried_patch(self):
         owned = {"openroad": ["0001-a.patch", "0002-new.patch"]}

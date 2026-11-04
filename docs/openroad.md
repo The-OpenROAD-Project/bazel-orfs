@@ -62,17 +62,15 @@ git_override(
 )
 
 # The slang frontend: orfs_flow synthesises with slang, and OpenROAD's syn
-# compiles it. OpenROAD pins it as a submodule, which reaches no other
-# root; copy this block from bazel-orfs's MODULE.bazel, with the patch it
-# names. `bazelisk run @bazel-orfs//:bump` moves it with OpenROAD.
+# compiles it. It comes from the BCR; copy this block from bazel-orfs's
+# MODULE.bazel, with the patch it names (`bazelisk run @bazel-orfs//:bump`
+# keeps the copy in bazel-orfs-patches/ in step).
 bazel_dep(name = "sv-elab", version = "<the version bazel-orfs uses>")
-archive_override(
+single_version_override(
     module_name = "sv-elab",
-    integrity = "...",
     patch_strip = 1,
     patches = [...],
-    strip_prefix = "sv-elab-<commit>",
-    urls = ["https://github.com/povik/sv-elab/archive/<commit>.tar.gz"],
+    version = "<the version bazel-orfs uses>",
 )
 
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")

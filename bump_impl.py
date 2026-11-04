@@ -306,6 +306,36 @@ def find_archive_override_block(content, module_name):
     return None
 
 
+def find_single_version_override_block(content, module_name):
+    """Find the full single_version_override() block for a module.
+
+    Returns (start, end) tuple or None if not found.
+    """
+    pattern = r"single_version_override\s*\("
+    for m in re.finditer(pattern, content):
+        if _position_is_in_comment(content, m.start()):
+            continue
+        end = find_starlark_call_end(content, m.start())
+        block = content[m.start() : end]
+        if f'module_name = "{module_name}"' in block:
+            return (m.start(), end)
+    return None
+
+
+def find_patching_override_block(content, module_name):
+    """The override that carries a module's patches, whichever shape it has.
+
+    A module fetched from git or an archive carries them in its
+    git_override or archive_override; a module taken from the BCR, such as
+    sv-elab, in its single_version_override.
+    """
+    return (
+        find_git_override_block(content, module_name)
+        or find_archive_override_block(content, module_name)
+        or find_single_version_override_block(content, module_name)
+    )
+
+
 _GITHUB_ARCHIVE_URL_RE = re.compile(
     r"https://github\.com/[^/]+/[^/]+/archive/[^/]+\.tar\.gz"
 )
@@ -1464,38 +1494,10 @@ def update_openroad_archive_override(
     return content[:start] + new_block + content[end:]
 
 
-def update_sv_elab_archive_override(
-    content,
-    openroad_commit,
-    fetch_integrity_fn=compute_integrity,
-    fetch_submodule_sha_fn=fetch_submodule_sha,
-):
-    """Point ``archive_override(module_name = "sv-elab")`` at OpenROAD's pin.
-
-    Returns ``(content, sha)``.  ``sha`` is None, and ``content`` unchanged,
-    when there is no such block or the OpenROAD commit has no
-    third-party/sv-elab submodule yet.  A block already at the sha keeps its
-    integrity: GitHub's archives are not byte-stable, and re-hashing could
-    move a digest whose content did not.
-    """
-    span = find_archive_override_block(content, "sv-elab")
-    if span is None:
-        return content, None
-    sha = fetch_submodule_sha_fn(OPENROAD_REPO, openroad_commit, SV_ELAB_SUBMODULE)
-    if sha is None:
-        return content, None
-    if github_archive_url(SV_ELAB_REPO, sha) in content[span[0] : span[1]]:
-        return content, sha
-    integrity = fetch_integrity_fn(github_archive_url(SV_ELAB_REPO, sha))
-    return (
-        update_archive_override(content, "sv-elab", SV_ELAB_REPO, sha, integrity),
-        sha,
-    )
-
-
 # Non-BCR deps that downstream projects need overrides for.
 # These are read from bazel-orfs's own MODULE.bazel and injected
-# into downstream projects during bump.
+# into downstream projects during bump.  sv-elab comes from the BCR now,
+# but bazel-orfs patches it, so its patches are synced like the others'.
 NON_BCR_DEPS = [
     "orfs",
     "openroad",
@@ -1539,9 +1541,7 @@ def bazel_orfs_owned_patches(text):
     """
     owned = {}
     for name in NON_BCR_DEPS:
-        span = find_git_override_block(text, name) or find_archive_override_block(
-            text, name
-        )
+        span = find_patching_override_block(text, name)
         if not span:
             continue
         names = []
@@ -1622,9 +1622,7 @@ def reconcile_patch_labels(content, owned):
     """
     changed = []
     for module_name, names in owned.items():
-        span = find_git_override_block(content, module_name) or (
-            find_archive_override_block(content, module_name)
-        )
+        span = find_patching_override_block(content, module_name)
         if not span:
             continue
         block = content[span[0] : span[1]]
@@ -1868,14 +1866,6 @@ OPENROAD_SUBMODULES = [
 # Bazel build uses the BCR abc module.  abc is vendored only while the
 # commit carries it, and retires the same way.
 OPENROAD_TRANSITIONAL_SUBMODULES = {"third-party/slang-elab", "third-party/abc"}
-
-# sv-elab is consumed as a Bazel module, not vendored: OpenROAD points
-# bazel_dep(sv-elab) at the submodule with a local_path_override, which
-# Bazel ignores outside the root module.  The root's archive_override(sv-elab)
-# follows the submodule's sha instead, so the yosys plugin and OpenROAD's
-# syn share the one frontend OpenROAD tests against.
-SV_ELAB_SUBMODULE = "third-party/sv-elab"
-SV_ELAB_REPO = "povik/sv-elab"
 
 # yosys is consumed from the Bazel Central Registry.  ORFS's tools/yosys pins
 # a specific master commit (often between tagged releases), so we read the
@@ -2208,16 +2198,6 @@ def bump(
                     workspace_dir=workspace_dir,
                 )
                 updated_modules.append(f"{module_name} -> {sha[:12]} ({source})")
-                content, sv_elab_sha = update_sv_elab_archive_override(
-                    content,
-                    sha,
-                    fetch_integrity_fn=fetch_integrity_fn,
-                    fetch_submodule_sha_fn=fetch_submodule_sha_fn,
-                )
-                if sv_elab_sha:
-                    updated_modules.append(
-                        f"sv-elab -> {sv_elab_sha[:12]} (OpenROAD {SV_ELAB_SUBMODULE})"
-                    )
             else:
                 _expect(
                     find_git_override_block(content, module_name),
