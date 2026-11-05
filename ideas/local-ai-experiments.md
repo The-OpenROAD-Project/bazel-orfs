@@ -117,7 +117,7 @@ flowchart LR
     end
     subgraph elsewhere [Seeding by a plan from elsewhere]
         OA[online AI, another session<br/>or machine] --> SJ2[spec.json]
-        PR[a study in a PR<br/>or in ideas/] --> SJ2
+        PR["a study in a PR<br/>or in ideas/"] --> SJ2
     end
     SJ1 --> CK{spec.py --check<br/>schema + workspace}
     SJ2 --> CK
