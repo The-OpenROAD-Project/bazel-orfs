@@ -30,6 +30,8 @@ def parent_macro_flow(
         top_level_arguments = {},
         top_level_user_arguments = {},
         whole_check = False,
+        headroom_sets = "",
+        headroom_skip = "",
         variant = None,
         pdk = "//flow:asap7",
         tags = ["manual"]):
@@ -103,6 +105,9 @@ def parent_macro_flow(
       whole_check: time the top level whole too, <name>_pm_crossing_whole,
         and test that the sets report the same paths,
         <name>_pm_crossing_test; for a design small enough to time whole.
+      headroom_sets: the crossing sets <name>_pm_crossing_headroom
+        measures, their numbers separated by spaces; empty: every set.
+      headroom_skip: the measurements it skips, of: wire vt skew cycles.
       variant: the parent macro's variant, when another flow of the
         package has the same top module; its targets are then
         <name>_<variant>_<stage>, and <name>_<variant> stands for <name>
@@ -310,10 +315,12 @@ def parent_macro_flow(
         top_level_arguments = top_level_arguments,
         top_level_user_arguments = top_level_user_arguments,
         whole_check = whole_check,
+        headroom_sets = headroom_sets,
+        headroom_skip = headroom_skip,
         tags = tags,
     )
 
-def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top_level_user_arguments, whole_check, tags):
+def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top_level_user_arguments, whole_check, headroom_sets, headroom_skip, tags):
     """The top level's clock tree and global route, and its crossing report.
 
     Args:
@@ -325,6 +332,8 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
       top_level_user_arguments: top_level.tcl's own settings.
       whole_check: time the top level whole too and test the sets
         against it.
+      headroom_sets: the crossing sets the headroom measures.
+      headroom_skip: the measurements the headroom skips.
       tags: forwarded.
     """
     scripts = {
@@ -432,6 +441,36 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
         },
     )
 
+    # how much of each set's crossing period the Top could still win, and
+    # in which move (crossing_headroom.tcl), each set in an openroad of its
+    # own with every thread: run by hand, not on the report's path
+    orfs_run(
+        name = "%s_crossing_headroom" % pm,
+        src = ":%s_floorplan" % pm,
+        out_dir = "%s/headroom" % pm,
+        cmd = "run",
+        data = [sets, ":%s/sets.txt" % pm],
+        script = "@bazel-orfs//tools/carve:crossing_headroom_sets.tcl",
+        tags = ["manual"],
+        user_arguments = {
+            "BUDGET_PS": budget_ps,
+            "CROSSING_SETS": "$(location :%s/sets.txt)" % pm,
+            # skew and VT move the flops of the 200 worst crossing
+            # endpoints: skew's hold pass times again after every flop it
+            # moves, and every flop of an XSTile set did not end in hours
+            "HR_ENDS": "200",
+            # skew first, the move a build would act on; the floors after
+            "HR_ORDER": "skew wire vt cycles",
+            "HR_SETS": headroom_sets,
+            "HR_SKIP": headroom_skip,
+            "SETS_DIR": "$(location %s)" % sets,
+        },
+        user_sources = scripts | {
+            "CROSSING_TIME": ["@bazel-orfs//tools/carve:crossing_headroom.tcl"],
+            "HR_TCL": ["@bazel-orfs//tools/odb_debug:headroom.tcl"],
+        },
+    )
+
     times = ":%s_crossing_time" % pm
     report = "$(location @bazel-orfs//tools/carve:crossing_report)"
     native.genrule(
@@ -498,6 +537,26 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
             launch,
             times,
             "@bazel-orfs//tools/carve:crossing_launch_check",
+        ],
+        tags = tags,
+    )
+
+    # the headroom's check: every set's period is the worst crossing the
+    # sets' timing reports for it, every what-if is undone, and no move
+    # reads worse than the design as built
+    headroom = ":%s_crossing_headroom" % pm
+    sh_test(
+        name = "%s_crossing_headroom_test" % pm,
+        srcs = ["@bazel-orfs//tools/carve:crossing_headroom_check.sh"],
+        args = [
+            "$(rootpath @bazel-orfs//tools/carve:crossing_headroom_check)",
+            "$(rootpath %s)" % headroom,
+            "$(rootpath %s)" % times,
+        ],
+        data = [
+            headroom,
+            times,
+            "@bazel-orfs//tools/carve:crossing_headroom_check",
         ],
         tags = tags,
     )
