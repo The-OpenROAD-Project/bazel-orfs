@@ -222,7 +222,10 @@ proc hr_loop_buffers { n p } {
 # path out have the same slack. With hold, every round ends by pulling back
 # each flop whose own move broke hold, by what it broke. The latencies are
 # removed before returning. The answer is what a clock tree that delivered
-# those arrivals would give, not a tree anyone has built.
+# those arrivals would give, not a tree anyone has built. With `seconds`,
+# the rounds stop once that much time has passed, and the answer, the best
+# round so far, says `capped 1`: on a design of millions of instances a
+# round is a full timing update, and sixty of them are hours.
 # The worst register-to-register hold slack, or "" without one.
 proc hr_hold_slack {} {
   set hp [lindex [find_timing_paths {*}[hr_r2r] -path_delay min -sort_by_slack \
@@ -231,8 +234,10 @@ proc hr_hold_slack {} {
   return [get_property $hp slack]
 }
 
-proc hr_skew { {ends 0} {hold 1} {iters 60} {blocks {}} } {
+proc hr_skew { {ends 0} {hold 1} {iters 60} {blocks {}} {seconds 0} } {
   set p [hr_clock_period]
+  set t0 [clock milliseconds]
+  set capped 0
   set flops {}
   foreach c [hr_worst_flops $ends] {
     lassign [hr_flop_pins $c] ck d q
@@ -295,6 +300,10 @@ proc hr_skew { {ends 0} {hold 1} {iters 60} {blocks {}} } {
       set best_delta $delta
     }
     if { $stall >= 5 } { break }
+    if { $seconds > 0 && [clock milliseconds] - $t0 >= 1000.0 * $seconds } {
+      set capped 1
+      break
+    }
   }
   # back to the best round, measured in full
   for { set i 0 } { $i < $n } { incr i } {
@@ -359,7 +368,7 @@ proc hr_skew { {ends 0} {hold 1} {iters 60} {blocks {}} } {
     unset_clock_latency $ck
   }
   set after [dict get [hr_period] period]
-  return [dict merge [dict create start $start skew $best flops $n rounds $rounds \
+  return [dict merge [dict create start $start skew $best flops $n rounds $rounds capped $capped \
     moved_parent $moved_parent moved_block $moved_block \
     delta_min $dmin delta_max $dmax hold_slack $holdslack hold_start $holdstart \
     reverted $reverted restored $after \
