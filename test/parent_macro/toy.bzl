@@ -39,6 +39,12 @@ def toy_parent_macro(plan, blocks):
         report_budget_ps = "150",
         plan_budget = "2000",
         whole_check = True,
+        # the toy closes at its 1,000 ps; its worst crossing needs 201 ps,
+        # so the top level that takes the boundary logic over repairs to
+        # 180 ps, where its crossings fail and repair has work to do
+        top_flat_user_arguments = {"TOP_CLOCK_PERIOD": "180"},
+        # 201.4 ps as built, 187.5 flattened (mini_top_parent_pm_top_flat_test)
+        top_flat_check_ps = "190",
         name = "mini_top_parent",
         arguments = BASE_ARGS | {
             "AUTO_MEMORIES": "1",
