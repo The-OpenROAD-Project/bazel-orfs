@@ -9,7 +9,9 @@ Each report is crossing_paths.tcl's: need_ps kind from to start end ...,
 the paths over its budget. At period_ps the worst crossing of whole.txt
 fails and that of whole_flat.txt passes; each macro's worst path inside
 it needs no more than it did, or the report's budget when it had none
-listed, within TOL_PS.
+listed, within TOL_PS, and is still listed when it was: a macro's own
+paths missing from the flattened report were taken out of its timing,
+not repaired.
 """
 
 import sys
@@ -59,7 +61,12 @@ def check(period, whole, flat):
             continue
         was = before.get(key, budget)
         now = after.get(key, 0.0)
-        if now > was + TOL_PS:
+        if key in before and key not in after:
+            errors.append(
+                "%s's own paths, %.1f ps as built, are not in the flattened"
+                " report" % (key[1], was)
+            )
+        elif now > was + TOL_PS:
             errors.append(
                 "%s's own paths need %.1f ps, %.1f as built" % (key[1], now, was)
             )
