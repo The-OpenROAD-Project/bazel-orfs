@@ -116,6 +116,26 @@ class CrossingReportTest(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 crossing_report.main(os.path.join(d, "out"), 2000, [a, b])
 
+    def test_sets_agreeing_to_the_written_digit_merge(self):
+        # XSTile run 26: Rob's state into the parent's decode buffer at
+        # 2,941.5 ps in one set and 2,941.4 in another, the same path
+        # rounded to the 0.1 ps crossing_paths.tcl writes
+        with tempfile.TemporaryDirectory() as d:
+            a = write(d, "c.0", ["2941.5 crossing u_R u_P r/q p/d - vv"])
+            b = write(d, "c.1", ["2941.4 crossing u_R u_P r/q p/d - vv"])
+            crossing_report.main(os.path.join(d, "out"), 2000, [a, b])
+            with open(os.path.join(d, "out", "crossing.txt")) as f:
+                rows = [l for l in f if not l.startswith("#")]
+            self.assertEqual(len(rows), 1)
+            self.assertTrue(rows[0].startswith("2941.5"))
+
+    def test_sets_two_digits_apart_still_stop(self):
+        with tempfile.TemporaryDirectory() as d:
+            a = write(d, "c.0", ["2941.5 crossing u_R u_P r/q p/d - vv"])
+            b = write(d, "c.1", ["2941.3 crossing u_R u_P r/q p/d - vv"])
+            with self.assertRaises(SystemExit):
+                crossing_report.main(os.path.join(d, "out"), 2000, [a, b])
+
     def test_matches_the_whole_design(self):
         with tempfile.TemporaryDirectory() as d:
             sets = os.path.join(d, "sets")

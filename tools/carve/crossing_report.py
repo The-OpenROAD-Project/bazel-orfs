@@ -17,6 +17,11 @@ whole).
 import os
 import sys
 
+# crossing_paths.tcl writes each need to 0.1 ps, so two sets that agree
+# can print 0.1 apart: the sets and the whole design must agree to the
+# digit they are written to
+TOL_PS = 0.1 + 1e-6
+
 BIN_PS = 50
 
 
@@ -58,11 +63,11 @@ def read(paths):
     for mine, ends in sets:
         for key, value in mine.items():
             worst = merged[key][0]
-            if worst - value[0] <= 0.05:
+            if worst - value[0] <= TOL_PS:
                 continue
             start, end = key
             others = [n for s, n in ends[end].items() if s != start]
-            if not others or max(others) < worst - 0.05:
+            if not others or max(others) < worst - TOL_PS:
                 sys.exit(
                     "crossing_report: %s -> %s needs %.1f in one set, %.1f in another"
                     % (start, end, worst, value[0])
@@ -72,14 +77,14 @@ def read(paths):
 
 def compare(merged, whole):
     """What the sets and the whole design disagree on: a path one lacks,
-    or a need more than 0.05 ps apart."""
+    or a need more than one written digit (0.1 ps) apart."""
     diffs = []
     for key in sorted(set(merged) | set(whole)):
         if key not in merged:
             diffs.append("%s -> %s: only timed whole" % key)
         elif key not in whole:
             diffs.append("%s -> %s: only in the sets" % key)
-        elif abs(merged[key][0] - whole[key][0]) > 0.05:
+        elif abs(merged[key][0] - whole[key][0]) > TOL_PS:
             diffs.append(
                 "%s -> %s: %.1f ps in the sets, %.1f ps whole"
                 % (key[0], key[1], merged[key][0], whole[key][0])
