@@ -10,7 +10,10 @@ description: >-
   builds, low risk, a clean build coming anyway) and when it is not enough (A/B arms, numbers a
   decision rests on, an uncertain tree history). Use when iterating on a stage's settings or
   scripts, when deploying a stage to debug it, when pulling an .odb or .sdc out of a run to
-  test a downstream stage, or before quoting a number from a deployed tree.
+  test a downstream stage, or before quoting a number from a deployed tree. When remote
+  execution is configured (~/.bazelrc), prefer Bazel targets for measurements, so a weak local
+  machine is not overloaded; the lane suits a powerful local machine and a question that wants
+  information, not a rebuild from scratch.
 ---
 
 > **Repo**: Run from the bazel-orfs root, or from any workspace that depends on bazel-orfs (`bazelisk run @bazel-orfs//:dirty -- ...`). Applies to every ORFS flow.
@@ -20,6 +23,21 @@ Solved problems are hermetic and never change; unsolved problems need a workbenc
 During bring-up the lane turns an hour of rebuilds per change into minutes, because nothing downstream is rebuilt behind your back. It also gives up what Bazel guarantees, and this skill says what it gives up and when that matters.
 
 ARGUMENTS: $ARGUMENTS
+
+## First, which machine does the work
+
+Before choosing between a lane and a Bazel target, look at where the work will run. A lane runs every stage by hand on this machine; a Bazel action runs wherever the user's configuration sends it.
+
+```sh
+# Is remote execution configured (~/.bazelrc, a workspace .bazelrc, ...)?
+# Prints the flag names only; the values are the user's and stay local.
+bazelisk info --announce_rc release 2>&1 \
+  | grep -o -- '--remote_executor[^ ]*' | sed 's/=.*//' | sort -u
+```
+
+- **Remote execution configured:** prefer wiring the measurement up as Bazel targets (a stage target, a flow variant, a `manual` target the study builds). The actions run on the executor, not on a laptop or a weak workstation that a few OpenROAD runs would swamp; the results land in the cache, where the next arm, the next machine and the next session reuse them. The lane is still there for what only a lane can do (a hand edit to a script, a look at a stage that will not finish), and `start` itself builds its inputs remotely; only the stages run by hand load this machine.
+- **No remote execution, a powerful local machine:** the lane is the fast way to an answer when the question is information, not a result to keep: no rebuild from scratch of everything a change re-keys, minutes per change instead of the flow's turnaround.
+- **Neither:** shrink the vehicle before running anything (`fixed-turnaround`), and keep each lane run within this machine's memory (`scale-to-memory`).
 
 ## The lane
 

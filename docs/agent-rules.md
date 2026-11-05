@@ -189,8 +189,10 @@ and gives up what Bazel guarantees; it has its own skill:
   `bazelisk run @bazel-orfs//:dirty -- start <flow> <stage>`,
   `next <stage>`, `status`, `archive`; what the lane gives up, when a
   number from it with its caveat beats no number, and when it is not
-  enough. `orfs-deps-preflight` checks, before an hours-long stage run in
-  a lane, that the code path under test will actually execute.
+  enough; with remote execution configured, a measurement goes in Bazel
+  targets, not on a weak local machine. `orfs-deps-preflight` checks,
+  before an hours-long stage run in a lane, that the code path under
+  test will actually execute.
 
 Building a design's macros and parent so they fit the machine's memory
 is a scheduler at home, managed by its own skill:
