@@ -146,6 +146,18 @@ class SmokeTest(unittest.TestCase):
         # wires as built: no clock arrival shortens a loop through one flop
         if cycles["loops"]:
             self.assertGreaterEqual(skew["skew"], cycles["floor"] - eps)
+        self.assertEqual(skew["capped"], 0)
+        # out of time after the first round: the rounds stop there, the
+        # answer says so, is no worse than moving nothing, and is undone
+        if skew["rounds"] > 1:
+            rounds, capped, best, restored = self.d.tcl(
+                "set r [hr_skew 0 1 60 {} 1e-6]; list [dict get $r rounds]"
+                " [dict get $r capped] [dict get $r skew] [dict get $r restored]"
+            ).split()
+            self.assertEqual(int(rounds), 1)
+            self.assertEqual(int(capped), 1)
+            self.assertLessEqual(float(best), start["period"] + eps)
+            self.assertAlmostEqual(float(restored), start["period"], delta=eps)
 
         vt = self.d.vt_headroom()
         self.assertAlmostEqual(vt["restored"], start["period"], delta=eps)
