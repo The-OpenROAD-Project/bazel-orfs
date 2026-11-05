@@ -26,7 +26,7 @@ obstructions removed, for a design timed from SPEF.
 Carried by bazel-orfs for //tools/carve; not upstreamed. Retires on a
 //:bump onto an OpenROAD that carries it.
 diff --git a/src/dbSta/src/dbSta.i b/src/dbSta/src/dbSta.i
-index c4aa93ed80916b6bda82589d54069e2539e5c428..45837306dc7f9f27e05f9ad6a19a6caf93ac9e18 100644
+index c4aa93ed80916b6bda82589d54069e2539e5c428..067ba4ea6c81cd865c38d96657c644bedd40ae7b 100644
 --- a/src/dbSta/src/dbSta.i
 +++ b/src/dbSta/src/dbSta.i
 @@ -13,7 +13,14 @@
@@ -44,7 +44,7 @@ index c4aa93ed80916b6bda82589d54069e2539e5c428..45837306dc7f9f27e05f9ad6a19a6caf
  #include "sta/Property.hh"
  #include "sta/Report.hh"
  #include "sta/VerilogWriter.hh"
-@@ -350,4 +357,722 @@ check_ip_cmd(const char* master_name,
+@@ -350,4 +357,757 @@ check_ip_cmd(const char* master_name,
    }
  }
  
@@ -67,7 +67,8 @@ index c4aa93ed80916b6bda82589d54069e2539e5c428..45837306dc7f9f27e05f9ad6a19a6caf
 +// reach a crossing path's logic past its crossing net and stay in one
 +// macro. Returns their count after the needed blocks, as "false N".
 +// `false_starts` 2: every register, latch and memory no crossing path
-+// starts at, kept or not, so that only the crossing paths are timed:
++// starts at, kept or not, and every one no crossing path ends at, false
++// path starts and ends, so that only the crossing paths are timed:
 +// the flattened Top's repair, which XSTile's 133,858 failing endpoints of
 +// the macros' own paths held for 2.6 hours on 160 GB, none of them a path
 +// it may change.
@@ -245,6 +246,8 @@ index c4aa93ed80916b6bda82589d54069e2539e5c428..45837306dc7f9f27e05f9ad6a19a6caf
 +  std::vector<char> launch(max_inst + 1, 0);
 +  // the cells a data walk passed through: `flatten`'s movable cells
 +  std::vector<char> data(max_inst + 1, 0);
++  // the stops a crossing path ends at: false_starts 2's capture side
++  std::vector<char> capture(max_inst + 1, 0);
 +  std::vector<char> needed(crossable.size(), 0);
 +  auto expands = [&](odb::dbInst* inst) {
 +    const int id = inst->getId();
@@ -263,6 +266,9 @@ index c4aa93ed80916b6bda82589d54069e2539e5c428..45837306dc7f9f27e05f9ad6a19a6caf
 +    for (odb::dbITerm* iterm : net->getITerms()) {
 +      odb::dbInst* inst = iterm->getInst();
 +      keep[inst->getId()] = 1;
++      if (iterm->isInputSignal() && stop[inst->getId()]) {
++        capture[inst->getId()] = 1;
++      }
 +      if (!iterm->isInputSignal() || !expands(inst)) {
 +        continue;
 +      }
@@ -391,27 +397,48 @@ index c4aa93ed80916b6bda82589d54069e2539e5c428..45837306dc7f9f27e05f9ad6a19a6caf
 +    // clock network's
 +    sta::dbSta* fsta = openroad->getSta();
 +    sta::InstanceSet* insts = new sta::InstanceSet(network);
++    sta::InstanceSet* ends = new sta::InstanceSet(network);
 +    for (odb::dbInst* inst : block->getInsts()) {
 +      const int id = inst->getId();
-+      if ((false_starts < 2 && !keep[id]) || launch[id] || !stop[id]) {
++      if (!stop[id]) {
 +        continue;
 +      }
 +      sta::LibertyCell* cell = network->libertyCell(inst);
-+      if (cell == nullptr || cell->isClockGate()
-+          || !(cell->isSequential() || cell->isMemory() || cell->isMacro())) {
++      if (cell == nullptr
++          || !(cell->isClockGate() || cell->isSequential() || cell->isMemory()
++               || cell->isMacro())) {
 +        continue;
 +      }
-+      insts->insert(network->dbToSta(inst));
++      // a clock gate is an end, its enable's gating check, never a start
++      if (!cell->isClockGate() && !launch[id]
++          && (false_starts >= 2 || keep[id])) {
++        insts->insert(network->dbToSta(inst));
++      }
++      if (false_starts >= 2 && !capture[id]) {
++        ends->insert(network->dbToSta(inst));
++      }
 +    }
 +    needs += " false " + std::to_string(insts->size());
++    sta::Sdc* sdc = fsta->cmdSdc();
 +    if (insts->empty()) {
 +      delete insts;
 +    } else {
-+      sta::Sdc* sdc = fsta->cmdSdc();
 +      sta::ExceptionFrom* from = fsta->makeExceptionFrom(
 +          nullptr, nullptr, insts, sta::RiseFallBoth::riseFall(), sdc);
 +      fsta->makeFalsePath(from, nullptr, nullptr, sta::MinMaxAll::all(),
 +                          "crossing_cones: side-only starts", sdc);
++    }
++    if (false_starts >= 2) {
++      needs += " false_ends " + std::to_string(ends->size());
++    }
++    if (ends->empty()) {
++      delete ends;
++    } else {
++      sta::ExceptionTo* to = fsta->makeExceptionTo(
++          nullptr, nullptr, ends, sta::RiseFallBoth::riseFall(),
++          sta::RiseFallBoth::riseFall(), sdc);
++      fsta->makeFalsePath(nullptr, nullptr, to, sta::MinMaxAll::all(),
++                          "crossing_cones: ends no crossing reaches", sdc);
 +    }
 +  }
 +  if (group[0] != '\0') {
@@ -497,6 +524,14 @@ index c4aa93ed80916b6bda82589d54069e2539e5c428..45837306dc7f9f27e05f9ad6a19a6caf
 +  }
 +  for (odb::dbInst* inst : drop) {
 +    inst->setDoNotTouch(false);
++    // a flattened Top's macro nets are dont_touch (flatten), and OpenDB
++    // will not disconnect a cell from one (ODB-0372): the cut is a copy
++    // for timing
++    for (odb::dbITerm* iterm : inst->getITerms()) {
++      if (odb::dbNet* net = iterm->getNet()) {
++        net->setDoNotTouch(false);
++      }
++    }
 +    odb::dbInst::destroy(inst);
 +  }
 +  std::vector<odb::dbNet*> empty;
