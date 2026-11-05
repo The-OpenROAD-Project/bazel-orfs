@@ -32,6 +32,8 @@ def parent_macro_flow(
         whole_check = False,
         headroom_sets = "",
         headroom_skip = "",
+        top_flat_user_arguments = {},
+        top_flat_check_ps = None,
         variant = None,
         pdk = "//flow:asap7",
         tags = ["manual"]):
@@ -108,6 +110,12 @@ def parent_macro_flow(
       headroom_sets: the crossing sets <name>_pm_crossing_headroom
         measures, their numbers separated by spaces; empty: every set.
       headroom_skip: the measurements it skips, of: wire vt skew cycles.
+      top_flat_user_arguments: top_level.tcl's settings for
+        <name>_pm_top_flat, the top level that takes its macros' boundary
+        logic over (TOP_FLATTEN); whole_check only.
+      top_flat_check_ps: the period <name>_pm_top_flat_test checks: the
+        top level as built fails it, the flattened one passes it, and no
+        macro's own paths get worse.
       variant: the parent macro's variant, when another flow of the
         package has the same top module; its targets are then
         <name>_<variant>_<stage>, and <name>_<variant> stands for <name>
@@ -317,10 +325,12 @@ def parent_macro_flow(
         whole_check = whole_check,
         headroom_sets = headroom_sets,
         headroom_skip = headroom_skip,
+        top_flat_user_arguments = top_flat_user_arguments,
+        top_flat_check_ps = top_flat_check_ps,
         tags = tags,
     )
 
-def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top_level_user_arguments, whole_check, headroom_sets, headroom_skip, tags):
+def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top_level_user_arguments, whole_check, headroom_sets, headroom_skip, top_flat_user_arguments, top_flat_check_ps, tags):
     """The top level's clock tree and global route, and its crossing report.
 
     Args:
@@ -334,6 +344,9 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
         against it.
       headroom_sets: the crossing sets the headroom measures.
       headroom_skip: the measurements the headroom skips.
+      top_flat_user_arguments: top_level.tcl's settings for the top level
+        that takes its macros' boundary logic over (whole_check only).
+      top_flat_check_ps: the period the flattened top level's test checks.
       tags: forwarded.
     """
     scripts = {
@@ -488,6 +501,29 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
     if not whole_check:
         return
 
+    # crossing_cones' flatten mode on the dissolved top level: the
+    # boundary logic movable and unrouted, the macros' register-to-register
+    # logic and every register fixed (top_flatten_check.tcl)
+    orfs_run(
+        name = "%s_top_flatten" % pm,
+        src = ":%s_floorplan" % pm,
+        outs = ["%s/flatten.txt" % pm],
+        cmd = "run",
+        script = "@bazel-orfs//tools/carve:top_flatten_check.tcl",
+        tags = tags,
+        user_arguments = {
+            "CONE_MACROS": "all",
+            "FLATTEN_TXT": "$(location %s/flatten.txt)" % pm,
+        },
+    )
+    sh_test(
+        name = "%s_top_flatten_test" % pm,
+        srcs = ["@bazel-orfs//tools/carve:top_flatten_check.sh"],
+        args = ["$(rootpath :%s/flatten.txt)" % pm],
+        data = [":%s/flatten.txt" % pm],
+        tags = tags,
+    )
+
     # the method's check, on a design small enough to time whole: the
     # top level timed in one process reports the paths the sets do
     orfs_run(
@@ -507,6 +543,57 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
         },
         user_sources = scripts,
     )
+
+    # the top level taking its macros' boundary logic over (TOP_FLATTEN):
+    # placed, repaired and routed again with the crossings whole
+    orfs_run(
+        name = "%s_top_flat" % pm,
+        src = ":%s_floorplan" % pm,
+        out_dir = "%s/top_flat" % pm,
+        cmd = "run",
+        script = "@bazel-orfs//tools/carve:top_level.tcl",
+        arguments = top_arguments,
+        tags = tags,
+        user_arguments = top_level_user_arguments | {
+            "MAX_SKEW_PS": max_skew_ps,
+            "TOP_FLATTEN": "all",
+        } | top_flat_user_arguments,
+        user_sources = scripts,
+    )
+    orfs_run(
+        name = "%s_crossing_whole_flat" % pm,
+        src = ":%s_floorplan" % pm,
+        outs = ["%s/whole_flat.txt" % pm],
+        cmd = "run",
+        data = [":%s_top_flat" % pm],
+        script = "@bazel-orfs//tools/carve:top_level.tcl",
+        tags = tags,
+        user_arguments = top_level_user_arguments | {
+            "BUDGET_PS": budget_ps,
+            "CROSSING_TXT": "$(location %s/whole_flat.txt)" % pm,
+            "MAX_SKEW_PS": max_skew_ps,
+            "TOP_DIR": "$(location :%s_top_flat)" % pm,
+            "TOP_FROM": "grt",
+        },
+        user_sources = scripts,
+    )
+    if top_flat_check_ps:
+        sh_test(
+            name = "%s_top_flat_test" % pm,
+            srcs = ["@bazel-orfs//tools/carve:top_flat_check.sh"],
+            args = [
+                "$(rootpath @bazel-orfs//tools/carve:top_flat_check)",
+                top_flat_check_ps,
+                "$(rootpath :%s/whole.txt)" % pm,
+                "$(rootpath :%s/whole_flat.txt)" % pm,
+            ],
+            data = [
+                ":%s/whole.txt" % pm,
+                ":%s/whole_flat.txt" % pm,
+                "@bazel-orfs//tools/carve:top_flat_check",
+            ],
+            tags = tags,
+        )
     sh_test(
         name = "%s_crossing_test" % pm,
         srcs = ["@bazel-orfs//tools/carve:crossing_check.sh"],

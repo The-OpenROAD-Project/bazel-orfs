@@ -11,14 +11,28 @@
 # that fails is run again without the ones before it:
 #
 #   floorplan  (default) 2_floorplan.odb: the clock tree first
+#   place      3_top_place.odb, TOP_FLATTEN only: the boundary logic placed
 #   tree       4_top_cts_tree.odb, the tree as built: the legaliser next
 #   cts        4_top_cts.odb, the tree legalised: global route next
 #   grt        5_top_grt.odb, routed: the clock check and crossings
+#
+# TOP_FLATTEN names the macros whose boundary logic the top level takes
+# over ("all"): each part's in2reg, reg2out and in2out logic up to the
+# first register, the cells crossing_cones' flatten mode makes movable,
+# is placed again and repaired with the crossings whole, the clock tree
+# is built over it, and its nets are routed; the macros'
+# register-to-register logic and their registers stay where their macros
+# placed and routed them.
 #
 # Under Bazel (parent_macro.bzl) the run writes only the routed design,
 # 5_top_grt.odb and .sdc, to its output directory (RUN_OUTPUT_DIR), and
 # TOP_DIR names the directory a later run resumes from.
 #
+#   TOP_FLATTEN        the macros whose boundary logic the top level takes
+#   PARENT_INST        the parent's instance (u_parent)
+#   TOP_GPL_ARGS       global_placement's further arguments (TOP_FLATTEN)
+#   TOP_CLOCK_PERIOD   the period the Top repairs to (TOP_FLATTEN), the
+#                      SDC's by default: repair works on failing paths only
 #   CTS_CLUSTER_SIZE   the clock tree's sink clusters
 #   TOP_DPL_ARGS       the legaliser's further arguments
 #   GLOBAL_ROUTE_ARGS  global_route's arguments
@@ -34,7 +48,7 @@
 #   CROSSING_SETS, CROSSING_JOBS  time sets of macros apart (below)
 source $::env(SCRIPTS_DIR)/load.tcl
 
-set steps {floorplan tree cts grt}
+set steps {floorplan place tree cts grt}
 set from [env_var_or_empty TOP_FROM]
 if { $from eq "" } {
   set from floorplan
@@ -42,7 +56,7 @@ if { $from eq "" } {
 if { $from ni $steps } {
   utl::error FLW 27 "top_level: TOP_FROM $from is none of $steps"
 }
-set odbs {floorplan 2_floorplan.odb tree 4_top_cts_tree.odb cts 4_top_cts.odb grt 5_top_grt.odb}
+set odbs {floorplan 2_floorplan.odb place 3_top_place.odb tree 4_top_cts_tree.odb cts 4_top_cts.odb grt 5_top_grt.odb}
 set sdc 2_floorplan.sdc
 if { [env_var_exists_and_non_empty TOP_DIR] } {
   set ::env(RESULTS_DIR) $::env(TOP_DIR)
@@ -64,10 +78,51 @@ proc top_checkpoint { step odb } {
   orfs_write_db $::env(RESULTS_DIR)/$odb
 }
 
+set flatten [env_var_or_empty TOP_FLATTEN]
+if { "place" in $todo && $flatten ne "" } {
+  set parent [env_var_or_empty PARENT_INST]
+  if { $parent eq "" } {
+    set parent u_parent
+  }
+  # no path group through the crossing nets: repair removes some of them,
+  # and the group's net set would hold them dangling
+  set needs [lassign [sta::crossing_cones $flatten $parent 1 0 "" 1] \
+    seeds kept before]
+  set at [lsearch -exact $needs flatten]
+  puts "top_level: $seeds crossing nets, [lindex $needs [expr { $at + 1 }]] of\
+    $before cells movable, [lindex $needs [expr { $at + 2 }]] nets to route"
+  # from where their macros placed them: the macros' placement is the
+  # start a global placement would spend its first iterations finding
+  log_cmd global_placement -skip_initial_place {*}[env_var_or_empty TOP_GPL_ARGS]
+  log_cmd estimate_parasitics -placement
+  log_cmd repair_design
+  top_checkpoint place 3_top_place.odb
+}
 if { "tree" in $todo } {
+  # the flattened top level's registers are fixed and dont_touch, and CTS
+  # reconnects their clock pins (CTS-0137): dont_touch is lifted for the
+  # tree only, fixed keeps them where they are
+  set sinks {}
+  if { $flatten ne "" } {
+    foreach inst [[ord::get_db_block] getInsts] {
+      if { ![$inst isDoNotTouch] } {
+        continue
+      }
+      foreach iterm [$inst getITerms] {
+        if { [$iterm getSigType] eq "CLOCK" && [$iterm isInputSignal] } {
+          $inst setDoNotTouch 0
+          lappend sinks $inst
+          break
+        }
+      }
+    }
+  }
   repair_clock_inverters
   log_cmd clock_tree_synthesis -sink_clustering_enable -repair_clock_nets \
     -sink_clustering_size $::env(CTS_CLUSTER_SIZE)
+  foreach inst $sinks {
+    $inst setDoNotTouch 1
+  }
   # CTS leaves 24 GB of timing data that no step before global route reads
   sta::network_changed_non_sdc
   top_checkpoint tree 4_top_cts_tree.odb
@@ -79,6 +134,26 @@ if { "cts" in $todo } {
   # the cells it can move; the fixed ones are their macros' (on XSTile a
   # register file of Ftq's fails the padding check, inside Ftq)
   log_cmd check_placement -placeable -verbose
+  if { $flatten ne "" } {
+    # the crossings whole, the boundary logic the only cells to change
+    set period [env_var_or_empty TOP_CLOCK_PERIOD]
+    if { $period ne "" } {
+      foreach clock [all_clocks] {
+        create_clock -name [get_name $clock] -period $period \
+          [get_property $clock sources]
+      }
+    }
+    set_propagated_clock [all_clocks]
+    log_cmd estimate_parasitics -placement
+    # every failing endpoint: the macros' own paths fail too, fixed and
+    # dont_touch here (the toy's parent at 462 ps against crossings at
+    # 201), and repair stops at a worst endpoint it cannot change;
+    # repair_timing -path_group knows only reg2reg, in2reg, reg2out,
+    # in2out and gated_clock, no group through the crossings
+    log_cmd repair_timing -setup -hold -repair_tns 100
+    log_cmd detailed_placement -use_diamond_legalizer {*}[env_var_or_empty TOP_DPL_ARGS]
+    log_cmd check_placement -placeable -verbose
+  }
   top_checkpoint cts 4_top_cts.odb
 }
 if { "grt" in $todo } {
