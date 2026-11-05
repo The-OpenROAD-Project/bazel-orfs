@@ -13,6 +13,9 @@ exports_files(
         "crossing_gui.tcl",
         "crossing_launch.tcl",
         "crossing_launch_check.sh",
+        "crossing_headroom.tcl",
+        "crossing_headroom_check.sh",
+        "crossing_headroom_sets.tcl",
         "crossing_paths.tcl",
         "crossing_plan.tcl",
         "crossing_time.tcl",
@@ -37,6 +40,7 @@ exports_files(
 ) for name in [
     "carve",
     "crossing_launch_check",
+    "crossing_headroom_check",
     "crossing_report",
     "lec_names",
     "merge_memories",
@@ -108,4 +112,17 @@ py_test(
     size = "small",
     srcs = ["crossing_launch_check_test.py"],
     deps = [":crossing_launch_check_lib"],
+)
+
+py_library(
+    name = "crossing_headroom_check_lib",
+    srcs = ["crossing_headroom_check.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "crossing_headroom_check_test",
+    size = "small",
+    srcs = ["crossing_headroom_check_test.py"],
+    deps = [":crossing_headroom_check_lib"],
 )
