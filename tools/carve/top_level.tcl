@@ -79,7 +79,11 @@ proc top_checkpoint { step odb } {
   if { [env_var_exists_and_non_empty RUN_OUTPUT_DIR] } {
     if { $step eq "grt" } {
       orfs_write_db $::env(RUN_OUTPUT_DIR)/$odb
-      write_sdc -no_timestamp $::env(RUN_OUTPUT_DIR)/5_top_grt.sdc
+      # the constraints read, not write_sdc's: what the flattened Top's
+      # repair adds (TOP_CLOCK_PERIOD, the false path starts of every
+      # register no crossing starts at) is the repair's own, and in the
+      # SDC it took the macros' own paths out of the crossing report
+      file copy -force $::env(RESULTS_DIR)/$::sdc $::env(RUN_OUTPUT_DIR)/5_top_grt.sdc
     }
     return
   }
@@ -87,11 +91,11 @@ proc top_checkpoint { step odb } {
 }
 
 set flatten [env_var_or_empty TOP_FLATTEN]
+set parent [env_var_or_empty PARENT_INST]
+if { $parent eq "" } {
+  set parent u_parent
+}
 if { "place" in $todo && $flatten ne "" } {
-  set parent [env_var_or_empty PARENT_INST]
-  if { $parent eq "" } {
-    set parent u_parent
-  }
   # no path group through the crossing nets: repair removes some of them,
   # and the group's net set would hold them dangling
   set needs [lassign [sta::crossing_cones $flatten $parent 1 0 "" 1] \
@@ -130,13 +134,19 @@ if { "cts" in $todo } {
           [get_property $clock sources]
       }
     }
+    # the crossing paths only: every register no crossing path starts at
+    # is a false path start for the repair, so the macros' own paths are
+    # not timed. Timed whole, XSTile's flattened Top (Flt) needed 118 GB
+    # and 120 GB of swap, and setup repair spent 2.6 hours on 133,858
+    # failing endpoints of the macros' own paths, which it may not change
+    # (973 VT swaps, 1 buffer). repair_timing -path_group knows only
+    # reg2reg, in2reg, reg2out, in2out and gated_clock, no group through
+    # the crossings.
+    set needs [lassign [sta::crossing_cones $flatten $parent 1 2] seeds kept before]
+    puts "top_level: crossing paths only, [lindex $needs [expr { [lsearch -exact $needs false] + 1 }]]\
+      registers no crossing starts at made false path starts"
     set_propagated_clock [all_clocks]
     log_cmd estimate_parasitics -placement
-    # every failing endpoint: the macros' own paths fail too, fixed and
-    # dont_touch here (the toy's parent at 462 ps against crossings at
-    # 201), and repair stops at a worst endpoint it cannot change;
-    # repair_timing -path_group knows only reg2reg, in2reg, reg2out,
-    # in2out and gated_clock, no group through the crossings
     log_cmd repair_timing -setup -hold -repair_tns 100
     log_cmd detailed_placement -use_diamond_legalizer {*}[env_var_or_empty TOP_DPL_ARGS]
     log_cmd check_placement -placeable -verbose
