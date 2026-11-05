@@ -1,7 +1,8 @@
 """The headroom's check, on a design small enough to time in seconds: for
 every crossing set, the period the headroom measures is the worst crossing
-crossing_time.tcl reports for that set, each what-if is undone, and no
-move reads worse than the design as built.
+crossing_time.tcl reports for that set, each what-if is undone, no move
+reads worse than the design as built, and skew ran to its end: a design
+this small is never cut short by the skew time limit.
 
     crossing_headroom_check.py <headroom dir> <crossing_time dir>
 
@@ -62,6 +63,8 @@ def check(headroom_dir, time_dir):
                 errors.append("set %d: %s not undone: %s" % (n, m, hr[m]["restored"]))
             if hr[m][key] > period + EPS:
                 errors.append("set %d: %s reads worse than as built" % (n, m))
+        if "skew" in hr and hr["skew"].get("capped") != 0:
+            errors.append("set %d: skew capped: %s" % (n, hr["skew"].get("capped")))
     return errors
 
 
