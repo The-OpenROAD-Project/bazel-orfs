@@ -9,10 +9,12 @@
 #   - a movable cell is combinational logic: no register, latch, clock
 #     gate, memory, macro or clock network cell moves;
 #   - a movable cell is placed, not fixed, not dont_touch; every other cell
-#     is fixed and dont_touch;
+#     is fixed; no cell on a movable cell's net is dont_touch: a buffer
+#     before a register's D pin rewires the register's pin;
 #   - a movable cell's nets lost their guides and wires (some had guides);
-#   - no register's clock net is dont_touch, so the Top's clock tree can
-#     be built.
+#     a net that touches no movable cell is dont_touch, but the clock
+#     network's: no register's clock net is dont_touch, so the Top's clock
+#     tree can be built.
 #
 # Writes the counts to FLATTEN_TXT.
 #
@@ -92,6 +94,12 @@ foreach inst [$block getInsts] {
       if { $net eq "NULL" || [$net getSigType] in {POWER GROUND} } {
         continue
       }
+      foreach other [$net getITerms] {
+        if { [[$other getInst] isDoNotTouch] } {
+          flatten_fail "[[$other getInst] getName], on movable [$inst getName]'s net\
+            [$net getName], is dont_touch: no buffer can drive its pins"
+        }
+      }
       if { [llength [$net getGuides]] > 0 || [$net getWire] ne "NULL" } {
         flatten_fail "[$net getName], on movable [$inst getName], kept its route"
       }
@@ -100,9 +108,6 @@ foreach inst [$block getInsts] {
       }
     }
     continue
-  }
-  if { !$dnt } {
-    flatten_fail "[$inst getName] is fixed and not dont_touch"
   }
   if { $seq } {
     incr registers
@@ -122,6 +127,22 @@ if { $n_movable != $movable } {
 if { $fixed_logic == 0 } {
   flatten_fail "no combinational cell stays fixed: the macros' own logic was flattened"
 }
+# the macros' own nets: nothing is buffered on them
+set fixed_nets 0
+foreach net [$block getNets] {
+  if { ![$net isDoNotTouch] } {
+    continue
+  }
+  incr fixed_nets
+  foreach iterm [$net getITerms] {
+    if { ![[$iterm getInst] isFixed] } {
+      flatten_fail "[$net getName] is dont_touch and on movable [[$iterm getInst] getName]"
+    }
+  }
+}
+if { $fixed_nets == 0 } {
+  flatten_fail "no net is dont_touch: the macros' own nets can be buffered"
+}
 if { $guided == 0 } {
   flatten_fail "no net had guides: nothing was routed to drop"
 }
@@ -132,4 +153,5 @@ puts $f "movable $movable"
 puts $f "unrouted_nets $nets"
 puts $f "fixed_logic $fixed_logic"
 puts $f "fixed_stops $registers"
+puts $f "fixed_nets $fixed_nets"
 close $f
