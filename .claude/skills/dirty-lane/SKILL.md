@@ -10,10 +10,11 @@ description: >-
   builds, low risk, a clean build coming anyway) and when it is not enough (A/B arms, numbers a
   decision rests on, an uncertain tree history). Use when iterating on a stage's settings or
   scripts, when deploying a stage to debug it, when pulling an .odb or .sdc out of a run to
-  test a downstream stage, or before quoting a number from a deployed tree. When remote
-  execution is configured (~/.bazelrc), prefer Bazel targets for measurements, so a weak local
-  machine is not overloaded; the lane suits a powerful local machine and a question that wants
-  information, not a rebuild from scratch.
+  test a downstream stage, or before quoting a number from a deployed tree. Remote execution
+  (~/.bazelrc) builds results and the lane's inputs but cannot be observed; the lane runs
+  locally, for perf record and a look at the running process, and for turnaround without
+  dependency tracking, on a toy of the problem, or a powerful local machine when nothing
+  smaller shows it.
 ---
 
 > **Repo**: Run from the bazel-orfs root, or from any workspace that depends on bazel-orfs (`bazelisk run @bazel-orfs//:dirty -- ...`). Applies to every ORFS flow.
@@ -26,7 +27,7 @@ ARGUMENTS: $ARGUMENTS
 
 ## First, which machine does the work
 
-Before choosing between a lane and a Bazel target, look at where the work will run. A lane runs every stage by hand on this machine; a Bazel action runs wherever the user's configuration sends it.
+Remote execution builds; the lane looks. Before choosing between a lane and a Bazel target, look at where the work will run and what the question needs. A lane runs every stage by hand on this machine; a Bazel action runs wherever the user's configuration sends it.
 
 ```sh
 # Is remote execution configured (~/.bazelrc, a workspace .bazelrc, ...)?
@@ -35,9 +36,11 @@ bazelisk info --announce_rc release 2>&1 \
   | grep -o -- '--remote_executor[^ ]*' | sed 's/=.*//' | sort -u
 ```
 
-- **Remote execution configured:** prefer wiring the measurement up as Bazel targets (a stage target, a flow variant, a `manual` target the study builds). The actions run on the executor, not on a laptop or a weak workstation that a few OpenROAD runs would swamp; the results land in the cache, where the next arm, the next machine and the next session reuse them. The lane is still there for what only a lane can do (a hand edit to a script, a look at a stage that will not finish), and `start` itself builds its inputs remotely; only the stages run by hand load this machine.
-- **No remote execution, a powerful local machine:** the lane is the fast way to an answer when the question is information, not a result to keep: no rebuild from scratch of everything a change re-keys, minutes per change instead of the flow's turnaround.
-- **Neither:** shrink the vehicle before running anything (`fixed-turnaround`), and keep each lane run within this machine's memory (`scale-to-memory`).
+- **Remote execution is for results.** A stage target, a flow variant, a `manual` target a study builds: the actions run on the executor, not on a laptop or a weak workstation that a few OpenROAD runs would swamp, and the results land in the cache, where the next arm, the next machine and the next session reuse them.
+- **Remote execution cannot be observed.** No `perf record`, no gdb on the live process, no `/proc`, no look at the tree or the log while the action runs. Do not instrument remote actions to get that view (a wrapper, an extra output, a `perf` baked into the action, a round trip per question): it is cruft in the build and a long turnaround for every look, and the lane gives the view for free.
+- **The lane is local, and is for two things:** examining the running process in detail (`perf record --call-graph dwarf -p <pid>`, `perf top`, gdb, the log as it grows), and cutting turnaround by ignoring dependencies (re-run one stage on frozen inputs without re-keying everything downstream).
+- **Combine them.** With remote execution configured, `start` and `next` build every input the lane needs (synthesis, earlier stages, generated files) on the executor; only the stages run by hand run here.
+- **Keep the local load small.** Prefer a toy version of the problem: the smallest design that still shows the behaviour, so a local run takes minutes and fits in memory (`fixed-turnaround`, `scale-to-memory`). Sometimes there is nothing for it and only the full design shows the behaviour; then a powerful local machine is required. Say so, and do not swamp a weak one.
 
 ## The lane
 
