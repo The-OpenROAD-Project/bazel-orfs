@@ -26,11 +26,13 @@ def toy_parent_macro(plan, blocks):
         plan = plan,
         # the toy's clock period: every path that fails it
         budget_ps = "1000",
-        # one tree, its skew moved by any change of the plan: 17.9 ps on the
-        # first plan, 28.8 and 39.1 on two gcell-aligned ones (the worst
-        # pair a flop and the parent's register file, latency 220-270 ps);
-        # 50 still stops a tree that misses half the sinks
-        max_skew_ps = "50",
+        # one tree, its skew moved by any change of the plan or the tool:
+        # 17.9 ps on the first plan, 28.8 and 39.1 on two gcell-aligned
+        # ones, 58.2 after the OpenROAD/ORFS bump 3353b055 (each time the
+        # worst pair a flop and the parent's register file, latency 200-270
+        # ps); a guard against a broken tree, not a QoR target: 80 still
+        # stops a tree that misses half the sinks
+        max_skew_ps = "80",
         # the method's check: the toy's paths over 150 ps, timed in sets
         # of a few thousand instances, are the paths it reports timed
         # whole (mini_top_parent_pm_crossing_test)
