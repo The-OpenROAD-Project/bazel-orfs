@@ -410,6 +410,28 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
         user_sources = scripts,
     )
 
+    # how much earlier each flop launching a crossing over the budget
+    # could be clocked, and the hold padding that would take
+    # (crossing_launch.tcl): plain timing, run by hand
+    orfs_run(
+        name = "%s_crossing_launch" % pm,
+        src = ":%s_floorplan" % pm,
+        out_dir = "%s/launch" % pm,
+        cmd = "run",
+        data = [sets, ":%s/sets.txt" % pm],
+        script = "@bazel-orfs//tools/carve:crossing_time_sets.tcl",
+        tags = ["manual"],
+        user_arguments = {
+            "BUDGET_PS": budget_ps,
+            "CROSSING_SETS": "$(location :%s/sets.txt)" % pm,
+            "HOLD_TO": "600",
+            "SETS_DIR": "$(location %s)" % sets,
+        },
+        user_sources = scripts | {
+            "CROSSING_TIME": ["@bazel-orfs//tools/carve:crossing_launch.tcl"],
+        },
+    )
+
     times = ":%s_crossing_time" % pm
     report = "$(location @bazel-orfs//tools/carve:crossing_report)"
     native.genrule(
@@ -456,6 +478,26 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
             ":%s/whole.txt" % pm,
             times,
             "@bazel-orfs//tools/carve:crossing_report",
+        ],
+        tags = tags,
+    )
+
+    # the launch-side bound's check: every set's worst launched crossing
+    # is the worst crossing the sets' timing reports for it, each room is
+    # the smaller of setup and hold, each bound its crossing less its room
+    launch = ":%s_crossing_launch" % pm
+    sh_test(
+        name = "%s_crossing_launch_test" % pm,
+        srcs = ["@bazel-orfs//tools/carve:crossing_launch_check.sh"],
+        args = [
+            "$(rootpath @bazel-orfs//tools/carve:crossing_launch_check)",
+            "$(rootpath %s)" % launch,
+            "$(rootpath %s)" % times,
+        ],
+        data = [
+            launch,
+            times,
+            "@bazel-orfs//tools/carve:crossing_launch_check",
         ],
         tags = tags,
     )
