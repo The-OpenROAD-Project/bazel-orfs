@@ -107,30 +107,9 @@ if { "place" in $todo && $flatten ne "" } {
   top_checkpoint place 3_top_place.odb
 }
 if { "tree" in $todo } {
-  # the flattened top level's registers are fixed and dont_touch, and CTS
-  # reconnects their clock pins (CTS-0137): dont_touch is lifted for the
-  # tree only, fixed keeps them where they are
-  set sinks {}
-  if { $flatten ne "" } {
-    foreach inst [[ord::get_db_block] getInsts] {
-      if { ![$inst isDoNotTouch] } {
-        continue
-      }
-      foreach iterm [$inst getITerms] {
-        if { [$iterm getSigType] eq "CLOCK" && [$iterm isInputSignal] } {
-          $inst setDoNotTouch 0
-          lappend sinks $inst
-          break
-        }
-      }
-    }
-  }
   repair_clock_inverters
   log_cmd clock_tree_synthesis -sink_clustering_enable -repair_clock_nets \
     -sink_clustering_size $::env(CTS_CLUSTER_SIZE)
-  foreach inst $sinks {
-    $inst setDoNotTouch 1
-  }
   # CTS leaves 24 GB of timing data that no step before global route reads
   sta::network_changed_non_sdc
   top_checkpoint tree 4_top_cts_tree.odb

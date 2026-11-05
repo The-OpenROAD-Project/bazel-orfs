@@ -7,7 +7,7 @@ set -e
 count() {
   sed -n "s/^$1 //p" "$2"
 }
-for key in crossing_nets movable unrouted_nets fixed_logic fixed_stops; do
+for key in crossing_nets movable unrouted_nets fixed_logic fixed_stops fixed_nets; do
   n=$(count "$key" "$1")
   if [ -z "$n" ] || [ "$n" -le 0 ]; then
     echo "top_flatten_check: $key is '$n', expected more than 0" >&2
