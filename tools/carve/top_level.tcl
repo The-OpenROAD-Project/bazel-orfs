@@ -32,6 +32,8 @@
 #   TOP_FLATTEN        the macros whose boundary logic the top level takes
 #   PARENT_INST        the parent's instance (u_parent)
 #   TOP_GPL_ARGS       global_placement's further arguments (TOP_FLATTEN)
+#   TOP_SKIP_GPL       1: the boundary logic stays where its macros placed
+#                      it; repair and the legaliser move what they must
 #   TOP_CLOCK_PERIOD   the period the Top repairs to (TOP_FLATTEN), the
 #                      SDC's by default: repair works on failing paths only
 #   CTS_CLUSTER_SIZE   the clock tree's sink clusters
@@ -104,8 +106,13 @@ if { "place" in $todo && $flatten ne "" } {
   puts "top_level: $seeds crossing nets, [lindex $needs [expr { $at + 1 }]] of\
     $before cells movable, [lindex $needs [expr { $at + 2 }]] nets to route"
   # from where their macros placed them: the macros' placement is the
-  # start a global placement would spend its first iterations finding
-  log_cmd global_placement -skip_initial_place {*}[env_var_or_empty TOP_GPL_ARGS]
+  # start a global placement would spend its first iterations finding.
+  # Wirelength-driven, it re-spread the long buffer chains the macros had
+  # built along a crossing: on XSTile with Flt flattened, Rob -> Flt
+  # 2,706 -> 3,710 ps, 122 of the worst path's 184 pins on moved cells
+  if { ![env_var_equals TOP_SKIP_GPL 1] } {
+    log_cmd global_placement -skip_initial_place {*}[env_var_or_empty TOP_GPL_ARGS]
+  }
   log_cmd estimate_parasitics -placement
   log_cmd repair_design
   top_checkpoint place 3_top_place.odb
@@ -135,8 +142,11 @@ if { "cts" in $todo } {
       }
     }
     # the crossing paths only: every register no crossing path starts at
-    # is a false path start for the repair, so the macros' own paths are
-    # not timed. Timed whole, XSTile's flattened Top (Flt) needed 118 GB
+    # is a false path start for the repair, and every one no crossing path
+    # ends at a false path end, so the macros' own paths are not timed
+    # (with starts alone 83,649 endpoints still failed, the worst a
+    # Frontend SRAM's address from a register that also launches a
+    # crossing). Timed whole, XSTile's flattened Top (Flt) needed 118 GB
     # and 120 GB of swap, and setup repair spent 2.6 hours on 133,858
     # failing endpoints of the macros' own paths, which it may not change
     # (973 VT swaps, 1 buffer). repair_timing -path_group knows only
@@ -144,7 +154,9 @@ if { "cts" in $todo } {
     # the crossings.
     set needs [lassign [sta::crossing_cones $flatten $parent 1 2] seeds kept before]
     puts "top_level: crossing paths only, [lindex $needs [expr { [lsearch -exact $needs false] + 1 }]]\
-      registers no crossing starts at made false path starts"
+      registers no crossing starts at and\
+      [lindex $needs [expr { [lsearch -exact $needs false_ends] + 1 }]] no crossing ends at\
+      made false path starts and ends"
     set_propagated_clock [all_clocks]
     log_cmd estimate_parasitics -placement
     log_cmd repair_timing -setup -hold -repair_tns 100
