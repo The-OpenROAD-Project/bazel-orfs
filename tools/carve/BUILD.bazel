@@ -11,6 +11,8 @@ exports_files(
         "crossing_check.sh",
         "crossing_cones.tcl",
         "crossing_gui.tcl",
+        "crossing_launch.tcl",
+        "crossing_launch_check.sh",
         "crossing_paths.tcl",
         "crossing_plan.tcl",
         "crossing_time.tcl",
@@ -34,6 +36,7 @@ exports_files(
     visibility = ["//visibility:public"],
 ) for name in [
     "carve",
+    "crossing_launch_check",
     "crossing_report",
     "lec_names",
     "merge_memories",
@@ -92,4 +95,17 @@ py_test(
     size = "small",
     srcs = ["crossing_report_test.py"],
     deps = [":crossing_report_lib"],
+)
+
+py_library(
+    name = "crossing_launch_check_lib",
+    srcs = ["crossing_launch_check.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "crossing_launch_check_test",
+    size = "small",
+    srcs = ["crossing_launch_check_test.py"],
+    deps = [":crossing_launch_check_lib"],
 )
