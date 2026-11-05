@@ -8,7 +8,8 @@
 # fixed cells.
 #
 # Each step writes its result, and TOP_FROM resumes after one, so a step
-# that fails is run again without the ones before it:
+# that fails is run again without the ones before it; TOP_TO stops after
+# one, so each step's time and memory are its own process's:
 #
 #   floorplan  (default) 2_floorplan.odb: the clock tree first
 #   place      3_top_place.odb, TOP_FLATTEN only: the boundary logic placed
@@ -64,6 +65,13 @@ if { [env_var_exists_and_non_empty TOP_DIR] } {
 }
 load_design [dict get $odbs $from] $sdc -backing_file $::env(OBJECTS_DIR)/top.db
 set todo [lrange $steps [expr { [lsearch -exact $steps $from] + 1 }] end]
+set to [env_var_or_empty TOP_TO]
+if { $to ne "" } {
+  if { $to ni $steps } {
+    utl::error FLW 29 "top_level: TOP_TO $to is none of $steps"
+  }
+  set todo [lrange $todo 0 [lsearch -exact $todo $to]]
+}
 
 # each step's checkpoint, to resume from; under Bazel the routed design
 # only, in the run's output directory
