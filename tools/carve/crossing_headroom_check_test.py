@@ -22,11 +22,11 @@ inside 1
 """
 
 
-def headroom(period=190.83, restored=190.83, skew=150.0):
+def headroom(period=190.83, restored=190.83, skew=150.0, capped=0):
     return json.dumps(
         {
             "period": {"period": period},
-            "skew": {"skew": skew, "restored": restored},
+            "skew": {"skew": skew, "restored": restored, "capped": capped},
             "wire": {"floor": 110.0, "restored": restored},
         }
     )
@@ -54,6 +54,10 @@ class Check(unittest.TestCase):
     def test_worse_than_built(self):
         errs = self.run_check(headroom(skew=200.0))
         self.assertTrue(any("worse than as built" in e for e in errs), errs)
+
+    def test_skew_capped(self):
+        errs = self.run_check(headroom(capped=1))
+        self.assertTrue(any("skew capped" in e for e in errs), errs)
 
     def test_no_reports(self):
         with tempfile.TemporaryDirectory() as h, tempfile.TemporaryDirectory() as t:

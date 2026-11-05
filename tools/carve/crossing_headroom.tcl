@@ -20,6 +20,8 @@
 #   HR_ENDS      the worst crossing endpoints VT and skew work on (0: all)
 #   HR_ORDER     the measurements, in order (wire vt skew cycles)
 #   HR_SKIP      measurements to skip, of: wire vt skew cycles
+#   HR_SKEW_SECONDS  stop the skew rounds after this long (0: never); the
+#                answer is then the best round so far, capped 1
 #   HR_LEAKAGE   1: VT reports the leakage before, with and after its swap.
 #                Off by default: OpenSTA's power propagates activity through
 #                every instance of the set on one thread, three times per
@@ -56,6 +58,7 @@ set budget $::env(BUDGET_PS)
 set ::hr_target $budget
 set ends [expr { [env_var_exists_and_non_empty HR_ENDS] ? $::env(HR_ENDS) : 0 }]
 set skip [env_var_or_empty HR_SKIP]
+set skew_seconds [expr { [env_var_exists_and_non_empty HR_SKEW_SECONDS] ? $::env(HR_SKEW_SECONDS) : 0 }]
 set order [expr { [env_var_exists_and_non_empty HR_ORDER] ? $::env(HR_ORDER) : {wire vt skew cycles} }]
 
 # crossing_paths.tcl's macro of a pin: its instance name's first level
@@ -173,7 +176,7 @@ if { $crossings == 0 } {
     switch -- $m {
       wire { dict set result wire [hr_floor_wire $rc_file $mode] }
       vt { dict set result vt [hr_vt $ends] }
-      skew { dict set result skew [hr_skew $ends 1] }
+      skew { dict set result skew [hr_skew $ends 1 60 {} $skew_seconds] }
       cycles { dict set result cycles [hr_floor_cycles $ends] }
       default { error "crossing_headroom: no measurement $m, of: wire vt skew cycles" }
     }

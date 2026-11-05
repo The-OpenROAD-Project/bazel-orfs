@@ -462,6 +462,9 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
             # skew first, the move a build would act on; the floors after
             "HR_ORDER": "skew wire vt cycles",
             "HR_SETS": headroom_sets,
+            # a skew round is a full timing update of the set: an XSTile
+            # set's rounds stop after an hour with the best so far
+            "HR_SKEW_SECONDS": "3600",
             "HR_SKIP": headroom_skip,
             "SETS_DIR": "$(location %s)" % sets,
         },
