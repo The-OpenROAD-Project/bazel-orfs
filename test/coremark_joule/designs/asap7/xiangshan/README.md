@@ -136,6 +136,7 @@ clocking can reach it.
 | 23 | 2026-11-02 | ≥ 2,470 |  |  |  |  |  | 1,601 | 1,960 | 1,687 |  | 1,791 | 1,801 | 1,553 | 1,072 | 1,699 | 643 | 778 | 1,327 | 656 | 1,330 | 698 | 1,939 | 846 | 778 | 600 | 813 | 2,470 |  | #1501: the three load units in placement regions beside the uncache buffer and the parent macro placed at density 0.8 instead of 0.6. The parent macro 2,488 to 2,470 ps, its endpoints over 2,000 ps 9,766 to 6,832 and their excess 1,689 to 1,148 ns; every block as in run 22. No memory per stage for this row: the build's logs were overwritten by later builds in the same tree before they were read |
 | 24 | 2026-11-03 | 3,108 | 3,108 |  |  | 1,997 | 1,861 | 1,559 | 1,978 | 1,760 |  |  |  |  |  |  |  |  |  |  |  |  | 2,117 |  |  |  |  | 2,111 | 61 | XSTile carved along XiangShan's hierarchy into six blocks, pins on the edge facing each neighbour; the first run with the Top measured. XSTile 3,108 ps, set by the Top: 42,962 crossing paths over 2,000 ps, nearly all from a handful of broadcast registers: ctrlBlock's flush redirect valid into all of VecRegion (3,108 ps), FltRegion and Rob, the redirect valid and BJU1's redirect data into all of Frontend (2,750 ps, 20,808 paths), Rob's state into the parent (2,542 ps). The Top skips timing repair. Inside the parts: Rob 2,117 and the parent macro 2,111 ps (its endpoints over 2,000 ps 6,832 to 117, excess 1,148 to 3 ns), both a broadcast net's critical sink at the end of a long buffer tree; Frontend 1,997, VecRegion 1,978, MemBlock 1,861, FltRegion 1,760, CoupledL2 1,559 ps |
 | 25 | 2026-11-04 | 3,099 | 3,099 |  |  | 1,997 | 1,861 | 1,559 | 1,978 | 1,760 |  |  |  |  |  |  |  |  |  |  |  |  | 1,810 |  |  |  |  | 2,111 | 61 | Rob's two register files 20 um apart instead of 4.7 (#1510): its clock tree had run up and down the slit between them (445 ps of skew, 11,271 hold buffers); Rob 2,117 to 1,810 ps and Rob into the parent's crossings 2,542 to 2,461 ps. XSTile 3,108 to 3,099 ps, still set by ctrlBlock's flush redirect valid into all of VecRegion, a broadcast across a macro boundary; the parent macro, Frontend, VecRegion, MemBlock, FltRegion and CoupledL2 as in run 24 |
+| 26 | 2026-11-05 | 3,136 | 3,136 |  |  | 2,041 | 1,842 | 1,827 | 1,813 | 1,775 |  |  |  |  |  |  |  |  |  |  |  |  | 1,910 |  |  |  |  | 2,370 | 60.4 | First run on main after the OpenROAD/ORFS bump, with #1522's seed search choosing every annealed block's memory placement. XSTile 3,099 to 3,136 ps, still the flush redirect valid into all of VecRegion; Rob into the parent 2,461 to 2,962 ps. The parent macro 2,111 to 2,370 ps: its issue-queue wakeup paths gained about 260 ps of cell delay at equal or shorter wire, and the flush register is now its own worst path too. CoupledL2 1,559 to 1,827 and Vec 1,978 to 1,813 ps moved most, both with annealed memory banks: the bump and the seed search are not separated in this row |
 <!-- kpi-table end -->
 
 Periods are in picoseconds; `≥` marks a run that did not measure the
@@ -223,13 +224,13 @@ Each part alone, at its own global route with its abstracts (`<part>_kpi`):
 <!-- kpi-worst begin: written by kpi.py -->
 | part | period | worst reg2reg path | what it is |
 |---|---|---|---|
-| parent | 2,111 | `core/backend/inner_intRegion/issueQueueLDU1_Ldu.io_wakeupToIQ_0_bits_rfWen$_DFF_P_/QN` → `core/backend/inner_ctrlBlock/dispatch/issueQueueCountReg_REG_4[4]$_DFF_P_/D` |  |
-| Frontend | 1,997 | `inner_bpu/csrCtrl_delay.io_out_abtbEnable$_DFF_P_/QN` → `inner_ftq/io_toBpu_train_bits_meta_ittage_altProviderTarget_addr[39]$_DFFE_PP0N_/D` |  |
-| MemBlock | 1,861 | `inner_dtlb_ld_tlb_ld/entries.page_ldtlb_storage_fa.reqVpn_1[1]$_DFF_P_/QN` → `inner_dcache/dcache.missQueue/io_forward_1_s2Resp_bits_forwardData_0[1]$_DFFE_PP_/D` |  |
-| CoupledL2 | 1,559 | `slices_0/mainPipe/io_error_valid$_DFF_PP0_/QN` → `slices_0/sinkC/r_0[222]$_DFFE_PP_/D` |  |
-| VecRegionModule | 1,978 | `issuePipes_1/exu.Vfdiv/vfdivs_1.u_vector_float_divider_r64.fp_format_onehot_q[1]$_DFFE_PP_/QN` → `issuePipes_1/exu.Vfmac.a0_1_fpB[52]$_DFFE_PP_/D` |  |
-| FltRegionModule | 1,760 | `fpRegFile/io_readPorts_0_data[39]` → `issuePipes/exu.exFadd_0_bits_data_src_0[39]$_DFFE_PP_/D` |  |
-| Rob | 1,810 | `rab/state[0]$_DFF_PP1_/QN` → `rab/renameBuffer/io_writePorts_4_wen` |  |
+| parent | 2,370 | `core/backend/inner_ctrlBlock/s1_robFlushRedirect_valid_last_REG$_DFF_PP0_/QN` → `core/backend/inner_intRegion/io_wbDataPathToCtrlBlock_delayedOldestExuRedirect_bits_fullTarget[0]$_DFFE_PP_/D` |  |
+| Frontend | 2,041 | `inner_itlb.csr_delay.io_out_vsatp_mode[2]$_DFF_P_/QN` → `inner_icache/prefetcher.s2_exception_value[0]$_DFFE_PP0P_/D` |  |
+| MemBlock | 1,842 | `inner_dtlb_ld_tlb_ld/entries.page_ldtlb_storage_fa.reqVpn_3[0]$_DFF_P_/QN` → `inner_pmp_checkers_3.res_pmp_r_23$_DFFE_PP0P_/D` |  |
+| CoupledL2 | 1,827 | `slices_0/directory/metaAll_s3_1_state[0]$_DFFE_PP0P_/QN` → `slices_0/mainPipe/customL1Hint.hintQueue.ram_ext.Memory[15][0]$_DFFE_PP_/D` |  |
+| VecRegionModule | 1,813 | `issuePipes_1/exu.Vfdiv/vfdivs_0.u_vector_float_divider_r64.fp_format_onehot_q[1]$_DFFE_PP_/QN` → `issuePipes/exu.Vfmac/a0_0_fpB[19]$_DFFE_PP_/D` |  |
+| FltRegionModule | 1,775 | `fpRegFile/io_readPorts_10_data[15]` → `issuePipes_3/exu.exFadd_0_bits_data_src_1[15]$_DFFE_PP_/D` |  |
+| Rob | 1,910 | `rab/state[0]$_DFF_PP1_/QN` → `rab/renameBuffer/io_writePorts_7_addr[7]` |  |
 <!-- kpi-worst end -->
 
 `kpi_run.tcl` writes each part's histogram in 10 ps bins, and
@@ -445,18 +446,22 @@ its parasitics as SPEF and timed in a process of its own. On the toy
 (`test/parent_macro`) the sets report the paths the whole design does,
 slack for slack (`mini_top_parent_pm_crossing_test`).
 
-On the six-block carve (KPI run 25, all 9 sets, hermetic), 46,272
-start and end pairs need more than 2,000 ps, the worst 3,098 ps. Nearly
-all start at a handful of registers, each a broadcast into a whole
-block:
+On the six-block carve (KPI run 26, main after the OpenROAD/ORFS bump,
+all 9 sets, hermetic), 47,033 start and end pairs need more than
+2,000 ps, the worst 3,135 ps. Nearly all start at a handful of
+registers, each a broadcast into a whole block:
 
-| From | To | Start register | Paths | Worst (ps) |
+| From | To | Through | Paths | Worst (ps) |
 | --- | --- | --- | ---: | ---: |
-| parent | VecRegionModule | ctrlBlock's `s1_robFlushRedirect_valid_last_REG` | 10,880 | 3,098 |
-| parent | Frontend | ctrlBlock's redirect valid and `pipeToBJU1`'s redirect data | 21,131 | 2,753 |
-| MemBlock | parent, through FltRegionModule | load unit 2's `s1.io_pipeOut_valid` | 1,579 | 2,582 |
-| parent | FltRegionModule | ctrlBlock's flush redirect | 4,817 | 2,462 |
-| Rob | parent | `state` | 6,115 | 2,461 |
+| parent | VecRegionModule | - | 7,999 | 3,135 |
+| Rob | parent | - | 11,668 | 2,962 |
+| parent | Frontend | - | 19,140 | 2,888 |
+| Rob | FltRegionModule | parent | 175 | 2,706 |
+| MemBlock | parent | FltRegionModule | 1,569 | 2,541 |
+| parent | FltRegionModule | - | 2,568 | 2,498 |
+
+The worst is ctrlBlock's flush redirect valid
+(`s1_robFlushRedirect_valid_last_REG`) into VecRegion's `is0_valid`.
 
 `tools/carve/crossing_gui.tcl` serves one set in the web GUI, with a
 path group `crossing` that holds exactly these paths.
