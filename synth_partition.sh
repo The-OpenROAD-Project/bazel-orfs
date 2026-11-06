@@ -98,10 +98,14 @@ else
     exit 0
   fi
 
-  # Pick this partition's modules: index % N == partition_id
+  # Pick this partition's modules: index % N == partition_id. An empty
+  # kept list is one empty line to `<<<`; skipped, or partition 0 ran
+  # synth.sh with DESIGN_NAME="", synthesised the top, and the merge
+  # wrote the top twice (once more from the top partition).
   MY_MODULES=()
   idx=0
   while IFS= read -r module; do
+    [ -n "$module" ] || continue
     if (( idx % NUM_PARTITIONS == PARTITION_ID )); then
       MY_MODULES+=("$module")
     fi
