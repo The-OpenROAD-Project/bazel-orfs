@@ -46,14 +46,9 @@ While it is a draft, rewrite freely and force-push: squash, reorder, fix commits
 
 ## 5. Bot review: verify, answer, resolve
 
-A review bot's comments (Gemini Code Assist, for one) are claims to verify, not instructions. For each one:
-
-- check it against the code: does the problem exist, does the suggestion fix it, does it hold for every caller;
-- reject a suggestion that turns a hard failure into a silent fallback (a quashed null, a default that hides a missing input): the change fails early and loudly on purpose;
-- take it, in the commit that owns the concern, or don't;
-- reply on the thread, "Taken: <what changed>" or "Not taken: <why>", and resolve it.
-
-Every thread answered and resolved, so the human reviewer sees none open that nobody looked at.
+Every review-bot comment is verified, answered and resolved, as
+`docs/agent-rules.md` ("Review bots: trust, but verify") says; a nit that
+is taken goes into the commit that owns the concern.
 
 ## 6. The carried patch stays put while the pull request settles
 
