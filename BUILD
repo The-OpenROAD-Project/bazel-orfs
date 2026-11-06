@@ -44,6 +44,7 @@ exports_files([
     "quick_pins.tcl",
     "quick_pins_footprint_stub.tcl",
     "rc.bzl",
+    "report_stage.tcl",
     "rtlil_kept_macros.py",
     "rtlil_kept_modules.py",
     "rtlil_names.py",
