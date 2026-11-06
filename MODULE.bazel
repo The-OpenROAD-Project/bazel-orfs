@@ -322,11 +322,6 @@ archive_override(
         # 60.5 s; ideas/structured-macros.md). Not upstreamed; retires at
         # a //:bump onto an OpenROAD that has it.
         "//patches:0200-openroad-grt-res-aware-3d-once.patch",
-        # 0202: CTS latency balancing times the clock network with CRPR off:
-        # with it on, every register clock pin's arrival keeps its own clock
-        # path and XSTile's Top took 77 GB there; the tree is unchanged. Not
-        # upstreamed; retires at a //:bump onto an OpenROAD that has it.
-        "//patches:0202-openroad-cts-balance-without-crpr.patch",
         # 0207: CTS latency balancing asks for clock arrivals only, not every
         # arrival in the design; with 0206, XSTile's Top CTS on OpenROAD
         # master 101.8 -> 47.8 GB heap, 1,045 -> 609 s, same checkpoint.
