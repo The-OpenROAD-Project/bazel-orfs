@@ -43,18 +43,18 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  4 files changed, 144 insertions(+), 10 deletions(-)
 
 diff --git a/src/grt/src/fastroute/include/FastRoute.h b/src/grt/src/fastroute/include/FastRoute.h
-index e7024d8..de098b0 100644
+index 6d6b0a7..b7218a8 100644
 --- a/src/grt/src/fastroute/include/FastRoute.h
 +++ b/src/grt/src/fastroute/include/FastRoute.h
-@@ -494,6 +494,7 @@ class FastRouteCore
-                            int to_y,
+@@ -514,6 +514,7 @@ class FastRouteCore
                             bool is_via);
    void mazeRouteMSMDOrder3D(int expand, int ripupTHlb, int ripupTHub);
+   bool canRunMaze3D(int overflow_2d) const;
 +  void finalMazeRoute3D(int expand, int long_edge_len, int short_edge_len);
    void addNeighborPoints(int netID,
                           int n1,
                           int n2,
-@@ -846,6 +847,8 @@ class FastRouteCore
+@@ -869,6 +870,8 @@ class FastRouteCore
    float critical_nets_percentage_;
    float res_aware_nets_percentage_ = 15;
    bool is_fixed_nets_percentage_ = false;
@@ -64,13 +64,13 @@ index e7024d8..de098b0 100644
    static constexpr float kMidResAwareNetsPercentage = 30.0f;
    static constexpr float kFinalResAwareNetsPercentage = 100.0f;
 diff --git a/src/grt/src/fastroute/src/FastRoute.cpp b/src/grt/src/fastroute/src/FastRoute.cpp
-index 112c458..0ae2b0c 100644
+index c2b6f34..9b65d90 100644
 --- a/src/grt/src/fastroute/src/FastRoute.cpp
 +++ b/src/grt/src/fastroute/src/FastRoute.cpp
-@@ -2811,16 +2811,7 @@ NetRouteMap FastRouteCore::run()
+@@ -2842,16 +2842,7 @@ NetRouteMap FastRouteCore::run()
      via_cost_ = 1;
  
-     if (past_cong == 0) {
+     if (canRunMaze3D(past_cong)) {
 -      // Increase ripup threshold if res-aware is enabled
 -      if (enable_resistance_aware_) {
 -        long_edge_len = BIG_INT;
@@ -85,7 +85,7 @@ index 112c458..0ae2b0c 100644
      }
  
      // Disable estimate parasitics for grt incremental steps with
-@@ -2861,6 +2852,29 @@ NetRouteMap FastRouteCore::run()
+@@ -2892,6 +2883,29 @@ NetRouteMap FastRouteCore::run()
    return routes;
  }
  
@@ -274,6 +274,3 @@ index a190ba3..d959bfb 100644
 +
  }  // namespace
  }  // namespace grt
--- 
-2.53.0
-

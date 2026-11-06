@@ -30,17 +30,18 @@ Retires on the //:bump onto an OpenROAD whose OpenSTA carries it.
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
 diff --git a/src/sta/search/CheckTiming.cc b/src/sta/search/CheckTiming.cc
+index 50a49ca..5806cc8 100644
 --- a/src/sta/search/CheckTiming.cc
 +++ b/src/sta/search/CheckTiming.cc
-@@ -44,6 +44,7 @@
- #include "SdcClass.hh"
+@@ -45,6 +45,7 @@
  #include "Sim.hh"
  #include "StaState.hh"
+ #include "Tag.hh"
 +#include "TimingArc.hh"
  #include "TimingRole.hh"
  
  namespace sta {
-@@ -176,7 +177,8 @@ CheckTiming::checkRegClks(bool reg_multiple_clks,
+@@ -179,7 +180,8 @@ CheckTiming::checkRegClks(bool reg_multiple_clks,
    for (Vertex *vertex : graph_->regClkVertices()) {
      const Pin *pin = vertex->pin();
      const ClockSet *clks = clk_network_->clocks(pin);
@@ -50,7 +51,7 @@ diff --git a/src/sta/search/CheckTiming.cc b/src/sta/search/CheckTiming.cc
        no_clk_pins.insert(pin);
      if (reg_multiple_clks && clks && clks->size() > 1)
        multiple_clk_pins.insert(pin);
-@@ -329,6 +331,39 @@ CheckTiming::checkUnconstrainedSetups(PinSet &unconstrained_ends)
+@@ -349,6 +351,39 @@ CheckTiming::checkUnconstrainedSetups(PinSet &unconstrained_ends)
    }
  }
  
@@ -91,6 +92,7 @@ diff --git a/src/sta/search/CheckTiming.cc b/src/sta/search/CheckTiming.cc
  CheckTiming::hasClkedArrival(Vertex *vertex)
  {
 diff --git a/src/sta/search/CheckTiming.hh b/src/sta/search/CheckTiming.hh
+index 843646d..d6fbc99 100644
 --- a/src/sta/search/CheckTiming.hh
 +++ b/src/sta/search/CheckTiming.hh
 @@ -64,6 +64,7 @@ protected:
@@ -102,9 +104,10 @@ diff --git a/src/sta/search/CheckTiming.hh b/src/sta/search/CheckTiming.hh
    void checkUnconstrainedOutputs(PinSet &unconstrained_ends);
    void checkUnconstrainedSetups(PinSet &unconstrained_ends);
 diff --git a/src/sta/search/Sta.cc b/src/sta/search/Sta.cc
+index d23dcb4..185c921 100644
 --- a/src/sta/search/Sta.cc
 +++ b/src/sta/search/Sta.cc
-@@ -2323,8 +2323,9 @@ Sta::checkTiming(const Mode *mode,
+@@ -2350,8 +2350,9 @@ Sta::checkTiming(const Mode *mode,
                   bool loops,
                   bool generated_clks)
  {

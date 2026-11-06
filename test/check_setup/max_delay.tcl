@@ -1,5 +1,5 @@
 # A port a set_max_delay names is constrained, and so is a register a
-# set_max_delay reaches from it: patches/0110. Before it, check_setup
+# set_max_delay reaches from it (OpenSTA 8dd7ba8). Before it, check_setup
 # said d was missing set_input_delay, q set_output_delay, and r/D was an
 # unconstrained endpoint. e, p and u/D have no constraint at all and
 # must still be named.
@@ -8,8 +8,8 @@ set_max_delay 800 -from [get_ports d] -to [get_cells r]
 set_max_delay 800 -from [get_cells r] -to [get_ports q]
 
 set expected {
-  {unconstrained input port} e
-  {unconstrained output port} p
+  {missing set_input_delay} e
+  {missing set_output_delay} p
   {unconstrained endpoint} {p u/D}
 }
 set warnings [constraint_warnings]

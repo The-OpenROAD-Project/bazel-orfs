@@ -28,7 +28,7 @@ From `search/CheckTiming.cc`; a bare `check_setup` runs every check, each printi
 | register/latch pin with multiple clocks | more than one clock reaches a register clock pin |
 | unconstrained endpoint | an output port with neither a clocked output delay nor a `set_max_delay -to` it, or a setup check whose clock side is not a clock or whose data has no clocked arrival |
 | combinational loop | a loop with its cut points under `-verbose` |
-| input port missing set_input_delay, output port missing set_output_delay | a port with no port delay. With patch 0110 the warnings read unconstrained input port and unconstrained output port, and a port a `set_max_delay` names is not one |
+| input port missing set_input_delay, output port missing set_output_delay | a port with no port delay; a port a `set_max_delay` names is not one (OpenSTA 8dd7ba8, once patch 0110) |
 | generated clock not connected to a clock source | as it says |
 
 ## The count in the floorplan log is not enough
@@ -41,9 +41,9 @@ A dirty lane at floorplan (the `dirty-lane` skill) gets the database for a desig
 
 `.claude/skills/macro-constraints` explains why this flow writes no `set_input_delay` or `set_output_delay`: the platform's `constraints.sdc` budgets every port with `set_max_delay`. Stock `check_setup` names **every** input port as missing `set_input_delay`, every output port as missing `set_output_delay`, and every register fed only from inputs as an unconstrained endpoint, though `report_checks` times each against its `set_max_delay`. On XSTile those are 687 + 952 + 520 lines of warnings that bury the 280 that matter.
 
-Stock already counts an output port named by `set_max_delay -to` as constrained in the unconstrained-endpoint check (`hasMaxDelay`). Patch 0110 follows that precedent and extends it to `set_max_delay` generally: an input port named by `-from`, an output port named by `-to`, and a setup endpoint whose arrival a `set_max_delay` constrains are not reported. The port warnings follow the endpoint warning's pattern, `There are N unconstrained input ports.`, and say what was found, not which command to add: which one fits depends on the design.
+Stock already counts an output port named by `set_max_delay -to` as constrained in the unconstrained-endpoint check (`hasMaxDelay`). OpenSTA 8dd7ba8 (carried here as patch 0110 until the bump that took it) follows that precedent and extends it to `set_max_delay` generally: an input port named by `-from`, an output port named by `-to`, and a setup endpoint whose arrival a `set_max_delay` constrains are not reported. The port warnings keep their stock wording, `missing set_input_delay` and `missing set_output_delay` (f3114b7).
 
-`//test/check_setup:max_delay_test` checks it, and that a port and a register with no constraint at all are still named. On an OpenROAD carrying 0110, every warning under this SDC style is a finding: unclocked register pins, multiple clocks, loops, an unconstrained port, an unconstrained endpoint.
+`//test/check_setup:max_delay_test` checks it, and that a port and a register with no constraint at all are still named. On an OpenROAD whose OpenSTA has 8dd7ba8, every warning under this SDC style is a finding: unclocked register pins, multiple clocks, loops, an unconstrained port, an unconstrained endpoint.
 
 ## check_setup was blind to the case that matters most
 
@@ -54,7 +54,7 @@ Each has its own test in `test/check_setup`:
 - fdb00f48 (resolves #532), in OpenROAD's OpenSTA since the bump that retired it as patch 0108: the flop behind the gate is clocked and timed (`icg_tied_enable_test`).
 - `patches/0109-opensta-check-setup-launch-edge.patch`: `check_setup` counts a register no clock reaches on its launch edge as unclocked (`launch_edge_test`, a clock through a cell that carries only the falling edge).
 
-Patch 0110 (above) is a third concern; it applies on top of 0109.
+The `set_max_delay` handling (above, OpenSTA 8dd7ba8) is a third concern.
 
 So "check_setup is clean" means something only on an OpenROAD carrying 0109. To find what an older tree silently left untimed, run the check with a binary that carries 0109 and not 0108 (`/byo-openroad`, `OPENROAD_EXE`): the unclocked pins it reports are the registers the older timer skipped.
 
@@ -98,7 +98,7 @@ On XSTile's floorplan, all 280 traced:
 | endpoints | the block output is driven by | fix |
 |---|---|---|
 | 128 | `FpRegFile`, an AUTO_MEMORIES macro whose `.lib` the place-stage model never read | bazel-orfs #1224 |
-| 151 | a constant: `TIELO`/`TIEHI` through a buffer, or an `AND2` of a register with a `TIELO` | patch 0113 writes it into the model as that constant |
+| 151 | a constant: `TIELO`/`TIEHI` through a buffer, or an `AND2` of a register with a `TIELO` | `write_timing_model` writes it into the model as that constant (OpenSTA 3121ddf, once patch 0113) |
 | 1 | the `reset` port, passed straight through Frontend and false-pathed by design | none needed |
 
 After CTS a block's model can lose arcs for another reason: a register CTS leaves off the clock in the hierarchical netlist, its pin on the flat clock net but not on the hierarchical one. `check_setup` on a block's `4_cts.odb` read back shows it as unclocked register pins. OpenROAD #11718 and #11719 fixed the two causes seen here, and OpenROAD's own tests guard them (`TestHconn.SameModuleLoadsJoinSourceModNet`, `src/cts/test/hier_dummy_load.tcl`).
