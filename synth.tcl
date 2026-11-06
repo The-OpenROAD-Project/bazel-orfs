@@ -38,13 +38,23 @@ if { [env_var_exists_and_non_empty SYNTH_CHECKPOINT] } {
   read_checkpoint $::env(RESULTS_DIR)/1_1_yosys_canonicalize.rtlil
 }
 
-# Blackbox modules before hierarchy check (used by parallel partition synthesis)
-if { [env_var_exists_and_non_empty SYNTH_BLACKBOXES] } {
-  foreach m $::env(SYNTH_BLACKBOXES) {
-    if { ![catch {blackbox $m}] } {
-      # silently skip modules not in the design
+# Blackbox modules before hierarchy check (used by parallel partition
+# synthesis). synth_partition.sh hands its list over in a file, one name
+# per line: a kept list of thousands of modules is over Linux's 128 KiB
+# limit on one environment string.
+set synth_blackboxes [env_var_or_empty SYNTH_BLACKBOXES]
+if { [env_var_exists_and_non_empty SYNTH_BLACKBOXES_FILE] } {
+  set fid [open $::env(SYNTH_BLACKBOXES_FILE) r]
+  foreach m [split [read $fid] "\n"] {
+    if { $m ne "" } {
+      lappend synth_blackboxes $m
     }
   }
+  close $fid
+}
+foreach m $synth_blackboxes {
+  # silently skip modules not in the design
+  catch { blackbox $m }
 }
 
 hierarchy -check -top $::env(DESIGN_NAME)
@@ -56,10 +66,10 @@ if { $::env(SYNTH_GUT) } {
 }
 
 if { [env_var_exists_and_non_empty SYNTH_KEEP_MODULES] } {
-  # In partition mode (SYNTH_BLACKBOXES set) only the partition's top module
+  # In partition mode (blackboxes given) only the partition's top module
   # plus its own subhierarchy is present; the other kept modules are
   # blackboxed and won't be found. Skip the typo check there.
-  set strict [expr { ![env_var_exists_and_non_empty SYNTH_BLACKBOXES] }]
+  set strict [expr { [llength $synth_blackboxes] == 0 }]
   set missing [list]
   foreach module $::env(SYNTH_KEEP_MODULES) {
     # rtlil::set_attr throws a clean Tcl error ("module not found") when the
