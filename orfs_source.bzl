@@ -207,7 +207,8 @@ ORFS_PATCHES = [
     # 0208: a partition of a parallel synthesis reads the modules to
     # blackbox from SYNTH_BLACKBOXES_FILE: XSTile_flat's 2,250 names in
     # SYNTH_BLACKBOXES were over Linux's 128 KiB limit on one environment
-    # string. Not upstreamed; retires at a bump onto an ORFS that has it.
+    # string. Upstream as The-OpenROAD-Project/OpenROAD-flow-scripts#4798;
+    # retires at a bump onto an ORFS that has it.
     Label("//patches:0208-orfs-synth-blackboxes-file.patch"),
     # 0172: a register file's own flow (its top an inlined
     # AUTO_MEMORIES_REGFILES module) keeps generate_ram's layout: the

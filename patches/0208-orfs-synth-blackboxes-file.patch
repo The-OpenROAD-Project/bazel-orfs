@@ -13,7 +13,8 @@ modules is 206 KB of names, and starting synthesis failed with
 SYNTH_BLACKBOXES_FILE, one name per line, as bazel-orfs's
 synth_partition.sh writes it; SYNTH_BLACKBOXES still works.
 
-Not upstreamed; retires at a //:bump onto an ORFS that reads the file.
+Upstream as The-OpenROAD-Project/OpenROAD-flow-scripts#4798; retires at
+a //:bump onto an ORFS that has it.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
