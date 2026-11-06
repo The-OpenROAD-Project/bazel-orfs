@@ -123,5 +123,89 @@ class TestLogName(unittest.TestCase):
         self.assertNotEqual(_log_name(a, "m"), _log_name(b, "m"))
 
 
+def _script():
+    script = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "synth_partition.sh"
+    )
+    if not os.path.exists(script):
+        script = os.environ["SYNTH_PARTITION_SH"]
+    return os.path.abspath(script)
+
+
+# A synth.sh stand-in: it keeps what synth.tcl would blackbox, read from
+# SYNTH_BLACKBOXES_FILE, and writes the netlist synth_partition.sh
+# collects.
+FAKE_SYNTH_SH = """#!/usr/bin/env bash
+set -euo pipefail
+cp "$SYNTH_BLACKBOXES_FILE" "$RESULTS_DIR/blackboxes_$DESIGN_NAME.txt"
+echo "module $DESIGN_NAME; endmodule" > "$RESULTS_DIR/1_2_yosys.v"
+"""
+
+
+class TestDiscoveredBlackboxes(unittest.TestCase):
+    """A discovered kept list too long for one environment string.
+
+    XSTile_flat keeps 2,250 modules, 206 KB of names. Passed as one
+    SYNTH_BLACKBOXES environment string it was over Linux's 128 KiB
+    MAX_ARG_STRLEN, and execve of synth.sh failed with "Argument list
+    too long" on every partition.
+    """
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.results = os.path.join(self.dir, "results")
+        scripts = os.path.join(self.dir, "scripts")
+        os.makedirs(self.results)
+        os.makedirs(scripts)
+        synth_sh = os.path.join(scripts, "synth.sh")
+        with open(synth_sh, "w") as f:
+            f.write(FAKE_SYNTH_SH)
+        os.chmod(synth_sh, 0o755)
+        # 2,250 slang-shaped names of about 90 bytes: XSTile_flat's count
+        self.modules = [
+            "XSTile$top.core.backend.gen[%d].unit_with_a_long_name_%04d%s"
+            % (i, i, "x" * 30)
+            for i in range(2250)
+        ]
+        self.assertGreater(len(" ".join(self.modules)), 128 * 1024)
+        with open(os.path.join(self.results, "kept_modules.json"), "w") as f:
+            names = ", ".join('"%s"' % m for m in self.modules)
+            f.write('{"modules": [' + names + "]}")
+        self.env = {
+            "PATH": os.environ["PATH"],
+            "RESULTS_DIR": self.results,
+            "LOG_DIR": os.path.join(self.dir, "logs"),
+            "OBJECTS_DIR": os.path.join(self.dir, "objects"),
+            "SCRIPTS_DIR": scripts,
+            "SYNTH_TCL": "synth.tcl",
+            "DESIGN_NAME": "XSTile",
+            "SYNTH_NUM_PARTITIONS": "1000",
+        }
+
+    def _run(self, partition):
+        result = subprocess.run(
+            ["bash", _script()],
+            env={**self.env, "SYNTH_PARTITION_ID": partition},
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr[-2000:])
+
+    def _blackboxes(self, design):
+        path = os.path.join(self.results, "blackboxes_%s.txt" % design)
+        with open(path) as f:
+            return f.read().splitlines()
+
+    def test_a_partition_blackboxes_every_other_kept_module(self):
+        self._run("1")
+        for module in (self.modules[1], self.modules[1001], self.modules[2001]):
+            expected = [m for m in self.modules if m != module]
+            self.assertEqual(self._blackboxes(module), expected)
+
+    def test_the_top_blackboxes_every_kept_module(self):
+        self._run("top")
+        self.assertEqual(self._blackboxes("XSTile"), self.modules)
+
+
 if __name__ == "__main__":
     unittest.main()

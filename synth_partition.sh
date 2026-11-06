@@ -5,7 +5,13 @@
 # the module's dedicated per-module RTLIL slice (produced by
 # synth_canonicalize_module.tcl, all other kept modules blackboxed);
 # with a discovered list it is the global keep checkpoint plus
-# SYNTH_BLACKBOXES. See the comment above the module loop.
+# the blackbox list. See the comment above the module loop.
+#
+# The blackbox list goes to synth.tcl in a file, SYNTH_BLACKBOXES_FILE,
+# one name per line, not in the SYNTH_BLACKBOXES environment variable:
+# Linux caps one environment string at 128 KiB (MAX_ARG_STRLEN), and
+# XSTile_flat's 2,250 kept modules are 206 KB of names, so execve of
+# synth.sh failed with "Argument list too long" on every partition.
 #
 # When SYNTH_PARTITION_ID=top, synthesizes the top module (DESIGN_NAME)
 # with all kept modules blackboxed against the global checkpoint (the top
@@ -19,6 +25,8 @@
 #   SYNTH_NUM_PARTITIONS   - total number of partitions
 #   RESULTS_DIR, SCRIPTS_DIR, etc. - standard ORFS env
 set -euo pipefail
+
+BLACKBOXES_FILE="$OBJECTS_DIR/synth_partition_blackboxes.txt"
 
 # Sanitise a module name into a filename component. Must stay in lockstep
 # with rules.bzl's per-module artifact naming and parallel_synth.mk's
@@ -78,10 +86,11 @@ else
     else
       CHECKPOINT="$RESULTS_DIR/1_1_yosys_keep.rtlil"
     fi
-    BLACKBOXES=$(echo "$ALL_MODULES" | tr '\n' ' ')
-    echo "=== Synthesizing top module: $DESIGN_NAME (blackboxes: $BLACKBOXES) ==="
+    mkdir -p "$OBJECTS_DIR"
+    printf '%s\n' "$ALL_MODULES" > "$BLACKBOXES_FILE"
+    echo "=== Synthesizing top module: $DESIGN_NAME (blackboxes: $(wc -l < "$BLACKBOXES_FILE") kept modules) ==="
     SYNTH_CHECKPOINT="$CHECKPOINT" \
-    SYNTH_BLACKBOXES="$BLACKBOXES" \
+    SYNTH_BLACKBOXES_FILE="$BLACKBOXES_FILE" \
       "$SCRIPTS_DIR/synth.sh" \
       "$SYNTH_TCL" \
       "$LOG_DIR/1_2_yosys_partition_top.log"
@@ -123,7 +132,7 @@ echo "Partition $PARTITION_ID: synthesizing ${#MY_MODULES[@]} modules: ${MY_MODU
 # Discovered (no list): the kept modules were found by synth_keep.tcl
 # inside a build action, so no per-module slice could be declared. Each
 # module is synthesised from the global keep checkpoint with every other
-# kept module blackboxed via SYNTH_BLACKBOXES. Names in kept_modules.json
+# kept module blackboxed via SYNTH_BLACKBOXES_FILE. Names in kept_modules.json
 # came out of the RTLIL, so they are already canonical. This is the
 # original partition loop, before per-module slices (f3c5254) made the
 # pinned mode cache-stable; it costs cache stability, not correctness.
@@ -132,15 +141,15 @@ for module in "${MY_MODULES[@]}"; do
   # Truncate module name in log filename to avoid filesystem limits
   log_module="${module:0:80}"
   if [ "${SYNTH_SKIP_KEEP:-0}" != "1" ]; then
-    BLACKBOXES=""
+    mkdir -p "$OBJECTS_DIR"
     while IFS= read -r m; do
       if [ "$m" != "$module" ]; then
-        BLACKBOXES="${BLACKBOXES:+$BLACKBOXES }$m"
+        printf '%s\n' "$m"
       fi
-    done <<< "$ALL_MODULES"
-    echo "=== Synthesizing module: $module (from 1_1_yosys_keep.rtlil, blackboxes: $BLACKBOXES) ==="
+    done <<< "$ALL_MODULES" > "$BLACKBOXES_FILE"
+    echo "=== Synthesizing module: $module (from 1_1_yosys_keep.rtlil, blackboxes: $(wc -l < "$BLACKBOXES_FILE") other kept modules) ==="
     SYNTH_CHECKPOINT="$RESULTS_DIR/1_1_yosys_keep.rtlil" \
-    SYNTH_BLACKBOXES="$BLACKBOXES" \
+    SYNTH_BLACKBOXES_FILE="$BLACKBOXES_FILE" \
     DESIGN_NAME="$module" \
       "$SCRIPTS_DIR/synth.sh" \
       "$SYNTH_TCL" \
