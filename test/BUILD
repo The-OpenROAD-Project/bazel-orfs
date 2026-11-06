@@ -1153,7 +1153,7 @@ sh_test(
     srcs = ["synth_discovery_netlist_test.sh"],
     args = [
         "$(location :flattened_modules_synth_netlist)",
-        "kept_modules_top",
+        "=kept_modules_top",
         "!adder",
         "!counter",
     ],
