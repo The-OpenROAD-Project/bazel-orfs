@@ -3,10 +3,10 @@ load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_python//python:defs.bzl", "py_test")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
-# AUTO_MEMORIES_REGFILES (ORFS patch 0089 on OpenROAD patch 0010) in its
+# AUTO_MEMORIES_REGFILES (ORFS, on OpenROAD patch 0010) in its
 # smallest form: one 16 x 8 register file with two read and two write
 # ports in a parent of flops, seconds to global route. regfile_top places
-# it as a macro (AUTO_MEMORIES_MACRO_PLACE, ORFS patch 0089), which dissolves
+# it as a macro (AUTO_MEMORIES_MACRO_PLACE), which dissolves
 # into its cells after macro placement; the inlined variant does not
 # list it, so synthesis reads the generated netlist in the module's place.
 exports_files(
@@ -108,7 +108,7 @@ build_test(
 # (SYNTH_MINIMUM_KEEP_SIZE) needs a cost for every instanced blackbox,
 # and a register-file macro is a blackbox made from the RTL's own
 # module: its line in blackboxes.txt carries the area its generated .lib
-# states (ORFS #4650 and patch 0089), or synthesis stops with "Missing
+# states (ORFS #4650), or synthesis stops with "Missing
 # cost information on instanced blackbox". The threshold is 1, not 0:
 # yosys reads -min_cost 0 as no threshold and never asks for a cost.
 orfs_flow(
@@ -137,7 +137,7 @@ filegroup(
 
 # Synthesis reached its netlist, and the register file is a macro
 # instance, not a module of its own: generate_ram's RegFile_ram, behind
-# the wrapper in RegFile's place (ORFS patch 0089), which hierarchical
+# the wrapper in RegFile's place (ORFS), which hierarchical
 # synthesis may keep.
 sh_test(
     name = "regfile_top_keep_synth_test",
@@ -152,8 +152,7 @@ sh_test(
 )
 
 # The register file's line in blackboxes.txt is `RegFile_ram <area>`:
-# generate_ram's RAM is the macro, a wrapper in RegFile's place (ORFS
-# patch 0089).
+# generate_ram's RAM is the macro, a wrapper in RegFile's place.
 genrule(
     name = "regfile_top_keep_blackboxes",
     srcs = [":regfile_top_keep_synth"],

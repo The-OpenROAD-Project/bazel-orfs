@@ -42,7 +42,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100644 src/grt/test/gcd_no_incremental.tcl
 
 diff --git a/src/grt/README.md b/src/grt/README.md
-index 4641bf2440..3adc56dea1 100644
+index 4641bf2..3adc56d 100644
 --- a/src/grt/README.md
 +++ b/src/grt/README.md
 @@ -28,6 +28,7 @@ global_route
@@ -62,7 +62,7 @@ index 4641bf2440..3adc56dea1 100644
  ### Set Routing Layers
  
 diff --git a/src/grt/include/grt/GlobalRouter.h b/src/grt/include/grt/GlobalRouter.h
-index 3ee2b0476c..b372e37e13 100644
+index 597aedf..ef784d3 100644
 --- a/src/grt/include/grt/GlobalRouter.h
 +++ b/src/grt/include/grt/GlobalRouter.h
 @@ -161,6 +161,11 @@ class GlobalRouter
@@ -77,7 +77,7 @@ index 3ee2b0476c..b372e37e13 100644
    int getSnapshotBatchedWidth() const;
    int getSnapshotBatchCount() const;
    bool isResistanceAware() { return resistance_aware_; };
-@@ -656,6 +661,7 @@ class GlobalRouter
+@@ -657,6 +662,7 @@ class GlobalRouter
    bool resistance_aware_{false};
    int snapshot_batched_width_{0};
    std::string backing_file_;
@@ -86,7 +86,7 @@ index 3ee2b0476c..b372e37e13 100644
    std::vector<int> vertical_capacities_;
    std::vector<int> horizontal_capacities_;
 diff --git a/src/grt/src/GlobalRouter.cpp b/src/grt/src/GlobalRouter.cpp
-index 4e9451250f..f572333e02 100644
+index 5d2a6cd..98257ab 100644
 --- a/src/grt/src/GlobalRouter.cpp
 +++ b/src/grt/src/GlobalRouter.cpp
 @@ -560,6 +560,13 @@ void GlobalRouter::globalRoute(bool save_guides)
@@ -104,7 +104,7 @@ index 4e9451250f..f572333e02 100644
      const int elapsed = static_cast<int>(timer.elapsed());
      const int hour = elapsed / 3600;
 diff --git a/src/grt/src/GlobalRouter.i b/src/grt/src/GlobalRouter.i
-index e75ccab87b..27fbe6f613 100644
+index e75ccab..27fbe6f 100644
 --- a/src/grt/src/GlobalRouter.i
 +++ b/src/grt/src/GlobalRouter.i
 @@ -161,6 +161,12 @@ set_backing_file(const char* path)
@@ -121,7 +121,7 @@ index e75ccab87b..27fbe6f613 100644
  get_snapshot_batched_width()
  {
 diff --git a/src/grt/src/GlobalRouter.tcl b/src/grt/src/GlobalRouter.tcl
-index 8581b7e7dd..88978d3caa 100644
+index 8581b7e..88978d3 100644
 --- a/src/grt/src/GlobalRouter.tcl
 +++ b/src/grt/src/GlobalRouter.tcl
 @@ -151,6 +151,7 @@ sta::define_cmd_args "global_route" {[-guide_file out_file] \
@@ -151,22 +151,22 @@ index 8581b7e7dd..88978d3caa 100644
      grt::set_backing_file $keys(-backing_file)
    } else {
 diff --git a/src/grt/src/fastroute/src/graph2d.cpp b/src/grt/src/fastroute/src/graph2d.cpp
-index 3b3a7b62ae..24da55d758 100644
+index 87c9c52..7ee7a19 100644
 --- a/src/grt/src/fastroute/src/graph2d.cpp
 +++ b/src/grt/src/fastroute/src/graph2d.cpp
-@@ -245,6 +245,10 @@ void Graph2D::clear()
+@@ -247,6 +247,10 @@ void Graph2D::clear()
    v_dirty_used_grids_.clear();
    h_edges_.resize(boost::extents[0][0]);
    v_edges_.resize(boost::extents[0][0]);
 +  h_cap_3D_.resize(boost::extents[0][0][0]);
 +  v_cap_3D_.resize(boost::extents[0][0][0]);
-+  h_ndr_nets_.resize(boost::extents[0][0]);
-+  v_ndr_nets_.resize(boost::extents[0][0]);
++  ndr_nets_ = {};
++  ndr_debit_ = {};
    h_dirty_est_edges_.clear();
    v_dirty_est_edges_.clear();
    h_dirty_history_edges_.clear();
 diff --git a/src/grt/test/BUILD b/src/grt/test/BUILD
-index 3f99234af6..44073c99dc 100644
+index 3f99234..44073c9 100644
 --- a/src/grt/test/BUILD
 +++ b/src/grt/test/BUILD
 @@ -44,6 +44,7 @@ TESTS = [
@@ -179,7 +179,7 @@ index 3f99234af6..44073c99dc 100644
      "global_route_above_max_layer_cugr",
 diff --git a/src/grt/test/gcd_no_incremental.ok b/src/grt/test/gcd_no_incremental.ok
 new file mode 100644
-index 0000000000..fb367c5492
+index 0000000..fb367c5
 --- /dev/null
 +++ b/src/grt/test/gcd_no_incremental.ok
 @@ -0,0 +1,68 @@
@@ -253,7 +253,7 @@ index 0000000000..fb367c5492
 +No differences found.
 diff --git a/src/grt/test/gcd_no_incremental.tcl b/src/grt/test/gcd_no_incremental.tcl
 new file mode 100644
-index 0000000000..fd5844ad87
+index 0000000..fd5844a
 --- /dev/null
 +++ b/src/grt/test/gcd_no_incremental.tcl
 @@ -0,0 +1,15 @@
@@ -272,6 +272,3 @@ index 0000000000..fd5844ad87
 +write_guides $guide_file
 +
 +diff_files gcd.guideok $guide_file
--- 
-2.53.0
-

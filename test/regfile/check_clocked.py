@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """After the dissolve, STA sees every register clocked.
 
-regfile_dissolve.tcl (ORFS patch 0089) replaces the register file macro
+ORFS's regfile_dissolve.tcl replaces the register file macro
 with its cells inside the macro's module. A cell connected to the flat
 clock net but not to the module's clock net is invisible to STA's clock
 propagation: its flops are no endpoints until CTS rewires them, and

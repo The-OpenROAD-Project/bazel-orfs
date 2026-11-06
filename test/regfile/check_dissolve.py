@@ -2,7 +2,7 @@
 """test/regfile's regfile_top after the macro step: the register file dissolved.
 
 The flow saw RegFile as a macro through synthesis and macro placement;
-regfile_dissolve.tcl (ORFS patch 0089) then replaced it with its cells.
+ORFS's regfile_dissolve.tcl then replaced it with its cells.
 dissolve_probe.tcl counts what is there; this asserts what should be:
 
 - no RegFile macro is left;

@@ -134,7 +134,7 @@ synthesis knob renames the module (ORFS asap7 mock-cpu,
 - **Multicycle and false-path exceptions** are not a fix at all
   (`dogfooding`).
 - **Flow defects** (an unbuffered clock pin on an abstract, PDN supplies
-  of dont_touch cells: carried patches 0124, 0125) are fixed in the
+  of dont_touch cells: carried patch 0124, and ORFS's mode macro stop) are fixed in the
   flow, not the RTL.
 
 ## The rules

@@ -1,7 +1,7 @@
 # What the macro step left of test/regfile's regfile_top register file, as JSON:
 # whether the macro is gone, its cells by kind, and the facts
 # check_dissolve.py asserts. The macro is generate_ram's RegFile_ram behind
-# a wrapper in RegFile's place (ORFS patch 0089); the core is the cells
+# a wrapper in RegFile's place; the core is the cells
 # its .place file names, the rest under its instance the periphery.
 # The stage's ODB is ODB_FILE, in another repository's results directory:
 # read it directly, and the generator's files from beside it.

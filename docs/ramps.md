@@ -374,7 +374,7 @@ needs these first:
   this list.
 
 A `BLOCKS` export of the tile, the blocks made by ORFS, needs OpenROAD #11723 (`generate_ram`) and
-`AUTO_MEMORIES_REGFILES` (ORFS patch 0089), and the parent re-planned on
+`AUTO_MEMORIES_REGFILES` (in ORFS), and the parent re-planned on
 the blocks' own outlines. Until then, `EXPORT.md` lists every patch the
 pinned tools carry, and a `//:dirty` tree has them applied.
 

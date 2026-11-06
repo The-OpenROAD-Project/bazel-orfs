@@ -50,7 +50,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100644 src/grt/test/gcd_backing_file.tcl
 
 diff --git a/src/grt/BUILD b/src/grt/BUILD
-index 61765a0e83..68b571858d 100644
+index 61765a0..68b5718 100644
 --- a/src/grt/BUILD
 +++ b/src/grt/BUILD
 @@ -60,6 +60,7 @@ cc_library(
@@ -70,7 +70,7 @@ index 61765a0e83..68b571858d 100644
          "src/fastroute/include/Overflow.h",
      ],
 diff --git a/src/grt/README.md b/src/grt/README.md
-index 14905f0f1a..4641bf2440 100644
+index 14905f0..4641bf2 100644
 --- a/src/grt/README.md
 +++ b/src/grt/README.md
 @@ -27,6 +27,7 @@ global_route
@@ -90,7 +90,7 @@ index 14905f0f1a..4641bf2440 100644
  ### Set Routing Layers
  
 diff --git a/src/grt/include/grt/GlobalRouter.h b/src/grt/include/grt/GlobalRouter.h
-index a0cc35f406..f56a006401 100644
+index 82c5841..25ee80a 100644
 --- a/src/grt/include/grt/GlobalRouter.h
 +++ b/src/grt/include/grt/GlobalRouter.h
 @@ -160,6 +160,7 @@ class GlobalRouter
@@ -101,7 +101,7 @@ index a0cc35f406..f56a006401 100644
    int getSnapshotBatchedWidth() const;
    int getSnapshotBatchCount() const;
    bool isResistanceAware() { return resistance_aware_; };
-@@ -648,6 +649,7 @@ class GlobalRouter
+@@ -649,6 +650,7 @@ class GlobalRouter
    bool allow_congestion_;
    bool resistance_aware_{false};
    int snapshot_batched_width_{0};
@@ -110,7 +110,7 @@ index a0cc35f406..f56a006401 100644
    std::vector<int> vertical_capacities_;
    std::vector<int> horizontal_capacities_;
 diff --git a/src/grt/src/GlobalRouter.cpp b/src/grt/src/GlobalRouter.cpp
-index 864fdc9263..bd7c06f4cb 100644
+index dd8ec96..b40c655 100644
 --- a/src/grt/src/GlobalRouter.cpp
 +++ b/src/grt/src/GlobalRouter.cpp
 @@ -127,6 +127,12 @@ void GlobalRouter::setSnapshotBatchedWidth(int snapshot_batched_width)
@@ -126,7 +126,7 @@ index 864fdc9263..bd7c06f4cb 100644
  int GlobalRouter::getSnapshotBatchedWidth() const
  {
    return fastroute_->getSnapshotBatchedWidth();
-@@ -3190,6 +3196,7 @@ void GlobalRouter::configFastRoute()
+@@ -3192,6 +3198,7 @@ void GlobalRouter::configFastRoute()
    fastroute_->setCongestionReportIterStep(congestion_report_iter_step_);
    fastroute_->setResistanceAware(resistance_aware_);
    fastroute_->setSnapshotBatchedWidth(snapshot_batched_width_);
@@ -135,7 +135,7 @@ index 864fdc9263..bd7c06f4cb 100644
    if (congestion_file_name_ != nullptr) {
      fastroute_->setCongestionReportFile(congestion_file_name_);
 diff --git a/src/grt/src/GlobalRouter.i b/src/grt/src/GlobalRouter.i
-index 13c7fad2be..e75ccab87b 100644
+index 13c7fad..e75ccab 100644
 --- a/src/grt/src/GlobalRouter.i
 +++ b/src/grt/src/GlobalRouter.i
 @@ -155,6 +155,12 @@ set_snapshot_batched_width(int snapshot_batched_width)
@@ -152,7 +152,7 @@ index 13c7fad2be..e75ccab87b 100644
  get_snapshot_batched_width()
  {
 diff --git a/src/grt/src/GlobalRouter.tcl b/src/grt/src/GlobalRouter.tcl
-index e5d82b817f..8581b7e7dd 100644
+index e5d82b8..8581b7e 100644
 --- a/src/grt/src/GlobalRouter.tcl
 +++ b/src/grt/src/GlobalRouter.tcl
 @@ -150,6 +150,7 @@ sta::define_cmd_args "global_route" {[-guide_file out_file] \
@@ -186,7 +186,7 @@ index e5d82b817f..8581b7e7dd 100644
    grt::set_infinite_cap $infinite_cap
  
 diff --git a/src/grt/src/fastroute/include/FastRoute.h b/src/grt/src/fastroute/include/FastRoute.h
-index b00ff743e5..f881b87845 100644
+index 4745ee0..54a8153 100644
 --- a/src/grt/src/fastroute/include/FastRoute.h
 +++ b/src/grt/src/fastroute/include/FastRoute.h
 @@ -16,6 +16,7 @@
@@ -206,7 +206,7 @@ index b00ff743e5..f881b87845 100644
    void setNumAdjustments(int nAdjustments);
    void addAdjustment(int x1,
                       int y1,
-@@ -939,6 +942,8 @@ class FastRouteCore
+@@ -962,6 +965,8 @@ class FastRouteCore
    bool snapshot_batch_disabled_for_run_ = false;
    bool snapshot_cleanup_active_ = false;
    bool has_non_soft_ndr_nets_ = false;
@@ -217,7 +217,7 @@ index b00ff743e5..f881b87845 100644
  
 diff --git a/src/grt/src/fastroute/include/FileBacking.h b/src/grt/src/fastroute/include/FileBacking.h
 new file mode 100644
-index 0000000000..eb5d248eb6
+index 0000000..eb5d248
 --- /dev/null
 +++ b/src/grt/src/fastroute/include/FileBacking.h
 @@ -0,0 +1,54 @@
@@ -276,10 +276,10 @@ index 0000000000..eb5d248eb6
 +
 +}  // namespace grt
 diff --git a/src/grt/src/fastroute/include/Graph2D.h b/src/grt/src/fastroute/include/Graph2D.h
-index bb2e1ff2de..ba61a07f05 100644
+index d1a2749..6943770 100644
 --- a/src/grt/src/fastroute/include/Graph2D.h
 +++ b/src/grt/src/fastroute/include/Graph2D.h
-@@ -14,6 +14,7 @@
+@@ -15,6 +15,7 @@
  #include <vector>
  
  #include "DataType.h"
@@ -287,7 +287,7 @@ index bb2e1ff2de..ba61a07f05 100644
  #include "Overflow.h"
  #include "boost/multi_array.hpp"
  #include "utl/Logger.h"
-@@ -124,6 +125,11 @@ class Graph2D
+@@ -119,6 +120,11 @@ class Graph2D
    void updateUsageV(int x, const Interval& yi, FrNet* net, int usage);
    void updateUsageV(int x, int y, FrNet* net, int usage);
    void initCap3D();
@@ -296,11 +296,11 @@ index bb2e1ff2de..ba61a07f05 100644
 +  void mapEdges(FileBacking& backing, utl::Logger* logger);
 +  void mapCap3D(FileBacking& backing, utl::Logger* logger);
 +  static size_t backingBytes(int x_grid, int y_grid, int num_layers);
-   void updateCap3D(int x, int y, int layer, EdgeDirection direction, int cap);
-   // Adds to a layer's capacity, keeping the NDR capacity reserved on it.
-   void addCap3D(int x, int y, int layer, EdgeDirection direction, int delta);
+   void updateCap3D(int x,
+                    int y,
+                    int layer,
 diff --git a/src/grt/src/fastroute/src/FastRoute.cpp b/src/grt/src/fastroute/src/FastRoute.cpp
-index 08eb4b017d..2e0231cca9 100644
+index 4fd396b..5a25938 100644
 --- a/src/grt/src/fastroute/src/FastRoute.cpp
 +++ b/src/grt/src/fastroute/src/FastRoute.cpp
 @@ -143,6 +143,7 @@ FastRouteCore::~FastRouteCore()
@@ -351,7 +351,7 @@ index 08eb4b017d..2e0231cca9 100644
      for (int x = 0; x < x_grid_; x++) {
 diff --git a/src/grt/src/fastroute/src/FileBacking.cpp b/src/grt/src/fastroute/src/FileBacking.cpp
 new file mode 100644
-index 0000000000..ca999b308e
+index 0000000..ca999b3
 --- /dev/null
 +++ b/src/grt/src/fastroute/src/FileBacking.cpp
 @@ -0,0 +1,123 @@
@@ -479,11 +479,11 @@ index 0000000000..ca999b308e
 +
 +}  // namespace grt
 diff --git a/src/grt/src/fastroute/src/graph2d.cpp b/src/grt/src/fastroute/src/graph2d.cpp
-index 0de3e2bb22..3b3a7b62ae 100644
+index 442b0bc..87c9c52 100644
 --- a/src/grt/src/fastroute/src/graph2d.cpp
 +++ b/src/grt/src/fastroute/src/graph2d.cpp
-@@ -1232,4 +1232,36 @@ void Graph2D::resetNDRCap()
-   }
+@@ -1353,4 +1353,29 @@ void Graph2D::resetNDRCap()
+   ndr_debit_.clear();
  }
  
 +void Graph2D::mapEdges(FileBacking& backing, utl::Logger* logger)
@@ -495,15 +495,9 @@ index 0de3e2bb22..3b3a7b62ae 100644
 +void Graph2D::mapCap3D(FileBacking& backing, utl::Logger* logger)
 +{
 +  backing.map(
-+      logger, h_cap_3D_.data(), h_cap_3D_.num_elements() * sizeof(Cap3D));
++      logger, h_cap_3D_.data(), h_cap_3D_.num_elements() * sizeof(uint16_t));
 +  backing.map(
-+      logger, v_cap_3D_.data(), v_cap_3D_.num_elements() * sizeof(Cap3D));
-+  backing.map(logger,
-+              h_ndr_nets_.data(),
-+              h_ndr_nets_.num_elements() * sizeof(*h_ndr_nets_.data()));
-+  backing.map(logger,
-+              v_ndr_nets_.data(),
-+              v_ndr_nets_.num_elements() * sizeof(*v_ndr_nets_.data()));
++      logger, v_cap_3D_.data(), v_cap_3D_.num_elements() * sizeof(uint16_t));
 +}
 +
 +size_t Graph2D::backingBytes(const int x_grid,
@@ -513,14 +507,13 @@ index 0de3e2bb22..3b3a7b62ae 100644
 +  const size_t cells = static_cast<size_t>(x_grid) * y_grid;
 +  const size_t edges = static_cast<size_t>(x_grid - 1) * y_grid
 +                       + static_cast<size_t>(x_grid) * (y_grid - 1);
-+  return edges * sizeof(Edge) + 2 * cells * num_layers * sizeof(Cap3D)
-+         + 2 * cells * sizeof(std::map<FrNet*, NDRUsage>)
-+         + 6 * FileBacking::pageSlack();
++  return edges * sizeof(Edge) + 2 * cells * num_layers * sizeof(uint16_t)
++         + 4 * FileBacking::pageSlack();
 +}
 +
  }  // namespace grt
 diff --git a/src/grt/test/BUILD b/src/grt/test/BUILD
-index ffb304a458..3f99234af6 100644
+index ffb304a..3f99234 100644
 --- a/src/grt/test/BUILD
 +++ b/src/grt/test/BUILD
 @@ -43,6 +43,7 @@ TESTS = [
@@ -533,7 +526,7 @@ index ffb304a458..3f99234af6 100644
      "global_route_above_max_layer_cugr",
 diff --git a/src/grt/test/gcd_backing_file.ok b/src/grt/test/gcd_backing_file.ok
 new file mode 100644
-index 0000000000..695b32cd98
+index 0000000..635c56c
 --- /dev/null
 +++ b/src/grt/test/gcd_backing_file.ok
 @@ -0,0 +1,68 @@
@@ -557,7 +550,7 @@ index 0000000000..695b32cd98
 +[INFO GRT-0088] Layer metal8  Track-Pitch = 0.8000  line-2-Via Pitch: 0.8000
 +[INFO GRT-0088] Layer metal9  Track-Pitch = 1.6000  line-2-Via Pitch: 1.6000
 +[INFO GRT-0088] Layer metal10 Track-Pitch = 1.6000  line-2-Via Pitch: 1.6000
-+[INFO GRT-1257] Routing grid backed by a file of 0.6 MB.
++[INFO GRT-1257] Routing grid backed by a file of 0.4 MB.
 +[INFO GRT-0003] Macros: 0
 +[INFO GRT-0004] Blockages: 0
 +[INFO GRT-0019] Found 0 clock nets.
@@ -607,7 +600,7 @@ index 0000000000..695b32cd98
 +No differences found.
 diff --git a/src/grt/test/gcd_backing_file.tcl b/src/grt/test/gcd_backing_file.tcl
 new file mode 100644
-index 0000000000..85b6a4ad0f
+index 0000000..85b6a4a
 --- /dev/null
 +++ b/src/grt/test/gcd_backing_file.tcl
 @@ -0,0 +1,12 @@
@@ -623,6 +616,3 @@ index 0000000000..85b6a4ad0f
 +write_guides $guide_file
 +
 +diff_files gcd.guideok $guide_file
--- 
-2.53.0
-

@@ -7,7 +7,7 @@ load("@rules_python//python:defs.bzl", "py_test")
 # abstract is written, so the macro's clock pin is a buffer's and its
 # model carries the tree (check_macro_lib.py). mode macro, which wrote the
 # model from generate_ram's netlist unclocked, presented this register
-# file's whole clock net as one 8.5 pF pin; it now stops (ORFS patch 0125).
+# file's whole clock net as one 8.5 pF pin; it now stops (ORFS).
 #
 # A wide register file, the shape that exposed it on XiangShan
 # (FtqMetaQueueResolve, 954 bits): 64 words of 256 bits, one read and one
