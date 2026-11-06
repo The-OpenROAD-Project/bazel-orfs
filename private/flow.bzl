@@ -87,6 +87,28 @@ def slang_arguments(macro, name, arguments, yosys_frontend_reason):
         ))
     return arguments | {"SYNTH_HDL_FRONTEND": frontend}
 
+def _check_detailed_metrics(name, arguments):
+    """Refuse DETAILED_METRICS where report_metrics is skipped.
+
+    DETAILED_METRICS asks for report_metrics between the repairs in cts
+    and grt, states no stage saves, so a <stage>_report cannot redo them.
+    ORFS's report_metrics returns at once under SKIP_REPORT_METRICS=1,
+    bazel-orfs's default, and the reports asked for would be silently
+    missing.
+
+    Args:
+        name: the flow's name, for the message.
+        arguments: the flow's arguments dict.
+    """
+    if arguments.get("DETAILED_METRICS", "0") in ("", "0"):
+        return
+    if arguments.get("SKIP_REPORT_METRICS", "1") == "0":
+        return
+    fail(("orfs_flow {}: DETAILED_METRICS reports in-stage, between the " +
+          "repairs, and report_metrics is skipped in-stage here " +
+          "(SKIP_REPORT_METRICS defaults to 1). Set SKIP_REPORT_METRICS = " +
+          "\"0\" next to it.").format(name))
+
 def hierarchical_arguments(arguments):
     """OpenROAD runs in hierarchical mode unless the design says otherwise.
 
@@ -505,6 +527,7 @@ def orfs_flow(
     arguments = repeatable_arguments(hierarchical_arguments(
         slang_arguments("orfs_flow", name, arguments, yosys_frontend_reason),
     ))
+    _check_detailed_metrics(name, arguments)
 
     if quick_pins:
         sources = sources | {
