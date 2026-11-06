@@ -157,7 +157,7 @@ if { "cts" in $todo } {
     # register, and a register that starts or ends a crossing also starts
     # or ends its macro's own paths; the group scopes it by path. On XSTile
     # with all six flattened nearly every failing endpoint is a crossing's
-    # anyway (117,057 of 118,489). 0208 keeps the group sound when repair
+    # anyway (117,057 of 118,489). 0210 keeps the group sound when repair
     # deletes one of its nets, 0209 lets repair_timing -path_group take it.
     set needs [lassign [sta::crossing_cones $flatten $parent 1 2 crossing] seeds kept before]
     puts "top_level: crossing paths only, [lindex $needs [expr { [lsearch -exact $needs false] + 1 }]]\
