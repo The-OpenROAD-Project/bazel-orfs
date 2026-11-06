@@ -1,0 +1,91 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] sdc: a deleted net leaves the exceptions -through it
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Sdc::deleteNetBefore dropped the net's wire caps and left every
+exception -through the net pointing at it, where deleteInstanceBefore
+and deletePinBefore remove their object from the exceptions. A
+group_path or false path -through nets kept a dangling Net* once a
+resizer move deleted one (remove_buffers, an unbuffer move): write_sdc
+then wrote garbage names, and a later search read freed memory.
+
+ExceptionPath::deleteNet drops the net from each -through, through the
+existing ExceptionThru::deleteNet, which keeps the exception's hash; the
+net's first-through index entry goes too.
+
+Not upstreamed. Carried in bazel-orfs for the flattened Top's crossing
+path group (repair_timing -path_group, patch 0209); retires on the
+//:bump onto an OpenROAD whose OpenSTA has it.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+diff --git a/src/sta/include/sta/ExceptionPath.hh b/src/sta/include/sta/ExceptionPath.hh
+index 67f5a2bd..42368259 100644
+--- a/src/sta/include/sta/ExceptionPath.hh
++++ b/src/sta/include/sta/ExceptionPath.hh
+@@ -127,6 +127,9 @@ public:
+                                bool own_pts) = 0;
+   void deleteInstance(const Instance *inst,
+                       const Network *network);
++  // A net is about to be deleted: drop it from every -through.
++  void deleteNet(const Net *net,
++                 const Network *network);
+ 
+   // Default handlers.
+   virtual bool useEndClk() const { return false; }
+@@ -584,14 +587,14 @@ public:
+                        Network *network) override;
+   void deleteInstance(const Instance *inst,
+                       const Network *network);
++  void deleteNet(const Net *net,
++                 const Network *network);
+ 
+ protected:
+   void findHash(const Network *network);
+   void deletePin(const Pin *pin,
+                  const Network *network);
+   void deleteEdge(const EdgePins &edge);
+-  void deleteNet(const Net *net,
+-                 const Network *network);
+   void makeAllEdges(const Network *network);
+   void makePinEdges(const Network *network);
+   void makeNetEdges(const Network *network);
+diff --git a/src/sta/sdc/ExceptionPath.cc b/src/sta/sdc/ExceptionPath.cc
+index 34aab4bc..26f45131 100644
+--- a/src/sta/sdc/ExceptionPath.cc
++++ b/src/sta/sdc/ExceptionPath.cc
+@@ -469,6 +469,16 @@ ExceptionPath::deleteInstance(const Instance *inst,
+     to_->deleteInstance(inst, network);
+ }
+ 
++void
++ExceptionPath::deleteNet(const Net *net,
++                         const Network *network)
++{
++  if (thrus_) {
++    for (ExceptionThru *thru : *thrus_)
++      thru->deleteNet(net, network);
++  }
++}
++
+ ////////////////////////////////////////////////////////////////
+ 
+ PathDelay::PathDelay(ExceptionFrom *from,
+diff --git a/src/sta/sdc/Sdc.cc b/src/sta/sdc/Sdc.cc
+index 2a6545aa..ecedde6a 100644
+--- a/src/sta/sdc/Sdc.cc
++++ b/src/sta/sdc/Sdc.cc
+@@ -337,6 +337,10 @@ Sdc::deleteNetBefore(const Net *net)
+   net_wire_cap_map_.erase(net);
+   for (const Pin *pin : *network_->drivers(net))
+     drvr_pin_wire_cap_map_.erase(pin);
++  // An exception -through the net would keep pointing at it.
++  for (ExceptionPath *exception : exceptions_)
++    exception->deleteNet(net, network_);
++  first_thru_net_exceptions_.erase(net);
+ }
+ 
+ // see Sdc::isConstrained
