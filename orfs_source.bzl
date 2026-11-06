@@ -171,7 +171,7 @@ ORFS_PATCHES = [
     # 0168: the SYNTH_KEEP_MODULES name check (ORFS #4745) skipped in
     # every partition of a parallel synthesis (a run that reads a
     # SYNTH_CHECKPOINT), where the other kept modules are blackboxed or,
-    # for an ancestor in a pinned slice, absent. ORFS #4770 (draft);
+    # for an ancestor in a pinned slice, absent. ORFS #4770;
     # retires at a bump onto an ORFS that skips it there.
     Label("//patches:0168-orfs-keep-modules-partition.patch"),
     # 0189: every global_route call passes -backing_file in OBJECTS_DIR, so
