@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] sta: ArrivalVisitor copy keeps clks_only
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+BfsIterator::visitParallel visits a level with one copy of the arrival
+visitor per thread, and the copy constructor passed false for
+clks_only. With more than one thread, findClkArrivals
+(Sta::ensureClkArrivals) did not stop at register clock pins and searched
+the whole design instead of the clock network. Every caller paid for it:
+report_clock_skew, report_clock_latency, the min pulse width checks,
+write_timing_model, the web viewer's clock tree, and with 0207 CTS
+latency balancing. The clock arrivals found are the same.
+
+Upstream as The-OpenROAD-Project/OpenSTA#462; retires with the //:bump
+onto an OpenROAD whose OpenSTA has it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+diff --git a/src/sta/search/Search.cc b/src/sta/search/Search.cc
+index ea4b6db7..5abf594b 100644
+--- a/src/sta/search/Search.cc
++++ b/src/sta/search/Search.cc
+@@ -1147,7 +1147,9 @@ ArrivalVisitor::ArrivalVisitor(const ArrivalVisitor &arrival_visitor) :
+   filtered_arrivals_(new VertexSeq)
+ {
+   init0();
+-  init(arrival_visitor.always_to_endpoints_, false, arrival_visitor.pred_);
++  init(arrival_visitor.always_to_endpoints_,
++       arrival_visitor.clks_only_,
++       arrival_visitor.pred_);
+ }
+ 
+ void

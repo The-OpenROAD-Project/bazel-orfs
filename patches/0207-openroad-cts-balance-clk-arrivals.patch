@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] cts: latency balancing times only the clock network
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The latency balancer reads the clock arrival at each sink and nothing
+else, but LatencyBalancer::initSta called updateTiming(false), which
+finds every arrival in the design. Ask for the clock arrivals. With 0206,
+XSTile's Top CTS on OpenROAD master peaks at 47.8 GB of heap instead of
+101.8 GB and runs in 609 s instead of 1,045 s; the checkpoint after CTS
+is byte-identical. Without 0206 it times the same arrivals as before.
+
+Upstream as The-OpenROAD-Project/OpenROAD#12147; retires with the
+//:bump onto an OpenROAD that has it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+diff --git a/src/cts/src/LatencyBalancer.cpp b/src/cts/src/LatencyBalancer.cpp
+index 37d1c00f8d..5e666971a2 100644
+--- a/src/cts/src/LatencyBalancer.cpp
++++ b/src/cts/src/LatencyBalancer.cpp
+@@ -87,7 +87,8 @@ void LatencyBalancer::initSta()
+   for (auto mode : openSta_->modes()) {
+     openSta_->ensureClkNetwork(mode);
+   }
+-  openSta_->updateTiming(false);
++  // Only clock arrivals at the sinks are read; data arrivals are not.
++  openSta_->ensureClkArrivals();
+   timingGraph_ = openSta_->graph();
+ }
+ 
