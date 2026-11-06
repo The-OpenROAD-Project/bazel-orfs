@@ -12,7 +12,7 @@ groups, without their structural endpoint classification.
 
 The flattened Top (bazel-orfs tools/carve/top_level.tcl) repairs its
 crossing group, the paths through the nets between two macros, so that
-repair never works on a macro's own paths. 0208 keeps that group sound
+repair never works on a macro's own paths. 0210 keeps that group sound
 when repair deletes one of its nets.
 
 repair_timing_path_group7: a group -through one net is repaired, its
