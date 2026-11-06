@@ -1,69 +1,93 @@
-load("//:openroad.bzl", "orfs_flow", "orfs_run")
+load("@rules_python//python:defs.bzl", "py_test")
+load("//:openroad.bzl", "orfs_flow")
 
-# Scratch harness for ideas/metrics-separate-action.md: report_metrics
-# on each stage's saved .odb/.sdc in a fresh process (sep_<stage>), to
-# compare with the in-stage metrics. Manual: two gcd flows.
-
-orfs_flow(
-    name = "gcd_metrics_on",
+# The <stage>_report targets reproduce the in-stage metrics
+# (docs/performance.md). Two gcd flows, the same but for where report_metrics
+# runs: "instage" runs it inside each stage, as ORFS does by default;
+# "ondemand" builds with bazel-orfs's default SKIP_REPORT_METRICS=1 and
+# reports from each stage's saved results in a <stage>_report target.
+[orfs_flow(
+    name = "gcd",
     arguments = {
         "CORE_ASPECT_RATIO": "1",
         "CORE_MARGIN": "0.5",
         "CORE_UTILIZATION": "65",
         "GPL_PLACE_IOS": "1",
         "PLACE_DENSITY": "0.35",
-        "DETAILED_METRICS": "1",
-        "SKIP_REPORT_METRICS": "0",
-    },
+    } | extra,
     sources = {"SDC_FILE": ["@orfs//flow/designs/asap7/gcd:constraint.sdc"]},
     tags = ["manual"],
     top = "gcd",
-    variant = "on",
+    variant = variant,
     verilog_files = ["@orfs//flow/designs/src/gcd:gcd.v"],
-)
-
-[orfs_run(
-    name = "sep_" + s,
-    src = ":gcd_metrics_on_on_" + s,
-    outs = [
-        "sep_%s.json" % s,
-        "%s_%s.rpt" % (
-            num,
-            when.replace(" ", "_"),
-        ),
-    ],
-    script = ":report_stage.tcl",
-    tags = ["manual"],
-    user_arguments = {
-        "FLAGS": flags,
-        "IN_ODB": odb,
-        "IN_SDC": sdc,
-        "MSTAGE": mstage,
-        "NUM": num,
-        "OUT_JSON": "sep_%s.json" % s,
-        "PARA": para,
-        "WHEN": when,
-    },
-) for s, odb, sdc, mstage, num, when, flags, para in [
-    ("place", "3_place.odb", "3_place.sdc", "detailedplace", "3", "detailed place", "true false", "placement"),
-    ("cts", "4_cts.odb", "4_cts.sdc", "cts", "4", "cts final", "", "placement"),
-    ("grt", "5_1_grt.odb", "5_1_grt.sdc", "globalroute", "5", "global route", "", "global_routing"),
-    ("final", "6_final.odb", "6_final.sdc", "finish", "6", "finish", "", "rcx"),
+) for variant, extra in [
+    (
+        "instage",
+        {"SKIP_REPORT_METRICS": "0"},
+    ),
+    ("ondemand", {}),
 ]]
 
-orfs_flow(
-    name = "gcd_metrics_nd",
-    arguments = {
-        "CORE_ASPECT_RATIO": "1",
-        "CORE_MARGIN": "0.5",
-        "CORE_UTILIZATION": "65",
-        "GPL_PLACE_IOS": "1",
-        "PLACE_DENSITY": "0.35",
-        "SKIP_REPORT_METRICS": "0",
-    },
-    sources = {"SDC_FILE": ["@orfs//flow/designs/asap7/gcd:constraint.sdc"]},
+# stage, the in-stage .json holding its report_metrics, the in-stage .rpt.
+# The place stage declares no .rpt: its .json is compared alone.
+STAGES = [
+    ("place", "3_5_place_dp.json", None),
+    ("cts", "4_1_cts.json", "4_cts_final.rpt"),
+    ("grt", "5_1_grt.json", "5_global_route.rpt"),
+    ("final", "6_report.json", "6_finish.rpt"),
+]
+
+[filegroup(
+    name = "instage_%s_%s" % (
+        stage,
+        f.replace(".", "_"),
+    ),
+    srcs = [":gcd_instage_" + stage],
+    output_group = f,
     tags = ["manual"],
-    top = "gcd",
-    variant = "nd",
-    verilog_files = ["@orfs//flow/designs/src/gcd:gcd.v"],
+) for stage, json, rpt in STAGES for f in [
+    json,
+    rpt,
+] if f]
+
+py_test(
+    name = "metrics_split_test",
+    size = "small",
+    srcs = ["metrics_split_test.py"],
+    args = [
+        ",".join(
+            ["%s=$(rootpath :instage_%s_%s)" % (
+                stage,
+                stage,
+                json.replace(".", "_"),
+            )] +
+            (["$(rootpath :instage_%s_%s)" % (
+                stage,
+                rpt.replace(".", "_"),
+            )] if rpt else [""]) + [
+                "$(rootpath :gcd_ondemand_%s_report.json)" % stage,
+                "$(rootpath :gcd_ondemand_%s_report.rpt)" % stage,
+            ],
+        )
+        for stage, json, rpt in STAGES
+    ],
+    data = [
+        ":instage_%s_%s" % (
+            stage,
+            f.replace(".", "_"),
+        )
+        for stage, json, rpt in STAGES
+        for f in [
+            json,
+            rpt,
+        ]
+        if f
+    ] + [
+        ":gcd_ondemand_%s_report.%s" % (stage, ext)
+        for stage, _, _ in STAGES
+        for ext in [
+            "json",
+            "rpt",
+        ]
+    ],
 )

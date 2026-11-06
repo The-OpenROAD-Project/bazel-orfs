@@ -1,9 +1,11 @@
 # Timing and power metrics as a separate action, off the critical path
 
-Status: **checked on gcd, answered yes for cts, grt, route-end and
-final; restructuring not started.** A fresh process on a stage's saved
-.odb/.sdc reproduces that stage's metrics bit for bit at default
-settings. Harness: `test/metrics_split` (manual).
+Status: **done for place, cts, grt and final.** `orfs_flow` emits a
+`<stage>_report` target per stage (`report_stage.tcl`, docs/performance.md),
+built only when asked for; `test/metrics_split` checks it against the
+in-stage metrics. ORFS is unchanged: its flow keeps reporting in-stage.
+Open: floorplan, global place and resize (below), and feeding the
+reports to generate_metadata.
 
 ## Problem
 

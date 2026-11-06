@@ -2,6 +2,27 @@
 
 ## Speed up your builds
 
+## Metrics on demand: `<stage>_report`
+
+A stage builds with `SKIP_REPORT_METRICS=1` and the next stage starts as
+soon as it is done. For the timing, power and area metrics of the place,
+cts, grt and final stages, build the stage's report target, e.g.
+`bazelisk build //my:design_cts_report`: ORFS's `report_metrics` run
+on the stage's saved `.odb`/`.sdc` in a process of its own
+(`report_stage.tcl`), with the parasitics the stage used (placement,
+global route, or the final spef). It writes `<stage>_report.json`, the
+stage's metrics under the stage's own prefix (`cts__timing__setup__ws`),
+and `<stage>_report.rpt`, the stage's text report. Nothing builds it
+unless asked, and it runs in parallel with the stages after it.
+
+`//test/metrics_split:metrics_split_test` checks that every metric and
+the text report are the same as with `SKIP_REPORT_METRICS=0`, in-stage.
+Not covered: floorplan, global place and resize report on states
+bazel-orfs does not keep (2_1, 3_3, 3_4), and `DETAILED_METRICS`
+reports between repairs inside cts and grt, states no stage saves; it
+needs `SKIP_REPORT_METRICS = "0"` next to it, and `orfs_flow` refuses it
+otherwise.
+
 ## Disable expensive operations for CI and development
 
 For CI or iterative development where timing closure isn't needed, you can
@@ -15,7 +36,7 @@ shows the recommended settings:
 | `GPL_ROUTABILITY_DRIVEN` = `"0"` | place | Routability-driven global placement. Skips routing congestion estimation during placement. | Moderate |
 | `SKIP_CTS_REPAIR_TIMING` = `"1"` | cts | Timing repair after clock tree synthesis. Skips iterative buffer insertion, gate sizing, gate cloning, and VT swapping. Can reduce CTS from hours to minutes. | Very high |
 | `SKIP_INCREMENTAL_REPAIR` = `"1"` | grt | Incremental repair during global routing. Skips two rounds of `repair_design` + `repair_timing` with incremental re-routing. | Very high |
-| `SKIP_REPORT_METRICS` = `"1"` | all | The default in bazel-orfs (carried patches 0157/0158). Skips the timing and power metrics and the `reports/<stage>_*.rpt` text reports (`report_checks`, `report_wns`, `report_tns`, `report_power`, `report_clock_skew`) at every stage; design area, instance counts and the tools' own counters are still written. Set `"0"` for timing and power in the stage `.json`. | Moderate |
+| `SKIP_REPORT_METRICS` = `"1"` | all | The default in bazel-orfs (carried patches 0157/0158). Skips the timing and power metrics and the `reports/<stage>_*.rpt` text reports (`report_checks`, `report_wns`, `report_tns`, `report_power`, `report_clock_skew`) at every stage; design area, instance counts and the tools' own counters are still written. For timing and power, build the stage's `<stage>_report` target (below), or set `"0"` to have them in the stage `.json`. | Moderate |
 | `FILL_CELLS` = `""` | route | Fill cell insertion (`filler_placement`). Required for manufacturing but not for design exploration. | Low |
 | `TAPCELL_TCL` = `""` | floorplan | Custom tap/endcap cell placement script. Falls back to simple `cut_rows`. | Low |
 | `PWR_NETS_VOLTAGES` = `""` | final | IR drop analysis for power nets (`analyze_power_grid`). | Low |

@@ -307,6 +307,56 @@ def _orfs_estimate_report(name, src, arguments = {}, sources = {}, variant = Non
         **run_kwargs
     )
 
+# The stages whose report_metrics reads only what the stage saves, and
+# how to redo it on the saved results: the in-stage call's arguments
+# (`when` names its .rpt), the parasitics the stage estimated, and the
+# stage's metrics prefix. Floorplan, global place and resize report on
+# states bazel-orfs does not keep (2_1, 3_3, 3_4), and the
+# DETAILED_METRICS reports on states nothing keeps: none of them is here.
+_STAGE_REPORTS = {
+    "place": struct(odb = "3_place.odb", sdc = "3_place.sdc", parasitics = "placement", metrics_stage = "detailedplace", num = "3", when = "detailed place", flags = "true false"),
+    "cts": struct(odb = "4_cts.odb", sdc = "4_cts.sdc", parasitics = "placement", metrics_stage = "cts", num = "4", when = "cts final", flags = ""),
+    "grt": struct(odb = "5_1_grt.odb", sdc = "5_1_grt.sdc", parasitics = "global_routing", metrics_stage = "globalroute", num = "5", when = "global route", flags = ""),
+    "final": struct(odb = "6_final.odb", sdc = "6_final.sdc", parasitics = "spef", metrics_stage = "finish", num = "6", when = "finish", flags = ""),
+}
+
+def _orfs_stage_report(name, src, stage, variant = None, openroad = None, visibility = None):
+    """Emit {name}: ORFS's report_metrics on a stage's saved results.
+
+    The stage builds with SKIP_REPORT_METRICS=1 and the next stage waits
+    only for it; {name} is built only when asked for, in parallel with
+    the rest of the flow, and writes {name}.json (the stage's metrics
+    under its own prefix) and {name}.rpt. docs/performance.md.
+    """
+    report = _STAGE_REPORTS[stage]
+    run_kwargs = {}
+    if openroad != None:
+        run_kwargs["openroad"] = openroad
+    if visibility != None:
+        run_kwargs["visibility"] = visibility
+    orfs_run(
+        name = name,
+        src = src,
+        outs = [name + ".json", name + ".rpt"],
+        script = "@bazel-orfs//:report_stage.tcl",
+        # Read by report_stage.tcl, not by ORFS.
+        user_arguments = {
+            "REPORT_FLAGS": report.flags,
+            "REPORT_JSON": name + ".json",
+            "REPORT_METRICS_STAGE": report.metrics_stage,
+            "REPORT_NUM": report.num,
+            "REPORT_ODB": report.odb,
+            "REPORT_PARASITICS": report.parasitics,
+            "REPORT_RPT": name + ".rpt",
+            "REPORT_SDC": report.sdc,
+            "REPORT_WHEN": report.when,
+        },
+        # On demand: a wildcard build of the flow does not build it.
+        tags = ["manual"],
+        variant = variant or "base",
+        **run_kwargs
+    )
+
 def _orfs_stage(stage, impl, **kwargs):
     """Instantiates one stage target the way orfs_flow does.
 
@@ -1006,6 +1056,15 @@ def _orfs_pass(
 
         sn = do_step(step, prev, kwargs, more_kwargs = more_kwargs)
         step_names.append(sn)
+        if step.stage in _STAGE_REPORTS:
+            _orfs_stage_report(
+                name = sn + "_report",
+                src = sn,
+                stage = step.stage,
+                variant = variant,
+                openroad = kwargs.get("openroad"),
+                visibility = kwargs.get("visibility"),
+            )
     if FINAL_STAGE_IMPL in steps:
         do_step(
             GENERATE_METADATA_STAGE_IMPL,
