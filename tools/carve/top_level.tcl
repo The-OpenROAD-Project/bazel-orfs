@@ -152,14 +152,20 @@ if { "cts" in $todo } {
     # (973 VT swaps, 1 buffer). repair_timing -path_group knows only
     # reg2reg, in2reg, reg2out, in2out and gated_clock, no group through
     # the crossings.
-    set needs [lassign [sta::crossing_cones $flatten $parent 1 2] seeds kept before]
+    # and the path group `crossing` through the crossing nets, the only
+    # paths repair works on: a register that starts or ends a crossing also
+    # starts or ends its macro's own paths (all six flattened: 118,489
+    # failing endpoints, the worst a Frontend SRAM's address, -2,579 ps).
+    # 0208 keeps the group sound when repair deletes one of its nets, 0209
+    # lets repair_timing -path_group take it.
+    set needs [lassign [sta::crossing_cones $flatten $parent 1 2 crossing] seeds kept before]
     puts "top_level: crossing paths only, [lindex $needs [expr { [lsearch -exact $needs false] + 1 }]]\
       registers no crossing starts at and\
       [lindex $needs [expr { [lsearch -exact $needs false_ends] + 1 }]] no crossing ends at\
       made false path starts and ends"
     set_propagated_clock [all_clocks]
     log_cmd estimate_parasitics -placement
-    log_cmd repair_timing -setup -hold -repair_tns 100
+    log_cmd repair_timing -setup -hold -repair_tns 100 -path_group crossing
     log_cmd detailed_placement -use_diamond_legalizer {*}[env_var_or_empty TOP_DPL_ARGS]
     log_cmd check_placement -placeable -verbose
   }
