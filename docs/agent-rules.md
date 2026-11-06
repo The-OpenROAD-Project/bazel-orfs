@@ -14,6 +14,25 @@ a pull request can be merged before a slower check finishes; a bump onto
 an ORFS that removed a variable a flow sets is the usual one. The
 `analyze-before-push` skill.
 
+## Review bots: trust, but verify
+
+Every OpenROAD project, ORFS, OpenROAD and OpenSTA among them, has its
+pull requests reviewed by Gemini Code Assist, and it is not to be
+particularly trusted: a nit is a claim to verify, not an instruction.
+For each one, on any pull request, ours or upstream:
+
+- check it against the code: does the problem exist, does the suggestion
+  fix it, does it hold for every caller;
+- reject a suggestion that turns a hard failure into a silent fallback (a
+  quashed null, a default that hides a missing input): the change fails
+  early and loudly on purpose;
+- take it, or don't;
+- reply on the thread, "Taken: <what changed>" or "Not taken: <why>", and
+  resolve it.
+
+Every thread answered and resolved, so the human reviewer sees none open
+that nobody looked at.
+
 ## Synthesis frontend
 
 `orfs_flow` synthesises with slang: `SYNTH_HDL_FRONTEND` defaults to
