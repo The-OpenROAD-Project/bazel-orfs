@@ -153,11 +153,12 @@ if { "cts" in $todo } {
     # reg2reg, in2reg, reg2out, in2out and gated_clock, no group through
     # the crossings.
     # and the path group `crossing` through the crossing nets, the only
-    # paths repair works on: a register that starts or ends a crossing also
-    # starts or ends its macro's own paths (all six flattened: 118,489
-    # failing endpoints, the worst a Frontend SRAM's address, -2,579 ps).
-    # 0208 keeps the group sound when repair deletes one of its nets, 0209
-    # lets repair_timing -path_group take it.
+    # paths repair works on: false starts and ends scope repair by
+    # register, and a register that starts or ends a crossing also starts
+    # or ends its macro's own paths; the group scopes it by path. On XSTile
+    # with all six flattened nearly every failing endpoint is a crossing's
+    # anyway (117,057 of 118,489). 0208 keeps the group sound when repair
+    # deletes one of its nets, 0209 lets repair_timing -path_group take it.
     set needs [lassign [sta::crossing_cones $flatten $parent 1 2 crossing] seeds kept before]
     puts "top_level: crossing paths only, [lindex $needs [expr { [lsearch -exact $needs false] + 1 }]]\
       registers no crossing starts at and\
