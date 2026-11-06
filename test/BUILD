@@ -1114,8 +1114,8 @@ sh_test(
     srcs = ["synth_discovery_netlist_test.sh"],
     args = [
         "$(location :discovered_modules_synth_netlist)",
-        "adder",
-        "counter",
+        "=adder",
+        "=counter",
         "kept_modules_top",
     ],
     data = [":discovered_modules_synth_netlist"],

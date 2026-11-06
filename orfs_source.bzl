@@ -204,6 +204,11 @@ ORFS_PATCHES = [
     # (mask_lane_width): tc_sram's byte enables over cva6's 25-bit I-cache
     # tag. Not upstreamed; retires at a bump onto an ORFS that has it.
     Label("//patches:0205-orfs-memories-ragged-mask-lane.patch"),
+    # 0208: a partition of a parallel synthesis reads the modules to
+    # blackbox from SYNTH_BLACKBOXES_FILE: XSTile_flat's 2,250 names in
+    # SYNTH_BLACKBOXES were over Linux's 128 KiB limit on one environment
+    # string. Not upstreamed; retires at a bump onto an ORFS that has it.
+    Label("//patches:0208-orfs-synth-blackboxes-file.patch"),
     # 0172: a register file's own flow (its top an inlined
     # AUTO_MEMORIES_REGFILES module) keeps generate_ram's layout: the
     # floorplan the shape of its outline, every generated cell FIRM where
