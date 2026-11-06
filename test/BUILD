@@ -1029,6 +1029,46 @@ partition_key_test(
     target_under_test = ":kept_modules_synth",
 )
 
+# A pinned list grouped into fewer partitions than modules, with one
+# kept module inside another: each module is synthesised from its own
+# slice with the whole list, and a slice lacks the other kept modules.
+# Since ORFS's SYNTH_KEEP_MODULES name check (#4745) this stopped
+# XSTile's synthesis ("no module Backend in the design"), and stops
+# this fixture ("no module nested_inner"), unless carried patch 0168
+# skips the check in every run that reads a SYNTH_CHECKPOINT. A gate on
+# SYNTH_BLACKBOXES instead does not reach it: grouped pinned partitions
+# do not set it.
+orfs_synth(
+    name = "nested_kept_synth",
+    arguments = {
+        "SDC_FILE": "$(location :constraints-top.sdc)",
+        "SYNTH_KEEP_MODULES": "nested_outer nested_inner",
+        "SYNTH_NUM_PARTITIONS": "1",
+    },
+    data = [":constraints-top.sdc"],
+    module_top = "nested_kept_top",
+    verilog_files = ["rtl/nested_kept_top.v"],
+)
+
+filegroup(
+    name = "nested_kept_synth_netlist",
+    srcs = [":nested_kept_synth"],
+    output_group = "1_2_yosys.v",
+)
+
+sh_test(
+    name = "nested_kept_netlist_test",
+    size = "small",
+    srcs = ["synth_discovery_netlist_test.sh"],
+    args = [
+        "$(location :nested_kept_synth_netlist)",
+        "nested_inner",
+        "nested_outer",
+        "nested_kept_top",
+    ],
+    data = [":nested_kept_synth_netlist"],
+)
+
 # The other branch of parallel synthesis: SYNTH_HIERARCHICAL=1 with no
 # SYNTH_KEEP_MODULES, so the kept modules are discovered by synth_keep.tcl
 # at build time and each partition synthesizes from the global keep
