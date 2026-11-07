@@ -532,7 +532,97 @@ def loop():
     )
 
 
+# XiangShan's XSTile clock period after global route, KPI runs 1 to 21:
+# the KPI table in test/coremark_joule/designs/asap7/xiangshan/README.md.
+XSTILE_GRT_PS = [
+    6186,
+    6186,
+    6186,
+    4991,
+    5681,
+    5118,
+    5402,
+    3860,
+    3330,
+    3264,
+    3256,
+    3162,
+    3386,
+    3276,
+    2406,
+    9431,
+    2504,
+    2383,
+    2250,
+    2212,
+    2206,
+]
+
+
+def cliffs():
+    """Early the landscape is smooth; as the design tightens it has cliffs."""
+    fig, (left, right) = plt.subplots(
+        1, 2, figsize=(12, 4.4), dpi=150, gridspec_kw={"width_ratios": [1, 1.5]}
+    )
+    fig.patch.set_facecolor("white")
+
+    xs = [i / 100 for i in range(101)]
+    left.plot(xs, [(x - 0.62) ** 2 for x in xs], color=GREY_EDGE, lw=1.5)
+    steps = [0.05 + i * 0.063 for i in range(10)]
+    left.plot(
+        steps, [(x - 0.62) ** 2 + 0.012 for x in steps], "o", color=GREEN_EDGE, ms=5
+    )
+    left.set_title(
+        "early: smooth\nmany cheap tries, each predictable",
+        fontsize=10,
+        color=INK,
+        loc="left",
+    )
+    left.set_xticks([])
+    left.set_yticks([])
+    left.set_xlabel("a setting or a change", fontsize=9, color=MUTED)
+    left.set_ylabel("period", fontsize=9, color=MUTED)
+
+    runs = list(range(1, len(XSTILE_GRT_PS) + 1))
+    right.plot(runs, XSTILE_GRT_PS, "-o", color=BLUE_EDGE, ms=4, lw=1.3)
+    right.set_title(
+        "tight: cliffs\nXiangShan XSTile, period after global route, per KPI run",
+        fontsize=10,
+        color=INK,
+        loc="left",
+    )
+    right.set_xticks([1, 5, 10, 15, 21])
+    right.set_ylim(0, 10500)
+    right.set_xlabel("KPI run, 2026-09-26 to 2026-10-31", fontsize=9, color=MUTED)
+    right.set_ylabel("ps", fontsize=9, color=MUTED)
+    right.annotate(
+        "15: setup repair at global route\nwith the route's parasitics,\n3,276 to 2,406 ps",
+        xy=(15, 2406),
+        xytext=(9.2, 6200),
+        fontsize=8,
+        color=GREEN_EDGE,
+        arrowprops=dict(arrowstyle="-|>", color=GREEN_EDGE, lw=0.9),
+    )
+    right.annotate(
+        "16: hold repair blew up,\n9,431 ps",
+        xy=(16, 9431),
+        xytext=(17.2, 8200),
+        fontsize=8,
+        color=RED_EDGE,
+        arrowprops=dict(arrowstyle="-|>", color=RED_EDGE, lw=0.9),
+    )
+    for ax in (left, right):
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+        ax.tick_params(colors=MUTED, labelsize=8)
+    fig.tight_layout()
+    fig.savefig(
+        f"{OUT}/parallel-synthesis-cliffs.png", bbox_inches="tight", facecolor="white"
+    )
+
+
 flow()
 partitioning()
 remote()
 loop()
+cliffs()

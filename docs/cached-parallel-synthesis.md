@@ -145,9 +145,25 @@ a setting. The build turns the change into a number. Rinse and repeat.
 
 ![A loop of three boxes: the human sets the goal and judges each result, the AI reads worst paths and logs and proposes the next change, the build turns the change into WNS, area and logs](images/parallel-synthesis-loop.png)
 
-Only one build is not part of the loop: the last one, for tapeout. Every
-build before it is run for information, so that something can be
-changed, and the information is worth more the sooner it comes.
+Every build but the last one, for tapeout, is run for information, so
+that something can be changed, and the information is worth more the
+sooner it comes. How cheaply it can be had changes as the design
+tightens. Early on, a cheap signal, synthesis with wires assumed free or
+a placement estimate, predicts the routed timing well enough, and each
+change moves the number a little in a predictable direction. As the
+design gets tighter the landscape gets cliffier: one setting can move
+the period by nanoseconds, and only global route, with `repair_timing`
+run to its end, gives a realistic number. There is no shortcut for
+`repair_timing`; stopped early or skipped, it measures nothing about the
+period it would have reached (the `repair-timing-grt` skill). Getting
+accurate global-route timing quickly is the old problem, and it is
+hardest exactly when the turns matter most.
+
+![Left, illustrative: a smooth valley walked down in many small steps. Right, measured: XiangShan's XSTile period after global route over KPI runs 1 to 21, falling from 6,186 to 3,276 ps, dropping to 2,406 ps at run 15 when setup repair used the route's parasitics, jumping to 9,431 ps at run 16 when hold repair blew up, and back to 2,504 ps at run 17](images/parallel-synthesis-cliffs.png)
+
+The right panel is XiangShan's KPI table,
+`test/coremark_joule/designs/asap7/xiangshan/README.md`; run 5 moved to
+a newer XiangShan release.
 
 The human and the AI take minutes per turn; the build can take hours.
 The build sets how many turns fit in a day, so a faster build gives a
