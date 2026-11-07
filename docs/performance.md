@@ -85,13 +85,13 @@ Abstract generation requires at least the `place` stage because pins are placed
 during placement. For macro size estimation, `"place"` is usually sufficient.
 For timing analysis, `"cts"` provides clock tree data without expensive routing.
 
-## Parallel synthesis
+## Fine-grained cached and parallel synthesis
 
-A large design synthesizes faster, and an edit to one module rebuilds
-only that module, when synthesis is split at its kept modules
-(`SYNTH_KEEP_MODULES`): one Bazel action per module, locally or on remote
-executors, concatenated into `1_2_yosys.v`.
-[parallel-synthesis.md](parallel-synthesis.md) has the flow, what to
+When synthesis is split at a design's kept modules
+(`SYNTH_KEEP_MODULES`), each module is its own cached Bazel action: an
+edit to one module re-synthesizes that module, not the design, and the
+modules that do run, run in parallel, locally or on remote executors.
+[cached-parallel-synthesis.md](cached-parallel-synthesis.md) has the flow, what to
 expect, and a walkthrough.
 
 ## Squashed flows

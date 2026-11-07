@@ -108,7 +108,7 @@ ways:
   partition re-runs, because none can key on a per-module slice.
 
 So pinning is a caching optimisation for a design you iterate on, not a
-requirement; [parallel-synthesis.md](parallel-synthesis.md) shows the
+requirement; [cached-parallel-synthesis.md](cached-parallel-synthesis.md) shows the
 two side by side. To capture the list ORFS would discover:
 
 ```sh

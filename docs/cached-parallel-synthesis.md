@@ -1,14 +1,26 @@
-# Parallel synthesis
+# Fine-grained cached and parallel synthesis
 
-Synthesis of a large design is a single yosys process by default: one
-canonicalization, one `synth`, one netlist, one core. bazel-orfs can
-split the design at its kept modules instead, synthesize each in its own
-Bazel action, and concatenate the netlists at the end. The actions run
-side by side on local cores or on Bazel remote executors, and an edit to
-one module re-synthesizes that module, not the design.
+## A common misconception
 
-This page says what that buys and what it does not, then follows the
-flow through RTLIL, then follows one `.v` file through two edits.
+One might think the speed comes from synthesizing in parallel: split the
+design into modules, run them on many cores at once, and the wall time
+drops by the number of cores. It does, a little. The real boost is
+elsewhere: splitting synthesis at its modules makes each module's
+synthesis a **cacheable** unit of work, so that a module nobody changed is
+never synthesized again, on any machine.
+
+A deliberately ridiculous example makes the point. Say a design takes
+12 hours to synthesize flat. A one-line change to a trivial module then
+costs 12 hours, every time, on every machine, however many cores it
+has; parallelism might bring that down to the time of the largest module.
+With synthesis cached per module, the same change re-synthesizes that
+one trivial module, in about a second, and every other module's netlist
+comes back from the cache. Parallelism shortens the first build; caching
+makes nearly every build after it nearly free.
+
+The rest of this page looks at how synthesis is broken up so that it
+becomes cacheable at the module level, then follows one `.v` file
+through two edits and counts the actions that ran.
 
 ## What it is for, and what not to expect
 
@@ -16,18 +28,19 @@ flow through RTLIL, then follows one `.v` file through two edits.
 that you edit and rebuild: a core of a few million cells, a tile, an
 accelerator with a handful of large blocks. Two things change:
 
-- **Wall time.** The kept modules synthesize in parallel. The longest
-  kept module, plus canonicalization, the top and the merge, sets the
-  time, not the sum.
 - **Incremental builds.** A change to one module re-synthesizes that
   module and the top. The other modules are Bazel cache hits, locally or
   from a remote cache another machine filled.
+- **Wall time on a miss.** The modules that do have to be synthesized run
+  in parallel, on local cores or remote executors. The longest of them,
+  plus canonicalization, the top and the merge, sets the time, not the
+  sum.
 
 **Manage the expectations:**
 
 - **Slang only.** `orfs_flow` synthesizes with slang
   (`SYNTH_HDL_FRONTEND=slang`, the default) and refuses another frontend
-  without a stated reason. Parallel synthesis resolves kept modules by
+  without a stated reason. Per-module synthesis resolves kept modules by
   the names slang gives them, `Foo$Top.path.to.inst` for a uniquified
   instance among them, and is not built or tested for yosys's own
   Verilog frontend.
@@ -39,7 +52,7 @@ accelerator with a handful of large blocks. Two things change:
   knob.
 - **Only synthesis gets faster.** When `1_2_yosys.v` changes at all, by
   one cell in one module, floorplan and every stage after it rebuild.
-  Parallel synthesis does nothing for placement or routing.
+  Per-module synthesis does nothing for placement or routing.
 - **No guarantee that a comment is free.** In the walkthrough below a
   comment rebuilds one action and nothing else, and that is the usual
   outcome. It is not a guarantee: yosys is sensitive to the exact form of
@@ -99,7 +112,7 @@ not wait for the place and route of a macro it does not contain.
 
 ## The flow, through RTLIL
 
-![The action graph of parallel synthesis with a pinned keep list](images/parallel-synthesis-flow.png)
+![The action graph of per-module synthesis with a pinned keep list](images/parallel-synthesis-flow.png)
 
 With a pinned `SYNTH_KEEP_MODULES`:
 
@@ -159,7 +172,7 @@ actions; the others keep their keys.
 Bazel re-runs an action when the digest of one of its inputs changes,
 and skips it when every input is byte-identical to a run it has seen,
 whatever produced those bytes. An action that re-runs and writes the same
-bytes as before stops the rebuild there. Parallel synthesis has two such
+bytes as before stops the rebuild there. Per-module synthesis has two such
 barriers, and both are canonicalizations:
 
 - **`1_1_yosys_canonicalize.rtlil`** stops edits that do not change the
@@ -300,7 +313,7 @@ worth a yosys issue.
 
 ## Remote execution
 
-Parallel synthesis is built for Bazel remote execution, and needs
+Per-module synthesis is built for Bazel remote execution, and needs
 nothing beyond a remote execution configuration in `.bazelrc`; the
 walkthrough above ran on remote executors.
 
@@ -316,7 +329,7 @@ for the next build, whoever runs it.
 
 **Nothing beats sharing a cached result.** No partitioning, no number of
 cores and no faster yosys comes close to a cache hit: a hit costs a
-download of a netlist, a miss costs a synthesis. Parallel synthesis
+download of a netlist, a miss costs a synthesis. Parallelism
 makes the misses fast; the shared cache makes most of them hits. The
 canonicalization barriers above exist so that one person's edit leaves
 everyone else's partitions hits.
