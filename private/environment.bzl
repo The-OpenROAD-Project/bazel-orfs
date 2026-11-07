@@ -445,7 +445,6 @@ def required_arguments(ctx):
     return {
         "DESIGN_NAME": module_top(ctx),
         "FLOW_VARIANT": ctx.attr.variant,
-        "GENERATE_ARTIFACTS_ON_FAILURE": "1",
         "PLATFORM": platform(ctx),
         "PLATFORM_DIR": platform_config(ctx).dirname,
         "WORK_HOME": "./" + work_home_relative(ctx),

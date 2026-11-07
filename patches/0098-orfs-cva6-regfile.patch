@@ -15,7 +15,8 @@ which the later wins, reset to zero. An elaboration-time $error stops a
 configuration of another shape. An AUTO_MEMORIES_REGFILES module spec
 with write_priority last replaces ariane_regfile_rf. cva6's config.mk
 names its source directory rather than DESIGN_NICKNAME's, so the
-variant can include it.
+variant can include it. The variant's surgery runs asap7/cva6's first, which makes the RAMs
+macros, and then rewrites its copies.
 
 Not upstreamed: carried in bazel-orfs for the register-file campaign;
 needs OpenROAD #11723 (merged).
@@ -23,17 +24,17 @@ needs OpenROAD #11723 (merged).
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  .../cva6-regfile/ariane_regfile_rf.regfile    |  28 ++++
- flow/designs/asap7/cva6-regfile/config.mk     |  11 ++
- flow/designs/asap7/cva6-regfile/surgery.py    | 131 ++++++++++++++++++
+ flow/designs/asap7/cva6-regfile/config.mk     |  12 ++
+ flow/designs/asap7/cva6-regfile/surgery.py    | 143 ++++++++++++++++++
  flow/designs/asap7/cva6/config.mk             |   8 +-
- 4 files changed, 174 insertions(+), 4 deletions(-)
+ 4 files changed, 187 insertions(+), 4 deletions(-)
  create mode 100644 flow/designs/asap7/cva6-regfile/ariane_regfile_rf.regfile
  create mode 100644 flow/designs/asap7/cva6-regfile/config.mk
  create mode 100644 flow/designs/asap7/cva6-regfile/surgery.py
 
 diff --git a/flow/designs/asap7/cva6-regfile/ariane_regfile_rf.regfile b/flow/designs/asap7/cva6-regfile/ariane_regfile_rf.regfile
 new file mode 100644
-index 000000000..0ca0e9e74
+index 00000000..0ca0e9e7
 --- /dev/null
 +++ b/flow/designs/asap7/cva6-regfile/ariane_regfile_rf.regfile
 @@ -0,0 +1,28 @@
@@ -67,14 +68,15 @@ index 000000000..0ca0e9e74
 +cell inv INVx1_ASAP7_75t_R
 diff --git a/flow/designs/asap7/cva6-regfile/config.mk b/flow/designs/asap7/cva6-regfile/config.mk
 new file mode 100644
-index 000000000..54749adbf
+index 00000000..1d9d0204
 --- /dev/null
 +++ b/flow/designs/asap7/cva6-regfile/config.mk
-@@ -0,0 +1,11 @@
+@@ -0,0 +1,12 @@
 +# cva6 with its integer register file built by AUTO_MEMORIES_REGFILES: a
 +# SYNTH_VERILOG_SURGERY script (surgery.py, a hack) moves the array of
 +# ariane_regfile into ariane_regfile_rf, and the spec replaces that
-+# module, inlined. The same RTL otherwise, constraints and utilisation.
++# module, inlined, after asap7/cva6's own surgery makes its RAMs
++# macros. The same RTL otherwise, constraints and utilisation.
 +export DESIGN_NICKNAME = cva6-regfile
 +
 +include designs/asap7/cva6/config.mk
@@ -84,10 +86,10 @@ index 000000000..54749adbf
 +export AUTO_MEMORIES_REGFILES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/ariane_regfile_rf.regfile
 diff --git a/flow/designs/asap7/cva6-regfile/surgery.py b/flow/designs/asap7/cva6-regfile/surgery.py
 new file mode 100644
-index 000000000..06f02b6eb
+index 00000000..20b01736
 --- /dev/null
 +++ b/flow/designs/asap7/cva6-regfile/surgery.py
-@@ -0,0 +1,131 @@
+@@ -0,0 +1,143 @@
 +"""SYNTH_VERILOG_SURGERY for cva6: its integer register file into a module.
 +
 +A hack. cva6's ariane_regfile (core/ariane_regfile_ff.sv) keeps its
@@ -103,11 +105,16 @@ index 000000000..06f02b6eb
 +The module is recognised by its text, token for token, comments and
 +whitespace aside: anything else stops the build. Every other file is
 +copied unchanged.
++
++asap7/cva6's own surgery (its RAMs, ../cva6/surgery.py) runs first, on
++the same files into the same --out-dir; this rewrites its copies, since
++the flow stages only the script SYNTH_VERILOG_SURGERY names.
 +"""
 +
 +import argparse
 +import os
 +import re
++import subprocess
 +import sys
 +
 +MODULE = "ariane_regfile"
@@ -198,29 +205,36 @@ index 000000000..06f02b6eb
 +    p.add_argument("--out-dir", required=True)
 +    p.add_argument("files", nargs="+")
 +    a = p.parse_args()
++    cva6 = os.path.join(
++        os.path.dirname(os.path.abspath(__file__)), "..", "cva6", "surgery.py"
++    )
++    subprocess.check_call(
++        [sys.executable, cva6, "--out-dir", a.out_dir, "--"] + a.files
++    )
 +    done = 0
 +    for path in a.files:
-+        with open(path) as f:
++        copy = os.path.join(a.out_dir, os.path.basename(path))
++        with open(copy) as f:
 +            text = f.read()
 +        found = list(re.finditer(r"^module\s+%s\b.*?^endmodule\b" % MODULE, text, re.M | re.S))
 +        if len(found) > 1:
 +            fail("%s defines %s %d times" % (path, MODULE, len(found)))
-+        if found:
-+            m = found[0]
-+            if norm(m.group(0)) != EXPECTED:
-+                fail("%s in %s is not the ariane_regfile this rewrite knows" % (MODULE, path))
-+            text = text[: m.start()] + REPLACEMENT + text[m.end() :]
-+            done += 1
-+        with open(os.path.join(a.out_dir, os.path.basename(path)), "w") as f:
++        if not found:
++            continue
++        m = found[0]
++        if norm(m.group(0)) != EXPECTED:
++            fail("%s in %s is not the ariane_regfile this rewrite knows" % (MODULE, path))
++        text = text[: m.start()] + REPLACEMENT + text[m.end() :]
++        done += 1
++        with open(copy, "w") as f:
 +            f.write(text)
 +    if done != 1:
 +        fail("%s found in %d files, not one" % (MODULE, done))
 +
-+
 +if __name__ == "__main__":
 +    main()
 diff --git a/flow/designs/asap7/cva6/config.mk b/flow/designs/asap7/cva6/config.mk
-index 363f55e6a..1bc3f7ff3 100644
+index 3e393c28..9bbadb72 100644
 --- a/flow/designs/asap7/cva6/config.mk
 +++ b/flow/designs/asap7/cva6/config.mk
 @@ -4,7 +4,7 @@ export DESIGN_NAME            = cva6
@@ -232,9 +246,9 @@ index 363f55e6a..1bc3f7ff3 100644
  export VERILOG_FILES          = $(sort $(wildcard $(SRC_HOME)/common/local/util/*.sv)) \
  	$(SRC_HOME)/core/include/config_pkg.sv \
  	$(SRC_HOME)/core/include/cv32a65x_config_pkg.sv \
-@@ -70,9 +70,9 @@ export VERILOG_FILES          = $(sort $(wildcard $(SRC_HOME)/common/local/util/
- 	$(PLATFORM_DIR)/verilog/fakeram7_64x28.sv \
- 	$(PLATFORM_DIR)/verilog/fakeram7_64x25.sv
+@@ -67,9 +67,9 @@ export VERILOG_FILES          = $(sort $(wildcard $(SRC_HOME)/common/local/util/
+ 	$(sort $(wildcard $(SRC_HOME)/core/frontend/*.sv)) \
+ 	$(SRC_HOME)/vendor/pulp-platform/tech_cells_generic/src/rtl/tc_sram.sv
  
 -export VERILOG_INCLUDE_DIRS = $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/core/include \
 -	$(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/core/cvfpu/src/common_cells/include \
@@ -245,6 +259,3 @@ index 363f55e6a..1bc3f7ff3 100644
  
  export VERILOG_DEFINES += -D HPDCACHE_ASSERT_OFF
  
--- 
-2.53.0
-

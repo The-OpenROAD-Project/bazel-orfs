@@ -1,4 +1,4 @@
-# asap7/cva6's RAMs (patch 0204) against the macros AUTO_MEMORIES makes
+# asap7/cva6's RAMs (ORFS #4777) against the macros AUTO_MEMORIES makes
 # of them: kepler-formal SEC of each RAM as the RTL has it against the
 # model FakeRAM writes for its macro (in ORFS), at depths 2
 # and 4 (ram_lec.bzl). The D-cache's RAMs are upstream's behavioural

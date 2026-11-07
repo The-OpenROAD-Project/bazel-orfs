@@ -33,13 +33,13 @@ OpenROAD whose OpenSTA carries it.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- include/sta/Search.hh |  16 +++++-
- search/Search.cc      | 123 +++++++++++++++++++++++++++++-------------
- search/TagGroup.hh    |   2 +
+ src/sta/include/sta/Search.hh |  16 ++++-
+ src/sta/search/Search.cc      | 123 +++++++++++++++++++++++-----------
+ src/sta/search/TagGroup.hh    |   2 +
  3 files changed, 102 insertions(+), 39 deletions(-)
 
 diff --git a/src/sta/include/sta/Search.hh b/src/sta/include/sta/Search.hh
-index fe0b38fd..38dc34a4 100644
+index fe0b38fda6..38dc34a425 100644
 --- a/src/sta/include/sta/Search.hh
 +++ b/src/sta/include/sta/Search.hh
 @@ -24,6 +24,7 @@
@@ -77,7 +77,7 @@ index fe0b38fd..38dc34a4 100644
    // Indices of the tag groups with a filter tag made, and the tags_ slots
    // of the filter tags made, so that deleting a filter's leftovers visits
 diff --git a/src/sta/search/Search.cc b/src/sta/search/Search.cc
-index a7a4337a..ea4b6db7 100644
+index 33cdc6cc7a..5abf594bc9 100644
 --- a/src/sta/search/Search.cc
 +++ b/src/sta/search/Search.cc
 @@ -244,7 +244,6 @@ Search::Search(StaState *sta) :
@@ -126,7 +126,7 @@ index a7a4337a..ea4b6db7 100644
    tag_groups_[group->index()] = nullptr;
    tag_group_free_indices_.push_back(group->index());
    delete group;
-@@ -2839,41 +2842,73 @@ Search::findTagGroup(TagGroupBldr *tag_bldr,
+@@ -2841,41 +2844,73 @@ Search::findTagGroup(TagGroupBldr *tag_bldr,
        return tag_group;
    }
  
@@ -227,7 +227,7 @@ index a7a4337a..ea4b6db7 100644
  void
  Search::setVertexArrivals(Vertex *vertex,
                            TagGroupBldr *tag_bldr,
-@@ -3025,7 +3060,10 @@ Search::tagGroup(const Vertex *vertex) const
+@@ -3027,7 +3062,10 @@ Search::tagGroup(const Vertex *vertex) const
  TagGroupIndex
  Search::tagGroupCount() const
  {
@@ -239,7 +239,7 @@ index a7a4337a..ea4b6db7 100644
  }
  
  void
-@@ -3034,18 +3072,27 @@ Search::reportTagGroups() const
+@@ -3036,18 +3074,27 @@ Search::reportTagGroups() const
    for (TagGroupIndex i = 0; i < tag_group_next_; i++) {
      TagGroup *tag_group = tag_groups_[i];
      if (tag_group) {
@@ -274,7 +274,7 @@ index a7a4337a..ea4b6db7 100644
  
  void
 diff --git a/src/sta/search/TagGroup.hh b/src/sta/search/TagGroup.hh
-index 2865186a..cef8858d 100644
+index 2865186a37..cef8858d61 100644
 --- a/src/sta/search/TagGroup.hh
 +++ b/src/sta/search/TagGroup.hh
 @@ -53,6 +53,8 @@ public:

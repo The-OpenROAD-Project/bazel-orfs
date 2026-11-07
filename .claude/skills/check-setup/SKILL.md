@@ -5,7 +5,7 @@ description: >-
   OpenSTA's check_setup: what each of its warnings means (from search/CheckTiming.cc), why
   the bare count in ORFS's 2_1_floorplan.log is not enough, how to get the pins and the
   modules they sit in through odb-debug's check_setup tool, which warnings an SDC written
-  with set_max_delay produces by design, and the blind spot carried patch 0109 closes (a
+  with set_max_delay produces by design, and the blind spot OpenSTA #455 closed (a
   register the clock reaches only on the edge it does not launch on). Use before quoting a
   period on a new or changed design, when a path you expect is "No paths found", when a
   clock gate or a tie cell sits in a clock path, or when someone says "check_setup is
@@ -24,7 +24,7 @@ From `search/CheckTiming.cc`; a bare `check_setup` runs every check, each printi
 
 | warning | what it means |
 |---|---|
-| unclocked register/latch pin | a register clock pin with no clock. With patch 0109, also one no clock reaches on the edge it launches on |
+| unclocked register/latch pin | a register clock pin with no clock. Since OpenSTA #455, also one no clock reaches on the edge it launches on |
 | register/latch pin with multiple clocks | more than one clock reaches a register clock pin |
 | unconstrained endpoint | an output port with neither a clocked output delay nor a `set_max_delay -to` it, or a setup check whose clock side is not a clock or whose data has no clocked arrival |
 | combinational loop | a loop with its cut points under `-verbose` |
@@ -52,11 +52,11 @@ Stock OpenSTA calls a register unclocked only when its clock network misses it, 
 Each has its own test in `test/check_setup`:
 
 - fdb00f48 (resolves #532), in OpenROAD's OpenSTA since the bump that retired it as patch 0108: the flop behind the gate is clocked and timed (`icg_tied_enable_test`).
-- `patches/0109-opensta-check-setup-launch-edge.patch`: `check_setup` counts a register no clock reaches on its launch edge as unclocked (`launch_edge_test`, a clock through a cell that carries only the falling edge).
+- OpenSTA #455, in OpenROAD's OpenSTA since the bump that retired it as patch 0109: `check_setup` counts a register no clock reaches on its launch edge as unclocked (`launch_edge_test`, a clock through a cell that carries only the falling edge).
 
 The `set_max_delay` handling (above, OpenSTA 8dd7ba8) is a third concern.
 
-So "check_setup is clean" means something only on an OpenROAD carrying 0109. To find what an older tree silently left untimed, run the check with a binary that carries 0109 and not 0108 (`/byo-openroad`, `OPENROAD_EXE`): the unclocked pins it reports are the registers the older timer skipped.
+So "check_setup is clean" means something only on an OpenROAD with #455. To find what an older tree silently left untimed, run the check with a binary that has #455 and not fdb00f48 (`/byo-openroad`, `OPENROAD_EXE`): the unclocked pins it reports are the registers the older timer skipped.
 
 ## XiangShan's blocks, audited
 

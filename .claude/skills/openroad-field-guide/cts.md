@@ -22,7 +22,7 @@ runtime. CTS-0204/0205 "Better solution may be possible": you set
   swerv when fixed). OpenSTA #462 (merged) plus OpenROAD #12147 (open;
   balancer asks only for clock arrivals) took XSTile Top CTS from
   101.8 -> 47.8 GB and 1,045 -> 609 s, byte-identical (bazel-orfs #1535,
-  carried 0206/0207). The earlier CRPR-off workaround (OpenROAD #12119)
+  0207 carried, #462 in since the 2026-11-07 bump). The earlier CRPR-off workaround (OpenROAD #12119)
   was dropped.
 - **Gated clocks each get their own tree**; their skew is reconciled only
   by the balancer's delay buffers.

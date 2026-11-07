@@ -145,12 +145,6 @@ ORFS_PATCHES = [
     # timing and power in its stage .json sets it to 0. bazel-orfs
     # policy, not for upstream; retires with 0157.
     Label("//patches:0158-orfs-skip-report-metrics-default.patch"),
-    # 0168: the SYNTH_KEEP_MODULES name check (ORFS #4745) skipped in
-    # every partition of a parallel synthesis (a run that reads a
-    # SYNTH_CHECKPOINT), where the other kept modules are blackboxed or,
-    # for an ancestor in a pinned slice, absent. ORFS #4770;
-    # retires at a bump onto an ORFS that skips it there.
-    Label("//patches:0168-orfs-keep-modules-partition.patch"),
     # 0189: every global_route call passes -backing_file in OBJECTS_DIR, so
     # the routing grid pages to a file reserved up front instead of to swap
     # (OpenROAD patch 0188, OpenROAD#12075). Not upstreamed; retires at a
@@ -166,17 +160,6 @@ ORFS_PATCHES = [
     # Not upstreamed; retires at a bump onto an ORFS and OpenROAD that
     # have it.
     Label("//patches:0160-orfs-regfile-write-words.patch"),
-    # 0204: asap7/cva6's RAMs as upstream has them, unmodified, made macros
-    # by AUTO_MEMORIES (cva6.memories), the I-cache's behind sram_cache's
-    # techno cut by SYNTH_VERILOG_SURGERY; in place of fakeram rewrites
-    # that dropped the D-cache's byte enables (ORFS #4769). Not upstreamed
-    # until tested; retires at a bump onto an ORFS that carries it.
-    Label("//patches:0204-orfs-cva6-upstream-rams.patch"),
-    # 0208: a partition of a parallel synthesis reads the modules to
-    # blackbox from SYNTH_BLACKBOXES_FILE: XSTile_flat's 2,250 names in
-    # SYNTH_BLACKBOXES were over Linux's 128 KiB limit on one environment
-    # string. Not upstreamed; retires at a bump onto an ORFS that has it.
-    Label("//patches:0208-orfs-synth-blackboxes-file.patch"),
     # 0172: a register file's own flow (its top an inlined
     # AUTO_MEMORIES_REGFILES module) keeps generate_ram's layout: the
     # floorplan the shape of its outline, every generated cell FIRM where

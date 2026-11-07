@@ -51,7 +51,7 @@ ASAP7_LIBS = [
             ASAP7_LEFS,
             [ASAP7_SEQ],
         ),
-        # A clock that reaches a flop on the wrong edge only: patches/0109.
+        # A clock that reaches a flop on the wrong edge only: OpenSTA #455.
         (
             "launch_edge_test",
             "launch_edge.tcl",

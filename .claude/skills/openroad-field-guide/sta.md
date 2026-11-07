@@ -41,7 +41,7 @@ workload: when a stage is slow, the timer is the first suspect.
 
 - **check_setup**: the count in `2_1_floorplan.log` is not enough; a
   register clocked only on the edge it does not launch on was invisible
-  (OpenSTA #455 merged, carried 0109 until the bump). An ICG with its
+  (OpenSTA #455, merged; in OpenROAD since the 2026-11-07 bump). An ICG with its
   enable tied high left flops untimed (fixed upstream). `check-setup`
   skill.
 - **WNS is often set by the SDC, not the logic**: of 51 ORFS designs, an

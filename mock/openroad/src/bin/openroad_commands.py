@@ -562,7 +562,6 @@ def validate_env_vars():
         "GPL_ROUTABILITY_DRIVEN",
         "EQUIVALENCE_CHECK",
         "DONT_BUFFER_PORTS",
-        "GENERATE_ARTIFACTS_ON_FAILURE",
     ]
     for var in bool_vars:
         val = os.environ.get(var, "")

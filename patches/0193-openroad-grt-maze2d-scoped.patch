@@ -23,7 +23,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  2 files changed, 35 insertions(+), 11 deletions(-)
 
 diff --git a/src/grt/src/fastroute/include/FastRoute.h b/src/grt/src/fastroute/include/FastRoute.h
-index fabbc2684d..1c4cf26350 100644
+index b9705cc661..278ce1b6cb 100644
 --- a/src/grt/src/fastroute/include/FastRoute.h
 +++ b/src/grt/src/fastroute/include/FastRoute.h
 @@ -131,6 +131,8 @@ class FastRouteCore
@@ -36,7 +36,7 @@ index fabbc2684d..1c4cf26350 100644
    void freeMaze3D();
    // Backs the routing grid with a file at path; empty for memory only.
 diff --git a/src/grt/src/fastroute/src/FastRoute.cpp b/src/grt/src/fastroute/src/FastRoute.cpp
-index 57570c6ab9..532c05b702 100644
+index 2543f4063a..11d21ce020 100644
 --- a/src/grt/src/fastroute/src/FastRoute.cpp
 +++ b/src/grt/src/fastroute/src/FastRoute.cpp
 @@ -333,10 +333,7 @@ void FastRouteCore::setGridsAndLayers(int x, int y, int nLayers)
@@ -106,15 +106,15 @@ index 57570c6ab9..532c05b702 100644
  // The 3D maze's per-GCell and layer work arrays, about 23 bytes per GCell
  // and layer, are needed only while mazeRouteMSMDOrder3D runs.
  void FastRouteCore::allocateMaze3D()
-@@ -2447,6 +2467,7 @@ NetRouteMap FastRouteCore::run()
-                                  "timer",
-                                  1,
-                                  "Congestion iterations: {}");
+@@ -2485,6 +2505,7 @@ NetRouteMap FastRouteCore::run()
+         && overflow_iterations_ > 0) {
+       initial_sttrees = saveInitialRoutes();
+     }
 +    allocateMaze2D();
      while (total_overflow_ > 0 && i <= overflow_iterations_
             && overflow_increases <= max_overflow_increases) {
        if (verbose_) {
-@@ -2718,6 +2739,7 @@ NetRouteMap FastRouteCore::run()
+@@ -2788,6 +2809,7 @@ NetRouteMap FastRouteCore::run()
          saveCongestion(i);
        }
      }  // end overflow iterations
@@ -122,6 +122,3 @@ index 57570c6ab9..532c05b702 100644
    }
  
    // Debug mode Tree 2D after overflow iterations
--- 
-2.53.0
-

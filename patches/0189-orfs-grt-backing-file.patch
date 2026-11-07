@@ -22,50 +22,47 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  1 file changed, 9 insertions(+), 4 deletions(-)
 
 diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
-index 0c42a9a98..8542e58fe 100644
+index 35bd53e8..1de13dc0 100644
 --- a/flow/scripts/global_route.tcl
 +++ b/flow/scripts/global_route.tcl
-@@ -31,7 +31,9 @@ proc global_route_helper { } {
+@@ -28,7 +28,9 @@ proc set_grt_seed { } {
+ }
+ 
+ proc run_global_route_and_catch_failures { args } {
+-  if { [catch { log_cmd global_route {*}$args } errMsg] } {
++  if { [catch {
++    log_cmd global_route -backing_file $::env(OBJECTS_DIR)/grt.grid {*}$args
++  } errMsg] } {
+     log_cmd write_db $::env(RESULTS_DIR)/5_1_grt-failed.odb
+     error $errMsg
+   }
+@@ -91,7 +93,8 @@ if { !$::env(SKIP_INCREMENTAL_REPAIR) } {
+ 
+   # Running DPL to fix overlapped instances
+   # Run to get modified net by DPL
+-  log_cmd global_route -start_incremental {*}$allow_congestion
++  log_cmd global_route -start_incremental {*}$allow_congestion \
++    -backing_file $::env(OBJECTS_DIR)/grt.grid
+   detailed_placement_helper -quiet
+   # Route only the modified net by DPL
+   run_global_route_and_catch_failures -end_incremental {*}$res_aware \
+@@ -108,7 +111,8 @@ if { !$::env(SKIP_INCREMENTAL_REPAIR) } {
+     report_metrics 5 "global route post repair timing"
    }
  
-   proc run_global_route_and_catch_failures { args } {
--    set result [catch { log_cmd global_route {*}$args } errMsg]
-+    set result [catch {
-+      log_cmd global_route -backing_file $::env(OBJECTS_DIR)/grt.grid {*}$args
-+    } errMsg]
+-  log_cmd global_route -start_incremental {*}$allow_congestion
++  log_cmd global_route -start_incremental {*}$allow_congestion \
++    -backing_file $::env(OBJECTS_DIR)/grt.grid
+   detailed_placement_helper -quiet
+   log_cmd check_placement -placeable -verbose
+   # Route only the modified net by DPL
+@@ -136,7 +140,8 @@ if { !$::env(SKIP_INCREMENTAL_REPAIR) } {
+ }
  
-     if { $result != 0 } {
-       if { !$::env(GENERATE_ARTIFACTS_ON_FAILURE) } {
-@@ -104,7 +106,8 @@ proc global_route_helper { } {
- 
-     # Running DPL to fix overlapped instances
-     # Run to get modified net by DPL
--    log_cmd global_route -start_incremental {*}$allow_congestion
-+    log_cmd global_route -start_incremental {*}$allow_congestion \
-+      -backing_file $::env(OBJECTS_DIR)/grt.grid
-     detailed_placement_helper -quiet
-     # Route only the modified net by DPL
-     if {
-@@ -125,7 +128,8 @@ proc global_route_helper { } {
-       report_metrics 5 "global route post repair timing"
-     }
- 
--    log_cmd global_route -start_incremental {*}$allow_congestion
-+    log_cmd global_route -start_incremental {*}$allow_congestion \
-+      -backing_file $::env(OBJECTS_DIR)/grt.grid
-     detailed_placement_helper -quiet
-     log_cmd check_placement -placeable -verbose
-     # Route only the modified net by DPL
-@@ -157,7 +161,8 @@ proc global_route_helper { } {
-   }
- 
-   if { !$::env(OPT_POST_GRT_WNS) } {
--    log_cmd global_route -start_incremental {*}$allow_congestion
-+    log_cmd global_route -start_incremental {*}$allow_congestion \
-+      -backing_file $::env(OBJECTS_DIR)/grt.grid
-     recover_power_helper
-     # Route the modified nets by rsz journal restore
-     if {
--- 
-2.53.0
-
+ if { !$::env(OPT_POST_GRT_WNS) } {
+-  log_cmd global_route -start_incremental {*}$allow_congestion
++  log_cmd global_route -start_incremental {*}$allow_congestion \
++    -backing_file $::env(OBJECTS_DIR)/grt.grid
+   recover_power_helper
+   # Route the modified nets by rsz journal restore
+   run_global_route_and_catch_failures -end_incremental {*}$res_aware \
