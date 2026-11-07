@@ -49,6 +49,7 @@ EXPORTED_SKILLS = (
     "no-paint-drying",
     "odb-debug",
     "openroad-debug",
+    "openroad-field-guide",
     "orfs-deps-preflight",
     "prefer-slang",
     "repair-headroom",
