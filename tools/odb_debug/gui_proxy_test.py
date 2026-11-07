@@ -40,15 +40,26 @@ class Decide(unittest.TestCase):
             "deny",
         )
 
-    def test_the_links_token_becomes_a_cookie_and_leaves_the_url(self):
-        action, reply = gui_proxy.decide(
-            head("/index.html?token=%s&x=1" % TOKEN), TOKEN, PORT
-        )
+    def test_the_links_token_becomes_a_cookie_and_stays_in_the_url(self):
+        # The viewer checks the token too, from the query.
+        target = "/index.html?token=%s&x=1" % TOKEN
+        action, reply = gui_proxy.decide(head(target), TOKEN, PORT)
         self.assertEqual(action, "redirect")
         text = reply.decode("latin-1")
         self.assertIn("HTTP/1.1 302", text)
-        self.assertIn("\r\nLocation: /index.html?x=1\r\n", text)
+        self.assertIn("\r\nLocation: %s\r\n" % target, text)
         self.assertIn("Set-Cookie: odbdebug8123=%s; HttpOnly" % TOKEN, text)
+        cookie = "odbdebug8123=%s" % TOKEN
+        self.assertEqual(
+            gui_proxy.decide(head(target, cookie), TOKEN, PORT), ("forward", None)
+        )
+
+    def test_a_wrong_token_with_the_cookie_is_denied(self):
+        cookie = "odbdebug8123=%s" % TOKEN
+        self.assertEqual(
+            gui_proxy.decide(head("/?token=" + "f" * 32, cookie), TOKEN, PORT)[0],
+            "deny",
+        )
 
     def test_the_cookie_is_forwarded(self):
         cookie = "other=1; odbdebug8123=%s" % TOKEN
@@ -145,7 +156,7 @@ class Proxy(unittest.TestCase):
         self.assertEqual(status, 302)
         cookie = headers["Set-Cookie"].split(";")[0]
         status, _, body = self.get(headers["Location"], cookie)
-        self.assertEqual((status, body), (200, b"viewer /"))
+        self.assertEqual((status, body), (200, b"viewer /?token=" + TOKEN.encode()))
         with open(self.activity) as f:
             word, when = f.read().split()
         self.assertEqual(word, "activity")

@@ -3,11 +3,13 @@
 another machine (over a VPN, say) reach the daemon's web viewer, which
 listens on 127.0.0.1 only.
 
-The viewer evaluates any Tcl it is sent and has no authentication, so
-the proxy forwards a connection only when it carries the daemon's token:
-in the link's query (`/?token=...`), answered with a cookie and a
-redirect to the same page without it, or in that cookie on every later
-request, the viewer's websocket included. Anything else gets a 403.
+The viewer evaluates any Tcl it is sent, so the proxy forwards a
+connection only when it carries the daemon's token in a cookie: the
+link's query (`/?token=...`) is answered with that cookie and a redirect
+to the same link, and every later request, the page's assets included,
+carries it. Anything else gets a 403. The viewer checks the same token
+itself (`web_server -token`) on the page and its websocket, from the
+query, so the token stays in the link.
 
 Every byte a browser sends counts as interaction: the proxy writes the
 time to the activity file, which the daemon's watchdog reads for an idle exit.
@@ -30,7 +32,7 @@ import threading
 import time
 
 try:
-    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+    from urllib.parse import parse_qsl, urlsplit, urlunsplit
 except ImportError:  # pragma: no cover - Python 2 is not supported
     raise
 
@@ -85,11 +87,14 @@ def decide(head, token, port):
     url = urlsplit(target)
     query = parse_qsl(url.query, keep_blank_values=True)
     given = [v for k, v in query if k == "token"]
+    jar = cookies(headers.get("cookie", ""))
+    has_cookie = same(jar.get(cookie_name(port), ""), token)
     if given:
         if not same(given[-1], token):
             return "deny", forbidden()
-        rest = urlencode([(k, v) for k, v in query if k != "token"])
-        location = urlunsplit(("", "", url.path or "/", rest, ""))
+        if has_cookie:
+            return "forward", None
+        location = urlunsplit(("", "", url.path or "/", url.query, ""))
         return "redirect", response(
             302,
             "Found",
@@ -103,8 +108,7 @@ def decide(head, token, port):
                 ),
             ],
         )
-    jar = cookies(headers.get("cookie", ""))
-    if same(jar.get(cookie_name(port), ""), token):
+    if has_cookie:
         return "forward", None
     return "deny", forbidden()
 

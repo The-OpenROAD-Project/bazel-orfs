@@ -638,7 +638,9 @@ catch { file delete $::od_activity_path }
 od_heartbeat waiting
 
 # The GUI link: a token, and the proxy that checks it on the address a
-# browser on the human's machine reaches.
+# browser on the human's machine reaches. The viewer checks the same
+# token itself (web_server -token): the page and its websocket carry it
+# in the query, which is where the viewer's page reads it from.
 set f [open /dev/urandom rb]
 set ::od_token [binary encode hex [read $f 16]]
 close $f
@@ -685,7 +687,8 @@ catch { file delete $::od_info_path }
 # The GUI token is in it: its owner only.
 set fh [open $od_pending {WRONLY CREAT TRUNC} 0600]
 puts $fh [od_jobj [list port $od_port pid [pid] dir [od_jstr $::env(ODB_DEBUG_DIR)] \
-  url [od_jstr "http://127.0.0.1:$od_port"] gui_url [od_jstr $::od_gui_url] \
+  url [od_jstr "http://127.0.0.1:$od_port"] token [od_jstr $::od_token] \
+  gui_url [od_jstr $::od_gui_url] \
   design [od_jstr [[ord::get_db_block] getName]] \
   odb [od_jstr [expr { [info exists ::env(ODB_FILE)] ? $::env(ODB_FILE) : "" }]] \
   workspace [od_jstr $::od_workspace] commit [od_jstr $::od_commit] timing [od_jbool $::od_timing]]]
@@ -800,6 +803,6 @@ if { [thread_count] < 2 } {
 # rename that tells clients to connect happens beside it, after a grace.
 exec sh -c {sleep 2; [ -f "$1" ] && mv -f "$1" "$2"} odb-debug-ready \
   $od_pending $::od_info_path >@ stdout 2>@ stderr &
-web_server -no_browser -port $od_port -bind 127.0.0.1
+web_server -no_browser -port $od_port -bind 127.0.0.1 -token $::od_token
 catch { file delete $::od_info_path }
 exit 0
