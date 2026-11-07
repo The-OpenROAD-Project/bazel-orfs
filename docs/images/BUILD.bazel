@@ -1,0 +1,9 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+
+# Regenerates the PNGs docs/cached-parallel-synthesis.md shows. Private: a
+# documentation tool, not part of what bazel-orfs ships.
+py_binary(
+    name = "parallel_synthesis_diagrams",
+    srcs = ["parallel_synthesis_diagrams.py"],
+    deps = ["@bazel-orfs-dev-pip//matplotlib"],
+)
