@@ -123,6 +123,16 @@ its key.
 
 ## Debugging OpenROAD/ORFS failures
 
+What is already known about how OpenROAD, OpenSTA, yosys and ORFS behave
+when they hurt has its own skill, read first when a stage is slow, runs
+out of memory, grinds or gives a bad period, and added to whenever a
+problem is understood:
+
+- `openroad-field-guide` — per tool, the log lines that tell the phases
+  apart and show convergence or a grind, where the time and the memory
+  go, the levers that work, what is futile, and what was tried here, with
+  the carried patches and upstream pull requests behind it.
+
 When an ORFS stage fails in openroad/yosys/opensta — a crash, a hang, a
 parallel race, or a nondeterministic result — the skills are the single
 source of truth; do not duplicate their mechanics:
