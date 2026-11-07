@@ -20,11 +20,15 @@ first 200 rows, at the table's font size), not from the layout: a
 histogram click fills the timing table while its panel is hidden, every
 offsetWidth is then 0, and the last column, End, took the whole panel.
 ---
+ src/web/src/ui-utils.js               | 48 +++++++++++++++++++++++----
+ src/web/test/js/test-timing-widget.js | 37 ++++++++++++++++++++-
+ 2 files changed, 77 insertions(+), 8 deletions(-)
+
 diff --git a/src/web/src/ui-utils.js b/src/web/src/ui-utils.js
-index 9b1b05d..d584229 100644
+index 12cc8d96f0..a3773f52b8 100644
 --- a/src/web/src/ui-utils.js
 +++ b/src/web/src/ui-utils.js
-@@ -619,15 +619,48 @@ export function runTclScript(app, script, echo) {
+@@ -632,15 +632,48 @@ export function runTclScript(app, script, echo) {
  // width it started with or was dragged to (kept on the table, so a re-render
  // that rebuilds the header keeps it); the container scrolls sideways past
  // that.
@@ -80,7 +84,7 @@ index 9b1b05d..d584229 100644
      }
      const last = headers.length - 1;
      let lastMin = parseFloat(table.dataset.lastMinWidth)
-@@ -682,6 +715,7 @@ export function makeResizableHeaders(table, widths) {
+@@ -695,6 +728,7 @@ export function makeResizableHeaders(table, widths) {
          };
          grip.addEventListener('mousedown', (e) => {
              e.preventDefault();
@@ -89,7 +93,7 @@ index 9b1b05d..d584229 100644
              startW = th.offsetWidth;
              document.addEventListener('mousemove', onMouseMove);
 diff --git a/src/web/test/js/test-timing-widget.js b/src/web/test/js/test-timing-widget.js
-index 2a381a2..5c4ae82 100644
+index 45d38f65a5..10cb9ca663 100644
 --- a/src/web/test/js/test-timing-widget.js
 +++ b/src/web/test/js/test-timing-widget.js
 @@ -5,7 +5,8 @@ import './setup-dom.js';
@@ -102,7 +106,7 @@ index 2a381a2..5c4ae82 100644
  
  // jsdom does not implement scrollIntoView; stub it so _selectPathRow runs.
  if (!window.HTMLElement.prototype.scrollIntoView) {
-@@ -383,6 +384,25 @@ describe('makeResizableHeaders', () => {
+@@ -445,6 +446,25 @@ describe('makeResizableHeaders', () => {
          assert.equal(table.style.width, '750px');
      });
  
@@ -128,8 +132,8 @@ index 2a381a2..5c4ae82 100644
      it('widens the last column too, and keeps it when the header is rebuilt', () => {
          const table = table3(['100px', '200px', '50px']);
          let ths = table.querySelectorAll('thead th');
-@@ -473,3 +493,18 @@ describe('TimingWidget Expand clock', () => {
-         assert.equal(clkRow.children[3].textContent, summaryTime);
+@@ -473,3 +493,18 @@ describe('makeResizableHeaders', () => {
+         assert.equal(table.style.width, '600px');
      });
  });
 +

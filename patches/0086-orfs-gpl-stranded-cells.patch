@@ -24,12 +24,16 @@ GPL_STRANDED_CELLS_CHECK=warn or none for a flow that wants them.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
+ flow/scripts/global_place.tcl | 111 ++++++++++++++++++++++++++++++++++
+ flow/scripts/variables.yaml   |  17 ++++++
+ 2 files changed, 128 insertions(+)
+
 diff --git a/flow/scripts/global_place.tcl b/flow/scripts/global_place.tcl
-index b478cecd9..d7a54c36c 100644
+index 4a125954..5d7657b9 100644
 --- a/flow/scripts/global_place.tcl
 +++ b/flow/scripts/global_place.tcl
 @@ -84,6 +84,117 @@ if { $::env(CLUSTER_FLOPS) } {
-   log_cmd estimate_parasitics -placement
+   log_cmd estimate_parasitics
  }
  
 +# Cells global placement left where there is no site. It ignores rows and
@@ -147,10 +151,10 @@ index b478cecd9..d7a54c36c 100644
  
  source_step_tcl POST GLOBAL_PLACE
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
-index 1f8264474..5593e091a 100644
+index ab28a3b0..1738eba8 100644
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -854,6 +854,23 @@ SKIP_LAST_GASP:
+@@ -949,6 +949,23 @@ SKIP_LAST_GASP:
      - cts
      - floorplan
      - grt

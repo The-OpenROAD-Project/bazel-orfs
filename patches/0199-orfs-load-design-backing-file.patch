@@ -21,7 +21,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  2 files changed, 10 insertions(+), 3 deletions(-)
 
 diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
-index 8542e58fe..402d4547f 100644
+index 1de13dc0..4d245628 100644
 --- a/flow/scripts/global_route.tcl
 +++ b/flow/scripts/global_route.tcl
 @@ -1,7 +1,7 @@
@@ -31,10 +31,10 @@ index 8542e58fe..402d4547f 100644
 -load_design 4_cts.odb 4_cts.sdc
 +load_design 4_cts.odb 4_cts.sdc -backing_file $::env(OBJECTS_DIR)/grt.db
  
- # This proc is here to allow us to use 'return' to return early from this
- # file which is sourced
+ source_step_tcl PRE GLOBAL_ROUTE
+ 
 diff --git a/flow/scripts/load.tcl b/flow/scripts/load.tcl
-index 7d70b6776..8401ffa90 100644
+index 7d70b677..8401ffa9 100644
 --- a/flow/scripts/load.tcl
 +++ b/flow/scripts/load.tcl
 @@ -2,7 +2,14 @@ source $::env(SCRIPTS_DIR)/util.tcl
@@ -62,6 +62,3 @@ index 7d70b6776..8401ffa90 100644
    } else {
      error "Unrecognized input file $design_file"
    }
--- 
-2.53.0
-

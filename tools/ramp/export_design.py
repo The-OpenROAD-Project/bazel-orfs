@@ -87,15 +87,12 @@ MARKER = "# Exported by `bazelisk run //:export`"
 STAGES = ["synth", "floorplan", "place", "cts", "grt", "route", "final"]
 
 # The ORFS checkout supplies these: where its platform lives, and where a
-# run writes. GENERATE_ARTIFACTS_ON_FAILURE is Bazel's: a failed action
-# must still leave its outputs to look at; make fails the step, as ORFS's
-# default does. So is SYNTH_REPEATABLE_BUILD: it trades the netlist's
+# run writes. SYNTH_REPEATABLE_BUILD is Bazel's: it trades the netlist's
 # debug information for cache hits, and make has no cache.
 DROPPED = {
     "WORK_HOME",
     "PLATFORM_DIR",
     "FLOW_VARIANT",
-    "GENERATE_ARTIFACTS_ON_FAILURE",
     "SYNTH_REPEATABLE_BUILD",
 }
 

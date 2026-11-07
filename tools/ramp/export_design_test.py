@@ -450,9 +450,9 @@ class BazelOrfsDefaultsTest(unittest.TestCase):
         text = self.config({"DESIGN_NAME": "top", "OPENROAD_HIERARCHICAL": "0"})
         self.assertNotIn("bazel-orfs's default", text)
 
-    def test_bazels_failure_artifacts_stay_in_bazel(self):
+    def test_bazels_repeatable_build_stays_in_bazel(self):
         self.assertEqual(
-            merge([("synth", {"GENERATE_ARTIFACTS_ON_FAILURE": "1", "X": "1"})]),
+            merge([("synth", {"SYNTH_REPEATABLE_BUILD": "1", "X": "1"})]),
             {"X": "1"},
         )
 

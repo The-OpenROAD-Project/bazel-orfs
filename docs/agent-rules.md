@@ -162,9 +162,10 @@ OpenSTA's `check_setup` is blind to the worst case:
 - `check-setup` — what each warning means, why the count in
   `2_1_floorplan.log` is not enough, the pins and their modules through
   odb-debug's `check_setup` tool, what this flow's `set_max_delay` SDC
-  produces by design, and the carried patches 0108/0109 (a flop behind a
+  produces by design, and the two blind spots OpenSTA has since fixed
+  (fdb00f48 and #455, once carried patches 0108/0109): a flop behind a
   tied-enable ICG, a clock that reaches a register only on the wrong
-  edge).
+  edge.
 
 How to constrain a hardened block is its own skill, and the advice in
 circulation is wrong for this flow:

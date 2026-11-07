@@ -24,10 +24,10 @@ regfile_dissolve.tcl).
  1 file changed, 35 insertions(+)
 
 diff --git a/flow/scripts/pdn.tcl b/flow/scripts/pdn.tcl
-index 2230e05f8..5f2a2cf86 100644
+index 7a7c32b2..7b4b86b0 100644
 --- a/flow/scripts/pdn.tcl
 +++ b/flow/scripts/pdn.tcl
-@@ -3,7 +3,42 @@ erase_non_stage_variables floorplan
+@@ -3,10 +3,45 @@ erase_non_stage_variables floorplan
  load_design 2_3_floorplan_tapcell.odb 2_1_floorplan.sdc
  source_step_tcl PRE PDN
  
@@ -59,6 +59,9 @@ index 2230e05f8..5f2a2cf86 100644
 +  $inst setDoNotTouch 0
 +}
  source $::env(PDN_TCL)
+ # The rules floorplan stored, for the instances made since (tap and
+ # endcap cells), and any PDN_TCL adds.
+ global_connect
 +foreach inst $lifted {
 +  $inst setDoNotTouch 1
 +}

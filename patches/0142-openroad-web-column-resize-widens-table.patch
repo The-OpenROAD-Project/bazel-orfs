@@ -17,11 +17,17 @@ sideways past that. The last column gets a grip too: dragging it sets
 its minimum, kept on the table across a re-render. A timing-table cell narrower than its text elides it,
 as Qt does, rather than writing over the next column.
 ---
+ src/web/src/style.css                 | 10 ++--
+ src/web/src/timing-widget.js          |  1 +
+ src/web/src/ui-utils.js               | 35 ++++++++++--
+ src/web/test/js/test-timing-widget.js | 77 +++++++++++++++++++++++++--
+ 4 files changed, 114 insertions(+), 9 deletions(-)
+
 diff --git a/src/web/src/style.css b/src/web/src/style.css
-index e4cca3e..27f748e 100644
+index 268c3f85c1..c7ca059467 100644
 --- a/src/web/src/style.css
 +++ b/src/web/src/style.css
-@@ -2214,13 +2214,13 @@ body {
+@@ -2516,13 +2516,13 @@ body.is-resizing-h * {
  
  .timing-path-table-container {
      flex: 1;
@@ -37,7 +43,7 @@ index e4cca3e..27f748e 100644
      min-height: 80px;
      border-top: 1px solid var(--border);
  }
-@@ -2270,6 +2270,10 @@ body {
+@@ -2572,6 +2572,10 @@ body.is-resizing-h * {
  .timing-table tbody td {
      padding: 3px var(--space-md);
      white-space: nowrap;
@@ -48,7 +54,7 @@ index e4cca3e..27f748e 100644
      color: var(--fg-primary);
      font-family: var(--font-mono);
  }
-@@ -2368,7 +2372,7 @@ body {
+@@ -2670,7 +2674,7 @@ body.is-resizing-h * {
  
  .hierarchy-table-container {
      flex: 1;
@@ -58,10 +64,10 @@ index e4cca3e..27f748e 100644
  }
  
 diff --git a/src/web/src/timing-widget.js b/src/web/src/timing-widget.js
-index 34aaffe..28c58d4 100644
+index 2923b1610f..dd3e48a06c 100644
 --- a/src/web/src/timing-widget.js
 +++ b/src/web/src/timing-widget.js
-@@ -646,6 +646,7 @@ export class TimingWidget {
+@@ -683,6 +683,7 @@ export class TimingWidget {
              const pinTh = this._detailTable.querySelector('thead th');
              if (pinTh) {
                  pinTh.style.width = '30ch';
@@ -70,10 +76,10 @@ index 34aaffe..28c58d4 100644
          }
      }
 diff --git a/src/web/src/ui-utils.js b/src/web/src/ui-utils.js
-index 31afff1..9b1b05d 100644
+index 595484cbef..12cc8d96f0 100644
 --- a/src/web/src/ui-utils.js
 +++ b/src/web/src/ui-utils.js
-@@ -611,21 +611,44 @@ export function runTclScript(app, script, echo) {
+@@ -624,21 +624,44 @@ export function runTclScript(app, script, echo) {
  // widths is an optional array of CSS width strings (e.g. saved from a
  // previous render); when given, it is applied directly instead of
  // measuring natural widths, avoiding a forced reflow.
@@ -120,7 +126,7 @@ index 31afff1..9b1b05d 100644
          const grip = document.createElement('div');
          grip.className = 'col-resize-grip';
          th.style.position = 'relative';
-@@ -633,7 +656,13 @@ export function makeResizableHeaders(table, widths) {
+@@ -646,7 +669,13 @@ export function makeResizableHeaders(table, widths) {
  
          let startX, startW;
          const onMouseMove = (e) => {
@@ -136,13 +142,13 @@ index 31afff1..9b1b05d 100644
          const onMouseUp = () => {
              document.removeEventListener('mousemove', onMouseMove);
 diff --git a/src/web/test/js/test-timing-widget.js b/src/web/test/js/test-timing-widget.js
-index dd8dde4..a8e827f 100644
+index 019d61bf3b..45d38f65a5 100644
 --- a/src/web/test/js/test-timing-widget.js
 +++ b/src/web/test/js/test-timing-widget.js
 @@ -5,6 +5,7 @@ import './setup-dom.js';
  import { describe, it } from 'node:test';
  import assert from 'node:assert/strict';
- import { TimingWidget } from '../../src/timing-widget.js';
+ import { TimingWidget, detailRows } from '../../src/timing-widget.js';
 +import { makeResizableHeaders } from '../../src/ui-utils.js';
  
  // jsdom does not implement scrollIntoView; stub it so _selectPathRow runs.
@@ -164,8 +170,8 @@ index dd8dde4..a8e827f 100644
      });
  
      it('does not change the sort when a column resize drag ends', () => {
-@@ -340,3 +341,73 @@ describe('TimingWidget path table sorting', () => {
-         assert.equal(tip.style.display, 'none');
+@@ -402,3 +403,73 @@ describe('TimingWidget Expand clock', () => {
+         assert.equal(clkRow.children[3].textContent, summaryTime);
      });
  });
 +

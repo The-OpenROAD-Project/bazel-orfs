@@ -1,5 +1,5 @@
 # Only the falling edge of the clock reaches a rising-edge flop: no path
-# through it is timed, and check_setup says so: patches/0109. Before it,
+# through it is timed, and check_setup says so: OpenSTA #455. Before it,
 # the flop was in the clock network, which ignores transitions, and
 # check_setup said nothing.
 source [file join [file dirname [info script]] load.tcl]

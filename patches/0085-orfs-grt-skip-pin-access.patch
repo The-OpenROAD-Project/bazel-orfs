@@ -21,35 +21,39 @@ is in bazel-orfs test/planned_parent.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
+ flow/scripts/global_route.tcl | 13 ++++++++++++-
+ flow/scripts/variables.yaml   | 10 ++++++++++
+ 2 files changed, 22 insertions(+), 1 deletion(-)
+
 diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
-index 45f3852f3..153c1b379 100644
+index 01ad91ba..35bd53e8 100644
 --- a/flow/scripts/global_route.tcl
 +++ b/flow/scripts/global_route.tcl
-@@ -63,7 +63,18 @@ proc global_route_helper { } {
-   append_env_var additional_args VIA_IN_PIN_MIN_LAYER -via_in_pin_bottom_layer 1
-   append_env_var additional_args VIA_IN_PIN_MAX_LAYER -via_in_pin_top_layer 1
+@@ -52,7 +52,18 @@ append_env_var additional_args dbProcessNode -db_process_node 1
+ append_env_var additional_args VIA_IN_PIN_MIN_LAYER -via_in_pin_bottom_layer 1
+ append_env_var additional_args VIA_IN_PIN_MAX_LAYER -via_in_pin_top_layer 1
  
--  log_cmd pin_access {*}$additional_args
-+  # SKIP_PIN_ACCESS: run the global route without building access points.
-+  # pin_access fails on a macro pin it cannot reach (DRT-0073), and on a
-+  # hierarchical design that is one pin of one block between a placement
-+  # and the congestion map the stage exists to produce. The guide the
-+  # router writes without access points is not a routable result, so this
-+  # is a knob for a study, not for a flow that goes on to detailed route.
-+  if { [env_var_equals SKIP_PIN_ACCESS 1] } {
-+    utl::warn FLW 21 "SKIP_PIN_ACCESS=1: pin access skipped; the global route's\
-+      guides have no access points and detailed route will not take them."
-+  } else {
-+    log_cmd pin_access {*}$additional_args
-+  }
+-log_cmd pin_access {*}$additional_args
++# SKIP_PIN_ACCESS: run the global route without building access points.
++# pin_access fails on a macro pin it cannot reach (DRT-0073), and on a
++# hierarchical design that is one pin of one block between a placement
++# and the congestion map the stage exists to produce. The guide the
++# router writes without access points is not a routable result, so this
++# is a knob for a study, not for a flow that goes on to detailed route.
++if { [env_var_equals SKIP_PIN_ACCESS 1] } {
++  utl::warn FLW 21 "SKIP_PIN_ACCESS=1: pin access skipped; the global route's\
++    guides have no access points and detailed route will not take them."
++} else {
++  log_cmd pin_access {*}$additional_args
++}
  
-   if { ![do_global_route $res_aware $use_cugr] } {
-     return
+ do_global_route $res_aware $use_cugr
+ 
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
-index 394efc6d6..1f8264474 100644
+index 6cb82a40..ab28a3b0 100644
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -854,6 +854,16 @@ SKIP_LAST_GASP:
+@@ -949,6 +949,16 @@ SKIP_LAST_GASP:
      - cts
      - floorplan
      - grt

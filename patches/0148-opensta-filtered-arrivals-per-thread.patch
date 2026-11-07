@@ -26,12 +26,12 @@ OpenROAD whose OpenSTA carries it.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- include/sta/Search.hh |  7 ++++++-
- search/Search.cc      | 31 +++++++++++++++++++++++++------
+ src/sta/include/sta/Search.hh |  7 ++++++-
+ src/sta/search/Search.cc      | 31 +++++++++++++++++++++++++------
  2 files changed, 31 insertions(+), 7 deletions(-)
 
 diff --git a/src/sta/include/sta/Search.hh b/src/sta/include/sta/Search.hh
-index 59c9cfd1..5e90a96d 100644
+index 59c9cfd137..5e90a96d2f 100644
 --- a/src/sta/include/sta/Search.hh
 +++ b/src/sta/include/sta/Search.hh
 @@ -267,7 +267,9 @@ public:
@@ -56,7 +56,7 @@ index 59c9cfd1..5e90a96d 100644
    bool crpr_active_;
    bool has_fanin_one_;
 diff --git a/src/sta/search/Search.cc b/src/sta/search/Search.cc
-index 5f1f2308..560c511a 100644
+index 28caad7b2e..aaf9a43526 100644
 --- a/src/sta/search/Search.cc
 +++ b/src/sta/search/Search.cc
 @@ -1093,7 +1093,8 @@ Search::findArrivalsSeed()
@@ -78,8 +78,8 @@ index 5f1f2308..560c511a 100644
 +  filtered_arrivals_(new VertexSeq)
  {
    init0();
-   init(arrival_visitor.always_to_endpoints_, false, arrival_visitor.pred_);
-@@ -1144,6 +1146,10 @@ ArrivalVisitor::~ArrivalVisitor()
+   init(arrival_visitor.always_to_endpoints_,
+@@ -1146,6 +1148,10 @@ ArrivalVisitor::~ArrivalVisitor()
    delete tag_bldr_;
    delete tag_bldr_no_crpr_;
    delete tag_group_cache_;
@@ -90,7 +90,7 @@ index 5f1f2308..560c511a 100644
    delete search_adj_;
  }
  
-@@ -1209,7 +1215,8 @@ ArrivalVisitor::visit(Vertex *vertex,
+@@ -1211,7 +1217,8 @@ ArrivalVisitor::visit(Vertex *vertex,
    }
    if (arrivals_changed) {
      debugPrint(debug_, "search", 4, "arrivals changed");
@@ -100,7 +100,7 @@ index 5f1f2308..560c511a 100644
      search_->tnsInvalid(vertex);
      constrainedRequiredsInvalid(vertex, is_clk);
    }
-@@ -2830,7 +2837,8 @@ Search::findTagGroup(TagGroupBldr *tag_bldr,
+@@ -2832,7 +2839,8 @@ Search::findTagGroup(TagGroupBldr *tag_bldr,
  void
  Search::setVertexArrivals(Vertex *vertex,
                            TagGroupBldr *tag_bldr,
@@ -110,7 +110,7 @@ index 5f1f2308..560c511a 100644
  {
    if (tag_bldr->empty())
      deletePathsIncr(vertex);
-@@ -2855,12 +2863,23 @@ Search::setVertexArrivals(Vertex *vertex,
+@@ -2857,12 +2865,23 @@ Search::setVertexArrivals(Vertex *vertex,
        tag_group->incrRefCount();
      }
      if (tag_group->hasFilterTag()) {
