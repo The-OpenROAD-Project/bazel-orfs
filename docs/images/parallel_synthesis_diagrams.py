@@ -621,8 +621,191 @@ def cliffs():
     )
 
 
+def illustrative(ax, x, y):
+    ax.text(
+        x,
+        y,
+        "ILLUSTRATIVE: MADE-UP NUMBERS",
+        fontsize=8,
+        color=RED_EDGE,
+        weight="bold",
+        ha="right",
+    )
+
+
+def turn():
+    """One turn of the loop on XSTile, to scale (KPI run 17)."""
+    fig, ax = canvas(12, 2.6)
+    # minutes; 1 unit = 30 min
+    x, y, h = 0.3, 1.2, 0.7
+    parts = [
+        (10, BLUE, BLUE_EDGE, ""),
+        (10, GREEN, GREEN_EDGE, ""),
+        (234, ORANGE, ORANGE_EDGE, "place, 3.9 h"),
+        (40, ORANGE, ORANGE_EDGE, "CTS 40 min"),
+        (45, ORANGE, ORANGE_EDGE, "grt 45 min"),
+    ]
+    for minutes, fc, ec, label in parts:
+        w = minutes / 30
+        ax.add_patch(plt.Rectangle((x, y), w, h, fc=fc, ec=ec, lw=1.1))
+        if label:
+            ax.text(x + w / 2, y + h / 2, label, ha="center", va="center", fontsize=9)
+        x += w
+    ax.text(
+        0.3,
+        2.25,
+        "One turn of the loop on XiangShan's XSTile, to scale",
+        fontsize=10,
+        color=INK,
+        weight="bold",
+    )
+    arrow(ax, 0.47, 1.15, 0.47, 0.72, color=BLUE_EDGE)
+    ax.text(0.3, 0.5, "human ~10 min", fontsize=8, color=BLUE_EDGE)
+    arrow(ax, 0.8, 1.15, 0.8, 0.85, color=GREEN_EDGE)
+    ax.text(0.95, 0.88, "AI ~10 min", fontsize=8, color=GREEN_EDGE)
+    ax.text(
+        6.5,
+        0.5,
+        "the build: about 5.3 h of CPU-bound EDA",
+        fontsize=9,
+        color=MUTED,
+        ha="center",
+    )
+    ax.text(
+        11.7,
+        0.05,
+        "build: KPI run 17 (kpi.json); human and AI minutes illustrative",
+        fontsize=7.5,
+        color=MUTED,
+        ha="right",
+    )
+    fig.savefig(
+        f"{OUT}/parallel-synthesis-turn.png", bbox_inches="tight", facecolor="white"
+    )
+
+
+def overlap():
+    """The same CPUs run the flow and a local AI; a GPU idles."""
+    fig, ax = canvas(12, 3.6)
+    ax.text(
+        0.2, 3.3, "Six hours of an experiment", fontsize=10, color=INK, weight="bold"
+    )
+    illustrative(ax, 11.8, 3.3)
+    x0, scale = 2.2, 9.6 / 360  # minutes to units
+    ax.text(
+        0.2, 2.45, "CPU server\nflow + local AI", fontsize=9, color=INK, va="center"
+    )
+    t = 0
+    for minutes, label in [(100, "EDA arm 1"), (120, "EDA arm 2"), (115, "EDA arm 3")]:
+        w = minutes * scale
+        ax.add_patch(
+            plt.Rectangle((x0 + t * scale, 2.15), w, 0.6, fc=ORANGE, ec=ORANGE_EDGE)
+        )
+        ax.text(
+            x0 + t * scale + w / 2, 2.45, label, ha="center", va="center", fontsize=9
+        )
+        t += minutes
+        ax.add_patch(
+            plt.Rectangle(
+                (x0 + t * scale, 2.15), 8 * scale, 0.6, fc=GREEN, ec=GREEN_EDGE
+            )
+        )
+        t += 8
+    ax.text(
+        x0,
+        1.85,
+        "local AI (green) triages each arm and picks the next point on the same cores: ~100 % busy",
+        fontsize=8,
+        color=MUTED,
+    )
+    ax.text(0.2, 1.05, "GPU\nAI only", fontsize=9, color=INK, va="center")
+    ax.add_patch(plt.Rectangle((x0, 0.75), 9.6, 0.6, fc=GREY, ec=GREY_EDGE))
+    for at in (100, 228, 351):
+        ax.add_patch(
+            plt.Rectangle(
+                (x0 + at * scale, 0.75), 2 * scale, 0.6, fc=BLUE, ec=BLUE_EDGE
+            )
+        )
+    ax.text(
+        x0 + 4.4,
+        1.05,
+        "idle: few large, uniform tasks",
+        ha="center",
+        va="center",
+        fontsize=8.5,
+        color=MUTED,
+    )
+    ax.text(x0, 0.3, "0 h", fontsize=8, color=MUTED)
+    ax.text(x0 + 9.6, 0.3, "6 h", fontsize=8, color=MUTED, ha="right")
+    fig.savefig(
+        f"{OUT}/parallel-synthesis-overlap.png", bbox_inches="tight", facecolor="white"
+    )
+
+
+def gpl_split():
+    """Global placement: the GPU wins a battle that is not where the time goes."""
+    fig, ax = canvas(12, 3.4)
+    ax.text(
+        0.2,
+        3.1,
+        "Global placement on a large design",
+        fontsize=10,
+        color=INK,
+        weight="bold",
+    )
+    illustrative(ax, 11.8, 3.1)
+    x0, width = 1.6, 10.0
+    split = [
+        (0.10, BLUE, BLUE_EDGE, "10 %"),
+        (0.55, ORANGE, ORANGE_EDGE, "timing-driven: STA + repair, 55 %"),
+        (0.20, ORANGE, ORANGE_EDGE, "routability, 20 %"),
+        (0.15, GREY, GREY_EDGE, "I/O, init, 15 %"),
+    ]
+
+    def bar(y, gpu_speedup):
+        x = x0
+        for i, (share, fc, ec, label) in enumerate(split):
+            w = width * share / (gpu_speedup if i == 0 else 1)
+            ax.add_patch(plt.Rectangle((x, y), w, 0.6, fc=fc, ec=ec, lw=1.1))
+            if w > 0.5:
+                ax.text(
+                    x + w / 2, y + 0.3, label, ha="center", va="center", fontsize=8.5
+                )
+            x += w
+        return x
+
+    ax.text(0.2, 2.25, "on CPU", fontsize=9, color=INK, va="center")
+    bar(1.95, 1)
+    ax.text(
+        x0,
+        1.7,
+        "Nesterov density + wirelength: what a GPU accelerates",
+        fontsize=8,
+        color=BLUE_EDGE,
+    )
+    ax.text(0.2, 1.05, "GPU, 40x", fontsize=9, color=INK, va="center")
+    end = bar(0.75, 40)
+    ax.plot([end, end], [0.65, 1.45], color=RED_EDGE, ls="--", lw=1)
+    ax.text(
+        end + 0.1, 1.05, "1.1x", fontsize=10, color=RED_EDGE, weight="bold", va="center"
+    )
+    ax.text(
+        x0,
+        0.3,
+        "The GPU wins its battle 40 to 1 and the whole gets 1.1x faster (Amdahl): the serial CPU work is untouched.",
+        fontsize=8,
+        color=MUTED,
+    )
+    fig.savefig(
+        f"{OUT}/parallel-synthesis-gpl.png", bbox_inches="tight", facecolor="white"
+    )
+
+
 flow()
 partitioning()
 remote()
 loop()
 cliffs()
+turn()
+overlap()
+gpl_split()

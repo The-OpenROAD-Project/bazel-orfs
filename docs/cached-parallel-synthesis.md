@@ -172,6 +172,27 @@ step, and flattening less may also improve the result directly
 (misconception 3): which modules to keep is worth trying both ways, and
 measuring.
 
+### A digression: the AI will not be the bottleneck
+
+Look at where a turn of the loop spends its time. The human reads a
+result and sets a direction in minutes, and the AI proposes the next
+change in minutes. The build takes hours. Ideas from an AI are cheap;
+executing one and measuring it accurately, on CPUs, is expensive. As
+AIs get faster and cheaper, the EDA tools become the bottleneck.
+
+![One turn of the loop on XiangShan's XSTile, to scale: human and AI about ten minutes each, as slivers, then the build: placement 3.9 h, CTS 40 min, global route 45 min](images/parallel-synthesis-turn.png)
+
+The build times are XiangShan's KPI run 17 (`kpi.json`); the human and
+AI minutes are illustrative.
+
+That also says where the AI will run. A build that takes hours leaves
+room for AI work beside it, and that work will probably run locally, on
+the same CPUs as the EDA tools
+([misconception 6](#misconception-6-raw-compute-always-wins) says why
+not on a GPU).
+
+![Illustrative, made-up timings: over six hours a CPU server runs three EDA arms back to back with a local AI triaging each on the same cores, near 100 % busy; a GPU beside it is busy for minutes and idle the rest](images/parallel-synthesis-overlap.png)
+
 ## Misconception 5: Bazel with caching and remote execution is always fastest
 
 It is the fastest way to a result that has to be right: every
@@ -188,6 +209,33 @@ after another in the same tree in minutes, where each would otherwise
 rebuild everything downstream of it. Once the answer is known, it goes
 into the flow's BUILD file, a script or a carried patch and is built
 hermetically. That build is the result.
+
+## Misconception 6: raw compute always wins
+
+One might think the hardware with the most raw compute wins: a GPU has
+far more arithmetic than a CPU, so move the work there. Raw compute
+wins only on work shaped for it, large and uniform and data-parallel,
+and an EDA flow has little of that.
+
+Global placement shows both sides. The GPU wins on raw compute: the
+density and wirelength loop is exactly the work it is built for. The
+CPU wins on provisioning: every machine has CPUs, the tools run on them
+without a line rewritten, and the same cores that run the flow can run
+a local AI between and beside its stages. A GPU sits idle when the flow
+has no large, uniform task to give it; the CPUs stay 100% busy.
+
+And on a large design the GPU's battle is not where the time goes. Most
+of global placement is timing-driven placement, timing analysis and
+repair inside the iterations, and routability-driven placement: serial,
+branchy work on the CPU. Make the density loop 40 times faster and
+global placement gets about 1.1 times faster.
+
+![Illustrative, made-up split of global placement: the Nesterov density and wirelength loop 10 %, timing-driven placement 55 %, routability-driven placement 20 %, loading and initial placement 15 %; with the Nesterov part 40 times faster the whole is 1.1 times faster](images/parallel-synthesis-gpl.png)
+
+The split is made up to show the shape; XSTile's global placement has
+not been profiled. The one measured number is swerv_wrapper's: 69% of
+the main thread's time in global placement is timing analysis inside
+the timing-driven iterations (`ideas/xiangshan-timing.md`).
 
 ## What do I have to do to get it?
 
