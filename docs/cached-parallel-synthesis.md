@@ -1,5 +1,16 @@
 # Fine-grained cached and parallel synthesis
 
+A confession before you start: this turned into a bait and switch by
+accident. Someone asked for documentation on parallel synthesis, and
+while it was being written up it grew. Parallel synthesis is here, from
+"What do I have to do to get it?" on. But first come six
+misconceptions, and only the first two are about synthesis. The rest
+are about turnaround times: flattening, the human and AI loop, the
+dirty lane, and GPUs. Per-module synthesis is one way to shorten a turn
+of the loop, and it makes more sense once the loop has been seen.
+Sorry. If you came only for the synthesis, skip to
+[What do I have to do to get it?](#what-do-i-have-to-do-to-get-it).
+
 ## Misconception 1: the speed comes from parallelism
 
 One might think the speed comes from synthesizing in parallel: split the
