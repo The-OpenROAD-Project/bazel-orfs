@@ -304,6 +304,23 @@ Parallel synthesis is built for Bazel remote execution, and needs
 nothing beyond a remote execution configuration in `.bazelrc`; the
 walkthrough above ran on remote executors.
 
+![An in-house Bazel cache server shared by developers and CI, with a remote execution orchestrator and a worker pool](images/parallel-synthesis-remote.png)
+
+A typical setup for the shortest synthesis turnaround is a Bazel cache
+server shared in-house by every developer and by CI, next to a remote
+execution orchestrator with a pool of workers. Each build first looks up
+every action's key in the cache. A hit downloads the result and no
+synthesis runs anywhere; only a miss goes to the orchestrator, which
+runs it on a worker, and the worker writes the result back to the cache
+for the next build, whoever runs it.
+
+**Nothing beats sharing a cached result.** No partitioning, no number of
+cores and no faster yosys comes close to a cache hit: a hit costs a
+download of a netlist, a miss costs a synthesis. Parallel synthesis
+makes the misses fast; the shared cache makes most of them hits. The
+canonicalization barriers above exist so that one person's edit leaves
+everyone else's partitions hits.
+
 - **Every partition is a hermetic action.** Its inputs are its RTLIL
   slice (or the keep checkpoint), the scripts, the platform's Liberty and
   LEF files, and, with `kept_macros`, only the macros its modules
