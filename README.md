@@ -387,9 +387,10 @@ Where to go next:
   Bazel, with a locally built ORFS or OpenROAD if you like.
 - [docs/performance.md](docs/performance.md): speeding up builds,
   monitoring long stages, where CI time goes.
-- [docs/parallel-synthesis.md](docs/parallel-synthesis.md): synthesis
-  split at the kept modules into parallel, cached Bazel actions, locally
-  or on remote executors, and why a comment does not rebuild them.
+- [docs/cached-parallel-synthesis.md](docs/cached-parallel-synthesis.md):
+  fine-grained cached and parallel synthesis. Each kept module is its own
+  cached Bazel action, so an edit re-synthesizes one module, not the
+  design; locally or on remote executors.
 - [docs/reference.md](docs/reference.md): target naming, dependency
   deployment, how Bazel takes over from the ORFS Makefile.
 - [docs/schedule.md](docs/schedule.md): `orfs_schedule()`, a scheduler
@@ -502,7 +503,7 @@ once and commit what it lists: [tools/agent](tools/agent/README.md).
 | Sweep design parameters | [docs/customize.md](docs/customize.md#design-space-exploration) |
 | Hack in the dirty lane: run a substep, edit Tcl, use a local ORFS or OpenROAD | [docs/dirty-lane.md](docs/dirty-lane.md) |
 | Speed up CI or development builds | [docs/performance.md](docs/performance.md) |
-| Synthesize a large design in parallel, re-synthesize only the module you edited | [docs/parallel-synthesis.md](docs/parallel-synthesis.md) |
+| Re-synthesize only the module you edited, cached and in parallel | [docs/cached-parallel-synthesis.md](docs/cached-parallel-synthesis.md) |
 | Monitor a long-running build | [docs/performance.md](docs/performance.md#monitor-long-running-builds) |
 | Understand where CI time goes | [docs/performance.md](docs/performance.md#where-ci-time-goes) |
 | Query timing interactively | [docs/performance.md](docs/performance.md#query-timing-interactively) |
