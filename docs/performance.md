@@ -85,6 +85,15 @@ Abstract generation requires at least the `place` stage because pins are placed
 during placement. For macro size estimation, `"place"` is usually sufficient.
 For timing analysis, `"cts"` provides clock tree data without expensive routing.
 
+## Parallel synthesis
+
+A large design synthesizes faster, and an edit to one module rebuilds
+only that module, when synthesis is split at its kept modules
+(`SYNTH_KEEP_MODULES`): one Bazel action per module, locally or on remote
+executors, concatenated into `1_2_yosys.v`.
+[parallel-synthesis.md](parallel-synthesis.md) has the flow, what to
+expect, and a walkthrough.
+
 ## Squashed flows
 
 By default, `orfs_flow()` creates one Bazel target per stage (the default

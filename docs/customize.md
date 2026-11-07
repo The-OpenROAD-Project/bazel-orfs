@@ -108,7 +108,8 @@ ways:
   partition re-runs, because none can key on a per-module slice.
 
 So pinning is a caching optimisation for a design you iterate on, not a
-requirement. To capture the list ORFS would discover:
+requirement; [parallel-synthesis.md](parallel-synthesis.md) shows the
+two side by side. To capture the list ORFS would discover:
 
 ```sh
 make DESIGN_CONFIG=<config.mk> SYNTH_KEEP_MODULES= clean_synth synth
