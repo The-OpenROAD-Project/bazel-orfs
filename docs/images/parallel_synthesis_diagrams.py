@@ -453,6 +453,86 @@ def remote():
     )
 
 
+def loop():
+    """Turnaround is QoR: human, AI and build, rinse and repeat."""
+    fig, ax = canvas(9, 5.6)
+    box(
+        ax,
+        4.5,
+        4.9,
+        3.4,
+        0.9,
+        "Human\nsets the goal, judges each result",
+        fc=BLUE,
+        ec=BLUE_EDGE,
+        size=10,
+    )
+    box(
+        ax,
+        7.2,
+        1.0,
+        3.0,
+        1.1,
+        "AI\nreads worst paths and logs,\nproposes the next change",
+        fc=GREEN,
+        ec=GREEN_EDGE,
+        size=10,
+    )
+    box(
+        ax,
+        1.8,
+        1.0,
+        3.0,
+        1.1,
+        "Build\nBazel, cached per module:\nonly what changed rebuilds",
+        fc=ORANGE,
+        ec=ORANGE_EDGE,
+        size=10,
+    )
+    curve = dict(arrowstyle="-|>", color=MUTED, lw=1.3, shrinkA=0, shrinkB=0)
+    ax.annotate(
+        "",
+        xy=(7.4, 1.6),
+        xytext=(6.25, 4.9),
+        arrowprops=dict(curve, connectionstyle="arc3,rad=-0.35"),
+    )
+    ax.annotate(
+        "",
+        xy=(2.75, 4.9),
+        xytext=(1.6, 1.6),
+        arrowprops=dict(curve, connectionstyle="arc3,rad=-0.35"),
+    )
+    arrow(ax, 5.65, 1.0, 3.35, 1.0)
+    ax.text(7.9, 3.4, "the goal,\nwhat to try", fontsize=9, color=MUTED, va="center")
+    ax.text(
+        1.1, 3.4, "WNS, area,\nlogs", fontsize=9, color=MUTED, va="center", ha="right"
+    )
+    ax.text(4.5, 1.2, "a change", fontsize=9, color=MUTED, ha="center")
+    ax.text(
+        4.5,
+        3.2,
+        "rinse and repeat",
+        fontsize=12,
+        color=INK,
+        ha="center",
+        weight="bold",
+    )
+    ax.text(
+        4.5,
+        2.55,
+        "one turn is one try;\nthe build sets the turns per day.\n"
+        "Every build but the tapeout one is a question.",
+        fontsize=9,
+        color=MUTED,
+        ha="center",
+        va="center",
+    )
+    fig.savefig(
+        f"{OUT}/parallel-synthesis-loop.png", bbox_inches="tight", facecolor="white"
+    )
+
+
 flow()
 partitioning()
 remote()
+loop()
