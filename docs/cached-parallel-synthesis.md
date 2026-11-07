@@ -116,6 +116,63 @@ array. tinyRocket, with and without its generated register file
 Only once the regular structures are generated is it time to look at
 how the rest of synthesis is broken up.
 
+## Misconception 3: flattening gives the best QoR
+
+One might think a flat synthesis always gives the best quality of
+results: with no boundaries, yosys can optimize across the whole design.
+It does not always. Keeping a module can give a better netlist than
+flattening it into its parent. Why is not understood, and there is no
+worked example here yet; it looks as if some optimizations are limited
+by the size of what they are handed, and do better on a module than on
+the whole design.
+
+The same seems to hold for the rest of the ORFS flow: a design placed
+and repaired with its modules kept can reach a better period than the
+same design flat.
+
+So when working on a design's WNS and examining its worst paths, try
+flattening less: keep the modules the worst paths run through
+(`SYNTH_KEEP_MODULES`) and compare the two. With synthesis cached per
+module, the try re-synthesizes only the modules whose boundaries moved.
+
+## Misconception 4: turnaround and QoR are separate concerns
+
+QoR is quality of results: what a finite budget of time and compute
+buys. A design's period comes down one try at a time, around a loop. A
+human sets the goal and judges each result. An AI reads the worst paths
+and the logs and proposes the next change: a module to keep, a surgery,
+a setting. The build turns the change into a number. Rinse and repeat.
+
+![A loop of three boxes: the human sets the goal and judges each result, the AI reads worst paths and logs and proposes the next change, the build turns the change into WNS, area and logs](images/parallel-synthesis-loop.png)
+
+Only one build is not part of the loop: the last one, for tapeout. Every
+build before it is run for information, so that something can be
+changed, and the information is worth more the sooner it comes.
+
+The human and the AI take minutes per turn; the build can take hours.
+The build sets how many turns fit in a day, so a faster build gives a
+better result, not only an earlier one. Per-module caching shortens that
+step, and flattening less may also improve the result directly
+(misconception 3): which modules to keep is worth trying both ways, and
+measuring.
+
+## Misconception 5: Bazel with caching and remote execution is always fastest
+
+It is the fastest way to a result that has to be right: every
+dependency respected, every action keyed, the netlist the same on every
+machine. But a turn of the loop is after information, not a result, and
+sometimes the [dirty lane](dirty-lane.md) gets it sooner. Lay the stage
+out in a plain tree with `bazelisk run //:dirty -- start <flow> <stage>`,
+hack a script or a setting, re-run one step and ignore the dependencies
+that a hermetic build would rebuild. Then throw the result away and keep
+the information.
+
+This works especially well in an AI loop. The AI can try one change
+after another in the same tree in minutes, where each would otherwise
+rebuild everything downstream of it. Once the answer is known, it goes
+into the flow's BUILD file, a script or a carried patch and is built
+hermetically. That build is the result.
+
 ## What do I have to do to get it?
 
 Nothing. A design that keeps hierarchy synthesizes per module and in
@@ -138,10 +195,12 @@ quality of results and the turnaround:
   one module instanced N times (the Rob above).
 - **Where the boundaries are.** A kept module is a hard boundary: yosys
   does not optimize across it, no constant propagates in, no logic merges
-  between two modules. Keep too much and quality drops; keep too little
-  and one partition holds most of the design. Which modules to keep is a
-  design decision (the `macro-selection` and `surgery` skills), not a
-  speed knob.
+  between two modules. Keep too much and what crosses a boundary is not
+  optimized; keep too little and one partition holds most of the design,
+  which is slow and not always better
+  ([misconception 3](#misconception-3-flattening-gives-the-best-qor)).
+  Which modules to keep is a design decision (the `macro-selection` and
+  `surgery` skills), settled by trying it both ways.
 - **What you edit.** The modules you change every day want to be small
   partitions of their own, so a change re-synthesizes seconds of work,
   not minutes; the top wants to be thin, because it is synthesized again
