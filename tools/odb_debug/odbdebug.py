@@ -89,7 +89,9 @@ class Daemon(object):
         """Send Tcl `code`; return (reply dict, logger output, debug
         pauses continued)."""
         try:
-            viewer = webclient.Viewer(self.info["port"], timeout=timeout)
+            viewer = webclient.Viewer(
+                self.info["port"], timeout=timeout, token=self.info.get("token", "")
+            )
         except webclient.WebError as e:
             self._info = None
             raise DaemonError(

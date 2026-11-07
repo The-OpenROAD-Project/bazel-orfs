@@ -62,7 +62,7 @@ def parse_reply(data):
 class Connection(object):
     """One websocket connection to a viewer on 127.0.0.1."""
 
-    def __init__(self, port, host="127.0.0.1", timeout=None):
+    def __init__(self, port, host="127.0.0.1", timeout=None, token=""):
         try:
             self.sock = socket.create_connection((host, int(port)), timeout=10)
         except OSError as e:
@@ -73,9 +73,10 @@ class Connection(object):
         key = base64.b64encode(os.urandom(16)).decode()
         self.sock.sendall(
             (
-                "GET /ws HTTP/1.1\r\nHost: %s:%s\r\nUpgrade: websocket\r\n"
+                "GET /ws%s HTTP/1.1\r\nHost: %s:%s\r\nUpgrade: websocket\r\n"
                 "Connection: Upgrade\r\nSec-WebSocket-Key: %s\r\n"
-                "Sec-WebSocket-Version: 13\r\n\r\n" % (host, port, key)
+                "Sec-WebSocket-Version: 13\r\n\r\n"
+                % ("?token=" + token if token else "", host, port, key)
             ).encode()
         )
         head = b""
@@ -145,8 +146,8 @@ class Connection(object):
 class Viewer(object):
     """A web viewer serving a loaded design."""
 
-    def __init__(self, port, timeout=None):
-        self.conn = Connection(port, timeout=timeout)
+    def __init__(self, port, timeout=None, token=""):
+        self.conn = Connection(port, timeout=timeout, token=token)
 
     def close(self):
         self.conn.close()
