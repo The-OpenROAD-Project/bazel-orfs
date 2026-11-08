@@ -1,26 +1,21 @@
 # Fine-grained cached and parallel synthesis
 
-A confession before you start: this turned into a bait and switch by
-accident. Someone asked for documentation on parallel synthesis, and
-while it was being written up it grew. Parallel synthesis is here, from
-"What do I have to do to get it?" on. But first come six
-misconceptions, and only the first two are about synthesis. The rest
-are about turnaround times: flattening, the human and AI loop, the
-dirty lane, and GPUs. Per-module synthesis is one way to shorten a turn
-of the loop, and it makes more sense once the loop has been seen.
-Sorry. If you came only for the synthesis, skip to
-[What do I have to do to get it?](#what-do-i-have-to-do-to-get-it).
+This page documents per-module cached and parallel synthesis in
+bazel-orfs, from
+[What do I have to do to get it?](#what-do-i-have-to-do-to-get-it) on.
+The sections before that cover the context it sits in: generating
+regular structures instead of synthesizing them, kept modules and QoR,
+and the turnaround of a build and measure loop. Readers who want only
+the mechanics can skip ahead.
 
-## Misconception 1: the speed comes from parallelism
+## Where the speed comes from: caching, then parallelism
 
-One might think the speed comes from synthesizing in parallel: split the
-design into modules, run them on many cores at once, and the wall time
-drops by the number of cores. It does, a little. The real boost is
-elsewhere: splitting synthesis at its modules makes each module's
-synthesis a **cacheable** unit of work, so that a module nobody changed is
-never synthesized again, on any machine.
+Synthesizing modules in parallel shortens a build somewhat. The larger
+effect is elsewhere: splitting synthesis at its modules makes each
+module's synthesis a **cacheable** unit of work, so that a module nobody
+changed is not synthesized again on any machine that shares the cache.
 
-A deliberately ridiculous example makes the point. Say a design takes
+An illustrative example makes the point. Say a design takes
 12 hours to synthesize flat. A one-line change to a trivial module then
 costs 12 hours, every time, on every machine, however many cores it
 has; parallelism might bring that down to the time of the largest module.
@@ -29,17 +24,18 @@ one trivial module, in about a second, and every other module's netlist
 comes back from the cache. Parallelism shortens the first build; caching
 makes nearly every build after it nearly free.
 
-## Misconception 2: caching and parallelism are what to look at first
+## Before partitioning: generate the regular structures
 
-They are not. Before asking how to synthesize a design faster, ask what
-should not be synthesized at all. Look for the **regular structures**
+Before tuning how synthesis is split, it pays to find what need not be
+synthesized at all. Look for the **regular structures**
 first: memories, register files, queues, CAMs. Written as RTL arrays,
 each word is a row of flip-flops behind a read multiplexer, and
 synthesis maps every one of them: tens of thousands of flops, read muxes
 a few hundred inputs wide, and the longest synthesis partitions of a
-design, before placement has to spread the result. That flop explosion
-is what makes a synthesis take 12 hours, and no partitioning or cache
-makes it good. Generate those structures directly instead:
+design, before placement has to spread the result. On XiangShan these
+structures were the longest synthesis partitions (table below), and
+partitioning and caching do not reduce the work inside them. Generate
+those structures directly instead:
 
 - **Memories** become macros with `AUTO_MEMORIES=1`: ORFS finds the
   inferred memories and replaces each with a FakeRAM macro, its `.lib`
@@ -127,32 +123,31 @@ array. tinyRocket, with and without its generated register file
 Only once the regular structures are generated is it time to look at
 how the rest of synthesis is broken up.
 
-## Misconception 3: flattening gives the best QoR
+## Kept modules and QoR
 
-One might think a flat synthesis always gives the best quality of
-results: with no boundaries, yosys can optimize across the whole design.
-It does not always. Keeping a module can give a better netlist than
-flattening it into its parent. Why is not understood, and there is no
-worked example here yet; it looks as if some optimizations are limited
-by the size of what they are handed, and do better on a module than on
-the whole design.
+A flat synthesis lets yosys optimize across the whole design, and it is
+often assumed to give the best netlist. Keeping a module was observed
+to give an equal or better result than flattening it into its parent,
+both for the netlist and for the period after placement and repair.
+The mechanism has not been isolated; one hypothesis is that some
+optimizations do better on what they are handed when it is the size of
+a module rather than of the whole design. A small, reproducible example
+that shows the effect, with the flat and kept results side by side,
+would make this easier to evaluate; there is none here yet.
 
-The same seems to hold for the rest of the ORFS flow: a design placed
-and repaired with its modules kept can reach a better period than the
-same design flat.
+Until there is, treat keeping a module as one more setting to try when
+working on a design's worst paths: keep the modules they run through
+(`SYNTH_KEEP_MODULES`) and compare against flat. With synthesis cached
+per module, the comparison re-synthesizes only the modules whose
+boundaries moved.
 
-So when working on a design's WNS and examining its worst paths, try
-flattening less: keep the modules the worst paths run through
-(`SYNTH_KEEP_MODULES`) and compare the two. With synthesis cached per
-module, the try re-synthesizes only the modules whose boundaries moved.
+## Turnaround sets how many tries fit
 
-## Misconception 4: turnaround and QoR are separate concerns
-
-QoR is quality of results: what a finite budget of time and compute
-buys. A design's period comes down one try at a time, around a loop. A
-human sets the goal and judges each result. An AI reads the worst paths
-and the logs and proposes the next change: a module to keep, a surgery,
-a setting. The build turns the change into a number. Rinse and repeat.
+Quality of results is reached within a finite budget of time and
+compute. A design's period comes down one try at a time, around a loop.
+A human sets the goal and judges each result. An AI reads the worst
+paths and the logs and proposes the next change: a module to keep, a
+surgery, a setting. The build turns the change into a number.
 
 ![A loop of three boxes: the human sets the goal and judges each result, the AI reads worst paths and logs and proposes the next change, the build turns the change into WNS, area and logs](images/parallel-synthesis-loop.png)
 
@@ -177,36 +172,27 @@ The right panel is XiangShan's KPI table,
 a newer XiangShan release.
 
 The human and the AI take minutes per turn; the build can take hours.
-The build sets how many turns fit in a day, so a faster build gives a
-better result, not only an earlier one. Per-module caching shortens that
-step, and flattening less may also improve the result directly
-(misconception 3): which modules to keep is worth trying both ways, and
-measuring.
+The build sets how many turns fit in a day, so within a fixed schedule a
+faster build allows more tries. Per-module caching shortens that step,
+and flattening less may also change the result directly
+([Kept modules and QoR](#kept-modules-and-qor)): which modules to keep
+is worth trying both ways, and measuring.
 
-### A digression: the AI will not be the bottleneck
+### Where a turn spends its time
 
-Look at where a turn of the loop spends its time. The human reads a
-result and sets a direction in minutes, and the AI proposes the next
-change in minutes. The build takes hours. Ideas from an AI are cheap;
-executing one and measuring it accurately, on CPUs, is expensive. As
-AIs get faster and cheaper, the EDA tools become the bottleneck.
+In the measured turn below, the build takes hours and the human and AI
+steps take minutes, so the build sets the pace.
 
 ![One turn of the loop on XiangShan's XSTile, to scale: human and AI about ten minutes each, as slivers, then the build: placement 3.9 h, CTS 40 min, global route 45 min](images/parallel-synthesis-turn.png)
 
 The build times are XiangShan's KPI run 17 (`kpi.json`); the human and
-AI minutes are illustrative.
+AI minutes are illustrative. A build that takes hours also leaves room
+for AI work beside it on the same machine.
 
-That also says where the AI will run. A build that takes hours leaves
-room for AI work beside it, and that work will probably run locally, on
-the same CPUs as the EDA tools
-([misconception 6](#misconception-6-raw-compute-always-wins) says why
-not on a GPU).
+## When the dirty lane answers sooner
 
-![Illustrative, made-up timings: over six hours a CPU server runs three EDA arms back to back with a local AI triaging each on the same cores, near 100 % busy; a GPU beside it is busy for minutes and idle the rest](images/parallel-synthesis-overlap.png)
-
-## Misconception 5: Bazel with caching and remote execution is always fastest
-
-It is the fastest way to a result that has to be right: every
+A hermetic build with caching and remote execution is the way to a
+result that has to be right: every
 dependency respected, every action keyed, the netlist the same on every
 machine. But a turn of the loop is after information, not a result, and
 sometimes the [dirty lane](dirty-lane.md) gets it sooner. Lay the stage
@@ -221,32 +207,24 @@ rebuild everything downstream of it. Once the answer is known, it goes
 into the flow's BUILD file, a script or a carried patch and is built
 hermetically. That build is the result.
 
-## Misconception 6: raw compute always wins
+## Where the compute goes (as of 2026-11)
 
-One might think the hardware with the most raw compute wins: a GPU has
-far more arithmetic than a CPU, so move the work there. Raw compute
-wins only on work shaped for it, large and uniform and data-parallel,
-and an EDA flow has little of that.
-
-Global placement shows both sides. The GPU wins on raw compute: the
-density and wirelength loop is exactly the work it is built for. The
-CPU wins on provisioning: every machine has CPUs, the tools run on them
-without a line rewritten, and the same cores that run the flow can run
-a local AI between and beside its stages. A GPU sits idle when the flow
-has no large, uniform task to give it; the CPUs stay 100% busy.
-
-And on a large design the GPU's battle is not where the time goes. Most
-of global placement is timing-driven placement, timing analysis and
-repair inside the iterations, and routability-driven placement: serial,
-branchy work on the CPU. Make the density loop 40 times faster and
-global placement gets about 1.1 times faster.
+These are observations for the flows in this repository, as of
+2026-11; they will change as tools and hardware do. Throughput hardware
+such as GPUs helps most on large, uniform, data-parallel work. In
+global placement, the density and wirelength loop is that kind of work.
+Timing-driven and routability-driven placement, with timing analysis
+and repair inside the iterations, are mostly serial and branchy, and
+run on the CPU in the current tools. The one measured number here is
+swerv_wrapper's: 69% of the main thread's time in global placement is
+timing analysis inside the timing-driven iterations
+(`ideas/xiangshan-timing.md`). By Amdahl's law, speeding up only the
+density loop is bounded by the share of time it has.
 
 ![Illustrative, made-up split of global placement: the Nesterov density and wirelength loop 10 %, timing-driven placement 55 %, routability-driven placement 20 %, loading and initial placement 15 %; with the Nesterov part 40 times faster the whole is 1.1 times faster](images/parallel-synthesis-gpl.png)
 
-The split is made up to show the shape; XSTile's global placement has
-not been profiled. The one measured number is swerv_wrapper's: 69% of
-the main thread's time in global placement is timing analysis inside
-the timing-driven iterations (`ideas/xiangshan-timing.md`).
+The split in the figure is made up to show the shape; XSTile's global
+placement has not been profiled.
 
 ## What do I have to do to get it?
 
@@ -259,8 +237,7 @@ synthesis is one module, so there is nothing to split. (One exception:
 serial hierarchical synthesis unless `SYNTH_NUM_PARTITIONS` is set; the
 DSL sets it to 32.)
 
-What you **should** do is build a mental model of how your 12-hour
-synthesis breaks down, because the same breakdown decides both the
+It helps to know how a long synthesis breaks down, because the same breakdown decides both the
 quality of results and the turnaround:
 
 - **Which modules are big.** Each partition writes its own log,
@@ -273,7 +250,7 @@ quality of results and the turnaround:
   between two modules. Keep too much and what crosses a boundary is not
   optimized; keep too little and one partition holds most of the design,
   which is slow and not always better
-  ([misconception 3](#misconception-3-flattening-gives-the-best-qor)).
+  ([Kept modules and QoR](#kept-modules-and-qor)).
   Which modules to keep is a design decision (the `macro-selection` and
   `surgery` skills), settled by trying it both ways.
 - **What you edit.** The modules you change every day want to be small
@@ -310,8 +287,7 @@ wait for the place and route of a macro it does not contain.
   minute where yosys's Verilog frontend took seven.
 - **Only synthesis gets faster.** When `1_2_yosys.v` changes at all, by
   one cell in one module, floorplan and every stage after it rebuild.
-- **A comment is usually free, not guaranteed free**
-  ([Surprises](#surprises)).
+- **Cosmetic edits**: see [Surprises](#surprises).
 - **Repeatability follows the partitioning.** `SYNTH_NUM_PARTITIONS` is
   a fixed number, never the core count, so that the action graph, and
   with it the netlist, is the same on every machine.
@@ -351,9 +327,8 @@ downloads the result and no synthesis runs anywhere; only a miss goes to
 the orchestrator, which runs it on a worker, and the worker writes the
 result back for the next build, whoever runs it.
 
-**Nothing beats sharing a cached result.** No partitioning, no number of
-cores and no faster yosys comes close to a cache hit: a hit costs a
-download of a netlist, a miss costs a synthesis. Parallelism makes the
+**A shared cache hit is the cheapest outcome.** A hit costs downloading
+a netlist; a miss costs a synthesis. Parallelism makes the
 misses fast; the shared cache makes most of them hits.
 
 - **Every partition is a hermetic action.** Its inputs are its RTLIL

@@ -684,66 +684,8 @@ def turn():
     )
 
 
-def overlap():
-    """The same CPUs run the flow and a local AI; a GPU idles."""
-    fig, ax = canvas(12, 3.6)
-    ax.text(
-        0.2, 3.3, "Six hours of an experiment", fontsize=10, color=INK, weight="bold"
-    )
-    illustrative(ax, 11.8, 3.3)
-    x0, scale = 2.2, 9.6 / 360  # minutes to units
-    ax.text(
-        0.2, 2.45, "CPU server\nflow + local AI", fontsize=9, color=INK, va="center"
-    )
-    t = 0
-    for minutes, label in [(100, "EDA arm 1"), (120, "EDA arm 2"), (115, "EDA arm 3")]:
-        w = minutes * scale
-        ax.add_patch(
-            plt.Rectangle((x0 + t * scale, 2.15), w, 0.6, fc=ORANGE, ec=ORANGE_EDGE)
-        )
-        ax.text(
-            x0 + t * scale + w / 2, 2.45, label, ha="center", va="center", fontsize=9
-        )
-        t += minutes
-        ax.add_patch(
-            plt.Rectangle(
-                (x0 + t * scale, 2.15), 8 * scale, 0.6, fc=GREEN, ec=GREEN_EDGE
-            )
-        )
-        t += 8
-    ax.text(
-        x0,
-        1.85,
-        "local AI (green) triages each arm and picks the next point on the same cores: ~100 % busy",
-        fontsize=8,
-        color=MUTED,
-    )
-    ax.text(0.2, 1.05, "GPU\nAI only", fontsize=9, color=INK, va="center")
-    ax.add_patch(plt.Rectangle((x0, 0.75), 9.6, 0.6, fc=GREY, ec=GREY_EDGE))
-    for at in (100, 228, 351):
-        ax.add_patch(
-            plt.Rectangle(
-                (x0 + at * scale, 0.75), 2 * scale, 0.6, fc=BLUE, ec=BLUE_EDGE
-            )
-        )
-    ax.text(
-        x0 + 4.4,
-        1.05,
-        "idle: few large, uniform tasks",
-        ha="center",
-        va="center",
-        fontsize=8.5,
-        color=MUTED,
-    )
-    ax.text(x0, 0.3, "0 h", fontsize=8, color=MUTED)
-    ax.text(x0 + 9.6, 0.3, "6 h", fontsize=8, color=MUTED, ha="right")
-    fig.savefig(
-        f"{OUT}/parallel-synthesis-overlap.png", bbox_inches="tight", facecolor="white"
-    )
-
-
 def gpl_split():
-    """Global placement: the GPU wins a battle that is not where the time goes."""
+    """Global placement: speeding up one share of the time bounds the whole (Amdahl)."""
     fig, ax = canvas(12, 3.4)
     ax.text(
         0.2,
@@ -807,5 +749,4 @@ remote()
 loop()
 cliffs()
 turn()
-overlap()
 gpl_split()
