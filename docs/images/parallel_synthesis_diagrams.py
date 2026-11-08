@@ -704,10 +704,10 @@ def gpl_split():
         (0.15, GREY, GREY_EDGE, "I/O, init, 15 %"),
     ]
 
-    def bar(y, gpu_speedup):
+    def bar(y, speedup):
         x = x0
         for i, (share, fc, ec, label) in enumerate(split):
-            w = width * share / (gpu_speedup if i == 0 else 1)
+            w = width * share / (speedup if i == 0 else 1)
             ax.add_patch(plt.Rectangle((x, y), w, 0.6, fc=fc, ec=ec, lw=1.1))
             if w > 0.5:
                 ax.text(
@@ -716,16 +716,16 @@ def gpl_split():
             x += w
         return x
 
-    ax.text(0.2, 2.25, "on CPU", fontsize=9, color=INK, va="center")
+    ax.text(0.2, 2.25, "as is", fontsize=9, color=INK, va="center")
     bar(1.95, 1)
     ax.text(
         x0,
         1.7,
-        "Nesterov density + wirelength: what a GPU accelerates",
+        "Nesterov density + wirelength: the data-parallel share",
         fontsize=8,
         color=BLUE_EDGE,
     )
-    ax.text(0.2, 1.05, "GPU, 40x", fontsize=9, color=INK, va="center")
+    ax.text(0.2, 1.05, "share 40x", fontsize=9, color=INK, va="center")
     end = bar(0.75, 40)
     ax.plot([end, end], [0.65, 1.45], color=RED_EDGE, ls="--", lw=1)
     ax.text(
@@ -734,7 +734,7 @@ def gpl_split():
     ax.text(
         x0,
         0.3,
-        "The GPU wins its battle 40 to 1 and the whole gets 1.1x faster (Amdahl): the serial CPU work is untouched.",
+        "The data-parallel share 40 times faster makes the whole 1.1 times faster (Amdahl): the rest is unchanged.",
         fontsize=8,
         color=MUTED,
     )
