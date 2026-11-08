@@ -1,0 +1,86 @@
+From 296efae5e7bcb1f359f3c9c5a23d02473b1b8eee Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Sun, 8 Nov 2026 20:57:42 +0100
+Subject: [PATCH] rsz: study instrumentation, wall time of each
+ findResizeSlacks phase
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Logs RSZ-9901 per phase of timing-driven global placement's re-weight
+(estimate_parasitics, repair_design, fully_rebuffer, repair_setup,
+sta_slacks, journal_restore). Study-only: stays on the study branch.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/rsz/src/Resizer.cc | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/src/rsz/src/Resizer.cc b/src/rsz/src/Resizer.cc
+index 2bc83db..b64cd8e 100644
+--- a/src/rsz/src/Resizer.cc
++++ b/src/rsz/src/Resizer.cc
+@@ -4,6 +4,7 @@
+ #include "rsz/Resizer.hh"
+ 
+ #include <algorithm>
++#include <chrono>
+ #include <array>
+ #include <cassert>
+ #include <cctype>
+@@ -3389,10 +3390,22 @@ void Resizer::findResizeSlacks(
+                                           : est::ParasiticsSrc::kPlacement;
+   estimate_parasitics_->setParasiticsSrc(parasitics_src);
+   est::IncrementalParasiticsGuard guard(estimate_parasitics_);
++  // Study instrumentation: wall time of each phase, logged as RSZ-9901.
++  auto td_t0 = std::chrono::steady_clock::now();
++  auto td_lap = [&td_t0, this](const char* phase) {
++    const auto now = std::chrono::steady_clock::now();
++    logger_->info(RSZ,
++                  9901,
++                  "findResizeSlacks {}: {:.3f} s",
++                  phase,
++                  std::chrono::duration<double>(now - td_t0).count());
++    td_t0 = now;
++  };
+   if (run_journal_restore) {
+     journalBegin();
+   }
+   estimate_parasitics_->estimateParasitics(parasitics_src);
++  td_lap("estimate_parasitics");
+   int repaired_net_count, slew_violations, cap_violations;
+   int fanout_violations, length_violations;
+ 
+@@ -3418,6 +3431,7 @@ void Resizer::findResizeSlacks(
+                                           fanout_violations,
+                                           length_violations,
+                                           repaired_net_count);
++  td_lap("repair_design");
+ 
+   // End incremental global routing if global routing parasitics were used.
+   if (parasitics_src == est::ParasiticsSrc::kGlobalRouting) {
+@@ -3428,6 +3442,7 @@ void Resizer::findResizeSlacks(
+     // routing.
+     fullyRebuffer(nullptr);
+   }
++  td_lap("fully_rebuffer");
+ 
+   if (run_repair_timing) {
+     // Conservative repair_timing: only fix worst setup violations.
+@@ -3455,13 +3470,16 @@ void Resizer::findResizeSlacks(
+ 
+     // Re-estimate parasitics after repair_setup
+     estimate_parasitics_->estimateParasitics(parasitics_src);
++    td_lap("repair_setup");
+   }
+ 
+   findResizeSlacks1();
++  td_lap("sta_slacks");
+   if (run_journal_restore) {
+     db_cbk_->addOwner(block_);
+     journalRestore();
+     db_cbk_->removeOwner();
++    td_lap("journal_restore");
+   }
+ }
+ 

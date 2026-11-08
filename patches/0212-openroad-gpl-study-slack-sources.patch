@@ -1,0 +1,930 @@
+From 0c34768f3caef807e67f15b7ff33c97563302895 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Sun, 8 Nov 2026 21:47:33 +0100
+Subject: [PATCH] gpl: study slack sources for virtual timing-driven re-weights
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Study only, selected by environment variables, default unchanged:
+
+GPL_TD_SLACKS picks where a virtual re-weight's slacks come from:
+  rsz   repair_design and fullyRebuffer, OpenSTA, journal restore (today)
+  sta   OpenSTA on the placement as it is (Resizer::findPlacementSlacks)
+  fast  FastTimer: one OpenSTA run gives the graph, clock arrivals and
+        endpoint required times; each re-weight then recomputes cell
+        (NLDM) and wire (Elmore, set_wire_rc) delays from the current
+        locations and propagates level by level over flat arrays with
+        OpenMP, bit-identical at any thread count.
+
+GPL_TD_COMPARE logs, at every virtual re-weight, the three sources'
+rankings on the same placement against rsz's (top 1% and 10% overlap,
+slack correlation) and what each costs (GPL-9913, GPL-9914). GPL-9911
+logs each re-weight's wall time.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/gpl/BUILD                  |   3 +
+ src/gpl/src/fastTimer.cpp      | 450 +++++++++++++++++++++++++++++++++
+ src/gpl/src/fastTimer.h        | 128 ++++++++++
+ src/gpl/src/timingBase.cpp     | 164 +++++++++++-
+ src/gpl/src/timingBase.h       |  16 ++
+ src/rsz/include/rsz/Resizer.hh |  10 +
+ src/rsz/src/Resizer.cc         |  12 +
+ 7 files changed, 782 insertions(+), 1 deletion(-)
+ create mode 100644 src/gpl/src/fastTimer.cpp
+ create mode 100644 src/gpl/src/fastTimer.h
+
+diff --git a/src/gpl/BUILD b/src/gpl/BUILD
+index 2288a01..b7b1142 100644
+--- a/src/gpl/BUILD
++++ b/src/gpl/BUILD
+@@ -111,6 +111,8 @@ cc_library(
+         "src/clockBase.h",
+         "src/densityGradient.cpp",
+         "src/densityGradientBackend.h",
++        "src/fastTimer.cpp",
++        "src/fastTimer.h",
+         "src/fftsg.cpp",
+         "src/fftsg2d.cpp",
+         "src/gpu/deviceState.h",
+@@ -183,6 +185,7 @@ cc_library(
+     deps = [
+         "//src/dbSta",
+         "//src/dbSta:dbNetwork",
++        "//src/est",
+         "//src/grt",
+         "//src/odb/src/db",
+         "//src/ppl",
+diff --git a/src/gpl/src/fastTimer.cpp b/src/gpl/src/fastTimer.cpp
+new file mode 100644
+index 0000000..be10b5c
+--- /dev/null
++++ b/src/gpl/src/fastTimer.cpp
+@@ -0,0 +1,450 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++#include "fastTimer.h"
++
++#include <algorithm>
++#include <cmath>
++#include <cstddef>
++#include <utility>
++#include <vector>
++
++#include "db_sta/dbNetwork.hh"
++#include "db_sta/dbSta.hh"
++#include "est/EstimateParasitics.h"
++#include "odb/db.h"
++#include "rsz/Resizer.hh"
++#include "sta/Delay.hh"
++#include "sta/Graph.hh"
++#include "sta/Liberty.hh"
++#include "sta/MinMax.hh"
++#include "sta/Mode.hh"
++#include "sta/Scene.hh"
++#include "sta/Sdc.hh"
++#include "sta/Search.hh"
++#include "sta/TimingArc.hh"
++#include "sta/TimingModel.hh"
++#include "sta/TimingRole.hh"
++#include "sta/Transition.hh"
++#include "utl/Logger.h"
++
++namespace gpl {
++
++using utl::GPL;
++
++namespace {
++
++float finite(float v, float inf)
++{
++  if (std::isnan(v) || v > inf) {
++    return inf;
++  }
++  if (v < -inf) {
++    return -inf;
++  }
++  return v;
++}
++
++// Steiner length from the bounding box: exact up to three pins, then
++// growing slowly with the pin count.
++float steinerFactor(int pins)
++{
++  if (pins <= 3) {
++    return 1.0f;
++  }
++  return 1.0f + 0.25f * std::log2(pins / 3.0f);
++}
++
++}  // namespace
++
++FastTimer::FastTimer(rsz::Resizer* rs, utl::Logger* log) : rs_(rs), log_(log)
++{
++}
++
++void FastTimer::init()
++{
++  sta_ = rs_->sta();
++  sta::dbNetwork* network = sta_->getDbNetwork();
++  sta::Graph* graph = sta_->graph();
++  sta::Scene* scene = sta_->cmdScene();
++  scene_ = scene;
++  const sta::Mode* mode = scene->mode();
++  const sta::MinMax* max = sta::MinMax::max();
++  pvt_ = scene->sdc()->operatingConditions(max);
++  const sta::SceneSeq scenes = sta_->makeSceneSeq(scene);
++  sta_->ensureClkNetwork(scene->mode());
++
++  odb::dbBlock* block = network->block();
++  dbu_to_m_ = 1e-6 / block->getDbUnitsPerMicron();
++  r_per_m_ = rs_->estimateParasitics()->wireSignalResistance(scene);
++  c_per_m_ = rs_->estimateParasitics()->wireSignalCapacitance(scene);
++
++  // Vertices in levelized order, ties by id.
++  std::vector<sta::Vertex*> all;
++  sta::VertexIterator vit(graph);
++  while (vit.hasNext()) {
++    all.push_back(vit.next());
++  }
++  std::ranges::sort(all, [graph](sta::Vertex* a, sta::Vertex* b) {
++    if (a->level() != b->level()) {
++      return a->level() < b->level();
++    }
++    return graph->id(a) < graph->id(b);
++  });
++  vertices_ = std::move(all);
++  vertex_count_ = vertices_.size();
++  std::vector<int> index(graph->vertexCount() + 1, -1);
++  for (int i = 0; i < vertex_count_; i++) {
++    index[graph->id(vertices_[i])] = i;
++  }
++  level_start_.clear();
++  for (int i = 0; i < vertex_count_; i++) {
++    if (i == 0 || vertices_[i]->level() != vertices_[i - 1]->level()) {
++      level_start_.push_back(i);
++    }
++  }
++  level_start_.push_back(vertex_count_);
++
++  const sta::VertexSet& endpoints = sta_->endpoints();
++  frozen_.assign(vertex_count_, 0);
++  is_driver_.assign(vertex_count_, 0);
++  arrival_.assign(vertex_count_, {-kInf, -kInf});
++  slew_.assign(vertex_count_, {0.0f, 0.0f});
++  required_.assign(vertex_count_, {kInf, kInf});
++  frozen_required_.assign(vertex_count_, {kInf, kInf});
++  pin_cap_.assign(vertex_count_, 0.0f);
++  inst_.assign(vertex_count_, nullptr);
++  off_x_.assign(vertex_count_, 0);
++  off_y_.assign(vertex_count_, 0);
++  x_.assign(vertex_count_, 0.0f);
++  y_.assign(vertex_count_, 0.0f);
++  in_start_.assign(1, 0);
++  in_from_.clear();
++  in_is_wire_.clear();
++  in_arc_start_.assign(1, 0);
++  arcs_.clear();
++
++  for (int i = 0; i < vertex_count_; i++) {
++    sta::Vertex* v = vertices_[i];
++    const sta::Pin* pin = v->pin();
++    is_driver_[i] = v->isDriver(network);
++
++    sta::LibertyPort* port = network->libertyPort(pin);
++    if (port) {
++      pin_cap_[i] = port->capacitance(sta::RiseFall::rise(), max);
++    }
++
++    odb::dbITerm* iterm;
++    odb::dbBTerm* bterm;
++    odb::dbModITerm* moditerm;
++    network->staToDb(pin, iterm, bterm, moditerm);
++    int x = 0, y = 0;
++    if (iterm) {
++      odb::dbInst* inst = iterm->getInst();
++      iterm->getAvgXY(&x, &y);
++      const odb::Point loc = inst->getLocation();
++      inst_[i] = inst;
++      off_x_[i] = x - loc.x();
++      off_y_[i] = y - loc.y();
++    } else if (bterm) {
++      bterm->getFirstPinLocation(x, y);
++      off_x_[i] = x;
++      off_y_[i] = y;
++    }
++
++    if (endpoints.contains(v)) {
++      for (const sta::RiseFall* rf : sta::RiseFall::range()) {
++        frozen_required_[i][rf->index()] = finite(
++            sta::delayAsFloat(
++                sta_->required(v, rf->asRiseFallBoth(), scenes, max)),
++            kInf);
++      }
++    }
++
++    const bool clock = sta_->isClock(pin, mode);
++    int edges = 0;
++    if (!clock) {
++      sta::VertexInEdgeIterator eit(v, graph);
++      while (eit.hasNext()) {
++        sta::Edge* edge = eit.next();
++        const sta::TimingRole* role = edge->role();
++        if (role->isTimingCheck() || role == sta::TimingRole::latchDtoQ()
++            || edge->isDisabledLoop()
++            || sta_->isDisabledConstant(edge, scene->mode())) {
++          continue;
++        }
++        const int from = index[graph->id(edge->from(graph))];
++        if (from < 0) {
++          continue;
++        }
++        const bool wire = role->isWire();
++        if (!wire) {
++          const size_t before = arcs_.size();
++          for (sta::TimingArc* arc : edge->timingArcSet()->arcs()) {
++            const sta::RiseFall* from_rf = arc->fromEdge()->asRiseFall();
++            const sta::RiseFall* to_rf = arc->toEdge()->asRiseFall();
++            const sta::GateTimingModel* model = arc->gateModel(scene, max);
++            if (from_rf && to_rf && model) {
++              arcs_.push_back({model,
++                               static_cast<uint8_t>(from_rf->index()),
++                               static_cast<uint8_t>(to_rf->index())});
++            }
++          }
++          if (arcs_.size() == before) {
++            continue;
++          }
++        }
++        in_from_.push_back(from);
++        in_is_wire_.push_back(wire);
++        in_arc_start_.push_back(arcs_.size());
++        edges++;
++      }
++    }
++    in_start_.push_back(in_from_.size());
++    if (clock || edges == 0) {
++      // Clock network and startpoints: OpenSTA's arrival and slew, kept.
++      frozen_[i] = 1;
++      for (const sta::RiseFall* rf : sta::RiseFall::range()) {
++        arrival_[i][rf->index()] = finite(
++            sta::delayAsFloat(
++                sta_->arrival(v, rf->asRiseFallBoth(), scenes, max)),
++            kInf);
++        slew_[i][rf->index()] = finite(
++            sta::delayAsFloat(sta_->slew(v, rf->asRiseFallBoth(), scenes, max)),
++            kInf);
++      }
++    }
++  }
++
++  // Out-edges, for the backward pass.
++  const int edge_count = in_from_.size();
++  out_start_.assign(vertex_count_ + 1, 0);
++  for (int e = 0; e < edge_count; e++) {
++    out_start_[in_from_[e] + 1]++;
++  }
++  for (int i = 0; i < vertex_count_; i++) {
++    out_start_[i + 1] += out_start_[i];
++  }
++  out_edge_.assign(edge_count, 0);
++  out_to_.assign(edge_count, 0);
++  {
++    std::vector<int> fill(out_start_.begin(), out_start_.end() - 1);
++    for (int to = 0; to < vertex_count_; to++) {
++      for (int e = in_start_[to]; e < in_start_[to + 1]; e++) {
++        const int slot = fill[in_from_[e]]++;
++        out_edge_[slot] = e;
++        out_to_[slot] = to;
++      }
++    }
++  }
++
++  // Nets: a driver and the loads its wire edges reach.
++  drvr_net_.assign(vertex_count_, -1);
++  nets_.clear();
++  net_drvr_.clear();
++  net_load_start_.assign(1, 0);
++  net_loads_.clear();
++  for (int i = 0; i < vertex_count_; i++) {
++    if (!is_driver_[i]) {
++      continue;
++    }
++    const sta::Pin* pin = vertices_[i]->pin();
++    odb::dbNet* db_net = network->flatNet(pin);
++    sta::Net* net = db_net ? network->dbToSta(db_net) : nullptr;
++    int loads = 0;
++    for (int o = out_start_[i]; o < out_start_[i + 1]; o++) {
++      if (in_is_wire_[out_edge_[o]]) {
++        net_loads_.push_back(out_to_[o]);
++        loads++;
++      }
++    }
++    if (loads == 0) {
++      continue;
++    }
++    // The nets the ranking reports: as Resizer::findResizeSlacks1 picks them.
++    const bool ranked = net && !sta_->isConstant(pin, sta_->cmdMode())
++                        && !network->isSpecial(net)
++                        && !sta_->isClock(pin, sta_->cmdMode());
++    drvr_net_[i] = nets_.size();
++    nets_.push_back(ranked ? net : nullptr);
++    net_drvr_.push_back(i);
++    net_load_start_.push_back(net_loads_.size());
++  }
++  net_load_cap_.assign(nets_.size(), 0.0f);
++  net_wire_len_.assign(nets_.size(), 0.0f);
++
++  valid_ = true;
++  log_->info(GPL,
++             9910,
++             "Fast timer: {} vertices in {} levels, {} edges, {} arcs, {} nets.",
++             vertex_count_,
++             level_start_.size() - 1,
++             edge_count,
++             arcs_.size(),
++             nets_.size());
++}
++
++void FastTimer::findLocations()
++{
++#pragma omp parallel for schedule(static)
++  for (int i = 0; i < vertex_count_; i++) {
++    int x = off_x_[i];
++    int y = off_y_[i];
++    if (inst_[i]) {
++      const odb::Point loc = inst_[i]->getLocation();
++      x += loc.x();
++      y += loc.y();
++    }
++    x_[i] = x * dbu_to_m_;
++    y_[i] = y * dbu_to_m_;
++  }
++}
++
++void FastTimer::findWireLoads()
++{
++  const int net_count = nets_.size();
++#pragma omp parallel for schedule(static)
++  for (int n = 0; n < net_count; n++) {
++    const int d = net_drvr_[n];
++    float xlo = x_[d], xhi = x_[d], ylo = y_[d], yhi = y_[d];
++    float cap = 0.0f;
++    for (int k = net_load_start_[n]; k < net_load_start_[n + 1]; k++) {
++      const int l = net_loads_[k];
++      xlo = std::min(xlo, x_[l]);
++      xhi = std::max(xhi, x_[l]);
++      ylo = std::min(ylo, y_[l]);
++      yhi = std::max(yhi, y_[l]);
++      cap += pin_cap_[l];
++    }
++    const int pins = net_load_start_[n + 1] - net_load_start_[n] + 1;
++    const float len = (xhi - xlo + yhi - ylo) * steinerFactor(pins);
++    net_wire_len_[n] = len;
++    net_load_cap_[n] = cap + c_per_m_ * len;
++  }
++}
++
++float FastTimer::wireDelay(int drvr, int load, float& slew_degrade) const
++{
++  const float dist = std::abs(x_[drvr] - x_[load]) + std::abs(y_[drvr] - y_[load]);
++  const float elmore
++      = r_per_m_ * dist * (c_per_m_ * dist * 0.5f + pin_cap_[load]);
++  slew_degrade = 2.2f * elmore;
++  return elmore;
++}
++
++void FastTimer::forward()
++{
++  const int levels = level_start_.size() - 1;
++  for (int lv = 0; lv < levels; lv++) {
++#pragma omp parallel for schedule(dynamic, 64)
++    for (int v = level_start_[lv]; v < level_start_[lv + 1]; v++) {
++      if (frozen_[v]) {
++        continue;
++      }
++      std::array<float, kRf> arr = {-kInf, -kInf};
++      std::array<float, kRf> slew = {0.0f, 0.0f};
++      const int net = drvr_net_[v];
++      const float load = net >= 0 ? net_load_cap_[net] : 0.0f;
++      for (int e = in_start_[v]; e < in_start_[v + 1]; e++) {
++        const int u = in_from_[e];
++        if (in_is_wire_[e]) {
++          float degrade;
++          const float d = wireDelay(u, v, degrade);
++          for (int rf = 0; rf < kRf; rf++) {
++            if (arrival_[u][rf] <= -kInf) {
++              continue;
++            }
++            arr[rf] = std::max(arr[rf], arrival_[u][rf] + d);
++            slew[rf] = std::max(
++                slew[rf],
++                std::sqrt(slew_[u][rf] * slew_[u][rf] + degrade * degrade));
++          }
++          continue;
++        }
++        for (int a = in_arc_start_[e]; a < in_arc_start_[e + 1]; a++) {
++          const Arc& arc = arcs_[a];
++          if (arrival_[u][arc.from_rf] <= -kInf) {
++            continue;
++          }
++          float delay, out_slew;
++          arc.model->gateDelay(
++              pvt_, slew_[u][arc.from_rf], load, delay, out_slew);
++          arr[arc.to_rf]
++              = std::max(arr[arc.to_rf], arrival_[u][arc.from_rf] + delay);
++          slew[arc.to_rf] = std::max(slew[arc.to_rf], out_slew);
++        }
++      }
++      arrival_[v] = arr;
++      slew_[v] = slew;
++    }
++  }
++}
++
++void FastTimer::backward()
++{
++  const int levels = level_start_.size() - 1;
++  for (int lv = levels - 1; lv >= 0; lv--) {
++#pragma omp parallel for schedule(dynamic, 64)
++    for (int v = level_start_[lv]; v < level_start_[lv + 1]; v++) {
++      std::array<float, kRf> req = frozen_required_[v];
++      for (int o = out_start_[v]; o < out_start_[v + 1]; o++) {
++        const int e = out_edge_[o];
++        const int w = out_to_[o];
++        if (frozen_[w]) {
++          continue;
++        }
++        if (in_is_wire_[e]) {
++          float degrade;
++          const float d = wireDelay(v, w, degrade);
++          for (int rf = 0; rf < kRf; rf++) {
++            if (required_[w][rf] < kInf) {
++              req[rf] = std::min(req[rf], required_[w][rf] - d);
++            }
++          }
++          continue;
++        }
++        const int net = drvr_net_[w];
++        const float load = net >= 0 ? net_load_cap_[net] : 0.0f;
++        for (int a = in_arc_start_[e]; a < in_arc_start_[e + 1]; a++) {
++          const Arc& arc = arcs_[a];
++          if (required_[w][arc.to_rf] >= kInf) {
++            continue;
++          }
++          float delay, out_slew;
++          arc.model->gateDelay(pvt_, slew_[v][arc.from_rf], load, delay, out_slew);
++          req[arc.from_rf]
++              = std::min(req[arc.from_rf], required_[w][arc.to_rf] - delay);
++        }
++      }
++      required_[v] = req;
++    }
++  }
++}
++
++void FastTimer::update()
++{
++  findLocations();
++  findWireLoads();
++  forward();
++  backward();
++
++  rs_->clearResizeNetSlacks();
++  const int net_count = nets_.size();
++  for (int n = 0; n < net_count; n++) {
++    if (nets_[n] == nullptr) {
++      continue;
++    }
++    const int d = net_drvr_[n];
++    float slack = kInf;
++    for (int rf = 0; rf < kRf; rf++) {
++      if (arrival_[d][rf] > -kInf && required_[d][rf] < kInf) {
++        slack = std::min(slack, required_[d][rf] - arrival_[d][rf]);
++      }
++    }
++    if (slack < kInf) {
++      rs_->setResizeNetSlack(nets_[n], slack);
++    }
++  }
++}
++
++}  // namespace gpl
+diff --git a/src/gpl/src/fastTimer.h b/src/gpl/src/fastTimer.h
+new file mode 100644
+index 0000000..a923abe
+--- /dev/null
++++ b/src/gpl/src/fastTimer.h
+@@ -0,0 +1,128 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++#pragma once
++
++#include <array>
++#include <cstdint>
++#include <vector>
++
++namespace odb {
++class dbInst;
++class dbBTerm;
++}  // namespace odb
++
++namespace rsz {
++class Resizer;
++}
++
++namespace sta {
++class dbSta;
++class Net;
++class Vertex;
++class GateTimingModel;
++class Scene;
++class Pvt;
++}  // namespace sta
++
++namespace utl {
++class Logger;
++}
++
++namespace gpl {
++
++// A timer for ranking nets during timing-driven global placement, and
++// nothing else. One OpenSTA run (init) gives it the graph, the clock
++// arrivals and the endpoint required times, which it then keeps; each
++// update recomputes cell and wire delays from the placement as it stands
++// and propagates arrivals and required times level by level, in parallel,
++// over flat arrays. Every vertex is written by exactly one thread and
++// reads only lower (or, backwards, higher) levels, so the result does not
++// depend on the thread count.
++class FastTimer
++{
++ public:
++  FastTimer(rsz::Resizer* rs, utl::Logger* log);
++
++  // Builds the arrays. OpenSTA's timing must be valid: arrivals, required
++  // times and slews are read from it once, here.
++  void init();
++  bool valid() const { return valid_; }
++  // The netlist changed (a non-virtual re-weight kept rsz's edits).
++  void invalidate() { valid_ = false; }
++
++  // Recomputes delays from the instances' current locations and writes
++  // each net's driver slack into the resizer's net slack map, as
++  // Resizer::findResizeSlacks1 does.
++  void update();
++
++ private:
++  static constexpr int kRf = 2;
++  static constexpr float kInf = 1e30f;
++
++  struct Arc
++  {
++    const sta::GateTimingModel* model;
++    uint8_t from_rf;
++    uint8_t to_rf;
++  };
++
++  void findLocations();
++  void findWireLoads();
++  void forward();
++  void backward();
++  float wireDelay(int drvr, int load, float& slew_degrade) const;
++
++  rsz::Resizer* rs_;
++  utl::Logger* log_;
++  sta::dbSta* sta_ = nullptr;
++  const sta::Scene* scene_ = nullptr;
++  const sta::Pvt* pvt_ = nullptr;
++  bool valid_ = false;
++
++  // Per vertex, in levelized order.
++  int vertex_count_ = 0;
++  std::vector<int> level_start_;  // vertices of level i: [start[i], start[i+1])
++  std::vector<sta::Vertex*> vertices_;
++  std::vector<uint8_t> frozen_;  // arrival and slew from OpenSTA, kept
++  std::vector<uint8_t> is_driver_;
++  std::vector<std::array<float, kRf>> arrival_;
++  std::vector<std::array<float, kRf>> slew_;
++  std::vector<std::array<float, kRf>> required_;
++  std::vector<std::array<float, kRf>> frozen_required_;
++  std::vector<float> pin_cap_;  // load pin capacitance
++
++  // Pin location: an instance plus an offset, or a fixed point.
++  std::vector<odb::dbInst*> inst_;
++  std::vector<int> off_x_;
++  std::vector<int> off_y_;
++  std::vector<float> x_;  // meters, refreshed by findLocations
++  std::vector<float> y_;
++
++  // In-edges (CSR): source vertex, wire or cell, and for a cell its arcs.
++  std::vector<int> in_start_;
++  std::vector<int> in_from_;
++  std::vector<uint8_t> in_is_wire_;
++  std::vector<int> in_arc_start_;  // per in-edge, into arcs_
++  std::vector<Arc> arcs_;
++
++  // Out-edges (CSR) for the backward pass: index of the in-edge record.
++  std::vector<int> out_start_;
++  std::vector<int> out_edge_;  // in-edge index
++  std::vector<int> out_to_;
++
++  // Driver vertex -> its net: loads and the net's wire.
++  std::vector<int> drvr_net_;  // per vertex, -1 when not a driver
++  std::vector<const sta::Net*> nets_;
++  std::vector<int> net_drvr_;
++  std::vector<int> net_load_start_;
++  std::vector<int> net_loads_;
++  std::vector<float> net_load_cap_;  // pin caps + wire cap, updated
++  std::vector<float> net_wire_len_;  // meters, updated
++
++  double r_per_m_ = 0;
++  double c_per_m_ = 0;
++  double dbu_to_m_ = 0;
++};
++
++}  // namespace gpl
+diff --git a/src/gpl/src/timingBase.cpp b/src/gpl/src/timingBase.cpp
+index a682d1d..269c846 100644
+--- a/src/gpl/src/timingBase.cpp
++++ b/src/gpl/src/timingBase.cpp
+@@ -5,10 +5,15 @@
+ 
+ #include <algorithm>
+ #include <boost/scope_exit.hpp>
++#include <chrono>
+ #include <cmath>
+ #include <cstddef>
++#include <cstdlib>
++#include <string>
+ #include <functional>
++#include <map>
+ #include <memory>
++#include <set>
+ #include <utility>
+ #include <vector>
+ 
+@@ -62,6 +67,19 @@ TimingBase::TimingBase(std::shared_ptr<NesterovBaseCommon> nbc,
+   rs_ = rs;
+   nbc_ = std::move(nbc);
+   log_ = log;
++  if (const char* source = std::getenv("GPL_TD_SLACKS")) {
++    const std::string value = source;
++    if (value == "sta") {
++      slack_source_ = SlackSource::kSta;
++    } else if (value == "fast") {
++      slack_source_ = SlackSource::kFast;
++    } else if (value != "rsz") {
++      log_->error(GPL, 9912, "GPL_TD_SLACKS must be rsz, sta or fast.");
++    }
++    if (rs_) {
++      fast_timer_ = std::make_unique<FastTimer>(rs_, log_);
++    }
++  }
+ }
+ 
+ void TimingBase::initTimingOverflowChk()
+@@ -148,10 +166,143 @@ void TimingBase::setTimingNetsPercentage(float percentage)
+   nets_percentage_ = percentage;
+ }
+ 
++namespace {
++
++// Nets by increasing slack, ties by net id, as resizeWorstSlackNets sorts.
++std::vector<std::pair<const sta::Net*, float>> slackSnapshot(rsz::Resizer* rs)
++{
++  rs->setWorstSlackNetsPercent(100);
++  std::vector<std::pair<const sta::Net*, float>> out;
++  for (const sta::Net* net : rs->resizeWorstSlackNets()) {
++    out.emplace_back(net, rs->resizeNetSlack(net).value());
++  }
++  return out;
++}
++
++// Fraction of ref's worst `percent` nets that are among other's worst
++// `percent` nets of the same count.
++double topOverlap(const std::vector<std::pair<const sta::Net*, float>>& ref,
++                  const std::vector<std::pair<const sta::Net*, float>>& other,
++                  double percent)
++{
++  const size_t k = std::max<size_t>(1, std::ceil(ref.size() * percent / 100));
++  std::set<const sta::Net*> top;
++  for (size_t i = 0; i < std::min(k, other.size()); i++) {
++    top.insert(other[i].first);
++  }
++  size_t hit = 0;
++  for (size_t i = 0; i < std::min(k, ref.size()); i++) {
++    hit += top.contains(ref[i].first);
++  }
++  return static_cast<double>(hit) / k;
++}
++
++// Pearson correlation of the two slacks over ref's worst `percent` nets.
++double slackCorrelation(
++    const std::vector<std::pair<const sta::Net*, float>>& ref,
++    const std::vector<std::pair<const sta::Net*, float>>& other,
++    double percent)
++{
++  std::map<const sta::Net*, float> by_net(other.begin(), other.end());
++  const size_t k = std::max<size_t>(1, std::ceil(ref.size() * percent / 100));
++  std::vector<double> a, b;
++  for (size_t i = 0; i < std::min(k, ref.size()); i++) {
++    auto it = by_net.find(ref[i].first);
++    if (it != by_net.end()) {
++      a.push_back(ref[i].second);
++      b.push_back(it->second);
++    }
++  }
++  const size_t n = a.size();
++  if (n < 2) {
++    return 0.0;
++  }
++  double ma = 0, mb = 0;
++  for (size_t i = 0; i < n; i++) {
++    ma += a[i];
++    mb += b[i];
++  }
++  ma /= n;
++  mb /= n;
++  double sab = 0, saa = 0, sbb = 0;
++  for (size_t i = 0; i < n; i++) {
++    sab += (a[i] - ma) * (b[i] - mb);
++    saa += (a[i] - ma) * (a[i] - ma);
++    sbb += (b[i] - mb) * (b[i] - mb);
++  }
++  return (saa > 0 && sbb > 0) ? sab / std::sqrt(saa * sbb) : 0.0;
++}
++
++}  // namespace
++
++void TimingBase::compareSlackSources()
++{
++  using Clock = std::chrono::steady_clock;
++  auto secs = [](Clock::time_point a, Clock::time_point b) {
++    return std::chrono::duration<double>(b - a).count();
++  };
++  const auto t0 = Clock::now();
++  rs_->findResizeSlacks(true, false, repair_tns_end_percent_, [](const odb::dbNet* net) {
++    return isValidSigType(net->getSigType());
++  });
++  const auto ref = slackSnapshot(rs_);
++  const auto t1 = Clock::now();
++  rs_->findPlacementSlacks();
++  const auto sta_slacks = slackSnapshot(rs_);
++  const auto t2 = Clock::now();
++  if (!fast_timer_->valid()) {
++    fast_timer_->init();
++  }
++  const auto t3 = Clock::now();
++  fast_timer_->update();
++  const auto fast_slacks = slackSnapshot(rs_);
++  const auto t4 = Clock::now();
++  log_->info(GPL,
++             9913,
++             "Slack compare: rsz {:.3f} s, sta {:.3f} s, fast init {:.3f} s "
++             "update {:.3f} s; worst rsz {:.4g} sta {:.4g} fast {:.4g}",
++             secs(t0, t1),
++             secs(t1, t2),
++             secs(t2, t3),
++             secs(t3, t4),
++             ref.empty() ? 0.0 : ref.front().second,
++             sta_slacks.empty() ? 0.0 : sta_slacks.front().second,
++             fast_slacks.empty() ? 0.0 : fast_slacks.front().second);
++  for (const double pct : {1.0, 10.0}) {
++    log_->info(GPL,
++               9914,
++               "Slack compare top {}% of {} nets: overlap with rsz sta {:.3f} "
++               "fast {:.3f}; slack correlation sta {:.3f} fast {:.3f}",
++               pct,
++               ref.size(),
++               topOverlap(ref, sta_slacks, pct),
++               topOverlap(ref, fast_slacks, pct),
++               slackCorrelation(ref, sta_slacks, pct),
++               slackCorrelation(ref, fast_slacks, pct));
++  }
++}
++
+ bool TimingBase::executeTimingDriven(bool run_journal_restore,
+                                      bool enable_repair_timing)
+ {
+-  {
++  if (run_journal_restore && fast_timer_ && std::getenv("GPL_TD_COMPARE")) {
++    compareSlackSources();
++  }
++  const auto td_start = std::chrono::steady_clock::now();
++  const char* td_source = "rsz";
++  if (run_journal_restore && slack_source_ == SlackSource::kSta) {
++    td_source = "sta";
++    rs_->findPlacementSlacks();
++  } else if (run_journal_restore && slack_source_ == SlackSource::kFast) {
++    td_source = "fast";
++    if (!fast_timer_->valid()) {
++      // One OpenSTA run on the placement gives the timer its graph, clock
++      // arrivals and required times.
++      rs_->findPlacementSlacks();
++      fast_timer_->init();
++    }
++    fast_timer_->update();
++  } else {
+     BOOST_SCOPE_EXIT_ALL(&)
+     {
+       if (!run_journal_restore) {
+@@ -165,7 +316,18 @@ bool TimingBase::executeTimingDriven(bool run_journal_restore,
+                           [](const odb::dbNet* net) {
+                             return isValidSigType(net->getSigType());
+                           });
++    if (!run_journal_restore && fast_timer_) {
++      // rsz's edits were kept: the timer's graph is stale.
++      fast_timer_->invalidate();
++    }
+   }
++  log_->info(GPL,
++             9911,
++             "Timing-driven slacks from {}: {:.3f} s",
++             td_source,
++             std::chrono::duration<double>(std::chrono::steady_clock::now()
++                                           - td_start)
++                 .count());
+ 
+   // get worst resize nets
+   rs_->setWorstSlackNetsPercent(nets_percentage_);
+diff --git a/src/gpl/src/timingBase.h b/src/gpl/src/timingBase.h
+index c3c100e..541dab1 100644
+--- a/src/gpl/src/timingBase.h
++++ b/src/gpl/src/timingBase.h
+@@ -7,6 +7,8 @@
+ #include <memory>
+ #include <vector>
+ 
++#include "fastTimer.h"
++
+ namespace grt {
+ class GlobalRouter;
+ }
+@@ -70,6 +72,20 @@ class TimingBase
+   float nets_percentage_ = 10;
+   bool repair_timing_ = false;
+   float repair_tns_end_percent_ = 0.01;
++  // Where a virtual re-weight's slacks come from (GPL_TD_SLACKS, study
++  // only): rsz (repair_design, then OpenSTA; the default), sta (OpenSTA on
++  // the placement as it is), fast (FastTimer).
++  enum class SlackSource
++  {
++    kRsz,
++    kSta,
++    kFast
++  };
++  SlackSource slack_source_ = SlackSource::kRsz;
++  std::unique_ptr<FastTimer> fast_timer_;
++  // GPL_TD_COMPARE (study only): the three sources' rankings on the same
++  // placement, logged against rsz's.
++  void compareSlackSources();
+   void initTimingOverflowChk();
+ };
+ 
+diff --git a/src/rsz/include/rsz/Resizer.hh b/src/rsz/include/rsz/Resizer.hh
+index 3af444d..17cc144 100644
+--- a/src/rsz/include/rsz/Resizer.hh
++++ b/src/rsz/include/rsz/Resizer.hh
+@@ -569,6 +569,16 @@ class Resizer : public sta::dbStaState, public sta::dbNetworkObserver
+                         float repair_tns_end_percent = 0.01,
+                         const std::function<bool(const odb::dbNet*)>& placed_net
+                         = {});
++  // The slacks findResizeSlacks would save, without repair_design or any
++  // other netlist change: parasitics estimated from the placement as it is,
++  // then the slack of every net's driver.
++  void findPlacementSlacks();
++  // Slacks from a timer other than OpenSTA, for the same ranking.
++  void clearResizeNetSlacks() { net_slack_map_.clear(); }
++  void setResizeNetSlack(const sta::Net* net, sta::Slack slack)
++  {
++    net_slack_map_[net] = slack;
++  }
+   // Return nets with worst slack.
+   sta::NetSeq resizeWorstSlackNets();
+   // Return net slack, if any (indicated by the bool).
+diff --git a/src/rsz/src/Resizer.cc b/src/rsz/src/Resizer.cc
+index b64cd8e..c7565bc 100644
+--- a/src/rsz/src/Resizer.cc
++++ b/src/rsz/src/Resizer.cc
+@@ -3483,6 +3483,18 @@ void Resizer::findResizeSlacks(
+   }
+ }
+ 
++void Resizer::findPlacementSlacks()
++{
++  initBlock();
++  const est::ParasiticsSrc parasitics_src
++      = global_router_->haveRoutes() ? est::ParasiticsSrc::kGlobalRouting
++                                     : est::ParasiticsSrc::kPlacement;
++  estimate_parasitics_->setParasiticsSrc(parasitics_src);
++  est::IncrementalParasiticsGuard guard(estimate_parasitics_);
++  estimate_parasitics_->estimateParasitics(parasitics_src);
++  findResizeSlacks1();
++}
++
+ void Resizer::findResizeSlacks1()
+ {
+   // Use driver pin slacks rather than Sta::netSlack to save visiting

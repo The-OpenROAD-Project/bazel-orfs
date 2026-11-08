@@ -1448,6 +1448,49 @@ def _sta_part(part, arguments, sources, tags, ilm = False):
         },
     )
 
+# Study (study/gpl-timer): timing-driven global placement's slack sources.
+# Each arm is a variant of the block, read at grt by its own _kpi; seeds
+# give the noise band. GPL_TD_SLACKS and GPL_TD_COMPARE are read by the
+# carried patch 0212, in the place stage only.
+XS_GPL_STUDY_BLOCKS = ["CoupledL2", "FltRegionModule", "Frontend"]
+XS_GPL_STUDY_ARMS = {
+    "tdbase": ({}, {}),
+    "tdoff": ({"GPL_TIMING_DRIVEN": "0"}, {}),
+    "tdvirt": ({"GPL_KEEP_OVERFLOW": "0"}, {}),
+    "tdsta": ({"GPL_KEEP_OVERFLOW": "0"}, {"GPL_TD_SLACKS": "sta"}),
+    "tdfast": ({"GPL_KEEP_OVERFLOW": "0"}, {"GPL_TD_SLACKS": "fast"}),
+}
+XS_GPL_STUDY_SEEDS = ["1", "2", "3"]
+
+def _gpl_study(block, arguments, regfiles, sources, tags, user_arguments, user_sources, verilog, mock):
+    """<block>_<arm>s<seed>: the study's arms, and <block>_tdcmp the ranking
+    comparison, each read at grt by its own _kpi."""
+    runs = {}
+    for arm, (args, env) in XS_GPL_STUDY_ARMS.items():
+        for seed in XS_GPL_STUDY_SEEDS:
+            runs["%ss%s" % (arm, seed)] = (args | {"GPL_RANDOM_SEED": seed}, env)
+    runs["tdcmp"] = ({"GPL_KEEP_OVERFLOW": "0"}, {"GPL_TD_SLACKS": "fast", "GPL_TD_COMPARE": "1"})
+    for run, (args, env) in runs.items():
+        run_arguments = arguments | args
+        run_user = user_arguments | env
+        orfs_flow(
+            name = block,
+            abstract_stage = "grt",
+            arguments = run_arguments,
+            macros = regfiles,
+            stage_arguments = {"grt": {"HOLD_SLACK_MARGIN": "-1000"}},
+            pdk = "//flow:asap7",
+            sources = sources,
+            tags = tags,
+            user_arguments = run_user,
+            user_sources = user_sources,
+            user_stages = _user_stages(user_arguments, user_sources) | {k: ["place"] for k in env},
+            variant = run,
+            verilog_files = verilog,
+            **mock
+        )
+        _kpi(block, "grt", run_arguments, sources, tags, run)
+
 def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["manual"], plan_dir = "plan", variant = None):
     """The plan's blocks, each implemented through global route, then the parent.
 
@@ -1544,6 +1587,8 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
                 _pin_plan(block, "grt", [m.split(":")[-1].removesuffix(".regfile") for m in modules], tags, _PIN_PLAN_STAGES[_PIN_PLAN_NEXT[variant]][0], variant)
             continue
         _kpi(block, "grt", arguments, sources, tags)
+        if block in XS_GPL_STUDY_BLOCKS:
+            _gpl_study(block, arguments, regfiles, sources, tags, user_arguments, user_sources, verilog, mock)
         _sta_part(block, arguments, sources, tags, ilm = True)
         _pin_plans(block, [m.split(":")[-1].removesuffix(".regfile") for m in modules], tags)
     arguments = {k: v for k, v in parent["arguments"].items() if k not in _PLAN_DROPS}

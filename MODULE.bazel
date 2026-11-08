@@ -330,6 +330,15 @@ archive_override(
         # the wire and overflowed). Not upstreamed; retires at a //:bump
         # onto an OpenROAD that has it.
         "//patches:0178-openroad-ram-read-select-group-in-place.patch",
+        # 0211: study instrumentation, the wall time of each phase of
+        # timing-driven global placement's re-weight (RSZ-9901). Stays on
+        # the study branch; never upstreamed.
+        "//patches:0211-openroad-rsz-study-findresizeslacks-phases.patch",
+        # 0212: study slack sources for virtual timing-driven re-weights:
+        # GPL_TD_SLACKS=rsz|sta|fast and GPL_TD_COMPARE (the fast timer,
+        # gpl/src/fastTimer.cpp). Stays on the study branch until the study
+        # says what, if anything, goes upstream.
+        "//patches:0212-openroad-gpl-study-slack-sources.patch",
     ],
     strip_prefix = "OpenROAD-ab2683a96cfc9e9fecc959d2bbd12a9e1615580d",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/ab2683a96cfc9e9fecc959d2bbd12a9e1615580d.tar.gz"],
