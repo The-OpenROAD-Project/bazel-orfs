@@ -1354,12 +1354,6 @@ def _regfiles(own_sources, keep, blocks):
 # extra liberty and adds no masters (.claude/skills/byo-openroad).
 XS_VT = "RVT LVT SLVT"
 
-# Global placement, timing- and routability-driven, is most of a big
-# block's floorplan-to-grt time (MemBlock: 74 of 160 min). Off while the
-# carve is being developed, for turnaround; "1" to take numbers: periods
-# and crossings quoted from a build with it off are not the flow's.
-XS_GPL_DRIVEN = "0"
-
 # A planned block whose legaliser needs the diamond search and a wider
 # window than the negotiation legaliser's default. Rob, carved with its pins
 # facing the region from the top row, reached 87.8 % utilisation after CTS's
@@ -1403,8 +1397,6 @@ def _planned_block(cfg, entry, plan_dir, block, blocks):
         arguments["DETAIL_PLACEMENT_ARGS"] = XS_BLOCK_DPL_ARGS[block]
     arguments["OPENROAD_HIERARCHICAL"] = "1"
     arguments["ASAP7_USE_VT"] = XS_VT
-    arguments["GPL_TIMING_DRIVEN"] = XS_GPL_DRIVEN
-    arguments["GPL_ROUTABILITY_DRIVEN"] = XS_GPL_DRIVEN
     sources = dict(cfg["sources"])
 
     # the block's register files are macros of their own (_regfile_macro)
@@ -1558,8 +1550,6 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     arguments["DIE_AREA"] = plan["parent"]["DIE_AREA"]
     arguments["CORE_AREA"] = plan["parent"]["CORE_AREA"]
     arguments["ASAP7_USE_VT"] = XS_VT
-    arguments["GPL_TIMING_DRIVEN"] = XS_GPL_DRIVEN
-    arguments["GPL_ROUTABILITY_DRIVEN"] = XS_GPL_DRIVEN
 
     # the diamond search: the negotiation legalizer ran past 5 h
     # after CTS on take 19 (ideas, entry 5). At its default 27 um
