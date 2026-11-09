@@ -34,6 +34,8 @@ def parent_macro_flow(
         headroom_skip = "",
         top_flat_user_arguments = {},
         top_flat_check_ps = None,
+        ledger = False,
+        ledger_user_arguments = {},
         variant = None,
         pdk = "//flow:asap7",
         tags = ["manual"]):
@@ -68,6 +70,13 @@ def parent_macro_flow(
     <name>_pm_crossing_time times each in a process of its own, and
     <name>_pm_crossings merges them: crossing.txt, tables.md and
     histogram.svg.
+
+    The crossing ledger (ledger = True) is the same question asked
+    without a top level: <name>_pm_<part>_ledger reads each part's halves
+    of its boundary pins at the part's own global route
+    (crossing_ledger.tcl), and <name>_pm_ledger sums them along each
+    crossing net (crossing_ledger.py): ledger/crossings.txt and
+    ledger/summary.txt.
 
     Args:
       name: the parent macro's flow; the top level is <name>_pm.
@@ -116,6 +125,16 @@ def parent_macro_flow(
       top_flat_check_ps: the period <name>_pm_top_flat_test checks: the
         top level as built fails it, the flattened one passes it, and no
         macro's own paths get worse.
+      ledger: the crossing ledger, <name>_pm_ledger; with whole_check,
+        <name>_pm_ledger_test checks it against the paths the top level
+        times through each crossing net, with the parent's spot checks
+        and its count of pins over the boundary budgets, and
+        <name>_pm_ledger_negative_test that a part's halves left out are
+        missed.
+      ledger_user_arguments: crossing_ledger.tcl's settings for every
+        part: the boundary budgets its pins are counted over
+        (LEDGER_IN2REG_PS, LEDGER_REG2OUT_PS, LEDGER_IN2OUT_PS) and the
+        others its header lists.
       variant: the parent macro's variant, when another flow of the
         package has the same top module; its targets are then
         <name>_<variant>_<stage>, and <name>_<variant> stands for <name>
@@ -272,6 +291,20 @@ def parent_macro_flow(
             tags = tags,
         )
         odbs.append(":%s_%s_grt_odb" % (pm, b))
+        if ledger:
+            # the part's halves of every crossing, at its own global route
+            orfs_run(
+                name = "%s_%s_ledger" % (pm, b),
+                src = src,
+                outs = ["%s/ledger/parts/%s.txt" % (pm, b)],
+                cmd = "run",
+                script = "@bazel-orfs//tools/carve:crossing_ledger.tcl",
+                tags = tags,
+                user_arguments = ledger_user_arguments | {
+                    "LEDGER_OUT": "$(location %s/ledger/parts/%s.txt)" % (pm, b),
+                },
+                user_sources = {"HR_TCL": ["@bazel-orfs//tools/odb_debug:headroom.tcl"]},
+            )
     orfs_flow(
         name = pm,
         arguments = {
@@ -329,6 +362,91 @@ def parent_macro_flow(
         top_flat_check_ps = top_flat_check_ps,
         tags = tags,
     )
+    if ledger:
+        _ledger(
+            pm,
+            top = top,
+            blocks = names,
+            budget_ps = budget_ps,
+            max_skew_ps = max_skew_ps,
+            top_level_user_arguments = top_level_user_arguments,
+            whole_check = whole_check,
+            tags = tags,
+        )
+
+def _ledger(pm, top, blocks, budget_ps, max_skew_ps, top_level_user_arguments, whole_check, tags):
+    """The crossing ledger joined, and its check against the top level.
+
+    Args:
+      pm: the top level's flow.
+      top: the parent macro's module, the hub.
+      blocks: the blocks, by module.
+      budget_ps: the period a crossing may need, ps.
+      max_skew_ps: the clock check's limit, ps, and the most a path's
+        clock may add to what the ledger holds of it.
+      top_level_user_arguments: top_level.tcl's own settings.
+      whole_check: check the ledger against the top level timed whole.
+      tags: forwarded.
+    """
+    hub = ":%s/ledger/parts/%s.txt" % (pm, top)
+    parts = {b: ":%s/ledger/parts/%s.txt" % (pm, b) for b in blocks}
+    native.genrule(
+        name = "%s_ledger" % pm,
+        srcs = [hub] + parts.values(),
+        outs = ["%s/ledger/%s" % (pm, f) for f in ["crossings.txt", "summary.txt"]],
+        cmd = "$(location @bazel-orfs//tools/carve:crossing_ledger) --hub $(location %s) %s --budget %s --out $$(dirname $(location %s/ledger/crossings.txt))" % (
+            hub,
+            " ".join(["--block %s=$(location %s)" % (b, parts[b]) for b in blocks]),
+            budget_ps,
+            pm,
+        ),
+        tools = ["@bazel-orfs//tools/carve:crossing_ledger"],
+        tags = tags,
+    )
+
+    if not whole_check:
+        return
+
+    # the ledger's reference, on a design small enough for a path search
+    # per crossing net: the paths the routed top level times through each
+    top_level = ":%s_top" % pm
+    orfs_run(
+        name = "%s_ledger_top" % pm,
+        src = ":%s_floorplan" % pm,
+        outs = ["%s/ledger/top.txt" % pm],
+        cmd = "run",
+        data = [top_level],
+        script = "@bazel-orfs//tools/carve:top_level.tcl",
+        tags = tags,
+        user_arguments = top_level_user_arguments | {
+            "CROSSING_TXT": "$(location %s/ledger/top.txt)" % pm,
+            "MAX_SKEW_PS": max_skew_ps,
+            "TOP_DIR": "$(location %s)" % top_level,
+            "TOP_FROM": "grt",
+        },
+        user_sources = {
+            "CLOCK_CHECK": ["@bazel-orfs//tools/carve:top_clock_check.tcl"],
+            "CROSSING_PATHS": ["@bazel-orfs//tools/carve:crossing_ledger_top.tcl"],
+        },
+    )
+
+    # the ledger's check: no path the top level times through a crossing
+    # net needs more than the net's halves sum to, and each net's slowest
+    # needs as much; and the negative control: a block's halves at zero,
+    # or its ledger gone, and the check fails, by that block's name
+    check = "@bazel-orfs//tools/carve:crossing_ledger_check"
+    ledgers = [
+        "$(rootpath :%s/ledger/top.txt)" % pm,
+        "$(rootpath %s)" % hub,
+    ] + ["%s=$(rootpath %s)" % (b, parts[b]) for b in blocks]
+    for test, control in [("ledger_test", "-"), ("ledger_negative_test", "all")]:
+        sh_test(
+            name = "%s_%s" % (pm, test),
+            srcs = ["@bazel-orfs//tools/carve:crossing_ledger_check.sh"],
+            args = ["$(rootpath %s)" % check, control, max_skew_ps] + ledgers,
+            data = [":%s/ledger/top.txt" % pm, hub, check] + parts.values(),
+            tags = tags,
+        )
 
 def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top_level_user_arguments, whole_check, headroom_sets, headroom_skip, top_flat_user_arguments, top_flat_check_ps, tags):
     """The top level's clock tree and global route, and its crossing report.

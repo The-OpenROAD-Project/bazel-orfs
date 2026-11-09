@@ -1,5 +1,7 @@
 """The miniature parent as a macro."""
 
+load("@bazel-orfs//:openroad.bzl", "orfs_run")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//test/planned_parent:planned.bzl", "BASE_ARGS")
 load("//tools/carve:parent_macro.bzl", "parent_macro_flow")
 
@@ -14,6 +16,15 @@ RTL = [
     "//test/planned_parent:blocks.sv",
     "//test/planned_parent:top.sv",
 ]
+
+# The toy's SDC is its clock alone; boundary budgets for the ledger to
+# count pins over, set where the parent has pins over each of them.
+LEDGER = {
+    "LEDGER_IN2OUT_PS": "100",
+    "LEDGER_IN2REG_PS": "300",
+    "LEDGER_REG2OUT_PS": "600",
+    "LEDGER_SKEW": "1",
+}
 
 def toy_parent_macro(plan, blocks):
     """mini_top as a parent macro of blocks, from plan.
@@ -45,6 +56,11 @@ def toy_parent_macro(plan, blocks):
         top_flat_user_arguments = {"TOP_CLOCK_PERIOD": "180"},
         # 201.4 ps as built, 187.5 flattened (mini_top_parent_pm_top_flat_test)
         top_flat_check_ps = "190",
+        # the crossings again without a top level, each part's halves
+        # summed along each crossing net, and checked against the top
+        # level's own paths through each (mini_top_parent_pm_ledger_test)
+        ledger = True,
+        ledger_user_arguments = LEDGER,
         name = "mini_top_parent",
         arguments = BASE_ARGS | {
             "AUTO_MEMORIES": "1",
@@ -79,4 +95,40 @@ def toy_parent_macro(plan, blocks):
         },
         top_sources = {"SDC_FILE": [":constraints.sdc"]},
         verilog_files = RTL,
+    )
+
+    # A part's own boundary constraints change none of its halves: the
+    # parent's, which has every kind, read again with the platform's
+    # set_max_delay budgets on top of the toy's clock, as a real part's
+    # SDC has them.
+    orfs_run(
+        name = "mini_top_parent_pm_mini_top_ledger_budgets",
+        src = ":mini_top_parent_grt",
+        outs = ["mini_top_parent_pm/ledger/budgets/mini_top.txt"],
+        cmd = "run",
+        script = "//tools/carve:crossing_ledger.tcl",
+        tags = ["manual"],
+        user_arguments = LEDGER | {
+            "LEDGER_OUT": "$(location mini_top_parent_pm/ledger/budgets/mini_top.txt)",
+        },
+        user_sources = {
+            "HR_TCL": ["//tools/odb_debug:headroom.tcl"],
+            "LEDGER_EXTRA_SDC": [":ledger_budgets.sdc"],
+        },
+    )
+    sh_test(
+        name = "mini_top_parent_pm_ledger_budgets_test",
+        srcs = ["//tools/carve:crossing_ledger_check.sh"],
+        args = [
+            "$(rootpath //tools/carve:crossing_ledger_check)",
+            "same",
+            "$(rootpath :mini_top_parent_pm/ledger/parts/mini_top.txt)",
+            "$(rootpath :mini_top_parent_pm/ledger/budgets/mini_top.txt)",
+        ],
+        data = [
+            ":mini_top_parent_pm/ledger/budgets/mini_top.txt",
+            ":mini_top_parent_pm/ledger/parts/mini_top.txt",
+            "//tools/carve:crossing_ledger_check",
+        ],
+        tags = ["manual"],
     )

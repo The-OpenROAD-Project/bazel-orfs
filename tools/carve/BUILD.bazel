@@ -13,6 +13,9 @@ exports_files(
         "crossing_gui.tcl",
         "crossing_launch.tcl",
         "crossing_launch_check.sh",
+        "crossing_ledger.tcl",
+        "crossing_ledger_check.sh",
+        "crossing_ledger_top.tcl",
         "crossing_headroom.tcl",
         "crossing_headroom_check.sh",
         "crossing_headroom_sets.tcl",
@@ -44,6 +47,7 @@ exports_files(
     "carve",
     "crossing_launch_check",
     "crossing_headroom_check",
+    "crossing_ledger",
     "crossing_report",
     "top_flat_check",
     "lec_names",
@@ -129,4 +133,38 @@ py_test(
     size = "small",
     srcs = ["crossing_headroom_check_test.py"],
     deps = [":crossing_headroom_check_lib"],
+)
+
+py_library(
+    name = "crossing_ledger_lib",
+    srcs = ["crossing_ledger.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "crossing_ledger_test",
+    size = "small",
+    srcs = ["crossing_ledger_test.py"],
+    deps = [":crossing_ledger_lib"],
+)
+
+py_binary(
+    name = "crossing_ledger_check",
+    srcs = ["crossing_ledger_check.py"],
+    visibility = ["//visibility:public"],
+    deps = [":crossing_ledger_lib"],
+)
+
+py_library(
+    name = "crossing_ledger_check_lib",
+    srcs = ["crossing_ledger_check.py"],
+    imports = ["."],
+    deps = [":crossing_ledger_lib"],
+)
+
+py_test(
+    name = "crossing_ledger_check_test",
+    size = "small",
+    srcs = ["crossing_ledger_check_test.py"],
+    deps = [":crossing_ledger_check_lib"],
 )
