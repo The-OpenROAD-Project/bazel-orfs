@@ -1,0 +1,21 @@
+load("@rules_python//python:defs.bzl", "py_test")
+
+# Study harness (study/gpl-timer): which timing source global placement's
+# timing-driven re-weights should use. The arms are variants of XiangShan
+# blocks (XS_GPL_STUDY_* in xiangshan.bzl) and an ibex dirty-lane tree
+# (ibex_arms.sh); every flow target is manual. Only the parsers are tested.
+exports_files([
+    "ibex_arms.sh",
+    "run_arm.sh",
+])
+
+py_test(
+    name = "parsers_test",
+    srcs = [
+        "parsers_test.py",
+        "td_share.py",
+        "xs_table.py",
+    ],
+    imports = ["."],
+    size = "small",
+)

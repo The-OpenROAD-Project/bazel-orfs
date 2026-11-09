@@ -1459,6 +1459,9 @@ XS_GPL_STUDY_ARMS = {
     "tdvirt": ({"GPL_KEEP_OVERFLOW": "0"}, {}),
     "tdsta": ({"GPL_KEEP_OVERFLOW": "0"}, {"GPL_TD_SLACKS": "sta"}),
     "tdfast": ({"GPL_KEEP_OVERFLOW": "0"}, {"GPL_TD_SLACKS": "fast"}),
+    # the first re-weight (overflow ~0.63) ranks with OpenSTA alone, the last
+    # (~0.19) stays a real rsz repair, so gpl hands 3_4 a buffered netlist
+    "tdhyb": ({"GPL_KEEP_OVERFLOW": "0.3"}, {"GPL_TD_SLACKS": "sta"}),
 }
 XS_GPL_STUDY_SEEDS = ["1", "2", "3"]
 
