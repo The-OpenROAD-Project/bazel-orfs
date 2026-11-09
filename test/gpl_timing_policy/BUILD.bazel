@@ -11,11 +11,11 @@ exports_files([
 
 py_test(
     name = "parsers_test",
+    size = "small",
     srcs = [
         "parsers_test.py",
         "td_share.py",
         "xs_table.py",
     ],
     imports = ["."],
-    size = "small",
 )

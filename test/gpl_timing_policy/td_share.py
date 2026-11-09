@@ -7,6 +7,7 @@ Each re-weight is timed from its GPL-0101 line (just before rsz is called)
 to its GPL-0106 line (slacks back, weights about to be set). Prints one
 summary line per log plus the per-iteration times; never the log itself.
 """
+
 import re
 import sys
 

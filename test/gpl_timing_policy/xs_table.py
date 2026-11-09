@@ -5,6 +5,7 @@ Usage: xs_table.py BAZEL_BIN_XS_DIR BLOCK [BLOCK ...]
 Reads <dir>/<block>_<run>_kpi.txt and <dir>/logs/asap7/<block>/<run>/*.log;
 prints a table and, per arm, the mean and spread over seeds.
 """
+
 import os
 import re
 import statistics
@@ -71,27 +72,41 @@ def main():
     d = sys.argv[1]
     for block in sys.argv[2:]:
         print(f"\n{block}: reg2reg min period at grt (ps), stage wall (s)")
-        print(f"  {'run':10} {'period':>7} {'gpl':>6} {'td':>6} {'resz':>6} {'cts':>6} {'grt':>6}")
+        print(
+            f"  {'run':10} {'period':>7} {'gpl':>6} {'td':>6} {'resz':>6} {'cts':>6} {'grt':>6}"
+        )
         per_arm = {}
         for arm in ARMS:
             for seed in SEEDS:
                 run = f"{arm}s{seed}"
                 logs = os.path.join(d, "logs/asap7", block, run)
-                p = period(os.path.join(os.environ.get("KPI_DIR", d), f"{block}_{run}_kpi.txt"))
+                p = period(
+                    os.path.join(os.environ.get("KPI_DIR", d), f"{block}_{run}_kpi.txt")
+                )
                 times = [elapsed(os.path.join(logs, f)) for _, f in STAGES]
                 td = reweights(os.path.join(logs, "3_3_place_gp.log"))
-                per_arm.setdefault(arm, []).append((p, times[0], td, times[1], times[2], times[3]))
+                per_arm.setdefault(arm, []).append(
+                    (p, times[0], td, times[1], times[2], times[3])
+                )
                 print(
                     f"  {run:10} {fmt(p, 7)} "
                     + " ".join(fmt(t) for t in [times[0], td] + times[1:])
                 )
-        print(f"  {'arm':10} {'period mean (min..max)':>24}   mean s: gpl     td   resz    cts    grt  place..grt")
+        print(
+            f"  {'arm':10} {'period mean (min..max)':>24}   mean s: gpl     td   resz    cts    grt  place..grt"
+        )
         for arm, rows in per_arm.items():
             ps = [r[0] for r in rows if r[0] is not None]
+
             def m(i):
                 v = [r[i] for r in rows if r[i] is not None]
                 return statistics.mean(v) if v else None
-            tot = [sum(r[i] for i in (1, 3, 4, 5)) for r in rows if None not in (r[1], r[3], r[4], r[5])]
+
+            tot = [
+                sum(r[i] for i in (1, 3, 4, 5))
+                for r in rows
+                if None not in (r[1], r[3], r[4], r[5])
+            ]
             print(
                 f"  {arm:10} {statistics.mean(ps):8.0f} ({min(ps):.0f}..{max(ps):.0f})          "
                 + " ".join(fmt(m(i)) for i in (1, 2, 3, 4, 5))
@@ -99,5 +114,59 @@ def main():
             )
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" and not os.environ.get("MARKDOWN"):
     main()
+
+
+def markdown(d, blocks, kpi_dir=None):
+    """Per block and arm: period at grt against tdbase, with the resolution
+    3 seeds give (2 sigma of tdbase's seeds times sqrt(2/k)), and a verdict."""
+    out = []
+    for block in blocks:
+        rows = {}
+        for arm in ARMS:
+            ps, tot = [], []
+            for seed in SEEDS:
+                run = f"{arm}s{seed}"
+                logs = os.path.join(d, "logs/asap7", block, run)
+                p = period(os.path.join(kpi_dir or d, f"{block}_{run}_kpi.txt"))
+                t = [elapsed(os.path.join(logs, f)) for _, f in STAGES]
+                if p is not None:
+                    ps.append(p)
+                if None not in t:
+                    tot.append(sum(t))
+            rows[arm] = (ps, tot)
+        base = rows["tdbase"][0]
+        if len(base) < 2:
+            out.append(f"\n**{block}**: not yet measured\n")
+            continue
+        sigma = statistics.stdev(base)
+        res = 2 * sigma * (2 / len(base)) ** 0.5
+        out.append(
+            f"\n**{block}** (resolution at {len(base)} seeds: {res:.0f} ps)\n\n"
+            "| arm | period at grt, ps (seeds) | mean | delta | verdict "
+            "| place..grt, s (remote, noisy) |\n|---|---|---|---|---|---|"
+        )
+        for arm in ARMS:
+            ps, tot = rows[arm]
+            if not ps:
+                out.append(f"| {arm} | not yet measured | | | | |")
+                continue
+            m = statistics.mean(ps)
+            delta = m - statistics.mean(base)
+            if arm == "tdbase":
+                verdict = "reference"
+            elif abs(delta) <= res:
+                verdict = "did not resolve"
+            else:
+                verdict = "worse" if delta > 0 else "better"
+            t = f"{statistics.mean(tot):.0f}" if tot else "-"
+            out.append(
+                f"| {arm} | {', '.join(f'{p:.0f}' for p in ps)} | {m:.0f} "
+                f"| {delta:+.0f} | {verdict} | {t} |"
+            )
+    return "\n".join(out)
+
+
+if __name__ == "__main__" and os.environ.get("MARKDOWN"):
+    print(markdown(sys.argv[1], sys.argv[2:], os.environ.get("KPI_DIR")))
