@@ -292,6 +292,17 @@ archive_override(
         # 0209: repair_timing -path_group takes a group the SDC defines, the
         # flattened Top's crossing group. Not upstreamed.
         "//patches:0209-openroad-rsz-sdc-path-group.patch",
+        # 0215: a supply net is never pending for parasitics re-estimation.
+        # Every buffer edit queued VDD and VSS, and each update then visited
+        # every cell on them: XSTile's parent ground over 5 h in the first
+        # re-weight of timing-driven global placement. Not upstreamed;
+        # retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0215-openroad-est-supply-nets-not-invalidated.patch",
+        # 0216: CTS clustering's min-cost flow costs are int64_t. With int,
+        # a reduced cost near INT_MAX wrapped in LEMON's network simplex and
+        # XSTile's parent CTS never returned. Not upstreamed; retires at a
+        # //:bump onto an OpenROAD that has it.
+        "//patches:0216-openroad-cts-clustering-cost-int64.patch",
         # 0171: dissolve_macro, a placed block instance replaced by the
         # block's own cells, nets and global route guides as a module
         # instance (//tools/carve: the parent as a macro, its top level
