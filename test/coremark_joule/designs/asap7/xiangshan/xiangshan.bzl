@@ -65,10 +65,26 @@ XS_EXTRACTED = {
 }
 XS_EXTRACTED_VERILOG = ["//test/coremark_joule/designs/asap7/xiangshan/arrays:xiangshan_extracted.sv"]
 
+# Route B: the parts that read the core with the registers surgery/sinks.txt
+# copies into their readers (surgery:xiangshan_sunk, made from the extracted
+# core): the parent and every block a copy lands in or a register leaves
+# from. Rob reads the same sinks made from the surgered core, as its own
+# flow reads that unextracted. CoupledL2 reads what it read before.
+XS_SUNK = ["parent", "FltRegionModule", "Frontend", "MemBlock", "VecRegionModule"]
+XS_SUNK_VERILOG = ["//test/coremark_joule/designs/asap7/xiangshan/surgery:xiangshan_sunk.sv"]
+XS_SUNK_PLAIN = {"Rob": ["//test/coremark_joule/designs/asap7/xiangshan/surgery:xiangshan_sunk_plain.sv"]}
+
 def _extracted(part, arguments, sources, user_arguments):
     """A part's Verilog, arguments, sources and user arguments with its
-    extracted modules (XS_EXTRACTED) in place; unchanged for a part
-    without any."""
+    extracted modules (XS_EXTRACTED) in place, and the sunk core for the
+    parts in XS_SUNK; unchanged for any other part."""
+    verilog, arguments, sources, user_arguments = _extracted_only(part, arguments, sources, user_arguments)
+    if part in XS_SUNK:
+        verilog = XS_SUNK_VERILOG
+    verilog = XS_SUNK_PLAIN.get(part, verilog)
+    return verilog, arguments, sources, user_arguments
+
+def _extracted_only(part, arguments, sources, user_arguments):
     if part not in XS_EXTRACTED:
         return XS_VERILOG, arguments, sources, user_arguments
     entries = ["%sEntry" % m for m in XS_EXTRACTED[part]["modules"]]
@@ -1693,7 +1709,9 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     }
 
     # nothing to fold: the parent's one extraction is the Rob's, a block
-    # here, and the parent macro reads the surgered core (XS_VERILOG)
+    # here, and the parent macro reads the surgered core with CtrlBlock's
+    # flush registers sunk into its regions (XS_SUNK_VERILOG), whose
+    # sink_* ports it drives
     parent_sources = {k: v for k, v in sources.items() if k not in ["IO_CONSTRAINTS", "MACRO_PLACEMENT_TCL", "SYNTH_CANONICALIZE_TCL"]}
 
     # the parent as a macro: built beside its blocks from the plan alone,
@@ -1752,7 +1770,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         user_sources = XS_ICG_USER_SOURCES,
         user_stages = _user_stages(XS_ICG_USER_ARGUMENTS, XS_ICG_USER_SOURCES),
         variant = "parent",
-        verilog_files = XS_VERILOG,
+        verilog_files = XS_SUNK_VERILOG,
     )
     _pin_plans(name, [m.split(":")[-1].removesuffix(".regfile") for m in parent_modules], tags)
     _kpi(name, "grt", arguments, sources, tags)

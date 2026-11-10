@@ -48,6 +48,12 @@ place_macros.tcl for the parent (place_macro -exact per block, found by
 master name) and plan.bzl, a Starlark dict of DIE_AREA/CORE_AREA per
 block and for the parent, with each block's pin side and keep list.
 
+--previous DIR keeps a previous plan's pins: a block's pin that DIR's
+<name>_pins.tcl placed keeps its row, a new pin takes the nearest free
+track of its layer, a pin gone is dropped; a block whose interface did
+not change gets a byte-identical pins file and keeps its flow's cache
+key when a neighbour gains ports. DIR may be the --emit directory.
+
 Stdlib only; python 3.6.
 """
 
@@ -218,6 +224,7 @@ def shape(macro, tech, margins, core_margin=0.0):
         "channel_um": round(channel, 3),
         "pins_per_um": round(pins / (side * (2 if two_sides else 1)), 3),
         "region_side": macro.get("region_side"),
+        "region_order": macro.get("region_order"),
         "mock_area": round(mock, 4),
         "fp_side_um": round(side * round(mock, 4), 3),
         "fp_depth_um": round(depth * round(mock, 4), 3),
@@ -297,9 +304,21 @@ def partner_cost(placed, region_w, region_h, gap, pairs):
     )
 
 
+def _held_order(items):
+    """The macros' region_order, where given, is their order along the side
+    (left to right, bottom to top): a plan that puts a block at a corner,
+    next to the logic its crossings end in, holds it there."""
+    ranks = [
+        sh.get("region_order") for sh in items if sh.get("region_order") is not None
+    ]
+    return ranks == sorted(ranks)
+
+
 def _orders(placed):
-    """Every order of the macros along each side."""
-    per_side = [list(itertools.permutations(placed[s])) for s in SIDES]
+    """Every order of the macros along each side that keeps region_order."""
+    per_side = [
+        [p for p in itertools.permutations(placed[s]) if _held_order(p)] for s in SIDES
+    ]
     for combo in itertools.product(*per_side):
         yield {s: list(items) for s, items in zip(SIDES, combo)}
 
@@ -495,8 +514,15 @@ def layout(plan):
     macros = []
     for side in SIDES:
         items = placed[side]
+        if items and all(sh.get("region_order") is not None for sh in items):
+            items = sorted(items, key=lambda sh: sh["region_order"])
         along = region_w if side in ("bottom", "top") else region_h
-        start = (along - _span(items, gap)) / 2.0  # centred along the side
+        # centred along the side, or pushed to its start (left, bottom) or
+        # end (right, top) by margins' side_align, for a corner the plan
+        # holds blocks at
+        align = margins.get("side_align", {}).get(side, "centre")
+        free = along - _span(items, gap)
+        start = {"start": 0.0, "end": free}.get(align, free / 2.0)
         for sh in items:
             s, d, w = sh["pin_side_um"], sh["depth_um"], sh["channel_um"]
             if side == "bottom":
@@ -1206,6 +1232,90 @@ def place_clock(m, side, rows, tech, clocks):
     return out
 
 
+def previous_rows(directory, name, suffix=""):
+    """The pin table a previous plan wrote for a block, pin -> row text, in
+    its order; None when there is no previous plan for it."""
+    if not directory:
+        return None
+    path = os.path.join(directory, name + suffix + "_pins.tcl")
+    if not os.path.exists(path):
+        return None
+    m = re.search(
+        r"set ::plan_pins\(" + re.escape(name) + r"\) \{\n(.*?)\n\}",
+        open(path).read(),
+        re.S,
+    )
+    if not m:
+        return None
+    rows = {}
+    for line in m.group(1).split("\n"):
+        if line.strip():
+            rows[line.split()[0]] = line
+    return rows
+
+
+def stable_rows(name, rows, prev, tech, w_um, h_um):
+    """A block's pin rows that keep the previous plan's: a pin it placed
+    keeps its row exactly; a new pin starts where the fresh plan put it and
+    moves to the nearest free track of its layer, never within two tracks
+    of another pin on that edge; a pin gone is dropped. With no new and no
+    gone pins the table is the previous one, byte for byte, so a block
+    whose interface did not change keeps its cache key (a neighbour's new
+    ports used to shift every pin of every block, rebuilding them all)."""
+    pitch = {
+        l_["name"]: l_["pitch"]
+        for l_ in tech.get("pin_layers_v", []) + tech.get("pin_layers_h", [])
+    }
+
+    def edge(row):
+        pin, layer, x, y, w, h = row.split()
+        x, y, w, h = float(x), float(y), float(w), float(h)
+        # a pin on a top or bottom edge is long in y and slides along x
+        if h > w:
+            return (layer, "x", round(y, 4)), x
+        return (layer, "y", round(x, 4)), y
+
+    fresh = {r.split()[0]: r for r in rows}
+    kept = [prev[p] for p in prev if p in fresh]
+    taken = {}
+    for r in kept:
+        key, pos = edge(r)
+        taken.setdefault(key, []).append(pos)
+    added = []
+    for pin, r in fresh.items():
+        if pin in prev:
+            continue
+        key, pos = edge(r)
+        layer, axis, fixed = key
+        step = pitch.get(layer, 0.048)
+        length = w_um if axis == "x" else h_um
+        lo, hi = SEGMENT_EDGE_UM, length - SEGMENT_EDGE_UM
+
+        def free(q):
+            return lo <= q <= hi and all(
+                abs(q - o) >= 2 * step - 1e-9 for o in taken.get(key, [])
+            )
+
+        for k in range(0, int(length / step) + 2):
+            cands = [pos + k * step, pos - k * step] if k else [pos]
+            hit = next((q for q in cands if free(q)), None)
+            if hit is not None:
+                break
+        else:
+            raise SystemExit(
+                "plan_floorplan: %s: no free %s track for new pin %s on its edge; "
+                "the side is full, regenerate without --previous" % (name, layer, pin)
+            )
+        taken.setdefault(key, []).append(hit)
+        p_, l_, x, y, w, h = r.split()
+        if axis == "x":
+            x = "{:.4f}".format(round(hit, 4))
+        else:
+            y = "{:.4f}".format(round(hit, 4))
+        added.append("  {} {} {} {} {} {}".format(p_, l_, x, y, w, h))
+    return kept + added
+
+
 def netlist_row(plan):
     """(width, height) of the row place_netlists lays along the region's
     top: the region has to be at least that wide and that tall, whatever
@@ -1378,7 +1488,7 @@ def _area(x0, y0, x1, y1):
     return "{:.3f} {:.3f} {:.3f} {:.3f}".format(x0, y0, x1, y1)
 
 
-def emit(out, plan, directory):
+def emit(out, plan, directory, previous=None):
     """Write the flows' files into directory; returns the paths written."""
     import os
 
@@ -1502,6 +1612,11 @@ def emit(out, plan, directory):
                             )
                         if clock_side not in sides_used:
                             sides_used.append(clock_side)
+                    prev = previous_rows(previous, pm["name"], suffix)
+                    if prev is not None:
+                        pin_rows = stable_rows(
+                            pm["name"], pin_rows, prev, tech, pm["w_um"], pm["h_um"]
+                        )
                     text = EXACT_TCL.format(
                         name=pm["name"],
                         side=side,
@@ -1648,6 +1763,13 @@ def main(argv):
     ap.add_argument("plan")
     ap.add_argument("--out", help="JSON of the result")
     ap.add_argument(
+        "--previous",
+        metavar="DIR",
+        help="a previous plan's emitted directory: a block's pins it placed keep "
+        "their rows, new pins take free tracks, so an unchanged block's pins file "
+        "stays byte-identical; may be the --emit directory itself",
+    )
+    ap.add_argument(
         "--emit",
         metavar="DIR",
         help="write the flows' files (pin constraints, macro placement, plan.bzl)",
@@ -1661,7 +1783,7 @@ def main(argv):
         with open(a.out, "w") as f:
             json.dump(out, f, indent=1, sort_keys=True)
     if a.emit and not problems:
-        for path in emit(out, plan, a.emit):
+        for path in emit(out, plan, a.emit, a.previous):
             print("wrote " + path)
     for p in problems:
         print("plan_floorplan: " + p, file=sys.stderr)

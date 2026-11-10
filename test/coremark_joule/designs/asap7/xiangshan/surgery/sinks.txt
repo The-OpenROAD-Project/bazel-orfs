@@ -1,0 +1,21 @@
+# Route B: each line one sink_registers.py run, applied in order (sink_chain.sh).
+# 1. CtrlBlock's flush bundle into the vector and floating-point regions
+--module CtrlBlock --flatten RedirectGenerator --ports io_toIssueBlock_flush_ --parent Backend --instance inner_ctrlBlock --consumers inner_vecRegion=in_flush_,inner_fpRegion=in_flush_
+# 2. Rob's enqueue stall (rab.state and the registers beside it) into CtrlBlock's own logic
+--module Rob --flatten RenameBuffer --registers rab.state --hier --parent CtrlBlock --instance rob --consumers self
+# 3. the redirect into Frontend
+--module CtrlBlock --flatten RedirectGenerator --ports io_frontend_toFtq_redirect_ --hier --parent XSCore --instance backend/inner_ctrlBlock --consumers frontend=io_backend_toFtq_redirect_
+# 4. the redirect into MemBlock
+--module CtrlBlock --flatten RedirectGenerator --ports io_redirect_ --hier --parent XSCore --instance backend/inner_ctrlBlock --consumers memBlock=io_redirect_
+# 5. MemBlock's load-unit s2 valid (and what reads it out of MemBlock) into Backend
+--module MemBlock --flatten NewLoadUnit,LoadUnitS2,LoadUnitS3,LoadUnitDataPath --registers inner_LoadUnit_0.s2.pipeOutValid,inner_LoadUnit_1.s2.pipeOutValid,inner_LoadUnit_2.s2.pipeOutValid --hier --parent XSCore --instance memBlock --consumers backend=@
+# 6. MemBlock's atomics unit state into Backend
+--module MemBlock --flatten AtomicsUnit --registers inner_atomicsUnit.state --hier --parent XSCore --instance memBlock --consumers backend=@
+# 7. Rob's empty flag into CtrlBlock's own logic
+--module Rob --flatten RenameBuffer --ports io_enq_isEmpty --hier --parent CtrlBlock --instance rob --consumers self
+# 8. Frontend's instruction buffer outputs into Backend
+--module Frontend --flatten IBuffer --ports io_backend_cfVec_ --hier --parent XSCore --instance frontend --consumers backend=@
+# 9. the vector issue queues' fast entry valids into Backend's own logic
+--module VecRegionModule --flatten IssueQueueVialuVimacVmoveVfcvtVfmac,IssueQueueVialuVidivVfmacVfdiv,IssueQueueVialu,IssueQueueVialu_1,IssueQueueVstd --registers issueQueues*.fastEntries_*_valid --hier --parent Backend --instance inner_vecRegion --consumers self
+# 10. the floating-point issue queues' fast entry valids into Backend's own logic
+--module FltRegionModule --flatten IssueQueueFaluFmulFcvtFcmp,IssueQueueFaluFmulFdiv,IssueQueueFaluFmulFdiv_1,IssueQueueFaluFmul --registers issueQueues*.fastEntries_*_valid --hier --parent Backend --instance inner_fpRegion --consumers self

@@ -218,6 +218,39 @@ xs_kit(
     sdc = "constraints.sdc",
 )
 
+# A period counts only when global placement ran timing- and
+# routability-driven, and neither pass says so in the exit status when it
+# does not run: a parent placed with routability on ran no routability pass
+# and exited 0. Each pass prints a line when it runs, GPL-0100 and GPL-0040,
+# so a part whose global placement log lacks either fails here, in the wave
+# that placed it.
+GPL_DRIVEN_PARTS = sorted(PLAN["macros"].keys()) + ["XSTile_parent"]
+
+[
+    filegroup(
+        name = "%s_3_3_place_gp.log" % part,
+        srcs = [":%s_place" % part],
+        output_group = "3_3_place_gp.log",
+        tags = ["manual"],
+    )
+    for part in GPL_DRIVEN_PARTS
+]
+
+[
+    genrule(
+        name = "%s_gpl_driven" % part,
+        srcs = [":%s_3_3_place_gp.log" % part],
+        outs = ["%s_gpl_driven.txt" % part],
+        cmd = "timing=$$(grep -c GPL-0100 $< || true); " +
+              "routability=$$(grep -c GPL-0040 $< || true); " +
+              "echo \"{part}: $$timing timing-driven iterations, $$routability routability passes\" | tee $@; ".format(part = part) +
+              "[ $$timing -gt 0 ] && [ $$routability -gt 0 ] || " +
+              "{{ echo \"{part}: global placement ran without one of its drivers\" >&2; exit 1; }}".format(part = part),
+        tags = ["manual"],
+    )
+    for part in GPL_DRIVEN_PARTS
+]
+
 # The carve, scheduled to the memory there is (docs/schedule.md): the
 # blocks and the parent macro, each through grt with the abstract the top
 # level reads, then the top level through CTS, alone:
@@ -228,6 +261,7 @@ orfs_schedule(
         block: [
             ":%s_kpi" % block,
             ":%s_generate_abstract" % block,
+            ":%s_gpl_driven" % block,
         ]
         for block in sorted(PLAN["macros"].keys())
     } | {
@@ -237,6 +271,7 @@ orfs_schedule(
             ":XSTile_parent_grt",
             ":XSTile_parent_abstract",
             ":XSTile_parent_kpi",
+            ":XSTile_parent_gpl_driven",
         ],
     },
     # the top level alone: its clock tree and route, then the paths

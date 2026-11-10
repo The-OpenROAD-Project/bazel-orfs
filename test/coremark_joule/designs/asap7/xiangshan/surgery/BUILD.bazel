@@ -1,4 +1,5 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load(":surgery.bzl", "kept_cells", "xs_surgery_chain")
 
 # Surgery on the books: the constants XiangShan ties into the modules this
@@ -36,6 +37,66 @@ xs_surgery_chain(
     protect = ["XSTile"],
     rounds = 5,
 )
+
+# Route B: every register-to-register path over 2,000 ps inside one macro.
+# The flush bundle CtrlBlock sends to the vector and floating-point
+# regions is a mux of registers; each region gets its own copy of them
+# (sink_registers.py: same clock, next state and reset, so equal every
+# cycle), and the crossing starts at their next state, in the parent,
+# instead of at their outputs. sinks.txt lists every sink, applied in
+# order on the extracted core (arrays/, the parent's) and on the surgered
+# core (Rob's); the parts that read them are XS_SUNK in xiangshan.bzl.
+py_binary(
+    name = "sink_registers",
+    srcs = ["sink_registers.py"],
+)
+
+sh_test(
+    name = "sink_toy_test",
+    size = "small",
+    srcs = ["sink_toy_test.sh"],
+    args = [
+        "$(rootpath @yosys)",
+        "$(rootpath @sv-elab//src/yosys_plugin:slang.so)",
+        "$(rootpath :sink_registers)",
+        "$(rootpath sink_toy.sv)",
+        "$(rootpath sink_toy2.sv)",
+        "$(rootpath sink_toy3.sv)",
+        "$(rootpath sink_toy4.sv)",
+    ],
+    data = [
+        "sink_toy.sv",
+        "sink_toy2.sv",
+        "sink_toy3.sv",
+        "sink_toy4.sv",
+        ":sink_registers",
+        "@sv-elab//src/yosys_plugin:slang.so",
+        "@yosys",
+    ],
+)
+
+[genrule(
+    name = name,
+    srcs = [
+        src,
+        sinks,
+    ],
+    outs = [name + ".sv"],
+    cmd = "$(execpath :sink_chain.sh) $(execpath :sink_registers) $(execpath @yosys//:yosys) " +
+          "$(execpath @sv-elab//src/yosys_plugin:slang.so) $(location %s) $(location %s) $@" % (sinks, src),
+    tools = [
+        ":sink_chain.sh",
+        ":sink_registers",
+        "@sv-elab//src/yosys_plugin:slang.so",
+        "@yosys",
+    ],
+    visibility = ["//test/coremark_joule:__subpackages__"],
+) for name, src, sinks in [
+    # the extracted core: the parent and the blocks that read it
+    ("xiangshan_sunk", "//test/coremark_joule/designs/asap7/xiangshan/arrays:xiangshan_extracted.sv", "sinks.txt"),
+    # the surgered core: Rob, whose own flow reads it unextracted
+    ("xiangshan_sunk_plain", ":xiangshan_surgered", "sinks_rob.txt"),
+]]
 
 # The surgered file is still SystemVerilog slang elaborates under XSTile,
 # the way the flow's canonicalisation reads it. Manual: a minute, the

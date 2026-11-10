@@ -564,16 +564,16 @@
           "peak_gb": 27.7
         },
         "grt": {
-          "minutes": 47.2,
-          "peak_gb": 61.0
+          "minutes": 75.3,
+          "peak_gb": 61.6
         },
         "place": {
           "minutes": 37.1,
           "peak_gb": 33.0
         },
         "synth": {
-          "minutes": 0.4,
-          "peak_gb": 4.9
+          "minutes": 2.5,
+          "peak_gb": 1.0
         }
       }
     },
