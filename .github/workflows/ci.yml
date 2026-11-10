@@ -32,6 +32,10 @@ jobs:
     name: CI
     if: github.event.action != 'closed'
     runs-on: ubuntu-22.04
+    # The token reaches Bazel and curl through ~/.netrc; it needs no
+    # more than read access.
+    permissions:
+      contents: read
     defaults:
       run:
         shell: bash
@@ -62,15 +66,27 @@ jobs:
         with:
           cache-save: ${{ github.ref == 'refs/heads/main' }}
           bazelisk-cache: true
-          external-cache: |
-            manifest:
-              openroad+:
-                - MODULE.bazel
-                - .github/openroad-cache-version
+          external-cache: true
 
-      # No repository cache: it had grown to 6.9 GB, took as long to
-      # restore as downloading the archives does, and its two copies
-      # evicted the disk cache, the one that saves hours.
+      # The archives Bazel downloads, by hash. openroad+ and the other
+      # archives with an integrity are not in the external cache above:
+      # Bazel keeps them in its repo contents cache and external/ holds
+      # only a symlink to it. Without this every run downloaded them
+      # anonymously from GitHub, which answers 429 Too Many Requests
+      # when the runners' shared addresses have used up their limit.
+      # Only the downloads, not the extracted repos (--repo_contents_cache
+      # lives elsewhere), and pruned to what main's run used: the whole
+      # repository cache, restored by prefix and saved per commit, had
+      # grown to 6.9 GB.
+      - name: Repository cache
+        id: repo-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/bazel-repo
+          key: bazel-repo-v1-${{ runner.os }}-${{ hashFiles('MODULE.bazel') }}
+          restore-keys: |
+            bazel-repo-v1-${{ runner.os }}-
+
       - name: Disk cache
         uses: actions/cache/restore@v6
         with:
@@ -86,6 +102,8 @@ jobs:
       - name: Configure caches
         run: |
           echo "common --disk_cache=$HOME/.cache/bazel-disk" >> ~/.bazelrc
+          echo "common --repository_cache=$HOME/.cache/bazel-repo" >> ~/.bazelrc
+          echo "common --repo_contents_cache=$HOME/.cache/bazel-repo-contents" >> ~/.bazelrc
           echo "build --experimental_disk_cache_gc_max_size=0" >> ~/.bazelrc
           echo "common --show_progress_rate_limit=60" >> ~/.bazelrc
           echo "test --test_summary=terse" >> ~/.bazelrc
@@ -96,6 +114,23 @@ jobs:
           mkdir -p ~/.cache/bazel-disk
           touch ~/.cache/bazel-disk.restored
           find ~/.cache/bazel-disk -type f | wc -l > ~/.cache/bazel-disk.files
+          mkdir -p ~/.cache/bazel-repo
+          touch ~/.cache/bazel-repo.restored
+
+      # What is still downloaded (an archive new to this commit, the
+      # OpenSTA tarball openroad+'s patch_cmds curl) goes to GitHub as
+      # the workflow's token, not anonymously. Bazel's http_archive
+      # reads ~/.netrc; curl reads it through ~/.curlrc. codeload is
+      # where github.com redirects an archive download.
+      - name: Authenticate GitHub downloads
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          umask 077
+          for host in github.com codeload.github.com; do
+            printf 'machine %s login x-access-token password %s\n' "$host" "$GITHUB_TOKEN"
+          done > ~/.netrc
+          echo netrc-optional >> ~/.curlrc
 
       # Isolate the one-time Bazel module-graph resolution so the Lint step
       # below reflects actual lint work, not first-invocation setup.
@@ -222,3 +257,26 @@ jobs:
         with:
           path: ~/.cache/bazel-disk
           key: bazel-disk-v2-${{ runner.os }}-${{ github.sha }}
+
+      # Bazel touches a download on every hit, so what is older than the
+      # restore is an archive no longer pinned. Saved once per
+      # MODULE.bazel, and only by a run that passed: a run that stopped
+      # early would save the key without the archives it never reached.
+      - name: Prune repository cache
+        if: >-
+          github.ref == 'refs/heads/main'
+          && steps.repo-cache.outputs.cache-hit != 'true'
+        run: |
+          bazelisk shutdown
+          find ~/.cache/bazel-repo -type f ! -newer ~/.cache/bazel-repo.restored -delete
+          find ~/.cache/bazel-repo -mindepth 1 -type d -empty -delete
+          du -sh ~/.cache/bazel-repo | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Save repository cache
+        if: >-
+          github.ref == 'refs/heads/main'
+          && steps.repo-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/bazel-repo
+          key: ${{ steps.repo-cache.outputs.cache-primary-key }}
