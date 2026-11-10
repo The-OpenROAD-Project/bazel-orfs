@@ -1,0 +1,104 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 9 Nov 2026 17:28:23 +0100
+Subject: [PATCH] est: a supply net is never pending for parasitics
+ re-estimation
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Removing or inserting a buffer connects or disconnects its power pins,
+so the supply nets were queued in parasitics_invalid_ by every such
+edit, and updateParasitics() then ran delaysInvalidFromFanin() on them:
+a visit of every pin on VDD and VSS, that is every cell in the design.
+rsz's fullyRebuffer updates parasitics once per driver, so a netlist
+whose synthesis buffers were kept paid it once per driver.
+
+On a 1.9 M instance hierarchical design (XiangShan's XSTile parent, in
+bazel-orfs), timing-driven global placement's first re-weight ground
+over 5 h in fullyRebuffer, 151,500 of 1,515,054 pins in 2 h; perf put
+99.8 % in updateParasitics -> delaysInvalidFromFanin ->
+visitConnectedPins, and the estimator's debug log named VDD and VSS,
+invalidated 95 times each in 4 minutes while every signal net appeared
+once.
+
+A supply net carries no estimated parasitics, so parasiticsInvalid()
+skips it. TestEstimateParasitics.SupplyNetIsNotInvalidated fails
+without the change (VDD pending) and passes with it; est's 15 tests
+pass.
+
+Carried in bazel-orfs, not upstreamed; retires with the //:bump onto an
+OpenROAD that has it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/est/src/EstimateParasitics.cpp         |  4 ++-
+ src/est/test/cpp/TestEstimateParasitics.cc | 36 ++++++++++++++++++++++
+ 2 files changed, 39 insertions(+), 1 deletion(-)
+
+diff --git a/src/est/src/EstimateParasitics.cpp b/src/est/src/EstimateParasitics.cpp
+index 7df36e8a75..ce5769078b 100644
+--- a/src/est/src/EstimateParasitics.cpp
++++ b/src/est/src/EstimateParasitics.cpp
+@@ -1547,7 +1547,9 @@ bool EstimateParasitics::isSkipNet(const sta::Net* net) const
+ void EstimateParasitics::parasiticsInvalid(const sta::Net* net)
+ {
+   odb::dbNet* db_net = db_network_->findFlatDbNet(net);
+-  if (haveEstimatedParasitics() && db_net) {
++  // A supply net carries no estimated parasitics, and every cell's power pin
++  // is on it: invalidating its delays from fanin visits them all.
++  if (haveEstimatedParasitics() && db_net && !db_net->getSigType().isSupply()) {
+     debugPrint(logger_,
+                EST,
+                "estimate_parasitics",
+diff --git a/src/est/test/cpp/TestEstimateParasitics.cc b/src/est/test/cpp/TestEstimateParasitics.cc
+index 6c286415b5..b6d0f09307 100644
+--- a/src/est/test/cpp/TestEstimateParasitics.cc
++++ b/src/est/test/cpp/TestEstimateParasitics.cc
+@@ -308,6 +308,42 @@ TEST_F(TestEstimateParasitics, IdealClockNetSkipsStaInvalidation)
+   ep_.setIncrementalParasiticsEnabled(false);
+ }
+ 
++// A supply net is never pending: removing or inserting a buffer touches its
++// power pins, and updateParasitics() would then invalidate delays from the
++// fanin of every power pin in the design, once per edit.
++TEST_F(TestEstimateParasitics, SupplyNetIsNotInvalidated)
++{
++  readVerilogAndSetup("TestEstimateParasitics.v");
++
++  odb::dbNet* vdd = odb::dbNet::create(block_, "VDD");
++  vdd->setSpecial();
++  vdd->setSigType(odb::dbSigType::POWER);
++  int power_pins = 0;
++  for (odb::dbInst* inst : block_->getInsts()) {
++    for (odb::dbITerm* iterm : inst->getITerms()) {
++      if (iterm->getSigType() == odb::dbSigType::POWER) {
++        iterm->connect(vdd);
++        power_pins++;
++      }
++    }
++  }
++  ASSERT_GT(power_pins, 0);
++  sta::Net* vdd_net = db_network_->dbToSta(vdd);
++  ASSERT_NE(vdd_net, nullptr);
++
++  ep_.setParasiticsSrc(ParasiticsSrc::kPlacement);
++  ep_.setIncrementalParasiticsEnabled(true);
++  ep_.parasiticsInvalid(vdd_net);
++  EXPECT_FALSE(ep_.hasParasiticsInvalid());
++
++  // A signal net is still pending.
++  sta::Net* d_net = flatNet(findTopPin("d"));
++  ASSERT_NE(d_net, nullptr);
++  ep_.parasiticsInvalid(d_net);
++  EXPECT_TRUE(ep_.hasParasiticsInvalid());
++  ep_.setIncrementalParasiticsEnabled(false);
++}
++
+ // Verifies multi-mode ideal-clock classification for scan clocks.
+ //
+ // The original implementation rejected a pin if isIdealClock(pin, mode) was
+-- 
+2.53.0
+
