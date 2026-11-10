@@ -15,8 +15,16 @@ if { ![info exists ::crossing_paths_loaded] } {
 set budget $::env(BUDGET_PS)
 set clock [lindex [all_clocks] 0]
 set period [get_property $clock period]
+# CROSSING_DATA_MIN_PS: also every crossing path needing more than this,
+# under the budget too, with its wire delay and both ends' places, for the
+# carve's offline model (a model fitted on the failing paths alone is
+# biased); the report itself keeps the paths over the budget only
+set data_min $budget
+if { [info exists ::env(CROSSING_DATA_MIN_PS)] && $::env(CROSSING_DATA_MIN_PS) ne "" } {
+  set data_min [expr { min($budget, $::env(CROSSING_DATA_MIN_PS)) }]
+}
 set paths [find_timing_paths -path_delay max -group_path_count 1000000 \
-  -endpoint_path_count 1 -slack_max [expr { $period - $budget }]]
+  -endpoint_path_count 1 -slack_max [expr { $period - $data_min }]]
 
 # an instance name's first level, at the first divider not escaped (a
 # top-level clock buffer carries its net's name, clkbuf_0_u_Rob\/...)
@@ -30,7 +38,16 @@ proc macro_of { pin } {
   return [string range $name 0 [expr { $slash - 1 }]]
 }
 
+proc place_of { pin } {
+  if { [catch { set it [sta::sta_to_db_pin $pin] }] || $it eq "NULL" || $it eq "" } {
+    return "- -"
+  }
+  set b [[$it getInst] getBBox]
+  return "[expr { [$b xMin] / 1000.0 }] [expr { [$b yMin] / 1000.0 }]"
+}
+
 set rows {}
+set data {}
 foreach path $paths {
   set start [get_property $path startpoint]
   set end [get_property $path endpoint]
@@ -44,19 +61,47 @@ foreach path $paths {
   # the macros its logic passes through on the way, other than the two
   # it starts and ends in
   set through {}
+  set wire 0.0
+  set prev ""
   foreach point [get_property $path points] {
-    set m [macro_of [get_property $point pin]]
+    set pin [get_property $point pin]
+    set m [macro_of $pin]
     if { $m ne "" && $m ne $from && $m ne $to && $m ni $through } {
       lappend through $m
     }
+    # the delay into an input pin is its net's: the path's wire
+    set arrival [get_property $point arrival]
+    if { $prev ne "" && [get_property $pin direction] eq "input" } {
+      set wire [expr { $wire + $arrival - $prev }]
+    }
+    set prev $arrival
   }
   # its slot at the endpoint, launch and capture transition: the search
   # keeps one path per endpoint and slot, so a set holding a worse start
   # into the same slot hides this one; the report compares sets per slot
   set launch [string index [lindex [[[$path path] start_path] tag] 2] 0]
   set slot "$launch[$path end_transition]"
+  set through_text [expr { [llength $through] ? [join [lsort $through] ,] : "-" }]
+  if { $from ne $to || $through ne {} } {
+    lappend data [format "%.1f\t%.1f\t%s\t%s\t%s\t%s\t%s\t%s\t%s" $need $wire $from $to \
+      $through_text [get_full_name $start] [get_full_name $end] [place_of $start] [place_of $end]]
+  }
+  if { $need < $budget } {
+    continue
+  }
   lappend rows [list $need $from $to [get_full_name $start] [get_full_name $end] \
-    [expr { [llength $through] ? [join [lsort $through] ,] : "-" }] $slot]
+    $through_text $slot]
+}
+if { $data_min < $budget } {
+  # crossing_data.<set>.tsv beside the set's report (cross.txt.<set>)
+  set crossing_data [file join [file dirname $::env(CROSSING_TXT)] \
+    "crossing_data[file extension $::env(CROSSING_TXT)].tsv"]
+  set f [open $crossing_data w]
+  puts $f "# crossing paths over $data_min ps at global route; period $period ps"
+  puts $f "# need_ps\twire_ps\tfrom_macro\tto_macro\tthrough_macros\tstartpoint\tendpoint\tstart_x start_y\tend_x end_y"
+  foreach row $data { puts $f $row }
+  close $f
+  puts "crossing_paths: [llength $data] crossing paths over $data_min ps in $crossing_data"
 }
 set crossing 0
 set inside 0

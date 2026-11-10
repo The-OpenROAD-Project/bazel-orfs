@@ -15,7 +15,7 @@ PLAN = {
             "DIE_AREA": "0.000 0.000 697.680 697.680",
             "SYNTH_KEEP_MODULES": "FMulFlt FDivSqrtFlt IssuePipeFaluFmulFcvtFcmp IssuePipeFaluFmulFdiv IssuePipeFaluFmulFdiv_1 IssuePipeFaluFmul IssueQueueFaluFmulFcvtFcmp IssueQueueFaluFmulFdiv IssueQueueFaluFmulFdiv_1 IssueQueueFaluFmul",
             "pin_side": "bottom",
-            "x_um": 328.32,
+            "x_um": 1846.8,
             "y_um": 1559.52,
         },
         "Frontend": {
@@ -39,7 +39,7 @@ PLAN = {
             "DIE_AREA": "0.000 0.000 615.600 574.560",
             "SYNTH_KEEP_MODULES": "RenameBuffer VTypeBuffer RobEntryCell",
             "pin_side": "bottom",
-            "x_um": 1928.88,
+            "x_um": 328.32,
             "y_um": 1559.52,
         },
         "VecRegionModule": {
@@ -47,7 +47,7 @@ PLAN = {
             "DIE_AREA": "0.000 0.000 820.800 820.800",
             "SYNTH_KEEP_MODULES": "VFDivWrapper VIDiv VIMacU IssuePipeVialuVimacVmoveVfcvtVfmac IssuePipeVialuVidivVfmacVfdiv IssuePipeVialu IssuePipeVialu_1 VectorCvt IssueQueueVialuVimacVmoveVfcvtVfmac IssueQueueVialu IssueQueueVialu_1 IssueQueueVialuVidivVfmacVfdiv VFMacWrapper",
             "pin_side": "bottom",
-            "x_um": 1067.04,
+            "x_um": 984.96,
             "y_um": 1559.52,
         },
     },

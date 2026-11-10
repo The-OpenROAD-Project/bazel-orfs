@@ -23,9 +23,9 @@ set plan_blocks {
   CoupledL2 41.040 205.200 861.840 861.840
   MemBlock 943.920 41.040 943.920 943.920
   Frontend 1928.880 164.160 902.880 902.880
-  FltRegionModule 328.320 1559.520 697.680 697.680
-  VecRegionModule 1067.040 1559.520 820.800 820.800
-  Rob 1928.880 1559.520 615.600 574.560
+  Rob 328.320 1559.520 615.600 574.560
+  VecRegionModule 984.960 1559.520 820.800 820.800
+  FltRegionModule 1846.800 1559.520 697.680 697.680
 }
 if { [info exists ::env(PLAN_BLOCKS_ELSEWHERE)] } { set plan_blocks {} }
 foreach {master x y w h} $plan_blocks {

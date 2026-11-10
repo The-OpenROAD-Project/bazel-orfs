@@ -289,6 +289,7 @@ genrule(
     visibility = [
         "//test/coremark_joule/designs/asap7/xiangshan:__pkg__",
         "//test/coremark_joule/designs/asap7/xiangshan/rob_array:__pkg__",
+        "//test/coremark_joule/designs/asap7/xiangshan/surgery:__pkg__",
     ],
 )
 

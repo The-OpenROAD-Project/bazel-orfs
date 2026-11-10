@@ -1077,5 +1077,170 @@ class PartnerLayoutTest(unittest.TestCase):
         self.assertGreaterEqual(roomy["die_area_mm2"], tight["die_area_mm2"])
 
 
+class CornerTest(unittest.TestCase):
+    """region_order and side_align hold blocks at a corner of the region:
+    the plan puts the blocks whose crossings end in one unit of the parent
+    (XiangShan's decode buffer) next to each other at the corner nearest it,
+    instead of centred along their sides, where a crossing would run half
+    the region."""
+
+    def _plan(self):
+        macros = [
+            {
+                "name": "Rob",
+                "pins": 300,
+                "area_um2": 40000,
+                "region_side": "left",
+                "region_order": 1,
+            },
+            {
+                "name": "Vec",
+                "pins": 300,
+                "area_um2": 40000,
+                "region_side": "left",
+                "region_order": 0,
+            },
+            {
+                "name": "Flt",
+                "pins": 300,
+                "area_um2": 40000,
+                "region_side": "top",
+                "region_order": 0,
+            },
+            {
+                "name": "Mem",
+                "pins": 300,
+                "area_um2": 40000,
+                "region_side": "top",
+                "region_order": 1,
+            },
+        ]
+        p = plan(macros, cell_area=1.0e6)
+        p["margins"] = dict(MARGINS, side_align={"left": "end", "top": "start"})
+        return p
+
+    def test_held_at_the_top_left_corner(self):
+        out = plan_floorplan.layout(self._plan())
+        self.assertEqual(plan_floorplan.check(out), [])
+        by = {m["name"]: m for m in out["macros"]}
+        x0, y0, x1, y1 = out["region_um"]
+        # left side, bottom to top: Vec, then Rob, Rob's top at the corner
+        self.assertLess(by["Vec"]["y_um"], by["Rob"]["y_um"])
+        self.assertAlmostEqual(by["Rob"]["y_um"] + by["Rob"]["h_um"], y1, delta=3)
+        # top side, left to right: Flt at the corner, then Mem
+        self.assertLess(by["Flt"]["x_um"], by["Mem"]["x_um"])
+        self.assertAlmostEqual(by["Flt"]["x_um"], x0, delta=3)
+
+    def test_without_them_the_blocks_are_centred(self):
+        p = self._plan()
+        p["margins"] = MARGINS
+        for m in p["macros"]:
+            del m["region_order"]
+        out = plan_floorplan.layout(p)
+        by = {m["name"]: m for m in out["macros"]}
+        x0, y0, x1, y1 = out["region_um"]
+        self.assertGreater(by["Flt"]["x_um"] - x0, 3)
+
+
+class StablePinTest(unittest.TestCase):
+    """--previous keeps a previous plan's pins: a block whose interface did
+    not change gets a byte-identical pins file, so its flow stays a cache
+    hit when a neighbour gains ports (each regenerated plan used to slide
+    every pin of every block and rebuild them all)."""
+
+    def _emit(self, d, dump_lines, previous=None):
+        macros = [dict(m) for m in LayoutTest.MACROS]
+        p = plan(macros)
+        p["tech"] = dict(LATTICE, **ExactPinTest.LAYERS)
+        out = plan_floorplan.layout(p)
+        dump = os.path.join(d, "partners.txt")
+        with open(dump, "w") as f:
+            f.write("".join(dump_lines))
+        p["pin_partners"] = dump
+        plan_floorplan.emit(out, p, d, previous)
+        return out
+
+    def _dump(self, names, extra=0):
+        a, b = names[0], names[1]
+        lines = ["pin %s a%d logic\n" % (a, i) for i in range(40)]
+        lines += ["pin %s x%d %s\n" % (a, i, b) for i in range(10)]
+        lines += ["pin %s x%d %s\n" % (b, i, a) for i in range(10)]
+        lines += ["pin %s b%d logic\n" % (b, i) for i in range(30)]
+        # the change: a gains pins toward its logic
+        lines += ["pin %s n%d logic\n" % (a, i) for i in range(extra)]
+        return lines
+
+    def _rows(self, d, name):
+        text = open(os.path.join(d, name + "_pins.tcl")).read()
+        body = text.split("set ::plan_pins(%s) {\n" % name, 1)[1].split("\n}", 1)[0]
+        return {l.split()[0]: l for l in body.splitlines() if l.strip()}
+
+    def test_unchanged_interface_is_byte_identical(self):
+        names = [m["name"] for m in LayoutTest.MACROS]
+        d = tempfile.mkdtemp(prefix="plan_stable.")
+        self._emit(d, self._dump(names))
+        before = {n: open(os.path.join(d, n + "_pins.tcl")).read() for n in names[:2]}
+        self._emit(d, self._dump(names), previous=d)
+        for n in names[:2]:
+            self.assertEqual(open(os.path.join(d, n + "_pins.tcl")).read(), before[n])
+
+    def test_new_pins_take_free_tracks_and_the_rest_stay(self):
+        names = [m["name"] for m in LayoutTest.MACROS]
+        d = tempfile.mkdtemp(prefix="plan_stable.")
+        self._emit(d, self._dump(names))
+        old_a, old_b = self._rows(d, names[0]), self._rows(d, names[1])
+        b_text = open(os.path.join(d, names[1] + "_pins.tcl")).read()
+        self._emit(d, self._dump(names, extra=12), previous=d)
+        new_a = self._rows(d, names[0])
+        # every pin a had keeps its row; the other block is untouched
+        for pin, row in old_a.items():
+            self.assertEqual(new_a[pin], row)
+        self.assertEqual(open(os.path.join(d, names[1] + "_pins.tcl")).read(), b_text)
+        self.assertEqual(self._rows(d, names[1]), old_b)
+        # the new pins are placed, on their layer's tracks, two tracks
+        # from any other pin on their edge
+        added = [r.split() for p, r in new_a.items() if p.startswith("n")]
+        self.assertEqual(len(added), 12)
+        pitch = {
+            l["name"]: (l["pitch"], l["offset"])
+            for l in ExactPinTest.LAYERS["pin_layers_v"]
+            + ExactPinTest.LAYERS["pin_layers_h"]
+        }
+        rows = [r.split() for r in new_a.values()]
+        for pin, layer, x, y, w, h in added:
+            step, off = pitch[layer]
+            slide = float(x) if float(h) > float(w) else float(y)
+            self.assertAlmostEqual((slide - off) / step, round((slide - off) / step), 4)
+            for q in rows:
+                if q[0] == pin or q[1] != layer:
+                    continue
+                same_edge = (q[3] == y) if float(h) > float(w) else (q[2] == x)
+                if same_edge:
+                    other = float(q[2]) if float(h) > float(w) else float(q[3])
+                    self.assertGreaterEqual(abs(other - slide), 2 * step - 1e-6)
+
+    def test_gone_pins_are_dropped(self):
+        names = [m["name"] for m in LayoutTest.MACROS]
+        d = tempfile.mkdtemp(prefix="plan_stable.")
+        self._emit(d, self._dump(names, extra=12))
+        self._emit(d, self._dump(names), previous=d)
+        self.assertFalse(any(p.startswith("n") for p in self._rows(d, names[0])))
+
+    def test_a_full_edge_stops(self):
+        rows = ["  p0 M3 5.0090 49.8200 0.0180 0.3600"]
+        prev = {"p0": rows[0]}
+        fresh = rows + ["  q0 M3 5.0090 49.8200 0.0180 0.3600"]
+        with self.assertRaises(SystemExit):
+            # an edge one pitch long: no free track for q0
+            plan_floorplan.stable_rows(
+                "a",
+                fresh,
+                prev,
+                dict(TECH, **ExactPinTest.LAYERS),
+                plan_floorplan.SEGMENT_EDGE_UM * 2 + 0.01,
+                50.0,
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

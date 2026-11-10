@@ -1,0 +1,5 @@
+# The sinks that touch Rob (sinks.txt steps 2 and 7), for Rob's own flow on the surgered core: its ports match the parent's
+# 2. Rob's enqueue stall (rab.state and the registers beside it) into CtrlBlock's own logic
+--module Rob --flatten RenameBuffer --registers rab.state --hier --parent CtrlBlock --instance rob --consumers self
+# 7. Rob's empty flag into CtrlBlock's own logic
+--module Rob --flatten RenameBuffer --ports io_enq_isEmpty --hier --parent CtrlBlock --instance rob --consumers self

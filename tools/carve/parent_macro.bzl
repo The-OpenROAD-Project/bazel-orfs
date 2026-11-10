@@ -34,6 +34,7 @@ def parent_macro_flow(
         headroom_skip = "",
         top_flat_user_arguments = {},
         top_flat_check_ps = None,
+        crossing_data_min_ps = "1500",
         variant = None,
         pdk = "//flow:asap7",
         tags = ["manual"]):
@@ -104,6 +105,10 @@ def parent_macro_flow(
         (SKIP_PIN_ACCESS).
       top_level_user_arguments: top_level.tcl's own settings
         (TOP_DPL_ARGS, TOP_GRT_ITERATIONS, TOP_PARASITICS).
+      crossing_data_min_ps: the crossing timing also writes every crossing
+        path needing more than this, under the budget too, with its wire
+        delay and both ends' places (crossing_data.<set>.tsv beside the
+        report), for the carve's offline model; "" writes none.
       whole_check: time the top level whole too, <name>_pm_crossing_whole,
         and test that the sets report the same paths,
         <name>_pm_crossing_test; for a design small enough to time whole.
@@ -327,10 +332,11 @@ def parent_macro_flow(
         headroom_skip = headroom_skip,
         top_flat_user_arguments = top_flat_user_arguments,
         top_flat_check_ps = top_flat_check_ps,
+        crossing_data_min_ps = crossing_data_min_ps,
         tags = tags,
     )
 
-def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top_level_user_arguments, whole_check, headroom_sets, headroom_skip, top_flat_user_arguments, top_flat_check_ps, tags):
+def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top_level_user_arguments, whole_check, headroom_sets, headroom_skip, top_flat_user_arguments, top_flat_check_ps, crossing_data_min_ps, tags):
     """The top level's clock tree and global route, and its crossing report.
 
     Args:
@@ -347,6 +353,7 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
       top_flat_user_arguments: top_level.tcl's settings for the top level
         that takes its macros' boundary logic over (whole_check only).
       top_flat_check_ps: the period the flattened top level's test checks.
+      crossing_data_min_ps: the crossing timing's dataset threshold, ps.
       tags: forwarded.
     """
     scripts = {
@@ -396,6 +403,13 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
         },
     )
 
+    # The sets are cut and timed on this machine, never on a remote
+    # executor: a set takes 60-70 GB to cut or time, and several started at
+    # once on remote executors were killed for memory (exit 137); in one
+    # action they run one at a time, as memory here allows. Bazel has no
+    # per-action memory reservation for local actions to run two at once.
+    local = tags + ["no-remote-exec"]
+
     # each set cut to its crossing cones, written with its parasitics
     orfs_run(
         name = "%s_crossing_sets" % pm,
@@ -405,7 +419,7 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
         data = [top, ":%s/sets.txt" % pm],
         script = "@bazel-orfs//tools/carve:top_level.tcl",
         arguments = top_arguments,
-        tags = tags,
+        tags = local,
         user_arguments = top_level_user_arguments | {
             "CROSSING_SETS": "$(location :%s/sets.txt)" % pm,
             "TOP_DIR": "$(location %s)" % top,
@@ -423,9 +437,10 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
         cmd = "run",
         data = [sets, ":%s/sets.txt" % pm],
         script = "@bazel-orfs//tools/carve:crossing_time_sets.tcl",
-        tags = tags,
+        tags = local,
         user_arguments = {
             "BUDGET_PS": budget_ps,
+            "CROSSING_DATA_MIN_PS": crossing_data_min_ps,
             "CROSSING_SETS": "$(location :%s/sets.txt)" % pm,
             "SETS_DIR": "$(location %s)" % sets,
         },
