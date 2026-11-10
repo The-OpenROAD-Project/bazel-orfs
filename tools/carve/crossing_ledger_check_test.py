@@ -1,7 +1,8 @@
 """crossing_ledger_check.py on ledgers and top level paths written here:
-the ledger holds what the slowest path through a net needs, within the
-tolerance and no further; a part's halves at zero, or its ledger gone,
-fail the check, and for that."""
+the ledger holds the slowest path through a net, its clock taken out,
+within the tolerance and no further; how far that is from the period
+the net needs is said and not checked; a part's halves at zero, or its
+ledger gone, fail the check, and for that."""
 
 import contextlib
 import io
@@ -71,14 +72,14 @@ class Check(unittest.TestCase):
         )
         self.assertIsNone(status)
 
-    def test_a_path_that_needs_more_than_the_halves_fails(self):
+    def test_a_path_longer_than_the_halves_fails(self):
         status, _ = self.run_check([path("u_A__q", 171.0)])
         self.assertIn("ledger under the top level: 1 paths through 1 nets", status)
         self.assertIn(
             "u_A__q 150.0 against 171.0 ps (u_A/r/CLK to u_parent/s/D)", status
         )
 
-    def test_halves_no_path_needs_fail(self):
+    def test_halves_longer_than_any_path_fail(self):
         status, _ = self.run_check([path("u_A__q", 129.0), path("u_A__q", 60.0)])
         self.assertIn("ledger over the top level: on 1 nets", status)
         self.assertIn("u_A__q 150.0 against 129.0 ps", status)
@@ -102,6 +103,22 @@ class Check(unittest.TestCase):
             "the top level's clock adds -41.0 ps to a path through u_A__q", status
         )
 
+    def test_how_far_a_path_is_from_the_period_is_said_not_checked(self):
+        # 150 ps of path, and 30 ps of clock on it at the top level: the
+        # net needs 180, which the ledger is 30 under, and holds no part of
+        status, said = self.run_check(
+            [path("u_A__q", 150.0, clock=30.0)], more=["--max-skew", "40"]
+        )
+        self.assertIsNone(status, said)
+        self.assertIn(
+            "as a period, the top level's clock in, which no ledger holds: 1 of 1 "
+            "nets outside the tolerance, 1 of them with the ledger under",
+            said,
+        )
+        self.assertIn("worst u_A__q, 150.0 against 180.0 ps", said)
+        status, said = self.run_check([path("u_A__q", 150.0, clock=10.0)])
+        self.assertIn("0 of 1 nets outside the tolerance", said)
+
     def test_a_ledger_that_reads_under_on_average_is_warned_of(self):
         _, said = self.run_check([path("u_A__q", 165.0)])
         self.assertIn("WARNING: the ledger reads 15.0 ps under the top level", said)
@@ -116,6 +133,19 @@ class Check(unittest.TestCase):
             self.assertIn("ledger under the top level", status)
             self.assertIn("u_A__q", status)
 
+    def test_one_half_at_zero_fails_by_its_net(self):
+        # two nets, the slower through u_A__r: its launch, 100 of its 150
+        # ps, at zero, and the check fails on that net and no other
+        status, said = self.run_check(
+            [path("u_A__q", 140.0), path("u_A__r", 150.0)],
+            hub=["in u_A__q 40.0 20.0 -", "in u_A__r 50.0 20.0 -"],
+            a=["out q 100.0 90.0 - - 0.0 -", "out r 100.0 90.0 - - 0.0 -"],
+            more=["--zero-half"],
+        )
+        self.assertIn("one half at zero: A's launch into u_A__r", said)
+        self.assertIn("ledger under the top level: 1 paths through 1 nets", status)
+        self.assertIn("u_A__r 50.0 against 150.0 ps", status)
+
     def test_a_block_s_ledger_gone_fails_by_its_name(self):
         status, _ = self.run_check([path("u_A__q", 150.0)], more=["--drop", "A"])
         self.assertIn("no ledger for block A", status)
@@ -128,6 +158,7 @@ class Check(unittest.TestCase):
                 [
                     "out u_B__d 90.0 80.0 - - 12.0 mcp",
                     "in u_A__q - - -",
+                    "feed u_A__q 40.0 10.0",
                     "arc u_A__q u_B__d 40.0 10.0 complete",
                 ],
             )
@@ -138,6 +169,7 @@ class Check(unittest.TestCase):
                     [
                         "out u_B__d 0.00 0.00 - - 12.0 mcp",
                         "in u_A__q - - -",
+                        "feed u_A__q 0.00 0.00",
                         "arc u_A__q u_B__d 0.00 0.00 complete",
                     ],
                 )
@@ -163,6 +195,12 @@ class Same(unittest.TestCase):
         )
         self.assertEqual(len(errors), 1)
         self.assertIn("arc d q", errors[0])
+        # an input's slowest feed-through is a half like any other
+        errors = self.same(
+            ["in d - - -", "feed d 9.0 8.0"], ["in d - - -", "feed d 9.0 8.3"]
+        )
+        self.assertEqual(len(errors), 1)
+        self.assertIn("feed d", errors[0])
 
 
 class Spot(unittest.TestCase):

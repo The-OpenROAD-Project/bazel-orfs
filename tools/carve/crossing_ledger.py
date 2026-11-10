@@ -1,44 +1,59 @@
 """The crossing ledger of a parent macro, joined: every part's halves of
 its boundary pins (crossing_ledger.tcl, each part at its own global
-route) summed along each crossing net into the clock period a path
-through that net needs, before there is a top level to time it on.
+route) summed along each crossing net into the longest path through that net,
+launching clock pin to capturing register, before there is a top level
+to time it on.
 
-    crossing_ledger.py --hub <ledger> --block <M>=<ledger>... [--budget <ps>] --out <dir>
+    crossing_ledger.py --hub <ledger> --block <M>=<ledger>... [--own <X>]...
+        [--budget <ps>] [--clock <ps>] --out <dir>
 
 A part's ledger holds, per boundary pin, in ps, routed and zero-wire:
 
     out <pin> <L> <L zero> <ft> <ft zero> <lat> <flags>
     in <pin> <C> <C zero> <flags>
+    feed <in> <F> <F zero>
     arc <in> <out> <d> <d zero> <complete|truncated>
 
 L: launch, the slowest register behind an output, clock pin to the pin.
 C: capture, an input pin to the slowest register behind it, setup
-included. d: a feed-through, input pin to output pin. '-' where a pin
-has none. Each is the worst of every register or pin behind the pin, so
-no path through a pin needs more than its halves say.
+included. d: a feed-through, input pin to output pin; F: the slowest
+out of an input, listed as an arc or not. '-' where a pin has none.
+Each is the worst of every register or pin behind the pin, so no path
+through a pin is longer than its halves say.
 
 The parts are connected by rule, as top_netlist.tcl stitches them: the
-hub's port u_<M>__<pin> is block M's <pin>. The need of a crossing net
-is the longest chain through it: the slowest launch that reaches its
-driver, through any feed-throughs on the way, and the slowest capture
-from its load on.
+hub's port u_<M>__<pin> is block M's <pin>; --own X says the hub's
+u_X__ ports are the design's own, X no block. The path of a crossing
+net is the longest chain through it: the slowest launch that reaches
+its driver, through any feed-throughs on the way, and the slowest
+capture from its load on.
+
+It is not the period the net needs. A path holds no clock: the period
+a crossing needs at the top level is its path plus what the top
+level's clock tree adds between the two registers, launch latency less
+capture latency, which no part sees. --clock <ps> is what is allowed
+for that: the nets are judged against the budget less it. Without it
+they are judged against the budget itself, and the summary says so.
 
 Writes <dir>/crossings.txt, one row per crossing net, worst first:
 
-    net from_part to_part need need_zero need_hub_zero hub hub_zero
+    net from_part to_part path path_zero path_hub_zero hub hub_zero
     partner allowance class flags chain
 
-need: the chain as routed. need_zero: every part's wires at zero.
-need_hub_zero: the hub's wires at zero, the other parts as routed, the
-least the net can need while the blocks stay as they are. hub: the
-hub's share of need; partner: the rest; allowance: the budget less
-partner, what the hub may spend. class: ok (need within the budget),
-closable-by-hub-placement (need_hub_zero within it),
-not-closable-by-hub. And <dir>/summary.txt: the nets over the budget,
-the hub's debt (ps over the budget, summed over the nets), a count per
-class, and what the ledger could not see, by name: nets nothing
-launches into, nets nothing captures, outputs whose feed-throughs were
-cut at the K worst.
+path: the chain as routed. path_zero: every part's wires at zero.
+path_hub_zero: the hub's wires at zero, the other parts as routed, the
+shortest the net can get while the blocks stay as they are. hub: the
+hub's share of path; partner: the rest; allowance: the budget, less
+the clock, less partner: what the hub may spend. class: ok (path
+within the budget less the clock), closable-by-hub-placement
+(path_hub_zero within it), not-closable-by-hub. flags: `truncated`, a
+feed-through its part's list was cut before may lie on a longer chain,
+so the row may read low: no such row is shown to fit. And
+<dir>/summary.txt: the nets over, the hub's debt, a count per class,
+and what the ledger could not see, by name: nets nothing launches
+into, nets nothing captures, nets only a feed-through cut from a list
+could launch into or capture, outputs whose feed-throughs were cut at
+the K worst.
 """
 
 import argparse
@@ -47,6 +62,8 @@ import re
 import sys
 
 HUB = "hub"
+# two readings of one delay, one of them through a slack far from zero
+APART_PS = 0.5
 ROUTED, ZERO, HUB_ZERO = "routed", "zero", "hub_zero"
 EVALS = (ROUTED, ZERO, HUB_ZERO)
 
@@ -55,6 +72,10 @@ STITCH = re.compile(r"^u_([^_].*?)__(.*)$")
 
 
 class LedgerError(Exception):
+    pass
+
+
+class LoopError(LedgerError):
     pass
 
 
@@ -82,8 +103,10 @@ def flags_of(text):
 
 def read_part(name, path):
     """A part's ledger: its header, outs {pin: (launch, flags)}, ins
-    {pin: (capture, flags)} and arcs {(in, out): (d, state)}."""
-    part = {"name": name, "header": {}, "notes": [], "outs": {}, "ins": {}, "arcs": {}}
+    {pin: (capture, flags)}, feeds {in: F} and arcs {(in, out): (d,
+    state)}."""
+    part = {"name": name, "header": {}, "notes": [], "outs": {}, "ins": {}}
+    part.update({"feeds": {}, "arcs": {}})
     try:
         f = open(path)
     except IOError as e:
@@ -109,6 +132,11 @@ def read_part(name, path):
                 pin = fields[1]
                 capture = pair(fields[2], fields[3], where)
                 part["ins"][pin] = (capture, flags_of(fields[4]))
+            elif kind == "feed" and len(fields) == 4:
+                feed = pair(fields[2], fields[3], where)
+                if feed is None:
+                    raise LedgerError("%s: a feed without a delay" % where)
+                part["feeds"][fields[1]] = feed
             elif kind == "arc" and len(fields) == 6:
                 d = pair(fields[3], fields[4], where)
                 if d is None:
@@ -121,10 +149,27 @@ def read_part(name, path):
     for i, o in part["arcs"]:
         if i not in part["ins"] or o not in part["outs"]:
             raise LedgerError("%s: arc %s %s without both its pins" % (name, i, o))
+    for i in part["feeds"]:
+        if i not in part["ins"]:
+            raise LedgerError("%s: feed %s without its pin" % (name, i))
+    cut = any(state == "truncated" for _, state in part["arcs"].values())
+    if cut and "feeds" not in part["header"]:
+        # which inputs a feed-through cut from the list could start at
+        raise LedgerError(
+            "%s: %s has outputs cut at the worst feed-throughs and no `feeds` "
+            "in its header: it was written before the inputs' slowest "
+            "feed-throughs were" % (name, path)
+        )
+    feeds = part["header"].get("feeds")
+    if feeds is not None and feeds != str(len(part["feeds"])):
+        raise LedgerError(
+            "%s: %s has %d feed lines, its header says %s"
+            % (name, path, len(part["feeds"]), feeds)
+        )
     return part
 
 
-def connect(hub, blocks):
+def connect(hub, blocks, own_names=()):
     """The crossing nets, by the hub port's name: net -> (driver, load),
     each a (part, pin). And the hub's own ports, and the block pins the
     hub has no port for (top_netlist.tcl leaves them open)."""
@@ -132,14 +177,17 @@ def connect(hub, blocks):
     own = []
     for port in sorted(list(hub["outs"]) + list(hub["ins"])):
         m = STITCH.match(port)
-        if not m:
+        if not m or m.group(1) in own_names:
             own.append(port)
             continue
         block, pin = m.group(1), m.group(2)
         if block not in blocks:
+            # never taken for a port of the design's own: a block left out
+            # would take its crossings with it, unseen
             raise LedgerError(
-                "hub port %s: no ledger for block %s (--block %s=<ledger>)"
-                % (port, block, block)
+                "hub port %s: no ledger for block %s (--block %s=<ledger>, or "
+                "--own %s when the port is the design's own)"
+                % (port, block, block, block)
             )
         b = blocks[block]
         if port in hub["ins"] and pin in b["outs"]:
@@ -167,10 +215,10 @@ class Join(object):
     """The longest chain to each output pin (up) and from each input pin
     (down), over the parts' halves and feed-throughs."""
 
-    def __init__(self, hub, blocks):
+    def __init__(self, hub, blocks, own_names=()):
         self.parts = dict(blocks)
         self.parts[HUB] = hub
-        self.nets, self.own, self.open_pins = connect(hub, blocks)
+        self.nets, self.own, self.open_pins = connect(hub, blocks, own_names)
         self.driver = {}
         self.load = {}
         for net, (drv, load) in self.nets.items():
@@ -183,6 +231,16 @@ class Join(object):
             for (i, o), (d, state) in part["arcs"].items():
                 self.into.setdefault((name, o), []).append((i, d, state))
                 self.outof.setdefault((name, i), []).append((o, d, state))
+        # a part's outputs cut at the K worst, and the fastest feed-through
+        # listed into each: none the list was cut before is slower
+        self.cut = {}
+        self.least = {}
+        for (name, o), arcs in self.into.items():
+            if any(state == "truncated" for _, _, state in arcs):
+                self.cut.setdefault(name, []).append(o)
+                self.least[(name, o)] = min(d[0] for _, d, _ in arcs)
+        # the pins no listed half reaches, which one cut from a list might
+        self.dark = set()
         self.memo = {}
         self.walking = []
 
@@ -194,7 +252,7 @@ class Join(object):
         return value[0]
 
     def chain(self, part, value, ev, flags, name):
-        """A chain of one half: (need, the hub's share, flags, parts)."""
+        """A chain of one half: (path, the hub's share, flags, parts)."""
         t = self.term(part, value, ev)
         return (t, t if part == HUB else 0.0, list(flags), [name])
 
@@ -212,7 +270,7 @@ class Join(object):
             return self.memo[memo]
         if (side, key) in self.walking:
             loop = self.walking[self.walking.index((side, key)) :]
-            raise LedgerError(
+            raise LoopError(
                 "a loop of feed-throughs: %s"
                 % " ".join("%s/%s" % k for _, k in loop + [(side, key)])
             )
@@ -228,6 +286,8 @@ class Join(object):
         name, pin = key
         launch, flags = self.parts[name]["outs"][pin]
         best = None
+        # a feed-through cut from the list may end here
+        low = pin in self.cut.get(name, ())
         if launch is not None:
             best = self.chain(name, launch, ev, flags, name)
         for i, d, state in self.into.get(key, []):
@@ -235,15 +295,59 @@ class Join(object):
             # the design's own input port: no register launches it
             before = self.walk("up", drv, ev) if drv else None
             if before is None:
+                low = low or ("up", drv) in self.dark
                 continue
+            low = low or "truncated" in before[2]
             cand = self.extend(before, self.chain(name, d, ev, [], name))
             if best is None or cand[0] > best[0]:
                 best = cand
-        if best is not None and any(
-            s == "truncated" for _, _, s in self.into.get(key, [])
-        ):
-            best = self.extend(best, (0.0, 0.0, ["truncated"], []))
-        return best
+        return self.lowered("up", key, best, low)
+
+    def lowered(self, side, key, best, low):
+        """best, `truncated` when a chain longer than it may exist: a
+        feed-through cut from a list on it, or a chain that is itself
+        `truncated` and was not the longest as listed."""
+        if not low:
+            return best
+        if best is None:
+            self.dark.add((side, key))
+            return None
+        return self.extend(best, (0.0, 0.0, ["truncated"], []))
+
+    def unlisted(self, key, best, ev):
+        """Whether a feed-through out of input pin key that its part's
+        list was cut before may lie on a longer chain than best. It ends
+        at an output that was cut and does not list the input, and is no
+        slower than the input's slowest (F) or than the fastest one
+        listed into that output."""
+        name, pin = key
+        feed = self.parts[name]["feeds"].get(pin)
+        if feed is None:
+            return False
+        arcs = self.parts[name]["arcs"]
+        for o in self.cut.get(name, ()):
+            load = self.load.get((name, o))
+            if (pin, o) in arcs or load is None:
+                continue
+            if ("down", load) in self.walking:
+                # a loop if the arc is there
+                return True
+            mark = len(self.walking)
+            try:
+                after = self.walk("down", load, ev)
+            except LoopError:
+                # one of listed feed-throughs stops the join from the
+                # outputs up; one through this arc, if the arc is there
+                del self.walking[mark:]
+                return True
+            if after is None:
+                if ("down", load) in self.dark:
+                    return True
+                continue
+            most = min(feed[0], self.least[(name, o)]) + after[0]
+            if best is None or "truncated" in after[2] or most > best[0] + APART_PS:
+                return True
+        return False
 
     def down(self, key, ev):
         """The slowest capture from input pin key on: its own registers',
@@ -251,6 +355,7 @@ class Join(object):
         name, pin = key
         capture, flags = self.parts[name]["ins"][pin]
         best = None
+        low = False
         if capture is not None:
             best = self.chain(name, capture, ev, flags, name)
         for o, d, state in self.outof.get(key, []):
@@ -258,62 +363,72 @@ class Join(object):
             # the design's own output port: no register captures it
             after = self.walk("down", load, ev) if load else None
             if after is None:
+                low = low or ("down", load) in self.dark
                 continue
-            extra = ["truncated"] if state == "truncated" else []
-            cand = self.extend(self.chain(name, d, ev, extra, name), after)
+            low = low or "truncated" in after[2]
+            cand = self.extend(self.chain(name, d, ev, [], name), after)
             if best is None or cand[0] > best[0]:
                 best = cand
-        return best
+        # the flags are the routed chain's: the other readings take them
+        if ev == ROUTED and not low:
+            low = self.unlisted(key, best, ev)
+        return self.lowered("down", key, best, low)
 
-    def rows(self, budget):
-        """A row per crossing net, worst first, and the nets with no
-        launch or no capture half."""
+    def rows(self, limit):
+        """A row per crossing net, worst first, and the nets without one:
+        no launch half, no capture half, and those whose missing half a
+        feed-through cut from a list may be."""
         rows = []
         no_launch = []
         no_capture = []
+        cut = []
         for net in sorted(self.nets):
             drv, load = self.nets[net]
             if self.walk("up", drv, ROUTED) is None:
-                no_launch.append(net)
+                (cut if ("up", drv) in self.dark else no_launch).append(net)
                 continue
             if self.walk("down", load, ROUTED) is None:
-                no_capture.append(net)
+                (cut if ("down", load) in self.dark else no_capture).append(net)
                 continue
             got = {}
             for ev in EVALS:
                 got[ev] = self.extend(
                     self.walk("up", drv, ev), self.walk("down", load, ev)
                 )
-            need, hub, flags, parts = got[ROUTED]
-            partner = need - hub
-            if need <= budget:
-                kind = "ok"
-            elif got[HUB_ZERO][0] <= budget:
-                kind = "closable-by-hub-placement"
+            path, hub, flags, parts = got[ROUTED]
+            partner = path - hub
+            if path > limit:
+                kind = (
+                    "closable-by-hub-placement"
+                    if got[HUB_ZERO][0] <= limit
+                    else "not-closable-by-hub"
+                )
+            elif "truncated" in flags:
+                kind = "unknown"
             else:
-                kind = "not-closable-by-hub"
+                kind = "ok"
             rows.append(
                 {
                     "net": net,
                     "from": drv[0],
                     "to": load[0],
-                    "need": need,
-                    "need_zero": got[ZERO][0],
-                    "need_hub_zero": got[HUB_ZERO][0],
+                    "path": path,
+                    "path_zero": got[ZERO][0],
+                    "path_hub_zero": got[HUB_ZERO][0],
                     "hub": hub,
                     "hub_zero": got[HUB_ZERO][1],
                     "partner": partner,
-                    "allowance": budget - partner,
+                    "allowance": limit - partner,
                     "class": kind,
                     "flags": flags,
                     "chain": parts,
                 }
             )
-        rows.sort(key=lambda r: (-r["need"], r["net"]))
-        return rows, no_launch, no_capture
+        rows.sort(key=lambda r: (-r["path"], r["net"]))
+        return rows, no_launch, no_capture, cut
 
 
-CLASSES = ("ok", "closable-by-hub-placement", "not-closable-by-hub")
+CLASSES = ("ok", "closable-by-hub-placement", "not-closable-by-hub", "unknown")
 
 
 def some(names, limit=10):
@@ -321,27 +436,43 @@ def some(names, limit=10):
     return " ".join(names[:limit]) + (" and %d more" % more if more > 0 else "")
 
 
-def join(hub_path, block_paths, budget):
-    """The joined ledger: (rows, summary lines)."""
+def join(hub_path, block_paths, budget, clock=None, own=()):
+    """The joined ledger: (rows, summary lines, the nets something
+    launches, or may, that have no row)."""
     hub = read_part(HUB, hub_path)
     blocks = {name: read_part(name, path) for name, path in block_paths.items()}
-    j = Join(hub, blocks)
-    rows, no_launch, no_capture = j.rows(budget)
-    over = [r for r in rows if r["need"] > budget]
-    lines = ["crossing ledger: %d nets, %d over %g ps" % (len(rows), len(over), budget)]
+    j = Join(hub, blocks, own)
+    limit = budget - (clock or 0.0)
+    try:
+        rows, no_launch, no_capture, dark = j.rows(limit)
+    except RecursionError:
+        # the walk is as deep as a chain is long, those through
+        # feed-throughs cut from the lists among them
+        raise LedgerError("a chain of feed-throughs too long to walk")
+    over = [r for r in rows if r["path"] > limit]
+    lines = ["crossing ledger: %d nets, %d over %g ps" % (len(rows), len(over), limit)]
+    if clock is None:
+        lines.append(
+            "no clock in any path: what the top level's clock adds between two "
+            "parts is to come off the budget (--clock <ps>)"
+        )
+    else:
+        lines.append(
+            "%g ps: the budget, %g ps, less %g ps for the top level's clock"
+            % (limit, budget, clock)
+        )
     if rows:
-        lines.append("worst %s %.1f ps" % (rows[0]["net"], rows[0]["need"]))
-    # a chain through two nets is in both rows, and in the debt twice
+        lines.append("worst %s %.1f ps" % (rows[0]["net"], rows[0]["path"]))
     lines.append(
-        "hub debt %.1f ps: each net's ps over the budget, summed over the nets"
-        % sum(r["need"] - budget for r in over)
+        "hub debt %.1f ps: each net's ps over, summed over the nets, a chain "
+        "through two nets twice" % sum(r["path"] - limit for r in over)
     )
     for kind in CLASSES:
         lines.append("class %s %d" % (kind, sum(1 for r in rows if r["class"] == kind)))
-    for flag in ("truncated", "mcp"):
+    for flag, what in (("truncated", ", which may read low"), ("mcp", "")):
         hit = [r["net"] for r in rows if flag in r["flags"]]
         if hit:
-            lines.append("%s %d nets: %s" % (flag, len(hit), some(hit)))
+            lines.append("%s %d nets%s: %s" % (flag, len(hit), what, some(hit)))
     lines.append("no-launcher %d nets: nothing launches into them" % len(no_launch))
     if no_capture:
         lines.append(
@@ -350,6 +481,11 @@ def join(hub_path, block_paths, budget):
         )
     else:
         lines.append("no-capture 0 nets")
+    if dark:
+        lines.append(
+            "cut %d nets, launched or captured, if at all, through a "
+            "feed-through cut from its part's list: %s" % (len(dark), some(dark))
+        )
     lines.append("own %d hub ports of the design's own" % len(j.own))
     if j.open_pins:
         lines.append(
@@ -384,20 +520,23 @@ def join(hub_path, block_paths, budget):
         )
         for note in part["notes"]:
             lines.append("part %s note: %s" % (name, note))
-    return rows, lines, no_capture
+    return rows, lines, sorted(no_capture + dark)
 
 
 COLUMNS = (
-    "net from_part to_part need need_zero need_hub_zero hub hub_zero "
+    "net from_part to_part path path_zero path_hub_zero hub hub_zero "
     "partner allowance class flags chain"
 )
 
 
-def write(out_dir, rows, lines, budget):
+def write(out_dir, rows, lines, limit):
     if not os.path.isdir(out_dir):
         os.makedirs(out_dir)
     with open(os.path.join(out_dir, "crossings.txt"), "w") as f:
-        f.write("# crossing nets, ps, budget %g ps, worst first\n" % budget)
+        f.write(
+            "# crossing nets, ps, no clock in a path, judged against %g ps, "
+            "worst first\n" % limit
+        )
         f.write("# %s\n" % COLUMNS)
         for r in rows:
             f.write(
@@ -406,9 +545,9 @@ def write(out_dir, rows, lines, budget):
                     r["net"],
                     r["from"],
                     r["to"],
-                    r["need"],
-                    r["need_zero"],
-                    r["need_hub_zero"],
+                    r["path"],
+                    r["path_zero"],
+                    r["path_hub_zero"],
                     r["hub"],
                     r["hub_zero"],
                     r["partner"],
@@ -438,24 +577,38 @@ def main(argv):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--hub", required=True, help="the hub's ledger")
     ap.add_argument("--block", action="append", default=[], metavar="M=LEDGER")
+    ap.add_argument(
+        "--own",
+        action="append",
+        default=[],
+        metavar="X",
+        help="the hub's u_X__ ports are the design's own",
+    )
     ap.add_argument("--budget", type=float, default=2000.0, help="ps")
+    ap.add_argument(
+        "--clock",
+        type=float,
+        help="ps off the budget for what the top level's clock adds to a path",
+    )
     ap.add_argument("--out", required=True, help="directory written")
     ap.add_argument(
         "--strict",
         action="store_true",
-        help="stop on a net that is launched and never captured",
+        help="stop on a net with a launch, or one it may have, and no row",
     )
     args = ap.parse_args(argv)
     try:
-        rows, lines, no_capture = join(args.hub, parse_blocks(args.block), args.budget)
+        rows, lines, blind = join(
+            args.hub, parse_blocks(args.block), args.budget, args.clock, args.own
+        )
     except LedgerError as e:
         sys.exit("crossing_ledger: %s" % e)
-    write(args.out, rows, lines, args.budget)
+    write(args.out, rows, lines, args.budget - (args.clock or 0.0))
     print("\n".join(lines))
-    if args.strict and no_capture:
+    if args.strict and blind:
         sys.exit(
-            "crossing_ledger: %d nets launched and never captured: %s"
-            % (len(no_capture), some(no_capture))
+            "crossing_ledger: %d nets launched, or cut, and without a row: %s"
+            % (len(blind), some(blind))
         )
 
 

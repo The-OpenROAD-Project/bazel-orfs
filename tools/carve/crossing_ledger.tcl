@@ -9,11 +9,12 @@
 #   feed-through d(i,o)  input i to output o, no register between
 #
 # Each is the worst of every register behind the pin, not of the paths a
-# search happened to report: L and the feed-throughs' worst are read off
-# the output's arrivals, C off the input's slack, one read per pin and no
-# path search. crossing_ledger.py sums the halves along each crossing net
-# into the period a path through it needs, before there is a top level to
-# time it on.
+# search happened to report: L is read off the output's slack, C off the
+# input's, one read per pin, no path search and no path or tag walked.
+# crossing_ledger.py sums the halves along each crossing net into the
+# path a crossing through it has to fit in a period, before there is a
+# top level to time it on. A half holds no clock: not the latency of the
+# part's own tree, not the skew a top level adds between two parts.
 #
 # The halves must not depend on the part's own boundary constraints or
 # on its clock tree, so they are read in a state of the ledger's own:
@@ -21,19 +22,25 @@
 #   - the clocks ideal, every register's clock pin at the median clock
 #     slew as built (clk_slew in the header), so a launch starts at its
 #     register's clock pin;
-#   - every input to every endpoint and to every output a path delay of
-#     zero (set_max_delay 0, -ignore_clock_latency to the endpoints): the
-#     tightest path delay wins, so the part's own in2reg and in2out
-#     budgets do not change a half, and an input's slack is minus the
-#     longest path from it, setup included;
-#   - for C, the inputs to the outputs false paths, so an input's slack
-#     is its registers' alone, and an input no register captures has none.
+#   - every register and clock to every output, and every input to
+#     every endpoint, a path delay of zero (set_max_delay 0,
+#     -ignore_clock_latency to the endpoints): the tightest path delay
+#     wins, so the part's own in2reg and reg2out budgets do not change a
+#     half, and a pin's slack is minus the longest path from or to it,
+#     setup included;
+#   - every input to every output a path delay far under zero, so a pin
+#     a feed-through passes reads apart from one none does: its slack
+#     then holds the slowest feed-through into the output (ft) or out of
+#     the input (F), listed below or not;
+#   - for L and C, the inputs to the outputs false paths, so a pin's
+#     slack is its registers' alone, and a pin with no register behind it
+#     has none.
 #
 # What it does not see: a path delay of the part's own SDC that is more
-# specific than from-pin to-pin (a -through) keeps its own budget; an
-# input the SDC makes a false path start (a reset) has no capture half,
-# by the SDC's intent; `mcp` on an output says a launch behind it is
-# under a multicycle exception, not which.
+# specific than from-pin to-pin (a -through) keeps its own budget; a pin
+# the SDC makes a false path's start or end (a reset) has no half, by
+# the SDC's intent; `mcp` on the outputs says the SDC has a multicycle
+# exception, not on which path.
 #
 #   LEDGER_OUT         the ledger written (below)
 #   HR_TCL             tools/odb_debug/headroom.tcl, for the zero wires
@@ -44,7 +51,8 @@
 #                      the feed-throughs (16); an output with that many is
 #                      `truncated`, its other feed-throughs not listed
 #   LEDGER_SPOT_K      pins per direction checked against a path search
-#                      (3; 0: none), the worst ones, and LEDGER_SPOT_PINS
+#                      (3; 0: none, on a part the size of a hub: each is a
+#                      search), the worst ones, and LEDGER_SPOT_PINS
 #   LEDGER_SPOT_PINS   further pins to check, by name
 #   LEDGER_SKEW        1: the part's setup skew in the header (a search of
 #                      its own on the propagated clock)
@@ -58,12 +66,18 @@
 # LEDGER_OUT, ps, `-` where a pin has none:
 #
 #   # part <name> clock <c> period <p> clk_slew <T> skew <s> arcs_k <K>
+#     feeds <n>
 #   out <pin> <L> <L zero> <ft> <ft zero> <lat> <flags>
 #   in <pin> <C> <C zero> <flags>
+#   feed <in> <F> <F zero>
 #   arc <in> <out> <d> <d zero> <complete|truncated>
 #
-# ft: the slowest feed-through into the output. lat: the clock latency of
-# the output's slowest launch as built, what L leaves out. And `# note`,
+# ft: the slowest feed-through into the output. F: the slowest out of the
+# input, on the n inputs that have one: what a feed-through the list was
+# cut before can at most be. lat: the clock latency of the output's
+# slowest launch as built, what L leaves out; none behind an output a
+# feed-through passes. The ledger is written as <LEDGER_OUT>.unchecked
+# first, and under its name once its checks passed. And `# note`,
 # `# miss` and `# spot` lines: `# spot <in|out> <pin> <n> min <ps> max
 # <ps> half <ps>`, the n registers a path search found behind a checked
 # pin, the fastest and the slowest of them, and the half the ledger
@@ -98,10 +112,14 @@ if { [env_var_exists_and_non_empty LEDGER_ODB] } {
 }
 
 # a delay on a port or a latency on a clock would be part of every half
+set ::ledger_mcp 0
 proc ledger_sdc_check { file } {
   set f [open $file]
   set text [read $f]
   close $f
+  if { [regexp -line {^\s*set_multicycle_path\M} $text] } {
+    set ::ledger_mcp 1
+  }
   foreach cmd {set_input_delay set_output_delay set_clock_latency} {
     if { [regexp -line "^\\s*$cmd\\M" $text] } {
       utl::error FLW 43 "crossing_ledger: $file has a $cmd, which every half\
@@ -135,7 +153,7 @@ set outs {}
 foreach port [all_outputs] {
   lappend outs [get_full_name $port]
 }
-# a clock's edges, s, by its name and the edge as an arrival's tag spells it
+# a clock's edges, s, by its name: where a spot check's launch starts
 set ::ledger_edges [dict create]
 foreach c $clocks {
   dict set ::ledger_edges [get_name $c] ^ [$c time rise]
@@ -146,123 +164,23 @@ proc ledger_ps { seconds } {
   return [expr { $seconds * 1e12 }]
 }
 
-# The arrivals at a port: {launch feed mcp}, the slowest clocked one from
-# its clock edge on and the slowest unclocked one, ps, "" where none; mcp
-# 1 when a clocked one is under a multicycle exception. An arrival's tag
-# reads "<n> <scene> <edge><min|max> unclocked ..." or "... <clock>
-# <clock edge> clk_src ...", then its exceptions.
-proc ledger_arrivals { port } {
-  set launch ""
-  set feed ""
-  set mcp 0
-  foreach vertex [[sta::get_port_pin [get_ports $port]] vertices] {
-    foreach rf {rise fall} {
-      set it [$vertex path_iterator $rf max]
-      while { [$it has_next] } {
-        set path [$it next]
-        set tag [$path tag]
-        if { ![regexp {^\S+ \S+ \S+ (\S+) (\S+)} $tag -> who edge] } {
-          utl::error FLW 44 "crossing_ledger: $port: an arrival's tag is not read: $tag"
-        }
-        if { $who eq "unclocked" } {
-          set t [ledger_ps [$path arrival]]
-          if { $feed eq "" || $t > $feed } { set feed $t }
-          continue
-        }
-        if { ![dict exists $::ledger_edges $who $edge] } {
-          utl::error FLW 44 "crossing_ledger: $port: an arrival's tag is not read: $tag"
-        }
-        set t [ledger_ps [expr { [$path arrival] - [dict get $::ledger_edges $who $edge] }]]
-        if { $launch eq "" || $t > $launch } { set launch $t }
-        if { [string match -nocase "*multicycle*" $tag] } { set mcp 1 }
-      }
-      $it finish
-    }
-  }
-  return [list $launch $feed $mcp]
-}
+# While the feed-throughs are timed they are asked for this much less
+# than zero, ps: a port one passes reads over it and any other port far
+# under it, so no path and no tag is read to tell the two apart.
+set ::ledger_apart 100000.0
 
-# Every output's arrivals: a dict, output -> {launch feed mcp}.
-proc ledger_outs { outs } {
-  # arrivals only: no required time is read here
-  sta::find_timing_cmd 0
+# what the readings do not agree on, {code message}: raised once the
+# readings are on disk
+set ::ledger_errors {}
+
+# Every port's slack, as the path it stands for: a dict, port -> ps,
+# minus the slack, "" where no timed path starts or ends at it. The path
+# delay asked for is zero: an input's slack is minus the longest path
+# from it, setup included, an output's minus the longest path to it from
+# its launching clock edge on, each over every register behind the pin.
+proc ledger_slacks { ports } {
   set got [dict create]
-  foreach port $outs {
-    dict set got $port [ledger_arrivals $port]
-  }
-  return $got
-}
-
-# The feed-throughs, the k worst paths into every output from each path
-# group: {arcs cut}, arcs a dict "<in> <out>" -> ps, the slowest path of
-# the pair, and cut the outputs a group held k paths for, whose other
-# feed-throughs are not listed. A search to pins needs no arrival but the
-# ones found already; a group's k are its own, so register paths in
-# another group take none of the feed-throughs' places.
-proc ledger_arcs { ins outs k } {
-  set is_in [dict create]
-  foreach port $ins {
-    dict set is_in $port 1
-  }
-  set arcs [dict create]
-  set cut [dict create]
-  set to [get_ports $outs]
-  if { ![llength $to] } {
-    return [list $arcs $cut]
-  }
-  foreach group [sta::path_group_names] {
-    set ends [find_timing_paths -to $to -path_delay max -endpoint_path_count $k \
-      -unique_paths_to_endpoint -group_path_count [expr { $k * [llength $outs] }] \
-      -path_group [list $group]]
-    set count [dict create]
-    set feeds 0
-    foreach end $ends {
-      set o [get_full_name [get_property $end endpoint]]
-      dict incr count $o
-      set i [get_full_name [get_property $end startpoint]]
-      if { ![dict exists $is_in $i] } { continue }
-      incr feeds
-      set d [ledger_ps [$end data_arrival_time]]
-      if { ![dict exists $arcs "$i $o"] || $d > [dict get $arcs "$i $o"] } {
-        dict set arcs "$i $o" $d
-      }
-    }
-    if { !$feeds } { continue }
-    dict for {o n} $count {
-      if { $n >= $k } { dict set cut $o 1 }
-    }
-  }
-  return [list $arcs $cut]
-}
-
-# An output's slowest feed-through is its slowest unclocked arrival:
-# otherwise something but an input arrives unclocked, or the search
-# missed a path.
-proc ledger_arcs_check { what got arcs } {
-  set worst [dict create]
-  dict for {pair d} $arcs {
-    set o [lindex $pair 1]
-    if { ![dict exists $worst $o] || $d > [dict get $worst $o] } {
-      dict set worst $o $d
-    }
-  }
-  dict for {o reads} $got {
-    set feed [lindex $reads 1]
-    set arc [expr { [dict exists $worst $o] ? [dict get $worst $o] : "" }]
-    if { ($feed eq "") != ($arc eq "") || ($feed ne "" && abs($feed - $arc) > 0.1) } {
-      utl::error FLW 45 "crossing_ledger: $what: output $o: its slowest unclocked\
-        arrival is [expr { $feed eq "" ? "none" : [format %.2f $feed] }] ps, its slowest\
-        feed-through [expr { $arc eq "" ? "none" : [format %.2f $arc] }] ps"
-    }
-  }
-}
-
-# Every input's capture half: a dict, input -> ps, "" where no register
-# is behind it. Its slack is minus the longest path from it, setup
-# included: the path delay asked for is zero.
-proc ledger_ins { ins } {
-  set got [dict create]
-  foreach port $ins {
+  foreach port $ports {
     set slack [get_property [sta::get_port_pin [get_ports $port]] slack_max]
     # no constrained path: the slack is infinite
     if { ![string is double -strict $slack] || abs($slack) > 1e15 } {
@@ -272,6 +190,156 @@ proc ledger_ins { ins } {
     }
   }
   return $got
+}
+
+# A half that could be taken for a feed-through: none is that long.
+proc ledger_short { what halves } {
+  dict for {port t} $halves {
+    if { $t ne "" && $t >= $::ledger_apart / 2 } {
+      utl::error FLW 44 "crossing_ledger: $what: $port holds a path of\
+        [format %.0f $t] ps, which the feed-throughs are not told apart from"
+    }
+  }
+}
+
+# A reading while the feed-throughs are timed, split: {feeds others},
+# feeds the ports a feed-through passes -> the slowest one, others the
+# rest -> their launch or capture, or "".
+proc ledger_split { what reads } {
+  set feeds [dict create]
+  set others [dict create]
+  dict for {port t} $reads {
+    if { $t ne "" && $t >= $::ledger_apart - 1.0 } {
+      dict set feeds $port [expr { max($t - $::ledger_apart, 0.0) }]
+    } else {
+      dict set others $port $t
+    }
+  }
+  ledger_short $what $others
+  return [list $feeds $others]
+}
+
+# The feed-throughs, the k worst paths into every output from each path
+# group: {arcs cut}, arcs a dict "<in> <out>" -> ps, the slowest path of
+# the pair, and cut the outputs k of them end at, whose other
+# feed-throughs are not listed. A search to pins needs no arrival but the
+# ones found already. A feed-through is asked for less than any register
+# path, so it is the worse of the two wherever both are in one group: an
+# output with fewer than k has them all listed.
+proc ledger_arcs { ins outs k } {
+  set is_in [dict create]
+  foreach port $ins {
+    dict set is_in $port 1
+  }
+  set arcs [dict create]
+  set cut [dict create]
+  set to [get_ports $outs]
+  if { ![llength $to] || ![llength $ins] } {
+    return [list $arcs $cut]
+  }
+  foreach group [sta::path_group_names] {
+    set ends [find_timing_paths -to $to -path_delay max -endpoint_path_count $k \
+      -unique_paths_to_endpoint -group_path_count [expr { $k * [llength $outs] }] \
+      -path_group [list $group]]
+    set count [dict create]
+    foreach end $ends {
+      set i [get_full_name [get_property $end startpoint]]
+      if { ![dict exists $is_in $i] } { continue }
+      set o [get_full_name [get_property $end endpoint]]
+      dict incr count $o
+      set d [ledger_ps [$end data_arrival_time]]
+      if { ![dict exists $arcs "$i $o"] || $d > [dict get $arcs "$i $o"] } {
+        dict set arcs "$i $o" $d
+      }
+    }
+    dict for {o n} $count {
+      if { $n >= $k } { dict set cut $o 1 }
+    }
+  }
+  return [list $arcs $cut]
+}
+
+# The fastest feed-through listed into each output: no feed-through the
+# list was cut before is slower.
+proc ledger_least { arcs } {
+  set least [dict create]
+  dict for {pair d} $arcs {
+    set o [lindex $pair 1]
+    if { ![dict exists $least $o] || $d < [dict get $least $o] } {
+      dict set least $o $d
+    }
+  }
+  return $least
+}
+
+# An output's slowest listed feed-through is the one its slack read:
+# otherwise something but an input starts an unclocked path, or the
+# search missed one.
+proc ledger_arcs_check { what feeds arcs } {
+  set worst [dict create]
+  dict for {pair d} $arcs {
+    set o [lindex $pair 1]
+    if { ![dict exists $worst $o] || $d > [dict get $worst $o] } {
+      dict set worst $o $d
+    }
+  }
+  foreach o [lsort -unique [concat [dict keys $feeds] [dict keys $worst]]] {
+    set feed [expr { [dict exists $feeds $o] ? [dict get $feeds $o] : "" }]
+    set arc [expr { [dict exists $worst $o] ? [dict get $worst $o] : "" }]
+    if { $feed eq "" || $arc eq "" || abs($feed - $arc) > 0.1 } {
+      lappend ::ledger_errors [list 45 "$what: output $o: its slack reads a\
+        feed-through of [expr { $feed eq "" ? "none" : [format %.2f $feed] }] ps, the\
+        slowest one listed is [expr { $arc eq "" ? "none" : [format %.2f $arc] }] ps"]
+    }
+  }
+}
+
+# One reading while the feed-throughs are timed: {out_feeds out_others
+# in_feeds in_others arcs cut}, the outputs' and the inputs' slowest
+# feed-throughs, the halves of the ports none passes, and the list.
+proc ledger_reading { what ins outs k } {
+  lassign [ledger_split "$what, outputs" [ledger_slacks $outs]] out_feeds out_others
+  lassign [ledger_split "$what, inputs" [ledger_slacks $ins]] in_feeds in_others
+  lassign [ledger_arcs $ins $outs $k] arcs cut
+  ledger_arcs_check $what $out_feeds $arcs
+  return [list $out_feeds $out_others $in_feeds $in_others $arcs $cut]
+}
+
+# A port no feed-through passes held its half while they were timed, and
+# holds it again once they are false paths: the two are one number.
+# Returns the ports compared.
+proc ledger_same { what was is } {
+  dict for {port t} $was {
+    set now [dict get $is $port]
+    if { ($t eq "") != ($now eq "") || ($t ne "" && abs($t - $now) > 0.1) } {
+      lappend ::ledger_errors [list 46 "$port read [ledger_field $t] ps before and\
+        [ledger_field $now] ps after: $what"]
+    }
+  }
+  return [dict size $was]
+}
+
+proc ledger_field { value } {
+  # not an expr: it would read the formatted number back, and drop a zero
+  if { $value eq "" } {
+    return -
+  }
+  return [format %.2f $value]
+}
+
+# The launches and the feed-throughs are timed from here on, by path
+# delays of the ledger's own: zero from every register, and from every
+# clock for what is no register, to every output; the feed-throughs set
+# apart. The part's own budgets are no tighter, so these win.
+if { [llength $outs] } {
+  set regs [all_registers]
+  if { [llength $regs] } {
+    set_max_delay 0 -from $regs -to [get_ports $outs]
+  }
+  set_max_delay 0 -from $clocks -to [get_ports $outs]
+  if { [llength $ins] } {
+    set_max_delay [expr { -$::ledger_apart }] -from [get_ports $ins] -to [get_ports $outs]
+  }
 }
 
 # as built: the clock slew at the registers, the setup skew, and each
@@ -285,7 +353,7 @@ set skew -
 if { [env_var_equals LEDGER_SKEW 1] } {
   set skew [format %.2f [ledger_ps [sta::time_ui_sta [worst_clock_skew -setup]]]]
 }
-set built [ledger_outs $outs]
+set built [lindex [ledger_split "as built" [ledger_slacks $outs]] 1]
 ledger_phase "as built: slew, skew, latency"
 
 # the measuring state. The endpoints: every pin a path ends at but the
@@ -301,53 +369,49 @@ foreach pin [sta::endpoints] {
 if { [llength $ins] && [llength $ends] } {
   set_max_delay 0 -ignore_clock_latency -from [get_ports $ins] -to $ends
 }
-if { [llength $ins] && [llength $outs] } {
-  set_max_delay 0 -from [get_ports $ins] -to [get_ports $outs]
-}
 
 set rc_file [expr {
   [env_var_exists_and_non_empty LAYER_PARASITICS_FILE]
   ? $::env(LAYER_PARASITICS_FILE) : "$::env(PLATFORM_DIR)/setRC.tcl"
 }]
-set routed_outs [ledger_outs $outs]
-lassign [ledger_arcs $ins $outs $arcs_k] routed_arcs routed_cut
-ledger_arcs_check routed $routed_outs $routed_arcs
-ledger_phase "routed: launches, feed-throughs"
+lassign [ledger_reading routed $ins $outs $arcs_k] \
+  routed_ft routed_was_outs routed_feeds routed_was_ins routed_arcs routed_cut
+ledger_phase "routed: feed-throughs"
 hr_wires_zero global_routing
-set zero_outs [ledger_outs $outs]
-lassign [ledger_arcs $ins $outs $arcs_k] zero_arcs zero_cut
-ledger_arcs_check "zero wire" $zero_outs $zero_arcs
-ledger_phase "zero wire: launches, feed-throughs"
-# the captures: the inputs' paths to the outputs out of their slacks
+lassign [ledger_reading "zero wire" $ins $outs $arcs_k] \
+  zero_ft zero_was_outs zero_feeds zero_was_ins zero_arcs zero_cut
+ledger_phase "zero wire: feed-throughs"
+# the halves: the inputs' paths to the outputs out of every slack
 if { [llength $ins] && [llength $outs] } {
   set_false_path -from [get_ports $ins] -to [get_ports $outs]
 }
-set zero_ins [ledger_ins $ins]
-ledger_phase "zero wire: captures"
+set zero_ins [ledger_slacks $ins]
+set zero_launches [ledger_slacks $outs]
+ledger_phase "zero wire: launches, captures"
 hr_wires_back $rc_file global_routing
-set routed_ins [ledger_ins $ins]
-ledger_phase "routed: captures"
-# the wires are back: every launch reads as it did
-dict for {o reads} [ledger_outs $outs] {
-  set was [lindex [dict get $routed_outs $o] 0]
-  set is [lindex $reads 0]
-  if { ($was eq "") != ($is eq "") || ($was ne "" && abs($was - $is) > 0.1) } {
-    utl::error FLW 46 "crossing_ledger: output $o launched at $was ps before the\
-      zero-wire reading and at $is ps after it: the wires did not come back"
-  }
+set routed_ins [ledger_slacks $ins]
+set launches [ledger_slacks $outs]
+ledger_phase "routed: launches, captures"
+foreach {what halves} [list "routed, inputs" $routed_ins "routed, outputs" $launches \
+  "zero wire, inputs" $zero_ins "zero wire, outputs" $zero_launches] {
+  ledger_short $what $halves
+}
+# the wires are back: every half read before they went reads the same
+set same [expr {
+  [ledger_same "the wires did not come back" $routed_was_outs $launches]
+  + [ledger_same "the wires did not come back" $routed_was_ins $routed_ins]
+}]
+ledger_same "the zero-wire reading moved" $zero_was_outs $zero_launches
+ledger_same "the zero-wire reading moved" $zero_was_ins $zero_ins
+if { !$same } {
+  puts "crossing_ledger: WARNING: a feed-through passes every port: that the wires\
+    came back after the zero-wire reading is not checked"
 }
 
 # A feed-through one reading listed and the other cut: the delay the cut
 # reading's list ends at bounds it from above (the output is `truncated`).
-proc ledger_arc_bound { arcs o } {
-  set least ""
-  dict for {pair d} $arcs {
-    if { [lindex $pair 1] eq $o && ($least eq "" || $d < $least) } {
-      set least $d
-    }
-  }
-  return $least
-}
+set routed_least [ledger_least $routed_arcs]
+set zero_least [ledger_least $zero_arcs]
 set pairs [lsort -unique [concat [dict keys $routed_arcs] [dict keys $zero_arcs]]]
 set arcs {}
 foreach pair $pairs {
@@ -355,24 +419,112 @@ foreach pair $pairs {
   set cut [expr { [dict exists $routed_cut $o] || [dict exists $zero_cut $o] }]
   set d [expr { [dict exists $routed_arcs $pair] ? [dict get $routed_arcs $pair] : "" }]
   set z [expr { [dict exists $zero_arcs $pair] ? [dict get $zero_arcs $pair] : "" }]
-  if { $d eq "" || $z eq "" } {
-    if { !$cut } {
-      utl::error FLW 47 "crossing_ledger: feed-through $i to $o is in one reading\
-        only, and its output was not cut at the $arcs_k worst"
-    }
-    if { $d eq "" } { set d [ledger_arc_bound $routed_arcs $o] }
-    if { $z eq "" } { set z [expr { min($d, [ledger_arc_bound $zero_arcs $o]) }] }
+  if { ($d eq "" && ![dict exists $routed_cut $o]) || ($z eq "" && ![dict exists $zero_cut $o]) } {
+    lappend ::ledger_errors [list 47 "feed-through $i to $o is in one reading only,\
+      and the other's output was not cut at the $arcs_k worst"]
+    continue
   }
+  if { $d eq "" } { set d [dict get $routed_least $o] }
+  if { $z eq "" } { set z [expr { min($d, [dict get $zero_least $o]) }] }
   lappend arcs [list $i $o $d $z [expr { $cut ? "truncated" : "complete" }]]
 }
 
-proc ledger_field { value } {
-  # not an expr: it would read the formatted number back, and drop a zero
-  if { $value eq "" } {
-    return -
+# the boundary's budgets: the pins over them, counted and named
+set misses {}
+set over_total 0
+foreach {kind var halves} [list \
+  in2reg LEDGER_IN2REG_PS $routed_ins \
+  reg2out LEDGER_REG2OUT_PS $launches \
+  in2out LEDGER_IN2OUT_PS $routed_ft] {
+  if { ![env_var_exists_and_non_empty $var] } { continue }
+  set budget $::env($var)
+  set pins 0
+  set over 0
+  set worst ""
+  dict for {pin value} $halves {
+    if { $value eq "" } { continue }
+    incr pins
+    if { $value > $budget } { incr over }
+    if { $worst eq "" || $value > [lindex $worst 1] } { set worst [list $pin $value] }
   }
-  return [format %.2f $value]
+  if { !$pins } { continue }
+  incr over_total $over
+  lappend misses [format "# miss %s %d/%d worst %s %.2f budget %s" $kind $over $pins \
+    [lindex $worst 0] [lindex $worst 1] $budget]
 }
+if { ![llength $misses] } {
+  lappend misses "# miss - no boundary budget given"
+}
+
+# The ledger's lines: its header and comments, and its pins.
+set head {}
+lappend head "# part $part clock [get_name $clock] period\
+  [format %.2f [ledger_ps [$clock period]]] clk_slew\
+  [format %.2f [ledger_ps [sta::time_ui_sta $clk_slew]]] skew $skew arcs_k $arcs_k\
+  feeds [dict size $routed_feeds]"
+lappend head "# ps, routed and zero-wire: out <pin> <L> <L zero> <ft> <ft zero> <lat> <flags>;\
+  in <pin> <C> <C zero> <flags>; feed <in> <F> <F zero>;\
+  arc <in> <out> <d> <d zero> <complete|truncated>"
+if { [env_var_exists_and_non_empty LEDGER_NOTE] } {
+  lappend head "# note $::env(LEDGER_NOTE)"
+}
+if { [llength $clocks] > 1 } {
+  lappend head "# note [llength $clocks] clocks: a launch is the slowest of any of them"
+}
+if { $::ledger_mcp } {
+  lappend head "# note the SDC has a set_multicycle_path: every output is `mcp`"
+}
+set head [concat $head $misses]
+set body {}
+foreach o $outs {
+  set launch [dict get $launches $o]
+  set lat ""
+  if { $launch ne "" && [dict exists $built $o] && [dict get $built $o] ne "" } {
+    set lat [expr { [dict get $built $o] - $launch }]
+  }
+  set feed [expr { [dict exists $routed_ft $o] ? [dict get $routed_ft $o] : "" }]
+  set feed_zero [expr { [dict exists $zero_ft $o] ? [dict get $zero_ft $o] : "" }]
+  lappend body "out $o [ledger_field $launch] [ledger_field [dict get $zero_launches $o]]\
+    [ledger_field $feed] [ledger_field $feed_zero] [ledger_field $lat]\
+    [expr { $::ledger_mcp ? "mcp" : "-" }]"
+}
+foreach i $ins {
+  lappend body "in $i [ledger_field [dict get $routed_ins $i]] [ledger_field [dict get $zero_ins $i]] -"
+}
+foreach i $ins {
+  if { ![dict exists $routed_feeds $i] } { continue }
+  if { ![dict exists $zero_feeds $i] } {
+    lappend ::ledger_errors [list 47 "input $i has a feed-through as routed and\
+      none at zero wire"]
+    continue
+  }
+  lappend body "feed $i [ledger_field [dict get $routed_feeds $i]] [ledger_field [dict get $zero_feeds $i]]"
+}
+foreach arc $arcs {
+  lassign $arc i o d z state
+  lappend body "arc $i $o [ledger_field $d] [ledger_field $z] $state"
+}
+
+proc ledger_write { file lines } {
+  set f [open $file w]
+  foreach line $lines {
+    puts $f $line
+  }
+  close $f
+}
+# on disk before anything that can stop the run: a ledger its checks have
+# not passed, beside the one they will
+set unchecked $::env(LEDGER_OUT).unchecked
+ledger_write $unchecked [concat $head $body]
+if { [llength $::ledger_errors] } {
+  foreach e [lrange $::ledger_errors 0 9] {
+    puts "crossing_ledger: [lindex $e 1]"
+  }
+  lassign [lindex $::ledger_errors 0] code message
+  utl::error FLW $code "crossing_ledger: $message ([llength $::ledger_errors] such; the\
+    readings are in $unchecked)"
+}
+ledger_phase "checked and on disk"
 
 # the pins a path search checks: the worst of each direction, and the
 # ones asked for
@@ -386,10 +538,6 @@ proc ledger_worst { halves k } {
     lappend pins [lindex $row 0]
   }
   return $pins
-}
-set launches [dict create]
-dict for {o reads} $routed_outs {
-  dict set launches $o [lindex $reads 0]
 }
 set spot_outs [ledger_worst $launches $spot_k]
 set spot_ins [ledger_worst $routed_ins $spot_k]
@@ -457,68 +605,12 @@ foreach spot $spots {
   lappend spot_lines [format "# spot %s %s %d min %.2f max %.2f half %.2f" $dir $pin \
     [llength $found] [lindex $found 0] [lindex $found end] $half]
 }
-ledger_phase "spot checks"
-
-# the boundary's budgets: the pins over them, counted and named
-set misses {}
-set over_total 0
-foreach {kind var halves} [list \
-  in2reg LEDGER_IN2REG_PS $routed_ins \
-  reg2out LEDGER_REG2OUT_PS $launches \
-  in2out LEDGER_IN2OUT_PS [dict map {o reads} $routed_outs { lindex $reads 1 }]] {
-  if { ![env_var_exists_and_non_empty $var] } { continue }
-  set budget $::env($var)
-  set pins 0
-  set over 0
-  set worst ""
-  dict for {pin value} $halves {
-    if { $value eq "" } { continue }
-    incr pins
-    if { $value > $budget } { incr over }
-    if { $worst eq "" || $value > [lindex $worst 1] } { set worst [list $pin $value] }
-  }
-  if { !$pins } { continue }
-  incr over_total $over
-  lappend misses [format "# miss %s %d/%d worst %s %.2f budget %s" $kind $over $pins \
-    [lindex $worst 0] [lindex $worst 1] $budget]
-}
-if { ![llength $misses] } {
-  lappend misses "# miss - no boundary budget given"
+if { [llength $spots] } {
+  ledger_phase "spot checks"
 }
 
-set f [open $::env(LEDGER_OUT) w]
-puts $f "# part $part clock [get_name $clock] period\
-  [format %.2f [ledger_ps [$clock period]]] clk_slew\
-  [format %.2f [ledger_ps [sta::time_ui_sta $clk_slew]]] skew $skew arcs_k $arcs_k"
-puts $f "# ps, routed and zero-wire: out <pin> <L> <L zero> <ft> <ft zero> <lat> <flags>;\
-  in <pin> <C> <C zero> <flags>; arc <in> <out> <d> <d zero> <complete|truncated>"
-if { [env_var_exists_and_non_empty LEDGER_NOTE] } {
-  puts $f "# note $::env(LEDGER_NOTE)"
-}
-if { [llength $clocks] > 1 } {
-  puts $f "# note [llength $clocks] clocks: a launch is the slowest of any of them"
-}
-foreach line [concat $misses $spot_lines] {
-  puts $f $line
-}
-foreach o $outs {
-  lassign [dict get $routed_outs $o] launch feed mcp
-  lassign [dict get $zero_outs $o] launch_zero feed_zero
-  set lat ""
-  if { $launch ne "" } {
-    set lat [expr { [lindex [dict get $built $o] 0] - $launch }]
-  }
-  puts $f "out $o [ledger_field $launch] [ledger_field $launch_zero] [ledger_field $feed]\
-    [ledger_field $feed_zero] [ledger_field $lat] [expr { $mcp ? "mcp" : "-" }]"
-}
-foreach i $ins {
-  puts $f "in $i [ledger_field [dict get $routed_ins $i]] [ledger_field [dict get $zero_ins $i]] -"
-}
-foreach arc $arcs {
-  lassign $arc i o d z state
-  puts $f "arc $i $o [ledger_field $d] [ledger_field $z] $state"
-}
-close $f
+ledger_write $::env(LEDGER_OUT) [concat $head $spot_lines $body]
+file delete $unchecked
 
 puts "crossing_ledger: $part: [llength $outs] outputs, [llength $ins] inputs,\
   [llength $arcs] feed-throughs, [dict size $routed_cut] outputs cut at the $arcs_k worst"

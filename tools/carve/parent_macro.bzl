@@ -76,7 +76,9 @@ def parent_macro_flow(
     of its boundary pins at the part's own global route
     (crossing_ledger.tcl), and <name>_pm_ledger sums them along each
     crossing net (crossing_ledger.py): ledger/crossings.txt and
-    ledger/summary.txt.
+    ledger/summary.txt. A sum is a path, launching clock pin to capturing
+    register, and holds no clock: it is held against budget_ps less
+    max_skew_ps, the most the top level's clock may add to it.
 
     Args:
       name: the parent macro's flow; the top level is <name>_pm.
@@ -383,7 +385,8 @@ def _ledger(pm, top, blocks, budget_ps, max_skew_ps, top_level_user_arguments, w
       blocks: the blocks, by module.
       budget_ps: the period a crossing may need, ps.
       max_skew_ps: the clock check's limit, ps, and the most a path's
-        clock may add to what the ledger holds of it.
+        clock may add to what the ledger holds of it: off the budget
+        the ledger's paths are held against.
       top_level_user_arguments: top_level.tcl's own settings.
       whole_check: check the ledger against the top level timed whole.
       tags: forwarded.
@@ -394,10 +397,11 @@ def _ledger(pm, top, blocks, budget_ps, max_skew_ps, top_level_user_arguments, w
         name = "%s_ledger" % pm,
         srcs = [hub] + parts.values(),
         outs = ["%s/ledger/%s" % (pm, f) for f in ["crossings.txt", "summary.txt"]],
-        cmd = "$(location @bazel-orfs//tools/carve:crossing_ledger) --hub $(location %s) %s --budget %s --out $$(dirname $(location %s/ledger/crossings.txt))" % (
+        cmd = "$(location @bazel-orfs//tools/carve:crossing_ledger) --hub $(location %s) %s --budget %s --clock %s --out $$(dirname $(location %s/ledger/crossings.txt))" % (
             hub,
             " ".join(["--block %s=$(location %s)" % (b, parts[b]) for b in blocks]),
             budget_ps,
+            max_skew_ps,
             pm,
         ),
         tools = ["@bazel-orfs//tools/carve:crossing_ledger"],
@@ -431,9 +435,11 @@ def _ledger(pm, top, blocks, budget_ps, max_skew_ps, top_level_user_arguments, w
     )
 
     # the ledger's check: no path the top level times through a crossing
-    # net needs more than the net's halves sum to, and each net's slowest
-    # needs as much; and the negative control: a block's halves at zero,
-    # or its ledger gone, and the check fails, by that block's name
+    # net is longer, its clock taken out, than the net's halves sum to,
+    # each net's slowest is as long, and no path's clock adds more than
+    # max_skew_ps; how far a path is from the period its net needs is
+    # printed, not checked. And the negative control: a block's halves at
+    # zero, or its ledger gone, and the check fails, by that block's name
     check = "@bazel-orfs//tools/carve:crossing_ledger_check"
     ledgers = [
         "$(rootpath :%s/ledger/top.txt)" % pm,

@@ -1,8 +1,8 @@
 #!/bin/sh
 # The crossing ledger's check against the top level
 # (crossing_ledger_check.py), and its negative controls: the check must
-# fail, and for the reason given, with a part's halves at zero and with a
-# block's ledger gone.
+# fail, and for the reason given, with one half at zero, with a part's
+# halves at zero and with a block's ledger gone.
 #
 # Usage: crossing_ledger_check.sh <crossing_ledger_check> <control>
 #            <max skew ps> <top.txt> <hub ledger> <block>=<ledger>...
@@ -31,12 +31,13 @@ if [ "$control" = - ]; then
   exec "$check" --top "$top" --hub "$hub" $blocks --max-skew "$skew" --spot --miss
 fi
 
-out="${TEST_TMPDIR:-$(mktemp -d)}/ledger_check.txt"
+# a Bazel test's own directory, never the system's
+out="${TEST_TMPDIR:?the negative controls run as a Bazel test}/ledger_check.txt"
 
-# must_fail <what> <message> <option> <part>: the check fails, saying so
+# must_fail <what> <message> <option> [<part>]: the check fails, saying so
 must_fail() {
   # shellcheck disable=SC2086
-  if "$check" --top "$top" --hub "$hub" $blocks --max-skew "$skew" "$3" "$4" > "$out" 2>&1; then
+  if "$check" --top "$top" --hub "$hub" $blocks --max-skew "$skew" "$3" ${4:+"$4"} > "$out" 2>&1; then
     echo "the check passed with $1:"
     cat "$out"
     exit 1
@@ -49,6 +50,14 @@ must_fail() {
   echo "with $1 the check fails: $(grep "$2" "$out" | head -1 | cut -c1-240)"
 }
 
+must_fail "one half at zero" "ledger under the top level.* u_" --zero-half
+# and on the net that half launches into
+net="$(sed -n 's/^one half at zero: .* into //p' "$out")"
+if ! grep "ledger under the top level" "$out" | grep -qF " $net "; then
+  echo "the check failed with one half at zero, and not on its net, $net:"
+  cat "$out"
+  exit 1
+fi
 must_fail "the hub's halves at zero" "ledger under the top level.* u_" --zero hub
 for b in "$@"; do
   m="${b%%=*}"
