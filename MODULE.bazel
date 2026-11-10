@@ -303,6 +303,18 @@ archive_override(
         # XSTile's parent CTS never returned. Not upstreamed; retires at a
         # //:bump onto an OpenROAD that has it.
         "//patches:0216-openroad-cts-clustering-cost-int64.patch",
+        # 0217: a global placement that a routability pass has just put
+        # back on its snapshot does not converge on the overflow of the
+        # placement it replaced; the next iteration's measurement decides.
+        # Not upstreamed; retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0217-openroad-gpl-reverted-placement-stale-overflow.patch",
+        # 0218: a routability pass that is waiting for the cells to settle
+        # runs when the placement reaches the target overflow first. Before,
+        # convergence ended the placement with no pass, exit status 0:
+        # XSTile's parent placed with timing and routability drivers on and
+        # ran none. Not upstreamed; retires at a //:bump onto an OpenROAD
+        # that has it.
+        "//patches:0218-openroad-gpl-routability-wait-not-cancelled.patch",
         # 0171: dissolve_macro, a placed block instance replaced by the
         # block's own cells, nets and global route guides as a module
         # instance (//tools/carve: the parent as a macro, its top level
