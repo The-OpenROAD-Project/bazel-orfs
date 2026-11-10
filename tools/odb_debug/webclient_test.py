@@ -60,6 +60,21 @@ class WebClientTest(unittest.TestCase):
         finally:
             v.close()
 
+    def test_the_token_rides_in_the_query(self):
+        fake = fake_viewer.FakeViewer(handler, token="ab" * 16)
+        v = webclient.Viewer(fake.port, timeout=10, token="ab" * 16)
+        try:
+            self.assertEqual(v.tcl("expr")["result"], "EXPR")
+        finally:
+            v.close()
+        self.assertEqual(fake.targets, ["/ws?token=" + "ab" * 16])
+
+    def test_a_missing_or_wrong_token_is_refused(self):
+        fake = fake_viewer.FakeViewer(handler, token="ab" * 16)
+        for token in ("", "cd" * 16):
+            with self.assertRaisesRegex(webclient.WebError, "401"):
+                webclient.Viewer(fake.port, timeout=10, token=token)
+
     def test_unreachable(self):
         s = socket.socket()
         s.bind(("127.0.0.1", 0))

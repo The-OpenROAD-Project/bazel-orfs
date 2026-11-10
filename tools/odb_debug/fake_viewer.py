@@ -1,5 +1,6 @@
 """A stand-in for OpenROAD's web viewer, for tests: the websocket
-handshake, the binary reply frames, log and debug_paused pushes, and
+handshake (refused with 401 without the access token, when it has one,
+as web_server -token does), the binary reply frames, log and debug_paused pushes, and
 debug_continue, with tcl_eval answered by a Python function.
 
 handler(cmd) returns a dict: "result" (string), optionally "is_error",
@@ -14,6 +15,7 @@ import json
 import socket
 import struct
 import threading
+from urllib.parse import parse_qs, urlsplit
 
 KIND_JSON, KIND_ERROR = 0, 2
 
@@ -41,8 +43,10 @@ def push_frame(msg):
 
 
 class FakeViewer(object):
-    def __init__(self, handler):
+    def __init__(self, handler, token=""):
         self.handler = handler
+        self.token = token
+        self.targets = []
         self.listener = socket.socket()
         self.listener.bind(("127.0.0.1", 0))
         self.listener.listen(8)
@@ -104,6 +108,15 @@ class FakeViewer(object):
             if not c:
                 return
             head += c
+        target = head.split(b"\r\n")[0].split(b" ")[1].decode()
+        self.targets.append(target)
+        if self.token and parse_qs(urlsplit(target).query).get("token") != [self.token]:
+            conn.sendall(
+                b"HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: OpenROAD-Token\r\n"
+                b"Content-Length: 0\r\n\r\n"
+            )
+            conn.close()
+            return
         key = [
             line.split(b": ")[1]
             for line in head.split(b"\r\n")

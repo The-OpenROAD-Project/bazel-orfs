@@ -85,8 +85,14 @@ class Connection(object):
             if not c:
                 raise WebError("connection closed during the handshake")
             head += c
-        if b" 101 " not in head.split(b"\r\n")[0]:
-            raise WebError("handshake refused: %r" % head.split(b"\r\n")[0])
+        status = head.split(b"\r\n")[0]
+        if b" 401 " in status:
+            raise WebError(
+                "handshake refused: %r; the viewer wants the access token"
+                " web_server was started with (daemon.json's token)" % status
+            )
+        if b" 101 " not in status:
+            raise WebError("handshake refused: %r" % status)
         self.sock.settimeout(timeout)
         self.next_id = 1
 

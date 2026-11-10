@@ -28,6 +28,8 @@ PA_LOG = [
     "[ERROR DRT-0073] No access point for u_blk/p36 (BLK).",
 ]
 
+TOKEN = "0123456789abcdef" * 2
+
 
 class FakeDaemon(object):
     """A fake viewer answering od_web_request like daemon.tcl: od_status,
@@ -36,12 +38,21 @@ class FakeDaemon(object):
 
     def __init__(self):
         self.requests = []
-        self.viewer = fake_viewer.FakeViewer(self.handle)
+        # Every request is refused without daemon.json's token, as
+        # web_server -token refuses it.
+        self.viewer = fake_viewer.FakeViewer(self.handle, token=TOKEN)
         self.port = self.viewer.port
         self.dir = tempfile.mkdtemp(prefix="odb_debug_test.")
         with open(os.path.join(self.dir, "daemon.json"), "w") as f:
             json.dump(
-                {"port": self.port, "pid": 1, "design": "fake", "timing": False}, f
+                {
+                    "port": self.port,
+                    "pid": 1,
+                    "design": "fake",
+                    "timing": False,
+                    "token": TOKEN,
+                },
+                f,
             )
 
     def handle(self, cmd):
@@ -212,6 +223,18 @@ class ClientTest(unittest.TestCase):
             json.dump({"port": port}, f)
         with self.assertRaises(odbdebug.DaemonError):
             odbdebug.Daemon(dead).status()
+
+    def test_the_token_comes_from_daemon_json(self):
+        d = odbdebug.Daemon(self.fake.dir)
+        d.report("report_design_area")
+        self.assertEqual(self.fake.viewer.targets[-1], "/ws?token=" + TOKEN)
+
+    def test_without_the_token_the_viewer_refuses(self):
+        tokenless = tempfile.mkdtemp(prefix="odb_debug_tokenless.")
+        with open(os.path.join(tokenless, "daemon.json"), "w") as f:
+            json.dump({"port": self.fake.port}, f)
+        with self.assertRaisesRegex(odbdebug.DaemonError, "401.*access token"):
+            odbdebug.Daemon(tokenless).status()
 
 
 class McpTest(unittest.TestCase):
