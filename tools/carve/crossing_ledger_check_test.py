@@ -2,7 +2,8 @@
 the ledger holds the slowest path through a net, its clock taken out,
 within the tolerance and no further; how far that is from the period
 the net needs is said and not checked; a part's halves at zero, or its
-ledger gone, fail the check, and for that."""
+ledger gone, fail the check, and for that; and a ledger's arcs are every
+pair a direct search times a path between, each the pair's slowest."""
 
 import contextlib
 import io
@@ -159,7 +160,7 @@ class Check(unittest.TestCase):
                     "out u_B__d 90.0 80.0 - - 12.0 mcp",
                     "in u_A__q - - -",
                     "feed u_A__q 40.0 10.0",
-                    "arc u_A__q u_B__d 40.0 10.0 complete",
+                    "arc u_A__q u_B__d 40.0 10.0",
                 ],
             )
             crossing_ledger_check.zeroed(ledger, os.path.join(d, "zero.txt"))
@@ -170,7 +171,7 @@ class Check(unittest.TestCase):
                         "out u_B__d 0.00 0.00 - - 12.0 mcp",
                         "in u_A__q - - -",
                         "feed u_A__q 0.00 0.00",
-                        "arc u_A__q u_B__d 0.00 0.00 complete",
+                        "arc u_A__q u_B__d 0.00 0.00",
                     ],
                 )
 
@@ -191,7 +192,7 @@ class Same(unittest.TestCase):
     def test_a_half_one_reading_lacks_differs(self):
         self.assertEqual(len(self.same(["in d 60.0 55.0 -"], ["in d - - -"])), 1)
         errors = self.same(
-            ["in d 60.0 55.0 -", "arc d q 1.0 1.0 complete"], ["in d 60.0 55.0 -"]
+            ["in d 60.0 55.0 -", "arc d q 1.0 1.0"], ["in d 60.0 55.0 -"]
         )
         self.assertEqual(len(errors), 1)
         self.assertIn("arc d q", errors[0])
@@ -201,6 +202,57 @@ class Same(unittest.TestCase):
         )
         self.assertEqual(len(errors), 1)
         self.assertIn("feed d", errors[0])
+
+
+class Pairs(unittest.TestCase):
+    # a and b into y, a into z; c reaches no output
+    LEDGER = [
+        "in a - - -",
+        "in b - - -",
+        "in c 10.0 10.0 -",
+        "out y - - 30.0 20.0 - -",
+        "out z - - 12.0 9.0 - -",
+        "arc a y 30.0 20.0",
+        "arc b y 25.0 15.0",
+        "arc a z 12.0 9.0",
+    ]
+    PAIRS = ["pair a y 30.00 20.00", "pair b y 25.00 15.00", "pair a z 12.00 9.00"]
+
+    def pairs(self, ledger, reference):
+        with tempfile.TemporaryDirectory() as d:
+            return crossing_ledger_check.pairs(
+                part(d, "hub", ledger), write(d, "pairs", reference)
+            )
+
+    def test_every_pair_is_an_arc_with_its_slowest_path(self):
+        errors, lines = self.pairs(self.LEDGER, self.PAIRS)
+        self.assertEqual(errors, [])
+        self.assertIn(
+            "3 pairs a direct search times a path between, 3 arcs in the ledger",
+            lines,
+        )
+
+    def test_a_pair_the_ledger_does_not_list_fails(self):
+        errors, _ = self.pairs(self.LEDGER[:-2] + self.LEDGER[-1:], self.PAIRS)
+        self.assertEqual(errors, ["1 pairs with a timed path are no arc: b>y"])
+
+    def test_an_arc_no_search_times_fails(self):
+        errors, _ = self.pairs(self.LEDGER + ["arc c z 1.0 1.0"], self.PAIRS)
+        self.assertEqual(errors, ["1 arcs have no timed path: c>z"])
+
+    def test_an_arc_that_is_a_faster_path_of_its_pair_fails(self):
+        # b to y listed by a path 0.3 ps under its slowest, as routed
+        ledger = [l.replace("arc b y 25.0", "arc b y 24.7") for l in self.LEDGER]
+        errors, _ = self.pairs(ledger, self.PAIRS)
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn("1 arcs are not their pair's slowest path: b>y", errors[0])
+        # and at zero wire
+        ledger = [l.replace("15.0", "14.7") for l in self.LEDGER]
+        errors, _ = self.pairs(ledger, self.PAIRS)
+        self.assertIn("b>y", errors[0])
+        # within the fuzz of a delay read 100,000 ps from zero, it is one
+        ledger = [l.replace("arc b y 25.0", "arc b y 24.85") for l in self.LEDGER]
+        self.assertEqual(self.pairs(ledger, self.PAIRS)[0], [])
 
 
 class Spot(unittest.TestCase):

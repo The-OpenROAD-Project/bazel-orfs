@@ -1,4 +1,5 @@
-load("@bazel-orfs//:openroad.bzl", "orfs_flow")
+load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//test/planned_parent:plan/plan.bzl", "PLAN")
 load("//test/planned_parent:planned.bzl", "BASE_ARGS")
 load(":toy.bzl", "toy_parent_macro")
@@ -34,3 +35,63 @@ BLOCKS = sorted(PLAN["macros"].keys())
 ]
 
 toy_parent_macro(PLAN, BLOCKS)
+
+# The crossing ledger lists every feed-through, each pair's slowest path,
+# whatever budgets the SDC puts on the inputs and however few paths its
+# first pass lists: ledger_fan's inputs are in two set_max_delay budget
+# groups, and its outputs have more inputs behind them than the first
+# pass lists (LEDGER_ARCS_K 2). The ledger's arcs against a direct search
+# per pair (ledger_pairs.tcl): ledger_fan_ledger_test.
+orfs_flow(
+    name = "ledger_fan",
+    arguments = BASE_ARGS | {
+        "CORE_AREA": "2 2 28 28",
+        "DIE_AREA": "0 0 30 30",
+    },
+    last_stage = "grt",
+    sources = {"SDC_FILE": [":ledger_fan.sdc"]},
+    tags = ["manual"],
+    verilog_files = ["ledger_fan.sv"],
+)
+
+orfs_run(
+    name = "ledger_fan_ledger",
+    src = ":ledger_fan_grt",
+    outs = ["ledger_fan/ledger.txt"],
+    cmd = "run",
+    script = "//tools/carve:crossing_ledger.tcl",
+    tags = ["manual"],
+    user_arguments = {
+        "LEDGER_ARCS_K": "2",
+        "LEDGER_OUT": "$(location ledger_fan/ledger.txt)",
+    },
+    user_sources = {"HR_TCL": ["//tools/odb_debug:headroom.tcl"]},
+)
+
+orfs_run(
+    name = "ledger_fan_pairs",
+    src = ":ledger_fan_grt",
+    outs = ["ledger_fan/pairs.txt"],
+    cmd = "run",
+    script = ":ledger_pairs.tcl",
+    tags = ["manual"],
+    user_arguments = {"PAIRS_OUT": "$(location ledger_fan/pairs.txt)"},
+    user_sources = {"HR_TCL": ["//tools/odb_debug:headroom.tcl"]},
+)
+
+sh_test(
+    name = "ledger_fan_ledger_test",
+    srcs = ["//tools/carve:crossing_ledger_check.sh"],
+    args = [
+        "$(rootpath //tools/carve:crossing_ledger_check)",
+        "pairs",
+        "$(rootpath :ledger_fan/ledger.txt)",
+        "$(rootpath :ledger_fan/pairs.txt)",
+    ],
+    data = [
+        ":ledger_fan/ledger.txt",
+        ":ledger_fan/pairs.txt",
+        "//tools/carve:crossing_ledger_check",
+    ],
+    tags = ["manual"],
+)

@@ -4,6 +4,7 @@
         [--max-skew <ps>] [--zero <part>] [--zero-half] [--drop <M>]
         [--spot] [--miss]
     crossing_ledger_check.py --same <ledger> <ledger>
+    crossing_ledger_check.py --pairs <ledger> <pairs.txt>
 
 <top.txt> is crossing_ledger_top.tcl's: the register-to-register paths
 the routed top level times through each crossing net, each with the
@@ -42,6 +43,12 @@ the ledger was written all the same.
 
 --same: two ledgers of one part, read under different boundary
 constraints, hold the same halves.
+
+--pairs: a ledger's feed-throughs against <pairs.txt>, `pair <in> <out>
+<d> <d zero>` for every input and output a direct search from the one to
+the other times a path between: the ledger's arcs are those pairs, each
+with the delay of the pair's slowest path, within the fuzz of a delay
+read 100,000 ps from zero.
 """
 
 import argparse
@@ -56,6 +63,9 @@ TOLERANCE_PS = 20.0
 TOLERANCE_OF_PATH = 0.10
 # two readings of one half
 SAME_PS = 0.1
+# a delay the ledger reads 100,000 ps from zero against one read near it:
+# twice OpenSTA's fuzzy equal there (crossing_ledger.tcl's ledger_fuzz)
+FUZZ_PS = 0.2
 # a number printed with two decimals
 PRINTED_PS = 0.005
 
@@ -247,7 +257,7 @@ def halves(path):
                 key, values = ("in", fields[1]), fields[2:4]
             elif fields[0] == "feed" and len(fields) == 4:
                 key, values = ("feed", fields[1]), fields[2:4]
-            elif fields[0] == "arc" and len(fields) == 6:
+            elif fields[0] == "arc" and len(fields) == 5:
                 key, values = ("arc", fields[1], fields[2]), fields[3:5]
             else:
                 raise LedgerError("%s: not a ledger line: %s" % (where, line.strip()))
@@ -318,6 +328,52 @@ def same(a, b):
                 errors.append("%s: %s in %s, %s in %s" % (" ".join(key), x, a, y, b))
                 break
     return errors, len(ha)
+
+
+def pairs(ledger, reference):
+    """(errors, lines): the ledger's arcs against the pairs a direct search
+    times a path between."""
+    got = {key[1:]: v for key, v in halves(ledger).items() if key[0] == "arc"}
+    want = {}
+    with open(reference) as f:
+        for n, line in enumerate(f, 1):
+            where = "%s:%d" % (reference, n)
+            fields = line.split()
+            if not fields or fields[0] == "#":
+                continue
+            if fields[0] != "pair" or len(fields) != 5:
+                raise LedgerError("%s: not a pair: %s" % (where, line.strip()))
+            want[(fields[1], fields[2])] = [
+                crossing_ledger.number(v, where) for v in fields[3:5]
+            ]
+    errors = []
+    for these, what in (
+        (sorted(set(want) - set(got)), "pairs with a timed path are no arc"),
+        (sorted(set(got) - set(want)), "arcs have no timed path"),
+    ):
+        if these:
+            errors.append(
+                "%d %s: %s"
+                % (len(these), what, crossing_ledger.some(["%s>%s" % p for p in these]))
+            )
+    off = []
+    for p in sorted(set(want) & set(got)):
+        # the routed and the zero-wire delay, each against its search
+        if any(
+            x is None or y is None or abs(x - y) > FUZZ_PS
+            for x, y in zip(got[p], want[p])
+        ):
+            off.append("%s>%s %s against %s ps;" % (p[0], p[1], got[p], want[p]))
+    if off:
+        errors.append(
+            "%d arcs are not their pair's slowest path: %s"
+            % (len(off), crossing_ledger.some(off, 5))
+        )
+    lines = [
+        "%d pairs a direct search times a path between, %d arcs in the ledger"
+        % (len(want), len(got))
+    ]
+    return errors, lines
 
 
 def spot(path):
@@ -404,6 +460,7 @@ def miss(path):
 def main(argv):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--same", nargs=2, metavar="LEDGER")
+    ap.add_argument("--pairs", nargs=2, metavar=("LEDGER", "PAIRS"))
     ap.add_argument("--top", help="crossing_ledger_top.tcl's paths")
     ap.add_argument("--hub", help="the hub's ledger")
     ap.add_argument("--block", action="append", default=[], metavar="M=LEDGER")
@@ -420,9 +477,11 @@ def main(argv):
         if args.same:
             errors, n = same(*args.same)
             lines = ["%d pins and feed-throughs compared" % n]
+        elif args.pairs:
+            errors, lines = pairs(*args.pairs)
         else:
             if not args.top or not args.hub:
-                ap.error("--top and --hub, or --same")
+                ap.error("--top and --hub, --same, or --pairs")
             parts = crossing_ledger.parse_blocks(args.block)
             if args.drop not in [None] + list(parts):
                 ap.error("--drop %s: not a block" % args.drop)

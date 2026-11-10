@@ -7,16 +7,18 @@
 # Usage: crossing_ledger_check.sh <crossing_ledger_check> <control>
 #            <max skew ps> <top.txt> <hub ledger> <block>=<ledger>...
 #        crossing_ledger_check.sh <crossing_ledger_check> same <ledger> <ledger>
+#        crossing_ledger_check.sh <crossing_ledger_check> pairs <ledger> <pairs>
 #
 # control: - for the check itself, with the hub's spot checks and miss
 # count; all for the negative controls, every part in turn; same for two
-# ledgers of one part that must hold the same halves.
+# ledgers of one part that must hold the same halves; pairs for a ledger
+# whose arcs must be the pairs a direct search times a path between.
 set -e
 check="$1"
 control="$2"
 shift 2
-if [ "$control" = same ]; then
-  exec "$check" --same "$1" "$2"
+if [ "$control" = same ] || [ "$control" = pairs ]; then
+  exec "$check" "--$control" "$1" "$2"
 fi
 skew="$1"
 top="$2"
