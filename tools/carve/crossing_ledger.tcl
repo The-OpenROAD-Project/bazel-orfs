@@ -169,6 +169,11 @@ proc ledger_ps { seconds } {
 # under it, so no path and no tag is read to tell the two apart.
 set ::ledger_apart 100000.0
 
+# OpenSTA calls two delays equal when they are within a millionth of the
+# larger (fuzzyEqual), which this far from zero is 0.1 ps: of two
+# feed-throughs into one output that close, a slack reads either one.
+set ::ledger_fuzz [expr { 2e-6 * $::ledger_apart }]
+
 # what the readings do not agree on, {code message}: raised once the
 # readings are on disk
 set ::ledger_errors {}
@@ -286,7 +291,7 @@ proc ledger_arcs_check { what feeds arcs } {
   foreach o [lsort -unique [concat [dict keys $feeds] [dict keys $worst]]] {
     set feed [expr { [dict exists $feeds $o] ? [dict get $feeds $o] : "" }]
     set arc [expr { [dict exists $worst $o] ? [dict get $worst $o] : "" }]
-    if { $feed eq "" || $arc eq "" || abs($feed - $arc) > 0.1 } {
+    if { $feed eq "" || $arc eq "" || abs($feed - $arc) > $::ledger_fuzz } {
       lappend ::ledger_errors [list 45 "$what: output $o: its slack reads a\
         feed-through of [expr { $feed eq "" ? "none" : [format %.2f $feed] }] ps, the\
         slowest one listed is [expr { $arc eq "" ? "none" : [format %.2f $arc] }] ps"]
