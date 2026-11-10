@@ -121,10 +121,12 @@ asks. It works from another machine, over a VPN for one:
   `ODB_DEBUG_GUI_BIND`. That is by default the address the ssh session
   that started the daemon came in on, the one the human's machine
   reaches; without ssh it is 127.0.0.1.
-- The viewer evaluates any Tcl it is sent and has no authentication, so
-  the proxy forwards only what carries the link's token. The link's
-  token turns into a cookie for the rest of the visit. `daemon.json` is
-  readable by its owner only.
+- The viewer evaluates any Tcl it is sent, so the proxy forwards only
+  what carries the link's token. The link's token turns into a cookie
+  for the rest of the visit. `daemon.json` is readable by its owner only.
+- The viewer checks the same token itself (`web_server -token`): its page
+  and its websocket answer 401 without `?token=` in the query. The
+  client reads it from `daemon.json`.
 - Every byte the browser sends through it counts as interaction for an
   idle exit, when `ODB_DEBUG_IDLE_SECS` sets one. The viewer's own
   `url`, on 127.0.0.1, works on the machine itself, but there the
@@ -154,7 +156,7 @@ its own:
 
 ```json
 {"port":41123,"pid":12345,"dir":"...","url":"http://127.0.0.1:41123",
- "gui_url":"http://10.8.0.5:41150/?token=...","design":"cpu","odb":".../3_place.odb","workspace":"...","commit":"8dd2fb5...",
+ "token":"...","gui_url":"http://10.8.0.5:41150/?token=...","design":"cpu","odb":".../3_place.odb","workspace":"...","commit":"8dd2fb5...",
  "timing":false}
 ```
 
@@ -318,7 +320,8 @@ and the cells in question.
 ## Protocol
 
 A request is `od_web_request <base64 of UTF-8 Tcl>`, sent as the viewer's
-`tcl_eval` over its websocket (`ws://127.0.0.1:<port>/ws`) and evaluated at
+`tcl_eval` over its websocket (`ws://127.0.0.1:<port>/ws?token=<token>`,
+the token from `daemon.json`) and evaluated at
 global scope. Its result is one JSON reply:
 
 ```
@@ -339,7 +342,8 @@ shell on the same machine.
 against a fake viewer (`fake_viewer.py`) answering `od_web_request`, and
 `open` against a stand-in bazelisk; `:gui_proxy_test` checks that only the
 token gets through, in front of a stand-in viewer;
-`:webclient_test` runs the websocket client against the same fake and the
+`:webclient_test` runs the websocket client against the same fake, which
+refuses a handshake without the token as the viewer does, and the
 pin-access parser on DRT's real output; `:geometry_test` runs the
 forensics on a hand-made dump. `//test/odb_debug:smoke_test` launches the
 real daemon on a placed multiplier and asks it everything once;
