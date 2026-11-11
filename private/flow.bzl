@@ -477,6 +477,7 @@ def orfs_flow(
         macros = [],
         kept_macros = None,
         canon_blackbox_macros = [],
+        verilog_slices = False,
         sources = {},
         user_sources = {},
         stage_arguments = {},
@@ -529,6 +530,9 @@ def orfs_flow(
       canon_blackbox_macros: list of macro module names to blackbox during
         canonicalization via slang --blackboxed-module instead of reading their
         Verilog.
+      verilog_slices: with a pinned SYNTH_KEEP_MODULES, canonicalize each kept
+        module from its own slice of the Verilog rather than from the global
+        canonicalize (see orfs_synth's verilog_slices).
       sources: dictionary keyed by ORFS variables with lists of sources
       stage_arguments: dictionary keyed by ORFS stages with lists of stage-specific arguments.
         Prefer 'arguments' which automatically assigns variables to the correct stages.
@@ -640,6 +644,7 @@ def orfs_flow(
         macros = macros,
         kept_macros = kept_macros,
         canon_blackbox_macros = canon_blackbox_macros,
+        verilog_slices = verilog_slices,
         sources = sources,
         user_sources = user_sources,
         stage_arguments = stage_arguments,
@@ -706,6 +711,7 @@ def orfs_flow(
         macros = macros,
         kept_macros = kept_macros,
         canon_blackbox_macros = canon_blackbox_macros,
+        verilog_slices = verilog_slices,
         sources = mock_sources,
         user_sources = user_sources,
         stage_arguments = stage_arguments,
@@ -774,6 +780,7 @@ def _orfs_pass(
         stage_data,
         kept_macros = None,
         canon_blackbox_macros = [],
+        verilog_slices = False,
         last_stage = None,
         squash = False,
         save_odb = True,
@@ -848,6 +855,7 @@ def _orfs_pass(
                 kept_macros = kept_macros if kept_macros != None else {},
                 kept_macros_enabled = kept_macros != None,
                 canon_blackbox_macros = canon_blackbox_macros,
+                verilog_slices = verilog_slices,
                 module_top = top,
                 variant = variant,
                 verilog_files = verilog_files,

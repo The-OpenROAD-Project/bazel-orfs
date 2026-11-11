@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "platform": "asap7",
+  "memories": [
+    {
+      "name": "ram_64x16",
+      "rows": 64,
+      "bits": 16,
+      "addr_w": 6,
+      "read_ports": 0,
+      "write_ports": 0,
+      "rw_ports": 1,
+      "mask_lanes": 0,
+      "pins": [
+        {
+          "name": "clk",
+          "direction": "input",
+          "width": 1,
+          "port_id": "RW0",
+          "function": "clk"
+        },
+        {
+          "name": "ce_in",
+          "direction": "input",
+          "width": 1,
+          "port_id": "RW0",
+          "function": "en"
+        },
+        {
+          "name": "we_in",
+          "direction": "input",
+          "width": 1,
+          "port_id": "RW0",
+          "function": "wmode"
+        },
+        {
+          "name": "addr_in",
+          "direction": "input",
+          "width": 6,
+          "port_id": "RW0",
+          "function": "addr"
+        },
+        {
+          "name": "wd_in",
+          "direction": "input",
+          "width": 16,
+          "port_id": "RW0",
+          "function": "data_in"
+        },
+        {
+          "name": "rd_out",
+          "direction": "output",
+          "width": 16,
+          "port_id": "RW0",
+          "function": "data_out"
+        }
+      ],
+      "idiomatic": true,
+      "reason": "forced: the design defines this module with ports only, so there is no inferred $mem for the scanner to find and the geometry is carried here"
+    }
+  ]
+}

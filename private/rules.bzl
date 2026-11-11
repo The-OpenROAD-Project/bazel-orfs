@@ -1305,7 +1305,7 @@ def _sanitize_module(module):
     """A kept module's name as a file name component (synth_partition.sh's sanitize())."""
     return module.replace("$", "_").replace(".", "_").replace("[", "_").replace("]", "_")
 
-def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments = {}, sdc_overrides = [], synth_data_inputs = None, sdc_only_inputs = None, memories_inputs = []):
+def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments = {}, sdc_overrides = [], synth_data_inputs = None, sdc_only_inputs = None, memories_inputs = [], slices = None):
     """Parallel synthesis: keep → kept-json → N partitions → merge.
 
     Yosys is not deterministic when using host threads, so SYNTH_NUM_PARTITIONS
@@ -1488,6 +1488,36 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     # and parallel_synth.mk's log path.
     per_module_rtlil = {}
     per_module_name_file = {}
+
+    # With verilog_slices, verilog_slice.py cuts the design's Verilog into
+    # one source per kept module (its subtree, the kept modules under it
+    # as port-only stubs) and each module is canonicalized from its own
+    # slice, so a partition waits on neither the global canonicalize nor
+    # an edit elsewhere in the design.
+    verilog_slice = {}
+    slice_checkpoints = []
+    if slices:
+        for module in kept_modules_list:
+            verilog_slice[module] = declare_artifact(
+                ctx,
+                "results",
+                "partition_{}_slice.v".format(_sanitize_module(module)),
+            )
+        slice_args = ctx.actions.args()
+        slice_args.add(ctx.file._verilog_slice)
+        slice_args.add("--top", module_top(ctx))
+        for module in kept_modules_list:
+            slice_args.add_all("--slice", [module, verilog_slice[module]])
+        slice_args.add_all(slices.verilog, expand_directories = False)
+        ctx.actions.run(
+            executable = ctx.executable._python,
+            arguments = [slice_args],
+            inputs = slices.verilog + [ctx.file._verilog_slice],
+            outputs = [verilog_slice[m] for m in kept_modules_list],
+            mnemonic = "VerilogSlice",
+            progress_message = "Slicing Verilog by kept module for %s" % module_top(ctx),
+        )
+
     for module in kept_modules_list:
         sanitized = _sanitize_module(module)
         per_module_out = declare_artifact(
@@ -1504,6 +1534,53 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         per_module_commands = [_make_cmd(ctx)] + generation_commands(
             [per_module_out, per_module_name_out],
         )
+        if slices:
+            slice_checkpoint = declare_artifact(
+                ctx,
+                "results",
+                "partition_{}_slice.rtlil".format(sanitized),
+            )
+            ctx.actions.run_shell(
+                arguments = [
+                    "--file",
+                    parallel_makefile.path,
+                    "do-yosys-canonicalize-module",
+                    "SYNTH_CANONICALIZE_MODULE_SCRIPT=" + ctx.file._synth_canonicalize_slice_script.path,
+                ] + (["SDC_FILE="] if sdc_overrides else []),
+                command = " && ".join(per_module_commands),
+                env = slices.env | partition_env_extra | {
+                    "VERILOG_FILES": verilog_slice[module].path,
+                    "MODULE_VERILOG_SLICE": verilog_slice[module].path,
+                    "MODULE_SLICE_CHECKPOINT": slice_checkpoint.path,
+                    "SYNTH_CANONICALIZE_MODULE_TCL": ctx.file._synth_canonicalize_module_script.path,
+                    "MODULE_BLACKBOXES": " ".join(blackboxes),
+                    "MODULE_TARGET_NAME": module,
+                    "MODULE_RTLIL_OUT": per_module_out.path,
+                    "MODULE_NAME_OUT": per_module_name_out.path,
+                    "SYNTH_REPEATABLE_BUILD": "1",
+                },
+                inputs = depset(
+                    [
+                        verilog_slice[module],
+                        slices.config,
+                        parallel_makefile,
+                        ctx.file._synth_canonicalize_slice_script,
+                        ctx.file._synth_canonicalize_module_script,
+                    ] + ctx.files.extra_configs + slices.memories,
+                    transitive = [
+                        synth_data_inputs,
+                        pdk_inputs(ctx),
+                        slices.deps,
+                    ],
+                ),
+                outputs = [per_module_out, per_module_name_out, slice_checkpoint],
+                tools = yosys_and_flow_tools,
+                progress_message = "Canonicalize slice for partition cache: {}".format(module),
+            )
+            per_module_rtlil[module] = per_module_out
+            per_module_name_file[module] = per_module_name_out
+            slice_checkpoints.append(slice_checkpoint)
+            continue
         ctx.actions.run_shell(
             arguments = [
                 "--file",
@@ -1969,7 +2046,12 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     for f in synth_logs + synth_reports:
         ctx.actions.write(output = f, content = "")
 
-    return validated_kept_macros_json
+    partition_files = (
+        list(verilog_slice.values()) + slice_checkpoints +
+        list(per_module_rtlil.values()) + list(per_module_name_file.values()) +
+        [part for _, part in partition_outputs] + [top_output]
+    )
+    return validated_kept_macros_json, partition_files
 
 def _stable_module_names(ctx, all_arguments):
     """SYNTH_STABLE_MODULE_NAMES=1: name contested modules by their path.
@@ -2277,7 +2359,22 @@ def _yosys_impl(ctx):
         sdc_overrides = ["SDC_FILE="]
         synth_data_inputs = data_inputs_excluding(ctx, sdc_path)
 
+    verilog_slices = ctx.attr.verilog_slices
+    if verilog_slices:
+        if use_syn or not keep_modules(all_arguments):
+            fail("verilog_slices = True cuts the Verilog by SYNTH_KEEP_MODULES " +
+                 "for parallel yosys synthesis, which " + str(ctx.label) +
+                 " does not run: pin SYNTH_KEEP_MODULES or drop verilog_slices")
+        for var in ["SYNTH_CANONICALIZE_TCL", "SYNTH_VERILOG_SURGERY", "VERILOG_TOP_PARAMS"]:
+            if all_arguments.get(var):
+                fail(("{} acts on the whole design, which a slice is not: " +
+                      "drop verilog_slices = True or {} in {}").format(var, var, ctx.label))
+
     canon_logs = declare_artifacts(ctx, "logs", ["1_1_yosys_canonicalize.log"])
+
+    # The design's Verilog as synthesis reads it: the global canonicalize
+    # and, with verilog_slices, the slicer.
+    design_verilog = verilog_files
 
     canon_output = declare_artifact(ctx, "results", CANON_OUTPUT)
 
@@ -2294,6 +2391,45 @@ def _yosys_impl(ctx):
         commands = [_make_cmd(ctx)] + generation_commands(
             canon_logs + [canon_output],
         )
+        canon_env = (
+            verilog_arguments(design_verilog) |
+            yosys_environment(ctx) |
+            config_environment(canon_config) |
+            fakeram_env
+        )
+        canon_inputs = depset(
+            [canon_config] +
+            design_verilog + ctx.files.extra_configs +
+            fakeram_inputs,
+            transitive = [
+                synth_data_inputs,
+                pdk_inputs(ctx),
+                canon_deps,
+            ],
+        )
+        canon_tools = depset(transitive = [yosys_inputs(ctx)] + regfile_tools)
+        canon_memories = memories_outputs + memories_inferred
+        memories_args = []
+        if verilog_slices and canon_memories:
+            # Memory detection gets its own action, so the per-module
+            # slices, which need its results, do not wait on the global
+            # canonicalize as well.
+            ctx.actions.run_shell(
+                arguments = [
+                    "--file",
+                    ctx.file._makefile_yosys.path,
+                    "yosys-dependencies",
+                ] + sdc_overrides,
+                command = EXPAND_VERILOG_DIRS + _make_cmd(ctx),
+                env = canon_env,
+                inputs = canon_inputs,
+                outputs = canon_memories,
+                tools = canon_tools,
+                progress_message = "Detecting memories for %s" % module_top(ctx),
+            )
+            memories_args = ["--old-file=" + f.path for f in canon_memories]
+            canon_inputs = depset(canon_memories, transitive = [canon_inputs])
+            canon_memories = []
 
         ctx.actions.run_shell(
             arguments = [
@@ -2301,25 +2437,12 @@ def _yosys_impl(ctx):
                 ctx.file._makefile_yosys.path,
                 "yosys-dependencies",
                 "do-yosys-canonicalize",
-            ] + sdc_overrides,
+            ] + memories_args + sdc_overrides,
             command = EXPAND_VERILOG_DIRS + " && ".join(commands),
-            env = verilog_arguments(verilog_files) |
-                  yosys_environment(ctx) |
-                  config_environment(canon_config) |
-                  fakeram_env,
-            inputs = depset(
-                [canon_config] +
-                verilog_files + ctx.files.extra_configs +
-                fakeram_inputs,
-                transitive = [
-                    synth_data_inputs,
-                    pdk_inputs(ctx),
-                    canon_deps,
-                ],
-            ),
-            outputs = [canon_output] + canon_logs + memories_outputs +
-                      memories_inferred,
-            tools = depset(transitive = [yosys_inputs(ctx)] + regfile_tools),
+            env = canon_env,
+            inputs = canon_inputs,
+            outputs = [canon_output] + canon_logs + canon_memories,
+            tools = canon_tools,
             progress_message = "Canonicalizing RTL for %s" % module_top(ctx),
         )
 
@@ -2362,6 +2485,7 @@ def _yosys_impl(ctx):
     # Populated only by the parallel-synth path when kept_macros validation
     # is enabled; surfaced via the kept_macros_validation output group.
     validated_kept_macros_json = None
+    partition_files = []
 
     # Ensure declared metrics .json outputs exist and are parseable even if
     # make did not write them; genMetrics.py json.load()s every 1_*.json, so
@@ -2403,7 +2527,16 @@ def _yosys_impl(ctx):
             progress_message = "OpenROAD-SYN synthesis for %s" % module_top(ctx),
         )
     elif num_partitions > 0:
-        validated_kept_macros_json = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments, sdc_overrides, synth_data_inputs, sdc_only_inputs, memories_outputs + memories_inferred)
+        validated_kept_macros_json, partition_files = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments, sdc_overrides, synth_data_inputs, sdc_only_inputs, memories_outputs + memories_inferred, slices = struct(
+            env = verilog_arguments([]) |
+                  flow_environment(ctx) |
+                  yosys_environment(ctx) |
+                  config_environment(canon_config),
+            config = canon_config,
+            deps = canon_deps,
+            verilog = design_verilog,
+            memories = memories_outputs,
+        ) if verilog_slices else None)
     else:
         # Serial path, split into three actions mirroring the parallel
         # path so the raw SDC feeds only the cheap sdc-copy step:
@@ -2701,6 +2834,9 @@ def _yosys_impl(ctx):
             kept_macros_validation = depset(
                 [validated_kept_macros_json] if validated_kept_macros_json else [],
             ),
+            # Parallel synthesis's intermediate files: the per-module
+            # slices and canonical RTLIL, and each partition's netlist.
+            partitions = depset(partition_files),
             # 1_2_yosys.sdc and 1_synth.vars left DefaultInfo.files (see
             # the outputs comment above) but stay inspectable on demand:
             # bazelisk build --output_groups=<basename> <synth target>.
@@ -2813,6 +2949,14 @@ orfs_synth_rule = rule(
                 "_synth_canonicalize_module_script": attr.label(
                     allow_single_file = True,
                     default = Label("//:synth_canonicalize_module.tcl"),
+                ),
+                "_synth_canonicalize_slice_script": attr.label(
+                    allow_single_file = True,
+                    default = Label("//:synth_canonicalize_slice.tcl"),
+                ),
+                "_verilog_slice": attr.label(
+                    allow_single_file = True,
+                    default = Label("//:verilog_slice.py"),
                 ),
                 "_rtlil_kept_modules": attr.label(
                     allow_single_file = True,

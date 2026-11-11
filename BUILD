@@ -51,8 +51,10 @@ exports_files([
     "stable_module_names.py",
     "synth.tcl",
     "synth_canonicalize_module.tcl",
+    "synth_canonicalize_slice.tcl",
     "synth_keep.tcl",
     "synth_partition.sh",
+    "verilog_slice.py",
 ])
 
 # Prefix every ORFS log line with elapsed seconds:
@@ -331,6 +333,18 @@ py_test(
     name = "rtlil_kept_modules_test",
     srcs = ["rtlil_kept_modules_test.py"],
     deps = [":rtlil_kept_modules_lib"],
+)
+
+py_library(
+    name = "verilog_slice_lib",
+    srcs = ["verilog_slice.py"],
+)
+
+py_test(
+    name = "verilog_slice_test",
+    size = "small",
+    srcs = ["verilog_slice_test.py"],
+    deps = [":verilog_slice_lib"],
 )
 
 # Entry point for the orfs_run_executable rule's emitted shell wrapper.

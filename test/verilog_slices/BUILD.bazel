@@ -1,0 +1,112 @@
+# verilog_slices: each kept module canonicalized from its own slice of
+# the Verilog instead of from the global canonicalize.
+#
+# SliceTop keeps Outer, Inner (inside Outer) and Other (which holds a
+# memory AUTO_MEMORIES makes a macro of, from ram_64x16.memories). after.v differs from before.v in
+# Inner's body only.
+#
+#   slices_equal_test   the slice path gives the partitions the global
+#                       path gives them: byte-identical netlists, and the
+#                       same merged netlist.
+#   slices_edit_test    the edit to Inner leaves Outer's and Other's
+#                       slices, canonical RTLIL and netlists as they were.
+#   slices_key_test     no per-module canonicalize reads the global
+#                       canonicalize or the design's sources.
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//:openroad.bzl", "orfs_flow")
+load(":slices_key_test.bzl", "slices_key_test")
+
+package(default_visibility = ["//visibility:private"])
+
+KEPT = [
+    "Outer",
+    "Inner",
+    "Other",
+]
+
+ARGUMENTS = {
+    "AUTO_MEMORIES": "1",
+    "SYNTH_HIERARCHICAL": "1",
+    "SYNTH_KEEP_MODULES": " ".join(KEPT),
+    # One module per definition, named as the sources name it, which a
+    # slice's canonicalize names it too.
+    "SYNTH_SLANG_ARGS": "--disable-instance-caching=false",
+}
+
+[orfs_flow(
+    name = "SliceTop",
+    arguments = ARGUMENTS,
+    last_stage = "synth",
+    sources = {
+        "ADDITIONAL_MEMORIES": [":ram_64x16.memories"],
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    variant = variant,
+    verilog_files = [verilog],
+    verilog_slices = slices,
+) for variant, verilog, slices in [
+    ("global", "before.v", False),
+    ("before", "before.v", True),
+    ("after", "after.v", True),
+]]
+
+[filegroup(
+    name = "partitions_" + variant,
+    srcs = [":SliceTop_%s_synth" % variant],
+    output_group = "partitions",
+) for variant in [
+    "global",
+    "before",
+    "after",
+]]
+
+[filegroup(
+    name = "netlist_" + variant,
+    srcs = [":SliceTop_%s_synth" % variant],
+    output_group = "1_2_yosys.v",
+) for variant in [
+    "global",
+    "before",
+]]
+
+sh_test(
+    name = "slices_equal_test",
+    size = "small",
+    srcs = ["slices_equal_test.sh"],
+    args = [
+        "$(location :netlist_global)",
+        "$(location :netlist_before)",
+        " ".join(KEPT),
+        "$(locations :partitions_global)",
+        "--",
+        "$(locations :partitions_before)",
+    ],
+    data = [
+        ":netlist_before",
+        ":netlist_global",
+        ":partitions_before",
+        ":partitions_global",
+    ],
+)
+
+sh_test(
+    name = "slices_edit_test",
+    size = "small",
+    srcs = ["slices_edit_test.sh"],
+    args = [
+        "$(locations :partitions_before)",
+        "--",
+        "$(locations :partitions_after)",
+    ],
+    data = [
+        ":partitions_after",
+        ":partitions_before",
+    ],
+)
+
+slices_key_test(
+    name = "slices_key_test",
+    modules = KEPT,
+    sources = ["before.v"],
+    target_under_test = ":SliceTop_before_synth",
+)
