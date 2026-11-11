@@ -12,6 +12,8 @@
 #   MODULE_VERILOG_SLICE           - the module's slice
 #   MODULE_SLICE_CHECKPOINT        - where the slice's canonicalized RTLIL goes
 #   SYNTH_CANONICALIZE_MODULE_TCL  - synth_canonicalize_module.tcl
+#   MODULE_MEMORIES_DIR            - with AUTO_MEMORIES, the directory whose
+#                                    memories/ holds the slice's memories
 
 set slice $::env(MODULE_VERILOG_SLICE)
 set target $::env(MODULE_TARGET_NAME)
@@ -48,17 +50,12 @@ set ::env(SYNTH_BLACKBOXES) [concat [env_var_or_empty SYNTH_BLACKBOXES] $stubs]
 set ::env(DESIGN_NAME) $target
 set ::env(VERILOG_FILES) $slice
 
-# AUTO_MEMORIES lists the memories of the whole design; a slice holds
-# only those under its module, and the check that each is a black box
-# holds for those.
-rename auto_memories_check_blackboxed design_auto_memories_check_blackboxed
-proc auto_memories_check_blackboxed { names } {
-  set present {}
-  foreach m [split [tee -q -s result.string select -list-mod =*] "\n"] {
-    lappend present [regsub {^\\} [string trim $m] {}]
-  }
-  design_auto_memories_check_blackboxed \
-    [lmap m $names { expr { [lsearch -exact $present $m] >= 0 ? $m : [continue] } }]
+# AUTO_MEMORIES: the slice's own memories (slice_memories.py), where
+# read_design_sources looks for them: AUTO_MEMORIES_DIR, which synthesis
+# sets to the whole design's memories.
+if { [info exists ::env(MODULE_MEMORIES_DIR)] } {
+  set ::env(RESULTS_DIR) $::env(MODULE_MEMORIES_DIR)
+  set ::env(AUTO_MEMORIES_DIR) $::env(MODULE_MEMORIES_DIR)/memories
 }
 
 read_design_sources

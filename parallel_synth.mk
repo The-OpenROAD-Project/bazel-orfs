@@ -26,6 +26,34 @@ do-yosys-keep: yosys-dependencies
 do-yosys-canonicalize-module:
 	$(SCRIPTS_DIR)/synth.sh $(SYNTH_CANONICALIZE_MODULE_SCRIPT) $(LOG_DIR)/1_1_yosys_canonicalize_$(shell printf '%s' "$(MODULE_TARGET_NAME)" | tr '$.[]' '____').log
 
+# verilog_slices with AUTO_MEMORIES: the register files, from their specs
+# alone, once for every slice; then each slice's own memories, from the
+# extract_memories.tcl netlist of the slice (slice_memories.py).
+.PHONY: do-yosys-slice-regfiles
+do-yosys-slice-regfiles:
+	$(PYTHON_EXE) $(SLICE_MEMORIES_PY) regfiles \
+	  --scripts-dir $(SCRIPTS_DIR) \
+	  --out-dir $(SLICE_REGFILES_DIR) \
+	  --platform $(PLATFORM) \
+	  $(foreach file,$(AUTO_MEMORIES_REGFILES),--regfile-spec $(file)) \
+	  $(foreach m,$(AUTO_MEMORIES_MACRO_PLACE),--macro-place $(m)) \
+	  $(if $(AUTO_MEMORIES_REGFILES),--openroad $(OPENROAD_EXE)) \
+	  $(foreach file,$(TECH_LEF) $(SC_LEF),--lef $(file))
+
+.PHONY: do-yosys-slice-memories
+do-yosys-slice-memories:
+	mkdir -p $(dir $(MODULE_MEMORIES_JSON))
+	$(SCRIPTS_DIR)/synth.sh $(SYNTH_SLICE_MEMORIES_SCRIPT) $(LOG_DIR)/memories_extract_$(shell printf '%s' "$(MODULE_TARGET_NAME)" | tr '$.[]' '____').log
+	$(PYTHON_EXE) $(SLICE_MEMORIES_PY) slice \
+	  --scripts-dir $(SCRIPTS_DIR) \
+	  --yosys-json $(MODULE_MEMORIES_JSON) \
+	  --top $(MODULE_TARGET_NAME) \
+	  --slice $(MODULE_VERILOG_SLICE) \
+	  --regfiles-dir $(SLICE_REGFILES_DIR) \
+	  --out-dir $(MODULE_MEMORIES_DIR)/memories \
+	  --platform $(PLATFORM) \
+	  $(foreach file,$(ADDITIONAL_MEMORIES),--memories $(file))
+
 .PHONY: do-yosys-partition
 do-yosys-partition: yosys-dependencies
 	bash $(SYNTH_PARTITION_SCRIPT)

@@ -175,12 +175,21 @@ for module in "${MY_MODULES[@]}"; do
   fi
   canonical_name=$(cat "$MODULE_NAME_FILE")
   echo "=== Synthesizing module: $module → $canonical_name (from $(basename "$MODULE_CHECKPOINT")) ==="
+  # verilog_slices with AUTO_MEMORIES: synthesis reads the slice's own
+  # memories, from the RESULTS_DIR it is given.
+  module_results="$RESULTS_DIR"
+  if [ -n "${SYNTH_MEMORIES_DIR:-}" ]; then
+    module_results="$OBJECTS_DIR/partition_${sanitized}_results"
+    mkdir -p "$module_results"
+    ln -sfn "$(realpath "$SYNTH_MEMORIES_DIR")/memories" "$module_results/memories"
+  fi
   SYNTH_CHECKPOINT="$MODULE_CHECKPOINT" \
   DESIGN_NAME="$canonical_name" \
+  RESULTS_DIR="$module_results" \
     "$SCRIPTS_DIR/synth.sh" \
     "$SYNTH_TCL" \
     "$LOG_DIR/$(log_name "$log_module")"
 
   # Append this module's netlist to partition output
-  cat "$RESULTS_DIR/1_2_yosys.v" >> "$OUTPUT"
+  cat "$module_results/1_2_yosys.v" >> "$OUTPUT"
 done

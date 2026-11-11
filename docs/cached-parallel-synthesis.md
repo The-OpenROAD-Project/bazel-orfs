@@ -398,9 +398,25 @@ partition reads only its own sources:
    `synth_canonicalize_module.tcl` as its checkpoint.
 
 The top partition still reads the global canonicalize, beside the
-partitions rather than in front of them. With `AUTO_MEMORIES` the memory
-detection becomes an action of its own, so the slices wait for it and
-not for the global canonicalize too.
+partitions rather than in front of them.
+
+With `AUTO_MEMORIES` each slice finds its own memories as well, so no
+partition waits on the memory detection either, which elaborates and
+processes the whole design. The slice's canonicalize runs ORFS's
+`extract_memories.tcl` on the slice first, and `slice_memories.py` runs
+ORFS's detection, `.memories` overrides and FakeRAM on what it found,
+into `partition_<module>_memories/memories`, the directory the slice's
+canonicalize and partition read in place of the whole design's. The
+register files (`AUTO_MEMORIES_REGFILES`) depend on their specs alone
+and are generated once, for every slice. The whole design's memories
+are still detected, for the top partition, the merge and every later
+stage; a check beside the partitions, which the merge waits for, holds
+each slice's memories to them: a memory a slice names or shapes
+differently, a black box only a slice has, or a macro of the whole
+design that a slice defines but did not find fails the build. FakeRAM's
+date is left out of a slice's Liberty views, so they change only with
+their memories. One partition per kept module: `SYNTH_NUM_PARTITIONS`
+is refused with it.
 
 slang names a module after the instance it first elaborates
 (`Inner$Top.outer.inner`), and a slice elaborated from its own module
@@ -672,6 +688,7 @@ To reproduce this: build the target, make the edit, and build again with
 | `1_1_yosys_canonicalize.rtlil` | canonicalize (slang) |
 | `1_1_yosys_keep.rtlil`, `kept_modules.json` | `synth_keep.tcl`, `rtlil_kept_modules.py` (discovery only) |
 | `partition_<module>_slice.v` | `verilog_slice.py` (`verilog_slices` only) |
+| `partition_<module>_memories/memories`, `slice_regfiles`, `slice_memories.ok` | `slice_memories.py` (`verilog_slices` with `AUTO_MEMORIES`) |
 | `partition_<module>_canonical.rtlil`, `.name` | `synth_canonicalize_module.tcl` (pinned only) |
 | `partition_<module>.v`, `partition_<i>.v`, `partition_top.v` | `synth_partition.sh` running `synth.tcl` |
 | `1_2_yosys.v` | the merge, `cat` |

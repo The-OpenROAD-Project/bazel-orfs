@@ -54,6 +54,8 @@ exports_files([
     "synth_canonicalize_slice.tcl",
     "synth_keep.tcl",
     "synth_partition.sh",
+    "synth_slice_memories.tcl",
+    "slice_memories.py",
     "verilog_slice.py",
 ])
 
@@ -333,6 +335,18 @@ py_test(
     name = "rtlil_kept_modules_test",
     srcs = ["rtlil_kept_modules_test.py"],
     deps = [":rtlil_kept_modules_lib"],
+)
+
+py_library(
+    name = "slice_memories_lib",
+    srcs = ["slice_memories.py"],
+)
+
+py_test(
+    name = "slice_memories_test",
+    size = "small",
+    srcs = ["slice_memories_test.py"],
+    deps = [":slice_memories_lib"],
 )
 
 py_library(
