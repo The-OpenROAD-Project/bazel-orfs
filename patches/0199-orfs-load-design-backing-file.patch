@@ -10,6 +10,10 @@ which keeps the database's table pages in that file instead of memory
 alone. Global route reads its design with one in OBJECTS_DIR and pages
 the database out once it has built the nets, and while it routes.
 
+Any other argument is an error: load_design reads the .sdc beside the
+design file (#4751), and a second positional argument, the .sdc that
+load_design took before, would otherwise be ignored without a word.
+
 Carried in bazel-orfs for OpenROAD#12075, not upstreamed; retires with
 the //:bump onto an ORFS that has it.
 
@@ -17,8 +21,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  flow/scripts/global_route.tcl |  2 +-
- flow/scripts/load.tcl         | 11 +++++++++--
- 2 files changed, 10 insertions(+), 3 deletions(-)
+ flow/scripts/load.tcl         | 12 ++++++++++--
+ 2 files changed, 11 insertions(+), 3 deletions(-)
 
 diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
 index 8008ac4cb..cfc49abd7 100644
@@ -37,7 +41,7 @@ diff --git a/flow/scripts/load.tcl b/flow/scripts/load.tcl
 index 45f24bdff..2066d481c 100644
 --- a/flow/scripts/load.tcl
 +++ b/flow/scripts/load.tcl
-@@ -2,7 +2,14 @@ source $::env(SCRIPTS_DIR)/util.tcl
+@@ -2,7 +2,15 @@ source $::env(SCRIPTS_DIR)/util.tcl
  
  source $::env(SCRIPTS_DIR)/report_metrics.tcl
  
@@ -46,6 +50,7 @@ index 45f24bdff..2066d481c 100644
 +# -backing_file), so a stage can page out what it is done reading.
 +proc load_design { design_file args } {
 +  sta::parse_key_args "load_design" args keys {-backing_file} flags {}
++  sta::check_argc_eq0 "load_design" $args
 +  set backing {}
 +  if { [info exists keys(-backing_file)] } {
 +    set backing [list -backing_file $keys(-backing_file)]
@@ -53,7 +58,7 @@ index 45f24bdff..2066d481c 100644
    # Do not reload if design is already loaded
    set db [ord::get_db]
    if { [$db getChip] != "NULL" && [[$db getChip] getBlock] != "NULL" } {
-@@ -33,7 +40,7 @@ proc load_design { design_file } {
+@@ -33,7 +41,7 @@ proc load_design { design_file } {
      read_verilog $::env(RESULTS_DIR)/$design_file
      log_cmd link_design {*}[hier_options] $::env(DESIGN_NAME)
    } elseif { $ext == ".odb" } {

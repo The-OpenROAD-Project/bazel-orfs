@@ -5,7 +5,7 @@
 # congestion; either way the route is not attempted, only measured.
 # declared beside the flow it probes, so its RESULTS_DIR is the flow's
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design 4_cts.odb 4_cts.sdc
+load_design 4_cts.odb
 set_routing_layers -signal $::env(MIN_ROUTING_LAYER)-$::env(MAX_ROUTING_LAYER)
 if { [info exists ::env(ROUTING_LAYER_ADJUSTMENT)] } {
   set_global_routing_layer_adjustment $::env(MIN_ROUTING_LAYER)-$::env(MAX_ROUTING_LAYER) $::env(ROUTING_LAYER_ADJUSTMENT)

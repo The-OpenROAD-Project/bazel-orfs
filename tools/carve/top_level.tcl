@@ -60,12 +60,12 @@ if { $from ni $steps } {
   utl::error FLW 27 "top_level: TOP_FROM $from is none of $steps"
 }
 set odbs {floorplan 2_floorplan.odb place 3_top_place.odb tree 4_top_cts_tree.odb cts 4_top_cts.odb grt 5_top_grt.odb}
-set sdc 2_floorplan.sdc
 if { [env_var_exists_and_non_empty TOP_DIR] } {
   set ::env(RESULTS_DIR) $::env(TOP_DIR)
-  set sdc 5_top_grt.sdc
 }
-load_design [dict get $odbs $from] $sdc -backing_file $::env(OBJECTS_DIR)/top.db
+# every checkpoint's .sdc is a copy of the floorplan's (top_checkpoint)
+set sdc [sdc_file_of [dict get $odbs $from]]
+load_design [dict get $odbs $from] -backing_file $::env(OBJECTS_DIR)/top.db
 set todo [lrange $steps [expr { [lsearch -exact $steps $from] + 1 }] end]
 set to [env_var_or_empty TOP_TO]
 if { $to ne "" } {
@@ -90,6 +90,8 @@ proc top_checkpoint { step odb } {
     return
   }
   orfs_write_db $::env(RESULTS_DIR)/$odb
+  # the constraints read, as above, not the .sdc orfs_write_db wrote
+  file copy -force $::env(RESULTS_DIR)/$::sdc $::env(RESULTS_DIR)/[sdc_file_of $odb]
 }
 
 set flatten [env_var_or_empty TOP_FLATTEN]
@@ -258,7 +260,7 @@ set statuses [fork -jobs $jobs crossing_set [lsearch -all $sets *] {
     # then its design without the routes and the power grid (the small
     # set's 19 GB load) and so without global route's grid to read them
     # back (its 38 GB); names stay the design's, so the SPEF's match
-    set base $::env(CROSSING_ODB_DIR)/set.$crossing_set
+    set base $::env(CROSSING_ODB_DIR)/set_$crossing_set
     log_cmd estimate_parasitics -$parasitics -spef_file $base.spef
     puts "crossing_strip: [sta::crossing_strip] (guides, special wires) removed"
     write_db $base.odb

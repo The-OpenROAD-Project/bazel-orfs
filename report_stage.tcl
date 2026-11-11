@@ -8,7 +8,7 @@
 # redone below do not hold: test/metrics_split checks the two agree.
 #
 # Read by this script, not by ORFS (orfs_flow sets them):
-#   REPORT_ODB, REPORT_SDC  the stage's saved results
+#   REPORT_ODB              the stage's saved .odb, read with its .sdc
 #   REPORT_PARASITICS       placement, global_routing or spef
 #   REPORT_METRICS_STAGE    the stage's metrics prefix, e.g. cts
 #   REPORT_NUM, REPORT_WHEN report_metrics's stage and when, as in-stage
@@ -21,7 +21,7 @@ set json [file join $::env(WORK_HOME) $::env(REPORT_JSON)]
 utl::open_metrics $json
 utl::set_metrics_stage "$::env(REPORT_METRICS_STAGE)__{}"
 
-load_design $::env(REPORT_ODB) $::env(REPORT_SDC)
+load_design $::env(REPORT_ODB)
 
 switch $::env(REPORT_PARASITICS) {
   placement {

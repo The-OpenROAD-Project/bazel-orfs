@@ -1,6 +1,6 @@
 # What happens to the macros when rtl_macro_placer is skipped?
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design [file tail $::env(ODB_FILE)] [file rootname [file tail $::env(ODB_FILE)]].sdc
+load_design [file tail $::env(ODB_FILE)]
 
 initialize_floorplan -die_area $::env(DIE_AREA) -core_area $::env(CORE_AREA) -site $::env(PLACE_SITE)
 if {$::env(MAKE_TRACKS) ne ""} { source $::env(MAKE_TRACKS) }

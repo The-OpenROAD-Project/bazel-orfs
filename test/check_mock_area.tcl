@@ -1,5 +1,5 @@
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design 2_floorplan.odb 2_floorplan.sdc
+load_design 2_floorplan.odb
 
 set macros [find_macros]
 if {[llength $macros] == 0} {

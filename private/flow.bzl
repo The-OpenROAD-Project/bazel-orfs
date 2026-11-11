@@ -336,10 +336,10 @@ def _orfs_estimate_report(name, src, arguments = {}, sources = {}, variant = Non
 # states bazel-orfs does not keep (2_1, 3_3, 3_4), and the
 # DETAILED_METRICS reports on states nothing keeps: none of them is here.
 _STAGE_REPORTS = {
-    "place": struct(odb = "3_place.odb", sdc = "3_place.sdc", parasitics = "placement", metrics_stage = "detailedplace", num = "3", when = "detailed place", flags = "true false"),
-    "cts": struct(odb = "4_cts.odb", sdc = "4_cts.sdc", parasitics = "placement", metrics_stage = "cts", num = "4", when = "cts final", flags = ""),
-    "grt": struct(odb = "5_1_grt.odb", sdc = "5_1_grt.sdc", parasitics = "global_routing", metrics_stage = "globalroute", num = "5", when = "global route", flags = ""),
-    "final": struct(odb = "6_final.odb", sdc = "6_final.sdc", parasitics = "spef", metrics_stage = "finish", num = "6", when = "finish", flags = ""),
+    "place": struct(odb = "3_place.odb", parasitics = "placement", metrics_stage = "detailedplace", num = "3", when = "detailed place", flags = "true false"),
+    "cts": struct(odb = "4_cts.odb", parasitics = "placement", metrics_stage = "cts", num = "4", when = "cts final", flags = ""),
+    "grt": struct(odb = "5_1_grt.odb", parasitics = "global_routing", metrics_stage = "globalroute", num = "5", when = "global route", flags = ""),
+    "final": struct(odb = "6_final.odb", parasitics = "spef", metrics_stage = "finish", num = "6", when = "finish", flags = ""),
 }
 
 def _orfs_stage_report(name, src, stage, variant = None, openroad = None, visibility = None):
@@ -370,7 +370,6 @@ def _orfs_stage_report(name, src, stage, variant = None, openroad = None, visibi
             "REPORT_ODB": report.odb,
             "REPORT_PARASITICS": report.parasitics,
             "REPORT_RPT": name + ".rpt",
-            "REPORT_SDC": report.sdc,
             "REPORT_WHEN": report.when,
         },
         # On demand: a wildcard build of the flow does not build it.

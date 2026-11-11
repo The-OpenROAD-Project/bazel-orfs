@@ -3,7 +3,7 @@
 # hazard), one JSON per leaf in $RUN_OUTPUT_DIR, and a deliberate failing
 # leaf that must not stop the walk.
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design 2_floorplan.odb 2_floorplan.sdc
+load_design 2_floorplan.odb
 
 source $::env(ORFS_FORK_TCL)
 

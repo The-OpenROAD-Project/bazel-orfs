@@ -22,7 +22,7 @@
 
 source $::env(SCRIPTS_DIR)/load.tcl
 
-load_design $::env(STAGE_STEM).odb $::env(STAGE_STEM).sdc
+load_design $::env(STAGE_STEM).odb
 
 set block [ord::get_db_block]
 set fh [open $::env(OUT) w]

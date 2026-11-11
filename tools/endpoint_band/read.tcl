@@ -24,18 +24,18 @@
 source $::env(SCRIPTS_DIR)/load.tcl
 set read_stage [expr { [info exists ::env(READ_STAGE)] ? $::env(READ_STAGE) : "grt" }]
 if { $read_stage eq "grt" } {
-  load_design 5_1_grt.odb 5_1_grt.sdc
+  load_design 5_1_grt.odb
   set_propagated_clock [all_clocks]
   estimate_parasitics -global_routing
 } elseif { $read_stage eq "cts" } {
-  load_design 4_cts.odb 4_cts.sdc
+  load_design 4_cts.odb
   set_propagated_clock [all_clocks]
   estimate_parasitics -placement
 } elseif { $read_stage eq "place" } {
-  load_design 3_place.odb 3_place.sdc
+  load_design 3_place.odb
   estimate_parasitics -placement
 } elseif { $read_stage eq "floorplan" } {
-  load_design 2_floorplan.odb 2_floorplan.sdc
+  load_design 2_floorplan.odb
 } else {
   error "READ_STAGE is grt, cts, place or floorplan, not $read_stage"
 }

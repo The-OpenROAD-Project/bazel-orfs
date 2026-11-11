@@ -31,9 +31,8 @@ foreach n $which {
   if { $n < 0 || $n >= [llength $sets] } {
     error "crossing_headroom_sets: no set $n, the sets file has [llength $sets]"
   }
-  set base $::env(SETS_DIR)/set.$n
+  set base $::env(SETS_DIR)/set_$n
   set ::env(SET_ODB) $base.odb
-  set ::env(SET_SDC) $base.sdc
   set ::env(SET_SPEF) $base.spef
   set ::env(CONE_MACROS) [lindex $sets $n]
   set ::env(CROSSING_TXT) $crossing_txt.$n

@@ -1,5 +1,5 @@
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design [file tail $::env(ODB_FILE)] [file rootname [file tail $::env(ODB_FILE)]].sdc
+load_design [file tail $::env(ODB_FILE)]
 set blk [ord::get_db_block]
 set paths [find_timing_paths -path_group reg2reg -sort_by_slack -group_path_count 1]
 foreach path $paths {

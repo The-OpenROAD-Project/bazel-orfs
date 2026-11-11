@@ -12,7 +12,7 @@
 # the selection found. Its period must be the selection's worst crossing,
 # what crossing_time.tcl reports; it stops with an error when it is not.
 #
-#   SET_ODB, SET_SDC, CONE_MACROS, PARENT_INST   as crossing_time.tcl
+#   SET_ODB, CONE_MACROS, PARENT_INST   as crossing_time.tcl
 #   HR_TCL       tools/odb_debug/headroom.tcl
 #   BUDGET_PS    the target: the mass over it is what a move has to shift
 #   CROSSING_TXT one JSON object, written again after every measurement,
@@ -28,7 +28,7 @@
 #                VT measurement, over an hour each on an XSTile set
 source $::env(SCRIPTS_DIR)/load.tcl
 set ::env(RESULTS_DIR) [file dirname $::env(SET_ODB)]
-load_design [file tail $::env(SET_ODB)] [file tail $::env(SET_SDC)]
+load_design [file tail $::env(SET_ODB)]
 source $::env(HR_TCL)
 set_propagated_clock [all_clocks]
 set ::hr_parasitics [list read_spef $::env(SET_SPEF)]

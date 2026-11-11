@@ -6,12 +6,12 @@
 # group filter. Registers only side inputs reach start false paths, so
 # the other paths left are few.
 #
-#   SET_ODB, SET_SDC, SET_SPEF  the set's design (no SPEF: estimated here)
+#   SET_ODB, SET_SPEF  the set's design (no SPEF: estimated here)
 #   CONE_MACROS                 the set's macros
 #   ODB_DEBUG_DIR               the daemon's directory (daemon.tcl)
 source $::env(SCRIPTS_DIR)/load.tcl
 set ::env(RESULTS_DIR) [file dirname $::env(SET_ODB)]
-load_design [file tail $::env(SET_ODB)] [file tail $::env(SET_SDC)]
+load_design [file tail $::env(SET_ODB)]
 set_propagated_clock [all_clocks]
 if { [env_var_exists_and_non_empty SET_SPEF] } {
   log_cmd read_spef $::env(SET_SPEF)

@@ -5,11 +5,11 @@
 # (KPI_STAGE grt; place reads a place-stage checkpoint against an ideal clock).
 source $::env(SCRIPTS_DIR)/load.tcl
 if { $::env(KPI_STAGE) eq "grt" } {
-  load_design 5_1_grt.odb 5_1_grt.sdc
+  load_design 5_1_grt.odb
   set_propagated_clock [all_clocks]
   estimate_parasitics -global_routing
 } else {
-  load_design 3_place.odb 3_place.sdc
+  load_design 3_place.odb
   estimate_parasitics -placement
 }
 set p [get_property [get_clocks] period]

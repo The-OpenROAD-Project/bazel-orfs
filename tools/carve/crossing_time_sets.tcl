@@ -28,9 +28,8 @@ if { [info exists ::env(CROSSING_JOBS)] && $::env(CROSSING_JOBS) ne "" } {
   set jobs $::env(CROSSING_JOBS)
 }
 set statuses [fork -jobs $jobs crossing_set [lsearch -all $sets *] {
-  set base $::env(SETS_DIR)/set.$crossing_set
+  set base $::env(SETS_DIR)/set_$crossing_set
   set ::env(SET_ODB) $base.odb
-  set ::env(SET_SDC) $base.sdc
   set ::env(SET_SPEF) $base.spef
   set ::env(CONE_MACROS) [lindex $sets $crossing_set]
   set ::env(CROSSING_TXT) $crossing_txt.$crossing_set

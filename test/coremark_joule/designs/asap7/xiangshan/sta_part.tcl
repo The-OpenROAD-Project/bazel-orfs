@@ -6,7 +6,7 @@
 # holding the divider is escaped in one and not the other, and every SPEF
 # net becomes a slow, sometimes failing, lookup.
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design 5_1_grt.odb 5_1_grt.sdc
+load_design 5_1_grt.odb
 # A block keeps its interface logic only (STA_ILM=1): the cells from its data
 # inputs to the first flops and from the last flops to its outputs, every load
 # of a net those cells drive (the wire's load stays whole), and the clock tree

@@ -8,7 +8,7 @@
 # top_level.tcl sources this with its routed design loaded and estimated
 if { ![info exists ::crossing_paths_loaded] } {
   source $::env(SCRIPTS_DIR)/load.tcl
-  load_design 5_1_grt.odb 5_1_grt.sdc
+  load_design 5_1_grt.odb
   estimate_parasitics -global_routing
 }
 

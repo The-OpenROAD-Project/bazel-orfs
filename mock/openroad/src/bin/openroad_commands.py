@@ -9,6 +9,7 @@ import json
 import os
 import re
 import sys
+from tcl_interpreter import TclError
 
 
 class MockDesignState:
@@ -1201,15 +1202,31 @@ def cmd_log_cmd(interp, args):
 
 
 def cmd_load_design(interp, args):
-    """load_design <odb_or_verilog> ?sdc?"""
-    if args:
-        print(f"lint: load_design {args[0]}", file=sys.stderr)
-        if len(args) > 1:
-            _state.sdc_loaded = args[1]
-            # Find the actual SDC file in RESULTS_DIR
-            sdc_path = os.path.join(_state.results_dir, args[1])
-            if os.path.isfile(sdc_path):
-                _state.sdc_loaded = sdc_path
+    """load_design <odb_or_verilog> ?-backing_file <file>?
+
+    As ORFS's load.tcl: the .sdc read is the one beside the design
+    file, the same name up to its first dot.
+    """
+    positional = []
+    i = 0
+    while i < len(args):
+        if args[i] == "-backing_file":
+            i += 2
+            continue
+        positional.append(args[i])
+        i += 1
+    if len(positional) != 1:
+        raise TclError(
+            "load_design takes the design file alone, its .sdc is the one "
+            f"beside it: load_design {' '.join(args)}"
+        )
+    design = positional[0]
+    print(f"lint: load_design {design}", file=sys.stderr)
+    sdc = re.sub(r"\.[^/]*$", ".sdc", design)
+    _state.sdc_loaded = sdc
+    sdc_path = os.path.join(_state.results_dir, sdc)
+    if os.path.isfile(sdc_path):
+        _state.sdc_loaded = sdc_path
     return ""
 
 

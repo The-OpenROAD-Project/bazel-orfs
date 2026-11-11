@@ -15,10 +15,9 @@
 source $::env(SCRIPTS_DIR)/load.tcl
 if { [env_var_exists_and_non_empty TOP_DIR] } {
   set ::env(RESULTS_DIR) $::env(TOP_DIR)
-  load_design 5_top_grt.odb 5_top_grt.sdc
-} else {
-  load_design 5_top_grt.odb 2_floorplan.sdc
 }
+# top_level.tcl writes 5_top_grt.sdc beside it: the constraints it read
+load_design 5_top_grt.odb
 set parent [env_var_or_empty PARENT_INST]
 if { $parent eq "" } {
   set parent u_parent

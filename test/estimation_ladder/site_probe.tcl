@@ -6,7 +6,7 @@
 # multiple of the site pitch can snap straight back and perturb nothing at
 # all, while still looking like a perturbation in the report.
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design [file tail $::env(ODB_FILE)] [file rootname [file tail $::env(ODB_FILE)]].sdc
+load_design [file tail $::env(ODB_FILE)]
 set dbu [[[ord::get_db] getTech] getDbUnitsPerMicron]
 puts "SITE dbu_per_micron=$dbu"
 foreach lib [[ord::get_db] getLibs] {
