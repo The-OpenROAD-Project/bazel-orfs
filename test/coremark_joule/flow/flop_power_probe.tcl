@@ -13,7 +13,7 @@
 
 source $::env(SCRIPTS_DIR)/load.tcl
 
-load_design $::env(STAGE_STEM).odb $::env(STAGE_STEM).sdc
+load_design $::env(STAGE_STEM).odb
 read_saif -scope $::env(SAIF_SCOPE) $::env(SAIF_STIMULI)
 
 set out [open $::env(OUT) w]

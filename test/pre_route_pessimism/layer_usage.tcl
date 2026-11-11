@@ -41,8 +41,7 @@ source $::env(STAGE_SRC_TCL)
 
 source $::env(SCRIPTS_DIR)/load.tcl
 set odb_tail [file tail $stage_src_staged]
-set sdc_tail [file rootname $odb_tail].sdc
-load_design $odb_tail $sdc_tail
+load_design $odb_tail
 
 set block [ord::get_db_block]
 set tech [[ord::get_db] getTech]

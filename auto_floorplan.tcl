@@ -654,5 +654,5 @@ proc af_run { } {
 
 # Entry point when run as an orfs_run script.
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design 1_synth.odb 1_synth.sdc
+load_design 1_synth.odb
 af_run

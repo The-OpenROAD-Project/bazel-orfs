@@ -10,8 +10,7 @@ set script_start [clock clicks -milliseconds]
 
 source $::env(SCRIPTS_DIR)/load.tcl
 set odb_tail [file tail $::env(ODB_FILE)]
-set sdc_tail [file rootname $odb_tail].sdc
-load_design $odb_tail $sdc_tail
+load_design $odb_tail
 set load_s [expr {([clock clicks -milliseconds] - $script_start) / 1000.0}]
 
 # Knob overlay for batch mode; empty here, so est_flag/est_args fall back

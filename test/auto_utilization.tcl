@@ -1,5 +1,5 @@
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design 1_synth.odb 1_synth.sdc
+load_design 1_synth.odb
 
 set block [ord::get_db_block]
 set num_cells [llength [$block getInsts]]

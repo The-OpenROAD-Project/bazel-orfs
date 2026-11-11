@@ -3,7 +3,7 @@
 # occupy, so a parent macro's notch stays free for the macros that
 # abut it. The timing model as ORFS writes it.
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design 5_1_grt.odb 5_1_grt.sdc
+load_design 5_1_grt.odb
 # The block's routing obstructions, a parent's over its notch
 # (io_notch.tcl), kept the macro's own router out; they are nothing the
 # macro occupies, and the level above routes there.

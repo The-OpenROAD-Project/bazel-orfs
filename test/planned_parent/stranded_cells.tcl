@@ -7,7 +7,7 @@
 # hook does, not that the miniature fails without it. Declared beside the
 # flow it probes.
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design 3_place.odb 3_place.sdc
+load_design 3_place.odb
 set block [ord::get_db_block]
 set big ""
 set area 0

@@ -36,7 +36,7 @@
 
 source $::env(SCRIPTS_DIR)/load.tcl
 
-load_design $::env(STAGE_STEM).odb $::env(STAGE_STEM).sdc
+load_design $::env(STAGE_STEM).odb
 
 # The same parasitics the power report uses. Activity does not depend on
 # them, but running the audit against a differently-loaded design than

@@ -36,7 +36,7 @@
 
 source $::env(SCRIPTS_DIR)/load.tcl
 
-load_design $::env(STAGE_STEM).odb $::env(STAGE_STEM).sdc
+load_design $::env(STAGE_STEM).odb
 
 if { [info exists ::env(POWER_SPEF)] && $::env(POWER_SPEF) ne "" } {
     # A bare name is resolved against RESULTS_DIR, where the flow writes

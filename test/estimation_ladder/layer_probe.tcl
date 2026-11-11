@@ -1,5 +1,5 @@
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design [file tail $::env(ODB_FILE)] [file rootname [file tail $::env(ODB_FILE)]].sdc
+load_design [file tail $::env(ODB_FILE)]
 set tech [[ord::get_db] getTech]
 foreach layer [$tech getLayers] {
     if {[$layer getRoutingLevel] == 0} { continue }

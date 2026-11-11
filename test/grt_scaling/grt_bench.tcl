@@ -66,7 +66,7 @@ catch { utl::open_metrics $metrics_file }
 
 source $::env(SCRIPTS_DIR)/load.tcl
 set t0 [gb_now]
-load_design [file tail $::env(ODB_FILE)] [file rootname [file tail $::env(ODB_FILE)]].sdc
+load_design [file tail $::env(ODB_FILE)]
 dict set gb load_s [expr { ([gb_now] - $t0) / 1000.0 }]
 dict set gb insts [llength [[ord::get_db_block] getInsts]]
 dict set gb nets [llength [[ord::get_db_block] getNets]]

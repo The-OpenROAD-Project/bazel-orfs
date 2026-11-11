@@ -41,10 +41,9 @@ set ::env(GUI_TIMING) 1
 set ::env(ODB_FILE) $odb
 source $::env(SCRIPTS_DIR)/open.tcl
 
-# Which instrument read_timing chose. Taken from util.tcl's own
-# find_sdc_file rather than re-derived from the file name.
-set stage_info [find_sdc_file $odb]
-set design_stage [lindex $stage_info 0]
+# Which instrument read_timing chose: open.tcl's own extract_stage
+# rather than re-derived from the file name.
+set design_stage [lindex [extract_stage $odb] 0]
 
 if { $design_stage >= 6 && [file exists $::env(RESULTS_DIR)/6_final.spef] } {
     set parasitics "spef"

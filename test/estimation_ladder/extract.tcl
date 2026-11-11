@@ -1,8 +1,7 @@
 source $::env(SCRIPTS_DIR)/load.tcl
 source $::env(EXTRACT_LIB_TCL)
 set odb_tail [file tail $::env(ODB_FILE)]
-set sdc_tail [file rootname $odb_tail].sdc
-load_design $odb_tail $sdc_tail
+load_design $odb_tail
 
 # The grt ODB is post-CTS: use the real clock tree and global-routing
 # parasitics, as open.tcl's read_timing does for stage >= 5.

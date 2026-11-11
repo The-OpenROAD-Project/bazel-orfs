@@ -15,7 +15,7 @@
 
 source $::env(SCRIPTS_DIR)/load.tcl
 
-load_design $::env(STAGE_STEM).odb $::env(STAGE_STEM).sdc
+load_design $::env(STAGE_STEM).odb
 
 # OpenSTA clamps every pin's switching density to 1/slew -- a net cannot
 # toggle faster than its own transition -- and at synthesis the clock

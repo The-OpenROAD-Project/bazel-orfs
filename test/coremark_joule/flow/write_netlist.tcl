@@ -14,6 +14,6 @@
 # parameter, so this serves any stage rather than just global route.
 source $::env(SCRIPTS_DIR)/load.tcl
 
-load_design $::env(STAGE_STEM).odb $::env(STAGE_STEM).sdc
+load_design $::env(STAGE_STEM).odb
 
 write_verilog $::env(OUTPUT)

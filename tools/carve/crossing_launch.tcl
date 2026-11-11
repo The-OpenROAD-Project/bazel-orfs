@@ -14,13 +14,13 @@
 # failing crossings; the worst was hold-limited to 80 ps with 612 ps of
 # setup room, and 231 of its 30,303 fanout endpoints were under 600 ps.
 #
-#   SET_ODB, SET_SDC, SET_SPEF, CONE_MACROS, PARENT_INST   as crossing_time.tcl
+#   SET_ODB, SET_SPEF, CONE_MACROS, PARENT_INST   as crossing_time.tcl
 #   BUDGET_PS    the crossings that count: those over it
 #   HOLD_TO      count the fanout up to this hold slack, ps (0: no count)
 #   CROSSING_TXT one JSON object: the set, then one entry per launcher
 source $::env(SCRIPTS_DIR)/load.tcl
 set ::env(RESULTS_DIR) [file dirname $::env(SET_ODB)]
-load_design [file tail $::env(SET_ODB)] [file tail $::env(SET_SDC)]
+load_design [file tail $::env(SET_ODB)]
 set_propagated_clock [all_clocks]
 read_spef $::env(SET_SPEF)
 if { [env_var_exists_and_non_empty CONE_MACROS] } {

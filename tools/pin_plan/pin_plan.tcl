@@ -33,7 +33,7 @@
 # per hardened block of a planned parent.
 source $::env(SCRIPTS_DIR)/load.tcl
 set stage $::env(PIN_PLAN_STAGE)
-load_design $stage.odb $stage.sdc
+load_design $stage.odb
 set block [ord::get_db_block]
 set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
 # room per pin along a side: eight M3 tracks, twice asap7's planner

@@ -5,7 +5,7 @@
 # design. On the toy (test/parent_macro), written and timed apart, the
 # sets report the whole design's paths, slack for slack.
 #
-#   SET_ODB, SET_SDC   the set's design
+#   SET_ODB   the set's design
 #   CROSSING_TXT       the report (crossing_paths.tcl)
 #   CROSSING_PATHS     that script
 #   TOP_PARASITICS     global_routing (default) or placement
@@ -14,7 +14,7 @@ source $::env(SCRIPTS_DIR)/load.tcl
 # from the set's directory
 # the set's design, its parasitics read in (SET_SPEF) or estimated here
 set ::env(RESULTS_DIR) [file dirname $::env(SET_ODB)]
-load_design [file tail $::env(SET_ODB)] [file tail $::env(SET_SDC)]
+load_design [file tail $::env(SET_ODB)]
 set parasitics [env_var_or_empty TOP_PARASITICS]
 if { $parasitics eq "" } {
   set parasitics global_routing

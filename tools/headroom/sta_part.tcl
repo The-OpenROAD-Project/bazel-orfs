@@ -15,7 +15,7 @@ set part_stage [expr { [info exists ::env(PART_STAGE)] ? $::env(PART_STAGE) : "g
 set part_files [dict create grt 5_1_grt cts 4_cts place 3_place floorplan 2_floorplan]
 if { ![dict exists $part_files $part_stage] } { error "PART_STAGE is grt, cts, place or floorplan, not $part_stage" }
 set part_base [dict get $part_files $part_stage]
-load_design $part_base.odb $part_base.sdc
+load_design $part_base.odb
 # A block keeps its interface logic only (STA_ILM=1): the cells from its data
 # inputs to the first flops and from the last flops to its outputs, every load
 # of a net those cells drive (the wire's load stays whole), and the clock tree

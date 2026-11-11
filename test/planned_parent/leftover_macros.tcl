@@ -6,7 +6,7 @@
 # the netlist is its periphery, the parent's, left for global placement. The box is the FIRM cells, the array the
 # plan placed. Declared beside the flow it probes.
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design 2_floorplan.odb 2_floorplan.sdc
+load_design 2_floorplan.odb
 set block [ord::get_db_block]
 # the core: every cell a netlist's .place file names, under its instance
 # (NETLISTS: the plan's <module> <instance> pairs). The block is

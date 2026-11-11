@@ -22,7 +22,7 @@
 #   PARENT_INST  the parent's instance (u_parent)
 #   FLATTEN_TXT  the counts
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design 2_floorplan.odb 2_floorplan.sdc
+load_design 2_floorplan.odb
 
 set block [ord::get_db_block]
 set parent [env_var_or_empty PARENT_INST]
