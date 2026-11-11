@@ -1,0 +1,136 @@
+From e916e14c001d3cde8fed82a68b90409190644513 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Wed, 11 Nov 2026 16:37:24 +0100
+Subject: [PATCH] memories: a register file's own flow blocks its array, the
+ band is placement's
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A register file's own flow (patch 0172) places generate_ram's array
+FIRM, and global placement places what is left: generate_ram's input
+buffers, which -periphery unplaced leaves to a parent, and the port
+buffers buffer_ports adds. The array fills its rows but for holes a few
+sites wide, and global placement put most of those cells into it: on a
+25 x 72 1r1w register file at bit_folds 4 on asap7, 102 of 155 started
+over the array's cells. Detailed placement's negotiation legalizer
+stalled with 14 left (DPL-0700) and needed its diamond-search
+recovery, and where it runs out of iterations instead detailed placement
+fails (DPL-0701, DPL-0033).
+
+regfile_place_top now puts a soft placement blockage over the placed
+array. Global placement blocks the sites under it, so the cells left to
+placement go to the band of rows the outline leaves around the array;
+detailed placement and check_placement, which skip a soft blockage, do
+not count the array's own FIRM cells under it as violations
+(DPL-0041). The band's free sites are counted against the cells left to
+placement, and the flow stops (FLW-42) when they cannot fit, naming
+both numbers.
+
+On the 25 x 72 register file: 13 cells start over the array, phase 1
+of the negotiation legalizer converges at iteration 0 with no recovery,
+140 moves instead of 297, largest 3.3 um instead of 6.7, HPWL 30,742 um
+instead of 31,124.
+
+Not upstreamed: on 0172, carried with it. Retires at a //:bump onto an
+ORFS that carries it.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/regfile_place.tcl | 71 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 71 insertions(+)
+
+diff --git a/flow/scripts/regfile_place.tcl b/flow/scripts/regfile_place.tcl
+index 65394809e..6b34c1575 100644
+--- a/flow/scripts/regfile_place.tcl
++++ b/flow/scripts/regfile_place.tcl
+@@ -140,15 +140,86 @@ proc regfile_place_top { } {
+     $inst setLocation [expr { $ox + $x - [$gdie xMin] }] [expr { $oy + $y - [$gdie yMin] }]
+     $inst setPlacementStatus FIRM
+     incr placed
++    set b [$inst getBBox]
++    if { $placed == 1 } {
++      lassign [list [$b xMin] [$b yMin] [$b xMax] [$b yMax]] ax0 ay0 ax1 ay1
++    } else {
++      set ax0 [expr { min($ax0, [$b xMin]) }]
++      set ay0 [expr { min($ay0, [$b yMin]) }]
++      set ax1 [expr { max($ax1, [$b xMax]) }]
++      set ay1 [expr { max($ay1, [$b yMax]) }]
++    }
+   }
+   odb::dbDatabase_destroy $db
+   set left 0
++  set demand 0
+   foreach inst [$block getInsts] {
+     if { ![$inst isPlaced] } {
+       incr left
++      incr demand [expr { [[$inst getMaster] getWidth] / $sw }]
+     }
+   }
+   puts "regfile_place: $m, $placed cells where generate_ram placed them,\
+     $removed tap and end cells under them removed, $missing gone in\
+     synthesis, $resized resized since, $left left to placement"
++  regfile_block_array $block $ax0 $ay0 $ax1 $ay1 $demand
++}
++
++# The array is FIRM and nearly full: its free sites are holes a few sites
++# wide between its cells. A placement blockage over it leaves global
++# placement the band of rows around it, so the cells left to placement
++# (generate_ram's periphery, the port buffers buffer_ports adds, repair's
++# buffers) go there, not into the holes, where detailed placement must
++# negotiate them out one by one. Soft: global placement blocks the sites
++# under any blockage at its maximum density, 0 by default, while
++# detailed placement and check_placement would count the array's own
++# FIRM cells under a hard one as violations (DPL-0041). The band's free sites
++# must hold at least the cells left to placement now; buffer_ports and
++# repair add to them later.
++proc regfile_block_array { block x0 y0 x1 y1 demand } {
++  set blockage [odb::dbBlockage_create $block $x0 $y0 $x1 $y1]
++  $blockage setSoft
++  # the fixed cells outside the array: the band's tap and end cells
++  set band_fixed {}
++  foreach inst [$block getInsts] {
++    set b [$inst getBBox]
++    if { [$inst isFixed] && !([$b xMin] >= $x0 && [$b xMax] <= $x1
++                               && [$b yMin] >= $y0 && [$b yMax] <= $y1) } {
++      lappend band_fixed $b
++    }
++  }
++  set supply 0
++  set rows 0
++  foreach row [$block getRows] {
++    set r [$row getBBox]
++    if { [$r yMin] >= $y0 && [$r yMax] <= $y1 } {
++      if { [$r xMin] >= $x0 && [$r xMax] <= $x1 } {
++        continue
++      }
++    }
++    set sw [[$row getSite] getWidth]
++    set free [expr { [$r dx] }]
++    if { [$r yMin] < $y1 && [$r yMax] > $y0 } {
++      set free [expr { $free - (min([$r xMax], $x1) - max([$r xMin], $x0)) }]
++    }
++    foreach b $band_fixed {
++      if { [$b yMin] < [$r yMax] && [$b yMax] > [$r yMin] } {
++        set free [expr { $free - max(0, min([$b xMax], [$r xMax]) - max([$b xMin], [$r xMin])) }]
++      }
++    }
++    incr rows
++    incr supply [expr { max(0, $free) / $sw }]
++  }
++  set dbu [$block getDbUnitsPerMicron]
++  puts [format "regfile_place: the array blocked, %.2f %.2f %.2f %.2f um;\
++    the band around it, %d rows, has %d free sites for the %d sites of\
++    the cells left to placement" \
++    [expr { double($x0) / $dbu }] [expr { double($y0) / $dbu }] \
++    [expr { double($x1) / $dbu }] [expr { double($y1) / $dbu }] \
++    $rows $supply $demand]
++  if { $demand > $supply } {
++    utl::error FLW 42 "regfile_place: the band around the array has\
++      $supply free sites, the cells left to placement need $demand.\
++      Lower CORE_UTILIZATION, or give a larger CORE_AREA."
++  }
+ }
+-- 
+2.53.0
+

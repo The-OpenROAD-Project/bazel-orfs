@@ -1,0 +1,12 @@
+# A 25-word, 72-bit register file with one read and one write port,
+# folded four rows a word: generate_ram's array fills its rows but for
+# holes a few sites wide, and 155 buffers (generate_ram's input buffers,
+# the port buffers) are left to placement.
+module Rf25x72
+mode netlist
+words 25
+bits 72
+bit_folds 4
+clock clock
+read io_r0_addr io_r0_data
+write io_w0_addr io_w0_data io_w0_en

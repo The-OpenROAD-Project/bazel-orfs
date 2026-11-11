@@ -12,6 +12,7 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 exports_files(
     ["constraint.sdc"],
     visibility = [
+        "//test/regfile/band:__pkg__",
         "//test/regfile/macro:__pkg__",
         "//test/regfile/options:__pkg__",
     ],
