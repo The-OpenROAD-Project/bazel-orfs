@@ -466,8 +466,9 @@ macros in `deps`, and the names `SYNTH_STABLE_MODULE_NAMES_EXCLUDE`
 matches keep theirs. `SYNTH_STABLE_MODULE_NAMES_GROUPS` gives the desired
 names exactly, as `{module: desired name}`; without it `X` and `X_<n>`
 are taken to be one family. `module_names.json` (output group
-`module_names`) lists every new name, and a `SYNTH_KEEP_MODULES` name the
-output does not have fails the step.
+`module_names`) lists every new name, and a `SYNTH_KEEP_MODULES` name or
+`SYNTH_RETIME_MODULES` pattern that matches no module of the output fails
+the step.
 
 ### Caching needs a deliberate POLA violation
 

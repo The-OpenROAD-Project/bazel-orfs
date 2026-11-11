@@ -30,11 +30,13 @@ give the same bytes.
 
   stable_module_names.py --top TOP --out OUT.sv --map module_names.json
       [--groups groups.json] [--exclude PATTERN]... [--keep NAME]...
+      [--retime PATTERN]...
       SOURCE...
 
 A SOURCE is a .v/.sv file or a directory of them. module_names.json maps
-every renamed module to its new names. A --keep name that is not a
-module of the output stops the pass, with the new names of a renamed one.
+every renamed module to its new names. A --keep name or --retime
+pattern that matches no module of the output stops the pass, with the
+new names of a renamed one.
 """
 
 import argparse
@@ -293,12 +295,12 @@ def rename(sources, top, groups=None, exclude=()):
 
 
 def check_kept(kept, sources, mapping):
-    """The names in kept that are not a module of the renamed sources,
-    each with why."""
+    """The names in kept, fnmatch patterns, that match no module of the
+    renamed sources, each with why."""
     defined, _ = parse(sources)
     missing = []
     for name in kept:
-        if name in defined:
+        if name in defined or fnmatch.filter(defined, name):
             continue
         if name in mapping:
             missing.append(f"{name}: renamed to {' '.join(mapping[name])}")
@@ -336,6 +338,7 @@ def main(argv=None):
     parser.add_argument("--groups")
     parser.add_argument("--exclude", action="append", default=[])
     parser.add_argument("--keep", action="append", default=[])
+    parser.add_argument("--retime", action="append", default=[])
     parser.add_argument("sources", nargs="+")
     args = parser.parse_args(argv)
 
@@ -347,13 +350,13 @@ def main(argv=None):
         sources, mapping = rename(
             read_sources(args.sources), args.top, groups, args.exclude
         )
-        missing = check_kept(args.keep, sources, mapping)
+        missing = check_kept(args.keep + args.retime, sources, mapping)
     except StableNamesError as e:
         print(f"stable_module_names: {e}", file=sys.stderr)
         return 1
     if missing:
         print(
-            "stable_module_names: kept modules missing after renaming "
+            "stable_module_names: kept or retimed modules missing after renaming "
             "(module_names.json lists every new name):\n  " + "\n  ".join(missing),
             file=sys.stderr,
         )
