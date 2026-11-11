@@ -175,11 +175,13 @@ ORFS_PATCHES = [
     # place. On 0213. Not upstreamed; retires at a bump onto an ORFS that
     # carries it.
     Label("//patches:0214-orfs-auto-memories-dir.patch"),
-    # 0215: a register file's own flow puts a soft placement blockage over
-    # generate_ram's FIRM array, so global placement places what is left
-    # in the band of rows around it, not in the array's holes, and stops
-    # (FLW-42) when the band cannot hold it. On 0172. Not upstreamed;
-    # retires at a bump onto an ORFS that carries it.
+    # 0215: a register file's own flow puts soft placement blockages over
+    # generate_ram's FIRM array, in strips between its free columns (its
+    # service columns among them), so global placement places what is
+    # left in the band of rows around it and in those columns, not in the
+    # array's scattered holes, and stops (FLW-42) when they cannot hold
+    # it. On 0172. Not upstreamed; retires at a bump onto an ORFS that
+    # carries it.
     Label("//patches:0215-orfs-regfile-array-blockage.patch"),
     # 0217: an issue archive's run-me script climbs from a relative
     # WORK_HOME (bazel-orfs's package) to the archive's root before it

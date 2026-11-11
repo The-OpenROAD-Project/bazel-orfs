@@ -18,14 +18,18 @@ stalled with 14 left (DPL-0700) and needed its diamond-search
 recovery, and where it runs out of iterations instead detailed placement
 fails (DPL-0701, DPL-0033).
 
-regfile_place_top now puts a soft placement blockage over the placed
-array. Global placement blocks the sites under it, so the cells left to
-placement go to the band of rows the outline leaves around the array;
+regfile_place_top now puts soft placement blockages over the placed
+array, in strips between its free columns: columns of sites free in
+nine rows of ten or more, such as the service columns generate_ram
+leaves (-service_columns) for the buffers placement puts on the long
+nets across the array. Global placement blocks the sites under them, so
+the cells left to placement go to the band of rows the outline leaves
+around the array and to those columns, not to the scattered holes;
 detailed placement and check_placement, which skip a soft blockage, do
 not count the array's own FIRM cells under it as violations
 (DPL-0041). The band's free sites are counted against the cells left to
-placement, and the flow stops (FLW-42) when they cannot fit, naming
-both numbers.
+placement, the free columns' sites among the band's, and the flow stops
+(FLW-42) when they cannot fit, naming both numbers.
 
 On the 25 x 72 register file: 13 cells start over the array, phase 1
 of the negotiation legalizer converges at iteration 0 with no recovery,
@@ -37,14 +41,14 @@ ORFS that carries it.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- flow/scripts/regfile_place.tcl | 71 ++++++++++++++++++++++++++++++++++
- 1 file changed, 71 insertions(+)
+ flow/scripts/regfile_place.tcl | 124 +++++++++++++++++++++++++++++++++
+ 1 file changed, 124 insertions(+)
 
 diff --git a/flow/scripts/regfile_place.tcl b/flow/scripts/regfile_place.tcl
-index 65394809e..6b34c1575 100644
+index 65394809e..73acaaf00 100644
 --- a/flow/scripts/regfile_place.tcl
 +++ b/flow/scripts/regfile_place.tcl
-@@ -140,15 +140,86 @@ proc regfile_place_top { } {
+@@ -140,15 +140,139 @@ proc regfile_place_top { } {
      $inst setLocation [expr { $ox + $x - [$gdie xMin] }] [expr { $oy + $y - [$gdie yMin] }]
      $inst setPlacementStatus FIRM
      incr placed
@@ -73,6 +77,59 @@ index 65394809e..6b34c1575 100644
 +  regfile_block_array $block $ax0 $ay0 $ax1 $ay1 $demand
 +}
 +
++# Soft placement blockages over the array, in strips between its free
++# columns: a column of sites free in nearly every row of the array, such
++# as the service columns generate_ram leaves (-service_columns) for the
++# buffers placement puts on the long nets across it. The scattered holes
++# between the array's cells stay blocked. Returns the free columns' free
++# sites.
++proc regfile_block_strips { block x0 y0 x1 y1 } {
++  set row [lindex [$block getRows] 0]
++  set sw [[$row getSite] getWidth]
++  set rh [[$row getSite] getHeight]
++  set n [expr { ($x1 - $x0) / $sw }]
++  set nrows [expr { ($y1 - $y0) / $rh }]
++  # per site column, the rows of the array a FIRM cell covers it in
++  set taken [lrepeat $n 0]
++  foreach inst [$block getInsts] {
++    if { [$inst getPlacementStatus] ne "FIRM" } {
++      continue
++    }
++    set b [$inst getBBox]
++    if { [$b xMin] < $x0 || [$b xMax] > $x1 || [$b yMin] < $y0 || [$b yMax] > $y1 } {
++      continue
++    }
++    set h [expr { [$b getDY] / $rh }]
++    for { set c [expr { ([$b xMin] - $x0) / $sw }] } \
++        { $c < ([$b xMax] - $x0 + $sw - 1) / $sw && $c < $n } { incr c } {
++      lset taken $c [expr { [lindex $taken $c] + $h }]
++    }
++  }
++  # a service column is free in at least nine rows of ten
++  set strips {}
++  set start -1
++  set open_sites 0
++  for { set c 0 } { $c <= $n } { incr c } {
++    set open [expr { $c < $n && [lindex $taken $c] * 10 <= $nrows }]
++    if { $open } {
++      incr open_sites [expr { $nrows - [lindex $taken $c] }]
++    }
++    if { !$open && $c < $n && $start < 0 } {
++      set start $c
++    } elseif { ($open || $c == $n) && $start >= 0 } {
++      lappend strips [list $start $c]
++      set start -1
++    }
++  }
++  foreach strip $strips {
++    lassign $strip a b
++    set blockage [odb::dbBlockage_create $block \
++      [expr { $x0 + $a * $sw }] $y0 [expr { $x0 + $b * $sw }] $y1]
++    $blockage setSoft
++  }
++  return $open_sites
++}
++
 +# The array is FIRM and nearly full: its free sites are holes a few sites
 +# wide between its cells. A placement blockage over it leaves global
 +# placement the band of rows around it, so the cells left to placement
@@ -85,8 +142,7 @@ index 65394809e..6b34c1575 100644
 +# must hold at least the cells left to placement now; buffer_ports and
 +# repair add to them later.
 +proc regfile_block_array { block x0 y0 x1 y1 demand } {
-+  set blockage [odb::dbBlockage_create $block $x0 $y0 $x1 $y1]
-+  $blockage setSoft
++  set open_sites [regfile_block_strips $block $x0 $y0 $x1 $y1]
 +  # the fixed cells outside the array: the band's tap and end cells
 +  set band_fixed {}
 +  foreach inst [$block getInsts] {
@@ -118,13 +174,14 @@ index 65394809e..6b34c1575 100644
 +    incr rows
 +    incr supply [expr { max(0, $free) / $sw }]
 +  }
++  incr supply $open_sites
 +  set dbu [$block getDbUnitsPerMicron]
-+  puts [format "regfile_place: the array blocked, %.2f %.2f %.2f %.2f um;\
-+    the band around it, %d rows, has %d free sites for the %d sites of\
-+    the cells left to placement" \
++  puts [format "regfile_place: the array blocked, %.2f %.2f %.2f %.2f um,\
++    but for %d sites of its free columns; with the band around it, %d\
++    rows, %d free sites for the %d sites of the cells left to placement" \
 +    [expr { double($x0) / $dbu }] [expr { double($y0) / $dbu }] \
 +    [expr { double($x1) / $dbu }] [expr { double($y1) / $dbu }] \
-+    $rows $supply $demand]
++    $open_sites $rows $supply $demand]
 +  if { $demand > $supply } {
 +    utl::error FLW 42 "regfile_place: the band around the array has\
 +      $supply free sites, the cells left to placement need $demand.\
