@@ -21,30 +21,30 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  2 files changed, 10 insertions(+), 3 deletions(-)
 
 diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
-index 1de13dc0..4d245628 100644
+index 8008ac4cb..cfc49abd7 100644
 --- a/flow/scripts/global_route.tcl
 +++ b/flow/scripts/global_route.tcl
 @@ -1,7 +1,7 @@
  utl::set_metrics_stage "globalroute__{}"
  source $::env(SCRIPTS_DIR)/load.tcl
  erase_non_stage_variables grt
--load_design 4_cts.odb 4_cts.sdc
-+load_design 4_cts.odb 4_cts.sdc -backing_file $::env(OBJECTS_DIR)/grt.db
+-load_design 4_cts.odb
++load_design 4_cts.odb -backing_file $::env(OBJECTS_DIR)/grt.db
  
  source_step_tcl PRE GLOBAL_ROUTE
  
 diff --git a/flow/scripts/load.tcl b/flow/scripts/load.tcl
-index 7d70b677..8401ffa9 100644
+index 45f24bdff..2066d481c 100644
 --- a/flow/scripts/load.tcl
 +++ b/flow/scripts/load.tcl
 @@ -2,7 +2,14 @@ source $::env(SCRIPTS_DIR)/util.tcl
  
  source $::env(SCRIPTS_DIR)/report_metrics.tcl
  
--proc load_design { design_file sdc_file } {
+-proc load_design { design_file } {
 +# -backing_file <file>: an .odb's table pages kept in that file (read_db
 +# -backing_file), so a stage can page out what it is done reading.
-+proc load_design { design_file sdc_file args } {
++proc load_design { design_file args } {
 +  sta::parse_key_args "load_design" args keys {-backing_file} flags {}
 +  set backing {}
 +  if { [info exists keys(-backing_file)] } {
@@ -53,7 +53,7 @@ index 7d70b677..8401ffa9 100644
    # Do not reload if design is already loaded
    set db [ord::get_db]
    if { [$db getChip] != "NULL" && [[$db getChip] getBlock] != "NULL" } {
-@@ -33,7 +40,7 @@ proc load_design { design_file sdc_file } {
+@@ -33,7 +40,7 @@ proc load_design { design_file } {
      read_verilog $::env(RESULTS_DIR)/$design_file
      log_cmd link_design {*}[hier_options] $::env(DESIGN_NAME)
    } elseif { $ext == ".odb" } {

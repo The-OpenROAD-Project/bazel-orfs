@@ -21,7 +21,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/src/grt/src/fastroute/include/FastRoute.h b/src/grt/src/fastroute/include/FastRoute.h
-index 0dc7d44770..b00ff743e5 100644
+index 0be8b81..40b4a88 100644
 --- a/src/grt/src/fastroute/include/FastRoute.h
 +++ b/src/grt/src/fastroute/include/FastRoute.h
 @@ -75,7 +75,7 @@ struct DebugSetting
@@ -32,7 +32,7 @@ index 0dc7d44770..b00ff743e5 100644
 +  int16_t x, y;  // grid coordinates are int16_t, as in TreeNode
  };
  
- struct CostParams
+ class MinHeap3D
 -- 
 2.53.0
 
