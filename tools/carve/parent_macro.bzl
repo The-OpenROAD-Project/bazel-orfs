@@ -506,9 +506,9 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
     report = "$(location @bazel-orfs//tools/carve:crossing_report)"
     native.genrule(
         name = "%s_crossings" % pm,
-        srcs = [times],
+        srcs = [times, ":%s/sets.txt" % pm],
         outs = ["%s/crossings/%s" % (pm, f) for f in ["crossing.txt", "tables.md", "histogram.svg"]],
-        cmd = "%s $$(dirname $(location %s/crossings/crossing.txt)) %s $(location %s)" % (report, pm, budget_ps, times),
+        cmd = "%s $$(dirname $(location %s/crossings/crossing.txt)) %s $(location :%s/sets.txt) $(location %s)" % (report, pm, budget_ps, pm, times),
         tools = ["@bazel-orfs//tools/carve:crossing_report"],
         tags = tags,
     )
@@ -616,9 +616,11 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
             "$(rootpath @bazel-orfs//tools/carve:crossing_report)",
             budget_ps,
             "$(rootpath :%s/whole.txt)" % pm,
+            "$(rootpath :%s/sets.txt)" % pm,
             "$(rootpath %s)" % times,
         ],
         data = [
+            ":%s/sets.txt" % pm,
             ":%s/whole.txt" % pm,
             times,
             "@bazel-orfs//tools/carve:crossing_report",
