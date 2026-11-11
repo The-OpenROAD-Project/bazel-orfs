@@ -1,0 +1,381 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Wed, 11 Nov 2026 12:49:04 +0100
+Subject: [PATCH] flow: AUTO_MEMORIES_DIR, where AUTO_MEMORIES' views are
+ written and read
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Before, synthesis wrote AUTO_MEMORIES' generated views and lists into
+$(RESULTS_DIR)/memories and every later stage read them from its own
+RESULTS_DIR. A variant that runs stages on another variant's synthesis
+(FLOW_INPUT_VARIANT) had no memories of its own, so load_stage_input
+refused AUTO_MEMORIES=1 outright.
+
+Now AUTO_MEMORIES_DIR names the directory, with an overridable default:
+
+  export AUTO_MEMORIES_DIR ?= $(RESULTS_DIR)/memories
+
+Synthesis writes there (gen_memories.py --out-dir, clean_synth), and
+every reader goes through it: util.tcl's lists and views, synthesis's
+inlined register files, regfile_dissolve.tcl, the KLayout technology's
+LEFs and def2stream.py's blackbox list. With the default nothing
+changes.
+
+With FLOW_INPUT_VARIANT: a variant forked off another sets
+AUTO_MEMORIES_DIR to that variant's memories for every stage it runs,
+next to FLOW_INPUT_VARIANT=<variant> for the first one, and reads the
+memories in place, nothing copied. load_stage_input now stops only when
+AUTO_MEMORIES_DIR is still this variant's default, and says to set it.
+A fork's klayout.lyt depends on the other variant's blackboxes.txt, not
+on this variant's memories.json, so make does not regenerate memories
+into a directory it only reads.
+
+Carried in bazel-orfs for ORFS #4824 (AUTO_MEMORIES_DIR), on
+0213 (#4812). One change beyond the upstream commit: regfile_place.tcl,
+which only carried patches add, reads the register files' netlists and
+placements through AUTO_MEMORIES_DIR too. Retires with the //:bump onto
+an ORFS that has it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ docs/user/AutoMemories.md         | 18 ++++++++++++------
+ docs/user/FlowVariables.md        |  8 +++++---
+ flow/Makefile                     | 13 +++++++++----
+ flow/scripts/load.tcl             | 12 ++++++++----
+ flow/scripts/regfile_dissolve.tcl |  4 ++--
+ flow/scripts/regfile_place.tcl    |  6 +++---
+ flow/scripts/synth_preamble.tcl   |  2 +-
+ flow/scripts/util.tcl             |  8 ++++----
+ flow/scripts/variables.mk         |  2 ++
+ flow/scripts/variables.yaml       | 17 +++++++++++++----
+ flow/util/def2stream.py           |  8 ++++----
+ 11 files changed, 63 insertions(+), 35 deletions(-)
+
+diff --git a/docs/user/AutoMemories.md b/docs/user/AutoMemories.md
+index 4fd8e4bb3..33d5630eb 100644
+--- a/docs/user/AutoMemories.md
++++ b/docs/user/AutoMemories.md
+@@ -22,22 +22,28 @@ into `$(RESULTS_DIR)/memories_inferred.json`, and
+ | File | Content |
+ | --- | --- |
+ | `$(RESULTS_DIR)/memories.json` | Inventory of every detected memory: geometry, full pin list with pin functions, behavioral model, and whether it was converted (`idiomatic`) with a reason. |
+-| `$(RESULTS_DIR)/memories/<m>.lib` | Generated Liberty view per converted memory. |
+-| `$(RESULTS_DIR)/memories/<m>_pre_layout.lib` | Ideal-clock (zero clock-tree insertion) variant for pre-CTS consumers that select lib files themselves. The Makefile flow uses `<m>.lib` throughout. |
+-| `$(RESULTS_DIR)/memories/<m>.lef` | Abstract LEF per converted memory. |
+-| `$(RESULTS_DIR)/memories/blackboxes.txt` | `<module> <area>` per converted module — what synthesis blackboxes, and the area in um² its `.lib` states, which `SYNTH_MINIMUM_KEEP_SIZE` costs it by. |
++| `$(AUTO_MEMORIES_DIR)/<m>.lib` | Generated Liberty view per converted memory. |
++| `$(AUTO_MEMORIES_DIR)/<m>_pre_layout.lib` | Ideal-clock (zero clock-tree insertion) variant for pre-CTS consumers that select lib files themselves. The Makefile flow uses `<m>.lib` throughout. |
++| `$(AUTO_MEMORIES_DIR)/<m>.lef` | Abstract LEF per converted memory. |
++| `$(AUTO_MEMORIES_DIR)/blackboxes.txt` | `<module> <area>` per converted module — what synthesis blackboxes, and the area in um² its `.lib` states, which `SYNTH_MINIMUM_KEEP_SIZE` costs it by. |
+ 
+ Synthesis (canonicalization) blackboxes the converted modules so the
+ liberty view wins over their behavioral bodies; floorplan through final
+ read the `<m>.lib`/`<m>.lef` of each module `blackboxes.txt` lists,
+ alongside `ADDITIONAL_LIBS`/`ADDITIONAL_LEFS`. Everything downstream keys
+-off the files above, by the names the lists give: a file in `memories/`
+-that no list names is not read, and a list that is missing stops the
++off the files above, by the names the lists give: a file in
++`AUTO_MEMORIES_DIR` that no list names is not read, and a list that is missing stops the
+ step that reads it. Nothing else passes between the generator and the
+ flow. That file-based handoff is what lets build systems (e.g.
+ bazel-orfs) declare the generated artifacts as ordinary stage outputs
+ and transitive dependencies of the remaining stages.
+ 
++`AUTO_MEMORIES_DIR` defaults to `$(RESULTS_DIR)/memories`. Synthesis
++writes the views there and every later stage reads them from there, so a
++variant whose stages run on another variant's synthesis, with
++`FLOW_INPUT_VARIANT` naming it, reads that variant's memories by setting
++`AUTO_MEMORIES_DIR` to its directory for every stage it runs.
++
+ Memories that are *not* converted stay in the netlist and synthesize to
+ flip-flops, like any other RTL.
+ 
+diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
+index c355834e1..7c3edfc87 100644
+--- a/docs/user/FlowVariables.md
++++ b/docs/user/FlowVariables.md
+@@ -103,9 +103,10 @@ configuration file.
+ | <a name="ADDITIONAL_MEMORIES"></a>ADDITIONAL_MEMORIES| Experimental. Space-separated list of user-supplied `.memories` files (the memories.json JSON schema) merged onto the set AUTO_MEMORIES detects — to force-convert a memory the idiomatic gate rejects, or to describe one the scanner cannot find. See docs/user/AutoMemories.md.| |
+ | <a name="ADDITIONAL_SITES"></a>ADDITIONAL_SITES| Passed as -additional_sites to initialize_floorplan.| |
+ | <a name="ASAP7_USE_VT"></a>ASAP7_USE_VT| A space separated list of VT options to use with the ASAP7 standard cell library: RVT, LVT, SLVT.| RVT|
+-| <a name="AUTO_MEMORIES"></a>AUTO_MEMORIES| Experimental. When set to 1, memories that yosys infers in the RTL (`$mem_v2` cells, module boundary only) are detected pre-synthesis, inventoried in `$(RESULTS_DIR)/memories.json`, and — when idiomatic as an SRAM macro — given generated .lib/.lef views under `$(RESULTS_DIR)/memories/`. Synthesis blackboxes those modules and all later stages read the generated views, so an existing design gets macro-based results without a memory compiler. Supported for the asap7 platform only. See docs/user/AutoMemories.md.| 0|
++| <a name="AUTO_MEMORIES"></a>AUTO_MEMORIES| Experimental. When set to 1, memories that yosys infers in the RTL (`$mem_v2` cells, module boundary only) are detected pre-synthesis, inventoried in `$(RESULTS_DIR)/memories.json`, and — when idiomatic as an SRAM macro — given generated .lib/.lef views under `$(AUTO_MEMORIES_DIR)`. Synthesis blackboxes those modules and all later stages read the generated views, so an existing design gets macro-based results without a memory compiler. Supported for the asap7 platform only. See docs/user/AutoMemories.md.| 0|
++| <a name="AUTO_MEMORIES_DIR"></a>AUTO_MEMORIES_DIR| Directory AUTO_MEMORIES writes its generated views and lists to in synthesis, and every later stage reads them from. Defaults to $(RESULTS_DIR)/memories. Set it to another variant's directory to run stages on that variant's synthesis without copying its memories, with FLOW_INPUT_VARIANT naming the variant the stage input is read from. Like AUTO_MEMORIES, not tied to stages: every step that reads the views needs it, the abstract among them.| |
+ | <a name="AUTO_MEMORIES_MACRO_PLACE"></a>AUTO_MEMORIES_MACRO_PLACE| Experimental. Space-separated list of module names of AUTO_MEMORIES_REGFILES register files to place as macros, blackboxed in synthesis and placed by the macro placer (and, in `mode netlist`, dissolved after macro placement). A register file not listed is inlined: its generated netlist of standard cells replaces the module's body in synthesis, and its cells are placed, sized and buffered with the rest of the design -- the better shape for a small design, where a macro's outline and channels cost more core than the array saves. A name no spec builds stops the build. Requires AUTO_MEMORIES=1.| |
+-| <a name="AUTO_MEMORIES_REGFILES"></a>AUTO_MEMORIES_REGFILES| Experimental. Space-separated list of register-file spec files, one per RTL module to build as a register file of placed standard cells rather than synthesise to flops. Each spec names its module, words, bits, read and write ports by the RTL's own port names, and the cells. memories/regfile_ram.py checks the spec against the module's ports and has OpenROAD's generate_ram build it as `<module>_ram`, under `$(RESULTS_DIR)/memories/`, with a wrapper in the module's place. A module named in AUTO_MEMORIES_MACRO_PLACE is blackboxed like an AUTO_MEMORIES macro and placed as one; any other is inlined as its generated netlist. A placed spec in `mode netlist` then dissolves into its cells after macro placement: its core FIRM where the macro was placed, in the macro's orientation, its periphery left to placement. Every register file appears in memories.json with kind `regfile`. Requires AUTO_MEMORIES=1.| |
++| <a name="AUTO_MEMORIES_REGFILES"></a>AUTO_MEMORIES_REGFILES| Experimental. Space-separated list of register-file spec files, one per RTL module to build as a register file of placed standard cells rather than synthesise to flops. Each spec names its module, words, bits, read and write ports by the RTL's own port names, and the cells. memories/regfile_ram.py checks the spec against the module's ports and has OpenROAD's generate_ram build it as `<module>_ram`, under `$(AUTO_MEMORIES_DIR)`, with a wrapper in the module's place. A module named in AUTO_MEMORIES_MACRO_PLACE is blackboxed like an AUTO_MEMORIES macro and placed as one; any other is inlined as its generated netlist. A placed spec in `mode netlist` then dissolves into its cells after macro placement: its core FIRM where the macro was placed, in the macro's orientation, its periphery left to placement. Every register file appears in memories.json with kind `regfile`. Requires AUTO_MEMORIES=1.| |
+ | <a name="BALANCE_ROWS"></a>BALANCE_ROWS| Balance rows during placement.| 0|
+ | <a name="BLOCKS"></a>BLOCKS| Blocks used as hard macros in a hierarchical flow. Do note that you have to specify block-specific inputs file in the directory mentioned by Makefile.| |
+ | <a name="BUFFER_PORTS_ARGS"></a>BUFFER_PORTS_ARGS| Specify arguments to the buffer_ports call during placement. Only used if DONT_BUFFER_PORTS=0.| |
+@@ -152,7 +153,7 @@ configuration file.
+ | <a name="FILL_CELLS"></a>FILL_CELLS| Fill cells are used to fill empty sites. If not set or empty, fill cell insertion is skipped.| |
+ | <a name="FILL_CONFIG"></a>FILL_CONFIG| JSON rule file for metal fill during chip finishing.| |
+ | <a name="FLOORPLAN_DEF"></a>FLOORPLAN_DEF| Use the DEF file to initialize floorplan. Mutually exclusive with FOOTPRINT or DIE_AREA/CORE_AREA or CORE_UTILIZATION.| |
+-| <a name="FLOW_INPUT_VARIANT"></a>FLOW_INPUT_VARIANT| Flow variant a stage reads the previous stage's result from, the .odb and the .sdc beside it. Defaults to FLOW_VARIANT. A variant forked off another sets it to that variant for the first stage it runs, then leaves it at the default: the shared stages run once, and the fork writes only its own results. A stage's later steps read the stage's own results. A stage stops when its input is in both variants. Not with AUTO_MEMORIES=1, whose memories are read from the variant that synthesised them.| |
++| <a name="FLOW_INPUT_VARIANT"></a>FLOW_INPUT_VARIANT| Flow variant a stage reads the previous stage's result from, the .odb and the .sdc beside it. Defaults to FLOW_VARIANT. A variant forked off another sets it to that variant for the first stage it runs, then leaves it at the default: the shared stages run once, and the fork writes only its own results. A stage's later steps read the stage's own results. A stage stops when its input is in both variants. With AUTO_MEMORIES=1, AUTO_MEMORIES_DIR names the memories of the variant that synthesised them, for every stage the fork runs.| |
+ | <a name="FLOW_VARIANT"></a>FLOW_VARIANT| Flow variant to use, used in the flow variant directory name.| base|
+ | <a name="FOOTPRINT"></a>FOOTPRINT| Custom footprint definition file for ICeWall-based floorplan initialization. Mutually exclusive with FLOORPLAN_DEF or DIE_AREA/CORE_AREA or CORE_UTILIZATION.| |
+ | <a name="FOOTPRINT_TCL"></a>FOOTPRINT_TCL| Specifies a Tcl script with custom footprint-related commands for floorplan setup.| |
+@@ -687,6 +688,7 @@ configuration file.
+ - [ADDITIONAL_LEFS](#ADDITIONAL_LEFS)
+ - [ADDITIONAL_LIBS](#ADDITIONAL_LIBS)
+ - [AUTO_MEMORIES](#AUTO_MEMORIES)
++- [AUTO_MEMORIES_DIR](#AUTO_MEMORIES_DIR)
+ - [CAP_MARGIN](#CAP_MARGIN)
+ - [CDL_FILES](#CDL_FILES)
+ - [CORNER](#CORNER)
+diff --git a/flow/Makefile b/flow/Makefile
+index 1f068eb95..e3593aa10 100644
+--- a/flow/Makefile
++++ b/flow/Makefile
+@@ -205,7 +205,7 @@ do-klayout:
+ 		--output $(OBJECTS_DIR)/klayout.lyt \
+ 		--lef-files $(OBJECTS_DIR)/klayout_tech.lef $(SC_LEF) $(ADDITIONAL_LEFS) \
+ 		--map-files $(wildcard $(FLOW_HOME)/platforms/$(PLATFORM)/*map) \
+-		$(if $(filter 1,$(AUTO_MEMORIES)),--blackboxes $(RESULTS_DIR)/memories/blackboxes.txt)
++		$(if $(filter 1,$(AUTO_MEMORIES)),--blackboxes $(AUTO_MEMORIES_DIR)/blackboxes.txt)
+ 
+ $(OBJECTS_DIR)/klayout_wrap.lyt: $(KLAYOUT_TECH_FILE) $(OBJECTS_DIR)/klayout_tech.lef
+ 	$(UNSET_AND_MAKE) do-klayout_wrap
+@@ -270,7 +270,7 @@ do-auto-memories: $(RESULTS_DIR)/memories_inferred.json
+ 	  --platform $(PLATFORM) \
+ 	  --top $(DESIGN_NAME) \
+ 	  --yosys-json $(RESULTS_DIR)/memories_inferred.json \
+-	  --out-dir $(RESULTS_DIR)/memories \
++	  --out-dir $(AUTO_MEMORIES_DIR) \
+ 	  --json $(RESULTS_DIR)/memories.json \
+ 	  $(foreach file,$(ADDITIONAL_MEMORIES),--memories $(file)) \
+ 	  $(foreach file,$(AUTO_MEMORIES_REGFILES),--regfile-spec $(file)) \
+@@ -285,8 +285,13 @@ $(RESULTS_DIR)/memories.json: $(RESULTS_DIR)/memories_inferred.json $(ADDITIONAL
+ yosys-dependencies: $(RESULTS_DIR)/memories.json
+ $(RESULTS_DIR)/1_1_yosys_canonicalize.rtlil: $(RESULTS_DIR)/memories.json
+ # The generated LEFs are part of the KLayout technology the GDS merge
+-# reads the final DEF with.
++# reads the final DEF with. Memories another variant generated
++# (AUTO_MEMORIES_DIR set) are only read here, never regenerated.
++ifeq ($(AUTO_MEMORIES_DIR),$(RESULTS_DIR)/memories)
+ $(OBJECTS_DIR)/klayout.lyt: $(RESULTS_DIR)/memories.json
++else
++$(OBJECTS_DIR)/klayout.lyt: $(AUTO_MEMORIES_DIR)/blackboxes.txt
++endif
+ endif
+ 
+ # OpenROAD stages read binary liberty (.blib) files from a cache shared by
+@@ -337,7 +342,7 @@ $(RESULTS_DIR)/1_2_yosys.v: $(RESULTS_DIR)/1_1_yosys_canonicalize.rtlil
+ .PHONY: clean_synth
+ clean_synth:
+ 	rm -f $(RESULTS_DIR)/1_* $(RESULTS_DIR)/mem*.json
+-	rm -rf $(RESULTS_DIR)/memories
++	rm -rf $(AUTO_MEMORIES_DIR)
+ 	rm -f $(REPORTS_DIR)/synth_*
+ 	rm -f $(LOG_DIR)/1_*
+ 	rm -f $(SYNTH_STATS)
+diff --git a/flow/scripts/load.tcl b/flow/scripts/load.tcl
+index ddb57cf80..e54253403 100644
+--- a/flow/scripts/load.tcl
++++ b/flow/scripts/load.tcl
+@@ -11,10 +11,14 @@ proc load_design { design_file args } {
+ # variant FLOW_INPUT_VARIANT names.
+ proc load_stage_input { design_file args } {
+   if { $::env(INPUT_RESULTS_DIR) ne $::env(RESULTS_DIR) } {
+-    if { $::env(AUTO_MEMORIES) } {
+-      error "AUTO_MEMORIES=1 reads the memories synthesised in this variant,\
+-        $::env(FLOW_VARIANT), and FLOW_INPUT_VARIANT=$::env(FLOW_INPUT_VARIANT)\
+-        reads the design from another"
++    if {
++      $::env(AUTO_MEMORIES)
++      && $::env(AUTO_MEMORIES_DIR) eq "$::env(RESULTS_DIR)/memories"
++    } {
++      error "AUTO_MEMORIES=1 reads the memories from AUTO_MEMORIES_DIR, this\
++        variant's, $::env(FLOW_VARIANT), and FLOW_INPUT_VARIANT=$::env(FLOW_INPUT_VARIANT)\
++        reads the design from another. Set AUTO_MEMORIES_DIR to the memories of\
++        the variant that synthesised them, for every stage the variant runs."
+     }
+     if { [file exists $::env(RESULTS_DIR)/$design_file] } {
+       error "$design_file is in both FLOW_VARIANT=$::env(FLOW_VARIANT) and\
+diff --git a/flow/scripts/regfile_dissolve.tcl b/flow/scripts/regfile_dissolve.tcl
+index ab0898deb..23a942a48 100644
+--- a/flow/scripts/regfile_dissolve.tcl
++++ b/flow/scripts/regfile_dissolve.tcl
+@@ -99,8 +99,8 @@ if { [llength $regfile_modules] > 0 } {
+       utl::info FLW 9 "register file $module: no instance in the design (removed as dead logic)"
+       continue
+     }
+-    set cells [regfile_netlist "$::env(RESULTS_DIR)/memories/$module.v"]
+-    set place [regfile_place_file "$::env(RESULTS_DIR)/memories/$module.place"]
++    set cells [regfile_netlist "$::env(AUTO_MEMORIES_DIR)/$module.v"]
++    set place [regfile_place_file "$::env(AUTO_MEMORIES_DIR)/$module.place"]
+     foreach macro $macros {
+       set path [$macro getName]
+       set parent [$macro getModule]
+diff --git a/flow/scripts/regfile_place.tcl b/flow/scripts/regfile_place.tcl
+index b29ad8ea6..65394809e 100644
+--- a/flow/scripts/regfile_place.tcl
++++ b/flow/scripts/regfile_place.tcl
+@@ -15,7 +15,7 @@ proc regfile_top { } {
+   if { ![env_var_equals AUTO_MEMORIES 1] } {
+     return ""
+   }
+-  set f $::env(RESULTS_DIR)/memories/inline.txt
++  set f $::env(AUTO_MEMORIES_DIR)/inline.txt
+   if { ![file exists $f] } {
+     return ""
+   }
+@@ -33,7 +33,7 @@ proc regfile_top { } {
+ # cells synthesis added around it at CORE_UTILIZATION, rounded up to the
+ # rows' grid with a site and two rows to spare, CORE_MARGIN around it.
+ proc regfile_top_core { m } {
+-  set results $::env(RESULTS_DIR)/memories
++  set results $::env(AUTO_MEMORIES_DIR)
+   set db [odb::read_db NULL $results/${m}_ram.odb]
+   set gen [[$db getChip] getBlock]
+   set dbu [[[$db getChip] getBlock] getDbUnitsPerMicron]
+@@ -75,7 +75,7 @@ proc regfile_place_top { } {
+     return
+   }
+   set block [ord::get_db_block]
+-  set results $::env(RESULTS_DIR)/memories
++  set results $::env(AUTO_MEMORIES_DIR)
+ 
+   # the wrapper's instance of the generated RAM: its cells' prefix
+   set fh [open $results/$m.v r]
+diff --git a/flow/scripts/synth_preamble.tcl b/flow/scripts/synth_preamble.tcl
+index a31b7627c..b8fd50e02 100644
+--- a/flow/scripts/synth_preamble.tcl
++++ b/flow/scripts/synth_preamble.tcl
+@@ -67,7 +67,7 @@ proc read_auto_memories_inline { } {
+     foreach {- name} [regexp -all -inline -- {parameter \\(\S+)} $dump] {
+       setparam -unset $name t:$m
+     }
+-    read_verilog -overwrite "$::env(RESULTS_DIR)/memories/$m.v"
++    read_verilog -overwrite "$::env(AUTO_MEMORIES_DIR)/$m.v"
+   }
+ }
+ 
+diff --git a/flow/scripts/util.tcl b/flow/scripts/util.tcl
+index 34a1e881b..12b7941dd 100644
+--- a/flow/scripts/util.tcl
++++ b/flow/scripts/util.tcl
+@@ -114,7 +114,7 @@ proc env_var_exists_and_non_empty { env_var } {
+   return [expr { [info exists ::env($env_var)] && ![string equal $::env($env_var) ""] }]
+ }
+ 
+-# AUTO_MEMORIES: do-auto-memories writes into $RESULTS_DIR/memories the
++# AUTO_MEMORIES: do-auto-memories writes into $AUTO_MEMORIES_DIR the
+ # lists below, and every later step reads the files they name, never
+ # what a directory happens to hold.
+ #
+@@ -124,7 +124,7 @@ proc auto_memories_areas { } {
+   if { ![env_var_equals AUTO_MEMORIES 1] } {
+     return {}
+   }
+-  set f "$::env(RESULTS_DIR)/memories/blackboxes.txt"
++  set f "$::env(AUTO_MEMORIES_DIR)/blackboxes.txt"
+   set fh [open $f r]
+   set content [string map {\r ""} [read $fh]]
+   close $fh
+@@ -156,7 +156,7 @@ proc auto_memories_names { list } {
+   if { ![env_var_equals AUTO_MEMORIES 1] } {
+     return {}
+   }
+-  set f "$::env(RESULTS_DIR)/memories/$list"
++  set f "$::env(AUTO_MEMORIES_DIR)/$list"
+   set fh [open $f r]
+   set content [read $fh]
+   close $fh
+@@ -166,7 +166,7 @@ proc auto_memories_names { list } {
+ # The view of every macro in blackboxes.txt, by extension (.lib, .lef).
+ proc auto_memories_views { ext } {
+   return [lmap m [dict keys [auto_memories_areas]] {
+-    file join $::env(RESULTS_DIR) memories $m$ext
++    file join $::env(AUTO_MEMORIES_DIR) $m$ext
+   }]
+ }
+ 
+diff --git a/flow/scripts/variables.mk b/flow/scripts/variables.mk
+index 17fcec820..4010987d3 100644
+--- a/flow/scripts/variables.mk
++++ b/flow/scripts/variables.mk
+@@ -57,6 +57,8 @@ export RESULTS_DIR = $(WORK_HOME)/results/$(PLATFORM)/$(DESIGN_NICKNAME)/$(FLOW_
+ # Where a stage reads the previous stage's result.
+ export FLOW_INPUT_VARIANT ?= $(FLOW_VARIANT)
+ export INPUT_RESULTS_DIR = $(WORK_HOME)/results/$(PLATFORM)/$(DESIGN_NICKNAME)/$(FLOW_INPUT_VARIANT)
++# Where AUTO_MEMORIES' generated views are written and read.
++export AUTO_MEMORIES_DIR ?= $(RESULTS_DIR)/memories
+ 
+ #-------------------------------------------------------------------------------
+ ifeq (,$(strip $(NUM_CORES)))
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+index 0faa5ee51..b8b951b20 100644
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -183,6 +183,15 @@ SYNTH_USE_SYN:
+   stages:
+     - synth
+   default: 0
++AUTO_MEMORIES_DIR:
++  description: >
++    Directory AUTO_MEMORIES writes its generated views and lists to in
++    synthesis, and every later stage reads them from. Defaults to
++    $(RESULTS_DIR)/memories. Set it to another variant's directory to run
++    stages on that variant's synthesis without copying its memories, with
++    FLOW_INPUT_VARIANT naming the variant the stage input is read from.
++    Like AUTO_MEMORIES, not tied to stages: every step that reads the
++    views needs it, the abstract among them.
+ AUTO_MEMORIES:
+   description: >
+     Experimental. When set to 1, memories that yosys infers in the RTL
+@@ -190,7 +199,7 @@ AUTO_MEMORIES:
+     pre-synthesis, inventoried in
+     `$(RESULTS_DIR)/memories.json`, and — when idiomatic as an SRAM
+     macro — given generated .lib/.lef views under
+-    `$(RESULTS_DIR)/memories/`. Synthesis blackboxes those modules and
++    `$(AUTO_MEMORIES_DIR)`. Synthesis blackboxes those modules and
+     all later stages read the generated views, so an existing design
+     gets macro-based results without a memory compiler. Supported for
+     the asap7 platform only. See docs/user/AutoMemories.md.
+@@ -241,7 +250,7 @@ AUTO_MEMORIES_REGFILES:
+     bits, read and write ports by the RTL's own port names, and the cells.
+     memories/regfile_ram.py checks the spec against the module's ports
+     and has OpenROAD's generate_ram build it as `<module>_ram`, under
+-    `$(RESULTS_DIR)/memories/`, with a wrapper in the module's place. A
++    `$(AUTO_MEMORIES_DIR)`, with a wrapper in the module's place. A
+     module named in AUTO_MEMORIES_MACRO_PLACE is blackboxed like an
+     AUTO_MEMORIES macro and placed as one; any other is inlined as its
+     generated netlist. A placed spec in `mode netlist` then dissolves into
+@@ -1714,8 +1723,8 @@ FLOW_INPUT_VARIANT:
+     runs, then leaves it at the default: the shared stages run once, and
+     the fork writes only its own results. A stage's later steps read the
+     stage's own results. A stage stops when its input is in both
+-    variants. Not with AUTO_MEMORIES=1, whose memories are read from the
+-    variant that synthesised them.
++    variants. With AUTO_MEMORIES=1, AUTO_MEMORIES_DIR names the memories
++    of the variant that synthesised them, for every stage the fork runs.
+   stages:
+     - floorplan
+     - place
+diff --git a/flow/util/def2stream.py b/flow/util/def2stream.py
+index 41f55800d..ea4afe136 100644
+--- a/flow/util/def2stream.py
++++ b/flow/util/def2stream.py
+@@ -146,10 +146,10 @@ def auto_memories_cells(environ):
+     # do-auto-memories always writes the list, empty when nothing was
+     # converted; without it the merge cannot tell a generated macro from
+     # a cell whose GDS is missing.
+-    results_dir = environ.get("RESULTS_DIR")
+-    if not results_dir:
+-        raise RuntimeError("AUTO_MEMORIES=1 but RESULTS_DIR is not set")
+-    path = os.path.join(results_dir, "memories", "blackboxes.txt")
++    memories_dir = environ.get("AUTO_MEMORIES_DIR")
++    if not memories_dir:
++        raise RuntimeError("AUTO_MEMORIES=1 but AUTO_MEMORIES_DIR is not set")
++    path = os.path.join(memories_dir, "blackboxes.txt")
+     if not os.path.isfile(path):
+         raise RuntimeError(
+             f"AUTO_MEMORIES=1 but {path} is missing; do-auto-memories writes it"
+-- 
+2.53.0
+

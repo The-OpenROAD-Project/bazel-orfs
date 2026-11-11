@@ -2520,6 +2520,12 @@ def _yosys_impl(ctx):
             use_pre_layout = True,
         ),
     ) | verilog_arguments(ctx.files.verilog_files)
+    if auto_memories:
+        # Where every later stage reads the views from, whatever its
+        # variant: this synthesis's results, not the stage's own.
+        synth_all_args["AUTO_MEMORIES_DIR"] = (
+            "$(WORK_HOME)/results/$(PLATFORM)/$(DESIGN_NICKNAME)/{}/memories".format(ctx.attr.variant)
+        )
     ctx.actions.write(
         output = synth_args_json,
         content = json.encode(synth_all_args),
@@ -2795,11 +2801,10 @@ def _input_variant(ctx, stages):
 
     The previous stage's result is read where src wrote it, through ORFS's
     load_stage_input and FLOW_INPUT_VARIANT, instead of being moved into
-    this stage's tree. AUTO_MEMORIES flows keep moving it with the
-    memories: ORFS reads the memories from this stage's variant and
-    refuses the split. So do squashed actions that run more than one
-    stage in one make: FLOW_INPUT_VARIANT would send every stage's input
-    read to src's variant, and only the first stage's input is there.
+    this stage's tree. Squashed actions that run more than one stage in
+    one make keep moving it: FLOW_INPUT_VARIANT would send every stage's
+    input read to src's variant, and only the first stage's input is
+    there.
 
     Args:
       ctx: The rule context.
@@ -2811,8 +2816,7 @@ def _input_variant(ctx, stages):
     """
     src_variant = ctx.attr.src[OrfsInfo].variant
     stage_input = _STAGE_INPUT.get(stages[0]) if stages else None
-    if (src_variant == ctx.attr.variant or not stage_input or len(stages) > 1 or
-        ctx.attr.src[OrfsInfo].memories.to_list()):
+    if src_variant == ctx.attr.variant or not stage_input or len(stages) > 1:
         return {}, []
     return {"FLOW_INPUT_VARIANT": src_variant}, [stage_input + ".odb", stage_input + ".sdc"]
 
@@ -2978,22 +2982,16 @@ def _make_impl(
 
     all_outputs = results + objects + logs + reports + jsons + drcs + substep_odbs
 
-    # The flow globs the AUTO_MEMORIES views out of its own
-    # $(RESULTS_DIR)/memories, so a stage of another variant than
-    # its src (the pre-layout abstract) moves them along with the
-    # .odb. Left behind, the glob found nothing and the abstract was
-    # written with each memory a black box: its outputs untimed.
-    # A depset: src's files already carry the memories when src is
-    # the synthesis, and a view moved twice fails the second mv.
-    rename_candidates = depset(
-        ctx.files.src,
-        transitive = [ctx.attr.src[OrfsInfo].memories],
-    ).to_list()
+    # The AUTO_MEMORIES views stay where synthesis wrote them: every
+    # stage reads them from AUTO_MEMORIES_DIR, which synthesis sets.
+    memories = ctx.attr.src[OrfsInfo].memories.to_list()
+    rename_candidates = ctx.files.src
     if rename_data:
         rename_candidates = depset(
             ctx.files.src,
             transitive = [data_inputs(ctx), source_inputs(ctx)],
         ).to_list()
+    rename_candidates = [f for f in rename_candidates if f not in memories]
 
     # FLOW_INPUT_VARIANT is set in this action's environment, not in its
     # config: the stages after it inherit the config and read their input
@@ -3099,7 +3097,11 @@ def _make_impl(
     # runs): the tarball and the //:dirty tree have the web viewer.
     stage_renames = renames(
         ctx,
-        [f for f in ctx.files.src if f.basename not in read_in_place],
+        [
+            f
+            for f in ctx.files.src
+            if f.basename not in read_in_place and f not in memories
+        ],
         short = True,
     )
     deploy_files = depset(

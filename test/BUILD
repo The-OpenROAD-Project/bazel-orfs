@@ -1699,6 +1699,7 @@ exports_files(
         "log_dir_probe.tcl",
         "log_dir_probe_expected.txt",
         "log_dir_probe_test.sh",
+        "same_files_test.sh",
         "synth_discovery_netlist_test.sh",
     ],
     visibility = ["//test:__subpackages__"],

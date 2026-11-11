@@ -170,6 +170,11 @@ ORFS_PATCHES = [
     # of having it moved into its own tree. On 0199 and 0212. Not
     # upstreamed; retires at a bump onto an ORFS that carries #4812.
     Label("//patches:0213-orfs-flow-input-variant.patch"),
+    # 0214: ORFS #4824, AUTO_MEMORIES_DIR, where AUTO_MEMORIES' views are written and
+    # read, so a stage of another variant than its synthesis reads them in
+    # place. On 0213. Not upstreamed; retires at a bump onto an ORFS that
+    # carries it.
+    Label("//patches:0214-orfs-auto-memories-dir.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
