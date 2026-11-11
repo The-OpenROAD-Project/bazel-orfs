@@ -34,6 +34,10 @@ class WebError(RuntimeError):
     a request with an error."""
 
 
+class Unauthorized(WebError):
+    """The viewer refused the handshake's access token (401)."""
+
+
 def frame(payload, opcode=0x1, mask=None):
     """A client-to-server websocket frame (always masked)."""
     mask = mask if mask is not None else os.urandom(4)
@@ -87,7 +91,7 @@ class Connection(object):
             head += c
         status = head.split(b"\r\n")[0]
         if b" 401 " in status:
-            raise WebError(
+            raise Unauthorized(
                 "handshake refused: %r; the viewer wants the access token"
                 " web_server was started with (daemon.json's token)" % status
             )

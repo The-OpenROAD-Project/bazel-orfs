@@ -202,7 +202,11 @@ result, stdout = d.tcl_verbose("puts [llength [[ord::get_db_block] getInsts]]")
 
 Any MCP host takes the same three lines. The server holds no state: each
 call reads `daemon.json` and connects, so the daemon can be relaunched on
-another ODB without restarting the agent. Tools:
+another ODB without restarting the agent. Its own code is what it keeps:
+once `mcp_server.py`, `odbdebug.py` or `webclient.py` changes on disk (an
+edit, a checkout, a bump), every call answers "stale MCP server" until the
+server is restarted (`/mcp` in Claude Code), since a daemon launched from
+the new files may refuse the old client's requests. Tools:
 
 | tool | answers |
 |---|---|

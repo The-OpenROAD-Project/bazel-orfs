@@ -20,9 +20,12 @@ root does this for Claude Code):
 
 The server holds no state: every call reads daemon.json under
 ODB_DEBUG_DIR and connects, so the daemon can be restarted on another ODB
-without restarting the agent.
+without restarting the agent. Its code is the one exception: Python keeps
+what it loaded at start, so a server that outlives an edit or a checkout of
+its own files refuses every call until it is restarted (stale_code()).
 """
 
+import hashlib
 import json
 import os
 import sys
@@ -31,6 +34,35 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import odbdebug  # noqa: E402
 
 PROTOCOL_VERSION = "2024-11-05"
+
+
+def code_fingerprint():
+    """{path: sha256} of the files this server's code was loaded from;
+    a missing file hashes to None."""
+    out = {}
+    for path in (__file__, odbdebug.__file__, odbdebug.webclient.__file__):
+        path = os.path.abspath(path)
+        try:
+            with open(path, "rb") as f:
+                out[path] = hashlib.sha256(f.read()).hexdigest()
+        except OSError:
+            out[path] = None
+    return out
+
+
+# What this process runs. A daemon launched later runs the files on disk;
+# when they have moved on, the two can disagree on the protocol, as a
+# server started before web_server -token did: it sent no token and every
+# call came back 401.
+LOADED = code_fingerprint()
+
+
+def stale_code():
+    """Basenames of this server's files that changed on disk since it
+    loaded them."""
+    now = code_fingerprint()
+    return sorted(os.path.basename(p) for p, h in LOADED.items() if now.get(p) != h)
+
 
 # A reply is read into the agent's context. One report_checks or a tcl
 # loop over a million instances would flood it, so a reply longer than
@@ -344,6 +376,15 @@ def call_tool(name, arguments, odb_debug_dir=None):
     for tname, _, _, required, fn in TOOLS:
         if tname != name:
             continue
+        stale = stale_code()
+        if stale:
+            return _error_result(
+                "stale MCP server: %s changed on disk since this odb-debug"
+                " server started, so it runs older code than a daemon launched"
+                " now and its requests may be refused (a 401 handshake is the"
+                " usual sign). The daemon is fine; restart this server (/mcp in"
+                " Claude Code, reconnect odb-debug)." % ", ".join(stale)
+            )
         missing = [r for r in required if r not in arguments]
         if missing:
             return _error_result("missing argument(s): %s" % ", ".join(missing))
