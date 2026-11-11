@@ -24,11 +24,11 @@ regfile_dissolve.tcl).
  1 file changed, 35 insertions(+)
 
 diff --git a/flow/scripts/pdn.tcl b/flow/scripts/pdn.tcl
-index 7a7c32b2..7b4b86b0 100644
+index 05bbcb661..5f5685642 100644
 --- a/flow/scripts/pdn.tcl
 +++ b/flow/scripts/pdn.tcl
 @@ -3,10 +3,45 @@ erase_non_stage_variables floorplan
- load_design 2_3_floorplan_tapcell.odb 2_1_floorplan.sdc
+ load_design 2_3_floorplan_tapcell.odb
  source_step_tcl PRE PDN
  
 +# global_connect skips dont_touch instances (ODB-0383, a warning each),

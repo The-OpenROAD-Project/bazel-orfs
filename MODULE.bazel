@@ -38,7 +38,7 @@ bazel_dep(name = "abc", version = "0.68-yosyshq.bcr.1")
 # readline -> ncurses), at the version the graph resolves anyway.
 bazel_dep(name = "ncurses", version = "6.4.20221231.bcr.14", dev_dependency = True)
 
-bazel_dep(name = "yosys", version = "0.68.bcr.2")
+bazel_dep(name = "yosys", version = "0.68.bcr.3")
 
 # Root-only, as every override. Each patch retires at the bump onto a BCR
 # yosys that has its fix.
@@ -90,6 +90,12 @@ single_version_override(
         # lookup finds. Not upstreamed; retires at an sv-elab release that
         # carries it.
         "//patches:sv-elab-0001-redefinition-shares-wire.patch",
+        # The plugin's headers were staged at two paths, src/ and
+        # _virtual_includes/; on remote execution those are distinct inodes,
+        # so #pragma once let slang_frontend.h be included twice. Copied from
+        # OpenROAD's root MODULE.bazel (bazel/sv-elab-patches), which a
+        # dependency's override does not reach; retires with OpenROAD's.
+        "//patches:sv-elab-0002-avoid-duplicate-header-paths.patch",
     ],
     version = "2026-10-29",
 )
@@ -104,7 +110,7 @@ bazel_dep(name = "aspect_rules_js", version = "3.5.1")
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
-    integrity = "sha256-DIQiQ7VAY8iqtmC6W8rPU5nQkmWGtlDPbjpAoS1/OVY=",
+    integrity = "sha256-pJuybgemo5bEDqTS0LlmWrEfSq48j1A2gvgwBoFxZDc=",
     # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
     # so vendor src/sta (OpenSTA) and the other submodules from their own
     # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
@@ -312,21 +318,20 @@ archive_override(
         # range. Not upstreamed; retires at a //:bump onto an OpenROAD
         # that has it.
         "//patches:0176-openroad-web-histogram-drill-down-filters.patch",
-        # 0177: rtl_macro_placer snaps a macro by its clock pins too, not
-        # only its signal pins (a register file whose clock was its only
-        # M2 pin was left 2 nm off the track: DRT-0073 in
-        # //test/planned_parent:mini_top_grt). Not upstreamed; retires at
-        # a //:bump onto an OpenROAD that has it.
-        "//patches:0177-openroad-mpl-snap-clock-pins.patch",
         # 0178: generate_ram makes a read select's group buffer in its
         # group's first bit cell, not every group's beside the decoder
         # (test/regfile/macro's RegFile, its layout kept, routed 2.7 times
         # the wire and overflowed). Not upstreamed; retires at a //:bump
         # onto an OpenROAD that has it.
         "//patches:0178-openroad-ram-read-select-group-in-place.patch",
+        # 0211: FastRouteCore::BIG_INT is constexpr; master's 3D maze passes it
+        # to std::fill_n by reference, and a fastbuild //:openroad failed to
+        # link without a definition. Not upstreamed; retires at a //:bump onto
+        # an OpenROAD that has it.
+        "//patches:0211-openroad-grt-big-int-constexpr.patch",
     ],
-    strip_prefix = "OpenROAD-ab2683a96cfc9e9fecc959d2bbd12a9e1615580d",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/ab2683a96cfc9e9fecc959d2bbd12a9e1615580d.tar.gz"],
+    strip_prefix = "OpenROAD-3cf922cc136ffb08c833afab2c2ae8010eef7049",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/3cf922cc136ffb08c833afab2c2ae8010eef7049.tar.gz"],
 )
 
 # --- hermetic-llvm compatibility (mirrored from OpenROAD's root MODULE.bazel) ---
@@ -673,8 +678,8 @@ orfs = use_extension("//:extension.bzl", "orfs_repositories")
 # `patches` on an override is honoured only from the root module and
 # would therefore land on whoever is root. Rewritten by //:bump.
 orfs.source(
-    commit = "aef47dd6ed123b0ed7cedac372b00456722be327",
-    integrity = "sha256-FymF+Z6Qtg7oapmXAhRrCqqVc2kixZgP0DrV63pEVdE=",
+    commit = "05bbba72934486ac083509d0b8e15bf4ea3e9a6e",
+    integrity = "sha256-dxY8k//FIf6ycgBsHxfPE5jUVCJBpgyc7nKJJdrx0Xs=",
 )
 orfs.default(
     # Expose the slang yosys plugin (from @sv-elab, above) via

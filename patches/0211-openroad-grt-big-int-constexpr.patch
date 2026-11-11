@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Wed, 11 Nov 2026 05:57:19 +0100
+Subject: [PATCH] grt: BIG_INT is constexpr, so passing it by reference links
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+mazeRouteMSMDOrder3D fills the distance grid with
+std::fill_n(..., BIG_INT), which takes the value by const reference and
+so ODR-uses FastRouteCore::BIG_INT. A `static const int` member with an
+in-class initializer has no definition to bind to: the fastbuild link of
+//:openroad fails with "undefined symbol: grt::FastRouteCore::BIG_INT"
+(an optimized build inlines the fill and never needs one). A constexpr
+static member is implicitly inline and carries its own definition.
+
+Carried in bazel-orfs, not upstreamed; retires with the //:bump onto an
+OpenROAD that has it.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/grt/src/fastroute/include/FastRoute.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/grt/src/fastroute/include/FastRoute.h b/src/grt/src/fastroute/include/FastRoute.h
+index 13027d7..1572cf9 100644
+--- a/src/grt/src/fastroute/include/FastRoute.h
++++ b/src/grt/src/fastroute/include/FastRoute.h
+@@ -886,7 +886,7 @@ class FastRouteCore
+ 
+   using Tile = std::tuple<int, int, int>;
+ 
+-  static const int BIG_INT = 1e9;  // big integer used as infinity
++  static constexpr int BIG_INT = 1e9;  // big integer used as infinity
+   static const int HCOST = 5000;
+   // Overflow an NDR net is charged, in its routing cost, per track it would
+   // miss on an edge where it fits no single layer.

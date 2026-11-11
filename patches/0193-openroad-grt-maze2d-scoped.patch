@@ -19,14 +19,14 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  src/grt/src/fastroute/include/FastRoute.h |  2 ++
- src/grt/src/fastroute/src/FastRoute.cpp   | 44 +++++++++++++++++------
- 2 files changed, 35 insertions(+), 11 deletions(-)
+ src/grt/src/fastroute/src/FastRoute.cpp   | 46 +++++++++++++++++++++++--------
+ 2 files changed, 36 insertions(+), 12 deletions(-)
 
 diff --git a/src/grt/src/fastroute/include/FastRoute.h b/src/grt/src/fastroute/include/FastRoute.h
-index b9705cc661..278ce1b6cb 100644
+index db00682..1434a5c 100644
 --- a/src/grt/src/fastroute/include/FastRoute.h
 +++ b/src/grt/src/fastroute/include/FastRoute.h
-@@ -131,6 +131,8 @@ class FastRouteCore
+@@ -243,6 +243,8 @@ class FastRouteCore
    void setEdgeCapacity(int x1, int y1, int x2, int y2, int layer, int capacity);
    int getDbNetLayerEdgeCost(odb::dbNet* db_net, int layer);
    void initEdgesCapacityPerLayer();
@@ -36,7 +36,7 @@ index b9705cc661..278ce1b6cb 100644
    void freeMaze3D();
    // Backs the routing grid with a file at path; empty for memory only.
 diff --git a/src/grt/src/fastroute/src/FastRoute.cpp b/src/grt/src/fastroute/src/FastRoute.cpp
-index 2543f4063a..11d21ce020 100644
+index e77c2a0..103f3e2 100644
 --- a/src/grt/src/fastroute/src/FastRoute.cpp
 +++ b/src/grt/src/fastroute/src/FastRoute.cpp
 @@ -333,10 +333,7 @@ void FastRouteCore::setGridsAndLayers(int x, int y, int nLayers)
@@ -67,9 +67,10 @@ index 2543f4063a..11d21ce020 100644
 -  d1_2D_.resize(boost::extents[y_range_][x_range_]);
 -  d2_2D_.resize(boost::extents[y_range_][x_range_]);
 -
-   // The maze3D variables are allocated only while the 3D maze runs
+-  // maze3D variables, allocated only while the 3D maze runs
++  // The maze3D variables are allocated only while the 3D maze runs
    // (allocateMaze3D).
-   src_heap_3D_.clear();
+   grid_hv_ = x_grid_ * y_grid_;
    dest_heap_3D_.clear();
  }
  
@@ -103,10 +104,10 @@ index 2543f4063a..11d21ce020 100644
 +  dest_heap_2D_ = std::vector<double*>();
 +}
 +
- // The 3D maze's per-GCell and layer work arrays, about 23 bytes per GCell
- // and layer, are needed only while mazeRouteMSMDOrder3D runs.
+ // The 3D maze's per-GCell and layer work arrays are needed only while
+ // mazeRouteMSMDOrder3D runs.
  void FastRouteCore::allocateMaze3D()
-@@ -2485,6 +2505,7 @@ NetRouteMap FastRouteCore::run()
+@@ -2487,6 +2507,7 @@ NetRouteMap FastRouteCore::run()
          && overflow_iterations_ > 0) {
        initial_sttrees = saveInitialRoutes();
      }
@@ -114,7 +115,7 @@ index 2543f4063a..11d21ce020 100644
      while (total_overflow_ > 0 && i <= overflow_iterations_
             && overflow_increases <= max_overflow_increases) {
        if (verbose_) {
-@@ -2788,6 +2809,7 @@ NetRouteMap FastRouteCore::run()
+@@ -2790,6 +2811,7 @@ NetRouteMap FastRouteCore::run()
          saveCongestion(i);
        }
      }  // end overflow iterations
