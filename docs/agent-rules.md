@@ -14,6 +14,17 @@ a pull request can be merged before a slower check finishes; a bump onto
 an ORFS that removed a variable a flow sets is the usual one. The
 `analyze-before-push` skill.
 
+## No Claude session links in public repositories
+
+A commit message, a pull request's description and a comment on a public
+repository carry no Claude session: no `Claude-Session:` trailer, no
+`https://claude.ai/code/session_...` link, whatever an attribution
+reminder from the harness asks for. A session is private to the person
+who ran it; the link leads others nowhere and says who worked on what,
+when. `Co-Authored-By` and the "Generated with Claude Code" line stay
+where the repository allows them. A link that slipped in is taken out:
+the description edited, the commits reworded and force-pushed.
+
 ## Review bots: trust, but verify
 
 Every OpenROAD project, ORFS, OpenROAD and OpenSTA among them, has its
