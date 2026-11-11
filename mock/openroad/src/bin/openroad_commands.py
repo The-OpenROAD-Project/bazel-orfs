@@ -92,10 +92,19 @@ def cmd_write_db(interp, args):
     return ""
 
 
+def _sdc_file_of(design_file):
+    """ORFS's sdc_file_of: the stem ends at the file name's first dot."""
+    return re.sub(r"\.[^/]*$", ".sdc", design_file)
+
+
 def cmd_orfs_write_db(interp, args):
-    """orfs_write_db <path> — ORFS wrapper that also writes metrics."""
+    """orfs_write_db <path> — ORFS wrapper that also writes metrics.
+
+    As ORFS's (#4751): the .sdc beside the .odb first, then the .odb.
+    """
     if args:
         path = args[0]
+        cmd_write_sdc(interp, [_sdc_file_of(path)])
         _touch(path, "lint-odb-v1\n")
         # Also create the metrics JSON alongside
         json_path = path.replace(".odb", ".json")
@@ -1222,7 +1231,7 @@ def cmd_load_design(interp, args):
         )
     design = positional[0]
     print(f"lint: load_design {design}", file=sys.stderr)
-    sdc = re.sub(r"\.[^/]*$", ".sdc", design)
+    sdc = _sdc_file_of(design)
     _state.sdc_loaded = sdc
     sdc_path = os.path.join(_state.results_dir, sdc)
     if os.path.isfile(sdc_path):
