@@ -34,9 +34,10 @@ give the same bytes.
       SOURCE...
 
 A SOURCE is a .v/.sv file or a directory of them. module_names.json maps
-every renamed module to its new names. A --keep name or --retime
-pattern that matches no module of the output stops the pass, with the
-new names of a renamed one.
+every renamed module to its new names. A --keep name that is not a
+module of the output, or a --retime pattern that matched a renamed
+module and matches none of the output, stops the pass, with the new
+names of a renamed one.
 """
 
 import argparse
@@ -294,13 +295,14 @@ def rename(sources, top, groups=None, exclude=()):
     return out, {old: sorted(new) for old, new in sorted(renamed.items())}
 
 
-def check_kept(kept, sources, mapping):
-    """The names in kept, fnmatch patterns, that match no module of the
-    renamed sources, each with why."""
+def check_kept(kept, sources, mapping, retimed=()):
+    """The kept names, and the retime patterns (fnmatch) that matched a
+    module before renaming, that match no module of the renamed sources,
+    each with why."""
     defined, _ = parse(sources)
     missing = []
-    for name in kept:
-        if name in defined or fnmatch.filter(defined, name):
+    for name in list(kept) + [p for p in retimed if fnmatch.filter(mapping, p)]:
+        if fnmatch.filter(defined, name):
             continue
         if name in mapping:
             missing.append(f"{name}: renamed to {' '.join(mapping[name])}")
@@ -350,7 +352,7 @@ def main(argv=None):
         sources, mapping = rename(
             read_sources(args.sources), args.top, groups, args.exclude
         )
-        missing = check_kept(args.keep + args.retime, sources, mapping)
+        missing = check_kept(args.keep, sources, mapping, args.retime)
     except StableNamesError as e:
         print(f"stable_module_names: {e}", file=sys.stderr)
         return 1
