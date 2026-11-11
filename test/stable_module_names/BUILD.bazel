@@ -1,0 +1,57 @@
+# SYNTH_STABLE_MODULE_NAMES=1: before.sv and after.sv are what a
+# deduplicating generator writes for one design before and after an
+# instance of a new Queue variant is added to Mul. The generator numbers
+# Queue variants in elaboration order, so the edit renumbers the queues
+# of Mul and Div and changes Div's text. Named by path, only Mul changes
+# (//:stable_module_names_test), and synthesis keeps the queues by
+# their path names.
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//:openroad.bzl", "orfs_synth")
+
+package(default_visibility = ["//visibility:private"])
+
+exports_files(
+    [
+        "after.sv",
+        "before.sv",
+    ],
+    visibility = ["//:__pkg__"],
+)
+
+orfs_synth(
+    name = "after_synth",
+    arguments = {
+        "SDC_FILE": "$(location :constraints.sdc)",
+        "SYNTH_KEEP_MODULES": "Queue__Mul__extraQueue Queue__Div__requestQueue",
+        "SYNTH_STABLE_MODULE_NAMES": "1",
+    },
+    data = [":constraints.sdc"],
+    module_top = "top",
+    verilog_files = ["after.sv"],
+)
+
+filegroup(
+    name = "after_netlist",
+    srcs = [":after_synth"],
+    output_group = "1_2_yosys.v",
+)
+
+filegroup(
+    name = "after_module_names",
+    srcs = [":after_synth"],
+    output_group = "module_names",
+)
+
+sh_test(
+    name = "netlist_test",
+    size = "small",
+    srcs = ["netlist_test.sh"],
+    args = [
+        "$(location :after_netlist)",
+        "$(location :after_module_names)",
+    ],
+    data = [
+        ":after_module_names",
+        ":after_netlist",
+    ],
+)

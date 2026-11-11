@@ -26,6 +26,11 @@ ALL_STAGES_LIST = [
 BAZEL_VARIABLE_TO_STAGES = {
     # Set in orfs_design.bzl when SYNTH_HIERARCHICAL=1.
     "SYNTH_NUM_PARTITIONS": ["synth"],
+    # Read by orfs_synth: name contested modules by their path
+    # (stable_module_names.py) before canonicalization.
+    "SYNTH_STABLE_MODULE_NAMES": ["synth"],
+    "SYNTH_STABLE_MODULE_NAMES_GROUPS": ["synth"],
+    "SYNTH_STABLE_MODULE_NAMES_EXCLUDE": ["synth"],
     "PLATFORM": ALL_STAGES_LIST,
     "PLATFORM_DIR": ALL_STAGES_LIST,
     "DESIGN_NAME": ALL_STAGES_LIST,

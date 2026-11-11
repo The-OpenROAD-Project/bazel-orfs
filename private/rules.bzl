@@ -1971,6 +1971,58 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
 
     return validated_kept_macros_json
 
+def _stable_module_names(ctx, all_arguments):
+    """SYNTH_STABLE_MODULE_NAMES=1: name contested modules by their path.
+
+    stable_module_names.py rewrites the design's Verilog so the modules of a
+    desired name the generator numbered are named by where they sit.
+
+    Returns the Verilog files synthesis reads in place of verilog_files and
+    module_names.json, old name to new names. The files it does not parse
+    (headers) pass through, and the macros in deps keep their names.
+    """
+    renamed = declare_artifact(ctx, "results", "1_0_stable_module_names.sv")
+    module_names = declare_artifact(ctx, "results", "module_names.json")
+    sources = [
+        f
+        for f in ctx.files.verilog_files
+        if f.is_directory or f.extension in ("v", "sv")
+    ]
+    passed = [f for f in ctx.files.verilog_files if f not in sources]
+    args = ctx.actions.args()
+    args.add(ctx.file._stable_module_names)
+    args.add("--top", module_top(ctx))
+    args.add("--out", renamed)
+    args.add("--map", module_names)
+    inputs = [ctx.file._stable_module_names] + sources
+    groups = all_arguments.get("SYNTH_STABLE_MODULE_NAMES_GROUPS")
+    if groups:
+        groups_path = ctx.expand_location(groups, ctx.attr.data)
+        groups_files = [f for f in data_inputs(ctx).to_list() if f.path == groups_path]
+        if not groups_files:
+            fail("SYNTH_STABLE_MODULE_NAMES_GROUPS names {}, which is not a file in data of {}".format(groups, ctx.label))
+        args.add("--groups", groups_files[0])
+        inputs.extend(groups_files)
+    for pattern in all_arguments.get("SYNTH_STABLE_MODULE_NAMES_EXCLUDE", "").split(" "):
+        if pattern:
+            args.add("--exclude", pattern)
+
+    # A macro's module is found by its name: by its LEF master, and by
+    # slang's --blackboxed-module at canonicalization.
+    for dep in ctx.attr.deps:
+        args.add("--exclude", dep[TopInfo].module_top)
+    for name in keep_modules(all_arguments):
+        args.add("--keep", name)
+    args.add_all(sources, expand_directories = False)
+    ctx.actions.run(
+        executable = ctx.executable._python,
+        arguments = [args],
+        inputs = inputs,
+        outputs = [renamed, module_names],
+        progress_message = "Naming modules by path for %s" % module_top(ctx),
+    )
+    return [renamed] + passed, module_names
+
 def _yosys_impl(ctx):
     all_arguments = merge_arguments(
         data_arguments(ctx) |
@@ -1981,6 +2033,12 @@ def _yosys_impl(ctx):
         ),
     )
     refuse_retired_arguments(ctx.label, all_arguments)
+
+    verilog_files = ctx.files.verilog_files
+    module_names = []
+    if all_arguments.get("SYNTH_STABLE_MODULE_NAMES") == "1":
+        verilog_files, module_names_json = _stable_module_names(ctx, all_arguments)
+        module_names = [module_names_json]
 
     analysis_args = config_arguments(ctx, all_arguments)
     analysis_json = declare_artifact(ctx, "results", "1_synth.analysis.json")
@@ -2242,13 +2300,13 @@ def _yosys_impl(ctx):
                 "do-yosys-canonicalize",
             ] + sdc_overrides,
             command = EXPAND_VERILOG_DIRS + " && ".join(commands),
-            env = verilog_arguments(ctx.files.verilog_files) |
+            env = verilog_arguments(verilog_files) |
                   yosys_environment(ctx) |
                   config_environment(canon_config) |
                   fakeram_env,
             inputs = depset(
                 [canon_config] +
-                ctx.files.verilog_files + ctx.files.extra_configs +
+                verilog_files + ctx.files.extra_configs +
                 fakeram_inputs,
                 transitive = [
                     synth_data_inputs,
@@ -2313,7 +2371,7 @@ def _yosys_impl(ctx):
     if use_syn:
         # OpenROAD-SYN synthesis: one openroad invocation (synth_syn.tcl via
         # do-1_synth) consumes the staged Verilog sources directly, so
-        # VERILOG_FILES is set from ctx.files.verilog_files exactly like the
+        # VERILOG_FILES is set from verilog_files exactly like the
         # yosys canonicalize action does. Uses the full flow makefile
         # filegroup (synth_syn.tcl sources load.tcl etc.), no yosys tools.
         commands = [_make_cmd(ctx)] + generation_commands(
@@ -2326,11 +2384,11 @@ def _yosys_impl(ctx):
                 "do-1_synth",
             ],
             command = EXPAND_VERILOG_DIRS + " && ".join(commands),
-            env = verilog_arguments(ctx.files.verilog_files) |
+            env = verilog_arguments(verilog_files) |
                   flow_environment(ctx) |
                   config_environment(config),
             inputs = depset(
-                [config] + ctx.files.verilog_files + ctx.files.extra_configs,
+                [config] + verilog_files + ctx.files.extra_configs,
                 transitive = [
                     data_inputs(ctx),
                     pdk_inputs(ctx),
@@ -2519,7 +2577,7 @@ def _yosys_impl(ctx):
             [dep[OrfsInfo] for dep in ctx.attr.deps],
             use_pre_layout = True,
         ),
-    ) | verilog_arguments(ctx.files.verilog_files)
+    ) | verilog_arguments(verilog_files)
     if auto_memories:
         # Where every later stage reads the views from, whatever its
         # variant: this synthesis's results, not the stage's own.
@@ -2539,7 +2597,7 @@ def _yosys_impl(ctx):
             [dep[OrfsInfo] for dep in ctx.attr.deps],
             use_pre_layout = True,
         ),
-    ) | verilog_arguments(ctx.files.verilog_files)
+    ) | verilog_arguments(verilog_files)
 
     short_analysis_args = config_arguments(ctx, hack_away_prefix(short_all_args, config_short.root.path))
     short_analysis_json = declare_artifact(ctx, "results", "1_synth.short.analysis.json")
@@ -2587,7 +2645,7 @@ def _yosys_impl(ctx):
     # runs): the tarball and the //:dirty tree have the web viewer.
     deploy_files = depset(
         [config_short, make] +
-        ctx.files.verilog_files +
+        verilog_files +
         ctx.files.extra_configs,
         transitive = [
             flow_inputs(ctx),
@@ -2636,6 +2694,7 @@ def _yosys_impl(ctx):
         OutputGroupInfo(
             logs = depset(canon_logs + synth_logs),
             reports = depset([]),
+            module_names = depset(module_names),
             kept_macros_validation = depset(
                 [validated_kept_macros_json] if validated_kept_macros_json else [],
             ),
@@ -2763,6 +2822,10 @@ orfs_synth_rule = rule(
                 "_rtlil_names": attr.label(
                     allow_single_file = True,
                     default = Label("//:rtlil_names.py"),
+                ),
+                "_stable_module_names": attr.label(
+                    allow_single_file = True,
+                    default = Label("//:stable_module_names.py"),
                 ),
                 "_synth_tcl": attr.label(
                     allow_single_file = True,
