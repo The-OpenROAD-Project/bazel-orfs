@@ -17,8 +17,17 @@ Paths are in OpenROAD's `src/ifp/`, `src/pdn/`, `src/ppl/`, ORFS's
 
 - **`global_connect` skips dont_touch instances**: register files marked
   dont_touch before the PDN left 406k XSTile cells unpowered, invisible to
-  timing. ORFS #4785 makes global connections before anything is
-  dont_touch (carried workaround 0124 until the bump).
+  timing. ORFS #4785 makes global connections in `floorplan.tcl`, before
+  anything is dont_touch, and leaves the rules in the database; `pdn.tcl`
+  applies them again only after `PDN_TCL` (carried 0124 lifts dont_touch
+  there).
+- **Instances created after `floorplan.tcl` have open supply pins**: a
+  step that brings cells or macros in later (`dissolve_macro` at the
+  Top) runs `global_connect` itself, dont_touch lifted, before `PDN_TCL`.
+  pdngen drops a macro on no supply net with a warning (PDN-0231) and
+  goes on; only when every macro is unpowered does it stop (PDN-0217, no
+  grid named ElementGrid). Check the macros' supply pins in the step that
+  created them (`top_dissolve.tcl`, FLW 31).
 - A FakeRAM narrower than the strap pitch fails PDN-0233.
 
 ## Pins
