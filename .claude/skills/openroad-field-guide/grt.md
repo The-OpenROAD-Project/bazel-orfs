@@ -110,7 +110,7 @@ dpl pixel grid ([dpl.md](dpl.md)).
 - One resistance-aware 3D pass instead of two (0200): 62.1 -> 32.4 s for
   +0.12 % period; OpenROAD #12121 closed because the second pass wins QoR
   when upper layers are scarce. Two passes on selected nets saves only
-  5-11 %. 0200's fate is open.
+  5-11 %. 0200 dropped. **Dead end.**
 - Vias priced ~14x too cheap against wires: OpenROAD #11350 open.
 - Parallel parasitic estimation: OpenROAD #11569 (grt 3,796 -> 2,562 s),
   #11599, #11549 merged.

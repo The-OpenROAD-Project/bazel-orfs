@@ -11,9 +11,9 @@ reports to generate_metadata.
 
 ORFS computes the timing and power metrics inside each stage, before
 the stage writes its .odb, so the next stage waits for them. Since
-#1433 (carried 0157/0158, ORFS #4766) bazel-orfs skips them by
-default (`SKIP_REPORT_METRICS=1`) and keeps only the free ones (area,
-instance counts, the tools' own counters). A flow that wants timing and
+#1433 bazel-orfs skips them by default (`SKIP_REPORT_METRICS=1`, set in
+`private/flow.bzl` on an unmodified ORFS) and keeps only the tools' own
+counters. A flow that wants timing and
 power in `metadata.json` pays for them on the critical path, every
 stage: a timing update, a power analysis, four filtered register path
 searches. On gcd that is 55-710 ms per stage; on ibex under
