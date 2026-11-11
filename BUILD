@@ -48,6 +48,7 @@ exports_files([
     "rtlil_kept_macros.py",
     "rtlil_kept_modules.py",
     "rtlil_names.py",
+    "stable_module_names.py",
     "synth.tcl",
     "synth_canonicalize_module.tcl",
     "synth_keep.tcl",
@@ -351,6 +352,28 @@ py_binary(
     name = "rtlil_kept_macros",
     srcs = ["rtlil_kept_macros.py"],
     visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "stable_module_names_lib",
+    srcs = ["stable_module_names.py"],
+)
+
+py_binary(
+    name = "stable_module_names",
+    srcs = ["stable_module_names.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "stable_module_names_test",
+    size = "small",
+    srcs = ["stable_module_names_test.py"],
+    data = [
+        "//test/stable_module_names:after.sv",
+        "//test/stable_module_names:before.sv",
+    ],
+    deps = [":stable_module_names_lib"],
 )
 
 py_test(
