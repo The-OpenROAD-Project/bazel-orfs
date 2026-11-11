@@ -209,6 +209,13 @@ class KeptTest(unittest.TestCase):
             ["Q: renamed to Q__Top__q", "Gone: no such module"],
         )
 
+    def test_patterns_match_the_renamed_modules(self):
+        sources = [("d.sv", leaf("Q__Top__q") + parent("Top", ("Q__Top__q", "q")))]
+        self.assertEqual(
+            s.check_kept(["Q*", "Top", "R*", "Q"], sources, {"Q": ["Q__Top__q"]}),
+            ["R*: no such module", "Q: renamed to Q__Top__q"],
+        )
+
 
 class EditTest(unittest.TestCase):
     """An instance added to one module renames nothing outside it."""

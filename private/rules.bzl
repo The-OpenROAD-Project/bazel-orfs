@@ -2013,6 +2013,9 @@ def _stable_module_names(ctx, all_arguments):
         args.add("--exclude", dep[TopInfo].module_top)
     for name in keep_modules(all_arguments):
         args.add("--keep", name)
+    for pattern in all_arguments.get("SYNTH_RETIME_MODULES", "").split(" "):
+        if pattern:
+            args.add("--retime", pattern)
     args.add_all(sources, expand_directories = False)
     ctx.actions.run(
         executable = ctx.executable._python,
