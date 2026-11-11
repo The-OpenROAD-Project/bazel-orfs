@@ -88,6 +88,20 @@ _start:
 	j	3b
 4:
 
+	/* Paint [_end, _stack_top) so portable_fini can report how deep
+	   the stack went: check_coremark.py fails a run with no paint to
+	   measure, as it does on every other core's crt0. The DCCM is
+	   64 KiB, so this is some sixty thousand cycles, once, before the
+	   first iteration. */
+	la	t0, _end
+	la	t1, _stack_top
+	li	t2, 0xDEADBEEF
+5:	bgeu	t0, t1, 6f
+	sw	t2, 0(t0)
+	addi	t0, t0, 4
+	j	5b
+6:
+
 	/* CoreMark is built with MAIN_HAS_NOARGC=1, so main takes no
 	   arguments and returns int; the return value is discarded because
 	   the CRC lines on stdout are what decides pass or fail. */
@@ -96,7 +110,7 @@ _start:
 	li	t0, SIM_CTRL_HALT
 	li	t1, 1
 	sw	t1, 0(t0)
-5:	j	5b
+7:	j	7b
 	.size _start, . - _start
 
 /* Reached through mtvec. Writes '!' to the sim-control character
