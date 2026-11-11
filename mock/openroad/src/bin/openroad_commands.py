@@ -1210,6 +1210,20 @@ def cmd_log_cmd(interp, args):
     return ""
 
 
+def cmd_load_stage_input(interp, args):
+    """load_stage_input <odb> ?-backing_file <file>?
+
+    As ORFS's load.tcl (#4812): the previous stage's result and the .sdc
+    beside it, read from INPUT_RESULTS_DIR, the variant
+    FLOW_INPUT_VARIANT names.
+    """
+    design = args[0]
+    print(f"lint: load_stage_input {design}", file=sys.stderr)
+    input_dir = os.environ.get("INPUT_RESULTS_DIR", _state.results_dir)
+    _state.sdc_loaded = os.path.join(input_dir, _sdc_file_of(design))
+    return ""
+
+
 def cmd_load_design(interp, args):
     """load_design <odb_or_verilog> ?-backing_file <file>?
 
@@ -1514,6 +1528,7 @@ def register_all(interp):
         # ORFS helpers
         "log_cmd": cmd_log_cmd,
         "load_design": cmd_load_design,
+        "load_stage_input": cmd_load_stage_input,
         "erase_non_stage_variables": cmd_erase_non_stage_variables,
         "report_metrics": cmd_report_metrics,
         "find_macros": cmd_find_macros,

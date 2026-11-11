@@ -160,6 +160,16 @@ ORFS_PATCHES = [
     # visited its endpoints. On 0179. Not upstreamed; retires at a bump onto
     # an ORFS that carries it.
     Label("//patches:0180-orfs-repair-timing-max-iterations.patch"),
+    # 0212: ORFS #4810, AUTO_MEMORIES reads the views blackboxes.txt
+    # names, not what memories/ holds. Not upstreamed; retires at a bump
+    # onto an ORFS that carries #4810.
+    Label("//patches:0212-orfs-auto-memories-explicit.patch"),
+    # 0213: ORFS #4812, FLOW_INPUT_VARIANT: a stage reads the previous
+    # stage's result from another variant (load_stage_input), so a stage
+    # whose src is another variant's reads it where src wrote it instead
+    # of having it moved into its own tree. On 0199 and 0212. Not
+    # upstreamed; retires at a bump onto an ORFS that carries #4812.
+    Label("//patches:0213-orfs-flow-input-variant.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
