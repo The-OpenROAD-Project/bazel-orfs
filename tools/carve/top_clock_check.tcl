@@ -1,7 +1,9 @@
-# The flat top level's clock after CTS (parent_macro.bzl, POST_CTS_TCL):
+# The flat top level's clock after its global route (top_level.tcl sources
+# this when the crossings are timed whole, parent_macro.bzl's whole_check):
 # every register of every dissolved macro clocked from the clock port,
 # through the clock gates the macros kept, and the one tree CTS built over
 # them within MAX_SKEW_PS. Either one failing stops the top level here.
+# Timed in sets, the register half is crossing_plan.tcl's.
 set registers [llength [all_registers]]
 set clocked [llength [all_registers -clock [all_clocks]]]
 if { $clocked != $registers } {

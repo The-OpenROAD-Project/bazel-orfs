@@ -15,7 +15,8 @@
 #   place      3_top_place.odb, TOP_FLATTEN only: the boundary logic placed
 #   tree       4_top_cts_tree.odb, the tree as built: the legaliser next
 #   cts        4_top_cts.odb, the tree legalised: global route next
-#   grt        5_top_grt.odb, routed: the clock check and crossings
+#   grt        5_top_grt.odb, routed: the crossings, and the clock check
+#              when they are timed whole (CROSSING_TXT, no CROSSING_SETS)
 #
 # TOP_FLATTEN names the macros whose boundary logic the top level takes
 # over ("all"): each part's in2reg, reg2out and in2out logic up to the
@@ -224,8 +225,10 @@ if { ![env_var_exists_and_non_empty CROSSING_SETS] } {
 # a copy-on-write child of this process, cut down to its crossing cones
 # (crossing_cones.tcl), so the routed design is loaded once and each
 # child's memory is its own set's; CROSSING_JOBS of them at a time (1).
-# Each writes CROSSING_TXT.<n>; the clock check needs the whole clock
-# network, so a child reports its setup skew instead.
+# Each writes CROSSING_TXT.<n>. The clock check (top_clock_check.tcl)
+# needs the whole clock network and does not run here: crossing_plan.tcl,
+# which loads the routed design whole to draw the sets, stops on a
+# register with no clock, and nothing checks the skew.
 source $::env(ORFS_FORK_TCL)
 set f [open $::env(CROSSING_SETS)]
 set sets {}

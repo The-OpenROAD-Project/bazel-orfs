@@ -18,6 +18,15 @@ if { [env_var_exists_and_non_empty TOP_DIR] } {
 }
 # top_level.tcl writes 5_top_grt.sdc beside it: the constraints it read
 load_design 5_top_grt.odb
+# Every register of every dissolved macro on the clock: this is the first
+# step that loads the routed top level whole. A register no clock reaches
+# has no crossing to report, and nothing after this would say so.
+set registers [llength [all_registers]]
+set clocked [llength [all_registers -clock [all_clocks]]]
+if { $clocked != $registers } {
+  utl::error FLW 32 "crossing_plan: [expr { $registers - $clocked }] of $registers registers have no clock"
+}
+puts "crossing_plan: $registers registers clocked"
 set parent [env_var_or_empty PARENT_INST]
 if { $parent eq "" } {
   set parent u_parent
