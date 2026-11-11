@@ -41,8 +41,9 @@ neutralize:
    private email addresses, and details visible only inside the
    maintainers' organization.
 3. **Private URLs & internal references** — private repo/registry URLs,
-   internal ticket/issue/PR cross-references, internal branch names, and
-   CI/dashboard links.
+   internal ticket/issue/PR cross-references, internal branch names,
+   CI/dashboard links, and Claude session links (a `Claude-Session:`
+   trailer, a `claude.ai/code/session_...` URL; `docs/agent-rules.md`).
 4. **Secrets & embargoed material** — any token, key, or credential
    (always), and any unpublished or embargoed technical detail that isn't
    already public.
