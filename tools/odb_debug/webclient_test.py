@@ -72,7 +72,7 @@ class WebClientTest(unittest.TestCase):
     def test_a_missing_or_wrong_token_is_refused(self):
         fake = fake_viewer.FakeViewer(handler, token="ab" * 16)
         for token in ("", "cd" * 16):
-            with self.assertRaisesRegex(webclient.WebError, "401"):
+            with self.assertRaisesRegex(webclient.Unauthorized, "401"):
                 webclient.Viewer(fake.port, timeout=10, token=token)
 
     def test_unreachable(self):

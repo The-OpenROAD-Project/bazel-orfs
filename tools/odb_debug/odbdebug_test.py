@@ -233,8 +233,34 @@ class ClientTest(unittest.TestCase):
         tokenless = tempfile.mkdtemp(prefix="odb_debug_tokenless.")
         with open(os.path.join(tokenless, "daemon.json"), "w") as f:
             json.dump({"port": self.fake.port}, f)
-        with self.assertRaisesRegex(odbdebug.DaemonError, "401.*access token"):
+        with self.assertRaisesRegex(odbdebug.DaemonError, "token mismatch.*has none"):
             odbdebug.Daemon(tokenless).status()
+
+    def test_a_refused_token_is_a_mismatch_not_a_gone_daemon(self):
+        # 2026-11-11: a 401 said "a daemon leaves on its own when memory
+        # runs low", while the daemon was up and well.
+        wrong = tempfile.mkdtemp(prefix="odb_debug_wrong.")
+        with open(os.path.join(wrong, "daemon.json"), "w") as f:
+            json.dump({"port": self.fake.port, "pid": 0, "token": "f" * 32}, f)
+        with self.assertRaises(odbdebug.DaemonError) as cm:
+            odbdebug.Daemon(wrong).status()
+        message = str(cm.exception)
+        self.assertRegex(message, "token mismatch.*refused the access token")
+        self.assertIn(os.path.join(wrong, "daemon.json"), message)
+        self.assertNotIn("leaves on its own", message)
+
+    def test_a_refused_token_rereads_daemon_json(self):
+        # A daemon that rewrote daemon.json after it was read: the second
+        # read has the token the viewer takes.
+        moved = tempfile.mkdtemp(prefix="odb_debug_moved.")
+        path = os.path.join(moved, "daemon.json")
+        with open(path, "w") as f:
+            json.dump({"port": self.fake.port, "token": "f" * 32}, f)
+        d = odbdebug.Daemon(moved)
+        self.assertEqual(d.info["token"], "f" * 32)
+        with open(path, "w") as f:
+            json.dump({"port": self.fake.port, "token": TOKEN}, f)
+        self.assertEqual(d.status()["design"], "fake")
 
 
 class McpTest(unittest.TestCase):
@@ -361,6 +387,25 @@ class McpTest(unittest.TestCase):
         self.assertIn("OSError: disk on fire", r["result"]["content"][0]["text"])
         r = self.rpc("tools/call", {"name": "status", "arguments": {}})
         self.assertFalse(r["result"]["isError"])
+
+    def test_a_stale_server_refuses_every_call(self):
+        # 2026-11-11: a server started 30 s before a checkout rewrote
+        # odbdebug.py and webclient.py kept the old code, sent no token,
+        # and every call was refused 401 by a daemon launched from the
+        # new code.
+        r = self.rpc("tools/call", {"name": "status", "arguments": {}})
+        self.assertFalse(r["result"]["isError"])
+        saved = mcp_server.LOADED
+        path = os.path.abspath(odbdebug.__file__)
+        mcp_server.LOADED = dict(saved, **{path: "0" * 64})
+        try:
+            r = self.rpc("tools/call", {"name": "status", "arguments": {}})
+        finally:
+            mcp_server.LOADED = saved
+        self.assertTrue(r["result"]["isError"])
+        text = r["result"]["content"][0]["text"]
+        self.assertIn("stale MCP server: odbdebug.py changed", text)
+        self.assertIn("restart this server", text)
 
     def test_image_that_wrote_nothing_is_a_tool_error(self):
         r = self.rpc(

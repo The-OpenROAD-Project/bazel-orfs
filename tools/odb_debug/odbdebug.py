@@ -85,13 +85,48 @@ class Daemon(object):
                 )
         return self._info
 
+    def _connect(self, timeout):
+        """A viewer connection with daemon.json's token. A refused token
+        rereads daemon.json once: a daemon that replaced it since it was
+        read has a token of its own. A token refused twice says which
+        side is out of step; the daemon did not leave, so the error does
+        not say it might have."""
+        sent = None
+        for _ in range(2):
+            token = self.info.get("token", "")
+            if token == sent:
+                break
+            sent = token
+            try:
+                return webclient.Viewer(self.info["port"], timeout=timeout, token=token)
+            except webclient.Unauthorized:
+                self._info = None
+        if not sent:
+            raise DaemonError(
+                "token mismatch: the viewer on port %s wants an access token"
+                " and %s has none; it was written by a daemon.tcl older than"
+                " web_server -token. Launch the daemon again."
+                % (self.info.get("port"), self.path)
+            )
+        raise DaemonError(
+            "token mismatch: the viewer on port %s refused the access token"
+            " in %s, written by the daemon with pid %s (%s). That daemon.json"
+            " does not belong to the viewer on its port: a daemon on another"
+            " ODB_DEBUG_DIR took the port, or the file outlived its daemon."
+            " Launch the daemon again."
+            % (
+                self.info.get("port"),
+                self.path,
+                self.info.get("pid"),
+                "running" if pid_alive(self.info.get("pid", 0)) else "gone",
+            )
+        )
+
     def exchange(self, code, timeout=DEFAULT_TIMEOUT):
         """Send Tcl `code`; return (reply dict, logger output, debug
         pauses continued)."""
         try:
-            viewer = webclient.Viewer(
-                self.info["port"], timeout=timeout, token=self.info.get("token", "")
-            )
+            viewer = self._connect(timeout)
         except webclient.WebError as e:
             self._info = None
             raise DaemonError(
