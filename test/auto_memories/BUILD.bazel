@@ -20,7 +20,7 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:openroad.bzl", "orfs_flow")
 load("//test:auto_memories_outputs_test.bzl", "auto_memories_outputs_test")
-load("//test:variant_move_once_test.bzl", "variant_move_once_test")
+load("//test:memories_in_place_test.bzl", "memories_in_place_test")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -209,11 +209,10 @@ sh_test(
     data = [":am_top_keep_synth_netlist"],
 )
 
-# A variant whose floorplan starts from the base flow's synthesis. Its
-# stage moves the synthesis's results into its own results directory,
-# and the AUTO_MEMORIES views with them; the synthesis's files already
-# carry those views, so the move has to list each once (a second mv
-# found the file gone).
+# A variant whose floorplan starts from the base flow's synthesis. It
+# reads the synthesis's 1_synth.odb in place (FLOW_INPUT_VARIANT) and the
+# AUTO_MEMORIES views in place (AUTO_MEMORIES_DIR, set by the synthesis):
+# nothing is copied, and its floorplan is the base flow's, byte for byte.
 orfs_flow(
     name = "am_top",
     arguments = {
@@ -222,6 +221,8 @@ orfs_flow(
         "SYNTH_KEEP_MODULES": "am_regs",
         "SYNTH_NUM_PARTITIONS": "1",
         "CORE_UTILIZATION": "30",
+        "PLACE_DENSITY": "0.60",
+        "PLACE_DENSITY_LB_ADDON": "0.20",
         "SKIP_REPORT_METRICS": "1",
     },
     last_stage = "floorplan",
@@ -237,7 +238,50 @@ orfs_flow(
     ],
 )
 
-variant_move_once_test(
-    name = "am_top_shared_move_once_test",
+memories_in_place_test(
+    name = "am_top_shared_memories_in_place_test",
     target_under_test = ":am_top_shared_floorplan",
+)
+
+[
+    filegroup(
+        name = "am_top_{}floorplan_{}".format(variant, ext),
+        srcs = [":am_top_{}floorplan".format(variant)],
+        output_group = "2_floorplan." + ext,
+    )
+    for variant in [
+        "",
+        "shared_",
+    ]
+    for ext in [
+        "odb",
+        "sdc",
+    ]
+]
+
+sh_test(
+    name = "am_top_shared_floorplan_test",
+    srcs = ["//test:same_files_test.sh"],
+    args = [
+        "$(location :am_top_{}floorplan_{})".format(variant, ext)
+        for ext in [
+            "sdc",
+            "odb",
+        ]
+        for variant in [
+            "",
+            "shared_",
+        ]
+    ],
+    data = [
+        ":am_top_{}floorplan_{}".format(variant, ext)
+        for ext in [
+            "sdc",
+            "odb",
+        ]
+        for variant in [
+            "",
+            "shared_",
+        ]
+    ],
 )
