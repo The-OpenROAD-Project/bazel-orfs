@@ -151,6 +151,28 @@ def repeatable_arguments(arguments):
     """
     return {"SYNTH_REPEATABLE_BUILD": "1"} | arguments
 
+def metrics_arguments(arguments):
+    """A stage skips report_metrics unless the design says otherwise.
+
+    ORFS's SKIP_REPORT_METRICS defaults to 0: every stage that calls
+    report_metrics updates timing, analyses power and writes text reports,
+    on the critical path and at no benefit to the netlist. bazel-orfs
+    builds that stage's <stage>_report instead, on the stage's saved
+    results and only when asked for, in parallel with the rest of the
+    flow (docs/performance.md). A design that wants the numbers in its
+    stage .json sets 0.
+
+    Applied by orfs_flow() and by every standalone stage macro, like
+    hierarchical_arguments().
+
+    Args:
+        arguments: the flow's or stage's arguments dict.
+
+    Returns:
+        arguments, with SKIP_REPORT_METRICS set.
+    """
+    return {"SKIP_REPORT_METRICS": "1"} | arguments
+
 def _merge_extra_arguments(a, b):
     """Merge two {stage: [label, ...]} dicts, concatenating per-stage lists."""
     merged = dict(a)
@@ -371,9 +393,9 @@ def _orfs_stage(stage, impl, **kwargs):
         impl: the underlying *_rule for that stage.
         **kwargs: forwarded to _filter_stage_args and the rule.
     """
-    kwargs["arguments"] = repeatable_arguments(
+    kwargs["arguments"] = metrics_arguments(repeatable_arguments(
         hierarchical_arguments(kwargs.get("arguments", {})),
-    )
+    ))
     impl(**_filter_stage_args(stage, **kwargs))
 
 def orfs_synth(**kwargs):
@@ -574,9 +596,9 @@ def orfs_flow(
       **kwargs: forward named args
     """
 
-    arguments = repeatable_arguments(hierarchical_arguments(
+    arguments = metrics_arguments(repeatable_arguments(hierarchical_arguments(
         slang_arguments("orfs_flow", name, arguments, yosys_frontend_reason),
-    ))
+    )))
     _check_detailed_metrics(name, arguments)
 
     if quick_pins:

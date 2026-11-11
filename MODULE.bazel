@@ -277,12 +277,6 @@ archive_override(
         # an OpenROAD that has them.
         "//patches:0197-openroad-odb-backing-file.patch",
         "//patches:0198-openroad-grt-page-out-database.patch",
-        # 0200: after a 2D route without overflow, resistance-aware routing
-        # reroutes in 3D once, and only the nets it selected, instead of
-        # every critical net twice (Uncache's global route, 58.8 of its
-        # 60.5 s; ideas/structured-macros.md). Not upstreamed; retires at
-        # a //:bump onto an OpenROAD that has it.
-        "//patches:0200-openroad-grt-res-aware-3d-once.patch",
         # 0207: CTS latency balancing asks for clock arrivals only, not every
         # arrival in the design; with OpenSTA #462, XSTile's Top CTS on OpenROAD
         # master 101.8 -> 47.8 GB heap, 1,045 -> 609 s, same checkpoint.

@@ -35,7 +35,7 @@ workload: when a stage is slow, the timer is the first suspect.
   #11933, carried 0145).
 - ORFS's `report_metrics` at each stage end (up to 4x in grt with
   `DETAILED_METRICS`): full reports, skew, power. bazel-orfs skips it by
-  default (0158) and builds `<stage>_report` on demand (#1543).
+  default (`metrics_arguments()`, `private/flow.bzl`) and builds `<stage>_report` on demand (#1543).
 
 ## Silent wrong answers
 
