@@ -175,6 +175,11 @@ ORFS_PATCHES = [
     # place. On 0213. Not upstreamed; retires at a bump onto an ORFS that
     # carries it.
     Label("//patches:0214-orfs-auto-memories-dir.patch"),
+    # 0217: an issue archive's run-me script climbs from a relative
+    # WORK_HOME (bazel-orfs's package) to the archive's root before it
+    # sources the vars, whose paths are relative to the root. Not
+    # upstreamed; retires at a bump onto an ORFS that carries it.
+    Label("//patches:0217-orfs-issue-run-me-root.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

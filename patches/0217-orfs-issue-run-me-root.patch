@@ -1,0 +1,72 @@
+From 14fc116e7900c4231384af8e96e06e9e0de97e49 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Wed, 11 Nov 2026 19:31:19 +0100
+Subject: [PATCH] makeIssue: run-me finds the archive's root from a relative
+ WORK_HOME
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The run-me script changes to its own directory and sources the vars file
+from there; the vars' paths are relative to the archive's root. An
+absolute WORK_HOME is stripped from the archive's member names, so
+run-me lands at the root and that works. A relative WORK_HOME (bazel-orfs
+sets one per package, ./test/regfile/band) keeps its place under the
+root, and run-me then failed: `couldn't read file
+"external/.../detail_place.tcl"`.
+
+run-me now climbs from its directory to the archive's root and sources
+the vars by their path from there. An absolute WORK_HOME and WORK_HOME=.
+are unchanged.
+
+Not upstreamed; retires at a bump onto an ORFS that carries it.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/util/makeIssue.sh | 22 ++++++++++++++++++----
+ 1 file changed, 18 insertions(+), 4 deletions(-)
+
+diff --git a/flow/util/makeIssue.sh b/flow/util/makeIssue.sh
+index 27737516b..89eea94fd 100755
+--- a/flow/util/makeIssue.sh
++++ b/flow/util/makeIssue.sh
+@@ -84,18 +84,32 @@ fi
+ # Source the vars file relative to the run-me script itself, so the
+ # reproducible works out of the box wherever the tarball is extracted
+ # (WORK_HOME is an absolute CI path that does not exist elsewhere).
++# The vars' paths are relative to the archive's root, where an absolute
++# WORK_HOME lands (stripped below) and where a relative one does not: a
++# relative WORK_HOME keeps its place under the root, and run-me climbs
++# back to the root from it before sourcing the vars from there.
++case "${WORK_HOME:-.}" in
++/*)
++    RUN_ME_ROOT=.
++    RUN_ME_VARS=./$(basename ${VARS_BASENAME}).sh
++    ;;
++*)
++    RUN_ME_ROOT=$(realpath -m --relative-to="$(realpath -m "${WORK_HOME:-.}")" .)
++    RUN_ME_VARS=./$(realpath -m --relative-to=. "${VARS_BASENAME}").sh
++    ;;
++esac
+ if [ "$IS_YOSYS" -eq 1 ]; then
+ cat > ${RUN_ME_SCRIPT} <<EOF
+ #!/usr/bin/env bash
+-cd "\$(dirname "\$0")"
+-source ./$(basename ${VARS_BASENAME}).sh
++cd "\$(dirname "\$0")/${RUN_ME_ROOT}"
++source ${RUN_ME_VARS}
+ yosys ${YOSYS_FLAGS:-} -c \${SCRIPTS_DIR}/${ISSUE_TARGET}.tcl
+ EOF
+ else
+ cat > ${RUN_ME_SCRIPT} <<EOF
+ #!/usr/bin/env bash
+-cd "\$(dirname "\$0")"
+-source ./$(basename ${VARS_BASENAME}).sh
++cd "\$(dirname "\$0")/${RUN_ME_ROOT}"
++source ${RUN_ME_VARS}
+ if [[ ! -z \${GDB+x} ]]; then
+     gdb --args openroad -no_init -threads ${NUM_CORES:-1} \${SCRIPTS_DIR}/${ISSUE_TARGET}.tcl
+ else
+-- 
+2.53.0
+
