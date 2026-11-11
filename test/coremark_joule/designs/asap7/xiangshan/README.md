@@ -137,6 +137,7 @@ clocking can reach it.
 | 24 | 2026-11-03 | 3,108 | 3,108 |  |  | 1,997 | 1,861 | 1,559 | 1,978 | 1,760 |  |  |  |  |  |  |  |  |  |  |  |  | 2,117 |  |  |  |  | 2,111 | 61 | XSTile carved along XiangShan's hierarchy into six blocks, pins on the edge facing each neighbour; the first run with the Top measured. XSTile 3,108 ps, set by the Top: 42,962 crossing paths over 2,000 ps, nearly all from a handful of broadcast registers: ctrlBlock's flush redirect valid into all of VecRegion (3,108 ps), FltRegion and Rob, the redirect valid and BJU1's redirect data into all of Frontend (2,750 ps, 20,808 paths), Rob's state into the parent (2,542 ps). The Top skips timing repair. Inside the parts: Rob 2,117 and the parent macro 2,111 ps (its endpoints over 2,000 ps 6,832 to 117, excess 1,148 to 3 ns), both a broadcast net's critical sink at the end of a long buffer tree; Frontend 1,997, VecRegion 1,978, MemBlock 1,861, FltRegion 1,760, CoupledL2 1,559 ps |
 | 25 | 2026-11-04 | 3,099 | 3,099 |  |  | 1,997 | 1,861 | 1,559 | 1,978 | 1,760 |  |  |  |  |  |  |  |  |  |  |  |  | 1,810 |  |  |  |  | 2,111 | 61 | Rob's two register files 20 um apart instead of 4.7 (#1510): its clock tree had run up and down the slit between them (445 ps of skew, 11,271 hold buffers); Rob 2,117 to 1,810 ps and Rob into the parent's crossings 2,542 to 2,461 ps. XSTile 3,108 to 3,099 ps, still set by ctrlBlock's flush redirect valid into all of VecRegion, a broadcast across a macro boundary; the parent macro, Frontend, VecRegion, MemBlock, FltRegion and CoupledL2 as in run 24 |
 | 26 | 2026-11-05 | 3,136 | 3,136 |  |  | 2,041 | 1,842 | 1,827 | 1,813 | 1,775 |  |  |  |  |  |  |  |  |  |  |  |  | 1,910 |  |  |  |  | 2,370 | 60.4 | First run on main after the OpenROAD/ORFS bump, with #1522's seed search choosing every annealed block's memory placement. XSTile 3,099 to 3,136 ps, still the flush redirect valid into all of VecRegion; Rob into the parent 2,461 to 2,962 ps. The parent macro 2,111 to 2,370 ps: its issue-queue wakeup paths gained about 260 ps of cell delay at equal or shorter wire, and the flush register is now its own worst path too. CoupledL2 1,559 to 1,827 and Vec 1,978 to 1,813 ps moved most, both with annealed memory banks: the bump and the seed search are not separated in this row |
+| 27 | 2026-11-11 | 4,356 | 4,356 |  |  | 1,800 | 1,742 | 1,799 | 1,809 | 1,714 |  |  |  |  |  |  |  |  |  |  |  |  | 1,680 |  |  |  |  | 3,949 | 61.6 | First run with timing- and routability-driven global placement on in every part, and with the broadcast registers copied into the blocks that read them (ten copies, surgery/sinks.txt). XSTile 3,136 to 4,356 ps, set by the Top: the parent into Frontend (9,800 paths, the worst from BJU1's pipe register); 35,097 crossing paths over 2,000 ps (run 26: 47,033), Rob into the parent 2,962 to 3,849 ps. The six blocks are all under 2,000 ps: Frontend 2,041 to 1,800, MemBlock 1,842 to 1,742, CoupledL2 1,827 to 1,799, Vec 1,813 to 1,809, Flt 1,775 to 1,714, Rob 1,910 to 1,680 ps. The parent macro 2,370 to 3,949 ps, its worst path from a copied floating-point issue-queue entry valid, now inside the parent, into ctrlBlock's decode buffer. The drivers and the copies are not separated in this row |
 <!-- kpi-table end -->
 
 Periods are in picoseconds; `≥` marks a run that did not measure the
@@ -224,13 +225,13 @@ Each part alone, at its own global route with its abstracts (`<part>_kpi`):
 <!-- kpi-worst begin: written by kpi.py -->
 | part | period | worst reg2reg path | what it is |
 |---|---|---|---|
-| parent | 2,370 | `core/backend/inner_ctrlBlock/s1_robFlushRedirect_valid_last_REG$_DFF_PP0_/QN` → `core/backend/inner_intRegion/io_wbDataPathToCtrlBlock_delayedOldestExuRedirect_bits_fullTarget[0]$_DFFE_PP_/D` |  |
-| Frontend | 2,041 | `inner_itlb.csr_delay.io_out_vsatp_mode[2]$_DFF_P_/QN` → `inner_icache/prefetcher.s2_exception_value[0]$_DFFE_PP0P_/D` |  |
-| MemBlock | 1,842 | `inner_dtlb_ld_tlb_ld/entries.page_ldtlb_storage_fa.reqVpn_3[0]$_DFF_P_/QN` → `inner_pmp_checkers_3.res_pmp_r_23$_DFFE_PP0P_/D` |  |
-| CoupledL2 | 1,827 | `slices_0/directory/metaAll_s3_1_state[0]$_DFFE_PP0P_/QN` → `slices_0/mainPipe/customL1Hint.hintQueue.ram_ext.Memory[15][0]$_DFFE_PP_/D` |  |
-| VecRegionModule | 1,813 | `issuePipes_1/exu.Vfdiv/vfdivs_0.u_vector_float_divider_r64.fp_format_onehot_q[1]$_DFFE_PP_/QN` → `issuePipes/exu.Vfmac/a0_0_fpB[19]$_DFFE_PP_/D` |  |
-| FltRegionModule | 1,775 | `fpRegFile/io_readPorts_10_data[15]` → `issuePipes_3/exu.exFadd_0_bits_data_src_1[15]$_DFFE_PP_/D` |  |
-| Rob | 1,910 | `rab/state[0]$_DFF_PP1_/QN` → `rab/renameBuffer/io_writePorts_7_addr[7]` |  |
+| parent | 3,949 | `core/backend/fltregionmodule_sink.issueQueues_3.fastEntries_13_valid$_DFF_PP0_/QN` → `core/backend/inner_ctrlBlock/decodeBufBits_0_exceptionVec_1$_DFFE_PP_/D` | a copied floating-point issue-queue entry valid (sinks.txt, step 10) into ctrlBlock's decode buffer, inside the parent |
+| Frontend | 1,800 | `inner_itlb.entries.page_itlb_storage_fa.reqVpn[0]$_DFF_P_/QN` → `inner_icache/prefetcher.s2_exception_value[0]$_DFFE_PP0P_/D` |  |
+| MemBlock | 1,742 | `inner_redirect_next_bits_r_robIdx_value[0]$_DFFE_PP_/QN` → `inner_dcache/dcache.metaArray/io_resp_1_2_r_2_coh_state[1]$_DFFE_PP_/D` |  |
+| CoupledL2 | 1,799 | `slices_0/directory/metaAll_s3_1_state[0]$_DFFE_PP0P_/QN` → `slices_0/sinkC/r_1[107]$_DFFE_PP_/D` |  |
+| VecRegionModule | 1,809 | `ctrlblock_sink.redirectGen.io_robFlush_valid$_DFF_PP0_/QN` → `issuePipes/is0_valid$_DFF_PP0_/D` |  |
+| FltRegionModule | 1,714 | `issuePipes_3/exu.exFadd_0_bits_data_src_0[53]$_DFFE_PP_/QN` → `issuePipes_3/exu.Falu.falu.FloatAdderV2toS1Reg_FADD64S0ToS1_roundUp$_DFFE_PP_/D` |  |
+| Rob | 1,680 | `robBanksRaddrThisLine[27]$_DFFE_PP0P_/QN` → `robDeqGroup_4_ftqOffset[2]$_DFF_P_/D` |  |
 <!-- kpi-worst end -->
 
 `kpi_run.tcl` writes each part's histogram in 10 ps bins, and
@@ -363,13 +364,50 @@ finds them in the surgered core, writes each block as one entry cell
 instanced per entry with the index comparisons decoded once in the
 block, and proves the result equal to the block (`arrays/README.md`).
 
-MemBlock and the parent read `arrays:xiangshan_extracted`, the surgered
-core with those blocks swapped for their extractions (`XS_EXTRACTED` in
-`xiangshan.bzl`); every other part reads the surgered core. Slang
-elaborates one module per instance, so `fold_entries.tcl`, run before the
-canonical checkpoint, folds the copies of each entry cell back onto one
-module, which synthesis then maps once. TLBFA, the instruction TLB, is
-extracted too but is Frontend's, which reads the surgered core.
+`arrays:xiangshan_extracted` is the surgered core with those blocks
+swapped for their extractions. MemBlock holds them (`XS_EXTRACTED` in
+`xiangshan.bzl`) and keeps the entry cells through synthesis: slang
+elaborates one module per instance, so `fold_entries.tcl`, run before
+the canonical checkpoint, folds the copies of each entry cell back onto
+one module, which synthesis then maps once. The parent macro holds none:
+its one extraction is the Rob's, a block here. TLBFA, the instruction
+TLB, Uncache and VirtualLoadQueue are extracted too but stay out of
+`xiangshan_extracted`.
+
+## The copies
+
+A register in one block that another block reads through a cone of logic
+is a path across their boundary wherever the two are placed. Ten of them,
+each a broadcast, are copied into the module that reads them
+(`surgery/sinks.txt`, one line a copy, applied in order by
+`sink_chain.sh`; CtrlBlock and Backend are in the parent macro):
+
+1. CtrlBlock's flush bundle into the vector and floating-point regions;
+2. Rob's enqueue stall into CtrlBlock's own logic;
+3. the redirect into Frontend;
+4. the redirect into MemBlock;
+5. MemBlock's load-unit s2 valid into Backend;
+6. MemBlock's atomics unit state into Backend;
+7. Rob's empty flag into CtrlBlock's own logic;
+8. Frontend's instruction buffer outputs into Backend;
+9. the vector issue queues' fast entry valids into Backend's own logic;
+10. the floating-point issue queues' fast entry valids into Backend's own
+    logic.
+
+`sink_registers.py` gives the reader a copy of the registers and of the
+combinational function behind the ports it reads, as `<module>_sink`
+(`_sink2`, `_sink3` for a module copied again): the original's clock,
+next state and reset, and no register added. The crossing moves from the
+registers' outputs to their inputs; the original stays for every other
+reader. `sink_toy_test` makes four shapes of copy on toys and checks
+each with a 12-cycle miter against the original, a broken copy being the
+negative control that must fail.
+
+The parent, FltRegionModule, Frontend, MemBlock and VecRegionModule read
+`surgery:xiangshan_sunk`, the extracted core with the ten copies
+(`XS_SUNK`). Rob reads `surgery:xiangshan_sunk_plain`, the surgered core
+with the two copies that touch it (`sinks_rob.txt`). CoupledL2 reads the
+surgered core.
 
 ## Running it
 
@@ -401,9 +439,9 @@ the build carries on, so a laptop can ask in minutes.
 
 ## The parent as a macro
 
-The tile is carved so that no flow takes more than an hour or comes near
-the machine's memory: the 19 blocks the plan names (`plan/plan.json`),
-each through global route at its own outline, and the rest of the tile,
+The tile is carved into the six blocks the plan names
+(`plan/plan.json`), each through global route at its own outline, and
+the rest of the tile,
 `XSTile_parent`, a macro of the plan's die with a hole where each block
 sits (`tools/carve/parent_macro.bzl`). The top level, `XSTile_parent_pm`,
 checks them together: it places the parent and the blocks, dissolves
@@ -412,16 +450,23 @@ builds one clock tree over every register.
 
 ```sh
 # the blocks and the parent, in waves that fit free memory, then the
-# top level through CTS, alone
+# top level through global route and its crossings report, alone
 bazelisk run //test/coremark_joule/designs/asap7/xiangshan:build
-# the top level's global route, in the dirty lane
-bazelisk run //:dirty -- start --fresh //test/coremark_joule/designs/asap7/xiangshan:XSTile_parent_pm grt
-tmp/test/coremark_joule/designs/asap7/xiangshan/XSTile_parent_pm/make do-grt
 ```
 
-Every block reaches global route in under an hour (`resources.json`);
-the slowest is Rob, about 50 minutes. The parent takes about two hours,
-most of it global placement.
+A block reaches global route in about 15 minutes (FltRegionModule) to
+about 110 (MemBlock, 64 of them in placement); on run 27 the parent took
+about 155, 86 in placement and 61 in global route, where it peaked at
+62 GB. `resources.json` is the schedule's record, and it keeps an entry
+while a new measurement is within 20 % of it. The top level's own
+script, `XSTile_parent_pm_top`, peaks at 81 GB.
+
+Global placement is timing- and routability-driven in every block and
+in the parent, and neither driver says so in the exit status when it
+does not run. `<part>_gpl_driven`, a target in each part's unit of the
+schedule, fails a part whose global placement log (`3_3_place_gp.log`) has
+no timing-driven iteration (GPL-0100) or no routability pass (GPL-0040),
+in the wave that placed it.
 
 The top level reads the parent's LEF only (`XSTile_parent_abstract`):
 the parent's timing model, `XSTile_parent_timing_model`, is not on its
@@ -432,36 +477,54 @@ dissolves the macros, it is not ORFS's place, CTS and global route but
 one script, `XSTile_parent_pm_top` (`tools/carve/top_level.tcl`): one
 clock tree over every register, legalised by the diamond legaliser, and
 a global route that keeps every macro's routes and routes only the clock
-tree and the stitches (`-unguided_only`, patch 0173). The parent and the
-top level skip timing repair: the first flush through global route is
-for turnaround.
+tree and the stitches (`-unguided_only`, patch 0173). The parent repairs
+setup at global route, on register-to-register paths only; the top
+level skips timing repair.
 
 `XSTile_parent_pm_crossings` lists every register-to-register path that
 is not contained in one macro and needs more than 2,000 ps, every cell
 on it by name: a macro's `.lib` gives one number at a pin, the dissolved
-top level the path. Timed whole the top level does not fit 62 GB, so it
+top level the path. Timed whole the top level ran past 62 GB of memory
+and 220 GB of swap, so it
 is timed in sets of macros (`tools/carve/crossing_*.tcl`, OpenROAD
 patch 0174): each set cut to the logic its paths can touch, written with
-its parasitics as SPEF and timed in a process of its own. On the toy
-(`test/parent_macro`) the sets report the paths the whole design does,
-slack for slack (`mini_top_parent_pm_crossing_test`).
+its parasitics as SPEF and timed in a process of its own. The sets are
+cut and timed on the machine that builds, never on a remote executor:
+on run 27 cutting the nine took 70 minutes and 46 GB, timing them 133
+minutes and 51 GB. On the toy (`test/parent_macro`) the sets report the
+paths the whole design does, slack for slack
+(`mini_top_parent_pm_crossing_test`). The timing also writes the worst
+crossing path into each endpoint that needs more than
+`crossing_data_min_ps` (1,500 ps), with its wire delay and both ends'
+places, as `crossing_data.<set>.tsv`.
 
-On the six-block carve (KPI run 26, main after the OpenROAD/ORFS bump,
-all 9 sets, hermetic), 47,033 start and end pairs need more than
-2,000 ps, the worst 3,135 ps. Nearly all start at a handful of
-registers, each a broadcast into a whole block:
+On the six-block carve (KPI run 27, all 9 sets, hermetic), 35,097 start
+and end pairs need more than 2,000 ps, the worst 4,356 ps, in 21
+combinations of start macro, end macro and the macro passed between.
+The eight with more than 500 paths hold 33,929 of them:
 
 | From | To | Through | Paths | Worst (ps) |
 | --- | --- | --- | ---: | ---: |
-| parent | VecRegionModule | - | 7,999 | 3,135 |
-| Rob | parent | - | 11,668 | 2,962 |
-| parent | Frontend | - | 19,140 | 2,888 |
-| Rob | FltRegionModule | parent | 175 | 2,706 |
-| MemBlock | parent | FltRegionModule | 1,569 | 2,541 |
-| parent | FltRegionModule | - | 2,568 | 2,498 |
+| parent | Frontend | - | 9,800 | 4,356 |
+| Rob | parent | - | 11,746 | 3,849 |
+| parent | VecRegionModule | - | 1,266 | 3,519 |
+| MemBlock | parent | FltRegionModule | 1,545 | 3,412 |
+| parent | parent | FltRegionModule | 1,511 | 2,938 |
+| FltRegionModule | parent | - | 542 | 2,811 |
+| MemBlock | parent | - | 811 | 2,778 |
+| parent | CoupledL2 | - | 6,708 | 2,201 |
 
-The worst is ctrlBlock's flush redirect valid
-(`s1_robFlushRedirect_valid_last_REG`) into VecRegion's `is0_valid`.
+A set lists the worst path into each endpoint, and three registers
+start 80 % of these paths, each a broadcast into a whole block: Rob's
+`state` into the parent (11,744), the parent's
+`pipeToBJU1.io_out_bits_data_src_1` into Frontend (9,771) and the
+parent's `l2top/inner_buffer.nodeOut_c_q.deq_ptr_value` into CoupledL2
+(6,708).
+
+The worst is that BJU1 pipe register into Frontend's
+`mem_1_bits_branches_1_bits_target_addr`; 7,765 paths from the parent
+into Frontend need 4,150 ps or more. The paths into CoupledL2 are just
+over: 6,442 of the 6,708 need less than 2,150 ps.
 
 `tools/carve/crossing_gui.tcl` serves one set in the web GUI, with a
 path group `crossing` that holds exactly these paths.

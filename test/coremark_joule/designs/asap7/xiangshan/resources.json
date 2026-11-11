@@ -31,20 +31,20 @@
       "source": "measured",
       "stages": {
         "cts": {
-          "minutes": 5.0,
-          "peak_gb": 7.8
+          "minutes": 2.4,
+          "peak_gb": 7.2
         },
         "floorplan": {
-          "minutes": 1.6,
-          "peak_gb": 3.9
+          "minutes": 2.5,
+          "peak_gb": 4.0
         },
         "grt": {
           "minutes": 6.2,
           "peak_gb": 10.5
         },
         "place": {
-          "minutes": 8.2,
-          "peak_gb": 4.3
+          "minutes": 13.0,
+          "peak_gb": 7.0
         },
         "synth": {
           "minutes": 0.1,
@@ -81,24 +81,24 @@
       "source": "measured",
       "stages": {
         "cts": {
-          "minutes": 2.1,
-          "peak_gb": 4.6
+          "minutes": 0.9,
+          "peak_gb": 4.4
         },
         "floorplan": {
           "minutes": 0.9,
           "peak_gb": 2.6
         },
         "grt": {
-          "minutes": 3.9,
-          "peak_gb": 6.4
+          "minutes": 2.9,
+          "peak_gb": 6.0
         },
         "place": {
-          "minutes": 6.7,
-          "peak_gb": 2.7
+          "minutes": 9.9,
+          "peak_gb": 4.4
         },
         "synth": {
-          "minutes": 0.2,
-          "peak_gb": 1.5
+          "minutes": 0.1,
+          "peak_gb": 2.5
         }
       }
     },
@@ -106,24 +106,24 @@
       "source": "measured",
       "stages": {
         "cts": {
-          "minutes": 19.6,
-          "peak_gb": 17.5
+          "minutes": 8.5,
+          "peak_gb": 15.1
         },
         "floorplan": {
           "minutes": 3.9,
           "peak_gb": 5.3
         },
         "grt": {
-          "minutes": 47.2,
-          "peak_gb": 21.4
+          "minutes": 11.2,
+          "peak_gb": 19.2
         },
         "place": {
-          "minutes": 13.9,
-          "peak_gb": 7.4
+          "minutes": 27.3,
+          "peak_gb": 13.0
         },
         "synth": {
           "minutes": 0.8,
-          "peak_gb": 3.1
+          "peak_gb": 4.0
         }
       }
     },
@@ -281,24 +281,24 @@
       "source": "measured",
       "stages": {
         "cts": {
-          "minutes": 52.0,
-          "peak_gb": 23.6
+          "minutes": 8.3,
+          "peak_gb": 22.5
         },
         "floorplan": {
-          "minutes": 8.3,
+          "minutes": 10.2,
           "peak_gb": 10.5
         },
         "grt": {
-          "minutes": 38.2,
-          "peak_gb": 34.5
+          "minutes": 27.0,
+          "peak_gb": 31.7
         },
         "place": {
-          "minutes": 40.7,
-          "peak_gb": 14.3
+          "minutes": 64.2,
+          "peak_gb": 24.1
         },
         "synth": {
-          "minutes": 1.2,
-          "peak_gb": 6.0
+          "minutes": 0.7,
+          "peak_gb": 6.2
         }
       }
     },
@@ -381,20 +381,20 @@
       "source": "measured",
       "stages": {
         "cts": {
-          "minutes": 17.2,
-          "peak_gb": 6.5
+          "minutes": 1.2,
+          "peak_gb": 5.8
         },
         "floorplan": {
-          "minutes": 1.7,
-          "peak_gb": 3.4
+          "minutes": 2.1,
+          "peak_gb": 3.2
         },
         "grt": {
-          "minutes": 12.6,
-          "peak_gb": 11.3
+          "minutes": 6.4,
+          "peak_gb": 8.9
         },
         "place": {
-          "minutes": 9.0,
-          "peak_gb": 4.6
+          "minutes": 17.1,
+          "peak_gb": 7.1
         },
         "synth": {
           "minutes": 0.1,
@@ -456,24 +456,24 @@
       "source": "measured",
       "stages": {
         "cts": {
-          "minutes": 12.0,
-          "peak_gb": 9.9
+          "minutes": 4.1,
+          "peak_gb": 9.3
         },
         "floorplan": {
           "minutes": 1.9,
           "peak_gb": 4.1
         },
         "grt": {
-          "minutes": 9.9,
-          "peak_gb": 14.1
+          "minutes": 7.5,
+          "peak_gb": 13.0
         },
         "place": {
-          "minutes": 9.2,
-          "peak_gb": 5.7
+          "minutes": 25.9,
+          "peak_gb": 9.8
         },
         "synth": {
           "minutes": 0.2,
-          "peak_gb": 2.1
+          "peak_gb": 3.3
         }
       }
     },
@@ -568,12 +568,12 @@
           "peak_gb": 61.6
         },
         "place": {
-          "minutes": 37.1,
-          "peak_gb": 33.0
+          "minutes": 85.6,
+          "peak_gb": 32.6
         },
         "synth": {
-          "minutes": 2.5,
-          "peak_gb": 1.0
+          "minutes": 0.6,
+          "peak_gb": 7.6
         }
       }
     },
@@ -585,16 +585,16 @@
           "peak_gb": 70.0
         },
         "floorplan": {
-          "minutes": 30.0,
-          "peak_gb": 60.0
+          "minutes": 10.4,
+          "peak_gb": 45.7
         },
         "place": {
           "minutes": 10.0,
           "peak_gb": 60.0
         },
         "synth": {
-          "minutes": 2.0,
-          "peak_gb": 20.0
+          "minutes": 0.1,
+          "peak_gb": 0.9
         }
       }
     },
