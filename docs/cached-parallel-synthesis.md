@@ -377,6 +377,55 @@ With a pinned `SYNTH_KEEP_MODULES`:
    written as for a serial synthesis. From here on nothing knows the
    netlist was synthesized in pieces.
 
+### Slicing the Verilog instead: `verilog_slices = True`
+
+Step 2 reads the whole canonical RTLIL, so every kept module waits for
+the global canonicalize, which reads the whole design, and then reads it
+again: on a change to one module, the path to its partition is two
+whole-design reads before the synthesis that matters. With
+`verilog_slices = True` on `orfs_flow` or `orfs_synth` the module's
+partition reads only its own sources:
+
+1. **Slice.** `verilog_slice.py` cuts the Verilog into one file per kept
+   module, `partition_<module>_slice.v`: the module, every module under
+   it, and a stub (the header, ports only) for each kept module under
+   it. It takes seconds and its outputs are declared per module at
+   analysis time.
+2. **Canonicalize the slice, one action per kept module.**
+   `synth_canonicalize_slice.tcl` reads the slice as
+   `synth_canonicalize.tcl` reads the design, with the module as the top
+   and the stubs blackboxed, and hands the result to
+   `synth_canonicalize_module.tcl` as its checkpoint.
+
+The top partition still reads the global canonicalize, beside the
+partitions rather than in front of them. With `AUTO_MEMORIES` the memory
+detection becomes an action of its own, so the slices wait for it and
+not for the global canonicalize too.
+
+slang names a module after the instance it first elaborates
+(`Inner$Top.outer.inner`), and a slice elaborated from its own module
+would name it `Inner`. The slicer works out the names the whole design's
+elaboration gives the module and its kept children, depth first in
+source order as slang does, and writes them into the slice; the slice's
+canonicalize renames to them, so its partition fits the top's instances.
+A name that came out different fails `1_synth.odb` with `ORD-2013`, it
+does not link quietly to something else.
+
+The slicer takes sources with nothing between the module definitions but
+comments, which is what CIRCT firtool writes, split or concatenated. It
+fails the build, naming the file and line, on anything else that could
+make a slice elaborate differently from the whole design: a directive
+outside a conditional, text outside a module, a nested module, a
+non-ANSI port list, a parameterized kept module. `SYNTH_CANONICALIZE_TCL`,
+`SYNTH_VERILOG_SURGERY` and `VERILOG_TOP_PARAMS` act on the whole design
+and are refused with it at analysis. A partition's netlist is the one
+the global path gives (`test/verilog_slices`), up to two things that do
+not change the logic: the order of the module's ports, which slang
+takes from the module's own declaration when it is the top and can
+order differently inside the whole design, and the names of the modules
+under a kept one in the canonical RTLIL, which partition synthesis
+flattens away.
+
 ## Discovered modules on a static build graph
 
 ![Discovered partitions over a static number of executors, against one action per pinned module](images/parallel-synthesis-partitioning.png)
@@ -622,6 +671,7 @@ To reproduce this: build the target, make the edit, and build again with
 | `1_0_stable_module_names.sv`, `module_names.json` | `stable_module_names.py` (`SYNTH_STABLE_MODULE_NAMES=1`) |
 | `1_1_yosys_canonicalize.rtlil` | canonicalize (slang) |
 | `1_1_yosys_keep.rtlil`, `kept_modules.json` | `synth_keep.tcl`, `rtlil_kept_modules.py` (discovery only) |
+| `partition_<module>_slice.v` | `verilog_slice.py` (`verilog_slices` only) |
 | `partition_<module>_canonical.rtlil`, `.name` | `synth_canonicalize_module.tcl` (pinned only) |
 | `partition_<module>.v`, `partition_<i>.v`, `partition_top.v` | `synth_partition.sh` running `synth.tcl` |
 | `1_2_yosys.v` | the merge, `cat` |
