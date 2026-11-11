@@ -134,8 +134,27 @@ jobs:
 
       # Isolate the one-time Bazel module-graph resolution so the Lint step
       # below reflects actual lint work, not first-invocation setup.
+      #
+      # The module graph needs openroad+'s MODULE.bazel, so this is where
+      # the OpenROAD archive is downloaded when the repository cache does
+      # not have it. GitHub answers that download with 429 Too Many
+      # Requests when the runners' shared addresses have used up their
+      # limit, token or not, and a failed main run saves no repository
+      # cache, so the next run downloads again. A 429 is waited out, a few
+      # minutes at most; any other failure fails at once.
       - name: Warm up Bazel
-        run: bazelisk mod graph >/dev/null
+        run: |
+          for wait in 60 120 240 none; do
+            if bazelisk mod graph >/dev/null 2>"$RUNNER_TEMP/warmup.log"; then
+              exit 0
+            fi
+            cat "$RUNNER_TEMP/warmup.log" >&2
+            if [ "$wait" = none ] || ! grep -q '429 Too Many Requests' "$RUNNER_TEMP/warmup.log"; then
+              exit 1
+            fi
+            echo "::warning::GitHub answered 429 Too Many Requests; retrying in ${wait} s"
+            sleep "$wait"
+          done
 
       # --- Lint ---
       - name: Lint
