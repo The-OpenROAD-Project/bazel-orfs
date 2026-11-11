@@ -269,7 +269,16 @@ proc est_stage_global_place { } {
             # that silently fails to reach the tool looks exactly like a
             # knob that does nothing, and the two need telling apart.
             set ::est_gp_args $gp_args
+            if {$place_ios == 1} {
+                # gpl places the pins on the layers set_place_config names
+                # and stops (GPL-0174) when none are set; the same layers
+                # and spacing ORFS's global_place.tcl gives it.
+                set_place_config {*}[place_pins_args_to_place_config]
+            }
             eval global_placement $gp_args
+            if {$place_ios == 1} {
+                reset_place_config
+            }
         }
 
         if {$place_ios == 1} {
