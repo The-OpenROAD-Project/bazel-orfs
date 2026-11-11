@@ -80,6 +80,58 @@ foreach master $::env(DISSOLVE_MASTERS) odb_file $::env(DISSOLVE_ODBS) {
   puts "top_dissolve: $name dissolved from $odb_file"
 }
 
+# The supply pins of what the dissolves brought in. floorplan.tcl made the
+# platform's global connections before any of these instances existed and
+# left the rules in the database for a later step that creates instances:
+# this one. pdn.tcl applies them again, but after PDN_TCL, and PDN_TCL
+# builds a grid over each macro from the supply nets its pins are on: a
+# macro on none gets no grid (PDN-0231) and the step goes on without it;
+# only when no macro has one does the connect to that grid stop the step
+# (PDN-0217). global_connect skips a dont_touch instance (ODB-0383), and a
+# dissolved cell is dont_touch when its cell in the block was, so the flag
+# is lifted for the connections and put back, as pdn.tcl does.
+proc open_supply_pins { inst } {
+  set open {}
+  foreach iterm [$inst getITerms] {
+    set mterm [$iterm getMTerm]
+    set type [$mterm getSigType]
+    if { ($type eq "POWER" || $type eq "GROUND") && [$iterm getNet] eq "NULL" } {
+      lappend open [$mterm getName]
+    }
+  }
+  return $open
+}
+set lifted {}
+set macros {}
+foreach inst [$block getInsts] {
+  if { [$inst isBlock] } {
+    lappend macros $inst
+  }
+  if { [$inst isDoNotTouch] && [llength [open_supply_pins $inst]] > 0 } {
+    lappend lifted $inst
+  }
+}
+foreach inst $lifted {
+  $inst setDoNotTouch 0
+}
+set connected [global_connect]
+foreach inst $lifted {
+  $inst setDoNotTouch 1
+}
+# A macro with a supply pin on no net stops here: the PDN would warn, leave
+# it without a grid and go on, unless every macro were unpowered.
+set unpowered {}
+foreach inst $macros {
+  set open [open_supply_pins $inst]
+  if { [llength $open] > 0 } {
+    lappend unpowered "[$inst getName] ($open)"
+  }
+}
+if { [llength $unpowered] > 0 } {
+  utl::error FLW 31 "top_dissolve: [llength $unpowered] of [llength $macros] macros have a supply pin on no net after the global connections ($connected pins connected): [lrange $unpowered 0 4]; no rule names the pin, or the database holds no rules (ODB-0378)"
+}
+puts "top_dissolve: [llength $macros] macros on their supply nets, $connected pins connected, dont_touch lifted from [llength $lifted] instances for the global connections"
+
 set fixed 0
 foreach inst [$block getInsts] {
   if { [$inst isPlaced] } {
