@@ -209,11 +209,13 @@ class KeptTest(unittest.TestCase):
             ["Q: renamed to Q__Top__q", "Gone: no such module"],
         )
 
-    def test_patterns_match_the_renamed_modules(self):
+    def test_retime_patterns_renaming_broke_are_reported(self):
         sources = [("d.sv", leaf("Q__Top__q") + parent("Top", ("Q__Top__q", "q")))]
         self.assertEqual(
-            s.check_kept(["Q*", "Top", "R*", "Q"], sources, {"Q": ["Q__Top__q"]}),
-            ["R*: no such module", "Q: renamed to Q__Top__q"],
+            s.check_kept(
+                ["Top", "R"], sources, {"Q": ["Q__Top__q"]}, ["Q*", "Q", "Gone*"]
+            ),
+            ["R: no such module", "Q: renamed to Q__Top__q"],
         )
 
 
