@@ -23,12 +23,10 @@ results. It also stops with AUTO_MEMORIES=1: the memories are read from
 the variant that synthesised them.
 
 Carried in bazel-orfs for ORFS #4812, on 0212 (#4810) and on 0199
-(load_design -backing_file, which load_design_from takes here). One
-change beyond #4812 as posted: density_fill.tcl's USE_FILL=0 branch
-copies 5_route from INPUT_RESULTS_DIR, as global_place_skip_io.tcl
-does for GPL_PLACE_IOS; #4812 copies it from RESULTS_DIR, and a fork at
-final finds nothing there. Not upstreamed here; retires with the
-//:bump onto an ORFS that has #4812 with that fix.
+(load_design -backing_file, which load_design_from takes here),
+including #4812's density_fill.tcl fix: the USE_FILL=0 branch copies
+5_route from INPUT_RESULTS_DIR. Retires with the //:bump onto an ORFS
+that has #4812.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
