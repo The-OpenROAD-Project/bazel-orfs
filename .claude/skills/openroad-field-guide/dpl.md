@@ -9,9 +9,22 @@ through `detailed_placement_helper`.
 - The default engine is the **negotiation legaliser** (DPL-1102): phase 1
   up to 400 iterations, phase 2 up to 1,000, window +-20 sites x +-5 rows.
   Stuck for 3 iterations: falls back to diamond search (DPL-0700/0702).
+  `diamond recovery: recovered k/n stuck cells` follows: a stage that
+  passes with these lines needed a safety net, and has a cause.
 - **DPL-0701 "did not fully converge. Violations remain: N" is only a
   warning.** The flow goes on; `check_placement` (FLW-12, DPL-0033)
-  catches it later.
+  catches it later. DPL-0701 with no DPL-0700/0702 before it is phase 2
+  reaching its 1,000 iterations with the count still moving, a path that
+  ran no diamond recovery at all until OpenROAD #12233 (carried 0216,
+  which also prints DPL-0704 there).
+- **DPL-0703 (carried 0216) says why cells were left to the diamond
+  search**, one line per cause, each naming its fix: started over fixed
+  instances (and the hierarchy they share: keep placement out of it),
+  no free run of their width in the window (the area is full: give it
+  room, a wider window does not help), placed beyond the window (the
+  `-site_search_window`/`-row_search_window` that would reach them), no
+  site within `-max_displacement`. Read it before widening a window or
+  switching to the diamond legaliser.
 - Diamond mode (`-use_diamond_legalizer`, DPL-1101) fails hard:
   DPL-0034/0035/0036. DPL-0036 after resizer/CTS buffers land inside
   hard-block footprints: bazel-orfs #1188 moves them out first.
@@ -32,6 +45,17 @@ drops cells into channels.
   fails in seconds (OpenROAD #12122 open).
 - `initialSnap` grinds on cells far from rows: gpl stranded them, see
   [gpl.md](gpl.md) (carried 0086).
+- **A register file's own flow** (ORFS 0172) places generate_ram's array
+  FIRM, nearly full but for holes a few sites wide, and leaves global
+  placement generate_ram's input buffers (`-periphery unplaced`), the
+  port buffers and repair's buffers. gpl put them over the array and the
+  negotiation legaliser stalled (DPL-0700 on test/regfile/band, 102 of 155
+  cells over the array; on another register file it ran out of
+  iterations and failed, DPL-0701/0033). Carried 0215 puts soft
+  placement blockages over the array in strips that leave its free
+  columns (generate_ram's service columns) open: phase 1 converges.
+  Before it, XiangShan's register files were set to the diamond
+  legaliser (`xiangshan.bzl`), which hid this.
 - `improve_placement` (`ENABLE_DPO=1`): HPWL only, not timing-aware,
   single-threaded. `ENABLE_DPO=0` when slow.
 
