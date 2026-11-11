@@ -352,6 +352,13 @@ archive_override(
         # link without a definition. Not upstreamed; retires at a //:bump onto
         # an OpenROAD that has it.
         "//patches:0211-openroad-grt-big-int-constexpr.patch",
+        # 0216: detailed placement's negotiation legalizer runs its diamond
+        # recovery when phase 2 reaches its iteration limit, as it does on a
+        # stall (OpenROAD #12233), and says why cells were left to it, in
+        # numbers that name the fix (DPL-0703, DPL-0704). The recovery is
+        # #12233; the diagnosis is not upstreamed. Retires at a //:bump
+        # onto an OpenROAD that has both.
+        "//patches:0216-openroad-dpl-recovery-diagnosis.patch",
     ],
     strip_prefix = "OpenROAD-3cf922cc136ffb08c833afab2c2ae8010eef7049",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/3cf922cc136ffb08c833afab2c2ae8010eef7049.tar.gz"],
