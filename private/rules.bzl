@@ -2779,6 +2779,43 @@ orfs_synth_rule = rule(
 
 _PRE_LAYOUT_STAGES = ("2_floorplan", "3_place")
 
+# The previous stage's result each stage reads with ORFS's
+# load_stage_input, from the variant FLOW_INPUT_VARIANT names.
+_STAGE_INPUT = {
+    "floorplan": "1_synth",
+    "place": "2_floorplan",
+    "cts": "3_place",
+    "grt": "4_cts",
+    "route": "5_1_grt",
+    "final": "5_route",
+}
+
+def _input_variant(ctx, stages):
+    """How a stage reads its src when src is another variant's.
+
+    The previous stage's result is read where src wrote it, through ORFS's
+    load_stage_input and FLOW_INPUT_VARIANT, instead of being moved into
+    this stage's tree. AUTO_MEMORIES flows keep moving it with the
+    memories: ORFS reads the memories from this stage's variant and
+    refuses the split. So do squashed actions that run more than one
+    stage in one make: FLOW_INPUT_VARIANT would send every stage's input
+    read to src's variant, and only the first stage's input is there.
+
+    Args:
+      ctx: The rule context.
+      stages: the canonical stages the action runs, first one first.
+
+    Returns:
+      A dict, {"FLOW_INPUT_VARIANT": <src variant>} or empty, and the
+      basenames that are read in place and so not renamed.
+    """
+    src_variant = ctx.attr.src[OrfsInfo].variant
+    stage_input = _STAGE_INPUT.get(stages[0]) if stages else None
+    if (src_variant == ctx.attr.variant or not stage_input or len(stages) > 1 or
+        ctx.attr.src[OrfsInfo].memories.to_list()):
+        return {}, []
+    return {"FLOW_INPUT_VARIANT": src_variant}, [stage_input + ".odb", stage_input + ".sdc"]
+
 def _check_macros(ctx):
     """Fail when a stage's src carries other macros than its flow's.
 
@@ -2957,6 +2994,12 @@ def _make_impl(
             ctx.files.src,
             transitive = [data_inputs(ctx), source_inputs(ctx)],
         ).to_list()
+
+    # FLOW_INPUT_VARIANT is set in this action's environment, not in its
+    # config: the stages after it inherit the config and read their input
+    # from their own variant.
+    input_env, read_in_place = _input_variant(ctx, filter_stages)
+    rename_candidates = [f for f in rename_candidates if f.basename not in read_in_place]
     commands = (
         generation_commands(reports + logs + jsons + drcs + substep_odbs) +
         input_commands(renames(ctx, rename_candidates)) +
@@ -2986,7 +3029,7 @@ def _make_impl(
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path] + steps,
         command = " && ".join(commands),
-        env = flow_environment(ctx) | config_environment(config),
+        env = flow_environment(ctx) | config_environment(config) | input_env,
         inputs = depset(
             [config] + ctx.files.extra_configs + all_jsons,
             transitive = [
@@ -3005,7 +3048,12 @@ def _make_impl(
     )
 
     config_short = declare_artifact(ctx, "results", stage + ".short.mk")
-    short_analysis_args = config_arguments(ctx, hack_away_prefix(all_arguments, config_short.root.path))
+
+    # The deployed tree reads src's result where src's files are
+    # installed, in src's variant. Only this stage's deployed config says
+    # so: it is not inherited, and `next <stage>` installs that stage's
+    # own config.
+    short_analysis_args = config_arguments(ctx, hack_away_prefix(all_arguments, config_short.root.path)) | input_env
     short_analysis_json = declare_artifact(ctx, "results", stage + ".short.analysis.json")
     ctx.actions.write(
         output = short_analysis_json,
@@ -3049,7 +3097,11 @@ def _make_impl(
     # Collect all files needed for deployment.
     # flow_inputs (the CLI openroad) and gui_inputs (what gui_<stage>
     # runs): the tarball and the //:dirty tree have the web viewer.
-    stage_renames = renames(ctx, ctx.files.src, short = True)
+    stage_renames = renames(
+        ctx,
+        [f for f in ctx.files.src if f.basename not in read_in_place],
+        short = True,
+    )
     deploy_files = depset(
         [config_short, make] + ctx.files.src + ctx.files.extra_configs + all_jsons,
         transitive = [

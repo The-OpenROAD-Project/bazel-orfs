@@ -1,0 +1,364 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 9 Nov 2026 15:49:56 +0100
+Subject: [PATCH] flow: FLOW_INPUT_VARIANT, a stage reads the previous
+ stage's result from another variant
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Before, a variant that wanted another variant's synthesis or placement
+had to copy that variant's results into its own directory first.
+
+Now FLOW_INPUT_VARIANT names the variant a stage reads the previous
+stage's result from: INPUT_RESULTS_DIR. The six places a stage reads
+its input say so explicitly, in its script (load_stage_input) and in
+its Makefile prerequisite; every other read stays in RESULTS_DIR. It
+defaults to FLOW_VARIANT, which leaves every path unchanged.
+
+When it names another variant, load_stage_input stops if the input is
+in both variants: one invocation that ran two stages, or a copy left
+from an earlier run, where reading the other variant's copy would mix
+results. It also stops with AUTO_MEMORIES=1: the memories are read from
+the variant that synthesised them.
+
+Carried in bazel-orfs for ORFS #4812, on 0212 (#4810) and on 0199
+(load_design -backing_file, which load_design_from takes here). One
+change beyond #4812 as posted: density_fill.tcl's USE_FILL=0 branch
+copies 5_route from INPUT_RESULTS_DIR, as global_place_skip_io.tcl
+does for GPL_PLACE_IOS; #4812 copies it from RESULTS_DIR, and a fork at
+final finds nothing there. Not upstreamed here; retires with the
+//:bump onto an ORFS that has #4812 with that fix.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ docs/user/FlowVariables.md            |  7 ++++++
+ flow/Makefile                         | 14 ++++++------
+ flow/scripts/cts.tcl                  |  2 +-
+ flow/scripts/density_fill.tcl         |  4 ++--
+ flow/scripts/detail_route.tcl         |  2 +-
+ flow/scripts/floorplan.tcl            |  2 +-
+ flow/scripts/global_place_skip_io.tcl |  4 ++--
+ flow/scripts/global_route.tcl         |  2 +-
+ flow/scripts/load.tcl                 | 32 +++++++++++++++++++++++----
+ flow/scripts/variables.mk             |  3 +++
+ flow/scripts/variables.yaml           | 17 ++++++++++++++
+ 11 files changed, 70 insertions(+), 19 deletions(-)
+
+diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
+index 8e1ed8929..c355834e1 100644
+--- a/docs/user/FlowVariables.md
++++ b/docs/user/FlowVariables.md
+@@ -152,6 +152,7 @@ configuration file.
+ | <a name="FILL_CELLS"></a>FILL_CELLS| Fill cells are used to fill empty sites. If not set or empty, fill cell insertion is skipped.| |
+ | <a name="FILL_CONFIG"></a>FILL_CONFIG| JSON rule file for metal fill during chip finishing.| |
+ | <a name="FLOORPLAN_DEF"></a>FLOORPLAN_DEF| Use the DEF file to initialize floorplan. Mutually exclusive with FOOTPRINT or DIE_AREA/CORE_AREA or CORE_UTILIZATION.| |
++| <a name="FLOW_INPUT_VARIANT"></a>FLOW_INPUT_VARIANT| Flow variant a stage reads the previous stage's result from, the .odb and the .sdc beside it. Defaults to FLOW_VARIANT. A variant forked off another sets it to that variant for the first stage it runs, then leaves it at the default: the shared stages run once, and the fork writes only its own results. A stage's later steps read the stage's own results. A stage stops when its input is in both variants. Not with AUTO_MEMORIES=1, whose memories are read from the variant that synthesised them.| |
+ | <a name="FLOW_VARIANT"></a>FLOW_VARIANT| Flow variant to use, used in the flow variant directory name.| base|
+ | <a name="FOOTPRINT"></a>FOOTPRINT| Custom footprint definition file for ICeWall-based floorplan initialization. Mutually exclusive with FLOORPLAN_DEF or DIE_AREA/CORE_AREA or CORE_UTILIZATION.| |
+ | <a name="FOOTPRINT_TCL"></a>FOOTPRINT_TCL| Specifies a Tcl script with custom footprint-related commands for floorplan setup.| |
+@@ -423,6 +424,7 @@ configuration file.
+ - [CORE_UTILIZATION](#CORE_UTILIZATION)
+ - [DIE_AREA](#DIE_AREA)
+ - [FLOORPLAN_DEF](#FLOORPLAN_DEF)
++- [FLOW_INPUT_VARIANT](#FLOW_INPUT_VARIANT)
+ - [FOOTPRINT](#FOOTPRINT)
+ - [FOOTPRINT_TCL](#FOOTPRINT_TCL)
+ - [GLOBAL_CONNECT_TCL](#GLOBAL_CONNECT_TCL)
+@@ -505,6 +507,7 @@ configuration file.
+ - [ENABLE_DPO](#ENABLE_DPO)
+ - [ENABLE_PLACE_REPAIR_TIMING](#ENABLE_PLACE_REPAIR_TIMING)
+ - [FLOORPLAN_DEF](#FLOORPLAN_DEF)
++- [FLOW_INPUT_VARIANT](#FLOW_INPUT_VARIANT)
+ - [GLOBAL_PLACEMENT_ARGS](#GLOBAL_PLACEMENT_ARGS)
+ - [GPL_KEEP_OVERFLOW](#GPL_KEEP_OVERFLOW)
+ - [GPL_PLACE_IOS](#GPL_PLACE_IOS)
+@@ -551,6 +554,7 @@ configuration file.
+ - [CTS_SNAPSHOTS](#CTS_SNAPSHOTS)
+ - [DETAILED_METRICS](#DETAILED_METRICS)
+ - [DETAIL_PLACEMENT_ARGS](#DETAIL_PLACEMENT_ARGS)
++- [FLOW_INPUT_VARIANT](#FLOW_INPUT_VARIANT)
+ - [HOLD_SLACK_MARGIN](#HOLD_SLACK_MARGIN)
+ - [LEC_AUX_VERILOG_FILES](#LEC_AUX_VERILOG_FILES)
+ - [LEC_CHECK](#LEC_CHECK)
+@@ -580,6 +584,7 @@ configuration file.
+ - [DETAILED_METRICS](#DETAILED_METRICS)
+ - [DETAIL_PLACEMENT_ARGS](#DETAIL_PLACEMENT_ARGS)
+ - [ENABLE_RESISTANCE_AWARE](#ENABLE_RESISTANCE_AWARE)
++- [FLOW_INPUT_VARIANT](#FLOW_INPUT_VARIANT)
+ - [GLOBAL_ROUTE_ARGS](#GLOBAL_ROUTE_ARGS)
+ - [GLOBAL_ROUTE_USE_CUGR](#GLOBAL_ROUTE_USE_CUGR)
+ - [GRT_SEED](#GRT_SEED)
+@@ -617,6 +622,7 @@ configuration file.
+ - [DETAILED_ROUTE_END_ITERATION](#DETAILED_ROUTE_END_ITERATION)
+ - [DISABLE_VIA_GEN](#DISABLE_VIA_GEN)
+ - [FILL_CELLS](#FILL_CELLS)
++- [FLOW_INPUT_VARIANT](#FLOW_INPUT_VARIANT)
+ - [MATCH_CELL_FOOTPRINT](#MATCH_CELL_FOOTPRINT)
+ - [MAX_REPAIR_ANTENNAS_ITER_DRT](#MAX_REPAIR_ANTENNAS_ITER_DRT)
+ - [MAX_ROUTING_LAYER](#MAX_ROUTING_LAYER)
+@@ -640,6 +646,7 @@ configuration file.
+ 
+ - [ADDITIONAL_GDS](#ADDITIONAL_GDS)
+ - [CDL_FILE](#CDL_FILE)
++- [FLOW_INPUT_VARIANT](#FLOW_INPUT_VARIANT)
+ - [GDS_ALLOW_EMPTY](#GDS_ALLOW_EMPTY)
+ - [GND_NETS_VOLTAGES](#GND_NETS_VOLTAGES)
+ - [LEC_AUX_VERILOG_FILES](#LEC_AUX_VERILOG_FILES)
+diff --git a/flow/Makefile b/flow/Makefile
+index 53cc6b1c6..1f068eb95 100644
+--- a/flow/Makefile
++++ b/flow/Makefile
+@@ -454,7 +454,7 @@ endef
+ # ==============================================================================
+ 
+ # Custom target to go from synthesis to placement in a single OpenROAD run
+-$(eval $(call do-step,1_3_floorplan_to_place, $(RESULTS_DIR)/1_synth.odb,floorplan_to_place))
++$(eval $(call do-step,1_3_floorplan_to_place, $(INPUT_RESULTS_DIR)/1_synth.odb,floorplan_to_place))
+ 
+ $(eval $(call OPEN_GUI_SHORTCUT,yosys,1_2_yosys.v))
+ 
+@@ -490,7 +490,7 @@ ifneq ($(filter 1,$(LEC_CHECK) $(SEC_CHECK)),)
+ $(RESULTS_DIR)/1_synth_lec.v: | check-kepler-formal
+ endif
+ 
+-$(eval $(call do-step,2_1_floorplan,$(RESULTS_DIR)/1_synth.odb $(TECH_LEF) $(SC_LEF) $(ADDITIONAL_LEFS) $(FOOTPRINT) $(SIG_MAP_FILE) $(FOOTPRINT_TCL) $(LIB_FILES) $(IO_CONSTRAINTS),floorplan))
++$(eval $(call do-step,2_1_floorplan,$(INPUT_RESULTS_DIR)/1_synth.odb $(TECH_LEF) $(SC_LEF) $(ADDITIONAL_LEFS) $(FOOTPRINT) $(SIG_MAP_FILE) $(FOOTPRINT_TCL) $(LIB_FILES) $(IO_CONSTRAINTS),floorplan))
+ 
+ # STEP 2: Macro Placement
+ #-------------------------------------------------------------------------------
+@@ -528,7 +528,7 @@ place: $(RESULTS_DIR)/3_place.odb
+ # ==============================================================================
+ # STEP 1: Global placement without placed IOs, timing-driven, and routability-driven.
+ #-------------------------------------------------------------------------------
+-$(eval $(call do-step,3_1_place_gp_skip_io,$(RESULTS_DIR)/2_floorplan.odb $(LIB_FILES),global_place_skip_io))
++$(eval $(call do-step,3_1_place_gp_skip_io,$(INPUT_RESULTS_DIR)/2_floorplan.odb $(LIB_FILES),global_place_skip_io))
+ 
+ $(eval $(call do-step,3_2_place_iop,$(RESULTS_DIR)/3_1_place_gp_skip_io.odb,io_placement))
+ 
+@@ -582,7 +582,7 @@ ifeq ($(LEC_CHECK),1)
+ DO_STEP_DEPS_4_1_cts += check-kepler-formal
+ endif
+ 
+-$(eval $(call do-step,4_1_cts,$(RESULTS_DIR)/3_place.odb,cts))
++$(eval $(call do-step,4_1_cts,$(INPUT_RESULTS_DIR)/3_place.odb,cts))
+ 
+ ifeq ($(LEC_CHECK),1)
+ $(RESULTS_DIR)/4_1_cts.odb: | check-kepler-formal
+@@ -620,11 +620,11 @@ grt: $(RESULTS_DIR)/5_1_grt.odb
+ 
+ # STEP 1: Run global route
+ #-------------------------------------------------------------------------------
+-$(eval $(call do-step,5_1_grt,$(RESULTS_DIR)/4_cts.odb $(FASTROUTE_TCL) $(PRE_GLOBAL_ROUTE_TCL),global_route))
++$(eval $(call do-step,5_1_grt,$(INPUT_RESULTS_DIR)/4_cts.odb $(FASTROUTE_TCL) $(PRE_GLOBAL_ROUTE_TCL),global_route))
+ 
+ # STEP 2: Run detailed route
+ #-------------------------------------------------------------------------------
+-$(eval $(call do-step,5_2_route,$(RESULTS_DIR)/5_1_grt.odb,detail_route))
++$(eval $(call do-step,5_2_route,$(INPUT_RESULTS_DIR)/5_1_grt.odb,detail_route))
+ 
+ $(eval $(call do-step,5_3_fillcell,$(RESULTS_DIR)/5_2_route.odb,fillcell))
+ 
+@@ -682,7 +682,7 @@ elapsed:
+ elapsed-all:
+ 	@$(PYTHON_EXE) $(UTILS_DIR)/genElapsedTime.py -d $(shell find $(WORK_HOME)/logs/$(PLATFORM)/*/*/ -type d)
+ 
+-$(eval $(call do-step,6_1_fill,$(RESULTS_DIR)/5_route.odb $(FILL_CONFIG),density_fill))
++$(eval $(call do-step,6_1_fill,$(INPUT_RESULTS_DIR)/5_route.odb $(FILL_CONFIG),density_fill))
+ 
+ ifneq ($(filter 1,$(LEC_CHECK) $(SEC_CHECK)),)
+ DO_STEP_DEPS_6_report += check-kepler-formal
+diff --git a/flow/scripts/cts.tcl b/flow/scripts/cts.tcl
+index fdb9d54ad..0bbef37c9 100644
+--- a/flow/scripts/cts.tcl
++++ b/flow/scripts/cts.tcl
+@@ -2,7 +2,7 @@ utl::set_metrics_stage "cts__{}"
+ source $::env(SCRIPTS_DIR)/load.tcl
+ source $::env(SCRIPTS_DIR)/formal_check.tcl
+ erase_non_stage_variables cts
+-load_design 3_place.odb
++load_stage_input 3_place.odb
+ source_step_tcl PRE CTS
+ 
+ # Clone clock tree inverters next to register loads
+diff --git a/flow/scripts/density_fill.tcl b/flow/scripts/density_fill.tcl
+index 030c2c382..df4b405b4 100644
+--- a/flow/scripts/density_fill.tcl
++++ b/flow/scripts/density_fill.tcl
+@@ -1,6 +1,6 @@
+ source $::env(SCRIPTS_DIR)/load.tcl
+ erase_non_stage_variables final
+-load_design 5_route.odb
++load_stage_input 5_route.odb
+ source_step_tcl PRE DENSITY_FILL
+ 
+ if { $::env(USE_FILL) } {
+@@ -11,7 +11,7 @@ if { $::env(USE_FILL) } {
+   write_verilog $::env(RESULTS_DIR)/6_1_fill.v
+   orfs_write_db $::env(RESULTS_DIR)/6_1_fill.odb
+ } else {
+-  orfs_copy_db $::env(RESULTS_DIR)/5_route.odb $::env(RESULTS_DIR)/6_1_fill.odb
++  orfs_copy_db $::env(INPUT_RESULTS_DIR)/5_route.odb $::env(RESULTS_DIR)/6_1_fill.odb
+   # There is no 5_route.v file to copy
+ }
+ 
+diff --git a/flow/scripts/detail_route.tcl b/flow/scripts/detail_route.tcl
+index 40b96eecb..267ff66ba 100644
+--- a/flow/scripts/detail_route.tcl
++++ b/flow/scripts/detail_route.tcl
+@@ -1,6 +1,6 @@
+ utl::set_metrics_stage "detailedroute__{}"
+ source $::env(SCRIPTS_DIR)/load.tcl
+-load_design 5_1_grt.odb
++load_stage_input 5_1_grt.odb
+ source_step_tcl PRE DETAIL_ROUTE
+ 
+ if { !$::env(SKIP_DETAILED_ROUTE) } {
+diff --git a/flow/scripts/floorplan.tcl b/flow/scripts/floorplan.tcl
+index 3aff9736c..87801b67d 100644
+--- a/flow/scripts/floorplan.tcl
++++ b/flow/scripts/floorplan.tcl
+@@ -1,7 +1,7 @@
+ utl::set_metrics_stage "floorplan__{}"
+ source $::env(SCRIPTS_DIR)/load.tcl
+ erase_non_stage_variables floorplan
+-load_design 1_synth.odb
++load_stage_input 1_synth.odb
+ 
+ # The global connections, before any step can mark an instance
+ # dont_touch: global_connect skips one (ODB-0383). The rules stay in the
+diff --git a/flow/scripts/global_place_skip_io.tcl b/flow/scripts/global_place_skip_io.tcl
+index aadaa5f01..1e7095f9b 100644
+--- a/flow/scripts/global_place_skip_io.tcl
++++ b/flow/scripts/global_place_skip_io.tcl
+@@ -1,11 +1,11 @@
+ source $::env(SCRIPTS_DIR)/load.tcl
+ erase_non_stage_variables place
+ if { $::env(GPL_PLACE_IOS) } {
+-  orfs_copy_db $::env(RESULTS_DIR)/2_floorplan.odb \
++  orfs_copy_db $::env(INPUT_RESULTS_DIR)/2_floorplan.odb \
+     $::env(RESULTS_DIR)/3_1_place_gp_skip_io.odb
+   return
+ }
+-load_design 2_floorplan.odb
++load_stage_input 2_floorplan.odb
+ source_step_tcl PRE GLOBAL_PLACE_SKIP_IO
+ 
+ if { [env_var_exists_and_non_empty FLOORPLAN_DEF] } {
+diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
+index cfc49abd7..d53fe8570 100644
+--- a/flow/scripts/global_route.tcl
++++ b/flow/scripts/global_route.tcl
+@@ -1,7 +1,7 @@
+ utl::set_metrics_stage "globalroute__{}"
+ source $::env(SCRIPTS_DIR)/load.tcl
+ erase_non_stage_variables grt
+-load_design 4_cts.odb -backing_file $::env(OBJECTS_DIR)/grt.db
++load_stage_input 4_cts.odb -backing_file $::env(OBJECTS_DIR)/grt.db
+ 
+ source_step_tcl PRE GLOBAL_ROUTE
+ 
+diff --git a/flow/scripts/load.tcl b/flow/scripts/load.tcl
+index 481664541..ddb57cf80 100644
+--- a/flow/scripts/load.tcl
++++ b/flow/scripts/load.tcl
+@@ -2,9 +2,33 @@ source $::env(SCRIPTS_DIR)/util.tcl
+ 
+ source $::env(SCRIPTS_DIR)/report_metrics.tcl
+ 
++# A step's input is the result of an earlier step of its stage.
++proc load_design { design_file args } {
++  load_design_from $::env(RESULTS_DIR) $design_file {*}$args
++}
++
++# A stage's input is the previous stage's result, read from the
++# variant FLOW_INPUT_VARIANT names.
++proc load_stage_input { design_file args } {
++  if { $::env(INPUT_RESULTS_DIR) ne $::env(RESULTS_DIR) } {
++    if { $::env(AUTO_MEMORIES) } {
++      error "AUTO_MEMORIES=1 reads the memories synthesised in this variant,\
++        $::env(FLOW_VARIANT), and FLOW_INPUT_VARIANT=$::env(FLOW_INPUT_VARIANT)\
++        reads the design from another"
++    }
++    if { [file exists $::env(RESULTS_DIR)/$design_file] } {
++      error "$design_file is in both FLOW_VARIANT=$::env(FLOW_VARIANT) and\
++        FLOW_INPUT_VARIANT=$::env(FLOW_INPUT_VARIANT). Run the stage that\
++        reads another variant alone, then the stages after it with\
++        FLOW_INPUT_VARIANT unset, and remove a copy left from an earlier run."
++    }
++  }
++  load_design_from $::env(INPUT_RESULTS_DIR) $design_file {*}$args
++}
++
+ # -backing_file <file>: an .odb's table pages kept in that file (read_db
+ # -backing_file), so a stage can page out what it is done reading.
+-proc load_design { design_file args } {
++proc load_design_from { dir design_file args } {
+   sta::parse_key_args "load_design" args keys {-backing_file} flags {}
+   sta::check_argc_eq0 "load_design" $args
+   set backing {}
+@@ -35,15 +59,15 @@ proc load_design { design_file args } {
+     foreach lef [auto_memories_views .lef] {
+       read_lef $lef
+     }
+-    read_verilog $::env(RESULTS_DIR)/$design_file
++    read_verilog $dir/$design_file
+     log_cmd link_design {*}[hier_options] $::env(DESIGN_NAME)
+   } elseif { $ext == ".odb" } {
+-    log_cmd read_db {*}[hier_options] {*}$backing $::env(RESULTS_DIR)/$design_file
++    log_cmd read_db {*}[hier_options] {*}$backing $dir/$design_file
+   } else {
+     error "Unrecognized input file $design_file"
+   }
+ 
+-  log_cmd read_sdc $::env(RESULTS_DIR)/[sdc_file_of $design_file]
++  log_cmd read_sdc $dir/[sdc_file_of $design_file]
+ 
+   if { [file exists $::env(PLATFORM_DIR)/derate.tcl] } {
+     log_cmd source $::env(PLATFORM_DIR)/derate.tcl
+diff --git a/flow/scripts/variables.mk b/flow/scripts/variables.mk
+index 8b54d982d..17fcec820 100644
+--- a/flow/scripts/variables.mk
++++ b/flow/scripts/variables.mk
+@@ -54,6 +54,9 @@ export LOG_DIR     = $(WORK_HOME)/logs/$(PLATFORM)/$(DESIGN_NICKNAME)/$(FLOW_VAR
+ export OBJECTS_DIR = $(WORK_HOME)/objects/$(PLATFORM)/$(DESIGN_NICKNAME)/$(FLOW_VARIANT)
+ export REPORTS_DIR = $(WORK_HOME)/reports/$(PLATFORM)/$(DESIGN_NICKNAME)/$(FLOW_VARIANT)
+ export RESULTS_DIR = $(WORK_HOME)/results/$(PLATFORM)/$(DESIGN_NICKNAME)/$(FLOW_VARIANT)
++# Where a stage reads the previous stage's result.
++export FLOW_INPUT_VARIANT ?= $(FLOW_VARIANT)
++export INPUT_RESULTS_DIR = $(WORK_HOME)/results/$(PLATFORM)/$(DESIGN_NICKNAME)/$(FLOW_INPUT_VARIANT)
+ 
+ #-------------------------------------------------------------------------------
+ ifeq (,$(strip $(NUM_CORES)))
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+index f3b1c71ef..0faa5ee51 100644
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -1706,6 +1706,23 @@ FOOTPRINT_TCL:
+     Specifies a Tcl script with custom footprint-related commands for floorplan setup.
+   stages:
+     - floorplan
++FLOW_INPUT_VARIANT:
++  description: >
++    Flow variant a stage reads the previous stage's result from, the
++    .odb and the .sdc beside it. Defaults to FLOW_VARIANT. A variant
++    forked off another sets it to that variant for the first stage it
++    runs, then leaves it at the default: the shared stages run once, and
++    the fork writes only its own results. A stage's later steps read the
++    stage's own results. A stage stops when its input is in both
++    variants. Not with AUTO_MEMORIES=1, whose memories are read from the
++    variant that synthesised them.
++  stages:
++    - floorplan
++    - place
++    - cts
++    - grt
++    - route
++    - final
+ FLOW_VARIANT:
+   description: >
+     Flow variant to use, used in the flow variant directory name.
+-- 
+2.53.0
+

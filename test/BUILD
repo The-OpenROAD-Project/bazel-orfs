@@ -2982,3 +2982,88 @@ orfs_floorplan(
         ),
     ]
 ]
+
+# FLOW_INPUT_VARIANT: a stage whose src is another variant's reads the
+# previous stage's result where src wrote it (ORFS's load_stage_input),
+# not a copy moved into its own tree. One flow straight through, and at
+# every stage a fork that runs that stage alone from the straight flow's
+# previous stage; each fork's results are byte-identical to the straight
+# flow's.
+FIV_STAGES = [
+    ("floorplan", "synth", "2_floorplan"),
+    ("place", "floorplan", "3_place"),
+    ("cts", "place", "4_cts"),
+    ("grt", "cts", "5_1_grt"),
+    ("route", "grt", "5_route"),
+    ("final", "route", "6_final"),
+]
+
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    arguments = LB_ARGS,
+    last_stage = "final",
+    sources = LB_SOURCES,
+    variant = "fiv",
+    verilog_files = LB_VERILOG_FILES,
+)
+
+[
+    # buildifier: disable=duplicated-name
+    orfs_flow(
+        name = "lb_32x128",
+        arguments = LB_ARGS,
+        last_stage = stage,
+        previous_stage = {stage: ":lb_32x128_fiv_" + previous},
+        sources = LB_SOURCES,
+        variant = "fiv_" + stage,
+        verilog_files = LB_VERILOG_FILES,
+    )
+    for stage, previous, _ in FIV_STAGES
+]
+
+[
+    filegroup(
+        name = "lb_32x128_{}_{}_{}".format(variant, stage, ext),
+        srcs = [":lb_32x128_{}_{}".format(variant, stage)],
+        output_group = "{}.{}".format(stem, ext),
+    )
+    for stage, _, stem in FIV_STAGES
+    for variant in [
+        "fiv",
+        "fiv_" + stage,
+    ]
+    for ext in [
+        "odb",
+        "sdc",
+    ]
+]
+
+sh_test(
+    name = "flow_input_variant_test",
+    srcs = ["same_files_test.sh"],
+    args = [
+        "$(location :lb_32x128_{}_{}_{})".format(variant, stage, ext)
+        for stage, _, _ in FIV_STAGES
+        for ext in [
+            "sdc",
+            "odb",
+        ]
+        for variant in [
+            "fiv",
+            "fiv_" + stage,
+        ]
+    ],
+    data = [
+        ":lb_32x128_{}_{}_{}".format(variant, stage, ext)
+        for stage, _, _ in FIV_STAGES
+        for ext in [
+            "sdc",
+            "odb",
+        ]
+        for variant in [
+            "fiv",
+            "fiv_" + stage,
+        ]
+    ],
+)

@@ -1,0 +1,451 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 9 Nov 2026 15:13:17 +0100
+Subject: [PATCH] AUTO_MEMORIES: read the views the lists name, not what
+ memories/ holds
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Before, every stage after synthesis globbed $(RESULTS_DIR)/memories for
+*.lef and *.lib, the klayout tech took $(wildcard memories/*.lef), and
+macro placement, regfile dissolve and synthesis read regfiles.txt,
+inline.txt and regfile_cores.txt only if they existed. In a tree that
+kept files from an earlier run, a .lib or .lef no longer generated was
+read with the current ones, and a missing list was skipped.
+
+Now each step reads the <m>.lib/<m>.lef of every module blackboxes.txt
+lists, and the lists themselves without an existence check: a file no
+list names is not read, and a missing list stops the step at the read.
+The readers move from synth_preamble.tcl to util.tcl so OpenROAD and
+yosys share them, and generate_klayout_tech.py takes --blackboxes.
+
+On a clean tree the files read, and the results, are the same.
+
+Carried in bazel-orfs for ORFS #4810, not upstreamed here; #4812
+(0213) is written on it. Retires with the //:bump onto an ORFS that
+has #4810.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ docs/user/AutoMemories.md               | 14 +++--
+ flow/Makefile                           |  4 +-
+ flow/scripts/load.tcl                   |  9 +--
+ flow/scripts/macro_place.tcl            |  7 +--
+ flow/scripts/read_liberty.tcl           | 24 +++-----
+ flow/scripts/regfile_dissolve.tcl       |  9 +--
+ flow/scripts/synth_preamble.tcl         | 73 ++-----------------------
+ flow/scripts/util.tcl                   | 56 +++++++++++++++++++
+ flow/test/test_generate_klayout_tech.py | 29 ++++++++++
+ flow/util/generate_klayout_tech.py      | 26 ++++++++-
+ 10 files changed, 140 insertions(+), 111 deletions(-)
+
+diff --git a/docs/user/AutoMemories.md b/docs/user/AutoMemories.md
+index d73a5b2a9..4fd8e4bb3 100644
+--- a/docs/user/AutoMemories.md
++++ b/docs/user/AutoMemories.md
+@@ -29,12 +29,14 @@ into `$(RESULTS_DIR)/memories_inferred.json`, and
+ 
+ Synthesis (canonicalization) blackboxes the converted modules so the
+ liberty view wins over their behavioral bodies; floorplan through final
+-read the generated `.lib`/`.lef` alongside `ADDITIONAL_LIBS`/
+-`ADDITIONAL_LEFS`. Everything downstream keys off the files above —
+-nothing else passes between the generator and the flow. That file-based
+-handoff is what lets build systems (e.g. bazel-orfs) declare the
+-generated artifacts as ordinary stage outputs and transitive
+-dependencies of the remaining stages.
++read the `<m>.lib`/`<m>.lef` of each module `blackboxes.txt` lists,
++alongside `ADDITIONAL_LIBS`/`ADDITIONAL_LEFS`. Everything downstream keys
++off the files above, by the names the lists give: a file in `memories/`
++that no list names is not read, and a list that is missing stops the
++step that reads it. Nothing else passes between the generator and the
++flow. That file-based handoff is what lets build systems (e.g.
++bazel-orfs) declare the generated artifacts as ordinary stage outputs
++and transitive dependencies of the remaining stages.
+ 
+ Memories that are *not* converted stay in the netlist and synthesize to
+ flip-flops, like any other RTL.
+diff --git a/flow/Makefile b/flow/Makefile
+index 4172fdd6b..53cc6b1c6 100644
+--- a/flow/Makefile
++++ b/flow/Makefile
+@@ -204,8 +204,8 @@ do-klayout:
+ 		--template $(KLAYOUT_TECH_FILE) \
+ 		--output $(OBJECTS_DIR)/klayout.lyt \
+ 		--lef-files $(OBJECTS_DIR)/klayout_tech.lef $(SC_LEF) $(ADDITIONAL_LEFS) \
+-		  $(if $(filter 1,$(AUTO_MEMORIES)),$(wildcard $(RESULTS_DIR)/memories/*.lef)) \
+-		--map-files $(wildcard $(FLOW_HOME)/platforms/$(PLATFORM)/*map)
++		--map-files $(wildcard $(FLOW_HOME)/platforms/$(PLATFORM)/*map) \
++		$(if $(filter 1,$(AUTO_MEMORIES)),--blackboxes $(RESULTS_DIR)/memories/blackboxes.txt)
+ 
+ $(OBJECTS_DIR)/klayout_wrap.lyt: $(KLAYOUT_TECH_FILE) $(OBJECTS_DIR)/klayout_tech.lef
+ 	$(UNSET_AND_MAKE) do-klayout_wrap
+diff --git a/flow/scripts/load.tcl b/flow/scripts/load.tcl
+index 19ef5e6ed..481664541 100644
+--- a/flow/scripts/load.tcl
++++ b/flow/scripts/load.tcl
+@@ -31,12 +31,9 @@ proc load_design { design_file args } {
+         read_lef $lef
+       }
+     }
+-    # AUTO_MEMORIES: abstract LEFs generated pre-synthesis; globbed
+-    # because the file names are only known at run time.
+-    if { [env_var_equals AUTO_MEMORIES 1] } {
+-      foreach lef [glob -nocomplain $::env(RESULTS_DIR)/memories/*.lef] {
+-        read_lef $lef
+-      }
++    # AUTO_MEMORIES: abstract LEFs generated pre-synthesis
++    foreach lef [auto_memories_views .lef] {
++      read_lef $lef
+     }
+     read_verilog $::env(RESULTS_DIR)/$design_file
+     log_cmd link_design {*}[hier_options] $::env(DESIGN_NAME)
+diff --git a/flow/scripts/macro_place.tcl b/flow/scripts/macro_place.tcl
+index 3541d50ef..1252a37f9 100644
+--- a/flow/scripts/macro_place.tcl
++++ b/flow/scripts/macro_place.tcl
+@@ -7,11 +7,8 @@ source_step_tcl PRE MACRO_PLACE
+ # after macro placement, and the rows are then cut MACRO_ROWS_HALO_X/Y
+ # around every other macro: a halo that wide keeps them off its core,
+ # which fills its outline to the edge.
+-set regfile_list "$::env(RESULTS_DIR)/memories/regfiles.txt"
+-if { [env_var_equals AUTO_MEMORIES 1] && [file exists $regfile_list] } {
+-  set f [open $regfile_list r]
+-  set regfile_masters [split [string trim [read $f]] "\n"]
+-  close $f
++set regfile_masters [auto_memories_names regfiles.txt]
++if { [llength $regfile_masters] > 0 } {
+   set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
+   set halo {}
+   foreach v {MACRO_ROWS_HALO_X MACRO_ROWS_HALO_Y} {
+diff --git a/flow/scripts/read_liberty.tcl b/flow/scripts/read_liberty.tcl
+index 60816842f..52c8e0c01 100644
+--- a/flow/scripts/read_liberty.tcl
++++ b/flow/scripts/read_liberty.tcl
+@@ -18,21 +18,15 @@ if { [env_var_exists_and_non_empty CORNERS] } {
+ }
+ 
+ # AUTO_MEMORIES: liberty views generated pre-synthesis by
+-# scripts/memories/gen_memories.py. The file names are only known at
+-# run time, so they are globbed here rather than threaded through
+-# LIB_FILES. The _pre_layout variants (ideal clock) are for pre-CTS
+-# consumers that select lib files themselves.
+-if { [env_var_equals AUTO_MEMORIES 1] } {
+-  foreach libFile [glob -nocomplain $::env(RESULTS_DIR)/memories/*.lib] {
+-    if { [string match *_pre_layout.lib $libFile] } {
+-      continue
+-    }
+-    if { [env_var_exists_and_non_empty CORNERS] } {
+-      foreach corner $::env(CORNERS) {
+-        log_cmd read_liberty -corner $corner $libFile
+-      }
+-    } else {
+-      log_cmd read_liberty $libFile
++# scripts/memories/gen_memories.py, named by blackboxes.txt. The
++# _pre_layout variants (ideal clock) are for pre-CTS consumers that
++# select lib files themselves.
++foreach libFile [auto_memories_views .lib] {
++  if { [env_var_exists_and_non_empty CORNERS] } {
++    foreach corner $::env(CORNERS) {
++      log_cmd read_liberty -corner $corner $libFile
+     }
++  } else {
++    log_cmd read_liberty $libFile
+   }
+ }
+diff --git a/flow/scripts/regfile_dissolve.tcl b/flow/scripts/regfile_dissolve.tcl
+index a797461fb..ab0898deb 100644
+--- a/flow/scripts/regfile_dissolve.tcl
++++ b/flow/scripts/regfile_dissolve.tcl
+@@ -72,14 +72,7 @@ proc regfile_internal_net { net placed } {
+   return 1
+ }
+ 
+-set regfile_list "$::env(RESULTS_DIR)/memories/regfiles.txt"
+-set regfile_modules {}
+-if { [env_var_equals AUTO_MEMORIES 1] && [file exists $regfile_list] } {
+-  set f [open $regfile_list r]
+-  set regfile_modules [split [string trim [read $f]] "\n"]
+-  close $f
+-  set regfile_modules [lsearch -all -inline -not -exact $regfile_modules ""]
+-}
++set regfile_modules [auto_memories_names regfiles.txt]
+ if { [llength $regfile_modules] > 0 } {
+   set block [ord::get_db_block]
+   set db [ord::get_db]
+diff --git a/flow/scripts/synth_preamble.tcl b/flow/scripts/synth_preamble.tcl
+index caf28c9b1..a31b7627c 100644
+--- a/flow/scripts/synth_preamble.tcl
++++ b/flow/scripts/synth_preamble.tcl
+@@ -52,75 +52,12 @@ source $::env(SCRIPTS_DIR)/memories/check_blackboxed.tcl
+ source $::env(SCRIPTS_DIR)/memories/max_bits.tcl
+ source $::env(SCRIPTS_DIR)/memories/drop_parameters.tcl
+ 
+-proc auto_memories_areas { } {
+-  if { ![env_var_equals AUTO_MEMORIES 1] } {
+-    return {}
+-  }
+-  set f "$::env(RESULTS_DIR)/memories/blackboxes.txt"
+-  if { ![file exists $f] } {
+-    error "AUTO_MEMORIES=1 but $f is missing;\
+-      the do-auto-memories step must run before synthesis"
+-  }
+-  set fh [open $f r]
+-  set content [string map {\r ""} [read $fh]]
+-  close $fh
+-  set areas [dict create]
+-  foreach line [split $content "\n"] {
+-    if { [string trim $line] == "" } {
+-      continue
+-    }
+-    set fields [regexp -all -inline {\S+} $line]
+-    if {
+-      [llength $fields] != 2
+-      || ![string is double -strict [lindex $fields 1]]
+-    } {
+-      error "$f: expected `<module> <area>`, got `$line`"
+-    }
+-    dict set areas {*}$fields
+-  }
+-  return $areas
+-}
+-
+ proc auto_memories_blackboxes { } {
+   return [dict keys [auto_memories_areas]]
+ }
+ 
+-# AUTO_MEMORIES: register files inlined (AUTO_MEMORIES_REGFILES not in
+-# AUTO_MEMORIES_MACRO_PLACE): the RTL module is read as a blackbox and its
+-# generated netlist of standard cells is read in its place.
+-proc auto_memories_inline { } {
+-  if { ![env_var_equals AUTO_MEMORIES 1] } {
+-    return {}
+-  }
+-  set f "$::env(RESULTS_DIR)/memories/inline.txt"
+-  if { ![file exists $f] } {
+-    return {}
+-  }
+-  set fh [open $f r]
+-  set content [read $fh]
+-  close $fh
+-  return [regexp -all -inline {\S+} $content]
+-}
+-
+-# AUTO_MEMORIES: the RAMs the register file wrappers instantiate as
+-# macros. They are in blackboxes.txt but are no module of the sources:
+-# they arrive with the wrappers' netlists, after read_slang.
+-proc auto_memories_regfile_cores { } {
+-  if { ![env_var_equals AUTO_MEMORIES 1] } {
+-    return {}
+-  }
+-  set f "$::env(RESULTS_DIR)/memories/regfile_cores.txt"
+-  if { ![file exists $f] } {
+-    return {}
+-  }
+-  set fh [open $f r]
+-  set content [read $fh]
+-  close $fh
+-  return [regexp -all -inline {\S+} $content]
+-}
+-
+ proc read_auto_memories_inline { } {
+-  foreach m [auto_memories_inline] {
++  foreach m [auto_memories_names inline.txt] {
+     # A parameterized RTL module (ibex_register_file_ff #(...)) is
+     # instantiated with parameters the generated netlist has no
+     # declaration for, which hierarchy refuses. The netlist is that module
+@@ -194,7 +131,7 @@ proc read_design_sources { } {
+ 
+     # Blackbox AUTO_MEMORIES-detected memory modules so their generated
+     # liberty view wins over their behavioral bodies.
+-    foreach m [concat [auto_memories_blackboxes] [auto_memories_inline]] {
++    foreach m [concat [auto_memories_blackboxes] [auto_memories_names inline.txt]] {
+       lappend slang_args --blackboxed-module "$m"
+     }
+ 
+@@ -202,7 +139,7 @@ proc read_design_sources { } {
+     lappend slang_args {*}$::env(SYNTH_SLANG_ARGS)
+ 
+     yosys read_slang {*}$slang_args
+-    set cores [auto_memories_regfile_cores]
++    set cores [auto_memories_names regfile_cores.txt]
+     set sourced {}
+     foreach m [auto_memories_blackboxes] {
+       if { [lsearch -exact $cores $m] < 0 } {
+@@ -233,7 +170,7 @@ proc read_design_sources { } {
+     if { [env_var_exists_and_non_empty SYNTH_BLACKBOXES] } {
+       error "Non-empty SYNTH_BLACKBOXES unsupported with HDL frontend \"verific\""
+     }
+-    if { [llength [concat [auto_memories_blackboxes] [auto_memories_inline]]] > 0 } {
++    if { [llength [concat [auto_memories_blackboxes] [auto_memories_names inline.txt]]] > 0 } {
+       error "AUTO_MEMORIES unsupported with HDL frontend \"$::env(SYNTH_HDL_FRONTEND)\""
+     }
+   } elseif { ![env_var_exists_and_non_empty SYNTH_HDL_FRONTEND] } {
+@@ -269,7 +206,7 @@ proc read_design_sources { } {
+       }
+       hierarchy -check -top $::env(DESIGN_NAME)
+     }
+-    if { [llength [auto_memories_inline]] > 0 } {
++    if { [llength [auto_memories_names inline.txt]] > 0 } {
+       read_auto_memories_inline
+       hierarchy -check -top $::env(DESIGN_NAME)
+     }
+diff --git a/flow/scripts/util.tcl b/flow/scripts/util.tcl
+index 98d09f805..34a1e881b 100644
+--- a/flow/scripts/util.tcl
++++ b/flow/scripts/util.tcl
+@@ -114,6 +114,62 @@ proc env_var_exists_and_non_empty { env_var } {
+   return [expr { [info exists ::env($env_var)] && ![string equal $::env($env_var) ""] }]
+ }
+ 
++# AUTO_MEMORIES: do-auto-memories writes into $RESULTS_DIR/memories the
++# lists below, and every later step reads the files they name, never
++# what a directory happens to hold.
++#
++# blackboxes.txt, `<module> <area>` a line: the macros, each with its
++# <module>.lib and <module>.lef, and the area synthesis costs it by.
++proc auto_memories_areas { } {
++  if { ![env_var_equals AUTO_MEMORIES 1] } {
++    return {}
++  }
++  set f "$::env(RESULTS_DIR)/memories/blackboxes.txt"
++  set fh [open $f r]
++  set content [string map {\r ""} [read $fh]]
++  close $fh
++  set areas [dict create]
++  foreach line [split $content "\n"] {
++    if { [string trim $line] == "" } {
++      continue
++    }
++    set fields [regexp -all -inline {\S+} $line]
++    if {
++      [llength $fields] != 2
++      || ![string is double -strict [lindex $fields 1]]
++    } {
++      error "$f: expected `<module> <area>`, got `$line`"
++    }
++    dict set areas {*}$fields
++  }
++  return $areas
++}
++
++# A list of module names, one a line:
++# - inline.txt: register files whose generated netlist (<module>.v)
++#   replaces the RTL module's body in synthesis.
++# - regfile_cores.txt: the RAMs the register file wrappers instantiate
++#   as macros; in blackboxes.txt, but no module of the sources.
++# - regfiles.txt: register files that dissolve into their cells after
++#   macro placement (<module>.v, <module>.place).
++proc auto_memories_names { list } {
++  if { ![env_var_equals AUTO_MEMORIES 1] } {
++    return {}
++  }
++  set f "$::env(RESULTS_DIR)/memories/$list"
++  set fh [open $f r]
++  set content [read $fh]
++  close $fh
++  return [regexp -all -inline {\S+} $content]
++}
++
++# The view of every macro in blackboxes.txt, by extension (.lib, .lef).
++proc auto_memories_views { ext } {
++  return [lmap m [dict keys [auto_memories_areas]] {
++    file join $::env(RESULTS_DIR) memories $m$ext
++  }]
++}
++
+ proc append_env_var { list_name var_name prefix has_arg } {
+   upvar $list_name list
+   if {
+diff --git a/flow/test/test_generate_klayout_tech.py b/flow/test/test_generate_klayout_tech.py
+index 92e884cfc..cba8fe242 100644
+--- a/flow/test/test_generate_klayout_tech.py
++++ b/flow/test/test_generate_klayout_tech.py
+@@ -226,5 +226,34 @@ class TestRealPlatformLyt(unittest.TestCase):
+         )
+ 
+ 
++class TestBlackboxLefs(unittest.TestCase):
++    def test_lists_the_lef_of_each_macro(self):
++        with tempfile.TemporaryDirectory() as d:
++            blackboxes = os.path.join(d, "blackboxes.txt")
++            with open(blackboxes, "w") as f:
++                f.write("ram_a 12.5\n\nram_b 3.0\n")
++            self.assertEqual(
++                generate_klayout_tech.blackbox_lefs(blackboxes),
++                [os.path.join(d, "ram_a.lef"), os.path.join(d, "ram_b.lef")],
++            )
++
++    def test_ignores_a_lef_the_list_does_not_name(self):
++        with tempfile.TemporaryDirectory() as d:
++            blackboxes = os.path.join(d, "blackboxes.txt")
++            with open(blackboxes, "w") as f:
++                f.write("ram_a 12.5\n")
++            for name in ("ram_a.lef", "stale.lef"):
++                open(os.path.join(d, name), "w").close()
++            self.assertEqual(
++                generate_klayout_tech.blackbox_lefs(blackboxes),
++                [os.path.join(d, "ram_a.lef")],
++            )
++
++    def test_missing_list_fails(self):
++        with tempfile.TemporaryDirectory() as d:
++            with self.assertRaises(FileNotFoundError):
++                generate_klayout_tech.blackbox_lefs(os.path.join(d, "blackboxes.txt"))
++
++
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/flow/util/generate_klayout_tech.py b/flow/util/generate_klayout_tech.py
+index b23a1e0ab..640bdd8b5 100644
+--- a/flow/util/generate_klayout_tech.py
++++ b/flow/util/generate_klayout_tech.py
+@@ -30,6 +30,21 @@ def replace_map_files(content, map_files):
+     return content
+ 
+ 
++def blackbox_lefs(blackboxes):
++    """The LEF of every macro AUTO_MEMORIES' blackboxes.txt lists.
++
++    blackboxes.txt has a `<module> <area>` line per macro, and
++    do-auto-memories writes <module>.lef beside it.
++    """
++    directory = os.path.dirname(blackboxes)
++    with open(blackboxes, encoding="utf-8") as f:
++        return [
++            os.path.join(directory, line.split()[0] + ".lef")
++            for line in f
++            if line.strip()
++        ]
++
++
+ def generate_klayout_tech(template_lyt, output_lyt, lef_files, map_files=None):
+     """Generate a klayout .lyt file from a platform template.
+ 
+@@ -76,12 +91,21 @@ def main():
+     parser.add_argument(
+         "--map-files", nargs="*", default=[], help="Map files to include"
+     )
++    parser.add_argument(
++        "--blackboxes",
++        help="AUTO_MEMORIES' blackboxes.txt; the LEF of each macro it lists"
++        " is included after --lef-files",
++    )
+     args = parser.parse_args()
+ 
++    lef_files = list(args.lef_files)
++    if args.blackboxes:
++        lef_files += blackbox_lefs(args.blackboxes)
++
+     generate_klayout_tech(
+         template_lyt=args.template,
+         output_lyt=args.output,
+-        lef_files=args.lef_files,
++        lef_files=lef_files,
+         map_files=args.map_files,
+     )
+ 
+-- 
+2.53.0
+
