@@ -360,6 +360,27 @@ archive_override(
         # #12233; the diagnosis is not upstreamed. Retires at a //:bump
         # onto an OpenROAD that has both.
         "//patches:0216-openroad-dpl-recovery-diagnosis.patch",
+        # 0219: gpl regression tests for timing paths global placement
+        # leaves on a detour (path_shape_test, 56 that pass;
+        # path_shape_targets_test, 44 manual ones that fail by design).
+        # Tests only: the openroad binary keeps its cache key. Not
+        # upstreamed; retires at a //:bump onto an OpenROAD that has them.
+        "//patches:0219-openroad-gpl-placement-regression-tests.patch",
+        # 0220: CTS connects every sink when two share a location. A
+        # second sink at a point overwrote the first in HTreeBuilder's map
+        # and was left with its clock pin on no net, silently (XSTile's
+        # Top, 7 registers); a sink in no subnet is now CTS-0138. Test
+        # colocated_registers. Not upstreamed; retires at a //:bump onto an
+        # OpenROAD that has it.
+        "//patches:0220-openroad-cts-coincident-sinks.patch",
+        # 0221: global_placement -timing_driven_pin_pull, a two-pin pull
+        # between each failing sink and its driver, so a path through a
+        # broadcast net is pulled straight. Off by default, and with it off
+        # every placement is byte-identical. Test pin_pull_test, on 0219's
+        # designs. Not upstreamed, held until XiangShan reaches 2,000 ps at
+        # global route or that campaign ends; retires at a //:bump onto an
+        # OpenROAD that has it.
+        "//patches:0221-openroad-gpl-timing-pin-pull.patch",
     ],
     strip_prefix = "OpenROAD-3cf922cc136ffb08c833afab2c2ae8010eef7049",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/3cf922cc136ffb08c833afab2c2ae8010eef7049.tar.gz"],

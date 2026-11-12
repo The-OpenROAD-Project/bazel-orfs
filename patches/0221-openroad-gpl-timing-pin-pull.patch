@@ -1,0 +1,1923 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Thu, 12 Nov 2026 18:00:00 +0100
+Subject: [PATCH] gpl: timing-driven pin pull (-timing_driven_pin_pull)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A net's timing weight scales the whole net. A failing sink of a
+broadcast net that sits inside the net's bounding box feels no HPWL
+force and an exponentially small weighted-average force, so the path
+through it is never pulled straight; the timing-blind initial placement
+sets the order and Nesterov keeps it.
+
+-timing_driven_pin_pull (off by default, needs -timing_driven) adds a
+two-pin attraction between each failing sink and its driver:
+
+- Slacks are read inside Resizer::findResizeSlacks, on the netlist the
+  virtual repair_design buffered, through a new optional callback
+  between findResizeSlacks1() and the journal restore. Top-level output
+  ports are read through the net's terms. The input of a buffer or
+  inverter that rebuffering removed takes the worst slack of its loads.
+- A failing connection's weight is strength (16) times the heavier of
+  its two cells' other nets; it doubles (growth 1) at every update it
+  still fails and is kept once it meets timing.
+- Initial placement runs again after a timing analysis of its result
+  (2 rounds by default), each pull a B2B spring of a two-pin net. In
+  Nesterov each pull is the closed-form weighted-average length of the
+  two-pin net {driver, sink} in the wirelength force and preconditioner.
+  Pulls are not nets: HPWL is unchanged.
+
+Options -timing_driven_pin_pull_strength, _growth, _max and
+_initial_rounds; messages GPL-196 to 199; validator IDs 432 to 435.
+With the flag off there is no PinPull object and every new line sits
+behind an empty-list check.
+
+Tests: pin_pull_test (the path_shape designs of the carried 0219 suite,
+pulls given through a placePulled hook: broadcast path straightens,
+swapped clusters straighten, 8 threads equal 1, the closed form matches
+the two-pin net's WA gradient).
+
+Not upstreamed. Applies after the carried OpenROAD patches and
+0219-openroad-gpl-placement-regression-tests.patch. Retires with a
+//:bump onto an OpenROAD that carries this or an equivalent pull
+(check_carried_patches says ABSORBED). Held until XiangShan reaches
+2,000 ps at global route in bazel-orfs, or that campaign ends; then a
+new topic upstream, with 0219.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/gpl/BUILD                  |   4 +-
+ src/gpl/README.md              |  26 ++-
+ src/gpl/include/gpl/Replace.h  |  21 +++
+ src/gpl/src/initialPlace.cpp   | 137 +++++++++++++-
+ src/gpl/src/initialPlace.h     |  20 ++
+ src/gpl/src/nesterovBase.cpp   | 118 ++++++++++++
+ src/gpl/src/nesterovBase.h     |  25 +++
+ src/gpl/src/pinPull.cpp        | 405 +++++++++++++++++++++++++++++++++++++++++
+ src/gpl/src/pinPull.h          | 142 +++++++++++++++
+ src/gpl/src/replace.cpp        |  91 +++++++++
+ src/gpl/src/replace.i          |  10 +
+ src/gpl/src/replace.tcl        |  15 ++
+ src/gpl/src/timingBase.cpp     |  28 ++-
+ src/gpl/src/timingBase.h       |   9 +
+ src/gpl/test/BUILD             |  16 ++
+ src/gpl/test/path_shape.cpp    |  75 ++++++++
+ src/gpl/test/path_shape.h      |  14 ++
+ src/gpl/test/pin_pull_test.cpp | 206 +++++++++++++++++++++
+ src/rsz/include/rsz/Resizer.hh |   5 +
+ src/rsz/src/Resizer.cc         |   6 +-
+ 20 files changed, 1357 insertions(+), 16 deletions(-)
+
+diff --git a/src/gpl/BUILD b/src/gpl/BUILD
+index 2288a0182f..0cdafa94ca 100644
+--- a/src/gpl/BUILD
++++ b/src/gpl/BUILD
+@@ -120,11 +120,11 @@ cc_library(
+         "src/hpwl.cpp",
+         "src/hpwlBackend.h",
+         "src/initialPlace.cpp",
+-        "src/initialPlace.h",
+         "src/ioPinBase.cpp",
+         "src/mbff.cpp",
+         "src/nesterovBase.cpp",
+         "src/nesterovPlace.cpp",
++        "src/pinPull.cpp",
+         "src/placerBase.cpp",
+         "src/powerBase.cpp",
+         "src/replace.cpp",
+@@ -156,10 +156,12 @@ cc_library(
+         "src/fft.h",
+         "src/fftBackend.h",
+         "src/graphicsNone.h",
++        "src/initialPlace.h",
+         "src/ioPinBase.h",
+         "src/mbff.h",
+         "src/nesterovBase.h",
+         "src/nesterovPlace.h",
++        "src/pinPull.h",
+         "src/placerBase.h",
+         "src/point.h",
+         "src/powerBase.h",
+diff --git a/src/gpl/README.md b/src/gpl/README.md
+index f72c8de97a..4b0ed869c3 100644
+--- a/src/gpl/README.md
++++ b/src/gpl/README.md
+@@ -47,6 +47,20 @@ values to decrease runtime, for example.
+ 
+ You can also set an overflow value for `keep_resize_below_overflow`, when below that, the modifications made by the rsz tool are maintained (non-virtual `repair_design`).
+ 
++A net weight scales the whole net, so a failing sink of a high-fanout net
++that sits inside the net's bounding box is not pulled toward its driver.
++With `-timing_driven_pin_pull`, `gpl` also adds a two-pin attraction
++between each failing sink and its driver. The sink's slack is read on the
++netlist the virtual `repair_design` buffered. The attraction is a spring in
++the initial placement, which is placed again after a timing analysis
++(`-timing_driven_pin_pull_initial_rounds` times), and the weighted-average
++length of the two-pin net in Nesterov. A failing connection pulls
++`-timing_driven_pin_pull_strength` times as hard as the heavier of its two
++cells' other nets together. Its weight grows at every update it still
++fails (`-timing_driven_pin_pull_growth`, capped by
++`-timing_driven_pin_pull_max`) and is kept once it meets timing. The
++pulls are not nets and do not change the reported HPWL.
++
+ When using the `-power_driven` flag, `gpl` weights nets by their switching
+ activity, so that nets that toggle often are kept short and use less switching
+ power. The activity is read from `read_saif`, `read_vcd` or
+@@ -79,7 +93,7 @@ Routability-driven arguments
+ 
+ Timing-driven arguments
+ - They begin with `-timing_driven`.
+-- `-timing_driven_net_reweight_overflow`, `-timing_driven_net_weight_max`, `-timing_driven_nets_percentage`, `keep_resize_below_overflow`, `-timing_driven_repair_timing`, `-timing_driven_repair_tns_end_percent`
++- `-timing_driven_net_reweight_overflow`, `-timing_driven_net_weight_max`, `-timing_driven_nets_percentage`, `keep_resize_below_overflow`, `-timing_driven_repair_timing`, `-timing_driven_repair_tns_end_percent`, `-timing_driven_pin_pull`, `-timing_driven_pin_pull_strength`, `-timing_driven_pin_pull_growth`, `-timing_driven_pin_pull_max`, `-timing_driven_pin_pull_initial_rounds`
+ 
+ Power-driven arguments
+ - `-power_driven_net_weight`
+@@ -117,6 +131,11 @@ global_placement
+     [-timing_driven_net_reweight_overflow timing_driven_net_reweight_overflow]\
+     [-timing_driven_net_weight_max timing_driven_net_weight_max]\
+     [-timing_driven_nets_percentage timing_driven_nets_percentage]\
++    [-timing_driven_pin_pull]\
++    [-timing_driven_pin_pull_strength timing_driven_pin_pull_strength]\
++    [-timing_driven_pin_pull_growth timing_driven_pin_pull_growth]\
++    [-timing_driven_pin_pull_max timing_driven_pin_pull_max]\
++    [-timing_driven_pin_pull_initial_rounds timing_driven_pin_pull_initial_rounds]\
+     [-timing_driven_repair_timing]\
+     [-timing_driven_repair_tns_end_percent timing_driven_repair_tns_end_percent]\
+     [-power_driven_net_weight power_driven_net_weight]\
+@@ -190,6 +209,11 @@ global_placement
+ | `-timing_driven_net_reweight_overflow` | Set overflow threshold for timing-driven net reweighting. Allowed value is a Tcl list of integers where each number is `[0, 100]`. Default values are [64, 20] |
+ | `-timing_driven_net_weight_max` | Set the multiplier for the most timing-critical nets. The default value is `5`, and the allowed values are floats. |
+ | `-timing_driven_nets_percentage` | Set the reweighted percentage of nets in timing-driven mode. The default value is 10. Allowed values are floats `[0, 100]`. |
++| `-timing_driven_pin_pull` | Pull each failing sink toward its driver with a two-pin attraction, in the initial placement and in Nesterov. Requires `-timing_driven`. Off by default. |
++| `-timing_driven_pin_pull_strength` | How hard a failing connection pulls, as a multiple of the heavier of its two cells' other nets together. The default value is `16`, and the allowed values are positive floats. |
++| `-timing_driven_pin_pull_growth` | At each update, multiply a still-failing connection's weight by `1 + growth`. The default value is `1`, and the allowed values are non-negative floats. |
++| `-timing_driven_pin_pull_max` | Cap on a connection's pull weight. The default value is `0` (no cap), and the allowed values are non-negative floats. |
++| `-timing_driven_pin_pull_initial_rounds` | Rounds of timing analysis and another initial placement pass with the pulls. `0` starts the pulls at the Nesterov start. The default value is `2`, and the allowed values are non-negative integers. |
+ | `-keep_resize_below_overflow` | When the overflow is below the value, timing-driven iterations will retain (non-virtual) the resizer changes instead of reverting them (virtual). The default value is `1.0`, making all timing-driven iterations non-virtual. Allowed values are floats `[0, 1]`. |
+ | `-timing_driven_repair_timing` | **Experimental.** Enable a conservative `repair_setup` pass during last timing-driven iteration. The intent is to apply minimal buffering and gate sizing so that the placement better correlates with global routing timing. Only the worst setup violators are targeted. Disruptive operations (pin swap, gate cloning, VT swap) are suppressed to avoid topology changes during placement. Not ready for production use. |
+ | `-timing_driven_repair_tns_end_percent` | **Experimental.** When `-timing_driven_repair_timing` is enabled, controls the percentage of violating endpoints targeted by the `repair_setup` call. The default value is `1.0` and the allowed values are floats `[0, 100]`. |
+diff --git a/src/gpl/include/gpl/Replace.h b/src/gpl/include/gpl/Replace.h
+index a6acfe38d4..37816ca438 100644
+--- a/src/gpl/include/gpl/Replace.h
++++ b/src/gpl/include/gpl/Replace.h
+@@ -48,6 +48,7 @@ class PowerBase;
+ 
+ class InitialPlace;
+ class NesterovPlace;
++class PinPull;
+ 
+ using Cluster = std::vector<odb::dbInst*>;
+ using Clusters = std::vector<Cluster>;
+@@ -130,6 +131,21 @@ struct PlaceOptions
+   bool powerDrivenMode = false;
+   float powerDrivenNetWeight = 1;
+   float timingDrivenNetsPercentage = 10;
++  // Timing-driven pin pull: a two-pin attraction between each failing sink
++  // and its driver, from a timing analysis of the initial placement on, and
++  // grown at every timing-driven reweight. Needs timingDrivenMode.
++  bool timingDrivenPinPull = false;
++  // A failing connection pulls this many times as hard as the heavier of its
++  // two cells' other nets together.
++  float timingDrivenPinPullStrength = 16.0;
++  // At each update a still-failing connection's weight is multiplied by
++  // (1 + growth).
++  float timingDrivenPinPullGrowth = 1.0;
++  // Cap on a connection's weight; 0 is no cap.
++  float timingDrivenPinPullMax = 0.0;
++  // Rounds of (timing analysis, initial placement pass) after the initial
++  // placement; 0 starts the pull at the Nesterov start instead.
++  int timingDrivenPinPullInitialRounds = 2;
+   float overflow = 0.1;
+   int nesterovPlaceMaxIter = 5000;
+   // timing driven check overflow to keep resizer changes (non-virtual resizer)
+@@ -265,6 +281,10 @@ class Replace
+   // The top-level (unfenced/full-die) region is always nbVec_[0].
+   NesterovBase* getTopLevelNB() const;
+   void initIoPinPlace();
++  void initPinPull(const PlaceOptions& options);
++  void findPinPullSlacks();
++  void runInitialPinPull(int threads, const PlaceOptions& options);
++  void startNesterovPinPull();
+ 
+   odb::dbDatabase* db_ = nullptr;
+   sta::dbSta* sta_ = nullptr;
+@@ -283,6 +303,7 @@ class Replace
+   std::shared_ptr<TimingBase> tb_;
+   std::shared_ptr<ClockBase> cb_;
+   std::shared_ptr<PowerBase> pwb_;
++  std::shared_ptr<PinPull> pin_pull_;
+ 
+   std::unique_ptr<InitialPlace> ip_;
+   std::unique_ptr<NesterovPlace> np_;
+diff --git a/src/gpl/src/initialPlace.cpp b/src/gpl/src/initialPlace.cpp
+index 82019d38d0..94355903cc 100644
+--- a/src/gpl/src/initialPlace.cpp
++++ b/src/gpl/src/initialPlace.cpp
+@@ -7,13 +7,16 @@
+ #include <climits>
+ #include <cmath>
+ #include <cstddef>
++#include <cstdlib>
+ #include <limits>
+ #include <memory>
+ #include <utility>
+ #include <vector>
+ 
+ #include "AbstractGraphics.h"
++#include "odb/db.h"
+ #include "odb/dbTypes.h"
++#include "pinPull.h"
+ #include "placerBase.h"
+ #include "solver.h"
+ #include "utl/Logger.h"
+@@ -51,7 +54,6 @@ InitialPlace::InitialPlace(InitialPlaceVars ipVars,
+ void InitialPlace::doBicgstabPlace(int threads)
+ {
+   log_->info(utl::GPL, 5, "---- Execute Conjugate Gradient Initial Placement.");
+-  ResidualError error;
+ 
+   if (graphics_) {
+     graphics_->setDebugOn(ipVars_.debug);
+@@ -70,6 +72,41 @@ void InitialPlace::doBicgstabPlace(int threads)
+     gif_key_ = graphics_->gifStart("initPlacement.gif");
+   }
+ 
++  runB2BLoop(threads, graphics_enabled);
++
++  if (graphics_enabled) {
++    graphics_->gifEnd(gif_key_);
++    graphics_->setDebugOn(false);
++    graphics_->cellPlot(false);
++  }
++}
++
++void InitialPlace::doPinPullPass(const int threads)
++{
++  runB2BLoop(threads, false);
++}
++
++void InitialPlace::setPinPulls(const std::vector<PinPullConnection>& pulls)
++{
++  pin_pulls_.clear();
++  for (const PinPullConnection& pull : pulls) {
++    const auto find_pin = [this](odb::dbObject* pin) -> Pin* {
++      if (pin->getObjectType() == odb::dbITermObj) {
++        return pbc_->dbToPb(static_cast<odb::dbITerm*>(pin));
++      }
++      return pbc_->dbToPb(static_cast<odb::dbBTerm*>(pin));
++    };
++    Pin* driver = find_pin(pull.driver);
++    Pin* sink = find_pin(pull.sink);
++    if (driver != nullptr && sink != nullptr) {
++      pin_pulls_.push_back({driver, sink, pull.weight});
++    }
++  }
++}
++
++void InitialPlace::runB2BLoop(const int threads, const bool graphics_enabled)
++{
++  ResidualError error;
+   for (size_t iter = 1; iter <= ipVars_.maxIter; iter++) {
+     updatePinInfo();
+     createSparseMatrix();
+@@ -116,12 +153,6 @@ void InitialPlace::doBicgstabPlace(int threads)
+       break;
+     }
+   }
+-
+-  if (graphics_enabled) {
+-    graphics_->gifEnd(gif_key_);
+-    graphics_->setDebugOn(false);
+-    graphics_->cellPlot(false);
+-  }
+ }
+ 
+ // starting point of initial place is center.
+@@ -478,10 +509,102 @@ void InitialPlace::createSparseMatrix()
+     }
+   }
+ 
++  if (!pin_pulls_.empty()) {
++    addPinPullSprings(listX, listY);
++  }
++
+   placeInstForceMatrixX_.setFromTriplets(listX.begin(), listX.end());
+   placeInstForceMatrixY_.setFromTriplets(listY.begin(), listY.end());
+ }
+ 
++// The B2B spring of the two-pin net {pin1, pin2} with net weight netWeight
++// on one axis (pos and inst_pos read that axis): the four cases of the net
++// loop in createSparseMatrix.
++template <typename PinPos, typename InstPos>
++static void addTwoPinSpring(const Pin* pin1,
++                            const Pin* pin2,
++                            const float netWeight,
++                            const int minDiffLength,
++                            const PinPos& pos,
++                            const InstPos& inst_pos,
++                            std::vector<T>& list,
++                            Eigen::VectorXf& fixedForce)
++{
++  const int diff = std::abs(pos(pin1) - pos(pin2));
++  const float weight = netWeight / std::max(diff, minDiffLength);
++  const bool placed1 = pin1->isPlaceInstConnected();
++  const bool placed2 = pin2->isPlaceInstConnected();
++  if (placed1 && placed2) {
++    const Instance* instance1 = pin1->getInstance();
++    const Instance* instance2 = pin2->getInstance();
++    const int inst1 = instance1->getExtId();
++    const int inst2 = instance2->getExtId();
++    const bool locked1 = instance1->isLocked();
++    const bool locked2 = instance2->isLocked();
++    const int offset1 = pos(pin1) - inst_pos(instance1);
++    const int offset2 = pos(pin2) - inst_pos(instance2);
++    if (!locked1 && !locked2) {
++      list.emplace_back(inst1, inst1, weight);
++      list.emplace_back(inst2, inst2, weight);
++      list.emplace_back(inst1, inst2, -weight);
++      list.emplace_back(inst2, inst1, -weight);
++      fixedForce(inst1) += -weight * (offset1 - offset2);
++      fixedForce(inst2) += -weight * (offset2 - offset1);
++    } else if (locked1 && !locked2) {
++      list.emplace_back(inst2, inst2, weight);
++      fixedForce(inst2) += weight * (pos(pin1) - offset2);
++    } else if (!locked1 && locked2) {
++      list.emplace_back(inst1, inst1, weight);
++      fixedForce(inst1) += weight * (pos(pin2) - offset1);
++    }
++  } else if (!placed1 && placed2) {
++    const int inst2 = pin2->getInstance()->getExtId();
++    list.emplace_back(inst2, inst2, weight);
++    fixedForce(inst2)
++        += weight * (pos(pin1) - (pos(pin2) - inst_pos(pin2->getInstance())));
++  } else if (placed1 && !placed2) {
++    const int inst1 = pin1->getInstance()->getExtId();
++    list.emplace_back(inst1, inst1, weight);
++    fixedForce(inst1)
++        += weight * (pos(pin2) - (pos(pin1) - inst_pos(pin1->getInstance())));
++  }
++}
++
++// Unlike nets, pulls are not skipped above the fan-out limit: a critical
++// sink of a very large net still gets its spring.
++void InitialPlace::addPinPullSprings(std::vector<T>& listX,
++                                     std::vector<T>& listY)
++{
++  const auto pin_x = [](const Pin* pin) { return pin->cx(); };
++  const auto pin_y = [](const Pin* pin) { return pin->cy(); };
++  const auto inst_x = [](const Instance* inst) { return inst->cx(); };
++  const auto inst_y = [](const Instance* inst) { return inst->cy(); };
++  for (const PinSpring& pull : pin_pulls_) {
++    if (isMovableIoPin(pull.driver, ipVars_.placeIosMode)
++        || isMovableIoPin(pull.sink, ipVars_.placeIosMode)) {
++      continue;
++    }
++    // A two-pin net's B2B weight is netWeightScale / (2 - 1).
++    const float netWeight = pull.weight * ipVars_.netWeightScale;
++    addTwoPinSpring(pull.driver,
++                    pull.sink,
++                    netWeight,
++                    ipVars_.minDiffLength,
++                    pin_x,
++                    inst_x,
++                    listX,
++                    fixedInstForceVecX_);
++    addTwoPinSpring(pull.driver,
++                    pull.sink,
++                    netWeight,
++                    ipVars_.minDiffLength,
++                    pin_y,
++                    inst_y,
++                    listY,
++                    fixedInstForceVecY_);
++  }
++}
++
+ void InitialPlace::updateCoordi()
+ {
+   for (auto& inst : pbc_->placeInsts()) {
+diff --git a/src/gpl/src/initialPlace.h b/src/gpl/src/initialPlace.h
+index fd9a87a41b..157a495cd8 100644
+--- a/src/gpl/src/initialPlace.h
++++ b/src/gpl/src/initialPlace.h
+@@ -20,6 +20,8 @@ namespace gpl {
+ class PlacerBaseCommon;
+ class PlacerBase;
+ class AbstractGraphics;
++class Pin;
++struct PinPullConnection;
+ 
+ struct InitialPlaceVars
+ {
+@@ -47,7 +49,22 @@ class InitialPlace
+                utl::Logger* logger);
+   void doBicgstabPlace(int threads);
+ 
++  // Timing-driven pin pull: each pulled (driver, sink) pin pair becomes the
++  // B2B spring of a two-pin net of the pull's weight. An empty list turns
++  // the springs off.
++  void setPinPulls(const std::vector<PinPullConnection>& pulls);
++  // Another B2B pass from the current positions, with the pin pulls.
++  void doPinPullPass(int threads);
++
+  private:
++  struct PinSpring
++  {
++    Pin* driver;
++    Pin* sink;
++    float weight;
++  };
++  std::vector<PinSpring> pin_pulls_;
++
+   InitialPlaceVars ipVars_;
+   std::shared_ptr<PlacerBaseCommon> pbc_;
+   std::vector<std::shared_ptr<PlacerBase>> pbVec_;
+@@ -89,7 +106,10 @@ class InitialPlace
+   void setPlaceInstExtId();
+   void updatePinInfo();
+   void createSparseMatrix();
++  void addPinPullSprings(std::vector<Eigen::Triplet<float>>& listX,
++                         std::vector<Eigen::Triplet<float>>& listY);
+   void updateCoordi();
++  void runB2BLoop(int threads, bool graphics_enabled);
+ };
+ 
+ }  // namespace gpl
+diff --git a/src/gpl/src/nesterovBase.cpp b/src/gpl/src/nesterovBase.cpp
+index 262dfcff0a..f9a9cc20cd 100644
+--- a/src/gpl/src/nesterovBase.cpp
++++ b/src/gpl/src/nesterovBase.cpp
+@@ -33,6 +33,7 @@
+ #include "nesterovPlace.h"
+ #include "odb/db.h"
+ #include "omp.h"
++#include "pinPull.h"
+ #include "placerBase.h"
+ #include "point.h"
+ #include "utl/Logger.h"
+@@ -1541,6 +1542,108 @@ void NesterovBaseCommon::updateWireLengthForceWA_native(float wlCoeffX,
+       }
+     }
+   }
++
++  if (!pin_pulls_.empty()) {
++    updatePinPullForce(wlCoeffX, wlCoeffY);
++  }
++}
++
++// d/da of the weighted-average length of the two-pin net {a, b} on one axis,
++// d = a - b, wlCoeff = 1 / gamma: with u = d / (2 gamma) the length is
++// d tanh(u), so the derivative is tanh(u) + u sech^2(u), in (-1.2, 1.2).
++// It equals the exp-sum gradient getWireLengthGradientPinWA gives a two-pin
++// net.
++static float twoPinWaGradient(const float d, const float wlCoeff)
++{
++  const float u = d * wlCoeff * 0.5f;
++  const float t = std::tanh(u);
++  return t + u * (1.0f - t * t);
++}
++
++int64_t NesterovBaseCommon::pinPullCellIndex(const GPin* gPin) const
++{
++  const GCell* gCell = gPin->getGCell();
++  if (gCell == nullptr || !gCell->isInstance()) {
++    return -1;
++  }
++  const size_t index = getGCellIndex(gCell);
++  if (index >= pin_pull_force_.size()) {
++    return -1;
++  }
++  return static_cast<int64_t>(index);
++}
++
++void NesterovBaseCommon::updatePinPullForce(const float wlCoeffX,
++                                            const float wlCoeffY)
++{
++  const size_t pull_count = pin_pulls_.size();
++#pragma omp parallel for num_threads(num_threads_)
++  for (size_t i = 0; i < pull_count; i++) {
++    const GPinPull& pull = pin_pulls_[i];
++    pin_pull_grad_[i] = FloatPoint(
++        pull.weight
++            * twoPinWaGradient(pull.driver->cx() - pull.sink->cx(), wlCoeffX),
++        pull.weight
++            * twoPinWaGradient(pull.driver->cy() - pull.sink->cy(), wlCoeffY));
++  }
++
++  // Serial accumulation, in pull order, for determinism. The gradient
++  // vectors hold -df/dx.
++  std::ranges::fill(pin_pull_force_, FloatPoint());
++  for (size_t i = 0; i < pull_count; i++) {
++    const GPinPull& pull = pin_pulls_[i];
++    const FloatPoint& grad = pin_pull_grad_[i];
++    if (const int64_t driver = pinPullCellIndex(pull.driver); driver >= 0) {
++      pin_pull_force_[driver].x -= grad.x;
++      pin_pull_force_[driver].y -= grad.y;
++    }
++    if (const int64_t sink = pinPullCellIndex(pull.sink); sink >= 0) {
++      pin_pull_force_[sink].x += grad.x;
++      pin_pull_force_[sink].y += grad.y;
++    }
++  }
++}
++
++void NesterovBaseCommon::setPinPulls(
++    const std::vector<PinPullConnection>& pulls)
++{
++  pin_pulls_.clear();
++  pin_pull_force_.clear();
++  pin_pull_precond_.clear();
++  pin_pull_grad_.clear();
++  const auto find_gpin = [this](odb::dbObject* pin) -> GPin* {
++    if (pin->getObjectType() == odb::dbITermObj) {
++      const auto it
++          = db_iterm_to_index_map_.find(static_cast<odb::dbITerm*>(pin));
++      return it == db_iterm_to_index_map_.end() ? nullptr
++                                                : &gPinStor_[it->second];
++    }
++    const auto it
++        = db_bterm_to_index_map_.find(static_cast<odb::dbBTerm*>(pin));
++    return it == db_bterm_to_index_map_.end() ? nullptr
++                                              : &gPinStor_[it->second];
++  };
++  for (const PinPullConnection& pull : pulls) {
++    GPin* driver = find_gpin(pull.driver);
++    GPin* sink = find_gpin(pull.sink);
++    if (driver == nullptr || sink == nullptr) {
++      continue;
++    }
++    pin_pulls_.push_back({driver, sink, pull.weight});
++  }
++  if (pin_pulls_.empty()) {
++    return;
++  }
++  pin_pull_grad_.resize(pin_pulls_.size());
++  pin_pull_force_.resize(gCellStor_.size());
++  pin_pull_precond_.resize(gCellStor_.size(), 0.0f);
++  for (const GPinPull& pull : pin_pulls_) {
++    for (const GPin* end : {pull.driver, pull.sink}) {
++      if (const int64_t index = pinPullCellIndex(end); index >= 0) {
++        pin_pull_precond_[index] += pull.weight;
++      }
++    }
++  }
+ }
+ 
+ GCell& NesterovBaseCommon::getGCell(size_t index)
+@@ -1586,6 +1689,14 @@ FloatPoint NesterovBaseCommon::getWireLengthGradientWA(const GCell* gCell,
+     gradientPair.y += tmpPair.y;
+   }
+ 
++  if (!pin_pull_force_.empty() && gCell->isInstance()) {
++    const size_t index = getGCellIndex(gCell);
++    if (index < pin_pull_force_.size()) {
++      gradientPair.x += pin_pull_force_[index].x;
++      gradientPair.y += pin_pull_force_[index].y;
++    }
++  }
++
+   if (gCell->isInstance()) {
+     debugPrint(log_,
+                GPL,
+@@ -1676,6 +1787,13 @@ FloatPoint NesterovBaseCommon::getWireLengthGradientPinWA(const GPin* gPin,
+ FloatPoint NesterovBaseCommon::getWireLengthPreconditioner(
+     const GCell* gCell) const
+ {
++  if (!pin_pull_precond_.empty() && gCell->isInstance()) {
++    const size_t index = getGCellIndex(gCell);
++    if (index < pin_pull_precond_.size()) {
++      const float precond = gCell->gPins().size() + pin_pull_precond_[index];
++      return FloatPoint(precond, precond);
++    }
++  }
+   return FloatPoint(gCell->gPins().size(), gCell->gPins().size());
+ }
+ 
+diff --git a/src/gpl/src/nesterovBase.h b/src/gpl/src/nesterovBase.h
+index e839008c74..f6697f18ef 100644
+--- a/src/gpl/src/nesterovBase.h
++++ b/src/gpl/src/nesterovBase.h
+@@ -56,6 +56,7 @@ class Net;
+ class GPin;
+ class FFT;
+ class nesterovDbCbk;
++struct PinPullConnection;
+ class DeviceState;         // gpu/deviceState.h (GPU-only, forward decl here)
+ class RegionDensityField;  // gpu/regionDensityField.h (GPU-only)
+ class WirelengthGradientBackend;  // wirelengthGradientBackend.h
+@@ -950,6 +951,14 @@ class NesterovBaseCommon
+   // for preconditioner
+   FloatPoint getWireLengthPreconditioner(const GCell* gCell) const;
+ 
++  // Timing-driven pin pull (pinPull.h): a two-pin weighted-average length
++  // term between each pulled driver pin and its critical sink pin, added to
++  // the wirelength force and preconditioner. Not a net: HPWL is unchanged.
++  // The pins are resolved to this object's GPins; an empty list turns the
++  // pull off.
++  void setPinPulls(const std::vector<PinPullConnection>& pulls);
++  size_t getPinPullCount() const { return pin_pulls_.size(); }
++
+   int64_t getHpwl();
+ 
+   // Refreshes host GNet boxes from the HPWL backend's last computeHpwl —
+@@ -1067,6 +1076,22 @@ class NesterovBaseCommon
+   int new_gcells_count_;
+   int deleted_gcells_count_;
+   nesterovDbCbk* db_cbk_{nullptr};
++
++  struct GPinPull
++  {
++    GPin* driver;
++    GPin* sink;
++    float weight;
++  };
++  // Index of the pin's movable GCell in gCellStor_, or -1.
++  int64_t pinPullCellIndex(const GPin* gPin) const;
++  void updatePinPullForce(float wlCoeffX, float wlCoeffY);
++  std::vector<GPinPull> pin_pulls_;
++  // Per pull, its weighted gradient on the driver (scratch).
++  std::vector<FloatPoint> pin_pull_grad_;
++  // Indexed like gCellStor_; empty when there are no pulls.
++  std::vector<FloatPoint> pin_pull_force_;
++  std::vector<float> pin_pull_precond_;
+ };
+ 
+ // Stores instances belonging to a specific power domain
+diff --git a/src/gpl/src/pinPull.cpp b/src/gpl/src/pinPull.cpp
+new file mode 100644
+index 0000000000..3545dd47b7
+--- /dev/null
++++ b/src/gpl/src/pinPull.cpp
+@@ -0,0 +1,405 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++#include "pinPull.h"
++
++#include <algorithm>
++#include <cstddef>
++#include <limits>
++#include <memory>
++#include <optional>
++#include <string>
++#include <utility>
++#include <vector>
++
++#include "db_sta/dbNetwork.hh"
++#include "db_sta/dbSta.hh"
++#include "nesterovBase.h"
++#include "odb/db.h"
++#include "odb/dbTypes.h"
++#include "placerBase.h"
++#include "rsz/Resizer.hh"
++#include "sta/Fuzzy.hh"
++#include "sta/Graph.hh"
++#include "sta/MinMax.hh"
++#include "sta/Network.hh"
++#include "sta/NetworkClass.hh"
++#include "utl/Logger.h"
++
++namespace gpl {
++
++using utl::GPL;
++
++namespace {
++
++odb::dbObject* dbPin(const Pin* pin)
++{
++  if (pin->isITerm()) {
++    return pin->getDbITerm();
++  }
++  return pin->getDbBTerm();
++}
++
++// The one pin that drives the net: an instance output or a top-level input.
++bool isDriver(const Pin* pin)
++{
++  if (pin->isITerm()) {
++    return pin->getDbITerm()->getIoType() == odb::dbIoType::OUTPUT;
++  }
++  return pin->getDbBTerm()->getIoType() == odb::dbIoType::INPUT;
++}
++
++bool isMovable(const Pin* pin)
++{
++  return pin->isPlaceInstConnected() && !pin->getInstance()->isLocked();
++}
++
++bool isMovable(const GPin* gpin)
++{
++  const GCell* gcell = gpin->getGCell();
++  return gcell != nullptr && gcell->isInstance() && !gcell->isLocked();
++}
++
++// The pull of a movable cell's nets other than the pin's own, each net
++// counted 1.
++float otherWeight(const Pin* pin)
++{
++  if (!isMovable(pin)) {
++    return 0.0f;
++  }
++  float weight = 0.0f;
++  for (const Pin* other : pin->getInstance()->getPins()) {
++    if (other->getNet() != nullptr && other->getNet() != pin->getNet()) {
++      weight += 1.0f;
++    }
++  }
++  return weight;
++}
++
++// The pull of a movable cell's nets other than the pin's own, by net weight.
++float otherWeight(const GPin* gpin)
++{
++  if (!isMovable(gpin)) {
++    return 0.0f;
++  }
++  float weight = 0.0f;
++  for (const GPin* other : gpin->getGCell()->gPins()) {
++    if (other->getGNet() != nullptr && other->getGNet() != gpin->getGNet()) {
++      weight += other->getGNet()->getTotalWeight();
++    }
++  }
++  return weight;
++}
++
++std::string pinName(odb::dbObject* pin)
++{
++  if (pin->getObjectType() == odb::dbITermObj) {
++    return static_cast<odb::dbITerm*>(pin)->getName();
++  }
++  return static_cast<odb::dbBTerm*>(pin)->getName();
++}
++
++}  // namespace
++
++PinPull::PinPull(sta::dbSta* sta,
++                 rsz::Resizer* rs,
++                 utl::Logger* log,
++                 const PinPullVars& vars)
++    : sta_(sta), rs_(rs), log_(log), vars_(vars)
++{
++}
++
++// Runs while the netlist is the one repair_design buffered: a sink behind
++// a buffer tree reads the slack of the path through the tree, not the
++// unbuffered net's load-bound slack. A driver's slack is never better than
++// that of any load it drives, so every failing load sits on a net whose
++// driver fails.
++void PinPull::captureSlacks()
++{
++  sink_slack_.clear();
++  inferred_slack_.clear();
++
++  // Every constrained net, by increasing slack.
++  rs_->setWorstSlackNetsPercent(100.0f);
++  const sta::NetSeq nets = rs_->resizeWorstSlackNets();
++  rs_->setWorstSlackNetsPercent(vars_.nets_percentage);
++
++  sta::dbNetwork* network = sta_->getDbNetwork();
++  size_t net_count = 0;
++  for (const sta::Net* net : nets) {
++    if (rs_->resizeNetSlack(net).value() >= 0.0f) {
++      break;
++    }
++    ++net_count;
++    // A net's pins are its instance pins; its top-level ports are terms.
++    std::unique_ptr<sta::NetPinIterator> pin_iter(network->pinIterator(net));
++    while (pin_iter->hasNext()) {
++      captureLoad(pin_iter->next());
++    }
++    std::unique_ptr<sta::NetTermIterator> term_iter(network->termIterator(net));
++    while (term_iter->hasNext()) {
++      captureLoad(network->pin(term_iter->next()));
++    }
++  }
++  debugPrint(log_,
++             GPL,
++             "pinPull",
++             1,
++             "Pin pull: {} failing sinks on {} failing nets of {}.",
++             sink_slack_.size(),
++             net_count,
++             nets.size());
++}
++
++void PinPull::captureLoad(const sta::Pin* pin)
++{
++  sta::dbNetwork* network = sta_->getDbNetwork();
++  if (pin == nullptr || !network->isLoad(pin)) {
++    return;
++  }
++  sta::Vertex* vertex = sta_->graph()->pinLoadVertex(pin);
++  if (vertex == nullptr) {
++    return;
++  }
++  const sta::Slack slack = sta_->slack(vertex, sta::MinMax::max());
++  if (sta::fuzzyInf(slack) || slack >= 0.0f) {
++    return;
++  }
++  odb::dbITerm* iterm = nullptr;
++  odb::dbBTerm* bterm = nullptr;
++  odb::dbModITerm* moditerm = nullptr;
++  network->staToDb(pin, iterm, bterm, moditerm);
++  odb::dbObject* key = iterm != nullptr ? static_cast<odb::dbObject*>(iterm)
++                                        : static_cast<odb::dbObject*>(bterm);
++  if (key == nullptr) {
++    return;
++  }
++  auto [it, inserted] = sink_slack_.try_emplace(key, slack);
++  if (!inserted) {
++    it->second = std::min(it->second, static_cast<float>(slack));
++  }
++}
++
++// The slack of a sink pin of gpl's netlist, if it fails. Rebuffering inside
++// findResizeSlacks removes buffers and inverters the netlist already had, so
++// the input of such a cell has no slack captured. A buffer's or inverter's
++// input carries the worst path through any of its loads, so its slack is
++// the worst of its output net's sinks', found through any chain of them.
++std::optional<float> PinPull::sinkSlack(odb::dbObject* pin, const int depth)
++{
++  if (const auto it = sink_slack_.find(pin); it != sink_slack_.end()) {
++    return it->second;
++  }
++  if (pin->getObjectType() != odb::dbITermObj || depth > kMaxInferDepth) {
++    return std::nullopt;
++  }
++  if (const auto it = inferred_slack_.find(pin); it != inferred_slack_.end()) {
++    return it->second;
++  }
++  // Marks the pin while it is resolved, so a loop ends.
++  inferred_slack_[pin] = std::nullopt;
++  odb::dbITerm* input = static_cast<odb::dbITerm*>(pin);
++  odb::dbITerm* output = nullptr;
++  for (odb::dbITerm* iterm : input->getInst()->getITerms()) {
++    if (iterm == input || iterm->getNet() == nullptr
++        || iterm->getSigType().isSupply()) {
++      continue;
++    }
++    if (!iterm->isOutputSignal() || output != nullptr) {
++      // Not a one-input, one-output cell.
++      return std::nullopt;
++    }
++    output = iterm;
++  }
++  if (output == nullptr) {
++    return std::nullopt;
++  }
++  std::optional<float> slack;
++  for (odb::dbITerm* load : output->getNet()->getITerms()) {
++    if (load == output || !load->isInputSignal()) {
++      continue;
++    }
++    if (const std::optional<float> s = sinkSlack(load, depth + 1)) {
++      slack = slack ? std::min(*slack, *s) : *s;
++    }
++  }
++  for (odb::dbBTerm* port : output->getNet()->getBTerms()) {
++    if (const std::optional<float> s = sinkSlack(port, depth + 1)) {
++      slack = slack ? std::min(*slack, *s) : *s;
++    }
++  }
++  inferred_slack_[pin] = slack;
++  return slack;
++}
++
++// A net is visited if its driver fails (its slack is never better than any
++// of its sinks') or if it carried a pull before.
++bool PinPull::isPullNet(odb::dbNet* net) const
++{
++  if (pulled_nets_.contains(net)) {
++    return true;
++  }
++  const std::optional<sta::Slack> net_slack = rs_->resizeNetSlack(net);
++  return !net_slack || *net_slack < 0.0f;
++}
++
++void PinPull::addCandidate(std::vector<Candidate>& candidates,
++                           odb::dbNet* net,
++                           odb::dbObject* driver,
++                           odb::dbObject* sink,
++                           const float other_weight)
++{
++  const std::optional<float> slack = sinkSlack(sink, 0);
++  float previous = 0.0f;
++  if (const auto it = history_.find(std::make_pair(driver, sink));
++      it != history_.end()) {
++    previous = it->second;
++  }
++  if (!slack && previous <= 0.0f) {
++    return;
++  }
++  candidates.push_back({net,
++                        driver,
++                        sink,
++                        slack.value_or(std::numeric_limits<float>::infinity()),
++                        slack.has_value(),
++                        previous,
++                        other_weight});
++}
++
++const std::vector<PinPullConnection>& PinPull::update(
++    const PlacerBaseCommon& pbc)
++{
++  std::vector<Candidate> candidates;
++  for (const Net* net : pbc.getNets()) {
++    odb::dbNet* db_net = net->getDbNet();
++    if (!isPullNet(db_net)) {
++      continue;
++    }
++    const Pin* driver = nullptr;
++    int drivers = 0;
++    for (const Pin* pin : net->getPins()) {
++      if (isDriver(pin)) {
++        driver = pin;
++        ++drivers;
++      }
++    }
++    if (drivers != 1) {
++      continue;
++    }
++    for (const Pin* sink : net->getPins()) {
++      if (sink == driver
++          || (sink->getInstance() != nullptr
++              && sink->getInstance() == driver->getInstance())
++          || (!isMovable(driver) && !isMovable(sink))) {
++        continue;
++      }
++      addCandidate(candidates,
++                   db_net,
++                   dbPin(driver),
++                   dbPin(sink),
++                   std::max({otherWeight(driver), otherWeight(sink), 1.0f}));
++    }
++  }
++  finish(candidates);
++  return pulls_;
++}
++
++const std::vector<PinPullConnection>& PinPull::update(
++    const NesterovBaseCommon& nbc)
++{
++  std::vector<Candidate> candidates;
++  for (const GNet* gnet : nbc.getGNets()) {
++    if (gnet->getGPins().size() < 2) {
++      continue;
++    }
++    odb::dbNet* db_net = gnet->getPbNet()->getDbNet();
++    if (!isPullNet(db_net)) {
++      continue;
++    }
++    const GPin* driver = nullptr;
++    int drivers = 0;
++    for (const GPin* gpin : gnet->getGPins()) {
++      if (isDriver(gpin->getPbPin())) {
++        driver = gpin;
++        ++drivers;
++      }
++    }
++    if (drivers != 1) {
++      continue;
++    }
++    for (const GPin* sink : gnet->getGPins()) {
++      if (sink == driver
++          || (sink->getGCell() != nullptr
++              && sink->getGCell() == driver->getGCell())
++          || (!isMovable(driver) && !isMovable(sink))) {
++        continue;
++      }
++      addCandidate(candidates,
++                   db_net,
++                   dbPin(driver->getPbPin()),
++                   dbPin(sink->getPbPin()),
++                   std::max({otherWeight(driver), otherWeight(sink), 1.0f}));
++    }
++  }
++  finish(candidates);
++  return pulls_;
++}
++
++// A failing connection pulls strength times as hard as its cells' other
++// nets, and harder each update it still fails. A connection that meets
++// timing keeps its weight.
++void PinPull::finish(const std::vector<Candidate>& candidates)
++{
++  ++update_count_;
++  pulls_.clear();
++  boost::unordered::unordered_flat_map<
++      std::pair<odb::dbObject*, odb::dbObject*>,
++      float>
++      history;
++  history.reserve(candidates.size());
++  pulled_nets_.clear();
++  float min_weight = std::numeric_limits<float>::max();
++  float max_weight = 0.0f;
++  size_t failing = 0;
++  for (const Candidate& candidate : candidates) {
++    float weight = candidate.previous;
++    if (candidate.failing) {
++      weight = std::max(vars_.strength * candidate.other_weight,
++                        candidate.previous * (1.0f + vars_.growth));
++      ++failing;
++    }
++    if (vars_.max > 0.0f) {
++      weight = std::min(weight, vars_.max);
++    }
++    pulls_.push_back({candidate.driver, candidate.sink, weight});
++    history[std::make_pair(candidate.driver, candidate.sink)] = weight;
++    pulled_nets_.insert(candidate.net);
++    min_weight = std::min(min_weight, weight);
++    max_weight = std::max(max_weight, weight);
++    debugPrint(log_,
++               GPL,
++               "pinPull",
++               2,
++               "pull {} -> {} slack {} weight {}",
++               pinName(candidate.driver),
++               pinName(candidate.sink),
++               candidate.slack,
++               weight);
++  }
++  history_ = std::move(history);
++  if (pulls_.empty()) {
++    min_weight = 0.0f;
++  }
++  log_->info(GPL,
++             198,
++             "Timing-driven pin pull: {} connections ({} failing) on {} nets, "
++             "weight {:.2f} to {:.2f}.",
++             pulls_.size(),
++             failing,
++             pulled_nets_.size(),
++             min_weight,
++             max_weight);
++}
++
++}  // namespace gpl
+diff --git a/src/gpl/src/pinPull.h b/src/gpl/src/pinPull.h
+new file mode 100644
+index 0000000000..4c1b0074ae
+--- /dev/null
++++ b/src/gpl/src/pinPull.h
+@@ -0,0 +1,142 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++#pragma once
++
++#include <optional>
++#include <utility>
++#include <vector>
++
++#include "boost/unordered/unordered_flat_map.hpp"
++#include "boost/unordered/unordered_flat_set.hpp"
++
++namespace odb {
++class dbObject;
++class dbNet;
++}  // namespace odb
++
++namespace sta {
++class dbSta;
++class Pin;
++}  // namespace sta
++
++namespace rsz {
++class Resizer;
++}
++
++namespace utl {
++class Logger;
++}
++
++namespace gpl {
++
++class PlacerBaseCommon;
++class NesterovBaseCommon;
++
++struct PinPullVars
++{
++  // A failing connection pulls this many times as hard as the heavier of its
++  // two cells' other nets together.
++  float strength = 16.0f;
++  // A connection that still fails at an update has its weight multiplied by
++  // (1 + growth).
++  float growth = 1.0f;
++  // Cap on a connection's weight; 0 means no cap.
++  float max = 0.0f;
++  // -timing_driven_nets_percentage, given back to the resizer after the
++  // capture, which reads every constrained net.
++  float nets_percentage = 10.0f;
++};
++
++// A pulled connection, driver pin to sink pin, as odb objects (dbITerm or
++// dbBTerm) so that it survives a change of gpl's netlist view.
++struct PinPullConnection
++{
++  odb::dbObject* driver = nullptr;
++  odb::dbObject* sink = nullptr;
++  float weight = 0.0f;
++};
++
++// Timing-driven pin pull.
++//
++// A net's timing weight scales the whole net, and a sink inside the net's
++// bounding box feels almost no wirelength force, so the failing sink of a
++// high-fanout net is never pulled toward its driver. PinPull adds a two-pin
++// attraction between the driver and each failing sink: in the initial
++// placement as a B2B spring, in Nesterov as the weighted-average length of
++// the two-pin net {driver, sink}.
++//
++// captureSlacks() runs inside Resizer::findResizeSlacks, while the netlist
++// is the one repair_design buffered, and records the setup slack of every
++// failing load pin. update() then builds the pulls over gpl's own netlist
++// (the pre-repair one) after the journal is restored. A connection keeps
++// its weight once pulled, even after it meets timing: the pull is what made
++// it meet timing, and dropping it would let the next pass undo it.
++class PinPull
++{
++ public:
++  PinPull(sta::dbSta* sta,
++          rsz::Resizer* rs,
++          utl::Logger* log,
++          const PinPullVars& vars);
++
++  void captureSlacks();
++
++  // Build the pulls from the slacks captured last, over the initial
++  // placement's netlist view or Nesterov's.
++  const std::vector<PinPullConnection>& update(const PlacerBaseCommon& pbc);
++  const std::vector<PinPullConnection>& update(const NesterovBaseCommon& nbc);
++
++  const std::vector<PinPullConnection>& pulls() const { return pulls_; }
++  int updateCount() const { return update_count_; }
++
++ private:
++  struct Candidate
++  {
++    odb::dbNet* net;
++    odb::dbObject* driver;
++    odb::dbObject* sink;
++    float slack;
++    bool failing;
++    // The connection's weight at the last update, 0 if it was not pulled.
++    float previous;
++    // max(other-net weight of either cell, 1)
++    float other_weight;
++  };
++  static constexpr int kMaxInferDepth = 64;
++
++  void captureLoad(const sta::Pin* pin);
++  std::optional<float> sinkSlack(odb::dbObject* pin, int depth);
++  bool isPullNet(odb::dbNet* net) const;
++  void addCandidate(std::vector<Candidate>& candidates,
++                    odb::dbNet* net,
++                    odb::dbObject* driver,
++                    odb::dbObject* sink,
++                    float other_weight);
++  void finish(const std::vector<Candidate>& candidates);
++
++  sta::dbSta* sta_ = nullptr;
++  rsz::Resizer* rs_ = nullptr;
++  utl::Logger* log_ = nullptr;
++  PinPullVars vars_;
++
++  // Setup slack of each failing load pin captured on the repaired netlist,
++  // keyed by the pin's dbITerm or dbBTerm.
++  boost::unordered::unordered_flat_map<odb::dbObject*, float> sink_slack_;
++  // Slacks found for the inputs of buffers and inverters the repaired
++  // netlist did not have (nullopt: none), cleared with sink_slack_.
++  boost::unordered::unordered_flat_map<odb::dbObject*, std::optional<float>>
++      inferred_slack_;
++
++  // Weight of each connection at the last update, looked up only.
++  boost::unordered::unordered_flat_map<
++      std::pair<odb::dbObject*, odb::dbObject*>,
++      float>
++      history_;
++  // The nets of the connections in history_.
++  boost::unordered::unordered_flat_set<odb::dbNet*> pulled_nets_;
++  std::vector<PinPullConnection> pulls_;
++  int update_count_ = 0;
++};
++
++}  // namespace gpl
+diff --git a/src/gpl/src/replace.cpp b/src/gpl/src/replace.cpp
+index 1a36802d5d..edd04b19a7 100644
+--- a/src/gpl/src/replace.cpp
++++ b/src/gpl/src/replace.cpp
+@@ -22,6 +22,7 @@
+ #include "nesterovPlace.h"
+ #include "odb/db.h"
+ #include "odb/util.h"
++#include "pinPull.h"
+ #include "placerBase.h"
+ #include "powerBase.h"
+ #include "ppl/IOPlacer.h"
+@@ -114,6 +115,7 @@ void Replace::reset()
+   rb_.reset();
+   cb_.reset();
+   pwb_.reset();
++  pin_pull_.reset();
+ }
+ 
+ void Replace::addPlacementCluster(const Cluster& cluster)
+@@ -321,6 +323,81 @@ void Replace::doInitialPlace(const int threads, const PlaceOptions& options)
+       new InitialPlace(ipVars, pbc_, pbVec_, graphics_->MakeNew(log_), log_));
+   ip_ = std::move(ip);
+   ip_->doBicgstabPlace(threads);
++
++  if (options.timingDrivenMode && options.timingDrivenPinPull) {
++    initPinPull(options);
++    // With the initial placement skipped, the pull starts at Nesterov's start.
++    if (ipVars.maxIter > 0) {
++      runInitialPinPull(threads, options);
++    }
++  }
++}
++
++void Replace::initPinPull(const PlaceOptions& options)
++{
++  if (pin_pull_) {
++    return;
++  }
++  PinPullVars vars;
++  vars.strength = options.timingDrivenPinPullStrength;
++  vars.growth = options.timingDrivenPinPullGrowth;
++  vars.max = options.timingDrivenPinPullMax;
++  vars.nets_percentage = options.timingDrivenNetsPercentage;
++  pin_pull_ = std::make_shared<PinPull>(sta_, rs_, log_, vars);
++}
++
++// A virtual repair_design pass (the journal is restored) that captures the
++// sink slacks of the repaired netlist.
++void Replace::findPinPullSlacks()
++{
++  rs_->resizeSlackPreamble();
++  rs_->findResizeSlacks(
++      /*run_journal_restore=*/true,
++      /*run_repair_timing=*/false,
++      /*repair_tns_end_percent=*/0.01,
++      [](const odb::dbNet* net) { return isValidSigType(net->getSigType()); },
++      [this] { pin_pull_->captureSlacks(); });
++}
++
++// The initial placement is timing-blind and sets the order Nesterov keeps,
++// so the pull starts here: analyze the first pass, then place again with
++// the critical connections as springs.
++void Replace::runInitialPinPull(const int threads, const PlaceOptions& options)
++{
++  const int rounds = options.timingDrivenPinPullInitialRounds;
++  for (int round = 1; round <= rounds; round++) {
++    log_->info(GPL,
++               199,
++               "Timing-driven pin pull: initial placement pass {} of {}.",
++               round,
++               rounds);
++    findPinPullSlacks();
++    ip_->setPinPulls(pin_pull_->update(*pbc_));
++    ip_->doPinPullPass(threads);
++  }
++}
++
++// Hands the pulls to Nesterov, finding them first if the initial placement
++// did not.
++void Replace::startNesterovPinPull()
++{
++  if (nbc_->getDeviceState() != nullptr) {
++    log_->error(GPL,
++                197,
++                "-timing_driven_pin_pull is not supported with the GPU "
++                "wirelength backend.");
++  }
++  // Timing analysis needs placed cells: with the initial placement skipped
++  // on an unplaced design, the pulls start at the first reweight instead.
++  const bool placed
++      = std::ranges::all_of(pbc_->placeInsts(), [](const Instance* inst) {
++          return inst->dbInst() == nullptr || inst->dbInst()->isPlaced();
++        });
++  if (pin_pull_->updateCount() == 0 && placed) {
++    findPinPullSlacks();
++    pin_pull_->update(*nbc_);
++  }
++  nbc_->setPinPulls(pin_pull_->pulls());
+ }
+ 
+ void Replace::runMBFF(const int max_sz,
+@@ -392,6 +469,10 @@ bool Replace::initNesterovPlace(const PlaceOptions& options,
+     if (options.placeIosMode) {
+       initIoPinPlace();
+     }
++    if (options.timingDrivenMode && options.timingDrivenPinPull) {
++      initPinPull(options);
++      startNesterovPinPull();
++    }
+   }
+ 
+   if (!rb_) {
+@@ -406,6 +487,7 @@ bool Replace::initNesterovPlace(const PlaceOptions& options,
+     tb_->setTimingNetsPercentage(options.timingDrivenNetsPercentage);
+     tb_->setRepairTiming(options.timingDrivenRepairTiming);
+     tb_->setRepairTnsEndPercent(options.timingDrivenRepairTnsEndPercent);
++    tb_->setPinPull(pin_pull_);
+   }
+ 
+   if (!cb_ && options.virtualCtsMode) {
+@@ -667,6 +749,15 @@ void PlaceOptions::validate(utl::Logger* logger)
+                   424);
+   val.check_range(
+       "keep_resize_below_overflow", keepResizeBelowOverflow, 0.0f, 1.0f, 425);
++  val.check_positive(
++      "timing_driven_pin_pull_strength", timingDrivenPinPullStrength, 432);
++  val.check_non_negative(
++      "timing_driven_pin_pull_growth", timingDrivenPinPullGrowth, 433);
++  val.check_non_negative(
++      "timing_driven_pin_pull_max", timingDrivenPinPullMax, 434);
++  val.check_non_negative("timing_driven_pin_pull_initial_rounds",
++                         timingDrivenPinPullInitialRounds,
++                         435);
+ }
+ 
+ void PlaceOptions::skipIo()
+diff --git a/src/gpl/src/replace.i b/src/gpl/src/replace.i
+index 15543454d2..c9952a9f53 100644
+--- a/src/gpl/src/replace.i
++++ b/src/gpl/src/replace.i
+@@ -27,6 +27,7 @@ static gpl::PlaceOptions getOptions(
+   gpl::PlaceOptions options;
+   checkFlag(flags, "-timing_driven", options.timingDrivenMode);
+   checkFlag(flags, "-timing_driven_repair_timing", options.timingDrivenRepairTiming);
++  checkFlag(flags, "-timing_driven_pin_pull", options.timingDrivenPinPull);
+   checkFlag(flags, "-power_driven", options.powerDrivenMode);
+   checkFlag(flags, "-routability_driven", options.routabilityDrivenMode);
+   checkFlag(flags, "-virtual_cts", options.virtualCtsMode);
+@@ -89,6 +90,15 @@ static gpl::PlaceOptions getOptions(
+            "-virtual_cts_max_skew_fraction",
+            options.virtualCtsMaxSkewFraction);
+   checkKey(keys, "-timing_driven_nets_percentage", options.timingDrivenNetsPercentage);
++  checkKey(keys,
++           "-timing_driven_pin_pull_strength",
++           options.timingDrivenPinPullStrength);
++  checkKey(
++      keys, "-timing_driven_pin_pull_growth", options.timingDrivenPinPullGrowth);
++  checkKey(keys, "-timing_driven_pin_pull_max", options.timingDrivenPinPullMax);
++  checkKey(keys,
++           "-timing_driven_pin_pull_initial_rounds",
++           options.timingDrivenPinPullInitialRounds);
+   checkKey(keys, "-min_phi_coef", options.minPhiCoef);
+   checkKey(keys, "-max_phi_coef", options.maxPhiCoef);
+   checkKey(keys, "-init_density_penalty", options.initDensityPenaltyFactor);
+diff --git a/src/gpl/src/replace.tcl b/src/gpl/src/replace.tcl
+index c7e5602cad..68f384f174 100644
+--- a/src/gpl/src/replace.tcl
++++ b/src/gpl/src/replace.tcl
+@@ -39,6 +39,11 @@ sta::define_cmd_args "global_placement" {\
+     [-timing_driven_net_reweight_overflow timing_driven_net_reweight_overflow]\
+     [-timing_driven_net_weight_max timing_driven_net_weight_max]\
+     [-timing_driven_nets_percentage timing_driven_nets_percentage]\
++    [-timing_driven_pin_pull]\
++    [-timing_driven_pin_pull_strength timing_driven_pin_pull_strength]\
++    [-timing_driven_pin_pull_growth timing_driven_pin_pull_growth]\
++    [-timing_driven_pin_pull_max timing_driven_pin_pull_max]\
++    [-timing_driven_pin_pull_initial_rounds timing_driven_pin_pull_initial_rounds]\
+     [-virtual_cts_max_skew_fraction virtual_cts_max_skew_fraction]\
+     [-timing_driven_repair_tns_end_percent timing_driven_repair_tns_end_percent]\
+     [-pad_left pad_left]\
+@@ -72,6 +77,10 @@ proc global_placement { args } {
+       -timing_driven_net_weight_max \
+       -timing_driven_nets_percentage \
+       -timing_driven_repair_tns_end_percent \
++      -timing_driven_pin_pull_strength \
++      -timing_driven_pin_pull_growth \
++      -timing_driven_pin_pull_max \
++      -timing_driven_pin_pull_initial_rounds \
+       -keep_resize_below_overflow \
+       -virtual_cts_max_skew_fraction \
+       -random_seed \
+@@ -83,6 +92,7 @@ proc global_placement { args } {
+       -skip_nesterov_place \
+       -timing_driven \
+       -timing_driven_repair_timing \
++      -timing_driven_pin_pull \
+       -power_driven \
+       -routability_driven \
+       -virtual_cts \
+@@ -96,6 +106,11 @@ proc global_placement { args } {
+ 
+   sta::check_argc_eq0 "global_placement" $args
+ 
++  if { [info exists flags(-timing_driven_pin_pull)] \
++         && ![info exists flags(-timing_driven)] } {
++    utl::error GPL 196 "-timing_driven_pin_pull requires -timing_driven."
++  }
++
+   if { [info exists flags(-place_ios)] } {
+     if { [info exists flags(-skip_io)] } {
+       utl::error GPL 169 "-place_ios cannot be used with -skip_io placement."
+diff --git a/src/gpl/src/timingBase.cpp b/src/gpl/src/timingBase.cpp
+index a682d1d1c4..122d79cdd6 100644
+--- a/src/gpl/src/timingBase.cpp
++++ b/src/gpl/src/timingBase.cpp
+@@ -14,6 +14,7 @@
+ 
+ #include "grt/GlobalRouter.h"
+ #include "nesterovBase.h"
++#include "pinPull.h"
+ #include "placerBase.h"
+ #include "rsz/Resizer.hh"
+ #include "sta/Fuzzy.hh"
+@@ -159,14 +160,29 @@ bool TimingBase::executeTimingDriven(bool run_journal_restore,
+       }
+     };
+ 
+-    rs_->findResizeSlacks(run_journal_restore,
+-                          (enable_repair_timing && repair_timing_),
+-                          repair_tns_end_percent_,
+-                          [](const odb::dbNet* net) {
+-                            return isValidSigType(net->getSigType());
+-                          });
++    std::function<void()> with_repaired_netlist;
++    if (pin_pull_) {
++      with_repaired_netlist = [this] { pin_pull_->captureSlacks(); };
++    }
++    rs_->findResizeSlacks(
++        run_journal_restore,
++        (enable_repair_timing && repair_timing_),
++        repair_tns_end_percent_,
++        [](const odb::dbNet* net) {
++          return isValidSigType(net->getSigType());
++        },
++        with_repaired_netlist);
+   }
+ 
++  // A non-virtual iteration moved the GPins, so the pulls are rebuilt (or
++  // dropped) on every exit.
++  BOOST_SCOPE_EXIT_ALL(&)
++  {
++    if (pin_pull_) {
++      nbc_->setPinPulls(pin_pull_->update(*nbc_));
++    }
++  };
++
+   // get worst resize nets
+   rs_->setWorstSlackNetsPercent(nets_percentage_);
+   sta::NetSeq worst_slack_nets = rs_->resizeWorstSlackNets();
+diff --git a/src/gpl/src/timingBase.h b/src/gpl/src/timingBase.h
+index c3c100e6ca..99ce517bee 100644
+--- a/src/gpl/src/timingBase.h
++++ b/src/gpl/src/timingBase.h
+@@ -5,6 +5,7 @@
+ 
+ #include <cstddef>
+ #include <memory>
++#include <utility>
+ #include <vector>
+ 
+ namespace grt {
+@@ -23,6 +24,7 @@ namespace gpl {
+ 
+ class NesterovBaseCommon;
+ class GNet;
++class PinPull;
+ 
+ class TimingBase
+ {
+@@ -51,6 +53,12 @@ class TimingBase
+   {
+     repair_tns_end_percent_ = percent / 100.0f;
+   }
++  // Timing-driven pin pull: reads sink slacks on every reweight and hands
++  // the pulls to the NesterovBaseCommon. Null turns it off.
++  void setPinPull(std::shared_ptr<PinPull> pin_pull)
++  {
++    pin_pull_ = std::move(pin_pull);
++  }
+ 
+   // updateNetWeight.
+   // True: successfully reweighted gnets
+@@ -63,6 +71,7 @@ class TimingBase
+   rsz::Resizer* rs_ = nullptr;
+   utl::Logger* log_ = nullptr;
+   std::shared_ptr<NesterovBaseCommon> nbc_;
++  std::shared_ptr<PinPull> pin_pull_;
+ 
+   std::vector<int> timingNetWeightOverflow_;
+   std::vector<int> timingOverflowChk_;
+diff --git a/src/gpl/test/BUILD b/src/gpl/test/BUILD
+index 648273c4f7..a4eeb60920 100644
+--- a/src/gpl/test/BUILD
++++ b/src/gpl/test/BUILD
+@@ -577,6 +577,22 @@ cc_test(
+     ],
+ )
+ 
++# The timing-driven pin pull on the path_shape designs, the pulls given
++# instead of found by timing analysis.
++cc_test(
++    name = "pin_pull_test",
++    srcs = ["pin_pull_test.cpp"],
++    env = GPU_ENV_OFF,
++    deps = [
++        ":gpl_design_builder",
++        ":path_shape",
++        "//src/gpl:gpl_impl",
++        "//src/odb/src/db",
++        "@googletest//:gtest",
++        "@googletest//:gtest_main",
++    ],
++)
++
+ cc_test(
+     name = "metamorphic_test",
+     srcs = ["metamorphic_test.cpp"],
+diff --git a/src/gpl/test/path_shape.cpp b/src/gpl/test/path_shape.cpp
+index 37b5c13685..3f068d7577 100644
+--- a/src/gpl/test/path_shape.cpp
++++ b/src/gpl/test/path_shape.cpp
+@@ -27,6 +27,7 @@
+ #include "odb/geom.h"
+ #include "odb/util.h"
+ #include "src/gpl/src/graphicsNone.h"
++#include "src/gpl/src/initialPlace.h"
+ #include "src/gpl/src/nesterovBase.h"
+ #include "src/gpl/src/nesterovPlace.h"
+ #include "src/gpl/src/placerBase.h"
+@@ -713,6 +714,80 @@ PlaceResult PathShapeFixture::placeWeighted(
+   return result;
+ }
+ 
++std::vector<PinPullConnection> pathPulls(const Path& path, const float weight)
++{
++  std::vector<PinPullConnection> pulls;
++  odb::dbInst* from = path.launch;
++  for (std::size_t i = 0; i <= path.cells.size(); ++i) {
++    odb::dbInst* to = i < path.cells.size() ? path.cells[i] : path.capture;
++    pulls.push_back({from->findITerm("E"),
++                     to->findITerm("W"),
++                     weight});
++    from = to;
++  }
++  return pulls;
++}
++
++PlaceResult PathShapeFixture::placePulled(
++    const PlaceOptions& options,
++    const std::vector<PinPullConnection>& pulls,
++    const int threads)
++{
++  odb::dbDatabase* db = db_.get();
++  logger_.redirectStringBegin();
++  auto pbc = std::make_shared<PlacerBaseCommon>(
++      db, PlacerBaseVars(options), &logger_);
++  std::vector<std::shared_ptr<PlacerBase>> pbs{
++      std::make_shared<PlacerBase>(db, pbc, &logger_, true)};
++  {
++    InitialPlace initial(InitialPlaceVars(options, false),
++                         pbc,
++                         pbs,
++                         std::make_unique<GraphicsNone>(),
++                         &logger_);
++    initial.doBicgstabPlace(threads);
++    if (options.initialPlaceMaxIter > 0) {
++      initial.setPinPulls(pulls);
++      initial.doPinPullPass(threads);
++    }
++  }
++
++  const NesterovBaseVars nb_vars(options);
++  auto nbc = std::make_shared<NesterovBaseCommon>(
++      nb_vars, pbc, &logger_, threads, Clusters{});
++  std::vector<std::shared_ptr<NesterovBase>> nbs{
++      std::make_shared<NesterovBase>(nb_vars, pbs[0], nbc, &logger_)};
++  nbc->setPinPulls(pulls);
++  const std::size_t resolved = nbc->getPinPullCount();
++  NesterovPlaceVars np_vars(options, nbc->getHpwl());
++  nbs[0]->setNpVars(&np_vars);
++  auto rb = std::make_shared<RouteBase>(
++      RouteBaseVars(options), db, nullptr, nbc, nbs, &logger_);
++  auto tb = std::make_shared<TimingBase>(nbc, nullptr, nullptr, &logger_);
++  NesterovPlace np(np_vars,
++                   pbc,
++                   nbc,
++                   pbs,
++                   nbs,
++                   rb,
++                   tb,
++                   nullptr,
++                   nullptr,
++                   std::make_unique<GraphicsNone>(),
++                   &logger_);
++  np.setTargetOverflow(options.overflow);
++  np.setMaxIters(options.nesterovPlaceMaxIter);
++  const PlaceResult result = np.doNesterovPlace(0);
++  endLog();
++  if (resolved != pulls.size()) {
++    constructionFailure("pin pull reached " + std::to_string(resolved)
++                        + " of " + std::to_string(pulls.size())
++                        + " connections");
++  }
++  checkRan(result);
++  return result;
++}
++
+ void PathShapeFixture::endLog()
+ {
+   log_ = logger_.redirectStringEnd();
+diff --git a/src/gpl/test/path_shape.h b/src/gpl/test/path_shape.h
+index b940e0c7fd..44261ae258 100644
+--- a/src/gpl/test/path_shape.h
++++ b/src/gpl/test/path_shape.h
+@@ -38,6 +38,7 @@
+ #include "odb/db.h"
+ #include "odb/dbTypes.h"
+ #include "odb/geom.h"
++#include "src/gpl/src/pinPull.h"
+ #include "tst/fixture.h"
+ 
+ namespace gpl::path_shape {
+@@ -93,6 +94,10 @@ struct Path
+ // by hand when the rest of the design differs.
+ int64_t pathCellHpwl(const Path& path);
+ 
++// A pin pull of the given weight on each of the path's connections: launch
++// to its first cell, cell to cell, last cell to capture.
++std::vector<PinPullConnection> pathPulls(const Path& path, float weight);
++
+ int lineY(const DesignBuilder& builder);
+ void putAt(odb::dbInst* inst, int x, int y);
+ odb::dbInst* addFixed(DesignBuilder& builder,
+@@ -324,6 +329,15 @@ class PathShapeFixture : public tst::Fixture
+                             const std::unordered_set<odb::dbNet*>& nets,
+                             float weight);
+ 
++  // Global placement as Replace::doPlace runs it with the timing-driven pin
++  // pull, the pulls given instead of found by timing analysis: the initial
++  // placement, another initial placement pass with the pulls as springs
++  // (unless the initial placement is skipped), and the Nesterov loop with
++  // the pulls in its wirelength force. No liberty, no STA.
++  PlaceResult placePulled(const PlaceOptions& options,
++                          const std::vector<PinPullConnection>& pulls,
++                          int threads = 1);
++
+   static PlaceOptions optionsFor(Start start);
+   static void unplace(const std::vector<odb::dbInst*>& cells);
+   std::vector<CellState> cells() const;
+diff --git a/src/gpl/test/pin_pull_test.cpp b/src/gpl/test/pin_pull_test.cpp
+new file mode 100644
+index 0000000000..a5d06c37b4
+--- /dev/null
++++ b/src/gpl/test/pin_pull_test.cpp
+@@ -0,0 +1,206 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++// The timing-driven pin pull (src/gpl/src/pinPull.h) on the path_shape
++// designs. The pulls are given through PathShapeFixture::placePulled, as
++// timing analysis would give them for a failing path, so the tests need no
++// liberty and no STA: they check what the pull does to the placement, not
++// which connections timing analysis picks.
++//
++// Every check prints a "METRIC <test> <name>=<value> <op> <threshold>
++// pass|FAIL" line, and every placement a "SHAPE <test> ..." line.
++
++#include <cmath>
++#include <cstddef>
++#include <iostream>
++#include <memory>
++#include <string>
++#include <vector>
++
++#include "gpl/Replace.h"
++#include "gpl_design_builder.h"
++#include "gtest/gtest.h"
++#include "odb/db.h"
++#include "path_shape.h"
++#include "src/gpl/src/nesterovBase.h"
++#include "src/gpl/src/pinPull.h"
++#include "src/gpl/src/placerBase.h"
++
++namespace gpl::path_shape {
++namespace {
++
++// The default -timing_driven_pin_pull_strength (16) times the other-net
++// weight of a broadcast path cell (its W or E net and its S net: 2), as
++// PinPull would weight a failing connection there.
++constexpr float kBroadcastPull = 32.0f;
++// The same for a cluster path cell (four other nets).
++constexpr float kClusterPull = 64.0f;
++
++std::string sparseDense(const testing::TestParamInfo<bool>& info)
++{
++  return densityName(info.param);
++}
++
++class PinPullBroadcastTest : public PathShapeFixture,
++                             public testing::WithParamInterface<bool>
++{
++};
++
++// BroadcastWeightTest's design (6 cells, each driving 37 side loads on the
++// die edge, with side inputs), from the flow's start, with a pull on each of
++// the path's connections instead of a weight on each of its nets. A net
++// weight scales the side loads as much as the path's next cell and leaves
++// the path at 1.31 to 1.34; a pull acts on the connection alone.
++TEST_P(PinPullBroadcastTest, BroadcastPathStraightens)
++{
++  DesignBuilder builder(db_.get());
++  const Path path = makeBroadcastPath(builder, 6, 37, true);
++  if (GetParam()) {
++    addSea(builder);
++  }
++  placeStraight(builder, path);
++  const double straight_period = path.periodPs();
++  unplace(path.cells);
++  const PlaceResult result
++      = placePulled(PlaceOptions{}, pathPulls(path, kBroadcastPull));
++  std::cout << "SHAPE " << currentTest() << " detour=" << path.detour()
++            << " period=" << path.periodPs()
++            << " straight_period=" << straight_period << " hpwl=" << hpwl()
++            << runInfo(result) << "\n";
++  expectMetric("detour", path.detour(), Op::kLess, 1.3);
++  expectMetric("period_over_straight",
++               path.periodPs() / straight_period,
++               Op::kLess,
++               1.1);
++}
++
++INSTANTIATE_TEST_SUITE_P(Placement,
++                         PinPullBroadcastTest,
++                         testing::Bool(),
++                         sparseDense);
++
++class PinPullClusterTest : public PathShapeFixture,
++                           public testing::WithParamInterface<bool>
++{
++};
++
++// Two clusters seeded swapped, the initial placement run from the seed and
++// then again with the path's connections pulled: the reproducers' case,
++// where Nesterov stops at iteration 0 and only the initial placement places.
++// Expected: the path straightens. Whether it does so by swapping the
++// clusters back or by taking its own cells out of them is printed.
++TEST_P(PinPullClusterTest, SwappedSeedStraightens)
++{
++  DesignBuilder builder(db_.get());
++  const ClusterPath cp = makeClusterPath(builder, 2, 3);
++  if (GetParam()) {
++    seedSea(builder, addSea(builder));
++  }
++  seedClusters(builder, cp, {1, 0}, Seed::kCompact);
++  if (inversions(clusterOrder(cp)) != 1) {
++    constructionFailure("the seed is not swapped");
++  }
++  const double seed_detour = cp.path.detour();
++  const PlaceResult result
++      = placePulled(PlaceOptions{}, pathPulls(cp.path, kClusterPull));
++  std::cout << "SHAPE " << currentTest() << " seed_detour=" << seed_detour
++            << " order=" << str(clusterOrder(cp))
++            << " detour=" << cp.path.detour() << " hpwl=" << hpwl()
++            << runInfo(result) << "\n";
++  expectMetric("detour", cp.path.detour(), Op::kLess, 1.3);
++}
++
++INSTANTIATE_TEST_SUITE_P(Placement,
++                         PinPullClusterTest,
++                         testing::Bool(),
++                         sparseDense);
++
++class PinPullTest : public PathShapeFixture
++{
++};
++
++// Same input, same placement, with 8 threads against 1: the pulls are
++// summed in a fixed order.
++TEST_F(PinPullTest, DeterministicAcrossThreads)
++{
++  DesignBuilder builder(db_.get());
++  const Path path = makeBroadcastPath(builder, 6, 37, true);
++  addSea(builder);
++  const std::vector<CellState> input = cells();
++  placePulled(PlaceOptions{}, pathPulls(path, kBroadcastPull), 1);
++  const std::vector<CellState> first = cells();
++  restore(input);
++  placePulled(PlaceOptions{}, pathPulls(path, kBroadcastPull), 8);
++  const std::vector<CellState> second = cells();
++  int changed = 0;
++  for (std::size_t i = 0; i < first.size(); ++i) {
++    changed += !(first[i] == second[i]);
++  }
++  expectMetric("cells_differing_8_threads_vs_1", changed, Op::kEqual, 0);
++}
++
++// The pull's closed form against gpl's own weighted-average gradient of a
++// two-pin net: two cells joined by one net, the net's gradient with weight
++// 1, then the net switched off (custom weight 0) and a pull of weight 1 on
++// the same two pins. gpl's exponentials are approximate (fastExp), so the
++// two agree to a tolerance, not exactly.
++TEST_F(PinPullTest, TwoPinPullMatchesTwoPinNet)
++{
++  DesignBuilder builder(db_.get());
++  odb::dbInst* a = builder.addCell("a");
++  odb::dbInst* b = builder.addCell("b");
++  builder.connect(a, "E", "ab");
++  builder.connect(b, "W", "ab");
++  const odb::Rect core = builder.core();
++  putAt(a, core.xMin() + 2000, core.yMin() + 1000);
++  putAt(b, core.xMin() + 9000, core.yMin() + 4000);
++
++  const PlaceOptions options;
++  auto pbc = std::make_shared<PlacerBaseCommon>(
++      db_.get(), PlacerBaseVars(options), &logger_);
++  const NesterovBaseVars nb_vars(options);
++  NesterovBaseCommon nbc(nb_vars, pbc, &logger_, 1, Clusters{});
++  GCell* cell_a = nbc.dbToNb(a);
++  GCell* cell_b = nbc.dbToNb(b);
++  GNet* net = nbc.dbToNb(builder.block()->findNet("ab"));
++  if (cell_a == nullptr || cell_b == nullptr || net == nullptr) {
++    constructionFailure("the two cells or their net are not placeable");
++  }
++  for (const float gamma : {400.0f, 2000.0f, 10000.0f}) {
++    const float coeff = 1.0f / gamma;
++    net->setCustomWeight(1.0f);
++    nbc.setPinPulls({});
++    nbc.updateWireLengthForceWA(coeff, coeff);
++    const FloatPoint net_a = nbc.getWireLengthGradientWA(cell_a, coeff, coeff);
++    const FloatPoint net_b = nbc.getWireLengthGradientWA(cell_b, coeff, coeff);
++
++    net->setCustomWeight(0.0f);
++    nbc.setPinPulls({{a->findITerm("E"),
++                      b->findITerm("W"),
++                      1.0f}});
++    nbc.updateWireLengthForceWA(coeff, coeff);
++    const FloatPoint pull_a = nbc.getWireLengthGradientWA(cell_a, coeff, coeff);
++    const FloatPoint pull_b = nbc.getWireLengthGradientWA(cell_b, coeff, coeff);
++
++    const double error = std::max({std::abs(net_a.x - pull_a.x),
++                                   std::abs(net_a.y - pull_a.y),
++                                   std::abs(net_b.x - pull_b.x),
++                                   std::abs(net_b.y - pull_b.y)});
++    std::cout << "SHAPE " << currentTest() << " gamma=" << gamma
++              << " net_a=(" << net_a.x << "," << net_a.y << ") pull_a=("
++              << pull_a.x << "," << pull_a.y << ")\n";
++    expectMetric("max_gradient_difference_gamma_" + std::to_string(static_cast<int>(gamma)),
++                 error,
++                 Op::kLess,
++                 0.01);
++    // A pull that changed nothing would pass the difference check if the
++    // net's own gradient were 0: it is not.
++    expectMetric("net_gradient_x_gamma_" + std::to_string(static_cast<int>(gamma)),
++                 std::abs(net_a.x),
++                 Op::kAtLeast,
++                 0.5);
++  }
++}
++
++}  // namespace
++}  // namespace gpl::path_shape
+diff --git a/src/rsz/include/rsz/Resizer.hh b/src/rsz/include/rsz/Resizer.hh
+index ffd61bb75b..76bf5bffb0 100644
+--- a/src/rsz/include/rsz/Resizer.hh
++++ b/src/rsz/include/rsz/Resizer.hh
+@@ -564,10 +564,15 @@ class Resizer : public sta::dbStaState, public sta::dbNetworkObserver
+   void resizeSlackPreamble();
+   // placed_net limits buffering to the nets the placer models. Buffers added
+   // to any other net would have no connections in the placer.
++  // with_repaired_netlist, if set, is called once the slacks are found and
++  // before the journal is restored: the netlist is the one repair_design
++  // left and the timing is current.
+   void findResizeSlacks(bool run_journal_restore,
+                         bool run_repair_timing = false,
+                         float repair_tns_end_percent = 0.01,
+                         const std::function<bool(const odb::dbNet*)>& placed_net
++                        = {},
++                        const std::function<void()>& with_repaired_netlist
+                         = {});
+   // Return nets with worst slack.
+   sta::NetSeq resizeWorstSlackNets();
+diff --git a/src/rsz/src/Resizer.cc b/src/rsz/src/Resizer.cc
+index e3be5c91b5..985157d370 100644
+--- a/src/rsz/src/Resizer.cc
++++ b/src/rsz/src/Resizer.cc
+@@ -3216,7 +3216,8 @@ void Resizer::findResizeSlacks(
+     bool run_journal_restore,
+     bool run_repair_timing,
+     float repair_tns_end_percent,
+-    const std::function<bool(const odb::dbNet*)>& placed_net)
++    const std::function<bool(const odb::dbNet*)>& placed_net,
++    const std::function<void()>& with_repaired_netlist)
+ {
+   initBlock();
+ 
+@@ -3302,6 +3303,9 @@ void Resizer::findResizeSlacks(
+   }
+ 
+   findResizeSlacks1();
++  if (with_repaired_netlist) {
++    with_repaired_netlist();
++  }
+   if (run_journal_restore) {
+     db_cbk_->addOwner(block_);
+     journalRestore();
