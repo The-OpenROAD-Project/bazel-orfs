@@ -3,9 +3,11 @@ name: upstream-pr
 description: >-
   Turn fixes carried in bazel-orfs as patches into an upstream pull request (OpenROAD, ORFS,
   ...) that a maintainer can review: one commit per concern written for the upstream reader,
-  linted at upstream's versions, a draft force-pushed only until it is ready, every review-bot
-  comment verified, answered and resolved, the carried patch left as it is while the pull
-  request settles. Only once the human has ordered that upstream pull request.
+  linted with upstream's own tools (OpenROAD's Bazel //:fix_lint and clang-tidy aspect, never
+  a host clang-format, clang-tidy, tclint or black), a draft force-pushed only until it is
+  ready, every review-bot comment verified, answered and resolved, the carried patch left as
+  it is while the pull request settles. Only once the human has ordered that upstream pull
+  request. Also before every push to one, and when its lint or clang-tidy check fails.
 ---
 
 > **Repo**: Run from the bazel-orfs root, with a clone of the upstream repository (OpenROAD, ORFS, ...) in `tmp/`. Applies only once the human has ordered the upstream pull request; until then the change is a carried patch (CLAUDE.md, "Upstream repositories").
@@ -30,9 +32,19 @@ The body leads with the number: what the change buys, measured, in a table if th
 
 The tests check intended behaviour, not golden output (`dogfooding`, rule 5); a new `.ok` or `.defok` is a review comment waiting to happen.
 
-## 3. Upstream's lint, at upstream's versions
+## 3. Upstream's lint, with upstream's own tools
 
-Lint with the versions upstream's CI pins, not the ones installed here: a different `clang-format` or `black` reformats lines the change never touched, and CI fails on them. Read the version from upstream's CI configuration and install it in a venv under `tmp/`. When this skill was written: OpenROAD, `clang-format` 18 and `tclint` 0.7.0; ORFS, `black` 26.5.1 and `tclint`/`tclfmt` 0.7.0.
+Lint with the tools upstream wires up, never with the ones installed here. A host `clang-format`, `clang-tidy`, `tclint` or `black` is another version with another configuration: it reformats lines the change never touched, or passes what CI flags. Each finding CI catches instead is a round trip through a job that takes tens of minutes, and a papercut commit on a pull request under review.
+
+OpenROAD wires its linters into Bazel at CI's pins (`docs/contrib/LintTargets.md`, `AGENTS.md`); use those and nothing else:
+
+- `bazelisk run //:fix_lint` does everything: formats, then lints, C++, Tcl, Starlark, Python and YAML. `bazelisk test //:lint_test` checks without writing.
+- One language at a time: `//:tidy_cc` (clang-format, not clang-tidy), `//:tidy_tcl`, `//:tidy_bzl`, `//:tidy_py` and `//:tidy_yaml` format in place; `//:fmt_<lang>_test` and `//:lint_<lang>_test` check. The full list is `docs/contrib/LintTargets.md`.
+- clang-tidy is not in `fix_lint`. It runs as a Bazel aspect with the LLVM toolchain's clang-tidy, as CI's Clang-Tidy-Bazel job does: `bazelisk build --config=lint //src/<module>/...` for each module the change touches, then `tools/lint/collect_clang_tidy.sh "$(bazelisk info bazel-bin)" tidy.txt` for the findings; the build alone prints none. CI fails only on findings on lines the pull request changes. Fix those and leave the rest: a module has hundreds of findings on lines nobody touched.
+- Under remote execution the clang-tidy actions can fail with `'stddef.h' file not found`, and the collector then counts only the files that ran. Add `--strategy=AspectRulesLintClangTidy=local`, and read the collector's `clang-tidy outputs` count before trusting `Findings: 0`.
+- Lint the branch merged with upstream's master, in a local throwaway merge that is never pushed. CI lints that merge, and the lint configuration changes on master too: a branch based before OpenROAD's bfa8233b0c (2026-11-11) cannot run clang-tidy at all on its own.
+
+Where upstream has not wired a linter into Bazel, ORFS today, read the version from upstream's CI configuration (`.github/workflows/black.yaml`; tclint and tclfmt in `.github/requirements/requirements_lock.txt`) and install exactly that version in a venv under `tmp/`. Do not copy the versions into this skill; they go stale.
 
 Generated files equal their generator's output. ORFS's variable documentation is generated from `variables.yaml`; run the generator, and when it also rewrites drift unrelated to the change, put only the change's part in by hand so the diff stays the change's.
 
