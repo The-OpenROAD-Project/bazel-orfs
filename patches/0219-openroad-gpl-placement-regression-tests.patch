@@ -1,0 +1,2097 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Thu, 12 Nov 2026 15:30:00 +0100
+Subject: [PATCH] gpl: regression tests for timing paths that global placement
+ leaves on a detour
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Not upstreamed. Test-only: new files under src/gpl/test and new targets
+in its BUILD.
+
+- path_shape.{h,cpp}, a testonly cc_library: synthetic designs built in
+  odb (no LEF, DEF or liberty) whose good path shape is known, a path
+  from a fixed launch register to a fixed capture register through k
+  clusters started in each of their k! orders, through broadcast drivers
+  with up to 37 side loads, or against side nets that pull its clusters
+  the wrong way; the metrics (detour, cluster order, HPWL against the
+  known placement, a period proxy); and a hook that puts timing weights
+  on the path's nets before the Nesterov loop, without STA. Where the
+  right order of two clusters depends on the weights, it is computed,
+  not read off a rule: the weighted HPWL of both orders over every legal
+  place of the two clusters, and a case whose orders are within 5 % of
+  each other is refused as a tie.
+- path_shape_test: the invariants, 56 tests that pass today and must
+  keep passing after any change that makes gpl more robust (90 s on one
+  core, fastbuild).
+- path_shape_targets_test: the targets, 44 tests, tagged "manual". Every
+  test in it fails today by design, each on its own threshold. Both
+  print one line per check:
+    METRIC <test> <name>=<value> <op> <threshold> pass|FAIL
+  Run the targets by name:
+    bazelisk test @openroad//src/gpl/test:path_shape_targets_test
+  A gpl change that makes a target pass moves it to path_shape_test.
+
+Nothing //:openroad or //src/sta:opensta is built from is touched, so the
+openroad binary every ORFS stage runs keeps its cache key.
+
+Retires at a //:bump onto an OpenROAD that carries these tests (or the
+fix they are written for, with its own tests); if a bump changes the gpl
+API the weight hook uses (PlacerBaseCommon, NesterovBaseCommon,
+NesterovPlace) the patch is rebased or dropped, not worked around.
+Held with 0221, whose pin_pull_test builds on these; they go upstream
+together.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ src/gpl/test/BUILD                       |  49 ++
+ src/gpl/test/path_shape.cpp              | 887 +++++++++++++++++++++++
+ src/gpl/test/path_shape.h                | 357 +++++++++
+ src/gpl/test/path_shape_targets_test.cpp | 264 +++++++
+ src/gpl/test/path_shape_test.cpp         | 436 +++++++++++
+ 5 files changed, 1993 insertions(+)
+ create mode 100644 src/gpl/test/path_shape.cpp
+ create mode 100644 src/gpl/test/path_shape.h
+ create mode 100644 src/gpl/test/path_shape_targets_test.cpp
+ create mode 100644 src/gpl/test/path_shape_test.cpp
+
+diff --git a/src/gpl/test/BUILD b/src/gpl/test/BUILD
+index 86e5090d73..648273c4f7 100644
+--- a/src/gpl/test/BUILD
++++ b/src/gpl/test/BUILD
+@@ -523,16 +523,65 @@ cc_test(
+         "//src/gpl",
+         "//src/odb/src/db",
+         "//src/tst",
+         "@googletest//:gtest",
+         "@googletest//:gtest_main",
+     ],
+ )
+ 
++# Timing paths through global placement on synthetic designs whose good
++# shape is known: the designs, metrics and runs path_shape_test and
++# path_shape_targets_test share.
++cc_library(
++    name = "path_shape",
++    testonly = True,
++    srcs = ["path_shape.cpp"],
++    hdrs = ["path_shape.h"],
++    deps = [
++        ":gpl_design_builder",
++        "//src/gpl:gpl_impl",
++        "//src/odb/src/db",
++        "//src/tst",
++        "@googletest//:gtest",
++    ],
++)
++
++# The invariants: what gpl gets right on those paths today, and must keep.
++cc_test(
++    name = "path_shape_test",
++    srcs = ["path_shape_test.cpp"],
++    env = GPU_ENV_OFF,
++    deps = [
++        ":gpl_design_builder",
++        ":path_shape",
++        "//src/gpl:gpl_impl",
++        "//src/odb/src/db",
++        "@googletest//:gtest",
++        "@googletest//:gtest_main",
++    ],
++)
++
++# The targets: what a robust gpl must do on those paths and does not do
++# yet. Every test in it fails today by design, hence manual; run it by
++# name: bazel test //src/gpl/test:path_shape_targets_test
++cc_test(
++    name = "path_shape_targets_test",
++    srcs = ["path_shape_targets_test.cpp"],
++    env = GPU_ENV_OFF,
++    tags = ["manual"],
++    deps = [
++        ":gpl_design_builder",
++        ":path_shape",
++        "//src/gpl:gpl_impl",
++        "@googletest//:gtest",
++        "@googletest//:gtest_main",
++    ],
++)
++
+ cc_test(
+     name = "metamorphic_test",
+     srcs = ["metamorphic_test.cpp"],
+     data = [
+         "gcd.def",
+         "nangate45.lef",
+     ],
+     env = GPU_ENV_OFF,
+diff --git a/src/gpl/test/path_shape.cpp b/src/gpl/test/path_shape.cpp
+new file mode 100644
+index 0000000000..37b5c13685
+--- /dev/null
++++ b/src/gpl/test/path_shape.cpp
+@@ -0,0 +1,887 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++#include "path_shape.h"
++
++#include <algorithm>
++#include <cmath>
++#include <cstddef>
++#include <cstdint>
++#include <cstdlib>
++#include <iostream>
++#include <limits>
++#include <memory>
++#include <numeric>
++#include <ostream>
++#include <sstream>
++#include <string>
++#include <unordered_set>
++#include <utility>
++#include <vector>
++
++#include "gpl/Replace.h"
++#include "gpl_design_builder.h"
++#include "gtest/gtest.h"
++#include "odb/db.h"
++#include "odb/dbTypes.h"
++#include "odb/geom.h"
++#include "odb/util.h"
++#include "src/gpl/src/graphicsNone.h"
++#include "src/gpl/src/nesterovBase.h"
++#include "src/gpl/src/nesterovPlace.h"
++#include "src/gpl/src/placerBase.h"
++#include "src/gpl/src/routeBase.h"
++#include "src/gpl/src/timingBase.h"
++
++namespace gpl::path_shape {
++
++odb::Point pinAt(odb::dbInst* inst, const char* pin)
++{
++  int x = 0;
++  int y = 0;
++  inst->findITerm(pin)->getAvgXY(&x, &y);
++  return {x, y};
++}
++
++int64_t manhattan(const odb::Point& a, const odb::Point& b)
++{
++  return std::abs(int64_t{a.x()} - b.x()) + std::abs(int64_t{a.y()} - b.y());
++}
++
++std::vector<odb::Point> Path::pins() const
++{
++  std::vector<odb::Point> points{pinAt(launch, "E")};
++  for (odb::dbInst* cell : cells) {
++    points.push_back(pinAt(cell, "W"));
++    points.push_back(pinAt(cell, "E"));
++  }
++  points.push_back(pinAt(capture, "W"));
++  return points;
++}
++
++int64_t Path::netWire() const
++{
++  const std::vector<odb::Point> p = pins();
++  int64_t wire = 0;
++  for (std::size_t i = 0; i + 1 < p.size(); i += 2) {
++    wire += manhattan(p[i], p[i + 1]);
++  }
++  return wire;
++}
++
++double Path::detour() const
++{
++  const std::vector<odb::Point> p = pins();
++  int64_t chain = 0;
++  for (std::size_t i = 0; i + 1 < p.size(); ++i) {
++    chain += manhattan(p[i], p[i + 1]);
++  }
++  return static_cast<double>(chain) / manhattan(p.front(), p.back());
++}
++
++double Path::periodPs() const
++{
++  return kStagePs * static_cast<double>(cells.size() + 1)
++         + kWirePsPerUm * static_cast<double>(netWire())
++               / DesignBuilder::kDbuPerMicron;
++}
++
++std::unordered_set<odb::dbNet*> Path::nets() const
++{
++  std::unordered_set<odb::dbNet*> result{launch->findITerm("E")->getNet()};
++  for (odb::dbInst* cell : cells) {
++    result.insert(cell->findITerm("E")->getNet());
++  }
++  return result;
++}
++
++int64_t pathCellHpwl(const Path& path)
++{
++  std::unordered_set<odb::dbNet*> nets;
++  for (odb::dbInst* cell : path.cells) {
++    for (odb::dbITerm* iterm : cell->getITerms()) {
++      if (iterm->getNet() != nullptr) {
++        nets.insert(iterm->getNet());
++      }
++    }
++  }
++  const odb::WireLengthEvaluator evaluator(path.cells[0]->getBlock());
++  int64_t total = 0;
++  for (odb::dbNet* net : nets) {
++    int64_t x = 0;
++    int64_t y = 0;
++    total += evaluator.hpwl(net, x, y);
++  }
++  return total;
++}
++
++int lineY(const DesignBuilder& builder)
++{
++  return builder.core().yMin() + kLineRow * kRowHeight;
++}
++
++void putAt(odb::dbInst* inst, const int x, const int y)
++{
++  inst->setLocation(x, y);
++  inst->setPlacementStatus(odb::dbPlacementStatus::PLACED);
++}
++
++odb::dbInst* addFixed(DesignBuilder& builder,
++                      const std::string& name,
++                      const int x,
++                      const int y)
++{
++  odb::dbInst* inst = builder.addCell(name);
++  inst->setLocation(x, y);
++  inst->setPlacementStatus(odb::dbPlacementStatus::FIRM);
++  return inst;
++}
++
++void addRegisters(DesignBuilder& builder, Path& path)
++{
++  const odb::Rect core = builder.core();
++  path.launch = addFixed(builder, "launch", core.xMin(), lineY(builder));
++  path.capture
++      = addFixed(builder, "capture", core.xMax() - kCellWidth, lineY(builder));
++}
++
++void placeStraight(const DesignBuilder& builder, const Path& path)
++{
++  const int x0 = path.launch->getLocation().x();
++  const int x1 = path.capture->getLocation().x();
++  const int n = path.cells.size();
++  for (int i = 0; i < n; ++i) {
++    putAt(path.cells[i], x0 + (i + 1) * (x1 - x0) / (n + 1), lineY(builder));
++  }
++}
++
++Grid makeGrid(DesignBuilder& builder,
++              const int cols,
++              const int rows,
++              const std::string& prefix)
++{
++  Grid cells(cols);
++  for (int i = 0; i < cols; ++i) {
++    for (int j = 0; j < rows; ++j) {
++      cells[i].push_back(builder.addCell(prefix + "_" + std::to_string(i) + "_"
++                                         + std::to_string(j)));
++    }
++  }
++  for (int i = 0; i < cols; ++i) {
++    for (int j = 0; j < rows; ++j) {
++      const std::string at
++          = prefix + "_" + std::to_string(i) + "_" + std::to_string(j);
++      if (i + 1 < cols) {
++        builder.connect(cells[i][j], "E", at + "_h");
++        builder.connect(cells[i + 1][j], "W", at + "_h");
++      }
++      if (j + 1 < rows) {
++        builder.connect(cells[i][j], "N", at + "_v");
++        builder.connect(cells[i][j + 1], "S", at + "_v");
++      }
++    }
++  }
++  return cells;
++}
++
++std::vector<odb::dbInst*> flatten(const Grid& grid)
++{
++  std::vector<odb::dbInst*> cells;
++  for (const auto& column : grid) {
++    cells.insert(cells.end(), column.begin(), column.end());
++  }
++  return cells;
++}
++
++Grid addSea(DesignBuilder& builder)
++{
++  Grid sea = makeGrid(builder, kSeaCols, kSeaRows, "sea");
++  for (int j = 0; j < kSeaRows; ++j) {
++    const double t = (j + 0.5) / kSeaRows;
++    const std::string at = std::to_string(j);
++    builder.connect(
++        sea[0][j], "W", builder.addIo("sea_w" + at, Edge::kLeft, t));
++    builder.connect(sea[kSeaCols - 1][j],
++                    "E",
++                    builder.addIo("sea_e" + at, Edge::kRight, t));
++  }
++  for (int i = 0; i < kSeaCols; ++i) {
++    const double t = (i + 0.5) / kSeaCols;
++    const std::string at = std::to_string(i);
++    builder.connect(
++        sea[i][0], "S", builder.addIo("sea_s" + at, Edge::kBottom, t));
++    builder.connect(
++        sea[i][kSeaRows - 1], "N", builder.addIo("sea_n" + at, Edge::kTop, t));
++  }
++  return sea;
++}
++
++void seedSea(const DesignBuilder& builder, const Grid& sea)
++{
++  const odb::Rect core = builder.core();
++  for (int i = 0; i < kSeaCols; ++i) {
++    for (int j = 0; j < kSeaRows; ++j) {
++      putAt(sea[i][j],
++            core.xMin() + i * core.dx() / kSeaCols,
++            core.yMin() + j * kRowHeight);
++    }
++  }
++}
++
++Path makeAnchoredChain(DesignBuilder& builder, const int length)
++{
++  Path path;
++  addRegisters(builder, path);
++  std::string net = "path0";
++  builder.connect(path.launch, "E", net);
++  for (int i = 0; i < length; ++i) {
++    odb::dbInst* cell = builder.addCell("p" + std::to_string(i));
++    builder.connect(cell, "W", net);
++    net = "path" + std::to_string(i + 1);
++    builder.connect(cell, "E", net);
++    path.cells.push_back(cell);
++  }
++  builder.connect(path.capture, "W", net);
++  return path;
++}
++
++ClusterPath makeClusterPath(DesignBuilder& builder, const int k, const int side)
++{
++  ClusterPath cp;
++  cp.side = side;
++  addRegisters(builder, cp.path);
++  const int mid = side / 2;
++  std::string net = "path_in";
++  builder.connect(cp.path.launch, "E", net);
++  for (int c = 0; c < k; ++c) {
++    const std::string prefix = "k" + std::to_string(c);
++    Grid cells = makeGrid(builder, side, side, prefix);
++    builder.connect(cells[0][mid], "W", net);
++    for (int i = 0; i < side; ++i) {
++      cp.path.cells.push_back(cells[i][mid]);
++    }
++    net = prefix + "_out";
++    builder.connect(cells[side - 1][mid], "E", net);
++    cp.grid.push_back(std::move(cells));
++  }
++  builder.connect(cp.path.capture, "W", net);
++  return cp;
++}
++
++void seedClusters(const DesignBuilder& builder,
++                  const ClusterPath& cp,
++                  const std::vector<int>& slots,
++                  const Seed seed)
++{
++  const odb::Rect core = builder.core();
++  const int k = cp.grid.size();
++  const int mid = cp.side / 2;
++  for (int c = 0; c < k; ++c) {
++    const int cx = core.xMin() + (slots[c] + 1) * core.dx() / (k + 1);
++    for (int i = 0; i < cp.side; ++i) {
++      for (int j = 0; j < cp.side; ++j) {
++        int x = cx - kCellWidth / 2;
++        int y = lineY(builder);
++        if (seed == Seed::kCompact) {
++          x = cx - cp.side * kCellWidth / 2 + i * kCellWidth;
++          y = lineY(builder) + (j - mid) * kRowHeight;
++        }
++        putAt(cp.grid[c][i][j], x, y);
++      }
++    }
++  }
++}
++
++std::vector<int> clusterOrder(const ClusterPath& cp)
++{
++  std::vector<double> cx;
++  for (const Grid& cluster : cp.grid) {
++    double sum = 0;
++    const std::vector<odb::dbInst*> cells = flatten(cluster);
++    for (odb::dbInst* inst : cells) {
++      sum += inst->getBBox()->getBox().xCenter();
++    }
++    cx.push_back(sum / cells.size());
++  }
++  std::vector<int> order(cx.size());
++  std::iota(order.begin(), order.end(), 0);
++  std::ranges::stable_sort(
++      order, [&](const int a, const int b) { return cx[a] < cx[b]; });
++  return order;
++}
++
++int inversions(const std::vector<int>& order)
++{
++  int count = 0;
++  for (std::size_t i = 0; i < order.size(); ++i) {
++    for (std::size_t j = i + 1; j < order.size(); ++j) {
++      count += order[i] > order[j];
++    }
++  }
++  return count;
++}
++
++std::string str(const std::vector<int>& v)
++{
++  std::string s;
++  for (const int x : v) {
++    s += std::to_string(x);
++  }
++  return s;
++}
++
++namespace {
++
++// An IO pin named name on the given net.
++void addIoOnNet(DesignBuilder& builder,
++                const std::string& name,
++                const Edge edge,
++                const double t,
++                const std::string& net)
++{
++  odb::dbBTerm* io = builder.addIo(name, edge, std::clamp(t, 0.0, 1.0));
++  odb::dbNet* own = io->getNet();
++  io->disconnect();
++  io->connect(builder.block()->findNet(net.c_str()));
++  odb::dbNet::destroy(own);
++}
++
++std::string format(const double value)
++{
++  std::ostringstream out;
++  if (std::abs(value) < 1e15 && value == std::floor(value)) {
++    out << static_cast<int64_t>(value);
++  } else {
++    out.precision(6);
++    out << value;
++  }
++  return out.str();
++}
++
++}  // namespace
++
++std::string currentTest()
++{
++  const testing::TestInfo* info
++      = testing::UnitTest::GetInstance()->current_test_info();
++  return std::string(info->test_suite_name()) + "." + info->name();
++}
++
++Path makeBroadcastPath(DesignBuilder& builder,
++                       const int length,
++                       const int side_loads,
++                       const bool side_inputs)
++{
++  Path path;
++  addRegisters(builder, path);
++  builder.connect(path.launch, "E", "path0");
++  for (int i = 0; i < length; ++i) {
++    path.cells.push_back(builder.addCell("p" + std::to_string(i)));
++  }
++  builder.connect(path.cells[0], "W", "path0");
++  for (int i = 0; i < length; ++i) {
++    const std::string net = "path" + std::to_string(i + 1);
++    builder.connect(path.cells[i], "E", net);
++    builder.connect(
++        i + 1 < length ? path.cells[i + 1] : path.capture, "W", net);
++    const Edge edge = i % 2 == 0 ? Edge::kTop : Edge::kBottom;
++    const double t = (i + 1.5) / (length + 1);
++    for (int s = 0; s < side_loads; ++s) {
++      const double offset
++          = (s - (side_loads - 1) / 2.0) * 100.0 / DesignBuilder::kCoreSize;
++      addIoOnNet(
++          builder, net + "_load" + std::to_string(s), edge, t + offset, net);
++    }
++    if (side_inputs) {
++      builder.connect(path.cells[i],
++                      "S",
++                      builder.addIo("side_in" + std::to_string(i), edge, t));
++    }
++  }
++  return path;
++}
++
++void addCrossSideNets(DesignBuilder& builder,
++                      const ClusterPath& cp,
++                      const int s)
++{
++  for (int c = 0; c < 2; ++c) {
++    const Edge edge = c == 0 ? Edge::kRight : Edge::kLeft;
++    for (int n = 0; n < s; ++n) {
++      const bool top = n >= cp.side;
++      odb::dbInst* cell = cp.grid[c][n % cp.side][top ? cp.side - 1 : 0];
++      builder.connect(
++          cell,
++          top ? "N" : "S",
++          builder.addIo(
++              "side" + std::to_string(c) + "_" + std::to_string(n), edge, 0.5));
++    }
++  }
++}
++
++OrderCosts clusterOrderCosts(const DesignBuilder& builder,
++                             const ClusterPath& cp,
++                             const double weight)
++{
++  if (cp.grid.size() != 2) {
++    constructionFailure("clusterOrderCosts takes two clusters");
++  }
++  const odb::Rect core = builder.core();
++  const int width = cp.side * kCellWidth;
++  const int height = cp.side * kRowHeight;
++  // The one net between the clusters is priced from its two pins' offsets
++  // to their cluster's lattice corner; every other net touches one cluster.
++  odb::dbInst* from_cell = cp.path.cells[cp.side - 1];
++  odb::dbInst* to_cell = cp.path.cells[cp.side];
++  odb::dbNet* between = from_cell->findITerm("E")->getNet();
++  const std::unordered_set<odb::dbNet*> weighted = cp.path.nets();
++  const auto netWeight
++      = [&](odb::dbNet* net) { return weighted.contains(net) ? weight : 1.0; };
++  const int mid = cp.side / 2;
++  const auto pinOffset
++      = [](odb::dbInst* cell, const char* pin, const int i, const int j) {
++          const odb::Point at = pinAt(cell, pin);
++          const odb::Point origin = cell->getLocation();
++          return odb::Point(at.x() - origin.x() + i * kCellWidth,
++                            at.y() - origin.y() + j * kRowHeight);
++        };
++  const odb::Point from_offset = pinOffset(from_cell, "E", cp.side - 1, mid);
++  const odb::Point to_offset = pinOffset(to_cell, "W", 0, mid);
++
++  std::vector<CellState> saved;
++  std::vector<std::unordered_set<odb::dbNet*>> nets(2);
++  for (int c = 0; c < 2; ++c) {
++    for (odb::dbInst* inst : flatten(cp.grid[c])) {
++      saved.push_back({inst, inst->getLocation(), inst->getPlacementStatus()});
++      for (odb::dbITerm* iterm : inst->getITerms()) {
++        if (iterm->getNet() != nullptr && iterm->getNet() != between) {
++          nets[c].insert(iterm->getNet());
++        }
++      }
++    }
++  }
++
++  // The places a cluster can take: its lower left corner.
++  std::vector<odb::Point> spots;
++  for (int y = core.yMin(); y + height <= core.yMax(); y += kRowHeight) {
++    for (int x = core.xMin(); x + width <= core.xMax();
++         x += DesignBuilder::kSiteWidth) {
++      spots.emplace_back(x, y);
++    }
++  }
++  const auto overlap = [&](const odb::Point& a, const odb::Rect& r) {
++    return a.x() < r.xMax() && r.xMin() < a.x() + width && a.y() < r.yMax()
++           && r.yMin() < a.y() + height;
++  };
++  const odb::Rect launch = cp.path.launch->getBBox()->getBox();
++  const odb::Rect capture = cp.path.capture->getBBox()->getBox();
++
++  // What a cluster's own nets cost at each place, with the cluster moved
++  // there; kInf where the place is not legal.
++  constexpr double kInf = std::numeric_limits<double>::infinity();
++  const odb::WireLengthEvaluator evaluator(builder.block());
++  std::vector<std::vector<double>> own(2, std::vector<double>(spots.size()));
++  for (int c = 0; c < 2; ++c) {
++    for (std::size_t n = 0; n < spots.size(); ++n) {
++      if (overlap(spots[n], launch) || overlap(spots[n], capture)) {
++        own[c][n] = kInf;
++        continue;
++      }
++      for (int i = 0; i < cp.side; ++i) {
++        for (int j = 0; j < cp.side; ++j) {
++          putAt(cp.grid[c][i][j],
++                spots[n].x() + i * kCellWidth,
++                spots[n].y() + j * kRowHeight);
++        }
++      }
++      double cost = 0;
++      for (odb::dbNet* net : nets[c]) {
++        int64_t x = 0;
++        int64_t y = 0;
++        cost += netWeight(net) * static_cast<double>(evaluator.hpwl(net, x, y));
++      }
++      own[c][n] = cost;
++    }
++  }
++  for (const CellState& cell : saved) {
++    cell.inst->setLocation(cell.location.x(), cell.location.y());
++    cell.inst->setPlacementStatus(cell.status);
++  }
++
++  OrderCosts best{kInf, kInf};
++  for (std::size_t a = 0; a < spots.size(); ++a) {
++    for (std::size_t b = 0; b < spots.size(); ++b) {
++      const odb::Point& pa = spots[a];
++      const odb::Point& pb = spots[b];
++      if (own[0][a] == kInf || own[1][b] == kInf || pa.x() == pb.x()
++          || overlap(
++              pa, odb::Rect(pb.x(), pb.y(), pb.x() + width, pb.y() + height))) {
++        continue;
++      }
++      const odb::Point from(pa.x() + from_offset.x(), pa.y() + from_offset.y());
++      const odb::Point to(pb.x() + to_offset.x(), pb.y() + to_offset.y());
++      const double cost
++          = own[0][a] + own[1][b]
++            + netWeight(between) * static_cast<double>(manhattan(from, to));
++      double& slot = pa.x() < pb.x() ? best.straight : best.swapped;
++      slot = std::min(slot, cost);
++    }
++  }
++  return best;
++}
++
++std::string startName(const Start start)
++{
++  switch (start) {
++    case Start::kFlow:
++      return "Flow";
++    case Start::kNesterovFromSeed:
++      return "NesterovFromSeed";
++    case Start::kFullFromSeed:
++      return "FullFromSeed";
++  }
++  return "";
++}
++
++std::string seedName(const Seed seed)
++{
++  return seed == Seed::kPile ? "Pile" : "Compact";
++}
++
++std::string densityName(const bool dense)
++{
++  return dense ? "Dense" : "Sparse";
++}
++
++std::string runInfo(const PlaceResult& result)
++{
++  return " iter=" + std::to_string(result.final_iteration)
++         + " overflow=" + format(result.overflow);
++}
++
++void expectMetric(const std::string& name,
++                  const double value,
++                  const Op op,
++                  const double threshold)
++{
++  bool ok = false;
++  const char* symbol = "";
++  switch (op) {
++    case Op::kLess:
++      ok = value < threshold;
++      symbol = "<";
++      break;
++    case Op::kAtMost:
++      ok = value <= threshold;
++      symbol = "<=";
++      break;
++    case Op::kAtLeast:
++      ok = value >= threshold;
++      symbol = ">=";
++      break;
++    case Op::kEqual:
++      ok = value == threshold;
++      symbol = "==";
++      break;
++  }
++  std::cout << "METRIC " << currentTest() << " " << name << "=" << format(value)
++            << " " << symbol << " " << format(threshold)
++            << (ok ? " pass" : " FAIL") << "\n";
++  if (!ok) {
++    ADD_FAILURE() << "metric " << name << " = " << format(value)
++                  << ", the threshold is " << symbol << " "
++                  << format(threshold);
++  }
++}
++
++void constructionFailure(const std::string& what)
++{
++  std::cout << "CONSTRUCTION " << currentTest() << " " << what << "\n";
++  ADD_FAILURE() << "construction: " << what;
++}
++
++std::string familyName(const FamilyCase& c)
++{
++  return "K" + std::to_string(c.k) + startName(c.start) + seedName(c.seed)
++         + densityName(c.dense);
++}
++
++std::string broadcastName(const BroadcastCase& c)
++{
++  return "M" + std::to_string(c.side_loads)
++         + (c.side_inputs ? "SideInputs" : "") + startName(c.start)
++         + densityName(c.dense);
++}
++
++std::string weightName(const WeightCase& c)
++{
++  return "W" + std::to_string(static_cast<int>(c.weight))
++         + densityName(c.dense);
++}
++
++std::string sideNetName(const SideNetCase& c)
++{
++  return "S" + std::to_string(c.s) + "W"
++         + std::to_string(static_cast<int>(c.weight)) + densityName(c.dense);
++}
++
++void PrintTo(const FamilyCase& c, std::ostream* os)
++{
++  *os << familyName(c);
++}
++
++void PrintTo(const BroadcastCase& c, std::ostream* os)
++{
++  *os << broadcastName(c);
++}
++
++void PrintTo(const WeightCase& c, std::ostream* os)
++{
++  *os << weightName(c);
++}
++
++void PrintTo(const SideNetCase& c, std::ostream* os)
++{
++  *os << sideNetName(c);
++}
++
++PlaceResult PathShapeFixture::place(const PlaceOptions& options,
++                                    const int threads)
++{
++  Replace replace{db_.get(), sta_.get(), nullptr, nullptr, nullptr, &logger_};
++  logger_.redirectStringBegin();
++  const PlaceResult result = replace.doPlace(threads, options);
++  endLog();
++  checkRan(result);
++  return result;
++}
++
++PlaceResult PathShapeFixture::placeWeighted(
++    const PlaceOptions& options,
++    const std::unordered_set<odb::dbNet*>& nets,
++    const float weight)
++{
++  odb::dbDatabase* db = db_.get();
++  logger_.redirectStringBegin();
++  // Initial placement writes its result to the database, where the
++  // weighted Nesterov placement below picks it up.
++  Replace initial{db, sta_.get(), nullptr, nullptr, nullptr, &logger_};
++  initial.doInitialPlace(1, options);
++  auto pbc = std::make_shared<PlacerBaseCommon>(
++      db, PlacerBaseVars(options), &logger_);
++  std::vector<std::shared_ptr<PlacerBase>> pbs{
++      std::make_shared<PlacerBase>(db, pbc, &logger_, true)};
++
++  const NesterovBaseVars nb_vars(options);
++  auto nbc = std::make_shared<NesterovBaseCommon>(
++      nb_vars, pbc, &logger_, 1, Clusters{});
++  std::vector<std::shared_ptr<NesterovBase>> nbs{
++      std::make_shared<NesterovBase>(nb_vars, pbs[0], nbc, &logger_)};
++  std::size_t weighted = 0;
++  for (GNet* gnet : nbc->getGNets()) {
++    if (nets.contains(gnet->getPbNet()->getDbNet())) {
++      gnet->setTimingWeight(weight);
++      ++weighted;
++    }
++  }
++  NesterovPlaceVars np_vars(options, nbc->getHpwl());
++  nbs[0]->setNpVars(&np_vars);
++  auto rb = std::make_shared<RouteBase>(
++      RouteBaseVars(options), db, nullptr, nbc, nbs, &logger_);
++  auto tb = std::make_shared<TimingBase>(nbc, nullptr, nullptr, &logger_);
++  NesterovPlace np(np_vars,
++                   pbc,
++                   nbc,
++                   pbs,
++                   nbs,
++                   rb,
++                   tb,
++                   nullptr,
++                   nullptr,
++                   std::make_unique<GraphicsNone>(),
++                   &logger_);
++  np.setTargetOverflow(options.overflow);
++  np.setMaxIters(options.nesterovPlaceMaxIter);
++  const PlaceResult result = np.doNesterovPlace(0);
++  endLog();
++  if (weighted != nets.size()) {
++    constructionFailure("weight " + format(weight) + " reached "
++                        + std::to_string(weighted) + " of "
++                        + std::to_string(nets.size()) + " nets");
++  }
++  checkRan(result);
++  return result;
++}
++
++void PathShapeFixture::endLog()
++{
++  log_ = logger_.redirectStringEnd();
++  if (std::getenv("PATH_SHAPE_LOG") != nullptr) {
++    std::cout << log_;
++  }
++}
++
++void PathShapeFixture::checkRan(const PlaceResult& result)
++{
++  if (result.stop == PlaceStop::kNotRun
++      || result.stop == PlaceStop::kDiverged) {
++    constructionFailure("placement did not run to an end");
++  }
++}
++
++PlaceOptions PathShapeFixture::optionsFor(const Start start)
++{
++  PlaceOptions options;
++  if (start == Start::kNesterovFromSeed) {
++    options.initialPlaceMaxIter = 0;
++  }
++  return options;
++}
++
++void PathShapeFixture::unplace(const std::vector<odb::dbInst*>& cells)
++{
++  for (odb::dbInst* inst : cells) {
++    inst->setPlacementStatus(odb::dbPlacementStatus::NONE);
++  }
++}
++
++std::vector<CellState> PathShapeFixture::cells() const
++{
++  std::vector<CellState> result;
++  for (odb::dbInst* inst : db_->getChip()->getBlock()->getInsts()) {
++    result.push_back({inst, inst->getLocation(), inst->getPlacementStatus()});
++  }
++  return result;
++}
++
++void PathShapeFixture::restore(const std::vector<CellState>& saved)
++{
++  for (const CellState& cell : saved) {
++    cell.inst->setLocation(cell.location.x(), cell.location.y());
++    cell.inst->setPlacementStatus(cell.status);
++  }
++}
++
++int64_t PathShapeFixture::hpwl() const
++{
++  return odb::WireLengthEvaluator(db_->getChip()->getBlock()).hpwl();
++}
++
++void PathShapeFixture::untangle(const FamilyCase& param)
++{
++  DesignBuilder builder(db_.get());
++  const ClusterPath cp = makeClusterPath(builder, param.k, 3);
++  if (param.dense) {
++    seedSea(builder, addSea(builder));
++  }
++  const std::vector<CellState> sea_and_registers = cells();
++  std::vector<int> slots(param.k);
++  std::iota(slots.begin(), slots.end(), 0);
++  int starts = 0;
++  int straight = 0;
++  int worse = 0;
++  int sum_inversions = 0;
++  int sum_start_inversions = 0;
++  int sum_iterations = 0;
++  double sum_detour = 0;
++  std::unordered_set<std::string> start_orders;
++  do {
++    restore(sea_and_registers);
++    seedClusters(builder, cp, slots, param.seed);
++    const std::vector<int> start_order = clusterOrder(cp);
++    start_orders.insert(str(start_order));
++    const int start_inversions = inversions(start_order);
++    const PlaceResult result = place(optionsFor(param.start));
++    const int end_inversions = inversions(clusterOrder(cp));
++    ++starts;
++    straight += end_inversions == 0;
++    worse += end_inversions > start_inversions;
++    sum_inversions += end_inversions;
++    sum_start_inversions += start_inversions;
++    sum_iterations += result.final_iteration;
++    sum_detour += cp.path.detour();
++  } while (std::ranges::next_permutation(slots).found);
++  // Every order is started from exactly once.
++  if (start_orders.size() != static_cast<std::size_t>(starts)) {
++    constructionFailure(std::to_string(starts) + " starts from "
++                        + std::to_string(start_orders.size()) + " orders");
++  }
++  std::cout << "SHAPE " << currentTest() << " starts=" << starts
++            << " straight=" << straight << " worse=" << worse
++            << " inversions=" << sum_start_inversions << "->" << sum_inversions
++            << " mean_detour=" << format(sum_detour / starts) << " mean_iter="
++            << format(static_cast<double>(sum_iterations) / starts) << "\n";
++  expectMetric("straight_fraction",
++               static_cast<double>(straight) / starts,
++               Op::kAtLeast,
++               0.9);
++  expectMetric("starts_ending_worse", worse, Op::kEqual, 0);
++}
++
++BroadcastShape PathShapeFixture::placeBroadcast(const BroadcastCase& param)
++{
++  DesignBuilder builder(db_.get());
++  const Path path
++      = makeBroadcastPath(builder, 6, param.side_loads, param.side_inputs);
++  Grid sea;
++  if (param.dense) {
++    sea = addSea(builder);
++    seedSea(builder, sea);
++  }
++  placeStraight(builder, path);
++  if (path.detour() > 1.01) {
++    constructionFailure("the straight placement reads detour "
++                        + format(path.detour()));
++  }
++  BroadcastShape shape;
++  shape.straight_hpwl = pathCellHpwl(path);
++  shape.straight_period = path.periodPs();
++  if (param.start == Start::kFlow) {
++    unplace(path.cells);
++    unplace(flatten(sea));
++  }
++  const PlaceResult result = place(optionsFor(param.start));
++  shape.detour = path.detour();
++  shape.period = path.periodPs();
++  shape.hpwl = pathCellHpwl(path);
++  std::cout << "SHAPE " << currentTest() << " detour=" << format(shape.detour)
++            << " hpwl=" << shape.hpwl
++            << " straight_hpwl=" << shape.straight_hpwl
++            << " period=" << format(shape.period)
++            << " straight_period=" << format(shape.straight_period)
++            << runInfo(result) << "\n";
++  return shape;
++}
++
++void PathShapeFixture::checkSideNetOrder(const SideNetCase& param)
++{
++  DesignBuilder builder(db_.get());
++  const ClusterPath cp = makeClusterPath(builder, 2, 3);
++  addCrossSideNets(builder, cp, param.s);
++  if (param.dense) {
++    addSea(builder);
++  }
++  const OrderCosts costs = clusterOrderCosts(builder, cp, param.weight);
++  const double lower = std::min(costs.straight, costs.swapped);
++  const double gap = std::abs(costs.straight - costs.swapped) / lower;
++  if (!(gap > kOrderTieMargin)) {
++    constructionFailure("the orders' weighted wirelengths, "
++                        + format(costs.straight) + " straight and "
++                        + format(costs.swapped) + " swapped, are within "
++                        + format(kOrderTieMargin * 100) + " % of each other");
++  }
++  const PlaceResult result
++      = placeWeighted(PlaceOptions{}, cp.path.nets(), param.weight);
++  std::cout << "SHAPE " << currentTest() << " order=" << str(clusterOrder(cp))
++            << " detour=" << format(cp.path.detour()) << " hpwl=" << hpwl()
++            << " cost_straight=" << format(costs.straight)
++            << " cost_swapped=" << format(costs.swapped) << runInfo(result)
++            << "\n";
++  // The weighted wirelength optimum: the cheaper order.
++  expectMetric("inversions",
++               inversions(clusterOrder(cp)),
++               Op::kEqual,
++               costs.straight < costs.swapped ? 0 : 1);
++}
++
++}  // namespace gpl::path_shape
+diff --git a/src/gpl/test/path_shape.h b/src/gpl/test/path_shape.h
+new file mode 100644
+index 0000000000..b940e0c7fd
+--- /dev/null
++++ b/src/gpl/test/path_shape.h
+@@ -0,0 +1,357 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++// Timing paths through global placement, on synthetic designs whose good
++// shape is known: the designs, the metrics and the placement runs shared
++// by path_shape_test (invariants that hold today) and
++// path_shape_targets_test (targets that fail today).
++//
++// A path runs from a fixed launch register to a fixed capture register
++// through movable cells; at zero wire its logic fits the clock, so its
++// period is set by how far its pins wander from the straight line between
++// the registers. Two ways a placement lands in a stable but worse shape:
++//
++// - Order: the path runs through k tightly connected clusters. In path
++//   order the path is straight and the HPWL lowest; in another order each
++//   swap costs wire, and a placement that starts swapped can stay swapped.
++//
++// - Broadcast drivers: the path's cells drive nets whose other loads are
++//   anchored far from the path. HPWL counts a net once, whichever of its
++//   loads is critical, so the path can zigzag between its side loads.
++//
++// Designs come in two densities. Sparse: the path and its clusters alone,
++// a few percent of the core. Dense: the same plus a sea of other logic, a
++// lattice anchored on all four die edges that covers the core.
++//
++// PATH_SHAPE_LOG=1 in the environment prints gpl's log of every run.
++
++#pragma once
++
++#include <cstdint>
++#include <ostream>
++#include <string>
++#include <unordered_set>
++#include <vector>
++
++#include "gpl/Replace.h"
++#include "gpl_design_builder.h"
++#include "odb/db.h"
++#include "odb/dbTypes.h"
++#include "odb/geom.h"
++#include "tst/fixture.h"
++
++namespace gpl::path_shape {
++
++using Edge = DesignBuilder::Edge;
++
++// Cells are 4 sites wide; the registers sit in row kLineRow of rows 0 to 9.
++inline constexpr int kCellWidth = 4 * DesignBuilder::kSiteWidth;
++inline constexpr int kRowHeight = DesignBuilder::kRowHeight;
++inline constexpr int kLineRow = 4;
++// The sea: kSeaCols x kSeaRows cells, 40% of the core.
++inline constexpr int kSeaCols = 10;
++inline constexpr int kSeaRows = 10;
++
++// Period proxy: a fixed delay per stage plus wire at a buffered wire's
++// rate. Only ratios to a known placement's proxy are checked, so the
++// constants only set how much of the period is wire on a straight path,
++// here about half.
++inline constexpr double kStagePs = 20.0;
++inline constexpr double kWirePsPerUm = 10.0;
++
++// Two orders whose weighted wirelengths differ by less than this, as a
++// fraction of the lower, are a tie that no test may depend on.
++inline constexpr double kOrderTieMargin = 0.05;
++
++odb::Point pinAt(odb::dbInst* inst, const char* pin);
++int64_t manhattan(const odb::Point& a, const odb::Point& b);
++
++// A timing path: launch register, cells in path order, capture register.
++// Each cell takes the path in on W and drives it on E.
++struct Path
++{
++  odb::dbInst* launch = nullptr;
++  std::vector<odb::dbInst*> cells;
++  odb::dbInst* capture = nullptr;
++
++  // The pins the signal visits, in order: launch E, W and E of each cell,
++  // capture W. Pins 2i and 2i+1 are the ends of the path's i-th net.
++  std::vector<odb::Point> pins() const;
++  // Wire on the path's nets, each from its driver to the path's sink.
++  int64_t netWire() const;
++  // Wire along the path, pin to pin, over the Manhattan distance between
++  // the registers' pins. 1.0 is straight.
++  double detour() const;
++  // kStagePs per stage (the cells and the launch register) plus
++  // kWirePsPerUm of netWire().
++  double periodPs() const;
++  std::unordered_set<odb::dbNet*> nets() const;
++};
++
++// HPWL of the nets on a path's cells: the part of the objective the path's
++// placement changes, so that a placement can be compared with one placed
++// by hand when the rest of the design differs.
++int64_t pathCellHpwl(const Path& path);
++
++int lineY(const DesignBuilder& builder);
++void putAt(odb::dbInst* inst, int x, int y);
++odb::dbInst* addFixed(DesignBuilder& builder,
++                      const std::string& name,
++                      int x,
++                      int y);
++// The registers: fixed, in the line row at the core's left and right edges.
++void addRegisters(DesignBuilder& builder, Path& path);
++// Moves a path's cells onto the straight line between its registers,
++// evenly spaced: the shape the tests compare against.
++void placeStraight(const DesignBuilder& builder, const Path& path);
++
++// A cols x rows lattice of cells joined to their four neighbors (E to W, N
++// to S). grid[i][j] is column i, row j.
++using Grid = std::vector<std::vector<odb::dbInst*>>;
++Grid makeGrid(DesignBuilder& builder,
++              int cols,
++              int rows,
++              const std::string& prefix);
++std::vector<odb::dbInst*> flatten(const Grid& grid);
++
++// Other logic: a lattice whose boundary cells are tied to IO pins at
++// matching places on all four die edges, so that placed it covers the core
++// and the path's cells have to push it aside.
++Grid addSea(DesignBuilder& builder);
++// The sea spread over the core in its lattice shape, one lattice row per
++// core row.
++void seedSea(const DesignBuilder& builder, const Grid& sea);
++
++// A plain chain of `length` cells between the registers, no side nets.
++Path makeAnchoredChain(DesignBuilder& builder, int length);
++
++// A path through k clusters, each a side x side lattice. The path enters a
++// cluster at the west end of its middle row, follows the row and leaves at
++// the east end; one net joins each cluster to the next.
++struct ClusterPath
++{
++  Path path;
++  int side = 0;
++  // Cluster c in path order.
++  std::vector<Grid> grid;
++};
++ClusterPath makeClusterPath(DesignBuilder& builder, int k, int side);
++
++enum class Seed
++{
++  // Each cluster laid out as its lattice, centered on its slot.
++  kCompact,
++  // Each cluster's cells stacked on its slot's center, as an initial
++  // placement collapses them.
++  kPile,
++};
++
++// Puts cluster c at slots[c] of k slots evenly spaced across the core.
++void seedClusters(const DesignBuilder& builder,
++                  const ClusterPath& cp,
++                  const std::vector<int>& slots,
++                  Seed seed);
++// The clusters in the order their centroids sit along x, as indices in
++// path order. {0, 1, ..., k-1} is the straight order.
++std::vector<int> clusterOrder(const ClusterPath& cp);
++// Pairs out of path order: 0 straight, k(k-1)/2 reversed.
++int inversions(const std::vector<int>& order);
++std::string str(const std::vector<int>& v);
++
++// A path of `length` cells whose every net also drives side_loads fixed
++// pins far from the path: IO pins on the die's top edge for even nets and
++// its bottom edge for odd ones, 100 DBU apart around the x where the net
++// sits on the straight path. Loads anchored elsewhere, as the broadcast
++// drivers on a large design's failing paths have (median 37). With
++// side_inputs, each path cell's S input is also driven from an IO pin on
++// the edge its own side loads are on: a non-critical side input, which
++// makes the zigzag the strict HPWL optimum.
++Path makeBroadcastPath(DesignBuilder& builder,
++                       int length,
++                       int side_loads,
++                       bool side_inputs);
++
++// s side nets on each of two clusters pulling it to the far side: from
++// cluster 0's edge cells to an IO pin on the right die edge, from cluster
++// 1's to one on the left. Swapping the clusters shortens 2s side nets and
++// lengthens the path's nets by the same distance: for clusters that were
++// points, with the path's nets at weight w the straight order would be the
++// weighted wirelength optimum iff s < w. These are 2,400 DBU wide and the
++// path enters one 2,300 DBU before it leaves it, so the rule has a margin
++// that depends on how far apart they are; clusterOrderCosts has the
++// answer.
++void addCrossSideNets(DesignBuilder& builder, const ClusterPath& cp, int s);
++
++// The weighted wirelength of the best legal placement of the two clusters
++// of a ClusterPath, with cluster 0 left of cluster 1 (the straight order)
++// and with it right of it (swapped): the path's nets at `weight`, every
++// other net at 1. Each cluster stays the lattice it is, on the site grid,
++// inside the core and off the registers and the other cluster, and every
++// such pair of places is tried. Which order is cheaper is what the
++// weighted wirelength optimum is; it does not follow from s and w alone,
++// because the clusters are wide: s < w is the rule for points. The sea is
++// left out, it is movable and no net joins it to the clusters. The cells
++// are put back where they were.
++struct OrderCosts
++{
++  double straight = 0;
++  double swapped = 0;
++};
++OrderCosts clusterOrderCosts(const DesignBuilder& builder,
++                             const ClusterPath& cp,
++                             double weight);
++
++// How a run starts.
++enum class Start
++{
++  // As the flow places a netlist: the cells unplaced, initial placement,
++  // then Nesterov placement.
++  kFlow,
++  // From the cells' current places, Nesterov placement only, as
++  // global_placement -skip_initial_place does.
++  kNesterovFromSeed,
++  // From the cells' current places, initial placement first.
++  kFullFromSeed,
++};
++
++std::string startName(Start start);
++std::string seedName(Seed seed);
++std::string densityName(bool dense);
++std::string runInfo(const PlaceResult& result);
++// The running gtest test as gtest prints it: <suite>.<test>.
++std::string currentTest();
++
++// How a metric is compared with its threshold.
++enum class Op
++{
++  kLess,
++  kAtMost,
++  kAtLeast,
++  kEqual,
++};
++
++// Checks one metric against its threshold, as a gtest expectation, and
++// prints it on one line whether it passes or not:
++//
++//   METRIC <suite>.<test> <name>=<value> <op> <threshold> pass|FAIL
++//
++// so that every run records what each case measured and what it had to
++// reach, and every failure names its metric.
++void expectMetric(const std::string& name,
++                  double value,
++                  Op op,
++                  double threshold);
++
++// A failure of the test's own construction, not of placement: a reference
++// shape that is not what it should be, a placement that did not run, a
++// weight that reached no net. Printed as "CONSTRUCTION ..." so that a
++// target can be told apart from a broken test.
++void constructionFailure(const std::string& what);
++
++struct CellState
++{
++  odb::dbInst* inst;
++  odb::Point location;
++  odb::dbPlacementStatus status;
++
++  bool operator==(const CellState& other) const = default;
++};
++
++// The k-cluster family: k clusters started in each of their k! orders.
++struct FamilyCase
++{
++  int k;
++  Start start;
++  Seed seed;
++  bool dense;
++};
++std::string familyName(const FamilyCase& c);
++
++struct BroadcastCase
++{
++  int side_loads;
++  bool side_inputs;
++  Start start;
++  bool dense;
++};
++std::string broadcastName(const BroadcastCase& c);
++
++struct WeightCase
++{
++  float weight;
++  bool dense;
++};
++std::string weightName(const WeightCase& c);
++
++struct SideNetCase
++{
++  int s;
++  float weight;
++  bool dense;
++};
++std::string sideNetName(const SideNetCase& c);
++
++// gtest prints a case by its test name suffix with these, not as bytes.
++void PrintTo(const FamilyCase& c, std::ostream* os);
++void PrintTo(const BroadcastCase& c, std::ostream* os);
++void PrintTo(const WeightCase& c, std::ostream* os);
++void PrintTo(const SideNetCase& c, std::ostream* os);
++
++// The broadcast path placed, against the straight placement of the same
++// design.
++struct BroadcastShape
++{
++  double detour = 0;
++  double period = 0;
++  double straight_period = 0;
++  int64_t hpwl = 0;
++  int64_t straight_hpwl = 0;
++};
++
++class PathShapeFixture : public tst::Fixture
++{
++ protected:
++  // Global placement as global_placement runs it.
++  PlaceResult place(const PlaceOptions& options, int threads = 1);
++
++  // Global placement as Replace::doPlace runs it, with the given nets'
++  // timing weight set before the Nesterov loop starts and kept throughout:
++  // what timing-driven placement would do if it weighted the path's nets
++  // from the start. Initial placement does not see the weights, as it does
++  // not in timing-driven placement either. A weight that reaches no net,
++  // or not all of them, is a construction failure.
++  PlaceResult placeWeighted(const PlaceOptions& options,
++                            const std::unordered_set<odb::dbNet*>& nets,
++                            float weight);
++
++  static PlaceOptions optionsFor(Start start);
++  static void unplace(const std::vector<odb::dbInst*>& cells);
++  std::vector<CellState> cells() const;
++  static void restore(const std::vector<CellState>& saved);
++  int64_t hpwl() const;
++
++  // Places the k clusters from every one of their k! orders and checks
++  // that at least 90% of the starts end in the straight order and that
++  // none ends with more pairs out of order than it started with.
++  void untangle(const FamilyCase& param);
++
++  // Builds the broadcast path of 6 cells, measures its straight placement,
++  // then places it from the case's start.
++  BroadcastShape placeBroadcast(const BroadcastCase& param);
++
++  // Two clusters with s side nets each pulling the wrong way, the path's
++  // nets at weight w, from the flow's start: checks that the clusters end
++  // in the order clusterOrderCosts says has the lower weighted wirelength.
++  // A case whose two orders are within kOrderTieMargin of each other is a
++  // construction failure: it would pass or fail on the length of the
++  // Nesterov run, not on the objective.
++  void checkSideNetOrder(const SideNetCase& param);
++
++ private:
++  void endLog();
++  static void checkRan(const PlaceResult& result);
++
++  std::string log_;
++};
++
++}  // namespace gpl::path_shape
+diff --git a/src/gpl/test/path_shape_targets_test.cpp b/src/gpl/test/path_shape_targets_test.cpp
+new file mode 100644
+index 0000000000..5041c7f645
+--- /dev/null
++++ b/src/gpl/test/path_shape_targets_test.cpp
+@@ -0,0 +1,264 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++// Targets for global placement on timing paths whose good shape is known
++// (path_shape.h): what a robust placer must do and gpl does not do today.
++// Every test here fails today, on its own threshold, and its cc_test is
++// tagged manual so that it does not fail `bazel test //...`. A change that
++// makes one pass moves it to path_shape_test.cpp, where it becomes an
++// invariant.
++//
++// Every check prints a "METRIC <test> <name>=<value> <op> <threshold>
++// pass|FAIL" line, and every placement a "SHAPE <test> ..." line with its
++// numbers, the iteration gpl stopped at among them.
++//
++// Most of these fail for one reason: Nesterov placement stops as soon as
++// the overflow is at or under its target, with no minimum number of
++// iterations, and on these designs the initial placement's result, or a
++// legal seed, is already under the target. The shape is then whatever
++// initial placement (which sees no density and no timing) or the seed left.
++
++#include <iostream>
++#include <string>
++#include <vector>
++
++#include "gpl/Replace.h"
++#include "gpl_design_builder.h"
++#include "gtest/gtest.h"
++#include "path_shape.h"
++
++namespace gpl::path_shape {
++namespace {
++
++class PathShapeTargetTest : public PathShapeFixture
++{
++};
++
++// Nesterov placement alone from a pile of 8 cells at the core's center,
++// with nothing else in the core: the pile is under the overflow target on
++// gpl's bin grid, so placement stops at iteration 0 with every cell still
++// in the pile. The smallest case of "Nesterov stops before wirelength is
++// optimized". TARGET: the chain placed straight, as initial placement
++// places it.
++TEST_F(PathShapeTargetTest, PileUnderTheTargetIsStillPlaced)
++{
++  DesignBuilder builder(db_.get());
++  const Path path = makeAnchoredChain(builder, 8);
++  PlaceOptions options;
++  options.initialPlaceMaxIter = 0;
++  const PlaceResult result = place(options);
++  std::cout << "SHAPE " << currentTest() << " detour=" << path.detour()
++            << runInfo(result) << "\n";
++  // Measured 1.50 at iteration 0.
++  expectMetric("detour", path.detour(), Op::kLess, 1.1);
++}
++
++class StuckFamilyTest : public PathShapeFixture,
++                        public testing::WithParamInterface<FamilyCase>
++{
++};
++
++// The k-cluster family, k = 2 to 5, with Nesterov placement only (as
++// global_placement -skip_initial_place) from every one of the k! orders,
++// compact or piled; sparse, and dense with two or three clusters. These
++// starts are under the overflow target, so Nesterov stops at once and
++// every order stays as it started; from the dense starts with four and
++// five clusters, which are over the target, Nesterov runs and untangles
++// every order (path_shape_test). TARGET: at least 90% of the starts end in
++// path order, none ends with more pairs out of order than it started with.
++TEST_P(StuckFamilyTest, NesterovUntanglesAnyOrder)
++{
++  untangle(GetParam());
++}
++
++std::vector<FamilyCase> stuckCases()
++{
++  std::vector<FamilyCase> cases;
++  for (const Seed seed : {Seed::kCompact, Seed::kPile}) {
++    for (int k = 2; k <= 5; ++k) {
++      cases.push_back({k, Start::kNesterovFromSeed, seed, false});
++    }
++    for (int k = 2; k <= 3; ++k) {
++      cases.push_back({k, Start::kNesterovFromSeed, seed, true});
++    }
++  }
++  return cases;
++}
++
++INSTANTIATE_TEST_SUITE_P(Placement,
++                         StuckFamilyTest,
++                         testing::ValuesIn(stuckCases()),
++                         [](const testing::TestParamInfo<FamilyCase>& info) {
++                           return familyName(info.param);
++                         });
++
++class BroadcastSearchTest : public PathShapeFixture,
++                            public testing::WithParamInterface<BroadcastCase>
++{
++};
++
++// Broadcast drivers with 4, 16 or 37 side loads on alternating die edges
++// and no side inputs. The straight placement has less HPWL on the path's
++// cells than what gpl finds, so this is a search failure in gpl's own
++// objective, not a mismatch of objectives: initial placement leaves the
++// path's cells between their side loads and Nesterov never runs. TARGET:
++// the path within 1.3 of straight, its period within 10% of the straight
++// placement's, and no more HPWL on the path's cells than the straight
++// placement.
++TEST_P(BroadcastSearchTest, BroadcastDriversStayOnThePath)
++{
++  const BroadcastShape shape = placeBroadcast(GetParam());
++  expectMetric("detour", shape.detour, Op::kLess, 1.3);
++  expectMetric("period_over_straight",
++               shape.period / shape.straight_period,
++               Op::kLess,
++               1.1);
++  expectMetric("hpwl_over_straight",
++               static_cast<double>(shape.hpwl) / shape.straight_hpwl,
++               Op::kAtMost,
++               1.0);
++}
++
++std::vector<BroadcastCase> broadcastSearchCases()
++{
++  std::vector<BroadcastCase> cases;
++  for (const bool dense : {false, true}) {
++    for (const int m : {4, 16, 37}) {
++      cases.push_back({m, false, Start::kFlow, dense});
++    }
++    cases.push_back({37, false, Start::kFullFromSeed, dense});
++  }
++  return cases;
++}
++
++INSTANTIATE_TEST_SUITE_P(Placement,
++                         BroadcastSearchTest,
++                         testing::ValuesIn(broadcastSearchCases()),
++                         [](const testing::TestParamInfo<BroadcastCase>& info) {
++                           return broadcastName(info.param);
++                         });
++
++// Net weights. Timing-driven placement weights the nets of critical paths
++// from STA's slacks. These tests set a timing weight on the path's nets
++// directly (placeWeighted), so they need no liberty and no STA: given the
++// weights timing-driven placement would compute, does placement use them?
++
++std::string weightParamName(const testing::TestParamInfo<WeightCase>& info)
++{
++  return weightName(info.param);
++}
++
++class BroadcastWeightTest : public PathShapeFixture,
++                            public testing::WithParamInterface<WeightCase>
++{
++};
++
++// The broadcast path with 37 side loads and side inputs, from the flow's
++// start, its nets weighted 5 (timing-driven placement's default maximum),
++// 20 or 100. Unweighted it reads 1.67, and that zigzag is the HPWL
++// optimum (path_shape_test's ObjectiveTest). TARGET: within 1.3 of
++// straight. A net weight scales the side loads on the path's nets as much
++// as the path's next cell, so this likely needs a weight per connection,
++// not per net.
++TEST_P(BroadcastWeightTest, WeightedPathStraightens)
++{
++  DesignBuilder builder(db_.get());
++  const Path path = makeBroadcastPath(builder, 6, 37, true);
++  if (GetParam().dense) {
++    addSea(builder);
++  }
++  const PlaceResult result
++      = placeWeighted(PlaceOptions{}, path.nets(), GetParam().weight);
++  std::cout << "SHAPE " << currentTest() << " detour=" << path.detour()
++            << " hpwl=" << hpwl() << runInfo(result) << "\n";
++  // Measured 1.31 (weight 5) to 1.34 (weight 100).
++  expectMetric("detour", path.detour(), Op::kLess, 1.3);
++}
++
++INSTANTIATE_TEST_SUITE_P(Placement,
++                         BroadcastWeightTest,
++                         testing::Values(WeightCase{5, false},
++                                         WeightCase{20, false},
++                                         WeightCase{100, false},
++                                         WeightCase{5, true},
++                                         WeightCase{20, true},
++                                         WeightCase{100, true}),
++                         weightParamName);
++
++class ClusterWeightTest : public PathShapeFixture,
++                          public testing::WithParamInterface<WeightCase>
++{
++};
++
++// Two clusters started swapped, Nesterov only, the path's nets weighted 5,
++// 20 or 100: the weighted wirelength wants them swapped back. Nesterov
++// stops at iteration 0 and the weights never act. TARGET: path order.
++TEST_P(ClusterWeightTest, WeightedPathUntangles)
++{
++  DesignBuilder builder(db_.get());
++  const ClusterPath cp = makeClusterPath(builder, 2, 3);
++  if (GetParam().dense) {
++    seedSea(builder, addSea(builder));
++  }
++  seedClusters(builder, cp, {1, 0}, Seed::kCompact);
++  if (inversions(clusterOrder(cp)) != 1) {
++    constructionFailure("the seed is not swapped");
++  }
++  PlaceOptions options;
++  options.initialPlaceMaxIter = 0;
++  const PlaceResult result
++      = placeWeighted(options, cp.path.nets(), GetParam().weight);
++  std::cout << "SHAPE " << currentTest() << " order=" << str(clusterOrder(cp))
++            << " detour=" << cp.path.detour() << " hpwl=" << hpwl()
++            << runInfo(result) << "\n";
++  expectMetric("inversions", inversions(clusterOrder(cp)), Op::kEqual, 0);
++}
++
++INSTANTIATE_TEST_SUITE_P(Placement,
++                         ClusterWeightTest,
++                         testing::Values(WeightCase{5, false},
++                                         WeightCase{20, false},
++                                         WeightCase{100, false},
++                                         WeightCase{5, true},
++                                         WeightCase{20, true},
++                                         WeightCase{100, true}),
++                         weightParamName);
++
++class WeightedSideNetTest : public PathShapeFixture,
++                            public testing::WithParamInterface<SideNetCase>
++{
++};
++
++// Two clusters with s side nets each pulling the wrong way, the path's
++// nets at weight w, from the flow's start: the order is the weighted
++// wirelength optimum, which the test computes (clusterOrderCosts). In every
++// case here that is the path order, and gpl leaves the clusters swapped:
++// initial placement puts them in the unweighted order without the weights,
++// and Nesterov stops at once. TARGET: the cheaper order. S6W5 is here
++// because straight is cheaper by 6.8 %, not swapped as the rule s < w for
++// points says: the clusters are wide. s = 2 at w = 5 on the sparse design
++// already holds and is in path_shape_test.
++TEST_P(WeightedSideNetTest, OrderFollowsTheWeightedOptimum)
++{
++  checkSideNetOrder(GetParam());
++}
++
++INSTANTIATE_TEST_SUITE_P(Placement,
++                         WeightedSideNetTest,
++                         testing::Values(SideNetCase{4, 5, false},
++                                         SideNetCase{6, 5, false},
++                                         SideNetCase{4, 20, false},
++                                         SideNetCase{6, 20, false},
++                                         SideNetCase{6, 100, false},
++                                         SideNetCase{2, 5, true},
++                                         SideNetCase{4, 5, true},
++                                         SideNetCase{6, 5, true},
++                                         SideNetCase{4, 20, true},
++                                         SideNetCase{6, 20, true},
++                                         SideNetCase{6, 100, true}),
++                         [](const testing::TestParamInfo<SideNetCase>& info) {
++                           return sideNetName(info.param);
++                         });
++
++}  // namespace
++}  // namespace gpl::path_shape
+diff --git a/src/gpl/test/path_shape_test.cpp b/src/gpl/test/path_shape_test.cpp
+new file mode 100644
+index 0000000000..d2fa10c1c9
+--- /dev/null
++++ b/src/gpl/test/path_shape_test.cpp
+@@ -0,0 +1,436 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++// Invariants of global placement on timing paths whose good shape is
++// known (path_shape.h): what gpl gets right today and must keep getting
++// right after any change that makes it more robust. The targets it does
++// not reach yet are in path_shape_targets_test.cpp.
++//
++// Every check prints a "METRIC <test> <name>=<value> <op> <threshold>"
++// line, and every placement a "SHAPE <test> ..." line with its numbers.
++
++#include "path_shape.h"
++
++#include <cstddef>
++#include <cstdint>
++#include <iostream>
++#include <ostream>
++#include <string>
++#include <vector>
++
++#include "gpl/Replace.h"
++#include "gpl_design_builder.h"
++#include "gtest/gtest.h"
++#include "odb/db.h"
++#include "odb/geom.h"
++
++namespace gpl::path_shape {
++namespace {
++
++class PathShapeTest : public PathShapeFixture
++{
++};
++
++class StraightPathTest : public PathShapeFixture,
++                         public testing::WithParamInterface<bool>
++{
++};
++
++// The negative control: a path with no side nets has nothing pulling it
++// off the line between its registers. Placed as the flow places it, it
++// comes out straight, and the metric reads it as straight.
++TEST_P(StraightPathTest, NoSideNetsReadsStraight)
++{
++  DesignBuilder builder(db_.get());
++  const Path path = makeAnchoredChain(builder, 8);
++  if (GetParam()) {
++    addSea(builder);
++  }
++  const PlaceResult result = place(PlaceOptions{});
++  const double detour = path.detour();
++  const double period = path.periodPs();
++  placeStraight(builder, path);
++  std::cout << "SHAPE " << currentTest() << " detour=" << detour
++            << " period=" << period << " straight_period=" << path.periodPs()
++            << runInfo(result) << "\n";
++  // Measured 1.015 in both.
++  expectMetric("detour", detour, Op::kLess, 1.1);
++  expectMetric(
++      "period_over_straight", period / path.periodPs(), Op::kLess, 1.1);
++}
++
++INSTANTIATE_TEST_SUITE_P(Placement,
++                         StraightPathTest,
++                         testing::Bool(),
++                         [](const testing::TestParamInfo<bool>& info) {
++                           return densityName(info.param);
++                         });
++
++struct DeterminismCase
++{
++  int k;
++  bool dense;
++};
++
++void PrintTo(const DeterminismCase& c, std::ostream* os)
++{
++  *os << "K" << c.k << densityName(c.dense);
++}
++
++class DeterminismTest : public PathShapeFixture,
++                        public testing::WithParamInterface<DeterminismCase>
++{
++ protected:
++  static int changed(const std::vector<CellState>& a,
++                     const std::vector<CellState>& b)
++  {
++    int count = 0;
++    for (std::size_t i = 0; i < a.size(); ++i) {
++      count += !(a[i] == b[i]);
++    }
++    return count;
++  }
++};
++
++// Same input, same placement: run to run, and with 8 threads against 1.
++// The dense design with five clusters is one where Nesterov placement runs
++// (about 230 iterations), the sparse one with three one where it does not.
++TEST_P(DeterminismTest, ClusterPathIsDeterministic)
++{
++  DesignBuilder builder(db_.get());
++  makeClusterPath(builder, GetParam().k, 3);
++  if (GetParam().dense) {
++    addSea(builder);
++  }
++  const std::vector<CellState> input = cells();
++
++  const PlaceResult result = place(PlaceOptions{});
++  std::cout << "SHAPE " << currentTest() << runInfo(result) << "\n";
++  const std::vector<CellState> first = cells();
++  restore(input);
++  place(PlaceOptions{});
++  expectMetric(
++      "cells_differing_run_to_run", changed(cells(), first), Op::kEqual, 0);
++  restore(input);
++  place(PlaceOptions{}, 8);
++  expectMetric(
++      "cells_differing_8_threads_vs_1", changed(cells(), first), Op::kEqual, 0);
++}
++
++INSTANTIATE_TEST_SUITE_P(
++    Placement,
++    DeterminismTest,
++    testing::Values(DeterminismCase{3, false}, DeterminismCase{5, true}),
++    [](const testing::TestParamInfo<DeterminismCase>& info) {
++      return "K" + std::to_string(info.param.k) + densityName(info.param.dense);
++    });
++
++// A chain between registers in opposite corners: wirelength is convex
++// here, and its minimum is a monotone staircase whose HPWL is the
++// registers' Manhattan distance less the cells' own pin spans.
++TEST_F(PathShapeTest, DiagonalChainReachesTheConvexOptimum)
++{
++  DesignBuilder builder(db_.get());
++  Path path;
++  const odb::Rect core = builder.core();
++  path.launch = addFixed(builder, "launch", core.xMin(), core.yMin());
++  path.capture = addFixed(
++      builder, "capture", core.xMax() - kCellWidth, core.yMax() - kRowHeight);
++  constexpr int kLength = 8;
++  std::string net = "path0";
++  builder.connect(path.launch, "E", net);
++  for (int i = 0; i < kLength; ++i) {
++    odb::dbInst* cell = builder.addCell("p" + std::to_string(i));
++    builder.connect(cell, "W", net);
++    net = "path" + std::to_string(i + 1);
++    builder.connect(cell, "E", net);
++    path.cells.push_back(cell);
++  }
++  builder.connect(path.capture, "W", net);
++
++  const PlaceResult result = place(PlaceOptions{});
++  const int64_t span
++      = pinAt(path.cells[0], "E").x() - pinAt(path.cells[0], "W").x();
++  const int64_t optimum
++      = manhattan(pinAt(path.launch, "E"), pinAt(path.capture, "W"))
++        - kLength * span;
++  std::cout << "SHAPE " << currentTest() << " hpwl=" << hpwl()
++            << " optimum=" << optimum << " detour=" << path.detour()
++            << runInfo(result) << "\n";
++  // Measured exactly the optimum.
++  expectMetric("hpwl_over_optimum",
++               static_cast<double>(hpwl()) / optimum,
++               Op::kLess,
++               1.05);
++  expectMetric("detour", path.detour(), Op::kLess, 1.1);
++}
++
++struct StartCase
++{
++  Start start;
++  bool dense;
++};
++
++void PrintTo(const StartCase& c, std::ostream* os)
++{
++  *os << startName(c.start) << densityName(c.dense);
++}
++
++class GoodStartTest : public PathShapeFixture,
++                      public testing::WithParamInterface<StartCase>
++{
++};
++
++// A placement that is already good, given as the start, is not destroyed:
++// the clusters stay in path order and the path stays about as straight.
++// A change that makes gpl move more must still keep it.
++TEST_P(GoodStartTest, StraightOrderIsKept)
++{
++  DesignBuilder builder(db_.get());
++  const ClusterPath cp = makeClusterPath(builder, 3, 3);
++  if (GetParam().dense) {
++    seedSea(builder, addSea(builder));
++  }
++  seedClusters(builder, cp, {0, 1, 2}, Seed::kCompact);
++  const double seed_period = cp.path.periodPs();
++  const int64_t seed_hpwl = hpwl();
++
++  const PlaceResult result = place(optionsFor(GetParam().start));
++  std::cout << "SHAPE " << currentTest() << " order=" << str(clusterOrder(cp))
++            << " detour=" << cp.path.detour() << " hpwl=" << hpwl()
++            << " seed_hpwl=" << seed_hpwl << " period=" << cp.path.periodPs()
++            << " seed_period=" << seed_period << runInfo(result) << "\n";
++  // Measured detour 1.03 to 1.05, period 1.02 to 1.03 times the seed's.
++  expectMetric("inversions", inversions(clusterOrder(cp)), Op::kEqual, 0);
++  expectMetric("detour", cp.path.detour(), Op::kLess, 1.1);
++  expectMetric(
++      "period_over_seed", cp.path.periodPs() / seed_period, Op::kLess, 1.1);
++}
++
++INSTANTIATE_TEST_SUITE_P(
++    Placement,
++    GoodStartTest,
++    testing::Values(StartCase{Start::kNesterovFromSeed, false},
++                    StartCase{Start::kFullFromSeed, false},
++                    StartCase{Start::kNesterovFromSeed, true},
++                    StartCase{Start::kFullFromSeed, true}),
++    [](const testing::TestParamInfo<StartCase>& info) {
++      return startName(info.param.start) + densityName(info.param.dense);
++    });
++
++struct CountCase
++{
++  int k;
++  bool dense;
++};
++
++void PrintTo(const CountCase& c, std::ostream* os)
++{
++  *os << "K" << c.k << densityName(c.dense);
++}
++
++class ClusterCountTest : public PathShapeFixture,
++                         public testing::WithParamInterface<CountCase>
++{
++};
++
++// Placed as the flow places a netlist, the clusters come out in path
++// order: initial placement solves for wirelength alone, where the order
++// follows the path, before density pushes back.
++TEST_P(ClusterCountTest, FlowFindsTheStraightOrder)
++{
++  DesignBuilder builder(db_.get());
++  const ClusterPath cp = makeClusterPath(builder, GetParam().k, 3);
++  if (GetParam().dense) {
++    addSea(builder);
++  }
++  const PlaceResult result = place(PlaceOptions{});
++  std::cout << "SHAPE " << currentTest() << " order=" << str(clusterOrder(cp))
++            << " detour=" << cp.path.detour() << " hpwl=" << hpwl()
++            << runInfo(result) << "\n";
++  // Measured detour 1.02 to 1.06.
++  expectMetric("inversions", inversions(clusterOrder(cp)), Op::kEqual, 0);
++  expectMetric("detour", cp.path.detour(), Op::kLess, 1.3);
++}
++
++INSTANTIATE_TEST_SUITE_P(Placement,
++                         ClusterCountTest,
++                         testing::Values(CountCase{2, false},
++                                         CountCase{3, false},
++                                         CountCase{4, false},
++                                         CountCase{5, false},
++                                         CountCase{2, true},
++                                         CountCase{3, true},
++                                         CountCase{4, true},
++                                         CountCase{5, true}),
++                         [](const testing::TestParamInfo<CountCase>& info) {
++                           return "K" + std::to_string(info.param.k)
++                                  + densityName(info.param.dense);
++                         });
++
++std::string familyParamName(const testing::TestParamInfo<FamilyCase>& info)
++{
++  return familyName(info.param);
++}
++
++class ClusterFamilyTest : public PathShapeFixture,
++                          public testing::WithParamInterface<FamilyCase>
++{
++};
++
++// Initial placement untangles any order: from the cells' places it solves
++// for wirelength alone, where the clusters line up in path order. k = 2
++// to 5 from all k! orders, compact and piled, sparse and dense.
++TEST_P(ClusterFamilyTest, InitialPlacementUntanglesAnyOrder)
++{
++  untangle(GetParam());
++}
++
++std::vector<FamilyCase> fullFromSeedCases()
++{
++  std::vector<FamilyCase> cases;
++  for (const bool dense : {false, true}) {
++    for (const Seed seed : {Seed::kCompact, Seed::kPile}) {
++      for (int k = 2; k <= 5; ++k) {
++        cases.push_back({k, Start::kFullFromSeed, seed, dense});
++      }
++    }
++  }
++  return cases;
++}
++
++INSTANTIATE_TEST_SUITE_P(Placement,
++                         ClusterFamilyTest,
++                         testing::ValuesIn(fullFromSeedCases()),
++                         familyParamName);
++
++// Nesterov placement untangles any order when it runs: started over the
++// overflow target, its density penalty starts small, wirelength leads, and
++// the clusters pass through each other into path order before density
++// holds them. The dense designs with four and five clusters are the ones
++// whose seeded start is over the target; the rest of the family is in
++// path_shape_targets_test.
++class NesterovFamilyTest : public ClusterFamilyTest
++{
++};
++
++TEST_P(NesterovFamilyTest, NesterovUntanglesAnyOrderWhenItRuns)
++{
++  untangle(GetParam());
++}
++
++INSTANTIATE_TEST_SUITE_P(
++    Placement,
++    NesterovFamilyTest,
++    testing::Values(
++        FamilyCase{4, Start::kNesterovFromSeed, Seed::kCompact, true},
++        FamilyCase{5, Start::kNesterovFromSeed, Seed::kCompact, true},
++        FamilyCase{4, Start::kNesterovFromSeed, Seed::kPile, true},
++        FamilyCase{5, Start::kNesterovFromSeed, Seed::kPile, true}),
++    familyParamName);
++
++std::string broadcastParamName(
++    const testing::TestParamInfo<BroadcastCase>& info)
++{
++  return broadcastName(info.param);
++}
++
++class BroadcastTest : public PathShapeFixture,
++                      public testing::WithParamInterface<BroadcastCase>
++{
++};
++
++// Controls for the broadcast family: a path whose nets have no side loads,
++// or one, comes out straight from the flow's start, and 37 side loads do
++// not pull a path that starts straight off its line when Nesterov runs
++// alone from there.
++TEST_P(BroadcastTest, FewSideLoadsStayOnThePath)
++{
++  const BroadcastShape shape = placeBroadcast(GetParam());
++  // Measured 1.01 and 1.07; from the straight seed 1.09 and 1.04.
++  expectMetric("detour", shape.detour, Op::kLess, 1.1);
++  expectMetric("period_over_straight",
++               shape.period / shape.straight_period,
++               Op::kLess,
++               1.1);
++}
++
++INSTANTIATE_TEST_SUITE_P(
++    Placement,
++    BroadcastTest,
++    testing::Values(BroadcastCase{0, false, Start::kFlow, false},
++                    BroadcastCase{1, false, Start::kFlow, false},
++                    BroadcastCase{0, false, Start::kFlow, true},
++                    BroadcastCase{1, false, Start::kFlow, true},
++                    BroadcastCase{37, false, Start::kNesterovFromSeed, false},
++                    BroadcastCase{37, false, Start::kNesterovFromSeed, true}),
++    broadcastParamName);
++
++// Side inputs from the far edges make the zigzag the HPWL optimum: plain
++// wirelength-driven placement finds a placement with no more HPWL on the
++// path's cells than the straight one. Only timing can say the path
++// matters, so these are not targets: a fix in timing-driven placement must
++// not change what plain wirelength placement does here.
++class ObjectiveTest : public BroadcastTest
++{
++};
++
++TEST_P(ObjectiveTest, ZigzagIsTheWirelengthOptimum)
++{
++  const BroadcastShape shape = placeBroadcast(GetParam());
++  expectMetric("hpwl_over_straight",
++               static_cast<double>(shape.hpwl) / shape.straight_hpwl,
++               Op::kAtMost,
++               1.0);
++}
++
++std::vector<BroadcastCase> objectiveCases()
++{
++  std::vector<BroadcastCase> cases;
++  for (const bool dense : {false, true}) {
++    for (const int m : {0, 4, 16, 37}) {
++      cases.push_back({m, true, Start::kFlow, dense});
++    }
++  }
++  return cases;
++}
++
++INSTANTIATE_TEST_SUITE_P(Placement,
++                         ObjectiveTest,
++                         testing::ValuesIn(objectiveCases()),
++                         broadcastParamName);
++
++class SideNetTest : public PathShapeFixture,
++                    public testing::WithParamInterface<SideNetCase>
++{
++};
++
++// Two clusters, s side nets on each pulling it to the other's side, the
++// path's nets at weight w, from the flow's start: the order follows the
++// weighted wirelength optimum, which the test computes (clusterOrderCosts)
++// rather than read off s and w, and only for cases where the two orders
++// differ by more than kOrderTieMargin. These are the cases that hold today:
++// where the side nets outweigh the path (s >= w), unweighted, and s = 2 at
++// w = 5 on the sparse design (Nesterov runs 8 iterations). S2W1 is not
++// among them: swapped is cheaper by 0.26 %, a tie that a change to how long
++// Nesterov runs could flip. The rest of s < w, with S6W5, where straight is
++// cheaper by 6.8 % and gpl leaves them swapped, is in
++// path_shape_targets_test.
++TEST_P(SideNetTest, OrderFollowsTheWeightedOptimum)
++{
++  checkSideNetOrder(GetParam());
++}
++
++INSTANTIATE_TEST_SUITE_P(Placement,
++                         SideNetTest,
++                         testing::Values(SideNetCase{0, 1, false},
++                                         SideNetCase{4, 1, false},
++                                         SideNetCase{2, 5, false},
++                                         SideNetCase{0, 1, true},
++                                         SideNetCase{4, 1, true}),
++                         [](const testing::TestParamInfo<SideNetCase>& info) {
++                           return sideNetName(info.param);
++                         });
++
++}  // namespace
++}  // namespace gpl::path_shape
