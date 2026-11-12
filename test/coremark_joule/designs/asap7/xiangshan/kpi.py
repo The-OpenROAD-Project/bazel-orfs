@@ -21,11 +21,14 @@ gives only a lower bound, drawn hollow and written "≥" in the table.
 A carved run (the parent as a macro, README "The parent as a macro") has
 no parent_ps: the parent macro is a part in `blocks` like any block
 (`XSTile_parent_kpi`), and top_ps, the Top series, is the worst path of
-the top level's crossing report (`XSTile_parent_pm_crossings`), every
-register-to-register path not contained in one macro. The report lists
-only the paths over its budget, the goal: with none, top_ps is the goal
-and `top_below` says the Top is under it. `--top crossing.txt` records
-both, and the report's paths as the Top's histogram, in the last run.
+the top level's crossing report, every register-to-register path not
+contained in one macro: `XSTile_parent_pm_crossings`, the second pass's
+report, the KPI's Top. The first pass's, `XSTile_parent_pm_firm_crossings`,
+is what the verdict compares it with. The report lists only the paths
+over its budget, the goal: with none, top_ps is the goal and `top_below`
+says the Top is under it. `--top crossing.txt` records top_ps and
+`top_below`, and the report's paths as the Top's histogram, in the last
+run.
 
 The table's floor column is the parent's one-flop-loop floor at global
 route (tools/headroom/report_floor_cycles.tcl), where a run measured it:
@@ -747,7 +750,9 @@ def main():
         "--top",
         metavar="CROSSING_TXT",
         help="record the top level's crossing report (crossing.txt) as the "
-        "last run's Top, then draw",
+        "last run's Top, then draw: XSTile_parent_pm_crossings, the second "
+        "pass's, not XSTile_parent_pm_firm_crossings, the first pass's, "
+        "which the verdict compares it with",
     )
     ap.add_argument(
         "--memory",
