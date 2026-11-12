@@ -22,6 +22,7 @@ exports_files(
         "crossing_plan.tcl",
         "crossing_time.tcl",
         "crossing_time_sets.tcl",
+        "crossing_verdict.sh",
         "evert.tcl",
         "evert.ys",
         "no_tapcells.tcl",
@@ -30,12 +31,11 @@ exports_files(
         "same_files_check.sh",
         "top_clock_check.tcl",
         "top_dissolve.tcl",
-        "top_flat_check.sh",
-        "top_flatten_check.sh",
-        "top_flatten_check.tcl",
         "top_level.tcl",
         "top_netlist.tcl",
         "unfirm.tcl",
+        "unfirm_check.sh",
+        "unfirm_check.tcl",
     ],
     visibility = ["//visibility:public"],
 )
@@ -51,7 +51,7 @@ exports_files(
     "crossing_launch_check",
     "crossing_headroom_check",
     "crossing_report",
-    "top_flat_check",
+    "crossing_verdict",
     "lec_names",
     "merge_memories",
     "break_port",
@@ -148,6 +148,21 @@ py_test(
     size = "small",
     srcs = ["crossing_ends_test.py"],
     deps = [":crossing_ends_lib"],
+)
+
+py_library(
+    name = "crossing_verdict_lib",
+    srcs = ["crossing_verdict.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "crossing_verdict_test",
+    size = "small",
+    srcs = ["crossing_verdict_test.py"],
+    # the wrapper's control is tested too
+    data = ["crossing_verdict.sh"],
+    deps = [":crossing_verdict_lib"],
 )
 
 py_library(

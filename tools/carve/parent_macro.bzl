@@ -4,6 +4,9 @@ load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run")
 load("@bazel-orfs//tools/carve:memories.bzl", "carve_memories")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
+# the settings of the Top's place step, unfirm_user_arguments (top_level.tcl)
+_UNFIRM_SETTINGS = ["TOP_UNFIRM_DEEP", "TOP_UNFIRM_SIDE", "TOP_CLOCK_PERIOD"]
+
 def parent_macro_flow(
         name,
         top,
@@ -32,8 +35,7 @@ def parent_macro_flow(
         whole_check = False,
         headroom_sets = "",
         headroom_skip = "",
-        top_flat_user_arguments = {},
-        top_flat_check_ps = None,
+        unfirm_user_arguments = {},
         crossing_data_min_ps = "1500",
         variant = None,
         pdk = "//flow:asap7",
@@ -58,8 +60,15 @@ def parent_macro_flow(
     (top_netlist.tcl), each placed by the plan and dissolved into the
     cells, nets and route guides of its own global route, its clock tree
     left behind (top_dissolve.tcl): the cells stay fixed where their
-    macro put them; <name>_pm_top (top_level.tcl) builds one clock tree
-    over every register and routes the stitches and the clock.
+    macro put them. top_level.tcl builds it in two passes. The first,
+    <name>_pm_firm_top, builds one clock tree over every register and
+    routes the stitches and the clock, every cell where its macro put it.
+    The second starts again from the floorplan: <name>_pm_top_place
+    unfirms the cells on the first pass's crossing paths over the
+    report's budget (unfirm.tcl: made movable, their nets' routes
+    dropped), places them by global placement with timing and
+    routability driving among the fixed rest and repairs them;
+    <name>_pm_top builds the clock tree and routes, as the first pass.
 
     The crossing report: every reg2reg path not contained in one macro
     that needs more than budget_ps, each cell on it by name, timed in
@@ -68,7 +77,22 @@ def parent_macro_flow(
     crossing cones and writes it with its parasitics as SPEF,
     <name>_pm_crossing_time times each in a process of its own, and
     <name>_pm_crossings merges them: crossing.txt, tables.md and
-    histogram.svg.
+    histogram.svg. These are the second pass's; the first pass's are
+    <name>_pm_firm_crossing_plan, _sets, _time and <name>_pm_firm_crossings,
+    under <name>_pm/firm. <name>_pm_crossing_ends writes the end pins of
+    the first pass's crossings over the budget from its crossing data
+    (crossing_ends.py), the second pass's input, and
+    <name>_pm_crossing_verdict compares the two reports
+    (crossing_verdict.py). The second pass needs a crossing over the
+    budget in the first: with none there is nothing to unfirm, and
+    <name>_pm_crossing_ends stops, and every target of the second pass
+    with it.
+
+    Run by hand: <name>_pm_unfirm, the second pass's selection on the
+    floorplan, its counts and its stops' controls (unfirm_check.tcl), and
+    <name>_pm_crossing_floor, how much of each crossing of the second
+    pass is wire (crossing_floor.tcl), with its control,
+    <name>_pm_crossing_floor_control.
 
     Args:
       name: the parent macro's flow; the top level is <name>_pm.
@@ -108,19 +132,27 @@ def parent_macro_flow(
       crossing_data_min_ps: the crossing timing also writes every crossing
         path needing more than this, under the budget too, with its wire
         delay and both ends' places (crossing_data.<set>.tsv beside the
-        report), for the carve's offline model; "" writes none.
-      whole_check: time the top level whole too, <name>_pm_crossing_whole,
-        and test that the sets report the same paths,
-        <name>_pm_crossing_test; for a design small enough to time whole.
+        report), for the carve's offline model and for the second pass,
+        which takes its ends from the first pass's; below the report's
+        budget, or the flow is refused.
+      whole_check: the checks for a design small enough to time whole:
+        the top level timed whole, <name>_pm_crossing_whole, reports the
+        paths the sets do (<name>_pm_crossing_test); the launch and
+        headroom checks; the second pass's selection and stops
+        (<name>_pm_unfirm_test), its verdict against the first
+        (<name>_pm_crossing_verdict_test), the constraints both hand on
+        (<name>_pm_top_sdc_test) and the crossing floor
+        (<name>_pm_crossing_floor_test).
       headroom_sets: the crossing sets <name>_pm_crossing_headroom
         measures, their numbers separated by spaces; empty: every set.
       headroom_skip: the measurements it skips, of: wire vt skew cycles.
-      top_flat_user_arguments: top_level.tcl's settings for
-        <name>_pm_top_flat, the top level that takes its macros' boundary
-        logic over (TOP_FLATTEN); whole_check only.
-      top_flat_check_ps: the period <name>_pm_top_flat_test checks: the
-        top level as built fails it, the flattened one passes it, and no
-        macro's own paths get worse.
+      unfirm_user_arguments: top_level.tcl's settings for the second
+        pass's place step, <name>_pm_top_place, and <name>_pm_unfirm:
+        TOP_UNFIRM_DEEP, the registers deep past the paths' own the
+        selection takes (0, the paths only); TOP_UNFIRM_SIDE, the side
+        that depth is taken on, both (default), back or fwd;
+        TOP_CLOCK_PERIOD, the period, ps, the place step is timed at, the
+        SDC's by default. Any other key is refused.
       variant: the parent macro's variant, when another flow of the
         package has the same top module; its targets are then
         <name>_<variant>_<stage>, and <name>_<variant> stands for <name>
@@ -128,6 +160,24 @@ def parent_macro_flow(
       pdk: the PDK.
       tags: forwarded.
     """
+
+    # the second pass's ends are the first pass's crossing data over the
+    # budget, which crossing_paths.tcl writes only when its threshold is
+    # below the budget
+    report_budget = report_budget_ps or budget_ps
+    if not crossing_data_min_ps or float(crossing_data_min_ps) >= float(report_budget):
+        fail(("parent_macro_flow %s: crossing_data_min_ps is '%s', not below the " +
+              "crossing report's budget, %s ps: the Top's second pass takes its " +
+              "ends from the first pass's crossing data, which crossing_paths.tcl " +
+              "writes only when this threshold is below the budget") %
+             (name, crossing_data_min_ps, report_budget))
+
+    # unfirm_user_arguments takes only TOP_UNFIRM_DEEP, TOP_UNFIRM_SIDE and
+    # TOP_CLOCK_PERIOD
+    unread = [k for k in unfirm_user_arguments if k not in _UNFIRM_SETTINGS]
+    if unread:
+        fail("parent_macro_flow %s: unfirm_user_arguments takes only %s and %s, not %s" %
+             (name, ", ".join(_UNFIRM_SETTINGS[:-1]), _UNFIRM_SETTINGS[-1], ", ".join(sorted(unread))))
     base = name + ("_" + variant if variant else "")
     names = sorted(blocks.keys())
     clocks = " ".join(block_clocks)
@@ -322,7 +372,7 @@ def parent_macro_flow(
 
     _top_level(
         pm,
-        budget_ps = report_budget_ps or budget_ps,
+        budget_ps = report_budget,
         max_skew_ps = max_skew_ps,
         plan_budget = plan_budget,
         top_level_arguments = top_level_arguments,
@@ -330,14 +380,13 @@ def parent_macro_flow(
         whole_check = whole_check,
         headroom_sets = headroom_sets,
         headroom_skip = headroom_skip,
-        top_flat_user_arguments = top_flat_user_arguments,
-        top_flat_check_ps = top_flat_check_ps,
+        unfirm_user_arguments = unfirm_user_arguments,
         crossing_data_min_ps = crossing_data_min_ps,
         tags = tags,
     )
 
-def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top_level_user_arguments, whole_check, headroom_sets, headroom_skip, top_flat_user_arguments, top_flat_check_ps, crossing_data_min_ps, tags):
-    """The top level's clock tree and global route, and its crossing report.
+def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top_level_user_arguments, whole_check, headroom_sets, headroom_skip, unfirm_user_arguments, crossing_data_min_ps, tags):
+    """The top level's two passes, each to global route with its crossing report.
 
     Args:
       pm: the top level's flow, at its floorplan.
@@ -347,12 +396,11 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
       top_level_arguments: ORFS variables for top_level.tcl's runs.
       top_level_user_arguments: top_level.tcl's own settings.
       whole_check: time the top level whole too and test the sets
-        against it.
+        against it, and test the second pass.
       headroom_sets: the crossing sets the headroom measures.
       headroom_skip: the measurements the headroom skips.
-      top_flat_user_arguments: top_level.tcl's settings for the top level
-        that takes its macros' boundary logic over (whole_check only).
-      top_flat_check_ps: the period the flattened top level's test checks.
+      unfirm_user_arguments: top_level.tcl's settings for the second
+        pass's place step and the unfirm check.
       crossing_data_min_ps: the crossing timing's dataset threshold, ps.
       tags: forwarded.
     """
@@ -371,81 +419,120 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
         # (patch 0173)
         "GLOBAL_ROUTE_ARGS": "-allow_congestion -verbose -unguided_only",
     } | top_level_arguments
-    top = ":%s_top" % pm
+    unfirm_tcl = {"UNFIRM_TCL": ["@bazel-orfs//tools/carve:unfirm.tcl"]}
+    ends = ":%s/ends.tsv" % pm
 
-    # floorplan to global route: the routed top level, 5_top_grt.odb
+    # The Top's runs are on this machine, never on a remote executor: on
+    # XSTile the first pass's Top peaks at 77 GB, and the place step at
+    # 74 GB for two hours.
+    local = tags + ["no-remote-exec"]
+
+    # the first pass, floorplan to global route, every cell where its
+    # macro put it: the routed top level, 5_top_grt.odb
+    firm_top = ":%s_firm_top" % pm
+    orfs_run(
+        name = "%s_firm_top" % pm,
+        src = ":%s_floorplan" % pm,
+        out_dir = "%s/firm/top" % pm,
+        cmd = "run",
+        script = "@bazel-orfs//tools/carve:top_level.tcl",
+        arguments = top_arguments,
+        tags = local,
+        user_arguments = top_level_user_arguments | {"MAX_SKEW_PS": max_skew_ps},
+        user_sources = scripts,
+    )
+    firm = _crossing_report(
+        "%s_firm" % pm,
+        "%s/firm" % pm,
+        pm = pm,
+        top = firm_top,
+        budget_ps = budget_ps,
+        plan_budget = plan_budget,
+        crossing_data_min_ps = crossing_data_min_ps,
+        top_arguments = top_arguments,
+        top_level_user_arguments = top_level_user_arguments,
+        scripts = scripts,
+        tags = tags,
+    )
+
+    # the end pins of the first pass's crossing paths over the budget,
+    # each in the group of its worst path, and their start pins: what the
+    # second pass unfirms; crossing_ends.py stops when there is none
+    native.genrule(
+        name = "%s_crossing_ends" % pm,
+        srcs = [firm.times],
+        outs = ["%s/ends.tsv" % pm, "%s/starts.txt" % pm],
+        cmd = "$(location @bazel-orfs//tools/carve:crossing_ends) $(location %s) %s $$(dirname $(location %s))" % (firm.times, budget_ps, ends),
+        tools = ["@bazel-orfs//tools/carve:crossing_ends"],
+        tags = tags,
+    )
+
+    # the second pass's place step, from the floorplan: the cells on the
+    # paths into those ends unfirmed, placed among the fixed rest and
+    # repaired (unfirm.tcl), 3_top_place.odb. An action of its own, given
+    # only the settings that step reads, so that a change to the tree's or
+    # the route's settings leaves the placement cached
+    place = ":%s_top_place" % pm
+    orfs_run(
+        name = "%s_top_place" % pm,
+        src = ":%s_floorplan" % pm,
+        out_dir = "%s/place" % pm,
+        cmd = "run",
+        data = [ends],
+        script = "@bazel-orfs//tools/carve:top_level.tcl",
+        arguments = {
+            # timing-driven global placement keeps the buffers of its
+            # repair only below this overflow; at 0 they are made on the
+            # final placement. XiangShan's parent sets the same, for the
+            # same reason (xiangshan.bzl, XS_PARENT)
+            "GPL_KEEP_OVERFLOW": "0",
+        },
+        tags = local,
+        user_arguments = {
+            "TOP_TO": "place",
+            "TOP_UNFIRM": "$(location %s)" % ends,
+        } | unfirm_user_arguments,
+        user_sources = unfirm_tcl,
+    )
+
+    # the second pass, from the place step to global route: the tree over
+    # every register, the legaliser seating the placed cells with the
+    # clock buffers, and global route, which stops on a net of theirs it
+    # left without a route (unfirm.tcl): the routed top level,
+    # 5_top_grt.odb
+    top = ":%s_top" % pm
     orfs_run(
         name = "%s_top" % pm,
         src = ":%s_floorplan" % pm,
         out_dir = "%s/top" % pm,
         cmd = "run",
-        script = "@bazel-orfs//tools/carve:top_level.tcl",
-        arguments = top_arguments,
-        tags = tags,
-        user_arguments = top_level_user_arguments | {"MAX_SKEW_PS": max_skew_ps},
-        user_sources = scripts,
-    )
-
-    # the sets: every path's signature held by one
-    orfs_run(
-        name = "%s_crossing_plan" % pm,
-        src = ":%s_floorplan" % pm,
-        outs = ["%s/sets.txt" % pm, "%s/signatures.txt" % pm],
-        cmd = "run",
-        data = [top],
-        script = "@bazel-orfs//tools/carve:crossing_plan.tcl",
-        tags = tags,
-        user_arguments = {
-            "CROSSING_SETS": "$(location %s/sets.txt)" % pm,
-            "CROSSING_SIGNATURES": "$(location %s/signatures.txt)" % pm,
-            "PLAN_BUDGET": plan_budget,
-            "TOP_DIR": "$(location %s)" % top,
-        },
-    )
-
-    # The sets are cut and timed on this machine, never on a remote
-    # executor: a set takes 60-70 GB to cut or time, and several started at
-    # once on remote executors were killed for memory (exit 137); in one
-    # action they run one at a time, as memory here allows. Bazel has no
-    # per-action memory reservation for local actions to run two at once.
-    local = tags + ["no-remote-exec"]
-
-    # each set cut to its crossing cones, written with its parasitics
-    orfs_run(
-        name = "%s_crossing_sets" % pm,
-        src = ":%s_floorplan" % pm,
-        out_dir = "%s/sets" % pm,
-        cmd = "run",
-        data = [top, ":%s/sets.txt" % pm],
+        data = [place, ends],
         script = "@bazel-orfs//tools/carve:top_level.tcl",
         arguments = top_arguments,
         tags = local,
         user_arguments = top_level_user_arguments | {
-            "CROSSING_SETS": "$(location :%s/sets.txt)" % pm,
-            "TOP_DIR": "$(location %s)" % top,
-            "TOP_FROM": "grt",
+            "MAX_SKEW_PS": max_skew_ps,
+            "TOP_DIR": "$(location %s)" % place,
+            "TOP_FROM": "place",
+            "TOP_UNFIRM": "$(location %s)" % ends,
         },
-        user_sources = scripts,
+        user_sources = scripts | unfirm_tcl,
     )
-
-    # each set timed in a process of its own
-    sets = ":%s_crossing_sets" % pm
-    orfs_run(
-        name = "%s_crossing_time" % pm,
-        src = ":%s_floorplan" % pm,
-        out_dir = "%s/time" % pm,
-        cmd = "run",
-        data = [sets, ":%s/sets.txt" % pm],
-        script = "@bazel-orfs//tools/carve:crossing_time_sets.tcl",
-        tags = local,
-        user_arguments = {
-            "BUDGET_PS": budget_ps,
-            "CROSSING_DATA_MIN_PS": crossing_data_min_ps,
-            "CROSSING_SETS": "$(location :%s/sets.txt)" % pm,
-            "SETS_DIR": "$(location %s)" % sets,
-        },
-        user_sources = scripts,
+    final = _crossing_report(
+        pm,
+        pm,
+        pm = pm,
+        top = top,
+        budget_ps = budget_ps,
+        plan_budget = plan_budget,
+        crossing_data_min_ps = crossing_data_min_ps,
+        top_arguments = top_arguments,
+        top_level_user_arguments = top_level_user_arguments,
+        scripts = scripts,
+        tags = tags,
     )
+    sets = final.sets
+    times = final.times
 
     # how much earlier each flop launching a crossing over the budget
     # could be clocked, and the hold padding that would take
@@ -502,42 +589,77 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
         },
     )
 
-    times = ":%s_crossing_time" % pm
-    report = "$(location @bazel-orfs//tools/carve:crossing_report)"
+    # how much of each crossing is wire: each set timed as placed and with
+    # its signal wires' resistance and capacitance near zero, the clock's
+    # as placed in both (crossing_floor.tcl), an estimate on placement
+    # parasitics, not the report's numbers; the control leaves the signal
+    # wires as placed in both readings: run by hand, on this machine as the
+    # sets' timing is (_crossing_report)
+    floor = ":%s_crossing_floor" % pm
+    floor_control = ":%s_crossing_floor_control" % pm
+    for out, control in [("floor", {}), ("floor_control", {"FLOOR_CONTROL": "1"})]:
+        orfs_run(
+            name = "%s_crossing_%s" % (pm, out),
+            src = ":%s_floorplan" % pm,
+            out_dir = "%s/%s" % (pm, out),
+            cmd = "run",
+            data = [sets, ":%s/sets.txt" % pm],
+            script = "@bazel-orfs//tools/carve:crossing_time_sets.tcl",
+            tags = ["manual", "no-remote-exec"],
+            user_arguments = {
+                "BUDGET_PS": budget_ps,
+                "CROSSING_DATA_MIN_PS": crossing_data_min_ps,
+                "CROSSING_SETS": "$(location :%s/sets.txt)" % pm,
+                "SETS_DIR": "$(location %s)" % sets,
+            } | control,
+            user_sources = scripts | {
+                "CROSSING_TIME": ["@bazel-orfs//tools/carve:crossing_floor.tcl"],
+            },
+        )
+
+    # the second pass's selection on the floorplan, nothing placed: its
+    # counts, the unfirm rules, and each stop's control raising its own
+    # message (unfirm_check.tcl): run by hand, on this machine as the
+    # Top's runs are
+    orfs_run(
+        name = "%s_unfirm" % pm,
+        src = ":%s_floorplan" % pm,
+        outs = ["%s/unfirm.txt" % pm],
+        cmd = "run",
+        data = [ends],
+        script = "@bazel-orfs//tools/carve:unfirm_check.tcl",
+        tags = ["manual", "no-remote-exec"],
+        user_arguments = {
+            "TOP_UNFIRM": "$(location %s)" % ends,
+            "UNFIRM_TXT": "$(location %s/unfirm.txt)" % pm,
+        } | unfirm_user_arguments,
+        user_sources = unfirm_tcl,
+    )
+
+    # the second pass against the first (crossing_verdict.py): pairs over
+    # the budget and the worst crossing of each, by group, whether both
+    # were timed in the same sets, and the paths inside one macro
+    verdict = "@bazel-orfs//tools/carve:crossing_verdict"
     native.genrule(
-        name = "%s_crossings" % pm,
-        srcs = [times, ":%s/sets.txt" % pm],
-        outs = ["%s/crossings/%s" % (pm, f) for f in ["crossing.txt", "tables.md", "histogram.svg"]],
-        cmd = "%s $$(dirname $(location %s/crossings/crossing.txt)) %s $(location :%s/sets.txt) $(location %s)" % (report, pm, budget_ps, pm, times),
-        tools = ["@bazel-orfs//tools/carve:crossing_report"],
-        tags = tags,
+        name = "%s_crossing_verdict" % pm,
+        srcs = [firm.sets_txt, final.sets_txt, firm.times, final.times, firm.crossing_txt, final.crossing_txt],
+        outs = ["%s/verdict.txt" % pm],
+        cmd = "$(location %s) --sets $(location %s) $(location %s) --time $(location %s) $(location %s) %s $(location %s) $(location %s) > $@ && cat $@" % (
+            verdict,
+            firm.sets_txt,
+            final.sets_txt,
+            firm.times,
+            final.times,
+            budget_ps,
+            firm.crossing_txt,
+            final.crossing_txt,
+        ),
+        tools = [verdict],
+        tags = ["manual"],
     )
 
     if not whole_check:
         return
-
-    # crossing_cones' flatten mode on the dissolved top level: the
-    # boundary logic movable and unrouted, the macros' register-to-register
-    # logic and every register fixed (top_flatten_check.tcl)
-    orfs_run(
-        name = "%s_top_flatten" % pm,
-        src = ":%s_floorplan" % pm,
-        outs = ["%s/flatten.txt" % pm],
-        cmd = "run",
-        script = "@bazel-orfs//tools/carve:top_flatten_check.tcl",
-        tags = tags,
-        user_arguments = {
-            "CONE_MACROS": "all",
-            "FLATTEN_TXT": "$(location %s/flatten.txt)" % pm,
-        },
-    )
-    sh_test(
-        name = "%s_top_flatten_test" % pm,
-        srcs = ["@bazel-orfs//tools/carve:top_flatten_check.sh"],
-        args = ["$(rootpath :%s/flatten.txt)" % pm],
-        data = [":%s/flatten.txt" % pm],
-        tags = tags,
-    )
 
     # the method's check, on a design small enough to time whole: the
     # top level timed in one process reports the paths the sets do
@@ -558,57 +680,6 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
         },
         user_sources = scripts,
     )
-
-    # the top level taking its macros' boundary logic over (TOP_FLATTEN):
-    # placed, repaired and routed again with the crossings whole
-    orfs_run(
-        name = "%s_top_flat" % pm,
-        src = ":%s_floorplan" % pm,
-        out_dir = "%s/top_flat" % pm,
-        cmd = "run",
-        script = "@bazel-orfs//tools/carve:top_level.tcl",
-        arguments = top_arguments,
-        tags = tags,
-        user_arguments = top_level_user_arguments | {
-            "MAX_SKEW_PS": max_skew_ps,
-            "TOP_FLATTEN": "all",
-        } | top_flat_user_arguments,
-        user_sources = scripts,
-    )
-    orfs_run(
-        name = "%s_crossing_whole_flat" % pm,
-        src = ":%s_floorplan" % pm,
-        outs = ["%s/whole_flat.txt" % pm],
-        cmd = "run",
-        data = [":%s_top_flat" % pm],
-        script = "@bazel-orfs//tools/carve:top_level.tcl",
-        tags = tags,
-        user_arguments = top_level_user_arguments | {
-            "BUDGET_PS": budget_ps,
-            "CROSSING_TXT": "$(location %s/whole_flat.txt)" % pm,
-            "MAX_SKEW_PS": max_skew_ps,
-            "TOP_DIR": "$(location :%s_top_flat)" % pm,
-            "TOP_FROM": "grt",
-        },
-        user_sources = scripts,
-    )
-    if top_flat_check_ps:
-        sh_test(
-            name = "%s_top_flat_test" % pm,
-            srcs = ["@bazel-orfs//tools/carve:top_flat_check.sh"],
-            args = [
-                "$(rootpath @bazel-orfs//tools/carve:top_flat_check)",
-                top_flat_check_ps,
-                "$(rootpath :%s/whole.txt)" % pm,
-                "$(rootpath :%s/whole_flat.txt)" % pm,
-            ],
-            data = [
-                ":%s/whole.txt" % pm,
-                ":%s/whole_flat.txt" % pm,
-                "@bazel-orfs//tools/carve:top_flat_check",
-            ],
-            tags = tags,
-        )
     sh_test(
         name = "%s_crossing_test" % pm,
         srcs = ["@bazel-orfs//tools/carve:crossing_check.sh"],
@@ -666,4 +737,185 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
             "@bazel-orfs//tools/carve:crossing_headroom_check",
         ],
         tags = tags,
+    )
+
+    # the second pass's selection: some cells unfirmed and the rest left
+    # firm, and every control raised its stop (unfirm_check.sh)
+    sh_test(
+        name = "%s_unfirm_test" % pm,
+        srcs = ["@bazel-orfs//tools/carve:unfirm_check.sh"],
+        args = ["$(rootpath :%s/unfirm.txt)" % pm],
+        data = [":%s/unfirm.txt" % pm],
+        tags = tags,
+    )
+
+    # the second pass against the first: it moved the crossings, by the
+    # rule's verdict; the first pass's report against itself must first
+    # read as having done nothing (crossing_verdict.sh)
+    sh_test(
+        name = "%s_crossing_verdict_test" % pm,
+        srcs = ["@bazel-orfs//tools/carve:crossing_verdict.sh"],
+        args = [
+            "$(rootpath %s)" % verdict,
+            budget_ps,
+            "$(rootpath %s)" % firm.crossing_txt,
+            "$(rootpath %s)" % final.crossing_txt,
+            "--expect",
+            "moved",
+            "--sets",
+            "$(rootpath %s)" % firm.sets_txt,
+            "$(rootpath %s)" % final.sets_txt,
+            "--time",
+            "$(rootpath %s)" % firm.times,
+            "$(rootpath %s)" % final.times,
+        ],
+        data = [
+            firm.sets_txt,
+            final.sets_txt,
+            firm.times,
+            final.times,
+            firm.crossing_txt,
+            final.crossing_txt,
+            verdict,
+        ],
+        tags = tags,
+    )
+
+    # the constraints each pass hands on are the floorplan's, the ones
+    # read: the place step's clock period and false paths reach neither
+    # the tree, the route nor the report (top_level.tcl's top_checkpoint)
+    sh_test(
+        name = "%s_top_sdc_test" % pm,
+        srcs = ["@bazel-orfs//tools/carve:same_files_check.sh"],
+        args = [
+            "$(rootpath %s)/3_top_place.sdc" % place,
+            "$(rootpath %s)/5_top_grt.sdc" % firm_top,
+            "$(rootpath %s)/5_top_grt.sdc" % top,
+            "$(rootpath %s)/5_top_grt.sdc" % firm_top,
+        ],
+        data = [place, top, firm_top],
+        tags = tags,
+    )
+
+    # how much of each crossing is wire: with no signal wire the worst
+    # crossing is lower; the control reads the same twice and fails that
+    # check; every set has its report in both (crossing_floor_check.py)
+    sh_test(
+        name = "%s_crossing_floor_test" % pm,
+        srcs = ["@bazel-orfs//tools/carve:crossing_floor_check.sh"],
+        args = [
+            "$(rootpath @bazel-orfs//tools/carve:crossing_floor_check)",
+            budget_ps,
+            "$(rootpath %s)" % floor,
+            "--control",
+            "$(rootpath %s)" % floor_control,
+            "--sets",
+            "$(rootpath :%s/sets.txt)" % pm,
+        ],
+        data = [
+            floor,
+            floor_control,
+            ":%s/sets.txt" % pm,
+            "@bazel-orfs//tools/carve:crossing_floor_check",
+        ],
+        tags = tags,
+    )
+
+def _crossing_report(stem, out, pm, top, budget_ps, plan_budget, crossing_data_min_ps, top_arguments, top_level_user_arguments, scripts, tags):
+    """One pass's crossing report: its sets planned, cut, timed and merged.
+
+    Args:
+      stem: the targets' stem, <stem>_crossing_plan and the rest.
+      out: the directory of their outputs, in the package.
+      pm: the top level's flow, at its floorplan.
+      top: the pass's routed top level.
+      budget_ps: the crossing report's budget, ps.
+      plan_budget: instances a crossing set may hold.
+      crossing_data_min_ps: the crossing timing's dataset threshold, ps.
+      top_arguments: ORFS variables for top_level.tcl's runs.
+      top_level_user_arguments: top_level.tcl's own settings.
+      scripts: the scripts top_level.tcl and the timing source.
+      tags: forwarded.
+
+    Returns:
+      The sets file, the cut sets, the timed sets and the report's
+      crossing.txt, by label.
+    """
+
+    # the sets: every path's signature held by one
+    orfs_run(
+        name = "%s_crossing_plan" % stem,
+        src = ":%s_floorplan" % pm,
+        outs = ["%s/sets.txt" % out, "%s/signatures.txt" % out],
+        cmd = "run",
+        data = [top],
+        script = "@bazel-orfs//tools/carve:crossing_plan.tcl",
+        tags = tags,
+        user_arguments = {
+            "CROSSING_SETS": "$(location %s/sets.txt)" % out,
+            "CROSSING_SIGNATURES": "$(location %s/signatures.txt)" % out,
+            "PLAN_BUDGET": plan_budget,
+            "TOP_DIR": "$(location %s)" % top,
+        },
+    )
+
+    # The sets are cut and timed on this machine, never on a remote
+    # executor: a set takes 60-70 GB to cut or time, and several started at
+    # once on remote executors were killed for memory (exit 137); in one
+    # action they run one at a time, as memory here allows. Bazel has no
+    # per-action memory reservation for local actions to run two at once.
+    local = tags + ["no-remote-exec"]
+
+    # each set cut to its crossing cones, written with its parasitics
+    orfs_run(
+        name = "%s_crossing_sets" % stem,
+        src = ":%s_floorplan" % pm,
+        out_dir = "%s/sets" % out,
+        cmd = "run",
+        data = [top, ":%s/sets.txt" % out],
+        script = "@bazel-orfs//tools/carve:top_level.tcl",
+        arguments = top_arguments,
+        tags = local,
+        user_arguments = top_level_user_arguments | {
+            "CROSSING_SETS": "$(location :%s/sets.txt)" % out,
+            "TOP_DIR": "$(location %s)" % top,
+            "TOP_FROM": "grt",
+        },
+        user_sources = scripts,
+    )
+
+    # each set timed in a process of its own
+    sets = ":%s_crossing_sets" % stem
+    orfs_run(
+        name = "%s_crossing_time" % stem,
+        src = ":%s_floorplan" % pm,
+        out_dir = "%s/time" % out,
+        cmd = "run",
+        data = [sets, ":%s/sets.txt" % out],
+        script = "@bazel-orfs//tools/carve:crossing_time_sets.tcl",
+        tags = local,
+        user_arguments = {
+            "BUDGET_PS": budget_ps,
+            "CROSSING_DATA_MIN_PS": crossing_data_min_ps,
+            "CROSSING_SETS": "$(location :%s/sets.txt)" % out,
+            "SETS_DIR": "$(location %s)" % sets,
+        },
+        user_sources = scripts,
+    )
+
+    times = ":%s_crossing_time" % stem
+    report = "$(location @bazel-orfs//tools/carve:crossing_report)"
+    native.genrule(
+        name = "%s_crossings" % stem,
+        srcs = [times, ":%s/sets.txt" % out],
+        outs = ["%s/crossings/%s" % (out, f) for f in ["crossing.txt", "tables.md", "histogram.svg"]],
+        cmd = "%s $$(dirname $(location %s/crossings/crossing.txt)) %s $(location :%s/sets.txt) $(location %s)" % (report, out, budget_ps, out, times),
+        tools = ["@bazel-orfs//tools/carve:crossing_report"],
+        tags = tags,
+    )
+    return struct(
+        sets_txt = ":%s/sets.txt" % out,
+        sets = sets,
+        times = times,
+        crossing_txt = ":%s/crossings/crossing.txt" % out,
     )

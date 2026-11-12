@@ -1,47 +1,61 @@
 # The top level of a parent macro (parent_macro.bzl) after its floorplan,
 # the parent and its blocks dissolved: one script, not ORFS's place, CTS
-# and global route, which optimise cells and this top level has none to
-# optimise. Every cell is fixed where its macro placed and repaired it;
-# what is left is the clock tree over every register and the routes
-# between the macros. On XSTile the flow's place and CTS spent most of
-# their two hours on parasitics estimates, repair and legalisation of
-# fixed cells.
+# and global route, which optimise every cell, where here nearly every
+# cell is fixed where its macro placed and repaired it. On XSTile the
+# flow's place and CTS spent most of their two hours on parasitics
+# estimates, repair and legalisation of fixed cells.
+#
+# The Top is built in two passes. The first, firm, leaves every cell where
+# its macro placed it and builds the clock tree over every register and
+# the routes between the macros; the end pins of its crossing paths over
+# the budget are the second pass's (crossing_ends, TOP_UNFIRM). The
+# second starts again from the floorplan: the cells of the paths into
+# those ends, their registers with them, are unfirmed (unfirm.tcl),
+# placed by global placement with timing and routability driving, and
+# repaired; then the tree, the legaliser, which seats them with the clock
+# tree's buffers, and global route, as in the first pass.
 #
 # Each step writes its result, and TOP_FROM resumes after one, so a step
 # that fails is run again without the ones before it; TOP_TO stops after
 # one, so each step's time and memory are its own process's:
 #
-#   floorplan  (default) 2_floorplan.odb: the clock tree first
-#   place      3_top_place.odb, TOP_FLATTEN only: the boundary logic placed
+#   floorplan  (default) 2_floorplan.odb: the place step next with
+#              TOP_UNFIRM, else the clock tree
+#   place      3_top_place.odb, TOP_UNFIRM only: the unfirmed cells placed
+#              and repaired, place.txt and moved.tsv beside it; run alone
+#              (TOP_TO place), its timing settings its own
 #   tree       4_top_cts_tree.odb, the tree as built: the legaliser next
-#   cts        4_top_cts.odb, the tree legalised: global route next
+#   cts        4_top_cts.odb, legalised: global route next
 #   grt        5_top_grt.odb, routed: the crossings, and the clock check
 #              when they are timed whole (CROSSING_TXT, no CROSSING_SETS)
 #
-# TOP_FLATTEN names the macros whose boundary logic the top level takes
-# over ("all"): each part's in2reg, reg2out and in2out logic up to the
-# first register, the cells crossing_cones' flatten mode makes movable,
-# is placed again and repaired with the crossings whole, the clock tree
-# is built over it, and its nets are routed; the macros'
-# register-to-register logic and their registers stay where their macros
-# placed and routed them.
+# Every step's .sdc is the floorplan's, the constraints read: the clock
+# period and the false paths the place step times its placement with are
+# its own, and reach neither the tree, the legaliser, global route nor
+# the crossing report. Under Bazel (parent_macro.bzl) the run writes only
+# its last step's design and .sdc to its output directory
+# (RUN_OUTPUT_DIR), and TOP_DIR names the directory a later run resumes
+# from. A variable is read only in the step that uses it.
 #
-# Under Bazel (parent_macro.bzl) the run writes only the routed design,
-# 5_top_grt.odb and .sdc, to its output directory (RUN_OUTPUT_DIR), and
-# TOP_DIR names the directory a later run resumes from.
-#
-#   TOP_FLATTEN        the macros whose boundary logic the top level takes
-#   PARENT_INST        the parent's instance (u_parent)
-#   TOP_GPL_ARGS       global_placement's further arguments (TOP_FLATTEN)
-#   TOP_SKIP_GPL       1: the boundary logic stays where its macros placed
-#                      it; repair and the legaliser move what they must
-#   TOP_CLOCK_PERIOD   the period the Top repairs to (TOP_FLATTEN), the
-#                      SDC's by default: repair works on failing paths only
-#   CTS_CLUSTER_SIZE   the clock tree's sink clusters
-#   TOP_DPL_ARGS       the legaliser's further arguments
-#   GLOBAL_ROUTE_ARGS  global_route's arguments
-#   SKIP_PIN_ACCESS    1 when the macros skipped pin access
-#   TOP_GRT_ITERATIONS global route's congestion iterations (0)
+#   TOP_UNFIRM         the ends file (crossing_ends' ends.tsv); empty or
+#                      unset: the firm pass, no place step
+#   UNFIRM_TCL         unfirm.tcl, sourced when TOP_UNFIRM is set
+#   TOP_UNFIRM_DEEP    place: registers deep past the paths' own (0)
+#   TOP_UNFIRM_SIDE    place: the side the depth is taken on, both
+#                      (default), back or fwd
+#   TOP_CLOCK_PERIOD   place: the period the placement is timed at, the
+#                      SDC's by default
+#   GPL_KEEP_OVERFLOW  place: global_placement's -keep_resize_below_overflow
+#   PLACE_DENSITY, PLACE_DENSITY_LB_ADDON, CELL_PAD_IN_SITES_GLOBAL_PLACEMENT,
+#   MIN_PLACE_STEP_COEF, MAX_PLACE_STEP_COEF, GLOBAL_PLACEMENT_ARGS,
+#   DONT_USE_CELLS     place: ORFS's, as global_place.tcl reads them
+#   HOLES, PARENT_INST place: the blocks' holes and the parent's instance
+#                      (u_parent), the region a placed cell ended in
+#   CTS_CLUSTER_SIZE   tree: the clock tree's sink clusters
+#   TOP_DPL_ARGS       cts: the legaliser's further arguments
+#   GLOBAL_ROUTE_ARGS  grt: global_route's arguments
+#   SKIP_PIN_ACCESS    grt: 1 when the macros skipped pin access
+#   TOP_GRT_ITERATIONS grt: global route's congestion iterations (0)
 #   TOP_PARASITICS     the timing's parasitics: global_routing or placement
 #   MAX_SKEW_PS        the setup skew the clock check stops over
 #   BUDGET_PS          the crossing report's budget
@@ -60,6 +74,36 @@ if { $from eq "" } {
 if { $from ni $steps } {
   utl::error FLW 27 "top_level: TOP_FROM $from is none of $steps"
 }
+set todo [lrange $steps [expr { [lsearch -exact $steps $from] + 1 }] end]
+set to [env_var_or_empty TOP_TO]
+if { $to ne "" } {
+  if { $to ni $steps } {
+    utl::error FLW 29 "top_level: TOP_TO $to is none of $steps"
+  }
+  if { $to ni $todo } {
+    # nothing would run and nothing be written
+    utl::error FLW 139 "top_level: TOP_TO $to is not after TOP_FROM $from"
+  }
+  set todo [lrange $todo 0 [lsearch -exact $todo $to]]
+}
+# the step whose design the run hands on
+set last_step [lindex $todo end]
+
+set unfirm [env_var_or_empty TOP_UNFIRM]
+if { $unfirm ne "" } {
+  source $::env(UNFIRM_TCL)
+} elseif { $last_step eq "place" } {
+  # the first pass has no place step: the run would hand on no design
+  utl::error FLW 137 "top_level: TOP_TO place without TOP_UNFIRM, the first pass has no place step"
+}
+if { "place" in $todo && $unfirm ne "" && $last_step ne "place" } {
+  # the place step's clock period and false paths stay in the timer: the
+  # steps after it, and a crossing report timed in this process, would
+  # take them
+  utl::error FLW 138 "top_level: the place step runs alone (TOP_TO place), not\
+    with the steps after it, $todo"
+}
+
 set odbs {floorplan 2_floorplan.odb place 3_top_place.odb tree 4_top_cts_tree.odb cts 4_top_cts.odb grt 5_top_grt.odb}
 if { [env_var_exists_and_non_empty TOP_DIR] } {
   set ::env(RESULTS_DIR) $::env(TOP_DIR)
@@ -67,26 +111,18 @@ if { [env_var_exists_and_non_empty TOP_DIR] } {
 # every checkpoint's .sdc is a copy of the floorplan's (top_checkpoint)
 set sdc [sdc_file_of [dict get $odbs $from]]
 load_design [dict get $odbs $from] -backing_file $::env(OBJECTS_DIR)/top.db
-set todo [lrange $steps [expr { [lsearch -exact $steps $from] + 1 }] end]
-set to [env_var_or_empty TOP_TO]
-if { $to ne "" } {
-  if { $to ni $steps } {
-    utl::error FLW 29 "top_level: TOP_TO $to is none of $steps"
-  }
-  set todo [lrange $todo 0 [lsearch -exact $todo $to]]
-}
 
-# each step's checkpoint, to resume from; under Bazel the routed design
+# each step's checkpoint, to resume from; under Bazel the run's last step
 # only, in the run's output directory
 proc top_checkpoint { step odb } {
   if { [env_var_exists_and_non_empty RUN_OUTPUT_DIR] } {
-    if { $step eq "grt" } {
+    if { $step eq $::last_step } {
       orfs_write_db $::env(RUN_OUTPUT_DIR)/$odb
-      # the constraints read, not write_sdc's: what the flattened Top's
-      # repair adds (TOP_CLOCK_PERIOD, the false path starts of every
-      # register no crossing starts at) is the repair's own, and in the
-      # SDC it took the macros' own paths out of the crossing report
-      file copy -force $::env(RESULTS_DIR)/$::sdc $::env(RUN_OUTPUT_DIR)/5_top_grt.sdc
+      # the constraints read, not write_sdc's: what the place step adds to
+      # time its placement (TOP_CLOCK_PERIOD, the false paths off the cells
+      # that stay) is its own, and in the SDC it would take the macros'
+      # own paths out of the crossing report
+      file copy -force $::env(RESULTS_DIR)/$::sdc $::env(RUN_OUTPUT_DIR)/[sdc_file_of $odb]
     }
     return
   }
@@ -95,29 +131,10 @@ proc top_checkpoint { step odb } {
   file copy -force $::env(RESULTS_DIR)/$::sdc $::env(RESULTS_DIR)/[sdc_file_of $odb]
 }
 
-set flatten [env_var_or_empty TOP_FLATTEN]
-set parent [env_var_or_empty PARENT_INST]
-if { $parent eq "" } {
-  set parent u_parent
-}
-if { "place" in $todo && $flatten ne "" } {
-  # no path group through the crossing nets: repair removes some of them,
-  # and the group's net set would hold them dangling
-  set needs [lassign [sta::crossing_cones $flatten $parent 1 0 "" 1] \
-    seeds kept before]
-  set at [lsearch -exact $needs flatten]
-  puts "top_level: $seeds crossing nets, [lindex $needs [expr { $at + 1 }]] of\
-    $before cells movable, [lindex $needs [expr { $at + 2 }]] nets to route"
-  # from where their macros placed them: the macros' placement is the
-  # start a global placement would spend its first iterations finding.
-  # Wirelength-driven, it re-spread the long buffer chains the macros had
-  # built along a crossing: on XSTile with Flt flattened, Rob -> Flt
-  # 2,706 -> 3,710 ps, 122 of the worst path's 184 pins on moved cells
-  if { ![env_var_equals TOP_SKIP_GPL 1] } {
-    log_cmd global_placement -skip_initial_place {*}[env_var_or_empty TOP_GPL_ARGS]
-  }
-  log_cmd estimate_parasitics -placement
-  log_cmd repair_design
+if { "place" in $todo && $unfirm ne "" } {
+  set before [unfirm::apply [unfirm::read_ends $unfirm] \
+    [unfirm::env_or TOP_UNFIRM_DEEP 0] [unfirm::env_or TOP_UNFIRM_SIDE both]]
+  unfirm::placed [unfirm::place] $before
   top_checkpoint place 3_top_place.odb
 }
 if { "tree" in $todo } {
@@ -129,50 +146,13 @@ if { "tree" in $todo } {
   top_checkpoint tree 4_top_cts_tree.odb
 }
 if { "cts" in $todo } {
-  # only the clock tree's buffers move: the diamond legaliser seats them,
-  # the negotiation one repainted 9.4 M fixed cells for over 35 minutes
+  # only the clock tree's buffers and the placed unfirmed cells move: the
+  # diamond legaliser seats them, the negotiation one repainted 9.4 M fixed
+  # cells for over 35 minutes
   log_cmd detailed_placement -use_diamond_legalizer {*}[env_var_or_empty TOP_DPL_ARGS]
   # the cells it can move; the fixed ones are their macros' (on XSTile a
   # register file of Ftq's fails the padding check, inside Ftq)
   log_cmd check_placement -placeable -verbose
-  if { $flatten ne "" } {
-    # the crossings whole, the boundary logic the only cells to change
-    set period [env_var_or_empty TOP_CLOCK_PERIOD]
-    if { $period ne "" } {
-      foreach clock [all_clocks] {
-        create_clock -name [get_name $clock] -period $period \
-          [get_property $clock sources]
-      }
-    }
-    # the crossing paths only: every register no crossing path starts at
-    # is a false path start for the repair, and every one no crossing path
-    # ends at a false path end, so the macros' own paths are not timed
-    # (with starts alone 83,649 endpoints still failed, the worst a
-    # Frontend SRAM's address from a register that also launches a
-    # crossing). Timed whole, XSTile's flattened Top (Flt) needed 118 GB
-    # and 120 GB of swap, and setup repair spent 2.6 hours on 133,858
-    # failing endpoints of the macros' own paths, which it may not change
-    # (973 VT swaps, 1 buffer). repair_timing -path_group knows only
-    # reg2reg, in2reg, reg2out, in2out and gated_clock, no group through
-    # the crossings.
-    # and the path group `crossing` through the crossing nets, the only
-    # paths repair works on: false starts and ends scope repair by
-    # register, and a register that starts or ends a crossing also starts
-    # or ends its macro's own paths; the group scopes it by path. On XSTile
-    # with all six flattened nearly every failing endpoint is a crossing's
-    # anyway (117,057 of 118,489). 0210 keeps the group sound when repair
-    # deletes one of its nets, 0209 lets repair_timing -path_group take it.
-    set needs [lassign [sta::crossing_cones $flatten $parent 1 2 crossing] seeds kept before]
-    puts "top_level: crossing paths only, [lindex $needs [expr { [lsearch -exact $needs false] + 1 }]]\
-      registers no crossing starts at and\
-      [lindex $needs [expr { [lsearch -exact $needs false_ends] + 1 }]] no crossing ends at\
-      made false path starts and ends"
-    set_propagated_clock [all_clocks]
-    log_cmd estimate_parasitics -placement
-    log_cmd repair_timing -setup -hold -repair_tns 100 -path_group crossing
-    log_cmd detailed_placement -use_diamond_legalizer {*}[env_var_or_empty TOP_DPL_ARGS]
-    log_cmd check_placement -placeable -verbose
-  }
   top_checkpoint cts 4_top_cts.odb
 }
 if { "grt" in $todo } {
@@ -196,6 +176,11 @@ if { "grt" in $todo } {
   log_cmd global_route -congestion_iterations $iterations -no_incremental \
     -backing_file $::env(OBJECTS_DIR)/grt.grid {*}$::env(GLOBAL_ROUTE_ARGS)
   top_checkpoint grt 5_top_grt.odb
+  # the unfirm dropped the route of every net on an unfirmed cell; global
+  # route, routing the nets without guides (-unguided_only), routes each
+  if { $unfirm ne "" } {
+    unfirm::unrouted
+  }
 }
 
 # XSTile's top level ran out of memory timing on global-routing
