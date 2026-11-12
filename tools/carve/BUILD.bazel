@@ -10,6 +10,8 @@ exports_files(
     [
         "crossing_check.sh",
         "crossing_cones.tcl",
+        "crossing_floor.tcl",
+        "crossing_floor_check.sh",
         "crossing_gui.tcl",
         "crossing_launch.tcl",
         "crossing_launch_check.sh",
@@ -25,6 +27,7 @@ exports_files(
         "no_tapcells.tcl",
         "parent_holes.tcl",
         "parent_pin_partners.tcl",
+        "same_files_check.sh",
         "top_clock_check.tcl",
         "top_dissolve.tcl",
         "top_flat_check.sh",
@@ -32,6 +35,7 @@ exports_files(
         "top_flatten_check.tcl",
         "top_level.tcl",
         "top_netlist.tcl",
+        "unfirm.tcl",
     ],
     visibility = ["//visibility:public"],
 )
@@ -42,6 +46,8 @@ exports_files(
     visibility = ["//visibility:public"],
 ) for name in [
     "carve",
+    "crossing_ends",
+    "crossing_floor_check",
     "crossing_launch_check",
     "crossing_headroom_check",
     "crossing_report",
@@ -129,4 +135,30 @@ py_test(
     size = "small",
     srcs = ["crossing_headroom_check_test.py"],
     deps = [":crossing_headroom_check_lib"],
+)
+
+py_library(
+    name = "crossing_ends_lib",
+    srcs = ["crossing_ends.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "crossing_ends_test",
+    size = "small",
+    srcs = ["crossing_ends_test.py"],
+    deps = [":crossing_ends_lib"],
+)
+
+py_library(
+    name = "crossing_floor_check_lib",
+    srcs = ["crossing_floor_check.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "crossing_floor_check_test",
+    size = "small",
+    srcs = ["crossing_floor_check_test.py"],
+    deps = [":crossing_floor_check_lib"],
 )
