@@ -2386,6 +2386,238 @@ place_macros.tcl only; plan.json would re-key the surgery).
   pipe registers 1,411-2,485, its issue queue 3,048, toMemExu 3,091;
   ALU0-4 sit at 1,930-2,390.
 
+## 62. The Top in two passes: the crossing paths' cells placed again, pairs over 2,000 ps 35,097 to 27,895, worst 4,356 to 3,627 ps
+
+Status: measured on XSTile from a dirty lane, not a clean build, one
+size, against KPI run 27's Top as the first pass; the flow is
+`parent_macro_flow`'s two passes (`tools/carve`), which runs on the toy
+under Bazel, where its verdict says moved by its pairs rule; the
+hermetic build of the two passes on XSTile is to come.
+
+Run 27's Top leaves every cell where its block's or the parent's own
+flow put it, and its crossings report has 35,097 start and end pairs
+over 2,000 ps, the worst 4,356 ps. Each side of a crossing was placed
+against a `set_max_delay` budget at a pin, never against the cells on
+the other side. The idea: a second pass of the Top that places those
+cells again. From the Top's floorplan, the cells of every crossing path
+into the end pins of the first pass's crossing paths over 2,000 ps,
+failing or not (an upper bound on those paths' cells), the registers at
+both ends included, are unfirmed: placed and not dont_touch, the nets
+on them, but the clock's, without routes, every other cell fixed.
+Global placement places them among the fixed rest with the timing and
+routability drivers on, timed on the paths between the registers before
+and after them, and `repair_design` repairs them; then the tree, the
+legaliser, global route and the crossings report, as the first pass
+runs them.
+
+What is new against what was tried before: the registers move, not
+only the logic between them; the cells are those of the crossing paths
+into the ends over the budget, not every crossing cone; both drivers
+are on; the timing scope is set before placement. With only
+FltRegionModule's cone logic movable (949 thousand cells), the
+registers fixed, and wirelength-only global placement, the worst Rob to
+FltRegionModule crossing went from run 26's 2,706 ps to 3,710 ps
+(commit 336eb4ab); entry 51 dissolved the blocks inside the parent's
+own flow.
+
+Where the numbers come from. From a dirty lane, not a clean build, on
+run 27's tree: main at 9c39ea7b (OpenROAD ab2683a9, ORFS aef47dd6,
+yosys 0.68.bcr.2) with run 27's changes, before the bump 1214274d to
+OpenROAD 3cf922cc, ORFS 05bbba72 and yosys 0.68.bcr.3. The first pass's
+numbers and the parts' periods are run 27's hermetic build's (the
+kpi.json row of 2026-11-11). The blocks and the parent under the second
+pass are that run's builds from before its dissolve fix re-keyed every
+part; the run rebuilt them after it, with the same periods to the
+picosecond. Run by hand: the Top's floorplan, its dissolve and power
+grid with a bring-your-own optimized OpenROAD build of that pin
+carrying the dissolve fix (carried patch 0171) and the supply
+connections run 27 then committed; the place step, by the lane's
+script, whose selection and unfirm this change rewrites as
+`tools/carve/unfirm.tcl`; the second pass's Top (clock tree, legalise
+and check, global route), with run 27's `top_level.tcl`; the crossing
+plan, sets, timing and report, with run 27's scripts. The second pass's
+own steps ran with run 27's branch's own OpenROAD build. The lane ran
+the stop for stranded cells (FLW 22) after global placement; the landed
+step runs it after `repair_design`. The code as landed ran at the
+current pins (OpenROAD 3cf922cc, ORFS 05bbba72) on the toy only. Its
+selection and unfirm (`unfirm.tcl`, by `unfirm_check.tcl`) ran once on
+XSTile's floorplan in the lane, with the lane's OpenROAD and ORFS,
+whose `load_design` still takes the constraints as an argument, passed
+by a shim: the same counts as the lane's script, 550,721 cells unfirmed
+(57,678 registers, 493,043 logic), 670,041 nets without their route and
+a timing scope of 172,058 starts and 342,824 ends, and each of its
+eleven negative controls stopped as it must (23 minutes, 39.9 GB). The
+landed global placement, `repair_design` and the steps after them have
+not run on XSTile. The next clean build confirms or replaces the row.
+
+The second pass on XSTile, from run 27's crossing data, each step a
+process of its own (memory is the process's peak resident size as
+`resources.json` counts it, kbytes / 1024 / 1024, written GB; run 27's
+row counted in kbytes / 1e6):
+
+| step | wall | peak | what it did |
+|---|---:|---:|---|
+| place: load, select, unfirm, timing scope | 510 s | 35.4 GB | 550,721 cells unfirmed, 670,041 nets without their route |
+| place: global placement | 6,169 s | 74.1 GB | 3,191 Nesterov iterations, 7 routability and 2 timing-driven passes |
+| place: `repair_design` | 414 s | | 12,007 buffers in 8,146 nets, 89 cells resized |
+| place, in all | 1 h 59 min 25 s | 74.1 GB | its 60-minute timer was removed by hand at 56 min; it ended by itself |
+| tree | 9 min 13 s | 41.6 GB | |
+| cts: legalise and check | 4 min 7 s | 46.5 GB | from the tree's checkpoint, no timing repair (below) |
+| global route | 9 min 42 s | 51.2 GB | |
+| route check | 1 min 41 s | 19.6 GB | 0 of 7,839,683 signal and 149,593 clock nets of two or more pins unrouted |
+| crossing plan | 7 min 48 s | 34.8 GB | the first pass's nine sets |
+| crossing sets | 1 h 10 min 46 s | 43.4 GB | |
+| crossing timing | 2 h 7 min 17 s | 48.3 GB | |
+
+The place step records cells, moves, the placement's passes, time and
+memory; nothing from it is a period. The periods below are the
+crossings timed after global route.
+
+- **The selection**, the paths only, every crossing path into the end
+  pins, failing or not: 39,103 end pins in 21 groups and 21,204 start
+  registers (the first pass's rows over 2,000 ps name 32 of them);
+  550,721 of 8,347,575 cells (6.6 %), 57,678 registers and 493,043
+  logic. By macro: the parent 270,456, Frontend 95,894, VecRegionModule
+  94,328, CoupledL2 42,368, FltRegionModule 30,853, MemBlock 8,782, Rob
+  8,040. The end pins are keyed by name and place: 8,987 of them have a
+  name another register has too, which the report's pairs, counted by
+  name, count once. The timing scope holds 172,058 starts and 342,824
+  ends, the clock at the SDC's 2,000 ps.
+- **Global placement**, 6,169 s (103 minutes): density 0.60, pads 0,
+  step coefficients 0.95 and 1.05, keep-resize overflow 0, initial
+  placement on, both drivers on. Seven routability passes took the
+  weighted congestion from 3.63 to 2.09, and it ended at 2.00 against a
+  target of 1.01 that it did not reach (GPL-0089: it reverts to the
+  least congestion seen). Both timing-driven passes are virtual
+  (keep-resize 0): their buffers are made on the final placement by
+  `repair_design`.
+- **Where the cells went**: all 550,721 are still there after the
+  repair; 467,715 (84.9 %) moved more than 1 um and 25,134 (4.6 %) left
+  their macro's region. The parent's moved most, a median 27.3 um for
+  logic and 18.3 um for registers; the blocks' 0.5 to 5.4 um at the
+  median, up to 1 mm.
+- **Global route** left no net of two or more pins without a route
+  (7,839,683 signal and 149,593 clock nets); 734,382 cells are placed,
+  the selection, the repair's buffers and the clock tree, and 7,796,854
+  fixed.
+
+The crossings, pairs by name over 2,000 ps (`crossing_verdict`):
+
+| | first pass (run 27) | second pass |
+|---|---:|---:|
+| pairs over 2,000 ps | 35,097 | 27,895 |
+| worst crossing | 4,356 ps | 3,627 ps |
+| combinations of from, to and through | 21 | 16 |
+| verdict | | moved the crossings |
+
+```
+moved the crossings: pairs by name over 2000 ps: 27895 (firm 35097, -20.5 %), worst crossing 3626.9 ps (firm 4355.8, -728.9 ps)
+```
+
+The first pass's eight groups with more than 500 paths, against the
+second pass:
+
+| From | To | Through | first pass | worst | second pass | worst |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| parent | Frontend | - | 9,800 | 4,356 | 9,771 | 3,200 |
+| Rob | parent | - | 11,746 | 3,849 | 6,863 | 3,627 |
+| parent | VecRegionModule | - | 1,266 | 3,519 | 1,268 | 2,892 |
+| MemBlock | parent | FltRegionModule | 1,545 | 3,412 | 1,527 | 2,554 |
+| parent | parent | FltRegionModule | 1,511 | 2,938 | 8 | 2,803 |
+| FltRegionModule | parent | - | 542 | 2,811 | 0 | - |
+| MemBlock | parent | - | 811 | 2,778 | 0 | - |
+| parent | CoupledL2 | - | 6,708 | 2,201 | 8,166 | 2,314 |
+
+The second pass's worst path is Rob's `state` into the parent's
+`core/backend/inner_ctrlBlock/decodeBufBits_3_instr`, through no other
+macro, 3,627 ps; the first pass's was the parent's BJU1 pipe register
+into Frontend, a group whose worst is 3,200 ps now. Rob into the parent
+lost 4,883 of its 11,746 paths. The parent into Frontend is 9,771 paths
+from one register in each pass (the first pass's group has 29 more,
+from another), `pipeToBJU1.io_out_bits_data_src_1` in the first and
+`pipeToBJU1.io_out_bits_data_src_0` in the second, into the same 9,771
+end pins, and lost 1,156 ps at the worst; no path from `src_1` is over
+2,000 ps in the second pass. The parent into CoupledL2, one register
+again, `l2top/inner_buffer.nodeOut_c_q.deq_ptr_value`, got worse in
+paths and in its worst. Those two and Rob's `state` start 89 % of the
+second pass's paths; the first pass's three started 80 % of its.
+Outside the eight groups, the parent into FltRegionModule has fewer
+paths and a worse worst (267 to 175, 2,837 to 2,892 ps), and two of the
+second pass's 16 combinations are new: 5 paths, the worst 2,143 ps.
+
+Paths inside one macro are timed only where a crossing set holds them
+(reported, not a condition of the verdict): inside the parent 17,945
+pairs over 2,000 ps, worst 3,916 ps, in the first pass, and 12,753,
+worst 3,752 ps, in the second, 9,528 of them not over in the first. No
+macro whose inside paths the first pass's sets list is missing from the
+second's.
+
+Found on the way:
+
+- **No timing repair after CTS.** `repair_timing -path_group crossing`
+  has never completed on XSTile. On a Top with every block's crossing
+  cones movable (6 November) its first minute took 70.9 to 103.9 GB and
+  it was stopped by hand after 1 h 47 min at 104 GB, still on its first
+  iteration; the same repair without the group took 70.8 to 99.3 GB in
+  its first minute and finished with 118,477 of 118,489 endpoints still
+  failing. The second pass's cts step first ran it and was killed at
+  its 100 GB cap, 10 min 14 s in; the pass went on from the tree's
+  checkpoint without it. So neither pass repairs timing after its clock
+  tree.
+- **The toy** (`test/parent_macro`, about 20,000 cells, a 150 ps budget)
+  has fewer pairs over its budget in the second pass, 31 to 22 at the
+  paths only and 31 to 21 one register deep, and the verdict says moved
+  by its pairs rule. Its worst crossing, hub logic between BlockA and
+  BlockB (16 pairs through the parent), is not helped by the landed
+  place step (keep-resize 0): 201.4 ps in the first pass, 203.1 ps at
+  the paths only, 206.4 ps one deep. At the paths only (212 cells, 61
+  registers) global placement ends at Nesterov iteration 0: one
+  routability pass and one timing-driven pass print, and all 212 cells
+  moved, 210 of them more than 1 um. The stop for a placement that did
+  not place (FLW 134: no routability pass, no timing-driven iteration,
+  or no unfirmed cell moved) passes it, so the toy runs one register
+  deep: 758 cells, 137 registers, 454 iterations.
+- **Zero wire.** The earlier dirty-lane readings of run 27's crossing
+  sets with no signal wire (`set_wire_rc -signal` near zero, estimated
+  from placement) are not used, for two reasons. The script, run by
+  hand in the dirty lane and not in this repository, zeroed the clock's
+  leaf nets too, as read from OpenROAD's source (est gives a net that
+  reaches a register's clock pin the signal wires' RC: isNonLeafClock)
+  and never shown on those readings. And its as-placed control on set 7
+  missed its prediction: the parent into Frontend, worst 6,224.5 ps
+  against the report's 4,355.8 ps. The crossing floor
+  (`<pm>_crossing_floor`, `tools/carve/crossing_floor.tcl`) puts the
+  platform's RC back and estimates every clock net again before its
+  second reading, and writes every end's capture clock delay in both
+  readings; its check fails on an end of the first reading whose clock
+  differs in the second or is missing there. Its control leaves the
+  signal wires as placed and must read the same twice. It has run on
+  the toy only: on the toy's second pass, 26 ends over 150 ps as
+  placed, worst 202.3 ps, and none still over with no signal wire,
+  worst 127.7 ps. Both are estimates from placement, not the report's
+  206.4 ps after global route.
+
+Open:
+
+- **The larger sizes.** One size only was placed: the paths' place step
+  took 1 h 59 min against the 60 minutes a size was given, so the
+  larger sizes were not run. One register deep the landed selection
+  counts, on XSTile's floorplan, 1,450,132 cells taken behind only
+  (17.4 %), 2,020,124 ahead only (24.2 %) and 2,580,407 on both sides
+  (30.9 %); two deep has not been counted by the landed selection. The
+  1.45-million-cell point, one register deep behind, has not been
+  placed.
+- **A repair after CTS in a form that fits memory**, judged at the
+  crossings against this row.
+- **The hermetic build** of the two passes on XSTile, which confirms or
+  replaces the row. Under Bazel the place step's settings have been read
+  back on the toy only.
+- **The paths inside one macro whose cells moved.** The second pass
+  moves cells of every block and of the parent; a path inside one macro
+  is timed only where a crossing set holds it, and the parts' periods
+  are run 27's.
+- **The crossing floor on XSTile's second pass.**
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
