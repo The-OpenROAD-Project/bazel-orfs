@@ -39,12 +39,20 @@ def toy_parent_macro(plan, blocks):
         report_budget_ps = "150",
         plan_budget = "2000",
         whole_check = True,
-        # the toy closes at its 1,000 ps; its worst crossing needs 201 ps,
-        # so the top level that takes the boundary logic over repairs to
-        # 180 ps, where its crossings fail and repair has work to do
-        top_flat_user_arguments = {"TOP_CLOCK_PERIOD": "180"},
-        # 201.4 ps as built, 187.5 flattened (mini_top_parent_pm_top_flat_test)
-        top_flat_check_ps = "190",
+        # the toy closes at its 1,000 ps and its worst crossing needs about
+        # 201 ps, so the second pass's place step is timed at 180 ps, where
+        # the crossings fail. One register deep: the paths alone are 212
+        # cells, and global placement ends at Nesterov iteration 0 on
+        # them (all 212 still move, so FLW 134 passes it); one deep, 758
+        # cells (137 registers), it runs 454. The
+        # second pass then has 21 pairs over 150 ps against the first's 31,
+        # and its worst crossing, the hub's logic between u_BlockA and
+        # u_BlockB, 206.4 ps against 201.4: the verdict test asserts the
+        # rule's verdict only (mini_top_parent_pm_crossing_verdict_test)
+        unfirm_user_arguments = {
+            "TOP_CLOCK_PERIOD": "180",
+            "TOP_UNFIRM_DEEP": "1",
+        },
         # every crossing path over 100 ps in the dataset beside the
         # report, under the budget too (crossing_data.<set>.tsv)
         crossing_data_min_ps = "100",

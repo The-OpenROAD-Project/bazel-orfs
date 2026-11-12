@@ -275,10 +275,12 @@ orfs_schedule(
         ],
     },
     # the top level alone: its clock tree and route, then the paths
-    # between macros (the KPI's Top)
+    # between macros (the KPI's Top), and its second pass against its
+    # first (both passes' reports)
     parent = {"XSTile_parent_pm": [
         ":XSTile_parent_pm_top",
         ":XSTile_parent_pm_crossings",
+        ":XSTile_parent_pm_crossing_verdict",
     ]},
     tags = ["manual"],
 )
