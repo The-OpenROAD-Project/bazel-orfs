@@ -542,8 +542,9 @@ Two carried OpenROAD patches are for the second pass:
   detour the timing-blind initial placement gave it. The pull adds a
   two-pin attraction between each failing sink and its driver, read on
   the netlist the virtual `repair_design` buffered, that grows while the
-  sink fails. It is off by default, and no flow here sets it; with it
-  off, placement is byte-identical. Its test is
+  sink fails. It is off by default, with it off placement is
+  byte-identical, and the second pass's place step turns it on
+  (`tools/carve/parent_macro.bzl`). Its test is
   `@openroad//src/gpl/test:pin_pull_test`, on the synthetic designs of
   0219's `path_shape_test` (56 invariants that pass) and
   `path_shape_targets_test` (44 targets, manual, that fail by design).

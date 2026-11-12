@@ -486,6 +486,8 @@ def _top_level(pm, budget_ps, max_skew_ps, plan_budget, top_level_arguments, top
             # final placement. XiangShan's parent sets the same, for the
             # same reason (xiangshan.bzl, XS_PARENT)
             "GPL_KEEP_OVERFLOW": "0",
+            # each failing sink pulled toward its driver (patch 0221)
+            "GLOBAL_PLACEMENT_ARGS": "-timing_driven_pin_pull",
         },
         tags = local,
         user_arguments = {
