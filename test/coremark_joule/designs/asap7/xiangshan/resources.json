@@ -582,15 +582,15 @@
       "stages": {
         "cts": {
           "minutes": 60.0,
-          "peak_gb": 70.0
+          "peak_gb": 77.0
         },
         "floorplan": {
           "minutes": 10.4,
           "peak_gb": 45.7
         },
         "place": {
-          "minutes": 10.0,
-          "peak_gb": 60.0
+          "minutes": 119.4,
+          "peak_gb": 74.1
         },
         "synth": {
           "minutes": 0.1,
