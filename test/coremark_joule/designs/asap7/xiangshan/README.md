@@ -139,6 +139,7 @@ clocking can reach it.
 | 26 | 2026-11-05 | 3,136 | 3,136 |  |  | 2,041 | 1,842 | 1,827 | 1,813 | 1,775 |  |  |  |  |  |  |  |  |  |  |  |  | 1,910 |  |  |  |  | 2,370 | 60.4 | First run on main after the OpenROAD/ORFS bump, with #1522's seed search choosing every annealed block's memory placement. XSTile 3,099 to 3,136 ps, still the flush redirect valid into all of VecRegion; Rob into the parent 2,461 to 2,962 ps. The parent macro 2,111 to 2,370 ps: its issue-queue wakeup paths gained about 260 ps of cell delay at equal or shorter wire, and the flush register is now its own worst path too. CoupledL2 1,559 to 1,827 and Vec 1,978 to 1,813 ps moved most, both with annealed memory banks: the bump and the seed search are not separated in this row |
 | 27 | 2026-11-11 | 4,356 | 4,356 |  |  | 1,800 | 1,742 | 1,799 | 1,809 | 1,714 |  |  |  |  |  |  |  |  |  |  |  |  | 1,680 |  |  |  |  | 3,949 | 61.6 | First run with timing- and routability-driven global placement on in every part, and with the broadcast registers copied into the blocks that read them (ten copies, surgery/sinks.txt). XSTile 3,136 to 4,356 ps, set by the Top: the parent into Frontend (9,800 paths, the worst from BJU1's pipe register); 35,097 crossing paths over 2,000 ps (run 26: 47,033), Rob into the parent 2,962 to 3,849 ps. The six blocks are all under 2,000 ps: Frontend 2,041 to 1,800, MemBlock 1,842 to 1,742, CoupledL2 1,827 to 1,799, Vec 1,813 to 1,809, Flt 1,775 to 1,714, Rob 1,910 to 1,680 ps. The parent macro 2,370 to 3,949 ps, its worst path from a copied floating-point issue-queue entry valid, now inside the parent, into ctrlBlock's decode buffer. The drivers and the copies are not separated in this row |
 | 28 | 2026-11-12 | 3,949 | 3,627 |  |  | 1,800 | 1,742 | 1,799 | 1,809 | 1,714 |  |  |  |  |  |  |  |  |  |  |  |  | 1,680 |  |  |  |  | 3,949 | 61.6 | The Top in two passes, from a dirty lane, not a clean build, the second pass's stages run by hand. The second pass unfirms, in the Top's floorplan, the cells of every crossing path into the 39,103 end pins of the first pass's crossing paths over 2,000 ps, failing or not, an upper bound on those paths' cells (550,721 of 8,347,575 cells: 57,678 registers, 493,043 logic; no register deeper), places them with both placement drivers on and repairs them with repair_design, then tree, legaliser and global route as the first; no timing repair after CTS in either pass. Crossing paths over 2,000 ps 35,097 to 27,895 (-20.5 %; pairs by name, a floor; the histogram's 27,896 counts one at exactly 2,000.0 ps), the worst 4,356 to 3,627 ps, now Rob's state into ctrlBlock's decode buffer in the parent. XSTile 4,356 to 3,949 ps, now set by XSTile_parent, whose period and the blocks' are run 27's, measured before the second pass moved their cells. Left: the parent into Frontend 9,771 paths, 3,200 ps (9,800, 4,356); the parent into CoupledL2 8,166, 2,314 ps, more and worse than the first pass's 6,708, 2,201; Rob into the parent 6,863, 3,627 ps (11,746, 3,849). Global placement took 103 minutes; its seven routability passes took the weighted congestion from 3.63 to 2.09, 2.00 final, against a target of 1.01; the place step's 60-minute timer was removed by hand at 56 minutes and it ended by itself at 1 h 59 min 25 s; global route left no net unrouted |
+| 29 | 2026-11-13 | 3,949 | 3,070 |  |  | 1,800 | 1,742 | 1,799 | 1,809 | 1,714 |  |  |  |  |  |  |  |  |  |  |  |  | 1,680 |  |  |  |  | 3,949 | 61.6 | Row 28's second pass with global placement's timing-driven pin pull and CTS's coincident-sink fix, from a dirty lane, not a clean build, the second pass's stages run by hand. The same 550,721 of 8,347,575 cells as row 28 (57,678 registers, 493,043 logic; no register deeper), placed with both placement drivers and the pull on and repaired with repair_design; no timing repair after CTS. Crossing paths over 2,000 ps 27,895 to 26,157 (-6.2 %; pairs by name, a floor; the histogram's 26,163 counts six at exactly 2,000.0 ps), the worst 3,627 to 3,070 ps, now the parent's BJU operand register (pipeToBJU0) into a branch target in Frontend. XSTile stays 3,949 ps, set by XSTile_parent, whose period and the blocks' are run 27's, measured before either second pass moved their cells. By group: the parent into Frontend 9,771 paths, 3,200 to 3,070 ps; the parent into CoupledL2 8,166 to 7,221, 2,314 to 2,248 ps; Rob into the parent 6,863 to 5,747, 3,627 to 2,798 ps; the parent into VecRegionModule 1,268 to 468, 2,892 to 2,276 ps; MemBlock into the parent through FltRegionModule 1,527 to 1,560, 2,554 to 2,683 ps; 736 in three groups that had none, MemBlock into the parent (255), FltRegionModule into VecRegionModule through the parent (249) and MemBlock into VecRegionModule through the parent (232). Global placement took 144 minutes (row 28: 103); its seven routability passes took the weighted congestion from 5.51 to 2.54, 2.05 final (row 28: 3.63, 2.09, 2.00), against a target of 1.01; repair_design inserted 18,070 buffers (row 28: 12,007); global route left no net unrouted |
 <!-- kpi-table end -->
 
 Periods are in picoseconds; `≥` marks a run that did not measure the
@@ -665,8 +666,86 @@ path group `crossing` that holds exactly these paths.
 
 ### Estimated periods
 
-TODO: the estimated-period table, each macro and the Top, in the happy
-case.
+The period here is the KPI table's Top column, XSTile's crossing period:
+the worst register-to-register path after global route that crosses a
+block boundary, or runs through the parent between two blocks, as the
+SDC's 2,000 ps minus its worst slack; paths inside one block, and the
+blocks' own periods, are not in it.
+
+Each block's own period is the KPI table's, from run 27's builds, and
+none is estimated here: every block is under 2,000 ps (CoupledL2 1,799,
+FltRegionModule 1,714, VecRegionModule 1,809, Rob 1,680, Frontend 1,800,
+MemBlock 1,742 ps). The parent's own paths, 3,949 ps in `XSTile_parent`,
+are a project of their own, apart from the crossings: in run 29's second
+pass, where a crossing set holds them, 12,395 pairs inside the parent
+are over 2,000 ps, the worst 3,754 ps.
+
+| | scenario | measured or estimated (model, rate) | worst crossing period (ps) | set by | register pairs over 2,000 ps | the 27,895 pairs failing in row 28 alone: worst (ps) / over |
+|---|---|---|---:|---|---:|---:|
+| M0 | Run 27, first pass | MEASURED after global route | 4,356 | parent → Frontend | 35,097 | |
+| M1 | Row 28 | MEASURED after global route | 3,627 | Rob → parent | 27,895 | |
+| M3 | Run 29: row 28 + global placement's timing pin pull + CTS's coincident-sink fix | MEASURED after global route | 3,070 | parent → Frontend | 26,157 | |
+| E1 | Row 28, each failing crossing straight between its registers (no detour), perfect repair, VT as is | ESTIMATED, lower bound: zero-wire logic + 0.35 ps/um × straight wire, registers where row 28 placed them | 2,608 | parent → Frontend | 9,752 | 2,608 / 9,752 |
+| E1t | E1 at the rate repair_timing reaches here | ESTIMATED: as E1, 0.42 ps/um | 2,744 | parent → Frontend | 10,210 | 2,744 / 10,210 |
+| E1p | E1 with the detour the pin pull left on the gpl reproducer cut from XSTile's Top | ESTIMATED: as E1, 0.35 ps/um × that detour | 2,622 | parent → Frontend | 9,798 | 2,622 / 9,798 |
+| E2 | E1 + the integer register file (IntRegFile) flattened into the parent, its cells where they are | ESTIMATED: as E1, 0.35 ps/um, + each register pair's skew change | 2,440 | parent → Frontend | 10,364 | 2,440 / 9,198 |
+| E2t | E2 at 0.42 ps/um | ESTIMATED: as E2, 0.42 ps/um | 2,576 | parent → Frontend | 11,330 | 2,576 / 10,164 |
+| E3 | E2 + Frontend and MemBlock swapped (each mirrored), putting Frontend under the IntRegFile, and the IntRegFile mirrored top to bottom so its BJU operand register faces Frontend | ESTIMATED: as E2 + register distances in the new floorplan, 0.35 ps/um; the worst is carried, not a bound | 2,257 | MemBlock → parent (carried) | 1,250 | 2,026 / 5 |
+| E3t | E3 at 0.42 ps/um | ESTIMATED: as E3, 0.42 ps/um; the worst is carried, not a bound | 2,299 | MemBlock → parent (carried) | 1,759 | 2,130 / 435 |
+| E3i | E2 + instead the IntRegFile and its operand registers moved 1,226 um right, over Frontend | ESTIMATED: as E3 for this floorplan, 0.35 ps/um; the worst is carried, not a bound | 2,206 | Rob → parent (carried) | 1,247 | 2,026 / 70 |
+| E4.16 | E3 + top metal on crossings of 300 um or more | ESTIMATED: as E3, ideal top metal at 0.16 ps/um on those crossings; the worst is carried, not a bound | 2,206 | Rob → parent (carried) | 1,188 | 1,849 / 0 |
+| E4.25 | E3 + top metal on crossings of 300 um or more | ESTIMATED: as E3, ideal top metal at 0.25 ps/um on those crossings; the worst is carried, not a bound | 2,206 | Rob → parent (carried) | 1,200 | 1,897 / 0 |
+| E4i.16 | E3i + top metal on crossings of 300 um or more | ESTIMATED: as E3i, ideal top metal at 0.16 ps/um on those crossings; the worst is carried, not a bound | 2,206 | Rob → parent (carried) | 1,171 | 1,881 / 0 |
+| E4i.25 | E3i + top metal on crossings of 300 um or more | ESTIMATED: as E3i, ideal top metal at 0.25 ps/um on those crossings; the worst is carried, not a bound | 2,206 | Rob → parent (carried) | 1,172 | 1,940 / 0 |
+| E5.1 | E1 + fastest VT | INFORMATIONAL (VT swaps are off): as E1, path cells at their fastest VT | 2,477 | parent → Frontend | 9,513 | 2,477 / 9,513 |
+| E5.2 | E2 + fastest VT | INFORMATIONAL: as E2, fastest VT | 2,310 | parent → Frontend | 9,205 | 2,310 / 8,039 |
+| E5.3 | E3 + fastest VT | INFORMATIONAL: as E3, fastest VT; the worst is carried, not a bound | 2,257 | MemBlock → parent (carried) | 1,245 | 1,916 / 0 |
+| E5.4 | E4.16 + fastest VT | INFORMATIONAL: as E4.16, fastest VT; the worst is carried, not a bound | 2,206 | Rob → parent (carried) | 1,188 | 1,718 / 0 |
+
+- **Only E1 is a bound**, a lower one for the pairs failing in row 28:
+  perfect repair at 0.35 ps/um (SLVT repeaters on the platform's average
+  signal RC), the registers where row 28 placed them, VT as is. Via
+  resistance left in its zero-wire logic makes it up to 9 ps pessimistic
+  (strictly 2,602 ps or more); the repeater entry it does not charge,
+  13.8 ps a hop, makes it optimistic (2,622 ps with it). Every other row
+  is an estimate; the rows at 0.42 ps/um, the rate repair_timing reaches
+  on 250 to 2,000 um wires here, are nearer what the flow does.
+- **Carried pairs.** The model sees the 47,127 crossing pairs over 1,500
+  ps in row 28. The 19,232 that pass there (1,500 to 2,000 ps) are
+  carried: row 28's measured value plus the row's changes, not repaired
+  again. Flattening the IntRegFile takes 162 ps of skew off parent →
+  Frontend (median), but capture registers north of it lose the clock
+  tree's hop across it, and its delay, so 1,166 carried pairs are pushed
+  over, by up to +245 ps. From E3 on they set the worst, which is then
+  neither a bound nor at the row's rate, and top metal does not touch
+  it; repaired as the failing pairs are, they would come to roughly
+  1,158 to 1,742 ps by row (a rough estimate, off by -59 / +99 ps on the
+  failing pairs).
+- **The clock is placement-estimated.** Every estimate uses row 28's
+  routed clock tree with placement parasitics, not the global-route
+  clock of the measured rows; the difference is not measured. The skew
+  change comes from clock walks of the first pass's tree, which differ
+  from row 28's per register pair by -20 / +15 ps (p5 / p95; parent →
+  Frontend -8 / +9), and the floorplans' own change to the clock tree is
+  not modelled.
+- **What the floorplan, top-metal and VT rows assume.** Register
+  distances come from moving and mirroring the blocks with the parent
+  held; placement density, legality, congestion and repeaters over hard
+  macros are not modelled, and top metal is ideal over the whole length.
+  The Frontend–MemBlock swap (E3, E3t, E4.16, E4.25, E5.3, E5.4) moves
+  CoupledL2's 371 MemBlock pins 2,052 um from MemBlock's (164 um in row
+  28): +661 ps at 0.35 ps/um on paths under 1,500 ps in row 28 that the
+  model cannot see. Those rows may be optimistic: E3's 2,257 ps holds
+  only if those paths' skew change is under +96 ps; in the extreme E3 is
+  about 2,370 ps. VT swaps are off in this flow: E5 is informational,
+  and its fastest VT is incomplete (2,521 failing pairs keep some slower
+  cells).
+- **Run 29, measured: the first rung only.** Its parent → Frontend worst
+  is 3,070 ps (9,771 pairs over 2,000 ps; row 28 3,200 ps), against
+  E1p's 2,622 ps (the reproducer's detour), E1t's 2,744 ps
+  (repair_timing's rate) and E1's 2,608 ps (perfect repair). E2 onward
+  change what run 29 does not, and stay estimates until a run makes
+  those changes.
 
 ## Where the period is
 
