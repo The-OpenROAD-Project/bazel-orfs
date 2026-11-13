@@ -179,9 +179,11 @@ ORFS_PATCHES = [
     # generate_ram's FIRM array, in strips between its free columns (its
     # service columns among them), so global placement places what is
     # left in the band of rows around it and in those columns, not in the
-    # array's scattered holes, and stops (FLW-42) when they cannot hold
-    # it. On 0172. Not upstreamed; retires at a bump onto an ORFS that
-    # carries it.
+    # array's scattered holes. When the band alone cannot hold those cells
+    # (XiangShan's FpRegFile and VfRegFile), the array is left unblocked:
+    # global placement cannot push cells out of the strips into a column a
+    # few sites wide, and diverged (GPL-0305). On 0172. Not upstreamed;
+    # retires at a bump onto an ORFS that carries it.
     Label("//patches:0215-orfs-regfile-array-blockage.patch"),
     # 0217: an issue archive's run-me script climbs from a relative
     # WORK_HOME (bazel-orfs's package) to the archive's root before it
