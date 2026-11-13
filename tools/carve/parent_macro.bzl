@@ -24,6 +24,7 @@ def parent_macro_flow(
         top_arguments = {},
         top_sources = {},
         macros = [],
+        dissolve_nested = {},
         clock_port = "clock",
         block_clocks = ["clock"],
         budget_ps = "2000",
@@ -88,6 +89,19 @@ def parent_macro_flow(
     <name>_pm_crossing_ends stops, and every target of the second pass
     with it.
 
+    dissolve_nested names macros inside the parent or a block (XSTile's
+    register files) that the top level dissolves too, after the parent
+    and the blocks: each its master's one instance, replaced by the cells
+    of its own flow's global route, LOCKED where that flow placed them
+    through the instance's place and orientation, moved together by less
+    than a site across and at most a row up or down onto the top level's
+    rows, its own clock tree left behind so its registers join the top
+    level's one tree (dissolve_nested.tcl). With whole_check,
+    <name>_pm_dissolve_nested checks that on the first pass and fires
+    each of its stops from FLW 140 to FLW 147 on purpose; FLW 149 and
+    FLW 150, the dissolve breaking its own contract, have no control
+    (dissolve_nested_check.tcl, <name>_pm_dissolve_nested_test).
+
     Run by hand: <name>_pm_unfirm, the second pass's selection on the
     floorplan, its counts and its stops' controls (unfirm_check.tcl), and
     <name>_pm_crossing_floor, how much of each crossing of the second
@@ -116,6 +130,12 @@ def parent_macro_flow(
       top_sources: the top level's sources, over the defaults
         (SDC_FILE at least).
       macros: the parent's own macros.
+      dissolve_nested: {master: the stage of its own flow that holds its
+        cells, its global route}: macros inside the parent or a block
+        that the top level dissolves, each master with one instance in
+        them; the memories inside such a macro are not merged, and a
+        master its dissolve copies that the top level lacks stops it
+        (ODB-1221).
       clock_port: the design's clock port.
       block_clocks: the blocks' clock pins, by name.
       budget_ps: the longest reg2reg path, ps, that may cross a macro
@@ -327,6 +347,28 @@ def parent_macro_flow(
             tags = tags,
         )
         odbs.append(":%s_%s_grt_odb" % (pm, b))
+
+    # the macros nested in the parent and the blocks that it dissolves
+    # too, after them, each from its own flow's global route
+    nested = sorted(dissolve_nested.keys())
+    nested_arguments = {}
+    nested_sources = {}
+    if nested:
+        for m in nested:
+            native.filegroup(
+                name = "%s_nested_%s_grt_odb" % (pm, m),
+                srcs = [dissolve_nested[m]],
+                output_group = "5_1_grt.odb",
+                tags = tags,
+            )
+        nested_arguments = {
+            "DISSOLVE_NESTED_CLOCKS": clocks,
+            "DISSOLVE_NESTED_MASTERS": " ".join(nested),
+        }
+        nested_sources = {
+            "DISSOLVE_NESTED_ODBS": [":%s_nested_%s_grt_odb" % (pm, m) for m in nested],
+            "DISSOLVE_NESTED_TCL": ["@bazel-orfs//tools/carve:dissolve_nested.tcl"],
+        }
     orfs_flow(
         name = pm,
         arguments = {
@@ -362,11 +404,11 @@ def parent_macro_flow(
             "HOLES": " ".join(holes),
             "PARENT_CORE_AREA": plan["parent"]["CORE_AREA"],
             "PARENT_INST": "u_parent",
-        },
+        } | nested_arguments,
         user_sources = {
             "DISSOLVE_ODBS": odbs,
             "PLAN_PINS": pins,
-        },
+        } | nested_sources,
         verilog_files = [],
     )
 
@@ -382,6 +424,36 @@ def parent_macro_flow(
         headroom_skip = headroom_skip,
         unfirm_user_arguments = unfirm_user_arguments,
         crossing_data_min_ps = crossing_data_min_ps,
+        tags = tags,
+    )
+
+    if not (nested and whole_check):
+        return
+
+    # the nested macros on the first pass, as their flows placed them, on
+    # the rows and the power grid, clocked by the tree, and each stop of
+    # the dissolve fired on purpose (dissolve_nested_check.tcl)
+    orfs_run(
+        name = "%s_dissolve_nested" % pm,
+        src = ":%s_floorplan" % pm,
+        outs = ["%s/nested.txt" % pm],
+        cmd = "run",
+        data = [":%s_firm_top" % pm],
+        script = "@bazel-orfs//tools/carve:dissolve_nested_check.tcl",
+        tags = tags,
+        user_arguments = nested_arguments | {
+            "DISSOLVE_MASTERS": " ".join([top] + names),
+            "HOLES": " ".join(holes),
+            "NESTED_TXT": "$(location %s/nested.txt)" % pm,
+            "TOP_DIR": "$(location :%s_firm_top)" % pm,
+        },
+        user_sources = nested_sources | {"DISSOLVE_ODBS": odbs},
+    )
+    sh_test(
+        name = "%s_dissolve_nested_test" % pm,
+        srcs = ["@bazel-orfs//tools/carve:dissolve_nested_check.sh"],
+        args = ["$(rootpath :%s/nested.txt)" % pm],
+        data = [":%s/nested.txt" % pm],
         tags = tags,
     )
 

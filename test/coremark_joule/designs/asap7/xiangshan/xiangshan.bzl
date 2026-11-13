@@ -1722,6 +1722,13 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         name = name,
         arguments = parent_arguments,
         blocks = {b: {"abstract": _abstract(b, None), "grt": ":%s_grt" % b} for b in macros},
+        # Every register file of the tile, the parent's IntRegFile, Frontend's
+        # four Ftq queues, Rob's RobEntryFile and RenameBufferFile,
+        # VecRegionModule's VfRegFile and FltRegionModule's FpRegFile, is
+        # dissolved by the top level too: its cells where its own flow placed
+        # them, its registers on the top level's one clock tree instead of a
+        # macro sink with its own insertion delay.
+        dissolve_nested = {m: ":%s_grt" % m for m in sorted(made.keys())},
         macros = parent_regfiles,
         place_macros = ":%s/place_macros.tcl" % plan_dir,
         plan = plan,

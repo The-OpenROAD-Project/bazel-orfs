@@ -9,6 +9,9 @@ load(":toy.bzl", "toy_parent_macro")
 # its four blocks share, so they build side by side to global route; the
 # top level, every one of them dissolved at its global route with its
 # clock tree left behind, is the only target that waits for all of them.
+# The parent's register file FileC is a macro of its own flow, as
+# XSTile's register files are, and the top level dissolves it too, after
+# the parent (toy.bzl).
 
 BLOCKS = sorted(PLAN["macros"].keys())
 

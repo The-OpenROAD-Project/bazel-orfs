@@ -8,6 +8,13 @@
 # tree left behind for the top level's CTS to build
 # one tree over every register. The cells stay where their macro placed
 # them, fixed: the top level places only its clock tree.
+#
+# Then the macros nested in them that the flow lists (DISSOLVE_NESTED_MASTERS,
+# DISSOLVE_NESTED_ODBS, parent_macro.bzl's dissolve_nested; XSTile's
+# register files), each dissolved into its own flow's cells, LOCKED where
+# that flow placed them, onto the top level's rows (dissolve_nested.tcl,
+# DISSOLVE_NESTED_TCL): its registers on the top level's clock net
+# (DISSOLVE_NESTED_CLOCKS, its clock pins) for the one tree.
 set block [ord::get_db_block]
 set dbu [[ord::get_db_tech] getDbUnitsPerMicron]
 
@@ -80,6 +87,21 @@ foreach master $::env(DISSOLVE_MASTERS) odb_file $::env(DISSOLVE_ODBS) {
   puts "top_dissolve: $name dissolved from $odb_file"
 }
 
+# The rows the parent's cells sit on, over its core: the floorplan's,
+# over the die, held a macro the size of the die. Made before the nested
+# macros are dissolved: their cells go onto these rows.
+foreach row [$block getRows] {
+  odb::dbRow_destroy $row
+}
+make_rows -core_area $::env(PARENT_CORE_AREA) -site $::env(PLACE_SITE)
+
+set nested {}
+if { [env_var_exists_and_non_empty DISSOLVE_NESTED_MASTERS] } {
+  source $::env(DISSOLVE_NESTED_TCL)
+  set nested [dissolve_nested::run $block $::env(DISSOLVE_NESTED_MASTERS) \
+    $::env(DISSOLVE_NESTED_ODBS) $::env(DISSOLVE_NESTED_CLOCKS) $buffers]
+}
+
 # The supply pins of what the dissolves brought in. floorplan.tcl made the
 # platform's global connections before any of these instances existed and
 # left the rules in the database for a later step that creates instances:
@@ -131,6 +153,11 @@ if { [llength $unpowered] > 0 } {
   utl::error FLW 31 "top_dissolve: [llength $unpowered] of [llength $macros] macros have a supply pin on no net after the global connections ($connected pins connected): [lrange $unpowered 0 4]; no rule names the pin, or the database holds no rules (ODB-0378)"
 }
 puts "top_dissolve: [llength $macros] macros on their supply nets, $connected pins connected, dont_touch lifted from [llength $lifted] instances for the global connections"
+# the nested macros' cells on theirs, for the power grid pdn.tcl lays along
+# their rows after this step
+if { [llength $nested] > 0 } {
+  dissolve_nested::check_supply $nested
+}
 
 set fixed 0
 foreach inst [$block getInsts] {
@@ -141,12 +168,6 @@ foreach inst [$block getInsts] {
 }
 puts "top_dissolve: $fixed instances fixed where their macros placed them"
 
-# The rows the parent's cells sit on, over its core: the floorplan's,
-# over the die, held a macro the size of the die.
-foreach row [$block getRows] {
-  odb::dbRow_destroy $row
-}
-make_rows -core_area $::env(PARENT_CORE_AREA) -site $::env(PLACE_SITE)
 # A macro off the top level's rows or sites, or overlapping another,
 # stops here, not at the legaliser.
 check_placement -verbose

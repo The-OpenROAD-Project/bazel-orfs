@@ -489,8 +489,9 @@ twice:
 - The first pass, `XSTile_parent_pm_firm_top`, moves no cell its macro
   placed: one clock tree over every register, legalised by the diamond
   legaliser, and a global route that keeps every macro's routes and
-  routes only the clock tree and the stitches (`-unguided_only`, patch
-  0173). `XSTile_parent_pm_crossing_ends` (`tools/carve/crossing_ends.py`)
+  routes only the clock tree, the stitches and the nets on the pins of
+  the register files it moved onto its rows (below; `-unguided_only`,
+  patch 0173). `XSTile_parent_pm_crossing_ends` (`tools/carve/crossing_ends.py`)
   takes the end pins of its crossing paths over 2,000 ps from the
   crossing data its crossings report writes (below).
 - The second pass starts again from the floorplan.
@@ -507,6 +508,68 @@ twice:
   `XSTile_parent_pm_top` goes on from there as the first pass does: the
   tree, the legaliser, which seats the placed cells with the clock tree's
   buffers, and global route.
+
+The register files are dissolved too. The tile's nine generated register
+files are macros of their own flows inside the parent and the blocks:
+IntRegFile in the parent, FtqEntryQueue, FtqMetaQueueCommit,
+FtqMetaQueueRedirect and FtqMetaQueueResolve in Frontend, RobEntryFile and
+RenameBufferFile in Rob, VfRegFile in VecRegionModule and FpRegFile in
+FltRegionModule. The top level's floorplan dissolves each after the
+parent and the blocks (`dissolve_nested` in `parent_macro.bzl`,
+`tools/carve/dissolve_nested.tcl`):
+
+- Its cells are its own flow's global route, LOCKED where that flow
+  placed them, through the place and orientation its parent or block gave
+  the macro.
+- The whole register file moves by less than a site across and at most
+  a row up or down, onto the top level's rows, each cell in a row of its
+  orientation. Its parent or block placed it off them: all nine were off
+  the rows, and eight of them off the sites too. The top level's power
+  grid then runs along its cells' rails, and the nets on its pins lose
+  their guides for the top level's global route to route.
+- Its own clock tree stays behind. Its registers join the top level's one
+  tree as sinks of their own, where they hung off a macro sink with the
+  register file's insertion delay.
+
+It stops where the problem is made: a master with no instance or several
+(FLW 141), a database that is not the master's own flow's (FLW 140), a
+register file with none of its clock pins on a net (FLW 142), a cell left
+unplaced (FLW 143), off the top level's rows or in a row of the other
+orientation (FLW 144), fewer registers than its database holds (FLW 145),
+a register whose clock pin is off the clock pin's net, behind a clock
+buffer or gate it kept (FLW 146), a supply pin on no net after the global
+connections (FLW 147), no module instance from the dissolve (FLW 149),
+and a net on a moved register file's pins that the dissolve removed
+without joining it to another (FLW 150). On the toy, the parent's
+register file FileC is such a macro, and
+`mini_top_parent_pm_dissolve_nested_test` checks it on the first pass:
+every cell where FileC's flow placed it, on the rows and the power grid,
+every register clocked by the top level's tree. Each stop from FLW 140 to
+FLW 147 fires there on purpose, for the reason it exists: a master with
+no instance, another flow's database, an instance of FileC with nothing
+on its pins, one dissolved with its own clock tree kept, a register of
+one unplaced and then destroyed, a cell moved off its row or turned
+over, a supply pin disconnected. FLW 149 and FLW 150 have no such test:
+they stop the dissolve breaking its own contract.
+
+No KPI run has measured it yet. The only numbers so far are from a dirty
+lane, a clock walk of the first pass's legalised tree with placement
+parasitics, not a crossing result: each group's median skew, launch late,
+capture early, less CRPR, in ps. A positive skew takes setup slack from
+a path, a negative one gives it some.
+
+| group | register files as macros | dissolved |
+|---|---|---|
+| parent to Frontend | 238.3 | 63.2 |
+| VecRegionModule to parent | 346.2 | -1.1 |
+| Rob to parent | 65.6 | 84.7 |
+| parent to CoupledL2 | 16.3 | 44.8 |
+| parent to VecRegionModule | -60.5 | 33.7 |
+
+Two groups gain, by 175.1 and 347.3 ps. Three lose: Rob to parent by
+19.1 ps, parent to CoupledL2 by 28.5 ps, and parent to VecRegionModule by
+94.2 ps, which had 60.5 ps of skew in its favour and now has 33.7 ps
+against it.
 
 The parent repairs setup at global route, on register-to-register paths
 only; neither pass of the top level repairs timing after its clock tree.
