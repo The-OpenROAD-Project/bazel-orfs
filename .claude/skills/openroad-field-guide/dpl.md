@@ -53,7 +53,10 @@ drops cells into channels.
   cells over the array; on another register file it ran out of
   iterations and failed, DPL-0701/0033). Carried 0215 puts soft
   placement blockages over the array in strips that leave its free
-  columns (generate_ram's service columns) open: phase 1 converges.
+  columns (generate_ram's service columns) open: phase 1 converges. It
+  blocks only when the band around the array holds the cells by itself;
+  otherwise global placement diverged in the strips (gpl.md), and the
+  array is left to the diamond legaliser as before.
   Before it, XiangShan's register files were set to the diamond
   legaliser (`xiangshan.bzl`), which hid this.
 - `improve_placement` (`ENABLE_DPO=1`): HPWL only, not timing-aware,

@@ -15,6 +15,16 @@ iteration, until overflow <= 0.1.
 - GPL-1001 finished; GPL-1010 hit 5,000 iterations then GPL-0121 reverted
   to the min-HPWL snapshot. GPL-0323/0324/0998/0997 divergence, GPL-0304
   diverged at iteration 1 (lower `-init_density_penalty`).
+- **Cells trapped in a wide blockage**: overflow stuck near 0.92 from
+  iteration 10 and creeping to 0.997, penalty to 1e33, then GPL-0305.
+  The nets pull the cells into a blocked region (a register file's FIRM
+  array under 0215's strips); inside it the density force is flat and
+  free columns a few sites wide next to it are out of reach. Finer bins
+  (`-bin_grid_count 512`) and a spread start do not help. Leave such an
+  array unblocked (0215 does when the band cannot hold the cells, on
+  XiangShan's FpRegFile/VfRegFile). Without IOs and with only
+  high-fanout nets, initial placement also piles every cell in the
+  core's corner (fixed upstream, OpenROAD #12232, after our pin).
 - **Timing-driven events**: GPL-0100 "Timing-driven iteration i/N,
   virtual: ...", GPL-0106 worst slack, GPL-0107-0109 repair_design area
   and gcells, GPL-1013 total. GPL-0105/0102 "no slacks found.
