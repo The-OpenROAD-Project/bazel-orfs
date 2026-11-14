@@ -381,6 +381,14 @@ archive_override(
         # global route or that campaign ends; retires at a //:bump onto an
         # OpenROAD that has it.
         "//patches:0221-openroad-gpl-timing-pin-pull.patch",
+        # 0222: link_hier_module <module> links a module read with
+        # read_verilog after read_db -hier into the loaded design, as
+        # link_design links an unused one, so replace_hier_module can switch
+        # an instance to it: a module synthesised again, timed in the context
+        # of the rest of the design without reading the rest again
+        # (tools/module_sta). Not upstreamed; retires at a //:bump onto
+        # an OpenROAD that has it.
+        "//patches:0222-openroad-link-hier-module.patch",
     ],
     strip_prefix = "OpenROAD-3cf922cc136ffb08c833afab2c2ae8010eef7049",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/3cf922cc136ffb08c833afab2c2ae8010eef7049.tar.gz"],
