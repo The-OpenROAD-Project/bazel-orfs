@@ -1,0 +1,42 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+# orfs_module_sta's scripts (private/module_sta.bzl): consumers reach them
+# through the rules, so they are public.
+exports_files(
+    [
+        "ab.py",
+        "base.tcl",
+        "common.tcl",
+        "context_db.tcl",
+        "ends.py",
+        "flat.tcl",
+        "iterate.sh.tpl",
+        "iterate.tcl",
+        "sta.sh",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "rename_module",
+    srcs = ["rename_module.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "ends",
+    srcs = ["ends.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "module_sta_test",
+    srcs = [
+        "ab.py",
+        "ends.py",
+        "module_sta_test.py",
+        "rename_module.py",
+    ],
+    imports = ["."],
+    main = "module_sta_test.py",
+)

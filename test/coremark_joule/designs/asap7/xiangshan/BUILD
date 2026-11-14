@@ -1,4 +1,4 @@
-load("@bazel-orfs//:openroad.bzl", "odb_debug", "orfs_schedule")
+load("@bazel-orfs//:openroad.bzl", "odb_debug", "orfs_flat_sta", "orfs_module_context", "orfs_module_sta_base", "orfs_schedule")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("//test/coremark_joule/designs/asap7/xiangshan/kit:kit.bzl", "xs_kit")
 load("//test/coremark_joule/flow:power.bzl", "census_probe", "grt_netlist", "hier_probe", "physical_probe", "stage_power", "stage_power_units")
@@ -526,4 +526,36 @@ py_test(
     imports = ["."],
     main = "sta_prefix_test.py",
     tags = ["study"],
+)
+
+# Module-in-context timing on Frontend (private/module_sta.bzl): its
+# synthesis as a hierarchical database, and the timing contexts of a few of
+# its modules, each for an AI loop iterating on that module in a dirty lane:
+#
+#   bazelisk run :Frontend_tage_ctx_iterate -- Tage_new tage_new.v <its tables' netlists>
+orfs_module_sta_base(
+    name = "Frontend_hier",
+    synth = ":Frontend_synth",
+    tags = ["manual"],
+)
+
+[orfs_module_context(
+    name = "Frontend_%s_ctx" % name,
+    base = ":Frontend_hier",
+    clocks = {"clock": "2000"},
+    module = path,
+    tags = ["manual"],
+) for name, path in [
+    ("tagetable3", "inner_bpu/tage/tables_3"),
+    ("tage", "inner_bpu/tage"),
+    ("ftq", "inner_ftq"),
+    ("icache", "inner_icache"),
+]]
+
+orfs_flat_sta(
+    name = "Frontend_flat",
+    base = ":Frontend_hier",
+    clocks = {"clock": "2000"},
+    synth = ":Frontend_synth",
+    tags = ["manual"],
 )
