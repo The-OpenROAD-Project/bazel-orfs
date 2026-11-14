@@ -276,8 +276,7 @@ def _arr(p):
 
 
 def spec(kind, options=()):
-    """The register file's spec; options are spec lines a variant adds,
-    a bare `write_words` each write port's words."""
+    """The register file's spec; options are spec lines a variant adds."""
     p = KINDS[kind]
     lines = [
         "module Arr",
@@ -287,14 +286,7 @@ def spec(kind, options=()):
     ]
     lines += [f"read r{r}_addr r{r}_data" for r in range(p["picks"])]
     lines += [f"write w{j}_addr w{j}_data w{j}_en" for j in range(len(_writes(p)))]
-    for option in options:
-        if option == "write_words":
-            # each write port's words: its row, in every bank
-            for j, (_, _, row, _, _) in enumerate(_writes(p)):
-                words = [b * p["rows"] + row for b in range(p["banks"])]
-                lines.append(f"write_words w{j}_addr " + " ".join(map(str, words)))
-        else:
-            lines.append(option)
+    lines += list(options)
     return "\n".join(lines) + "\n" + _CELLS
 
 

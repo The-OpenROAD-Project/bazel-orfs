@@ -1,4 +1,4 @@
-From cb9e62a9e5f436d2fd16ef20e705e0c1473fdc81 Mon Sep 17 00:00:00 2001
+From 9a36670e4a1642a1dd4bd5b2d5113e6243b0e231 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Sat, 31 Oct 2026 14:07:22 +0100
 Subject: [PATCH] ram: a read select's group buffer beside the bits it selects
@@ -30,10 +30,10 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  2 files changed, 36 insertions(+), 14 deletions(-)
 
 diff --git a/src/ram/include/ram/ram.h b/src/ram/include/ram/ram.h
-index 15db2c1b16..70e97a0620 100644
+index d916119fc1..603108afde 100644
 --- a/src/ram/include/ram/ram.h
 +++ b/src/ram/include/ram/ram.h
-@@ -191,6 +191,17 @@ class RamGen
+@@ -188,6 +188,17 @@ class RamGen
    // its own buffer: the first is the select itself. Keyed by the select,
    // only ever looked up, never walked.
    std::unordered_map<odb::dbNet*, std::vector<odb::dbNet*>> select_groups_;
@@ -52,10 +52,10 @@ index 15db2c1b16..70e97a0620 100644
    // or an inverter from the address, made in the decoder cell of the
    // group's first word. Keyed by the port's decoder prefix and that word.
 diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
-index 36ceb76bd9..9af000886f 100644
+index 973fcfbe8d..f2cb9cc373 100644
 --- a/src/ram/src/ram.cpp
 +++ b/src/ram/src/ram.cpp
-@@ -934,20 +934,7 @@ void RamGen::makeBufferColumn(const std::string& prefix,
+@@ -928,20 +928,7 @@ void RamGen::makeBufferColumn(const std::string& prefix,
            {{buffer_ports_[{PortRoleType::DataIn, 0}],
              decoder_output_nets[word]},
             {buffer_ports_[{PortRoleType::DataOut, 0}], select_nets[word]}});
@@ -77,7 +77,7 @@ index 36ceb76bd9..9af000886f 100644
      }
      buffer_layout->addCell(std::move(buf_cell));
      for (int f = 1; f < bit_folds_; ++f) {
-@@ -2608,6 +2595,7 @@ void RamGen::generate(const int mask_size,
+@@ -2564,6 +2551,7 @@ void RamGen::generate(const int mask_size,
    word_write_.clear();
    super_nets_.clear();
    select_groups_.clear();
@@ -85,7 +85,7 @@ index 36ceb76bd9..9af000886f 100644
    literal_cells_.clear();
    storage_cell_ = storage_cell;
    tristate_cell_ = tristate_cell;
-@@ -3030,6 +3018,9 @@ void RamGen::generate(const int mask_size,
+@@ -2980,6 +2968,9 @@ void RamGen::generate(const int mask_size,
            dbNet* select = read_select_nets[r_sel_idx - 1][slot];
            auto& copies = select_groups_[select];
            copies.push_back(select);
@@ -95,7 +95,7 @@ index 36ceb76bd9..9af000886f 100644
            for (int g = 1; g < groups; ++g) {
              copies.push_back(makeNet(fmt::format("r_sel_p{}", p),
                                       fmt::format("select_r{}_g{}", slot, g)));
-@@ -3047,6 +3038,7 @@ void RamGen::generate(const int mask_size,
+@@ -2997,6 +2988,7 @@ void RamGen::generate(const int mask_size,
                dbNet::destroy(groups->second[g]);
              }
              select_groups_.erase(groups);
@@ -103,7 +103,7 @@ index 36ceb76bd9..9af000886f 100644
            }
            dbNet::destroy(decoder_output_nets[p][slot]);
            dbNet::destroy(read_select_nets[r_sel_idx - 1][slot]);
-@@ -3239,6 +3231,25 @@ void RamGen::generate(const int mask_size,
+@@ -3178,6 +3170,25 @@ void RamGen::generate(const int mask_size,
                term.select = groups->second[bit / kDriveGroup];
              }
            }

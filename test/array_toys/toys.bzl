@@ -143,10 +143,6 @@ OHSCHED_VARIANTS = {
     # the boundary: the decoders and read muxes as Verilog, which
     # synthesis maps and retimes with the logic around them
     "periphery": ["periphery verilog"],
-    # a word written by one port takes its data straight: each write port
-    # names the words it writes (its row in every bank), so no word
-    # carries a data mux over every port
-    "reach": ["write_words"],
 }
 
 # A/B arms on the ohsched toy: a lever, the arms it is tried on (the arm
@@ -157,7 +153,7 @@ OHSCHED_AB = {
     # default arguments, so they are repeated; the toys set no other
     # CTS_* variable that CTS_ARGS would drop
     "skew": (
-        [("yosys", None), ("generate_ram", "reach")],
+        [("yosys", None), ("generate_ram", None)],
         {"CTS_ARGS": "-sink_clustering_enable -repair_clock_nets -useful_skew"},
     ),
 }

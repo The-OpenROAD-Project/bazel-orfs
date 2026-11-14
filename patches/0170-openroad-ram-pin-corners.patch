@@ -48,16 +48,16 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  src/ram/test/make_7x7_nangate45.lefok      |  2 +-
  src/ram/test/make_7x7_nangate45.ok         |  4 +-
  src/ram/test/pins_corner_asap7.tcl         | 50 ++++++++++++++++++
- src/ram/test/routed_short_edge_asap7.tcl   | 45 ++++++++++++++++
- 10 files changed, 170 insertions(+), 17 deletions(-)
+ src/ram/test/routed_short_edge_asap7.tcl   | 42 +++++++++++++++
+ 10 files changed, 167 insertions(+), 17 deletions(-)
  create mode 100644 src/ram/test/pins_corner_asap7.tcl
  create mode 100644 src/ram/test/routed_short_edge_asap7.tcl
 
 diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
-index dc0d758e19..36ceb76bd9 100644
+index e2599d2c8d..973fcfbe8d 100644
 --- a/src/ram/src/ram.cpp
 +++ b/src/ram/src/ram.cpp
-@@ -2192,9 +2192,6 @@ void RamGen::ramPinplacer(const char* ver_name, const char* hor_name)
+@@ -2186,9 +2186,6 @@ void RamGen::ramPinplacer(const char* ver_name, const char* hor_name)
    // moving clock and we pins to the top
    block_->addBTermsToConstraint(clk_pins, top_constraint);
    block_->addBTermsToConstraint(we_pins, top_constraint);
@@ -67,7 +67,7 @@ index dc0d758e19..36ceb76bd9 100644
  
    auto pin_tech = block_->getDb()->getTech();
    odb::dbTechLayer* hor_layer = pin_tech->findLayer(hor_name);
-@@ -2202,6 +2199,30 @@ void RamGen::ramPinplacer(const char* ver_name, const char* hor_name)
+@@ -2196,6 +2193,30 @@ void RamGen::ramPinplacer(const char* ver_name, const char* hor_name)
    io_placer_->addHorLayer(hor_layer);
    io_placer_->addVerLayer(ver_layer);
  
@@ -98,7 +98,7 @@ index dc0d758e19..36ceb76bd9 100644
    // no pin on a power strap of its own layer: where a strap reaches an
    // edge, a pin on the tracks under it cannot be reached (asap7's M4
    // straps start on the bottom edge, its first track 12 nm above it)
-@@ -2223,6 +2244,7 @@ void RamGen::ramPinplacer(const char* ver_name, const char* hor_name)
+@@ -2217,6 +2238,7 @@ void RamGen::ramPinplacer(const char* ver_name, const char* hor_name)
                ppl::Edge::right, r.yMin() - s, r.yMax() + s);
            io_placer_->excludeInterval(
                ppl::Edge::left, r.yMin() - s, r.yMax() + s);
@@ -106,7 +106,7 @@ index dc0d758e19..36ceb76bd9 100644
          } else if (box->getTechLayer() == ver_layer) {
            const int s = ver_layer->getSpacing() + ver_layer->getWidth() / 2;
            io_placer_->excludeInterval(
-@@ -2233,6 +2255,39 @@ void RamGen::ramPinplacer(const char* ver_name, const char* hor_name)
+@@ -2227,6 +2249,39 @@ void RamGen::ramPinplacer(const char* ver_name, const char* hor_name)
        }
      }
    }
@@ -147,10 +147,10 @@ index dc0d758e19..36ceb76bd9 100644
    io_placer_->runHungarianMatching();
  }
 diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index 4e9b7587f1..4d116e39a9 100644
+index 450545c6be..233bf7827a 100644
 --- a/src/ram/test/BUILD
 +++ b/src/ram/test/BUILD
-@@ -38,6 +38,8 @@ PASSFAIL_TESTS = [
+@@ -36,6 +36,8 @@ PASSFAIL_TESTS = [
      "write_ports_fanout_asap7",
      "one_group_asap7",
      "wide_word_asap7",
@@ -159,7 +159,7 @@ index 4e9b7587f1..4d116e39a9 100644
  ]
  
  ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
-@@ -47,6 +49,7 @@ MANUAL_TESTS = [
+@@ -45,6 +47,7 @@ MANUAL_TESTS = [
      "banks_asap7",
      "bank_column_layout_asap7",
      "write_priority_or_asap7",
@@ -168,7 +168,7 @@ index 4e9b7587f1..4d116e39a9 100644
  
  filegroup(
 diff --git a/src/ram/test/make_7x7_2r1w_nangate45.defok b/src/ram/test/make_7x7_2r1w_nangate45.defok
-index 8bc955d7d7..9762c91538 100644
+index 8ca9fc3d41..51cfeed51f 100644
 --- a/src/ram/test/make_7x7_2r1w_nangate45.defok
 +++ b/src/ram/test/make_7x7_2r1w_nangate45.defok
 @@ -419,7 +419,7 @@ PINS 34 ;
@@ -227,7 +227,7 @@ index e2b03632f0..fa14f12ac5 100644
  [INFO DRT-0167] List of default vias:
    Layer via2
 diff --git a/src/ram/test/make_7x7_nangate45.defok b/src/ram/test/make_7x7_nangate45.defok
-index ada1c7fe3a..0bcd822ffd 100644
+index 7b90ca39d7..c2ceccb1d8 100644
 --- a/src/ram/test/make_7x7_nangate45.defok
 +++ b/src/ram/test/make_7x7_nangate45.defok
 @@ -271,7 +271,7 @@ PINS 21 ;
@@ -343,26 +343,24 @@ index 0000000000..3d0b8ca54c
 +puts "pass"
 diff --git a/src/ram/test/routed_short_edge_asap7.tcl b/src/ram/test/routed_short_edge_asap7.tcl
 new file mode 100644
-index 0000000000..2de9ca7c15
+index 0000000000..b4fe3af8ed
 --- /dev/null
 +++ b/src/ram/test/routed_short_edge_asap7.tcl
-@@ -0,0 +1,45 @@
+@@ -0,0 +1,42 @@
 +# A routed block too short for its address pins on the right edge: the
 +# ports the edge does not hold take theirs on the bottom edge. 8 words of
 +# 8 bits with two read and four write ports have 18 address pins for a
-+# 2.43 um edge, and pin placement stopped (PPL-0111). Each write port
-+# writes only its words, as a bank fill does.
++# 2.43 um edge, and pin placement stopped (PPL-0111).
 +source "helpers.tcl"
 +source "ram_sim.tcl"
 +source "routed.tcl"
 +
 +routed::read_asap7
 +
-+set reach {{0 4} {1 5} {2 6} {3 7}}
 +generate_ram {*}$routed::asap7 \
 +  -mask_size 8 -word_size 8 -num_words 8 -r_ports 2 -w_ports 4 \
 +  -storage_cell DFFHQNx1_ASAP7_75t_R -write_style mux -write_priority or \
-+  -decoder word -w_port_words $reach
++  -decoder word
 +routed::check
 +
 +# some address pins on the bottom edge, none on the left
@@ -387,7 +385,6 @@ index 0000000000..2de9ca7c15
 +  words 8 bits 8 priority or cycles 300
 +  writes {{addr_w0 D0 {we0[0]}} {addr_w1 D1 {we1[0]}}
 +          {addr_w2 D2 {we2[0]}} {addr_w3 D3 {we3[0]}}}
-+  write_words {{0 4} {1 5} {2 6} {3 7}}
 +  reads {{addr_r0 Q0} {addr_r1 Q1}}
 +}
 +

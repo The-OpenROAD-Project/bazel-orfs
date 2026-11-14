@@ -7,6 +7,13 @@
 0089 on OpenROAD patch 0010): a register file is a macro through
 synthesis and macro placement and dissolves into its cells after it.*
 
+*2026-11-14: the ohsched `reach` variant and the carried patches behind
+it, OpenROAD 0159 (`generate_ram -w_port_words`) and ORFS 0160 (a regfile
+spec's `write_words`), are dropped: no design has the shape, only the
+toy. The `reach` rows below stay as measured. If a design needs it,
+banked write ports (`-wb_ports`, the write side of `-rb_ports`) build
+the same write logic for writers chosen by address bits.*
+
 *2026-10-27: `tools/structured_gen` was retired on 2026-10-15 (278cb810);
 `generate_ram` with the carried ram patches builds the register files,
 and the sections below that name structured_gen describe what it did.

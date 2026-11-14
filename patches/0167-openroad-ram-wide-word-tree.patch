@@ -21,18 +21,18 @@ OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/ram/include/ram/ram.h         |  5 ++++
- src/ram/src/ram.cpp               | 31 ++++++++++++++++++++--
- src/ram/test/BUILD                |  1 +
- src/ram/test/wide_word_asap7.tcl  | 44 +++++++++++++++++++++++++++++++
+ src/ram/include/ram/ram.h        |  5 ++++
+ src/ram/src/ram.cpp              | 31 ++++++++++++++++++++--
+ src/ram/test/BUILD               |  1 +
+ src/ram/test/wide_word_asap7.tcl | 44 ++++++++++++++++++++++++++++++++
  4 files changed, 79 insertions(+), 2 deletions(-)
  create mode 100644 src/ram/test/wide_word_asap7.tcl
 
 diff --git a/src/ram/include/ram/ram.h b/src/ram/include/ram/ram.h
-index dcb3e9d4c1..15db2c1b16 100644
+index cff7129ae9..d916119fc1 100644
 --- a/src/ram/include/ram/ram.h
 +++ b/src/ram/include/ram/ram.h
-@@ -449,6 +449,11 @@ class RamGen
+@@ -442,6 +442,11 @@ class RamGen
      std::vector<odb::dbNet*> select_b;
    };
    std::map<std::pair<int, int>, WordWrite> word_write_;
@@ -45,10 +45,10 @@ index dcb3e9d4c1..15db2c1b16 100644
    {
      return bit_folds_ > 1 ? 0 : slice * slice_width_;
 diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
-index 5d19ffc8a6..dc0d758e19 100644
+index 4b216a80e3..e2599d2c8d 100644
 --- a/src/ram/src/ram.cpp
 +++ b/src/ram/src/ram.cpp
-@@ -561,6 +561,30 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -555,6 +555,30 @@ void RamGen::makeSlice(const int slice_idx,
      // a word of one group: its nets drive no more than a group's pins
      // already, and a buffer would only add a level
      const bool one_group = word_bits_ <= kDriveGroup;
@@ -76,10 +76,10 @@ index 5d19ffc8a6..dc0d758e19 100644
 +      }
 +      return net;
 +    };
-     if (n_writers > 1 && one_group && take_group.empty()) {
+     if (num_write > 1 && one_group && take_group.empty()) {
        take_group = take;
-     } else if (n_writers > 1
-@@ -573,7 +597,8 @@ void RamGen::makeSlice(const int slice_idx,
+     } else if (num_write > 1
+@@ -567,7 +591,8 @@ void RamGen::makeSlice(const int slice_idx,
                   prefix,
                   fmt::format("take_buf{}_g{}", i, group),
                   buffer_cell_,
@@ -89,7 +89,7 @@ index 5d19ffc8a6..dc0d758e19 100644
                    {buffer_ports_[{PortRoleType::DataOut, 0}],
                     take_group[i]}});
        }
-@@ -591,7 +616,8 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -585,7 +610,8 @@ void RamGen::makeSlice(const int slice_idx,
                   prefix,
                   fmt::format("we_buf{}", group),
                   buffer_cell_,
@@ -99,7 +99,7 @@ index 5d19ffc8a6..dc0d758e19 100644
                    {buffer_ports_[{PortRoleType::DataOut, 0}], we_group}});
        }
        makeInst(bit_cell.get(),
-@@ -2525,6 +2551,7 @@ void RamGen::generate(const int mask_size,
+@@ -2481,6 +2507,7 @@ void RamGen::generate(const int mask_size,
    storage_nets_.clear();
    tree_nodes_.clear();
    word_write_.clear();
@@ -108,10 +108,10 @@ index 5d19ffc8a6..dc0d758e19 100644
    literal_cells_.clear();
    storage_cell_ = storage_cell;
 diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index 2989dd48f6..4e9b7587f1 100644
+index 91557573bd..450545c6be 100644
 --- a/src/ram/test/BUILD
 +++ b/src/ram/test/BUILD
-@@ -37,6 +37,7 @@ PASSFAIL_TESTS = [
+@@ -35,6 +35,7 @@ PASSFAIL_TESTS = [
      "read_drive_asap7",
      "write_ports_fanout_asap7",
      "one_group_asap7",

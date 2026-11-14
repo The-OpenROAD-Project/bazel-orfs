@@ -28,10 +28,10 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100644 src/ram/test/write_ports_fanout_asap7.tcl
 
 diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
-index 109e595afa..64d10234f4 100644
+index 40f5b8c4de..7061bc2441 100644
 --- a/src/ram/src/ram.cpp
 +++ b/src/ram/src/ram.cpp
-@@ -404,6 +404,10 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -399,6 +399,10 @@ void RamGen::makeSlice(const int slice_idx,
    // group.
    dbNet* hold = nullptr;
    dbNet* we_group = nullptr;
@@ -42,15 +42,15 @@ index 109e595afa..64d10234f4 100644
    // (sel0 & a) | (sel1 & b): an AO22, or the AOI22 and an inverter where
    // the library has no AO22
    auto ao22 = [&](Cell* cell,
-@@ -554,6 +558,21 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -548,6 +552,21 @@ void RamGen::makeSlice(const int slice_idx,
                              storage,
                              reset_bit,
                              reset_off);
-+    if (n_writers > 1
++    if (num_write > 1
 +        && (local_bit % kDriveGroup == 0 || take_group.empty())) {
 +      const int group = local_bit / kDriveGroup;
-+      take_group.assign(n_writers, nullptr);
-+      for (int i = 0; i < n_writers; ++i) {
++      take_group.assign(num_write, nullptr);
++      for (int i = 0; i < num_write; ++i) {
 +        take_group[i] = makeNet(prefix, fmt::format("take{}_g{}", i, group));
 +        makeInst(bit_cell.get(),
 +                 prefix,
@@ -64,45 +64,45 @@ index 109e595afa..64d10234f4 100644
      if (write_mux_ && (local_bit % kDriveGroup == 0 || we_group == nullptr)) {
        // a group's enable and hold, in its first bit's cell
        const int group = local_bit / kDriveGroup;
-@@ -608,9 +627,9 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -602,9 +621,9 @@ void RamGen::makeSlice(const int slice_idx,
                     name,
                     fmt::format("dmux{}", w / 2),
                     aoi22_cell_,
 -                   {{aoi22_in_a1_, take[w]},
 +                   {{aoi22_in_a1_, take_group[w]},
-                     {aoi22_in_a2_, data_input[writers[w]][local_bit]},
+                     {aoi22_in_a2_, data_input[w][local_bit]},
 -                    {aoi22_in_b1_, take[w + 1]},
 +                    {aoi22_in_b1_, take_group[w + 1]},
-                     {aoi22_in_b2_, data_input[writers[w + 1]][local_bit]},
+                     {aoi22_in_b2_, data_input[w + 1][local_bit]},
                      {aoi22_out_, out_b}});
            makeInst(bit_cell.get(),
-@@ -624,9 +643,9 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -618,9 +637,9 @@ void RamGen::makeSlice(const int slice_idx,
                     name,
                     fmt::format("dmux{}", w / 2),
                     ao22_cell_,
 -                   {{ao22_in_[0], take[w]},
 +                   {{ao22_in_[0], take_group[w]},
-                     {ao22_in_[1], data_input[writers[w]][local_bit]},
+                     {ao22_in_[1], data_input[w][local_bit]},
 -                    {ao22_in_[2], take[w + 1]},
 +                    {ao22_in_[2], take_group[w + 1]},
-                     {ao22_in_[3], data_input[writers[w + 1]][local_bit]},
+                     {ao22_in_[3], data_input[w + 1][local_bit]},
                      {ao22_out_, out}});
          } else {
-@@ -634,7 +653,7 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -628,7 +647,7 @@ void RamGen::makeSlice(const int slice_idx,
                     name,
                     fmt::format("dmux{}", w / 2),
                     and2_cell_,
 -                   {{and2_ports_[{PortRoleType::DataIn, 0}], take[w]},
 +                   {{and2_ports_[{PortRoleType::DataIn, 0}], take_group[w]},
                      {and2_ports_[{PortRoleType::DataIn, 1}],
-                      data_input[writers[w]][local_bit]},
+                      data_input[w][local_bit]},
                      {and2_ports_[{PortRoleType::DataOut, 0}], out}});
 diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index 18b72c25d5..db51dc901d 100644
+index 5cc0a7d93a..0200b6bf2d 100644
 --- a/src/ram/test/BUILD
 +++ b/src/ram/test/BUILD
-@@ -35,6 +35,7 @@ PASSFAIL_TESTS = [
-     "write_port_words_asap7",
+@@ -33,6 +33,7 @@ PASSFAIL_TESTS = [
+     "generate_array_asap7",
      "write_mux_fanout_asap7",
      "read_drive_asap7",
 +    "write_ports_fanout_asap7",
