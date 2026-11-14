@@ -1265,6 +1265,43 @@ synth_action_inputs_test(
     target_under_test = ":Mul_synth",
 )
 
+# Synthesis is keyed on yosys alone: no yosys action takes OpenROAD,
+# OpenSTA, KLayout or a script of a later stage, so rebuilding OpenROAD
+# or editing a placement script does not re-run synthesis. do-1_synth,
+# the OpenROAD step that writes 1_synth.odb, is the control: it takes
+# them, which shows these basenames name the tools.
+NOT_YOSYS_TOOLS = [
+    "global_route.tcl",
+    "klayout",
+    "openroad",
+    "opensta",
+]
+
+[synth_action_inputs_test(
+    name = "yosys_only_tools_{}_test".format(name),
+    forbidden_input_basenames = NOT_YOSYS_TOOLS,
+    output_basename = output,
+    target_under_test = target,
+) for name, output, target in [
+    ("serial_canonicalize", "1_1_yosys_canonicalize.rtlil", ":Mul_synth"),
+    ("serial_do_yosys", "1_2_yosys.v", ":Mul_synth"),
+    ("serial_vars", "1_synth.vars", ":Mul_synth"),
+    ("parallel_module_canonicalize", "partition_adder_canonical.rtlil", ":kept_modules_synth"),
+    ("parallel_partition", "partition_top.v", ":kept_modules_synth"),
+    ("parallel_merge", "1_2_yosys.v", ":kept_modules_synth"),
+    ("parallel_vars", "1_synth.vars", ":kept_modules_synth"),
+]]
+
+[synth_action_inputs_test(
+    name = "openroad_tools_{}_odb_test".format(name),
+    output_basename = "1_synth.odb",
+    required_input_basenames = NOT_YOSYS_TOOLS,
+    target_under_test = target,
+) for name, target in [
+    ("serial", ":Mul_synth"),
+    ("parallel", ":kept_modules_synth"),
+]]
+
 # Same split on the parallel/hierarchical path (kept_modules_synth).
 synth_action_inputs_test(
     name = "sdc_parallel_partition_test",

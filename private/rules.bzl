@@ -1330,13 +1330,23 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     then run the actual steps (synth_keep.tcl, synth_partition.sh, etc.)
     directly as shell commands.
     """
+
+    # The yosys actions see yosys's environment and tools only, not
+    # OpenROAD's (yosys_inputs): rebuilding OpenROAD or editing a
+    # placement script must not re-run synthesis. do-1_synth is the one
+    # OpenROAD step here and takes both.
     base_env = (
+        verilog_arguments([]) |
+        yosys_environment(ctx) |
+        config_environment(config)
+    )
+    odb_env = (
         verilog_arguments([]) |
         flow_environment(ctx) |
         yosys_environment(ctx) |
         config_environment(config)
     )
-    yosys_and_flow_tools = depset(transitive = [yosys_inputs(ctx), flow_inputs(ctx)])
+    yosys_tools = yosys_inputs(ctx)
     parallel_makefile = ctx.file._parallel_synth_makefile
     if synth_data_inputs == None:
         synth_data_inputs = data_inputs(ctx)
@@ -1387,7 +1397,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 ],
             ),
             outputs = [checkpoint_output] + keep_logs,
-            tools = yosys_and_flow_tools,
+            tools = yosys_tools,
         )
 
         # Action 2b: kept-json → kept_modules.json. The top is excluded:
@@ -1541,7 +1551,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 transitive = [synth_data_inputs, pdk_inputs(ctx), slices.deps],
             ),
             outputs = [slice_regfiles],
-            tools = depset(transitive = [yosys_and_flow_tools] + slices.regfile_tools),
+            tools = depset(transitive = [yosys_tools] + slices.regfile_tools),
             progress_message = "Generating register files for the slices of %s" % module_top(ctx),
         )
 
@@ -1627,7 +1637,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                     ],
                 ),
                 outputs = [per_module_out, per_module_name_out, slice_checkpoint] + memory_outputs,
-                tools = yosys_and_flow_tools,
+                tools = yosys_tools,
                 progress_message = "Canonicalize slice for partition cache: {}".format(module),
             )
             per_module_rtlil[module] = per_module_out
@@ -1674,7 +1684,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 ],
             ),
             outputs = [per_module_out, per_module_name_out],
-            tools = yosys_and_flow_tools,
+            tools = yosys_tools,
             progress_message = "Re-canonicalize for partition cache: {}".format(module),
         )
         per_module_rtlil[module] = per_module_out
@@ -1970,7 +1980,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             },
             inputs = partition_inputs,
             outputs = [part_output],
-            tools = yosys_and_flow_tools,
+            tools = yosys_tools,
             progress_message = progress_msg,
         )
 
@@ -2004,7 +2014,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         },
         inputs = top_partition_inputs,
         outputs = [top_output],
-        tools = yosys_and_flow_tools,
+        tools = yosys_tools,
         progress_message = "Synthesizing top module %s" % module_top(ctx),
     )
 
@@ -2070,7 +2080,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             ],
         ),
         outputs = [synth_outputs["1_2_yosys.sdc"]],
-        tools = yosys_and_flow_tools,
+        tools = yosys_tools,
         progress_message = "Generating SDC for %s" % module_top(ctx),
     )
 
@@ -2094,7 +2104,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 "do-1_synth",
             ],
             command = " && ".join(odb_commands),
-            env = base_env,
+            env = odb_env,
             inputs = depset(
                 [
                     synth_outputs["1_2_yosys.v"],
@@ -2120,7 +2130,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 ],
             ),
             outputs = [synth_outputs["1_synth.odb"], synth_outputs["1_synth.sdc"]] + synth_jsons,
-            tools = yosys_and_flow_tools,
+            tools = depset(transitive = [yosys_tools, flow_inputs(ctx)]),
             progress_message = "Building synth ODB for %s" % module_top(ctx),
         )
 
@@ -2592,7 +2602,6 @@ def _yosys_impl(ctx):
     elif num_partitions > 0:
         validated_kept_macros_json, partition_files = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments, sdc_overrides, synth_data_inputs, sdc_only_inputs, memories_outputs + memories_inferred, slices = struct(
             env = verilog_arguments([]) |
-                  flow_environment(ctx) |
                   yosys_environment(ctx) |
                   config_environment(canon_config),
             config = canon_config,
@@ -2617,13 +2626,22 @@ def _yosys_impl(ctx):
         # Primary artifacts (1_2_yosys.v/.sdc, 1_synth.odb/.sdc) are
         # deliberately excluded: a missing one must fail the action,
         # not be papered over with a touched empty file.
+        # do-yosys sees yosys's environment and tools only, so an
+        # OpenROAD rebuild or a placement script edit does not re-run it;
+        # do-1_synth, the OpenROAD step, takes both.
         serial_env = (
+            verilog_arguments([]) |
+            yosys_environment(ctx) |
+            config_environment(config)
+        )
+        serial_tools = yosys_inputs(ctx)
+        odb_env = (
             verilog_arguments([]) |
             flow_environment(ctx) |
             yosys_environment(ctx) |
             config_environment(config)
         )
-        serial_tools = depset(transitive = [yosys_inputs(ctx), flow_inputs(ctx)])
+        odb_tools = depset(transitive = [yosys_inputs(ctx), flow_inputs(ctx)])
         if sdc_path:
             ctx.actions.run_shell(
                 command = "cp {sdc} {out}".format(
@@ -2689,7 +2707,7 @@ def _yosys_impl(ctx):
                     "do-1_synth",
                 ],
                 command = " && ".join(odb_commands),
-                env = serial_env,
+                env = odb_env,
                 inputs = depset(
                     [
                         synth_outputs["1_2_yosys.v"],
@@ -2711,7 +2729,7 @@ def _yosys_impl(ctx):
                 ),
                 outputs = [synth_outputs["1_synth.odb"], synth_outputs["1_synth.sdc"]] +
                           odb_logs + synth_jsons,
-                tools = serial_tools,
+                tools = odb_tools,
                 progress_message = "Building synth ODB for %s" % module_top(ctx),
             )
 
@@ -2729,7 +2747,6 @@ def _yosys_impl(ctx):
         {make} $@ > {out}
         """.format(make = ctx.executable._make.path, out = variables.path),
         env = verilog_arguments([]) |
-              flow_environment(ctx) |
               yosys_environment(ctx) |
               config_environment(config),
         # A pure make-variable expansion: parses the config and the
@@ -2742,7 +2759,7 @@ def _yosys_impl(ctx):
             ],
         ),
         outputs = [variables],
-        tools = depset(transitive = [flow_inputs(ctx)]),
+        tools = yosys_inputs(ctx),
     )
 
     # 1_2_yosys.sdc is a verbatim copy of the raw SDC feeding do-1_synth —

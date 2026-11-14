@@ -485,9 +485,10 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
+# genElapsedTime.py: scripts/synth.sh logs the result hash with it.
 filegroup(
     name = "makefile_yosys",
-    srcs = glob(["*.mk"]),
+    srcs = glob(["*.mk"]) + ["genElapsedTime.py"],
     visibility = ["//visibility:public"],
 )
 ORFS_FLOW_UTIL_BUILD_EOF
