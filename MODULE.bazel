@@ -389,6 +389,14 @@ archive_override(
         # (tools/module_sta). Not upstreamed; retires at a //:bump onto
         # an OpenROAD that has it.
         "//patches:0222-openroad-link-hier-module.patch",
+        # 0223: replace_hier_module copies a module's child module instances,
+        # recursively, with net names relative to the copied module's root,
+        # so a module that has children of its own can be swapped (odb's
+        # "TODO: handle hierarchical child instances"); the module swapped
+        # out is saved before its instance goes, so two nets of one base
+        # name are no longer merged. Test replace_hier_mod7. Not upstreamed;
+        # retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0223-openroad-replace-hier-module-children.patch",
     ],
     strip_prefix = "OpenROAD-3cf922cc136ffb08c833afab2c2ae8010eef7049",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/3cf922cc136ffb08c833afab2c2ae8010eef7049.tar.gz"],
