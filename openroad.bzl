@@ -31,6 +31,14 @@ load(
     _orfs_headroom = "orfs_headroom",
 )
 load(
+    "//private:module_sta.bzl",
+    _orfs_flat_sta = "orfs_flat_sta",
+    _orfs_module_context = "orfs_module_context",
+    _orfs_module_iteration = "orfs_module_iteration",
+    _orfs_module_sta_base = "orfs_module_sta_base",
+    _orfs_timing_ab = "orfs_timing_ab",
+)
+load(
     "//private:odb_debug.bzl",
     _odb_debug = "odb_debug",
 )
@@ -116,6 +124,11 @@ orfs_variables = _orfs_variables
 orfs_run_executable = _orfs_run_executable
 odb_debug = _odb_debug
 orfs_headroom = _orfs_headroom
+orfs_flat_sta = _orfs_flat_sta
+orfs_module_context = _orfs_module_context
+orfs_module_iteration = _orfs_module_iteration
+orfs_module_sta_base = _orfs_module_sta_base
+orfs_timing_ab = _orfs_timing_ab
 orfs_test = _orfs_test
 orfs_floorplan = _orfs_floorplan
 orfs_place = _orfs_place

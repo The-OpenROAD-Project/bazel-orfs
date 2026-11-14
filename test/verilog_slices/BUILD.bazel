@@ -1,3 +1,5 @@
+load("@rules_python//python:defs.bzl", "py_test")
+
 # verilog_slices: each kept module canonicalized from its own slice of
 # the Verilog instead of from the global canonicalize.
 #
@@ -12,8 +14,16 @@
 #                       slices, canonical RTLIL and netlists as they were.
 #   slices_key_test     no per-module canonicalize reads the global
 #                       canonicalize or the design's sources.
+#   module_sta_inner_test, module_sta_outer_test
+#                       the after variant's Inner, and its Outer with the
+#                       Inner inside, swapped into their contexts cut from
+#                       the before variant, time as the after variant
+#                       does flat, endpoint for endpoint.
+#   module_sta_negative_test
+#                       the before Inner in the same context does not.
+#   SliceTop_sta_ab     what the edit did to timing (orfs_timing_ab).
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
-load("//:openroad.bzl", "orfs_flow")
+load("//:openroad.bzl", "orfs_flat_sta", "orfs_flow", "orfs_module_context", "orfs_module_iteration", "orfs_module_sta_base", "orfs_timing_ab")
 load(":slices_key_test.bzl", "slices_key_test")
 
 package(default_visibility = ["//visibility:private"])
@@ -109,4 +119,110 @@ slices_key_test(
     modules = KEPT,
     sources = ["before.v"],
     target_under_test = ":SliceTop_before_synth",
+)
+
+# Module-in-context timing (private/module_sta.bzl): the before variant as
+# a hierarchical database, the contexts of Inner (a leaf) and Outer (which
+# holds Inner) cut from it, and each swapped for its after variant and
+# timed. Every endpoint of the module and of the registers it reaches must
+# have the slack the after variant has timed flat; the before Inner in
+# Inner's context must not (the negative control).
+orfs_module_sta_base(
+    name = "SliceTop_hier",
+    synth = ":SliceTop_before_synth",
+)
+
+[orfs_module_context(
+    name = "SliceTop_%s_ctx" % name,
+    base = ":SliceTop_hier",
+    clocks = {"clock": "2000"},
+    module = path,
+) for name, path in [
+    ("inner", "outer/inner"),
+    ("outer", "outer"),
+]]
+
+[orfs_flat_sta(
+    name = "SliceTop_%s_flat" % variant,
+    base = ":SliceTop_hier",
+    clocks = {"clock": "2000"},
+    synth = ":SliceTop_%s_synth" % variant,
+) for variant in [
+    "before",
+    "after",
+]]
+
+# a variant's partition netlist, its module renamed, as the AI loop hands
+# a module it synthesised again to the iteration
+[genrule(
+    name = "%s_%s_new" % (module, variant),
+    srcs = [":partitions_" + variant],
+    outs = ["%s_%s_new.v" % (module, variant)],
+    cmd = "for f in $(SRCS); do case $$f in */partition_%s.v) $(execpath //tools/module_sta:rename_module) $$f %s_new $@ ;; esac; done" % (module, module),
+    tools = ["//tools/module_sta:rename_module"],
+) for module, variant in [
+    ("Inner", "before"),
+    ("Inner", "after"),
+    ("Outer", "after"),
+]]
+
+orfs_module_iteration(
+    name = "SliceTop_inner_after",
+    context = ":SliceTop_inner_ctx",
+    netlists = [":Inner_after_new"],
+    new_module = "Inner_new",
+)
+
+orfs_module_iteration(
+    name = "SliceTop_inner_before",
+    context = ":SliceTop_inner_ctx",
+    netlists = [":Inner_before_new"],
+    new_module = "Inner_new",
+)
+
+genrule(
+    name = "partition_Inner_after",
+    srcs = [":partitions_after"],
+    outs = ["partition_Inner_after.v"],
+    cmd = "for f in $(SRCS); do case $$f in */partition_Inner.v) cp $$f $@ ;; esac; done",
+)
+
+orfs_module_iteration(
+    name = "SliceTop_outer_after",
+    context = ":SliceTop_outer_ctx",
+    netlists = [
+        ":Outer_after_new",
+        ":partition_Inner_after",
+    ],
+    new_module = "Outer_new",
+)
+
+[py_test(
+    name = name,
+    size = "small",
+    srcs = ["//tools/module_sta:ends.py"],
+    args = [
+        "compare",
+        "$(location :%s)" % iteration,
+        "$(location :SliceTop_after_flat)",
+    ] + extra,
+    data = [
+        ":" + iteration,
+        ":SliceTop_after_flat",
+    ],
+    main = "//tools/module_sta:ends.py",
+) for name, iteration, extra in [
+    ("module_sta_inner_test", "SliceTop_inner_after", []),
+    ("module_sta_outer_test", "SliceTop_outer_after", []),
+    (
+        "module_sta_negative_test",
+        "SliceTop_inner_before",
+        ["--expect-differences"],
+    ),
+]]
+
+orfs_timing_ab(
+    name = "SliceTop_sta_ab",
+    a = ":SliceTop_before_flat",
+    b = ":SliceTop_inner_after",
 )

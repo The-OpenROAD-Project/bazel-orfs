@@ -37,6 +37,29 @@ workload: when a stage is slow, the timer is the first suspect.
   `DETAILED_METRICS`): full reports, skew, power. bazel-orfs skips it by
   default (`metrics_arguments()`, `private/flow.bzl`) and builds `<stage>_report` on demand (#1543).
 
+## One module in its context (hierarchical database)
+
+- `orfs_module_context` (tools/module_sta) times one module of a
+  synthesised design with the rest of the design around it: the context is
+  cut once from a `link_design -hier` database (real cells only: the fanin
+  of M's inputs, the fanout of its outputs and its whole fanin, the clock
+  trees, side loads), an iteration loads it with `read_db -hier` and swaps
+  the new M in. Exact against flat timing on all eight Frontend modules
+  tried; an iteration takes 11-84 s against 96 s for Frontend flat.
+- `read_verilog` after `read_db -hier` parses a module but links nothing:
+  carried 0222 adds `link_hier_module`. `replace_hier_module` copied only
+  a module's leaf cells (odb's "TODO: handle hierarchical child
+  instances") and, saving the module swapped out, merged two nets of one
+  base name: carried 0223.
+- Cutting a context: `get_fanin` stops at a register's clock pin, so clock
+  trees through clock gates are walked on the database's flat nets; a
+  memory macro's clock pin is `all_registers -clock_pins` but need not be
+  `is_clock`; the timer escapes `[ ]` in hierarchical names, the database
+  does not, so cells are matched by database id.
+- OpenSTA takes its time unit from the first liberty read: a macro's in ns
+  first turns a `-period 2000` meant as ps into 2 us, silently.
+  `set_cmd_units -time ps` after reading.
+
 ## Silent wrong answers
 
 - **check_setup**: the count in `2_1_floorplan.log` is not enough; a
