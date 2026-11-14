@@ -137,12 +137,6 @@ ORFS_PATCHES = [
     # route reads its design with one in OBJECTS_DIR (OpenROAD patch 0197).
     # Not upstreamed; retires at a bump onto an ORFS that has it.
     Label("//patches:0199-orfs-load-design-backing-file.patch"),
-    # 0160: a regfile spec's `write_words <address port> <word>...`, the
-    # words a write port writes, as generate_ram's -w_port_words (OpenROAD
-    # patch 0159): a word one port writes takes its data with no data mux.
-    # Not upstreamed; retires at a bump onto an ORFS and OpenROAD that
-    # have it.
-    Label("//patches:0160-orfs-regfile-write-words.patch"),
     # 0172: a register file's own flow (its top an inlined
     # AUTO_MEMORIES_REGFILES module) keeps generate_ram's layout: the
     # floorplan the shape of its outline, every generated cell FIRM where

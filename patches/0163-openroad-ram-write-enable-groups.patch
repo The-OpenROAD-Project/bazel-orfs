@@ -29,7 +29,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100644 src/ram/test/write_mux_fanout_asap7.tcl
 
 diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
-index 4362984e34..3b2539b58b 100644
+index ef590bc6f7..d281d27350 100644
 --- a/src/ram/src/ram.cpp
 +++ b/src/ram/src/ram.cpp
 @@ -315,6 +315,10 @@ RamGen::TreeEnd RamGen::planReadTree(const std::string& prefix,
@@ -43,7 +43,7 @@ index 4362984e34..3b2539b58b 100644
  void RamGen::makeSlice(const int slice_idx,
                         const int mask_size,
                         const int row_idx,
-@@ -392,17 +396,13 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -387,17 +391,13 @@ void RamGen::makeSlice(const int slice_idx,
    auto we_net = shared ? word_write.we : makeNet(prefix, "we");
    auto sel_cell = std::make_unique<Cell>();
    periphery_cell_ = sel_cell.get();  // each word's select cell
@@ -68,7 +68,7 @@ index 4362984e34..3b2539b58b 100644
    // (sel0 & a) | (sel1 & b): an AO22, or the AOI22 and an inverter where
    // the library has no AO22
    auto ao22 = [&](Cell* cell,
-@@ -553,6 +553,24 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -547,6 +547,24 @@ void RamGen::makeSlice(const int slice_idx,
                              storage,
                              reset_bit,
                              reset_off);
@@ -93,7 +93,7 @@ index 4362984e34..3b2539b58b 100644
      if (write_mux_) {
        // the word's own value back where it is not written: the flop's
        // output, through an inverter where that output is inverted
-@@ -566,7 +584,7 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -560,7 +578,7 @@ void RamGen::makeSlice(const int slice_idx,
                   {{inv_ports_[{PortRoleType::DataIn, 0}], storage},
                    {inv_ports_[{PortRoleType::DataOut, 0}], old}});
        }
@@ -103,13 +103,13 @@ index 4362984e34..3b2539b58b 100644
      if (and_or_read_) {
        for (const auto& node : tree_nodes_[{row_idx, word_idx, bit}]) {
 diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index 16cb4408e2..dd9e6b7670 100644
+index 7807b0212f..d1740c86e2 100644
 --- a/src/ram/test/BUILD
 +++ b/src/ram/test/BUILD
-@@ -33,6 +33,7 @@ PASSFAIL_TESTS = [
+@@ -31,6 +31,7 @@ PASSFAIL_TESTS = [
+     "bank_column_layout_asap7",
      "option_errors_asap7",
      "generate_array_asap7",
-     "write_port_words_asap7",
 +    "write_mux_fanout_asap7",
  ]
  

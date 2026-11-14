@@ -36,20 +36,20 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100644 src/ram/test/read_drive_asap7.tcl
 
 diff --git a/src/ram/README.md b/src/ram/README.md
-index abefd082d6..1a7ae38751 100644
+index 8845be57b2..8adfab46fb 100644
 --- a/src/ram/README.md
 +++ b/src/ram/README.md
-@@ -103,7 +103,7 @@ generate_ram [-mask_size bits]
+@@ -102,7 +102,7 @@ generate_ram [-mask_size bits]
  | `-periphery`, `-pin_layer`, `-wrapper_verilog` | **Experimental.** `unplaced` and `-pin_layer` are `generate_ram_netlist`'s only, for a flow that places the periphery itself; `generate_ram` takes `placed` and `verilog`, routes the core and puts its pins on its edges. `unplaced` leaves the periphery (address inverters and registers, decoders, select buffers, each word's select cell, the input buffers) for a parent to place, size and buffer; the outline is the placed core and a row, and each pin sits where its connections land, on `-pin_layer`'s tracks, for a macro placer before the parent dissolves the core into its rows. `verilog` makes the core a block of its own, `<name>_core`, and writes the periphery to `-wrapper_verilog` as a Verilog module, `<name>`, around it: assigns of the cells' functions, for synthesis to map with the parent. Default: `placed`. |
  | `-cells` | **Experimental.** The cell for a role (`inv`, `and2`, `buffer`, `clock_gate`, `aoi22`, `ao22`, `or2`, `nand2`, `nor2`, `tie`, `addr_flop`), instead of the smallest the libraries have of its function. An AOI22 or AO22 given is checked by its truth table. Default: the smallest of each. |
  | `-name` | **Experimental.** The block's and the behavioral model's name. Default: `RAM<words>x<bits>`. |
 -| `-decoder` | **Experimental.** `row`: a decoder per row, an AND2 chain over the row address, the column mux selecting within the row. `word`: a balanced AND2 tree over each word's whole address, as with banks; shallower for the read path. Default: `row`. |
 +| `-decoder` | **Experimental.** `row`: a decoder per row, an AND2 chain over the row address, the column mux selecting within the row. `word`: a balanced AND2 tree over each word's whole address, as with banks; shallower for the read path. A port that decodes more than eight words takes its address literals from a buffer and an inverter per group of eight words, and an AND-OR read's word select reaches the word's bits through a buffer per group of eight bits, so no literal or select drives more than eight pins. Default: `row`. |
- | `-w_port_words` | **Experimental.** Per write port, the words it writes: a list of word lists, one per write port, in port order. A word gets write logic only from the ports that list it: written by one port, the port's data goes straight to the word, with no data mux and no OR of the ports' enables, and a port builds no decoder for a word it does not list. A port must not address a word outside its list; such a write is lost. Every word must be listed by some port. With `-decoder word` or banks. Default: every port writes every word. |
  | `-bit_folds` | **Experimental.** A word in `count` rows: its bits in slices of `-mask_size` (the word divided by `count`, rounded up; the last slice may be short), one slice a row, so a wide word with many ports is not a long thin strip. A folded word is written whole, one write enable a port, its write logic built once and shared by its rows. Not with `-use_latch` or the row decoder's `-column_mux_ratio` above 1. Default: 1. |
  | `-inv_cell` | Name of the master to use for inverters. Default: auto-select from the loaded cell library. |
+ | `-routing_layer` | A list of the metal layer and metal width (in microns) for generating standard cell power tracks (followpins). Example: `{met1 0.48}`. |
 diff --git a/src/ram/include/ram/ram.h b/src/ram/include/ram/ram.h
-index e5b02571ce..dcb3e9d4c1 100644
+index 5c4fbeb220..cff7129ae9 100644
 --- a/src/ram/include/ram/ram.h
 +++ b/src/ram/include/ram/ram.h
 @@ -7,6 +7,7 @@
@@ -60,7 +60,7 @@ index e5b02571ce..dcb3e9d4c1 100644
  #include <memory>
  #include <set>
  #include <string>
-@@ -186,6 +187,25 @@ class RamGen
+@@ -183,6 +184,25 @@ class RamGen
      int word_idx;
      odb::dbNet* select;
    };
@@ -87,7 +87,7 @@ index e5b02571ce..dcb3e9d4c1 100644
    // covers
    TreeEnd planReadTree(const std::string& prefix,
 diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
-index 3b2539b58b..109e595afa 100644
+index d281d27350..40f5b8c4de 100644
 --- a/src/ram/src/ram.cpp
 +++ b/src/ram/src/ram.cpp
 @@ -315,9 +315,10 @@ RamGen::TreeEnd RamGen::planReadTree(const std::string& prefix,
@@ -104,7 +104,7 @@ index 3b2539b58b..109e595afa 100644
  
  void RamGen::makeSlice(const int slice_idx,
                         const int mask_size,
-@@ -398,7 +399,7 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -393,7 +394,7 @@ void RamGen::makeSlice(const int slice_idx,
    periphery_cell_ = sel_cell.get();  // each word's select cell
    // -write_style mux: the word's write enable and its complement, the
    // hold, select every bit's hold mux. They are made per group of
@@ -113,7 +113,7 @@ index 3b2539b58b..109e595afa 100644
    // no net drives a whole word: the word's enable drives a buffer a
    // group.
    dbNet* hold = nullptr;
-@@ -553,9 +554,9 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -547,9 +548,9 @@ void RamGen::makeSlice(const int slice_idx,
                              storage,
                              reset_bit,
                              reset_off);
@@ -125,7 +125,7 @@ index 3b2539b58b..109e595afa 100644
        we_group = makeNet(prefix, fmt::format("we_g{}", group));
        hold = makeNet(prefix, fmt::format("hold_g{}", group));
        makeInst(bit_cell.get(),
-@@ -878,6 +879,20 @@ void RamGen::makeBufferColumn(const std::string& prefix,
+@@ -872,6 +873,20 @@ void RamGen::makeBufferColumn(const std::string& prefix,
            {{buffer_ports_[{PortRoleType::DataIn, 0}],
              decoder_output_nets[word]},
             {buffer_ports_[{PortRoleType::DataOut, 0}], select_nets[word]}});
@@ -146,7 +146,7 @@ index 3b2539b58b..109e595afa 100644
      }
      buffer_layout->addCell(std::move(buf_cell));
      for (int f = 1; f < bit_folds_; ++f) {
-@@ -904,6 +919,26 @@ void RamGen::makeWordDecoderColumn(
+@@ -898,6 +913,26 @@ void RamGen::makeWordDecoderColumn(
        if (literals[word].empty()) {
          continue;  // a banked read port's other banks
        }
@@ -173,7 +173,7 @@ index 3b2539b58b..109e595afa 100644
        // a balanced AND2 tree over the word's address literals
        vector<dbNet*> level = literals[word];
        int node = 0;
-@@ -988,8 +1023,13 @@ std::unique_ptr<Layout> RamGen::makeInverterColumn(
+@@ -982,8 +1017,13 @@ std::unique_ptr<Layout> RamGen::makeInverterColumn(
                    {addr_flop_q_, flop_out}});
        }
        // the inverter: the address (or the flop's) in, its complement out;
@@ -188,7 +188,7 @@ index 3b2539b58b..109e595afa 100644
        makeInst(inv_grid_cell.get(),
                 fmt::format("decoder_p{}", p),
                 fmt::format("inv_p{}_a{}", p, bit),
-@@ -2456,6 +2496,8 @@ void RamGen::generate(const int mask_size,
+@@ -2412,6 +2452,8 @@ void RamGen::generate(const int mask_size,
    storage_nets_.clear();
    tree_nodes_.clear();
    word_write_.clear();
@@ -197,7 +197,7 @@ index 3b2539b58b..109e595afa 100644
    storage_cell_ = storage_cell;
    tristate_cell_ = tristate_cell;
    inv_cell_ = inv_cell;
-@@ -2696,6 +2738,7 @@ void RamGen::generate(const int mask_size,
+@@ -2652,6 +2694,7 @@ void RamGen::generate(const int mask_size,
  
    addr_inputs_.clear();
    addr_inputs_.resize(total_ports);
@@ -205,7 +205,7 @@ index 3b2539b58b..109e595afa 100644
    addr_true_.assign(total_ports, {});
    addr_flop_out_.assign(total_ports, {});
    vector<vector<dbNet*>> inv_addr_nets(total_ports);
-@@ -2783,6 +2826,52 @@ void RamGen::generate(const int mask_size,
+@@ -2733,6 +2776,52 @@ void RamGen::generate(const int mask_size,
          }
        }
      }
@@ -258,7 +258,7 @@ index 3b2539b58b..109e595afa 100644
      if (!banked_) {
        decoder_input_nets[p].assign(num_rows, vector<dbNet*>(num_row_bits));
      }
-@@ -2822,11 +2911,32 @@ void RamGen::generate(const int mask_size,
+@@ -2772,11 +2861,32 @@ void RamGen::generate(const int mask_size,
      if (p >= rw_ports + w_ports) {
        read_select_nets[r_sel_idx++] = makeSelectNets(
            fmt::format("r_sel_p{}", p), num_selects, RamPortType::Read);
@@ -291,7 +291,7 @@ index 3b2539b58b..109e595afa 100644
            dbNet::destroy(decoder_output_nets[p][slot]);
            dbNet::destroy(read_select_nets[r_sel_idx - 1][slot]);
            decoder_output_nets[p][slot] = nullptr;
-@@ -3010,8 +3120,16 @@ void RamGen::generate(const int mask_size,
+@@ -2949,8 +3059,16 @@ void RamGen::generate(const int mask_size,
                = banked_ ? fmt::format("read_p{}_b{}", port, bit)
                          : fmt::format("read_w{}_p{}_b{}", w, port, bit);
            dbNet* out = word_q_nets[w][port][bit];
@@ -311,12 +311,12 @@ index 3b2539b58b..109e595afa 100644
              const Term& at
                  = banked_ ? terms.back() : Term{num_rows - 1, w, nullptr};
 diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index dd9e6b7670..18b72c25d5 100644
+index d1740c86e2..5cc0a7d93a 100644
 --- a/src/ram/test/BUILD
 +++ b/src/ram/test/BUILD
-@@ -34,6 +34,7 @@ PASSFAIL_TESTS = [
+@@ -32,6 +32,7 @@ PASSFAIL_TESTS = [
+     "option_errors_asap7",
      "generate_array_asap7",
-     "write_port_words_asap7",
      "write_mux_fanout_asap7",
 +    "read_drive_asap7",
  ]

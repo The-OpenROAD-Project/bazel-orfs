@@ -199,11 +199,6 @@ archive_override(
         # generate_ram_netlist and stops, naming the part, on any other
         # structure (ideas/structured-macros.md). Not upstreamed.
         "//patches:0156-openroad-ram-generate-array.patch",
-        # 0159: generate_ram -w_port_words, the words each write port
-        # writes: a word one port writes takes that port's data with no
-        # data mux, and a port decodes only its words. Not upstreamed;
-        # retires at a //:bump onto an OpenROAD that has it.
-        "//patches:0159-openroad-ram-write-port-words.patch",
         # 0163: generate_ram -write_style mux buffers a word's write
         # enable and makes its hold per eight bits, so no net in a word
         # drives the whole word (a 32-bit word's hold inverter drove 32

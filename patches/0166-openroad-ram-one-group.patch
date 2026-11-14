@@ -17,33 +17,33 @@ OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/ram/src/ram.cpp               | 30 ++++++++++++++++++++----------
- src/ram/test/BUILD                |  1 +
- src/ram/test/one_group_asap7.tcl  | 30 ++++++++++++++++++++++++++++++
+ src/ram/src/ram.cpp              | 30 ++++++++++++++++++++----------
+ src/ram/test/BUILD               |  1 +
+ src/ram/test/one_group_asap7.tcl | 30 ++++++++++++++++++++++++++++++
  3 files changed, 51 insertions(+), 10 deletions(-)
  create mode 100644 src/ram/test/one_group_asap7.tcl
 
 diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
-index 64d10234f4..5d19ffc8a6 100644
+index 7061bc2441..4b216a80e3 100644
 --- a/src/ram/src/ram.cpp
 +++ b/src/ram/src/ram.cpp
-@@ -558,8 +558,13 @@ void RamGen::makeSlice(const int slice_idx,
+@@ -552,8 +552,13 @@ void RamGen::makeSlice(const int slice_idx,
                              storage,
                              reset_bit,
                              reset_off);
--    if (n_writers > 1
+-    if (num_write > 1
 -        && (local_bit % kDriveGroup == 0 || take_group.empty())) {
 +    // a word of one group: its nets drive no more than a group's pins
 +    // already, and a buffer would only add a level
 +    const bool one_group = word_bits_ <= kDriveGroup;
-+    if (n_writers > 1 && one_group && take_group.empty()) {
++    if (num_write > 1 && one_group && take_group.empty()) {
 +      take_group = take;
-+    } else if (n_writers > 1
++    } else if (num_write > 1
 +               && (local_bit % kDriveGroup == 0 || take_group.empty())) {
        const int group = local_bit / kDriveGroup;
-       take_group.assign(n_writers, nullptr);
-       for (int i = 0; i < n_writers; ++i) {
-@@ -574,16 +579,21 @@ void RamGen::makeSlice(const int slice_idx,
+       take_group.assign(num_write, nullptr);
+       for (int i = 0; i < num_write; ++i) {
+@@ -568,16 +573,21 @@ void RamGen::makeSlice(const int slice_idx,
        }
      }
      if (write_mux_ && (local_bit % kDriveGroup == 0 || we_group == nullptr)) {
@@ -74,10 +74,10 @@ index 64d10234f4..5d19ffc8a6 100644
                 prefix,
                 fmt::format("hold_inv{}", group),
 diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index db51dc901d..2989dd48f6 100644
+index 0200b6bf2d..91557573bd 100644
 --- a/src/ram/test/BUILD
 +++ b/src/ram/test/BUILD
-@@ -36,6 +36,7 @@ PASSFAIL_TESTS = [
+@@ -34,6 +34,7 @@ PASSFAIL_TESTS = [
      "write_mux_fanout_asap7",
      "read_drive_asap7",
      "write_ports_fanout_asap7",
