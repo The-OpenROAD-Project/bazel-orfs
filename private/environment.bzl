@@ -223,8 +223,18 @@ def test_inputs(ctx):
     )
 
 def yosys_inputs(ctx):
+    """The tools of every yosys action: yosys, abc, make, python and the
+    synthesis scripts, and nothing of OpenROAD's.
+
+    No openroad, opensta or klayout, and not the flow makefile group with
+    every stage's scripts: a yosys action keyed on those re-ran synthesis
+    whenever OpenROAD was rebuilt or a placement script changed. The
+    OpenROAD steps of the synth stage (do-1_synth, the register files of
+    AUTO_MEMORIES_REGFILES) name openroad themselves.
+    """
     return depset(
-        ctx.files._yosys_share + ctx.files._yosys_plugins + ctx.files._tcl_library,
+        ctx.files._yosys_share + ctx.files._yosys_plugins + ctx.files._tcl_library +
+        log_timestamps_inputs(ctx),
         transitive = [
             _runfiles(
                 [
