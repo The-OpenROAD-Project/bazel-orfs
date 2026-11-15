@@ -2244,6 +2244,451 @@
           "what": ""
         }
       }
+    },
+    {
+      "date": "2026-11-15",
+      "measured": "run 21's tree built from source: main at 6aa77428 with #1466's patch 0168 (OpenROAD bf0feec with its 8 carried patches, ORFS 75cd896b), plus CTS's coincident-sink fix (carried patch 0220, ported to bf0feec) and nothing else, on a branch not merged to main; with orfs_schedule: the blocks, and the parent's synthesis, floorplan and place, on the remote executor; the parent's CTS, global route and KPI on a 122 GB machine; each part's KPI at its own global route. The flat timing (XSTile_kpi_flat: every part stitched in OpenSTA, each block as its interface logic) of the same build",
+      "parent_ps": 2206,
+      "blocks": {
+        "CoupledL2": 815,
+        "Frontend": 1283,
+        "MemBlock": 1158,
+        "FltRegionModule": 951,
+        "VecRegionModule": 1048
+      },
+      "note": "The single top again, after the carve (runs 22 to 30): run 21 rebuilt, every block and the parent to the picosecond, the parent's worst path as run 21's, intRegion's pipeToALU0 fuType into vecRegion's gpWbWakeUp, with CTS's coincident-sink fix added. XSTile 3,949 ps in run 30 (its parent; the Top's crossings 3,043) to 2,206 ps. Timed flat, the tile's worst is 2,223 ps, the parent into VecRegionModule; the crossings have 1,282 endpoints over 2,000 ps (70.0 ns over), the parent's own paths 1,028 (95.9 ns, worst 2,143 ps); with no wire the tile's worst is 1,415 ps",
+      "histograms": {
+        "parent": {
+          "bin_ps": 10,
+          "from_ps": -50,
+          "counts": [2, 0, 1, 4, 11, 4, 1, 1, 5, 139, 1822, 2230, 1243, 580, 396, 417, 430, 329, 295, 194, 200, 171, 164, 220, 164, 156, 116, 146, 122, 112, 131, 104, 120, 133, 126, 139, 201, 166, 191, 164, 157, 204, 177, 220, 233, 259, 249, 289, 314, 386, 449, 521, 632, 755, 721, 672, 706, 731, 825, 820, 848, 811, 853, 931, 924, 814, 779, 818, 740, 728, 715, 783, 808, 793, 794, 709, 758, 767, 837, 861, 855, 812, 767, 806, 802, 692, 761, 869, 878, 922, 1128, 1243, 1330, 1344, 1415, 1565, 1618, 1457, 1823, 1772, 1856, 2032, 2204, 2300, 2502, 2368, 2331, 2284, 2238, 2196, 2041, 1861, 1820, 1854, 1703, 1643, 1458, 1478, 1285, 1272, 1119, 1157, 1202, 1112, 1067, 980, 913, 752, 734, 788, 651, 653, 630, 634, 569, 524, 567, 660, 730, 786, 886, 1053, 1078, 966, 1049, 1081, 1173, 1283, 1318, 1172, 1214, 1195, 1238, 1279, 1159, 1106, 1096, 1008, 934, 967, 907, 872, 788, 831, 834, 781, 808, 725, 686, 625, 663, 642, 773, 664, 644, 547, 519, 539, 575, 452, 417, 340, 359, 313, 258, 257, 256, 271, 237, 218, 186, 175, 182, 180, 168, 161, 128, 116, 147, 95, 83, 71, 72, 58, 73, 71, 50, 57, 40, 50, 72, 75, 85, 111, 134, 154, 133, 106, 105, 69, 46, 17, 0, 0, 1, 1]
+        },
+        "Frontend": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [389, 303, 55, 155, 70, 195, 258, 218, 232, 251, 303, 322, 339, 367, 391, 587, 569, 657, 501, 608, 683, 803, 1100, 1196, 1315, 1247, 1029, 1197, 1091, 1128, 1398, 1600, 1543, 1312, 1373, 1177, 1020, 1014, 1237, 1502, 1198, 848, 1022, 1508, 1677, 1669, 2192, 2117, 1665, 1751, 1583, 1709, 1739, 1942, 2390, 2542, 1765, 1222, 732, 595, 607, 625, 737, 659, 745, 1188, 1041, 1826, 3489, 3851, 2932, 2204, 1447, 1314, 1506, 1078, 1064, 1788, 2995, 3584, 2858, 1660, 805, 895, 964, 822, 1035, 1065, 870, 631, 738, 1125, 1766, 1800, 1576, 1289, 1223, 1503, 1795, 1325, 1212, 1338, 847, 424, 382, 273, 243, 606, 893, 632, 587, 374, 208, 422, 249, 51, 90, 150, 184, 76, 47, 53, 39, 17, 13, 5]
+        },
+        "MemBlock": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [2101, 656, 326, 361, 218, 216, 229, 298, 430, 650, 521, 639, 882, 1158, 1432, 1838, 2447, 2986, 3606, 3975, 4677, 4919, 4834, 4717, 4830, 5419, 4964, 4440, 4079, 4286, 3745, 3279, 2730, 2557, 2444, 2981, 3582, 3538, 3387, 3424, 2714, 2583, 2265, 2622, 3140, 3671, 4097, 4633, 4389, 4325, 4221, 4542, 2457, 2657, 2645, 2151, 1954, 1956, 3113, 4808, 3716, 2791, 3213, 3382, 4444, 5160, 3065, 2647, 3415, 4130, 3494, 2878, 2785, 2715, 2779, 2698, 3301, 3527, 4565, 5258, 4762, 3669, 2423, 2697, 2791, 1777, 1350, 1894, 2448, 3251, 3586, 3660, 3238, 3495, 2696, 1751, 1315, 793, 565, 315, 261, 376, 198, 322, 66, 71, 67, 86, 88, 116, 156, 270, 198]
+        },
+        "CoupledL2": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [687, 328, 176, 218, 310, 227, 173, 124, 110, 100, 78, 99, 69, 121, 46, 56, 65, 87, 150, 249, 298, 426, 618, 719, 1122, 1380, 1474, 1529, 1321, 1226, 1094, 1407, 1342, 1367, 1275, 1345, 1183, 1301, 1130, 1296, 1534, 2861, 4164, 2474, 1294, 1450, 1459, 1843, 1989, 2018, 2004, 1656, 2041, 2360, 2392, 2178, 1602, 987, 569, 614, 1066, 1723, 2272, 1892, 2757, 3616, 2775, 1720, 1486, 892, 606, 503, 320, 489, 1346, 1709, 302, 13, 2]
+        },
+        "VecRegionModule": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [552, 341, 21, 406, 413, 295, 25, 27, 52, 67, 58, 76, 93, 142, 174, 180, 216, 286, 291, 372, 417, 347, 276, 440, 493, 361, 366, 396, 413, 478, 517, 568, 687, 741, 992, 1028, 1125, 1306, 1321, 1241, 1575, 1754, 2106, 2180, 2130, 1224, 1076, 1214, 717, 598, 606, 697, 1108, 1533, 952, 671, 626, 623, 649, 613, 564, 609, 719, 790, 785, 738, 587, 464, 366, 263, 249, 258, 292, 265, 292, 247, 192, 146, 162, 141, 134, 139, 150, 145, 139, 153, 160, 186, 182, 213, 254, 176, 150, 134, 107, 76, 69, 43, 33, 23, 11, 4]
+        },
+        "FltRegionModule": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [16, 12, 32, 86, 36, 17, 34, 46, 55, 52, 38, 45, 51, 66, 41, 56, 41, 53, 58, 35, 33, 20, 50, 25, 40, 78, 108, 86, 90, 102, 135, 163, 297, 389, 465, 573, 586, 822, 915, 1086, 1240, 1005, 827, 774, 521, 287, 235, 250, 282, 237, 324, 257, 258, 191, 218, 282, 387, 294, 173, 173, 189, 167, 148, 116, 151, 182, 131, 123, 149, 175, 180, 154, 152, 164, 214, 195, 175, 107, 87, 49, 30, 10, 1, 0, 0, 1, 1, 3, 1, 1, 1, 1, 1]
+        }
+      },
+      "worst_paths": {
+        "parent": {
+          "period_ps": 2206,
+          "from": "core/backend/inner_intRegion/pipeToALU0.io_out_bits_ctrl_fuType[27]$_DFFE_PP_/QN",
+          "to": "core/backend/inner_vecRegion/in_fromIntRegion_gpWbWakeUp_0_wen",
+          "what": "From the ALU0 issue pipe's function-unit type in intRegion into vecRegion's write-back wake-up enable: a parent register to a block's input pin."
+        },
+        "Frontend": {
+          "period_ps": 1283,
+          "from": "inner_bpu/csrCtrl_delay.io_out_abtbEnable$_DFF_P_/QN",
+          "to": "inner_bpu/tage/tables_2.tage_useful_sram_bank0_way1.array.array_0_0_0.array.array_ext/RW0_addr[2]",
+          "what": "The BPU's delayed abtbEnable control register to the address pin of a TAGE table's useful-bit SRAM: a CSR setting gating a memory address."
+        },
+        "MemBlock": {
+          "period_ps": 1158,
+          "from": "inner_dcache/dcache.mainPipe/s1_req_vaddr[35]$_DFFE_PP_/QN",
+          "to": "inner_dcache/dcache.mainPipe/io_miss_req_bits_amo_cmp[62]$_DFFE_PP_/D",
+          "what": "The DCache main pipe's stage-1 virtual address to the miss request's amo_cmp register, inside the main pipe."
+        },
+        "CoupledL2": {
+          "period_ps": 815,
+          "from": "slices_0/directory/req_s3_tag[6]$_DFFE_PP0P_/QN",
+          "to": "slices_0/dataStorage.array.array_0_0_0.array.array_ext/RW0_addr[11]",
+          "what": "The directory's stage-3 request tag to the address pin of the L2 data SRAM: a tag travelling to a memory."
+        },
+        "VecRegionModule": {
+          "period_ps": 1048,
+          "from": "issuePipes_1/exu.ex_0_bits_ctrl_uopIdx[0]$_DFFE_PP_/QN",
+          "to": "issuePipes_1/exu.Vfmac.a0_0_fpB[59]$_DFFE_PP_/D",
+          "what": "An issue pipe's micro-op index into the vector FMA's operand register: operand selection by uop index."
+        },
+        "FltRegionModule": {
+          "period_ps": 951,
+          "from": "fpWbDataPath.out_wb0_1_pdest[0]$_DFFE_PP_/QN",
+          "to": "fpRegFile/io_writePorts_1_addr[0]",
+          "what": "The FP write-back path's destination register number to the FP register file's write address: a register index travelling to a macro."
+        }
+      },
+      "flat": {
+        "period_ps": 2223,
+        "logic_ps": 1415,
+        "groups": {
+          "inside a block": {
+            "bin_ps": 10,
+            "from_ps": 30,
+            "counts": [36, 490, 1432, 734, 202, 83, 72, 63, 62, 58, 67, 62, 62, 33, 24, 13, 14, 10, 13, 7, 6, 42, 3, 8, 3, 3, 4, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1]
+          },
+          "block → block": {
+            "bin_ps": 10,
+            "from_ps": 200,
+            "counts": [1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 1, 4, 1, 0, 4, 1, 1, 5, 3, 3, 13, 11, 8, 0, 15, 1, 1, 1, 0, 2, 2, 2, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 2, 0, 2, 1, 3, 1, 2, 0, 2, 1, 3, 6, 12, 5, 9, 3, 1, 13, 3, 5, 2, 2, 1, 2, 3, 3, 3, 4, 3, 3, 4, 6, 2, 3, 2, 2, 1, 3, 1, 0, 3, 2, 0, 3, 1, 1, 3, 0, 1, 2, 0, 2, 1, 0, 1, 1, 0, 0, 1, 0, 1, 6, 11, 15, 12, 10, 3, 0, 0, 0, 1, 0, 0, 1, 6, 6, 3, 0, 0, 0, 0, 0, 0, 0, 5, 3, 7, 5, 7, 3, 2, 0, 0, 5, 13, 3, 12, 4, 4, 7]
+          },
+          "block → parent": {
+            "bin_ps": 10,
+            "from_ps": -40,
+            "counts": [1, 1, 0, 1, 0, 0, 2, 0, 1, 3, 2, 7, 7, 1, 3, 3, 5, 5, 3, 4, 6, 12, 17, 17, 10, 19, 23, 40, 55, 51, 43, 48, 41, 27, 44, 40, 43, 19, 29, 51, 37, 35, 37, 44, 42, 53, 43, 38, 14, 15, 8, 14, 15, 7, 25, 19, 10, 26, 17, 9, 20, 14, 14, 19, 33, 25, 23, 25, 32, 35, 32, 45, 31, 21, 31, 34, 36, 56, 45, 52, 47, 64, 92, 103, 91, 124, 135, 139, 163, 159, 156, 157, 173, 179, 155, 145, 166, 165, 159, 146, 134, 157, 149, 108, 115, 116, 91, 85, 121, 108, 105, 139, 141, 153, 147, 142, 208, 184, 189, 224, 226, 268, 272, 332, 384, 390, 381, 428, 374, 386, 328, 385, 405, 397, 380, 438, 409, 315, 308, 300, 264, 266, 291, 289, 334, 407, 410, 387, 432, 435, 419, 427, 455, 466, 415, 476, 541, 603, 629, 640, 512, 406, 441, 416, 365, 352, 360, 262, 198, 210, 193, 208, 180, 101, 96, 110, 105, 55, 39, 49, 28, 20, 18, 11, 8, 14, 14, 9, 5, 6, 7, 4, 4, 1, 0, 3, 0, 0, 0, 0, 0, 0, 1, 4, 7, 24, 66, 110, 130, 138, 110, 95, 17]
+          },
+          "through a block": {
+            "bin_ps": 10,
+            "from_ps": 540,
+            "counts": [2, 1, 1, 2, 2, 0, 2, 3, 5, 2, 1, 4, 4, 2, 0, 6, 6, 3, 2, 0, 1, 0, 1, 2, 2, 1, 1, 1, 2, 1, 3, 0, 2, 1, 0, 0, 3, 2, 3, 2, 8, 7, 10, 7, 9, 9, 19, 10, 11, 25, 14, 5, 4, 3, 1, 10, 3, 2, 3, 3, 3, 5, 7, 2, 7, 11, 15, 13, 13, 2, 15, 17, 9, 9, 6, 3, 3, 8, 9, 9, 11, 2, 8, 8, 17, 20, 16, 8, 8, 24, 18, 29, 31, 49, 46, 44, 34, 30, 32, 35, 31, 41, 41, 63, 105, 106, 124, 187, 183, 166, 119, 130, 116, 129, 105, 78, 49, 31, 10, 6, 8, 4, 2, 4, 3, 4, 6, 3, 2, 12, 7, 5, 4, 6, 0, 5, 5, 9, 13, 8, 3, 3, 5, 2, 3, 8, 4, 1]
+          },
+          "parent → block": {
+            "bin_ps": 10,
+            "from_ps": 200,
+            "counts": [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 2, 0, 0, 0, 1, 1, 2, 0, 5, 4, 6, 2, 1, 4, 3, 1, 4, 2, 3, 6, 3, 3, 3, 4, 6, 2, 6, 1, 2, 4, 3, 9, 14, 3, 3, 6, 5, 3, 3, 12, 2, 0, 0, 3, 4, 3, 5, 5, 9, 7, 4, 2, 51, 20, 6, 4, 10, 15, 4, 7, 11, 24, 35, 43, 43, 46, 54, 80, 54, 93, 90, 57, 63, 34, 13, 52, 73, 52, 18, 37, 38, 27, 42, 46, 38, 38, 35, 54, 81, 91, 270, 462, 545, 592, 313, 353, 380, 409, 588, 675, 538, 367, 278, 229, 207, 216, 326, 525, 334, 262, 342, 366, 512, 583, 403, 351, 200, 237, 200, 247, 351, 392, 413, 389, 223, 83, 101, 136, 177, 248, 266, 276, 205, 112, 125, 77, 84, 61, 22, 20, 7, 14, 5, 15, 11, 12, 8, 6, 13, 5, 12, 14, 22, 30, 24, 16, 28, 58, 66, 60, 49, 43, 23, 24, 15, 38, 94, 117, 90, 32, 11, 2, 16, 34, 27, 35, 26, 18, 10, 6, 4, 1, 0, 1, 1, 1, 1]
+          },
+          "parent → parent": {
+            "bin_ps": 10,
+            "from_ps": -50,
+            "counts": [2, 0, 1, 4, 9, 2, 0, 0, 1, 135, 1818, 2243, 1277, 643, 494, 525, 529, 411, 360, 251, 291, 246, 228, 273, 205, 195, 154, 163, 143, 126, 141, 119, 117, 118, 121, 130, 183, 177, 172, 157, 143, 183, 159, 191, 236, 259, 246, 262, 283, 361, 430, 464, 566, 628, 631, 571, 642, 674, 740, 727, 733, 723, 763, 837, 844, 752, 741, 779, 739, 701, 724, 813, 819, 796, 798, 704, 761, 743, 803, 845, 808, 777, 761, 769, 752, 659, 714, 807, 814, 859, 1058, 1151, 1202, 1271, 1341, 1486, 1507, 1354, 1706, 1606, 1749, 1941, 2041, 2121, 2320, 2270, 2216, 2128, 2015, 1973, 1877, 1754, 1600, 1637, 1552, 1520, 1370, 1359, 1112, 1119, 1044, 1037, 1121, 997, 954, 881, 788, 672, 657, 740, 600, 601, 653, 668, 593, 585, 651, 687, 745, 760, 856, 981, 966, 831, 934, 982, 1096, 1222, 1209, 1079, 1099, 1119, 1152, 1169, 1037, 985, 1020, 934, 881, 961, 899, 788, 734, 794, 777, 701, 759, 700, 637, 602, 625, 605, 672, 536, 454, 371, 377, 391, 381, 333, 279, 230, 311, 281, 187, 179, 213, 219, 183, 197, 154, 123, 135, 97, 87, 99, 71, 58, 72, 42, 35, 40, 26, 15, 29, 32, 26, 16, 17, 24, 27, 49, 63, 122, 151, 148, 147, 115, 87, 4]
+          }
+        },
+        "classes": {
+          "CoupledL2": {
+            "worst_ps": 397,
+            "logic_ps": 271,
+            "over_goal": 0,
+            "endpoints": 157,
+            "from": "l2top/inner_l2cache/slices_0/directory/refillReqValid_s2$_DFF_PP0_/QN",
+            "to": "l2top/inner_l2cache/allCanFire_REG_2$_DFF_P_/D",
+            "what": ""
+          },
+          "CoupledL2->MemBlock": {
+            "worst_ps": 1513,
+            "logic_ps": 549,
+            "over_goal": 0,
+            "endpoints": 60,
+            "from": "l2top/inner_l2cache/prefetcher.vbop.reqFilter.io_tlb_req_req_valid$_DFF_P_/QN",
+            "to": "core/memBlock/inner_dtlb_prefetch_tlb_prefetch/entries.page_pftlb_storage_fa.hitVecReg_27$_DFFE_PP_/D",
+            "what": ""
+          },
+          "CoupledL2->XSTile": {
+            "worst_ps": 1331,
+            "logic_ps": 192,
+            "over_goal": 0,
+            "endpoints": 1394,
+            "from": "l2top/inner_l2cache/slices_0/io_error_valid$_DFF_PP0_/QN",
+            "to": "l2top/inner_beu.value_reg[35]$_DFFE_PP_/D",
+            "what": ""
+          },
+          "FltRegionModule": {
+            "worst_ps": 205,
+            "logic_ps": 143,
+            "over_goal": 0,
+            "endpoints": 146,
+            "from": "core/backend/inner_fpRegion/issuePipes_1/exu.ex_0_valid$_DFF_PP0_/QN",
+            "to": "core/backend/inner_fpRegion/issuePipes_1/exu.Fdiv/nonFixedLatOutCtrl_robIdx_flag$_DFF_PP0_/D",
+            "what": ""
+          },
+          "FltRegionModule->VecRegionModule": {
+            "worst_ps": 549,
+            "logic_ps": 300,
+            "over_goal": 0,
+            "endpoints": 35,
+            "from": "core/backend/inner_fpRegion/fpWbDataPath.out_wb0_0_wen$_DFF_PP0_/QN",
+            "to": "core/backend/inner_vecRegion/issueQueues_5.fpWbD1WakeUp_0_wen$_DFF_P_/D",
+            "what": ""
+          },
+          "FltRegionModule->XSTile": {
+            "worst_ps": 2082,
+            "logic_ps": 1089,
+            "over_goal": 697,
+            "endpoints": 14464,
+            "from": "core/backend/inner_fpRegion/issueQueues_1/fastEntries_16_valid$_DFF_PP0_/QN",
+            "to": "core/backend/inner_ctrlBlock/decodeBufBits_0_foldpc[2]$_DFFE_PP_/D",
+            "what": ""
+          },
+          "Frontend": {
+            "worst_ps": 316,
+            "logic_ps": 210,
+            "over_goal": 0,
+            "endpoints": 942,
+            "from": "core/frontend/inner_bpu/mbtb.alignBanks_0.internalBanks_0.mbtb_sram_entry_align0_bank0_way3._resetState$_DFF_PP1_/QN",
+            "to": "core/frontend/inner_bpu/mbtb.alignBanks_0.internalBanks_0.mbtb_sram_entry_align0_bank0_way3._resetState$_DFF_PP1_/D",
+            "what": ""
+          },
+          "Frontend->MemBlock": {
+            "worst_ps": 723,
+            "logic_ps": 486,
+            "over_goal": 0,
+            "endpoints": 9,
+            "from": "core/frontend/inner_itlbRepeater2.io_ptw_req_0_valid$_DFF_PP0_/QN",
+            "to": "core/memBlock/inner_itlbRepeater3.io_ptw_req_0_valid$_DFF_PP0_/D",
+            "what": ""
+          },
+          "Frontend->XSTile": {
+            "worst_ps": 1793,
+            "logic_ps": 567,
+            "over_goal": 0,
+            "endpoints": 1231,
+            "from": "core/frontend/inner_ibuffer/io_out_0_valid$_DFF_PP0_/QN",
+            "to": "core/backend/inner_ctrlBlock/memCtrl/ssit/io_rdata_7_strict$_DFFE_PP_/D",
+            "what": ""
+          },
+          "MemBlock": {
+            "worst_ps": 333,
+            "logic_ps": 221,
+            "over_goal": 0,
+            "endpoints": 2151,
+            "from": "core/memBlock/inner_LoadUnit_1.s1.io_pipeOut_valid$_DFF_PP0_/QN",
+            "to": "core/memBlock/inner_LoadUnit_1.s2.io_pipeOut_bits_uop_exceptionVec_5$_DFFE_PP_/D",
+            "what": ""
+          },
+          "MemBlock->CoupledL2": {
+            "worst_ps": 1845,
+            "logic_ps": 715,
+            "over_goal": 0,
+            "endpoints": 124,
+            "from": "core/memBlock/inner_pmp_checkers_6.res_pmp_r_31$_DFFE_PP0P_/QN",
+            "to": "l2top/inner_l2cache/prefetcher.vbop.reqFilter.entries_15_paddrValid$_DFF_P_/D",
+            "what": ""
+          },
+          "MemBlock->FltRegionModule": {
+            "worst_ps": 1433,
+            "logic_ps": 471,
+            "over_goal": 0,
+            "endpoints": 58,
+            "from": "core/memBlock/inner_LoadUnit_0.s3.io_pipeOut_valid$_DFF_PP0_/QN",
+            "to": "core/backend/inner_fpRegion/fpWbDataPath.out_wb0_4_wen$_DFF_PP0_/D",
+            "what": ""
+          },
+          "MemBlock->Frontend": {
+            "worst_ps": 692,
+            "logic_ps": 188,
+            "over_goal": 0,
+            "endpoints": 43,
+            "from": "core/memBlock/inner_LoadUnit_1.s0.io_pipeOut_valid$_DFF_PP0_/QN",
+            "to": "core/frontend/inner_icache/softPrefetch_isSoftPrefetch$_DFF_PP0_/D",
+            "what": ""
+          },
+          "MemBlock->VecRegionModule": {
+            "worst_ps": 1116,
+            "logic_ps": 338,
+            "over_goal": 0,
+            "endpoints": 57,
+            "from": "core/memBlock/inner_LoadUnit_2.s1.io_pipeOut_valid$_DFF_PP0_/QN",
+            "to": "core/backend/inner_vecRegion/vldS4VpWb_8_0_wen$_DFF_P_/D",
+            "what": ""
+          },
+          "MemBlock->XSTile": {
+            "worst_ps": 1911,
+            "logic_ps": 771,
+            "over_goal": 0,
+            "endpoints": 10566,
+            "from": "core/memBlock/inner_LoadUnit_1.s1.io_pipeOut_valid$_DFF_PP0_/QN",
+            "to": "core/backend/inner_ctrlBlock/dispatch/issueQueueCountReg_REG_4[4]$_DFF_P_/D",
+            "what": ""
+          },
+          "MemBlock->via:FltRegionModule->XSTile": {
+            "worst_ps": 2017,
+            "logic_ps": 810,
+            "over_goal": 5,
+            "endpoints": 1641,
+            "from": "core/memBlock/inner_LoadUnit_0.s3.io_pipeOut_valid$_DFF_PP0_/QN",
+            "to": "core/backend/inner_intRegion/issueQueueSTD1_StdMoud/entries/othersEntriesComp_9.io_commonOut_issued$_DFF_P_/D",
+            "what": ""
+          },
+          "MemBlock->via:VecRegionModule->XSTile": {
+            "worst_ps": 1079,
+            "logic_ps": null,
+            "over_goal": 0,
+            "endpoints": 128,
+            "from": "core/memBlock/inner_LoadUnit_2.s1.io_pipeOut_valid$_DFF_PP0_/QN",
+            "to": "core/backend/inner_ctrlBlock/dispatch/vpBusyTable.table_0[39]$_DFF_PP0_/D",
+            "what": ""
+          },
+          "VecRegionModule": {
+            "worst_ps": 286,
+            "logic_ps": 172,
+            "over_goal": 0,
+            "endpoints": 216,
+            "from": "core/backend/inner_vecRegion/issuePipes/is0_valid$_DFF_PP0_/QN",
+            "to": "core/backend/inner_vecRegion/issueQueues_5.vpWbM3D1WakeUp_0_wen$_DFF_P_/D",
+            "what": ""
+          },
+          "VecRegionModule->FltRegionModule": {
+            "worst_ps": 366,
+            "logic_ps": 56,
+            "over_goal": 0,
+            "endpoints": 2,
+            "from": "core/backend/inner_vecRegion/issuePipes_1/out_is1FpRdAddrNext_0_robIdx_flag$_DFFE_PP_/QN",
+            "to": "core/backend/inner_fpRegion/fltRFReadArbiter.arbiters_13.robIdxVecReg_1_flag$_DFF_P_/D",
+            "what": ""
+          },
+          "VecRegionModule->MemBlock": {
+            "worst_ps": 1049,
+            "logic_ps": null,
+            "over_goal": 0,
+            "endpoints": 3,
+            "from": "core/backend/inner_vecRegion/issuePipes_5.exu.ex_0_bits_ctrl_sqIdx_first_flag$_DFFE_PP_/QN",
+            "to": "core/memBlock/inner_stdDataWritePrev_prev_bits_r_1_first_flag$_DFFE_PP_/D",
+            "what": ""
+          },
+          "VecRegionModule->XSTile": {
+            "worst_ps": 1566,
+            "logic_ps": 559,
+            "over_goal": 0,
+            "endpoints": 898,
+            "from": "core/backend/inner_vecRegion/issueQueues/fastEntries_11_valid$_DFF_PP0_/QN",
+            "to": "core/backend/inner_intRegion/issueQueueLDU1_Ldu/entries/enqEntries_0.entryReg_status_srcStatus_0_srcLoadDependency_1[0]$_DFF_P_/D",
+            "what": ""
+          },
+          "VecRegionModule->via:MemBlock->XSTile": {
+            "worst_ps": 1248,
+            "logic_ps": 356,
+            "over_goal": 0,
+            "endpoints": 38,
+            "from": "core/backend/inner_vecRegion/issuePipes_5.exu.ex_0_bits_fuSel_0$_DFFE_PP_/QN",
+            "to": "core/backend/inner_ctrlBlock/delayedNotFlushedWriteBackNums_delayed_bits_r_18[1]$_DFFE_PP_/D",
+            "what": ""
+          },
+          "XSTile->CoupledL2": {
+            "worst_ps": 1788,
+            "logic_ps": 1115,
+            "over_goal": 0,
+            "endpoints": 825,
+            "from": "l2top/inner_buffer.nodeOut_c_q.deq_ptr_value$_DFFE_PP0P_/QN",
+            "to": "l2top/inner_l2cache/slices_0/mshrCtl/mshrs_7.denied$_DFF_PP0_/D",
+            "what": ""
+          },
+          "XSTile->FltRegionModule": {
+            "worst_ps": 1688,
+            "logic_ps": 902,
+            "over_goal": 0,
+            "endpoints": 1694,
+            "from": "core/backend/inner_ctrlBlock/rob/vtypeBuffer/state[0]$_DFF_PP0_/QN",
+            "to": "core/backend/inner_fpRegion/issueQueues_1/enqEntryOldest_age.age_0_1$_DFFE_PP0P_/D",
+            "what": ""
+          },
+          "XSTile->Frontend": {
+            "worst_ps": 2097,
+            "logic_ps": 1363,
+            "over_goal": 396,
+            "endpoints": 7840,
+            "from": "core/backend/inner_intRegion/pipeToBJU1.io_out_bits_data_src_0[61]$_DFFE_PP_/QN",
+            "to": "core/frontend/inner_ftq/io_toBpu_train_bits_meta_sc_tagePredValid_5$_DFFE_PP0N_/D",
+            "what": ""
+          },
+          "XSTile->MemBlock": {
+            "worst_ps": 1962,
+            "logic_ps": 1184,
+            "over_goal": 0,
+            "endpoints": 4431,
+            "from": "core/backend/inner_intRegion/io_toMemExu_4_0_bits_data_src_0[6]$_DFF_P_/QN",
+            "to": "core/memBlock/inner_dtlb_st_tlb_st/entries.page_sttlb_storage_fa.hitVecReg_1_42$_DFFE_PP_/D",
+            "what": ""
+          },
+          "XSTile->VecRegionModule": {
+            "worst_ps": 2223,
+            "logic_ps": 1415,
+            "over_goal": 184,
+            "endpoints": 3195,
+            "from": "core/backend/inner_intRegion/pipeToALU0.io_out_bits_ctrl_fuType[27]$_DFFE_PP_/QN",
+            "to": "core/backend/inner_vecRegion/issuePipes/is0_valid$_DFF_PP0_/D",
+            "what": ""
+          },
+          "XSTile->via:CoupledL2->XSTile": {
+            "worst_ps": 1650,
+            "logic_ps": 778,
+            "over_goal": 0,
+            "endpoints": 4,
+            "from": "l2top/inner_buffer.nodeOut_a_q.deq_ptr_value$_DFFE_PP0P_/QN",
+            "to": "l2top/inner_buffer.nodeOut_a_q.maybe_full$_DFFE_PP0P_/D",
+            "what": ""
+          },
+          "XSTile->via:FltRegionModule->XSTile": {
+            "worst_ps": 1247,
+            "logic_ps": 425,
+            "over_goal": 0,
+            "endpoints": 72,
+            "from": "core/backend/inner_intRegion/pipeToALU2.io_out_valid$_DFF_PP0_/QN",
+            "to": "core/backend/inner_intRegion/intDataPath/r_3[6]$_DFFE_PP_/D",
+            "what": ""
+          },
+          "XSTile->via:Frontend->MemBlock": {
+            "worst_ps": 1403,
+            "logic_ps": 1013,
+            "over_goal": 0,
+            "endpoints": 2,
+            "from": "core/backend/inner_ctrlBlock/s1_robFlushRedirect_valid_last_REG$_DFF_PP0_/QN",
+            "to": "core/memBlock/inner_frontendBridge.icache.nodeOut_a_q.enq_ptr_value$_DFFE_PP0P_/D",
+            "what": ""
+          },
+          "XSTile->via:Frontend->XSTile": {
+            "worst_ps": 1516,
+            "logic_ps": 742,
+            "over_goal": 0,
+            "endpoints": 120,
+            "from": "core/backend/inner_ctrlBlock/s1_robFlushRedirect_valid_last_REG$_DFF_PP0_/QN",
+            "to": "core/backend/inner_ctrlBlock/gpaMem.mem.r_3_gpaddr[25]$_DFFE_PP_/D",
+            "what": ""
+          },
+          "XSTile->via:MemBlock->FltRegionModule": {
+            "worst_ps": 1513,
+            "logic_ps": 797,
+            "over_goal": 0,
+            "endpoints": 3,
+            "from": "core/backend/inner_intRegion/io_toMemExu_0_0_bits_lqIdx_value[1]$_DFFE_PP_/QN",
+            "to": "core/backend/inner_fpRegion/fpWbM2WakeupOBeforeArbiter_REG_1_wen$_DFF_P_/D",
+            "what": ""
+          },
+          "XSTile->via:MemBlock->XSTile": {
+            "worst_ps": 1761,
+            "logic_ps": 814,
+            "over_goal": 0,
+            "endpoints": 678,
+            "from": "core/backend/inner_intRegion/io_toMemExu_1_0_bits_lqIdx_value[1]$_DFFE_PP_/QN",
+            "to": "core/backend/inner_intRegion/io_toMemExu_1_0_bits_data_imm[8]$_DFFE_PP_/D",
+            "what": ""
+          },
+          "XSTile->via:VecRegionModule->FltRegionModule": {
+            "worst_ps": 1970,
+            "logic_ps": 1105,
+            "over_goal": 0,
+            "endpoints": 20,
+            "from": "core/backend/inner_ctrlBlock/s1_robFlushRedirect_valid_last_REG$_DFF_PP0_/QN",
+            "to": "core/backend/inner_fpRegion/fpRegFile/io_readPorts_13_addr[4]",
+            "what": ""
+          },
+          "XSTile->via:VecRegionModule->XSTile": {
+            "worst_ps": 1570,
+            "logic_ps": 855,
+            "over_goal": 0,
+            "endpoints": 128,
+            "from": "core/backend/inner_ctrlBlock/s1_robFlushRedirect_valid_last_REG$_DFF_PP0_/QN",
+            "to": "core/backend/inner_ctrlBlock/dispatch/vpBusyTable.table_0[4]$_DFF_PP0_/D",
+            "what": ""
+          },
+          "parent": {
+            "worst_ps": 2143,
+            "logic_ps": 1255,
+            "over_goal": 1028,
+            "endpoints": 145527,
+            "from": "core/backend/inner_ctrlBlock/rob/vtypeBuffer/state[0]$_DFF_PP0_/QN",
+            "to": "core/backend/inner_ctrlBlock/decodeBufBits_1_specvtype_vsew[0]$_DFFE_PP_/D",
+            "what": ""
+          }
+        }
+      }
     }
   ],
   "memory_history": [
