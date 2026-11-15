@@ -20,12 +20,18 @@ model. Semantics are unchanged: a write port is the caller's
 `vec(idx)`. The perf queue, which the design says should not exist in
 hardware and which is read whole, is left as it was.
 
+A read port is `vec(idx)` only when `read` is called outside any
+`when`: under one, its address is a conditional connection, idle()'s 0
+wherever the condition is false, a mux ahead of the read that
+`vec(idx)` does not have. `read` stops there, and the BPU train's meta
+is read ahead of the `when` that captures it.
+
 Carried by the bazel-orfs CoreMark/Joule study; not upstreamed.
 ---
 diff -ruN a/src/main/scala/utils/RegVecFile.scala b/src/main/scala/utils/RegVecFile.scala
 --- a/src/main/scala/utils/RegVecFile.scala
 +++ b/src/main/scala/utils/RegVecFile.scala
-@@ -0,0 +1,76 @@
+@@ -0,0 +1,84 @@
 +package utils
 +
 +import chisel3._
@@ -42,8 +48,12 @@ diff -ruN a/src/main/scala/utils/RegVecFile.scala b/src/main/scala/utils/RegVecF
 +  * replace it by a register-file macro while simulation keeps this
 +  * behavioural model.
 +  *
-+  * Drive every port once with `idle()` after instantiation; `read` and
-+  * `write` then override under the caller's own `when` conditions.
++  * Drive every port once with `idle()` after instantiation. `write` then
++  * overrides under the caller's own `when`, as `vec(idx) := value` does.
++  * `read` is called outside any `when`, where `vec(idx)` reads: under
++  * one, the port's address would be idle()'s 0 wherever the `when`'s
++  * condition is false, a mux ahead of the read that `vec(idx)` does not
++  * have, so `read` stops there.
 +  */
 +class RegVecFileReadPort(addrWidth: Int, dataWidth: Int) extends Bundle {
 +  val addr = Input(UInt(addrWidth.W))
@@ -89,8 +99,12 @@ diff -ruN a/src/main/scala/utils/RegVecFile.scala b/src/main/scala/utils/RegVecF
 +    }
 +  }
 +
-+  /** Read port `i` at `addr`, as `gen`. */
++  /** Read port `i` at `addr`, as `gen`; outside any `when` (see above). */
 +  def read(i: Int, addr: UInt): T = {
++    require(
++      when.cond.litToBooleanOption.contains(true),
++      s"$desiredName.read($i) under a when: call it outside, a read port is vec(idx)"
++    )
 +    io.readPorts(i).addr := addr
 +    io.readPorts(i).data.asTypeOf(gen)
 +  }
@@ -211,16 +225,27 @@ diff -ruN a/src/main/scala/xiangshan/frontend/ftq/Ftq.scala b/src/main/scala/xia
    io.toBpu.redirectFromIFU         := ifuRedirect.valid
  
    resolveQueue.io.backendRedirect    := backendRedirect.valid
-@@ -420,7 +436,7 @@
+@@ -409,6 +425,10 @@
+     VecInit(trainBranches.map(b => b.valid && b.bits.mispredict))
+   )
+ 
++  // Read ahead of the when that captures it: a read port is vec(idx)
++  // only outside a when (RegVecFile.read).
++  private val trainMeta = metaQueueResolve.read(0, resolveQueue.io.bpuTrain.bits.ftqIdx.value)
++
+   when(flushTrainCache) {
+     trainCache.valid := false.B
+   }.elsewhen(resolveQueue.io.bpuTrain.fire) {
+@@ -420,7 +440,7 @@
        RegNext(backendRedirect.valid) && resolveQueue.io.bpuTrain.bits.ftqIdx > RegNext(backendRedirect.bits.ftqIdx)
  
      trainCache.valid     := !needFlush
 -    trainCache.bits.meta := metaQueueResolve(resolveQueue.io.bpuTrain.bits.ftqIdx.value)
-+    trainCache.bits.meta := metaQueueResolve.read(0, resolveQueue.io.bpuTrain.bits.ftqIdx.value)
++    trainCache.bits.meta := trainMeta
      trainCache.bits.startPcVec.foreach { dup =>
        dup.zipWithIndex.foreach { case (startPc, i) =>
          if (i == 0)
-@@ -506,7 +522,7 @@
+@@ -508,7 +528,7 @@
    commitQueue.io.backendCommit := io.fromBackend.callRetCommit
  
    io.toBpu.commit.valid                     := commitQueue.io.bpuTrain.valid
