@@ -1242,5 +1242,147 @@ class StablePinTest(unittest.TestCase):
             )
 
 
+class KeepTest(unittest.TestCase):
+    """--keep: a plan emitted before stays as it was, its die, its blocks
+    and every pins file byte for byte, and only the parent's netlists move
+    or change size (a register file generate_ram built at another size),
+    each at its own corner and checked against the kept floorplan."""
+
+    def _plan(self):
+        macros = [dict(m) for m in LayoutTest.MACROS]
+        for m in macros:
+            m["content_um2"] = 0.45 * m["area_um2"]
+            m["keep"] = ["%sInner" % m["name"]]
+        p = plan(macros)
+        p["tech"] = dict(LATTICE, **ExactPinTest.LAYERS)
+        p["margins"] = dict(MARGINS, block_density=0.6)
+        p["parent"]["keep"] = ["Backend"]
+        return p
+
+    def _emit(self):
+        p = self._plan()
+        out = plan_floorplan.layout(p)
+        x0, y0, x1, y1 = out["region_um"]
+        p["netlists"] = [
+            {
+                "module": "A",
+                "instance": "top/a",
+                "w_um": 100.0,
+                "h_um": 80.0,
+                "x_um": round(x0 + 20.0, 3),
+                "y_um": round(y0 + 20.0, 3),
+            },
+            {
+                "module": "B",
+                "instance": "top/b",
+                "w_um": 60.0,
+                "h_um": 60.0,
+                "x_um": round(x0 + 200.0, 3),
+                "y_um": round(y0 + 20.0, 3),
+            },
+        ]
+        d = tempfile.mkdtemp(prefix="plan_keep.")
+        a, b = out["macros"][0]["name"], out["macros"][1]["name"]
+        dump = os.path.join(d, "partners.txt")
+        with open(dump, "w") as f:
+            f.write("".join("pin %s a%d logic\n" % (a, i) for i in range(40)))
+            f.write("".join("pin %s x%d %s\n" % (a, i, b) for i in range(10)))
+            f.write("".join("pin %s x%d %s\n" % (b, i, a) for i in range(10)))
+        p["pin_partners"] = dump
+        plan_floorplan.emit(out, p, d)
+        return p, out, d
+
+    def _files(self, d):
+        return {
+            f: open(os.path.join(d, f)).read()
+            for f in os.listdir(d)
+            if f.endswith((".tcl", ".bzl"))
+        }
+
+    def _plan_bzl(self, d):
+        scope = {}
+        exec(open(os.path.join(d, "plan.bzl")).read(), scope)
+        return scope["PLAN"]
+
+    def test_netlists_change_and_the_rest_is_kept(self):
+        p, out, d = self._emit()
+        before = self._files(d)
+        self.assertTrue(any(f.endswith("_mock_pins.tcl") for f in before))
+        p["netlists"][0].update(w_um=120.0, h_um=150.0)
+        kept = plan_floorplan.kept_layout(p, d)
+        self.assertEqual(plan_floorplan.check(kept), [])
+        e = tempfile.mkdtemp(prefix="plan_kept.")
+        plan_floorplan.emit_kept(kept, p, e)
+        after = self._files(e)
+        self.assertEqual(sorted(after), sorted(before))
+        for f in before:
+            if f.endswith("_pins.tcl"):
+                self.assertEqual(after[f], before[f], f)
+        old, new = self._plan_bzl(d), self._plan_bzl(e)
+        self.assertEqual(new["parent"]["netlists"][0]["h_um"], 150.0)
+        self.assertEqual(new["parent"]["netlists"][1], old["parent"]["netlists"][1])
+        old["parent"].pop("netlists")
+        new["parent"].pop("netlists")
+        self.assertEqual(new, old)
+        # the blocks and their bands where they were, the netlist resized
+        for m in out["macros"]:
+            self.assertIn(plan_floorplan.macro_row(m) + "\n", after["place_macros.tcl"])
+        for band in plan_floorplan.block_bands(out):
+            self.assertIn(band + "\n", after["place_macros.tcl"])
+        self.assertIn(
+            "  top/a %.3f %.3f 120.000 150.000\n"
+            % (p["netlists"][0]["x_um"], p["netlists"][0]["y_um"]),
+            after["place_macros.tcl"],
+        )
+
+    def test_in_place_and_idempotent(self):
+        p, out, d = self._emit()
+        p["netlists"][1].update(w_um=70.0)
+        path = os.path.join(d, "plan.json")
+        with open(path, "w") as f:
+            json.dump(p, f)
+        pins = {f: t for f, t in self._files(d).items() if f.endswith("_pins.tcl")}
+        argv = ["plan_floorplan.py", path, "--keep", d, "--emit", d]
+        self.assertEqual(plan_floorplan.main(argv), 0)
+        once = self._files(d)
+        self.assertEqual(plan_floorplan.main(argv), 0)
+        self.assertEqual(self._files(d), once)
+        for f, t in pins.items():
+            self.assertEqual(once[f], t)
+        self.assertEqual(self._plan_bzl(d)["parent"]["netlists"][1]["w_um"], 70.0)
+
+    def test_refuses_what_the_kept_floorplan_cannot_hold(self):
+        p, out, d = self._emit()
+        a = p["netlists"][0]
+        block = out["macros"][0]
+        for change, why in [
+            (
+                {"x_um": p["netlists"][1]["x_um"] - 50.0},
+                "B at .* gap of register file A",
+            ),
+            ({"x_um": block["x_um"], "y_um": block["y_um"]}, "gap of block "),
+            ({"x_um": out["die_um"][2] - 50.0}, "not inside the core"),
+        ]:
+            q = json.loads(json.dumps(p))
+            q["netlists"][0].update(change)
+            with self.assertRaisesRegex(SystemExit, why):
+                plan_floorplan.kept_layout(q, d)
+        # no corner of its own: the kept files record no region
+        q = json.loads(json.dumps(p))
+        q["netlists"][0].pop("x_um")
+        q["netlists"][0]["owner_um"] = [a["x_um"], a["y_um"]]
+        with self.assertRaisesRegex(SystemExit, "its own x_um and y_um"):
+            plan_floorplan.kept_layout(q, d)
+        # a keep list or a block that is not the kept plan's
+        q = json.loads(json.dumps(p))
+        q["macros"][0]["keep"] = ["Other"]
+        with self.assertRaisesRegex(SystemExit, "keep list is not the plan's"):
+            plan_floorplan.kept_layout(q, d)
+        q = json.loads(json.dumps(p))
+        q["macros"].pop()
+        with self.assertRaisesRegex(SystemExit, "plans the blocks"):
+            plan_floorplan.kept_layout(q, d)
+
+
 if __name__ == "__main__":
     unittest.main()
