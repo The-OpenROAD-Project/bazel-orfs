@@ -364,41 +364,6 @@ its one extraction is the Rob's, a block here. TLBFA, the instruction
 TLB, Uncache and VirtualLoadQueue are extracted too but stay out of
 `xiangshan_extracted`.
 
-## The copies
-
-A register in one block that another block reads through a cone of logic
-is a path across their boundary wherever the two are placed. Ten of them,
-each a broadcast, are copied into the module that reads them
-(`surgery/sinks.txt`, one line a copy, applied in order by
-`sink_chain.sh`; CtrlBlock and Backend are in the parent macro):
-
-1. CtrlBlock's flush bundle into the vector and floating-point regions;
-2. Rob's enqueue stall into CtrlBlock's own logic;
-3. the redirect into Frontend;
-4. the redirect into MemBlock;
-5. MemBlock's load-unit s2 valid into Backend;
-6. MemBlock's atomics unit state into Backend;
-7. Rob's empty flag into CtrlBlock's own logic;
-8. Frontend's instruction buffer outputs into Backend;
-9. the vector issue queues' fast entry valids into Backend's own logic;
-10. the floating-point issue queues' fast entry valids into Backend's own
-    logic.
-
-`sink_registers.py` gives the reader a copy of the registers and of the
-combinational function behind the ports it reads, as `<module>_sink`
-(`_sink2`, `_sink3` for a module copied again): the original's clock,
-next state and reset, and no register added. The crossing moves from the
-registers' outputs to their inputs; the original stays for every other
-reader. `sink_toy_test` makes four shapes of copy on toys and checks
-each with a 12-cycle miter against the original, a broken copy being the
-negative control that must fail.
-
-The parent, FltRegionModule, Frontend, MemBlock and VecRegionModule read
-`surgery:xiangshan_sunk`, the extracted core with the ten copies
-(`XS_SUNK`). Rob reads `surgery:xiangshan_sunk_plain`, the surgered core
-with the two copies that touch it (`sinks_rob.txt`). CoupledL2 reads the
-surgered core.
-
 ## Running it
 
 ```
