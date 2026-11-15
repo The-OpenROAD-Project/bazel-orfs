@@ -364,6 +364,23 @@ maps once. Every other part reads the surgered core. TLBFA, the
 instruction TLB, Uncache and VirtualLoadQueue are extracted too but stay
 out of `xiangshan_extracted`.
 
+## The branch units' compares
+
+BranchUnit's mispredict and JumpUnit's target check compare the low 50
+bits of a sum with the predicted target: pc + imm in BranchUnit, (jalr's
+src_0 or the pc) + imm in JumpUnit. `surgery/xs_bju_surgery.py` writes
+both compares without the adder, per bit the carry the sum needs against
+the carry the bit makes (class 9 of the `surgery` skill); the adders
+stay for the targets the units send on. It is the first edit of the
+elaborated core (`surgery:xiangshan_bju`), so every part reads it,
+whichever holds ExuBlock: here the parent. `surgery:bju_lec_tests`
+proves each unit equal to firtool's at module size with kepler-formal,
+and its negative control different. Post-synthesis, in ResolveQueue's
+kit context, it takes the worst path from the parent into Frontend from
+1,461.6 to 1,372.3 ps, and ResolveQueue's family from 1,135.7 to
+908.4 ps, on a synthesis against a 2,000 ps SDC; against this flow's
+473 ps, ABC may map the compare faster already.
+
 ## Running it
 
 ```
