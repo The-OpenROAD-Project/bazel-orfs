@@ -52,6 +52,31 @@ def table(header, rows, right=(), abbrev=None):
     return "\n".join(out)
 
 
+def latest_measured(runs, blocks):
+    """The latest KPI row of this plan: its blocks are exactly the plan's,
+    a carved row's parent macro (XSTile_parent) aside. A row of another
+    plan is history, not this kit's numbers, even when it measured every
+    block of this one: the carve's rows also list Rob and the parent
+    macro, and their parent is not this plan's parent."""
+    plan = set(blocks)
+    rows = [r for r in runs if set(r.get("blocks", {})) - {"XSTile_parent"} == plan]
+    if not rows:
+        raise SystemExit(
+            "render_md: no KPI row measures exactly the plan's blocks, %s"
+            % ", ".join(sorted(blocks))
+        )
+    return rows[-1]
+
+
+def parent_period(run):
+    """The parent's period in a KPI row: a single top's `parent_ps`; a
+    carved row (runs 22 to 30) kept it among its blocks as XSTile_parent,
+    the parent macro."""
+    if "parent_ps" in run:
+        return run["parent_ps"]
+    return run["blocks"]["XSTile_parent"]
+
+
 def load_plan_bzl(path):
     """PLAN from plan.bzl: a Starlark dict literal, which Python reads."""
     text = open(path).read()
@@ -330,20 +355,17 @@ def facts_values(a):
     v["block_count"] = str(len(plan_bzl["macros"]))
     v["port_side"] = plan["parent"]["port_side"]
 
-    # the periods: the latest KPI row that measured every part of this floorplan
-    parent = "XSTile_parent"
-    parts = set(plan_bzl["macros"]) | {parent}
-    runs = [r for r in kpi["runs"] if parts <= set(r.get("blocks", {}))]
-    if not runs:
-        raise SystemExit(
-            "render_md: no KPI row measures every part of %s" % ", ".join(sorted(parts))
-        )
-    run = runs[-1]
+    # the periods: the latest KPI row that measured every block
+    run = latest_measured(kpi["runs"], plan_bzl["macros"])
     periods = run["blocks"]
+    parent = "XSTile"
     v["kpi_date"] = run["date"]
-    # XSTile's period: its slowest part, the Top's crossings included
-    v["best_period"] = num(max(list(periods.values()) + [run.get("top_ps", 0)]))
-    v["parent_period"] = num(periods[parent])
+    # XSTile's period: its slowest part, the parent and the Top's crossings
+    # included
+    v["best_period"] = num(
+        max(list(periods.values()) + [parent_period(run), run.get("top_ps", 0)])
+    )
+    v["parent_period"] = num(parent_period(run))
     v["target_ps"] = num(kpi["target_ps"])
     pins = {m["name"]: m["pins"] for m in plan["macros"]}
     rows = []
@@ -373,7 +395,7 @@ def facts_values(a):
             blocks[parent],
             "die minus blocks",
             v["rtl_bits"],
-            "**%s**" % num(periods[parent]),
+            "**%s**" % num(parent_period(run)),
         ]
     )
     v["block_table"] = table(
