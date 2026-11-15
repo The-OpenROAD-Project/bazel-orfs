@@ -54,15 +54,26 @@ track of its layer, a pin gone is dropped; a block whose interface did
 not change gets a byte-identical pins file and keeps its flow's cache
 key when a neighbour gains ports. DIR may be the --emit directory.
 
+--keep DIR keeps a plan emitted before as it is, when only the parent's
+netlists change (a register file generate_ram built at another size):
+DIR's die, its blocks' places, outlines and footprints, and every
+*_pins.tcl, byte for byte. The plan names the same blocks and keep lists,
+and each netlist its own x_um and y_um; each is checked against the core,
+the blocks, their bands and the other netlists, a gap clear. plan.bzl
+gets the new netlists and place_macros.tcl this planner's template. The
+plan's pin-partner dump is not read: the pins files are DIR's.
+
 Stdlib only; python 3.6.
 """
 
 import argparse
+import ast
 import itertools
 import json
 import os
 import re
 import math
+import shutil
 import sys
 
 SIDES = ("bottom", "right", "top", "left")
@@ -1459,18 +1470,17 @@ def plan_regions(out, plan):
     return regions
 
 
-def block_bands(out):
-    """The y bands (lo hi, um) a row of blocks owns: from the lowest bottom
-    to the lowest top of a bottom row, from the highest bottom to the
-    highest top of a top row. place_macros.tcl puts a soft placement
+def band_spans(out):
+    """[(lo, hi)]: the y bands (um) a row of blocks owns: from the lowest
+    bottom to the lowest top of a bottom row, from the highest bottom to
+    the highest top of a top row. place_macros.tcl puts a soft placement
     blockage over each; the port strip between the band and the die edge
     stays clear of it, for the parent's port buffers."""
     bands = []
     bottom = [m for m in out["macros"] if m["region_side"] == "bottom"]
     if bottom:
         bands.append(
-            "  %.3f %.3f"
-            % (
+            (
                 min(m["y_um"] for m in bottom),
                 min(m["y_um"] + m["h_um"] for m in bottom),
             )
@@ -1478,10 +1488,14 @@ def block_bands(out):
     top = [m for m in out["macros"] if m["region_side"] == "top"]
     if top:
         bands.append(
-            "  %.3f %.3f"
-            % (max(m["y_um"] for m in top), max(m["y_um"] + m["h_um"] for m in top))
+            (max(m["y_um"] for m in top), max(m["y_um"] + m["h_um"] for m in top))
         )
     return bands
+
+
+def block_bands(out):
+    """band_spans as place_macros.tcl's rows."""
+    return ["  %.3f %.3f" % band for band in band_spans(out)]
 
 
 def _area(x0, y0, x1, y1):
@@ -1516,7 +1530,6 @@ def emit(out, plan, directory, previous=None):
             "parent_pins.tcl", PARENT_PINS_TCL.format(side=plan["parent"]["port_side"])
         )
         bzl["parent"]["pins"] = "parent_pins.tcl"
-    rows = []
     for m in out["macros"]:
         # the block's own pins on its own outline; a mocked block's pins
         # again on its footprint, for the mocked abstract the parent places
@@ -1707,52 +1720,264 @@ def emit(out, plan, directory, previous=None):
         if keep is not None:
             entry["SYNTH_KEEP_MODULES"] = " ".join(keep)
         bzl["macros"][m["name"]] = entry
-        rows.append(
-            "  {} {:.3f} {:.3f} {:.3f} {:.3f}".format(
-                m["name"], m["x_um"], m["y_um"], m["w_um"], m["h_um"]
-            )
-        )
     netlists = place_netlists(out, plan)
-    regions = plan_regions(out, plan)
-    write(
-        "place_macros.tcl",
-        PLACE_TCL.format(
-            regions="".join(
-                "  {} {} {:.3f} {:.3f} {:.3f} {:.3f}\n".format(
-                    r["name"], r["instance"], *r["box_um"]
-                )
-                for r in regions
-            ).rstrip("\n"),
-            rows="\n".join(rows),
-            bands="\n".join(block_bands(out)),
-            netlists="".join(
-                "  {} {:.3f} {:.3f} {:.3f} {:.3f}\n".format(i_, x, y, w, h)
-                for m_, i_, x, y, w, h in netlists
-            ).rstrip("\n"),
-        ),
-    )
+    write("place_macros.tcl", place_macros_tcl(out, plan, netlists))
     if netlists:
-        bzl["parent"]["netlists"] = [
-            {"module": m_, "instance": i_, "x_um": x, "y_um": y, "w_um": w, "h_um": h}
-            for m_, i_, x, y, w, h in netlists
-        ]
+        bzl["parent"]["netlists"] = netlist_entries(netlists)
         out["netlists"] = bzl["parent"]["netlists"]
     if plan["parent"].get("clock_pins"):
         bzl["parent"]["clock_pins"] = list(plan["parent"]["clock_pins"])
-    # buildifier wants a trailing comma on the last element of a multi-line
-    # dict or list (a lookahead, so a closer that ends one element and
-    # precedes another closer gets its comma too), so the emitted file is the file the linter leaves alone
-    # and the drift tests compare bytes.
+    write("plan.bzl", plan_bzl_text(bzl))
+    return written
+
+
+def macro_row(m):
+    """A block's row in place_macros.tcl: master, origin and footprint."""
+    return "  {} {:.3f} {:.3f} {:.3f} {:.3f}".format(
+        m["name"], m["x_um"], m["y_um"], m["w_um"], m["h_um"]
+    )
+
+
+def place_macros_tcl(out, plan, netlists):
+    """place_macros.tcl: the blocks, their bands, the netlists (rows of
+    place_netlists) and the plan's regions."""
+    regions = plan_regions(out, plan)
+    return PLACE_TCL.format(
+        regions="".join(
+            "  {} {} {:.3f} {:.3f} {:.3f} {:.3f}\n".format(
+                r["name"], r["instance"], *r["box_um"]
+            )
+            for r in regions
+        ).rstrip("\n"),
+        rows="\n".join(macro_row(m) for m in out["macros"]),
+        bands="\n".join(block_bands(out)),
+        netlists="".join(
+            "  {} {:.3f} {:.3f} {:.3f} {:.3f}\n".format(i_, x, y, w, h)
+            for m_, i_, x, y, w, h in netlists
+        ).rstrip("\n"),
+    )
+
+
+def netlist_entries(netlists):
+    """plan.bzl's parent netlists, from rows of place_netlists."""
+    return [
+        {"module": m_, "instance": i_, "x_um": x, "y_um": y, "w_um": w, "h_um": h}
+        for m_, i_, x, y, w, h in netlists
+    ]
+
+
+def plan_bzl_text(bzl):
+    """plan.bzl: PLAN, a Starlark dict. buildifier wants a trailing comma on
+    the last element of a multi-line dict or list (a lookahead, so a closer
+    that ends one element and precedes another closer gets its comma too),
+    so the emitted file is the file the linter leaves alone and the drift
+    tests compare bytes."""
     starlark = re.sub(
         r"([^\[{,\s])(?=\n\s*[\]}])",
         r"\1,",
         json.dumps(bzl, indent=4, sort_keys=True),
     )
-    write(
-        "plan.bzl",
+    return (
         '"""Generated by plan_floorplan.py from the macro selection tables; do not edit."""\n\n'
-        "PLAN = " + starlark + "\n",
+        "PLAN = " + starlark + "\n"
     )
+
+
+def read_plan_bzl(path):
+    """PLAN from an emitted plan.bzl: a Starlark dict literal, which Python
+    reads."""
+    text = open(path).read()
+    m = re.search(r"^PLAN\s*=\s*", text, re.M)
+    if not m:
+        raise SystemExit("plan_floorplan: no PLAN in %s" % path)
+    return ast.literal_eval(text[m.end() :])
+
+
+# the side of the region a block sits on, from the side its pins face
+REGION_SIDE = {pin: region for region, pin in FACING.items()}
+
+
+def kept_layout(plan, directory):
+    """layout()'s result for a plan emitted before into directory, kept as
+    it is: its die, each block's place, outline and footprint, from its
+    plan.bzl; the plan's netlists at their own corners (kept_netlists).
+
+    The plan itself must still describe that floorplan: the same blocks,
+    the same keep lists. A plan that changed anything else is a new plan,
+    regenerated without --keep."""
+    bzl = read_plan_bzl(os.path.join(directory, "plan.bzl"))
+    names = sorted(m["name"] for m in plan["macros"])
+    if names != sorted(bzl["macros"]):
+        raise SystemExit(
+            "plan_floorplan: --keep %s plans the blocks %s, the plan names %s: "
+            "regenerate the plan without --keep"
+            % (directory, ", ".join(sorted(bzl["macros"])), ", ".join(names))
+        )
+    keeps = [
+        (
+            "the parent's",
+            plan["parent"].get("keep"),
+            bzl["parent"].get("SYNTH_KEEP_MODULES"),
+        )
+    ]
+    keeps += [
+        (
+            name + "'s",
+            plan_macro(plan, name).get("keep"),
+            bzl["macros"][name].get("SYNTH_KEEP_MODULES"),
+        )
+        for name in names
+    ]
+    for who, keep, kept in keeps:
+        if (" ".join(keep) if keep is not None else None) != kept:
+            raise SystemExit(
+                "plan_floorplan: --keep %s: %s keep list is not the plan's; a "
+                "block keeps what its outline was sized for, so regenerate the "
+                "plan without --keep" % (directory, who)
+            )
+    die = [float(v) for v in bzl["parent"]["DIE_AREA"].split()]
+    core = [float(v) for v in bzl["parent"]["CORE_AREA"].split()]
+    margin = core[0] - die[0]
+    if abs(margin - plan["parent"]["core_margin_um"]) > 1e-6:
+        raise SystemExit(
+            "plan_floorplan: --keep %s has a core margin of %.3f um, the plan %.3f"
+            % (directory, margin, plan["parent"]["core_margin_um"])
+        )
+    macros = []
+    for name, e in bzl["macros"].items():
+        own = [float(v) for v in e["DIE_AREA"].split()]
+        own_w, own_h = own[2] - own[0], own[3] - own[1]
+        mock = float(e.get("MOCK_AREA", "1.0"))
+        side = REGION_SIDE[e["pin_side"]]
+        macros.append(
+            {
+                "name": name,
+                "region_side": side,
+                "pin_side": e["pin_side"],
+                "x_um": e["x_um"],
+                "y_um": e["y_um"],
+                # the footprint, as layout() scales it
+                "w_um": round(own_w * mock, 3),
+                "h_um": round(own_h * mock, 3),
+                "own_w_um": round(own_w, 3),
+                "own_h_um": round(own_h, 3),
+                "mock_area": mock,
+                "orient": "R0",
+            }
+        )
+    # in layout()'s order: by side, then along it
+    macros.sort(
+        key=lambda m: (
+            SIDES.index(m["region_side"]),
+            m["x_um"] if m["region_side"] in ("bottom", "top") else m["y_um"],
+        )
+    )
+    out = {
+        "kept": directory,
+        "die_um": die,
+        "core_margin_um": margin,
+        "macros": macros,
+    }
+    out["netlists"] = netlist_entries(kept_netlists(out, plan))
+    return out
+
+
+def kept_netlists(out, plan):
+    """Rows of place_netlists for a kept floorplan (kept_layout): each of
+    the plan's netlists at its own corner, x_um and y_um, which it must
+    have, since the kept files do not record the logic region an owner_um
+    would need. Each must lie inside the core the flow snaps to, and clear
+    the blocks' footprints, the soft blockages over their bands and the
+    other netlists, all by a gap; anything else stops the plan, naming
+    what it hits."""
+    gap = plan["margins"]["gap_um"]
+    dx0, dy0, dx1, dy1 = out["die_um"]
+    m = out["core_margin_um"]
+    x0 = math.ceil((dx0 + m) / 0.054 - 1e-9) * 0.054
+    y0 = math.ceil((dy0 + m) / 0.27 - 1e-9) * 0.27
+    x1 = math.floor((dx1 - m) / 0.054 + 1e-9) * 0.054
+    y1 = math.floor((dy1 - m) / 0.27 + 1e-9) * 0.27
+    hits = [
+        ("block " + b["name"], (b["x_um"], b["y_um"], b["w_um"], b["h_um"]))
+        for b in out["macros"]
+    ]
+    hits += [
+        ("the blocks' band %.3f-%.3f" % (lo, hi), (x0, lo, x1 - x0, hi - lo))
+        for lo, hi in band_spans(out)
+    ]
+    rows = []
+    for n in plan.get("netlists") or []:
+        if not ("x_um" in n and "y_um" in n):
+            raise SystemExit(
+                "plan_floorplan: --keep places %s at its own x_um and y_um: the "
+                "kept floorplan records no logic region to put it in" % n["module"]
+            )
+        x, y, w, h = round(n["x_um"], 3), round(n["y_um"], 3), n["w_um"], n["h_um"]
+        if (
+            x < x0 + gap - 1e-6
+            or y < y0 + gap - 1e-6
+            or x + w > x1 - gap + 1e-6
+            or y + h > y1 - gap + 1e-6
+        ):
+            raise SystemExit(
+                "plan_floorplan: %s at %.3f %.3f (%.3f x %.3f um) is not inside "
+                "the core a gap clear" % (n["module"], x, y, w, h)
+            )
+        for what, box in hits:
+            if _overlaps((x, y, w, h), box, gap):
+                raise SystemExit(
+                    "plan_floorplan: %s at %.3f %.3f (%.3f x %.3f um) is within "
+                    "a gap of %s" % (n["module"], x, y, w, h, what)
+                )
+        rows.append((n["module"], n["instance"], x, y, w, h))
+        hits.append(("register file " + n["module"], (x, y, w, h)))
+    return rows
+
+
+def kept_summary(out):
+    lines = [
+        "kept die {:.3f} x {:.3f} um and {} blocks from {}".format(
+            out["die_um"][2], out["die_um"][3], len(out["macros"]), out["kept"]
+        )
+    ]
+    for n in out["netlists"]:
+        lines.append(
+            "  {module}: {w_um:.3f} x {h_um:.3f} um at {x_um:.3f} {y_um:.3f}".format(
+                **n
+            )
+        )
+    return "\n".join(lines)
+
+
+def emit_kept(out, plan, directory):
+    """Write a kept floorplan (kept_layout) into directory: every pins file
+    of the kept plan byte for byte, place_macros.tcl in this planner's
+    template with the plan's netlists, and plan.bzl with its parent's
+    netlists replaced. Returns the paths written."""
+    written = []
+    kept = out["kept"]
+    if os.path.realpath(kept) != os.path.realpath(directory):
+        for f in sorted(os.listdir(kept)):
+            if f.endswith("_pins.tcl"):
+                shutil.copyfile(os.path.join(kept, f), os.path.join(directory, f))
+                written.append(os.path.join(directory, f))
+    rows = [
+        (n["module"], n["instance"], n["x_um"], n["y_um"], n["w_um"], n["h_um"])
+        for n in out["netlists"]
+    ]
+    bzl = read_plan_bzl(os.path.join(kept, "plan.bzl"))
+    if rows:
+        bzl["parent"]["netlists"] = netlist_entries(rows)
+    else:
+        bzl["parent"].pop("netlists", None)
+    for name, text in [
+        ("place_macros.tcl", place_macros_tcl(out, plan, rows)),
+        ("plan.bzl", plan_bzl_text(bzl)),
+    ]:
+        path = os.path.join(directory, name)
+        with open(path, "w") as f:
+            f.write(text)
+        written.append(path)
     return written
 
 
@@ -1774,16 +1999,34 @@ def main(argv):
         metavar="DIR",
         help="write the flows' files (pin constraints, macro placement, plan.bzl)",
     )
+    ap.add_argument(
+        "--keep",
+        metavar="DIR",
+        help="a plan emitted before: keep its die, its blocks and every pins file, "
+        "and place only the plan's netlists, each at its own x_um and y_um; may be "
+        "the --emit directory itself",
+    )
     a = ap.parse_args(argv[1:])
+    if a.keep and a.previous:
+        ap.error("--keep keeps every pins file; --previous has nothing to do")
     plan = load_plan(a.plan)
-    out = layout(plan)
+    if a.keep:
+        out = kept_layout(plan, a.keep)
+        print(kept_summary(out))
+    else:
+        out = layout(plan)
+        print(summary(out))
     problems = check(out)
-    print(summary(out))
     if a.out:
         with open(a.out, "w") as f:
             json.dump(out, f, indent=1, sort_keys=True)
     if a.emit and not problems:
-        for path in emit(out, plan, a.emit, a.previous):
+        paths = (
+            emit_kept(out, plan, a.emit)
+            if a.keep
+            else emit(out, plan, a.emit, a.previous)
+        )
+        for path in paths:
             print("wrote " + path)
     for p in problems:
         print("plan_floorplan: " + p, file=sys.stderr)
