@@ -4,11 +4,11 @@ load("//test/planned_parent:planned.bzl", "BASE_ARGS")
 load(":toy.bzl", "toy_parent_macro")
 
 # The parent as a macro in miniature: test/planned_parent's design and
-# plan, through the method XSTile is built by
-# (tools/carve/parent_macro.bzl). The plan in git is all the parent and
-# its four blocks share, so they build side by side to global route; the
-# top level, every one of them dissolved at its global route with its
-# clock tree left behind, is the only target that waits for all of them.
+# plan, through the parent-macro method (tools/carve/parent_macro.bzl).
+# The plan in git is all the parent and its four blocks share, so they
+# build side by side to global route; the top level, every one of them
+# dissolved at its global route with its clock tree left behind, is the
+# only target that waits for all of them.
 
 BLOCKS = sorted(PLAN["macros"].keys())
 

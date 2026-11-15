@@ -295,10 +295,10 @@ genrule(
 
 # The block on the extracted Verilog through slang, its entry cell kept
 # and slang's per-instance copies of it folded onto one module
-# (fold_entries.tcl), so synthesis maps it once, as XSTile's flows do: setup repair off (XSTile's ~2,000 ps), no pin access, and
-# the carve's placement (timing- and routability-driven global placement
-# off), so floorplan through global route compares with the carve's
-# numbers. The Rob's block settings without its register files.
+# (fold_entries.tcl), so synthesis maps it once, as XSTile's flows do.
+# The Rob's block settings without its register files, setup repair off
+# after placement, no pin access, and timing- and routability-driven
+# global placement off: each study's arms are measured with the same.
 BLOCK = XS_BLOCKS["Rob"]
 
 # The blocks that stay on yosys's frontend, the extraction read as the
@@ -389,8 +389,8 @@ RES_STUDY = {
             "GPL_ROUTABILITY_DRIVEN": "0",
             "GPL_TIMING_DRIVEN": "0",
             "SKIP_CTS_REPAIR_TIMING": "1",
-            # as the carve: floorplan's repair_timing (unbuffer, size-up) was
-            # 335 of the 349 s of floorplan
+            # floorplan's repair_timing (unbuffer, size-up) was 335 of the
+            # 349 s of floorplan
             "SKIP_FLOORPLAN_REPAIR_TIMING": "1",
             "SKIP_INCREMENTAL_REPAIR": "1",
             "SKIP_PIN_ACCESS": "1",

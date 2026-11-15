@@ -23,7 +23,7 @@ interconnect technology file.
 | **{{cells}} cells** | standard-cell instances, of them {{flops}} flip-flops and {{clock_gates}} clock gates |
 | **{{sram_instances}} SRAMs** | SRAM macros of {{sram_shapes}} shapes, as FakeRAM `.lib`/`.lef` views |
 | **{{regfile_instances}} register files** | multi-ported register files, as generated macros; {{macro_instances}} macros in all |
-| **{{best_period}} ps** | best minimum register-to-register period at global route with OpenROAD on ASAP7 ({{kpi_date}}), against the SDC's 2,000 ps |
+| **{{best_period}} ps** | best minimum register-to-register period at global route with OpenROAD on ASAP7 ({{kpi_date}}), against the SDC's 473 ps |
 | **{{die}} µm** | die of the OpenROAD reference run, {{die_mm2}} mm², about {{fill_pct}} % filled by cells |
 | **{{parent_hours}} h, {{parent_peak_gb}} GB** | largest single OpenROAD run in the reference partition, to global route at peak memory |
 
@@ -49,15 +49,18 @@ what to expect, not a recommendation.
 The minimum clock period is register to register only. In2reg, reg2out
 and in2out paths are left out. See *The minimum clock period*.
 
-## From 2,000 ps to 333 ps
+## From the reference to 333 ps
 
-XiangShan's published target for this core is 333 ps, 3 GHz, on a
-industrial 7 nm process. The kit's SDC asks for 2,000 ps on ASAP7, six
-times slower. Three things make up the difference.
+XiangShan's published target for this core is 333 ps, 3 GHz, on an
+industrial 7 nm process. Measured in FO4 (fanout of four) delays, 333 ps
+there is {{target_ps}} ps at global route on this library, and the kit's
+SDC asks for 0.8 of it, 473 ps, as a synthesis target. The OpenROAD
+reference's next target at global route is 2,000 ps, six times slower
+than 333 ps. Three things make up the difference.
 
 | What | What it means here |
 |---|---|
-| A better PDK | Industrial 7 nm standard cells, wires and memory compilers in place of ASAP7's predictive ones. Measured in FO4 (fanout of four) delays, 333 ps there corresponds to {{target_ps}} ps on this library. |
+| A better PDK | Industrial 7 nm standard cells, wires and memory compilers in place of ASAP7's predictive ones, whose libraries at the FF corner are slower in FO4 than the published ASAP7 figures. |
 | Other tools | Another synthesis and place-and-route flow in place of the open-source one. |
 | A large backend effort | Many engineers over many months: CAMs and register files laid out by hand, global placement regions, the tile carved into macros, custom clock trees, and RTL changed with the layout until timing is met. |
 
@@ -96,7 +99,7 @@ The kit unpacks into one directory. Every path below is relative to it.
 xiangshan-xstile-asap7/
   README.pdf                 this document
   netlist/XSTile.v           gate-level Verilog, hierarchy kept, top module XSTile
-  constraints/XSTile.sdc     one clock, port clock, 2,000 ps; self-contained
+  constraints/XSTile.sdc     one clock, port clock, 473 ps; self-contained
   tech/asap7_tech.lef        technology LEF: layers M1 to M9, vias, site
   tech/asap7.itf             interconnect technology file, for RC extraction
   cells/lef/                 standard cells, RVT, LVT and SLVT
@@ -124,7 +127,7 @@ xiangshan-xstile-asap7/
    against exactly these files. Power and ground are `VDD` and `VSS`.
    Constants are tie cells (`TIEHIx1_ASAP7_75t_R`, `TIELOx1_ASAP7_75t_R`).
 5. **Constraints.** Read `constraints/XSTile.sdc`. It defines one clock
-   on port `clock` at 2,000 ps and times the boundary with
+   on port `clock` at 473 ps and times the boundary with
    `set_max_delay`, not input and output delays. *Constraints* explains
    why.
 6. **Floorplan.** Any floorplan is valid. The OpenROAD reference run used
@@ -145,7 +148,7 @@ The SDC follows the OpenROAD-flow-scripts platform file for ASAP7 macros
 recorded in OpenROAD issue
 [#12017](https://github.com/The-OpenROAD-Project/OpenROAD/issues/12017).
 
-- One clock on port `clock`, 2,000 ps, 50 % duty cycle.
+- One clock on port `clock`, 473 ps, 50 % duty cycle.
 - Inputs to registers and registers to outputs:
   `set_max_delay ... -ignore_clock_latency` at 0.8 of the period.
 - Inputs to outputs: `set_max_delay` at 0.6 of the period.
@@ -430,9 +433,10 @@ there, so a fresh kit has the latest.*
 
 Each of the {{block_count}} hardened blocks is implemented through global
 route at its own outline with its pins on one side. The rest of the tile
-is implemented as one macro around them. Placement regions (dashed) keep
-logic near its partners; the integer register file is placed beside its
-readers.
+is the top level, with the blocks as its macros, each placed as a
+footprint that holds its cells at the block's density. The top level's
+three register files, the integer register file and the Rob's entries
+and rename buffer, are placed beside their readers.
 
 ![The reference floorplan to scale](floorplan.svg)
 
@@ -465,7 +469,7 @@ repair with the route's parasitics.*
   tool limitation, not the design's.
 - Global route runs with congestion allowed. The minimum
   register-to-register period is the number tracked.
-- The next target in ASAP7 is 2,000 ps. *From 2,000 ps to 333 ps*
+- The next target in ASAP7 is 2,000 ps. *From the reference to 333 ps*
   describes the rest of the way.
 
 ## About the ITF

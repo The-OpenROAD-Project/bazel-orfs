@@ -4,7 +4,9 @@ The tile of XiangShan's Kunminghu generation, the core and its L2, as a
 reference frame: something that reproduces, that anyone can look at,
 and that we improve one concern at a time.
 
-Nothing here runs in CI. Every target is `tags = ["manual"]`.
+The flows are `tags = ["manual"]` and run by hand. CI runs the unit
+tests beside them: `kpi_test`, `gpl_driven_test`, the kit's and the
+arrays' tests.
 
 ## TL;DR for OpenROAD maintainers: XiangShan in the dirty lane
 
@@ -233,12 +235,12 @@ the json.
 
 The KPI is the design's minimum clock period, the red line: the largest
 of the parent's period and each block's, since the design is only as
-fast as its slowest part. On main it is **3,162 ps**, the parent's (run
-12); runs 13 to 15 are #1187, in flight and not on main, there to show
-where it stands, run 15 with the parent's setup repair at global route
-that the flow now runs. The parent is one of those parts, like any block, and each of
-them is drawn dashed beneath the red line, a period that has to be at or
-below it.
+fast as its slowest part. The parent is one of those parts, like any
+block, and each of them is drawn dashed beneath the red line, a period
+that has to be at or below it. Runs 22 to 30 carved the tile into a
+parent macro under a top level, whose crossings are the Top column; the
+flow here is the single top of runs 1 to 21 again, five blocks and the
+parent, last built as run 21: **2,206 ps**, the parent's.
 
 Each part's period is its SDC period minus the worst slack of its
 `reg2reg` group, which is the only group that can fail timing closure.
@@ -248,19 +250,10 @@ for the group by name and not for the worst slack: on VecRegionModule the
 overall worst slack is -2,006 ps and belongs to another group, while
 `reg2reg` is -1,564 ps, and only the second one is a period.
 
-The parent, XSTile with its clock tree, is **3,860 ps** at global route
-with the route's own parasitics; its `reg2reg` group does not see the
-paths inside a block's abstract. Each block is measured alone, likewise
-at its global route with its clock tree (`<block>_kpi`); the table below
-is an earlier run's, at each block's place stage against an ideal clock:
-
-| block | minimum period | worst `reg2reg` path |
-|---|---|---|
-| Frontend | 1,541 ps | a TAGE table SRAM's reset state into the predictor's `sramResetDone` |
-| CoupledL2 | 2,222 ps | a slice's directory state at stage 3 into SinkC's buffer |
-| MemBlock | 2,057 ps | load unit 0's stage-1 exception vector into stage 2's fast-replay grant |
-| VecRegionModule | 1,247 ps | the vector divider's FP format into the FMA's operand |
-| FltRegionModule | 814 ps | an FP adder's operand into its stage-1 round-up overflow |
+The parent, XSTile with its clock tree, is timed at global route with
+the route's own parasitics; its `reg2reg` group does not see the paths
+inside a block's abstract. Each block is measured alone, likewise at its
+global route with its clock tree (`<block>_kpi`, the table above).
 
 XiangShan's `ClockGate` is mapped onto ASAP7's ICG cell (`xs_icg.ys`) in
 every flow, the parent's and every block's.
@@ -301,11 +294,18 @@ a small last-level cache.
 In fanouts of four, 333 ps is 41.1 FO4 at the published ASAP7 RVT FO4 of
 8.1 ps, which the ASAP7 authors call realistic for industrial 7 nm. On
 the library this flow times with (RVT at the FF corner, FO4 14.37 ps)
-that is 591 ps at global route, and 0.8 of it, 473 ps, is the synthesis
-target (`period_fo4_test`). The SDC times at 2,000 ps, the carve
-campaign's target, so repair stops where the design is instead of chasing
-473 ps. A cycle leaves about 38 FO4 of logic: the
+that is 591 ps at global route, and the SDC synthesises at 0.8 of it,
+473 ps (`period_fo4_test`). A cycle leaves about 38 FO4 of logic: the
 flops on the paths below take 31 ps clock-to-output and 6 to 13 ps setup.
+
+The next goal at global route is 2,000 ps (`kpi.py`'s `GOAL_PS`, the
+headroom target), on the way to `kpi.json`'s `target_ps`, the 591 ps
+above; the SDC is 473 ps. A block times its half of every path across its boundary
+against 0.8 of the SDC's period (`set_max_delay`, `.claude/skills/macro-constraints`),
+378 ps, so it repairs it; at a 2,000 ps SDC that budget is 1,600 ps and
+a block leaves its half of a crossing slack where the parent cannot
+repair it. The parent's repair at global route works worst-first
+through everything above 473 ps.
 
 Is the Chisel RTL congruent with that? Read at the source, the worst path
 of each block and of the top level is 6 to 30 gate levels, which at about
@@ -355,14 +355,14 @@ instanced per entry with the index comparisons decoded once in the
 block, and proves the result equal to the block (`arrays/README.md`).
 
 `arrays:xiangshan_extracted` is the surgered core with those blocks
-swapped for their extractions. MemBlock holds them (`XS_EXTRACTED` in
-`xiangshan.bzl`) and keeps the entry cells through synthesis: slang
-elaborates one module per instance, so `fold_entries.tcl`, run before
-the canonical checkpoint, folds the copies of each entry cell back onto
-one module, which synthesis then maps once. The parent macro holds none:
-its one extraction is the Rob's, a block here. TLBFA, the instruction
-TLB, Uncache and VirtualLoadQueue are extracted too but stay out of
-`xiangshan_extracted`.
+swapped for their extractions. MemBlock and the parent, which holds the
+Rob, read it (`XS_EXTRACTED` in `xiangshan.bzl`) and keep the entry
+cells through synthesis: slang elaborates one module per instance, so
+`fold_entries.tcl`, run before the canonical checkpoint, folds the
+copies of each entry cell back onto one module, which synthesis then
+maps once. Every other part reads the surgered core. TLBFA, the
+instruction TLB, Uncache and VirtualLoadQueue are extracted too but stay
+out of `xiangshan_extracted`.
 
 ## Running it
 
@@ -370,7 +370,31 @@ TLB, Uncache and VirtualLoadQueue are extracted too but stay out of
 bazelisk run //test/coremark_joule/designs/asap7/xiangshan:XSTile_grt gui_grt
 ```
 
-Needs 64 GB. About six hours cold, a download when the cache is warm.
+The parent's global route peaks at 85 GB, its placement takes about
+four hours (`resources.json`); a machine with 128 GB builds it. The
+blocks first, in waves that fit free memory, then the parent alone:
+
+```
+bazelisk run //test/coremark_joule/designs/asap7/xiangshan:build
+bazelisk run //test/coremark_joule/designs/asap7/xiangshan:build -- --plan-only
+```
+
+Global placement is timing- and routability-driven in every block and
+in the parent, and neither driver says so in the exit status when it
+does not run. `<part>_gpl_driven`, a target in each part's unit of the
+schedule, fails a part whose global placement log (`3_3_place_gp.log`)
+shows no timing-driven iteration (GPL-0100) or no routability-mode
+iteration (GPL-1017), in the wave that placed it (`gpl_driven.sh`,
+`gpl_driven_test`). GPL-0040 is not counted: the routability pass prints
+it only when it inflates cells, and run 21's parent ran 62
+routability-mode iterations without inflating any.
+
+Two carried OpenROAD patches concern this flow. 0220 makes CTS clock
+every register when two share a location, which its H-tree builder used
+to drop silently. 0221, global placement's timing-driven pin pull, is
+carried but off: no flow here sets `-timing_driven_pin_pull`, and with
+it off placement is byte-identical.
+
 Earlier stages are their own targets (`XSTile_synth`, `_floorplan`,
 `_place`, `_cts`), each with `gui_` and `open_` forms and a `//:dirty`
 tree (`bazelisk run //:dirty -- start //test/coremark_joule/designs/asap7/xiangshan:XSTile <stage>`), and
@@ -392,332 +416,24 @@ bazelisk run //test/coremark_joule/designs/asap7/xiangshan:XSTile_flat_grt gui_g
 capture never executes a flow action, a miss is killed as it appears and
 the build carries on, so a laptop can ask in minutes.
 
-## The parent as a macro
-
-The tile is carved into the six blocks the plan names
-(`plan/plan.json`), each through global route at its own outline, and
-the rest of the tile,
-`XSTile_parent`, a macro of the plan's die with a hole where each block
-sits (`tools/carve/parent_macro.bzl`). The top level, `XSTile_parent_pm`,
-checks them together: it places the parent and the blocks, dissolves
-every one into the cells and route guides of its own global route, and
-builds one clock tree over every register. It is built in two passes:
-the first leaves every cell where its macro put it, the second places
-the cells on the first pass's crossing paths over 2,000 ps again.
-
-```sh
-# the blocks and the parent, in waves that fit free memory, then the
-# top level's two passes through global route, their crossings reports
-# and the verdict, alone
-bazelisk run //test/coremark_joule/designs/asap7/xiangshan:build
-```
-
-A block reaches global route in about 15 minutes (FltRegionModule) to
-about 110 (MemBlock, 64 of them in placement); on run 27 the parent took
-about 155, 86 in placement and 61 in global route, where it peaked at
-62 GB. `resources.json` is the schedule's record, and it keeps an entry
-while a new measurement is within 20 % of it. The schedule reads only
-the stage logs whose names start with a digit, so the top level's runs
-after its floorplan never refresh their part of `XSTile_parent_pm`'s
-entry, which is set by hand. Those runs, `XSTile_parent_pm_firm_top`,
-`XSTile_parent_pm_top_place` and `XSTile_parent_pm_top`, run on the
-machine that builds, never on a remote executor;
-`XSTile_parent_pm_firm_top` peaks at 77 GB.
-
-Global placement is timing- and routability-driven in every block and
-in the parent, and neither driver says so in the exit status when it
-does not run. `<part>_gpl_driven`, a target in each part's unit of the
-schedule, fails a part whose global placement log (`3_3_place_gp.log`) has
-no timing-driven iteration (GPL-0100) or no routability pass (GPL-0040),
-in the wave that placed it.
-
-The top level reads the parent's LEF only (`XSTile_parent_abstract`):
-the parent's timing model, `XSTile_parent_timing_model`, is not on its
-path. The memories inside the dissolved macros reach it as one LEF and
-one library (`XSTile_parent_memories`, `tools/carve/merge_memories.py`).
-After its floorplan, which dissolves the macros, it is not ORFS's place,
-CTS and global route but one script, `tools/carve/top_level.tcl`, run
-twice:
-
-- The first pass, `XSTile_parent_pm_firm_top`, moves no cell its macro
-  placed: one clock tree over every register, legalised by the diamond
-  legaliser, and a global route that keeps every macro's routes and
-  routes only the clock tree and the stitches (`-unguided_only`, patch
-  0173). `XSTile_parent_pm_crossing_ends` (`tools/carve/crossing_ends.py`)
-  takes the end pins of its crossing paths over 2,000 ps from the
-  crossing data its crossings report writes (below).
-- The second pass starts again from the floorplan.
-  `XSTile_parent_pm_top_place` unfirms the cells of every crossing path
-  into those end pins, failing or not, the registers at both ends
-  included (`tools/carve/unfirm.tcl`): they become movable and the nets
-  on them, but the clock's, lose their routes, while every other cell
-  stays where its macro put it. Global placement places them with the
-  timing and routability drivers on, timed on the paths between the
-  registers before and after them, and `repair_design` repairs them.
-  Beside `3_top_place.odb`, `place.txt` records the counts, the
-  placement's passes, its time and its memory, and `moved.tsv` how far
-  each macro's cells moved.
-  `XSTile_parent_pm_top` goes on from there as the first pass does: the
-  tree, the legaliser, which seats the placed cells with the clock tree's
-  buffers, and global route.
-
-The parent repairs setup at global route, on register-to-register paths
-only; neither pass of the top level repairs timing after its clock tree.
-
-The second pass stops where a problem is made: an end pin that is not
-in the design (FLW 130), a broken rule of the unfirm (FLW 132), a depth
-or side it does not know or a clock net the timer and the database
-disagree on (FLW 133), a global placement that did not place, with no
-routability pass, no timing-driven iteration or no unfirmed cell moved
-(FLW 134), a cell that global placement left far from any site (FLW 22,
-ORFS's id, carried patch 0086), and a net of two or more pins without a
-route after global route (FLW 135).
-`XSTile_parent_pm_unfirm`, run by hand on the machine that builds,
-makes the selection on the floorplan without placing it, writes its
-counts, and makes FLW 130, 132, 133, 134 and 135 fire on purpose, each
-for its own reason; for FLW 135 the nets newly without a route must
-equal, by name, the routes the unfirm dropped. FLW 22 and FLW 133's
-clock-net stop have no such control.
-
-Two carried OpenROAD patches are for the second pass:
-
-- 0220: CTS clocks every register when two share a location. The second
-  pass's placement can leave two registers of one master on the same
-  spot. CTS's H-tree builder kept one sink per location and left the
-  other's clock pin on no net, and still reported every sink covered:
-  7 registers on XSTile, stopped by the crossing plan's FLW 32. Every
-  sink is now connected, and a sink in no subnet stops CTS (CTS-0138).
-  Its test is `@openroad//src/cts/test:colocated_registers-tcl_test`.
-- 0221: global placement's timing-driven pin pull,
-  `-timing_driven_pin_pull`. A net's timing weight scales the whole net,
-  so a failing sink of a broadcast net, inside the net's bounding box,
-  feels no pull toward its driver, and the path through it keeps the
-  detour the timing-blind initial placement gave it. The pull adds a
-  two-pin attraction between each failing sink and its driver, read on
-  the netlist the virtual `repair_design` buffered, that grows while the
-  sink fails. It is off by default, and no flow here sets it; with it
-  off, placement is byte-identical. Its test is
-  `@openroad//src/gpl/test:pin_pull_test`, on the synthetic designs of
-  0219's `path_shape_test` (56 invariants that pass) and
-  `path_shape_targets_test` (44 targets, manual, that fail by design).
-
-Each pass has its crossings report: `XSTile_parent_pm_firm_crossings`
-for the first, `XSTile_parent_pm_crossings` for the second, the KPI's
-Top. A report lists every register-to-register path that is not
-contained in one macro and needs more than 2,000 ps, every cell on it by
-name: a macro's `.lib` gives one number at a pin, the dissolved top
-level the path. Timed whole the top level ran past 62 GB of memory and
-220 GB of swap, so it is timed in sets of macros
-(`tools/carve/crossing_*.tcl`, OpenROAD patch 0174): each set cut to the
-logic its paths can touch, written with its parasitics as SPEF and timed
-in a process of its own. The sets are cut and timed on the machine that
-builds, never on a remote executor: for the first pass on run 27,
-cutting the nine took 70 minutes and 44 GB, timing them 133 minutes and
-48 GB. On the toy (`test/parent_macro`) the second pass's sets report
-the paths the whole design does, slack for slack
-(`mini_top_parent_pm_crossing_test`). The timing also writes the worst
-crossing path into each endpoint that needs more than
-`crossing_data_min_ps` (1,500 ps), with its wire delay and both ends'
-places, as `crossing_data.<set>.tsv`; the first pass's are where the
-second pass's end pins come from.
-
-`XSTile_parent_pm_crossing_verdict` (`tools/carve/crossing_verdict.py`)
-compares the two reports. The second pass moved the crossings when it
-has at least 10 % fewer start and end pairs over 2,000 ps than the
-first, or a worst crossing better by at least 5 % of the budget
-(100 ps); otherwise it did nothing. Pairs are matched by their
-registers' names, so the count is a floor. It also says whether both
-passes were timed in the same sets, and lists each pass's paths inside
-one macro over the budget: reported, not a condition, since the second
-pass moves cells of the parent and the blocks, and a path inside one
-macro is timed here only where a crossing set holds it.
-
-`XSTile_parent_pm_crossing_floor`, run by hand
-(`tools/carve/crossing_floor.tcl`), times each of the second pass's sets
-twice in one process: as placed, and with the signal wires' resistance
-and capacitance near zero (the pins' via resistance stays), the clock's
-wires as placed in both. What is still over 2,000 ps then is not the
-data wires'. Both readings are estimates from placement, not the
-report's numbers. Its check
-(`tools/carve/crossing_floor_check.py`) requires every end of the first
-reading to have the same capture clock delay in the second;
-`XSTile_parent_pm_crossing_floor_control` leaves the signal wires as
-placed in both readings, which must then agree.
-
-The first pass's report on the six-block carve (KPI run 27, all 9 sets,
-hermetic): 35,097 start and end pairs need more than 2,000 ps, the worst
-4,356 ps, in 21 combinations of start macro, end macro and the macro
-passed between. The eight with more than 500 paths hold 33,929 of them:
-
-| From | To | Through | Paths | Worst (ps) |
-| --- | --- | --- | ---: | ---: |
-| parent | Frontend | - | 9,800 | 4,356 |
-| Rob | parent | - | 11,746 | 3,849 |
-| parent | VecRegionModule | - | 1,266 | 3,519 |
-| MemBlock | parent | FltRegionModule | 1,545 | 3,412 |
-| parent | parent | FltRegionModule | 1,511 | 2,938 |
-| FltRegionModule | parent | - | 542 | 2,811 |
-| MemBlock | parent | - | 811 | 2,778 |
-| parent | CoupledL2 | - | 6,708 | 2,201 |
-
-A set lists the worst path into each endpoint, and three registers
-start 80 % of these paths, each a broadcast into a whole block: Rob's
-`state` into the parent (11,744), the parent's
-`pipeToBJU1.io_out_bits_data_src_1` into Frontend (9,771) and the
-parent's `l2top/inner_buffer.nodeOut_c_q.deq_ptr_value` into CoupledL2
-(6,708).
-
-The worst is that BJU1 pipe register into Frontend's
-`mem_1_bits_branches_1_bits_target_addr`; 7,765 paths from the parent
-into Frontend need 4,150 ps or more. The paths into CoupledL2 are just
-over: 6,442 of the 6,708 need less than 2,150 ps.
-
-The second pass's report (KPI run 28, all 9 sets): 27,895 start and end
-pairs need more than 2,000 ps, the worst 3,627 ps, in 16 combinations,
-two of them new (5 paths, the worst 2,143 ps). It is from a dirty lane,
-not a clean build: the Top's floorplan run by hand with a
-bring-your-own OpenROAD build carrying the dissolve fix (carried patch
-0171), the place step by the lane's script, whose selection and unfirm
-`tools/carve/unfirm.tcl` rewrites, and the steps after it with run 27's
-scripts. Unfirmed: the cells of every crossing path into the end pins
-of the first pass's paths over 2,000 ps, failing or not, 550,721 of
-8,347,575, no register deeper. The histogram's 27,896 counts one pair
-at exactly 2,000.0 ps. The verdict's first line:
-
-```
-moved the crossings: pairs by name over 2000 ps: 27895 (firm 35097, -20.5 %), worst crossing 3626.9 ps (firm 4355.8, -728.9 ps)
-```
-
-The five with more than 500 paths hold 27,595 of them:
-
-| From | To | Through | Paths | Worst (ps) | First pass's paths | worst (ps) |
-| --- | --- | --- | ---: | ---: | ---: | ---: |
-| Rob | parent | - | 6,863 | 3,627 | 11,746 | 3,849 |
-| parent | Frontend | - | 9,771 | 3,200 | 9,800 | 4,356 |
-| parent | VecRegionModule | - | 1,268 | 2,892 | 1,266 | 3,519 |
-| MemBlock | parent | FltRegionModule | 1,527 | 2,554 | 1,545 | 3,412 |
-| parent | CoupledL2 | - | 8,166 | 2,314 | 6,708 | 2,201 |
-
-Of the first pass's other three, the parent to itself through
-FltRegionModule is down to 8 paths, and FltRegionModule into the parent
-and MemBlock into the parent have none over 2,000 ps. The parent into
-CoupledL2 got worse, in paths and in its worst. Outside these, the
-parent into FltRegionModule has fewer paths and a worse worst (267 to
-175, 2,837 to 2,892 ps). Three registers start 89 % of the paths: the
-parent's `pipeToBJU1.io_out_bits_data_src_0` into Frontend (9,771), its
-`l2top/inner_buffer.nodeOut_c_q.deq_ptr_value` into CoupledL2 (8,166)
-and Rob's `state` (6,853, 6,851 of them into the parent). The worst is
-Rob's `state` into the parent's
-`core/backend/inner_ctrlBlock/decodeBufBits_3_instr`. From the parent
-into Frontend no path needs 4,150 ps or more, and 7,672 need 3,000 ps or
-more. Inside the parent, where a crossing set holds them, 12,753 pairs
-are over 2,000 ps, the worst 3,752 ps (first pass: 17,945, 3,916 ps);
-9,528 of them were not over in the first pass.
-
-`tools/carve/crossing_gui.tcl` serves one set in the web GUI, with a
-path group `crossing` that holds exactly these paths.
-
-### Estimated periods
-
-The period here is the KPI table's Top column, XSTile's crossing period:
-the worst register-to-register path after global route that crosses a
-block boundary, or runs through the parent between two blocks, as the
-SDC's 2,000 ps minus its worst slack; paths inside one block, and the
-blocks' own periods, are not in it.
-
-Each block's own period is the KPI table's, from run 27's builds, and
-none is estimated here: every block is under 2,000 ps (CoupledL2 1,799,
-FltRegionModule 1,714, VecRegionModule 1,809, Rob 1,680, Frontend 1,800,
-MemBlock 1,742 ps). The parent's own paths, 3,949 ps in `XSTile_parent`,
-are a project of their own, apart from the crossings: in run 29's second
-pass, where a crossing set holds them, 12,395 pairs inside the parent
-are over 2,000 ps, the worst 3,754 ps.
-
-| | scenario | measured or estimated (model, rate) | worst crossing period (ps) | set by | register pairs over 2,000 ps | the 27,895 pairs failing in row 28 alone: worst (ps) / over |
-|---|---|---|---:|---|---:|---:|
-| M0 | Run 27, first pass | MEASURED after global route | 4,356 | parent → Frontend | 35,097 | |
-| M1 | Row 28 | MEASURED after global route | 3,627 | Rob → parent | 27,895 | |
-| M3 | Run 29: row 28 + global placement's timing pin pull + CTS's coincident-sink fix | MEASURED after global route | 3,070 | parent → Frontend | 26,157 | |
-| E1 | Row 28, each failing crossing straight between its registers (no detour), perfect repair, VT as is | ESTIMATED, lower bound: zero-wire logic + 0.35 ps/um × straight wire, registers where row 28 placed them | 2,608 | parent → Frontend | 9,752 | 2,608 / 9,752 |
-| E1t | E1 at the rate repair_timing reaches here | ESTIMATED: as E1, 0.42 ps/um | 2,744 | parent → Frontend | 10,210 | 2,744 / 10,210 |
-| E1p | E1 with the detour the pin pull left on the gpl reproducer cut from XSTile's Top | ESTIMATED: as E1, 0.35 ps/um × that detour | 2,622 | parent → Frontend | 9,798 | 2,622 / 9,798 |
-| E2 | E1 + the integer register file (IntRegFile) flattened into the parent, its cells where they are | ESTIMATED: as E1, 0.35 ps/um, + each register pair's skew change | 2,440 | parent → Frontend | 10,364 | 2,440 / 9,198 |
-| E2t | E2 at 0.42 ps/um | ESTIMATED: as E2, 0.42 ps/um | 2,576 | parent → Frontend | 11,330 | 2,576 / 10,164 |
-| E3 | E2 + Frontend and MemBlock swapped (each mirrored), putting Frontend under the IntRegFile, and the IntRegFile mirrored top to bottom so its BJU operand register faces Frontend | ESTIMATED: as E2 + register distances in the new floorplan, 0.35 ps/um; the worst is carried, not a bound | 2,257 | MemBlock → parent (carried) | 1,250 | 2,026 / 5 |
-| E3t | E3 at 0.42 ps/um | ESTIMATED: as E3, 0.42 ps/um; the worst is carried, not a bound | 2,299 | MemBlock → parent (carried) | 1,759 | 2,130 / 435 |
-| E3i | E2 + instead the IntRegFile and its operand registers moved 1,226 um right, over Frontend | ESTIMATED: as E3 for this floorplan, 0.35 ps/um; the worst is carried, not a bound | 2,206 | Rob → parent (carried) | 1,247 | 2,026 / 70 |
-| E4.16 | E3 + top metal on crossings of 300 um or more | ESTIMATED: as E3, ideal top metal at 0.16 ps/um on those crossings; the worst is carried, not a bound | 2,206 | Rob → parent (carried) | 1,188 | 1,849 / 0 |
-| E4.25 | E3 + top metal on crossings of 300 um or more | ESTIMATED: as E3, ideal top metal at 0.25 ps/um on those crossings; the worst is carried, not a bound | 2,206 | Rob → parent (carried) | 1,200 | 1,897 / 0 |
-| E4i.16 | E3i + top metal on crossings of 300 um or more | ESTIMATED: as E3i, ideal top metal at 0.16 ps/um on those crossings; the worst is carried, not a bound | 2,206 | Rob → parent (carried) | 1,171 | 1,881 / 0 |
-| E4i.25 | E3i + top metal on crossings of 300 um or more | ESTIMATED: as E3i, ideal top metal at 0.25 ps/um on those crossings; the worst is carried, not a bound | 2,206 | Rob → parent (carried) | 1,172 | 1,940 / 0 |
-| E5.1 | E1 + fastest VT | INFORMATIONAL (VT swaps are off): as E1, path cells at their fastest VT | 2,477 | parent → Frontend | 9,513 | 2,477 / 9,513 |
-| E5.2 | E2 + fastest VT | INFORMATIONAL: as E2, fastest VT | 2,310 | parent → Frontend | 9,205 | 2,310 / 8,039 |
-| E5.3 | E3 + fastest VT | INFORMATIONAL: as E3, fastest VT; the worst is carried, not a bound | 2,257 | MemBlock → parent (carried) | 1,245 | 1,916 / 0 |
-| E5.4 | E4.16 + fastest VT | INFORMATIONAL: as E4.16, fastest VT; the worst is carried, not a bound | 2,206 | Rob → parent (carried) | 1,188 | 1,718 / 0 |
-
-- **Only E1 is a bound**, a lower one for the pairs failing in row 28:
-  perfect repair at 0.35 ps/um (SLVT repeaters on the platform's average
-  signal RC), the registers where row 28 placed them, VT as is. Via
-  resistance left in its zero-wire logic makes it up to 9 ps pessimistic
-  (strictly 2,602 ps or more); the repeater entry it does not charge,
-  13.8 ps a hop, makes it optimistic (2,622 ps with it). Every other row
-  is an estimate; the rows at 0.42 ps/um, the rate repair_timing reaches
-  on 250 to 2,000 um wires here, are nearer what the flow does.
-- **Carried pairs.** The model sees the 47,127 crossing pairs over 1,500
-  ps in row 28. The 19,232 that pass there (1,500 to 2,000 ps) are
-  carried: row 28's measured value plus the row's changes, not repaired
-  again. Flattening the IntRegFile takes 162 ps of skew off parent →
-  Frontend (median), but capture registers north of it lose the clock
-  tree's hop across it, and its delay, so 1,166 carried pairs are pushed
-  over, by up to +245 ps. From E3 on they set the worst, which is then
-  neither a bound nor at the row's rate, and top metal does not touch
-  it; repaired as the failing pairs are, they would come to roughly
-  1,158 to 1,742 ps by row (a rough estimate, off by -59 / +99 ps on the
-  failing pairs).
-- **The clock is placement-estimated.** Every estimate uses row 28's
-  routed clock tree with placement parasitics, not the global-route
-  clock of the measured rows; the difference is not measured. The skew
-  change comes from clock walks of the first pass's tree, which differ
-  from row 28's per register pair by -20 / +15 ps (p5 / p95; parent →
-  Frontend -8 / +9), and the floorplans' own change to the clock tree is
-  not modelled.
-- **What the floorplan, top-metal and VT rows assume.** Register
-  distances come from moving and mirroring the blocks with the parent
-  held; placement density, legality, congestion and repeaters over hard
-  macros are not modelled, and top metal is ideal over the whole length.
-  The Frontend–MemBlock swap (E3, E3t, E4.16, E4.25, E5.3, E5.4) moves
-  CoupledL2's 371 MemBlock pins 2,052 um from MemBlock's (164 um in row
-  28): +661 ps at 0.35 ps/um on paths under 1,500 ps in row 28 that the
-  model cannot see. Those rows may be optimistic: E3's 2,257 ps holds
-  only if those paths' skew change is under +96 ps; in the extreme E3 is
-  about 2,370 ps. VT swaps are off in this flow: E5 is informational,
-  and its fastest VT is incomplete (2,521 failing pairs keep some slower
-  cells).
-- **Run 29, measured: the first rung only.** Its parent → Frontend worst
-  is 3,070 ps (9,771 pairs over 2,000 ps; row 28 3,200 ps), against
-  E1p's 2,622 ps (the reproducer's detour), E1t's 2,744 ps
-  (repair_timing's rate) and E1's 2,608 ps (perfect repair). E2 onward
-  change what run 29 does not, and stay estimates until a run makes
-  those changes.
-
 ## Where the period is
 
-Parked at 2,504 ps at global route: 5,259 reg2reg endpoints over 2,000
-ps, 733 ns of excess over it (2,473.5 ps timed flat with the blocks'
-own cells). The one-flop-loop floor, 2,151 ps at `decodeBufValid_3`,
-does not set it.
+Run 21, the single top's last build, is 2,206 ps at global route, set by
+the parent. Its worst path runs from the integer region's ALU0 pipeline
+register (its function-unit type) in the parent into the vector region's
+write-back wake-up enable, a pin of VecRegionModule. Every block is
+below 1,300 ps.
 
-The worst path launches in `Frontend` (its 876 ps there are mostly the
-block's clock insertion, which the capture side cancels) and spends
-2,284 ps in the parent, through decode and `uopBufferCtrlDecoder` to
-`SSIT`: 1,332 ps of logic, 952 ps of buffers. The mass sits in one
-corridor, the floating-point region's pins and `CtrlBlock`'s decode,
-dispatch and rename.
+Timed flat (the table in "What remains", from the latest run that timed
+it), every class above 2,000 ps is the parent's own logic or a path
+across a block's boundary, and none is above 2,000 ps without wires:
+what remains is distance. The one-flop-loop floor, 1,984 ps on run 20 at
+`core/backend/inner_ctrlBlock/decodeBufValid_3`, does not set it.
 
 What was tried, what is known and what is open:
-`ideas/xiangshan-timing.md`, entry 58. Each open question is a
-global-route arm of about six hours, run only with a reason why it is
-new (`.claude/skills/dogfooding`, rule 14).
+`ideas/xiangshan-timing.md`. Each open question is a global-route arm
+of about six hours, run only with a reason why it is new
+(`.claude/skills/dogfooding`, rule 14).
 
 ## What is deliberately broken
 
