@@ -5,13 +5,13 @@ description: >-
   is a function-preserving change to the RTL's structure (logic moved across a hierarchy
   boundary, storage given a module of its own, constants folded across a kept boundary, a
   clock gate mapped, a simulation construct removed, a per-instance decode hoisted, ports
-  packed) and that no floorplan, pin assignment, placement density or tool knob can fix. The
-  eight classes seen on real designs here, the sign of each, the rules a surgery follows
-  (function kept, checked by LEC or simulation with a negative control, no register added,
-  carried as SYNTH_VERILOG_SURGERY), and what is not surgery. Use when a worst path crosses a
-  hardened block from an input pin to an output pin, when a kept module boundary cuts a
-  cone, before proposing a placement or pin fix for a path whose logic is the problem, and
-  before writing or reviewing an RTL edit.
+  packed, a compare of a sum done without the adder) and that no floorplan, pin assignment,
+  placement density or tool knob can fix. The nine classes seen on real designs here, the
+  sign of each, the rules a surgery follows (function kept, checked by LEC or simulation
+  with a negative control, no register added, carried as SYNTH_VERILOG_SURGERY), and what is
+  not surgery. Use when a worst path crosses a hardened block from an input pin to an output
+  pin, when a kept module boundary cuts a cone, before proposing a placement or pin fix for
+  a path whose logic is the problem, and before writing or reviewing an RTL edit.
 ---
 
 # surgery
@@ -27,8 +27,11 @@ function.
 Surgery in this flow is `SYNTH_VERILOG_SURGERY` (ORFS #4649): a
 script that edits copies of the sources before synthesis, so vendored RTL
 stays as upstream has it and the change is on the books next to the
-design's config. A surgery is either a change the RTL might make for a
-tapeout, or a stand-in for a feature yosys or OpenROAD does not have.
+design's config. XiangShan's are the same thing done once for every
+part: a chain of scripts over the elaborated core that every flow reads
+(`test/coremark_joule/designs/asap7/xiangshan/surgery/`). A surgery is
+either a change the RTL might make for a tapeout, or a stand-in for a
+feature yosys or OpenROAD does not have.
 
 ## The test: would any placement fix it?
 
@@ -51,10 +54,9 @@ through that logic", it is not a placement problem.
 
 ## The classes seen here
 
-Eight classes, each seen on a real design in this repository, with the
-sign that gives it away. Asked for a dozen, the survey behind this list
-found eight without contriving any; the rest are below as plausible or
-measured negative.
+Nine classes, each seen on a real design in this repository, with the
+sign that gives it away. The plausible ones not seen, and the ones
+measured negative, are below.
 
 1. **Storage without a module of its own.** An array inline in a big
    module, or a bank of separate registers, has no module for
@@ -112,6 +114,22 @@ measured negative.
    string-keyed and slow (XiangShan, 156k ports, 18 minutes, entry 6).
    Sign: the flow's runtime, not the period. Surgery: pack the shared
    inputs into one bus (XiangShan patch 0007).
+9. **A sum computed only to be compared.** The RTL adds two operands
+   and compares the sum with a third, `A + B == K`, and synthesis builds
+   the sum first: yosys's `share` merges an adder written for the
+   compare alone into a neighbour whose operand is muxed by a late
+   signal, so the compare waits for that signal, and ABC maps the wide
+   compare as a chain once the module meets its own target. Neither
+   sees that the compare needs no sum. Sign: on the worst path, an adder
+   behind a late select, then a wide `!=` into one bit; a second adder
+   written for the compare is merged back. Surgery: per bit, the carry
+   the sum needs, `Need = A ^ B ^ K`, against the carry the bit makes
+   with it, `Made = A & B | (A | B) & ~K`; the sum is `K` exactly when
+   `~Need[0] & Made[n-2:0] == Need[n-1:1]`. The adder stays for whatever
+   else reads the sum (XiangShan's BranchUnit and JumpUnit mispredict
+   compares, `surgery/xs_bju_surgery.py`: the parent's worst path into
+   Frontend 1,461.6 to 1,372.3 ps post-synthesis, ResolveQueue's family
+   1,135.7 to 908.4 ps).
 
 A small one: a boundary kept in the RTL so SDC names resolve, where the
 synthesis knob renames the module (ORFS asap7 mock-cpu,
@@ -154,8 +172,12 @@ synthesis knob renames the module (ORFS asap7 mock-cpu,
 - **The hazard is an unfaithful replacement.** A generator that read
   FltRegionModule's register file combinationally from its address port,
   where the RTL registers it, made a 1,161 ps in2out path that does not
-  exist; LEC found it (entries 46 and 47). Before treating an in2out path
-  as class 7, check that the logic on it is the RTL's.
+  exist; LEC found it (entries 46 and 47). A register-file port
+  connected under a `when` is another: XiangShan patch 0002's
+  `RegVecFile.read` inside the Ftq's train `when` gated the read address
+  by the fire, a mux ahead of a 612 ps read that the `Reg(Vec)` it
+  replaced never had; `read` now stops under a `when`. Before treating an
+  in2out path as class 7, check that the logic on it is the RTL's.
 - **No register is added** unless the human says so for that change.
 - **Stop on what is not recognised.** A surgery script names the shape it
   expects and fails on anything else, so a new upstream version reapplies
