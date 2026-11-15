@@ -146,6 +146,60 @@ class TemplateTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             render_md.render("{{a}}", {"a": "1", "b": "2"})
 
+    def test_parent_period(self):
+        """A single top's row names the parent's period parent_ps; a carved
+        row of the history keeps the parent macro's among its blocks."""
+        blocks = {"CoupledL2": 815, "Frontend": 1283}
+        self.assertEqual(
+            render_md.parent_period({"parent_ps": 2206, "blocks": blocks}), 2206
+        )
+        carved = dict(blocks, XSTile_parent=3949)
+        self.assertEqual(render_md.parent_period({"blocks": carved}), 3949)
+        with self.assertRaises(KeyError):
+            render_md.parent_period({"blocks": blocks})
+
+    def test_latest_measured(self):
+        """The kit's periods come from the latest row of the plan, exactly
+        its blocks: a row of another plan does not stop the kit."""
+        six = {"run": 30, "blocks": {"Frontend": 1800, "Rob": 1680}}
+        five = {"run": 31, "blocks": {"Frontend": 1283}, "parent_ps": 2206}
+        runs = [six, five, {"run": 32}]
+        self.assertEqual(render_md.latest_measured(runs, ["Frontend"])["run"], 31)
+        self.assertEqual(
+            render_md.latest_measured(runs, ["Frontend", "Rob"])["run"], 30
+        )
+        with self.assertRaises(SystemExit):
+            render_md.latest_measured(runs, ["MemBlock"])
+
+    def test_latest_measured_skips_a_later_carve(self):
+        """A carved row measured every block of the single top's plan, and
+        Rob and the parent macro besides: it is another plan's row, so the
+        single top's kit takes the earlier single-top row, and the carve's
+        plan takes the carved row."""
+        single = {
+            "run": 21,
+            "blocks": {"Frontend": 1283, "MemBlock": 1158},
+            "parent_ps": 2206,
+        }
+        carved = {
+            "run": 30,
+            "blocks": {
+                "Frontend": 1800,
+                "MemBlock": 1696,
+                "Rob": 1680,
+                "XSTile_parent": 3949,
+            },
+            "top_ps": 3043,
+        }
+        runs = [single, carved]
+        self.assertEqual(
+            render_md.latest_measured(runs, ["Frontend", "MemBlock"])["run"], 21
+        )
+        self.assertEqual(
+            render_md.latest_measured(runs, ["Frontend", "MemBlock", "Rob"])["run"],
+            30,
+        )
+
     def test_template_against_the_repo(self):
         """The real template, plan, KPI and resources, with facts made up
         from the register-file specs: every placeholder filled, every fact

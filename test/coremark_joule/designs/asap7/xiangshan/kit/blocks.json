@@ -6,5 +6,5 @@
   "MemBlock": "L1 data cache, load and store queues, TLBs, prefetcher, load and store units",
   "Rob": "reorder buffer",
   "VecRegionModule": "vector issue and execute",
-  "XSTile_parent": "dispatch, rename, integer execute, memory dependence predictor, the glue"
+  "XSTile": "dispatch, rename, integer execute, memory dependence predictor, the glue"
 }
