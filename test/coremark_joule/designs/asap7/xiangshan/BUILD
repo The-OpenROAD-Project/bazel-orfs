@@ -1,5 +1,6 @@
 load("@bazel-orfs//:openroad.bzl", "odb_debug", "orfs_flat_sta", "orfs_module_context", "orfs_module_sta_base", "orfs_schedule")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//test/coremark_joule/designs/asap7/xiangshan/kit:kit.bzl", "xs_kit")
 load("//test/coremark_joule/flow:power.bzl", "census_probe", "grt_netlist", "hier_probe", "physical_probe", "stage_power", "stage_power_units")
 load(":plan/plan.bzl", "PLAN")
@@ -117,8 +118,13 @@ exports_files(
 # side, the parent at the planned die. plan/ is generated (see
 # .claude/skills/macro-selection/SKILL.md, step 3); regenerate it, never edit it:
 # plan/plan.json is its input, with pin_partners.txt beside it from
-# XSTile_parent_pin_partners, the parent macro's synthesis: no block is
-# built for it.
+# probe_pin_partners.tcl on XSTile_synth_odb_debug (GUI_TIMING=0). That
+# dump is not checked in, and run 21's is gone: plan/ is run 21's plan as
+# it was, its parent's register files re-placed by plan_floorplan.py
+# --keep plan, which keeps the die, the blocks and every pins file and
+# places only the parent's netlists. A register file's outline in
+# plan.json is the core ORFS patch 0172 sizes around generate_ram's array
+# plus _REGFILE_MARGIN_UM on each side (xiangshan.bzl).
 xiangshan_flow(
     name = "XSTile",
     plan = PLAN,
@@ -163,7 +169,7 @@ xiangshan_flat_flow(
 )
 
 # The implementation kit's netlist: the whole tile in one synthesis,
-# partitioned as the carve is, the core with every arrays extraction in
+# partitioned as the plan is, the core with every arrays extraction in
 # place, the register files and the memories as macros (kit/EXPORT.md).
 xiangshan_flat_flow(
     name = "XSTile",
@@ -222,10 +228,10 @@ xs_kit(
 # A period counts only when global placement ran timing- and
 # routability-driven, and neither pass says so in the exit status when it
 # does not run: a parent placed with routability on ran no routability pass
-# and exited 0. Each pass prints a line when it runs, GPL-0100 and GPL-0040,
-# so a part whose global placement log lacks either fails here, in the wave
-# that placed it.
-GPL_DRIVEN_PARTS = sorted(PLAN["macros"].keys()) + ["XSTile_parent"]
+# and exited 0. A part whose global placement log shows no timing-driven
+# iteration (GPL-0100) or no routability-mode iteration (GPL-1017) fails
+# here, in the wave that placed it (gpl_driven.sh).
+GPL_DRIVEN_PARTS = sorted(PLAN["macros"].keys()) + ["XSTile"]
 
 [
     filegroup(
@@ -242,19 +248,36 @@ GPL_DRIVEN_PARTS = sorted(PLAN["macros"].keys()) + ["XSTile_parent"]
         name = "%s_gpl_driven" % part,
         srcs = [":%s_3_3_place_gp.log" % part],
         outs = ["%s_gpl_driven.txt" % part],
-        cmd = "timing=$$(grep -c GPL-0100 $< || true); " +
-              "routability=$$(grep -c GPL-0040 $< || true); " +
-              "echo \"{part}: $$timing timing-driven iterations, $$routability routability passes\" | tee $@; ".format(part = part) +
-              "[ $$timing -gt 0 ] && [ $$routability -gt 0 ] || " +
-              "{{ echo \"{part}: global placement ran without one of its drivers\" >&2; exit 1; }}".format(part = part),
+        cmd = "$(execpath :gpl_driven.sh) %s $< $@" % part,
         tags = ["manual"],
+        tools = [":gpl_driven.sh"],
     )
     for part in GPL_DRIVEN_PARTS
 ]
 
-# The carve, scheduled to the memory there is (docs/schedule.md): the
-# blocks and the parent macro, each through grt with the abstract the top
-# level reads, then the top level through CTS, alone:
+sh_test(
+    name = "gpl_driven_test",
+    size = "small",
+    srcs = ["gpl_driven_test.sh"],
+    args = [
+        "$(rootpath :gpl_driven.sh)",
+        "$(rootpath gpl_driven_logs/parent.log)",
+        "$(rootpath gpl_driven_logs/no_routability.log)",
+        "$(rootpath gpl_driven_logs/no_timing.log)",
+    ],
+    data = [
+        "gpl_driven.sh",
+        "gpl_driven_logs/no_routability.log",
+        "gpl_driven_logs/no_timing.log",
+        "gpl_driven_logs/parent.log",
+    ],
+)
+
+# The blocks and the parent, scheduled to the memory there is
+# (docs/schedule.md): each block through grt with its abstract and its
+# placement-driver gate, in waves that fit free memory, then the parent
+# alone. The flat timing (XSTile_ilm_sta) is not in it: its parts are not
+# in resources.json, and it is run alone after the schedule.
 #   bazelisk run //test/coremark_joule/designs/asap7/xiangshan:build
 orfs_schedule(
     name = "build",
@@ -265,23 +288,10 @@ orfs_schedule(
             ":%s_gpl_driven" % block,
         ]
         for block in sorted(PLAN["macros"].keys())
-    } | {
-        # its abstract in the same wave: built only when the top level
-        # asked for it, it waited behind every block
-        "XSTile_parent": [
-            ":XSTile_parent_grt",
-            ":XSTile_parent_abstract",
-            ":XSTile_parent_kpi",
-            ":XSTile_parent_gpl_driven",
-        ],
     },
-    # the top level alone: its clock tree and route, then the paths
-    # between macros (the KPI's Top), and its second pass against its
-    # first (both passes' reports)
-    parent = {"XSTile_parent_pm": [
-        ":XSTile_parent_pm_top",
-        ":XSTile_parent_pm_crossings",
-        ":XSTile_parent_pm_crossing_verdict",
+    parent = {"XSTile": [
+        ":XSTile_kpi",
+        ":XSTile_gpl_driven",
     ]},
     tags = ["manual"],
 )
@@ -349,8 +359,8 @@ odb_debug(
     for flow in list(PLAN["macros"].keys()) + [
         "FltRegionModule_pinplan",
         "FltRegionModule_pinplan2",
-        "Rob_pinplan",
-        "Rob_pinplan2",
+        "Frontend_pinplan",
+        "Frontend_pinplan2",
         "VecRegionModule_pinplan",
         "XSTile_pinplan",
     ]
@@ -528,7 +538,6 @@ orfs_module_sta_base(
     module = path,
     tags = ["manual"],
 ) for name, path in [
-    ("tagetable3", "inner_bpu/tage/tables_3"),
     ("tage", "inner_bpu/tage"),
     ("ftq", "inner_ftq"),
     ("icache", "inner_icache"),

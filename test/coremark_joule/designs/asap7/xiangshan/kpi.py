@@ -18,17 +18,12 @@ against an ideal clock). A run that
 did not measure the blocks, or a carved run that did not measure the Top,
 gives only a lower bound, drawn hollow and written "≥" in the table.
 
-A carved run (the parent as a macro, README "The parent as a macro") has
-no parent_ps: the parent macro is a part in `blocks` like any block
-(`XSTile_parent_kpi`), and top_ps, the Top series, is the worst path of
-the top level's crossing report, every register-to-register path not
-contained in one macro: `XSTile_parent_pm_crossings`, the second pass's
-report, the KPI's Top. The first pass's, `XSTile_parent_pm_firm_crossings`,
-is what the verdict compares it with. The report lists only the paths
-over its budget, the goal: with none, top_ps is the goal and `top_below`
-says the Top is under it. `--top crossing.txt` records top_ps and
-`top_below`, and the report's paths as the Top's histogram, in the last
-run.
+The carved runs, 22 to 30, built the parent as a macro of its own beside
+the blocks under a top level that dissolved them all; the flow no longer
+does. They have no parent_ps: the parent macro is a part in `blocks`
+like any block (XSTile_parent), and top_ps, the Top series, is the worst
+path of the top level's crossing report, every register-to-register path
+not contained in one macro. They are drawn as history.
 
 The table's floor column is the parent's one-flop-loop floor at global
 route (tools/headroom/report_floor_cycles.tcl), where a run measured it:
@@ -155,29 +150,6 @@ def measured_all(run):
     if not blocks:
         return False
     return not any(n.endswith("_parent") for n in blocks) or "top_ps" in run
-
-
-def read_top(text, bin_ps=10):
-    """crossing_report.py's crossing.txt: the worst path's need, rounded
-    up, and the paths in bin_ps bins as kpi_run.tcl writes a histogram.
-    None when no path is over the report's budget."""
-    needs = [
-        float(line.split()[0])
-        for line in text.splitlines()
-        if line.strip() and not line.startswith("#")
-    ]
-    if not needs:
-        return None
-    bins = [int(n // bin_ps) for n in needs]
-    lo = min(bins)
-    counts = [0] * (max(bins) - lo + 1)
-    for b in bins:
-        counts[b - lo] += 1
-    return -int(-max(needs) // 1), {
-        "bin_ps": bin_ps,
-        "from_ps": lo * bin_ps,
-        "counts": counts,
-    }
 
 
 def block_names(runs):
@@ -639,11 +611,7 @@ def table(runs):
             str(i - start + 1) if i >= start else "not drawn",
             r["date"],
             ("%s" if measured_all(r) else "≥ %s") % design,
-            (
-                ("< %s" if r.get("top_below") else "%s") % f"{r['top_ps']:,}"
-                if "top_ps" in r
-                else ""
-            ),
+            f"{r['top_ps']:,}" if "top_ps" in r else "",
             f"{r['parent_ps']:,}" if "parent_ps" in r else "",
             f"{r['floor_ps']:,}" if "floor_ps" in r else "",
         ]
@@ -747,14 +715,6 @@ def main():
         help="record <parent>_ilm_sta.txt and its _nowire twin in the last run, then draw",
     )
     ap.add_argument(
-        "--top",
-        metavar="CROSSING_TXT",
-        help="record the top level's crossing report (crossing.txt) as the "
-        "last run's Top, then draw: XSTile_parent_pm_crossings, the second "
-        "pass's, not XSTile_parent_pm_firm_crossings, the first pass's, "
-        "which the verdict compares it with",
-    )
-    ap.add_argument(
         "--memory",
         metavar="RESOURCES_JSON",
         help="record orfs_schedule's measured resources.json as the last "
@@ -768,20 +728,11 @@ def main():
         run = d["runs"][-1]
         with open(args.flat[0]) as f, open(args.flat[1]) as g:
             run["flat"] = read_flat(f.read(), g.read(), run.get("flat", {}))
-    if args.top:
-        run = d["runs"][-1]
-        with open(args.top) as f:
-            top = read_top(f.read())
-        run.pop("top_below", None)
-        if top:
-            run["top_ps"], run.setdefault("histograms", {})["Top"] = top
-        else:
-            run["top_ps"], run["top_below"] = GOAL_PS, True
     if args.memory:
         run = d["runs"][-1]
         with open(args.memory) as f:
             run["memory_gb"], run["memory_peak"] = read_memory(json.load(f))
-    if args.histograms or args.flat or args.top or args.memory:
+    if args.histograms or args.flat or args.memory:
         run = d["runs"][-1]
         hists = run.setdefault("histograms", {})
         worst = run.setdefault("worst_paths", {})

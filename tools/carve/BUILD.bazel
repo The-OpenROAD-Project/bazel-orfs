@@ -4,8 +4,7 @@ exports_files(["lec_cells.lib"])
 
 # The parent as a macro, cut out of a synthesized parent: the split, the
 # parent's floorplan with a hole per block, and the flat top level that
-# dissolves them all to check the carve
-# (//test/coremark_joule/designs/asap7/xiangshan).
+# dissolves them all to check the carve (//test/parent_macro, the toy).
 exports_files(
     [
         "crossing_check.sh",

@@ -4,7 +4,6 @@
   "FltRegionModule": "floating-point issue and execute",
   "Frontend": "branch predictor, fetch target queue, L1 instruction cache, fetch",
   "MemBlock": "L1 data cache, load and store queues, TLBs, prefetcher, load and store units",
-  "Rob": "reorder buffer",
   "VecRegionModule": "vector issue and execute",
-  "XSTile": "dispatch, rename, integer execute, memory dependence predictor, the glue"
+  "XSTile": "dispatch, rename, the reorder buffer, integer execute, memory dependence predictor, the glue"
 }
