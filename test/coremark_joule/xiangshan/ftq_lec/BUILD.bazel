@@ -1,0 +1,77 @@
+# Patch 0002's BPU-train read: the Ftq reads metaQueueResolve at the train
+# index unconditionally, as upstream's Reg(Vec) read is, and captures the
+# data only when the train fires, so the read address is a don't-care
+# wherever it is not the index. kepler-formal proves the unconditional
+# read equal to the address gated by the capture's condition, and each
+# negative control, a plausible wrong address, different. In miniature,
+# 8 entries of 4 bits: seconds. Manual: kepler-formal builds from source.
+#
+#   bazelisk test //test/coremark_joule/xiangshan/ftq_lec:mini_lec_tests
+load("@rules_chisel//chisel:defs.bzl", "chisel_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//test/lec:lec.bzl", "lec_test")
+
+# The wrong addresses: the previous train's index, idle()'s 0, and the
+# next entry.
+CONTROLS = [
+    "control_index",
+    "control_idle",
+    "control_next",
+]
+
+lec_test(
+    name = "mini_lec_test",
+    frontend = "sv",
+    gate_verilog_files = [
+        "mini_gate.sv",
+        "mini_rf.sv",
+    ],
+    gold_verilog_files = [
+        "mini_gold.sv",
+        "mini_rf.sv",
+    ],
+)
+
+[lec_test(
+    name = "mini_%s_lec_test" % control,
+    expect_equivalent = False,
+    frontend = "sv",
+    gate_verilog_files = [
+        "mini_%s.sv" % control,
+        "mini_rf.sv",
+    ],
+    gold_verilog_files = [
+        "mini_gold.sv",
+        "mini_rf.sv",
+    ],
+) for control in CONTROLS]
+
+test_suite(
+    name = "mini_lec_tests",
+    tags = ["manual"],
+    tests = [":mini_lec_test"] + [":mini_%s_lec_test" % c for c in CONTROLS],
+)
+
+# The hard stop that keeps the read out of the when: RegVecFile.read
+# under a when stops elaboration, naming the module and the port, and a
+# read ahead of it elaborates (ReadUnderWhen.scala). Manual: it compiles
+# against XiangShan with patch 0002 applied.
+#
+#   bazelisk test //test/coremark_joule/xiangshan/ftq_lec:read_under_when_test
+chisel_binary(
+    name = "read_under_when",
+    srcs = ["ReadUnderWhen.scala"],
+    main_class = "ftqlec.Main",
+    scalacopts = ["-Xcheckinit:false"],
+    tags = ["manual"],
+    deps = ["@xiangshan"],
+)
+
+sh_test(
+    name = "read_under_when_test",
+    size = "small",
+    srcs = ["read_under_when_test.sh"],
+    args = ["$(rootpath :read_under_when)"],
+    data = [":read_under_when"],
+    tags = ["manual"],
+)
