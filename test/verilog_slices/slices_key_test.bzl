@@ -112,3 +112,29 @@ slices_grouped_test = analysistest.make(
         "partitions": attr.string_list_dict(),
     },
 )
+
+def _off_impl(ctx):
+    env = analysistest.begin(ctx)
+    actions = analysistest.target_actions(env)
+    asserts.equals(env, [], [a.mnemonic for a in actions if a.mnemonic == "VerilogSlice"])
+    asserts.equals(env, [], [
+        a.env["MODULE_TARGET_NAME"]
+        for a in actions
+        if a.env and a.env.get("MODULE_VERILOG_SLICE")
+    ])
+    return analysistest.end(env)
+
+slices_off_test = analysistest.make(_off_impl)
+
+def _refused_impl(ctx):
+    env = analysistest.begin(ctx)
+    asserts.expect_failure(env, ctx.attr.message)
+    return analysistest.end(env)
+
+slices_refused_test = analysistest.make(
+    _refused_impl,
+    attrs = {
+        "message": attr.string(mandatory = True),
+    },
+    expect_failure = True,
+)

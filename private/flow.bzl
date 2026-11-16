@@ -542,9 +542,11 @@ def orfs_flow(
         Verilog.
       verilog_slices: canonicalize each kept module from its own slice of the
         Verilog rather than from the global canonicalize. None (the default)
-        slices whenever SYNTH_KEEP_MODULES is pinned and yosys synthesises;
-        False canonicalizes every partition out of the whole design; True
-        requires a pinned SYNTH_KEEP_MODULES.
+        slices whenever SYNTH_KEEP_MODULES is pinned, yosys synthesises and
+        neither SYNTH_VERILOG_SURGERY nor VERILOG_TOP_PARAMS is set; False
+        canonicalizes every partition out of the whole design; True
+        requires a pinned SYNTH_KEEP_MODULES and refuses
+        SYNTH_VERILOG_SURGERY and VERILOG_TOP_PARAMS at analysis.
       sources: dictionary keyed by ORFS variables with lists of sources
       stage_arguments: dictionary keyed by ORFS stages with lists of stage-specific arguments.
         Prefer 'arguments' which automatically assigns variables to the correct stages.

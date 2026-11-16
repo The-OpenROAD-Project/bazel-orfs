@@ -7,6 +7,11 @@ load("//:openroad.bzl", "orfs_synth")
 
 package(default_visibility = ["//visibility:private"])
 
+exports_files(
+    ["surgery.py"],
+    visibility = ["//test/verilog_slices:__pkg__"],
+)
+
 orfs_synth(
     name = "vendored_top_synth",
     arguments = {

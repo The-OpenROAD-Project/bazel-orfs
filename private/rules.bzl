@@ -2477,20 +2477,25 @@ def _yosys_impl(ctx):
         sdc_overrides = ["SDC_FILE="]
         synth_data_inputs = data_inputs_excluding(ctx, sdc_path)
 
+    whole_design_vars = [
+        var
+        for var in ["SYNTH_VERILOG_SURGERY", "VERILOG_TOP_PARAMS"]
+        if all_arguments.get(var)
+    ]
     verilog_slices = ctx.attr.verilog_slices == "true" or (
-        ctx.attr.verilog_slices == "auto" and not use_syn and bool(keep_modules(all_arguments))
+        ctx.attr.verilog_slices == "auto" and not use_syn and
+        bool(keep_modules(all_arguments)) and not whole_design_vars
     )
     if verilog_slices:
         if use_syn or not keep_modules(all_arguments):
             fail("verilog_slices = True cuts the Verilog by SYNTH_KEEP_MODULES " +
                  "for parallel yosys synthesis, which " + str(ctx.label) +
                  " does not run: pin SYNTH_KEEP_MODULES or drop verilog_slices")
-        for var in ["SYNTH_VERILOG_SURGERY", "VERILOG_TOP_PARAMS"]:
-            if all_arguments.get(var):
-                fail(("{} acts on the whole design, which a slice of one kept " +
-                      "module is not; {} slices by its pinned SYNTH_KEEP_MODULES. " +
-                      "Set verilog_slices = False to canonicalize every partition " +
-                      "out of the whole design, or drop {}").format(var, ctx.label, var))
+        for var in whole_design_vars:
+            fail(("{} acts on the whole design, which a slice of one kept " +
+                  "module is not; verilog_slices = True cuts {} by its pinned " +
+                  "SYNTH_KEEP_MODULES. Drop verilog_slices to canonicalize " +
+                  "every partition out of the whole design, or drop {}").format(var, ctx.label, var))
 
     canon_logs = declare_artifacts(ctx, "logs", ["1_1_yosys_canonicalize.log"])
 
