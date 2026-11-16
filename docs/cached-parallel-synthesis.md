@@ -436,11 +436,24 @@ comments, which is what CIRCT firtool writes, split or concatenated. It
 fails the build, naming the file and line, on anything else that could
 make a slice elaborate differently from the whole design: a directive
 outside a conditional, text outside a module, a nested module, a
-non-ANSI port list, a parameterized kept module. `SYNTH_CANONICALIZE_TCL`,
-`SYNTH_VERILOG_SURGERY` and `VERILOG_TOP_PARAMS` act on the whole design
-and are refused with it at analysis. Each refusal names
-`verilog_slices = False`, which canonicalizes every partition out of the
-whole design; a slice never falls back to it silently. A partition's netlist is the one
+non-ANSI port list, a parameterized kept module. `SYNTH_VERILOG_SURGERY`
+and `VERILOG_TOP_PARAMS` act on the whole design and are refused with it
+at analysis. Each refusal names `verilog_slices = False`, which
+canonicalizes every partition out of the whole design; a slice never
+falls back to it silently.
+
+`SYNTH_CANONICALIZE_TCL` runs on each slice as it runs on the whole
+design, after the slice's modules take the whole design's names: the
+slice is the design and its top, so named, is `DESIGN_NAME`, and
+`SYNTH_CANONICALIZE_SLICE` names the kept module whose slice it is. The
+whole design's canonicalize, which the top partition reads, runs it too.
+A script that acts only on the modules it finds, as
+`fold_entries.tcl` folds slang's per-instance copies of an entry cell
+onto one module (`test/verilog_slices` FoldTop), gives each partition
+what the whole design gives it. A script that needs a module its slice
+does not hold fails that slice's canonicalize, and so does one that
+removes the slice's top or a kept module's stub, which join the
+partitions; both name `verilog_slices = False`. A partition's netlist is the one
 the global path gives (`test/verilog_slices`), up to two things that do
 not change the logic: the order of the module's ports, which slang
 takes from the module's own declaration when it is the top and can

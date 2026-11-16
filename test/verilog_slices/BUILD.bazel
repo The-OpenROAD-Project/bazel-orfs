@@ -124,6 +124,72 @@ sh_test(
     ],
 )
 
+# FoldTop keeps Bank and Entry, with three Entry instances in Bank and two
+# beside it, read as slang reads it by default: one module per instance.
+# SYNTH_CANONICALIZE_TCL is XiangShan's fold_entries.tcl, which folds the
+# copies onto one Entry, on the whole design (global) and on each slice
+# (slices).
+#
+#   fold_equal_test   the slices give every partition, and the design,
+#                     the netlist the whole design's fold gives it.
+FOLD_KEPT = [
+    "Bank",
+    "Entry",
+]
+
+[orfs_flow(
+    name = "FoldTop",
+    arguments = {
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_KEEP_MODULES": " ".join(FOLD_KEPT),
+    },
+    last_stage = "synth",
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+        "SYNTH_CANONICALIZE_TCL": ["//test/coremark_joule/designs/asap7/xiangshan:fold_entries.tcl"],
+    },
+    user_arguments = {"XS_FOLD_MODULES": "Entry"},
+    user_stages = {"XS_FOLD_MODULES": ["synth"]},
+    variant = variant,
+    verilog_files = ["fold.v"],
+    verilog_slices = slices,
+) for variant, slices in [
+    ("global", False),
+    ("slices", True),
+]]
+
+[filegroup(
+    name = "fold_%s_%s" % (group, variant),
+    srcs = [":FoldTop_%s_synth" % variant],
+    output_group = group,
+) for group in [
+    "partitions",
+    "1_2_yosys.v",
+] for variant in [
+    "global",
+    "slices",
+]]
+
+sh_test(
+    name = "fold_equal_test",
+    size = "small",
+    srcs = ["slices_equal_test.sh"],
+    args = [
+        "$(location :fold_1_2_yosys.v_global)",
+        "$(location :fold_1_2_yosys.v_slices)",
+        " ".join(FOLD_KEPT),
+        "$(locations :fold_partitions_global)",
+        "--",
+        "$(locations :fold_partitions_slices)",
+    ],
+    data = [
+        ":fold_1_2_yosys.v_global",
+        ":fold_1_2_yosys.v_slices",
+        ":fold_partitions_global",
+        ":fold_partitions_slices",
+    ],
+)
+
 slices_key_test(
     name = "slices_key_test",
     modules = KEPT,

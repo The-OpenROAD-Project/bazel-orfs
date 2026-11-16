@@ -50,7 +50,8 @@ same "$netlist_global" "$netlist_slices" 1_2_yosys.v
 
 # Other's memory is a black box in its partition: AUTO_MEMORIES reached
 # the slice.
-if grep -q "^module ram_64x16" "$(pick partition_Other.v "${slices[@]}")"; then
+if [[ " $kept " == *" Other "* ]] &&
+    grep -q "^module ram_64x16" "$(pick partition_Other.v "${slices[@]}")"; then
     echo "FAIL: ram_64x16 was synthesized into Other's partition" >&2
     exit 1
 fi

@@ -2467,7 +2467,7 @@ def _yosys_impl(ctx):
             fail("verilog_slices = True cuts the Verilog by SYNTH_KEEP_MODULES " +
                  "for parallel yosys synthesis, which " + str(ctx.label) +
                  " does not run: pin SYNTH_KEEP_MODULES or drop verilog_slices")
-        for var in ["SYNTH_CANONICALIZE_TCL", "SYNTH_VERILOG_SURGERY", "VERILOG_TOP_PARAMS"]:
+        for var in ["SYNTH_VERILOG_SURGERY", "VERILOG_TOP_PARAMS"]:
             if all_arguments.get(var):
                 fail(("{} acts on the whole design, which a slice of one kept " +
                       "module is not; {} slices by its pinned SYNTH_KEEP_MODULES. " +
