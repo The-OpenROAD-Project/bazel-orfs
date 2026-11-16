@@ -289,6 +289,75 @@ class TestOrfsPatchPairingThroughBump(unittest.TestCase):
         finally:
             os.unlink(tmp.name)
 
+    def test_a_refused_bump_leaves_the_consumer_tree_untouched(self):
+        """The pairing check refuses after the patches are staged.
+
+        The consumer's bazel-orfs-patches/ holds a patch the pin drops and an
+        older copy of one it keeps; both, and MODULE.bazel, must survive the
+        refusal byte for byte, or the next bazel command sees a half bump.
+        """
+        module = """
+bazel_dep(name = "openroad")
+archive_override(
+    module_name = "openroad",
+    patches = ["//patches:0182-openroad-new-at-the-pin.patch"],
+    urls = ["https://example.invalid/openroad.tar.gz"],
+)
+"""
+        victim = sorted(FAKE_ORFS_TREE)[0]
+        drifted = dict(FAKE_ORFS_TREE, **{victim: "not what the patch expects\n"})
+
+        def raw_text(repo, ref, path):
+            if repo == bump.BAZEL_ORFS_REPO:
+                if path == "MODULE.bazel":
+                    return module
+                if path == "patches/0182-openroad-new-at-the-pin.patch":
+                    return "--- a/new\n"
+            if repo == bump.ORFS_REPO:
+                return drifted.get(path)
+            return mock_fetch_raw_text(repo, ref, path)
+
+        ws = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, ws)
+        shutil.copy2(
+            os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel"),
+            os.path.join(ws, "MODULE.bazel"),
+        )
+        dst = os.path.join(ws, bump.BAZEL_ORFS_PATCHES_DIR)
+        os.makedirs(dst)
+        for name, text in (
+            ("0182-openroad-new-at-the-pin.patch", "--- a/old\n"),
+            ("0050-orfs-dropped-at-the-pin.patch", "--- a/dropped\n"),
+        ):
+            with open(os.path.join(dst, name), "w") as fh:
+                fh.write(text)
+
+        def snapshot():
+            files = {"MODULE.bazel": os.path.join(ws, "MODULE.bazel")}
+            for name in os.listdir(dst):
+                files[name] = os.path.join(dst, name)
+            out = {}
+            for name, path in files.items():
+                with open(path, "rb") as fh:
+                    out[name] = fh.read()
+            return out
+
+        before = snapshot()
+        with self.assertRaisesRegex(bump.BumpError, re.escape(victim)):
+            bump.bump(
+                os.path.join(ws, "MODULE.bazel"),
+                fetch_commit_fn=mock_fetch_commit,
+                fetch_integrity_fn=mock_fetch_integrity,
+                fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+                fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+                fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+                fetch_sha256_hex_fn=mock_fetch_sha256_hex,
+                fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+                fetch_raw_text_fn=raw_text,
+                workspace_dir=ws,
+            )
+        self.assertEqual(snapshot(), before)
+
 
 class TestBazelOrfsProject(unittest.TestCase):
     """Test 1: bazel-orfs project (self)."""
@@ -2177,11 +2246,11 @@ single_version_override(
             },
         )
 
-    def test_copy_patches_copies_only_what_is_applied(self):
+    def test_write_patches_copies_only_what_is_applied(self):
         d = self._bazel_orfs_dir()
         ws = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, ws)
-        bump.copy_patches(self._reader(d), ws, self._owned(d))
+        bump.write_patches(ws, bump.stage_patches(self._reader(d), self._owned(d)))
         dst = os.path.join(ws, bump.BAZEL_ORFS_PATCHES_DIR)
         self.assertEqual(
             sorted(f for f in os.listdir(dst) if f.endswith(".patch")),
@@ -2194,7 +2263,7 @@ single_version_override(
         )
         self.assertTrue(os.path.exists(os.path.join(dst, "BUILD.bazel")))
 
-    def test_copy_patches_prunes_a_patch_that_reached_upstream(self):
+    def test_write_patches_prunes_a_patch_that_reached_upstream(self):
         d = self._bazel_orfs_dir()
         ws = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, ws)
@@ -2203,16 +2272,14 @@ single_version_override(
         stale = os.path.join(dst, "0050-orfs-set-rc-tcl-load.patch")
         with open(stale, "w") as fh:
             fh.write("carried by an older bump\n")
-        bump.copy_patches(self._reader(d), ws, self._owned(d))
+        bump.write_patches(ws, bump.stage_patches(self._reader(d), self._owned(d)))
         self.assertFalse(os.path.exists(stale))
 
-    def test_copy_patches_refuses_an_applied_patch_it_cannot_find(self):
+    def test_stage_patches_refuses_an_applied_patch_it_cannot_find(self):
         d = self._bazel_orfs_dir()
         os.remove(os.path.join(d, "patches", "0001-openroad-example.patch"))
-        ws = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, ws)
         with self.assertRaisesRegex(bump.BumpError, "0001-openroad-example.patch"):
-            bump.copy_patches(self._reader(d), ws, self._owned(d))
+            bump.stage_patches(self._reader(d), self._owned(d))
 
     def test_bump_syncs_the_patches_of_the_commit_it_pins(self):
         pinned = mock_fetch_commit(bump.BAZEL_ORFS_REPO, "main")

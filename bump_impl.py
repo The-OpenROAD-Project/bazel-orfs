@@ -1324,6 +1324,7 @@ def update_openroad_archive_override(
     fetch_sha256_hex_fn=compute_sha256_hex,
     fetch_submodule_sha_fn=fetch_submodule_sha,
     workspace_dir=None,
+    staged_patches=None,
 ):
     """Regenerate the ``archive_override(module_name = "openroad")`` block.
 
@@ -1415,12 +1416,17 @@ def update_openroad_archive_override(
             else:
                 full_path = os.path.join(workspace_dir, p)
 
-            if not os.path.exists(full_path):
+            staged = (staged_patches or {}).get(
+                os.path.relpath(full_path, workspace_dir)
+            )
+            if staged is not None:
+                patch_content = staged
+            elif not os.path.exists(full_path):
                 top_patches.append((comments, p))
                 continue
-
-            with open(full_path, "r", encoding="utf-8", errors="replace") as f:
-                patch_content = f.read()
+            else:
+                with open(full_path, "r", encoding="utf-8", errors="replace") as f:
+                    patch_content = f.read()
 
             validate_bazel_patch(full_path, patch_content)
 
@@ -1554,35 +1560,45 @@ def bazel_orfs_owned_patches(text):
     return owned
 
 
-def copy_patches(read_bazel_orfs_fn, workspace_dir, owned):
-    """Sync the consumer's bazel-orfs-patches/ to exactly what bazel-orfs applies.
+def stage_patches(read_bazel_orfs_fn, owned):
+    """{filename: text} of the patches the pinned bazel-orfs applies.
 
     ``read_bazel_orfs_fn(path)`` reads a file of the bazel-orfs commit being
-    pinned, None if absent.  Copies the patches its overrides reference and
-    deletes every other .patch in the directory.  The deletion is the point:
-    when a patch reaches its upstream home and bazel-orfs drops it, the
-    consumer's copy goes away on the next bump instead of being carried
-    forever.
+    pinned, None if absent.  Nothing is written: ``write_patches`` lands the
+    result once every check that can refuse the bump has passed.
     """
-    dst_dir = os.path.join(workspace_dir, BAZEL_ORFS_PATCHES_DIR)
-    needed = {name for names in owned.values() for name in names}
-
-    os.makedirs(dst_dir, exist_ok=True)
-    for filename in sorted(needed):
+    staged = {}
+    for filename in sorted({name for names in owned.values() for name in names}):
         for candidate in (f"patches/{filename}", filename):
             text = read_bazel_orfs_fn(candidate)
             if text is not None:
-                with open(os.path.join(dst_dir, filename), "w") as fh:
-                    fh.write(text)
+                staged[filename] = text
                 break
         else:
             raise BumpError(
                 f"bazel-orfs's MODULE.bazel applies {filename}, "
                 "which is neither in its patches/ nor at its root"
             )
+    return staged
+
+
+def write_patches(workspace_dir, staged):
+    """Sync the consumer's bazel-orfs-patches/ to exactly ``staged``.
+
+    Deletes every other .patch in the directory.  The deletion is the point:
+    when a patch reaches its upstream home and bazel-orfs drops it, the
+    consumer's copy goes away on the next bump instead of being carried
+    forever.
+    """
+    dst_dir = os.path.join(workspace_dir, BAZEL_ORFS_PATCHES_DIR)
+
+    os.makedirs(dst_dir, exist_ok=True)
+    for filename, text in sorted(staged.items()):
+        with open(os.path.join(dst_dir, filename), "w") as fh:
+            fh.write(text)
 
     for filename in sorted(os.listdir(dst_dir)):
-        if filename.endswith(".patch") and filename not in needed:
+        if filename.endswith(".patch") and filename not in staged:
             os.remove(os.path.join(dst_dir, filename))
 
     build_path = os.path.join(dst_dir, "BUILD.bazel")
@@ -2040,6 +2056,7 @@ def bump(
 
     # --- Update bazel-orfs commit (skip for bazel-orfs itself) ---
     bazel_orfs_commit = None
+    staged = None
     if project != "bazel-orfs":
         bazel_orfs_commit = fetch_commit_fn("The-OpenROAD-Project/bazel-orfs", "main")
         _expect(
@@ -2067,7 +2084,7 @@ def bump(
         for name in patched:
             updated_modules.append(f"{name} patches -> bazel-orfs' set")
         if workspace_dir:
-            copy_patches(read_pinned, workspace_dir, owned)
+            staged = stage_patches(read_pinned, owned)
 
     # --- Update ORFS commit (skip for projects without ORFS) ---
     # Every consumer follows ORFS master — including OpenROAD, whose orfs
@@ -2196,6 +2213,10 @@ def bump(
                     fetch_sha256_hex_fn=fetch_sha256_hex_fn,
                     fetch_submodule_sha_fn=fetch_submodule_sha_fn,
                     workspace_dir=workspace_dir,
+                    staged_patches={
+                        f"{BAZEL_ORFS_PATCHES_DIR}/{name}": text
+                        for name, text in (staged or {}).items()
+                    },
                 )
                 updated_modules.append(f"{module_name} -> {sha[:12]} ({source})")
             else:
@@ -2218,6 +2239,9 @@ def bump(
     if not ok:
         sys.stderr.write("WARNING: " + msg + "\n")
 
+    # Nothing below refuses: the consumer's tree is written only from here.
+    if staged is not None:
+        write_patches(workspace_dir, staged)
     with open(module_file, "w") as f:
         f.write(content)
 
