@@ -1,5 +1,3 @@
-load("@rules_python//python:defs.bzl", "py_test")
-
 # verilog_slices: each kept module canonicalized from its own slice of
 # the Verilog instead of from the global canonicalize.
 #
@@ -51,6 +49,8 @@ load("@rules_python//python:defs.bzl", "py_test")
 #                                    canonicalizes out of the whole design.
 #   whole_design_<var>_refused_test  verilog_slices = True with one is
 #                                    refused at analysis.
+load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+load("@rules_python//python:defs.bzl", "py_test")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:openroad.bzl", "orfs_flat_sta", "orfs_flow", "orfs_module_context", "orfs_module_iteration", "orfs_module_sta_base", "orfs_synth", "orfs_timing_ab")
 load("//test:analysis_failure_test.bzl", "analysis_failure_test")
@@ -547,6 +547,42 @@ sh_test(
         ":port_order_partitions_global",
         ":port_order_partitions_slices",
     ],
+)
+
+# RomTop keeps Lookup, whose two case statements yosys's proc_rom makes
+# ROMs of, as it does the top's. proc_rom names a ROM with yosys's
+# design-wide counter, which in the whole design runs on through Lookup's
+# ROMs before it reaches the top's, and in the top's slice does not.
+#
+#   rom_memories_test   the slices find the ROMs the whole design does:
+#                       the slice memories check passes, and the slices'
+#                       memories.json is the global path's.
+[orfs_flow(
+    name = "RomTop",
+    arguments = ARGUMENTS | {"SYNTH_KEEP_MODULES": "Lookup"},
+    last_stage = "synth",
+    sources = {"SDC_FILE": [":constraints.sdc"]},
+    variant = variant,
+    verilog_files = ["rom.v"],
+    verilog_slices = slices,
+) for variant, slices in [
+    ("global", False),
+    ("slices", True),
+]]
+
+[filegroup(
+    name = "rom_memories_json_" + variant,
+    srcs = [":RomTop_%s_synth" % variant],
+    output_group = "memories.json",
+) for variant in [
+    "global",
+    "slices",
+]]
+
+diff_test(
+    name = "rom_memories_test",
+    file1 = ":rom_memories_json_global",
+    file2 = ":rom_memories_json_slices",
 )
 
 slices_grouped_test(
