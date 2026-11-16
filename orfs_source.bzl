@@ -134,7 +134,8 @@ ORFS_PATCHES = [
     # bump onto an ORFS that passes it.
     Label("//patches:0189-orfs-grt-backing-file.patch"),
     # 0199: load_design -backing_file, optional, passed to read_db; global
-    # route reads its design with one in OBJECTS_DIR (OpenROAD patch 0197).
+    # route reads its design with one in OBJECTS_DIR (OpenROAD patch 0197);
+    # load_stage_input passes it on.
     # Not upstreamed; retires at a bump onto an ORFS that has it.
     Label("//patches:0199-orfs-load-design-backing-file.patch"),
     # 0172: a register file's own flow (its top an inlined
@@ -154,19 +155,9 @@ ORFS_PATCHES = [
     # visited its endpoints. On 0179. Not upstreamed; retires at a bump onto
     # an ORFS that carries it.
     Label("//patches:0180-orfs-repair-timing-max-iterations.patch"),
-    # 0212: ORFS #4810, AUTO_MEMORIES reads the views blackboxes.txt
-    # names, not what memories/ holds. Not upstreamed; retires at a bump
-    # onto an ORFS that carries #4810.
-    Label("//patches:0212-orfs-auto-memories-explicit.patch"),
-    # 0213: ORFS #4812, FLOW_INPUT_VARIANT: a stage reads the previous
-    # stage's result from another variant (load_stage_input), so a stage
-    # whose src is another variant's reads it where src wrote it instead
-    # of having it moved into its own tree. On 0199 and 0212. Not
-    # upstreamed; retires at a bump onto an ORFS that carries #4812.
-    Label("//patches:0213-orfs-flow-input-variant.patch"),
     # 0214: ORFS #4824, AUTO_MEMORIES_DIR, where AUTO_MEMORIES' views are written and
     # read, so a stage of another variant than its synthesis reads them in
-    # place. On 0213. Not upstreamed; retires at a bump onto an ORFS that
+    # place. Not upstreamed; retires at a bump onto an ORFS that
     # carries it.
     Label("//patches:0214-orfs-auto-memories-dir.patch"),
     # 0215: a register file's own flow puts soft placement blockages over
@@ -377,7 +368,6 @@ exports_files(
 #   make: *** No rule to make target '.../scripts/memories/extract_memories.tcl'
 # Same shape as the flow/util/*.tcl omission noted further down.
 MAKEFILE_SHARED = [
-    "scripts/variables.json",
     "scripts/*.py",
     "scripts/memories/*.py",
     "scripts/memories/*.tcl",
