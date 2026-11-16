@@ -27,6 +27,8 @@ design(
         "VEER_HEADERS",
         "VEER_ICG_MAP",
     ],
+    # not firtool-shaped Verilog: VeeR's `include and `define sit outside its modules
+    verilog_slices = False,
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 

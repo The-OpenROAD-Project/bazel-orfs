@@ -412,7 +412,7 @@ def main(argv=None):
                 f.write(text)
     except SliceError as e:
         print(
-            "verilog_slice: {}\nverilog_slice: build without verilog_slices, "
+            "verilog_slice: {}\nverilog_slice: set verilog_slices = False, "
             "which canonicalizes each kept module out of the whole design".format(e),
             file=sys.stderr,
         )

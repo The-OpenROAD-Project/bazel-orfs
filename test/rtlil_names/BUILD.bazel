@@ -46,6 +46,8 @@ orfs_flow(
         "SDC_FILE": [":constraints.sdc"],
     },
     verilog_files = ["pk_top.v"],
+    # pk_top.v's `default_nettype sits outside its modules
+    verilog_slices = False,
 )
 
 build_test(

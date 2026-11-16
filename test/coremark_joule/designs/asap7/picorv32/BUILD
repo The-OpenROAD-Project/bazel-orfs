@@ -17,6 +17,8 @@ design(
         saif_prefix = "//test/coremark_joule/sim:picorv32_rv32im",
         saif_scope = "TOP/cm_soc/cpu",
     ),
+    # not firtool-shaped Verilog: picorv32.v's `timescale sits outside its modules
+    verilog_slices = False,
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 

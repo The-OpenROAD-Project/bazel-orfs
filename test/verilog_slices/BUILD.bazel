@@ -6,6 +6,8 @@ load("@rules_python//python:defs.bzl", "py_test")
 # SliceTop keeps Outer, Inner (inside Outer) and Other (which holds a
 # memory AUTO_MEMORIES makes a macro of, from ram_64x16.memories). after.v differs from before.v in
 # Inner's body only.
+# The global variant opts out (verilog_slices = False), before slices by
+# default (SYNTH_KEEP_MODULES pinned) and after asks for it explicitly.
 #
 #   slices_equal_test   the slice path gives the partitions the global
 #                       path gives them: byte-identical netlists, and the
@@ -64,7 +66,7 @@ ARGUMENTS = {
     verilog_slices = slices,
 ) for variant, verilog, slices in [
     ("global", "before.v", False),
-    ("before", "before.v", True),
+    ("before", "before.v", None),
     ("after", "after.v", True),
 ]]
 

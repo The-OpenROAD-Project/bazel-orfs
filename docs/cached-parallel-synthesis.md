@@ -377,14 +377,16 @@ With a pinned `SYNTH_KEEP_MODULES`:
    written as for a serial synthesis. From here on nothing knows the
    netlist was synthesized in pieces.
 
-### Slicing the Verilog instead: `verilog_slices = True`
+### Slicing the Verilog instead: `verilog_slices`
 
 Step 2 reads the whole canonical RTLIL, so every kept module waits for
 the global canonicalize, which reads the whole design, and then reads it
 again: on a change to one module, the path to its partition is two
-whole-design reads before the synthesis that matters. With
-`verilog_slices = True` on `orfs_flow` or `orfs_synth` the module's
-partition reads only its own sources:
+whole-design reads before the synthesis that matters. With a pinned
+`SYNTH_KEEP_MODULES` and yosys synthesizing, `orfs_flow` and
+`orfs_synth` slice by default and the module's partition reads only its
+own sources (`verilog_slices = False` opts out, `verilog_slices = True`
+requires a pinned `SYNTH_KEEP_MODULES`):
 
 1. **Slice.** `verilog_slice.py` cuts the Verilog into one file per kept
    module, `partition_<module>_slice.v`: the module, every module under
@@ -436,7 +438,9 @@ make a slice elaborate differently from the whole design: a directive
 outside a conditional, text outside a module, a nested module, a
 non-ANSI port list, a parameterized kept module. `SYNTH_CANONICALIZE_TCL`,
 `SYNTH_VERILOG_SURGERY` and `VERILOG_TOP_PARAMS` act on the whole design
-and are refused with it at analysis. A partition's netlist is the one
+and are refused with it at analysis. Each refusal names
+`verilog_slices = False`, which canonicalizes every partition out of the
+whole design; a slice never falls back to it silently. A partition's netlist is the one
 the global path gives (`test/verilog_slices`), up to two things that do
 not change the logic: the order of the module's ports, which slang
 takes from the module's own declaration when it is the top and can

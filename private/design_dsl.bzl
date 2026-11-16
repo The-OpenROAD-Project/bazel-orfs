@@ -225,7 +225,8 @@ def design(
         block_abstract_stage = None,
         quick_pins = False,
         canon_blackbox_macros = [],
-        block_mock_area = None):
+        block_mock_area = None,
+        verilog_slices = None):
     """Standard BUILD body for a design package.
 
     Args:
@@ -275,6 +276,7 @@ def design(
             gives the parent a mocked, smaller outline of each BLOCKS=
             macro, pins fitted; timing and power stay the block's own.
             Turnaround only. Forwarded to orfs_design().
+        verilog_slices: forwarded to orfs_design(); see orfs_flow().
     """
     export_design_files()
     orfs_design(
@@ -288,6 +290,7 @@ def design(
         block_abstract_stage = block_abstract_stage,
         quick_pins = quick_pins,
         canon_blackbox_macros = canon_blackbox_macros,
+        verilog_slices = verilog_slices,
         block_mock_area = block_mock_area,
     )
     _auto_floorplan(designs, config)

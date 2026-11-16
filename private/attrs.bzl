@@ -234,18 +234,23 @@ def synth_attrs():
                   "they have cheap pre-layout liberty and blackboxing them by " +
                   "name would elaborate their bodies into every partition slice.",
         ),
-        "verilog_slices": attr.bool(
-            default = False,
-            doc = "With a pinned SYNTH_KEEP_MODULES, cut the Verilog into " +
-                  "one source per kept module (verilog_slice.py: the module, " +
-                  "the modules under it, and port-only stubs of the kept " +
-                  "modules under it) and canonicalize each partition from " +
-                  "its own slice instead of from the global canonicalize. " +
-                  "A partition then neither waits on the global canonicalize " +
-                  "nor reruns for an edit outside its slice. The sources " +
-                  "must have nothing between module definitions but " +
-                  "comments, as CIRCT firtool writes them; the slicer fails " +
-                  "the build on anything else.",
+        "verilog_slices": attr.string(
+            default = "auto",
+            values = ["auto", "true", "false"],
+            doc = "Cut the Verilog into one source per kept module " +
+                  "(verilog_slice.py: the module, the modules under it, and " +
+                  "port-only stubs of the kept modules under it) and " +
+                  "canonicalize each partition from its own slice instead " +
+                  "of from the global canonicalize. A partition then " +
+                  "neither waits on the global canonicalize nor reruns for " +
+                  "an edit outside its slice. \"auto\" (the macros' " +
+                  "verilog_slices = None) slices whenever SYNTH_KEEP_MODULES " +
+                  "is pinned and yosys synthesises; \"false\" " +
+                  "(verilog_slices = False) canonicalizes every partition " +
+                  "out of the whole design. The sources must have nothing " +
+                  "between module definitions but comments, as CIRCT " +
+                  "firtool writes them; the slicer fails the build on " +
+                  "anything else.",
         ),
         "kept_macros_enabled": attr.bool(
             default = False,
