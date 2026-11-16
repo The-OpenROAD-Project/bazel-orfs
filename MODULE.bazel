@@ -611,6 +611,29 @@ git_override(
     remote = "https://github.com/keplertech/kepler-formal.git",
 )
 
+# kepler-formal's naja asks for sv-lang 11.0.0-20260701-b60d729d.bcr.1,
+# whose registry source is GitHub's archive of slang b60d729d. Those bytes
+# are not stable: slang's .git_archival.txt is export-subst, and GitHub
+# regenerates it with a longer abbreviated describe as the repository
+# grows, which changes the archive's checksum while every source file
+# stays the same. A git checkout of the commit is fixed by its hash. The
+# registry's overlay and patch are carried, and patch_cmds rebuild the
+# archive's layout (the tree under slang-<commit>/) that the overlay
+# BUILD.bazel expects. Retires when kepler-formal's naja moves to an
+# sv-lang whose registry source is a release asset or a git commit.
+git_override(
+    module_name = "sv-lang",
+    commit = "b60d729d66b9cdeec158b800f898461a138d505e",
+    patch_cmds = [
+        "mkdir slang-b60d729d66b9cdeec158b800f898461a138d505e",
+        "find . -mindepth 1 -maxdepth 1 ! -name slang-b60d729d66b9cdeec158b800f898461a138d505e ! -name .bcr-overlay ! -name .git -exec mv {} slang-b60d729d66b9cdeec158b800f898461a138d505e/ \\;",
+        "cp -R .bcr-overlay/. . && rm -rf .bcr-overlay",
+    ],
+    patch_strip = 1,
+    patches = ["//patches:sv-lang-0001-bcr-overlay.patch"],
+    remote = "https://github.com/MikePopoloski/slang.git",
+)
+
 # --- Verilator, dev-only -----------------------------------------------
 #
 # Nothing shipped uses these: they exist so this repository can simulate
