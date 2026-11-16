@@ -495,6 +495,59 @@ sh_test(
     ],
 )
 
+# PortOrderTop keeps Bank, which holds a firtool memory, array_64x16,
+# whose ports Bank connects in an order of its own; PortOrderTop declares
+# the same port names in yet another. The memory's pins are its ports in
+# declaration order, alone in Bank's slice as in the whole design.
+#
+#   port_order_equal_test   the slice finds the memory the whole design
+#                           does, and the slices give every partition, and
+#                           the design, the netlist the global path gives.
+[orfs_flow(
+    name = "PortOrderTop",
+    arguments = ARGUMENTS | {"SYNTH_KEEP_MODULES": "Bank"},
+    last_stage = "synth",
+    sources = {"SDC_FILE": [":constraints.sdc"]},
+    variant = variant,
+    verilog_files = ["port_order.v"],
+    verilog_slices = slices,
+) for variant, slices in [
+    ("global", False),
+    ("slices", True),
+]]
+
+[filegroup(
+    name = "port_order_%s_%s" % (name, variant),
+    srcs = [":PortOrderTop_%s_synth" % variant],
+    output_group = group,
+) for name, group in [
+    ("partitions", "partitions"),
+    ("netlist", "1_2_yosys.v"),
+] for variant in [
+    "global",
+    "slices",
+]]
+
+sh_test(
+    name = "port_order_equal_test",
+    size = "small",
+    srcs = ["slices_equal_test.sh"],
+    args = [
+        "$(location :port_order_netlist_global)",
+        "$(location :port_order_netlist_slices)",
+        "Bank",
+        "$(locations :port_order_partitions_global)",
+        "--",
+        "$(locations :port_order_partitions_slices)",
+    ],
+    data = [
+        ":port_order_netlist_global",
+        ":port_order_netlist_slices",
+        ":port_order_partitions_global",
+        ":port_order_partitions_slices",
+    ],
+)
+
 slices_grouped_test(
     name = "slices_grouped_test",
     partitions = {

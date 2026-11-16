@@ -96,6 +96,17 @@ single_version_override(
         # OpenROAD's root MODULE.bazel (bazel/sv-elab-patches), which a
         # dependency's override does not reach; retires with OpenROAD's.
         "//patches:sv-elab-0002-avoid-duplicate-header-paths.patch",
+        # A module's ports had no port_id, so yosys ordered them by the
+        # order their names were first interned in the process: the same
+        # definition got one port order alone and another under a parent,
+        # and AUTO_MEMORIES read a memory's pins in that order, so a
+        # verilog_slices slice found its memories with other pins than the
+        # whole design did. Ports are now numbered where they are
+        # declared. The edits keep every line where it was in the shared
+        # code, so OpenROAD's syn, built with SLANG_NO_YOSYS, compiles the
+        # same objects. Not upstreamed; retires at an sv-elab release that
+        # carries it.
+        "//patches:sv-elab-0003-ports-in-declaration-order.patch",
     ],
     version = "2026-10-29",
 )
