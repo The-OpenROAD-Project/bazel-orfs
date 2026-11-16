@@ -16,6 +16,7 @@ alias(
     visibility = [
         "//flow/designs:__subpackages__",
         "//test/coremark_joule/designs:__subpackages__",
+        "//test/designs_fixture/designs:__subpackages__",
         "//test/macro_select:__pkg__",
         "//test/parent_macro:__pkg__",
         "//test/planned_parent:__pkg__",
