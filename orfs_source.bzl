@@ -175,6 +175,13 @@ ORFS_PATCHES = [
     # sources the vars, whose paths are relative to the root. Not
     # upstreamed; retires at a bump onto an ORFS that carries it.
     Label("//patches:0217-orfs-issue-run-me-root.patch"),
+    # 0218: AUTO_MEMORIES_JSON, where AUTO_MEMORIES' inventory is
+    # written, so the whole design's detection under verilog_slices
+    # writes memories.json beside its own views instead of where the
+    # slices' union is declared. On 0214. Not upstreamed; an upstream
+    # candidate beside ORFS #4824, retires at a bump onto an ORFS that
+    # carries it.
+    Label("//patches:0218-orfs-auto-memories-json.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
