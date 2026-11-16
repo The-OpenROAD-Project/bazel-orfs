@@ -42,16 +42,16 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  include/sta/Sdc.hh          | 12 +++++++++
- sdc/Sdc.cc                  | 51 +++++++++++++++++++++++++++++++++++++
- test/path_delay_to_sets.tcl | 39 ++++++++++++++++++++++++++++
- 3 files changed, 102 insertions(+)
+ sdc/Sdc.cc                  | 49 +++++++++++++++++++++++++++++++++++++
+ test/path_delay_to_sets.tcl | 39 +++++++++++++++++++++++++++++
+ 3 files changed, 100 insertions(+)
  create mode 100644 test/path_delay_to_sets.tcl
 
 diff --git a/src/sta/include/sta/Sdc.hh b/src/sta/include/sta/Sdc.hh
-index 06f793f0..74315243 100644
+index 8e89461..0e43d9d 100644
 --- a/src/sta/include/sta/Sdc.hh
 +++ b/src/sta/include/sta/Sdc.hh
-@@ -1050,6 +1050,12 @@ public:
+@@ -1055,6 +1055,12 @@ public:
                      const Pin *pin,
                      const RiseFall *rf,
                      const MinMax *min_max) const;
@@ -64,7 +64,7 @@ index 06f793f0..74315243 100644
    bool isPathDelayInternalFrom(const Pin *pin) const;
    bool isPathDelayInternalFromBreak(const Pin *pin) const;
    const PinSet &pathDelayInternalFrom() const;
-@@ -1165,6 +1171,8 @@ protected:
+@@ -1183,6 +1189,8 @@ protected:
    void recordMergeHashes(ExceptionPath *exception);
    void unrecordExceptionFirstPts(ExceptionPath *exception);
    void unrecordExceptionPins(ExceptionPath *exception);
@@ -73,7 +73,7 @@ index 06f793f0..74315243 100644
    void unrecordExceptionClks(ExceptionPath *exception,
                               ClockSet *clks,
                               ClockExceptionsMap &exception_map);
-@@ -1413,6 +1421,10 @@ protected:
+@@ -1457,6 +1465,10 @@ protected:
    ClockExceptionsMap first_to_clk_exceptions_;
    InstanceExceptionsMap first_to_inst_exceptions_;
    PinExceptionsMap pin_exceptions_;
@@ -85,18 +85,18 @@ index 06f793f0..74315243 100644
    EdgeExceptionsMap first_thru_edge_exceptions_;
    // Exception hash with one missing from/thru/to point, used for merging.
 diff --git a/src/sta/sdc/Sdc.cc b/src/sta/sdc/Sdc.cc
-index 3d4890a1..9a437e1c 100644
+index a42e176..6e3f1a8 100644
 --- a/src/sta/sdc/Sdc.cc
 +++ b/src/sta/sdc/Sdc.cc
-@@ -356,6 +356,7 @@ Sdc::deleteInstanceBefore(const Instance *inst)
+@@ -483,6 +483,7 @@ Sdc::deleteInstanceBefore(const Instance *inst)
    first_from_inst_exceptions_.erase(inst);
    first_thru_inst_exceptions_.erase(inst);
    first_to_inst_exceptions_.erase(inst);
 +  to_inst_exceptions_.erase(inst);
+   return deleted;
  }
  
- void
-@@ -4747,6 +4748,7 @@ Sdc::recordException(ExceptionPath *exception)
+@@ -4889,6 +4890,7 @@ Sdc::recordException(ExceptionPath *exception)
    recordMergeHashes(exception);
    recordExceptionFirstPts(exception);
    recordExceptionPins(exception);
@@ -104,7 +104,7 @@ index 3d4890a1..9a437e1c 100644
    checkForThruHpins(exception);
  }
  
-@@ -4973,6 +4975,8 @@ Sdc::findMergeMatch(ExceptionPath *exception)
+@@ -5115,6 +5117,8 @@ Sdc::findMergeMatch(ExceptionPath *exception)
            unrecordMergeHashes(match);
            missing_pt->mergeInto(match_missing_pt, network_);
            recordMergeHashes(match);
@@ -113,7 +113,7 @@ index 3d4890a1..9a437e1c 100644
            // First point maps only change if the exception point that
            // is being merged is the first exception point.
            if (first_pt)
-@@ -5015,6 +5019,8 @@ Sdc::deleteExceptions()
+@@ -5157,6 +5161,8 @@ Sdc::deleteExceptions()
    path_delay_internal_to_.clear();
    path_delay_internal_to_break_.clear();
    pin_exceptions_.clear();
@@ -122,7 +122,7 @@ index 3d4890a1..9a437e1c 100644
  
    exception_merge_hash_.clear();
    exception_merge_hash_.clear();
-@@ -5081,6 +5087,7 @@ Sdc::unrecordException(ExceptionPath *exception)
+@@ -5223,6 +5229,7 @@ Sdc::unrecordException(ExceptionPath *exception)
    unrecordMergeHashes(exception);
    unrecordExceptionFirstPts(exception);
    unrecordExceptionPins(exception);
@@ -130,7 +130,7 @@ index 3d4890a1..9a437e1c 100644
    exceptions_.erase(exception);
  }
  
-@@ -5155,6 +5162,26 @@ Sdc::unrecordExceptionPins(ExceptionPath *exception)
+@@ -5299,6 +5306,26 @@ Sdc::unrecordExceptionPins(ExceptionPath *exception)
      unrecordExceptionPins(exception, to->pins(), pin_exceptions_);
  }
  
@@ -157,7 +157,7 @@ index 3d4890a1..9a437e1c 100644
  void
  Sdc::unrecordExceptionClks(ExceptionPath *exception,
                             ClockSet *clks,
-@@ -5638,6 +5665,10 @@ Sdc::exceptionMatchesTo(ExceptionPath *exception,
+@@ -5782,6 +5809,10 @@ Sdc::exceptionMatchesTo(ExceptionPath *exception,
      && ((to == nullptr
           && !require_to_pin)
          || (to
@@ -168,7 +168,7 @@ index 3d4890a1..9a437e1c 100644
              && to->matches(pin, clk_edge, rf, network_)));
  }
  
-@@ -5666,9 +5697,26 @@ Sdc::isCompleteTo(ExceptionState *state,
+@@ -5810,9 +5841,26 @@ Sdc::isCompleteTo(ExceptionState *state,
    return state->nextThru() == nullptr
      && to
      && exception->matches(min_max, true)
@@ -195,19 +195,17 @@ index 3d4890a1..9a437e1c 100644
  ////////////////////////////////////////////////////////////////
  
  void
-@@ -5821,6 +5869,9 @@ Sdc::deletePinBefore(const Pin *pin)
-     first_to_pin_exceptions_.erase(pin);
-     pin_exceptions_.erase(pin);
-   }
-+  // Outside the test above: pin_exceptions_ misses the points an
-+  // exception gains in a merge.
+@@ -6067,6 +6115,7 @@ Sdc::deletePinExceptions(const Pin *pin)
+   first_thru_pin_exceptions_.erase(pin);
+   first_to_pin_exceptions_.erase(pin);
+   pin_exceptions_.erase(pin);
 +  to_pin_exceptions_.erase(pin);
-   deletePortDelayReferences(pin);
-   ClockSet *leaf_pin_clks = findKey(clock_leaf_pin_map_, pin);
-   if (leaf_pin_clks) {
+   return deleted;
+ }
+ 
 diff --git a/src/sta/test/path_delay_to_sets.tcl b/src/sta/test/path_delay_to_sets.tcl
 new file mode 100644
-index 00000000..cac4dee6
+index 0000000..cac4dee
 --- /dev/null
 +++ b/src/sta/test/path_delay_to_sets.tcl
 @@ -0,0 +1,39 @@

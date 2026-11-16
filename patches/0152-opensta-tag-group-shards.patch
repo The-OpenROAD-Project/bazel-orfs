@@ -33,13 +33,13 @@ OpenROAD whose OpenSTA carries it.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/sta/include/sta/Search.hh |  16 ++++-
- src/sta/search/Search.cc      | 123 +++++++++++++++++++++++-----------
+ src/sta/include/sta/Search.hh |  16 +++++-
+ src/sta/search/Search.cc      | 123 +++++++++++++++++++++++++++++-------------
  src/sta/search/TagGroup.hh    |   2 +
  3 files changed, 102 insertions(+), 39 deletions(-)
 
 diff --git a/src/sta/include/sta/Search.hh b/src/sta/include/sta/Search.hh
-index fe0b38fda6..38dc34a425 100644
+index fe0b38f..38dc34a 100644
 --- a/src/sta/include/sta/Search.hh
 +++ b/src/sta/include/sta/Search.hh
 @@ -24,6 +24,7 @@
@@ -77,7 +77,7 @@ index fe0b38fda6..38dc34a425 100644
    // Indices of the tag groups with a filter tag made, and the tags_ slots
    // of the filter tags made, so that deleting a filter's leftovers visits
 diff --git a/src/sta/search/Search.cc b/src/sta/search/Search.cc
-index 33cdc6cc7a..5abf594bc9 100644
+index e2c189b..0ff238b 100644
 --- a/src/sta/search/Search.cc
 +++ b/src/sta/search/Search.cc
 @@ -244,7 +244,6 @@ Search::Search(StaState *sta) :
@@ -85,9 +85,9 @@ index 33cdc6cc7a..5abf594bc9 100644
    tag_group_capacity_(tag_capacity_),
    tag_groups_(new TagGroup *[tag_group_capacity_]),
 -  tag_group_set_(new TagGroupSet(tag_group_capacity_)),
-   pending_arrivals_(makeVertexSet(this)),
-   endpoints_(makeVertexSet(this)),
-   invalid_endpoints_(makeVertexSet(this)),
+   pending_arrivals_(graph_),
+   endpoints_(graph_),
+   invalid_endpoints_(graph_),
 @@ -255,6 +254,8 @@ Search::Search(StaState *sta) :
    gated_clk_(new GatedClk(this)),
    check_crpr_(new CheckCrpr(this))
@@ -126,7 +126,7 @@ index 33cdc6cc7a..5abf594bc9 100644
    tag_groups_[group->index()] = nullptr;
    tag_group_free_indices_.push_back(group->index());
    delete group;
-@@ -2841,41 +2844,73 @@ Search::findTagGroup(TagGroupBldr *tag_bldr,
+@@ -2826,41 +2829,73 @@ Search::findTagGroup(TagGroupBldr *tag_bldr,
        return tag_group;
    }
  
@@ -227,7 +227,7 @@ index 33cdc6cc7a..5abf594bc9 100644
  void
  Search::setVertexArrivals(Vertex *vertex,
                            TagGroupBldr *tag_bldr,
-@@ -3027,7 +3062,10 @@ Search::tagGroup(const Vertex *vertex) const
+@@ -3012,7 +3047,10 @@ Search::tagGroup(const Vertex *vertex) const
  TagGroupIndex
  Search::tagGroupCount() const
  {
@@ -239,7 +239,7 @@ index 33cdc6cc7a..5abf594bc9 100644
  }
  
  void
-@@ -3036,18 +3074,27 @@ Search::reportTagGroups() const
+@@ -3021,18 +3059,27 @@ Search::reportTagGroups() const
    for (TagGroupIndex i = 0; i < tag_group_next_; i++) {
      TagGroup *tag_group = tag_groups_[i];
      if (tag_group) {
@@ -274,7 +274,7 @@ index 33cdc6cc7a..5abf594bc9 100644
  
  void
 diff --git a/src/sta/search/TagGroup.hh b/src/sta/search/TagGroup.hh
-index 2865186a37..cef8858d61 100644
+index 2865186..cef8858 100644
 --- a/src/sta/search/TagGroup.hh
 +++ b/src/sta/search/TagGroup.hh
 @@ -53,6 +53,8 @@ public:

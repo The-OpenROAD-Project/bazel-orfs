@@ -12,8 +12,9 @@ groups, without their structural endpoint classification.
 
 The flattened Top (bazel-orfs tools/carve/top_level.tcl) repairs its
 crossing group, the paths through the nets between two macros, so that
-repair never works on a macro's own paths. 0210 keeps that group sound
-when repair deletes one of its nets.
+repair never works on a macro's own paths. OpenSTA's
+Sdc::deleteNetBefore keeps that group sound when repair deletes one of
+its nets.
 
 repair_timing_path_group7: a group -through one net is repaired, its
 worst slack improving; a net named in a group_path -through is destroyed
@@ -25,7 +26,7 @@ Not upstreamed. Carried in bazel-orfs; retires on the //:bump onto an
 OpenROAD that has it.
 
 diff --git a/src/rsz/src/PathGroupFilter.cc b/src/rsz/src/PathGroupFilter.cc
-index 0b5219724d..74528366a9 100644
+index 0b52197..7452836 100644
 --- a/src/rsz/src/PathGroupFilter.cc
 +++ b/src/rsz/src/PathGroupFilter.cc
 @@ -45,6 +45,7 @@ StartpointKind groupStartpointKind(const PathGroupType type)
@@ -155,7 +156,7 @@ index 0b5219724d..74528366a9 100644
  {
    if (!enabled()) {
 diff --git a/src/rsz/src/PathGroupFilter.hh b/src/rsz/src/PathGroupFilter.hh
-index 014a5895df..1a5c23b53d 100644
+index 014a589..1a5c23b 100644
 --- a/src/rsz/src/PathGroupFilter.hh
 +++ b/src/rsz/src/PathGroupFilter.hh
 @@ -38,7 +38,10 @@ enum class PathGroupType
@@ -187,10 +188,10 @@ index 014a5895df..1a5c23b53d 100644
  
  }  // namespace rsz
 diff --git a/src/rsz/test/BUILD b/src/rsz/test/BUILD
-index d7a2f7f1f5..7209f6397d 100644
+index 51b88d2..837e857 100644
 --- a/src/rsz/test/BUILD
 +++ b/src/rsz/test/BUILD
-@@ -198,6 +198,7 @@ TESTS = [
+@@ -202,6 +202,7 @@ TESTS = [
      "repair_timing_path_group4",
      "repair_timing_path_group5",
      "repair_timing_path_group6",
@@ -200,7 +201,7 @@ index d7a2f7f1f5..7209f6397d 100644
      "repair_slew11",
 diff --git a/src/rsz/test/repair_timing_path_group7.ok b/src/rsz/test/repair_timing_path_group7.ok
 new file mode 100644
-index 0000000000..8cfca3e3d6
+index 0000000..8cfca3e
 --- /dev/null
 +++ b/src/rsz/test/repair_timing_path_group7.ok
 @@ -0,0 +1,30 @@
@@ -236,10 +237,10 @@ index 0000000000..8cfca3e3d6
 +doomed_group names a net: 0
 diff --git a/src/rsz/test/repair_timing_path_group7.tcl b/src/rsz/test/repair_timing_path_group7.tcl
 new file mode 100644
-index 0000000000..f8e8a422f3
+index 0000000..02dbcff
 --- /dev/null
 +++ b/src/rsz/test/repair_timing_path_group7.tcl
-@@ -0,0 +1,62 @@
+@@ -0,0 +1,64 @@
 +# repair_timing -path_group takes a group the SDC defines (group_path): it
 +# repairs the group's violating endpoints, judged by the group's slack. A
 +# net a group runs -through can be deleted without leaving the group
@@ -299,6 +300,8 @@ index 0000000000..f8e8a422f3
 +set f [open $sdc]
 +set text [read $f]
 +close $f
-+# The group's statement, up to the next command: no net left in it.
++# The group's statement, up to the next command, if the group is left:
++# no net in it.
++set group ""
 +regexp {group_path -name doomed_group[^\n]*(\\\n[^\n]*)*} $text group
 +puts "doomed_group names a net: [regexp {get_nets} $group]"
