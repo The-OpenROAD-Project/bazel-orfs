@@ -37,9 +37,16 @@ load("@rules_python//python:defs.bzl", "py_test")
 #   mem_equal_test          the slices give every partition, the top's
 #                           included, and the design the netlist the
 #                           global path gives them.
+#
+# SYNTH_VERILOG_SURGERY and VERILOG_TOP_PARAMS act on the whole design.
+#
+#   whole_design_<var>_auto_test     by default, a flow that sets one
+#                                    canonicalizes out of the whole design.
+#   whole_design_<var>_refused_test  verilog_slices = True with one is
+#                                    refused at analysis.
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:openroad.bzl", "orfs_flat_sta", "orfs_flow", "orfs_module_context", "orfs_module_iteration", "orfs_module_sta_base", "orfs_timing_ab")
-load(":slices_key_test.bzl", "slices_grouped_test", "slices_key_test")
+load(":slices_key_test.bzl", "slices_grouped_test", "slices_key_test", "slices_off_test", "slices_refused_test")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -400,3 +407,40 @@ sh_test(
         ":mem_partitions_modules",
     ],
 )
+
+WHOLE_DESIGN = {
+    "SYNTH_VERILOG_SURGERY": (
+        {},
+        {"SYNTH_VERILOG_SURGERY": ["//test/verilog_surgery:surgery.py"]},
+    ),
+    "VERILOG_TOP_PARAMS": (
+        {"VERILOG_TOP_PARAMS": "WIDTH 8"},
+        {},
+    ),
+}
+
+[orfs_flow(
+    name = "WholeDesign",
+    arguments = ARGUMENTS | arguments,
+    last_stage = "synth",
+    sources = {"SDC_FILE": [":constraints.sdc"]} | sources,
+    tags = ["manual"],
+    top = "SliceTop",
+    variant = "%s_%s" % (var, variant),
+    verilog_files = ["before.v"],
+    verilog_slices = slices,
+) for var, (arguments, sources) in WHOLE_DESIGN.items() for variant, slices in [
+    ("auto", None),
+    ("true", True),
+]]
+
+[slices_off_test(
+    name = "whole_design_%s_auto_test" % var,
+    target_under_test = ":WholeDesign_%s_auto_synth" % var,
+) for var in WHOLE_DESIGN]
+
+[slices_refused_test(
+    name = "whole_design_%s_refused_test" % var,
+    message = "%s acts on the whole design" % var,
+    target_under_test = ":WholeDesign_%s_true_synth" % var,
+) for var in WHOLE_DESIGN]

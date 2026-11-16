@@ -444,10 +444,14 @@ into a stub as it is (one under a conditional, a range that names a
 parameter or a macro, a port net that is given a value). A non-ANSI
 module (port names in the header, sv2v's and yosys's netlists, say)
 is stubbed with its header and the port declarations from its body.
-`SYNTH_VERILOG_SURGERY` and `VERILOG_TOP_PARAMS` act on the whole design
-and are refused with it at analysis. Each refusal names
-`verilog_slices = False`, which canonicalizes every partition out of the
-whole design; a slice never falls back to it silently.
+`SYNTH_VERILOG_SURGERY` and `VERILOG_TOP_PARAMS` act on the whole design,
+which a slice is not. The default, `verilog_slices = None`, decides at
+analysis from the flow's declared arguments: it slices when
+`SYNTH_KEEP_MODULES` is pinned, yosys synthesises and neither of the two
+is set, and otherwise canonicalizes every partition out of the whole
+design, as `verilog_slices = False` does. `verilog_slices = True` with
+either of them is refused at analysis, naming the variable; a slice
+never falls back to the whole design at run time.
 
 `SYNTH_CANONICALIZE_TCL` runs on each slice as it runs on the whole
 design, after the slice's modules take the whole design's names: the

@@ -245,7 +245,10 @@ def synth_attrs():
                   "neither waits on the global canonicalize nor reruns for " +
                   "an edit outside its slice. \"auto\" (the macros' " +
                   "verilog_slices = None) slices whenever SYNTH_KEEP_MODULES " +
-                  "is pinned and yosys synthesises; \"false\" " +
+                  "is pinned, yosys synthesises and neither " +
+                  "SYNTH_VERILOG_SURGERY nor VERILOG_TOP_PARAMS, which act on " +
+                  "the whole design, is set; \"true\" refuses those two at " +
+                  "analysis; \"false\" " +
                   "(verilog_slices = False) canonicalizes every partition " +
                   "out of the whole design. The sources must have nothing " +
                   "between module definitions but comments, as CIRCT " +
