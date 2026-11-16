@@ -154,19 +154,6 @@ def _off_impl(ctx):
 
 slices_off_test = analysistest.make(_off_impl)
 
-def _refused_impl(ctx):
-    env = analysistest.begin(ctx)
-    asserts.expect_failure(env, ctx.attr.message)
-    return analysistest.end(env)
-
-slices_refused_test = analysistest.make(
-    _refused_impl,
-    attrs = {
-        "message": attr.string(mandatory = True),
-    },
-    expect_failure = True,
-)
-
 def _floorplan_impl(ctx):
     env = analysistest.begin(ctx)
     actions = analysistest.target_actions(env)

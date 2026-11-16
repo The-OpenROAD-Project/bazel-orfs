@@ -52,8 +52,9 @@ load("@rules_python//python:defs.bzl", "py_test")
 #   whole_design_<var>_refused_test  verilog_slices = True with one is
 #                                    refused at analysis.
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
-load("//:openroad.bzl", "orfs_flat_sta", "orfs_flow", "orfs_module_context", "orfs_module_iteration", "orfs_module_sta_base", "orfs_timing_ab")
-load(":slices_key_test.bzl", "slices_floorplan_test", "slices_grouped_test", "slices_key_test", "slices_off_test", "slices_refused_test")
+load("//:openroad.bzl", "orfs_flat_sta", "orfs_flow", "orfs_module_context", "orfs_module_iteration", "orfs_module_sta_base", "orfs_synth", "orfs_timing_ab")
+load("//test:analysis_failure_test.bzl", "analysis_failure_test")
+load(":slices_key_test.bzl", "slices_floorplan_test", "slices_grouped_test", "slices_key_test", "slices_off_test")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -597,20 +598,29 @@ WHOLE_DESIGN = {
     sources = {"SDC_FILE": [":constraints.sdc"]} | sources,
     tags = ["manual"],
     top = "SliceTop",
-    variant = "%s_%s" % (var, variant),
+    variant = "%s_auto" % var,
     verilog_files = ["before.v"],
-    verilog_slices = slices,
-) for var, (arguments, sources) in WHOLE_DESIGN.items() for variant, slices in [
-    ("auto", None),
-    ("true", True),
-]]
+) for var, (arguments, sources) in WHOLE_DESIGN.items()]
+
+# A lone synth stage: nothing else depends on a target that is refused
+# at analysis, so CI's manual-target analysis can leave it out by itself.
+[orfs_synth(
+    name = "WholeDesign_%s_true_synth" % var,
+    arguments = ARGUMENTS | arguments,
+    module_top = "SliceTop",
+    sources = {"SDC_FILE": [":constraints.sdc"]} | sources,
+    tags = ["manual"],
+    variant = "%s_true" % var,
+    verilog_files = ["before.v"],
+    verilog_slices = True,
+) for var, (arguments, sources) in WHOLE_DESIGN.items()]
 
 [slices_off_test(
     name = "whole_design_%s_auto_test" % var,
     target_under_test = ":WholeDesign_%s_auto_synth" % var,
 ) for var in WHOLE_DESIGN]
 
-[slices_refused_test(
+[analysis_failure_test(
     name = "whole_design_%s_refused_test" % var,
     message = "%s acts on the whole design" % var,
     target_under_test = ":WholeDesign_%s_true_synth" % var,
