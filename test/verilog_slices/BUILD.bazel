@@ -22,9 +22,17 @@ load("@rules_python//python:defs.bzl", "py_test")
 #   module_sta_negative_test
 #                       the before Inner in the same context does not.
 #   SliceTop_sta_ab     what the edit did to timing (orfs_timing_ab).
+#
+# MemTop keeps MemA and MemB, which hold a memory each, and Plain, in two
+# partitions (SYNTH_NUM_PARTITIONS = 2): MemA and MemB share one.
+#
+#   slices_grouped_test     each partition reads its modules' slices'
+#                           memories and not the whole design's.
+#   slices_partitions_test  the memories are found, and the netlists are
+#                           those of one partition per module.
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:openroad.bzl", "orfs_flat_sta", "orfs_flow", "orfs_module_context", "orfs_module_iteration", "orfs_module_sta_base", "orfs_timing_ab")
-load(":slices_key_test.bzl", "slices_key_test")
+load(":slices_key_test.bzl", "slices_grouped_test", "slices_key_test")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -225,4 +233,72 @@ orfs_timing_ab(
     name = "SliceTop_sta_ab",
     a = ":SliceTop_before_flat",
     b = ":SliceTop_inner_after",
+)
+
+MEM_KEPT = [
+    "MemA",
+    "Plain",
+    "MemB",
+]
+
+[orfs_flow(
+    name = "MemTop",
+    arguments = ARGUMENTS | {"SYNTH_KEEP_MODULES": " ".join(MEM_KEPT)} | extra,
+    last_stage = "synth",
+    sources = {
+        "ADDITIONAL_MEMORIES": [":ram_64x16.memories"],
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    variant = variant,
+    verilog_files = ["memories.v"],
+    verilog_slices = True,
+) for variant, extra in [
+    ("modules", {}),
+    (
+        "grouped",
+        {"SYNTH_NUM_PARTITIONS": "2"},
+    ),
+]]
+
+[filegroup(
+    name = "mem_%s_%s" % (name, variant),
+    srcs = [":MemTop_%s_synth" % variant],
+    output_group = group,
+) for name, group in [
+    ("partitions", "partitions"),
+    ("netlist", "1_2_yosys.v"),
+] for variant in [
+    "modules",
+    "grouped",
+]]
+
+slices_grouped_test(
+    name = "slices_grouped_test",
+    partitions = {
+        "0": [
+            "MemA",
+            "MemB",
+        ],
+        "1": ["Plain"],
+    },
+    target_under_test = ":MemTop_grouped_synth",
+)
+
+sh_test(
+    name = "slices_partitions_test",
+    size = "small",
+    srcs = ["slices_partitions_test.sh"],
+    args = [
+        "$(location :mem_netlist_modules)",
+        "$(location :mem_netlist_grouped)",
+        "$(locations :mem_partitions_modules)",
+        "--",
+        "$(locations :mem_partitions_grouped)",
+    ],
+    data = [
+        ":mem_netlist_grouped",
+        ":mem_netlist_modules",
+        ":mem_partitions_grouped",
+        ":mem_partitions_modules",
+    ],
 )

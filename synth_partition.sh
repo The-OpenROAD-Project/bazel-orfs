@@ -23,6 +23,8 @@
 #                            (pinned SYNTH_KEEP_MODULES only); else
 #   SYNTH_PARTITION_ID     - this partition's index (0..N-1) or "top"
 #   SYNTH_NUM_PARTITIONS   - total number of partitions
+#   SYNTH_SLICE_MEMORIES   - 1: each module reads its slice's memories,
+#                            RESULTS_DIR/partition_<module>_memories
 #   RESULTS_DIR, SCRIPTS_DIR, etc. - standard ORFS env
 set -euo pipefail
 
@@ -175,13 +177,18 @@ for module in "${MY_MODULES[@]}"; do
   fi
   canonical_name=$(cat "$MODULE_NAME_FILE")
   echo "=== Synthesizing module: $module → $canonical_name (from $(basename "$MODULE_CHECKPOINT")) ==="
-  # verilog_slices with AUTO_MEMORIES: synthesis reads the slice's own
-  # memories, from the RESULTS_DIR it is given.
+  # verilog_slices with AUTO_MEMORIES: synthesis reads the module's own
+  # slice's memories, from the RESULTS_DIR it is given.
   module_results="$RESULTS_DIR"
-  if [ -n "${SYNTH_MEMORIES_DIR:-}" ]; then
+  if [ "${SYNTH_SLICE_MEMORIES:-0}" = "1" ]; then
+    memories_dir="$RESULTS_DIR/partition_${sanitized}_memories"
+    if [ ! -d "$memories_dir/memories" ]; then
+      echo "ERROR: no slice memories for kept module $module: $memories_dir/memories" >&2
+      exit 1
+    fi
     module_results="$OBJECTS_DIR/partition_${sanitized}_results"
     mkdir -p "$module_results"
-    ln -sfn "$(realpath "$SYNTH_MEMORIES_DIR")/memories" "$module_results/memories"
+    ln -sfn "$(realpath "$memories_dir")/memories" "$module_results/memories"
   fi
   SYNTH_CHECKPOINT="$MODULE_CHECKPOINT" \
   DESIGN_NAME="$canonical_name" \

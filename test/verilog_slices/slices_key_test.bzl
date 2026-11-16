@@ -66,3 +66,36 @@ slices_key_test = analysistest.make(
         "sources": attr.string_list(),
     },
 )
+
+def _grouped_impl(ctx):
+    env = analysistest.begin(ctx)
+    actions = analysistest.target_actions(env)
+
+    # A partition of several kept modules reads each one's slice's
+    # memories, and neither the whole design's nor another partition's.
+    partitions = [
+        a
+        for a in actions
+        if a.env and a.env.get("SYNTH_PARTITION_ID") not in [None, "top"]
+    ]
+    asserts.equals(env, sorted(ctx.attr.partitions.keys()), sorted([a.env["SYNTH_PARTITION_ID"] for a in partitions]))
+    for action in partitions:
+        i = action.env["SYNTH_PARTITION_ID"]
+        asserts.equals(env, "1", action.env.get("SYNTH_SLICE_MEMORIES"), "partition %s" % i)
+        inputs = [f.basename for f in action.inputs.to_list()]
+        for name in ["memories.json", "memories_inferred.json", "memories", "1_1_yosys_canonicalize.rtlil"]:
+            asserts.false(env, name in inputs, "partition %s reads %s" % (i, name))
+        asserts.equals(
+            env,
+            sorted(["partition_%s_memories" % m for m in ctx.attr.partitions[i]]),
+            sorted([f for f in inputs if f.endswith("_memories")]),
+            "partition %s" % i,
+        )
+    return analysistest.end(env)
+
+slices_grouped_test = analysistest.make(
+    _grouped_impl,
+    attrs = {
+        "partitions": attr.string_list_dict(),
+    },
+)

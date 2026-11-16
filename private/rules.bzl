@@ -1804,6 +1804,11 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         ],
     )
 
+    # A partition that picks its modules from the kept list by index:
+    # base_partition_inputs, with the whole design's memories only when
+    # no slice has its own.
+    listed_partition_inputs = depset([kept_json, config], transitive = [module_partition_inputs])
+
     for i in range(num_partitions):
         # Build a human-readable progress message showing which modules
         # this partition will synthesize.
@@ -1947,13 +1952,13 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         if not kept_modules_list:
             my_per_module_files.append(checkpoint_output)
         my_memories_env = {}
-        if slice_memories and by_module:
-            my_per_module_files.append(slice_memories[my_modules[0]])
-            my_memories_env = {"SYNTH_MEMORIES_DIR": slice_memories[my_modules[0]].path}
+        if slice_memories:
+            my_per_module_files.extend([slice_memories[m] for m in my_modules])
+            my_memories_env = {"SYNTH_SLICE_MEMORIES": "1"}
         partition_inputs = depset(
             [base_inp for base_inp in extra_partition_config] + my_per_module_files,
             transitive = [
-                module_partition_inputs if by_module else base_partition_inputs,
+                module_partition_inputs if by_module else listed_partition_inputs,
                 my_macro_files,
             ],
         )
@@ -2460,10 +2465,6 @@ def _yosys_impl(ctx):
             fail("verilog_slices = True cuts the Verilog by SYNTH_KEEP_MODULES " +
                  "for parallel yosys synthesis, which " + str(ctx.label) +
                  " does not run: pin SYNTH_KEEP_MODULES or drop verilog_slices")
-        if all_arguments.get("AUTO_MEMORIES") == "1" and all_arguments.get("SYNTH_NUM_PARTITIONS"):
-            fail("verilog_slices = True with AUTO_MEMORIES synthesizes each kept " +
-                 "module with its own slice's memories, so it needs one partition " +
-                 "per kept module: drop SYNTH_NUM_PARTITIONS in " + str(ctx.label))
         for var in ["SYNTH_CANONICALIZE_TCL", "SYNTH_VERILOG_SURGERY", "VERILOG_TOP_PARAMS"]:
             if all_arguments.get(var):
                 fail(("{} acts on the whole design, which a slice is not: " +

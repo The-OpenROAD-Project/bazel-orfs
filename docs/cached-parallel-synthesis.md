@@ -415,8 +415,10 @@ each slice's memories to them: a memory a slice names or shapes
 differently, a black box only a slice has, or a macro of the whole
 design that a slice defines but did not find fails the build. FakeRAM's
 date is left out of a slice's Liberty views, so they change only with
-their memories. One partition per kept module: `SYNTH_NUM_PARTITIONS`
-is refused with it.
+their memories. A partition that synthesizes several kept modules
+(`SYNTH_NUM_PARTITIONS`) reads each one's
+`partition_<module>_memories`, found by the module's name, and stops
+naming the module when it has none.
 
 slang names a module after the instance it first elaborates
 (`Inner$Top.outer.inner`), and a slice elaborated from its own module
