@@ -181,8 +181,8 @@ peak.
 
 Every register-to-register endpoint of the latest run, by its period (the
 SDC period minus its slack), timed flat: the parent with every block's
-real cells and wires in place of the block's abstract
-(`XSTile_kpi_flat`, below). Stacked by where the endpoint's worst path
+interface logic in place of the block's abstract (`XSTile_ilm_sta`,
+below). Stacked by where the endpoint's worst path
 starts and ends: in the parent, inside one block, or across a block's
 boundary. The endpoints right of 2,000 ps are what remains.
 
@@ -196,31 +196,20 @@ boundary. The endpoints right of 2,000 ps are what remains.
 | MemBlock → via:FltRegionModule → parent | 5 of 1,641 | 2,017 | 810 | `core/memBlock/inner_LoadUnit_0.s3.io_pipeOut_valid$_DFF_PP0_/QN` → `core/backend/inner_intRegion/issueQueueSTD1_StdMoud/entries/othersEntriesComp_9.io_commonOut_issued$_DFF_P_/D` |  |
 <!-- kpi-flat end -->
 
-*Logic only* is the same path timed without wires (`XSTile_kpi_flat_nowire`):
+*Logic only* is the same path timed without wires (`XSTile_ilm_sta_nowire`):
 the cells and the repeaters already placed, at their pin loads. No
 endpoint of any class is above 2,000 ps without wires, so what remains is
 distance: on each worst path 40 to 80 percent of the delay is in
 repeaters. It is a placement and floorplan problem, not logic too deep for
 the period.
 
-**Timed flat.** `<parent>_kpi_flat` times the design as one netlist. Each
-part's pieces come from its own global route (`<part>_sta_part`,
-`sta_part.tcl`): its netlist written hierarchically, so its names are the
-SPEF's, the route's parasitics as SPEF, and its liberty files. A block
-contributes its interface logic only: the cells from its data inputs to the
-first flops and from the last flops to its outputs, every load of a net
-those cells drive, and the clock tree of the flops it keeps, walked in the
-database. A path that crosses a block's boundary times as in the whole
-block; a path inside a block is the block's own KPI. Each block's modules
-are renamed `<block>__<module>` (`sta_prefix.py`) so the same RTL module
-synthesised in two blocks does not collide, and a net repair made inside a
-submodule gets back its local name (the hierarchical writer declares it
-with the submodule's path in front, where the SPEF does not), so every net
-in the SPEF is found. OpenSTA reads it all
-(`sta_flat.tcl`), with parasitics reduced as read, in about ten minutes.
-Paths are selected from every register's clock pin to every
-register's data pin: the parent's SDC names its own registers in its
-reg2reg group, so a block's flop is in no group.
+**Timed flat.** `XSTile_ilm_sta` is `orfs_flow`'s `<parent>_ilm_sta`
+(docs/customize.md, "Time a parent with its blocks' interface logic"): the
+parent's netlist and parasitics at global route, with each block's
+interface logic model, read at the block's global route, in place of its
+abstract, linked and timed in OpenSTA. A path that crosses a block's
+boundary times as in the whole block; a path inside a block is the block's
+own KPI.
 
 Each part alone, at its own global route with its abstracts (`<part>_kpi`):
 
@@ -238,7 +227,7 @@ Each part alone, at its own global route with its abstracts (`<part>_kpi`):
 `kpi_run.tcl` writes each part's histogram in 10 ps bins, and
 `kpi.py --histograms parent=XSTile_kpi.txt Frontend=Frontend_kpi.txt ...`
 records them and the worst paths in the latest row; `kpi.py --flat
-XSTile_kpi_flat.txt XSTile_kpi_flat_nowire.txt` records the flat timing's
+XSTile_ilm_sta.txt XSTile_ilm_sta_nowire.txt` records the flat timing's
 classes; `kpi.py --hist-only --bin 20 --log` redraws the chart alone, from
 the json.
 

@@ -105,7 +105,7 @@ GOAL_PS = 2000
 # kpi_hist.png's bin width: a multiple of the json's (10 ps)
 HIST_BIN_PS = 50
 
-# the flat timing's (sta_flat.tcl) classes, grouped for the histogram: where
+# the flat timing's (<parent>_ilm_sta) classes, grouped for the histogram: where
 # an endpoint's worst path starts and ends, and whether it passes through a
 # block it neither starts nor ends in
 PARENT = "XSTile"
@@ -500,7 +500,7 @@ def merge(hists):
 
 
 def read_flat(text, nowire, old):
-    """sta_flat.tcl's report with wires and without, as kpi.json keeps it; a
+    """<parent>_ilm_sta's report with wires and without, as kpi.json keeps it; a
     class's hand-written `what` survives re-reading the same path."""
     hists = {
         m.group(1): {
@@ -743,8 +743,8 @@ def main():
     ap.add_argument(
         "--flat",
         nargs=2,
-        metavar=("KPI_FLAT_TXT", "KPI_FLAT_NOWIRE_TXT"),
-        help="record <parent>_kpi_flat.txt and its _nowire twin in the last run, then draw",
+        metavar=("ILM_STA_TXT", "ILM_STA_NOWIRE_TXT"),
+        help="record <parent>_ilm_sta.txt and its _nowire twin in the last run, then draw",
     )
     ap.add_argument(
         "--top",

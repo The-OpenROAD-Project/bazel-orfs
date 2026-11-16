@@ -510,25 +510,6 @@ genrule(
     tools = ["//test/coremark_joule/scripts:boundary_constants"],
 )
 
-# each block netlist's modules renamed <block>__<module> for the flat KPI
-# (xiangshan.bzl, <parent>_kpi_flat)
-py_binary(
-    name = "sta_prefix",
-    srcs = ["sta_prefix.py"],
-    main = "sta_prefix.py",
-)
-
-py_test(
-    name = "sta_prefix_test",
-    srcs = [
-        "sta_prefix.py",
-        "sta_prefix_test.py",
-    ],
-    imports = ["."],
-    main = "sta_prefix_test.py",
-    tags = ["study"],
-)
-
 # Module-in-context timing on Frontend (private/module_sta.bzl): its
 # synthesis as a hierarchical database, and the timing contexts of a few of
 # its modules, each for an AI loop iterating on that module in a dirty lane:
