@@ -114,16 +114,16 @@ OpenROAD that has it.
 Co-Authored-By: Claude <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/gpl/src/nesterovPlace.cpp                 | 55 +++++++++---
- src/gpl/src/nesterovPlace.h                   |  3 +
- .../test/congestion_buffers_timing_test.cpp   | 86 +++++++++++++++++++
+ src/gpl/src/nesterovPlace.cpp                   | 55 ++++++++++++----
+ src/gpl/src/nesterovPlace.h                     |  3 +
+ src/gpl/test/congestion_buffers_timing_test.cpp | 86 +++++++++++++++++++++++++
  3 files changed, 132 insertions(+), 12 deletions(-)
 
 diff --git a/src/gpl/src/nesterovPlace.cpp b/src/gpl/src/nesterovPlace.cpp
-index f893ad2..1160ef6 100644
+index bc16347..076b14e 100644
 --- a/src/gpl/src/nesterovPlace.cpp
 +++ b/src/gpl/src/nesterovPlace.cpp
-@@ -938,8 +938,10 @@ void NesterovPlace::runRoutability(int iter,
+@@ -941,8 +941,10 @@ void NesterovPlace::runRoutability(int iter,
    // placement that no longer exists by the time it lands. Wait for the motion
    // to come off its peak as well.
    //
@@ -136,7 +136,7 @@ index f893ad2..1160ef6 100644
    const bool is_routability_active
        = npVars_.routability_driven_mode && is_routability_need_
          && average_overflow_unscaled_ <= npVars_.routability_end_overflow;
-@@ -961,17 +963,36 @@ void NesterovPlace::runRoutability(int iter,
+@@ -964,17 +966,36 @@ void NesterovPlace::runRoutability(int iter,
                 NesterovBase::getSettleFraction() * 100.0f);
    }
  
@@ -183,7 +183,7 @@ index f893ad2..1160ef6 100644
        routability_settle_wait_start_iter_ = -1;
      }
  
-@@ -1136,6 +1157,16 @@ bool NesterovPlace::isConverged(int gpl_iter_count,
+@@ -1147,6 +1168,16 @@ bool NesterovPlace::isConverged(int gpl_iter_count,
    return false;
  }
  
@@ -201,11 +201,11 @@ index f893ad2..1160ef6 100644
  {
    if (nbVec_.empty()) {
 diff --git a/src/gpl/src/nesterovPlace.h b/src/gpl/src/nesterovPlace.h
-index 76c0ba8..3bd6488 100644
+index 76b829e..6437ab9 100644
 --- a/src/gpl/src/nesterovPlace.h
 +++ b/src/gpl/src/nesterovPlace.h
-@@ -153,6 +153,9 @@ class NesterovPlace
-   float getWorstSettleRatio() const;
+@@ -159,6 +159,9 @@ class NesterovPlace
+   bool isRoutabilityGplIter() const;
  
    bool isConverged(int gpl_iter_count, int routability_gpl_iter_count);
 +  // True when isConverged() would end the placement on this iteration; no
@@ -215,10 +215,10 @@ index 76c0ba8..3bd6488 100644
    // NesterovBase::updateDensityPenaltyFromRatio() - the same formula
    // NesterovBase::initDensity2() uses at true init, just re-triggered
 diff --git a/src/gpl/test/congestion_buffers_timing_test.cpp b/src/gpl/test/congestion_buffers_timing_test.cpp
-index ab4d7ed..58dacc5 100644
+index 992d51d..929fbd4 100644
 --- a/src/gpl/test/congestion_buffers_timing_test.cpp
 +++ b/src/gpl/test/congestion_buffers_timing_test.cpp
-@@ -288,6 +288,15 @@ class TimingRepairIntegrationTest : public tst::IntegratedFixture
+@@ -301,6 +301,15 @@ class TimingRepairIntegrationTest : public tst::IntegratedFixture
      }
    }
  
@@ -234,7 +234,7 @@ index ab4d7ed..58dacc5 100644
    // Cells moving at the given fraction of their peak displacement.
    void setDisplacementRatio(float ratio)
    {
-@@ -306,6 +315,10 @@ class TimingRepairIntegrationTest : public tst::IntegratedFixture
+@@ -319,6 +328,10 @@ class TimingRepairIntegrationTest : public tst::IntegratedFixture
      ASSERT_TRUE(np_->is_routability_snapshot_saved_);
    }
  
@@ -245,7 +245,7 @@ index ab4d7ed..58dacc5 100644
    bool placementSettled() const { return np_->isPlacementSettled(); }
    // True when the last RUDY average, computed by a pass or at convergence, is
    // below the congestion target. A pass that finds it so does not revert.
-@@ -539,6 +552,79 @@ TEST_F(TimingRepairIntegrationTest,
+@@ -588,6 +601,79 @@ TEST_F(TimingRepairIntegrationTest,
        << "a measured placement at the target overflow must converge";
  }
  

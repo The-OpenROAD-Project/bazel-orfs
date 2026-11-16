@@ -70,10 +70,10 @@ workload: when a stage is slow, the timer is the first suspect.
 - **WNS is often set by the SDC, not the logic**: of 51 ORFS designs, an
   I/O budget or clock choice sets WNS in 22 (bazel-orfs #1386).
   `timing__fmax` includes virtual clocks (OpenROAD #11668 open).
-- `write_spef` writes hierarchical cells under names that do not exist;
-  over 1,000 XSTile nets read back unconnected (OpenROAD #12049 open,
-  carried 0175).
-- A deleted net leaves dangling exceptions `-through` it (carried 0210);
+- `write_spef` wrote hierarchical cells under names that do not exist;
+  over 1,000 XSTile nets read back unconnected (fixed, OpenROAD #12205).
+- A deleted net left dangling exceptions `-through` it (fixed, OpenSTA
+  a8c6e82459);
   `write_sdc` crashes after deleting an instance from a merged false path
   (OpenSTA #444 open).
 - An abstract written at grt was timed with placement parasitics (fixed,
