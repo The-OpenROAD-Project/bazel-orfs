@@ -402,6 +402,18 @@ archive_override(
         # and routability_minimum_test. Not upstreamed; retires at a
         # //:bump onto an OpenROAD that has it.
         "//patches:0226-openroad-gpl-end-on-iterate.patch",
+        # 0227: a Nesterov descent restarts its momentum on any iteration
+        # whose HPWL rose by more than the density penalty controller's
+        # reference (phiCoef below 1) with the overflow at or below 0.2,
+        # again each time it rises by that much; a slower regrowth does not
+        # restart. XSTile's parent's -skip_io placement ran away over its
+        # last 14 iterations (98.5 M um); the same rule as a study switch,
+        # without 0226, restarted once at the onset and ended calmly at
+        # 48.2 M (this patch not yet run on XSTile). A placement that never
+        # rises that fast is unchanged: gpl's test logs are 0226's. Tests
+        # end_of_descent_test, routability_minimum_test. Not upstreamed;
+        # retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0227-openroad-gpl-momentum-restart-on-rise.patch",
     ],
     strip_prefix = "OpenROAD-615e34eabc2429b48d5bb58aa427907fc546020e",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/615e34eabc2429b48d5bb58aa427907fc546020e.tar.gz"],
