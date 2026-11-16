@@ -57,8 +57,13 @@ if { [env_var_equals STA_ILM 1] } {
   set loads [get_cells -quiet -of_objects [get_pins -quiet -filter "direction == input" \
     -of_objects [get_nets -quiet -of_objects [get_pins -quiet -of_objects $cells \
       -filter "direction == output"]]]]
+  # by the database's own name: it escapes a bus index (q\[0\]), the
+  # timer's does not
   set keep [dict create]
-  foreach c [concat $cells $loads] { dict set keep [get_full_name $c] 1 }
+  foreach c [concat $cells $loads] {
+    set inst [sta::sta_to_db_inst $c]
+    if { $inst ne "NULL" } { dict set keep [$inst getName] 1 }
+  }
   set gone 0
   foreach inst [[ord::get_db_block] getInsts] {
     if { ![dict exists $keep [$inst getName]] } {
