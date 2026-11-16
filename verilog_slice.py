@@ -140,8 +140,11 @@ class Module:
             if name not in names:
                 continue
             before = body[: m.start()].rstrip()
+            # A line of its own that starts with a backtick (a conditional,
+            # or a macro standing for statements) ends what came before.
             if (
                 before
+                and not before.rsplit("\n", 1)[-1].lstrip().startswith("`")
                 and not before.endswith((";", ")"))
                 and not re.search(r"\b(?:begin|end|else|generate)$", before)
             ):

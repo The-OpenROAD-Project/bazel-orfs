@@ -209,6 +209,41 @@ class ElaboratedNamesTest(unittest.TestCase):
         modules, _ = modules_of(text)
         self.assertEqual(modules["T"].instances(set(modules)), [("Leaf", "l")])
 
+    def test_instance_after_conditional(self):
+        text = (
+            "module K(input a);\nendmodule\n"
+            "module T(input a);\n"
+            "  reg r;\n"
+            "`ifndef SYNTHESIS\n"
+            "  initial begin\n"
+            "  `ifdef INIT_RANDOM\n"
+            "    r = 1'b0;\n"
+            "  `endif // INIT_RANDOM\n"
+            "  end\n"
+            "`endif // SYNTHESIS\n"
+            "`ifdef AFTER\n"
+            "  `AFTER\n"
+            "`endif\n"
+            "  K k0 (.a(a));\n"
+            "`ifdef FAST\n"
+            "  K k1 (.a(a));\n"
+            "`elsif SLOW\n"
+            "  K k2 (.a(a));\n"
+            "`else\n"
+            "  K k3 (.a(a));\n"
+            "`endif\n"
+            "`ifndef FAST\n"
+            "  K k4 (.a(a));\n"
+            "`endif\n"
+            "endmodule\n"
+        )
+        modules, _ = modules_of(text)
+        self.assertEqual(
+            modules["T"].instances(set(modules)),
+            [("K", "k0"), ("K", "k1"), ("K", "k2"), ("K", "k3"), ("K", "k4")],
+        )
+        self.assertEqual(elaborated_names(modules, "T")["K"], "K$T.k0")
+
     def test_instance_with_parameters(self):
         text = "module P #(parameter W = 1) (input a);\nendmodule\nmodule T(input a);\n  P #(.W(2)) p (.a(a));\nendmodule\n"
         modules, _ = modules_of(text)
