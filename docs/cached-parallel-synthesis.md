@@ -414,13 +414,22 @@ ORFS's detection, `.memories` overrides and FakeRAM on what it found,
 into `partition_<module>_memories/memories`, the directory the slice's
 canonicalize and partition read in place of the whole design's. The
 register files (`AUTO_MEMORIES_REGFILES`) depend on their specs alone
-and are generated once, for every slice. The whole design's memories
-are still detected, for the merge and every later stage; a check beside the partitions, which the merge waits for, holds
-each slice's memories to them: a memory a slice names or shapes
-differently, a black box only a slice has, or a macro of the whole
-design that a slice defines but did not find fails the build. FakeRAM's
+and are generated once, for every slice. The design's memories, the
+`memories` directory and `memories.json` that `1_synth.odb` and every
+later stage read, are the union of the slices', the top's included,
+written as ORFS's `gen_memories.py` writes them: a memory, black box or
+view two slices give differently fails the build, naming both. FakeRAM's
 date is left out of a slice's Liberty views, so they change only with
-their memories. A partition that synthesizes several kept modules
+their memories, and so does the union.
+
+The whole design's memories are still detected, by the global
+canonicalize, into `memories_whole_design` and
+`memories_whole_design.json`, for a validation action that nothing
+waits for and every build of the target runs: it holds each slice's
+memories, and their union, to them. A memory a slice names or shapes
+differently, a black box only a slice has, a macro of the whole design
+that a slice defines but did not find, or a union that is not the whole
+design's fails the build. A partition that synthesizes several kept modules
 (`SYNTH_NUM_PARTITIONS`) reads each one's
 `partition_<module>_memories`, found by the module's name, and stops
 naming the module when it has none.

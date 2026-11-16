@@ -122,6 +122,156 @@ class CheckTest(unittest.TestCase):
         self.assert_fails("ram_8x4.lib differs")
 
 
+class UnionTest(unittest.TestCase):
+    RAM = {"name": "ram_8x4", "rows": 8, "bits": 4}
+    ROM = {"name": "rom_4x2", "rows": 4, "bits": 2}
+    RF = {"name": "rf_2x2", "rows": 2, "bits": 2, "kind": "regfile"}
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.regfiles = self.root / "regfiles"
+        self.regfiles.mkdir()
+        (self.regfiles / "blackboxes.txt").write_text("rf_2x2_core 3\n")
+        self.slices = []
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def add_slice(self, name, records, blackboxes, views):
+        d = self.root / name
+        d.mkdir()
+        (d / "memories.json").write_text(inventory(*records))
+        (d / "blackboxes.txt").write_text("".join(b + "\n" for b in blackboxes))
+        for view, text in views.items():
+            (d / view).write_text(text)
+        self.slices.append((name, d))
+        return d
+
+    def run_union(self):
+        argv = [
+            "union",
+            "--out-dir",
+            str(self.root / "out"),
+            "--json",
+            str(self.root / "out.json"),
+            "--regfiles-dir",
+            str(self.regfiles),
+        ]
+        for name, d in self.slices:
+            argv += ["--slice-dir", str(d), "--slice-name", name]
+        return slice_memories.main(argv)
+
+    def assert_fails(self, message):
+        with mock.patch("sys.stderr") as err:
+            self.assertEqual(self.run_union(), 1)
+        self.assertIn(message, "".join(c.args[0] for c in err.write.call_args_list))
+
+    def test_union_is_what_gen_memories_writes(self):
+        undated = slice_memories.undated(LIB)
+        self.add_slice(
+            "Top",
+            [self.ROM, self.RAM, self.RF],
+            ["ram_8x4 1.5", "rom_4x2 0.5", "rf_2x2_core 3"],
+            {"ram_8x4.lib": undated, "rom_4x2.lib": "rom", "rf_2x2_core.lib": "rf"},
+        )
+        self.add_slice(
+            "MemA",
+            [self.RAM, self.RF],
+            ["ram_8x4 1.5", "rf_2x2_core 3"],
+            {"ram_8x4.lib": undated, "rf_2x2_core.lib": "rf"},
+        )
+        self.assertEqual(self.run_union(), 0)
+        out = self.root / "out"
+        self.assertEqual(
+            (self.root / "out.json").read_text(),
+            json.dumps(
+                {
+                    "version": 1,
+                    "platform": "asap7",
+                    "memories": [self.RAM, self.RF, self.ROM],
+                },
+                indent=2,
+            )
+            + "\n",
+        )
+        self.assertEqual(
+            (out / "blackboxes.txt").read_text(),
+            "ram_8x4 1.5\nrom_4x2 0.5\nrf_2x2_core 3\n",
+        )
+        self.assertEqual(
+            sorted(f.name for f in out.iterdir()),
+            ["blackboxes.txt", "ram_8x4.lib", "rf_2x2_core.lib", "rom_4x2.lib"],
+        )
+        self.assertEqual((out / "ram_8x4.lib").read_text(), undated)
+
+    def test_memory_shaped_differently_names_both_slices(self):
+        self.add_slice("MemA", [self.RAM], [], {})
+        self.add_slice("MemB", [dict(self.RAM, rows=16)], [], {})
+        self.assert_fails("memory ram_8x4 is not the same in MemA and MemB")
+
+    def test_view_that_differs_names_both_slices(self):
+        self.add_slice("MemA", [self.RAM], ["ram_8x4 1.5"], {"ram_8x4.lib": "a"})
+        self.add_slice("MemB", [self.RAM], ["ram_8x4 1.5"], {"ram_8x4.lib": "b"})
+        self.assert_fails("view ram_8x4.lib is not the same in MemA and MemB")
+
+    def test_black_box_that_differs_names_both_slices(self):
+        self.add_slice("MemA", [self.RAM], ["ram_8x4 1.5"], {})
+        self.add_slice("MemB", [self.RAM], ["ram_8x4 2.5"], {})
+        self.assert_fails("black box ram_8x4 is not the same in MemA and MemB")
+
+
+class UnionCheckTest(CheckTest):
+    def setUp(self):
+        super().setUp()
+        root = Path(self.tmp.name)
+        (self.design / "rf.tcl").write_text("generator script\n")
+        self.union_dir = root / "union"
+        self.union_dir.mkdir()
+        self.union_json = root / "union.json"
+        self.union_json.write_bytes(self.design_json.read_bytes())
+        for f in self.slice_dir.iterdir():
+            if f.name != "memories.json":
+                (self.union_dir / f.name).write_bytes(f.read_bytes())
+
+    def run_check(self):
+        return slice_memories.main(
+            [
+                "check",
+                "--global-dir",
+                str(self.design),
+                "--global-json",
+                str(self.design_json),
+                "--union-dir",
+                str(self.union_dir),
+                "--union-json",
+                str(self.union_json),
+                "--stamp",
+                str(self.stamp),
+                "--slice-dir",
+                str(self.slice_dir),
+                "--slice",
+                str(self.slice_v),
+            ]
+        )
+
+    def test_union_missing_a_view_fails(self):
+        (self.union_dir / "ram_8x4.lib").unlink()
+        self.assert_fails("the slices have no ram_8x4.lib")
+
+    def test_union_with_an_extra_view_fails(self):
+        (self.union_dir / "ghost.lef").write_text("")
+        self.assert_fails("the slices have ghost.lef")
+
+    def test_union_inventory_that_differs_fails(self):
+        self.union_json.write_text(inventory())
+        self.assert_fails("memories.json is not the whole design's")
+
+    def test_union_view_that_differs_fails(self):
+        (self.union_dir / "blackboxes.txt").write_text("ram_8x4 2\n")
+        self.assert_fails("the slices' blackboxes.txt is not the whole design's")
+
+
 class SliceTest(unittest.TestCase):
     """slice: ORFS's detection over the slice's netlist, scoped to it."""
 
