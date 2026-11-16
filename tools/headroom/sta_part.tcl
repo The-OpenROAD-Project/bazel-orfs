@@ -1,6 +1,5 @@
 # A part's pieces for the stitched timing of a parent and its blocks
-# (headroom_flat.tcl, private/headroom.bzl; XiangShan's sta_flat.tcl reads
-# its own copy of this file, kept apart so its cached results stay keyed): its
+# (headroom_flat.tcl, private/headroom.bzl; sta_flat.tcl, private/ilm.bzl): its
 # netlist, its global route's parasitics, its SDC, and the liberty files its
 # own timing reads, so the parent can be timed with every block's real cells
 # instead of the block's abstract. The netlist is written as the flow reads

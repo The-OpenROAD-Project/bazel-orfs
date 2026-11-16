@@ -1,7 +1,7 @@
 # Classes of a stitched design's reg2reg endpoints, by where each one's
 # worst path runs: it starts in the parent or in a block, ends in one, and
 # may pass through a block on the way. Sourced by headroom_flat.tcl
-# (orfs_headroom's <name>_classes) and by XiangShan's sta_flat.tcl.
+# (orfs_headroom's <name>_classes) and by sta_flat.tcl (<parent>_ilm_sta).
 #
 # A class is
 #   parent         from the parent to the parent, through no block
