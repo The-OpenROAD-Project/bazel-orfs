@@ -25,6 +25,10 @@ load("@rules_python//python:defs.bzl", "py_test")
 #   module_sta_negative_test
 #                       the before Inner in the same context does not.
 #   SliceTop_sta_ab     what the edit did to timing (orfs_timing_ab).
+#   floorplan_slices_test, floorplan_global_test
+#                       with slices the floorplan neither reads nor
+#                       forwards the whole design's canonicalize, which
+#                       nothing after synthesis reads; without, it does.
 #
 # MemTop keeps MemA and MemB, which hold a memory each, and Plain, in two
 # partitions (SYNTH_NUM_PARTITIONS = 2): MemA and MemB share one. The top
@@ -49,7 +53,7 @@ load("@rules_python//python:defs.bzl", "py_test")
 #                                    refused at analysis.
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:openroad.bzl", "orfs_flat_sta", "orfs_flow", "orfs_module_context", "orfs_module_iteration", "orfs_module_sta_base", "orfs_timing_ab")
-load(":slices_key_test.bzl", "slices_grouped_test", "slices_key_test", "slices_off_test", "slices_refused_test")
+load(":slices_key_test.bzl", "slices_floorplan_test", "slices_grouped_test", "slices_key_test", "slices_off_test", "slices_refused_test")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -267,6 +271,35 @@ sh_test(
         ":dpi_partitions_slices",
     ],
 )
+
+# buildifier: disable=duplicated-name
+[orfs_flow(
+    name = "SliceTop",
+    arguments = {
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.65",
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_KEEP_MODULES": " ".join(KEPT),
+        "SYNTH_SLANG_ARGS": "--disable-instance-caching=false",
+    },
+    last_stage = "floorplan",
+    sources = {"SDC_FILE": [":constraints.sdc"]},
+    variant = "floorplan_" + variant,
+    verilog_files = ["before.v"],
+    verilog_slices = slices,
+) for variant, slices in [
+    ("global", False),
+    ("slices", True),
+]]
+
+[slices_floorplan_test(
+    name = "floorplan_%s_test" % variant,
+    canonicalize = canonicalize,
+    target_under_test = ":SliceTop_floorplan_%s_floorplan" % variant,
+) for variant, canonicalize in [
+    ("global", True),
+    ("slices", False),
+]]
 
 slices_key_test(
     name = "slices_key_test",
