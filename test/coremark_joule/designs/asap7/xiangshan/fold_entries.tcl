@@ -12,21 +12,34 @@
 # the same module: one copy is renamed to the bare name, every instance
 # retyped onto it, and the rest pruned.
 #
+# On a Verilog slice (SYNTH_CANONICALIZE_SLICE) a module may have no
+# copies, the slice holding only the modules under its kept module; the
+# top may be a copy, and so may a kept module's stub, a black box. The
+# whole design's canonicalize, which the top partition reads, still
+# requires every module listed.
+#
 # SPDX-License-Identifier: Apache-2.0
+set top $::env(DESIGN_NAME)
 foreach base $::env(XS_FOLD_MODULES) {
   set copies {}
-  foreach line [split [yosys tee -q -s result.string select -list-mod "$base\\\$*"] "\n"] {
+  foreach line [split [yosys tee -q -s result.string select -list-mod "=$base\\\$*"] "\n"] {
     set line [regsub {^\\} [string trim $line] {}]
-    if { $line ne "" } {
+    if { $line ne "" && ![string match "Warning: *" $line] } {
       lappend copies $line
     }
   }
   if { [llength $copies] == 0 } {
+    if { [info exists ::env(SYNTH_CANONICALIZE_SLICE)] } {
+      continue
+    }
     error "fold_entries: no copies of $base in the design"
+  }
+  if { [lsearch -exact $copies $top] >= 0 } {
+    set top $base
   }
   set copies [lsort $copies]
   yosys rename [lindex $copies 0] $base
   yosys chtype -set $base "t:$base\\\$*"
   puts "fold_entries: $base, [llength $copies] copies folded onto one"
 }
-yosys hierarchy -check -top $::env(DESIGN_NAME)
+yosys hierarchy -check -top $top

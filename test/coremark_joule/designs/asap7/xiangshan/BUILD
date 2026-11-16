@@ -72,6 +72,7 @@ exports_files(
     visibility = [
         "//test/coremark_joule/designs/asap7/xiangshan/arrays:__pkg__",
         "//test/coremark_joule/designs/asap7/xiangshan/rob_array:__pkg__",
+        "//test/verilog_slices:__pkg__",
     ],
 )
 

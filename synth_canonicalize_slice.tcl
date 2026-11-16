@@ -71,6 +71,29 @@ dict for {def name} $elaborated {
     chtype -map $def $name
   }
 }
+# SYNTH_CANONICALIZE_TCL runs here as it runs on the whole design, with
+# the slice as the design and its top as DESIGN_NAME. A script that
+# needs a module the slice does not hold fails here; the slice's top and
+# stubs, which the partitions are joined by, must still be there after
+# it.
+if { [env_var_exists_and_non_empty SYNTH_CANONICALIZE_TCL] } {
+  set ::env(DESIGN_NAME) [dict get $elaborated $target]
+  set ::env(SYNTH_CANONICALIZE_SLICE) $target
+  if { [catch { source $::env(SYNTH_CANONICALIZE_TCL) } err] } {
+    error "synth_canonicalize_slice: SYNTH_CANONICALIZE_TCL failed on the slice\
+      of $target: $err\nA script that needs the whole design cannot run on a\
+      slice; set verilog_slices = False"
+  }
+  foreach m [concat [list $target] $stubs] {
+    set found [yosys tee -q -s result.string select -list-mod "=$m" "=$m\\\$*"]
+    if { [regexp -line {^(?!Warning: )\S} $found] == 0 } {
+      error "synth_canonicalize_slice: SYNTH_CANONICALIZE_TCL removed $m from\
+        the slice of $target, which joins it to its partition; set\
+        verilog_slices = False"
+    }
+  }
+  set ::env(DESIGN_NAME) $target
+}
 setattr -unset src *
 setattr -mod -unset src *
 write_rtlil $checkpoint
