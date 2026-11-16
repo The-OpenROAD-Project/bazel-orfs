@@ -425,7 +425,7 @@ orfs_flow(
 
 [
     orfs_flow(
-        name = "policy_t{}_s{}".format(tns, seed),
+        name = "policy",
         arguments = WIREBOUND_ARGS | WIREBOUND_SHAPES[WIREBOUND_RC_SHAPE] | {
             "GPL_RANDOM_SEED": str(seed),
             "TNS_END_PERCENT": str(tns),
@@ -437,6 +437,7 @@ orfs_flow(
         tags = ["manual"],
         top = "wirebound",
         user_arguments = WIREBOUND_POLICY_USER_ARGS,
+        variant = "t{}_s{}".format(tns, seed),
         verilog_files = WIREBOUND_VERILOG,
     )
     for tns in WIREBOUND_TNS_ARMS
