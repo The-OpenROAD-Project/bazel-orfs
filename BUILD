@@ -29,6 +29,7 @@ exports_files([
     "config_mk_parser.py",
     "deploy.tpl",
     "estimate.tcl",
+    "keep_report.py",
     "log_timestamps.py",
     "make.tpl",
     "mock_area.tcl",
@@ -53,6 +54,7 @@ exports_files([
     "synth_canonicalize_module.tcl",
     "synth_canonicalize_slice.tcl",
     "synth_keep.tcl",
+    "synth_keep_costs.tcl",
     "synth_partition.sh",
     "synth_slice_memories.tcl",
     "slice_memories.py",
@@ -329,6 +331,20 @@ py_library(
     srcs = ["rtlil_names.py"],
     imports = ["."],
     visibility = ["//test/rtlil_names:__pkg__"],
+)
+
+py_library(
+    name = "keep_report_lib",
+    srcs = ["keep_report.py"],
+    imports = ["."],
+    deps = [":rtlil_names_lib"],
+)
+
+py_test(
+    name = "keep_report_test",
+    size = "small",
+    srcs = ["keep_report_test.py"],
+    deps = [":keep_report_lib"],
 )
 
 py_test(

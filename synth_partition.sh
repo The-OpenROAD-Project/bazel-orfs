@@ -26,6 +26,9 @@
 #   SYNTH_SLICE_MEMORIES   - 1: each module reads its slice's memories,
 #                            RESULTS_DIR/partition_<module>_memories
 #   SYNTH_TOP_SLICE        - 1: the top partition reads the top's slice
+#   SYNTH_PARTITION_STAT   - file to append each module's timing and
+#                            synth_stat.txt to (stat_section), for
+#                            keep_report.py
 #   RESULTS_DIR, SCRIPTS_DIR, etc. - standard ORFS env
 set -euo pipefail
 
@@ -49,6 +52,22 @@ log_name() {
   fi
   printf '%s.log' "$n"
 }
+
+# Appends "=== partition <module>", the yosys log's timing lines and
+# synth.tcl's synth_stat.txt to SYNTH_PARTITION_STAT, when it is set.
+stat_section() {
+  [ -n "${SYNTH_PARTITION_STAT:-}" ] || return 0
+  {
+    printf '=== partition %s\n' "$1"
+    grep -E 'End of script\.|Time spent:|Elapsed time:' "$2" || true
+    cat "$REPORTS_DIR/synth_stat.txt" 2>/dev/null || true
+  } >> "$SYNTH_PARTITION_STAT"
+}
+
+if [ -n "${SYNTH_PARTITION_STAT:-}" ]; then
+  mkdir -p "$(dirname "$SYNTH_PARTITION_STAT")"
+  : > "$SYNTH_PARTITION_STAT"
+fi
 
 if [ -n "${SYNTH_PARTITION_MODULE:-}" ]; then
   # The partition is named by its module, not by an index into the kept
@@ -114,6 +133,7 @@ else
       "$SCRIPTS_DIR/synth.sh" \
       "$SYNTH_TCL" \
       "$LOG_DIR/1_2_yosys_partition_top.log"
+    stat_section "$DESIGN_NAME" "$LOG_DIR/1_2_yosys_partition_top.log"
     cp "$top_results/1_2_yosys.v" "$OUTPUT"
     exit 0
   fi
@@ -178,6 +198,7 @@ for module in "${MY_MODULES[@]}"; do
       "$SCRIPTS_DIR/synth.sh" \
       "$SYNTH_TCL" \
       "$LOG_DIR/$(log_name "$log_module")"
+    stat_section "$module" "$LOG_DIR/$(log_name "$log_module")"
     cat "$RESULTS_DIR/1_2_yosys.v" >> "$OUTPUT"
     continue
   fi
@@ -214,6 +235,7 @@ for module in "${MY_MODULES[@]}"; do
     "$SCRIPTS_DIR/synth.sh" \
     "$SYNTH_TCL" \
     "$LOG_DIR/$(log_name "$log_module")"
+  stat_section "$canonical_name" "$LOG_DIR/$(log_name "$log_module")"
 
   # Append this module's netlist to partition output
   cat "$module_results/1_2_yosys.v" >> "$OUTPUT"
