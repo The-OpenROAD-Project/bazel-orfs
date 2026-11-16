@@ -1,6 +1,7 @@
 #!/bin/bash
-# The slice path and the global path give every partition the same name
-# and the same netlist, and the design the same netlist. The canonical
+# The slice path and the global path give every partition, the top's
+# included, the same name and the same netlist, and the design the same
+# netlist. The canonical
 # RTLIL may differ: a module under a kept one is named after where the
 # slice, not the whole design, first instantiates it, and partition
 # synthesis flattens it away.
@@ -46,6 +47,7 @@ for m in $kept; do
         exit 1
     fi
 done
+same "$(pick partition_top.v "${global[@]}")" "$(pick partition_top.v "${slices[@]}")" partition_top.v
 same "$netlist_global" "$netlist_slices" 1_2_yosys.v
 
 # Other's memory is a black box in its partition: AUTO_MEMORIES reached

@@ -1498,16 +1498,18 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     # and parallel_synth.mk's log path.
     per_module_rtlil = {}
     per_module_name_file = {}
+    slice_checkpoint_of = {}
 
     # With verilog_slices, verilog_slice.py cuts the design's Verilog into
-    # one source per kept module (its subtree, the kept modules under it
-    # as port-only stubs) and each module is canonicalized from its own
-    # slice, so a partition waits on neither the global canonicalize nor
-    # an edit elsewhere in the design.
+    # one source per kept module and one for the top (its subtree, the
+    # kept modules under it as port-only stubs) and each is canonicalized
+    # from its own slice, so no partition, the top's included, waits on
+    # the global canonicalize or an edit elsewhere in the design.
     verilog_slice = {}
     slice_checkpoints = []
+    top = module_top(ctx)
     if slices:
-        for module in kept_modules_list:
+        for module in kept_modules_list + [top]:
             verilog_slice[module] = declare_artifact(
                 ctx,
                 "results",
@@ -1515,7 +1517,8 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             )
         slice_args = ctx.actions.args()
         slice_args.add(ctx.file._verilog_slice)
-        slice_args.add("--top", module_top(ctx))
+        slice_args.add("--top", top)
+        slice_args.add("--top-slice", verilog_slice[top])
         for module in kept_modules_list:
             slice_args.add_all("--slice", [module, verilog_slice[module]])
         slice_args.add_all(slices.verilog, expand_directories = False)
@@ -1523,7 +1526,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             executable = ctx.executable._python,
             arguments = [slice_args],
             inputs = slices.verilog + [ctx.file._verilog_slice],
-            outputs = [verilog_slice[m] for m in kept_modules_list],
+            outputs = [verilog_slice[m] for m in kept_modules_list + [top]],
             mnemonic = "VerilogSlice",
             progress_message = "Slicing Verilog by kept module for %s" % module_top(ctx),
         )
@@ -1555,7 +1558,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             progress_message = "Generating register files for the slices of %s" % module_top(ctx),
         )
 
-    for module in kept_modules_list:
+    for module in kept_modules_list + ([top] if slices else []):
         sanitized = _sanitize_module(module)
         per_module_out = declare_artifact(
             ctx,
@@ -1643,6 +1646,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             per_module_rtlil[module] = per_module_out
             per_module_name_file[module] = per_module_name_out
             slice_checkpoints.append(slice_checkpoint)
+            slice_checkpoint_of[module] = slice_checkpoint
             continue
         ctx.actions.run_shell(
             arguments = [
@@ -1993,12 +1997,28 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     # Top integration always sees the full macro set — it stitches every
     # partition together and is the join point of the synth phase, so
     # scoping its inputs doesn't help wall time. Top synth reads the
-    # global checkpoint directly (not a per-module slice), so include
-    # checkpoint_output explicitly here.
-    top_partition_inputs = depset(
-        [checkpoint_output, ctx.file._rtlil_names],
-        transitive = [base_partition_inputs, all_macro_files],
-    )
+    # global checkpoint, or with verilog_slices the top's own slice and
+    # that slice's memories. The top reads its slice's canonicalized RTLIL
+    # as it reads the global one, without synth_canonicalize_module.tcl's
+    # renaming, which can reorder what synthesis makes of it.
+    top_env = {}
+    if slices:
+        top_partition_inputs = depset(
+            [slice_checkpoint_of[top]] +
+            ([slice_memories[top]] if slice_memories else []),
+            transitive = [listed_partition_inputs, all_macro_files],
+        )
+        top_env = {"SYNTH_TOP_SLICE": "1"}
+        if slice_memories:
+            top_env["SYNTH_SLICE_MEMORIES"] = "1"
+    else:
+        top_partition_inputs = depset(
+            [checkpoint_output, ctx.file._rtlil_names],
+            transitive = [base_partition_inputs, all_macro_files],
+        )
+
+        # resolves the kept names against the checkpoint (synth_partition.sh)
+        top_env = {"RTLIL_NAMES_PY": ctx.file._rtlil_names.path}
     top_output = declare_artifact(ctx, "results", "partition_top.v")
     top_commands = [_make_cmd(ctx)] + generation_commands([top_output])
     ctx.actions.run_shell(
@@ -2010,9 +2030,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             "SYNTH_PARTITION_SCRIPT=" + ctx.file._synth_partition_script.path,
         ] + memories_old_file_args + sdc_overrides,
         command = " && ".join(top_commands),
-        env = base_env | partition_env_extra | {
-            # resolves the kept names against the checkpoint (synth_partition.sh)
-            "RTLIL_NAMES_PY": ctx.file._rtlil_names.path,
+        env = base_env | partition_env_extra | top_env | {
             "SYNTH_PARTITION_ID": "top",
             "SYNTH_NUM_PARTITIONS": str(num_partitions),
             "SYNTH_TCL": ctx.file._synth_tcl.path,
@@ -2034,15 +2052,15 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         check_args.add("--global-dir", slices.memories[1].path)
         check_args.add("--global-json", slices.memories[0])
         check_args.add("--stamp", stamp)
-        for m in kept_modules_list:
+        for m in kept_modules_list + [top]:
             check_args.add("--slice-dir", slice_memories[m].path + "/memories")
             check_args.add("--slice", verilog_slice[m])
         ctx.actions.run(
             executable = ctx.executable._python,
             arguments = [check_args],
             inputs = [ctx.file._slice_memories] + slices.memories +
-                     [slice_memories[m] for m in kept_modules_list] +
-                     [verilog_slice[m] for m in kept_modules_list],
+                     [slice_memories[m] for m in kept_modules_list + [top]] +
+                     [verilog_slice[m] for m in kept_modules_list + [top]],
             outputs = [stamp],
             mnemonic = "SliceMemoriesCheck",
             progress_message = "Checking the slices' memories against %s's" % module_top(ctx),

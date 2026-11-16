@@ -1,5 +1,6 @@
-# Canonicalize one kept module from its Verilog slice (verilog_slice.py),
-# then cut its partition's RTLIL from that with synth_canonicalize_module.tcl.
+# Canonicalize one kept module, or the top, from its Verilog slice
+# (verilog_slice.py), then cut its partition's RTLIL from that with
+# synth_canonicalize_module.tcl.
 #
 # The slice holds the module, the modules under it and a port-only stub
 # of each kept module under it, so this reads the sources the way ORFS's

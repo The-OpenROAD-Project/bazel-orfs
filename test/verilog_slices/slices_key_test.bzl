@@ -1,10 +1,11 @@
 """analysistest: with verilog_slices, a kept module's canonicalize reads its slice.
 
-Each per-module canonicalize reads its own slice of the Verilog and none
-of the design's sources, the other slices, the global canonicalize's
-RTLIL or the whole design's memories, and finds its slice's memories
-itself; each partition reads those. So neither waits on a whole-design
-read nor reruns for an edit outside its slice.
+Each per-module canonicalize, the top's included, reads its own slice of
+the Verilog and none of the design's sources, the other slices, the
+global canonicalize's RTLIL or the whole design's memories, and finds its
+slice's memories itself; each partition, the top's included, reads
+those. So neither waits on a whole-design read nor reruns for an edit
+outside its slice.
 """
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
@@ -13,19 +14,20 @@ def _impl(ctx):
     env = analysistest.begin(ctx)
     actions = analysistest.target_actions(env)
 
+    sliced = ctx.attr.modules + [ctx.attr.top]
     slicers = [a for a in actions if a.mnemonic == "VerilogSlice"]
     asserts.equals(env, 1, len(slicers))
     if slicers:
         asserts.equals(
             env,
-            sorted(["partition_%s_slice.v" % m for m in ctx.attr.modules]),
+            sorted(["partition_%s_slice.v" % m for m in sliced]),
             sorted([f.basename for f in slicers[0].outputs.to_list()]),
         )
 
     canonicalizes = [a for a in actions if a.env and a.env.get("MODULE_VERILOG_SLICE")]
     asserts.equals(
         env,
-        sorted(ctx.attr.modules),
+        sorted(sliced),
         sorted([a.env["MODULE_TARGET_NAME"] for a in canonicalizes]),
     )
     for action in canonicalizes:
@@ -51,6 +53,16 @@ def _impl(ctx):
             asserts.false(env, name in inputs, "%s's partition reads %s" % (module, name))
         asserts.true(env, "partition_%s_memories" % module in inputs, "%s's partition lacks its memories" % module)
 
+    # The top partition reads the top's slice, not the global canonicalize.
+    tops = [a for a in actions if a.env and a.env.get("SYNTH_PARTITION_ID") == "top"]
+    asserts.equals(env, 1, len(tops))
+    for action in tops:
+        inputs = [f.basename for f in action.inputs.to_list()]
+        for name in ["1_1_yosys_canonicalize.rtlil", "memories.json", "memories_inferred.json", "memories"] + ctx.attr.sources:
+            asserts.false(env, name in inputs, "the top partition reads %s" % name)
+        for name in ["partition_%s_slice.rtlil", "partition_%s_memories"]:
+            asserts.true(env, name % ctx.attr.top in inputs, "the top partition lacks " + name % ctx.attr.top)
+
     # The merge waits for the slices' memories to be checked against the
     # whole design's; nothing before it does.
     merges = [a for a in actions if "1_2_yosys.v" in [f.basename for f in a.outputs.to_list()]]
@@ -64,6 +76,7 @@ slices_key_test = analysistest.make(
     attrs = {
         "modules": attr.string_list(),
         "sources": attr.string_list(),
+        "top": attr.string(),
     },
 )
 

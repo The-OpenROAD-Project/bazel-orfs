@@ -9,13 +9,14 @@ load("@rules_python//python:defs.bzl", "py_test")
 # The global variant opts out (verilog_slices = False), before slices by
 # default (SYNTH_KEEP_MODULES pinned) and after asks for it explicitly.
 #
-#   slices_equal_test   the slice path gives the partitions the global
-#                       path gives them: byte-identical netlists, and the
-#                       same merged netlist.
+#   slices_equal_test   the slice path gives the partitions, the top's
+#                       included, the netlists the global path gives
+#                       them, byte for byte, and the same merged netlist.
 #   slices_edit_test    the edit to Inner leaves Outer's and Other's
 #                       slices, canonical RTLIL and netlists as they were.
-#   slices_key_test     no per-module canonicalize reads the global
-#                       canonicalize or the design's sources.
+#   slices_key_test     no per-module canonicalize, and not the top
+#                       partition, reads the global canonicalize or the
+#                       design's sources.
 #   module_sta_inner_test, module_sta_outer_test
 #                       the after variant's Inner, and its Outer with the
 #                       Inner inside, swapped into their contexts cut from
@@ -26,12 +27,16 @@ load("@rules_python//python:defs.bzl", "py_test")
 #   SliceTop_sta_ab     what the edit did to timing (orfs_timing_ab).
 #
 # MemTop keeps MemA and MemB, which hold a memory each, and Plain, in two
-# partitions (SYNTH_NUM_PARTITIONS = 2): MemA and MemB share one.
+# partitions (SYNTH_NUM_PARTITIONS = 2): MemA and MemB share one. The top
+# holds a memory of its own.
 #
 #   slices_grouped_test     each partition reads its modules' slices'
 #                           memories and not the whole design's.
 #   slices_partitions_test  the memories are found, and the netlists are
 #                           those of one partition per module.
+#   mem_equal_test          the slices give every partition, the top's
+#                           included, and the design the netlist the
+#                           global path gives them.
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:openroad.bzl", "orfs_flat_sta", "orfs_flow", "orfs_module_context", "orfs_module_iteration", "orfs_module_sta_base", "orfs_timing_ab")
 load(":slices_key_test.bzl", "slices_grouped_test", "slices_key_test")
@@ -130,8 +135,9 @@ sh_test(
 # copies onto one Entry, on the whole design (global) and on each slice
 # (slices).
 #
-#   fold_equal_test   the slices give every partition, and the design,
-#                     the netlist the whole design's fold gives it.
+#   fold_equal_test   the slices give every partition, the top's
+#                     included, and the design the netlist the whole
+#                     design's fold gives it.
 FOLD_KEPT = [
     "Bank",
     "Entry",
@@ -195,6 +201,7 @@ slices_key_test(
     modules = KEPT,
     sources = ["before.v"],
     target_under_test = ":SliceTop_before_synth",
+    top = "SliceTop",
 )
 
 # Module-in-context timing (private/module_sta.bzl): the before variant as
@@ -319,12 +326,14 @@ MEM_KEPT = [
     },
     variant = variant,
     verilog_files = ["memories.v"],
-    verilog_slices = True,
-) for variant, extra in [
-    ("modules", {}),
+    verilog_slices = slices,
+) for variant, extra, slices in [
+    ("global", {}, False),
+    ("modules", {}, True),
     (
         "grouped",
         {"SYNTH_NUM_PARTITIONS": "2"},
+        True,
     ),
 ]]
 
@@ -336,9 +345,30 @@ MEM_KEPT = [
     ("partitions", "partitions"),
     ("netlist", "1_2_yosys.v"),
 ] for variant in [
+    "global",
     "modules",
     "grouped",
 ]]
+
+sh_test(
+    name = "mem_equal_test",
+    size = "small",
+    srcs = ["slices_equal_test.sh"],
+    args = [
+        "$(location :mem_netlist_global)",
+        "$(location :mem_netlist_modules)",
+        " ".join(MEM_KEPT),
+        "$(locations :mem_partitions_global)",
+        "--",
+        "$(locations :mem_partitions_modules)",
+    ],
+    data = [
+        ":mem_netlist_global",
+        ":mem_netlist_modules",
+        ":mem_partitions_global",
+        ":mem_partitions_modules",
+    ],
+)
 
 slices_grouped_test(
     name = "slices_grouped_test",
