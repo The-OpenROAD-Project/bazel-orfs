@@ -403,6 +403,50 @@ class MainTest(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertEqual(sorted(written), ["i.v", "o.v"])
 
+    def test_writes_the_top_slice(self):
+        rc, written, _ = self.run_main(
+            {"d.sv": DESIGN},
+            [
+                "--top",
+                "Top",
+                "--top-slice",
+                "t.v",
+                "--slice",
+                "Outer",
+                "o.v",
+                "--slice",
+                "Inner",
+                "i.v",
+                "d.sv",
+            ],
+        )
+        self.assertEqual(rc, 0)
+        self.assertEqual(sorted(written), ["i.v", "o.v", "t.v"])
+        top = written["t.v"]
+        self.assertTrue(
+            top.startswith(
+                "// verilog_slice: Top Top\n// verilog_slice: Outer Outer$Top.outer\n"
+            )
+        )
+        self.assertIn("module Top(", top)
+        self.assertIn("module Outer(", top)
+        self.assertNotIn("Inner", top)
+        self.assertNotIn("Leaf", top)
+
+    def test_top_slice_holds_unkept_modules_under_top(self):
+        modules, order = modules_of(DESIGN)
+        text = slice_text(
+            modules, order, "Top", {"Inner"}, elaborated_names(modules, "Top")
+        )
+        self.assertIn("module Outer(", text)
+        self.assertIn("Leaf leaf", text)
+        self.assertNotIn("always", text)
+        self.assertTrue(
+            text.startswith(
+                "// verilog_slice: Top Top\n// verilog_slice: Inner Inner$Top.outer.inner\n"
+            )
+        )
+
     def test_missing_kept_module_fails(self):
         rc, written, err = self.run_main(
             {"d.sv": DESIGN}, ["--top", "Top", "--slice", "Nope", "n.v", "d.sv"]

@@ -15,8 +15,7 @@
 # On a Verilog slice (SYNTH_CANONICALIZE_SLICE) a module may have no
 # copies, the slice holding only the modules under its kept module; the
 # top may be a copy, and so may a kept module's stub, a black box. The
-# whole design's canonicalize, which the top partition reads, still
-# requires every module listed.
+# whole design's canonicalize still requires every module listed.
 #
 # SPDX-License-Identifier: Apache-2.0
 set top $::env(DESIGN_NAME)

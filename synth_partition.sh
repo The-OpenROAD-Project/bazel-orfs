@@ -14,9 +14,9 @@
 # synth.sh failed with "Argument list too long" on every partition.
 #
 # When SYNTH_PARTITION_ID=top, synthesizes the top module (DESIGN_NAME)
-# with all kept modules blackboxed against the global checkpoint (the top
-# integration partition is the join point — scoping its inputs doesn't
-# help wall time, and there's no per-module slice that contains the top).
+# with all kept modules blackboxed against the global checkpoint, or with
+# SYNTH_TOP_SLICE=1 against the top's own canonicalized Verilog slice,
+# RESULTS_DIR/partition_<top>_slice.rtlil.
 #
 # Environment:
 #   SYNTH_PARTITION_MODULE - the one kept module this partition synthesizes
@@ -25,6 +25,7 @@
 #   SYNTH_NUM_PARTITIONS   - total number of partitions
 #   SYNTH_SLICE_MEMORIES   - 1: each module reads its slice's memories,
 #                            RESULTS_DIR/partition_<module>_memories
+#   SYNTH_TOP_SLICE        - 1: the top partition reads the top's slice
 #   RESULTS_DIR, SCRIPTS_DIR, etc. - standard ORFS env
 set -euo pipefail
 
@@ -73,11 +74,27 @@ else
   ALL_MODULES=$(grep -oE '"[^"]+"' "$KEPT_JSON" | tail -n +2 | sed 's/"//g')
 
   if [ "$PARTITION_ID" = "top" ]; then
-    # Top integration: synthesize the top module from the global checkpoint
-    # with every kept module blackboxed. This path retains the original
-    # behavior — top doesn't have a per-module slice, and the macro inputs
-    # aren't scoped here anyway.
-    if [ "${SYNTH_SKIP_KEEP:-0}" = "1" ]; then
+    # Top integration: synthesize the top module with every kept module
+    # blackboxed.
+    top_results="$RESULTS_DIR"
+    if [ "${SYNTH_TOP_SLICE:-0}" = "1" ]; then
+      # The top's slice holds the kept modules it instantiates as black
+      # boxes already, under the names the whole design gives them. The
+      # bare names are listed only so synth.tcl takes the run for a
+      # partition's; the ones the slice lacks are skipped there.
+      sanitized=$(sanitize "$DESIGN_NAME")
+      CHECKPOINT="$RESULTS_DIR/partition_${sanitized}_slice.rtlil"
+      if [ "${SYNTH_SLICE_MEMORIES:-0}" = "1" ]; then
+        memories_dir="$RESULTS_DIR/partition_${sanitized}_memories"
+        if [ ! -d "$memories_dir/memories" ]; then
+          echo "ERROR: no slice memories for the top $DESIGN_NAME: $memories_dir/memories" >&2
+          exit 1
+        fi
+        top_results="$OBJECTS_DIR/partition_${sanitized}_results"
+        mkdir -p "$top_results"
+        ln -sfn "$(realpath "$memories_dir")/memories" "$top_results/memories"
+      fi
+    elif [ "${SYNTH_SKIP_KEEP:-0}" = "1" ]; then
       CHECKPOINT="$RESULTS_DIR/1_1_yosys_canonicalize.rtlil"
       # SYNTH_KEEP_MODULES carries bare names; resolve each to canonical for
       # blackboxing. Same algorithm as synth_canonicalize_module.tcl.
@@ -93,10 +110,11 @@ else
     echo "=== Synthesizing top module: $DESIGN_NAME (blackboxes: $(wc -l < "$BLACKBOXES_FILE") kept modules) ==="
     SYNTH_CHECKPOINT="$CHECKPOINT" \
     SYNTH_BLACKBOXES_FILE="$BLACKBOXES_FILE" \
+    RESULTS_DIR="$top_results" \
       "$SCRIPTS_DIR/synth.sh" \
       "$SYNTH_TCL" \
       "$LOG_DIR/1_2_yosys_partition_top.log"
-    cp "$RESULTS_DIR/1_2_yosys.v" "$OUTPUT"
+    cp "$top_results/1_2_yosys.v" "$OUTPUT"
     exit 0
   fi
 

@@ -391,16 +391,20 @@ requires a pinned `SYNTH_KEEP_MODULES`):
 1. **Slice.** `verilog_slice.py` cuts the Verilog into one file per kept
    module, `partition_<module>_slice.v`: the module, every module under
    it, and a stub (the header, ports only) for each kept module under
-   it. It takes seconds and its outputs are declared per module at
-   analysis time.
-2. **Canonicalize the slice, one action per kept module.**
-   `synth_canonicalize_slice.tcl` reads the slice as
+   it. The top gets one the same way, `partition_<top>_slice.v`: the
+   top, every module under it that is not kept, and a stub for each kept
+   module it reaches. It takes seconds and its outputs are declared per
+   module at analysis time.
+2. **Canonicalize the slice, one action per kept module and one for the
+   top.** `synth_canonicalize_slice.tcl` reads the slice as
    `synth_canonicalize.tcl` reads the design, with the module as the top
    and the stubs blackboxed, and hands the result to
    `synth_canonicalize_module.tcl` as its checkpoint.
 
-The top partition still reads the global canonicalize, beside the
-partitions rather than in front of them.
+The top partition synthesizes the top's canonicalized slice,
+`partition_<top>_slice.rtlil`, every kept module a black box, so no
+partition reads the global canonicalize.
+It still runs, for what else reads it, such as the `kept_macros` check.
 
 With `AUTO_MEMORIES` each slice finds its own memories as well, so no
 partition waits on the memory detection either, which elaborates and
@@ -411,8 +415,7 @@ into `partition_<module>_memories/memories`, the directory the slice's
 canonicalize and partition read in place of the whole design's. The
 register files (`AUTO_MEMORIES_REGFILES`) depend on their specs alone
 and are generated once, for every slice. The whole design's memories
-are still detected, for the top partition, the merge and every later
-stage; a check beside the partitions, which the merge waits for, holds
+are still detected, for the merge and every later stage; a check beside the partitions, which the merge waits for, holds
 each slice's memories to them: a memory a slice names or shapes
 differently, a black box only a slice has, or a macro of the whole
 design that a slice defines but did not find fails the build. FakeRAM's
@@ -449,8 +452,8 @@ whole design; a slice never falls back to it silently.
 `SYNTH_CANONICALIZE_TCL` runs on each slice as it runs on the whole
 design, after the slice's modules take the whole design's names: the
 slice is the design and its top, so named, is `DESIGN_NAME`, and
-`SYNTH_CANONICALIZE_SLICE` names the kept module whose slice it is. The
-whole design's canonicalize, which the top partition reads, runs it too.
+`SYNTH_CANONICALIZE_SLICE` names the kept module, or the top, whose
+slice it is. The whole design's canonicalize runs it too.
 A script that acts only on the modules it finds, as
 `fold_entries.tcl` folds slang's per-instance copies of an entry cell
 onto one module (`test/verilog_slices` FoldTop), gives each partition

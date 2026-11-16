@@ -67,6 +67,18 @@ module MemTop(
   wire [7:0] _mema_q;
   wire [7:0] _memb_q;
   wire [7:0] _plain_q;
+  wire [15:0] _ram_rd_out;
+  reg  [5:0]  ptr;
+  ram_64x16 ram (
+    .clk     (clock),
+    .ce_in   (1'h1),
+    .we_in   (ptr[2]),
+    .addr_in (ptr),
+    .wd_in   ({_plain_q, a}),
+    .rd_out  (_ram_rd_out)
+  );
+  always @(posedge clock)
+    ptr <= ptr + 6'h3;
   MemA mema (
     .clock (clock),
     .a     (a),
@@ -82,5 +94,5 @@ module MemTop(
     .a     (a),
     .q     (_plain_q)
   );
-  assign q = _memb_q ^ _plain_q;
+  assign q = _memb_q ^ _plain_q ^ _ram_rd_out[7:0];
 endmodule

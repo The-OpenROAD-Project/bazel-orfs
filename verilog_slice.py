@@ -13,7 +13,11 @@ output is. Anything else outside a module (a `define, an `include, a
 package) or a directive that reaches across modules fails here, rather
 than leaving a slice that elaborates differently from the whole design.
 
-Usage: verilog_slice.py --slice MODULE OUT [--slice MODULE OUT ...] SOURCE...
+The top's slice (--top-slice) is cut the same way: the top and every
+module under it down to the kept modules, which are stubs.
+
+Usage: verilog_slice.py --top TOP [--top-slice OUT]
+           --slice MODULE OUT [--slice MODULE OUT ...] SOURCE...
 
 A SOURCE that is a directory stands for its .v, .sv and .svh files.
 """
@@ -524,6 +528,9 @@ def main(argv=None):
     parser.add_argument(
         "--top", required=True, help="the design's top module, which names the rest"
     )
+    parser.add_argument(
+        "--top-slice", metavar="OUT", help="the file the top's slice goes to"
+    )
     parser.add_argument("sources", nargs="+")
     args = parser.parse_args(argv)
 
@@ -553,6 +560,10 @@ def main(argv=None):
         for name, out in args.slice:
             text = slice_text(modules, order, name, kept, elaborated)
             with open(out, "w") as f:
+                f.write(text)
+        if args.top_slice:
+            text = slice_text(modules, order, args.top, kept, elaborated)
+            with open(args.top_slice, "w") as f:
                 f.write(text)
     except SliceError as e:
         print(

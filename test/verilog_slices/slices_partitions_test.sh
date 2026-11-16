@@ -35,7 +35,7 @@ same() {
     fi
 }
 
-for m in MemA MemB; do
+for m in MemA MemB top; do
     part=$(pick "partition_${m}.v" "${modules[@]}")
     if grep -q "^module ram_64x16" "$part" || ! grep -q "ram_64x16 " "$part"; then
         echo "FAIL: $m's memory is not a black box in its partition" >&2
