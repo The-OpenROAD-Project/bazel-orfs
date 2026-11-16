@@ -245,6 +245,8 @@ quality of results and the turnaround:
   a miss. A partition that dwarfs the others is usually a regular
   structure that should be generated, or an unrolled loop that should be
   one module instanced N times (the Rob above).
+  The [keep report](#which-modules-to-keep-the-keep-report) puts the
+  partitions' times side by side and ranks what could be kept.
 - **Where the boundaries are.** A kept module is a hard boundary: yosys
   does not optimize across it, no constant propagates in, no logic merges
   between two modules. Keep too much and what crosses a boundary is not
@@ -295,6 +297,89 @@ wait for the place and route of a macro it does not contain.
 XiangShan's flows pin their kept lists, one with sixteen modules
 (`Frontend`, `Backend`, `MemBlock`, ...) in sixteen partitions. A flat
 against partitioned synthesis time for XiangShan has not been measured.
+
+### Which modules to keep: the keep report
+
+A partitioned synthesis takes as long as its longest partition. That is
+either the largest kept module or the top, when the top holds much logic
+of its own or modules under it that are not kept: on two XiangShan
+blocks with Verilog slices (2026-11), one block's longest partition was
+a kept vector multiply-add unit, the other's was the top, most of it in
+`abc`. bazel-orfs makes the flow parallel; which modules to keep, so that
+no partition dwarfs the others, is the design's to decide. The keep
+report says where to look. Ask a synthesis target for it:
+
+```sh
+bazelisk build //test/verilog_slices:SliceTop_before_synth --output_groups=keep_report
+cat bazel-bin/test/verilog_slices/reports/asap7/SliceTop/before/keep_report.md
+```
+
+It is never built unless asked for, so neither the critical path nor CI
+pays for it. It reads what the synthesis wrote, each partition's
+`partition_<module>_stat.txt` (the yosys log's timing lines and
+`synth_stat.txt`, which `synth_partition.sh` writes beside the
+partition's netlist), plus one action of its own, `keep_costs.txt`:
+`synth_keep_costs.tcl` runs the coarse synthesis `synth_keep.tcl` runs
+for discovery on the whole canonical design and logs yosys's
+`keep_hierarchy -min_cost` estimate for every module, the same estimate
+`SYNTH_MINIMUM_KEEP_SIZE` is compared against. On a large design that
+action takes minutes; it runs beside the partitions, never before them.
+
+On `SliceTop`, where `Leaf` is not kept and is instanced in both `Inner`
+and `Outer`:
+
+```markdown
+# Keep report: SliceTop
+
+**Critical path: Inner** (1.9 s, abc 0 s). Keeping Leaf would move 5% of its estimated gates into partitions of their own.
+
+## Partitions, longest first
+
+| Partition | Wall (s) | Longest pass | Cells | Area | Est. gates | Own gates |
+|---|---:|---|---:|---:|---:|---:|
+| Inner | 1.9 | abc 0 s | 66 | 7.9 | 76 | 72 |
+| Other | 1.9 | abc 0 s | 39 | 4.8 | 70 | 70 |
+| (top) SliceTop | 1.9 | abc 0 s | 35 | 4.1 | 64 | 64 |
+| Outer | 1.7 | abc 0 s | 25 | 4.1 | 20 | 16 |
+
+## Keep candidates in Inner
+
+| Module | Instances | Est. gates each | Moved out | Share |
+|---|---:|---:|---:|---:|
+| Leaf | 1 | 4 | 4 | 5% |
+
+## Keep candidates in Outer
+...
+```
+
+How to read it:
+
+- **The first line** names the partition that sets synthesis time, the
+  pass that took most of it, and the candidates that would split it:
+  the largest ones, none inside another, until its estimated remainder
+  is below the next-longest partition's share, at most three.
+- **Partitions**, longest first. *Wall* is the partition's yosys run,
+  from its log; *Cells* and *Area* are its netlist, kept modules under
+  it black boxes. *Est. gates* is what it synthesizes by the size
+  estimate, its own logic and that of every module under it that is not
+  kept; *Own gates* is the module's logic outside any submodule. A top
+  whose own gates are most of its estimate cannot be split by keeping
+  more: move its logic into a module in the RTL.
+- **Keep candidates**, per partition, the modules synthesized into it
+  that are not kept, largest first. *Moved out* is what keeping the
+  module takes out of the partition, every instance of it; *Share* is
+  that of the partition's estimate. Each is printed as
+  `SYNTH_KEEP_MODULES` takes it.
+
+Wall time does not scale exactly with the estimate (`abc` grows faster
+than linearly on a large flat cone), and memories and macros count as
+nothing, since synthesis does not make their gates. The loop is: build
+the report, add the candidates to `SYNTH_KEEP_MODULES`, build again and
+read the new report. With the list pinned, the second build re-runs the
+partition that was split, the new partitions and the top; every other
+partition is a cache hit. A kept module is also a boundary yosys does
+not optimize across ([Kept modules and QoR](#kept-modules-and-qor)), so
+check the result's timing as well as its turnaround.
 
 ## Remote execution and caching
 
@@ -735,6 +820,8 @@ To reproduce this: build the target, make the edit, and build again with
 | `partition_<module>_memories/memories`, `slice_regfiles`, `slice_memories.ok` | `slice_memories.py` (`verilog_slices` with `AUTO_MEMORIES`) |
 | `partition_<module>_canonical.rtlil`, `.name` | `synth_canonicalize_module.tcl` (pinned only) |
 | `partition_<module>.v`, `partition_<i>.v`, `partition_top.v` | `synth_partition.sh` running `synth.tcl` |
+| `partition_<module>_stat.txt`, `partition_<i>_stat.txt`, `partition_top_stat.txt` | `synth_partition.sh`: each module's yosys timing lines and `synth_stat.txt` |
+| `keep_costs.txt`, `keep_report.md` | `synth_keep_costs.tcl`, `keep_report.py` (the `keep_report` output group only) |
 | `1_2_yosys.v` | the merge, `cat` |
 
 The code is in `_yosys_parallel_synth` in `private/rules.bzl`, with

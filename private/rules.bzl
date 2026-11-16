@@ -1786,6 +1786,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     )
 
     partition_outputs = []
+    partition_stats = []
 
     filter_json = write_stage_filter(ctx, "results", "1_synth_partition", ["synth"])
 
@@ -1969,6 +1970,8 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
 
         part_output = declare_artifact(ctx, "results", "partition_{}.v".format(suffix))
         partition_outputs.append((suffix, part_output))
+        part_stat = declare_artifact(ctx, "reports", "partition_{}_stat.txt".format(suffix))
+        partition_stats.append(part_stat)
         part_commands = [_make_cmd(ctx)] + generation_commands([part_output])
         ctx.actions.run_shell(
             arguments = [
@@ -1985,10 +1988,11 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                     "SYNTH_NUM_PARTITIONS": str(num_partitions),
                 }
             ) | {
+                "SYNTH_PARTITION_STAT": part_stat.path,
                 "SYNTH_TCL": ctx.file._synth_tcl.path,
             },
             inputs = partition_inputs,
-            outputs = [part_output],
+            outputs = [part_output, part_stat],
             tools = yosys_tools,
             progress_message = progress_msg,
         )
@@ -2020,6 +2024,8 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         # resolves the kept names against the checkpoint (synth_partition.sh)
         top_env = {"RTLIL_NAMES_PY": ctx.file._rtlil_names.path}
     top_output = declare_artifact(ctx, "results", "partition_top.v")
+    top_stat = declare_artifact(ctx, "reports", "partition_top_stat.txt")
+    partition_stats.append(top_stat)
     top_commands = [_make_cmd(ctx)] + generation_commands([top_output])
     ctx.actions.run_shell(
         arguments = [
@@ -2032,11 +2038,12 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         command = " && ".join(top_commands),
         env = base_env | partition_env_extra | top_env | {
             "SYNTH_PARTITION_ID": "top",
+            "SYNTH_PARTITION_STAT": top_stat.path,
             "SYNTH_NUM_PARTITIONS": str(num_partitions),
             "SYNTH_TCL": ctx.file._synth_tcl.path,
         },
         inputs = top_partition_inputs,
-        outputs = [top_output],
+        outputs = [top_output, top_stat],
         tools = yosys_tools,
         progress_message = "Synthesizing top module %s" % module_top(ctx),
     )
@@ -2189,13 +2196,60 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     for f in synth_logs + synth_reports:
         ctx.actions.write(output = f, content = "")
 
+    # The keep report (keep_report.py), on demand only: nothing else reads
+    # it, so a build that does not ask for the keep_report output group
+    # runs neither action. The size estimate is synth_keep.tcl's coarse
+    # synthesis of the whole design, beside the partitions, never before
+    # them.
+    keep_costs = declare_artifact(ctx, "reports", "keep_costs.txt")
+    ctx.actions.run_shell(
+        arguments = [
+            "--file",
+            parallel_makefile.path,
+            "yosys-dependencies",
+            "do-yosys-keep-costs",
+            "SYNTH_KEEP_COSTS_SCRIPT=" + ctx.file._synth_keep_costs_script.path,
+        ] + ["--old-file=" + f.path for f in memories_inputs] + sdc_overrides,
+        command = " && ".join([_make_cmd(ctx)]),
+        env = base_env | {"KEEP_COSTS_OUT": keep_costs.path},
+        inputs = depset(
+            [canon_output, config, parallel_makefile, ctx.file._synth_keep_costs_script] +
+            ctx.files.extra_configs + memories_inputs,
+            transitive = [
+                synth_data_inputs,
+                pdk_inputs(ctx),
+                deps_inputs(ctx, gds = False),
+            ],
+        ),
+        outputs = [keep_costs],
+        tools = yosys_tools,
+        progress_message = "Estimating module sizes for %s's keep report" % module_top(ctx),
+    )
+    keep_report = declare_artifact(ctx, "reports", "keep_report.md")
+    report_args = ctx.actions.args()
+    report_args.add(ctx.file._keep_report)
+    report_args.add("--top", module_top(ctx))
+    report_args.add("--kept", kept_json)
+    report_args.add("--rtlil", canon_output)
+    report_args.add("--costs", keep_costs)
+    report_args.add("--out", keep_report)
+    report_args.add_all(partition_stats)
+    ctx.actions.run(
+        executable = ctx.executable._python,
+        arguments = [report_args],
+        inputs = [ctx.file._keep_report, ctx.file._rtlil_names, kept_json, canon_output, keep_costs] + partition_stats,
+        outputs = [keep_report],
+        mnemonic = "KeepReport",
+        progress_message = "Writing the keep report for %s" % module_top(ctx),
+    )
+
     partition_files = (
         list(verilog_slice.values()) + slice_checkpoints +
         list(slice_memories.values()) +
         list(per_module_rtlil.values()) + list(per_module_name_file.values()) +
         [part for _, part in partition_outputs] + [top_output]
     )
-    return validated_kept_macros_json, partition_files, memories_validation
+    return validated_kept_macros_json, partition_files, memories_validation, [keep_report]
 
 def _stable_module_names(ctx, all_arguments):
     """SYNTH_STABLE_MODULE_NAMES=1: name contested modules by their path.
@@ -2633,6 +2687,7 @@ def _yosys_impl(ctx):
     validated_kept_macros_json = None
     partition_files = []
     memories_validation = []
+    keep_report = []
 
     # Ensure declared metrics .json outputs exist and are parseable even if
     # make did not write them; genMetrics.py json.load()s every 1_*.json, so
@@ -2674,7 +2729,7 @@ def _yosys_impl(ctx):
             progress_message = "OpenROAD-SYN synthesis for %s" % module_top(ctx),
         )
     elif num_partitions > 0:
-        validated_kept_macros_json, partition_files, memories_validation = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments, sdc_overrides, synth_data_inputs, sdc_only_inputs, memories_outputs + memories_inferred, slices = struct(
+        validated_kept_macros_json, partition_files, memories_validation, keep_report = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments, sdc_overrides, synth_data_inputs, sdc_only_inputs, memories_outputs + memories_inferred, slices = struct(
             env = verilog_arguments([]) |
                   yosys_environment(ctx) |
                   config_environment(canon_config),
@@ -3006,6 +3061,9 @@ def _yosys_impl(ctx):
             # Parallel synthesis's intermediate files: the per-module
             # slices and canonical RTLIL, and each partition's netlist.
             partitions = depset(partition_files),
+            # Which modules to keep: per partition its time, cells and
+            # keep candidates (keep_report.py). Built only when asked for.
+            keep_report = depset(keep_report),
             # 1_2_yosys.sdc and 1_synth.vars left DefaultInfo.files (see
             # the outputs comment above) but stay inspectable on demand:
             # bazelisk build --output_groups=<basename> <synth target>.
@@ -3107,6 +3165,14 @@ orfs_synth_rule = rule(
                 "_synth_keep_script": attr.label(
                     allow_single_file = True,
                     default = Label("//:synth_keep.tcl"),
+                ),
+                "_synth_keep_costs_script": attr.label(
+                    allow_single_file = True,
+                    default = Label("//:synth_keep_costs.tcl"),
+                ),
+                "_keep_report": attr.label(
+                    allow_single_file = True,
+                    default = Label("//:keep_report.py"),
                 ),
                 "_synth_partition_script": attr.label(
                     allow_single_file = True,

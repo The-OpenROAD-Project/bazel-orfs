@@ -62,3 +62,9 @@ do-yosys-partition: yosys-dependencies
 do-yosys-sdc-copy:
 	mkdir -p $(dir $(RESULTS_DIR)/1_2_yosys.sdc)
 	cp $(SDC_FILE) $(RESULTS_DIR)/1_2_yosys.sdc
+
+# The keep report's size estimate (synth_keep_costs.tcl); nothing in the
+# flow reads it.
+.PHONY: do-yosys-keep-costs
+do-yosys-keep-costs: yosys-dependencies
+	$(SCRIPTS_DIR)/synth.sh $(SYNTH_KEEP_COSTS_SCRIPT) $(LOG_DIR)/1_1_yosys_keep_costs.log
