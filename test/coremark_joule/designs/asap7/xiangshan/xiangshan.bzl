@@ -1551,7 +1551,6 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             user_stages = _user_stages(user_arguments, user_sources),
             variant = variant,
             verilog_files = verilog,
-            verilog_slices = False,
             **mock
         )
         if variant:
@@ -1683,7 +1682,6 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         user_stages = _user_stages(user_arguments, user_sources),
         variant = variant,
         verilog_files = verilog,
-        verilog_slices = False,
         visibility = ["//visibility:public"],
     )
     if variant:
@@ -1913,6 +1911,5 @@ def xiangshan_flat_flow(name, variant, parent = XS_PARENT, blocks = XS_BLOCKS, p
         user_stages = _user_stages(user_arguments, user_sources),
         variant = variant,
         verilog_files = verilog,
-        verilog_slices = False,
     )
     _kpi(name, "grt", arguments, sources, tags, variant = variant)
