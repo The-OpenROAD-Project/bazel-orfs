@@ -2856,6 +2856,16 @@ def _yosys_impl(ctx):
         if name != "1_2_yosys.sdc"
     ] + memories_outputs
 
+    # With slices nothing after synthesis reads the whole design's
+    # canonicalize (floorplan reads 1_synth.odb), so it stays out of the
+    # files later stages take as inputs and forward, and off their
+    # critical path; its output group still builds it.
+    default_outputs = [
+        f
+        for f in outputs
+        if not (verilog_slices and f == canon_output)
+    ]
+
     # Write synth's data_arguments to a JSON so downstream stages
     # inherit synth-time variables (SDC_FILE, VERILOG_FILES, SYNTH_*)
     # via OrfsInfo.arguments propagation. Without this, `bazel run :_final
@@ -2969,7 +2979,7 @@ def _yosys_impl(ctx):
     return [
         DefaultInfo(
             executable = exe,
-            files = depset(outputs),
+            files = depset(default_outputs),
             # default_runfiles has gui.sh (flow_runfiles), so
             # `bazelisk run :synth gui_synth` opens the web viewer.
             default_runfiles = ctx.runfiles(

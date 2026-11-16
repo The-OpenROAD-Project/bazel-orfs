@@ -166,3 +166,30 @@ slices_refused_test = analysistest.make(
     },
     expect_failure = True,
 )
+
+def _floorplan_impl(ctx):
+    env = analysistest.begin(ctx)
+    actions = analysistest.target_actions(env)
+
+    # With slices the floorplan neither reads nor forwards the whole
+    # design's canonicalize; without them it does both, as before.
+    canon = "1_1_yosys_canonicalize.rtlil"
+    floorplans = [
+        a
+        for a in actions
+        if "2_floorplan.odb" in [f.basename for f in a.outputs.to_list()]
+    ]
+    asserts.equals(env, 1, len(floorplans))
+    for action in floorplans:
+        inputs = [f.basename for f in action.inputs.to_list()]
+        asserts.equals(env, ctx.attr.canonicalize, canon in inputs, "the floorplan reads %s" % canon)
+    files = analysistest.target_under_test(env)[DefaultInfo].files.to_list()
+    asserts.equals(env, ctx.attr.canonicalize, canon in [f.basename for f in files], "the floorplan forwards %s" % canon)
+    return analysistest.end(env)
+
+slices_floorplan_test = analysistest.make(
+    _floorplan_impl,
+    attrs = {
+        "canonicalize": attr.bool(mandatory = True),
+    },
+)
