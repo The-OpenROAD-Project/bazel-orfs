@@ -121,7 +121,7 @@ bazel_dep(name = "aspect_rules_js", version = "3.5.1")
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
-    integrity = "sha256-x5ePT+Zoch1LvCPMbH7AD5xIcm1bQxlOoOjnd7XTp9Q=",
+    integrity = "sha256-NMx7+l4sBQz0cwrvKOdOFtzbjAiMA7aUYhIZNX6x7wQ=",
     # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
     # so vendor src/sta (OpenSTA) and the other submodules from their own
     # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
@@ -129,7 +129,7 @@ archive_override(
     # aren't covered by archive_override's integrity.  Regenerated
     # by bump.py on every commit bump; do not edit by hand.
     patch_cmds = [
-        "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-src-sta-2947a0cab3c01713def012381577f1d45decb87c.tar.gz https://github.com/The-OpenROAD-Project/OpenSTA/archive/2947a0cab3c01713def012381577f1d45decb87c.tar.gz && echo 'c83b34766d73c05a7d47079f33559d658433f85d2d593da39def578e07dcd28d  .openroad-submodule-src-sta-2947a0cab3c01713def012381577f1d45decb87c.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-src-sta-2947a0cab3c01713def012381577f1d45decb87c.tar.gz --strip-components=1 -C src/sta && rm .openroad-submodule-src-sta-2947a0cab3c01713def012381577f1d45decb87c.tar.gz",
+        "curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 -o .openroad-submodule-src-sta-42d5f381fb9db99240693dfb60363bb9a338abfb.tar.gz https://github.com/The-OpenROAD-Project/OpenSTA/archive/42d5f381fb9db99240693dfb60363bb9a338abfb.tar.gz && echo '68e75f43429e9a1e35449bf30a42def80397d1f4a4290a6633e9ba35eee24ba3  .openroad-submodule-src-sta-42d5f381fb9db99240693dfb60363bb9a338abfb.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-src-sta-42d5f381fb9db99240693dfb60363bb9a338abfb.tar.gz --strip-components=1 -C src/sta && rm .openroad-submodule-src-sta-42d5f381fb9db99240693dfb60363bb9a338abfb.tar.gz",
         # Search asked, at every edge a set_max_delay state crossed,
         # whether the pin completes the -to, through the -to's id-ordered
         # sets: a third of write_timing_model on a register file under
@@ -335,11 +335,6 @@ archive_override(
         # the wire and overflowed). Not upstreamed; retires at a //:bump
         # onto an OpenROAD that has it.
         "//patches:0178-openroad-ram-read-select-group-in-place.patch",
-        # 0211: FastRouteCore::BIG_INT is constexpr; master's 3D maze passes it
-        # to std::fill_n by reference, and a fastbuild //:openroad failed to
-        # link without a definition. Not upstreamed; retires at a //:bump onto
-        # an OpenROAD that has it.
-        "//patches:0211-openroad-grt-big-int-constexpr.patch",
         # 0216: detailed placement's negotiation legalizer runs its diamond
         # recovery when phase 2 reaches its iteration limit, as it does on a
         # stall (OpenROAD #12233), and says why cells were left to it, in
@@ -385,8 +380,8 @@ archive_override(
         # retires at a //:bump onto an OpenROAD that has it.
         "//patches:0223-openroad-replace-hier-module-children.patch",
     ],
-    strip_prefix = "OpenROAD-4198b29dfd1eb11455b1db361fbf63d4d0de744c",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/4198b29dfd1eb11455b1db361fbf63d4d0de744c.tar.gz"],
+    strip_prefix = "OpenROAD-615e34eabc2429b48d5bb58aa427907fc546020e",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/615e34eabc2429b48d5bb58aa427907fc546020e.tar.gz"],
 )
 
 # --- hermetic-llvm compatibility (mirrored from OpenROAD's root MODULE.bazel) ---
