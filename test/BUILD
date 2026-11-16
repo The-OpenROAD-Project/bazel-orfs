@@ -2253,6 +2253,9 @@ orfs_synth(
     data = [":constraints-sram"],
     module_top = "lb_32x128",
     tags = ["manual"],
+    # Same module_top as lb_32x128_synth; a distinct variant keeps
+    # the two result trees from claiming the same output paths.
+    variant = "frontend_reason",
     verilog_files = LB_VERILOG_FILES,
     yosys_frontend_reason = "load-only fixture: pins that the reason is accepted and consumed",
 )
