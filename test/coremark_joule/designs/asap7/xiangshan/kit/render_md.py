@@ -330,10 +330,16 @@ def facts_values(a):
     v["block_count"] = str(len(plan_bzl["macros"]))
     v["port_side"] = plan["parent"]["port_side"]
 
-    # the periods: the latest KPI row that measured every block
-    run = [r for r in kpi["runs"] if "blocks" in r][-1]
-    periods = run["blocks"]
+    # the periods: the latest KPI row that measured every part of this floorplan
     parent = "XSTile_parent"
+    parts = set(plan_bzl["macros"]) | {parent}
+    runs = [r for r in kpi["runs"] if parts <= set(r.get("blocks", {}))]
+    if not runs:
+        raise SystemExit(
+            "render_md: no KPI row measures every part of %s" % ", ".join(sorted(parts))
+        )
+    run = runs[-1]
+    periods = run["blocks"]
     v["kpi_date"] = run["date"]
     # XSTile's period: its slowest part, the Top's crossings included
     v["best_period"] = num(max(list(periods.values()) + [run.get("top_ps", 0)]))
