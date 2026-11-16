@@ -33,7 +33,7 @@ on this variant's memories.json, so make does not regenerate memories
 into a directory it only reads.
 
 Carried in bazel-orfs for ORFS #4824 (AUTO_MEMORIES_DIR), on
-0213 (#4812). One change beyond the upstream commit: regfile_place.tcl,
+#4812. One change beyond the upstream commit: regfile_place.tcl,
 which only carried patches add, reads the register files' netlists and
 placements through AUTO_MEMORIES_DIR too. Retires with the //:bump onto
 an ORFS that has it.
@@ -94,7 +94,7 @@ index 4fd8e4bb3..33d5630eb 100644
  flip-flops, like any other RTL.
  
 diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
-index c355834e1..7c3edfc87 100644
+index a4f86ef2c..0114cf935 100644
 --- a/docs/user/FlowVariables.md
 +++ b/docs/user/FlowVariables.md
 @@ -103,9 +103,10 @@ configuration file.
@@ -110,7 +110,7 @@ index c355834e1..7c3edfc87 100644
  | <a name="BALANCE_ROWS"></a>BALANCE_ROWS| Balance rows during placement.| 0|
  | <a name="BLOCKS"></a>BLOCKS| Blocks used as hard macros in a hierarchical flow. Do note that you have to specify block-specific inputs file in the directory mentioned by Makefile.| |
  | <a name="BUFFER_PORTS_ARGS"></a>BUFFER_PORTS_ARGS| Specify arguments to the buffer_ports call during placement. Only used if DONT_BUFFER_PORTS=0.| |
-@@ -152,7 +153,7 @@ configuration file.
+@@ -151,7 +152,7 @@ configuration file.
  | <a name="FILL_CELLS"></a>FILL_CELLS| Fill cells are used to fill empty sites. If not set or empty, fill cell insertion is skipped.| |
  | <a name="FILL_CONFIG"></a>FILL_CONFIG| JSON rule file for metal fill during chip finishing.| |
  | <a name="FLOORPLAN_DEF"></a>FLOORPLAN_DEF| Use the DEF file to initialize floorplan. Mutually exclusive with FOOTPRINT or DIE_AREA/CORE_AREA or CORE_UTILIZATION.| |
@@ -119,7 +119,7 @@ index c355834e1..7c3edfc87 100644
  | <a name="FLOW_VARIANT"></a>FLOW_VARIANT| Flow variant to use, used in the flow variant directory name.| base|
  | <a name="FOOTPRINT"></a>FOOTPRINT| Custom footprint definition file for ICeWall-based floorplan initialization. Mutually exclusive with FLOORPLAN_DEF or DIE_AREA/CORE_AREA or CORE_UTILIZATION.| |
  | <a name="FOOTPRINT_TCL"></a>FOOTPRINT_TCL| Specifies a Tcl script with custom footprint-related commands for floorplan setup.| |
-@@ -687,6 +688,7 @@ configuration file.
+@@ -689,6 +690,7 @@ configuration file.
  - [ADDITIONAL_LEFS](#ADDITIONAL_LEFS)
  - [ADDITIONAL_LIBS](#ADDITIONAL_LIBS)
  - [AUTO_MEMORIES](#AUTO_MEMORIES)
@@ -128,7 +128,7 @@ index c355834e1..7c3edfc87 100644
  - [CDL_FILES](#CDL_FILES)
  - [CORNER](#CORNER)
 diff --git a/flow/Makefile b/flow/Makefile
-index 1f068eb95..e3593aa10 100644
+index dc58fbd26..336ea5718 100644
 --- a/flow/Makefile
 +++ b/flow/Makefile
 @@ -205,7 +205,7 @@ do-klayout:
@@ -174,7 +174,7 @@ index 1f068eb95..e3593aa10 100644
  	rm -f $(LOG_DIR)/1_*
  	rm -f $(SYNTH_STATS)
 diff --git a/flow/scripts/load.tcl b/flow/scripts/load.tcl
-index ddb57cf80..e54253403 100644
+index a32ff4964..3f47858b7 100644
 --- a/flow/scripts/load.tcl
 +++ b/flow/scripts/load.tcl
 @@ -11,10 +11,14 @@ proc load_design { design_file args } {
@@ -256,7 +256,7 @@ index a31b7627c..b8fd50e02 100644
  }
  
 diff --git a/flow/scripts/util.tcl b/flow/scripts/util.tcl
-index 34a1e881b..12b7941dd 100644
+index 5e772aa9f..1f232752b 100644
 --- a/flow/scripts/util.tcl
 +++ b/flow/scripts/util.tcl
 @@ -114,7 +114,7 @@ proc env_var_exists_and_non_empty { env_var } {
@@ -296,7 +296,7 @@ index 34a1e881b..12b7941dd 100644
  }
  
 diff --git a/flow/scripts/variables.mk b/flow/scripts/variables.mk
-index 17fcec820..4010987d3 100644
+index ea9723be7..1f8bcb577 100644
 --- a/flow/scripts/variables.mk
 +++ b/flow/scripts/variables.mk
 @@ -57,6 +57,8 @@ export RESULTS_DIR = $(WORK_HOME)/results/$(PLATFORM)/$(DESIGN_NICKNAME)/$(FLOW_
@@ -309,10 +309,10 @@ index 17fcec820..4010987d3 100644
  #-------------------------------------------------------------------------------
  ifeq (,$(strip $(NUM_CORES)))
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
-index 0faa5ee51..b8b951b20 100644
+index 0538972e3..8be1f3dd7 100644
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -183,6 +183,15 @@ SYNTH_USE_SYN:
+@@ -185,6 +185,15 @@ SYNTH_USE_SYN:
    stages:
      - synth
    default: 0
@@ -328,7 +328,7 @@ index 0faa5ee51..b8b951b20 100644
  AUTO_MEMORIES:
    description: >
      Experimental. When set to 1, memories that yosys infers in the RTL
-@@ -190,7 +199,7 @@ AUTO_MEMORIES:
+@@ -192,7 +201,7 @@ AUTO_MEMORIES:
      pre-synthesis, inventoried in
      `$(RESULTS_DIR)/memories.json`, and — when idiomatic as an SRAM
      macro — given generated .lib/.lef views under
@@ -337,7 +337,7 @@ index 0faa5ee51..b8b951b20 100644
      all later stages read the generated views, so an existing design
      gets macro-based results without a memory compiler. Supported for
      the asap7 platform only. See docs/user/AutoMemories.md.
-@@ -241,7 +250,7 @@ AUTO_MEMORIES_REGFILES:
+@@ -243,7 +252,7 @@ AUTO_MEMORIES_REGFILES:
      bits, read and write ports by the RTL's own port names, and the cells.
      memories/regfile_ram.py checks the spec against the module's ports
      and has OpenROAD's generate_ram build it as `<module>_ram`, under
@@ -346,7 +346,7 @@ index 0faa5ee51..b8b951b20 100644
      module named in AUTO_MEMORIES_MACRO_PLACE is blackboxed like an
      AUTO_MEMORIES macro and placed as one; any other is inlined as its
      generated netlist. A placed spec in `mode netlist` then dissolves into
-@@ -1714,8 +1723,8 @@ FLOW_INPUT_VARIANT:
+@@ -1724,8 +1733,8 @@ FLOW_INPUT_VARIANT:
      runs, then leaves it at the default: the shared stages run once, and
      the fork writes only its own results. A stage's later steps read the
      stage's own results. A stage stops when its input is in both
@@ -358,10 +358,10 @@ index 0faa5ee51..b8b951b20 100644
      - floorplan
      - place
 diff --git a/flow/util/def2stream.py b/flow/util/def2stream.py
-index 41f55800d..ea4afe136 100644
+index 605841811..5209ec46c 100644
 --- a/flow/util/def2stream.py
 +++ b/flow/util/def2stream.py
-@@ -146,10 +146,10 @@ def auto_memories_cells(environ):
+@@ -147,10 +147,10 @@ def auto_memories_cells(environ):
      # do-auto-memories always writes the list, empty when nothing was
      # converted; without it the merge cannot tell a generated macro from
      # a cell whose GDS is missing.
@@ -376,6 +376,3 @@ index 41f55800d..ea4afe136 100644
      if not os.path.isfile(path):
          raise RuntimeError(
              f"AUTO_MEMORIES=1 but {path} is missing; do-auto-memories writes it"
--- 
-2.53.0
-
