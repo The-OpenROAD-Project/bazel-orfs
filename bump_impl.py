@@ -1265,6 +1265,30 @@ def _parse_mirror_urls(block, commit):
     return templates
 
 
+def _recorded_openroad_digests(block, commit):
+    """``(integrity, submodule_info)`` an openroad block records for ``commit``.
+
+    None unless ``block`` is pinned to ``commit`` and records the integrity
+    and every required submodule digest.
+    """
+    if block is None or _parse_openroad_parent_commit(block) != commit:
+        return None
+    digests = _parse_submodule_digests(block)
+    m_integrity = re.search(r'integrity\s*=\s*"([^"]*)"', block)
+    required = [
+        path
+        for path, _ in OPENROAD_SUBMODULES
+        if path not in OPENROAD_TRANSITIONAL_SUBMODULES
+    ]
+    if not m_integrity or not all(path in digests for path in required):
+        return None
+    return m_integrity.group(1), [
+        (path, github_repo) + digests[path]
+        for path, github_repo in OPENROAD_SUBMODULES
+        if path in digests
+    ]
+
+
 def _resolve_openroad_archives(
     openroad_commit,
     fetch_integrity_fn,
@@ -1325,6 +1349,7 @@ def update_openroad_archive_override(
     fetch_submodule_sha_fn=fetch_submodule_sha,
     workspace_dir=None,
     staged_patches=None,
+    pinned_block=None,
 ):
     """Regenerate the ``archive_override(module_name = "openroad")`` block.
 
@@ -1334,6 +1359,9 @@ def update_openroad_archive_override(
     GitHub's auto-archive of the parent doesn't include submodules, so this
     regenerates patch_cmds that curl each submodule's own
     /archive/<sha>.tar.gz and extract it in place.
+
+    ``pinned_block``: the pinned bazel-orfs's own openroad block; at the same
+    commit, its integrity and submodule digests are taken as they are.
 
     Returns ``content`` unchanged if there is no such block — a legacy
     git_override(openroad) is a shape the bumper no longer rewrites, and
@@ -1453,27 +1481,17 @@ def update_openroad_archive_override(
     else:
         top_patches = patches_with_comments
 
-    # Already pinned to this commit?  Every digest in the block describes a
-    # tarball we would re-download only to hash it to the same value, so
-    # reuse them and regenerate the block (patches may still have changed).
-    parent_integrity = None
-    submodule_info = []
-    if _parse_openroad_parent_commit(old_block) == openroad_commit:
-        digests = _parse_submodule_digests(old_block)
-        m_integrity = re.search(r'integrity\s*=\s*"([^"]*)"', old_block)
-        required = [
-            path
-            for path, _ in OPENROAD_SUBMODULES
-            if path not in OPENROAD_TRANSITIONAL_SUBMODULES
-        ]
-        if m_integrity and all(path in digests for path in required):
-            parent_integrity = m_integrity.group(1)
-            submodule_info = [
-                (path, github_repo) + digests[path]
-                for path, github_repo in OPENROAD_SUBMODULES
-                if path in digests
-            ]
-            print("  openroad already at target commit; skipping re-hash")
+    # A block already pinned to this commit -- the consumer's own, or the
+    # pinned bazel-orfs's -- describes every tarball we would re-download
+    # only to hash it to the same value, so reuse its digests and
+    # regenerate the block (patches may still have changed).
+    parent_integrity, submodule_info = None, []
+    for block in (old_block, pinned_block):
+        recorded = _recorded_openroad_digests(block, openroad_commit)
+        if recorded is not None:
+            parent_integrity, submodule_info = recorded
+            print("  openroad digests read from a block at the target commit")
+            break
 
     if parent_integrity is None:
         parent_integrity, submodule_info = _resolve_openroad_archives(
@@ -2062,11 +2080,16 @@ def bump(
     workspace_dir=None,
     head_tools=None,
     ignore_errors=False,
+    openroad_source=None,
 ):
     """Main bump orchestrator.
 
-    The openroad version comes from ORFS's tools/OpenROAD submodule at the
-    just-bumped ORFS master HEAD and is applied to the archive_override.
+    ``openroad_source`` (one of ``OPENROAD_SOURCES``) says where the
+    openroad commit comes from: ``bazel-orfs``, the default for a consumer,
+    takes the commit, integrity and submodule pins of the pinned bazel-orfs's
+    own archive_override, the one its patches are tested on; ``orfs``, the
+    default for bazel-orfs itself, takes ORFS's tools/OpenROAD submodule at
+    the just-bumped ORFS master HEAD; ``head`` takes OpenROAD's own HEAD.
     yosys is on BCR: its ORFS tools/yosys pin is read to find ORFS's
     expected ``YOSYS_VER`` (M.m), and we pick the highest BCR variant with
     base <= that, then rewrite the ``bazel_dep`` version.  ``head_tools``
@@ -2090,6 +2113,7 @@ def bump(
         content = f.read()
 
     project = detect_project(content)
+    openroad_source = resolve_openroad_source(project, openroad_source, head_tools)
     updated_modules = []
 
     # --- Locate bazel-orfs source (for reading overrides and copying patches) ---
@@ -2098,6 +2122,7 @@ def bump(
     # --- Update bazel-orfs commit (skip for bazel-orfs itself) ---
     bazel_orfs_commit = None
     staged = None
+    pinned_openroad_block = None
     if project != "bazel-orfs":
         bazel_orfs_commit = fetch_commit_fn("The-OpenROAD-Project/bazel-orfs", "main")
         _expect(
@@ -2121,6 +2146,10 @@ def bump(
         if pinned_module is None:
             raise BumpError(f"bazel-orfs {bazel_orfs_commit[:12]} has no MODULE.bazel")
         owned = bazel_orfs_owned_patches(pinned_module)
+        if openroad_source == "bazel-orfs" and has_bazel_dep(content, "openroad"):
+            pinned_openroad_block = pinned_openroad_override(
+                pinned_module, bazel_orfs_commit
+            )
         content, patched = reconcile_patch_labels(
             content, owned, bazel_orfs_patch_strips(pinned_module)
         )
@@ -2231,8 +2260,11 @@ def bump(
         for tool, (module_name, upstream_repo) in ORFS_TOOLS.items():
             if module_name == "openroad" and not has_bazel_dep(content, "openroad"):
                 continue
-            if module_name in head_tools:
-                # --head=openroad bypasses ORFS entirely.
+            if module_name == "openroad" and openroad_source == "bazel-orfs":
+                sha = _parse_openroad_parent_commit(pinned_openroad_block)
+                source = f"bazel-orfs {bazel_orfs_commit[:12]}"
+            elif openroad_source == "head":
+                # --openroad=head bypasses ORFS entirely.
                 sha = fetch_commit_fn(upstream_repo, "master")
                 source = f"HEAD of {upstream_repo}"
             else:
@@ -2260,6 +2292,7 @@ def bump(
                         f"{BAZEL_ORFS_PATCHES_DIR}/{name}": text
                         for name, text in (staged or {}).items()
                     },
+                    pinned_block=pinned_openroad_block,
                 )
                 updated_modules.append(f"{module_name} -> {sha[:12]} ({source})")
             else:
@@ -2294,6 +2327,44 @@ def bump(
         print(f"  {entry}")
 
     return content
+
+
+OPENROAD_SOURCES = ("bazel-orfs", "orfs", "head")
+
+
+def resolve_openroad_source(project, openroad_source, head_tools):
+    """The ``openroad_source`` a bump of ``project`` uses; see :func:`bump`.
+
+    bazel-orfs has no pinned bazel-orfs to follow: its own bump is what
+    moves that pin, so it defaults to ORFS's submodule.
+    """
+    if "openroad" in head_tools:
+        if openroad_source not in (None, "head"):
+            raise BumpError(f"--head=openroad contradicts --openroad={openroad_source}")
+        openroad_source = "head"
+    if openroad_source is None:
+        openroad_source = "orfs" if project == "bazel-orfs" else "bazel-orfs"
+    if openroad_source not in OPENROAD_SOURCES:
+        raise BumpError(f"unknown openroad source {openroad_source!r}")
+    if openroad_source == "bazel-orfs" and project == "bazel-orfs":
+        raise BumpError(
+            "--openroad=bazel-orfs follows the bazel-orfs a consumer pins; "
+            "bazel-orfs moves its own OpenROAD with --openroad=orfs or head"
+        )
+    return openroad_source
+
+
+def pinned_openroad_override(pinned_module, bazel_orfs_commit):
+    """The openroad archive_override block of the pinned bazel-orfs."""
+    span = find_archive_override_block(pinned_module, "openroad")
+    block = pinned_module[span[0] : span[1]] if span else None
+    if block is None or _parse_openroad_parent_commit(block) is None:
+        raise BumpError(
+            f"bazel-orfs {bazel_orfs_commit[:12]} has no openroad "
+            'archive_override with a strip_prefix = "OpenROAD-<commit>" to '
+            "follow; take OpenROAD from ORFS with --openroad=orfs"
+        )
+    return block
 
 
 def run_mod_tidy(workspace_dir):
@@ -2362,6 +2433,19 @@ def main():
         ),
     )
     parser.add_argument(
+        "--openroad",
+        choices=OPENROAD_SOURCES,
+        default=None,
+        help=(
+            "Where the OpenROAD commit comes from. bazel-orfs (the default, "
+            "except in bazel-orfs itself): the commit, integrity and "
+            "submodule pins of the pinned bazel-orfs's own archive_override, "
+            "the OpenROAD its patches are tested on. orfs (the default in "
+            "bazel-orfs itself): ORFS's tools/OpenROAD submodule. head: "
+            "OpenROAD's master HEAD, the same as --head=openroad."
+        ),
+    )
+    parser.add_argument(
         "--ignore",
         action="store_true",
         help=(
@@ -2394,6 +2478,7 @@ def main():
         workspace_dir=workspace,
         head_tools=set(args.head),
         ignore_errors=args.ignore,
+        openroad_source=args.openroad,
     )
     run_mod_tidy(workspace)
 

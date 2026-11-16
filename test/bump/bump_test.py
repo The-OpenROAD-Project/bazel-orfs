@@ -147,9 +147,45 @@ CARRIED_ORFS_PATCHES = carried_orfs_patches()
 FAKE_ORFS_TREE = fake_orfs_tree(CARRIED_ORFS_PATCHES)
 
 
+# The OpenROAD the pinned bazel-orfs's own archive_override names, distinct
+# from ORFS's tools/OpenROAD (OPENROAD_COMMIT) and OpenROAD's HEAD.
+PINNED_OPENROAD_COMMIT = "pinned_openroad_eee555"
+PINNED_OPENROAD_INTEGRITY = "sha256-PINNEDPINNEDPINNEDPINNEDPINNEDPINNEDPINNEDP="
+PINNED_SUBMODULES = {
+    "src/sta": ("The-OpenROAD-Project/OpenSTA", "pinned_opensta_sha"),
+    "third-party/slang-elab": ("povik/yosys-slang", "pinned_slang_elab_sha"),
+}
+PINNED_SUB_SHA256_HEX = "feedface" * 8
+
+
+def _pinned_submodule_cmd(path):
+    repo, sha = PINNED_SUBMODULES[path]
+    stage = f".openroad-submodule-{path.replace('/', '-')}-{sha}.tar.gz"
+    return (
+        f"curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o {stage} "
+        f"https://github.com/{repo}/archive/{sha}.tar.gz && "
+        f"echo '{PINNED_SUB_SHA256_HEX}  {stage}' | sha256sum -c - && "
+        f"tar xzf {stage} --strip-components=1 -C {path} && rm {stage}"
+    )
+
+
 # The pinned bazel-orfs's MODULE.bazel as the bump reads it: one that applies
-# no patch to a shared dependency, so a consumer's lists stay as they are.
-FAKE_BAZEL_ORFS_MODULE = 'module(name = "bazel-orfs")\n'
+# no patch to a shared dependency, so a consumer's lists stay as they are,
+# and pins OpenROAD where its patches are tested.
+FAKE_BAZEL_ORFS_MODULE = (
+    'module(name = "bazel-orfs")\n'
+    'bazel_dep(name = "openroad")\n'
+    "archive_override(\n"
+    '    module_name = "openroad",\n'
+    f'    integrity = "{PINNED_OPENROAD_INTEGRITY}",\n'
+    "    patch_cmds = [\n"
+    + "".join(f'        "{_pinned_submodule_cmd(p)}",\n' for p in PINNED_SUBMODULES)
+    + "    ],\n"
+    f'    strip_prefix = "OpenROAD-{PINNED_OPENROAD_COMMIT}",\n'
+    '    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/'
+    f'{PINNED_OPENROAD_COMMIT}.tar.gz"],\n'
+    ")\n"
+)
 
 
 def mock_fetch_raw_text(repo, _ref, path):
@@ -192,6 +228,9 @@ def apply_bump(
     fixture_name,
     workspace_dir=None,
     head_tools=None,
+    openroad_source=None,
+    fetch_integrity_fn=mock_fetch_integrity,
+    fetch_sha256_hex_fn=mock_fetch_sha256_hex,
 ):
     """Copy a fixture, run bump on it, return the result content."""
     src = os.path.join(FIXTURES_DIR, fixture_name)
@@ -202,15 +241,16 @@ def apply_bump(
     bump.bump(
         tmp.name,
         fetch_commit_fn=mock_fetch_commit,
-        fetch_integrity_fn=mock_fetch_integrity,
+        fetch_integrity_fn=fetch_integrity_fn,
         fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
         fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
         fetch_bcr_versions_fn=mock_fetch_bcr_versions,
-        fetch_sha256_hex_fn=mock_fetch_sha256_hex,
+        fetch_sha256_hex_fn=fetch_sha256_hex_fn,
         fetch_submodule_sha_fn=mock_fetch_submodule_sha,
         workspace_dir=workspace_dir,
         head_tools=head_tools,
         fetch_raw_text_fn=mock_fetch_raw_text,
+        openroad_source=openroad_source,
     )
 
     with open(tmp.name) as f:
@@ -301,6 +341,7 @@ bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
     patches = ["//patches:0182-openroad-new-at-the-pin.patch"],
+    strip_prefix = "OpenROAD-pinned_openroad_eee555",
     urls = ["https://example.invalid/openroad.tar.gz"],
 )
 """
@@ -1226,10 +1267,10 @@ class TestUpdateOpenroadArchiveOverrideFailEarly(unittest.TestCase):
 
 
 class TestDownstreamOrfsToolsFlow(unittest.TestCase):
-    """Downstream: openroad commit and yosys BCR version follow ORFS tools/."""
+    """--openroad=orfs: openroad commit and yosys BCR version follow ORFS tools/."""
 
     def setUp(self):
-        self.content = apply_bump("downstream.MODULE.bazel")
+        self.content = apply_bump("downstream.MODULE.bazel", openroad_source="orfs")
 
     def test_orfs_commit_updated(self):
         # New: downstream bumps ORFS too (used to be bazel-orfs-project only).
@@ -1265,6 +1306,139 @@ class TestHeadFlagOverrides(unittest.TestCase):
         block = content[span[0] : span[1]]
         self.assertIn(UPSTREAM_HEAD_COMMIT, block)
         self.assertNotIn(OPENROAD_COMMIT, block)
+
+
+class TestOpenroadFollowsPinnedBazelOrfs(unittest.TestCase):
+    """By default a consumer's OpenROAD is the pinned bazel-orfs's own.
+
+    bazel-orfs's OpenROAD patches are tested on that commit only; ORFS's
+    tools/OpenROAD and OpenROAD's HEAD are other commits.
+    """
+
+    def setUp(self):
+        self.hashed = []
+
+        def integrity(url):
+            self.hashed.append(url)
+            return MOCK_INTEGRITY
+
+        def sha256(url):
+            self.hashed.append(url)
+            return MOCK_SUB_SHA256_HEX
+
+        self.content = apply_bump(
+            "downstream.MODULE.bazel",
+            fetch_integrity_fn=integrity,
+            fetch_sha256_hex_fn=sha256,
+        )
+        span = bump.find_archive_override_block(self.content, "openroad")
+        self.block = self.content[span[0] : span[1]]
+
+    def test_commit_is_bazel_orfs_pin(self):
+        self.assertIn(f'strip_prefix = "OpenROAD-{PINNED_OPENROAD_COMMIT}"', self.block)
+        self.assertIn(f"OpenROAD/archive/{PINNED_OPENROAD_COMMIT}.tar.gz", self.block)
+        self.assertNotIn(OPENROAD_COMMIT, self.block)
+        self.assertNotIn(UPSTREAM_HEAD_COMMIT, self.block)
+        self.assertNotIn("old_openroad_commit", self.block)
+
+    def test_integrity_is_bazel_orfs_pin(self):
+        self.assertIn(f'integrity = "{PINNED_OPENROAD_INTEGRITY}"', self.block)
+
+    def test_submodule_pins_are_bazel_orfs_pins(self):
+        self.assertEqual(
+            bump._parse_submodule_digests(self.block),
+            {
+                path: (sha, PINNED_SUB_SHA256_HEX)
+                for path, (_repo, sha) in PINNED_SUBMODULES.items()
+            },
+        )
+
+    def test_no_openroad_archive_is_hashed(self):
+        self.assertEqual(
+            [url for url in self.hashed if "OpenROAD-flow-scripts" not in url], []
+        )
+
+    def test_patch_list_kept(self):
+        self.assertIn('"find . -name BUILD -exec sed', self.block)
+
+
+class TestOpenroadPinnedPatchesInlined(unittest.TestCase):
+    """The pinned commit comes with the pinned bazel-orfs's patch list."""
+
+    def test_patches_and_submodule_patch_follow_the_pin(self):
+        module = 'module(name = "bazel-orfs")\n' + FAKE_BAZEL_ORFS_MODULE.split(
+            "\n", 1
+        )[1].replace(
+            "    patch_cmds = [\n",
+            "    patch_strip = 1,\n    patches = [\n"
+            '        "//patches:0001-top.patch",\n'
+            '        "//patches:0002-sta.patch",\n'
+            "    ],\n    patch_cmds = [\n",
+        )
+        patches = {
+            "patches/0001-top.patch": "--- a/x.cc\n+++ b/x.cc\n@@ -1 +1 @@\n-a\n+b\n",
+            "patches/0002-sta.patch": "--- a/src/sta/y.cc\n+++ b/src/sta/y.cc\n@@ -1 +1 @@\n-c\n+d\n",
+        }
+
+        def raw_text(repo, ref, path):
+            if repo == bump.BAZEL_ORFS_REPO and path == "MODULE.bazel":
+                return module
+            if repo == bump.BAZEL_ORFS_REPO and path in patches:
+                return patches[path]
+            return mock_fetch_raw_text(repo, ref, path)
+
+        with tempfile.TemporaryDirectory() as ws:
+            target = os.path.join(ws, "MODULE.bazel")
+            shutil.copy2(os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel"), target)
+            bump.bump(
+                target,
+                fetch_commit_fn=mock_fetch_commit,
+                fetch_integrity_fn=mock_fetch_integrity,
+                fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+                fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+                fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+                fetch_sha256_hex_fn=mock_fetch_sha256_hex,
+                fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+                fetch_raw_text_fn=raw_text,
+                workspace_dir=ws,
+            )
+            with open(target) as f:
+                content = f.read()
+        span = bump.find_archive_override_block(content, "openroad")
+        block = content[span[0] : span[1]]
+        self.assertIn(f'strip_prefix = "OpenROAD-{PINNED_OPENROAD_COMMIT}"', block)
+        self.assertIn('"//bazel-orfs-patches:0001-top.patch"', block)
+        self.assertNotIn('0002-sta.patch",', block)
+        self.assertIn("Extracted from //bazel-orfs-patches:0002-sta.patch", block)
+
+
+class TestOpenroadSourceResolution(unittest.TestCase):
+    def test_consumer_defaults_to_bazel_orfs(self):
+        self.assertEqual(
+            bump.resolve_openroad_source("downstream", None, set()), "bazel-orfs"
+        )
+
+    def test_bazel_orfs_defaults_to_orfs(self):
+        self.assertEqual(
+            bump.resolve_openroad_source("bazel-orfs", None, set()), "orfs"
+        )
+
+    def test_head_flag_is_head(self):
+        self.assertEqual(
+            bump.resolve_openroad_source("downstream", None, {"openroad"}), "head"
+        )
+
+    def test_head_flag_contradicting_openroad_refused(self):
+        with self.assertRaises(bump.BumpError):
+            bump.resolve_openroad_source("downstream", "orfs", {"openroad"})
+
+    def test_bazel_orfs_cannot_follow_itself(self):
+        with self.assertRaises(bump.BumpError):
+            bump.resolve_openroad_source("bazel-orfs", "bazel-orfs", set())
+
+    def test_pinned_module_without_openroad_refused(self):
+        with self.assertRaisesRegex(bump.BumpError, "--openroad=orfs"):
+            bump.pinned_openroad_override('module(name = "bazel-orfs")\n', "c" * 40)
 
 
 class TestPickBcrYosysVersion(unittest.TestCase):
@@ -2185,6 +2359,7 @@ archive_override(
         "//patches:0001-openroad-example.patch",
         "//patches:0002-openroad-openroad-lib-public.patch",
     ],
+    strip_prefix = "OpenROAD-pinned_openroad_eee555",
     urls = ["https://example.invalid/openroad.tar.gz"],
 )
 
@@ -2284,6 +2459,7 @@ bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
     patches = ["//patches:0182-openroad-new-at-the-pin.patch"],
+    strip_prefix = "OpenROAD-pinned_openroad_eee555",
     urls = ["https://example.invalid/openroad.tar.gz"],
 )
 """
