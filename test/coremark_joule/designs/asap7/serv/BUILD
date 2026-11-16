@@ -14,6 +14,8 @@ design(
         saif_prefix = "//test/coremark_joule/sim:serv_rv32i",
         saif_scope = "TOP/cm_soc/cpu",
     ),
+    # not firtool-shaped Verilog: serv's `default_nettype sits outside its modules
+    verilog_slices = False,
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 

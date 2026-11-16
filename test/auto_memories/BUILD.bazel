@@ -59,6 +59,8 @@ orfs_flow(
         # canonicalization before AUTO_MEMORIES has blackboxed anything.
         "am_ram_macros.v",
     ],
+    # am_top.v's `default_nettype sits outside its modules
+    verilog_slices = False,
 )
 
 # The cheap half, and the half that catches the staging bug: an

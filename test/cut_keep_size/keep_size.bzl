@@ -51,6 +51,8 @@ def keep_size_arms(name, key, top, zero, sdc_edits, frontend = ""):
             tags = ["manual"],
             variant = variant,
             verilog_files = _orfs([f for f in d["verilog_files"] if "$(" not in f]),
+            # ORFS's pickled netlists have non-ANSI port lists
+            verilog_slices = False,
             yosys_frontend_reason = None if frontend == "slang" else "measured as ORFS runs %s, with yosys's own frontend" % key,
         )
         orfs_run(

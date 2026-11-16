@@ -42,6 +42,8 @@ BLOCKS = [
             if v in XS_BLOCKS[block]["user_arguments"] | XS_ICG_USER_ARGUMENTS or v in XS_BLOCKS[block]["user_sources"] | XS_ICG_USER_SOURCES
         },
         verilog_files = XS_VERILOG,
+        # the plan keeps modules that sit outside this block's top
+        verilog_slices = False,
     )
     for block in BLOCKS
 ]

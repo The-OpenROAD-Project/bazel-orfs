@@ -9,6 +9,8 @@ exports_files(["constraints.sdc"])
 design(
     config = "config.mk",
     user_sources = ["IBEX_HEADERS"],
+    # not firtool-shaped Verilog: ibex's packages sit outside its modules
+    verilog_slices = False,
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 

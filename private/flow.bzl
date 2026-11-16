@@ -397,6 +397,15 @@ def _orfs_stage(stage, impl, **kwargs):
     ))
     impl(**_filter_stage_args(stage, **kwargs))
 
+def _verilog_slices_attr(verilog_slices):
+    if verilog_slices == None:
+        return "auto"
+    if verilog_slices == True:
+        return "true"
+    if verilog_slices == False:
+        return "false"
+    fail("verilog_slices is None, True or False, not {}".format(repr(verilog_slices)))
+
 def orfs_synth(**kwargs):
     """Instantiates a standalone synthesis stage target.
 
@@ -416,6 +425,7 @@ def orfs_synth(**kwargs):
         km = kwargs.pop("kept_macros")
         kwargs["kept_macros"] = km if km != None else {}
         kwargs["kept_macros_enabled"] = km != None
+    kwargs["verilog_slices"] = _verilog_slices_attr(kwargs.get("verilog_slices"))
 
     # A standalone synth stage is synthesis too, so it takes the same
     # frontend an orfs_flow() would give it. yosys_frontend_reason is a
@@ -477,7 +487,7 @@ def orfs_flow(
         macros = [],
         kept_macros = None,
         canon_blackbox_macros = [],
-        verilog_slices = False,
+        verilog_slices = None,
         sources = {},
         user_sources = {},
         stage_arguments = {},
@@ -530,9 +540,11 @@ def orfs_flow(
       canon_blackbox_macros: list of macro module names to blackbox during
         canonicalization via slang --blackboxed-module instead of reading their
         Verilog.
-      verilog_slices: with a pinned SYNTH_KEEP_MODULES, canonicalize each kept
-        module from its own slice of the Verilog rather than from the global
-        canonicalize (see orfs_synth's verilog_slices).
+      verilog_slices: canonicalize each kept module from its own slice of the
+        Verilog rather than from the global canonicalize. None (the default)
+        slices whenever SYNTH_KEEP_MODULES is pinned and yosys synthesises;
+        False canonicalizes every partition out of the whole design; True
+        requires a pinned SYNTH_KEEP_MODULES.
       sources: dictionary keyed by ORFS variables with lists of sources
       stage_arguments: dictionary keyed by ORFS stages with lists of stage-specific arguments.
         Prefer 'arguments' which automatically assigns variables to the correct stages.
@@ -780,7 +792,7 @@ def _orfs_pass(
         stage_data,
         kept_macros = None,
         canon_blackbox_macros = [],
-        verilog_slices = False,
+        verilog_slices = None,
         last_stage = None,
         squash = False,
         save_odb = True,
@@ -855,7 +867,7 @@ def _orfs_pass(
                 kept_macros = kept_macros if kept_macros != None else {},
                 kept_macros_enabled = kept_macros != None,
                 canon_blackbox_macros = canon_blackbox_macros,
-                verilog_slices = verilog_slices,
+                verilog_slices = _verilog_slices_attr(verilog_slices),
                 module_top = top,
                 variant = variant,
                 verilog_files = verilog_files,

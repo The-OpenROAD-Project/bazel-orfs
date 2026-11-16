@@ -51,7 +51,7 @@ def _convert_sources(sources, pkg):
             result[var] = converted
     return result
 
-def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], extra = None, visibility = None, block_abstract_stage = None, quick_pins = False, canon_blackbox_macros = [], block_mock_area = None):  # buildifier: disable=unused-variable
+def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], extra = None, visibility = None, block_abstract_stage = None, quick_pins = False, canon_blackbox_macros = [], block_mock_area = None, verilog_slices = None):  # buildifier: disable=unused-variable
     """Create orfs_flow() targets for a design based on its parsed config.mk.
 
     Usage:
@@ -119,6 +119,8 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
             block names to their own value; a block not named keeps its
             real outline. Turnaround only: the parent's wires are as long
             as the mock, not the block.
+        verilog_slices: forwarded to orfs_flow() for the design and each
+            of its BLOCKS= sub-macros.
         canon_blackbox_macros: forwarded to orfs_flow(): module names to
             blackbox at canonicalization so the parent's partition
             synthesis does not wait for those macros' place-and-route.
@@ -230,6 +232,7 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
         local_arguments = local_arguments,
         quick_pins = quick_pins,
         block_mock_area = block_mock_area,
+        verilog_slices = verilog_slices,
         visibility = visibility,
     )
 
@@ -277,6 +280,7 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
         user_stages = user_stages,
         macros = macros if macros else [],
         canon_blackbox_macros = canon_blackbox_macros,
+        verilog_slices = verilog_slices,
         quick_pins = quick_pins,
         stage_data = {"synth": extra_data} if extra_data else {},
         tags = tags,
@@ -319,9 +323,10 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
             user_stages = user_stages,
             local_arguments = local_arguments,
             visibility = visibility,
+            verilog_slices = verilog_slices,
         )
 
-def _variant_flow(name, platform, pkg, variant, config, tags, user_arguments, user_sources, user_stages, local_arguments, visibility):
+def _variant_flow(name, platform, pkg, variant, config, tags, user_arguments, user_sources, user_stages, local_arguments, visibility, verilog_slices = None):
     """One FLOW_VARIANT of a design: its config.mk as make reads it with
     FLOW_VARIANT set, which may name another top module."""
     sources = _convert_sources(config["sources"], pkg)
@@ -351,6 +356,7 @@ def _variant_flow(name, platform, pkg, variant, config, tags, user_arguments, us
         stage_data = {"synth": extra_data} if extra_data else {},
         tags = tags,
         visibility = visibility,
+        verilog_slices = verilog_slices,
     )
 
 def _filter_verilog_files(raw_verilog_files, design = None):
@@ -496,7 +502,7 @@ def _block_mock_area(block_mock_area, block_name):
         return block_mock_area.get(block_name, None)
     return block_mock_area
 
-def _create_block_targets(config, designs, platform, design, pkg, tags, abstract_stage = _BLOCK_ABSTRACT_STAGE, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], quick_pins = False, block_mock_area = None, visibility = None):
+def _create_block_targets(config, designs, platform, design, pkg, tags, abstract_stage = _BLOCK_ABSTRACT_STAGE, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], quick_pins = False, block_mock_area = None, visibility = None, verilog_slices = None):
     """Create sub-macro orfs_flow() targets for BLOCKS.
 
     The blocks' flows get the design's visibility: a consumer that
@@ -551,6 +557,7 @@ def _create_block_targets(config, designs, platform, design, pkg, tags, abstract
             user_sources = block_user_srcs,
             user_stages = block_user_stages,
             quick_pins = quick_pins,
+            verilog_slices = verilog_slices,
             tags = tags,
             visibility = visibility,
         )
