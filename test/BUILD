@@ -412,13 +412,13 @@ build_test(
 # user_stages next to a mock_area: the mocked variant's companions
 # (orfs_arguments for the mock area, orfs_macro for the abstract) have no
 # user_stages attribute, so a flow with both used to fail at analysis with
-# "no such attribute 'user_stages' in 'orfs_arguments' rule". Loading this
-# target is the test; it is never built.
+# "no such attribute 'user_stages' in 'orfs_arguments' rule". Analysing
+# these targets is the test; they are never built.
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "lb_32x128",
+    abstract_stage = "place",
     arguments = LB_ARGS,
-    last_stage = "floorplan",
     mock_area = 0.7,
     previous_stage = {"floorplan": ":lb_32x128_synth"},
     sources = LB_SOURCES,
