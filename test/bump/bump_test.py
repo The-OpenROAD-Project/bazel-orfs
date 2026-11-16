@@ -2381,6 +2381,57 @@ archive_override(
         self.assertIn('"//bazel-orfs-patches:0002-new.patch"', out)
         self.assertIn('"//orfs-patches:mine.patch"', out)
 
+    def test_reconcile_drops_a_patch_bazel_orfs_retired(self):
+        owned = {"openroad": ["0001-a.patch", "0003-c.patch"]}
+        consumer = """
+archive_override(
+    module_name = "openroad",
+    patches = [
+        "//bazel-orfs-patches:0001-a.patch",
+        "//bazel-orfs-patches:0002-retired.patch",
+        "//bazel-orfs-patches:0003-c.patch",
+        "//orfs-patches:mine.patch",
+        "//orfs-patches:also-mine.patch",
+    ],
+)
+"""
+        out, changed = bump.reconcile_patch_labels(consumer, owned)
+        self.assertEqual(changed, ["openroad"])
+        self.assertNotIn("0002-retired.patch", out)
+        self.assertIn(
+            '        "//bazel-orfs-patches:0001-a.patch",\n'
+            '        "//bazel-orfs-patches:0003-c.patch",\n'
+            '        "//orfs-patches:mine.patch",\n'
+            '        "//orfs-patches:also-mine.patch",\n',
+            out,
+        )
+
+    def test_reconcile_drops_every_patch_when_bazel_orfs_carries_none(self):
+        consumer = """
+archive_override(
+    module_name = "openroad",
+    patches = [
+        "//bazel-orfs-patches:0002-retired.patch",
+        "//orfs-patches:mine.patch",
+    ],
+)
+"""
+        out, changed = bump.reconcile_patch_labels(consumer, {})
+        self.assertEqual(changed, ["openroad"])
+        self.assertNotIn("0002-retired.patch", out)
+        self.assertIn('"//orfs-patches:mine.patch"', out)
+
+    def test_reconcile_leaves_a_module_bazel_orfs_never_patched_alone(self):
+        consumer = """
+archive_override(
+    module_name = "orfs",
+    patches = ["//orfs-patches:mine.patch"],
+)
+"""
+        out, changed = bump.reconcile_patch_labels(consumer, {})
+        self.assertEqual(out, consumer)
+        self.assertEqual(changed, [])
+
     def test_reconcile_is_idempotent(self):
         owned = {"openroad": ["0001-a.patch"]}
         consumer = """
