@@ -432,11 +432,16 @@ A name that came out different fails `1_synth.odb` with `ORD-2013`, it
 does not link quietly to something else.
 
 The slicer takes sources with nothing between the module definitions but
-comments, which is what CIRCT firtool writes, split or concatenated. It
-fails the build, naming the file and line, on anything else that could
-make a slice elaborate differently from the whole design: a directive
-outside a conditional, text outside a module, a nested module, a
-parameterized kept module, a non-ANSI port declaration it cannot copy
+comments and DPI imports in firtool's guard (`` `ifndef
+__CIRCT_DPI_IMPORT_<F> ``, the `import "DPI-C"` declaration of `F`, its
+`` `define ``, `` `endif ``), which is what CIRCT firtool writes, split or
+concatenated. Each slice carries the imports of the functions its modules
+name, so it elaborates their calls as the whole design does; copies of
+an import in several files must be identical. It fails the build, naming
+the file and line, on anything else that could make a slice elaborate
+differently from the whole design: a directive outside a conditional,
+text outside a module, a module that reads a DPI import's guard, a
+nested module, a parameterized kept module, a non-ANSI port declaration it cannot copy
 into a stub as it is (one under a conditional, a range that names a
 parameter or a macro, a port net that is given a value). A non-ANSI
 module (port names in the header, sv2v's and yosys's netlists, say)

@@ -190,6 +190,68 @@ sh_test(
     ],
 )
 
+# DpiTop keeps Counter and Watcher, which call DPI functions, and Mixer,
+# which calls none, from firtool's guarded DPI imports between modules.
+#
+#   dpi_equal_test   the slices elaborate, which a call with no import
+#                    would not, and give every partition, and the design,
+#                    the netlist the whole design gives it.
+DPI_KEPT = [
+    "Counter",
+    "Watcher",
+    "Mixer",
+]
+
+[orfs_flow(
+    name = "DpiTop",
+    arguments = {
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_KEEP_MODULES": " ".join(DPI_KEPT),
+    },
+    last_stage = "synth",
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    variant = variant,
+    verilog_files = ["dpi.v"],
+    verilog_slices = slices,
+) for variant, slices in [
+    ("global", False),
+    ("slices", True),
+]]
+
+[filegroup(
+    name = "dpi_%s_%s" % (group, variant),
+    srcs = [":DpiTop_%s_synth" % variant],
+    output_group = group,
+) for group in [
+    "partitions",
+    "1_2_yosys.v",
+] for variant in [
+    "global",
+    "slices",
+]]
+
+sh_test(
+    name = "dpi_equal_test",
+    size = "small",
+    srcs = ["slices_equal_test.sh"],
+    args = [
+        "$(location :dpi_1_2_yosys.v_global)",
+        "$(location :dpi_1_2_yosys.v_slices)",
+        " ".join(DPI_KEPT),
+        "$(locations :dpi_partitions_global)",
+        "--",
+        "$(locations :dpi_partitions_slices)",
+    ],
+    data = [
+        ":dpi_1_2_yosys.v_global",
+        ":dpi_1_2_yosys.v_slices",
+        ":dpi_partitions_global",
+        ":dpi_partitions_slices",
+    ],
+)
+
 slices_key_test(
     name = "slices_key_test",
     modules = KEPT,
