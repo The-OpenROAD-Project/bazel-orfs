@@ -65,8 +65,16 @@ def study_arm(
         last_stage: how far the flow runs.
         visibility: forwarded.
     """
+    if "_" not in name:
+        fail("study_arm name must be <axis>_<arm>, got " + name)
+
+    # Every arm has top wirebound; the variant keeps their results apart
+    # (results/asap7/wirebound/<arm>), and <axis>_<arm>_<stage> is the
+    # target name either way.
+    axis, _, arm = name.partition("_")
     orfs_flow(
-        name = name,
+        name = axis,
+        variant = arm,
         arguments = arguments,
         last_stage = last_stage,
         previous_stage = previous_stage,
