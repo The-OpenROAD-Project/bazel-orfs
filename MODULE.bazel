@@ -379,6 +379,21 @@ archive_override(
         # name are no longer merged. Test replace_hier_mod7. Not upstreamed;
         # retires at a //:bump onto an OpenROAD that has it.
         "//patches:0223-openroad-replace-hier-module-children.patch",
+        # 0224: after global placement's routability phase goes back to the
+        # pass with the least congestion, the overflow is a fraction of the
+        # cells' area as they now are, not of the sizes they left. On
+        # XSTile's parent it read 7.7 % low, and GPL-1014 reported +7.74 %
+        # area with no inflation left. Test routability_minimum_test. Not
+        # upstreamed; retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0224-openroad-gpl-areas-after-routability-revert.patch",
+        # 0225: a routability phase whose minimum is its first pass ends on
+        # the placement that pass measured, on its look-ahead coordinates,
+        # not on a descent replayed from the routability snapshot that no
+        # pass measured. XSTile's parent ended at congestion 1.36 and HPWL
+        # 60.3 M um where pass 1 had measured 1.16. Tests
+        # routability_minimum_test and routability_first_pass_minimum. Not
+        # upstreamed; retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0225-openroad-gpl-routability-ends-on-first-pass.patch",
     ],
     strip_prefix = "OpenROAD-615e34eabc2429b48d5bb58aa427907fc546020e",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/615e34eabc2429b48d5bb58aa427907fc546020e.tar.gz"],
