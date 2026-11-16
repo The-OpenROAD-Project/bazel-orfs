@@ -218,10 +218,14 @@ re-run with `--ignore` to take the parts the bumper does recognize.
 [Shapes the bumper recognizes](openroad.md#shapes-the-bumper-recognizes) has
 the details.
 
-### `--head=openroad` bumps to origin/master
-`bazelisk run //:bump -- --head=openroad` bumps ORFS to master and pins OpenROAD
-to its own `origin/master` HEAD, regenerating the archive_override integrity +
-submodule `patch_cmds`.
+### `--openroad` picks the OpenROAD commit
+A consumer's bump pins OpenROAD where the bazel-orfs it pins does: the commit,
+integrity and submodule pins of that bazel-orfs's own `archive_override`, the
+only OpenROAD its patches are tested on (`--openroad=bazel-orfs`, the default).
+`--openroad=orfs` takes ORFS's `tools/OpenROAD` submodule instead, the default
+in bazel-orfs itself. `--openroad=head` (or `--head=openroad`) pins OpenROAD to
+its own `origin/master` HEAD. Either regenerates the archive_override integrity
+and submodule `patch_cmds`, and bazel-orfs's patches may not apply there.
 
 ### Master bumps surface stale carried patches
 A carried patch failing with `CONTENT_DOES_NOT_MATCH_TARGET` usually means
