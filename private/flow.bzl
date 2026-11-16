@@ -573,7 +573,7 @@ def orfs_flow(
         is refused: bazel-orfs forces slang.
       extra_configs: dictionary keyed by ORFS stages with list of additional configuration files
       abstract_stage: string with physical design flow stage name which controls the name of the files generated in _generate_abstract stage
-      last_stage: string with the last stage to run, stops the flow early without generating an abstract. Mutually exclusive with abstract_stage. Useful for fast testing.
+      last_stage: string with the last stage to run, stops the flow early without generating an abstract. Mutually exclusive with abstract_stage and mock_area. Useful for fast testing.
       variant: name of the target variant, added right after the module name
       mock_area: floating point number, scale the die width/height by this amount, default no scaling.
         "pins" fits the mocked die to the block's pins instead (mock_area.tcl): the smallest
@@ -637,6 +637,12 @@ def orfs_flow(
         )
     if abstract_stage and last_stage:
         fail("abstract_stage and last_stage are mutually exclusive")
+    if mock_area and last_stage:
+        fail(
+            "mock_area makes an abstract and last_stage makes none: a flow " +
+            "with both has an orfs_macro whose liberty is never generated. " +
+            "Use abstract_stage instead of last_stage, or drop mock_area.",
+        )
     if variant == "base":
         variant = None
     if top == None:
