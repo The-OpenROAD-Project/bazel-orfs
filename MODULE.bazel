@@ -394,6 +394,14 @@ archive_override(
         # routability_minimum_test and routability_first_pass_minimum. Not
         # upstreamed; retires at a //:bump onto an OpenROAD that has it.
         "//patches:0225-openroad-gpl-routability-ends-on-first-pass.patch",
+        # 0226: global placement ends on Nesterov's iterate, not on the
+        # look-ahead one momentum step past it, which it measured, stopped
+        # on and wrote. Every placement moves, 0 to 3 iterations later:
+        # -2.19 to -0.05 % wire on gpl's large regressions; placements of
+        # under 25 iterations move either way. Tests end_of_descent_test
+        # and routability_minimum_test. Not upstreamed; retires at a
+        # //:bump onto an OpenROAD that has it.
+        "//patches:0226-openroad-gpl-end-on-iterate.patch",
     ],
     strip_prefix = "OpenROAD-615e34eabc2429b48d5bb58aa427907fc546020e",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/615e34eabc2429b48d5bb58aa427907fc546020e.tar.gz"],
