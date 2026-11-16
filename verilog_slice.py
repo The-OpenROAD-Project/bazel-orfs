@@ -5,13 +5,16 @@ Each slice holds the kept module and every module under it, down to the
 next kept module, which appears as a stub: its header (parameter and port
 declarations) and nothing else. A slice is then all a partition needs to
 canonicalize its module, and its bytes change only when one of the
-modules in it does, or a kept child's ports do.
+modules in it does, a kept child's ports do, or a DPI import it carries
+does.
 
 The sources must be one module per definition with nothing between the
-definitions but comments: what a CIRCT firtool split or concatenated
-output is. Anything else outside a module (a `define, an `include, a
-package) or a directive that reaches across modules fails here, rather
-than leaving a slice that elaborates differently from the whole design.
+definitions but comments and guarded DPI imports: what a CIRCT firtool
+split or concatenated output is. A DPI import goes, guard and all, into
+each slice with a module that names its function. Anything else outside
+a module (a `define, an `include, a package) or a directive that reaches
+across modules fails here, rather than leaving a slice that elaborates
+differently from the whole design.
 
 The top's slice (--top-slice) is cut the same way: the top and every
 module under it down to the kept modules, which are stubs.
@@ -74,10 +77,59 @@ DECLARATION_TYPE = {
     "unsigned",
 }
 DECLARATION_PREFIX_RE = re.compile(r"\s*(?:[A-Za-z_]\w*|\[[^\]\[]*\])")
+# firtool's guard around a DPI import, which it writes at the top of each
+# file with a module that calls the function:
+#
+#   `ifndef __CIRCT_DPI_IMPORT_F
+#     import "DPI-C" context function void f(...);
+#     `define __CIRCT_DPI_IMPORT_F
+#   `endif // not def __CIRCT_DPI_IMPORT_F
+DPI_GUARD_RE = re.compile(
+    r"`ifndef[ \t]+([A-Za-z_][A-Za-z0-9_$]*)[ \t]*\n"
+    r"\s*import\s+\"\s*\"([^;`]*);"
+    r"\s*`define[ \t]+\1[ \t]*\n"
+    r"\s*`endif[ \t]*(?:\n|$)"
+)
+DPI_SUBROUTINE_RE = re.compile(r"\b(?:function|task)\b([^(]*)")
 
 
 class SliceError(Exception):
     pass
+
+
+class DpiImport:
+    """A guarded DPI import outside any module, and the function it names."""
+
+    def __init__(self, function, guard, path, line, text):
+        self.function = function
+        self.guard = guard
+        self.path = path
+        self.line = line
+        self.text = text
+
+
+def _dpi_import(path, text, masked, pos):
+    """The guarded DPI import at pos, or None."""
+    m = DPI_GUARD_RE.match(masked, pos)
+    if not m:
+        return None
+    string = masked.index('"', pos)
+    if text[string : string + 7] != '"DPI-C"':
+        return None
+    subroutine = DPI_SUBROUTINE_RE.search(m.group(2))
+    if not subroutine:
+        return None
+    names = TOKEN_RE.findall(subroutine.group(1))
+    if not names:
+        return None
+    end = m.end()
+    return DpiImport(
+        _bare(names[-1]),
+        m.group(1),
+        path,
+        text.count("\n", 0, pos) + 1,
+        text[pos:end].rstrip("\n") + "\n",
+    )
 
 
 def _bare(name):
@@ -358,7 +410,11 @@ def _header_end(path, text, masked, name_end):
     )
 
 
-def parse_modules(path, text):
+def parse_modules(path, text, imports=None):
+    """The modules defined in text, in source order.
+
+    The guarded DPI imports between them go into imports, a list.
+    """
     masked = mask(text)
     modules = []
     pos = 0
@@ -383,6 +439,13 @@ def parse_modules(path, text):
             pos = end + 2
             continue
         m = MODULE_RE.match(masked, pos)
+        if not m and attribute_start is None:
+            dpi = _dpi_import(path, text, masked, pos)
+            if dpi is not None:
+                if imports is not None:
+                    imports.append(dpi)
+                pos += len(dpi.text)
+                continue
         if not m:
             snippet = text[pos : text.find("\n", pos) if "\n" in text[pos:] else None]
             raise SliceError(
@@ -445,12 +508,14 @@ def expand_sources(sources):
 
 
 def read_modules(files):
+    """(modules, order, imports): imports maps a function to its import."""
     modules = {}
     order = []
+    found = []
     for path in files:
         with open(path) as f:
             text = f.read()
-        for module in parse_modules(path, text):
+        for module in parse_modules(path, text, found):
             if module.name in modules:
                 first = modules[module.name]
                 raise SliceError(
@@ -460,7 +525,38 @@ def read_modules(files):
                 )
             modules[module.name] = module
             order.append(module.name)
-    return modules, order
+    return modules, order, dpi_imports(modules, found)
+
+
+def dpi_imports(modules, found):
+    """Each DPI function's import, once, from the imports found.
+
+    firtool writes an import into every file that calls the function; the
+    copies must agree. A module that reads a guard would elaborate in its
+    slice with the guard defined where the whole design may not have it.
+    """
+    imports = {}
+    guards = {}
+    for dpi in found:
+        first = imports.get(dpi.function) or guards.get(dpi.guard)
+        if first is None:
+            imports[dpi.function] = dpi
+            guards[dpi.guard] = dpi
+        elif first.text != dpi.text:
+            raise SliceError(
+                "{}:{}: DPI import of {} differs from {}:{}".format(
+                    dpi.path, dpi.line, dpi.function, first.path, first.line
+                )
+            )
+    for module in modules.values():
+        tokens = {_bare(t) for t in TOKEN_RE.findall(module.masked)}
+        for guard in sorted(tokens & set(guards)):
+            raise SliceError(
+                "{}:{}: module {} reads DPI import guard {}".format(
+                    module.path, module.line, module.name, guard
+                )
+            )
+    return imports
 
 
 def elaborated_names(modules, top):
@@ -488,8 +584,11 @@ def elaborated_names(modules, top):
     return elaborated
 
 
-def slice_text(modules, order, target, kept, elaborated=None):
-    """The slice of `target`: its subtree, kept descendants as stubs."""
+def slice_text(modules, order, target, kept, elaborated=None, imports=None):
+    """The slice of `target`: its subtree, kept descendants as stubs.
+
+    Before the modules, the DPI imports of the functions they name.
+    """
     names = set(modules)
     full = {target}
     stubs = set()
@@ -507,6 +606,12 @@ def slice_text(modules, order, target, kept, elaborated=None):
     if elaborated is not None:
         for name in [target] + [n for n in order if n in stubs]:
             parts.append("// verilog_slice: {} {}\n".format(name, elaborated[name]))
+    if imports:
+        named = set()
+        for name in full:
+            named |= {_bare(t) for t in TOKEN_RE.findall(modules[name].masked)}
+        for function in sorted(named & set(imports)):
+            parts.append(imports[function].text)
     for name in order:
         if name in full:
             parts.append(modules[name].text + "\n")
@@ -535,7 +640,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     try:
-        modules, order = read_modules(expand_sources(args.sources))
+        modules, order, imports = read_modules(expand_sources(args.sources))
         kept = {name for name, _ in args.slice}
         missing = sorted(kept - set(modules))
         if missing:
@@ -558,7 +663,7 @@ def main(argv=None):
                     "it with their defaults".format(name)
                 )
         for name, out in args.slice:
-            text = slice_text(modules, order, name, kept, elaborated)
+            text = slice_text(modules, order, name, kept, elaborated, imports)
             with open(out, "w") as f:
                 f.write(text)
         if args.top_slice:
