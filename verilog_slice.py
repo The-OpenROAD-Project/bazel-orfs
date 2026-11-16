@@ -55,6 +55,21 @@ ENDMODULE_RE = re.compile(r"\bendmodule\b(\s*:\s*(?:" + IDENTIFIER + "))?")
 TOKEN_RE = re.compile(IDENTIFIER)
 DIRECTIVE_RE = re.compile(r"`([A-Za-z_][A-Za-z0-9_$]*)")
 PORT_KEYWORD_RE = re.compile(r"\b(?:input|output|inout)\b")
+SUBROUTINE_RE = re.compile(r"\b(?:function|task)\b")
+END_SUBROUTINE_RE = re.compile(r"\b(?:endfunction|endtask)\b")
+DATA_KEYWORD_RE = re.compile(r"\b(?:wire|reg|logic|var|tri|integer)\b")
+# What may come between a declaration's direction and its names.
+DECLARATION_TYPE = {
+    "wire",
+    "reg",
+    "logic",
+    "var",
+    "tri",
+    "integer",
+    "signed",
+    "unsigned",
+}
+DECLARATION_PREFIX_RE = re.compile(r"\s*(?:[A-Za-z_]\w*|\[[^\]\[]*\])")
 
 
 class SliceError(Exception):
@@ -115,8 +130,11 @@ def mask(text):
 
 
 class Module:
-    def __init__(self, name, path, line, text, masked, header_end, name_end):
+    def __init__(
+        self, name, path, line, text, masked, header_end, name_end, ports=None
+    ):
         self.name = name
+        self.ports = ports
         self.name_end = name_end
         self.path = path
         self.line = line
@@ -125,11 +143,126 @@ class Module:
         self.header_end = header_end
 
     def has_parameters(self):
-        return self.masked[self.name_end : self.header_end].lstrip().startswith("#")
+        if self.masked[self.name_end : self.header_end].lstrip().startswith("#"):
+            return True
+        return re.search(r"\bparameter\b", self.masked[self.header_end :]) is not None
 
     def stub(self):
-        """The module's declaration with its body left out."""
-        return self.text[: self.header_end] + "\nendmodule\n"
+        """The module's declaration with its body left out.
+
+        A non-ANSI module's port declarations are in its body; its stub
+        keeps them, and of a net or variable declaration that names a
+        port, the port alone.
+        """
+        if self.ports is None:
+            return self.text[: self.header_end] + "\nendmodule\n"
+        return (
+            self.text[: self.header_end]
+            + "".join("\n" + d for d in self._port_declarations())
+            + "\nendmodule\n"
+        )
+
+    def _fail(self, offset, message):
+        raise SliceError(
+            "{}:{}: {}".format(
+                self.path,
+                self.line + self.text.count("\n", 0, offset),
+                message,
+            )
+        )
+
+    def _statements(self):
+        """(start, end) of each `;`-ended item at module level."""
+        body = self.masked
+        i = self.header_end
+        depth = 0
+        start = i
+        while i < len(body):
+            c = body[i]
+            if c in "([{":
+                depth += 1
+            elif c in ")]}":
+                depth -= 1
+            elif c == ";" and depth == 0:
+                yield start, i
+                start = i + 1
+            i += 1
+
+    def _port_declarations(self):
+        ports = set(self.ports)
+        declared = {}
+        out = []
+        subroutine = 0
+        for start, end in self._statements():
+            item = self.masked[start:end]
+            subroutine += len(SUBROUTINE_RE.findall(item)) - len(
+                END_SUBROUTINE_RE.findall(item)
+            )
+            if subroutine > 0 or END_SUBROUTINE_RE.search(item):
+                continue
+            words = item.split()
+            if not words:
+                continue
+            first = words[0]
+            if first in ("input", "output", "inout"):
+                prefix, names = self._declaration(start, end, 1)
+                for n in names:
+                    if n not in ports:
+                        self._fail(
+                            start, "{} {} is not in the port list".format(first, n)
+                        )
+                    if n in declared:
+                        self._fail(start, "port {} declared twice".format(n))
+                    declared[n] = first
+                out.append("{} {};".format(prefix, ", ".join(names)))
+            elif first in DECLARATION_TYPE:
+                prefix, names = self._declaration(start, end, 0)
+                named = [n for n in names if n in ports]
+                if named:
+                    out.append("{} {};".format(prefix, ", ".join(named)))
+            elif ports & {_bare(t) for t in TOKEN_RE.findall(item)} and (
+                PORT_KEYWORD_RE.search(item) or DATA_KEYWORD_RE.search(item)
+            ):
+                self._fail(start, "a port declaration the slicer cannot read")
+        missing = [p for p in self.ports if p not in declared]
+        if missing:
+            self._fail(0, "port {} has no direction".format(missing[0]))
+        return out
+
+    def _declaration(self, start, end, keywords):
+        """(prefix, names) of the declaration masked[start:end].
+
+        The prefix is its direction and type, the names what it declares.
+        A declaration that reads anything but its own text (a macro, a
+        parameter in a range) or sets a value is refused: a stub of it
+        could elaborate differently.
+        """
+        item = self.masked[start:end]
+        if "`" in item:
+            self._fail(start, "a directive in a port declaration")
+        pos = 0
+        prefix = []
+        while True:
+            m = DECLARATION_PREFIX_RE.match(item, pos)
+            if not m:
+                break
+            token = m.group(0).strip()
+            if token.startswith("["):
+                if re.search(r"[A-Za-z_$]", token):
+                    self._fail(start, "a port range that names something else")
+            elif keywords > 0:
+                keywords -= 1
+            elif token not in DECLARATION_TYPE:
+                break
+            prefix.append(token)
+            pos = m.end()
+        names = []
+        for name in item[pos:].split(","):
+            name = name.strip()
+            if not re.fullmatch(IDENTIFIER, name):
+                self._fail(start, "declaration of `{}`".format(name))
+            names.append(_bare(name))
+        return " ".join(prefix), names
 
     def instances(self, names):
         """(module, instance name) of each instantiation, in source order."""
@@ -180,8 +313,8 @@ def _where(path, text, offset):
 def _header_end(path, text, masked, name_end):
     """Offset just past the `;` that ends the module's header.
 
-    Also refuses a non-ANSI port list: its declarations are in the body,
-    so a stub of the header alone would have ports without directions.
+    With it, the names of a non-ANSI port list, whose declarations are
+    in the body, or None.
     """
     depth = 0
     ports = None
@@ -201,14 +334,20 @@ def _header_end(path, text, masked, name_end):
             if depth == 0 and ports is not None and ports[1] is None:
                 ports[1] = i
         elif c == ";" and depth == 0:
+            names = None
             if ports is not None:
                 port_text = masked[ports[0] : ports[1]]
                 if port_text.strip() and not PORT_KEYWORD_RE.search(port_text):
-                    raise SliceError(
-                        "{}: non-ANSI port list; a stub of this module would "
-                        "have no port directions".format(_where(path, text, name_end))
-                    )
-            return i + 1
+                    names = [n.strip() for n in port_text.split(",")]
+                    for n in names:
+                        if not re.fullmatch(IDENTIFIER, n):
+                            raise SliceError(
+                                "{}: non-ANSI port `{}` is not a name".format(
+                                    _where(path, text, name_end), n
+                                )
+                            )
+                    names = [_bare(n) for n in names]
+            return i + 1, names
         i += 1
     raise SliceError(
         "{}: module header has no `;`".format(_where(path, text, name_end))
@@ -268,7 +407,8 @@ def parse_modules(path, text):
                     )
                 )
         module_text = text[start : end.end()]
-        header_end = _header_end(path, text, masked, m.end()) - start
+        header_end, ports = _header_end(path, text, masked, m.end())
+        header_end -= start
         modules.append(
             Module(
                 _bare(m.group(1)),
@@ -278,6 +418,7 @@ def parse_modules(path, text):
                 module_masked,
                 header_end,
                 m.end() - start,
+                ports,
             )
         )
         attribute_start = None

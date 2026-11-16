@@ -106,8 +106,8 @@ def design_arms(name, top, flops, regfile, module, periods, spec = None, shapes 
       The arms' names, <name>_<shape or flops>_<period>.
     """
 
-    # ORFS's sources are not firtool-shaped (sv2v's non-ANSI ports) and
-    # the register-file variants rewrite them with SYNTH_VERILOG_SURGERY
+    # the register-file variants rewrite the design with
+    # SYNTH_VERILOG_SURGERY, which acts on the whole design
     f_args, f_sources, f_verilog = _design(flops)
     r_args, r_sources, r_verilog = _design(regfile) if regfile else (
         f_args | {"AUTO_MEMORIES": "1"},
@@ -132,7 +132,6 @@ def design_arms(name, top, flops, regfile, module, periods, spec = None, shapes 
             tags = ["manual"],
             variant = arm,
             verilog_files = f_verilog,
-            verilog_slices = False,
         )
         arms += _measure(top, arm)
     for shape, lines in shapes.items():

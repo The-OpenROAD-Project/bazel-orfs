@@ -436,11 +436,15 @@ comments, which is what CIRCT firtool writes, split or concatenated. It
 fails the build, naming the file and line, on anything else that could
 make a slice elaborate differently from the whole design: a directive
 outside a conditional, text outside a module, a nested module, a
-non-ANSI port list, a parameterized kept module. `SYNTH_VERILOG_SURGERY`
-and `VERILOG_TOP_PARAMS` act on the whole design and are refused with it
-at analysis. Each refusal names `verilog_slices = False`, which
-canonicalizes every partition out of the whole design; a slice never
-falls back to it silently.
+parameterized kept module, a non-ANSI port declaration it cannot copy
+into a stub as it is (one under a conditional, a range that names a
+parameter or a macro, a port net that is given a value). A non-ANSI
+module (port names in the header, sv2v's and yosys's netlists, say)
+is stubbed with its header and the port declarations from its body.
+`SYNTH_VERILOG_SURGERY` and `VERILOG_TOP_PARAMS` act on the whole design
+and are refused with it at analysis. Each refusal names
+`verilog_slices = False`, which canonicalizes every partition out of the
+whole design; a slice never falls back to it silently.
 
 `SYNTH_CANONICALIZE_TCL` runs on each slice as it runs on the whole
 design, after the slice's modules take the whole design's names: the

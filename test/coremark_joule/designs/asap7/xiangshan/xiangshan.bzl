@@ -1551,7 +1551,6 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
             user_stages = _user_stages(user_arguments, user_sources),
             variant = variant,
             verilog_files = verilog,
-            # the sunk Verilog has non-ANSI ports
             verilog_slices = False,
             **mock
         )
@@ -1684,7 +1683,6 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         user_stages = _user_stages(user_arguments, user_sources),
         variant = variant,
         verilog_files = verilog,
-        # the sunk Verilog has non-ANSI ports
         verilog_slices = False,
         visibility = ["//visibility:public"],
     )
@@ -1915,7 +1913,6 @@ def xiangshan_flat_flow(name, variant, parent = XS_PARENT, blocks = XS_BLOCKS, p
         user_stages = _user_stages(user_arguments, user_sources),
         variant = variant,
         verilog_files = verilog,
-        # the sunk Verilog has non-ANSI ports
         verilog_slices = False,
     )
     _kpi(name, "grt", arguments, sources, tags, variant = variant)
