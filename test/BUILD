@@ -3107,3 +3107,25 @@ sh_test(
         ]
     ],
 )
+
+# generate_abstract's clock tree path check (carried patch 0231): passes
+# a model in order, stops on a max_clock_tree_path below its min and on a
+# model it cannot read.
+sh_test(
+    name = "check_clock_tree_paths_test",
+    srcs = ["check_clock_tree_paths/test.sh"],
+    args = [
+        "$(rootpath :openroad_exec)",
+        "$(rootpath check_clock_tree_paths/test.tcl)",
+        "$(rootpath @orfs//flow:scripts/check_clock_tree_paths.tcl)",
+        "$(rootpath check_clock_tree_paths/r31.lib)",
+    ],
+    data = [
+        "check_clock_tree_paths/main.lib",
+        "check_clock_tree_paths/r31.lib",
+        "check_clock_tree_paths/table.lib",
+        "check_clock_tree_paths/test.tcl",
+        ":openroad_exec",
+        "@orfs//flow:scripts/check_clock_tree_paths.tcl",
+    ],
+)

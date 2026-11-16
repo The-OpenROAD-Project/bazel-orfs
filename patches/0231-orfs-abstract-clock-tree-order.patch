@@ -1,0 +1,112 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] generate_abstract: refuse a model whose max clock tree path
+ is below its min
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A parent's CTS balances a hard macro by the max_clock_tree_path on its
+clock pin: pin arrival plus that number against the parent's registers.
+A model whose max lies below its min clocks the block late in every
+parent that reads it, and nothing downstream says so: the parent's
+timing reads the same model and agrees with it.
+
+generate_abstract now reads each model it writes back and stops
+(FLW-0030) on a clock pin whose max_clock_tree_path, rise or fall, is
+below its min_clock_tree_path. XiangShan's VecRegionModule on bazel-orfs
+main had max 216.3/227.4 ps against min 501.1/525.9 (OpenSTA wrote a
+nested VfRegFile macro's pin arrival without its own tree; the fix is
+carried as 0230); its parent's CTS put the block's clock pin 245 ps late.
+A clock tree path written in a form the check does not read stops it too
+(FLW-0031), so a change in the writer cannot turn it into a silent pass.
+
+The check is necessary, not sufficient: a bound that is wrong but on the
+right side of the other passes it (the same block's min, 170.9 instead
+of 486.7, in an earlier build). 0230's test covers that.
+
+Not upstreamed. Carried in bazel-orfs; retires on the //:bump onto an
+ORFS that has it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+diff --git a/flow/scripts/check_clock_tree_paths.tcl b/flow/scripts/check_clock_tree_paths.tcl
+new file mode 100644
+index 0000000..e4918dc
+--- /dev/null
++++ b/flow/scripts/check_clock_tree_paths.tcl
+@@ -0,0 +1,51 @@
++# A timing model's clock pin carries min_clock_tree_path and
++# max_clock_tree_path: the earliest and the latest clock arrival at a
++# register inside the block, measured from the pin. A parent's CTS
++# balances the block by its max (cts LatencyBalancer: pin arrival plus
++# max_clock_tree_path against the parent's registers), so a max below the
++# min is a model that clocks the block late in every parent that reads
++# it. Refuse it here, where it is made.
++proc check_clock_tree_paths { lib_file } {
++  set stream [open $lib_file r]
++  set text [read $stream]
++  close $stream
++  set pins [regexp -all -inline -indices {pin\("([^"]+)"\)} $text]
++  set re {timing_type : (min|max)_clock_tree_path;\s*cell_rise\(scalar\) \{\s*values\("([^"]+)"\);\s*\}\s*cell_fall\(scalar\) \{\s*values\("([^"]+)"\);}
++  array set tree {}
++  set parsed 0
++  foreach {all min_max rise fall} [regexp -all -inline -indices $re $text] {
++    incr parsed
++    set at [lindex $all 0]
++    set pin ""
++    foreach {group name} $pins {
++      if { [lindex $group 0] > $at } {
++        break
++      }
++      set pin [string range $text {*}$name]
++    }
++    set tree($pin,[string range $text {*}$min_max]) \
++      [list [string range $text {*}$rise] [string range $text {*}$fall]]
++  }
++  # A model written in a form the expression does not read would pass
++  # unchecked; stop on it instead.
++  set written [regexp -all {timing_type : (min|max)_clock_tree_path;} $text]
++  if { $parsed != $written } {
++    utl::error FLW 31 "[file tail $lib_file]: read $parsed of its $written\
++      clock tree paths; check_clock_tree_paths.tcl does not know the form\
++      of the others."
++  }
++  foreach key [lsort [array names tree *,max]] {
++    set pin [string range $key 0 end-4]
++    if { ![info exists tree($pin,min)] } {
++      continue
++    }
++    foreach edge {rise fall} min $tree($pin,min) max $tree($pin,max) {
++      if { $max < $min } {
++        utl::error FLW 30 "[file tail $lib_file]: clock pin $pin's\
++          max_clock_tree_path ($edge $max) is below its min_clock_tree_path\
++          ($edge $min); a parent's CTS balances the block by the max and\
++          would clock it late."
++      }
++    }
++  }
++}
+diff --git a/flow/scripts/generate_abstract.tcl b/flow/scripts/generate_abstract.tcl
+index 7fc2fd9..c25908a 100644
+--- a/flow/scripts/generate_abstract.tcl
++++ b/flow/scripts/generate_abstract.tcl
+@@ -1,4 +1,5 @@
+ source $::env(SCRIPTS_DIR)/load.tcl
++source $::env(SCRIPTS_DIR)/check_clock_tree_paths.tcl
+ erase_non_stage_variables generate_abstract
+ 
+ set stem [expr {
+@@ -22,9 +23,11 @@ puts "Generating abstract views"
+ if { [env_var_exists_and_non_empty CORNERS] } {
+   foreach corner $::env(CORNERS) {
+     log_cmd write_timing_model -scene $corner $::env(RESULTS_DIR)/$::env(DESIGN_NAME)_$corner.lib
++    check_clock_tree_paths $::env(RESULTS_DIR)/$::env(DESIGN_NAME)_$corner.lib
+   }
+ } else {
+   log_cmd write_timing_model $::env(RESULTS_DIR)/$::env(DESIGN_NAME)_typ.lib
++  check_clock_tree_paths $::env(RESULTS_DIR)/$::env(DESIGN_NAME)_typ.lib
+ }
+ log_cmd write_abstract_lef -bloat_occupied_layers $::env(RESULTS_DIR)/$::env(DESIGN_NAME).lef
+ 

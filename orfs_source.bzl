@@ -188,6 +188,11 @@ ORFS_PATCHES = [
     # names it as the whole design does. Not upstreamed; retires at a
     # bump onto an ORFS that carries it.
     Label("//patches:0224-orfs-memories-yosys-names-in-module.patch"),
+    # 0231: generate_abstract stops on a model whose max_clock_tree_path
+    # is below its min: a parent's CTS balances the block by the max and
+    # clocks it late (XiangShan's VecRegionModule, 245 ps). Not
+    # upstreamed; retires at a bump onto an ORFS that carries it.
+    Label("//patches:0231-orfs-abstract-clock-tree-order.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
@@ -361,6 +366,9 @@ exports_files(
 
 exports_files(
     [
+        # generate_abstract's clock tree path check, which
+        # test/check_clock_tree_paths runs on its own
+        "scripts/check_clock_tree_paths.tcl",
         "scripts/flow.tcl",
         # the register-file spec's translation to generate_ram (ORFS's
         # AUTO_MEMORIES_REGFILES), which test/regfile/cores runs on its own

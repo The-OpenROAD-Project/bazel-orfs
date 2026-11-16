@@ -1,0 +1,30 @@
+library (VecRegionModule) {
+  cell ("VecRegionModule") {
+    pin("clock") {
+      direction : input;
+      clock : true;
+      capacitance : 13.8696;
+      max_transition : 320.000;
+      timing() {
+        timing_sense : positive_unate;
+        timing_type : min_clock_tree_path;
+        cell_rise(scalar) {
+          values("501.09384");
+        }
+        cell_fall(scalar) {
+          values("525.92883");
+        }
+      }
+      timing() {
+        timing_sense : positive_unate;
+        timing_type : max_clock_tree_path;
+        cell_rise(scalar) {
+          values("216.28470");
+        }
+        cell_fall(scalar) {
+          values("227.43541");
+        }
+      }
+    }
+  }
+}
