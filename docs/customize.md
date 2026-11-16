@@ -212,6 +212,46 @@ bazel build //test:L1MetadataArray_generate_abstract
 
 The output `LEF` file can be found under `bazel-bin/results/<module>/<target>/base/<target.lef>`.
 
+### Time a parent with its blocks' interface logic
+
+A flow whose `macros` include other flows' `<block>_generate_abstract`
+targets gets two more targets, tagged manual and built only on request:
+
+* `<parent>_ilm_sta`: the parent's netlist and parasitics, with each
+  block's interface logic model in place of its abstract, timed in OpenSTA.
+* `<parent>_ilm_sta_nowire`: the same netlist without wires, each path's
+  logic alone.
+
+A block's interface logic model, `<block>_ilm_part`, is made by every flow
+that has an abstract: the cells from its data inputs to the first flops and
+from the last flops to its outputs, every load of a net those cells drive,
+and the clock tree of the flops it keeps, with its own parasitics. It is
+read at the stage the abstract was made from, or at global route for an
+abstract made after it. The parent is read whole at global route, or at its
+last stage when it stops at `place` or `cts`. Nothing is configured: the
+inputs follow from the parent's `macros`, and a macro that is not a flow's
+abstract (a fakeram, a hand-made `orfs_macro`) is timed by its liberty.
+
+```bash
+bazelisk build //test/via_block:via_top_ilm_sta
+```
+
+`<parent>_ilm_sta.txt` has the worst reg2reg path, every reg2reg endpoint's
+period by the class of its worst path (in the parent, inside a block, from
+one part to another, or through a block it neither starts nor ends in;
+`tools/headroom/classify.tcl`) in 10 ps bins, and the reg2reg min period.
+`<parent>_ilm_sta_paths.txt` has each class's worst path, cell by cell.
+
+A path that ends in the parent is timed exactly as with the blocks' whole
+netlists: every cell, load, wire and clock buffer on it is kept. A path
+inside a block is the block's own concern, and its model keeps only the
+flops at its boundary; `orfs_headroom` stitches the whole blocks. One level
+of hierarchy is modelled: a block's own macros stay abstracts.
+
+`ilm_sta = False` on `orfs_flow` makes none of these, for a parent with a
+macro named `<x>_generate_abstract` that has no `<x>_ilm_part`, such as a
+squashed flow whose abstract is made after global route.
+
 ## Tweak and iterate on designs
 
 ### Adjust floorplan parameters

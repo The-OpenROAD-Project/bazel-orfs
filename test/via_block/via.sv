@@ -1,7 +1,7 @@
 // A parent and a hardened block, with every class of reg2reg path the
 // stitched view tells apart (//tools/headroom:classify.tcl):
 //   parent:              p0 -> p1, within the parent
-//   Pass:                Pass's own q0 -> q
+//   Pass:                Pass's own q0 -> q1 -> q
 //   Pass->via_top:       Pass's q out to the parent's rq
 //   via_top->via:Pass->via_top: the parent's ra, into Pass at a, through
 //                        its flop-free logic, out at y, to the parent's rb
@@ -12,10 +12,15 @@ module Pass (
     output logic [15:0] y,
     output logic [15:0] q
 );
-  logic [15:0] q0;
+  // q1 is neither a first nor a last flop: Pass's interface logic model
+  // (//tools/headroom:sta_part.tcl, STA_ILM=1) keeps it as a load of its
+  // clock net and leaves out the logic around it, but for the cells q0
+  // drives
+  logic [15:0] q0, q1;
   always_ff @(posedge clock) begin
     q0 <= d;
-    q  <= q0 ^ {q0[14:0], q0[15]};
+    q1 <= q0 + {q0[7:0], q0[15:8]};
+    q  <= q1 ^ {q1[14:0], q1[15]};
   end
   // in to out, no flop of Pass between
   assign y = (a + 16'h1234) ^ {a[7:0], a[15:8]};

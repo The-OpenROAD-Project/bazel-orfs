@@ -1,5 +1,6 @@
 """Flow orchestration macros for OpenROAD-flow-scripts Bazel rules."""
 
+load("//private:ilm.bzl", "orfs_ilm_targets")
 load(
     "//private:rules.bzl",
     "ABSTRACT_IMPL",
@@ -511,6 +512,7 @@ def orfs_flow(
         quick_pins = False,
         gds = True,
         klayout = None,
+        ilm_sta = True,
         **kwargs):
     # buildifier: disable=function-docstring-args
     #
@@ -610,6 +612,13 @@ def orfs_flow(
         final. KLayout runs only when that target is built. Default True.
       klayout: KLayout binary for <name>_gds, over the one orfs.default()
         configures; that default is a mock that writes an empty GDS.
+      ilm_sta: if True, the default, a flow with an abstract also gets
+        <name>_ilm_part, its interface logic model, and a flow whose macros
+        are orfs_flow abstracts gets <name>_ilm_sta and
+        <name>_ilm_sta_nowire, the parent timed with its blocks' interface
+        logic (private/ilm.bzl). All are manual. False for a flow with a
+        macro named <x>_generate_abstract that has no <x>_ilm_part: a
+        squashed flow whose abstract is made after global route.
       **kwargs: forward named args
     """
 
@@ -698,6 +707,19 @@ def orfs_flow(
             [v for vs in sources.values() for v in vs],
         ).to_list(),
     )
+
+    if ilm_sta:
+        orfs_ilm_targets(
+            step_name = lambda stage: _step_name(name, variant, stage),
+            top = top,
+            macros = macros,
+            abstract_stage = abstract_stage,
+            last_stage = last_stage,
+            previous_stage = previous_stage,
+            squash = squash,
+            tags = kwargs.get("tags", []),
+            **{k: kwargs[k] for k in ["openroad", "visibility"] if k in kwargs}
+        )
 
     if gds and (abstract_stage or last_stage or "final") == "final":
         orfs_gds(

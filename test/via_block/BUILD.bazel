@@ -1,5 +1,6 @@
 load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_headroom")
 load("@rules_python//python:defs.bzl", "py_test")
+load(":ilm_test.bzl", "ilm_absent_test", "ilm_part_stage_test", "ilm_sta_inputs_test", "ilm_unit_test_suite")
 
 # A parent and a hardened block with a path through the block it neither
 # starts nor ends in (via.sv): the stitched view's classes
@@ -57,5 +58,72 @@ py_test(
     args = ["$(rootpath :via_top_headroom_classes)"],
     data = [":via_top_headroom_classes"],
     main = "classes_test.py",
+    tags = ["manual"],
+)
+
+# orfs_flow's interface-logic-model targets (private/ilm.bzl): via_top's
+# macro is a flow, so via_top gets via_top_ilm_sta and _nowire, its own part
+# read whole at its last stage, global route; Pass gets Pass_ilm_part, its
+# interface logic at its abstract's stage, and no _ilm_sta: it has no
+# macros. These are analysis only.
+ilm_unit_test_suite(name = "ilm_unit_test")
+
+[
+    ilm_sta_inputs_test(
+        name = "via_top_ilm_sta%s_inputs_test" % suffix,
+        modules = "via_top Pass",
+        parts = [
+            "via_top_ilm_sta_parent",
+            "Pass_ilm_part",
+        ],
+        target_under_test = ":via_top_ilm_sta" + suffix,
+        wires = wires,
+    )
+    for suffix, wires in [
+        ("", "1"),
+        ("_nowire", "0"),
+    ]
+]
+
+ilm_part_stage_test(
+    name = "Pass_ilm_part_test",
+    ilm = "1",
+    stage = "grt",
+    target_under_test = ":Pass_ilm_part",
+)
+
+ilm_part_stage_test(
+    name = "via_top_ilm_sta_parent_test",
+    ilm = "0",
+    stage = "grt",
+    target_under_test = ":via_top_ilm_sta_parent",
+)
+
+ilm_absent_test(
+    name = "Pass_no_ilm_sta_test",
+    targets = [
+        "Pass_ilm_sta",
+        "Pass_ilm_sta_nowire",
+        "Pass_ilm_sta_parent",
+    ],
+)
+
+# The interface-logic-model view against the whole view of the same parts
+# (ilm_sta_test.py says why they agree exactly). It builds both flows from
+# RTL through global route, a minute or two uncached: manual, like
+# classes_test, as CI builds no flow from RTL.
+py_test(
+    name = "ilm_sta_test",
+    size = "small",
+    srcs = ["ilm_sta_test.py"],
+    args = [
+        "$(rootpath :via_top_headroom_classes)",
+        "$(rootpaths :via_top_ilm_sta)",
+    ],
+    data = [
+        ":via_top_headroom_classes",
+        ":via_top_ilm_sta",
+    ],
+    main = "ilm_sta_test.py",
     tags = ["manual"],
 )
