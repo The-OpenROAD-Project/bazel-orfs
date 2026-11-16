@@ -1648,17 +1648,24 @@ def reconcile_patch_labels(content, owned, patch_strips=None):
     patches list gets one, with bazel-orfs's patch_strip
     (``patch_strips``, module name -> int) when it sets none of its own.
 
+    A label in bazel-orfs-patches/ that the pinned commit no longer applies
+    is dropped too: write_patches deletes its file, and that directory holds
+    nothing of the consumer's own.
+
     Returns ``(content, changed)``; ``changed`` names the modules whose list
     moved, so a bump can say so rather than swapping a patch silently.
     """
     changed = []
-    for module_name, names in owned.items():
+    for module_name in NON_BCR_DEPS:
+        names = owned.get(module_name, [])
         span = find_patching_override_block(content, module_name)
         if not span:
             continue
         block = content[span[0] : span[1]]
         m = re.search(r"(patches\s*=\s*\[)(.*?)(\])", block, re.DOTALL)
         if not m:
+            if not names:
+                continue
             close = block.rindex(")")
             added = ["    patches = ["]
             added += [f'        "//{BAZEL_ORFS_PATCHES_DIR}:{name}",' for name in names]
@@ -1681,6 +1688,7 @@ def reconcile_patch_labels(content, owned, patch_strips=None):
             indent = entry.group(1)
 
         kept = []
+        retired = False
         for line in body.split("\n"):
             labels = _extract_patches(line)
             if not labels:
@@ -1692,7 +1700,12 @@ def reconcile_patch_labels(content, owned, patch_strips=None):
                 continue
             if any(filename in other for other in owned.values()):
                 continue
+            if labels[0].startswith(f"//{BAZEL_ORFS_PATCHES_DIR}:"):
+                retired = True
+                continue
             kept.append(line)
+        if not names and not retired:
+            continue
 
         rendered = [f'{indent}"//{BAZEL_ORFS_PATCHES_DIR}:{name}",' for name in names]
         new_body = "\n" + "\n".join(rendered + kept) + "\n" + indent[:-4]
