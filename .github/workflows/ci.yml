@@ -183,6 +183,15 @@ jobs:
           bazelisk build --nobuild --keep_going
           $(bazelisk query 'filter("_route$", kind(rule, @orfs//flow/designs/...))')
 
+      # `bazelisk test ...` skips manual targets, so an output clash or a
+      # dangling reference among them reaches nobody until someone builds
+      # one by hand. Analyse every manual target except the ones an
+      # analysis_failure_test expects to fail.
+      - name: Analyse manual targets
+        run: |
+          bazelisk query 'attr(tags, "\bmanual\b", //...) except labels(target_under_test, kind("analysis_failure_test", //...))' --output=label > manual_targets.txt
+          bazelisk build --nobuild --keep_going --target_pattern_file=manual_targets.txt
+
       # What the tests build is checked by hand, not here:
       # `bazelisk run //local:check-ci-clean` (local/check_ci_clean.py).
       # --- Unit tests ---

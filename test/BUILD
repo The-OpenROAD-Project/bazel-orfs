@@ -7,20 +7,19 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:openroad.bzl", "orfs_arguments", "orfs_floorplan", "orfs_flow", "orfs_gds", "orfs_macro", "orfs_place", "orfs_run", "orfs_run_executable", "orfs_synth", "orfs_test", "orfs_variables")
 load("//:orfs_genrule.bzl", "orfs_genrule")
 load("//:sweep.bzl", "orfs_sweep")
+load(":analysis_failure_test.bzl", "analysis_failure_test")
 load(":auto_memories_outputs_test.bzl", "auto_memories_outputs_test")
 load(":deps_output_group_rule.bzl", "deps_groups_test", "deps_output_group_test", "output_group_test")
 load(":exec_tool.bzl", "exec_tool")
 load(":gds_target_test.bzl", "gds_klayout_flag_test", "gds_klayout_test")
 load(":hierarchical_default_test.bzl", "hierarchical_default_test_suite")
 load(":keep_modules_test.bzl", "keep_modules_test_suite")
-load(":macros_check_test.bzl", "macros_check_test")
 load(":metrics_default_test.bzl", "metrics_default_test_suite")
 load(":mock_pin_knobs_test.bzl", "mock_pin_knobs_test")
 load(":partition_key_test.bzl", "partition_key_test")
 load(":provider_test_rule.bzl", "lib_pre_layout_test")
 load(":quick_pins_test_rule.bzl", "quick_pins_data_dep_test")
 load(":repeatable_default_test.bzl", "repeatable_default_test_suite")
-load(":retired_arguments_test.bzl", "retired_argument_test")
 load(":sdc_clock_period_test.bzl", "runfiles_contents_test", "synth_action_inputs_test")
 load(":slang_frontend_test.bzl", "slang_frontend_test_suite")
 load(":source_input_propagation_test.bzl", "source_input_propagation_test")
@@ -322,7 +321,7 @@ orfs_flow(
 
 # The top with the mock abstract as its macro, sharing the synthesis made
 # with the real one: its floorplan would place the real one's LEF. The
-# stage previous_stage hands over refuses it (macros_check_test.bzl).
+# stage previous_stage hands over refuses it (lb_32x128_top_other_macros_refused_test).
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "lb_32x128_top",
@@ -343,7 +342,7 @@ orfs_flow(
     verilog_files = ["rtl/lb_32x128_top.v"],
 )
 
-macros_check_test(
+analysis_failure_test(
     name = "lb_32x128_top_other_macros_refused_test",
     message = "its flow's macros are not the macros its src",
     target_under_test = ":lb_32x128_top_other_macros_floorplan",
@@ -3007,7 +3006,7 @@ orfs_floorplan(
 )
 
 [
-    retired_argument_test(
+    analysis_failure_test(
         name = "%s_refused_test" % name,
         message = message,
         target_under_test = ":" + name,
