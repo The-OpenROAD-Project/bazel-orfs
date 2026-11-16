@@ -2526,7 +2526,7 @@ def _yosys_impl(ctx):
     # With slices the design's memories are the union of the slices'
     # (_yosys_parallel_synth), under the names every later stage reads.
     # The whole design's detection, which the canonicalize below still
-    # runs, moves aside to memories_whole_design{,.json}, read only by the
+    # runs, writes memories_whole_design{,.json}, read only by the
     # validation action that holds the union to it.
     whole_memories = []
     if auto_memories and verilog_slices:
@@ -2552,10 +2552,10 @@ def _yosys_impl(ctx):
         commands = [_make_cmd(ctx)]
         canon_memories_args = []
         if whole_memories:
-            # memories.json has no variable of its own: make writes it to
-            # $(RESULTS_DIR)/memories.json, and it moves aside here.
-            commands.append("mv {} {}".format(memories_outputs[0].path, whole_memories[0].path))
-            canon_memories_args = ["AUTO_MEMORIES_DIR=" + whole_memories[1].path]
+            canon_memories_args = [
+                "AUTO_MEMORIES_JSON=" + whole_memories[0].path,
+                "AUTO_MEMORIES_DIR=" + whole_memories[1].path,
+            ]
         commands += generation_commands(
             canon_logs + [canon_output],
         )
