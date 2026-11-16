@@ -22,7 +22,11 @@ iteration, until overflow <= 0.1.
   free columns a few sites wide next to it are out of reach. Finer bins
   (`-bin_grid_count 512`) and a spread start do not help. Leave such an
   array unblocked (0215 does when the band cannot hold the cells, on
-  XiangShan's FpRegFile/VfRegFile). Without IOs and with only
+  XiangShan's FpRegFile/VfRegFile). A bin grid coarser than the band
+  does the same: test/planned_parent's FileM, its array under 0215's
+  strips with a 3-row band, diverges on `-bin_grid_count 4` (bins 4.7
+  rows tall, overflow stuck at 0.15 in the bins wholly under the strips)
+  and converges on gpl's own 32 x 8. Without IOs and with only
   high-fanout nets, initial placement also piles every cell in the
   core's corner (fixed upstream, OpenROAD #12232, after our pin).
 - **Timing-driven events**: GPL-0100 "Timing-driven iteration i/N,
