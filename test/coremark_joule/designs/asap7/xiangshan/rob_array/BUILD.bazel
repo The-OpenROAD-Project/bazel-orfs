@@ -118,6 +118,8 @@ orfs_flow(
         for v, s in XS_USER_STAGES.items()
         if v in ROB["user_arguments"] | XS_ICG_USER_ARGUMENTS or v in ROB["user_sources"] | XS_ICG_USER_SOURCES
     },
+    # results/asap7/Rob/<variant>: RobEntries below is also top Rob
+    variant = "array",
     verilog_files = [
         ":rob_surgered.sv",
         ":RobEntryArray.v",
@@ -184,7 +186,7 @@ orfs_flow(
 [
     orfs_run(
         name = "Rob_%s_qor" % stage,
-        src = ":Rob_%s" % stage,
+        src = ":Rob_array_%s" % stage,
         outs = ["Rob_%s_qor.json" % stage],
         script = ":qor_probe.tcl",
         tags = ["manual"],
