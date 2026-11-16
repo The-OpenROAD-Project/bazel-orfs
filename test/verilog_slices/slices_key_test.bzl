@@ -5,7 +5,8 @@ the Verilog and none of the design's sources, the other slices, the
 global canonicalize's RTLIL or the whole design's memories, and finds its
 slice's memories itself; each partition, the top's included, reads
 those. So neither waits on a whole-design read nor reruns for an edit
-outside its slice.
+outside its slice. The design's memories, which the merge's 1_synth.odb
+reads, are the slices' union.
 """
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
@@ -63,12 +64,39 @@ def _impl(ctx):
         for name in ["partition_%s_slice.rtlil", "partition_%s_memories"]:
             asserts.true(env, name % ctx.attr.top in inputs, "the top partition lacks " + name % ctx.attr.top)
 
-    # The merge waits for the slices' memories to be checked against the
-    # whole design's; nothing before it does.
-    merges = [a for a in actions if "1_2_yosys.v" in [f.basename for f in a.outputs.to_list()]]
-    asserts.equals(env, 1, len(merges))
-    if merges:
-        asserts.true(env, "slice_memories.ok" in [f.basename for f in merges[0].inputs.to_list()], "the merge does not wait for the memories check")
+    # The design's memories are the union of the slices'. Neither the
+    # merge nor 1_synth.odb reads anything the whole design's
+    # canonicalize and memory detection write; the check that holds the
+    # union to that detection is a validation action, off their path.
+    def producing(name):
+        return [a for a in actions if name in [f.basename for f in a.outputs.to_list()]]
+
+    canons = producing("1_1_yosys_canonicalize.rtlil")
+    unions = producing("memories.json")
+    asserts.equals(env, 1, len(canons))
+    asserts.equals(env, 1, len(unions))
+    if canons and unions:
+        whole = canons[0].outputs.to_list()
+        asserts.true(env, "memories_whole_design" in [f.basename for f in whole])
+        asserts.equals(env, "SliceMemoriesUnion", unions[0].mnemonic)
+        asserts.equals(
+            env,
+            sorted(["partition_%s_memories" % m for m in sliced]),
+            sorted([f.basename for f in unions[0].inputs.to_list() if f.basename.endswith("_memories")]),
+        )
+        union = unions[0].outputs.to_list()
+        for name in ["1_2_yosys.v", "1_synth.odb"]:
+            readers = producing(name)
+            asserts.equals(env, 1, len(readers), name)
+            for reader in readers:
+                inputs = reader.inputs.to_list()
+                for f in whole:
+                    asserts.false(env, f in inputs, "%s waits for %s" % (name, f.basename))
+                if name == "1_synth.odb":
+                    for f in union:
+                        asserts.true(env, f in inputs, "%s lacks the union's %s" % (name, f.basename))
+    validation = analysistest.target_under_test(env)[OutputGroupInfo]._validation.to_list()
+    asserts.equals(env, ["slice_memories.ok"], [f.basename for f in validation])
     return analysistest.end(env)
 
 slices_key_test = analysistest.make(

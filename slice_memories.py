@@ -10,17 +10,24 @@ neither waits on nor changes them:
   slice     the memories of one slice, from extract_memories.tcl's netlist
             JSON of the slice, plus the register files: the memories
             directory synthesis reads, for that slice alone.
-  check     each slice's memories against the whole design's: a memory a
-            slice names or shapes differently, or one the design has in a
-            slice's modules that the slice did not find, fails the build.
+  union     the design's memories, every slice's, the top's included,
+            together: the memories directory and memories.json that the
+            merge, 1_synth.odb and every later stage read. A memory or view
+            two slices disagree on fails the build, naming both.
+  check     each slice's memories, and their union, against the whole
+            design's: a memory a slice names or shapes differently, one the
+            design has in a slice's modules that the slice did not find, or
+            a union that is not the whole design's fails the build.
 
 Usage:
   slice_memories.py regfiles --scripts-dir D --out-dir O [--regfile-spec S]...
       [--openroad X] [--lef L]... [--macro-place M]... --platform P
   slice_memories.py slice --scripts-dir D --yosys-json J --top M --slice V
       --regfiles-dir R --out-dir O [--memories F]... --platform P
+  slice_memories.py union --out-dir O --json J --regfiles-dir R
+      (--slice-dir DIR --slice-name M)...
   slice_memories.py check --global-dir G --global-json J --stamp S
-      (--slice-dir DIR --slice V)...
+      [--union-dir U --union-json K] (--slice-dir DIR --slice V)...
 """
 
 import argparse
@@ -162,6 +169,64 @@ def records(path):
     return {m["name"]: m for m in json.loads(Path(path).read_text())["memories"]}
 
 
+def blackbox_lines(path):
+    return [line for line in Path(path).read_text().splitlines() if line.strip()]
+
+
+def union(args):
+    """The slices' memories as gen_memories.py writes the whole design's:
+    memories.json sorted by name, blackboxes.txt with FakeRAM's macros
+    sorted by name and the register files' after them, every view once."""
+    out = Path(args.out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    header = None
+    memories = {}
+    blackboxes = {}
+    views = {}
+
+    def once(seen, key, name, value, what):
+        first, value_first = seen.setdefault(key, (name, value))
+        if value_first != value:
+            raise MemoriesError(
+                "{} {} is not the same in {} and {}".format(what, key, first, name)
+            )
+
+    for slice_dir, name in zip(args.slice_dir, args.slice_name):
+        slice_dir = Path(slice_dir)
+        doc = json.loads((slice_dir / INVENTORY).read_text())
+        this = {k: v for k, v in doc.items() if k != "memories"}
+        if header is None:
+            header = (name, this)
+        elif header[1] != this:
+            raise MemoriesError(
+                "{} and {} write memories.json for a different platform or "
+                "version".format(header[0], name)
+            )
+        for record in doc["memories"]:
+            once(memories, record["name"], name, record, "memory")
+        for line in blackbox_lines(slice_dir / "blackboxes.txt"):
+            once(blackboxes, line.split()[0], name, line, "black box")
+        for f in sorted(slice_dir.iterdir()):
+            if f.name not in ("blackboxes.txt", INVENTORY):
+                once(views, f.name, name, f.read_bytes(), "view")
+
+    doc = dict(header[1]) if header else {}
+    doc["memories"] = [memories[m][1] for m in sorted(memories)]
+    Path(args.json).write_text(json.dumps(doc, indent=2) + "\n")
+    regfile_lines = blackbox_lines(Path(args.regfiles_dir) / "blackboxes.txt")
+    regfile_macros = {line.split()[0] for line in regfile_lines}
+    (out / "blackboxes.txt").write_text(
+        "".join(
+            blackboxes[m][1] + "\n"
+            for m in sorted(blackboxes)
+            if m not in regfile_macros
+        )
+        + "".join(line + "\n" for line in regfile_lines)
+    )
+    for name in sorted(views):
+        (out / name).write_bytes(views[name][1])
+
+
 def blackbox_names(path):
     return {
         line.split()[0] for line in Path(path).read_text().splitlines() if line.strip()
@@ -210,9 +275,36 @@ def check(args):
                 problems.append(
                     "{}: {} differs from the whole design's".format(where, f.name)
                 )
+    if args.union_dir:
+        problems.extend(union_problems(global_dir, args.global_json, args))
     if problems:
         raise MemoriesError("\n".join(problems))
     Path(args.stamp).write_text("")
+
+
+def union_problems(global_dir, global_json, args):
+    """What sets the slices' union apart from the whole design's memories.
+    The whole design's FakeRAM views are dated and the union's are not;
+    its register files' generator scripts (*.tcl) are no view."""
+    union_dir = Path(args.union_dir)
+    problems = []
+    if Path(global_json).read_bytes() != Path(args.union_json).read_bytes():
+        problems.append("the slices' memories.json is not the whole design's")
+    design_views = {f.name for f in global_dir.iterdir() if f.suffix != ".tcl"}
+    union_views = {f.name for f in union_dir.iterdir()}
+    for name in sorted(design_views - union_views):
+        problems.append("the slices have no {}, the whole design has".format(name))
+    for name in sorted(union_views - design_views):
+        problems.append("the slices have {}, the whole design has not".format(name))
+    for name in sorted(design_views & union_views):
+        ours = (union_dir / name).read_bytes()
+        theirs = (global_dir / name).read_bytes()
+        if name.endswith(".lib"):
+            ours = undated(ours.decode()).encode()
+            theirs = undated(theirs.decode()).encode()
+        if ours != theirs:
+            problems.append("the slices' {} is not the whole design's".format(name))
+    return problems
 
 
 def main(argv=None):
@@ -238,7 +330,16 @@ def main(argv=None):
     p.add_argument("--memories", action="append", default=[])
     p.add_argument("--platform", required=True)
 
+    p = sub.add_parser("union")
+    p.add_argument("--out-dir", required=True)
+    p.add_argument("--json", required=True)
+    p.add_argument("--regfiles-dir", required=True)
+    p.add_argument("--slice-dir", action="append", default=[])
+    p.add_argument("--slice-name", action="append", default=[])
+
     p = sub.add_parser("check")
+    p.add_argument("--union-dir")
+    p.add_argument("--union-json")
     p.add_argument("--global-dir", required=True)
     p.add_argument("--global-json", required=True)
     p.add_argument("--stamp", required=True)
@@ -247,7 +348,14 @@ def main(argv=None):
 
     args = parser.parse_args(argv)
     try:
-        {"regfiles": regfiles, "slice": slice_, "check": check}[args.command](args)
+        {
+            "regfiles": regfiles,
+            "slice": slice_,
+            "union": union,
+            "check": check,
+        }[
+            args.command
+        ](args)
     except MemoriesError as e:
         print("slice_memories: {}".format(e), file=sys.stderr)
         return 1

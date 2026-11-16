@@ -2041,16 +2041,41 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         progress_message = "Synthesizing top module %s" % module_top(ctx),
     )
 
-    # Each slice's memories against the whole design's, beside the
-    # partitions: the merge waits for it, the partitions do not.
-    memories_check = []
+    # The design's memories, which the merge's 1_synth.odb and every later
+    # stage read, are the union of the slices', the top's included: no
+    # whole-design memory detection on their path.
+    memories_validation = []
     if slice_memories:
+        union_args = ctx.actions.args()
+        union_args.add(ctx.file._slice_memories)
+        union_args.add("union")
+        union_args.add("--out-dir", slices.memories[1].path)
+        union_args.add("--json", slices.memories[0])
+        union_args.add("--regfiles-dir", slice_regfiles.path)
+        for m in kept_modules_list + [top]:
+            union_args.add("--slice-dir", slice_memories[m].path + "/memories")
+            union_args.add("--slice-name", m)
+        ctx.actions.run(
+            executable = ctx.executable._python,
+            arguments = [union_args],
+            inputs = [ctx.file._slice_memories, slice_regfiles] +
+                     [slice_memories[m] for m in kept_modules_list + [top]],
+            outputs = slices.memories,
+            mnemonic = "SliceMemoriesUnion",
+            progress_message = "Uniting the slices' memories for %s" % module_top(ctx),
+        )
+
+        # Each slice's memories, and their union, against the whole
+        # design's detection: a validation action, which a build of this
+        # target runs and nothing downstream waits for.
         stamp = declare_artifact(ctx, "results", "slice_memories.ok")
         check_args = ctx.actions.args()
         check_args.add(ctx.file._slice_memories)
         check_args.add("check")
-        check_args.add("--global-dir", slices.memories[1].path)
-        check_args.add("--global-json", slices.memories[0])
+        check_args.add("--global-dir", slices.whole_memories[1].path)
+        check_args.add("--global-json", slices.whole_memories[0])
+        check_args.add("--union-dir", slices.memories[1].path)
+        check_args.add("--union-json", slices.memories[0])
         check_args.add("--stamp", stamp)
         for m in kept_modules_list + [top]:
             check_args.add("--slice-dir", slice_memories[m].path + "/memories")
@@ -2058,14 +2083,14 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         ctx.actions.run(
             executable = ctx.executable._python,
             arguments = [check_args],
-            inputs = [ctx.file._slice_memories] + slices.memories +
+            inputs = [ctx.file._slice_memories] + slices.whole_memories + slices.memories +
                      [slice_memories[m] for m in kept_modules_list + [top]] +
                      [verilog_slice[m] for m in kept_modules_list + [top]],
             outputs = [stamp],
             mnemonic = "SliceMemoriesCheck",
             progress_message = "Checking the slices' memories against %s's" % module_top(ctx),
         )
-        memories_check = [stamp]
+        memories_validation = [stamp]
 
     # Action 5: merge partition outputs + top module → 1_2_yosys.v. By
     # module name, so reordering SYNTH_KEEP_MODULES leaves 1_2_yosys.v as
@@ -2078,7 +2103,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             inputs = " ".join([p.path for p in all_parts]),
             output = synth_outputs["1_2_yosys.v"].path,
         ),
-        inputs = all_parts + memories_check,
+        inputs = all_parts,
         outputs = [synth_outputs["1_2_yosys.v"]],
         progress_message = "Merging synthesized partitions for %s" % module_top(ctx),
     )
@@ -2144,8 +2169,9 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 #   cmj_dmem not found
                 # which is what AUTO_MEMORIES did on every design that
                 # took the parallel path -- that is, every design with
-                # SYNTH_NUM_PARTITIONS set, which is the default.
-                memories_inputs,
+                # SYNTH_NUM_PARTITIONS set, which is the default. With
+                # slices they are the slices' union.
+                (slices.memories if slice_memories else memories_inputs),
                 transitive = [
                     data_inputs(ctx),
                     pdk_inputs(ctx),
@@ -2169,7 +2195,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         list(per_module_rtlil.values()) + list(per_module_name_file.values()) +
         [part for _, part in partition_outputs] + [top_output]
     )
-    return validated_kept_macros_json, partition_files
+    return validated_kept_macros_json, partition_files, memories_validation
 
 def _stable_module_names(ctx, all_arguments):
     """SYNTH_STABLE_MODULE_NAMES=1: name contested modules by their path.
@@ -2497,6 +2523,18 @@ def _yosys_impl(ctx):
                   "SYNTH_KEEP_MODULES. Drop verilog_slices to canonicalize " +
                   "every partition out of the whole design, or drop {}").format(var, ctx.label, var))
 
+    # With slices the design's memories are the union of the slices'
+    # (_yosys_parallel_synth), under the names every later stage reads.
+    # The whole design's detection, which the canonicalize below still
+    # runs, moves aside to memories_whole_design{,.json}, read only by the
+    # validation action that holds the union to it.
+    whole_memories = []
+    if auto_memories and verilog_slices:
+        whole_memories = [
+            declare_artifact(ctx, "results", "memories_whole_design.json"),
+            declare_directory_artifact(ctx, "results", "memories_whole_design"),
+        ]
+
     canon_logs = declare_artifacts(ctx, "logs", ["1_1_yosys_canonicalize.log"])
 
     canon_output = declare_artifact(ctx, "results", CANON_OUTPUT)
@@ -2511,7 +2549,14 @@ def _yosys_impl(ctx):
     else:
         # SYNTH_NETLIST_FILES will not create an .rtlil file or reports, so we need
         # an empty placeholder in that case.
-        commands = [_make_cmd(ctx)] + generation_commands(
+        commands = [_make_cmd(ctx)]
+        canon_memories_args = []
+        if whole_memories:
+            # memories.json has no variable of its own: make writes it to
+            # $(RESULTS_DIR)/memories.json, and it moves aside here.
+            commands.append("mv {} {}".format(memories_outputs[0].path, whole_memories[0].path))
+            canon_memories_args = ["AUTO_MEMORIES_DIR=" + whole_memories[1].path]
+        commands += generation_commands(
             canon_logs + [canon_output],
         )
         canon_env = (
@@ -2537,12 +2582,12 @@ def _yosys_impl(ctx):
                 ctx.file._makefile_yosys.path,
                 "yosys-dependencies",
                 "do-yosys-canonicalize",
-            ] + sdc_overrides,
+            ] + canon_memories_args + sdc_overrides,
             command = EXPAND_VERILOG_DIRS + " && ".join(commands),
             env = canon_env,
             inputs = canon_inputs,
-            outputs = [canon_output] + canon_logs + memories_outputs +
-                      memories_inferred,
+            outputs = [canon_output] + canon_logs +
+                      (whole_memories or memories_outputs) + memories_inferred,
             tools = canon_tools,
             progress_message = "Canonicalizing RTL for %s" % module_top(ctx),
         )
@@ -2587,6 +2632,7 @@ def _yosys_impl(ctx):
     # is enabled; surfaced via the kept_macros_validation output group.
     validated_kept_macros_json = None
     partition_files = []
+    memories_validation = []
 
     # Ensure declared metrics .json outputs exist and are parseable even if
     # make did not write them; genMetrics.py json.load()s every 1_*.json, so
@@ -2628,7 +2674,7 @@ def _yosys_impl(ctx):
             progress_message = "OpenROAD-SYN synthesis for %s" % module_top(ctx),
         )
     elif num_partitions > 0:
-        validated_kept_macros_json, partition_files = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments, sdc_overrides, synth_data_inputs, sdc_only_inputs, memories_outputs + memories_inferred, slices = struct(
+        validated_kept_macros_json, partition_files, memories_validation = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments, sdc_overrides, synth_data_inputs, sdc_only_inputs, memories_outputs + memories_inferred, slices = struct(
             env = verilog_arguments([]) |
                   yosys_environment(ctx) |
                   config_environment(canon_config),
@@ -2636,6 +2682,7 @@ def _yosys_impl(ctx):
             deps = canon_deps,
             verilog = verilog_files,
             memories = memories_outputs,
+            whole_memories = whole_memories,
             fakeram = fakeram_inputs,
             fakeram_env = fakeram_env,
             regfile_tools = regfile_tools,
@@ -2945,6 +2992,7 @@ def _yosys_impl(ctx):
             kept_macros_validation = depset(
                 [validated_kept_macros_json] if validated_kept_macros_json else [],
             ),
+            _validation = depset(memories_validation),
             # Parallel synthesis's intermediate files: the per-module
             # slices and canonical RTLIL, and each partition's netlist.
             partitions = depset(partition_files),
@@ -2953,7 +3001,7 @@ def _yosys_impl(ctx):
             # bazelisk build --output_groups=<basename> <synth target>.
             **(deps_groups | {
                 f.basename: depset([f])
-                for f in [config, variables] + outputs + (
+                for f in [config, variables] + outputs + whole_memories + (
                     [synth_outputs["1_2_yosys.sdc"]] if "1_2_yosys.sdc" in synth_outputs else []
                 )
             })

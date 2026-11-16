@@ -37,6 +37,9 @@ load("@rules_python//python:defs.bzl", "py_test")
 #   mem_equal_test          the slices give every partition, the top's
 #                           included, and the design the netlist the
 #                           global path gives them.
+#   memories_union_test     the slices' memories together are the
+#                           whole design's: what the merge, 1_synth.odb
+#                           and every later stage read.
 #
 # SYNTH_VERILOG_SURGERY and VERILOG_TOP_PARAMS act on the whole design.
 #
@@ -413,11 +416,31 @@ MEM_KEPT = [
 ) for name, group in [
     ("partitions", "partitions"),
     ("netlist", "1_2_yosys.v"),
+    ("memories_json", "memories.json"),
+    ("memories", "memories"),
 ] for variant in [
     "global",
     "modules",
     "grouped",
 ]]
+
+sh_test(
+    name = "memories_union_test",
+    size = "small",
+    srcs = ["memories_union_test.sh"],
+    args = [
+        "$(location :mem_memories_json_global)",
+        "$(location :mem_memories_global)",
+        "$(location :mem_memories_json_modules)",
+        "$(location :mem_memories_modules)",
+    ],
+    data = [
+        ":mem_memories_global",
+        ":mem_memories_json_global",
+        ":mem_memories_json_modules",
+        ":mem_memories_modules",
+    ],
+)
 
 sh_test(
     name = "mem_equal_test",
