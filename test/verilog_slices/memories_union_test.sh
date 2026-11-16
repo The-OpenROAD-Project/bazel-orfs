@@ -17,7 +17,7 @@ cmp -s "$global_json" "$union_json" || {
 }
 
 views() {
-    (cd "$1" && find . -type f ! -name '*.tcl' | sort)
+    (cd "$1" && find -L . -type f ! -name '*.tcl' | sort)
 }
 [ "$(views "$global_dir")" = "$(views "$union_dir")" ] || {
     diff <(views "$global_dir") <(views "$union_dir") >&2
