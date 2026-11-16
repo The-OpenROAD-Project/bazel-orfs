@@ -426,7 +426,6 @@ RES_STUDY = {
                 "tree_extracted" if top in TREE else "extracted",
             ),
         )],
-        # the extracted Verilog has non-ANSI ports
         verilog_slices = False,
         yosys_frontend_reason = "period worse on slang and the fold (YOSYS_FRONTEND)" if top in YOSYS_FRONTEND else None,
     )

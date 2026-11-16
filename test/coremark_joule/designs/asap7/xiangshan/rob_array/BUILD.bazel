@@ -174,7 +174,6 @@ orfs_flow(
         # VTypeBuffer stay modules of the core (arrays/BUILD.bazel,
         # BLACKBOXES); the RTL arm, the surgered core itself
         verilog_files = ["//test/coremark_joule/designs/asap7/xiangshan/surgery:xiangshan_surgered" if rtl else "//test/coremark_joule/designs/asap7/xiangshan/arrays:xiangshan_extracted.sv"],
-        # the extracted Verilog has non-ANSI ports
         verilog_slices = None if rtl else False,
     )
     for rtl in [

@@ -81,6 +81,107 @@ def slice_of(text, target, kept):
     return slice_text(modules, order, target, set(kept))
 
 
+NON_ANSI = """\
+module Kept
+(
+  clk_i,
+  data_i,
+  data_o,
+  q
+);
+
+  input [63:0] data_i;
+  output [63:0] data_o;
+  input clk_i;
+  output q;
+  wire q, n0, n1;
+  reg [63:0] data_o;
+  function [3:0] f;
+    input [3:0] x;
+    f = ~x;
+  endfunction
+  assign n0 = clk_i;
+  assign n1 = ~n0;
+  assign q = n1;
+  always @(posedge clk_i) data_o <= data_i;
+endmodule
+
+module Top(clk, d, y, q);
+  input clk;
+  input [63:0] d;
+  output [63:0] y;
+  output q;
+  Kept kept (
+    .clk_i(clk),
+    .data_i(d),
+    .data_o(y),
+    .q(q)
+  );
+endmodule
+"""
+
+
+def non_ansi_stub(body, ports="a, y"):
+    text = "module A(%s);\n%sendmodule\n" % (ports, body)
+    modules, _ = modules_of(text)
+    return modules["A"].stub()
+
+
+class NonAnsiTest(unittest.TestCase):
+    def test_stub_keeps_port_declarations(self):
+        modules, _ = modules_of(NON_ANSI)
+        self.assertEqual(
+            modules["Kept"].stub(),
+            "module Kept\n(\n  clk_i,\n  data_i,\n  data_o,\n  q\n);\n"
+            "input [63:0] data_i;\n"
+            "output [63:0] data_o;\n"
+            "input clk_i;\n"
+            "output q;\n"
+            "wire q;\n"
+            "reg [63:0] data_o;\n"
+            "endmodule\n",
+        )
+
+    def test_slice_stubs_non_ansi_child(self):
+        text = slice_of(NON_ANSI, "Top", ["Kept"])
+        self.assertIn("input [63:0] data_i;\noutput [63:0] data_o;", text)
+        self.assertNotIn("always", text)
+        self.assertIn("Kept kept (", text)
+
+    def test_names_in_one_declaration(self):
+        self.assertEqual(
+            non_ansi_stub("  input wire signed [3:0] a, b;\n  output y;\n", "a, b, y"),
+            "module A(a, b, y);\ninput wire signed [3:0] a, b;\noutput y;\n"
+            "endmodule\n",
+        )
+
+    def test_port_without_direction_fails(self):
+        with self.assertRaisesRegex(SliceError, "port y has no direction"):
+            non_ansi_stub("  input a;\n")
+
+    def test_range_naming_a_parameter_fails(self):
+        with self.assertRaisesRegex(SliceError, "names something else"):
+            non_ansi_stub("  localparam W = 4;\n  input [W-1:0] a;\n  output y;\n")
+
+    def test_conditional_port_declaration_fails(self):
+        with self.assertRaisesRegex(SliceError, "cannot read"):
+            non_ansi_stub("`ifdef WIDE\n  input a;\n`endif\n  output y;\n")
+
+    def test_initialized_port_net_fails(self):
+        with self.assertRaisesRegex(SliceError, "declaration of"):
+            non_ansi_stub("  input a;\n  output y;\n  wire y = a;\n")
+
+    def test_direction_of_a_non_port_fails(self):
+        with self.assertRaisesRegex(SliceError, "not in the port list"):
+            non_ansi_stub("  input a, b;\n  output y;\n")
+
+    def test_body_parameter_is_a_parameter(self):
+        modules, _ = modules_of(
+            "module A(a);\n  parameter W = 1;\n  input a;\nendmodule\n"
+        )
+        self.assertTrue(modules["A"].has_parameters())
+
+
 class ParseTest(unittest.TestCase):
     def test_modules_in_order(self):
         _, order = modules_of(DESIGN)
@@ -142,9 +243,9 @@ class ParseTest(unittest.TestCase):
         with self.assertRaisesRegex(SliceError, "`define reaches beyond"):
             modules_of(text)
 
-    def test_non_ansi_ports_fail(self):
-        text = "module A(a, y);\n  input a;\n  output y;\nendmodule\n"
-        with self.assertRaisesRegex(SliceError, "non-ANSI"):
+    def test_non_ansi_port_expression_fails(self):
+        text = "module A(.a(x), y);\n  input x;\n  output y;\nendmodule\n"
+        with self.assertRaisesRegex(SliceError, "is not a name"):
             modules_of(text)
 
     def test_endmodule_in_comment_is_not_the_end(self):
