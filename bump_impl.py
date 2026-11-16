@@ -1623,7 +1623,20 @@ def rewrite_patch_labels(override_block):
     return re.sub(r'"(//(?:patches|)[^"]*\.patch)"', rewrite, override_block)
 
 
-def reconcile_patch_labels(content, owned):
+def bazel_orfs_patch_strips(text):
+    """Map module name -> the patch_strip bazel-orfs's own override sets."""
+    strips = {}
+    for name in NON_BCR_DEPS:
+        span = find_patching_override_block(text, name)
+        if not span:
+            continue
+        m = re.search(r"\bpatch_strip\s*=\s*(\d+)", text[span[0] : span[1]])
+        if m:
+            strips[name] = int(m.group(1))
+    return strips
+
+
+def reconcile_patch_labels(content, owned, patch_strips=None):
     """Bring an existing consumer's override patch lists back in step.
 
     inject_non_bcr_deps only fires while a dependency is missing, so after
@@ -1631,7 +1644,9 @@ def reconcile_patch_labels(content, owned):
     or moved.  For each shared dependency: relabel the entries naming a
     bazel-orfs patch to bazel-orfs-patches/, drop the ones it no longer
     applies, and insert any it has added ahead of the consumer's own, which
-    is the order the patches are written against.
+    is the order the patches are written against.  An override with no
+    patches list gets one, with bazel-orfs's patch_strip
+    (``patch_strips``, module name -> int) when it sets none of its own.
 
     Returns ``(content, changed)``; ``changed`` names the modules whose list
     moved, so a bump can say so rather than swapping a patch silently.
@@ -1644,6 +1659,19 @@ def reconcile_patch_labels(content, owned):
         block = content[span[0] : span[1]]
         m = re.search(r"(patches\s*=\s*\[)(.*?)(\])", block, re.DOTALL)
         if not m:
+            close = block.rindex(")")
+            added = ["    patches = ["]
+            added += [f'        "//{BAZEL_ORFS_PATCHES_DIR}:{name}",' for name in names]
+            added.append("    ],")
+            strip = (patch_strips or {}).get(module_name)
+            if strip is not None and not re.search(r"\bpatch_strip\s*=", block):
+                added.insert(0, f"    patch_strip = {strip},")
+            head = block[:close].rstrip(" ")
+            if not head.endswith("\n"):
+                head += "\n"
+            new_block = head + "\n".join(added) + "\n" + block[close:]
+            changed.append(module_name)
+            content = content[: span[0]] + new_block + content[span[1] :]
             continue
 
         body = m.group(2)
@@ -2080,7 +2108,9 @@ def bump(
         if pinned_module is None:
             raise BumpError(f"bazel-orfs {bazel_orfs_commit[:12]} has no MODULE.bazel")
         owned = bazel_orfs_owned_patches(pinned_module)
-        content, patched = reconcile_patch_labels(content, owned)
+        content, patched = reconcile_patch_labels(
+            content, owned, bazel_orfs_patch_strips(pinned_module)
+        )
         for name in patched:
             updated_modules.append(f"{name} patches -> bazel-orfs' set")
         if workspace_dir:

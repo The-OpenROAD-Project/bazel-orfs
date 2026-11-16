@@ -2173,10 +2173,6 @@ class TestExtractPatchCmds(unittest.TestCase):
         self.assertEqual(len(bump._extract_patch_cmds(block)), 2)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class PatchSyncTest(unittest.TestCase):
     """bazel-orfs' patches are carried as files in each consumer's tree."""
 
@@ -2400,3 +2396,33 @@ archive_override(
         twice, second = bump.reconcile_patch_labels(once, owned)
         self.assertEqual(once, twice)
         self.assertEqual(second, [])
+
+    def test_reconcile_gives_an_override_without_a_list_one(self):
+        d = self._bazel_orfs_dir()
+        text = self._reader(d)("MODULE.bazel")
+        owned = bump.bazel_orfs_owned_patches(text)
+        strips = bump.bazel_orfs_patch_strips(text)
+        consumer = """
+bazel_dep(name = "sv-elab", version = "2026-10-29")
+single_version_override(
+    module_name = "sv-elab",
+    version = "2026-10-29",
+)
+"""
+        once, first = bump.reconcile_patch_labels(consumer, owned, strips)
+        self.assertEqual(first, ["sv-elab"])
+        self.assertIn(
+            "    patch_strip = 1,\n"
+            "    patches = [\n"
+            '        "//bazel-orfs-patches:sv-elab-0001-redefinition-shares-wire.patch",\n'
+            "    ],\n"
+            ")\n",
+            once,
+        )
+        twice, second = bump.reconcile_patch_labels(once, owned, strips)
+        self.assertEqual(once, twice)
+        self.assertEqual(second, [])
+
+
+if __name__ == "__main__":
+    unittest.main()
