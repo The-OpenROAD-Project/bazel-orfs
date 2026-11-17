@@ -11,7 +11,9 @@ Two writes to one word in one cycle are masked off (the later port's
 enable dropped) under `write_priority or`: what an RTL does then is its
 own business, and a design may assert it never happens. Under
 `write_priority last` they are driven, and the later port must win, as
-the behavioural model's later assignment does.
+the behavioural model's later assignment does. Under `write_select mask`
+a write's first port is a mask, a bit a word, driven at random: a write
+lands on every word whose bit is set.
 
 Writes tb_top.v and tb_config.h. Fails on a spec key it does not model.
 """
@@ -49,6 +51,7 @@ MODELLED = {
     "store_name",
     "unused",
     "write_priority",
+    "write_select",
     "read_banked",
     "bank_order",
     "read_latency",
@@ -64,6 +67,7 @@ def read_spec(path):
         "reset": None,
         "unused": [],
         "write_priority": "or",
+        "write_select": "decode",
         "read_banked": [],
         "banks": 1,
         "bank_order": "contiguous",
@@ -93,7 +97,7 @@ def read_spec(path):
                 spec["read_banked"].append(list(zip(v[0::2], v[1::2])))
             elif key in ("words", "bits", "zero_word", "banks", "read_latency"):
                 spec[key] = int(v[0])
-            elif key == "bank_order":
+            elif key in ("bank_order", "write_select"):
                 spec[key] = v[0]
             elif key in ("module", "clock"):
                 spec[key] = v[0]
@@ -142,6 +146,7 @@ def main():
     A = addr_bits(s["words"])
     B = s["bits"]
     W = len(s["write"])
+    mask = s["write_select"] == "mask"
     o = []
     ports = []  # (name, width) of every spec input
     for r in s["read"]:
@@ -151,7 +156,7 @@ def main():
         for addr, _ in rb:
             ports.append((addr, AB))
     for w in s["write"]:
-        ports.append((w[0], A))
+        ports.append((w[0], s["words"] if mask else A))
         ports.append((w[1], B))
         if len(w) == 3:
             ports.append((w[2], 1))
@@ -182,10 +187,10 @@ def main():
         for addr, _ in rb:
             drive[addr] = raw[addr]
     for i, w in enumerate(s["write"]):
-        drive[w[0]] = "(init_mode ? %s : %s)" % (
-            "init_addr" if i == 0 else raw[w[0]],
-            raw[w[0]],
-        )
+        init = "init_addr" if i == 0 else raw[w[0]]
+        if mask and i == 0:
+            init = "(%d'd1 << init_addr)" % s["words"]
+        drive[w[0]] = "(init_mode ? %s : %s)" % (init, raw[w[0]])
         drive[w[1]] = raw[w[1]]
         if len(w) == 3:
             en = "(init_mode ? 1'b%d : %s)" % (1 if i == 0 else 0, raw[w[2]])
@@ -193,10 +198,10 @@ def main():
             # unless the spec says which wins: then collisions are tested.
             for j in range(i if s["write_priority"] == "or" else 0):
                 ej = "%s_eff" % s["write"][j][2]
-                en += " & ~(%s & (%s == %s))" % (
+                en += " & ~(%s & %s)" % (
                     ej,
-                    drive[s["write"][j][0]],
-                    drive[w[0]],
+                    ("|(%s & %s)" if mask else "(%s == %s)")
+                    % (drive[s["write"][j][0]], drive[w[0]]),
                 )
             o.append("  wire %s_eff = %s;" % (w[2], en))
             drive[w[2]] = w[2] + "_eff"
@@ -245,6 +250,12 @@ def main():
             o.append("    end else begin")
         for w in s["write"]:
             cond = w[2] if len(w) == 3 else "1'b1"
+            if mask:
+                o.append(
+                    "      for (k = 0; k < %d; k = k + 1) if (%s && %s[k]) mem[k] <= %s;"
+                    % (s["words"], cond, w[0], w[1])
+                )
+                continue
             if s["zero_word"] is not None:
                 cond = "%s && %s != %d" % (cond, w[0], s["zero_word"])
             o.append(

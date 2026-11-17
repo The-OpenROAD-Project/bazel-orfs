@@ -12,6 +12,8 @@
 # - rf_wp: `write_priority last`, two writes to one word in one cycle,
 #   the later port winning; with a negative control whose RTL lets the
 #   earlier port win.
+# - rf_mask: `write_select mask`, each write naming its words by a mask,
+#   a bit a word, colliding as rf_wp's do; with the same negative control.
 load("@rules_python//python:defs.bzl", "py_binary")
 load("//tools/lib_to_verilog:lib_to_verilog.bzl", "stdcell_verilog")
 load(":sim.bzl", "regfile_sim_test")
@@ -89,6 +91,25 @@ regfile_sim_test(
     rtl = [":write_first.v"],
     rtl_module = "rf_wp",
     spec = ":rf_wp.regfile",
+    tags = ["study"],
+)
+
+regfile_sim_test(
+    name = "write_mask_last_sim_test",
+    module = "rf_mask",
+    rtl = [":write_mask_last.v"],
+    rtl_module = "rf_mask",
+    spec = ":rf_mask.regfile",
+    tags = ["study"],
+)
+
+regfile_sim_test(
+    name = "write_mask_first_sim_test",
+    expect_mismatch = True,
+    module = "rf_mask",
+    rtl = [":write_mask_first.v"],
+    rtl_module = "rf_mask",
+    spec = ":rf_mask.regfile",
     tags = ["study"],
 )
 

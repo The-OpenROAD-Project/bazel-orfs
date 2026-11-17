@@ -194,6 +194,11 @@ ORFS_PATCHES = [
     # upstreamed; an upstream candidate, retires at a bump onto an ORFS
     # that carries it.
     Label("//patches:0232-orfs-synth-retime-modules-must-match.patch"),
+    # 0234: a register-file spec's `write_select mask`: each `write` names
+    # its words by a mask, a bit a word, wired to generate_ram's
+    # -write_select mask (OpenROAD patch 0233). Not upstreamed; retires
+    # at a bump onto an ORFS that carries it.
+    Label("//patches:0234-orfs-regfile-write-select-mask.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

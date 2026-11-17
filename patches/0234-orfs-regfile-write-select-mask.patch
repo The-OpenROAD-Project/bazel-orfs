@@ -1,0 +1,185 @@
+From c404a7bb439f9e67e0f3157c54b069ce5a90517c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Tue, 17 Nov 2026 12:19:35 +0100
+Subject: [PATCH] regfile_ram: write_select mask, a write's words named by a
+ mask
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A register-file spec's `write` named the word it writes by an address.
+A register file whose writes land on many words at once (one value
+written to every entry whose tag matched) could not be specified.
+
+`write_select mask` makes each `write` line's first port a mask, a bit
+a word, wired to generate_ram's wsel in place of addr_w and passed on
+as -write_select mask: each word's select is its own bit, with no
+decoder. A mask port of another width than `words` stops the build, as
+a data port of another width does; a write_select other than decode or
+mask stops at the spec check.
+
+Needs OpenROAD's generate_ram -write_select (carried in bazel-orfs).
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ docs/user/AutoMemories.md                  |  5 ++-
+ flow/scripts/memories/gen_memories_test.py | 49 ++++++++++++++++++++++
+ flow/scripts/memories/regfile_ram.py       | 26 +++++++++++-
+ 3 files changed, 78 insertions(+), 2 deletions(-)
+
+diff --git a/docs/user/AutoMemories.md b/docs/user/AutoMemories.md
+index 4fd8e4bb3..11311b6db 100644
+--- a/docs/user/AutoMemories.md
++++ b/docs/user/AutoMemories.md
+@@ -226,7 +226,10 @@ clock gate per word, enabled by its write selects (`write_style
+ clock_gate`, `generate_ram`'s own default). Where a row holds more than
+ one word (`bank_columns`), each word's bits sit side by side, so its
+ selects and write enables are no longer than its bits; and a word whose
+-bits would run more than 150 um is folded into more rows. `tap_columns`
++bits would run more than 150 um is folded into more rows. With
++`write_select mask` each `write` line names a mask, a bit a word, in
++place of its address: the write lands on every word whose bit is set,
++each word's select its own bit with no decoder. `tap_columns`
+ and `service_sites` leave empty columns in the array for the buffers a
+ parent puts on the nets that cross it.
+ 
+diff --git a/flow/scripts/memories/gen_memories_test.py b/flow/scripts/memories/gen_memories_test.py
+index 23dc6f276..390bca303 100644
+--- a/flow/scripts/memories/gen_memories_test.py
++++ b/flow/scripts/memories/gen_memories_test.py
+@@ -309,12 +309,61 @@ class GenMemoriesTest(unittest.TestCase):
+             (good.replace("bits 8", "bits eight"), "`bits` takes one positive"),
+             (good + "bit_folds 2 3\n", "`bit_folds` takes one positive"),
+             (good + "colour red\n", "unknown key `colour`"),
++            (good + "write_select onehot\n", "`write_select` is decode or mask"),
+         ):
+             spec.write_text(bad)
+             with self.assertRaises(SystemExit) as stop:
+                 gen_memories.regfile_ram.check(spec)
+             self.assertIn(message, str(stop.exception))
+ 
++    def test_write_select_mask(self):
++        # write_select mask: a write's first port is a mask a bit a word,
++        # wired to generate_ram's wsel, and checked as `words` wide
++        rf = gen_memories.regfile_ram
++        lines = [
++            ["module", "rf"],
++            ["words", "8"],
++            ["bits", "4"],
++            ["clock", "clk"],
++            ["read", "ra", "rd"],
++            ["write", "m0", "d0"],
++            ["write", "m1", "d1"],
++            ["write_select", "mask"],
++        ]
++        args = rf._args(lines, "rf_ram", "inline")
++        self.assertEqual(args[args.index("-write_select") + 1], "mask")
++        self.assertNotIn("-write_select", rf._args(lines[:-1], "rf_ram", "inline"))
++        ram_ports = {
++            "clk": ("input", 1),
++            "wsel0": ("input", 8),
++            "wsel1": ("input", 8),
++            "D0": ("input", 4),
++            "D1": ("input", 4),
++            "we0": ("input", 1),
++            "we1": ("input", 1),
++            "addr_r0": ("input", 3),
++            "Q": ("output", 4),
++        }
++        rtl_ports = {
++            "clk": ("input", 1),
++            "ra": ("input", 3),
++            "rd": ("output", 4),
++            "m0": ("input", 8),
++            "d0": ("input", 4),
++            "m1": ("input", 8),
++            "d1": ("input", 4),
++        }
++        wrapper = rf._wrapper(lines, "rf", "rf_ram", ram_ports, rtl_ports)
++        self.assertIn(".wsel0(m0)", wrapper)
++        self.assertIn(".wsel1(m1)", wrapper)
++        self.assertIn(".we1(1'b1)", wrapper)
++        self.assertNotIn("addr_w", wrapper)
++        with self.assertRaises(SystemExit) as stop:
++            rf._wrapper(
++                lines, "rf", "rf_ram", ram_ports, rtl_ports | {"m1": ("input", 4)}
++            )
++        self.assertIn("the mask m1 is 4 bits", str(stop.exception))
++
+ 
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/flow/scripts/memories/regfile_ram.py b/flow/scripts/memories/regfile_ram.py
+index 69ad9aa79..b72a3ef92 100644
+--- a/flow/scripts/memories/regfile_ram.py
++++ b/flow/scripts/memories/regfile_ram.py
+@@ -42,6 +42,7 @@ KEYS = {
+     "read_banked",
+     "write",
+     "write_priority",
++    "write_select",
+     "write_style",
+     "zero_word",
+     "banks",
+@@ -129,12 +130,24 @@ def check(spec: Path) -> None:
+             raise SystemExit(f"regfile_ram: {spec}: no `{key}`")
+     if not keys & {"read", "read_banked"}:
+         raise SystemExit(f"regfile_ram: {spec}: no `read` or `read_banked`")
++    _write_mask(lines)
+ 
+ 
+ def _address_bits(words: int) -> int:
+     return max(1, math.ceil(math.log2(words)))
+ 
+ 
++def _write_mask(lines: list[list[str]]) -> bool:
++    """`write_select mask`: each `write` names its words by a mask, a bit
++    a word, where it otherwise names one word by its address."""
++    select = _one(lines, "write_select", "decode")
++    if select not in ("decode", "mask"):
++        raise SystemExit(
++            f"regfile_ram: `write_select` is decode or mask, not `{select}`"
++        )
++    return select == "mask"
++
++
+ def _args(lines: list[list[str]], block: str, shape: str) -> list[str]:
+     """generate_ram_netlist's options for the spec."""
+     words = int(_one(lines, "words"))
+@@ -167,6 +180,8 @@ def _args(lines: list[list[str]], block: str, shape: str) -> list[str]:
+         # two ports writing one word in a cycle: OR their data by
+         # default, as firtool's register files do
+         args += ["-write_priority", _one(lines, "write_priority", "or")]
++    if _write_mask(lines):
++        args += ["-write_select", "mask"]
+     if int(_one(lines, "bank_columns", "1")) > 1 and not _values(
+         lines, "bank_column_layout"
+     ):
+@@ -471,7 +486,10 @@ def _wrapper(
+     writes = _values(lines, "write")
+     for w, values in enumerate(writes):
+         suffix = "" if len(writes) == 1 else str(w)
+-        conns[f"addr_w{suffix}"] = fit(port(values[0], "input", a), a)
++        if _write_mask(lines):
++            conns[f"wsel{suffix}"] = port(values[0], "input", words)
++        else:
++            conns[f"addr_w{suffix}"] = fit(port(values[0], "input", a), a)
+         conns[f"D{suffix}"] = port(values[1], "input", bits)
+         conns[f"we{suffix}"] = (
+             port(values[2], "input", 1) if len(values) > 2 else "1'b1"
+@@ -507,6 +525,12 @@ def _wrapper(
+                     f"regfile_ram: {module}: {name} is "
+                     f"{rtl_ports[name][1]} bits, the spec's bits {bits}"
+                 )
++        for name in [values[0] for values in writes] if _write_mask(lines) else []:
++            if rtl_ports[name][1] != words:
++                raise SystemExit(
++                    f"regfile_ram: {module}: the mask {name} is "
++                    f"{rtl_ports[name][1]} bits, the spec's words {words}"
++                )
+     # the RTL's ports in its own order where the JSON has them
+     order = list(rtl_ports) or list(widths)
+     for name in widths:
+-- 
+2.53.0
+
