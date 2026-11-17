@@ -182,12 +182,6 @@ ORFS_PATCHES = [
     # candidate beside ORFS #4824, retires at a bump onto an ORFS that
     # carries it.
     Label("//patches:0218-orfs-auto-memories-json.patch"),
-    # 0224: a memory yosys names itself (proc_rom's ROMs) carries yosys's
-    # design-wide counter; AUTO_MEMORIES numbers it within its module
-    # instead, so every per-instance copy, and a verilog_slices slice,
-    # names it as the whole design does. Not upstreamed; retires at a
-    # bump onto an ORFS that carries it.
-    Label("//patches:0224-orfs-memories-yosys-names-in-module.patch"),
     # 0231: generate_abstract stops on a model whose max_clock_tree_path
     # is below its min: a parent's CTS balances the block by the max and
     # clocks it late (XiangShan's VecRegionModule, 245 ps). Not
