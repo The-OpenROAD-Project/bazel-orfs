@@ -28,16 +28,33 @@ two-pin attraction between each failing sink and its driver:
   Nesterov each pull is the closed-form weighted-average length of the
   two-pin net {driver, sink} in the wirelength force and preconditioner.
   Pulls are not nets: HPWL is unchanged.
+- A sink fails when its slack is below -timing_driven_pin_pull_slack, in
+  the design's time unit (converted in Tcl with sta::time_ui_sta), 0 by
+  default. On a design whose clock is far beyond reach nearly every
+  connection fails at 0: XiangShan's parent at a 473 ps SDC fails at
+  138,000 of its 156,682 endpoints, every connection got a pull, and its
+  global placement ground for 8 h 34 min before it was stopped. A
+  negative threshold pulls the tail only: -1377 at 473 ps pulls the
+  paths whose period is over 1,850 ps.
 
-Options -timing_driven_pin_pull_strength, _growth, _max and
-_initial_rounds; messages GPL-196 to 199; validator IDs 432 to 435.
-With the flag off there is no PinPull object and every new line sits
-behind an empty-list check.
+Options -timing_driven_pin_pull_strength, _growth, _max, _initial_rounds
+and _slack; messages GPL-188, GPL-189 and GPL-196 to 199; validator IDs
+432 to 435. With the flag off there is no PinPull object and every new
+line sits behind an empty-list check; without _slack the threshold is 0.
 
 Tests: pin_pull_test (the path_shape designs of the carried 0219 suite,
 pulls given through a placePulled hook: broadcast path straightens,
 swapped clusters straighten, 8 threads equal 1, the closed form matches
-the two-pin net's WA gradient).
+the two-pin net's WA gradient); pin_pull_slack (simple01-td at 0.4 ns,
+each run a process of its own: the default and 0 pull the same sinks, a
+threshold between the worst slack and 0 pulls exactly the default's sinks
+below it, below the worst none, a positive threshold also the sinks that
+meet timing by less than it, above every slack every constrained net is
+visited and nets that meet timing are pulled on; the option needs
+-timing_driven_pin_pull).
+A second global_placement in one process captures slightly different
+slacks than the first (348 to 353 of 350 sinks on that design); the
+test does not depend on it.
 
 Not upstreamed. Applies after the carried OpenROAD patches and
 0219-openroad-gpl-placement-regression-tests.patch. Retires with a
@@ -49,30 +66,35 @@ new topic upstream, with 0219.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/gpl/BUILD                  |   4 +-
- src/gpl/README.md              |  26 ++-
- src/gpl/include/gpl/Replace.h  |  21 +++
- src/gpl/src/initialPlace.cpp   | 137 +++++++++++++-
- src/gpl/src/initialPlace.h     |  20 ++
- src/gpl/src/nesterovBase.cpp   | 118 ++++++++++++
- src/gpl/src/nesterovBase.h     |  25 +++
- src/gpl/src/pinPull.cpp        | 405 +++++++++++++++++++++++++++++++++++++++++
- src/gpl/src/pinPull.h          | 142 +++++++++++++++
- src/gpl/src/replace.cpp        |  91 +++++++++
- src/gpl/src/replace.i          |  10 +
- src/gpl/src/replace.tcl        |  15 ++
- src/gpl/src/timingBase.cpp     |  28 ++-
- src/gpl/src/timingBase.h       |   9 +
- src/gpl/test/BUILD             |  16 ++
- src/gpl/test/path_shape.cpp    |  75 ++++++++
- src/gpl/test/path_shape.h      |  14 ++
- src/gpl/test/pin_pull_test.cpp | 206 +++++++++++++++++++++
- src/rsz/include/rsz/Resizer.hh |   5 +
- src/rsz/src/Resizer.cc         |   6 +-
- 20 files changed, 1357 insertions(+), 16 deletions(-)
+ src/gpl/BUILD                   |   4 +-
+ src/gpl/README.md               |  32 ++-
+ src/gpl/include/gpl/Replace.h   |  25 ++
+ src/gpl/src/initialPlace.cpp    | 137 ++++++++++-
+ src/gpl/src/initialPlace.h      |  20 ++
+ src/gpl/src/nesterovBase.cpp    | 118 ++++++++++
+ src/gpl/src/nesterovBase.h      |  25 ++
+ src/gpl/src/pinPull.cpp         | 405 ++++++++++++++++++++++++++++++++
+ src/gpl/src/pinPull.h           | 146 ++++++++++++
+ src/gpl/src/replace.cpp         | 102 ++++++++
+ src/gpl/src/replace.i           |  13 +
+ src/gpl/src/replace.tcl         |  28 +++
+ src/gpl/src/timingBase.cpp      |  28 ++-
+ src/gpl/src/timingBase.h        |   9 +
+ src/gpl/test/BUILD              |  17 ++
+ src/gpl/test/path_shape.cpp     |  75 ++++++
+ src/gpl/test/path_shape.h       |  14 ++
+ src/gpl/test/pin_pull_slack.tcl | 194 +++++++++++++++
+ src/gpl/test/pin_pull_test.cpp  | 206 ++++++++++++++++
+ src/rsz/include/rsz/Resizer.hh  |   5 +
+ src/rsz/src/Resizer.cc          |   6 +-
+ 21 files changed, 1593 insertions(+), 16 deletions(-)
+ create mode 100644 src/gpl/src/pinPull.cpp
+ create mode 100644 src/gpl/src/pinPull.h
+ create mode 100644 src/gpl/test/pin_pull_slack.tcl
+ create mode 100644 src/gpl/test/pin_pull_test.cpp
 
 diff --git a/src/gpl/BUILD b/src/gpl/BUILD
-index 2288a0182f..0cdafa94ca 100644
+index 4bafc0a99b..c9b20ab76f 100644
 --- a/src/gpl/BUILD
 +++ b/src/gpl/BUILD
 @@ -120,11 +120,11 @@ cc_library(
@@ -102,10 +124,10 @@ index 2288a0182f..0cdafa94ca 100644
          "src/point.h",
          "src/powerBase.h",
 diff --git a/src/gpl/README.md b/src/gpl/README.md
-index f72c8de97a..4b0ed869c3 100644
+index f72c8de97a..703c100168 100644
 --- a/src/gpl/README.md
 +++ b/src/gpl/README.md
-@@ -47,6 +47,20 @@ values to decrease runtime, for example.
+@@ -47,6 +47,24 @@ values to decrease runtime, for example.
  
  You can also set an overflow value for `keep_resize_below_overflow`, when below that, the modifications made by the rsz tool are maintained (non-virtual `repair_design`).
  
@@ -121,21 +143,25 @@ index f72c8de97a..4b0ed869c3 100644
 +cells' other nets together. Its weight grows at every update it still
 +fails (`-timing_driven_pin_pull_growth`, capped by
 +`-timing_driven_pin_pull_max`) and is kept once it meets timing. The
-+pulls are not nets and do not change the reported HPWL.
++pulls are not nets and do not change the reported HPWL. A sink is failing
++when its slack is below `-timing_driven_pin_pull_slack`, 0 by default; a
++negative value pulls only the tail, the sinks that miss the clock by more
++than that, which keeps the pull from acting on every connection of a
++design whose clock is far beyond reach.
 +
  When using the `-power_driven` flag, `gpl` weights nets by their switching
  activity, so that nets that toggle often are kept short and use less switching
  power. The activity is read from `read_saif`, `read_vcd` or
-@@ -79,7 +93,7 @@ Routability-driven arguments
+@@ -79,7 +97,7 @@ Routability-driven arguments
  
  Timing-driven arguments
  - They begin with `-timing_driven`.
 -- `-timing_driven_net_reweight_overflow`, `-timing_driven_net_weight_max`, `-timing_driven_nets_percentage`, `keep_resize_below_overflow`, `-timing_driven_repair_timing`, `-timing_driven_repair_tns_end_percent`
-+- `-timing_driven_net_reweight_overflow`, `-timing_driven_net_weight_max`, `-timing_driven_nets_percentage`, `keep_resize_below_overflow`, `-timing_driven_repair_timing`, `-timing_driven_repair_tns_end_percent`, `-timing_driven_pin_pull`, `-timing_driven_pin_pull_strength`, `-timing_driven_pin_pull_growth`, `-timing_driven_pin_pull_max`, `-timing_driven_pin_pull_initial_rounds`
++- `-timing_driven_net_reweight_overflow`, `-timing_driven_net_weight_max`, `-timing_driven_nets_percentage`, `keep_resize_below_overflow`, `-timing_driven_repair_timing`, `-timing_driven_repair_tns_end_percent`, `-timing_driven_pin_pull`, `-timing_driven_pin_pull_strength`, `-timing_driven_pin_pull_growth`, `-timing_driven_pin_pull_max`, `-timing_driven_pin_pull_initial_rounds`, `-timing_driven_pin_pull_slack`
  
  Power-driven arguments
  - `-power_driven_net_weight`
-@@ -117,6 +131,11 @@ global_placement
+@@ -117,6 +135,12 @@ global_placement
      [-timing_driven_net_reweight_overflow timing_driven_net_reweight_overflow]\
      [-timing_driven_net_weight_max timing_driven_net_weight_max]\
      [-timing_driven_nets_percentage timing_driven_nets_percentage]\
@@ -144,10 +170,11 @@ index f72c8de97a..4b0ed869c3 100644
 +    [-timing_driven_pin_pull_growth timing_driven_pin_pull_growth]\
 +    [-timing_driven_pin_pull_max timing_driven_pin_pull_max]\
 +    [-timing_driven_pin_pull_initial_rounds timing_driven_pin_pull_initial_rounds]\
++    [-timing_driven_pin_pull_slack timing_driven_pin_pull_slack]\
      [-timing_driven_repair_timing]\
      [-timing_driven_repair_tns_end_percent timing_driven_repair_tns_end_percent]\
      [-power_driven_net_weight power_driven_net_weight]\
-@@ -190,6 +209,11 @@ global_placement
+@@ -190,6 +214,12 @@ global_placement
  | `-timing_driven_net_reweight_overflow` | Set overflow threshold for timing-driven net reweighting. Allowed value is a Tcl list of integers where each number is `[0, 100]`. Default values are [64, 20] |
  | `-timing_driven_net_weight_max` | Set the multiplier for the most timing-critical nets. The default value is `5`, and the allowed values are floats. |
  | `-timing_driven_nets_percentage` | Set the reweighted percentage of nets in timing-driven mode. The default value is 10. Allowed values are floats `[0, 100]`. |
@@ -156,11 +183,12 @@ index f72c8de97a..4b0ed869c3 100644
 +| `-timing_driven_pin_pull_growth` | At each update, multiply a still-failing connection's weight by `1 + growth`. The default value is `1`, and the allowed values are non-negative floats. |
 +| `-timing_driven_pin_pull_max` | Cap on a connection's pull weight. The default value is `0` (no cap), and the allowed values are non-negative floats. |
 +| `-timing_driven_pin_pull_initial_rounds` | Rounds of timing analysis and another initial placement pass with the pulls. `0` starts the pulls at the Nesterov start. The default value is `2`, and the allowed values are non-negative integers. |
++| `-timing_driven_pin_pull_slack` | A sink is failing, and pulled, when its setup slack is below this value, in the design's time unit. A negative value pulls only the sinks that miss the clock by more than its magnitude. Requires `-timing_driven_pin_pull`. The default value is `0`, and the allowed values are floats. |
  | `-keep_resize_below_overflow` | When the overflow is below the value, timing-driven iterations will retain (non-virtual) the resizer changes instead of reverting them (virtual). The default value is `1.0`, making all timing-driven iterations non-virtual. Allowed values are floats `[0, 1]`. |
  | `-timing_driven_repair_timing` | **Experimental.** Enable a conservative `repair_setup` pass during last timing-driven iteration. The intent is to apply minimal buffering and gate sizing so that the placement better correlates with global routing timing. Only the worst setup violators are targeted. Disruptive operations (pin swap, gate cloning, VT swap) are suppressed to avoid topology changes during placement. Not ready for production use. |
  | `-timing_driven_repair_tns_end_percent` | **Experimental.** When `-timing_driven_repair_timing` is enabled, controls the percentage of violating endpoints targeted by the `repair_setup` call. The default value is `1.0` and the allowed values are floats `[0, 100]`. |
 diff --git a/src/gpl/include/gpl/Replace.h b/src/gpl/include/gpl/Replace.h
-index a6acfe38d4..37816ca438 100644
+index a6acfe38d4..907aca056b 100644
 --- a/src/gpl/include/gpl/Replace.h
 +++ b/src/gpl/include/gpl/Replace.h
 @@ -48,6 +48,7 @@ class PowerBase;
@@ -171,7 +199,7 @@ index a6acfe38d4..37816ca438 100644
  
  using Cluster = std::vector<odb::dbInst*>;
  using Clusters = std::vector<Cluster>;
-@@ -130,6 +131,21 @@ struct PlaceOptions
+@@ -130,6 +131,25 @@ struct PlaceOptions
    bool powerDrivenMode = false;
    float powerDrivenNetWeight = 1;
    float timingDrivenNetsPercentage = 10;
@@ -190,10 +218,14 @@ index a6acfe38d4..37816ca438 100644
 +  // Rounds of (timing analysis, initial placement pass) after the initial
 +  // placement; 0 starts the pull at the Nesterov start instead.
 +  int timingDrivenPinPullInitialRounds = 2;
++  // A sink is failing, and pulled, when its setup slack is below this, in
++  // seconds (STA's unit). 0 pulls every sink with a negative slack; below 0
++  // only the tail: those that miss the clock by more than this.
++  float timingDrivenPinPullSlack = 0.0;
    float overflow = 0.1;
    int nesterovPlaceMaxIter = 5000;
    // timing driven check overflow to keep resizer changes (non-virtual resizer)
-@@ -265,6 +281,10 @@ class Replace
+@@ -265,6 +285,10 @@ class Replace
    // The top-level (unfenced/full-die) region is always nbVec_[0].
    NesterovBase* getTopLevelNB() const;
    void initIoPinPlace();
@@ -204,7 +236,7 @@ index a6acfe38d4..37816ca438 100644
  
    odb::dbDatabase* db_ = nullptr;
    sta::dbSta* sta_ = nullptr;
-@@ -283,6 +303,7 @@ class Replace
+@@ -283,6 +307,7 @@ class Replace
    std::shared_ptr<TimingBase> tb_;
    std::shared_ptr<ClockBase> cb_;
    std::shared_ptr<PowerBase> pwb_;
@@ -447,7 +479,7 @@ index fd9a87a41b..157a495cd8 100644
  
  }  // namespace gpl
 diff --git a/src/gpl/src/nesterovBase.cpp b/src/gpl/src/nesterovBase.cpp
-index 262dfcff0a..f9a9cc20cd 100644
+index 811d0c0591..ecfd7f6789 100644
 --- a/src/gpl/src/nesterovBase.cpp
 +++ b/src/gpl/src/nesterovBase.cpp
 @@ -33,6 +33,7 @@
@@ -648,7 +680,7 @@ index e839008c74..f6697f18ef 100644
  // Stores instances belonging to a specific power domain
 diff --git a/src/gpl/src/pinPull.cpp b/src/gpl/src/pinPull.cpp
 new file mode 100644
-index 0000000000..3545dd47b7
+index 0000000000..9454d4fcbc
 --- /dev/null
 +++ b/src/gpl/src/pinPull.cpp
 @@ -0,0 +1,405 @@
@@ -781,7 +813,7 @@ index 0000000000..3545dd47b7
 +  sta::dbNetwork* network = sta_->getDbNetwork();
 +  size_t net_count = 0;
 +  for (const sta::Net* net : nets) {
-+    if (rs_->resizeNetSlack(net).value() >= 0.0f) {
++    if (rs_->resizeNetSlack(net).value() >= vars_.slack) {
 +      break;
 +    }
 +    ++net_count;
@@ -816,7 +848,7 @@ index 0000000000..3545dd47b7
 +    return;
 +  }
 +  const sta::Slack slack = sta_->slack(vertex, sta::MinMax::max());
-+  if (sta::fuzzyInf(slack) || slack >= 0.0f) {
++  if (sta::fuzzyInf(slack) || slack >= vars_.slack) {
 +    return;
 +  }
 +  odb::dbITerm* iterm = nullptr;
@@ -894,7 +926,7 @@ index 0000000000..3545dd47b7
 +    return true;
 +  }
 +  const std::optional<sta::Slack> net_slack = rs_->resizeNetSlack(net);
-+  return !net_slack || *net_slack < 0.0f;
++  return !net_slack || *net_slack < vars_.slack;
 +}
 +
 +void PinPull::addCandidate(std::vector<Candidate>& candidates,
@@ -1059,10 +1091,10 @@ index 0000000000..3545dd47b7
 +}  // namespace gpl
 diff --git a/src/gpl/src/pinPull.h b/src/gpl/src/pinPull.h
 new file mode 100644
-index 0000000000..4c1b0074ae
+index 0000000000..36aa8f1866
 --- /dev/null
 +++ b/src/gpl/src/pinPull.h
-@@ -0,0 +1,142 @@
+@@ -0,0 +1,146 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
 +
@@ -1108,6 +1140,9 @@ index 0000000000..4c1b0074ae
 +  float growth = 1.0f;
 +  // Cap on a connection's weight; 0 means no cap.
 +  float max = 0.0f;
++  // A sink is failing when its setup slack is below this, in seconds (STA's
++  // unit). 0: every negative slack; below 0, the tail only.
++  float slack = 0.0f;
 +  // -timing_driven_nets_percentage, given back to the resizer after the
 +  // capture, which reads every constrained net.
 +  float nets_percentage = 10.0f;
@@ -1133,10 +1168,11 @@ index 0000000000..4c1b0074ae
 +//
 +// captureSlacks() runs inside Resizer::findResizeSlacks, while the netlist
 +// is the one repair_design buffered, and records the setup slack of every
-+// failing load pin. update() then builds the pulls over gpl's own netlist
-+// (the pre-repair one) after the journal is restored. A connection keeps
-+// its weight once pulled, even after it meets timing: the pull is what made
-+// it meet timing, and dropping it would let the next pass undo it.
++// failing load pin: one whose slack is below PinPullVars::slack. update() then
++// builds the pulls over gpl's own netlist (the pre-repair one) after the
++// journal is restored. A connection keeps its weight once pulled, even after it
++// meets timing: the pull is what made it meet timing, and dropping it would let
++// the next pass undo it.
 +class PinPull
 +{
 + public:
@@ -1206,7 +1242,7 @@ index 0000000000..4c1b0074ae
 +
 +}  // namespace gpl
 diff --git a/src/gpl/src/replace.cpp b/src/gpl/src/replace.cpp
-index 1a36802d5d..edd04b19a7 100644
+index 1a36802d5d..c5bbc99961 100644
 --- a/src/gpl/src/replace.cpp
 +++ b/src/gpl/src/replace.cpp
 @@ -22,6 +22,7 @@
@@ -1217,7 +1253,15 @@ index 1a36802d5d..edd04b19a7 100644
  #include "placerBase.h"
  #include "powerBase.h"
  #include "ppl/IOPlacer.h"
-@@ -114,6 +115,7 @@ void Replace::reset()
+@@ -31,6 +32,7 @@
+ #include "sta/Path.hh"
+ #include "sta/StaMain.hh"
+ #include "sta/StaState.hh"
++#include "sta/Units.hh"
+ #include "timingBase.h"
+ #include "utl/Logger.h"
+ #include "utl/timer.h"
+@@ -114,6 +116,7 @@ void Replace::reset()
    rb_.reset();
    cb_.reset();
    pwb_.reset();
@@ -1225,7 +1269,7 @@ index 1a36802d5d..edd04b19a7 100644
  }
  
  void Replace::addPlacementCluster(const Cluster& cluster)
-@@ -321,6 +323,81 @@ void Replace::doInitialPlace(const int threads, const PlaceOptions& options)
+@@ -321,6 +324,91 @@ void Replace::doInitialPlace(const int threads, const PlaceOptions& options)
        new InitialPlace(ipVars, pbc_, pbVec_, graphics_->MakeNew(log_), log_));
    ip_ = std::move(ip);
    ip_->doBicgstabPlace(threads);
@@ -1249,6 +1293,16 @@ index 1a36802d5d..edd04b19a7 100644
 +  vars.growth = options.timingDrivenPinPullGrowth;
 +  vars.max = options.timingDrivenPinPullMax;
 +  vars.nets_percentage = options.timingDrivenNetsPercentage;
++  vars.slack = options.timingDrivenPinPullSlack;
++  if (vars.slack != 0.0f) {
++    const sta::Unit* time_unit = sta_->units()->timeUnit();
++    log_->info(GPL,
++               188,
++               "Timing-driven pin pull: a sink is failing below a slack of "
++               "{}{}s.",
++               time_unit->asString(vars.slack),
++               time_unit->scaleAbbreviation());
++  }
 +  pin_pull_ = std::make_shared<PinPull>(sta_, rs_, log_, vars);
 +}
 +
@@ -1307,7 +1361,7 @@ index 1a36802d5d..edd04b19a7 100644
  }
  
  void Replace::runMBFF(const int max_sz,
-@@ -392,6 +469,10 @@ bool Replace::initNesterovPlace(const PlaceOptions& options,
+@@ -392,6 +480,10 @@ bool Replace::initNesterovPlace(const PlaceOptions& options,
      if (options.placeIosMode) {
        initIoPinPlace();
      }
@@ -1318,7 +1372,7 @@ index 1a36802d5d..edd04b19a7 100644
    }
  
    if (!rb_) {
-@@ -406,6 +487,7 @@ bool Replace::initNesterovPlace(const PlaceOptions& options,
+@@ -406,6 +498,7 @@ bool Replace::initNesterovPlace(const PlaceOptions& options,
      tb_->setTimingNetsPercentage(options.timingDrivenNetsPercentage);
      tb_->setRepairTiming(options.timingDrivenRepairTiming);
      tb_->setRepairTnsEndPercent(options.timingDrivenRepairTnsEndPercent);
@@ -1326,7 +1380,7 @@ index 1a36802d5d..edd04b19a7 100644
    }
  
    if (!cb_ && options.virtualCtsMode) {
-@@ -667,6 +749,15 @@ void PlaceOptions::validate(utl::Logger* logger)
+@@ -667,6 +760,15 @@ void PlaceOptions::validate(utl::Logger* logger)
                    424);
    val.check_range(
        "keep_resize_below_overflow", keepResizeBelowOverflow, 0.0f, 1.0f, 425);
@@ -1343,7 +1397,7 @@ index 1a36802d5d..edd04b19a7 100644
  
  void PlaceOptions::skipIo()
 diff --git a/src/gpl/src/replace.i b/src/gpl/src/replace.i
-index 15543454d2..c9952a9f53 100644
+index 15543454d2..cf29f47462 100644
 --- a/src/gpl/src/replace.i
 +++ b/src/gpl/src/replace.i
 @@ -27,6 +27,7 @@ static gpl::PlaceOptions getOptions(
@@ -1354,7 +1408,7 @@ index 15543454d2..c9952a9f53 100644
    checkFlag(flags, "-power_driven", options.powerDrivenMode);
    checkFlag(flags, "-routability_driven", options.routabilityDrivenMode);
    checkFlag(flags, "-virtual_cts", options.virtualCtsMode);
-@@ -89,6 +90,15 @@ static gpl::PlaceOptions getOptions(
+@@ -89,6 +90,18 @@ static gpl::PlaceOptions getOptions(
             "-virtual_cts_max_skew_fraction",
             options.virtualCtsMaxSkewFraction);
    checkKey(keys, "-timing_driven_nets_percentage", options.timingDrivenNetsPercentage);
@@ -1367,14 +1421,17 @@ index 15543454d2..c9952a9f53 100644
 +  checkKey(keys,
 +           "-timing_driven_pin_pull_initial_rounds",
 +           options.timingDrivenPinPullInitialRounds);
++  checkKey(keys,
++           "-timing_driven_pin_pull_slack",
++           options.timingDrivenPinPullSlack);
    checkKey(keys, "-min_phi_coef", options.minPhiCoef);
    checkKey(keys, "-max_phi_coef", options.maxPhiCoef);
    checkKey(keys, "-init_density_penalty", options.initDensityPenaltyFactor);
 diff --git a/src/gpl/src/replace.tcl b/src/gpl/src/replace.tcl
-index c7e5602cad..68f384f174 100644
+index c7e5602cad..6f2f612936 100644
 --- a/src/gpl/src/replace.tcl
 +++ b/src/gpl/src/replace.tcl
-@@ -39,6 +39,11 @@ sta::define_cmd_args "global_placement" {\
+@@ -39,6 +39,12 @@ sta::define_cmd_args "global_placement" {\
      [-timing_driven_net_reweight_overflow timing_driven_net_reweight_overflow]\
      [-timing_driven_net_weight_max timing_driven_net_weight_max]\
      [-timing_driven_nets_percentage timing_driven_nets_percentage]\
@@ -1383,13 +1440,15 @@ index c7e5602cad..68f384f174 100644
 +    [-timing_driven_pin_pull_growth timing_driven_pin_pull_growth]\
 +    [-timing_driven_pin_pull_max timing_driven_pin_pull_max]\
 +    [-timing_driven_pin_pull_initial_rounds timing_driven_pin_pull_initial_rounds]\
++    [-timing_driven_pin_pull_slack timing_driven_pin_pull_slack]\
      [-virtual_cts_max_skew_fraction virtual_cts_max_skew_fraction]\
      [-timing_driven_repair_tns_end_percent timing_driven_repair_tns_end_percent]\
      [-pad_left pad_left]\
-@@ -72,6 +77,10 @@ proc global_placement { args } {
+@@ -72,6 +78,11 @@ proc global_placement { args } {
        -timing_driven_net_weight_max \
        -timing_driven_nets_percentage \
        -timing_driven_repair_tns_end_percent \
++      -timing_driven_pin_pull_slack \
 +      -timing_driven_pin_pull_strength \
 +      -timing_driven_pin_pull_growth \
 +      -timing_driven_pin_pull_max \
@@ -1397,7 +1456,7 @@ index c7e5602cad..68f384f174 100644
        -keep_resize_below_overflow \
        -virtual_cts_max_skew_fraction \
        -random_seed \
-@@ -83,6 +92,7 @@ proc global_placement { args } {
+@@ -83,6 +94,7 @@ proc global_placement { args } {
        -skip_nesterov_place \
        -timing_driven \
        -timing_driven_repair_timing \
@@ -1405,13 +1464,24 @@ index c7e5602cad..68f384f174 100644
        -power_driven \
        -routability_driven \
        -virtual_cts \
-@@ -96,6 +106,11 @@ proc global_placement { args } {
+@@ -96,6 +108,22 @@ proc global_placement { args } {
  
    sta::check_argc_eq0 "global_placement" $args
  
 +  if { [info exists flags(-timing_driven_pin_pull)] \
 +         && ![info exists flags(-timing_driven)] } {
 +    utl::error GPL 196 "-timing_driven_pin_pull requires -timing_driven."
++  }
++
++  # In the design's time unit; global_placement takes it in seconds.
++  if { [info exists keys(-timing_driven_pin_pull_slack)] } {
++    if { ![info exists flags(-timing_driven_pin_pull)] } {
++      utl::error GPL 189 \
++        "-timing_driven_pin_pull_slack requires -timing_driven_pin_pull."
++    }
++    set slack $keys(-timing_driven_pin_pull_slack)
++    sta::check_float "-timing_driven_pin_pull_slack" $slack
++    set keys(-timing_driven_pin_pull_slack) [sta::time_ui_sta $slack]
 +  }
 +
    if { [info exists flags(-place_ios)] } {
@@ -1507,10 +1577,18 @@ index c3c100e6ca..99ce517bee 100644
    std::vector<int> timingNetWeightOverflow_;
    std::vector<int> timingOverflowChk_;
 diff --git a/src/gpl/test/BUILD b/src/gpl/test/BUILD
-index 648273c4f7..a4eeb60920 100644
+index 648273c4f7..d5b8d1ef70 100644
 --- a/src/gpl/test/BUILD
 +++ b/src/gpl/test/BUILD
-@@ -577,6 +577,22 @@ cc_test(
+@@ -43,6 +43,7 @@ PASSFAIL_TESTS = [
+     "incremental02",
+     "incremental03",
+     "options01",
++    "pin_pull_slack",
+     "place_ios_rd",
+     "place_ios_td",
+ ]
+@@ -577,6 +578,22 @@ cc_test(
      ],
  )
  
@@ -1665,6 +1743,206 @@ index b940e0c7fd..44261ae258 100644
    static PlaceOptions optionsFor(Start start);
    static void unplace(const std::vector<odb::dbInst*>& cells);
    std::vector<CellState> cells() const;
+diff --git a/src/gpl/test/pin_pull_slack.tcl b/src/gpl/test/pin_pull_slack.tcl
+new file mode 100644
+index 0000000000..e26baf54f0
+--- /dev/null
++++ b/src/gpl/test/pin_pull_slack.tcl
+@@ -0,0 +1,194 @@
++# -timing_driven_pin_pull_slack: a sink is failing, and pulled, only when its
++# setup slack is below the threshold, given in the design's time unit.
++#
++# One round of the initial placement's pin pull (-skip_nesterov_place) per
++# run, each run in a process of its own: the timing analysis of the first
++# initial placement is then the same in every run, so a run's pulls are the
++# sinks of that analysis whose slack is below its threshold, and every pull
++# is a new one (no history). The pulled sinks and their slacks are read from
++# the pull's own report (debug group pinPull, level 2), the nets its
++# capture visited from its level 1.
++#
++# This script is both the test and, with PIN_PULL_SLACK_ARGS set, one run.
++source helpers.tcl
++read_liberty ./library/nangate45/NangateOpenCellLibrary_typical.lib
++read_lef ./nangate45.lef
++read_def ./simple01-td.def
++
++# Tighter than simple01-td's 2 ns: after the initial placement 350 sinks
++# fail, by 0 to 127 ps.
++create_clock -name core_clock -period 0.4 clk
++set_wire_rc -signal -layer metal3
++set_wire_rc -clock -layer metal5
++
++if { [info exists ::env(PIN_PULL_SLACK_ARGS)] } {
++  set_debug_level GPL pinPull 2
++  tee -quiet -variable log [list global_placement -timing_driven \
++    -timing_driven_pin_pull -timing_driven_pin_pull_initial_rounds 1 \
++    -skip_nesterov_place {*}$::env(PIN_PULL_SLACK_ARGS)]
++  foreach line [split $log "\n"] {
++    if {
++      [regexp {pull (\S+) -> (\S+) slack (\S+) weight} $line -> \
++        driver sink slack]
++    } {
++      puts "PULL $driver->$sink $slack"
++    } elseif {
++      [regexp {GPL-0188\] .* slack of (-?[0-9.]+)ns\.} $line -> \
++        shown]
++    } {
++      puts "THRESHOLD $shown"
++    } elseif {
++      [regexp \
++        {GPL-0198\] .*: (\d+) connections \((\d+) failing\) on (\d+)} \
++        $line -> connections failing nets]
++    } {
++      puts "REPORTED $connections $failing"
++      puts "NETS $nets"
++    } elseif {
++      [regexp {failing sinks on (\d+) failing nets of (\d+)\.} \
++        $line -> visited constrained]
++    } {
++      puts "VISITED $visited $constrained"
++    }
++  }
++  exit
++}
++
++# Runs global placement in a new process with these arguments; returns a
++# dict: pulls ("driver->sink" to the sink's slack in seconds), reported
++# (GPL-0198's connections and failing), nets (GPL-0198's nets), visited
++# (the nets the capture visited and the constrained nets), threshold
++# (GPL-0188's, or "").
++proc place { args } {
++  if { [info exists ::env(OPENROAD_EXE)] } {
++    set exe $::env(OPENROAD_EXE)
++  } else {
++    set exe [info nameofexecutable]
++  }
++  set ::env(PIN_PULL_SLACK_ARGS) $args
++  set code [catch {
++    exec $exe -no_init -no_splash -exit [info script] 2>@1
++  } out]
++  unset ::env(PIN_PULL_SLACK_ARGS)
++  if { $code } {
++    error "global_placement $args: $out"
++  }
++  set run [dict create pulls [dict create] reported {} nets {} visited {} \
++    threshold ""]
++  foreach line [split $out "\n"] {
++    if { [regexp {^PULL (\S+) (\S+)$} $line -> key slack] } {
++      dict set run pulls $key $slack
++    } elseif { [regexp {^REPORTED (\d+) (\d+)$} $line -> c f] } {
++      dict set run reported [list $c $f]
++    } elseif { [regexp {^THRESHOLD (\S+)$} $line -> shown] } {
++      dict set run threshold $shown
++    } elseif { [regexp {^NETS (\d+)$} $line -> nets] } {
++      dict set run nets $nets
++    } elseif { [regexp {^VISITED (\d+) (\d+)$} $line -> v c] } {
++      dict set run visited [list $v $c]
++    }
++  }
++  return $run
++}
++
++# The pulls of `all` whose slack is below `threshold` (seconds).
++proc below { all threshold } {
++  set out [dict create]
++  dict for { key slack } $all {
++    if { $slack < $threshold } {
++      dict set out $key $slack
++    }
++  }
++  return $out
++}
++
++proc same_keys { a b } {
++  expr { [lsort [dict keys $a]] eq [lsort [dict keys $b]] }
++}
++
++# The default: every sink with a negative slack.
++set run [place]
++set default_run $run
++set default [dict get $run pulls]
++set n_default [dict size $default]
++check "the design has failing sinks at 0.4 ns" { expr { $n_default > 100 } } 1
++check "GPL-0198 counts the pulls" { dict get $run reported } \
++  [list $n_default $n_default]
++check "default pulls only negative slacks" {
++  dict size [below $default 0.0]
++} $n_default
++check "no threshold message by default" { dict get $run threshold } ""
++check "a run is repeatable" { same_keys [dict get [place] pulls] $default } 1
++
++# 0 is the default.
++set run [place -timing_driven_pin_pull_slack 0]
++check "a threshold of 0 pulls what the default pulls" {
++  same_keys [dict get $run pulls] $default
++} 1
++check "no threshold message at 0" { dict get $run threshold } ""
++
++# A threshold in the design's time unit (ns) between the worst slack and 0,
++# halfway between two of the default's slacks near their median, pulls
++# exactly the default's sinks below it.
++set slacks [lsort -real -unique [dict values $default]]
++set worst [lindex $slacks 0]
++set i [expr { [llength $slacks] / 2 }]
++while { [lindex $slacks [expr { $i + 1 }]] - [lindex $slacks $i] < 2e-13 } {
++  incr i
++}
++set threshold_ns [format %.4f [expr {
++  ([lindex $slacks $i]
++    + [lindex $slacks [expr { $i + 1 }]]) / 2 * 1e9
++}]]
++set threshold [expr { $threshold_ns * 1e-9 }]
++set run [place -timing_driven_pin_pull_slack $threshold_ns]
++set tail [dict get $run pulls]
++check "the threshold is reported in the design's time unit" {
++  expr { abs([dict get $run threshold] - $threshold_ns) < 0.001 }
++} 1
++check "a threshold pulls fewer sinks" {
++  expr { [dict size $tail] > 0 && [dict size $tail] < $n_default }
++} 1
++check "a threshold pulls exactly the default's sinks below it" {
++  same_keys $tail [below $default $threshold]
++} 1
++check "GPL-0198 counts the tail" { dict get $run reported } \
++  [list [dict size $tail] [dict size $tail]]
++
++# Below the worst slack nothing is pulled.
++set run [place -timing_driven_pin_pull_slack \
++  [format %.4f [expr { $worst * 1e9 - 0.01 }]]]
++check "below the worst slack nothing is pulled" { dict get $run reported } \
++  {0 0}
++
++# A positive threshold also pulls sinks that meet timing by less than it,
++# and among them every sink the default pulls.
++set run [place -timing_driven_pin_pull_slack 0.05]
++set near [dict get $run pulls]
++check "a positive threshold pulls more sinks" {
++  expr { [dict size $near] > $n_default }
++} 1
++check "a positive threshold pulls only slacks below it" {
++  dict size [below $near 0.05e-9]
++} [dict size $near]
++check "the default's sinks are the negative part of a positive threshold's" {
++  same_keys [below $near 0.0] $default
++} 1
++
++# Above every slack the capture visits every constrained net, and pulls on
++# nets that meet timing too.
++set run [place -timing_driven_pin_pull_slack 10]
++lassign [dict get $run visited] visited constrained
++check "above every slack every constrained net is visited" {
++  expr { $visited == $constrained && $constrained > 0 }
++} 1
++check "above every slack nets that meet timing are pulled on too" {
++  expr { [dict get $run nets] > [dict get $default_run nets] }
++} 1
++
++check_error "the threshold needs the pull" {
++  global_placement -timing_driven -skip_nesterov_place \
++    -timing_driven_pin_pull_slack -0.1
++} GPL-0189
++
++exit_summary
 diff --git a/src/gpl/test/pin_pull_test.cpp b/src/gpl/test/pin_pull_test.cpp
 new file mode 100644
 index 0000000000..a5d06c37b4
@@ -1878,7 +2156,7 @@ index 0000000000..a5d06c37b4
 +}  // namespace
 +}  // namespace gpl::path_shape
 diff --git a/src/rsz/include/rsz/Resizer.hh b/src/rsz/include/rsz/Resizer.hh
-index ffd61bb75b..76bf5bffb0 100644
+index 0829ba9928..153c744aad 100644
 --- a/src/rsz/include/rsz/Resizer.hh
 +++ b/src/rsz/include/rsz/Resizer.hh
 @@ -564,10 +564,15 @@ class Resizer : public sta::dbStaState, public sta::dbNetworkObserver
@@ -1898,10 +2176,10 @@ index ffd61bb75b..76bf5bffb0 100644
    // Return nets with worst slack.
    sta::NetSeq resizeWorstSlackNets();
 diff --git a/src/rsz/src/Resizer.cc b/src/rsz/src/Resizer.cc
-index e3be5c91b5..985157d370 100644
+index bd736a8bf4..cf989f4a7c 100644
 --- a/src/rsz/src/Resizer.cc
 +++ b/src/rsz/src/Resizer.cc
-@@ -3216,7 +3216,8 @@ void Resizer::findResizeSlacks(
+@@ -3215,7 +3215,8 @@ void Resizer::findResizeSlacks(
      bool run_journal_restore,
      bool run_repair_timing,
      float repair_tns_end_percent,
@@ -1911,7 +2189,7 @@ index e3be5c91b5..985157d370 100644
  {
    initBlock();
  
-@@ -3302,6 +3303,9 @@ void Resizer::findResizeSlacks(
+@@ -3301,6 +3302,9 @@ void Resizer::findResizeSlacks(
    }
  
    findResizeSlacks1();
@@ -1921,3 +2199,6 @@ index e3be5c91b5..985157d370 100644
    if (run_journal_restore) {
      db_cbk_->addOwner(block_);
      journalRestore();
+-- 
+2.53.0
+
