@@ -1658,6 +1658,66 @@ class PinOrderPlanTest(unittest.TestCase):
         )
         self.assertIn("toward %.0f" % pins, report[0])
 
+    def test_partner_pins_read_after_the_partners_own_order(self):
+        """partner_pins reads the partner's pins where the partner's own
+        pin_order put them, not where its pins file had them (Vec on
+        MemBlock's write-back, which MemBlock's own order first moves
+        toward Flt). B's order moves its p pins from its far end toward
+        C, over the middle of A's pin side, and A's group faces them
+        there. A comes before B by name, so the plan must order B first."""
+        a_pins = ["a0", "a1", "a2", "g0", "a3", "g1", "a4", "a5", "a6", "a7"]
+        b_pins = ["b%d" % i for i in range(18)] + ["p0", "p1"]
+        files = {
+            # A's top edge, slots at x 5 to 95; B's bottom edge, x 5 to 195,
+            # its p pins at the far end
+            "A": {"": _edge_rows(a_pins, pitch=10.0, y=49.82)},
+            "B": {"": _edge_rows(b_pins, pitch=10.0)},
+        }
+        plan = {
+            "parent": {},
+            "macros": [
+                {
+                    "name": "A",
+                    "pin_order": [{"pins": "^g", "toward": "B", "partner_pins": "^p"}],
+                },
+                {"name": "B", "pin_order": [{"pins": "^p", "toward": "C"}]},
+                {"name": "C"},
+            ],
+        }
+        a = {"name": "A", "x_um": 0.0, "y_um": 0.0, "w_um": 100.0, "h_um": 50.0}
+        b = {"name": "B", "x_um": 0.0, "y_um": 60.0, "w_um": 200.0, "h_um": 50.0}
+        # C's centre at x 50
+        c = {"name": "C", "x_um": 40.0, "y_um": 120.0, "w_um": 20.0, "h_um": 20.0}
+        out = {"macros": [a, b, c]}
+
+        def mean_x(rows):
+            xs = [
+                b["x_um"] + float(r.split()[2]) for r in rows if r.split()[0][0] == "p"
+            ]
+            return sum(xs) / len(xs)
+
+        pos = sorted(a["x_um"] + plan_floorplan._row_side(r)[1] for r in files["A"][""])
+        before = mean_x(files["B"][""])
+        done, report = plan_floorplan.apply_pin_orders(plan, out, files)
+        self.assertEqual(sorted(done), ["A", "B"])
+        after = mean_x(done["B"][""])
+        # the premise: B's own order moved its p pins from past A's end to
+        # over the middle of A's side, and the runs of A nearest the pins
+        # before and after it differ (B's centre picks the one before)
+        self.assertEqual((before, after), (190.0, 50.0))
+        start = _nearest_run(pos, 2, after)
+        self.assertTrue(0 < start < len(pos) - 2, start)
+        self.assertNotEqual(_nearest_run(pos, 2, before), start)
+        self.assertNotEqual(_nearest_run(pos, 2, b["x_um"] + b["w_um"] / 2.0), start)
+        order = _slot_order(done["A"][""])[0]["top"]
+        self.assertEqual(order[start : start + 2], ["g0", "g1"])
+        self.assertEqual(
+            [n for n in order if n[0] == "a"], ["a%d" % i for i in range(8)]
+        )
+        self.assertTrue(report[0].startswith("B: 2 pins /^p/"), report)
+        self.assertTrue(report[1].startswith("A: 2 pins /^g/"), report)
+        self.assertIn("toward %.0f" % after, report[1])
+
     def test_a_centre_mid_side_is_read_in_the_footprints_um(self):
         """A partner's centre that lands mid-side takes the run nearest it
         where the parent places the block, on its footprint (mock_area <
