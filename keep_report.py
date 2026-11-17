@@ -8,7 +8,11 @@ which modules inside it, kept, would split it:
 - per partition (each kept module and the top): wall time, the pass that
   took most of it, cell count and area, from the partition's
   partition_<name>_stat.txt (synth_partition.sh: the yosys log's timing
-  lines and synth.tcl's synth_stat.txt);
+  lines, synth_searches.py's lines and synth.tcl's synth_stat.txt);
+- per partition, the searches it may turn off for itself
+  (partition_arguments): extract_fa's wall seconds and the full and half
+  adders it found, share's wall seconds and the cells it merged of its
+  candidates, and which ABC script ran and its wall seconds;
 - per partition, the modules synthesized into it that are not kept,
   ranked by estimated size: the keep candidates. The size is yosys's
   keep_hierarchy -min_cost estimate, the one SYNTH_MINIMUM_KEEP_SIZE
@@ -17,8 +21,9 @@ which modules inside it, kept, would split it:
   plus those of the modules under it that are not kept, by instance;
 - one line naming the partition that sets the time and the candidates
   that would split it;
-- the slow partitions: those over an optional wall-time budget, and those
-  where one pass takes most of the wall time, each with a suggestion.
+- the slow partitions: those over an optional wall-time budget, those
+  where one pass takes most of the wall time, and those with a search
+  that costs time and finds little, each with a suggestion.
   Report only: times vary by machine, so nothing here fails a build.
 
   keep_report.py --top TOP --kept kept_modules.json --rtlil CANON.rtlil
@@ -44,6 +49,12 @@ STAT_HEADER = re.compile(r"^=== (\S+) ===\s*$")
 OLD_CELLS = re.compile(r"^\s*Number of cells:\s+(\d+)")
 OLD_AREA = re.compile(r"^\s*Chip area for (?:top )?module '\\?(\S+?)':\s+([\d.eE+-]+)")
 NEW_CELLS = re.compile(r"^\s*(\d+)\s+(\S+)(?:\s+\d+\s+\S+)?\s+cells\s*$")
+SEARCH = re.compile(r"^search (\S+)((?: \S+=\S+)*)\s*$")
+ABC_SCRIPTS = [
+    (re.compile(r"^Using ABC area script\."), "area"),
+    (re.compile(r"^Using ABC speed script\."), "speed"),
+    (re.compile(r"^Using ABC script "), "custom"),
+]
 
 
 def rtlil_name(name):
@@ -157,8 +168,9 @@ class Sizes:
 
 
 def read_stats(texts):
-    """{partition module: {seconds, pass, pass_seconds, cells, area}} from
-    the partitions' stat files."""
+    """{partition module: {seconds, pass, pass_seconds, cells, area,
+    searches}} from the partitions' stat files. searches is
+    {extract_fa|share|abc: {seconds, ...}} for the searches that ran."""
     out = {}
     for text in texts:
         current = None
@@ -173,6 +185,19 @@ def read_stats(texts):
             if current is None:
                 continue
             row = out[current]
+            m = SEARCH.match(line)
+            if m:
+                fields = dict(f.split("=", 1) for f in m.group(2).split())
+                fields["seconds"] = float(fields["seconds"])
+                for key in ("full", "half", "candidates", "merged"):
+                    if key in fields:
+                        fields[key] = int(fields[key])
+                row.setdefault("searches", {})[m.group(1)] = fields
+                continue
+            script = next((n for p, n in ABC_SCRIPTS if p.match(line)), None)
+            if script:
+                row["abc_script"] = script
+                continue
             m = ELAPSED.search(line)
             if m:
                 row["seconds"] = (
@@ -205,10 +230,20 @@ def read_stats(texts):
             m = OLD_AREA.match(line)
             if m:
                 row["area"] = float(m.group(2))
+    for row in out.values():
+        script = row.pop("abc_script", None)
+        if script and "abc" in row.get("searches", {}):
+            row["searches"]["abc"]["script"] = script
     return out
 
 
 DOMINANT_SHARE = 0.9
+# extract_fa is suggested off when it takes this share of the wall time
+# and finds fewer adders than FEW_ADDERS: a 32-bit adder is 32.
+EXTRACT_FA_SHARE = 0.2
+FEW_ADDERS = 32
+# share is suggested off when it merged nothing and took this long.
+SHARE_SECONDS = 1.0
 
 REMEDIES = {
     "abc": [
@@ -216,6 +251,32 @@ REMEDIES = {
         "if it's mux trees, pre-map them (muxcover)",
     ],
 }
+
+
+def search_remedies(r):
+    """Suggestions to turn a search off for the partition, each citing
+    what the search cost and found."""
+    searches = r.get("searches") or {}
+    seconds = r["seconds"]
+    out = []
+    fa = searches.get("extract_fa")
+    if fa and seconds:
+        adders = fa.get("full", 0) + fa.get("half", 0)
+        share = fa["seconds"] / seconds
+        if share >= EXTRACT_FA_SHARE and adders < FEW_ADDERS:
+            out.append(
+                f"SKIP_EXTRACT_FA=1 for this partition: extract_fa took "
+                f"{fmt(fa['seconds'], 1)} s ({share:.0%} of its wall time) and "
+                f"found {fa.get('full', 0)} full and {fa.get('half', 0)} half adders"
+            )
+    sh = searches.get("share")
+    if sh and sh.get("merged") == 0 and sh["seconds"] >= SHARE_SECONDS:
+        out.append(
+            f"SYNTH_ARGS=-noshare for this partition: share took "
+            f"{fmt(sh['seconds'], 1)} s over {sh.get('candidates', 0)} "
+            f"candidates and merged none"
+        )
+    return out
 
 
 def slow_partitions(rows, budget):
@@ -229,7 +290,8 @@ def slow_partitions(rows, budget):
         over = bool(budget) and seconds > budget
         share = (r["pass_seconds"] or 0) / seconds if r["pass"] else 0
         dominant = share >= DOMINANT_SHARE
-        if not (over or dominant):
+        searches = search_remedies(r)
+        if not (over or dominant or searches):
             continue
         why = []
         if over:
@@ -242,8 +304,16 @@ def slow_partitions(rows, budget):
                     f"the time is in yosys's `{r['pass']}` pass; see what it works on in this partition's log"
                 ],
             )
-        else:
+            abc = (r.get("searches") or {}).get("abc", {})
+            if r["pass"] == "abc" and abc.get("script") == "area":
+                remedies = remedies[1:]
+        elif over:
             remedies = ["split it: see its keep candidates below, if it has any"]
+        else:
+            remedies = []
+        if searches and not why:
+            why.append("a search costs time and finds little")
+        remedies = remedies + searches
         out.append({"name": r["name"], "why": why, "remedies": remedies})
     return out
 
@@ -273,6 +343,7 @@ def report(top, kept_names, children, blackboxes, costs, stats, limit=10, budget
                 "pass_seconds": st.get("pass_seconds"),
                 "cells": st.get("cells"),
                 "area": st.get("area"),
+                "searches": st.get("searches"),
                 "estimate": sizes.size(p),
                 "own": costs.get(p, 0),
             }
@@ -287,15 +358,21 @@ def report(top, kept_names, children, blackboxes, costs, stats, limit=10, budget
     out.append("")
     out.append("## Partitions, longest first")
     out.append("")
+    with_searches = any(r["searches"] for r in rows)
     out.append(
         "| Partition | Wall (s) | Longest pass | Cells | Area | Est. gates | Own gates |"
+        + (SEARCH_HEADER if with_searches else "")
     )
-    out.append("|---|---:|---|---:|---:|---:|---:|")
+    out.append(
+        "|---|---:|---|---:|---:|---:|---:|"
+        + ("---:|---:|---:|---:|---|---:|" if with_searches else "")
+    )
     for r in rows:
         longest = f"{r['pass']} {r['pass_seconds']} s" if r["pass"] else ""
         out.append(
             f"| {r['name']} | {fmt(r['seconds'], 1)} | {longest} | {fmt(r['cells'])} "
             f"| {fmt(r['area'], 1)} | {fmt(r['estimate'])} | {fmt(r['own'])} |"
+            + (search_cells(r["searches"]) if with_searches else "")
         )
     out.append("")
     out.append(
@@ -304,6 +381,15 @@ def report(top, kept_names, children, blackboxes, costs, stats, limit=10, budget
         "is not kept. Own gates: the module's logic outside any submodule; "
         "for the top, the logic a keep list cannot move out of it."
     )
+    if with_searches:
+        out.append("")
+        out.append(
+            "Searches, the passes a partition may turn off for itself "
+            "(partition_arguments), wall seconds and what each found: "
+            "extract_fa's full/half adders (SKIP_EXTRACT_FA), share's merged "
+            "cells of its candidates (SYNTH_ARGS=-noshare), the ABC script "
+            "that ran (ABC_AREA, ABC_SCRIPT). off: the pass did not run."
+        )
     slow = slow_partitions(rows, budget)
     if slow:
         out.append("")
@@ -334,6 +420,39 @@ def report(top, kept_names, children, blackboxes, costs, stats, limit=10, budget
             )
     out.append("")
     return "\n".join(out)
+
+
+SEARCH_HEADER = (
+    " Searches: extract_fa (s) | Full/half adders | share (s) "
+    "| Merged/candidates | ABC script | ABC (s) |"
+)
+
+
+def search_cells(searches):
+    """The Searches column group's cells of a row: ? for a partition
+    without search lines, off for a search that did not run."""
+    if not searches:
+        return " ? | ? | ? | ? | ? | ? |"
+    fa = searches.get("extract_fa")
+    sh = searches.get("share")
+    abc = searches.get("abc")
+    cells = []
+    if fa:
+        cells += [fmt(fa["seconds"], 1), f"{fa.get('full', 0)}/{fa.get('half', 0)}"]
+    else:
+        cells += ["off", ""]
+    if sh:
+        cells += [
+            fmt(sh["seconds"], 1),
+            f"{sh.get('merged', 0)}/{sh.get('candidates', 0)}",
+        ]
+    else:
+        cells += ["off", ""]
+    if abc:
+        cells += [abc.get("script", "?"), fmt(abc["seconds"], 1)]
+    else:
+        cells += ["off", ""]
+    return "".join(f" {c} |" for c in cells)
 
 
 def candidate_rows(partition, sizes, names, limit):

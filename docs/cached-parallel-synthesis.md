@@ -316,7 +316,8 @@ cat bazel-bin/test/verilog_slices/reports/asap7/SliceTop/before/keep_report.md
 
 It is never built unless asked for, so neither the critical path nor CI
 pays for it. It reads what the synthesis wrote, each partition's
-`partition_<module>_stat.txt` (the yosys log's timing lines and
+`partition_<module>_stat.txt` (the yosys log's timing lines, the
+searches `synth_searches.py` times as the log is written, and
 `synth_stat.txt`, which `synth_partition.sh` writes beside the
 partition's netlist), plus one action of its own, `keep_costs.txt`:
 `synth_keep_costs.tcl` runs the coarse synthesis `synth_keep.tcl` runs
@@ -335,12 +336,12 @@ and `Outer`:
 
 ## Partitions, longest first
 
-| Partition | Wall (s) | Longest pass | Cells | Area | Est. gates | Own gates |
-|---|---:|---|---:|---:|---:|---:|
-| Inner | 1.9 | abc 0 s | 66 | 7.9 | 76 | 72 |
-| Other | 1.9 | abc 0 s | 39 | 4.8 | 70 | 70 |
-| (top) SliceTop | 1.9 | abc 0 s | 35 | 4.1 | 64 | 64 |
-| Outer | 1.7 | abc 0 s | 25 | 4.1 | 20 | 16 |
+| Partition | Wall (s) | Longest pass | Cells | Area | Est. gates | Own gates | Searches: extract_fa (s) | Full/half adders | share (s) | Merged/candidates | ABC script | ABC (s) |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---:|
+| Inner | 1.9 | abc 0 s | 66 | 7.9 | 76 | 72 | 0.0 | 2/12 | 0.0 | 0/0 | speed | 0.5 |
+| Other | 1.9 | abc 0 s | 39 | 4.8 | 70 | 70 | 0.0 | 0/1 | 0.0 | 0/0 | speed | 0.7 |
+| (top) SliceTop | 1.9 | abc 0 s | 35 | 4.1 | 64 | 64 | 0.0 | 1/8 | 0.0 | 0/0 | speed | 0.6 |
+| Outer | 1.7 | abc 0 s | 25 | 4.1 | 20 | 16 | 0.0 | 0/0 | 0.0 | 0/0 | speed | 0.5 |
 
 ## Keep candidates in Inner
 
@@ -365,6 +366,18 @@ How to read it:
   kept; *Own gates* is the module's logic outside any submodule. A top
   whose own gates are most of its estimate cannot be split by keeping
   more: move its logic into a module in the RTL.
+- **Searches**, in the same table, the passes a partition may turn off
+  for itself with `partition_arguments`, each with its wall seconds and
+  what it found: `extract_fa`'s full and half adders
+  (`SKIP_EXTRACT_FA`), `share`'s merged cells out of its candidates
+  (`SYNTH_ARGS=-noshare`), and the ABC script that ran, speed, area or
+  custom (`ABC_AREA`, `ABC_SCRIPT`). `off` is a pass that did not run.
+  The partition's log has headers only (ORFS runs yosys with `-v 3`), so
+  yosys also writes its full log (`-l`) into a FIFO that
+  `synth_searches.py` reads as it is written, stamping each pass's header
+  on arrival: these are wall seconds, where yosys's `Time spent` is CPU
+  time. Nothing is stored but the counts. A setting in a BUILD file can
+  cite these numbers.
 - **Keep candidates**, per partition, the modules synthesized into it
   that are not kept, largest first. *Moved out* is what keeping the
   module takes out of the partition, every instance of it; *Share* is
@@ -378,8 +391,11 @@ How to read it:
   partition (per-partition arguments), or, if the cone is mux trees,
   pre-mapping them (`muxcover`); for another pass, its name, to look up
   in the partition's log; for a partition over budget with no dominant
-  pass, its keep candidates. The suggestions are text; nothing is
-  applied.
+  pass, its keep candidates. A partition is listed also when a search
+  costs time and finds little: `SKIP_EXTRACT_FA=1` when `extract_fa`
+  takes 20% or more of its wall time and finds fewer than 32 adders,
+  `-noshare` when `share` ran for a second or more and merged nothing.
+  The suggestions are text; nothing is applied.
 
 The budget is a command-line setting, off by default and read by the
 keep report action alone, so changing it re-runs nothing but the report:
