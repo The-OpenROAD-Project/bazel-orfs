@@ -126,6 +126,38 @@ def mini_planned_flow(rtl, files, macro_files = []):
             variant = tag,
         )
 
+    # A block clocked on purpose: CTS_LATENCY_OFFSETS (ORFS patch 0241,
+    # OpenROAD patch 0240) asks CTS for u_blocka 40 ps later than
+    # balanced, on the base variant's placement. lat0 asks for 0 ps, which
+    # balances the macros one by one as lat40 does, so the two differ in
+    # the offset alone (cts_latency_offset_test).
+    for tag, offset in (("lat0", "0"), ("lat40", "40")):
+        orfs_flow(
+            name = "mini_top",
+            arguments = parent_args | {
+                "CTS_LATENCY_OFFSETS": "u_blocka " + offset,
+            },
+            last_stage = "cts",
+            macros = parent_macros,
+            pdk = "//flow:asap7",
+            previous_stage = {"cts": ":mini_top_place"},
+            sources = parent_sources,
+            variant = tag,
+            verilog_files = [":files.sv", ":top.sv"],
+        )
+        orfs_run(
+            name = "block_clocks_" + tag,
+            src = ":mini_top_%s_cts" % tag,
+            outs = ["block_clocks_%s.json" % tag],
+            arguments = parent_args,
+            script = ":block_clocks.tcl",
+            sources = parent_sources,
+            user_arguments = {
+                "OUTPUT_JSON": "$(location block_clocks_%s.json)" % tag,
+            },
+            variant = tag,
+        )
+
     # The macros the plan does not name, beside the placed netlists, after
     # the parent's macro step (leftover_macros_test.py says why).
     orfs_run(
