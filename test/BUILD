@@ -1030,10 +1030,11 @@ partition_key_test(
     target_under_test = ":kept_modules_synth",
 )
 
-# partition_arguments: ABC_AREA=1 for adder's partition alone, with
-# verilog slices (the default here) and without. Only adder's partition
-# config carries it (analysis), and of the partitions only adder's netlist
-# differs from the same flow without it (partition_arguments_test.sh).
+# partition_arguments: ABC_AREA=1 and SKIP_EXTRACT_FA=1 for adder's
+# partition alone, with verilog slices (the default here) and without.
+# Only adder's partition config carries them (analysis), and of the
+# partitions only adder's netlist differs from the same flow without them
+# (partition_arguments_test.sh).
 [orfs_synth(
     name = "kept_modules_%s_synth" % variant,
     arguments = {
@@ -1050,21 +1051,33 @@ partition_key_test(
     (
         "area",
         None,
-        {"adder": {"ABC_AREA": "1"}},
+        {"adder": {
+            "ABC_AREA": "1",
+            "SKIP_EXTRACT_FA": "1",
+        }},
     ),
     ("global", False, None),
     (
         "global_area",
         False,
-        {"adder": {"ABC_AREA": "1"}},
+        {"adder": {
+            "ABC_AREA": "1",
+            "SKIP_EXTRACT_FA": "1",
+        }},
     ),
 ]]
 
 [partition_arguments_test(
     name = "kept_modules_%s_partition_arguments_test" % variant,
-    expected = json.encode({"adder": {"ABC_AREA": "1"}}),
+    expected = json.encode({"adder": {
+        "ABC_AREA": "1",
+        "SKIP_EXTRACT_FA": "1",
+    }}),
     target_under_test = ":kept_modules_%s_synth" % variant,
-    variables = ["ABC_AREA"],
+    variables = [
+        "ABC_AREA",
+        "SKIP_EXTRACT_FA",
+    ],
 ) for variant in [
     "area",
     "global_area",

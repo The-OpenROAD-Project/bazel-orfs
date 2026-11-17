@@ -1,8 +1,9 @@
 """analysistest: partition_arguments reach their own partition only.
 
-partition_arguments = {"adder": {"ABC_AREA": "1"}} puts ABC_AREA=1 in
-adder's partition config and in no other action's: not the other kept
-modules' partitions, not the top's, not the canonicalize or the merge.
+partition_arguments = {"adder": {"ABC_AREA": "1", "SKIP_EXTRACT_FA": "1"}}
+puts both in adder's partition config and in no other action's: not the
+other kept modules' partitions, not the top's, not the canonicalize or the
+merge.
 """
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")

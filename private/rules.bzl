@@ -1312,6 +1312,7 @@ def _sanitize_module(module):
 PARTITION_VARIABLES = [
     "ABC_AREA",
     "ABC_SCRIPT",
+    "SKIP_EXTRACT_FA",
     "SYNTH_ARGS",
     "SYNTH_OPERATIONS_ARGS",
     "SYNTH_OPT_HIER",

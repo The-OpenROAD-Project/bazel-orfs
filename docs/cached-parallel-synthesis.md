@@ -421,7 +421,9 @@ check the result's timing as well as its turnaround.
 `ABC_AREA` and the other synthesis settings apply to the whole flow. A
 kept module that is a wide mux tree or mostly registers can spend most
 of a synthesis in ABC's speed script with no timing to gain from it,
-while its neighbours need that script. `partition_arguments` gives a
+while its neighbours need that script. A mux tree can likewise spend a
+large share of its synthesis in `extract_fa` looking for full and half
+adders it barely has (`SKIP_EXTRACT_FA`). `partition_arguments` gives a
 kept module's partition settings of its own:
 
 ```starlark
@@ -432,7 +434,7 @@ orfs_flow(
         ...
     },
     partition_arguments = {
-        "Crossbar": {"ABC_AREA": "1"},
+        "Crossbar": {"ABC_AREA": "1", "SKIP_EXTRACT_FA": "1"},
     },
     ...
 )
@@ -445,8 +447,9 @@ argument. At analysis:
 
 - each key must be in `SYNTH_KEEP_MODULES`;
 - each variable must act only inside the module it synthesizes:
-  `ABC_AREA`, `ABC_SCRIPT`, `SYNTH_ARGS`, `SYNTH_OPERATIONS_ARGS`,
-  `SYNTH_OPT_HIER` and `SYNTH_RETIME_MODULES`. A value takes
+  `ABC_AREA`, `ABC_SCRIPT`, `SKIP_EXTRACT_FA`, `SYNTH_ARGS`,
+  `SYNTH_OPERATIONS_ARGS`, `SYNTH_OPT_HIER` and `SYNTH_RETIME_MODULES`.
+  A value takes
   `$(location)`, so an `ABC_SCRIPT` can be a file in `data`;
 - every kept module needs a partition of its own. A
   `SYNTH_NUM_PARTITIONS` that groups modules is refused rather than
