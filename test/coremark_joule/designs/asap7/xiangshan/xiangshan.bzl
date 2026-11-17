@@ -34,6 +34,10 @@ XS_ICG_USER_SOURCES = {
 XS_USER_STAGES = {v: ["floorplan"] for v in XS_USER_ARGUMENTS + XS_USER_SOURCES} | {
     v: ["synth"]
     for v in list(XS_ICG_USER_ARGUMENTS) + list(XS_ICG_USER_SOURCES) + ["XS_FOLD_MODULES"]
+} | {
+    # global_place_args.tcl's, set only when a switch is on (_gpl_switches)
+    v: ["place"]
+    for v in ["XS_GPL_CLUSTERS_FILE"]
 }
 
 # The flat core. Elaborated without Chisel's verification layer (see the
@@ -1364,6 +1368,32 @@ XS_CTS_LATENCY_OFFSETS = {
     "core/memBlock": -30,
 }
 
+# A switch on the parent's timing-driven global placement (3_3), the one
+# place to flip it, off until its XSTile arm reports. Off, the parent's
+# flow is what it was without it, key for key. On, the parent reads
+# global_place_args.tcl as its PRE_GLOBAL_PLACE_TCL, which adds the
+# option to 3_3's global_placement and not to 3_1's skip-IO pass.
+#
+# Cohesion (carried OpenROAD patch 0242, -clusters_file): gpl_clusters.json's
+# eight groups of the parent's cells, each pulled toward its own centroid
+# at weight 1 with no fade: dispatch, decode, rename, memCtrl, the 13
+# integer issue queues, fusionDecoder, ALU0 with its CSR, and the 712
+# decodeBufBits flops by name; the ROB is left out (with it the placement
+# diverged). 3_3's GPL-0341 lines give each group's cell count.
+XS_GPL_COHESION = False
+
+def _gpl_switches():
+    """The parent's user arguments and sources XS_GPL_COHESION turns on.
+
+    Read by global_place_args.tcl, in the place stage only; both are
+    empty with the switch off.
+    """
+    user_arguments = {}
+    user_sources = {}
+    if XS_GPL_COHESION:
+        user_sources["XS_GPL_CLUSTERS_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:gpl_clusters.json"]
+    return user_arguments, user_sources
+
 def _planned_block(cfg, entry, plan_dir, block, blocks):
     """A block flow's arguments and sources under the plan: planned outline,
     every pin on the planned side, the parent's target period."""
@@ -1611,8 +1641,14 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     for hook in ["PRE_DETAIL_PLACE_TCL", "PRE_CTS_TCL", "PRE_GLOBAL_ROUTE_TCL"]:
         sources[hook] = ["//test/coremark_joule/designs/asap7/xiangshan:legalize_out_of_blocks.tcl"]
     sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"]
-    verilog, arguments, sources, user_arguments = _extracted("parent", arguments, sources, XS_ICG_USER_ARGUMENTS)
-    user_sources = XS_ICG_USER_SOURCES
+
+    # the switch on 3_3's global placement (XS_GPL_COHESION); off,
+    # nothing here is set
+    gpl_arguments, gpl_sources = _gpl_switches()
+    if gpl_arguments or gpl_sources:
+        sources["PRE_GLOBAL_PLACE_TCL"] = ["//test/coremark_joule/designs/asap7/xiangshan:global_place_args.tcl"]
+    verilog, arguments, sources, user_arguments = _extracted("parent", arguments, sources, XS_ICG_USER_ARGUMENTS | gpl_arguments)
+    user_sources = XS_ICG_USER_SOURCES | gpl_sources
     orfs_flow(
         name = name,
         arguments = arguments,
