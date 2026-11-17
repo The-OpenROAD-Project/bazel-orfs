@@ -2618,6 +2618,134 @@ Open:
   are run 27's.
 - **The crossing floor on XSTile's second pass.**
 
+## 63. Below 2,000 ps: the parent at 1,992 ps with cohesion, and what is next
+
+Status: **parked at run 33 (1,992 ps, from a dirty lane); the list below
+is the approved future work, none of it built yet.** XSTile is a single
+top again (#1578); its parent went 2,206 ps (run 31) to 2,113 (run 32) to
+1,992 ps (run 33, #1625), every block far below (814 to 1,260 ps).
+
+What got it there, each carried as a patch with a test that fails
+without it:
+
+- **Global placement ended in a wirelength burst** (0224 to 0227): late
+  in a long descent Nesterov's momentum (coefficient about 0.994 by
+  iteration 500) carried the fillers, then the cells, away, and the
+  placement written was the look-ahead, one momentum step past the
+  iterate. Placement now ends on its iterate and restarts its momentum
+  where its wirelength rises near the end; none of gpl's 116 test
+  placements restarts.
+- **VecRegionModule's clock arrived 245 ps late** (OpenSTA 0230, ORFS
+  0231): `write_timing_model` wrote a nested register-file macro's pin
+  arrival without its own clock tree, so the block's
+  max_clock_tree_path (216 ps) fell below its min (501 ps) and the
+  parent's CTS balanced the block on it. `generate_abstract` now stops
+  on a model whose max is below its min.
+- **Cohesion** (0242, `global_placement -clusters_file`, entry 54
+  revisited): run 32's tail was 61 % the control block's own paths, wire
+  four times their register distance. Eight groups pulled toward their
+  centres (dispatch, decode, rename, memCtrl, the integer issue queues,
+  fusionDecoder, ALU0 with its CSR, the decode buffer's 712 flops by
+  name; the ROB left out) took the parent from 2,113 to 1,992 ps and
+  global route overflow from 231,541 to 45,132.
+
+Measured on the way and not the cause: CTS (the blocks were balanced at
+CTS's own parasitic estimate, -31..+23 ps, and drift to -98..+22 at
+global route as the clock wires get faster), the blocks' positions (a
+floorplan move bought less than removing detour), and balancing the
+block clocks (it makes the tail worse: the early block clocks hide the
+paths out of the blocks).
+
+### Where run 33 stands
+
+| at or over | endpoints | excess |
+|---|---:|---:|
+| 1,900 ps | 1,096 | 41 ns |
+| 1,800 ps | 2,328 | 204 ns |
+| 1,700 ps | 5,479 | 578 ns |
+| 1,666 ps | 6,932 | 792 ns |
+
+At 1,900 ps or more: Frontend into the parent 899 endpoints (wire 4.1x
+the pin-to-pin distance, plus Frontend's own arcs, skew neutral); the
+integer region's own paths 89, the worst at 1,992 ps (5.8 mm of wire for
+1.1 mm between the registers); MemBlock into Flt and Vec 62 (wire equal
+to the distance); the parent into blocks whose clocks arrive early 37.
+Floors measured on run 32's placement: 1,515 ps with every parent wire
+at zero, a retiming floor of 1,950 ps (-163), one-flop loops at least
+1,731 ps with the wires as built.
+
+### Future work, ranked
+
+Near term, the measured levers:
+
+1. **Cohesion, second round:** groups for the integer region's
+   execution and memory-issue ports (the new worst class), and anchors
+   (the patch has them) drawing decode and the decode buffer toward
+   Frontend's instruction pins (the 899).
+2. **Measure what is merged but not yet measured:** MemBlock/Vec/Flt pin
+   order (`pin_order` in the planner) and the per-block clock offsets
+   at CTS (0240/0241, `CTS_LATENCY_OFFSETS`); then one correction of the
+   offsets from the arrivals at global route.
+3. **The timing pull on the tail only** (0221's
+   `-timing_driven_pin_pull_slack`, behind `XS_GPL_TAIL_PULL`, off),
+   stacked on cohesion. Without the threshold it pulled 138,000 of
+   156,682 endpoints and ground for 8 h 34 min.
+4. **MemBlock's output budget:** its own arcs are 65 % of its paths into
+   the parent; a tighter `set_max_delay` on its write-back outputs lets
+   its own repair shorten them.
+
+Beyond about 1,800 ps:
+
+5. **Retiming**, once OpenROAD #12304 lands: forward moves only today,
+   no async set/reset flops (23 % of XSTile's), no hierarchical
+   designs, the hard blocks to be fenced off; its bound here is -163 ps
+   and it cannot reach MemBlock into Vec (no parent register).
+6. **Surgery** on logic-heavy cones (decode into `ssit`) and on the
+   one-flop loops (`decodeBufValid`).
+7. **Boundary repartition or soft dissolve** of the failing crossing
+   cones (entries 51, 59-62): the parent's flow then sees whole
+   crossings; the way to 1,666 ps.
+
+Tools and infrastructure:
+
+8. **OpenROAD for a fast ECO loop:** place only a named set of cells,
+   repair over a band of endpoints, incremental CTS. The tail's cones at
+   1,900 ps hold about 122,000 cells, 5 % of the parent; an iteration
+   that re-places only those is estimated at 45-85 minutes against
+   2 h 51 for the parent's flow.
+9. **Routability and the momentum restart:** a restart ends a
+   routability settle wait one iteration later, so pass 1 measures a
+   placement still contracting (1.18 then, 0.83 once settled) and the
+   passes after it are wasted. Keep the wait open across a restart.
+10. **The KPI report:** its skew column differs pin arrivals, which for
+    a block includes the block's internal latency (family B read +625
+    ps against -8 between the registers), and its distance column uses
+    a block's centre. Report register-to-register skew and pin-to-pin
+    distance.
+11. **Small fixes found:** gpl puts cut fillers back in reverse order
+    after a revert (rounding drift; a fix with a test exists); a dirty
+    lane's checks during a stage must read ORFS's `.tmp.log`, the stage
+    log is renamed only at the end.
+
+### From 1,992 to 1,666 ps (5 x 333), in 100 ps steps, the happy case
+
+| step | what has to go | a commercial tool would | doable in OpenROAD | to expect |
+|---|---|---|---|---|
+| 1,992 -> 1,900 | 1,096 endpoints, 41 ns | timing-driven placement that weights the failing nets itself; useful skew per register with clock and data together | cohesion second round, block clock offsets at CTS, pin order | cohesion packs cells (congestion 2.07 at its first pass); groups by name are fragile; offsets drift from CTS to global route |
+| 1,900 -> 1,800 | 2,328, 204 ns; MemBlock's arcs | budgets for every crossing given to the blocks automatically; resynthesis of the critical cones knowing the placement | tail pull, MemBlock output budget, useful skew at CTS | a block rebuild per budget; OCV and hold cost of skew; repair works on 1 % of the endpoints at a time |
+| 1,800 -> 1,700 | 5,479, 578 ns; one-flop loops | retiming and register duplication across the placement; remapping critical cones | retiming (#12304), surgery, the loops' wire, VT swaps | retime's limits above; every surgery needs LEC, which kepler-formal does at small sizes |
+| 1,700 -> 1,666 | 6,932, 792 ns; about 150 ps of wire left on the worst paths at the zero-wire floor | flat or soft-hierarchy place and route at about 8 M cells, logic moved freely across block boundaries | boundary repartition, soft dissolve, flat timing of the tile | a flat tile is 8.3 M cells at 74-80 GB a step; equivalence at that size; hours per iteration |
+
+Below about 1,800 ps the wire is no longer the only wall: the loops and
+the blocks' own boundary arcs start to bind.
+
+### Upstream candidates
+
+For the human's call, not acted on: the gpl fixes 0224-0227 with their
+bug list (eleven items, the routability and snapshot findings among
+them), OpenSTA 0230, ORFS 0231, cohesion 0242, 0221's slack option, and
+the CTS offsets 0240/0241.
+
 ## Method notes
 
 - slang `--keep-hierarchy` names every module `<Definition>$<instance
