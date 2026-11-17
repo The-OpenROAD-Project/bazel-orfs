@@ -16,10 +16,13 @@ which modules inside it, kept, would split it:
   on the coarse design logs one line per module, synth_keep_costs.tcl)
   plus those of the modules under it that are not kept, by instance;
 - one line naming the partition that sets the time and the candidates
-  that would split it.
+  that would split it;
+- the slow partitions: those over an optional wall-time budget, and those
+  where one pass takes most of the wall time, each with a suggestion.
+  Report only: times vary by machine, so nothing here fails a build.
 
   keep_report.py --top TOP --kept kept_modules.json --rtlil CANON.rtlil
-      --costs keep_costs.txt --out keep_report.md STAT...
+      --costs keep_costs.txt --out keep_report.md [--budget SECONDS] STAT...
 """
 
 import argparse
@@ -205,13 +208,53 @@ def read_stats(texts):
     return out
 
 
+DOMINANT_SHARE = 0.9
+
+REMEDIES = {
+    "abc": [
+        "try ABC_AREA=1 for this partition (per-partition arguments)",
+        "if it's mux trees, pre-map them (muxcover)",
+    ],
+}
+
+
+def slow_partitions(rows, budget):
+    """The rows over budget (seconds, 0 for none) or with one pass taking
+    DOMINANT_SHARE of their wall time, each with why and what to try."""
+    out = []
+    for r in rows:
+        seconds = r["seconds"]
+        if not seconds:
+            continue
+        over = bool(budget) and seconds > budget
+        share = (r["pass_seconds"] or 0) / seconds if r["pass"] else 0
+        dominant = share >= DOMINANT_SHARE
+        if not (over or dominant):
+            continue
+        why = []
+        if over:
+            why.append(f"{fmt(seconds, 1)} s, over the {fmt(budget)} s budget")
+        if dominant:
+            why.append(f"{r['pass']} takes {share:.0%} of its wall time")
+            remedies = REMEDIES.get(
+                r["pass"],
+                [
+                    f"the time is in yosys's `{r['pass']}` pass; see what it works on in this partition's log"
+                ],
+            )
+        else:
+            remedies = ["split it: see its keep candidates below, if it has any"]
+        out.append({"name": r["name"], "why": why, "remedies": remedies})
+    return out
+
+
 def fmt(x, digits=0):
     if x is None:
         return "?"
     return f"{x:,.{digits}f}"
 
 
-def report(top, kept_names, children, blackboxes, costs, stats, limit=10):
+def report(top, kept_names, children, blackboxes, costs, stats, limit=10, budget=0):
     top = rtlil_name(top)
     kept = kept_set(kept_names, children) - {top}
     sizes = Sizes(children, costs, kept | blackboxes)
@@ -261,6 +304,20 @@ def report(top, kept_names, children, blackboxes, costs, stats, limit=10):
         "is not kept. Own gates: the module's logic outside any submodule; "
         "for the top, the logic a keep list cannot move out of it."
     )
+    slow = slow_partitions(rows, budget)
+    if slow:
+        out.append("")
+        out.append("## Slow partitions")
+        out.append("")
+        out.append(
+            "Times vary by machine and are indicative; these are suggestions, "
+            "nothing fails on them."
+        )
+        out.append("")
+        for s in slow:
+            out.append(f"- **{s['name']}**: {'; '.join(s['why'])}.")
+            for remedy in s["remedies"]:
+                out.append(f"  - {remedy}")
     for r in rows:
         cands = candidate_rows(r["module"], sizes, names, limit)
         if not cands:
@@ -356,6 +413,12 @@ def main(argv=None):
     parser.add_argument("--costs", required=True, help="keep_hierarchy -min_cost 1 log")
     parser.add_argument("--out", required=True)
     parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument(
+        "--budget",
+        type=float,
+        default=0,
+        help="flag partitions whose wall time exceeds this many seconds; 0 for none",
+    )
     parser.add_argument("stats", nargs="*", help="partition_<name>_stat.txt")
     args = parser.parse_args(argv)
     with open(args.kept) as f:
@@ -369,7 +432,14 @@ def main(argv=None):
         with open(path) as f:
             texts.append(f.read())
     text = report(
-        args.top, kept_names, children, blackboxes, costs, read_stats(texts), args.limit
+        args.top,
+        kept_names,
+        children,
+        blackboxes,
+        costs,
+        read_stats(texts),
+        args.limit,
+        args.budget,
     )
     with open(args.out, "w") as f:
         f.write(text)

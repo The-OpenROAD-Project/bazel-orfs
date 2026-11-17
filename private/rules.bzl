@@ -70,6 +70,7 @@ load(
     "PdkInfo",
     "TopInfo",
 )
+load("//private:settings.bzl", "OrfsFlagInfo")
 load(
     "//private:stages.bzl",
     "ALL_STAGES",
@@ -2233,6 +2234,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     report_args.add("--rtlil", canon_output)
     report_args.add("--costs", keep_costs)
     report_args.add("--out", keep_report)
+    report_args.add("--budget", str(ctx.attr._keep_report_budget[OrfsFlagInfo].value))
     report_args.add_all(partition_stats)
     ctx.actions.run(
         executable = ctx.executable._python,
@@ -3173,6 +3175,9 @@ orfs_synth_rule = rule(
                 "_keep_report": attr.label(
                     allow_single_file = True,
                     default = Label("//:keep_report.py"),
+                ),
+                "_keep_report_budget": attr.label(
+                    default = Label("//:keep_report_budget"),
                 ),
                 "_synth_partition_script": attr.label(
                     allow_single_file = True,

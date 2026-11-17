@@ -6,7 +6,7 @@ load("@config//:global_config.bzl", "CONFIG_KLAYOUT")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-load("//private:settings.bzl", "orfs_bool_flag")
+load("//private:settings.bzl", "orfs_bool_flag", "orfs_int_flag")
 
 exports_files([
     # Read by //test:orfs_design_builds_test, which extracts the
@@ -72,6 +72,18 @@ exports_files([
 orfs_bool_flag(
     name = "log_timestamps",
     build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
+# Seconds of wall time over which the keep report lists a synthesis
+# partition as slow; 0 for no budget. Report only, nothing fails on it,
+# and only the keep report action reads it:
+#
+#   bazelisk build --@bazel-orfs//:keep_report_budget=600 //your:target_synth \
+#       --output_groups=keep_report
+orfs_int_flag(
+    name = "keep_report_budget",
+    build_setting_default = 0,
     visibility = ["//visibility:public"],
 )
 
