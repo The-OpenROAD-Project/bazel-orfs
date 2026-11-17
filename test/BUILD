@@ -16,6 +16,7 @@ load(":hierarchical_default_test.bzl", "hierarchical_default_test_suite")
 load(":keep_modules_test.bzl", "keep_modules_test_suite")
 load(":metrics_default_test.bzl", "metrics_default_test_suite")
 load(":mock_pin_knobs_test.bzl", "mock_pin_knobs_test")
+load(":partition_arguments_test.bzl", "partition_arguments_test")
 load(":partition_key_test.bzl", "partition_key_test")
 load(":provider_test_rule.bzl", "lib_pre_layout_test")
 load(":quick_pins_test_rule.bzl", "quick_pins_data_dep_test")
@@ -1028,6 +1029,120 @@ partition_key_test(
     ],
     target_under_test = ":kept_modules_synth",
 )
+
+# partition_arguments: ABC_AREA=1 for adder's partition alone, with
+# verilog slices (the default here) and without. Only adder's partition
+# config carries it (analysis), and of the partitions only adder's netlist
+# differs from the same flow without it (partition_arguments_test.sh).
+[orfs_synth(
+    name = "kept_modules_%s_synth" % variant,
+    arguments = {
+        "SDC_FILE": "$(location :constraints-top.sdc)",
+        "SYNTH_KEEP_MODULES": "adder counter",
+    },
+    data = [":constraints-top.sdc"],
+    module_top = "kept_modules_top",
+    partition_arguments = partition_arguments,
+    variant = variant,
+    verilog_files = ["rtl/kept_modules_top.v"],
+    verilog_slices = slices,
+) for variant, slices, partition_arguments in [
+    (
+        "area",
+        None,
+        {"adder": {"ABC_AREA": "1"}},
+    ),
+    ("global", False, None),
+    (
+        "global_area",
+        False,
+        {"adder": {"ABC_AREA": "1"}},
+    ),
+]]
+
+[partition_arguments_test(
+    name = "kept_modules_%s_partition_arguments_test" % variant,
+    expected = json.encode({"adder": {"ABC_AREA": "1"}}),
+    target_under_test = ":kept_modules_%s_synth" % variant,
+    variables = ["ABC_AREA"],
+) for variant in [
+    "area",
+    "global_area",
+]]
+
+[filegroup(
+    name = "kept_modules_%s_partitions" % variant,
+    srcs = [":kept_modules_%s" % variant],
+    output_group = "partitions",
+) for variant in [
+    "synth",
+    "area_synth",
+    "global_synth",
+    "global_area_synth",
+]]
+
+[sh_test(
+    name = "kept_modules_%s_partition_arguments_netlist_test" % area,
+    size = "small",
+    srcs = ["partition_arguments_test.sh"],
+    args = [
+        "adder",
+        "$(locations :kept_modules_%s_partitions)" % base,
+        "--",
+        "$(locations :kept_modules_%s_partitions)" % area,
+    ],
+    data = [
+        ":kept_modules_%s_partitions" % base,
+        ":kept_modules_%s_partitions" % area,
+    ],
+) for base, area in [
+    ("synth", "area_synth"),
+    ("global_synth", "global_area_synth"),
+]]
+
+PARTITION_ARGUMENTS_REFUSED = [
+    (
+        "unknown_module",
+        {},
+        {"multiplier": {"ABC_AREA": "1"}},
+        "partition_arguments names 'multiplier', which is not in SYNTH_KEEP_MODULES",
+    ),
+    (
+        "global_variable",
+        {},
+        {"adder": {"SYNTH_HIERARCHICAL": "0"}},
+        "partition_arguments['adder'] sets SYNTH_HIERARCHICAL, which is not a per-partition variable",
+    ),
+    (
+        "grouped",
+        {"SYNTH_NUM_PARTITIONS": "1"},
+        {"adder": {"ABC_AREA": "1"}},
+        "partition_arguments needs one partition per kept module",
+    ),
+]
+
+# partition_arguments refused at analysis: a module not in
+# SYNTH_KEEP_MODULES, a variable that is not per-partition, and kept
+# modules grouped into fewer partitions than modules.
+[orfs_synth(
+    name = "partition_arguments_%s_synth" % name,
+    arguments = {
+        "SDC_FILE": "$(location :constraints-top.sdc)",
+        "SYNTH_KEEP_MODULES": "adder counter",
+    } | extra,
+    data = [":constraints-top.sdc"],
+    module_top = "kept_modules_top",
+    partition_arguments = partition_arguments,
+    tags = ["manual"],
+    variant = "partition_arguments_" + name,
+    verilog_files = ["rtl/kept_modules_top.v"],
+) for name, extra, partition_arguments, _ in PARTITION_ARGUMENTS_REFUSED]
+
+[analysis_failure_test(
+    name = "partition_arguments_%s_refused_test" % name,
+    message = message,
+    target_under_test = ":partition_arguments_%s_synth" % name,
+) for name, _, _, message in PARTITION_ARGUMENTS_REFUSED]
 
 # A pinned list grouped into fewer partitions than modules, with one
 # kept module inside another: each module is synthesised from its own

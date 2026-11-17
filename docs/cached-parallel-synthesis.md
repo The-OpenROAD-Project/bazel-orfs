@@ -381,6 +381,44 @@ partition is a cache hit. A kept module is also a boundary yosys does
 not optimize across ([Kept modules and QoR](#kept-modules-and-qor)), so
 check the result's timing as well as its turnaround.
 
+### Settings for one partition
+
+`ABC_AREA` and the other synthesis settings apply to the whole flow. A
+kept module that is a wide mux tree or mostly registers can spend most
+of a synthesis in ABC's speed script with no timing to gain from it,
+while its neighbours need that script. `partition_arguments` gives a
+kept module's partition settings of its own:
+
+```starlark
+orfs_flow(
+    name = "Top",
+    arguments = {
+        "SYNTH_KEEP_MODULES": "Core Crossbar",
+        ...
+    },
+    partition_arguments = {
+        "Crossbar": {"ABC_AREA": "1"},
+    },
+    ...
+)
+```
+
+The variables go into that partition's own config and nowhere else:
+the other partitions, the top, the canonicalization and the merge, and
+so their cache keys, stay as they were. `orfs_synth` takes the same
+argument. At analysis:
+
+- each key must be in `SYNTH_KEEP_MODULES`;
+- each variable must act only inside the module it synthesizes:
+  `ABC_AREA`, `ABC_SCRIPT`, `SYNTH_ARGS`, `SYNTH_OPERATIONS_ARGS`,
+  `SYNTH_OPT_HIER` and `SYNTH_RETIME_MODULES`. A value takes
+  `$(location)`, so an `ABC_SCRIPT` can be a file in `data`;
+- every kept module needs a partition of its own. A
+  `SYNTH_NUM_PARTITIONS` that groups modules is refused rather than
+  giving the setting to the rest of the group.
+
+It works with and without `verilog_slices`.
+
 ## Remote execution and caching
 
 ![An in-house Bazel cache server shared by developers and CI, with a remote execution orchestrator and a worker pool](images/parallel-synthesis-remote.png)
@@ -828,8 +866,10 @@ The code is in `_yosys_parallel_synth` in `private/rules.bzl`, with
 `synth_keep.tcl`, `synth_canonicalize_module.tcl`, `synth_partition.sh`
 and `parallel_synth.mk` at the repository root. The tests are in
 `test/BUILD`: `kept_modules_synth`, `discovered_modules_synth`,
-`nested_kept_synth`, the `dsl_*_synth_test`s, and
-`test/partition_key_test.bzl`. The diagrams are drawn by
+`nested_kept_synth`, the `dsl_*_synth_test`s,
+`test/partition_key_test.bzl`, and for `partition_arguments` the
+`kept_modules_*area_synth` targets with
+`test/partition_arguments_test.bzl` and `partition_arguments_test.sh`. The diagrams are drawn by
 `bazelisk run //docs/images:parallel_synthesis_diagrams`.
 
 ## Appendix: yosys and determinism

@@ -398,6 +398,17 @@ def _orfs_stage(stage, impl, **kwargs):
     ))
     impl(**_filter_stage_args(stage, **kwargs))
 
+def _partition_arguments_attr(partition_arguments):
+    if partition_arguments == None:
+        return {}
+    for module, variables in partition_arguments.items():
+        if type(variables) != "dict":
+            fail("partition_arguments['{}'] is a dict of ORFS variables, not {}".format(module, repr(variables)))
+    return {
+        module: json.encode(variables)
+        for module, variables in partition_arguments.items()
+    }
+
 def _verilog_slices_attr(verilog_slices):
     if verilog_slices == None:
         return "auto"
@@ -427,6 +438,7 @@ def orfs_synth(**kwargs):
         kwargs["kept_macros"] = km if km != None else {}
         kwargs["kept_macros_enabled"] = km != None
     kwargs["verilog_slices"] = _verilog_slices_attr(kwargs.get("verilog_slices"))
+    kwargs["partition_arguments"] = _partition_arguments_attr(kwargs.get("partition_arguments"))
 
     # A standalone synth stage is synthesis too, so it takes the same
     # frontend an orfs_flow() would give it. yosys_frontend_reason is a
@@ -489,6 +501,7 @@ def orfs_flow(
         kept_macros = None,
         canon_blackbox_macros = [],
         verilog_slices = None,
+        partition_arguments = None,
         sources = {},
         user_sources = {},
         stage_arguments = {},
@@ -549,6 +562,14 @@ def orfs_flow(
         canonicalizes every partition out of the whole design; True
         requires a pinned SYNTH_KEEP_MODULES and refuses
         SYNTH_VERILOG_SURGERY and VERILOG_TOP_PARAMS at analysis.
+      partition_arguments: optional dict keyed by kept-module name (each in
+        SYNTH_KEEP_MODULES) of dicts of ORFS variables for that module's
+        synthesis partition alone, e.g. {"Mux": {"ABC_AREA": "1"}}. Only
+        that partition's config and cache key change. Allowed variables:
+        ABC_AREA, ABC_SCRIPT, SYNTH_ARGS, SYNTH_OPERATIONS_ARGS,
+        SYNTH_OPT_HIER, SYNTH_RETIME_MODULES; values take $(location).
+        Needs one partition per kept module (no SYNTH_NUM_PARTITIONS that
+        groups them); anything else fails at analysis.
       sources: dictionary keyed by ORFS variables with lists of sources
       stage_arguments: dictionary keyed by ORFS stages with lists of stage-specific arguments.
         Prefer 'arguments' which automatically assigns variables to the correct stages.
@@ -674,6 +695,7 @@ def orfs_flow(
         kept_macros = kept_macros,
         canon_blackbox_macros = canon_blackbox_macros,
         verilog_slices = verilog_slices,
+        partition_arguments = partition_arguments,
         sources = sources,
         user_sources = user_sources,
         stage_arguments = stage_arguments,
@@ -754,6 +776,7 @@ def orfs_flow(
         kept_macros = kept_macros,
         canon_blackbox_macros = canon_blackbox_macros,
         verilog_slices = verilog_slices,
+        partition_arguments = partition_arguments,
         sources = mock_sources,
         user_sources = user_sources,
         stage_arguments = stage_arguments,
@@ -823,6 +846,7 @@ def _orfs_pass(
         kept_macros = None,
         canon_blackbox_macros = [],
         verilog_slices = None,
+        partition_arguments = None,
         last_stage = None,
         squash = False,
         save_odb = True,
@@ -898,6 +922,7 @@ def _orfs_pass(
                 kept_macros_enabled = kept_macros != None,
                 canon_blackbox_macros = canon_blackbox_macros,
                 verilog_slices = _verilog_slices_attr(verilog_slices),
+                partition_arguments = _partition_arguments_attr(partition_arguments),
                 module_top = top,
                 variant = variant,
                 verilog_files = verilog_files,

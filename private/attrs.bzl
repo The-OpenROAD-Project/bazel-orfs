@@ -221,6 +221,13 @@ def synth_attrs():
                   "scopes each parallel partition's macro inputs to the " +
                   "union of macros for its assigned modules.",
         ),
+        "partition_arguments": attr.string_dict(
+            default = {},
+            doc = "Synthesis settings for one kept module's partition: " +
+                  "kept-module name (in SYNTH_KEEP_MODULES) -> JSON object " +
+                  "of ORFS variables. The orfs_flow()/orfs_synth() " +
+                  "partition_arguments dict-of-dicts, encoded.",
+        ),
         "canon_blackbox_macros": attr.string_list(
             default = [],
             doc = "Module names (subset of `deps`) to blackbox at the global " +
