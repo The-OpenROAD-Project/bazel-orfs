@@ -371,6 +371,41 @@ How to read it:
   that of the partition's estimate. Each is printed as
   `SYNTH_KEEP_MODULES` takes it.
 
+- **Slow partitions**, only when there are any: a partition where one
+  pass takes 90% or more of its wall time, and, with a budget, a
+  partition whose wall time is over it. Each line names the pass and its
+  share and suggests what to try: for `abc`, `ABC_AREA=1` for that
+  partition (per-partition arguments), or, if the cone is mux trees,
+  pre-mapping them (`muxcover`); for another pass, its name, to look up
+  in the partition's log; for a partition over budget with no dominant
+  pass, its keep candidates. The suggestions are text; nothing is
+  applied.
+
+The budget is a command-line setting, off by default and read by the
+keep report action alone, so changing it re-runs nothing but the report:
+
+```sh
+bazelisk build //test/verilog_slices:SliceTop_before_synth \
+    --output_groups=keep_report --@bazel-orfs//:keep_report_budget=600
+```
+
+```markdown
+## Slow partitions
+
+Times vary by machine and are indicative; these are suggestions, nothing fails on them.
+
+- **Abc**: abc takes 95% of its wall time.
+  - try ABC_AREA=1 for this partition (per-partition arguments)
+  - if it's mux trees, pre-map them (muxcover)
+- **Slow**: 900.0 s, over the 600 s budget.
+  - split it: see its keep candidates below, if it has any
+```
+
+Wall times depend on the machine, so the budget is a reading aid, never
+a gate: the report flags, it does not fail the build, and the same
+partition can be over budget on a laptop and well under on a build
+server. Set the budget for the machine at hand.
+
 Wall time does not scale exactly with the estimate (`abc` grows faster
 than linearly on a large flat cone), and memories and macros count as
 nothing, since synthesis does not make their gates. The loop is: build

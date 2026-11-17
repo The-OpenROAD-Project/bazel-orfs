@@ -19,3 +19,12 @@ orfs_bool_flag = rule(
     implementation = _orfs_bool_flag_impl,
     build_setting = config.bool(flag = True),
 )
+
+def _orfs_int_flag_impl(ctx):
+    return OrfsFlagInfo(value = ctx.build_setting_value)
+
+orfs_int_flag = rule(
+    doc = "An integer flag settable on the command line with --@bazel-orfs//:<name>=<n>.",
+    implementation = _orfs_int_flag_impl,
+    build_setting = config.int(flag = True),
+)

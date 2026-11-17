@@ -75,6 +75,25 @@ Time spent: 58% 1x abc (35 sec), 24% 1x share (14 sec), ...
    Chip area for module '\Kept$Top.kept': 7.250000
 """
 
+# Partitions for the slow-partition rule: over a 600 s budget with no
+# dominant pass, abc-dominated, extract_fa at exactly 90%, and fine.
+SLOW_STATS = r"""=== partition Top
+End of script. Logfile hash: 01, time: 10.00s, user: 9.00s
+Time spent: 50% 1x abc (5 sec), ...
+=== partition Slow
+End of script. Logfile hash: 02, time: 900.00s, user: 899.00s
+Time spent: 40% 1x abc (360 sec), 30% 1x opt (270 sec), ...
+=== partition Abc
+End of script. Logfile hash: 03, time: 400.00s, user: 399.00s
+Time spent: 95% 1x abc (380 sec), ...
+=== partition Fa
+End of script. Logfile hash: 04, time: 100.00s, user: 99.00s
+Time spent: 90% 1x extract_fa (90 sec), ...
+=== partition Fine
+End of script. Logfile hash: 05, time: 50.00s, user: 49.00s
+Time spent: 60% 1x abc (30 sec), ...
+"""
+
 
 class KeepReportTest(unittest.TestCase):
     def setUp(self):
@@ -153,6 +172,41 @@ class KeepReportTest(unittest.TestCase):
         text = keep_report.report("Top", [], children, set(), costs, stats)
         self.assertIn("keeping more modules will not split it", text)
 
+    def test_slow_partitions(self):
+        children = {"Top": {"Slow": 1, "Abc": 1, "Fine": 1, "Fa": 1}}
+        for m in ("Slow", "Abc", "Fine", "Fa"):
+            children[m] = {}
+        costs = {m: 10 for m in children}
+        stats = keep_report.read_stats([SLOW_STATS])
+        text = keep_report.report(
+            "Top",
+            ["Slow", "Abc", "Fine", "Fa"],
+            children,
+            set(),
+            costs,
+            stats,
+            budget=600,
+        )
+        slow = text.split("## Slow partitions", 1)[1]
+        self.assertIn("indicative", slow)
+        self.assertIn("- **Slow**: 900.0 s, over the 600 s budget.", slow)
+        self.assertIn("split it: see its keep candidates below", slow)
+        self.assertIn("- **Abc**: abc takes 95% of its wall time.", slow)
+        self.assertIn(
+            "try ABC_AREA=1 for this partition (per-partition arguments)", slow
+        )
+        self.assertIn("pre-map them (muxcover)", slow)
+        self.assertIn("- **Fa**: extract_fa takes 90% of its wall time.", slow)
+        self.assertIn("`extract_fa` pass", slow)
+        self.assertNotIn("Fine", slow)
+        self.assertNotIn("Top", slow)
+
+    def test_no_budget_flags_only_dominant_passes(self):
+        children = {"Top": {"Slow": 1}, "Slow": {}}
+        stats = keep_report.read_stats([SLOW_STATS])
+        text = keep_report.report("Top", ["Slow"], children, set(), {}, stats)
+        self.assertNotIn("Slow partitions", text)
+
     def test_main(self):
         with tempfile.TemporaryDirectory() as d:
             paths = {}
@@ -174,12 +228,15 @@ class KeepReportTest(unittest.TestCase):
                     "--rtlil=" + paths["canon.rtlil"],
                     "--costs=" + paths["costs.txt"],
                     "--out=" + out,
+                    "--budget=1",
                     paths["top.txt"],
                     paths["kept.txt"],
                 ]
             )
             with open(out) as f:
-                self.assertTrue(f.read().startswith("# Keep report: Top"))
+                text = f.read()
+            self.assertTrue(text.startswith("# Keep report: Top"))
+            self.assertIn("- **(top) Top**: 515.0 s, over the 1 s budget.", text)
 
 
 if __name__ == "__main__":
