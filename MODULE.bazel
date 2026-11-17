@@ -53,6 +53,10 @@ bazel_dep(name = "yosys", version = "0.68.bcr.3")
 # counter, so a module synthesized on its own (verilog_slices) got other
 # ROM names than inside its design. Each ROM is numbered within its module.
 # Not filed upstream.
+# 0007-0008: techmap ordered a module's cells by IdString index, which
+# depends on the names the rest of the design held, so a module synthesized
+# on its own got another netlist than inside its design. Cells are ordered
+# by their names' characters. Not filed upstream.
 single_version_override(
     module_name = "yosys",
     patch_strip = 1,
@@ -63,6 +67,8 @@ single_version_override(
         "//patches:yosys-0004-rom-names-per-module-proc-rom-test.patch",
         "//patches:yosys-0005-rom-names-per-module-memory-bmux2rom.patch",
         "//patches:yosys-0006-rom-names-per-module-memory-bmux2rom-test.patch",
+        "//patches:yosys-0007-techmap-order-by-name.patch",
+        "//patches:yosys-0008-techmap-order-by-name-test.patch",
     ],
 )
 

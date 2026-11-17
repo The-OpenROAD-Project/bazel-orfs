@@ -1,0 +1,10 @@
+# yosys's own test for patches/yosys-0007: techmap maps a module's cells
+# in the order of their names' characters, so a module comes out of
+# techmap alike whichever of its names were interned first.
+# test/verilog_slices:rom_equal_test is the flow-level check.
+test_suite(
+    name = "yosys_techmap_order",
+    tests = [
+        "@yosys//tests:ys_techmap__techmap_order_by_name_ys",
+    ],
+)
