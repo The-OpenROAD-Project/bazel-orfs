@@ -3,6 +3,7 @@
 import ast
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -1382,6 +1383,230 @@ class KeepTest(unittest.TestCase):
         q["macros"].pop()
         with self.assertRaisesRegex(SystemExit, "plans the blocks"):
             plan_floorplan.kept_layout(q, d)
+
+
+def _edge_rows(names, pitch=0.144, y=0.18, start=5.0):
+    """A bottom edge's rows, one pin per slot, M3/M5 alternating."""
+    rows = []
+    for i, n in enumerate(names):
+        layer, w = ("M3", 0.018) if i % 2 == 0 else ("M5", 0.024)
+        rows.append(
+            "  %s %s %.4f %.4f %.4f 0.3600" % (n, layer, start + i * pitch, y, w)
+        )
+    return rows
+
+
+def _slot_order(rows):
+    """{side: [pin names by position]} and the set of slots."""
+    by = {}
+    for r in rows:
+        side, pos = plan_floorplan._row_side(r)
+        by.setdefault(side, []).append((pos, r.split()[0]))
+    slots = sorted(tuple(r.split()[1:]) for r in rows)
+    return {s: [n for _, n in sorted(v)] for s, v in by.items()}, slots
+
+
+class PinOrderTest(unittest.TestCase):
+    """pin_order: pins the probe placed for the wrong partner move along
+    their side to the end facing the right one, trading slots with the
+    rest, so no pin leaves its side or its track and every other pin keeps
+    its order (XSTile's load write-back, MemBlock to Vec and Flt)."""
+
+    NAMES = ["a0", "a1", "g0", "a2", "a3", "g1", "a4", "clock", "a5", "a6"]
+
+    def _order(self, anchor_x, fixed=()):
+        rows = _edge_rows(self.NAMES)
+        order, report = plan_floorplan.order_pins(
+            rows, [("^g", (anchor_x, 0.0))], (100.0, 0.0), fixed, "blk"
+        )
+        new = plan_floorplan.reordered_rows(rows, order, "blk")
+        return rows, new, report
+
+    def test_the_group_takes_the_end_facing_the_anchor(self):
+        rows, new, report = self._order(-1000.0)
+        order, slots = _slot_order(new)
+        self.assertEqual(order["bottom"][:2], ["g0", "g1"])
+        # everyone else in the order they had
+        self.assertEqual(
+            [n for n in order["bottom"] if not n.startswith("g")],
+            [n for n in self.NAMES if not n.startswith("g")],
+        )
+        # the same slots: tracks, layers and sizes, only the names moved
+        self.assertEqual(slots, _slot_order(rows)[1])
+        self.assertIn("2 pins /^g/ to bottom", report[0])
+        _, new, _ = self._order(1e6)
+        self.assertEqual(_slot_order(new)[0]["bottom"][-2:], ["g0", "g1"])
+
+    def test_an_anchor_along_the_side_takes_the_run_nearest_it(self):
+        # slot 6 of the edge sits at 100 + 5 + 6 * 0.144 in the parent
+        _, new, _ = self._order(100.0 + 5.0 + 6.5 * 0.144)
+        order = _slot_order(new)[0]["bottom"]
+        self.assertEqual(order[6:8], ["g0", "g1"])
+
+    def test_fixed_pins_keep_their_slots(self):
+        rows, new, _ = self._order(1e6, fixed=("clock",))
+        self.assertIn(rows[self.NAMES.index("clock")], new)
+        self.assertEqual(_slot_order(new)[0]["bottom"][-2:], ["g0", "g1"])
+
+    def test_in_place_is_a_no_op(self):
+        rows, new, _ = self._order(-1000.0)
+        order, _ = plan_floorplan.order_pins(
+            new, [("^g", (-1000.0, 0.0))], (100.0, 0.0), (), "blk"
+        )
+        self.assertEqual(plan_floorplan.reordered_rows(new, order, "blk"), new)
+
+    def test_a_stale_order_stops(self):
+        rows = _edge_rows(self.NAMES)
+        with self.assertRaisesRegex(SystemExit, "names no pin"):
+            plan_floorplan.order_pins(rows, [("^renamed", (0.0, 0.0))], (0.0, 0.0))
+
+    def test_the_outline_gets_the_footprints_order(self):
+        rows, new, _ = self._order(-1000.0)
+        order = _slot_order(new)[0]
+        # the outline's own file: the same pins, slots further apart
+        outline = _edge_rows(self.NAMES, pitch=0.192)
+        moved = plan_floorplan.reordered_rows(outline, order, "blk")
+        self.assertEqual(_slot_order(moved)[0], order)
+        with self.assertRaisesRegex(SystemExit, "differ between"):
+            plan_floorplan.reordered_rows(outline[:-1], order, "blk")
+
+
+class PinOrderPlanTest(unittest.TestCase):
+    """pin_order in a plan, fresh and kept: the kept plan's pins files
+    change in their pin names only, the rest of the plan not at all, and a
+    second run changes nothing."""
+
+    _plan = KeepTest._plan
+    _emit = KeepTest._emit
+    _files = KeepTest._files
+
+    # a's pins to its logic, a10 to a29, the middle of their segment
+    GROUP = "^a[12][0-9]$"
+
+    def _with_order(self, p, out, partner_pins=False):
+        a, b = out["macros"][0]["name"], out["macros"][1]["name"]
+        q = json.loads(json.dumps(p))
+        for m in q["macros"]:
+            if m["name"] == a:
+                m["pin_order"] = [{"pins": self.GROUP, "toward": b}]
+                if partner_pins:
+                    m["pin_order"][0]["partner_pins"] = "^x"
+            if m["name"] == b and partner_pins:
+                m["pin_order"] = [{"pins": "^x", "toward": a, "partner_pins": "^a"}]
+        return q, a, b
+
+    def _check_group(self, d, out, a, b, anchor=None):
+        """a's group in one run, the run nearest the anchor (b's centre by
+        default) among every run of its length."""
+        by = {m["name"]: m for m in out["macros"]}
+        m, q = by[a], by[b]
+        rows = [
+            l
+            for l in open(os.path.join(d, a + "_mock_pins.tcl")).read().split("\n")
+            if plan_floorplan.PIN_ROW.match(l)
+        ]
+        order, _ = _slot_order(rows)
+        group = re.compile(self.GROUP)
+        (side,) = [s for s, v in order.items() if any(group.search(n) for n in v)]
+        along = 0 if side in ("bottom", "top") else 1
+        if anchor is None:
+            anchor = (q["x_um"] + q["w_um"] / 2.0, q["y_um"] + q["h_um"] / 2.0)
+        pos = sorted(
+            plan_floorplan._row_side(r)[1] + (m["x_um"], m["y_um"])[along]
+            for r in rows
+            if plan_floorplan._row_side(r)[0] == side
+        )
+        names = order[side]
+        at = [i for i, n in enumerate(names) if group.search(n)]
+        self.assertEqual(at, list(range(at[0], at[0] + len(at))))
+        k = len(at)
+
+        def miss(i):
+            return abs((pos[i] + pos[i + k - 1]) / 2.0 - anchor[along])
+
+        self.assertEqual(
+            min(range(len(pos) - k + 1), key=lambda i: (miss(i), i)), at[0]
+        )
+        return order
+
+    def test_kept_plan_moves_names_only_and_twice_is_once(self):
+        p, out, d = self._emit()
+        before = self._files(d)
+        q, a, b = self._with_order(p, out)
+        path = os.path.join(d, "plan.json")
+        with open(path, "w") as f:
+            json.dump(q, f)
+        argv = ["plan_floorplan.py", path, "--keep", d, "--emit", d]
+        self.assertEqual(plan_floorplan.main(argv), 0)
+        once = self._files(d)
+        changed = sorted(f for f in before if once[f] != before[f])
+        self.assertEqual(changed, sorted([a + "_pins.tcl", a + "_mock_pins.tcl"]))
+        for f in changed:
+            old, new = before[f].split("\n"), once[f].split("\n")
+            self.assertEqual(len(old), len(new))
+            for lo, ln in zip(old, new):
+                if lo != ln:
+                    # a row whose slot text stayed and whose pin changed
+                    self.assertTrue(plan_floorplan.PIN_ROW.match(lo), lo)
+                    self.assertEqual(lo.split()[1:], ln.split()[1:])
+            self.assertEqual(
+                sorted(l.split()[0] for l in old if plan_floorplan.PIN_ROW.match(l)),
+                sorted(l.split()[0] for l in new if plan_floorplan.PIN_ROW.match(l)),
+            )
+        order = self._check_group(d, out, a, b)
+        rows_own = [
+            l
+            for l in once[a + "_pins.tcl"].split("\n")
+            if plan_floorplan.PIN_ROW.match(l)
+        ]
+        self.assertEqual(_slot_order(rows_own)[0], order)
+        self.assertEqual(plan_floorplan.main(argv), 0)
+        self.assertEqual(self._files(d), once)
+
+    def test_fresh_plan_agrees_with_the_kept_one(self):
+        p, out, d = self._emit()
+        q, a, b = self._with_order(p, out)
+        e = tempfile.mkdtemp(prefix="plan_order.")
+        plan_floorplan.emit(out, q, e)
+        self._check_group(e, out, a, b)
+        fresh = self._files(e)
+        kept = plan_floorplan.kept_layout(q, e)
+        plan_floorplan.emit_kept(kept, q, e)
+        for f, t in self._files(e).items():
+            if f.endswith("_pins.tcl"):
+                self.assertEqual(t, fresh[f], f)
+
+    def test_partner_pins_face_where_the_partner_put_them(self):
+        p, out, d = self._emit()
+        q, a, b = self._with_order(p, out, partner_pins=True)
+        # a's anchor reads b's x pins, b's reads a's: a circle
+        with self.assertRaisesRegex(SystemExit, "circle"):
+            plan_floorplan.emit_kept(plan_floorplan.kept_layout(q, d), q, d)
+        for m in q["macros"]:
+            if m["name"] == b:
+                m.pop("pin_order")
+        out_k = plan_floorplan.kept_layout(q, d)
+        plan_floorplan.emit_kept(out_k, q, d)
+        by = {m["name"]: m for m in out_k["macros"]}
+        pts = [
+            (by[b]["x_um"] + float(r.split()[2]), by[b]["y_um"] + float(r.split()[3]))
+            for r in open(os.path.join(d, b + "_mock_pins.tcl")).read().split("\n")
+            if plan_floorplan.PIN_ROW.match(r) and r.split()[0].startswith("x")
+        ]
+        mean = (
+            sum(x for x, _ in pts) / len(pts),
+            sum(y for _, y in pts) / len(pts),
+        )
+        self._check_group(d, out_k, a, b, anchor=mean)
+
+    def test_toward_a_block_the_plan_does_not_have_stops(self):
+        p, out, d = self._emit()
+        q, a, b = self._with_order(p, out)
+        for m in q["macros"]:
+            if m["name"] == a:
+                m["pin_order"][0]["toward"] = "Elsewhere"
+        with self.assertRaisesRegex(SystemExit, "not another planned block"):
+            plan_floorplan.emit_kept(plan_floorplan.kept_layout(q, d), q, d)
 
 
 if __name__ == "__main__":
