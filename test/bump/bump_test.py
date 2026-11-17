@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Unit tests for bump.py."""
 
+import base64
 import os
 import re
 import shutil
@@ -1412,6 +1413,142 @@ class TestOpenroadPinnedPatchesInlined(unittest.TestCase):
         self.assertIn("Extracted from //bazel-orfs-patches:0002-sta.patch", block)
 
 
+class TestOpenroadPinnedSubmodulePatchesReachConsumer(unittest.TestCase):
+    """bazel-orfs's submodule patches, inlined in its patch_cmds, reach a consumer.
+
+    bazel-orfs's own MODULE.bazel names an OpenSTA patch only in the
+    ``# Extracted from`` comment above its base64 patch_cmds entry, not in
+    ``patches``; the consumer's openroad must apply it all the same, below
+    the consumer's own patches, through bump after bump.
+    """
+
+    TOP = "--- a/x.cc\n+++ b/x.cc\n@@ -1 +1 @@\n-a\n+b\n"
+    STA = "--- a/src/sta/y.cc\n+++ b/src/sta/y.cc\n@@ -1 +1 @@\n-c\n+d\n"
+    OWN_TOP = "--- a/z.cc\n+++ b/z.cc\n@@ -1 +1 @@\n-e\n+f\n"
+    OWN_STA = "--- a/src/sta/w.cc\n+++ b/src/sta/w.cc\n@@ -1 +1 @@\n-g\n+h\n"
+
+    @staticmethod
+    def _inlined(label, text):
+        b64 = base64.b64encode(text.encode()).decode()
+        return (
+            f"        # Extracted from {label}\n"
+            f"        \"echo {b64} | base64 -d | patch -p1 || (echo 'ERROR' && exit 1)\",\n"
+        )
+
+    def _pinned_module(self, with_sta):
+        inlined = (
+            self._inlined("//patches:0002-sta.patch", self.STA) if with_sta else ""
+        )
+        return 'module(name = "bazel-orfs")\n' + FAKE_BAZEL_ORFS_MODULE.split("\n", 1)[
+            1
+        ].replace(
+            "    ],\n    strip_prefix",
+            inlined + "    ],\n    patch_strip = 1,\n    patches = [\n"
+            '        "//patches:0001-top.patch",\n'
+            "    ],\n    strip_prefix",
+        )
+
+    def _bump(self, ws, with_sta=True):
+        module = self._pinned_module(with_sta)
+        patches = {
+            "patches/0001-top.patch": self.TOP,
+            "patches/0002-sta.patch": self.STA,
+        }
+
+        def raw_text(repo, ref, path):
+            if repo == bump.BAZEL_ORFS_REPO and path == "MODULE.bazel":
+                return module
+            if repo == bump.BAZEL_ORFS_REPO and path in patches:
+                return patches[path]
+            return mock_fetch_raw_text(repo, ref, path)
+
+        target = os.path.join(ws, "MODULE.bazel")
+        bump.bump(
+            target,
+            fetch_commit_fn=mock_fetch_commit,
+            fetch_integrity_fn=mock_fetch_integrity,
+            fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+            fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+            fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+            fetch_sha256_hex_fn=mock_fetch_sha256_hex,
+            fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+            fetch_raw_text_fn=raw_text,
+            workspace_dir=ws,
+        )
+        with open(target) as f:
+            content = f.read()
+        span = bump.find_archive_override_block(content, "openroad")
+        return content, content[span[0] : span[1]]
+
+    def _consumer(self, ws):
+        with open(os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel")) as f:
+            content = f.read()
+        content = content.replace(
+            '    strip_prefix = "OpenROAD-old_openroad_commit",\n',
+            "    patch_strip = 1,\n    patches = [\n"
+            '        "//orfs-patches:0901-own.patch",\n'
+            '        "//orfs-patches:0900-own-sta.patch",\n'
+            "    ],\n"
+            '    strip_prefix = "OpenROAD-old_openroad_commit",\n',
+        )
+        with open(os.path.join(ws, "MODULE.bazel"), "w") as f:
+            f.write(content)
+        os.makedirs(os.path.join(ws, "orfs-patches"))
+        for name, text in (
+            ("0901-own.patch", self.OWN_TOP),
+            ("0900-own-sta.patch", self.OWN_STA),
+        ):
+            with open(os.path.join(ws, "orfs-patches", name), "w") as f:
+                f.write(text)
+
+    @staticmethod
+    def _applied(block):
+        """Labels in the order the block applies them, decoded where inlined."""
+        inlined = []
+        for label, cmd in re.findall(
+            r"# Extracted from (\S+)\n\s*\"echo (\S+) \| base64 -d", block
+        ):
+            inlined.append((label, base64.b64decode(cmd).decode()))
+        return bump._extract_patches(block), inlined
+
+    def test_submodule_patch_applied_below_the_consumers(self):
+        with tempfile.TemporaryDirectory() as ws:
+            self._consumer(ws)
+            _, block = self._bump(ws)
+            with open(os.path.join(ws, "bazel-orfs-patches", "0002-sta.patch")) as f:
+                self.assertEqual(f.read(), self.STA)
+        listed, inlined = self._applied(block)
+        self.assertEqual(
+            listed,
+            ["//bazel-orfs-patches:0001-top.patch", "//orfs-patches:0901-own.patch"],
+        )
+        self.assertEqual(
+            inlined,
+            [
+                ("//bazel-orfs-patches:0002-sta.patch", self.STA),
+                ("//orfs-patches:0900-own-sta.patch", self.OWN_STA),
+            ],
+        )
+
+    def test_second_bump_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as ws:
+            self._consumer(ws)
+            first, _ = self._bump(ws)
+            second, _ = self._bump(ws)
+        self.assertEqual(first, second)
+
+    def test_retired_submodule_patch_leaves_the_consumer(self):
+        with tempfile.TemporaryDirectory() as ws:
+            self._consumer(ws)
+            self._bump(ws)
+            _, block = self._bump(ws, with_sta=False)
+            self.assertFalse(
+                os.path.exists(os.path.join(ws, "bazel-orfs-patches", "0002-sta.patch"))
+            )
+        _, inlined = self._applied(block)
+        self.assertEqual(inlined, [("//orfs-patches:0900-own-sta.patch", self.OWN_STA)])
+
+
 class TestOpenroadSourceResolution(unittest.TestCase):
     def test_consumer_defaults_to_bazel_orfs(self):
         self.assertEqual(
@@ -2502,6 +2639,31 @@ archive_override(
             )
         ) as fh:
             self.assertEqual(fh.read(), "--- a/new\n")
+
+    def test_owned_patches_include_inlined_submodule_patches(self):
+        text = """
+bazel_dep(name = "openroad")
+archive_override(
+    module_name = "openroad",
+    patch_cmds = [
+        # Extracted from //patches:0145-opensta-a.patch
+        "echo AAAA | base64 -d | patch -p1",
+        # Extracted from //patches:0230-opensta-b.patch
+        "echo BBBB | base64 -d | patch -p1",
+    ],
+    patches = [
+        "//patches:0004-openroad-c.patch",
+    ],
+)
+"""
+        self.assertEqual(
+            bump.bazel_orfs_owned_patches(text)["openroad"],
+            [
+                "0145-opensta-a.patch",
+                "0230-opensta-b.patch",
+                "0004-openroad-c.patch",
+            ],
+        )
 
     def test_reconcile_relabels_and_leaves_consumer_patches_alone(self):
         d = self._bazel_orfs_dir()
