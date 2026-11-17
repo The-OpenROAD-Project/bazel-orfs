@@ -63,6 +63,12 @@ the blocks, their bands and the other netlists, a gap clear. plan.bzl
 gets the new netlists and place_macros.tcl this planner's template. The
 plan's pin-partner dump is not read: the pins files are DIR's.
 
+A block's pin_order (load_plan) moves named pins along their side to the
+end that faces a partner, in a fresh plan and in a kept one alike: the
+probe names one partner per pin, and a pin whose net reaches several
+blocks, or a block through the parent's logic, is placed for the wrong
+one. The pins trade slots, so every pin stays on its side and its track.
+
 Stdlib only; python 3.6.
 """
 
@@ -137,6 +143,15 @@ def load_plan(path):
     coordinate (place_pin, FIRM, which the flow's pin placer then leaves
     alone) instead of handing the placer an interval. Without them the
     segments are emitted as interval constraints.
+    Optional per macro: pin_order, [{"pins": "<regex>", "toward":
+    "<planned block>", "partner_pins": "<regex>"}, ...]: the pins whose
+    names match take the run of slots on their side nearest the partner,
+    its centre or, with partner_pins, those of its pins as the parent sees
+    them after its own pin_order; every other pin keeps its order in the
+    slots left (order_pins). For a crossing the probe's one partner per
+    pin misplaces: XSTile's load write-back leaves MemBlock for Vec, Flt
+    and the integer region at once, and reaches Vec through parent logic.
+    Needs the exact pin tables (pin_layers_v and pin_layers_h).
     Optional per macro: pin_side_margin and channel_min_um override the
     plan's margins for that macro; min_side_um is a floor on its pin side,
     for a block that holds a macro wider than its square. Optional in margins: region_aspect_max
@@ -1327,6 +1342,220 @@ def stable_rows(name, rows, prev, tech, w_um, h_um):
     return kept + added
 
 
+# a pins file's row: "  <pin> <layer> <x> <y> <w> <h>", um in the block's
+# frame, the pin's centre and size (EXACT_TCL, and the kept plans' older
+# files, which list their rows the same way)
+PIN_ROW = re.compile(r"^  (\S+) (\S+) (-?[\d.]+) (-?[\d.]+) (-?[\d.]+) (-?[\d.]+)$")
+
+
+def _row_side(row):
+    """(side, position along it) of a pins file row: a pin long in y sits
+    on the bottom or top edge and slides along x, one long in x on the left
+    or right edge and slides along y; pins sit on the die boundary, so a
+    centre within a micron of 0 is the bottom or left edge."""
+    _, _, x, y, w, h = row.split()
+    x, y, w, h = float(x), float(y), float(w), float(h)
+    if h > w:
+        return ("bottom" if y < 1.0 else "top"), x
+    return ("left" if x < 1.0 else "right"), y
+
+
+def _sides(rows):
+    """{side: [row index, by position along the side]}"""
+    out = {}
+    for i, r in enumerate(rows):
+        side, pos = _row_side(r)
+        out.setdefault(side, []).append((pos, i))
+    return {s: [i for _, i in sorted(v)] for s, v in out.items()}
+
+
+def order_pins(rows, orders, origin, fixed=(), who=""):
+    """The pin order pin_order asks for, on the rows of one pins file in
+    the parent's view of the block (its footprint, placed at origin).
+
+    orders is [(regex, (x, y))]: the pins whose names the regex matches
+    take, on each side they are on, the run of consecutive slots whose
+    centre is nearest the anchor (x, y) along that side, in parent um; the
+    other pins keep their order in the slots left. A slot is a row without
+    its pin (layer, track, size), so the side keeps its tracks: no pin
+    leaves its side or its track, and no two share one. The fixed pins (the
+    clocks) keep their slots. Orders apply one after another. A regex that
+    matches no pin stops the plan: a pin renamed would leave its group
+    behind without a word.
+
+    Returns ({side: [pin names in slot order]}, [report lines])."""
+    sides = _sides(rows)
+    names = {s: [rows[i].split()[0] for i in idx] for s, idx in sides.items()}
+    report = []
+    for regex, anchor in orders:
+        pat = re.compile(regex)
+        hit = False
+        for side, idx in sides.items():
+            along = 0 if side in ("bottom", "top") else 1
+            pos = [_row_side(rows[i])[1] + origin[along] for i in idx]
+            now = names[side]
+            free = [k for k, n in enumerate(now) if n not in fixed]
+            group = [now[k] for k in free if pat.search(now[k])]
+            if not group:
+                continue
+            hit = True
+            moved = set(group)
+            rest = [now[k] for k in free if now[k] not in moved]
+            m = len(group)
+            start = min(
+                range(len(free) - m + 1),
+                key=lambda k: (
+                    abs((pos[free[k]] + pos[free[k + m - 1]]) / 2.0 - anchor[along]),
+                    k,
+                ),
+            )
+            seq = rest[:start] + group + rest[start:]
+            new = list(now)
+            for k, n in zip(free, seq):
+                new[k] = n
+            was = {n: pos[k] for k, n in enumerate(now)}
+            shift = [abs(pos[k] - was[n]) for k, n in enumerate(new) if n not in moved]
+            report.append(
+                "%s: %d pins /%s/ to %s %.1f-%.1f um, toward %.0f; %d others moved, "
+                "at most %.1f um"
+                % (
+                    who,
+                    m,
+                    regex,
+                    side,
+                    pos[free[start]],
+                    pos[free[start + m - 1]],
+                    anchor[along],
+                    sum(1 for s_ in shift if s_ > 1e-6),
+                    max(shift or [0.0]),
+                )
+            )
+            names[side] = new
+        if not hit:
+            raise SystemExit(
+                "plan_floorplan: %s: pin_order /%s/ names no pin; the pins were "
+                "renamed or the order is stale" % (who, regex)
+            )
+    return names, report
+
+
+def reordered_rows(rows, order, who=""):
+    """rows, in their own order, each slot given the pin order puts there
+    ({side: [pin names in slot order]}, from order_pins on another file of
+    the same block: its outline or footprint, which hold the same pins on
+    the same sides). Only the pin names change; every slot's text stays."""
+    sides = _sides(rows)
+    out = list(rows)
+    for side, idx in sides.items():
+        names = order.get(side)
+        if names is None:
+            continue
+        have = [rows[i].split()[0] for i in idx]
+        if sorted(have) != sorted(names):
+            raise SystemExit(
+                "plan_floorplan: %s: the pins on its %s side differ between its "
+                "outline's and its footprint's pins files; regenerate both"
+                % (who, side)
+            )
+        for i, n in zip(idx, names):
+            pin = rows[i].split()[0]
+            out[i] = "  " + n + rows[i][len("  " + pin) :]
+    return out
+
+
+def _pin_order_sequence(plan):
+    """The planned blocks with a pin_order, each after the blocks its
+    partner_pins anchors read, so it faces where they end up."""
+    specs = {m["name"]: m.get("pin_order") or [] for m in plan["macros"]}
+    done, seq = set(), []
+
+    def visit(name, path):
+        if name in done:
+            return
+        if name in path:
+            raise SystemExit(
+                "plan_floorplan: pin_order anchors go round in a circle: %s"
+                % " -> ".join(path + [name])
+            )
+        for spec in specs.get(name, []):
+            if spec.get("partner_pins") and specs.get(spec["toward"]):
+                visit(spec["toward"], path + [name])
+        done.add(name)
+        seq.append(name)
+
+    for name in sorted(specs):
+        if specs[name]:
+            visit(name, [])
+    return [n for n in seq if specs[n]]
+
+
+def apply_pin_orders(plan, out, files):
+    """Each block's pin_order applied to its pins files' rows.
+
+    files is {block: {suffix: rows}}, suffix "" for the block's outline and
+    "_mock" for its footprint; the parent sees the footprint when there is
+    one, so the order is worked out there and the outline gets the same
+    order. An anchor is the partner block's centre, or with partner_pins
+    the mean place of those pins on the partner as the parent sees them,
+    after the partner's own pin_order: the two ends then face each other.
+    Returns ({block: {suffix: rows}} for the blocks it changed, report)."""
+    by_name = {m["name"]: m for m in out["macros"]}
+    clocks = set(plan["parent"].get("clock_pins", []))
+    done = {}
+    report = []
+
+    def view(name):
+        suffix = "_mock" if by_name[name].get("mock_area", 1.0) < 1.0 else ""
+        rows = done.get(name, files.get(name, {})).get(suffix)
+        if rows is None:
+            raise SystemExit(
+                "plan_floorplan: pin_order needs %s%s_pins.tcl, a block's exact "
+                "pin table" % (name, suffix)
+            )
+        return suffix, rows
+
+    for name in _pin_order_sequence(plan):
+        m = by_name[name]
+        orders = []
+        for spec in plan_macro(plan, name)["pin_order"]:
+            partner = spec.get("toward")
+            if partner not in by_name or partner == name:
+                raise SystemExit(
+                    "plan_floorplan: %s: pin_order toward %r, which is not another "
+                    "planned block" % (name, partner)
+                )
+            q = by_name[partner]
+            if spec.get("partner_pins"):
+                pat = re.compile(spec["partner_pins"])
+                pts = []
+                for r in view(partner)[1]:
+                    pin, _, x, y = r.split()[:4]
+                    if pat.search(pin):
+                        pts.append((q["x_um"] + float(x), q["y_um"] + float(y)))
+                if not pts:
+                    raise SystemExit(
+                        "plan_floorplan: %s: pin_order partner_pins /%s/ names no "
+                        "pin of %s" % (name, spec["partner_pins"], partner)
+                    )
+                anchor = (
+                    sum(p[0] for p in pts) / len(pts),
+                    sum(p[1] for p in pts) / len(pts),
+                )
+            else:
+                anchor = (q["x_um"] + q["w_um"] / 2.0, q["y_um"] + q["h_um"] / 2.0)
+            orders.append((spec["pins"], anchor))
+        suffix, rows = view(name)
+        order, lines = order_pins(
+            rows, orders, (m["x_um"], m["y_um"]), clocks, name + suffix
+        )
+        report += lines
+        done[name] = {
+            s: reordered_rows(r, order, name + s)
+            for s, r in files.get(name, {}).items()
+        }
+    return done, report
+
+
 def netlist_row(plan):
     """(width, height) of the row place_netlists lays along the region's
     top: the region has to be at least that wide and that tall, whatever
@@ -1519,6 +1748,8 @@ def emit(out, plan, directory, previous=None):
     if plan.get("pin_partners"):
         partners = read_partners(plan["pin_partners"])
     by_name_all = {q["name"] for q in out["macros"]}
+    # the exact pin tables, {block: {suffix: rows}}, and their files' words
+    exact, exact_text = {}, {}
     bzl = {"parent": {}, "macros": {}}
     dx, dy = out["die_um"][2], out["die_um"][3]
     bzl["parent"]["DIE_AREA"] = _area(0, 0, dx, dy)
@@ -1630,7 +1861,10 @@ def emit(out, plan, directory, previous=None):
                         pin_rows = stable_rows(
                             pm["name"], pin_rows, prev, tech, pm["w_um"], pm["h_um"]
                         )
-                    text = EXACT_TCL.format(
+                    # written once every block's rows are known: a
+                    # pin_order may face a neighbour's pins (apply_pin_orders)
+                    exact.setdefault(pm["name"], {})[suffix] = pin_rows
+                    exact_text[(pm["name"], suffix)] = dict(
                         name=pm["name"],
                         side=side,
                         sides=" and ".join(sides_used),
@@ -1644,7 +1878,6 @@ def emit(out, plan, directory, previous=None):
                                 )
                             ]
                         ),
-                        rows="\n".join(pin_rows),
                     )
                     pm["pin_segments"] = [
                         {
@@ -1657,7 +1890,6 @@ def emit(out, plan, directory, previous=None):
                         for sd, p_, lo, hi, pins in segs
                     ]
                     pm["pins_placed_exact"] = len(pin_rows)
-                    write(pm["name"] + suffix + "_pins.tcl", text)
                     # the block's entry and its place_macros row follow below,
                     # like every other block's: this branch only chose its pins file
                     text = None
@@ -1720,6 +1952,13 @@ def emit(out, plan, directory, previous=None):
         if keep is not None:
             entry["SYNTH_KEEP_MODULES"] = " ".join(keep)
         bzl["macros"][m["name"]] = entry
+    ordered, report = apply_pin_orders(plan, out, exact)
+    out["pin_order"] = report
+    for (name, suffix), words in sorted(exact_text.items()):
+        rows = ordered.get(name, exact[name])[suffix]
+        write(
+            name + suffix + "_pins.tcl", EXACT_TCL.format(rows="\n".join(rows), **words)
+        )
     netlists = place_netlists(out, plan)
     write("place_macros.tcl", place_macros_tcl(out, plan, netlists))
     if netlists:
@@ -1951,9 +2190,11 @@ def kept_summary(out):
 
 def emit_kept(out, plan, directory):
     """Write a kept floorplan (kept_layout) into directory: every pins file
-    of the kept plan byte for byte, place_macros.tcl in this planner's
-    template with the plan's netlists, and plan.bzl with its parent's
-    netlists replaced. Returns the paths written."""
+    of the kept plan byte for byte, but for the pin names a block's
+    pin_order moves along its kept slots (apply_pin_orders),
+    place_macros.tcl in this planner's template with the plan's netlists,
+    and plan.bzl with its parent's netlists replaced. Returns the paths
+    written."""
     written = []
     kept = out["kept"]
     if os.path.realpath(kept) != os.path.realpath(directory):
@@ -1961,6 +2202,29 @@ def emit_kept(out, plan, directory):
             if f.endswith("_pins.tcl"):
                 shutil.copyfile(os.path.join(kept, f), os.path.join(directory, f))
                 written.append(os.path.join(directory, f))
+    # a block's pin_order moves pins along its kept sides: only the names in
+    # its rows change, every other byte of its pins files stays
+    files, lines = {}, {}
+    for m in out["macros"]:
+        for suffix in ("", "_mock"):
+            path = os.path.join(directory, m["name"] + suffix + "_pins.tcl")
+            if not os.path.exists(path):
+                continue
+            text = open(path).read().split("\n")
+            at = [i for i, l_ in enumerate(text) if PIN_ROW.match(l_)]
+            if at:
+                files.setdefault(m["name"], {})[suffix] = [text[i] for i in at]
+                lines[(m["name"], suffix)] = (path, text, at)
+    ordered, out["pin_order"] = apply_pin_orders(plan, out, files)
+    for name, by_suffix in ordered.items():
+        for suffix, rows in by_suffix.items():
+            path, text, at = lines[(name, suffix)]
+            for i, r in zip(at, rows):
+                text[i] = r
+            with open(path, "w") as f:
+                f.write("\n".join(text))
+            if path not in written:
+                written.append(path)
     rows = [
         (n["module"], n["instance"], n["x_um"], n["y_um"], n["w_um"], n["h_um"])
         for n in out["netlists"]
@@ -2026,6 +2290,8 @@ def main(argv):
             if a.keep
             else emit(out, plan, a.emit, a.previous)
         )
+        for line in out.get("pin_order", []):
+            print("pin_order " + line)
         for path in paths:
             print("wrote " + path)
     for p in problems:

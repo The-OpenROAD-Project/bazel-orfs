@@ -127,6 +127,20 @@ pins. Pins to the parent's ports and unconnected pins go on the outer
 side, facing the die boundary. A block whose pins want two regions is
 two macros or none.
 
+The probe names one partner per pin, the first block on its net, so a
+pin whose net reaches several blocks at once (a write-back broadcast), or
+a block through the parent's logic, is placed for the wrong one. A
+block's `pin_order` in the plan moves such pins along their side to the
+run nearest the partner the timing says (its centre, or with
+`partner_pins` that partner's own moved pins, so both ends face each
+other); the pins trade slots, so every pin keeps its side and its track
+and the others keep their order. It works on a kept plan too (`--keep`),
+changing only the pin names in the rows. Before writing one, list what
+it displaces: the pins between the group's old and new places shift by
+the group's width, and a critical crossing among them gets longer
+(XSTile's Flt group pushed `out_toDispatch_wakeUpFp_*_wen` 25 um away
+from dispatch until they joined the group).
+
 `--emit DIR` writes what the flows consume: per block `<name>_pins.tcl`
 (every signal pin on the planned side, in partner segments when the plan
 has the partner dump), `place_macros.tcl` for the parent (by master, R0,
