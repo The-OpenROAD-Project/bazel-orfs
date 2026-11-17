@@ -356,6 +356,12 @@ archive_override(
         # the wire and overflowed). Not upstreamed; retires at a //:bump
         # onto an OpenROAD that has it.
         "//patches:0178-openroad-ram-read-select-group-in-place.patch",
+        # 0233: generate_ram -write_select mask: a write port names its
+        # words by a mask, a bit a word, each word's select its own bit
+        # with no decoder, so one write writes many words; generate_array
+        # takes select=mask. On 0156 and the per-word decoder. Not
+        # upstreamed; retires at a //:bump onto an OpenROAD that has it.
+        "//patches:0233-openroad-ram-write-select-mask.patch",
         # 0216: detailed placement's negotiation legalizer runs its diamond
         # recovery when phase 2 reaches its iteration limit, as it does on a
         # stall (OpenROAD #12233), and says why cells were left to it, in
