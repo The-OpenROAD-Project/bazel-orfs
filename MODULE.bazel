@@ -441,6 +441,16 @@ archive_override(
         # end_of_descent_test, routability_minimum_test. Not upstreamed;
         # retires at a //:bump onto an OpenROAD that has it.
         "//patches:0227-openroad-gpl-momentum-restart-on-rise.patch",
+        # 0240: CTS's latency balancer subtracts a sink instance's
+        # cts_latency_offset property (cts::set_latency_offset) from its
+        # insertion delay, so a flow can clock a hardened block later or
+        # earlier than balanced on purpose: block-granular useful skew, or
+        # a parasitic drift between CTS and global route made up for (ORFS
+        # patch 0241's CTS_LATENCY_OFFSETS). Nothing sets it unless asked;
+        # STA does not read it. test/planned_parent's
+        # cts_latency_offset_test. Not upstreamed; retires at a //:bump
+        # onto an OpenROAD with a per-sink latency target in CTS.
+        "//patches:0240-openroad-cts-latency-offset.patch",
     ],
     strip_prefix = "OpenROAD-615e34eabc2429b48d5bb58aa427907fc546020e",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/615e34eabc2429b48d5bb58aa427907fc546020e.tar.gz"],

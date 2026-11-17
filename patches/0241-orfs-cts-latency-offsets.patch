@@ -1,0 +1,101 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] flow: CTS_LATENCY_OFFSETS clocks named hard blocks later or
+ earlier
+
+A parent over hardened blocks can want each block's clock somewhere
+other than where CTS's latency balance puts it: block-granular useful
+skew on its crossings, or a block whose clock route speeds up more than
+the register tree's between CTS's placement parasitics and global route,
+made up for at CTS. On XiangShan's XSTile the blocks were balanced within
+-31..+23 ps at CTS and arrived -98..+22 ps at global route; the best
+block-granular offsets measured there are tens of ps either way.
+
+CTS_LATENCY_OFFSETS is <instance> <offset> pairs, the offset in the
+platform's time unit; before clock_tree_synthesis each named instance,
+which must be a hard block, gets cts::set_latency_offset (carried
+OpenROAD patch 0240), and the latency balancer clocks it that much later
+than balanced, earlier for a negative offset. Empty, the default,
+changes nothing. On an OpenROAD without cts::set_latency_offset the
+stage stops on the unknown command rather than building an unskewed
+tree.
+
+Not upstreamed; retires at a bump onto an ORFS that carries it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ docs/user/FlowVariables.md  |  2 ++
+ flow/scripts/cts.tcl        | 16 ++++++++++++++++
+ flow/scripts/variables.yaml |  8 ++++++++
+ 3 files changed, 26 insertions(+)
+
+diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
+index 08f93b0..defd309 100644
+--- a/docs/user/FlowVariables.md
++++ b/docs/user/FlowVariables.md
+@@ -131,6 +131,7 @@ configuration file.
+ | <a name="CTS_BUF_LIST"></a>CTS_BUF_LIST| List of cells used to construct the clock tree. Overrides buffer inference.| |
+ | <a name="CTS_CLUSTER_DIAMETER"></a>CTS_CLUSTER_DIAMETER| Maximum diameter (in microns) of sink cluster.| |
+ | <a name="CTS_CLUSTER_SIZE"></a>CTS_CLUSTER_SIZE| Maximum number of sinks per cluster.| |
++| <a name="CTS_LATENCY_OFFSETS"></a>CTS_LATENCY_OFFSETS| Pairs of a hard block instance and an offset in the platform's time unit: CTS's latency balancer clocks the block that much later than balanced, earlier for a negative offset. Block-granular useful skew, or a parasitic drift between CTS and global route made up for.| |
+ | <a name="CTS_LIB_NAME"></a>CTS_LIB_NAME| Name of the Liberty library to use in selecting the clock buffers.| |
+ | <a name="DESIGN_NAME"></a>DESIGN_NAME| The name of the top-level module of the design.| |
+ | <a name="DESIGN_NICKNAME"></a>DESIGN_NICKNAME| DESIGN_NICKNAME just changes the directory name that ORFS outputs to be DESIGN_NICKNAME instead of DESIGN_NAME in case DESIGN_NAME is unwieldy or conflicts with a different design.| |
+@@ -553,6 +554,7 @@ configuration file.
+ - [CTS_BUF_LIST](#CTS_BUF_LIST)
+ - [CTS_CLUSTER_DIAMETER](#CTS_CLUSTER_DIAMETER)
+ - [CTS_CLUSTER_SIZE](#CTS_CLUSTER_SIZE)
++- [CTS_LATENCY_OFFSETS](#CTS_LATENCY_OFFSETS)
+ - [CTS_LIB_NAME](#CTS_LIB_NAME)
+ - [DETAILED_METRICS](#DETAILED_METRICS)
+ - [DETAIL_PLACEMENT_ARGS](#DETAIL_PLACEMENT_ARGS)
+diff --git a/flow/scripts/cts.tcl b/flow/scripts/cts.tcl
+index 21e9f19..91644b3 100644
+--- a/flow/scripts/cts.tcl
++++ b/flow/scripts/cts.tcl
+@@ -26,6 +26,22 @@ if { [env_var_exists_and_non_empty CTS_ARGS] } {
+ 
+ set_dont_use $::env(DONT_USE_CELLS)
+ 
++# Block-granular clock skew the flow chooses: each named hard block's clock
++# lands that much later than CTS's latency balance (negative: earlier).
++if { [env_var_exists_and_non_empty CTS_LATENCY_OFFSETS] } {
++  set offsets $::env(CTS_LATENCY_OFFSETS)
++  if { [llength $offsets] % 2 != 0 } {
++    utl::error FLW 50 "CTS_LATENCY_OFFSETS is <instance> <offset> pairs: $offsets"
++  }
++  foreach {name offset} $offsets {
++    set inst [[ord::get_db_block] findInst $name]
++    if { $inst == "NULL" || ![[$inst getMaster] isBlock] } {
++      utl::error FLW 50 "CTS_LATENCY_OFFSETS: $name is not a hard block instance."
++    }
++    log_cmd cts::set_latency_offset $name $offset
++  }
++}
++
+ log_cmd clock_tree_synthesis {*}$cts_args
+ 
+ if { $::env(DETAILED_METRICS) } {
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+index 9215a3c..a55ca3d 100644
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -1361,6 +1361,14 @@ CTS_CLUSTER_SIZE:
+     - cts
+   tunable: 1
+   type: int
++CTS_LATENCY_OFFSETS:
++  description: |
++    Pairs of a hard block instance and an offset in the platform's time
++    unit: CTS's latency balancer clocks the block that much later than
++    balanced, earlier for a negative offset. Block-granular useful skew,
++    or a parasitic drift between CTS and global route made up for.
++  stages:
++    - cts
+ CTS_LIB_NAME:
+   description: |
+     Name of the Liberty library to use in selecting the clock buffers.
+-- 
+2.53.0
+

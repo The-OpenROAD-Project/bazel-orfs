@@ -199,6 +199,13 @@ ORFS_PATCHES = [
     # -write_select mask (OpenROAD patch 0233). Not upstreamed; retires
     # at a bump onto an ORFS that carries it.
     Label("//patches:0234-orfs-regfile-write-select-mask.patch"),
+    # 0241: CTS_LATENCY_OFFSETS, <instance> <offset> pairs, clocks each
+    # named hard block that much later (negative: earlier) than CTS's
+    # latency balance, through OpenROAD patch 0240's
+    # cts::set_latency_offset; test/planned_parent's
+    # cts_latency_offset_test. Not upstreamed; retires at a bump onto an
+    # ORFS that carries it.
+    Label("//patches:0241-orfs-cts-latency-offsets.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

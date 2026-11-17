@@ -979,6 +979,7 @@ test_suite(
         # A miniature planned parent: five macros, 20 to 29 stages each.
         "//test/planned_parent:clock_pin_test",
         "//test/planned_parent:cts_delay_buffers_test",
+        "//test/planned_parent:cts_latency_offset_test",
         "//test/planned_parent:drv_limits_test",
         "//test/planned_parent:leftover_macros_test",
         "//test/planned_parent:mini_top_cts_build_test",

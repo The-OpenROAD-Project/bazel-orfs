@@ -89,6 +89,25 @@ py_test(
     visibility = ["//test:__pkg__"],
 )
 
+# CTS_LATENCY_OFFSETS moves the named block's clock by the offset at CTS
+# and leaves the others where they were (ORFS patch 0241, OpenROAD patch
+# 0240).
+py_test(
+    name = "cts_latency_offset_test",
+    srcs = ["cts_latency_offset_test.py"],
+    args = [
+        "$(rootpath :block_clocks_lat0.json)",
+        "$(rootpath :block_clocks_lat40.json)",
+    ],
+    data = [
+        ":block_clocks_lat0.json",
+        ":block_clocks_lat40.json",
+    ],
+    main = "cts_latency_offset_test.py",
+    tags = ["manual"],
+    visibility = ["//test:__pkg__"],
+)
+
 # The clock pin the parent sees on each block: the whole unbuffered clock
 # net when abstracted at place, one buffer input and a real insertion delay
 # at cts (XiangShan inventory entry 17, 145 pF on MemBlock's pin).
