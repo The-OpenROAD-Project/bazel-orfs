@@ -1369,7 +1369,7 @@ XS_CTS_LATENCY_OFFSETS = {
 }
 
 # Two switches on the parent's timing-driven global placement (3_3), each
-# the one place to flip it, off until its XSTile arm reports. Off, the
+# the one place to flip it, on once its XSTile arm has paid. Off, the
 # parent's flow is what it was without them, key for key. On, the parent
 # reads global_place_args.tcl as its PRE_GLOBAL_PLACE_TCL, which adds the
 # options to 3_3's global_placement and not to 3_1's skip-IO pass.
@@ -1379,8 +1379,9 @@ XS_CTS_LATENCY_OFFSETS = {
 # at weight 1 with no fade: dispatch, decode, rename, memCtrl, the 13
 # integer issue queues, fusionDecoder, ALU0 with its CSR, and the 712
 # decodeBufBits flops by name; the ROB is left out (with it the placement
-# diverged). 3_3's GPL-0341 lines give each group's cell count.
-XS_GPL_COHESION = False
+# diverged). 3_3's GPL-0341 lines give each group's cell count. On: its
+# arm put the parent at 1,992 ps (kpi.json, 2026-11-17, run 33).
+XS_GPL_COHESION = True
 
 # The tail pull (carried OpenROAD patch 0221): each sink whose slack at
 # 3_3's timing updates is below -1377 ps, the paths over 1,850 ps at the
