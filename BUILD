@@ -56,6 +56,7 @@ exports_files([
     "synth_keep.tcl",
     "synth_keep_costs.tcl",
     "synth_partition.sh",
+    "synth_searches.py",
     "synth_slice_memories.tcl",
     "slice_memories.py",
     "verilog_slice.py",
@@ -357,6 +358,15 @@ py_test(
     size = "small",
     srcs = ["keep_report_test.py"],
     deps = [":keep_report_lib"],
+)
+
+py_test(
+    name = "synth_searches_test",
+    size = "small",
+    srcs = [
+        "synth_searches.py",
+        "synth_searches_test.py",
+    ],
 )
 
 py_test(

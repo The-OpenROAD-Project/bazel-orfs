@@ -26,9 +26,11 @@
 #   SYNTH_SLICE_MEMORIES   - 1: each module reads its slice's memories,
 #                            RESULTS_DIR/partition_<module>_memories
 #   SYNTH_TOP_SLICE        - 1: the top partition reads the top's slice
-#   SYNTH_PARTITION_STAT   - file to append each module's timing and
+#   SYNTH_PARTITION_STAT   - file to append each module's timing, its
+#                            searches (synth_searches.py) and
 #                            synth_stat.txt to (stat_section), for
 #                            keep_report.py
+#   SYNTH_SEARCHES_PY      - synth_searches.py, with SYNTH_PARTITION_STAT
 #   RESULTS_DIR, SCRIPTS_DIR, etc. - standard ORFS env
 set -euo pipefail
 
@@ -53,13 +55,47 @@ log_name() {
   printf '%s.log' "$n"
 }
 
-# Appends "=== partition <module>", the yosys log's timing lines and
-# synth.tcl's synth_stat.txt to SYNTH_PARTITION_STAT, when it is set.
+SEARCHES_FILE="$OBJECTS_DIR/synth_partition_searches.txt"
+SEARCHES_FIFO="$OBJECTS_DIR/synth_partition_searches.fifo"
+# The full log's lines synth_searches.py reads: headers, extract_fa's
+# adders and share's candidates and merges.
+SEARCHES_LINES='^([0-9.]+\. Executing |  [23]-Input XOR/XNOR |      Created \$fa cell |Found [0-9]+ cells in module |      New cell: )'
+
+# Runs synth.sh on synth.tcl, logging to $1. With SYNTH_PARTITION_STAT
+# set, yosys also writes its full log (-l) into a FIFO, which
+# synth_searches.py reads to time the searches and count what they found
+# into SEARCHES_FILE. The log ORFS keeps has headers only (-v 3).
+run_synth() {
+  if [ -z "${SYNTH_PARTITION_STAT:-}" ]; then
+    "$SCRIPTS_DIR/synth.sh" "$SYNTH_TCL" "$1"
+    return
+  fi
+  mkdir -p "$OBJECTS_DIR"
+  rm -f "$SEARCHES_FILE" "$SEARCHES_FIFO"
+  mkfifo "$SEARCHES_FIFO"
+  LC_ALL=C grep --line-buffered -aE "$SEARCHES_LINES" < "$SEARCHES_FIFO" |
+    "$PYTHON_EXE" "$SYNTH_SEARCHES_PY" "$SEARCHES_FILE" &
+  local searches=$! status=0 fifo
+  YOSYS_FLAGS="${YOSYS_FLAGS:-} -l $SEARCHES_FIFO" \
+    "$SCRIPTS_DIR/synth.sh" "$SYNTH_TCL" "$1" || status=$?
+  # Opening read-write never blocks: it ends the reader's wait on a
+  # FIFO yosys never opened, and is a no-op once yosys closed it.
+  exec {fifo}<>"$SEARCHES_FIFO"
+  exec {fifo}>&-
+  wait "$searches" || echo "WARNING: synth_searches.py failed; no searches for $1" >&2
+  rm -f "$SEARCHES_FIFO"
+  return "$status"
+}
+
+# Appends "=== partition <module>", the yosys log's timing lines and ABC
+# script, the searches and synth.tcl's synth_stat.txt to
+# SYNTH_PARTITION_STAT, when it is set.
 stat_section() {
   [ -n "${SYNTH_PARTITION_STAT:-}" ] || return 0
   {
     printf '=== partition %s\n' "$1"
-    grep -E 'End of script\.|Time spent:|Elapsed time:' "$2" || true
+    grep -E 'End of script\.|Time spent:|Elapsed time:|^Using ABC .*script' "$2" || true
+    cat "$SEARCHES_FILE" 2>/dev/null || true
     cat "$REPORTS_DIR/synth_stat.txt" 2>/dev/null || true
   } >> "$SYNTH_PARTITION_STAT"
 }
@@ -130,9 +166,7 @@ else
     SYNTH_CHECKPOINT="$CHECKPOINT" \
     SYNTH_BLACKBOXES_FILE="$BLACKBOXES_FILE" \
     RESULTS_DIR="$top_results" \
-      "$SCRIPTS_DIR/synth.sh" \
-      "$SYNTH_TCL" \
-      "$LOG_DIR/1_2_yosys_partition_top.log"
+      run_synth "$LOG_DIR/1_2_yosys_partition_top.log"
     stat_section "$DESIGN_NAME" "$LOG_DIR/1_2_yosys_partition_top.log"
     cp "$top_results/1_2_yosys.v" "$OUTPUT"
     exit 0
@@ -195,9 +229,7 @@ for module in "${MY_MODULES[@]}"; do
     SYNTH_CHECKPOINT="$RESULTS_DIR/1_1_yosys_keep.rtlil" \
     SYNTH_BLACKBOXES_FILE="$BLACKBOXES_FILE" \
     DESIGN_NAME="$module" \
-      "$SCRIPTS_DIR/synth.sh" \
-      "$SYNTH_TCL" \
-      "$LOG_DIR/$(log_name "$log_module")"
+      run_synth "$LOG_DIR/$(log_name "$log_module")"
     stat_section "$module" "$LOG_DIR/$(log_name "$log_module")"
     cat "$RESULTS_DIR/1_2_yosys.v" >> "$OUTPUT"
     continue
@@ -232,9 +264,7 @@ for module in "${MY_MODULES[@]}"; do
   SYNTH_CHECKPOINT="$MODULE_CHECKPOINT" \
   DESIGN_NAME="$canonical_name" \
   RESULTS_DIR="$module_results" \
-    "$SCRIPTS_DIR/synth.sh" \
-    "$SYNTH_TCL" \
-    "$LOG_DIR/$(log_name "$log_module")"
+    run_synth "$LOG_DIR/$(log_name "$log_module")"
   stat_section "$canonical_name" "$LOG_DIR/$(log_name "$log_module")"
 
   # Append this module's netlist to partition output

@@ -1765,6 +1765,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             config,
             parallel_makefile,
             ctx.file._synth_partition_script,
+            ctx.file._synth_searches,
             ctx.file._synth_tcl,
         ] + extra_partition_inputs +
         ctx.files.extra_configs +
@@ -1854,6 +1855,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         [
             parallel_makefile,
             ctx.file._synth_partition_script,
+            ctx.file._synth_searches,
             ctx.file._synth_tcl,
         ] + extra_partition_inputs + ctx.files.extra_configs +
         ([] if slice_memories else memories_inputs),
@@ -2043,6 +2045,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 }
             ) | {
                 "SYNTH_PARTITION_STAT": part_stat.path,
+                "SYNTH_SEARCHES_PY": ctx.file._synth_searches.path,
                 "SYNTH_TCL": ctx.file._synth_tcl.path,
             },
             inputs = partition_inputs,
@@ -2093,6 +2096,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         env = base_env | partition_env_extra | top_env | {
             "SYNTH_PARTITION_ID": "top",
             "SYNTH_PARTITION_STAT": top_stat.path,
+            "SYNTH_SEARCHES_PY": ctx.file._synth_searches.path,
             "SYNTH_NUM_PARTITIONS": str(num_partitions),
             "SYNTH_TCL": ctx.file._synth_tcl.path,
         },
@@ -3238,6 +3242,10 @@ orfs_synth_rule = rule(
                 "_synth_partition_script": attr.label(
                     allow_single_file = True,
                     default = Label("//:synth_partition.sh"),
+                ),
+                "_synth_searches": attr.label(
+                    allow_single_file = True,
+                    default = Label("//:synth_searches.py"),
                 ),
                 "filter_script": attr.label(
                     allow_single_file = True,

@@ -94,6 +94,37 @@ End of script. Logfile hash: 05, time: 50.00s, user: 49.00s
 Time spent: 60% 1x abc (30 sec), ...
 """
 
+# Partitions with synth_searches.py's lines: one whose extract_fa took a
+# third of its wall time for three adders and whose share merged nothing,
+# one whose searches paid off and ran the area script, one whose
+# searches were off, and one from before the searches were recorded.
+SEARCH_STATS = r"""=== partition Top
+End of script. Logfile hash: 01, time: 10.00s, user: 9.00s
+Using ABC speed script.
+search abc seconds=4.0
+=== partition Mux
+End of script. Logfile hash: 02, time: 300.00s, user: 299.00s
+Using ABC speed script.
+Time spent: 40% 1x abc (120 sec), ...
+search extract_fa seconds=100.0 full=2 half=1
+search share seconds=12.5 candidates=40 merged=0
+search abc seconds=120.0
+=== partition Alu
+Using ABC area script.
+End of script. Logfile hash: 03, time: 200.00s, user: 199.00s
+Time spent: 95% 1x abc (190 sec), ...
+search extract_fa seconds=80.0 full=640 half=64
+search share seconds=5.0 candidates=4 merged=2
+search abc seconds=190.0
+=== partition Off
+End of script. Logfile hash: 04, time: 50.00s, user: 49.00s
+Using ABC script /abc/mux.script.
+search abc seconds=40.0
+=== partition Old
+End of script. Logfile hash: 05, time: 20.00s, user: 19.00s
+Using ABC speed script.
+"""
+
 
 class KeepReportTest(unittest.TestCase):
     def setUp(self):
@@ -206,6 +237,68 @@ class KeepReportTest(unittest.TestCase):
         stats = keep_report.read_stats([SLOW_STATS])
         text = keep_report.report("Top", ["Slow"], children, set(), {}, stats)
         self.assertNotIn("Slow partitions", text)
+
+    def test_searches_parsed(self):
+        stats = keep_report.read_stats([SEARCH_STATS])
+        self.assertEqual(
+            stats["Mux"]["searches"],
+            {
+                "extract_fa": {"seconds": 100.0, "full": 2, "half": 1},
+                "share": {"seconds": 12.5, "candidates": 40, "merged": 0},
+                "abc": {"seconds": 120.0, "script": "speed"},
+            },
+        )
+        self.assertNotIn("searches", stats["Old"])
+
+    def search_report(self):
+        modules = ["Mux", "Alu", "Off", "Old"]
+        children = {"Top": {m: 1 for m in modules}}
+        for m in modules:
+            children[m] = {}
+        stats = keep_report.read_stats([SEARCH_STATS])
+        return keep_report.report("Top", modules, children, set(), {}, stats)
+
+    def test_searches_columns(self):
+        text = self.search_report()
+        self.assertIn(
+            "| Own gates | Searches: extract_fa (s) | Full/half adders "
+            "| share (s) | Merged/candidates | ABC script | ABC (s) |",
+            text,
+        )
+        self.assertIn("| 100.0 | 2/1 | 12.5 | 0/40 | speed | 120.0 |", text)
+        self.assertIn("| 80.0 | 640/64 | 5.0 | 2/4 | area | 190.0 |", text)
+        self.assertIn("| off |  | off |  | custom | 40.0 |", text)
+        self.assertIn("| ? | ? | ? | ? | ? | ? |", text)
+
+    def test_no_searches_no_columns(self):
+        stats = keep_report.read_stats([KEPT_STAT])
+        text = keep_report.report(
+            "Top", ["Kept"], self.children, self.blackboxes, self.costs, stats
+        )
+        self.assertNotIn("Searches", text)
+
+    def test_search_suggestions(self):
+        slow = self.search_report().split("## Slow partitions", 1)[1]
+        mux = slow.split("- **Mux**", 1)[1].split("- **", 1)[0]
+        self.assertIn(": a search costs time and finds little.", mux)
+        self.assertIn(
+            "SKIP_EXTRACT_FA=1 for this partition: extract_fa took 100.0 s "
+            "(33% of its wall time) and found 2 full and 1 half adders",
+            mux,
+        )
+        self.assertIn(
+            "SYNTH_ARGS=-noshare for this partition: share took 12.5 s over "
+            "40 candidates and merged none",
+            mux,
+        )
+        alu = slow.split("- **Alu**", 1)[1]
+        self.assertIn("abc takes 95% of its wall time", alu)
+        self.assertNotIn("ABC_AREA", alu)
+        self.assertNotIn("SKIP_EXTRACT_FA", alu)
+        self.assertNotIn("noshare", alu)
+        self.assertNotIn("**Off**", slow)
+        self.assertNotIn("**Old**", slow)
+        self.assertNotIn("**(top) Top**", slow)
 
     def test_main(self):
         with tempfile.TemporaryDirectory() as d:
