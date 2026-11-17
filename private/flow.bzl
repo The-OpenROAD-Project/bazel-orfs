@@ -566,8 +566,9 @@ def orfs_flow(
         SYNTH_KEEP_MODULES) of dicts of ORFS variables for that module's
         synthesis partition alone, e.g. {"Mux": {"ABC_AREA": "1"}}. Only
         that partition's config and cache key change. Allowed variables:
-        ABC_AREA, ABC_SCRIPT, SYNTH_ARGS, SYNTH_OPERATIONS_ARGS,
-        SYNTH_OPT_HIER, SYNTH_RETIME_MODULES; values take $(location).
+        ABC_AREA, ABC_SCRIPT, SKIP_EXTRACT_FA, SYNTH_ARGS,
+        SYNTH_OPERATIONS_ARGS, SYNTH_OPT_HIER, SYNTH_RETIME_MODULES; values
+        take $(location).
         Needs one partition per kept module (no SYNTH_NUM_PARTITIONS that
         groups them); anything else fails at analysis.
       sources: dictionary keyed by ORFS variables with lists of sources
