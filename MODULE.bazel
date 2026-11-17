@@ -453,6 +453,16 @@ archive_override(
         # cts_latency_offset_test. Not upstreamed; retires at a //:bump
         # onto an OpenROAD with a per-sink latency target in CTS.
         "//patches:0240-openroad-cts-latency-offset.patch",
+        # 0242: global_placement -clusters_file: named groups of cells
+        # (instance-name prefixes) pulled toward their centroid or an
+        # anchor, weight x the mean wirelength gradient at one RMS radius,
+        # fading as exp(-iter / tau_iter) (0: never). XSTile's parent, six
+        # ctrlBlock/issue-queue groups at weight 1 on an earlier OpenROAD:
+        # excess over 2,000 ps -36 %; with the ROB it diverged. Without
+        # the option gpl's test logs are unchanged. Test cohesion_test.
+        # Not upstreamed; retires at a //:bump onto an OpenROAD that has
+        # it, or is dropped if XSTile does not hold the gain.
+        "//patches:0242-openroad-gpl-cohesion.patch",
     ],
     strip_prefix = "OpenROAD-615e34eabc2429b48d5bb58aa427907fc546020e",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/615e34eabc2429b48d5bb58aa427907fc546020e.tar.gz"],
