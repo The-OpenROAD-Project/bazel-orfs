@@ -1148,6 +1148,16 @@ def _extract_patches(block):
     return re.findall(r'"(//[^"]*\.patch)"', block)
 
 
+_INLINED_PATCH_RE = re.compile(
+    r"^[ \t]*# Extracted from (//\S*\.patch)[ \t]*$", re.MULTILINE
+)
+
+
+def _extract_inlined_patches(block):
+    """Labels of the patches a block inlines as base64 patch_cmds entries."""
+    return _INLINED_PATCH_RE.findall(block)
+
+
 def _patch_cmds_span(block):
     """``(start, end)`` of the ``patch_cmds = [...]`` list, brackets included.
 
@@ -1481,6 +1491,11 @@ def update_openroad_archive_override(
     else:
         top_patches = patches_with_comments
 
+    # The consumer's own submodule patches are written against bazel-orfs's.
+    submodule_patch_cmds.sort(
+        key=lambda entry: not entry[1].startswith(f"//{BAZEL_ORFS_PATCHES_DIR}:")
+    )
+
     # A block already pinned to this commit -- the consumer's own, or the
     # pinned bazel-orfs's -- describes every tarball we would re-download
     # only to hash it to the same value, so reuse its digests and
@@ -1562,14 +1577,19 @@ def bazel_orfs_owned_patches(text):
     applied"), so every patch bazel-orfs applies to a shared dependency must
     exist as a file in the consumer's tree and be listed in the consumer's
     own override.
+
+    A submodule patch (OpenROAD's src/sta, say) is in the block only as an
+    inlined patch_cmds entry, its label in the ``# Extracted from`` comment
+    above it; it is a patch bazel-orfs applies all the same.
     """
     owned = {}
     for name in NON_BCR_DEPS:
         span = find_patching_override_block(text, name)
         if not span:
             continue
+        block = text[span[0] : span[1]]
         names = []
-        for label in _extract_patches(text[span[0] : span[1]]):
+        for label in _extract_inlined_patches(block) + _extract_patches(block):
             filename = label.split(":")[-1]
             if filename not in names:
                 names.append(filename)
@@ -1654,6 +1674,38 @@ def bazel_orfs_patch_strips(text):
     return strips
 
 
+def _is_bazel_orfs_patch(label, owned):
+    filename = label.split(":")[-1]
+    return label.startswith(f"//{BAZEL_ORFS_PATCHES_DIR}:") or any(
+        filename in names for names in owned.values()
+    )
+
+
+def _drop_inlined_bazel_orfs_patches(block, owned):
+    """Take bazel-orfs's inlined patches out of a consumer's block.
+
+    Returns ``(block, filenames)``: the block without each ``# Extracted
+    from`` comment naming a bazel-orfs patch and the base64 patch_cmds entry
+    under it, and the filenames dropped, in order.  The labels go back into
+    the patches list, from which the openroad regeneration inlines them
+    again: one list then says what bazel-orfs applies, whatever the shape.
+    """
+    lines = block.split("\n")
+    kept, dropped = [], []
+    i = 0
+    while i < len(lines):
+        m = _INLINED_PATCH_RE.match(lines[i])
+        if m and _is_bazel_orfs_patch(m.group(1), owned):
+            dropped.append(m.group(1).split(":")[-1])
+            i += 1
+            if i < len(lines) and "| base64 -d | patch " in lines[i]:
+                i += 1
+            continue
+        kept.append(lines[i])
+        i += 1
+    return "\n".join(kept), dropped
+
+
 def reconcile_patch_labels(content, owned, patch_strips=None):
     """Bring an existing consumer's override patch lists back in step.
 
@@ -1665,13 +1717,16 @@ def reconcile_patch_labels(content, owned, patch_strips=None):
     is the order the patches are written against.  An override with no
     patches list gets one, with bazel-orfs's patch_strip
     (``patch_strips``, module name -> int) when it sets none of its own.
+    bazel-orfs's submodule patches a previous bump inlined into patch_cmds
+    count as listed, and are listed again for the regeneration to inline.
 
     A label in bazel-orfs-patches/ that the pinned commit no longer applies
     is dropped too: write_patches deletes its file, and that directory holds
     nothing of the consumer's own.
 
-    Returns ``(content, changed)``; ``changed`` names the modules whose list
-    moved, so a bump can say so rather than swapping a patch silently.
+    Returns ``(content, changed)``; ``changed`` names the modules whose
+    bazel-orfs patches moved, so a bump can say so rather than swapping a
+    patch silently.
     """
     changed = []
     for module_name in NON_BCR_DEPS:
@@ -1679,24 +1734,29 @@ def reconcile_patch_labels(content, owned, patch_strips=None):
         span = find_patching_override_block(content, module_name)
         if not span:
             continue
-        block = content[span[0] : span[1]]
+        original = content[span[0] : span[1]]
+        block, before = _drop_inlined_bazel_orfs_patches(original, owned)
         m = re.search(r"(patches\s*=\s*\[)(.*?)(\])", block, re.DOTALL)
         if not m:
-            if not names:
-                continue
-            close = block.rindex(")")
-            added = ["    patches = ["]
-            added += [f'        "//{BAZEL_ORFS_PATCHES_DIR}:{name}",' for name in names]
-            added.append("    ],")
-            strip = (patch_strips or {}).get(module_name)
-            if strip is not None and not re.search(r"\bpatch_strip\s*=", block):
-                added.insert(0, f"    patch_strip = {strip},")
-            head = block[:close].rstrip(" ")
-            if not head.endswith("\n"):
-                head += "\n"
-            new_block = head + "\n".join(added) + "\n" + block[close:]
-            changed.append(module_name)
-            content = content[: span[0]] + new_block + content[span[1] :]
+            new_block = block
+            if names:
+                close = block.rindex(")")
+                added = ["    patches = ["]
+                added += [
+                    f'        "//{BAZEL_ORFS_PATCHES_DIR}:{name}",' for name in names
+                ]
+                added.append("    ],")
+                strip = (patch_strips or {}).get(module_name)
+                if strip is not None and not re.search(r"\bpatch_strip\s*=", block):
+                    added.insert(0, f"    patch_strip = {strip},")
+                head = block[:close].rstrip(" ")
+                if not head.endswith("\n"):
+                    head += "\n"
+                new_block = head + "\n".join(added) + "\n" + block[close:]
+            if new_block != original:
+                if before != names:
+                    changed.append(module_name)
+                content = content[: span[0]] + new_block + content[span[1] :]
             continue
 
         body = m.group(2)
@@ -1706,30 +1766,28 @@ def reconcile_patch_labels(content, owned, patch_strips=None):
             indent = entry.group(1)
 
         kept = []
-        retired = False
+        relabeled = False
         for line in body.split("\n"):
             labels = _extract_patches(line)
             if not labels:
                 if line.strip():
                     kept.append(line)
                 continue
-            filename = labels[0].split(":")[-1]
-            if filename in names:
-                continue
-            if any(filename in other for other in owned.values()):
-                continue
-            if labels[0].startswith(f"//{BAZEL_ORFS_PATCHES_DIR}:"):
-                retired = True
+            if _is_bazel_orfs_patch(labels[0], owned):
+                before.append(labels[0].split(":")[-1])
+                if not labels[0].startswith(f"//{BAZEL_ORFS_PATCHES_DIR}:"):
+                    relabeled = True
                 continue
             kept.append(line)
-        if not names and not retired:
+        if not names and not before and not relabeled:
             continue
 
         rendered = [f'{indent}"//{BAZEL_ORFS_PATCHES_DIR}:{name}",' for name in names]
         new_body = "\n" + "\n".join(rendered + kept) + "\n" + indent[:-4]
         new_block = block[: m.start(2)] + new_body + block[m.end(2) :]
-        if new_block != block:
-            changed.append(module_name)
+        if new_block != original:
+            if relabeled or before != names:
+                changed.append(module_name)
             content = content[: span[0]] + new_block + content[span[1] :]
     return content, changed
 
