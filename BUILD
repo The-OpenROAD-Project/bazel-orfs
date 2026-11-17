@@ -46,6 +46,7 @@ exports_files([
     "quick_pins_footprint_stub.tcl",
     "rc.bzl",
     "report_stage.tcl",
+    "retime_modules.py",
     "rtlil_kept_macros.py",
     "rtlil_kept_modules.py",
     "rtlil_names.py",
@@ -357,6 +358,18 @@ py_test(
     size = "small",
     srcs = ["keep_report_test.py"],
     deps = [":keep_report_lib"],
+)
+
+py_library(
+    name = "retime_modules_lib",
+    srcs = ["retime_modules.py"],
+)
+
+py_test(
+    name = "retime_modules_test",
+    size = "small",
+    srcs = ["retime_modules_test.py"],
+    deps = [":retime_modules_lib"],
 )
 
 py_test(

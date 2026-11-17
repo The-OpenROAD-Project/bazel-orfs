@@ -1,0 +1,81 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Tue, 17 Nov 2026 00:00:00 +0000
+Subject: [PATCH] synth: an SYNTH_RETIME_MODULES entry that matches no module
+ is an error
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Retiming runs after flattening, on the modules that are left: the top
+and the kept modules. An entry naming any other module selected nothing
+and synthesis went on with a warning ("Selection ... did not match any
+module"), so a design reported as retimed was not. Under the slang
+frontend every kept module is named Name$<path>, so a bare Name never
+matched: a downstream design carried dozens of such entries that had
+never retimed anything.
+
+Each entry is now a glob over the modules left after flattening, and one
+that matches none stops synthesis with an error naming it. A partition
+of a parallel synthesis (SYNTH_CHECKPOINT) holds only its own module, so
+there an entry naming another partition's module is skipped, without
+the warning; the orchestrator checks the entries against the whole
+design.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/synth.tcl | 38 +++++++++++++++++++++++++++++++-------
+ 1 file changed, 31 insertions(+), 7 deletions(-)
+
+diff --git a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
+index c2e640c2f..59c100ab1 100644
+--- a/flow/scripts/synth.tcl
++++ b/flow/scripts/synth.tcl
+@@ -210,13 +210,37 @@ if { $::env(SYNTH_MOCK_LARGE_MEMORIES) } {
+ write_json /dev/null
+ 
+ if { [env_var_exists_and_non_empty SYNTH_RETIME_MODULES] } {
+-  select {*}$::env(SYNTH_RETIME_MODULES)
+-  opt -fast -full
+-  memory_map
+-  opt -full
+-  techmap
+-  abc -dff -script $::env(SCRIPTS_DIR)/abc_retime.script
+-  select -clear
++  # Each entry is a glob over the modules flattening left: the top and the
++  # kept modules. A partition (SYNTH_CHECKPOINT) holds only its own, so
++  # there an entry naming another partition's module is skipped, and the
++  # orchestrator checks the entries against the whole design.
++  set modules [split [string trim [tee -q -s result.string select -list-mod *]] "\n"]
++  set retime [list]
++  set unmatched [list]
++  foreach pattern $::env(SYNTH_RETIME_MODULES) {
++    if { [lsearch -glob $modules $pattern] >= 0 } {
++      lappend retime $pattern
++    } else {
++      lappend unmatched $pattern
++    }
++  }
++  if {
++    [llength $unmatched] > 0
++    && ![env_var_exists_and_non_empty SYNTH_CHECKPOINT]
++  } {
++    error "SYNTH_RETIME_MODULES: no module left after flattening (the top\
++      and the kept modules) matches [join $unmatched {, }]; the slang\
++      frontend names a kept module Name\$<path>, matched by Name*"
++  }
++  if { [llength $retime] > 0 } {
++    select {*}$retime
++    opt -fast -full
++    memory_map
++    opt -full
++    techmap
++    abc -dff -script $::env(SCRIPTS_DIR)/abc_retime.script
++    select -clear
++  }
+ }
+ 
+ if {
+-- 
+2.53.0
+

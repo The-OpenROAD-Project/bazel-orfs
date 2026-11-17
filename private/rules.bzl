@@ -2102,6 +2102,39 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         progress_message = "Synthesizing top module %s" % module_top(ctx),
     )
 
+    # SYNTH_RETIME_MODULES against the module of every partition it
+    # reaches at once: a partition skips an entry naming another
+    # partition's module (synth.tcl), so only here does an entry that names
+    # no partition's module stop the build. A validation action.
+    design_retime = {"kept_json": [], "name_files": [], "names": [top], "patterns": [p for p in all_arguments.get("SYNTH_RETIME_MODULES", "").split(" ") if p]}
+    retime_groups = [design_retime]
+    retime_inputs = []
+    if not kept_modules_list:
+        design_retime["kept_json"].append(kept_json.path)
+        retime_inputs.append(kept_json)
+    for m in kept_modules_list:
+        group = design_retime
+        if "SYNTH_RETIME_MODULES" in partition_arguments.get(m, {}):
+            group = {"kept_json": [], "name_files": [], "names": [], "patterns": [p for p in partition_arguments[m]["SYNTH_RETIME_MODULES"].split(" ") if p]}
+            retime_groups.append(group)
+        group["name_files"].append(per_module_name_file[m].path)
+        retime_inputs.append(per_module_name_file[m])
+    retime_groups = [g for g in retime_groups if g["patterns"]]
+    retime_validation = []
+    if retime_groups:
+        retime_spec = declare_artifact(ctx, "results", "retime_modules.json")
+        ctx.actions.write(output = retime_spec, content = json.encode({"groups": retime_groups}))
+        retime_stamp = declare_artifact(ctx, "results", "retime_modules.ok")
+        ctx.actions.run(
+            executable = ctx.executable._python,
+            arguments = [ctx.file._retime_modules.path, retime_spec.path, retime_stamp.path],
+            inputs = [ctx.file._retime_modules, retime_spec] + retime_inputs,
+            outputs = [retime_stamp],
+            mnemonic = "RetimeModulesCheck",
+            progress_message = "Checking SYNTH_RETIME_MODULES against the partitions of %s" % module_top(ctx),
+        )
+        retime_validation = [retime_stamp]
+
     # The design's memories, which the merge's 1_synth.odb and every later
     # stage read, are the union of the slices', the top's included: no
     # whole-design memory detection on their path.
@@ -2304,7 +2337,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         list(per_module_rtlil.values()) + list(per_module_name_file.values()) +
         [part for _, part in partition_outputs] + [top_output]
     )
-    return validated_kept_macros_json, partition_files, memories_validation, [keep_report]
+    return validated_kept_macros_json, partition_files, memories_validation + retime_validation, [keep_report]
 
 def _stable_module_names(ctx, all_arguments):
     """SYNTH_STABLE_MODULE_NAMES=1: name contested modules by their path.
@@ -3265,6 +3298,10 @@ orfs_synth_rule = rule(
                 "_rtlil_kept_modules": attr.label(
                     allow_single_file = True,
                     default = Label("//:rtlil_kept_modules.py"),
+                ),
+                "_retime_modules": attr.label(
+                    allow_single_file = True,
+                    default = Label("//:retime_modules.py"),
                 ),
                 "_rtlil_kept_macros": attr.label(
                     allow_single_file = True,

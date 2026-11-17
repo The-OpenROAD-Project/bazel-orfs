@@ -182,17 +182,37 @@ exec -- $::env(PYTHON_EXE) $::env(SCRIPTS_DIR)/mem_dump.py \
   --max-bits $::env(SYNTH_MEMORY_MAX_BITS) $::env(RESULTS_DIR)/mem.json
 
 if { [env_var_exists_and_non_empty SYNTH_RETIME_MODULES] } {
-  # `{*}` list-expands the env var so each pattern in SYNTH_RETIME_MODULES
-  # arrives as its own `select` argument. Without it, Tcl `$var` substitution
-  # passes the whole space-separated value as a single bogus pattern matching
-  # no module — silently turning retime into a no-op.
-  select {*}$::env(SYNTH_RETIME_MODULES)
-  opt -fast -full
-  memory_map
-  opt -full
-  techmap
-  abc -dff -script $::env(SCRIPTS_DIR)/abc_retime.script
-  select -clear
+  # Each entry is a glob over the modules flattening left: the top and the
+  # kept modules. A partition (SYNTH_CHECKPOINT) holds only its own, so
+  # there an entry naming another partition's module is skipped, and the
+  # orchestrator checks the entries against the whole design.
+  set modules [split [string trim [tee -q -s result.string select -list-mod *]] "\n"]
+  set retime [list]
+  set unmatched [list]
+  foreach pattern $::env(SYNTH_RETIME_MODULES) {
+    if { [lsearch -glob $modules $pattern] >= 0 } {
+      lappend retime $pattern
+    } else {
+      lappend unmatched $pattern
+    }
+  }
+  if {
+    [llength $unmatched] > 0
+    && ![env_var_exists_and_non_empty SYNTH_CHECKPOINT]
+  } {
+    error "SYNTH_RETIME_MODULES: no module left after flattening (the top\
+      and the kept modules) matches [join $unmatched {, }]; the slang\
+      frontend names a kept module Name\$<path>, matched by Name*"
+  }
+  if { [llength $retime] > 0 } {
+    select {*}$retime
+    opt -fast -full
+    memory_map
+    opt -full
+    techmap
+    abc -dff -script $::env(SCRIPTS_DIR)/abc_retime.script
+    select -clear
+  }
 }
 
 if {

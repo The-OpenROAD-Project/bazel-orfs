@@ -1016,6 +1016,27 @@ build_test(
     targets = [":kept_modules_synth"],
 )
 
+# SYNTH_RETIME_MODULES in a partitioned synthesis: each partition retimes
+# the entries that match its own module, and the RetimeModulesCheck
+# validation fails the build on an entry that matches no partition's.
+orfs_synth(
+    name = "kept_modules_retime_synth",
+    arguments = {
+        "SDC_FILE": "$(location :constraints-top.sdc)",
+        "SYNTH_KEEP_MODULES": "adder counter",
+        "SYNTH_RETIME_MODULES": "adder* kept_modules_top",
+    },
+    data = [":constraints-top.sdc"],
+    module_top = "kept_modules_top",
+    variant = "retime",
+    verilog_files = ["rtl/kept_modules_top.v"],
+)
+
+build_test(
+    name = "kept_modules_retime_synth_test",
+    targets = [":kept_modules_retime_synth"],
+)
+
 yosys_tcl_library_test(
     name = "kept_modules_yosys_tcl_library_test",
     target_under_test = ":kept_modules_synth",
@@ -2781,11 +2802,10 @@ build_test(
     targets = ["@yosys//:yosys_share"],
 )
 
-# Guards the {*}-expansion of SYNTH_RETIME_MODULES in synth.tcl. Without
-# `{*}`, `select $::env(SYNTH_RETIME_MODULES)` passes a space-separated value
-# as a single bogus pattern and silently disables retime across every named
-# module — see commit message and synth_retime_select_test.tcl for details.
-# Fast: drives yosys directly on a 4-module fixture, no ORFS flow.
+# ORFS's synth.tcl as bazel-orfs patches it (0232): an SYNTH_RETIME_MODULES
+# entry is a glob over the modules flattening left, one that matches none
+# is an error, and in a partition it is skipped. Fast: yosys runs the
+# script's retime block directly on a 4-module fixture, no ORFS flow.
 sh_test(
     name = "synth_retime_select_test",
     srcs = ["synth_retime_select_test.sh"],
@@ -2793,13 +2813,13 @@ sh_test(
         "$(rootpath :yosys_exec)",
         "$(location :synth_retime_select_test.tcl)",
         "$(location :synth_retime_select_test.v)",
-        "$(location //:synth.tcl)",
+        "$(location @orfs//flow:scripts/synth.tcl)",
     ],
     data = [
         ":synth_retime_select_test.tcl",
         ":synth_retime_select_test.v",
         ":yosys_exec",
-        "//:synth.tcl",
+        "@orfs//flow:scripts/synth.tcl",
     ],
 )
 
