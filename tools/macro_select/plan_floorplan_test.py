@@ -1406,6 +1406,15 @@ def _slot_order(rows):
     return {s: [n for _, n in sorted(v)] for s, v in by.items()}, slots
 
 
+def _nearest_run(pos, k, anchor):
+    """The first slot of the run of k slots, of those at the sorted
+    positions pos, whose centre is nearest anchor; the first on a tie."""
+    return min(
+        range(len(pos) - k + 1),
+        key=lambda i: (abs((pos[i] + pos[i + k - 1]) / 2.0 - anchor), i),
+    )
+
+
 class PinOrderTest(unittest.TestCase):
     """pin_order: pins the probe placed for the wrong partner move along
     their side to the end facing the right one, trading slots with the
@@ -1483,8 +1492,9 @@ class PinOrderPlanTest(unittest.TestCase):
     # a's pins to its logic, a10 to a29, the middle of their segment
     GROUP = "^a[12][0-9]$"
 
-    def _with_order(self, p, out, partner_pins=False):
-        a, b = out["macros"][0]["name"], out["macros"][1]["name"]
+    def _with_order(self, p, out, partner_pins=False, a=None, b=None):
+        a = a or out["macros"][0]["name"]
+        b = b or out["macros"][1]["name"]
         q = json.loads(json.dumps(p))
         for m in q["macros"]:
             if m["name"] == a:
@@ -1519,14 +1529,7 @@ class PinOrderPlanTest(unittest.TestCase):
         names = order[side]
         at = [i for i, n in enumerate(names) if group.search(n)]
         self.assertEqual(at, list(range(at[0], at[0] + len(at))))
-        k = len(at)
-
-        def miss(i):
-            return abs((pos[i] + pos[i + k - 1]) / 2.0 - anchor[along])
-
-        self.assertEqual(
-            min(range(len(pos) - k + 1), key=lambda i: (miss(i), i)), at[0]
-        )
+        self.assertEqual(_nearest_run(pos, len(at), anchor[along]), at[0])
         return order
 
     def test_kept_plan_moves_names_only_and_twice_is_once(self):
@@ -1598,6 +1601,110 @@ class PinOrderPlanTest(unittest.TestCase):
             sum(y for _, y in pts) / len(pts),
         )
         self._check_group(d, out_k, a, b, anchor=mean)
+
+    def test_partner_pins_mid_side_while_its_centre_is_past_the_end(self):
+        """partner_pins anchors on the partner's pins, not on its centre. B
+        starts over the middle of A's pin side and runs on past its end,
+        with its pins toward A at its near end (MemBlock's write-back over
+        Vec): its centre is past A's last slot, its pins mid-side. They are
+        read where the parent sees them, on B's footprint (mock_area 0.5),
+        not where B's outline has them."""
+        a_pins = ["a0", "a1", "a2", "g0", "a3", "g1", "a4", "a5", "a6", "a7"]
+        b_pins = ["p0", "p1", "b0", "b1", "b2"]
+        files = {
+            # A's top edge, slots at x 5 to 95; B's bottom edge
+            "A": {"": _edge_rows(a_pins, pitch=10.0, y=49.82)},
+            "B": {
+                "_mock": _edge_rows(b_pins, pitch=10.0),
+                "": _edge_rows(b_pins, pitch=20.0, start=10.0),
+            },
+        }
+        plan = {
+            "parent": {},
+            "macros": [
+                {
+                    "name": "A",
+                    "pin_order": [{"pins": "^g", "toward": "B", "partner_pins": "^p"}],
+                },
+                {"name": "B"},
+            ],
+        }
+        a = {"name": "A", "x_um": 0.0, "y_um": 0.0, "w_um": 100.0, "h_um": 50.0}
+        b = {"name": "B", "x_um": 40.0, "y_um": 60.0, "w_um": 200.0, "h_um": 50.0}
+        b["mock_area"] = 0.5  # the footprint's pins at half the outline's um
+        out = {"macros": [a, b]}
+
+        def mean_x(rows):
+            xs = [
+                b["x_um"] + float(r.split()[2]) for r in rows if r.split()[0][0] == "p"
+            ]
+            return sum(xs) / len(xs)
+
+        pos = sorted(a["x_um"] + plan_floorplan._row_side(r)[1] for r in files["A"][""])
+        pins = mean_x(files["B"]["_mock"])
+        centre = b["x_um"] + b["w_um"] / 2.0
+        # the premise: the pins mid-side, the centre past the end, and the
+        # three anchors on three different runs
+        self.assertTrue(pos[0] < pins < pos[-1] < centre)
+        start = _nearest_run(pos, 2, pins)
+        self.assertNotEqual(_nearest_run(pos, 2, centre), start)
+        self.assertNotEqual(_nearest_run(pos, 2, mean_x(files["B"][""])), start)
+        done, report = plan_floorplan.apply_pin_orders(plan, out, files)
+        self.assertEqual(sorted(done), ["A"])
+        order = _slot_order(done["A"][""])[0]["top"]
+        self.assertEqual(order[start : start + 2], ["g0", "g1"])
+        self.assertEqual(
+            [n for n in order if n[0] == "a"], ["a%d" % i for i in range(8)]
+        )
+        self.assertIn("toward %.0f" % pins, report[0])
+
+    def test_a_centre_mid_side_is_read_in_the_footprints_um(self):
+        """A partner's centre that lands mid-side takes the run nearest it
+        where the parent places the block, on its footprint (mock_area <
+        1), fresh and kept alike. Frontend's group faces MemBlock, whose
+        centre is over the middle of Frontend's pin side and whose corner
+        is past its end; the outline's um, or the corner, take another
+        run."""
+        p, out, d = self._emit()
+        a, b = "Frontend", "MemBlock"
+        by = {m["name"]: m for m in out["macros"]}
+        self.assertLess(by[a]["mock_area"], 1.0)
+        side = by[a]["pin_side"]
+        along = 0 if side in ("bottom", "top") else 1
+        group = re.compile(self.GROUP)
+
+        def slots(f):
+            rows = [
+                l
+                for l in open(os.path.join(d, f)).read().split("\n")
+                if plan_floorplan.PIN_ROW.match(l)
+            ]
+            k = sum(1 for r in rows if group.search(r.split()[0]))
+            origin = (by[a]["x_um"], by[a]["y_um"])[along]
+            return k, sorted(
+                origin + plan_floorplan._row_side(r)[1]
+                for r in rows
+                if plan_floorplan._row_side(r)[0] == side
+            )
+
+        k, foot = slots(a + "_mock_pins.tcl")
+        _, outline = slots(a + "_pins.tcl")
+        q = by[b]
+        centre = (q["x_um"] + q["w_um"] / 2.0, q["y_um"] + q["h_um"] / 2.0)[along]
+        corner = (q["x_um"], q["y_um"])[along]
+        start = _nearest_run(foot, k, centre)
+        # the premise: mid-side, and told apart from the outline and the corner
+        self.assertTrue(0 < start < len(foot) - k, (start, len(foot), k))
+        self.assertNotEqual(_nearest_run(outline, k, centre), start)
+        self.assertNotEqual(_nearest_run(foot, k, corner), start)
+        r, _, _ = self._with_order(p, out, a=a, b=b)
+        e = tempfile.mkdtemp(prefix="plan_order.")
+        plan_floorplan.emit(out, r, e)
+        out_k = plan_floorplan.kept_layout(r, d)
+        plan_floorplan.emit_kept(out_k, r, d)
+        for where, o in ((e, out), (d, out_k)):
+            order = self._check_group(where, o, a, b)[side]
+            self.assertTrue(group.search(order[start]), where)
 
     def test_toward_a_block_the_plan_does_not_have_stops(self):
         p, out, d = self._emit()
