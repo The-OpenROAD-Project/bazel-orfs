@@ -1306,6 +1306,57 @@ def _sanitize_module(module):
     """A kept module's name as a file name component (synth_partition.sh's sanitize())."""
     return module.replace("$", "_").replace(".", "_").replace("[", "_").replace("]", "_")
 
+# Variables that act only inside the module a partition synthesises: they
+# choose how ABC and yosys's synth optimise it, not its ports, its name or
+# what another partition or the merge sees.
+PARTITION_VARIABLES = [
+    "ABC_AREA",
+    "ABC_SCRIPT",
+    "SYNTH_ARGS",
+    "SYNTH_OPERATIONS_ARGS",
+    "SYNTH_OPT_HIER",
+    "SYNTH_RETIME_MODULES",
+]
+
+def _partition_arguments(ctx, kept_modules, by_module, num_partitions):
+    """partition_arguments decoded, checked and location-expanded.
+
+    Args:
+      ctx: The rule context.
+      kept_modules: the pinned SYNTH_KEEP_MODULES, as a list.
+      by_module: whether every kept module has a partition of its own.
+      num_partitions: SYNTH_NUM_PARTITIONS.
+
+    Returns:
+      {kept module: {variable: value}}.
+    """
+    result = {}
+    for module, encoded in ctx.attr.partition_arguments.items():
+        if module not in kept_modules:
+            fail("partition_arguments names '{}', which is not in SYNTH_KEEP_MODULES ({}).".format(
+                module,
+                " ".join(kept_modules) if kept_modules else "not pinned",
+            ))
+        variables = json.decode(encoded)
+        for var in variables:
+            if var not in PARTITION_VARIABLES:
+                fail("partition_arguments['{}'] sets {}, which is not a per-partition variable; allowed: {}.".format(
+                    module,
+                    var,
+                    ", ".join(PARTITION_VARIABLES),
+                ))
+        result[module] = {
+            k: ctx.expand_location(v, ctx.attr.data)
+            for k, v in variables.items()
+        }
+    if result and not by_module:
+        fail("partition_arguments needs one partition per kept module; " +
+             "SYNTH_NUM_PARTITIONS ({}) groups the {} kept modules. ".format(
+                 num_partitions,
+                 len(kept_modules),
+             ) + "Leave SYNTH_NUM_PARTITIONS unset to get one per module.")
+    return result
+
 def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments = {}, sdc_overrides = [], synth_data_inputs = None, sdc_only_inputs = None, memories_inputs = [], slices = None):
     """Parallel synthesis: keep → kept-json → N partitions → merge.
 
@@ -1797,6 +1848,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     # Neither the list nor an index reaches the action's key, so editing
     # SYNTH_KEEP_MODULES re-runs only the modules whose slice it changes.
     by_module = bool(skip_keep) and bool(kept_modules_list) and num_partitions == len(kept_modules_list)
+    partition_arguments = _partition_arguments(ctx, kept_modules_list if skip_keep else [], by_module, num_partitions)
     module_partition_inputs = depset(
         [
             parallel_makefile,
@@ -1902,7 +1954,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                     k: v
                     for k, v in my_arguments.items()
                     if k != "SYNTH_NUM_PARTITIONS"
-                } | {"SYNTH_KEEP_MODULES": my_modules[0]}
+                } | partition_arguments.get(my_modules[0], {}) | {"SYNTH_KEEP_MODULES": my_modules[0]}
             my_analysis_json = declare_artifact(ctx, "results", "1_synth_partition_{}.analysis.json".format(suffix))
             ctx.actions.write(
                 output = my_analysis_json,
@@ -2698,6 +2750,9 @@ def _yosys_impl(ctx):
         "[ -s {p} ] || echo '{{}}' > {p}".format(p = f.path)
         for f in synth_jsons
     ]
+
+    if ctx.attr.partition_arguments and (use_syn or num_partitions == 0):
+        fail("partition_arguments needs parallel yosys synthesis (SYNTH_KEEP_MODULES pinned, SYNTH_NUM_PARTITIONS > 0).")
 
     if use_syn:
         # OpenROAD-SYN synthesis: one openroad invocation (synth_syn.tcl via
