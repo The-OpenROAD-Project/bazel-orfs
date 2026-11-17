@@ -122,7 +122,11 @@ exports_files(
 # dump is not checked in, and run 21's is gone: plan/ is run 21's plan as
 # it was, its parent's register files re-placed by plan_floorplan.py
 # --keep plan, which keeps the die, the blocks and every pins file and
-# places only the parent's netlists. A register file's outline in
+# places only the parent's netlists, and moves the pins plan.json's
+# pin_order names along their sides: the load write-back, MemBlock's
+# intWriteback to the left end of its bottom edge, Vec's gpWbWakeUp_6-8
+# under it and Flt's fpWbNext_6-8 to the right end of its top edge, the
+# probe having placed each for another partner. A register file's outline in
 # plan.json is the core ORFS patch 0172 sizes around generate_ram's array
 # plus _REGFILE_MARGIN_UM on each side (xiangshan.bzl).
 xiangshan_flow(
