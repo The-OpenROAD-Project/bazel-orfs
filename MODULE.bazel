@@ -384,11 +384,13 @@ archive_override(
         "//patches:0220-openroad-cts-coincident-sinks.patch",
         # 0221: global_placement -timing_driven_pin_pull, a two-pin pull
         # between each failing sink and its driver, so a path through a
-        # broadcast net is pulled straight. Off by default, and with it off
-        # every placement is byte-identical. Test pin_pull_test, on 0219's
-        # designs. Not upstreamed, held until XiangShan reaches 2,000 ps at
-        # global route or that campaign ends; retires at a //:bump onto an
-        # OpenROAD that has it.
+        # broadcast net is pulled straight. A sink fails when its slack is
+        # below -timing_driven_pin_pull_slack (design time unit, 0 by
+        # default; negative pulls the tail only). Off by default, and with
+        # it off every placement is byte-identical. Tests pin_pull_test, on
+        # 0219's designs, and pin_pull_slack. Not upstreamed, held until
+        # XiangShan reaches 2,000 ps at global route or that campaign ends;
+        # retires at a //:bump onto an OpenROAD that has it.
         "//patches:0221-openroad-gpl-timing-pin-pull.patch",
         # 0222: link_hier_module <module> links a module read with
         # read_verilog after read_db -hier into the loaded design, as
