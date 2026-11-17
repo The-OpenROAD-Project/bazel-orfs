@@ -174,6 +174,37 @@ class TestControlFlow:
         interp.eval("foreach i {1 2 3} { set sum [expr $sum + $i] }")
         assert interp.get_var("sum") == "6"
 
+    def test_foreach_var_list(self, interp):
+        interp.eval("set out {}")
+        interp.eval("foreach {a b} {1 2 3} { lappend out $a:$b }")
+        assert interp.get_var("out") == "1:2 3:"
+
+    def test_foreach_several_lists(self, interp):
+        interp.eval("set out {}")
+        interp.eval("foreach e {rise fall} v {5 6 7} { lappend out $e=$v }")
+        assert interp.get_var("out") == "rise=5 fall=6 =7"
+
+    def test_regexp_all_inline(self, interp):
+        result = interp.eval("regexp -all -inline {(\\w)=(\\d)} {a=1 b=2}")
+        assert result == "a=1 a 1 b=2 b 2"
+
+    def test_regexp_all_inline_indices(self, interp):
+        result = interp.eval("regexp -all -inline -indices {b(x)?} {abab}")
+        assert result == "{1 1} {-1 -1} {3 3} {-1 -1}"
+
+    def test_regexp_all_counts(self, interp):
+        assert interp.eval("regexp -all {o} {foo boo}") == "4"
+
+    def test_regexp_indices_match_vars(self, interp):
+        interp.eval("regexp -indices {(b+)} {abbc} all sub")
+        assert interp.get_var("all") == "1 2"
+        assert interp.get_var("sub") == "1 2"
+
+    def test_array_names_pattern(self, interp):
+        interp.eval("set t(clock,min) 1")
+        interp.eval("set t(clock,max) 2")
+        assert interp.eval("array names t *,max") == "clock,max"
+
     def test_for_loop(self, interp):
         interp.eval("set sum 0")
         interp.eval(

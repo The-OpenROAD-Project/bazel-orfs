@@ -8,6 +8,7 @@ Commands are registered via register_command() so lint OpenROAD/Yosys
 commands can be plugged in.
 """
 
+import fnmatch
 import math
 import os
 import re
@@ -683,14 +684,27 @@ class TclInterpreter:
         return result
 
     def _cmd_foreach(self, interp, args):
-        if len(args) < 3:
-            raise TclError('wrong # args: should be "foreach varList list body"')
-        varname = args[0]
-        items = self._parse_list(args[1])
-        body = args[2]
+        # foreach varList list ?varList list ...? body: each round takes
+        # the next len(varList) items of every list, "" past a list's end.
+        if len(args) < 3 or len(args) % 2 == 0:
+            raise TclError(
+                'wrong # args: should be "foreach varList list'
+                ' ?varList list ...? command"'
+            )
+        groups = []
+        for i in range(0, len(args) - 1, 2):
+            names = self._parse_list(args[i])
+            if not names:
+                raise TclError("foreach varlist is empty")
+            groups.append((names, self._parse_list(args[i + 1])))
+        rounds = max(-(-len(items) // len(names)) for names, items in groups)
+        body = args[-1]
         result = ""
-        for item in items:
-            self.variables[varname] = item
+        for r in range(rounds):
+            for names, items in groups:
+                for j, name in enumerate(names):
+                    k = r * len(names) + j
+                    self.variables[name] = items[k] if k < len(items) else ""
             try:
                 result = self._eval_script(body)
             except TclBreak:
@@ -1082,16 +1096,33 @@ class TclInterpreter:
         flags = 0
         if "-nocase" in switches:
             flags |= re.IGNORECASE
-        m = re.search(pattern, string, flags)
-        if m and match_vars:
+        indices = "-indices" in switches
+        if "-all" in switches:
+            matches = list(re.finditer(pattern, string, flags))
+        else:
+            m = re.search(pattern, string, flags)
+            matches = [m] if m else []
+
+        def part(m, group):
+            # -indices: "first last", last inclusive; "-1 -1" when unmatched
+            if group > len(m.groups()):
+                return "-1 -1" if indices else ""
+            if indices:
+                first, end = m.span(group)
+                return f"{first} {end - 1}" if first >= 0 else "-1 -1"
+            return m.group(group) or ""
+
+        if "-inline" in switches:
+            return self._to_list(
+                [part(m, g) for m in matches for g in range(len(m.groups()) + 1)]
+            )
+        if matches and match_vars:
+            # with -all, the variables hold the last match
             for i, var in enumerate(match_vars):
-                if i == 0:
-                    self.variables[var] = m.group(0)
-                elif i <= len(m.groups()):
-                    self.variables[var] = m.group(i) or ""
-                else:
-                    self.variables[var] = ""
-        return "1" if m else "0"
+                self.variables[var] = part(matches[-1], i)
+        if "-all" in switches:
+            return str(len(matches))
+        return "1" if matches else "0"
 
     def _cmd_regsub(self, interp, args):
         remaining = list(args)
@@ -1300,7 +1331,10 @@ class TclInterpreter:
             return "1" if arrname in self.arrays else "0"
         elif subcmd == "names":
             if arrname in self.arrays:
-                return self._to_list(list(self.arrays[arrname].keys()))
+                keys = list(self.arrays[arrname].keys())
+                if len(args) > 2:
+                    keys = [k for k in keys if fnmatch.fnmatchcase(k, args[2])]
+                return self._to_list(keys)
             return ""
         elif subcmd == "get":
             if arrname in self.arrays:
