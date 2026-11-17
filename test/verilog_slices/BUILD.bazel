@@ -550,13 +550,18 @@ sh_test(
 )
 
 # RomTop keeps Lookup, whose two case statements yosys's proc_rom makes
-# ROMs of, as it does the top's. proc_rom names a ROM with yosys's
-# design-wide counter, which in the whole design runs on through Lookup's
-# ROMs before it reaches the top's, and in the top's slice does not.
+# ROMs of, as it does the top's. proc_rom numbers a ROM within its module
+# (patches/yosys-0003-*), so the top's ROM has the same name in the whole
+# design, where Lookup's ROMs come first, as in the top's slice.
 #
 #   rom_memories_test   the slices find the ROMs the whole design does:
 #                       the slice memories check passes, and the slices'
 #                       memories.json is the global path's.
+#   rom_rtlil_test      Lookup and the top are in their slices'
+#                       canonicalized RTLIL as in the whole design's,
+#                       byte for byte. The top's partition netlist is not
+#                       compared: yosys's techmap orders cells by IdString
+#                       index, which the rest of the design shifts.
 [orfs_flow(
     name = "RomTop",
     arguments = ARGUMENTS | {"SYNTH_KEEP_MODULES": "Lookup"},
@@ -583,6 +588,32 @@ diff_test(
     name = "rom_memories_test",
     file1 = ":rom_memories_json_global",
     file2 = ":rom_memories_json_slices",
+)
+
+filegroup(
+    name = "rom_canonicalize_global",
+    srcs = [":RomTop_global_synth"],
+    output_group = "1_1_yosys_canonicalize.rtlil",
+)
+
+filegroup(
+    name = "rom_partitions_slices",
+    srcs = [":RomTop_slices_synth"],
+    output_group = "partitions",
+)
+
+sh_test(
+    name = "rom_rtlil_test",
+    size = "small",
+    srcs = ["slices_rtlil_test.sh"],
+    args = [
+        "$(location :rom_canonicalize_global)",
+        "$(locations :rom_partitions_slices)",
+    ],
+    data = [
+        ":rom_canonicalize_global",
+        ":rom_partitions_slices",
+    ],
 )
 
 slices_grouped_test(

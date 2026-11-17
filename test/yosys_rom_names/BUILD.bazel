@@ -1,0 +1,13 @@
+# yosys's own tests for patches/yosys-0003..0006: proc_rom and
+# memory_bmux2rom number a ROM within its module, so a module gets the
+# same ROM names alone and after a module whose ROMs are created first.
+# test/verilog_slices:rom_rtlil_test is the flow-level check.
+test_suite(
+    name = "yosys_rom_names",
+    tests = [
+        "@yosys//tests:ys_opt__memory_bmux2rom_names_ys",
+        "@yosys//tests:ys_opt__memory_bmux2rom_ys",
+        "@yosys//tests:ys_proc__proc_rom_names_ys",
+        "@yosys//tests:ys_proc__proc_rom_ys",
+    ],
+)
