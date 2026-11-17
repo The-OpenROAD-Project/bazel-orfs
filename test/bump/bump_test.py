@@ -158,6 +158,20 @@ PINNED_SUBMODULES = {
 }
 PINNED_SUB_SHA256_HEX = "feedface" * 8
 
+# The ORFS the pinned bazel-orfs's own orfs.source() names, distinct from
+# ORFS's master HEAD (ORFS_COMMIT).
+PINNED_ORFS_COMMIT = "0123456789abcdef0123456789abcdef01234567"
+PINNED_ORFS_SHA256_HEX = "11" * 32
+PINNED_ORFS_INTEGRITY = (
+    "sha256-" + base64.b64encode(bytes.fromhex(PINNED_ORFS_SHA256_HEX)).decode()
+)
+PINNED_ORFS_SOURCE_TAG = (
+    "orfs.source(\n"
+    f'    commit = "{PINNED_ORFS_COMMIT}",\n'
+    f'    integrity = "{PINNED_ORFS_INTEGRITY}",\n'
+    ")\n"
+)
+
 
 def _pinned_submodule_cmd(path):
     repo, sha = PINNED_SUBMODULES[path]
@@ -185,7 +199,7 @@ FAKE_BAZEL_ORFS_MODULE = (
     f'    strip_prefix = "OpenROAD-{PINNED_OPENROAD_COMMIT}",\n'
     '    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/'
     f'{PINNED_OPENROAD_COMMIT}.tar.gz"],\n'
-    ")\n"
+    ")\n" + PINNED_ORFS_SOURCE_TAG
 )
 
 
@@ -230,6 +244,7 @@ def apply_bump(
     workspace_dir=None,
     head_tools=None,
     openroad_source=None,
+    orfs_source=None,
     fetch_integrity_fn=mock_fetch_integrity,
     fetch_sha256_hex_fn=mock_fetch_sha256_hex,
 ):
@@ -252,6 +267,7 @@ def apply_bump(
         head_tools=head_tools,
         fetch_raw_text_fn=mock_fetch_raw_text,
         openroad_source=openroad_source,
+        orfs_source=orfs_source,
     )
 
     with open(tmp.name) as f:
@@ -318,6 +334,7 @@ class TestOrfsPatchPairingThroughBump(unittest.TestCase):
                     fetch_sha256_hex_fn=mock_fetch_sha256_hex,
                     fetch_submodule_sha_fn=mock_fetch_submodule_sha,
                     fetch_raw_text_fn=drifted_raw_text,
+                    orfs_source="head",
                 )
             message = str(cm.exception)
             self.assertIn(victim, message)
@@ -397,6 +414,7 @@ archive_override(
                 fetch_submodule_sha_fn=mock_fetch_submodule_sha,
                 fetch_raw_text_fn=raw_text,
                 workspace_dir=ws,
+                orfs_source="head",
             )
         self.assertEqual(snapshot(), before)
 
@@ -449,14 +467,14 @@ class TestOpenroadProject(unittest.TestCase):
         self.assertIn('openroad = "//:openroad"', self.content)
 
     def test_orfs_commit_variable_updated(self):
-        self.assertIn(f'ORFS_COMMIT = "{ORFS_COMMIT}"', self.content)
+        self.assertIn(f'ORFS_COMMIT = "{PINNED_ORFS_COMMIT}"', self.content)
         self.assertNotIn('ORFS_COMMIT = "old_orfs_commit"', self.content)
 
     def test_orfs_variable_not_clobbering_bazel_orfs_variable(self):
         # ``BAZEL_ORFS_COMMIT = "`` contains ``ORFS_COMMIT = "`` as a
         # substring; an unanchored assignment rewrite would overwrite the
         # just-bumped bazel-orfs pin with the ORFS sha.
-        self.assertNotIn(f'BAZEL_ORFS_COMMIT = "{ORFS_COMMIT}"', self.content)
+        self.assertNotIn(f'BAZEL_ORFS_COMMIT = "{PINNED_ORFS_COMMIT}"', self.content)
 
     def test_orfs_concatenation_preserved(self):
         """The commit stays in the variable; the concatenated fields keep it."""
@@ -466,7 +484,7 @@ class TestOpenroadProject(unittest.TestCase):
         self.assertIn('+ ORFS_COMMIT + ".tar.gz"', self.content)
 
     def test_orfs_sha256_updated(self):
-        self.assertIn(f'sha256 = "{MOCK_SUB_SHA256_HEX}"', self.content)
+        self.assertIn(f'sha256 = "{PINNED_ORFS_SHA256_HEX}"', self.content)
         self.assertNotIn("oldsolds", self.content)
 
     def test_yosys_bumped_with_dev_dependency_preserved(self):
@@ -1271,7 +1289,9 @@ class TestDownstreamOrfsToolsFlow(unittest.TestCase):
     """--openroad=orfs: openroad commit and yosys BCR version follow ORFS tools/."""
 
     def setUp(self):
-        self.content = apply_bump("downstream.MODULE.bazel", openroad_source="orfs")
+        self.content = apply_bump(
+            "downstream.MODULE.bazel", openroad_source="orfs", orfs_source="head"
+        )
 
     def test_orfs_commit_updated(self):
         # New: downstream bumps ORFS too (used to be bazel-orfs-project only).
@@ -1576,6 +1596,157 @@ class TestOpenroadSourceResolution(unittest.TestCase):
     def test_pinned_module_without_openroad_refused(self):
         with self.assertRaisesRegex(bump.BumpError, "--openroad=orfs"):
             bump.pinned_openroad_override('module(name = "bazel-orfs")\n', "c" * 40)
+
+
+class TestOrfsFollowsPinnedBazelOrfs(unittest.TestCase):
+    """By default a consumer's ORFS is the pinned bazel-orfs's own.
+
+    bazel-orfs's ORFS_PATCHES are guaranteed to fit that commit only, so
+    the default needs neither ORFS master, a download, nor the pairing check.
+    """
+
+    def bump_downstream(self, orfs_source=None):
+        self.hashed = []
+        self.orfs_reads = []
+
+        def integrity(url):
+            self.hashed.append(url)
+            return MOCK_INTEGRITY
+
+        def sha256(url):
+            self.hashed.append(url)
+            return MOCK_SUB_SHA256_HEX
+
+        def raw_text(repo, ref, path):
+            if repo == bump.ORFS_REPO:
+                self.orfs_reads.append(path)
+            return mock_fetch_raw_text(repo, ref, path)
+
+        src = os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel")
+        tmp = tempfile.NamedTemporaryFile(suffix=".MODULE.bazel", delete=False)
+        tmp.close()
+        self.addCleanup(os.unlink, tmp.name)
+        shutil.copy2(src, tmp.name)
+        bump.bump(
+            tmp.name,
+            fetch_commit_fn=mock_fetch_commit,
+            fetch_integrity_fn=integrity,
+            fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+            fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+            fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+            fetch_sha256_hex_fn=sha256,
+            fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+            fetch_raw_text_fn=raw_text,
+            orfs_source=orfs_source,
+        )
+        with open(tmp.name) as f:
+            content = f.read()
+        span = bump.find_archive_override_block(content, "orfs")
+        return content[span[0] : span[1]]
+
+    def test_default_takes_the_pinned_commit_and_integrity(self):
+        block = self.bump_downstream()
+        self.assertIn(f"OpenROAD-flow-scripts-{PINNED_ORFS_COMMIT}", block)
+        self.assertIn(f'integrity = "{PINNED_ORFS_INTEGRITY}"', block)
+        self.assertNotIn(ORFS_COMMIT, block)
+
+    def test_default_downloads_and_hashes_no_orfs(self):
+        self.bump_downstream()
+        self.assertEqual(
+            [url for url in self.hashed if "OpenROAD-flow-scripts" in url], []
+        )
+
+    def test_default_skips_the_pairing_check(self):
+        self.bump_downstream()
+        self.assertEqual(self.orfs_reads, [])
+
+    def test_head_follows_orfs_master(self):
+        block = self.bump_downstream("head")
+        self.assertIn(f"OpenROAD-flow-scripts-{ORFS_COMMIT}", block)
+        self.assertIn(f'integrity = "{MOCK_INTEGRITY}"', block)
+        self.assertTrue(self.orfs_reads)
+
+    def test_orfs_source_tag_takes_the_pinned_pin(self):
+        module = (
+            'bazel_dep(name = "bazel-orfs")\n'
+            "git_override(\n"
+            '    module_name = "bazel-orfs",\n'
+            '    commit = "old_bazel_orfs_commit",\n'
+            '    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs.git",\n'
+            ")\n"
+            'orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")\n'
+            "orfs.source(\n"
+            '    commit = "' + "a" * 40 + '",\n'
+            '    integrity = "sha256-OLD=",\n'
+            ")\n"
+        )
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".MODULE.bazel", delete=False
+        )
+        tmp.write(module)
+        tmp.close()
+        self.addCleanup(os.unlink, tmp.name)
+        out = bump.bump(
+            tmp.name,
+            fetch_commit_fn=mock_fetch_commit,
+            fetch_integrity_fn=lambda url: self.fail(f"hashed {url}"),
+            fetch_raw_text_fn=mock_fetch_raw_text,
+        )
+        self.assertIn(f'commit = "{PINNED_ORFS_COMMIT}"', out)
+        self.assertIn(f'integrity = "{PINNED_ORFS_INTEGRITY}"', out)
+
+    def test_refuses_before_writing_without_a_pinned_orfs(self):
+        def raw_text(repo, ref, path):
+            if repo == bump.BAZEL_ORFS_REPO and path == "MODULE.bazel":
+                return FAKE_BAZEL_ORFS_MODULE.replace(PINNED_ORFS_SOURCE_TAG, "")
+            return mock_fetch_raw_text(repo, ref, path)
+
+        src = os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel")
+        tmp = tempfile.NamedTemporaryFile(suffix=".MODULE.bazel", delete=False)
+        tmp.close()
+        self.addCleanup(os.unlink, tmp.name)
+        shutil.copy2(src, tmp.name)
+        with open(tmp.name) as f:
+            before = f.read()
+        with self.assertRaisesRegex(bump.BumpError, "--orfs=head"):
+            bump.bump(
+                tmp.name,
+                fetch_commit_fn=mock_fetch_commit,
+                fetch_integrity_fn=mock_fetch_integrity,
+                fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+                fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+                fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+                fetch_sha256_hex_fn=mock_fetch_sha256_hex,
+                fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+                fetch_raw_text_fn=raw_text,
+            )
+        with open(tmp.name) as f:
+            self.assertEqual(f.read(), before)
+
+
+class TestOrfsSourceResolution(unittest.TestCase):
+    def test_consumer_defaults_to_bazel_orfs(self):
+        self.assertEqual(bump.resolve_orfs_source("downstream", None), "bazel-orfs")
+        self.assertEqual(bump.resolve_orfs_source("openroad", None), "bazel-orfs")
+
+    def test_bazel_orfs_defaults_to_head(self):
+        self.assertEqual(bump.resolve_orfs_source("bazel-orfs", None), "head")
+
+    def test_explicit_head(self):
+        self.assertEqual(bump.resolve_orfs_source("downstream", "head"), "head")
+
+    def test_bazel_orfs_cannot_follow_itself(self):
+        with self.assertRaises(bump.BumpError):
+            bump.resolve_orfs_source("bazel-orfs", "bazel-orfs")
+
+    def test_unknown_source(self):
+        with self.assertRaises(bump.BumpError):
+            bump.resolve_orfs_source("downstream", "orfs")
+
+    def test_sri_to_sha256_hex(self):
+        self.assertEqual(
+            bump.sri_to_sha256_hex(PINNED_ORFS_INTEGRITY), PINNED_ORFS_SHA256_HEX
+        )
 
 
 class TestPickBcrYosysVersion(unittest.TestCase):
@@ -2599,7 +2770,7 @@ archive_override(
     strip_prefix = "OpenROAD-pinned_openroad_eee555",
     urls = ["https://example.invalid/openroad.tar.gz"],
 )
-"""
+""" + PINNED_ORFS_SOURCE_TAG
         reads = []
 
         def raw_text(repo, ref, path):

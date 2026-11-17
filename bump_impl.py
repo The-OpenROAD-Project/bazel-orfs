@@ -607,8 +607,8 @@ def verify_orfs_patch_pairing(
         "bazel-orfs applies these below any consumer patches, so the fetch "
         "would fail inside bazel-orfs's patch dir. Bump bazel-orfs onto this "
         "ORFS first (retire or rebase the patch there), or pin orfs to the "
-        "commit bazel-orfs itself pins. Re-run with --ignore to write "
-        "MODULE.bazel anyway."
+        "commit bazel-orfs itself pins (--orfs=bazel-orfs). Re-run with "
+        "--ignore to write MODULE.bazel anyway."
     )
     if ignore_errors:
         print(f"WARNING: {msg}", file=sys.stderr)
@@ -2139,8 +2139,15 @@ def bump(
     head_tools=None,
     ignore_errors=False,
     openroad_source=None,
+    orfs_source=None,
 ):
     """Main bump orchestrator.
+
+    ``orfs_source`` (one of ``ORFS_SOURCES``) says where the ORFS commit
+    comes from: ``bazel-orfs``, the default for a consumer, takes the commit
+    and integrity of the pinned bazel-orfs's own ``orfs.source()`` tag, the
+    only ORFS its ORFS_PATCHES are guaranteed to fit; ``head``, the default
+    for bazel-orfs itself, takes ORFS's master HEAD.
 
     ``openroad_source`` (one of ``OPENROAD_SOURCES``) says where the
     openroad commit comes from: ``bazel-orfs``, the default for a consumer,
@@ -2172,6 +2179,7 @@ def bump(
 
     project = detect_project(content)
     openroad_source = resolve_openroad_source(project, openroad_source, head_tools)
+    orfs_source = resolve_orfs_source(project, orfs_source)
     updated_modules = []
 
     # --- Locate bazel-orfs source (for reading overrides and copying patches) ---
@@ -2181,6 +2189,7 @@ def bump(
     bazel_orfs_commit = None
     staged = None
     pinned_openroad_block = None
+    pinned_orfs = None
     if project != "bazel-orfs":
         bazel_orfs_commit = fetch_commit_fn("The-OpenROAD-Project/bazel-orfs", "main")
         _expect(
@@ -2208,6 +2217,10 @@ def bump(
             pinned_openroad_block = pinned_openroad_override(
                 pinned_module, bazel_orfs_commit
             )
+        if orfs_source == "bazel-orfs" and (
+            has_bazel_dep(content, "orfs") or find_orfs_source_tag(content)
+        ):
+            pinned_orfs = pinned_orfs_source(pinned_module, bazel_orfs_commit)
         content, patched = reconcile_patch_labels(
             content, owned, bazel_orfs_patch_strips(pinned_module)
         )
@@ -2217,15 +2230,25 @@ def bump(
             staged = stage_patches(read_pinned, owned)
 
     # --- Update ORFS commit (skip for projects without ORFS) ---
-    # Every consumer follows ORFS master — including OpenROAD, whose orfs
-    # pin gates its bazel-orfs integration tests; the tool overrides
-    # (openroad/yosys below) are then resolved at the new ORFS commit so
-    # the whole stack moves coherently.  Dispatch on the override shape,
-    # not the project type: archive_override (literal or commit-variable
-    # form) vs git_override.
+    # A consumer takes the pinned bazel-orfs's ORFS (--orfs=bazel-orfs) or
+    # ORFS master (--orfs=head); the tool overrides (openroad/yosys below)
+    # are then resolved at that ORFS commit so the whole stack moves
+    # coherently.  Dispatch on the override shape, not the project type:
+    # archive_override (literal or commit-variable form) vs orfs.source().
+    if pinned_orfs is not None:
+        pinned_orfs_commit, pinned_orfs_integrity = pinned_orfs
+        target_orfs_commit = lambda: pinned_orfs_commit
+        orfs_integrity_fn = lambda _url: pinned_orfs_integrity
+        orfs_sha256_hex_fn = lambda _url: sri_to_sha256_hex(pinned_orfs_integrity)
+        orfs_from = f" (bazel-orfs {bazel_orfs_commit[:12]})"
+    else:
+        target_orfs_commit = lambda: fetch_commit_fn(ORFS_REPO, "master")
+        orfs_integrity_fn = fetch_integrity_fn
+        orfs_sha256_hex_fn = fetch_sha256_hex_fn
+        orfs_from = ""
     orfs_commit = None
     if has_bazel_dep(content, "orfs"):
-        orfs_commit = fetch_commit_fn(ORFS_REPO, "master")
+        orfs_commit = target_orfs_commit()
         _expect(
             find_archive_override_block(content, "orfs"),
             'archive_override(module_name = "orfs")',
@@ -2234,30 +2257,31 @@ def bump(
         content = update_orfs_archive_override(
             content,
             orfs_commit,
-            fetch_integrity_fn=fetch_integrity_fn,
-            fetch_sha256_hex_fn=fetch_sha256_hex_fn,
+            fetch_integrity_fn=orfs_integrity_fn,
+            fetch_sha256_hex_fn=orfs_sha256_hex_fn,
             ignore_errors=ignore_errors,
         )
-        updated_modules.append(f"orfs -> {orfs_commit[:12]}")
+        updated_modules.append(f"orfs -> {orfs_commit[:12]}{orfs_from}")
     elif find_orfs_source_tag(content):
         # ORFS as an extension-created http_archive: the version is an
         # orfs.source() tag rather than an override, so that bazel-orfs
         # owns the patches for every root module.
-        orfs_commit = fetch_commit_fn(ORFS_REPO, "master")
+        orfs_commit = target_orfs_commit()
         content = update_orfs_source_tag(
             content,
             orfs_commit,
-            fetch_integrity_fn=fetch_integrity_fn,
+            fetch_integrity_fn=orfs_integrity_fn,
             ignore_errors=ignore_errors,
         )
-        updated_modules.append(f"orfs -> {orfs_commit[:12]}")
+        updated_modules.append(f"orfs -> {orfs_commit[:12]}{orfs_from}")
 
     # --- Refuse an ORFS commit bazel-orfs's own ORFS_PATCHES do not fit ---
-    # The consumer follows ORFS master; bazel-orfs main may still pin an
-    # older ORFS, and its patches apply below the consumer's, so a mismatch
-    # otherwise surfaces as a ctx.patch failure in bazel-orfs's patch dir
-    # during mod tidy, after MODULE.bazel is rewritten.
-    if orfs_commit is not None:
+    # With --orfs=head the consumer follows ORFS master; bazel-orfs main may
+    # still pin an older ORFS, and its patches apply below the consumer's,
+    # so a mismatch otherwise surfaces as a ctx.patch failure in
+    # bazel-orfs's patch dir during mod tidy, after MODULE.bazel is
+    # rewritten.  The pinned bazel-orfs's own ORFS is the pairing itself.
+    if orfs_commit is not None and pinned_orfs is None:
         if project == "bazel-orfs":
             checkout = os.path.dirname(os.path.abspath(module_file))
             read_bazel_orfs = lambda path: read_local_text(checkout, path)
@@ -2412,6 +2436,47 @@ def resolve_openroad_source(project, openroad_source, head_tools):
     return openroad_source
 
 
+ORFS_SOURCES = ("bazel-orfs", "head")
+
+
+def resolve_orfs_source(project, orfs_source):
+    """The ``orfs_source`` a bump of ``project`` uses; see :func:`bump`.
+
+    bazel-orfs has no pinned bazel-orfs to follow: its own bump is what
+    moves that pin, so it defaults to ORFS's HEAD.
+    """
+    if orfs_source is None:
+        orfs_source = "head" if project == "bazel-orfs" else "bazel-orfs"
+    if orfs_source not in ORFS_SOURCES:
+        raise BumpError(f"unknown orfs source {orfs_source!r}")
+    if orfs_source == "bazel-orfs" and project == "bazel-orfs":
+        raise BumpError(
+            "--orfs=bazel-orfs follows the bazel-orfs a consumer pins; "
+            "bazel-orfs moves its own ORFS with --orfs=head"
+        )
+    return orfs_source
+
+
+def pinned_orfs_source(pinned_module, bazel_orfs_commit):
+    """``(commit, integrity)`` of the pinned bazel-orfs's ``orfs.source()``."""
+    span = find_orfs_source_tag(pinned_module)
+    block = pinned_module[span[0] : span[1]] if span else ""
+    m_commit = re.search(r'commit\s*=\s*"([0-9a-f]{7,40})"', block)
+    m_integrity = re.search(r'integrity\s*=\s*"(sha256-[^"]+)"', block)
+    if not (m_commit and m_integrity):
+        raise BumpError(
+            f"bazel-orfs {bazel_orfs_commit[:12]} has no orfs.source() tag "
+            'with a commit and an integrity = "sha256-..." to follow; take '
+            "ORFS from its master HEAD with --orfs=head"
+        )
+    return m_commit.group(1), m_integrity.group(1)
+
+
+def sri_to_sha256_hex(integrity):
+    """The hex digest a ``sha256 = "..."`` field holds for an SRI string."""
+    return base64.b64decode(integrity[len("sha256-") :]).hex()
+
+
 def pinned_openroad_override(pinned_module, bazel_orfs_commit):
     """The openroad archive_override block of the pinned bazel-orfs."""
     span = find_archive_override_block(pinned_module, "openroad")
@@ -2504,6 +2569,18 @@ def main():
         ),
     )
     parser.add_argument(
+        "--orfs",
+        choices=ORFS_SOURCES,
+        default=None,
+        help=(
+            "Where the ORFS commit comes from. bazel-orfs (the default, "
+            "except in bazel-orfs itself): the commit and integrity of the "
+            "pinned bazel-orfs's own orfs.source() tag, the ORFS its "
+            "patches are tested on. head (the default in bazel-orfs "
+            "itself): ORFS's master HEAD."
+        ),
+    )
+    parser.add_argument(
         "--ignore",
         action="store_true",
         help=(
@@ -2537,6 +2614,7 @@ def main():
         head_tools=set(args.head),
         ignore_errors=args.ignore,
         openroad_source=args.openroad,
+        orfs_source=args.orfs,
     )
     run_mod_tidy(workspace)
 

@@ -227,6 +227,17 @@ in bazel-orfs itself. `--openroad=head` (or `--head=openroad`) pins OpenROAD to
 its own `origin/master` HEAD. Either regenerates the archive_override integrity
 and submodule `patch_cmds`, and bazel-orfs's patches may not apply there.
 
+### `--orfs` picks the ORFS commit
+A consumer's bump pins ORFS where the bazel-orfs it pins does: the commit and
+integrity of that bazel-orfs's own `orfs.source()` tag, the only ORFS its ORFS
+patches are guaranteed to fit (`--orfs=bazel-orfs`, the default). Nothing is
+downloaded or hashed. `--orfs=head` takes ORFS's `master` HEAD, the default in
+bazel-orfs itself; the bump then checks that bazel-orfs's ORFS patches apply
+there and refuses, writing nothing, when one does not. Bump bazel-orfs onto
+that ORFS first, or stay on the default. A pinned bazel-orfs without an
+`orfs.source()` tag is refused under the default, also before anything is
+written.
+
 ### Master bumps surface stale carried patches
 A carried patch failing with `CONTENT_DOES_NOT_MATCH_TARGET` usually means
 upstream absorbed or moved it. Diff the new upstream file and **retire** the
