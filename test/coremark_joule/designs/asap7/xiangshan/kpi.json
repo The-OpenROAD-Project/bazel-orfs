@@ -2772,6 +2772,89 @@
           "what": "The FP write-back path's destination register number to the FP register file's write address: a register index travelling to a macro."
         }
       }
+    },
+    {
+      "date": "2026-11-17",
+      "measured": "Run 32's lane with global placement's cohesion added (carried OpenROAD patch 0242, -clusters_file, eight groups of the parent's cells at weight 1, no fade): the parent's place, CTS, global route and KPI in a dirty lane on main's cached floorplan and blocks (16be74e3), not a clean build, with run 32's OpenROAD plus the cohesion patch and VecRegionModule's corrected abstract; the blocks as run 32",
+      "parent_ps": 1992,
+      "blocks": {
+        "Frontend": 1260,
+        "MemBlock": 1158,
+        "CoupledL2": 814,
+        "VecRegionModule": 1039,
+        "FltRegionModule": 1025
+      },
+      "note": "The parent at 1,992 ps, from a dirty lane, not a clean build, from 2,113 in run 32: no endpoint over 2,000 ps (31 in run 32), 1,096 at or over 1,900 (1,294). Global placement pulls eight groups of the parent's cells toward their own centres: dispatch, decode, rename, memCtrl, the integer issue queues, fusionDecoder, ALU0 with its CSR, and the decode buffer's 712 flops. The control block's paths, 61 % of run 32's mass at or over 1,900 ps with wire four times their register distance, leave the tail (178 endpoints at or over 1,700, worst 1,937). Global placement ends at 37.6 M um against 32.3 M, and global route overflow falls from 231,541 to 45,132. The worst path is now inside intRegion, its memory issue port's load-queue index into its op-type register; Frontend into the parent has the most endpoints at or over 1,900 ps (899)",
+      "histograms": {
+        "parent": {
+          "bin_ps": 10,
+          "from_ps": -20,
+          "counts": [1, 22, 65, 8, 2, 903, 3990, 787, 396, 270, 215, 421, 339, 306, 250, 249, 236, 229, 231, 278, 269, 227, 215, 208, 173, 197, 171, 186, 240, 255, 361, 408, 273, 326, 321, 347, 423, 358, 428, 501, 570, 644, 585, 610, 759, 702, 822, 761, 852, 899, 961, 970, 841, 865, 817, 781, 1002, 1057, 905, 977, 935, 1093, 1107, 981, 1047, 1075, 1212, 1155, 995, 940, 1021, 1024, 998, 961, 874, 802, 910, 1072, 953, 737, 775, 949, 895, 995, 1084, 977, 1013, 1078, 1170, 1285, 1168, 1218, 1332, 1169, 1265, 1035, 975, 1016, 1068, 1128, 1015, 791, 848, 811, 662, 704, 733, 834, 791, 922, 909, 1059, 1003, 1299, 1393, 1554, 1677, 1394, 1295, 1346, 1664, 1818, 1752, 1414, 1455, 1749, 1518, 1608, 1736, 1559, 1814, 1935, 1719, 1778, 1760, 1490, 1487, 1302, 1245, 1381, 1318, 1164, 1085, 1049, 923, 948, 995, 935, 894, 864, 773, 717, 736, 707, 713, 878, 763, 768, 772, 740, 780, 727, 681, 600, 622, 700, 658, 577, 487, 515, 458, 480, 388, 344, 443, 384, 279, 272, 285, 268, 273, 215, 178, 215, 122, 100, 101, 102, 135, 84, 102, 93, 73, 107, 192, 248, 222, 151, 57, 19, 23, 4]
+        },
+        "Frontend": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [417, 317, 42, 106, 54, 161, 254, 242, 256, 226, 306, 361, 421, 429, 604, 698, 750, 1062, 1192, 786, 861, 806, 815, 697, 596, 592, 644, 671, 784, 821, 814, 893, 967, 1142, 1398, 1304, 1288, 1329, 1327, 1688, 1623, 1147, 1037, 1106, 1100, 1456, 1933, 1955, 1541, 1203, 1171, 1905, 2389, 2033, 2870, 2106, 1512, 1346, 1072, 994, 890, 1169, 1684, 2836, 2922, 2988, 2141, 984, 1031, 1475, 815, 494, 586, 616, 509, 618, 547, 793, 1230, 1350, 1074, 967, 1177, 1368, 1925, 1802, 2025, 2285, 3180, 2894, 3154, 3081, 2896, 2241, 1201, 799, 880, 1160, 1305, 1363, 1337, 1220, 730, 791, 843, 660, 495, 322, 182, 206, 238, 229, 208, 416, 829, 979, 407, 102, 71, 41, 33, 14, 12, 1]
+        },
+        "MemBlock": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [2119, 563, 367, 346, 244, 194, 174, 194, 221, 192, 223, 295, 462, 640, 772, 902, 1631, 1890, 2551, 3197, 4001, 4714, 5007, 5054, 5248, 5543, 6189, 5921, 5528, 5106, 4351, 3209, 2653, 1984, 2145, 1851, 2021, 2030, 1861, 2047, 2627, 4381, 5538, 4583, 3900, 3279, 3584, 3180, 2772, 2668, 3106, 2577, 1922, 1934, 2251, 1983, 2051, 1846, 1948, 2449, 2669, 3659, 5455, 4816, 3662, 3857, 3558, 3375, 3004, 3383, 3972, 3345, 3119, 2758, 3839, 4552, 5295, 5995, 7136, 5933, 5021, 4870, 4655, 2166, 1717, 1784, 2806, 3636, 5342, 5886, 4925, 3639, 1991, 706, 239, 535, 578, 203, 147, 145, 233, 271, 262, 329, 598, 814, 228, 71, 27, 13, 11, 1, 8]
+        },
+        "CoupledL2": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [615, 357, 220, 512, 133, 70, 184, 121, 125, 114, 85, 71, 27, 44, 71, 77, 133, 142, 281, 236, 396, 631, 1215, 1112, 977, 801, 962, 975, 1145, 1354, 1495, 1813, 1888, 1297, 1222, 1161, 1083, 1090, 1464, 1763, 1440, 1232, 1597, 1457, 1791, 1952, 2343, 3460, 3358, 2870, 2186, 1773, 1500, 1113, 1945, 3002, 2687, 1155, 736, 651, 822, 1213, 1330, 1139, 1062, 1411, 2063, 2400, 2655, 2018, 1502, 1089, 821, 937, 1926, 1153, 51, 1, 1]
+        },
+        "VecRegionModule": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [652, 247, 8, 300, 441, 382, 23, 32, 64, 48, 26, 48, 103, 116, 109, 153, 159, 209, 246, 240, 266, 292, 319, 387, 336, 364, 414, 505, 408, 470, 597, 586, 514, 688, 1117, 1263, 1035, 876, 816, 812, 998, 1261, 1512, 1738, 1180, 1314, 1180, 806, 747, 1142, 1168, 991, 786, 1167, 1410, 1462, 1352, 616, 625, 614, 701, 638, 589, 541, 507, 434, 438, 329, 287, 347, 323, 440, 425, 485, 450, 422, 433, 452, 477, 444, 429, 436, 377, 312, 270, 249, 193, 230, 213, 216, 179, 183, 135, 131, 141, 123, 92, 115, 83, 32, 21]
+        },
+        "FltRegionModule": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [30, 0, 83, 55, 23, 13, 35, 36, 54, 69, 64, 47, 50, 65, 51, 41, 30, 39, 21, 41, 23, 25, 31, 26, 33, 60, 56, 63, 64, 140, 180, 136, 311, 372, 393, 493, 809, 906, 925, 1266, 1449, 1179, 726, 540, 339, 256, 280, 287, 323, 310, 254, 264, 275, 198, 226, 167, 171, 298, 236, 181, 119, 140, 177, 216, 228, 139, 118, 101, 118, 94, 76, 36, 44, 56, 50, 13, 7, 6, 9, 5, 3, 6, 19, 59, 133, 180, 185, 173, 185, 151, 108, 61, 33, 13, 7, 1, 10, 4, 1, 5]
+        }
+      },
+      "worst_paths": {
+        "parent": {
+          "period_ps": 1992,
+          "from": "core/backend/inner_intRegion/io_toMemExu_1_0_bits_lqIdx_value[1]$_DFFE_PP_/QN",
+          "to": "core/backend/inner_intRegion/io_toMemExu_1_0_bits_ctrl_fuOpType[11]$_DFFE_PP_/D",
+          "what": "Inside intRegion's memory issue port: its load-queue index register into its op-type register."
+        },
+        "Frontend": {
+          "period_ps": 1260,
+          "from": "inner_bpu/abtb/s2_valid$_DFF_PP0_/QN",
+          "to": "inner_bpu/tage/tables_4.tage_entry_sram_bank1_way1.array.array_ext/RW0_addr[1]",
+          "what": "The BPU's ahead-BTB stage-2 valid to the address pin of a TAGE table's entry SRAM: a valid bit steering a memory address."
+        },
+        "MemBlock": {
+          "period_ps": 1158,
+          "from": "inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN",
+          "to": "inner_dcache/dcache.bankedDataArray/data_banks_0_0.data_bank.array.array_ext/RW0_addr[6]",
+          "what": "The DCache main pipe's stage-1 virtual address to the address pin of a data bank's SRAM."
+        },
+        "CoupledL2": {
+          "period_ps": 814,
+          "from": "slices_0/mainPipe/task_s3_bits_useProbeData$_DFFE_PP0P_/QN",
+          "to": "slices_0/dataStorage.array.array_0_0_0.array.array_ext/RW0_wdata[136]",
+          "what": "The main pipe's stage-3 probe-data select to the write data of the L2 data SRAM: a select travelling to a memory."
+        },
+        "VecRegionModule": {
+          "period_ps": 1039,
+          "from": "issuePipes_1/exu.ex_0_bits_ctrl_uopIdx[0]$_DFFE_PP_/QN",
+          "to": "issuePipes/exu.Vfmac/a0_0_fpB[60]$_DFFE_PP_/D",
+          "what": "An issue pipe's micro-op index into the vector FMA's operand register: operand selection by uop index."
+        },
+        "FltRegionModule": {
+          "period_ps": 1025,
+          "from": "fpWbDataPath.out_wb0_6_pdest[0]$_DFFE_PP_/QN",
+          "to": "fpRegFile/io_writePorts_6_addr[0]",
+          "what": "The FP write-back path's destination register number to the FP register file's write address: a register index travelling to a macro."
+        }
+      }
     }
   ],
   "memory_history": [
