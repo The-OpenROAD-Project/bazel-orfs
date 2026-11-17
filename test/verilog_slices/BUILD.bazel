@@ -559,9 +559,13 @@ sh_test(
 #                       memories.json is the global path's.
 #   rom_rtlil_test      Lookup and the top are in their slices'
 #                       canonicalized RTLIL as in the whole design's,
-#                       byte for byte. The top's partition netlist is not
-#                       compared: yosys's techmap orders cells by IdString
-#                       index, which the rest of the design shifts.
+#                       byte for byte.
+#   rom_equal_test      the slices give Lookup's and the top's partition
+#                       and the design the netlists the global path gives
+#                       them, byte for byte. techmap orders cells by name
+#                       (patches/yosys-0007-*), not by IdString index,
+#                       which Lookup's names, held in the whole design and
+#                       not in the top's slice, shift.
 [orfs_flow(
     name = "RomTop",
     arguments = ARGUMENTS | {"SYNTH_KEEP_MODULES": "Lookup"},
@@ -596,10 +600,42 @@ filegroup(
     output_group = "1_1_yosys_canonicalize.rtlil",
 )
 
-filegroup(
-    name = "rom_partitions_slices",
-    srcs = [":RomTop_slices_synth"],
+[filegroup(
+    name = "rom_partitions_" + variant,
+    srcs = [":RomTop_%s_synth" % variant],
     output_group = "partitions",
+) for variant in [
+    "global",
+    "slices",
+]]
+
+[filegroup(
+    name = "rom_netlist_" + variant,
+    srcs = [":RomTop_%s_synth" % variant],
+    output_group = "1_2_yosys.v",
+) for variant in [
+    "global",
+    "slices",
+]]
+
+sh_test(
+    name = "rom_equal_test",
+    size = "small",
+    srcs = ["slices_equal_test.sh"],
+    args = [
+        "$(location :rom_netlist_global)",
+        "$(location :rom_netlist_slices)",
+        "Lookup",
+        "$(locations :rom_partitions_global)",
+        "--",
+        "$(locations :rom_partitions_slices)",
+    ],
+    data = [
+        ":rom_netlist_global",
+        ":rom_netlist_slices",
+        ":rom_partitions_global",
+        ":rom_partitions_slices",
+    ],
 )
 
 sh_test(
