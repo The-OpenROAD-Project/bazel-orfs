@@ -158,7 +158,13 @@
     "LLPTW"
    ],
    "content_um2": 403494,
-   "region_side": "top"
+   "region_side": "top",
+   "pin_order": [
+    {
+     "pins": "^io_mem_to_ooo_(ldCancel_\\d+_ld2Cancel|wakeup_\\d+_bits_pdest|intWriteback_[0-2]_0_(toIntRf_|toFpRf_|toRob_valid))",
+     "toward": "FltRegionModule"
+    }
+   ]
   },
   {
    "name": "FltRegionModule",
@@ -177,7 +183,14 @@
     "IssueQueueFaluFmul"
    ],
    "content_um2": 166941,
-   "region_side": "bottom"
+   "region_side": "bottom",
+   "pin_order": [
+    {
+     "pins": "^(in_fromIntRegion_fpWbNext_[6-8]_0_(data|wen)|in_fromIntRegion_fpWbM3Wakeup_[1-3]_(pdest|wen)|in_fromMem_ldCancel_\\d+_ld2Cancel|out_toDispatch_(wakeUpFp_[0-3]_wen|canAccept_\\d+_0))",
+     "toward": "MemBlock",
+     "partner_pins": "^io_mem_to_ooo_intWriteback_[0-2]_0_toFpRf_"
+    }
+   ]
   },
   {
    "name": "VecRegionModule",
@@ -199,7 +212,14 @@
     "VFMacWrapper"
    ],
    "content_um2": 260182,
-   "region_side": "bottom"
+   "region_side": "bottom",
+   "pin_order": [
+    {
+     "pins": "^in_fromIntRegion_gpWbWakeUp_[6-8]_(pdest|wen)",
+     "toward": "MemBlock",
+     "partner_pins": "^io_mem_to_ooo_intWriteback_[0-2]_0_toIntRf_"
+    }
+   ]
   },
   {
    "name": "CoupledL2",
