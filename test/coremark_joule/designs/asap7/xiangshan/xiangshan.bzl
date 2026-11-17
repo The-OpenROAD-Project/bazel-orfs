@@ -1348,6 +1348,22 @@ def _regfiles(own_sources, keep, blocks):
 # extra liberty and adds no masters (.claude/skills/byo-openroad).
 XS_VT = "RVT LVT SLVT"
 
+# The parent's hard blocks clocked on purpose at CTS, in ps: + lands the
+# block's clock that much later than CTS's latency balance, - earlier
+# (CTS_LATENCY_OFFSETS, carried ORFS patch 0241 over OpenROAD patch 0240).
+# Block-granular useful skew: on the 2,113 ps tree these four shifts, set
+# at the block pins with every other clock held, took the worst reg2reg
+# path to 2,077 ps and the endpoints at or over 1,900 ps from 1,323 to
+# 1,066. An offset is the shift wanted at global route; set again from
+# the measured arrivals after a global route that misses it, and after a
+# floorplan, pin-order or clock-tree change.
+XS_CTS_LATENCY_OFFSETS = {
+    "core/backend/inner_vecRegion": 60,
+    "core/frontend": -80,
+    "core/backend/inner_fpRegion": 30,
+    "core/memBlock": -30,
+}
+
 def _planned_block(cfg, entry, plan_dir, block, blocks):
     """A block flow's arguments and sources under the plan: planned outline,
     every pin on the planned side, the parent's target period."""
@@ -1545,6 +1561,9 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
     arguments["IO_PLACER_H"] = "M2 M4"
     arguments["IO_PLACER_V"] = "M3 M5"
     arguments["PLACE_PINS_ARGS"] = "-annealing"
+
+    # each hard block's clock where its crossings want it
+    arguments["CTS_LATENCY_OFFSETS"] = " ".join(["%s %s" % (i, o) for i, o in XS_CTS_LATENCY_OFFSETS.items()])
 
     # Zero iterations with congestion allowed: the route reports what it
     # would have to route and stops, which is the number this baseline
