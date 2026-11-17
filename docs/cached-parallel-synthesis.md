@@ -473,6 +473,20 @@ argument. At analysis:
 
 It works with and without `verilog_slices`.
 
+### Which modules SYNTH_RETIME_MODULES retimes
+
+Retiming runs after flattening, so it reaches only the modules that
+are left: the top and the kept modules. Each `SYNTH_RETIME_MODULES`
+entry is a glob over those names. With the slang frontend a kept
+module is named `Name$<path>`, so it is `Name*`, never `Name`. A
+partition holds one of them, so it retimes the entries that match its
+own module and skips the rest; the `RetimeModulesCheck` validation
+action (`retime_modules.py`) fails the build on an entry that matches
+no partition's module, the design's list and each `partition_arguments`
+list checked against the partitions it reaches. A synthesis without
+partitions fails on such an entry in ORFS's `synth.tcl` (carried
+patch 0232).
+
 ## Remote execution and caching
 
 ![An in-house Bazel cache server shared by developers and CI, with a remote execution orchestrator and a worker pool](images/parallel-synthesis-remote.png)

@@ -187,6 +187,13 @@ ORFS_PATCHES = [
     # clocks it late (XiangShan's VecRegionModule, 245 ps). Not
     # upstreamed; retires at a bump onto an ORFS that carries it.
     Label("//patches:0231-orfs-abstract-clock-tree-order.patch"),
+    # 0232: an SYNTH_RETIME_MODULES entry that matches no module left after
+    # flattening (the top and the kept modules) is an error; a partition
+    # skips one that names another partition's module, and
+    # retime_modules.py checks those against every partition. Not
+    # upstreamed; an upstream candidate, retires at a bump onto an ORFS
+    # that carries it.
+    Label("//patches:0232-orfs-synth-retime-modules-must-match.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
