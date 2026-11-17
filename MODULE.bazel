@@ -49,12 +49,20 @@ bazel_dep(name = "yosys", version = "0.68.bcr.3")
 # 0002: abc_new took "-script" anywhere in its arguments, such as in a
 # liberty path under OpenROAD-flow-scripts, for a given -script and
 # dropped its default script. YosysHQ/yosys#6320, not fixed upstream.
+# 0003-0006: proc_rom and memory_bmux2rom named a ROM with the design-wide
+# counter, so a module synthesized on its own (verilog_slices) got other
+# ROM names than inside its design. Each ROM is numbered within its module.
+# Not filed upstream.
 single_version_override(
     module_name = "yosys",
     patch_strip = 1,
     patches = [
         "//patches:yosys-0001-aiger2-holes-output-order.patch",
         "//patches:yosys-0002-abc-new-script-option.patch",
+        "//patches:yosys-0003-rom-names-per-module-proc-rom.patch",
+        "//patches:yosys-0004-rom-names-per-module-proc-rom-test.patch",
+        "//patches:yosys-0005-rom-names-per-module-memory-bmux2rom.patch",
+        "//patches:yosys-0006-rom-names-per-module-memory-bmux2rom-test.patch",
     ],
 )
 
