@@ -1,4 +1,4 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From c36a9b2621b4354ccffc2294a8facaa5920b0e3b Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Thu, 12 Nov 2026 22:36:58 +0100
 Subject: [PATCH] cts: connect every sink when two share a location
@@ -17,11 +17,6 @@ clock net and connects only the subnets' sinks, so its clock pin was
 left on no net. Nothing said so: CTS-0035 counts locations and reported
 every sink covered.
 
-On a large hierarchical design (XiangShan's XSTile Top, in bazel-orfs) a
-global placement left 7 pairs of registers at identical locations, and
-CTS left 7 registers unclocked; CTS, global route and the routed checks
-passed, and only a later check of the clock found them.
-
 Sink clustering now takes each sink by its index in the vector that runs
 parallel to its points, instead of looking its location up. The map
 keeps every sink at a location, and the leaf level connects the next one
@@ -31,31 +26,40 @@ instead of a clock pin left on no net. #9816 nudged cloned clock gaters
 apart by 1 dbu for the same map; sinks that already shared a location
 when CTS started were still lost.
 
-Where no two sinks share a location, the trees are the same: on the
-reproducer's controls and on a small hierarchical design, the databases
-written after CTS were byte-identical with and without the change.
+Where no two sinks share a location the trees are the same; every
+existing cts test passes unchanged.
 
 colocated_registers puts a register on top of another in a clustered
-tree (226 sinks) and in one too small to cluster (37 sinks). It fails
-without the change (ffa_twin's clock pin on no net) and passes with it.
+tree (226 sinks) and in one too small to cluster (37 sinks), and checks
+that every register's clock pin reaches its clock port through the tree.
+It fails without the change (ffa_twin's clock pin on no net) and passes
+with it.
 
-Carried in bazel-orfs, not upstreamed; retires with the //:bump onto an
-OpenROAD that has it. Upstream candidate: a bugfix.
+Upstream as The-OpenROAD-Project/OpenROAD#12351; retires with the
+//:bump onto an OpenROAD that has it.
 
-Co-Authored-By: Claude <noreply@anthropic.com>
+Updated before that merge because the earlier carry was broken on the
+pinned OpenROAD: since 02eab85733 filters clock gate sinks out of the
+points before sink clustering, it indexed sinkInsts by the point's
+index, which put the wrong instances in a cluster or stopped CTS with
+CTS-0138 on any clock with gate sinks and sink clustering
+(TestClockGateSinks, gated_clock1). The sink is now taken from
+pointInsts, which runs parallel to the points.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- openroad/cts/src/HTreeBuilder.cpp         |  71 +++--
+ openroad/cts/src/HTreeBuilder.cpp         |  73 +++--
  openroad/cts/src/HTreeBuilder.h           |  11 +-
  openroad/cts/test/BUILD                   |   1 +
  openroad/cts/test/colocated_registers.def | 318 ++++++++++++++++++++++
  openroad/cts/test/colocated_registers.tcl |  87 ++++++
- 5 files changed, 466 insertions(+), 22 deletions(-)
+ 5 files changed, 467 insertions(+), 23 deletions(-)
  create mode 100644 openroad/cts/test/colocated_registers.def
  create mode 100644 openroad/cts/test/colocated_registers.tcl
 
 diff --git a/openroad/cts/src/HTreeBuilder.cpp b/openroad/cts/src/HTreeBuilder.cpp
-index 758c2a6..c653510 100644
+index 758c2a6372..9367526f11 100644
 --- a/openroad/cts/src/HTreeBuilder.cpp
 +++ b/openroad/cts/src/HTreeBuilder.cpp
 @@ -9,7 +9,9 @@
@@ -86,6 +90,15 @@ index 758c2a6..c653510 100644
        if (!fuzzyEqual(inst.getInsertionDelay(), 0.0, 1e-6)) {
          setSinkInsertionDelay(normLocation,
                                inst.getInsertionDelay() / wireSegmentUnit_);
+@@ -80,7 +82,7 @@ void HTreeBuilder::preSinkClustering(
+   // The H-tree drives a clock gate sink directly in place of a leaf buffer.
+   std::vector<std::pair<float, float>> gatePoints;
+   std::vector<std::pair<float, float>> points;
+-  std::vector<const ClockInst*> pointInsts;
++  std::vector<ClockInst*> pointInsts;
+   for (size_t i = 0; i < sinks.size(); i++) {
+     if (!secondLevel && sinkInsts[i]->isClockGateSink()) {
+       gatePoints.push_back(sinks[i]);
 @@ -163,14 +165,11 @@ void HTreeBuilder::preSinkClustering(
        float ySum = 0;
        for (auto point_idx : cluster) {
@@ -100,7 +113,7 @@ index 758c2a6..c653510 100644
 -        // clock inst needs to be added to the new subnet
 +        // clock inst needs to be added to the new subnet; taken by its index,
 +        // not looked up by its location, which it may share with another sink
-+        clusterClockInsts.push_back(sinkInsts[point_idx]);
++        clusterClockInsts.push_back(pointInsts[point_idx]);
        }
        const unsigned pointCounter = cluster.size();
        const float normCenterX
@@ -211,7 +224,7 @@ index 758c2a6..c653510 100644
 +  unsigned numLeftOut = 0;
 +  const ClockInst* leftOut = nullptr;
 +  clock_.forEachSink([&](const ClockInst& sink) {
-+    if (connected.find(&sink) == connected.end()) {
++    if (!connected.contains(&sink)) {
 +      if (leftOut == nullptr) {
 +        leftOut = &sink;
 +      }
@@ -232,7 +245,7 @@ index 758c2a6..c653510 100644
  
  void HTreeBuilder::createSingleBufferClockNet()
 diff --git a/openroad/cts/src/HTreeBuilder.h b/openroad/cts/src/HTreeBuilder.h
-index 95983d4..6f52dd6 100644
+index 95983d4657..6f52dd6ecd 100644
 --- a/openroad/cts/src/HTreeBuilder.h
 +++ b/openroad/cts/src/HTreeBuilder.h
 @@ -306,9 +306,9 @@ class HTreeBuilder : public TreeBuilder
@@ -269,7 +282,7 @@ index 95983d4..6f52dd6 100644
  
    int wireSegmentUnit_ = 0;
 diff --git a/openroad/cts/test/BUILD b/openroad/cts/test/BUILD
-index fbec1e2..6c0764c 100644
+index fbec1e25e0..6c0764cefc 100644
 --- a/openroad/cts/test/BUILD
 +++ b/openroad/cts/test/BUILD
 @@ -62,6 +62,7 @@ COMPULSORY_TESTS = [
@@ -282,7 +295,7 @@ index fbec1e2..6c0764c 100644
      "dont_touch_skipped_net",
 diff --git a/openroad/cts/test/colocated_registers.def b/openroad/cts/test/colocated_registers.def
 new file mode 100644
-index 0000000..b5e0e38
+index 0000000000..b5e0e3885f
 --- /dev/null
 +++ b/openroad/cts/test/colocated_registers.def
 @@ -0,0 +1,318 @@
@@ -606,7 +619,7 @@ index 0000000..b5e0e38
 +END DESIGN
 diff --git a/openroad/cts/test/colocated_registers.tcl b/openroad/cts/test/colocated_registers.tcl
 new file mode 100644
-index 0000000..f878e9d
+index 0000000000..f878e9d1b5
 --- /dev/null
 +++ b/openroad/cts/test/colocated_registers.tcl
 @@ -0,0 +1,87 @@
