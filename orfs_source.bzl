@@ -206,6 +206,11 @@ ORFS_PATCHES = [
     # cts_latency_offset_test. Not upstreamed; retires at a bump onto an
     # ORFS that carries it.
     Label("//patches:0241-orfs-cts-latency-offsets.patch"),
+    # 0244: regfile_ram.py refuses a spec whose named bit_folds the fold
+    # rule would fold further, rather than build the long, thin array it
+    # names; on 0234. test/regfile/options's bit_folds flow still builds.
+    # Not upstreamed; retires at a bump onto an ORFS that carries it.
+    Label("//patches:0244-orfs-regfile-named-folds-refused.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
