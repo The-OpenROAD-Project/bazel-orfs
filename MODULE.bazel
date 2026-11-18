@@ -1168,6 +1168,10 @@ http_archive(
         # module, RobEntryFile, which the planned parent's
         # AUTO_MEMORIES_REGFILES names (see the patch header).
         "//test/coremark_joule/xiangshan:patches/0008-xiangshan-rob-entry-file.patch",
+        # Carried, not upstreamed: the difftest run-ahead id on Redirect only
+        # in debug builds; otherwise a reset-less register ring in MemBlock
+        # and 64 pins on three hardened blocks (see the patch header).
+        "//test/coremark_joule/xiangshan:patches/0011-xiangshan-runahead-checkpoint-id-debug-only.patch",
     ],
     sha256 = "e4b48e602db1ee00835ea8e99aef9585b16fd34f9049fdfc37c5208625c6a002",
     strip_prefix = "XiangShan-aa6b52033add528a504bdb2c2b726100d89f070a",
