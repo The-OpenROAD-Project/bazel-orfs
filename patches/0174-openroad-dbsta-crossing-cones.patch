@@ -25,10 +25,10 @@ obstructions removed, for a design timed from SPEF.
 
 Carried by bazel-orfs for //tools/carve; not upstreamed. Retires on a
 //:bump onto an OpenROAD that carries it.
-diff --git a/src/dbSta/src/dbSta.i b/src/dbSta/src/dbSta.i
-index c4aa93ed80916b6bda82589d54069e2539e5c428..067ba4ea6c81cd865c38d96657c644bedd40ae7b 100644
---- a/src/dbSta/src/dbSta.i
-+++ b/src/dbSta/src/dbSta.i
+diff --git a/openroad/dbSta/src/dbSta.i b/openroad/dbSta/src/dbSta.i
+index 16a0cd1..da894cb 100644
+--- a/openroad/dbSta/src/dbSta.i
++++ b/openroad/dbSta/src/dbSta.i
 @@ -13,7 +13,14 @@
  #include "db_sta/MakeDbSta.hh"
  #include "ord/OpenRoad.hh"

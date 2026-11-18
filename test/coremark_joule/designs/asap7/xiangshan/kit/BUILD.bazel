@@ -89,14 +89,14 @@ py_test(
     size = "small",
     srcs = ["sta_tcl_test.py"],
     args = [
-        "$(rootpath @openroad//src/sta:opensta)",
+        "$(rootpath @openroad//openroad/sta:opensta)",
         "$(rootpath sta.tcl)",
         "$(rootpath @orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib)",
         "$(rootpath @orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz)",
     ],
     data = [
         "sta.tcl",
-        "@openroad//src/sta:opensta",
+        "@openroad//openroad/sta:opensta",
         "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz",
         "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib",
     ],

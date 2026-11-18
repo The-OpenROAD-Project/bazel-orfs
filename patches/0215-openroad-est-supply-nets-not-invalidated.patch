@@ -33,14 +33,14 @@ OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/est/src/EstimateParasitics.cpp         |  4 ++-
- src/est/test/cpp/TestEstimateParasitics.cc | 36 ++++++++++++++++++++++
+ openroad/est/src/EstimateParasitics.cpp       |  4 ++-
+ .../est/test/cpp/TestEstimateParasitics.cc    | 36 +++++++++++++++++++
  2 files changed, 39 insertions(+), 1 deletion(-)
 
-diff --git a/src/est/src/EstimateParasitics.cpp b/src/est/src/EstimateParasitics.cpp
-index 7df36e8a75..ce5769078b 100644
---- a/src/est/src/EstimateParasitics.cpp
-+++ b/src/est/src/EstimateParasitics.cpp
+diff --git a/openroad/est/src/EstimateParasitics.cpp b/openroad/est/src/EstimateParasitics.cpp
+index 7df36e8..ce57690 100644
+--- a/openroad/est/src/EstimateParasitics.cpp
++++ b/openroad/est/src/EstimateParasitics.cpp
 @@ -1547,7 +1547,9 @@ bool EstimateParasitics::isSkipNet(const sta::Net* net) const
  void EstimateParasitics::parasiticsInvalid(const sta::Net* net)
  {
@@ -52,10 +52,10 @@ index 7df36e8a75..ce5769078b 100644
      debugPrint(logger_,
                 EST,
                 "estimate_parasitics",
-diff --git a/src/est/test/cpp/TestEstimateParasitics.cc b/src/est/test/cpp/TestEstimateParasitics.cc
-index 6c286415b5..b6d0f09307 100644
---- a/src/est/test/cpp/TestEstimateParasitics.cc
-+++ b/src/est/test/cpp/TestEstimateParasitics.cc
+diff --git a/openroad/est/test/cpp/TestEstimateParasitics.cc b/openroad/est/test/cpp/TestEstimateParasitics.cc
+index eb88ec1..cca505b 100644
+--- a/openroad/est/test/cpp/TestEstimateParasitics.cc
++++ b/openroad/est/test/cpp/TestEstimateParasitics.cc
 @@ -308,6 +308,42 @@ TEST_F(TestEstimateParasitics, IdealClockNetSkipsStaInvalidation)
    ep_.setIncrementalParasiticsEnabled(false);
  }

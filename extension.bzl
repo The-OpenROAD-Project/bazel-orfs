@@ -93,7 +93,7 @@ _default_tag = tag_class(
         "opensta": attr.label(
             mandatory = False,
             cfg = "exec",
-            default = Label("@openroad//src/sta:opensta"),
+            default = Label("@openroad//openroad/sta:opensta"),
         ),
         "pdk": attr.label(
             mandatory = False,

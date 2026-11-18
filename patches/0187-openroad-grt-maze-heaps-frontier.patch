@@ -22,14 +22,14 @@ the //:bump onto an OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/grt/src/fastroute/src/FastRoute.cpp | 12 +++++++-----
+ openroad/grt/src/fastroute/src/FastRoute.cpp | 12 +++++++-----
  1 file changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/src/grt/src/fastroute/src/FastRoute.cpp b/src/grt/src/fastroute/src/FastRoute.cpp
-index 532f40f..80424fb 100644
---- a/src/grt/src/fastroute/src/FastRoute.cpp
-+++ b/src/grt/src/fastroute/src/FastRoute.cpp
-@@ -354,9 +354,10 @@ void FastRouteCore::setGridsAndLayers(int x, int y, int nLayers)
+diff --git a/openroad/grt/src/fastroute/src/FastRoute.cpp b/openroad/grt/src/fastroute/src/FastRoute.cpp
+index ce64c62..285bf9e 100644
+--- a/openroad/grt/src/fastroute/src/FastRoute.cpp
++++ b/openroad/grt/src/fastroute/src/FastRoute.cpp
+@@ -358,9 +358,10 @@ void FastRouteCore::setGridsAndLayers(int x, int y, int nLayers)
    int64 total_size = static_cast<int64>(y_grid_) * x_range_;
    pop_heap2_2D_.resize(total_size, false);
  
@@ -43,7 +43,7 @@ index 532f40f..80424fb 100644
  
    d1_2D_.resize(boost::extents[y_range_][x_range_]);
    d2_2D_.resize(boost::extents[y_range_][x_range_]);
-@@ -370,9 +371,10 @@ void FastRouteCore::setGridsAndLayers(int x, int y, int nLayers)
+@@ -374,9 +375,10 @@ void FastRouteCore::setGridsAndLayers(int x, int y, int nLayers)
    total_size = static_cast<int64>(y_grid_) * x_grid_ * num_layers_;
    pop_heap2_3D_.assign(total_size, 0);
  

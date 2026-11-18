@@ -36,16 +36,16 @@ override is the option the search already has: a wider
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/dpl/include/dpl/Opendp.h |   1 +
- src/dpl/src/Opendp.cpp       |   4 ++
- src/dpl/src/Place.cpp        | 163 +++++++++++++++++++++++++++++++++++++++++++
+ openroad/dpl/include/dpl/Opendp.h |   1 +
+ openroad/dpl/src/Opendp.cpp       |   4 +
+ openroad/dpl/src/Place.cpp        | 163 ++++++++++++++++++++++++++++++
  3 files changed, 168 insertions(+)
 
-diff --git a/src/dpl/include/dpl/Opendp.h b/src/dpl/include/dpl/Opendp.h
-index de7f6ef715..d4cfe67bab 100644
---- a/src/dpl/include/dpl/Opendp.h
-+++ b/src/dpl/include/dpl/Opendp.h
-@@ -233,6 +233,7 @@ class Opendp
+diff --git a/openroad/dpl/include/dpl/Opendp.h b/openroad/dpl/include/dpl/Opendp.h
+index 06e277b..8e35b04 100644
+--- a/openroad/dpl/include/dpl/Opendp.h
++++ b/openroad/dpl/include/dpl/Opendp.h
+@@ -246,6 +246,7 @@ class Opendp
  
    std::string printBgBox(const boost::geometry::model::box<bgPoint>& queryBox);
    void diamondDPL();
@@ -53,11 +53,11 @@ index de7f6ef715..d4cfe67bab 100644
    DbuPt nearestPt(const Node* cell, const DbuRect& rect) const;
    int distToRect(const Node* cell, const odb::Rect& rect) const;
    static bool checkOverlap(const odb::Rect& cell, const odb::Rect& box);
-diff --git a/src/dpl/src/Opendp.cpp b/src/dpl/src/Opendp.cpp
-index 4b9cff1153..e949a2cc49 100644
---- a/src/dpl/src/Opendp.cpp
-+++ b/src/dpl/src/Opendp.cpp
-@@ -258,6 +258,10 @@ void Opendp::detailedPlacement(const int max_displacement_x,
+diff --git a/openroad/dpl/src/Opendp.cpp b/openroad/dpl/src/Opendp.cpp
+index 0223107..58a789f 100644
+--- a/openroad/dpl/src/Opendp.cpp
++++ b/openroad/dpl/src/Opendp.cpp
+@@ -267,6 +267,10 @@ void Opendp::detailedPlacement(const int max_displacement_x,
        groupInitPixels2();
        groupInitPixels();
      }
@@ -68,10 +68,10 @@ index 4b9cff1153..e949a2cc49 100644
      if (!quiet_) {
        logger_->info(DPL, 1102, "Legalizing using negotiation legalizer.");
      }
-diff --git a/src/dpl/src/Place.cpp b/src/dpl/src/Place.cpp
-index eddb1dfe91..4e907d2a26 100644
---- a/src/dpl/src/Place.cpp
-+++ b/src/dpl/src/Place.cpp
+diff --git a/openroad/dpl/src/Place.cpp b/openroad/dpl/src/Place.cpp
+index d4b052e..3079bfa 100644
+--- a/openroad/dpl/src/Place.cpp
++++ b/openroad/dpl/src/Place.cpp
 @@ -83,6 +83,8 @@ void Opendp::diamondDPL()
      placeGroups();
    }
@@ -249,3 +249,6 @@ index eddb1dfe91..4e907d2a26 100644
  ////////////////////////////////////////////////////////////////
  
  void Opendp::placeGroups()
+-- 
+2.53.0
+

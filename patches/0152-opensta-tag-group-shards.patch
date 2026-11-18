@@ -33,15 +33,15 @@ OpenROAD whose OpenSTA carries it.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/sta/include/sta/Search.hh |  16 +++++-
- src/sta/search/Search.cc      | 123 +++++++++++++++++++++++++++++-------------
- src/sta/search/TagGroup.hh    |   2 +
+ include/sta/Search.hh |  16 +++++-
+ search/Search.cc      | 123 +++++++++++++++++++++++++++++-------------
+ search/TagGroup.hh    |   2 +
  3 files changed, 102 insertions(+), 39 deletions(-)
 
-diff --git a/src/sta/include/sta/Search.hh b/src/sta/include/sta/Search.hh
-index fe0b38f..38dc34a 100644
---- a/src/sta/include/sta/Search.hh
-+++ b/src/sta/include/sta/Search.hh
+diff --git a/openroad/sta/include/sta/Search.hh b/openroad/sta/include/sta/Search.hh
+index 41ba8c9..c3305d5 100644
+--- a/openroad/sta/include/sta/Search.hh
++++ b/openroad/sta/include/sta/Search.hh
 @@ -24,6 +24,7 @@
  
  #pragma once
@@ -76,10 +76,10 @@ index fe0b38f..38dc34a 100644
    std::mutex tag_group_lock_;
    // Indices of the tag groups with a filter tag made, and the tags_ slots
    // of the filter tags made, so that deleting a filter's leftovers visits
-diff --git a/src/sta/search/Search.cc b/src/sta/search/Search.cc
+diff --git a/openroad/sta/search/Search.cc b/openroad/sta/search/Search.cc
 index e2c189b..0ff238b 100644
---- a/src/sta/search/Search.cc
-+++ b/src/sta/search/Search.cc
+--- a/openroad/sta/search/Search.cc
++++ b/openroad/sta/search/Search.cc
 @@ -244,7 +244,6 @@ Search::Search(StaState *sta) :
                        TagEqual(this))),
    tag_group_capacity_(tag_capacity_),
@@ -273,10 +273,10 @@ index e2c189b..0ff238b 100644
  }
  
  void
-diff --git a/src/sta/search/TagGroup.hh b/src/sta/search/TagGroup.hh
+diff --git a/openroad/sta/search/TagGroup.hh b/openroad/sta/search/TagGroup.hh
 index 2865186..cef8858 100644
---- a/src/sta/search/TagGroup.hh
-+++ b/src/sta/search/TagGroup.hh
+--- a/openroad/sta/search/TagGroup.hh
++++ b/openroad/sta/search/TagGroup.hh
 @@ -53,6 +53,8 @@ public:
             const StaState *sta);
    ~TagGroup();
@@ -286,3 +286,6 @@ index 2865186..cef8858 100644
    size_t hash() const { return hash_; }
    void report(const StaState *sta) const;
    void reportArrivalMap(const StaState *sta) const;
+-- 
+2.53.0
+

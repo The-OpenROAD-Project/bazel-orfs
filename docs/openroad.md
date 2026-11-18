@@ -8,7 +8,7 @@ tree.
 ## Default Configuration
 
 The default `orfs.default()` points at `@openroad//:openroad` and
-`@openroad//src/sta:opensta` — no explicit override is needed:
+`@openroad//openroad/sta:opensta` — no explicit override is needed:
 
 ```starlark
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")

@@ -239,7 +239,7 @@ orfs_flat_sta = rule(
         "base": attr.label(mandatory = True, doc = "An orfs_module_sta_base, for its liberty."),
         "clocks": attr.string_dict(mandatory = True, doc = "{port: period}, one ideal clock, the period in picoseconds."),
         "synth": attr.label(mandatory = True, providers = [TopInfo], doc = "The synthesis stage."),
-        "_opensta": attr.label(default = Label("@openroad//src/sta:opensta"), executable = True, cfg = "exec"),
+        "_opensta": attr.label(default = Label("@openroad//openroad/sta:opensta"), executable = True, cfg = "exec"),
         "_script": attr.label(default = Label("//tools/module_sta:flat.tcl"), allow_single_file = True),
     },
 )

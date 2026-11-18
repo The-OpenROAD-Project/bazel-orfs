@@ -22,15 +22,15 @@ the //:bump onto an OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/grt/src/fastroute/include/FastRoute.h |  2 ++
- src/grt/src/fastroute/src/FastRoute.cpp   | 36 ++++++++++++++++++++++++++-----
- src/grt/src/fastroute/src/maze3D.cpp      |  1 +
+ .../grt/src/fastroute/include/FastRoute.h     |  2 ++
+ openroad/grt/src/fastroute/src/FastRoute.cpp  | 36 ++++++++++++++++---
+ openroad/grt/src/fastroute/src/maze3D.cpp     |  1 +
  3 files changed, 34 insertions(+), 5 deletions(-)
 
-diff --git a/src/grt/src/fastroute/include/FastRoute.h b/src/grt/src/fastroute/include/FastRoute.h
-index bf148d7..db00682 100644
---- a/src/grt/src/fastroute/include/FastRoute.h
-+++ b/src/grt/src/fastroute/include/FastRoute.h
+diff --git a/openroad/grt/src/fastroute/include/FastRoute.h b/openroad/grt/src/fastroute/include/FastRoute.h
+index 5bbf8f7..e646615 100644
+--- a/openroad/grt/src/fastroute/include/FastRoute.h
++++ b/openroad/grt/src/fastroute/include/FastRoute.h
 @@ -243,6 +243,8 @@ class FastRouteCore
    void setEdgeCapacity(int x1, int y1, int x2, int y2, int layer, int capacity);
    int getDbNetLayerEdgeCost(odb::dbNet* db_net, int layer);
@@ -40,11 +40,11 @@ index bf148d7..db00682 100644
    // Backs the routing grid with a file at path; empty for memory only.
    void setBackingFile(const std::string& path) { backing_file_ = path; }
    void setNumAdjustments(int nAdjustments);
-diff --git a/src/grt/src/fastroute/src/FastRoute.cpp b/src/grt/src/fastroute/src/FastRoute.cpp
-index 4d4c28d..0643f18 100644
---- a/src/grt/src/fastroute/src/FastRoute.cpp
-+++ b/src/grt/src/fastroute/src/FastRoute.cpp
-@@ -363,24 +363,48 @@ void FastRouteCore::setGridsAndLayers(int x, int y, int nLayers)
+diff --git a/openroad/grt/src/fastroute/src/FastRoute.cpp b/openroad/grt/src/fastroute/src/FastRoute.cpp
+index 22b3bbe..97234f0 100644
+--- a/openroad/grt/src/fastroute/src/FastRoute.cpp
++++ b/openroad/grt/src/fastroute/src/FastRoute.cpp
+@@ -367,24 +367,48 @@ void FastRouteCore::setGridsAndLayers(int x, int y, int nLayers)
    d1_2D_.resize(boost::extents[y_range_][x_range_]);
    d2_2D_.resize(boost::extents[y_range_][x_range_]);
  
@@ -98,7 +98,7 @@ index 4d4c28d..0643f18 100644
  void FastRouteCore::addVCapacity(int16_t verticalCapacity, int layer)
  {
    v_capacity_3D_[layer - 1] = verticalCapacity;
-@@ -2838,8 +2862,10 @@ NetRouteMap FastRouteCore::run()
+@@ -2842,8 +2866,10 @@ NetRouteMap FastRouteCore::run()
          short_edge_len = BIG_INT;
        }
  
@@ -109,10 +109,10 @@ index 4d4c28d..0643f18 100644
      }
  
      // Disable estimate parasitics for grt incremental steps with
-diff --git a/src/grt/src/fastroute/src/maze3D.cpp b/src/grt/src/fastroute/src/maze3D.cpp
+diff --git a/openroad/grt/src/fastroute/src/maze3D.cpp b/openroad/grt/src/fastroute/src/maze3D.cpp
 index efecf2d..bfbed0c 100644
---- a/src/grt/src/fastroute/src/maze3D.cpp
-+++ b/src/grt/src/fastroute/src/maze3D.cpp
+--- a/openroad/grt/src/fastroute/src/maze3D.cpp
++++ b/openroad/grt/src/fastroute/src/maze3D.cpp
 @@ -644,6 +644,7 @@ void FastRouteCore::mazeRouteMSMDOrder3D(int expand,
                                           int ripupTHlb,
                                           int ripupTHub)

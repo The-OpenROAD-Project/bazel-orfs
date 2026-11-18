@@ -113,7 +113,7 @@ runs and still produces plausible output. `bazelisk build -c opt //:openroad`
 in the checkout, or `bazelisk build -c opt @openroad//:openroad` here.
 
 A raw `git clone` of OpenROAD will NOT build: the GitHub tarball and a
-blobless clone both arrive without `src/sta` and `third-party/abc`. bazel-orfs
+blobless clone both arrive without `openroad/sta` and `third-party/abc`. bazel-orfs
 vendors those in the `@openroad` `archive_override`'s `patch_cmds`, which is
 the other reason to build through this repository rather than beside it.
 
@@ -147,7 +147,7 @@ when it cannot:
 1. **Pure unit gtest (sub-second).** A dependency-free kernel test on the
    algorithm/math you changed. No STA, no ODB, no relink of the tool library.
    This catches most logic errors in milliseconds.
-2. **In-checkout regression test (seconds).** OpenROAD ships `//src/<tool>/test:*`
+2. **In-checkout regression test (seconds).** OpenROAD ships `//openroad/<tool>/test:*`
    targets — real STA on a tiny design. These are maintained and need **no**
    `OPENROAD_EXE` plumbing, so for anything they cover, prefer them over BYO.
 3. **Flow-level BYO run (minutes+).** The full ORFS stage on a real design with

@@ -22,16 +22,16 @@ OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/ram/src/ram.cpp                     | 42 +++++++++++++++++-------
- src/ram/test/BUILD                      |  1 +
- src/ram/test/write_mux_fanout_asap7.tcl | 43 +++++++++++++++++++++++++
+ openroad/ram/src/ram.cpp                     | 42 +++++++++++++------
+ openroad/ram/test/BUILD                      |  1 +
+ openroad/ram/test/write_mux_fanout_asap7.tcl | 43 ++++++++++++++++++++
  3 files changed, 74 insertions(+), 12 deletions(-)
- create mode 100644 src/ram/test/write_mux_fanout_asap7.tcl
+ create mode 100644 openroad/ram/test/write_mux_fanout_asap7.tcl
 
-diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
-index ef590bc6f7..d281d27350 100644
---- a/src/ram/src/ram.cpp
-+++ b/src/ram/src/ram.cpp
+diff --git a/openroad/ram/src/ram.cpp b/openroad/ram/src/ram.cpp
+index 65714df..c417029 100644
+--- a/openroad/ram/src/ram.cpp
++++ b/openroad/ram/src/ram.cpp
 @@ -315,6 +315,10 @@ RamGen::TreeEnd RamGen::planReadTree(const std::string& prefix,
  // read path is handled by the AOI mux in the buffer row, so all tristates in
  // a row can share the same row-select enable signal.
@@ -102,23 +102,23 @@ index ef590bc6f7..d281d27350 100644
      }
      if (and_or_read_) {
        for (const auto& node : tree_nodes_[{row_idx, word_idx, bit}]) {
-diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index 7807b0212f..d1740c86e2 100644
---- a/src/ram/test/BUILD
-+++ b/src/ram/test/BUILD
-@@ -31,6 +31,7 @@ PASSFAIL_TESTS = [
-     "bank_column_layout_asap7",
-     "option_errors_asap7",
+diff --git a/openroad/ram/test/BUILD b/openroad/ram/test/BUILD
+index fc0cc9f..ad6c147 100644
+--- a/openroad/ram/test/BUILD
++++ b/openroad/ram/test/BUILD
+@@ -33,6 +33,7 @@ PASSFAIL_TESTS = [
+     "pins_corner_asap7",
+     "routed_short_edge_asap7",
      "generate_array_asap7",
 +    "write_mux_fanout_asap7",
  ]
  
  ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
-diff --git a/src/ram/test/write_mux_fanout_asap7.tcl b/src/ram/test/write_mux_fanout_asap7.tcl
+diff --git a/openroad/ram/test/write_mux_fanout_asap7.tcl b/openroad/ram/test/write_mux_fanout_asap7.tcl
 new file mode 100644
-index 0000000000..ab4cd3f6aa
+index 0000000..ab4cd3f
 --- /dev/null
-+++ b/src/ram/test/write_mux_fanout_asap7.tcl
++++ b/openroad/ram/test/write_mux_fanout_asap7.tcl
 @@ -0,0 +1,43 @@
 +# -write_style mux: a word's write enable and its hold reach the word's
 +# bits through a buffer and an inverter per group of eight bits, so no
@@ -163,3 +163,6 @@ index 0000000000..ab4cd3f6aa
 +}
 +
 +puts "pass"
+-- 
+2.53.0
+

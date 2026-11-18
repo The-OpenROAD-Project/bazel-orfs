@@ -29,26 +29,26 @@ the //:bump onto an OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- include/ord/OpenRoad.hh            |   4 +-
- src/OpenRoad.cc                    |   7 +-
- src/OpenRoad.i                     |   4 +-
- src/OpenRoad.tcl                   |  10 +-
- src/odb/include/odb/db.h           |  20 +++
- src/odb/src/db/dbBacking.cpp       | 214 +++++++++++++++++++++++++++++
- src/odb/src/db/dbBacking.h         |  71 ++++++++++
- src/odb/src/db/dbBlock.cpp         |  68 +++++++++
- src/odb/src/db/dbDatabase.cpp      |  24 ++++
- src/odb/src/db/dbDatabase.h        |   3 +
- src/odb/src/db/dbTable.inc         |  21 ++-
- src/odb/test/cpp/BUILD             |  12 ++
- src/odb/test/cpp/TestDbBacking.cpp | 129 +++++++++++++++++
- 13 files changed, 577 insertions(+), 11 deletions(-)
- create mode 100644 src/odb/src/db/dbBacking.cpp
- create mode 100644 src/odb/src/db/dbBacking.h
- create mode 100644 src/odb/test/cpp/TestDbBacking.cpp
+ include/ord/OpenRoad.hh                 |   4 +-
+ openroad/OpenRoad.cc                    |   7 +-
+ openroad/OpenRoad.i                     |   4 +-
+ openroad/OpenRoad.tcl                   |  10 +-
+ openroad/odb/include/odb/db.h           |  20 +++
+ openroad/odb/src/db/dbBacking.cpp       | 214 ++++++++++++++++++++++++
+ openroad/odb/src/db/dbBacking.h         |  71 ++++++++
+ openroad/odb/src/db/dbBlock.cpp         |  68 ++++++++
+ openroad/odb/src/db/dbDatabase.cpp      |  24 +++
+ openroad/odb/src/db/dbDatabase.h        |   3 +
+ openroad/odb/src/db/dbTable.inc         |  21 ++-
+ openroad/odb/test/cpp/BUILD             |  12 ++
+ openroad/odb/test/cpp/TestDbBacking.cpp | 129 ++++++++++++++
+ 13 files changed, 577 insertions(+), 10 deletions(-)
+ create mode 100644 openroad/odb/src/db/dbBacking.cpp
+ create mode 100644 openroad/odb/src/db/dbBacking.h
+ create mode 100644 openroad/odb/test/cpp/TestDbBacking.cpp
 
 diff --git a/include/ord/OpenRoad.hh b/include/ord/OpenRoad.hh
-index e6fd8803e2..3226c075f9 100644
+index 1a97b0d..0af538b 100644
 --- a/include/ord/OpenRoad.hh
 +++ b/include/ord/OpenRoad.hh
 @@ -249,7 +249,9 @@ class OpenRoad
@@ -62,11 +62,11 @@ index e6fd8803e2..3226c075f9 100644
    void writeDb(std::ostream& stream);
    void writeDb(const char* filename,
                 std::optional<int> compression_level = std::nullopt);
-diff --git a/src/OpenRoad.cc b/src/OpenRoad.cc
-index 6c670bf031..18291a9fce 100644
---- a/src/OpenRoad.cc
-+++ b/src/OpenRoad.cc
-@@ -572,8 +572,13 @@ void OpenRoad::write3Dbx(const std::string& filename)
+diff --git a/openroad/OpenRoad.cc b/openroad/OpenRoad.cc
+index cac79f7..5670875 100644
+--- a/openroad/OpenRoad.cc
++++ b/openroad/OpenRoad.cc
+@@ -567,8 +567,13 @@ void OpenRoad::write3Dbx(const std::string& filename)
  
  // TODO: bool hierarchy should be removed in the future.
  // It is retained for a while for backward compatibility.
@@ -81,11 +81,11 @@ index 6c670bf031..18291a9fce 100644
    try {
      utl::InStreamHandler handler(filename, true);
      readDb(handler.getStream());
-diff --git a/src/OpenRoad.i b/src/OpenRoad.i
-index 248c993eb4..7177875637 100644
---- a/src/OpenRoad.i
-+++ b/src/OpenRoad.i
-@@ -420,10 +420,10 @@ write_3dbx_cmd(const char *filename)
+diff --git a/openroad/OpenRoad.i b/openroad/OpenRoad.i
+index 0672c92..2859848 100644
+--- a/openroad/OpenRoad.i
++++ b/openroad/OpenRoad.i
+@@ -414,10 +414,10 @@ write_3dbx_cmd(const char *filename)
  }
  
  void
@@ -98,10 +98,10 @@ index 248c993eb4..7177875637 100644
  }
  
  void
-diff --git a/src/OpenRoad.tcl b/src/OpenRoad.tcl
-index e469707cf8..a314e75e97 100644
---- a/src/OpenRoad.tcl
-+++ b/src/OpenRoad.tcl
+diff --git a/openroad/OpenRoad.tcl b/openroad/OpenRoad.tcl
+index 7c55866..bd38392 100644
+--- a/openroad/OpenRoad.tcl
++++ b/openroad/OpenRoad.tcl
 @@ -234,13 +234,13 @@ proc check_3dblox { args } {
  
  sta::define_cmd_args "write_db" {filename}
@@ -131,11 +131,11 @@ index e469707cf8..a314e75e97 100644
  }
  
  sta::define_cmd_args "write_db" {[-compression level] filename}
-diff --git a/src/odb/include/odb/db.h b/src/odb/include/odb/db.h
-index dc475cf648..b5dd508226 100644
---- a/src/odb/include/odb/db.h
-+++ b/src/odb/include/odb/db.h
-@@ -1285,6 +1285,13 @@ class dbBlock : public dbObject
+diff --git a/openroad/odb/include/odb/db.h b/openroad/odb/include/odb/db.h
+index 99e8582..7f7ada8 100644
+--- a/openroad/odb/include/odb/db.h
++++ b/openroad/odb/include/odb/db.h
+@@ -1286,6 +1286,13 @@ class dbBlock : public dbObject
    ///
    void destroyNetWires();
  
@@ -149,7 +149,7 @@ index dc475cf648..b5dd508226 100644
    ///
    /// clear
    ///
-@@ -7779,6 +7786,19 @@ class dbDatabase : public dbObject
+@@ -7782,6 +7789,19 @@ class dbDatabase : public dbObject
    ///
    void write(std::ostream& file);
  
@@ -169,11 +169,11 @@ index dc475cf648..b5dd508226 100644
    ///
    /// ECO - The following methods implement a simple ECO mechanism for capturing
    /// netlist changes. The intent of the ECO mechanism is to support delta
-diff --git a/src/odb/src/db/dbBacking.cpp b/src/odb/src/db/dbBacking.cpp
+diff --git a/openroad/odb/src/db/dbBacking.cpp b/openroad/odb/src/db/dbBacking.cpp
 new file mode 100644
-index 0000000000..aad3f49afe
+index 0000000..aad3f49
 --- /dev/null
-+++ b/src/odb/src/db/dbBacking.cpp
++++ b/openroad/odb/src/db/dbBacking.cpp
 @@ -0,0 +1,214 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
@@ -389,11 +389,11 @@ index 0000000000..aad3f49afe
 +}
 +
 +}  // namespace odb
-diff --git a/src/odb/src/db/dbBacking.h b/src/odb/src/db/dbBacking.h
+diff --git a/openroad/odb/src/db/dbBacking.h b/openroad/odb/src/db/dbBacking.h
 new file mode 100644
-index 0000000000..e18b51dfce
+index 0000000..e18b51d
 --- /dev/null
-+++ b/src/odb/src/db/dbBacking.h
++++ b/openroad/odb/src/db/dbBacking.h
 @@ -0,0 +1,71 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
@@ -466,10 +466,10 @@ index 0000000000..e18b51dfce
 +void dbBackingPageOut(_dbDatabase* db, const void* table);
 +
 +}  // namespace odb
-diff --git a/src/odb/src/db/dbBlock.cpp b/src/odb/src/db/dbBlock.cpp
-index 505f9cb1d6..7181ef1b0a 100644
---- a/src/odb/src/db/dbBlock.cpp
-+++ b/src/odb/src/db/dbBlock.cpp
+diff --git a/openroad/odb/src/db/dbBlock.cpp b/openroad/odb/src/db/dbBlock.cpp
+index 5479ad1..1605366 100644
+--- a/openroad/odb/src/db/dbBlock.cpp
++++ b/openroad/odb/src/db/dbBlock.cpp
 @@ -37,6 +37,7 @@
  #include "dbBPinItr.h"
  #include "dbBTerm.h"
@@ -552,10 +552,10 @@ index 505f9cb1d6..7181ef1b0a 100644
  void dbBlock::destroyNetWires()
  {
    for (dbNet* db_net : getNets()) {
-diff --git a/src/odb/src/db/dbDatabase.cpp b/src/odb/src/db/dbDatabase.cpp
-index c03fceb2ed..e1942fc3fa 100644
---- a/src/odb/src/db/dbDatabase.cpp
-+++ b/src/odb/src/db/dbDatabase.cpp
+diff --git a/openroad/odb/src/db/dbDatabase.cpp b/openroad/odb/src/db/dbDatabase.cpp
+index c03fceb..e1942fc 100644
+--- a/openroad/odb/src/db/dbDatabase.cpp
++++ b/openroad/odb/src/db/dbDatabase.cpp
 @@ -43,6 +43,7 @@
  
  #include "absl/synchronization/mutex.h"
@@ -601,11 +601,11 @@ index c03fceb2ed..e1942fc3fa 100644
  void dbDatabase::beginEco(dbBlock* block_)
  {
    _dbBlock* block = (_dbBlock*) block_;
-diff --git a/src/odb/src/db/dbDatabase.h b/src/odb/src/db/dbDatabase.h
-index 48869dcfa6..63bda09f86 100644
---- a/src/odb/src/db/dbDatabase.h
-+++ b/src/odb/src/db/dbDatabase.h
-@@ -324,6 +324,7 @@ class _dbUnfoldedChipBumpInst;
+diff --git a/openroad/odb/src/db/dbDatabase.h b/openroad/odb/src/db/dbDatabase.h
+index b920118..127c09d 100644
+--- a/openroad/odb/src/db/dbDatabase.h
++++ b/openroad/odb/src/db/dbDatabase.h
+@@ -327,6 +327,7 @@ class _dbUnfoldedChipBumpInst;
  class _dbUnfoldedChipConn;
  class _dbUnfoldedChipNet;
  // User Code Begin Classes
@@ -613,7 +613,7 @@ index 48869dcfa6..63bda09f86 100644
  class dbPropertyItr;
  class dbChipInstItr;
  class dbChipRegionInstItr;
-@@ -380,6 +381,8 @@ class _dbDatabase : public _dbObject
+@@ -383,6 +384,8 @@ class _dbDatabase : public _dbObject
    dbTable<_dbUnfoldedChipNet>* unfolded_chip_net_tbl_;
  
    // User Code Begin Fields
@@ -622,10 +622,10 @@ index 48869dcfa6..63bda09f86 100644
    dbTable<_dbTech, 2>* tech_tbl_;
    dbTable<_dbLib>* lib_tbl_;
    dbTable<_dbGDSLib, 2>* gds_lib_tbl_;
-diff --git a/src/odb/src/db/dbTable.inc b/src/odb/src/db/dbTable.inc
-index ab68b7c3fc..f4fd7c0387 100644
---- a/src/odb/src/db/dbTable.inc
-+++ b/src/odb/src/db/dbTable.inc
+diff --git a/openroad/odb/src/db/dbTable.inc b/openroad/odb/src/db/dbTable.inc
+index ab68b7c..f4fd7c0 100644
+--- a/openroad/odb/src/db/dbTable.inc
++++ b/openroad/odb/src/db/dbTable.inc
 @@ -11,6 +11,7 @@
  
  #include "dbCommon.h"
@@ -689,21 +689,21 @@ index ab68b7c3fc..f4fd7c0387 100644
      memset(page, 0, size);
      page->page_addr_ = i << table.kPageShift;
      page->table_ = &table;
-diff --git a/src/odb/test/cpp/BUILD b/src/odb/test/cpp/BUILD
-index af615fb365..fd61667710 100644
---- a/src/odb/test/cpp/BUILD
-+++ b/src/odb/test/cpp/BUILD
-@@ -456,6 +456,18 @@ cc_test(
+diff --git a/openroad/odb/test/cpp/BUILD b/openroad/odb/test/cpp/BUILD
+index be6a405..ebdf3b0 100644
+--- a/openroad/odb/test/cpp/BUILD
++++ b/openroad/odb/test/cpp/BUILD
+@@ -464,6 +464,18 @@ cc_test(
      ],
  )
  
 +cc_test(
 +    name = "TestDbBacking",
 +    srcs = ["TestDbBacking.cpp"],
-+    data = ["//src/odb/test:regression_resources"],
++    data = ["//openroad/odb/test:regression_resources"],
 +    deps = [
-+        "//src/odb/src/db",
-+        "//src/tst:db_fixture",
++        "//openroad/odb/src/db",
++        "//openroad/tst:db_fixture",
 +        "@googletest//:gtest",
 +        "@googletest//:gtest_main",
 +    ],
@@ -712,11 +712,11 @@ index af615fb365..fd61667710 100644
  cc_test(
      name = "TestDbStream",
      srcs = ["TestDbStream.cpp"],
-diff --git a/src/odb/test/cpp/TestDbBacking.cpp b/src/odb/test/cpp/TestDbBacking.cpp
+diff --git a/openroad/odb/test/cpp/TestDbBacking.cpp b/openroad/odb/test/cpp/TestDbBacking.cpp
 new file mode 100644
-index 0000000000..d1c05b0402
+index 0000000..d1c05b0
 --- /dev/null
-+++ b/src/odb/test/cpp/TestDbBacking.cpp
++++ b/openroad/odb/test/cpp/TestDbBacking.cpp
 @@ -0,0 +1,129 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
@@ -753,7 +753,7 @@ index 0000000000..d1c05b0402
 +    if (!backing_file.empty()) {
 +      db->setBackingFile(backing_file);
 +    }
-+    std::ifstream in(getFilePath("_main/src/odb/test/data/design.odb"),
++    std::ifstream in(getFilePath("_main/openroad/odb/test/data/design.odb"),
 +                     std::ios::binary);
 +    db->read(in);
 +    return db;

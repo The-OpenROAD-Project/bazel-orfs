@@ -114,15 +114,15 @@ OpenROAD that has it.
 Co-Authored-By: Claude <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/gpl/src/nesterovPlace.cpp                   | 55 ++++++++++++----
- src/gpl/src/nesterovPlace.h                     |  3 +
- src/gpl/test/congestion_buffers_timing_test.cpp | 86 +++++++++++++++++++++++++
+ openroad/gpl/src/nesterovPlace.cpp            | 55 +++++++++---
+ openroad/gpl/src/nesterovPlace.h              |  3 +
+ .../test/congestion_buffers_timing_test.cpp   | 86 +++++++++++++++++++
  3 files changed, 132 insertions(+), 12 deletions(-)
 
-diff --git a/src/gpl/src/nesterovPlace.cpp b/src/gpl/src/nesterovPlace.cpp
+diff --git a/openroad/gpl/src/nesterovPlace.cpp b/openroad/gpl/src/nesterovPlace.cpp
 index bc16347..076b14e 100644
---- a/src/gpl/src/nesterovPlace.cpp
-+++ b/src/gpl/src/nesterovPlace.cpp
+--- a/openroad/gpl/src/nesterovPlace.cpp
++++ b/openroad/gpl/src/nesterovPlace.cpp
 @@ -941,8 +941,10 @@ void NesterovPlace::runRoutability(int iter,
    // placement that no longer exists by the time it lands. Wait for the motion
    // to come off its peak as well.
@@ -200,10 +200,10 @@ index bc16347..076b14e 100644
  NesterovBase* NesterovPlace::getTopLevelNB() const
  {
    if (nbVec_.empty()) {
-diff --git a/src/gpl/src/nesterovPlace.h b/src/gpl/src/nesterovPlace.h
+diff --git a/openroad/gpl/src/nesterovPlace.h b/openroad/gpl/src/nesterovPlace.h
 index 76b829e..6437ab9 100644
---- a/src/gpl/src/nesterovPlace.h
-+++ b/src/gpl/src/nesterovPlace.h
+--- a/openroad/gpl/src/nesterovPlace.h
++++ b/openroad/gpl/src/nesterovPlace.h
 @@ -159,6 +159,9 @@ class NesterovPlace
    bool isRoutabilityGplIter() const;
  
@@ -214,10 +214,10 @@ index 76b829e..6437ab9 100644
    // Re-derives densityPenalty_ for every region via
    // NesterovBase::updateDensityPenaltyFromRatio() - the same formula
    // NesterovBase::initDensity2() uses at true init, just re-triggered
-diff --git a/src/gpl/test/congestion_buffers_timing_test.cpp b/src/gpl/test/congestion_buffers_timing_test.cpp
-index 992d51d..929fbd4 100644
---- a/src/gpl/test/congestion_buffers_timing_test.cpp
-+++ b/src/gpl/test/congestion_buffers_timing_test.cpp
+diff --git a/openroad/gpl/test/congestion_buffers_timing_test.cpp b/openroad/gpl/test/congestion_buffers_timing_test.cpp
+index 4697298..81552b3 100644
+--- a/openroad/gpl/test/congestion_buffers_timing_test.cpp
++++ b/openroad/gpl/test/congestion_buffers_timing_test.cpp
 @@ -301,6 +301,15 @@ class TimingRepairIntegrationTest : public tst::IntegratedFixture
      }
    }

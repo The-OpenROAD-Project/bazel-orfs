@@ -65,19 +65,19 @@ OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/gpl/src/nesterovBase.h                |   1 +
- src/gpl/src/nesterovPlace.h               |   1 +
- src/gpl/src/routeBase.cpp                 |   8 +
- src/gpl/src/routeBase.h                   |   1 +
- src/gpl/test/BUILD                        |  19 ++
- src/gpl/test/routability_minimum_test.cpp | 269 ++++++++++++++++++++++
+ openroad/gpl/src/nesterovBase.h               |   1 +
+ openroad/gpl/src/nesterovPlace.h              |   1 +
+ openroad/gpl/src/routeBase.cpp                |   8 +
+ openroad/gpl/src/routeBase.h                  |   1 +
+ openroad/gpl/test/BUILD                       |  19 ++
+ .../gpl/test/routability_minimum_test.cpp     | 269 ++++++++++++++++++
  6 files changed, 299 insertions(+)
- create mode 100644 src/gpl/test/routability_minimum_test.cpp
+ create mode 100644 openroad/gpl/test/routability_minimum_test.cpp
 
-diff --git a/src/gpl/src/nesterovBase.h b/src/gpl/src/nesterovBase.h
-index f6697f18ef..dd3918242c 100644
---- a/src/gpl/src/nesterovBase.h
-+++ b/src/gpl/src/nesterovBase.h
+diff --git a/openroad/gpl/src/nesterovBase.h b/openroad/gpl/src/nesterovBase.h
+index f6697f1..dd39182 100644
+--- a/openroad/gpl/src/nesterovBase.h
++++ b/openroad/gpl/src/nesterovBase.h
 @@ -1384,6 +1384,7 @@ class NesterovBase
  
   private:
@@ -86,10 +86,10 @@ index f6697f18ef..dd3918242c 100644
  
    NesterovBaseVars nbVars_;
    std::shared_ptr<PlacerBase> pb_;
-diff --git a/src/gpl/src/nesterovPlace.h b/src/gpl/src/nesterovPlace.h
-index f953b8e971..3ff824eecd 100644
---- a/src/gpl/src/nesterovPlace.h
-+++ b/src/gpl/src/nesterovPlace.h
+diff --git a/openroad/gpl/src/nesterovPlace.h b/openroad/gpl/src/nesterovPlace.h
+index 6437ab9..676883e 100644
+--- a/openroad/gpl/src/nesterovPlace.h
++++ b/openroad/gpl/src/nesterovPlace.h
 @@ -108,6 +108,7 @@ class NesterovPlace
  
   private:
@@ -98,10 +98,10 @@ index f953b8e971..3ff824eecd 100644
  
    void updateIterGraphics(int iter,
                            const std::string& reports_dir,
-diff --git a/src/gpl/src/routeBase.cpp b/src/gpl/src/routeBase.cpp
-index 7d6ed1e875..e1db0e1e87 100644
---- a/src/gpl/src/routeBase.cpp
-+++ b/src/gpl/src/routeBase.cpp
+diff --git a/openroad/gpl/src/routeBase.cpp b/openroad/gpl/src/routeBase.cpp
+index 7d6ed1e..e1db0e1 100644
+--- a/openroad/gpl/src/routeBase.cpp
++++ b/openroad/gpl/src/routeBase.cpp
 @@ -305,6 +305,14 @@ void RouteBase::revertToMinCongestion()
  
      nbVec_[j]->setTargetDensity(minRcTargetDensity_[j]);
@@ -117,10 +117,10 @@ index 7d6ed1e875..e1db0e1e87 100644
      nbVec_[j]->updateDensitySize();
      accumulatedInflatedAreaDelta_[j] = minRcInflatedAreaDelta_[j];
    }
-diff --git a/src/gpl/src/routeBase.h b/src/gpl/src/routeBase.h
-index 2a894e5674..5b77c46616 100644
---- a/src/gpl/src/routeBase.h
-+++ b/src/gpl/src/routeBase.h
+diff --git a/openroad/gpl/src/routeBase.h b/openroad/gpl/src/routeBase.h
+index 2a894e5..5b77c46 100644
+--- a/openroad/gpl/src/routeBase.h
++++ b/openroad/gpl/src/routeBase.h
 @@ -214,6 +214,7 @@ class RouteBase
  
   private:
@@ -129,11 +129,11 @@ index 2a894e5674..5b77c46616 100644
  
    RouteBaseVars rbVars_;
    odb::dbDatabase* db_ = nullptr;
-diff --git a/src/gpl/test/BUILD b/src/gpl/test/BUILD
-index a4eeb60920..c97af932cc 100644
---- a/src/gpl/test/BUILD
-+++ b/src/gpl/test/BUILD
-@@ -399,6 +399,25 @@ cc_test(
+diff --git a/openroad/gpl/test/BUILD b/openroad/gpl/test/BUILD
+index ace4726..631410b 100644
+--- a/openroad/gpl/test/BUILD
++++ b/openroad/gpl/test/BUILD
+@@ -401,6 +401,25 @@ cc_test(
      ],
  )
  
@@ -145,12 +145,12 @@ index a4eeb60920..c97af932cc 100644
 +    data = ["gcd.def"],
 +    env = GPU_ENV_OFF,
 +    deps = [
-+        "//src/dbSta",
-+        "//src/gpl:gpl_impl",
-+        "//src/grt",
-+        "//src/odb/src/db",
-+        "//src/tst:integrated_fixture",
-+        "//src/utl",
++        "//openroad/dbSta",
++        "//openroad/gpl:gpl_impl",
++        "//openroad/grt",
++        "//openroad/odb/src/db",
++        "//openroad/tst:integrated_fixture",
++        "//openroad/utl",
 +        "@googletest//:gtest",
 +        "@googletest//:gtest_main",
 +    ],
@@ -159,11 +159,11 @@ index a4eeb60920..c97af932cc 100644
  cc_test(
      name = "overflow_test",
      srcs = ["overflow_test.cpp"],
-diff --git a/src/gpl/test/routability_minimum_test.cpp b/src/gpl/test/routability_minimum_test.cpp
+diff --git a/openroad/gpl/test/routability_minimum_test.cpp b/openroad/gpl/test/routability_minimum_test.cpp
 new file mode 100644
-index 0000000000..1e235cb9ea
+index 0000000..1e235cb
 --- /dev/null
-+++ b/src/gpl/test/routability_minimum_test.cpp
++++ b/openroad/gpl/test/routability_minimum_test.cpp
 @@ -0,0 +1,269 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
@@ -181,12 +181,12 @@ index 0000000000..1e235cb9ea
 +#include "odb/db.h"
 +#include "odb/dbTypes.h"
 +#include "odb/geom.h"
-+#include "src/gpl/src/graphicsNone.h"
-+#include "src/gpl/src/nesterovBase.h"
-+#include "src/gpl/src/nesterovPlace.h"
-+#include "src/gpl/src/placerBase.h"
-+#include "src/gpl/src/point.h"
-+#include "src/gpl/src/routeBase.h"
++#include "openroad/gpl/src/graphicsNone.h"
++#include "openroad/gpl/src/nesterovBase.h"
++#include "openroad/gpl/src/nesterovPlace.h"
++#include "openroad/gpl/src/placerBase.h"
++#include "openroad/gpl/src/point.h"
++#include "openroad/gpl/src/routeBase.h"
 +#include "tst/IntegratedFixture.h"
 +
 +namespace gpl {
@@ -215,7 +215,7 @@ index 0000000000..1e235cb9ea
 +
 +  void SetUp() override
 +  {
-+    block_ = readDef(getFilePath("_main/src/gpl/test/gcd.def"), {lib_});
++    block_ = readDef(getFilePath("_main/openroad/gpl/test/gcd.def"), {lib_});
 +    ASSERT_NE(block_, nullptr);
 +    const odb::Point center = block_->getCoreArea().center();
 +    for (odb::dbInst* inst : block_->getInsts()) {

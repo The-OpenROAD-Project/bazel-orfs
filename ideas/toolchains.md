@@ -641,7 +641,7 @@ Same pattern:
 
 3. **Builds OpenROAD from source** to verify:
    ```sh
-   bazelisk build @openroad//:openroad @openroad//src/sta:opensta
+   bazelisk build @openroad//:openroad @openroad//openroad/sta:opensta
    ```
 
 4. **Prints a summary** of old vs. new commit and build status.
@@ -700,7 +700,7 @@ The `//:release` target is a `sh_binary` (or `py_binary`) that:
 1. **Builds or locates the artifacts** depending on what is being
    released:
    - `yosys`: builds from source via `bazelisk build @yosys//:yosys @yosys//:yosys-abc @yosys//:yosys-share.tar`
-   - `openroad`: builds from source via `bazelisk build @openroad//:openroad @openroad//src/sta:opensta`
+   - `openroad`: builds from source via `bazelisk build @openroad//:openroad @openroad//openroad/sta:opensta`
    - `orfs`: uses the tarballs already produced by `//:bump-orfs`
      (ORFS flow scripts + all PDK tarballs)
 

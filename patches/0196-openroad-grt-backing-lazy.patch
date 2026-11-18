@@ -23,16 +23,16 @@ the //:bump onto an OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/grt/src/GlobalRouter.cpp                |  4 ++
- src/grt/src/fastroute/include/FastRoute.h   |  3 +
- src/grt/src/fastroute/include/FileBacking.h | 19 ++++--
- src/grt/src/fastroute/src/FileBacking.cpp   | 64 ++++++++++++++-------
+ openroad/grt/src/GlobalRouter.cpp             |  4 ++
+ .../grt/src/fastroute/include/FastRoute.h     |  3 +
+ .../grt/src/fastroute/include/FileBacking.h   | 19 ++++--
+ .../grt/src/fastroute/src/FileBacking.cpp     | 64 +++++++++++++------
  4 files changed, 64 insertions(+), 26 deletions(-)
 
-diff --git a/src/grt/src/GlobalRouter.cpp b/src/grt/src/GlobalRouter.cpp
-index f572333e02..0eb3cc3c10 100644
---- a/src/grt/src/GlobalRouter.cpp
-+++ b/src/grt/src/GlobalRouter.cpp
+diff --git a/openroad/grt/src/GlobalRouter.cpp b/openroad/grt/src/GlobalRouter.cpp
+index 0550502..5a11bbf 100644
+--- a/openroad/grt/src/GlobalRouter.cpp
++++ b/openroad/grt/src/GlobalRouter.cpp
 @@ -257,8 +257,12 @@ std::vector<Net*> GlobalRouter::initFastRoute(int min_routing_layer,
    // Init the data structures to monitor 3D capacity during 2D phases
    fastroute_->initEdgesCapacityPerLayer();
@@ -46,11 +46,11 @@ index f572333e02..0eb3cc3c10 100644
  
    initialized_ = true;
    return nets;
-diff --git a/src/grt/src/fastroute/include/FastRoute.h b/src/grt/src/fastroute/include/FastRoute.h
-index 42dc0ab538..e7024d8cac 100644
---- a/src/grt/src/fastroute/include/FastRoute.h
-+++ b/src/grt/src/fastroute/include/FastRoute.h
-@@ -186,6 +186,9 @@ class FastRouteCore
+diff --git a/openroad/grt/src/fastroute/include/FastRoute.h b/openroad/grt/src/fastroute/include/FastRoute.h
+index 5f4622e..1572cf9 100644
+--- a/openroad/grt/src/fastroute/include/FastRoute.h
++++ b/openroad/grt/src/fastroute/include/FastRoute.h
+@@ -298,6 +298,9 @@ class FastRouteCore
    {
      route_finisher_ = std::move(finisher);
    }
@@ -60,10 +60,10 @@ index 42dc0ab538..e7024d8cac 100644
    int totalOverflow() const { return total_overflow_; }
    bool has2Doverflow() const { return has_2D_overflow_; }
    int getSnapshotBatchCount() const { return snapshot_batch_count_; }
-diff --git a/src/grt/src/fastroute/include/FileBacking.h b/src/grt/src/fastroute/include/FileBacking.h
-index 158270e41f..9624337082 100644
---- a/src/grt/src/fastroute/include/FileBacking.h
-+++ b/src/grt/src/fastroute/include/FileBacking.h
+diff --git a/openroad/grt/src/fastroute/include/FileBacking.h b/openroad/grt/src/fastroute/include/FileBacking.h
+index 158270e..9624337 100644
+--- a/openroad/grt/src/fastroute/include/FileBacking.h
++++ b/openroad/grt/src/fastroute/include/FileBacking.h
 @@ -11,12 +11,13 @@
  
  namespace grt {
@@ -110,10 +110,10 @@ index 158270e41f..9624337082 100644
  };
  
  }  // namespace grt
-diff --git a/src/grt/src/fastroute/src/FileBacking.cpp b/src/grt/src/fastroute/src/FileBacking.cpp
-index 9a8263b694..207106a178 100644
---- a/src/grt/src/fastroute/src/FileBacking.cpp
-+++ b/src/grt/src/fastroute/src/FileBacking.cpp
+diff --git a/openroad/grt/src/fastroute/src/FileBacking.cpp b/openroad/grt/src/fastroute/src/FileBacking.cpp
+index 9a8263b..207106a 100644
+--- a/openroad/grt/src/fastroute/src/FileBacking.cpp
++++ b/openroad/grt/src/fastroute/src/FileBacking.cpp
 @@ -26,6 +26,7 @@ void FileBacking::reserve(utl::Logger* logger,
                            const std::string& path,
                            size_t bytes)

@@ -48,14 +48,14 @@ OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/cts/src/Clustering.cpp   | 10 ++++++++--
- src/cts/test/cts_unittest.cc | 37 ++++++++++++++++++++++++++++++++++++
+ openroad/cts/src/Clustering.cpp   | 10 +++++++--
+ openroad/cts/test/cts_unittest.cc | 37 +++++++++++++++++++++++++++++++
  2 files changed, 45 insertions(+), 2 deletions(-)
 
-diff --git a/src/cts/src/Clustering.cpp b/src/cts/src/Clustering.cpp
+diff --git a/openroad/cts/src/Clustering.cpp b/openroad/cts/src/Clustering.cpp
 index 67484e6..b112c81 100644
---- a/src/cts/src/Clustering.cpp
-+++ b/src/cts/src/Clustering.cpp
+--- a/openroad/cts/src/Clustering.cpp
++++ b/openroad/cts/src/Clustering.cpp
 @@ -8,6 +8,7 @@
  #include <algorithm>
  #include <cfloat>
@@ -87,10 +87,10 @@ index 67484e6..b112c81 100644
    flow.costMap(edge_cost);
    flow.upperMap(edge_capacity);
    flow.stSupply(src, target, means.size() * cap + remaining);
-diff --git a/src/cts/test/cts_unittest.cc b/src/cts/test/cts_unittest.cc
-index d43b741..43251ed 100644
---- a/src/cts/test/cts_unittest.cc
-+++ b/src/cts/test/cts_unittest.cc
+diff --git a/openroad/cts/test/cts_unittest.cc b/openroad/cts/test/cts_unittest.cc
+index 9b96731..3422919 100644
+--- a/openroad/cts/test/cts_unittest.cc
++++ b/openroad/cts/test/cts_unittest.cc
 @@ -1,6 +1,7 @@
  // SPDX-License-Identifier: BSD-3-Clause
  // Copyright (c) 2023-2025, The OpenROAD Authors

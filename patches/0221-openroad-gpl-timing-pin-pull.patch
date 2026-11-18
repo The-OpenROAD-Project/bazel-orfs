@@ -66,37 +66,37 @@ new topic upstream, with 0219.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/gpl/BUILD                   |   4 +-
- src/gpl/README.md               |  32 ++-
- src/gpl/include/gpl/Replace.h   |  25 ++
- src/gpl/src/initialPlace.cpp    | 137 ++++++++++-
- src/gpl/src/initialPlace.h      |  20 ++
- src/gpl/src/nesterovBase.cpp    | 118 ++++++++++
- src/gpl/src/nesterovBase.h      |  25 ++
- src/gpl/src/pinPull.cpp         | 405 ++++++++++++++++++++++++++++++++
- src/gpl/src/pinPull.h           | 146 ++++++++++++
- src/gpl/src/replace.cpp         | 102 ++++++++
- src/gpl/src/replace.i           |  13 +
- src/gpl/src/replace.tcl         |  28 +++
- src/gpl/src/timingBase.cpp      |  28 ++-
- src/gpl/src/timingBase.h        |   9 +
- src/gpl/test/BUILD              |  17 ++
- src/gpl/test/path_shape.cpp     |  75 ++++++
- src/gpl/test/path_shape.h       |  14 ++
- src/gpl/test/pin_pull_slack.tcl | 194 +++++++++++++++
- src/gpl/test/pin_pull_test.cpp  | 206 ++++++++++++++++
- src/rsz/include/rsz/Resizer.hh  |   5 +
- src/rsz/src/Resizer.cc          |   6 +-
+ openroad/gpl/BUILD                   |   4 +-
+ openroad/gpl/README.md               |  32 ++-
+ openroad/gpl/include/gpl/Replace.h   |  25 ++
+ openroad/gpl/src/initialPlace.cpp    | 137 ++++++++-
+ openroad/gpl/src/initialPlace.h      |  20 ++
+ openroad/gpl/src/nesterovBase.cpp    | 118 ++++++++
+ openroad/gpl/src/nesterovBase.h      |  25 ++
+ openroad/gpl/src/pinPull.cpp         | 405 +++++++++++++++++++++++++++
+ openroad/gpl/src/pinPull.h           | 146 ++++++++++
+ openroad/gpl/src/replace.cpp         | 102 +++++++
+ openroad/gpl/src/replace.i           |  13 +
+ openroad/gpl/src/replace.tcl         |  28 ++
+ openroad/gpl/src/timingBase.cpp      |  28 +-
+ openroad/gpl/src/timingBase.h        |   9 +
+ openroad/gpl/test/BUILD              |  17 ++
+ openroad/gpl/test/path_shape.cpp     |  75 +++++
+ openroad/gpl/test/path_shape.h       |  14 +
+ openroad/gpl/test/pin_pull_slack.tcl | 194 +++++++++++++
+ openroad/gpl/test/pin_pull_test.cpp  | 206 ++++++++++++++
+ openroad/rsz/include/rsz/Resizer.hh  |   5 +
+ openroad/rsz/src/Resizer.cc          |   6 +-
  21 files changed, 1593 insertions(+), 16 deletions(-)
- create mode 100644 src/gpl/src/pinPull.cpp
- create mode 100644 src/gpl/src/pinPull.h
- create mode 100644 src/gpl/test/pin_pull_slack.tcl
- create mode 100644 src/gpl/test/pin_pull_test.cpp
+ create mode 100644 openroad/gpl/src/pinPull.cpp
+ create mode 100644 openroad/gpl/src/pinPull.h
+ create mode 100644 openroad/gpl/test/pin_pull_slack.tcl
+ create mode 100644 openroad/gpl/test/pin_pull_test.cpp
 
-diff --git a/src/gpl/BUILD b/src/gpl/BUILD
-index 4bafc0a99b..c9b20ab76f 100644
---- a/src/gpl/BUILD
-+++ b/src/gpl/BUILD
+diff --git a/openroad/gpl/BUILD b/openroad/gpl/BUILD
+index d03e3ba..ac9ef2a 100644
+--- a/openroad/gpl/BUILD
++++ b/openroad/gpl/BUILD
 @@ -120,11 +120,11 @@ cc_library(
          "src/hpwl.cpp",
          "src/hpwlBackend.h",
@@ -123,10 +123,10 @@ index 4bafc0a99b..c9b20ab76f 100644
          "src/placerBase.h",
          "src/point.h",
          "src/powerBase.h",
-diff --git a/src/gpl/README.md b/src/gpl/README.md
-index f72c8de97a..703c100168 100644
---- a/src/gpl/README.md
-+++ b/src/gpl/README.md
+diff --git a/openroad/gpl/README.md b/openroad/gpl/README.md
+index 29db5a0..84c662a 100644
+--- a/openroad/gpl/README.md
++++ b/openroad/gpl/README.md
 @@ -47,6 +47,24 @@ values to decrease runtime, for example.
  
  You can also set an overflow value for `keep_resize_below_overflow`, when below that, the modifications made by the rsz tool are maintained (non-virtual `repair_design`).
@@ -187,10 +187,10 @@ index f72c8de97a..703c100168 100644
  | `-keep_resize_below_overflow` | When the overflow is below the value, timing-driven iterations will retain (non-virtual) the resizer changes instead of reverting them (virtual). The default value is `1.0`, making all timing-driven iterations non-virtual. Allowed values are floats `[0, 1]`. |
  | `-timing_driven_repair_timing` | **Experimental.** Enable a conservative `repair_setup` pass during last timing-driven iteration. The intent is to apply minimal buffering and gate sizing so that the placement better correlates with global routing timing. Only the worst setup violators are targeted. Disruptive operations (pin swap, gate cloning, VT swap) are suppressed to avoid topology changes during placement. Not ready for production use. |
  | `-timing_driven_repair_tns_end_percent` | **Experimental.** When `-timing_driven_repair_timing` is enabled, controls the percentage of violating endpoints targeted by the `repair_setup` call. The default value is `1.0` and the allowed values are floats `[0, 100]`. |
-diff --git a/src/gpl/include/gpl/Replace.h b/src/gpl/include/gpl/Replace.h
-index a6acfe38d4..907aca056b 100644
---- a/src/gpl/include/gpl/Replace.h
-+++ b/src/gpl/include/gpl/Replace.h
+diff --git a/openroad/gpl/include/gpl/Replace.h b/openroad/gpl/include/gpl/Replace.h
+index ac5e629..a37bdea 100644
+--- a/openroad/gpl/include/gpl/Replace.h
++++ b/openroad/gpl/include/gpl/Replace.h
 @@ -48,6 +48,7 @@ class PowerBase;
  
  class InitialPlace;
@@ -199,7 +199,7 @@ index a6acfe38d4..907aca056b 100644
  
  using Cluster = std::vector<odb::dbInst*>;
  using Clusters = std::vector<Cluster>;
-@@ -130,6 +131,25 @@ struct PlaceOptions
+@@ -131,6 +132,25 @@ struct PlaceOptions
    bool powerDrivenMode = false;
    float powerDrivenNetWeight = 1;
    float timingDrivenNetsPercentage = 10;
@@ -225,7 +225,7 @@ index a6acfe38d4..907aca056b 100644
    float overflow = 0.1;
    int nesterovPlaceMaxIter = 5000;
    // timing driven check overflow to keep resizer changes (non-virtual resizer)
-@@ -265,6 +285,10 @@ class Replace
+@@ -266,6 +286,10 @@ class Replace
    // The top-level (unfenced/full-die) region is always nbVec_[0].
    NesterovBase* getTopLevelNB() const;
    void initIoPinPlace();
@@ -236,7 +236,7 @@ index a6acfe38d4..907aca056b 100644
  
    odb::dbDatabase* db_ = nullptr;
    sta::dbSta* sta_ = nullptr;
-@@ -283,6 +307,7 @@ class Replace
+@@ -284,6 +308,7 @@ class Replace
    std::shared_ptr<TimingBase> tb_;
    std::shared_ptr<ClockBase> cb_;
    std::shared_ptr<PowerBase> pwb_;
@@ -244,10 +244,10 @@ index a6acfe38d4..907aca056b 100644
  
    std::unique_ptr<InitialPlace> ip_;
    std::unique_ptr<NesterovPlace> np_;
-diff --git a/src/gpl/src/initialPlace.cpp b/src/gpl/src/initialPlace.cpp
-index 82019d38d0..94355903cc 100644
---- a/src/gpl/src/initialPlace.cpp
-+++ b/src/gpl/src/initialPlace.cpp
+diff --git a/openroad/gpl/src/initialPlace.cpp b/openroad/gpl/src/initialPlace.cpp
+index 82019d3..9435590 100644
+--- a/openroad/gpl/src/initialPlace.cpp
++++ b/openroad/gpl/src/initialPlace.cpp
 @@ -7,13 +7,16 @@
  #include <climits>
  #include <cmath>
@@ -431,10 +431,10 @@ index 82019d38d0..94355903cc 100644
  void InitialPlace::updateCoordi()
  {
    for (auto& inst : pbc_->placeInsts()) {
-diff --git a/src/gpl/src/initialPlace.h b/src/gpl/src/initialPlace.h
-index fd9a87a41b..157a495cd8 100644
---- a/src/gpl/src/initialPlace.h
-+++ b/src/gpl/src/initialPlace.h
+diff --git a/openroad/gpl/src/initialPlace.h b/openroad/gpl/src/initialPlace.h
+index fd9a87a..157a495 100644
+--- a/openroad/gpl/src/initialPlace.h
++++ b/openroad/gpl/src/initialPlace.h
 @@ -20,6 +20,8 @@ namespace gpl {
  class PlacerBaseCommon;
  class PlacerBase;
@@ -478,10 +478,10 @@ index fd9a87a41b..157a495cd8 100644
  };
  
  }  // namespace gpl
-diff --git a/src/gpl/src/nesterovBase.cpp b/src/gpl/src/nesterovBase.cpp
-index 811d0c0591..ecfd7f6789 100644
---- a/src/gpl/src/nesterovBase.cpp
-+++ b/src/gpl/src/nesterovBase.cpp
+diff --git a/openroad/gpl/src/nesterovBase.cpp b/openroad/gpl/src/nesterovBase.cpp
+index 811d0c0..ecfd7f6 100644
+--- a/openroad/gpl/src/nesterovBase.cpp
++++ b/openroad/gpl/src/nesterovBase.cpp
 @@ -33,6 +33,7 @@
  #include "nesterovPlace.h"
  #include "odb/db.h"
@@ -628,10 +628,10 @@ index 811d0c0591..ecfd7f6789 100644
    return FloatPoint(gCell->gPins().size(), gCell->gPins().size());
  }
  
-diff --git a/src/gpl/src/nesterovBase.h b/src/gpl/src/nesterovBase.h
-index e839008c74..f6697f18ef 100644
---- a/src/gpl/src/nesterovBase.h
-+++ b/src/gpl/src/nesterovBase.h
+diff --git a/openroad/gpl/src/nesterovBase.h b/openroad/gpl/src/nesterovBase.h
+index e839008..f6697f1 100644
+--- a/openroad/gpl/src/nesterovBase.h
++++ b/openroad/gpl/src/nesterovBase.h
 @@ -56,6 +56,7 @@ class Net;
  class GPin;
  class FFT;
@@ -678,11 +678,11 @@ index e839008c74..f6697f18ef 100644
  };
  
  // Stores instances belonging to a specific power domain
-diff --git a/src/gpl/src/pinPull.cpp b/src/gpl/src/pinPull.cpp
+diff --git a/openroad/gpl/src/pinPull.cpp b/openroad/gpl/src/pinPull.cpp
 new file mode 100644
-index 0000000000..9454d4fcbc
+index 0000000..9454d4f
 --- /dev/null
-+++ b/src/gpl/src/pinPull.cpp
++++ b/openroad/gpl/src/pinPull.cpp
 @@ -0,0 +1,405 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
@@ -1089,11 +1089,11 @@ index 0000000000..9454d4fcbc
 +}
 +
 +}  // namespace gpl
-diff --git a/src/gpl/src/pinPull.h b/src/gpl/src/pinPull.h
+diff --git a/openroad/gpl/src/pinPull.h b/openroad/gpl/src/pinPull.h
 new file mode 100644
-index 0000000000..36aa8f1866
+index 0000000..36aa8f1
 --- /dev/null
-+++ b/src/gpl/src/pinPull.h
++++ b/openroad/gpl/src/pinPull.h
 @@ -0,0 +1,146 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
@@ -1241,10 +1241,10 @@ index 0000000000..36aa8f1866
 +};
 +
 +}  // namespace gpl
-diff --git a/src/gpl/src/replace.cpp b/src/gpl/src/replace.cpp
-index 1a36802d5d..c5bbc99961 100644
---- a/src/gpl/src/replace.cpp
-+++ b/src/gpl/src/replace.cpp
+diff --git a/openroad/gpl/src/replace.cpp b/openroad/gpl/src/replace.cpp
+index 1a36802..c5bbc99 100644
+--- a/openroad/gpl/src/replace.cpp
++++ b/openroad/gpl/src/replace.cpp
 @@ -22,6 +22,7 @@
  #include "nesterovPlace.h"
  #include "odb/db.h"
@@ -1396,10 +1396,10 @@ index 1a36802d5d..c5bbc99961 100644
  }
  
  void PlaceOptions::skipIo()
-diff --git a/src/gpl/src/replace.i b/src/gpl/src/replace.i
-index 15543454d2..cf29f47462 100644
---- a/src/gpl/src/replace.i
-+++ b/src/gpl/src/replace.i
+diff --git a/openroad/gpl/src/replace.i b/openroad/gpl/src/replace.i
+index b1da96a..06e8495 100644
+--- a/openroad/gpl/src/replace.i
++++ b/openroad/gpl/src/replace.i
 @@ -27,6 +27,7 @@ static gpl::PlaceOptions getOptions(
    gpl::PlaceOptions options;
    checkFlag(flags, "-timing_driven", options.timingDrivenMode);
@@ -1408,7 +1408,7 @@ index 15543454d2..cf29f47462 100644
    checkFlag(flags, "-power_driven", options.powerDrivenMode);
    checkFlag(flags, "-routability_driven", options.routabilityDrivenMode);
    checkFlag(flags, "-virtual_cts", options.virtualCtsMode);
-@@ -89,6 +90,18 @@ static gpl::PlaceOptions getOptions(
+@@ -90,6 +91,18 @@ static gpl::PlaceOptions getOptions(
             "-virtual_cts_max_skew_fraction",
             options.virtualCtsMaxSkewFraction);
    checkKey(keys, "-timing_driven_nets_percentage", options.timingDrivenNetsPercentage);
@@ -1427,10 +1427,10 @@ index 15543454d2..cf29f47462 100644
    checkKey(keys, "-min_phi_coef", options.minPhiCoef);
    checkKey(keys, "-max_phi_coef", options.maxPhiCoef);
    checkKey(keys, "-init_density_penalty", options.initDensityPenaltyFactor);
-diff --git a/src/gpl/src/replace.tcl b/src/gpl/src/replace.tcl
-index c7e5602cad..6f2f612936 100644
---- a/src/gpl/src/replace.tcl
-+++ b/src/gpl/src/replace.tcl
+diff --git a/openroad/gpl/src/replace.tcl b/openroad/gpl/src/replace.tcl
+index 02eddb2..247abe4 100644
+--- a/openroad/gpl/src/replace.tcl
++++ b/openroad/gpl/src/replace.tcl
 @@ -39,6 +39,12 @@ sta::define_cmd_args "global_placement" {\
      [-timing_driven_net_reweight_overflow timing_driven_net_reweight_overflow]\
      [-timing_driven_net_weight_max timing_driven_net_weight_max]\
@@ -1487,10 +1487,10 @@ index c7e5602cad..6f2f612936 100644
    if { [info exists flags(-place_ios)] } {
      if { [info exists flags(-skip_io)] } {
        utl::error GPL 169 "-place_ios cannot be used with -skip_io placement."
-diff --git a/src/gpl/src/timingBase.cpp b/src/gpl/src/timingBase.cpp
-index a682d1d1c4..122d79cdd6 100644
---- a/src/gpl/src/timingBase.cpp
-+++ b/src/gpl/src/timingBase.cpp
+diff --git a/openroad/gpl/src/timingBase.cpp b/openroad/gpl/src/timingBase.cpp
+index a682d1d..122d79c 100644
+--- a/openroad/gpl/src/timingBase.cpp
++++ b/openroad/gpl/src/timingBase.cpp
 @@ -14,6 +14,7 @@
  
  #include "grt/GlobalRouter.h"
@@ -1535,10 +1535,10 @@ index a682d1d1c4..122d79cdd6 100644
    // get worst resize nets
    rs_->setWorstSlackNetsPercent(nets_percentage_);
    sta::NetSeq worst_slack_nets = rs_->resizeWorstSlackNets();
-diff --git a/src/gpl/src/timingBase.h b/src/gpl/src/timingBase.h
-index c3c100e6ca..99ce517bee 100644
---- a/src/gpl/src/timingBase.h
-+++ b/src/gpl/src/timingBase.h
+diff --git a/openroad/gpl/src/timingBase.h b/openroad/gpl/src/timingBase.h
+index c3c100e..99ce517 100644
+--- a/openroad/gpl/src/timingBase.h
++++ b/openroad/gpl/src/timingBase.h
 @@ -5,6 +5,7 @@
  
  #include <cstddef>
@@ -1576,11 +1576,11 @@ index c3c100e6ca..99ce517bee 100644
  
    std::vector<int> timingNetWeightOverflow_;
    std::vector<int> timingOverflowChk_;
-diff --git a/src/gpl/test/BUILD b/src/gpl/test/BUILD
-index 648273c4f7..d5b8d1ef70 100644
---- a/src/gpl/test/BUILD
-+++ b/src/gpl/test/BUILD
-@@ -43,6 +43,7 @@ PASSFAIL_TESTS = [
+diff --git a/openroad/gpl/test/BUILD b/openroad/gpl/test/BUILD
+index 2dd0568..ace4726 100644
+--- a/openroad/gpl/test/BUILD
++++ b/openroad/gpl/test/BUILD
+@@ -44,6 +44,7 @@ PASSFAIL_TESTS = [
      "incremental02",
      "incremental03",
      "options01",
@@ -1588,7 +1588,7 @@ index 648273c4f7..d5b8d1ef70 100644
      "place_ios_rd",
      "place_ios_td",
  ]
-@@ -577,6 +578,22 @@ cc_test(
+@@ -578,6 +579,22 @@ cc_test(
      ],
  )
  
@@ -1601,8 +1601,8 @@ index 648273c4f7..d5b8d1ef70 100644
 +    deps = [
 +        ":gpl_design_builder",
 +        ":path_shape",
-+        "//src/gpl:gpl_impl",
-+        "//src/odb/src/db",
++        "//openroad/gpl:gpl_impl",
++        "//openroad/odb/src/db",
 +        "@googletest//:gtest",
 +        "@googletest//:gtest_main",
 +    ],
@@ -1611,18 +1611,18 @@ index 648273c4f7..d5b8d1ef70 100644
  cc_test(
      name = "metamorphic_test",
      srcs = ["metamorphic_test.cpp"],
-diff --git a/src/gpl/test/path_shape.cpp b/src/gpl/test/path_shape.cpp
-index 37b5c13685..3f068d7577 100644
---- a/src/gpl/test/path_shape.cpp
-+++ b/src/gpl/test/path_shape.cpp
+diff --git a/openroad/gpl/test/path_shape.cpp b/openroad/gpl/test/path_shape.cpp
+index 37b5c13..3f068d7 100644
+--- a/openroad/gpl/test/path_shape.cpp
++++ b/openroad/gpl/test/path_shape.cpp
 @@ -27,6 +27,7 @@
  #include "odb/geom.h"
  #include "odb/util.h"
- #include "src/gpl/src/graphicsNone.h"
-+#include "src/gpl/src/initialPlace.h"
- #include "src/gpl/src/nesterovBase.h"
- #include "src/gpl/src/nesterovPlace.h"
- #include "src/gpl/src/placerBase.h"
+ #include "openroad/gpl/src/graphicsNone.h"
++#include "openroad/gpl/src/initialPlace.h"
+ #include "openroad/gpl/src/nesterovBase.h"
+ #include "openroad/gpl/src/nesterovPlace.h"
+ #include "openroad/gpl/src/placerBase.h"
 @@ -713,6 +714,80 @@ PlaceResult PathShapeFixture::placeWeighted(
    return result;
  }
@@ -1704,15 +1704,15 @@ index 37b5c13685..3f068d7577 100644
  void PathShapeFixture::endLog()
  {
    log_ = logger_.redirectStringEnd();
-diff --git a/src/gpl/test/path_shape.h b/src/gpl/test/path_shape.h
-index b940e0c7fd..44261ae258 100644
---- a/src/gpl/test/path_shape.h
-+++ b/src/gpl/test/path_shape.h
+diff --git a/openroad/gpl/test/path_shape.h b/openroad/gpl/test/path_shape.h
+index b940e0c..44261ae 100644
+--- a/openroad/gpl/test/path_shape.h
++++ b/openroad/gpl/test/path_shape.h
 @@ -38,6 +38,7 @@
  #include "odb/db.h"
  #include "odb/dbTypes.h"
  #include "odb/geom.h"
-+#include "src/gpl/src/pinPull.h"
++#include "openroad/gpl/src/pinPull.h"
  #include "tst/fixture.h"
  
  namespace gpl::path_shape {
@@ -1743,11 +1743,11 @@ index b940e0c7fd..44261ae258 100644
    static PlaceOptions optionsFor(Start start);
    static void unplace(const std::vector<odb::dbInst*>& cells);
    std::vector<CellState> cells() const;
-diff --git a/src/gpl/test/pin_pull_slack.tcl b/src/gpl/test/pin_pull_slack.tcl
+diff --git a/openroad/gpl/test/pin_pull_slack.tcl b/openroad/gpl/test/pin_pull_slack.tcl
 new file mode 100644
-index 0000000000..e26baf54f0
+index 0000000..e26baf5
 --- /dev/null
-+++ b/src/gpl/test/pin_pull_slack.tcl
++++ b/openroad/gpl/test/pin_pull_slack.tcl
 @@ -0,0 +1,194 @@
 +# -timing_driven_pin_pull_slack: a sink is failing, and pulled, only when its
 +# setup slack is below the threshold, given in the design's time unit.
@@ -1943,11 +1943,11 @@ index 0000000000..e26baf54f0
 +} GPL-0189
 +
 +exit_summary
-diff --git a/src/gpl/test/pin_pull_test.cpp b/src/gpl/test/pin_pull_test.cpp
+diff --git a/openroad/gpl/test/pin_pull_test.cpp b/openroad/gpl/test/pin_pull_test.cpp
 new file mode 100644
-index 0000000000..a5d06c37b4
+index 0000000..a5d06c3
 --- /dev/null
-+++ b/src/gpl/test/pin_pull_test.cpp
++++ b/openroad/gpl/test/pin_pull_test.cpp
 @@ -0,0 +1,206 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
@@ -1973,9 +1973,9 @@ index 0000000000..a5d06c37b4
 +#include "gtest/gtest.h"
 +#include "odb/db.h"
 +#include "path_shape.h"
-+#include "src/gpl/src/nesterovBase.h"
-+#include "src/gpl/src/pinPull.h"
-+#include "src/gpl/src/placerBase.h"
++#include "openroad/gpl/src/nesterovBase.h"
++#include "openroad/gpl/src/pinPull.h"
++#include "openroad/gpl/src/placerBase.h"
 +
 +namespace gpl::path_shape {
 +namespace {
@@ -2155,10 +2155,10 @@ index 0000000000..a5d06c37b4
 +
 +}  // namespace
 +}  // namespace gpl::path_shape
-diff --git a/src/rsz/include/rsz/Resizer.hh b/src/rsz/include/rsz/Resizer.hh
-index 0829ba9928..153c744aad 100644
---- a/src/rsz/include/rsz/Resizer.hh
-+++ b/src/rsz/include/rsz/Resizer.hh
+diff --git a/openroad/rsz/include/rsz/Resizer.hh b/openroad/rsz/include/rsz/Resizer.hh
+index 0829ba9..153c744 100644
+--- a/openroad/rsz/include/rsz/Resizer.hh
++++ b/openroad/rsz/include/rsz/Resizer.hh
 @@ -564,10 +564,15 @@ class Resizer : public sta::dbStaState, public sta::dbNetworkObserver
    void resizeSlackPreamble();
    // placed_net limits buffering to the nets the placer models. Buffers added
@@ -2175,10 +2175,10 @@ index 0829ba9928..153c744aad 100644
                          = {});
    // Return nets with worst slack.
    sta::NetSeq resizeWorstSlackNets();
-diff --git a/src/rsz/src/Resizer.cc b/src/rsz/src/Resizer.cc
-index bd736a8bf4..cf989f4a7c 100644
---- a/src/rsz/src/Resizer.cc
-+++ b/src/rsz/src/Resizer.cc
+diff --git a/openroad/rsz/src/Resizer.cc b/openroad/rsz/src/Resizer.cc
+index ad371dd..3c53408 100644
+--- a/openroad/rsz/src/Resizer.cc
++++ b/openroad/rsz/src/Resizer.cc
 @@ -3215,7 +3215,8 @@ void Resizer::findResizeSlacks(
      bool run_journal_restore,
      bool run_repair_timing,

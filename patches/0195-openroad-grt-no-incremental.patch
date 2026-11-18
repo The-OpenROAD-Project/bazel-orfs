@@ -28,23 +28,23 @@ the //:bump onto an OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/grt/README.md                     |  2 +
- src/grt/include/grt/GlobalRouter.h    |  6 +++
- src/grt/src/GlobalRouter.cpp          |  7 +++
- src/grt/src/GlobalRouter.i            |  6 +++
- src/grt/src/GlobalRouter.tcl          |  5 +-
- src/grt/src/fastroute/src/graph2d.cpp |  4 ++
- src/grt/test/BUILD                    |  1 +
- src/grt/test/gcd_no_incremental.ok    | 68 +++++++++++++++++++++++++++
- src/grt/test/gcd_no_incremental.tcl   | 15 ++++++
- 9 files changed, 113 insertions(+), 2 deletions(-)
- create mode 100644 src/grt/test/gcd_no_incremental.ok
- create mode 100644 src/grt/test/gcd_no_incremental.tcl
+ openroad/grt/README.md                     |  2 +
+ openroad/grt/include/grt/GlobalRouter.h    |  6 ++
+ openroad/grt/src/GlobalRouter.cpp          |  7 +++
+ openroad/grt/src/GlobalRouter.i            |  6 ++
+ openroad/grt/src/GlobalRouter.tcl          |  5 +-
+ openroad/grt/src/fastroute/src/graph2d.cpp |  4 ++
+ openroad/grt/test/BUILD                    |  1 +
+ openroad/grt/test/gcd_no_incremental.ok    | 68 ++++++++++++++++++++++
+ openroad/grt/test/gcd_no_incremental.tcl   | 15 +++++
+ 9 files changed, 113 insertions(+), 1 deletion(-)
+ create mode 100644 openroad/grt/test/gcd_no_incremental.ok
+ create mode 100644 openroad/grt/test/gcd_no_incremental.tcl
 
-diff --git a/src/grt/README.md b/src/grt/README.md
-index 4641bf2..3adc56d 100644
---- a/src/grt/README.md
-+++ b/src/grt/README.md
+diff --git a/openroad/grt/README.md b/openroad/grt/README.md
+index 810c6ae..b90aa64 100644
+--- a/openroad/grt/README.md
++++ b/openroad/grt/README.md
 @@ -28,6 +28,7 @@ global_route
      [-allow_congestion]
      [-snapshot_batched_width width]
@@ -61,10 +61,10 @@ index 4641bf2..3adc56d 100644
  
  ### Set Routing Layers
  
-diff --git a/src/grt/include/grt/GlobalRouter.h b/src/grt/include/grt/GlobalRouter.h
-index 597aedf..ef784d3 100644
---- a/src/grt/include/grt/GlobalRouter.h
-+++ b/src/grt/include/grt/GlobalRouter.h
+diff --git a/openroad/grt/include/grt/GlobalRouter.h b/openroad/grt/include/grt/GlobalRouter.h
+index 7038dcd..1365545 100644
+--- a/openroad/grt/include/grt/GlobalRouter.h
++++ b/openroad/grt/include/grt/GlobalRouter.h
 @@ -161,6 +161,11 @@ class GlobalRouter
    void setResAwareNetsPercentage(float percentage);
    void setSnapshotBatchedWidth(int snapshot_batched_width);
@@ -77,7 +77,7 @@ index 597aedf..ef784d3 100644
    int getSnapshotBatchedWidth() const;
    int getSnapshotBatchCount() const;
    bool isResistanceAware() { return resistance_aware_; };
-@@ -657,6 +662,7 @@ class GlobalRouter
+@@ -658,6 +663,7 @@ class GlobalRouter
    bool resistance_aware_{false};
    int snapshot_batched_width_{0};
    std::string backing_file_;
@@ -85,10 +85,10 @@ index 597aedf..ef784d3 100644
    int num_threads_;
    std::vector<int> vertical_capacities_;
    std::vector<int> horizontal_capacities_;
-diff --git a/src/grt/src/GlobalRouter.cpp b/src/grt/src/GlobalRouter.cpp
-index 5d2a6cd..98257ab 100644
---- a/src/grt/src/GlobalRouter.cpp
-+++ b/src/grt/src/GlobalRouter.cpp
+diff --git a/openroad/grt/src/GlobalRouter.cpp b/openroad/grt/src/GlobalRouter.cpp
+index 3a10f74..0550502 100644
+--- a/openroad/grt/src/GlobalRouter.cpp
++++ b/openroad/grt/src/GlobalRouter.cpp
 @@ -560,6 +560,13 @@ void GlobalRouter::globalRoute(bool save_guides)
    }
  
@@ -103,10 +103,10 @@ index 5d2a6cd..98257ab 100644
    if (verbose_) {
      const int elapsed = static_cast<int>(timer.elapsed());
      const int hour = elapsed / 3600;
-diff --git a/src/grt/src/GlobalRouter.i b/src/grt/src/GlobalRouter.i
+diff --git a/openroad/grt/src/GlobalRouter.i b/openroad/grt/src/GlobalRouter.i
 index e75ccab..27fbe6f 100644
---- a/src/grt/src/GlobalRouter.i
-+++ b/src/grt/src/GlobalRouter.i
+--- a/openroad/grt/src/GlobalRouter.i
++++ b/openroad/grt/src/GlobalRouter.i
 @@ -161,6 +161,12 @@ set_backing_file(const char* path)
    getGlobalRouter()->setBackingFile(path);
  }
@@ -120,10 +120,10 @@ index e75ccab..27fbe6f 100644
  int
  get_snapshot_batched_width()
  {
-diff --git a/src/grt/src/GlobalRouter.tcl b/src/grt/src/GlobalRouter.tcl
+diff --git a/openroad/grt/src/GlobalRouter.tcl b/openroad/grt/src/GlobalRouter.tcl
 index 8581b7e..88978d3 100644
---- a/src/grt/src/GlobalRouter.tcl
-+++ b/src/grt/src/GlobalRouter.tcl
+--- a/openroad/grt/src/GlobalRouter.tcl
++++ b/openroad/grt/src/GlobalRouter.tcl
 @@ -151,6 +151,7 @@ sta::define_cmd_args "global_route" {[-guide_file out_file] \
                                    [-allow_congestion] \
                                    [-snapshot_batched_width width] \
@@ -150,10 +150,10 @@ index 8581b7e..88978d3 100644
    if { [info exists keys(-backing_file)] } {
      grt::set_backing_file $keys(-backing_file)
    } else {
-diff --git a/src/grt/src/fastroute/src/graph2d.cpp b/src/grt/src/fastroute/src/graph2d.cpp
+diff --git a/openroad/grt/src/fastroute/src/graph2d.cpp b/openroad/grt/src/fastroute/src/graph2d.cpp
 index 87c9c52..7ee7a19 100644
---- a/src/grt/src/fastroute/src/graph2d.cpp
-+++ b/src/grt/src/fastroute/src/graph2d.cpp
+--- a/openroad/grt/src/fastroute/src/graph2d.cpp
++++ b/openroad/grt/src/fastroute/src/graph2d.cpp
 @@ -247,6 +247,10 @@ void Graph2D::clear()
    v_dirty_used_grids_.clear();
    h_edges_.resize(boost::extents[0][0]);
@@ -165,10 +165,10 @@ index 87c9c52..7ee7a19 100644
    h_dirty_est_edges_.clear();
    v_dirty_est_edges_.clear();
    h_dirty_history_edges_.clear();
-diff --git a/src/grt/test/BUILD b/src/grt/test/BUILD
-index 3f99234..44073c9 100644
---- a/src/grt/test/BUILD
-+++ b/src/grt/test/BUILD
+diff --git a/openroad/grt/test/BUILD b/openroad/grt/test/BUILD
+index 1084522..f6ad511 100644
+--- a/openroad/grt/test/BUILD
++++ b/openroad/grt/test/BUILD
 @@ -44,6 +44,7 @@ TESTS = [
      "estimate_path_resistance",
      "gcd",
@@ -177,11 +177,11 @@ index 3f99234..44073c9 100644
      "gcd_cugr",
      "gcd_flute",
      "global_route_above_max_layer_cugr",
-diff --git a/src/grt/test/gcd_no_incremental.ok b/src/grt/test/gcd_no_incremental.ok
+diff --git a/openroad/grt/test/gcd_no_incremental.ok b/openroad/grt/test/gcd_no_incremental.ok
 new file mode 100644
 index 0000000..fb367c5
 --- /dev/null
-+++ b/src/grt/test/gcd_no_incremental.ok
++++ b/openroad/grt/test/gcd_no_incremental.ok
 @@ -0,0 +1,68 @@
 +[INFO ODB-0227] LEF file: Nangate45/Nangate45.lef, created 22 layers, 27 vias, 135 library cells
 +[INFO ODB-0128] Design: gcd
@@ -251,11 +251,11 @@ index 0000000..fb367c5
 +[INFO GRT-0014] Routed nets: 563
 +[WARNING GRT-0300] Timing is not available, setting critical nets percentage to 0.
 +No differences found.
-diff --git a/src/grt/test/gcd_no_incremental.tcl b/src/grt/test/gcd_no_incremental.tcl
+diff --git a/openroad/grt/test/gcd_no_incremental.tcl b/openroad/grt/test/gcd_no_incremental.tcl
 new file mode 100644
 index 0000000..fd5844a
 --- /dev/null
-+++ b/src/grt/test/gcd_no_incremental.tcl
++++ b/openroad/grt/test/gcd_no_incremental.tcl
 @@ -0,0 +1,15 @@
 +# gcd_nangate45 routed with -no_incremental: gcd's guides, and an
 +# incremental route afterwards rebuilds the router from the routes
@@ -272,3 +272,6 @@ index 0000000..fd5844a
 +write_guides $guide_file
 +
 +diff_files gcd.guideok $guide_file
+-- 
+2.53.0
+

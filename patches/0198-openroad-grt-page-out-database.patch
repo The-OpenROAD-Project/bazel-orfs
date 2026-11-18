@@ -19,13 +19,13 @@ the //:bump onto an OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/grt/src/GlobalRouter.cpp | 15 +++++++++++++++
+ openroad/grt/src/GlobalRouter.cpp | 15 +++++++++++++++
  1 file changed, 15 insertions(+)
 
-diff --git a/src/grt/src/GlobalRouter.cpp b/src/grt/src/GlobalRouter.cpp
-index 0eb3cc3c10..12bb714298 100644
---- a/src/grt/src/GlobalRouter.cpp
-+++ b/src/grt/src/GlobalRouter.cpp
+diff --git a/openroad/grt/src/GlobalRouter.cpp b/openroad/grt/src/GlobalRouter.cpp
+index 5a11bbf..7bfd2c5 100644
+--- a/openroad/grt/src/GlobalRouter.cpp
++++ b/openroad/grt/src/GlobalRouter.cpp
 @@ -262,6 +262,8 @@ std::vector<Net*> GlobalRouter::initFastRoute(int min_routing_layer,
    fastroute_->pageOutGrid();
    std::vector<Net*> nets = initNets(check_pin_placement);

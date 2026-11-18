@@ -20,10 +20,10 @@ every other net's guides unchanged; a second run reroutes nothing).
 
 Carried by bazel-orfs for //tools/carve; not upstreamed. Retires on a
 //:bump onto an OpenROAD that carries it.
-diff --git a/src/grt/README.md b/src/grt/README.md
-index 3adc56dea1..59af01974f 100644
---- a/src/grt/README.md
-+++ b/src/grt/README.md
+diff --git a/openroad/grt/README.md b/openroad/grt/README.md
+index b90aa64..0d3a276 100644
+--- a/openroad/grt/README.md
++++ b/openroad/grt/README.md
 @@ -32,6 +32,7 @@ global_route
      [-verbose]
      [-start_incremental]
@@ -40,10 +40,10 @@ index 3adc56dea1..59af01974f 100644
  | `-use_cugr` | This flag run GRT using CUGR as the router solver. NOTE: this is not ready for production. |
  | `-resistance_aware` | This flag enables resistance-aware layer assignment and 3D routing. NOTE: this is not ready for production. |
  | `-res_aware_nets_percentage` | Set the percentage of resistance-aware nets (e.g. `-res_aware_nets_percentage 100` (for 100%)). The default value is `15` with resistance-aware enabled and `0` otherwise, and the allowed values are floats between `[0, 100]`. |
-diff --git a/src/grt/include/grt/GlobalRouter.h b/src/grt/include/grt/GlobalRouter.h
-index b372e37e13..8e580014a4 100644
---- a/src/grt/include/grt/GlobalRouter.h
-+++ b/src/grt/include/grt/GlobalRouter.h
+diff --git a/openroad/grt/include/grt/GlobalRouter.h b/openroad/grt/include/grt/GlobalRouter.h
+index 1365545..55b2a69 100644
+--- a/openroad/grt/include/grt/GlobalRouter.h
++++ b/openroad/grt/include/grt/GlobalRouter.h
 @@ -219,6 +219,7 @@ class GlobalRouter
    void endIncremental(bool save_guides = false);
    void reportIncrementalCongestion();
@@ -52,11 +52,11 @@ index b372e37e13..8e580014a4 100644
    void saveCongestion();
    NetRouteMap& getRoutes();
    NetRouteMap getPartialRoutes();
-diff --git a/src/grt/src/GlobalRouter.cpp b/src/grt/src/GlobalRouter.cpp
-index 12bb714298..1ffb2ee04d 100644
---- a/src/grt/src/GlobalRouter.cpp
-+++ b/src/grt/src/GlobalRouter.cpp
-@@ -924,6 +924,63 @@ int GlobalRouter::repairAntennas(odb::dbMTerm* diode_mterm,
+diff --git a/openroad/grt/src/GlobalRouter.cpp b/openroad/grt/src/GlobalRouter.cpp
+index 7bfd2c5..9e7f3f4 100644
+--- a/openroad/grt/src/GlobalRouter.cpp
++++ b/openroad/grt/src/GlobalRouter.cpp
+@@ -926,6 +926,63 @@ int GlobalRouter::repairAntennas(odb::dbMTerm* diode_mterm,
    return total_diodes_count_;
  }
  
@@ -120,10 +120,10 @@ index 12bb714298..1ffb2ee04d 100644
  NetRouteMap GlobalRouter::findRouting(std::vector<Net*>& nets,
                                        int min_routing_layer,
                                        int max_routing_layer)
-diff --git a/src/grt/src/GlobalRouter.i b/src/grt/src/GlobalRouter.i
-index 27fbe6f613..9abb4b1b15 100644
---- a/src/grt/src/GlobalRouter.i
-+++ b/src/grt/src/GlobalRouter.i
+diff --git a/openroad/grt/src/GlobalRouter.i b/openroad/grt/src/GlobalRouter.i
+index 27fbe6f..9abb4b1 100644
+--- a/openroad/grt/src/GlobalRouter.i
++++ b/openroad/grt/src/GlobalRouter.i
 @@ -254,6 +254,14 @@ global_route()
    getGlobalRouter()->globalRoute(true);
  }
@@ -139,10 +139,10 @@ index 27fbe6f613..9abb4b1b15 100644
  std::vector<int>
  route_layer_lengths(odb::dbNet* db_net)
  {
-diff --git a/src/grt/src/GlobalRouter.tcl b/src/grt/src/GlobalRouter.tcl
-index 88978d3caa..f8cb9a022a 100644
---- a/src/grt/src/GlobalRouter.tcl
-+++ b/src/grt/src/GlobalRouter.tcl
+diff --git a/openroad/grt/src/GlobalRouter.tcl b/openroad/grt/src/GlobalRouter.tcl
+index 88978d3..f8cb9a0 100644
+--- a/openroad/grt/src/GlobalRouter.tcl
++++ b/openroad/grt/src/GlobalRouter.tcl
 @@ -155,6 +155,7 @@ sta::define_cmd_args "global_route" {[-guide_file out_file] \
                                    [-verbose] \
                                    [-start_incremental] \
@@ -169,10 +169,10 @@ index 88978d3caa..f8cb9a022a 100644
    } else {
      grt::global_route
    }
-diff --git a/src/grt/test/BUILD b/src/grt/test/BUILD
-index 44073c99dc..a46bca5265 100644
---- a/src/grt/test/BUILD
-+++ b/src/grt/test/BUILD
+diff --git a/openroad/grt/test/BUILD b/openroad/grt/test/BUILD
+index f6ad511..bbe183d 100644
+--- a/openroad/grt/test/BUILD
++++ b/openroad/grt/test/BUILD
 @@ -249,6 +249,13 @@ regression_test(
      data = [":test_resources"],
  )
@@ -187,11 +187,11 @@ index 44073c99dc..a46bca5265 100644
  regression_test(
      name = "congested_routes_are_reported",
      check_log = False,
-diff --git a/src/grt/test/unguided_only.tcl b/src/grt/test/unguided_only.tcl
+diff --git a/openroad/grt/test/unguided_only.tcl b/openroad/grt/test/unguided_only.tcl
 new file mode 100644
-index 0000000000..194ef88aee
+index 0000000..194ef88
 --- /dev/null
-+++ b/src/grt/test/unguided_only.tcl
++++ b/openroad/grt/test/unguided_only.tcl
 @@ -0,0 +1,60 @@
 +# global_route -unguided_only keeps every net's guides and routes only
 +# the nets that have none

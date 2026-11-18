@@ -46,27 +46,22 @@ together.
 Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/gpl/test/BUILD                       |  49 ++
- src/gpl/test/path_shape.cpp              | 887 +++++++++++++++++++++++
- src/gpl/test/path_shape.h                | 357 +++++++++
- src/gpl/test/path_shape_targets_test.cpp | 264 +++++++
- src/gpl/test/path_shape_test.cpp         | 436 +++++++++++
+ openroad/gpl/test/BUILD                       |  49 +
+ openroad/gpl/test/path_shape.cpp              | 887 ++++++++++++++++++
+ openroad/gpl/test/path_shape.h                | 357 +++++++
+ openroad/gpl/test/path_shape_targets_test.cpp | 264 ++++++
+ openroad/gpl/test/path_shape_test.cpp         | 436 +++++++++
  5 files changed, 1993 insertions(+)
- create mode 100644 src/gpl/test/path_shape.cpp
- create mode 100644 src/gpl/test/path_shape.h
- create mode 100644 src/gpl/test/path_shape_targets_test.cpp
- create mode 100644 src/gpl/test/path_shape_test.cpp
+ create mode 100644 openroad/gpl/test/path_shape.cpp
+ create mode 100644 openroad/gpl/test/path_shape.h
+ create mode 100644 openroad/gpl/test/path_shape_targets_test.cpp
+ create mode 100644 openroad/gpl/test/path_shape_test.cpp
 
-diff --git a/src/gpl/test/BUILD b/src/gpl/test/BUILD
-index 86e5090d73..648273c4f7 100644
---- a/src/gpl/test/BUILD
-+++ b/src/gpl/test/BUILD
-@@ -523,16 +523,65 @@ cc_test(
-         "//src/gpl",
-         "//src/odb/src/db",
-         "//src/tst",
-         "@googletest//:gtest",
-         "@googletest//:gtest_main",
+diff --git a/openroad/gpl/test/BUILD b/openroad/gpl/test/BUILD
+index b655cae..2dd0568 100644
+--- a/openroad/gpl/test/BUILD
++++ b/openroad/gpl/test/BUILD
+@@ -529,6 +529,55 @@ cc_test(
      ],
  )
  
@@ -80,9 +75,9 @@ index 86e5090d73..648273c4f7 100644
 +    hdrs = ["path_shape.h"],
 +    deps = [
 +        ":gpl_design_builder",
-+        "//src/gpl:gpl_impl",
-+        "//src/odb/src/db",
-+        "//src/tst",
++        "//openroad/gpl:gpl_impl",
++        "//openroad/odb/src/db",
++        "//openroad/tst",
 +        "@googletest//:gtest",
 +    ],
 +)
@@ -95,8 +90,8 @@ index 86e5090d73..648273c4f7 100644
 +    deps = [
 +        ":gpl_design_builder",
 +        ":path_shape",
-+        "//src/gpl:gpl_impl",
-+        "//src/odb/src/db",
++        "//openroad/gpl:gpl_impl",
++        "//openroad/odb/src/db",
 +        "@googletest//:gtest",
 +        "@googletest//:gtest_main",
 +    ],
@@ -104,7 +99,7 @@ index 86e5090d73..648273c4f7 100644
 +
 +# The targets: what a robust gpl must do on those paths and does not do
 +# yet. Every test in it fails today by design, hence manual; run it by
-+# name: bazel test //src/gpl/test:path_shape_targets_test
++# name: bazel test //openroad/gpl/test:path_shape_targets_test
 +cc_test(
 +    name = "path_shape_targets_test",
 +    srcs = ["path_shape_targets_test.cpp"],
@@ -113,7 +108,7 @@ index 86e5090d73..648273c4f7 100644
 +    deps = [
 +        ":gpl_design_builder",
 +        ":path_shape",
-+        "//src/gpl:gpl_impl",
++        "//openroad/gpl:gpl_impl",
 +        "@googletest//:gtest",
 +        "@googletest//:gtest_main",
 +    ],
@@ -122,16 +117,11 @@ index 86e5090d73..648273c4f7 100644
  cc_test(
      name = "metamorphic_test",
      srcs = ["metamorphic_test.cpp"],
-     data = [
-         "gcd.def",
-         "nangate45.lef",
-     ],
-     env = GPU_ENV_OFF,
-diff --git a/src/gpl/test/path_shape.cpp b/src/gpl/test/path_shape.cpp
+diff --git a/openroad/gpl/test/path_shape.cpp b/openroad/gpl/test/path_shape.cpp
 new file mode 100644
-index 0000000000..37b5c13685
+index 0000000..37b5c13
 --- /dev/null
-+++ b/src/gpl/test/path_shape.cpp
++++ b/openroad/gpl/test/path_shape.cpp
 @@ -0,0 +1,887 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
@@ -161,12 +151,12 @@ index 0000000000..37b5c13685
 +#include "odb/dbTypes.h"
 +#include "odb/geom.h"
 +#include "odb/util.h"
-+#include "src/gpl/src/graphicsNone.h"
-+#include "src/gpl/src/nesterovBase.h"
-+#include "src/gpl/src/nesterovPlace.h"
-+#include "src/gpl/src/placerBase.h"
-+#include "src/gpl/src/routeBase.h"
-+#include "src/gpl/src/timingBase.h"
++#include "openroad/gpl/src/graphicsNone.h"
++#include "openroad/gpl/src/nesterovBase.h"
++#include "openroad/gpl/src/nesterovPlace.h"
++#include "openroad/gpl/src/placerBase.h"
++#include "openroad/gpl/src/routeBase.h"
++#include "openroad/gpl/src/timingBase.h"
 +
 +namespace gpl::path_shape {
 +
@@ -1020,11 +1010,11 @@ index 0000000000..37b5c13685
 +}
 +
 +}  // namespace gpl::path_shape
-diff --git a/src/gpl/test/path_shape.h b/src/gpl/test/path_shape.h
+diff --git a/openroad/gpl/test/path_shape.h b/openroad/gpl/test/path_shape.h
 new file mode 100644
-index 0000000000..b940e0c7fd
+index 0000000..b940e0c
 --- /dev/null
-+++ b/src/gpl/test/path_shape.h
++++ b/openroad/gpl/test/path_shape.h
 @@ -0,0 +1,357 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
@@ -1383,11 +1373,11 @@ index 0000000000..b940e0c7fd
 +};
 +
 +}  // namespace gpl::path_shape
-diff --git a/src/gpl/test/path_shape_targets_test.cpp b/src/gpl/test/path_shape_targets_test.cpp
+diff --git a/openroad/gpl/test/path_shape_targets_test.cpp b/openroad/gpl/test/path_shape_targets_test.cpp
 new file mode 100644
-index 0000000000..5041c7f645
+index 0000000..5041c7f
 --- /dev/null
-+++ b/src/gpl/test/path_shape_targets_test.cpp
++++ b/openroad/gpl/test/path_shape_targets_test.cpp
 @@ -0,0 +1,264 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
@@ -1653,11 +1643,11 @@ index 0000000000..5041c7f645
 +
 +}  // namespace
 +}  // namespace gpl::path_shape
-diff --git a/src/gpl/test/path_shape_test.cpp b/src/gpl/test/path_shape_test.cpp
+diff --git a/openroad/gpl/test/path_shape_test.cpp b/openroad/gpl/test/path_shape_test.cpp
 new file mode 100644
-index 0000000000..d2fa10c1c9
+index 0000000..d2fa10c
 --- /dev/null
-+++ b/src/gpl/test/path_shape_test.cpp
++++ b/openroad/gpl/test/path_shape_test.cpp
 @@ -0,0 +1,436 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
@@ -2095,3 +2085,6 @@ index 0000000000..d2fa10c1c9
 +
 +}  // namespace
 +}  // namespace gpl::path_shape
+-- 
+2.53.0
+

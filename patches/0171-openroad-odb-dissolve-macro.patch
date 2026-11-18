@@ -64,11 +64,21 @@ dissolving after placement) and extended with the guides and the clock
 strip for the parent as a macro (//tools/carve). Carried by bazel-orfs;
 not upstreamed. Retires on a //:bump onto an OpenROAD that carries it.
 ---
-diff --git a/src/odb/README.md b/src/odb/README.md
-index 50ee318..9e85942 100644
---- a/src/odb/README.md
-+++ b/src/odb/README.md
-@@ -396,6 +396,64 @@ write_macro_placement file_name
+ openroad/odb/README.md                 |   58 ++
+ openroad/odb/include/odb/db.h          |   38 +
+ openroad/odb/src/db/dbDissolve.cpp     |  681 +++++++++++++++
+ openroad/odb/src/swig/tcl/odb.tcl      |   52 ++
+ openroad/odb/test/cpp/BUILD            |   13 +
+ openroad/odb/test/cpp/TestDissolve.cpp | 1101 ++++++++++++++++++++++++
+ 6 files changed, 1943 insertions(+)
+ create mode 100644 openroad/odb/src/db/dbDissolve.cpp
+ create mode 100644 openroad/odb/test/cpp/TestDissolve.cpp
+
+diff --git a/openroad/odb/README.md b/openroad/odb/README.md
+index 6686f91..de662b6 100644
+--- a/openroad/odb/README.md
++++ b/openroad/odb/README.md
+@@ -393,6 +393,64 @@ write_macro_placement file_name
  | ----- | ----- |
  | `file_name` | Macro placement file name. |
  
@@ -133,11 +143,11 @@ index 50ee318..9e85942 100644
  ### Design Is Routed
  
  This command checks if the design is completely routed.
-diff --git a/src/odb/include/odb/db.h b/src/odb/include/odb/db.h
-index c4a6a64..2c51c2a 100644
---- a/src/odb/include/odb/db.h
-+++ b/src/odb/include/odb/db.h
-@@ -3226,6 +3226,32 @@ class dbInst : public dbObject
+diff --git a/openroad/odb/include/odb/db.h b/openroad/odb/include/odb/db.h
+index 7f7ada8..dfdb618 100644
+--- a/openroad/odb/include/odb/db.h
++++ b/openroad/odb/include/odb/db.h
+@@ -3234,6 +3234,32 @@ class dbInst : public dbObject
    ///
    static void destroy(dbInst* inst);
  
@@ -170,7 +180,7 @@ index c4a6a64..2c51c2a 100644
    ///
    /// Safely delete the inst from the block within an iterator
    ///
-@@ -8751,6 +8777,18 @@ class dbModInst : public dbObject
+@@ -8780,6 +8806,18 @@ class dbModInst : public dbObject
    // Recursive search a given dbModInst through child mod insts
    bool containsDbModInst(dbModInst* mod_inst) const;
  
@@ -189,11 +199,11 @@ index c4a6a64..2c51c2a 100644
    static dbModInst* create(dbModule* parentModule,
                             dbModule* masterModule,
                             const char* name);
-diff --git a/src/odb/src/db/dbDissolve.cpp b/src/odb/src/db/dbDissolve.cpp
+diff --git a/openroad/odb/src/db/dbDissolve.cpp b/openroad/odb/src/db/dbDissolve.cpp
 new file mode 100644
 index 0000000..48e85c2
 --- /dev/null
-+++ b/src/odb/src/db/dbDissolve.cpp
++++ b/openroad/odb/src/db/dbDissolve.cpp
 @@ -0,0 +1,681 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
@@ -876,10 +886,10 @@ index 0000000..48e85c2
 +}
 +
 +}  // namespace odb
-diff --git a/src/odb/src/swig/tcl/odb.tcl b/src/odb/src/swig/tcl/odb.tcl
+diff --git a/openroad/odb/src/swig/tcl/odb.tcl b/openroad/odb/src/swig/tcl/odb.tcl
 index 160354a..dd46250 100644
---- a/src/odb/src/swig/tcl/odb.tcl
-+++ b/src/odb/src/swig/tcl/odb.tcl
+--- a/openroad/odb/src/swig/tcl/odb.tcl
++++ b/openroad/odb/src/swig/tcl/odb.tcl
 @@ -1450,3 +1450,55 @@ proc destroy_routes { } {
    $block destroyRoutes
  }
@@ -936,11 +946,11 @@ index 160354a..dd46250 100644
 +  }
 +  return [$mod_inst getPortCones $max_cone NULL]
 +}
-diff --git a/src/odb/test/cpp/BUILD b/src/odb/test/cpp/BUILD
-index cdf4bd0..f35403a 100644
---- a/src/odb/test/cpp/BUILD
-+++ b/src/odb/test/cpp/BUILD
-@@ -410,6 +410,19 @@ cc_test(
+diff --git a/openroad/odb/test/cpp/BUILD b/openroad/odb/test/cpp/BUILD
+index ebdf3b0..52ebdfd 100644
+--- a/openroad/odb/test/cpp/BUILD
++++ b/openroad/odb/test/cpp/BUILD
+@@ -432,6 +432,19 @@ cc_test(
      ],
  )
  
@@ -950,8 +960,8 @@ index cdf4bd0..f35403a 100644
 +        "TestDissolve.cpp",
 +    ],
 +    deps = [
-+        "//src/odb/src/db",
-+        "//src/tst:db_fixture",
++        "//openroad/odb/src/db",
++        "//openroad/tst:db_fixture",
 +        "@googletest//:gtest",
 +        "@googletest//:gtest_main",
 +    ],
@@ -960,11 +970,11 @@ index cdf4bd0..f35403a 100644
  cc_test(
      name = "TestSwapMasterLeaf",
      srcs = [
-diff --git a/src/odb/test/cpp/TestDissolve.cpp b/src/odb/test/cpp/TestDissolve.cpp
+diff --git a/openroad/odb/test/cpp/TestDissolve.cpp b/openroad/odb/test/cpp/TestDissolve.cpp
 new file mode 100644
 index 0000000..5445dbb
 --- /dev/null
-+++ b/src/odb/test/cpp/TestDissolve.cpp
++++ b/openroad/odb/test/cpp/TestDissolve.cpp
 @@ -0,0 +1,1101 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
@@ -2067,3 +2077,6 @@ index 0000000..5445dbb
 +}  // namespace
 +
 +}  // namespace odb
+-- 
+2.53.0
+

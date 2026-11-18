@@ -17,14 +17,14 @@ the //:bump onto an OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/grt/src/GlobalRouter.cpp | 2 ++
+ openroad/grt/src/GlobalRouter.cpp | 2 ++
  1 file changed, 2 insertions(+)
 
-diff --git a/src/grt/src/GlobalRouter.cpp b/src/grt/src/GlobalRouter.cpp
-index 572abc4af6..864fdc9263 100644
---- a/src/grt/src/GlobalRouter.cpp
-+++ b/src/grt/src/GlobalRouter.cpp
-@@ -5214,6 +5214,8 @@ void GlobalRouter::mergeSegments(const std::vector<Pin>& pins, GRoute& route)
+diff --git a/openroad/grt/src/GlobalRouter.cpp b/openroad/grt/src/GlobalRouter.cpp
+index 4d187f0..f88db75 100644
+--- a/openroad/grt/src/GlobalRouter.cpp
++++ b/openroad/grt/src/GlobalRouter.cpp
+@@ -5236,6 +5236,8 @@ void GlobalRouter::mergeSegments(const std::vector<Pin>& pins, GRoute& route)
    segments[write] = segments[read];
  
    segments.resize(write + 1);

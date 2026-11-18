@@ -43,7 +43,7 @@ what to expect, not a recommendation.
    SPEF, the SDC as used, and liberty for anything new. *Desired results*
    lists them.
 3. **Test** the result in OpenSTA:
-   `bazelisk run @openroad//src/sta:opensta -- -exit "$KIT/check/sta.tcl"`,
+   `bazelisk run @openroad//openroad/sta:opensta -- -exit "$KIT/check/sta.tcl"`,
    from a bazel-orfs clone. *Checking with OpenSTA* shows how.
 
 The minimum clock period is register to register only. In2reg, reg2out
@@ -277,7 +277,7 @@ instructions, Bazel among them, are in its build guide,
 git clone https://github.com/The-OpenROAD-Project/bazel-orfs
 cd bazel-orfs
 git checkout --detach {{checkout}}
-bazelisk build @openroad//src/sta:opensta @openroad//:openroad
+bazelisk build @openroad//openroad/sta:opensta @openroad//:openroad
 ```
 
 The first build compiles both from source. Later builds, and the run
@@ -290,7 +290,7 @@ path and the tool's minimum register-to-register period in picoseconds:
 
 ```
 KIT=/path/to/xiangshan-xstile-asap7
-TOOL_PERIOD_PS=<period> bazelisk run @openroad//src/sta:opensta -- \
+TOOL_PERIOD_PS=<period> bazelisk run @openroad//openroad/sta:opensta -- \
   -exit "$KIT/check/sta.tcl" | tee "$KIT/results/sta.log"
 ```
 

@@ -135,7 +135,7 @@ def orfs_headroom(name, parent, parent_stage, blocks, ends = 0, target = 0, peri
                     classes,
                     "$(execpath %s)" % report if report else "",
                     Label("//tools/odb_debug:headroom.tcl"),
-                    Label("@openroad//src/sta:opensta"),
+                    Label("@openroad//openroad/sta:opensta"),
                     Label("//tools/headroom:headroom_flat.tcl"),
                 ),
             ]),
@@ -145,7 +145,7 @@ def orfs_headroom(name, parent, parent_stage, blocks, ends = 0, target = 0, peri
                 Label("//tools/headroom:headroom_flat.tcl"),
                 Label("//tools/headroom:sta_prefix"),
                 Label("//tools/odb_debug:headroom.tcl"),
-                Label("@openroad//src/sta:opensta"),
+                Label("@openroad//openroad/sta:opensta"),
             ] + ([report] if report else []),
             **kwargs
         )

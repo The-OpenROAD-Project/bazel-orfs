@@ -281,7 +281,7 @@ for the standard flow and flags. The nuances that matter for a *hang* or a
 ## 8. OpenSTA-from-netlist may not reproduce an ODB-backed bug
 
 A pure-OpenSTA repro (`opensta` + `read_verilog netlist.v` + `link_design` +
-`read_sdc` + `find_timing`, built via `bazelisk build @openroad//src/sta:opensta`)
+`read_sdc` + `find_timing`, built via `bazelisk build @openroad//openroad/sta:opensta`)
 is the most portable *when it works* — but `write_verilog`→`read_verilog` can
 normalize away the trigger (e.g. constant/tie nets that drive `sta::Sim` /
 `sta::Bdd` constant propagation). Verify it actually reproduces before
