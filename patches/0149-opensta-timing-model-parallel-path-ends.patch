@@ -28,7 +28,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  1 file changed, 51 insertions(+), 3 deletions(-)
 
 diff --git a/src/sta/search/MakeTimingModel.cc b/src/sta/search/MakeTimingModel.cc
-index a984aae8..97dc8661 100644
+index ec0fab4..c219065 100644
 --- a/src/sta/search/MakeTimingModel.cc
 +++ b/src/sta/search/MakeTimingModel.cc
 @@ -33,6 +33,7 @@
@@ -47,7 +47,7 @@ index a984aae8..97dc8661 100644
  #include "FuncExpr.hh"
  #include "Graph.hh"
  #include "GraphClass.hh"
-@@ -325,6 +327,8 @@ public:
+@@ -341,6 +343,8 @@ public:
    void visit(PathEnd *path_end) override;
    void setInputRf(const RiseFall *input_rf);
    const ClockEdgeDelays &margins() const { return margins_; }
@@ -56,7 +56,7 @@ index a984aae8..97dc8661 100644
  
  private:
    const RiseFall *input_rf_{nullptr};
-@@ -384,6 +388,28 @@ MakeEndTimingArcs::visit(PathEnd *path_end)
+@@ -400,6 +404,28 @@ MakeEndTimingArcs::visit(PathEnd *path_end)
    }
  }
  
@@ -85,7 +85,7 @@ index a984aae8..97dc8661 100644
  // input -> register setup/hold
  // input -> output combinational paths
  // Use default input arrival (set_input_delay with no clock) from inputs
-@@ -426,9 +452,31 @@ MakeTimingModel::findTimingFromInput(Port *input_port)
+@@ -442,9 +468,31 @@ MakeTimingModel::findTimingFromInput(Port *input_port)
  
        end_visitor.setInputRf(input_rf);
        VertexSeq endpoints = search_->filteredEndpoints();
@@ -117,6 +117,9 @@ index a984aae8..97dc8661 100644
 +        for (const MakeEndTimingArcs &visitor : end_visitors)
 +          end_visitor.mergeMargins(visitor);
 +      }
-       // OpenROAD fork: write_timing_model O(cone) output delays.
        findOutputDelays(input_rf, endpoints, output_delays);
        search_->deleteFilteredArrivals();
+ 
+-- 
+2.53.0
+

@@ -85,7 +85,7 @@ index 8e89461..0e43d9d 100644
    EdgeExceptionsMap first_thru_edge_exceptions_;
    // Exception hash with one missing from/thru/to point, used for merging.
 diff --git a/src/sta/sdc/Sdc.cc b/src/sta/sdc/Sdc.cc
-index a42e176..6e3f1a8 100644
+index 873e6b9..fee4208 100644
 --- a/src/sta/sdc/Sdc.cc
 +++ b/src/sta/sdc/Sdc.cc
 @@ -483,6 +483,7 @@ Sdc::deleteInstanceBefore(const Instance *inst)
@@ -104,16 +104,16 @@ index a42e176..6e3f1a8 100644
    checkForThruHpins(exception);
  }
  
-@@ -5115,6 +5117,8 @@ Sdc::findMergeMatch(ExceptionPath *exception)
+@@ -5114,6 +5116,8 @@ Sdc::findMergeMatch(ExceptionPath *exception)
            unrecordMergeHashes(match);
            missing_pt->mergeInto(match_missing_pt, network_);
            recordMergeHashes(match);
 +          // The merge adds to match's points, its -to's among them.
 +          recordExceptionTo(match);
-           // First point maps only change if the exception point that
-           // is being merged is the first exception point.
-           if (first_pt)
-@@ -5157,6 +5161,8 @@ Sdc::deleteExceptions()
+           // The merged objects are recorded in the first point maps
+           // (all -through nets) and the pin map.
+           recordExceptionFirstPts(match);
+@@ -5155,6 +5159,8 @@ Sdc::deleteExceptions()
    path_delay_internal_to_.clear();
    path_delay_internal_to_break_.clear();
    pin_exceptions_.clear();
@@ -122,7 +122,7 @@ index a42e176..6e3f1a8 100644
  
    exception_merge_hash_.clear();
    exception_merge_hash_.clear();
-@@ -5223,6 +5229,7 @@ Sdc::unrecordException(ExceptionPath *exception)
+@@ -5221,6 +5227,7 @@ Sdc::unrecordException(ExceptionPath *exception)
    unrecordMergeHashes(exception);
    unrecordExceptionFirstPts(exception);
    unrecordExceptionPins(exception);
@@ -130,8 +130,8 @@ index a42e176..6e3f1a8 100644
    exceptions_.erase(exception);
  }
  
-@@ -5299,6 +5306,26 @@ Sdc::unrecordExceptionPins(ExceptionPath *exception)
-     unrecordExceptionPins(exception, to->pins(), pin_exceptions_);
+@@ -5314,6 +5321,26 @@ unrecordMapException(ExceptionsMap &exception_map,
+   }
  }
  
 +void
@@ -157,7 +157,7 @@ index a42e176..6e3f1a8 100644
  void
  Sdc::unrecordExceptionClks(ExceptionPath *exception,
                             ClockSet *clks,
-@@ -5782,6 +5809,10 @@ Sdc::exceptionMatchesTo(ExceptionPath *exception,
+@@ -5772,6 +5799,10 @@ Sdc::exceptionMatchesTo(ExceptionPath *exception,
      && ((to == nullptr
           && !require_to_pin)
          || (to
@@ -168,7 +168,7 @@ index a42e176..6e3f1a8 100644
              && to->matches(pin, clk_edge, rf, network_)));
  }
  
-@@ -5810,9 +5841,26 @@ Sdc::isCompleteTo(ExceptionState *state,
+@@ -5800,9 +5831,26 @@ Sdc::isCompleteTo(ExceptionState *state,
    return state->nextThru() == nullptr
      && to
      && exception->matches(min_max, true)
@@ -195,7 +195,7 @@ index a42e176..6e3f1a8 100644
  ////////////////////////////////////////////////////////////////
  
  void
-@@ -6067,6 +6115,7 @@ Sdc::deletePinExceptions(const Pin *pin)
+@@ -6057,6 +6105,7 @@ Sdc::deletePinExceptions(const Pin *pin)
    first_thru_pin_exceptions_.erase(pin);
    first_to_pin_exceptions_.erase(pin);
    pin_exceptions_.erase(pin);
@@ -248,3 +248,6 @@ index 0000000..cac4dee
 +report_checks -group_path_count 1000 -endpoint_path_count 1 -format end
 +report_tns
 +report_wns
+-- 
+2.53.0
+
