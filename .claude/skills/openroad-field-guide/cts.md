@@ -19,10 +19,11 @@ runtime. CTS-0204/0205 "Better solution may be possible": you set
 - **The latency balancer timed the whole design.** OpenSTA's
   `ArrivalVisitor` copy dropped `clks_only`, so with threads the
   clock-arrival search covered every path (7.47 M -> 0.18 M paths on
-  swerv when fixed). OpenSTA #462 (merged) plus OpenROAD #12147 (open;
+  swerv when fixed). OpenSTA #462 (merged) plus OpenROAD #12147 (merged as d81f76eeb1;
   balancer asks only for clock arrivals) took XSTile Top CTS from
   101.8 -> 47.8 GB and 1,045 -> 609 s, byte-identical (bazel-orfs #1535,
-  0207 carried, #462 in since the 2026-11-07 bump). The earlier CRPR-off workaround (OpenROAD #12119)
+  #462 in since the 2026-11-07 bump, #12147 since the bump onto
+  a2aefe9cd844). The earlier CRPR-off workaround (OpenROAD #12119)
   was dropped.
 - **Gated clocks each get their own tree**; their skew is reconciled only
   by the balancer's delay buffers.
