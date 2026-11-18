@@ -519,6 +519,7 @@ def orfs_flow(
         previous_stage = {},
         pdk = None,
         stage_data = {},
+        stage_exec_properties = {},
         squash = False,
         substeps = False,
         save_odb = True,
@@ -615,6 +616,10 @@ def orfs_flow(
         first stage refuses it at analysis otherwise.
       pdk: name of the PDK to use, default is asap7
       stage_data: dictionary keyed by ORFS stages with lists of stage-specific data files
+      stage_exec_properties: dictionary keyed by ORFS stages with the exec_properties of
+        that stage's target, in place of the flow's own exec_properties: the stage
+        that needs a larger remote worker asks for one, and the others do not.
+        Not with squash.
       squash: if True, combine all stages after synthesis into a single Bazel action.
         Reduces artifact size by avoiding intermediate ODB checkpoints. Useful for
         stable designs like RAM macros where intermediate stages don't need inspection.
@@ -676,6 +681,8 @@ def orfs_flow(
             "with both has an orfs_macro whose liberty is never generated. " +
             "Use abstract_stage instead of last_stage, or drop mock_area.",
         )
+    if squash and stage_exec_properties:
+        fail("stage_exec_properties has no stage target to apply to in a squashed flow")
     if variant == "base":
         variant = None
     if top == None:
@@ -712,6 +719,7 @@ def orfs_flow(
         previous_stage = previous_stage,
         pdk = pdk,
         stage_data = stage_data,
+        stage_exec_properties = stage_exec_properties,
         squash = squash,
         substeps = substeps,
         save_odb = save_odb,
@@ -792,6 +800,7 @@ def orfs_flow(
         previous_stage = {},
         pdk = pdk,
         stage_data = stage_data,
+        stage_exec_properties = stage_exec_properties,
         **kwargs
     )
 
@@ -844,6 +853,7 @@ def _orfs_pass(
         previous_stage,
         pdk,
         stage_data,
+        stage_exec_properties = {},
         kept_macros = None,
         canon_blackbox_macros = [],
         verilog_slices = None,
@@ -932,7 +942,7 @@ def _orfs_pass(
                 extra_configs = extra_configs,
                 stage_data = stage_data,
                 save_odb = save_odb,
-                **kwargs
+                **(kwargs | _kwargs(synth_step.stage, exec_properties = stage_exec_properties))
             )
         )
         if save_odb:
@@ -1076,6 +1086,7 @@ def _orfs_pass(
                     _kwargs(
                         step.stage,
                         renamed_inputs = renamed_inputs,
+                        exec_properties = stage_exec_properties,
                     ) |
                     more_kwargs
                 )
@@ -1129,7 +1140,11 @@ def _orfs_pass(
                 stage_data = stage_data,
                 **(
                     kwargs |
-                    _kwargs(ABSTRACT_IMPL.stage, renamed_inputs = renamed_inputs)
+                    _kwargs(
+                        ABSTRACT_IMPL.stage,
+                        renamed_inputs = renamed_inputs,
+                        exec_properties = stage_exec_properties,
+                    )
                 )
             )
         )

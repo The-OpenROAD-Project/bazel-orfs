@@ -25,6 +25,7 @@ load(":repeatable_default_test.bzl", "repeatable_default_test_suite")
 load(":sdc_clock_period_test.bzl", "runfiles_contents_test", "synth_action_inputs_test")
 load(":slang_frontend_test.bzl", "slang_frontend_test_suite")
 load(":source_input_propagation_test.bzl", "source_input_propagation_test")
+load(":stage_exec_properties_test.bzl", "stage_exec_properties_test")
 load(":stages_filter_test.bzl", "stages_filter_test_suite")
 load(":work_home_test.bzl", "work_home_test_suite")
 load(":yosys_tcl_library_test.bzl", "yosys_tcl_library_test")
@@ -471,6 +472,40 @@ orfs_flow(
 build_test(
     name = "lb_32x128_user_args_build_test",
     targets = [":lb_32x128_user_args_floorplan"],
+)
+
+# stage_exec_properties: place asks for its own remote worker, the other
+# stages keep the flow's. Analysed only (manual, mock openroad): the
+# properties name no platform an executor has.
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    arguments = LB_ARGS,
+    exec_properties = {"memory": "small"},
+    last_stage = "place",
+    openroad = "//mock/openroad/src/bin:openroad",
+    previous_stage = {"floorplan": ":lb_32x128_synth"},
+    sources = LB_SOURCES,
+    stage_exec_properties = {
+        "place": {
+            "cores": "8",
+            "memory": "large",
+        },
+    },
+    tags = ["manual"],
+    variant = "stage_exec",
+    verilog_files = LB_VERILOG_FILES,
+)
+
+stage_exec_properties_test(
+    name = "lb_32x128_stage_exec_properties_test",
+    expected = {
+        "lb_32x128_stage_exec_floorplan": {"memory": "small"},
+        "lb_32x128_stage_exec_place": {
+            "cores": "8",
+            "memory": "large",
+        },
+    },
 )
 
 # user_stages next to a mock_area: the mocked variant's companions
