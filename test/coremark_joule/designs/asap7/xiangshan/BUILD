@@ -223,6 +223,10 @@ xs_kit(
         "resources": "resources.json",
     },
     flow = "XSTile_kit",
+    # the platform files as the planned parent resolved them: the same
+    # PDK and VT mix, and its synthesis is cached, where XSTile_kit's
+    # 1_synth.odb, which the kit does not use, takes hours
+    manifest_src = ":XSTile_synth",
     regfile_specs = ["%s.regfile" % m for m in xs_regfile_modules()],
     regfiles = xs_regfile_modules(),
     rtl_ports = ":xstile_rtl_ports",
