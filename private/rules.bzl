@@ -2715,8 +2715,11 @@ def _yosys_impl(ctx):
     # With slices the design's memories are the union of the slices'
     # (_yosys_parallel_synth), under the names every later stage reads.
     # The whole design's detection, which the canonicalize below still
-    # runs, writes memories_whole_design{,.json}, read only by the
-    # validation action that holds the union to it.
+    # runs, ends up in memories_whole_design{,.json}, read only by the
+    # validation action that holds the union to it. ORFS writes a
+    # synthesis's views to $(RESULTS_DIR)/memories, where the union is
+    # declared, so that canonicalize runs in a results directory of its
+    # own and its outputs are moved to where they are declared.
     whole_memories = []
     if auto_memories and verilog_slices:
         whole_memories = [
@@ -2741,10 +2744,19 @@ def _yosys_impl(ctx):
         commands = [_make_cmd(ctx)]
         canon_memories_args = []
         if whole_memories:
-            canon_memories_args = [
-                "AUTO_MEMORIES_JSON=" + whole_memories[0].path,
-                "AUTO_MEMORIES_DIR=" + whole_memories[1].path,
-            ]
+            whole_results = whole_memories[1].path + "_results"
+            canon_memories_args = ["RESULTS_DIR=" + whole_results]
+            for src, dst in [
+                (CANON_OUTPUT, canon_output),
+                ("memories_inferred.json", memories_inferred[0]),
+                ("memories.json", whole_memories[0]),
+                ("memories", whole_memories[1]),
+            ]:
+                commands.append("rm -rf {dst} && mv {dir}/{src} {dst}".format(
+                    dir = whole_results,
+                    src = src,
+                    dst = dst.path,
+                ))
         commands += generation_commands(
             canon_logs + [canon_output],
         )
