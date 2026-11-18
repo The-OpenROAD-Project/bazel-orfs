@@ -463,6 +463,13 @@ archive_override(
         # Not upstreamed; retires at a //:bump onto an OpenROAD that has
         # it, or is dropped if XSTile does not hold the gain.
         "//patches:0242-openroad-gpl-cohesion.patch",
+        # 0243: in GUI mode Qt owns the main loop and nothing services
+        # Tcl's event queue, so `after`, `fileevent` and `socket -server`
+        # callbacks never run; a QTimer drains it on the Qt main thread.
+        # Lets a Tcl server sourced into a GUI session answer. Built by
+        # @openroad//:openroad-qt only. Not upstreamed; retires at a
+        # //:bump onto an OpenROAD whose GUI services the Tcl event loop.
+        "//patches:0243-openroad-gui-tcl-event-pump.patch",
     ],
     strip_prefix = "OpenROAD-615e34eabc2429b48d5bb58aa427907fc546020e",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/615e34eabc2429b48d5bb58aa427907fc546020e.tar.gz"],
