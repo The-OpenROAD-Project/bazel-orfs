@@ -1,5 +1,6 @@
 load("@bazel_skylib//rules:analysis_test.bzl", "analysis_test")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_python//python:defs.bzl", "py_test")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
@@ -347,6 +348,69 @@ analysis_failure_test(
     name = "lb_32x128_top_other_macros_refused_test",
     message = "its flow's macros are not the macros its src",
     target_under_test = ":lb_32x128_top_other_macros_floorplan",
+)
+
+# lb_32x128_keep_top keeps lb_32x128_top and, inside it, the macro
+# lb_32x128, whose Verilog it reads too: XSTile's parent keeps its hard
+# blocks so. The macro's liberty view stands in for its module, so it has
+# no slice, canonicalize or partition of its own, and lb_32x128_top's
+# slice holds it as a stub under its own name, its LEF master's.
+#
+#   lb_32x128_keep_top_netlist_test        with verilog slices (the
+#                                          default) the netlist is the
+#                                          one the whole design gives.
+#   lb_32x128_keep_top_build_test          and 1_synth.odb links it.
+#   lb_32x128_keep_top_partition_key_test  one partition, lb_32x128_top's,
+#                                          and the slicer stubs the macro.
+#
+# Before, slang refused the macro's own slice: "Attempted to add new
+# module named '\lb_32x128', but a module by that name already exists".
+[orfs_flow(
+    name = "lb_32x128_keep_top",
+    arguments = SRAM_ARGUMENTS | {
+        "AUTO_MEMORIES": "1",
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_KEEP_MODULES": "lb_32x128_top lb_32x128",
+    },
+    last_stage = "synth",
+    macros = ["lb_32x128_generate_abstract"],
+    sources = {"SDC_FILE": [":constraints-sram"]},
+    variant = variant,
+    verilog_files = LB_VERILOG_FILES + [
+        "rtl/lb_32x128_keep_top.v",
+        "rtl/lb_32x128_top.v",
+    ],
+    verilog_slices = slices,
+) for variant, slices in [
+    ("global", False),
+    ("slices", None),
+]]
+
+[filegroup(
+    name = "lb_32x128_keep_top_%s_netlist" % variant,
+    srcs = [":lb_32x128_keep_top_%s_synth" % variant],
+    output_group = "1_2_yosys.v",
+) for variant in [
+    "global",
+    "slices",
+]]
+
+diff_test(
+    name = "lb_32x128_keep_top_netlist_test",
+    file1 = ":lb_32x128_keep_top_global_netlist",
+    file2 = ":lb_32x128_keep_top_slices_netlist",
+)
+
+build_test(
+    name = "lb_32x128_keep_top_build_test",
+    targets = [":lb_32x128_keep_top_slices_synth"],
+)
+
+partition_key_test(
+    name = "lb_32x128_keep_top_partition_key_test",
+    macros = ["lb_32x128"],
+    modules = ["lb_32x128_top"],
+    target_under_test = ":lb_32x128_keep_top_slices_synth",
 )
 
 orfs_run(

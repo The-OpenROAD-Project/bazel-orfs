@@ -554,6 +554,106 @@ class ElaboratedNamesTest(unittest.TestCase):
         )
 
 
+# Outer, a kept module, holds Block, a macro of the flow whose body is in
+# the sources too, as a generated core has it. Block holds an Inner, and
+# comes before Outer's own Inner in source order.
+MACRO_DESIGN = """\
+module Inner(
+  input        clock,
+  input  [3:0] a,
+  output [3:0] y
+);
+  reg [3:0] r;
+  always @(posedge clock)
+    r <= a;
+  assign y = r;
+endmodule
+
+module Block(
+  input        clock,
+  input  [3:0] a,
+  output [3:0] y
+);
+  Inner inner (
+    .clock (clock),
+    .a     (a),
+    .y     (y)
+  );
+endmodule
+
+module Outer(
+  input        clock,
+  input  [3:0] a,
+  output [3:0] y
+);
+  wire [3:0] _block_y;
+  Block block (
+    .clock (clock),
+    .a     (a),
+    .y     (_block_y)
+  );
+  Inner inner (
+    .clock (clock),
+    .a     (_block_y),
+    .y     (y)
+  );
+endmodule
+
+module Top(
+  input        clock,
+  input  [3:0] a,
+  output [3:0] y
+);
+  Outer outer (
+    .clock (clock),
+    .a     (a),
+    .y     (y)
+  );
+endmodule
+"""
+
+# Block's own Inner instance, which only its body has.
+BLOCK_BODY = ".a     (a),\n    .y     (y)"
+
+
+class MacroTest(unittest.TestCase):
+    def test_macro_is_named_by_itself_and_not_entered(self):
+        modules, _ = modules_of(MACRO_DESIGN)
+        names = elaborated_names(modules, "Top", {"Block"})
+        self.assertEqual(names["Block"], "Block")
+        # slang does not go into the macro, so Outer's own Inner names
+        # the module, though Block's comes first.
+        self.assertEqual(names["Inner"], "Inner$Top.outer.inner")
+        self.assertEqual(
+            elaborated_names(modules, "Top")["Inner"], "Inner$Top.outer.block.inner"
+        )
+
+    def test_macro_is_a_stub_under_its_own_name(self):
+        modules, order = modules_of(MACRO_DESIGN)
+        text = slice_text(
+            modules,
+            order,
+            "Outer",
+            {"Outer", "Inner"},
+            elaborated_names(modules, "Top", {"Block"}),
+            macros={"Block"},
+        )
+        self.assertTrue(
+            text.startswith(
+                "// verilog_slice: Outer Outer$Top.outer\n"
+                "// verilog_slice: Inner Inner$Top.outer.inner\n"
+                "// verilog_slice: Block Block\n"
+            )
+        )
+        self.assertIn("module Block(", text)
+        self.assertNotIn(BLOCK_BODY, text)
+
+    def test_macro_is_whole_unless_named(self):
+        modules, order = modules_of(MACRO_DESIGN)
+        text = slice_text(modules, order, "Outer", {"Outer", "Inner"})
+        self.assertIn(BLOCK_BODY, text)
+
+
 class MainTest(unittest.TestCase):
     def run_main(self, files, argv):
         written = {}
@@ -664,6 +764,57 @@ class MainTest(unittest.TestCase):
         )
         self.assertEqual(rc, 1)
         self.assertIn("defined twice", err)
+
+    def test_macro_has_no_slice_and_is_a_stub(self):
+        rc, written, err = self.run_main(
+            {"d.sv": MACRO_DESIGN},
+            [
+                "--top",
+                "Top",
+                "--top-slice",
+                "t.v",
+                "--macro",
+                "Block",
+                "--macro",
+                "NotInTheSources",
+                "--slice",
+                "Outer",
+                "o.v",
+                "--slice",
+                "Inner",
+                "i.v",
+                "d.sv",
+            ],
+        )
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(sorted(written), ["i.v", "o.v", "t.v"])
+        self.assertIn("// verilog_slice: Block Block\n", written["o.v"])
+        self.assertNotIn(BLOCK_BODY, written["o.v"])
+        self.assertTrue(
+            written["i.v"].startswith("// verilog_slice: Inner Inner$Top.outer.inner\n")
+        )
+
+    def test_kept_macro_fails(self):
+        rc, written, err = self.run_main(
+            {"d.sv": MACRO_DESIGN},
+            ["--top", "Top", "--macro", "Block", "--slice", "Block", "b.v", "d.sv"],
+        )
+        self.assertEqual(rc, 1)
+        self.assertEqual(written, {})
+        self.assertIn("kept module Block is a macro", err)
+
+    def test_kept_module_only_inside_a_macro_fails(self):
+        outer_inner = (
+            "  Inner inner (\n    .clock (clock),\n    .a     (_block_y),\n"
+            "    .y     (y)\n  );\n"
+        )
+        self.assertIn(outer_inner, MACRO_DESIGN)
+        rc, _, err = self.run_main(
+            {"d.sv": MACRO_DESIGN.replace(outer_inner, "")},
+            ["--top", "Top", "--macro", "Block", "--slice", "Inner", "i.v", "d.sv"],
+        )
+        self.assertEqual(rc, 1)
+        self.assertIn("only inside a macro", err)
 
     def test_dpi_imports_reach_their_slices(self):
         rc, written, err = self.run_main(
