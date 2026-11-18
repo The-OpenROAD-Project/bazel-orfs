@@ -47,12 +47,25 @@ class Decide(unittest.TestCase):
         self.assertEqual(action, "redirect")
         text = reply.decode("latin-1")
         self.assertIn("HTTP/1.1 302", text)
-        self.assertIn("\r\nLocation: %s\r\n" % target, text)
+        marked = target + "&odbdebug_redirected=1"
+        self.assertIn("\r\nLocation: %s\r\n" % marked, text)
         self.assertIn("Set-Cookie: odbdebug8123=%s; HttpOnly" % TOKEN, text)
         cookie = "odbdebug8123=%s" % TOKEN
         self.assertEqual(
-            gui_proxy.decide(head(target, cookie), TOKEN, PORT), ("forward", None)
+            gui_proxy.decide(head(marked, cookie), TOKEN, PORT), ("forward", None)
         )
+
+    def test_the_cookie_survives_a_link_clicked_on_another_site(self):
+        # Chrome does not send a SameSite=Strict cookie on a cross-site
+        # navigation, redirect included: the link looped.
+        _, reply = gui_proxy.decide(head("/?token=" + TOKEN), TOKEN, PORT)
+        self.assertIn("SameSite=Lax;", reply.decode("latin-1"))
+
+    def test_a_cookie_not_sent_back_is_a_403_not_a_loop(self):
+        target = "/?token=%s&odbdebug_redirected=1" % TOKEN
+        action, reply = gui_proxy.decide(head(target), TOKEN, PORT)
+        self.assertEqual(action, "deny")
+        self.assertIn(b"did not send back the cookie", reply)
 
     def test_a_wrong_token_with_the_cookie_is_denied(self):
         cookie = "odbdebug8123=%s" % TOKEN
@@ -156,7 +169,11 @@ class Proxy(unittest.TestCase):
         self.assertEqual(status, 302)
         cookie = headers["Set-Cookie"].split(";")[0]
         status, _, body = self.get(headers["Location"], cookie)
-        self.assertEqual((status, body), (200, b"viewer /?token=" + TOKEN.encode()))
+        # the viewer checks the token itself, beside the redirect's mark
+        self.assertEqual(
+            (status, body), (200, b"viewer " + headers["Location"].encode())
+        )
+        self.assertIn("token=" + TOKEN, headers["Location"])
         with open(self.activity) as f:
             word, when = f.read().split()
         self.assertEqual(word, "activity")

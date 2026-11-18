@@ -7,7 +7,13 @@ The viewer evaluates any Tcl it is sent, so the proxy forwards a
 connection only when it carries the daemon's token in a cookie: the
 link's query (`/?token=...`) is answered with that cookie and a redirect
 to the same link, and every later request, the page's assets included,
-carries it. Anything else gets a 403. The viewer checks the same token
+carries it. Anything else gets a 403. The cookie is SameSite=Lax, not
+Strict: a link clicked on another site (a chat, a terminal app) is a
+cross-site navigation, on which a Strict cookie is not sent, even after
+the redirect, and the link redirected to itself until the browser gave
+up (ERR_TOO_MANY_REDIRECTS). The redirect marks the link (REDIRECTED), so
+a browser that still comes back without the cookie gets a 403 that says
+so, not another redirect. The viewer checks the same token
 itself (`web_server -token`) on the page and its websocket, from the
 query, so the token stays in the link.
 
@@ -77,6 +83,10 @@ def same(a, b):
     return hmac.compare_digest(a.encode("utf-8"), b.encode("utf-8"))
 
 
+# The query parameter the redirect adds: the cookie was set once already.
+REDIRECTED = "odbdebug_redirected"
+
+
 def decide(head, token, port):
     """What to do with a request: ("forward", None), ("redirect",
     response bytes) or ("deny", response bytes)."""
@@ -94,7 +104,16 @@ def decide(head, token, port):
             return "deny", forbidden()
         if has_cookie:
             return "forward", None
-        location = urlunsplit(("", "", url.path or "/", url.query, ""))
+        if any(k == REDIRECTED for k, _ in query):
+            return "deny", response(
+                403,
+                "Forbidden",
+                "odb-debug: the browser did not send back the cookie this link"
+                " set; allow cookies for this address, or paste the link into"
+                " the address bar.\n",
+            )
+        marked = url.query + ("&" if url.query else "") + REDIRECTED + "=1"
+        location = urlunsplit(("", "", url.path or "/", marked, ""))
         return "redirect", response(
             302,
             "Found",
@@ -103,7 +122,7 @@ def decide(head, token, port):
                 ("Location", location),
                 (
                     "Set-Cookie",
-                    "%s=%s; HttpOnly; SameSite=Strict; Path=/"
+                    "%s=%s; HttpOnly; SameSite=Lax; Path=/"
                     % (cookie_name(port), token),
                 ),
             ],
