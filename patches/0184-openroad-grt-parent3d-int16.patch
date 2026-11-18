@@ -17,13 +17,13 @@ the //:bump onto an OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/grt/src/fastroute/include/FastRoute.h | 2 +-
+ openroad/grt/src/fastroute/include/FastRoute.h | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/src/grt/src/fastroute/include/FastRoute.h b/src/grt/src/fastroute/include/FastRoute.h
-index 0be8b81..40b4a88 100644
---- a/src/grt/src/fastroute/include/FastRoute.h
-+++ b/src/grt/src/fastroute/include/FastRoute.h
+diff --git a/openroad/grt/src/fastroute/include/FastRoute.h b/openroad/grt/src/fastroute/include/FastRoute.h
+index 302bfdb..989caeb 100644
+--- a/openroad/grt/src/fastroute/include/FastRoute.h
++++ b/openroad/grt/src/fastroute/include/FastRoute.h
 @@ -75,7 +75,7 @@ struct DebugSetting
  struct parent3D
  {

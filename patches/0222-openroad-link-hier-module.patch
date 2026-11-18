@@ -23,12 +23,12 @@ module (ORD-2026, ORD-2027) or the module does not link (ORD-2028).
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- include/ord/OpenRoad.hh                   |  3 ++
- src/OpenRoad.cc                           |  8 ++++
- src/OpenRoad.i                            |  7 +++
- src/dbSta/include/db_sta/dbReadVerilog.hh |  8 ++++
- src/dbSta/src/dbReadVerilog.cc            | 52 +++++++++++++++++++++++
- src/dbSta/src/dbReadVerilog.tcl           |  9 ++++
+ include/ord/OpenRoad.hh                       |  3 ++
+ openroad/OpenRoad.cc                          |  8 +++
+ openroad/OpenRoad.i                           |  7 +++
+ .../dbSta/include/db_sta/dbReadVerilog.hh     |  8 +++
+ openroad/dbSta/src/dbReadVerilog.cc           | 52 +++++++++++++++++++
+ openroad/dbSta/src/dbReadVerilog.tcl          |  9 ++++
  6 files changed, 87 insertions(+)
 
 diff --git a/include/ord/OpenRoad.hh b/include/ord/OpenRoad.hh
@@ -45,10 +45,10 @@ index 0af538b..a27e264 100644
    // Used if a design is created programmatically rather than loaded
    // to notify the tools (eg dbSta, gui).
    void designCreated();
-diff --git a/src/OpenRoad.cc b/src/OpenRoad.cc
+diff --git a/openroad/OpenRoad.cc b/openroad/OpenRoad.cc
 index 5670875..a5817d2 100644
---- a/src/OpenRoad.cc
-+++ b/src/OpenRoad.cc
+--- a/openroad/OpenRoad.cc
++++ b/openroad/OpenRoad.cc
 @@ -663,6 +663,14 @@ void OpenRoad::linkDesign(const char* design_name,
    db_->triggerPostReadDb();
  }
@@ -64,10 +64,10 @@ index 5670875..a5817d2 100644
  void OpenRoad::designCreated()
  {
    db_->triggerPostReadDb();
-diff --git a/src/OpenRoad.i b/src/OpenRoad.i
+diff --git a/openroad/OpenRoad.i b/openroad/OpenRoad.i
 index 2859848..f243423 100644
---- a/src/OpenRoad.i
-+++ b/src/OpenRoad.i
+--- a/openroad/OpenRoad.i
++++ b/openroad/OpenRoad.i
 @@ -447,6 +447,13 @@ link_design_db_cmd(const char *design_name,
    ord->linkDesign(design_name, hierarchy, omit_filename_prop);
  }
@@ -82,10 +82,10 @@ index 2859848..f243423 100644
  void
  ensure_linked()
  {
-diff --git a/src/dbSta/include/db_sta/dbReadVerilog.hh b/src/dbSta/include/db_sta/dbReadVerilog.hh
+diff --git a/openroad/dbSta/include/db_sta/dbReadVerilog.hh b/openroad/dbSta/include/db_sta/dbReadVerilog.hh
 index 44405d0..80c01ed 100644
---- a/src/dbSta/include/db_sta/dbReadVerilog.hh
-+++ b/src/dbSta/include/db_sta/dbReadVerilog.hh
+--- a/openroad/dbSta/include/db_sta/dbReadVerilog.hh
++++ b/openroad/dbSta/include/db_sta/dbReadVerilog.hh
 @@ -56,4 +56,12 @@ bool dbLinkDesign(const char* top_cell_name,
                    bool hierarchy,
                    bool omit_filename_prop = false);
@@ -99,10 +99,10 @@ index 44405d0..80c01ed 100644
 +                  utl::Logger* logger);
 +
  }  // namespace ord
-diff --git a/src/dbSta/src/dbReadVerilog.cc b/src/dbSta/src/dbReadVerilog.cc
-index 926c44d..5e05e36 100644
---- a/src/dbSta/src/dbReadVerilog.cc
-+++ b/src/dbSta/src/dbReadVerilog.cc
+diff --git a/openroad/dbSta/src/dbReadVerilog.cc b/openroad/dbSta/src/dbReadVerilog.cc
+index c20f94c..8f107d1 100644
+--- a/openroad/dbSta/src/dbReadVerilog.cc
++++ b/openroad/dbSta/src/dbReadVerilog.cc
 @@ -142,6 +142,7 @@ class Verilog2db
                            dbVerilogNetwork* verilog_network,
                            bool link_make_black_boxes);
@@ -111,7 +111,7 @@ index 926c44d..5e05e36 100644
  
   private:
    struct LineInfo
-@@ -224,6 +225,19 @@ bool dbLinkDesign(const char* top_cell_name,
+@@ -226,6 +227,19 @@ bool dbLinkDesign(const char* top_cell_name,
    return success;
  }
  
@@ -131,7 +131,7 @@ index 926c44d..5e05e36 100644
  Verilog2db::Verilog2db(Network* network,
                         dbDatabase* db,
                         Logger* logger,
-@@ -1189,6 +1203,44 @@ void Verilog2db::processUnusedCells(const char* top_cell_name,
+@@ -1197,6 +1211,44 @@ void Verilog2db::processUnusedCells(const char* top_cell_name,
    }
  }
  
@@ -176,10 +176,10 @@ index 926c44d..5e05e36 100644
  //
  // makeUnusedBlock: create a separate block for each unused module
  //
-diff --git a/src/dbSta/src/dbReadVerilog.tcl b/src/dbSta/src/dbReadVerilog.tcl
+diff --git a/openroad/dbSta/src/dbReadVerilog.tcl b/openroad/dbSta/src/dbReadVerilog.tcl
 index 0172255..2fec589 100644
---- a/src/dbSta/src/dbReadVerilog.tcl
-+++ b/src/dbSta/src/dbReadVerilog.tcl
+--- a/openroad/dbSta/src/dbReadVerilog.tcl
++++ b/openroad/dbSta/src/dbReadVerilog.tcl
 @@ -26,6 +26,15 @@ proc link_design { args } {
    ord::link_design_db_cmd $top_cell_name $hierarchy $omit_filename_prop
  }

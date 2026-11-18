@@ -18,16 +18,16 @@ OpenROAD that has generate_array.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/ram/src/ram.tcl                   | 119 ++++++++++++++++++++++++++
- src/ram/test/BUILD                    |   1 +
- src/ram/test/generate_array_asap7.tcl |  54 ++++++++++++
+ openroad/ram/src/ram.tcl                   | 119 +++++++++++++++++++++
+ openroad/ram/test/BUILD                    |   1 +
+ openroad/ram/test/generate_array_asap7.tcl |  54 ++++++++++
  3 files changed, 174 insertions(+)
- create mode 100644 src/ram/test/generate_array_asap7.tcl
+ create mode 100644 openroad/ram/test/generate_array_asap7.tcl
 
-diff --git a/src/ram/src/ram.tcl b/src/ram/src/ram.tcl
-index ead7122d1a..fd7e24afe4 100644
---- a/src/ram/src/ram.tcl
-+++ b/src/ram/src/ram.tcl
+diff --git a/openroad/ram/src/ram.tcl b/openroad/ram/src/ram.tcl
+index ead7122..fd7e24a 100644
+--- a/openroad/ram/src/ram.tcl
++++ b/openroad/ram/src/ram.tcl
 @@ -576,3 +576,122 @@ proc generate_ram { args } {
  
    ram::ram_routing
@@ -151,23 +151,23 @@ index ead7122d1a..fd7e24afe4 100644
 +}
 +
 +}
-diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index 2586cd39e1..c13c524a5d 100644
---- a/src/ram/test/BUILD
-+++ b/src/ram/test/BUILD
-@@ -31,6 +31,7 @@ PASSFAIL_TESTS = [
-     "service_columns_asap7",
-     "bank_column_layout_asap7",
+diff --git a/openroad/ram/test/BUILD b/openroad/ram/test/BUILD
+index 9e3acb3..fc0cc9f 100644
+--- a/openroad/ram/test/BUILD
++++ b/openroad/ram/test/BUILD
+@@ -32,6 +32,7 @@ PASSFAIL_TESTS = [
      "option_errors_asap7",
+     "pins_corner_asap7",
+     "routed_short_edge_asap7",
 +    "generate_array_asap7",
  ]
  
  ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
-diff --git a/src/ram/test/generate_array_asap7.tcl b/src/ram/test/generate_array_asap7.tcl
+diff --git a/openroad/ram/test/generate_array_asap7.tcl b/openroad/ram/test/generate_array_asap7.tcl
 new file mode 100644
-index 0000000000..90fc554d4f
+index 0000000..90fc554
 --- /dev/null
-+++ b/src/ram/test/generate_array_asap7.tcl
++++ b/openroad/ram/test/generate_array_asap7.tcl
 @@ -0,0 +1,54 @@
 +# generate_array: a register-file spec is generate_ram_netlist with the
 +# options it states, and the array it builds reads and writes; a part the
@@ -223,3 +223,6 @@ index 0000000000..90fc554d4f
 +}
 +
 +puts "pass"
+-- 
+2.53.0
+

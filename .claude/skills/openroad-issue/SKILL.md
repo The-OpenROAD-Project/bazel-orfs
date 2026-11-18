@@ -34,7 +34,7 @@ Package the reproduction as a git format-patch that adds a failing bazel
 test to the OpenROAD tree. The developer flow is:
 
     git am <patch>
-    bazelisk test //src/<module>/test:<test_name>
+    bazelisk test //openroad/<module>/test:<test_name>
 
 If the reproduction is too large for a patch (>500 lines of test data),
 attach it as a .tar.gz with a run-me script instead.
@@ -68,7 +68,7 @@ Tested on origin/master <40-char-sha>.
 
 Apply the patch at the bottom and run:
 
-    bazelisk test //src/<module>/test:<test_name> --test_timeout=30
+    bazelisk test //openroad/<module>/test:<test_name> --test_timeout=30
 
 <what you'll observe: crash / hang / timeout / wrong output. No hard line wraps — let the browser wrap.>
 
@@ -108,7 +108,7 @@ Title format: `[module] symptom in plain language` — matches OpenROAD conventi
 ### 1. Understand the bug
 
 Read the error message, logs, and context. Use the Grep tool to search
-`tmp/OpenROAD/src/` for the error string
+`tmp/OpenROAD/openroad/` for the error string
 to understand:
 - What code path produces it
 - What conditions trigger it
@@ -165,7 +165,7 @@ bazelisk build //:openroad
 ```
 
 Binary at `bazel-bin/openroad`. Incremental rebuilds of a single module
-(e.g. `src/drt/`) take < 5 minutes.
+(e.g. `openroad/drt/`) take < 5 minutes.
 
 Record the full 40-char SHA:
 ```bash
@@ -178,11 +178,11 @@ When it does not, upstream has probably fixed it since the pin, and the
 deliverable changes: a `//:bump` onto that fix, not an issue the
 maintainer already closed, and not a flow knob that would outlive its
 reason. Find the change in the subsystem the error names (DPL to
-`src/dpl`, RSZ to `src/rsz`, GRT to `src/grt`, STA to `src/sta`, ...),
+`openroad/dpl`, RSZ to `openroad/rsz`, GRT to `openroad/grt`, STA to `openroad/sta`, ...),
 from the pinned commit in `MODULE.bazel`'s `@openroad` `archive_override`:
 
 ```bash
-git -C tmp/OpenROAD log --oneline <pinned-sha>..origin/master -- src/<tool>
+git -C tmp/OpenROAD log --oneline <pinned-sha>..origin/master -- openroad/<tool>
 ```
 
 Look for a default that flipped, an engine that was replaced, a fatal
@@ -278,7 +278,7 @@ This is the minimum shippable unit. Instead of loose files and inline
 analysis, create a git format-patch that a developer can apply and run.
 
 In the OpenROAD worktree (at origin/master), create test files under
-`src/<module>/test/`:
+`openroad/<module>/test/`:
 - Minimal LEF, DEF, and/or liberty files
 - A test Tcl script (e.g. `obs_covers_pin.tcl`)
 - Prefer a pass/fail test that states the intended behaviour:
@@ -286,9 +286,9 @@ In the OpenROAD worktree (at origin/master), create test files under
   `check_passfail = True` (and in `PASSFAIL_TESTS` for CMake), rather
   than a new .ok file (`/dogfooding`, rule 5). Use a .ok file only
   where the module's tests are golden-output by nature.
-- A test entry in `src/<module>/test/BUILD`
+- A test entry in `openroad/<module>/test/BUILD`
 
-Verify: `bazelisk test //src/<module>/test:<test_name> --test_output=streamed`
+Verify: `bazelisk test //openroad/<module>/test:<test_name> --test_output=streamed`
 
 Commit, then `git format-patch origin/master`. This is the reproducer
 patch. A reproducer-only issue is valuable — don't block on a fix.
@@ -338,7 +338,7 @@ Bad places (ephemeral, unsearchable):
 If you have a clean fix, add it as a second commit:
 1. Fix the bug in the source code
 2. Update the .ok file if the test now produces different output
-3. Verify: `bazelisk test //src/<module>/test:<test_name>` passes
+3. Verify: `bazelisk test //openroad/<module>/test:<test_name>` passes
 4. Run related existing tests to check for regressions
 
 Generate patches: `git format-patch origin/master` produces one file per
@@ -409,7 +409,7 @@ fast they respond, and what makes them act.
 
 ```bash
 # Who commits to this module?
-git log --format="%an" -50 -- src/<module>/src/ | sort | uniq -c | sort -rn
+git log --format="%an" -50 -- openroad/<module>/src/ | sort | uniq -c | sort -rn
 # How fast do they close issues?
 gh api "repos/The-OpenROAD-Project/OpenROAD/issues?state=closed&per_page=10" \
   -q '.[] | select(.title | test("\\[<module>\\]")) |
@@ -530,20 +530,20 @@ Before posting, verify:
 ### Build graph for unit tests
 
 Unit tests must compile in seconds, not minutes. If a cc_test depends
-on a monolithic module library (e.g. `//src/mpl`), extract the code
+on a monolithic module library (e.g. `//openroad/mpl`), extract the code
 under test into a focused cc_library with minimal deps (typically just
 odb + utl).
 
 Signs a test needs this treatment:
 - `features = ["-layering_check"]` in the BUILD — means it includes
   private headers and the dep graph is wrong
-- deps list includes `//src/<module>` (the whole module)
+- deps list includes `//openroad/<module>` (the whole module)
 - test takes minutes to compile on a cold cache
 
 The fix:
 1. Extract the class under test into `<Class>.h` / `<Class>.cpp`
 2. Add `cc_library(name = "<class>")` with only the needed deps
-3. Point the cc_test at `//src/<module>:<class>` instead of `//src/<module>`
+3. Point the cc_test at `//openroad/<module>:<class>` instead of `//openroad/<module>`
 4. Qualify message IDs (`utl::MPL` not bare `MPL`) since you're
    outside the module's namespace-level using declarations
 

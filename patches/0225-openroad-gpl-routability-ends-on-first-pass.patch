@@ -115,24 +115,24 @@ OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/gpl/src/ioPinBase.cpp                     |  15 +
- src/gpl/src/ioPinBase.h                       |   5 +
- src/gpl/src/nesterovBase.cpp                  | 110 +++++-
- src/gpl/src/nesterovBase.h                    |  30 ++
- src/gpl/src/nesterovPlace.cpp                 |  68 +++-
- src/gpl/src/nesterovPlace.h                   |  12 +
- src/gpl/src/routeBase.cpp                     |   1 +
- src/gpl/src/routeBase.h                       |   4 +
- src/gpl/test/BUILD                            |  15 +-
+ openroad/gpl/src/ioPinBase.cpp                |  15 +
+ openroad/gpl/src/ioPinBase.h                  |   5 +
+ openroad/gpl/src/nesterovBase.cpp             | 110 +++++-
+ openroad/gpl/src/nesterovBase.h               |  30 ++
+ openroad/gpl/src/nesterovPlace.cpp            |  68 +++-
+ openroad/gpl/src/nesterovPlace.h              |  12 +
+ openroad/gpl/src/routeBase.cpp                |   1 +
+ openroad/gpl/src/routeBase.h                  |   4 +
+ openroad/gpl/test/BUILD                       |  15 +-
  .../test/routability_first_pass_minimum.tcl   |  45 +++
- src/gpl/test/routability_minimum_test.cpp     | 334 +++++++++++++++++-
+ .../gpl/test/routability_minimum_test.cpp     | 334 +++++++++++++++++-
  11 files changed, 625 insertions(+), 14 deletions(-)
- create mode 100644 src/gpl/test/routability_first_pass_minimum.tcl
+ create mode 100644 openroad/gpl/test/routability_first_pass_minimum.tcl
 
-diff --git a/src/gpl/src/ioPinBase.cpp b/src/gpl/src/ioPinBase.cpp
-index 418977f294..fc17e89812 100644
---- a/src/gpl/src/ioPinBase.cpp
-+++ b/src/gpl/src/ioPinBase.cpp
+diff --git a/openroad/gpl/src/ioPinBase.cpp b/openroad/gpl/src/ioPinBase.cpp
+index 418977f..fc17e89 100644
+--- a/openroad/gpl/src/ioPinBase.cpp
++++ b/openroad/gpl/src/ioPinBase.cpp
 @@ -221,6 +221,21 @@ void IoPinBase::revertToSnapshot()
    cur_ = snapshot_;
  }
@@ -155,10 +155,10 @@ index 418977f294..fc17e89812 100644
  // A 2D up: region names a position on the define_pin_shape_pattern grid, so
  // the pin must be written on that grid's layer with that grid's pin size.
  void IoPinBase::pickTopLayerGrid()
-diff --git a/src/gpl/src/ioPinBase.h b/src/gpl/src/ioPinBase.h
-index 14f61c796b..e9e8d49381 100644
---- a/src/gpl/src/ioPinBase.h
-+++ b/src/gpl/src/ioPinBase.h
+diff --git a/openroad/gpl/src/ioPinBase.h b/openroad/gpl/src/ioPinBase.h
+index 14f61c7..e9e8d49 100644
+--- a/openroad/gpl/src/ioPinBase.h
++++ b/openroad/gpl/src/ioPinBase.h
 @@ -56,6 +56,10 @@ class IoPinBase
    void placeGPins(Iterate iterate);
    void saveSnapshot();
@@ -178,10 +178,10 @@ index 14f61c796b..e9e8d49381 100644
  
    // Locus
    std::vector<PerimSegment> free_segments_;
-diff --git a/src/gpl/src/nesterovBase.cpp b/src/gpl/src/nesterovBase.cpp
-index f9a9cc20cd..1d6816bce5 100644
---- a/src/gpl/src/nesterovBase.cpp
-+++ b/src/gpl/src/nesterovBase.cpp
+diff --git a/openroad/gpl/src/nesterovBase.cpp b/openroad/gpl/src/nesterovBase.cpp
+index ecfd7f6..8ceeb9b 100644
+--- a/openroad/gpl/src/nesterovBase.cpp
++++ b/openroad/gpl/src/nesterovBase.cpp
 @@ -4272,6 +4272,83 @@ bool NesterovBase::revertToSnapshot()
    return true;
  }
@@ -266,7 +266,7 @@ index f9a9cc20cd..1d6816bce5 100644
  void NesterovBaseCommon::moveGCell(odb::dbInst* db_inst)
  {
    auto it = db_inst_to_nbc_index_map_.find(db_inst);
-@@ -4659,6 +4736,9 @@ void NesterovBase::cutFillerCells(int64_t inflation_area)
+@@ -4660,6 +4737,9 @@ void NesterovBase::cutFillerCells(int64_t inflation_area)
         --i) {
      if (nb_gcells_[i]->isFiller()) {
        const GCell& removed = fillerStor_[nb_gcells_[i].getStorageIndex()];
@@ -276,7 +276,7 @@ index f9a9cc20cd..1d6816bce5 100644
        removed_fillers_.push_back(RemovedFillerState{
            .gcell = removed,
            .curSLPCoordi = curSLPCoordi_[i],
-@@ -4683,7 +4763,14 @@ void NesterovBase::cutFillerCells(int64_t inflation_area)
+@@ -4684,7 +4764,14 @@ void NesterovBase::cutFillerCells(int64_t inflation_area)
            .snapshotCoordi = snapshotCoordi_[i],
            .snapshotSLPCoordi = snapshotSLPCoordi_[i],
            .snapshotSLPSumGrads = snapshotSLPSumGrads_[i],
@@ -292,7 +292,7 @@ index f9a9cc20cd..1d6816bce5 100644
  
        destroyFillerGCell(i);
        availableFillerArea -= single_filler_area;
-@@ -4865,6 +4952,14 @@ void NesterovBase::restoreRemovedFillers()
+@@ -4866,6 +4953,14 @@ void NesterovBase::restoreRemovedFillers()
      snapshotSLPSumGrads_[idx] = filler.snapshotSLPSumGrads;
      snapshotPrevSLPSumGrads_[idx] = filler.snapshotPrevSLPSumGrads;
  
@@ -307,7 +307,7 @@ index f9a9cc20cd..1d6816bce5 100644
      totalFillerArea_ += getFillerCellArea();
    }
  
-@@ -5191,6 +5286,13 @@ void NesterovBase::swapAndPopParallelVectors(size_t remove_index,
+@@ -5192,6 +5287,13 @@ void NesterovBase::swapAndPopParallelVectors(size_t remove_index,
      swapAndPop(snapshotSLPSumGrads_, remove_index, last_index);
      swapAndPop(snapshotPrevSLPSumGrads_, remove_index, last_index);
    }
@@ -321,7 +321,7 @@ index f9a9cc20cd..1d6816bce5 100644
    swapAndPop(curSLPCoordi_, remove_index, last_index);
    swapAndPop(curSLPWireLengthGrads_, remove_index, last_index);
    swapAndPop(curSLPDensityGrads_, remove_index, last_index);
-@@ -5256,6 +5358,12 @@ void NesterovBase::appendParallelVectors()
+@@ -5257,6 +5359,12 @@ void NesterovBase::appendParallelVectors()
      snapshotSLPSumGrads_.emplace_back();
      snapshotPrevSLPSumGrads_.emplace_back();
    }
@@ -334,10 +334,10 @@ index f9a9cc20cd..1d6816bce5 100644
    curSLPCoordi_.emplace_back();
    curSLPWireLengthGrads_.emplace_back();
    curSLPDensityGrads_.emplace_back();
-diff --git a/src/gpl/src/nesterovBase.h b/src/gpl/src/nesterovBase.h
-index dd3918242c..b0168a89b2 100644
---- a/src/gpl/src/nesterovBase.h
-+++ b/src/gpl/src/nesterovBase.h
+diff --git a/openroad/gpl/src/nesterovBase.h b/openroad/gpl/src/nesterovBase.h
+index dd39182..b0168a8 100644
+--- a/openroad/gpl/src/nesterovBase.h
++++ b/openroad/gpl/src/nesterovBase.h
 @@ -1297,6 +1297,14 @@ class NesterovBase
    void saveSnapshot();
    bool revertToSnapshot();
@@ -389,11 +389,11 @@ index dd3918242c..b0168a89b2 100644
    // For destroying elements in parallel vectors
    void swapAndPop(std::vector<FloatPoint>& vec,
                    size_t remove_index,
-diff --git a/src/gpl/src/nesterovPlace.cpp b/src/gpl/src/nesterovPlace.cpp
-index 2243dca466..f6b6076fff 100644
---- a/src/gpl/src/nesterovPlace.cpp
-+++ b/src/gpl/src/nesterovPlace.cpp
-@@ -746,6 +746,7 @@ bool NesterovPlace::tryRoutabilityDivergeRecovery(float& curA)
+diff --git a/openroad/gpl/src/nesterovPlace.cpp b/openroad/gpl/src/nesterovPlace.cpp
+index 076b14e..2be7108 100644
+--- a/openroad/gpl/src/nesterovPlace.cpp
++++ b/openroad/gpl/src/nesterovPlace.cpp
+@@ -747,6 +747,7 @@ bool NesterovPlace::tryRoutabilityDivergeRecovery(float& curA)
  
    if (is_last_attempt) {
      is_routability_need_ = false;
@@ -401,7 +401,7 @@ index 2243dca466..f6b6076fff 100644
    }
  
    log_->warn(GPL,
-@@ -1052,6 +1053,10 @@ void NesterovPlace::runRoutability(int iter,
+@@ -1053,6 +1054,10 @@ void NesterovPlace::runRoutability(int iter,
      // GRT and RUDY read the IO pins from the db
      getTopLevelNB()->updateDbIoPins();
  
@@ -412,7 +412,7 @@ index 2243dca466..f6b6076fff 100644
      // recover the densityPenalty values
      // if further routability-driven is needed
      std::pair<bool, bool> result
-@@ -1072,8 +1077,16 @@ void NesterovPlace::runRoutability(int iter,
+@@ -1073,8 +1078,16 @@ void NesterovPlace::runRoutability(int iter,
        graphics_->addRoutabilityIter(iter, isRevertInitNeeded);
      }
  
@@ -431,7 +431,7 @@ index 2243dca466..f6b6076fff 100644
        // revert back the current density penality
        curA = route_snapshot_a_;
        wireLengthCoefX_ = route_snapshot_wl_coef_x_;
-@@ -1102,6 +1115,14 @@ void NesterovPlace::runRoutability(int iter,
+@@ -1103,6 +1116,14 @@ void NesterovPlace::runRoutability(int iter,
                   "routing congestion, could not reach target.");
      }
  
@@ -446,7 +446,7 @@ index 2243dca466..f6b6076fff 100644
      if (!is_routability_need_ && !isRevertInitNeeded) {
        log_->info(GPL,
                   90,
-@@ -1115,10 +1136,52 @@ void NesterovPlace::runRoutability(int iter,
+@@ -1116,10 +1137,52 @@ void NesterovPlace::runRoutability(int iter,
          graphics_->gifEnd(routability_gif_key_);
          routability_gif_key_ = -1;
        }
@@ -499,7 +499,7 @@ index 2243dca466..f6b6076fff 100644
  // Every region has to have settled: routability acts on one congestion map
  // covering all of them.
  bool NesterovPlace::isPlacementSettled() const
-@@ -1378,6 +1441,7 @@ PlaceResult NesterovPlace::doNesterovPlace(int start_iter)
+@@ -1386,6 +1449,7 @@ PlaceResult NesterovPlace::doNesterovPlace(int start_iter)
    route_snapshot_wl_coef_x_ = 0;
    route_snapshot_wl_coef_y_ = 0;
    routability_diverge_attempt_count_ = 0;
@@ -507,10 +507,10 @@ index 2243dca466..f6b6076fff 100644
  
    // divergence snapshot info
    is_diverge_snapshot_saved_ = false;
-diff --git a/src/gpl/src/nesterovPlace.h b/src/gpl/src/nesterovPlace.h
-index 3ff824eecd..8cc6011bba 100644
---- a/src/gpl/src/nesterovPlace.h
-+++ b/src/gpl/src/nesterovPlace.h
+diff --git a/openroad/gpl/src/nesterovPlace.h b/openroad/gpl/src/nesterovPlace.h
+index 676883e..43fa413 100644
+--- a/openroad/gpl/src/nesterovPlace.h
++++ b/openroad/gpl/src/nesterovPlace.h
 @@ -150,6 +150,11 @@ class NesterovPlace
    // a different inflation in place. Returns false when no attempt is left or
    // there is no routability snapshot to go to.
@@ -523,7 +523,7 @@ index 3ff824eecd..8cc6011bba 100644
    // True when the per-iteration cell displacement has come off its peak in
    // every region, i.e. the placement is close to where it is going.
    bool isPlacementSettled() const;
-@@ -232,6 +237,13 @@ class NesterovPlace
+@@ -236,6 +241,13 @@ class NesterovPlace
    float route_snapshot_wl_coef_x_ = 0;
    float route_snapshot_wl_coef_y_ = 0;
  
@@ -537,10 +537,10 @@ index 3ff824eecd..8cc6011bba 100644
    // Two attempts because there are two inflation states to try: min
    // congestion with routability on, then the same with it off.
    static constexpr int kMaxRoutabilityDivergeAttempts = 2;
-diff --git a/src/gpl/src/routeBase.cpp b/src/gpl/src/routeBase.cpp
-index e1db0e1e87..886e282a08 100644
---- a/src/gpl/src/routeBase.cpp
-+++ b/src/gpl/src/routeBase.cpp
+diff --git a/openroad/gpl/src/routeBase.cpp b/openroad/gpl/src/routeBase.cpp
+index e1db0e1..886e282 100644
+--- a/openroad/gpl/src/routeBase.cpp
++++ b/openroad/gpl/src/routeBase.cpp
 @@ -1058,6 +1058,7 @@ std::pair<bool, bool> RouteBase::routability(
                 "minimum.",
                 minRc_);
@@ -549,10 +549,10 @@ index e1db0e1e87..886e282a08 100644
      min_RC_violated_cnt_ = 0;
      for (int i = 0; i < nbVec_.size(); i++) {
        minRcTargetDensity_[i] = nbVec_[i]->getTargetDensity();
-diff --git a/src/gpl/src/routeBase.h b/src/gpl/src/routeBase.h
-index 5b77c46616..da8d926d3b 100644
---- a/src/gpl/src/routeBase.h
-+++ b/src/gpl/src/routeBase.h
+diff --git a/openroad/gpl/src/routeBase.h b/openroad/gpl/src/routeBase.h
+index 5b77c46..da8d926 100644
+--- a/openroad/gpl/src/routeBase.h
++++ b/openroad/gpl/src/routeBase.h
 @@ -195,6 +195,9 @@ class RouteBase
    double getTotalRudyOverflow() const { return total_route_overflow_; }
  
@@ -571,11 +571,11 @@ index 5b77c46616..da8d926d3b 100644
  
    // if solutions are not improved at all,
    // needs to revert back to have the minimized RC values.
-diff --git a/src/gpl/test/BUILD b/src/gpl/test/BUILD
-index c97af932cc..22cea5c8a6 100644
---- a/src/gpl/test/BUILD
-+++ b/src/gpl/test/BUILD
-@@ -47,6 +47,11 @@ PASSFAIL_TESTS = [
+diff --git a/openroad/gpl/test/BUILD b/openroad/gpl/test/BUILD
+index 631410b..3317172 100644
+--- a/openroad/gpl/test/BUILD
++++ b/openroad/gpl/test/BUILD
+@@ -49,6 +49,11 @@ PASSFAIL_TESTS = [
      "place_ios_td",
  ]
  
@@ -587,7 +587,7 @@ index c97af932cc..22cea5c8a6 100644
  # Longer-running regression tests. These are
  # tagged "manual" so they are excluded from the default `bazel test //...`
  # wildcard and must be requested explicitly, e.g. via the :large_tests suite.
-@@ -100,7 +105,7 @@ filegroup(
+@@ -102,7 +107,7 @@ filegroup(
          ["**/*"],
          exclude = [
              test + "." + ext
@@ -596,7 +596,7 @@ index c97af932cc..22cea5c8a6 100644
              for ext in [
                  "tcl",
                  "py",
-@@ -116,6 +121,14 @@ filegroup(
+@@ -118,6 +123,14 @@ filegroup(
      data = [":test_resources"],
  ) for test_name in ALL_TESTS]
  
@@ -611,11 +611,11 @@ index c97af932cc..22cea5c8a6 100644
  [regression_test(
      name = test_name,
      size = "enormous",
-diff --git a/src/gpl/test/routability_first_pass_minimum.tcl b/src/gpl/test/routability_first_pass_minimum.tcl
+diff --git a/openroad/gpl/test/routability_first_pass_minimum.tcl b/openroad/gpl/test/routability_first_pass_minimum.tcl
 new file mode 100644
-index 0000000000..5fbf53286c
+index 0000000..5fbf532
 --- /dev/null
-+++ b/src/gpl/test/routability_first_pass_minimum.tcl
++++ b/openroad/gpl/test/routability_first_pass_minimum.tcl
 @@ -0,0 +1,45 @@
 +# A routability phase whose minimum is its first pass ends on the placement
 +# that pass measured, with the Nesterov state the loop had there: no inflation
@@ -662,10 +662,10 @@ index 0000000000..5fbf53286c
 +  }
 +}
 +puts pass
-diff --git a/src/gpl/test/routability_minimum_test.cpp b/src/gpl/test/routability_minimum_test.cpp
-index 1e235cb9ea..fbd2c5365c 100644
---- a/src/gpl/test/routability_minimum_test.cpp
-+++ b/src/gpl/test/routability_minimum_test.cpp
+diff --git a/openroad/gpl/test/routability_minimum_test.cpp b/openroad/gpl/test/routability_minimum_test.cpp
+index 1e235cb..fbd2c53 100644
+--- a/openroad/gpl/test/routability_minimum_test.cpp
++++ b/openroad/gpl/test/routability_minimum_test.cpp
 @@ -1,11 +1,14 @@
  // SPDX-License-Identifier: BSD-3-Clause
  // Copyright (c) 2026, The OpenROAD Authors

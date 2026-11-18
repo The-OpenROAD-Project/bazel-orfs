@@ -29,14 +29,14 @@ Retires at a //:bump onto an OpenROAD that carries both.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/dpl/src/NegotiationLegalizer.h       |  20 ++
- src/dpl/src/NegotiationLegalizerPass.cpp | 246 +++++++++++++++++++++++
+ openroad/dpl/src/NegotiationLegalizer.h       |  20 ++
+ openroad/dpl/src/NegotiationLegalizerPass.cpp | 246 ++++++++++++++++++
  2 files changed, 266 insertions(+)
 
-diff --git a/src/dpl/src/NegotiationLegalizer.h b/src/dpl/src/NegotiationLegalizer.h
-index 1531b6a115..51d33700a9 100644
---- a/src/dpl/src/NegotiationLegalizer.h
-+++ b/src/dpl/src/NegotiationLegalizer.h
+diff --git a/openroad/dpl/src/NegotiationLegalizer.h b/openroad/dpl/src/NegotiationLegalizer.h
+index 1531b6a..51d3370 100644
+--- a/openroad/dpl/src/NegotiationLegalizer.h
++++ b/openroad/dpl/src/NegotiationLegalizer.h
 @@ -6,6 +6,7 @@
  #include <cmath>
  #include <cstdint>
@@ -71,10 +71,10 @@ index 1531b6a115..51d33700a9 100644
  
    // Constraint helpers
    [[nodiscard]] bool isValidRow(int rowIdx,
-diff --git a/src/dpl/src/NegotiationLegalizerPass.cpp b/src/dpl/src/NegotiationLegalizerPass.cpp
-index 8400a0e811..d9250ff0f3 100644
---- a/src/dpl/src/NegotiationLegalizerPass.cpp
-+++ b/src/dpl/src/NegotiationLegalizerPass.cpp
+diff --git a/openroad/dpl/src/NegotiationLegalizerPass.cpp b/openroad/dpl/src/NegotiationLegalizerPass.cpp
+index 8400a0e..d9250ff 100644
+--- a/openroad/dpl/src/NegotiationLegalizerPass.cpp
++++ b/openroad/dpl/src/NegotiationLegalizerPass.cpp
 @@ -232,12 +232,14 @@ void NegotiationLegalizer::runNegotiation(const std::vector<int>& illegalCells)
  
    prev_violations = -1;

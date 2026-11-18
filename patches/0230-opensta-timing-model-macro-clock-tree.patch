@@ -36,11 +36,22 @@ OpenROAD whose OpenSTA has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
-diff --git a/src/sta/search/MakeTimingModel.cc b/src/sta/search/MakeTimingModel.cc
-index a6ca625..e0a52e0 100644
---- a/src/sta/search/MakeTimingModel.cc
-+++ b/src/sta/search/MakeTimingModel.cc
-@@ -669,7 +669,12 @@ MakeTimingModel::makeClkTreePaths(LibertyPort *lib_port,
+ search/MakeTimingModel.cc                     |  7 +-
+ .../search_timing_model_clktree_macro.lib     | 71 +++++++++++++++++++
+ .../test/search_timing_model_clktree_macro.ok |  4 ++
+ .../search_timing_model_clktree_macro.tcl     | 60 ++++++++++++++++
+ .../test/search_timing_model_clktree_macro.v  | 13 ++++
+ 5 files changed, 154 insertions(+), 1 deletion(-)
+ create mode 100644 search/test/search_timing_model_clktree_macro.lib
+ create mode 100644 search/test/search_timing_model_clktree_macro.ok
+ create mode 100644 search/test/search_timing_model_clktree_macro.tcl
+ create mode 100644 search/test/search_timing_model_clktree_macro.v
+
+diff --git a/openroad/sta/search/MakeTimingModel.cc b/openroad/sta/search/MakeTimingModel.cc
+index c219065..02b1ccb 100644
+--- a/openroad/sta/search/MakeTimingModel.cc
++++ b/openroad/sta/search/MakeTimingModel.cc
+@@ -714,7 +714,12 @@ MakeTimingModel::makeClkTreePaths(LibertyPort *lib_port,
      delays.delay(clk_rf, end_rf, min_max, insertion, delay, lib_clk_delay, latency,
                   clk_path, exists);
      if (exists) {
@@ -54,11 +65,11 @@ index a6ca625..e0a52e0 100644
        if (attrs == nullptr)
          attrs = std::make_shared<TimingArcAttrs>();
        attrs->setModel(end_rf, model);
-diff --git a/src/sta/search/test/search_timing_model_clktree_macro.lib b/src/sta/search/test/search_timing_model_clktree_macro.lib
+diff --git a/openroad/sta/search/test/search_timing_model_clktree_macro.lib b/openroad/sta/search/test/search_timing_model_clktree_macro.lib
 new file mode 100644
 index 0000000..6be60e4
 --- /dev/null
-+++ b/src/sta/search/test/search_timing_model_clktree_macro.lib
++++ b/openroad/sta/search/test/search_timing_model_clktree_macro.lib
 @@ -0,0 +1,71 @@
 +/* A hard macro with its own clock tree, as write_timing_model writes one:
 +   its registers sit 0.30-0.31 ns (min) and 0.40-0.42 ns (max) behind
@@ -131,21 +142,21 @@ index 0000000..6be60e4
 +    }
 +  }
 +}
-diff --git a/src/sta/search/test/search_timing_model_clktree_macro.ok b/src/sta/search/test/search_timing_model_clktree_macro.ok
+diff --git a/openroad/sta/search/test/search_timing_model_clktree_macro.ok b/openroad/sta/search/test/search_timing_model_clktree_macro.ok
 new file mode 100644
 index 0000000..2fe8333
 --- /dev/null
-+++ b/src/sta/search/test/search_timing_model_clktree_macro.ok
++++ b/openroad/sta/search/test/search_timing_model_clktree_macro.ok
 @@ -0,0 +1,4 @@
 +ok: max_clock_tree_path is not below min_clock_tree_path
 +ok: max_clock_tree_path rise is the macro's pin arrival plus its 0.40 ns tree
 +ok: max_clock_tree_path fall is the macro's pin arrival plus its 0.42 ns tree
 +ok: min_clock_tree_path rise is the earliest flop's clock arrival
-diff --git a/src/sta/search/test/search_timing_model_clktree_macro.tcl b/src/sta/search/test/search_timing_model_clktree_macro.tcl
+diff --git a/openroad/sta/search/test/search_timing_model_clktree_macro.tcl b/openroad/sta/search/test/search_timing_model_clktree_macro.tcl
 new file mode 100644
 index 0000000..070b017
 --- /dev/null
-+++ b/src/sta/search/test/search_timing_model_clktree_macro.tcl
++++ b/openroad/sta/search/test/search_timing_model_clktree_macro.tcl
 @@ -0,0 +1,60 @@
 +# write_timing_model's clock tree arcs when a clock sink is a hard macro
 +# with its own clock tree (min/max_clock_tree_path on its clock pin).
@@ -207,11 +218,11 @@ index 0000000..070b017
 +  [expr { abs($max_fall - (($mac_fall - 5.0) + 0.42)) < 1e-3 }]
 +check "min_clock_tree_path rise is the earliest flop's clock arrival" \
 +  [expr { abs($min_rise - $ff_rise) < 1e-3 }]
-diff --git a/src/sta/search/test/search_timing_model_clktree_macro.v b/src/sta/search/test/search_timing_model_clktree_macro.v
+diff --git a/openroad/sta/search/test/search_timing_model_clktree_macro.v b/openroad/sta/search/test/search_timing_model_clktree_macro.v
 new file mode 100644
 index 0000000..608e0d8
 --- /dev/null
-+++ b/src/sta/search/test/search_timing_model_clktree_macro.v
++++ b/openroad/sta/search/test/search_timing_model_clktree_macro.v
 @@ -0,0 +1,13 @@
 +// Two registers behind a clock buffer and a hard macro on the clock port
 +// itself: the macro's pin is the earliest clock sink, its registers (the
@@ -226,3 +237,6 @@ index 0000000..608e0d8
 +  clktree_macro mac (.CLK(clk), .D(n1), .Q(n2));
 +  DFF_X1 ff2 (.D(n2), .CK(clk_buf), .Q(out1));
 +endmodule
+-- 
+2.53.0
+

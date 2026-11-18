@@ -27,18 +27,18 @@ OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/ram/README.md                 |   2 +-
- src/ram/include/ram/ram.h         |  20 +++++
- src/ram/src/ram.cpp               | 136 ++++++++++++++++++++++++++++--
- src/ram/test/BUILD                |   1 +
- src/ram/test/read_drive_asap7.tcl |  59 +++++++++++++
+ openroad/ram/README.md                 |   2 +-
+ openroad/ram/include/ram/ram.h         |  20 ++++
+ openroad/ram/src/ram.cpp               | 136 +++++++++++++++++++++++--
+ openroad/ram/test/BUILD                |   1 +
+ openroad/ram/test/read_drive_asap7.tcl |  59 +++++++++++
  5 files changed, 208 insertions(+), 10 deletions(-)
- create mode 100644 src/ram/test/read_drive_asap7.tcl
+ create mode 100644 openroad/ram/test/read_drive_asap7.tcl
 
-diff --git a/src/ram/README.md b/src/ram/README.md
-index 8845be57b2..8adfab46fb 100644
---- a/src/ram/README.md
-+++ b/src/ram/README.md
+diff --git a/openroad/ram/README.md b/openroad/ram/README.md
+index b4dc6e5..8831fe1 100644
+--- a/openroad/ram/README.md
++++ b/openroad/ram/README.md
 @@ -102,7 +102,7 @@ generate_ram [-mask_size bits]
  | `-periphery`, `-pin_layer`, `-wrapper_verilog` | **Experimental.** `unplaced` and `-pin_layer` are `generate_ram_netlist`'s only, for a flow that places the periphery itself; `generate_ram` takes `placed` and `verilog`, routes the core and puts its pins on its edges. `unplaced` leaves the periphery (address inverters and registers, decoders, select buffers, each word's select cell, the input buffers) for a parent to place, size and buffer; the outline is the placed core and a row, and each pin sits where its connections land, on `-pin_layer`'s tracks, for a macro placer before the parent dissolves the core into its rows. `verilog` makes the core a block of its own, `<name>_core`, and writes the periphery to `-wrapper_verilog` as a Verilog module, `<name>`, around it: assigns of the cells' functions, for synthesis to map with the parent. Default: `placed`. |
  | `-cells` | **Experimental.** The cell for a role (`inv`, `and2`, `buffer`, `clock_gate`, `aoi22`, `ao22`, `or2`, `nand2`, `nor2`, `tie`, `addr_flop`), instead of the smallest the libraries have of its function. An AOI22 or AO22 given is checked by its truth table. Default: the smallest of each. |
@@ -48,10 +48,10 @@ index 8845be57b2..8adfab46fb 100644
  | `-bit_folds` | **Experimental.** A word in `count` rows: its bits in slices of `-mask_size` (the word divided by `count`, rounded up; the last slice may be short), one slice a row, so a wide word with many ports is not a long thin strip. A folded word is written whole, one write enable a port, its write logic built once and shared by its rows. Not with `-use_latch` or the row decoder's `-column_mux_ratio` above 1. Default: 1. |
  | `-inv_cell` | Name of the master to use for inverters. Default: auto-select from the loaded cell library. |
  | `-routing_layer` | A list of the metal layer and metal width (in microns) for generating standard cell power tracks (followpins). Example: `{met1 0.48}`. |
-diff --git a/src/ram/include/ram/ram.h b/src/ram/include/ram/ram.h
-index 5c4fbeb220..cff7129ae9 100644
---- a/src/ram/include/ram/ram.h
-+++ b/src/ram/include/ram/ram.h
+diff --git a/openroad/ram/include/ram/ram.h b/openroad/ram/include/ram/ram.h
+index 5c4fbeb..cff7129 100644
+--- a/openroad/ram/include/ram/ram.h
++++ b/openroad/ram/include/ram/ram.h
 @@ -7,6 +7,7 @@
  #include <cstdint>
  #include <functional>
@@ -86,10 +86,10 @@ index 5c4fbeb220..cff7129ae9 100644
    // the tree over terms[lo, hi), each node in the bit cell of a term it
    // covers
    TreeEnd planReadTree(const std::string& prefix,
-diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
-index d281d27350..40f5b8c4de 100644
---- a/src/ram/src/ram.cpp
-+++ b/src/ram/src/ram.cpp
+diff --git a/openroad/ram/src/ram.cpp b/openroad/ram/src/ram.cpp
+index c417029..1974d56 100644
+--- a/openroad/ram/src/ram.cpp
++++ b/openroad/ram/src/ram.cpp
 @@ -315,9 +315,10 @@ RamGen::TreeEnd RamGen::planReadTree(const std::string& prefix,
  // read path is handled by the AOI mux in the buffer row, so all tristates in
  // a row can share the same row-select enable signal.
@@ -188,7 +188,7 @@ index d281d27350..40f5b8c4de 100644
        makeInst(inv_grid_cell.get(),
                 fmt::format("decoder_p{}", p),
                 fmt::format("inv_p{}_a{}", p, bit),
-@@ -2412,6 +2452,8 @@ void RamGen::generate(const int mask_size,
+@@ -2473,6 +2513,8 @@ void RamGen::generate(const int mask_size,
    storage_nets_.clear();
    tree_nodes_.clear();
    word_write_.clear();
@@ -197,7 +197,7 @@ index d281d27350..40f5b8c4de 100644
    storage_cell_ = storage_cell;
    tristate_cell_ = tristate_cell;
    inv_cell_ = inv_cell;
-@@ -2652,6 +2694,7 @@ void RamGen::generate(const int mask_size,
+@@ -2713,6 +2755,7 @@ void RamGen::generate(const int mask_size,
  
    addr_inputs_.clear();
    addr_inputs_.resize(total_ports);
@@ -205,7 +205,7 @@ index d281d27350..40f5b8c4de 100644
    addr_true_.assign(total_ports, {});
    addr_flop_out_.assign(total_ports, {});
    vector<vector<dbNet*>> inv_addr_nets(total_ports);
-@@ -2733,6 +2776,52 @@ void RamGen::generate(const int mask_size,
+@@ -2794,6 +2837,52 @@ void RamGen::generate(const int mask_size,
          }
        }
      }
@@ -258,7 +258,7 @@ index d281d27350..40f5b8c4de 100644
      if (!banked_) {
        decoder_input_nets[p].assign(num_rows, vector<dbNet*>(num_row_bits));
      }
-@@ -2772,11 +2861,32 @@ void RamGen::generate(const int mask_size,
+@@ -2833,11 +2922,32 @@ void RamGen::generate(const int mask_size,
      if (p >= rw_ports + w_ports) {
        read_select_nets[r_sel_idx++] = makeSelectNets(
            fmt::format("r_sel_p{}", p), num_selects, RamPortType::Read);
@@ -291,7 +291,7 @@ index d281d27350..40f5b8c4de 100644
            dbNet::destroy(decoder_output_nets[p][slot]);
            dbNet::destroy(read_select_nets[r_sel_idx - 1][slot]);
            decoder_output_nets[p][slot] = nullptr;
-@@ -2949,8 +3059,16 @@ void RamGen::generate(const int mask_size,
+@@ -3010,8 +3120,16 @@ void RamGen::generate(const int mask_size,
                = banked_ ? fmt::format("read_p{}_b{}", port, bit)
                          : fmt::format("read_w{}_p{}_b{}", w, port, bit);
            dbNet* out = word_q_nets[w][port][bit];
@@ -310,23 +310,23 @@ index d281d27350..40f5b8c4de 100644
            if (flip) {
              const Term& at
                  = banked_ ? terms.back() : Term{num_rows - 1, w, nullptr};
-diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index d1740c86e2..5cc0a7d93a 100644
---- a/src/ram/test/BUILD
-+++ b/src/ram/test/BUILD
-@@ -32,6 +32,7 @@ PASSFAIL_TESTS = [
-     "option_errors_asap7",
+diff --git a/openroad/ram/test/BUILD b/openroad/ram/test/BUILD
+index ad6c147..0028cec 100644
+--- a/openroad/ram/test/BUILD
++++ b/openroad/ram/test/BUILD
+@@ -34,6 +34,7 @@ PASSFAIL_TESTS = [
+     "routed_short_edge_asap7",
      "generate_array_asap7",
      "write_mux_fanout_asap7",
 +    "read_drive_asap7",
  ]
  
  ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
-diff --git a/src/ram/test/read_drive_asap7.tcl b/src/ram/test/read_drive_asap7.tcl
+diff --git a/openroad/ram/test/read_drive_asap7.tcl b/openroad/ram/test/read_drive_asap7.tcl
 new file mode 100644
-index 0000000000..6b079a85da
+index 0000000..6b079a8
 --- /dev/null
-+++ b/src/ram/test/read_drive_asap7.tcl
++++ b/openroad/ram/test/read_drive_asap7.tcl
 @@ -0,0 +1,59 @@
 +# The read side's drive: with -decoder word, a port that decodes more than
 +# eight words makes its address literals a buffer and an inverter per
@@ -387,3 +387,6 @@ index 0000000000..6b079a85da
 +}
 +
 +puts "pass"
+-- 
+2.53.0
+

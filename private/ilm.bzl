@@ -189,7 +189,7 @@ orfs_ilm_sta = rule(
             allow_single_file = True,
         ),
         "_opensta": attr.label(
-            default = Label("@openroad//src/sta:opensta"),
+            default = Label("@openroad//openroad/sta:opensta"),
             executable = True,
             cfg = "exec",
         ),

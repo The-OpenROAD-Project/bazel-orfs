@@ -47,10 +47,10 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  3 files changed, 100 insertions(+)
  create mode 100644 test/path_delay_to_sets.tcl
 
-diff --git a/src/sta/include/sta/Sdc.hh b/src/sta/include/sta/Sdc.hh
+diff --git a/openroad/sta/include/sta/Sdc.hh b/openroad/sta/include/sta/Sdc.hh
 index 8e89461..0e43d9d 100644
---- a/src/sta/include/sta/Sdc.hh
-+++ b/src/sta/include/sta/Sdc.hh
+--- a/openroad/sta/include/sta/Sdc.hh
++++ b/openroad/sta/include/sta/Sdc.hh
 @@ -1055,6 +1055,12 @@ public:
                      const Pin *pin,
                      const RiseFall *rf,
@@ -84,10 +84,10 @@ index 8e89461..0e43d9d 100644
    // Edges that traverse hierarchical exception pins.
    EdgeExceptionsMap first_thru_edge_exceptions_;
    // Exception hash with one missing from/thru/to point, used for merging.
-diff --git a/src/sta/sdc/Sdc.cc b/src/sta/sdc/Sdc.cc
+diff --git a/openroad/sta/sdc/Sdc.cc b/openroad/sta/sdc/Sdc.cc
 index 873e6b9..fee4208 100644
---- a/src/sta/sdc/Sdc.cc
-+++ b/src/sta/sdc/Sdc.cc
+--- a/openroad/sta/sdc/Sdc.cc
++++ b/openroad/sta/sdc/Sdc.cc
 @@ -483,6 +483,7 @@ Sdc::deleteInstanceBefore(const Instance *inst)
    first_from_inst_exceptions_.erase(inst);
    first_thru_inst_exceptions_.erase(inst);
@@ -203,11 +203,11 @@ index 873e6b9..fee4208 100644
    return deleted;
  }
  
-diff --git a/src/sta/test/path_delay_to_sets.tcl b/src/sta/test/path_delay_to_sets.tcl
+diff --git a/openroad/sta/test/path_delay_to_sets.tcl b/openroad/sta/test/path_delay_to_sets.tcl
 new file mode 100644
 index 0000000..cac4dee
 --- /dev/null
-+++ b/src/sta/test/path_delay_to_sets.tcl
++++ b/openroad/sta/test/path_delay_to_sets.tcl
 @@ -0,0 +1,39 @@
 +# set_max_delay with large -to pin and instance sets, two that differ
 +# only in their -to, -to internal pins that paths go on past, and an

@@ -4,7 +4,7 @@
 #
 # Run from a bazel-orfs clone, KIT the kit's directory as an absolute
 # path, with OpenROAD's OpenSTA:
-#   bazelisk run @openroad//src/sta:opensta -- -exit "$KIT/check/sta.tcl"
+#   bazelisk run @openroad//openroad/sta:opensta -- -exit "$KIT/check/sta.tcl"
 # and, to print the difference to the tool's number, TOOL_PERIOD_PS set
 # to the tool's minimum period in ps. The kit is found from this script's
 # own path, so any directory works.

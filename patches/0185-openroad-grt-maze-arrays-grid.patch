@@ -21,14 +21,14 @@ the //:bump onto an OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/grt/src/fastroute/src/FastRoute.cpp | 10 +++-------
+ openroad/grt/src/fastroute/src/FastRoute.cpp | 10 +++-------
  1 file changed, 3 insertions(+), 7 deletions(-)
 
-diff --git a/src/grt/src/fastroute/src/FastRoute.cpp b/src/grt/src/fastroute/src/FastRoute.cpp
-index 3b9f2e2a8f..27f1625d36 100644
---- a/src/grt/src/fastroute/src/FastRoute.cpp
-+++ b/src/grt/src/fastroute/src/FastRoute.cpp
-@@ -317,12 +317,8 @@ void FastRouteCore::setGridsAndLayers(int x, int y, int nLayers)
+diff --git a/openroad/grt/src/fastroute/src/FastRoute.cpp b/openroad/grt/src/fastroute/src/FastRoute.cpp
+index c5fa9aa..ce64c62 100644
+--- a/openroad/grt/src/fastroute/src/FastRoute.cpp
++++ b/openroad/grt/src/fastroute/src/FastRoute.cpp
+@@ -321,12 +321,8 @@ void FastRouteCore::setGridsAndLayers(int x, int y, int nLayers)
    y_grid_ = y;
    num_layers_ = nLayers;
    layer_directions_.resize(num_layers_);
@@ -43,7 +43,7 @@ index 3b9f2e2a8f..27f1625d36 100644
  
    v_capacity_3D_.resize(num_layers_);
    h_capacity_3D_.resize(num_layers_);
-@@ -350,7 +346,7 @@ void FastRouteCore::setGridsAndLayers(int x, int y, int nLayers)
+@@ -354,7 +350,7 @@ void FastRouteCore::setGridsAndLayers(int x, int y, int nLayers)
    cost_lr_.resize(y_range_);   // Left and right boundary cost
    cost_tb_.resize(x_range_);   // Top and bottom boundary cost
  

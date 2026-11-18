@@ -45,20 +45,20 @@ OpenROAD that has it. Upstream candidate: a bugfix.
 Co-Authored-By: Claude <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/cts/src/HTreeBuilder.cpp         |  71 ++++--
- src/cts/src/HTreeBuilder.h           |  11 +-
- src/cts/test/BUILD                   |   1 +
- src/cts/test/colocated_registers.def | 318 +++++++++++++++++++++++++++
- src/cts/test/colocated_registers.tcl |  87 ++++++++
+ openroad/cts/src/HTreeBuilder.cpp         |  71 +++--
+ openroad/cts/src/HTreeBuilder.h           |  11 +-
+ openroad/cts/test/BUILD                   |   1 +
+ openroad/cts/test/colocated_registers.def | 318 ++++++++++++++++++++++
+ openroad/cts/test/colocated_registers.tcl |  87 ++++++
  5 files changed, 466 insertions(+), 22 deletions(-)
- create mode 100644 src/cts/test/colocated_registers.def
- create mode 100644 src/cts/test/colocated_registers.tcl
+ create mode 100644 openroad/cts/test/colocated_registers.def
+ create mode 100644 openroad/cts/test/colocated_registers.tcl
 
-diff --git a/src/cts/src/HTreeBuilder.cpp b/src/cts/src/HTreeBuilder.cpp
-index da304927ab..4506b04870 100644
---- a/src/cts/src/HTreeBuilder.cpp
-+++ b/src/cts/src/HTreeBuilder.cpp
-@@ -8,7 +8,9 @@
+diff --git a/openroad/cts/src/HTreeBuilder.cpp b/openroad/cts/src/HTreeBuilder.cpp
+index 758c2a6..c653510 100644
+--- a/openroad/cts/src/HTreeBuilder.cpp
++++ b/openroad/cts/src/HTreeBuilder.cpp
+@@ -9,7 +9,9 @@
  #include <fstream>
  #include <iostream>
  #include <limits>
@@ -68,7 +68,7 @@ index da304927ab..4506b04870 100644
  #include <utility>
  #include <vector>
  
-@@ -37,7 +39,7 @@ Point<double> HTreeBuilder::legalizeOneBuffer(Point<double> bufferLoc,
+@@ -38,7 +40,7 @@ Point<double> HTreeBuilder::legalizeOneBuffer(Point<double> bufferLoc,
  
  void HTreeBuilder::preSinkClustering(
      const std::vector<std::pair<float, float>>& sinks,
@@ -86,7 +86,7 @@ index da304927ab..4506b04870 100644
        if (!fuzzyEqual(inst.getInsertionDelay(), 0.0, 1e-6)) {
          setSinkInsertionDelay(normLocation,
                                inst.getInsertionDelay() / wireSegmentUnit_);
-@@ -146,14 +148,11 @@ void HTreeBuilder::preSinkClustering(
+@@ -163,14 +165,11 @@ void HTreeBuilder::preSinkClustering(
        float ySum = 0;
        for (auto point_idx : cluster) {
          const std::pair<double, double>& point = points[point_idx];
@@ -104,7 +104,7 @@ index da304927ab..4506b04870 100644
        }
        const unsigned pointCounter = cluster.size();
        const float normCenterX
-@@ -205,7 +204,7 @@ void HTreeBuilder::preSinkClustering(
+@@ -222,7 +221,7 @@ void HTreeBuilder::preSinkClustering(
        // Simulate the float conversion to ensure consistent map keys
        Point<double> mapKey(point.first, point.second);
  
@@ -113,7 +113,7 @@ index da304927ab..4506b04870 100644
      }
      clusterCount++;
    }
-@@ -300,7 +299,7 @@ void HTreeBuilder::initSinkRegion()
+@@ -319,7 +318,7 @@ void HTreeBuilder::initSinkRegion()
    }
  
    std::vector<std::pair<float, float>> topLevelSinks;
@@ -122,7 +122,7 @@ index da304927ab..4506b04870 100644
    initTopLevelSinks(topLevelSinks, sinkInsts);
  
    const float maxDiameter = (clusterDiameter * dbUnits) / wireSegmentUnit_;
-@@ -322,7 +321,7 @@ void HTreeBuilder::initSinkRegion()
+@@ -341,7 +340,7 @@ void HTreeBuilder::initSinkRegion()
      if (topLevelSinksClustered_.size() > 400
          && options_->getSinkClusteringLevels() > 0) {
        std::vector<std::pair<float, float>> secondLevelLocs;
@@ -131,7 +131,7 @@ index da304927ab..4506b04870 100644
        initSecondLevelSinks(secondLevelLocs, secondLevelInsts);
        preSinkClustering(secondLevelLocs,
                          secondLevelInsts,
-@@ -1394,7 +1393,7 @@ std::string HTreeBuilder::plotHTree()
+@@ -1413,7 +1412,7 @@ std::string HTreeBuilder::plotHTree()
              = leafTopology.getBranchSinksLocations(idx);
  
          for (const Point<double>& loc : sinkLocs) {
@@ -140,7 +140,7 @@ index da304927ab..4506b04870 100644
  
            file << numSinks << " " << loc.getX() << " " << loc.getY();
            file << " " << px << " " << py << " leafbuffer " << name2;
-@@ -1833,10 +1832,10 @@ void HTreeBuilder::computeBranchingPoints(const unsigned level,
+@@ -1852,10 +1851,10 @@ void HTreeBuilder::computeBranchingPoints(const unsigned level,
  
  void HTreeBuilder::initTopLevelSinks(
      std::vector<std::pair<float, float>>& sinkLocations,
@@ -153,7 +153,7 @@ index da304927ab..4506b04870 100644
      sinkLocations.emplace_back((float) sink.getX() / wireSegmentUnit_,
                                 (float) sink.getY() / wireSegmentUnit_);
      sinkInsts.emplace_back(&sink);
-@@ -1845,13 +1844,15 @@ void HTreeBuilder::initTopLevelSinks(
+@@ -1864,13 +1863,15 @@ void HTreeBuilder::initTopLevelSinks(
  
  void HTreeBuilder::initSecondLevelSinks(
      std::vector<std::pair<float, float>>& sinkLocations,
@@ -171,7 +171,7 @@ index da304927ab..4506b04870 100644
    }
  }
  
-@@ -2109,6 +2110,9 @@ void HTreeBuilder::createClockSubNets()
+@@ -2128,6 +2129,9 @@ void HTreeBuilder::createClockSubNets()
  
    LevelTopology& leafTopology = topologyForEachLevel_.back();
    unsigned numSinks = 0;
@@ -181,7 +181,7 @@ index da304927ab..4506b04870 100644
    leafTopology.forEachBranchingPoint(
        [&](unsigned idx, Point<double> branchPoint) {
          ClockSubNet* subNet = leafTopology.getBranchDrivingSubNet(idx);
-@@ -2123,16 +2127,47 @@ void HTreeBuilder::createClockSubNets()
+@@ -2142,16 +2146,47 @@ void HTreeBuilder::createClockSubNets()
          const std::vector<Point<double>>& sinkLocs
              = leafTopology.getBranchSinksLocations(idx);
          for (const Point<double>& loc : sinkLocs) {
@@ -231,10 +231,10 @@ index da304927ab..4506b04870 100644
  }
  
  void HTreeBuilder::createSingleBufferClockNet()
-diff --git a/src/cts/src/HTreeBuilder.h b/src/cts/src/HTreeBuilder.h
-index 95983d4657..6f52dd6ecd 100644
---- a/src/cts/src/HTreeBuilder.h
-+++ b/src/cts/src/HTreeBuilder.h
+diff --git a/openroad/cts/src/HTreeBuilder.h b/openroad/cts/src/HTreeBuilder.h
+index 95983d4..6f52dd6 100644
+--- a/openroad/cts/src/HTreeBuilder.h
++++ b/openroad/cts/src/HTreeBuilder.h
 @@ -306,9 +306,9 @@ class HTreeBuilder : public TreeBuilder
    void createClockSubNets();
    void createSingleBufferClockNet();
@@ -268,11 +268,11 @@ index 95983d4657..6f52dd6ecd 100644
    std::vector<std::pair<float, float>> topLevelSinksClustered_;
  
    int wireSegmentUnit_ = 0;
-diff --git a/src/cts/test/BUILD b/src/cts/test/BUILD
-index 814612b260..902cbfd70b 100644
---- a/src/cts/test/BUILD
-+++ b/src/cts/test/BUILD
-@@ -61,6 +61,7 @@ COMPULSORY_TESTS = [
+diff --git a/openroad/cts/test/BUILD b/openroad/cts/test/BUILD
+index fbec1e2..6c0764c 100644
+--- a/openroad/cts/test/BUILD
++++ b/openroad/cts/test/BUILD
+@@ -62,6 +62,7 @@ COMPULSORY_TESTS = [
  ]
  
  PASSFAIL_TESTS = [
@@ -280,11 +280,11 @@ index 814612b260..902cbfd70b 100644
      "dangling_clock_inverter",
      "dont_touch_sink",
      "dont_touch_skipped_net",
-diff --git a/src/cts/test/colocated_registers.def b/src/cts/test/colocated_registers.def
+diff --git a/openroad/cts/test/colocated_registers.def b/openroad/cts/test/colocated_registers.def
 new file mode 100644
-index 0000000000..b5e0e3885f
+index 0000000..b5e0e38
 --- /dev/null
-+++ b/src/cts/test/colocated_registers.def
++++ b/openroad/cts/test/colocated_registers.def
 @@ -0,0 +1,318 @@
 +VERSION 5.8 ;
 +DIVIDERCHAR "/" ;
@@ -604,11 +604,11 @@ index 0000000000..b5e0e3885f
 +      ( ffb_6 CK ) ( ffb_5 CK ) ( ffb_4 CK ) ( ffb_3 CK ) ( ffb_2 CK ) ( ffb_1 CK ) ( ffb_0 CK ) + USE CLOCK ;
 +END NETS
 +END DESIGN
-diff --git a/src/cts/test/colocated_registers.tcl b/src/cts/test/colocated_registers.tcl
+diff --git a/openroad/cts/test/colocated_registers.tcl b/openroad/cts/test/colocated_registers.tcl
 new file mode 100644
-index 0000000000..f878e9d1b5
+index 0000000..f878e9d
 --- /dev/null
-+++ b/src/cts/test/colocated_registers.tcl
++++ b/openroad/cts/test/colocated_registers.tcl
 @@ -0,0 +1,87 @@
 +# CTS connects both registers of a pair placed at the same location.
 +#

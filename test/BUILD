@@ -1825,7 +1825,7 @@ orfs_run(
     outs = [
         "units.txt",
     ],
-    openroad = "@openroad//src/sta:opensta",
+    openroad = "@openroad//openroad/sta:opensta",
     script = ":units.tcl",
     tags = ["manual"],
     user_arguments = {

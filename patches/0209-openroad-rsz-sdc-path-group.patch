@@ -25,10 +25,10 @@ reaches, as for the built-in groups.
 Not upstreamed. Carried in bazel-orfs; retires on the //:bump onto an
 OpenROAD that has it.
 
-diff --git a/src/rsz/src/PathGroupFilter.cc b/src/rsz/src/PathGroupFilter.cc
+diff --git a/openroad/rsz/src/PathGroupFilter.cc b/openroad/rsz/src/PathGroupFilter.cc
 index 0b52197..7452836 100644
---- a/src/rsz/src/PathGroupFilter.cc
-+++ b/src/rsz/src/PathGroupFilter.cc
+--- a/openroad/rsz/src/PathGroupFilter.cc
++++ b/openroad/rsz/src/PathGroupFilter.cc
 @@ -45,6 +45,7 @@ StartpointKind groupStartpointKind(const PathGroupType type)
      case PathGroupType::kReg2Out:
        return StartpointKind::kRegister;
@@ -155,10 +155,10 @@ index 0b52197..7452836 100644
  bool PathGroupFilter::startpointInGroup(sta::Vertex* startpoint) const
  {
    if (!enabled()) {
-diff --git a/src/rsz/src/PathGroupFilter.hh b/src/rsz/src/PathGroupFilter.hh
+diff --git a/openroad/rsz/src/PathGroupFilter.hh b/openroad/rsz/src/PathGroupFilter.hh
 index 014a589..1a5c23b 100644
---- a/src/rsz/src/PathGroupFilter.hh
-+++ b/src/rsz/src/PathGroupFilter.hh
+--- a/openroad/rsz/src/PathGroupFilter.hh
++++ b/openroad/rsz/src/PathGroupFilter.hh
 @@ -38,7 +38,10 @@ enum class PathGroupType
    kIn2Reg,
    kReg2Out,
@@ -187,10 +187,10 @@ index 014a589..1a5c23b 100644
  };
  
  }  // namespace rsz
-diff --git a/src/rsz/test/BUILD b/src/rsz/test/BUILD
-index 51b88d2..837e857 100644
---- a/src/rsz/test/BUILD
-+++ b/src/rsz/test/BUILD
+diff --git a/openroad/rsz/test/BUILD b/openroad/rsz/test/BUILD
+index d0bdf7e..33b7eb8 100644
+--- a/openroad/rsz/test/BUILD
++++ b/openroad/rsz/test/BUILD
 @@ -202,6 +202,7 @@ TESTS = [
      "repair_timing_path_group4",
      "repair_timing_path_group5",
@@ -199,11 +199,11 @@ index 51b88d2..837e857 100644
      "repair_slew1",
      "repair_slew10",
      "repair_slew11",
-diff --git a/src/rsz/test/repair_timing_path_group7.ok b/src/rsz/test/repair_timing_path_group7.ok
+diff --git a/openroad/rsz/test/repair_timing_path_group7.ok b/openroad/rsz/test/repair_timing_path_group7.ok
 new file mode 100644
 index 0000000..8cfca3e
 --- /dev/null
-+++ b/src/rsz/test/repair_timing_path_group7.ok
++++ b/openroad/rsz/test/repair_timing_path_group7.ok
 @@ -0,0 +1,30 @@
 +[INFO ODB-0227] LEF file: asap7/asap7_tech_1x_201209.lef, created 30 layers, 9 vias
 +[INFO ODB-0227] LEF file: asap7/asap7sc7p5t_28_R_1x_220121a.lef, created 212 library cells
@@ -235,11 +235,11 @@ index 0000000..8cfca3e
 +group after: 27 violating, wns -9.769, improved: 1
 +net still there: 0
 +doomed_group names a net: 0
-diff --git a/src/rsz/test/repair_timing_path_group7.tcl b/src/rsz/test/repair_timing_path_group7.tcl
+diff --git a/openroad/rsz/test/repair_timing_path_group7.tcl b/openroad/rsz/test/repair_timing_path_group7.tcl
 new file mode 100644
 index 0000000..02dbcff
 --- /dev/null
-+++ b/src/rsz/test/repair_timing_path_group7.tcl
++++ b/openroad/rsz/test/repair_timing_path_group7.tcl
 @@ -0,0 +1,64 @@
 +# repair_timing -path_group takes a group the SDC defines (group_path): it
 +# repairs the group's violating endpoints, judged by the group's slack. A

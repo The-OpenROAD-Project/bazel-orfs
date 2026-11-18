@@ -49,20 +49,20 @@ property.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/cts/src/LatencyBalancer.cpp | 100 ++++++++++++++++++--------------
- src/cts/src/LatencyBalancer.h   |   8 +++
- src/cts/src/TritonCTS.tcl       |  23 ++++++++
- src/cts/test/BUILD              |   6 ++
- src/cts/test/latency_offset.ok  |  79 +++++++++++++++++++++++++
- src/cts/test/latency_offset.tcl |  49 ++++++++++++++++
+ openroad/cts/src/LatencyBalancer.cpp | 100 +++++++++++++++------------
+ openroad/cts/src/LatencyBalancer.h   |   8 +++
+ openroad/cts/src/TritonCTS.tcl       |  23 ++++++
+ openroad/cts/test/BUILD              |   6 ++
+ openroad/cts/test/latency_offset.ok  |  79 +++++++++++++++++++++
+ openroad/cts/test/latency_offset.tcl |  49 +++++++++++++
  6 files changed, 222 insertions(+), 43 deletions(-)
- create mode 100644 src/cts/test/latency_offset.ok
- create mode 100644 src/cts/test/latency_offset.tcl
+ create mode 100644 openroad/cts/test/latency_offset.ok
+ create mode 100644 openroad/cts/test/latency_offset.tcl
 
-diff --git a/src/cts/src/LatencyBalancer.cpp b/src/cts/src/LatencyBalancer.cpp
-index 5e666971a2..68f6487214 100644
---- a/src/cts/src/LatencyBalancer.cpp
-+++ b/src/cts/src/LatencyBalancer.cpp
+diff --git a/openroad/cts/src/LatencyBalancer.cpp b/openroad/cts/src/LatencyBalancer.cpp
+index 5e66697..68f6487 100644
+--- a/openroad/cts/src/LatencyBalancer.cpp
++++ b/openroad/cts/src/LatencyBalancer.cpp
 @@ -186,7 +186,10 @@ int64_t LatencyBalancer::computeWireLumpedDelay(
  
  void LatencyBalancer::findLeafBuilders(TreeBuilder* builder)
@@ -191,10 +191,10 @@ index 5e666971a2..68f6487214 100644
  bool LatencyBalancer::propagateClock(odb::dbITerm* input)
  {
    odb::dbInst* inst = input->getInst();
-diff --git a/src/cts/src/LatencyBalancer.h b/src/cts/src/LatencyBalancer.h
-index 1579091244..2e07b4aa90 100644
---- a/src/cts/src/LatencyBalancer.h
-+++ b/src/cts/src/LatencyBalancer.h
+diff --git a/openroad/cts/src/LatencyBalancer.h b/openroad/cts/src/LatencyBalancer.h
+index 1579091..2e07b4a 100644
+--- a/openroad/cts/src/LatencyBalancer.h
++++ b/openroad/cts/src/LatencyBalancer.h
 @@ -133,6 +133,14 @@ class LatencyBalancer
        const std::vector<odb::dbITerm*>& sinksInput);
    bool propagateClock(odb::dbITerm* input);
@@ -210,10 +210,10 @@ index 1579091244..2e07b4aa90 100644
  
    void showGraph();
  
-diff --git a/src/cts/src/TritonCTS.tcl b/src/cts/src/TritonCTS.tcl
-index 1212b716c4..0580f7baa5 100644
---- a/src/cts/src/TritonCTS.tcl
-+++ b/src/cts/src/TritonCTS.tcl
+diff --git a/openroad/cts/src/TritonCTS.tcl b/openroad/cts/src/TritonCTS.tcl
+index 1212b71..0580f7b 100644
+--- a/openroad/cts/src/TritonCTS.tcl
++++ b/openroad/cts/src/TritonCTS.tcl
 @@ -619,6 +619,29 @@ proc report_cts { args } {
  }
  
@@ -244,10 +244,10 @@ index 1212b716c4..0580f7baa5 100644
  proc clock_tree_synthesis_debug { args } {
    sta::parse_key_args "clock_tree_synthesis_debug" args \
      keys {} flags {-plot} ;# checker off
-diff --git a/src/cts/test/BUILD b/src/cts/test/BUILD
-index 690e72bfb5..b905cb0f3b 100644
---- a/src/cts/test/BUILD
-+++ b/src/cts/test/BUILD
+diff --git a/openroad/cts/test/BUILD b/openroad/cts/test/BUILD
+index 6c0764c..7750a58 100644
+--- a/openroad/cts/test/BUILD
++++ b/openroad/cts/test/BUILD
 @@ -42,6 +42,7 @@ COMPULSORY_TESTS = [
      "insertion_delay",
      "inverter_sinks",
@@ -268,11 +268,11 @@ index 690e72bfb5..b905cb0f3b 100644
              "inverters": [
                  "array_tile_ins_delay.lef",
                  "array_tile_ins_delay.lib",
-diff --git a/src/cts/test/latency_offset.ok b/src/cts/test/latency_offset.ok
+diff --git a/openroad/cts/test/latency_offset.ok b/openroad/cts/test/latency_offset.ok
 new file mode 100644
-index 0000000000..d5be048f74
+index 0000000..d5be048
 --- /dev/null
-+++ b/src/cts/test/latency_offset.ok
++++ b/openroad/cts/test/latency_offset.ok
 @@ -0,0 +1,79 @@
 +[INFO ODB-0227] LEF file: Nangate45/Nangate45.lef, created 22 layers, 27 vias, 135 library cells
 +[INFO ODB-0227] LEF file: array_tile_ins_delay.lef, created 1 library cells
@@ -353,11 +353,11 @@ index 0000000000..d5be048f74
 +[INFO CTS-0036]  inserted 6 delay buffers
 +[INFO CTS-0037] Total number of delay buffers: 6
 +Macro clocked the offset after the registers within 0.015 ns: 1
-diff --git a/src/cts/test/latency_offset.tcl b/src/cts/test/latency_offset.tcl
+diff --git a/openroad/cts/test/latency_offset.tcl b/openroad/cts/test/latency_offset.tcl
 new file mode 100644
-index 0000000000..44ae603580
+index 0000000..44ae603
 --- /dev/null
-+++ b/src/cts/test/latency_offset.tcl
++++ b/openroad/cts/test/latency_offset.tcl
 @@ -0,0 +1,49 @@
 +# cts::set_latency_offset clocks a macro later than CTS's latency balance:
 +# the macro's clock pin arrival plus its insertion delay lands the offset

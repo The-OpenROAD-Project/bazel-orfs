@@ -18,13 +18,13 @@ the Tcl event loop.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/gui/src/gui.cpp | 14 ++++++++++++++
+ openroad/gui/src/gui.cpp | 14 ++++++++++++++
  1 file changed, 14 insertions(+)
 
-diff --git a/src/gui/src/gui.cpp b/src/gui/src/gui.cpp
+diff --git a/openroad/gui/src/gui.cpp b/openroad/gui/src/gui.cpp
 index c5e67f3..3497f65 100644
---- a/src/gui/src/gui.cpp
-+++ b/src/gui/src/gui.cpp
+--- a/openroad/gui/src/gui.cpp
++++ b/openroad/gui/src/gui.cpp
 @@ -9,6 +9,7 @@
  #include <QImage>
  #include <QPushButton>
@@ -60,3 +60,6 @@ index c5e67f3..3497f65 100644
      exit_code = QApplication::exec();
    }
  
+-- 
+2.53.0
+

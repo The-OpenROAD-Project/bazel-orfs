@@ -27,10 +27,10 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  search/MakeTimingModel.cc | 54 ++++++++++++++++++++++++++++++++++++---
  1 file changed, 51 insertions(+), 3 deletions(-)
 
-diff --git a/src/sta/search/MakeTimingModel.cc b/src/sta/search/MakeTimingModel.cc
+diff --git a/openroad/sta/search/MakeTimingModel.cc b/openroad/sta/search/MakeTimingModel.cc
 index ec0fab4..c219065 100644
---- a/src/sta/search/MakeTimingModel.cc
-+++ b/src/sta/search/MakeTimingModel.cc
+--- a/openroad/sta/search/MakeTimingModel.cc
++++ b/openroad/sta/search/MakeTimingModel.cc
 @@ -33,6 +33,7 @@
  #include <string>
  #include <string_view>

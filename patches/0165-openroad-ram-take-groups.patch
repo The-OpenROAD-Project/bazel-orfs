@@ -21,16 +21,16 @@ OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/ram/src/ram.cpp                       | 29 ++++++++++++---
- src/ram/test/BUILD                        |  1 +
- src/ram/test/write_ports_fanout_asap7.tcl | 44 +++++++++++++++++++++++
+ openroad/ram/src/ram.cpp                      | 29 +++++++++---
+ openroad/ram/test/BUILD                       |  1 +
+ .../ram/test/write_ports_fanout_asap7.tcl     | 44 +++++++++++++++++++
  3 files changed, 69 insertions(+), 5 deletions(-)
- create mode 100644 src/ram/test/write_ports_fanout_asap7.tcl
+ create mode 100644 openroad/ram/test/write_ports_fanout_asap7.tcl
 
-diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
-index 40f5b8c4de..7061bc2441 100644
---- a/src/ram/src/ram.cpp
-+++ b/src/ram/src/ram.cpp
+diff --git a/openroad/ram/src/ram.cpp b/openroad/ram/src/ram.cpp
+index 1974d56..54bbf0b 100644
+--- a/openroad/ram/src/ram.cpp
++++ b/openroad/ram/src/ram.cpp
 @@ -399,6 +399,10 @@ void RamGen::makeSlice(const int slice_idx,
    // group.
    dbNet* hold = nullptr;
@@ -97,11 +97,11 @@ index 40f5b8c4de..7061bc2441 100644
                      {and2_ports_[{PortRoleType::DataIn, 1}],
                       data_input[w][local_bit]},
                      {and2_ports_[{PortRoleType::DataOut, 0}], out}});
-diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index 5cc0a7d93a..0200b6bf2d 100644
---- a/src/ram/test/BUILD
-+++ b/src/ram/test/BUILD
-@@ -33,6 +33,7 @@ PASSFAIL_TESTS = [
+diff --git a/openroad/ram/test/BUILD b/openroad/ram/test/BUILD
+index 0028cec..85f1932 100644
+--- a/openroad/ram/test/BUILD
++++ b/openroad/ram/test/BUILD
+@@ -35,6 +35,7 @@ PASSFAIL_TESTS = [
      "generate_array_asap7",
      "write_mux_fanout_asap7",
      "read_drive_asap7",
@@ -109,11 +109,11 @@ index 5cc0a7d93a..0200b6bf2d 100644
  ]
  
  ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
-diff --git a/src/ram/test/write_ports_fanout_asap7.tcl b/src/ram/test/write_ports_fanout_asap7.tcl
+diff --git a/openroad/ram/test/write_ports_fanout_asap7.tcl b/openroad/ram/test/write_ports_fanout_asap7.tcl
 new file mode 100644
-index 0000000000..f82de2b4fb
+index 0000000..f82de2b
 --- /dev/null
-+++ b/src/ram/test/write_ports_fanout_asap7.tcl
++++ b/openroad/ram/test/write_ports_fanout_asap7.tcl
 @@ -0,0 +1,44 @@
 +# More than one write port: each port's take, its data's select in every
 +# bit's data mux, reaches the word's bits through a buffer per group of
@@ -159,3 +159,6 @@ index 0000000000..f82de2b4fb
 +}
 +
 +puts "pass"
+-- 
+2.53.0
+

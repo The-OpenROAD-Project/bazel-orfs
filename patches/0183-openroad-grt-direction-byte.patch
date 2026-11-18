@@ -15,13 +15,13 @@ the //:bump onto an OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/grt/src/fastroute/include/DataType.h | 2 +-
+ openroad/grt/src/fastroute/include/DataType.h | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/src/grt/src/fastroute/include/DataType.h b/src/grt/src/fastroute/include/DataType.h
-index 10b25dada1..cdd966b9ba 100644
---- a/src/grt/src/fastroute/include/DataType.h
-+++ b/src/grt/src/fastroute/include/DataType.h
+diff --git a/openroad/grt/src/fastroute/include/DataType.h b/openroad/grt/src/fastroute/include/DataType.h
+index ae2772d..397287c 100644
+--- a/openroad/grt/src/fastroute/include/DataType.h
++++ b/openroad/grt/src/fastroute/include/DataType.h
 @@ -30,7 +30,7 @@ enum class RouteType
  
  std::ostream& operator<<(std::ostream& os, const RouteType& type);

@@ -27,10 +27,10 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  search/Search.cc | 28 +++++++++++++++++++++++++---
  1 file changed, 25 insertions(+), 3 deletions(-)
 
-diff --git a/src/sta/search/Search.cc b/src/sta/search/Search.cc
-index 4ed76246..a7a4337a 100644
---- a/src/sta/search/Search.cc
-+++ b/src/sta/search/Search.cc
+diff --git a/openroad/sta/search/Search.cc b/openroad/sta/search/Search.cc
+index 9c434f6..e2c189b 100644
+--- a/openroad/sta/search/Search.cc
++++ b/openroad/sta/search/Search.cc
 @@ -40,6 +40,7 @@
  #include "DataCheck.hh"
  #include "Debug.hh"
@@ -73,3 +73,6 @@ index 4ed76246..a7a4337a 100644
    }
    return ends;
  }
+-- 
+2.53.0
+

@@ -33,10 +33,10 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  search/Search.cc      | 28 +++++++++++++++++++++++++---
  2 files changed, 33 insertions(+), 3 deletions(-)
 
-diff --git a/src/sta/include/sta/Search.hh b/src/sta/include/sta/Search.hh
-index 5e90a96d..fe0b38fd 100644
---- a/src/sta/include/sta/Search.hh
-+++ b/src/sta/include/sta/Search.hh
+diff --git a/openroad/sta/include/sta/Search.hh b/openroad/sta/include/sta/Search.hh
+index 45a084f..41ba8c9 100644
+--- a/openroad/sta/include/sta/Search.hh
++++ b/openroad/sta/include/sta/Search.hh
 @@ -629,6 +629,9 @@ protected:
    // Use pointer to clk_info set so Tag.hh does not need to be included.
    ClkInfoSet *clk_info_set_;
@@ -59,10 +59,10 @@ index 5e90a96d..fe0b38fd 100644
  
    // Arrivals to queue on the next search pass.
    VertexSet pending_arrivals_;
-diff --git a/src/sta/search/Search.cc b/src/sta/search/Search.cc
-index 560c511a..4ed76246 100644
---- a/src/sta/search/Search.cc
-+++ b/src/sta/search/Search.cc
+diff --git a/openroad/sta/search/Search.cc b/openroad/sta/search/Search.cc
+index f470b12..9c434f6 100644
+--- a/openroad/sta/search/Search.cc
++++ b/openroad/sta/search/Search.cc
 @@ -353,6 +353,9 @@ Search::deleteTags()
    tag_group_next_ = 0;
    tag_group_set_->clear();
@@ -128,7 +128,7 @@ index 560c511a..4ed76246 100644
  }
  
  void
-@@ -2813,6 +2829,8 @@ Search::findTagGroup(TagGroupBldr *tag_bldr,
+@@ -2800,6 +2816,8 @@ Search::findTagGroup(TagGroupBldr *tag_bldr,
      }
      tag_group = tag_bldr->makeTagGroup(tag_group_index, this);
      tag_groups_[tag_group_index] = tag_group;
@@ -137,7 +137,7 @@ index 560c511a..4ed76246 100644
      tag_group_set_->insert(tag_group);
      // If tag_groups_ needs to grow make the new array and copy the
      // contents into it before updating tags_groups_ so that other threads
-@@ -3087,6 +3105,8 @@ Search::findTag(Scene *scene,
+@@ -3074,6 +3092,8 @@ Search::findTag(Scene *scene,
        // Make sure tag can be indexed in tags_ before it is visible to
        // other threads via tag_set_.
        tags_[tagsTableRfIndex(tag_index, rf1)] = tag1;
@@ -146,7 +146,7 @@ index 560c511a..4ed76246 100644
        tag_set_->insert(tag1);
        if (tag_cache)
          tag_cache->insert(tag1);
-@@ -3169,6 +3189,8 @@ Search::findClkInfo(Scene *scene,
+@@ -3156,6 +3176,8 @@ Search::findClkInfo(Scene *scene,
                             gen_clk_src_path, pulse_clk_sense, insertion, latency,
                             uncertainties, min_max, crpr_clk_path, this);
      clk_info_set_->insert(clk_info);
@@ -155,3 +155,6 @@ index 560c511a..4ed76246 100644
    }
    return clk_info;
  }
+-- 
+2.53.0
+

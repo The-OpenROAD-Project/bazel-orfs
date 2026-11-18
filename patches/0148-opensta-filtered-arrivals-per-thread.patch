@@ -26,14 +26,14 @@ OpenROAD whose OpenSTA carries it.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/sta/include/sta/Search.hh |  7 ++++++-
- src/sta/search/Search.cc      | 31 +++++++++++++++++++++++++------
+ include/sta/Search.hh |  7 ++++++-
+ search/Search.cc      | 31 +++++++++++++++++++++++++------
  2 files changed, 31 insertions(+), 7 deletions(-)
 
-diff --git a/src/sta/include/sta/Search.hh b/src/sta/include/sta/Search.hh
-index 59c9cfd137..5e90a96d2f 100644
---- a/src/sta/include/sta/Search.hh
-+++ b/src/sta/include/sta/Search.hh
+diff --git a/openroad/sta/include/sta/Search.hh b/openroad/sta/include/sta/Search.hh
+index 19a106b..45a084f 100644
+--- a/openroad/sta/include/sta/Search.hh
++++ b/openroad/sta/include/sta/Search.hh
 @@ -267,7 +267,9 @@ public:
                         TagGroupBldr *tag_bldr);
    void setVertexArrivals(Vertex *vertex,
@@ -55,11 +55,11 @@ index 59c9cfd137..5e90a96d2f 100644
    SearchPred *search_adj_;
    bool crpr_active_;
    bool has_fanin_one_;
-diff --git a/src/sta/search/Search.cc b/src/sta/search/Search.cc
-index 28caad7b2e..aaf9a43526 100644
---- a/src/sta/search/Search.cc
-+++ b/src/sta/search/Search.cc
-@@ -1093,7 +1093,8 @@ Search::findArrivalsSeed()
+diff --git a/openroad/sta/search/Search.cc b/openroad/sta/search/Search.cc
+index b9da573..f470b12 100644
+--- a/openroad/sta/search/Search.cc
++++ b/openroad/sta/search/Search.cc
+@@ -1080,7 +1080,8 @@ Search::findArrivalsSeed()
  
  ArrivalVisitor::ArrivalVisitor(const StaState *sta) :
    PathVisitor(nullptr, false, sta),
@@ -69,7 +69,7 @@ index 28caad7b2e..aaf9a43526 100644
  {
    init0();
    init(true, false, nullptr);
-@@ -1101,7 +1102,8 @@ ArrivalVisitor::ArrivalVisitor(const StaState *sta) :
+@@ -1088,7 +1089,8 @@ ArrivalVisitor::ArrivalVisitor(const StaState *sta) :
  
  ArrivalVisitor::ArrivalVisitor(const ArrivalVisitor &arrival_visitor) :
    PathVisitor(arrival_visitor.pred_, true, &arrival_visitor),
@@ -79,7 +79,7 @@ index 28caad7b2e..aaf9a43526 100644
  {
    init0();
    init(arrival_visitor.always_to_endpoints_,
-@@ -1146,6 +1148,10 @@ ArrivalVisitor::~ArrivalVisitor()
+@@ -1133,6 +1135,10 @@ ArrivalVisitor::~ArrivalVisitor()
    delete tag_bldr_;
    delete tag_bldr_no_crpr_;
    delete tag_group_cache_;
@@ -90,7 +90,7 @@ index 28caad7b2e..aaf9a43526 100644
    delete search_adj_;
  }
  
-@@ -1211,7 +1217,8 @@ ArrivalVisitor::visit(Vertex *vertex,
+@@ -1198,7 +1204,8 @@ ArrivalVisitor::visit(Vertex *vertex,
    }
    if (arrivals_changed) {
      debugPrint(debug_, "search", 4, "arrivals changed");
@@ -100,7 +100,7 @@ index 28caad7b2e..aaf9a43526 100644
      search_->tnsInvalid(vertex);
      constrainedRequiredsInvalid(vertex, is_clk);
    }
-@@ -2832,7 +2839,8 @@ Search::findTagGroup(TagGroupBldr *tag_bldr,
+@@ -2817,7 +2824,8 @@ Search::findTagGroup(TagGroupBldr *tag_bldr,
  void
  Search::setVertexArrivals(Vertex *vertex,
                            TagGroupBldr *tag_bldr,
@@ -110,7 +110,7 @@ index 28caad7b2e..aaf9a43526 100644
  {
    if (tag_bldr->empty())
      deletePathsIncr(vertex);
-@@ -2857,12 +2865,23 @@ Search::setVertexArrivals(Vertex *vertex,
+@@ -2842,12 +2850,23 @@ Search::setVertexArrivals(Vertex *vertex,
        tag_group->incrRefCount();
      }
      if (tag_group->hasFilterTag()) {
@@ -136,3 +136,6 @@ index 28caad7b2e..aaf9a43526 100644
  void
  Search::checkPrevPaths() const
  {
+-- 
+2.53.0
+

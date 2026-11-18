@@ -8,10 +8,10 @@ the path ends on that clock.
 
 Carried by bazel-orfs; not upstreamed. Retires on a
 //:bump onto an OpenROAD that carries it.
-diff --git a/src/web/src/charts-widget.js b/src/web/src/charts-widget.js
+diff --git a/openroad/web/src/charts-widget.js b/openroad/web/src/charts-widget.js
 index fe66f94..ddd84ab 100644
---- a/src/web/src/charts-widget.js
-+++ b/src/web/src/charts-widget.js
+--- a/openroad/web/src/charts-widget.js
++++ b/openroad/web/src/charts-widget.js
 @@ -814,12 +814,20 @@ export class ChartsWidget {
          if (!bar || bar.count === 0) return;
  
@@ -33,10 +33,10 @@ index fe66f94..ddd84ab 100644
          try {
              const resp = await withBusyCursor(
                  () => this._app.websocketManager.request({
-diff --git a/src/web/src/request_handler.cpp b/src/web/src/request_handler.cpp
+diff --git a/openroad/web/src/request_handler.cpp b/openroad/web/src/request_handler.cpp
 index 46df809..c971d51 100644
---- a/src/web/src/request_handler.cpp
-+++ b/src/web/src/request_handler.cpp
+--- a/openroad/web/src/request_handler.cpp
++++ b/openroad/web/src/request_handler.cpp
 @@ -5502,6 +5502,12 @@ static std::vector<TimingPathSummary> requestedReport(
      const boost::json::object& json,
      const int max_paths)
@@ -61,10 +61,10 @@ index 46df809..c971d51 100644
  }
  
  WebSocketResponse TimingHandler::handleTimingReport(const WebSocketRequest& req)
-diff --git a/src/web/src/timing_report.cpp b/src/web/src/timing_report.cpp
+diff --git a/openroad/web/src/timing_report.cpp b/openroad/web/src/timing_report.cpp
 index 23e33f2..ffff7df 100644
---- a/src/web/src/timing_report.cpp
-+++ b/src/web/src/timing_report.cpp
+--- a/openroad/web/src/timing_report.cpp
++++ b/openroad/web/src/timing_report.cpp
 @@ -177,7 +177,9 @@ std::vector<TimingPathSummary> TimingReport::getReport(
      int max_paths,
      float slack_min,
@@ -101,10 +101,10 @@ index 23e33f2..ffff7df 100644
      TimingPathSummary summary;
  
      sta::Path* path = path_end->path();
-diff --git a/src/web/src/timing_report.h b/src/web/src/timing_report.h
+diff --git a/openroad/web/src/timing_report.h b/openroad/web/src/timing_report.h
 index 2ca1672..be85ea3 100644
---- a/src/web/src/timing_report.h
-+++ b/src/web/src/timing_report.h
+--- a/openroad/web/src/timing_report.h
++++ b/openroad/web/src/timing_report.h
 @@ -167,7 +167,9 @@ class TimingReport
        int max_paths = 100,
        float slack_min = -std::numeric_limits<float>::max(),

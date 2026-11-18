@@ -30,11 +30,11 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  search/Search.cc | 9 ++++++++-
  1 file changed, 8 insertions(+), 1 deletion(-)
 
-diff --git a/src/sta/search/Search.cc b/src/sta/search/Search.cc
-index bda5ab24..8d06a89b 100644
---- a/src/sta/search/Search.cc
-+++ b/src/sta/search/Search.cc
-@@ -3029,12 +3029,19 @@ Search::findTag(Scene *scene,
+diff --git a/openroad/sta/search/Search.cc b/openroad/sta/search/Search.cc
+index d7ca420..8df4654 100644
+--- a/openroad/sta/search/Search.cc
++++ b/openroad/sta/search/Search.cc
+@@ -3016,12 +3016,19 @@ Search::findTag(Scene *scene,
              states, false);
    if (tag_cache) {
      Tag *tag = findKey(*tag_cache, &probe);
@@ -55,3 +55,6 @@ index bda5ab24..8d06a89b 100644
    if (tag == nullptr) {
      // Make rise/fall versions of the tag to avoid tag_set lookups when the
      // only change is the rise/fall edge.
+-- 
+2.53.0
+

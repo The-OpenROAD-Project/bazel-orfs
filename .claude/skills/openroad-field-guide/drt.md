@@ -21,7 +21,7 @@ number of violations, DRT-198 done).
 - DRT-352 "Input route guides are congested": grt ran with
   `-allow_congestion`; see [grt.md](grt.md).
 - DRT-0073 "No access point": see below. DRT-0255 via enclosure outside
-  the die: a pin on a die corner (generate_ram, 0170).
+  the die: a pin on a die corner (generate_ram; fixed in OpenROAD a61f6fc1c3).
 
 ## Where the time goes
 

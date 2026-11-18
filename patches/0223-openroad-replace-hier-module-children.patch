@@ -55,22 +55,22 @@ TestSwapMaster*, rsz's replace_arith_modules1-3 pass unchanged.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/odb/src/db/dbModInst.cpp       |  73 ++++--
- src/odb/src/db/dbModule.cpp        | 386 +++++++++++++++++++----------
- src/odb/src/db/dbModule.h          |  17 +-
- src/odb/test/BUILD                 |   1 +
- src/odb/test/replace_hier_mod7.ok  | 207 ++++++++++++++++
- src/odb/test/replace_hier_mod7.tcl |  46 ++++
- src/odb/test/replace_hier_mod7.v   |  77 ++++++
+ openroad/odb/src/db/dbModInst.cpp       |  73 +++--
+ openroad/odb/src/db/dbModule.cpp        | 386 ++++++++++++++++--------
+ openroad/odb/src/db/dbModule.h          |  17 +-
+ openroad/odb/test/BUILD                 |   1 +
+ openroad/odb/test/replace_hier_mod7.ok  | 207 +++++++++++++
+ openroad/odb/test/replace_hier_mod7.tcl |  46 +++
+ openroad/odb/test/replace_hier_mod7.v   |  77 +++++
  7 files changed, 655 insertions(+), 152 deletions(-)
- create mode 100644 src/odb/test/replace_hier_mod7.ok
- create mode 100644 src/odb/test/replace_hier_mod7.tcl
- create mode 100644 src/odb/test/replace_hier_mod7.v
+ create mode 100644 openroad/odb/test/replace_hier_mod7.ok
+ create mode 100644 openroad/odb/test/replace_hier_mod7.tcl
+ create mode 100644 openroad/odb/test/replace_hier_mod7.v
 
-diff --git a/src/odb/src/db/dbModInst.cpp b/src/odb/src/db/dbModInst.cpp
-index 2798afe09e..b9d0bb7de8 100644
---- a/src/odb/src/db/dbModInst.cpp
-+++ b/src/odb/src/db/dbModInst.cpp
+diff --git a/openroad/odb/src/db/dbModInst.cpp b/openroad/odb/src/db/dbModInst.cpp
+index 5c72b0f..73148c4 100644
+--- a/openroad/odb/src/db/dbModInst.cpp
++++ b/openroad/odb/src/db/dbModInst.cpp
 @@ -8,6 +8,7 @@
  #include <map>
  #include <set>
@@ -79,7 +79,7 @@ index 2798afe09e..b9d0bb7de8 100644
  #include <vector>
  
  // Generator Code Begin Cpp
-@@ -518,11 +519,12 @@ void dbModInst::removeUnusedPortsAndPins()
+@@ -521,11 +522,12 @@ void dbModInst::removeUnusedPortsAndPins()
    debugPrint(logger, utl::ODB, "replace_design", 2, format_str, ##__VA_ARGS__)
  
  // Swap one hierarchical module with another one.
@@ -93,7 +93,7 @@ index 2798afe09e..b9d0bb7de8 100644
    utl::Logger* logger = getImpl()->getLogger();
  
    // Helper to remove dangling nets from a block
-@@ -653,10 +655,28 @@ dbModInst* dbModInst::swapMaster(dbModule* new_module)
+@@ -656,10 +658,28 @@ dbModInst* dbModInst::swapMaster(dbModule* new_module)
      }
    }
  
@@ -124,7 +124,7 @@ index 2798afe09e..b9d0bb7de8 100644
    dbModInst* new_mod_inst
        = dbModInst::create(parent, new_module_copy, new_name.c_str());
    if (!new_mod_inst) {
-@@ -664,7 +684,7 @@ dbModInst* dbModInst::swapMaster(dbModule* new_module)
+@@ -667,7 +687,7 @@ dbModInst* dbModInst::swapMaster(dbModule* new_module)
      return nullptr;
    }
  
@@ -133,7 +133,7 @@ index 2798afe09e..b9d0bb7de8 100644
    for (const auto& [name, old_mod_net] : name_mod_net_map) {
      // Find the corresponding ModBTerm in the new master module
      dbModBTerm* new_mod_bterm = new_module_copy->findModBTerm(name.c_str());
-@@ -678,13 +698,16 @@ dbModInst* dbModInst::swapMaster(dbModule* new_module)
+@@ -681,13 +701,16 @@ dbModInst* dbModInst::swapMaster(dbModule* new_module)
    debugRDPrint1("New mod inst has {} mod iterms",
                  new_mod_inst->getModITerms().size());
  
@@ -156,7 +156,7 @@ index 2798afe09e..b9d0bb7de8 100644
  
    // 10. Remove dangling internal nets of the old module
    // - Note that internal nets of old module belongs to parent block.
-@@ -711,6 +734,8 @@ dbModInst* dbModInst::swapMaster(dbModule* new_module)
+@@ -714,6 +737,8 @@ dbModInst* dbModInst::swapMaster(dbModule* new_module)
    }
  
    // 12. Connect nets crossing the hierarchical boundary
@@ -165,7 +165,7 @@ index 2798afe09e..b9d0bb7de8 100644
    debugRDPrint1("Connecting nets that span module boundary");
    for (const auto& [bterm_name, flat_net] : modbterm_name_flat_net_map) {
      debugRDPrint1("  map_entry[modBTermName '{}'] = flat net '{}'",
-@@ -735,19 +760,31 @@ dbModInst* dbModInst::swapMaster(dbModule* new_module)
+@@ -738,19 +763,31 @@ dbModInst* dbModInst::swapMaster(dbModule* new_module)
        continue;
      }
  
@@ -203,7 +203,7 @@ index 2798afe09e..b9d0bb7de8 100644
        // Disconnect the old connection
        // - e.g., the new_iterm on the new module might be connected to new
        // modnet that is created when the new module is cloned.
-@@ -756,12 +793,12 @@ dbModInst* dbModInst::swapMaster(dbModule* new_module)
+@@ -759,12 +796,12 @@ dbModInst* dbModInst::swapMaster(dbModule* new_module)
                      new_iterm->getName());
  
        // Connect the flat and hier nets
@@ -218,10 +218,10 @@ index 2798afe09e..b9d0bb7de8 100644
      }
    }
  
-diff --git a/src/odb/src/db/dbModule.cpp b/src/odb/src/db/dbModule.cpp
-index 790cf3cdb3..611225571a 100644
---- a/src/odb/src/db/dbModule.cpp
-+++ b/src/odb/src/db/dbModule.cpp
+diff --git a/openroad/odb/src/db/dbModule.cpp b/openroad/odb/src/db/dbModule.cpp
+index 790cf3c..6112255 100644
+--- a/openroad/odb/src/db/dbModule.cpp
++++ b/openroad/odb/src/db/dbModule.cpp
 @@ -23,7 +23,6 @@
  #include <cstddef>
  #include <cstdint>
@@ -699,10 +699,10 @@ index 790cf3cdb3..611225571a 100644
    }
    return true;
  }
-diff --git a/src/odb/src/db/dbModule.h b/src/odb/src/db/dbModule.h
-index 34faf65b90..5b84f8e7f7 100644
---- a/src/odb/src/db/dbModule.h
-+++ b/src/odb/src/db/dbModule.h
+diff --git a/openroad/odb/src/db/dbModule.h b/openroad/odb/src/db/dbModule.h
+index 34faf65..5b84f8e 100644
+--- a/openroad/odb/src/db/dbModule.h
++++ b/openroad/odb/src/db/dbModule.h
 @@ -14,6 +14,8 @@
  #include <map>
  #include <string>
@@ -753,10 +753,10 @@ index 34faf65b90..5b84f8e7f7 100644
    static void copyModuleBoundaryIO(dbModule* old_module,
                                     dbModule* new_module,
                                     dbModInst* new_mod_inst);
-diff --git a/src/odb/test/BUILD b/src/odb/test/BUILD
-index 0f93a5fa8c..e5c1c1c458 100644
---- a/src/odb/test/BUILD
-+++ b/src/odb/test/BUILD
+diff --git a/openroad/odb/test/BUILD b/openroad/odb/test/BUILD
+index ec3c4bc..af910e6 100644
+--- a/openroad/odb/test/BUILD
++++ b/openroad/odb/test/BUILD
 @@ -206,6 +206,7 @@ COMPULSORY_TESTS = [
      "replace_hier_mod4",
      "replace_hier_mod5",
@@ -765,11 +765,11 @@ index 0f93a5fa8c..e5c1c1c458 100644
      "replace_hier_mod_report_checks",
      "rounding",
      "row_no_step",
-diff --git a/src/odb/test/replace_hier_mod7.ok b/src/odb/test/replace_hier_mod7.ok
+diff --git a/openroad/odb/test/replace_hier_mod7.ok b/openroad/odb/test/replace_hier_mod7.ok
 new file mode 100644
-index 0000000000..6bac9ec243
+index 0000000..6bac9ec
 --- /dev/null
-+++ b/src/odb/test/replace_hier_mod7.ok
++++ b/openroad/odb/test/replace_hier_mod7.ok
 @@ -0,0 +1,207 @@
 +[INFO ODB-0227] LEF file: Nangate45/Nangate45.lef, created 22 layers, 27 vias, 135 library cells
 +[WARNING ORD-0011] Hierarchical flow (-hier) is currently in development and may cause multiple issues. Do not use in production environments.
@@ -978,11 +978,11 @@ index 0000000000..6bac9ec243
 +             0.8075   slack (MET)
 +
 +
-diff --git a/src/odb/test/replace_hier_mod7.tcl b/src/odb/test/replace_hier_mod7.tcl
+diff --git a/openroad/odb/test/replace_hier_mod7.tcl b/openroad/odb/test/replace_hier_mod7.tcl
 new file mode 100644
-index 0000000000..09817fa4e1
+index 0000000..09817fa
 --- /dev/null
-+++ b/src/odb/test/replace_hier_mod7.tcl
++++ b/openroad/odb/test/replace_hier_mod7.tcl
 @@ -0,0 +1,46 @@
 +# Test hier module swap with modules that have child module instances:
 +# Outer (one child) -> Outer_new (two levels of children) -> Outer, and an
@@ -1030,11 +1030,11 @@ index 0000000000..09817fa4e1
 +puts "### swap outer to Outer_new again ###"
 +replace_hier_module outer Outer_new
 +report_design
-diff --git a/src/odb/test/replace_hier_mod7.v b/src/odb/test/replace_hier_mod7.v
+diff --git a/openroad/odb/test/replace_hier_mod7.v b/openroad/odb/test/replace_hier_mod7.v
 new file mode 100644
-index 0000000000..1d3bf8b2fa
+index 0000000..1d3bf8b
 --- /dev/null
-+++ b/src/odb/test/replace_hier_mod7.v
++++ b/openroad/odb/test/replace_hier_mod7.v
 @@ -0,0 +1,77 @@
 +module top (clk, in1, out1, out2);
 + input clk;

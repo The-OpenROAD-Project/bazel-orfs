@@ -18,8 +18,8 @@ bazelisk run @openroad//:openroad -- -no_init -threads 1 -exit \
 ```
 
 Generates a C++ header file containing an inline function `gen::buildDesign(odb::dbDatabase* db)`
-that reconstructs the ODB design programmatically. The output compiles with only `//src/odb`
-and `//src/utl` deps — no LEF, DEF, LIB, or binary files needed.
+that reconstructs the ODB design programmatically. The output compiles with only `//openroad/odb`
+and `//openroad/utl` deps — no LEF, DEF, LIB, or binary files needed.
 
 ## What it generates
 
@@ -77,7 +77,7 @@ and `//src/utl` deps — no LEF, DEF, LIB, or binary files needed.
    cc_test(
        name = "my_test",
        srcs = ["MyTest.cpp", "generated_design.h"],
-       deps = ["//src/odb", "//src/utl", "@googletest//:gtest", "@googletest//:gtest_main"],
+       deps = ["//openroad/odb", "//openroad/utl", "@googletest//:gtest", "@googletest//:gtest_main"],
    )
    ```
 
@@ -87,4 +87,4 @@ and `//src/utl` deps — no LEF, DEF, LIB, or binary files needed.
 
 `dbDatabase::create()` allocates from a pool. Plain `delete` crashes.
 Always use `dbDatabase::destroy()` or a custom deleter (see example above).
-The test fixture in `src/tst/` uses `utl::UniquePtrWithDeleter` for the same reason.
+The test fixture in `openroad/tst/` uses `utl::UniquePtrWithDeleter` for the same reason.

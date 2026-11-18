@@ -165,17 +165,17 @@ OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/gpl/src/nesterovPlace.cpp             |  50 +++++
- src/gpl/src/nesterovPlace.h               |  22 ++
- src/gpl/test/end_of_descent_test.cpp      | 232 +++++++++++++++++++++-
- src/gpl/test/routability_minimum_test.cpp |  81 ++++++++
+ openroad/gpl/src/nesterovPlace.cpp            |  50 ++++
+ openroad/gpl/src/nesterovPlace.h              |  22 ++
+ openroad/gpl/test/end_of_descent_test.cpp     | 232 +++++++++++++++++-
+ .../gpl/test/routability_minimum_test.cpp     |  81 ++++++
  4 files changed, 384 insertions(+), 1 deletion(-)
 
-diff --git a/src/gpl/src/nesterovPlace.cpp b/src/gpl/src/nesterovPlace.cpp
-index 56f1e32d49..348e270df0 100644
---- a/src/gpl/src/nesterovPlace.cpp
-+++ b/src/gpl/src/nesterovPlace.cpp
-@@ -642,6 +642,51 @@ void NesterovPlace::runTimingDriven(int iter,
+diff --git a/openroad/gpl/src/nesterovPlace.cpp b/openroad/gpl/src/nesterovPlace.cpp
+index 3a1b7ab..29d9d2c 100644
+--- a/openroad/gpl/src/nesterovPlace.cpp
++++ b/openroad/gpl/src/nesterovPlace.cpp
+@@ -643,6 +643,51 @@ void NesterovPlace::runTimingDriven(int iter,
    }
  }
  
@@ -227,7 +227,7 @@ index 56f1e32d49..348e270df0 100644
  // Evaluate every gradient at curSLP on the repaired
  // netlist, in the same order as init().
  void NesterovPlace::refreshCurGradients()
-@@ -1596,6 +1641,7 @@ PlaceResult NesterovPlace::doNesterovPlace(int start_iter)
+@@ -1602,6 +1647,7 @@ PlaceResult NesterovPlace::doNesterovPlace(int start_iter)
                          routability_driven_revert_count,
                          timing_driven_count);
  
@@ -235,7 +235,7 @@ index 56f1e32d49..348e270df0 100644
      runRoutability(nesterov_iter,
                     timing_driven_count,
                     routability_driven_dir,
-@@ -1606,6 +1652,10 @@ PlaceResult NesterovPlace::doNesterovPlace(int start_iter)
+@@ -1612,6 +1658,10 @@ PlaceResult NesterovPlace::doNesterovPlace(int start_iter)
        stop = PlaceStop::kConverged;
        break;
      }
@@ -246,10 +246,10 @@ index 56f1e32d49..348e270df0 100644
    }
  
    // Unlike a divergence, running out of iterations says nothing about the
-diff --git a/src/gpl/src/nesterovPlace.h b/src/gpl/src/nesterovPlace.h
-index 8cc6011bba..301347b621 100644
---- a/src/gpl/src/nesterovPlace.h
-+++ b/src/gpl/src/nesterovPlace.h
+diff --git a/openroad/gpl/src/nesterovPlace.h b/openroad/gpl/src/nesterovPlace.h
+index 43fa413..62cbf4e 100644
+--- a/openroad/gpl/src/nesterovPlace.h
++++ b/openroad/gpl/src/nesterovPlace.h
 @@ -109,6 +109,7 @@ class NesterovPlace
   private:
    friend class TimingRepairIntegrationTest;
@@ -272,7 +272,7 @@ index 8cc6011bba..301347b621 100644
    enum class DivergeAction
    {
      kNone,
-@@ -276,6 +284,20 @@ class NesterovPlace
+@@ -280,6 +288,20 @@ class NesterovPlace
    // trajectory into the changed objective and diverge the placement.
    bool reset_nesterov_momentum_ = false;
  
@@ -293,10 +293,10 @@ index 8cc6011bba..301347b621 100644
    std::string divergeMsg_;
    int divergeCode_ = 0;
  
-diff --git a/src/gpl/test/end_of_descent_test.cpp b/src/gpl/test/end_of_descent_test.cpp
-index 5fe05085b0..70fd6d6f78 100644
---- a/src/gpl/test/end_of_descent_test.cpp
-+++ b/src/gpl/test/end_of_descent_test.cpp
+diff --git a/openroad/gpl/test/end_of_descent_test.cpp b/openroad/gpl/test/end_of_descent_test.cpp
+index 5fe0508..70fd6d6 100644
+--- a/openroad/gpl/test/end_of_descent_test.cpp
++++ b/openroad/gpl/test/end_of_descent_test.cpp
 @@ -4,7 +4,8 @@
  // How global placement's Nesterov descent ends.
  //
@@ -548,10 +548,10 @@ index 5fe05085b0..70fd6d6f78 100644
 +}
 +
  }  // namespace gpl
-diff --git a/src/gpl/test/routability_minimum_test.cpp b/src/gpl/test/routability_minimum_test.cpp
-index f211c979b6..1f464ac583 100644
---- a/src/gpl/test/routability_minimum_test.cpp
-+++ b/src/gpl/test/routability_minimum_test.cpp
+diff --git a/openroad/gpl/test/routability_minimum_test.cpp b/openroad/gpl/test/routability_minimum_test.cpp
+index f211c97..1f464ac 100644
+--- a/openroad/gpl/test/routability_minimum_test.cpp
++++ b/openroad/gpl/test/routability_minimum_test.cpp
 @@ -7,6 +7,7 @@
  #include <cstdint>
  #include <map>
@@ -561,8 +561,8 @@ index f211c979b6..1f464ac583 100644
  #include <string_view>
  #include <vector>
 @@ -24,6 +25,7 @@
- #include "src/gpl/src/point.h"
- #include "src/gpl/src/routeBase.h"
+ #include "openroad/gpl/src/point.h"
+ #include "openroad/gpl/src/routeBase.h"
  #include "tst/IntegratedFixture.h"
 +#include "utl/Logger.h"
  

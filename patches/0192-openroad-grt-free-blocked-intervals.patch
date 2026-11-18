@@ -18,14 +18,14 @@ the //:bump onto an OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/grt/src/fastroute/src/FastRoute.cpp | 5 +++++
+ openroad/grt/src/fastroute/src/FastRoute.cpp | 5 +++++
  1 file changed, 5 insertions(+)
 
-diff --git a/src/grt/src/fastroute/src/FastRoute.cpp b/src/grt/src/fastroute/src/FastRoute.cpp
-index cc40411075..57570c6ab9 100644
---- a/src/grt/src/fastroute/src/FastRoute.cpp
-+++ b/src/grt/src/fastroute/src/FastRoute.cpp
-@@ -1035,6 +1035,11 @@ void FastRouteCore::initBlockedIntervals(std::vector<int>& track_space)
+diff --git a/openroad/grt/src/fastroute/src/FastRoute.cpp b/openroad/grt/src/fastroute/src/FastRoute.cpp
+index 9ae09a4..c9f1ce9 100644
+--- a/openroad/grt/src/fastroute/src/FastRoute.cpp
++++ b/openroad/grt/src/fastroute/src/FastRoute.cpp
+@@ -1043,6 +1043,11 @@ void FastRouteCore::initBlockedIntervals(std::vector<int>& track_space)
        addAdjustment(x, y, x + 1, y, layer, edge_cap, true);
      }
    }

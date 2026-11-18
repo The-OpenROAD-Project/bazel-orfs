@@ -1,6 +1,6 @@
 # OpenSTA (dbSta): the timer under every stage
 
-OpenSTA is OpenROAD's `src/sta` submodule (The-OpenROAD-Project/OpenSTA,
+OpenSTA is OpenROAD's `openroad/sta` submodule (The-OpenROAD-Project/OpenSTA,
 a fork of parallaxsw/OpenSTA, which is upstream of it). Every repair,
 timing-driven gpl, timing-driven grt and CTS balancing is an STA
 workload: when a stage is slow, the timer is the first suspect.

@@ -25,7 +25,7 @@ from `results/**/logs/**/1_1_yosys_canonicalize.log` and run it directly:
 from the rest of the flow and lets you bisect the args (drop
 `--ignore-unknown-modules`, `--empty-blackboxes`, `--keep-hierarchy` one at a
 time). Build the plugin + yosys with
-`bazelisk build @sv-elab//src/yosys_plugin:slang.so @yosys//:yosys`.
+`bazelisk build @sv-elab//openroad/yosys_plugin:slang.so @yosys//:yosys`.
 
 ### Per-module canonicalization isolates failures
 bazel-orfs canonicalizes each kept module separately ("Canonicalizing RTL for
@@ -36,7 +36,7 @@ with `YOSYS_FLAGS=` to see the underlying error.
 ### Two independent slang consumers — don't conflate
 1. **OpenROAD's in-tree `src/syn` elaborator** — compiles `@sv-elab`'s
    frontend sources against its own backend.
-2. **The yosys plugin `slang.so`** — `@sv-elab//src/yosys_plugin`, exposed
+2. **The yosys plugin `slang.so`** — `@sv-elab//openroad/yosys_plugin`, exposed
    via `orfs.default(yosys_plugins=[…])` → `YOSYS_PLUGIN_PATH`.
 
 Both are the one `@sv-elab`, the BCR release bazel-orfs's `MODULE.bazel`
@@ -136,13 +136,13 @@ orchestrate the flow, they don't influence how OpenROAD compiles. So build
 ```bash
 git clone --recursive https://github.com/The-OpenROAD-Project/OpenROAD.git
 cd OpenROAD
-bazelisk build -c opt //:openroad //src/sta:opensta
+bazelisk build -c opt //:openroad //openroad/sta:opensta
 ```
 
 Both are required by bazel-orfs, built with `-c opt` as the flow's own
 binaries are (`fastbuild`, the default, is unoptimized and several times
-slower). `//src/sta:opensta` is the OpenSTA binary
-bazel-orfs runs (it lives in the `src/sta` submodule, hence `--recursive`).
+slower). `//openroad/sta:opensta` is the OpenSTA binary
+bazel-orfs runs (it lives in the `openroad/sta` submodule, hence `--recursive`).
 The GUI, `gui_<stage>`, is the web viewer and needs no Qt.
 
 That one command tells you where you stand:

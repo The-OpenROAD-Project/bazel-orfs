@@ -80,16 +80,16 @@ OpenROAD that has it.
 Co-Authored-By: Claude <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/gpl/src/nesterovBase.cpp                  | 18 +++-
- src/gpl/src/nesterovBase.h                    |  6 ++
+ openroad/gpl/src/nesterovBase.cpp             | 18 +++-
+ openroad/gpl/src/nesterovBase.h               |  6 ++
  .../test/congestion_buffers_timing_test.cpp   | 98 ++++++++++++++++++-
  3 files changed, 118 insertions(+), 4 deletions(-)
 
-diff --git a/src/gpl/src/nesterovBase.cpp b/src/gpl/src/nesterovBase.cpp
-index 01fe39a..ed28ee0 100644
---- a/src/gpl/src/nesterovBase.cpp
-+++ b/src/gpl/src/nesterovBase.cpp
-@@ -3668,6 +3668,7 @@ void NesterovBase::updateNextIter(const int iter)
+diff --git a/openroad/gpl/src/nesterovBase.cpp b/openroad/gpl/src/nesterovBase.cpp
+index 9f7a7d0..811d0c0 100644
+--- a/openroad/gpl/src/nesterovBase.cpp
++++ b/openroad/gpl/src/nesterovBase.cpp
+@@ -3677,6 +3677,7 @@ void NesterovBase::updateNextIter(const int iter)
  
    sum_overflow_ = getOverflowArea() / overflowDenominator;
    sum_overflow_unscaled_ = getOverflowAreaUnscaled() / overflowDenominator;
@@ -97,7 +97,7 @@ index 01fe39a..ed28ee0 100644
  
    int64_t hpwl = nbc_->getHpwl();
  
-@@ -3891,6 +3892,15 @@ void NesterovBase::saveSnapshot()
+@@ -3906,6 +3907,15 @@ void NesterovBase::saveSnapshot()
    }
  }
  
@@ -113,7 +113,7 @@ index 01fe39a..ed28ee0 100644
  bool NesterovBase::checkConvergence(int gpl_iter_count,
                                      int routability_gpl_iter_count,
                                      RouteBase* rb)
-@@ -3899,7 +3909,7 @@ bool NesterovBase::checkConvergence(int gpl_iter_count,
+@@ -3914,7 +3924,7 @@ bool NesterovBase::checkConvergence(int gpl_iter_count,
    if (isConverged_) {
      return true;
    }
@@ -122,7 +122,7 @@ index 01fe39a..ed28ee0 100644
      const bool has_group = pb_->getGroup();
      const std::string group_name = has_group ? pb_->getGroup()->getName() : "";
      const int final_iter = gpl_iter_count;
-@@ -4120,6 +4130,12 @@ bool NesterovBase::revertToSnapshot()
+@@ -4135,6 +4145,12 @@ bool NesterovBase::revertToSnapshot()
    prev_reported_hpwl_ = 0;
    prev_reported_overflow_unscaled_ = 0;
  
@@ -135,11 +135,11 @@ index 01fe39a..ed28ee0 100644
    return true;
  }
  
-diff --git a/src/gpl/src/nesterovBase.h b/src/gpl/src/nesterovBase.h
-index 67526ad..e30aa81 100644
---- a/src/gpl/src/nesterovBase.h
-+++ b/src/gpl/src/nesterovBase.h
-@@ -1254,6 +1254,8 @@ class NesterovBase
+diff --git a/openroad/gpl/src/nesterovBase.h b/openroad/gpl/src/nesterovBase.h
+index 8ce33ca..e839008 100644
+--- a/openroad/gpl/src/nesterovBase.h
++++ b/openroad/gpl/src/nesterovBase.h
+@@ -1264,6 +1264,8 @@ class NesterovBase
    bool checkConvergence(int gpl_iter_count,
                          int routability_gpl_iter_count,
                          RouteBase* rb);
@@ -148,7 +148,7 @@ index 67526ad..e30aa81 100644
    void resetConverged() { isConverged_ = false; }
  
    bool checkDivergence();
-@@ -1522,6 +1524,10 @@ class NesterovBase
+@@ -1532,6 +1534,10 @@ class NesterovBase
    float sum_overflow_ = 0;
    float sum_overflow_unscaled_ = 0;
    float prev_reported_overflow_unscaled_ = 0;
@@ -159,11 +159,11 @@ index 67526ad..e30aa81 100644
  
    // half-parameter-wire-length
    int64_t prev_hpwl_ = 0;
-diff --git a/src/gpl/test/congestion_buffers_timing_test.cpp b/src/gpl/test/congestion_buffers_timing_test.cpp
-index a77d49b..ab4d7ed 100644
---- a/src/gpl/test/congestion_buffers_timing_test.cpp
-+++ b/src/gpl/test/congestion_buffers_timing_test.cpp
-@@ -29,9 +29,9 @@
+diff --git a/openroad/gpl/test/congestion_buffers_timing_test.cpp b/openroad/gpl/test/congestion_buffers_timing_test.cpp
+index ffc0fe9..4697298 100644
+--- a/openroad/gpl/test/congestion_buffers_timing_test.cpp
++++ b/openroad/gpl/test/congestion_buffers_timing_test.cpp
+@@ -31,9 +31,9 @@
  
  namespace gpl {
  
@@ -176,7 +176,7 @@ index a77d49b..ab4d7ed 100644
  class TimingRepairIntegrationTest : public tst::IntegratedFixture
  {
   protected:
-@@ -278,6 +278,55 @@ class TimingRepairIntegrationTest : public tst::IntegratedFixture
+@@ -291,6 +291,55 @@ class TimingRepairIntegrationTest : public tst::IntegratedFixture
      grt_.getRudy()->setWireWidth(1000000);
    }
  
@@ -232,7 +232,7 @@ index a77d49b..ab4d7ed 100644
    odb::dbInst* inflatedNewBuffer()
    {
      for (const auto& cell : nb_vec_[0]->getGCells()) {
-@@ -447,6 +496,49 @@ INSTANTIATE_TEST_SUITE_P(RoutabilityPhases,
+@@ -496,6 +545,49 @@ INSTANTIATE_TEST_SUITE_P(RoutabilityPhases,
                           TimingRepairRoutabilityPhaseTest,
                           ::testing::Values(0, 1, 2));
  

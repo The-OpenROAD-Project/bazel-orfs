@@ -17,16 +17,16 @@ OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/ram/src/ram.cpp              | 30 ++++++++++++++++++++----------
- src/ram/test/BUILD               |  1 +
- src/ram/test/one_group_asap7.tcl | 30 ++++++++++++++++++++++++++++++
+ openroad/ram/src/ram.cpp              | 30 ++++++++++++++++++---------
+ openroad/ram/test/BUILD               |  1 +
+ openroad/ram/test/one_group_asap7.tcl | 30 +++++++++++++++++++++++++++
  3 files changed, 51 insertions(+), 10 deletions(-)
- create mode 100644 src/ram/test/one_group_asap7.tcl
+ create mode 100644 openroad/ram/test/one_group_asap7.tcl
 
-diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
-index 7061bc2441..4b216a80e3 100644
---- a/src/ram/src/ram.cpp
-+++ b/src/ram/src/ram.cpp
+diff --git a/openroad/ram/src/ram.cpp b/openroad/ram/src/ram.cpp
+index 54bbf0b..feacb7e 100644
+--- a/openroad/ram/src/ram.cpp
++++ b/openroad/ram/src/ram.cpp
 @@ -552,8 +552,13 @@ void RamGen::makeSlice(const int slice_idx,
                              storage,
                              reset_bit,
@@ -73,11 +73,11 @@ index 7061bc2441..4b216a80e3 100644
        makeInst(bit_cell.get(),
                 prefix,
                 fmt::format("hold_inv{}", group),
-diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index 0200b6bf2d..91557573bd 100644
---- a/src/ram/test/BUILD
-+++ b/src/ram/test/BUILD
-@@ -34,6 +34,7 @@ PASSFAIL_TESTS = [
+diff --git a/openroad/ram/test/BUILD b/openroad/ram/test/BUILD
+index 85f1932..ba2225b 100644
+--- a/openroad/ram/test/BUILD
++++ b/openroad/ram/test/BUILD
+@@ -36,6 +36,7 @@ PASSFAIL_TESTS = [
      "write_mux_fanout_asap7",
      "read_drive_asap7",
      "write_ports_fanout_asap7",
@@ -85,11 +85,11 @@ index 0200b6bf2d..91557573bd 100644
  ]
  
  ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
-diff --git a/src/ram/test/one_group_asap7.tcl b/src/ram/test/one_group_asap7.tcl
+diff --git a/openroad/ram/test/one_group_asap7.tcl b/openroad/ram/test/one_group_asap7.tcl
 new file mode 100644
-index 0000000000..05279e8206
+index 0000000..05279e8
 --- /dev/null
-+++ b/src/ram/test/one_group_asap7.tcl
++++ b/openroad/ram/test/one_group_asap7.tcl
 @@ -0,0 +1,30 @@
 +# A word of no more than eight bits is one group: its write enable and
 +# each port's take reach its bits without a group buffer, which would
@@ -121,3 +121,6 @@ index 0000000000..05279e8206
 +}
 +
 +puts "pass"
+-- 
+2.53.0
+

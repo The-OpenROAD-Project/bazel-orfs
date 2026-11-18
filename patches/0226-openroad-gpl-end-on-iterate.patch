@@ -99,19 +99,19 @@ OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/gpl/src/nesterovBase.cpp              |  45 ++++
- src/gpl/src/nesterovBase.h                |  25 +++
- src/gpl/src/nesterovPlace.cpp             |   1 +
- src/gpl/test/BUILD                        |  21 ++
- src/gpl/test/end_of_descent_test.cpp      | 250 ++++++++++++++++++++++
- src/gpl/test/routability_minimum_test.cpp | 123 +++++++++++
+ openroad/gpl/src/nesterovBase.cpp             |  45 ++++
+ openroad/gpl/src/nesterovBase.h               |  25 ++
+ openroad/gpl/src/nesterovPlace.cpp            |   1 +
+ openroad/gpl/test/BUILD                       |  21 ++
+ openroad/gpl/test/end_of_descent_test.cpp     | 250 ++++++++++++++++++
+ .../gpl/test/routability_minimum_test.cpp     | 123 +++++++++
  6 files changed, 465 insertions(+)
- create mode 100644 src/gpl/test/end_of_descent_test.cpp
+ create mode 100644 openroad/gpl/test/end_of_descent_test.cpp
 
-diff --git a/src/gpl/src/nesterovBase.cpp b/src/gpl/src/nesterovBase.cpp
-index 1d6816bce5..78596f4003 100644
---- a/src/gpl/src/nesterovBase.cpp
-+++ b/src/gpl/src/nesterovBase.cpp
+diff --git a/openroad/gpl/src/nesterovBase.cpp b/openroad/gpl/src/nesterovBase.cpp
+index 8ceeb9b..c0da9a7 100644
+--- a/openroad/gpl/src/nesterovBase.cpp
++++ b/openroad/gpl/src/nesterovBase.cpp
 @@ -4034,6 +4034,51 @@ bool NesterovBase::isConvergenceDue() const
               && sum_overflow_unscaled_ <= npVars_->targetOverflow);
  }
@@ -164,10 +164,10 @@ index 1d6816bce5..78596f4003 100644
  bool NesterovBase::checkConvergence(int gpl_iter_count,
                                      int routability_gpl_iter_count,
                                      RouteBase* rb)
-diff --git a/src/gpl/src/nesterovBase.h b/src/gpl/src/nesterovBase.h
-index b0168a89b2..589d4891b8 100644
---- a/src/gpl/src/nesterovBase.h
-+++ b/src/gpl/src/nesterovBase.h
+diff --git a/openroad/gpl/src/nesterovBase.h b/openroad/gpl/src/nesterovBase.h
+index b0168a8..589d489 100644
+--- a/openroad/gpl/src/nesterovBase.h
++++ b/openroad/gpl/src/nesterovBase.h
 @@ -1291,6 +1291,27 @@ class NesterovBase
                          RouteBase* rb);
    // True when checkConvergence() would return true; no side effects.
@@ -214,11 +214,11 @@ index b0168a89b2..589d4891b8 100644
  
    // Nesterov loop data for each region, using parallel vectors
    // SLP is Step Length Prediction.
-diff --git a/src/gpl/src/nesterovPlace.cpp b/src/gpl/src/nesterovPlace.cpp
-index f6b6076fff..56f1e32d49 100644
---- a/src/gpl/src/nesterovPlace.cpp
-+++ b/src/gpl/src/nesterovPlace.cpp
-@@ -1708,6 +1708,7 @@ void NesterovPlace::updateNextIter(int iter)
+diff --git a/openroad/gpl/src/nesterovPlace.cpp b/openroad/gpl/src/nesterovPlace.cpp
+index 2be7108..3a1b7ab 100644
+--- a/openroad/gpl/src/nesterovPlace.cpp
++++ b/openroad/gpl/src/nesterovPlace.cpp
+@@ -1714,6 +1714,7 @@ void NesterovPlace::updateNextIter(int iter)
    for (auto& nb : nbVec_) {
      const bool updates = !nb->isConverged();
      nb->updateNextIter(iter);
@@ -226,11 +226,11 @@ index f6b6076fff..56f1e32d49 100644
      if (updates) {
        updated_hpwl = nb->getIterHpwl();
      }
-diff --git a/src/gpl/test/BUILD b/src/gpl/test/BUILD
-index 22cea5c8a6..bd2f34ee6a 100644
---- a/src/gpl/test/BUILD
-+++ b/src/gpl/test/BUILD
-@@ -431,6 +431,27 @@ cc_test(
+diff --git a/openroad/gpl/test/BUILD b/openroad/gpl/test/BUILD
+index 3317172..809d2c1 100644
+--- a/openroad/gpl/test/BUILD
++++ b/openroad/gpl/test/BUILD
+@@ -433,6 +433,27 @@ cc_test(
      ],
  )
  
@@ -244,12 +244,12 @@ index 22cea5c8a6..bd2f34ee6a 100644
 +    ],
 +    env = GPU_ENV_OFF,
 +    deps = [
-+        "//src/gpl:gpl_impl",
-+        "//src/odb/src/db",
-+        "//src/odb/src/defin",
-+        "//src/odb/src/lefin",
-+        "//src/tst",
-+        "//src/utl",
++        "//openroad/gpl:gpl_impl",
++        "//openroad/odb/src/db",
++        "//openroad/odb/src/defin",
++        "//openroad/odb/src/lefin",
++        "//openroad/tst",
++        "//openroad/utl",
 +        "@googletest//:gtest",
 +        "@googletest//:gtest_main",
 +    ],
@@ -258,11 +258,11 @@ index 22cea5c8a6..bd2f34ee6a 100644
  cc_test(
      name = "overflow_test",
      srcs = ["overflow_test.cpp"],
-diff --git a/src/gpl/test/end_of_descent_test.cpp b/src/gpl/test/end_of_descent_test.cpp
+diff --git a/openroad/gpl/test/end_of_descent_test.cpp b/openroad/gpl/test/end_of_descent_test.cpp
 new file mode 100644
-index 0000000000..5fe05085b0
+index 0000000..5fe0508
 --- /dev/null
-+++ b/src/gpl/test/end_of_descent_test.cpp
++++ b/openroad/gpl/test/end_of_descent_test.cpp
 @@ -0,0 +1,250 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +// Copyright (c) 2026, The OpenROAD Authors
@@ -294,11 +294,11 @@ index 0000000000..5fe05085b0
 +#include "odb/defin.h"
 +#include "odb/geom.h"
 +#include "odb/lefin.h"
-+#include "src/gpl/src/graphicsNone.h"
-+#include "src/gpl/src/nesterovBase.h"
-+#include "src/gpl/src/nesterovPlace.h"
-+#include "src/gpl/src/placerBase.h"
-+#include "src/gpl/src/point.h"
++#include "openroad/gpl/src/graphicsNone.h"
++#include "openroad/gpl/src/nesterovBase.h"
++#include "openroad/gpl/src/nesterovPlace.h"
++#include "openroad/gpl/src/placerBase.h"
++#include "openroad/gpl/src/point.h"
 +#include "tst/fixture.h"
 +#include "utl/deleter.h"
 +
@@ -331,7 +331,7 @@ index 0000000000..5fe05085b0
 +    placer->db = utl::UniquePtrWithDeleter<odb::dbDatabase>(
 +        odb::dbDatabase::create(), odb::dbDatabase::destroy);
 +    placer->db->setLogger(&logger_);
-+    const std::string dir = "_main/src/gpl/test/";
++    const std::string dir = "_main/openroad/gpl/test/";
 +    odb::lefin lef_reader(
 +        placer->db.get(), &logger_, /* ignore_non_routing_layers = */ false);
 +    odb::dbLib* lib = lef_reader.createTechAndLib(
@@ -514,10 +514,10 @@ index 0000000000..5fe05085b0
 +}
 +
 +}  // namespace gpl
-diff --git a/src/gpl/test/routability_minimum_test.cpp b/src/gpl/test/routability_minimum_test.cpp
-index fbd2c5365c..f211c979b6 100644
---- a/src/gpl/test/routability_minimum_test.cpp
-+++ b/src/gpl/test/routability_minimum_test.cpp
+diff --git a/openroad/gpl/test/routability_minimum_test.cpp b/openroad/gpl/test/routability_minimum_test.cpp
+index fbd2c53..f211c97 100644
+--- a/openroad/gpl/test/routability_minimum_test.cpp
++++ b/openroad/gpl/test/routability_minimum_test.cpp
 @@ -167,6 +167,43 @@ class RoutabilityMinimumTest : public tst::IntegratedFixture
      region.updateDensityFieldBin();
    }

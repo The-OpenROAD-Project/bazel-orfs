@@ -21,17 +21,17 @@ OpenROAD that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- src/ram/include/ram/ram.h        |  5 ++++
- src/ram/src/ram.cpp              | 31 ++++++++++++++++++++--
- src/ram/test/BUILD               |  1 +
- src/ram/test/wide_word_asap7.tcl | 44 ++++++++++++++++++++++++++++++++
+ openroad/ram/include/ram/ram.h        |  5 +++
+ openroad/ram/src/ram.cpp              | 31 +++++++++++++++++--
+ openroad/ram/test/BUILD               |  1 +
+ openroad/ram/test/wide_word_asap7.tcl | 44 +++++++++++++++++++++++++++
  4 files changed, 79 insertions(+), 2 deletions(-)
- create mode 100644 src/ram/test/wide_word_asap7.tcl
+ create mode 100644 openroad/ram/test/wide_word_asap7.tcl
 
-diff --git a/src/ram/include/ram/ram.h b/src/ram/include/ram/ram.h
-index cff7129ae9..d916119fc1 100644
---- a/src/ram/include/ram/ram.h
-+++ b/src/ram/include/ram/ram.h
+diff --git a/openroad/ram/include/ram/ram.h b/openroad/ram/include/ram/ram.h
+index cff7129..d916119 100644
+--- a/openroad/ram/include/ram/ram.h
++++ b/openroad/ram/include/ram/ram.h
 @@ -442,6 +442,11 @@ class RamGen
      std::vector<odb::dbNet*> select_b;
    };
@@ -44,10 +44,10 @@ index cff7129ae9..d916119fc1 100644
    int sliceOffset(int slice) const
    {
      return bit_folds_ > 1 ? 0 : slice * slice_width_;
-diff --git a/src/ram/src/ram.cpp b/src/ram/src/ram.cpp
-index 4b216a80e3..e2599d2c8d 100644
---- a/src/ram/src/ram.cpp
-+++ b/src/ram/src/ram.cpp
+diff --git a/openroad/ram/src/ram.cpp b/openroad/ram/src/ram.cpp
+index feacb7e..fea4b92 100644
+--- a/openroad/ram/src/ram.cpp
++++ b/openroad/ram/src/ram.cpp
 @@ -555,6 +555,30 @@ void RamGen::makeSlice(const int slice_idx,
      // a word of one group: its nets drive no more than a group's pins
      // already, and a buffer would only add a level
@@ -99,7 +99,7 @@ index 4b216a80e3..e2599d2c8d 100644
                    {buffer_ports_[{PortRoleType::DataOut, 0}], we_group}});
        }
        makeInst(bit_cell.get(),
-@@ -2481,6 +2507,7 @@ void RamGen::generate(const int mask_size,
+@@ -2542,6 +2568,7 @@ void RamGen::generate(const int mask_size,
    storage_nets_.clear();
    tree_nodes_.clear();
    word_write_.clear();
@@ -107,11 +107,11 @@ index 4b216a80e3..e2599d2c8d 100644
    select_groups_.clear();
    literal_cells_.clear();
    storage_cell_ = storage_cell;
-diff --git a/src/ram/test/BUILD b/src/ram/test/BUILD
-index 91557573bd..450545c6be 100644
---- a/src/ram/test/BUILD
-+++ b/src/ram/test/BUILD
-@@ -35,6 +35,7 @@ PASSFAIL_TESTS = [
+diff --git a/openroad/ram/test/BUILD b/openroad/ram/test/BUILD
+index ba2225b..b1f2d73 100644
+--- a/openroad/ram/test/BUILD
++++ b/openroad/ram/test/BUILD
+@@ -37,6 +37,7 @@ PASSFAIL_TESTS = [
      "read_drive_asap7",
      "write_ports_fanout_asap7",
      "one_group_asap7",
@@ -119,11 +119,11 @@ index 91557573bd..450545c6be 100644
  ]
  
  ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
-diff --git a/src/ram/test/wide_word_asap7.tcl b/src/ram/test/wide_word_asap7.tcl
+diff --git a/openroad/ram/test/wide_word_asap7.tcl b/openroad/ram/test/wide_word_asap7.tcl
 new file mode 100644
-index 0000000000..b5e8638811
+index 0000000..b5e8638
 --- /dev/null
-+++ b/src/ram/test/wide_word_asap7.tcl
++++ b/openroad/ram/test/wide_word_asap7.tcl
 @@ -0,0 +1,44 @@
 +# A word of more than eight groups of eight bits: its write enable and
 +# each port's take reach the group buffers through a buffer per eight
@@ -169,3 +169,6 @@ index 0000000000..b5e8638811
 +}
 +
 +puts "pass"
+-- 
+2.53.0
+
