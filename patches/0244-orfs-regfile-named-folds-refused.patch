@@ -1,0 +1,96 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Subject: [PATCH] memories: a named bit_folds the fold rule would fold further
+ is refused
+
+regfile_ram.py folds a register file's word into rows when its array
+would be much wider than tall, or a word longer in a row than
+WORD_SPAN_UM, but only when the spec names no bit_folds. A spec that
+names fewer folds than the rule would choose got exactly what it named:
+a long, thin array whose long-wire buffers pile up beyond what detailed
+placement can legalise, found only stages later.
+
+The rule is now _folds(); with bit_folds named it is applied to the
+folded word, and if it would fold further the spec is refused, naming
+the fold count that would do. A spec at or above the rule's folds, or
+one naming none, builds as before.
+
+Not upstreamed; retires at a bump onto an ORFS that carries it.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/memories/regfile_ram.py | 43 ++++++++++++++++++++--------
+ 1 file changed, 31 insertions(+), 12 deletions(-)
+
+diff --git a/flow/scripts/memories/regfile_ram.py b/flow/scripts/memories/regfile_ram.py
+index b72a3ef..87a940c 100644
+--- a/flow/scripts/memories/regfile_ram.py
++++ b/flow/scripts/memories/regfile_ram.py
+@@ -563,6 +563,24 @@ def _module_header_ports(verilog: str, module: str) -> dict[str, tuple[str, int]
+     return ports
+ 
+ 
++def _folds(width: float, height: float, span_um: float, bits: int) -> int:
++    """How many rows to fold a word of `bits` into, a power of two, for an
++    array width by height with a word span_um long in a row (see
++    generate)."""
++    folds = 1
++    # a short last fold is allowed, an empty one is not
++    while (
++        folds * 2 <= bits
++        and (folds * 2 - 1) * -(-bits // (folds * 2)) < bits
++        and (
++            (width > 8 * height and (folds * 2) ** 2 <= 2 * width / height)
++            or span_um / folds > WORD_SPAN_UM
++        )
++    ):
++        folds *= 2
++    return folds
++
++
+ def generate(
+     spec: Path,
+     module: str,
+@@ -617,7 +635,8 @@ def generate(
+     #   (XiangShan's RenameBufferFile, a word a row 258 um wide, failed;
+     #   RobEntryFile at 74 um and IntRegFile at 96 um a word did not).
+     #
+-    # A spec names bit_folds to choose.
++    # A spec may name bit_folds, but not fewer than the rule would fold
++    # the array it names: that is refused, not overridden.
+     bits = int(_one(lines, "bits"))
+     dbu = float(outline.read_text().split()[2])
+     # the words side by side in a row, each contiguous (see _args) unless
+@@ -629,20 +648,20 @@ def generate(
+     )
+     span_um = width / dbu / row_words
+     if not _values(lines, "bit_folds"):
+-        folds = 1
+-        # a short last fold is allowed, an empty one is not
+-        while (
+-            folds * 2 <= bits
+-            and (folds * 2 - 1) * -(-bits // (folds * 2)) < bits
+-            and (
+-                (width > 8 * height and (folds * 2) ** 2 <= 2 * width / height)
+-                or span_um / folds > WORD_SPAN_UM
+-            )
+-        ):
+-            folds *= 2
++        folds = _folds(width, height, span_um, bits)
+         if folds > 1:
+             lines = lines + [["bit_folds", str(folds)]]
+             build(lines)
++    else:
++        named = int(_one(lines, "bit_folds"))
++        more = _folds(width, height, span_um, -(-bits // named))
++        if more > 1:
++            raise SystemExit(
++                f"regfile_ram: {spec}: bit_folds {named} leaves the array"
++                f" {width / height:.1f} times as wide as tall and a word"
++                f" {span_um:.0f} um long; the fold rule folds it"
++                f" {named * more} times: leave bit_folds out, or name that"
++            )
+     views = out_dir / f"{module}.views.tcl"
+     tcl = reads + f"read_db {out_dir / f'{block}.odb'}\n"
+     # the RTL's flop names, for equivalence checking
