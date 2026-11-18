@@ -23,15 +23,15 @@ Needs OpenROAD's generate_ram -write_select (carried in bazel-orfs).
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  docs/user/AutoMemories.md                  |  5 ++-
- flow/scripts/memories/gen_memories_test.py | 49 ++++++++++++++++++++++
+ flow/scripts/memories/gen_memories_test.py | 48 ++++++++++++++++++++++
  flow/scripts/memories/regfile_ram.py       | 26 +++++++++++-
- 3 files changed, 78 insertions(+), 2 deletions(-)
+ 3 files changed, 77 insertions(+), 2 deletions(-)
 
 diff --git a/docs/user/AutoMemories.md b/docs/user/AutoMemories.md
-index 4fd8e4bb3..11311b6db 100644
+index aa69cf6..6d4d23b 100644
 --- a/docs/user/AutoMemories.md
 +++ b/docs/user/AutoMemories.md
-@@ -226,7 +226,10 @@ clock gate per word, enabled by its write selects (`write_style
+@@ -238,7 +238,10 @@ clock gate per word, enabled by its write selects (`write_style
  clock_gate`, `generate_ram`'s own default). Where a row holds more than
  one word (`bank_columns`), each word's bits sit side by side, so its
  selects and write enables are no longer than its bits; and a word whose
@@ -44,10 +44,10 @@ index 4fd8e4bb3..11311b6db 100644
  parent puts on the nets that cross it.
  
 diff --git a/flow/scripts/memories/gen_memories_test.py b/flow/scripts/memories/gen_memories_test.py
-index 23dc6f276..390bca303 100644
+index 8ba89d7..20d4816 100644
 --- a/flow/scripts/memories/gen_memories_test.py
 +++ b/flow/scripts/memories/gen_memories_test.py
-@@ -309,12 +309,61 @@ class GenMemoriesTest(unittest.TestCase):
+@@ -388,6 +388,7 @@ class GenMemoriesTest(unittest.TestCase):
              (good.replace("bits 8", "bits eight"), "`bits` takes one positive"),
              (good + "bit_folds 2 3\n", "`bit_folds` takes one positive"),
              (good + "colour red\n", "unknown key `colour`"),
@@ -55,9 +55,10 @@ index 23dc6f276..390bca303 100644
          ):
              spec.write_text(bad)
              with self.assertRaises(SystemExit) as stop:
-                 gen_memories.regfile_ram.check(spec)
-             self.assertIn(message, str(stop.exception))
- 
+@@ -461,6 +462,53 @@ class GenMemoriesTest(unittest.TestCase):
+         self.assertEqual(
+             scripts, ["rf.generate.tcl", "rf.generate.tcl", "rf.views.tcl"]
+         )
 +    def test_write_select_mask(self):
 +        # write_select mask: a write's first port is a mask a bit a word,
 +        # wired to generate_ram's wsel, and checked as `words` wide
@@ -105,12 +106,11 @@ index 23dc6f276..390bca303 100644
 +                lines, "rf", "rf_ram", ram_ports, rtl_ports | {"m1": ("input", 4)}
 +            )
 +        self.assertIn("the mask m1 is 4 bits", str(stop.exception))
-+
+ 
  
  if __name__ == "__main__":
-     unittest.main()
 diff --git a/flow/scripts/memories/regfile_ram.py b/flow/scripts/memories/regfile_ram.py
-index 69ad9aa79..b72a3ef92 100644
+index 44ac053..87a940c 100644
 --- a/flow/scripts/memories/regfile_ram.py
 +++ b/flow/scripts/memories/regfile_ram.py
 @@ -42,6 +42,7 @@ KEYS = {

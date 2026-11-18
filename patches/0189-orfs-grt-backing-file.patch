@@ -18,25 +18,42 @@ the //:bump onto an ORFS that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- flow/scripts/global_route.tcl | 13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
+ flow/scripts/global_route.tcl | 27 +++++++++++----------------
+ 1 file changed, 11 insertions(+), 16 deletions(-)
 
 diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
-index 3365fa6c2..aeee613b5 100644
+index 4a69730..4e6e8f5 100644
 --- a/flow/scripts/global_route.tcl
 +++ b/flow/scripts/global_route.tcl
-@@ -28,7 +28,9 @@ proc set_grt_seed { } {
- }
+@@ -38,25 +38,14 @@ proc do_global_route { res_aware use_cugr } {
+     -congestion_report_file $::global_route_congestion_report] \
+     $cong_iters $::env(GLOBAL_ROUTE_ARGS) {*}$res_aware {*}$use_cugr]
  
- proc run_global_route_and_catch_failures { args } {
--  if { [catch { log_cmd global_route {*}$args } errMsg] } {
-+  if { [catch {
-+    log_cmd global_route -backing_file $::env(OBJECTS_DIR)/grt.grid {*}$args
-+  } errMsg] } {
-     log_cmd write_db $::env(RESULTS_DIR)/5_1_grt-failed.odb
-     log_cmd write_sdc -no_timestamp $::env(RESULTS_DIR)/5_1_grt-failed.sdc
-     error $errMsg
-@@ -94,7 +96,8 @@ if { !$::env(SKIP_INCREMENTAL_REPAIR) } {
+-  log_cmd global_route {*}$all_args
++  log_cmd global_route -backing_file $::env(OBJECTS_DIR)/grt.grid {*}$all_args
+ }
+ set additional_args ""
+ append_env_var additional_args dbProcessNode -db_process_node 1
+ append_env_var additional_args VIA_IN_PIN_MIN_LAYER -via_in_pin_bottom_layer 1
+ append_env_var additional_args VIA_IN_PIN_MAX_LAYER -via_in_pin_top_layer 1
+ 
+-# SKIP_PIN_ACCESS: run the global route without building access points.
+-# pin_access fails on a macro pin it cannot reach (DRT-0073), and on a
+-# hierarchical design that is one pin of one block between a placement
+-# and the congestion map the stage exists to produce. The guide the
+-# router writes without access points is not a routable result, so this
+-# is a knob for a study, not for a flow that goes on to detailed route.
+-if { [env_var_equals SKIP_PIN_ACCESS 1] } {
+-  utl::warn FLW 21 "SKIP_PIN_ACCESS=1: pin access skipped; the global route's\
+-    guides have no access points and detailed route will not take them."
+-} else {
+-  log_cmd pin_access {*}$additional_args
+-}
++log_cmd pin_access {*}$additional_args
+ 
+ do_global_route $res_aware $use_cugr
+ 
+@@ -86,10 +75,12 @@ if { !$::env(SKIP_INCREMENTAL_REPAIR) } {
    # Running DPL to fix overlapped instances
    # Run to get modified net by DPL
    utl::push_metrics_stage "globalroute__repair_design__{}"
@@ -45,8 +62,12 @@ index 3365fa6c2..aeee613b5 100644
 +    -backing_file $::env(OBJECTS_DIR)/grt.grid
    detailed_placement_helper -quiet
    # Route only the modified net by DPL
-   run_global_route_and_catch_failures -end_incremental {*}$res_aware \
-@@ -113,7 +116,8 @@ if { !$::env(SKIP_INCREMENTAL_REPAIR) } {
+   log_cmd global_route -end_incremental {*}$res_aware \
++    -backing_file $::env(OBJECTS_DIR)/grt.grid \
+     {*}$allow_congestion \
+     -congestion_report_file $::env(REPORTS_DIR)/congestion_post_repair_design.rpt
+   utl::pop_metrics_stage
+@@ -105,11 +96,13 @@ if { !$::env(SKIP_INCREMENTAL_REPAIR) } {
    }
  
    utl::push_metrics_stage "globalroute__repair_timing__{}"
@@ -56,7 +77,12 @@ index 3365fa6c2..aeee613b5 100644
    detailed_placement_helper -quiet
    log_cmd check_placement -placeable -verbose
    # Route only the modified net by DPL
-@@ -143,7 +147,8 @@ if { !$::env(SKIP_INCREMENTAL_REPAIR) } {
+   log_cmd global_route -end_incremental {*}$res_aware \
++    -backing_file $::env(OBJECTS_DIR)/grt.grid \
+     {*}$allow_congestion \
+     -congestion_report_file $::env(REPORTS_DIR)/congestion_post_repair_timing.rpt
+   utl::pop_metrics_stage
+@@ -135,10 +128,12 @@ if { !$::env(SKIP_INCREMENTAL_REPAIR) } {
  
  if { !$::env(OPT_POST_GRT_WNS) } {
    utl::push_metrics_stage "globalroute__recover_power__{}"
@@ -65,4 +91,11 @@ index 3365fa6c2..aeee613b5 100644
 +    -backing_file $::env(OBJECTS_DIR)/grt.grid
    recover_power_helper
    # Route the modified nets by rsz journal restore
-   run_global_route_and_catch_failures -end_incremental {*}$res_aware \
+   log_cmd global_route -end_incremental {*}$res_aware \
++    -backing_file $::env(OBJECTS_DIR)/grt.grid \
+     {*}$allow_congestion \
+     -congestion_report_file $::env(REPORTS_DIR)/congestion_post_recover_power.rpt
+   utl::pop_metrics_stage
+-- 
+2.53.0
+

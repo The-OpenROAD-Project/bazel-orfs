@@ -27,11 +27,14 @@ either without the caller having to say which it has.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
+ flow/scripts/synth_preamble.tcl | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
 diff --git a/flow/scripts/synth_preamble.tcl b/flow/scripts/synth_preamble.tcl
-index dcdbc19a3..4ff10504f 100644
+index e20564f..bd113e8 100644
 --- a/flow/scripts/synth_preamble.tcl
 +++ b/flow/scripts/synth_preamble.tcl
-@@ -95,7 +95,14 @@ proc read_design_sources { } {
+@@ -78,7 +78,14 @@ proc read_design_sources { } {
    }
  
    if { [env_var_equals SYNTH_HDL_FRONTEND slang] } {
@@ -47,3 +50,6 @@ index dcdbc19a3..4ff10504f 100644
      set slang_args [list \
        -D SYNTHESIS --keep-hierarchy --compat=vcs --ignore-assertions --top $::env(DESIGN_NAME) \
        {*}$vIdirsArgs {*}[env_var_or_empty VERILOG_DEFINES]]
+-- 
+2.53.0
+

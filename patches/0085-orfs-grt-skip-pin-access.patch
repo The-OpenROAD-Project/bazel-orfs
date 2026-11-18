@@ -26,10 +26,10 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  2 files changed, 22 insertions(+), 1 deletion(-)
 
 diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
-index 01ad91ba..35bd53e8 100644
+index 6cc9fdd..4a69730 100644
 --- a/flow/scripts/global_route.tcl
 +++ b/flow/scripts/global_route.tcl
-@@ -52,7 +52,18 @@ append_env_var additional_args dbProcessNode -db_process_node 1
+@@ -45,7 +45,18 @@ append_env_var additional_args dbProcessNode -db_process_node 1
  append_env_var additional_args VIA_IN_PIN_MIN_LAYER -via_in_pin_bottom_layer 1
  append_env_var additional_args VIA_IN_PIN_MAX_LAYER -via_in_pin_top_layer 1
  
@@ -50,10 +50,10 @@ index 01ad91ba..35bd53e8 100644
  do_global_route $res_aware $use_cugr
  
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
-index 6cb82a40..ab28a3b0 100644
+index 82a5531..baf1a43 100644
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -949,6 +949,16 @@ SKIP_LAST_GASP:
+@@ -940,6 +940,16 @@ SKIP_LAST_GASP:
      - cts
      - floorplan
      - grt
@@ -70,3 +70,6 @@ index 6cb82a40..ab28a3b0 100644
  SKIP_BUFFER_REMOVAL:
    description: >
      Passed as -skip_buffer_removal to repair_timing. Do not remove buffers
+-- 
+2.53.0
+

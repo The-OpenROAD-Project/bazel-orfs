@@ -34,11 +34,14 @@ this; upstreaming it should also add the variable to variables.yaml,
 which this patch deliberately leaves alone to keep the diff to the one
 file whose behaviour changes.
 ---
+ flow/scripts/synth.tcl | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
 diff --git a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
-index aa4d3afb6..aa23fc248 100644
+index 1e47bcf..69b868b 100644
 --- a/flow/scripts/synth.tcl
 +++ b/flow/scripts/synth.tcl
-@@ -66,6 +66,27 @@ if { [env_var_exists_and_non_empty SYNTH_BLACKBOXES] } {
+@@ -79,6 +79,27 @@ foreach m $synth_blackboxes {
  
  hierarchy -check -top $::env(DESIGN_NAME)
  
@@ -66,3 +69,6 @@ index aa4d3afb6..aa23fc248 100644
  if { $::env(SYNTH_GUT) } {
    # /deletes all cells at the top level, which will quickly optimize away
    # everything else, including macros.
+-- 
+2.53.0
+

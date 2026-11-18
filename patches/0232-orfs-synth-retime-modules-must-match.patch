@@ -28,7 +28,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  1 file changed, 31 insertions(+), 7 deletions(-)
 
 diff --git a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
-index c2e640c2f..59c100ab1 100644
+index e5b9922..7842249 100644
 --- a/flow/scripts/synth.tcl
 +++ b/flow/scripts/synth.tcl
 @@ -210,13 +210,37 @@ if { $::env(SYNTH_MOCK_LARGE_MEMORIES) } {

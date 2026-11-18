@@ -14,11 +14,15 @@ wants while the flow is being put together; the default is unchanged.
 Not upstreamed; carried by bazel-orfs. Retires at a //:bump onto an ORFS
 that carries a knob for this.
 ---
+ flow/scripts/synth.tcl      |  4 +++-
+ flow/scripts/variables.yaml | 11 +++++++++++
+ 2 files changed, 14 insertions(+), 1 deletion(-)
+
 diff --git a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
-index aa23fc248..03e36173a 100644
+index 69b868b..e5b9922 100644
 --- a/flow/scripts/synth.tcl
 +++ b/flow/scripts/synth.tcl
-@@ -245,7 +245,9 @@ if {
+@@ -252,7 +252,9 @@ if {
    )
  } {
    # extract the full adders
@@ -30,10 +34,10 @@ index aa23fc248..03e36173a 100644
    techmap -map $::env(ADDER_MAP_FILE)
    techmap
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
-index ac913b71a..2c0f9e8aa 100644
+index 21b48f7..82a5531 100644
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -882,6 +882,17 @@ SKIP_CRIT_VT_SWAP:
+@@ -974,6 +974,17 @@ SKIP_CRIT_VT_SWAP:
      - cts
      - floorplan
      - grt
@@ -51,3 +55,6 @@ index ac913b71a..2c0f9e8aa 100644
  SKIP_CTS_REPAIR_TIMING:
    description: >
      Skipping CTS repair, which can take a long time, can be useful in
+-- 
+2.53.0
+

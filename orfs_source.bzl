@@ -117,12 +117,6 @@ ORFS_PATCHES = [
     # Not upstreamed -- retire with the regfile drafts at a bump onto an
     # ORFS that connects them.
     Label("//patches:0124-orfs-pdn-dont-touch-supplies.patch"),
-    # 0131: OpenROAD's own synthesis (SYNTH_USE_SYN) reads the platform's
-    # clock gate (CLKGATE_MAP_FILE) as the Yosys flow does, and
-    # asap7/swerv_wrapper no longer names $(CLKGATE_MAP_FILE), a platform
-    # variable config_mk_parser cannot resolve, in VERILOG_FILES.
-    # Not upstreamed; retires at a bump onto an ORFS that carries it.
-    Label("//patches:0131-orfs-syn-clkgate-map.patch"),
     # 0139: gui_<stage> opens the web viewer, qt_<stage> the Qt GUI
     # (web_<stage> goes), so a GUI needs no Qt build; bazel-orfs runs
     # gui_ through the odb-debug daemon and refuses qt_ (make.tpl). Not upstreamed; retires at a
@@ -155,11 +149,6 @@ ORFS_PATCHES = [
     # visited its endpoints. On 0179. Not upstreamed; retires at a bump onto
     # an ORFS that carries it.
     Label("//patches:0180-orfs-repair-timing-max-iterations.patch"),
-    # 0214: ORFS #4824, AUTO_MEMORIES_DIR, where AUTO_MEMORIES' views are written and
-    # read, so a stage of another variant than its synthesis reads them in
-    # place. Not upstreamed; retires at a bump onto an ORFS that
-    # carries it.
-    Label("//patches:0214-orfs-auto-memories-dir.patch"),
     # 0215: a register file's own flow puts soft placement blockages over
     # generate_ram's FIRM array, in strips between its free columns (its
     # service columns among them), so global placement places what is
@@ -178,8 +167,7 @@ ORFS_PATCHES = [
     # 0218: AUTO_MEMORIES_JSON, where AUTO_MEMORIES' inventory is
     # written, so the whole design's detection under verilog_slices
     # writes memories.json beside its own views instead of where the
-    # slices' union is declared. On 0214. Not upstreamed; an upstream
-    # candidate beside ORFS #4824, retires at a bump onto an ORFS that
+    # slices' union is declared. Not upstreamed; retires at a bump onto an ORFS that
     # carries it.
     Label("//patches:0218-orfs-auto-memories-json.patch"),
     # 0231: generate_abstract stops on a model whose max_clock_tree_path
@@ -206,11 +194,6 @@ ORFS_PATCHES = [
     # cts_latency_offset_test. Not upstreamed; retires at a bump onto an
     # ORFS that carries it.
     Label("//patches:0241-orfs-cts-latency-offsets.patch"),
-    # 0244: regfile_ram.py refuses a spec whose named bit_folds the fold
-    # rule would fold further, rather than build the long, thin array it
-    # names; on 0234. test/regfile/options's bit_folds flow still builds.
-    # Not upstreamed; retires at a bump onto an ORFS that carries it.
-    Label("//patches:0244-orfs-regfile-named-folds-refused.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
