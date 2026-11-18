@@ -80,7 +80,7 @@ def mock_fetch_sha256_hex(_url):
 
 
 def mock_fetch_submodule_sha(_parent_repo, _parent_commit, path):
-    return OPENROAD_SUBMODULE_SHAS[path]
+    return OPENROAD_SUBMODULE_SHAS.get(path)
 
 
 # --- Fake ORFS tree for the ORFS_PATCHES pairing check -------------------
@@ -1216,7 +1216,7 @@ class TestUpdateOpenroadArchiveOverrideAroundComments(unittest.TestCase):
             return "f" * 64
 
         def fake_sub(_repo, _commit, path):
-            return OPENROAD_SUBMODULE_SHAS[path]
+            return OPENROAD_SUBMODULE_SHAS.get(path)
 
         new_content = bump.update_openroad_archive_override(
             content,
@@ -2292,6 +2292,34 @@ class TestReadModuleHelpers(unittest.TestCase):
         self.assertIsNone(bump._yosys_major_minor("not-a-version"))
 
 
+class TestOpenstaPath(unittest.TestCase):
+    """OpenSTA is vendored where the pinned OpenROAD carries it.
+
+    OpenROAD moved src/ to openroad/, OpenSTA with it: a commit carries
+    exactly one of openroad/sta and src/sta.
+    """
+
+    def resolve(self, shas):
+        return bump._resolve_openroad_archives(
+            OPENROAD_COMMIT,
+            lambda _url: MOCK_INTEGRITY,
+            lambda _url: MOCK_SUB_SHA256_HEX,
+            lambda _repo, _commit, path: shas.get(path),
+        )
+
+    def test_openroad_sta(self):
+        _, subs = self.resolve({"openroad/sta": "sta_sha"})
+        self.assertEqual([(s[0], s[2]) for s in subs], [("openroad/sta", "sta_sha")])
+
+    def test_src_sta(self):
+        _, subs = self.resolve({"src/sta": "sta_sha"})
+        self.assertEqual([(s[0], s[2]) for s in subs], [("src/sta", "sta_sha")])
+
+    def test_no_opensta_stops(self):
+        with self.assertRaisesRegex(RuntimeError, "OpenSTA"):
+            self.resolve({})
+
+
 class TestOpenroadSubmoduleVendoring(unittest.TestCase):
     """archive_override(openroad) + curl-and-extract submodule patch_cmds.
 
@@ -2397,7 +2425,7 @@ class TestUpdateOpenroadArchiveOverride(unittest.TestCase):
             "src/sta": "stasha",
             "third-party/abc": "abcsha",
             "third-party/slang-elab": "slangsha",
-        }[path]
+        }.get(path)
 
     def test_legacy_git_override_is_not_rewritten(self):
         """git_override(openroad) is outside the window: left for _expect."""

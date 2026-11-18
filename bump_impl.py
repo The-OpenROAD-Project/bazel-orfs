@@ -1348,7 +1348,13 @@ def _resolve_openroad_archives(
             pool.submit(resolve_submodule, path, github_repo)
             for path, github_repo in OPENROAD_SUBMODULES
         ]
-        return parent.result(), [f.result() for f in subs if f.result()]
+        resolved = [f.result() for f in subs if f.result()]
+        if not any(sub[0] in OPENROAD_STA_PATHS for sub in resolved):
+            raise RuntimeError(
+                f"{OPENROAD_REPO} carries OpenSTA at none of "
+                f"{', '.join(OPENROAD_STA_PATHS)} at {openroad_commit}"
+            )
+        return parent.result(), resolved
 
 
 def update_openroad_archive_override(
@@ -1984,6 +1990,7 @@ ORFS_TOOLS = {
 OPENROAD_REPO = "The-OpenROAD-Project/OpenROAD"
 OPENROAD_SUBMODULES = [
     # (in-repo path,            github repo)
+    ("openroad/sta", "The-OpenROAD-Project/OpenSTA"),
     ("src/sta", "The-OpenROAD-Project/OpenSTA"),
     ("third-party/abc", "The-OpenROAD-Project/abc"),
     ("third-party/slang-elab", "povik/yosys-slang"),
@@ -1998,7 +2005,17 @@ OPENROAD_SUBMODULES = [
 # OpenROAD dropped the third-party/abc submodule with its CMake build; its
 # Bazel build uses the BCR abc module.  abc is vendored only while the
 # commit carries it, and retires the same way.
-OPENROAD_TRANSITIONAL_SUBMODULES = {"third-party/slang-elab", "third-party/abc"}
+#
+# OpenROAD moved src/ to openroad/ (OpenROAD #12328), OpenSTA with it: a
+# commit carries exactly one of openroad/sta and src/sta, and
+# _resolve_openroad_archives stops when it carries neither.
+OPENROAD_TRANSITIONAL_SUBMODULES = {
+    "third-party/slang-elab",
+    "third-party/abc",
+    "openroad/sta",
+    "src/sta",
+}
+OPENROAD_STA_PATHS = ("openroad/sta", "src/sta")
 
 # yosys is consumed from the Bazel Central Registry.  ORFS's tools/yosys pins
 # a specific master commit (often between tagged releases), so we read the
