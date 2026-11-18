@@ -118,6 +118,34 @@ def _auto_memories_outputs_test_impl(ctx):
                  "is empty.") % (output, label, name),
             )
 
+    partitions = [
+        a
+        for a in analysistest.target_actions(env)
+        if any([
+            f.basename.startswith("partition_") and f.basename.endswith("_stat.txt")
+            for f in a.outputs.to_list()
+        ])
+    ]
+    if ctx.attr.unstaged:
+        asserts.true(env, partitions != [], "%s has no partition action" % label)
+    for action in partitions:
+        inputs = [f.basename for f in action.inputs.to_list()]
+        for name in ctx.attr.unstaged:
+            asserts.false(
+                env,
+                name in inputs,
+                ("a partition of %s takes %s as an input. It changes with " +
+                 "any edit to the design, so every partition would re-run " +
+                 "for an edit that leaves its own slice as it was.") % (label, name),
+            )
+            asserts.true(
+                env,
+                any([a.startswith("--old-file=") and a.endswith("/" + name) for a in action.argv]),
+                ("a partition of %s does not pass --old-file for %s, " +
+                 "which is not staged: make would remake it there, where " +
+                 "VERILOG_FILES is empty.") % (label, name),
+            )
+
     for name in ctx.attr.forbidden:
         asserts.true(
             env,
@@ -145,6 +173,11 @@ auto_memories_outputs_test = analysistest.make(
                   "the action producing it must name in a --old-file " +
                   "switch, so make takes them as up to date whatever " +
                   "their timestamps say.",
+        ),
+        "unstaged": attr.string_list(
+            doc = "Basenames no partition action may take as an input, " +
+                  "each named in a --old-file switch there instead, so " +
+                  "make neither misses nor remakes it.",
         ),
         "forbidden": attr.string_list(
             doc = "Output basenames that must NOT be declared.",
