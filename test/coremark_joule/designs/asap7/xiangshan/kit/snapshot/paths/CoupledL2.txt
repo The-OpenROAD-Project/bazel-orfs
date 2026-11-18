@@ -1,0 +1,104 @@
+registers 86007, clocked 86007, reg2reg endpoints 89304
+path  period  launch capture   skew   cell   wire  bufs/cells  regs_um  wire_um  start -> end
+   1     864     625     623     -3    747     94    24/42         194     1450  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_7_vaddr[12]$_DFFE_PP0P_/D
+   2     863     625     624     -1    747     94    24/42         196     1451  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_7_vaddr[2]$_DFFE_PP0P_/D
+   3     863     625     625     -0    747     94    24/42         206     1461  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_7_vaddr[23]$_DFFE_PP0P_/D
+   4     863     625     626      0    747     95    24/42         202     1456  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_7_vaddr[24]$_DFFE_PP0P_/D
+   5     863     625     625     -1    747     94    24/42         193     1449  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_7_cdpPfDepth[0]$_DFFE_PP0P_/D
+   6     862     625     625      0    747     94    24/42         206     1460  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_7_source[4]$_DFFE_PP0P_/D
+   7     862     625     624     -2    747     93    24/42         189     1446  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_7_source[5]$_DFFE_PP0P_/D
+   8     862     625     626      1    747     95    24/42         198     1452  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_7_vaddr[33]$_DFFE_PP0P_/D
+   9     861     625     626      1    747     93    25/43         163     1459  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_7_tag[18]$_DFFE_PP0P_/D
+  10     860     625     626      1    746     93    25/43         163     1458  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_7_set[3]$_DFFE_PP0P_/D
+  11     860     625     624     -1    742     95    24/42         205     1435  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_11_cdpPfDepth[1]$_DFFE_PP0P_/D
+  12     860     625     625     -1    742     95    24/42         204     1434  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_11_source[6]$_DFFE_PP0P_/D
+  13     859     625     625     -0    742     95    24/42         202     1438  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_11_vaddr[41]$_DFFE_PP0P_/D
+  14     859     625     628      3    746     93    25/43         166     1461  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_7_tag[26]$_DFFE_PP0P_/D
+  15     858     625     626      1    737    101    24/42         237     1466  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_7_vaddr[14]$_DFFE_PP0P_/D
+  16     858     625     626      1    736    101    24/42         235     1465  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_7_vaddr[27]$_DFFE_PP0P_/D
+  17     858     625     626      1    743     94    24/42         197     1436  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_11_vaddr[42]$_DFFE_PP0P_/D
+  18     858     625     626      0    742     95    25/43         229     1463  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_23_vaddr[14]$_DFFE_PP0P_/D
+  19     858     625     627      2    737    100    24/42         219     1463  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_7_vaddr[6]$_DFFE_PP0P_/D
+  20     858     625     625     -1    736    100    24/42         245     1475  prefetcher.cdp/sendUnit/io_out_bits_tag[20]$_DFFE_PP_/QN -> prefetcher.pftQueue_0/queue_7_vaddr[18]$_DFFE_PP0P_/D
+path 1 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+path 2 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+path 3 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+path 4 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+path 5 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+path 6 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+path 7 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+path 8 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+path 9 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+path 10 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+path 11 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+path 12 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+path 13 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+path 14 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+path 15 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+path 16 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+path 17 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+path 18 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+path 19 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+path 20 scopes, arrival on entering:
+       658 prefetcher.cdp/sendUnit
+      1227 .
+      1257 prefetcher.pftQueue_0
+endpoints over 2000 ps: 0
+endpoints over 2000 ps by launch -> capture scope, 4 levels (endpoints, excess ns):

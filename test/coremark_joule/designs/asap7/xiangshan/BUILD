@@ -1,7 +1,7 @@
 load("@bazel-orfs//:openroad.bzl", "odb_debug", "orfs_flat_sta", "orfs_module_context", "orfs_module_sta_base", "orfs_schedule")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
-load("//test/coremark_joule/designs/asap7/xiangshan/kit:kit.bzl", "xs_kit")
+load("//test/coremark_joule/designs/asap7/xiangshan/kit:kit.bzl", "xs_kit", "xs_kit_snapshot")
 load("//test/coremark_joule/flow:power.bzl", "census_probe", "grt_netlist", "hier_probe", "physical_probe", "stage_power", "stage_power_units")
 load(":plan/plan.bzl", "PLAN")
 load(":xiangshan.bzl", "xiangshan_flat_flow", "xiangshan_flow", "xs_regfile_modules")
@@ -227,6 +227,16 @@ xs_kit(
     regfiles = xs_regfile_modules(),
     rtl_ports = ":xstile_rtl_ports",
     sdc = "constraints.sdc",
+)
+
+# The OpenROAD reference the kit's README shows, from the KPI's global
+# route: images, densities, macros, ports, statistics and histograms into
+# kit/snapshot/ (kit.bzl, xs_kit_snapshot). Not part of the kit's build:
+#   bazelisk run //test/coremark_joule/designs/asap7/xiangshan:kit_snapshot
+xs_kit_snapshot(
+    name = "kit_snapshot",
+    blocks = sorted(PLAN["macros"].keys()),
+    top = "XSTile",
 )
 
 # A period counts only when global placement ran timing- and

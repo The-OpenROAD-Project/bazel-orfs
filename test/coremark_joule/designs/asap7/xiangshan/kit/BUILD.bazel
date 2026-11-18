@@ -17,9 +17,30 @@ exports_files([
     "pinned/pin.json",
     "pinned/rtl_ports.json",
     "repin.py",
+    "snapshot.py",
+    "snapshot.tcl",
     "sta.tcl",
     "xstile_context.svg",
 ])
+
+# The OpenROAD reference, written by `bazelisk run :kit_snapshot` in the
+# parent package (snapshot.py): the floorplan with and without macros goes
+# into the kit as floorplan/, the rest as reference/, the images and the
+# tables into README.pdf.
+filegroup(
+    name = "snapshot_files",
+    srcs = glob(["snapshot/**"]),
+)
+
+filegroup(
+    name = "snapshot_images",
+    srcs = glob([
+        "snapshot/images/*.png",
+        "snapshot/images/*.jpg",
+    ]),
+)
+
+exports_files(["snapshot/snapshot.json"])
 
 py_library(
     name = "kit_lib",
@@ -75,6 +96,7 @@ py_test(
     data = [
         "EXPORT.md",
         "blocks.json",
+        "snapshot/snapshot.json",
         "sta.tcl",
         "//:MODULE.bazel",
         "//test/coremark_joule/designs/asap7/xiangshan:kit_doc_inputs",
@@ -107,6 +129,18 @@ py_binary(
     name = "ports",
     srcs = ["ports.py"],
     main = "ports.py",
+)
+
+py_test(
+    name = "snapshot_test",
+    size = "small",
+    srcs = [
+        "snapshot.py",
+        "snapshot_test.py",
+    ],
+    data = glob(["snapshot/**"]) + ["pinned/facts.json"],
+    imports = ["."],
+    main = "snapshot_test.py",
 )
 
 py_test(

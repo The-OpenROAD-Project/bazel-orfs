@@ -1,0 +1,115 @@
+registers 50649, clocked 50649, reg2reg endpoints 51062
+path  period  launch capture   skew   cell   wire  bufs/cells  regs_um  wire_um  start -> end
+   1    1023     202     573    371   1255    117     7/9          175      937  vfRegFile/io_readPorts_6_data[102] -> issuePipes_2/ex0Next_bits_data_src_0[102]$_DFFE_PP_/D
+   2    1011     202     573    371   1241    119     5/7          174      896  vfRegFile/io_readPorts_6_data[126] -> issuePipes_2/ex0Next_bits_data_src_0[126]$_DFFE_PP_/D
+   3     916     202     608    406   1225     72     1/3          329      394  vfRegFile/io_readPorts_7_data[126] -> issuePipes_2/ex0Next_bits_data_src_1[126]$_DFFE_PP_/D
+   4     916     571     577      6    865     43    14/52         185      724  issuePipes_1/exu.Vfdiv/vfdivs_0.u_vector_float_divider_r64.fp_format_onehot_q[1]$_DFFE_PP_/QN -> issuePipes_1/exu.Vfmac/a0_0_fpB[1]$_DFFE_PP_/D
+   5     916     571     577      6    866     42    14/53         187      744  issuePipes_1/exu.Vfdiv/vfdivs_0.u_vector_float_divider_r64.fp_format_onehot_q[1]$_DFFE_PP_/QN -> issuePipes_1/exu.Vfmac/a0_0_fpB[50]$_DFFE_PP_/D
+   6     916     570     573      3    867     36    12/54         282      566  issuePipes_1/exu.Vfdiv/vfdivs_1.u_vector_float_sqrt_r16.f_r_s_q[1]$_SDFFCE_PP0P_/QN -> issuePipes_1/exu.Vfmac/a0_1_fpB[32]$_DFFE_PP_/D
+   7     915     571     571      1    865     38    14/49         401      609  issuePipes_1/exu.Vfdiv/vfdivs_0.u_vector_float_divider_r64.fp_format_onehot_q[1]$_DFFE_PP_/QN -> issuePipes/exu.Vfmac/r0_fpA_0[17]$_DFFE_PP_/D
+   8     915     202     572    371   1225     39     4/6          166      204  vfRegFile/io_readPorts_6_data[31] -> issuePipes_2/ex0Next_bits_data_src_0[31]$_DFFE_PP_/D
+   9     915     202     572    370   1225     38     4/6          166      194  vfRegFile/io_readPorts_6_data[15] -> issuePipes_2/ex0Next_bits_data_src_0[15]$_DFFE_PP_/D
+  10     915     202     574    372   1242     25     4/6          166      280  vfRegFile/io_readPorts_6_data[47] -> issuePipes_2/ex0Next_bits_data_src_0[47]$_DFFE_PP_/D
+  11     914     571     572      2    851     52    17/52         496      771  issuePipes_1/exu.Vfdiv/vfdivs_0.u_vector_float_divider_r64.fp_format_onehot_q[1]$_DFFE_PP_/QN -> issuePipes_2/exu.ex_0_bits_data_src_1[18]$_DFFE_PP_/D
+  12     914     576     572     -3    850     45    18/50         208      701  issuePipes_1/exu.Vfdiv/vfdivs_1.u_vector_float_divider_r64.fp_format_onehot_q[1]$_DFFE_PP_/QN -> issuePipes_1/exu.Vfmac/a0_1_fpB[29]$_DFFE_PP_/D
+  13     914     571     574      3    859     45    18/53         258      805  issuePipes_1/exu.Vfdiv/vfdivs_0.u_vector_float_divider_r64.fp_format_onehot_q[1]$_DFFE_PP_/QN -> issuePipes_1/exu.Vfmac/a0_0_fpA[7]$_DFFE_PP_/D
+  14     914     574     575      1    847     54    10/52         407      693  issuePipes_1/exu.Vfdiv/vfdivs_0.u_vector_float_sqrt_r16.f_r_c_q[0]$_SDFFCE_PP0P_/QN -> issuePipes_2/exu.ex_0_bits_data_src_1[58]$_DFFE_PP_/D
+  15     913     202     572    371   1235     28     4/6          174      259  vfRegFile/io_readPorts_6_data[127] -> issuePipes_2/ex0Next_bits_data_src_0[127]$_DFFE_PP_/D
+  16     913     576     575     -0    856     41    20/52         316      615  issuePipes_1/exu.Vfdiv/vfdivs_1.u_vector_float_divider_r64.fp_format_onehot_q[1]$_DFFE_PP_/QN -> issuePipes/exu.Vfmac/a0_1_fpB[6]$_DFFE_PP_/D
+  17     913     570     575      5    870     33    11/52         365      561  issuePipes_1/exu.Vfdiv/vfdivs_1.u_vector_float_sqrt_r16.f_r_s_q[1]$_SDFFCE_PP0P_/QN -> issuePipes/exu.Vfmac/a0_1_fpB[23]$_DFFE_PP_/D
+  18     913     571     577      7    871     35    13/49         253      543  issuePipes_1/exu.Vfdiv/vfdivs_0.u_vector_float_divider_r64.fp_format_onehot_q[1]$_DFFE_PP_/QN -> issuePipes/exu.Vfmac/a0_0_fpB[17]$_DFFE_PP_/D
+  19     913     202     573    371   1239     26     4/6          177      262  vfRegFile/io_readPorts_6_data[86] -> issuePipes_2/ex0Next_bits_data_src_0[86]$_DFFE_PP_/D
+  20     913     202     573    371   1234     28     4/6          169      311  vfRegFile/io_readPorts_6_data[55] -> issuePipes_2/ex0Next_bits_data_src_0[55]$_DFFE_PP_/D
+path 1 scopes, arrival on entering:
+      1338 .
+      1363 issuePipes_2
+path 2 scopes, arrival on entering:
+      1344 .
+      1369 issuePipes_2
+path 3 scopes, arrival on entering:
+      1325 .
+      1394 issuePipes_2
+path 4 scopes, arrival on entering:
+       605 issuePipes_1/exu.Vfdiv
+      1062 issuePipes_1
+      1169 .
+      1208 issuePipes_1
+      1397 issuePipes_1/exu.Vfmac
+path 5 scopes, arrival on entering:
+       605 issuePipes_1/exu.Vfdiv
+      1052 issuePipes_1
+      1189 .
+      1227 issuePipes_1
+      1400 issuePipes_1/exu.Vfmac
+path 6 scopes, arrival on entering:
+       599 issuePipes_1/exu.Vfdiv
+      1065 issuePipes_1
+      1220 .
+      1260 issuePipes_1
+      1414 issuePipes_1/exu.Vfmac
+path 7 scopes, arrival on entering:
+       605 issuePipes_1/exu.Vfdiv
+      1084 issuePipes_1
+      1197 .
+      1269 issuePipes
+      1414 issuePipes/exu.Vfmac
+path 8 scopes, arrival on entering:
+      1339 .
+      1377 issuePipes_2
+path 9 scopes, arrival on entering:
+      1340 .
+      1375 issuePipes_2
+path 10 scopes, arrival on entering:
+      1356 .
+      1370 issuePipes_2
+path 11 scopes, arrival on entering:
+       603 issuePipes_1/exu.Vfdiv
+      1067 issuePipes_1
+      1184 .
+      1262 issuePipes_2
+path 12 scopes, arrival on entering:
+       609 issuePipes_1/exu.Vfdiv
+      1076 issuePipes_1
+      1187 .
+      1238 issuePipes_1
+      1411 issuePipes_1/exu.Vfmac
+path 13 scopes, arrival on entering:
+       605 issuePipes_1/exu.Vfdiv
+      1067 issuePipes_1
+      1173 .
+      1212 issuePipes_1
+      1386 issuePipes_1/exu.Vfmac
+path 14 scopes, arrival on entering:
+       602 issuePipes_1/exu.Vfdiv
+      1042 issuePipes_1
+      1198 .
+      1271 issuePipes_2
+path 15 scopes, arrival on entering:
+      1335 .
+      1348 issuePipes_2
+path 16 scopes, arrival on entering:
+       609 issuePipes_1/exu.Vfdiv
+      1092 issuePipes_1
+      1201 .
+      1264 issuePipes
+      1399 issuePipes/exu.Vfmac
+path 17 scopes, arrival on entering:
+       599 issuePipes_1/exu.Vfdiv
+      1062 issuePipes_1
+      1197 .
+      1257 issuePipes
+      1398 issuePipes/exu.Vfmac
+path 18 scopes, arrival on entering:
+       605 issuePipes_1/exu.Vfdiv
+      1084 issuePipes_1
+      1197 .
+      1269 issuePipes
+      1416 issuePipes/exu.Vfmac
+path 19 scopes, arrival on entering:
+      1330 .
+      1347 issuePipes_2
+path 20 scopes, arrival on entering:
+      1337 .
+      1350 issuePipes_2
+endpoints over 2000 ps: 0
+endpoints over 2000 ps by launch -> capture scope, 4 levels (endpoints, excess ns):

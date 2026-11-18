@@ -98,8 +98,14 @@ class Doc(FPDF):
 PAD_MM = 1.4
 
 
-def svg_aspect(path):
-    """An SVG's height over its width, from its width and height attributes."""
+def image_aspect(path):
+    """An image's height over its width: an SVG's from its width and height
+    attributes, a PNG's or JPEG's from its pixels."""
+    if not path.endswith(".svg"):
+        from PIL import Image
+
+        with Image.open(path) as im:
+            return im.height / im.width
     with open(path) as f:
         head = f.read(2000)
     w = re.search(r'<svg[^>]*\swidth="([\d.]+)', head)
@@ -230,11 +236,16 @@ def main(argv=None):
             continue
         if part.startswith("\x00IMG "):
             path = part[len("\x00IMG ") : -1]
-            height = pdf.epw * svg_aspect(path)
+            # as wide as the text, or as tall as a page allows when taller
+            width = pdf.epw
+            height = width * image_aspect(path)
+            if height > pdf.eph - 20:
+                height = pdf.eph - 20
+                width = height / image_aspect(path)
             if height + 7 > room():
                 pdf.add_page()
             pdf.ln(3)
-            pdf.image(path, w=pdf.epw)
+            pdf.image(path, x=pdf.l_margin + (pdf.epw - width) / 2, w=width, h=height)
             pdf.ln(4)
             continue
         table = part.startswith("<table")
