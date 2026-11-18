@@ -22,7 +22,7 @@
           "peak_gb": 7.3
         },
         "synth": {
-          "minutes": 0.1,
+          "minutes": 0.2,
           "peak_gb": 1.2
         }
       }
@@ -72,7 +72,7 @@
           "peak_gb": 14.4
         },
         "synth": {
-          "minutes": 1.1,
+          "minutes": 1.6,
           "peak_gb": 3.0
         }
       }
@@ -97,8 +97,8 @@
           "peak_gb": 27.0
         },
         "synth": {
-          "minutes": 0.5,
-          "peak_gb": 2.6
+          "minutes": 0.7,
+          "peak_gb": 5.9
         }
       }
     },
@@ -122,7 +122,7 @@
           "peak_gb": 11.0
         },
         "synth": {
-          "minutes": 0.3,
+          "minutes": 0.4,
           "peak_gb": 2.1
         }
       }
@@ -139,8 +139,8 @@
           "peak_gb": 10.5
         },
         "grt": {
-          "minutes": 46.0,
-          "peak_gb": 54.0
+          "minutes": 62.1,
+          "peak_gb": 53.1
         },
         "place": {
           "minutes": 162.6,
