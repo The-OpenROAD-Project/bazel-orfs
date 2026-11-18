@@ -8,7 +8,7 @@ load("//tools/carve:memories.bzl", "carve_memories")
 _KIT = "//test/coremark_joule/designs/asap7/xiangshan/kit"
 _PDK = "//flow:asap7"
 
-def xs_kit(name, flow, regfiles, sdc, doc_inputs, regfile_specs, rtl_ports, tags = ["manual"]):
+def xs_kit(name, flow, regfiles, sdc, doc_inputs, regfile_specs, rtl_ports, manifest_src = None, tags = ["manual"]):
     """The kit of `flow`'s synthesis: <name> is the .tar.gz, <name>_readme
     its README.pdf, and `export` writes and unpacks it
     (bazelisk run :export -- <dir>).
@@ -23,6 +23,13 @@ def xs_kit(name, flow, regfiles, sdc, doc_inputs, regfile_specs, rtl_ports, tags
         and the arrays' ab.json, by render_md.py's flag names.
       regfile_specs: the register files' specs.
       rtl_ports: the tile's ports as the RTL declares them (ports.py).
+      manifest_src: the stage whose environment names the platform files,
+        <flow>_synth by default. The kit takes only the netlist from
+        <flow>_synth; its 1_synth.odb is not needed, and on the whole
+        tile it takes hours (eliminate_dead_logic), so a cached stage of
+        another flow on the same platform and VT mix may name the files
+        instead. kit_facts links the netlist against exactly these files,
+        so one missing stops the build.
 
     What README.pdf says about the netlist and the ports is read from
     kit/pinned/, committed with the SHA-256 of the netlist it describes,
@@ -37,7 +44,7 @@ def xs_kit(name, flow, regfiles, sdc, doc_inputs, regfile_specs, rtl_ports, tags
     # the platform files the flow read, as the flow resolved them
     orfs_run(
         name = name + "_manifest",
-        src = synth,
+        src = manifest_src or synth,
         outs = [name + "_manifest.txt"],
         script = _KIT + ":kit_manifest.tcl",
         user_arguments = {"OUTPUT": "$(location %s_manifest.txt)" % name},
