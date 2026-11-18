@@ -84,16 +84,16 @@ def regfiles(args):
     _, gen_memories, _, schema = orfs_memories(args.scripts_dir)
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    records = gen_memories.run_regfiles(
-        [Path(s) for s in args.regfile_spec],
+    specs = [Path(s) for s in args.regfile_spec]
+    cores = gen_memories.run_regfiles(
+        specs,
         args.openroad,
         [Path(lef) for lef in args.lef],
         out,
         args.macro_place,
     )
-    blackboxes = out / "blackboxes.txt"
-    if not blackboxes.exists():
-        blackboxes.write_text("")
+    gen_memories.write_blackboxes(out, cores)
+    records = gen_memories.regfile_memories(specs, args.macro_place)
     schema.dump(records, out / REGFILE_RECORDS, args.platform)
 
 
@@ -126,9 +126,13 @@ def slice_(args):
         if mem.name in override_names:
             mem.source = "override"
 
+    # A listed register file's record replaces the module's before
+    # FakeRAM runs, as in gen_memories.py, so FakeRAM builds no view of it.
+    if regfile_records:
+        memories = [m for m in memories if m.name not in listed] + regfile_records
     inventory = out / INVENTORY
     schema.dump(memories, inventory, args.platform)
-    converted = [m for m in memories if m.idiomatic]
+    converted = sorted((m for m in memories if m.idiomatic), key=lambda m: m.name)
     for mem in converted:
         schema.validate_emittable(mem)
     if converted:
@@ -142,8 +146,7 @@ def slice_(args):
                 str(inventory),
             ]
         )
-    else:
-        (out / "blackboxes.txt").write_text("")
+    gen_memories.write_blackboxes(out, [m.name for m in converted])
 
     # The generator's own scripts (*.tcl) name the directory they ran in
     # and are no view of a memory; the rest is what the whole design has.
@@ -152,9 +155,6 @@ def slice_(args):
             shutil.copyfile(f, out / f.name)
     with (out / "blackboxes.txt").open("a") as f:
         f.write((regfile_dir / "blackboxes.txt").read_text())
-    if regfile_records:
-        memories = [m for m in memories if m.name not in listed] + regfile_records
-        schema.dump(memories, inventory, args.platform)
     for lib in sorted(out.glob("*.lib")):
         lib.write_text(undated(lib.read_text()))
 

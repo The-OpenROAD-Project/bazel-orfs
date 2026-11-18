@@ -301,10 +301,16 @@ class SliceTest(unittest.TestCase):
             detect = mock.Mock()
             detect.scan_yosys_json.return_value = []
             detect.initialized_modules.return_value = set()
-            gen = types.SimpleNamespace(FAKERAM_RUN_PY="run.py")
+            # FakeRAM writes only the views; gen_memories.write_blackboxes
+            # lists them, with the area each .lib states.
+            gen = types.SimpleNamespace(
+                FAKERAM_RUN_PY="run.py",
+                write_blackboxes=lambda out_dir, macros: (
+                    out_dir / "blackboxes.txt"
+                ).write_text("".join(f"{m} 1.5\n" for m in macros)),
+            )
 
             def fakeram(argv):
-                (out / "blackboxes.txt").write_text("ram_8x4 1.5\n")
                 (out / "ram_8x4.lib").write_text(LIB)
 
             with mock.patch.object(
