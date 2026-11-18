@@ -137,7 +137,7 @@ archive_override(
     module_name = "openroad",
     integrity = "sha256-Xm47mn6719YRj6unZI7nCsRWjprnLMLoBoApxcGLkcQ=",
     # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
-    # so vendor src/sta (OpenSTA) and the other submodules from their own
+    # so vendor openroad/sta (OpenSTA) and the other submodules from their own
     # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
     # to.  sha256sum -c verifies each tarball since patch_cmds bytes
     # aren't covered by archive_override's integrity.  Regenerated

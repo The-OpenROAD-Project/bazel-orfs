@@ -2411,6 +2411,117 @@ class TestOpenroadPreservesAbsentPatches(unittest.TestCase):
         self.assertNotIn("patch_strip", self.block)
 
 
+class TestOpenroadOverrideKeepsConsumerComments(unittest.TestCase):
+    """A bump leaves the comments in a consumer's openroad override in place.
+
+    The header above patch_cmds is the bump's own and names the OpenSTA
+    path the commit vendors; every other comment stays with the entry it
+    sits above, or at the end of the list it closes.
+    """
+
+    STA_PATCH = (
+        "--- a/openroad/sta/x.cc\n+++ b/openroad/sta/x.cc\n@@ -1 +1 @@\n-a\n+b\n"
+    )
+    TOP_PATCH = (
+        "--- a/openroad/rsz/y.cc\n+++ b/openroad/rsz/y.cc\n@@ -1 +1 @@\n-c\n+d\n"
+    )
+    OWNED = {"openroad": ["0001-openroad-fix.patch", "0002-opensta-fix.patch"]}
+
+    def _consumer(self):
+        sta = bump._openroad_submodule_patch_cmd(
+            "openroad/sta", "The-OpenROAD-Project/OpenSTA", "stasha", "f" * 64
+        )
+        b64 = base64.b64encode(self.STA_PATCH.encode()).decode()
+        return f"""bazel_dep(name = "openroad")
+archive_override(
+    module_name = "openroad",
+    integrity = "sha256-OLD=",
+    # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
+    # so vendor openroad/sta (OpenSTA) and the other submodules from their own
+    # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
+    # to.  sha256sum -c verifies each tarball since patch_cmds bytes
+    # aren't covered by archive_override's integrity.  Regenerated
+    # by bump.py on every commit bump; do not edit by hand.
+    patch_cmds = [
+        {sta!r},
+        # Speeds up the timing model search.
+        # Extracted from //bazel-orfs-patches:0002-opensta-fix.patch
+        "echo {b64} | base64 -d | patch -p1",
+        # Extracted from //patches:site-sta.patch
+        "echo {b64} | base64 -d | patch -p1",
+    ],
+    patch_strip = 1,
+    patches = [
+        # bazel-orfs' own carries.
+        "//bazel-orfs-patches:0001-openroad-fix.patch",
+        # The site's own carry.
+        "//patches:site.patch",
+        # The end of the list.
+    ],
+    strip_prefix = "OpenROAD-oldsha",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/oldsha.tar.gz"],
+)
+"""
+
+    def _bump(self, content):
+        content, _ = bump.reconcile_patch_labels(content, self.OWNED)
+        ws = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, ws)
+        os.makedirs(os.path.join(ws, "patches"))
+        with open(os.path.join(ws, "patches", "site.patch"), "w") as fh:
+            fh.write(self.TOP_PATCH)
+        with open(os.path.join(ws, "patches", "site-sta.patch"), "w") as fh:
+            fh.write(self.STA_PATCH)
+        return bump.update_openroad_archive_override(
+            content,
+            "newsha",
+            fetch_integrity_fn=lambda _url: "sha256-PARENT=",
+            fetch_sha256_hex_fn=lambda _url: "f" * 64,
+            fetch_submodule_sha_fn=lambda _repo, _commit, path: (
+                "stasha" if path == "openroad/sta" else None
+            ),
+            workspace_dir=ws,
+            staged_patches={
+                "bazel-orfs-patches/0001-openroad-fix.patch": self.TOP_PATCH,
+                "bazel-orfs-patches/0002-opensta-fix.patch": self.STA_PATCH,
+            },
+        )
+
+    def _list(self, block, name):
+        start = block.index(f"    {name} = [\n")
+        return block[start : block.index("\n    ]", start)]
+
+    def test_header_names_the_vendored_opensta_path(self):
+        out = self._bump(self._consumer())
+        self.assertEqual(out.count("# so vendor openroad/sta (OpenSTA)"), 1)
+        self.assertNotIn("src/sta", out)
+
+    def test_header_is_not_copied(self):
+        out = self._bump(self._consumer())
+        self.assertEqual(out.count("vendor"), 1)
+        self.assertNotIn("vendor", self._list(out, "patch_cmds"))
+
+    def test_comments_stay_with_their_entries(self):
+        out = self._bump(self._consumer())
+        self.assertIn(
+            "        # Speeds up the timing model search.\n"
+            "        # Extracted from //bazel-orfs-patches:0002-opensta-fix.patch\n",
+            self._list(out, "patch_cmds"),
+        )
+        self.assertIn(
+            "        # bazel-orfs' own carries.\n"
+            '        "//bazel-orfs-patches:0001-openroad-fix.patch",\n'
+            "        # The site's own carry.\n"
+            '        "//patches:site.patch",\n'
+            "        # The end of the list.",
+            self._list(out, "patches"),
+        )
+
+    def test_rebump_is_a_fixed_point(self):
+        once = self._bump(self._consumer())
+        self.assertEqual(self._bump(once), once)
+
+
 class TestUpdateOpenroadArchiveOverride(unittest.TestCase):
     """Direct unit test of the conversion function — no bump() orchestration."""
 

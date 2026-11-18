@@ -973,6 +973,33 @@ def _openroad_submodule_patch_cmd(
     )
 
 
+def _openroad_override_header(sta_path):
+    """The comment the bump writes above the openroad ``patch_cmds``."""
+    return [
+        "# GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,",
+        f"# so vendor {sta_path} (OpenSTA) and the other submodules from their own",
+        "# GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins",
+        "# to.  sha256sum -c verifies each tarball since patch_cmds bytes",
+        "# aren't covered by archive_override's integrity.  Regenerated",
+        "# by bump.py on every commit bump; do not edit by hand.",
+    ]
+
+
+def _openroad_override_header_lines():
+    """Every line a bump has written as that comment, at any OpenSTA path.
+
+    A consumer's block is parsed with these taken out, so the header is
+    regenerated rather than carried over as a comment of the consumer's.
+    """
+    lines = {
+        "# so vendor src/sta (OpenSTA) and third-party/abc from their own",
+        "# by bump.py on every commit bump.",
+    }
+    for sta_path in OPENROAD_STA_PATHS:
+        lines.update(_openroad_override_header(sta_path))
+    return lines
+
+
 def _format_openroad_archive_override(
     openroad_commit,
     parent_integrity,
@@ -980,7 +1007,7 @@ def _format_openroad_archive_override(
     patches,
     patch_cmds_suffix="",
     submodule_patch_cmds=None,
-    trailing_comments=None,
+    comments=None,
     mirror_url_templates=None,
     submodule_fetch_templates=None,
 ):
@@ -990,6 +1017,10 @@ def _format_openroad_archive_override(
     ``patches``: list of patch label strings (empty -> no patches/patch_strip).
     ``patch_cmds_suffix``: optional string like ``+ OPENROAD_CUSTOM_PATCH_CMDS`` to append.
     ``submodule_patch_cmds``: optional list of ``(label, cmd_string)`` for base64-encoded patches.
+    ``comments``: a consumer's comment lines by where they sat: above an
+    attribute (its name), at the end of a list (its name and ``]``) or
+    before the closing parenthesis (``)``).  Those with no place here go
+    above ``strip_prefix``.
     ``mirror_url_templates``: optional mirror URLs for the parent archive,
     listed ahead of the GitHub URL; ``{commit}`` is substituted.
     ``submodule_fetch_templates``: optional ``path -> fetch step`` overrides,
@@ -1002,25 +1033,29 @@ def _format_openroad_archive_override(
     parent_url = f"https://github.com/{OPENROAD_REPO}/archive/{openroad_commit}.tar.gz"
     parent_strip = f"OpenROAD-{openroad_commit}"
     submodule_patch_cmds = submodule_patch_cmds or []
-    trailing_comments = trailing_comments or []
+    comments = dict(comments or {})
     submodule_fetch_templates = submodule_fetch_templates or {}
     parent_urls = [
         t.replace("{commit}", openroad_commit) for t in mirror_url_templates or []
     ]
     parent_urls.append(parent_url)
 
-    lines = [
-        "archive_override(",
-        '    module_name = "openroad",',
-        f'    integrity = "{parent_integrity}",',
-        "    # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,",
-        "    # so vendor src/sta (OpenSTA) and the other submodules from their own",
-        "    # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins",
-        "    # to.  sha256sum -c verifies each tarball since patch_cmds bytes",
-        "    # aren't covered by archive_override's integrity.  Regenerated",
-        "    # by bump.py on every commit bump; do not edit by hand.",
-        "    patch_cmds = [",
-    ]
+    sta_path = next(
+        (info[0] for info in submodule_info if info[0] in OPENROAD_STA_PATHS),
+        OPENROAD_STA_PATHS[0],
+    )
+
+    def comment_lines(place, indent="    "):
+        return [f"{indent}{c}" for c in comments.pop(place, [])]
+
+    lines = ["archive_override("]
+    lines += comment_lines("module_name")
+    lines.append('    module_name = "openroad",')
+    lines += comment_lines("integrity")
+    lines.append(f'    integrity = "{parent_integrity}",')
+    lines += [f"    {c}" for c in _openroad_override_header(sta_path)]
+    lines += comment_lines("patch_cmds")
+    lines.append("    patch_cmds = [")
     for path, github_repo, sha, sha256_hex in submodule_info:
         cmd = _openroad_submodule_patch_cmd(
             path,
@@ -1045,35 +1080,46 @@ def _format_openroad_archive_override(
             r"""        "sed -i 's|defines = \\[|copts = [\"-include\", \"fmt/format.h\"],\\n    defines = [|' src/syn/src/elab/BUILD third-party/slang-elab/src/BUILD","""
         )
 
-    for comments, label, cmd in submodule_patch_cmds:
-        for c in comments:
+    for patch_comments, label, cmd in submodule_patch_cmds:
+        for c in patch_comments:
             lines.append(f"        {c}")
         lines.append(f"        # Extracted from {label}")
         lines.append(f"        {cmd},")
 
+    lines += comment_lines("patch_cmds]", "        ")
     if patch_cmds_suffix:
         lines.append(f"    ] {patch_cmds_suffix},")
     else:
         lines.append("    ],")
 
     if patches:
+        lines += comment_lines("patch_strip")
         lines.append("    patch_strip = 1,")
+        lines += comment_lines("patches")
         lines.append("    patches = [")
-        for comments, p in patches:
-            for c in comments:
+        for patch_comments, p in patches:
+            for c in patch_comments:
                 lines.append(f"        {c}")
             lines.append(f'        "{p}",')
+        lines += comment_lines("patches]", "        ")
         lines.append("    ],")
-    for c in trailing_comments:
-        lines.append(f"    {c}")
+    urls_comments = comment_lines("urls")
+    urls_tail = comment_lines("urls]", "        ")
+    close_comments = comment_lines(")")
+    lines += comment_lines("strip_prefix")
+    for place in list(comments):
+        lines += comment_lines(place)
     lines.append(f'    strip_prefix = "{parent_strip}",')
-    if len(parent_urls) == 1:
+    lines += urls_comments
+    if len(parent_urls) == 1 and not urls_tail:
         lines.append(f'    urls = ["{parent_urls[0]}"],')
     else:
         lines.append("    urls = [")
         for url in parent_urls:
             lines.append(f'        "{url}",')
+        lines += urls_tail
         lines.append("    ],")
+    lines += close_comments
     lines.append(")")
     return "\n".join(lines)
 
@@ -1407,19 +1453,11 @@ def update_openroad_archive_override(
             "and remove any manual patch_cmds."
         )
 
-    generated_comments = {
-        "# GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,",
-        "# so vendor src/sta (OpenSTA) and third-party/abc from their own",
-        "# so vendor src/sta (OpenSTA) and the other submodules from their own",
-        "# GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins",
-        "# to.  sha256sum -c verifies each tarball since patch_cmds bytes",
-        "# aren't covered by archive_override's integrity.  Regenerated",
-        "# by bump.py on every commit bump; do not edit by hand.",
-        "# by bump.py on every commit bump.",
-    }
+    generated_comments = _openroad_override_header_lines()
     patches_with_comments = []
-    trailing_comments = []
+    placed_comments = {}
     current_comments = []
+    in_list = None
 
     for line in old_block.splitlines():
         line_stripped = line.strip()
@@ -1432,19 +1470,29 @@ def update_openroad_archive_override(
             label = line_stripped[len("# Extracted from ") :]
             patches_with_comments.append((current_comments, label))
             current_comments = []
-        elif line_stripped.startswith("#") and line_stripped not in generated_comments:
-            current_comments.append(line_stripped)
-        elif '"//' in line_stripped and ".patch" in line_stripped:
-            matches = re.findall(r'"(//[^"]*\.patch)"', line_stripped)
-            if matches:
-                for idx, match in enumerate(matches):
-                    if idx == 0:
-                        patches_with_comments.append((current_comments, match))
-                        current_comments = []
-                    else:
-                        patches_with_comments.append(([], match))
-        elif line_stripped == ")" or line_stripped == "],":
-            trailing_comments.extend(current_comments)
+            continue
+        if line_stripped.startswith("#"):
+            if line_stripped not in generated_comments:
+                current_comments.append(line_stripped)
+            continue
+        if in_list is None:
+            m_attr = re.match(r"(\w+)\s*=", line_stripped)
+            if m_attr:
+                placed_comments.setdefault(m_attr.group(1), []).extend(current_comments)
+                current_comments = []
+                opened = line_stripped.count("[") > line_stripped.count("]")
+                in_list = m_attr.group(1) if opened else None
+            elif line_stripped == ")":
+                placed_comments.setdefault(")", []).extend(current_comments)
+                current_comments = []
+        elif line_stripped.startswith("]"):
+            placed_comments.setdefault(in_list + "]", []).extend(current_comments)
+            current_comments = []
+            in_list = None
+            continue
+        matches = re.findall(r'"(//[^"]*\.patch)"', line_stripped)
+        for idx, match in enumerate(matches):
+            patches_with_comments.append((current_comments if idx == 0 else [], match))
             current_comments = []
 
     top_patches = []
@@ -1532,7 +1580,7 @@ def update_openroad_archive_override(
         top_patches,
         patch_cmds_suffix,
         submodule_patch_cmds,
-        trailing_comments,
+        placed_comments,
         _parse_mirror_urls(old_block, _parse_openroad_parent_commit(old_block)),
         _parse_submodule_mirror_fetches(old_block),
     )
@@ -1690,26 +1738,33 @@ def _is_bazel_orfs_patch(label, owned):
 def _drop_inlined_bazel_orfs_patches(block, owned):
     """Take bazel-orfs's inlined patches out of a consumer's block.
 
-    Returns ``(block, filenames)``: the block without each ``# Extracted
-    from`` comment naming a bazel-orfs patch and the base64 patch_cmds entry
-    under it, and the filenames dropped, in order.  The labels go back into
-    the patches list, from which the openroad regeneration inlines them
-    again: one list then says what bazel-orfs applies, whatever the shape.
+    Returns ``(block, filenames, comments)``: the block without each
+    ``# Extracted from`` comment naming a bazel-orfs patch, the comment lines
+    right above it and the base64 patch_cmds entry under it; the filenames
+    dropped, in order; and filename -> those comment lines.  The labels go
+    back into the patches list, their comments above them, from which the
+    openroad regeneration inlines them again: one list then says what
+    bazel-orfs applies, whatever the shape.
     """
     lines = block.split("\n")
-    kept, dropped = [], []
+    kept, dropped, comments = [], [], {}
     i = 0
     while i < len(lines):
         m = _INLINED_PATCH_RE.match(lines[i])
         if m and _is_bazel_orfs_patch(m.group(1), owned):
-            dropped.append(m.group(1).split(":")[-1])
+            name = m.group(1).split(":")[-1]
+            dropped.append(name)
+            above = []
+            while kept and kept[-1].strip().startswith("#"):
+                above.insert(0, kept.pop())
+            comments[name] = above
             i += 1
             if i < len(lines) and "| base64 -d | patch " in lines[i]:
                 i += 1
             continue
         kept.append(lines[i])
         i += 1
-    return "\n".join(kept), dropped
+    return "\n".join(kept), dropped, comments
 
 
 def reconcile_patch_labels(content, owned, patch_strips=None):
@@ -1741,7 +1796,8 @@ def reconcile_patch_labels(content, owned, patch_strips=None):
         if not span:
             continue
         original = content[span[0] : span[1]]
-        block, before = _drop_inlined_bazel_orfs_patches(original, owned)
+        block, before, comments = _drop_inlined_bazel_orfs_patches(original, owned)
+        inlined = set(before)
         m = re.search(r"(patches\s*=\s*\[)(.*?)(\])", block, re.DOTALL)
         if not m:
             new_block = block
@@ -1771,24 +1827,47 @@ def reconcile_patch_labels(content, owned, patch_strips=None):
         if entry:
             indent = entry.group(1)
 
+        # A comment travels with the entry below it; the one above the
+        # first bazel-orfs entry heads the group wherever it is rendered.
         kept = []
+        pending = []
+        header = None
         relabeled = False
         for line in body.split("\n"):
             labels = _extract_patches(line)
             if not labels:
-                if line.strip():
-                    kept.append(line)
+                if line.strip().startswith("#"):
+                    pending.append(line)
+                elif line.strip():
+                    kept.extend(pending + [line])
+                    pending = []
                 continue
             if _is_bazel_orfs_patch(labels[0], owned):
-                before.append(labels[0].split(":")[-1])
+                name = labels[0].split(":")[-1]
+                before.append(name)
+                if header is None:
+                    header = pending
+                else:
+                    comments[name] = pending
+                pending = []
                 if not labels[0].startswith(f"//{BAZEL_ORFS_PATCHES_DIR}:"):
                     relabeled = True
                 continue
-            kept.append(line)
+            kept.extend(pending + [line])
+            pending = []
+        kept.extend(pending)
         if not names and not before and not relabeled:
             continue
 
-        rendered = [f'{indent}"//{BAZEL_ORFS_PATCHES_DIR}:{name}",' for name in names]
+        header = [f"{indent}{c.strip()}" for c in header or []]
+        rendered = []
+        for name in names:
+            if header and name not in inlined:
+                rendered += header
+                header = []
+            rendered += [f"{indent}{c.strip()}" for c in comments.get(name, [])]
+            rendered.append(f'{indent}"//{BAZEL_ORFS_PATCHES_DIR}:{name}",')
+        rendered = header + rendered
         new_body = "\n" + "\n".join(rendered + kept) + "\n" + indent[:-4]
         new_block = block[: m.start(2)] + new_body + block[m.end(2) :]
         if new_block != original:
