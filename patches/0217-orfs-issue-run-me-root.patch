@@ -27,7 +27,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  1 file changed, 18 insertions(+), 4 deletions(-)
 
 diff --git a/flow/util/makeIssue.sh b/flow/util/makeIssue.sh
-index 27737516b..89eea94fd 100755
+index 2773751..89eea94 100755
 --- a/flow/util/makeIssue.sh
 +++ b/flow/util/makeIssue.sh
 @@ -84,18 +84,32 @@ fi

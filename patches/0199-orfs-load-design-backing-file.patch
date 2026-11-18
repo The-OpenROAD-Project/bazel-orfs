@@ -26,7 +26,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  2 files changed, 15 insertions(+), 7 deletions(-)
 
 diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
-index aeee613b5..765f183ab 100644
+index 4e6e8f5..8ee3c77 100644
 --- a/flow/scripts/global_route.tcl
 +++ b/flow/scripts/global_route.tcl
 @@ -1,7 +1,7 @@
@@ -39,7 +39,7 @@ index aeee613b5..765f183ab 100644
  source_step_tcl PRE GLOBAL_ROUTE
  
 diff --git a/flow/scripts/load.tcl b/flow/scripts/load.tcl
-index 4edf4f3cc..a32ff4964 100644
+index a557493..b04e244 100644
 --- a/flow/scripts/load.tcl
 +++ b/flow/scripts/load.tcl
 @@ -3,13 +3,13 @@ source $::env(SCRIPTS_DIR)/util.tcl
@@ -57,9 +57,9 @@ index 4edf4f3cc..a32ff4964 100644
 -proc load_stage_input { design_file } {
 +proc load_stage_input { design_file args } {
    if { $::env(INPUT_RESULTS_DIR) ne $::env(RESULTS_DIR) } {
-     if { $::env(AUTO_MEMORIES) } {
-       error "AUTO_MEMORIES=1 reads the memories synthesised in this variant,\
-@@ -23,10 +23,18 @@ proc load_stage_input { design_file } {
+     if {
+       $::env(AUTO_MEMORIES)
+@@ -28,10 +28,18 @@ proc load_stage_input { design_file } {
          FLOW_INPUT_VARIANT unset, and remove a copy left from an earlier run."
      }
    }
@@ -80,7 +80,7 @@ index 4edf4f3cc..a32ff4964 100644
    # Do not reload if design is already loaded
    set db [ord::get_db]
    if { [$db getChip] != "NULL" && [[$db getChip] getBlock] != "NULL" } {
-@@ -54,7 +62,7 @@ proc load_design_from { dir design_file } {
+@@ -59,7 +67,7 @@ proc load_design_from { dir design_file } {
      read_verilog $dir/$design_file
      log_cmd link_design {*}[hier_options] $::env(DESIGN_NAME)
    } elseif { $ext == ".odb" } {
@@ -89,3 +89,6 @@ index 4edf4f3cc..a32ff4964 100644
    } else {
      error "Unrecognized input file $design_file"
    }
+-- 
+2.53.0
+

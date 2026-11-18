@@ -50,12 +50,11 @@ ORFS that carries it.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
-
- flow/scripts/regfile_place.tcl | 129 +++++++++++++++++++++++++++++++++++++++++
+ flow/scripts/regfile_place.tcl | 129 +++++++++++++++++++++++++++++++++
  1 file changed, 129 insertions(+)
 
 diff --git a/flow/scripts/regfile_place.tcl b/flow/scripts/regfile_place.tcl
-index 65394809e..5fc5bdcbf 100644
+index b29ad8e..dd1a9f6 100644
 --- a/flow/scripts/regfile_place.tcl
 +++ b/flow/scripts/regfile_place.tcl
 @@ -140,15 +140,144 @@ proc regfile_place_top { } {
@@ -203,3 +202,6 @@ index 65394809e..5fc5bdcbf 100644
 +    sites of its free columns; the band around it, $rows rows, has\
 +    $supply free sites for the $demand sites of the cells left to placement"
  }
+-- 
+2.53.0
+

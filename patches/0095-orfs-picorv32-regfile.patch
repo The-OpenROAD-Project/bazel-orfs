@@ -18,9 +18,16 @@ options on ORFS's designs (OpenROAD #11723); retires at a bump onto an
 ORFS that carries it.
 
 ---
+ flow/designs/asap7/picorv32-regfile/config.mk | 13 +++++++++++
+ .../picorv32-regfile/picorv32_regs.regfile    | 23 +++++++++++++++++++
+ flow/designs/asap7/picorv32/config.mk         |  2 +-
+ 3 files changed, 37 insertions(+), 1 deletion(-)
+ create mode 100644 flow/designs/asap7/picorv32-regfile/config.mk
+ create mode 100644 flow/designs/asap7/picorv32-regfile/picorv32_regs.regfile
+
 diff --git a/flow/designs/asap7/picorv32-regfile/config.mk b/flow/designs/asap7/picorv32-regfile/config.mk
 new file mode 100644
-index 000000000..7cf1015da
+index 0000000..7cf1015
 --- /dev/null
 +++ b/flow/designs/asap7/picorv32-regfile/config.mk
 @@ -0,0 +1,13 @@
@@ -39,7 +46,7 @@ index 000000000..7cf1015da
 +export AUTO_MEMORIES_REGFILES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/picorv32_regs.regfile
 diff --git a/flow/designs/asap7/picorv32-regfile/picorv32_regs.regfile b/flow/designs/asap7/picorv32-regfile/picorv32_regs.regfile
 new file mode 100644
-index 000000000..eda85a721
+index 0000000..eda85a7
 --- /dev/null
 +++ b/flow/designs/asap7/picorv32-regfile/picorv32_regs.regfile
 @@ -0,0 +1,23 @@
@@ -67,7 +74,7 @@ index 000000000..eda85a721
 +cell ao22 AO22x2_ASAP7_75t_R
 +cell inv INVx1_ASAP7_75t_R
 diff --git a/flow/designs/asap7/picorv32/config.mk b/flow/designs/asap7/picorv32/config.mk
-index 68d0a0b28..d0b825d7e 100644
+index e3f272f..5c86983 100644
 --- a/flow/designs/asap7/picorv32/config.mk
 +++ b/flow/designs/asap7/picorv32/config.mk
 @@ -2,7 +2,7 @@ export PLATFORM = asap7
@@ -79,3 +86,6 @@ index 68d0a0b28..d0b825d7e 100644
  
  export ASAP7_USE_VT = RVT LVT SLVT
  
+-- 
+2.53.0
+

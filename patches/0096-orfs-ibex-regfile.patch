@@ -28,7 +28,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 
 diff --git a/flow/designs/asap7/ibex-regfile/config.mk b/flow/designs/asap7/ibex-regfile/config.mk
 new file mode 100644
-index 000000000..ecd6f4065
+index 0000000..ecd6f40
 --- /dev/null
 +++ b/flow/designs/asap7/ibex-regfile/config.mk
 @@ -0,0 +1,12 @@
@@ -46,7 +46,7 @@ index 000000000..ecd6f4065
 +export AUTO_MEMORIES_REGFILES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/ibex_register_file_ff.regfile
 diff --git a/flow/designs/asap7/ibex-regfile/ibex_register_file_ff.regfile b/flow/designs/asap7/ibex-regfile/ibex_register_file_ff.regfile
 new file mode 100644
-index 000000000..e00ede973
+index 0000000..e00ede9
 --- /dev/null
 +++ b/flow/designs/asap7/ibex-regfile/ibex_register_file_ff.regfile
 @@ -0,0 +1,25 @@
@@ -76,7 +76,7 @@ index 000000000..e00ede973
 +cell ao22 AO22x2_ASAP7_75t_R
 +cell inv INVx1_ASAP7_75t_R
 diff --git a/flow/designs/asap7/ibex/config.mk b/flow/designs/asap7/ibex/config.mk
-index 419c77f8c..7d56243a2 100644
+index c66b82f..a8eb718 100644
 --- a/flow/designs/asap7/ibex/config.mk
 +++ b/flow/designs/asap7/ibex/config.mk
 @@ -1,6 +1,6 @@

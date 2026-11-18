@@ -26,16 +26,17 @@ On a 64 x 256 register file (bazel-orfs test/regfile/macro), 66,320 of
 Not upstreamed: on 0089, carried with it. Retires at a //:bump onto an
 ORFS that carries it.
 ---
-  flow/scripts/floorplan.tcl     |  22 ++++--
-  flow/scripts/regfile_place.tcl | 154 +++++++++++++++++++++++++++++++++++++++++
-  flow/scripts/tapcell.tcl       |   4 ++
-  3 files changed, 175 insertions(+), 5 deletions(-)
+ flow/scripts/floorplan.tcl     |  22 +++--
+ flow/scripts/regfile_place.tcl | 154 +++++++++++++++++++++++++++++++++
+ flow/scripts/tapcell.tcl       |   4 +
+ 3 files changed, 175 insertions(+), 5 deletions(-)
+ create mode 100644 flow/scripts/regfile_place.tcl
 
 diff --git a/flow/scripts/floorplan.tcl b/flow/scripts/floorplan.tcl
-index 67b5b16..4603ee0 100644
+index 2488218..87801b6 100644
 --- a/flow/scripts/floorplan.tcl
 +++ b/flow/scripts/floorplan.tcl
-@@ -80,11 +80,23 @@ if { $use_floorplan_def } {
+@@ -89,11 +89,23 @@ if { $use_floorplan_def } {
      {*}$additional_args
    # Method 4: Calculate core area from utilization, aspect ratio, and margins
  } elseif { $use_core_utilization } {
@@ -225,7 +226,7 @@ index 0000000..b29ad8e
 +    synthesis, $resized resized since, $left left to placement"
 +}
 diff --git a/flow/scripts/tapcell.tcl b/flow/scripts/tapcell.tcl
-index 94620cb..aff6219 100644
+index 95de249..271cec8 100644
 --- a/flow/scripts/tapcell.tcl
 +++ b/flow/scripts/tapcell.tcl
 @@ -10,6 +10,10 @@ if { [env_var_exists_and_non_empty TAPCELL_TCL] } {
@@ -239,3 +240,6 @@ index 94620cb..aff6219 100644
  source_step_tcl POST TAPCELL
  
  report_design_area
+-- 
+2.53.0
+

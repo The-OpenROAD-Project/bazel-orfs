@@ -16,10 +16,10 @@ targets this way.
  3 files changed, 13 insertions(+), 12 deletions(-)
 
 diff --git a/flow/Makefile b/flow/Makefile
-index 759e13578..874feaa7b 100644
+index fe78dbb..916c8d2 100644
 --- a/flow/Makefile
 +++ b/flow/Makefile
-@@ -346,21 +346,23 @@ $(OBJECTS_DIR)/copyright.txt:
+@@ -374,21 +374,23 @@ $(OBJECTS_DIR)/copyright.txt:
  	mkdir -p $(OBJECTS_DIR)
  	@touch $(OBJECTS_DIR)/copyright.txt
  
@@ -47,12 +47,12 @@ index 759e13578..874feaa7b 100644
 +	$(2)=$(RESULTS_DIR)/$(1) $(OPENROAD_QT_CMD) $(SCRIPTS_DIR)/open.tcl
  endef
  
- # Enables "make gui_5_1_grt-failed"
+ # Separate dependency checking and doing a step. This can
 diff --git a/flow/scripts/variables.mk b/flow/scripts/variables.mk
-index 355f4dd0b..4226b5cfe 100644
+index 7c607fc..95e8df8 100644
 --- a/flow/scripts/variables.mk
 +++ b/flow/scripts/variables.mk
-@@ -121,7 +121,7 @@ OPENROAD_IS_VALID := $(if $(OPENROAD_EXE),$(shell test -x $(OPENROAD_EXE) && ech
+@@ -132,7 +132,7 @@ OPENROAD_IS_VALID := $(if $(OPENROAD_EXE),$(shell test -x $(OPENROAD_EXE) && ech
  export OPENROAD_ARGS = -no_init -threads $(NUM_CORES) $(OR_ARGS)
  export OPENROAD_CMD = $(OPENROAD_EXE) -exit $(OPENROAD_ARGS)
  export OPENROAD_NO_EXIT_CMD = $(OPENROAD_EXE) $(OPENROAD_ARGS)
@@ -61,7 +61,7 @@ index 355f4dd0b..4226b5cfe 100644
  export OPENROAD_WEB_CMD = $(OPENROAD_EXE) -web -threads $(NUM_CORES) $(OR_ARGS)
  
  export YOSYS_EXE ?= $(abspath $(FLOW_HOME)/../tools/install/yosys/bin/yosys)
-@@ -189,7 +189,7 @@ export RESULTS_V = $(notdir $(sort $(wildcard $(RESULTS_DIR)/*.v)))
+@@ -191,7 +191,7 @@ export RESULTS_V = $(notdir $(sort $(wildcard $(RESULTS_DIR)/*.v)))
  export GDS_MERGED_FILE = $(RESULTS_DIR)/6_1_merged.$(STREAM_SYSTEM_EXT)
  
  define get_variables
@@ -71,10 +71,10 @@ index 355f4dd0b..4226b5cfe 100644
  
  export UNSET_VARIABLES_NAMES := $(call get_variables,command% line environment% default automatic)
 diff --git a/flow/util/utils.mk b/flow/util/utils.mk
-index 195db144a..145b0deaf 100644
+index 15c20df..313babf 100644
 --- a/flow/util/utils.mk
 +++ b/flow/util/utils.mk
-@@ -183,14 +183,13 @@ gallery: check-klayout $(RESULTS_DIR)/6_final_no_power.def $(RESULTS_DIR)/6_fina
+@@ -188,14 +188,13 @@ gallery: check-klayout $(RESULTS_DIR)/6_final_no_power.def $(RESULTS_DIR)/6_fina
  	        -rd tech_file=$(OBJECTS_DIR)/klayout.lyt \
  	        -rm $(UTILS_DIR)/createGallery.py
  
@@ -93,3 +93,6 @@ index 195db144a..145b0deaf 100644
  ## Quick access to command line
  .PHONY: command
  command:
+-- 
+2.53.0
+

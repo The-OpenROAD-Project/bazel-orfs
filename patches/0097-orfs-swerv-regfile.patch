@@ -44,7 +44,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 
 diff --git a/flow/designs/asap7/swerv_wrapper-regfile/config.mk b/flow/designs/asap7/swerv_wrapper-regfile/config.mk
 new file mode 100644
-index 000000000..fa9426a9b
+index 0000000..fa9426a
 --- /dev/null
 +++ b/flow/designs/asap7/swerv_wrapper-regfile/config.mk
 @@ -0,0 +1,14 @@
@@ -64,7 +64,7 @@ index 000000000..fa9426a9b
 +export AUTO_MEMORIES_REGFILES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/dec_gpr_ctl_rf.regfile
 diff --git a/flow/designs/asap7/swerv_wrapper-regfile/dec_gpr_ctl_rf.regfile b/flow/designs/asap7/swerv_wrapper-regfile/dec_gpr_ctl_rf.regfile
 new file mode 100644
-index 000000000..141bcc406
+index 0000000..141bcc4
 --- /dev/null
 +++ b/flow/designs/asap7/swerv_wrapper-regfile/dec_gpr_ctl_rf.regfile
 @@ -0,0 +1,28 @@
@@ -98,7 +98,7 @@ index 000000000..141bcc406
 +cell inv INVx1_ASAP7_75t_R
 diff --git a/flow/designs/asap7/swerv_wrapper-regfile/surgery.py b/flow/designs/asap7/swerv_wrapper-regfile/surgery.py
 new file mode 100644
-index 000000000..b863243db
+index 0000000..b863243
 --- /dev/null
 +++ b/flow/designs/asap7/swerv_wrapper-regfile/surgery.py
 @@ -0,0 +1,226 @@
@@ -330,7 +330,7 @@ index 000000000..b863243db
 +    main()
 diff --git a/flow/designs/asap7/swerv_wrapper-yosys/config.mk b/flow/designs/asap7/swerv_wrapper-yosys/config.mk
 new file mode 100644
-index 000000000..444ec4805
+index 0000000..444ec48
 --- /dev/null
 +++ b/flow/designs/asap7/swerv_wrapper-yosys/config.mk
 @@ -0,0 +1,15 @@

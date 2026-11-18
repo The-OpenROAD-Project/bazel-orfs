@@ -31,6 +31,11 @@ ORFS that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
+ flow/scripts/check_clock_tree_paths.tcl | 51 +++++++++++++++++++++++++
+ flow/scripts/generate_abstract.tcl      |  3 ++
+ 2 files changed, 54 insertions(+)
+ create mode 100644 flow/scripts/check_clock_tree_paths.tcl
+
 diff --git a/flow/scripts/check_clock_tree_paths.tcl b/flow/scripts/check_clock_tree_paths.tcl
 new file mode 100644
 index 0000000..e4918dc
@@ -110,3 +115,6 @@ index 7fc2fd9..c25908a 100644
  }
  log_cmd write_abstract_lef -bloat_occupied_layers $::env(RESULTS_DIR)/$::env(DESIGN_NAME).lef
  
+-- 
+2.53.0
+

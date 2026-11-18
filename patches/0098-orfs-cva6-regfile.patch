@@ -34,7 +34,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 
 diff --git a/flow/designs/asap7/cva6-regfile/ariane_regfile_rf.regfile b/flow/designs/asap7/cva6-regfile/ariane_regfile_rf.regfile
 new file mode 100644
-index 00000000..0ca0e9e7
+index 0000000..0ca0e9e
 --- /dev/null
 +++ b/flow/designs/asap7/cva6-regfile/ariane_regfile_rf.regfile
 @@ -0,0 +1,28 @@
@@ -68,7 +68,7 @@ index 00000000..0ca0e9e7
 +cell inv INVx1_ASAP7_75t_R
 diff --git a/flow/designs/asap7/cva6-regfile/config.mk b/flow/designs/asap7/cva6-regfile/config.mk
 new file mode 100644
-index 00000000..1d9d0204
+index 0000000..1d9d020
 --- /dev/null
 +++ b/flow/designs/asap7/cva6-regfile/config.mk
 @@ -0,0 +1,12 @@
@@ -86,7 +86,7 @@ index 00000000..1d9d0204
 +export AUTO_MEMORIES_REGFILES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/ariane_regfile_rf.regfile
 diff --git a/flow/designs/asap7/cva6-regfile/surgery.py b/flow/designs/asap7/cva6-regfile/surgery.py
 new file mode 100644
-index 00000000..20b01736
+index 0000000..20b0173
 --- /dev/null
 +++ b/flow/designs/asap7/cva6-regfile/surgery.py
 @@ -0,0 +1,143 @@
@@ -234,7 +234,7 @@ index 00000000..20b01736
 +if __name__ == "__main__":
 +    main()
 diff --git a/flow/designs/asap7/cva6/config.mk b/flow/designs/asap7/cva6/config.mk
-index 3e393c28..9bbadb72 100644
+index 3e393c2..9bbadb7 100644
 --- a/flow/designs/asap7/cva6/config.mk
 +++ b/flow/designs/asap7/cva6/config.mk
 @@ -4,7 +4,7 @@ export DESIGN_NAME            = cva6
@@ -259,3 +259,6 @@ index 3e393c28..9bbadb72 100644
  
  export VERILOG_DEFINES += -D HPDCACHE_ASSERT_OFF
  
+-- 
+2.53.0
+

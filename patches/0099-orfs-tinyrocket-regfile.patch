@@ -34,7 +34,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 
 diff --git a/flow/designs/asap7/tinyRocket-regfile/Rocket_rf.regfile b/flow/designs/asap7/tinyRocket-regfile/Rocket_rf.regfile
 new file mode 100644
-index 000000000..0f2eff44d
+index 0000000..0f2eff4
 --- /dev/null
 +++ b/flow/designs/asap7/tinyRocket-regfile/Rocket_rf.regfile
 @@ -0,0 +1,18 @@
@@ -58,7 +58,7 @@ index 000000000..0f2eff44d
 +cell inv INVx1_ASAP7_75t_R
 diff --git a/flow/designs/asap7/tinyRocket-regfile/config.mk b/flow/designs/asap7/tinyRocket-regfile/config.mk
 new file mode 100644
-index 000000000..1e38b2a47
+index 0000000..1e38b2a
 --- /dev/null
 +++ b/flow/designs/asap7/tinyRocket-regfile/config.mk
 @@ -0,0 +1,9 @@
@@ -72,7 +72,7 @@ index 000000000..1e38b2a47
 +export SYNTH_VERILOG_SURGERY_ARGS = --regfile
 +export AUTO_MEMORIES_REGFILES     = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/Rocket_rf.regfile
 diff --git a/flow/designs/asap7/tinyRocket/config.mk b/flow/designs/asap7/tinyRocket/config.mk
-index f5a073d27..00f8d4f66 100644
+index d70b3f0..5d026f5 100644
 --- a/flow/designs/asap7/tinyRocket/config.mk
 +++ b/flow/designs/asap7/tinyRocket/config.mk
 @@ -7,14 +7,14 @@ export PLATFORM    = asap7
@@ -99,7 +99,7 @@ index f5a073d27..00f8d4f66 100644
  export CORE_UTILIZATION = 40
 diff --git a/flow/designs/asap7/tinyRocket/surgery.py b/flow/designs/asap7/tinyRocket/surgery.py
 new file mode 100644
-index 000000000..b59ebb5d3
+index 0000000..b59ebb5
 --- /dev/null
 +++ b/flow/designs/asap7/tinyRocket/surgery.py
 @@ -0,0 +1,148 @@
@@ -251,3 +251,6 @@ index 000000000..b59ebb5d3
 +
 +if __name__ == "__main__":
 +    main()
+-- 
+2.53.0
+
