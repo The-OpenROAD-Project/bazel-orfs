@@ -246,7 +246,7 @@ def synth_attrs():
             values = ["auto", "true", "false"],
             doc = "Cut the Verilog into one source per kept module " +
                   "(verilog_slice.py: the module, the modules under it, and " +
-                  "port-only stubs of the kept modules under it) and " +
+                  "port-only stubs of the kept modules and macros under it) and " +
                   "canonicalize each partition from its own slice instead " +
                   "of from the global canonicalize. A partition then " +
                   "neither waits on the global canonicalize nor reruns for " +

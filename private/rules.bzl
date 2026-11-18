@@ -1319,6 +1319,33 @@ PARTITION_VARIABLES = [
     "SYNTH_RETIME_MODULES",
 ]
 
+def _macro_modules(ctx):
+    """The design's modules that the flow's macros stand in for.
+
+    Synthesis reads each macro's liberty view, and read_design_sources
+    blackboxes every cell of ADDITIONAL_LIBS by name, as it does the
+    canon_blackbox_macros: the macro's view replaces the module, under its
+    bare name, and its body is never elaborated.
+    """
+    blackboxed = ctx.attr.canon_blackbox_macros if ctx.attr.kept_macros_enabled else []
+    return [
+        dep[TopInfo].module_top
+        for dep in ctx.attr.deps
+        if dep[OrfsInfo].lib or dep[OrfsInfo].lib_pre_layout or
+           dep[TopInfo].module_top in blackboxed
+    ]
+
+def _kept_modules(ctx, arguments):
+    """SYNTH_KEEP_MODULES less the flow's macros (_macro_modules).
+
+    A macro is kept by construction: nothing synthesizes its module, so it
+    has no partition, no canonicalize of its own and, with verilog_slices,
+    no slice; the slices that reach it hold it as a port-only stub. A list
+    shared by a flat and a hardened flow of one design can then name it.
+    """
+    macros = _macro_modules(ctx)
+    return [m for m in keep_modules(arguments) if m not in macros]
+
 def _partition_arguments(ctx, kept_modules, by_module, num_partitions):
     """partition_arguments decoded, checked and location-expanded.
 
@@ -1332,7 +1359,10 @@ def _partition_arguments(ctx, kept_modules, by_module, num_partitions):
       {kept module: {variable: value}}.
     """
     result = {}
+    macros = _macro_modules(ctx)
     for module, encoded in ctx.attr.partition_arguments.items():
+        if module in macros:
+            fail("partition_arguments names '{}', a macro of the flow: its liberty view stands in for the module, which no partition synthesizes.".format(module))
         if module not in kept_modules:
             fail("partition_arguments names '{}', which is not in SYNTH_KEEP_MODULES ({}).".format(
                 module,
@@ -1409,11 +1439,15 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     kept_json = declare_artifact(ctx, "results", "kept_modules.json")
     skip_keep = all_arguments.get("SYNTH_KEEP_MODULES", "")
 
+    # The kept modules, the flow's macros left out (_kept_modules), once,
+    # so kept_modules.json, the per-module canonicalize actions and the
+    # partitions agree on names and ordering.
+    kept_modules_list = _kept_modules(ctx, all_arguments)
+
     if skip_keep:
         # SYNTH_KEEP_MODULES provided: skip keep-hierarchy discovery.
         # Write kept_modules.json directly from the variable.
-        modules = [m for m in skip_keep.split(" ") if m]
-        modules_json = ", ".join(['"{}"'.format(m) for m in modules])
+        modules_json = ", ".join(['"{}"'.format(m) for m in kept_modules_list])
         ctx.actions.write(
             output = kept_json,
             content = '{{"modules": [{}]}}'.format(modules_json),
@@ -1534,10 +1568,6 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     # test rather than blocking synth.
     extra_partition_inputs = []
 
-    # Compute the kept-module list once so the per-module canonicalize
-    # actions and the partition loop below agree on names and ordering.
-    kept_modules_list = keep_modules(all_arguments)
-
     # Actions 2c (one per kept module): re-canonicalize each kept module
     # into its own RTLIL slice. The slice has all other kept modules
     # blackboxed and the target renamed to its bare name, so it serves as
@@ -1574,6 +1604,10 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         slice_args.add("--top-slice", verilog_slice[top])
         for module in kept_modules_list:
             slice_args.add_all("--slice", [module, verilog_slice[module]])
+
+        # A macro is a stub under its own name wherever a slice reaches
+        # it, not its body: synthesis reads its liberty view in its place.
+        slice_args.add_all(_macro_modules(ctx), before_each = "--macro")
         slice_args.add_all(slices.verilog, expand_directories = False)
         ctx.actions.run(
             executable = ctx.executable._python,
@@ -2383,7 +2417,7 @@ def _stable_module_names(ctx, all_arguments):
     # slang's --blackboxed-module at canonicalization.
     for dep in ctx.attr.deps:
         args.add("--exclude", dep[TopInfo].module_top)
-    for name in keep_modules(all_arguments):
+    for name in _kept_modules(ctx, all_arguments):
         args.add("--keep", name)
     for pattern in all_arguments.get("SYNTH_RETIME_MODULES", "").split(" "):
         if pattern:
@@ -2654,15 +2688,17 @@ def _yosys_impl(ctx):
         for var in ["SYNTH_VERILOG_SURGERY", "VERILOG_TOP_PARAMS"]
         if all_arguments.get(var)
     ]
+    kept_modules = _kept_modules(ctx, all_arguments)
     verilog_slices = ctx.attr.verilog_slices == "true" or (
         ctx.attr.verilog_slices == "auto" and not use_syn and
-        bool(keep_modules(all_arguments)) and not whole_design_vars
+        bool(kept_modules) and not whole_design_vars
     )
     if verilog_slices:
-        if use_syn or not keep_modules(all_arguments):
+        if use_syn or not kept_modules:
             fail("verilog_slices = True cuts the Verilog by SYNTH_KEEP_MODULES " +
                  "for parallel yosys synthesis, which " + str(ctx.label) +
-                 " does not run: pin SYNTH_KEEP_MODULES or drop verilog_slices")
+                 " does not run: pin SYNTH_KEEP_MODULES, with a module that " +
+                 "is not a macro of the flow, or drop verilog_slices")
         for var in whole_design_vars:
             fail(("{} acts on the whole design, which a slice of one kept " +
                   "module is not; verilog_slices = True cuts {} by its pinned " +
@@ -2739,11 +2775,15 @@ def _yosys_impl(ctx):
         )
 
     num_partitions = int(all_arguments.get("SYNTH_NUM_PARTITIONS", "0"))
-    if num_partitions == 0 and all_arguments.get("SYNTH_KEEP_MODULES"):
-        # SYNTH_KEEP_MODULES implies parallel synthesis; default to 1 partition
-        # when NUM_CPUS-based auto-detection hasn't run (direct orfs_synth call).
-        kept_count = len(keep_modules(all_arguments))
-        num_partitions = max(1, kept_count)
+    if all_arguments.get("SYNTH_KEEP_MODULES"):
+        # SYNTH_KEEP_MODULES implies parallel synthesis: one partition per
+        # kept module when NUM_CPUS-based auto-detection hasn't run (direct
+        # orfs_synth call), and never more, as a partition past the last
+        # module has none to synthesize. A count made from the list as
+        # written, orfs_design's default, counts the macros _kept_modules
+        # leaves out.
+        if num_partitions == 0 or num_partitions > len(kept_modules):
+            num_partitions = max(1, len(kept_modules))
     if use_syn:
         # Parallel/hierarchical synthesis is a yosys-flow concept; the
         # Makefile's SYNTH_USE_SYN path ignores SYNTH_KEEP_MODULES and

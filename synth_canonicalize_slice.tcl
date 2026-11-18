@@ -64,6 +64,20 @@ read_design_sources
 hierarchy -check -top $target
 opt_clean -purge
 
+# A macro's stub is named by itself (verilog_slice.py --macro) and has no
+# body: the macro's liberty cell, or a black box by name, stands in for
+# it, as in the whole design. An empty module made of the stub would
+# leave the macro's outputs undriven.
+dict for {def name} $elaborated {
+  if { $def eq $name && $def ne $target \
+    && ![rtlil::has_attr -mod $def liberty_cell] \
+    && ![rtlil::has_attr -mod $def blackbox] } {
+    error "synth_canonicalize_slice: $def, a macro of the flow, is stubbed\
+      in the slice of $target but is neither a liberty cell nor a black box\
+      there; its module name must be its liberty cell's"
+  }
+}
+
 # The slice's top and stubs take the names the whole design's
 # elaboration gives them, which its parent partitions instantiate.
 dict for {def name} $elaborated {

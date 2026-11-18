@@ -584,8 +584,11 @@ requires a pinned `SYNTH_KEEP_MODULES`):
    it, and a stub (the header, ports only) for each kept module under
    it. The top gets one the same way, `partition_<top>_slice.v`: the
    top, every module under it that is not kept, and a stub for each kept
-   module it reaches. It takes seconds and its outputs are declared per
-   module at analysis time.
+   module it reaches. A macro of the flow, whose liberty view synthesis
+   reads in its place, is a stub under its own name in every slice that
+   reaches it and has no slice of its own, named in `SYNTH_KEEP_MODULES`
+   or not. It takes seconds and its outputs are declared per module at
+   analysis time.
 2. **Canonicalize the slice, one action per kept module and one for the
    top.** `synth_canonicalize_slice.tcl` reads the slice as
    `synth_canonicalize.tcl` reads the design, with the module as the top

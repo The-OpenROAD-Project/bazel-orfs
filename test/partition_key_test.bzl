@@ -5,6 +5,10 @@ partition action is named by its module and reads neither the kept list
 nor its index, and its config's SYNTH_KEEP_MODULES is its own module. An
 edit to the list then re-runs only the modules whose slice it changes;
 before, adding or reordering one name re-synthesized every partition.
+
+A module of SYNTH_KEEP_MODULES that a macro of the flow stands for
+(`macros`) has no partition and no canonicalize of its own, and the
+slicer is told to stub it.
 """
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
@@ -52,9 +56,30 @@ def _impl(ctx):
             "SYNTH_NUM_PARTITIONS" in flat,
             "%s's config carries SYNTH_NUM_PARTITIONS" % module,
         )
+    slicers = [a for a in actions if a.mnemonic == "VerilogSlice"]
+    for macro in ctx.attr.macros:
+        for action in actions:
+            asserts.false(
+                env,
+                bool(action.env) and action.env.get("MODULE_TARGET_NAME") == macro,
+                "macro %s is canonicalized: %s" % (macro, action.mnemonic),
+            )
+        asserts.true(env, slicers != [], "no VerilogSlice action")
+        for action in slicers:
+            argv = action.argv
+            asserts.true(
+                env,
+                any([argv[i:i + 2] == ["--macro", macro] for i in range(len(argv) - 1)]),
+                "the slicer does not stub macro %s: %s" % (macro, argv),
+            )
     return analysistest.end(env)
 
 partition_key_test = analysistest.make(
     _impl,
-    attrs = {"modules": attr.string_list()},
+    attrs = {
+        "macros": attr.string_list(
+            doc = "Modules of SYNTH_KEEP_MODULES a macro of the flow stands for.",
+        ),
+        "modules": attr.string_list(),
+    },
 )

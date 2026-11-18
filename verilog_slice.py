@@ -19,7 +19,13 @@ differently from the whole design.
 The top's slice (--top-slice) is cut the same way: the top and every
 module under it down to the kept modules, which are stubs.
 
-Usage: verilog_slice.py --top TOP [--top-slice OUT]
+A macro of the flow (--macro) is a stub in every slice that reaches it
+and has no slice of its own: synthesis reads its liberty view in its
+place, under its own name, so its body is never elaborated, in the whole
+design or in a slice, and nothing under it is named by an instance in
+it. A macro the sources do not define is ignored.
+
+Usage: verilog_slice.py --top TOP [--top-slice OUT] [--macro MODULE]...
            --slice MODULE OUT [--slice MODULE OUT ...] SOURCE...
 
 A SOURCE that is a directory stands for its .v, .sv and .svh files.
@@ -559,7 +565,7 @@ def dpi_imports(modules, found):
     return imports
 
 
-def elaborated_names(modules, top):
+def elaborated_names(modules, top, macros=()):
     """Each module's name as slang elaborates the whole design from `top`.
 
     slang names a module's body after the hierarchical path of the
@@ -567,6 +573,9 @@ def elaborated_names(modules, top):
     later instance shares that body: `Def$Top.a.b`, and the top its bare
     name. A slice is elaborated from its own module, so its module and
     stubs are renamed to these names for its partition to fit the design.
+
+    A macro is a black box, its liberty cell, under its bare name, and
+    slang does not go into it: an instance inside it names nothing.
     """
     names = set(modules)
     elaborated = {top: top}
@@ -574,18 +583,23 @@ def elaborated_names(modules, top):
     while stack:
         path, instances = stack[-1]
         for child, instance in instances:
-            if child not in elaborated:
-                child_path = path + "." + instance
-                elaborated[child] = "{}${}".format(child, child_path)
-                stack.append((child_path, iter(modules[child].instances(names))))
-                break
+            if child in elaborated:
+                continue
+            if child in macros:
+                elaborated[child] = child
+                continue
+            child_path = path + "." + instance
+            elaborated[child] = "{}${}".format(child, child_path)
+            stack.append((child_path, iter(modules[child].instances(names))))
+            break
         else:
             stack.pop()
     return elaborated
 
 
-def slice_text(modules, order, target, kept, elaborated=None, imports=None):
-    """The slice of `target`: its subtree, kept descendants as stubs.
+def slice_text(modules, order, target, kept, elaborated=None, imports=None, macros=()):
+    """The slice of `target`: its subtree, kept descendants and macros as
+    stubs.
 
     Before the modules, the DPI imports of the functions they name.
     """
@@ -597,7 +611,7 @@ def slice_text(modules, order, target, kept, elaborated=None, imports=None):
         for child in sorted(modules[todo.pop()].children(names)):
             if child in full or child in stubs:
                 continue
-            if child in kept:
+            if child in kept or child in macros:
                 stubs.add(child)
             else:
                 full.add(child)
@@ -636,6 +650,14 @@ def main(argv=None):
     parser.add_argument(
         "--top-slice", metavar="OUT", help="the file the top's slice goes to"
     )
+    parser.add_argument(
+        "--macro",
+        action="append",
+        default=[],
+        metavar="MODULE",
+        help="a module a macro of the flow stands for: a stub wherever "
+        "it is reached, no slice of its own",
+    )
     parser.add_argument("sources", nargs="+")
     args = parser.parse_args(argv)
 
@@ -651,11 +673,18 @@ def main(argv=None):
             raise SliceError(
                 "top module {} is not defined in the sources".format(args.top)
             )
-        elaborated = elaborated_names(modules, args.top)
+        macros = set(args.macro) & set(modules)
+        for name in sorted(kept & macros):
+            raise SliceError(
+                "kept module {} is a macro of the flow: its liberty view "
+                "stands in for it, and it has no slice".format(name)
+            )
+        elaborated = elaborated_names(modules, args.top, macros)
         for name in sorted(kept):
             if name not in elaborated:
                 raise SliceError(
-                    "kept module {} is not under {}".format(name, args.top)
+                    "kept module {} is not under {}, or only inside a "
+                    "macro".format(name, args.top)
                 )
             if modules[name].has_parameters():
                 raise SliceError(
@@ -663,11 +692,11 @@ def main(argv=None):
                     "it with their defaults".format(name)
                 )
         for name, out in args.slice:
-            text = slice_text(modules, order, name, kept, elaborated, imports)
+            text = slice_text(modules, order, name, kept, elaborated, imports, macros)
             with open(out, "w") as f:
                 f.write(text)
         if args.top_slice:
-            text = slice_text(modules, order, args.top, kept, elaborated)
+            text = slice_text(modules, order, args.top, kept, elaborated, macros=macros)
             with open(args.top_slice, "w") as f:
                 f.write(text)
     except SliceError as e:
