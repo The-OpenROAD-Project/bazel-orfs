@@ -1388,7 +1388,7 @@ def _partition_arguments(ctx, kept_modules, by_module, num_partitions):
              ) + "Leave SYNTH_NUM_PARTITIONS unset to get one per module.")
     return result
 
-def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments = {}, sdc_overrides = [], synth_data_inputs = None, sdc_only_inputs = None, memories_inputs = [], slices = None):
+def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments = {}, sdc_overrides = [], synth_data_inputs = None, sdc_only_inputs = None, memories_inputs = [], memories_inferred = [], slices = None):
     """Parallel synthesis: keep → kept-json → N partitions → merge.
 
     Yosys is not deterministic when using host threads, so SYNTH_NUM_PARTITIONS
@@ -1471,7 +1471,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 # yosys-dependencies wants the AUTO_MEMORIES artifacts; they
                 # are staged below and must not be remade here, where
                 # VERILOG_FILES is empty (see the serial synth action).
-            ] + ["--old-file=" + f.path for f in memories_inputs] + sdc_overrides,
+            ] + ["--old-file=" + f.path for f in memories_inputs + memories_inferred] + sdc_overrides,
             command = " && ".join(keep_commands),
             env = base_env,
             inputs = depset(
@@ -1790,8 +1790,10 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     # reads as out of date, so `yosys-dependencies` would re-run
     # gen_memories.py -- which then fails writing memories.json, a
     # read-only input here. --old-file is exactly the "treat this as up
-    # to date whatever its timestamp says" switch.
-    memories_old_file_args = ["--old-file=" + f.path for f in memories_inputs]
+    # to date whatever its timestamp says" switch. It also holds for
+    # memories_inferred.json, which is not staged: make does not remake
+    # an --old-file that is absent, nor anything on its account.
+    memories_old_file_args = ["--old-file=" + f.path for f in memories_inputs + memories_inferred]
 
     base_partition_inputs = depset(
         [
@@ -1810,12 +1812,17 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         #   memories.json: memories_inferred.json ...
         #   memories_inferred.json: $(VERILOG_FILES) extract_memories.tcl
         #
-        # so a partition sandbox without memories_inferred.json re-runs
-        # memory detection there -- against a design already reduced to
-        # canonicalized RTLIL, with no Verilog to read, which fails as
+        # so a partition sandbox that remakes it re-runs memory detection
+        # there -- against a design already reduced to canonicalized
+        # RTLIL, with no Verilog to read, which fails as
         # "Module `<top>\' not found!". The serial path has staged these
         # all along; the partition path never did, so AUTO_MEMORIES and
         # parallel synthesis could not be used together.
+        #
+        # memories_inferred.json is not staged: it carries src attributes
+        # and whole-design names, so any edit to the design changes it,
+        # and staging it would re-run every partition whose canonical
+        # slice is unchanged. --old-file (above) stops make remaking it.
         memories_inputs,
         transitive = [
             synth_data_inputs,
@@ -2334,7 +2341,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             "yosys-dependencies",
             "do-yosys-keep-costs",
             "SYNTH_KEEP_COSTS_SCRIPT=" + ctx.file._synth_keep_costs_script.path,
-        ] + ["--old-file=" + f.path for f in memories_inputs] + sdc_overrides,
+        ] + ["--old-file=" + f.path for f in memories_inputs + memories_inferred] + sdc_overrides,
         command = " && ".join([_make_cmd(ctx)]),
         env = base_env | {"KEEP_COSTS_OUT": keep_costs.path},
         inputs = depset(
@@ -2864,7 +2871,7 @@ def _yosys_impl(ctx):
             progress_message = "OpenROAD-SYN synthesis for %s" % module_top(ctx),
         )
     elif num_partitions > 0:
-        validated_kept_macros_json, partition_files, memories_validation, keep_report = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments, sdc_overrides, synth_data_inputs, sdc_only_inputs, memories_outputs + memories_inferred, slices = struct(
+        validated_kept_macros_json, partition_files, memories_validation, keep_report = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments, sdc_overrides, synth_data_inputs, sdc_only_inputs, memories_outputs, memories_inferred, slices = struct(
             env = verilog_arguments([]) |
                   yosys_environment(ctx) |
                   config_environment(canon_config),

@@ -85,6 +85,9 @@ auto_memories_outputs_test(
         "memories_inferred.json",
     ],
     target_under_test = ":am_top_synth",
+    # memories_inferred.json names the whole design, src attributes
+    # included: staged into a partition, any edit would re-run them all.
+    unstaged = ["memories_inferred.json"],
 )
 
 py_binary(
