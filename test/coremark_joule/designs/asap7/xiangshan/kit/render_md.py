@@ -511,7 +511,205 @@ def facts_values(a):
 
     # the test script, included as it ships
     v["sta_tcl"] = open(a.sta).read().rstrip("\n")
+
+    snapshot_values(v, json.load(open(a.snapshot)), run)
     return v
+
+
+# a stage's variables that only say where a file is, or name the flow
+SETTINGS_SKIP = {
+    "DESIGN_NAME",
+    "FLOW_VARIANT",
+    "PLATFORM",
+    "PLATFORM_DIR",
+    "WORK_HOME",
+    "AUTO_MEMORIES_DIR",
+}
+
+
+def snapshot_values(v, snap, run):
+    """The OpenROAD reference from kit/snapshot/snapshot.json
+    (snapshot.py): per part statistics, periods and congestion, the
+    settings, and the arithmetic of the floorplan with and without
+    macros. The snapshot must be of the KPI row the README quotes."""
+    if (
+        snap["kpi_row"]["date"] != run["date"]
+        or snap["kpi_row"]["parent_ps"] != run["parent_ps"]
+    ):
+        raise SystemExit(
+            "render_md: kit/snapshot/ is of the KPI row of %s, the README quotes %s; run :kit_snapshot"
+            % (snap["kpi_row"]["date"], run["date"])
+        )
+    parts = snap["parts"]
+    top = "XSTile"
+    order = [top] + sorted(
+        (p for p in parts if p != top), key=lambda p: -parts[p]["kpi"]["period_ps"]
+    )
+    v["snapshot_commit"] = snap["commit"]
+    v["snapshot_date"] = snap["made"]
+    rows = []
+    for p in order:
+        st, k, c = parts[p]["stats"], parts[p]["kpi"], parts[p]["congestion"]
+        total = c["layers"][-1] if c and c["layers"] else None
+        d = st["die_um"]
+        rows.append(
+            [
+                "`%s`" % p,
+                "%s x %s" % (num(d[2] - d[0]), num(d[3] - d[1])),
+                num(st["std_cells"]),
+                num(st["flops"]),
+                num(st["macro_instances"]),
+                num(st["signal_ports"]),
+                "%s %%" % num(100 * st["utilization"], 1),
+                "**%s**" % num(k["period_ps"]),
+                "%s %%" % num(total["usage_pct"], 1) if total else "-",
+                num(total["overflow"]) if total else "-",
+                num(c["wirelength_um"] / 1000.0) if c and c["wirelength_um"] else "-",
+            ]
+        )
+    header = [
+        "Part",
+        "Die um",
+        "Cells",
+        "Flip-flops",
+        "Macros",
+        "Ports",
+        "Utilisation",
+        "Period ps",
+        "Route usage",
+        "Overflow",
+        "Wire mm",
+    ]
+    v["reference_table"] = table(
+        header,
+        rows,
+        right=header[1:],
+        abbrev={"Utilisation": "Util", "Route usage": "GR use"},
+    )
+
+    # the slowest paths of each part
+    rows = []
+    for p in order:
+        g = parts[p]["kpi"]["groups"].get("reg2reg")
+        if g:
+            rows.append(
+                [
+                    "`%s`" % p,
+                    num(parts[p]["kpi"]["period_ps"]),
+                    "`%s`" % g["from"],
+                    "`%s`" % g["to"],
+                ]
+            )
+    v["worst_path_table"] = table(
+        ["Part", "Period ps", "From", "To"], rows, right=("Period ps",)
+    )
+
+    # global route per layer, the parent's
+    c = parts[top]["congestion"]
+    v["top_congestion_table"] = table(
+        ["Layer", "Resource", "Demand", "Usage", "Overflow"],
+        [
+            [
+                l["layer"],
+                num(l["resource"]),
+                num(l["demand"]),
+                "%s %%" % num(l["usage_pct"], 2),
+                num(l["overflow"]),
+            ]
+            for l in c["layers"]
+        ],
+        right=("Resource", "Demand", "Usage", "Overflow"),
+    )
+
+    # the settings, grouped where parts share a value
+    shared = {}
+    for p in order:
+        for name, stages in sorted(parts[p].get("settings", {}).items()):
+            if name in SETTINGS_SKIP or any(
+                ("bazel-out" in x or x.startswith("test/") or x.startswith("external/"))
+                for x in stages.values()
+            ):
+                continue
+            values = sorted(set(stages.values()))
+            value = (
+                values[0]
+                if len(values) == 1
+                else "; ".join(
+                    "%s: %s" % (st.split("_", 1)[-1], x)
+                    for st, x in sorted(stages.items())
+                )
+            )
+            shared.setdefault((name, value), []).append(p)
+    rows = [
+        [
+            "`%s`" % n,
+            "`%s`" % val if val else "(empty)",
+            "all" if len(ps) == len(order) else ", ".join(ps),
+        ]
+        for (n, val), ps in sorted(shared.items())
+    ]
+    v["settings_table"] = table(["Variable", "Value", "Parts"], rows)
+
+    # the floorplan with and without macros
+    rows = []
+    fp = snap["floorplan"]
+    for b, x in sorted(fp["blocks"].items(), key=lambda kv: kv[1]["origin_um"][1]):
+        rows.append(
+            [
+                "`%s`" % b,
+                "`%s`" % x["instance"],
+                "%s, %s" % (num(x["origin_um"][0], 1), num(x["origin_um"][1], 1)),
+                "%s x %s"
+                % (num(x["footprint_um"][0], 1), num(x["footprint_um"][1], 1)),
+                "%s x %s" % (num(x["built_um"][0], 1), num(x["built_um"][1], 1)),
+                num(x["scale"][0], 3),
+                "%s, %s"
+                % (num(x["free_space_scale"][0], 3), num(x["free_space_scale"][1], 3)),
+            ]
+        )
+    v["dissolve_table"] = table(
+        [
+            "Block",
+            "Instance in XSTile",
+            "Origin um",
+            "Footprint um",
+            "Built um",
+            "Outline scale",
+            "Free-space scale x, y",
+        ],
+        rows,
+        right=(
+            "Origin um",
+            "Footprint um",
+            "Built um",
+            "Outline scale",
+            "Free-space scale x, y",
+        ),
+        abbrev={"Outline scale": "Scale", "Free-space scale x, y": "Gap scale"},
+    )
+    v["flat_macros"] = num(fp["macros"])
+
+    # the pictures, part by part
+    shown = [
+        ("floorplan.jpg", "the floorplan: macros, ports and the power grid"),
+        ("module_map.png", "which module's cells sit where"),
+        ("density.png", "placement density, standard-cell area per bin"),
+        ("congestion.jpg", "global route's congestion"),
+        ("histogram.png", "every register-to-register endpoint's period"),
+    ]
+    out = []
+    for p in order:
+        what = (
+            "the tile, its blocks as macros" if p == top else "a hardened block, alone"
+        )
+        out.append("### `%s`, %s\n" % (p, what))
+        for f, caption in shown:
+            out.append(
+                "![%s: %s](images/%s_%s)\n\n*%s: %s.*\n"
+                % (p, caption, p, f, p, caption)
+            )
+    v["part_gallery"] = "\n".join(out).rstrip("\n")
+    v["kpi_run_date"] = snap["kpi_row"]["date"]
 
 
 def render(template, values):
@@ -552,6 +750,7 @@ def main(argv=None):
         "sta",
         "rtl-ports",
         "pin",
+        "snapshot",
     ):
         p.add_argument("--" + flag, required=True)
     p.add_argument("--status")

@@ -1,0 +1,184 @@
+registers 282006, clocked 282006, reg2reg endpoints 289458
+path  period  launch capture   skew   cell   wire  bufs/cells  regs_um  wire_um  start -> end
+   1    1172     769     796     27   1015    165    48/77         826     2857  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[34]$_DFFE_PP_/D
+   2    1171     769     796     27   1014    165    48/77         828     2860  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[11]$_DFFE_PP_/D
+   3    1171     769     796     27   1014    165    48/77         827     2856  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[30]$_DFFE_PP_/D
+   4    1171     769     796     27   1014    165    48/77         825     2855  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[31]$_DFFE_PP_/D
+   5    1171     769     796     27   1014    165    48/77         828     2859  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[9]$_DFFE_PP_/D
+   6    1171     769     796     27   1014    165    48/77         826     2855  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[28]$_DFFE_PP_/D
+   7    1171     769     796     27   1015    164    48/77         830     2856  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[32]$_DFFE_PP_/D
+   8    1171     769     796     27   1014    165    48/77         825     2855  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[7]$_DFFE_PP_/D
+   9    1171     769     796     27   1014    164    48/77         828     2854  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[33]$_DFFE_PP_/D
+  10    1171     769     796     27   1014    164    48/77         827     2856  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[25]$_DFFE_PP_/D
+  11    1171     769     796     27   1014    165    48/77         825     2854  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[29]$_DFFE_PP_/D
+  12    1171     769     796     28   1014    164    48/77         824     2855  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[17]$_DFFE_PP_/D
+  13    1171     769     796     27   1014    165    48/77         824     2854  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[23]$_DFFE_PP_/D
+  14    1170     769     796     27   1014    164    48/77         827     2854  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[0]$_DFFE_PP_/D
+  15    1170     769     796     28   1014    164    48/77         824     2854  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[16]$_DFFE_PP_/D
+  16    1170     769     796     27   1009    166    47/77         827     2861  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[22]$_DFFE_PP_/D
+  17    1170     769     796     28   1014    164    48/77         825     2854  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[27]$_DFFE_PP_/D
+  18    1170     769     796     28   1008    166    47/77         825     2861  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[18]$_DFFE_PP_/D
+  19    1168     769     800     31   1014    165    48/77         831     2862  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[12]$_DFFE_PP_/D
+  20    1168     769     800     31   1014    165    48/77         830     2862  inner_dcache/dcache.mainPipe/s1_req_vaddr[28]$_DFFE_PP_/QN -> inner_dcache/dcache.cacheCtrlOpt.CtrlUnitPseudoErrorPipelineConnect0.io_out_bits_0_mask[26]$_DFFE_PP_/D
+path 1 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+path 2 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+path 3 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+path 4 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+path 5 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+path 6 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+path 7 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+path 8 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+path 9 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+path 10 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+path 11 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+path 12 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+path 13 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+path 14 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+path 15 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+path 16 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+path 17 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+path 18 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+path 19 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+path 20 scopes, arrival on entering:
+       796 inner_dcache/dcache.mainPipe
+      1001 inner_dcache
+      1246 inner_dcache/dcache.mainPipe
+      1482 inner_dcache/dcache.bankedDataArray
+      1516 inner_dcache
+      1530 inner_dcache/dcache.mainPipe
+      1663 inner_dcache
+endpoints over 2000 ps: 0
+endpoints over 2000 ps by launch -> capture scope, 4 levels (endpoints, excess ns):

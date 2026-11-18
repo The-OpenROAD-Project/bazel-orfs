@@ -285,6 +285,8 @@ class TemplateTest(unittest.TestCase):
                     ports,
                     "--pin",
                     pin,
+                    "--snapshot",
+                    os.path.join(HERE, "snapshot", "snapshot.json"),
                 ]
                 + regfiles
             )

@@ -1,0 +1,162 @@
+registers 119306, clocked 119306, reg2reg endpoints 132441
+path  period  launch capture   skew   cell   wire  bufs/cells  regs_um  wire_um  start -> end
+   1    1032     644     561    -83    723    164    24/46         451     1933  inner_ftq/io_toBpu_train_bits_meta_phr_phrPtr_value[1]$_DFFE_PP0N_/QN -> inner_bpu/tage/tables_7.tage_useful_sram_bank0_way0.array.array_0_0_0.array.array_ext/RW0_addr[2]
+   2    1030     644     563    -81    727    161    25/48         483     1965  inner_ftq/io_toBpu_train_bits_meta_phr_phrPtr_value[1]$_DFFE_PP0N_/QN -> inner_bpu/tage/tables_7.tage_useful_sram_bank1_way1.array.array_0_0_0.array.array_ext/RW0_addr[2]
+   3    1030     644     563    -81    751    136    27/50         483     1774  inner_ftq/io_toBpu_train_bits_meta_phr_phrPtr_value[1]$_DFFE_PP0N_/QN -> inner_bpu/tage/tables_7.tage_useful_sram_bank1_way1.array.array_0_0_0.array.array_ext/RW0_addr[1]
+   4    1030     644     564    -81    727    161    25/48         472     1955  inner_ftq/io_toBpu_train_bits_meta_phr_phrPtr_value[1]$_DFFE_PP0N_/QN -> inner_bpu/tage/tables_7.tage_useful_sram_bank1_way0.array.array_0_0_0.array.array_ext/RW0_addr[2]
+   5    1030     644     564    -81    751    136    27/50         472     1763  inner_ftq/io_toBpu_train_bits_meta_phr_phrPtr_value[1]$_DFFE_PP0N_/QN -> inner_bpu/tage/tables_7.tage_useful_sram_bank1_way0.array.array_0_0_0.array.array_ext/RW0_addr[1]
+   6    1030     644     561    -83    744    140    26/48         451     1742  inner_ftq/io_toBpu_train_bits_meta_phr_phrPtr_value[1]$_DFFE_PP0N_/QN -> inner_bpu/tage/tables_7.tage_useful_sram_bank0_way0.array.array_0_0_0.array.array_ext/RW0_addr[1]
+   7    1028     644     567    -77    738    150    30/50         503     1922  inner_ftq/io_toBpu_train_bits_meta_phr_phrPtr_value[1]$_DFFE_PP0N_/QN -> inner_bpu/tage/tables_4.tage_useful_sram_bank1_way0.array.array_0_0_0.array.array_ext/RW0_addr[1]
+   8    1024     644     564    -81    732    150    29/49         513     1912  inner_ftq/io_toBpu_train_bits_meta_phr_phrPtr_value[1]$_DFFE_PP0N_/QN -> inner_bpu/tage/tables_4.tage_useful_sram_bank1_way1.array.array_0_0_0.array.array_ext/RW0_addr[1]
+   9    1023     658     637    -21    818    119    12/33         464     1072  inner_ftq/io_toICache_toMainPipe_bits_req_1_ftqIdx_value[3]$_DFFE_PP0P_/QN -> inner_icache/dataArray.banks_0.ways_0.array.array_ext/RW0_en
+  10    1022     644     563    -81    767    112    27/47         483     1571  inner_ftq/io_toBpu_train_bits_meta_phr_phrPtr_value[1]$_DFFE_PP0N_/QN -> inner_bpu/tage/tables_7.tage_useful_sram_bank1_way1.array.array_0_0_0.array.array_ext/RW0_addr[3]
+  11    1022     644     567    -77    716    167    30/49         503     2113  inner_ftq/io_toBpu_train_bits_meta_phr_phrPtr_value[1]$_DFFE_PP0N_/QN -> inner_bpu/tage/tables_4.tage_useful_sram_bank1_way0.array.array_0_0_0.array.array_ext/RW0_addr[2]
+  12    1021     644     584    -61    740    158    26/49         349     1904  inner_ftq/io_toBpu_train_bits_meta_phr_phrPtr_value[1]$_DFFE_PP0N_/QN -> inner_bpu/tage/tables_7.tage_useful_sram_bank2_way0.array.array_0_0_0.array.array_ext/RW0_addr[2]
+  13    1021     644     577    -67    727    164    24/46         461     1944  inner_ftq/io_toBpu_train_bits_meta_phr_phrPtr_value[1]$_DFFE_PP0N_/QN -> inner_bpu/tage/tables_7.tage_useful_sram_bank0_way1.array.array_0_0_0.array.array_ext/RW0_addr[2]
+  14    1021     644     585    -60    740    158    26/49         360     1896  inner_ftq/io_toBpu_train_bits_meta_phr_phrPtr_value[1]$_DFFE_PP0N_/QN -> inner_bpu/tage/tables_7.tage_useful_sram_bank2_way1.array.array_0_0_0.array.array_ext/RW0_addr[2]
+  15    1020     644     577    -67    750    140    26/48         461     1753  inner_ftq/io_toBpu_train_bits_meta_phr_phrPtr_value[1]$_DFFE_PP0N_/QN -> inner_bpu/tage/tables_7.tage_useful_sram_bank0_way1.array.array_0_0_0.array.array_ext/RW0_addr[1]
+  16    1020     644     584    -60    736    161    26/48         386     1982  inner_ftq/io_toBpu_train_bits_meta_phr_phrPtr_value[1]$_DFFE_PP0N_/QN -> inner_bpu/tage/tables_6.tage_useful_sram_bank1_way0.array.array_0_0_0.array.array_ext/RW0_addr[2]
+  17    1019     644     563    -82    742    134    29/50         498     1788  inner_ftq/io_toBpu_train_bits_meta_phr_phrPtr_value[1]$_DFFE_PP0N_/QN -> inner_bpu/tage/tables_5.tage_useful_sram_bank3_way1.array.array_0_0_0.array.array_ext/RW0_addr[1]
+  18    1018     644     576    -68    732    155    26/48         429     1924  inner_ftq/io_toBpu_train_bits_meta_phr_phrPtr_value[1]$_DFFE_PP0N_/QN -> inner_bpu/tage/tables_6.tage_useful_sram_bank3_way0.array.array_0_0_0.array.array_ext/RW0_addr[2]
+  19    1018     644     564    -81    710    166    29/48         513     2101  inner_ftq/io_toBpu_train_bits_meta_phr_phrPtr_value[1]$_DFFE_PP0N_/QN -> inner_bpu/tage/tables_4.tage_useful_sram_bank1_way1.array.array_0_0_0.array.array_ext/RW0_addr[2]
+  20    1017     644     584    -61    761    132    28/51         349     1711  inner_ftq/io_toBpu_train_bits_meta_phr_phrPtr_value[1]$_DFFE_PP0N_/QN -> inner_bpu/tage/tables_7.tage_useful_sram_bank2_way0.array.array_0_0_0.array.array_ext/RW0_addr[1]
+path 1 scopes, arrival on entering:
+       673 inner_ftq
+       681 .
+       713 inner_bpu/phr
+      1138 inner_bpu
+      1250 inner_bpu/phr
+      1400 inner_bpu/tage
+path 2 scopes, arrival on entering:
+       673 inner_ftq
+       681 .
+       713 inner_bpu/phr
+      1138 inner_bpu
+      1250 inner_bpu/phr
+      1400 inner_bpu/tage
+path 3 scopes, arrival on entering:
+       673 inner_ftq
+       681 .
+       713 inner_bpu/phr
+      1134 inner_bpu
+      1277 inner_bpu/phr
+      1395 inner_bpu/tage
+path 4 scopes, arrival on entering:
+       673 inner_ftq
+       681 .
+       713 inner_bpu/phr
+      1138 inner_bpu
+      1250 inner_bpu/phr
+      1400 inner_bpu/tage
+path 5 scopes, arrival on entering:
+       673 inner_ftq
+       681 .
+       713 inner_bpu/phr
+      1134 inner_bpu
+      1277 inner_bpu/phr
+      1395 inner_bpu/tage
+path 6 scopes, arrival on entering:
+       673 inner_ftq
+       681 .
+       713 inner_bpu/phr
+      1134 inner_bpu
+      1277 inner_bpu/phr
+      1395 inner_bpu/tage
+path 7 scopes, arrival on entering:
+       673 inner_ftq
+       681 .
+       713 inner_bpu/phr
+      1134 inner_bpu
+      1277 inner_bpu/phr
+      1340 inner_bpu/tage
+path 8 scopes, arrival on entering:
+       673 inner_ftq
+       681 .
+       713 inner_bpu/phr
+      1134 inner_bpu
+      1277 inner_bpu/phr
+      1340 inner_bpu/tage
+path 9 scopes, arrival on entering:
+       690 inner_ftq
+      1003 .
+      1061 inner_ftq
+      1208 inner_icache
+path 10 scopes, arrival on entering:
+       671 inner_ftq
+       680 .
+       709 inner_bpu/phr
+      1149 inner_bpu
+      1265 inner_bpu/phr
+      1364 inner_bpu/tage
+path 11 scopes, arrival on entering:
+       673 inner_ftq
+       681 .
+       713 inner_bpu/phr
+      1138 inner_bpu
+      1250 inner_bpu/phr
+      1328 inner_bpu/tage
+path 12 scopes, arrival on entering:
+       673 inner_ftq
+       681 .
+       713 inner_bpu/phr
+      1138 inner_bpu
+      1250 inner_bpu/phr
+      1400 inner_bpu/tage
+path 13 scopes, arrival on entering:
+       673 inner_ftq
+       681 .
+       713 inner_bpu/phr
+      1138 inner_bpu
+      1250 inner_bpu/phr
+      1400 inner_bpu/tage
+path 14 scopes, arrival on entering:
+       673 inner_ftq
+       681 .
+       713 inner_bpu/phr
+      1138 inner_bpu
+      1250 inner_bpu/phr
+      1400 inner_bpu/tage
+path 15 scopes, arrival on entering:
+       673 inner_ftq
+       681 .
+       713 inner_bpu/phr
+      1134 inner_bpu
+      1277 inner_bpu/phr
+      1395 inner_bpu/tage
+path 16 scopes, arrival on entering:
+       673 inner_ftq
+       681 .
+       713 inner_bpu/phr
+      1138 inner_bpu
+      1250 inner_bpu/phr
+      1382 inner_bpu/tage
+path 17 scopes, arrival on entering:
+       673 inner_ftq
+       681 .
+       713 inner_bpu/phr
+      1134 inner_bpu
+      1277 inner_bpu/phr
+      1357 inner_bpu/tage
+path 18 scopes, arrival on entering:
+       673 inner_ftq
+       681 .
+       713 inner_bpu/phr
+      1138 inner_bpu
+      1250 inner_bpu/phr
+      1382 inner_bpu/tage
+path 19 scopes, arrival on entering:
+       673 inner_ftq
+       681 .
+       713 inner_bpu/phr
+      1138 inner_bpu
+      1250 inner_bpu/phr
+      1328 inner_bpu/tage
+path 20 scopes, arrival on entering:
+       673 inner_ftq
+       681 .
+       713 inner_bpu/phr
+      1134 inner_bpu
+      1277 inner_bpu/phr
+      1395 inner_bpu/tage
+endpoints over 2000 ps: 0
+endpoints over 2000 ps by launch -> capture scope, 4 levels (endpoints, excess ns):

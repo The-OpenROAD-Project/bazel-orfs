@@ -99,6 +99,7 @@ def xs_kit(name, flow, regfiles, sdc, doc_inputs, regfile_specs, rtl_ports, tags
             ":%s_memories.lef" % name,
             ":%s_memories.lib" % name,
             _KIT + ":sta.tcl",
+            _KIT + ":snapshot_files",
             _PDK,
         ] + [":%s_generate_abstract" % m for m in regfiles] + [":%s_%s_netlist" % (name, m) for m in regfiles],
         outs = [name + "_files.tar.gz"],
@@ -113,6 +114,9 @@ def xs_kit(name, flow, regfiles, sdc, doc_inputs, regfile_specs, rtl_ports, tags
             "--memories-lef $(location :%s_memories.lef)" % name,
             "--memories-lib $(location :%s_memories.lib)" % name,
             regfile_args,
+            # the snapshot: its floorplan as floorplan/, the rest as reference/
+            "$$(for f in $(locations %s:snapshot_files); do r=$${f#*/kit/snapshot/};" % _KIT,
+            "case $$r in floorplan/*) echo --file $$r=$$f;; *) echo --file reference/$$r=$$f;; esac; done)",
             "$(locations %s)" % _PDK,
         ]),
         tags = tags,
@@ -193,6 +197,8 @@ def xs_kit(name, flow, regfiles, sdc, doc_inputs, regfile_specs, rtl_ports, tags
             _KIT + ":sta.tcl",
             _KIT + ":xstile_context.svg",
             _KIT + ":clock_boundary.svg",
+            _KIT + ":snapshot/snapshot.json",
+            _KIT + ":snapshot_images",
             "//:MODULE.bazel",
         ] + doc_inputs.values() + regfile_specs,
         outs = [name + "_doc/README.pdf", name + "_doc/README.md", name + "_doc/floorplan.svg"],
@@ -208,6 +214,7 @@ def xs_kit(name, flow, regfiles, sdc, doc_inputs, regfile_specs, rtl_ports, tags
             "--blocks $(location %s:blocks.json)" % _KIT,
             "--module-bazel $(location //:MODULE.bazel)",
             "--sta $(location %s:sta.tcl)" % _KIT,
+            "--snapshot $(location %s:snapshot/snapshot.json)" % _KIT,
             "--status bazel-out/stable-status.txt",
             " ".join(["$(location %s)" % s for s in regfile_specs]),
             "&& $(execpath %s:md_to_pdf)" % _KIT,
@@ -216,6 +223,7 @@ def xs_kit(name, flow, regfiles, sdc, doc_inputs, regfile_specs, rtl_ports, tags
             "--image floorplan.svg=$(location %s_doc/floorplan.svg)" % name,
             "--image xstile_context.svg=$(location %s:xstile_context.svg)" % _KIT,
             "--image clock_boundary.svg=$(location %s:clock_boundary.svg)" % _KIT,
+            "$$(for f in $(locations %s:snapshot_images); do echo --image images/$$(basename $$f)=$$f; done)" % _KIT,
             "$(location %s_doc/README.md)" % name,
         ]),
         # the commit and the date README.pdf names (tools/workspace_status.sh)
@@ -241,4 +249,64 @@ def xs_kit(name, flow, regfiles, sdc, doc_inputs, regfile_specs, rtl_ports, tags
         env = {"KIT_ARCHIVE": "$(rootpath :%s)" % name},
         tags = tags,
         deps = [_KIT + ":kit_lib"],
+    )
+
+def xs_kit_snapshot(name, top, blocks, tags = ["manual"]):
+    """The OpenROAD reference the kit's README shows: `bazelisk run :<name>`.
+
+    Read from each part's global-route checkpoint (snapshot.tcl) and its
+    KPI (kpi_run.tcl): images, the placement density, the macros and the ports, the statistics
+    and the slack histograms. Informational, and a global route of the whole
+    tile to remake, so it is not part of the kit's build: `bazelisk run
+    :<name>` writes it into kit/snapshot/, where the README reads it.
+
+    Args:
+      name: the run target; <name>_<part> is each part's snapshot.
+      top: the parent flow, whose blocks are macros in it.
+      blocks: the hardened blocks' flows.
+      tags: forwarded.
+    """
+    parts = [top] + blocks
+    for part in parts:
+        orfs_run(
+            name = "%s_%s" % (name, part),
+            src = ":%s_grt" % part,
+            out_dir = "%s_%s" % (name, part),
+            script = _KIT + ":snapshot.tcl",
+            src_logs = True,
+            user_arguments = {
+                "SNAPSHOT_BIN_UM": "20",
+                "SNAPSHOT_MASTER_PINS": " ".join(blocks) if part == top else "",
+                "SNAPSHOT_WIDTH": "1200",
+            },
+            tags = tags,
+        )
+
+    # the settings each stage ran with, as the flow resolved them
+    stages = {"2_floorplan": "floorplan", "3_place": "place", "4_cts": "cts", "5_1_grt": "grt"}
+    for part in parts:
+        for stage in stages:
+            native.filegroup(
+                name = "%s_%s_%s_mk" % (name, part, stage),
+                srcs = [":%s_%s" % (part, stages[stage])],
+                output_group = stage + ".mk",
+                tags = tags,
+            )
+    settings = ["%s_%s_%s_mk" % (name, p, s) for p in parts for s in stages]
+    data = [":kpi.json", _KIT + ":pinned/facts.json"] + [":" + s for s in settings] + [":%s_%s" % (name, p) for p in parts] + [":%s_kpi.txt" % p for p in parts] + [":%s_kpi_paths.txt" % p for p in parts]
+    py_binary(
+        name = name,
+        srcs = [_KIT + ":snapshot.py"],
+        main = _KIT + ":snapshot.py",
+        args = ["--top", top, "--kpi-json", "$(rootpath :kpi.json)", "--out", native.package_name() + "/kit/snapshot", "--facts", "$(rootpath %s:pinned/facts.json)" % _KIT] + [
+            "--settings %s=$(rootpath :%s_%s_%s_mk)" % (p, name, p, s)
+            for p in parts
+            for s in stages
+        ] + [
+            "--part %s=$(rootpath :%s_%s),$(rootpath :%s_kpi.txt),$(rootpath :%s_kpi_paths.txt)" % (p, name, p, p, p)
+            for p in parts
+        ],
+        data = data,
+        tags = tags,
+        deps = ["@bazel-orfs-dev-pip//matplotlib"],
     )

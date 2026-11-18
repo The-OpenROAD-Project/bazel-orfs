@@ -1,0 +1,165 @@
+registers 146057, clocked 146057, reg2reg endpoints 156682
+path  period  launch capture   skew   cell   wire  bufs/cells  regs_um  wire_um  start -> end
+   1    2024     831    1792    961   2592    349    31/47        2147     5114  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud/io_deqDelay_0_bits_rcIdx_0[3]$_DFFE_PP_/D
+   2    2021     831    1793    962   2585    355    30/46        2168     5106  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud/io_deqDelay_0_bits_rcIdx_0[5]$_DFFE_PP_/D
+   3    2021     831    1793    962   2581    359    30/46        2146     5174  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud/io_deqDelay_0_bits_rcIdx_0[4]$_DFFE_PP_/D
+   4    2021     831    1794    963   2600    340    25/40        2155     4801  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud/io_deqDelay_0_bits_fuType[19]$_DFFE_PP_/D
+   5    2020     831    1794    963   2594    345    24/38        2152     4791  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud/io_deqDelay_0_bits_fuType[18]$_DFFE_PP_/D
+   6    2020     831    1791    960   2581    356    30/46        2164     5092  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud/io_deqDelay_0_bits_rcIdx_0[0]$_DFFE_PP_/D
+   7    2019     831    1791    960   2581    356    29/45        2170     5096  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud/io_deqDelay_0_bits_rcIdx_0[1]$_DFFE_PP_/D
+   8    2019     831    1794    963   2658    278    25/44        2300     4550  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD1_StdMoud/io_deqDelay_0_bits_rfBankRen_0_0$_DFF_P_/D
+   9    2019     831    1792    961   2583    354    30/46        2162     5072  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud/io_deqDelay_0_bits_rcIdx_0[2]$_DFFE_PP_/D
+  10    2018     831    1791    960   2574    361    32/46        2142     5094  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud/io_deqDelay_0_bits_dataSources_0_value[0]$_DFFE_PP_/D
+  11    2017     831    1791    960   2628    307    24/41        2140     4634  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud/io_deqDelay_0_bits_dataSources_0_value[3]$_DFFE_PP_/D
+  12    2016     831    1793    962   2593    340    31/47        2225     4989  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries/othersEntriesComp_10.io_commonOut_issued$_DFF_P_/D
+  13    2011     831    1792    961   2611    315    31/49        2187     4885  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud/io_deqDelay_0_bits_rfBankRen_0_2$_DFF_P_/D
+  14    2011     831    1792    961   2605    325    31/50        2185     4917  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud/io_deqDelay_0_bits_rfBankRen_0_0$_DFF_P_/D
+  15    2011     831    1793    962   2611    315    30/49        2191     4878  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud/io_deqDelay_0_bits_rfBankRen_0_3$_DFF_P_/D
+  16    2010     831    1791    960   2590    337    31/47        2162     4924  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries/othersEntriesComp_4.io_commonOut_issued$_DFF_P_/D
+  17    2009     831    1793    962   2609    315    30/49        2191     4878  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud/io_deqDelay_0_bits_rfBankRen_0_1$_DFF_P_/D
+  18    2009     831    1792    961   2590    337    31/47        2168     4917  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries/othersEntriesComp_9.io_commonOut_issued$_DFF_P_/D
+  19    2009     831    1791    960   2589    337    31/47        2161     4920  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries/othersEntriesComp_2.io_commonOut_issued$_DFF_P_/D
+  20    2009     831    1792    961   2590    337    31/47        2156     4921  core/memBlock/io_mem_to_ooo_ldCancel_2_ld2Cancel -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries/othersEntriesComp_0.io_commonOut_issued$_DFF_P_/D
+path 1 scopes, arrival on entering:
+      2274 core
+      2278 core/backend
+      3334 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3493 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      3628 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3760 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+path 2 scopes, arrival on entering:
+      2274 core
+      2278 core/backend
+      3334 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3493 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      3622 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3759 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+path 3 scopes, arrival on entering:
+      2274 core
+      2278 core/backend
+      3334 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3493 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      3622 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3757 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+path 4 scopes, arrival on entering:
+      2274 core
+      2278 core/backend
+      3317 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3479 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      3655 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3760 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+path 5 scopes, arrival on entering:
+      2274 core
+      2278 core/backend
+      3317 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3479 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      3655 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3758 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+path 6 scopes, arrival on entering:
+      2274 core
+      2278 core/backend
+      3334 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3493 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      3622 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3756 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+path 7 scopes, arrival on entering:
+      2274 core
+      2278 core/backend
+      3334 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3493 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      3622 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3756 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+path 8 scopes, arrival on entering:
+      2274 core
+      2278 core/backend
+      3274 core/backend/inner_intRegion/issueQueueSTD1_StdMoud/entries
+      3496 core/backend/inner_intRegion/issueQueueSTD1_StdMoud
+      3597 core/backend/inner_intRegion/issueQueueSTD1_StdMoud/entries
+      3746 core/backend/inner_intRegion/issueQueueSTD1_StdMoud
+path 9 scopes, arrival on entering:
+      2274 core
+      2278 core/backend
+      3334 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3493 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      3622 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3757 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+path 10 scopes, arrival on entering:
+      2274 core
+      2278 core/backend
+      3334 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3493 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      3638 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3751 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+path 11 scopes, arrival on entering:
+      2274 core
+      2278 core/backend
+      3332 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3479 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      3621 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3749 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+path 12 scopes, arrival on entering:
+      2267 core
+      2271 core/backend
+      3300 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3486 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      3656 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+path 13 scopes, arrival on entering:
+      2267 core
+      2271 core/backend
+      3300 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3486 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      3633 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3745 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+path 14 scopes, arrival on entering:
+      2274 core
+      2278 core/backend
+      3334 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3493 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      3636 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3752 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+path 15 scopes, arrival on entering:
+      2267 core
+      2271 core/backend
+      3300 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3486 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      3633 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3743 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+path 16 scopes, arrival on entering:
+      2267 core
+      2271 core/backend
+      3300 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3486 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      3656 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+path 17 scopes, arrival on entering:
+      2267 core
+      2271 core/backend
+      3300 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3486 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      3633 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3741 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+path 18 scopes, arrival on entering:
+      2267 core
+      2271 core/backend
+      3300 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3486 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      3656 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+path 19 scopes, arrival on entering:
+      2267 core
+      2271 core/backend
+      3300 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3486 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      3656 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+path 20 scopes, arrival on entering:
+      2267 core
+      2271 core/backend
+      3300 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+      3486 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      3656 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+endpoints over 2000 ps: 44
+      16 core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      12 core/backend/inner_intRegion/issueQueueSTD0_StdMoud/entries
+       8 core/backend/inner_intRegion/issueQueueSTD1_StdMoud
+       8 core/backend/inner_intRegion/issueQueueSTD1_StdMoud/entries
+endpoints over 2000 ps by launch -> capture scope, 4 levels (endpoints, excess ns):
+      28       0.3  core -> core/backend/inner_intRegion/issueQueueSTD0_StdMoud
+      16       0.1  core -> core/backend/inner_intRegion/issueQueueSTD1_StdMoud
