@@ -23,9 +23,14 @@ def main():
     # The flow's scripts are written against a plain `python3`, where
     # the script directory is on sys.path. Dropping the variable gives
     # children exactly that. It does not affect this interpreter, which
-    # has already started, and runpy.run_path below never put the script
-    # directory on sys.path anyway.
+    # has already started.
     os.environ.pop("PYTHONSAFEPATH", None)
+    # runpy.run_path puts a directory or a zip file on sys.path, never
+    # the directory of a script, so the script's siblings are put there
+    # as a plain `python3` does. The directory is the one the script was
+    # named in, with no symlink resolved: in an action that is where the
+    # declared inputs are.
+    sys.path.insert(0, os.path.dirname(os.path.abspath(script)))
     # A plain `python3` caches each module it imports as bytecode in a
     # __pycache__ beside the source, which in a build is someone else's
     # tree: an external repository, or the workspace. A .pyc embeds its
