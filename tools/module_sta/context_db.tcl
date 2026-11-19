@@ -32,6 +32,19 @@ psta_read_libs
 read_db -hier $::env(PSTA_BASE_DB)
 if { ![psta_clocks] } { error "context_db.tcl: no clock port of PSTA_CLOCKS" }
 set block [ord::get_db_block]
+# the walks below need every pin to have one timing vertex
+foreach lib [[ord::get_db] getLibs] {
+  foreach master [$lib getMasters] {
+    foreach mt [$master getMTerms] {
+      if { [$mt getIoType] eq "INOUT" && [$mt getSigType] ni {POWER GROUND} } {
+        error "context_db.tcl: [$master getName]/[$mt getName] is bidirectional"
+      }
+    }
+  }
+}
+foreach bt [$block getBTerms] {
+  if { [$bt getIoType] eq "INOUT" } { error "context_db.tcl: port [$bt getName] is bidirectional" }
+}
 set mp "$::env(PSTA_M)/"
 
 # every leaf cell by its database id, for the walks between database and
@@ -48,6 +61,32 @@ proc sta_pin { iterm } {
     if { [get_property $p lib_pin_name] eq [[$iterm getMTerm] getName] } { return $p }
   }
   return ""
+}
+# The cells get_fanin -to (find_fanin_pins) or get_fanout -from
+# (find_fanout_pins) pins -flat -only_cells -trace_arcs all returns, one pin
+# level at a time so each pin is expanded once: the commands walk every
+# pin's whole cone anew, and the cones of a wide boundary overlap. The same
+# set, as each pin has one timing vertex and a top-level port ends a walk.
+proc walk { cmd pins } {
+  set seen [dict create]
+  foreach p $pins { dict set seen $p 1 }
+  set front $pins
+  while { [llength $front] } {
+    set next {}
+    foreach p [$cmd $front 1 0 0 1 1 1] {
+      if { ![dict exists $seen $p] } {
+        dict set seen $p 1
+        if { ![$p is_top_level_port] } { lappend next $p }
+      }
+    }
+    set front $next
+  }
+  set leaf {}
+  foreach p [dict keys $seen] {
+    if { ![$p is_top_level_port] } { lappend leaf $p }
+  }
+  if { ![llength $leaf] } { return {} }
+  return [get_cells -of_objects $leaf]
 }
 # cell sets: database id -> timer cell, never a cell inside M
 proc add { var objs } {
@@ -96,47 +135,57 @@ set out_pins [lmap it $out_loads { sta_pin $it }]
 set core [dict create]
 if { [llength $in_pins] } {
   add core [get_cells -of_objects $in_pins]
-  add core [get_fanin -to $in_pins -flat -only_cells -trace_arcs all]
+  add core [walk sta::find_fanin_pins $in_pins]
 }
 set fo [dict create]
 if { [llength $out_pins] } {
   add fo [get_cells -of_objects $out_pins]
-  add fo [get_fanout -from $out_pins -flat -only_cells -trace_arcs all]
+  add fo [walk sta::find_fanout_pins $out_pins]
 }
 set core [dict merge $core $fo]
 set fo_inputs [get_pins -quiet -of_objects [dict values $fo] -filter "direction == input"]
 if { [llength $fo_inputs] } {
-  add core [get_fanin -to $fo_inputs -flat -only_cells -trace_arcs all]
+  add core [walk sta::find_fanin_pins $fo_inputs]
 }
 
 # the clock trees: get_fanin stops at a register's clock pin, so they are
 # walked on the database's flat nets, from each clock pin to its driver and
 # on through the driver's clock inputs (a buffer's, a clock gate's CLK),
 # never its enable. A register's clock pin by all_registers as well as
-# is_clock: a memory macro's need not be is_clock.
-set regck [dict create]
-foreach p [all_registers -clock_pins] { dict set regck [get_full_name $p] 1 }
-set todo {}
-foreach c [concat [dict values $core] [lmap i $m_insts { dict get $cells [$i getId] }]] {
-  foreach p [get_pins -quiet -of_objects $c -filter "direction == input"] {
-    if { [get_property $p is_clock] || [dict exists $regck [get_full_name $p]] } {
-      lappend todo [[sta::sta_to_db_pin $p] getNet]
-    }
+# is_clock: a memory macro's need not be is_clock. is_clock is the
+# master's liberty port's, so it is asked of one cell per master.
+set ckterms [dict create]
+proc clock_nets { inst } {
+  set n [[$inst getMaster] getName]
+  if { ![dict exists $::ckterms $n] } {
+    set c [dict get $::cells [$inst getId]]
+    dict set ::ckterms $n [lmap p [get_pins -quiet -of_objects $c -filter "direction == input && is_clock"] {
+      get_property $p lib_pin_name
+    }]
   }
+  lmap t [dict get $::ckterms $n] { [$inst findITerm $t] getNet }
 }
+set m_ids [dict create]
+foreach i $m_insts { dict set m_ids [$i getId] 1 }
+set todo {}
+foreach p [all_registers -clock_pins] {
+  set it [sta::sta_to_db_pin $p]
+  if { $it eq "NULL" || [$it getIoType] ne "INPUT" } { continue }
+  set id [[$it getInst] getId]
+  if { [dict exists $core $id] || [dict exists $m_ids $id] } { lappend todo [$it getNet] }
+}
+foreach c [dict values $core] { lappend todo {*}[clock_nets [sta::sta_to_db_inst $c]] }
+foreach i $m_insts { lappend todo {*}[clock_nets $i] }
 set seen [dict create]
-while { [llength $todo] } {
-  set net [lindex $todo end]
-  set todo [lrange $todo 0 end-1]
+for { set k 0 } { $k < [llength $todo] } { incr k } {
+  set net [lindex $todo $k]
   if { $net eq "NULL" || [dict exists $seen [$net getId]] } { continue }
   dict set seen [$net getId] 1
   foreach o [$net getITerms] {
     if { ![$o isOutputSignal] } { continue }
-    set c [dict get $cells [[$o getInst] getId]]
-    add core [list $c]
-    foreach p [get_pins -quiet -of_objects $c -filter "direction == input"] {
-      if { [get_property $p is_clock] } { lappend todo [[sta::sta_to_db_pin $p] getNet] }
-    }
+    set i [$o getInst]
+    add core [list [dict get $cells [$i getId]]]
+    lappend todo {*}[clock_nets $i]
   }
 }
 
@@ -166,6 +215,8 @@ set f [open $::env(PSTA_EXACT) w]
 foreach e [lsort $exact] { puts $f $e }
 close $f
 
+# the timer is not needed past here, and its graph would follow every edit
+sta::clear_sta
 # cut: side loads keep their inputs only, the rest outside M goes
 set removed 0
 foreach inst [$block getInsts] {
