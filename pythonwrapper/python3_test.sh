@@ -23,7 +23,8 @@ echo "$output" | grep -q "OK args=\['hello', 'world'\]" || {
 echo "PASS: python3 wrapper executed script with correct argv"
 
 # The shape of ORFS's AUTO_MEMORIES: a flow script imports a sibling in
-# the wrapper's own interpreter, then runs another script with
+# the wrapper's own interpreter, as under a plain python3 with no
+# sys.path of its own making, then runs another script with
 # sys.executable, which imports its own sibling package (FakeRAM's run.py
 # and utils/). Neither may leave a __pycache__ in the source tree.
 mkdir -p "$DIR/flow" "$DIR/tool/utils"
@@ -35,7 +36,6 @@ import os
 import subprocess
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import helper
 
 tool = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tool", "run.py")
