@@ -2327,6 +2327,23 @@ synth_action_inputs_test(
     target_under_test = ":lb_32x128_top_gds_scope_synth",
 )
 
+# A macro's .lef is read by the OpenROAD step that builds 1_synth.odb,
+# not by yosys: a macro's pin or outline change with a stable .lib
+# rebuilds the synth ODB, not the parent's netlist.
+synth_action_inputs_test(
+    name = "macro_lef_yosys_excluded_test",
+    forbidden_input_basenames = ["lb_32x128.lef"],
+    output_basename = "1_2_yosys.v",
+    target_under_test = ":lb_32x128_top_gds_scope_synth",
+)
+
+synth_action_inputs_test(
+    name = "macro_lef_synth_odb_included_test",
+    output_basename = "1_synth.odb",
+    required_input_basenames = ["lb_32x128.lef"],
+    target_under_test = ":lb_32x128_top_gds_scope_synth",
+)
+
 synth_action_inputs_test(
     name = "macro_gds_floorplan_excluded_test",
     forbidden_input_basenames = ["gds_scope_dummy.gds"],

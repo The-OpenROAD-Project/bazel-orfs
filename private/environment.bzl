@@ -366,7 +366,7 @@ def rename_inputs(ctx):
 def pdk_inputs(ctx):
     return depset(transitive = [ctx.attr.pdk[PdkInfo].files, ctx.attr.pdk[PdkInfo].libs])
 
-def deps_inputs(ctx, gds = True):
+def deps_inputs(ctx, gds = True, lef = True):
     """Macro dep collateral for action inputs.
 
     Args:
@@ -376,12 +376,17 @@ def deps_inputs(ctx, gds = True):
             prereqs carry no GDS), so they pass False — a macro .gds
             change with stable .lef/.lib then no longer re-synthesizes
             the parent.
+        lef: whether macro .lef files are included. Yosys reads a
+            macro's liberty only (YOSYS_DEPENDENCIES carries no LEF);
+            the OpenROAD step that builds 1_synth.odb reads the LEF. The
+            yosys actions pass False, so a macro's pin or outline change
+            with a stable .lib rebuilds the synth ODB, not the netlist.
     Returns:
         A depset of files.
     """
     return depset(
         ([dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds] if gds else []) +
-        [dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef] +
+        ([dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef] if lef else []) +
         [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib] +
         [
             dep[OrfsInfo].lib_pre_layout

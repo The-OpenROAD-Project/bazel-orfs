@@ -1480,7 +1480,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 transitive = [
                     synth_data_inputs,
                     pdk_inputs(ctx),
-                    deps_inputs(ctx, gds = False),
+                    deps_inputs(ctx, gds = False, lef = False),
                 ],
             ),
             outputs = [checkpoint_output] + keep_logs,
@@ -1832,7 +1832,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
 
     # Full macro inputs — used by the top action, and as the fallback
     # for every partition when per-partition scoping is disabled.
-    all_macro_files = deps_inputs(ctx, gds = False)
+    all_macro_files = deps_inputs(ctx, gds = False, lef = False)
 
     # Per-macro lookup tables, keyed by Verilog module name
     # (TopInfo.module_top — what the RTLIL hierarchy contains). Used
@@ -1846,8 +1846,8 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         if not info.lef:
             continue
 
-        # No .gds: partition synthesis never reads it (see deps_inputs).
-        files = [info.lef, info.lib]
+        # No .gds or .lef: partition synthesis reads neither (see deps_inputs).
+        files = [info.lib]
         if info.lib_pre_layout:
             files.append(info.lib_pre_layout)
         name = dep[TopInfo].module_top
@@ -1952,7 +1952,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                     "--out-dir",
                     filtered_macros_dir.path,
                 ],
-                inputs = [ctx.file.filter_script, canon_output, kept_json, macros_json_file] + all_macro_files.to_list(),
+                inputs = [ctx.file.filter_script, canon_output, kept_json, macros_json_file] + deps_inputs(ctx, gds = False).to_list(),
                 outputs = [filtered_macros_dir],
                 mnemonic = "FilterPartitionMacros",
                 progress_message = "Filtering macros for partition {}".format(suffix),
@@ -2352,7 +2352,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             transitive = [
                 synth_data_inputs,
                 pdk_inputs(ctx),
-                deps_inputs(ctx, gds = False),
+                deps_inputs(ctx, gds = False, lef = False),
             ],
         ),
         outputs = [keep_costs],
@@ -2504,7 +2504,7 @@ def _yosys_impl(ctx):
     # then fails the ODB LEF-master lookup (ORD-2013). Blackboxing at read
     # keeps the bare name.
     canon_config = config
-    canon_deps = deps_inputs(ctx, gds = False)
+    canon_deps = deps_inputs(ctx, gds = False, lef = False)
     if ctx.attr.kept_macros_enabled and ctx.attr.canon_blackbox_macros:
         # The caller names exactly the macros to blackbox at canonicalize
         # (canon_blackbox_macros — e.g. the SHARED_LOGIC macros). They are
@@ -2977,7 +2977,7 @@ def _yosys_impl(ctx):
                 transitive = [
                     synth_data_inputs,
                     pdk_inputs(ctx),
-                    deps_inputs(ctx, gds = False),
+                    deps_inputs(ctx, gds = False, lef = False),
                 ],
             ),
             outputs = [synth_outputs["1_2_yosys.v"], synth_outputs["mem.json"]] +
