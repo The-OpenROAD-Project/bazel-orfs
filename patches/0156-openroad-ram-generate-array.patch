@@ -25,7 +25,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100644 openroad/ram/test/generate_array_asap7.tcl
 
 diff --git a/openroad/ram/src/ram.tcl b/openroad/ram/src/ram.tcl
-index ead7122..fd7e24a 100644
+index ead7122d1a..fd7e24afe4 100644
 --- a/openroad/ram/src/ram.tcl
 +++ b/openroad/ram/src/ram.tcl
 @@ -576,3 +576,122 @@ proc generate_ram { args } {
@@ -152,20 +152,20 @@ index ead7122..fd7e24a 100644
 +
 +}
 diff --git a/openroad/ram/test/BUILD b/openroad/ram/test/BUILD
-index 9e3acb3..fc0cc9f 100644
+index 19b04e1b4f..8b2fecea3d 100644
 --- a/openroad/ram/test/BUILD
 +++ b/openroad/ram/test/BUILD
-@@ -32,6 +32,7 @@ PASSFAIL_TESTS = [
-     "option_errors_asap7",
-     "pins_corner_asap7",
-     "routed_short_edge_asap7",
+@@ -40,6 +40,7 @@ PASSFAIL_TESTS = [
+     "write_mask_groups_asap7",
+     "fold_ten_groups_asap7",
+     "fold_odd_groups_asap7",
 +    "generate_array_asap7",
  ]
  
  ALL_TESTS = COMPULSORY_TESTS + PASSFAIL_TESTS
 diff --git a/openroad/ram/test/generate_array_asap7.tcl b/openroad/ram/test/generate_array_asap7.tcl
 new file mode 100644
-index 0000000..90fc554
+index 0000000000..90fc554d4f
 --- /dev/null
 +++ b/openroad/ram/test/generate_array_asap7.tcl
 @@ -0,0 +1,54 @@
