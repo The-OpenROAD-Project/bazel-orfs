@@ -12,6 +12,7 @@ exports_files(
         "flat.tcl",
         "iterate.sh.tpl",
         "iterate.tcl",
+        "libs.tcl",
         "sta.sh",
     ],
     visibility = ["//visibility:public"],
