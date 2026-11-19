@@ -31,7 +31,11 @@ def _impl(ctx):
             asserts.false(env, name in inputs, "%s's partition reads %s" % (module, name))
         asserts.equals(
             env,
-            ["partition_%s.v" % module, "partition_%s_stat.txt" % module],
+            [
+                "partition_%s.v" % module,
+                "partition_%s_stat.txt" % module,
+                "partition_%s.log" % module,
+            ],
             [f.basename for f in action.outputs.to_list()],
         )
 
