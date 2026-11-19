@@ -70,12 +70,6 @@ ORFS_PATCHES = [
     # Not upstreamed -- retire at a bump onto an ORFS with such a hook.
     Label("//patches:0068-orfs-synth-techmap-hook.patch"),
     Label("//patches:0074-orfs-skip-extract-fa.patch"),
-    # 0083: the macro step skips rtl_macro_placer when MACRO_PLACEMENT_TCL
-    # fixed every macro (a planned parent: its blocks and register files
-    # placed by the plan). Written for the FIRM cells of the retired
-    # structured netlists, which it refused (MPL-0050). Carried, not
-    # upstreamed.
-    Label("//patches:0083-orfs-macro-place-all-fixed.patch"),
     # 0085: SKIP_PIN_ACCESS runs the global route without building access
     # points. pin_access fails on a macro pin it cannot reach (DRT-0073),
     # which on a hierarchical design is one pin of one block between a
@@ -139,16 +133,6 @@ ORFS_PATCHES = [
     # added. Not upstreamed; retires at a bump onto an ORFS that
     # carries it.
     Label("//patches:0172-orfs-regfile-top-keeps-generate-ram-layout.patch"),
-    # 0179: REPAIR_TIMING_PATH_GROUP passes repair_timing -path_group, so a
-    # parent macro whose ports carry budgets no repair inside it can meet
-    # repairs its reg2reg paths instead. Not upstreamed; retires at a bump
-    # onto an ORFS that carries it.
-    Label("//patches:0179-orfs-repair-timing-path-group.patch"),
-    # 0180: REPAIR_TIMING_MAX_ITERATIONS passes repair_timing
-    # -max_iterations, for a repair that stops improving long before it has
-    # visited its endpoints. On 0179. Not upstreamed; retires at a bump onto
-    # an ORFS that carries it.
-    Label("//patches:0180-orfs-repair-timing-max-iterations.patch"),
     # 0215: a register file's own flow puts soft placement blockages over
     # generate_ram's FIRM array, in strips between its free columns (its
     # service columns among them), so global placement places what is
@@ -164,12 +148,6 @@ ORFS_PATCHES = [
     # sources the vars, whose paths are relative to the root. Not
     # upstreamed; retires at a bump onto an ORFS that carries it.
     Label("//patches:0217-orfs-issue-run-me-root.patch"),
-    # 0218: AUTO_MEMORIES_JSON, where AUTO_MEMORIES' inventory is
-    # written, so the whole design's detection under verilog_slices
-    # writes memories.json beside its own views instead of where the
-    # slices' union is declared. Not upstreamed; retires at a bump onto an ORFS that
-    # carries it.
-    Label("//patches:0218-orfs-auto-memories-json.patch"),
     # 0231: generate_abstract stops on a model whose max_clock_tree_path
     # is below its min: a parent's CTS balances the block by the max and
     # clocks it late (XiangShan's VecRegionModule, 245 ps). Not

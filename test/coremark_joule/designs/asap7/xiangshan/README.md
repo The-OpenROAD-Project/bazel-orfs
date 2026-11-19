@@ -409,11 +409,9 @@ iteration (GPL-1017), in the wave that placed it (`gpl_driven.sh`,
 it only when it inflates cells, and run 21's parent ran 62
 routability-mode iterations without inflating any.
 
-Two carried OpenROAD patches concern this flow. 0220 makes CTS clock
+One carried OpenROAD patch concerns this flow: 0220 makes CTS clock
 every register when two share a location, which its H-tree builder used
-to drop silently. 0221, global placement's timing-driven pin pull, is
-carried but off: no flow here sets `-timing_driven_pin_pull`, and with
-it off placement is byte-identical.
+to drop silently.
 
 Earlier stages are their own targets (`XSTile_synth`, `_floorplan`,
 `_place`, `_cts`), each with `gui_` and `open_` forms and a `//:dirty`

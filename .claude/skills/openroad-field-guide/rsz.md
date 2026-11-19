@@ -57,8 +57,8 @@ OpenROAD #11387, printing `-verbose` rows (88 % of a coralnpu floorplan).**
 | ORFS variable | Effect |
 |---|---|
 | `TNS_END_PERCENT` | biggest runtime lever; WNS is always repaired. 100 -> 0 cost 0.17 ps, saved 135 of 270 s of grt (bazel-orfs #958) |
-| `REPAIR_TIMING_PATH_GROUP` (carried 0179) | repair only reg2reg; stops repair chasing a block pin at -5.4 ns while reg2reg moves 2 ps (3,768 -> 2,826 ps) |
-| `REPAIR_TIMING_MAX_ITERATIONS` (carried 0180) | caps the grind |
+| `repair_timing -path_group reg2reg` (no ORFS variable passes it) | repair only reg2reg; stops repair chasing a block pin at -5.4 ns while reg2reg moves 2 ps (3,768 -> 2,826 ps) |
+| `repair_timing -max_iterations` (no ORFS variable passes it) | caps the grind |
 | `SETUP/HOLD_SLACK_MARGIN`, `SETUP_MOVE_SEQUENCE`, `SKIP_*` moves | per-move control |
 | `SKIP_CTS_REPAIR_TIMING` | dropping it on the parent gained 4,226 -> 3,785 ps (bazel-orfs #1144) |
 

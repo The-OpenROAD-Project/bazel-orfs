@@ -308,9 +308,8 @@ What make does that Bazel did not:
 - **A block's `.lib`.** Bazel gives the parent's stages before CTS each
   block's pre-layout `.lib`, ORFS gives every stage the abstract's own.
   The floorplan is the same; timing before CTS can differ.
-- **Upstream ORFS runs `rtl_macro_placer` on a fully fixed set of
-  macros.** The pinned ORFS carries patch 0083, which skips it once
-  `MACRO_PLACEMENT_TCL` has fixed every macro, as a snapshot does.
+- **ORFS runs `rtl_macro_placer` on a fully fixed set of macros.**
+  The placer finds no unfixed macro and returns (OpenROAD #11504).
 - **No standard-cell seeds.** `rtl_macro_placer` leaves the standard
   cells it clusters `PLACED` at the cluster centres; a snapshot does not
   run it, so make's floorplan leaves them unplaced. The round trip
@@ -356,8 +355,8 @@ needs these first:
   hierarchy, merged.
 - ORFS #4662, a FakeRAM asap7 macro at least one power-strap pitch wide
   (the parent's `AUTO_MEMORIES` macros), merged.
-- ORFS patch 0083, `rtl_macro_placer` skipped once a snapshot fixes
-  every macro; not upstream.
+- OpenROAD #11504, `rtl_macro_placer` returns when a snapshot has fixed
+  every macro, merged.
 - ORFS patch 0124, the supplies of `dont_touch` instances connected by
   PDN; not upstream.
 - ORFS #4711, FakeRAM from the declared pins and write mask, if the

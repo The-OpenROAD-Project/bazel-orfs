@@ -35,9 +35,9 @@ XS_USER_STAGES = {v: ["floorplan"] for v in XS_USER_ARGUMENTS + XS_USER_SOURCES}
     v: ["synth"]
     for v in list(XS_ICG_USER_ARGUMENTS) + list(XS_ICG_USER_SOURCES) + ["XS_FOLD_MODULES"]
 } | {
-    # global_place_args.tcl's, set only when a switch is on (_gpl_switches)
+    # global_place_args.tcl's, set only when the switch is on (_gpl_switches)
     v: ["place"]
-    for v in ["XS_GPL_CLUSTERS_FILE", "XS_GPL_TAIL_PULL_ARGS"]
+    for v in ["XS_GPL_CLUSTERS_FILE"]
 }
 
 # The flat core. Elaborated without Chisel's verification layer (see the
@@ -1383,26 +1383,16 @@ XS_CTS_LATENCY_OFFSETS = {
 # arm put the parent at 1,992 ps (kpi.json, 2026-11-17, run 33).
 XS_GPL_COHESION = True
 
-# The tail pull (carried OpenROAD patch 0221): each sink whose slack at
-# 3_3's timing updates is below -1377 ps, the paths over 1,850 ps at the
-# 473 ps SDC, pulled toward its driver; the weight's growth halved and
-# capped, one initial-placement round. Without the slack threshold the
-# pull took nearly every connection and ground for 8 h 34 min.
-XS_GPL_TAIL_PULL = False
-XS_GPL_TAIL_PULL_ARGS = "-timing_driven_pin_pull -timing_driven_pin_pull_slack -1377 -timing_driven_pin_pull_max 256 -timing_driven_pin_pull_growth 0.5 -timing_driven_pin_pull_initial_rounds 1"
-
 def _gpl_switches():
     """The parent's user arguments and sources the switches turn on.
 
-    Each is read by global_place_args.tcl, in the place stage only; both
-    are empty with the switches off.
+    Read by global_place_args.tcl, in the place stage only; both are
+    empty with the switch off.
     """
     user_arguments = {}
     user_sources = {}
     if XS_GPL_COHESION:
         user_sources["XS_GPL_CLUSTERS_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:gpl_clusters.json"]
-    if XS_GPL_TAIL_PULL:
-        user_arguments["XS_GPL_TAIL_PULL_ARGS"] = XS_GPL_TAIL_PULL_ARGS
     return user_arguments, user_sources
 
 def _planned_block(cfg, entry, plan_dir, block, blocks):
@@ -1653,8 +1643,8 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         sources[hook] = ["//test/coremark_joule/designs/asap7/xiangshan:legalize_out_of_blocks.tcl"]
     sources["SDC_FILE"] = ["//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc"]
 
-    # the switches on 3_3's global placement (XS_GPL_COHESION,
-    # XS_GPL_TAIL_PULL); with both off nothing here is set
+    # the switch on 3_3's global placement (XS_GPL_COHESION); with it
+    # off nothing here is set
     gpl_arguments, gpl_sources = _gpl_switches()
     if gpl_arguments or gpl_sources:
         sources["PRE_GLOBAL_PLACE_TCL"] = ["//test/coremark_joule/designs/asap7/xiangshan:global_place_args.tcl"]

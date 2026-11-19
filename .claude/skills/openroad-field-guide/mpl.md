@@ -57,7 +57,8 @@ hatch**.
 
 - A second `rtl_macro_placer` in one process segfaulted: fixed, OpenROAD
   #11625. ORFS still runs the placer when `MACRO_PLACEMENT_TCL` fixed
-  every macro, then trips on FIRM std cells: carried 0083.
+  every macro; it used to trip on FIRM std cells (MPL-0050) and now
+  returns first: fixed, OpenROAD #11504.
 - The Snapper snaps SIGNAL pins only: a macro whose only M2 pin is its
   clock sits 2 nm off-track and drt stops on DRT-0073. Carried 0177.
 - MPL-0045 (flat cluster of one macro plus a few thousand cells, OpenROAD
