@@ -460,7 +460,7 @@ def required_arguments(ctx):
         "WORK_HOME": "./" + work_home_relative(ctx),
     }
 
-def orfs_additional_arguments(infos, short = False, use_pre_layout = False):
+def orfs_additional_arguments(infos, short = False, use_pre_layout = False, macros_only = False):
     """Returns ADDITIONAL_GDS/LEFS/LIBS arguments from OrfsInfo providers.
 
     Args:
@@ -471,6 +471,10 @@ def orfs_additional_arguments(infos, short = False, use_pre_layout = False):
         to synth/floorplan/place where the parent has no real clock tree
         yet and should see ideal-clock macro timing. .lef/.gds are
         unaffected.
+      macros_only: If True, ADDITIONAL_LEFS/LIBS hold only each info's
+        own .lef/.lib: the views of a design's macros, not of the macros
+        inside them, which each macro's abstract covers. ADDITIONAL_GDS
+        stays transitive: the final GDS merge takes every level's layout.
 
     Returns:
       A dictionary of ADDITIONAL_GDS/LEFS/LIBS arguments.
@@ -481,7 +485,7 @@ def orfs_additional_arguments(infos, short = False, use_pre_layout = False):
     )
     lefs = depset(
         [info.lef for info in infos if info.lef],
-        transitive = [info.additional_lefs for info in infos],
+        transitive = [] if macros_only else [info.additional_lefs for info in infos],
     )
     if use_pre_layout:
         libs = depset(
@@ -490,12 +494,12 @@ def orfs_additional_arguments(infos, short = False, use_pre_layout = False):
                 for info in infos
                 if (info.lib_pre_layout or info.lib)
             ],
-            transitive = [info.additional_libs_pre_layout for info in infos],
+            transitive = [] if macros_only else [info.additional_libs_pre_layout for info in infos],
         )
     else:
         libs = depset(
             [info.lib for info in infos if info.lib],
-            transitive = [info.additional_libs for info in infos],
+            transitive = [] if macros_only else [info.additional_libs for info in infos],
         )
 
     arguments = {}

@@ -1980,6 +1980,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                     if n in macro_dep_by_name
                 ],
                 use_pre_layout = True,
+                macros_only = True,
             )
             needs_config = True
         else:
@@ -1989,6 +1990,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             overlay = orfs_additional_arguments(
                 [dep[OrfsInfo] for dep in ctx.attr.deps],
                 use_pre_layout = True,
+                macros_only = True,
             )
 
         if needs_config:
@@ -2446,6 +2448,7 @@ def _yosys_impl(ctx):
         orfs_additional_arguments(
             [dep[OrfsInfo] for dep in ctx.attr.deps],
             use_pre_layout = True,
+            macros_only = True,
         ),
     )
     refuse_retired_arguments(ctx.label, all_arguments)
@@ -2524,7 +2527,7 @@ def _yosys_impl(ctx):
         if hardened_names:
             canon_arguments = merge_arguments(
                 data_arguments(ctx) | required_arguments(ctx),
-                orfs_additional_arguments(soft_infos, use_pre_layout = True),
+                orfs_additional_arguments(soft_infos, use_pre_layout = True, macros_only = True),
             )
 
             # Append --blackboxed-module for each hardened macro to the
@@ -3089,6 +3092,7 @@ def _yosys_impl(ctx):
         orfs_additional_arguments(
             [dep[OrfsInfo] for dep in ctx.attr.deps],
             use_pre_layout = True,
+            macros_only = True,
         ),
     ) | verilog_arguments(verilog_files)
     if auto_memories:
@@ -3109,6 +3113,7 @@ def _yosys_impl(ctx):
         orfs_additional_arguments(
             [dep[OrfsInfo] for dep in ctx.attr.deps],
             use_pre_layout = True,
+            macros_only = True,
         ),
     ) | verilog_arguments(verilog_files)
 
@@ -3265,6 +3270,7 @@ def _yosys_impl(ctx):
             lib_pre_layout = None,
             additional_gds = depset(
                 [dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds],
+                transitive = [dep[OrfsInfo].additional_gds for dep in ctx.attr.deps],
             ),
             additional_lefs = depset(
                 [dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef],

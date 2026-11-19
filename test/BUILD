@@ -15,6 +15,7 @@ load(":exec_tool.bzl", "exec_tool")
 load(":gds_target_test.bzl", "gds_klayout_flag_test", "gds_klayout_test")
 load(":hierarchical_default_test.bzl", "hierarchical_default_test_suite")
 load(":keep_modules_test.bzl", "keep_modules_test_suite")
+load(":macro_arguments_test.bzl", "macro_arguments_test")
 load(":metrics_default_test.bzl", "metrics_default_test_suite")
 load(":mock_pin_knobs_test.bzl", "mock_pin_knobs_test")
 load(":partition_arguments_test.bzl", "partition_arguments_test")
@@ -2338,6 +2339,72 @@ synth_action_inputs_test(
     output_basename = "6_final.odb",
     required_input_basenames = ["gds_scope_dummy.gds"],
     target_under_test = ":lb_32x128_top_gds_scope_final",
+)
+
+# A parent of a block that has macros of its own: the parent's
+# ADDITIONAL_LEFS/LIBS name the block's views only, the views its
+# synthesis stages, while ADDITIONAL_GDS keeps the inner macro's layout
+# for the final GDS merge. Never built (manual).
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128_top",
+    abstract_stage = "cts",
+    arguments = SRAM_ARGUMENTS | {
+        "CORE_AREA": "2 2 23 23",
+        "CORE_MARGIN": "2",
+        "DIE_AREA": "0 0 25 25",
+        "GDS_ALLOW_EMPTY": "lb_32x128",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
+        "PLACE_DENSITY": "0.65",
+        "PWR_NETS_VOLTAGES": "",
+    },
+    macros = ["gds_scope_macro"],
+    sources = LB_SOURCES,
+    tags = ["manual"],
+    variant = "two_level_block",
+    verilog_files = ["rtl/lb_32x128_top.v"],
+)
+
+orfs_flow(
+    name = "two_level_parent",
+    arguments = SRAM_ARGUMENTS | {
+        "CORE_AREA": "2 2 48 48",
+        "CORE_MARGIN": "2",
+        "DIE_AREA": "0 0 50 50",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
+        "PLACE_DENSITY": "0.65",
+        "PWR_NETS_VOLTAGES": "",
+    },
+    macros = [":lb_32x128_top_two_level_block_generate_abstract"],
+    sources = LB_SOURCES,
+    tags = ["manual"],
+    top = "two_level_parent",
+    verilog_files = ["rtl/lb_32x128_top.v"],
+)
+
+macro_arguments_test(
+    name = "two_level_parent_synth_arguments_test",
+    forbidden = {
+        "ADDITIONAL_LEFS": ["lb_32x128.lef"],
+        "ADDITIONAL_LIBS": [
+            "lb_32x128_typ.lib",
+            "lb_32x128.lib",
+        ],
+    },
+    output_basename = "1_synth.analysis.json",
+    required = {
+        "ADDITIONAL_GDS": ["gds_scope_dummy.gds"],
+        "ADDITIONAL_LEFS": ["lb_32x128_top.lef"],
+        "ADDITIONAL_LIBS": ["lb_32x128_top_typ.lib"],
+    },
+    target_under_test = ":two_level_parent_synth",
+)
+
+synth_action_inputs_test(
+    name = "two_level_parent_final_gds_test",
+    output_basename = "6_final.odb",
+    required_input_basenames = ["gds_scope_dummy.gds"],
+    target_under_test = ":two_level_parent_final",
 )
 
 # Upstream metrics .json / report files feed only genMetrics.py: the
