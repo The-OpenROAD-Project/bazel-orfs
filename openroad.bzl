@@ -74,6 +74,10 @@ load(
     _orfs_schedule = "orfs_schedule",
 )
 load(
+    "//private:sharded_sta.bzl",
+    _orfs_sharded_sta = "orfs_sharded_sta",
+)
+load(
     "//private:stages.bzl",
     _ALL_STAGES = "ALL_STAGES",
     _ALL_STAGE_TO_VARIABLES = "ALL_STAGE_TO_VARIABLES",
@@ -134,6 +138,7 @@ orfs_module_iteration = _orfs_module_iteration
 orfs_module_sta_base = _orfs_module_sta_base
 orfs_timing_ab = _orfs_timing_ab
 orfs_timing_models = _orfs_timing_models
+orfs_sharded_sta = _orfs_sharded_sta
 orfs_test = _orfs_test
 orfs_floorplan = _orfs_floorplan
 orfs_place = _orfs_place

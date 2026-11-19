@@ -1,4 +1,4 @@
-load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 # orfs_module_sta's scripts (private/module_sta.bzl): consumers reach them
 # through the rules, so they are public.
@@ -21,6 +21,13 @@ exports_files(
 py_binary(
     name = "rename_module",
     srcs = ["rename_module.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "ends_lib",
+    srcs = ["ends.py"],
+    imports = ["."],
     visibility = ["//visibility:public"],
 )
 
