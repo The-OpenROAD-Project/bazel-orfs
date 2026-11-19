@@ -1,0 +1,58 @@
+# Timing models (private/timing_models.bzl) of Top's kept modules: Mid
+# (which keeps Leaf), Leaf and Other.
+#
+#   models_test  each model is one cell named after its module, uniquified
+#                name included; Mid's inputs reach registers only (setup
+#                arcs, no combinational arc), Other's also reach its
+#                output combinationally (q = r + d).
+load("@rules_python//python:defs.bzl", "py_test")
+load("//:openroad.bzl", "orfs_flow", "orfs_timing_models")
+
+package(default_visibility = ["//visibility:private"])
+
+KEPT = [
+    "Mid",
+    "Leaf",
+    "Other",
+]
+
+CLOCKS = {"clock": "1000"}
+
+orfs_flow(
+    name = "Top",
+    arguments = {
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_KEEP_MODULES": " ".join(KEPT),
+    },
+    last_stage = "synth",
+    sources = {"SDC_FILE": [":constraints.sdc"]},
+    verilog_files = ["top.v"],
+)
+
+orfs_timing_models(
+    name = "Top_models",
+    clocks = CLOCKS,
+    modules = KEPT,
+    synth = ":Top_synth",
+)
+
+filegroup(
+    name = "Top_tree",
+    srcs = [":Top_models"],
+    output_group = "tree",
+)
+
+py_test(
+    name = "models_test",
+    size = "small",
+    srcs = ["models_check.py"],
+    args = [
+        "$(rootpath :Top_tree)",
+        "$(rootpaths :Top_models)",
+    ],
+    data = [
+        ":Top_models",
+        ":Top_tree",
+    ],
+    main = "models_check.py",
+)

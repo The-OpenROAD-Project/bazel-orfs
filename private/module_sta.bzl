@@ -76,11 +76,13 @@ def orfs_module_sta_base(name, synth, tags = [], **kwargs):
         src = synth,
         outs = [name + "/base.odb", name + "/libs.tar"],
         arguments = {"OPENROAD_HIERARCHICAL": "1"},
+        data = [Label("//tools/module_sta:libs.tcl")],
         script = Label("//tools/module_sta:base.tcl"),
         tags = tags,
         user_arguments = {
             "PSTA_BASE_DB": "$(location %s/base.odb)" % name,
             "PSTA_LIBS_TAR": "$(location %s/libs.tar)" % name,
+            "PSTA_LIBS_TCL": "$(location %s)" % Label("//tools/module_sta:libs.tcl"),
         },
         **kwargs
     )

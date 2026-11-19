@@ -86,6 +86,10 @@ load(
     _get_stage_args = "get_stage_args",
 )
 load(
+    "//private:timing_models.bzl",
+    _orfs_timing_models = "orfs_timing_models",
+)
+load(
     "//private:utils.bzl",
     _flatten = "flatten",
     _set = "set",
@@ -129,6 +133,7 @@ orfs_module_context = _orfs_module_context
 orfs_module_iteration = _orfs_module_iteration
 orfs_module_sta_base = _orfs_module_sta_base
 orfs_timing_ab = _orfs_timing_ab
+orfs_timing_models = _orfs_timing_models
 orfs_test = _orfs_test
 orfs_floorplan = _orfs_floorplan
 orfs_place = _orfs_place
