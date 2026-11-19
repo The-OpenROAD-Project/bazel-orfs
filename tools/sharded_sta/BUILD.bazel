@@ -1,12 +1,15 @@
 load("@rules_python//python:defs.bzl", "py_test")
 
-# orfs_timing_models' scripts (private/timing_models.bzl): consumers reach
-# them through the rules, so they are public.
+# orfs_timing_models' and orfs_sharded_sta's scripts (private/timing_models.bzl,
+# private/sharded_sta.bzl): consumers reach them through the rules, so they
+# are public.
 exports_files(
     [
+        "merge.py",
         "model.tcl",
         "plan.py",
         "run.py",
+        "shard.tcl",
         "tree.py",
     ],
     visibility = ["//visibility:public"],
@@ -15,6 +18,7 @@ exports_files(
 py_test(
     name = "sharded_sta_test",
     srcs = [
+        "merge.py",
         "plan.py",
         "sharded_sta_test.py",
         "tree.py",

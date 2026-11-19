@@ -1,12 +1,28 @@
 # Timing models (private/timing_models.bzl) of Top's kept modules: Mid
-# (which keeps Leaf), Leaf and Other.
+# (which keeps Leaf), Leaf and Other, and Top's timing in shards
+# (private/sharded_sta.bzl).
 #
 #   models_test  each model is one cell named after its module, uniquified
 #                name included; Mid's inputs reach registers only (setup
 #                arcs, no combinational arc), Other's also reach its
 #                output combinationally (q = r + d).
+#   Top_sta_by_module, Top_sta_deep
+#                two shard specs: Mid and Other apart, and Leaf apart
+#                from Mid, which forces Mid to a netlist in Leaf's shard
+#                and models Leaf in Mid's.
+#   sharded_<spec>_test
+#                every endpoint of the flat timing is reported by exactly
+#                one shard; the exact ones have the flat slack, endpoint
+#                for endpoint; some come out modelled (the negative
+#                control of the exact flag: in the deep spec, Other's
+#                registers sit behind a net Leaf's model loads, and differ
+#                from the flat timing by a fraction of a picosecond).
+#   duplicate_listing_test, glue_listed_test
+#                a module listed by two shards, and a glue shard listed,
+#                are refused at analysis.
 load("@rules_python//python:defs.bzl", "py_test")
-load("//:openroad.bzl", "orfs_flow", "orfs_timing_models")
+load("//:openroad.bzl", "orfs_flat_sta", "orfs_flow", "orfs_module_sta_base", "orfs_sharded_sta", "orfs_timing_models")
+load("//test:analysis_failure_test.bzl", "analysis_failure_test")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -55,4 +71,92 @@ py_test(
         ":Top_tree",
     ],
     main = "models_check.py",
+)
+
+orfs_module_sta_base(
+    name = "Top_hier",
+    synth = ":Top_synth",
+)
+
+orfs_flat_sta(
+    name = "Top_flat",
+    base = ":Top_hier",
+    clocks = CLOCKS,
+    synth = ":Top_synth",
+)
+
+[orfs_sharded_sta(
+    name = "Top_sta_" + spec,
+    models = ":Top_models",
+    shards = shards,
+) for spec, shards in [
+    (
+        "by_module",
+        {
+            "mid": ["Mid"],
+            "other": ["Other"],
+        },
+    ),
+    (
+        "deep",
+        {
+            "leaf": ["Leaf"],
+            "rest": [
+                "Mid",
+                "Other",
+            ],
+        },
+    ),
+]]
+
+[py_test(
+    name = "sharded_%s_test" % spec,
+    size = "small",
+    srcs = ["sharded_check.py"],
+    args = [
+        "$(rootpaths :Top_sta_%s)" % spec,
+        "--",
+        "$(rootpath :Top_flat)",
+    ],
+    data = [
+        ":Top_flat",
+        ":Top_sta_" + spec,
+    ],
+    main = "sharded_check.py",
+    deps = ["//tools/module_sta:ends_lib"],
+) for spec in [
+    "by_module",
+    "deep",
+]]
+
+orfs_sharded_sta(
+    name = "Top_sta_duplicate",
+    models = ":Top_models",
+    shards = {
+        "a": ["Mid"],
+        "b": ["Mid"],
+    },
+    tags = ["manual"],
+)
+
+analysis_failure_test(
+    name = "duplicate_listing_test",
+    message = "Mid is listed by both shard a and shard b",
+    target_under_test = ":Top_sta_duplicate",
+)
+
+orfs_sharded_sta(
+    name = "Top_sta_glue_listed",
+    models = ":Top_models",
+    shards = {
+        "glue": [],
+        "mid": ["Mid"],
+    },
+    tags = ["manual"],
+)
+
+analysis_failure_test(
+    name = "glue_listed_test",
+    message = "the glue shard glue is not listed in shards",
+    target_under_test = ":Top_sta_glue_listed",
 )
