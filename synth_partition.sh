@@ -31,6 +31,8 @@
 #                            synth_stat.txt to (stat_section), for
 #                            keep_report.py
 #   SYNTH_SEARCHES_PY      - synth_searches.py, with SYNTH_PARTITION_STAT
+#   SYNTH_PARTITION_LOG    - file to append each module's yosys log to,
+#                            so the log is an output of the action
 #   RESULTS_DIR, SCRIPTS_DIR, etc. - standard ORFS env
 set -euo pipefail
 
@@ -89,8 +91,12 @@ run_synth() {
 
 # Appends "=== partition <module>", the yosys log's timing lines and ABC
 # script, the searches and synth.tcl's synth_stat.txt to
-# SYNTH_PARTITION_STAT, when it is set.
+# SYNTH_PARTITION_STAT, when it is set, and the yosys log to
+# SYNTH_PARTITION_LOG, when it is set.
 stat_section() {
+  if [ -n "${SYNTH_PARTITION_LOG:-}" ]; then
+    cat "$2" >> "$SYNTH_PARTITION_LOG"
+  fi
   [ -n "${SYNTH_PARTITION_STAT:-}" ] || return 0
   {
     printf '=== partition %s\n' "$1"
@@ -103,6 +109,10 @@ stat_section() {
 if [ -n "${SYNTH_PARTITION_STAT:-}" ]; then
   mkdir -p "$(dirname "$SYNTH_PARTITION_STAT")"
   : > "$SYNTH_PARTITION_STAT"
+fi
+if [ -n "${SYNTH_PARTITION_LOG:-}" ]; then
+  mkdir -p "$(dirname "$SYNTH_PARTITION_LOG")"
+  : > "$SYNTH_PARTITION_LOG"
 fi
 
 if [ -n "${SYNTH_PARTITION_MODULE:-}" ]; then

@@ -57,6 +57,7 @@ exports_files([
     "synth_keep.tcl",
     "synth_keep_costs.tcl",
     "synth_partition.sh",
+    "synth_passes.py",
     "synth_searches.py",
     "synth_slice_memories.tcl",
     "slice_memories.py",

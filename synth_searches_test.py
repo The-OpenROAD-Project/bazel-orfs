@@ -55,12 +55,25 @@ class SynthSearchesTest(unittest.TestCase):
                 "search extract_fa seconds=7.0 full=2 half=1",
                 "search share seconds=3.0 candidates=5 merged=1",
                 "search abc seconds=42.0",
+                "pass 20 abc seconds=42.0",
+                "pass 12 extract_fa seconds=7.0",
+                "pass 2.28.1 opt_expr seconds=4.0",
+                "pass 2.27 share seconds=3.0",
+                "pass 13 techmap seconds=3.0",
+                "pass 21 splitnets seconds=2.0",
+                "pass 2 synth seconds=1.0",
+                "pass 2.28 opt_share seconds=1.0",
             ],
         )
 
+    def test_slowest_passes_only(self):
+        log = [(i, f"{i}. Executing OPT pass.") for i in range(1, 13)]
+        lines = run(log, 13)
+        self.assertEqual(len(lines), synth_searches.SLOWEST_PASSES)
+
     def test_passes_that_did_not_run_have_no_line(self):
         log = [(1, "5. Executing OPT pass.")]
-        self.assertEqual(run(log, 2), [])
+        self.assertEqual(run(log, 2), ["pass 5 opt seconds=1.0"])
 
     def test_last_pass_ends_with_the_output(self):
         log = [
@@ -68,7 +81,15 @@ class SynthSearchesTest(unittest.TestCase):
             (2, "9.1. Executing ABC9 pass."),
             (3, "9.1.1. Executing ABC9_OPS pass."),
         ]
-        self.assertEqual(run(log, 11), ["search abc seconds=10.0"])
+        self.assertEqual(
+            run(log, 11),
+            [
+                "search abc seconds=10.0",
+                "pass 9.1.1 abc9_ops seconds=8.0",
+                "pass 9 abc_new seconds=1.0",
+                "pass 9.1 abc9 seconds=1.0",
+            ],
+        )
 
     def test_main(self):
         text = "".join(line + "\n" for _, line in LOG).encode()
@@ -80,7 +101,8 @@ class SynthSearchesTest(unittest.TestCase):
             with open(out) as f:
                 written = f.read().splitlines()
         self.assertEqual(
-            [w.split()[1] for w in written], ["extract_fa", "share", "abc"]
+            [w.split()[1] for w in written if w.startswith("search ")],
+            ["extract_fa", "share", "abc"],
         )
         self.assertIn("full=2 half=1", written[0])
 
