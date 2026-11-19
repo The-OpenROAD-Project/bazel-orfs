@@ -297,9 +297,8 @@ archive_override(
         # an OpenROAD that has them.
         "//patches:0197-openroad-odb-backing-file.patch",
         "//patches:0198-openroad-grt-page-out-database.patch",
-        # 0209: repair_timing -path_group takes a group the SDC defines, which
-        # REPAIR_TIMING_PATH_GROUP (ORFS patch 0179) could name; nothing here
-        # does. Not upstreamed.
+        # 0209: repair_timing -path_group takes a group the SDC defines.
+        # Not upstreamed.
         "//patches:0209-openroad-rsz-sdc-path-group.patch",
         # 0215: a supply net is never pending for parasitics re-estimation.
         # Every buffer edit queued VDD and VSS, and each update then visited
@@ -364,12 +363,6 @@ archive_override(
         # #12233; the diagnosis is not upstreamed. Retires at a //:bump
         # onto an OpenROAD that has both.
         "//patches:0216-openroad-dpl-recovery-diagnosis.patch",
-        # 0219: gpl regression tests for timing paths global placement
-        # leaves on a detour (path_shape_test, 56 that pass;
-        # path_shape_targets_test, 44 manual ones that fail by design).
-        # Tests only: the openroad binary keeps its cache key. Not
-        # upstreamed; retires at a //:bump onto an OpenROAD that has them.
-        "//patches:0219-openroad-gpl-placement-regression-tests.patch",
         # 0220: CTS connects every sink when two share a location. A
         # second sink at a point overwrote the first in HTreeBuilder's map
         # and was left with its clock pin on no net, silently (XSTile's
@@ -377,16 +370,6 @@ archive_override(
         # colocated_registers. Not upstreamed; retires at a //:bump onto an
         # OpenROAD that has it.
         "//patches:0220-openroad-cts-coincident-sinks.patch",
-        # 0221: global_placement -timing_driven_pin_pull, a two-pin pull
-        # between each failing sink and its driver, so a path through a
-        # broadcast net is pulled straight. A sink fails when its slack is
-        # below -timing_driven_pin_pull_slack (design time unit, 0 by
-        # default; negative pulls the tail only). Off by default, and with
-        # it off every placement is byte-identical. Tests pin_pull_test, on
-        # 0219's designs, and pin_pull_slack. Not upstreamed, held until
-        # XiangShan reaches 2,000 ps at global route or that campaign ends;
-        # retires at a //:bump onto an OpenROAD that has it.
-        "//patches:0221-openroad-gpl-timing-pin-pull.patch",
         # 0222: link_hier_module <module> links a module read with
         # read_verilog after read_db -hier into the loaded design, as
         # link_design links an unused one, so replace_hier_module can switch

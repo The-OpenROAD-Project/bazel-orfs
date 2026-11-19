@@ -80,10 +80,10 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100644 openroad/gpl/test/cohesion_test.cpp
 
 diff --git a/openroad/gpl/BUILD b/openroad/gpl/BUILD
-index ac9ef2a..e0ba769 100644
+index d03e3bae9a..42edb04eda 100644
 --- a/openroad/gpl/BUILD
 +++ b/openroad/gpl/BUILD
-@@ -192,6 +192,7 @@ cc_library(
+@@ -190,6 +190,7 @@ cc_library(
          "//openroad/sta:opensta_lib",
          "//openroad/utl",
          "@abseil-cpp//absl/container:inlined_vector",
@@ -92,10 +92,10 @@ index ac9ef2a..e0ba769 100644
          "@boost.random",
          "@boost.scope_exit",
 diff --git a/openroad/gpl/README.md b/openroad/gpl/README.md
-index 84c662a..bc7564b 100644
+index 29db5a0719..aade572845 100644
 --- a/openroad/gpl/README.md
 +++ b/openroad/gpl/README.md
-@@ -132,6 +132,7 @@ global_placement
+@@ -114,6 +114,7 @@ global_placement
      [-routability_max_inflation_ratio routability_max_inflation_ratio]\
      [-routability_rc_coefficients routability_rc_coefficients]\
      [-keep_resize_below_overflow keep_resize_below_overflow]\
@@ -103,7 +103,7 @@ index 84c662a..bc7564b 100644
      [-timing_driven_net_reweight_overflow timing_driven_net_reweight_overflow]\
      [-timing_driven_net_weight_max timing_driven_net_weight_max]\
      [-timing_driven_nets_percentage timing_driven_nets_percentage]\
-@@ -185,6 +186,7 @@ global_placement
+@@ -161,6 +162,7 @@ global_placement
  | `-virtual_cts_max_skew_fraction` | Set max insertion delay as fraction of clock period. Valid range is [0, 1]; out-of-range values are clamped. Default is 0.10 (10%). |
  | `-random_seed` | Set random seed for placement perturbation. Perturbation shifts standard cells by random offsets drawn from a 2D circular Gaussian distribution at the start of global placement to explore layout variations. Default is `1`. |
  | `-perturb_dist` | Set the perturbation distance (radius) in nanometers. Under a 2D circular Gaussian distribution, 99.5% of the cell perturbations will fall within this radius. If not provided (or <= 0), it defaults to 0.5 microns or one standard cell height (row height), whichever is smaller. |
@@ -112,10 +112,10 @@ index 84c662a..bc7564b 100644
  #### Initial-Placement Arguments
  
 diff --git a/openroad/gpl/include/gpl/Replace.h b/openroad/gpl/include/gpl/Replace.h
-index a37bdea..7490c47 100644
+index ac5e629c11..deb33ea907 100644
 --- a/openroad/gpl/include/gpl/Replace.h
 +++ b/openroad/gpl/include/gpl/Replace.h
-@@ -155,6 +155,10 @@ struct PlaceOptions
+@@ -135,6 +135,10 @@ struct PlaceOptions
    int nesterovPlaceMaxIter = 5000;
    // timing driven check overflow to keep resizer changes (non-virtual resizer)
    float keepResizeBelowOverflow = 1.0;
@@ -127,7 +127,7 @@ index a37bdea..7490c47 100644
    bool disableRevertIfDiverge = false;
    bool disablePinDensityAdjust = false;
 diff --git a/openroad/gpl/src/nesterovBase.cpp b/openroad/gpl/src/nesterovBase.cpp
-index c0da9a7..b181a08 100644
+index 154588b71e..84b5483a15 100644
 --- a/openroad/gpl/src/nesterovBase.cpp
 +++ b/openroad/gpl/src/nesterovBase.cpp
 @@ -15,6 +15,7 @@
@@ -146,7 +146,7 @@ index c0da9a7..b181a08 100644
  #include "boost/polygon/polygon.hpp"
  #include "boost/random/normal_distribution.hpp"
  #include "boost/random/uniform_int_distribution.hpp"
-@@ -1217,6 +1219,7 @@ NesterovPlaceVars::NesterovPlaceVars(const PlaceOptions& options,
+@@ -1216,6 +1218,7 @@ NesterovPlaceVars::NesterovPlaceVars(const PlaceOptions& options,
        routability_end_overflow(options.routabilityCheckOverflow),
        routability_snapshot_overflow(options.routabilitySnapshotOverflow),
        keepResizeBelowOverflow(options.keepResizeBelowOverflow),
@@ -154,7 +154,7 @@ index c0da9a7..b181a08 100644
        timingDrivenMode(options.timingDrivenMode),
        timingDrivenRepairTiming(options.timingDrivenRepairTiming),
        timingDrivenRepairTnsEndPercent(options.timingDrivenRepairTnsEndPercent),
-@@ -3527,6 +3530,9 @@ void NesterovBase::updateGradients(std::vector<FloatPoint>& sumGrads,
+@@ -3409,6 +3412,9 @@ void NesterovBase::updateGradients(std::vector<FloatPoint>& sumGrads,
    (void) wlCoeffY;
  
  #ifdef ENABLE_GPU
@@ -164,7 +164,7 @@ index c0da9a7..b181a08 100644
    if (nb_device_ctx_) {
      SumGradSlot target = SumGradSlot::Cur;
      SlpSlot coord_slot = SlpSlot::Cur;
-@@ -3580,6 +3586,16 @@ void NesterovBase::updateGradients(std::vector<FloatPoint>& sumGrads,
+@@ -3462,6 +3468,16 @@ void NesterovBase::updateGradients(std::vector<FloatPoint>& sumGrads,
    nbc_->getAllWireLengthGradientsWA(nb_gcells_, wireLengthGrads);
    density_grad_backend_->getCellGradients(nb_gcells_, densityGrads);
  
@@ -181,7 +181,7 @@ index c0da9a7..b181a08 100644
    // Two-phase: parallel per-cell compute, then deterministic serial reduce.
  
    const size_t numGCells = nb_gcells_.size();
-@@ -3589,6 +3605,10 @@ void NesterovBase::updateGradients(std::vector<FloatPoint>& sumGrads,
+@@ -3471,6 +3487,10 @@ void NesterovBase::updateGradients(std::vector<FloatPoint>& sumGrads,
  
      sumGrads[i].x = wireLengthGrads[i].x + densityPenalty_ * densityGrads[i].x;
      sumGrads[i].y = wireLengthGrads[i].y + densityPenalty_ * densityGrads[i].y;
@@ -192,7 +192,7 @@ index c0da9a7..b181a08 100644
  
      FloatPoint wireLengthPreCondi = nbc_->getWireLengthPreconditioner(gCell);
      FloatPoint densityPrecondi = getDensityPreconditioner(gCell);
-@@ -3757,6 +3777,8 @@ void NesterovBase::updateNextIter(const int iter)
+@@ -3639,6 +3659,8 @@ void NesterovBase::updateNextIter(const int iter)
      return;
    }
  
@@ -201,7 +201,7 @@ index c0da9a7..b181a08 100644
    // swap vector pointers
    std::swap(prevSLPCoordi_, curSLPCoordi_);
    std::swap(prevSLPWireLengthGrads_, curSLPWireLengthGrads_);
-@@ -5354,6 +5376,7 @@ void NesterovBase::swapAndPopParallelVectors(size_t remove_index,
+@@ -5236,6 +5258,7 @@ void NesterovBase::swapAndPopParallelVectors(size_t remove_index,
    swapAndPop(curCoordi_, remove_index, last_index);
    swapAndPop(nextCoordi_, remove_index, last_index);
    swapAndPop(initCoordi_, remove_index, last_index);
@@ -209,7 +209,7 @@ index c0da9a7..b181a08 100644
  }
  
  void NesterovBase::rebindHandleIndex(size_t nb_index)
-@@ -5425,6 +5448,7 @@ void NesterovBase::appendParallelVectors()
+@@ -5307,6 +5330,7 @@ void NesterovBase::appendParallelVectors()
    curCoordi_.emplace_back();
    nextCoordi_.emplace_back();
    initCoordi_.emplace_back();
@@ -217,7 +217,7 @@ index c0da9a7..b181a08 100644
  }
  
  void NesterovBaseCommon::printGCells()
-@@ -5687,4 +5711,237 @@ static float getSecondNorm(const std::vector<FloatPoint>& a)
+@@ -5569,4 +5593,237 @@ static float getSecondNorm(const std::vector<FloatPoint>& a)
    }
    return std::sqrt(norm / (2.0 * a.size()));
  }
@@ -456,10 +456,10 @@ index c0da9a7..b181a08 100644
 +
  }  // namespace gpl
 diff --git a/openroad/gpl/src/nesterovBase.h b/openroad/gpl/src/nesterovBase.h
-index 589d489..73ab0e9 100644
+index dfa445be6b..3b7e7735bf 100644
 --- a/openroad/gpl/src/nesterovBase.h
 +++ b/openroad/gpl/src/nesterovBase.h
-@@ -852,6 +852,7 @@ struct NesterovPlaceVars
+@@ -851,6 +851,7 @@ struct NesterovPlaceVars
    const float routability_end_overflow;
    const float routability_snapshot_overflow;
    const float keepResizeBelowOverflow;
@@ -467,7 +467,7 @@ index 589d489..73ab0e9 100644
  
    static constexpr int maxRecursionWlCoef = 10;
    static constexpr int maxRecursionInitSLPCoef = 10;
-@@ -1253,6 +1254,14 @@ class NesterovBase
+@@ -1228,6 +1229,14 @@ class NesterovBase
                         float wlCoeffX,
                         float wlCoeffY);
  
@@ -482,7 +482,7 @@ index 589d489..73ab0e9 100644
    void nbUpdatePrevGradient(float wlCoeffX, float wlCoeffY);
    void nbUpdateCurGradient(float wlCoeffX, float wlCoeffY);
    void nbUpdateNextGradient(float wlCoeffX, float wlCoeffY);
-@@ -1415,6 +1424,7 @@ class NesterovBase
+@@ -1390,6 +1399,7 @@ class NesterovBase
    friend class TimingRepairIntegrationTest;
    friend class RoutabilityMinimumTest;
    friend class EndOfDescentTest;
@@ -490,7 +490,7 @@ index 589d489..73ab0e9 100644
  
    NesterovBaseVars nbVars_;
    std::shared_ptr<PlacerBase> pb_;
-@@ -1627,6 +1637,26 @@ class NesterovBase
+@@ -1602,6 +1612,26 @@ class NesterovBase
    bool isDiverged_ = false;
  
    const NesterovPlaceVars* npVars_ = nullptr;
@@ -518,10 +518,10 @@ index 589d489..73ab0e9 100644
    float minSumOverflow_ = 1e30;
    float hpwlWithMinSumOverflow_ = 1e30;
 diff --git a/openroad/gpl/src/replace.i b/openroad/gpl/src/replace.i
-index 06e8495..f449f0d 100644
+index b1da96a811..b2557e6625 100644
 --- a/openroad/gpl/src/replace.i
 +++ b/openroad/gpl/src/replace.i
-@@ -87,6 +87,9 @@ static gpl::PlaceOptions getOptions(
+@@ -86,6 +86,9 @@ static gpl::PlaceOptions getOptions(
    checkKey(keys, "-power_driven_net_weight", options.powerDrivenNetWeight);
    checkKey(
        keys, "-keep_resize_below_overflow", options.keepResizeBelowOverflow);
@@ -532,7 +532,7 @@ index 06e8495..f449f0d 100644
             "-virtual_cts_max_skew_fraction",
             options.virtualCtsMaxSkewFraction);
 diff --git a/openroad/gpl/src/replace.tcl b/openroad/gpl/src/replace.tcl
-index 247abe4..e5d9568 100644
+index 02eddb2012..5c36a92e13 100644
 --- a/openroad/gpl/src/replace.tcl
 +++ b/openroad/gpl/src/replace.tcl
 @@ -36,6 +36,7 @@ sta::define_cmd_args "global_placement" {\
@@ -543,19 +543,19 @@ index 247abe4..e5d9568 100644
      [-timing_driven_net_reweight_overflow timing_driven_net_reweight_overflow]\
      [-timing_driven_net_weight_max timing_driven_net_weight_max]\
      [-timing_driven_nets_percentage timing_driven_nets_percentage]\
-@@ -84,6 +85,7 @@ proc global_placement { args } {
-       -timing_driven_pin_pull_max \
-       -timing_driven_pin_pull_initial_rounds \
+@@ -73,6 +74,7 @@ proc global_placement { args } {
+       -timing_driven_nets_percentage \
+       -timing_driven_repair_tns_end_percent \
        -keep_resize_below_overflow \
 +      -clusters_file \
        -virtual_cts_max_skew_fraction \
        -random_seed \
        -perturb_dist \
 diff --git a/openroad/gpl/test/BUILD b/openroad/gpl/test/BUILD
-index 809d2c1..813ef97 100644
+index bef0b9cbe0..064a20026f 100644
 --- a/openroad/gpl/test/BUILD
 +++ b/openroad/gpl/test/BUILD
-@@ -454,6 +454,27 @@ cc_test(
+@@ -453,6 +453,27 @@ cc_test(
      ],
  )
  
@@ -585,7 +585,7 @@ index 809d2c1..813ef97 100644
      srcs = ["overflow_test.cpp"],
 diff --git a/openroad/gpl/test/cohesion_test.cpp b/openroad/gpl/test/cohesion_test.cpp
 new file mode 100644
-index 0000000..a3083d7
+index 0000000000..6b279ac31a
 --- /dev/null
 +++ b/openroad/gpl/test/cohesion_test.cpp
 @@ -0,0 +1,477 @@
