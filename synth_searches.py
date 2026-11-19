@@ -10,7 +10,14 @@ OUT the passes a partition can turn off for itself
   search share seconds=3.1 candidates=40 merged=2
   search abc seconds=100.2
 
-A pass that did not run has no line. The yields are in the full log
+A pass that did not run has no line. Then the passes that took longest,
+each with the wall seconds spent in it but not in a pass under it, its
+number in the log and its name, slowest first:
+
+  pass 20 abc seconds=41.0
+  pass 2.27 share seconds=3.0
+
+ The yields are in the full log
 only: ORFS runs yosys with -v 3, which keeps all but the headers out of
 its own log. Seconds are wall time, stamped as each pass's header
 arrives: yosys flushes its log at every header, so a pass lasts from its
@@ -24,6 +31,7 @@ import sys
 import time
 
 HEADER = re.compile(rb"^(\d+(?:\.\d+)*)\. Executing (\S+) pass")
+SLOWEST_PASSES = 10
 ABC_PASSES = {b"ABC", b"ABC9", b"ABC_NEW"}
 FA_SECTION = re.compile(rb"^\s+([23])-Input XOR/XNOR ")
 FA_CREATED = re.compile(rb"^\s+Created \$fa cell ")
@@ -39,9 +47,18 @@ class Searches:
 
     def __init__(self):
         self.open = []  # [depth, name, start] of passes not yet ended
+        self.passes = []  # [depth, number, name, start, seconds under it]
+        self.pass_seconds = []  # (own seconds, number, name)
         self.seconds = {}
         self.counts = {"full": 0, "half": 0, "candidates": 0, "merged": 0}
         self.section = None
+
+    def _close_passes(self, depth, t):
+        while self.passes and self.passes[-1][0] >= depth:
+            _, number, name, start, inner = self.passes.pop()
+            if self.passes:
+                self.passes[-1][4] += t - start
+            self.pass_seconds.append((t - start - inner, number, name))
 
     def _close(self, depth, t):
         while self.open and self.open[-1][0] >= depth:
@@ -57,6 +74,10 @@ class Searches:
         if m:
             depth = m.group(1).count(b".") + 1
             self._close(depth, t)
+            self._close_passes(depth, t)
+            self.passes.append(
+                [depth, m.group(1).decode(), m.group(2).decode().lower(), t, 0.0]
+            )
             name = m.group(2)
             if name == b"EXTRACT_FA":
                 self.open.append([depth, "extract_fa", t])
@@ -84,6 +105,7 @@ class Searches:
 
     def end(self, t):
         self._close(0, t)
+        self._close_passes(0, t)
 
     def lines(self):
         out = []
@@ -100,6 +122,12 @@ class Searches:
             )
         if "abc" in self.seconds:
             out.append(f"search abc seconds={self.seconds['abc']:.1f}")
+        slowest = sorted(
+            self.pass_seconds,
+            key=lambda p: (-p[0], [int(n) for n in p[1].split(".")]),
+        )[:SLOWEST_PASSES]
+        for seconds, number, name in slowest:
+            out.append(f"pass {number} {name} seconds={seconds:.1f}")
         return out
 
 

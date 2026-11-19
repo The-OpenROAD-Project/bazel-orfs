@@ -1,0 +1,39 @@
+# Per-pass synthesis times come back with each partition.
+#
+# PassesTop keeps Adder and Mult, each synthesized in a partition of its
+# own, and the top in a third.
+#
+#   synth_passes_test   every partition has its yosys log, and
+#                       synth_passes.txt lists every partition with its
+#                       slowest passes, each pass one its log executed.
+load("@rules_python//python:defs.bzl", "py_test")
+load("//:openroad.bzl", "orfs_flow")
+
+package(default_visibility = ["//visibility:private"])
+
+orfs_flow(
+    name = "PassesTop",
+    arguments = {
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_KEEP_MODULES": "Adder Mult",
+    },
+    last_stage = "synth",
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    verilog_files = ["passes.sv"],
+)
+
+filegroup(
+    name = "synth_passes",
+    srcs = [":PassesTop_synth"],
+    output_group = "synth_passes",
+)
+
+py_test(
+    name = "synth_passes_test",
+    size = "small",
+    srcs = ["synth_passes_test.py"],
+    args = ["$(rootpaths :synth_passes)"],
+    data = [":synth_passes"],
+)

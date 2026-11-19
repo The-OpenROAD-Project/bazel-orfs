@@ -298,6 +298,33 @@ XiangShan's flows pin their kept lists, one with sixteen modules
 (`Frontend`, `Backend`, `MemBlock`, ...) in sixteen partitions. A flat
 against partitioned synthesis time for XiangShan has not been measured.
 
+### Which pass is slow: the synth_passes output group
+
+Each partition is an action, most often run remotely, so its yosys log
+would stay on the executor. The partition action writes the log,
+`logs/.../partition_<module>.log` (`-v 3`: the pass headers, warnings
+and errors), and its stat file, which `synth_searches.py` gives the ten
+passes with the most wall seconds of their own (not in a pass under
+them): both are outputs, fetched from a remote run and kept by the
+cache. The `synth_passes` output group lists them for every partition,
+slowest partition first, from those outputs alone, without running
+synthesis again:
+
+```sh
+bazelisk build //test/synth_passes:PassesTop_synth --output_groups=synth_passes
+cat bazel-bin/test/synth_passes/reports/asap7/PassesTop/base/synth_passes.txt
+```
+
+```
+     1.8s  \Adder$PassesTop.adder
+          0.8s  19 abc
+          0.3s  16 dfflibmap
+          ...
+```
+
+A pass is named by its number in the partition's log, where
+`19. Executing ABC pass` begins it.
+
 ### Which modules to keep: the keep report
 
 A partitioned synthesis takes as long as its longest partition. That is
@@ -929,7 +956,9 @@ To reproduce this: build the target, make the edit, and build again with
 | `partition_<module>_memories/memories`, `slice_regfiles`, `slice_memories.ok` | `slice_memories.py` (`verilog_slices` with `AUTO_MEMORIES`) |
 | `partition_<module>_canonical.rtlil`, `.name` | `synth_canonicalize_module.tcl` (pinned only) |
 | `partition_<module>.v`, `partition_<i>.v`, `partition_top.v` | `synth_partition.sh` running `synth.tcl` |
-| `partition_<module>_stat.txt`, `partition_<i>_stat.txt`, `partition_top_stat.txt` | `synth_partition.sh`: each module's yosys timing lines and `synth_stat.txt` |
+| `partition_<module>_stat.txt`, `partition_<i>_stat.txt`, `partition_top_stat.txt` | `synth_partition.sh`: each module's yosys timing lines, its slowest passes and `synth_stat.txt` |
+| `partition_<module>.log`, `partition_<i>.log`, `partition_top.log` | `synth_partition.sh`: each module's yosys log |
+| `synth_passes.txt` | `synth_passes.py` (the `synth_passes` output group only) |
 | `keep_costs.txt`, `keep_report.md` | `synth_keep_costs.tcl`, `keep_report.py` (the `keep_report` output group only) |
 | `1_2_yosys.v` | the merge, `cat` |
 
