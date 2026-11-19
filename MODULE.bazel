@@ -135,7 +135,7 @@ bazel_dep(name = "aspect_rules_js", version = "3.5.1")
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
-    integrity = "sha256-Xm47mn6719YRj6unZI7nCsRWjprnLMLoBoApxcGLkcQ=",
+    integrity = "sha256-VaW86oiwWEKxhG5D+cJK+6WXmo6FCuMmekKIc5V/8BE=",
     # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
     # so vendor openroad/sta (OpenSTA) and the other submodules from their own
     # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
@@ -224,32 +224,12 @@ archive_override(
         # generate_ram_netlist and stops, naming the part, on any other
         # structure (ideas/structured-macros.md). Not upstreamed.
         "//patches:0156-openroad-ram-generate-array.patch",
-        # 0163: generate_ram -write_style mux buffers a word's write
-        # enable and makes its hold per eight bits, so no net in a word
-        # drives the whole word (a 32-bit word's hold inverter drove 32
-        # hold muxes). Not upstreamed; retires at a //:bump onto an
-        # OpenROAD that has it.
-        "//patches:0163-openroad-ram-write-enable-groups.patch",
         # 0164: generate_ram's read side per group: a port decoding more
         # than eight words takes its address literals per eight words, and
-        # an AND-OR read's word select reaches its bits per eight. Not
-        # upstreamed; retires at a //:bump onto an OpenROAD that has it.
+        # an AND-OR read's word select reaches its bits per eight, from a
+        # buffer beside the bits it selects. As OpenROAD #12240 has it.
+        # Not upstreamed; retires at a //:bump onto an OpenROAD that has it.
         "//patches:0164-openroad-ram-read-drive-groups.patch",
-        # 0165: generate_ram with more than one write port: each port's
-        # take, its data's select in every bit's data mux, per eight bits
-        # (a 128-bit word's take drove 128 data muxes). Not upstreamed;
-        # retires at a //:bump onto an OpenROAD that has it.
-        "//patches:0165-openroad-ram-take-groups.patch",
-        # 0166: generate_ram: a word of no more than eight bits, one group,
-        # takes its write enable and each port's take without a group
-        # buffer, which only added a level. Not upstreamed; retires at a
-        # //:bump onto an OpenROAD that has it.
-        "//patches:0166-openroad-ram-one-group.patch",
-        # 0167: generate_ram: a word of more than eight groups takes its
-        # write enable and each port's take through a buffer per eight
-        # groups (a 128-bit word's enable drove 16 group buffers). Not
-        # upstreamed; retires at a //:bump onto an OpenROAD that has it.
-        "//patches:0167-openroad-ram-wide-word-tree.patch",
         # Global route's memory (OpenROAD#12075), one concern per patch, the
         # guides unchanged in every one.
         # The 3D maze's search directions in a byte (4 -> 1 per GCell-layer).
@@ -300,12 +280,6 @@ archive_override(
         # 0209: repair_timing -path_group takes a group the SDC defines.
         # Not upstreamed.
         "//patches:0209-openroad-rsz-sdc-path-group.patch",
-        # 0215: a supply net is never pending for parasitics re-estimation.
-        # Every buffer edit queued VDD and VSS, and each update then visited
-        # every cell on them: XSTile's parent ground over 5 h in the first
-        # re-weight of timing-driven global placement. Not upstreamed;
-        # retires at a //:bump onto an OpenROAD that has it.
-        "//patches:0215-openroad-est-supply-nets-not-invalidated.patch",
         # 0216: CTS clustering's min-cost flow costs are int64_t. With int,
         # a reduced cost near INT_MAX wrapped in LEMON's network simplex and
         # XSTile's parent CTS never returned. Not upstreamed; retires at a
@@ -344,12 +318,6 @@ archive_override(
         # range. Not upstreamed; retires at a //:bump onto an OpenROAD
         # that has it.
         "//patches:0176-openroad-web-histogram-drill-down-filters.patch",
-        # 0178: generate_ram makes a read select's group buffer in its
-        # group's first bit cell, not every group's beside the decoder
-        # (test/regfile/macro's RegFile, its layout kept, routed 2.7 times
-        # the wire and overflowed). Not upstreamed; retires at a //:bump
-        # onto an OpenROAD that has it.
-        "//patches:0178-openroad-ram-read-select-group-in-place.patch",
         # 0233: generate_ram -write_select mask: a write port names its
         # words by a mask, a bit a word, each word's select its own bit
         # with no decoder, so one write writes many words; generate_array
@@ -449,8 +417,8 @@ archive_override(
         # //:bump onto an OpenROAD whose GUI services the Tcl event loop.
         "//patches:0243-openroad-gui-tcl-event-pump.patch",
     ],
-    strip_prefix = "OpenROAD-3a06062614bb693ef159db851972e9cd20c1e6be",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/3a06062614bb693ef159db851972e9cd20c1e6be.tar.gz"],
+    strip_prefix = "OpenROAD-4543b6b65b4285823b4f20953dd4a8999f6c3126",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/4543b6b65b4285823b4f20953dd4a8999f6c3126.tar.gz"],
 )
 
 # --- hermetic-llvm compatibility (mirrored from OpenROAD's root MODULE.bazel) ---
@@ -820,8 +788,8 @@ orfs = use_extension("//:extension.bzl", "orfs_repositories")
 # `patches` on an override is honoured only from the root module and
 # would therefore land on whoever is root. Rewritten by //:bump.
 orfs.source(
-    commit = "2ba1223c8e39f7a16950ed0272ca8faa391cba84",
-    integrity = "sha256-q/h4hrWWHqKkxHYYSBomH45PLBFrPrKpQGaJLHIWMhA=",
+    commit = "25331f78fe8d43e8a7bc574913a66506ea6610ef",
+    integrity = "sha256-p2+m5kDdEpKOBX3hCizhNp622ilTn4pki73xptYLBy0=",
 )
 orfs.default(
     # Expose the slang yosys plugin (from @sv-elab, above) via
