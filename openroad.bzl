@@ -88,6 +88,7 @@ load(
     _STAGE_SUBSTEPS = "STAGE_SUBSTEPS",
     _get_sources = "get_sources",
     _get_stage_args = "get_stage_args",
+    _orfs_options = "orfs_options",
 )
 load(
     "//private:timing_models.bzl",
@@ -118,6 +119,7 @@ BAZEL_STAGE_TO_VARIABLES = _BAZEL_STAGE_TO_VARIABLES
 BAZEL_VARIABLE_TO_STAGES = _BAZEL_VARIABLE_TO_STAGES
 ORFS_VARIABLE_TO_STAGES = _ORFS_VARIABLE_TO_STAGES
 get_stage_args = _get_stage_args
+orfs_options = _orfs_options
 get_sources = _get_sources
 STAGE_SUBSTEPS = _STAGE_SUBSTEPS
 

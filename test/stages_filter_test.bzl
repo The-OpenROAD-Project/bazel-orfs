@@ -32,6 +32,7 @@ load(
     "dropped_variables",
     "get_sources",
     "get_stage_args",
+    "orfs_options",
     "split_user_variables",
 )
 
@@ -271,7 +272,51 @@ def _split_matches_the_guards_predicate_test(ctx):
     check_stage_variables(known, {}, user, {})
     return unittest.end(env)
 
+def _options_reach_the_stages_that_call_the_command_test(ctx):
+    env = unittest.begin(ctx)
+
+    # ORFS's <COMMAND>_OPTIONS, a Tcl dict for the command's -options: a
+    # stage gets the dicts of the commands it calls, and of a command that
+    # runs in two stages the scopes it reads.
+    def options(grt_margin):
+        return orfs_options({
+            "global_placement": {"routability": {"global_route": {"congestion_iterations": 5}}},
+            "global_route": {"congestion_iterations": 20, "allow_congestion": True},
+            "repair_design": {"slew_margin": 5, "@grt": {"slew_margin": grt_margin}},
+        })
+
+    base = options(10)
+    asserts.equals(env, ["grt", "place"], sorted(base.keys()))
+    asserts.equals(
+        env,
+        {
+            "GLOBAL_PLACEMENT_OPTIONS": "routability.global_route.congestion_iterations 5",
+            "REPAIR_DESIGN_OPTIONS": "slew_margin 5",
+        },
+        base["place"],
+    )
+    asserts.equals(
+        env,
+        {
+            "GLOBAL_ROUTE_OPTIONS": "congestion_iterations 20 allow_congestion true",
+            "REPAIR_DESIGN_OPTIONS": "slew_margin 5 @grt {slew_margin 10}",
+        },
+        base["grt"],
+    )
+
+    # A scope of grt is an input of grt alone.
+    asserts.equals(env, base["place"], options(12)["place"])
+
+    # A value with a space is one word of the dict.
+    asserts.equals(
+        env,
+        "grid_origin {0 0} congestion_report_file {a b}",
+        orfs_options({"global_route": {"grid_origin": [0, 0], "congestion_report_file": "a b"}})["grt"]["GLOBAL_ROUTE_OPTIONS"],
+    )
+    return unittest.end(env)
+
 sorted_output_test = unittest.make(_sorted_output_test)
+options_reach_the_stages_that_call_the_command_test = unittest.make(_options_reach_the_stages_that_call_the_command_test)
 split_user_variables_partitions_test = unittest.make(_split_user_variables_partitions_test)
 split_matches_the_guards_predicate_test = unittest.make(_split_matches_the_guards_predicate_test)
 
@@ -287,6 +332,7 @@ def stages_filter_test_suite(name):
         user_hatch_survives_the_filter_test,
         user_stages_sidecar_scopes_test,
         sorted_output_test,
+        options_reach_the_stages_that_call_the_command_test,
         split_user_variables_partitions_test,
         split_matches_the_guards_predicate_test,
     )

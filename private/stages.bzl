@@ -442,6 +442,119 @@ def check_user_stages(user_stages, user_arguments, user_sources):
                     ),
                 )
 
+def _tcl_scalar(value):
+    if type(value) == "bool":
+        return "true" if value else "false"
+    text = str(value)
+    if text == "" or [c for c in " \t\n{}\"$[];\\".elems() if c in text]:
+        if "{" in text or "}" in text or "\\" in text:
+            fail("option value {} needs Tcl quoting this writer does not do".format(repr(text)))
+        return "{" + text + "}"
+    return text
+
+def _tcl_word(value):
+    """A Starlark value as one word of a Tcl dict."""
+    if type(value) in ("list", "tuple"):
+        return "{" + " ".join([_tcl_scalar(v) for v in value]) + "}"
+    return _tcl_scalar(value)
+
+def _tcl_dict(options):
+    """A dict of options as a Tcl dict with dotted keys.
+
+    Starlark has no recursion, so a group of options, a dict in a dict, is
+    written as the dotted keys -options also takes:
+    {"timing": {"enabled": True}} is `timing.enabled true`.
+    """
+    flat = {}
+    pending = [("", options)]
+    for _ in range(1000):
+        if not pending:
+            break
+        prefix, group = pending.pop(0)
+        for key, value in group.items():
+            if type(value) == "dict":
+                pending.append((prefix + key + ".", value))
+            else:
+                flat[prefix + key] = value
+    if pending:
+        fail("options: more than 1000 groups")
+    return " ".join([key + " " + _tcl_word(value) for key, value in flat.items()])
+
+def options_variable(command):
+    return command.upper() + "_OPTIONS"
+
+def options_arguments(options, stages):
+    """The <COMMAND>_OPTIONS variables a set of stages reads.
+
+    ORFS passes <COMMAND>_OPTIONS, a Tcl dict, to the command's -options. A
+    key "@<stage>" or "@<stage>.<call>" holds a dict for that stage or call
+    alone, so a scope of another stage is left out of this one's value and
+    is not an input of its action. The variable's stages in ORFS's
+    variables.yaml are the stages that call the command.
+
+    Args:
+        options: {command: {option: value}}; a value is a string, a number,
+            a bool, a list, or a dict for a group of options or a scope. A
+            group is written with dotted keys.
+        stages: list of stage names (empty = every stage, every scope).
+    Returns:
+      {variable: Tcl dict} for the commands a stage in `stages` calls.
+    """
+    result = {}
+    for command, command_options in options.items():
+        variable = options_variable(command)
+        if variable not in ALL_VARIABLE_TO_STAGES:
+            fail("options: ORFS has no {} for '{}'".format(variable, command))
+        called_in = ALL_VARIABLE_TO_STAGES[variable]
+        if stages and not [s for s in stages if s in called_in]:
+            continue
+        kept = {}
+        for key, value in command_options.items():
+            if key.startswith("@"):
+                scope_stage = key[1:].split(".")[0]
+                if scope_stage not in called_in:
+                    fail("options: {} scope '{}': {} runs in {}".format(
+                        command,
+                        key,
+                        command,
+                        ", ".join(called_in),
+                    ))
+                if stages and scope_stage not in stages:
+                    continue
+            kept[key] = value
+        result[variable] = " ".join(
+            [_tcl_dict({k: v for k, v in kept.items() if not k.startswith("@")})] +
+            [k + " {" + _tcl_dict(v) + "}" for k, v in kept.items() if k.startswith("@")],
+        ).strip()
+    return result
+
+def orfs_options(options):
+    """<COMMAND>_OPTIONS for orfs_flow(stage_arguments = ...), stage by stage.
+
+    stage_arguments is keyed by stage, so each stage's action gets the
+    options of the commands it calls with the scopes it reads, and a change
+    to an option of global_route, or to repair_design's scope for grt, is
+    an input of the grt stage alone.
+
+        orfs_flow(
+            stage_arguments = orfs_options({
+                "global_route": {"congestion_iterations": 20},
+                "repair_design": {"slew_margin": 5, "@" + "grt": {"slew_margin": 10}},
+            }),
+        )
+
+    Args:
+        options: {command: {option: value}}, see options_arguments().
+    Returns:
+      {stage: {variable: Tcl dict}}.
+    """
+    result = {}
+    for stage in ALL_STAGES:
+        stage_options = options_arguments(options, [stage])
+        if stage_options:
+            result[stage] = stage_options
+    return result
+
 def dropped_variables(stages):
     """Returns the denylist that merge_arguments.py applies at execution time.
 
