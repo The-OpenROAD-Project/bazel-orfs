@@ -1,4 +1,4 @@
-load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 # The global floorplan planner: extract per block (extract_block.tcl,
 # block_json.py; extract_pdk.tcl, pdk_json.py), plan, consume:
@@ -8,8 +8,41 @@ exports_files(
     [
         "extract_block.tcl",
         "extract_pdk.tcl",
-    ],
+    ] + glob(["testdata/toy/*.json"]),
     visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "pin_plan",
+    srcs = ["pin_plan.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "pin_plan_test",
+    size = "small",
+    srcs = ["pin_plan_test.py"],
+    deps = [":pin_plan"],
+)
+
+py_binary(
+    name = "plan",
+    srcs = ["plan.py"],
+    main = "plan.py",
+    visibility = ["//visibility:public"],
+    deps = [":pin_plan"],
+)
+
+py_test(
+    name = "plan_test",
+    size = "small",
+    srcs = [
+        "plan.py",
+        "plan_test.py",
+    ],
+    data = glob(["testdata/toy/*.json"]),
+    main = "plan_test.py",
+    deps = [":pin_plan"],
 )
 
 py_binary(

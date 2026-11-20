@@ -1,0 +1,1135 @@
+#!/usr/bin/env python3
+"""Screen a macro cut for a floorplan, cheapest check first; plan it when it fits.
+
+Inputs, all JSON: one <block>.block.json per macro (extract_block.tcl,
+block_json.py), the parent's crossings (parent.json, extract_parent.tcl),
+the platform's wire model (pdk.json, extract_pdk.tcl), the cut (which
+block each macro is) and the constraints. The macros and the parent's
+own logic (the glue, one soft region filling the free space) are placed
+by pin_plan's analytic placer unless the constraints place them; every
+interface bus goes to the side of its macro facing its partner. Then the
+rungs, cheapest first; the first that fails stops the plan:
+
+  a pins_per_um   per macro side, the bits on it over its length against
+                  the pins one pin layer holds (pdk.json); over one layer
+                  is debt, over `pin_layers` does not fit
+  b area          each macro's outline from its own flow's rule
+                  (die_rule) against its slot; the outlines, the glue at
+                  its density and the channels against the die
+  c aspect        each outline's aspect against its range, and its
+                  shortest side against its largest hard object
+  d internal      each macro's hard objects (memories, register files,
+                  macros) rough-placed inside its outline behind a
+                  pin-access band on every side that carries pins;
+                  where they cannot be, the band gives and the objects
+                  wall the side: a pin side whose free share is under
+                  `free_fraction` is blocked; objects that do not fit at
+                  all have no arrangement
+  e channels      bits crossing each channel against its tracks per layer
+  f path budget   each register-to-register chain across macros against
+                  the period on its assigned layer
+
+The verdict (verdict.json, verdict.md) names the failed constraint with
+its excess, block, side and bus, the buses that contribute, and the
+remedies; on a feasible cut, floorplan.json holds the die, each macro's
+place, outline and pin ranges per bus, for the flows (floorplan.bzl).
+
+Coordinates in every output are ORFS's: microns, origin lower left.
+
+Stdlib only.
+"""
+
+import argparse
+import copy
+import hashlib
+import json
+import math
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import pin_plan as P  # noqa: E402
+
+TOOL = "plan 1"
+GLUE = "GLUE"
+RUNGS = ["pins_per_um", "area", "aspect", "internal_arrangement"]
+DEFAULTS = {
+    "channel_um": 4.0,
+    "gcell_um": 10.0,
+    "pin_layers": 2,
+    "free_fraction": 0.5,
+    "pin_access_um": 10.0,
+    "glue_density": 0.5,
+    "std_density": 0.7,
+    "aspect_range": [1 / 6, 6.0],
+    "usable": 0.5,
+    "die_slack": [1.15, 1.3, 1.5, 1.75, 2.0, 2.5, 3.0],
+}
+
+
+def read_json(path):
+    with open(path) as f:
+        return json.load(f)
+
+
+def sha(obj):
+    return (
+        "sha256:" + hashlib.sha256(json.dumps(obj, sort_keys=True).encode()).hexdigest()
+    )
+
+
+class Model:
+    """Macros with their outlines and buses, the glue, the nets between them."""
+
+    def __init__(self, blocks, parent, pdk, cut, constraints):
+        self.blocks = {b["block"]: b for b in blocks}
+        self.parent = parent or {}
+        self.pdk = pdk
+        self.cut = cut
+        self.c = dict(DEFAULTS, **constraints)
+        self.macros = {}
+        for m, spec in sorted(cut["macros"].items()):
+            block = spec["block"] if isinstance(spec, dict) else spec
+            if block not in self.blocks:
+                raise SystemExit(
+                    "plan: macro %s names block %s, which has no block.json"
+                    % (m, block)
+                )
+            self.macros[m] = {"block": block}
+        self.nets = self._nets()
+        self.glue_um2 = float(
+            self.c.get("glue_um2", self.parent.get("glue", {}).get("std_um2", 0.0))
+        )
+
+    def block(self, m):
+        return self.blocks[self.macros[m]["block"]]
+
+    def macro_of_block(self, block):
+        for m, v in self.macros.items():
+            if v["block"] == block:
+                return m
+        return None
+
+    def _nets(self):
+        """(a, a_bus, b, b_bus, bits) per interface. From parent.json's
+        crossings when it is given (a crossing through a glue register is
+        two nets, each to the glue); else every port bus of every macro to
+        the glue."""
+        nets = []
+        if self.parent.get("crossings") is not None:
+            for x in self.parent["crossings"]:
+                a = self.macro_of_block(x["a"]) or GLUE
+                b = self.macro_of_block(x["b"]) or GLUE
+                if a == b:
+                    continue
+                if x.get("via") == "reg" and GLUE not in (a, b):
+                    nets.append((a, x["a_bus"], GLUE, "", x["bits"]))
+                    nets.append((GLUE, "", b, x["b_bus"], x["bits"]))
+                else:
+                    nets.append((a, x["a_bus"], b, x.get("b_bus", ""), x["bits"]))
+            return nets
+        for m in self.macros:
+            for p in self.block(m)["ports"]:
+                nets.append((m, p["name"], GLUE, "", p["bits"]))
+        return nets
+
+    def outline_area(self, m):
+        """The area of the outline the macro's own flow draws; its slot's
+        when its flow names no rule."""
+        r = self.block(m)["area"]["die_rule"]
+        if r is None:
+            slot = self.macro_c(m).get("slot")
+            if slot is None:
+                raise SystemExit(
+                    "plan: %s's block.json has no die_rule (its flow sets neither DIE_AREA nor "
+                    "CORE_UTILIZATION) and the constraints give it no slot" % m
+                )
+            return slot[0] * slot[1]
+        return r["w_um"] * r["h_um"]
+
+    def hard(self, m):
+        return self.block(m).get("hard", [])
+
+    def macro_c(self, m):
+        return self.c.get("macros", {}).get(m, {})
+
+    def ppu(self, side):
+        """Pins per um of one layer on a side: E and W edges carry the
+        horizontal pin layer."""
+        io = self.pdk["io"]["H" if side in "EW" else "V"]
+        layers = self.pdk["layers"]
+        return min(layers[n]["pins_per_um"] for n in io) if io else 1.0
+
+    def pin_layer(self, side):
+        io = self.pdk["io"]["H" if side in "EW" else "V"]
+        return io[0] if io else ""
+
+    def tech(self):
+        """pin_plan's tech from pdk.json: the pin layers' pitch, the routing
+        layers' track density per direction."""
+        io = self.pdk["io"]
+        layers = self.pdk["layers"]
+        density = {"H": 0.0, "V": 0.0}
+        for n, L in layers.items():
+            if L.get("routable"):
+                density[L["dir"]] += L["tracks_per_um"]
+        rule = self.pdk["pin_rule"]
+        return {
+            "pitch_um": {
+                "H": layers[io["H"][0]]["pitch_um"] if io["H"] else 0.1,
+                "V": layers[io["V"][0]]["pitch_um"] if io["V"] else 0.1,
+            },
+            "min_tracks": rule["min_tracks"],
+            "margin": rule["margin"],
+            "track_density_per_um": min(density.values()),
+            "usable": self.c["usable"],
+        }
+
+
+def shape_options(model, m):
+    """(w, h) outlines a macro may take: its slot when the constraints give
+    one, else its flow's outline area at every aspect in range that holds
+    its largest hard object."""
+    mc = model.macro_c(m)
+    if "slot" in mc:
+        return [tuple(mc["slot"])]
+    area = model.outline_area(m)
+    lo, hi = mc.get("aspect_range", model.c["aspect_range"])
+    aspects = mc.get("aspects", P.ASPECTS)
+    hw = max([h["w"] for h in model.hard(m)] or [0])
+    hh = max([h["h"] for h in model.hard(m)] or [0])
+    out = []
+    for r in aspects:
+        if not lo - 1e-9 <= r <= hi + 1e-9:
+            continue
+        w, h = math.sqrt(area / r), math.sqrt(area * r)
+        if w >= hw and h >= hh:
+            out.append(r)
+    return out or [1.0]
+
+
+def pin_plan_input(model, die=None, aspects=None, forbidden=None):
+    """The pin_plan plan for the model."""
+    pp = {
+        "tech": model.tech(),
+        "growth": 1.0,
+        "util": 1.0,
+        "channel_um": model.c["channel_um"],
+        "gcell_um": model.c["gcell_um"],
+        "macros": {},
+        "nets": [],
+        "macro_aspects": {},
+        "forced_sides": {},
+        "forbidden_sides": forbidden or {},
+        "die_slack": model.c["die_slack"],
+        "pin_layers": model.c["pin_layers"],
+    }
+    for m in model.macros:
+        mc = model.macro_c(m)
+        if "slot" in mc:
+            pp["macros"][m] = {"fixed_shape": list(mc["slot"])}
+        else:
+            pp["macros"][m] = {"std_um2": model.outline_area(m)}
+            pp["macro_aspects"][m] = shape_options(model, m)
+        if mc.get("sides"):
+            pp["forced_sides"][m] = dict(mc["sides"])
+    pp["macros"][GLUE] = {
+        "soft": True,
+        "whitespace": True,
+        "std_um2": model.glue_um2 / model.c["glue_density"],
+    }
+    for a, _, b, _, bits in model.nets:
+        pp["nets"].append([a, b, bits])
+    if die:
+        pp["die"] = {"w": die[0], "h": die[1]}
+    return pp
+
+
+def to_down(r, die_h):
+    """ORFS (lower-left origin) to pin_plan's frame (y down)."""
+    return [r[0], die_h - r[1] - r[3], r[2], r[3]]
+
+
+def to_up(r, die_h):
+    return [
+        round(r[0], 3),
+        round(die_h - r[1] - r[3], 3),
+        round(r[2], 3),
+        round(r[3], 3),
+    ]
+
+
+def layout(model, forbidden=None, aspects_override=None):
+    """(pp, rects in pin_plan's frame, die) or (pp, None, die) when no legal
+    placement exists."""
+    die = model.c.get("die")
+    pp = pin_plan_input(model, die, forbidden=forbidden)
+    places = {
+        m: model.macro_c(m)["place"]
+        for m in model.macros
+        if "place" in model.macro_c(m)
+    }
+    if places and not die:
+        raise SystemExit("plan: constraints place macros but give no die")
+    if die:
+        die = tuple(die)
+        fixed = {}
+        for m, xy in places.items():
+            w, h = (
+                model.macro_c(m).get("slot")
+                or P.shapes_for(pp, aspects_override or {})[m]
+            )
+            fixed[m] = to_down([xy[0], xy[1], w, h], die[1])
+        pp["fixed"] = fixed
+        if len(places) == len(model.macros):
+            return pp, fixed, die
+        if aspects_override is not None:
+            q = P.quick(pp, aspects_override, die)
+            return pp, (q[1] if q else None), die
+        aspects, q = P.tune_aspects(pp, {m: 1.0 for m in pp["macro_aspects"]}, die)
+        if q is None:
+            q = P.quick(
+                pp,
+                {m: (pp["macro_aspects"][m] or [1.0])[0] for m in pp["macro_aspects"]},
+                die,
+            )
+        return pp, (q[1] if q else None), die
+    res = solve_die(pp, aspects_override)
+    if res is None:
+        return pp, None, None
+    die, rects = res
+    pp["die"] = {"w": die[0], "h": die[1]}
+    return pp, rects, die
+
+
+def solve_die(pp, aspects_override=None):
+    """The smallest die (pin_plan's search) holding a legal placement with
+    the emptiest fullest edge."""
+    hard, soft = P.need_area(pp, P.shapes_for(pp, {}))
+    best = None
+    for slack in pp["die_slack"]:
+        for ar in (1.0, 1.25, 0.8, 1.5, 0.67):
+            area = (hard + soft) * slack
+            die = (math.sqrt(area / ar), math.sqrt(area * ar))
+            if aspects_override is not None:
+                q = P.quick(
+                    dict(pp, die={"w": die[0], "h": die[1]}), aspects_override, die
+                )
+            else:
+                start = {
+                    m: (
+                        (pp["macro_aspects"][m] or [1.0])[0]
+                        if 1.0 not in pp["macro_aspects"][m]
+                        else 1.0
+                    )
+                    for m in pp["macro_aspects"]
+                }
+                _, q = P.tune_aspects(
+                    dict(pp, die={"w": die[0], "h": die[1]}), start, die, passes=1
+                )
+            if q is None:
+                continue
+            over = q[0][0][0] > pp["pin_layers"]
+            key = (over, q[0][0] if over else (), die[0] * die[1], q[0])
+            if best is None or key < best[0]:
+                best = (key, die, q[1])
+        if best is not None and not best[0][0]:
+            break
+    return (best[1], best[2]) if best else None
+
+
+def bus_contributors(model, m, partner):
+    """The macro's buses to a partner, widest first."""
+    out = []
+    for a, ab, b, bb, bits in model.nets:
+        if a == m and b == partner:
+            out.append({"bus": ab, "bits": bits, "partner": partner, "partner_bus": bb})
+        elif b == m and a == partner:
+            out.append({"bus": bb, "bits": bits, "partner": partner, "partner_bus": ab})
+    ports = {p["name"]: p for p in model.block(m)["ports"]}
+    merged = {}
+    for o in out:
+        k = (o["bus"], o["partner"])
+        if k in merged:
+            merged[k]["bits"] += o["bits"]
+        else:
+            merged[k] = dict(o)
+            p = ports.get(o["bus"])
+            if p is not None:
+                merged[k]["registered"] = p.get("registered")
+    return sorted(merged.values(), key=lambda o: (-o["bits"], o["bus"]))
+
+
+def edge_report(model, edges):
+    """Per (macro, side): bits, length, pins per um, layers needed, buses."""
+    out = []
+    for (m, s), e in sorted(edges.items()):
+        if m not in model.macros:
+            continue
+        ppu1 = model.ppu(s)
+        per_um = e["need"] / e["len"] if e["len"] else math.inf
+        contributors = []
+        for partner, bits, lo, hi in e["bundles"]:
+            for c in bus_contributors(model, m, partner):
+                if c not in contributors:
+                    contributors.append(c)
+        contributors.sort(key=lambda c: (-c["bits"], c["bus"]))
+        out.append(
+            {
+                "macro": m,
+                "block": model.macros[m]["block"],
+                "side": s,
+                "bits": e["need"],
+                "um": round(e["len"], 3),
+                "per_um": round(per_um, 3),
+                "limit_one_layer": round(ppu1, 3),
+                "layers": per_um / ppu1 if ppu1 else math.inf,
+                "contributors": contributors,
+                "segments": [[o, n, lo, hi] for o, n, lo, hi in e["bundles"]],
+            }
+        )
+    return out
+
+
+def rung_a(model, edges):
+    findings = []
+    n = model.c["pin_layers"]
+    for e in edge_report(model, edges):
+        if e["layers"] <= 1.0:
+            continue
+        status = "fail" if e["layers"] > n * (1 + 1e-3) else "debt"
+        lim1 = e["limit_one_layer"]
+        findings.append(
+            {
+                "rung": "pins_per_um",
+                "status": status,
+                "block": e["block"],
+                "macro": e["macro"],
+                "side": e["side"],
+                "bus": e["contributors"][0]["bus"] if e["contributors"] else "",
+                "demand": {"bits": e["bits"], "um": e["um"], "per_um": e["per_um"]},
+                "limit": {
+                    "one_layer": lim1,
+                    "layers": n,
+                    "all_layers": round(lim1 * n, 3),
+                },
+                "excess": {
+                    "bits": max(0, round(e["bits"] - e["um"] * lim1 * n)),
+                    "factor": round(e["per_um"] / (lim1 * n), 3),
+                },
+                "contributors": e["contributors"][:8],
+            }
+        )
+    return findings
+
+
+def rung_b(model, rects, die):
+    findings = []
+    for m in model.macros:
+        need = model.outline_area(m)
+        r = model.block(m)["area"]["die_rule"]
+        slot = model.macro_c(m).get("slot")
+        if slot and slot[0] * slot[1] + 1e-6 < need:
+            findings.append(
+                {
+                    "rung": "area",
+                    "status": "fail",
+                    "block": model.macros[m]["block"],
+                    "macro": m,
+                    "need": {
+                        "w": r["w_um"],
+                        "h": r["h_um"],
+                        "um2": round(need, 1),
+                        "rule": rule_text(r),
+                    },
+                    "slot": {
+                        "w": slot[0],
+                        "h": slot[1],
+                        "um2": round(slot[0] * slot[1], 1),
+                    },
+                    "excess_um2": round(need - slot[0] * slot[1], 1),
+                }
+            )
+    if rects is None:
+        hard = sum(model.outline_area(m) for m in model.macros)
+        soft = model.glue_um2 / model.c["glue_density"]
+        f = {
+            "rung": "area",
+            "status": "fail",
+            "block": "die",
+            "macro": None,
+            "need": {
+                "um2": round(hard + soft, 1),
+                "macros_um2": round(hard, 1),
+                "glue_um2": round(soft, 1),
+            },
+        }
+        if die:
+            f["die"] = {"w": die[0], "h": die[1], "um2": round(die[0] * die[1], 1)}
+            f["excess_um2"] = round(hard + soft - die[0] * die[1], 1)
+        f["reason"] = "no legal placement of the macros with their channels in the die"
+        findings.append(f)
+    return findings
+
+
+def rule_text(r):
+    if r.get("rule") == "DIE_AREA":
+        return "DIE_AREA"
+    return "CORE_UTILIZATION %g + CORE_MARGIN %g" % (100 * r["util"], r["margin_um"])
+
+
+def rung_c(model, rects):
+    findings = []
+    for m in model.macros:
+        w, h = rects[m][2], rects[m][3]
+        mc = model.macro_c(m)
+        # a slot is the shape the constraints chose; only a range they
+        # name for the macro itself is checked against it
+        default = [0, math.inf] if "slot" in mc else model.c["aspect_range"]
+        lo, hi = mc.get("aspect_range", default)
+        a = h / w
+        hw = max([o["w"] for o in model.hard(m)] or [0])
+        hh = max([o["h"] for o in model.hard(m)] or [0])
+        if not lo - 1e-6 <= a <= hi + 1e-6:
+            findings.append(
+                {
+                    "rung": "aspect",
+                    "status": "fail",
+                    "block": model.macros[m]["block"],
+                    "macro": m,
+                    "aspect": round(a, 3),
+                    "range": [lo, hi],
+                    "shape": [round(w, 3), round(h, 3)],
+                }
+            )
+        elif w + 1e-6 < hw or h + 1e-6 < hh:
+            findings.append(
+                {
+                    "rung": "aspect",
+                    "status": "fail",
+                    "block": model.macros[m]["block"],
+                    "macro": m,
+                    "aspect": round(a, 3),
+                    "shape": [round(w, 3), round(h, 3)],
+                    "largest_hard": [hw, hh],
+                    "reason": "shortest side under the largest hard object",
+                }
+            )
+    return findings
+
+
+# --- rung d: the hard objects inside each macro --------------------------------
+
+
+def pack(objs, region, base):
+    """Shelf-pack objects (dicts with w, h, halo_um) into region [x, y, w, h]
+    (ORFS frame), shelves parallel to the `base` side and stacked away from
+    it, tallest first; objects keep their halo from each other, not from
+    the region's edge. A list of [x, y, w, h] in the order of objs, or None."""
+    rx, ry, rw, rh = region
+    if rw <= 0 or rh <= 0:
+        return None
+    # work in a frame where the base side is S: u along it, v away from it
+    along = rw if base in "NS" else rh
+    depth = rh if base in "NS" else rw
+    order = sorted(
+        range(len(objs)),
+        key=lambda i: (-dims(objs[i], base)[1], -dims(objs[i], base)[0], i),
+    )
+    out = [None] * len(objs)
+    v = 0.0
+    u = 0.0
+    shelf_h = 0.0
+    first_in_shelf = True
+    for i in order:
+        ou, ov = dims(objs[i], base)
+        gap = 2 * objs[i].get("halo_um", 0.0)
+        start = u if first_in_shelf else u + gap
+        if start + ou > along + 1e-6:
+            v += shelf_h + gap
+            u, shelf_h, first_in_shelf = 0.0, 0.0, True
+            start = 0.0
+        if start + ou > along + 1e-6 or v + ov > depth + 1e-6:
+            return None
+        out[i] = from_frame(start, v, ou, ov, region, base)
+        u = start + ou
+        shelf_h = max(shelf_h, ov)
+        first_in_shelf = False
+    return out
+
+
+def dims(o, base):
+    """(along, depth) of an object for shelves on `base`."""
+    return (o["w"], o["h"]) if base in "NS" else (o["h"], o["w"])
+
+
+def from_frame(u, v, ou, ov, region, base):
+    rx, ry, rw, rh = region
+    if base == "S":
+        return [rx + u, ry + v, ou, ov]
+    if base == "N":
+        return [rx + u, ry + rh - v - ov, ou, ov]
+    if base == "W":
+        return [rx + v, ry + u, ov, ou]
+    return [rx + rw - v - ov, ry + u, ov, ou]
+
+
+def free_spans(w, h, side, rects, depth, halo):
+    """Spans of a side with no object (and its halo) within `depth` of it."""
+    length = w if side in "NS" else h
+    covered = []
+    for r in rects:
+        near = {
+            "S": r[1] - halo < depth,
+            "N": h - (r[1] + r[3]) - halo < depth,
+            "W": r[0] - halo < depth,
+            "E": w - (r[0] + r[2]) - halo < depth,
+        }[side]
+        if near:
+            a, b = (r[0], r[0] + r[2]) if side in "NS" else (r[1], r[1] + r[3])
+            covered.append([max(0.0, a - halo), min(length, b + halo)])
+    covered.sort()
+    merged = []
+    for a, b in covered:
+        if merged and a <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], b)
+        else:
+            merged.append([a, b])
+    free, cur = [], 0.0
+    for a, b in merged:
+        if a > cur:
+            free.append([cur, a])
+        cur = max(cur, b)
+    if cur < length:
+        free.append([cur, length])
+    return free, merged
+
+
+def pin_demand(model, m, edges):
+    """Bits per side of a macro."""
+    return {s: e["need"] for (n, s), e in edges.items() if n == m}
+
+
+def pull_side(model, m, obj, edges):
+    """The side carrying most of the bits of the ports a hard object's
+    pins reach."""
+    ports = {n["port"] for n in obj.get("nets", [])}
+    best = {}
+    for (n, s), e in edges.items():
+        if n != m:
+            continue
+        for partner, bits, lo, hi in e["bundles"]:
+            for c in bus_contributors(model, m, partner):
+                if c["bus"] in ports:
+                    best[s] = best.get(s, 0) + c["bits"]
+    if not best:
+        return None
+    return max(sorted(best), key=lambda s: best[s])
+
+
+def arrange(model, m, w, h, edges):
+    """The rough placement of a macro's hard objects in its w x h outline:
+    (rects, walled sides, relaxed bands) or None when they do not fit."""
+    objs = model.hard(m)
+    margin = (
+        model.block(m)["area"]["die_rule"].get("margin_um", 1.0)
+        if model.block(m)["area"]["die_rule"]
+        else 1.0
+    )
+    core = [margin, margin, w - 2 * margin, h - 2 * margin]
+    demand = pin_demand(model, m, edges)
+    d = model.c["pin_access_um"]
+    pin_sides = sorted(
+        [s for s, b in demand.items() if b > 0], key=lambda s: (demand[s], s)
+    )
+    pulls = {}
+    for o in objs:
+        s = pull_side(model, m, o, edges)
+        if s:
+            pulls[s] = pulls.get(s, 0) + 1
+    bases = sorted("NSEW", key=lambda s: (-pulls.get(s, 0), -demand.get(s, 0), s))
+    # bands give way on the least-loaded pin side first
+    relax_orders = [[]] + [pin_sides[:k] for k in range(1, len(pin_sides) + 1)]
+    halo = max([o.get("halo_um", 0.0) for o in objs] or [0.0])
+    for relaxed in relax_orders:
+        # a band keeps an object's halo pin_access_um from the outline
+        band = {
+            s: (
+                0.0
+                if s in relaxed or s not in pin_sides
+                else max(0.0, d + halo - margin)
+            )
+            for s in "NSEW"
+        }
+        region = [
+            core[0] + band["W"],
+            core[1] + band["S"],
+            core[2] - band["W"] - band["E"],
+            core[3] - band["S"] - band["N"],
+        ]
+        for base in bases:
+            rects = pack(objs, region, base)
+            if rects is not None:
+                return rects, relaxed, base
+    return None
+
+
+def rung_d(model, rects, edges):
+    findings = []
+    internal = {}
+    floor = model.c["free_fraction"]
+    for m in sorted(model.macros):
+        objs = model.hard(m)
+        if not objs:
+            continue
+        w, h = rects[m][2], rects[m][3]
+        blk = model.block(m)
+        hard_um2 = sum(
+            (o["w"] + 2 * o.get("halo_um", 0)) * (o["h"] + 2 * o.get("halo_um", 0))
+            for o in objs
+        )
+        std_um2 = blk["area"]["std_um2"] / model.c["std_density"]
+        if hard_um2 + std_um2 > w * h + 1e-6:
+            findings.append(
+                {
+                    "rung": "internal_arrangement",
+                    "status": "fail",
+                    "kind": "no_internal_arrangement",
+                    "block": blk["block"],
+                    "macro": m,
+                    "slot": [round(w, 3), round(h, 3)],
+                    "need_um2": round(hard_um2 + std_um2, 1),
+                    "slot_um2": round(w * h, 1),
+                    "objects": [o["inst"] for o in objs][:20],
+                }
+            )
+            continue
+        res = arrange(model, m, w, h, edges)
+        if res is None:
+            findings.append(
+                {
+                    "rung": "internal_arrangement",
+                    "status": "fail",
+                    "kind": "no_internal_arrangement",
+                    "block": blk["block"],
+                    "macro": m,
+                    "slot": [round(w, 3), round(h, 3)],
+                    "need_um2": round(hard_um2 + std_um2, 1),
+                    "slot_um2": round(w * h, 1),
+                    "objects": [o["inst"] for o in objs][:20],
+                    "largest": max([[o["w"], o["h"]] for o in objs]),
+                }
+            )
+            continue
+        placed, relaxed, base = res
+        halo = max([o.get("halo_um", 0) for o in objs] or [0])
+        demand = pin_demand(model, m, edges)
+        rows = []
+        for o, r in zip(objs, placed):
+            rows.append(
+                {
+                    "inst": o["inst"],
+                    "place": [round(r[0], 3), round(r[1], 3)],
+                    "shape": [o["w"], o["h"]],
+                    "walls": [],
+                }
+            )
+        for s in "NSEW":
+            free, walls = free_spans(w, h, s, placed, model.c["pin_access_um"], halo)
+            length = w if s in "NS" else h
+            free_um = sum(b - a for a, b in free)
+            for o, r, row in zip(objs, placed, rows):
+                span = (r[0], r[0] + r[2]) if s in "NS" else (r[1], r[1] + r[3])
+                if any(a < span[1] and span[0] < b for a, b in walls) and s in relaxed:
+                    row["walls"].append(s)
+            bits = demand.get(s, 0)
+            if not bits:
+                continue
+            frac = free_um / length if length else 0.0
+            ppu1 = model.ppu(s)
+            per_um_free = bits / free_um if free_um > 0 else math.inf
+            limit = ppu1 * model.c["pin_layers"]
+            if frac < floor or per_um_free > limit:
+                walling = [
+                    {
+                        "inst": o["inst"],
+                        "span": [
+                            round(max(0, (r[0] if s in "NS" else r[1]) - halo), 3),
+                            round(
+                                (r[0] + r[2] if s in "NS" else r[1] + r[3]) + halo, 3
+                            ),
+                        ],
+                    }
+                    for o, r, row in zip(objs, placed, rows)
+                    if s in row["walls"]
+                ]
+                needing = []
+                for (n, side), e in edges.items():
+                    if n == m and side == s:
+                        for partner, b, lo, hi in e["bundles"]:
+                            for c in bus_contributors(model, m, partner):
+                                needing.append(
+                                    {
+                                        "bus": c["bus"],
+                                        "bits": c["bits"],
+                                        "partner": partner,
+                                    }
+                                )
+                findings.append(
+                    {
+                        "rung": "internal_arrangement",
+                        "status": "fail",
+                        "kind": "side_blocked",
+                        "block": blk["block"],
+                        "macro": m,
+                        "side": s,
+                        "free_um": round(free_um, 3),
+                        "of_um": round(length, 3),
+                        "free_fraction": round(frac, 3),
+                        "floor": floor,
+                        "walls": walling,
+                        "buses_needing": sorted(needing, key=lambda c: -c["bits"])[:8],
+                        "bus": needing[0]["bus"] if needing else "",
+                        "pins_per_um_on_free": (
+                            round(per_um_free, 3) if free_um > 0 else None
+                        ),
+                        "limit": round(limit, 3),
+                    }
+                )
+        internal[m] = rows
+    return findings, internal
+
+
+# --- the plan -------------------------------------------------------------------
+
+
+def evaluate(model, forbidden=None):
+    """Lay out and run rungs a to d; the state the verdict and the
+    floorplan are written from."""
+    pp, rects, die = layout(model, forbidden)
+    st = {
+        "pp": pp,
+        "rects": rects,
+        "die": die,
+        "findings": [],
+        "internal": {},
+        "edges": None,
+    }
+    if rects is not None:
+        edges = P.assign(pp, rects)
+        st["edges"] = edges
+        st["findings"] += rung_a(model, edges)
+    st["findings"] += rung_b(model, rects, die)
+    if rects is None:
+        return st
+    st["findings"] += rung_c(model, rects)
+    fd, internal = rung_d(model, rects, st["edges"])
+    st["findings"] += fd
+    st["internal"] = internal
+    return st
+
+
+def plan(model, passes=3):
+    """Evaluate, and between passes move the buses off a side the hard
+    objects block unless the constraints force it."""
+    forbidden = {}
+    st = evaluate(model, forbidden)
+    for _ in range(passes - 1):
+        blocked = [
+            f
+            for f in st["findings"]
+            if f.get("kind") == "side_blocked"
+            and not model.macro_c(f["macro"]).get("sides")
+        ]
+        if not blocked:
+            break
+        changed = False
+        for f in blocked:
+            s = forbidden.setdefault(f["macro"], [])
+            if f["side"] not in s and len(s) < 3:
+                s.append(f["side"])
+                changed = True
+        if not changed:
+            break
+        st = evaluate(model, forbidden)
+    st["forbidden"] = forbidden
+    return st
+
+
+def first_stop(findings, rungs=RUNGS):
+    for r in rungs:
+        for f in findings:
+            if f["rung"] == r and f["status"] == "fail":
+                return r
+    return None
+
+
+def remedies_for(f):
+    """The remedy kinds that address a finding."""
+    k = f.get("kind", f["rung"])
+    return {
+        "pins_per_um": [
+            "reshape",
+            "resize_slot",
+            "split_side",
+            "narrow_bus",
+            "move_module",
+        ],
+        "area": ["resize_slot", "resize_die"],
+        "aspect": ["reshape"],
+        "side_blocked": ["change_side", "reshape", "move_memory", "move_slot"],
+        "no_internal_arrangement": ["resize_slot", "reshape", "move_memory"],
+    }.get(k, [])
+
+
+def verdict(model, st, identity, run_all=False):
+    findings = st["findings"]
+    stop = first_stop(findings)
+    if not run_all and stop is not None:
+        idx = RUNGS.index(stop)
+        findings = [f for f in findings if f["rung"] in RUNGS[: idx + 1]]
+    for f in findings:
+        if f["status"] == "fail":
+            f["remedies"] = remedies_for(f)
+    die = st["die"]
+    internal = {}
+    for m, rows in st["internal"].items():
+        internal[m] = rows
+    return {
+        "identity": identity,
+        "verdict": "feasible" if stop is None else "infeasible",
+        "stopped_at": stop,
+        "die": [round(die[0], 3), round(die[1], 3)] if die else None,
+        "findings": findings,
+        "remedies": [],
+        "internal_placement": internal,
+        "forbidden_sides": st.get("forbidden", {}),
+    }
+
+
+def segments_by_partner(edges, m, r):
+    """Per partner the segments pin_plan gave it on the macro's sides:
+    (side, lo, hi, bits), block-relative along the side in ORFS's
+    direction (x for N and S, y for E and W, from the lower left)."""
+    out = {}
+    for (n, s), e in sorted(edges.items()):
+        if n != m:
+            continue
+        for partner, bits, lo, hi in e["bundles"]:
+            if s in "NS":
+                a, b = lo - r[0], hi - r[0]
+            else:
+                a, b = (r[1] + r[3]) - hi, (r[1] + r[3]) - lo
+            out.setdefault(partner, []).append((s, a, b, bits))
+    return out
+
+
+def place_buses(segs, buses):
+    """Whole buses into a partner's segments, widest first into the segment
+    with the most bits left: a bus keeps one side. [(side, lo, hi, buses)]."""
+    left = [bits for _, _, _, bits in segs]
+    given = [[] for _ in segs]
+    for c in buses:
+        i = max(range(len(segs)), key=lambda k: (left[k], -k))
+        given[i].append(c)
+        left[i] -= c["bits"]
+    return [(s, a, b, g) for (s, a, b, _), g in zip(segs, given) if g]
+
+
+def floorplan(model, st):
+    """floorplan.json: the die, each macro's place, outline and pins per
+    bus, the glue's top pins."""
+    die = st["die"]
+    margin = model.c.get("core_margin_um", 2.0)
+    out = {
+        "die": [round(die[0], 3), round(die[1], 3)],
+        "core": [margin, margin, round(die[0] - margin, 3), round(die[1] - margin, 3)],
+        "macros": {},
+        "report": {"pins_per_um": {}},
+    }
+    edges = st["edges"]
+    for m in sorted(model.macros):
+        r = st["rects"][m]
+        up = to_up(r, die[1])
+        pins = {}
+        for partner, segs in segments_by_partner(edges, m, r).items():
+            for s, a, b, buses in place_buses(
+                segs, bus_contributors(model, m, partner)
+            ):
+                limit = up[2] if s in "NS" else up[3]
+                total = sum(c["bits"] for c in buses)
+                cur = a
+                for c in buses:
+                    span = (b - a) * c["bits"] / total
+                    pins.setdefault(s, []).append(
+                        {
+                            "bus": c["bus"],
+                            "partner": partner,
+                            "bits": c["bits"],
+                            "range": [
+                                round(max(0.0, cur), 3),
+                                round(min(cur + span, limit), 3),
+                            ],
+                            "layer": model.pin_layer(s),
+                        }
+                    )
+                    cur += span
+        out["macros"][m] = {
+            "block": model.macros[m]["block"],
+            "place": [up[0], up[1]],
+            "shape": [up[2], up[3]],
+            "orient": "R0",
+            "pins": pins,
+        }
+        out["report"]["pins_per_um"][m] = {
+            s: round(e["need"] / e["len"], 3)
+            for (n, s), e in edges.items()
+            if n == m and e["len"]
+        }
+    if st["internal"]:
+        out["internal_placement"] = st["internal"]
+    return out
+
+
+def identity(paths, objs):
+    out = {"tool": TOOL}
+    for k, v in objs.items():
+        out[k] = sha(v)
+    return out
+
+
+def write_md(v, path):
+    lines = ["# Floorplan verdict: %s" % v["verdict"], ""]
+    if v["stopped_at"]:
+        lines.append("Stopped at rung `%s`." % v["stopped_at"])
+        lines.append("")
+    if v.get("die"):
+        lines.append("Die: %.1f x %.1f um." % tuple(v["die"]))
+        lines.append("")
+    for f in v["findings"]:
+        head = "## %s: %s, %s" % (f["rung"], f["status"], f.get("block"))
+        if f.get("side"):
+            head += " side %s" % f["side"]
+        if f.get("kind"):
+            head += " (%s)" % f["kind"]
+        lines.append(head)
+        lines.append("")
+        for k in (
+            "demand",
+            "limit",
+            "excess",
+            "need",
+            "slot",
+            "free_fraction",
+            "free_um",
+            "pins_per_um_on_free",
+            "aspect",
+            "reason",
+            "excess_um2",
+        ):
+            if k in f:
+                lines.append("- %s: %s" % (k, json.dumps(f[k])))
+        if f.get("walls"):
+            lines.append("- walls: " + ", ".join(w["inst"] for w in f["walls"]))
+        rows = f.get("contributors") or f.get("buses_needing")
+        if rows:
+            lines.append("")
+            lines.append("| bus | bits | partner | registered |")
+            lines.append("|---|---|---|---|")
+            for c in rows:
+                lines.append(
+                    "| %s | %d | %s | %s |"
+                    % (
+                        c["bus"],
+                        c["bits"],
+                        c.get("partner", ""),
+                        c.get("registered", ""),
+                    )
+                )
+        if f.get("remedies"):
+            lines.append("")
+            lines.append("Remedies: " + ", ".join(f["remedies"]))
+        lines.append("")
+    for r in v.get("remedies", []):
+        lines.append(
+            "- remedy %s: %s"
+            % (r["kind"], json.dumps({k: x for k, x in r.items() if k != "kind"}))
+        )
+    with open(path, "w") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+def run(blocks, parent, pdk, cut, constraints, run_all=False):
+    model = Model(blocks, parent, pdk, cut, constraints)
+    st = plan(model)
+    ident = identity(
+        None,
+        {
+            "blocks": sorted((b["block"], b.get("identity", {})) for b in blocks),
+            "parent": parent or {},
+            "pdk": pdk.get("identity", pdk),
+            "cut": cut,
+            "constraints": constraints,
+        },
+    )
+    v = verdict(model, st, ident, run_all)
+    fp = floorplan(model, st) if v["verdict"] == "feasible" else None
+    return model, st, v, fp
+
+
+def main(argv):
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "--block", action="append", default=[], help="a block.json, once per macro"
+    )
+    ap.add_argument("--parent", help="parent.json")
+    ap.add_argument("--pdk", required=True)
+    ap.add_argument("--cut", required=True)
+    ap.add_argument("--constraints", required=True)
+    ap.add_argument("--verdict", required=True, help="verdict.json to write")
+    ap.add_argument("--verdict-md", help="verdict.md to write")
+    ap.add_argument("--floorplan", help="floorplan.json to write; {} when infeasible")
+    ap.add_argument("--all", action="store_true", help="every rung past the first stop")
+    args = ap.parse_args(argv)
+    blocks = [read_json(p) for p in args.block]
+    parent = read_json(args.parent) if args.parent else None
+    model, st, v, fp = run(
+        blocks,
+        parent,
+        read_json(args.pdk),
+        read_json(args.cut),
+        read_json(args.constraints),
+        args.all,
+    )
+    with open(args.verdict, "w") as f:
+        json.dump(v, f, indent=1, sort_keys=True)
+        f.write("\n")
+    if args.verdict_md:
+        write_md(v, args.verdict_md)
+    if args.floorplan:
+        with open(args.floorplan, "w") as f:
+            json.dump(fp or {}, f, indent=1, sort_keys=True)
+            f.write("\n")
+    print(
+        "plan: %s%s"
+        % (v["verdict"], " at " + v["stopped_at"] if v["stopped_at"] else "")
+    )
+    for f in v["findings"]:
+        if f["status"] == "fail":
+            print(
+                "  %s %s %s %s %s"
+                % (
+                    f["rung"],
+                    f.get("kind", ""),
+                    f.get("block"),
+                    f.get("side", ""),
+                    f.get("bus", ""),
+                )
+            )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -1,4 +1,5 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("//tools/floorplan:floorplan.bzl", "floorplan_extract", "floorplan_plan")
 load(":arms.bzl", "channel_arm", "pinwall_arm")
 
 # Calibration of the floorplan planner's constants on a synthetic parent
@@ -89,3 +90,34 @@ py_test(
     main = "channel_test.py",
     tags = ["study"],
 )
+
+# The global floorplan planner (tools/floorplan) on two calibrated arms: the
+# block's pin side is pins x 0.096 um x 1.5 / 2 long, so its rung (a) must
+# put it at the two-layer limit, which the arms route clean with the logic
+# facing it.
+[
+    floorplan_extract(
+        name = "floorplan_p%d" % pins,
+        src = ":pinwall_block_pw_p%d_c40_m15_synth" % pins,
+        arguments = {"DIE_AREA": "0 0 %s 40" % (pins * 0.072)},
+        timing = False,
+    )
+    for pins in [
+        3000,
+        10000,
+    ]
+]
+
+[
+    floorplan_plan(
+        name = "floorplan_p%d_plan" % pins,
+        blocks = [":floorplan_p%d" % pins],
+        constraints = ":floorplan_p%d.json" % pins,
+        cut = ":floorplan_cut.json",
+        pdk = "//test/floorplan_toy:asap7",
+    )
+    for pins in [
+        3000,
+        10000,
+    ]
+]
