@@ -1173,6 +1173,71 @@ def place_buses(segs, buses):
     return [(s, a, b, g) for (s, a, b, _), g in zip(segs, given) if g]
 
 
+def snap(rect, lattice):
+    """A macro's origin down and outline up to the pin layers' lattice
+    (constraints `lattice_um`, asap7's M2-M5 0.144 x 2.16 um), so its pins
+    sit on the parent's tracks."""
+    if not lattice:
+        return rect
+    lx, ly = lattice
+    x = math.floor(rect[0] / lx + 1e-9) * lx
+    y = math.floor(rect[1] / ly + 1e-9) * ly
+    w = math.ceil(rect[2] / lx - 1e-9) * lx
+    h = math.ceil(rect[3] / ly - 1e-9) * ly
+    return [round(x, 3), round(y, 3), round(w, 3), round(h, 3)]
+
+
+def side_pins(model, m, edges, r, up):
+    """Per side of a macro, each whole bus's range: buses in the order of
+    their partners' segments, each as long as its bits need at the layers
+    the side's whole demand needs, from where its segment starts, pushed
+    along when the one before it runs on and pulled back from the side's
+    end. Block-relative, ORFS's direction."""
+    per_side = {}
+    for partner, segs in segments_by_partner(edges, m, r).items():
+        for s, a, b, buses in place_buses(segs, bus_contributors(model, m, partner)):
+            for c in buses:
+                per_side.setdefault(s, []).append((a, c["bus"], c["bits"], partner))
+    pins = {}
+    for s, items in sorted(per_side.items()):
+        length = up[2] if s in "NS" else up[3]
+        ppu1 = model.ppu(s)
+        total = sum(bits for _, _, bits, _ in items)
+        layers = (
+            min(model.c["pin_layers"], max(1, math.ceil(total / (length * ppu1))))
+            if length
+            else 1
+        )
+        ppu = ppu1 * layers
+        rows = []
+        cur = 0.0
+        for start, bus, bits, partner in sorted(items):
+            lo = max(cur, min(start, length))
+            rows.append([lo, lo + bits / ppu, bus, bits, partner])
+            cur = rows[-1][1]
+        over = cur - length
+        for i in range(len(rows) - 1, -1, -1):
+            if over <= 0:
+                break
+            room = rows[i][0] - (rows[i - 1][1] if i else 0.0)
+            shift = min(over, room)
+            for row in rows[i:]:
+                row[0] -= shift
+                row[1] -= shift
+            over -= shift
+        pins[s] = [
+            {
+                "bus": bus,
+                "partner": partner,
+                "bits": bits,
+                "range": [round(max(0.0, lo), 3), round(min(hi, length), 3)],
+                "layer": model.pin_layer(s),
+            }
+            for lo, hi, bus, bits, partner in rows
+        ]
+    return pins
+
+
 def floorplan(model, st):
     """floorplan.json: the die, each macro's place, outline and pins per
     bus, the glue's top pins."""
@@ -1187,30 +1252,8 @@ def floorplan(model, st):
     edges = st["edges"]
     for m in sorted(model.macros):
         r = st["rects"][m]
-        up = to_up(r, die[1])
-        pins = {}
-        for partner, segs in segments_by_partner(edges, m, r).items():
-            for s, a, b, buses in place_buses(
-                segs, bus_contributors(model, m, partner)
-            ):
-                limit = up[2] if s in "NS" else up[3]
-                total = sum(c["bits"] for c in buses)
-                cur = a
-                for c in buses:
-                    span = (b - a) * c["bits"] / total
-                    pins.setdefault(s, []).append(
-                        {
-                            "bus": c["bus"],
-                            "partner": partner,
-                            "bits": c["bits"],
-                            "range": [
-                                round(max(0.0, cur), 3),
-                                round(min(cur + span, limit), 3),
-                            ],
-                            "layer": model.pin_layer(s),
-                        }
-                    )
-                    cur += span
+        up = snap(to_up(r, die[1]), model.c.get("lattice_um"))
+        pins = side_pins(model, m, edges, r, up)
         out["macros"][m] = {
             "block": model.macros[m]["block"],
             "place": [up[0], up[1]],
