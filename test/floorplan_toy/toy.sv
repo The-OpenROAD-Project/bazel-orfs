@@ -4,8 +4,9 @@
 //
 //   FpCore  registers its request to FpMem and its result to FpVec; a
 //           16-bit feedthrough (ft_in -> ft_out, combinational) and a
-//           deep register-to-output cone (deep_out) that, with the glue's
-//           adder and FpVec's deep input cone, is the cross-macro path
+//           register-to-output adder (deep_out) that, with the glue's
+//           adder and FpVec's input adder, is the cross-macro path: three
+//           adders, half the period, the rest the wire's
 //   FpMem   four 256x34 memories behind a registered request; its pins
 //           face FpCore, its memories are most of its area
 //   FpVec   the over-wide bus: 1024 bits in, registered and folded to 32
@@ -31,8 +32,8 @@ module FpCore (
     for (int i = 0; i < 32; i++) wide[i*32+:32] <= acc ^ (a << i) ^ (b >> i);
   end
   assign ft_out   = ft_in ^ {ft_in[7:0], ft_in[15:8]};
-  // the deep register-to-output cone
-  assign deep_out = (a * b) + (acc * a);
+  // the register-to-output leg of the cross-macro path
+  assign deep_out = a + b;
 endmodule
 
 module FpMem (
@@ -79,8 +80,8 @@ module FpVec (
   end
   always_ff @(posedge clock) begin
     w   <= wide;
-    // the deep input-to-register cone
-    d   <= deep_in * deep_in + deep_in;
+    // the input-to-register leg of the cross-macro path
+    d   <= deep_in + w[31:0];
     res <= fold ^ d;
   end
   assign ft_out = ~ft_in;
