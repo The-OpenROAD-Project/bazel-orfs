@@ -172,6 +172,12 @@ ORFS_PATCHES = [
     # cts_latency_offset_test. Not upstreamed; retires at a bump onto an
     # ORFS that carries it.
     Label("//patches:0241-orfs-cts-latency-offsets.patch"),
+    # 0247: ORFS #4771's command arguments grammar. <COMMAND>_ARGS holds
+    # edits to the flow's arguments, scoped by stage or call;
+    # scripts/args_grammar.bzl is Starlark, and private/stages.bzl loads
+    # it to give each stage only the edits it reads. Not upstreamed: the
+    # ORFS PR is open.
+    Label("//patches:0247-orfs-args-grammar.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
@@ -369,6 +375,7 @@ exports_files(
 # Same shape as the flow/util/*.tcl omission noted further down.
 MAKEFILE_SHARED = [
     "scripts/*.py",
+    "scripts/*.bzl",
     "scripts/memories/*.py",
     "scripts/memories/*.tcl",
     "scripts/*.sh",
