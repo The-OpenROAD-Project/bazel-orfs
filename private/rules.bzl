@@ -1880,6 +1880,26 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         ctx.attr.kept_macros_enabled and bool(ctx.attr.kept_macros)
     )
 
+    # With slices and no kept_macros, a partition stages the macros its
+    # slices hold as stubs (partition_macros.py), so a macro's liberty
+    # reaches only the partitions that instantiate it.
+    slice_macros_json = None
+    if slices and not use_kept_macros_scoping:
+        slice_macros = {}
+        for dep in ctx.attr.deps:
+            info = dep[OrfsInfo]
+            lib = info.lib_pre_layout or info.lib
+            if not lib:
+                continue
+            paths = orfs_additional_arguments([info], use_pre_layout = True, macros_only = True)
+            slice_macros[dep[TopInfo].module_top] = {
+                "gds": [p for p in paths.get("ADDITIONAL_GDS", "").split(" ") if p],
+                "lefs": [p for p in paths.get("ADDITIONAL_LEFS", "").split(" ") if p],
+                "lib": lib.path,
+            }
+        slice_macros_json = ctx.actions.declare_file(ctx.label.name + "_slice_macros.json")
+        ctx.actions.write(output = slice_macros_json, content = json.encode(slice_macros))
+
     partition_outputs = []
     partition_stats = []
     partition_logs = []
@@ -1983,6 +2003,34 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 use_pre_layout = True,
                 macros_only = True,
             )
+            needs_config = True
+        elif slice_macros_json and my_modules:
+            staged_macros = declare_directory_artifact(
+                ctx,
+                "results",
+                "partition_{}_macros".format(suffix),
+            )
+            ctx.actions.run(
+                executable = ctx.executable._python,
+                arguments = [
+                    ctx.file._partition_macros.path,
+                    "--macros-json",
+                    slice_macros_json.path,
+                    "--out-dir",
+                    staged_macros.path,
+                ] + [verilog_slice[m].path for m in my_modules],
+                inputs = depset(
+                    [ctx.file._partition_macros, slice_macros_json] +
+                    [verilog_slice[m] for m in my_modules],
+                    transitive = [all_macro_files],
+                ),
+                outputs = [staged_macros],
+                mnemonic = "PartitionMacros",
+                progress_message = "Staging the macros of partition {}".format(suffix),
+            )
+            my_macro_files = depset([staged_macros])
+            includes.append(staged_macros.path + "/macros.mk")
+            config_inputs = [staged_macros]
             needs_config = True
         else:
             my_macro_files = all_macro_files
@@ -3399,6 +3447,10 @@ orfs_synth_rule = rule(
                 "_verilog_slice": attr.label(
                     allow_single_file = True,
                     default = Label("//:verilog_slice.py"),
+                ),
+                "_partition_macros": attr.label(
+                    allow_single_file = True,
+                    default = Label("//:partition_macros.py"),
                 ),
                 "_rtlil_kept_modules": attr.label(
                     allow_single_file = True,
