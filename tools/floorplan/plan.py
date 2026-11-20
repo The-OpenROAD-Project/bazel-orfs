@@ -200,6 +200,21 @@ class Model:
             for (a, ab, b, bb), (na, nb) in sorted(nets.items())
         ]
 
+    def pair_bits(self):
+        """Per pair of ends the pins between them: each end's own buses,
+        each counted once at its widest to that partner however many of
+        the partner's buses it reaches, the wider end's sum. A bus fanning
+        out through the parent's logic to many buses of one partner is
+        still its own pins."""
+        ends = {}
+        for a, ab, b, bb, _, na, nb in self.nets:
+            k = tuple(sorted((a, b)))
+            e = ends.setdefault(k, ({}, {}))
+            ia, ib = (0, 1) if k[0] == a else (1, 0)
+            e[ia][ab] = max(e[ia].get(ab, 0), na)
+            e[ib][bb] = max(e[ib].get(bb, 0), nb)
+        return {k: max(sum(e[0].values()), sum(e[1].values())) for k, e in ends.items()}
+
     def outline_area(self, m):
         """The area of the outline the macro's own flow draws; its slot's
         when its flow names no rule."""
@@ -319,7 +334,7 @@ def start_aspect(model, m, options):
     where the aspect search starts, since a side too short for one
     interface cannot be fixed by moving one macro at a time."""
     per_partner = {}
-    for a, _, b, _, bits, _, _ in model.nets:
+    for (a, b), bits in model.pair_bits().items():
         if a == m:
             per_partner[b] = per_partner.get(b, 0) + bits
         elif b == m:
@@ -373,7 +388,7 @@ def pin_plan_input(model, die=None, aspects=None, forbidden=None):
         "whitespace": True,
         "std_um2": model.glue_um2 / model.c.get("glue_density", 1.0),
     }
-    for a, _, b, _, bits, _, _ in model.nets:
+    for (a, b), bits in sorted(model.pair_bits().items()):
         pp["nets"].append([a, b, bits])
     if die:
         pp["die"] = {"w": die[0], "h": die[1]}
