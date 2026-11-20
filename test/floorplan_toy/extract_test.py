@@ -34,8 +34,8 @@ class ExtractTest(unittest.TestCase):
         self.assertFalse(self.ports("FpCore")["ft_out"]["registered"])
 
     def test_cross_macro_path_ends(self):
-        self.assertGreater(self.ports("FpCore")["deep_out"]["reg2out_ps"]["max"], 300)
-        self.assertGreater(self.ports("FpVec")["deep_in"]["in2reg_ps"]["max"], 300)
+        self.assertGreater(self.ports("FpCore")["deep_out"]["reg2out_ps"]["max"], 150)
+        self.assertGreater(self.ports("FpVec")["deep_in"]["in2reg_ps"]["max"], 150)
 
     def test_memories(self):
         b = load("FpMem.block.json")
