@@ -8,7 +8,7 @@
 # annealer is seeded, so the same die gives the same bytes.
 #
 # The tool and its inventory dump live in
-# //test/coremark_joule/flow/macro_anneal and arrive here as
+# //tools/macro_anneal and arrive here as
 # user_sources (ANNEAL_DUMP_TCL, ANNEAL_PY). The knobs are config.mk
 # variables, which is where their reasons are written.
 
