@@ -18,14 +18,14 @@ the //:bump onto an ORFS that has it.
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- flow/scripts/global_route.tcl | 27 +++++++++++----------------
- 1 file changed, 11 insertions(+), 16 deletions(-)
+ flow/scripts/global_route.tcl | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
 
 diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
-index 4a69730..4e6e8f5 100644
+index 4a69730..e38fb55 100644
 --- a/flow/scripts/global_route.tcl
 +++ b/flow/scripts/global_route.tcl
-@@ -38,25 +38,14 @@ proc do_global_route { res_aware use_cugr } {
+@@ -38,7 +38,7 @@ proc do_global_route { res_aware use_cugr } {
      -congestion_report_file $::global_route_congestion_report] \
      $cong_iters $::env(GLOBAL_ROUTE_ARGS) {*}$res_aware {*}$use_cugr]
  
@@ -34,26 +34,7 @@ index 4a69730..4e6e8f5 100644
  }
  set additional_args ""
  append_env_var additional_args dbProcessNode -db_process_node 1
- append_env_var additional_args VIA_IN_PIN_MIN_LAYER -via_in_pin_bottom_layer 1
- append_env_var additional_args VIA_IN_PIN_MAX_LAYER -via_in_pin_top_layer 1
- 
--# SKIP_PIN_ACCESS: run the global route without building access points.
--# pin_access fails on a macro pin it cannot reach (DRT-0073), and on a
--# hierarchical design that is one pin of one block between a placement
--# and the congestion map the stage exists to produce. The guide the
--# router writes without access points is not a routable result, so this
--# is a knob for a study, not for a flow that goes on to detailed route.
--if { [env_var_equals SKIP_PIN_ACCESS 1] } {
--  utl::warn FLW 21 "SKIP_PIN_ACCESS=1: pin access skipped; the global route's\
--    guides have no access points and detailed route will not take them."
--} else {
--  log_cmd pin_access {*}$additional_args
--}
-+log_cmd pin_access {*}$additional_args
- 
- do_global_route $res_aware $use_cugr
- 
-@@ -86,10 +75,12 @@ if { !$::env(SKIP_INCREMENTAL_REPAIR) } {
+@@ -86,10 +86,12 @@ if { !$::env(SKIP_INCREMENTAL_REPAIR) } {
    # Running DPL to fix overlapped instances
    # Run to get modified net by DPL
    utl::push_metrics_stage "globalroute__repair_design__{}"
@@ -67,7 +48,7 @@ index 4a69730..4e6e8f5 100644
      {*}$allow_congestion \
      -congestion_report_file $::env(REPORTS_DIR)/congestion_post_repair_design.rpt
    utl::pop_metrics_stage
-@@ -105,11 +96,13 @@ if { !$::env(SKIP_INCREMENTAL_REPAIR) } {
+@@ -105,11 +107,13 @@ if { !$::env(SKIP_INCREMENTAL_REPAIR) } {
    }
  
    utl::push_metrics_stage "globalroute__repair_timing__{}"
@@ -82,7 +63,7 @@ index 4a69730..4e6e8f5 100644
      {*}$allow_congestion \
      -congestion_report_file $::env(REPORTS_DIR)/congestion_post_repair_timing.rpt
    utl::pop_metrics_stage
-@@ -135,10 +128,12 @@ if { !$::env(SKIP_INCREMENTAL_REPAIR) } {
+@@ -135,10 +139,12 @@ if { !$::env(SKIP_INCREMENTAL_REPAIR) } {
  
  if { !$::env(OPT_POST_GRT_WNS) } {
    utl::push_metrics_stage "globalroute__recover_power__{}"
