@@ -208,6 +208,30 @@ def shape_options(model, m):
     return out or [1.0]
 
 
+def start_aspect(model, m, options):
+    """The aspect closest to square whose long side holds the macro's
+    widest interface (its bits to one partner) at the pin layers' limit:
+    where the aspect search starts, since a side too short for one
+    interface cannot be fixed by moving one macro at a time."""
+    per_partner = {}
+    for a, _, b, _, bits in model.nets:
+        if a == m:
+            per_partner[b] = per_partner.get(b, 0) + bits
+        elif b == m:
+            per_partner[a] = per_partner.get(a, 0) + bits
+    need = max(per_partner.values() or [0]) / (
+        min(model.ppu("N"), model.ppu("E")) * model.c["pin_layers"]
+    )
+    area = model.outline_area(m)
+    best = None
+    for r in options or [1.0]:
+        long_side = max(math.sqrt(area / r), math.sqrt(area * r))
+        key = (long_side < need, abs(math.log(r)), r)
+        if best is None or key < best[0]:
+            best = (key, r)
+    return best[1]
+
+
 def pin_plan_input(model, die=None, aspects=None, forbidden=None):
     """The pin_plan plan for the model."""
     pp = {
@@ -233,6 +257,9 @@ def pin_plan_input(model, die=None, aspects=None, forbidden=None):
             pp["macro_aspects"][m] = shape_options(model, m)
         if mc.get("sides"):
             pp["forced_sides"][m] = dict(mc["sides"])
+    pp["start_aspects"] = {
+        m: start_aspect(model, m, pp["macro_aspects"][m]) for m in pp["macro_aspects"]
+    }
     pp["macros"][GLUE] = {
         "soft": True,
         "whitespace": True,
@@ -286,7 +313,7 @@ def layout(model, forbidden=None, aspects_override=None):
         if aspects_override is not None:
             q = P.quick(pp, aspects_override, die)
             return pp, (q[1] if q else None), die
-        aspects, q = P.tune_aspects(pp, {m: 1.0 for m in pp["macro_aspects"]}, die)
+        aspects, q = P.tune_aspects(pp, dict(pp["start_aspects"]), die)
         if q is None:
             q = P.quick(
                 pp,
@@ -316,14 +343,7 @@ def solve_die(pp, aspects_override=None):
                     dict(pp, die={"w": die[0], "h": die[1]}), aspects_override, die
                 )
             else:
-                start = {
-                    m: (
-                        (pp["macro_aspects"][m] or [1.0])[0]
-                        if 1.0 not in pp["macro_aspects"][m]
-                        else 1.0
-                    )
-                    for m in pp["macro_aspects"]
-                }
+                start = pp["start_aspects"]
                 _, q = P.tune_aspects(
                     dict(pp, die={"w": die[0], "h": die[1]}), start, die, passes=1
                 )

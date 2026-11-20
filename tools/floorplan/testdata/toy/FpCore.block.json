@@ -2,17 +2,17 @@
  "area": {
   "die_rule": {
    "aspect": 1.0,
-   "core_h_um": 51.03,
-   "core_w_um": 50.922,
-   "h_um": 53.03,
+   "core_h_um": 40.23,
+   "core_w_um": 40.014,
+   "h_um": 42.23,
    "margin_um": 1.0,
    "rule": "CORE_UTILIZATION",
    "util": 0.4,
-   "w_um": 52.922
+   "w_um": 42.014
   },
   "hard_um2": 0,
   "macros": [],
-  "std_um2": 1036.828
+  "std_um2": 639.187
  },
  "block": "FpCore",
  "clock": {
@@ -21,7 +21,7 @@
  },
  "hard": [],
  "identity": {
-  "dump": "sha256:9eadd9ed8eb955ff7a77313f4fd81b57337cd50692d6835c767f3770efa4c9f2",
+  "dump": "sha256:eafeb5588426868bb9162099ad32315e94b0259f62597b629e5b67b936150426",
   "tool": "block_json 1"
  },
  "ports": [
@@ -31,8 +31,8 @@
    "group": "deep_out",
    "name": "deep_out",
    "reg2out_ps": {
-    "bit": "deep_out[29]",
-    "max": 862.3
+    "bit": "deep_out[31]",
+    "max": 363.7
    },
    "registered": false
   },
@@ -62,8 +62,8 @@
    "dir": "in",
    "group": "in_top",
    "in2reg_ps": {
-    "bit": "in_top[14]",
-    "max": 257.0
+    "bit": "in_top[9]",
+    "max": 281.5
    },
    "name": "in_top",
    "registered": false
@@ -85,7 +85,7 @@
    "group": "resp",
    "in2reg_ps": {
     "bit": "resp[10]",
-    "max": 259.4
+    "max": 244.0
    },
    "name": "resp",
    "registered": false
