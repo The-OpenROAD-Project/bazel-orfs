@@ -62,6 +62,7 @@ exports_files([
     "synth_slice_memories.tcl",
     "slice_memories.py",
     "verilog_slice.py",
+    "partition_macros.py",
 ])
 
 # Prefix every ORFS log line with elapsed seconds:
@@ -399,6 +400,18 @@ py_test(
     size = "small",
     srcs = ["slice_memories_test.py"],
     deps = [":slice_memories_lib"],
+)
+
+py_library(
+    name = "partition_macros_lib",
+    srcs = ["partition_macros.py"],
+)
+
+py_test(
+    name = "partition_macros_test",
+    size = "small",
+    srcs = ["partition_macros_test.py"],
+    deps = [":partition_macros_lib"],
 )
 
 py_library(

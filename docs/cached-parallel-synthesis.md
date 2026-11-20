@@ -274,9 +274,13 @@ orfs_flow(
 ```
 
 `docs/customize.md` says how to capture the list ORFS would discover.
-`kept_macros` (`orfs_flow`'s docstring) scopes each partition's macro
-inputs to the macros its modules instantiate, so a partition does not
-wait for the place and route of a macro it does not contain.
+With verilog slices a partition reads the liberty of only the macros its
+slice holds as stubs (`partition_macros.py` stages them), so a macro
+added, removed or re-characterized re-keys only the partitions that
+instantiate it. Without slices, `kept_macros` (`orfs_flow`'s docstring)
+scopes each partition's macro inputs to the macros its modules
+instantiate, so a partition does not wait for the place and route of a
+macro it does not contain.
 
 **Expectations to manage:**
 
@@ -551,8 +555,8 @@ misses fast; the shared cache makes most of them hits.
 
 - **Every partition is a hermetic action.** Its inputs are its RTLIL
   slice (or the keep checkpoint), the scripts, the platform's Liberty and
-  LEF files, and, with `kept_macros`, only the macros its modules
-  contain. Nothing reads a path outside the action, so any worker can
+  LEF files, and, with verilog slices or `kept_macros`, only the macros
+  its modules contain. Nothing reads a path outside the action, so any worker can
   run it.
 - **Width beyond one machine.** A design with sixty pinned kept modules
   has sixty synthesis actions ready at once, and runs them on as many

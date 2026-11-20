@@ -363,7 +363,9 @@ analysis_failure_test(
 #                                          one the whole design gives.
 #   lb_32x128_keep_top_build_test          and 1_synth.odb links it.
 #   lb_32x128_keep_top_partition_key_test  one partition, lb_32x128_top's,
-#                                          and the slicer stubs the macro.
+#                                          the slicer stubs the macro and
+#                                          the partition reads its liberty
+#                                          only as its slice stages it.
 #
 # Before, slang refused the macro's own slice: "Attempted to add new
 # module named '\lb_32x128', but a module by that name already exists".
@@ -410,6 +412,7 @@ build_test(
 
 partition_key_test(
     name = "lb_32x128_keep_top_partition_key_test",
+    macro_libs = ["lb_32x128_typ.lib"],
     macros = ["lb_32x128"],
     modules = ["lb_32x128_top"],
     target_under_test = ":lb_32x128_keep_top_slices_synth",
