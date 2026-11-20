@@ -1,5 +1,6 @@
 """Stage metadata and argument helpers for OpenROAD-flow-scripts Bazel rules."""
 
+load("@orfs//flow:scripts/args_grammar.bzl", "COMMANDS", "args_variable", "format_args", "parse_args", _ARGS_STAGES = "STAGES")
 load("@orfs_variable_metadata//:json.bzl", "orfs_variable_metadata")
 load("//private:utils.bzl", "flatten", "set", "union")
 
@@ -442,6 +443,41 @@ def check_user_stages(user_stages, user_arguments, user_sources):
                     ),
                 )
 
+_PLATFORM_ARGS = "PLATFORM_ARGS"
+
+ARGS_VARIABLES = {args_variable(command): True for command in COMMANDS} | {_PLATFORM_ARGS: True}
+
+def stage_args_value(variable, value, stages):
+    """The edits of a <COMMAND>_ARGS or PLATFORM_ARGS value that `stages` can read.
+
+    ORFS's grammar (docs/user/CommandArguments.md) scopes an edit with
+    `stage:` or `stage.call:`. A stage's config holds the unscoped edits and
+    its own, so an edit scoped to another stage is not an input of this
+    stage's action; of PLATFORM_ARGS, which every stage reads, it holds the
+    edits to the commands the stage runs. A syntax error fails the analysis.
+
+    Args:
+        variable: the variable's name.
+        value: its value as the BUILD file gives it.
+        stages: list of stage names (empty = every edit).
+    Returns:
+      The value with the edits no stage in `stages` reads left out, in the
+      grammar's canonical spelling.
+    """
+    platform = variable == _PLATFORM_ARGS
+    edits = parse_args(variable, value, _ARGS_STAGES, platform)
+    if not stages:
+        return value
+    return format_args(
+        [
+            e
+            for e in edits
+            if (e["stage"] == "" or e["stage"] in stages) and
+               (not platform or [s for s in COMMANDS[e["command"]] if s in stages])
+        ],
+        platform,
+    )
+
 def dropped_variables(stages):
     """Returns the denylist that merge_arguments.py applies at execution time.
 
@@ -496,7 +532,7 @@ def get_stage_args(stages, stage_arguments = {}, arguments = {}, sources = {}, u
         if _keep(arg, filtering, allowed, stages, user_stages)
     }
     unsorted_dict.update({
-        arg: value
+        arg: stage_args_value(arg, value, stages) if arg in ARGS_VARIABLES else value
         for arg, value in arguments.items()
         if _keep(arg, filtering, allowed, stages, user_stages)
     })

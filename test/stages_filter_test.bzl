@@ -33,6 +33,7 @@ load(
     "get_sources",
     "get_stage_args",
     "split_user_variables",
+    "stage_args_value",
 )
 
 # A name guaranteed not to be a known ORFS variable (the unmapped escape hatch).
@@ -271,7 +272,68 @@ def _split_matches_the_guards_predicate_test(ctx):
     check_stage_variables(known, {}, user, {})
     return unittest.end(env)
 
+def _args_grammar_scopes_edits_to_their_stage_test(ctx):
+    env = unittest.begin(ctx)
+
+    # ORFS's <COMMAND>_ARGS grammar: an edit scoped to a stage is an input
+    # of that stage's config only, so changing it leaves every other
+    # stage's config, and with it the action, as it was.
+    base = {"REPAIR_TIMING_ARGS": "-setup_margin 0.05 grt:-setup_margin 0.1 floorplan:0"}
+    changed = {"REPAIR_TIMING_ARGS": "-setup_margin 0.05 grt:-setup_margin 0.2 floorplan:0"}
+    for stage in ["floorplan", "place", "cts"]:
+        asserts.equals(
+            env,
+            get_stage_args([stage], arguments = base),
+            get_stage_args([stage], arguments = changed),
+        )
+    asserts.equals(
+        env,
+        "-setup_margin 0.05 grt:-setup_margin 0.1",
+        get_stage_args(["grt"], arguments = base)["REPAIR_TIMING_ARGS"],
+    )
+    asserts.equals(
+        env,
+        "floorplan:0 -setup_margin 0.05",
+        get_stage_args(["floorplan"], arguments = base)["REPAIR_TIMING_ARGS"],
+    )
+    asserts.equals(
+        env,
+        "-setup_margin 0.05",
+        get_stage_args(["cts"], arguments = base)["REPAIR_TIMING_ARGS"],
+    )
+
+    # The variable's own stage list still decides whether a stage gets it.
+    asserts.false(env, "REPAIR_TIMING_ARGS" in get_stage_args(["route"], arguments = base))
+
+    # A call scope belongs to its stage; a stage set takes the union.
+    calls = "grt.wns:-setup_margin 0.3 place.main:-skip_pin_swap"
+    asserts.equals(
+        env,
+        "grt.wns:-setup_margin 0.3",
+        stage_args_value("REPAIR_TIMING_ARGS", calls, ["grt"]),
+    )
+    asserts.equals(env, calls, stage_args_value("REPAIR_TIMING_ARGS", calls, ["place", "grt"]))
+
+    # No stage filter keeps the value as written.
+    asserts.equals(env, calls, stage_args_value("REPAIR_TIMING_ARGS", calls, []))
+
+    # PLATFORM_ARGS reaches every stage; each gets its own commands' edits
+    # written with the command in front.
+    platform = "repair_timing:grt:-setup_margin 0.1 detailed_route:-disable_via_gen"
+    asserts.equals(
+        env,
+        "detailed_route:-disable_via_gen",
+        get_stage_args(["route"], arguments = {"PLATFORM_ARGS": platform})["PLATFORM_ARGS"],
+    )
+    asserts.equals(
+        env,
+        "",
+        get_stage_args(["floorplan"], arguments = {"PLATFORM_ARGS": platform})["PLATFORM_ARGS"],
+    )
+    return unittest.end(env)
+
 sorted_output_test = unittest.make(_sorted_output_test)
+args_grammar_scopes_edits_to_their_stage_test = unittest.make(_args_grammar_scopes_edits_to_their_stage_test)
 split_user_variables_partitions_test = unittest.make(_split_user_variables_partitions_test)
 split_matches_the_guards_predicate_test = unittest.make(_split_matches_the_guards_predicate_test)
 
@@ -287,6 +349,7 @@ def stages_filter_test_suite(name):
         user_hatch_survives_the_filter_test,
         user_stages_sidecar_scopes_test,
         sorted_output_test,
+        args_grammar_scopes_edits_to_their_stage_test,
         split_user_variables_partitions_test,
         split_matches_the_guards_predicate_test,
     )
