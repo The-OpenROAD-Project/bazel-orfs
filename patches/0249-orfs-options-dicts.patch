@@ -1,0 +1,338 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Fri, 20 Nov 2026 07:43:58 +0100
+Subject: [PATCH] flow: global_placement, global_route and repair_design take
+ -options
+
+With OpenROAD #11755's options structs (carried OpenROAD patch 0248) the
+three commands take their settings as a dict. The flow's own settings for
+global_placement and for the first global_route are built as a dict and
+passed with -options; GLOBAL_PLACEMENT_ARGS and GLOBAL_ROUTE_ARGS follow
+as the switches they are, and <COMMAND>_OPTIONS, a Tcl dict from the
+design, goes last, so that a key in it decides.
+
+repair_design runs in two stages and global_placement at two calls, and a
+dict has no way to say which one a key is for. A key @<stage> or
+@<stage>.<call> in <COMMAND>_OPTIONS holds a dict for that stage or call
+alone (command_options, util.tcl).
+
+The incremental routes take -allow_congestion when the first route did:
+the flow looks the key up in GLOBAL_ROUTE_OPTIONS itself (options_value),
+spelled dotted at the top level.
+
+Not upstreamed: the OpenROAD RFC is open. Carried for the comparison with
+ORFS #4771's command arguments grammar; not proposed for merge.
+---
+ flow/scripts/global_place.tcl         | 43 ++++++++++++-----------
+ flow/scripts/global_place_skip_io.tcl |  3 +-
+ flow/scripts/global_route.tcl         | 49 +++++++++++++++------------
+ flow/scripts/resize.tcl               |  2 +-
+ flow/scripts/util.tcl                 | 49 +++++++++++++++++++++++++--
+ flow/scripts/variables.yaml           | 28 +++++++++++++++
+ 6 files changed, 126 insertions(+), 48 deletions(-)
+
+diff --git a/flow/scripts/global_place.tcl b/flow/scripts/global_place.tcl
+index e5c982380..51007c338 100644
+--- a/flow/scripts/global_place.tcl
++++ b/flow/scripts/global_place.tcl
+@@ -21,22 +21,24 @@ if { ![env_var_exists_and_non_empty FOOTPRINT] } {
+   }
+ }
+ 
+-set global_placement_args {}
++# The flow's options, as the dict global_placement takes.
++set gpl_options [dict create initial.force_center true]
+ 
+-# Parameters for routability mode in global placement
+-append_env_var global_placement_args GPL_ROUTABILITY_DRIVEN -routability_driven 0
++if { $::env(GPL_ROUTABILITY_DRIVEN) } {
++  dict set gpl_options routability.enabled true
++}
+ 
+-append_env_var global_placement_args GPL_RANDOM_SEED -random_seed 1
++if { [env_var_exists_and_non_empty GPL_RANDOM_SEED] } {
++  dict set gpl_options initial.perturbation_seed $::env(GPL_RANDOM_SEED)
++}
+ 
+-# Parameters for timing driven mode in global placement
+ if { $::env(GPL_TIMING_DRIVEN) } {
+-  lappend global_placement_args {-timing_driven}
++  dict set gpl_options timing.enabled true
+   if { [info exists ::env(GPL_KEEP_OVERFLOW)] } {
+-    lappend global_placement_args -keep_resize_below_overflow $::env(GPL_KEEP_OVERFLOW)
++    dict set gpl_options timing.keep_resize_below_overflow $::env(GPL_KEEP_OVERFLOW)
+   }
+ }
+ 
+-# Parameters for phi coefficients in global placement
+ set min_phi $::env(MIN_PLACE_STEP_COEF)
+ set max_phi $::env(MAX_PLACE_STEP_COEF)
+ 
+@@ -46,29 +48,26 @@ if { $min_phi > $max_phi } {
+ MAX_PLACE_STEP_COEF ($max_phi)"
+ }
+ 
+-lappend global_placement_args -force_center_initial_place
+-
+-lappend global_placement_args -min_phi_coef $::env(MIN_PLACE_STEP_COEF)
+-lappend global_placement_args -max_phi_coef $::env(MAX_PLACE_STEP_COEF)
++dict set gpl_options nesterov.min_phi_coef $min_phi
++dict set gpl_options nesterov.max_phi_coef $max_phi
+ 
+ set place_ios [expr { $::env(GPL_PLACE_IOS) && ![pins_fixed_in_floorplan] }]
+ if { $place_ios } {
+   log_cmd set_place_config {*}[place_pins_args_to_place_config]
+-  lappend global_placement_args -place_ios
++  dict set gpl_options place_ios true
+ }
+ 
+-proc do_placement { global_placement_args } {
+-  set all_args [concat [list -density [place_density_with_lb_addon] \
+-    -pad_left $::env(CELL_PAD_IN_SITES_GLOBAL_PLACEMENT) \
+-    -pad_right $::env(CELL_PAD_IN_SITES_GLOBAL_PLACEMENT)] \
+-    $global_placement_args]
+-
+-  lappend all_args {*}[env_var_or_empty GLOBAL_PLACEMENT_ARGS]
++proc do_placement { gpl_options } {
++  dict set gpl_options density [place_density_with_lb_addon]
++  dict set gpl_options pad_left $::env(CELL_PAD_IN_SITES_GLOBAL_PLACEMENT)
++  dict set gpl_options pad_right $::env(CELL_PAD_IN_SITES_GLOBAL_PLACEMENT)
+ 
+-  log_cmd global_placement {*}$all_args
++  log_cmd global_placement -options $gpl_options \
++    {*}[env_var_or_empty GLOBAL_PLACEMENT_ARGS] \
++    {*}[command_options global_placement place.main]
+ }
+ 
+-do_placement $global_placement_args
++do_placement $gpl_options
+ if { $place_ios } {
+   log_cmd reset_place_config
+ }
+diff --git a/flow/scripts/global_place_skip_io.tcl b/flow/scripts/global_place_skip_io.tcl
+index 1e7095f9b..b5bb1b22b 100644
+--- a/flow/scripts/global_place_skip_io.tcl
++++ b/flow/scripts/global_place_skip_io.tcl
+@@ -20,7 +20,8 @@ if { [env_var_exists_and_non_empty FLOORPLAN_DEF] } {
+     -pad_left $::env(CELL_PAD_IN_SITES_GLOBAL_PLACEMENT) \
+     -pad_right $::env(CELL_PAD_IN_SITES_GLOBAL_PLACEMENT) \
+     {*}[env_var_or_empty GLOBAL_PLACEMENT_ARGS] \
+-    {*}$global_placement_args
++    {*}$global_placement_args \
++    {*}[command_options global_placement place.skip_io]
+ }
+ 
+ source_step_tcl POST GLOBAL_PLACE_SKIP_IO
+diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
+index 8ee3c77e6..1ba5f77f2 100644
+--- a/flow/scripts/global_route.tcl
++++ b/flow/scripts/global_route.tcl
+@@ -5,18 +5,31 @@ load_stage_input 4_cts.odb -backing_file $::env(OBJECTS_DIR)/grt.db
+ 
+ source_step_tcl PRE GLOBAL_ROUTE
+ 
++# The flow's options for the first route, as the dict global_route takes.
++# CUGR runs a full 3D maze pass per iteration, so it gets fewer of them.
++set grt_options [dict create \
++  congestion_report_file $::global_route_congestion_report \
++  congestion_iterations 30]
+ set res_aware ""
+-append_env_var res_aware ENABLE_RESISTANCE_AWARE -resistance_aware 0
+-
+-set use_cugr ""
+-append_env_var use_cugr GLOBAL_ROUTE_USE_CUGR -use_cugr 0
++if { [env_var_equals ENABLE_RESISTANCE_AWARE 1] } {
++  dict set grt_options resistance_aware true
++  set res_aware -resistance_aware
++}
++if { [env_var_equals GLOBAL_ROUTE_USE_CUGR 1] } {
++  dict set grt_options use_cugr true
++  dict set grt_options congestion_iterations 10
++}
++set grt_user_options [command_options global_route grt.main]
+ 
+-# The flow's choice to accept congestion, from GLOBAL_ROUTE_ARGS, passed
+-# to every incremental reroute and to repair_antennas: each call decides
+-# for itself, and one without -allow_congestion reroutes a congested route
+-# harder and then fails on it.
++# The flow's choice to accept congestion, from GLOBAL_ROUTE_ARGS or
++# GLOBAL_ROUTE_OPTIONS, passed to every incremental reroute and to
++# repair_antennas: each call decides for itself, and one without
++# -allow_congestion reroutes a congested route harder and then fails on it.
+ set allow_congestion ""
+-if { [lsearch -exact $::env(GLOBAL_ROUTE_ARGS) -allow_congestion] >= 0 } {
++if {
++  [lsearch -exact $::env(GLOBAL_ROUTE_ARGS) -allow_congestion] >= 0
++  || [options_value $grt_user_options allow_congestion false]
++} {
+   set allow_congestion -allow_congestion
+ }
+ 
+@@ -27,18 +40,10 @@ proc set_grt_seed { } {
+   }
+ }
+ 
+-proc do_global_route { res_aware use_cugr } {
++proc do_global_route { grt_options grt_user_options } {
+   set_grt_seed
+-  # CUGR runs a full 3D maze pass per iteration; use a tighter default.
+-  set cong_iters "-congestion_iterations 30"
+-  if { $use_cugr ne "" } {
+-    set cong_iters "-congestion_iterations 10"
+-  }
+-  set all_args [concat [list \
+-    -congestion_report_file $::global_route_congestion_report] \
+-    $cong_iters $::env(GLOBAL_ROUTE_ARGS) {*}$res_aware {*}$use_cugr]
+-
+-  log_cmd global_route -backing_file $::env(OBJECTS_DIR)/grt.grid {*}$all_args
++  log_cmd global_route -backing_file $::env(OBJECTS_DIR)/grt.grid \
++    -options $grt_options {*}$::env(GLOBAL_ROUTE_ARGS) {*}$grt_user_options
+ }
+ set additional_args ""
+ append_env_var additional_args dbProcessNode -db_process_node 1
+@@ -47,7 +52,7 @@ append_env_var additional_args VIA_IN_PIN_MAX_LAYER -via_in_pin_top_layer 1
+ 
+ log_cmd pin_access {*}$additional_args
+ 
+-do_global_route $res_aware $use_cugr
++do_global_route $grt_options $grt_user_options
+ 
+ use_ccs_delay_calculator
+ set_placement_padding -global \
+@@ -67,7 +72,7 @@ if { !$::env(SKIP_INCREMENTAL_REPAIR) } {
+   }
+ 
+   # Repair design using global route parasitics
+-  repair_design_helper
++  repair_design_helper grt.main
+   if { $::env(DETAILED_METRICS) } {
+     report_metrics 5 "global route post repair design"
+   }
+diff --git a/flow/scripts/resize.tcl b/flow/scripts/resize.tcl
+index 1cfd01b08..5b732ba52 100644
+--- a/flow/scripts/resize.tcl
++++ b/flow/scripts/resize.tcl
+@@ -23,7 +23,7 @@ if { [env_var_equals SWAP_ARITH_OPERATORS 1] } {
+   log_cmd global_placement -incremental -density $density
+ }
+ 
+-repair_design_helper
++repair_design_helper place.main
+ 
+ if { $::env(ENABLE_PLACE_REPAIR_TIMING) } {
+   # Repair timing using placement parasitics.
+diff --git a/flow/scripts/util.tcl b/flow/scripts/util.tcl
+index 49862dfa6..d7c5b68ac 100644
+--- a/flow/scripts/util.tcl
++++ b/flow/scripts/util.tcl
+@@ -53,14 +53,59 @@ proc detailed_placement_helper { args } {
+   log_cmd detailed_placement {*}[env_var_or_empty DETAIL_PLACEMENT_ARGS] {*}$args
+ }
+ 
+-proc repair_design_helper { } {
++# The options a design gives one call of a command. <COMMAND>_OPTIONS is a
++# Tcl dict of the command's options, as `describe_options <command>` lists
++# them; a key @<stage> or @<stage>.<call> holds a dict for that stage or
++# call alone. Returned as -options switches, widest scope first: OpenROAD
++# applies -options left to right, so these go after the flow's.
++proc command_options { cmd call } {
++  set var "[string toupper $cmd]_OPTIONS"
++  if { ![env_var_exists_and_non_empty $var] } {
++    return {}
++  }
++  set stage [lindex [split $call .] 0]
++  set scopes [dict create "" {} @$stage {} @$call {}]
++  dict for {key value} $::env($var) {
++    if { [string index $key 0] ne "@" } {
++      dict set scopes "" $key $value
++      continue
++    }
++    set scope_stage [lindex [split [string range $key 1 end] .] 0]
++    if { $scope_stage ni {synth floorplan place cts grt route final} } {
++      utl::error FLW 51 "$var: '$key' does not name a stage."
++    }
++    if { [dict exists $scopes $key] } {
++      dict set scopes $key [dict merge [dict get $scopes $key] $value]
++    }
++  }
++  set switches {}
++  dict for {scope options} $scopes {
++    if { [dict size $options] > 0 } {
++      lappend switches -options $options
++    }
++  }
++  return $switches
++}
++
++# The value -options switches give an option spelled as a dotted key, the
++# last one deciding as it does in OpenROAD, or default when none does.
++proc options_value { switches option default } {
++  foreach {switch options} $switches {
++    if { [dict exists $options $option] } {
++      set default [dict get $options $option]
++    }
++  }
++  return $default
++}
++
++proc repair_design_helper { call } {
+   puts "Perform buffer insertion and gate resizing..."
+ 
+   set additional_args "-verbose"
+   append_env_var additional_args CAP_MARGIN -cap_margin 1
+   append_env_var additional_args SLEW_MARGIN -slew_margin 1
+   append_env_var additional_args MATCH_CELL_FOOTPRINT -match_cell_footprint 0
+-  log_cmd repair_design {*}$additional_args
++  log_cmd repair_design {*}$additional_args {*}[command_options repair_design $call]
+ }
+ 
+ proc recover_power_helper { } {
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+index c979803b1..f3c28f6f0 100644
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -765,6 +765,16 @@ PLACE_DENSITY_LB_ADDON:
+ REPAIR_PDN_VIA_LAYER:
+   description: |
+     Remove power grid vias which generate DRC violations after detailed routing.
++GLOBAL_PLACEMENT_OPTIONS:
++  description: >
++    Options for `global_placement` as a Tcl dict, passed with `-options`
++    after the flow's own and after GLOBAL_PLACEMENT_ARGS, so a key here
++    decides. The keys are the ones `describe_options global_placement`
++    lists, nested or dotted: `timing.nets_percentage 15
++    routability.global_route.congestion_iterations 5`. A key `@place.skip_io`
++    or `@place.main` holds a dict for that call alone.
++  stages:
++    - place
+ GLOBAL_PLACEMENT_ARGS:
+   description: >
+     Use additional tuning parameters during global placement other than default
+@@ -1540,6 +1550,24 @@ PRE_GLOBAL_ROUTE_TCL:
+     Specifies a Tcl script with commands to run before global route.
+   stages:
+     - grt
++GLOBAL_ROUTE_OPTIONS:
++  description: >
++    Options for `global_route` as a Tcl dict, passed with `-options` after
++    the flow's own and after GLOBAL_ROUTE_ARGS, so a key here decides. The
++    keys are the ones `describe_options global_route` lists:
++    `congestion_iterations 20 allow_congestion true`.
++  stages:
++    - grt
++REPAIR_DESIGN_OPTIONS:
++  description: >
++    Options for `repair_design` as a Tcl dict, passed with `-options` after
++    the flow's own, so a key here decides. The keys are the ones
++    `describe_options repair_design` lists: `slew_margin 5`. The flow runs
++    `repair_design` after placement and after global route; a key `@place`
++    or `@grt` holds a dict for that stage alone: `@grt {slew_margin 10}`.
++  stages:
++    - place
++    - grt
+ GLOBAL_ROUTE_ARGS:
+   description: >
+     Replaces default arguments for global route. The -congestion_iterations
+-- 
+2.53.0
+

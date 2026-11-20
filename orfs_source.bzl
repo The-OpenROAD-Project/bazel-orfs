@@ -172,6 +172,12 @@ ORFS_PATCHES = [
     # cts_latency_offset_test. Not upstreamed; retires at a bump onto an
     # ORFS that carries it.
     Label("//patches:0241-orfs-cts-latency-offsets.patch"),
+    # 0249: with OpenROAD #11755's options structs (OpenROAD patch 0248),
+    # global_placement, global_route and repair_design take the flow's
+    # settings as a dict and <COMMAND>_OPTIONS, a Tcl dict from the design,
+    # after it; a key @<stage> or @<stage>.<call> scopes a dict to one
+    # stage or call. Not upstreamed: the OpenROAD RFC is open.
+    Label("//patches:0249-orfs-options-dicts.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
