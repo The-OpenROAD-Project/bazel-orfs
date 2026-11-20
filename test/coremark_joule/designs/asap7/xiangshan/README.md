@@ -297,18 +297,27 @@ a small last-level cache.
 In fanouts of four, 333 ps is 41.1 FO4 at the published ASAP7 RVT FO4 of
 8.1 ps, which the ASAP7 authors call realistic for industrial 7 nm. On
 the library this flow times with (RVT at the FF corner, FO4 14.37 ps)
-that is 591 ps at global route, and the SDC synthesises at 0.8 of it,
-473 ps (`period_fo4_test`). A cycle leaves about 38 FO4 of logic: the
+that is 591 ps at global route, `kpi.json`'s `target_ps`
+(`period_fo4_test`). A cycle leaves about 38 FO4 of logic: the
 flops on the paths below take 31 ps clock-to-output and 6 to 13 ps setup.
 
-The next goal at global route is 2,000 ps (`kpi.py`'s `GOAL_PS`, the
-headroom target), on the way to `kpi.json`'s `target_ps`, the 591 ps
-above; the SDC is 473 ps. A block times its half of every path across its boundary
-against 0.8 of the SDC's period (`set_max_delay`, `.claude/skills/macro-constraints`),
-378 ps, so it repairs it; at a 2,000 ps SDC that budget is 1,600 ps and
-a block leaves its half of a crossing slack where the parent cannot
-repair it. The parent's repair at global route works worst-first
-through everything above 473 ps.
+The SDC asks for 1,800 ps, just under what the tile reaches: built
+with the SDC at 473 ps, the parent's reg2reg period at global route was
+1,822 ps (MemBlock 1,066, Frontend 1,062, FltRegionModule 1,027,
+VecRegionModule 975, CoupledL2 864). The study sets every core's SDC to
+the period it reaches (`test/coremark_joule/README.md`, §5.7); just
+under it, repair works right up to the limit and the build ends with a
+slightly negative WNS, tens of ps, instead of stopping early with slack,
+so power is measured near timing closure. The goal at global route is
+2,000 ps (`kpi.py`'s `GOAL_PS`, the headroom target), on the way to the
+591 ps above. A block times its half of every path across its
+boundary against a fixed budget (`set_max_delay`,
+`.claude/skills/macro-constraints`): 378.4 ps with a register at one
+end, 283.8 ps straight through, the values the tile's crossings were
+measured with, not a fraction of the period. Two block sides at 0.8 of
+1,800 ps would sum to 2,880 ps, and the parent cannot repair inside a
+block's abstract. The parent's repair at global route works worst-first
+through everything above 1,800 ps.
 
 Is the Chisel RTL congruent with that? Read at the source, the worst path
 of each block and of the top level is 6 to 30 gate levels, which at about
@@ -381,8 +390,8 @@ proves each unit equal to firtool's at module size with kepler-formal,
 and its negative control different. Post-synthesis, in ResolveQueue's
 kit context, it takes the worst path from the parent into Frontend from
 1,461.6 to 1,372.3 ps, and ResolveQueue's family from 1,135.7 to
-908.4 ps, on a synthesis against a 2,000 ps SDC; against this flow's
-473 ps, ABC may map the compare faster already.
+908.4 ps, on a synthesis against a 2,000 ps SDC, near this flow's
+1,800 ps.
 
 ## Running it
 
@@ -477,8 +486,8 @@ A day of this design costs what a minute of the small one does, so
 nobody should be debugging against XSTile when a two-minute case
 reproduces the same thing.
 
-## Later
+## Power
 
-When the period approaches the 591 ps target, `kpi.json` gains the
-CoreMark and power columns and the study reconnects to the simulation.
-Until then the design does not depend on it.
+The CoreMark/Joule point, `//test/coremark_joule/sim:point_xiangshan_rv64gc`,
+reads its frequency from `constraints.sdc`, and the gate-level SAIF capture
+(`xiangshan_rv64gc_saif`) clocks at the same period: both follow the SDC.

@@ -23,7 +23,7 @@ interconnect technology file.
 | **{{cells}} cells** | standard-cell instances, of them {{flops}} flip-flops and {{clock_gates}} clock gates |
 | **{{sram_instances}} SRAMs** | SRAM macros of {{sram_shapes}} shapes, as FakeRAM `.lib`/`.lef` views |
 | **{{regfile_instances}} register files** | multi-ported register files, as generated macros; {{macro_instances}} macros in all |
-| **{{best_period}} ps** | best minimum register-to-register period at global route with OpenROAD on ASAP7 ({{kpi_date}}), against the SDC's 473 ps |
+| **{{best_period}} ps** | best minimum register-to-register period at global route with OpenROAD on ASAP7 ({{kpi_date}}), against the SDC's {{sdc_period}} ps |
 | **{{die}} µm** | die of the OpenROAD reference run, {{die_mm2}} mm², about {{fill_pct}} % filled by cells |
 | **{{flat_macros}} macros placed** | one floorplan, the same with the {{block_count}} blocks hardened as macros or with the tile flat: `floorplan/` |
 | **{{parent_hours}} h, {{parent_peak_gb}} GB** | largest single OpenROAD run in the reference partition, to global route at peak memory |
@@ -61,9 +61,9 @@ and in2out paths are left out. See *The minimum clock period*.
 XiangShan's published target for this core is 333 ps, 3 GHz, on an
 industrial 7 nm process. Measured in FO4 (fanout of four) delays, 333 ps
 there is {{target_ps}} ps at global route on this library, and the kit's
-SDC asks for 0.8 of it, 473 ps, as a synthesis target. The OpenROAD
-reference's next target at global route is 2,000 ps, six times slower
-than 333 ps. Three things make up the difference.
+SDC asks for {{sdc_period}} ps, just under what the OpenROAD reference
+reaches, more than five times slower than 333 ps. Three things make up the
+difference.
 
 | What | What it means here |
 |---|---|
@@ -106,7 +106,7 @@ The kit unpacks into one directory. Every path below is relative to it.
 xiangshan-xstile-asap7/
   README.pdf                 this document
   netlist/XSTile.v           gate-level Verilog, hierarchy kept, top module XSTile
-  constraints/XSTile.sdc     one clock, port clock, 473 ps; self-contained
+  constraints/XSTile.sdc     one clock, port clock, {{sdc_period}} ps; self-contained
   tech/asap7_tech.lef        technology LEF: layers M1 to M9, vias, site
   tech/asap7.itf             interconnect technology file, for RC extraction
   cells/lef/                 standard cells, RVT, LVT and SLVT
@@ -140,7 +140,7 @@ xiangshan-xstile-asap7/
    against exactly these files. Power and ground are `VDD` and `VSS`.
    Constants are tie cells (`TIEHIx1_ASAP7_75t_R`, `TIELOx1_ASAP7_75t_R`).
 5. **Constraints.** Read `constraints/XSTile.sdc`. It defines one clock
-   on port `clock` at 473 ps and times the boundary with
+   on port `clock` at {{sdc_period}} ps and times the boundary with
    `set_max_delay`, not input and output delays. *Constraints* explains
    why.
 6. **Floorplan.** Read `floorplan/flat/XSTile.def` for a flat run, or
@@ -165,10 +165,13 @@ The SDC follows the OpenROAD-flow-scripts platform file for ASAP7 macros
 recorded in OpenROAD issue
 [#12017](https://github.com/The-OpenROAD-Project/OpenROAD/issues/12017).
 
-- One clock on port `clock`, 473 ps, 50 % duty cycle.
+- One clock on port `clock`, {{sdc_period}} ps, 50 % duty cycle.
 - Inputs to registers and registers to outputs:
-  `set_max_delay ... -ignore_clock_latency` at 0.8 of the period.
-- Inputs to outputs: `set_max_delay` at 0.6 of the period.
+  `set_max_delay ... -ignore_clock_latency` at {{in2reg_max}} and
+  {{reg2out_max}} ps.
+- Inputs to outputs: `set_max_delay` at {{in2out_max}} ps.
+- The budgets are picoseconds, not a fraction of the period: they are
+  the values the reference's boundary paths were optimised against.
 - No `set_input_delay` or `set_output_delay`. Reset is a false path. The
   L2 data-array reads are two-cycle paths, as the RTL designs them.
 - `group_path` puts in2reg, reg2out, reg2reg and in2out in groups of
@@ -566,8 +569,8 @@ repair with the route's parasitics.*
   tool limitation, not the design's.
 - Global route runs with congestion allowed. The minimum
   register-to-register period is the number tracked.
-- The next target in ASAP7 is 2,000 ps. *From the reference to 333 ps*
-  describes the rest of the way.
+- The SDC asks for {{sdc_period}} ps, just under what the reference
+  reaches. *From the reference to 333 ps* describes the rest of the way.
 
 ## About the ITF
 
