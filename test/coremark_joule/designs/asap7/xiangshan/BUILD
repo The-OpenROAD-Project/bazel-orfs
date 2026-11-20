@@ -586,7 +586,7 @@ XS_FLOORPLAN_BLOCKS = sorted(PLAN["macros"].keys())
         # the outline the tile places: the block's mock, MOCK_AREA of its die
         arguments = {"DIE_AREA": "0 0 %s %s" % tuple([
             float(v) * float(PLAN["macros"][block]["MOCK_AREA"])
-            for v in PLAN["macros"][block]["DIE_AREA"].split()[2:]
+            for v in PLAN["macros"][block]["DIE_AREA"].split(" ")[2:]
         ])},
         # a timing sweep per bus on a block of millions of cells runs for
         # hours; the tile's chains wait for a faster sweep
