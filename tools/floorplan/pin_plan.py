@@ -77,7 +77,7 @@ def footprint(m, plan):
 
 def nets_by_pair(plan):
     bits = {}
-    for a, b, n in plan["nets"]:
+    for a, b, n in (net[:3] for net in plan["nets"]):
         if a != b:
             k = tuple(sorted((a, b)))
             bits[k] = bits.get(k, 0) + n
@@ -195,13 +195,28 @@ def soft_shares(plan, rects, me, soft):
     return [(v[0] / tot, v[1]) for s, v in sorted(shares.items())]
 
 
+def end_bits(plan):
+    """A net's pins at each end, when the net names them ([a, b, bits,
+    a_bits, b_bits]): {(me, other): pins}."""
+    out = {}
+    for net in plan["nets"]:
+        if len(net) == 5 and net[0] != net[1]:
+            a, b, _, na, nb = net
+            out[(a, b)] = out.get((a, b), 0) + na
+            out[(b, a)] = out.get((b, a), 0) + nb
+    return out
+
+
 def bundles(plan, rects):
-    """(macro, partner, bits, partner rect) for every hard end of every net."""
+    """(macro, partner, bits, partner rect) for every hard end of every net,
+    the bits that end's own when the net says."""
     out = []
-    for (a, b), n in sorted(nets_by_pair(plan).items()):
+    ends = end_bits(plan)
+    for (a, b), pair in sorted(nets_by_pair(plan).items()):
         for me, other in ((a, b), (b, a)):
             if is_soft(plan, me):
                 continue
+            n = ends.get((me, other), pair)
             if is_soft(plan, other):
                 parts = soft_shares(plan, rects, me, other)
                 left = n

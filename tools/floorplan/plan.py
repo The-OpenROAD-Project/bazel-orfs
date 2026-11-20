@@ -201,11 +201,11 @@ class Model:
         ]
 
     def pair_bits(self):
-        """Per pair of ends the pins between them: each end's own buses,
-        each counted once at its widest to that partner however many of
-        the partner's buses it reaches, the wider end's sum. A bus fanning
-        out through the parent's logic to many buses of one partner is
-        still its own pins."""
+        """Per pair of ends (a, b) the pins between them: (the wider end's,
+        a's, b's), each end's own buses counted once at their widest to
+        that partner however many of the partner's buses they reach. A bus
+        fanning out through the parent's logic to many buses of one
+        partner is still its own pins."""
         ends = {}
         for a, ab, b, bb, _, na, nb in self.nets:
             k = tuple(sorted((a, b)))
@@ -213,7 +213,11 @@ class Model:
             ia, ib = (0, 1) if k[0] == a else (1, 0)
             e[ia][ab] = max(e[ia].get(ab, 0), na)
             e[ib][bb] = max(e[ib].get(bb, 0), nb)
-        return {k: max(sum(e[0].values()), sum(e[1].values())) for k, e in ends.items()}
+        out = {}
+        for k, e in ends.items():
+            na, nb = sum(e[0].values()), sum(e[1].values())
+            out[k] = (max(na, nb), na, nb)
+        return out
 
     def outline_area(self, m):
         """The area of the outline the macro's own flow draws; its slot's
@@ -334,7 +338,7 @@ def start_aspect(model, m, options):
     where the aspect search starts, since a side too short for one
     interface cannot be fixed by moving one macro at a time."""
     per_partner = {}
-    for (a, b), bits in model.pair_bits().items():
+    for (a, b), (bits, _, _) in model.pair_bits().items():
         if a == m:
             per_partner[b] = per_partner.get(b, 0) + bits
         elif b == m:
@@ -388,8 +392,8 @@ def pin_plan_input(model, die=None, aspects=None, forbidden=None):
         "whitespace": True,
         "std_um2": model.glue_um2 / model.c.get("glue_density", 1.0),
     }
-    for (a, b), bits in sorted(model.pair_bits().items()):
-        pp["nets"].append([a, b, bits])
+    for (a, b), (bits, na, nb) in sorted(model.pair_bits().items()):
+        pp["nets"].append([a, b, bits, na, nb])
     if die:
         pp["die"] = {"w": die[0], "h": die[1]}
     return pp
