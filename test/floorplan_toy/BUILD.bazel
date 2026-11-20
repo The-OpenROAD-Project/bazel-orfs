@@ -1,6 +1,6 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_python//python:defs.bzl", "py_test")
-load("//:openroad.bzl", "orfs_flow", "orfs_macro")
+load("//:openroad.bzl", "orfs_flow", "orfs_macro", "orfs_run")
 load("//tools/floorplan:floorplan.bzl", "floorplan_consume", "floorplan_extract", "floorplan_parent", "floorplan_pdk", "floorplan_plan")
 
 # The global floorplan planner's toy (tools/floorplan, toy.sv): three
@@ -131,6 +131,7 @@ py_test(
 # each planned on the extracts above; plan_test reads the verdicts.
 VARIANTS = {
     "area": "area FpMem - -",
+    "path": "path_budget FpVec - deep_in",
     "aspect": "aspect FpMem - -",
     "channel": "channel_capacity FpMem - wide",
     "clean": "feasible - - -",
@@ -220,5 +221,33 @@ build_test(
     name = "planned_grt_build_test",
     tags = ["manual"],
     targets = [":fp_top_planned_grt"],
+    visibility = ["//test:__pkg__"],
+)
+
+# The routed wire's ps per micron on the planned parent, against the wire
+# model's (tools/floorplan/probe_wire.tcl).
+orfs_run(
+    name = "planned_wire",
+    src = ":fp_top_planned_grt",
+    outs = ["planned_wire.txt"],
+    script = "//tools/floorplan:probe_wire.tcl",
+    tags = ["manual"],
+    user_arguments = {"PROBE_OUT": "$(location planned_wire.txt)"},
+)
+
+# //test:local
+py_test(
+    name = "wire_test",
+    srcs = ["wire_test.py"],
+    args = [
+        "$(rootpath :planned_wire.txt)",
+        "$(rootpath :asap7)",
+    ],
+    data = [
+        ":asap7",
+        ":planned_wire.txt",
+    ],
+    main = "wire_test.py",
+    tags = ["manual"],
     visibility = ["//test:__pkg__"],
 )
