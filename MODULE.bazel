@@ -426,6 +426,12 @@ archive_override(
         # @openroad//:openroad-qt only. Not upstreamed; retires at a
         # //:bump onto an OpenROAD whose GUI services the Tcl event loop.
         "//patches:0243-openroad-gui-tcl-event-pump.patch",
+        # OpenROAD #11755 (RFC, draft), rebased onto this pin and the
+        # carries above: global_placement, repair_design and global_route
+        # take their settings as an options struct, as generated switches
+        # and as `-options dict`. Not upstreamed: the RFC is open. Carried
+        # on a study branch for the comparison with ORFS #4771.
+        "//patches:0248-openroad-options-structs.patch",
     ],
     strip_prefix = "OpenROAD-4543b6b65b4285823b4f20953dd4a8999f6c3126",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/4543b6b65b4285823b4f20953dd4a8999f6c3126.tar.gz"],
