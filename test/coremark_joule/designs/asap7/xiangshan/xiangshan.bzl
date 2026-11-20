@@ -1696,7 +1696,7 @@ def xiangshan_flow(name, plan, blocks = XS_BLOCKS, parent = XS_PARENT, tags = ["
         parent = name,
         parent_stage = ":%s_grt" % name,
         blocks = {b: ":%s_grt" % b for b in macros},
-        # the goal; the SDC's 473 ps makes nearly every endpoint violate
+        # the goal; the SDC asks for 1,800 ps, just under what the tile reaches
         target = 2000,
         tags = tags,
     )

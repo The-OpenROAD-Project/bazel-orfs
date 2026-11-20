@@ -1,6 +1,7 @@
-# XiangShan's period and fanout cap (test/coremark_joule/designs/asap7/
-# xiangshan/constraints.sdc): the Rob macro was built against both, so
-# repair works as hard here and buffers broadcast nets the same way
+# 473 ps, 0.8 of XiangShan's published goal in fanouts of four on this
+# library, and XiangShan's fanout cap (test/coremark_joule/designs/asap7/
+# xiangshan/constraints.sdc): repair works hard here and buffers broadcast
+# nets as the Rob macro does
 set clk_name clock
 set clk_port_name clock
 set clk_period 473

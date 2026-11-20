@@ -1,6 +1,6 @@
-# 473 ps is XiangShan's synthesis period on this library: its published
-# goal is 3 GHz (333 ps) on 7 nm, 41.1 FO4 at ASAP7's published 8.1 ps,
-# which is 591 ps at this flow's 14.37 ps FO4, and 0.8 of that.
+# 473 ps is 0.8 of XiangShan's published goal on this library: 3 GHz
+# (333 ps) on 7 nm, 41.1 FO4 at ASAP7's published 8.1 ps, which is 591 ps
+# at this flow's 14.37 ps FO4.
 set clk_name clk
 set clk_port_name clock
 set clk_period 473

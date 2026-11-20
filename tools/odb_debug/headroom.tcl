@@ -27,8 +27,8 @@ proc hr_clock_period {} {
 }
 
 # A target period, in the liberty's time unit; 0 is none. A design whose
-# SDC asks far less than anyone hopes to reach (XiangShan's tile: 473 ps
-# against a 2,000 ps goal) violates at nearly every endpoint, so the
+# SDC asks far less than anyone hopes to reach (XiangShan's tile at a
+# 473 ps SDC against a 2,000 ps goal) violates at nearly every endpoint, so the
 # violating count and TNS say nothing; the endpoints at or over the target
 # and their excess over it are the mass a move has to shift.
 set ::hr_target 0

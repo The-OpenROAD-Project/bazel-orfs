@@ -102,8 +102,8 @@ aes-block closed at 405 ps and stalled at 365; riscv32i closed down to
 770 ps and stalled at 620.
 
 The opposite case is a design whose SDC asks far less than anyone hopes to
-reach, so that nearly every endpoint violates: XiangShan's tile asks
-473 ps against a 2,000 ps goal. Its violating count and TNS say nothing;
+reach, so that nearly every endpoint violates: XiangShan's tile with a
+473 ps SDC against a 2,000 ps goal. Its violating count and TNS say nothing;
 the period alone says where one path went. Give a **target** (`period` and
 `headroom` take `target`, `orfs_headroom` takes `target = 2000`): every
 measurement then also counts the reg2reg endpoints at or over it and their

@@ -1,17 +1,25 @@
-# 473 ps: the synthesis target for a core that should route at 591 ps,
-# which is XiangShan's 333 ps on 7 nm in fanouts of four. The published
-# ASAP7 RVT FO4 is 8.1 ps (Clark et al., "Design Flows and Collateral for
-# the ASAP7 7nm FinFET Predictive Process Design Kit", MSE 2017), which
-# its authors call realistic for industrial 7 nm: 333 ps is 41.1 FO4.
-# The libraries this flow times with, RVT at the FF corner, have an FO4
-# of 14.37 ps (fo4.py), so 41.1 FO4 is 591 ps at global route, and 0.8
-# of that is the synthesis period. LVT (6.8 ps published) and SLVT (6 ps)
-# give the same period within 0.3 percent: the libraries are slower than
-# the published figures by one factor in every Vt class, so the target
-# does not depend on the Vt mix. period_fo4_test checks the arithmetic.
+# 1,800 ps: just under what the tile reaches, chosen as the study chooses
+# every core's (test/coremark_joule/README.md, §5.7): the SDC asks for
+# what the design reaches, period minus reg2reg WNS. Built with the SDC
+# at 473 ps (2026-11-21), XSTile's parent reached a reg2reg period of
+# 1,822 ps at global route (blocks: MemBlock 1,066, Frontend 1,062,
+# FltRegionModule 1,027, VecRegionModule 975, CoupledL2 864). Just under
+# it, repair works right up to the limit and the build ends with a
+# slightly negative WNS, tens of ps, instead of stopping early with
+# slack, so power is measured near timing closure, not on a netlist
+# repaired against a period it misses by more than a nanosecond. One
+# step of auto_period's walk, taken by hand: each step is a day-long
+# build of the tile. The campaign's goal, 2,000 ps (kpi.py's GOAL_PS),
+# is not the SDC. Every
+# XiangShan flow reads this file, the blocks and register files with the
+# parent; each block's own reg2reg period is below it.
+#
+# XiangShan's published goal, 333 ps on 7 nm, is 591 ps at global route
+# on this library in fanouts of four: kpi.json's target_ps, which
+# period_fo4_test checks.
 set clk_name clk
 set clk_port_name clock
-set clk_period 473
+set clk_period 1800
 
 # The IO budget, as optimization targets. set_input_delay and
 # set_output_delay are deliberately not used anywhere in this study:
@@ -32,13 +40,21 @@ set clk_period 473
 # target on a CPU. An optimiser chasing an impossible target upsizes
 # cells and inserts buffers whose power is then charged to the core.
 #
-# The ratios are ORFS's own, from its asap7/swerv_wrapper: 0.8 of the
-# period for a path with a register at one end, leaving 0.2 for the
-# clock-to-q and setup of the register assumed outside, and 0.6 for a
-# combinational path straight through.
-set in2reg_max  [expr { $clk_period * 0.8 }]
-set reg2out_max [expr { $clk_period * 0.8 }]
-set in2out_max  [expr { $clk_period * 0.6 }]
+# The budgets are picoseconds, deliberately not a fraction of the clock
+# period. Every flow reads them, XSTile and each hardened block alike: in
+# a block they are its side of a path that crosses into the parent or
+# another block, and the parent times the whole crossing through the
+# block's abstract, where it cannot repair. The tile's period is set by
+# such crossings, so the budgets stay at the values its crossings were
+# measured with when its parent reached 1,822 ps: 378.4 ps for a path
+# with a register at one end, 283.8 ps for one straight through (0.8 and 0.6 of
+# 473 ps, ORFS's ratios from its asap7/swerv_wrapper). Two block sides at
+# 0.8 of 1,800 ps would sum to 2,880 ps, past the period they are meant
+# to fit (.claude/skills/macro-constraints, "When the budgets do look
+# wrong").
+set in2reg_max  378.4
+set reg2out_max 378.4
+set in2out_max  283.8
 
 # Reset is a false path here. XiangShan's reset is asynchronous -- 1005 of
 # XSCore's always blocks are `posedge clock or posedge reset` -- and the one
