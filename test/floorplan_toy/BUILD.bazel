@@ -82,13 +82,9 @@ build_test(
     floorplan_extract(
         name = block,
         src = ":%s_synth" % block,
-        arguments = BLOCK_ARGS,
+        arguments = arguments,
     )
-    for block in [
-        "FpCore",
-        "FpMem",
-        "FpVec",
-    ]
+    for block, (_, arguments) in BLOCKS.items()
 ]
 
 floorplan_pdk(

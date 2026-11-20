@@ -42,7 +42,7 @@ class ExtractTest(unittest.TestCase):
         self.assertEqual(
             [m["master"] for m in b["area"]["macros"]], ["fakeram7_256x34"]
         )
-        self.assertEqual(len(b["hard"]), 2)
+        self.assertEqual(len(b["hard"]), 4)
         for h in b["hard"]:
             self.assertEqual(h["pins"]["rd_out"]["side"], "W")
             nets = {(n["pin"], n["port"], n["via"]) for n in h["nets"]}
@@ -54,6 +54,7 @@ class ExtractTest(unittest.TestCase):
         r = load("FpCore.block.json")["area"]["die_rule"]
         self.assertEqual(r["rule"], "CORE_UTILIZATION")
         self.assertAlmostEqual(r["util"], 0.4)
+        self.assertAlmostEqual(load("FpMem.block.json")["area"]["die_rule"]["util"], 0.7)
 
     def test_wire_model_against_calibration(self):
         pdk = load("asap7.pdk.json")
