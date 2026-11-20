@@ -126,8 +126,8 @@ XS_PARENT = {
         "ANNEAL_STRAP_PITCH_UM": "2.16",
     },
     "user_sources": {
-        "ANNEAL_DUMP_TCL": ["//test/coremark_joule/flow/macro_anneal:dump_macros.tcl"],
-        "ANNEAL_PY": ["//test/coremark_joule/flow/macro_anneal:macro_anneal.py"],
+        "ANNEAL_DUMP_TCL": ["//tools/macro_anneal:dump_macros.tcl"],
+        "ANNEAL_PY": ["//tools/macro_anneal:macro_anneal.py"],
     },
     "sources": {
         "MACRO_PLACEMENT_TCL": ["//test/coremark_joule/designs/asap7/xiangshan:anneal_in_flow.tcl"],
@@ -176,8 +176,8 @@ XS_BLOCKS = {
             "ANNEAL_STRAP_PITCH_UM": "5.4",
         },
         "user_sources": {
-            "ANNEAL_DUMP_TCL": ["//test/coremark_joule/flow/macro_anneal:dump_macros.tcl"],
-            "ANNEAL_PY": ["//test/coremark_joule/flow/macro_anneal:macro_anneal.py"],
+            "ANNEAL_DUMP_TCL": ["//tools/macro_anneal:dump_macros.tcl"],
+            "ANNEAL_PY": ["//tools/macro_anneal:macro_anneal.py"],
         },
         "sources": {
             "MACRO_PLACEMENT_TCL": ["//test/coremark_joule/designs/asap7/xiangshan:anneal_in_flow.tcl"],

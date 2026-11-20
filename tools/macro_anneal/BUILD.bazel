@@ -1,17 +1,19 @@
 # A macro placer for bank groups, XiangShan's for now.
 #
-# Study apparatus rather than a bazel-orfs tool: it is consumed only by
-# the XiangShan design, through MACRO_PLACEMENT_TCL, until the churn is
-# over and a second design says it has wider value. The natural home
-# after that is a clustering pre-pass in RTL-MP itself.
+# Consumed by the XiangShan design through MACRO_PLACEMENT_TCL:
+# dump_macros.tcl and macro_anneal.py arrive as user_sources. Public so a
+# XiangShan flow outside this repository can use them too. Once a second
+# design says it has wider value, the natural home is a clustering
+# pre-pass in RTL-MP itself.
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
-package(default_visibility = ["//test/coremark_joule:__subpackages__"])
-
-exports_files([
-    "dump_macros.tcl",
-    "macro_anneal.py",
-])
+exports_files(
+    [
+        "dump_macros.tcl",
+        "macro_anneal.py",
+    ],
+    visibility = ["//visibility:public"],
+)
 
 py_binary(
     name = "macro_anneal",
@@ -30,7 +32,6 @@ py_test(
         "macro_anneal_test.py",
     ],
     main = "macro_anneal_test.py",
-    tags = ["study"],
 )
 
 py_test(
@@ -42,5 +43,4 @@ py_test(
     ],
     data = ["testdata/memblock_inventory.txt"],
     main = "macro_anneal_seeds_test.py",
-    tags = ["study"],
 )
