@@ -76,6 +76,12 @@ workload: when a stage is slow, the timer is the first suspect.
   a8c6e82459);
   `write_sdc` crashes after deleting an instance from a merged false path
   (OpenSTA #444 open).
+- `report_power` weighed a leakage `when` that names the output pin as
+  if the output were independent of the inputs: asap7's INV, BUF and
+  AO/AOI/OA/OAI write their states as "(A * !Y)", so at duty 0.5 an
+  inverter got half its leakage (vectorless asap7/gcd: leakage 43 %
+  low). Input internal power `when`s naming the output were off the same
+  way, by tenths of a percent. Carried as patch 0247, not upstreamed.
 - An abstract written at grt was timed with placement parasitics (fixed,
   ORFS #4688). A cts abstract is ~28 % pessimistic vs grt with the same
   worst paths.
