@@ -17,8 +17,9 @@ its pins reach. Schema:
          pins {bus: {side, range, bits, layer}},
          nets [{pin, port, bits, via, depth}]}]
 
-A port is registered when its worst boundary delay is at most a
-register's own (--registered-in-ps, --registered-out-ps) and it has no
+A port is registered when its worst boundary delay is at most what the
+design names a register's own (--registered-in-ps, --registered-out-ps;
+unnamed, registered is null) and it has no
 combinational path through the block.
 
 Stdlib only.
@@ -92,8 +93,14 @@ def die_rule(var, std_um2, hard_um2, site):
     }
 
 
-def build(rec, dump_hash, reg_in_ps, reg_out_ps, halo_um):
+def build(rec, dump_hash, reg_in_ps, reg_out_ps):
     var = {k: v for k, v in rec.get("var", [])}
+    # the block flow's own macro halo: half its macro placer's minimum
+    # channel, the larger of the two
+    halo_um = (
+        max([float(v) for v in var.get("RTLMP_MIN_CHANNEL_SIZE", "0").split()] or [0.0])
+        / 2
+    )
     site = [float(v) for v in rec["site"][0]] if "site" in rec else [0, 0]
     std = float(rec["area"][0][0]) if "area" in rec else 0.0
     hard = []
@@ -157,7 +164,9 @@ def build(rec, dump_hash, reg_in_ps, reg_out_ps, halo_um):
     for p in ports.values():
         if p["dir"] == "in":
             t = p.get("in2reg_ps", {}).get("max", 0.0)
-            p["registered"] = t <= reg_in_ps and not p.get("in2out")
+            p["registered"] = (
+                None if reg_in_ps is None else (t <= reg_in_ps and not p.get("in2out"))
+            )
         elif p["dir"] == "out":
             t = p.get("reg2out_ps", {}).get("max", math.inf)
             fed = any(
@@ -165,7 +174,9 @@ def build(rec, dump_hash, reg_in_ps, reg_out_ps, halo_um):
                 for q in ports.values()
                 for o in q.get("in2out", [])
             )
-            p["registered"] = t <= reg_out_ps and not fed
+            p["registered"] = (
+                None if reg_out_ps is None else (t <= reg_out_ps and not fed)
+            )
     clock = None
     if "clock" in rec:
         clock = {"port": rec["clock"][0][0], "period_ps": float(rec["clock"][0][1])}
@@ -190,9 +201,8 @@ def main(argv):
     )
     ap.add_argument("dump", help="extract_block.tcl's dump")
     ap.add_argument("out", help="the block.json to write")
-    ap.add_argument("--registered-in-ps", type=float, default=25.0)
-    ap.add_argument("--registered-out-ps", type=float, default=70.0)
-    ap.add_argument("--halo-um", type=float, default=2.0)
+    ap.add_argument("--registered-in-ps", type=float)
+    ap.add_argument("--registered-out-ps", type=float)
     args = ap.parse_args(argv)
     with open(args.dump, "rb") as f:
         raw = f.read()
@@ -202,7 +212,6 @@ def main(argv):
         hashlib.sha256(raw).hexdigest(),
         args.registered_in_ps,
         args.registered_out_ps,
-        args.halo_um,
     )
     with open(args.out, "w") as f:
         json.dump(out, f, indent=1, sort_keys=True)

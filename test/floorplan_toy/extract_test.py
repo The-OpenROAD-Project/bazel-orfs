@@ -7,11 +7,6 @@ import unittest
 
 FILES = {}
 
-# test/macro_select's calibration (tools/macro_select/plan_floorplan.py):
-# 0.096 um per pin over two layers at margin 1.5, 0.6 ps per um
-CAL_PINS_PER_UM_ONE_LAYER = 1 / (0.096 * 1.5)
-CAL_PS_PER_UM = 0.6
-
 
 def load(suffix):
     (path,) = [p for p in FILES if p.endswith(suffix)]
@@ -25,13 +20,12 @@ class ExtractTest(unittest.TestCase):
 
     def test_over_wide_bus(self):
         p = self.ports("FpVec")["wide"]
-        self.assertEqual((p["dir"], p["bits"], p["registered"]), ("in", 1024, True))
+        self.assertEqual((p["dir"], p["bits"]), ("in", 1024))
         self.assertEqual(self.ports("FpCore")["wide"]["bits"], 1024)
 
     def test_feedthrough(self):
         (ft,) = self.ports("FpCore")["ft_in"]["in2out"]
         self.assertEqual((ft["to"], ft["bits"]), ("ft_out", 16))
-        self.assertFalse(self.ports("FpCore")["ft_out"]["registered"])
 
     def test_cross_macro_path_ends(self):
         self.assertGreater(self.ports("FpCore")["deep_out"]["reg2out_ps"]["max"], 150)
@@ -76,17 +70,14 @@ class ExtractTest(unittest.TestCase):
         self.assertIn(("fp_top", "in_top", "FpCore", "in_top"), x)
 
     def test_wire_model_against_calibration(self):
+        # test/macro_select's measured facts, the 50 % error bars
+        cal = load("floorplan_calibration.json")
         pdk = load("asap7.pdk.json")
+        lowest = min(cal["facing_pin_wall"]["layers"], key=pdk["order"].index)
+        self.assertIn("tracks_per_um", pdk["layers"][lowest])
+        ps = cal["wire_ps_per_um"]["value"]
         for name in pdk["io"]["H"] + pdk["io"]["V"]:
-            L = pdk["layers"][name]
-            self.assertAlmostEqual(
-                L["pins_per_um"],
-                CAL_PINS_PER_UM_ONE_LAYER,
-                delta=0.5 * CAL_PINS_PER_UM_ONE_LAYER,
-            )
-            self.assertAlmostEqual(
-                L["ps_per_um"], CAL_PS_PER_UM, delta=0.5 * CAL_PS_PER_UM
-            )
+            self.assertAlmostEqual(pdk["layers"][name]["ps_per_um"], ps, delta=0.5 * ps)
         # upper layers are faster
         self.assertLess(
             pdk["layers"]["M7"]["ps_per_um"], pdk["layers"]["M2"]["ps_per_um"]

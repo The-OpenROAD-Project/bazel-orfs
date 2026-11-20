@@ -85,6 +85,7 @@ def floorplan_plan(
         pdk,
         cut,
         constraints,
+        calibration = None,
         parent = None,
         run_all = False,
         tags = ["manual"],
@@ -103,16 +104,21 @@ def floorplan_plan(
         pdk: the floorplan_pdk target
         cut: cut.json, which block each macro is
         constraints: constraints.json
+        calibration: the design's limits per rung, each with its source
+            (plan.py's CALIBRATION_KEYS); a rung without one measures and
+            fails nothing
         parent: the parent's crossings (parent.json), optional
         run_all: every rung past the first stop
         tags: forwarded
         visibility: forwarded
     """
-    srcs = blocks + [pdk, cut, constraints] + ([parent] if parent else [])
+    srcs = blocks + [pdk, cut, constraints] + ([parent] if parent else []) + ([calibration] if calibration else [])
     args = " ".join(["--block $(execpath %s)" % b for b in blocks])
     args += " --pdk $(execpath %s) --cut $(execpath %s) --constraints $(execpath %s)" % (pdk, cut, constraints)
     if parent:
         args += " --parent $(execpath %s)" % parent
+    if calibration:
+        args += " --calibration $(execpath %s)" % calibration
     if run_all:
         args += " --all"
     native.genrule(

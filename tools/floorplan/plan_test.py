@@ -33,6 +33,7 @@ def toy(variant, remedies=False):
             load("asap7.pdk.json"),
             load("cut.json"),
             load("constraints_%s.json" % variant),
+            calibration=load("calibration.json"),
             remedies=remedies,
         )
     return _PLANS[(variant, remedies)]
@@ -91,8 +92,9 @@ class SeededFaults(unittest.TestCase):
         self.assertEqual(v["stopped_at"], "channel_capacity")
         f = fails(v)[0]
         self.assertEqual(
-            (f["kind"], f["channel"], f["bus"]), ("over_capacity", "FpMem|die", "wide")
+            (f["kind"], f["block"], f["bus"]), ("over_capacity", "FpMem", "wide")
         )
+        self.assertIn("FpMem|", f["channel"])
         self.assertGreater(f["demand_tracks"], f["capacity_tracks"])
         # the starved top layers are counted at their share
         self.assertLess(
@@ -117,6 +119,37 @@ class SeededFaults(unittest.TestCase):
         for c in v["chains"]:
             self.assertEqual(c["status"], "ok")
             self.assertGreater(c["slack_ps"], 0)
+
+    def test_rung_a_reports_track_spacing(self):
+        _, _, v, _ = toy("pins")
+        (f,) = fails(v)
+        # tracks per pin on each pin layer, against the calibrated facing
+        # spacing on the lowest one
+        self.assertEqual(set(f["track_spacing"]), {"M2", "M4"})
+        self.assertLess(f["track_spacing"]["M2"], f["limit"]["track_spacing"])
+        self.assertIn("route-0", f["limit"]["source"])
+
+    def test_a_partner_beside_a_side_is_reported_not_failed(self):
+        _, _, v, _ = toy("clean")
+        lateral = [f for f in v["findings"] if f.get("kind") == "lateral"]
+        self.assertTrue(lateral)
+        for f in lateral:
+            self.assertEqual(f["status"], "uncalibrated")
+            self.assertTrue(f["lateral_partners"])
+
+    def test_no_calibration_measures_and_fails_nothing(self):
+        blocks = [load("%s.block.json" % b) for b in ("FpCore", "FpMem", "FpVec")]
+        _, _, v, fp = plan.run(
+            blocks,
+            load("parent.json"),
+            load("asap7.pdk.json"),
+            load("cut.json"),
+            load("constraints_pins.json"),
+            remedies=False,
+        )
+        self.assertEqual([f for f in v["findings"] if f["status"] == "fail"], [])
+        self.assertEqual(v["unjudged"], sorted(plan.CALIBRATION_KEYS))
+        self.assertIsNotNone(fp)
 
 
 class Floorplan(unittest.TestCase):
@@ -157,6 +190,8 @@ class Floorplan(unittest.TestCase):
                 os.path.join(TOY, "parent.json"),
                 "--constraints",
                 os.path.join(TOY, "constraints_wall.json"),
+                "--calibration",
+                os.path.join(TOY, "calibration.json"),
                 "--verdict",
                 os.path.join(d, "v.json"),
                 "--verdict-md",
@@ -207,7 +242,7 @@ class Pieces(unittest.TestCase):
         _, _, v, _ = toy("clean")
         self.assertEqual(
             set(v["identity"]),
-            {"tool", "blocks", "parent", "pdk", "cut", "constraints"},
+            {"tool", "blocks", "parent", "pdk", "cut", "constraints", "calibration"},
         )
 
 

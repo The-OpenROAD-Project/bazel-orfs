@@ -8,26 +8,30 @@ block each macro is) and the constraints. The macros and the parent's
 own logic (the glue, one soft region filling the free space) are placed
 by pin_plan's analytic placer unless the constraints place them; every
 interface bus goes to the side of its macro facing its partner. Then the
-rungs, cheapest first; the first that fails stops the plan:
+rungs, cheapest first; each measures, and fails only against a limit
+the design's calibration file supplies (CALIBRATION_KEYS): a rung with
+none reports its measurements, ranked, and stops nothing. The first
+that fails stops the plan:
 
-  a pins_per_um   per macro side, the bits on it over its length against
-                  the pins one pin layer holds (pdk.json); over one layer
-                  is debt, over `pin_layers` does not fit
+  a pins_per_um   per macro side and pin layer, the track spacing (tracks
+                  per pin; 1 is a pin on every track); fails a side whose
+                  pins face their partners under the facing spacing the
+                  design has seen route; a side whose buses turn along it
+                  to a partner not in front is reported, not judged
   b area          each macro's outline from its own flow's rule
-                  (die_rule) against its slot; the outlines, the glue at
-                  its density and the channels against the die
-  c aspect        each outline's aspect against its range, and its
-                  shortest side against its largest hard object
-  d internal      each macro's hard objects (memories, register files,
-                  macros) rough-placed inside its outline behind a
-                  pin-access band on every side that carries pins;
-                  where they cannot be, the band gives and the objects
-                  wall the side: a pin side whose free share is under
-                  `free_fraction` is blocked; objects that do not fit at
-                  all have no arrangement
+                  (die_rule) against its slot; the outlines and the glue
+                  against the die
+  c aspect        the outline against its largest hard object; against
+                  an aspect range when the design gives one
+  d internal      each macro's hard objects rough-placed inside its outline
+                  behind the design's pin-access band on every pin side;
+                  objects that do not fit have no arrangement; a pin side
+                  they wall under the design's free fraction is blocked
   e channels      bits crossing each channel against its tracks per layer
+                  at the design's usable share and limit
   f path budget   each register-to-register chain across macros against
-                  the period on its assigned layer
+                  the period less the design's setup and skew, on its
+                  assigned layer pair
 
 The verdict (verdict.json, verdict.md) names the failed constraint with
 its excess, block, side and bus, the buses that contribute, and the
@@ -60,21 +64,34 @@ RUNGS = [
     "channel_capacity",
     "path_budget",
 ]
+# How the planner lays out and searches; none of these judges a verdict.
 DEFAULTS = {
     "channel_um": 4.0,
-    "pin_layers": 2,
-    "free_fraction": 0.5,
-    "pin_access_um": 10.0,
-    "glue_density": 0.5,
-    "std_density": 0.7,
-    "aspect_range": [1 / 6, 6.0],
-    "usable": 0.5,
-    "gcell_limit": 1.0,
-    "setup_ps": 30.0,
-    "skew_ps": 50.0,
-    "congestion_k": 1.0,
     "feedthrough_depth": 3,
     "die_slack": [1.15, 1.3, 1.5, 1.75, 2.0, 2.5, 3.0],
+}
+
+# What judges a verdict comes from the design's calibration file, never
+# from here: a rung with no limit for it measures and reports, and fails
+# nothing. Each section names its source, the run it was read off.
+#
+#   pins_per_um           facing_track_spacing: tracks per pin on a side's
+#                         lowest pin layer the design has seen route
+#   aspect                range: [lo, hi] of an outline's h / w
+#   internal_arrangement  pin_access_um: the band a pin side keeps clear;
+#                         free_fraction: the least free share of a pin
+#                         side; std_density: the block's std cells' density
+#   channel_capacity      usable: the share of a layer's tracks a route
+#                         gets; gcell_limit: demand over capacity a
+#                         channel may reach (the power grid's share of a
+#                         layer is the constraints' `layers`, a fact)
+#   path_budget           setup_ps, skew_ps, congestion_k
+CALIBRATION_KEYS = {
+    "pins_per_um": ["facing_track_spacing"],
+    "aspect": ["range"],
+    "internal_arrangement": ["pin_access_um", "free_fraction", "std_density"],
+    "channel_capacity": ["usable", "gcell_limit"],
+    "path_budget": ["setup_ps", "skew_ps", "congestion_k"],
 }
 
 
@@ -92,12 +109,25 @@ def sha(obj):
 class Model:
     """Macros with their outlines and buses, the glue, the nets between them."""
 
-    def __init__(self, blocks, parent, pdk, cut, constraints):
+    def __init__(self, blocks, parent, pdk, cut, constraints, calibration=None):
         self.blocks = {b["block"]: b for b in blocks}
         self.parent = parent or {}
         self.pdk = pdk
         self.cut = cut
         self.c = dict(DEFAULTS, **constraints)
+        self.calibration = calibration or {}
+        for rung, values in self.calibration.items():
+            if rung not in CALIBRATION_KEYS:
+                raise SystemExit(
+                    "plan: calibration names %s, not a rung (%s)"
+                    % (rung, ", ".join(CALIBRATION_KEYS))
+                )
+            for k in values:
+                if k not in CALIBRATION_KEYS[rung] + ["source"]:
+                    raise SystemExit(
+                        "plan: calibration %s has %s, not one of %s"
+                        % (rung, k, CALIBRATION_KEYS[rung])
+                    )
         # the router's grid resolves the narrowest channel the placer leaves,
         # at most 250 gcells a side (route_bundles)
         self.gcell_given = "gcell_um" in self.c
@@ -190,16 +220,40 @@ class Model:
     def macro_c(self, m):
         return self.c.get("macros", {}).get(m, {})
 
-    def ppu(self, side):
-        """Pins per um of one layer on a side: E and W edges carry the
-        horizontal pin layer."""
-        io = self.pdk["io"]["H" if side in "EW" else "V"]
-        layers = self.pdk["layers"]
-        return min(layers[n]["pins_per_um"] for n in io) if io else 1.0
+    def io(self, side):
+        """The pin layers of a side, lowest first: E and W edges carry the
+        horizontal ones (the flows' IO_PLACER_H/V, constraints `io`, else
+        the platform's)."""
+        io = self.c.get("io", self.pdk["io"])["H" if side in "EW" else "V"]
+        order = self.pdk["order"]
+        return sorted(io, key=lambda n: order.index(n) if n in order else 0)
 
     def pin_layer(self, side):
-        io = self.pdk["io"]["H" if side in "EW" else "V"]
+        io = self.io(side)
         return io[0] if io else ""
+
+    def tracks(self, side):
+        """Tracks per um of a side's lowest pin layer."""
+        n = self.pin_layer(side)
+        return self.pdk["layers"][n]["tracks_per_um"] if n else 1.0
+
+    def cal(self, rung, key):
+        """A limit the design's calibration supplies, else None."""
+        return self.calibration.get(rung, {}).get(key)
+
+    def source(self, rung):
+        return self.calibration.get(rung, {}).get("source", "")
+
+    def min_spacing(self):
+        """Tracks per pin on a side's lowest pin layer the design has seen
+        route facing its partner; one, the minimum pin pitch, when it gives
+        none, so pins are laid out and sides shaped, never judged, by it."""
+        return self.cal("pins_per_um", "facing_track_spacing") or 1.0
+
+    def ppu(self, side):
+        """Pins per um a facing side holds: its lowest pin layer's tracks
+        at the calibrated spacing."""
+        return self.tracks(side) / self.min_spacing()
 
     def tech(self):
         """pin_plan's tech from pdk.json: the pin layers' pitch, the routing
@@ -209,19 +263,21 @@ class Model:
         density = {"H": 0.0, "V": 0.0}
         for n, cap in self.layer_tracks().items():
             density[layers[n]["dir"]] += cap
-        rule = self.pdk["pin_rule"]
         return {
             "pitch_um": {
-                "H": layers[io["H"][0]]["pitch_um"] if io["H"] else 0.1,
-                "V": layers[io["V"][0]]["pitch_um"] if io["V"] else 0.1,
+                "H": layers[self.pin_layer("E")]["pitch_um"],
+                "V": layers[self.pin_layer("N")]["pitch_um"],
             },
-            "min_tracks": rule["min_tracks"],
-            "margin": rule["margin"],
+            "min_tracks": self.min_spacing(),
+            "margin": 1.0,
             "track_density_per_um": min(density.values()),
             "track_density_h_per_um": density["H"],
             "track_density_v_per_um": density["V"],
-            "usable": self.c["usable"],
+            "usable": self.usable(),
         }
+
+    def usable(self):
+        return self.cal("channel_capacity", "usable") or 1.0
 
     def layer_tracks(self):
         """Tracks per um the parent's routes get per routable layer: the
@@ -243,7 +299,7 @@ def shape_options(model, m):
     if "slot" in mc:
         return [tuple(mc["slot"])]
     area = model.outline_area(m)
-    lo, hi = mc.get("aspect_range", model.c["aspect_range"])
+    lo, hi = mc.get("aspect_range", model.cal("aspect", "range") or [0, math.inf])
     aspects = mc.get("aspects", P.ASPECTS)
     hw = max([h["w"] for h in model.hard(m)] or [0])
     hh = max([h["h"] for h in model.hard(m)] or [0])
@@ -268,9 +324,7 @@ def start_aspect(model, m, options):
             per_partner[b] = per_partner.get(b, 0) + bits
         elif b == m:
             per_partner[a] = per_partner.get(a, 0) + bits
-    need = max(per_partner.values() or [0]) / (
-        min(model.ppu("N"), model.ppu("E")) * model.c["pin_layers"]
-    )
+    need = max(per_partner.values() or [0]) / (min(model.ppu("N"), model.ppu("E")))
     area = model.outline_area(m)
     best = None
     for r in options or [1.0]:
@@ -295,7 +349,6 @@ def pin_plan_input(model, die=None, aspects=None, forbidden=None):
         "forced_sides": {},
         "forbidden_sides": forbidden or {},
         "die_slack": model.c["die_slack"],
-        "pin_layers": model.c["pin_layers"],
     }
     for m in model.macros:
         mc = model.macro_c(m)
@@ -312,7 +365,7 @@ def pin_plan_input(model, die=None, aspects=None, forbidden=None):
     pp["macros"][GLUE] = {
         "soft": True,
         "whitespace": True,
-        "std_um2": model.glue_um2 / model.c["glue_density"],
+        "std_um2": model.glue_um2 / model.c.get("glue_density", 1.0),
     }
     for a, _, b, _, bits, _, _ in model.nets:
         pp["nets"].append([a, b, bits])
@@ -376,7 +429,13 @@ def solve_die(pp, aspects_override=None, keep=6):
     hard, soft = P.need_area(pp, P.shapes_for(pp, {}))
     cands = []
     fits_at = None
-    for i, slack in enumerate(pp["die_slack"]):
+    slacks = list(pp["die_slack"])
+    # no legal placement at any listed slack: keep growing the die
+    while slacks[-1] < 64:
+        slacks.append(slacks[-1] * 1.25)
+    for i, slack in enumerate(slacks):
+        if cands and i >= len(pp["die_slack"]) and fits_at is None:
+            break
         for ar in (1.0, 1.25, 0.8, 1.5, 0.67):
             area = (hard + soft) * slack
             die = (math.sqrt(area / ar), math.sqrt(area * ar))
@@ -387,7 +446,7 @@ def solve_die(pp, aspects_override=None, keep=6):
                 _, q = P.tune_aspects(p, pp["start_aspects"], die, passes=1)
             if q is None:
                 continue
-            over = q[0][0][0] > pp["pin_layers"]
+            over = q[0][0][0] > 1.0
             cands.append(
                 ((over, q[0][0] if over else (), die[0] * die[1], q[0]), die, q[1])
             )
@@ -422,30 +481,56 @@ def bus_contributors(model, m, partner):
     return sorted(merged.values(), key=lambda o: (-o["bits"], o["bus"]))
 
 
-def edge_report(model, edges):
-    """Per (macro, side): bits, length, pins per um, layers needed, buses."""
+def facing(model, rects, m, side, partner):
+    """A bundle routes straight out to its partner when the partner is the
+    glue (which fills the space in front of every side) or a macro whose
+    facing side overlaps this one along it; else it turns along the side."""
+    if partner == GLUE or partner not in rects:
+        return True
+    r, q = rects[m], rects[partner]
+    if P.side_toward(q, r) != P.OPP[side]:
+        return False
+    a, b = (r[0], r[0] + r[2]) if side in "NS" else (r[1], r[1] + r[3])
+    c, d = (q[0], q[0] + q[2]) if side in "NS" else (q[1], q[1] + q[3])
+    return min(b, d) > max(a, c)
+
+
+def edge_report(model, edges, rects):
+    """Per (macro, side): bits, length, the track spacing per pin layer
+    (tracks per pin, 1 is a pin on every track), the buses and whether
+    each partner faces the side."""
     out = []
     for (m, s), e in sorted(edges.items()):
         if m not in model.macros:
             continue
-        ppu1 = model.ppu(s)
-        per_um = e["need"] / e["len"] if e["len"] else math.inf
         contributors = []
+        partners = {}
         for partner, bits, lo, hi in e["bundles"]:
+            partners[partner] = facing(model, rects, m, s, partner)
             for c in bus_contributors(model, m, partner):
                 if c not in contributors:
-                    contributors.append(c)
+                    contributors.append(dict(c, facing=partners[partner]))
         contributors.sort(key=lambda c: (-c["bits"], c["bus"]))
+        bits = e["need"]
+        spacing = {
+            n: (
+                round(e["len"] * model.pdk["layers"][n]["tracks_per_um"] / bits, 3)
+                if bits
+                else math.inf
+            )
+            for n in model.io(s)
+        }
         out.append(
             {
                 "macro": m,
                 "block": model.macros[m]["block"],
                 "side": s,
-                "bits": e["need"],
+                "bits": bits,
                 "um": round(e["len"], 3),
-                "per_um": round(per_um, 3),
-                "limit_one_layer": round(ppu1, 3),
-                "layers": per_um / ppu1 if ppu1 else math.inf,
+                "per_um": round(bits / e["len"], 3) if e["len"] else math.inf,
+                "track_spacing": spacing,
+                "lowest": model.pin_layer(s),
+                "partners": partners,
                 "contributors": contributors,
                 "segments": [[o, n, lo, hi] for o, n, lo, hi in e["bundles"]],
             }
@@ -453,35 +538,61 @@ def edge_report(model, edges):
     return out
 
 
-def rung_a(model, edges):
+def rung_a(model, edges, rects):
+    """A side whose pins face their partners against the calibrated facing
+    spacing on its lowest pin layer; a side whose bundles turn along it to
+    a partner not in front has no calibrated density (beside a block a
+    route failed at every density tried), so it is reported for global
+    route to judge, not failed."""
     findings = []
-    n = model.c["pin_layers"]
-    for e in edge_report(model, edges):
-        if e["layers"] <= 1.0:
-            continue
-        status = "fail" if e["layers"] > n * (1 + 1e-3) else "debt"
-        lim1 = e["limit_one_layer"]
-        findings.append(
-            {
-                "rung": "pins_per_um",
-                "status": status,
-                "block": e["block"],
-                "macro": e["macro"],
-                "side": e["side"],
-                "bus": e["contributors"][0]["bus"] if e["contributors"] else "",
-                "demand": {"bits": e["bits"], "um": e["um"], "per_um": e["per_um"]},
-                "limit": {
-                    "one_layer": lim1,
-                    "layers": n,
-                    "all_layers": round(lim1 * n, 3),
-                },
-                "excess": {
-                    "bits": max(0, round(e["bits"] - e["um"] * lim1 * n)),
-                    "factor": round(e["per_um"] / (lim1 * n), 3),
-                },
-                "contributors": e["contributors"][:8],
-            }
-        )
+    need = model.cal("pins_per_um", "facing_track_spacing")
+    for e in edge_report(model, edges, rects):
+        n = e["track_spacing"][e["lowest"]]
+        lateral = sorted(p for p, f in e["partners"].items() if not f)
+        common = {
+            "rung": "pins_per_um",
+            "block": e["block"],
+            "macro": e["macro"],
+            "side": e["side"],
+            "bus": e["contributors"][0]["bus"] if e["contributors"] else "",
+            "demand": {"bits": e["bits"], "um": e["um"], "per_um": e["per_um"]},
+            "track_spacing": e["track_spacing"],
+            "contributors": e["contributors"][:8],
+        }
+        if need is not None and n < need * (1 - 1e-3):
+            findings.append(
+                dict(
+                    common,
+                    status="fail",
+                    limit={
+                        "track_spacing": round(need, 3),
+                        "layer": e["lowest"],
+                        "source": model.source("pins_per_um"),
+                    },
+                    excess={
+                        "bits": max(
+                            0,
+                            int(
+                                round(
+                                    e["bits"] - e["um"] * model.tracks(e["side"]) / need
+                                )
+                            ),
+                        ),
+                        "factor": round(need / n, 3),
+                    },
+                )
+            )
+        elif lateral:
+            findings.append(
+                dict(
+                    common,
+                    status="uncalibrated",
+                    kind="lateral",
+                    lateral_partners=lateral,
+                    reason="bundles turn along the side to a partner not in front of it: no routed example "
+                    "calibrates their density; global route judges",
+                )
+            )
     return findings
 
 
@@ -514,7 +625,7 @@ def rung_b(model, rects, die):
             )
     if rects is None:
         hard = sum(model.outline_area(m) for m in model.macros)
-        soft = model.glue_um2 / model.c["glue_density"]
+        soft = model.glue_um2 / model.c.get("glue_density", 1.0)
         f = {
             "rung": "area",
             "status": "fail",
@@ -547,7 +658,11 @@ def rung_c(model, rects):
         mc = model.macro_c(m)
         # a slot is the shape the constraints chose; only a range they
         # name for the macro itself is checked against it
-        default = [0, math.inf] if "slot" in mc else model.c["aspect_range"]
+        default = (
+            [0, math.inf]
+            if "slot" in mc
+            else (model.cal("aspect", "range") or [0, math.inf])
+        )
         lo, hi = mc.get("aspect_range", default)
         a = h / w
         hw = max([o["w"] for o in model.hard(m)] or [0])
@@ -700,7 +815,7 @@ def arrange(model, m, w, h, edges):
     )
     core = [margin, margin, w - 2 * margin, h - 2 * margin]
     demand = pin_demand(model, m, edges)
-    d = model.c["pin_access_um"]
+    d = model.cal("internal_arrangement", "pin_access_um") or 0.0
     pin_sides = sorted(
         [s for s, b in demand.items() if b > 0], key=lambda s: (demand[s], s)
     )
@@ -739,7 +854,7 @@ def arrange(model, m, w, h, edges):
 def rung_d(model, rects, edges):
     findings = []
     internal = {}
-    floor = model.c["free_fraction"]
+    floor = model.cal("internal_arrangement", "free_fraction")
     for m in sorted(model.macros):
         objs = model.hard(m)
         if not objs:
@@ -750,7 +865,9 @@ def rung_d(model, rects, edges):
             (o["w"] + 2 * o.get("halo_um", 0)) * (o["h"] + 2 * o.get("halo_um", 0))
             for o in objs
         )
-        std_um2 = blk["area"]["std_um2"] / model.c["std_density"]
+        std_um2 = blk["area"]["std_um2"] / (
+            model.cal("internal_arrangement", "std_density") or 1.0
+        )
         if hard_um2 + std_um2 > w * h + 1e-6:
             findings.append(
                 {
@@ -797,7 +914,14 @@ def rung_d(model, rects, edges):
                 }
             )
         for s in "NSEW":
-            free, walls = free_spans(w, h, s, placed, model.c["pin_access_um"], halo)
+            free, walls = free_spans(
+                w,
+                h,
+                s,
+                placed,
+                model.cal("internal_arrangement", "pin_access_um") or 0.0,
+                halo,
+            )
             length = w if s in "NS" else h
             free_um = sum(b - a for a, b in free)
             for o, r, row in zip(objs, placed, rows):
@@ -810,8 +934,8 @@ def rung_d(model, rects, edges):
             frac = free_um / length if length else 0.0
             ppu1 = model.ppu(s)
             per_um_free = bits / free_um if free_um > 0 else math.inf
-            limit = ppu1 * model.c["pin_layers"]
-            if frac < floor or per_um_free > limit:
+            limit = ppu1
+            if (floor is not None and frac < floor) or per_um_free > limit:
                 walling = [
                     {
                         "inst": o["inst"],
@@ -907,7 +1031,7 @@ def route_bundles(model, pp, rects, edges, die):
     # a chunk is the bits whose pins span one gcell of edge, so its wires
     # spread as the pins do
     chunk = model.c.get("route_chunk_bits") or max(
-        1, int(min(model.ppu("N"), model.ppu("E")) * model.c["pin_layers"] * grid.g)
+        1, int(min(model.ppu("N"), model.ppu("E")) * grid.g)
     )
     for me, other, n, q in sorted(
         P.bundles(pp, rects), key=lambda t: (-t[2], t[0], t[1])
@@ -974,12 +1098,12 @@ def rung_e(model, st):
                     "reason": "no path through the parent's free space: the route would cross a macro",
                 }
             )
-    limit = model.c["gcell_limit"]
+    limit = model.cal("channel_capacity", "gcell_limit")
     tracks = model.layer_tracks()
     worst = {}
     for direction, use, cap in (("h", grid.h, grid.cap_h), ("v", grid.v, grid.cap_v)):
         for (i, j), d in use.items():
-            if cap <= 0 or d <= cap * limit:
+            if cap <= 0 or d <= cap * (limit if limit is not None else 1.0):
                 continue
             cx, cy = (i + 0.5) * grid.g, (j + 0.5) * grid.g
             name = channel_name(model, rects, die, direction, cx, cy)
@@ -1005,7 +1129,7 @@ def rung_e(model, st):
                 )
         layer_dir = "H" if direction == "h" else "V"
         per_layer = {
-            n: round(t * model.c["usable"] * grid.g, 1)
+            n: round(t * model.usable() * grid.g, 1)
             for n, t in sorted(tracks.items())
             if model.pdk["layers"][n]["dir"] == layer_dir
         }
@@ -1013,7 +1137,7 @@ def rung_e(model, st):
         findings.append(
             {
                 "rung": "channel_capacity",
-                "status": "fail",
+                "status": "fail" if limit is not None else "measured",
                 "kind": "over_capacity",
                 "channel": name,
                 "direction": direction,
@@ -1155,8 +1279,9 @@ def rung_f(model, st):
     wire fits it is the chain's; the bits each upper pair takes on a
     route against that pair's tracks in the route's corridor."""
     period = period_ps(model)
-    setup, skew = model.c["setup_ps"], model.c["skew_ps"]
-    k = model.c["congestion_k"]
+    setup = model.cal("path_budget", "setup_ps") or 0.0
+    skew = model.cal("path_budget", "skew_ps") or 0.0
+    k = model.cal("path_budget", "congestion_k") or 0.0
     pairs = layer_pairs(model)
     tracks = model.layer_tracks()
     findings = []
@@ -1285,10 +1410,7 @@ def rung_f(model, st):
         steps = max(1.0, e["len"] / g)
         corridor = max(1.0, len(e["cells"]) / steps)
         cap = (
-            corridor
-            * g
-            * sum(tracks.get(n, 0.0) for n in e["group"])
-            * model.c["usable"]
+            corridor * g * sum(tracks.get(n, 0.0) for n in e["group"]) * model.usable()
         )
         if e["bits"] > cap:
             findings.append(
@@ -1349,7 +1471,7 @@ def evaluate_layout(model, pp, rects, die):
     if rects is not None:
         edges = P.assign(pp, rects)
         st["edges"] = edges
-        st["findings"] += rung_a(model, edges)
+        st["findings"] += rung_a(model, edges, rects)
     st["findings"] += rung_b(model, rects, die)
     if rects is None:
         return st
@@ -1503,23 +1625,30 @@ def side_pins(model, m, edges, r, up):
         length = up[2] if s in "NS" else up[3]
         ppu1 = model.ppu(s)
         total = sum(bits for _, _, bits, _ in items)
-        layers = (
-            min(model.c["pin_layers"], max(1, math.ceil(total / (length * ppu1))))
-            if length
-            else 1
+        # the pin placer keeps clear of each corner, by default fifteen
+        # tracks of the pin layer and at most 1 um (ppl's IOPlacer)
+        corner = (
+            min(15 * model.pdk["layers"][model.pin_layer(s)]["pitch_um"], 1.0)
+            if model.pin_layer(s)
+            else 0.0
         )
-        ppu = ppu1 * layers
+        room = max(length - 2 * corner, 1e-6)
+        # the side's own pin density where it has room: the pins spread
+        # over the whole side rather than packed at the densest that routes
+        ppu = ppu1 * max(1, math.ceil(total / (room * ppu1)))
+        if total / room < ppu:
+            ppu = total / room
         rows = []
-        cur = 0.0
+        cur = corner
         for start, bus, bits, partner in sorted(items):
             lo = max(cur, min(start, length))
             rows.append([lo, lo + bits / ppu, bus, bits, partner])
             cur = rows[-1][1]
-        over = cur - length
+        over = cur - (length - corner)
         for i in range(len(rows) - 1, -1, -1):
             if over <= 0:
                 break
-            room = rows[i][0] - (rows[i - 1][1] if i else 0.0)
+            room = rows[i][0] - (rows[i - 1][1] if i else corner)
             shift = min(over, room)
             for row in rows[i:]:
                 row[0] -= shift
@@ -1595,6 +1724,7 @@ def write_md(v, path):
         lines.append(head)
         lines.append("")
         for k in (
+            "track_spacing",
             "demand",
             "limit",
             "excess",
@@ -1675,10 +1805,21 @@ def write_md(v, path):
         f.write("\n".join(lines) + "\n")
 
 
-def run(blocks, parent, pdk, cut, constraints, run_all=False, remedies=True):
+def run(
+    blocks,
+    parent,
+    pdk,
+    cut,
+    constraints,
+    run_all=False,
+    remedies=True,
+    calibration=None,
+):
     """(model, state, verdict, floorplan or None). With `remedies`, every
-    remedy of the failed findings with its effect (remedies.py)."""
-    model = Model(blocks, parent, pdk, cut, constraints)
+    remedy of the failed findings with its effect (remedies.py). The
+    design's calibration supplies every limit a rung fails against."""
+    calibration = calibration or {}
+    model = Model(blocks, parent, pdk, cut, constraints, calibration)
     st = plan(model)
     ident = identity(
         None,
@@ -1688,9 +1829,11 @@ def run(blocks, parent, pdk, cut, constraints, run_all=False, remedies=True):
             "pdk": pdk.get("identity", pdk),
             "cut": cut,
             "constraints": constraints,
+            "calibration": calibration,
         },
     )
     v = verdict(model, st, ident, run_all)
+    v["unjudged"] = sorted(r for r in CALIBRATION_KEYS if r not in calibration)
     v["chains"] = st.get("chains", [])[:10]
     if remedies and v["verdict"] != "feasible":
         import remedies as R
@@ -1704,6 +1847,7 @@ def run(blocks, parent, pdk, cut, constraints, run_all=False, remedies=True):
             "pdk": pdk,
             "cut": cut,
             "constraints": constraints,
+            "calibration": calibration,
         }
         v["remedies"] = R.compute(
             lambda i: run(remedies=False, **i)[2], inputs, model, st, fails
@@ -1723,6 +1867,10 @@ def main(argv):
     ap.add_argument("--pdk", required=True)
     ap.add_argument("--cut", required=True)
     ap.add_argument("--constraints", required=True)
+    ap.add_argument(
+        "--calibration",
+        help="the design's limits per rung, each with its source; a rung without one only measures",
+    )
     ap.add_argument("--verdict", required=True, help="verdict.json to write")
     ap.add_argument("--verdict-md", help="verdict.md to write")
     ap.add_argument("--floorplan", help="floorplan.json to write; {} when infeasible")
@@ -1741,6 +1889,7 @@ def main(argv):
         read_json(args.constraints),
         args.all,
         not args.no_remedies,
+        read_json(args.calibration) if args.calibration else None,
     )
     with open(args.verdict, "w") as f:
         json.dump(v, f, indent=1, sort_keys=True)

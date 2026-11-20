@@ -4,15 +4,13 @@
 Per routing layer: direction, pitch, track density, unit RC, and the
 optimally repeated wire: the buffer and repeater spacing that minimise
 delay per micron over the dump's (buffer, length) samples, each sample
-the resizer's own buffer-into-wire-into-buffer delay. Per pin layer the
-pins per micron of edge one layer holds, 1 / (pitch * min_tracks *
-margin). Schema:
+the resizer's own buffer-into-wire-into-buffer delay. What a pin side
+holds is a design's calibration (plan.py), not the platform's. Schema:
 
   platform, identity {dump, tool}
   site [w, h], io {H: [layers], V: [layers]}, routing [min, max]
-  pin_rule {min_tracks, margin}
   layers {name: {dir, pitch_um, width_um, tracks_per_um, r_ohm_per_um,
-          c_ff_per_um, ps_per_um, spacing_um, buffer, pins_per_um,
+          c_ff_per_um, ps_per_um, spacing_um, buffer,
           unrepeated [[length_um, ps], ...], via_ps, routable}}
   vias {cut: r_ohm}
 
@@ -68,7 +66,7 @@ def best_repeater(samples):
     return best
 
 
-def build(rec, dump_hash, min_tracks, margin):
+def build(rec, dump_hash):
     layers = {}
     order = []
     for name, d, pitch, width, r, c in rec.get("layer", []):
@@ -80,9 +78,6 @@ def build(rec, dump_hash, min_tracks, margin):
             "tracks_per_um": round(1.0 / pitch, 4) if pitch > 0 else 0.0,
             "r_ohm_per_um": float(r),
             "c_ff_per_um": float(c),
-            "pins_per_um": (
-                round(1.0 / (pitch * min_tracks * margin), 4) if pitch > 0 else 0.0
-            ),
         }
         order.append(name)
     vias = {cut: float(r) for cut, r in rec.get("via", [])}
@@ -121,7 +116,6 @@ def build(rec, dump_hash, min_tracks, margin):
         "site": site,
         "io": io,
         "routing": [lo, hi],
-        "pin_rule": {"min_tracks": min_tracks, "margin": margin},
         "layers": layers,
         "order": order,
         "vias": vias,
@@ -134,27 +128,10 @@ def main(argv):
     )
     ap.add_argument("dump")
     ap.add_argument("out")
-    ap.add_argument(
-        "--min-tracks",
-        type=float,
-        default=2.0,
-        help="tracks per pin: a pin and the track left beside it",
-    )
-    ap.add_argument(
-        "--margin",
-        type=float,
-        default=1.5,
-        help="pin margin, test/macro_select's calibration",
-    )
     args = ap.parse_args(argv)
     with open(args.dump, "rb") as f:
         raw = f.read()
-    out = build(
-        parse(raw.decode().splitlines()),
-        hashlib.sha256(raw).hexdigest(),
-        args.min_tracks,
-        args.margin,
-    )
+    out = build(parse(raw.decode().splitlines()), hashlib.sha256(raw).hexdigest())
     with open(args.out, "w") as f:
         json.dump(out, f, indent=1, sort_keys=True)
         f.write("\n")

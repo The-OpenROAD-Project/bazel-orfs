@@ -8,6 +8,8 @@ import block_json  # noqa: E402
 DUMP = """block\tB
 var\tCORE_UTILIZATION\t40
 var\tCORE_MARGIN\t1
+var\tRTLMP_MIN_CHANNEL_SIZE\t4 6
+var\tMACRO_PLACE_HALO\t2 3
 site\t0.054\t0.27
 area\t1000.0
 clock\tclock\t1000.0
@@ -27,7 +29,7 @@ hnet\tm0\trd_out\tq\t1\treg\t2
 
 class BlockJsonTest(unittest.TestCase):
     def setUp(self):
-        self.b = block_json.build(block_json.parse(DUMP), "0", 25.0, 70.0, 2.0)
+        self.b = block_json.build(block_json.parse(DUMP), "0", 25.0, 70.0)
         self.ports = {p["name"]: p for p in self.b["ports"]}
 
     def test_buses_and_widths(self):
@@ -53,8 +55,13 @@ class BlockJsonTest(unittest.TestCase):
         r = block_json.die_rule({"DIE_AREA": "0 0 100 50"}, 0, 0, [1, 1])
         self.assertEqual((r["w_um"], r["h_um"]), (100.0, 50.0))
 
+    def test_registered_needs_the_designs_thresholds(self):
+        b = block_json.build(block_json.parse(DUMP), "0", None, None)
+        self.assertIsNone({p["name"]: p for p in b["ports"]}["a"]["registered"])
+
     def test_hard_objects(self):
         (m,) = self.b["hard"]
+        self.assertEqual(m["halo_um"], 3.0)
         self.assertEqual(m["pins"]["rd_out"]["side"], "W")
         self.assertEqual(m["nets"][0]["port"], "q")
         self.assertEqual(

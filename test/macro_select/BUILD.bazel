@@ -5,6 +5,11 @@ load(":arms.bzl", "channel_arm", "pinwall_arm")
 # Calibration of the floorplan planner's constants on a synthetic parent
 # with one pin-wall block. See arms.bzl and tools/macro_select/.
 
+exports_files(
+    ["floorplan_calibration.json"],
+    visibility = ["//test/floorplan_toy:__pkg__"],
+)
+
 exports_files([
     "constraints.sdc",
     "pins_top.tcl",
@@ -112,6 +117,7 @@ py_test(
     floorplan_plan(
         name = "floorplan_p%d_plan" % pins,
         blocks = [":floorplan_p%d" % pins],
+        calibration = ":floorplan_pins_calibration.json",
         constraints = ":floorplan_p%d.json" % pins,
         cut = ":floorplan_cut.json",
         pdk = "//test/floorplan_toy:asap7",
@@ -138,6 +144,7 @@ floorplan_extract(
     floorplan_plan(
         name = "floorplan_ch_g%d_plan" % gap,
         blocks = [":floorplan_ch"],
+        calibration = ":floorplan_pins_calibration.json",
         constraints = ":floorplan_ch_g%d.json" % gap,
         cut = ":floorplan_ch_cut.json",
         parent = ":floorplan_ch_parent.json",

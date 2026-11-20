@@ -32,7 +32,7 @@ puts $out "block\t[$block getName]"
 # the floorplan stage's variables, which a synthesis stage does not carry:
 # floorplan_extract passes them as EXTRACT_<name>
 foreach v {CORE_UTILIZATION CORE_ASPECT_RATIO CORE_MARGIN DIE_AREA CORE_AREA
-  MACRO_PLACE_HALO PLACE_DENSITY} {
+  RTLMP_MIN_CHANNEL_SIZE PLACE_DENSITY} {
   foreach e [list EXTRACT_$v $v] {
     if { [info exists ::env($e)] && $::env($e) ne "" } {
       puts $out "var\t$v\t$::env($e)"

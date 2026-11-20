@@ -28,7 +28,7 @@ wire\tM5\tBUFx12\t100.0\t35.0
 
 class PdkJsonTest(unittest.TestCase):
     def setUp(self):
-        self.pdk = pdk_json.build(pdk_json.parse(DUMP), "0", 2.0, 1.5)
+        self.pdk = pdk_json.build(pdk_json.parse(DUMP), "0")
 
     def test_repeater_minimises_delay_per_um(self):
         m4 = self.pdk["layers"]["M4"]
@@ -37,11 +37,11 @@ class PdkJsonTest(unittest.TestCase):
         self.assertEqual(m4["spacing_um"], 100.0)
         self.assertEqual(m4["unrepeated"], [[100.0, 30.0], [200.0, 70.0]])
 
-    def test_pins_per_um_is_calibrated_pitch(self):
-        # 1 / (0.048 * 2 * 1.5): test/macro_select's 6.94 per layer
+    def test_tracks_per_um(self):
         self.assertAlmostEqual(
-            self.pdk["layers"]["M4"]["pins_per_um"], 6.9444, places=3
+            self.pdk["layers"]["M4"]["tracks_per_um"], 20.8333, places=3
         )
+        self.assertNotIn("pins_per_um", self.pdk["layers"]["M4"])
 
     def test_via_stack_from_pin_layer(self):
         # M2 is two cuts (V2, V3) below the pin layer M4; M4 itself none

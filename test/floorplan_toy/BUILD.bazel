@@ -29,7 +29,10 @@ BLOCKS = {
     "FpCore": ([], BLOCK_ARGS),
     "FpMem": (
         [":fakeram7_256x34"],
-        BLOCK_ARGS | {"CORE_UTILIZATION": "70"},
+        BLOCK_ARGS | {
+            "CORE_UTILIZATION": "70",
+            "RTLMP_MIN_CHANNEL_SIZE": "4 4",
+        },
     ),
     "FpVec": ([], BLOCK_ARGS),
 }
@@ -114,13 +117,14 @@ py_test(
         "FpVec",
         "asap7",
         "fp_top_parent",
-    ]],
+    ]] + ["$(rootpath //test/macro_select:floorplan_calibration.json)"],
     data = [
         ":FpCore",
         ":FpMem",
         ":FpVec",
         ":asap7",
         ":fp_top_parent",
+        "//test/macro_select:floorplan_calibration.json",
     ],
     main = "extract_test.py",
     tags = ["manual"],
@@ -136,7 +140,7 @@ VARIANTS = {
     "channel": "channel_capacity FpMem - wide",
     "clean": "feasible - - -",
     "pins": "pins_per_um FpVec - wide",
-    "wall": "internal_arrangement FpMem W resp",
+    "wall": "internal_arrangement FpMem W -",
 }
 
 [
@@ -147,6 +151,7 @@ VARIANTS = {
             ":FpMem",
             ":FpVec",
         ],
+        calibration = "//tools/floorplan:testdata/toy/calibration.json",
         constraints = "//tools/floorplan:testdata/toy/constraints_%s.json" % variant,
         cut = "//tools/floorplan:testdata/toy/cut.json",
         parent = ":fp_top_parent",

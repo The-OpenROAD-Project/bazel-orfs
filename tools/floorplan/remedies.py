@@ -71,7 +71,9 @@ def candidates(f, model, st):
     c = model.c
     if kind == "pins_per_um":
         w, h = _shape(model, st, m)
-        need = f["demand"]["bits"] / f["limit"]["all_layers"]
+        need = (
+            f["demand"]["bits"] * f["limit"]["track_spacing"] / model.tracks(f["side"])
+        )
         side_len = w if f["side"] in "NS" else h
         area = w * h
         if f["side"] in "NS":
@@ -140,7 +142,7 @@ def candidates(f, model, st):
         out.append(
             (
                 "reshape",
-                {"macro": m, "aspect_range": c["aspect_range"]},
+                {"macro": m, "aspect_range": model.cal("aspect", "range")},
                 lambda i: _macro(i["constraints"], m).pop("aspect_range", None),
             )
         )

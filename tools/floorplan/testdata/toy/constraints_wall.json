@@ -1,1 +1,24 @@
-{"macros": {"FpMem": {"slot": [52, 52], "sides": {"FpCore": "W", "GLUE": "W"}}}}
+{
+ "io": {
+  "H": [
+   "M2",
+   "M4"
+  ],
+  "V": [
+   "M3",
+   "M5"
+  ]
+ },
+ "macros": {
+  "FpMem": {
+   "sides": {
+    "FpCore": "W",
+    "GLUE": "W"
+   },
+   "slot": [
+    52,
+    52
+   ]
+  }
+ }
+}
