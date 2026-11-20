@@ -357,8 +357,14 @@ def pin_plan_input(model, die=None, aspects=None, forbidden=None):
         else:
             pp["macros"][m] = {"std_um2": model.outline_area(m)}
             pp["macro_aspects"][m] = shape_options(model, m)
+        if mc.get("pin_side"):
+            # one pin side for every partner, a hand floorplan's rule
+            partners = {
+                b if a == m else a for a, _, b, _, _, _, _ in model.nets if m in (a, b)
+            }
+            pp["forced_sides"][m] = {p: mc["pin_side"] for p in partners}
         if mc.get("sides"):
-            pp["forced_sides"][m] = dict(mc["sides"])
+            pp["forced_sides"].setdefault(m, {}).update(mc["sides"])
     pp["start_aspects"] = {
         m: start_aspect(model, m, pp["macro_aspects"][m]) for m in pp["macro_aspects"]
     }
@@ -404,6 +410,9 @@ def layouts(model, forbidden=None, aspects_override=None):
         raise SystemExit("plan: constraints place macros but give no die")
     if die:
         die = tuple(die)
+        # the parent's own hard objects (register files placed as netlists,
+        # memories): blockages to the router
+        pp["memories"] = [to_down(r, die[1]) for r in model.c.get("blockages", [])]
         fixed = {}
         for m, xy in places.items():
             w, h = (

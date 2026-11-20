@@ -1,0 +1,10 @@
+{
+ "macros": {
+  "CoupledL2": "CoupledL2",
+  "FltRegionModule": "FltRegionModule",
+  "Frontend": "Frontend",
+  "MemBlock": "MemBlock",
+  "VecRegionModule": "VecRegionModule"
+ },
+ "parent": "XSTile"
+}

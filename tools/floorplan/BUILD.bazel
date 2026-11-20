@@ -132,3 +132,20 @@ py_test(
     ],
     main = "emit_test.py",
 )
+
+py_binary(
+    name = "judge",
+    srcs = ["judge.py"],
+    main = "judge.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "judge_test",
+    size = "small",
+    srcs = [
+        "judge.py",
+        "judge_test.py",
+    ],
+    main = "judge_test.py",
+)

@@ -1,0 +1,52 @@
+{
+ "channel_um": 40,
+ "core_margin_um": 10,
+ "gcell_um": 10,
+ "io": {
+  "H": [
+   "M2",
+   "M4"
+  ],
+  "V": [
+   "M3",
+   "M5"
+  ]
+ },
+ "lattice_um": [
+  0.144,
+  2.16
+ ],
+ "macros": {
+  "CoupledL2": {
+   "slot": [
+    861.84,
+    861.84
+   ]
+  },
+  "FltRegionModule": {
+   "slot": [
+    665.28,
+    665.28
+   ]
+  },
+  "Frontend": {
+   "slot": [
+    954.72,
+    954.72
+   ]
+  },
+  "MemBlock": {
+   "slot": [
+    997.92,
+    997.92
+   ]
+  },
+  "VecRegionModule": {
+   "slot": [
+    807.84,
+    807.84
+   ]
+  }
+ },
+ "period_ps": 2000
+}
