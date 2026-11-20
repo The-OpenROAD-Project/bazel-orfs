@@ -366,6 +366,8 @@ analysis_failure_test(
 #                                          the slicer stubs the macro and
 #                                          the partition reads its liberty
 #                                          only as its slice stages it.
+#   lb_32x128_keep_top_slice_macros_test   the top's slice RTLIL holds no
+#                                          macro it does not reach.
 #
 # Before, slang refused the macro's own slice: "Attempted to add new
 # module named '\lb_32x128', but a module by that name already exists".
@@ -408,6 +410,20 @@ diff_test(
 build_test(
     name = "lb_32x128_keep_top_build_test",
     targets = [":lb_32x128_keep_top_slices_synth"],
+)
+
+filegroup(
+    name = "lb_32x128_keep_top_slices_partitions",
+    srcs = [":lb_32x128_keep_top_slices_synth"],
+    output_group = "partitions",
+)
+
+sh_test(
+    name = "lb_32x128_keep_top_slice_macros_test",
+    size = "small",
+    srcs = ["slice_macros_test.sh"],
+    args = ["$(locations :lb_32x128_keep_top_slices_partitions)"],
+    data = [":lb_32x128_keep_top_slices_partitions"],
 )
 
 partition_key_test(
