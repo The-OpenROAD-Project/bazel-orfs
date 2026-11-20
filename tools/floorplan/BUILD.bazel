@@ -1,0 +1,47 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+# The global floorplan planner: extract per block (extract_block.tcl,
+# block_json.py; extract_pdk.tcl, pdk_json.py), plan, consume:
+# floorplan.bzl.
+
+exports_files(
+    [
+        "extract_block.tcl",
+        "extract_pdk.tcl",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "block_json",
+    srcs = ["block_json.py"],
+    main = "block_json.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "block_json_test",
+    size = "small",
+    srcs = [
+        "block_json.py",
+        "block_json_test.py",
+    ],
+    main = "block_json_test.py",
+)
+
+py_binary(
+    name = "pdk_json",
+    srcs = ["pdk_json.py"],
+    main = "pdk_json.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "pdk_json_test",
+    size = "small",
+    srcs = [
+        "pdk_json.py",
+        "pdk_json_test.py",
+    ],
+    main = "pdk_json_test.py",
+)

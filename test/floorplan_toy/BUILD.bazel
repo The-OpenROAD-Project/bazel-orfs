@@ -1,5 +1,7 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_python//python:defs.bzl", "py_test")
 load("//:openroad.bzl", "orfs_flow", "orfs_macro")
+load("//tools/floorplan:floorplan.bzl", "floorplan_extract", "floorplan_pdk")
 
 # The global floorplan planner's toy (tools/floorplan, toy.sv): three
 # blocks and the parent's glue, synthesised in seconds.
@@ -68,5 +70,45 @@ build_test(
         ":FpVec_synth",
         ":fp_top_synth",
     ],
+    visibility = ["//test:__pkg__"],
+)
+
+# The planner's inputs: each block's facts and the platform's wire model.
+[
+    floorplan_extract(
+        name = block,
+        src = ":%s_synth" % block,
+        arguments = BLOCK_ARGS,
+    )
+    for block in [
+        "FpCore",
+        "FpMem",
+        "FpVec",
+    ]
+]
+
+floorplan_pdk(
+    name = "asap7",
+    src = ":FpCore_synth",
+)
+
+# //test:local
+py_test(
+    name = "extract_test",
+    srcs = ["extract_test.py"],
+    args = ["$(rootpaths :%s)" % t for t in [
+        "FpCore",
+        "FpMem",
+        "FpVec",
+        "asap7",
+    ]],
+    data = [
+        ":FpCore",
+        ":FpMem",
+        ":FpVec",
+        ":asap7",
+    ],
+    main = "extract_test.py",
+    tags = ["manual"],
     visibility = ["//test:__pkg__"],
 )
