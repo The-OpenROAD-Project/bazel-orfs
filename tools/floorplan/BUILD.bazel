@@ -96,3 +96,20 @@ py_test(
     ],
     main = "parent_json_test.py",
 )
+
+py_binary(
+    name = "emit",
+    srcs = ["emit.py"],
+    main = "emit.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "emit_test",
+    size = "small",
+    srcs = [
+        "emit.py",
+        "emit_test.py",
+    ],
+    main = "emit_test.py",
+)

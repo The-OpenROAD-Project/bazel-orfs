@@ -1,7 +1,7 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_python//python:defs.bzl", "py_test")
 load("//:openroad.bzl", "orfs_flow", "orfs_macro")
-load("//tools/floorplan:floorplan.bzl", "floorplan_extract", "floorplan_parent", "floorplan_pdk", "floorplan_plan")
+load("//tools/floorplan:floorplan.bzl", "floorplan_consume", "floorplan_extract", "floorplan_parent", "floorplan_pdk", "floorplan_plan")
 
 # The global floorplan planner's toy (tools/floorplan, toy.sv): three
 # blocks and the parent's glue, synthesised in seconds.
@@ -34,13 +34,24 @@ BLOCKS = {
     "FpVec": ([], BLOCK_ARGS),
 }
 
+# Each block's flow from the floorplan stage on reads the clean plan
+# (floorplan_consume below): its outline replaces its utilisation, its
+# pins go where the plan put them, on two layers per side as the plan
+# allows. Synthesis never reads the plan.
 [
     orfs_flow(
         name = block,
         abstract_stage = "grt",
-        arguments = arguments,
+        arguments = {k: v for k, v in arguments.items() if k != "CORE_UTILIZATION"} | {
+            "IO_PLACER_H": "M2 M4",
+            "IO_PLACER_V": "M3 M5",
+        },
+        extra_arguments = {"floorplan": [":clean_%s.args.json" % block]},
         macros = macros,
-        sources = {"SDC_FILE": [":constraints.sdc"]},
+        sources = {
+            "IO_CONSTRAINTS": [":clean_%s_pins.tcl" % block],
+            "SDC_FILE": [":constraints.sdc"],
+        },
         tags = ["manual"],
         verilog_files = [":toy.sv"],
     )
@@ -162,4 +173,52 @@ py_test(
 floorplan_parent(
     name = "fp_top_parent",
     src = ":fp_top_synth",
+)
+
+# The clean plan as the flows read it, and the parent built on it to
+# global route: the blocks at their planned outlines and pins, placed
+# where the plan put them. //test:local
+floorplan_consume(
+    name = "clean",
+    macros = [
+        "FpCore",
+        "FpMem",
+        "FpVec",
+    ],
+    plan = ":plan_clean",
+)
+
+orfs_flow(
+    name = "fp_top",
+    arguments = {
+        "IO_PLACER_H": "M2 M4",
+        "IO_PLACER_V": "M3 M5",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
+        "PLACE_DENSITY": "0.5",
+        "RTLMP_MIN_CHANNEL_SIZE": "2 2",
+    },
+    extra_arguments = {"floorplan": [":clean_parent.args.json"]},
+    last_stage = "grt",
+    # the memory too: toy.sv's FpMem names it, and only a macro's own
+    # module is a blackbox to the parent's synthesis
+    macros = [
+        ":FpCore_generate_abstract",
+        ":FpMem_generate_abstract",
+        ":FpVec_generate_abstract",
+        ":fakeram7_256x34",
+    ],
+    sources = {
+        "MACRO_PLACEMENT_TCL": [":clean_place_macros.tcl"],
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    tags = ["manual"],
+    variant = "planned",
+    verilog_files = [":toy.sv"],
+)
+
+build_test(
+    name = "planned_grt_build_test",
+    tags = ["manual"],
+    targets = [":fp_top_planned_grt"],
+    visibility = ["//test:__pkg__"],
 )

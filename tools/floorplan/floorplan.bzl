@@ -166,3 +166,60 @@ def floorplan_parent(name, src, tags = ["manual"], visibility = None):
         tags = tags,
         visibility = visibility,
     )
+
+def floorplan_consume(name, plan, macros, tags = ["manual"], visibility = None):
+    """What the flows read from a plan's floorplan.json.
+
+    Per macro M: `<name>_M.args.json` (an extra_arguments JSON with its
+    DIE_AREA and CORE_AREA, for its floorplan stage), `<name>_M_pins.tcl`
+    (its IO_CONSTRAINTS, a set_io_pin_constraint per bus) and
+    `<name>_M_guidance.tcl` (set_macro_guidance_region per hard object, for
+    a flow that opts in). For the parent: `<name>_parent.args.json` and
+    `<name>_place_macros.tcl` (its MACRO_PLACEMENT_TCL). An infeasible
+    plan fails these actions, naming its verdict.
+
+    Args:
+        name: prefix of the targets
+        plan: the floorplan_plan target
+        macros: the plan's macro names
+        tags: forwarded
+        visibility: forwarded
+    """
+    emit = Label("//tools/floorplan:emit")
+    fp = "%s/floorplan.json" % plan
+    for m in macros:
+        native.genrule(
+            name = "%s_%s_files" % (name, m),
+            srcs = [fp],
+            outs = [
+                "%s_%s.args.json" % (name, m),
+                "%s_%s_pins.tcl" % (name, m),
+                "%s_%s_guidance.tcl" % (name, m),
+            ],
+            cmd = ("$(execpath {emit}) block $(execpath {fp}) {m} --args $(execpath {n}_{m}.args.json) " +
+                   "--pins $(execpath {n}_{m}_pins.tcl) --guidance $(execpath {n}_{m}_guidance.tcl)").format(
+                emit = emit,
+                fp = fp,
+                m = m,
+                n = name,
+            ),
+            tools = [emit],
+            tags = tags,
+            visibility = visibility,
+        )
+    native.genrule(
+        name = "%s_parent_files" % name,
+        srcs = [fp],
+        outs = [
+            "%s_parent.args.json" % name,
+            "%s_place_macros.tcl" % name,
+        ],
+        cmd = "$(execpath {emit}) parent $(execpath {fp}) --args $(execpath {n}_parent.args.json) --place $(execpath {n}_place_macros.tcl)".format(
+            emit = emit,
+            fp = fp,
+            n = name,
+        ),
+        tools = [emit],
+        tags = tags,
+        visibility = visibility,
+    )

@@ -1,1 +1,1 @@
-{"macros": {"FpMem": {"slot": [80, 52]}}}
+{"macros": {"FpMem": {"slot": [80, 52]}}, "lattice_um": [0.144, 2.16]}
