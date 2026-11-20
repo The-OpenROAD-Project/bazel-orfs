@@ -1,0 +1,22 @@
+# Constants that stop at a boundary synthesis keeps: for every instance of
+# a kept module under a top, the inputs tied to a literal and the outputs
+# left unconnected (boundary_constants.py). The discovery step of
+# XiangShan's netlist surgery, which folds those constants before
+# synthesis; public so a design outside this repository can run it.
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+py_binary(
+    name = "boundary_constants",
+    srcs = ["boundary_constants.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "boundary_constants_test",
+    size = "small",
+    srcs = [
+        "boundary_constants.py",
+        "boundary_constants_test.py",
+    ],
+    main = "boundary_constants_test.py",
+)
