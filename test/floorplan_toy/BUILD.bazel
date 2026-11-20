@@ -1,7 +1,7 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_python//python:defs.bzl", "py_test")
 load("//:openroad.bzl", "orfs_flow", "orfs_macro")
-load("//tools/floorplan:floorplan.bzl", "floorplan_extract", "floorplan_pdk", "floorplan_plan")
+load("//tools/floorplan:floorplan.bzl", "floorplan_extract", "floorplan_parent", "floorplan_pdk", "floorplan_plan")
 
 # The global floorplan planner's toy (tools/floorplan, toy.sv): three
 # blocks and the parent's glue, synthesised in seconds.
@@ -102,12 +102,14 @@ py_test(
         "FpMem",
         "FpVec",
         "asap7",
+        "fp_top_parent",
     ]],
     data = [
         ":FpCore",
         ":FpMem",
         ":FpVec",
         ":asap7",
+        ":fp_top_parent",
     ],
     main = "extract_test.py",
     tags = ["manual"],
@@ -119,6 +121,7 @@ py_test(
 VARIANTS = {
     "area": "area FpMem - -",
     "aspect": "aspect FpMem - -",
+    "channel": "channel_capacity FpMem - wide",
     "clean": "feasible - - -",
     "pins": "pins_per_um FpVec - wide",
     "wall": "internal_arrangement FpMem W resp",
@@ -134,7 +137,7 @@ VARIANTS = {
         ],
         constraints = "//tools/floorplan:testdata/toy/constraints_%s.json" % variant,
         cut = "//tools/floorplan:testdata/toy/cut.json",
-        parent = "//tools/floorplan:testdata/toy/parent.json",
+        parent = ":fp_top_parent",
         pdk = ":asap7",
     )
     for variant in VARIANTS
@@ -153,4 +156,15 @@ py_test(
     main = "plan_test.py",
     tags = ["manual"],
     visibility = ["//test:__pkg__"],
+)
+
+# the crossings between the blocks, from the parent's synthesis
+floorplan_parent(
+    name = "fp_top_parent",
+    src = ":fp_top_synth",
+    blocks = [
+        "FpCore",
+        "FpMem",
+        "FpVec",
+    ],
 )

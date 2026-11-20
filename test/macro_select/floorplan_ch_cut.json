@@ -1,0 +1,12 @@
+{
+ "macros": {
+  "left": {
+   "block": "pinwall_block",
+   "inst": "left"
+  },
+  "right": {
+   "block": "pinwall_block",
+   "inst": "right"
+  }
+ }
+}

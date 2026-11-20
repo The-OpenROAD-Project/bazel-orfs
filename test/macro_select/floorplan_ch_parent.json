@@ -1,0 +1,50 @@
+{
+ "parent": "pinwall_top",
+ "glue": {
+  "std_um2": 1050.0
+ },
+ "crossings": [
+  {
+   "a": "pinwall_block",
+   "a_inst": "left",
+   "a_bus": "dout",
+   "b": "pinwall_block",
+   "b_inst": "right",
+   "b_bus": "din",
+   "via": "wire",
+   "a_bits": 1500,
+   "b_bits": 1500,
+   "bits": 1500,
+   "depth": 0,
+   "glue_ps": 0.0
+  },
+  {
+   "a": "pinwall_top",
+   "a_inst": "-",
+   "a_bus": "feed_r",
+   "b": "pinwall_block",
+   "b_inst": "left",
+   "b_bus": "din",
+   "via": "reg",
+   "a_bits": 1500,
+   "b_bits": 1500,
+   "bits": 1500,
+   "depth": 1,
+   "glue_ps": 0.0
+  },
+  {
+   "a": "pinwall_block",
+   "a_inst": "right",
+   "a_bus": "dout",
+   "b": "pinwall_top",
+   "b_inst": "-",
+   "b_bus": "sink_r",
+   "via": "reg",
+   "a_bits": 1500,
+   "b_bits": 1500,
+   "bits": 1500,
+   "depth": 1,
+   "glue_ps": 0.0
+  }
+ ]
+}

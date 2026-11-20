@@ -52,10 +52,9 @@ import pin_plan as P  # noqa: E402
 
 TOOL = "plan 1"
 GLUE = "GLUE"
-RUNGS = ["pins_per_um", "area", "aspect", "internal_arrangement"]
+RUNGS = ["pins_per_um", "area", "aspect", "internal_arrangement", "channel_capacity"]
 DEFAULTS = {
     "channel_um": 4.0,
-    "gcell_um": 10.0,
     "pin_layers": 2,
     "free_fraction": 0.5,
     "pin_access_um": 10.0,
@@ -63,6 +62,7 @@ DEFAULTS = {
     "std_density": 0.7,
     "aspect_range": [1 / 6, 6.0],
     "usable": 0.5,
+    "gcell_limit": 1.0,
     "die_slack": [1.15, 1.3, 1.5, 1.75, 2.0, 2.5, 3.0],
 }
 
@@ -87,6 +87,8 @@ class Model:
         self.pdk = pdk
         self.cut = cut
         self.c = dict(DEFAULTS, **constraints)
+        # the router's grid resolves the narrowest channel the placer leaves
+        self.c.setdefault("gcell_um", self.c["channel_um"] / 2)
         self.macros = {}
         for m, spec in sorted(cut["macros"].items()):
             block = spec["block"] if isinstance(spec, dict) else spec
@@ -95,7 +97,10 @@ class Model:
                     "plan: macro %s names block %s, which has no block.json"
                     % (m, block)
                 )
-            self.macros[m] = {"block": block}
+            self.macros[m] = {
+                "block": block,
+                "inst": spec.get("inst") if isinstance(spec, dict) else None,
+            }
         self.nets = self._nets()
         self.glue_um2 = float(
             self.c.get("glue_um2", self.parent.get("glue", {}).get("std_um2", 0.0))
@@ -104,34 +109,53 @@ class Model:
     def block(self, m):
         return self.blocks[self.macros[m]["block"]]
 
-    def macro_of_block(self, block):
+    def macro_of(self, block, inst=None):
+        """The macro a crossing's end is: by its instance (the cut's `inst`,
+        else a macro of that name), else by its block."""
+        if inst not in (None, "", "-"):
+            for m, v in self.macros.items():
+                if v["inst"] == inst:
+                    return m
+            if inst in self.macros:
+                return inst
         for m, v in self.macros.items():
             if v["block"] == block:
                 return m
         return None
 
     def _nets(self):
-        """(a, a_bus, b, b_bus, bits) per interface. From parent.json's
-        crossings when it is given (a crossing through a glue register is
-        two nets, each to the glue); else every port bus of every macro to
-        the glue."""
-        nets = []
+        """(a, a_bus, b, b_bus, bits, a_bits, b_bits) per interface, one per
+        pair of buses. From parent.json's crossings when it is given (a
+        crossing through a register of the parent's is two nets, each to the
+        glue); else every port bus of every macro to the glue."""
+        nets = {}
+
+        def add(a, ab, b, bb, na, nb):
+            k = (a, ab, b, bb)
+            old = nets.get(k, (0, 0))
+            nets[k] = (max(old[0], na), max(old[1], nb))
+
         if self.parent.get("crossings") is not None:
             for x in self.parent["crossings"]:
-                a = self.macro_of_block(x["a"]) or GLUE
-                b = self.macro_of_block(x["b"]) or GLUE
+                a = self.macro_of(x["a"], x.get("a_inst")) or GLUE
+                b = self.macro_of(x["b"], x.get("b_inst")) or GLUE
                 if a == b:
                     continue
+                na = x.get("a_bits", x["bits"])
+                nb = x.get("b_bits", x["bits"])
                 if x.get("via") == "reg" and GLUE not in (a, b):
-                    nets.append((a, x["a_bus"], GLUE, "", x["bits"]))
-                    nets.append((GLUE, "", b, x["b_bus"], x["bits"]))
+                    add(a, x["a_bus"], GLUE, "", na, na)
+                    add(GLUE, "", b, x["b_bus"], nb, nb)
                 else:
-                    nets.append((a, x["a_bus"], b, x.get("b_bus", ""), x["bits"]))
-            return nets
-        for m in self.macros:
-            for p in self.block(m)["ports"]:
-                nets.append((m, p["name"], GLUE, "", p["bits"]))
-        return nets
+                    add(a, x["a_bus"], b, x.get("b_bus", ""), na, nb)
+        else:
+            for m in self.macros:
+                for p in self.block(m)["ports"]:
+                    add(m, p["name"], GLUE, "", p["bits"], p["bits"])
+        return [
+            (a, ab, b, bb, max(na, nb), na, nb)
+            for (a, ab, b, bb), (na, nb) in sorted(nets.items())
+        ]
 
     def outline_area(self, m):
         """The area of the outline the macro's own flow draws; its slot's
@@ -170,9 +194,8 @@ class Model:
         io = self.pdk["io"]
         layers = self.pdk["layers"]
         density = {"H": 0.0, "V": 0.0}
-        for n, L in layers.items():
-            if L.get("routable"):
-                density[L["dir"]] += L["tracks_per_um"]
+        for n, cap in self.layer_tracks().items():
+            density[layers[n]["dir"]] += cap
         rule = self.pdk["pin_rule"]
         return {
             "pitch_um": {
@@ -182,8 +205,21 @@ class Model:
             "min_tracks": rule["min_tracks"],
             "margin": rule["margin"],
             "track_density_per_um": min(density.values()),
+            "track_density_h_per_um": density["H"],
+            "track_density_v_per_um": density["V"],
             "usable": self.c["usable"],
         }
+
+    def layer_tracks(self):
+        """Tracks per um the parent's routes get per routable layer: the
+        layer's density times its share (constraints `layers`: what the
+        power grid and the router's own routes leave, 1 by default)."""
+        shares = self.c.get("layers", {})
+        out = {}
+        for n, L in self.pdk["layers"].items():
+            if L.get("routable"):
+                out[n] = L["tracks_per_um"] * shares.get(n, {}).get("share", 1.0)
+        return out
 
 
 def shape_options(model, m):
@@ -214,7 +250,7 @@ def start_aspect(model, m, options):
     where the aspect search starts, since a side too short for one
     interface cannot be fixed by moving one macro at a time."""
     per_partner = {}
-    for a, _, b, _, bits in model.nets:
+    for a, _, b, _, bits, _, _ in model.nets:
         if a == m:
             per_partner[b] = per_partner.get(b, 0) + bits
         elif b == m:
@@ -265,7 +301,7 @@ def pin_plan_input(model, die=None, aspects=None, forbidden=None):
         "whitespace": True,
         "std_um2": model.glue_um2 / model.c["glue_density"],
     }
-    for a, _, b, _, bits in model.nets:
+    for a, _, b, _, bits, _, _ in model.nets:
         pp["nets"].append([a, b, bits])
     if die:
         pp["die"] = {"w": die[0], "h": die[1]}
@@ -286,9 +322,11 @@ def to_up(r, die_h):
     ]
 
 
-def layout(model, forbidden=None, aspects_override=None):
-    """(pp, rects in pin_plan's frame, die) or (pp, None, die) when no legal
-    placement exists."""
+def layouts(model, forbidden=None, aspects_override=None):
+    """pin_plan's plan and the candidate layouts, best first: [(die, rects in
+    pin_plan's frame)], empty when no legal placement exists. With the die
+    and every macro's place given there is one; else the die search's best
+    few, so a later rung can pass over a layout the placer liked."""
     die = model.c.get("die")
     pp = pin_plan_input(model, die, forbidden=forbidden)
     places = {
@@ -309,69 +347,60 @@ def layout(model, forbidden=None, aspects_override=None):
             fixed[m] = to_down([xy[0], xy[1], w, h], die[1])
         pp["fixed"] = fixed
         if len(places) == len(model.macros):
-            return pp, fixed, die
+            return pp, [(die, fixed)]
         if aspects_override is not None:
             q = P.quick(pp, aspects_override, die)
-            return pp, (q[1] if q else None), die
+            return pp, ([(die, q[1])] if q else [])
         aspects, q = P.tune_aspects(pp, dict(pp["start_aspects"]), die)
-        if q is None:
-            q = P.quick(
-                pp,
-                {m: (pp["macro_aspects"][m] or [1.0])[0] for m in pp["macro_aspects"]},
-                die,
-            )
-        return pp, (q[1] if q else None), die
-    res = solve_die(pp, aspects_override)
-    if res is None:
-        return pp, None, None
-    die, rects = res
-    pp["die"] = {"w": die[0], "h": die[1]}
-    return pp, rects, die
+        return pp, ([(die, q[1])] if q else [])
+    return pp, solve_die(pp, aspects_override)
 
 
-def solve_die(pp, aspects_override=None):
-    """The smallest die (pin_plan's search) holding a legal placement with
-    the emptiest fullest edge."""
+def solve_die(pp, aspects_override=None, keep=6):
+    """Dies from pin_plan's search, each with its legal placement at the
+    tuned aspects: the smallest holding every edge within the pin layers
+    first, then by emptiest fullest edges; `keep` of them."""
     hard, soft = P.need_area(pp, P.shapes_for(pp, {}))
-    best = None
-    for slack in pp["die_slack"]:
+    cands = []
+    fits_at = None
+    for i, slack in enumerate(pp["die_slack"]):
         for ar in (1.0, 1.25, 0.8, 1.5, 0.67):
             area = (hard + soft) * slack
             die = (math.sqrt(area / ar), math.sqrt(area * ar))
+            p = dict(pp, die={"w": die[0], "h": die[1]})
             if aspects_override is not None:
-                q = P.quick(
-                    dict(pp, die={"w": die[0], "h": die[1]}), aspects_override, die
-                )
+                q = P.quick(p, aspects_override, die)
             else:
-                start = pp["start_aspects"]
-                _, q = P.tune_aspects(
-                    dict(pp, die={"w": die[0], "h": die[1]}), start, die, passes=1
-                )
+                _, q = P.tune_aspects(p, pp["start_aspects"], die, passes=1)
             if q is None:
                 continue
             over = q[0][0][0] > pp["pin_layers"]
-            key = (over, q[0][0] if over else (), die[0] * die[1], q[0])
-            if best is None or key < best[0]:
-                best = (key, die, q[1])
-        if best is not None and not best[0][0]:
+            cands.append(
+                ((over, q[0][0] if over else (), die[0] * die[1], q[0]), die, q[1])
+            )
+            if not over and fits_at is None:
+                fits_at = i
+        # one slack past the first that fits, for the later rungs to choose
+        if fits_at is not None and i > fits_at:
             break
-    return (best[1], best[2]) if best else None
+    cands.sort(key=lambda c: c[0])
+    return [(die, rects) for _, die, rects in cands[:keep]]
 
 
 def bus_contributors(model, m, partner):
     """The macro's buses to a partner, widest first."""
     out = []
-    for a, ab, b, bb, bits in model.nets:
+    for a, ab, b, bb, _, na, nb in model.nets:
         if a == m and b == partner:
-            out.append({"bus": ab, "bits": bits, "partner": partner, "partner_bus": bb})
+            out.append({"bus": ab, "bits": na, "partner": partner, "partner_bus": bb})
         elif b == m and a == partner:
-            out.append({"bus": bb, "bits": bits, "partner": partner, "partner_bus": ab})
+            out.append({"bus": bb, "bits": nb, "partner": partner, "partner_bus": ab})
     ports = {p["name"]: p for p in model.block(m)["ports"]}
     merged = {}
     for o in out:
         k = (o["bus"], o["partner"])
         if k in merged:
-            merged[k]["bits"] += o["bits"]
+            merged[k]["bits"] = max(merged[k]["bits"], o["bits"])
         else:
             merged[k] = dict(o)
             p = ports.get(o["bus"])
@@ -820,13 +849,198 @@ def rung_d(model, rects, edges):
     return findings, internal
 
 
+# --- rung e: channels -----------------------------------------------------------
+
+
+def channel_name(model, rects, die, direction, cx, cy):
+    """The two macros (or the die edge) either side of a gcell across its
+    wires' direction: a horizontal wire's channel runs between macros
+    above and below it."""
+    hard = [(n, r) for n, r in rects.items() if n in model.macros]
+    if direction == "h":
+        lo = [
+            (cy - (r[1] + r[3]), n)
+            for n, r in hard
+            if r[0] <= cx <= r[0] + r[2] and r[1] + r[3] <= cy
+        ]
+        hi = [
+            (r[1] - cy, n) for n, r in hard if r[0] <= cx <= r[0] + r[2] and r[1] >= cy
+        ]
+    else:
+        lo = [
+            (cx - (r[0] + r[2]), n)
+            for n, r in hard
+            if r[1] <= cy <= r[1] + r[3] and r[0] + r[2] <= cx
+        ]
+        hi = [
+            (r[0] - cx, n) for n, r in hard if r[1] <= cy <= r[1] + r[3] and r[0] >= cx
+        ]
+    a = min(lo)[1] if lo else "die"
+    b = min(hi)[1] if hi else "die"
+    return "|".join(sorted([a, b]))
+
+
+def route_bundles(model, pp, rects, edges, die):
+    """Each bundle between two hard macros routed on the gcell grid through
+    the parent's free space (pin_plan's router): [(a, b, bits, kind,
+    length_um, cells)] and the grid with its demand."""
+    pp = dict(pp, gcell_um=model.c["gcell_um"])
+    grid = P.Grid(pp, rects, die)
+    out = []
+    done = set()
+    # a chunk is the bits whose pins span one gcell of edge, so its wires
+    # spread as the pins do
+    chunk = model.c.get("route_chunk_bits") or max(
+        1, int(min(model.ppu("N"), model.ppu("E")) * model.c["pin_layers"] * grid.g)
+    )
+    for me, other, n, q in sorted(
+        P.bundles(pp, rects), key=lambda t: (-t[2], t[0], t[1])
+    ):
+        if P.is_soft(pp, other):
+            continue
+        key = tuple(sorted((me, other)))
+        if key in done:
+            continue
+        done.add(key)
+        sa = P.choose_side(pp, rects, me, rects[other], other)
+        sb = P.choose_side(pp, rects, other, rects[me], me)
+        pa = P.pin_point(rects, edges, me, sa, other)
+        pb = P.pin_point(rects, edges, other, sb, me)
+        manhattan = abs(pa[0] - pb[0]) + abs(pa[1] - pb[1])
+        if (
+            P.OPP[sa] == sb
+            and P.gap_between(rects[me], rects[other]) <= pp["channel_um"] + 1e-6
+        ):
+            out.append((me, other, n, "facing", manhattan, manhattan, []))
+            continue
+        nch = max(1, int(math.ceil(n / chunk)))
+        paths = []
+        for k in range(nch):
+            f = (k + 0.5) / nch
+            qa = P.pin_point(rects, edges, me, sa, other, f)
+            qb = P.pin_point(rects, edges, other, sb, me, f)
+            paths.append(
+                grid.route(
+                    grid.cell(qa, sa), grid.cell(qb, sb), min(chunk, n - k * chunk)
+                )
+            )
+        if any(p is None for p in paths):
+            out.append((me, other, n, "no_channel", None, manhattan, []))
+            continue
+        cells = sorted({c for p in paths for c in p})
+        length = max(len(p) for p in paths) * grid.g
+        out.append((me, other, n, "channel", max(length, manhattan), manhattan, cells))
+    return out, grid
+
+
+def rung_e(model, st):
+    """Bundles that find no path through free space, and the channels whose
+    demand is over their tracks."""
+    pp, rects, die, edges = st["pp"], st["rects"], st["die"], st["edges"]
+    routes, grid = route_bundles(model, pp, rects, edges, die)
+    st["routes"] = routes
+    st["grid"] = grid
+    findings = []
+    for a, b, bits, kind, length, manhattan, cells in routes:
+        if kind == "no_channel":
+            buses = bus_contributors(model, a, b)
+            findings.append(
+                {
+                    "rung": "channel_capacity",
+                    "status": "fail",
+                    "kind": "no_channel",
+                    "block": model.macros[a]["block"],
+                    "macro": a,
+                    "partner": b,
+                    "bits": bits,
+                    "bus": buses[0]["bus"] if buses else "",
+                    "contributors": buses[:8],
+                    "reason": "no path through the parent's free space: the route would cross a macro",
+                }
+            )
+    limit = model.c["gcell_limit"]
+    tracks = model.layer_tracks()
+    worst = {}
+    for direction, use, cap in (("h", grid.h, grid.cap_h), ("v", grid.v, grid.cap_v)):
+        for (i, j), d in use.items():
+            if cap <= 0 or d <= cap * limit:
+                continue
+            cx, cy = (i + 0.5) * grid.g, (j + 0.5) * grid.g
+            name = channel_name(model, rects, die, direction, cx, cy)
+            k = (name, direction)
+            if k not in worst or d / cap > worst[k][0]:
+                worst[k] = (d / cap, d, cap, (i, j))
+    # a channel between macros first: a gcell with the die edge on both
+    # sides is a corner the route turns in, the channels beside it say more
+    order = sorted(
+        worst.items(), key=lambda kv: (kv[0][0] == "die|die", -kv[1][0], kv[0])
+    )
+    for (name, direction), (util, d, cap, cell) in order:
+        through = []
+        for a, b, bits, kind, length, manhattan, cells in routes:
+            if cell in cells:
+                through.append(
+                    {
+                        "a": a,
+                        "b": b,
+                        "bits": bits,
+                        "buses": [c["bus"] for c in bus_contributors(model, a, b)][:4],
+                    }
+                )
+        layer_dir = "H" if direction == "h" else "V"
+        per_layer = {
+            n: round(t * model.c["usable"] * grid.g, 1)
+            for n, t in sorted(tracks.items())
+            if model.pdk["layers"][n]["dir"] == layer_dir
+        }
+        macros = [x for x in name.split("|") if x != "die"]
+        findings.append(
+            {
+                "rung": "channel_capacity",
+                "status": "fail",
+                "kind": "over_capacity",
+                "channel": name,
+                "direction": direction,
+                "block": model.macros[macros[0]]["block"] if macros else "die",
+                "side": None,
+                "demand_tracks": round(d, 1),
+                "capacity_tracks": round(cap, 1),
+                "utilisation": round(util, 3),
+                "gcell_um": grid.g,
+                "capacity_per_layer": per_layer,
+                "bus": (
+                    through[0]["buses"][0] if through and through[0]["buses"] else ""
+                ),
+                "routes": through[:8],
+            }
+        )
+    return findings
+
+
 # --- the plan -------------------------------------------------------------------
 
 
 def evaluate(model, forbidden=None):
-    """Lay out and run rungs a to d; the state the verdict and the
-    floorplan are written from."""
-    pp, rects, die = layout(model, forbidden)
+    """Lay out and run the rungs; the state the verdict and the floorplan
+    are written from. Of the candidate layouts the first that every rung
+    passes, else the one that gets furthest."""
+    pp, cands = layouts(model, forbidden)
+    best = None
+    for die, rects in cands:
+        p = dict(pp, die={"w": die[0], "h": die[1]})
+        st = evaluate_layout(model, p, rects, die)
+        stop = first_stop(st["findings"])
+        rank = RUNGS.index(stop) if stop else len(RUNGS)
+        if best is None or rank > best[0]:
+            best = (rank, st)
+        if stop is None:
+            break
+    if best is None:
+        return evaluate_layout(model, pp, None, model.c.get("die"))
+    return best[1]
+
+
+def evaluate_layout(model, pp, rects, die):
     st = {
         "pp": pp,
         "rects": rects,
@@ -846,6 +1060,7 @@ def evaluate(model, forbidden=None):
     fd, internal = rung_d(model, rects, st["edges"])
     st["findings"] += fd
     st["internal"] = internal
+    st["findings"] += rung_e(model, st)
     return st
 
 
@@ -899,6 +1114,8 @@ def remedies_for(f):
         "aspect": ["reshape"],
         "side_blocked": ["change_side", "reshape", "move_memory", "move_slot"],
         "no_internal_arrangement": ["resize_slot", "reshape", "move_memory"],
+        "no_channel": ["move_slot", "resize_die", "change_side"],
+        "over_capacity": ["move_slot", "resize_die", "narrow_bus", "promote_layer"],
     }.get(k, [])
 
 

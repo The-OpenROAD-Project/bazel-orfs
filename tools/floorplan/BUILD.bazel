@@ -7,6 +7,7 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 exports_files(
     [
         "extract_block.tcl",
+        "extract_parent.tcl",
         "extract_pdk.tcl",
     ] + glob(["testdata/toy/*.json"]),
     visibility = ["//visibility:public"],
@@ -77,4 +78,21 @@ py_test(
         "pdk_json_test.py",
     ],
     main = "pdk_json_test.py",
+)
+
+py_binary(
+    name = "parent_json",
+    srcs = ["parent_json.py"],
+    main = "parent_json.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "parent_json_test",
+    size = "small",
+    srcs = [
+        "parent_json.py",
+        "parent_json_test.py",
+    ],
+    main = "parent_json_test.py",
 )
