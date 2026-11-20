@@ -9,6 +9,7 @@ exports_files(
         "extract_block.tcl",
         "extract_parent.tcl",
         "extract_pdk.tcl",
+        "probe_wire.tcl",
     ] + glob(["testdata/toy/*.json"]),
     visibility = ["//visibility:public"],
 )
@@ -28,9 +29,26 @@ py_test(
 
 py_binary(
     name = "plan",
-    srcs = ["plan.py"],
+    srcs = [
+        "plan.py",
+        "remedies.py",
+    ],
     main = "plan.py",
     visibility = ["//visibility:public"],
+    deps = [":pin_plan"],
+)
+
+py_test(
+    name = "remedies_test",
+    size = "medium",
+    srcs = [
+        "plan.py",
+        "plan_test.py",
+        "remedies.py",
+        "remedies_test.py",
+    ],
+    data = glob(["testdata/toy/*.json"]),
+    main = "remedies_test.py",
     deps = [":pin_plan"],
 )
 
@@ -40,6 +58,7 @@ py_test(
     srcs = [
         "plan.py",
         "plan_test.py",
+        "remedies.py",
     ],
     data = glob(["testdata/toy/*.json"]),
     main = "plan_test.py",

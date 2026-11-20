@@ -1080,6 +1080,7 @@ test_suite(
         "//test/floorplan_toy:extract_test",
         "//test/floorplan_toy:plan_test",
         "//test/floorplan_toy:planned_grt_build_test",
+        "//test/floorplan_toy:wire_test",
         "//test/floorplan_toy:synth_build_test",
         # A miniature planned parent: five macros, 20 to 29 stages each.
         "//test/planned_parent:clock_pin_test",

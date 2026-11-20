@@ -556,7 +556,9 @@ def quadratic(plan, shapes, die, anchors, alpha, iters=300):
     fixed = {n: center(r) for n, r in plan.get("fixed", {}).items() if n in pos}
     for n, c in fixed.items():
         pos[n] = list(c)
+    tol = 1e-4 * max(die)
     for _ in range(iters):
+        moved = 0.0
         for n in names:
             if n in fixed:
                 continue
@@ -571,7 +573,12 @@ def quadratic(plan, shapes, die, anchors, alpha, iters=300):
                 sy += alpha * anchors[n][1]
                 sw += alpha
             if sw:
-                pos[n] = [sx / sw, sy / sw]
+                new = [sx / sw, sy / sw]
+                moved = max(moved, abs(new[0] - pos[n][0]) + abs(new[1] - pos[n][1]))
+                pos[n] = new
+        # Gauss-Seidel has converged: another sweep moves nothing
+        if moved < tol:
+            break
     return pos
 
 

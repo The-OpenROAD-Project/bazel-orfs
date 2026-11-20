@@ -23,18 +23,19 @@ def load(name):
 _PLANS = {}
 
 
-def toy(variant):
+def toy(variant, remedies=False):
     """The planner's result on a variant, planned once per test run."""
-    if variant not in _PLANS:
+    if (variant, remedies) not in _PLANS:
         blocks = [load("%s.block.json" % b) for b in ("FpCore", "FpMem", "FpVec")]
-        _PLANS[variant] = plan.run(
+        _PLANS[(variant, remedies)] = plan.run(
             blocks,
             load("parent.json"),
             load("asap7.pdk.json"),
             load("cut.json"),
             load("constraints_%s.json" % variant),
+            remedies=remedies,
         )
-    return _PLANS[variant]
+    return _PLANS[(variant, remedies)]
 
 
 def fails(v):
@@ -98,6 +99,24 @@ class SeededFaults(unittest.TestCase):
             f["capacity_per_layer"].get("M6", f["capacity_per_layer"].get("M7")), 5
         )
         self.assertIn("move_slot", f["remedies"])
+
+    def test_far_ends_stop_at_the_path_budget(self):
+        _, _, v, _ = toy("path")
+        self.assertEqual(v["stopped_at"], "path_budget")
+        (f,) = fails(v)
+        self.assertEqual(f["chain"], "FpCore.deep_out -> FpVec.deep_in")
+        self.assertEqual(
+            (f["block"], f["bus"], f["layer_needed"], f["dominates"]),
+            ("FpVec", "deep_in", "none closes", "wire"),
+        )
+        self.assertEqual([l["kind"] for l in f["legs"]], ["reg2out", "glue", "in2reg"])
+        self.assertLess(f["max_distance_um"], f["route"]["length_um"])
+
+    def test_clean_chains_close_on_the_lowest_pair(self):
+        _, _, v, _ = toy("clean")
+        for c in v["chains"]:
+            self.assertEqual(c["status"], "ok")
+            self.assertGreater(c["slack_ps"], 0)
 
 
 class Floorplan(unittest.TestCase):

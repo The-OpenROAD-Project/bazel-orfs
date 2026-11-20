@@ -52,7 +52,14 @@ import pin_plan as P  # noqa: E402
 
 TOOL = "plan 1"
 GLUE = "GLUE"
-RUNGS = ["pins_per_um", "area", "aspect", "internal_arrangement", "channel_capacity"]
+RUNGS = [
+    "pins_per_um",
+    "area",
+    "aspect",
+    "internal_arrangement",
+    "channel_capacity",
+    "path_budget",
+]
 DEFAULTS = {
     "channel_um": 4.0,
     "pin_layers": 2,
@@ -63,6 +70,10 @@ DEFAULTS = {
     "aspect_range": [1 / 6, 6.0],
     "usable": 0.5,
     "gcell_limit": 1.0,
+    "setup_ps": 30.0,
+    "skew_ps": 50.0,
+    "congestion_k": 1.0,
+    "feedthrough_depth": 3,
     "die_slack": [1.15, 1.3, 1.5, 1.75, 2.0, 2.5, 3.0],
 }
 
@@ -87,7 +98,9 @@ class Model:
         self.pdk = pdk
         self.cut = cut
         self.c = dict(DEFAULTS, **constraints)
-        # the router's grid resolves the narrowest channel the placer leaves
+        # the router's grid resolves the narrowest channel the placer leaves,
+        # at most 250 gcells a side (route_bundles)
+        self.gcell_given = "gcell_um" in self.c
         self.c.setdefault("gcell_um", self.c["channel_um"] / 2)
         self.macros = {}
         for m, spec in sorted(cut["macros"].items()):
@@ -884,7 +897,10 @@ def route_bundles(model, pp, rects, edges, die):
     """Each bundle between two hard macros routed on the gcell grid through
     the parent's free space (pin_plan's router): [(a, b, bits, kind,
     length_um, cells)] and the grid with its demand."""
-    pp = dict(pp, gcell_um=model.c["gcell_um"])
+    g = model.c["gcell_um"]
+    if not model.gcell_given:
+        g = max(g, max(die) / 250.0)
+    pp = dict(pp, gcell_um=g)
     grid = P.Grid(pp, rects, die)
     out = []
     done = set()
@@ -1017,6 +1033,287 @@ def rung_e(model, st):
     return findings
 
 
+# --- rung f: the path budget across boundaries ----------------------------------
+
+
+def layer_pairs(model):
+    """Routing layer pairs, lowest first: (name, ps_per_um, via_ps, layers),
+    a pair's delay the slower of its two layers' repeated wire."""
+    L = model.pdk["layers"]
+    order = [
+        n for n in model.pdk["order"] if L[n].get("routable") and L[n].get("ps_per_um")
+    ]
+    pairs = []
+    for i in range(0, len(order), 2):
+        group = order[i : i + 2]
+        pairs.append(
+            (
+                "/".join(group),
+                max(L[n]["ps_per_um"] for n in group),
+                max(L[n].get("via_ps", 0.0) for n in group),
+                group,
+            )
+        )
+    return pairs
+
+
+def period_ps(model):
+    if "period_ps" in model.c:
+        return float(model.c["period_ps"])
+    for b in model.blocks.values():
+        if b.get("clock"):
+            return b["clock"]["period_ps"]
+    raise SystemExit(
+        "plan: no period: no block has a clock and the constraints give no period_ps"
+    )
+
+
+def port(model, m, bus):
+    for p in model.block(m)["ports"]:
+        if p["name"] == bus:
+            return p
+    return None
+
+
+def crossings_from(model, m, bus):
+    """The parent's crossings leaving a macro's output bus: (to macro or
+    GLUE, to bus, via, glue_ps)."""
+    out = []
+    for x in model.parent.get("crossings", []):
+        a = model.macro_of(x["a"], x.get("a_inst"))
+        if a != m or x["a_bus"] != bus:
+            continue
+        b = model.macro_of(x["b"], x.get("b_inst")) or GLUE
+        out.append(
+            (b, x["b_bus"], x.get("via", "wire"), x.get("glue_ps", 0.0), x["bits"])
+        )
+    return out
+
+
+def chains(model):
+    """Register-to-register paths whose ends are in different macros, as
+    legs: the source's reg2out, the parent's own delay (a parent register
+    ends a chain), feedthrough macros' in2out, the destination's in2reg.
+    Each [(kind, macro, bus, ps)], with the hops between macros."""
+    out = []
+
+    def walk(legs, hops, m, bus, depth):
+        for b, bbus, via, glue_ps, bits in crossings_from(model, m, bus):
+            if b == GLUE or via == "reg":
+                continue
+            p = port(model, b, bbus)
+            if p is None:
+                continue
+            nl = legs + [("glue", GLUE, "", glue_ps)] if glue_ps else list(legs)
+            nh = hops + [(m, b, bits)]
+            if "in2reg_ps" in p:
+                out.append((nl + [("in2reg", b, bbus, p["in2reg_ps"]["max"])], nh))
+            if depth < model.c["feedthrough_depth"]:
+                for ft in p.get("in2out", []):
+                    walk(
+                        nl + [("in2out", b, bbus + "->" + ft["to"], ft["max_ps"])],
+                        nh,
+                        b,
+                        ft["to"],
+                        depth + 1,
+                    )
+
+    for m in sorted(model.macros):
+        for p in model.block(m)["ports"]:
+            if p["dir"] == "out" and "reg2out_ps" in p:
+                walk(
+                    [("reg2out", m, p["name"], p["reg2out_ps"]["max"])],
+                    [],
+                    m,
+                    p["name"],
+                    0,
+                )
+    return out
+
+
+def hop_route(st, a, b):
+    """(length um, congestion utilisation) of the planned route between
+    two macros: rung e's route, else the Manhattan distance between their
+    centres."""
+    for x, y, bits, kind, length, manhattan, cells in st.get("routes", []):
+        if {x, y} == {a, b}:
+            util = 0.0
+            grid = st.get("grid")
+            for c in cells:
+                for use, cap in ((grid.h, grid.cap_h), (grid.v, grid.cap_v)):
+                    if cap > 0:
+                        util = max(util, use.get(c, 0) / cap)
+            return (length if length is not None else manhattan), util, cells
+    ra, rb = st["rects"][a], st["rects"][b]
+    (ax, ay), (bx, by) = P.center(ra), P.center(rb)
+    return abs(ax - bx) + abs(ay - by), 0.0, []
+
+
+def rung_f(model, st):
+    """Each chain against the period: the wire's share is what the logic
+    legs leave less setup and skew; the lowest layer pair whose repeated
+    wire fits it is the chain's; the bits each upper pair takes on a
+    route against that pair's tracks in the route's corridor."""
+    period = period_ps(model)
+    setup, skew = model.c["setup_ps"], model.c["skew_ps"]
+    k = model.c["congestion_k"]
+    pairs = layer_pairs(model)
+    tracks = model.layer_tracks()
+    findings = []
+    assigned = {}
+    worst = []
+    for legs, hops in chains(model):
+        logic = sum(ps for _, _, _, ps in legs)
+        budget = period - setup - skew - logic
+        length = 0.0
+        util = 0.0
+        hop_cells = []
+        for a, b, bits in hops:
+            ln, u, cells = hop_route(st, a, b)
+            length += ln
+            util = max(util, u)
+            hop_cells.append((a, b, bits, cells, ln))
+        congestion = 1.0 + k * max(0.0, util - 1.0)
+        name = " -> ".join(
+            ["%s.%s" % (legs[0][1], legs[0][2])] + ["%s" % b for _, b, _ in hops]
+        )
+        dest = legs[-1]
+        chain = "%s.%s -> %s.%s" % (legs[0][1], legs[0][2], dest[1], dest[2])
+        row = {
+            "chain": chain,
+            "legs": [
+                {"kind": kd, "at": at, "bus": bus, "ps": round(ps, 1)}
+                for kd, at, bus, ps in legs
+            ],
+            "margins": {"setup": setup, "skew": skew},
+            "period_ps": period,
+            "wire_budget_ps": round(budget, 1),
+            "bits": min(bits for _, _, bits in hops),
+        }
+        if budget < 0:
+            dom = max(legs, key=lambda l: l[3])
+            row.update(
+                {
+                    "status": "fail",
+                    "layer_needed": "none closes",
+                    "slack_ps": round(budget, 1),
+                    "dominates": "%s %s.%s" % (dom[0], dom[1], dom[2]),
+                    "reason": "the logic alone is over the period",
+                }
+            )
+            worst.append(row)
+            continue
+        choice = None
+        for pname, ps_um, via, group in pairs:
+            wire = ps_um * length * congestion + via
+            if wire <= budget:
+                choice = (pname, ps_um, via, wire, group)
+                break
+        top = pairs[-1]
+        if choice is None:
+            wire = top[1] * length * congestion + top[2]
+            row.update(
+                {
+                    "status": "fail",
+                    "layer_needed": "none closes",
+                    "route": {
+                        "length_um": round(length, 1),
+                        "layer": top[0],
+                        "ps_per_um": top[1],
+                        "via_ps": top[2],
+                        "congestion": round(congestion, 3),
+                        "wire_ps": round(wire, 1),
+                    },
+                    "slack_ps": round(budget - wire, 1),
+                    "max_distance_um": round(
+                        max(0.0, budget - top[2]) / (top[1] * congestion), 1
+                    ),
+                    "dominates": "wire" if wire > max(l[3] for l in legs) else "logic",
+                }
+            )
+            worst.append(row)
+            continue
+        pname, ps_um, via, wire, group = choice
+        row.update(
+            {
+                "status": "ok",
+                "layer_needed": pname,
+                "route": {
+                    "length_um": round(length, 1),
+                    "layer": pname,
+                    "ps_per_um": ps_um,
+                    "via_ps": via,
+                    "congestion": round(congestion, 3),
+                    "wire_ps": round(wire, 1),
+                },
+                "slack_ps": round(budget - wire, 1),
+            }
+        )
+        worst.append(row)
+        if pname != pairs[0][0]:
+            for a, b, bits, cells, ln in hop_cells:
+                key = (tuple(sorted((a, b))), pname)
+                entry = assigned.setdefault(
+                    key,
+                    {
+                        "bits": 0,
+                        "chains": [],
+                        "cells": cells,
+                        "len": ln,
+                        "group": group,
+                    },
+                )
+                entry["bits"] += bits
+                entry["chains"].append(chain)
+    for row in worst:
+        if row["status"] == "fail":
+            dest = row["legs"][-1]
+            src = row["legs"][0]
+            findings.append(
+                dict(
+                    row,
+                    rung="path_budget",
+                    block=model.macros[dest["at"]]["block"],
+                    macro=dest["at"],
+                    bus=dest["bus"],
+                    side=None,
+                    source={"macro": src["at"], "bus": src["bus"]},
+                )
+            )
+    g = st["grid"].g if st.get("grid") else model.c["gcell_um"]
+    for ((a, b), pname), e in sorted(assigned.items()):
+        steps = max(1.0, e["len"] / g)
+        corridor = max(1.0, len(e["cells"]) / steps)
+        cap = (
+            corridor
+            * g
+            * sum(tracks.get(n, 0.0) for n in e["group"])
+            * model.c["usable"]
+        )
+        if e["bits"] > cap:
+            findings.append(
+                {
+                    "rung": "path_budget",
+                    "status": "fail",
+                    "kind": "layer_capacity",
+                    "block": model.macros[a]["block"],
+                    "macro": a,
+                    "partner": b,
+                    "side": None,
+                    "channel": "%s|%s" % (a, b),
+                    "layers": pname,
+                    "demand_tracks": e["bits"],
+                    "capacity_tracks": round(cap, 1),
+                    "bus": e["chains"][0].split(" -> ")[0].split(".", 1)[1],
+                    "chains": e["chains"][:8],
+                    "reason": "the chains that close only on %s need more of its tracks than the route has"
+                    % pname,
+                }
+            )
+    st["chains"] = sorted(worst, key=lambda r: r["slack_ps"])
+    return findings
+
+
 # --- the plan -------------------------------------------------------------------
 
 
@@ -1061,6 +1358,7 @@ def evaluate_layout(model, pp, rects, die):
     st["findings"] += fd
     st["internal"] = internal
     st["findings"] += rung_e(model, st)
+    st["findings"] += rung_f(model, st)
     return st
 
 
@@ -1116,6 +1414,8 @@ def remedies_for(f):
         "no_internal_arrangement": ["resize_slot", "reshape", "move_memory"],
         "no_channel": ["move_slot", "resize_die", "change_side"],
         "over_capacity": ["move_slot", "resize_die", "narrow_bus", "promote_layer"],
+        "path_budget": ["register_bus", "move_slot", "promote_layer", "move_module"],
+        "layer_capacity": ["narrow_bus", "register_bus", "move_slot"],
     }.get(k, [])
 
 
@@ -1330,16 +1630,54 @@ def write_md(v, path):
             lines.append("")
             lines.append("Remedies: " + ", ".join(f["remedies"]))
         lines.append("")
-    for r in v.get("remedies", []):
-        lines.append(
-            "- remedy %s: %s"
-            % (r["kind"], json.dumps({k: x for k, x in r.items() if k != "kind"}))
-        )
+    if v.get("remedies"):
+        lines += [
+            "## Remedies, each run as a what-if",
+            "",
+            "| remedy | edit | effect |",
+            "|---|---|---|",
+        ]
+        for r in v["remedies"]:
+            edit = {k: x for k, x in r.items() if k not in ("kind", "effect", "for")}
+            e = r.get("effect")
+            if isinstance(e, dict):
+                eff = e["verdict"] + (
+                    " at %s %s" % (e["stopped_at"], json.dumps(e.get("first", {})))
+                    if e["stopped_at"]
+                    else ""
+                )
+            else:
+                eff = e or "not modelled"
+            lines.append("| %s | %s | %s |" % (r["kind"], json.dumps(edit), eff))
+        lines.append("")
+    if v.get("chains"):
+        lines += [
+            "## Worst chains across boundaries",
+            "",
+            "| chain | logic ps | wire budget ps | layer | length um | slack ps |",
+            "|---|---|---|---|---|---|",
+        ]
+        for c in v["chains"]:
+            route = c.get("route", {})
+            lines.append(
+                "| %s | %.0f | %.0f | %s | %s | %.0f |"
+                % (
+                    c["chain"],
+                    sum(l["ps"] for l in c["legs"]),
+                    c["wire_budget_ps"],
+                    c.get("layer_needed"),
+                    route.get("length_um", ""),
+                    c["slack_ps"],
+                )
+            )
+        lines.append("")
     with open(path, "w") as f:
         f.write("\n".join(lines) + "\n")
 
 
-def run(blocks, parent, pdk, cut, constraints, run_all=False):
+def run(blocks, parent, pdk, cut, constraints, run_all=False, remedies=True):
+    """(model, state, verdict, floorplan or None). With `remedies`, every
+    remedy of the failed findings with its effect (remedies.py)."""
     model = Model(blocks, parent, pdk, cut, constraints)
     st = plan(model)
     ident = identity(
@@ -1353,6 +1691,23 @@ def run(blocks, parent, pdk, cut, constraints, run_all=False):
         },
     )
     v = verdict(model, st, ident, run_all)
+    v["chains"] = st.get("chains", [])[:10]
+    if remedies and v["verdict"] != "feasible":
+        import remedies as R
+
+        fails = [f for f in v["findings"] if f["status"] == "fail"]
+        if not run_all:
+            fails = [f for f in fails if f["rung"] == v["stopped_at"]][:2]
+        inputs = {
+            "blocks": blocks,
+            "parent": parent,
+            "pdk": pdk,
+            "cut": cut,
+            "constraints": constraints,
+        }
+        v["remedies"] = R.compute(
+            lambda i: run(remedies=False, **i)[2], inputs, model, st, fails
+        )
     fp = floorplan(model, st) if v["verdict"] == "feasible" else None
     return model, st, v, fp
 
@@ -1372,6 +1727,9 @@ def main(argv):
     ap.add_argument("--verdict-md", help="verdict.md to write")
     ap.add_argument("--floorplan", help="floorplan.json to write; {} when infeasible")
     ap.add_argument("--all", action="store_true", help="every rung past the first stop")
+    ap.add_argument(
+        "--no-remedies", action="store_true", help="name no remedies, run no what-ifs"
+    )
     args = ap.parse_args(argv)
     blocks = [read_json(p) for p in args.block]
     parent = read_json(args.parent) if args.parent else None
@@ -1382,6 +1740,7 @@ def main(argv):
         read_json(args.cut),
         read_json(args.constraints),
         args.all,
+        not args.no_remedies,
     )
     with open(args.verdict, "w") as f:
         json.dump(v, f, indent=1, sort_keys=True)
@@ -1408,6 +1767,8 @@ def main(argv):
                     f.get("bus", ""),
                 )
             )
+    for r in v.get("remedies", []):
+        print("  remedy %s %s" % (r["kind"], json.dumps(r.get("effect"))))
     return 0
 
 
