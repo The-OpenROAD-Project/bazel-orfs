@@ -121,3 +121,30 @@ py_test(
         10000,
     ]
 ]
+
+# ... and on the channel arms: two blocks side by side, the whole
+# interface between their top sides, the parent's logic above. Both gaps
+# wall at route-0 (channel_test); rung (e)'s track count passes both, the
+# strip above the blocks having the tracks: what walls there is the wires
+# turning along the pin side, which the capacity model does not charge.
+floorplan_extract(
+    name = "floorplan_ch",
+    src = ":pinwall_block_ch_p3000_g10_synth",
+    arguments = {"DIE_AREA": "0 0 432 40"},
+    timing = False,
+)
+
+[
+    floorplan_plan(
+        name = "floorplan_ch_g%d_plan" % gap,
+        blocks = [":floorplan_ch"],
+        constraints = ":floorplan_ch_g%d.json" % gap,
+        cut = ":floorplan_ch_cut.json",
+        parent = ":floorplan_ch_parent.json",
+        pdk = "//test/floorplan_toy:asap7",
+    )
+    for gap in [
+        10,
+        60,
+    ]
+]

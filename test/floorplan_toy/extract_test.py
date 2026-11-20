@@ -58,6 +58,21 @@ class ExtractTest(unittest.TestCase):
             load("FpMem.block.json")["area"]["die_rule"]["util"], 0.7
         )
 
+    def test_parent_crossings(self):
+        x = {
+            (c["a"], c["a_bus"], c["b"], c["b_bus"]): c
+            for c in load("fp_top_parent.parent.json")["crossings"]
+        }
+        self.assertEqual(x[("FpCore", "wide", "FpVec", "wide")]["bits"], 1024)
+        self.assertEqual(x[("FpCore", "wide", "FpVec", "wide")]["via"], "wire")
+        self.assertEqual(x[("FpMem", "resp", "FpCore", "resp")]["via"], "reg")
+        deep = x[("FpCore", "deep_out", "FpVec", "deep_in")]
+        self.assertEqual(
+            (deep["via"], deep["a_bits"], deep["b_bits"]), ("comb", 32, 32)
+        )
+        self.assertGreater(deep["glue_ps"], 50)
+        self.assertIn(("fp_top", "in_top", "FpCore", "in_top"), x)
+
     def test_wire_model_against_calibration(self):
         pdk = load("asap7.pdk.json")
         for name in pdk["io"]["H"] + pdk["io"]["V"]:

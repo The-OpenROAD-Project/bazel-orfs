@@ -133,3 +133,36 @@ def floorplan_plan(
         tags = tags,
         visibility = visibility,
     )
+
+def floorplan_parent(name, src, tags = ["manual"], visibility = None):
+    """The parent's crossings for the planner: `<name>.parent.json`.
+
+    extract_parent.tcl on the parent's hierarchical synthesis
+    (OPENROAD_HIERARCHICAL=1, the blocks kept modules), then
+    parent_json.py. Declare it in the package of `src`.
+
+    Args:
+        name: the target; writes `<name>.parent.json`
+        src: the parent's `_synth` target
+        tags: forwarded
+        visibility: forwarded
+    """
+    orfs_run(
+        name = name + "_dump",
+        src = src,
+        outs = [name + ".parent_dump.tsv"],
+        script = Label("//tools/floorplan:extract_parent.tcl"),
+        tags = tags,
+        user_arguments = {
+            "EXTRACT_OUT": "$(location %s.parent_dump.tsv)" % name,
+        },
+    )
+    native.genrule(
+        name = name,
+        srcs = [":%s_dump" % name],
+        outs = [name + ".parent.json"],
+        cmd = "$(execpath %s) $< $@" % Label("//tools/floorplan:parent_json"),
+        tools = [Label("//tools/floorplan:parent_json")],
+        tags = tags,
+        visibility = visibility,
+    )

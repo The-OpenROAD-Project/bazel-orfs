@@ -1,15 +1,152 @@
 {
- "parent": "fp_top",
- "glue": {"std_um2": 100.0},
  "crossings": [
-  {"a": "FpCore", "a_bus": "req", "b": "FpMem", "b_bus": "req", "bits": 128, "via": "wire"},
-  {"a": "FpMem", "a_bus": "resp", "b": "FpCore", "b_bus": "resp", "bits": 136, "via": "reg"},
-  {"a": "FpCore", "a_bus": "wide", "b": "FpVec", "b_bus": "wide", "bits": 1024, "via": "wire"},
-  {"a": "FpCore", "a_bus": "deep_out", "b": "FpVec", "b_bus": "deep_in", "bits": 32, "via": "comb"},
-  {"a": "FpCore", "a_bus": "ft_out", "b": "FpVec", "b_bus": "ft_in", "bits": 16, "via": "wire"},
-  {"a": "fp_top", "a_bus": "in_top", "b": "FpCore", "b_bus": "in_top", "bits": 32, "via": "wire"},
-  {"a": "fp_top", "a_bus": "ft_top", "b": "FpCore", "b_bus": "ft_in", "bits": 16, "via": "wire"},
-  {"a": "FpVec", "a_bus": "ft_out", "b": "fp_top", "b_bus": "ft_out", "bits": 16, "via": "wire"},
-  {"a": "FpVec", "a_bus": "res", "b": "fp_top", "b_bus": "out_top", "bits": 32, "via": "reg"}
- ]
+  {
+   "a": "FpCore",
+   "a_bits": 32,
+   "a_bus": "deep_out",
+   "a_inst": "core",
+   "b": "FpVec",
+   "b_bits": 32,
+   "b_bus": "deep_in",
+   "b_inst": "vec",
+   "bits": 32,
+   "depth": 8,
+   "glue_ps": 193.6,
+   "via": "comb"
+  },
+  {
+   "a": "FpCore",
+   "a_bits": 16,
+   "a_bus": "ft_out",
+   "a_inst": "core",
+   "b": "FpVec",
+   "b_bits": 16,
+   "b_bus": "ft_in",
+   "b_inst": "vec",
+   "bits": 16,
+   "depth": 0,
+   "glue_ps": 0.0,
+   "via": "wire"
+  },
+  {
+   "a": "FpCore",
+   "a_bits": 128,
+   "a_bus": "req",
+   "a_inst": "core",
+   "b": "FpMem",
+   "b_bits": 128,
+   "b_bus": "req",
+   "b_inst": "mem",
+   "bits": 128,
+   "depth": 0,
+   "glue_ps": 0.0,
+   "via": "wire"
+  },
+  {
+   "a": "FpCore",
+   "a_bits": 1024,
+   "a_bus": "wide",
+   "a_inst": "core",
+   "b": "FpVec",
+   "b_bits": 1024,
+   "b_bus": "wide",
+   "b_inst": "vec",
+   "bits": 1024,
+   "depth": 0,
+   "glue_ps": 0.0,
+   "via": "wire"
+  },
+  {
+   "a": "FpMem",
+   "a_bits": 136,
+   "a_bus": "resp",
+   "a_inst": "mem",
+   "b": "FpCore",
+   "b_bits": 136,
+   "b_bus": "resp",
+   "b_inst": "core",
+   "bits": 136,
+   "depth": 2,
+   "glue_ps": 44.0,
+   "via": "reg"
+  },
+  {
+   "a": "FpVec",
+   "a_bits": 16,
+   "a_bus": "ft_out",
+   "a_inst": "vec",
+   "b": "fp_top",
+   "b_bits": 16,
+   "b_bus": "ft_out",
+   "b_inst": "-",
+   "bits": 16,
+   "depth": 0,
+   "glue_ps": 0.0,
+   "via": "wire"
+  },
+  {
+   "a": "FpVec",
+   "a_bits": 32,
+   "a_bus": "res",
+   "a_inst": "vec",
+   "b": "fp_top",
+   "b_bits": 32,
+   "b_bus": "out_top",
+   "b_inst": "-",
+   "bits": 32,
+   "depth": 2,
+   "glue_ps": 36.1,
+   "via": "reg"
+  },
+  {
+   "a": "fp_top",
+   "a_bits": 16,
+   "a_bus": "ft_top",
+   "a_inst": "-",
+   "b": "FpCore",
+   "b_bits": 16,
+   "b_bus": "ft_in",
+   "b_inst": "core",
+   "bits": 16,
+   "depth": 0,
+   "glue_ps": 0.0,
+   "via": "wire"
+  },
+  {
+   "a": "fp_top",
+   "a_bits": 32,
+   "a_bus": "in_top",
+   "a_inst": "-",
+   "b": "FpCore",
+   "b_bits": 32,
+   "b_bus": "in_top",
+   "b_inst": "core",
+   "bits": 32,
+   "depth": 0,
+   "glue_ps": 0.0,
+   "via": "wire"
+  }
+ ],
+ "glue": {
+  "std_um2": 80.904
+ },
+ "identity": {
+  "dump": "sha256:31cd1708b527fcd038de515ec6e57eef72f736ac7b036e63e7ba47e40bb41b49",
+  "tool": "parent_json 1"
+ },
+ "modules": {
+  "core": {
+   "module": "FpCore",
+   "um2": 638.035
+  },
+  "mem": {
+   "module": "FpMem",
+   "um2": 1596.512
+  },
+  "vec": {
+   "module": "FpVec",
+   "um2": 509.104
+  }
+ },
+ "parent": "fp_top"
 }

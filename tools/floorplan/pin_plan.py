@@ -368,8 +368,21 @@ class Grid:
         self.g = plan["gcell_um"]
         self.nx = int(math.ceil(die[0] / self.g))
         self.ny = int(math.ceil(die[1] / self.g))
-        usable = plan["tech"]["track_density_per_um"] * plan["tech"]["usable"]
+        tech = plan["tech"]
+        usable = tech["track_density_per_um"] * tech["usable"]
         self.cap = usable * self.g
+        # per direction when the tech gives it: horizontal wires on the
+        # horizontal layers, vertical on the vertical
+        self.cap_h = (
+            tech.get("track_density_h_per_um", tech["track_density_per_um"])
+            * tech["usable"]
+            * self.g
+        )
+        self.cap_v = (
+            tech.get("track_density_v_per_um", tech["track_density_per_um"])
+            * tech["usable"]
+            * self.g
+        )
         self.blocked = set()
         blocks = [rects[n] for n in rects if not is_soft(plan, n)] + [
             list(r) for r in plan.get("memories", [])
@@ -413,10 +426,11 @@ class Grid:
                 ):
                     continue
                 use = (self.h if dx else self.v).get(n, 0)
+                cap = self.cap_h if dx else self.cap_v
                 cost = (
                     1.0
-                    + 50.0 * max(0.0, (use + bits) / self.cap - 1.0)
-                    + 2.0 * (use + bits) / self.cap
+                    + 50.0 * max(0.0, (use + bits) / cap - 1.0)
+                    + 2.0 * (use + bits) / cap
                 )
                 nd = d + cost
                 if nd < dist.get(n, math.inf):
@@ -438,10 +452,10 @@ class Grid:
 
     def overflow(self):
         over = []
-        for name, layer in (("h", self.h), ("v", self.v)):
+        for name, layer, cap in (("h", self.h, self.cap_h), ("v", self.v, self.cap_v)):
             for c, d in layer.items():
-                if d > self.cap:
-                    over.append([name, c[0], c[1], round(d), round(self.cap)])
+                if d > cap:
+                    over.append([name, c[0], c[1], round(d), round(cap)])
         return sorted(over, key=lambda o: -o[3])
 
 

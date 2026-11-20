@@ -20,17 +20,21 @@ def load(name):
         return json.load(f)
 
 
-def toy(variant, **over):
-    blocks = [load("%s.block.json" % b) for b in ("FpCore", "FpMem", "FpVec")]
-    constraints = load("constraints_%s.json" % variant)
-    constraints.update(over)
-    return plan.run(
-        blocks,
-        load("parent.json"),
-        load("asap7.pdk.json"),
-        load("cut.json"),
-        constraints,
-    )
+_PLANS = {}
+
+
+def toy(variant):
+    """The planner's result on a variant, planned once per test run."""
+    if variant not in _PLANS:
+        blocks = [load("%s.block.json" % b) for b in ("FpCore", "FpMem", "FpVec")]
+        _PLANS[variant] = plan.run(
+            blocks,
+            load("parent.json"),
+            load("asap7.pdk.json"),
+            load("cut.json"),
+            load("constraints_%s.json" % variant),
+        )
+    return _PLANS[variant]
 
 
 def fails(v):
@@ -80,6 +84,20 @@ class SeededFaults(unittest.TestCase):
         self.assertLess(f["free_fraction"], 0.5)
         self.assertEqual({b["bus"] for b in f["buses_needing"]}, {"req", "resp"})
         self.assertIn("change_side", f["remedies"])
+
+    def test_starved_channel_stops_at_channels(self):
+        _, _, v, _ = toy("channel")
+        self.assertEqual(v["stopped_at"], "channel_capacity")
+        f = fails(v)[0]
+        self.assertEqual(
+            (f["kind"], f["channel"], f["bus"]), ("over_capacity", "FpMem|die", "wide")
+        )
+        self.assertGreater(f["demand_tracks"], f["capacity_tracks"])
+        # the starved top layers are counted at their share
+        self.assertLess(
+            f["capacity_per_layer"].get("M6", f["capacity_per_layer"].get("M7")), 5
+        )
+        self.assertIn("move_slot", f["remedies"])
 
 
 class Floorplan(unittest.TestCase):
