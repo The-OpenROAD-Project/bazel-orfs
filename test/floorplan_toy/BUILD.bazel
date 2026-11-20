@@ -21,24 +21,28 @@ BLOCK_ARGS = {
     "PLACE_DENSITY": "0.6",
 }
 
+# FpMem is mostly memory, and its flow packs it as tightly as a
+# memory-dominated block's flow does
+BLOCKS = {
+    "FpCore": ([], BLOCK_ARGS),
+    "FpMem": (
+        [":fakeram7_256x34"],
+        BLOCK_ARGS | {"CORE_UTILIZATION": "70"},
+    ),
+    "FpVec": ([], BLOCK_ARGS),
+}
+
 [
     orfs_flow(
         name = block,
         abstract_stage = "grt",
-        arguments = BLOCK_ARGS,
+        arguments = arguments,
         macros = macros,
         sources = {"SDC_FILE": [":constraints.sdc"]},
         tags = ["manual"],
         verilog_files = [":toy.sv"],
     )
-    for block, macros in [
-        ("FpCore", []),
-        (
-            "FpMem",
-            [":fakeram7_256x34"],
-        ),
-        ("FpVec", []),
-    ]
+    for block, (macros, arguments) in BLOCKS.items()
 ]
 
 # The parent's synthesis, the blocks kept as modules: the crossings
