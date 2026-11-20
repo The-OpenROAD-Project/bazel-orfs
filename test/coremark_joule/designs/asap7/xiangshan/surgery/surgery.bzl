@@ -29,10 +29,10 @@ def _boundary(name, src):
         name = name,
         srcs = [src, _PLAN_JSON, _PLAN_BZL],
         outs = [name + ".json"],
-        cmd = "$(execpath //test/coremark_joule/scripts:boundary_constants) $(location %s) --top XSTile " % src +
+        cmd = "$(execpath //tools/boundary_constants) $(location %s) --top XSTile " % src +
               "--plan $(location %s) --plan-bzl $(location %s) --out $@" % (_PLAN_JSON, _PLAN_BZL),
         tags = ["manual"],
-        tools = ["//test/coremark_joule/scripts:boundary_constants"],
+        tools = ["//tools/boundary_constants"],
     )
 
 def xs_surgery_chain(name, src, manifest, rounds, protect):
