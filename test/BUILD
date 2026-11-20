@@ -1076,6 +1076,8 @@ test_suite(
         ":deps_output_group_squashed_test",
         ":deps_output_group_substeps_test",
         ":deps_output_group_synth_test",
+        # The global floorplan planner's toy: four syntheses, seconds.
+        "//test/floorplan_toy:synth_build_test",
         # A miniature planned parent: five macros, 20 to 29 stages each.
         "//test/planned_parent:clock_pin_test",
         "//test/planned_parent:cts_delay_buffers_test",
