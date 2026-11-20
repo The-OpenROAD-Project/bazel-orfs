@@ -109,21 +109,6 @@ if { [env_var_exists_and_non_empty SYNTH_CANONICALIZE_TCL] } {
   }
   set ::env(DESIGN_NAME) $target
 }
-# read_design_sources reads every macro's liberty and hierarchy keeps an
-# unused library module, so a macro the slice does not stub would land in
-# its RTLIL and every partition's key would move with the design's macro set.
-if { [env_var_exists_and_non_empty ADDITIONAL_LIBS] } {
-  foreach lib $::env(ADDITIONAL_LIBS) {
-    set fp [open $lib r]
-    set text [read $fp]
-    close $fp
-    foreach {- cell} [regexp -all -inline {\ycell\s*\(\s*"?([^"\s)]+)"?\s*\)} $text] {
-      if { [lsearch -exact $slice_modules $cell] < 0 } {
-        delete =$cell
-      }
-    }
-  }
-}
 setattr -unset src *
 setattr -mod -unset src *
 write_rtlil $checkpoint

@@ -5,7 +5,9 @@ A slice (verilog_slice.py) holds each macro it reaches as a stub under
 the macro's own name. This copies the liberty view of every macro whose
 stub is in one of the partition's slices into OUT_DIR and writes
 OUT_DIR/macros.mk, which adds the copies to ADDITIONAL_LIBS and the
-macros' own paths to ADDITIONAL_LEFS and ADDITIONAL_GDS. The
+macros' own paths to ADDITIONAL_LEFS and ADDITIONAL_GDS, and
+OUT_DIR/libs.txt, the copies alone, which the slice's canonicalize
+takes for ADDITIONAL_LIBS. The
 partition reads OUT_DIR in place of the design's whole macro set, so
 its key moves only when a macro its slices reach does.
 
@@ -59,6 +61,8 @@ def write_macros(macros, names, out_dir):
             libs.append(copy)
         lefs.extend(macro.get("lefs", []))
         gds.extend(macro.get("gds", []))
+    with open(os.path.join(out_dir, "libs.txt"), "w") as out:
+        out.write(" ".join(sorted(libs)))
     with open(os.path.join(out_dir, "macros.mk"), "w") as out:
         for var, paths in [
             ("ADDITIONAL_GDS", gds),

@@ -63,6 +63,8 @@ class PartitionMacrosTest(unittest.TestCase):
             with open(copy) as f:
                 self.assertEqual("library(ram_a) {}\n", f.read())
             self.assertFalse(os.path.exists(os.path.join(out, "ram_c")))
+            with open(os.path.join(out, "libs.txt")) as f:
+                self.assertEqual(copy, f.read())
             with open(os.path.join(out, "macros.mk")) as f:
                 self.assertEqual(
                     [
@@ -85,8 +87,9 @@ class PartitionMacrosTest(unittest.TestCase):
             partition_macros.main(
                 ["--macros-json", macros_json, "--out-dir", out, slice_v]
             )
-            with open(os.path.join(out, "macros.mk")) as f:
-                self.assertEqual("", f.read())
+            for name in ["macros.mk", "libs.txt"]:
+                with open(os.path.join(out, name)) as f:
+                    self.assertEqual("", f.read())
 
 
 if __name__ == "__main__":

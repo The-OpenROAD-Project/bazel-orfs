@@ -1645,6 +1645,52 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             progress_message = "Generating register files for the slices of %s" % module_top(ctx),
         )
 
+    # With slices and no kept_macros, each slice's canonicalize and
+    # partition read only the macros the slice holds as stubs
+    # (partition_macros.py), so a macro's liberty reaches only the
+    # partitions that instantiate it.
+    all_macro_files = deps_inputs(ctx, gds = False, lef = False)
+    slice_macros_json = None
+    if slices and not ctx.attr.kept_macros_enabled:
+        slice_macros = {}
+        for dep in ctx.attr.deps:
+            info = dep[OrfsInfo]
+            lib = info.lib_pre_layout or info.lib
+            if not lib:
+                continue
+            paths = orfs_additional_arguments([info], use_pre_layout = True, macros_only = True)
+            slice_macros[dep[TopInfo].module_top] = {
+                "gds": [p for p in paths.get("ADDITIONAL_GDS", "").split(" ") if p],
+                "lefs": [p for p in paths.get("ADDITIONAL_LEFS", "").split(" ") if p],
+                "lib": lib.path,
+            }
+        slice_macros_json = ctx.actions.declare_file(ctx.label.name + "_slice_macros.json")
+        ctx.actions.write(output = slice_macros_json, content = json.encode(slice_macros))
+
+    def stage_macros(name, modules):
+        staged = declare_directory_artifact(ctx, "results", "partition_{}_macros".format(name))
+        ctx.actions.run(
+            executable = ctx.executable._python,
+            arguments = [
+                ctx.file._partition_macros.path,
+                "--macros-json",
+                slice_macros_json.path,
+                "--out-dir",
+                staged.path,
+            ] + [verilog_slice[m].path for m in modules],
+            inputs = depset(
+                [ctx.file._partition_macros, slice_macros_json] +
+                [verilog_slice[m] for m in modules],
+                transitive = [all_macro_files],
+            ),
+            outputs = [staged],
+            mnemonic = "PartitionMacros",
+            progress_message = "Staging the macros of partition {}".format(name),
+        )
+        return staged
+
+    staged_of = {}
+
     for module in kept_modules_list + ([top] if slices else []):
         sanitized = _sanitize_module(module)
         per_module_out = declare_artifact(
@@ -1692,6 +1738,14 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                     ctx.file._slice_memories,
                 ] + slices.fakeram
                 memory_outputs = [slice_memories[module]]
+            canon_macros = slices.deps
+            canon_commands = per_module_commands
+            if slice_macros_json:
+                staged_of[module] = stage_macros(sanitized, [module])
+                canon_macros = depset([staged_of[module]])
+                canon_commands = [
+                    "export ADDITIONAL_LIBS=\"$(cat {})\"".format(staged_of[module].path + "/libs.txt"),
+                ] + per_module_commands
             ctx.actions.run_shell(
                 arguments = [
                     "--file",
@@ -1700,7 +1754,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                     "do-yosys-canonicalize-module",
                     "SYNTH_CANONICALIZE_MODULE_SCRIPT=" + ctx.file._synth_canonicalize_slice_script.path,
                 ] + memory_args + (["SDC_FILE="] if sdc_overrides else []),
-                command = " && ".join(per_module_commands),
+                command = " && ".join(canon_commands),
                 env = slices.env | partition_env_extra | memory_env | {
                     "VERILOG_FILES": verilog_slice[module].path,
                     "MODULE_VERILOG_SLICE": verilog_slice[module].path,
@@ -1723,7 +1777,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                     transitive = [
                         synth_data_inputs,
                         pdk_inputs(ctx),
-                        slices.deps,
+                        canon_macros,
                     ],
                 ),
                 outputs = [per_module_out, per_module_name_out, slice_checkpoint] + memory_outputs,
@@ -1830,10 +1884,6 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         ],
     )
 
-    # Full macro inputs — used by the top action, and as the fallback
-    # for every partition when per-partition scoping is disabled.
-    all_macro_files = deps_inputs(ctx, gds = False, lef = False)
-
     # Per-macro lookup tables, keyed by Verilog module name
     # (TopInfo.module_top — what the RTLIL hierarchy contains). Used
     # below to build per-partition inputs and per-partition config.mk
@@ -1879,26 +1929,6 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     use_kept_macros_scoping = (
         ctx.attr.kept_macros_enabled and bool(ctx.attr.kept_macros)
     )
-
-    # With slices and no kept_macros, a partition stages the macros its
-    # slices hold as stubs (partition_macros.py), so a macro's liberty
-    # reaches only the partitions that instantiate it.
-    slice_macros_json = None
-    if slices and not use_kept_macros_scoping:
-        slice_macros = {}
-        for dep in ctx.attr.deps:
-            info = dep[OrfsInfo]
-            lib = info.lib_pre_layout or info.lib
-            if not lib:
-                continue
-            paths = orfs_additional_arguments([info], use_pre_layout = True, macros_only = True)
-            slice_macros[dep[TopInfo].module_top] = {
-                "gds": [p for p in paths.get("ADDITIONAL_GDS", "").split(" ") if p],
-                "lefs": [p for p in paths.get("ADDITIONAL_LEFS", "").split(" ") if p],
-                "lib": lib.path,
-            }
-        slice_macros_json = ctx.actions.declare_file(ctx.label.name + "_slice_macros.json")
-        ctx.actions.write(output = slice_macros_json, content = json.encode(slice_macros))
 
     partition_outputs = []
     partition_stats = []
@@ -2005,29 +2035,10 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             )
             needs_config = True
         elif slice_macros_json and my_modules:
-            staged_macros = declare_directory_artifact(
-                ctx,
-                "results",
-                "partition_{}_macros".format(suffix),
-            )
-            ctx.actions.run(
-                executable = ctx.executable._python,
-                arguments = [
-                    ctx.file._partition_macros.path,
-                    "--macros-json",
-                    slice_macros_json.path,
-                    "--out-dir",
-                    staged_macros.path,
-                ] + [verilog_slice[m].path for m in my_modules],
-                inputs = depset(
-                    [ctx.file._partition_macros, slice_macros_json] +
-                    [verilog_slice[m] for m in my_modules],
-                    transitive = [all_macro_files],
-                ),
-                outputs = [staged_macros],
-                mnemonic = "PartitionMacros",
-                progress_message = "Staging the macros of partition {}".format(suffix),
-            )
+            if len(my_modules) == 1:
+                staged_macros = staged_of[my_modules[0]]
+            else:
+                staged_macros = stage_macros(suffix, my_modules)
             my_macro_files = depset([staged_macros])
             includes.append(staged_macros.path + "/macros.mk")
             config_inputs = [staged_macros]

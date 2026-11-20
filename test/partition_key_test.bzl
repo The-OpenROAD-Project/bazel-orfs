@@ -8,9 +8,10 @@ before, adding or reordering one name re-synthesized every partition.
 
 A module of SYNTH_KEEP_MODULES that a macro of the flow stands for
 (`macros`) has no partition and no canonicalize of its own, and the
-slicer is told to stub it. A partition reads no macro's liberty
-(`macro_libs`) directly, only the macros its own slice stages, so a
-macro reaches the key of no partition that does not instantiate it.
+slicer is told to stub it. A partition and its slice's canonicalize
+read no macro's liberty (`macro_libs`) directly, only the macros its own
+slice stages, so a macro reaches the key of no partition that does not
+instantiate it.
 """
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
@@ -85,6 +86,16 @@ def _impl(ctx):
                 ["partition_%s_slice.v" % module],
                 [f.basename for f in stager.inputs.to_list() if f.basename.endswith("_slice.v")],
             )
+    for action in actions:
+        if not (action.env and action.env.get("MODULE_VERILOG_SLICE")):
+            continue
+        module = action.env["MODULE_TARGET_NAME"]
+        inputs = [f.basename for f in action.inputs.to_list()]
+        for name in ctx.attr.macro_libs:
+            asserts.false(env, name in inputs, "%s's canonicalize reads %s, not its staged macros" % (module, name))
+        if ctx.attr.macro_libs:
+            staged = "partition_%s_macros" % module
+            asserts.true(env, staged in inputs, "%s's canonicalize lacks %s" % (module, staged))
     for macro in ctx.attr.macros:
         for action in actions:
             asserts.false(
