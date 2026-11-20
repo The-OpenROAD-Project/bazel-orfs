@@ -54,7 +54,9 @@ class ExtractTest(unittest.TestCase):
         r = load("FpCore.block.json")["area"]["die_rule"]
         self.assertEqual(r["rule"], "CORE_UTILIZATION")
         self.assertAlmostEqual(r["util"], 0.4)
-        self.assertAlmostEqual(load("FpMem.block.json")["area"]["die_rule"]["util"], 0.7)
+        self.assertAlmostEqual(
+            load("FpMem.block.json")["area"]["die_rule"]["util"], 0.7
+        )
 
     def test_wire_model_against_calibration(self):
         pdk = load("asap7.pdk.json")

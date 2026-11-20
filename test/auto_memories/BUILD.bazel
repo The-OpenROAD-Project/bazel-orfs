@@ -21,6 +21,7 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:openroad.bzl", "orfs_flow")
 load("//test:auto_memories_outputs_test.bzl", "auto_memories_outputs_test")
 load("//test:memories_in_place_test.bzl", "memories_in_place_test")
+load("//tools/floorplan:floorplan.bzl", "floorplan_extract", "floorplan_plan")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -289,4 +290,20 @@ sh_test(
             "shared_",
         ]
     ],
+)
+
+# The global floorplan planner (tools/floorplan) on the memory: its block
+# facts and a plan of am_top alone, its ports to the parent's logic.
+floorplan_extract(
+    name = "am_top_block",
+    src = ":am_top_synth",
+    arguments = {"CORE_UTILIZATION": "30"},
+)
+
+floorplan_plan(
+    name = "am_top_plan",
+    blocks = [":am_top_block"],
+    constraints = ":floorplan_constraints.json",
+    cut = ":floorplan_cut.json",
+    pdk = "//test/floorplan_toy:asap7",
 )

@@ -1,7 +1,7 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_python//python:defs.bzl", "py_test")
 load("//:openroad.bzl", "orfs_flow", "orfs_macro")
-load("//tools/floorplan:floorplan.bzl", "floorplan_extract", "floorplan_pdk")
+load("//tools/floorplan:floorplan.bzl", "floorplan_extract", "floorplan_pdk", "floorplan_plan")
 
 # The global floorplan planner's toy (tools/floorplan, toy.sv): three
 # blocks and the parent's glue, synthesised in seconds.
@@ -90,6 +90,7 @@ build_test(
 floorplan_pdk(
     name = "asap7",
     src = ":FpCore_synth",
+    visibility = ["//test:__subpackages__"],
 )
 
 # //test:local
@@ -109,6 +110,47 @@ py_test(
         ":asap7",
     ],
     main = "extract_test.py",
+    tags = ["manual"],
+    visibility = ["//test:__pkg__"],
+)
+
+# The seeded faults (tools/floorplan/testdata/toy/constraints_*.json),
+# each planned on the extracts above; plan_test reads the verdicts.
+VARIANTS = {
+    "area": "area FpMem - -",
+    "aspect": "aspect FpMem - -",
+    "clean": "feasible - - -",
+    "pins": "pins_per_um FpVec - wide",
+    "wall": "internal_arrangement FpMem W resp",
+}
+
+[
+    floorplan_plan(
+        name = "plan_" + variant,
+        blocks = [
+            ":FpCore",
+            ":FpMem",
+            ":FpVec",
+        ],
+        constraints = "//tools/floorplan:testdata/toy/constraints_%s.json" % variant,
+        cut = "//tools/floorplan:testdata/toy/cut.json",
+        parent = "//tools/floorplan:testdata/toy/parent.json",
+        pdk = ":asap7",
+    )
+    for variant in VARIANTS
+]
+
+# //test:local
+py_test(
+    name = "plan_test",
+    srcs = ["plan_test.py"],
+    args = ["%s=$(rootpath :plan_%s/verdict.json)=%s" % (
+        v,
+        v,
+        e.replace(" ", ","),
+    ) for v, e in VARIANTS.items()],
+    data = [":plan_%s/verdict.json" % v for v in VARIANTS],
+    main = "plan_test.py",
     tags = ["manual"],
     visibility = ["//test:__pkg__"],
 )

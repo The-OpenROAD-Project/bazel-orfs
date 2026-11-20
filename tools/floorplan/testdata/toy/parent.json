@@ -1,0 +1,15 @@
+{
+ "parent": "fp_top",
+ "glue": {"std_um2": 100.0},
+ "crossings": [
+  {"a": "FpCore", "a_bus": "req", "b": "FpMem", "b_bus": "req", "bits": 128, "via": "wire"},
+  {"a": "FpMem", "a_bus": "resp", "b": "FpCore", "b_bus": "resp", "bits": 136, "via": "reg"},
+  {"a": "FpCore", "a_bus": "wide", "b": "FpVec", "b_bus": "wide", "bits": 1024, "via": "wire"},
+  {"a": "FpCore", "a_bus": "deep_out", "b": "FpVec", "b_bus": "deep_in", "bits": 32, "via": "comb"},
+  {"a": "FpCore", "a_bus": "ft_out", "b": "FpVec", "b_bus": "ft_in", "bits": 16, "via": "wire"},
+  {"a": "fp_top", "a_bus": "in_top", "b": "FpCore", "b_bus": "in_top", "bits": 32, "via": "wire"},
+  {"a": "fp_top", "a_bus": "ft_top", "b": "FpCore", "b_bus": "ft_in", "bits": 16, "via": "wire"},
+  {"a": "FpVec", "a_bus": "ft_out", "b": "fp_top", "b_bus": "ft_out", "bits": 16, "via": "wire"},
+  {"a": "FpVec", "a_bus": "res", "b": "fp_top", "b_bus": "out_top", "bits": 32, "via": "reg"}
+ ]
+}

@@ -78,3 +78,58 @@ def floorplan_pdk(name, src, tags = ["manual"], visibility = None):
         tags = tags,
         visibility = visibility,
     )
+
+def floorplan_plan(
+        name,
+        blocks,
+        pdk,
+        cut,
+        constraints,
+        parent = None,
+        run_all = False,
+        tags = ["manual"],
+        visibility = None):
+    """The planner's verdict on a cut, and its floorplan when it fits.
+
+    Writes `<name>/verdict.json`, `<name>/verdict.md` and
+    `<name>/floorplan.json` ({} when the cut is infeasible). The action
+    succeeds either way: the verdict is its result, and a test reads it.
+    Only the JSONs are inputs, so a changed constraint reruns the plan
+    alone, in seconds.
+
+    Args:
+        name: the target
+        blocks: the floorplan_extract targets, one per macro
+        pdk: the floorplan_pdk target
+        cut: cut.json, which block each macro is
+        constraints: constraints.json
+        parent: the parent's crossings (parent.json), optional
+        run_all: every rung past the first stop
+        tags: forwarded
+        visibility: forwarded
+    """
+    srcs = blocks + [pdk, cut, constraints] + ([parent] if parent else [])
+    args = " ".join(["--block $(execpath %s)" % b for b in blocks])
+    args += " --pdk $(execpath %s) --cut $(execpath %s) --constraints $(execpath %s)" % (pdk, cut, constraints)
+    if parent:
+        args += " --parent $(execpath %s)" % parent
+    if run_all:
+        args += " --all"
+    native.genrule(
+        name = name,
+        srcs = srcs,
+        outs = [
+            name + "/verdict.json",
+            name + "/verdict.md",
+            name + "/floorplan.json",
+        ],
+        cmd = ("$(execpath {plan}) {args} --verdict $(execpath {n}/verdict.json) " +
+               "--verdict-md $(execpath {n}/verdict.md) --floorplan $(execpath {n}/floorplan.json)").format(
+            plan = Label("//tools/floorplan:plan"),
+            args = args,
+            n = name,
+        ),
+        tools = [Label("//tools/floorplan:plan")],
+        tags = tags,
+        visibility = visibility,
+    )

@@ -1,0 +1,105 @@
+{
+ "area": {
+  "die_rule": {
+   "aspect": 1.0,
+   "core_h_um": 40.23,
+   "core_w_um": 40.014,
+   "h_um": 42.23,
+   "margin_um": 1.0,
+   "rule": "CORE_UTILIZATION",
+   "util": 0.4,
+   "w_um": 42.014
+  },
+  "hard_um2": 0,
+  "macros": [],
+  "std_um2": 639.187
+ },
+ "block": "FpCore",
+ "clock": {
+  "period_ps": 1000.0,
+  "port": "clock"
+ },
+ "hard": [],
+ "identity": {
+  "dump": "sha256:eafeb5588426868bb9162099ad32315e94b0259f62597b629e5b67b936150426",
+  "tool": "block_json 1"
+ },
+ "ports": [
+  {
+   "bits": 32,
+   "dir": "out",
+   "group": "deep_out",
+   "name": "deep_out",
+   "reg2out_ps": {
+    "bit": "deep_out[31]",
+    "max": 363.7
+   },
+   "registered": false
+  },
+  {
+   "bits": 16,
+   "dir": "in",
+   "group": "ft_in",
+   "in2out": [
+    {
+     "bits": 16,
+     "max_ps": 31.5,
+     "to": "ft_out"
+    }
+   ],
+   "name": "ft_in",
+   "registered": false
+  },
+  {
+   "bits": 16,
+   "dir": "out",
+   "group": "ft_out",
+   "name": "ft_out",
+   "registered": false
+  },
+  {
+   "bits": 32,
+   "dir": "in",
+   "group": "in_top",
+   "in2reg_ps": {
+    "bit": "in_top[9]",
+    "max": 281.5
+   },
+   "name": "in_top",
+   "registered": false
+  },
+  {
+   "bits": 128,
+   "dir": "out",
+   "group": "req",
+   "name": "req",
+   "reg2out_ps": {
+    "bit": "req[111]",
+    "max": 28.7
+   },
+   "registered": true
+  },
+  {
+   "bits": 136,
+   "dir": "in",
+   "group": "resp",
+   "in2reg_ps": {
+    "bit": "resp[10]",
+    "max": 244.0
+   },
+   "name": "resp",
+   "registered": false
+  },
+  {
+   "bits": 1024,
+   "dir": "out",
+   "group": "wide",
+   "name": "wide",
+   "reg2out_ps": {
+    "bit": "wide[1007]",
+    "max": 48.7
+   },
+   "registered": true
+  }
+ ]
+}
