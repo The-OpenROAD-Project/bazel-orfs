@@ -9,6 +9,7 @@ exports_files(
         "extract_block.tcl",
         "extract_parent.tcl",
         "extract_pdk.tcl",
+        "probe_congestion.tcl",
         "probe_wire.tcl",
     ] + glob(["testdata/toy/*.json"]),
     visibility = ["//visibility:public"],
