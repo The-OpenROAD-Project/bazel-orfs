@@ -29,7 +29,8 @@
     "from it.",
     "",
     "The SDC each row was measured at: 800 ps before 2026-09-26's second",
-    "XSTile run, 473 ps from that run through 2026-11-18, 1,800 ps after.",
+    "XSTile run, 473 ps from that run through 2026-11-21's clean build of",
+    "main (f1a26bfd), 1,800 ps after.",
     "The boundary budgets are the same at 473 and at 1,800 ps (378.4 ps",
     "in2reg and reg2out, 283.8 in2out): the move changes the reg2reg",
     "target only.",
@@ -2946,6 +2947,102 @@
           "from": "fpWbDataPath.out_wb0_5_pdest[0]$_DFFE_PP_/QN",
           "to": "fpRegFile/io_writePorts_5_addr[0]",
           "what": "The FP write-back data path's destination register to a write-port address pin of the FP register file."
+        }
+      }
+    },
+    {
+      "date": "2026-11-21",
+      "measured": "A clean build of main at f1a26bfd with the SDC at 473 ps: every block and the parent synthesized, placed, clock-tree synthesized and globally routed by Bazel from scratch, no dirty lane; each part's KPI at its own global route",
+      "parent_ps": 1822,
+      "blocks": {
+        "Frontend": 1062,
+        "MemBlock": 1066,
+        "CoupledL2": 864,
+        "VecRegionModule": 975,
+        "FltRegionModule": 1027
+      },
+      "note": "The parent at 1,822 ps from a clean build of main with the SDC at 473 ps, from 2,024 in run 34. The blocks: Frontend 1,062 ps (1,032), MemBlock 1,066 (1,172), CoupledL2 864 (864), VecRegionModule 975 (1,023), FltRegionModule 1,027 (1,033). The last row at the 473 ps SDC"
+    },
+    {
+      "date": "2026-11-21",
+      "measured": "A clean build at 5c43bec1, which sets the SDC to 1,800 ps (constraints.sdc), eight commits after run 35's f1a26bfd; the boundary budgets as at 473 ps, 378.4 ps in2reg and reg2out, 283.8 in2out. Scheduled with orfs_schedule (the package's :build): every block and the parent synthesized, placed, clock-tree synthesized and globally routed by Bazel from scratch, no dirty lane; each part's KPI at its own global route",
+      "parent_ps": 2377,
+      "blocks": {
+        "Frontend": 1858,
+        "MemBlock": 1752,
+        "CoupledL2": 1559,
+        "VecRegionModule": 1353,
+        "FltRegionModule": 1268
+      },
+      "note": "The parent at 2,377 ps from a clean build with the SDC at 1,800 ps instead of 473, from 1,822 in run 35: 1,555 endpoints over 2,000 ps, 6,316 over 1,800; the reg2reg worst slack is -577 ps, in2reg -755, reg2out -1,039. The blocks relax toward the SDC: Frontend 1,858 ps (1,062; worst slack -58), MemBlock 1,752 (1,066; +48), CoupledL2 1,559 (864), VecRegionModule 1,353 (975), FltRegionModule 1,268 (1,027). The worst path is the control block's ROB-flush redirect valid into the floating-point region block's read-address enable from the vector region",
+      "worst_paths": {
+        "parent": {
+          "period_ps": 2377,
+          "from": "core/backend/inner_ctrlBlock/s1_robFlushRedirect_valid_last_REG$_DFF_PP0_/QN",
+          "to": "core/backend/inner_fpRegion/in_fromVecRegion_is1RdAddrNext_1_0_0_ren",
+          "what": "ctrlBlock's stage-1 ROB-flush redirect valid into fpRegion's read-address enable from the vector region: a parent register to a block's input pin."
+        },
+        "Frontend": {
+          "period_ps": 1858,
+          "from": "inner_ftq/io_toICache_toMainPipe_bits_req_0_ftqIdx_value[1]$_DFFE_PP0P_/QN",
+          "to": "inner_icache/dataArray.banks_2.ways_1.array.array_ext/RW0_en",
+          "what": "The FTQ's ICache request FTQ index to the enable pin of an ICache data-array SRAM."
+        },
+        "MemBlock": {
+          "period_ps": 1752,
+          "from": "inner_dcache/dcache.mainPipe/s1_req_vaddr[29]$_DFFE_PP_/QN",
+          "to": "inner_dcache/dcache.cacheCtrlOpt.counterRegs_0[2]$_DFFE_PP0P_/D",
+          "what": "The DCache main pipe's stage-1 virtual address into a cache control unit counter register."
+        },
+        "CoupledL2": {
+          "period_ps": 1559,
+          "from": "slices_0/directory/metaAll_s3_3_state[1]$_DFFE_PP0P_/QN",
+          "to": "slices_0/sinkC/r_1[176]$_DFFE_PP_/D",
+          "what": "A directory metadata state register into a sinkC buffer register, in slice 0."
+        },
+        "VecRegionModule": {
+          "period_ps": 1353,
+          "from": "issuePipes_1/ex0Next_bits_bypassCtrl_bypassSource_0_idx[1]$_DFFE_PP_/QN",
+          "to": "issuePipes_1/exu.Vfmac/a0_1_fpB[23]$_DFFE_PP_/D",
+          "what": "Issue pipe 1's stage-0 bypass source index into a vector FMA operand register."
+        },
+        "FltRegionModule": {
+          "period_ps": 1268,
+          "from": "fpWbM2WakeupOBeforeArbiter_REG_3_wen$_DFF_P_/QN",
+          "to": "issuePipes_1/is0_valid$_DFF_PP0_/D",
+          "what": "A delayed FP write-back wake-up enable into issue pipe 1's issue-stage valid."
+        }
+      },
+      "histograms": {
+        "parent": {
+          "bin_ps": 10,
+          "from_ps": -20,
+          "counts": [22, 58, 4, 4, 2, 668, 2479, 1052, 673, 512, 399, 320, 277, 264, 256, 308, 310, 314, 323, 261, 225, 232, 259, 253, 225, 266, 235, 227, 289, 378, 353, 424, 393, 497, 525, 517, 486, 579, 583, 515, 518, 737, 900, 773, 721, 772, 777, 881, 866, 823, 1149, 1244, 1031, 978, 1211, 1156, 1085, 1056, 950, 1042, 906, 748, 893, 803, 699, 711, 739, 794, 814, 728, 837, 833, 815, 855, 803, 861, 745, 648, 679, 741, 762, 688, 719, 705, 768, 941, 918, 1004, 1027, 1071, 1095, 1126, 1235, 1244, 1180, 1105, 1081, 1185, 1079, 1042, 963, 984, 928, 929, 906, 843, 866, 842, 888, 879, 722, 788, 724, 755, 803, 708, 751, 808, 886, 943, 1098, 1178, 1319, 1400, 1574, 1579, 1507, 1503, 1705, 1778, 1942, 1985, 2211, 1995, 1966, 1802, 1693, 2041, 1925, 1735, 1570, 1570, 1633, 1425, 1309, 1170, 1066, 1070, 1112, 1062, 921, 717, 611, 572, 625, 633, 480, 497, 663, 669, 586, 610, 521, 506, 434, 471, 494, 472, 456, 475, 478, 438, 439, 448, 359, 437, 468, 403, 301, 376, 269, 242, 263, 250, 259, 225, 156, 176, 225, 207, 185, 206, 234, 222, 255, 240, 326, 341, 305, 275, 198, 213, 176, 168, 207, 141, 96, 137, 89, 40, 18, 12, 30, 31, 24, 7, 26, 27, 11, 18, 16, 2, 24, 21, 33, 27, 30, 20, 11, 17, 27, 26, 21, 7, 9, 5, 0, 0, 0, 1]
+        },
+        "Frontend": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [305, 359, 143, 145, 49, 70, 173, 112, 205, 206, 205, 270, 287, 342, 406, 422, 388, 329, 345, 544, 989, 1051, 845, 1004, 916, 819, 731, 635, 625, 680, 808, 924, 872, 839, 972, 1020, 941, 791, 1051, 934, 717, 802, 897, 767, 774, 758, 587, 560, 665, 730, 789, 753, 801, 806, 831, 763, 701, 872, 971, 749, 827, 649, 804, 694, 702, 658, 777, 1272, 1605, 2170, 3126, 3052, 1504, 872, 914, 998, 1387, 1136, 1120, 1348, 1484, 1536, 1402, 1519, 1529, 1692, 1495, 1364, 1086, 1083, 1016, 773, 779, 677, 509, 661, 694, 611, 703, 625, 564, 560, 567, 589, 506, 432, 615, 796, 1515, 2998, 3922, 2068, 1572, 1654, 1791, 2103, 1668, 969, 857, 1055, 1136, 1271, 1162, 1404, 1552, 998, 788, 748, 516, 428, 487, 713, 1173, 1062, 904, 631, 283, 228, 203, 343, 458, 359, 366, 434, 151, 256, 321, 249, 229, 326, 292, 263, 229, 172, 114, 67, 44, 15, 25, 15, 42, 14, 18, 26, 28, 22, 24, 16, 18, 20, 14, 7, 2, 7, 6, 3, 9, 23, 19, 8, 0, 0, 1]
+        },
+        "MemBlock": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [2037, 638, 336, 245, 310, 148, 102, 160, 194, 218, 192, 409, 532, 673, 895, 1034, 1127, 1324, 1635, 1974, 2356, 2632, 2769, 3336, 3336, 3454, 3769, 3873, 3283, 3364, 3085, 3369, 2976, 3047, 3269, 2704, 2325, 2058, 1974, 1948, 1850, 1743, 1981, 1682, 1530, 1724, 1693, 1797, 1657, 1643, 1807, 1659, 1632, 1904, 1824, 1813, 1880, 1800, 2168, 1919, 1750, 1659, 1646, 1495, 1464, 1631, 1498, 1546, 1686, 1793, 1779, 2121, 2708, 2618, 3300, 3062, 3173, 3264, 4267, 5458, 6470, 6126, 5646, 5106, 4108, 3630, 4068, 3850, 3675, 4008, 3458, 3651, 3761, 4126, 3118, 2633, 2423, 2463, 2120, 1709, 1346, 1352, 1078, 899, 586, 519, 480, 448, 360, 398, 297, 309, 259, 269, 344, 312, 510, 567, 618, 671, 697, 736, 676, 833, 850, 947, 1093, 966, 720, 672, 746, 719, 719, 822, 991, 1203, 1584, 1566, 1456, 1529, 1671, 1500, 1496, 1211, 850, 640, 486, 299, 244, 240, 134, 98, 71, 112, 114, 165, 187, 152, 357, 366, 343, 274, 154, 107, 88, 52, 65, 55, 118, 158, 198, 109, 2]
+        },
+        "CoupledL2": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [896, 328, 65, 72, 34, 35, 269, 409, 204, 65, 44, 48, 64, 58, 58, 100, 78, 50, 113, 74, 203, 243, 453, 558, 793, 957, 787, 568, 685, 764, 1117, 869, 828, 737, 775, 623, 647, 522, 519, 644, 749, 582, 630, 731, 737, 610, 1001, 702, 709, 575, 624, 679, 687, 855, 662, 787, 815, 758, 708, 776, 711, 825, 878, 1022, 1462, 1211, 1147, 1283, 1210, 1292, 1357, 1417, 1331, 1302, 1393, 1283, 1259, 1106, 1300, 1295, 1211, 1072, 1017, 674, 783, 751, 552, 515, 579, 397, 357, 415, 358, 534, 669, 707, 779, 934, 1027, 1230, 1154, 1195, 1614, 1688, 908, 688, 692, 662, 496, 466, 419, 457, 346, 432, 441, 364, 458, 450, 349, 254, 281, 344, 293, 471, 1088, 1414, 1002, 316, 214, 99, 81, 39, 17, 2, 3, 16, 33, 17, 23, 50, 34, 45, 76, 99, 46, 37, 38, 16, 54, 70, 23, 37, 15]
+        },
+        "VecRegionModule": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [547, 283, 132, 343, 391, 319, 43, 32, 28, 45, 77, 100, 119, 162, 138, 203, 175, 185, 234, 239, 203, 206, 184, 233, 298, 298, 268, 292, 266, 308, 322, 337, 303, 258, 345, 277, 407, 650, 934, 830, 595, 571, 512, 588, 614, 640, 773, 550, 733, 1274, 1145, 909, 892, 938, 1468, 1592, 1017, 1342, 2093, 1610, 607, 472, 506, 529, 529, 535, 566, 571, 598, 556, 508, 420, 399, 372, 393, 455, 437, 427, 482, 472, 493, 537, 533, 547, 583, 554, 495, 512, 450, 420, 463, 396, 325, 286, 190, 161, 118, 129, 124, 99, 109, 126, 128, 94, 86, 68, 90, 72, 69, 53, 85, 81, 103, 91, 96, 109, 122, 146, 152, 177, 196, 175, 162, 114, 99, 73, 27, 18, 12, 6, 3, 0, 1]
+        },
+        "FltRegionModule": {
+          "bin_ps": 10,
+          "from_ps": 30,
+          "counts": [22, 8, 100, 44, 4, 8, 51, 49, 43, 43, 54, 104, 68, 51, 28, 35, 42, 28, 40, 38, 33, 20, 27, 28, 22, 52, 63, 24, 43, 82, 87, 195, 139, 142, 108, 130, 92, 148, 236, 218, 194, 348, 499, 531, 524, 473, 477, 536, 600, 480, 482, 461, 413, 317, 301, 249, 235, 220, 224, 259, 231, 256, 240, 162, 176, 199, 229, 256, 233, 204, 223, 211, 271, 254, 230, 272, 235, 185, 150, 128, 115, 89, 80, 98, 86, 100, 114, 174, 218, 277, 276, 273, 214, 171, 146, 112, 69, 41, 48, 39, 81, 65, 45, 56, 49, 44, 52, 52, 37, 36, 17, 4, 3, 4, 0, 2, 0, 0, 0, 1, 1, 0, 0, 1]
         }
       }
     }
