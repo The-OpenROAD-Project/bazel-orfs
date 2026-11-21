@@ -126,12 +126,20 @@ py_test(
         "FpVec",
         "asap7",
         "fp_top_parent",
+        "fp_top_macros_parent",
+        "fp_top_macros_parent_FpCore",
+        "fp_top_macros_parent_FpMem",
+        "fp_top_macros_parent_FpVec",
     ]] + ["$(rootpath //test/macro_select:floorplan_calibration.json)"],
     data = [
         ":FpCore",
         ":FpMem",
         ":FpVec",
         ":asap7",
+        ":fp_top_macros_parent",
+        ":fp_top_macros_parent_FpCore",
+        ":fp_top_macros_parent_FpMem",
+        ":fp_top_macros_parent_FpVec",
         ":fp_top_parent",
         "//test/macro_select:floorplan_calibration.json",
     ],
@@ -237,6 +245,24 @@ orfs_flow(
     tags = ["manual"],
     variant = "planned",
     verilog_files = [":toy.sv"],
+)
+
+# the same crossings from the parent synthesised over the blocks'
+# abstracts, each block a macro instance, and each block's facts from its
+# macro: its outline and ports
+floorplan_parent(
+    name = "fp_top_macros_parent",
+    src = ":fp_top_planned_synth",
+    blocks = [
+        "FpCore",
+        "FpMem",
+        "FpVec",
+    ],
+    macro_blocks = [
+        "FpCore",
+        "FpMem",
+        "FpVec",
+    ],
 )
 
 build_test(

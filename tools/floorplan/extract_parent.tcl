@@ -10,8 +10,10 @@
 #          <to bits> <via> <depth> <glue_ps>
 #
 # A block is an instance of a module EXTRACT_BLOCKS names (all the top's
-# own children when it names none); everything else is the parent's
-# logic, the glue, whatever module it sits in. From every output bus of
+# own children when it names none), or an instance of a macro master of
+# that name (a parent synthesised over its blocks' mocks or abstracts);
+# everything else is the parent's logic, the glue, whatever module it
+# sits in. From every output bus of
 # every block, forward through the glue's wires and combinational cells:
 # another block's input bus (via wire or comb), a glue register (to the
 # glue, inst "reg") or a top output (to the top, inst "-"). Into every
@@ -26,6 +28,9 @@
 #   EXTRACT_BLOCKS  the blocks' modules
 #   EXTRACT_DEPTH   glue cells a crossing is followed through (64)
 #   EXTRACT_TIMING  0: no glue_ps (no timing update on a large parent)
+#   EXTRACT_BLOCK_DUMPS  files <dir>/<master>.dump.tsv: each macro
+#                   block's own dump in extract_block.tcl's records (its
+#                   outline as DIE_AREA, its ports), for block_json.py
 source $::env(SCRIPTS_DIR)/load.tcl
 load_design 1_synth.odb
 
@@ -52,17 +57,39 @@ set names {}
 if { [info exists ::env(EXTRACT_BLOCKS)] && $::env(EXTRACT_BLOCKS) ne "" } {
   set names $::env(EXTRACT_BLOCKS)
 }
+# a block is a key: m<id> for a module instance, i<id> for a macro
+# instance; its name and module by key
 set blocks {}
+set block_name [dict create]
+set block_module [dict create]
+set block_hard [dict create]
 foreach mi [$block getModInsts] {
   if { ([llength $names] == 0 && [$mi getParent] eq $top) ||
        ([llength $names] > 0 && [lsearch -exact $names [module_name $mi]] >= 0) } {
-    lappend blocks $mi
+    set k m[$mi getId]
+    lappend blocks $k
+    dict set block_name $k [$mi getHierarchicalName]
+    dict set block_module $k [module_name $mi]
+    dict set block_hard $k $mi
+  }
+}
+foreach inst [$block getInsts] {
+  set m [$inst getMaster]
+  if { ![$m isBlock] } { continue }
+  if { ([llength $names] == 0 && [$inst getModule] eq $top) ||
+       ([llength $names] > 0 && [lsearch -exact $names [$m getName]] >= 0) } {
+    set k i[$inst getId]
+    lappend blocks $k
+    dict set block_name $k [$inst getName]
+    dict set block_module $k [$m getName]
+    dict set block_hard $k $inst
   }
 }
 set block_of_mi [dict create]
-foreach mi $blocks { dict set block_of_mi [$mi getId] $mi }
+foreach k $blocks { dict set block_of_mi $k 1 }
+
 if { [llength $names] > 0 } {
-  set found [lsort -unique [lmap mi $blocks { module_name $mi }]]
+  set found [lsort -unique [dict values $block_module]]
   foreach n $names {
     if { [lsearch -exact $found $n] < 0 } {
       error "extract_parent: EXTRACT_BLOCKS names $n, which no instance below $top_name is"
@@ -73,13 +100,14 @@ if { [llength $names] > 0 } {
 # a cell's block, by its module, cached: "" for the glue
 set block_of_module [dict create]
 proc block_of { inst } {
+  if { [dict exists $::block_of_mi i[$inst getId]] } { return i[$inst getId] }
   set mod [$inst getModule]
   set id [$mod getId]
   if { [dict exists $::block_of_module $id] } { return [dict get $::block_of_module $id] }
   set b ""
   set mi [$mod getModInst]
   while { $mi ne "NULL" } {
-    if { [dict exists $::block_of_mi [$mi getId]] } { set b $mi; break }
+    if { [dict exists $::block_of_mi m[$mi getId]] } { set b m[$mi getId]; break }
     set mi [[$mi getParent] getModInst]
   }
   dict set ::block_of_module $id $b
@@ -95,25 +123,77 @@ foreach inst [$block getInsts] {
   if { $b eq "" } {
     set glue [expr { $glue + $a }]
   } else {
-    set k [$b getId]
+    set k $b
     dict set area $k [expr { ([dict exists $area $k] ? [dict get $area $k] : 0.0) + $a }]
   }
 }
 puts $out "glue\t[format %.3f $glue]"
-foreach mi $blocks {
-  set k [$mi getId]
-  puts $out "module\t[$mi getHierarchicalName]\t[module_name $mi]\t[format %.3f [expr { [dict exists $area $k] ? [dict get $area $k] : 0.0 }]]"
+foreach k $blocks {
+  puts $out "module\t[dict get $block_name $k]\t[dict get $block_module $k]\t[format %.3f [expr { [dict exists $area $k] ? [dict get $area $k] : 0.0 }]]"
 }
 
 set sequential [dict create]
 foreach reg [all_registers -cells] {
   dict set sequential [get_property $reg ref_name] 1
 }
-set clock_ports {}
-foreach clk [all_clocks] {
-  foreach s [get_property $clk sources] { lappend clock_ports [get_full_name $s] }
-}
 set ui_ps [expr { [sta::time_ui_sta 1.0] * 1e12 }]
+set clock_ports {}
+set clock_period [dict create]
+foreach clk [all_clocks] {
+  foreach s [get_property $clk sources] {
+    lappend clock_ports [get_full_name $s]
+    dict set clock_period [get_full_name $s] [format %.1f [expr { [get_property $clk period] * $ui_ps }]]
+  }
+}
+
+# a macro block's own facts, as extract_block.tcl writes them for a
+# synthesised block: its outline is the macro's, its ports the master's
+if { [info exists ::env(EXTRACT_BLOCK_DUMPS)] && $::env(EXTRACT_BLOCK_DUMPS) ne "" } {
+  set dumps [dict create]
+  foreach d $::env(EXTRACT_BLOCK_DUMPS) {
+    dict set dumps [file rootname [file rootname [file tail $d]]] $d
+  }
+  set site NULL
+  foreach lib [[ord::get_db] getLibs] {
+    set s [$lib findSite $::env(PLACE_SITE)]
+    if { $s ne "NULL" } { set site $s }
+  }
+  set written [dict create]
+  foreach k $blocks {
+    if { [string index $k 0] ne "i" } { continue }
+    set m [[dict get $block_hard $k] getMaster]
+    if { [dict exists $written [$m getName]] || ![dict exists $dumps [$m getName]] } { continue }
+    dict set written [$m getName] 1
+    set f [open [dict get $dumps [$m getName]] w]
+    puts $f "block\t[$m getName]"
+    puts $f "var\tDIE_AREA\t0 0 [format %.3f [expr { double([$m getWidth]) / $dbu }]] [format %.3f [expr { double([$m getHeight]) / $dbu }]]"
+    if { $site ne "NULL" } {
+      puts $f "site\t[format %.3f [expr { double([$site getWidth]) / $dbu }]]\t[format %.3f [expr { double([$site getHeight]) / $dbu }]]"
+    }
+    puts $f "area\t0.000"
+    foreach it [[dict get $block_hard $k] getITerms] {
+      set mt [$it getMTerm]
+      if { [$mt getSigType] ni {SIGNAL CLOCK} } { continue }
+      set clock ""
+      if { [$it getNet] ne "NULL" } {
+        foreach bt [[$it getNet] getBTerms] {
+          if { [dict exists $clock_period [$bt getName]] } { set clock [$bt getName] }
+        }
+      }
+      if { $clock ne "" } {
+        puts $f "clock\t[$mt getName]\t[dict get $clock_period $clock]"
+      } else {
+        puts $f "port\t[$mt getName]\t[string tolower [$mt getIoType]]"
+      }
+    }
+    close $f
+  }
+  dict for {n d} $dumps {
+    if { ![dict exists $written $n] } {
+      error "extract_parent: EXTRACT_BLOCK_DUMPS names $n, which no macro block is"
+    }
+  }
+}
 if { $timing } {
   set inputs [all_inputs -no_clocks]
   if { [llength $inputs] > 0 } { set_input_delay 0 -clock [lindex [all_clocks] 0] $inputs }
@@ -139,18 +219,27 @@ proc net_arrival { net } {
 set ins [dict create]
 set buses_out [dict create]
 set buses_in [dict create]
-foreach mi $blocks {
-  foreach t [$mi getModITerms] {
-    set n [$t getModNet]
-    if { $n eq "NULL" } { continue }
-    set flat [$n findRelatedNet]
-    if { $flat eq "NULL" || [$flat getSigType] ne "SIGNAL" } { continue }
-    set key [list [$mi getId] [bus_of [$t getName]]]
-    if { [[$t getChildModBTerm] getIoType] eq "INPUT" } {
-      dict lappend ins [$flat getId] [list $mi [$t getName]]
-      dict lappend buses_in $key $flat
-    } else {
-      dict lappend buses_out $key $flat
+proc boundary { k name flat io } {
+  if { $flat eq "NULL" || [$flat getSigType] ne "SIGNAL" } { return }
+  set key [list $k [bus_of $name]]
+  if { $io eq "INPUT" } {
+    dict lappend ::ins [$flat getId] [list $k $name]
+    dict lappend ::buses_in $key $flat
+  } elseif { $io eq "OUTPUT" } {
+    dict lappend ::buses_out $key $flat
+  }
+}
+foreach k $blocks {
+  set obj [dict get $block_hard $k]
+  if { [string index $k 0] eq "m" } {
+    foreach t [$obj getModITerms] {
+      set n [$t getModNet]
+      if { $n eq "NULL" } { continue }
+      boundary $k [$t getName] [$n findRelatedNet] [[$t getChildModBTerm] getIoType]
+    }
+  } else {
+    foreach t [$obj getITerms] {
+      boundary $k [[$t getMTerm] getName] [$t getNet] [[$t getMTerm] getIoType]
     }
   }
 }
@@ -160,8 +249,7 @@ proc emit { from from_inst from_bus from_bits to to_inst to_bus to_bits via dept
 }
 
 # forward from a block's output bus through the glue's combinational cells
-proc forward { mi bus nets } {
-  set src [$mi getId]
+proc forward { src bus nets } {
   set t0 0.0
   foreach n $nets { set t0 [expr { max($t0, [net_arrival $n]) }] }
   set reached [dict create]
@@ -177,8 +265,8 @@ proc forward { mi bus nets } {
       if { [dict exists $::ins [$net getId]] } {
         foreach e [dict get $::ins [$net getId]] {
           lassign $e to bit
-          if { [$to getId] == $src } { continue }
-          set k [list [module_name $to] [$to getHierarchicalName] [bus_of $bit] $via]
+          if { $to eq $src } { continue }
+          set k [list [dict get $::block_module $to] [dict get $::block_name $to] [bus_of $bit] $via]
           dict set reached $k $bit [list $depth [net_arrival $net]]
         }
       }
@@ -216,13 +304,13 @@ proc forward { mi bus nets } {
       set t1 [expr { max($t1, $t) }]
     }
     set ps [expr { $via eq "comb" && $to_inst ne "reg" && $to_inst ne "-" ? $t1 - $t0 : 0.0 }]
-    emit [module_name $mi] [$mi getHierarchicalName] $bus $from_bits $to $to_inst $to_bus [dict size $bits] $via $depth $ps
+    emit [dict get $::block_module $src] [dict get $::block_name $src] $bus $from_bits $to $to_inst $to_bus [dict size $bits] $via $depth $ps
   }
 }
 
 # backward into a block's input bus: the glue registers and top inputs
 # its combinational fan-in starts at
-proc backward { mi bus nets } {
+proc backward { k bus nets } {
   set regs [dict create]
   set ports [dict create]
   set seen [dict create]
@@ -263,21 +351,21 @@ proc backward { mi bus nets } {
   foreach n $nets { set t1 [expr { max($t1, [net_arrival $n]) }] }
   set bits [llength $nets]
   if { [dict size $regs] > 0 } {
-    emit $::top_name reg "" [dict size $regs] [module_name $mi] [$mi getHierarchicalName] $bus $bits reg $depth_seen $t1
+    emit $::top_name reg "" [dict size $regs] [dict get $::block_module $k] [dict get $::block_name $k] $bus $bits reg $depth_seen $t1
   }
   dict for {pbus pins} $ports {
-    emit $::top_name - $pbus [dict size $pins] [module_name $mi] [$mi getHierarchicalName] $bus $bits \
+    emit $::top_name - $pbus [dict size $pins] [dict get $::block_module $k] [dict get $::block_name $k] $bus $bits \
       [expr { $depth_seen > 0 ? "comb" : "wire" }] $depth_seen 0.0
   }
 }
 
 dict for {key nets} $buses_out {
   lassign $key id bus
-  forward [dict get $block_of_mi $id] $bus $nets
+  forward $id $bus $nets
 }
 dict for {key nets} $buses_in {
   lassign $key id bus
-  backward [dict get $block_of_mi $id] $bus $nets
+  backward $id $bus $nets
 }
 close $out
 puts "extract_parent: $top_name, [llength $blocks] blocks, written to $::env(EXTRACT_OUT)"

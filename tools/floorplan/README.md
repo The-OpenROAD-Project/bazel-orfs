@@ -35,9 +35,13 @@ triage loop needs; the slow truth comes only at the end.
   the netlist's own delay (`in2reg`, `reg2out`, `in2out` per bus, worst
   bit named); every hard object with its pins by side and the port buses
   they reach through the block's cells and at most one register.
-- `floorplan_parent(name, src, blocks)`: `extract_parent.tcl` on the
-  parent's hierarchical synthesis (`OPENROAD_HIERARCHICAL=1`, the blocks
-  kept modules, anywhere below the top). Every crossing between block
+- `floorplan_parent(name, src, blocks, macro_blocks)`: `extract_parent.tcl`
+  on the parent's hierarchical synthesis (`OPENROAD_HIERARCHICAL=1`, the
+  blocks kept modules, anywhere below the top, or macros: the parent
+  synthesised over the blocks' mocks or abstracts). Each of
+  `macro_blocks` is also written as a block.json from its macro, its
+  outline as `DIE_AREA` and its ports, for a block with no synthesis of
+  its own. Every crossing between block
   buses, the glue (every cell in no block) and the top's ports, with the
   bits of each end, how they connect (wire, combinational, a glue
   register) and the glue's own delay.

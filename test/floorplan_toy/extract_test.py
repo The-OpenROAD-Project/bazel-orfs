@@ -9,7 +9,7 @@ FILES = {}
 
 
 def load(suffix):
-    (path,) = [p for p in FILES if p.endswith(suffix)]
+    (path,) = [p for p in FILES if p.split("/")[-1] == suffix]
     with open(path) as f:
         return json.load(f)
 
@@ -68,6 +68,30 @@ class ExtractTest(unittest.TestCase):
         )
         self.assertGreater(deep["glue_ps"], 50)
         self.assertIn(("fp_top", "in_top", "FpCore", "in_top"), x)
+
+    def test_parent_over_macros(self):
+        def crossings(name):
+            return sorted(
+                (c["a"], c["a_bus"], c["b"], c["b_bus"], c["a_bits"], c["b_bits"], c["via"])
+                for c in load(name)["crossings"]
+            )
+
+        self.assertEqual(
+            crossings("fp_top_macros_parent.parent.json"),
+            crossings("fp_top_parent.parent.json"),
+        )
+        self.assertEqual(
+            load("fp_top_macros_parent.parent.json")["glue"],
+            load("fp_top_parent.parent.json")["glue"],
+        )
+        for block in ("FpCore", "FpMem", "FpVec"):
+            b = load("fp_top_macros_parent_%s.block.json" % block)
+            self.assertEqual(b["area"]["die_rule"]["rule"], "DIE_AREA")
+            self.assertEqual(
+                {p["name"]: (p["dir"], p["bits"]) for p in b["ports"]},
+                {n: (p["dir"], p["bits"]) for n, p in self.ports(block).items()},
+            )
+            self.assertEqual(b["clock"]["port"], "clock")
 
     def test_wire_model_against_calibration(self):
         # test/macro_select's measured facts, the 50 % error bars

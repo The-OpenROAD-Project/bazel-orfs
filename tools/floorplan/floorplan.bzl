@@ -189,36 +189,55 @@ def floorplan_plan(
         visibility = visibility,
     )
 
-def floorplan_parent(name, src, blocks = [], timing = True, tags = ["manual"], visibility = None):
+def floorplan_parent(name, src, blocks = [], macro_blocks = [], timing = True, tags = ["manual"], visibility = None, **kwargs):
     """The parent's crossings for the planner: `<name>.parent.json`.
 
     extract_parent.tcl on the parent's hierarchical synthesis
     (OPENROAD_HIERARCHICAL=1, the blocks kept modules anywhere below the
-    top), then parent_json.py. Declare it in the package of `src`.
+    top, or macros: their mocks or abstracts), then parent_json.py.
+    Declare it in the package of `src`.
 
     Args:
         name: the target; writes `<name>.parent.json`
         src: the parent's `_synth` target
-        blocks: the blocks' modules; the top's own children when empty
+        blocks: the blocks' modules or macro masters; the top's own
+            children when empty
+        macro_blocks: blocks that are macros in the parent, each also
+            written as `<name>_<master>.block.json` from its master: its
+            outline and its ports, for a block with no synthesis of its own
         timing: False skips the glue's delays (no timing update)
         tags: forwarded
         visibility: forwarded
+        **kwargs: forwarded to the extract's orfs_run (exec_properties)
     """
+    dumps = ["%s/%s.dump.tsv" % (name, b) for b in macro_blocks]
     orfs_run(
         name = name + "_dump",
         src = src,
-        outs = [name + ".parent_dump.tsv"],
+        outs = [name + ".parent_dump.tsv"] + dumps,
         script = Label("//tools/floorplan:extract_parent.tcl"),
         tags = tags,
         user_arguments = {
             "EXTRACT_BLOCKS": " ".join(blocks),
+            "EXTRACT_BLOCK_DUMPS": " ".join(["$(location %s)" % d for d in dumps]),
             "EXTRACT_OUT": "$(location %s.parent_dump.tsv)" % name,
             "EXTRACT_TIMING": "1" if timing else "0",
         },
+        **kwargs
     )
+    for b, d in zip(macro_blocks, dumps):
+        native.genrule(
+            name = "%s_%s" % (name, b),
+            srcs = [d],
+            outs = ["%s_%s.block.json" % (name, b)],
+            cmd = "$(execpath %s) $< $@" % Label("//tools/floorplan:block_json"),
+            tools = [Label("//tools/floorplan:block_json")],
+            tags = tags,
+            visibility = visibility,
+        )
     native.genrule(
         name = name,
-        srcs = [":%s_dump" % name],
+        srcs = [name + ".parent_dump.tsv"],
         outs = [name + ".parent.json"],
         cmd = "$(execpath %s) $< $@" % Label("//tools/floorplan:parent_json"),
         tools = [Label("//tools/floorplan:parent_json")],
