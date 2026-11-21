@@ -28,3 +28,15 @@ orfs_int_flag = rule(
     implementation = _orfs_int_flag_impl,
     build_setting = config.int(flag = True),
 )
+
+def _orfs_string_flag_impl(ctx):
+    if ctx.attr.values and ctx.build_setting_value not in ctx.attr.values:
+        fail("--%s=%s: one of %s" % (ctx.label, ctx.build_setting_value, ", ".join(ctx.attr.values)))
+    return OrfsFlagInfo(value = ctx.build_setting_value)
+
+orfs_string_flag = rule(
+    doc = "A string flag settable on the command line with --@bazel-orfs//:<name>=<value>.",
+    implementation = _orfs_string_flag_impl,
+    build_setting = config.string(flag = True),
+    attrs = {"values": attr.string_list(doc = "The values allowed; any, when empty.")},
+)

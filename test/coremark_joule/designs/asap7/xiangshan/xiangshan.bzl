@@ -126,8 +126,8 @@ XS_PARENT = {
         "ANNEAL_STRAP_PITCH_UM": "2.16",
     },
     "user_sources": {
-        "ANNEAL_DUMP_TCL": ["//test/coremark_joule/flow/macro_anneal:dump_macros.tcl"],
-        "ANNEAL_PY": ["//test/coremark_joule/flow/macro_anneal:macro_anneal.py"],
+        "ANNEAL_DUMP_TCL": ["//tools/macro_anneal:dump_macros.tcl"],
+        "ANNEAL_PY": ["//tools/macro_anneal:macro_anneal.py"],
     },
     "sources": {
         "MACRO_PLACEMENT_TCL": ["//test/coremark_joule/designs/asap7/xiangshan:anneal_in_flow.tcl"],
@@ -176,8 +176,8 @@ XS_BLOCKS = {
             "ANNEAL_STRAP_PITCH_UM": "5.4",
         },
         "user_sources": {
-            "ANNEAL_DUMP_TCL": ["//test/coremark_joule/flow/macro_anneal:dump_macros.tcl"],
-            "ANNEAL_PY": ["//test/coremark_joule/flow/macro_anneal:macro_anneal.py"],
+            "ANNEAL_DUMP_TCL": ["//tools/macro_anneal:dump_macros.tcl"],
+            "ANNEAL_PY": ["//tools/macro_anneal:macro_anneal.py"],
         },
         "sources": {
             "MACRO_PLACEMENT_TCL": ["//test/coremark_joule/designs/asap7/xiangshan:anneal_in_flow.tcl"],
@@ -1319,9 +1319,16 @@ _REGFILE_MARGIN_UM = 2.0
 # core (FLW-0041): the core now 188.5 x 74 um, 1.16 times the array.
 # FtqEntryQueue's core sized by 0172, 73.0 x 70.5 um at 0.62, left five
 # clock buffers no site at CTS (DPL-0036): a tenth more, 80.2 x 70.5 um.
+# ORFS's fold rule (regfile_ram.py) then folded a word of more than
+# 150 um and refused the queues' own bit_folds: FtqMetaQueueRedirect's
+# array became 100.4 x 140.4 um, past the 188.5 x 74 um core (FLW-0041),
+# and FtqMetaQueueResolve's 157.6 x 280.8 um left repair no room in the
+# core 0172 sized (DPL-0036); each core is now Redirect's old 1.16 times
+# its array's area, the array's shape kept.
 XS_REGFILE_OUTLINE_UM = {
     "FtqEntryQueue": {"w_um": 84.2, "h_um": 74.5},
-    "FtqMetaQueueRedirect": {"w_um": 192.5, "h_um": 78.0},
+    "FtqMetaQueueRedirect": {"w_um": 112.2, "h_um": 155.2},
+    "FtqMetaQueueResolve": {"w_um": 173.7, "h_um": 306.4},
 }
 
 # A register file whose legaliser needs to look further than its default

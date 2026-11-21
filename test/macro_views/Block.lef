@@ -1,0 +1,102 @@
+VERSION 5.8 ;
+BUSBITCHARS "[]" ;
+DIVIDERCHAR "/" ;
+UNITS
+    DATABASE MICRONS 1000 ;
+END UNITS
+
+MACRO Block
+  FOREIGN Block 0 0 ;
+  CLASS BLOCK ;
+  SIZE 10.080 BY 10.080 ;
+  PIN clock
+    DIRECTION INPUT ;
+    USE CLOCK ;
+    PORT
+      LAYER M5 ;
+        RECT 5.040 9.888 5.064 10.080 ;
+    END
+  END clock
+  PIN in_bits[0]
+    DIRECTION INPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M4 ;
+        RECT 0.000 1.440 0.192 1.464 ;
+    END
+  END in_bits[0]
+  PIN in_bits[1]
+    DIRECTION INPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M4 ;
+        RECT 0.000 2.880 0.192 2.904 ;
+    END
+  END in_bits[1]
+  PIN in_bits[2]
+    DIRECTION INPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M4 ;
+        RECT 0.000 4.320 0.192 4.344 ;
+    END
+  END in_bits[2]
+  PIN in_bits[3]
+    DIRECTION INPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M4 ;
+        RECT 0.000 5.760 0.192 5.784 ;
+    END
+  END in_bits[3]
+  PIN in_valid
+    DIRECTION INPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M4 ;
+        RECT 0.000 7.200 0.192 7.224 ;
+    END
+  END in_valid
+  PIN out_bits[0]
+    DIRECTION OUTPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M4 ;
+        RECT 9.888 1.440 10.080 1.464 ;
+    END
+  END out_bits[0]
+  PIN out_bits[1]
+    DIRECTION OUTPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M4 ;
+        RECT 9.888 2.880 10.080 2.904 ;
+    END
+  END out_bits[1]
+  PIN out_bits[2]
+    DIRECTION OUTPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M4 ;
+        RECT 9.888 4.320 10.080 4.344 ;
+    END
+  END out_bits[2]
+  PIN out_bits[3]
+    DIRECTION OUTPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M4 ;
+        RECT 9.888 5.760 10.080 5.784 ;
+    END
+  END out_bits[3]
+  PIN out_valid
+    DIRECTION OUTPUT ;
+    USE SIGNAL ;
+    PORT
+      LAYER M4 ;
+        RECT 9.888 7.200 10.080 7.224 ;
+    END
+  END out_valid
+END Block
+
+END LIBRARY

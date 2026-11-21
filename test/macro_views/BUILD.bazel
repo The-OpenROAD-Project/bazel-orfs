@@ -1,0 +1,163 @@
+load("@rules_python//python:defs.bzl", "py_test")
+load("//:openroad.bzl", "orfs_flow", "orfs_macro_tiers", "orfs_macro_view_report", "orfs_macro_views")
+load(":macro_views_test.bzl", "macro_view_flag_test", "macro_view_test")
+
+# A parent that reads its macro in three tiers (private/macro_views.bzl):
+# Top instantiates Block twice; Block is hardened by its own flow. The
+# planned LEF, Block.lef, is what the mock and synth views share.
+
+package(default_visibility = ["//visibility:private"])
+
+FAST = {
+    "ABC_AREA": "1",
+    "ENABLE_DPO": "0",
+    "GPL_ROUTABILITY_DRIVEN": "0",
+    "GPL_TIMING_DRIVEN": "0",
+    "SKIP_FLOORPLAN_REPAIR_TIMING": "1",
+    "SKIP_INCREMENTAL_REPAIR": "1",
+    "SKIP_LAST_GASP": "1",
+    "SKIP_REPORT_METRICS": "1",
+}
+
+orfs_flow(
+    name = "Block",
+    abstract_stage = "place",
+    arguments = FAST | {
+        "CORE_AREA": "2 2 18 18",
+        "DIE_AREA": "0 0 20 20",
+        "PLACE_DENSITY": "0.6",
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_KEEP_MODULES": "Inner",
+    },
+    sources = {"SDC_FILE": [":constraints.sdc"]},
+    top = "Block",
+    verilog_files = ["top.sv"],
+)
+
+orfs_macro_tiers(
+    name = "Block_views",
+    clocks = {"clock": "1000"},
+    lef = "Block.lef",
+    module_top = "Block",
+    real = ":Block_generate_abstract",
+    synth = ":Block_synth",
+    verilog_files = ["top.sv"],
+)
+
+# Top at each tier, to synthesis: the mock tier, the parent's default
+# here, waits for nothing of Block's.
+[
+    orfs_flow(
+        name = "Top",
+        arguments = FAST,
+        last_stage = "synth",
+        macro_view = view,
+        macros = [":Block_views"],
+        sources = {"SDC_FILE": [":constraints.sdc"]},
+        variant = None if view == "mock" else view,
+        verilog_files = ["top.sv"],
+    )
+    for view in [
+        "mock",
+        "synth",
+        "real",
+    ]
+]
+
+# The stages read the tier's liberty, and nothing of a tier above it.
+macro_view_test(
+    name = "mock_view_test",
+    expected = ":Block_views_mock",
+    forbidden = [
+        ":Block_generate_abstract",
+        ":Block_views_synth",
+    ],
+    target_under_test = ":Top_synth",
+)
+
+macro_view_test(
+    name = "synth_view_test",
+    expected = ":Block_views_synth",
+    forbidden = [
+        ":Block_generate_abstract",
+        ":Block_views_mock",
+    ],
+    target_under_test = ":Top_synth_synth",
+)
+
+macro_view_test(
+    name = "real_view_test",
+    expected = ":Block_generate_abstract",
+    forbidden = [
+        ":Block_views_mock",
+        ":Block_views_synth",
+    ],
+    target_under_test = ":Top_real_synth",
+)
+
+# --@bazel-orfs//:macro_view overrides the flow's tier for a run.
+macro_view_flag_test(
+    name = "flag_view_test",
+    expected = ":Block_generate_abstract",
+    forbidden = [":Block_views_mock"],
+    target_under_test = ":Top_synth",
+)
+
+# The parent synthesises against the ports-only view: Block stays a
+# blackbox instance, twice.
+py_test(
+    name = "mock_synth_test",
+    size = "small",
+    srcs = ["mock_synth_check.py"],
+    args = ["$(rootpath :Top_netlist)"],
+    data = [":Top_netlist"],
+    main = "mock_synth_check.py",
+)
+
+filegroup(
+    name = "Top_netlist",
+    srcs = [":Top_synth"],
+    output_group = "1_2_yosys.v",
+)
+
+orfs_macro_view_report(
+    name = "Block_report",
+    period = "1000",
+    views = ":Block_views",
+)
+
+# Every port bus of Block has a synthesis estimate and a real value.
+py_test(
+    name = "report_test",
+    size = "small",
+    srcs = ["report_check.py"],
+    args = ["$(rootpath :Block_report)"],
+    data = [":Block_report"],
+    main = "report_check.py",
+)
+
+# A macro without the tier gives the one below it: Top at synth over a
+# block with no synth view reads its mock.
+orfs_macro_views(
+    name = "Block_mock_and_real",
+    mock = ":Block_views_mock",
+    real = ":Block_generate_abstract",
+)
+
+orfs_flow(
+    name = "Top",
+    arguments = FAST,
+    last_stage = "synth",
+    macro_view = "synth",
+    macros = [":Block_mock_and_real"],
+    sources = {"SDC_FILE": [":constraints.sdc"]},
+    variant = "fallback",
+    verilog_files = ["top.sv"],
+)
+
+macro_view_test(
+    name = "fallback_view_test",
+    expected = ":Block_views_mock",
+    forbidden = [":Block_generate_abstract"],
+    target_under_test = ":Top_fallback_synth",
+)

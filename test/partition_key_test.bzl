@@ -8,7 +8,9 @@ before, adding or reordering one name re-synthesized every partition.
 
 A module of SYNTH_KEEP_MODULES that a macro of the flow stands for
 (`macros`) has no partition and no canonicalize of its own, and the
-slicer is told to stub it.
+slicer is told to stub it. A partition reads no macro's liberty
+(`macro_libs`) directly, only the macros its own slice stages, so a
+macro reaches the key of no partition that does not instantiate it.
 """
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
@@ -61,6 +63,28 @@ def _impl(ctx):
             "%s's config carries SYNTH_NUM_PARTITIONS" % module,
         )
     slicers = [a for a in actions if a.mnemonic == "VerilogSlice"]
+    stagers = {}
+    for action in actions:
+        if action.mnemonic == "PartitionMacros":
+            for f in action.outputs.to_list():
+                stagers[f.basename] = action
+    for action in partitions:
+        module = action.env["SYNTH_PARTITION_MODULE"]
+        inputs = [f.basename for f in action.inputs.to_list()]
+        for name in ctx.attr.macro_libs:
+            asserts.false(env, name in inputs, "%s's partition reads %s, not its staged macros" % (module, name))
+        if not ctx.attr.macro_libs:
+            continue
+        staged = "partition_%s_macros" % module
+        asserts.true(env, staged in inputs, "%s's partition lacks %s" % (module, staged))
+        stager = stagers.get(staged)
+        asserts.true(env, stager != None, "nothing stages %s" % staged)
+        if stager:
+            asserts.equals(
+                env,
+                ["partition_%s_slice.v" % module],
+                [f.basename for f in stager.inputs.to_list() if f.basename.endswith("_slice.v")],
+            )
     for macro in ctx.attr.macros:
         for action in actions:
             asserts.false(
@@ -83,6 +107,10 @@ partition_key_test = analysistest.make(
     attrs = {
         "macros": attr.string_list(
             doc = "Modules of SYNTH_KEEP_MODULES a macro of the flow stands for.",
+        ),
+        "macro_libs": attr.string_list(
+            doc = "Liberty files of the flow's macros, which a partition " +
+                  "reads only as staged from its slice (partition_macros.py).",
         ),
         "modules": attr.string_list(),
     },

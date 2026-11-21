@@ -6,7 +6,7 @@ load("@config//:global_config.bzl", "CONFIG_KLAYOUT")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-load("//private:settings.bzl", "orfs_bool_flag", "orfs_int_flag")
+load("//private:settings.bzl", "orfs_bool_flag", "orfs_int_flag", "orfs_string_flag")
 
 exports_files([
     # Read by //test:orfs_design_builds_test, which extracts the
@@ -62,6 +62,7 @@ exports_files([
     "synth_slice_memories.tcl",
     "slice_memories.py",
     "verilog_slice.py",
+    "partition_macros.py",
 ])
 
 # Prefix every ORFS log line with elapsed seconds:
@@ -87,6 +88,24 @@ orfs_bool_flag(
 orfs_int_flag(
     name = "keep_report_budget",
     build_setting_default = 0,
+    visibility = ["//visibility:public"],
+)
+
+# The tier of macro view every parent with orfs_macro_tiers macros reads,
+# over its orfs_flow(macro_view = ...), for one run (private/macro_views.bzl):
+#
+#   bazelisk build --@bazel-orfs//:macro_view=real //your:parent_synth
+#
+# Empty, the default, leaves each flow's own choice.
+orfs_string_flag(
+    name = "macro_view",
+    build_setting_default = "",
+    values = [
+        "",
+        "mock",
+        "synth",
+        "real",
+    ],
     visibility = ["//visibility:public"],
 )
 
@@ -399,6 +418,18 @@ py_test(
     size = "small",
     srcs = ["slice_memories_test.py"],
     deps = [":slice_memories_lib"],
+)
+
+py_library(
+    name = "partition_macros_lib",
+    srcs = ["partition_macros.py"],
+)
+
+py_test(
+    name = "partition_macros_test",
+    size = "small",
+    srcs = ["partition_macros_test.py"],
+    deps = [":partition_macros_lib"],
 )
 
 py_library(

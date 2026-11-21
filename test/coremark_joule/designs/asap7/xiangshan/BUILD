@@ -532,11 +532,11 @@ genrule(
         "plan/plan.bzl",
     ],
     outs = ["XSTile_boundary_constants.json"],
-    cmd = "$(execpath //test/coremark_joule/scripts:boundary_constants) " +
+    cmd = "$(execpath //tools/boundary_constants) " +
           "$(location //test/coremark_joule/xiangshan:xiangshan_flat) --top XSTile " +
           "--plan $(location plan/plan.json) --plan-bzl $(location plan/plan.bzl) --out $@",
     tags = ["manual"],
-    tools = ["//test/coremark_joule/scripts:boundary_constants"],
+    tools = ["//tools/boundary_constants"],
 )
 
 # Module-in-context timing on Frontend (private/module_sta.bzl): its
