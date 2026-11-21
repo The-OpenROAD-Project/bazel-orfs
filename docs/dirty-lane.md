@@ -269,6 +269,32 @@ from shared caching.
 | Use a locally built openroad | `OPENROAD_EXE=/path/to/openroad tmp/<pkg>/<flow>/make do-<stage>` |
 | Run `make bash` for interactive debugging | `tmp/<pkg>/<flow>/make bash` |
 
+## A parent without waiting for its blocks
+
+A parent's stages read each macro's abstract, so a parent lane waits for
+every block flow. `orfs_flow(macro_view = "mock")`, or
+`DIRTY_BUILD_OPTS=--@bazel-orfs//:macro_view=mock` for one lane, reads
+each `orfs_macro_tiers` macro as its ports instead
+(`private/macro_views.bzl`).
+
+- Synthesis needs only a macro's ports; a yosys blackbox
+  (`SYNTH_BLACKBOXES`) would do there.
+- From floorplan on, OpenROAD links and places every instance: each macro
+  needs a master with an outline and pins (the planned LEF) and a liberty
+  cell, which may have no arcs, for STA to link. A blackbox gives neither,
+  and the flow stops at floorplan.
+- The ports-only liberty on the planned LEF is the smallest view that takes
+  the parent through floorplan, place, CTS and global route without
+  waiting for any block.
+- What it cannot tell: boundary timing, unconstrained without arcs, and
+  each block's clock insertion latency. Those need the `synth` or `real`
+  tier.
+- Mock is also the faster build wherever that loss does not change a
+  decision, while the parent is still far from its target period, say: a
+  real liberty's boundary timing would not change what is being decided.
+  Use mock while the parent's problems are bigger than its blocks'
+  boundary timing, `synth` or `real` once they are not.
+
 ## Use remote caching for instant reverts
 
 If remote caching is enabled for Bazel, reverting a change and rebuilding completes instantaneously because the artifact already exists:
