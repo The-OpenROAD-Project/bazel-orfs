@@ -72,7 +72,15 @@ class ExtractTest(unittest.TestCase):
     def test_parent_over_macros(self):
         def crossings(name):
             return sorted(
-                (c["a"], c["a_bus"], c["b"], c["b_bus"], c["a_bits"], c["b_bits"], c["via"])
+                (
+                    c["a"],
+                    c["a_bus"],
+                    c["b"],
+                    c["b_bus"],
+                    c["a_bits"],
+                    c["b_bits"],
+                    c["via"],
+                )
                 for c in load(name)["crossings"]
             )
 

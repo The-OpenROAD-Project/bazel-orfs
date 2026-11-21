@@ -6,14 +6,16 @@
 #   parent <top module>
 #   glue   <um2>                     every cell in no block
 #   module <instance> <module> <um2> each block instance
-#   cross  <from> <from inst> <from bus> <from bits> <to> <to inst> <to bus>
-#          <to bits> <via> <depth> <glue_ps>
+#   key    <key> <instance> <module> each block
+#   bit    <key> <bus> <bit> <input|output> <net> <arrival_ps>
+#   port   <name> <input|output> <net>   the top's ports but its clocks
+#   cell   <reg|comb> <input nets> <output nets>  each glue cell
 #
 # A block is an instance of a module EXTRACT_BLOCKS names (all the top's
 # own children when it names none), or an instance of a macro master of
 # that name (a parent synthesised over its blocks' mocks or abstracts);
 # everything else is the parent's logic, the glue, whatever module it
-# sits in. From every output bus of
+# sits in. parent_json.py searches the graph: from every output bus of
 # every block, forward through the glue's wires and combinational cells:
 # another block's input bus (via wire or comb), a glue register (to the
 # glue, inst "reg") or a top output (to the top, inst "-"). Into every
@@ -26,7 +28,6 @@
 #
 #   EXTRACT_OUT     the dump
 #   EXTRACT_BLOCKS  the blocks' modules
-#   EXTRACT_DEPTH   glue cells a crossing is followed through (64)
 #   EXTRACT_TIMING  0: no glue_ps (no timing update on a large parent)
 #   EXTRACT_BLOCK_DUMPS  files <dir>/<master>.dump.tsv: each macro
 #                   block's own dump in extract_block.tcl's records (its
@@ -39,7 +40,6 @@ set block [ord::get_db_block]
 set dbu [$block getDbUnitsPerMicron]
 set top [$block getTopModule]
 set top_name [$top getName]
-set depth_max [expr { [info exists ::env(EXTRACT_DEPTH)] ? $::env(EXTRACT_DEPTH) : 64 }]
 set timing [expr { ![info exists ::env(EXTRACT_TIMING)] || $::env(EXTRACT_TIMING) != 0 }]
 puts $out "parent\t$top_name"
 
@@ -215,19 +215,14 @@ proc net_arrival { net } {
   return $best
 }
 
-# each block's boundary bits on the parent's side, by flat net
-set ins [dict create]
-set buses_out [dict create]
-set buses_in [dict create]
-proc boundary { k name flat io } {
+# the graph parent_json.py searches: every block boundary bit with its
+# net's arrival, every top port, every glue cell with its nets
+foreach k $blocks {
+  puts $out "key\t$k\t[dict get $block_name $k]\t[dict get $block_module $k]"
+}
+proc bit { k bus name io flat } {
   if { $flat eq "NULL" || [$flat getSigType] ne "SIGNAL" } { return }
-  set key [list $k [bus_of $name]]
-  if { $io eq "INPUT" } {
-    dict lappend ::ins [$flat getId] [list $k $name]
-    dict lappend ::buses_in $key $flat
-  } elseif { $io eq "OUTPUT" } {
-    dict lappend ::buses_out $key $flat
-  }
+  puts $::out "bit\t$k\t$bus\t$name\t[string tolower $io]\t[$flat getId]\t[format %.3f [net_arrival $flat]]"
 }
 foreach k $blocks {
   set obj [dict get $block_hard $k]
@@ -235,137 +230,35 @@ foreach k $blocks {
     foreach t [$obj getModITerms] {
       set n [$t getModNet]
       if { $n eq "NULL" } { continue }
-      boundary $k [$t getName] [$n findRelatedNet] [[$t getChildModBTerm] getIoType]
+      bit $k [bus_of [$t getName]] [$t getName] [[$t getChildModBTerm] getIoType] [$n findRelatedNet]
     }
   } else {
     foreach t [$obj getITerms] {
-      boundary $k [[$t getMTerm] getName] [$t getNet] [[$t getMTerm] getIoType]
+      set mt [$t getMTerm]
+      bit $k [bus_of [$mt getName]] [$mt getName] [$mt getIoType] [$t getNet]
     }
   }
 }
-
-proc emit { from from_inst from_bus from_bits to to_inst to_bus to_bits via depth ps } {
-  puts $::out "cross\t$from\t$from_inst\t$from_bus\t$from_bits\t$to\t$to_inst\t$to_bus\t$to_bits\t$via\t$depth\t[format %.1f [expr { max(0.0, $ps) }]]"
+foreach bt [$block getBTerms] {
+  set n [$bt getNet]
+  if { $n eq "NULL" || [lsearch -exact $clock_ports [$bt getName]] >= 0 } { continue }
+  puts $out "port\t[$bt getName]\t[string tolower [$bt getIoType]]\t[$n getId]"
 }
-
-# forward from a block's output bus through the glue's combinational cells
-proc forward { src bus nets } {
-  set t0 0.0
-  foreach n $nets { set t0 [expr { max($t0, [net_arrival $n]) }] }
-  set reached [dict create]
-  set seen [dict create]
-  set todo [lmap n $nets { list $n 0 }]
-  while { [llength $todo] > 0 } {
-    set next {}
-    foreach item $todo {
-      lassign $item net depth
-      if { [dict exists $seen [$net getId]] } { continue }
-      dict set seen [$net getId] 1
-      set via [expr { $depth > 0 ? "comb" : "wire" }]
-      if { [dict exists $::ins [$net getId]] } {
-        foreach e [dict get $::ins [$net getId]] {
-          lassign $e to bit
-          if { $to eq $src } { continue }
-          set k [list [dict get $::block_module $to] [dict get $::block_name $to] [bus_of $bit] $via]
-          dict set reached $k $bit [list $depth [net_arrival $net]]
-        }
-      }
-      foreach bt [$net getBTerms] {
-        if { [$bt getIoType] eq "OUTPUT" } {
-          dict set reached [list $::top_name - [bus_of [$bt getName]] $via] [$bt getName] [list $depth 0.0]
-        }
-      }
-      if { $depth >= $::depth_max } { continue }
-      foreach it [$net getITerms] {
-        if { ![$it isInputSignal] } { continue }
-        set inst [$it getInst]
-        if { [block_of $inst] ne "" } { continue }
-        if { [dict exists $::sequential [[$inst getMaster] getName]] } {
-          dict set reached [list $::top_name reg "" reg] [$inst getName] [list $depth 0.0]
-          continue
-        }
-        foreach o [$inst getITerms] {
-          if { [$o isOutputSignal] && [$o getNet] ne "NULL" } {
-            lappend next [list [$o getNet] [expr { $depth + 1 }]]
-          }
-        }
-      }
+foreach inst [$block getInsts] {
+  if { [block_of $inst] ne "" } { continue }
+  set ins {}
+  set outs {}
+  foreach it [$inst getITerms] {
+    set n [$it getNet]
+    if { $n eq "NULL" } { continue }
+    if { [$it isInputSignal] } {
+      lappend ins [$n getId]
+    } elseif { [$it isOutputSignal] } {
+      lappend outs [$n getId]
     }
-    set todo $next
   }
-  set from_bits [llength $nets]
-  dict for {k bits} $reached {
-    lassign $k to to_inst to_bus via
-    set depth 0
-    set t1 0.0
-    dict for {b dt} $bits {
-      lassign $dt d t
-      set depth [expr { max($depth, $d) }]
-      set t1 [expr { max($t1, $t) }]
-    }
-    set ps [expr { $via eq "comb" && $to_inst ne "reg" && $to_inst ne "-" ? $t1 - $t0 : 0.0 }]
-    emit [dict get $::block_module $src] [dict get $::block_name $src] $bus $from_bits $to $to_inst $to_bus [dict size $bits] $via $depth $ps
-  }
-}
-
-# backward into a block's input bus: the glue registers and top inputs
-# its combinational fan-in starts at
-proc backward { k bus nets } {
-  set regs [dict create]
-  set ports [dict create]
-  set seen [dict create]
-  set todo [lmap n $nets { list $n 0 }]
-  set depth_seen 0
-  while { [llength $todo] > 0 } {
-    set next {}
-    foreach item $todo {
-      lassign $item net depth
-      if { [dict exists $seen [$net getId]] } { continue }
-      dict set seen [$net getId] 1
-      foreach bt [$net getBTerms] {
-        if { [$bt getIoType] eq "INPUT" && [lsearch -exact $::clock_ports [$bt getName]] < 0 } {
-          dict set ports [bus_of [$bt getName]] [$bt getName] 1
-          set depth_seen [expr { max($depth_seen, $depth) }]
-        }
-      }
-      if { $depth >= $::depth_max } { continue }
-      foreach it [$net getITerms] {
-        if { ![$it isOutputSignal] } { continue }
-        set inst [$it getInst]
-        if { [block_of $inst] ne "" } { continue }
-        if { [dict exists $::sequential [[$inst getMaster] getName]] } {
-          dict set regs [$inst getName] 1
-          set depth_seen [expr { max($depth_seen, $depth) }]
-          continue
-        }
-        foreach i [$inst getITerms] {
-          if { [$i isInputSignal] && [$i getNet] ne "NULL" } {
-            lappend next [list [$i getNet] [expr { $depth + 1 }]]
-          }
-        }
-      }
-    }
-    set todo $next
-  }
-  set t1 0.0
-  foreach n $nets { set t1 [expr { max($t1, [net_arrival $n]) }] }
-  set bits [llength $nets]
-  if { [dict size $regs] > 0 } {
-    emit $::top_name reg "" [dict size $regs] [dict get $::block_module $k] [dict get $::block_name $k] $bus $bits reg $depth_seen $t1
-  }
-  dict for {pbus pins} $ports {
-    emit $::top_name - $pbus [dict size $pins] [dict get $::block_module $k] [dict get $::block_name $k] $bus $bits \
-      [expr { $depth_seen > 0 ? "comb" : "wire" }] $depth_seen 0.0
-  }
-}
-
-dict for {key nets} $buses_out {
-  lassign $key id bus
-  forward $id $bus $nets
-}
-dict for {key nets} $buses_in {
-  lassign $key id bus
-  backward $id $bus $nets
+  set seq [expr { [dict exists $sequential [[$inst getMaster] getName]] ? "reg" : "comb" }]
+  puts $out "cell\t$seq\t[join $ins ,]\t[join $outs ,]"
 }
 close $out
 puts "extract_parent: $top_name, [llength $blocks] blocks, written to $::env(EXTRACT_OUT)"

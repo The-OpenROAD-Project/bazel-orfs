@@ -41,7 +41,9 @@ triage loop needs; the slow truth comes only at the end.
   synthesised over the blocks' mocks or abstracts). Each of
   `macro_blocks` is also written as a block.json from its macro, its
   outline as `DIE_AREA` and its ports, for a block with no synthesis of
-  its own. Every crossing between block
+  its own. The Tcl writes the glue as a graph; `parent_json.py`
+  finds the crossings in it, every net carrying the set of buses that
+  reach it as a bitset, once for all buses. Every crossing between block
   buses, the glue (every cell in no block) and the top's ports, with the
   bits of each end, how they connect (wire, combinational, a glue
   register) and the glue's own delay.
