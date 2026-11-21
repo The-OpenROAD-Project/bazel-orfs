@@ -1,0 +1,258 @@
+{
+ "block": "FpCore",
+ "buses": {
+  "deep_out": {
+   "bits": 32,
+   "breadth_max": 52,
+   "breadth_mean": 28.875,
+   "capped": 0,
+   "cells_mean": 169.5,
+   "feedthrough": 0,
+   "sampled": 8
+  },
+  "ft_in": {
+   "bits": 16,
+   "breadth_max": 1,
+   "breadth_mean": 1.0,
+   "capped": 0,
+   "cells_mean": 2.0,
+   "feedthrough": 0,
+   "sampled": 8
+  },
+  "ft_out": {
+   "bits": 16,
+   "breadth_max": 1,
+   "breadth_mean": 1.0,
+   "capped": 0,
+   "cells_mean": 1.5,
+   "feedthrough": 0,
+   "sampled": 8
+  },
+  "in_top": {
+   "bits": 32,
+   "breadth_max": 19,
+   "breadth_mean": 13.625,
+   "capped": 0,
+   "cells_mean": 67.25,
+   "feedthrough": 0,
+   "sampled": 8
+  },
+  "req": {
+   "bits": 128,
+   "breadth_max": 1,
+   "breadth_mean": 1.0,
+   "capped": 0,
+   "cells_mean": 2.0,
+   "feedthrough": 0,
+   "sampled": 8
+  },
+  "resp": {
+   "bits": 136,
+   "breadth_max": 25,
+   "breadth_mean": 8.125,
+   "capped": 0,
+   "cells_mean": 38.5,
+   "feedthrough": 0,
+   "sampled": 8
+  },
+  "wide": {
+   "bits": 1024,
+   "breadth_max": 1,
+   "breadth_mean": 1.0,
+   "capped": 0,
+   "cells_mean": 2.25,
+   "feedthrough": 0,
+   "sampled": 8
+  }
+ },
+ "fanout": [
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 16
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 16
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 15
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 15
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 14
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 14
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 13
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 13
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 12
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 12
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 11
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 11
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 11
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 11
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 11
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 11
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 11
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 11
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 11
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 11
+  }
+ ],
+ "feedthrough": {
+  "bits": 0,
+  "cells": 0,
+  "connections": 0
+ },
+ "identity": {
+  "dump": "sha256:144e1eeda2d88507eb178fa95bddb7e959bf86f0817169e272f8901f756cb328",
+  "tool": "netlist 1"
+ },
+ "insts": 4363,
+ "nets": 4643,
+ "pins": 12523,
+ "rent": {
+  "fit": [
+   2,
+   10
+  ],
+  "k": 2.544,
+  "levels": [
+   {
+    "g": 4363,
+    "level": 0,
+    "parts": 1,
+    "t": 1384
+   },
+   {
+    "g": 2181.5,
+    "level": 1,
+    "parts": 2,
+    "t": 1263.0
+   },
+   {
+    "g": 1090.75,
+    "level": 2,
+    "parts": 4,
+    "t": 749.25
+   },
+   {
+    "g": 545.375,
+    "level": 3,
+    "parts": 8,
+    "t": 470.875
+   },
+   {
+    "g": 272.688,
+    "level": 4,
+    "parts": 16,
+    "t": 269.625
+   },
+   {
+    "g": 136.344,
+    "level": 5,
+    "parts": 32,
+    "t": 146.156
+   },
+   {
+    "g": 69.281,
+    "level": 6,
+    "parts": 32,
+    "t": 81.219
+   },
+   {
+    "g": 35.344,
+    "level": 7,
+    "parts": 32,
+    "t": 45.5
+   },
+   {
+    "g": 18.031,
+    "level": 8,
+    "parts": 32,
+    "t": 25.688
+   },
+   {
+    "g": 9.281,
+    "level": 9,
+    "parts": 32,
+    "t": 15.25
+   },
+   {
+    "g": 5.094,
+    "level": 10,
+    "parts": 32,
+    "t": 10.562
+   }
+  ],
+  "p": 0.8208
+ }
+}

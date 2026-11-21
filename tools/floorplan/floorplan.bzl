@@ -46,6 +46,40 @@ def floorplan_extract(name, src, arguments = {}, timing = True, tags = ["manual"
         visibility = visibility,
     )
 
+def floorplan_netlist(name, src, tags = ["manual"], visibility = None):
+    """A synthesised block's netlist for rung 1: `<name>.netlist.json`.
+
+    extract_netlist.tcl dumps the signal netlist from the block's
+    synthesis; netlist.py fits Rent's p and k by recursive bisection and
+    measures each port bus's cone. Both cached on the synthesis ODB.
+    Declare it in the package of `src`.
+
+    Args:
+        name: the target; writes `<name>.netlist.json`
+        src: the block's `_synth` target
+        tags: forwarded
+        visibility: forwarded
+    """
+    orfs_run(
+        name = name + "_netlist_dump",
+        src = src,
+        outs = [name + ".netlist.tsv"],
+        script = Label("//tools/floorplan:extract_netlist.tcl"),
+        tags = tags,
+        user_arguments = {
+            "EXTRACT_OUT": "$(location %s.netlist.tsv)" % name,
+        },
+    )
+    native.genrule(
+        name = name,
+        srcs = [":%s_netlist_dump" % name],
+        outs = [name + ".netlist.json"],
+        cmd = "$(execpath %s) $< $@" % Label("//tools/floorplan:netlist"),
+        tools = [Label("//tools/floorplan:netlist")],
+        tags = tags,
+        visibility = visibility,
+    )
+
 def floorplan_pdk(name, src, tags = ["manual"], visibility = None):
     """A platform's wire model for the planner: `<name>.pdk.json`.
 

@@ -1,7 +1,7 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_python//python:defs.bzl", "py_test")
 load("//:openroad.bzl", "orfs_flow", "orfs_macro", "orfs_run")
-load("//tools/floorplan:floorplan.bzl", "floorplan_consume", "floorplan_extract", "floorplan_parent", "floorplan_pdk", "floorplan_plan")
+load("//tools/floorplan:floorplan.bzl", "floorplan_consume", "floorplan_extract", "floorplan_netlist", "floorplan_parent", "floorplan_pdk", "floorplan_plan")
 
 # The global floorplan planner's toy (tools/floorplan, toy.sv): three
 # blocks and the parent's glue, synthesised in seconds.
@@ -99,6 +99,15 @@ build_test(
         arguments = arguments,
     )
     for block, (_, arguments) in BLOCKS.items()
+]
+
+# rung 1's netlists: Rent's fit and each bus's cones
+[
+    floorplan_netlist(
+        name = block + "_netlist",
+        src = ":%s_synth" % block,
+    )
+    for block in BLOCKS
 ]
 
 floorplan_pdk(

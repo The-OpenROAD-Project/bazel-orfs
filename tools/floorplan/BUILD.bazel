@@ -7,6 +7,7 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 exports_files(
     [
         "extract_block.tcl",
+        "extract_netlist.tcl",
         "extract_parent.tcl",
         "extract_pdk.tcl",
         "probe_congestion.tcl",
@@ -149,4 +150,21 @@ py_test(
         "judge_test.py",
     ],
     main = "judge_test.py",
+)
+
+py_binary(
+    name = "netlist",
+    srcs = ["netlist.py"],
+    main = "netlist.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "netlist_test",
+    size = "small",
+    srcs = [
+        "netlist.py",
+        "netlist_test.py",
+    ],
+    main = "netlist_test.py",
 )
