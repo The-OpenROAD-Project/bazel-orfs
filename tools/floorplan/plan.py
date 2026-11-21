@@ -1510,15 +1510,30 @@ def rung_e(model, st):
     limit = model.cal("channel_capacity", "gcell_limit")
     tracks = model.layer_tracks()
     worst = {}
+    peak = {}
     for direction, use, cap in (("h", grid.h, grid.cap_h), ("v", grid.v, grid.cap_v)):
         for (i, j), d in use.items():
-            if cap <= 0 or d <= cap * (limit if limit is not None else 1.0):
+            if cap <= 0:
                 continue
             cx, cy = (i + 0.5) * grid.g, (j + 0.5) * grid.g
             name = channel_name(model, rects, die, direction, cx, cy)
             k = (name, direction)
+            if k not in peak or d / cap > peak[k][0]:
+                peak[k] = (d / cap, d, cap)
+            if d <= cap * (limit if limit is not None else 1.0):
+                continue
             if k not in worst or d / cap > worst[k][0]:
                 worst[k] = (d / cap, d, cap, (i, j))
+    st["channels"] = [
+        {
+            "channel": n,
+            "direction": dr,
+            "utilisation": round(u, 3),
+            "demand_tracks": round(d, 1),
+            "capacity_tracks": round(c, 1),
+        }
+        for (n, dr), (u, d, c) in sorted(peak.items(), key=lambda kv: -kv[1][0])
+    ]
     # a channel between macros first: a gcell with the die edge on both
     # sides is a corner the route turns in, the channels beside it say more
     order = sorted(
@@ -1986,6 +2001,24 @@ def verdict(model, st, identity, run_all=False):
         "internal_placement": internal,
         "forbidden_sides": st.get("forbidden", {}),
         "ladder": {"macros": st.get("ladder", {}), "sides": st.get("ladder_sides", {})},
+        "channels": st.get("channels", []),
+        "sides": [
+            {
+                "macro": e["macro"],
+                "side": e["side"],
+                "bits": e["bits"],
+                "um": e["um"],
+                "lowest": e["lowest"],
+                "track_spacing": e["track_spacing"],
+                "lateral": sorted(p for p, f in e["partners"].items() if not f),
+                "partners": sorted(e["partners"]),
+            }
+            for e in (
+                edge_report(model, st["edges"], st["rects"])
+                if st.get("edges") is not None
+                else []
+            )
+        ],
     }
 
 

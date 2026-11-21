@@ -3,6 +3,7 @@
 it beside the planner's verdict.
 
   judge.py <congestion.rpt> <macros.txt> <verdict.json> <out.json>
+           [--cut cut.json] [--side-band-um B]
 
 The congestion report is FastRoute's (probe_congestion.tcl: a box and a
 layer per region over capacity); macros.txt the routed parent's die and
@@ -12,6 +13,15 @@ by master, the macro of the cut the master is. Out: the overflow per
 channel from the route, the channels and sides the verdict calls over
 capacity, and the agreement: the channels both name, the ones only the
 route shows (missed) and the ones only the verdict names (false alarms).
+
+A region inside a macro within B of one of its sides is that side's
+(the pins' escape and via stacks), deeper it is over the macro. Beside
+the agreement, the calibration view: every channel's peak utilisation
+in the plan against the route's overflow there, every side's track
+spacing against the route's overflow in its band, Kendall's tau-b of
+each, and the limit that separates the clean from the overflowing ones
+where they separate (the design's channel_capacity gcell_limit and
+pins_per_um facing_track_spacing, facing sides only).
 
 Stdlib only.
 """
@@ -96,16 +106,25 @@ def channel(macros, direction, cx, cy, names):
     return "|".join(sorted([a, b]))
 
 
-def judge(regions, macros, verdict, names):
+def side_of(box, cx, cy, band):
+    """The side of a macro box a point inside it is within `band` of."""
+    _, _, a0, b0, a1, b1 = box
+    d = {"W": cx - a0, "E": a1 - cx, "S": cy - b0, "N": b1 - cy}
+    s = min(d, key=d.get)
+    return s if d[s] <= band else None
+
+
+def judge(regions, macros, verdict, names, band=10.0):
     route = {}
     for direction, layer, x0, y0, x1, y1, over in regions:
         cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-        inside = [n for _, n, a0, b0, a1, b1 in macros if a0 < cx < a1 and b0 < cy < b1]
-        name = (
-            "over " + names.get(inside[0], inside[0])
-            if inside
-            else channel(macros, direction, cx, cy, names)
-        )
+        inside = [m for m in macros if m[2] < cx < m[4] and m[3] < cy < m[5]]
+        if inside:
+            m = names.get(inside[0][1], inside[0][1])
+            s = side_of(inside[0], cx, cy, band)
+            name = "%s side %s" % (m, s) if s else "over " + m
+        else:
+            name = channel(macros, direction, cx, cy, names)
         r = route.setdefault(name, {"regions": 0, "overflow": 0, "layers": {}})
         r["regions"] += 1
         r["overflow"] += over
@@ -117,12 +136,91 @@ def judge(regions, macros, verdict, names):
         name = f.get("channel") or "%s|%s" % (f.get("macro"), f.get("partner"))
         plan[name] = {"kind": f.get("kind"), "utilisation": f.get("utilisation")}
     both = sorted(set(route) & set(plan))
+    chans = {}
+    for c in verdict.get("channels", []):
+        r = chans.setdefault(c["channel"], {"utilisation": 0.0})
+        r["utilisation"] = max(r["utilisation"], c["utilisation"])
+    for n, r in chans.items():
+        r["overflow"] = route.get(n, {}).get("overflow", 0)
+    sides = {}
+    for e in verdict.get("sides", []):
+        n = "%s side %s" % (e["macro"], e["side"])
+        sides[n] = {
+            "bits": e["bits"],
+            "track_spacing": e["track_spacing"].get(e["lowest"]),
+            "lateral": bool(e["lateral"]),
+            "overflow": route.get(n, {}).get("overflow", 0),
+        }
+    calib = {
+        "side_band_um": band,
+        "channels": rank(
+            [(r["utilisation"], r["overflow"]) for r in chans.values()], True
+        ),
+        "facing_sides": rank(
+            [
+                (r["track_spacing"], r["overflow"])
+                for r in sides.values()
+                if not r["lateral"] and r["track_spacing"] is not None
+            ],
+            False,
+        ),
+    }
     return {
+        "channels": dict(sorted(chans.items(), key=lambda kv: -kv[1]["utilisation"])),
+        "sides": dict(sorted(sides.items())),
+        "calibration": calib,
         "route": dict(sorted(route.items(), key=lambda kv: -kv[1]["overflow"])),
         "plan": plan,
         "agree": both,
         "missed": sorted(set(route) - set(plan)),
         "false_alarms": sorted(set(plan) - set(route)),
+    }
+
+
+def tau_b(pairs):
+    n = len(pairs)
+    if n < 3:
+        return None
+    c = d = tx = ty = 0
+    for i in range(n):
+        for j in range(i + 1, n):
+            dx = pairs[i][0] - pairs[j][0]
+            dy = pairs[i][1] - pairs[j][1]
+            if dx == 0 and dy == 0:
+                continue
+            if dx == 0:
+                tx += 1
+            elif dy == 0:
+                ty += 1
+            elif dx * dy > 0:
+                c += 1
+            else:
+                d += 1
+    den = ((c + d + tx) * (c + d + ty)) ** 0.5
+    return round((c - d) / den, 4) if den else None
+
+
+def rank(pairs, higher_is_worse):
+    """Kendall's tau-b of a feature against the overflow (positive: the
+    feature ranks it), and the limit between the clean and the
+    overflowing, the geometric mean of the nearest two, when they
+    separate."""
+    t = tau_b(pairs)
+    if t is not None and not higher_is_worse:
+        t = -t
+    ok = [x for x, o in pairs if o <= 0]
+    bad = [x for x, o in pairs if o > 0]
+    limit = None
+    if ok and bad:
+        lo, hi = (max(ok), min(bad)) if higher_is_worse else (max(bad), min(ok))
+        if lo < hi and lo > 0:
+            limit = round((lo * hi) ** 0.5, 4)
+    return {
+        "n": len(pairs),
+        "clean": len(ok),
+        "overflowing": len(bad),
+        "tau_b": t,
+        "limit": limit,
     }
 
 
@@ -135,6 +233,12 @@ def main(argv):
     ap.add_argument("verdict")
     ap.add_argument("out")
     ap.add_argument("--cut", help="cut.json: a master's macro name, when they differ")
+    ap.add_argument(
+        "--side-band-um",
+        type=float,
+        default=10.0,
+        help="a region inside a macro this near a side is the side's",
+    )
     a = ap.parse_args(argv)
     with open(a.report) as f:
         regions = parse_report(f)
@@ -147,7 +251,7 @@ def main(argv):
         with open(a.cut) as f:
             for m, spec in json.load(f)["macros"].items():
                 names[spec["block"] if isinstance(spec, dict) else spec] = m
-    out = judge(regions, macros, verdict, names)
+    out = judge(regions, macros, verdict, names, a.side_band_um)
     with open(a.out, "w") as f:
         json.dump(out, f, indent=1, sort_keys=True)
         f.write("\n")

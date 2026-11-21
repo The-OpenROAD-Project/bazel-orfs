@@ -53,6 +53,69 @@ class JudgeTest(unittest.TestCase):
         self.assertEqual(out["missed"], ["A|die"])
         self.assertEqual(out["false_alarms"], ["B|die"])
 
+    def test_side_band_and_calibration(self):
+        _, macros = judge.parse_macros(MACROS)
+        report = REPORT + [
+            "violation type: Vertical congestion",
+            "\tcomment: capacity:10 usage:13 congestion:3",
+            "\tbbox = (40.0000, 195.0000) - (42.0000, 197.0000) on Layer M3",
+            "violation type: Vertical congestion",
+            "\tcomment: capacity:10 usage:12 congestion:2",
+            "\tbbox = (40.0000, 150.0000) - (42.0000, 152.0000) on Layer M3",
+        ]
+        verdict = {
+            "channels": [
+                {"channel": "A|B", "direction": "h", "utilisation": 1.4},
+                {"channel": "A|die", "direction": "v", "utilisation": 1.1},
+                {"channel": "B|die", "direction": "h", "utilisation": 0.5},
+                {"channel": "die|die", "direction": "h", "utilisation": 0.2},
+            ],
+            "sides": [
+                {
+                    "macro": "B",
+                    "side": "N",
+                    "bits": 900,
+                    "lowest": "M3",
+                    "track_spacing": {"M3": 1.1},
+                    "lateral": [],
+                    "partners": ["GLUE"],
+                },
+                {
+                    "macro": "A",
+                    "side": "N",
+                    "bits": 100,
+                    "lowest": "M3",
+                    "track_spacing": {"M3": 9.0},
+                    "lateral": [],
+                    "partners": ["B"],
+                },
+                {
+                    "macro": "B",
+                    "side": "S",
+                    "bits": 100,
+                    "lowest": "M3",
+                    "track_spacing": {"M3": 6.0},
+                    "lateral": [],
+                    "partners": ["A"],
+                },
+            ],
+        }
+        out = judge.judge(
+            judge.parse_report(report),
+            macros,
+            verdict,
+            {"BlockA": "A", "BlockB": "B"},
+            10.0,
+        )
+        self.assertEqual(out["route"]["B side N"]["overflow"], 3)
+        self.assertEqual(out["route"]["over B"]["overflow"], 2)
+        ch = out["calibration"]["channels"]
+        self.assertEqual((ch["clean"], ch["overflowing"]), (2, 2))
+        self.assertAlmostEqual(ch["limit"], (0.5 * 1.1) ** 0.5, places=3)
+        sides = out["calibration"]["facing_sides"]
+        self.assertAlmostEqual(sides["limit"], (1.1 * 6.0) ** 0.5, places=3)
+        self.assertGreater(sides["tau_b"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()
