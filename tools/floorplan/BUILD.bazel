@@ -182,3 +182,25 @@ py_test(
     data = glob(["testdata/toy/*.json"]),
     main = "ladder_test.py",
 )
+
+py_binary(
+    name = "calibrate",
+    srcs = [
+        "calibrate.py",
+        "ladder.py",
+    ],
+    main = "calibrate.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "calibrate_test",
+    size = "small",
+    srcs = [
+        "calibrate.py",
+        "calibrate_test.py",
+        "ladder.py",
+    ],
+    data = ["testdata/toy/asap7.pdk.json"],
+    main = "calibrate_test.py",
+)

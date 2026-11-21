@@ -94,6 +94,28 @@ inputs) and ranks them by effect; a failure carries its best one. `--all` runs e
 `floorplan.json` (feasible plans only) holds the die, each macro's
 place, outline and per-bus pin ranges, ORFS coordinates.
 
+## Calibrate
+
+A rung judges only against the design's calibration file. `calibrate.py`
+writes one from the design's measured global routes: points.json names
+each routed block's block.json and netlist.json, the core it routed in,
+the pins its flow put on each side and what its route measured (the
+overflow, and where known the wire length, the instances and peak memory
+at global route, the period). It fits Rent's p and k (the median of the
+blocks' own), each wire factor (measured wire over Donath's), the
+instances global route adds and how many a worker holds, and a limit per
+rung where the clean and the overflowing points separate; where they do
+not, the rung stays unjudged and the report says why. The report ranks
+each feature against the overflow (Kendall's tau-b) with the residuals
+of a linear fit, and marks a block whose own logic is near its measured
+period: that period is not the floorplan's, and only its overflow is
+fitted.
+
+```
+bazelisk run //tools/floorplan:calibrate -- $(pwd)/points.json \
+  --calibration $(pwd)/calibration.json --report-md $(pwd)/report.md
+```
+
 ## Consume
 
 `floorplan_consume(name, plan, macros)` writes, per block, an
