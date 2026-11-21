@@ -1,6 +1,10 @@
 # Estimated macro timing for the parent's placement, real timing from CTS on
 
-Status: **proposed, not built.** An addition to the floorplan planner
+Status: **in part built.** The views exist, one tier per parent run
+(`orfs_flow(macro_view)`, `private/macro_views.bzl`): a ports-only mock,
+the synthesis timing model, the abstract, and the report comparing a tier
+with the real view per bus. The switch between them at CTS within one
+parent flow is not built. An addition to the floorplan planner
 (`tools/floorplan`, pull request #1658, not merged yet): the planner
 already fixes every input of the parent but one before a block is built,
 and this removes the last.
