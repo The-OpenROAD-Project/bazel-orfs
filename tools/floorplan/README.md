@@ -41,6 +41,14 @@ triage loop needs; the slow truth comes only at the end.
   buses, the glue (every cell in no block) and the top's ports, with the
   bits of each end, how they connect (wire, combinational, a glue
   register) and the glue's own delay.
+- `floorplan_netlist(name, src)`: `extract_netlist.tcl` on a block's
+  `_synth`, then `netlist.py`: rung 1's facts. Rent's p and k from
+  recursive bisection by one fixed partitioner, each port bus's cone
+  (cells and breadth to the first registers), the feed-through bits, the
+  nets of most sinks. `extract_block.tcl` itself records rung 0's
+  statistics (instances, registers, nets, pins), the deepest
+  register-to-register path (the logic's own period) and each hard
+  object's obstructed layers.
 - `floorplan_pdk(name, src)`: `extract_pdk.tcl`. Per routing layer the
   unit RC `setRC.tcl` installs, track density, pins per micron of one
   pin layer, and the optimally repeated wire's ps/um from the resizer's
@@ -59,16 +67,30 @@ The first rung that fails stops the plan:
 
 | rung | finding |
 |---|---|
+| 0 `grt_capacity` | a block's instances at global route over what a worker of the design's class routes |
+| 0 `wire_demand` | a block's a-priori wire (Donath's average length at Rent's p) over the tracks its outline holds, less its hard objects' obstructions |
+| 0 `rent_terminals` | a block's signal pins over Rent's rule for its size |
+| 1 `rent_wire` | `wire_demand` at the p the block's own bisection fits |
+| 1 `fanout` | a net whose repeater chain, per sink, is longer than the period |
 | a `pins_per_um` | a side facing its partners under the track spacing the design has seen route; a side turning to a partner beside it is reported, not judged |
+| 1 `escape` | a side whose pins' cones fan out over more wires than cross it |
+| 1 `via_stack` | a side's pins on a layer plus the via stacks of the pins above, each bus on its layer by distance, under the facing spacing |
 | b `area` | a slot under the block flow's own outline; the die under the macros, glue and channels |
 | c `aspect` | an outline outside its range or under its largest hard object |
 | d `internal_arrangement` | `side_blocked`: hard objects wall a pin side; `no_internal_arrangement`: they do not fit |
 | e `channel_capacity` | `no_channel`, `over_capacity`: a channel's demand over its tracks, per layer at the constraints' share |
 | f `path_budget` | a cross-macro chain no layer pair closes; `layer_capacity`: the upper pair's tracks |
 
+Rungs 0 and 1 (`ladder.py`) are each block's own and need no layout but
+for the sides; their measurements are the verdict's `ladder` whether or
+not a limit judges them: per macro the logic's own period beside the
+wire, the pins per partner, and the smallest outline every calibrated
+rung passes at; per side escape and the via stacks per layer.
+Feed-through bits count as wires across the block, not as its logic.
+
 Every failure names its block, side, bus or channel and its excess;
 `remedies.py` runs each remedy as a what-if (the plan again on the edited
-inputs) and ranks them by effect. `--all` runs every rung.
+inputs) and ranks them by effect; a failure carries its best one. `--all` runs every rung.
 `floorplan.json` (feasible plans only) holds the die, each macro's
 place, outline and per-bus pin ranges, ORFS coordinates.
 

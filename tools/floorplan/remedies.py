@@ -15,6 +15,7 @@ person or an agent picks one with its consequence in hand.
   register_bus  a register at the chain's source end (two chains)
   move_module   needs a finer keep and a resynthesis: named, not run
   split_side    one partner over two sides: named, not run
+  lower_pins    a side's pins on its lowest pin layer only, no via stacks
 
 Stdlib only.
 """
@@ -187,6 +188,82 @@ def candidates(f, model, st):
                     lambda i: _move_memory(i, model, m, inst),
                 )
             )
+    elif kind in ("wire_demand", "rent_wire", "grt_capacity"):
+        if kind != "grt_capacity":
+            w, h = _shape(model, st, m)
+            # supply grows with the area, demand with the gate pitch: the
+            # ratio falls with the outline's linear size
+            k = 1.01 * f["excess"]["factor"]
+            out.append(
+                (
+                    "resize_slot",
+                    {"macro": m, "to": [round(w * k, 3), round(h * k, 3)]},
+                    lambda i: _macro(i["constraints"], m).update(slot=[w * k, h * k]),
+                )
+            )
+        out.append(
+            (
+                "move_module",
+                {"macro": m, "note": "needs a keep below the block and a resynthesis"},
+                None,
+            )
+        )
+    elif kind == "rent_terminals":
+        ports = sorted(model.block(m)["ports"], key=lambda p: (-p["bits"], p["name"]))
+        if ports:
+            top = ports[0]
+            over = f["demand"]["pins"] - f["demand"]["predicted"] * f["limit"]["ratio"]
+            to = max(1, int(top["bits"] - math.ceil(over)))
+            out.append(
+                (
+                    "narrow_bus",
+                    {"macro": m, "bus": top["name"], "to_bits": to},
+                    lambda i: _scale_bus(i, model, m, top["name"], to),
+                )
+            )
+        out.append(
+            (
+                "move_module",
+                {"macro": m, "note": "needs a keep below the block and a resynthesis"},
+                None,
+            )
+        )
+    elif kind == "escape":
+        w, h = _shape(model, st, m)
+        k = 1.01 * f["excess"]["factor"]
+        if f["side"] in "NS":
+            nw, nh = w * k, h / k
+        else:
+            nw, nh = w / k, h * k
+        out.append(
+            (
+                "reshape",
+                {"macro": m, "to": [round(nw, 3), round(nh, 3)]},
+                lambda i: _macro(i["constraints"], m).update(slot=[nw, nh]),
+            )
+        )
+        out.append(
+            (
+                "resize_slot",
+                {"macro": m, "to": [round(w * k, 3), round(h * k, 3)]},
+                lambda i: _macro(i["constraints"], m).update(slot=[w * k, h * k]),
+            )
+        )
+        out.append(("split_side", {"macro": m, "side": f["side"]}, None))
+    elif kind == "via_stack":
+        d = "H" if f["side"] in "EW" else "V"
+        io = model.io(f["side"])
+        lowest = io[:1]
+        out.append(
+            (
+                "lower_pins",
+                {"side": f["side"], "layers": lowest},
+                lambda i: i["constraints"]
+                .setdefault("io", copy.deepcopy(model.c.get("io", model.pdk["io"])))
+                .update({d: lowest}),
+            )
+        )
+        out.append(("split_side", {"macro": m, "side": f["side"]}, None))
     elif kind in ("no_channel", "over_capacity"):
         names = [
             x

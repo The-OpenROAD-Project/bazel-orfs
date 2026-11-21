@@ -121,6 +121,7 @@ def floorplan_plan(
         constraints,
         calibration = None,
         parent = None,
+        netlists = [],
         run_all = False,
         tags = ["manual"],
         visibility = None):
@@ -142,12 +143,13 @@ def floorplan_plan(
             (plan.py's CALIBRATION_KEYS); a rung without one measures and
             fails nothing
         parent: the parent's crossings (parent.json), optional
+        netlists: floorplan_netlist targets, for rung 1, optional
         run_all: every rung past the first stop
         tags: forwarded
         visibility: forwarded
     """
-    srcs = blocks + [pdk, cut, constraints] + ([parent] if parent else []) + ([calibration] if calibration else [])
-    args = " ".join(["--block $(execpath %s)" % b for b in blocks])
+    srcs = blocks + netlists + [pdk, cut, constraints] + ([parent] if parent else []) + ([calibration] if calibration else [])
+    args = " ".join(["--block $(execpath %s)" % b for b in blocks] + ["--netlist $(execpath %s)" % n for n in netlists])
     args += " --pdk $(execpath %s) --cut $(execpath %s) --constraints $(execpath %s)" % (pdk, cut, constraints)
     if parent:
         args += " --parent $(execpath %s)" % parent

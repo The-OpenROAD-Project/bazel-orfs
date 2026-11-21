@@ -35,6 +35,9 @@ def toy(variant, remedies=False):
             load("constraints_%s.json" % variant),
             calibration=load("calibration.json"),
             remedies=remedies,
+            netlists=[
+                load("%s.netlist.json" % b) for b in ("FpCore", "FpMem", "FpVec")
+            ],
         )
     return _PLANS[(variant, remedies)]
 
@@ -148,8 +151,65 @@ class SeededFaults(unittest.TestCase):
             remedies=False,
         )
         self.assertEqual([f for f in v["findings"] if f["status"] == "fail"], [])
-        self.assertEqual(v["unjudged"], sorted(plan.CALIBRATION_KEYS))
+        self.assertEqual(
+            v["unjudged"], sorted(k for k in plan.CALIBRATION_KEYS if k in plan.RUNGS)
+        )
         self.assertIsNotNone(fp)
+
+
+class Ladder(unittest.TestCase):
+    def test_grid_taking_half_the_tracks_stops_at_wire_demand(self):
+        _, _, v, fp = toy("wire", remedies=True)
+        self.assertEqual(v["stopped_at"], "wire_demand")
+        f = fails(v)[0]
+        self.assertEqual(f["block"], "FpCore")
+        self.assertGreater(f["excess"]["factor"], 1.0)
+        self.assertEqual(f["best_remedy"]["kind"], "resize_slot")
+        mo = v["ladder"]["macros"]["FpCore"]["min_outline"]
+        self.assertEqual(mo["binding"], ["wire_demand"])
+        self.assertGreater(mo["w"] * mo["h"], mo["now"][0] * mo["now"][1])
+        self.assertIsNone(fp)
+
+    def test_clean_reports_every_rung(self):
+        _, _, v, _ = toy("clean")
+        core = v["ladder"]["macros"]["FpCore"]
+        for k in ("wire_demand", "rent_terminals", "rent_wire", "rent", "logic"):
+            self.assertIsNotNone(core[k], k)
+        self.assertEqual(max(core["partners"], key=core["partners"].get), "FpVec")
+        side = v["ladder"]["sides"]["FpCore N"]
+        self.assertIn("escape", side)
+        self.assertTrue(side["via_stack"]["layers"])
+
+    def test_rung_1_judged_once_calibrated(self):
+        blocks = [load("%s.block.json" % b) for b in ("FpCore", "FpMem", "FpVec")]
+        nls = [load("%s.netlist.json" % b) for b in ("FpCore", "FpMem", "FpVec")]
+        cal = dict(load("calibration.json"))
+        cal["via_stack"] = {"via_cost": 3.0, "source": "a test"}
+        _, _, v, _ = plan.run(
+            blocks,
+            load("parent.json"),
+            load("asap7.pdk.json"),
+            load("cut.json"),
+            load("constraints_clean.json"),
+            calibration=cal,
+            remedies=False,
+            netlists=nls,
+        )
+        self.assertEqual(v["stopped_at"], "via_stack")
+        self.assertTrue(fails(v)[0]["layer"])
+        cal = dict(load("calibration.json"))
+        cal["escape"] = {"limit": 0.5, "source": "a test"}
+        _, _, v, _ = plan.run(
+            blocks,
+            load("parent.json"),
+            load("asap7.pdk.json"),
+            load("cut.json"),
+            load("constraints_clean.json"),
+            calibration=cal,
+            remedies=False,
+            netlists=nls,
+        )
+        self.assertEqual(v["stopped_at"], "escape")
 
 
 class Floorplan(unittest.TestCase):
@@ -242,7 +302,16 @@ class Pieces(unittest.TestCase):
         _, _, v, _ = toy("clean")
         self.assertEqual(
             set(v["identity"]),
-            {"tool", "blocks", "parent", "pdk", "cut", "constraints", "calibration"},
+            {
+                "tool",
+                "blocks",
+                "netlists",
+                "parent",
+                "pdk",
+                "cut",
+                "constraints",
+                "calibration",
+            },
         )
 
 

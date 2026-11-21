@@ -32,6 +32,7 @@ py_test(
 py_binary(
     name = "plan",
     srcs = [
+        "ladder.py",
         "plan.py",
         "remedies.py",
     ],
@@ -44,6 +45,7 @@ py_test(
     name = "remedies_test",
     size = "medium",
     srcs = [
+        "ladder.py",
         "plan.py",
         "plan_test.py",
         "remedies.py",
@@ -58,6 +60,7 @@ py_test(
     name = "plan_test",
     size = "small",
     srcs = [
+        "ladder.py",
         "plan.py",
         "plan_test.py",
         "remedies.py",
@@ -167,4 +170,15 @@ py_test(
         "netlist_test.py",
     ],
     main = "netlist_test.py",
+)
+
+py_test(
+    name = "ladder_test",
+    size = "small",
+    srcs = [
+        "ladder.py",
+        "ladder_test.py",
+    ],
+    data = glob(["testdata/toy/*.json"]),
+    main = "ladder_test.py",
 )

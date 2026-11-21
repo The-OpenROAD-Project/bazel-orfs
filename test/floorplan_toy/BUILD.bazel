@@ -150,6 +150,7 @@ VARIANTS = {
     "clean": "feasible - - -",
     "pins": "pins_per_um FpVec - wide",
     "wall": "internal_arrangement FpMem W -",
+    "wire": "wire_demand FpCore - -",
 }
 
 [
@@ -163,6 +164,7 @@ VARIANTS = {
         calibration = "//tools/floorplan:testdata/toy/calibration.json",
         constraints = "//tools/floorplan:testdata/toy/constraints_%s.json" % variant,
         cut = "//tools/floorplan:testdata/toy/cut.json",
+        netlists = [":%s_netlist" % b for b in BLOCKS],
         parent = ":fp_top_parent",
         pdk = ":asap7",
     )

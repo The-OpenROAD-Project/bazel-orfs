@@ -26,5 +26,9 @@
  "pins_per_um": {
   "facing_track_spacing": 1.335,
   "source": "test/macro_select: a facing pin wall routed at route-0 at 20.8 pins/um over M3 and M5 on asap7, one geometry; 1 / (20.8 x 0.036 um M3 pitch) tracks per pin on the lowest pin layer"
+ },
+ "wire_demand": {
+  "limit": 0.15,
+  "source": "test/floorplan_toy: a choice just over the clean plan's densest block (FpCore), whose plan routed with zero overflow at global route; the seeded wire variant's power grid takes half of every layer"
  }
 }

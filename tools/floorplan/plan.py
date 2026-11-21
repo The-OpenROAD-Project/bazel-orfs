@@ -11,13 +11,26 @@ interface bus goes to the side of its macro facing its partner. Then the
 rungs, cheapest first; each measures, and fails only against a limit
 the design's calibration file supplies (CALIBRATION_KEYS): a rung with
 none reports its measurements, ranked, and stops nothing. The first
-that fails stops the plan:
+that fails stops the plan. Rungs 0 and 1 of the ladder (ladder.py) are
+each block's own, from its synthesis statistics and, given its
+netlist.json, its netlist; their measurements are the verdict's
+`ladder`, per macro and side:
 
+  0 grt_capacity    its instances at global route against a worker's
+  0 wire_demand     the block's a-priori wire against its tracks
+  0 rent_terminals  its signal pins against Rent's rule for its size
+  1 rent_wire       wire_demand at the p its own bisection fits
+  1 fanout          a net's repeater chain over its sinks against the
+                    period
   a pins_per_um   per macro side and pin layer, the track spacing (tracks
                   per pin; 1 is a pin on every track); fails a side whose
                   pins face their partners under the facing spacing the
                   design has seen route; a side whose buses turn along it
                   to a partner not in front is reported, not judged
+  1 escape        per side: its pins' cone breadth against the tracks
+                  crossing it
+  1 via_stack     per side and layer: pins plus the via stacks of the
+                  pins above, each bus on its layer by distance
   b area          each macro's outline from its own flow's rule
                   (die_rule) against its slot; the outlines and the glue
                   against the die
@@ -52,12 +65,20 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ladder as Lad  # noqa: E402
 import pin_plan as P  # noqa: E402
 
 TOOL = "plan 1"
 GLUE = "GLUE"
 RUNGS = [
+    "grt_capacity",
+    "wire_demand",
+    "rent_terminals",
+    "rent_wire",
+    "fanout",
     "pins_per_um",
+    "escape",
+    "via_stack",
     "area",
     "aspect",
     "internal_arrangement",
@@ -75,6 +96,25 @@ DEFAULTS = {
 # from here: a rung with no limit for it measures and reports, and fails
 # nothing. Each section names its source, the run it was read off.
 #
+#   grt_capacity          grt_per_synth_inst: global route's instances
+#                         over synthesis's; max_insts: the most a worker
+#                         of the design's class routes (its memory over
+#                         the measured peak bytes per instance)
+#   fanout                ps_per_sink: a repeater chain's delay per sink;
+#                         judged against the block's period
+#   wire_demand           limit: a-priori wire over supply a block has
+#                         routed at; wirelength_factor: measured wire
+#                         over Donath's
+#   rent_terminals        limit: signal pins over Rent's prediction
+#   rent                  p, k: the design's Rent parameters for rung 0
+#                         (not a rung)
+#   rent_wire             limit, wirelength_factor: as wire_demand, at
+#                         each block's own fitted p
+#   escape                limit: cone breadth over the tracks crossing
+#                         a side
+#   via_stack             via_cost: tracks one via stack takes on each
+#                         layer it passes; judged against pins_per_um's
+#                         facing_track_spacing
 #   pins_per_um           facing_track_spacing: tracks per pin on a side's
 #                         lowest pin layer the design has seen route
 #   aspect                range: [lo, hi] of an outline's h / w
@@ -87,6 +127,14 @@ DEFAULTS = {
 #                         layer is the constraints' `layers`, a fact)
 #   path_budget           setup_ps, skew_ps, congestion_k
 CALIBRATION_KEYS = {
+    "grt_capacity": ["grt_per_synth_inst", "max_insts"],
+    "wire_demand": ["limit", "wirelength_factor"],
+    "rent_terminals": ["limit"],
+    "rent": ["p", "k"],
+    "rent_wire": ["limit", "wirelength_factor"],
+    "escape": ["limit"],
+    "via_stack": ["via_cost"],
+    "fanout": ["ps_per_sink"],
     "pins_per_um": ["facing_track_spacing"],
     "aspect": ["range"],
     "internal_arrangement": ["pin_access_um", "free_fraction", "std_density"],
@@ -109,8 +157,11 @@ def sha(obj):
 class Model:
     """Macros with their outlines and buses, the glue, the nets between them."""
 
-    def __init__(self, blocks, parent, pdk, cut, constraints, calibration=None):
+    def __init__(
+        self, blocks, parent, pdk, cut, constraints, calibration=None, netlists=None
+    ):
         self.blocks = {b["block"]: b for b in blocks}
+        self.netlists = {n["block"]: n for n in netlists or []}
         self.parent = parent or {}
         self.pdk = pdk
         self.cut = cut
@@ -622,6 +673,284 @@ def rung_a(model, edges, rects):
                 )
             )
     return findings
+
+
+# --- rungs 0 and 1: each block's own wire, terminals, escape, via stacks -------
+
+
+def _ratio_fail(model, rung, m, measured, cause):
+    """A failed ladder finding when the design calibrates the rung's limit
+    and the measured ratio is over it."""
+    lim = model.cal(rung, "limit")
+    if lim is None or measured is None or measured["ratio"] <= lim:
+        return []
+    return [
+        {
+            "rung": rung,
+            "status": "fail",
+            "block": model.macros[m]["block"],
+            "macro": m,
+            "cause": cause,
+            "demand": measured,
+            "limit": {"ratio": lim, "source": model.source(rung)},
+            "excess": {"factor": round(measured["ratio"] / lim, 3)},
+        }
+    ]
+
+
+def rung_ladder_block(model):
+    """Rungs 0 and 1 per macro, before any layout: (findings, rows)."""
+    findings = []
+    rows = {}
+    lt = model.layer_tracks()
+    p0 = model.cal("rent", "p") or Lad.RENT_DEFAULT["p"]
+    k0 = model.cal("rent", "k") or Lad.RENT_DEFAULT["k"]
+    for m in sorted(model.macros):
+        b = model.block(m)
+        nl = model.netlists.get(b["block"])
+        slot = model.macro_c(m).get("slot")
+        row = {"logic": Lad.logic_bound(b), "partners": partner_bits(model, m)}
+        g = Lad.grt_capacity(
+            b,
+            model.cal("grt_capacity", "grt_per_synth_inst"),
+            model.cal("grt_capacity", "max_insts"),
+        )
+        row["grt_capacity"] = g
+        if g and g.get("ratio", 0) > 1:
+            findings.append(
+                {
+                    "rung": "grt_capacity",
+                    "status": "fail",
+                    "block": b["block"],
+                    "macro": m,
+                    "cause": "global route of the block needs more than a worker holds",
+                    "demand": g,
+                    "limit": {
+                        "max_insts": g["max_insts"],
+                        "source": model.source("grt_capacity"),
+                    },
+                    "excess": {"factor": g["ratio"]},
+                }
+            )
+        wd = Lad.wire_demand(
+            b, lt, p0, model.cal("wire_demand", "wirelength_factor") or 1.0, slot, nl
+        )
+        rt = Lad.rent_terminals(b, p0, k0, nl)
+        row["wire_demand"] = wd
+        row["rent_terminals"] = rt
+        findings += _ratio_fail(
+            model,
+            "wire_demand",
+            m,
+            wd,
+            "the block's a-priori wire is over the tracks its outline holds",
+        )
+        findings += _ratio_fail(
+            model,
+            "rent_terminals",
+            m,
+            rt,
+            "the block has more signal pins than Rent's rule gives its size",
+        )
+        if nl and nl["rent"].get("p") is not None:
+            row["rent"] = {k: nl["rent"][k] for k in ("p", "k", "fit")}
+            rw = Lad.wire_demand(
+                b,
+                lt,
+                nl["rent"]["p"],
+                model.cal("rent_wire", "wirelength_factor") or 1.0,
+                slot,
+                nl,
+            )
+            row["rent_wire"] = rw
+            findings += _ratio_fail(
+                model,
+                "rent_wire",
+                m,
+                rw,
+                "at its own Rent exponent the block's wire is over its tracks",
+            )
+        if nl:
+            pps = model.cal("fanout", "ps_per_sink")
+            period = (b.get("clock") or {}).get("period_ps")
+            fo = Lad.fanout(nl, pps, period if pps is not None else None)
+            row["fanout"] = fo[:8]
+            if pps is not None and period and fo:
+                findings.append(
+                    {
+                        "rung": "fanout",
+                        "status": "fail",
+                        "block": b["block"],
+                        "macro": m,
+                        "net": fo[0]["net"],
+                        "cause": "a net's sinks need a repeater chain longer than the period",
+                        "demand": fo[0],
+                        "limit": {
+                            "period_ps": period,
+                            "ps_per_sink": pps,
+                            "source": model.source("fanout"),
+                        },
+                        "excess": {"factor": round(fo[0]["chain_ps"] / period, 3)},
+                        "contributors": fo[:8],
+                    }
+                )
+        rows[m] = row
+    return findings, rows
+
+
+def partner_bits(model, m):
+    """The macro's pins per partner, each of its buses once per partner."""
+    out = {}
+    for (a, b), (_, na, nb) in model.pair_bits().items():
+        if a == m:
+            out[b] = na
+        elif b == m:
+            out[a] = nb
+    return dict(sorted(out.items(), key=lambda kv: (-kv[1], kv[0])))
+
+
+def min_outlines(model, st):
+    """Per macro the smallest outline every calibrated rung passes at
+    (ladder.min_outline): the area its rule and its wire limits need,
+    each side the length its pins (at the facing spacing) and escape
+    need."""
+    spacing = model.cal("pins_per_um", "facing_track_spacing")
+    esc_lim = model.cal("escape", "limit")
+    lt = model.layer_tracks()
+    out = {}
+    for m, row in st.get("ladder", {}).items():
+        r = (st.get("rects") or {}).get(m)
+        if r is not None:
+            w0, h0 = r[2], r[3]
+        else:
+            wh = Lad.outline_um(model.block(m), model.macro_c(m).get("slot"))
+            if wh is None:
+                continue
+            w0, h0 = wh
+        area = model.outline_area(m)
+        binding = ["area"]
+        for rung in ("wire_demand", "rent_wire"):
+            lim = model.cal(rung, "limit")
+            x = row.get(rung)
+            if lim and x:
+                a = x["outline_um"][0] * x["outline_um"][1] * (x["ratio"] / lim) ** 2
+                if a > area:
+                    area, binding = a, [rung]
+        sides = {}
+        for key, srow in st.get("ladder_sides", {}).items():
+            mm, side = key.split(" ")
+            if mm != m:
+                continue
+            bits = sum(srow.get("bits", {}).values()) if srow.get("bits") else 0
+            need = 0.0
+            if spacing and bits:
+                need = bits * spacing / model.tracks(side)
+            esc = srow.get("escape")
+            if esc_lim and esc:
+                d = Lad.perpendicular(side)
+                t = sum(v for n, v in lt.items() if model.pdk["layers"][n]["dir"] == d)
+                need = max(need, esc["demand"] / (t * esc_lim) if t else 0.0)
+            sides[side] = need
+        wh = Lad.min_outline(w0, h0, area, sides)
+        if wh[0] > w0 + 1e-6 or wh[1] > h0 + 1e-6:
+            binding += [s for s, v in sides.items() if v > (w0 if s in "NS" else h0)]
+        out[m] = {
+            "w": wh[0],
+            "h": wh[1],
+            "now": [round(w0, 3), round(h0, 3)],
+            "binding": binding,
+        }
+    return out
+
+
+def _distance(rects, m, partner):
+    """Center to center, Manhattan; the glue is in front of every side."""
+    if partner == GLUE or partner not in rects:
+        return 0.0
+    a, b = rects[m], rects[partner]
+    return abs(a[0] + a[2] / 2 - b[0] - b[2] / 2) + abs(
+        a[1] + a[3] / 2 - b[1] - b[3] / 2
+    )
+
+
+def rung_ladder_edges(model, edges, rects):
+    """Rung 1 per macro side: escape and via stacks. (findings, rows)."""
+    findings = []
+    rows = {}
+    lt = model.layer_tracks()
+    via_cost = model.cal("via_stack", "via_cost")
+    need = model.cal("pins_per_um", "facing_track_spacing")
+    for e in edge_report(model, edges, rects):
+        m, side = e["macro"], e["side"]
+        block = e["block"]
+        nl = model.netlists.get(block)
+        common = {"block": block, "macro": m, "side": side}
+        row = {"bits": {"all": e["bits"]}}
+        if nl:
+            esc = Lad.escape(
+                side,
+                e["um"],
+                [(c["bus"], c["bits"]) for c in e["contributors"]],
+                nl,
+                model.pdk,
+                lt,
+            )
+            row["escape"] = esc
+            lim = model.cal("escape", "limit")
+            if lim is not None and esc["ratio"] > lim:
+                findings.append(
+                    dict(
+                        common,
+                        rung="escape",
+                        status="fail",
+                        bus=esc["buses"][0]["bus"] if esc["buses"] else "",
+                        cause="the cones of the side's pins fan out over more wires than cross the side",
+                        demand={k: esc[k] for k in ("demand", "supply", "ratio")},
+                        limit={"ratio": lim, "source": model.source("escape")},
+                        excess={"factor": round(esc["ratio"] / lim, 3)},
+                        contributors=esc["buses"][:8],
+                    )
+                )
+        per, assigned = Lad.assign_layers(
+            [
+                (
+                    c["bus"],
+                    c["bits"],
+                    _distance(rects, m, c["partner"]),
+                    c.get("facing", True),
+                )
+                for c in e["contributors"]
+            ],
+            model.io(side),
+            model.pdk,
+        )
+        vs = Lad.via_stack(e["um"], per, model.pdk, via_cost)
+        row["via_stack"] = {"layers": vs, "buses": assigned[:8]}
+        if via_cost is not None and need is not None:
+            for n, r in vs.items():
+                if r["track_spacing"] < need * (1 - 1e-3):
+                    findings.append(
+                        dict(
+                            common,
+                            rung="via_stack",
+                            status="fail",
+                            layer=n,
+                            bus=assigned[0]["bus"] if assigned else "",
+                            cause="the side's pins on %s and the via stacks of the pins above it "
+                            "leave fewer tracks per pin than the design routes" % n,
+                            demand=r,
+                            limit={
+                                "track_spacing": need,
+                                "via_cost": via_cost,
+                                "source": model.source("via_stack"),
+                            },
+                            excess={"factor": round(need / r["track_spacing"], 3)},
+                            contributors=assigned[:8],
+                        )
+                    )
+                    break
+        rows["%s %s" % (m, side)] = row
+    return findings, rows
 
 
 def rung_b(model, rects, die):
@@ -1496,10 +1825,17 @@ def evaluate_layout(model, pp, rects, die):
         "internal": {},
         "edges": None,
     }
+    fl, st["ladder"] = rung_ladder_block(model)
+    st["findings"] += fl
+    st["ladder_sides"] = {}
     if rects is not None:
         edges = P.assign(pp, rects)
         st["edges"] = edges
         st["findings"] += rung_a(model, edges, rects)
+        fl, st["ladder_sides"] = rung_ladder_edges(model, edges, rects)
+        st["findings"] += fl
+    for m, mo in min_outlines(model, st).items():
+        st["ladder"][m]["min_outline"] = mo
     st["findings"] += rung_b(model, rects, die)
     if rects is None:
         return st
@@ -1562,6 +1898,11 @@ def remedies_for(f):
         "aspect": ["reshape"],
         "side_blocked": ["change_side", "reshape", "move_memory", "move_slot"],
         "no_internal_arrangement": ["resize_slot", "reshape", "move_memory"],
+        "wire_demand": ["resize_slot", "move_module"],
+        "rent_wire": ["resize_slot", "move_module"],
+        "rent_terminals": ["narrow_bus", "move_module"],
+        "escape": ["reshape", "resize_slot", "split_side", "narrow_bus"],
+        "via_stack": ["lower_pins", "split_side", "narrow_bus"],
         "no_channel": ["move_slot", "resize_die", "change_side"],
         "over_capacity": ["move_slot", "resize_die", "narrow_bus", "promote_layer"],
         "path_budget": ["register_bus", "move_slot", "promote_layer", "move_module"],
@@ -1591,6 +1932,7 @@ def verdict(model, st, identity, run_all=False):
         "remedies": [],
         "internal_placement": internal,
         "forbidden_sides": st.get("forbidden", {}),
+        "ladder": {"macros": st.get("ladder", {}), "sides": st.get("ladder_sides", {})},
     }
 
 
@@ -1752,6 +2094,9 @@ def write_md(v, path):
         lines.append(head)
         lines.append("")
         for k in (
+            "cause",
+            "layer",
+            "net",
             "track_spacing",
             "demand",
             "limit",
@@ -1787,6 +2132,56 @@ def write_md(v, path):
         if f.get("remedies"):
             lines.append("")
             lines.append("Remedies: " + ", ".join(f["remedies"]))
+        if f.get("best_remedy"):
+            b = f["best_remedy"]
+            lines.append(
+                "Best remedy: %s %s, effect %s"
+                % (
+                    b["kind"],
+                    json.dumps(
+                        {
+                            k: x
+                            for k, x in b.items()
+                            if k not in ("kind", "for", "effect")
+                        }
+                    ),
+                    json.dumps(b.get("effect")),
+                )
+            )
+        lines.append("")
+    lad = v.get("ladder", {}).get("macros", {})
+    if lad:
+        lines += [
+            "## Ladder: each block's own measurements",
+            "",
+            "| macro | grt insts | wire ratio | Rent ratio | p | wire at p | logic ps / period | min outline um |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
+
+        def val(r, k):
+            return "" if not r or r.get(k) is None else str(r[k])
+
+        for m, r in sorted(lad.items()):
+            g = r.get("grt_capacity") or {}
+            lg = r.get("logic") or {}
+            mo = r.get("min_outline") or {}
+            lines.append(
+                "| %s | %s | %s | %s | %s | %s | %s | %s |"
+                % (
+                    m,
+                    g.get("grt_insts", g.get("synth_insts", "")),
+                    val(r.get("wire_demand"), "ratio"),
+                    val(r.get("rent_terminals"), "ratio"),
+                    val(r.get("rent"), "p"),
+                    val(r.get("rent_wire"), "ratio"),
+                    (
+                        "%s / %s" % (lg.get("ps", ""), lg.get("period_ps", ""))
+                        if lg
+                        else ""
+                    ),
+                    "%s x %s" % (mo["w"], mo["h"]) if mo else "",
+                )
+            )
         lines.append("")
     if v.get("remedies"):
         lines += [
@@ -1842,17 +2237,21 @@ def run(
     run_all=False,
     remedies=True,
     calibration=None,
+    netlists=None,
 ):
     """(model, state, verdict, floorplan or None). With `remedies`, every
     remedy of the failed findings with its effect (remedies.py). The
     design's calibration supplies every limit a rung fails against."""
     calibration = calibration or {}
-    model = Model(blocks, parent, pdk, cut, constraints, calibration)
+    model = Model(blocks, parent, pdk, cut, constraints, calibration, netlists)
     st = plan(model)
     ident = identity(
         None,
         {
             "blocks": sorted((b["block"], b.get("identity", {})) for b in blocks),
+            "netlists": sorted(
+                (n["block"], n.get("identity", {})) for n in netlists or []
+            ),
             "parent": parent or {},
             "pdk": pdk.get("identity", pdk),
             "cut": cut,
@@ -1861,7 +2260,9 @@ def run(
         },
     )
     v = verdict(model, st, ident, run_all)
-    v["unjudged"] = sorted(r for r in CALIBRATION_KEYS if r not in calibration)
+    v["unjudged"] = sorted(
+        r for r in CALIBRATION_KEYS if r in RUNGS and r not in calibration
+    )
     v["chains"] = st.get("chains", [])[:10]
     if remedies and v["verdict"] != "feasible":
         import remedies as R
@@ -1876,10 +2277,20 @@ def run(
             "cut": cut,
             "constraints": constraints,
             "calibration": calibration,
+            "netlists": netlists,
         }
         v["remedies"] = R.compute(
             lambda i: run(remedies=False, **i)[2], inputs, model, st, fails
         )
+        for f in fails:
+            key = {
+                k: f.get(k)
+                for k in ("rung", "kind", "block", "side", "bus")
+                if f.get(k)
+            }
+            best = next((r for r in v["remedies"] if r.get("for") == key), None)
+            if best is not None:
+                f["best_remedy"] = best
     fp = floorplan(model, st) if v["verdict"] == "feasible" else None
     return model, st, v, fp
 
@@ -1890,6 +2301,12 @@ def main(argv):
     )
     ap.add_argument(
         "--block", action="append", default=[], help="a block.json, once per macro"
+    )
+    ap.add_argument(
+        "--netlist",
+        action="append",
+        default=[],
+        help="a block's netlist.json (rung 1), once per block",
     )
     ap.add_argument("--parent", help="parent.json")
     ap.add_argument("--pdk", required=True)
@@ -1918,6 +2335,7 @@ def main(argv):
         args.all,
         not args.no_remedies,
         read_json(args.calibration) if args.calibration else None,
+        [read_json(p) for p in args.netlist],
     )
     with open(args.verdict, "w") as f:
         json.dump(v, f, indent=1, sort_keys=True)
