@@ -37,6 +37,19 @@ The mock is made from the parent's Verilog port list of the module, so a
 change inside the block leaves its bytes, and every parent stage that reads
 it, as they were.
 
+Why a mock and not a yosys blackbox: synthesis needs only a macro's ports,
+which SYNTH_BLACKBOXES gives. From floorplan on, OpenROAD links and places
+every instance: each macro needs a master with an outline and pins (the
+planned LEF) and a liberty cell, empty of arcs or not, for STA to link. A
+blackbox gives neither, so the flow stops at floorplan. The ports-only
+liberty on the planned LEF is the smallest view that takes the parent
+through floorplan, place, CTS and global route, in the dirty lane too,
+without waiting for any block. What it cannot tell: the boundary timing,
+unconstrained without arcs, and each block's clock insertion latency.
+It is also the faster build wherever that loss does not matter: use mock
+while the parent's problems are bigger than its blocks' boundary timing
+(far from its target period, say), synth or real once they are not.
+
 The tier is the parent's: `orfs_flow(macro_view = ...)` picks it for every
 `orfs_macro_tiers` among its macros (a plain macro is used as it is), and
 `--@bazel-orfs//:macro_view=<tier>` overrides it for one run. A macro
@@ -113,7 +126,10 @@ orfs_ports_macro = rule(
     implementation = _ports_impl,
     doc = "A macro from its module's Verilog port list and a LEF: a liberty " +
           "cell with the ports as pins and no timing arcs " +
-          "(tools/macro_views/ports_lib.py).",
+          "(tools/macro_views/ports_lib.py). Unlike a yosys blackbox, it " +
+          "links in OpenROAD, so a parent runs past floorplan on it; its " +
+          "boundary paths are unconstrained and it has no clock insertion " +
+          "latency.",
     provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, TopInfo],
     attrs = _PYTHON | {
         "clocks": attr.string_list(doc = "The clock ports."),
