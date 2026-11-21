@@ -121,7 +121,7 @@ build_group() {
     bz build ${DIRTY_BUILD_OPTS:-} --output_groups="$group" "$target" >&2 ||
         die "bazelisk build --output_groups=$group $target failed (is it an ORFS stage target?)"
     local manifest
-    manifest="$(bz cquery --output=files --output_groups=deps_scripts "$target" 2>/dev/null |
+    manifest="$(bz cquery ${DIRTY_BUILD_OPTS:-} --output=files --output_groups=deps_scripts "$target" 2>/dev/null |
         grep '_deps_manifest\.txt$' || true)"
     [ -n "$manifest" ] || die "$target has no deps manifest (is it an ORFS stage target?)"
     echo "$manifest"
@@ -427,7 +427,7 @@ archive)
     OUT="$(abspath "${POS[0]}")"
     TARGET="$(stage_target "$FLOW" "$STAGE" "$VARIANT")"
     bz build ${DIRTY_BUILD_OPTS:-} --output_groups=deps "$TARGET" >&2 || die "bazelisk build --output_groups=deps $TARGET failed"
-    TAR="$(bz cquery --output=files --output_groups=deps "$TARGET" 2>/dev/null | grep '\.tar\.gz$' || true)"
+    TAR="$(bz cquery ${DIRTY_BUILD_OPTS:-} --output=files --output_groups=deps "$TARGET" 2>/dev/null | grep '\.tar\.gz$' || true)"
     [ -n "$TAR" ] || die "$TARGET has no deps archive (is it an ORFS stage target?)"
     cp -f "$(bz info execution_root 2>/dev/null)/$TAR" "$OUT"
     echo "Archived to ${OUT#"$CWD"/}"
