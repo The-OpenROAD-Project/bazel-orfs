@@ -13,6 +13,19 @@ cut.json, constraints.json ─────────────────�
                                                 floorplan_consume ◄──┘ ──► each flow from its floorplan stage on
 ```
 
+## Mock the blocks, iterate on the top
+
+Without mocks, every floorplan iteration waits for each block's
+synthesis, place and global route before the parent can start: a loop
+of days. With a mock `.lib` and `.lef` per block, made from synthesis
+and the plan (ports, outline, pins), the parent runs with no block
+built. The rungs then climb in cost: seconds (pin fit, Rent, wire
+demand), about a minute (cone escape, pin-layer cost), minutes (tangled
+clusters), tens of minutes (the parent's route-0, in the dirty lane),
+hours (real blocks and global route, once a plan survives). That fast
+dirty-lane loop, from synthesis data alone, is what an AI or human
+triage loop needs; the slow truth comes only at the end.
+
 ## Extract
 
 - `floorplan_extract(name, src, arguments)`: `extract_block.tcl` on a

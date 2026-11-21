@@ -52,6 +52,11 @@ Two timing views of each macro, one LEF.
   that was badly wrong is then seen before hours of CTS and global route
   are spent on it.
 
+Mocks first: with a mock `.lib` and `.lef` per block, made from synthesis
+and the plan, the parent's floorplan iterates with no block built, and
+the planner's rungs climb in cost before any real block runs
+(`tools/floorplan/README.md`, "Mock the blocks, iterate on the top").
+
 Parallelism comes from remote execution: the parent's floorplan and
 placement and each block's flow are independent actions, each on a
 worker sized for it. The executor's default of one CPU per action is
