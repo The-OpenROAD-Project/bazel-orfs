@@ -1,5 +1,5 @@
 load("@rules_python//python:defs.bzl", "py_test")
-load("//:openroad.bzl", "orfs_flow", "orfs_macro_tiers", "orfs_macro_view_report")
+load("//:openroad.bzl", "orfs_flow", "orfs_macro_tiers", "orfs_macro_view_report", "orfs_macro_views")
 load(":macro_views_test.bzl", "macro_view_flag_test", "macro_view_test")
 
 # A parent that reads its macro in three tiers (private/macro_views.bzl):
@@ -134,4 +134,30 @@ py_test(
     args = ["$(rootpath :Block_report)"],
     data = [":Block_report"],
     main = "report_check.py",
+)
+
+# A macro without the tier gives the one below it: Top at synth over a
+# block with no synth view reads its mock.
+orfs_macro_views(
+    name = "Block_mock_and_real",
+    mock = ":Block_views_mock",
+    real = ":Block_generate_abstract",
+)
+
+orfs_flow(
+    name = "Top",
+    arguments = FAST,
+    last_stage = "synth",
+    macro_view = "synth",
+    macros = [":Block_mock_and_real"],
+    sources = {"SDC_FILE": [":constraints.sdc"]},
+    variant = "fallback",
+    verilog_files = ["top.sv"],
+)
+
+macro_view_test(
+    name = "fallback_view_test",
+    expected = ":Block_views_mock",
+    forbidden = [":Block_generate_abstract"],
+    target_under_test = ":Top_fallback_synth",
 )

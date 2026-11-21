@@ -39,7 +39,9 @@ it, as they were.
 
 The tier is the parent's: `orfs_flow(macro_view = ...)` picks it for every
 `orfs_macro_tiers` among its macros (a plain macro is used as it is), and
-`--@bazel-orfs//:macro_view=<tier>` overrides it for one run. A
+`--@bazel-orfs//:macro_view=<tier>` overrides it for one run. A macro
+without the tier (no `synth` for a block whose synthesis is not
+partitioned) gives the highest tier below it. A
 command-line flag leaves the output paths alone, so the other tiers'
 results stay cached. `orfs_macro_view_report` compares a tier's boundary
 timing with the real one, per port bus.
@@ -165,14 +167,16 @@ def _view_impl(ctx):
     view = flag or ctx.attr.view
     src = ctx.attr.src
     if MacroViewsInfo in src:
-        chosen = getattr(src[MacroViewsInfo], view)
+        tiers = MACRO_VIEWS[:MACRO_VIEWS.index(view) + 1]
+        chosen = [getattr(src[MacroViewsInfo], t) for t in reversed(tiers)]
+        chosen = [t for t in chosen if t]
         if not chosen:
-            fail("%s has no %s view (%s)" % (
+            fail("%s has no %s view, nor one below it (%s)" % (
                 src.label,
                 view,
                 "--@bazel-orfs//:macro_view" if flag else "macro_view",
             ))
-        src = chosen
+        src = chosen[0]
     providers = [
         DefaultInfo(files = src[DefaultInfo].files),
         src[OrfsInfo],
@@ -185,8 +189,9 @@ def _view_impl(ctx):
 orfs_macro_view = rule(
     implementation = _view_impl,
     doc = "One of a macro's views, for a parent's stages: `view`, or the " +
-          "--@bazel-orfs//:macro_view flag when set. A macro without views " +
-          "is passed through.",
+          "--@bazel-orfs//:macro_view flag when set; a macro without that " +
+          "tier gives the highest tier below it, so the parent never waits " +
+          "for more than it asked. A macro without views is passed through.",
     provides = [DefaultInfo, OrfsInfo, TopInfo],
     attrs = {
         "src": attr.label(mandatory = True, providers = [TopInfo]),
