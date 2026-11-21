@@ -25,7 +25,7 @@
 # puts on a boundary (set_max_delay, an input delay) does not move it.
 #
 #   EXTRACT_OUT      the dump
-#   EXTRACT_TIMING   0 skips the three timing sweeps
+#   EXTRACT_TIMING   0 skips the three per-bus timing sweeps
 #   EXTRACT_DEPTH    cells a hard object's pin is traced through (32)
 source $::env(SCRIPTS_DIR)/load.tcl
 load_design 1_synth.odb
@@ -138,6 +138,20 @@ proc path_ps { pe } {
   return [format %.1f [expr { ($a1 - $a0) * $::ui_ps }]]
 }
 
+# the logic's own depth, whatever EXTRACT_TIMING says: one path
+set data_pins [all_registers -data_pins]
+if { [llength $clock_pins] > 0 && [llength $data_pins] > 0 } {
+  foreach pe [find_timing_paths -from $clock_pins -to $data_pins -unconstrained \
+    -path_delay max -group_path_count 1] {
+    set insts [dict create]
+    foreach pt [get_property $pe points] {
+      set pin [get_property $pt pin]
+      if { [get_property $pin is_port] } { continue }
+      dict set insts [get_full_name [get_cells -of_objects $pin]] 1
+    }
+    puts $out "logic\t[path_ps $pe]\t[dict size $insts]\t[get_full_name [get_property $pe startpoint]]\t[get_full_name [get_property $pe endpoint]]"
+  }
+}
 if { ![info exists ::env(EXTRACT_TIMING)] || $::env(EXTRACT_TIMING) != 0 } {
   set clk [lindex [all_clocks] 0]
   set inputs [all_inputs -no_clocks]
@@ -164,18 +178,6 @@ if { ![info exists ::env(EXTRACT_TIMING)] || $::env(EXTRACT_TIMING) != 0 } {
     }
     dict for {to wn} $worst {
       puts $out "in2out\t$bus\t$to\t[lindex $wn 0]\t[lindex $wn 1]"
-    }
-  }
-  if { [llength $clock_pins] > 0 && [llength $data_pins] > 0 } {
-    foreach pe [find_timing_paths -from $clock_pins -to $data_pins -unconstrained \
-      -path_delay max -group_path_count 1] {
-      set insts [dict create]
-      foreach pt [get_property $pe points] {
-        set pin [get_property $pt pin]
-        if { [get_property $pin is_port] } { continue }
-        dict set insts [get_full_name [get_cells -of_objects $pin]] 1
-      }
-      puts $out "logic\t[path_ps $pe]\t[dict size $insts]\t[get_full_name [get_property $pe startpoint]]\t[get_full_name [get_property $pe endpoint]]"
     }
   }
   if { [llength $clock_pins] > 0 } {
