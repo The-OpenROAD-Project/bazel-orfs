@@ -1,0 +1,32 @@
+# The tiered views of a macro (private/macro_views.bzl): the ports-only
+# liberty and the report comparing a tier's boundary timing with the real.
+load("@rules_python//python:defs.bzl", "py_test")
+
+exports_files(
+    [
+        "compare_libs.py",
+        "ports_lib.py",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "ports_lib_test",
+    size = "small",
+    srcs = [
+        "compare_libs.py",
+        "ports_lib.py",
+        "ports_lib_test.py",
+    ],
+    main = "ports_lib_test.py",
+)
+
+py_test(
+    name = "compare_libs_test",
+    size = "small",
+    srcs = [
+        "compare_libs.py",
+        "compare_libs_test.py",
+    ],
+    main = "compare_libs_test.py",
+)
