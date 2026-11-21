@@ -1,0 +1,114 @@
+{
+ "block": "FpCore",
+ "contraction": {
+  "quantiles": {
+   "q10": 0.00016,
+   "q50": 0.00045,
+   "q90": 0.26667
+  },
+  "sampled": 18410,
+  "weak_share": 0.84671
+ },
+ "gtl": [
+  {
+   "cells": 187,
+   "cells_share": 0.04286,
+   "cut": 76,
+   "score": 0.4079,
+   "seed": 409
+  },
+  {
+   "cells": 231,
+   "cells_share": 0.05295,
+   "cut": 93,
+   "score": 0.4197,
+   "seed": 545
+  },
+  {
+   "cells": 166,
+   "cells_share": 0.03805,
+   "cut": 85,
+   "score": 0.5031,
+   "seed": 136
+  },
+  {
+   "cells": 230,
+   "cells_share": 0.05272,
+   "cut": 119,
+   "score": 0.5389,
+   "seed": 3544
+  },
+  {
+   "cells": 211,
+   "cells_share": 0.04836,
+   "cut": 111,
+   "score": 0.5396,
+   "seed": 1363
+  },
+  {
+   "cells": 216,
+   "cells_share": 0.04951,
+   "cut": 114,
+   "score": 0.5436,
+   "seed": 0
+  },
+  {
+   "cells": 579,
+   "cells_share": 0.13271,
+   "cut": 421,
+   "score": 0.8936,
+   "seed": 2863
+  },
+  {
+   "cells": 612,
+   "cells_share": 0.14027,
+   "cut": 453,
+   "score": 0.9188,
+   "seed": 1636
+  }
+ ],
+ "identity": {
+  "dump": "sha256:144e1eeda2d88507eb178fa95bddb7e959bf86f0817169e272f8901f756cb328",
+  "tool": "tangle 1"
+ },
+ "net_range": {
+  "levels": [
+   {
+    "level": 1,
+    "nets": 577,
+    "span_share": 1.0
+   },
+   {
+    "level": 2,
+    "nets": 229,
+    "span_share": 0.7071
+   },
+   {
+    "level": 3,
+    "nets": 357,
+    "span_share": 0.5
+   },
+   {
+    "level": 4,
+    "nets": 226,
+    "span_share": 0.3536
+   },
+   {
+    "level": 5,
+    "nets": 125,
+    "span_share": 0.25
+   },
+   {
+    "level": 6,
+    "nets": 124,
+    "span_share": 0.1768
+   }
+  ],
+  "long_share": 0.24197,
+  "nets": 3331
+ },
+ "rent": {
+  "k": 2.544,
+  "p": 0.8208
+ }
+}

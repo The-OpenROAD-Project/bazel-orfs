@@ -1,0 +1,228 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+# The global floorplan planner: extract per block (extract_block.tcl,
+# block_json.py; extract_pdk.tcl, pdk_json.py), plan, consume:
+# floorplan.bzl.
+
+exports_files(
+    [
+        "extract_block.tcl",
+        "extract_netlist.tcl",
+        "extract_parent.tcl",
+        "extract_pdk.tcl",
+        "probe_congestion.tcl",
+        "probe_wire.tcl",
+    ] + glob(["testdata/toy/*.json"]),
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "pin_plan",
+    srcs = ["pin_plan.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "pin_plan_test",
+    size = "small",
+    srcs = ["pin_plan_test.py"],
+    deps = [":pin_plan"],
+)
+
+py_binary(
+    name = "plan",
+    srcs = [
+        "ladder.py",
+        "plan.py",
+        "remedies.py",
+    ],
+    main = "plan.py",
+    visibility = ["//visibility:public"],
+    deps = [":pin_plan"],
+)
+
+py_test(
+    name = "remedies_test",
+    size = "medium",
+    srcs = [
+        "ladder.py",
+        "plan.py",
+        "plan_test.py",
+        "remedies.py",
+        "remedies_test.py",
+    ],
+    data = glob(["testdata/toy/*.json"]),
+    main = "remedies_test.py",
+    deps = [":pin_plan"],
+)
+
+py_test(
+    name = "plan_test",
+    size = "small",
+    srcs = [
+        "ladder.py",
+        "plan.py",
+        "plan_test.py",
+        "remedies.py",
+    ],
+    data = glob(["testdata/toy/*.json"]),
+    main = "plan_test.py",
+    deps = [":pin_plan"],
+)
+
+py_binary(
+    name = "block_json",
+    srcs = ["block_json.py"],
+    main = "block_json.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "block_json_test",
+    size = "small",
+    srcs = [
+        "block_json.py",
+        "block_json_test.py",
+    ],
+    main = "block_json_test.py",
+)
+
+py_binary(
+    name = "pdk_json",
+    srcs = ["pdk_json.py"],
+    main = "pdk_json.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "pdk_json_test",
+    size = "small",
+    srcs = [
+        "pdk_json.py",
+        "pdk_json_test.py",
+    ],
+    main = "pdk_json_test.py",
+)
+
+py_binary(
+    name = "parent_json",
+    srcs = ["parent_json.py"],
+    main = "parent_json.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "parent_json_test",
+    size = "small",
+    srcs = [
+        "parent_json.py",
+        "parent_json_test.py",
+    ],
+    main = "parent_json_test.py",
+)
+
+py_binary(
+    name = "emit",
+    srcs = ["emit.py"],
+    main = "emit.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "emit_test",
+    size = "small",
+    srcs = [
+        "emit.py",
+        "emit_test.py",
+    ],
+    main = "emit_test.py",
+)
+
+py_binary(
+    name = "judge",
+    srcs = ["judge.py"],
+    main = "judge.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "judge_test",
+    size = "small",
+    srcs = [
+        "judge.py",
+        "judge_test.py",
+    ],
+    main = "judge_test.py",
+)
+
+py_binary(
+    name = "netlist",
+    srcs = ["netlist.py"],
+    main = "netlist.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "netlist_test",
+    size = "small",
+    srcs = [
+        "netlist.py",
+        "netlist_test.py",
+    ],
+    main = "netlist_test.py",
+)
+
+py_test(
+    name = "ladder_test",
+    size = "small",
+    srcs = [
+        "ladder.py",
+        "ladder_test.py",
+    ],
+    data = glob(["testdata/toy/*.json"]),
+    main = "ladder_test.py",
+)
+
+py_binary(
+    name = "calibrate",
+    srcs = [
+        "calibrate.py",
+        "ladder.py",
+    ],
+    main = "calibrate.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "calibrate_test",
+    size = "small",
+    srcs = [
+        "calibrate.py",
+        "calibrate_test.py",
+        "ladder.py",
+    ],
+    data = ["testdata/toy/asap7.pdk.json"],
+    main = "calibrate_test.py",
+)
+
+py_binary(
+    name = "tangle",
+    srcs = [
+        "netlist.py",
+        "tangle.py",
+    ],
+    main = "tangle.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "tangle_test",
+    size = "small",
+    srcs = [
+        "netlist.py",
+        "netlist_test.py",
+        "tangle.py",
+        "tangle_test.py",
+    ],
+    main = "tangle_test.py",
+)

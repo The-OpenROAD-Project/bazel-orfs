@@ -1,0 +1,95 @@
+{
+ "area": {
+  "die_rule": {
+   "aspect": 1.0,
+   "core_h_um": 35.91,
+   "core_w_um": 35.694,
+   "h_um": 37.91,
+   "margin_um": 1.0,
+   "rule": "CORE_UTILIZATION",
+   "util": 0.4,
+   "w_um": 37.694
+  },
+  "hard_um2": 0,
+  "macros": [],
+  "std_um2": 509.104
+ },
+ "block": "FpVec",
+ "clock": {
+  "period_ps": 1000.0,
+  "port": "clock"
+ },
+ "hard": [],
+ "identity": {
+  "dump": "sha256:1342a6f5e2fc26b85f51036a43b4ed5072f6ae3c1ca5e34fa3a903c32b56799c",
+  "tool": "block_json 2"
+ },
+ "logic": {
+  "cells": 11,
+  "from": "w[13]$_DFF_P_/QN",
+  "ps": 236.8,
+  "to": "d[21]$_DFF_P_/D"
+ },
+ "netlist": {
+  "insts": 2402,
+  "nets": 3506,
+  "pins": 7334,
+  "seq": 1088
+ },
+ "ports": [
+  {
+   "bits": 32,
+   "dir": "in",
+   "group": "deep_in",
+   "in2reg_ps": {
+    "bit": "deep_in[13]",
+    "max": 225.0
+   },
+   "name": "deep_in",
+   "registered": null
+  },
+  {
+   "bits": 16,
+   "dir": "in",
+   "group": "ft_in",
+   "in2out": [
+    {
+     "bits": 16,
+     "max_ps": 2.1,
+     "to": "ft_out"
+    }
+   ],
+   "name": "ft_in",
+   "registered": null
+  },
+  {
+   "bits": 16,
+   "dir": "out",
+   "group": "ft_out",
+   "name": "ft_out",
+   "registered": null
+  },
+  {
+   "bits": 32,
+   "dir": "out",
+   "group": "res",
+   "name": "res",
+   "reg2out_ps": {
+    "bit": "res[0]",
+    "max": 4.1
+   },
+   "registered": null
+  },
+  {
+   "bits": 1024,
+   "dir": "in",
+   "group": "wide",
+   "in2reg_ps": {
+    "bit": "wide[0]",
+    "max": 0.0
+   },
+   "name": "wide",
+   "registered": null
+  }
+ ]
+}

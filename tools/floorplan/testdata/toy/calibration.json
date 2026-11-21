@@ -1,0 +1,34 @@
+{
+ "aspect": {
+  "range": [
+   0.1667,
+   6.0
+  ],
+  "source": "test/floorplan_toy: a choice, the toy has no run that bounds it"
+ },
+ "channel_capacity": {
+  "gcell_limit": 1.0,
+  "source": "test/floorplan_toy: a choice; the clean plan made at it routed with zero overflow at global route (planned_grt_build_test)",
+  "usable": 0.5
+ },
+ "internal_arrangement": {
+  "free_fraction": 0.5,
+  "pin_access_um": 10.0,
+  "source": "test/floorplan_toy: chosen so its seeded wall shows; FpMem's flow places at 0.6 density",
+  "std_density": 0.7
+ },
+ "path_budget": {
+  "congestion_k": 1.0,
+  "setup_ps": 30.0,
+  "skew_ps": 50.0,
+  "source": "test/floorplan_toy: allowances chosen for the toy, not measured"
+ },
+ "pins_per_um": {
+  "facing_track_spacing": 1.335,
+  "source": "test/macro_select: a facing pin wall routed at route-0 at 20.8 pins/um over M3 and M5 on asap7, one geometry; 1 / (20.8 x 0.036 um M3 pitch) tracks per pin on the lowest pin layer"
+ },
+ "wire_demand": {
+  "limit": 0.15,
+  "source": "test/floorplan_toy: a choice just over the clean plan's densest block (FpCore), whose plan routed with zero overflow at global route; the seeded wire variant's power grid takes half of every layer"
+ }
+}

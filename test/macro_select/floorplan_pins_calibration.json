@@ -1,0 +1,6 @@
+{
+ "pins_per_um": {
+  "facing_track_spacing": 1.335,
+  "source": "floorplan_calibration.json's facing pin wall: 1 / (20.8 pins per um x 0.036 um, M3's pitch)"
+ }
+}

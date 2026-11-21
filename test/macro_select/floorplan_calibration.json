@@ -1,0 +1,14 @@
+{
+ "facing_pin_wall": {
+  "pins_per_um": 20.8,
+  "layers": ["M3", "M5"],
+  "source": "a facing pin wall routed at route-0 at up to 20.8 pins per um over M3 and M5, asap7, one geometry"
+ },
+ "lateral": {
+  "source": "a partner beside the pin side instead of in front of it walled at every density tried (calibrate.sh, the _lat arms)"
+ },
+ "wire_ps_per_um": {
+  "value": 0.6,
+  "source": "tools/macro_select/plan_floorplan.py's asap7 constant, from this package's calibration"
+ }
+}

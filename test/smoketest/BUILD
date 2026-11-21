@@ -2,6 +2,7 @@
 
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//:openroad.bzl", "orfs_flow", "orfs_run")
+load("//tools/floorplan:floorplan.bzl", "floorplan_pdk")
 
 PDKS = [
     "asap7",
@@ -62,4 +63,11 @@ FAST_SETTINGS = {
         ":lb_32x128_{}_binary_liberty".format(pdk),
         ":lb_32x128_{}_generate_abstract".format(pdk),
     ],
+) for pdk in PDKS]
+
+# The global floorplan planner's wire model per platform (tools/floorplan).
+[floorplan_pdk(
+    name = "{}_wire_model".format(pdk),
+    src = ":lb_32x128_{}_synth".format(pdk),
+    visibility = ["//:__subpackages__"],
 ) for pdk in PDKS]

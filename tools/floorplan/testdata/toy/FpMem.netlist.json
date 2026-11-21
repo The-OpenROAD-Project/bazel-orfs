@@ -1,0 +1,195 @@
+{
+ "block": "FpMem",
+ "buses": {
+  "req": {
+   "bits": 128,
+   "breadth_max": 1,
+   "breadth_mean": 1.0,
+   "capped": 0,
+   "cells_mean": 1.0,
+   "feedthrough": 0,
+   "sampled": 8
+  },
+  "resp": {
+   "bits": 136,
+   "breadth_max": 1,
+   "breadth_mean": 1.0,
+   "capped": 0,
+   "cells_mean": 2.0,
+   "feedthrough": 0,
+   "sampled": 8
+  }
+ },
+ "fanout": [
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 4
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 2
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 2
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 2
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 2
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 2
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 2
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 2
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 2
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 2
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 2
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 2
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 2
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 2
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 2
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 2
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 2
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 2
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 2
+  },
+  {
+   "driver": "logic",
+   "net": "",
+   "sinks": 2
+  }
+ ],
+ "feedthrough": {
+  "bits": 0,
+  "cells": 0,
+  "connections": 0
+ },
+ "identity": {
+  "dump": "sha256:61fbce869d616432f93b456a6b2defa8d9b59fff3fd5f6e11e782037e1ff9c13",
+  "tool": "netlist 1"
+ },
+ "insts": 533,
+ "nets": 793,
+ "pins": 1633,
+ "rent": {
+  "fit": [
+   2,
+   7
+  ],
+  "k": 3.0988,
+  "levels": [
+   {
+    "g": 533,
+    "level": 0,
+    "parts": 1,
+    "t": 264
+   },
+   {
+    "g": 266.5,
+    "level": 1,
+    "parts": 2,
+    "t": 368.0
+   },
+   {
+    "g": 133.25,
+    "level": 2,
+    "parts": 4,
+    "t": 199.5
+   },
+   {
+    "g": 66.625,
+    "level": 3,
+    "parts": 8,
+    "t": 107.0
+   },
+   {
+    "g": 33.312,
+    "level": 4,
+    "parts": 16,
+    "t": 66.375
+   },
+   {
+    "g": 16.656,
+    "level": 5,
+    "parts": 32,
+    "t": 37.656
+   },
+   {
+    "g": 8.219,
+    "level": 6,
+    "parts": 32,
+    "t": 17.719
+   },
+   {
+    "g": 4.469,
+    "level": 7,
+    "parts": 32,
+    "t": 10.906
+   }
+  ],
+  "p": 0.8557
+ }
+}

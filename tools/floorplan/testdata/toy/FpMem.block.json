@@ -1,0 +1,435 @@
+{
+ "area": {
+  "die_rule": {
+   "aspect": 1.0,
+   "core_h_um": 47.79,
+   "core_w_um": 47.79,
+   "h_um": 49.79,
+   "margin_um": 1.0,
+   "rule": "CORE_UTILIZATION",
+   "util": 0.7,
+   "w_um": 49.79
+  },
+  "hard_um2": 1500.24,
+  "macros": [
+   {
+    "h": 42.0,
+    "master": "fakeram7_256x34",
+    "n": 4,
+    "w": 8.93
+   }
+  ],
+  "std_um2": 96.272
+ },
+ "block": "FpMem",
+ "clock": {
+  "period_ps": 1000.0,
+  "port": "clock"
+ },
+ "hard": [
+  {
+   "h": 42.0,
+   "halo_um": 2.0,
+   "inst": "g_mem\\[0\\].mem",
+   "kind": "memory",
+   "master": "fakeram7_256x34",
+   "nets": [
+    {
+     "bits": 34,
+     "depth": 2,
+     "pin": "rd_out",
+     "port": "resp",
+     "via": "reg"
+    },
+    {
+     "bits": 34,
+     "depth": 2,
+     "pin": "wd_in",
+     "port": "req",
+     "via": "reg"
+    },
+    {
+     "bits": 8,
+     "depth": 2,
+     "pin": "addr_in",
+     "port": "req",
+     "via": "reg"
+    },
+    {
+     "bits": 1,
+     "depth": 2,
+     "pin": "we_in",
+     "port": "req",
+     "via": "reg"
+    }
+   ],
+   "obs": [
+    "M1",
+    "M2",
+    "M3",
+    "M4"
+   ],
+   "pins": {
+    "addr_in": {
+     "bits": 8,
+     "layer": "M4",
+     "range": [
+      36.048,
+      39.768
+     ],
+     "side": "W"
+    },
+    "ce_in": {
+     "bits": 1,
+     "layer": "M4",
+     "range": [
+      40.848,
+      40.872
+     ],
+     "side": "W"
+    },
+    "rd_out": {
+     "bits": 34,
+     "layer": "M4",
+     "range": [
+      0.048,
+      17.496
+     ],
+     "side": "W"
+    },
+    "wd_in": {
+     "bits": 34,
+     "layer": "M4",
+     "range": [
+      18.048,
+      35.496
+     ],
+     "side": "W"
+    },
+    "we_in": {
+     "bits": 1,
+     "layer": "M4",
+     "range": [
+      40.32,
+      40.344
+     ],
+     "side": "W"
+    }
+   },
+   "w": 8.93
+  },
+  {
+   "h": 42.0,
+   "halo_um": 2.0,
+   "inst": "g_mem\\[1\\].mem",
+   "kind": "memory",
+   "master": "fakeram7_256x34",
+   "nets": [
+    {
+     "bits": 34,
+     "depth": 2,
+     "pin": "rd_out",
+     "port": "resp",
+     "via": "reg"
+    },
+    {
+     "bits": 34,
+     "depth": 2,
+     "pin": "wd_in",
+     "port": "req",
+     "via": "reg"
+    },
+    {
+     "bits": 8,
+     "depth": 2,
+     "pin": "addr_in",
+     "port": "req",
+     "via": "reg"
+    },
+    {
+     "bits": 1,
+     "depth": 2,
+     "pin": "we_in",
+     "port": "req",
+     "via": "reg"
+    }
+   ],
+   "obs": [
+    "M1",
+    "M2",
+    "M3",
+    "M4"
+   ],
+   "pins": {
+    "addr_in": {
+     "bits": 8,
+     "layer": "M4",
+     "range": [
+      36.048,
+      39.768
+     ],
+     "side": "W"
+    },
+    "ce_in": {
+     "bits": 1,
+     "layer": "M4",
+     "range": [
+      40.848,
+      40.872
+     ],
+     "side": "W"
+    },
+    "rd_out": {
+     "bits": 34,
+     "layer": "M4",
+     "range": [
+      0.048,
+      17.496
+     ],
+     "side": "W"
+    },
+    "wd_in": {
+     "bits": 34,
+     "layer": "M4",
+     "range": [
+      18.048,
+      35.496
+     ],
+     "side": "W"
+    },
+    "we_in": {
+     "bits": 1,
+     "layer": "M4",
+     "range": [
+      40.32,
+      40.344
+     ],
+     "side": "W"
+    }
+   },
+   "w": 8.93
+  },
+  {
+   "h": 42.0,
+   "halo_um": 2.0,
+   "inst": "g_mem\\[2\\].mem",
+   "kind": "memory",
+   "master": "fakeram7_256x34",
+   "nets": [
+    {
+     "bits": 34,
+     "depth": 2,
+     "pin": "rd_out",
+     "port": "resp",
+     "via": "reg"
+    },
+    {
+     "bits": 34,
+     "depth": 2,
+     "pin": "wd_in",
+     "port": "req",
+     "via": "reg"
+    },
+    {
+     "bits": 8,
+     "depth": 2,
+     "pin": "addr_in",
+     "port": "req",
+     "via": "reg"
+    },
+    {
+     "bits": 1,
+     "depth": 2,
+     "pin": "we_in",
+     "port": "req",
+     "via": "reg"
+    }
+   ],
+   "obs": [
+    "M1",
+    "M2",
+    "M3",
+    "M4"
+   ],
+   "pins": {
+    "addr_in": {
+     "bits": 8,
+     "layer": "M4",
+     "range": [
+      36.048,
+      39.768
+     ],
+     "side": "W"
+    },
+    "ce_in": {
+     "bits": 1,
+     "layer": "M4",
+     "range": [
+      40.848,
+      40.872
+     ],
+     "side": "W"
+    },
+    "rd_out": {
+     "bits": 34,
+     "layer": "M4",
+     "range": [
+      0.048,
+      17.496
+     ],
+     "side": "W"
+    },
+    "wd_in": {
+     "bits": 34,
+     "layer": "M4",
+     "range": [
+      18.048,
+      35.496
+     ],
+     "side": "W"
+    },
+    "we_in": {
+     "bits": 1,
+     "layer": "M4",
+     "range": [
+      40.32,
+      40.344
+     ],
+     "side": "W"
+    }
+   },
+   "w": 8.93
+  },
+  {
+   "h": 42.0,
+   "halo_um": 2.0,
+   "inst": "g_mem\\[3\\].mem",
+   "kind": "memory",
+   "master": "fakeram7_256x34",
+   "nets": [
+    {
+     "bits": 34,
+     "depth": 2,
+     "pin": "rd_out",
+     "port": "resp",
+     "via": "reg"
+    },
+    {
+     "bits": 34,
+     "depth": 2,
+     "pin": "wd_in",
+     "port": "req",
+     "via": "reg"
+    },
+    {
+     "bits": 8,
+     "depth": 2,
+     "pin": "addr_in",
+     "port": "req",
+     "via": "reg"
+    },
+    {
+     "bits": 1,
+     "depth": 2,
+     "pin": "we_in",
+     "port": "req",
+     "via": "reg"
+    }
+   ],
+   "obs": [
+    "M1",
+    "M2",
+    "M3",
+    "M4"
+   ],
+   "pins": {
+    "addr_in": {
+     "bits": 8,
+     "layer": "M4",
+     "range": [
+      36.048,
+      39.768
+     ],
+     "side": "W"
+    },
+    "ce_in": {
+     "bits": 1,
+     "layer": "M4",
+     "range": [
+      40.848,
+      40.872
+     ],
+     "side": "W"
+    },
+    "rd_out": {
+     "bits": 34,
+     "layer": "M4",
+     "range": [
+      0.048,
+      17.496
+     ],
+     "side": "W"
+    },
+    "wd_in": {
+     "bits": 34,
+     "layer": "M4",
+     "range": [
+      18.048,
+      35.496
+     ],
+     "side": "W"
+    },
+    "we_in": {
+     "bits": 1,
+     "layer": "M4",
+     "range": [
+      40.32,
+      40.344
+     ],
+     "side": "W"
+    }
+   },
+   "w": 8.93
+  }
+ ],
+ "identity": {
+  "dump": "sha256:39ccb28ea758a7ad616312fb0f79eb368678368af7e531978cbca9e14614977a",
+  "tool": "block_json 2"
+ },
+ "logic": {
+  "cells": 2,
+  "from": "g_mem[0].mem/rd_out[0]",
+  "ps": 0.0,
+  "to": "resp[0]$_DFF_P_/D"
+ },
+ "netlist": {
+  "insts": 533,
+  "nets": 793,
+  "pins": 1633,
+  "seq": 268
+ },
+ "ports": [
+  {
+   "bits": 128,
+   "dir": "in",
+   "group": "req",
+   "in2reg_ps": {
+    "bit": "req[0]",
+    "max": 0.0
+   },
+   "name": "req",
+   "registered": null
+  },
+  {
+   "bits": 136,
+   "dir": "out",
+   "group": "resp",
+   "name": "resp",
+   "reg2out_ps": {
+    "bit": "resp[0]",
+    "max": 3.9
+   },
+   "registered": null
+  }
+ ]
+}

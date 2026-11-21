@@ -1,8 +1,9 @@
-load("@bazel-orfs//:openroad.bzl", "odb_debug", "orfs_flat_sta", "orfs_module_context", "orfs_module_sta_base", "orfs_schedule")
+load("@bazel-orfs//:openroad.bzl", "odb_debug", "orfs_flat_sta", "orfs_module_context", "orfs_module_sta_base", "orfs_run", "orfs_schedule")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//test/coremark_joule/designs/asap7/xiangshan/kit:kit.bzl", "xs_kit", "xs_kit_snapshot")
 load("//test/coremark_joule/flow:power.bzl", "census_probe", "grt_netlist", "hier_probe", "physical_probe", "stage_power", "stage_power_units")
+load("//tools/floorplan:floorplan.bzl", "floorplan_extract", "floorplan_parent", "floorplan_plan")
 load(":plan/plan.bzl", "PLAN")
 load(":xiangshan.bzl", "xiangshan_flat_flow", "xiangshan_flow", "xs_regfile_modules")
 
@@ -567,4 +568,84 @@ orfs_flat_sta(
     clocks = {"clock": "2000"},
     synth = ":Frontend_synth",
     tags = ["manual"],
+)
+
+# The global floorplan planner (tools/floorplan) on the tile: each block's
+# facts at the outline its flow draws, the crossings from the kit's
+# whole-tile synthesis (the blocks kept modules in it), and the plan
+# against the hand floorplan (plan/), fixed as it is (floorplan_hand) and
+# placed by the planner at the same block outlines (floorplan_planned).
+# No calibration: the tile's limits are what its own global route shows,
+# floorplan_judge's comparison.
+XS_FLOORPLAN_BLOCKS = sorted(PLAN["macros"].keys())
+
+[
+    floorplan_extract(
+        name = "floorplan_" + block,
+        src = ":%s_synth" % block,
+        # the outline the tile places: the block's mock, MOCK_AREA of its die
+        arguments = {"DIE_AREA": "0 0 %s %s" % tuple([
+            float(v) * float(PLAN["macros"][block]["MOCK_AREA"])
+            for v in PLAN["macros"][block]["DIE_AREA"].split(" ")[2:]
+        ])},
+        # a timing sweep per bus on a block of millions of cells runs for
+        # hours; the tile's chains wait for a faster sweep
+        timing = False,
+    )
+    for block in XS_FLOORPLAN_BLOCKS
+]
+
+floorplan_parent(
+    name = "floorplan_XSTile",
+    src = ":XSTile_kit_synth",
+    blocks = XS_FLOORPLAN_BLOCKS,
+    timing = False,
+)
+
+[
+    floorplan_plan(
+        name = "floorplan_" + variant,
+        blocks = [":floorplan_" + b for b in XS_FLOORPLAN_BLOCKS],
+        constraints = "floorplan/constraints_%s.json" % variant,
+        cut = "floorplan/cut.json",
+        parent = ":floorplan_XSTile",
+        pdk = "//test/floorplan_toy:asap7",
+        run_all = True,
+    )
+    for variant in [
+        "hand",
+        "planned",
+    ]
+]
+
+# The judge: route-0 on the hand-planned tile's clock tree checkpoint
+# (test/macro_select's measure), its regions over capacity named by
+# channel and set beside floorplan_hand's verdict.
+orfs_run(
+    name = "floorplan_route0",
+    src = ":XSTile_cts",
+    outs = [
+        "floorplan_route0/congestion.rpt",
+        "floorplan_route0/macros.txt",
+    ],
+    script = "//tools/floorplan:probe_congestion.tcl",
+    tags = ["manual"],
+    user_arguments = {
+        "CONGESTION_REPORT": "$(location floorplan_route0/congestion.rpt)",
+        "PROBE_OUT": "$(location floorplan_route0/macros.txt)",
+    },
+)
+
+genrule(
+    name = "floorplan_judge",
+    srcs = [
+        "floorplan_route0/congestion.rpt",
+        "floorplan_route0/macros.txt",
+        ":floorplan_hand/verdict.json",
+        "floorplan/cut.json",
+    ],
+    outs = ["floorplan_judge.json"],
+    cmd = "$(execpath //tools/floorplan:judge) $(execpath floorplan_route0/congestion.rpt) $(execpath floorplan_route0/macros.txt) $(execpath :floorplan_hand/verdict.json) $@ --cut $(execpath floorplan/cut.json)",
+    tags = ["manual"],
+    tools = ["//tools/floorplan:judge"],
 )

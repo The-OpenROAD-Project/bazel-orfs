@@ -39,9 +39,14 @@ Interface bits per module from the RTL, the square its area makes (from a
 synthesised block where one exists), pins per micron of that square's
 perimeter, and each parent against the sum of its children. Read it for
 the level where the interface drops by a multiple against the children:
-that is the cut the architecture drew. Numbers to expect: a well-cut unit
-under about 2 pins per micron; a tangled one, the out-of-order core's
-issue and control, at 4 to 9, which never becomes a macro.
+that is the cut the architecture drew. Observed on XiangShan, not a
+limit (the study's space table for the cut its plan/ records): the units
+that hardened cleanly were under about 2 pins per micron; the
+out-of-order core's issue and control, which never became a macro, at
+4 to 9. A design's own judgements and limits go into the planner's
+calibration file (tools/floorplan, `floorplan_plan(calibration = ...)`),
+each with the run it was read off; the planner judges nothing without
+one.
 
 ## 2. The time table, from each candidate's own synthesis
 
@@ -65,9 +70,9 @@ internal, its depth in pins, and the module inside that owns it.
 whether the boundary pins are registered right inside and the empty
 pipeline stages, the retiming idiom.
 
-Read it at 50 % error bars. Thirty years of EDA have not made synthesis
-timing predict global route better than that, and this table does not
-try: it sorts. A boundary is well formed in time when its crossings are
+The XiangShan study read it at 50 % error bars, its observation of how
+far synthesis timing was from global route there, and this table does
+not try to do better: it sorts. A boundary is well formed in time when its crossings are
 registered or shallow; a crossing 50 gates deep on an otherwise clean
 cut (Frontend's backend-redirect port into the uBTB compare, -492 ps at
 800 ps, 1.13 ns of logic) is an entry for the inventory and a note on
@@ -93,10 +98,12 @@ Every block is placed R0 with its pin side chosen in its own frame, so no
 flip and no track trouble (see `macro_anneal.flip_legal`).
 
 The four constants the planner cannot derive, pin pitch, pin margin,
-channel and picoseconds per micron, come from `test/macro_select`, a
-synthetic parent with one pin-wall block routed in tens of seconds per
-point (`calibrate.sh`), not from a take of the real design. What the
-first calibration on asap7 said (route-0, two pin layers, pin side =
+channel and picoseconds per micron, are observations, here from
+`test/macro_select`, a synthetic parent with one pin-wall block routed
+in tens of seconds per point (`calibrate.sh`), not from a take of the
+real design; a design states its own in its calibration file
+(tools/floorplan; `test/macro_select/floorplan_calibration.json` holds
+these). What the first calibration on asap7 observed (route-0, two pin layers, pin side =
 pins x 0.096 um x 1.5 / 2, that is 13.9 pins per micron of the side):
 with the logic *facing* the pin side, 1 000 to 10 000 pins across a 10 to
 100 um channel never wall, total overflow at most 31 edges; with the
@@ -203,8 +210,10 @@ another stage's targets for the reason written in
 `make.tpl` and `docs/dirty-lane.md`. Then the gates, cheapest first, each a hard
 stop: the annealer's channel check at floorplan; the free-site picture
 and the RUDY map at place (`/odb-debug`); the legaliser's window check;
-the zero-iteration global route, total overflow under about 100 k and no
-edge in the hundreds, before any maze budget is spent. A wall on a
+the zero-iteration global route, before any maze budget is spent,
+against the design's own limit (XiangShan's study stopped a take at
+about 100 k total overflow or an edge in the hundreds, an observation of
+its takes, not a rule). A wall on a
 block's side names the block; dense everywhere names the utilisation.
 
 ## 5. The proof and the KPI

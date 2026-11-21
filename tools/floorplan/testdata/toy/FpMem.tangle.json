@@ -1,0 +1,72 @@
+{
+ "block": "FpMem",
+ "contraction": {
+  "quantiles": {
+   "q10": 0.00096,
+   "q50": 0.00717,
+   "q90": 0.5
+  },
+  "sampled": 578,
+  "weak_share": 0.54325
+ },
+ "gtl": [
+  {
+   "cells": 133,
+   "cells_share": 0.24953,
+   "cut": 264,
+   "score": 1.2973,
+   "seed": 0
+  },
+  {
+   "cells": 133,
+   "cells_share": 0.24953,
+   "cut": 265,
+   "score": 1.3022,
+   "seed": 99
+  }
+ ],
+ "identity": {
+  "dump": "sha256:61fbce869d616432f93b456a6b2defa8d9b59fff3fd5f6e11e782037e1ff9c13",
+  "tool": "tangle 1"
+ },
+ "net_range": {
+  "levels": [
+   {
+    "level": 1,
+    "nets": 236,
+    "span_share": 1.0
+   },
+   {
+    "level": 2,
+    "nets": 31,
+    "span_share": 0.7071
+   },
+   {
+    "level": 3,
+    "nets": 28,
+    "span_share": 0.5
+   },
+   {
+    "level": 4,
+    "nets": 90,
+    "span_share": 0.3536
+   },
+   {
+    "level": 5,
+    "nets": 70,
+    "span_share": 0.25
+   },
+   {
+    "level": 6,
+    "nets": 36,
+    "span_share": 0.1768
+   }
+  ],
+  "long_share": 0.50473,
+  "nets": 529
+ },
+ "rent": {
+  "k": 3.0988,
+  "p": 0.8557
+ }
+}
