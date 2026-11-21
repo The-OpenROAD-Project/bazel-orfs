@@ -188,8 +188,8 @@ def candidates(f, model, st):
                     lambda i: _move_memory(i, model, m, inst),
                 )
             )
-    elif kind in ("wire_demand", "rent_wire", "grt_capacity"):
-        if kind != "grt_capacity":
+    elif kind in ("wire_demand", "rent_wire", "grt_capacity", "tangled"):
+        if kind not in ("grt_capacity", "tangled"):
             w, h = _shape(model, st, m)
             # supply grows with the area, demand with the gate pitch: the
             # ratio falls with the outline's linear size

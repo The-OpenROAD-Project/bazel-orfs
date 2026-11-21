@@ -1,0 +1,114 @@
+{
+ "block": "FpVec",
+ "contraction": {
+  "quantiles": {
+   "q10": 0.00098,
+   "q50": 0.11111,
+   "q90": 0.33333
+  },
+  "sampled": 3217,
+  "weak_share": 0.27883
+ },
+ "gtl": [
+  {
+   "cells": 233,
+   "cells_share": 0.097,
+   "cut": 93,
+   "score": 0.6052,
+   "seed": 0
+  },
+  {
+   "cells": 269,
+   "cells_share": 0.11199,
+   "cut": 124,
+   "score": 0.7154,
+   "seed": 825
+  },
+  {
+   "cells": 268,
+   "cells_share": 0.11157,
+   "cut": 124,
+   "score": 0.7176,
+   "seed": 150
+  },
+  {
+   "cells": 267,
+   "cells_share": 0.11116,
+   "cut": 124,
+   "score": 0.7199,
+   "seed": 1426
+  },
+  {
+   "cells": 266,
+   "cells_share": 0.11074,
+   "cut": 124,
+   "score": 0.7222,
+   "seed": 225
+  },
+  {
+   "cells": 267,
+   "cells_share": 0.11116,
+   "cut": 125,
+   "score": 0.7257,
+   "seed": 1201
+  },
+  {
+   "cells": 266,
+   "cells_share": 0.11074,
+   "cut": 126,
+   "score": 0.7338,
+   "seed": 1576
+  },
+  {
+   "cells": 265,
+   "cells_share": 0.11032,
+   "cut": 126,
+   "score": 0.7361,
+   "seed": 1125
+  }
+ ],
+ "identity": {
+  "dump": "sha256:ae4e02b790917655ca4c6e4945b6e51bdbb7dd314f7b01391607d0c098be6120",
+  "tool": "tangle 1"
+ },
+ "net_range": {
+  "levels": [
+   {
+    "level": 1,
+    "nets": 123,
+    "span_share": 1.0
+   },
+   {
+    "level": 2,
+    "nets": 59,
+    "span_share": 0.7071
+   },
+   {
+    "level": 3,
+    "nets": 53,
+    "span_share": 0.5
+   },
+   {
+    "level": 4,
+    "nets": 33,
+    "span_share": 0.3536
+   },
+   {
+    "level": 5,
+    "nets": 60,
+    "span_share": 0.25
+   },
+   {
+    "level": 6,
+    "nets": 74,
+    "span_share": 0.1768
+   }
+  ],
+  "long_share": 0.07625,
+  "nets": 2387
+ },
+ "rent": {
+  "k": 1.5949,
+  "p": 0.838
+ }
+}

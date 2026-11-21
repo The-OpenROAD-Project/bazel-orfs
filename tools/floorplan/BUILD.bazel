@@ -204,3 +204,25 @@ py_test(
     data = ["testdata/toy/asap7.pdk.json"],
     main = "calibrate_test.py",
 )
+
+py_binary(
+    name = "tangle",
+    srcs = [
+        "netlist.py",
+        "tangle.py",
+    ],
+    main = "tangle.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "tangle_test",
+    size = "small",
+    srcs = [
+        "netlist.py",
+        "netlist_test.py",
+        "tangle.py",
+        "tangle_test.py",
+    ],
+    main = "tangle_test.py",
+)

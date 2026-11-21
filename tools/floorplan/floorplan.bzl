@@ -47,7 +47,9 @@ def floorplan_extract(name, src, arguments = {}, timing = True, tags = ["manual"
     )
 
 def floorplan_netlist(name, src, tags = ["manual"], visibility = None):
-    """A synthesised block's netlist for rung 1: `<name>.netlist.json`.
+    """A synthesised block's netlist for rungs 1 and 2: `<name>.netlist.json`
+    and, target `<name>_tangle`, `<name>.tangle.json` (tangle.py: groups of
+    tangled logic, net range, mutual contraction; minutes).
 
     extract_netlist.tcl dumps the signal netlist from the block's
     synthesis; netlist.py fits Rent's p and k by recursive bisection and
@@ -76,6 +78,15 @@ def floorplan_netlist(name, src, tags = ["manual"], visibility = None):
         outs = [name + ".netlist.json"],
         cmd = "$(execpath %s) $< $@" % Label("//tools/floorplan:netlist"),
         tools = [Label("//tools/floorplan:netlist")],
+        tags = tags,
+        visibility = visibility,
+    )
+    native.genrule(
+        name = name + "_tangle",
+        srcs = [":%s_netlist_dump" % name],
+        outs = [name + ".tangle.json"],
+        cmd = "$(execpath %s) $< $@" % Label("//tools/floorplan:tangle"),
+        tools = [Label("//tools/floorplan:tangle")],
         tags = tags,
         visibility = visibility,
     )
@@ -122,6 +133,7 @@ def floorplan_plan(
         calibration = None,
         parent = None,
         netlists = [],
+        tangles = [],
         run_all = False,
         tags = ["manual"],
         visibility = None):
@@ -144,12 +156,13 @@ def floorplan_plan(
             fails nothing
         parent: the parent's crossings (parent.json), optional
         netlists: floorplan_netlist targets, for rung 1, optional
+        tangles: their `_tangle` targets, for rung 2, optional
         run_all: every rung past the first stop
         tags: forwarded
         visibility: forwarded
     """
-    srcs = blocks + netlists + [pdk, cut, constraints] + ([parent] if parent else []) + ([calibration] if calibration else [])
-    args = " ".join(["--block $(execpath %s)" % b for b in blocks] + ["--netlist $(execpath %s)" % n for n in netlists])
+    srcs = blocks + netlists + tangles + [pdk, cut, constraints] + ([parent] if parent else []) + ([calibration] if calibration else [])
+    args = " ".join(["--block $(execpath %s)" % b for b in blocks] + ["--netlist $(execpath %s)" % n for n in netlists] + ["--tangle $(execpath %s)" % t for t in tangles])
     args += " --pdk $(execpath %s) --cut $(execpath %s) --constraints $(execpath %s)" % (pdk, cut, constraints)
     if parent:
         args += " --parent $(execpath %s)" % parent

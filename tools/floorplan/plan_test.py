@@ -38,6 +38,9 @@ def toy(variant, remedies=False):
             netlists=[
                 load("%s.netlist.json" % b) for b in ("FpCore", "FpMem", "FpVec")
             ],
+            tangles=[
+                load("%s.tangle.json" % b) for b in ("FpCore", "FpMem", "FpVec")
+            ],
         )
     return _PLANS[(variant, remedies)]
 
@@ -173,7 +176,7 @@ class Ladder(unittest.TestCase):
     def test_clean_reports_every_rung(self):
         _, _, v, _ = toy("clean")
         core = v["ladder"]["macros"]["FpCore"]
-        for k in ("wire_demand", "rent_terminals", "rent_wire", "rent", "logic"):
+        for k in ("wire_demand", "rent_terminals", "rent_wire", "rent", "logic", "tangle"):
             self.assertIsNotNone(core[k], k)
         self.assertEqual(max(core["partners"], key=core["partners"].get), "FpVec")
         side = v["ladder"]["sides"]["FpCore N"]
@@ -306,6 +309,7 @@ class Pieces(unittest.TestCase):
                 "tool",
                 "blocks",
                 "netlists",
+                "tangles",
                 "parent",
                 "pdk",
                 "cut",

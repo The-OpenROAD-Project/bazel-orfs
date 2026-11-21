@@ -31,6 +31,10 @@ netlist.json, its netlist; their measurements are the verdict's
                   crossing it
   1 via_stack     per side and layer: pins plus the via stacks of the
                   pins above, each bus on its layer by distance
+  2 tangled       a group of tangled logic (tangle.py): a cluster whose
+                  cut is far under Rent's for its size, holding a share
+                  of the block; net range and mutual contraction are
+                  reported beside it
   b area          each macro's outline from its own flow's rule
                   (die_rule) against its slot; the outlines and the glue
                   against the die
@@ -79,6 +83,7 @@ RUNGS = [
     "pins_per_um",
     "escape",
     "via_stack",
+    "tangled",
     "area",
     "aspect",
     "internal_arrangement",
@@ -115,6 +120,9 @@ DEFAULTS = {
 #   via_stack             via_cost: tracks one via stack takes on each
 #                         layer it passes; judged against pins_per_um's
 #                         facing_track_spacing
+#   tangled               score_limit: the GTL score under which a
+#                         cluster is tangled; min_share: the least share
+#                         of the block's cells such a cluster must hold
 #   pins_per_um           facing_track_spacing: tracks per pin on a side's
 #                         lowest pin layer the design has seen route
 #   aspect                range: [lo, hi] of an outline's h / w
@@ -135,6 +143,7 @@ CALIBRATION_KEYS = {
     "escape": ["limit"],
     "via_stack": ["via_cost"],
     "fanout": ["ps_per_sink"],
+    "tangled": ["score_limit", "min_share"],
     "pins_per_um": ["facing_track_spacing"],
     "aspect": ["range"],
     "internal_arrangement": ["pin_access_um", "free_fraction", "std_density"],
@@ -158,10 +167,19 @@ class Model:
     """Macros with their outlines and buses, the glue, the nets between them."""
 
     def __init__(
-        self, blocks, parent, pdk, cut, constraints, calibration=None, netlists=None
+        self,
+        blocks,
+        parent,
+        pdk,
+        cut,
+        constraints,
+        calibration=None,
+        netlists=None,
+        tangles=None,
     ):
         self.blocks = {b["block"]: b for b in blocks}
         self.netlists = {n["block"]: n for n in netlists or []}
+        self.tangles = {t["block"]: t for t in tangles or []}
         self.parent = parent or {}
         self.pdk = pdk
         self.cut = cut
@@ -792,6 +810,40 @@ def rung_ladder_block(model):
                         },
                         "excess": {"factor": round(fo[0]["chain_ps"] / period, 3)},
                         "contributors": fo[:8],
+                    }
+                )
+        tg = model.tangles.get(b["block"])
+        if tg:
+            row["tangle"] = {
+                "gtl": tg["gtl"][:3],
+                "long_share": tg["net_range"]["long_share"],
+                "contraction": tg["contraction"],
+            }
+            lim = model.cal("tangled", "score_limit")
+            share = model.cal("tangled", "min_share") or 0.0
+            bad = [
+                g
+                for g in tg["gtl"]
+                if lim is not None and g["score"] < lim and g["cells_share"] >= share
+            ]
+            if bad:
+                findings.append(
+                    {
+                        "rung": "tangled",
+                        "status": "fail",
+                        "block": b["block"],
+                        "macro": m,
+                        "cause": "a group of tangled logic: its cut is far under Rent's for its size",
+                        "demand": bad[0],
+                        "limit": {
+                            "score": lim,
+                            "min_share": share,
+                            "source": model.source("tangled"),
+                        },
+                        "excess": {
+                            "factor": round(lim / max(bad[0]["score"], 1e-6), 3)
+                        },
+                        "contributors": bad[:8],
                     }
                 )
         rows[m] = row
@@ -1902,6 +1954,7 @@ def remedies_for(f):
         "rent_wire": ["resize_slot", "move_module"],
         "rent_terminals": ["narrow_bus", "move_module"],
         "escape": ["reshape", "resize_slot", "split_side", "narrow_bus"],
+        "tangled": ["move_module"],
         "via_stack": ["lower_pins", "split_side", "narrow_bus"],
         "no_channel": ["move_slot", "resize_die", "change_side"],
         "over_capacity": ["move_slot", "resize_die", "narrow_bus", "promote_layer"],
@@ -2238,12 +2291,13 @@ def run(
     remedies=True,
     calibration=None,
     netlists=None,
+    tangles=None,
 ):
     """(model, state, verdict, floorplan or None). With `remedies`, every
     remedy of the failed findings with its effect (remedies.py). The
     design's calibration supplies every limit a rung fails against."""
     calibration = calibration or {}
-    model = Model(blocks, parent, pdk, cut, constraints, calibration, netlists)
+    model = Model(blocks, parent, pdk, cut, constraints, calibration, netlists, tangles)
     st = plan(model)
     ident = identity(
         None,
@@ -2251,6 +2305,9 @@ def run(
             "blocks": sorted((b["block"], b.get("identity", {})) for b in blocks),
             "netlists": sorted(
                 (n["block"], n.get("identity", {})) for n in netlists or []
+            ),
+            "tangles": sorted(
+                (t["block"], t.get("identity", {})) for t in tangles or []
             ),
             "parent": parent or {},
             "pdk": pdk.get("identity", pdk),
@@ -2278,6 +2335,7 @@ def run(
             "constraints": constraints,
             "calibration": calibration,
             "netlists": netlists,
+            "tangles": tangles,
         }
         v["remedies"] = R.compute(
             lambda i: run(remedies=False, **i)[2], inputs, model, st, fails
@@ -2308,6 +2366,12 @@ def main(argv):
         default=[],
         help="a block's netlist.json (rung 1), once per block",
     )
+    ap.add_argument(
+        "--tangle",
+        action="append",
+        default=[],
+        help="a block's tangle.json (rung 2), once per block",
+    )
     ap.add_argument("--parent", help="parent.json")
     ap.add_argument("--pdk", required=True)
     ap.add_argument("--cut", required=True)
@@ -2336,6 +2400,7 @@ def main(argv):
         not args.no_remedies,
         read_json(args.calibration) if args.calibration else None,
         [read_json(p) for p in args.netlist],
+        [read_json(p) for p in args.tangle],
     )
     with open(args.verdict, "w") as f:
         json.dump(v, f, indent=1, sort_keys=True)

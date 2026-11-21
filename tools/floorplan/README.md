@@ -45,7 +45,10 @@ triage loop needs; the slow truth comes only at the end.
   `_synth`, then `netlist.py`: rung 1's facts. Rent's p and k from
   recursive bisection by one fixed partitioner, each port bus's cone
   (cells and breadth to the first registers), the feed-through bits, the
-  nets of most sinks. `extract_block.tcl` itself records rung 0's
+  nets of most sinks. Its `_tangle` target (`tangle.py`, minutes) is
+  rung 2's: groups of tangled logic grown from seeds across the netlist,
+  each net's range (the bisection level that first cuts it) and the
+  mutual contraction of a sample of connections. `extract_block.tcl` itself records rung 0's
   statistics (instances, registers, nets, pins), the deepest
   register-to-register path (the logic's own period) and each hard
   object's obstructed layers.
@@ -72,6 +75,7 @@ The first rung that fails stops the plan:
 | 0 `rent_terminals` | a block's signal pins over Rent's rule for its size |
 | 1 `rent_wire` | `wire_demand` at the p the block's own bisection fits |
 | 1 `fanout` | a net whose repeater chain, per sink, is longer than the period |
+| 2 `tangled` | a group of tangled logic (`tangle.py`): a cluster whose cut is far under Rent's for its size, holding a share of the block; net range and mutual contraction reported beside it |
 | a `pins_per_um` | a side facing its partners under the track spacing the design has seen route; a side turning to a partner beside it is reported, not judged |
 | 1 `escape` | a side whose pins' cones fan out over more wires than cross it |
 | 1 `via_stack` | a side's pins on a layer plus the via stacks of the pins above, each bus on its layer by distance, under the facing spacing |
