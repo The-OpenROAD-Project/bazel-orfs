@@ -31,6 +31,15 @@ load(
     _orfs_headroom = "orfs_headroom",
 )
 load(
+    "//private:macro_views.bzl",
+    _MacroViewsInfo = "MacroViewsInfo",
+    _orfs_macro_tiers = "orfs_macro_tiers",
+    _orfs_macro_view = "orfs_macro_view",
+    _orfs_macro_view_report = "orfs_macro_view_report",
+    _orfs_macro_views = "orfs_macro_views",
+    _orfs_ports_macro = "orfs_ports_macro",
+)
+load(
     "//private:module_sta.bzl",
     _orfs_flat_sta = "orfs_flat_sta",
     _orfs_module_context = "orfs_module_context",
@@ -105,6 +114,7 @@ PdkInfo = _PdkInfo
 TopInfo = _TopInfo
 OrfsDepInfo = _OrfsDepInfo
 LoggingInfo = _LoggingInfo
+MacroViewsInfo = _MacroViewsInfo
 
 # Utils
 flatten = _flatten
@@ -127,6 +137,11 @@ flow_provides = _flow_provides
 # Rules
 orfs_pdk = _orfs_pdk
 orfs_macro = _orfs_macro
+orfs_macro_tiers = _orfs_macro_tiers
+orfs_macro_view = _orfs_macro_view
+orfs_macro_view_report = _orfs_macro_view_report
+orfs_macro_views = _orfs_macro_views
+orfs_ports_macro = _orfs_ports_macro
 orfs_run = _orfs_run
 orfs_variables = _orfs_variables
 orfs_run_executable = _orfs_run_executable

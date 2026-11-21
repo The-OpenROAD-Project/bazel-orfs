@@ -1,6 +1,7 @@
 """Flow orchestration macros for OpenROAD-flow-scripts Bazel rules."""
 
 load("//private:ilm.bzl", "orfs_ilm_targets")
+load("//private:macro_views.bzl", "MACRO_VIEWS", "orfs_macro_view")
 load(
     "//private:rules.bzl",
     "ABSTRACT_IMPL",
@@ -498,6 +499,7 @@ def orfs_flow(
         top = None,
         verilog_files = [],
         macros = [],
+        macro_view = None,
         kept_macros = None,
         canon_blackbox_macros = [],
         verilog_slices = None,
@@ -546,6 +548,12 @@ def orfs_flow(
       top: Verilog top level module name, default is 'name'
       verilog_files: list of verilog sources of the design
       macros: list of macros required to run physical design flow for this design
+      macro_view: the tier of view the stages read of each macro that is an
+        orfs_macro_tiers (private/macro_views.bzl): "mock" (its ports, waits
+        for nothing), "synth" (its synthesis timing model) or "real" (its
+        abstract). --@bazel-orfs//:macro_view overrides it for one run.
+        Other macros are read as they are. Default None: every macro as it
+        is, and a macro with tiers is refused.
       kept_macros: optional dict mapping kept-module name → list of macro short names
         the module instantiates (transitively, stopping at descendant kept modules).
         Default None disables the feature and preserves the existing behaviour where
@@ -694,6 +702,9 @@ def orfs_flow(
     mock_pin_arguments = {k: v for k, v in arguments.items() if k in MOCK_PIN_VARIABLES}
     arguments = {k: v for k, v in arguments.items() if k not in MOCK_PIN_VARIABLES}
 
+    ilm_macros = macros
+    macros = _macro_views(name, variant, macros, macro_view, kwargs)
+
     abstract_variant = _variant_name(variant, "unmocked" if mock_area else None)
     _orfs_pass(
         name = name,
@@ -743,7 +754,7 @@ def orfs_flow(
         orfs_ilm_targets(
             step_name = lambda stage: _step_name(name, variant, stage),
             top = top,
-            macros = macros,
+            macros = ilm_macros,
             abstract_stage = abstract_stage,
             last_stage = last_stage,
             previous_stage = previous_stage,
@@ -830,6 +841,33 @@ def orfs_flow(
         module_top = name,
         **_strip_tool_kwargs(**kwargs)
     )
+
+def _macro_views(name, variant, macros, macro_view, kwargs):
+    """The macros as the stages read them: each through an orfs_macro_view.
+
+    Without macro_view they are read as they are, and a macro with tiers,
+    which carries no OrfsInfo of its own, fails the stages' analysis.
+    """
+    if macro_view != None and macro_view not in MACRO_VIEWS:
+        fail("macro_view {} must be one of: {}".format(macro_view, ", ".join(MACRO_VIEWS)))
+    if macro_view == None:
+        return macros
+    views = []
+    seen = {}
+    for macro in macros:
+        base = macro.split(":")[-1].split("/")[-1]
+        seen[base] = seen.get(base, 0) + 1
+        view_name = _step_name(name, variant, "macro_view_" + base)
+        if seen[base] > 1:
+            view_name += "_%d" % seen[base]
+        orfs_macro_view(
+            name = view_name,
+            src = macro,
+            view = macro_view,
+            **_strip_tool_kwargs(**kwargs)
+        )
+        views.append(":" + view_name)
+    return views
 
 def _kwargs(stage, **kwargs):
     return {k: v[stage] for k, v in kwargs.items() if stage in v and v[stage]}
