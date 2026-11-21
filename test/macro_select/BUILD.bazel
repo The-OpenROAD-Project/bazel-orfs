@@ -1,6 +1,6 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("//tools/floorplan:floorplan.bzl", "floorplan_extract", "floorplan_plan")
-load(":arms.bzl", "channel_arm", "pinwall_arm")
+load(":arms.bzl", "channel_arm", "pinlayer_arm", "pinwall_arm")
 
 # Calibration of the floorplan planner's constants on a synthetic parent
 # with one pin-wall block. See arms.bzl and tools/macro_select/.
@@ -12,6 +12,8 @@ exports_files(
 
 exports_files([
     "constraints.sdc",
+    "pinlayer_block.tcl",
+    "pinlayer_parent.tcl",
     "pins_top.tcl",
     "place_block.tcl",
     "place_block_lateral.tcl",
@@ -153,5 +155,21 @@ floorplan_extract(
     for gap in [
         10,
         60,
+    ]
+]
+
+# The pin-layer arms (ascenium plan/pin-wall-calibration.md, "the
+# per-layer split is unmeasured"): the same pins on the same edge, on M3
+# and M5 against M5 and M7; the block's route-0 near its pin side, the
+# parent's vias and the wire delay of the nets on the block's pins.
+[
+    pinlayer_arm(pins, 40, layers)
+    for pins in [
+        3000,
+        10000,
+    ]
+    for layers in [
+        ("M3", "M5"),
+        ("M5", "M7"),
     ]
 ]

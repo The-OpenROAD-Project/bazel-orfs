@@ -35,13 +35,17 @@ def _r(x):
 def _area(x0, y0, x1, y1):
     return "{} {} {} {}".format(_r(x0), _r(y0), _r(x1), _r(y1))
 
-def pinwall_arm(pins, channel_um, margin = 1.5, name = None, lateral = False):
+def pinwall_arm(pins, channel_um, margin = 1.5, name = None, lateral = False, pin_layers = None):
     """The block and the parent for one point: pins, channel width, pin margin.
 
     Targets are pinwall_block_<arm>_<stage> and pinwall_top_<arm>_<stage>,
-    results under results/asap7/pinwall_{block,top}/<arm>.
+    results under results/asap7/pinwall_{block,top}/<arm>. pin_layers: the
+    block's top-side pin layers (IO_PLACER_V), M3 and M5 when None; the
+    edge is sized as for two layers either way, so arms that differ only
+    in their layers carry the same pins on the same edge.
     """
-    name = name or "pw_p{}_c{}_m{}{}".format(pins, int(channel_um), str(margin).replace(".", ""), "_lat" if lateral else "")
+    layer_tag = "_l" + "".join([l[1:] for l in pin_layers]) if pin_layers else ""
+    name = name or "pw_p{}_c{}_m{}{}{}".format(pins, int(channel_um), str(margin).replace(".", ""), "_lat" if lateral else "", layer_tag)
     side = pins * PIN_PITCH_UM * margin / PIN_LAYERS
     gen = name + "_rtl"
     native.genrule(
@@ -57,7 +61,7 @@ def pinwall_arm(pins, channel_um, margin = 1.5, name = None, lateral = False):
         arguments = PINWALL_BASE_ARGS | {
             "CORE_AREA": _area(2, 2, side - 2, BLOCK_DEPTH_UM - 2),
             "DIE_AREA": _area(0, 0, side, BLOCK_DEPTH_UM),
-        },
+        } | ({"IO_PLACER_V": " ".join(pin_layers)} if pin_layers else {}),
         pdk = "//flow:asap7",
         sources = {
             "IO_CONSTRAINTS": [":pins_top.tcl"],
@@ -184,6 +188,40 @@ def channel_arm(pins, gap_um, margin = 3.0):
         sources = top_sources,
         user_arguments = {
             "OUTPUT_JSON": "$(location route0_" + name + ".json)",
+        },
+        variant = name,
+    )
+
+def pinlayer_arm(pins, channel_um, pin_layers, margin = 1.5, edge_band_um = 5.0):
+    """A pin-wall arm with its pins on `pin_layers`, and its two probes:
+    route0_<arm>_block.json (the placed block's route-0, overflow over all
+    of it and within edge_band_um of its pin side, pins per layer) and
+    pinlayer_<arm>_parent.json (the parent's global route at CTS: vias,
+    wire, and the wire delay of the nets on the block's pins)."""
+    name = "pw_p{}_c{}_m{}_l{}".format(pins, int(channel_um), str(margin).replace(".", ""), "".join([l[1:] for l in pin_layers]))
+    pinwall_arm(pins, channel_um, margin = margin, name = name, pin_layers = pin_layers)
+    orfs_run(
+        name = "route0_%s_block" % name,
+        src = ":pinwall_block_%s_place" % name,
+        outs = [
+            "route0_%s_block.json" % name,
+            "route0_%s_block.rpt" % name,
+        ],
+        script = ":pinlayer_block.tcl",
+        user_arguments = {
+            "CONGESTION_REPORT": "$(location route0_%s_block.rpt)" % name,
+            "EDGE_BAND_UM": str(edge_band_um),
+            "OUTPUT_JSON": "$(location route0_%s_block.json)" % name,
+        },
+        variant = name,
+    )
+    orfs_run(
+        name = "pinlayer_%s_parent" % name,
+        src = ":pinwall_top_%s_cts" % name,
+        outs = ["pinlayer_%s_parent.json" % name],
+        script = ":pinlayer_parent.tcl",
+        user_arguments = {
+            "OUTPUT_JSON": "$(location pinlayer_%s_parent.json)" % name,
         },
         variant = name,
     )
