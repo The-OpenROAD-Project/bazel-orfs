@@ -38,24 +38,32 @@
     "the SDC: at 473 ps it worked every path above 473 ps, at 1,800 ps it",
     "works every path above 1,800 ps. Rows at different SDCs measure",
     "different repair, and a period below 1,800 ps at the 1,800 ps SDC is",
-    "slack left unworked, not a floor."
+    "slack left unworked, not a floor.",
+    "",
+    "sdc_ps is that SDC, per row. wns_ps is each part's reg2reg worst",
+    "slack, recorded from run 35 on (run 35's as its SDC minus each period,",
+    "since period = SDC - WNS); the README table's parent WNS for earlier",
+    "rows is derived the same way, sdc_ps - parent_ps, not recorded."
   ],
   "target_ps": 591,
   "runs": [
     {
       "date": "2026-09-22",
+      "sdc_ps": 800,
       "parent_ps": 47401,
       "measured": "workbench chain, before the baseline existed",
       "note": "first clock tree of the planned parent"
     },
     {
       "date": "2026-09-23",
+      "sdc_ps": 800,
       "parent_ps": 45607,
       "measured": "workbench chain, before the baseline existed",
       "note": "blocks' band soft-blocked, density 0.5, M9 at adjustment 0.18"
     },
     {
       "date": "2026-09-24",
+      "sdc_ps": 800,
       "parent_ps": 45985,
       "measured": "XSCore_grt, built from source",
       "note": "the baseline; 43715 ps of it is the clock reaching MemBlock's pin, and each block alone is 3 to 20 times faster",
@@ -68,6 +76,7 @@
     },
     {
       "date": "2026-09-24",
+      "sdc_ps": 800,
       "parent_ps": 13527,
       "measured": "XSCore_cts, built from source, through XSCore_cts_odb_debug",
       "note": "blocks abstracted at cts; the worst reg2reg path is Frontend's own 12534 ps setup to a falling-edge element, the clock no longer",
@@ -80,6 +89,7 @@
     },
     {
       "date": "2026-09-26",
+      "sdc_ps": 800,
       "measured": "XSTile_grt, built from source",
       "parent_ps": 5543,
       "blocks": {
@@ -93,6 +103,7 @@
     },
     {
       "date": "2026-09-26",
+      "sdc_ps": 473,
       "measured": "XSTile_grt, built from source",
       "parent_ps": 5543,
       "blocks": {
@@ -106,6 +117,7 @@
     },
     {
       "date": "2026-09-27",
+      "sdc_ps": 473,
       "measured": "XSTile_grt, built from source",
       "parent_ps": 5143,
       "blocks": {
@@ -119,6 +131,7 @@
     },
     {
       "date": "2026-09-28",
+      "sdc_ps": 473,
       "measured": "XSTile_grt, built from source",
       "parent_ps": 4991,
       "blocks": {
@@ -132,6 +145,7 @@
     },
     {
       "date": "2026-09-28",
+      "sdc_ps": 473,
       "measured": "XSTile_grt, built from source",
       "parent_ps": 5188,
       "blocks": {
@@ -145,6 +159,7 @@
     },
     {
       "date": "2026-09-29",
+      "sdc_ps": 473,
       "measured": "XSTile_grt, built from source",
       "parent_ps": 4325,
       "blocks": {
@@ -158,6 +173,7 @@
     },
     {
       "date": "2026-10-01",
+      "sdc_ps": 473,
       "measured": "XSTile_grt, built from source at e6c482e3 with #1133 and #1134, before the bump to ORFS ecb3cfdeb1ca",
       "parent_ps": 5402,
       "blocks": {
@@ -171,6 +187,7 @@
     },
     {
       "date": "2026-10-02",
+      "sdc_ps": 473,
       "measured": "XSTile_grt, built from source",
       "parent_ps": 3860,
       "blocks": {
@@ -184,6 +201,7 @@
     },
     {
       "date": "2026-10-04",
+      "sdc_ps": 473,
       "measured": "XSTile_grt, built from source at d4e62b4f with #1157",
       "parent_ps": 3330,
       "blocks": {
@@ -197,6 +215,7 @@
     },
     {
       "date": "2026-10-05",
+      "sdc_ps": 473,
       "measured": "XSTile_grt, built from source at d4e62b4f with #1157, main's plan before #1170",
       "parent_ps": 3264,
       "blocks": {
@@ -214,6 +233,7 @@
     },
     {
       "date": "2026-10-05",
+      "sdc_ps": 473,
       "measured": "XSTile_grt, built from source at d4e62b4f with #1157, #1170's plan and #1171",
       "parent_ps": 3256,
       "blocks": {
@@ -231,6 +251,7 @@
     },
     {
       "date": "2026-10-06",
+      "sdc_ps": 473,
       "measured": "XSTile_grt, built from source at a4d882e9 (#1181)",
       "parent_ps": 3162,
       "blocks": {
@@ -244,6 +265,7 @@
     },
     {
       "date": "2026-10-07",
+      "sdc_ps": 473,
       "measured": "XSTile_grt, built from source at aeae86ac (#1187, in flight, not on main)",
       "parent_ps": 3386,
       "blocks": {
@@ -257,6 +279,7 @@
     },
     {
       "date": "2026-10-08",
+      "sdc_ps": 473,
       "measured": "XSTile_grt, built from source at f681c302 (#1187, in flight, not on main)",
       "parent_ps": 3276,
       "blocks": {
@@ -274,6 +297,7 @@
     },
     {
       "date": "2026-10-09",
+      "sdc_ps": 473,
       "measured": "XSTile_grt, built from source at f681c302 (#1187, in flight) with the parent's setup repair at global route (this change)",
       "parent_ps": 2406,
       "blocks": {
@@ -291,6 +315,7 @@
     },
     {
       "date": "2026-10-14",
+      "sdc_ps": 473,
       "measured": "the blocks built from source at f40bf601 (register files through generate_ram, OpenSTA #532 as 0108); the parent's global route in the dirty lane from f40bf601's CTS checkpoint, with #1241 (patch 0122: grt's edge-usage guard warns)",
       "parent_ps": 9431,
       "blocks": {
@@ -308,6 +333,7 @@
     },
     {
       "date": "2026-10-16",
+      "sdc_ps": 473,
       "measured": "every block, register-file macro and the parent built from source with orfs_schedule (#1259 at 25f75524) and #1274, #1277 and #1281 (patch 0135) applied; each part's KPI at its own global route",
       "parent_ps": 2504,
       "floor_ps": 2151,
@@ -651,6 +677,7 @@
     },
     {
       "date": "2026-10-23",
+      "sdc_ps": 473,
       "measured": "every block, register-file macro and the parent built from source at 2552a4b8 (#1351's base, before main's OpenROAD bump to bcc4a9be), with orfs_schedule and --jobs=12 on a 62 GB machine with swap; each part's KPI at its own global route",
       "parent_ps": 2383,
       "blocks": {
@@ -734,6 +761,7 @@
     },
     {
       "date": "2026-10-23",
+      "sdc_ps": 473,
       "measured": "#1351's pin plan variant (XSTile_pinplan), built from source at 2552a4b8 beside the row before: the register files' pins and the blocks' macro places from each part's pin plan at global route (tools/pin_plan), MemBlock and CoupledL2 (no register file) the base flow's; each part's KPI at its own global route",
       "parent_ps": 2250,
       "blocks": {
@@ -817,6 +845,7 @@
     },
     {
       "date": "2026-10-29",
+      "sdc_ps": 473,
       "measured": "main's base flow built from source at 17d0747d with orfs_schedule and --jobs=12 on a 122 GB machine; every block, register-file macro and the parent rebuilt; each part's KPI at its own global route",
       "parent_ps": 2212,
       "blocks": {
@@ -902,6 +931,7 @@
     },
     {
       "date": "2026-10-31",
+      "sdc_ps": 473,
       "measured": "main's base flow built from source at 6aa77428 with #1466 (patch 0168 for pinned synthesis partitions), OpenROAD bf0feec and ORFS 75cd896b, with orfs_schedule on a 122 GB machine; each part's KPI at its own global route",
       "parent_ps": 2206,
       "blocks": {
@@ -985,6 +1015,7 @@
     },
     {
       "date": "2026-11-01",
+      "sdc_ps": 473,
       "measured": "the carved XSTile built from source with orfs_schedule at the baseline branch (origin/main 86c4195e with #1425, #1469 and #1497): 19 blocks and the parent macro each at its own global route, the parent with its reg2reg repair capped at 1,600 iterations",
       "blocks": {
         "VirtualLoadQueue": 600,
@@ -1244,6 +1275,7 @@
     },
     {
       "date": "2026-11-02",
+      "sdc_ps": 473,
       "measured": "origin/main at 74fbe247 (#1501): run 22's 19 blocks, unchanged, and the parent macro built hermetically through XSTile_parent_kpi from the same tree but for a comment and plan.json's record of the regions (the builds are deterministic), the parent with its reg2reg repair capped at 1,600 iterations",
       "blocks": {
         "VirtualLoadQueue": 600,
@@ -1495,6 +1527,7 @@
     },
     {
       "date": "2026-11-03",
+      "sdc_ps": 473,
       "blocks": {
         "XSTile_parent": 2111,
         "CoupledL2": 1559,
@@ -1604,6 +1637,7 @@
     },
     {
       "date": "2026-11-04",
+      "sdc_ps": 473,
       "blocks": {
         "XSTile_parent": 2111,
         "CoupledL2": 1559,
@@ -1713,6 +1747,7 @@
     },
     {
       "date": "2026-11-05",
+      "sdc_ps": 473,
       "blocks": {
         "XSTile_parent": 2370,
         "CoupledL2": 1827,
@@ -1822,6 +1857,7 @@
     },
     {
       "date": "2026-11-11",
+      "sdc_ps": 473,
       "blocks": {
         "XSTile_parent": 3949,
         "CoupledL2": 1799,
@@ -1931,6 +1967,7 @@
     },
     {
       "date": "2026-11-12",
+      "sdc_ps": 473,
       "blocks": {
         "XSTile_parent": 3949,
         "CoupledL2": 1799,
@@ -2040,6 +2077,7 @@
     },
     {
       "date": "2026-11-13",
+      "sdc_ps": 473,
       "blocks": {
         "XSTile_parent": 3949,
         "CoupledL2": 1799,
@@ -2149,6 +2187,7 @@
     },
     {
       "date": "2026-11-14",
+      "sdc_ps": 473,
       "blocks": {
         "XSTile_parent": 3949,
         "CoupledL2": 1799,
@@ -2258,6 +2297,7 @@
     },
     {
       "date": "2026-11-15",
+      "sdc_ps": 473,
       "measured": "run 21's tree built from source: main at 6aa77428 with #1466's patch 0168 (OpenROAD bf0feec with its 8 carried patches, ORFS 75cd896b), plus CTS's coincident-sink fix (carried patch 0220, ported to bf0feec) and nothing else, on a branch not merged to main; with orfs_schedule: the blocks, and the parent's synthesis, floorplan and place, on the remote executor; the parent's CTS, global route and KPI on a 122 GB machine; each part's KPI at its own global route. The flat timing (XSTile_kpi_flat: every part stitched in OpenSTA, each block as its interface logic) of the same build",
       "parent_ps": 2206,
       "blocks": {
@@ -2703,6 +2743,7 @@
     },
     {
       "date": "2026-11-17",
+      "sdc_ps": 473,
       "measured": "#1578 (single-top-main at 1b4be33f: run 31's single top on main's tools, with the Ftq read fix, the branch units' compare surgery, global placement's carried patches 0224 to 0227 and OpenSTA's 0230 for the timing model of a block that holds a macro): the parent's place, CTS, global route and KPI in a dirty lane on main's cached floorplan and blocks (16be74e3), not a clean build, with VecRegionModule's abstract written again with 0230; Frontend and MemBlock from main's build (16be74e3), CoupledL2, VecRegionModule and FltRegionModule from this branch's clean rebuild at 1b4be33f, each block at its own global route",
       "parent_ps": 2113,
       "blocks": {
@@ -2786,6 +2827,7 @@
     },
     {
       "date": "2026-11-17",
+      "sdc_ps": 473,
       "measured": "Run 32's lane with global placement's cohesion added (carried OpenROAD patch 0242, -clusters_file, eight groups of the parent's cells at weight 1, no fade): the parent's place, CTS, global route and KPI in a dirty lane on main's cached floorplan and blocks (16be74e3), not a clean build, with run 32's OpenROAD plus the cohesion patch and VecRegionModule's corrected abstract; the blocks as run 32",
       "parent_ps": 1992,
       "blocks": {
@@ -2869,6 +2911,7 @@
     },
     {
       "date": "2026-11-18",
+      "sdc_ps": 473,
       "measured": "A clean build of main at #1627 (the single top, global placement's cohesion on): every block and the parent synthesized, placed, clock-tree synthesized and globally routed by Bazel from scratch, no dirty lane; the official measurement of run 33's settings",
       "parent_ps": 2024,
       "blocks": {
@@ -2952,6 +2995,7 @@
     },
     {
       "date": "2026-11-21",
+      "sdc_ps": 473,
       "measured": "A clean build of main at f1a26bfd with the SDC at 473 ps: every block and the parent synthesized, placed, clock-tree synthesized and globally routed by Bazel from scratch, no dirty lane; each part's KPI at its own global route",
       "parent_ps": 1822,
       "blocks": {
@@ -2961,10 +3005,19 @@
         "VecRegionModule": 975,
         "FltRegionModule": 1027
       },
+      "wns_ps": {
+        "parent": -1349,
+        "Frontend": -589,
+        "MemBlock": -593,
+        "CoupledL2": -391,
+        "VecRegionModule": -502,
+        "FltRegionModule": -554
+      },
       "note": "The parent at 1,822 ps from a clean build of main with the SDC at 473 ps, from 2,024 in run 34. The blocks: Frontend 1,062 ps (1,032), MemBlock 1,066 (1,172), CoupledL2 864 (864), VecRegionModule 975 (1,023), FltRegionModule 1,027 (1,033). The last row at the 473 ps SDC"
     },
     {
       "date": "2026-11-21",
+      "sdc_ps": 1800,
       "measured": "A clean build at 5c43bec1, which sets the SDC to 1,800 ps (constraints.sdc), eight commits after run 35's f1a26bfd; the boundary budgets as at 473 ps, 378.4 ps in2reg and reg2out, 283.8 in2out. Scheduled with orfs_schedule (the package's :build): every block and the parent synthesized, placed, clock-tree synthesized and globally routed by Bazel from scratch, no dirty lane; each part's KPI at its own global route",
       "parent_ps": 2377,
       "blocks": {
@@ -2974,7 +3027,15 @@
         "VecRegionModule": 1353,
         "FltRegionModule": 1268
       },
-      "note": "The parent at 2,377 ps from a clean build with the SDC at 1,800 ps instead of 473, from 1,822 in run 35: 1,555 endpoints over 2,000 ps, 6,316 over 1,800; the reg2reg worst slack is -577 ps, in2reg -755, reg2out -1,039. The blocks relax toward the SDC: Frontend 1,858 ps (1,062; worst slack -58), MemBlock 1,752 (1,066; +48), CoupledL2 1,559 (864), VecRegionModule 1,353 (975), FltRegionModule 1,268 (1,027). The worst path is the control block's ROB-flush redirect valid into the floating-point region block's read-address enable from the vector region",
+      "wns_ps": {
+        "parent": -577,
+        "Frontend": -58,
+        "MemBlock": 48,
+        "CoupledL2": 241,
+        "VecRegionModule": 447,
+        "FltRegionModule": 532
+      },
+      "note": "The same tile, built clean with the SDC at 1,800 ps instead of run 35's 473 ps, reaches 2,377 ps where run 35 reaches 1,822: the parent's period follows the period repair is asked for. The parent's reg2reg worst slack is -577 ps (in2reg -755, reg2out -1,039), with 1,555 endpoints over 2,000 ps and 6,316 over 1,800. The blocks follow the SDC too: Frontend 1,858 ps (1,062 at 473 ps; worst slack -58), MemBlock 1,752 (1,066; +48), CoupledL2 1,559 (864; +241), VecRegionModule 1,353 (975; +447), FltRegionModule 1,268 (1,027; +532). The worst path is the control block's ROB-flush redirect valid into the floating-point region block's read-address enable from the vector region",
       "worst_paths": {
         "parent": {
           "period_ps": 2377,
