@@ -24,6 +24,8 @@ Fits, each recorded with the points it rests on:
                           over Donath's; limit: between the largest ratio
                           that routed clean and the smallest that did not
   rent_terminals, escape  limit, the same way
+  tangled                 score_limit: the lowest GTL score that routed
+                          clean against the highest that did not
   grt_capacity            grt_per_synth_inst: the largest measured ratio;
                           max_insts: worker_gib over the largest measured
                           peak bytes per instance
@@ -137,7 +139,7 @@ def layer_tracks(pdk, shares):
     }
 
 
-def measure(pt, block, nl, pdk, lt, p, k):
+def measure(pt, block, nl, pdk, lt, p, k, tg=None):
     """The point's features at the design's p and k."""
     slot = pt.get("outline_um")
     m = pt["measured"]
@@ -184,6 +186,12 @@ def measure(pt, block, nl, pdk, lt, p, k):
         row["spacing_min"] = min(spacing.values()) if spacing else None
         row["escape"] = escape
         row["escape_max"] = max(escape.values()) if escape else None
+    if tg:
+        if tg["gtl"]:
+            row["gtl_min"] = tg["gtl"][0]["score"]
+            row["gtl_share"] = tg["gtl"][0]["cells_share"]
+        row["long_share"] = tg["net_range"]["long_share"]
+        row["weak_share"] = tg["contraction"].get("weak_share")
     st = block.get("netlist") or {}
     if m.get("grt_insts") and st.get("insts"):
         row["grt_per_synth_inst"] = round(m["grt_insts"] / st["insts"], 4)
@@ -206,6 +214,9 @@ FEATURES = [
     ("escape_max", True),
     ("spacing_min", False),
     ("p", True),
+    ("gtl_min", False),
+    ("long_share", True),
+    ("weak_share", True),
 ]
 
 
@@ -217,12 +228,13 @@ def calibrate(spec, base):
     for pt in spec["points"]:
         b = load_rel(base, pt["block"])
         nl = load_rel(base, pt.get("netlist"))
-        pts.append((pt, b, nl))
-    names = [pt["name"] for pt, _, _ in pts]
-    fits = [nl["rent"] for _, _, nl in pts if nl and nl["rent"].get("p") is not None]
+        tg = load_rel(base, pt.get("tangle"))
+        pts.append((pt, b, nl, tg))
+    names = [pt["name"] for pt, _, _, _ in pts]
+    fits = [nl["rent"] for _, _, nl, _ in pts if nl and nl["rent"].get("p") is not None]
     p = median([f["p"] for f in fits]) or L.RENT_DEFAULT["p"]
     k = median([f["k"] for f in fits]) or L.RENT_DEFAULT["k"]
-    rows = [measure(pt, b, nl, pdk, lt, p, k) for pt, b, nl in pts]
+    rows = [measure(pt, b, nl, pdk, lt, p, k, tg) for pt, b, nl, tg in pts]
     cal = {}
     notes = {}
 
@@ -239,7 +251,7 @@ def calibrate(spec, base):
             "k": round(k, 4),
             "source": src(
                 "median of the blocks' bisection fits",
-                [pt["name"] for pt, _, nl in pts if nl and nl["rent"].get("p")],
+                [pt["name"] for pt, _, nl, _ in pts if nl and nl["rent"].get("p")],
             ),
         }
     for rung, key, um in (
@@ -248,7 +260,7 @@ def calibrate(spec, base):
     ):
         ws = [
             (r["name"], pt["measured"]["wirelength_um"] / r[um])
-            for (pt, _, _), r in zip(pts, rows)
+            for (pt, _, _, _), r in zip(pts, rows)
             if pt["measured"].get("wirelength_um") and r.get(um)
         ]
         factor = median([w for _, w in ws]) if ws else None
@@ -296,6 +308,17 @@ def calibrate(spec, base):
         }
     else:
         notes["pins_per_um"] = why
+    lim, why = separate(rows, "gtl_min", clean, higher_is_worse=False)
+    if lim is not None:
+        cal["tangled"] = {
+            "score_limit": lim,
+            "source": src(
+                "the most tangled cluster's GTL score, clean against failing overflow",
+                [r["name"] for r in rows if r.get("gtl_min") is not None],
+            ),
+        }
+    else:
+        notes["tangled"] = why
     g = [r["grt_per_synth_inst"] for r in rows if r.get("grt_per_synth_inst")]
     bpi = [r["grt_bytes_per_inst"] for r in rows if r.get("grt_bytes_per_inst")]
     sec = {}
