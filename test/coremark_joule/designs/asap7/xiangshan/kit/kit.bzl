@@ -207,6 +207,7 @@ def xs_kit(name, flow, regfiles, sdc, doc_inputs, regfile_specs, rtl_ports, mani
             _KIT + ":snapshot/snapshot.json",
             _KIT + ":snapshot_images",
             "//:MODULE.bazel",
+            sdc,
         ] + doc_inputs.values() + regfile_specs,
         outs = [name + "_doc/README.pdf", name + "_doc/README.md", name + "_doc/floorplan.svg"],
         cmd = " ".join([
@@ -222,6 +223,7 @@ def xs_kit(name, flow, regfiles, sdc, doc_inputs, regfile_specs, rtl_ports, mani
             "--module-bazel $(location //:MODULE.bazel)",
             "--sta $(location %s:sta.tcl)" % _KIT,
             "--snapshot $(location %s:snapshot/snapshot.json)" % _KIT,
+            "--sdc $(location %s)" % sdc,
             "--status bazel-out/stable-status.txt",
             " ".join(["$(location %s)" % s for s in regfile_specs]),
             "&& $(execpath %s:md_to_pdf)" % _KIT,

@@ -287,6 +287,8 @@ class TemplateTest(unittest.TestCase):
                     pin,
                     "--snapshot",
                     os.path.join(HERE, "snapshot", "snapshot.json"),
+                    "--sdc",
+                    os.path.join(XS, "constraints.sdc"),
                 ]
                 + regfiles
             )

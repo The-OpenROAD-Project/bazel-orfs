@@ -602,6 +602,10 @@ consequences follow:
   ORFS's figure for this core on this PDK, and likewise register-to-output.
 - A path straight through the core has a register at both ends outside, so
   it gets 0.6.
+- XiangShan, a tile of hardened blocks whose crossings set its period,
+  holds its budgets at fixed picoseconds instead, 0.8 and 0.6 of 473 ps,
+  for the blocks and the tile's own ports alike (its `constraints.sdc`
+  says why).
 - Nothing else about the outside world is needed, in particular not the
   clock tree: `set_input_delay` is measured from the clock insertion point and
   cannot be written down before a clock tree exists, while
@@ -1119,7 +1123,7 @@ percent.
 | picorv32 (rv32im) | this study, grt | asap7 | probe | 2141 (SDC) | 0.55 | 20926 |
 | serv (rv32i) | this study, grt | asap7 | probe | 2283 (SDC) | 0.02 | 1013 |
 | veer (rv32imc) | this study, grt | asap7 | probe | 628 (SDC) | 4.80 | 20629 |
-| XiangShan Kunminghu V3 (rv64gc) | this study, floorplan | asap7 | ~19,900 | 833 (SDC, untimed) | 8.29 | pending |
+| XiangShan Kunminghu V3 (rv64gc) | this study, floorplan | asap7 | ~19,900 | 556 (SDC, untimed) | 8.29 | pending |
 | CVA6 | [5] | GF 22 FDX | 730 | 1083 (signoff) | 2.19 | 28205 |
 | CVA6S+ | [5] | GF 22 FDX | 851 | 1081 (signoff) | 2.84 | 27108 |
 | XuanTie C910 | [5] | GF 22 FDX | 2674 | 1543 (signoff) | 4.86 (7.1 in [32]) | 29412 |

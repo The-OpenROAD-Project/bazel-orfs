@@ -29,8 +29,8 @@ py_test(
     deps = ["@bazel-orfs-dev-pip//matplotlib"],
 )
 
-# The SDC period is XiangShan's 333 ps on 7 nm in fanouts of four, on the
-# library the flow times with, ORFS's default asap7 corner FF, in each Vt
+# The KPI's target_ps is XiangShan's 333 ps on 7 nm in fanouts of four, on
+# the library the flow times with, ORFS's default asap7 corner FF, in each Vt
 # class; the flow's primary Vt first.
 py_test(
     name = "period_fo4_test",
@@ -39,7 +39,7 @@ py_test(
         "period_fo4_test.py",
     ],
     args = [
-        "$(rootpath :constraints.sdc)",
+        "$(rootpath :kpi.json)",
         "R",
         "$(rootpath @orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz)",
         "INVx1_ASAP7_75t_R",
@@ -51,7 +51,7 @@ py_test(
         "INVx1_ASAP7_75t_SL",
     ],
     data = [
-        ":constraints.sdc",
+        ":kpi.json",
         "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_LVT_FF_nldm_220122.lib.gz",
         "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz",
         "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_SLVT_FF_nldm_220122.lib.gz",
@@ -187,6 +187,7 @@ xiangshan_flat_flow(
 filegroup(
     name = "kit_doc_inputs",
     srcs = [
+        "constraints.sdc",
         "kpi.json",
         "plan/plan.bzl",
         "plan/plan.json",

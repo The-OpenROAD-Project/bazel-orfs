@@ -13,7 +13,7 @@ quietly.
       --facts facts.json --plan plan.json --plan-bzl plan.bzl --kpi kpi.json
       --resources resources.json --ab ab.json --blocks blocks.json
       --module-bazel MODULE.bazel --sta sta.tcl --rtl-ports ports.json
-      --pin pin.json [--status stable-status.txt]
+      --pin pin.json --sdc constraints.sdc [--status stable-status.txt]
       <spec.regfile>...
 """
 
@@ -50,6 +50,15 @@ def table(header, rows, right=(), abbrev=None):
         out.append("")
         out.append("*\\* %s.*" % notes)
     return "\n".join(out)
+
+
+def sdc_value(path, name):
+    """A number the design SDC sets with `set <name> <ps>`: what the kit's
+    SDC asks. A value that is not a plain number stops the build."""
+    m = re.search(r"^\s*set\s+%s\s+(\S+)\s*$" % name, open(path).read(), re.M)
+    if not m:
+        raise SystemExit("render_md: no `set %s <number>` in %s" % (name, path))
+    return float(m.group(1))
 
 
 def latest_measured(runs, blocks):
@@ -367,6 +376,9 @@ def facts_values(a):
     )
     v["parent_period"] = num(parent_period(run))
     v["target_ps"] = num(kpi["target_ps"])
+    v["sdc_period"] = num(sdc_value(a.sdc, "clk_period"))
+    for budget in ("in2reg_max", "reg2out_max", "in2out_max"):
+        v[budget] = num(sdc_value(a.sdc, budget), 1)
     pins = {m["name"]: m["pins"] for m in plan["macros"]}
     rows = []
     undescribed = sorted(set(plan_bzl["macros"]) - set(blocks))
@@ -751,6 +763,7 @@ def main(argv=None):
         "rtl-ports",
         "pin",
         "snapshot",
+        "sdc",
     ):
         p.add_argument("--" + flag, required=True)
     p.add_argument("--status")
