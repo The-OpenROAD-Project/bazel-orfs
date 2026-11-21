@@ -63,6 +63,12 @@
      "via": "reg"
     }
    ],
+   "obs": [
+    "M1",
+    "M2",
+    "M3",
+    "M4"
+   ],
    "pins": {
     "addr_in": {
      "bits": 8,
@@ -147,6 +153,12 @@
      "port": "req",
      "via": "reg"
     }
+   ],
+   "obs": [
+    "M1",
+    "M2",
+    "M3",
+    "M4"
    ],
    "pins": {
     "addr_in": {
@@ -233,6 +245,12 @@
      "via": "reg"
     }
    ],
+   "obs": [
+    "M1",
+    "M2",
+    "M3",
+    "M4"
+   ],
    "pins": {
     "addr_in": {
      "bits": 8,
@@ -318,6 +336,12 @@
      "via": "reg"
     }
    ],
+   "obs": [
+    "M1",
+    "M2",
+    "M3",
+    "M4"
+   ],
    "pins": {
     "addr_in": {
      "bits": 8,
@@ -369,8 +393,20 @@
   }
  ],
  "identity": {
-  "dump": "sha256:218f8e1c88a67cf76c3205ac192adea664ae5da9432cc1d12d36ea9ec42604b4",
-  "tool": "block_json 1"
+  "dump": "sha256:39ccb28ea758a7ad616312fb0f79eb368678368af7e531978cbca9e14614977a",
+  "tool": "block_json 2"
+ },
+ "logic": {
+  "cells": 2,
+  "from": "g_mem[0].mem/rd_out[0]",
+  "ps": 0.0,
+  "to": "resp[0]$_DFF_P_/D"
+ },
+ "netlist": {
+  "insts": 533,
+  "nets": 793,
+  "pins": 1633,
+  "seq": 268
  },
  "ports": [
   {
@@ -382,7 +418,7 @@
     "max": 0.0
    },
    "name": "req",
-   "registered": true
+   "registered": null
   },
   {
    "bits": 136,
@@ -393,7 +429,7 @@
     "bit": "resp[0]",
     "max": 3.9
    },
-   "registered": true
+   "registered": null
   }
  ]
 }

@@ -8,12 +8,16 @@ its pins reach. Schema:
 
   block, identity {dump, tool}
   clock {port, period_ps}
+  logic {ps, cells, from, to}   the deepest register-to-register path:
+        the period the netlist's logic sets before any wire
+  netlist {insts, seq, nets, pins}   signal nets of two or more pins and
+        their pins, clock nets left out (rung 0's statistics)
   area {std_um2, hard_um2, macros [{master, w, h, n}],
         die_rule {util, aspect, margin_um, core_w_um, core_h_um, w_um, h_um}}
   ports [{name, dir, bits, group, registered,
           in2reg_ps {max, bit}, reg2out_ps {max, bit},
           in2out [{to, max_ps, bits}]}]
-  hard [{inst, master, kind, w, h, halo_um,
+  hard [{inst, master, kind, w, h, halo_um, obs [routing layers],
          pins {bus: {side, range, bits, layer}},
          nets [{pin, port, bits, via, depth}]}]
 
@@ -32,7 +36,7 @@ import math
 import re
 import sys
 
-TOOL = "block_json 1"
+TOOL = "block_json 2"
 
 
 def parse(lines):
@@ -117,10 +121,13 @@ def build(rec, dump_hash, reg_in_ps, reg_out_ps):
                 "halo_um": halo_um,
                 "pins": {},
                 "nets": [],
+                "obs": [],
             }
         )
         masters.setdefault(master, {"master": master, "w": w, "h": h, "n": 0})["n"] += 1
     by_inst = {h["inst"]: h for h in hard}
+    for f in rec.get("hobs", []):
+        by_inst[f[0]]["obs"] = [n for n in f[1:] if n]
     for inst, bus, side, lo, hi, bits, layer in rec.get("hpin", []):
         by_inst[inst]["pins"][bus] = {
             "side": side,
@@ -177,6 +184,14 @@ def build(rec, dump_hash, reg_in_ps, reg_out_ps):
             p["registered"] = (
                 None if reg_out_ps is None else (t <= reg_out_ps and not fed)
             )
+    netlist = None
+    if "netlist" in rec:
+        insts, seq, nets, pins = [int(v) for v in rec["netlist"][0]]
+        netlist = {"insts": insts, "seq": seq, "nets": nets, "pins": pins}
+    logic = None
+    if "logic" in rec:
+        ps, cells, frm, to = rec["logic"][0]
+        logic = {"ps": float(ps), "cells": int(cells), "from": frm, "to": to}
     clock = None
     if "clock" in rec:
         clock = {"port": rec["clock"][0][0], "period_ps": float(rec["clock"][0][1])}
@@ -192,6 +207,8 @@ def build(rec, dump_hash, reg_in_ps, reg_out_ps):
         },
         "ports": sorted(ports.values(), key=lambda p: p["name"]),
         "hard": hard,
+        "netlist": netlist,
+        "logic": logic,
     }
 
 

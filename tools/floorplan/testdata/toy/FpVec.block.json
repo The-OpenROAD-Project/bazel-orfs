@@ -21,8 +21,20 @@
  },
  "hard": [],
  "identity": {
-  "dump": "sha256:422198f41e458926012fb1f60594d5c913526fc6dcb602ba8be14f97639cfa9e",
-  "tool": "block_json 1"
+  "dump": "sha256:1342a6f5e2fc26b85f51036a43b4ed5072f6ae3c1ca5e34fa3a903c32b56799c",
+  "tool": "block_json 2"
+ },
+ "logic": {
+  "cells": 11,
+  "from": "w[13]$_DFF_P_/QN",
+  "ps": 236.8,
+  "to": "d[21]$_DFF_P_/D"
+ },
+ "netlist": {
+  "insts": 2402,
+  "nets": 3506,
+  "pins": 7334,
+  "seq": 1088
  },
  "ports": [
   {
@@ -34,7 +46,7 @@
     "max": 225.0
    },
    "name": "deep_in",
-   "registered": false
+   "registered": null
   },
   {
    "bits": 16,
@@ -48,14 +60,14 @@
     }
    ],
    "name": "ft_in",
-   "registered": false
+   "registered": null
   },
   {
    "bits": 16,
    "dir": "out",
    "group": "ft_out",
    "name": "ft_out",
-   "registered": false
+   "registered": null
   },
   {
    "bits": 32,
@@ -66,7 +78,7 @@
     "bit": "res[0]",
     "max": 4.1
    },
-   "registered": true
+   "registered": null
   },
   {
    "bits": 1024,
@@ -77,7 +89,7 @@
     "max": 0.0
    },
    "name": "wide",
-   "registered": true
+   "registered": null
   }
  ]
 }

@@ -9,7 +9,14 @@
 #   in2reg  <bus> <ps> <bit>        worst input -> first register, per bus
 #   reg2out <bus> <ps> <bit>        worst clock -> last register -> output
 #   in2out  <bus> <to bus> <ps> <bits>  combinational feedthrough pairs
+#   logic   <ps> <cells> <from> <to>  the deepest register-to-register path:
+#                                   its delay and cells, the netlist's logic
+#                                   depth before any wire
+#   netlist <insts> <seq> <nets> <pins>  the signal netlist: instances,
+#                                   registers, nets of two or more pins
+#                                   and their pins; clock nets left out
 #   hard  <inst> <master> <w_um> <h_um> <kind>
+#   hobs  <inst> <layer>...         the routing layers its obstructions cover
 #   hpin  <inst> <pin bus> <side> <lo_um> <hi_um> <bits> <layer>
 #   hnet  <inst> <pin bus> <port bus> <bits> <via> <depth>
 #
@@ -76,6 +83,39 @@ foreach clk [all_clocks] {
   }
 }
 
+set seq_masters [dict create]
+foreach reg [all_registers -cells] {
+  dict set seq_masters [get_property $reg ref_name] 1
+}
+set n_seq 0
+foreach inst [$block getInsts] {
+  if { [dict exists $seq_masters [[$inst getMaster] getName]] } { incr n_seq }
+}
+set clock_nets [dict create]
+set clock_pins [all_registers -clock_pins]
+if { [llength $clock_pins] > 0 } {
+  foreach n [get_nets -quiet -of_objects $clock_pins] {
+    dict set clock_nets [get_full_name $n] 1
+  }
+}
+foreach p $clock_ports {
+  set bt [$block findBTerm $p]
+  if { $bt ne "NULL" && [$bt getNet] ne "NULL" } {
+    dict set clock_nets [[$bt getNet] getName] 1
+  }
+}
+set n_nets 0
+set n_pins 0
+foreach net [$block getNets] {
+  if { [$net getSigType] ne "SIGNAL" } { continue }
+  if { [dict exists $clock_nets [$net getName]] } { continue }
+  set k [expr { [llength [$net getITerms]] + [llength [$net getBTerms]] }]
+  if { $k < 2 } { continue }
+  incr n_nets
+  incr n_pins $k
+}
+puts $out "netlist\t[llength [$block getInsts]]\t$n_seq\t$n_nets\t$n_pins"
+
 set buses_in [dict create]
 set buses_out [dict create]
 foreach bt [$block getBTerms] {
@@ -124,6 +164,18 @@ if { ![info exists ::env(EXTRACT_TIMING)] || $::env(EXTRACT_TIMING) != 0 } {
     }
     dict for {to wn} $worst {
       puts $out "in2out\t$bus\t$to\t[lindex $wn 0]\t[lindex $wn 1]"
+    }
+  }
+  if { [llength $clock_pins] > 0 && [llength $data_pins] > 0 } {
+    foreach pe [find_timing_paths -from $clock_pins -to $data_pins -unconstrained \
+      -path_delay max -group_path_count 1] {
+      set insts [dict create]
+      foreach pt [get_property $pe points] {
+        set pin [get_property $pt pin]
+        if { [get_property $pin is_port] } { continue }
+        dict set insts [get_full_name [get_cells -of_objects $pin]] 1
+      }
+      puts $out "logic\t[path_ps $pe]\t[dict size $insts]\t[get_full_name [get_property $pe startpoint]]\t[get_full_name [get_property $pe endpoint]]"
     }
   }
   if { [llength $clock_pins] > 0 } {
@@ -221,6 +273,12 @@ foreach inst $hard {
   set name [$inst getName]
   set kind [expr { [regexp -nocase {ram|mem|sram} [$m getName]] ? "memory" : "macro" }]
   puts $out "hard\t$name\t[$m getName]\t[um $w]\t[um $h]\t$kind"
+  set obs [dict create]
+  foreach box [$m getObstructions] {
+    set l [$box getTechLayer]
+    if { $l ne "NULL" && [$l getType] eq "ROUTING" } { dict set obs [$l getName] 1 }
+  }
+  puts $out "hobs\t$name\t[join [lsort [dict keys $obs]] \t]"
   set pins [dict create]
   foreach it [$inst getITerms] {
     set mt [$it getMTerm]
