@@ -25,6 +25,11 @@ like any block (XSTile_parent), and top_ps, the Top series, is the worst
 path of the top level's crossing report, every register-to-register path
 not contained in one macro. They are drawn as history.
 
+Each period is measured against its row's SDC (sdc_ps), and repair works
+toward that SDC: kpi.png draws a grey rule, labelled, where it changes, and
+the table gives it with the parent's reg2reg worst slack (wns_ps, or the
+SDC minus the parent's period where a row did not record it).
+
 The table's floor column is the parent's one-flop-loop floor at global
 route (tools/headroom/report_floor_cycles.tcl), where a run measured it:
 the worst path from a register back to itself, which no clock skew or
@@ -152,6 +157,25 @@ def measured_all(run):
     return not any(n.endswith("_parent") for n in blocks) or "top_ps" in run
 
 
+def parent_wns(run):
+    """The parent's reg2reg worst slack: recorded in wns_ps, or derived from
+    the row's SDC and period (period = SDC - WNS); None without either."""
+    if "parent" in run.get("wns_ps", {}):
+        return run["wns_ps"]["parent"]
+    if "sdc_ps" in run and "parent_ps" in run:
+        return run["sdc_ps"] - run["parent_ps"]
+    return None
+
+
+def sdc_changes(runs):
+    """(index, sdc_ps) of each run whose SDC differs from the run before it."""
+    return [
+        (i, r["sdc_ps"])
+        for i, r in enumerate(runs)
+        if i > 0 and "sdc_ps" in r and r["sdc_ps"] != runs[i - 1].get("sdc_ps")
+    ]
+
+
 def block_names(runs):
     return [
         n for n in BLOCK_COLORS if any(n in r.get("blocks", {}) for r in runs)
@@ -254,6 +278,20 @@ def draw(runs, target, out):
             zorder=4,
             color="firebrick",
             markerfacecolor="firebrick" if measured_all(r) else "white",
+        )
+    # a period is measured against its row's SDC: a rule where the SDC changes
+    for i, sdc in sdc_changes(drawn):
+        ax.axvline(xs[i] - 0.5, color="0.5", ls="-", lw=0.8, zorder=1)
+        ax.annotate(
+            f"SDC {sdc:,} ps",
+            (xs[i] - 0.5, 1),
+            xycoords=("data", "axes fraction"),
+            xytext=(2, -2),
+            textcoords="offset points",
+            rotation=90,
+            va="top",
+            fontsize=7,
+            color="0.4",
         )
     ax.axhline(target, color="black", ls=":", lw=1.5, label="target")
     ax.axhline(
@@ -601,18 +639,21 @@ def table(runs):
     """The runs as a markdown table, the numbers the chart draws."""
     start = first_drawn(runs)
     names = block_names(runs)
-    head = ["#", "date", "design", "Top", "parent", "floor"] + names
-    head += ["peak GB", "change"]
+    head = ["#", "date", "SDC", "design", "Top", "parent", "parent WNS", "floor"]
+    head += names + ["peak GB", "change"]
     lines = ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
     for i, r in enumerate(runs):
         blocks = r.get("blocks", {})
         design = f"{design_ps(r):,}"
+        wns = parent_wns(r)
         cells = [
             str(i - start + 1) if i >= start else "not drawn",
             r["date"],
+            f"{r['sdc_ps']:,}" if "sdc_ps" in r else "",
             ("%s" if measured_all(r) else "≥ %s") % design,
             f"{r['top_ps']:,}" if "top_ps" in r else "",
             f"{r['parent_ps']:,}" if "parent_ps" in r else "",
+            f"{wns:+,}" if wns is not None else "",
             f"{r['floor_ps']:,}" if "floor_ps" in r else "",
         ]
         cells += [f"{blocks[n]:,}" if n in blocks else "" for n in names]
