@@ -1123,7 +1123,7 @@ percent.
 | picorv32 (rv32im) | this study, grt | asap7 | probe | 2141 (SDC) | 0.55 | 20926 |
 | serv (rv32i) | this study, grt | asap7 | probe | 2283 (SDC) | 0.02 | 1013 |
 | veer (rv32imc) | this study, grt | asap7 | probe | 628 (SDC) | 4.80 | 20629 |
-| XiangShan Kunminghu V3 (rv64gc) | this study, floorplan | asap7 | ~19,900 | 556 (SDC, untimed) | 8.29 | pending |
+| XiangShan Kunminghu V3 (rv64gc) | this study, grt | asap7 | ~19,900 (floorplan) | 556 (SDC, 1,800 ps); 421 at grt (2,377 ps) | 8.31 | 2066 at 556 MHz; 2046 at 421 MHz |
 | CVA6 | [5] | GF 22 FDX | 730 | 1083 (signoff) | 2.19 | 28205 |
 | CVA6S+ | [5] | GF 22 FDX | 851 | 1081 (signoff) | 2.84 | 27108 |
 | XuanTie C910 | [5] | GF 22 FDX | 2674 | 1543 (signoff) | 4.86 (7.1 in [32]) | 29412 |
@@ -1142,7 +1142,17 @@ attached to each point by `//test/coremark_joule:pin` from the global-route
 ODB the power came from, and filled in when the pinned file is next re-derived.
 XiangShan's gate count is from its floorplan report (1.159 mm² of
 standard cells) under the turnaround synthesis settings its `config.mk`
-records, a ceiling until the measured run replaces them. [5]'s kGE is its
+records, a ceiling until the measured run replaces them. Its energy is
+the tile's, the L2 included: every hardened block reported on its own
+global-route netlist with activity replayed from one RTL capture, summed
+(`designs/asap7/xiangshan/power.json`). The tile's SDC asks for
+1,800 ps, but its period at global route is 2,377 ps, set by the parent
+(reg2reg WNS -577 ps). The 2,234 mW is at the SDC clock, which the
+capture was timed against; at the measured 2,377 ps the same dynamic
+energy per cycle, 3.90 nJ, plus leakage is 1,708 mW and 2,046
+CoreMark/Joule. Like every point here it carries no glitch power. Its
+entry in `results.json` was added beside the four pinned small-core
+points without re-running their pin. [5]'s kGE is its
 Figure 6 total less the Icache and Dcache bars, a core-without-caches
 count like the others; its CoreMark/Joule is the [§4.4](#44-a-22-nm-literature-series-and-what-it-is-and-is-not) derivation.
 
@@ -1195,7 +1205,7 @@ bounds how seriously two CoreMark/MHz figures from different hands can be
 compared, about ±20 % around their mean. Our figures sit inside that band
 of their publications, ibex 2.454 against 2.47 and VeeR 4.798 against
 4.94, both low by the compiler this study fixes for all cores rather than
-tunes per core. XiangShan's 8.29 has no published CoreMark to sit
+tunes per core. XiangShan's 8.31 has no published CoreMark to sit
 against; Kunminghu V2's SPEC CPU2006 of 14.7/GHz [31] is the closest, and
 a 6-wide core landing 1.3× above SonicBOOM's 6.2 says more about
 CoreMark's loop bodies than about the core.
@@ -2060,7 +2070,7 @@ extended deliberately upward, each core its own budgeted run.
 | 7 | **VeeR EH1** | **4.798 measured** (4.94 published [11]) | SystemVerilog | **done** |
 | 8 | OpenC910 | ~4.9–7 | Verilog/SV | medium — 3-issue OoO, silicon-proven |
 | 9 | SonicBOOM | 6.2 | Chisel | high — pulls in the Scala generator |
-| 10 | **XiangShan (Kunminghu V3)** | **8.29 measured** | Chisel | **in flow — [§4.9](#49-the-literature-side-by-side-and-the-discrepancies-worth-chasing) has it against its publications** |
+| 10 | **XiangShan (Kunminghu V3)** | **8.31 measured** | Chisel | **in flow — [§4.9](#49-the-literature-side-by-side-and-the-discrepancies-worth-chasing) has it against its publications** |
 
 **Rungs 8–10 arrive with an L1 each**, as tiles or SoCs, and what gets
 hardened stops being obvious. [§3.1](#31-the-measurement-boundary)'s boundary is what makes them

@@ -615,8 +615,15 @@ py_test(
     name = "power_pin_test",
     size = "small",
     srcs = ["//test/coremark_joule/scripts:power_pin_test.py"],
-    args = ["$(rootpath power.json)"],
-    data = ["power.json"],
+    args = [
+        "$(rootpath power.json)",
+        "--results $(rootpath //test/coremark_joule:results.json)",
+        "--core xiangshan",
+    ],
+    data = [
+        "power.json",
+        "//test/coremark_joule:results.json",
+    ],
     main = "//test/coremark_joule/scripts:power_pin_test.py",
     tags = ["study"],
 )

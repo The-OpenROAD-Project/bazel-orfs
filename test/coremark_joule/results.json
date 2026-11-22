@@ -304,6 +304,31 @@
       "seeds": 5,
       "stage": "grt",
       "vectorless_power_w": 0.0635
+    },
+    {
+      "activity": "saif",
+      "boundary": "the tile: core, L1 caches and the L2, each hardened block reported on its own global-route netlist and replayed activity",
+      "build_flags": null,
+      "core": "xiangshan",
+      "coremark_per_joule": 2065.655716653655,
+      "coremark_per_mhz": 8.306406731512014,
+      "coremark_score": 4614.670406395563,
+      "cycles_per_iteration": 120389,
+      "dynamic_power_w": 2.1685246789000003,
+      "frequency_mhz": 555.5555555555555,
+      "isa": "rv64gc",
+      "joule_per_iteration": 0.00048410777843463273,
+      "leakage_power_w": 0.0654731597482,
+      "macro_power_w": 0.17050225099809999,
+      "power_groups_w": {
+        "Clock": 1.0217458166206002,
+        "Combinational": 0.2487565574881,
+        "Macro": 0.17050225099809999,
+        "Sequential": 0.7954498434081501
+      },
+      "power_w": 2.2339978386482,
+      "stage": "grt",
+      "vectorless_power_w": 3.2776385931278
     }
   ],
   "provenance": {

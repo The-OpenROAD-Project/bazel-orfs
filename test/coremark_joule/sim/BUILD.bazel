@@ -939,15 +939,14 @@ coremark_capture(
 
 coremark_per_joule(
     name = "point_xiangshan_rv64gc",
-    # The five hardened blocks reach the power report as their .lib
-    # alone: pin loads and declared leakage, no internal activity. That
-    # is the boundary as it stands, said here rather than implied.
-    boundary = "core + L1: 64 kB instruction cache and 64 kB data cache as " +
-               "SRAM macros; vector region, predictors, both caches and the " +
-               "page walker hardened as blocks whose power is their .lib only",
+    # Power in shards: every hardened block reported on its own
+    # global-route netlist with its own replayed activity, summed
+    # (designs/asap7/xiangshan/power.json says how).
+    boundary = "the tile: core, L1 caches and the L2, each hardened block " +
+               "reported on its own global-route netlist and replayed activity",
     constraints = "//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc",
     core = "xiangshan",
     isa = "rv64gc",
     per_mhz = ":xiangshan_rv64gc_per_mhz",
-    power = "//test/coremark_joule/designs/asap7/xiangshan:cmj_xiangshan_grt_power",
+    power = "//test/coremark_joule/designs/asap7/xiangshan:cmj_xiangshan_grt_power_shards",
 )
