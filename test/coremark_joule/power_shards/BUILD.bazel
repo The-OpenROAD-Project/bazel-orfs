@@ -1,0 +1,462 @@
+# Power in shards, proven on a toy before XiangShan uses it.
+#
+# stage_power_shards (flow/power.bzl) reports a hierarchical design's
+# power as one report_power per unit, each on the unit's own global-route
+# ODB with the SAIF read at the unit's own scope, and sums them. Here the
+# sum is checked against a flat report of the same physical design:
+#
+#   mini_top          test/planned_parent's parent at the plan's die, its
+#                     four blocks test/parent_macro's, abstracted at
+#                     global route, hierarchical in OpenROAD as XSTile is;
+#                     BlockA in kept submodules and flat in OpenROAD
+#                     (OPENROAD_HIERARCHICAL=0), its names full of `/`;
+#                     BlockB with its one clock split into two ports
+#   mini_top_saif     random stimulus on the gate-level netlist: the
+#                     parent's grt netlist and each block's own, so each
+#                     block's cells are in the SAIF under its instance,
+#                     TOP/mini_top/u_blocka (sim_all_gates)
+#   mini_top_merged   the same from one simulation per shard (sims.bzl):
+#                     the parent's netlist with the blocks RTL, and each
+#                     block's netlist alone in the RTL, its own scope
+#                     alone traced, merged (shard_saif_merge)
+#   power_flat        the parent's grt ODB with every block dissolved into
+#                     its own grt ODB's cells, nets and route guides, the
+#                     flat design the shards cut up, reported whole
+#   power_shards      the shards and their sum, from either SAIF
+#
+# Each report twice, parasitics from global routing and from placement
+# (_placement); sum_test.py says why and what each shows. Blocks to
+# global route, parent, the simulators and every report: about fifteen
+# minutes, under a GB.
+#
+# sum_test: the sum is the flat report (tolerances in the test).
+# mixed_test: the per-shard simulations measure what the all-gates one
+# does, net for net, and behave as the RTL.
+# wrong_scope_test: a shard read at the wrong scope is caught by the sum,
+# which refuses it.
+
+load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run")
+load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_verilog//verilog:defs.bzl", "verilog_library")
+load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "power_shard", "shard_saif_merge", "stage_power_shards")
+load("//test/planned_parent:plan/plan.bzl", "PLAN")
+load("//test/planned_parent:planned.bzl", "BASE_ARGS")
+load(":sims.bzl", "CLOCK_PORTS", "VOPTS", "toy_sim")
+
+# block instance in the parent -> its module
+BLOCKS = {
+    "u_blocka": "BlockA",
+    "u_blockb": "BlockB",
+    "u_blockc": "BlockC",
+    "u_blockd": "BlockD",
+}
+
+# Verilator's root, then the simulation's top module
+SAIF_SCOPE = "TOP/mini_top"
+
+# Two blocks built unlike their RTL. BlockA in kept submodules,
+# synthesised hierarchically, flat in OpenROAD, so its names carry the
+# hierarchy as `/`: the worst case for the SAIF (XiangShan's blocks are
+# hierarchical in OpenROAD, where only a cell below a module that was not
+# kept has such a name). BlockB with its one clock split into two ports
+# (blockb_2clk.sv), which the parent connects both of (top_2clk.sv): the
+# per-shard simulations bridge them (scripts/gate_stitch.py).
+HIER_BLOCKS = {
+    "BlockC": {
+        "arguments": {
+            "SYNTH_HIERARCHICAL": "1",
+            "SYNTH_KEEP_MODULES": "BlockCIn BlockCCore",
+        },
+        "verilog_files": [":blockc_hier.sv"],
+    },
+    "BlockB": {
+        "sources": {
+            "IO_CONSTRAINTS": [":BlockB_pins.tcl"],
+            "SDC_FILE": [":constraints_2clk.sdc"],
+        },
+        "verilog_files": [":blockb_2clk.sv"],
+    },
+    "BlockA": {
+        "arguments": {
+            "OPENROAD_HIERARCHICAL": "0",
+            "SYNTH_HIERARCHICAL": "1",
+            "SYNTH_KEEP_MODULES": "BlockAIn BlockACore BlockALane",
+        },
+        # verilog_slice.py does not look into a generate block
+        "verilog_slices": False,
+        "verilog_files": [":blocka_hier.sv"],
+    },
+}
+
+# test/parent_macro's blocks, abstracted at global route, here again
+# because an orfs_run reads a flow's results from its own package
+[
+    orfs_flow(
+        name = m,
+        abstract_stage = "grt",
+        arguments = BASE_ARGS | {
+            "AUTO_MEMORIES": "0",
+            "CORE_AREA": PLAN["macros"][m]["CORE_AREA"],
+            "DIE_AREA": PLAN["macros"][m]["DIE_AREA"],
+        } | HIER_BLOCKS.get(m, {}).get("arguments", {}),
+        pdk = "//flow:asap7",
+        sources = {
+            "IO_CONSTRAINTS": ["//test/planned_parent:plan/%s_pins.tcl" % m],
+            "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCK_grid_strategy.tcl"],
+            "SDC_FILE": [":constraints.sdc"],
+        } | HIER_BLOCKS.get(m, {}).get("sources", {}),
+        tags = ["manual"],
+        verilog_files = HIER_BLOCKS.get(m, {}).get(
+            "verilog_files",
+            ["//test/planned_parent:blocks.sv"],
+        ),
+        verilog_slices = HIER_BLOCKS.get(m, {}).get("verilog_slices", None),
+    )
+    for m in sorted(BLOCKS.values())
+]
+
+orfs_flow(
+    name = "mini_top",
+    arguments = BASE_ARGS | {
+        "AUTO_MEMORIES": "0",
+        "CORE_AREA": PLAN["parent"]["CORE_AREA"],
+        "DIE_AREA": PLAN["parent"]["DIE_AREA"],
+        # as XSTile: the hierarchy reaches OpenROAD, so a dissolved block
+        # is a module instance OpenSTA finds the SAIF's scope at
+        "OPENROAD_HIERARCHICAL": "1",
+        "RTLMP_MIN_CHANNEL_SIZE": "4 4",
+    },
+    last_stage = "grt",
+    macros = [":%s_generate_abstract" % m for m in sorted(BLOCKS.values())],
+    pdk = "//flow:asap7",
+    sources = {
+        "IO_CONSTRAINTS": ["//test/planned_parent:plan/parent_pins.tcl"],
+        "MACRO_PLACEMENT_TCL": [":place_macros.tcl"],
+        "PDN_TCL": ["//flow:platforms/asap7/openRoad/pdn/BLOCKS_grid_strategy.tcl"],
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    tags = ["manual"],
+    verilog_files = [
+        "//test/planned_parent:files.sv",
+        ":top_2clk.sv",
+    ],
+)
+
+# the plan's BlockB pins and the second clock pin, beside the first
+genrule(
+    name = "blockb_pins",
+    srcs = ["//test/planned_parent:plan/BlockB_pins.tcl"],
+    outs = ["BlockB_pins.tcl"],
+    cmd = "sed 's/^  clock M5 41.0520 0.1800 0.0240 0.3600$$/&\\n  clock_ext M5 41.5320 0.1800 0.0240 0.3600/' $< > $@ && grep -q clock_ext $@",
+)
+
+# the parent's RTL as its flow builds it: BlockB's both clock pins on the clock
+genrule(
+    name = "top_2clk",
+    srcs = ["//test/planned_parent:top.sv"],
+    outs = ["top_2clk.sv"],
+    cmd = "sed 's/BlockB u_blockb (.clock(clock),/BlockB u_blockb (.clock(clock), .clock_ext(clock),/' $< > $@ && grep -q clock_ext $@",
+)
+
+# The gate-level netlist the SAIF is captured on: every unit's own.
+grt_netlist(
+    name = "mini_top_grt_netlist",
+    src = ":mini_top_grt",
+    saif_names = True,
+)
+
+[
+    grt_netlist(
+        name = "%s_grt_netlist" % m,
+        src = ":%s_grt" % m,
+        saif_names = True,
+    )
+    for m in sorted(BLOCKS.values())
+]
+
+# The flop models start where RTL's registers do. Verilator starts a
+# register at 0; the cell models' QN flops also start QN at 0, a stored
+# 1, and the toy has no reset: through the parent's loop back into each
+# block, one such bit never washes out, and a simulation that mixes RTL
+# with gates would not be the design the all-gates one is. QN starts at 1.
+genrule(
+    name = "cells_init_v",
+    srcs = ["//test/coremark_joule/rtl:asap7_stdcell.v"],
+    outs = ["asap7_stdcell_init.v"],
+    cmd = "sed 's/^    output reg QN;$$/&\\n    initial QN = 1\\x27b1;/' $< > $@ && grep -q 'initial QN' $@",
+)
+
+verilog_library(
+    name = "cells_init",
+    srcs = [
+        ":asap7_stdcell_init.v",
+        "//test/coremark_joule/rtl:asap7_stdcell_empty.v",
+    ],
+    tags = ["manual"],
+)
+
+# The simulations, each the same stimulus (tb.cc):
+#   sim_all_gates  the parent's netlist and every block's: what the shards
+#                  were proven on, the reference
+#   sim_parent     the parent's netlist, the blocks RTL: the parent's shard
+#   sim_<block>    the RTL, that block alone its netlist, its SAIF that
+#                  block's scope alone: that block's shard
+#   sim_all_rtl    the RTL: what every other simulation's outputs must be
+NETLIST = ":mini_top_grt_netlist.v"
+
+toy_sim(
+    name = "sim_all_gates",
+    gates = [":%s_grt_netlist.v" % m for m in sorted(BLOCKS.values())],
+    netlist = NETLIST,
+)
+
+toy_sim(
+    name = "sim_parent",
+    netlist = NETLIST,
+)
+
+[
+    toy_sim(
+        name = "sim_" + inst,
+        gates = [":%s_grt_netlist.v" % m],
+        scope = "mini_top." + inst,
+    )
+    for inst, m in sorted(BLOCKS.items())
+]
+
+toy_sim(name = "sim_all_rtl")
+
+# A block's own simulation traced whole, to measure what tracing its
+# scope alone saves.
+toy_sim(
+    name = "sim_u_blockb_whole",
+    gates = [":BlockB_grt_netlist.v"],
+)
+
+# as coremark_saif: a name the SAIF cannot carry is dropped, none allowed
+genrule(
+    name = "mini_top_saif",
+    srcs = [":sim_all_gates_raw.saif"],
+    outs = ["mini_top.saif"],
+    cmd = "$(execpath //test/coremark_joule/scripts:filter_saif) $< $@ --max-other 0",
+    tags = ["manual"],
+    tools = ["//test/coremark_joule/scripts:filter_saif"],
+)
+
+# One SAIF from the per-shard simulations: the parent's, each block's
+# subtree its own simulation's gates (scripts/saif_merge.py)
+shard_saif_merge(
+    name = "mini_top_merged_raw",
+    clocks = CLOCK_PORTS,
+    parent_saif = ":sim_parent_raw.saif",
+    saif_scope = SAIF_SCOPE,
+    units = {i: ":sim_%s_raw.saif" % i for i in BLOCKS.keys()},
+)
+
+genrule(
+    name = "mini_top_merged_saif",
+    srcs = [":mini_top_merged_raw.saif"],
+    outs = ["mini_top_merged.saif"],
+    cmd = "$(execpath //test/coremark_joule/scripts:filter_saif) $< $@ --max-other 0",
+    tags = ["manual"],
+    tools = ["//test/coremark_joule/scripts:filter_saif"],
+)
+
+[
+    filegroup(
+        name = "%s_grt_odb" % m,
+        srcs = [":%s_grt" % m],
+        output_group = "5_1_grt.odb",
+        tags = ["manual"],
+    )
+    for m in sorted(BLOCKS.values())
+]
+
+# Each twice: parasitics from global routing, as stage_power, and from
+# placement. The flat design's global routes are the blocks' guides moved
+# into the parent's grid, not the blocks' own routes (sum_test.py says
+# what that costs); a placement estimate depends on pin places alone,
+# which the dissolve keeps, so it compares the accounting and nothing
+# else.
+PARASITICS = {
+    "": "global_routing",
+    "_placement": "placement",
+}
+
+[
+    orfs_run(
+        name = "power_flat" + suffix,
+        src = ":mini_top_grt",
+        outs = [
+            "power_flat%s_vectorless.json" % suffix,
+            "power_flat%s_vector_driven.json" % suffix,
+            "power_flat%s_annotation.txt" % suffix,
+        ],
+        data = [":mini_top.saif"] + [":%s_grt_odb" % m for m in sorted(BLOCKS.values())],
+        script = ":power_flat.tcl",
+        tags = ["manual"],
+        user_arguments = {
+            "ANNOTATION_TXT": "$(location power_flat%s_annotation.txt)" % suffix,
+            "DISSOLVE": " ".join([
+                "%s $(location :%s_grt_odb)" % (inst, m)
+                for inst, m in sorted(BLOCKS.items())
+            ]),
+            "POWER_PARASITICS": parasitics,
+            "SAIF_SCOPE": SAIF_SCOPE,
+            "SAIF_STIMULI": "$(location :mini_top.saif)",
+            "STAGE_STEM": "5_1_grt",
+            "VECTORLESS_POWER_JSON": "$(location power_flat%s_vectorless.json)" % suffix,
+            "VECTOR_DRIVEN_POWER_JSON": "$(location power_flat%s_vector_driven.json)" % suffix,
+        },
+    )
+    for suffix, parasitics in PARASITICS.items()
+]
+
+[
+    stage_power_shards(
+        name = "power_shards%s%s" % (saif, suffix),
+        parasitics = parasitics,
+        parent = ":mini_top_grt",
+        saif = ":mini_top%s.saif" % saif,
+        saif_scope = SAIF_SCOPE,
+        shards = {inst: ":%s_grt" % m for inst, m in BLOCKS.items()},
+    )
+    for suffix, parasitics in PARASITICS.items()
+    for saif in [
+        "",
+        "_merged",
+    ]
+]
+
+# The negative control: BlockA's shard read at a scope one level short,
+# the parent's, where the SAIF has the parent's cells, not BlockA's.
+power_shard(
+    name = "power_shard_wrong_scope",
+    src = ":BlockA_grt",
+    saif = ":mini_top.saif",
+    saif_scope = SAIF_SCOPE,
+    unit = "u_blocka",
+)
+
+py_test(
+    name = "sum_test",
+    srcs = ["sum_test.py"],
+    args = [
+        "$(rootpath :%s%s_%s.json)" % (what, suffix, arm)
+        for suffix in sorted(PARASITICS.keys())
+        for what in [
+            "power_flat",
+            "power_shards",
+        ]
+        for arm in [
+            "vectorless",
+            "vector_driven",
+        ]
+    ],
+    data = [
+        ":%s%s_%s.json" % (what, suffix, arm)
+        for suffix in sorted(PARASITICS.keys())
+        for what in [
+            "power_flat",
+            "power_shards",
+        ]
+        for arm in [
+            "vectorless",
+            "vector_driven",
+        ]
+    ],
+    main = "sum_test.py",
+    tags = ["manual"],
+)
+
+py_test(
+    name = "wrong_scope_test",
+    srcs = ["wrong_scope_test.py"],
+    args = [
+        "$(rootpath //test/coremark_joule/scripts:merge_power_shards)",
+        "$(rootpath :power_shard_wrong_scope.json)",
+    ] + [
+        "$(rootpath :power_shards_%s.json)" % s
+        for s in ["parent"] + sorted(BLOCKS.keys())
+    ],
+    data = [
+        ":power_shard_wrong_scope.json",
+        "//test/coremark_joule/scripts:merge_power_shards",
+    ] + [
+        ":power_shards_%s.json" % s
+        for s in ["parent"] + sorted(BLOCKS.keys())
+    ],
+    main = "wrong_scope_test.py",
+    tags = ["manual"],
+)
+
+# The per-shard simulations against the all-gates one (mixed_test.py):
+# every simulation's outputs the RTL's, the merged SAIF the all-gates
+# SAIF net for net, each block's ports the same captured from its RTL
+# and from its gates, the shards and their sum the same from either SAIF,
+# and what tracing a block's scope alone saves.
+MIXED_DATA = {
+    "all_gates": ":mini_top.saif",
+    "merged": ":mini_top_merged.saif",
+    "parent": ":sim_parent_raw.saif",
+    "scoped": ":sim_u_blockb_raw.saif",
+    "whole": ":sim_u_blockb_whole_raw.saif",
+}
+
+MIXED_OUTS = [
+    "all_gates",
+    "parent",
+    "u_blockb_whole",
+] + sorted(BLOCKS.keys())
+
+py_test(
+    name = "mixed_test",
+    srcs = ["mixed_test.py"],
+    args = [
+        "--%s=$(rootpath %s)" % (
+            k.replace("_", "-"),
+            v,
+        )
+        for k, v in sorted(MIXED_DATA.items())
+    ] + [
+        "--rtl-out=$(rootpath :sim_all_rtl_out.txt)",
+    ] + [
+        "--out=$(rootpath :sim_%s_out.txt)" % o
+        for o in MIXED_OUTS
+    ] + [
+        "--shards=$(rootpath :power_shards%s_%s.json)" % (saif, unit)
+        for saif in [
+            "",
+            "_merged",
+        ]
+        for unit in ["parent"] + sorted(BLOCKS.keys())
+    ] + [
+        "--sum=$(rootpath :power_shards%s_vector_driven.json)" % saif
+        for saif in [
+            "",
+            "_merged",
+        ]
+    ] + ["--scope=" + SAIF_SCOPE] + [
+        "--block=" + i
+        for i in sorted(BLOCKS.keys())
+    ],
+    data = sorted(MIXED_DATA.values()) + [":sim_all_rtl_out.txt"] + [
+        ":sim_%s_out.txt" % o
+        for o in MIXED_OUTS
+    ] + [
+        ":power_shards%s_%s.json" % (saif, unit)
+        for saif in [
+            "",
+            "_merged",
+        ]
+        for unit in ["parent"] + sorted(BLOCKS.keys())
+    ] + [
+        ":power_shards%s_vector_driven.json" % saif
+        for saif in [
+            "",
+            "_merged",
+        ]
+    ],
+    main = "mixed_test.py",
+    tags = ["manual"],
+)
