@@ -38,6 +38,7 @@ def grt_netlist(
         stage = "grt",
         out = None,
         max_renames = 0,
+        saif_names = False,
         tags = ["manual"],
         visibility = None):
     """Write a stage's gate-level netlist from its ODB.
@@ -61,6 +62,13 @@ def grt_netlist(
       out: output filename; defaults to `<name>.v`.
       max_renames: how many duplicate instance names this design is known
         to have. Zero asserts there are none.
+      saif_names: spell `/` inside escaped names as scripts/slash_names.py
+        does, so the SAIF of a simulation of this netlist can carry them:
+        a flattened name, every cell of a flat ODB of a hierarchically
+        synthesised unit, a cell below a module that was not kept in a
+        hierarchical one. For every unit of a stage_power_shards(), whose
+        shards rename the ODB's instances to match. Off, the netlist keeps
+        the ODB's names.
       tags: forwarded; manual, since this needs the flow to have run.
       visibility: forwarded.
     """
@@ -79,13 +87,26 @@ def grt_netlist(
         visibility = visibility,
     )
 
+    # `/` spelled first, so uniquify_netlist, whose instance pattern has
+    # no `/`, checks the flattened names too
+    spelled = raw
+    if saif_names:
+        spelled = name + "_spelled.v"
+        native.genrule(
+            name = name + "_spelled",
+            srcs = [raw],
+            outs = [spelled],
+            cmd = "$(execpath //test/coremark_joule/scripts:slash_names) $< $@",
+            tags = tags,
+            tools = ["//test/coremark_joule/scripts:slash_names"],
+        )
     native.genrule(
         name = name,
-        srcs = [raw],
+        srcs = [spelled],
         outs = [out],
         cmd = " ".join([
             "$(execpath //test/coremark_joule/scripts:uniquify_netlist)",
-            "$(location {})".format(raw),
+            "$(location {})".format(spelled),
             "$@",
             "--max-renames {}".format(max_renames),
         ]),
@@ -213,6 +234,280 @@ def stage_power_units(
             "OUT_JSON": "$(location {}.json)".format(name),
         },
         tags = tags,
+        visibility = visibility,
+    )
+
+def power_shard(
+        name,
+        src,
+        saif,
+        saif_scope,
+        unit = "",
+        children = [],
+        stage = "grt",
+        parasitics = "global_routing",
+        units = False,
+        tags = ["manual"],
+        visibility = None):
+    """One unit's shard of a hierarchical design's power: `<name>.json`.
+
+    report_power on the unit's own ODB, vectorless and SAIF-driven, and
+    the power of `children`, the unit's instances that are shards of
+    their own, for the merge to subtract (power_shard_grt.tcl says which
+    part and why). stage_power_shards() makes one per unit; on its own,
+    it is the negative control's shard: a scope the SAIF has no
+    instance at.
+
+    Args:
+      name: target name.
+      src: the unit's own flow stage target.
+      saif: the .saif label.
+      saif_scope: the unit's scope in the SAIF.
+      unit: the unit's instance path from the design root; empty for the
+        parent.
+      children: instance paths, relative to the unit, of its children
+        that are shards.
+      stage: which stage; must match `src`.
+      parasitics: estimate_parasitics' source, global_routing as
+        stage_power's; placement only for the toy's proof.
+      units: also `<name>_units.json`, the SAIF-driven power of every
+        module instance the unit's ODB keeps (power_shard_grt.tcl).
+      tags: forwarded; manual.
+      visibility: forwarded.
+    """
+    extra = {"SHARD_UNITS_JSON": "$(location {}_units.json)".format(name)} if units else {}
+    orfs_run(
+        name = name,
+        src = src,
+        outs = [name + ".json"] + ([name + "_units.json"] if units else []),
+        script = "//test/coremark_joule/flow:power_shard_grt.tcl",
+        data = [saif],
+        user_arguments = {
+            "STAGE_STEM": STAGE_STEM[stage],
+            "SAIF_STIMULI": "$(location {})".format(saif),
+            "SAIF_SCOPE": saif_scope,
+            "SHARD_UNIT": unit,
+            "SHARD_CHILDREN": " ".join(children),
+            "SHARD_JSON": "$(location {}.json)".format(name),
+            "POWER_PARASITICS": parasitics,
+        } | extra,
+        tags = tags,
+        visibility = visibility,
+    )
+
+def _shard_slug(path):
+    return "".join([c if c.isalnum() or c == "_" else "_" for c in path.elems()])
+
+def _shard_parent(path, paths):
+    """The nearest unit above `path`: the longest other path it is under, or the root."""
+    best = ""
+    for p in paths:
+        if p != path and path.startswith(p + "/") and len(p) > len(best):
+            best = p
+    return best
+
+def _shard_scope(saif_scope, unit, paths, scopes):
+    """A unit's scope in the SAIF: its parent unit's, then its path in it,
+    unless `scopes` says otherwise."""
+    parts = []
+    for _ in range(len(paths) + 1):
+        if unit == "":
+            return "/".join([saif_scope] + parts)
+        if unit in scopes:
+            return "/".join([scopes[unit]] + parts)
+        up = _shard_parent(unit, paths)
+        parts.insert(0, unit[len(up) + 1:] if up else unit)
+        unit = up
+    fail("unreachable")
+
+def shard_saif_merge(
+        name,
+        parent_saif,
+        units,
+        saif_scope,
+        scopes = {},
+        sources = {},
+        clocks = ["clock"],
+        tags = ["manual"],
+        visibility = None):
+    """The power shards' one SAIF, from one simulation per shard.
+
+    The parent's simulation (its netlist as gates, every hardened unit as
+    RTL) and each unit's (the SoC's RTL with that unit alone as its own
+    netlist, its scope alone traced) are merged by scripts/saif_merge.py:
+    each unit's RTL subtree replaced by its gates. Each unit goes where
+    the netlist holding it has it, the scope its shard reads
+    (stage_power_shards with the same saif_scope and scopes); it is taken
+    from its own simulation at its RTL instance path, `saif_scope/<path>`.
+
+    Args:
+      name: target name; the SAIF is `<name>.saif`.
+      parent_saif: the parent's simulation's SAIF.
+      units: {instance path from the parent's root: the unit's SAIF}, the
+        paths stage_power_shards' `shards` has.
+      saif_scope: the parent's scope in every SAIF.
+      scopes: as stage_power_shards'.
+      sources: {path: the unit's scope in its own SAIF} where it is not
+        `saif_scope/<path>`: a replay's (shard_replay), its `dut`.
+      clocks: the port names the SDCs put the design's one clock on; the
+        merge refuses files whose clock differs.
+      tags: forwarded; manual.
+      visibility: forwarded.
+    """
+    paths = sorted(units.keys())
+    native.genrule(
+        name = name,
+        srcs = [parent_saif] + [units[p] for p in paths],
+        outs = [name + ".saif"],
+        cmd = " ".join([
+            "$(execpath //test/coremark_joule/scripts:saif_merge)",
+            "--parent $(location {})".format(parent_saif),
+            "--out $@",
+        ] + [
+            "--unit {}=$(location {}):{}".format(
+                _shard_scope(saif_scope, p, paths, scopes),
+                units[p],
+                sources.get(p, saif_scope + "/" + p),
+            )
+            for p in paths
+        ] + ["--clock " + c for c in clocks]),
+        tags = tags,
+        tools = ["//test/coremark_joule/scripts:saif_merge"],
+        visibility = visibility,
+    )
+
+def stage_power_shards(
+        name,
+        parent,
+        shards,
+        saif,
+        saif_scope,
+        stage = "grt",
+        parasitics = "global_routing",
+        min_annotation = 0.9,
+        scopes = {},
+        units = False,
+        tags = ["manual"],
+        visibility = None):
+    """A hierarchical design's power as the sum of one report per unit.
+
+    In the parent's ODB a hardened block is its abstract: pin loads and
+    declared leakage, no internal activity, so stage_power() on the
+    parent leaves every block out, and one process holding every block
+    would not fit memory on XiangShan anyway. Here each unit is reported
+    on its own ODB, the SAIF read at its own scope, and the shards are
+    summed (scripts/merge_power_shards.py): a block's register file is
+    a unit of its own, inside the block's shard.
+
+    Outputs, beside stage_power()'s so either feeds coremark_per_joule:
+    `<name>_vectorless.json` and `<name>_vector_driven.json`, in
+    report_power's JSON shape, and `<name>_shards.json`, each shard's
+    totals and SAIF annotation rate. The vectorless sum is not a flat
+    vectorless number: in a block's own shard every input port is a root
+    of OpenSTA's activity propagation and gets its default activity. It
+    is there for the binding check, shard by shard.
+
+    Proven on a toy against a flat report of the same physical design
+    (test/coremark_joule/power_shards): leakage equal, internal power
+    within 0.06 %, switching on every net inside a unit equal; the nets
+    that cross a block boundary are the residual (sum_test.py).
+
+    The sum fails when any shard's SAIF-driven report equals its
+    vectorless one, or the SAIF annotated less than `min_annotation` of
+    its pins: the SAIF did not bind at that shard's scope.
+
+    Args:
+      name: target name.
+      parent: the parent's flow stage target, e.g. ":XSTile_grt".
+      shards: {instance path from the parent's root: the unit's own flow
+        stage target}. A path under another is nested in it: a register
+        file inside a block is `<block path>/<file path in the block>`.
+        Every target, the parent's too, is a flow of the calling
+        package: an orfs_run reads its results from there.
+      saif: the .saif label in which every shard's subtree is its own
+        gates: shard_saif_merge() of one simulation per shard, each
+        unit's netlist written with grt_netlist(saif_names = True).
+      saif_scope: the parent's scope in the SAIF; a unit's scope is its
+        parent unit's, a `/` and its path there, unless `scopes` says
+        otherwise.
+      units: also `<name>_units.json`, the per-module breakdown across
+        the shards: every module instance of every unit's ODB, at its
+        path from the parent's root, and each unit's flat remainder
+        (stage_power_units on a design too large for one ODB).
+      scopes: {path: scope} where the SAIF has a unit elsewhere. A `/`
+        the unit's parent unit flattened into one instance name is
+        `__SL__` in the SAIF (grt_netlist(saif_names = True)): a parent
+        unit's shard reports where its ODB has each child, and the sum
+        fails naming the scope a child should have read.
+      stage: which stage; must match every target.
+      parasitics: estimate_parasitics' source, global_routing as
+        stage_power's; placement only for the toy's proof.
+      min_annotation: the least fraction of a shard's pins the SAIF must
+        annotate. A scope that names the wrong instance still binds
+        wherever a cell name there matches one here, and generated names
+        (`_360_`) match across units: on the toy, BlockA's shard read at
+        the parent's scope annotated 525 of its 2,309 pins, and its
+        SAIF-driven report moved. Equal reports alone do not catch that.
+      tags: forwarded; manual.
+      visibility: forwarded.
+    """
+    paths = sorted(shards.keys())
+    for p in paths:
+        if not p or p.startswith("/") or p.endswith("/") or "//" in p:
+            fail("stage_power_shards %s: '%s' is not an instance path" % (name, p))
+    units = [""] + paths
+    targets = []
+    slugs = {}
+    for unit in units:
+        slug = "parent" if unit == "" else _shard_slug(unit)
+        if slug in slugs:
+            fail("stage_power_shards %s: '%s' and '%s' share the target name %s" % (name, slugs[slug], unit, slug))
+        slugs[slug] = unit
+        prefix = unit + "/" if unit else ""
+        children = [
+            p[len(prefix):]
+            for p in paths
+            if p != unit and _shard_parent(p, paths) == unit
+        ]
+        shard = "%s_%s" % (name, slug)
+        power_shard(
+            name = shard,
+            src = parent if unit == "" else shards[unit],
+            saif = saif,
+            saif_scope = _shard_scope(saif_scope, unit, paths, scopes),
+            unit = unit,
+            children = children,
+            stage = stage,
+            parasitics = parasitics,
+            units = units,
+            tags = tags,
+        )
+        targets.append(":%s.json" % shard)
+
+    vectorless = name + "_vectorless.json"
+    vector_driven = name + "_vector_driven.json"
+    report = name + "_shards.json"
+    unit_targets = [t.removesuffix(".json") + "_units.json" for t in targets] if units else []
+    native.genrule(
+        name = name,
+        srcs = targets + unit_targets,
+        outs = [
+            vectorless,
+            vector_driven,
+            report,
+        ] + ([name + "_units.json"] if units else []),
+        cmd = " ".join([
+            "$(execpath //test/coremark_joule/scripts:merge_power_shards)",
+            "--vectorless $(location {})".format(vectorless),
+            "--vector-driven $(location {})".format(vector_driven),
+            "--report $(location {})".format(report),
+            "--min-annotation {}".format(min_annotation),
+        ] + ["--units-out $(location {}_units.json)".format(name)] * (1 if units else 0) + [
+            "--units $(location {})".format(t)
+            for t in unit_targets
+        ] + ["$(location {})".format(t) for t in targets]),
+        tags = tags,
+        tools = ["//test/coremark_joule/scripts:merge_power_shards"],
         visibility = visibility,
     )
 

@@ -203,6 +203,72 @@ py_test(
     tags = ["study"],
 )
 
+# `/` in a flat block's escaped names, spelled so a SAIF carries them
+# (flow/power.bzl's grt_netlist(saif_names = True)).
+py_binary(
+    name = "slash_names",
+    srcs = ["slash_names.py"],
+    main = "slash_names.py",
+)
+
+py_test(
+    name = "slash_names_test",
+    size = "small",
+    srcs = [
+        "slash_names.py",
+        "slash_names_test.py",
+    ],
+    main = "slash_names_test.py",
+    tags = ["study"],
+)
+
+# A power shard's leakage recomputed from each cell's liberty states, the
+# output taken as its function of the inputs
+# (designs/asap7/xiangshan:FltRegionModule_leakage_states).
+py_binary(
+    name = "leakage_states",
+    srcs = ["leakage_states.py"],
+    main = "leakage_states.py",
+)
+
+# The shards' one SAIF from one simulation per unit
+# (test/coremark_joule/power_shards).
+py_binary(
+    name = "saif_merge",
+    srcs = ["saif_merge.py"],
+    main = "saif_merge.py",
+)
+
+py_test(
+    name = "saif_merge_test",
+    size = "small",
+    srcs = [
+        "saif_merge.py",
+        "saif_merge_test.py",
+    ],
+    main = "saif_merge_test.py",
+    tags = ["study"],
+)
+
+# A hierarchical design's power, one report per unit, summed
+# (flow/power.bzl's stage_power_shards).
+py_binary(
+    name = "merge_power_shards",
+    srcs = ["merge_power_shards.py"],
+    main = "merge_power_shards.py",
+)
+
+py_test(
+    name = "merge_power_shards_test",
+    size = "small",
+    srcs = [
+        "merge_power_shards.py",
+        "merge_power_shards_test.py",
+    ],
+    main = "merge_power_shards_test.py",
+    tags = ["study"],
+)
+
 py_binary(
     name = "check_activity_sweep",
     srcs = ["check_activity_sweep.py"],
