@@ -8,6 +8,8 @@
 load("@rules_chisel//chisel:defs.bzl", "chisel_binary")
 load("@rules_chisel//verilog:defs.bzl", "verilog_directory", "verilog_single_file_library")
 load("@rules_verilog//verilog:defs.bzl", "verilog_library")
+load("//test/coremark_joule/designs/asap7/xiangshan:shards.bzl", "XS_SHARDS", "XS_SHARD_CUTS", "XS_TRACE_ROOT")
+load("//test/coremark_joule/flow:power.bzl", "shard_capture_rtl")
 load(":clock_gate.bzl", "CLOCK_GATE_OPTS")
 
 package(default_visibility = [
@@ -329,11 +331,31 @@ genrule(
 # silently drop out of the simulation.
 _GATE_NETLIST = "//test/coremark_joule/designs/asap7/xiangshan:cmj_xiangshan_grt_netlist.v"
 
+# What the flows synthesise below XSTile (XS_VERILOG): the core after the
+# surgery, whose modules' ports the units' netlists have. Around XSTile
+# the simulation is the SoC's own RTL; XSTile's ports the surgery
+# protects. The arrays extraction (MemBlock's queues, the Rob) changes no
+# unit's ports and is not simulated.
+_SURGERED = "//test/coremark_joule/designs/asap7/xiangshan/surgery:xiangshan_surgered"
+
+# The seam between the two: the SoC's elaboration ties XSTile's NMI inputs
+# to 0 in Chisel (src/CoreMarkJouleSoC.scala) and firtool removes them
+# from its XSTile; the core the flows harden from keeps them. Every
+# stitch that puts the core's XSTile (RTL or netlist) under the SoC's
+# XSTop connects them to that 0 by name; any other unconnected input is
+# refused (gate_stitch.py).
+_XSTILE_TIES = " ".join([
+    "--tie \"XSTile.auto_l2top_inner_nmi_int_in_%d=1'b0\"" % i
+    for i in range(2)
+])
+
 genrule(
     name = "cm_soc_xiangshan_gate_stitch",
     srcs = [
+        "ClockGate.sv",
         ":cmj_soc_sv",
         _GATE_NETLIST,
+        _SURGERED,
     ],
     outs = [
         "cm_soc_xiangshan_gate.sv",
@@ -341,7 +363,10 @@ genrule(
     ],
     cmd = "$(execpath //test/coremark_joule/scripts:gate_stitch) " +
           "--netlist $(location " + _GATE_NETLIST + ") " +
-          "--rtl-dir $(location :cmj_soc_sv) --top cm_soc --cell-suffix _ASAP7_ " +
+          "--rtl-dir $(location :cmj_soc_sv) --rtl-file $(location ClockGate.sv) " +
+          "--rtl-overlay $(location " + _SURGERED + ") --overlay-root XSTile " +
+          _XSTILE_TIES + " " +
+          "--top cm_soc --cell-suffix _ASAP7_ " +
           "--out $(location cm_soc_xiangshan_gate.sv) " +
           "--report $(location cm_soc_xiangshan_gate_report.json)",
     tags = ["manual"],
@@ -355,5 +380,69 @@ verilog_library(
         _GATE_NETLIST,
     ],
     tags = ["manual"],
-    deps = ["//test/coremark_joule/rtl:asap7_stdcells"],
+    deps = ["//test/coremark_joule/rtl:asap7_stdcells_3vt"],
+)
+
+# ClockGate, the external module firtool emits for every clock gate it
+# does not fold (clock_gate.bzl), has no file in the split directory: its
+# body is ClockGate.sv, Utility's own model, which the RTL simulator's
+# concatenation carries too. Every stitch is given it explicitly; the
+# RTL it fills in instantiates it, and so does any netlist synthesis
+# left a ClockGate in.
+#
+# The capture of the power shards' replays (flow/power.bzl's
+# shard_replays, designs/asap7/xiangshan's cmj_xiangshan_replayed): the
+# SoC's RTL with the surgered core below XSTile, the RTL whose module
+# ports the units' netlists have, and every power shard (XSTile and each
+# unit, shards.bzl) behind a wrapper of its ports, traced alone. One RTL
+# simulation records every unit's ports, and each unit's netlist is then
+# replayed on its own from that.
+genrule(
+    name = "cm_soc_xiangshan_rtl_stitch",
+    srcs = [
+        "ClockGate.sv",
+        ":cmj_soc_sv",
+        _SURGERED,
+    ],
+    outs = [
+        "cm_soc_xiangshan_rtl.sv",
+        "cm_soc_xiangshan_rtl_report.json",
+    ],
+    cmd = " ".join([
+        "$(execpath //test/coremark_joule/scripts:gate_stitch)",
+        "--rtl-dir $(location :cmj_soc_sv) --rtl-file $(location ClockGate.sv)",
+        "--rtl-overlay $(location %s) --overlay-root XSTile" % _SURGERED,
+        _XSTILE_TIES,
+        "--top cm_soc --cell-suffix _ASAP7_",
+        "--out $(location cm_soc_xiangshan_rtl.sv)",
+        "--report $(location cm_soc_xiangshan_rtl_report.json)",
+    ]),
+    tags = ["manual"],
+    tools = ["//test/coremark_joule/scripts:gate_stitch"],
+)
+
+shard_capture_rtl(
+    name = "cm_soc_xiangshan_capture_rtl",
+    # a cut's name is the netlist's, where a module kept below one that
+    # was not is flattened into a dotted name (MemBlock's
+    # inner_lsq.loadQueue.loadQueueReplay); in the RTL each dot is a
+    # level of hierarchy. Verilator's scope joins the levels with dots, so
+    # the replays' capture scopes read the same either way.
+    paths = list(XS_SHARDS.keys()) + [
+        (u + "/" if u else "") + c.replace(".", "/")
+        for u, cs in XS_SHARD_CUTS.items()
+        for c in cs
+    ],
+    rtl = ":cm_soc_xiangshan_rtl.sv",
+    scope = XS_TRACE_ROOT,
+    top = "XSTile",
+)
+
+verilog_library(
+    name = "cm_soc_xiangshan_capture",
+    srcs = [
+        ":cm_soc_xiangshan_capture_rtl.sv",
+        ":cm_soc_xiangshan_capture_rtl_trace.v",
+    ],
+    tags = ["manual"],
 )

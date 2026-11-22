@@ -28,6 +28,8 @@ exports_files([
     "run_check_sdc.sh",
     "uniquify_netlist.py",
     "filter_saif.py",
+    "pin_power.py",
+    "power_pin_test.py",
 ])
 
 py_binary(
@@ -220,6 +222,14 @@ py_test(
     ],
     main = "slash_names_test.py",
     tags = ["study"],
+)
+
+# A design's power measured in shards, pinned into the source tree
+# (designs/asap7/xiangshan:pin_power), and checked in CI.
+py_binary(
+    name = "pin_power",
+    srcs = ["pin_power.py"],
+    main = "pin_power.py",
 )
 
 # A power shard's leakage recomputed from each cell's liberty states, the
