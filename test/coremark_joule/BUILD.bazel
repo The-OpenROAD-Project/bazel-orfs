@@ -21,6 +21,8 @@ py_binary(
         "$(location //test/coremark_joule/sim:point_serv_rv32i)",
         "$(location //test/coremark_joule/sim:point_ibex_rv32imc)",
         "$(location //test/coremark_joule/sim:point_veer_rv32imc)",
+        # power in shards, pinned in designs/asap7/xiangshan/power.json
+        "$(location //test/coremark_joule/sim:point_xiangshan_rv64gc)",
     ] + [
         # §5.11: the other four placement draws of every core, as samples
         # beside its point.
@@ -42,12 +44,6 @@ py_binary(
         "ibex:$(location //test/coremark_joule/designs/asap7/ibex:cmj_ibex_physical)",
         "--physical",
         "veer:$(location //test/coremark_joule/designs/asap7/veer:swerv_wrapper_physical)",
-        # XiangShan has an x-coordinate and not yet a y: its energy waits
-        # on the hierarchical flow reaching global route. Carried as
-        # pending so the plot cannot show fewer cores than the study has.
-        "--pending",
-        "$(location //test/coremark_joule/sim:xiangshan_rv64gc_per_mhz):xiangshan:rv64gc:" +
-        "energy waits on the hierarchical flow (five blocks as macros) reaching global route",
     ],
     data = [
         "//test/coremark_joule/designs/asap7/ibex:cmj_ibex_physical",
@@ -68,7 +64,7 @@ py_binary(
         ]
         for seed in SEEDS
     ] + [
-        "//test/coremark_joule/sim:xiangshan_rv64gc_per_mhz",
+        "//test/coremark_joule/sim:point_xiangshan_rv64gc",
     ],
     main = "//test/coremark_joule/scripts:pin_results.py",
     tags = ["manual"],

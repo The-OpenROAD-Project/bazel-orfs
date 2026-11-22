@@ -74,7 +74,8 @@ def plot(document, out_path, commodity=None):
     # which is the single thing this study is most at risk of being read
     # as saying.
     def meets_boundary(p):
-        return p.get("boundary", "").startswith("core + L1")
+        # a tile (XiangShan's, with its L2) holds its L1 inside too
+        return p.get("boundary", "").startswith(("core + L1", "the tile"))
 
     # Kept for the axis limits and the per-point labels below: the split
     # is how the series is drawn, not how it is measured.

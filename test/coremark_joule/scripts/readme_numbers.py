@@ -39,6 +39,19 @@ NAMES = {
     "veer": "VeeR EH1",
 }
 
+
+def core_l1(document):
+    """The document with only Table 1's points: the cores at §3.1's boundary.
+
+    XiangShan's point is a tile with its L2, one placement draw, its
+    power in shards; §4.9's table carries it beside the literature, and
+    the prose's ratios stay over the four cores they were written for.
+    """
+    out = dict(document)
+    out["points"] = [p for p in document["points"] if p["core"] in NAMES]
+    return out
+
+
 # Numbers from a configuration the study no longer runs: the three
 # cacheless cores measured with their memories outside the boundary
 # (§4.2, Table 2). They are the "before" of the boundary correction and
@@ -468,7 +481,7 @@ def main(argv):
     parser.add_argument("results", help="results.json")
     args = parser.parse_args(argv[1:])
     with open(args.results) as f:
-        document = json.load(f)
+        document = core_l1(json.load(f))
     print(TABLE1_BEGIN)
     print(render_table1(document))
     print(TABLE1_END)

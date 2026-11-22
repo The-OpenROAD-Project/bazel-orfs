@@ -31,7 +31,7 @@ class ReadmeNumbersTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with open(_src("results.json")) as f:
-            cls.document = json.load(f)
+            cls.document = readme_numbers.core_l1(json.load(f))
         with open(_src("README.md")) as f:
             cls.readme = f.read()
 
