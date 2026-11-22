@@ -170,6 +170,71 @@ verilog_library(
     ],
 )
 
+# The low- and super-low-threshold cells, for a design mapped with all
+# three (XiangShan's ASAP7_USE_VT "RVT LVT SLVT"): the same function under
+# the _L and _SL names, from the same corner's liberty.
+[
+    stdcell_verilog(
+        name = "asap7_stdcell_" + vt.lower(),
+        lefs = ["@orfs//flow:platforms/asap7/lef/asap7sc7p5t_28_%s_1x_220121a.lef" % suffix],
+        libs = [
+            "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_AO_%s_TT_nldm_211120.lib.gz" % vt,
+            "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_%s_TT_nldm_220122.lib.gz" % vt,
+            "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_OA_%s_TT_nldm_211120.lib.gz" % vt,
+            "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_%s_TT_nldm_220123.lib" % vt,
+            "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_%s_TT_nldm_211120.lib.gz" % vt,
+        ],
+    )
+    for vt, suffix in [
+        ("LVT", "L"),
+        ("SLVT", "SL"),
+    ]
+]
+
+# The same models with every QN flop starting at a stored 0, as Verilator
+# starts an RTL register: a replay (flow/power.bzl's shard_replay)
+# compares a unit's netlist with its RTL from the first evaluation, and a
+# flop that is never reset would otherwise start inverted against its
+# register (FltRegionModule's out_fpWb_0_pdest: 0xff against 0x00 at
+# time 0, before reset).
+[
+    genrule(
+        name = "asap7_stdcell%s_init_v" % suffix,
+        srcs = [":asap7_stdcell%s.v" % suffix],
+        outs = ["asap7_stdcell%s_init.v" % suffix],
+        cmd = "sed 's/^    output reg QN;$$/&\\n    initial QN = 1\\x27b1;/' $< > $@ && grep -q 'initial QN' $@",
+    )
+    for suffix in [
+        "",
+        "_lvt",
+        "_slvt",
+    ]
+]
+
+verilog_library(
+    name = "asap7_stdcells_3vt_init",
+    srcs = [
+        ":asap7_stdcell_empty.v",
+        ":asap7_stdcell_init.v",
+        ":asap7_stdcell_lvt_empty.v",
+        ":asap7_stdcell_lvt_init.v",
+        ":asap7_stdcell_slvt_empty.v",
+        ":asap7_stdcell_slvt_init.v",
+    ],
+)
+
+verilog_library(
+    name = "asap7_stdcells_3vt",
+    srcs = [
+        ":asap7_stdcell.v",
+        ":asap7_stdcell_empty.v",
+        ":asap7_stdcell_lvt.v",
+        ":asap7_stdcell_lvt_empty.v",
+        ":asap7_stdcell_slvt.v",
+        ":asap7_stdcell_slvt_empty.v",
+    ],
+)
+
 verilog_library(
     name = "cm_soc_picorv32_gate",
     srcs = [

@@ -11,6 +11,7 @@ load("//test/coremark_joule/flow:seeds.bzl", "SEEDS")
 load(
     "//test/coremark_joule/sim:run.bzl",
     "bus_traffic",
+    "coremark_capture",
     "coremark_crc_test",
     "coremark_hex",
     "coremark_per_joule",
@@ -887,6 +888,53 @@ coremark_saif(
     run_2 = "xiangshan_rv64gc_2",
     run_3 = "xiangshan_rv64gc_3",
     sim = ":cm_sim_xiangshan_gate",
+)
+
+# The capture of the power shards' replays (designs/asap7/xiangshan's
+# cmj_xiangshan_replayed): the RTL with the surgered core
+# (xiangshan:cm_soc_xiangshan_capture), every power shard's ports traced
+# as a VCD from the first evaluation, reset included, to the halt;
+# checked as every run is, its CRCs right, and its cycle count the RTL
+# run's: the surgered core is the RTL's function, cycle for cycle.
+verilator_cc_library(
+    name = "cm_soc_xiangshan_capture_lib",
+    # clang 22 crashes (SIGSEGV) in code generation at -O2 on one settle
+    # function of the capture with every cut traced
+    # (_stl_sequent__TOP__13, 1.9 MB of source): in the register
+    # coalescer, and with that off in the machine scheduler. -O0 skips
+    # both; the capture runs once, slower.
+    copts = ["-O0" if c == "-O2" else c for c in _SIM_COPTS],
+    module = "//test/coremark_joule/xiangshan:cm_soc_xiangshan_capture",
+    module_top = "cm_soc",
+    tags = ["manual"],
+    trace_mode = "vcd",
+    vopts = _SIM_VOPTS + _XS_THREADS + [
+        "--output-split",
+        "20000",
+        "-Wno-UNUSEDSIGNAL",
+        "-Wno-DECLFILENAME",
+        "-Wno-VARHIDDEN",
+    ],
+)
+
+cc_binary(
+    name = "cm_sim_xiangshan_capture",
+    srcs = [
+        "main.cc",
+        "xs_dpi.cc",
+    ],
+    copts = _SIM_COPTS,
+    tags = ["manual"],
+    deps = [":cm_soc_xiangshan_capture_lib"],
+)
+
+coremark_capture(
+    name = "xiangshan_rv64gc_capture",
+    constraints = "//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc",
+    image = ":coremark_rv64gc_3_hex",
+    run_2 = "xiangshan_rv64gc_2",
+    run_3 = "xiangshan_rv64gc_3",
+    sim = ":cm_sim_xiangshan_capture",
 )
 
 coremark_per_joule(

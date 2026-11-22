@@ -1,9 +1,10 @@
-load("@bazel-orfs//:openroad.bzl", "odb_debug", "orfs_flat_sta", "orfs_module_context", "orfs_module_sta_base", "orfs_schedule")
+load("@bazel-orfs//:openroad.bzl", "odb_debug", "orfs_flat_sta", "orfs_module_context", "orfs_module_sta_base", "orfs_run", "orfs_schedule")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//test/coremark_joule/designs/asap7/xiangshan/kit:kit.bzl", "xs_kit", "xs_kit_snapshot")
-load("//test/coremark_joule/flow:power.bzl", "census_probe", "grt_netlist", "hier_probe", "physical_probe", "stage_power", "stage_power_units")
+load("//test/coremark_joule/flow:power.bzl", "census_probe", "grt_netlist", "hier_probe", "physical_probe", "shard_replays", "stage_power", "stage_power_shards", "stage_power_units")
 load(":plan/plan.bzl", "PLAN")
+load(":shards.bzl", "XS_BLOCK_UNITS", "XS_COUNT_OUTPUTS", "XS_FROM_RESET", "XS_REPLAY_CUTS", "XS_REPLAY_VOPTS", "XS_SAIF_SCOPE", "XS_SHARDS", "XS_SHARD_SIMS", "XS_TRACE_ROOT", "xs_replay")
 load(":xiangshan.bzl", "xiangshan_flat_flow", "xiangshan_flow", "xs_regfile_modules")
 
 exports_files(["constraints.sdc"])
@@ -399,7 +400,7 @@ stage_power_units(
     name = "cmj_xiangshan_grt_power_units",
     src = ":XSTile_grt",
     saif = "//test/coremark_joule/sim:xiangshan_rv64gc_saif",
-    saif_scope = "TOP/cm_soc/inner/soc/core_with_l2",
+    saif_scope = XS_SAIF_SCOPE,
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 
@@ -407,7 +408,226 @@ stage_power(
     name = "cmj_xiangshan_grt_power",
     src = ":XSTile_grt",
     saif = "//test/coremark_joule/sim:xiangshan_rv64gc_saif",
-    saif_scope = "TOP/cm_soc/inner/soc/core_with_l2",
+    saif_scope = XS_SAIF_SCOPE,
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+# Power in shards (flow/power.bzl's stage_power_shards): XSTile and every
+# unit hardened inside it (shards.bzl), each reported on its own
+# global-route ODB, the SAIF read where the unit is. The SAIF is the
+# replays' (cmj_xiangshan_replayed, below).
+# every unit's netlist for the shards' simulation, `/` in a flattened
+# name spelled as the shards spell it (scripts/slash_names.py)
+[
+    grt_netlist(
+        name = "%s_grt_netlist_shards" % unit,
+        src = ":%s_grt" % unit,
+        # write_verilog names three clock-gate latches alike in one module
+        # (scripts/uniquify_netlist.py), CoupledL2's of one slice's data
+        # array, XSTile's of the ExuBlock's exuALU1_AluDiv: two renamed
+        # each, and the shard's SAIF misses those two cells
+        max_renames = {
+            "CoupledL2": 2,
+            "XSTile": 2,
+        }.get(unit, 0),
+        saif_names = True,
+        visibility = ["//test/coremark_joule:__subpackages__"],
+    )
+    for unit in XS_SHARD_SIMS
+]
+
+# The power shards' SAIF: one RTL capture (sim:xiangshan_rv64gc_capture),
+# each unit's netlist replayed alone from it and checked against it every
+# clock phase, XSTile's with every unit a stub driven from its capture,
+# the replays merged (flow/power.bzl's shard_replays).
+shard_replays(
+    name = "cmj_xiangshan_replayed",
+    capture = "//test/coremark_joule/sim:xiangshan_rv64gc_capture.vcd",
+    capture_scope = "TOP." + XS_TRACE_ROOT,
+    cells = "//test/coremark_joule/rtl:asap7_stdcells_3vt_init",
+    # for the cycle a mismatch is reported at: the SDC's period, as the
+    # capture's (sim/run.bzl); the window is in the file
+    clk_period = ":constraints.sdc",
+    compare_from_reset = XS_FROM_RESET,
+    count_outputs = XS_COUNT_OUTPUTS,
+    cuts = XS_REPLAY_CUTS,
+    netlist = ":XSTile_grt_netlist_shards.v",
+    # each unit's power shard on its own replay too, before the merged
+    # SAIF exists: cmj_xiangshan_replayed_power_<slug>
+    power_srcs = ({} if XS_REPLAY_CUTS.get("") else {"": ":XSTile_grt"}) | {
+        path: ":%s_grt" % unit
+        for path, unit in XS_SHARDS.items()
+        if not XS_REPLAY_CUTS.get(path)
+    },
+    rtl = "//test/coremark_joule/xiangshan:cm_soc_xiangshan_rtl.sv",
+    top = "XSTile",
+    two_level = True,
+    units = {path: (
+        unit,
+        ":%s_grt_netlist_shards.v" % unit,
+    ) for path, unit in XS_SHARDS.items()},
+    vopts = XS_REPLAY_VOPTS,
+    window_file = "//test/coremark_joule/sim:xiangshan_rv64gc_capture_window.txt",
+)
+
+# The pinned measurement behind XiangShan's point: power.json, written by
+# `bazelisk run :pin_power` from cmj_xiangshan_grt_power_shards (below)
+# with its per-module rows (scripts/pin_power.py), compared with a fresh
+# run by `bazelisk run :power_pin_check`, checked by power_pin_test. Its
+# provenance says which pass it is: XS_PIN_PASS, "first" until the
+# numbers are read and corrected, and only a "final" pin goes into
+# results.json.
+XS_PIN_PASS = "final"
+
+# caveats the pinned numbers carry, written into its provenance
+XS_PIN_NOTES = [
+    "every two-level piece counted, not stopped: its output differences from the RTL are in replays.outputs_differing",
+    "dynamic power at the SDC period, 1,800 ps, which the capture was timed against; the period of the design is 2,377 ps, set by the parent (reg2reg WNS -577 ps), a finding of this build: derived has the energy per cycle and the power at 2,377 ps",
+    "cycles is the whole run the capture traced, reset to halt; the power is averaged over saif_window_ps alone, the last CoreMark iteration, 120,389 cycles at the SDC period",
+]
+
+_PIN = "cmj_xiangshan_grt_power_shards"
+
+# every hardened block's and the parent's reg2reg minimum period at
+# global route; the register files have no KPI target and are pinned null
+_PIN_KPIS = {"": "XSTile"} | {
+    path: unit
+    for path, unit in XS_SHARDS.items()
+    if unit in XS_BLOCK_UNITS
+}
+
+# (unit, replay) of every two-level unit's remainder and its cuts
+_PIN_REPLAYS = [(
+    u,
+    xs_replay(u),
+) for u in XS_REPLAY_CUTS] + [
+    (
+        u,
+        xs_replay((u + "/" if u else "") + c),
+    )
+    for u, cs in XS_REPLAY_CUTS.items()
+    for c in cs
+]
+
+_PIN_ARGS = [
+    "--vectorless $(rootpath :%s_vectorless.json)" % _PIN,
+    "--vector-driven $(rootpath :%s_vector_driven.json)" % _PIN,
+    "--report $(rootpath :%s_shards.json)" % _PIN,
+    "--units $(rootpath :%s_units.json)" % _PIN,
+    "--cycles $(rootpath //test/coremark_joule/sim:xiangshan_rv64gc_capture.cycles)",
+    "--window $(rootpath //test/coremark_joule/sim:xiangshan_rv64gc_capture_window.txt)",
+    "--constraints $(rootpath :constraints.sdc)",
+    "--pass " + XS_PIN_PASS,
+] + ["--note '%s'" % n for n in XS_PIN_NOTES] + [
+    "--kpi '%s=$(rootpath :%s_kpi.txt)'" % (path, unit)
+    for path, unit in _PIN_KPIS.items()
+] + [
+    # how each unit's activity was replayed: two-level ones with what
+    # their replays did not compare and the stub inputs that differ
+    "--two-level '%s='" % u
+    for u in XS_REPLAY_CUTS
+] + [
+    "--replay-report '%s=$(rootpath :%s_report.json)'" % (u, r)
+    for u, r in _PIN_REPLAYS
+] + [
+    "--stub-inputs '%s=$(rootpath :%s_stub_inputs.json)'" % (
+        u,
+        xs_replay(u),
+    )
+    for u in XS_REPLAY_CUTS
+] + [
+    "--counted '%s=%s:$(rootpath :%s_outputs.json)'" % (
+        u,
+        c,
+        xs_replay((u + "/" if u else "") + c),
+    )
+    for u, cs in XS_REPLAY_CUTS.items()
+    for c in cs
+    if (u + "/" if u else "") + c in XS_COUNT_OUTPUTS
+] + [
+    "--out test/coremark_joule/designs/asap7/xiangshan/power.json",
+]
+
+_PIN_DATA = [
+    ":%s_vectorless.json" % _PIN,
+    ":%s_vector_driven.json" % _PIN,
+    ":%s_shards.json" % _PIN,
+    ":%s_units.json" % _PIN,
+    ":constraints.sdc",
+    "//test/coremark_joule/sim:xiangshan_rv64gc_capture.cycles",
+    "//test/coremark_joule/sim:xiangshan_rv64gc_capture_window.txt",
+] + [":%s_kpi.txt" % unit for unit in _PIN_KPIS.values()] + [
+    ":%s_report.json" % r
+    for _, r in _PIN_REPLAYS
+] + [":%s_stub_inputs.json" % xs_replay(u) for u in XS_REPLAY_CUTS] + [
+    ":%s_outputs.json" % xs_replay(path)
+    for path in XS_COUNT_OUTPUTS
+]
+
+[
+    py_binary(
+        name = name,
+        srcs = ["//test/coremark_joule/scripts:pin_power.py"],
+        args = _PIN_ARGS + extra,
+        data = _PIN_DATA,
+        main = "//test/coremark_joule/scripts:pin_power.py",
+        tags = ["manual"],
+    )
+    for name, extra in [
+        ("pin_power", []),
+        (
+            "power_pin_check",
+            ["--check"],
+        ),
+    ]
+]
+
+# FltRegionModule's leakage on its own replay, every cell with its pins'
+# duties (flow/leakage_states.tcl after power_shard_grt.tcl), for
+# scripts/leakage_states.py: report_power weighs a liberty `when` that
+# names a cell's output as if the output were independent of the inputs.
+orfs_run(
+    name = "FltRegionModule_leakage_states",
+    src = ":FltRegionModule_grt",
+    outs = [
+        "FltRegionModule_leakage_states.json",
+        "FltRegionModule_leakage_states.tsv",
+    ],
+    data = [
+        ":cmj_xiangshan_replayed_core_backend_inner_fpRegion",
+        "//test/coremark_joule/flow:power_shard_grt.tcl",
+    ],
+    script = "//test/coremark_joule/flow:leakage_states.tcl",
+    tags = ["manual"],
+    user_arguments = {
+        "LEAKAGE_SHARD_TCL": "$(location //test/coremark_joule/flow:power_shard_grt.tcl)",
+        "LEAKAGE_STATES_TSV": "$(location FltRegionModule_leakage_states.tsv)",
+        "SAIF_SCOPE": "TOP/cmj_xiangshan_replayed_core_backend_inner_fpRegion/dut",
+        "SAIF_STIMULI": "$(location :cmj_xiangshan_replayed_core_backend_inner_fpRegion)",
+        "SHARD_CHILDREN": "fpRegFile",
+        "SHARD_JSON": "$(location FltRegionModule_leakage_states.json)",
+        "SHARD_UNIT": "core/backend/inner_fpRegion",
+        "STAGE_STEM": "5_1_grt",
+    },
+)
+
+py_test(
+    name = "power_pin_test",
+    size = "small",
+    srcs = ["//test/coremark_joule/scripts:power_pin_test.py"],
+    args = ["$(rootpath power.json)"],
+    data = ["power.json"],
+    main = "//test/coremark_joule/scripts:power_pin_test.py",
+    tags = ["study"],
+)
+
+stage_power_shards(
+    name = "cmj_xiangshan_grt_power_shards",
+    parent = ":XSTile_grt",
+    saif = ":cmj_xiangshan_replayed",
+    saif_scope = "TOP/cmj_xiangshan_replayed_parent/dut",
+    shards = {path: ":%s_grt" % unit for path, unit in XS_SHARDS.items()},
+    units = True,
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 
@@ -482,6 +702,17 @@ census_probe(
     name = "cmj_xiangshan_census",
     src = ":XSTile_synth",
 )
+
+# The cells under every kept module of each hardened unit's global route:
+# where the power shards' replays are cut (shards.bzl, XS_SHARD_CUTS).
+[
+    census_probe(
+        name = "%s_grt_census" % unit,
+        src = ":%s_grt" % unit,
+        stage = "grt",
+    )
+    for unit in ["XSTile"] + XS_BLOCK_UNITS
+]
 
 # Every flow's synthesis maps with ABC's speed script: each planned
 # block's and the parent's synthesis configuration, which merges the
@@ -568,4 +799,28 @@ orfs_flat_sta(
     clocks = {"clock": "2000"},
     synth = ":Frontend_synth",
     tags = ["manual"],
+)
+
+# The two-level replay's proof at size: VecRegionModule replayed with its
+# issuePipes_1 (421K instances, 1,928 ports its RTL module lacks) cut out,
+# the remainder writing the stub's VCD, the cut replayed from it; against
+# the whole unit's replay (cmj_xiangshan_replayed_core_backend_inner_vecRegion).
+# Only the vecRegion targets are built.
+shard_replays(
+    name = "cmj_xs2",
+    capture = "//test/coremark_joule/sim:xiangshan_rv64gc_capture.vcd",
+    capture_scope = "TOP." + XS_TRACE_ROOT,
+    cells = "//test/coremark_joule/rtl:asap7_stdcells_3vt_init",
+    clk_period = ":constraints.sdc",
+    cuts = {"core/backend/inner_vecRegion": ["issuePipes_1"]},
+    netlist = ":XSTile_grt_netlist_shards.v",
+    rtl = "//test/coremark_joule/xiangshan:cm_soc_xiangshan_rtl.sv",
+    top = "XSTile",
+    two_level = True,
+    units = {path: (
+        unit,
+        ":%s_grt_netlist_shards.v" % unit,
+    ) for path, unit in XS_SHARDS.items()},
+    vopts = XS_REPLAY_VOPTS,
+    window_file = "//test/coremark_joule/sim:xiangshan_rv64gc_capture_window.txt",
 )
