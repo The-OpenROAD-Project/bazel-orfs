@@ -31,6 +31,15 @@
 #if VM_TRACE_SAIF
 #include "verilated_saif_c.h"
 #endif
+// trace_mode = "vcd": the capture of the power shards' replays
+// (flow/power.bzl's shard_replays). Every signal the model traces (a
+// trace configuration keeps it to the units' port wrappers), at both
+// clock phases, from the first evaluation, reset included, to the end,
+// its time in picoseconds of real time: what a replay starts from and
+// follows.
+#if VM_TRACE_VCD
+#include "verilated_vcd_c.h"
+#endif
 
 namespace {
 
@@ -146,6 +155,11 @@ int main(int argc, char **argv)
     SaifWindow window;
     window.start = strtoull(plusarg(argc, argv, "saif_start", "0"), nullptr, 0);
     window.end = strtoull(plusarg(argc, argv, "saif_end", "0"), nullptr, 0);
+    // Run on to the halt after the window instead of stopping at its
+    // end: a capture whose program is to be checked (its CRCs, its cycle
+    // count) as well as measured, which a simulation that mixes RTL and
+    // gates must pass to count.
+    const bool saif_continue = plusarg(argc, argv, "saif_continue", nullptr) != nullptr;
 #endif
 
     FILE *out = stdout;
@@ -187,16 +201,41 @@ int main(int argc, char **argv)
     // signal that is simply low from time zero never produces one. The
     // symptom is a register that keeps its X or zero and an assertion
     // failing in the first cycle, a long way from the cause.
+#if VM_TRACE_VCD
+    VerilatedVcdC *vcd = nullptr;
+    uint64_t vcd_time = 0;
+    const uint64_t vcd_step =
+        strtoull(plusarg(argc, argv, "clk_period_ps", "1000"), nullptr, 0) / 2;
+    if (const char *vcd_path = plusarg(argc, argv, "vcd", nullptr)) {
+        Verilated::traceEverOn(true);
+        vcd = new VerilatedVcdC;
+        dut->trace(vcd, 99);
+        vcd->open(vcd_path);
+    }
+    // one dump per evaluation that ends a clock phase
+    auto phase = [&]() {
+        if (vcd != nullptr) {
+            vcd->dump(vcd_time);
+            vcd_time += vcd_step;
+        }
+    };
+#else
+    auto phase = []() {};
+#endif
+
     dut->resetn = 1;
     dut->clk = 0;
     dut->eval();
+    phase();
 
     dut->resetn = 0;
     for (int i = 0; i < kResetCycles; i++) {
         dut->clk = 0;
         dut->eval();
+        phase();
         dut->clk = 1;
         dut->eval();
+        phase();
     }
     dut->resetn = 1;
 
@@ -214,6 +253,7 @@ int main(int argc, char **argv)
     while (cycles < max_cycles) {
         dut->clk = 0;
         dut->eval();
+        phase();
 #if VM_TRACE_SAIF
         // Both clock phases are dumped. Sampling once per cycle always
         // finds the clock at the same level, and the SAIF then records a
@@ -226,6 +266,7 @@ int main(int argc, char **argv)
 #endif
         dut->clk = 1;
         dut->eval();
+        phase();
         cycles++;
 
 #if VM_TRACE_SAIF
@@ -249,9 +290,12 @@ int main(int argc, char **argv)
             saif->close();
             saif_open = false;
             // The window is the measurement; running on past it only
-            // costs wall time on a gate-level simulator.
-            status = kExitOk;
-            break;
+            // costs wall time on a gate-level simulator, unless the run
+            // is to be checked.
+            if (!saif_continue) {
+                status = kExitOk;
+                break;
+            }
         }
 #endif
 
@@ -316,6 +360,12 @@ int main(int argc, char **argv)
         saif->close();
     }
     delete saif;
+#endif
+#if VM_TRACE_VCD
+    if (vcd != nullptr) {
+        vcd->close();
+        delete vcd;
+    }
 #endif
 
     dut->final();

@@ -19,6 +19,9 @@ rather than failing -- so the error shows up as a plausible number.
 """
 
 load("@bazel-orfs//:openroad.bzl", "orfs_run")
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
+load("@rules_verilog//verilog:defs.bzl", "verilog_library")
 
 # ORFS stage stems, as private/stages.bzl spells them. The netlist and
 # the power report have to name the same one.
@@ -374,6 +377,455 @@ def shard_saif_merge(
         tags = tags,
         tools = ["//test/coremark_joule/scripts:saif_merge"],
         visibility = visibility,
+    )
+
+def shard_replay(
+        name,
+        top,
+        netlist,
+        rtl,
+        capture,
+        capture_scope,
+        window_start,
+        clk_period,
+        children = {},
+        path = "",
+        window_end = "0",
+        window_file = None,
+        trace = "saif",
+        trace_scopes = [],
+        stubs = False,
+        stub_map = None,
+        count_outputs = False,
+        compare_from_reset = False,
+        clock_nets = ["clknet_*"],
+        clock_ports = ["clock"],
+        cells = "//test/coremark_joule/rtl:asap7_stdcells",
+        copts = ["-O2"],
+        vopts = [],
+        tags = ["manual"],
+        visibility = None):
+    """A power shard's SAIF from its own netlist alone, replayed from a capture.
+
+    scripts/replay_gen.py writes a top `<name>` with the unit's netlist as
+    `dut`, each child that is a shard of its own a stub driven from its
+    capture, and the harness that drives it all from `capture` (a VCD of
+    the RTL simulation's unit wrappers, scripts/capture_wrap.py), checks
+    every output of the unit and every pin into a child against it, and
+    fails on the first difference, naming signal, cycle and phase.
+    gate_stitch.py fills in from `rtl` what the netlist instantiates and
+    does not define (SRAMs, ClockGate). The model traces `dut` alone.
+
+    Outputs `<name>.saif`, its scope TOP/<name>/dut, from `window_start`
+    on, `<name>_report.json`, and `<name>_stubs.json`, the stubs' map
+    (replay_gen.py says what a two-level replay is).
+
+    Args:
+      name: target name, and the replay top's module name.
+      top: the unit's module.
+      netlist: the unit's netlist, grt_netlist(saif_names = True)'s.
+      rtl: one file of every RTL module, the capture simulation's,
+        unwrapped: the units' ports and the SRAM models come from it.
+      capture: the capture VCD.
+      capture_scope: the unit's wrapper scope in it, dotted.
+      window_start: the capture time the SAIF starts at.
+      clk_period: the clock period in capture time units, or the label of
+        the design's constraints.sdc (any label ending in .sdc), read at
+        build time as the capture reads it, so a new SDC period reaches
+        the replays with no edit here.
+      children: {instance path below the shard: its wrapper scope in the
+        capture}, the children simulated as shards of their own (a
+        unit's hardened children, the kept modules cut out of it).
+      path: the instance path below `top` of the module this replays, a
+        simulation shard cut out of the unit; empty: the unit whole.
+      window_end: the capture time the SAIF ends at; 0: its end.
+      window_file: a file of "<start> <end>" instead of the two
+        (saif_window.py --window-out).
+      clock_nets: patterns of the clock tree's leaf nets, which a kept
+        module's netlist has a port for each of where its RTL has one
+        clock port (OpenROAD's CTS names them clknet_*): the one clock.
+      trace: "saif", the shard's SAIF, or "vcd": a replay of RTL that is
+        itself a capture, `<name>.vcd`, of `trace_scopes` (dotted, below
+        `<name>`, each traced one level deep: the wrappers of the units
+        below), every time, absolute.
+      stubs: level 1 of a two-level replay: the harness also writes
+        `<name>_stubs.vcd`, every port of every child stub at every time,
+        the punched ones under the aliases `<name>_stubs.json` maps,
+        each stub at TOP.<name>.dut.<path, dotted>. Written by the same
+        harness run as the SAIF: no second model. And
+        `<name>_stub_inputs.json`: the pins the unit drives into its stubs
+        that differ from the RTL, a diagnostic (replay_gen.py's harness;
+        each piece's outputs, checked in level 2, are what must match).
+      stub_map: level 2: the level-1 replay's `_stubs.json`; `capture` is
+        then its `_stubs.vcd`, `capture_scope` the stub's scope there,
+        and `path` the stub's path.
+      count_outputs: level 2, a piece whose outputs differ from the RTL
+        and whose SAIF is taken as produced: a differing output is counted,
+        not fatal, and the counts written to `<name>_outputs.json`
+        (replay_gen.py --count-outputs). Every other replay's generated
+        files are as they were without it.
+      compare_from_reset: level 2, a piece whose outputs are compared only
+        from the cycle after the captured `reset` input first falls:
+        before it, they are the simulators' initial values, not the
+        design's (replay_gen.py --compare-from-reset); the cycle is
+        written to `<name>_from_reset.json`.
+      clock_ports: the ports the SDCs put the one clock on.
+      cells: the standard-cell models.
+      copts: the harness's C++ options.
+      vopts: Verilator's options.
+      tags: forwarded; manual.
+      visibility: forwarded.
+    """
+    native.genrule(
+        name = name + "_gen",
+        srcs = [netlist, rtl] + ([stub_map] if stub_map else []),
+        outs = [
+            name + "_top.sv",
+            name + ".cc",
+            name + "_dut.v",
+            name + "_report.json",
+            name + "_stubs.json",
+        ],
+        cmd = " ".join([
+            "$(execpath //test/coremark_joule/scripts:replay_gen)",
+            "--name " + name,
+            "--top " + top,
+            "--netlist $(location {})".format(netlist),
+            "--rtl $(location {})".format(rtl),
+            "--capture-scope " + capture_scope,
+        ] + (["--path " + path] if path else []) + [
+            "--child {}={}".format(m, sc)
+            for m, sc in sorted(children.items())
+        ] + [
+            "--clock-port " + c
+            for c in clock_ports
+        ] + [
+            "--clock-net '%s'" % c
+            for c in clock_nets
+        ] + [
+            "--out-sv $(location {}_top.sv)".format(name),
+            "--out-cc $(location {}.cc)".format(name),
+            "--out-netlist $(location {}_dut.v)".format(name),
+            "--report $(location {}_report.json)".format(name),
+            "--out-stubs $(location {}_stubs.json)".format(name),
+        ] + (["--stub-map $(location {})".format(stub_map)] if stub_map else []) + (["--record-stubs"] if stubs else []) + (["--count-outputs"] if count_outputs else []) + (["--compare-from-reset"] if compare_from_reset else [])),
+        tags = tags,
+        tools = ["//test/coremark_joule/scripts:replay_gen"],
+    )
+    native.genrule(
+        name = name + "_stitch",
+        srcs = [
+            name + "_top.sv",
+            name + "_dut.v",
+            rtl,
+        ],
+        outs = [name + "_stitched.sv"],
+        cmd = " ".join([
+            "$(execpath //test/coremark_joule/scripts:gate_stitch)",
+            "--netlist $(location {}_top.sv)".format(name),
+            "--gate-netlist $(location {}_dut.v)".format(name),
+            "--rtl-file $(location {})".format(rtl),
+            "--top " + name,
+            "--cell-suffix _ASAP7_",
+            "--out $@",
+        ]),
+        tags = tags,
+        tools = ["//test/coremark_joule/scripts:gate_stitch"],
+    )
+    on = ["tracing_on -scope \\\"%s.dut*\\\"" % name]
+    if trace == "vcd":
+        on = ["tracing_on -scope \\\"%s.%s\\\" -levels 1" % (name, sc) for sc in trace_scopes]
+    native.genrule(
+        name = name + "_trace",
+        outs = [name + "_trace.v"],
+        # a configuration in a .v file: verilog_library takes no .vlt
+        cmd = "printf '`verilator_config\\ntracing_off -scope \"*\"\\n%s\\n' > $@" % "\\n".join(on),
+        tags = tags,
+    )
+    verilog_library(
+        name = name + "_v",
+        srcs = [
+            name + "_top.sv",
+            name + "_stitched.sv",
+            name + "_trace.v",
+        ],
+        tags = tags,
+        deps = [cells],
+    )
+    verilator_cc_library(
+        name = name + "_lib",
+        copts = copts + ["-Wno-all"],
+        module = ":%s_v" % name,
+        module_top = name,
+        tags = tags,
+        trace_mode = trace,
+        vopts = vopts,
+    )
+    cc_binary(
+        name = name + "_bin",
+        srcs = [name + ".cc"],
+        copts = copts + ["-std=c++17"],
+        tags = tags,
+        deps = [":%s_lib" % name],
+    )
+    sdc = clk_period.endswith(".sdc")
+    native.genrule(
+        name = name,
+        # the harness in srcs, not tools: as a tool it would be built in the
+        # exec configuration, the flow behind its netlist a second time
+        # (coremark_run says the same of a simulator)
+        srcs = [
+            capture,
+            ":%s_bin" % name,
+        ] + ([window_file] if window_file else []) + ([clk_period] if sdc else []),
+        outs = [name + "." + trace] + ([
+            name + "_stubs.vcd",
+            name + "_stub_inputs.json",
+        ] if stubs else []) + ([name + "_outputs.json"] if count_outputs else []) + ([name + "_from_reset.json"] if compare_from_reset else []),
+        cmd = ("read s e < $(location {w}) && ".format(w = window_file) if window_file else "") +
+              ("p=$$($(execpath //test/coremark_joule/scripts:saif_window) --print-period --clk-period-from-sdc $(location {})) && ".format(clk_period) if sdc else "") +
+              "$(location :{n}_bin) $(location {c}) $(location {n}.{t}) {s} {p} {e}".format(
+                  n = name,
+                  c = capture,
+                  t = trace,
+                  s = "$$s" if window_file else window_start,
+                  p = "$$p" if sdc else clk_period,
+                  e = "$$e" if window_file else window_end,
+              ) + (" --stubs-vcd=$(location {n}_stubs.vcd) --stub-inputs-json=$(location {n}_stub_inputs.json)".format(n = name) if stubs else "") +
+              (" --outputs-json=$(location {}_outputs.json)".format(name) if count_outputs else "") +
+              (" --from-reset-json=$(location {}_from_reset.json)".format(name) if compare_from_reset else ""),
+        tags = tags,
+        tools = ["//test/coremark_joule/scripts:saif_window"] if sdc else [],
+        visibility = visibility,
+    )
+
+def _capture_scope(root, path, owners):
+    """Where a unit's wrapper is in the capture: below each enclosing
+    wrapped unit's `rtl`, the RTL behind its wrapper."""
+    scope = root
+    done = ""
+    for o in sorted([o for o in owners if path.startswith(o + "/")], key = len) + [path]:
+        scope += ".rtl." + o[len(done):].lstrip("/").replace("/", ".")
+        done = o
+    return scope
+
+def shard_replays(
+        name,
+        top,
+        netlist,
+        rtl,
+        units,
+        capture,
+        capture_scope,
+        clk_period,
+        window_start = "0",
+        window_file = None,
+        cuts = {},
+        two_level = False,
+        count_outputs = [],
+        compare_from_reset = [],
+        scopes = {},
+        power_srcs = {},
+        clock_ports = ["clock"],
+        cells = "//test/coremark_joule/rtl:asap7_stdcells",
+        copts = ["-O2"],
+        vopts = [],
+        tags = ["manual"],
+        visibility = None):
+    """The power shards' one SAIF from replays of one RTL capture.
+
+    One replay (shard_replay) per simulation shard, and their SAIFs
+    merged (shard_saif_merge) into `<name>.saif`, the parent's replay's
+    scope TOP/<name>_parent/dut the root that stage_power_shards' saif_scope
+    names. A simulation shard is the parent, each hardened unit, or a
+    module cut out of one to keep a simulation small: `cuts` lists, per
+    unit, instance paths below it of kept modules (a module of its own in
+    the unit's netlist and in the RTL, with the same ports); the unit is
+    then replayed with them cut out, each of them on its own. The power
+    shards stay one per unit; every simulation shard's subtree is grafted
+    at its path, so each unit's shard reads its whole subtree.
+
+    With `two_level`, each cut is replayed from its unit's replay instead
+    of from the capture (scripts/replay_gen.py, "two-level replay"): the
+    unit's replay, its SAIF as ever, also records every port of the cut's
+    stub, `<name>_<unit>_stubs.vcd`, the inputs a hierarchical global
+    route punched into the cut's netlist among them, and the cut is
+    replayed from that. Its outputs are still checked against the
+    capture's values, which its stub took from the capture; its punched
+    inputs, which the capture has no value for, are the unit netlist's.
+
+    The capture is the caller's: an RTL simulation of shard_capture_rtl()'s
+    wrapped RTL with its trace configuration, a VCD.
+
+    Args:
+      name: target name.
+      top: the parent's module.
+      netlist: the parent's netlist.
+      rtl: one file of every RTL module, unwrapped.
+      units: {instance path below the parent: (module, netlist)}, the
+        hardened units, nested ones included.
+      capture: the capture VCD.
+      capture_scope: the parent's wrapper scope in it, dotted.
+      clk_period: the clock period in capture time units, or the
+        design's constraints.sdc (shard_replay's).
+      window_start: the capture time the SAIFs start at.
+      window_file: a file of "<start> <end>" instead
+        (saif_window.py --window-out).
+      cuts: {unit path, "" for the parent: [instance paths below it]}.
+        A cut may hold no hardened unit.
+      two_level: replay the cuts from their units' replays (above):
+        needed when a cut's netlist has punched ports, which the capture
+        cannot drive and replay_gen refuses in a cut replayed from it.
+      count_outputs: [cut paths from the parent], two_level only: cuts
+        whose level 2 counts the outputs that differ from the RTL instead
+        of failing on the first (shard_replay's count_outputs), their SAIF
+        taken as produced; `<name>_<slug>_outputs.json` says how much
+        differed.
+      compare_from_reset: [cut paths from the parent], two_level only:
+        cuts whose level 2 compares outputs from the cycle after the
+        captured reset first falls (shard_replay's compare_from_reset).
+      scopes: as stage_power_shards'.
+      power_srcs: {unit path, "" for the parent: its flow stage target}:
+        each such unit's power shard on its own replay's SAIF alone,
+        `<name>_power_<slug>` with its per-module rows (power_shard's
+        units), before the merged SAIF exists. Not for a unit with cuts,
+        whose own replay holds the cut modules as stubs.
+      clock_ports: the ports the SDCs put the one clock on.
+      cells: the standard-cell models.
+      copts: the harnesses' C++ options.
+      vopts: Verilator's options.
+      tags: forwarded; manual.
+      visibility: forwarded.
+    """
+    paths = sorted(units.keys())
+    for u in power_srcs:
+        if cuts.get(u):
+            fail("shard_replays %s: %s has cuts; its own replay's SAIF is not its whole subtree" % (name, u or "the parent"))
+    owners = [""] + paths
+    for u, cs in cuts.items():
+        if u not in owners:
+            fail("shard_replays %s: cuts in %s, which is no unit" % (name, u))
+        for c in cs:
+            inside = [p for p in paths if p.startswith((u + "/" if u else "") + c + "/")]
+            if inside:
+                fail("shard_replays %s: the cut %s holds the units %s" % (name, c, inside))
+
+    cut_paths = [(u + "/" if u else "") + c for u, cs in cuts.items() for c in cs]
+    for what, listed in [
+        ("count_outputs", count_outputs),
+        ("compare_from_reset", compare_from_reset),
+    ]:
+        for p in listed:
+            if not two_level or p not in cut_paths:
+                fail("shard_replays %s: %s %s is no cut of a two-level replay" % (name, what, p))
+
+    # path from the parent: (top, netlist, path in the unit, children,
+    # the unit a cut is cut from or None)
+    sims = {}
+    all_paths = paths + [(u + "/" if u else "") + c for u, cs in cuts.items() for c in cs]
+    for u in owners:
+        module, net = (top, netlist) if u == "" else units[u]
+        prefix = u + "/" if u else ""
+        kids = [p for p in paths if p != u and _shard_parent(p, paths) == u]
+        kids += [prefix + c for c in cuts.get(u, [])]
+        sims[u] = (module, net, "", kids, None)
+        for c in cuts.get(u, []):
+            sims[prefix + c] = (module, net, c, [], u)
+    targets = {}
+    for full, (module, net, sub, kids, owner) in sims.items():
+        slug = "parent" if full == "" else _shard_slug(full)
+        replay = "%s_%s" % (name, slug)
+        base = full + "/" if full else ""
+        level2 = two_level and owner != None
+        level1 = "%s_%s" % (name, "parent" if owner == "" else _shard_slug(owner or ""))
+        shard_replay(
+            name = replay,
+            capture = ":%s_stubs.vcd" % level1 if level2 else capture,
+            capture_scope = "TOP.%s.dut.%s" % (level1, sub.replace("/", ".")) if level2 else (_capture_scope(capture_scope, full, owners) if full else capture_scope),
+            stub_map = ":%s_stubs.json" % level1 if level2 else None,
+            stubs = two_level and sub == "" and bool(cuts.get(full)),
+            count_outputs = full in count_outputs,
+            compare_from_reset = full in compare_from_reset,
+            cells = cells,
+            children = {
+                k[len(base):]: _capture_scope(capture_scope, k, owners)
+                for k in kids
+            },
+            clk_period = clk_period,
+            clock_ports = clock_ports,
+            copts = copts,
+            netlist = net,
+            path = sub,
+            rtl = rtl,
+            tags = tags,
+            top = module,
+            vopts = vopts,
+            window_file = window_file,
+            window_start = window_start,
+        )
+        targets[full] = replay
+        if sub == "" and full in power_srcs:
+            power_shard(
+                name = "%s_power_%s" % (name, slug),
+                children = [k[len(base):] for k in kids if k in paths],
+                saif = ":%s.saif" % replay,
+                saif_scope = "TOP/%s/dut" % replay,
+                src = power_srcs[full],
+                tags = tags,
+                unit = full,
+                units = True,
+            )
+    shard_saif_merge(
+        name = name,
+        clocks = clock_ports,
+        parent_saif = ":%s.saif" % targets[""],
+        saif_scope = "TOP/%s_parent/dut" % name,
+        scopes = scopes,
+        sources = {p: "TOP/%s/dut" % targets[p] for p in all_paths},
+        units = {p: ":%s.saif" % targets[p] for p in all_paths},
+        tags = tags,
+        visibility = visibility,
+    )
+
+def shard_capture_rtl(name, rtl, top, paths, scope, tags = ["manual"]):
+    """The RTL of a shards' capture: every simulation shard behind a wrapper
+    of its ports (scripts/capture_wrap.py), `<name>.sv`, and the trace
+    configuration that records those wrappers' ports alone,
+    `<name>_trace.v` (tracing_on -levels 1 on each wrapper's scope).
+
+    Args:
+      name: target name.
+      rtl: one file of every RTL module.
+      top: the parent's module, wrapped too.
+      paths: every simulation shard's instance path below `top`: the
+        units, nested ones included, and the cuts.
+      scope: the parent's instance in the simulation, dotted below
+        Verilator's root (mini_top, cm_soc.outer.soc.core_with_l2).
+      tags: forwarded; manual.
+    """
+    native.genrule(
+        name = name,
+        srcs = [rtl],
+        outs = [name + ".sv"],
+        cmd = " ".join([
+            "$(execpath //test/coremark_joule/scripts:capture_wrap) $< $@",
+            "--unit " + top,
+            "--top " + top,
+        ] + ["--path " + p for p in sorted(paths)]),
+        tags = tags,
+        tools = ["//test/coremark_joule/scripts:capture_wrap"],
+    )
+    owners = sorted(paths)
+    scopes = [scope] + [_capture_scope(scope, p, owners) for p in owners]
+    native.genrule(
+        name = name + "_trace",
+        outs = [name + "_trace.v"],
+        # a configuration in a .v file: verilog_library takes no .vlt
+        cmd = "printf '`verilator_config\\ntracing_off -scope \"*\"\\n%s' > $@" % "".join([
+            "tracing_on -scope \"%s\" -levels 1\\n" % sc
+            for sc in scopes
+        ]),
+        tags = tags,
     )
 
 def stage_power_shards(

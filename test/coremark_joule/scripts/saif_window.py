@@ -22,6 +22,14 @@ less representative.
 
 Usage:
   saif_window.py --sim S --image I --cycles-2 A --cycles-3 B --saif O
+                 [--stdout P --cycles C]
+
+With --stdout and --cycles the simulation runs on to the halt after the
+window, writes the program's output and its cycle count, and the run
+fails unless it took exactly the three-iteration RTL run's cycles: a
+simulation that mixes RTL with a unit's gates counts only if the gates
+behave as the RTL, cycle for cycle (the CRCs are checked by a test on
+the output, coremark_crc_test).
 """
 
 import argparse
@@ -70,6 +78,16 @@ def window(cycles_2, cycles_3, first_output_3):
     return start, first_output_3
 
 
+def capture_times(start, end, period, reset_cycles):
+    """The window's times in a capture that dumps both clock phases from
+    the first evaluation: one dump before reset, two per reset cycle, then
+    cycle k's low phase at (2k + 1 + 2r) half periods and its high phase
+    one half later, `cycles` counting k + 1 from that high phase on, as
+    main.cc's window does."""
+    half = period // 2
+    return (2 * reset_cycles + 2 * start) * half, (2 * reset_cycles + 2 * end) * half
+
+
 _CLK_PERIOD = re.compile(r"^\s*set\s+clk_period\s+(\d+)\s*(?:;.*|#.*)?$", re.M)
 
 
@@ -87,12 +105,27 @@ def read_clk_period(sdc_text):
 
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--sim", required=True)
-    parser.add_argument("--image", required=True)
-    parser.add_argument("--cycles-2", required=True)
-    parser.add_argument("--cycles-3", required=True)
-    parser.add_argument("--saif", required=True)
+    parser.add_argument("--sim")
+    parser.add_argument("--image")
+    parser.add_argument("--cycles-2")
+    parser.add_argument("--cycles-3")
+    parser.add_argument("--saif")
+    parser.add_argument(
+        "--window-out",
+        help="instead of a run: the window as two times, in the clock's "
+        "picoseconds, of a capture that dumps every clock phase from the "
+        "first evaluation, reset included (main.cc's +vcd): the power "
+        "shards' replays' SAIF window",
+    )
+    parser.add_argument("--reset-cycles", type=int, default=16)
+    parser.add_argument(
+        "--print-period",
+        action="store_true",
+        help="print the period, in picoseconds, and nothing else",
+    )
     parser.add_argument("--max-cycles", default="2000000000")
+    parser.add_argument("--stdout", help="run on to the halt, the output here")
+    parser.add_argument("--cycles", help="with --stdout: the cycle count here")
     period = parser.add_mutually_exclusive_group(required=True)
     period.add_argument(
         "--clk-period-ps",
@@ -116,6 +149,9 @@ def main(argv):
         with open(args.clk_period_from_sdc) as f:
             args.clk_period_ps = str(read_clk_period(f.read()))
 
+    if args.print_period:
+        print(args.clk_period_ps)
+        return 0
     cycles_2, _ = read_cycles(args.cycles_2)
     cycles_3, first_output_3 = read_cycles(args.cycles_3)
     start, end = window(cycles_2, cycles_3, first_output_3)
@@ -126,19 +162,48 @@ def main(argv):
         ),
         file=sys.stderr,
     )
+    if args.window_out:
+        with open(args.window_out, "w") as f:
+            f.write(
+                "{} {}\n".format(
+                    *capture_times(
+                        start, end, int(args.clk_period_ps), args.reset_cycles
+                    )
+                )
+            )
+        return 0
+    if not (args.sim and args.image and args.saif):
+        raise ValueError("--sim, --image and --saif, or --window-out")
 
-    return subprocess.call(
-        [
-            args.sim,
-            "+meminit=" + args.image,
-            "+saif=" + args.saif,
-            "+saif_start={}".format(start),
-            "+saif_end={}".format(end),
-            "+max_cycles=" + args.max_cycles,
-            "+clk_period_ps=" + args.clk_period_ps,
-        ],
-        stdout=subprocess.DEVNULL,
-    )
+    command = [
+        args.sim,
+        "+meminit=" + args.image,
+        "+saif=" + args.saif,
+        "+saif_start={}".format(start),
+        "+saif_end={}".format(end),
+        "+max_cycles=" + args.max_cycles,
+        "+clk_period_ps=" + args.clk_period_ps,
+    ]
+    if bool(args.stdout) != bool(args.cycles):
+        raise ValueError("--stdout and --cycles go together")
+    if args.stdout:
+        command += [
+            "+saif_continue=1",
+            "+stdout=" + args.stdout,
+            "+cycles=" + args.cycles,
+        ]
+    status = subprocess.call(command, stdout=subprocess.DEVNULL)
+    if status != 0 or not args.stdout:
+        return status
+    ran, _ = read_cycles(args.cycles)
+    if ran != cycles_3:
+        print(
+            "saif window: the simulation ran {} cycles, the RTL {}: its gates "
+            "do not behave as the RTL".format(ran, cycles_3),
+            file=sys.stderr,
+        )
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

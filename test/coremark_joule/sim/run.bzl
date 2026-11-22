@@ -234,6 +234,7 @@ def coremark_saif(
         run_3,
         constraints,
         max_other_dropped = 0,
+        checked = False,
         tags = ["manual"]):
     """Capture a SAIF over CoreMark's last, hot iteration.
 
@@ -263,9 +264,24 @@ def coremark_saif(
         scripts/filter_saif.py. Zero asserts that everything the SAIF
         format cannot carry is a clock net, which §3.5 establishes needs
         no annotation.
+      checked: run on to the halt after the window and check the run:
+        its cycle count must be the RTL run_3's (saif_window.py fails
+        the capture otherwise) and `<name>_crc_test` checks its CRCs on
+        `<name>.stdout`. For a simulation that mixes RTL with a unit's
+        gates, which counts only if the gates behave as the RTL.
       tags: forwarded; manual.
     """
     raw = name + "_raw.saif"
+    outs = [raw]
+    check = ""
+    if checked:
+        outs += [name + ".stdout", name + ".cycles"]
+        check = " --stdout $(location {n}.stdout) --cycles $(location {n}.cycles)".format(n = name)
+        coremark_crc_test(
+            name = name + "_crc_test",
+            run = name,
+            tags = tags,
+        )
     native.genrule(
         name = name + "_raw",
         srcs = [
@@ -276,7 +292,7 @@ def coremark_saif(
             # srcs, not tools: see coremark_run's simulator.
             sim,
         ],
-        outs = [raw],
+        outs = outs,
         cmd = (
             "$(execpath {win}) " +
             "--sim $(execpath {sim}) " +
@@ -284,7 +300,7 @@ def coremark_saif(
             "--cycles-2 $(location {run_2}.cycles) " +
             "--cycles-3 $(location {run_3}.cycles) " +
             "--saif $(location {raw}) " +
-            "--clk-period-from-sdc $(location {constraints})"
+            "--clk-period-from-sdc $(location {constraints})" + check
         ).format(
             constraints = constraints,
             image = image,
@@ -315,6 +331,76 @@ def coremark_saif(
         ]),
         tags = tags,
         tools = ["//test/coremark_joule/scripts:filter_saif"],
+    )
+
+def coremark_capture(name, sim, image, run_2, run_3, constraints, tags = ["manual"]):
+    """The power shards' capture: one run, every clock phase traced as a VCD.
+
+    `<name>.vcd` from the first evaluation, reset included, to the halt
+    (main.cc's +vcd), at the SDC's period; `<name>.stdout` and
+    `<name>.cycles`, with `<name>_crc_test` on the CRCs, and the run fails
+    unless its cycles file is run_3's (the same cycle count, the same
+    first output). `<name>_window.txt` is the SAIF window in the capture's
+    picoseconds, the last iteration as coremark_saif's
+    (saif_window.py --window-out).
+
+    Args:
+      name: target name.
+      sim: the capture simulator (trace_mode = "vcd").
+      image: the three-iteration memory image.
+      run_2: the two-iteration RTL run.
+      run_3: the three-iteration RTL run.
+      constraints: the design's constraints.sdc, for the period.
+      tags: forwarded; manual.
+    """
+    native.genrule(
+        name = name,
+        srcs = [
+            image,
+            constraints,
+            "{}.cycles".format(run_3),
+            # srcs, not tools: see coremark_run's simulator.
+            sim,
+        ],
+        outs = [
+            name + ".vcd",
+            name + ".stdout",
+            name + ".cycles",
+        ],
+        cmd = " ".join([
+            "P=$$($(execpath //test/coremark_joule/scripts:saif_window) --print-period",
+            "--clk-period-from-sdc $(location %s)) &&" % constraints,
+            "$(execpath %s) +meminit=$(execpath %s) +vcd=$(location %s.vcd)" % (sim, image, name),
+            "+stdout=$(location %s.stdout) +cycles=$(location %s.cycles)" % (name, name),
+            "+clk_period_ps=$$P +max_cycles=2000000000 &&",
+            "cmp $(location %s.cycles) $(location %s.cycles)" % (name, run_3),
+        ]),
+        tags = tags,
+        tools = ["//test/coremark_joule/scripts:saif_window"],
+    )
+    coremark_crc_test(
+        name = name + "_crc_test",
+        run = name,
+        tags = tags,
+    )
+    native.genrule(
+        name = name + "_window",
+        srcs = [
+            constraints,
+            "{}.cycles".format(run_2),
+            "{}.cycles".format(run_3),
+        ],
+        outs = [name + "_window.txt"],
+        cmd = " ".join([
+            "$(execpath //test/coremark_joule/scripts:saif_window)",
+            "--cycles-2 $(location {}.cycles)".format(run_2),
+            "--cycles-3 $(location {}.cycles)".format(run_3),
+            "--clk-period-from-sdc $(location {})".format(constraints),
+            "--window-out $@",
+        ]),
+        tags = tags,
+        tools = ["//test/coremark_joule/scripts:saif_window"],
+        visibility = ["//test/coremark_joule:__subpackages__"],
     )
 
 def coremark_per_joule(

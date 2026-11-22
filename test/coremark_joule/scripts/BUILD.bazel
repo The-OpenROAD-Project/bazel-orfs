@@ -231,6 +231,52 @@ py_binary(
     main = "leakage_states.py",
 )
 
+# The replay of one power shard from a capture of the RTL simulation
+# (flow/power.bzl's shard_replay).
+py_binary(
+    name = "capture_wrap",
+    srcs = [
+        "capture_wrap.py",
+        "gate_stitch.py",
+        "replay_gen.py",
+    ],
+    main = "capture_wrap.py",
+)
+
+py_test(
+    name = "capture_wrap_test",
+    size = "small",
+    srcs = [
+        "capture_wrap.py",
+        "capture_wrap_test.py",
+        "gate_stitch.py",
+        "replay_gen.py",
+    ],
+    main = "capture_wrap_test.py",
+    tags = ["study"],
+)
+
+py_binary(
+    name = "replay_gen",
+    srcs = [
+        "gate_stitch.py",
+        "replay_gen.py",
+    ],
+    main = "replay_gen.py",
+)
+
+py_test(
+    name = "replay_gen_test",
+    size = "small",
+    srcs = [
+        "gate_stitch.py",
+        "replay_gen.py",
+        "replay_gen_test.py",
+    ],
+    main = "replay_gen_test.py",
+    tags = ["study"],
+)
+
 # The shards' one SAIF from one simulation per unit
 # (test/coremark_joule/power_shards).
 py_binary(
