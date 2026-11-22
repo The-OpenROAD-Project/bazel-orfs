@@ -36,9 +36,11 @@
 # which refuses it.
 
 load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run")
+load("@rules_cc//cc:defs.bzl", "cc_binary")
 load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
 load("@rules_verilog//verilog:defs.bzl", "verilog_library")
-load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "power_shard", "shard_saif_merge", "stage_power_shards")
+load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "power_shard", "shard_capture_rtl", "shard_replay", "shard_replays", "shard_saif_merge", "stage_power_shards")
 load("//test/planned_parent:plan/plan.bzl", "PLAN")
 load("//test/planned_parent:planned.bzl", "BASE_ARGS")
 load(":sims.bzl", "CLOCK_PORTS", "VOPTS", "toy_sim")
@@ -458,5 +460,599 @@ py_test(
         ]
     ],
     main = "mixed_test.py",
+    tags = ["manual"],
+)
+
+# Replay (flow/power.bzl's shard_replays): one RTL simulation captures
+# every simulation shard's ports, each shard's netlist is then simulated
+# alone, driven from the capture and checked against it, and the
+# replays' SAIFs are merged. Three times: the four blocks whole, BlockC
+# cut into two simulation shards (u_core alone, the rest of BlockC with
+# it cut out), and that cut in two levels (u_core replayed from BlockC's
+# replay, two_level). replay_test.py says what it proves.
+UNITS = {i: (
+    m,
+    ":%s_grt_netlist.v" % m,
+) for i, m in BLOCKS.items()}
+
+CUTS = {
+    "": ({}, False),
+    "_cut": (
+        {"u_blockc": ["u_core"]},
+        False,
+    ),
+    "_cut2": (
+        {"u_blockc": ["u_core"]},
+        True,
+    ),
+}
+
+shard_capture_rtl(
+    name = "capture_rtl",
+    paths = list(BLOCKS.keys()) + ["u_blockc/u_core"],
+    rtl = ":sim_all_rtl.sv",
+    scope = "mini_top",
+    top = "mini_top",
+)
+
+verilog_library(
+    name = "capture_v",
+    srcs = [
+        ":capture_rtl.sv",
+        ":capture_rtl_trace.v",
+    ],
+    tags = ["manual"],
+    deps = [":cells_init"],
+)
+
+verilator_cc_library(
+    name = "capture_lib",
+    copts = [
+        "-O2",
+        "-Wno-all",
+    ],
+    module = ":capture_v",
+    module_top = "mini_top",
+    tags = ["manual"],
+    trace_mode = "vcd",
+    vopts = VOPTS,
+)
+
+cc_binary(
+    name = "capture_tb",
+    srcs = ["capture_tb.cc"],
+    copts = ["-O2"],
+    tags = ["manual"],
+    deps = [":capture_lib"],
+)
+
+genrule(
+    name = "capture",
+    srcs = [":capture_tb"],
+    outs = [
+        "capture.vcd",
+        "capture_out.txt",
+    ],
+    cmd = "$(execpath :capture_tb) $(location capture.vcd) 2000 1000 $(location capture_out.txt)",
+    tags = ["manual"],
+)
+
+[
+    shard_replays(
+        name = "replayed" + cut,
+        capture = ":capture.vcd",
+        capture_scope = "TOP.mini_top",
+        cells = ":cells_init",
+        clk_period = "1000",
+        clock_ports = CLOCK_PORTS,
+        cuts = cuts,
+        netlist = NETLIST,
+        rtl = ":sim_all_rtl.sv",
+        top = "mini_top",
+        two_level = two_level,
+        units = UNITS,
+        vopts = VOPTS,
+        # after tb.cc's 16 warm-up cycles, at 1,000 ps
+        window_start = "16000",
+    )
+    for cut, (cuts, two_level) in CUTS.items()
+]
+
+genrule(
+    name = "mini_top_replayed_saif",
+    srcs = [":replayed.saif"],
+    outs = ["mini_top_replayed.saif"],
+    cmd = "$(execpath //test/coremark_joule/scripts:filter_saif) $< $@ --max-other 0",
+    tags = ["manual"],
+    tools = ["//test/coremark_joule/scripts:filter_saif"],
+)
+
+stage_power_shards(
+    name = "power_shards_replayed",
+    parent = ":mini_top_grt",
+    saif = ":mini_top_replayed.saif",
+    saif_scope = "TOP/replayed_parent/dut",
+    shards = {inst: ":%s_grt" % m for inst, m in BLOCKS.items()},
+)
+
+# The negative control of the replay: BlockC's netlist with one XOR
+# inverted, an XNOR in its place.
+genrule(
+    name = "blockc_inverted",
+    srcs = [":BlockC_grt_netlist.v"],
+    outs = ["BlockC_inverted.v"],
+    cmd = "sed '0,/ XOR2x2_ASAP7_75t_R /s// XNOR2x2_ASAP7_75t_R /' $< > $@ && ! cmp -s $< $@",
+    tags = ["manual"],
+)
+
+shard_replay(
+    name = "replay_inverted_u_blockc",
+    capture = ":capture.vcd",
+    capture_scope = "TOP.mini_top.rtl.u_blockc",
+    cells = ":cells_init",
+    clk_period = "1000",
+    clock_ports = CLOCK_PORTS,
+    netlist = ":BlockC_inverted.v",
+    rtl = ":sim_all_rtl.sv",
+    top = "BlockC",
+    vopts = VOPTS,
+    window_start = "16000",
+)
+
+py_test(
+    name = "replay_test",
+    srcs = [
+        "mixed_test.py",
+        "replay_test.py",
+    ],
+    args = [
+        "--all-gates=$(rootpath :mini_top.saif)",
+        "--replayed=$(rootpath :replayed.saif)",
+        "--cut=$(rootpath :replayed_cut.saif)",
+        "--cut2=$(rootpath :replayed_cut2.saif)",
+        "--capture=$(rootpath :capture.vcd)",
+        "--capture-out=$(rootpath :capture_out.txt)",
+        "--rtl-out=$(rootpath :sim_all_rtl_out.txt)",
+        "--blockc-bin=$(rootpath :replayed_u_blockc_bin)",
+        "--bad-bin=$(rootpath :replay_inverted_u_blockc_bin)",
+        "--relayed=$(rootpath :relay_mini_top.vcd)",
+    ] + [
+        "--block=%s=$(rootpath :replayed_%s_bin)=$(rootpath :replayed_%s.saif)" % (i, i, i)
+        for i in sorted(BLOCKS.keys())
+    ] + [
+        "--shards=$(rootpath :power_shards%s_%s.json)" % (saif, unit)
+        for saif in [
+            "",
+            "_replayed",
+        ]
+        for unit in ["parent"] + sorted(BLOCKS.keys())
+    ],
+    data = [
+        ":capture.vcd",
+        ":capture_out.txt",
+        ":mini_top.saif",
+        ":relay_mini_top.vcd",
+        ":replay_inverted_u_blockc_bin",
+        ":replayed.saif",
+        ":replayed_cut.saif",
+        ":replayed_cut2.saif",
+        ":sim_all_rtl_out.txt",
+    ] + [
+        ":replayed_%s%s" % (i, suffix)
+        for i in sorted(BLOCKS.keys())
+        for suffix in [
+            "_bin",
+            ".saif",
+        ]
+    ] + [
+        ":power_shards%s_%s.json" % (saif, unit)
+        for saif in [
+            "",
+            "_replayed",
+        ]
+        for unit in ["parent"] + sorted(BLOCKS.keys())
+    ],
+    main = "replay_test.py",
+    tags = ["manual"],
+)
+
+# Two levels, for a design whose whole simulation cannot also hold the
+# units' traces: the capture records the parent's boundary alone, a
+# replay of the parent's RTL (its units wrapped) driven from it records
+# the units' ports, and the units are replayed from that (the harness's
+# <from>=<to> reads it under its own scope names). replay_test.py checks
+# the units' SAIFs come out the same as from the one-level capture.
+genrule(
+    name = "capture_top_trace",
+    outs = ["capture_top_trace.v"],
+    cmd = "printf '`verilator_config\\ntracing_off -scope \"*\"\\ntracing_on -scope \"mini_top\" -levels 1\\n' > $@",
+    tags = ["manual"],
+)
+
+verilog_library(
+    name = "capture_top_v",
+    srcs = [
+        ":capture_rtl.sv",
+        ":capture_top_trace.v",
+    ],
+    tags = ["manual"],
+    deps = [":cells_init"],
+)
+
+verilator_cc_library(
+    name = "capture_top_lib",
+    copts = [
+        "-O2",
+        "-Wno-all",
+    ],
+    module = ":capture_top_v",
+    module_top = "mini_top",
+    tags = ["manual"],
+    trace_mode = "vcd",
+    vopts = VOPTS,
+)
+
+cc_binary(
+    name = "capture_top_tb",
+    srcs = ["capture_tb.cc"],
+    copts = ["-O2"],
+    tags = ["manual"],
+    deps = [":capture_top_lib"],
+)
+
+genrule(
+    name = "capture_top",
+    srcs = [":capture_top_tb"],
+    outs = [
+        "capture_top.vcd",
+        "capture_top_out.txt",
+    ],
+    cmd = "$(execpath :capture_top_tb) $(location capture_top.vcd) 2000 1000 $(location capture_top_out.txt)",
+    tags = ["manual"],
+)
+
+shard_replay(
+    name = "relay_mini_top",
+    capture = ":capture_top.vcd",
+    capture_scope = "TOP.mini_top",
+    cells = ":cells_init",
+    clk_period = "1000",
+    clock_ports = CLOCK_PORTS,
+    netlist = ":capture_rtl.sv",
+    rtl = ":sim_all_rtl.sv",
+    top = "mini_top",
+    trace = "vcd",
+    trace_scopes = ["dut.rtl." + i for i in sorted(BLOCKS.keys())] + ["dut.rtl.u_blockc.rtl.u_core"],
+    vopts = VOPTS,
+    window_start = "0",
+)
+
+# The per-module breakdown across the shards (stage_power_shards' units):
+# every module instance of every unit's ODB, each unit's flat remainder
+# beside them; units_test.py checks they add up.
+stage_power_shards(
+    name = "power_units_replayed",
+    parent = ":mini_top_grt",
+    saif = ":mini_top_replayed.saif",
+    saif_scope = "TOP/replayed_parent/dut",
+    shards = {inst: ":%s_grt" % m for inst, m in BLOCKS.items()},
+    units = True,
+)
+
+py_test(
+    name = "units_test",
+    srcs = ["units_test.py"],
+    args = [
+        "$(rootpath :power_units_replayed_units.json)",
+        "$(rootpath :power_units_replayed_shards.json)",
+        "$(rootpath :power_units_replayed_vector_driven.json)",
+    ],
+    data = [
+        ":power_units_replayed_shards.json",
+        ":power_units_replayed_units.json",
+        ":power_units_replayed_vector_driven.json",
+    ],
+    main = "units_test.py",
+    tags = ["manual"],
+)
+
+# The two-level replay (flow/power.bzl's shard_replays two_level), on a
+# unit of its own, Punched (punched.sv), whose netlist is written by hand
+# (punched_netlist.v) in the shape a hierarchical global route leaves a
+# kept module: ports its RTL lacks, punched to feed its own loads from
+# the parent's buffers, one from its own output, one from a sibling's;
+# an unused RTL input no port of it; its clock on a clock-tree leaf.
+# No ORFS flow: seconds of Verilator. punched_test.py says what it proves.
+shard_capture_rtl(
+    name = "punched_capture_rtl",
+    paths = ["u_core"],
+    rtl = ":punched.sv",
+    scope = "Punched",
+    top = "Punched",
+)
+
+verilog_library(
+    name = "punched_capture_v",
+    srcs = [
+        ":punched_capture_rtl.sv",
+        ":punched_capture_rtl_trace.v",
+    ],
+    tags = ["manual"],
+)
+
+verilator_cc_library(
+    name = "punched_capture_lib",
+    copts = [
+        "-O2",
+        "-Wno-all",
+    ],
+    module = ":punched_capture_v",
+    module_top = "Punched",
+    tags = ["manual"],
+    trace_mode = "vcd",
+    vopts = VOPTS,
+)
+
+cc_binary(
+    name = "punched_tb",
+    srcs = ["punched_tb.cc"],
+    copts = ["-O2"],
+    tags = ["manual"],
+    deps = [":punched_capture_lib"],
+)
+
+genrule(
+    name = "punched_capture",
+    srcs = [":punched_tb"],
+    outs = ["punched_capture.vcd"],
+    cmd = "$(execpath :punched_tb) $@ 200 1000",
+    tags = ["manual"],
+)
+
+# PunCore's clock-tree leaf, a clock net the merge compares
+PUNCHED_CLOCKS = CLOCK_PORTS + ["clknet_1_0__leaf_clock"]
+
+# the reference: Punched replayed whole, its netlist's punched ports
+# inside it, driven by its own buffers
+shard_replay(
+    name = "punched_whole",
+    capture = ":punched_capture.vcd",
+    capture_scope = "TOP.Punched",
+    cells = ":cells_init",
+    clk_period = "1000",
+    clock_ports = PUNCHED_CLOCKS,
+    netlist = ":punched_netlist.v",
+    rtl = ":punched.sv",
+    top = "Punched",
+    vopts = VOPTS,
+    window_start = "16000",
+)
+
+# u_core cut out, in two levels: punched_cut_parent, the rest of Punched
+# with u_core a stub, its SAIF and the stub's ports
+# (punched_cut_parent_stubs.vcd); punched_cut_u_core, u_core replayed
+# from those; punched_cut.saif, the two merged
+shard_replays(
+    name = "punched_cut",
+    capture = ":punched_capture.vcd",
+    capture_scope = "TOP.Punched",
+    cells = ":cells_init",
+    clk_period = "1000",
+    clock_ports = PUNCHED_CLOCKS,
+    cuts = {"": ["u_core"]},
+    netlist = ":punched_netlist.v",
+    rtl = ":punched.sv",
+    top = "Punched",
+    two_level = True,
+    units = {},
+    vopts = VOPTS,
+    window_start = "16000",
+)
+
+# The unit's netlist with PunCore's data[0] made to differ from the RTL:
+# r[0] & r[3], only while v (r[3]) is 0, which PunCore ignores; and
+# r[0] ^ r[3], only while v is 1, which it takes. Level 1 reports either
+# difference at the stub's input and passes; level 2 passes the first and
+# fails the second at PunCore's output acc.
+[
+    genrule(
+        name = "punched_%s_netlist" % variant,
+        srcs = [":punched_netlist.v"],
+        outs = ["punched_%s.v" % variant],
+        cmd = "sed 's/^ assign dsel = r\\[0\\];$$/ %s dsel_gate (.A(r[0]), .B(r[3]), .Y(dsel));/' $< > $@ && grep -q dsel_gate $@" % cell,
+        tags = ["manual"],
+    )
+    for variant, cell in [
+        ("dontcare", "AND2x2_ASAP7_75t_R"),
+        ("matters", "XOR2xp5_ASAP7_75t_R"),
+    ]
+]
+
+[
+    shard_replays(
+        name = "punched_" + variant,
+        capture = ":punched_capture.vcd",
+        capture_scope = "TOP.Punched",
+        cells = ":cells_init",
+        clk_period = "1000",
+        clock_ports = PUNCHED_CLOCKS,
+        cuts = {"": ["u_core"]},
+        netlist = ":punched_%s.v" % variant,
+        rtl = ":punched.sv",
+        top = "Punched",
+        two_level = True,
+        units = {},
+        vopts = VOPTS,
+        window_start = "16000",
+    )
+    for variant in [
+        "dontcare",
+        "matters",
+    ]
+]
+
+# The "matters" netlist with u_core's level 2 counting the outputs that
+# differ instead of failing on the first (count_outputs): it passes, and
+# punched_counted_u_core_outputs.json says acc differs and from when.
+shard_replays(
+    name = "punched_counted",
+    capture = ":punched_capture.vcd",
+    capture_scope = "TOP.Punched",
+    cells = ":cells_init",
+    clk_period = "1000",
+    clock_ports = PUNCHED_CLOCKS,
+    count_outputs = ["u_core"],
+    cuts = {"": ["u_core"]},
+    netlist = ":punched_matters.v",
+    rtl = ":punched.sv",
+    top = "Punched",
+    two_level = True,
+    units = {},
+    vopts = VOPTS,
+    window_start = "16000",
+)
+
+# PunCore's rdy made to differ from the RTL before the first reset (gated
+# by a flop the reset sets, which starts at 0), during it (or'ed with
+# reset), and after it (one cycle late): replayed with u_core's outputs
+# compared from the cycle after the captured reset falls
+# (compare_from_reset). The first two pass, the third fails, and counts
+# with count_outputs. Without the flag the first fails at cycle 0.
+RDY_VARIANTS = {
+    "before": " OR2x2_ASAP7_75t_R _s0_ (.A(reset), .B(seen), .Y(seen_d));\\n DFFHQNx1_ASAP7_75t_R seen_reg (.CLK(clknet_1_0__leaf_clock), .D(seen_d), .QN(seen_n));\\n INVx1_ASAP7_75t_R _s1_ (.A(seen_n), .Y(seen));\\n AND2x2_ASAP7_75t_R _s2_ (.A(rdyq), .B(seen), .Y(rdy));",
+    "during": " OR2x2_ASAP7_75t_R _v0_ (.A(rdyq), .B(reset), .Y(rdy));",
+    "after": " DFFHQNx1_ASAP7_75t_R late_reg (.CLK(clknet_1_0__leaf_clock), .D(rdyq), .QN(late_n));\\n INVx1_ASAP7_75t_R _l0_ (.A(late_n), .Y(rdy));",
+}
+
+[
+    genrule(
+        name = "punched_rdy_%s_netlist" % variant,
+        srcs = [":punched_netlist.v"],
+        outs = ["punched_rdy_%s.v" % variant],
+        cmd = "sed 's/^ assign rdy = rdyq;$$/%s/' $< > $@ && ! grep -q '^ assign rdy = rdyq;' $@" % gates,
+        tags = ["manual"],
+    )
+    for variant, gates in RDY_VARIANTS.items()
+]
+
+[
+    shard_replays(
+        name = "punched_rdy_" + variant,
+        capture = ":punched_capture.vcd",
+        capture_scope = "TOP.Punched",
+        cells = ":cells_init",
+        clk_period = "1000",
+        clock_ports = PUNCHED_CLOCKS,
+        compare_from_reset = ["u_core"],
+        count_outputs = ["u_core"] if variant == "after" else [],
+        cuts = {"": ["u_core"]},
+        netlist = ":punched_rdy_%s.v" % variant,
+        rtl = ":punched.sv",
+        top = "Punched",
+        two_level = True,
+        units = {},
+        vopts = VOPTS,
+        window_start = "16000",
+    )
+    for variant in RDY_VARIANTS
+]
+
+# u_core's level 2 again, from the same level 1: "before" without the
+# flag, "after" without counting
+[
+    shard_replay(
+        name = "punched_rdy_%s_%s_u_core" % (variant, arm),
+        capture = ":punched_rdy_%s_parent_stubs.vcd" % variant,
+        capture_scope = "TOP.punched_rdy_%s_parent.dut.u_core" % variant,
+        cells = ":cells_init",
+        clk_period = "1000",
+        clock_ports = PUNCHED_CLOCKS,
+        compare_from_reset = arm == "strict",
+        netlist = ":punched_rdy_%s.v" % variant,
+        path = "u_core",
+        rtl = ":punched.sv",
+        stub_map = ":punched_rdy_%s_parent_stubs.json" % variant,
+        top = "Punched",
+        vopts = VOPTS,
+        window_start = "16000",
+    )
+    for variant, arm in [
+        ("before", "plain"),
+        ("after", "strict"),
+    ]
+]
+
+py_test(
+    name = "punched_test",
+    size = "small",
+    srcs = [
+        "mixed_test.py",
+        "punched_test.py",
+    ],
+    args = [
+        "--whole=$(rootpath :punched_whole.saif)",
+        "--cut=$(rootpath :punched_cut.saif)",
+        "--capture=$(rootpath :punched_capture.vcd)",
+        "--stubs-vcd=$(rootpath :punched_cut_parent_stubs.vcd)",
+        "--stubs-json=$(rootpath :punched_cut_parent_stubs.json)",
+        "--level1-bin=$(rootpath :punched_cut_parent_bin)",
+        "--level1-report=$(rootpath :punched_cut_parent_report.json)",
+        "--level2-bin=$(rootpath :punched_cut_u_core_bin)",
+        "--dontcare-level1-bin=$(rootpath :punched_dontcare_parent_bin)",
+        "--dontcare-level2-bin=$(rootpath :punched_dontcare_u_core_bin)",
+        "--dontcare-stubs-vcd=$(rootpath :punched_dontcare_parent_stubs.vcd)",
+        "--dontcare-stub-inputs=$(rootpath :punched_dontcare_parent_stub_inputs.json)",
+        "--matters-level1-bin=$(rootpath :punched_matters_parent_bin)",
+        "--matters-level2-bin=$(rootpath :punched_matters_u_core_bin)",
+        "--matters-stubs-vcd=$(rootpath :punched_matters_parent_stubs.vcd)",
+        "--stub-inputs=$(rootpath :punched_cut_parent_stub_inputs.json)",
+        "--counted-level2-bin=$(rootpath :punched_counted_u_core_bin)",
+        "--counted-stubs-vcd=$(rootpath :punched_counted_parent_stubs.vcd)",
+        "--counted-outputs=$(rootpath :punched_counted_u_core_outputs.json)",
+        "--rdy-before-bin=$(rootpath :punched_rdy_before_u_core_bin)",
+        "--rdy-before-plain-bin=$(rootpath :punched_rdy_before_plain_u_core_bin)",
+        "--rdy-before-stubs=$(rootpath :punched_rdy_before_parent_stubs.vcd)",
+        "--rdy-during-bin=$(rootpath :punched_rdy_during_u_core_bin)",
+        "--rdy-during-stubs=$(rootpath :punched_rdy_during_parent_stubs.vcd)",
+        "--rdy-after-strict-bin=$(rootpath :punched_rdy_after_strict_u_core_bin)",
+        "--rdy-after-counted-bin=$(rootpath :punched_rdy_after_u_core_bin)",
+        "--rdy-after-stubs=$(rootpath :punched_rdy_after_parent_stubs.vcd)",
+        "--rdy-after-from-reset=$(rootpath :punched_rdy_after_u_core_from_reset.json)",
+        "--rdy-after-outputs=$(rootpath :punched_rdy_after_u_core_outputs.json)",
+        "--level2-report=$(rootpath :punched_cut_u_core_report.json)",
+    ],
+    data = [
+        ":punched_capture.vcd",
+        ":punched_counted_parent_stubs.vcd",
+        ":punched_counted_u_core_bin",
+        ":punched_counted_u_core_outputs.json",
+        ":punched_cut.saif",
+        ":punched_cut_parent_bin",
+        ":punched_cut_parent_report.json",
+        ":punched_cut_parent_stub_inputs.json",
+        ":punched_cut_parent_stubs.json",
+        ":punched_cut_parent_stubs.vcd",
+        ":punched_cut_u_core_bin",
+        ":punched_cut_u_core_report.json",
+        ":punched_dontcare_parent_bin",
+        ":punched_dontcare_parent_stub_inputs.json",
+        ":punched_dontcare_parent_stubs.vcd",
+        ":punched_dontcare_u_core_bin",
+        ":punched_matters_parent_bin",
+        ":punched_matters_parent_stubs.vcd",
+        ":punched_matters_u_core_bin",
+        ":punched_rdy_after_parent_stubs.vcd",
+        ":punched_rdy_after_strict_u_core_bin",
+        ":punched_rdy_after_u_core_bin",
+        ":punched_rdy_after_u_core_from_reset.json",
+        ":punched_rdy_after_u_core_outputs.json",
+        ":punched_rdy_before_parent_stubs.vcd",
+        ":punched_rdy_before_plain_u_core_bin",
+        ":punched_rdy_before_u_core_bin",
+        ":punched_rdy_during_parent_stubs.vcd",
+        ":punched_rdy_during_u_core_bin",
+        ":punched_whole.saif",
+    ],
+    main = "punched_test.py",
     tags = ["manual"],
 )
