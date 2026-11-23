@@ -1,0 +1,22 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+# List open pull requests in OpenROAD, ORFS and OpenSTA where the next move is
+# the reviewer's, ranked descending by expected reviewer-active days elapsed.
+py_binary(
+    name = "upstream_prs",
+    srcs = ["upstream_prs.py"],
+    legacy_create_init = 0,
+    main = "upstream_prs.py",
+)
+
+py_test(
+    name = "upstream_prs_test",
+    size = "small",
+    srcs = [
+        "upstream_prs.py",
+        "upstream_prs_test.py",
+    ],
+    imports = ["."],
+    legacy_create_init = 0,
+    main = "upstream_prs_test.py",
+)
