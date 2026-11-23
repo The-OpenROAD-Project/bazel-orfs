@@ -56,6 +56,7 @@ EXPORTED_SKILLS = (
     "repair-timing-grt",
     "scale-to-memory",
     "surgery",
+    "upstream-prs",
     "warm-gui",
 )
 

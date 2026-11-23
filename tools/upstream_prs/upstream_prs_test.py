@@ -402,6 +402,60 @@ class TestEmpiricalReviewerActivity(unittest.TestCase):
         # pr_fast waited 2d * 1.0 = 2.0 active days; pr_rare waited <0.5 active days.
         self.assertEqual([r.number for r in ranked], [10, 11])
 
+    def test_actionable_excludes_quiet_waiting_and_flags_ping_at_four_days(self):
+        now = datetime(2026, 11, 23, 9, 0, tzinfo=timezone.utc)
+        profiles = {
+            "rev": up.ReviewerProfile("rev", (1, 1, 1, 1, 1, 1, 1), 84, 12.0),
+        }
+        pr_head_red = _pr(
+            number=1,
+            title="broken head",
+            contexts=[
+                {
+                    "__typename": "StatusContext",
+                    "context": "CI-Public/pr-head",
+                    "state": "ERROR",
+                }
+            ],
+            requested_reviewers=["rev"],
+        )
+        pr_quiet_wait = _pr(
+            number=2,
+            title="waiting two days",
+            commits=[("2026-11-21T09:00:00Z", "feat two")],
+            requested_reviewers=["rev"],
+        )
+        pr_stale_wait = _pr(
+            number=3,
+            title="waiting five days",
+            commits=[("2026-11-18T09:00:00Z", "feat three")],
+            requested_reviewers=["rev"],
+        )
+        repos_data = [
+            (
+                "OpenROAD",
+                "The-OpenROAD-Project/OpenROAD",
+                "rev",
+                [pr_head_red, pr_quiet_wait, pr_stale_wait],
+            )
+        ]
+
+        actions = up.evaluate_author_action_prs(repos_data, "alice", set())
+        self.assertEqual([a.number for a in actions], [1])
+        self.assertIn("CI-Public/pr-head red", actions[0].reasons[0])
+
+        waiting = up.evaluate_waiting_prs(repos_data, "alice", profiles, now, set())
+        self.assertEqual([w.number for w in waiting], [3, 2])
+
+        report = up.format_actionable(
+            actions, waiting, profiles, ping_days=4.0, markdown=False
+        )
+        self.assertIn("OpenROAD #1", report)
+        self.assertIn("OpenROAD #3", report)
+        self.assertIn("[PING]", report)
+        self.assertNotIn("OpenROAD #2", report)
+        self.assertIn("Excluded 1 PR(s)", report)
+
 
 if __name__ == "__main__":
     unittest.main()

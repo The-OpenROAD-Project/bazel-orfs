@@ -88,7 +88,13 @@ recorded state: `carried-patches` — drop a patch nothing uses, retire one
 a bump carries (`@bazel-orfs//tools/carried_patches:check_carried_patches`
 says `ABSORBED`, run over the copied patches after each bump too), and
 report the rest as upstream candidates, sorted into bugfixes and new
-topics.
+topics. Open pull requests across OpenROAD, ORFS and OpenSTA are checked
+with `upstream-prs` (`@bazel-orfs//tools/upstream_prs`): `--actionable`
+leaves out pull requests merely waiting on a reviewer (`CI-Public/pr-merge`
+red with `pr-head` green among them), surfaces those needing author action
+(`pr-head` red needing a merge commit, conflicts, unanswered feedback),
+and flags those waiting 4 or more empirical reviewer-active days as ping
+candidates.
 
 ## Import and export
 
