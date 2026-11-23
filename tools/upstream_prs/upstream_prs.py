@@ -1,26 +1,32 @@
 #!/usr/bin/env python3
-"""List open upstream PRs waiting on a reviewer, sorted by reviewer inactivity.
+"""Triage and rank open upstream PRs across OpenROAD, ORFS and OpenSTA.
 
 Queries The-OpenROAD-Project/{OpenROAD, OpenROAD-flow-scripts, OpenSTA} for
-open non-draft pull requests authored by ``--author`` (default ``@me``), keeps
-those where the next move is the reviewer's, and ranks them descending by
-expected reviewer-active days elapsed since the ball moved to the reviewer.
+open non-draft pull requests authored by ``--author`` (default ``@me``).
+
+Modes:
+  * Default: list PRs where the next move is the reviewer's, ranked descending
+    by expected reviewer-active days elapsed, flagging rows at or above
+    ``--ping-days`` (default 4.0) with ``[PING]``.
+  * ``--actionable``: exclude PRs where we are merely waiting on the reviewer
+    below ``--ping-days``, and show only (1) PRs needing author action and
+    (2) reviewer-waiting PRs at or above ``--ping-days`` where a ping may be
+    considered.
 
 CI policy:
   * ``CI-Public/pr-head`` red (or any other completed failing check besides
-    ``CI-Public/pr-merge``) means the PR needs action from the author (e.g. a
-    merge commit so reviewers do not skip a red ``pr-head``) and is excluded.
-  * ``CI-Public/pr-merge`` red while ``pr-head`` is green/pending is kept:
-    pushing a merge commit risks turning a green ``pr-head`` red, so waiting
-    for a ``pr-merge`` rerun is preferred.
+    ``CI-Public/pr-merge``) requires author action (e.g. a merge commit so
+    reviewers do not skip a red ``pr-head``).
+  * ``CI-Public/pr-merge`` red while ``pr-head`` is green/pending is left
+    alone: pushing a merge commit risks turning a green ``pr-head`` red, so
+    waiting for a ``pr-merge`` rerun is preferred.
 
 Reviewer activity model:
-  Rather than hardcoding country weekends or full-time schedules, each
-  reviewer's empirical weekday reaction rate ``p[weekday]`` in ``[0, 1]`` is
-  measured from the dates they reviewed, commented on, or merged PRs across the
-  three repositories over the preceding ``--weeks`` weeks (default 12 = 84
-  days). Expected active days elapsed integrates ``p[weekday]`` over the UTC
-  interval ``[waiting_since, now]``.
+  Each reviewer's empirical weekday reaction rate ``p[weekday]`` in ``[0, 1]``
+  is measured from the dates they reviewed, commented on, or merged PRs across
+  the three repositories over the preceding ``--weeks`` weeks (default 12 = 84
+  days), capturing regional weekends, weekend-active maintainers, and part-time
+  reviewers without hardcoded schedules.
 """
 
 import argparse
@@ -75,6 +81,8 @@ WEEKDAY_NAMES: Tuple[str, ...] = (
     "Sun",
 )
 
+DEFAULT_PING_DAYS = 4.0
+
 
 @dataclass(frozen=True)
 class ReviewerProfile:
@@ -104,6 +112,16 @@ class WaitingPR:
     used_fallback_schedule: bool
 
 
+@dataclass(frozen=True)
+class AuthorActionPR:
+    repo_short: str
+    repo_full: str
+    number: int
+    title: str
+    url: str
+    reasons: Tuple[str, ...]
+
+
 def parse_iso(ts: str) -> datetime:
     return datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone(timezone.utc)
 
@@ -126,32 +144,39 @@ def is_command_comment(body: str) -> bool:
     return not stripped or stripped.startswith("/")
 
 
-def has_blocking_check_failure(contexts: Sequence[dict]) -> bool:
-    """Return True if any check failed, ignoring ``CI-Public/pr-merge``."""
+def failing_checks(contexts: Sequence[dict]) -> List[str]:
+    """Return failing check names, ignoring ``CI-Public/pr-merge``."""
+    failed: List[str] = []
     for ctx in contexts:
         typename = ctx.get("__typename")
         if typename == "CheckRun":
-            name = ctx.get("name") or ""
+            name = ctx.get("name") or "check"
             if name in IGNORED_FAILING_CHECKS:
                 continue
             if ctx.get("status") != "COMPLETED":
                 continue
             if ctx.get("conclusion") not in ("SUCCESS", "NEUTRAL", "SKIPPED"):
-                return True
+                failed.append(name)
         elif typename == "StatusContext":
-            name = ctx.get("context") or ""
+            name = ctx.get("context") or "status"
             if name in IGNORED_FAILING_CHECKS:
                 continue
             state = ctx.get("state")
             if state in ("PENDING", "EXPECTED", None):
                 continue
             if state != "SUCCESS":
-                return True
-    return False
+                failed.append(name)
+    return failed
 
 
-def has_unanswered_review_thread(threads: Sequence[dict], author: str) -> bool:
+def has_blocking_check_failure(contexts: Sequence[dict]) -> bool:
+    """Return True if any check failed, ignoring ``CI-Public/pr-merge``."""
+    return bool(failing_checks(contexts))
+
+
+def unanswered_review_thread_count(threads: Sequence[dict], author: str) -> int:
     author_low = author.lower()
+    count = 0
     for thread in threads:
         if thread.get("isResolved"):
             continue
@@ -160,36 +185,59 @@ def has_unanswered_review_thread(threads: Sequence[dict], author: str) -> bool:
             continue
         last_author = (comments[-1].get("author") or {}).get("login") or ""
         if last_author.lower() != author_low:
-            return True
-    return False
+            count += 1
+    return count
 
 
-def waiting_since_for_pr(pr: dict, author: str) -> Optional[datetime]:
-    """Return UTC timestamp when the ball moved to the reviewer, or None.
+def has_unanswered_review_thread(threads: Sequence[dict], author: str) -> bool:
+    return unanswered_review_thread_count(threads, author) > 0
 
-    Returns ``None`` when the PR requires author action (draft, merge conflict,
-    red ``pr-head`` / lint check, unresolved review thread, or unanswered human
-    review/comment).
+
+def author_action_reasons(pr: dict, author: str) -> Tuple[str, ...]:
+    """Return reasons the next move on ``pr`` belongs to ``author``.
+
+    Returns an empty tuple for drafts (not ready for review) and for PRs where
+    the next move is the reviewer's.
     """
     if pr.get("isDraft"):
-        return None
+        return ()
+
+    reasons: List[str] = []
     if pr.get("mergeable") == "CONFLICTING":
-        return None
+        reasons.append("merge conflict")
 
     commit_nodes = pr.get("commits", {}).get("nodes") or []
     if commit_nodes:
         last_commit = commit_nodes[-1].get("commit") or {}
         rollup = last_commit.get("statusCheckRollup") or {}
         contexts = rollup.get("contexts", {}).get("nodes") or []
-        if has_blocking_check_failure(contexts):
-            return None
+        for check_name in failing_checks(contexts):
+            if check_name == "CI-Public/pr-head":
+                reasons.append("CI-Public/pr-head red (needs merge commit)")
+            else:
+                reasons.append(f"check failed: {check_name}")
 
     threads = pr.get("reviewThreads", {}).get("nodes") or []
-    if has_unanswered_review_thread(threads, author):
-        return None
+    unresolved_cnt = unanswered_review_thread_count(threads, author)
+    if unresolved_cnt:
+        reasons.append(f"unresolved review thread ({unresolved_cnt})")
 
+    # Check for unanswered human review/comment.
+    _, unanswered_by = _timeline_waiting_state(pr, author)
+    if unanswered_by is not None:
+        reasons.append(f"unanswered feedback from {unanswered_by}")
+
+    return tuple(reasons)
+
+
+def _timeline_waiting_state(
+    pr: dict, author: str
+) -> Tuple[Optional[datetime], Optional[str]]:
+    """Return ``(waiting_since, unanswered_human_login)`` from PR events."""
     author_low = author.lower()
     created_at = parse_iso(pr["createdAt"])
+    commit_nodes = pr.get("commits", {}).get("nodes") or []
+    threads = pr.get("reviewThreads", {}).get("nodes") or []
 
     substantive_commits: List[datetime] = []
     for node in commit_nodes:
@@ -202,7 +250,7 @@ def waiting_since_for_pr(pr: dict, author: str) -> Optional[datetime]:
         max(substantive_commits) if substantive_commits else created_at
     )
 
-    human_events: List[datetime] = []
+    human_events: List[Tuple[datetime, str]] = []
     author_replies: List[datetime] = []
 
     for rev in pr.get("reviews", {}).get("nodes") or []:
@@ -216,9 +264,9 @@ def waiting_since_for_pr(pr: dict, author: str) -> Optional[datetime]:
         if rev_author and rev_author.lower() == author_low:
             if body and not is_command_comment(body):
                 author_replies.append(ts)
-        elif not is_bot(rev_author):
+        elif rev_author and not is_bot(rev_author):
             if state != "COMMENTED" or body:
-                human_events.append(ts)
+                human_events.append((ts, rev_author))
 
     for comment in pr.get("comments", {}).get("nodes") or []:
         c_author = (comment.get("author") or {}).get("login")
@@ -230,8 +278,8 @@ def waiting_since_for_pr(pr: dict, author: str) -> Optional[datetime]:
         if c_author and c_author.lower() == author_low:
             if not is_command_comment(body):
                 author_replies.append(ts)
-        elif not is_bot(c_author):
-            human_events.append(ts)
+        elif c_author and not is_bot(c_author):
+            human_events.append((ts, c_author))
 
     for thread in threads:
         for comment in thread.get("comments", {}).get("nodes") or []:
@@ -244,23 +292,31 @@ def waiting_since_for_pr(pr: dict, author: str) -> Optional[datetime]:
             if c_author and c_author.lower() == author_low:
                 if not is_command_comment(body):
                     author_replies.append(ts)
-            elif not is_bot(c_author):
-                human_events.append(ts)
+            elif c_author and not is_bot(c_author):
+                human_events.append((ts, c_author))
 
     if not human_events:
-        return max(created_at, last_substantive_commit)
+        return max(created_at, last_substantive_commit), None
 
-    last_human = max(human_events)
-    if last_substantive_commit > last_human:
-        return last_substantive_commit
+    last_human_ts, last_human_login = max(human_events, key=lambda item: item[0])
+    if last_substantive_commit > last_human_ts:
+        return last_substantive_commit, None
 
-    later_replies = sorted(ts for ts in author_replies if ts > last_human)
+    later_replies = sorted(ts for ts in author_replies if ts > last_human_ts)
     if later_replies:
-        return later_replies[0]
+        return later_replies[0], None
 
-    # Human reviewer left feedback/changes-requested with no commit or reply
-    # from the author since.
-    return None
+    return None, last_human_login
+
+
+def waiting_since_for_pr(pr: dict, author: str) -> Optional[datetime]:
+    """Return UTC timestamp when the ball moved to the reviewer, or None."""
+    if pr.get("isDraft"):
+        return None
+    if author_action_reasons(pr, author):
+        return None
+    waiting_since, _ = _timeline_waiting_state(pr, author)
+    return waiting_since
 
 
 def resolve_reviewers(
@@ -623,8 +679,6 @@ def _collect_paginated_dates(
     dates: Set[date] = set()
     truncated_boundaries: List[date] = []
 
-    # 1. Reviews (within [since_iso, now_iso]) + issue comments + merges,
-    #    paginating any stream that hits 100 items before reaching cutoff_date.
     rev_cursor: Optional[str] = None
     ic_cursor: Optional[str] = None
     m_cursor: Optional[str] = None
@@ -769,6 +823,44 @@ def fetch_reviewer_profiles(
     return profiles
 
 
+def _is_excluded(
+    repo_short: str, repo_full: str, number: int, excluded: Set[str]
+) -> bool:
+    repo_name = repo_full.split("/", 1)[1]
+    keys = {
+        f"{repo_short}#{number}".lower(),
+        f"{repo_name}#{number}".lower(),
+        f"{repo_full}#{number}".lower(),
+    }
+    return bool(keys & excluded)
+
+
+def evaluate_author_action_prs(
+    prs_by_repo: Sequence[Tuple[str, str, Optional[str], Sequence[dict]]],
+    author: str,
+    excluded: Set[str],
+) -> List[AuthorActionPR]:
+    results: List[AuthorActionPR] = []
+    for repo_short, repo_full, _, prs in prs_by_repo:
+        for pr in prs:
+            num = int(pr["number"])
+            if _is_excluded(repo_short, repo_full, num, excluded):
+                continue
+            reasons = author_action_reasons(pr, author)
+            if reasons:
+                results.append(
+                    AuthorActionPR(
+                        repo_short=repo_short,
+                        repo_full=repo_full,
+                        number=num,
+                        title=str(pr["title"]),
+                        url=str(pr["url"]),
+                        reasons=reasons,
+                    )
+                )
+    return results
+
+
 def evaluate_waiting_prs(
     prs_by_repo: Sequence[Tuple[str, str, Optional[str], Sequence[dict]]],
     author: str,
@@ -778,15 +870,9 @@ def evaluate_waiting_prs(
 ) -> List[WaitingPR]:
     results: List[WaitingPR] = []
     for repo_short, repo_full, fallback_rev, prs in prs_by_repo:
-        repo_name = repo_full.split("/", 1)[1]
         for pr in prs:
             num = int(pr["number"])
-            keys = {
-                f"{repo_short}#{num}".lower(),
-                f"{repo_name}#{num}".lower(),
-                f"{repo_full}#{num}".lower(),
-            }
-            if keys & excluded:
+            if _is_excluded(repo_short, repo_full, num, excluded):
                 continue
             wait_since = waiting_since_for_pr(pr, author)
             if wait_since is None:
@@ -817,22 +903,25 @@ def evaluate_waiting_prs(
 
 
 def format_plain_table(
-    items: Sequence[WaitingPR], profiles: Dict[str, ReviewerProfile]
+    items: Sequence[WaitingPR],
+    profiles: Dict[str, ReviewerProfile],
+    ping_days: float = DEFAULT_PING_DAYS,
 ) -> str:
     lines: List[str] = []
     header = (
-        f"{'Active':>7}  {'Cal':>5}  {'PR':<16}  "
+        f"{'Active':>7}  {'Cal':>5}  {'Flag':<6}  {'PR':<16}  "
         f"{'Reviewer (d/wk)':<28}  {'Since (UTC)':<16}  Title"
     )
     lines.append(header)
     lines.append("-" * len(header))
     for item in items:
         pr_ref = f"{item.repo_short} #{item.number}"
+        flag = "[PING]" if item.active_days >= ping_days else ""
         fb = "*" if item.used_fallback_schedule else ""
         rev_label = f"{','.join(item.reviewers)} ({item.days_per_week:.1f}/wk{fb})"
         since_str = item.waiting_since.strftime("%Y-%m-%d %H:%M")
         lines.append(
-            f"{item.active_days:6.2f}d  {item.calendar_days:4.1f}d  "
+            f"{item.active_days:6.2f}d  {item.calendar_days:4.1f}  {flag:<6}  "
             f"{pr_ref:<16}  {rev_label:<28}  {since_str}  {item.title}"
         )
 
@@ -857,28 +946,88 @@ def format_plain_table(
     return "\n".join(lines)
 
 
-def format_markdown_table(items: Sequence[WaitingPR]) -> str:
+def format_markdown_table(
+    items: Sequence[WaitingPR], ping_days: float = DEFAULT_PING_DAYS
+) -> str:
     lines = [
-        "| Active days | Calendar | PR | Reviewer (obs d/wk) | Waiting since (UTC) | Title |",
-        "|---:|---:|---|---|---|---|",
+        "| Active days | Calendar | Flag | PR | Reviewer (obs d/wk) | Waiting since (UTC) | Title |",
+        "|---:|---:|---|---|---|---|---|",
     ]
     for item in items:
+        flag = "`PING`" if item.active_days >= ping_days else ""
         fb = "*" if item.used_fallback_schedule else ""
         pr_cell = f"[{item.repo_short} #{item.number}]({item.url})"
         rev_cell = f"`{'`, `'.join(item.reviewers)}` ({item.days_per_week:.1f}/wk{fb})"
         since_str = item.waiting_since.strftime("%Y-%m-%d %H:%M")
         title_escaped = item.title.replace("|", "\\|")
         lines.append(
-            f"| {item.active_days:.2f} d | {item.calendar_days:.1f} d | "
+            f"| {item.active_days:.2f} d | {item.calendar_days:.1f} d | {flag} | "
             f"{pr_cell} | {rev_cell} | {since_str} | {title_escaped} |"
         )
     return "\n".join(lines)
 
 
+def format_actionable(
+    author_actions: Sequence[AuthorActionPR],
+    waiting: Sequence[WaitingPR],
+    profiles: Dict[str, ReviewerProfile],
+    ping_days: float = DEFAULT_PING_DAYS,
+    markdown: bool = False,
+) -> str:
+    pingable = [item for item in waiting if item.active_days >= ping_days]
+    quiet_count = len(waiting) - len(pingable)
+
+    if not author_actions and not pingable:
+        return (
+            f"No actionable PRs ({quiet_count} waiting on reviewers, "
+            f"all < {ping_days:.1f} active days)."
+        )
+
+    sections: List[str] = []
+    if author_actions:
+        if markdown:
+            rows = [
+                "### Author's move",
+                "",
+                "| PR | Action needed | Title |",
+                "|---|---|---|",
+            ]
+            for a in author_actions:
+                pr_cell = f"[{a.repo_short} #{a.number}]({a.url})"
+                why = "; ".join(a.reasons).replace("|", "\\|")
+                title_esc = a.title.replace("|", "\\|")
+                rows.append(f"| {pr_cell} | {why} | {title_esc} |")
+            sections.append("\n".join(rows))
+        else:
+            rows = ["Author's move:"]
+            for a in author_actions:
+                pr_ref = f"{a.repo_short} #{a.number}"
+                rows.append(f"  {pr_ref:<16}  {'; '.join(a.reasons)}  — {a.title}")
+            sections.append("\n".join(rows))
+
+    if pingable:
+        if markdown:
+            sections.append(
+                f"### Ping candidates (>= {ping_days:.1f} active days)\n\n"
+                + format_markdown_table(pingable, ping_days=ping_days)
+            )
+        else:
+            sections.append(
+                f"Ping candidates (>= {ping_days:.1f} active days):\n"
+                + format_plain_table(pingable, profiles, ping_days=ping_days)
+            )
+
+    if quiet_count:
+        sections.append(
+            f"(Excluded {quiet_count} PR(s) waiting on reviewers < {ping_days:.1f} active days.)"
+        )
+    return "\n\n".join(sections)
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(
-        description="List open OpenROAD/ORFS/OpenSTA PRs where the next move "
-        "is the reviewer's, sorted descending by reviewer-active days elapsed."
+        description="List or triage open OpenROAD/ORFS/OpenSTA PRs using "
+        "empirical reviewer PR-reaction rates."
     )
     parser.add_argument(
         "--author",
@@ -893,6 +1042,19 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "(default: 12).",
     )
     parser.add_argument(
+        "--ping-days",
+        type=float,
+        default=DEFAULT_PING_DAYS,
+        help="Active-days threshold to flag a waiting PR as a ping candidate "
+        f"(default: {DEFAULT_PING_DAYS}).",
+    )
+    parser.add_argument(
+        "--actionable",
+        action="store_true",
+        help="Exclude PRs waiting on reviewers below --ping-days; show only "
+        "PRs needing author action and >= --ping-days ping candidates.",
+    )
+    parser.add_argument(
         "--exclude",
         action="append",
         default=[],
@@ -901,11 +1063,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument(
         "--markdown",
         action="store_true",
-        help="Format output as a GitHub Markdown table.",
+        help="Format output as GitHub Markdown.",
     )
     args = parser.parse_args(argv)
     if args.weeks < 1:
         parser.error("--weeks must be >= 1")
+    if args.ping_days < 0:
+        parser.error("--ping-days must be >= 0")
 
     now = datetime.now(timezone.utc)
     author = resolve_author_login(args.author)
@@ -938,10 +1102,23 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         excluded=excluded,
     )
 
-    if args.markdown:
-        print(format_markdown_table(waiting))
+    if args.actionable:
+        author_actions = evaluate_author_action_prs(
+            prs_by_repo=prs_by_repo, author=author, excluded=excluded
+        )
+        print(
+            format_actionable(
+                author_actions=author_actions,
+                waiting=waiting,
+                profiles=profiles,
+                ping_days=args.ping_days,
+                markdown=args.markdown,
+            )
+        )
+    elif args.markdown:
+        print(format_markdown_table(waiting, ping_days=args.ping_days))
     else:
-        print(format_plain_table(waiting, profiles))
+        print(format_plain_table(waiting, profiles, ping_days=args.ping_days))
     return 0
 
 

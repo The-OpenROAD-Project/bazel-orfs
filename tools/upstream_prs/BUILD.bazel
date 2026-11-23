@@ -7,6 +7,7 @@ py_binary(
     srcs = ["upstream_prs.py"],
     legacy_create_init = 0,
     main = "upstream_prs.py",
+    visibility = ["//visibility:public"],
 )
 
 py_test(
